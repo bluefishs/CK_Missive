@@ -1,17 +1,19 @@
 """
-Proactive Triggers — PM/ERP 觸發掃描器
+Proactive Triggers — PM/ERP 觸發掃描器 (Facade)
 
-從 proactive_triggers.py 拆分，負責 PM 里程碑與 ERP 請款/發票/廠商付款的主動通知。
+編排所有 PM/ERP 觸發規則，委派至子模組：
+- proactive_triggers_pm.py: PM 里程碑逾期/到期
+- proactive_triggers_finance.py: 預算超支/待核銷收據
 
-Version: 1.0.0
-Created: 2026-03-19
+本檔案保留 ERP 請款/發票/廠商付款的觸發邏輯。
+
+Version: 2.0.0 — refactored from 534L monolith
 """
-
 import logging
 from datetime import date, timedelta
 from typing import List
 
-from sqlalchemy import case as sa_case, func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.ai.proactive_triggers import TriggerAlert
@@ -20,13 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class ERPTriggerScanner:
-    """
-    PM/ERP 主動觸發掃描器
-
-    Usage:
-        scanner = ERPTriggerScanner(db)
-        alerts = await scanner.scan_all()
-    """
+    """PM/ERP 主動觸發掃描器 (Facade)"""
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -38,125 +34,26 @@ class ERPTriggerScanner:
         """掃描所有 PM/ERP 觸發條件"""
         alerts: List[TriggerAlert] = []
 
-        pm_alerts = await self.check_pm_milestone_deadlines(deadline_days)
-        alerts.extend(pm_alerts)
+        # PM 里程碑 (委派)
+        from app.services.ai.proactive_triggers_pm import check_pm_milestone_deadlines
+        alerts.extend(await check_pm_milestone_deadlines(self.db, deadline_days))
 
-        erp_alerts = await self.check_erp_overdue_billings()
-        alerts.extend(erp_alerts)
+        # ERP 請款/發票 (本地)
+        alerts.extend(await self.check_erp_overdue_billings())
+        alerts.extend(await self.check_invoice_reminder())
+        alerts.extend(await self.check_vendor_payment_milestones())
 
-        invoice_alerts = await self.check_invoice_reminder()
-        alerts.extend(invoice_alerts)
-
-        vendor_alerts = await self.check_vendor_payment_milestones()
-        alerts.extend(vendor_alerts)
-
-        budget_alerts = await self.check_budget_overrun()
-        alerts.extend(budget_alerts)
-
-        pending_receipt_alerts = await self.check_pending_receipts()
-        alerts.extend(pending_receipt_alerts)
-
-        return alerts
-
-    async def check_pm_milestone_deadlines(
-        self,
-        days_ahead: int = 7,
-    ) -> List[TriggerAlert]:
-        """檢查 PM 里程碑逾期與即將到期"""
-        try:
-            from app.extended.models.pm import PMMilestone, PMCase
-        except ImportError:
-            return []
-
-        today = date.today()
-        deadline_threshold = today + timedelta(days=days_ahead)
-        alerts: List[TriggerAlert] = []
-
-        # 已逾期里程碑（planned_date 已過且狀態非 completed/skipped）
-        overdue_result = await self.db.execute(
-            select(
-                PMMilestone.id,
-                PMMilestone.milestone_name,
-                PMMilestone.planned_date,
-                PMMilestone.pm_case_id,
-                PMCase.case_code,
-                PMCase.case_name,
-            )
-            .join(PMCase, PMMilestone.pm_case_id == PMCase.id)
-            .where(
-                PMMilestone.planned_date < today,
-                PMMilestone.planned_date.isnot(None),
-                PMMilestone.status.notin_(["completed", "skipped"]),
-                PMCase.status.in_(["planning", "in_progress"]),
-            )
-            .order_by(PMMilestone.planned_date)
-            .limit(20)
+        # 預算/收據 (委派)
+        from app.services.ai.proactive_triggers_finance import (
+            check_budget_overrun, check_pending_receipts,
         )
-        for row in overdue_result.all():
-            days_over = (today - row.planned_date).days
-            alerts.append(TriggerAlert(
-                alert_type="deadline_overdue",
-                severity="critical" if days_over > 14 else "warning",
-                title=f"PM 里程碑已逾期 {days_over} 天",
-                message=(
-                    f"案件「{row.case_name}」({row.case_code}) 的里程碑"
-                    f"「{row.milestone_name}」已逾期 {days_over} 天"
-                ),
-                entity_type="pm_milestone",
-                entity_id=row.pm_case_id,
-                metadata={
-                    "milestone_id": row.id,
-                    "days_overdue": days_over,
-                    "case_code": row.case_code,
-                    "deadline": str(row.planned_date),
-                },
-            ))
-
-        # 即將到期里程碑
-        upcoming_result = await self.db.execute(
-            select(
-                PMMilestone.id,
-                PMMilestone.milestone_name,
-                PMMilestone.planned_date,
-                PMMilestone.pm_case_id,
-                PMCase.case_code,
-                PMCase.case_name,
-            )
-            .join(PMCase, PMMilestone.pm_case_id == PMCase.id)
-            .where(
-                PMMilestone.planned_date >= today,
-                PMMilestone.planned_date <= deadline_threshold,
-                PMMilestone.planned_date.isnot(None),
-                PMMilestone.status.notin_(["completed", "skipped"]),
-                PMCase.status.in_(["planning", "in_progress"]),
-            )
-            .order_by(PMMilestone.planned_date)
-            .limit(20)
-        )
-        for row in upcoming_result.all():
-            days_left = (row.planned_date - today).days
-            alerts.append(TriggerAlert(
-                alert_type="deadline_warning",
-                severity="warning" if days_left <= 3 else "info",
-                title=f"PM 里程碑將於 {days_left} 天內到期",
-                message=(
-                    f"案件「{row.case_name}」({row.case_code}) 的里程碑"
-                    f"「{row.milestone_name}」將於 {row.planned_date} 到期"
-                ),
-                entity_type="pm_milestone",
-                entity_id=row.pm_case_id,
-                metadata={
-                    "milestone_id": row.id,
-                    "days_remaining": days_left,
-                    "case_code": row.case_code,
-                    "deadline": str(row.planned_date),
-                },
-            ))
+        alerts.extend(await check_budget_overrun(self.db))
+        alerts.extend(await check_pending_receipts(self.db))
 
         return alerts
 
     async def check_erp_overdue_billings(self) -> List[TriggerAlert]:
-        """檢查 ERP 逾期未收款請款單（以 billing_date 為到期基準）"""
+        """檢查 ERP 逾期未收款請款單"""
         try:
             from app.extended.models.erp import ERPBilling, ERPQuotation
         except ImportError:
@@ -165,23 +62,22 @@ class ERPTriggerScanner:
         today = date.today()
         alerts: List[TriggerAlert] = []
 
-        # 已逾期且未付清的請款單（billing_date 已過 30 天仍未付清）
-        overdue_threshold = today - timedelta(days=30)
+        # 逾期未收
         overdue_result = await self.db.execute(
             select(
                 ERPBilling.id,
-                ERPBilling.billing_period,
                 ERPBilling.billing_amount,
                 ERPBilling.billing_date,
                 ERPBilling.payment_status,
+                ERPBilling.description,
                 ERPQuotation.case_code,
                 ERPQuotation.case_name,
             )
             .join(ERPQuotation, ERPBilling.erp_quotation_id == ERPQuotation.id)
             .where(
-                ERPBilling.billing_date < overdue_threshold,
+                ERPBilling.billing_date < today,
                 ERPBilling.billing_date.isnot(None),
-                ERPBilling.payment_status.in_(["pending", "partial"]),
+                ERPBilling.payment_status.in_(["unpaid", "partial"]),
             )
             .order_by(ERPBilling.billing_date)
             .limit(20)
@@ -189,15 +85,15 @@ class ERPTriggerScanner:
         for row in overdue_result.all():
             days_over = (today - row.billing_date).days
             amount_str = f"{float(row.billing_amount):,.0f}" if row.billing_amount else "未知"
-            severity = "critical" if days_over > 60 else "warning"
+            severity = "critical" if days_over > 30 else "warning"
+
             alerts.append(TriggerAlert(
-                alert_type="payment_overdue",
+                alert_type="billing_overdue",
                 severity=severity,
-                title=f"ERP 請款逾期 {days_over} 天 ({amount_str} 元)",
+                title=f"請款逾期 {days_over} 天 ({amount_str} 元)",
                 message=(
                     f"案件「{row.case_name}」({row.case_code}) "
-                    f"{row.billing_period or '?'} 請款 {amount_str} 元"
-                    f"已逾期 {days_over} 天，狀態：{row.payment_status}"
+                    f"請款 {amount_str} 元已逾期 {days_over} 天"
                 ),
                 entity_type="erp_billing",
                 entity_id=row.id,
@@ -206,127 +102,100 @@ class ERPTriggerScanner:
                     "amount": str(row.billing_amount),
                     "case_code": row.case_code,
                     "billing_date": str(row.billing_date),
-                    "payment_status": row.payment_status,
                 },
             ))
 
-        # 30 天內請款且仍未付清
+        # 即將到期 (D-7)
+        upcoming_threshold = today + timedelta(days=7)
         upcoming_result = await self.db.execute(
             select(
                 ERPBilling.id,
-                ERPBilling.billing_period,
                 ERPBilling.billing_amount,
                 ERPBilling.billing_date,
+                ERPBilling.description,
                 ERPQuotation.case_code,
                 ERPQuotation.case_name,
             )
             .join(ERPQuotation, ERPBilling.erp_quotation_id == ERPQuotation.id)
             .where(
-                ERPBilling.billing_date >= overdue_threshold,
-                ERPBilling.billing_date <= today,
+                ERPBilling.billing_date >= today,
+                ERPBilling.billing_date <= upcoming_threshold,
                 ERPBilling.billing_date.isnot(None),
-                ERPBilling.payment_status == "pending",
+                ERPBilling.payment_status.in_(["unpaid", "partial"]),
             )
             .order_by(ERPBilling.billing_date)
             .limit(20)
         )
         for row in upcoming_result.all():
-            days_since = (today - row.billing_date).days
+            days_left = (row.billing_date - today).days
             amount_str = f"{float(row.billing_amount):,.0f}" if row.billing_amount else "未知"
+
             alerts.append(TriggerAlert(
-                alert_type="payment_warning",
-                severity="warning" if days_since >= 14 else "info",
-                title=f"ERP 請款已 {days_since} 天未收款",
+                alert_type="billing_upcoming",
+                severity="warning" if days_left <= 3 else "info",
+                title=f"請款 {days_left} 天後到期 ({amount_str} 元)",
                 message=(
                     f"案件「{row.case_name}」({row.case_code}) "
-                    f"{row.billing_period or '?'} 請款 {amount_str} 元"
-                    f"已請款 {days_since} 天尚未收款"
+                    f"請款 {amount_str} 元將於 {row.billing_date} 到期"
                 ),
                 entity_type="erp_billing",
                 entity_id=row.id,
                 metadata={
-                    "days_since_billing": days_since,
+                    "days_remaining": days_left,
                     "amount": str(row.billing_amount),
                     "case_code": row.case_code,
-                    "billing_date": str(row.billing_date),
                 },
             ))
 
         return alerts
 
     async def check_invoice_reminder(self) -> List[TriggerAlert]:
-        """
-        發票催開預警 — PM 案件已完工但 ERP 尚未開立發票。
-
-        條件: PM status='completed' 且對應 case_code 在 ERP 中無任何 issued 發票。
-        """
+        """發票開立提醒 — 已請款但尚未開票"""
         try:
-            from app.extended.models.pm import PMCase
-            from app.extended.models.erp import ERPQuotation, ERPInvoice
+            from app.extended.models.erp import ERPBilling, ERPInvoice, ERPQuotation
         except ImportError:
             return []
 
         alerts: List[TriggerAlert] = []
 
-        # 找到已完工的 PM 案件，其 case_code 有對應 ERP 報價但無已開立發票
-        subq_has_invoice = (
-            select(ERPQuotation.case_code)
-            .join(ERPInvoice, ERPInvoice.erp_quotation_id == ERPQuotation.id)
-            .where(ERPInvoice.status == "issued")
-            .distinct()
-            .correlate(ERPQuotation)
-        )
+        # 找到有請款但無發票的 quotation
+        billed_ids = select(ERPBilling.erp_quotation_id).where(
+            ERPBilling.payment_status.in_(["unpaid", "partial"])
+        ).distinct()
+
+        invoiced_ids = select(ERPInvoice.erp_quotation_id).distinct()
 
         result = await self.db.execute(
             select(
-                PMCase.id,
-                PMCase.case_code,
-                PMCase.case_name,
-                PMCase.actual_end_date,
-                PMCase.end_date,
+                ERPQuotation.id,
+                ERPQuotation.case_code,
+                ERPQuotation.case_name,
             )
             .where(
-                PMCase.status == "completed",
-                PMCase.case_code.isnot(None),
-                PMCase.case_code.notin_(subq_has_invoice),
+                ERPQuotation.id.in_(billed_ids),
+                ~ERPQuotation.id.in_(invoiced_ids),
             )
-            .order_by(PMCase.updated_at.desc())
-            .limit(20)
+            .limit(10)
         )
 
-        today = date.today()
         for row in result.all():
-            end = row.actual_end_date or row.end_date
-            days_since = (today - end).days if end else 0
-            severity = "critical" if days_since > 30 else "warning"
-
             alerts.append(TriggerAlert(
-                alert_type="invoice_reminder",
-                severity=severity,
-                title=f"案件完工 {days_since} 天未開發票",
+                alert_type="invoice_missing",
+                severity="info",
+                title=f"案件待開票: {row.case_code}",
                 message=(
                     f"案件「{row.case_name}」({row.case_code}) "
-                    f"已完工 {days_since} 天，尚未開立銷項發票"
+                    f"已有請款紀錄但尚未開立發票"
                 ),
-                entity_type="pm_case",
+                entity_type="erp_quotation",
                 entity_id=row.id,
-                metadata={
-                    "case_code": row.case_code,
-                    "days_since_completion": days_since,
-                    "completion_date": str(end) if end else None,
-                },
+                metadata={"case_code": row.case_code},
             ))
 
         return alerts
 
     async def check_vendor_payment_milestones(self) -> List[TriggerAlert]:
-        """
-        外包付款里程碑提醒 — 廠商應付帳款即將到期或已逾期。
-
-        D-3: info 提醒
-        D-1: warning 提醒
-        已逾期: critical/warning 依天數
-        """
+        """外包付款里程碑提醒 — 廠商應付帳款即將到期或已逾期"""
         try:
             from app.extended.models.erp import ERPVendorPayable, ERPQuotation
         except ImportError:
@@ -335,14 +204,13 @@ class ERPTriggerScanner:
         today = date.today()
         alerts: List[TriggerAlert] = []
 
-        # 已逾期未付的廠商應付
+        # 已逾期未付
         overdue_result = await self.db.execute(
             select(
                 ERPVendorPayable.id,
                 ERPVendorPayable.vendor_name,
                 ERPVendorPayable.payable_amount,
                 ERPVendorPayable.due_date,
-                ERPVendorPayable.description,
                 ERPQuotation.case_code,
                 ERPQuotation.case_name,
             )
@@ -358,11 +226,10 @@ class ERPTriggerScanner:
         for row in overdue_result.all():
             days_over = (today - row.due_date).days
             amount_str = f"{float(row.payable_amount):,.0f}" if row.payable_amount else "未知"
-            severity = "critical" if days_over > 14 else "warning"
 
             alerts.append(TriggerAlert(
                 alert_type="vendor_payment_overdue",
-                severity=severity,
+                severity="critical" if days_over > 14 else "warning",
                 title=f"外包付款逾期 {days_over} 天 ({amount_str} 元)",
                 message=(
                     f"案件「{row.case_name}」({row.case_code}) "
@@ -380,7 +247,7 @@ class ERPTriggerScanner:
                 },
             ))
 
-        # 即將到期 (D-3 ~ D-1)
+        # 即將到期 (D-3)
         upcoming_threshold = today + timedelta(days=3)
         upcoming_result = await self.db.execute(
             select(
@@ -388,7 +255,6 @@ class ERPTriggerScanner:
                 ERPVendorPayable.vendor_name,
                 ERPVendorPayable.payable_amount,
                 ERPVendorPayable.due_date,
-                ERPVendorPayable.description,
                 ERPQuotation.case_code,
                 ERPQuotation.case_name,
             )
@@ -405,11 +271,10 @@ class ERPTriggerScanner:
         for row in upcoming_result.all():
             days_left = (row.due_date - today).days
             amount_str = f"{float(row.payable_amount):,.0f}" if row.payable_amount else "未知"
-            severity = "warning" if days_left <= 1 else "info"
 
             alerts.append(TriggerAlert(
                 alert_type="vendor_payment_warning",
-                severity=severity,
+                severity="warning" if days_left <= 1 else "info",
                 title=f"外包付款 {days_left} 天內到期 ({amount_str} 元)",
                 message=(
                     f"案件「{row.case_name}」({row.case_code}) "
@@ -424,110 +289,6 @@ class ERPTriggerScanner:
                     "vendor_name": row.vendor_name,
                     "case_code": row.case_code,
                     "due_date": str(row.due_date),
-                },
-            ))
-
-        return alerts
-
-    async def check_budget_overrun(self, threshold_pct: float = 80) -> List[TriggerAlert]:
-        """
-        預算超支掃描 — 檢查各專案支出是否超過收入的閾值百分比。
-
-        透過 FinanceLedger 聚合各 case_code 的收入/支出，
-        當支出佔收入比例超過 threshold_pct 時產生警報。
-        """
-        try:
-            from app.extended.models.finance import FinanceLedger
-        except ImportError:
-            return []
-
-        alerts: List[TriggerAlert] = []
-
-        stmt = (
-            select(
-                FinanceLedger.case_code,
-                func.sum(
-                    sa_case(
-                        (FinanceLedger.entry_type == "income", FinanceLedger.amount),
-                        else_=0,
-                    )
-                ).label("total_income"),
-                func.sum(
-                    sa_case(
-                        (FinanceLedger.entry_type == "expense", FinanceLedger.amount),
-                        else_=0,
-                    )
-                ).label("total_expense"),
-            )
-            .where(FinanceLedger.case_code.isnot(None))
-            .group_by(FinanceLedger.case_code)
-        )
-        result = await self.db.execute(stmt)
-
-        for row in result.all():
-            income = float(row.total_income or 0)
-            expense = float(row.total_expense or 0)
-            if income <= 0:
-                continue
-
-            usage_pct = (expense / income) * 100
-            if usage_pct >= threshold_pct:
-                level = "critical" if usage_pct >= 100 else "warning"
-                alerts.append(TriggerAlert(
-                    alert_type="budget_overrun",
-                    severity=level,
-                    title=f"專案預算使用率 {usage_pct:.0f}%",
-                    message=(
-                        f"案件「{row.case_code}」支出 {expense:,.0f} 元 / "
-                        f"收入 {income:,.0f} 元，使用率 {usage_pct:.1f}%"
-                    ),
-                    entity_type="finance",
-                    metadata={
-                        "case_code": row.case_code,
-                        "income": income,
-                        "expense": expense,
-                        "usage_pct": round(usage_pct, 1),
-                    },
-                ))
-
-        return alerts
-
-    async def check_pending_receipts(self, stale_days: int = 7) -> List[TriggerAlert]:
-        """
-        待核銷發票提醒 — 財政部同步的發票超過 N 天仍未上傳收據。
-        """
-        try:
-            from app.extended.models.invoice import ExpenseInvoice
-        except ImportError:
-            return []
-
-        today = date.today()
-        stale_threshold = today - timedelta(days=stale_days)
-        alerts: List[TriggerAlert] = []
-
-        result = await self.db.execute(
-            select(func.count(ExpenseInvoice.id))
-            .where(
-                ExpenseInvoice.status == "pending_receipt",
-                ExpenseInvoice.synced_at.isnot(None),
-                ExpenseInvoice.synced_at < stale_threshold,
-            )
-        )
-        stale_count = result.scalar() or 0
-
-        if stale_count > 0:
-            alerts.append(TriggerAlert(
-                alert_type="pending_receipt_stale",
-                severity="warning" if stale_count >= 5 else "info",
-                title=f"{stale_count} 張發票待核銷超過 {stale_days} 天",
-                message=(
-                    f"有 {stale_count} 張由財政部同步的發票已超過 {stale_days} 天"
-                    f"仍未上傳收據，請提醒相關人員完成核銷"
-                ),
-                entity_type="finance",
-                metadata={
-                    "stale_count": stale_count,
-                    "stale_days": stale_days,
                 },
             ))
 
