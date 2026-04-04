@@ -81,7 +81,7 @@ const ERPOperationalFormPage: React.FC = () => {
   return (
     <ResponsiveContent maxWidth={800} padding="medium">
       <Card loading={isEdit && isLoading}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           <Space>
             <Button
               icon={<ArrowLeftOutlined />}

@@ -37,13 +37,12 @@ def auto_correct_plan(
     last_count = last_result.get("count", 0)
     used_tools = {tr["tool"] for tr in tool_results}
 
-    # 策略 0: 派工單已找到（含關聯公文）→ 不需要額外修正
+    # 策略 0: 派工單已找到且已追查過配對 → 不需要額外修正
     dispatch_found = any(
         tr["tool"] == "search_dispatch_orders" and tr["result"].get("count", 0) > 0
         for tr in tool_results
     )
-    if dispatch_found:
-        # 派工單已有完整結果（含關聯公文），其他工具 0 結果不需修正
+    if dispatch_found and "find_correspondence" in used_tools:
         return None
 
     # 策略 1: search_documents 返回 0 結果 -> 放寬條件重試

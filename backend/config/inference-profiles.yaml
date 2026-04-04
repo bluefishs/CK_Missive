@@ -1,9 +1,27 @@
 # Inference Provider Profiles (inspired by NemoClaw)
 # Environment variables (${VAR}) are resolved at load time.
 # See: app/services/ai/ai_config.py for usage.
-version: "1.0.0"
+#
+# v2.0.0 — Gemma 4 as primary local model (replaces Qwen2.5-7B vLLM)
+version: "2.0.0"
 
 profiles:
+  # === P0: 本地主力 — Gemma 4 8B (Ollama GPU) ===
+  gemma4-local:
+    provider: ollama
+    model: "gemma4"
+    base_url: "${OLLAMA_BASE_URL}"
+    timeout_seconds: 120
+    priority: 0
+    capabilities:
+      - chat
+      - planning
+      - synthesis
+      - ner
+      - multimodal
+    note: "Gemma 4 8B Q4_K_M via Ollama GPU. ~6.7GB VRAM. Primary for all tasks including vision."
+
+  # === P1: 雲端回退 ===
   groq-cloud:
     provider: groq
     model: "${AI_DEFAULT_MODEL}"
@@ -15,32 +33,6 @@ profiles:
       - chat
       - planning
       - synthesis
-
-  ollama-local:
-    provider: ollama
-    model: "${OLLAMA_MODEL}"
-    base_url: "${OLLAMA_BASE_URL}"
-    timeout_seconds: 60
-    priority: 2
-    capabilities:
-      - chat
-      - planning
-      - synthesis
-      - fallback
-
-  vllm-local:
-    provider: openai
-    model: "${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}"
-    api_key_env: VLLM_API_KEY
-    base_url: "http://localhost:8000/v1"
-    timeout_seconds: 60
-    priority: 0
-    capabilities:
-      - chat
-      - planning
-      - synthesis
-      - ner
-    note: "Local vLLM on RTX 4060. Start: docker compose -f docker-compose.infra.yml --profile vllm up -d vllm"
 
   nvidia-cloud:
     provider: openai
@@ -56,6 +48,9 @@ profiles:
       - ner
     note: "NVIDIA Cloud. Requires build.nvidia.com model activation."
 
+  # P2 本地回退 = P0 同模型 (Gemma 4)，雲端回退由 Groq/NVIDIA P1 承接
+
+  # === Embedding ===
   nvidia-embed:
     provider: openai
     model: "nvidia/llama-nemotron-embed-1b-v2"
@@ -77,3 +72,14 @@ profiles:
     priority: 1
     capabilities:
       - embedding
+
+  # === 停用: vLLM Qwen (保留配置供切回) ===
+  # vllm-local:
+  #   provider: openai
+  #   model: "${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}"
+  #   api_key_env: VLLM_API_KEY
+  #   base_url: "http://localhost:8000/v1"
+  #   timeout_seconds: 60
+  #   priority: 0
+  #   capabilities: [chat, planning, synthesis, ner]
+  #   note: "Disabled — VRAM shared with Gemma 4. To restore: uncomment + docker start ck_missive_vllm_dev"

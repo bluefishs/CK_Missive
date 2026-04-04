@@ -13,8 +13,10 @@ from app.schemas.erp.operational import (
     OperationalAccountUpdate,
     OperationalAccountUpdateRequest,
     OperationalAccountListRequest,
+    OperationalAccountResponse,
     OperationalExpenseCreate,
     OperationalExpenseListRequest,
+    OperationalExpenseResponse,
     OperationalExpenseApproveRequest,
     OperationalExpenseRejectRequest,
 )
@@ -39,7 +41,8 @@ async def list_accounts(
     """營運帳目列表"""
     items, total = await service.list_accounts(params)
     return PaginatedResponse.create(
-        items=items, total=total,
+        items=[OperationalAccountResponse.model_validate(i) for i in items],
+        total=total,
         page=(params.skip // params.limit) + 1, limit=params.limit,
     )
 
@@ -125,7 +128,8 @@ async def list_expenses(
     """營運費用列表"""
     items, total = await service.list_expenses(params)
     return PaginatedResponse.create(
-        items=items, total=total,
+        items=[OperationalExpenseResponse.model_validate(i) for i in items],
+        total=total,
         page=(params.skip // params.limit) + 1, limit=params.limit,
     )
 

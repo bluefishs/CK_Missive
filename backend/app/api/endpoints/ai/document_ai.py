@@ -439,33 +439,27 @@ async def get_ai_config_endpoint() -> AIConfigResponse:
     return AIConfigResponse(
         enabled=config.enabled,
         providers={
-            "vllm": {
-                "name": "vLLM Local",
-                "description": "本地 vLLM 推理 (RTX 4060)",
+            "gemma4": {
+                "name": "Gemma 4 Local",
+                "description": "Gemma 4 8B 本地推理 (RTX 4060, Ollama GPU)",
                 "priority": 0,
-                "model": os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-7B-Instruct-AWQ"),
-                "available": os.getenv("VLLM_ENABLED", "").lower() == "true",
+                "model": config.ollama_model,
+                "url": config.ollama_base_url,
+                "available": True,
             },
             "groq": {
                 "name": "Groq",
-                "description": "主要 AI 服務（雲端）",
+                "description": "雲端回退 AI 服務",
                 "priority": 1,
                 "model": config.groq_model,
                 "available": bool(config.groq_api_key),
             },
             "nvidia": {
                 "name": "NVIDIA Cloud",
-                "description": "NVIDIA Nemotron-49B（雲端）",
+                "description": "NVIDIA Nemotron-49B（雲端回退）",
                 "priority": 1,
                 "model": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
                 "available": bool(os.getenv("NVIDIA_API_KEY")),
-            },
-            "ollama": {
-                "name": "Ollama",
-                "description": "本地 AI 備援服務",
-                "priority": 2,
-                "model": config.ollama_model,
-                "url": config.ollama_base_url,
             },
         },
         rate_limit={

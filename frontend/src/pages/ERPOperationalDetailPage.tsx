@@ -325,7 +325,7 @@ const ERPOperationalDetailPage: React.FC = () => {
         onOk={handleCreateExpense}
         onCancel={() => { setShowExpenseModal(false); form.resetFields(); }}
         confirmLoading={createExpense.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Form.Item name="expense_date" label="日期" rules={[{ required: true, message: '請選擇日期' }]}>

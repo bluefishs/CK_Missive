@@ -93,16 +93,16 @@ class LineBotService:
                 await self.reply_message(reply_token, "圖片下載失敗，請重新傳送。")
                 return
 
-            from app.services.invoice_ocr_service import InvoiceOCRService
+            # 統一辨識器: QR 優先 + OCR 補充
+            from app.services.invoice_recognizer import recognize_invoice
 
-            ocr_service = InvoiceOCRService()
-            result = ocr_service.parse_image(str(file_path))
+            recognition = recognize_invoice(str(file_path))
 
-            expense_msg = await try_create_expense_from_ocr(
-                user_id, result, str(file_path)
-            ) if result.inv_num else None
+            expense_msg = await try_create_expense_from_recognition(
+                user_id, recognition, str(file_path)
+            ) if recognition.success else None
 
-            reply = format_ocr_reply(result, expense_msg)
+            reply = format_recognition_reply(recognition, expense_msg)
             await self.reply_message(reply_token, reply)
 
         except Exception as e:

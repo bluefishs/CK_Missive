@@ -79,21 +79,25 @@ capability:
   # Redis 快取 TTL (秒)
   cache_ttl_seconds: 300
 
-# Provider routing preferences (v2.0.0)
-# Task types: chat, planning, synthesis, ner, embedding
+# Provider routing preferences (v3.0.0 — Gemma 4 primary)
+# Task types: chat, planning, synthesis, ner, multimodal, embedding
 provider_routing:
   chat:
-    preferred: [groq, nvidia, ollama]
-    prefer_local: false
+    preferred: [ollama, groq, nvidia]
+    prefer_local: true
   planning:
-    preferred: [groq, nvidia, ollama]
-    prefer_local: false
+    preferred: [ollama, groq, nvidia]
+    prefer_local: true
   synthesis:
-    preferred: [groq, nvidia, ollama]
-    prefer_local: false
+    preferred: [ollama, groq, nvidia]
+    prefer_local: true
   ner:
     preferred: [ollama, nvidia, groq]
     prefer_local: true
+  multimodal:
+    preferred: [ollama]
+    prefer_local: true
+    note: "Gemma 4 vision/audio. Local only."
   embedding:
     preferred: [ollama]
     prefer_local: true

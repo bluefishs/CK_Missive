@@ -64,7 +64,7 @@ TASK_MODEL_MAP = {
 }
 
 # 需要禁用 thinking mode 的模型前綴（Qwen3、DeepSeek-R1 等推理模型）
-_THINKING_MODEL_PREFIXES = ("qwen3", "deepseek-r1")
+_THINKING_MODEL_PREFIXES = ("qwen3", "deepseek-r1", "gemma4")
 
 # 系統所需模型清單（啟動時自動檢查 + 拉取）
 REQUIRED_MODELS: set = {

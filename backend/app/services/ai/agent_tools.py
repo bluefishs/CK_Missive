@@ -142,6 +142,9 @@ class ToolResultGuard:
         "check_budget_alert": {"alerts": [], "count": 0},
         # Dispatch progress (OC-2, v5.2.5)
         "get_dispatch_progress": {"completed": [], "in_progress": [], "overdue": [], "count": 0},
+        # Tender search (v5.3.22)
+        "search_tender": {"tenders": [], "count": 0},
+        "auto_tender_to_case": {"created": [], "count": 0},
     }
 
     @classmethod
