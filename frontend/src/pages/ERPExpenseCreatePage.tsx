@@ -21,7 +21,7 @@ import {
   ScanOutlined, CloudDownloadOutlined, EditOutlined,
   PictureOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useCreateExpense, usePMCases, useEInvoicePendingList } from '../hooks';
@@ -39,6 +39,7 @@ type InputMethod = '手動填寫' | '智慧掃描' | '財政部發票';
 
 const ERPExpenseCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const createMutation = useCreateExpense();
@@ -47,11 +48,14 @@ const ERPExpenseCreatePage: React.FC = () => {
   const mofInvoices = (mofData as { items?: Array<{ id: number; inv_num: string; date: string; amount: number; seller_ban?: string; status: string }> })?.items ?? [];
   const cameraRef = useRef<HTMLInputElement>(null);
 
+  // 從 URL 讀取預設案件 (PM Case 費用 Tab 點「新增」帶入)
+  const urlCaseCode = searchParams.get('case_code');
+
   const [method, setMethod] = useState<InputMethod>('智慧掃描');
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<SmartScanResult | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [attrType, setAttrType] = useState<'project' | 'operational' | 'none'>('none');
+  const [attrType, setAttrType] = useState<'project' | 'operational' | 'none'>(urlCaseCode ? 'project' : 'none');
 
   // 案件下拉 — 區分已成案/未成案
   const caseOptions = useMemo(() => {
@@ -127,6 +131,9 @@ const ERPExpenseCreatePage: React.FC = () => {
         ...values,
         date: values.date ? dayjs(values.date as string).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
         source: values.source || 'manual',
+        attribution_type: attrType,
+        // attrType='none' 時清除 case_code
+        case_code: attrType === 'none' ? undefined : values.case_code,
       } as unknown as ExpenseInvoiceCreate;
       await createMutation.mutateAsync(payload);
       message.success('核銷紀錄已建立');
@@ -276,7 +283,7 @@ const ERPExpenseCreatePage: React.FC = () => {
           {/* 右欄：核銷表單 (三種方式共用) */}
           <Col xs={24} md={14}>
             <Card title="核銷資訊">
-              <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ currency: 'TWD', source: 'manual' }}>
+              <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ currency: 'TWD', source: 'manual', case_code: urlCaseCode || undefined }}>
                 <Form.Item name="source" hidden><Input /></Form.Item>
 
                 <Row gutter={16}>

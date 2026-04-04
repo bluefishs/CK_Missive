@@ -72,7 +72,10 @@ async def grouped_expense_summary(
     group_map: dict = {}
     for row in rows:
         attr = row.attribution_type or "none"
-        cc = row.case_code or "__operational__" if attr == "operational" else (row.case_code or "__none__")
+        if attr == "operational":
+            cc = row.case_code or "__operational__"
+        else:
+            cc = row.case_code or "__none__"
         key = f"{attr}:{cc}"
 
         if key not in group_map:
@@ -83,14 +86,36 @@ async def grouped_expense_summary(
                 "case_code": row.case_code,
                 "total_amount": 0,
                 "count": 0,
-                "categories": {},
+                "_cat_map": {},  # internal dict for aggregation
             }
         g = group_map[key]
         amt = float(row.total_amount or 0)
         g["total_amount"] += amt
         g["count"] += row.count
         cat = row.category or "其他"
-        g["categories"][cat] = g["categories"].get(cat, 0) + amt
+        if cat not in g["_cat_map"]:
+            g["_cat_map"][cat] = {"category": cat, "count": 0, "amount": 0}
+        g["_cat_map"][cat]["count"] += row.count
+        g["_cat_map"][cat]["amount"] += amt
+
+    # Convert categories to array format matching frontend GroupCategory[]
+    for g in group_map.values():
+        g["categories"] = sorted(g.pop("_cat_map").values(), key=lambda c: c["amount"], reverse=True)
+
+    # Enrich with project_code + case_name for display
+    case_codes = [g["case_code"] for g in group_map.values() if g["case_code"]]
+    if case_codes:
+        from app.extended.models.pm import PMCase
+        code_stmt = select(PMCase.case_code, PMCase.project_code, PMCase.case_name).where(
+            PMCase.case_code.in_(case_codes)
+        )
+        code_result = await service.db.execute(code_stmt)
+        code_map = {r.case_code: r for r in code_result.all()}
+        for g in group_map.values():
+            info = code_map.get(g["case_code"])
+            if info:
+                g["project_code"] = info.project_code
+                g["group_label"] = f"{info.project_code or info.case_code} {info.case_name or ''}"
 
     groups = sorted(group_map.values(), key=lambda x: x["total_amount"], reverse=True)
     total = sum(g["total_amount"] for g in groups)

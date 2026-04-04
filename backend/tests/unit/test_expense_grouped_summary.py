@@ -24,11 +24,14 @@ class TestGroupedSummaryLogic:
             MagicMock(attribution_type=None, case_code=None, category="雜費", count=1, total_amount=Decimal("200")),
         ]
 
-        # 重現 endpoint 的分組邏輯
+        # 重現 endpoint 的分組邏輯 (與 expenses.py grouped_expense_summary 一致)
         group_map: dict = {}
         for row in rows:
             attr = row.attribution_type or "none"
-            cc = row.case_code or "__operational__" if attr == "operational" else (row.case_code or "__none__")
+            if attr == "operational":
+                cc = row.case_code or "__operational__"
+            else:
+                cc = row.case_code or "__none__"
             key = f"{attr}:{cc}"
 
             if key not in group_map:
@@ -38,14 +41,20 @@ class TestGroupedSummaryLogic:
                     "case_code": row.case_code,
                     "total_amount": 0,
                     "count": 0,
-                    "categories": {},
+                    "_cat_map": {},
                 }
             g = group_map[key]
             amt = float(row.total_amount or 0)
             g["total_amount"] += amt
             g["count"] += row.count
             cat = row.category or "其他"
-            g["categories"][cat] = g["categories"].get(cat, 0) + amt
+            if cat not in g["_cat_map"]:
+                g["_cat_map"][cat] = {"category": cat, "count": 0, "amount": 0}
+            g["_cat_map"][cat]["count"] += row.count
+            g["_cat_map"][cat]["amount"] += amt
+
+        for g in group_map.values():
+            g["categories"] = sorted(g.pop("_cat_map").values(), key=lambda c: c["amount"], reverse=True)
 
         groups = sorted(group_map.values(), key=lambda x: x["total_amount"], reverse=True)
 
@@ -58,8 +67,9 @@ class TestGroupedSummaryLogic:
         assert project_group["case_code"] == "B114-B001"
         assert project_group["total_amount"] == 4500.0
         assert project_group["count"] == 5
-        assert project_group["categories"]["交通費"] == 1500.0
-        assert project_group["categories"]["差旅費"] == 3000.0
+        cats = {c["category"]: c["amount"] for c in project_group["categories"]}
+        assert cats["交通費"] == 1500.0
+        assert cats["差旅費"] == 3000.0
 
         # 營運組
         op_group = [g for g in groups if g["attribution_type"] == "operational"][0]
@@ -121,20 +131,27 @@ class TestGroupedSummaryLogic:
             cc = row.case_code or "__none__"
             key = f"{attr}:{cc}"
             if key not in group_map:
-                group_map[key] = {"group_key": key, "attribution_type": attr, "total_amount": 0, "count": 0, "categories": {}}
+                group_map[key] = {"group_key": key, "attribution_type": attr, "total_amount": 0, "count": 0, "_cat_map": {}}
             g = group_map[key]
             g["total_amount"] += float(row.total_amount or 0)
             g["count"] += row.count
             cat = row.category or "其他"
-            g["categories"][cat] = g["categories"].get(cat, 0) + float(row.total_amount or 0)
+            if cat not in g["_cat_map"]:
+                g["_cat_map"][cat] = {"category": cat, "count": 0, "amount": 0}
+            g["_cat_map"][cat]["count"] += row.count
+            g["_cat_map"][cat]["amount"] += float(row.total_amount or 0)
+
+        for g in group_map.values():
+            g["categories"] = sorted(g.pop("_cat_map").values(), key=lambda c: c["amount"], reverse=True)
 
         groups = list(group_map.values())
         assert len(groups) == 1
         assert groups[0]["attribution_type"] == "none"
         assert groups[0]["total_amount"] == 800.0
         assert groups[0]["count"] == 3
-        assert groups[0]["categories"]["雜費"] == 500.0
-        assert groups[0]["categories"]["交通費"] == 300.0
+        cats = {c["category"]: c["amount"] for c in groups[0]["categories"]}
+        assert cats["雜費"] == 500.0
+        assert cats["交通費"] == 300.0
 
 
 class TestExpenseApprovalService:
