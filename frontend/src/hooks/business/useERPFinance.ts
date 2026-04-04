@@ -226,6 +226,19 @@ export const useRejectExpense = () => {
   });
 };
 
+/** 刪除費用核銷 */
+export const useDeleteExpense = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.post(ERP_ENDPOINTS.EXPENSES_DELETE, { id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.expenses.all });
+      queryClient.invalidateQueries({ queryKey: ['case-finance-expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['expense-grouped-summary'] });
+    },
+  });
+};
+
 /** QR Code 掃描建立 */
 export const useQRScanExpense = () => {
   const queryClient = useQueryClient();

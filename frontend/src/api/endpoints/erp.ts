@@ -142,6 +142,7 @@ export const ERP_ENDPOINTS = {
   EXPENSES_APPROVE: '/erp/expenses/approve',
   /** 駁回報銷 POST /erp/expenses/reject */
   EXPENSES_REJECT: '/erp/expenses/reject',
+  EXPENSES_DELETE: '/erp/expenses/delete',
   /** QR Code 掃描建立 POST /erp/expenses/qr-scan */
   EXPENSES_QR_SCAN: '/erp/expenses/qr-scan',
   /** 上傳收據影像 POST /erp/expenses/upload-receipt */

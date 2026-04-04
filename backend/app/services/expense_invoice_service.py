@@ -118,6 +118,16 @@ class ExpenseInvoiceService(AuditableServiceMixin):
             await self.audit_update(invoice_id, update_data)
         return result
 
+    async def delete_expense(self, invoice_id: int) -> None:
+        """刪除費用核銷紀錄（僅 pending/rejected 可刪）"""
+        invoice = await self.get_by_id(invoice_id)
+        if not invoice:
+            raise ValueError("發票不存在")
+        if invoice.status not in ("pending", "rejected"):
+            raise ValueError(f"狀態為「{invoice.status}」，僅待審核或已駁回的紀錄可刪除")
+        await self.db.delete(invoice)
+        await self.db.commit()
+
     async def attach_receipt(self, invoice_id: int, receipt_path: str) -> Optional[ExpenseInvoice]:
         """附加收據影像至發票"""
         invoice = await self.repo.get_by_id(invoice_id)

@@ -344,3 +344,17 @@ async def reject_expense(
         return SuccessResponse(data=ExpenseInvoiceResponse.model_validate(result), message="已駁回")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/delete")
+async def delete_expense(
+    params: ERPIdRequest,
+    service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
+    current_user: User = Depends(require_permission("projects:write")),
+):
+    """刪除費用核銷紀錄（僅 pending/rejected 狀態可刪）"""
+    try:
+        await service.delete_expense(params.id)
+        return SuccessResponse(data=None, message="已刪除")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
