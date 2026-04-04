@@ -28,7 +28,12 @@ class ExpenseInvoice(Base):
 
     # 跨模組橋樑
     case_code = Column(String(50), nullable=True, index=True,
-                       comment="案號 (軟參照 pm_cases / erp_quotations)，NULL=一般營運")
+                       comment="案號 (軟參照 pm_cases / erp_quotations)")
+    attribution_type = Column(String(20), nullable=False, server_default="none",
+                              comment="歸屬類型: project=專案/案件, operational=營運, none=未歸屬")
+    operational_account_id = Column(Integer, ForeignKey("operational_accounts.id", ondelete="SET NULL"),
+                                   nullable=True, index=True,
+                                   comment="營運帳目 (attribution_type=operational)")
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                      nullable=True, index=True, comment="上傳者/報銷人")
     vendor_id = Column(Integer, ForeignKey("partner_vendors.id", ondelete="SET NULL"),

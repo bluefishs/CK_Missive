@@ -593,10 +593,10 @@ export function useAssetList(params: AssetListRequest) {
   return useQuery<{ items: Asset[]; total: number }>({
     queryKey: erpFinanceKeys.assets.list(params),
     queryFn: async () => {
-      const res = await apiClient.post<{ data: { items: Asset[]; total: number } }>(
+      const res = await apiClient.post<{ items: Asset[]; pagination: { total: number } }>(
         ERP_ENDPOINTS.ASSETS_LIST, params
       );
-      return res.data ?? { items: [], total: 0 };
+      return { items: res.items ?? [], total: res.pagination?.total ?? 0 };
     },
     ...defaultQueryOptions.list,
   });
@@ -636,10 +636,10 @@ export function useAssetLogs(assetId: number | null, action?: string) {
   return useQuery<{ items: AssetLog[]; total: number }>({
     queryKey: erpFinanceKeys.assets.logs(assetId, action),
     queryFn: async () => {
-      const res = await apiClient.post<{ data: { items: AssetLog[]; total: number } }>(
+      const res = await apiClient.post<{ items: AssetLog[]; pagination: { total: number } }>(
         ERP_ENDPOINTS.ASSET_LOGS_LIST, { asset_id: assetId, action }
       );
-      return res.data ?? { items: [], total: 0 };
+      return { items: res.items ?? [], total: res.pagination?.total ?? 0 };
     },
     enabled: !!assetId,
     ...defaultQueryOptions.list,
@@ -771,12 +771,12 @@ export function useImportAssets() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
-      return apiClient.postForm<{ data: { total_rows: number; created: number; updated: number; errors: Array<{ row: number; error: string }> } }>(
+      return apiClient.postForm<{ data: { total_rows: number; created: number; updated: number; skipped: number; errors: Array<{ row: number; error: string }> } }>(
         ERP_ENDPOINTS.ASSETS_IMPORT, formData
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.assets.all });
+      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.assets.all, refetchType: 'all' });
     },
   });
 }
@@ -815,10 +815,10 @@ export function useOperationalAccounts(params: {
   return useQuery<{ items: OperationalAccount[]; total: number }>({
     queryKey: erpFinanceKeys.operational.list(params),
     queryFn: async () => {
-      const res = await apiClient.post<{ data: { items: OperationalAccount[]; total: number } }>(
+      const res = await apiClient.post<{ items: OperationalAccount[]; pagination: { total: number } }>(
         ERP_ENDPOINTS.OPERATIONAL_LIST, params
       );
-      return res.data ?? { items: [], total: 0 };
+      return { items: res.items ?? [], total: res.pagination?.total ?? 0 };
     },
     ...defaultQueryOptions.list,
   });
@@ -858,10 +858,10 @@ export function useOperationalExpenses(accountId: number | null) {
   return useQuery<{ items: OperationalExpense[]; total: number }>({
     queryKey: erpFinanceKeys.operational.expenses(accountId),
     queryFn: async () => {
-      const res = await apiClient.post<{ data: { items: OperationalExpense[]; total: number } }>(
+      const res = await apiClient.post<{ items: OperationalExpense[]; pagination: { total: number } }>(
         ERP_ENDPOINTS.OPERATIONAL_EXPENSES_LIST, { account_id: accountId }
       );
-      return res.data ?? { items: [], total: 0 };
+      return { items: res.items ?? [], total: res.pagination?.total ?? 0 };
     },
     enabled: !!accountId,
     ...defaultQueryOptions.list,

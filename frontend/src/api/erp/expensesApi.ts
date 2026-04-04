@@ -66,4 +66,36 @@ export const expensesApi = {
   async receiptImage(id: number): Promise<Blob> {
     return apiClient.post<Blob>(ERP_ENDPOINTS.EXPENSES_RECEIPT_IMAGE, { id }, { responseType: 'blob' });
   },
+
+  /** 智慧發票辨識 (QR+OCR 一站式) */
+  async smartScan(file: File, options?: { case_code?: string; category?: string; auto_create?: boolean }): Promise<SuccessResponse<SmartScanResult>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options?.case_code) formData.append('case_code', options.case_code);
+    if (options?.category) formData.append('category', options.category);
+    formData.append('auto_create', String(options?.auto_create ?? true));
+    return apiClient.postForm<SuccessResponse<SmartScanResult>>(ERP_ENDPOINTS.EXPENSES_SMART_SCAN, formData);
+  },
 };
+
+/** 智慧辨識結果型別 */
+export interface SmartScanResult {
+  success: boolean;
+  method: string;
+  inv_num?: string;
+  date?: string;
+  random_code?: string;
+  sales_amount?: number;
+  total_amount?: number;
+  amount?: number;
+  tax_amount?: number;
+  buyer_ban?: string;
+  seller_ban?: string;
+  items?: Array<{ name: string; qty: number; unit_price: number; amount: number }>;
+  confidence: number;
+  warnings: string[];
+  receipt_path?: string;
+  created?: boolean;
+  invoice_id?: number;
+  message?: string;
+}

@@ -7,6 +7,7 @@ from app.services.finance_ledger_service import FinanceLedgerService
 from app.schemas.erp.ledger import (
     LedgerCreate,
     LedgerQuery,
+    LedgerResponse,
     LedgerBalanceRequest,
     LedgerCategoryBreakdownRequest,
 )
@@ -25,7 +26,8 @@ async def list_ledger(
     """帳本記錄列表 (多條件查詢)"""
     items, total = await service.query(params)
     return PaginatedResponse.create(
-        items=items, total=total, page=(params.skip // params.limit) + 1, limit=params.limit
+        items=[LedgerResponse.model_validate(item) for item in items],
+        total=total, page=(params.skip // params.limit) + 1, limit=params.limit
     )
 
 

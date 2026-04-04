@@ -53,6 +53,8 @@ class ExpenseInvoiceService(AuditableServiceMixin):
             buyer_ban=data.buyer_ban,
             seller_ban=data.seller_ban,
             case_code=data.case_code,
+            attribution_type=getattr(data, "attribution_type", None) or ("project" if data.case_code else "none"),
+            operational_account_id=getattr(data, "operational_account_id", None),
             category=data.category,
             source=data.source,
             notes=data.notes,
@@ -60,7 +62,6 @@ class ExpenseInvoiceService(AuditableServiceMixin):
             status="pending",
             vendor_id=vendor_id,
             receipt_image_path=getattr(data, "receipt_image_path", None),
-            # 多幣別 (Phase 5-4)
             currency=data.currency,
             original_amount=data.original_amount,
             exchange_rate=data.exchange_rate,
@@ -148,10 +149,48 @@ class ExpenseInvoiceService(AuditableServiceMixin):
 
         await self.repo.commit()
 
+        # 通知推送
+        await self._notify_status_change(invoice, current, next_status, budget_warning)
+
         # 將預算警告附加為動態屬性，API 層可讀取
         invoice._budget_warning = budget_warning  # type: ignore[attr-defined]
         await self.audit_update(invoice_id, {"status": next_status, "action": "approve"})
         return invoice
+
+    async def _notify_status_change(
+        self, invoice, old_status: str, new_status: str, budget_warning: Optional[str] = None
+    ) -> None:
+        """核銷狀態變更通知"""
+        try:
+            from app.services.notification_helpers import _safe_create_notification
+
+            STATUS_LABELS = {
+                "pending": "待主管審核", "manager_approved": "主管已核准",
+                "finance_approved": "財務已核准", "verified": "最終通過",
+                "rejected": "已駁回",
+            }
+            title = f"核銷審核: {invoice.inv_num} → {STATUS_LABELS.get(new_status, new_status)}"
+            msg = f"發票 {invoice.inv_num} (NT$ {invoice.amount:,.0f}) 狀態: {STATUS_LABELS.get(old_status, old_status)} → {STATUS_LABELS.get(new_status, new_status)}"
+            if budget_warning:
+                msg += f"\n⚠️ {budget_warning}"
+
+            severity = "info"
+            if new_status == "verified":
+                severity = "success"
+            elif new_status == "rejected":
+                severity = "warning"
+
+            await _safe_create_notification(
+                notification_type="expense_approval",
+                severity=severity,
+                title=title,
+                message=msg,
+                source_table="expense_invoices",
+                source_id=invoice.id,
+                user_id=invoice.user_id,
+            )
+        except Exception as e:
+            logger.debug(f"通知推送失敗 (非阻塞): {e}")
 
     async def _resolve_vendor_by_ban(self, seller_ban: str) -> Optional[int]:
         """由賣方統編查找 partner_vendors.id (稅籍號碼 = vendor_code 慣例)"""
@@ -287,24 +326,23 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         return result
 
     def parse_qr_data(self, raw_qr: str) -> dict:
-        """解析台灣電子發票 QR Code 資料
+        """解析台灣電子發票 QR Code 資料 (財政部規範)
 
-        QR 格式 (前 77 字元):
-        - [0:10]  發票號碼 (2 英文 + 8 數字)
-        - [10:17] 民國日期 (YYYMMDD)
-        - [17:25] 隨機碼
-        - [25:33] 買方統編 (8 碼)
-        - [33:41] 賣方統編 (8 碼)
-        - [41:49] 金額 hex (8 碼, 16 進位)
+        Head QR 格式 (77+ 字元):
+        - [0:10]   發票號碼 (2英+8數)
+        - [10:17]  民國日期 YYYMMDD
+        - [17:21]  隨機碼 4 碼
+        - [21:29]  銷售額 hex 8 碼 (未稅)
+        - [29:37]  總額 hex 8 碼 (含稅)
+        - [37:45]  買方統編 8 碼 (無則 00000000)
+        - [45:53]  賣方統編 8 碼
+        - [53:77]  驗證碼 24 碼
         """
-        if len(raw_qr) < 49:
-            raise ValueError("QR 資料格式不正確，長度不足")
+        if len(raw_qr) < 53:
+            raise ValueError("QR 資料格式不正確，長度不足 (需至少 53 字元)")
 
         inv_num = raw_qr[0:10]
         date_str = raw_qr[10:17]  # 民國年 YYYMMDD
-        buyer_ban = raw_qr[25:33]
-        seller_ban = raw_qr[33:41]
-        amount_hex = raw_qr[41:49]
 
         # 民國年轉西元
         from datetime import date as date_type
@@ -313,15 +351,31 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         day = int(date_str[5:7])
         inv_date = date_type(roc_year + 1911, month, day)
 
-        # 金額 hex → Decimal
-        amount = Decimal(str(int(amount_hex, 16)))
+        # 隨機碼
+        random_code = raw_qr[17:21]
+
+        # 銷售額 (未稅) + 總額 (含稅) — hex 8 碼
+        sales_hex = raw_qr[21:29]
+        total_hex = raw_qr[29:37]
+        sales_amount = Decimal(str(int(sales_hex, 16)))
+        total_amount = Decimal(str(int(total_hex, 16)))
+        tax_amount = total_amount - sales_amount
+
+        # 統編
+        buyer_ban = raw_qr[37:45]
+        seller_ban = raw_qr[45:53]
+        if buyer_ban == "00000000":
+            buyer_ban = None
 
         return {
             "inv_num": inv_num,
             "date": inv_date,
+            "random_code": random_code,
+            "sales_amount": sales_amount,
+            "amount": total_amount,       # 含稅總額
+            "tax_amount": tax_amount,
             "buyer_ban": buyer_ban,
             "seller_ban": seller_ban,
-            "amount": amount,
             "source": "qr_scan",
             "raw_qr_data": raw_qr,
         }

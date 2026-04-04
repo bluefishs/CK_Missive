@@ -35,9 +35,14 @@ class FinanceLedgerService(AuditableServiceMixin):
 
     async def record_from_expense(self, invoice: ExpenseInvoice) -> FinanceLedger:
         """從報銷發票自動產生帳本記錄 (amount 已是 TWD 本位幣)"""
+        attr = getattr(invoice, "attribution_type", "none")
         desc = f"發票報銷 (號碼: {invoice.inv_num})"
+        if attr == "operational":
+            desc = f"營運費用 (號碼: {invoice.inv_num})"
         if invoice.currency and invoice.currency != "TWD":
             desc += f" [{invoice.currency} {invoice.original_amount} × {invoice.exchange_rate}]"
+
+        source_type = "expense_invoice" if attr != "operational" else "operational"
         ledger = FinanceLedger(
             amount=invoice.amount,
             entry_type="expense",
@@ -45,7 +50,7 @@ class FinanceLedgerService(AuditableServiceMixin):
             description=desc,
             case_code=invoice.case_code,
             user_id=invoice.user_id,
-            source_type="expense_invoice",
+            source_type=source_type,
             source_id=invoice.id,
             transaction_date=invoice.date,
             vendor_id=getattr(invoice, "vendor_id", None),

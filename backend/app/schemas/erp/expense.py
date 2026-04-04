@@ -77,8 +77,10 @@ class ExpenseInvoiceBase(BaseModel):
 
 class ExpenseInvoiceCreate(ExpenseInvoiceBase):
     """費用報銷發票建立 (QR 自動填入或手動輸入)"""
+    attribution_type: Optional[str] = Field("none", description="歸屬類型: project/operational/none")
+    operational_account_id: Optional[int] = Field(None, description="營運帳目 ID")
     items: Optional[List[ExpenseInvoiceItemCreate]] = None
-    receipt_image_path: Optional[str] = Field(None, description="收據影像路徑 (LINE 上傳時自動填入)")
+    receipt_image_path: Optional[str] = Field(None, description="收據影像路徑")
 
     @model_validator(mode="after")
     def validate_multi_currency(self) -> "ExpenseInvoiceCreate":
@@ -103,13 +105,13 @@ class ExpenseInvoiceResponse(ExpenseInvoiceBase):
     id: int
     user_id: Optional[int]
     status: EXPENSE_STATUS
+    attribution_type: str = "none"
+    operational_account_id: Optional[int] = None
     source_image_path: Optional[str]
     receipt_image_path: Optional[str] = None
     items: List[ExpenseInvoiceItemResponse] = []
-    # 多幣別欄位繼承自 ExpenseInvoiceBase (currency, original_amount, exchange_rate)
-    # 計算屬性: 審核層級資訊
-    approval_level: Optional[str] = Field(None, description="當前審核層級 (manager/finance/final)")
-    next_approval: Optional[str] = Field(None, description="下一審核層級 (null=終態)")
+    approval_level: Optional[str] = Field(None, description="當前審核層級")
+    next_approval: Optional[str] = Field(None, description="下一審核層級")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -149,6 +151,7 @@ class ExpenseInvoiceOCRResponse(BaseModel):
 class ExpenseInvoiceQuery(BaseModel):
     """費用發票多重條件查詢"""
     case_code: Optional[str] = None
+    attribution_type: Optional[str] = None
     category: Optional[str] = None
     status: Optional[str] = None
     date_from: Optional[datetime.date] = None

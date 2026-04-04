@@ -128,6 +128,7 @@ class ExportExpensesRequest(BaseModel):
     date_to: Optional[datetime.date] = None
     case_code: Optional[str] = None
     status: Optional[str] = None
+    attribution_type: Optional[str] = None
 
 
 class ExportLedgerRequest(BaseModel):

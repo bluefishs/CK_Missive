@@ -29,11 +29,23 @@ interface ERPModule {
   amountLabel?: string;
 }
 
-const modules: ERPModule[] = [
+// 主要模組 (5 大入口)
+const mainModules: ERPModule[] = [
+  {
+    key: 'expenses',
+    title: '費用核銷',
+    desc: '發票掃描、核銷審核、收支帳本',
+    icon: <FileTextOutlined />,
+    path: ROUTES.ERP_EXPENSES,
+    color: '#52c41a',
+    statsKey: 'expenses',
+    amountKey: 'expense_amount',
+    amountLabel: '核銷總額',
+  },
   {
     key: 'quotations',
-    title: '報價管理',
-    desc: '案件報價與成本管理',
+    title: '專案財務',
+    desc: '報價管理、請款開票、帳款追蹤',
     icon: <DollarOutlined />,
     path: ROUTES.ERP_QUOTATIONS,
     color: '#1890ff',
@@ -42,74 +54,18 @@ const modules: ERPModule[] = [
     amountLabel: '合約總額',
   },
   {
-    key: 'expenses',
-    title: '費用報銷',
-    desc: '發票報銷與審核',
-    icon: <FileTextOutlined />,
-    path: ROUTES.ERP_EXPENSES,
-    color: '#52c41a',
-    statsKey: 'expenses',
-    amountKey: 'expense_amount',
-    amountLabel: '報銷總額',
-  },
-  {
-    key: 'ledger',
-    title: '統一帳本',
-    desc: '收支紀錄與帳本管理',
-    icon: <BookOutlined />,
-    path: ROUTES.ERP_LEDGER,
+    key: 'operational',
+    title: '營運財務',
+    desc: '營運帳目、預算管控、審批',
+    icon: <AccountBookOutlined />,
+    path: ROUTES.ERP_OPERATIONAL,
     color: '#722ed1',
-    statsKey: 'ledger',
-  },
-  {
-    key: 'dashboard',
-    title: '財務儀表板',
-    desc: '全公司財務總覽',
-    icon: <DashboardOutlined />,
-    path: ROUTES.ERP_FINANCIAL_DASHBOARD,
-    color: '#fa8c16',
-  },
-  {
-    key: 'invoices',
-    title: '發票總覽',
-    desc: '跨案件銷項進項',
-    icon: <AuditOutlined />,
-    path: ROUTES.ERP_INVOICE_SUMMARY,
-    color: '#13c2c2',
-    statsKey: 'invoices',
-  },
-  {
-    key: 'einvoice',
-    title: '電子發票',
-    desc: 'MOF 同步與核銷',
-    icon: <CloudSyncOutlined />,
-    path: ROUTES.ERP_EINVOICE_SYNC,
-    color: '#2f54eb',
-  },
-  {
-    key: 'vendor-accounts',
-    title: '協力廠商帳款',
-    desc: '跨案件應付彙總',
-    icon: <TeamOutlined />,
-    path: ROUTES.ERP_VENDOR_ACCOUNTS,
-    color: '#eb2f96',
-    statsKey: 'vendor_payables',
-    amountKey: 'vendor_payable_amount',
-    amountLabel: '應付總額',
-  },
-  {
-    key: 'client-accounts',
-    title: '委託單位帳款',
-    desc: '跨案件應收彙總',
-    icon: <BankOutlined />,
-    path: ROUTES.ERP_CLIENT_ACCOUNTS,
-    color: '#faad14',
-    statsKey: 'billings',
+    statsKey: 'operational',
   },
   {
     key: 'assets',
     title: '資產管理',
-    desc: '設備儀器與盤點',
+    desc: '設備儀器、盤點、折舊',
     icon: <ToolOutlined />,
     path: ROUTES.ERP_ASSETS,
     color: '#a0d911',
@@ -118,13 +74,60 @@ const modules: ERPModule[] = [
     amountLabel: '資產總值',
   },
   {
-    key: 'operational',
-    title: '營運帳目',
-    desc: '非案件帳務管理',
-    icon: <AccountBookOutlined />,
-    path: ROUTES.ERP_OPERATIONAL,
+    key: 'dashboard',
+    title: '財務總覽',
+    desc: '全公司損益、趨勢、預算',
+    icon: <DashboardOutlined />,
+    path: ROUTES.ERP_FINANCIAL_DASHBOARD,
+    color: '#fa8c16',
+  },
+];
+
+// 進階功能
+const advancedModules: ERPModule[] = [
+  {
+    key: 'vendor-accounts',
+    title: '廠商帳款',
+    desc: '跨案件應付彙總',
+    icon: <TeamOutlined />,
+    path: ROUTES.ERP_VENDOR_ACCOUNTS,
+    color: '#eb2f96',
+    statsKey: 'vendor_payables',
+  },
+  {
+    key: 'client-accounts',
+    title: '委託帳款',
+    desc: '跨案件應收彙總',
+    icon: <BankOutlined />,
+    path: ROUTES.ERP_CLIENT_ACCOUNTS,
+    color: '#faad14',
+    statsKey: 'billings',
+  },
+  {
+    key: 'invoices',
+    title: '發票總覽',
+    desc: '銷項/進項跨案件',
+    icon: <AuditOutlined />,
+    path: ROUTES.ERP_INVOICE_SUMMARY,
+    color: '#13c2c2',
+    statsKey: 'invoices',
+  },
+  {
+    key: 'einvoice',
+    title: '電子發票',
+    desc: 'MOF 同步',
+    icon: <CloudSyncOutlined />,
+    path: ROUTES.ERP_EINVOICE_SYNC,
+    color: '#2f54eb',
+  },
+  {
+    key: 'ledger',
+    title: '收支帳本',
+    desc: '全域流水帳',
+    icon: <BookOutlined />,
+    path: ROUTES.ERP_LEDGER,
     color: '#8c8c8c',
-    statsKey: 'operational',
+    statsKey: 'ledger',
   },
 ];
 
@@ -134,7 +137,7 @@ const ERPHubPage: React.FC = () => {
 
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
         <Typography.Title level={2} style={{ marginBottom: 0 }}>
           財務管理中心
         </Typography.Title>
@@ -143,7 +146,7 @@ const ERPHubPage: React.FC = () => {
         </Typography.Text>
 
         <Row gutter={[16, 16]}>
-          {modules.map((m) => (
+          {mainModules.map((m) => (
             <Col key={m.key} xs={24} sm={12} md={8}>
               <Card
                 hoverable
@@ -151,11 +154,7 @@ const ERPHubPage: React.FC = () => {
                 style={{ borderTop: `3px solid ${m.color}`, height: '100%' }}
               >
                 <Card.Meta
-                  avatar={
-                    <span style={{ fontSize: 32, color: m.color }}>
-                      {m.icon}
-                    </span>
-                  }
+                  avatar={<span style={{ fontSize: 32, color: m.color }}>{m.icon}</span>}
                   title={m.title}
                   description={m.desc}
                 />
@@ -169,6 +168,25 @@ const ERPHubPage: React.FC = () => {
                     )}
                   </div>
                 )}
+              </Card>
+            </Col>
+          ))}
+        </Row>
+
+        <Typography.Title level={4} style={{ marginTop: 24 }}>進階功能</Typography.Title>
+        <Row gutter={[16, 16]}>
+          {advancedModules.map((m) => (
+            <Col key={m.key} xs={12} sm={8} md={6}>
+              <Card
+                hoverable size="small"
+                onClick={() => navigate(m.path)}
+                style={{ borderLeft: `3px solid ${m.color}` }}
+              >
+                <Card.Meta
+                  avatar={<span style={{ fontSize: 20, color: m.color }}>{m.icon}</span>}
+                  title={<span style={{ fontSize: 14 }}>{m.title}</span>}
+                  description={<span style={{ fontSize: 12 }}>{m.desc}</span>}
+                />
               </Card>
             </Col>
           ))}

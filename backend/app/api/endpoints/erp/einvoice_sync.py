@@ -20,8 +20,10 @@ from app.services.einvoice.einvoice_sync_service import EInvoiceSyncService
 from app.schemas.erp.einvoice_sync import (
     EInvoiceSyncRequest,
     EInvoiceSyncLogQuery,
+    EInvoiceSyncLogResponse,
     PendingReceiptQuery,
 )
+from app.schemas.erp.expense import ExpenseInvoiceResponse
 from app.schemas.common import PaginatedResponse, SuccessResponse
 
 logger = logging.getLogger(__name__)
@@ -61,7 +63,7 @@ async def get_pending_receipt_list(
         skip=params.skip, limit=params.limit
     )
     return PaginatedResponse.create(
-        items=items,
+        items=[ExpenseInvoiceResponse.model_validate(i) for i in items],
         total=total,
         page=(params.skip // params.limit) + 1,
         limit=params.limit,
@@ -143,7 +145,7 @@ async def get_sync_logs(
         skip=params.skip, limit=params.limit
     )
     return PaginatedResponse.create(
-        items=items,
+        items=[EInvoiceSyncLogResponse.model_validate(i) for i in items],
         total=total,
         page=(params.skip // params.limit) + 1,
         limit=params.limit,

@@ -1,174 +1,204 @@
 /**
- * ERP 費用報銷列表頁面
+ * ERP 費用核銷管理頁面
  *
- * 功能：費用發票列表 + 篩選 + 審核/駁回 + QR 掃描建立
+ * 功能：費用發票依歸屬分組顯示 + 展開明細 + 帳本 Tab
+ * - 頂部統計卡片 (核銷總筆數 / 專案費用 / 營運費用 / 待審核)
+ * - Segmented 歸屬篩選 (全部 / 專案費用 / 營運費用 / 未歸屬)
+ * - 分組主表 (可展開) + 展開子表顯示單筆發票
+ * - Tab 2: 收支帳本
+ *
+ * @version 3.0.0
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
-  Card, Table, Button, Space, Tag, Input, Select, Typography, Upload,
-  Statistic, Row, Col, Popconfirm, Modal, Form, DatePicker,
-  AutoComplete, App, Alert,
+  Card, Table, Button, Space, Tag, Typography,
+  Statistic, Row, Col, Tabs, Segmented, Spin,
 } from 'antd';
 import {
-  PlusOutlined, ReloadOutlined, CheckCircleOutlined,
-  CloseCircleOutlined, QrcodeOutlined, CameraOutlined,
-  CloudDownloadOutlined, SearchOutlined, UploadOutlined,
-  FileExcelOutlined,
+  PlusOutlined, BookOutlined,
+  UploadOutlined, FileTextOutlined,
+  CheckCircleOutlined, CloseCircleOutlined,
 } from '@ant-design/icons';
+import { App, Popconfirm } from 'antd';
 import { ResponsiveContent } from '@ck-shared/ui-components';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
-  useExpenses, useApproveExpense, useRejectExpense,
-  useAuthGuard, useEInvoicePendingList,
-  useImportExpenses, useDownloadExpenseTemplate,
-  useCaseCodeMap,
+  useExpenses, useAuthGuard,
+  useCaseCodeMap, useLedger,
+  useApproveExpense, useRejectExpense,
 } from '../hooks';
-import { useProjectsDropdown } from '../hooks';
-import type { ExpenseInvoice, ExpenseInvoiceCreate, ExpenseInvoiceQuery, ExpenseInvoiceStatus } from '../types/erp';
+import type {
+  ExpenseInvoice, ExpenseInvoiceQuery,
+  FinanceLedger, LedgerQuery,
+} from '../types/erp';
 import {
   EXPENSE_STATUS_LABELS, EXPENSE_STATUS_COLORS,
-  EXPENSE_SOURCE_LABELS, EXPENSE_CATEGORY_OPTIONS,
-  CURRENCY_SYMBOLS, APPROVAL_THRESHOLD,
+  EXPENSE_SOURCE_LABELS,
+  LEDGER_ENTRY_TYPE_LABELS,
 } from '../types/erp';
+import type { ExpenseInvoiceStatus } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
-import { ExpenseCreateModal, QRScanModal, OCRModal, MofInvoiceModal } from './erpExpense';
+import { ERP_ENDPOINTS } from '../api/endpoints';
+import apiClient from '../api/client';
+import { ExpenseImportModal } from './erpExpense';
 
 const { Title } = Typography;
-const { RangePicker } = DatePicker;
 
+// ---------------------------------------------------------------------------
+// Types for grouped summary API
+// ---------------------------------------------------------------------------
+interface GroupCategory {
+  category: string;
+  count: number;
+  amount: number;
+}
+
+interface ExpenseGroup {
+  group_key: string;
+  group_label: string;
+  attribution_type: string;
+  case_code: string | null;
+  project_code?: string;
+  total_amount: number;
+  count: number;
+  categories: GroupCategory[];
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 const ERPExpenseListPage: React.FC = () => {
-  const { message } = App.useApp();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { hasPermission } = useAuthGuard();
   const canApprove = hasPermission('projects:write');
-  const initialCaseCode = searchParams.get('case_code') || undefined;
-  const [params, setParams] = useState<ExpenseInvoiceQuery>({ skip: 0, limit: 20, case_code: initialCaseCode });
-  const { projects: projectOptions } = useProjectsDropdown();
   const { data: caseCodeMap } = useCaseCodeMap();
-  const { data, isLoading, isError, refetch } = useExpenses(params);
-  const approveMutation = useApproveExpense();
-  const rejectMutation = useRejectExpense();
-  const importMutation = useImportExpenses();
-  const templateMutation = useDownloadExpenseTemplate();
 
-  // Modal 狀態
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createForm] = Form.useForm<ExpenseInvoiceCreate>();
-  const [qrOpen, setQrOpen] = useState(false);
-  const [ocrOpen, setOcrOpen] = useState(false);
-  const [mofOpen, setMofOpen] = useState(false);
+  // Segmented filter
+  const [attributionType, setAttributionType] = useState<string>('all');
 
-  // 衍生資料
-  const items = useMemo(() => data?.items ?? [], [data?.items]);
-  const total = data?.total ?? 0;
-  const pendingCount = items.filter(i => i.status === 'pending').length;
-  const totalAmount = items.reduce((s, i) => s + (i.amount || 0), 0);
+  // Grouped summary query
+  const {
+    data: groupedData,
+    isLoading: groupedLoading,
+  } = useQuery({
+    queryKey: ['expense-grouped-summary', attributionType],
+    queryFn: async () => {
+      const body: Record<string, string> = {};
+      if (attributionType !== 'all') body.attribution_type = attributionType;
+      const res = await apiClient.post<{ data: { groups: ExpenseGroup[]; total_count: number; total_amount: number } }>(
+        ERP_ENDPOINTS.EXPENSES_GROUPED_SUMMARY,
+        body,
+      );
+      return res.data;
+    },
+  });
 
-  // MOF 待核銷數量 badge
-  const { data: mofPendingData } = useEInvoicePendingList({ skip: 0, limit: 1 });
+  const groups: ExpenseGroup[] = useMemo(() => groupedData?.groups ?? [], [groupedData]);
+  const totalCount = groupedData?.total_count ?? 0;
 
-  // 主列表 AutoComplete
-  const [listSearch, setListSearch] = useState('');
-  const listAutoCompleteOptions = useMemo(() => {
-    if (!listSearch.trim()) return [];
-    const kw = listSearch.trim().toLowerCase();
-    return items
-      .filter(i => i.inv_num?.toLowerCase().includes(kw))
-      .slice(0, 8)
-      .map(i => ({ value: i.inv_num, label: `${i.inv_num} — ${i.date} — NT$${i.amount?.toLocaleString()}` }));
-  }, [items, listSearch]);
+  // Derived stats
+  const projectAmount = useMemo(
+    () => groups
+      .filter((g: ExpenseGroup) => g.attribution_type === 'project')
+      .reduce((s: number, g: ExpenseGroup) => s + g.total_amount, 0),
+    [groups],
+  );
+  const operationalAmount = useMemo(
+    () => groups
+      .filter((g: ExpenseGroup) => g.attribution_type === 'operational')
+      .reduce((s: number, g: ExpenseGroup) => s + g.total_amount, 0),
+    [groups],
+  );
 
-  const handleApprove = async (id: number) => {
-    try {
-      const res = await approveMutation.mutateAsync(id);
-      const msg = res?.message ?? '審核推進成功';
-      if (msg.includes('預算警告') || msg.includes('預算')) {
-        Modal.warning({ title: '預算警告', content: msg, okText: '我知道了', width: 480 });
-      } else {
-        message.success(msg);
-      }
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : '核准失敗';
-      if (errMsg.includes('超支') || errMsg.includes('預算') || errMsg.includes('budget')) {
-        Modal.error({ title: '預算超支攔截', content: errMsg, okText: '我知道了', width: 520 });
-      } else {
-        message.error(errMsg);
-      }
-    }
-  };
+  // 帳本 (Tab 2)
+  const [ledgerParams] = useState<LedgerQuery>({ skip: 0, limit: 50 });
+  const { data: ledgerData } = useLedger(ledgerParams);
+  const ledgerItems = ledgerData?.items ?? [];
+  const [activeTab, setActiveTab] = useState('expenses');
 
-  const handleReject = async (id: number) => {
-    try {
-      await rejectMutation.mutateAsync({ id });
-      message.success('已駁回');
-    } catch {
-      message.error('駁回失敗');
-    }
-  };
+  // Import modal
+  const [importOpen, setImportOpen] = useState(false);
 
-  const columns: ColumnsType<ExpenseInvoice> = [
-    { title: '發票號碼', dataIndex: 'inv_num', key: 'inv_num', width: 140 },
-    { title: '日期', dataIndex: 'date', key: 'date', width: 110 },
+  // Pending count — use a lightweight expenses query
+  const { data: pendingSummary } = useExpenses({ status: 'pending', skip: 0, limit: 1 });
+  const actualPendingCount = pendingSummary?.total ?? 0;
+
+  // ---------------------------------------------------------------------------
+  // Expanded row: fetch invoices for a specific group
+  // ---------------------------------------------------------------------------
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+
+  const ExpandedInvoiceTable: React.FC<{ record: ExpenseGroup }> = useCallback(
+    ({ record }) => <InvoiceSubTable record={record} caseCodeMap={caseCodeMap} navigate={navigate} canApprove={canApprove} />,
+    [caseCodeMap, navigate, canApprove],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Group columns (main table)
+  // ---------------------------------------------------------------------------
+  const groupColumns: ColumnsType<ExpenseGroup> = [
     {
-      title: '金額 (TWD)', dataIndex: 'amount', key: 'amount', width: 130, align: 'right',
-      render: (_: number, record: ExpenseInvoice) => {
-        const display = record.amount?.toLocaleString() ?? '-';
-        if (record.currency && record.currency !== 'TWD') {
+      title: '歸屬',
+      dataIndex: 'attribution_type',
+      key: 'attribution_type',
+      width: 110,
+      render: (v: string) => {
+        const map: Record<string, { label: string; color: string }> = {
+          project: { label: '專案', color: 'blue' },
+          operational: { label: '營運', color: 'green' },
+          none: { label: '未歸屬', color: 'default' },
+        };
+        const item = map[v] ?? { label: v, color: 'default' };
+        return <Tag color={item.color}>{item.label}</Tag>;
+      },
+    },
+    {
+      title: '分類/案件',
+      key: 'group_label',
+      ellipsis: true,
+      render: (_: unknown, record: ExpenseGroup) => {
+        if (record.case_code) {
+          const display = record.group_label || caseCodeMap?.[record.case_code] || record.project_code || record.case_code;
           return (
-            <span title={`${CURRENCY_SYMBOLS[record.currency]}${record.original_amount?.toLocaleString()} × ${record.exchange_rate}`}>
-              {display} <Tag style={{ fontSize: 10, marginLeft: 4 }}>{record.currency}</Tag>
-            </span>
+            <a
+              onClick={(e) => { e.stopPropagation(); navigate(`/pm/cases?search=${record.case_code}`); }}
+              title={`案件: ${record.case_code}`}
+            >
+              {display}
+            </a>
           );
         }
-        return display;
-      },
-    },
-    { title: '分類', dataIndex: 'category', key: 'category', width: 110 },
-    {
-      title: '案號', dataIndex: 'case_code', key: 'case_code', width: 160,
-      render: (v: string | null) => {
-        if (!v) return '一般營運';
-        const pc = caseCodeMap?.[v];
-        return pc ? <span title={v}>{pc}</span> : v;
+        return record.group_label;
       },
     },
     {
-      title: '來源', dataIndex: 'source', key: 'source', width: 100,
-      render: (v: string) => EXPENSE_SOURCE_LABELS[v as keyof typeof EXPENSE_SOURCE_LABELS] ?? v,
+      title: '筆數',
+      dataIndex: 'count',
+      key: 'count',
+      width: 90,
+      align: 'right',
+      render: (v: number) => v.toLocaleString(),
     },
     {
-      title: '狀態', dataIndex: 'status', key: 'status', width: 90,
-      render: (status: ExpenseInvoiceStatus) => <Tag color={EXPENSE_STATUS_COLORS[status]}>{EXPENSE_STATUS_LABELS[status]}</Tag>,
-    },
-    {
-      title: '操作', key: 'actions', width: 200,
-      render: (_: unknown, record: ExpenseInvoice) => {
-        const canAdvance = canApprove && !['verified', 'rejected'].includes(record.status);
-        const approveLabel: Record<string, string> = {
-          pending: '主管核准',
-          manager_approved: record.amount > APPROVAL_THRESHOLD ? '財務核准' : '最終核准',
-          finance_approved: '最終核准',
-          pending_receipt: '推進',
-        };
+      title: '金額合計',
+      dataIndex: 'total_amount',
+      key: 'total_amount',
+      width: 200,
+      render: (v: number) => {
+        const pct = groupedData?.total_amount ? (Number(v) / groupedData.total_amount * 100) : 0;
         return (
-          <Space>
-            <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(record.id))); }}>
-              詳情
-            </Button>
-            {canAdvance && (
-              <>
-                <Popconfirm title={`確定${approveLabel[record.status] ?? '核准'}？`} onConfirm={() => handleApprove(record.id)} okText="確定" cancelText="取消">
-                  <Button type="link" size="small" style={{ color: '#52c41a' }} icon={<CheckCircleOutlined />} onClick={(e) => e.stopPropagation()}>
-                    {approveLabel[record.status] ?? '核准'}
-                  </Button>
-                </Popconfirm>
-                <Popconfirm title="確定駁回？" onConfirm={() => handleReject(record.id)} okText="確定" cancelText="取消">
-                  <Button type="link" size="small" danger icon={<CloseCircleOutlined />} onClick={(e) => e.stopPropagation()}>駁回</Button>
-                </Popconfirm>
-              </>
-            )}
+          <Space size={8}>
+            <span style={{ fontWeight: 500, minWidth: 80, textAlign: 'right', display: 'inline-block' }}>
+              {Number(v).toLocaleString()}
+            </span>
+            <div style={{ width: 60 }}>
+              <div style={{ background: '#f0f0f0', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: pct > 50 ? '#1890ff' : '#52c41a', borderRadius: 4 }} />
+              </div>
+              <span style={{ fontSize: 11, color: '#999' }}>{pct.toFixed(0)}%</span>
+            </div>
           </Space>
         );
       },
@@ -177,121 +207,243 @@ const ERPExpenseListPage: React.FC = () => {
 
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
+      {/* Header + Toolbar */}
       <Card style={{ marginBottom: 16 }}>
         <Row justify="space-between" align="middle">
-          <Col><Title level={3} style={{ margin: 0 }}>財務記錄管理</Title></Col>
+          <Col><Title level={3} style={{ margin: 0 }}>費用核銷管理</Title></Col>
           <Col>
             <Space wrap>
-              <Button icon={<FileExcelOutlined />} onClick={() => templateMutation.mutate()} loading={templateMutation.isPending}>範本下載</Button>
-              <Upload
-                accept=".xlsx,.xls"
-                showUploadList={false}
-                beforeUpload={(file) => {
-                  importMutation.mutate(file, {
-                    onSuccess: (res) => {
-                      const d = (res as { data?: { created?: number; skipped?: number; errors?: Array<{ row: number; error: string }> } })?.data;
-                      message.success(`匯入完成: ${d?.created ?? 0} 新增, ${d?.skipped ?? 0} 跳過`);
-                      if (d?.errors?.length) {
-                        Modal.warning({ title: '部分資料匯入失敗', content: d.errors.map(e => `第 ${e.row} 行: ${e.error}`).join('\n'), width: 480 });
-                      }
-                    },
-                    onError: () => message.error('匯入失敗'),
-                  });
-                  return false;
-                }}
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate(ROUTES.ERP_EXPENSE_CREATE)}
+                size="large"
               >
-                <Button icon={<UploadOutlined />} loading={importMutation.isPending}>匯入</Button>
-              </Upload>
-              <Button icon={<CloudDownloadOutlined />} onClick={() => setMofOpen(true)}>
-                財政部發票 {(mofPendingData?.total ?? 0) > 0 && <Tag color="blue" style={{ marginLeft: 4 }}>{mofPendingData?.total}</Tag>}
+                新增核銷
               </Button>
-              <Button icon={<CameraOutlined />} onClick={() => setOcrOpen(true)}>OCR 辨識</Button>
-              <Button icon={<QrcodeOutlined />} onClick={() => setQrOpen(true)}>QR 掃描</Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(ROUTES.ERP_EXPENSE_CREATE)}>新增報銷</Button>
-              <Button icon={<PlusOutlined />} onClick={() => navigate(ROUTES.ERP_LEDGER_CREATE)}>手動記帳</Button>
+              <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>核銷匯入</Button>
             </Space>
           </Col>
         </Row>
+
+        {/* Stats cards */}
         <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-          <Col xs={12} sm={6}><Statistic title="發票總數" value={total} /></Col>
-          <Col xs={12} sm={6}><Statistic title="待審核" value={pendingCount} styles={{ content: { color: pendingCount > 0 ? '#faad14' : undefined } }} /></Col>
-          <Col xs={12} sm={6}><Statistic title="本頁金額合計" value={totalAmount} precision={0} /></Col>
-          <Col xs={12} sm={6}><Statistic title="總筆數" value={total} /></Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="核銷總筆數" value={totalCount} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="專案費用合計" value={projectAmount} precision={0} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="營運費用合計" value={operationalAmount} precision={0} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic
+              title="待審核"
+              value={actualPendingCount}
+              valueStyle={{ color: actualPendingCount > 0 ? '#faad14' : undefined }}
+            />
+          </Col>
         </Row>
       </Card>
 
-      {isError && <Alert type="error" message="載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
-
+      {/* Main content */}
       <Card>
-        <Space wrap style={{ marginBottom: 16 }}>
-          <AutoComplete
-            options={listAutoCompleteOptions}
-            onSearch={setListSearch}
-            onSelect={(val) => {
-              const found = items.find(i => i.inv_num === val);
-              if (found) navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(found.id)));
-            }}
-            style={{ width: 220 }}
-          >
-            <Input prefix={<SearchOutlined />} placeholder="搜尋發票號碼..." allowClear />
-          </AutoComplete>
-          <Select
-            placeholder="篩選專案" allowClear showSearch optionFilterProp="label"
-            value={params.case_code}
-            onChange={(v) => setParams(p => ({ ...p, case_code: v || undefined, skip: 0 }))}
-            style={{ width: 220 }}
-            options={projectOptions?.map(p => ({ value: p.project_code, label: `${p.project_code} ${p.project_name}` })) ?? []}
-          />
-          <Select
-            placeholder="狀態" allowClear style={{ width: 120 }}
-            onChange={(v) => setParams(p => ({ ...p, status: v, skip: 0 }))}
-            options={Object.entries(EXPENSE_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
-          />
-          <Select
-            placeholder="分類" allowClear style={{ width: 140 }}
-            onChange={(v) => setParams(p => ({ ...p, category: v, skip: 0 }))}
-            options={EXPENSE_CATEGORY_OPTIONS}
-          />
-          <RangePicker
-            onChange={(dates) => {
-              setParams(p => ({
-                ...p,
-                date_from: dates?.[0] ? dates[0].format('YYYY-MM-DD') : undefined,
-                date_to: dates?.[1] ? dates[1].format('YYYY-MM-DD') : undefined,
-                skip: 0,
-              }));
-            }}
-          />
-          <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
-        </Space>
-
-        <Table<ExpenseInvoice>
-          columns={columns}
-          dataSource={items}
-          rowKey="id"
-          loading={isLoading}
-          pagination={{
-            current: Math.floor((params.skip ?? 0) / (params.limit ?? 20)) + 1,
-            pageSize: params.limit ?? 20,
-            total,
-            onChange: (page, pageSize) => setParams(p => ({ ...p, skip: (page - 1) * pageSize, limit: pageSize })),
-            showSizeChanger: true,
-            showTotal: (t, range) => `第 ${range[0]}-${range[1]} 項，共 ${t} 項`,
-          }}
-          onRow={(record) => ({
-            onClick: () => navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(record.id))),
-            style: { cursor: 'pointer' },
-          })}
-          size="middle"
-          scroll={{ x: 1100 }}
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={[
+            {
+              key: 'expenses',
+              label: <><FileTextOutlined /> 費用發票 <Tag>{totalCount}</Tag></>,
+              children: null,
+            },
+            {
+              key: 'ledger',
+              label: <><BookOutlined /> 收支帳本 <Tag>{ledgerItems.length}</Tag></>,
+              children: null,
+            },
+          ]}
         />
+
+        {activeTab === 'expenses' ? (
+          <>
+            <Segmented
+              style={{ marginBottom: 16 }}
+              value={attributionType}
+              onChange={(v) => setAttributionType(v as string)}
+              options={[
+                { value: 'all', label: '全部' },
+                { value: 'project', label: '專案費用' },
+                { value: 'operational', label: '營運費用' },
+                { value: 'none', label: '未歸屬' },
+              ]}
+            />
+
+            <Table<ExpenseGroup>
+              columns={groupColumns}
+              dataSource={groups}
+              rowKey="group_key"
+              loading={groupedLoading}
+              size="middle"
+              pagination={false}
+              expandable={{
+                expandedRowKeys: expandedKeys,
+                onExpandedRowsChange: (keys) => setExpandedKeys(keys as string[]),
+                expandedRowRender: (record) => <ExpandedInvoiceTable record={record} />,
+                rowExpandable: () => true,
+              }}
+            />
+          </>
+        ) : (
+          /* 帳本 Tab */
+          <Table<FinanceLedger>
+            columns={[
+              {
+                title: '日期', dataIndex: 'transaction_date', key: 'date', width: 110,
+                render: (v?: string) => v ?? '-',
+              },
+              {
+                title: '類型', dataIndex: 'entry_type', key: 'type', width: 80,
+                render: (v: string) => (
+                  <Tag color={v === 'income' ? 'green' : 'red'}>
+                    {LEDGER_ENTRY_TYPE_LABELS[v as keyof typeof LEDGER_ENTRY_TYPE_LABELS] ?? v}
+                  </Tag>
+                ),
+              },
+              {
+                title: '金額', dataIndex: 'amount', key: 'amount', width: 120, align: 'right',
+                render: (v: number, r: FinanceLedger) => (
+                  <span style={{ color: r.entry_type === 'income' ? '#52c41a' : '#ff4d4f' }}>
+                    {r.entry_type === 'income' ? '+' : '-'} {Number(v).toLocaleString()}
+                  </span>
+                ),
+              },
+              { title: '分類', dataIndex: 'category', key: 'category', width: 100 },
+              { title: '摘要', dataIndex: 'description', key: 'description', ellipsis: true },
+              {
+                title: '案號', dataIndex: 'case_code', key: 'case_code', width: 140,
+                render: (v?: string) => v ? (caseCodeMap?.[v] || v) : '-',
+              },
+              {
+                title: '來源', dataIndex: 'source_type', key: 'source', width: 100,
+                render: (v: string) => {
+                  const labels: Record<string, string> = {
+                    manual: '手動', expense_invoice: '報銷', erp_billing: '請款',
+                    vendor_payable: '付款', operational: '營運',
+                  };
+                  return <Tag>{labels[v] ?? v}</Tag>;
+                },
+              },
+            ]}
+            dataSource={ledgerItems}
+            rowKey="id"
+            size="small"
+            pagination={{ pageSize: 20, showTotal: (t) => `共 ${t} 筆` }}
+          />
+        )}
       </Card>
 
-      <ExpenseCreateModal open={createOpen} onClose={() => setCreateOpen(false)} form={createForm} />
-      <QRScanModal open={qrOpen} onClose={() => setQrOpen(false)} />
-      <OCRModal open={ocrOpen} onClose={() => setOcrOpen(false)} createForm={createForm} onOpenCreate={() => setCreateOpen(true)} />
-      <MofInvoiceModal open={mofOpen} onClose={() => setMofOpen(false)} />
+      <ExpenseImportModal open={importOpen} onClose={() => setImportOpen(false)} onSuccess={() => void 0} />
     </ResponsiveContent>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Sub-component: Invoice sub-table (loaded on expand)
+// ---------------------------------------------------------------------------
+const InvoiceSubTable: React.FC<{
+  record: ExpenseGroup;
+  caseCodeMap: Record<string, string> | undefined;
+  navigate: ReturnType<typeof useNavigate>;
+  canApprove: boolean;
+}> = ({ record, navigate, canApprove }) => {
+  const { message } = App.useApp();
+  const approveMutation = useApproveExpense();
+  const rejectMutation = useRejectExpense();
+
+  const queryParams: ExpenseInvoiceQuery = {
+    ...(record.case_code ? { case_code: record.case_code } : {}),
+    attribution_type: record.attribution_type,
+    skip: 0,
+    limit: 100,
+  };
+
+  const { data, isLoading } = useExpenses(queryParams);
+  const items = data?.items ?? [];
+
+  const handleApprove = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    approveMutation.mutate(id, {
+      onSuccess: () => message.success('審核通過'),
+      onError: () => message.error('審核失敗'),
+    });
+  };
+
+  const handleReject = (id: number) => {
+    rejectMutation.mutate({ id, reason: '' }, {
+      onSuccess: () => message.success('已駁回'),
+      onError: () => message.error('駁回失敗'),
+    });
+  };
+
+  const subColumns: ColumnsType<ExpenseInvoice> = [
+    { title: '發票號碼', dataIndex: 'inv_num', key: 'inv_num', width: 140 },
+    { title: '日期', dataIndex: 'date', key: 'date', width: 110 },
+    {
+      title: '金額', dataIndex: 'amount', key: 'amount', width: 130, align: 'right',
+      render: (v: number) => `NT$ ${Number(v).toLocaleString()}`,
+    },
+    {
+      title: '狀態', dataIndex: 'status', key: 'status', width: 90,
+      render: (status: ExpenseInvoiceStatus) => (
+        <Tag color={EXPENSE_STATUS_COLORS[status]}>{EXPENSE_STATUS_LABELS[status]}</Tag>
+      ),
+    },
+    { title: '分類', dataIndex: 'category', key: 'category', width: 110 },
+    {
+      title: '來源', dataIndex: 'source', key: 'source', width: 100,
+      render: (v: string) => EXPENSE_SOURCE_LABELS[v as keyof typeof EXPENSE_SOURCE_LABELS] ?? v,
+    },
+    ...(canApprove ? [{
+      title: '操作', key: 'action', width: 140,
+      render: (_: unknown, row: ExpenseInvoice) => {
+        if (row.status === 'verified' || row.status === 'rejected') return null;
+        return (
+          <Space size="small" onClick={(e) => e.stopPropagation()}>
+            <Button
+              type="link" size="small" icon={<CheckCircleOutlined />}
+              style={{ color: '#52c41a' }}
+              onClick={(e) => handleApprove(row.id, e)}
+              loading={approveMutation.isPending}
+            >
+              通過
+            </Button>
+            <Popconfirm title="確定駁回？" onConfirm={() => handleReject(row.id)} okText="駁回" cancelText="取消">
+              <Button type="link" size="small" icon={<CloseCircleOutlined />} danger>駁回</Button>
+            </Popconfirm>
+          </Space>
+        );
+      },
+    }] as ColumnsType<ExpenseInvoice> : []),
+  ];
+
+  if (isLoading) {
+    return <Spin style={{ display: 'block', padding: 24, textAlign: 'center' }} />;
+  }
+
+  return (
+    <Table<ExpenseInvoice>
+      columns={subColumns}
+      dataSource={items}
+      rowKey="id"
+      size="small"
+      pagination={false}
+      onRow={(row) => ({
+        onClick: () => navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(row.id))),
+        style: { cursor: 'pointer' },
+      })}
+    />
   );
 };
 

@@ -5,9 +5,9 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Card, Table, Typography, Statistic, Row, Col, Tag, Select, Progress, Space, Button, Alert,
+  Card, Table, Typography, Statistic, Row, Col, Tag, Select, Progress, Space, Button, Alert, Segmented,
 } from 'antd';
-import { ReloadOutlined, WarningOutlined, DownloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, WarningOutlined, DownloadOutlined, ProjectOutlined, ShopOutlined, ToolOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
 import { useCompanyFinancialOverview, useAllProjectsSummary, useExportExpenses, useExportLedger, useMonthlyTrend, useBudgetRanking, useAgingAnalysis } from '../hooks';
@@ -43,6 +43,7 @@ const yearOptions = Array.from({ length: 5 }, (_, i) => ({
 
 const ERPFinancialDashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const [dashView, setDashView] = useState<'all' | 'project' | 'operational' | 'asset'>('all');
   const [overviewParams] = useState<CompanyOverviewRequest>({ top_n: 10 });
   const [projectsYear, setProjectsYear] = useState<number | undefined>();
   const { data: overviewData, isLoading: overviewLoading, isError: overviewError, refetch: refetchOverview } = useCompanyFinancialOverview(overviewParams);
@@ -248,10 +249,25 @@ const ERPFinancialDashboardPage: React.FC = () => {
         )}
       </Card>
 
-      {/* 圖表分析區 */}
+      {/* 面向切換 */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Segmented
+          block
+          value={dashView}
+          onChange={(v) => setDashView(v as typeof dashView)}
+          options={[
+            { value: 'all', icon: <ReloadOutlined />, label: '全部' },
+            { value: 'project', icon: <ProjectOutlined />, label: '專案財務' },
+            { value: 'operational', icon: <ShopOutlined />, label: '營運財務' },
+            { value: 'asset', icon: <ToolOutlined />, label: '資產財務' },
+          ]}
+        />
+      </Card>
+
+      {/* 圖表分析區 — 依面向篩選 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        {/* 跨專案利潤率排名 */}
-        <Col xs={24} lg={14}>
+        {/* 跨專案利潤率排名 (專案/全部) */}
+        <Col xs={24} lg={14} style={{ display: (dashView === 'all' || dashView === 'project') ? undefined : 'none' }}>
           <Card title={<Text strong>專案利潤排名 (Top 15)</Text>} size="small">
             {profitChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={360}>
@@ -280,8 +296,8 @@ const ERPFinancialDashboardPage: React.FC = () => {
           </Card>
         </Col>
 
-        {/* 支出分類圓餅圖 */}
-        <Col xs={24} lg={10}>
+        {/* 支出分類圓餅圖 (全部/營運) */}
+        <Col xs={24} lg={10} style={{ display: (dashView === 'all' || dashView === 'operational') ? undefined : 'none' }}>
           <Card title={<Text strong>支出分類分布</Text>} size="small">
             {categoryPieData.length > 0 ? (
               <ResponsiveContainer width="100%" height={360}>
@@ -313,8 +329,8 @@ const ERPFinancialDashboardPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 月度收支趨勢 + 預算使用率排行 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+      {/* 月度收支趨勢 + 預算使用率排行 (全部/專案) */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16, display: (dashView === 'all' || dashView === 'project') ? undefined : 'none' }}>
         <Col xs={24} lg={14}>
           <Card title={<Text strong>月度收支趨勢 (近 12 個月)</Text>} size="small" loading={trendLoading}>
             {trendMonths.length > 0 ? (
@@ -362,8 +378,8 @@ const ERPFinancialDashboardPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 帳齡分析 + AR vs AP 對比 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+      {/* 帳齡分析 + AR vs AP 對比 (全部/專案) */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16, display: (dashView === 'all' || dashView === 'project') ? undefined : 'none' }}>
         <Col xs={24} lg={14}>
           <Card title={<Text strong>應收 vs 應付帳齡對比</Text>} size="small" loading={arAgingLoading || apAgingLoading}>
             {arVsApData.length > 0 ? (
@@ -407,7 +423,8 @@ const ERPFinancialDashboardPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 專案財務一覽 */}
+      {/* 專案財務一覽 (專案/全部) */}
+      <div style={{ display: (dashView === 'all' || dashView === 'project') ? undefined : 'none' }}>
       <Card
         title={<Text strong>專案財務一覽</Text>}
         extra={
@@ -432,6 +449,55 @@ const ERPFinancialDashboardPage: React.FC = () => {
           scroll={{ x: 1200 }}
         />
       </Card>
+      </div>
+
+      {/* 營運面向 — 支出佔比 + 快速入口 */}
+      {dashView === 'operational' && overview && (
+        <Card title="營運財務概覽">
+          <Row gutter={[16, 16]}>
+            <Col xs={12} sm={8}>
+              <Statistic title="營運支出" value={Number(overview.operation_expense)} precision={0} prefix="NT$" />
+            </Col>
+            <Col xs={12} sm={8}>
+              <Statistic
+                title="佔總支出比"
+                value={Number(overview.total_expense) > 0
+                  ? (Number(overview.operation_expense) / Number(overview.total_expense) * 100)
+                  : 0}
+                suffix="%" precision={1}
+              />
+            </Col>
+            <Col xs={12} sm={8}>
+              <Button type="primary" onClick={() => navigate(ROUTES.ERP_OPERATIONAL)}>進入營運帳目</Button>
+            </Col>
+          </Row>
+          {/* 支出分類圓餅 (營運面向時同樣顯示) */}
+          {categoryPieData.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <Text strong>支出分類分布</Text>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={categoryPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                    {categoryPieData.map((_: unknown, idx: number) => <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => [`NT$ ${value.toLocaleString()}`, '金額']} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* 資產面向 — 快速入口 */}
+      {dashView === 'asset' && (
+        <Card title="資產財務概覽">
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={8}>
+              <Button type="primary" size="large" onClick={() => navigate(ROUTES.ERP_ASSETS)}>進入資產管理</Button>
+            </Col>
+          </Row>
+        </Card>
+      )}
     </ResponsiveContent>
   );
 };

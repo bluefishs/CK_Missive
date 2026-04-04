@@ -150,6 +150,12 @@ export const ERP_ENDPOINTS = {
   EXPENSES_RECEIPT_IMAGE: '/erp/expenses/receipt-image',
   /** OCR 辨識發票影像 POST /erp/expenses/ocr-parse */
   EXPENSES_OCR_PARSE: '/erp/expenses/ocr-parse',
+  /** 智慧發票辨識 (QR+OCR) POST /erp/expenses/smart-scan */
+  EXPENSES_SMART_SCAN: '/erp/expenses/smart-scan',
+  /** AI 費用分類建議 POST /erp/expenses/suggest-category */
+  EXPENSES_SUGGEST_CATEGORY: '/erp/expenses/suggest-category',
+  /** 費用核銷分組彙總 POST /erp/expenses/grouped-summary */
+  EXPENSES_GROUPED_SUMMARY: '/erp/expenses/grouped-summary',
   /** 自動關聯電子發票 POST /erp/expenses/auto-link-einvoice */
   EXPENSES_AUTO_LINK_EINVOICE: '/erp/expenses/auto-link-einvoice',
   /** 匯入費用報銷 Excel POST /erp/expenses/import */
@@ -242,6 +248,10 @@ export const ERP_ENDPOINTS = {
   ASSETS_IMPORT: '/erp/assets/import',
   /** 下載資產匯入範本 Excel POST /erp/assets/import-template */
   ASSETS_IMPORT_TEMPLATE: '/erp/assets/import-template',
+  /** 上傳資產照片 POST /erp/assets/upload-photo */
+  ASSETS_UPLOAD_PHOTO: '/erp/assets/upload-photo',
+  /** 取得資產照片 POST /erp/assets/photo */
+  ASSETS_PHOTO: '/erp/assets/photo',
 
   // --- 營運帳目 (operational) ---
   /** 營運帳目列表 POST /erp/operational/list */

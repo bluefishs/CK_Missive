@@ -14,6 +14,7 @@ import {
 import {
   EditOutlined, DeleteOutlined, RocketOutlined, SaveOutlined, CloseOutlined,
   InfoCircleOutlined, TeamOutlined, PaperClipOutlined, BarChartOutlined, PlusOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -35,6 +36,7 @@ import { createTabItem, getTagColor } from '../components/common/DetailPage/util
 const MilestonesGanttTab = lazy(() => import('./pmCase/MilestonesGanttTab'));
 const PMStaffTab = lazy(() => import('./pmCase/StaffTab'));
 const QuotationRecordsTab = lazy(() => import('./pmCase/QuotationRecordsTab'));
+const ExpensesTab = lazy(() => import('./pmCase/ExpensesTab'));
 
 // 承攬狀態：是否承作 → 是=已承攬, 否=未承攬, 其他=評估中
 const STATUS_OPTIONS = [
@@ -295,6 +297,9 @@ export const PMCaseDetailPage: React.FC = () => {
     )),
     createTabItem('milestones', { icon: <BarChartOutlined />, text: '里程碑/甘特圖' }, (
       <Suspense fallback={<Spin />}><MilestonesGanttTab pmCaseId={pmCase.id} /></Suspense>
+    )),
+    createTabItem('expenses', { icon: <FileTextOutlined />, text: '費用核銷' }, (
+      <Suspense fallback={<Spin />}><ExpensesTab caseCode={pmCase.case_code} /></Suspense>
     )),
   ] : [];
 

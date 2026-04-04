@@ -121,6 +121,7 @@ async def export_expenses(
             date_to=params.date_to,
             case_code=params.case_code,
             status=params.status,
+            attribution_type=params.attribution_type,
         )
     except Exception as e:
         logger.error(f"匯出費用報銷失敗: {e}")

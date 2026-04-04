@@ -65,29 +65,55 @@ class FinanceExportService:
         date_to: Optional[date] = None,
         case_code: Optional[str] = None,
         status: Optional[str] = None,
+        attribution_type: Optional[str] = None,
     ) -> bytes:
-        """匯出費用報銷明細 Excel"""
+        """匯出費用報銷明細 Excel (按歸屬分組，每組一個 Sheet)"""
         query = ExpenseInvoiceQuery(
             date_from=date_from, date_to=date_to,
             case_code=case_code, status=status,
+            attribution_type=attribution_type,
             skip=0, limit=100,
         )
         items, total = await self.expense_repo.query(query)
 
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "費用報銷明細"
+        # 按歸屬分組
+        from collections import defaultdict
+        groups: dict = defaultdict(list)
+        for item in items:
+            attr = str(getattr(item, 'attribution_type', 'none') or 'none')
+            cc = str(getattr(item, 'case_code', '') or '')
+            key = cc if attr == 'project' and cc else attr
+            groups[key].append(item)
 
-        # 標題
+        wb = Workbook()
+        first_sheet = True
+        for group_key, group_items in sorted(groups.items(), key=lambda x: str(x[0])):
+            sheet_name = group_key[:31]  # Excel sheet name max 31 chars
+            if first_sheet:
+                ws = wb.active
+                ws.title = sheet_name
+                first_sheet = False
+            else:
+                ws = wb.create_sheet(title=sheet_name)
+            self._write_expense_sheet(ws, group_items, group_key, date_from, date_to)
+
+        if first_sheet:
+            ws = wb.active
+            ws.title = "費用報銷明細"
+            self._write_expense_sheet(ws, [], "無資料", date_from, date_to)
+
+        return self._save_to_bytes(wb)
+
+    def _write_expense_sheet(self, ws, items, group_key: str, date_from=None, date_to=None):
+        """寫入單一 Sheet 的費用資料"""
         ws.merge_cells("A1:L1")
         title_cell = ws["A1"]
-        title_cell.value = self._build_title("費用報銷明細表", date_from, date_to, case_code)
+        title_cell.value = self._build_title(f"費用明細 — {group_key}", date_from, date_to, None)
         title_cell.font = _TITLE_FONT
         title_cell.alignment = Alignment(horizontal="center")
 
-        ws.append([])  # 空行
+        ws.append([])
 
-        # 表頭
         headers = ["發票號碼", "日期", "金額", "幣別", "原幣金額", "匯率", "稅額", "分類", "案號", "來源", "狀態", "備註"]
         ws.append(headers)
         for col_idx, _ in enumerate(headers, 1):
@@ -97,7 +123,6 @@ class FinanceExportService:
             cell.alignment = Alignment(horizontal="center")
             cell.border = _BORDER
 
-        # 資料列
         total_amount = Decimal("0")
         total_tax = Decimal("0")
         for item in items:
@@ -119,13 +144,12 @@ class FinanceExportService:
                 float(Decimal(str(ex_rate))) if ex_rate else "",
                 float(tax) if item.tax_amount else "",
                 item.category or "",
-                item.case_code or "一般營運",
+                item.case_code or "營運",
                 _SOURCE_LABELS.get(item.source, item.source),
                 _STATUS_LABELS.get(item.status, item.status),
                 item.notes or "",
             ])
 
-        # 合計列
         row_idx = len(items) + 4
         ws.cell(row=row_idx, column=1, value="合計").font = Font(bold=True)
         ws.cell(row=row_idx, column=3, value=float(total_amount)).font = Font(bold=True)
@@ -133,21 +157,16 @@ class FinanceExportService:
         ws.cell(row=row_idx, column=7, value=float(total_tax)).font = Font(bold=True)
         ws.cell(row=row_idx, column=7).number_format = _NUM_FORMAT
 
-        # 統計資訊
         ws.cell(row=row_idx + 2, column=1, value=f"匯出時間: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        ws.cell(row=row_idx + 3, column=1, value=f"共 {len(items)} 筆 (總計 {total} 筆符合條件)")
+        ws.cell(row=row_idx + 3, column=1, value=f"共 {len(items)} 筆")
 
-        # 欄寬
         self._auto_column_width(ws, headers)
 
-        # 數字格式
         for row in ws.iter_rows(min_row=4, max_row=row_idx - 1, min_col=3, max_col=7):
             for cell in row:
                 if isinstance(cell.value, (int, float)):
                     cell.number_format = _NUM_FORMAT
                     cell.alignment = Alignment(horizontal="right")
-
-        return self._save_to_bytes(wb)
 
     async def export_ledger(
         self,

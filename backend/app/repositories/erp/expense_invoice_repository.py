@@ -35,10 +35,13 @@ class ExpenseInvoiceRepository(BaseRepository[ExpenseInvoice]):
         return list(items), total or 0
 
     async def query(self, params: ExpenseInvoiceQuery) -> Tuple[List[ExpenseInvoice], int]:
-        stmt = select(self.model)
+        from sqlalchemy.orm import selectinload
+        stmt = select(self.model).options(selectinload(self.model.items))
         
         if params.case_code:
             stmt = stmt.where(self.model.case_code == params.case_code)
+        if params.attribution_type:
+            stmt = stmt.where(self.model.attribution_type == params.attribution_type)
         if params.category:
             stmt = stmt.where(self.model.category == params.category)
         if params.status:
