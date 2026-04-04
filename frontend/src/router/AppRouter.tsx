@@ -131,6 +131,7 @@ const TenderGraphPage = lazy(() => import('../pages/TenderGraphPage'));
 const TenderDashboardPage = lazy(() => import('../pages/TenderDashboardPage'));
 const TenderOrgEcosystemPage = lazy(() => import('../pages/TenderOrgEcosystemPage'));
 const TenderCompanyProfilePage = lazy(() => import('../pages/TenderCompanyProfilePage'));
+const TenderBattleRoomPage = lazy(() => import('../pages/TenderBattleRoomPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
@@ -281,6 +282,7 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.TENDER_DASHBOARD} element={<ProtectedRoute><TenderDashboardPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_ORG_ECOSYSTEM} element={<ProtectedRoute><TenderOrgEcosystemPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_COMPANY_PROFILE} element={<ProtectedRoute><TenderCompanyProfilePage /></ProtectedRoute>} />
+          <Route path={ROUTES.TENDER_BATTLE_ROOM} element={<ProtectedRoute><TenderBattleRoomPage /></ProtectedRoute>} />
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
 
