@@ -11,7 +11,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Card, Table, Button, Space, Tag, Typography,
-  Statistic, Row, Col, Tabs, Segmented,
+  Statistic, Row, Col, Tabs,
 } from 'antd';
 import {
   PlusOutlined, BookOutlined,
@@ -51,11 +51,9 @@ const ERPExpenseListPage: React.FC = () => {
   const canApprove = hasPermission('projects:write');
   const { data: caseCodeMap } = useCaseCodeMap();
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState('expenses');
-
-  // Segmented filter
-  const [attributionType, setAttributionType] = useState<string>('all');
+  // Tab = attribution filter (tab key maps to attribution_type)
+  const [activeTab, setActiveTab] = useState('all');
+  const attributionType = activeTab === 'ledger' ? 'all' : activeTab;
 
   // Grouped summary query
   const {
@@ -231,33 +229,16 @@ const ERPExpenseListPage: React.FC = () => {
           activeKey={activeTab}
           onChange={setActiveTab}
           items={[
-            {
-              key: 'expenses',
-              label: <><FileTextOutlined /> 專案費用 <Tag>{totalCount}</Tag></>,
-              children: null,
-            },
-            {
-              key: 'ledger',
-              label: <><BookOutlined /> 收支帳本 <Tag>{ledgerItems.length}</Tag></>,
-              children: null,
-            },
+            { key: 'all', label: <><FileTextOutlined /> 全部 <Tag>{totalCount}</Tag></> },
+            { key: 'project', label: <>專案費用</> },
+            { key: 'operational', label: <>營運費用</> },
+            { key: 'none', label: <>未歸屬</> },
+            { key: 'ledger', label: <><BookOutlined /> 收支帳本 <Tag>{ledgerItems.length}</Tag></> },
           ]}
         />
 
-        {activeTab === 'expenses' ? (
+        {activeTab !== 'ledger' ? (
           <>
-            <Segmented
-              style={{ marginBottom: 16 }}
-              value={attributionType}
-              onChange={(v) => setAttributionType(v as string)}
-              options={[
-                { value: 'all', label: '全部' },
-                { value: 'project', label: '專案費用' },
-                { value: 'operational', label: '營運費用' },
-                { value: 'none', label: '未歸屬' },
-              ]}
-            />
-
             <Table<ExpenseGroup>
               columns={groupColumns}
               dataSource={groups}
