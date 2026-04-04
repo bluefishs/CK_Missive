@@ -14,9 +14,11 @@ import {
   EditOutlined, DeleteOutlined, DollarOutlined,
   InfoCircleOutlined, BankOutlined,
 } from '@ant-design/icons';
+import { FileTextOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useERPQuotation, useAuthGuard } from '../hooks';
 import { AccountRecordTab } from './erpQuotation/AccountRecordTab';
+import ExpensesTab from './erpQuotation/ExpensesTab';
 import { ROUTES } from '../router/types';
 
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
@@ -148,6 +150,9 @@ export const ERPQuotationDetailPage: React.FC = () => {
     )),
     createTabItem('payable', { icon: <DollarOutlined />, text: '應付帳款' }, (
       id ? <AccountRecordTab erpQuotationId={Number(id)} direction="payable" /> : null
+    )),
+    createTabItem('expenses', { icon: <FileTextOutlined />, text: '費用核銷' }, (
+      quotation?.case_code ? <ExpensesTab caseCode={quotation.case_code} /> : null
     )),
   ] : [];
 
