@@ -178,23 +178,28 @@ class TenderSearchService:
     # =========================================================================
 
     async def _fetch(self, url: str, params: dict) -> Optional[dict]:
-        """HTTP GET with timeout and error handling"""
+        """HTTP GET with timeout and error handling
+
+        PCC API 偶爾以 Big5 編碼回傳，需嘗試多種 charset 解碼。
+        """
+        import json as _json
         try:
             async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
                 resp = await client.get(url, params=params)
-                if resp.status_code == 200:
-                    # 強制 UTF-8 解碼避免 Big5/Latin 混用
-                    return resp.json()
-                logger.warning(f"PCC API {resp.status_code}: {url} {params}")
-                return None
-        except UnicodeDecodeError:
-            # PCC API 偶爾回傳非 UTF-8 內容
-            try:
-                text = resp.content.decode("utf-8", errors="replace")
-                import json
-                return json.loads(text)
-            except Exception:
-                logger.warning(f"PCC API decode error: {url}")
+                if resp.status_code != 200:
+                    logger.warning(f"PCC API {resp.status_code}: {url} {params}")
+                    return None
+
+                # 嘗試按 response charset 解碼，回退 utf-8 → big5
+                content = resp.content
+                for encoding in ("utf-8", "big5", "latin-1"):
+                    try:
+                        text = content.decode(encoding)
+                        return _json.loads(text)
+                    except (UnicodeDecodeError, _json.JSONDecodeError):
+                        continue
+
+                logger.warning(f"PCC API all decode attempts failed: {url}")
                 return None
         except Exception as e:
             logger.error(f"PCC API error: {e}")
