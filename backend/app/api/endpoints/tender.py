@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -416,7 +417,9 @@ async def analytics_org_ecosystem(request: Request):
     try:
         svc = TenderAnalyticsService()
         result = await svc.org_ecosystem(org_name=org_name, pages=body.get("pages", 3))
-        return SuccessResponse(data=result)
+        import json as _json
+        return JSONResponse(content={"success": True, "data": result},
+                            media_type="application/json; charset=utf-8")
     except Exception as e:
         logger.error(f"org-ecosystem error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)[:200])
@@ -433,7 +436,8 @@ async def analytics_company_profile(request: Request):
     try:
         svc = TenderAnalyticsService()
         result = await svc.company_profile(company_name=company_name, pages=body.get("pages", 3))
-        return SuccessResponse(data=result)
+        return JSONResponse(content={"success": True, "data": result},
+                            media_type="application/json; charset=utf-8")
     except Exception as e:
         logger.error(f"company-profile error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)[:200])
