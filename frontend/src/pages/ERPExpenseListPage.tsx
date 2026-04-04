@@ -134,17 +134,22 @@ const ERPExpenseListPage: React.FC = () => {
       title: '分類/案件',
       key: 'group_label',
       ellipsis: true,
-      render: (_: unknown, record: ExpenseGroup) => {
+      render: (_: unknown, record: ExpenseGroup & { erp_quotation_id?: number }) => {
         if (record.case_code) {
           const display = record.group_label || caseCodeMap?.[record.case_code] || record.project_code || record.case_code;
-          return (
-            <a
-              onClick={(e) => { e.stopPropagation(); navigate(`/pm/cases?search=${record.case_code}`); }}
-              title={`案件: ${record.case_code}`}
-            >
-              {display}
-            </a>
-          );
+          // 有 ERP 報價 → 導航到專案財務
+          if (record.erp_quotation_id) {
+            return (
+              <a
+                onClick={(e) => { e.stopPropagation(); navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(record.erp_quotation_id))); }}
+                title={`專案財務: ${record.case_code}`}
+              >
+                {display}
+              </a>
+            );
+          }
+          // 無 ERP 報價 → 顯示案件代碼（不可點擊）
+          return <span title={record.case_code}>{display}</span>;
         }
         return record.group_label;
       },

@@ -180,20 +180,29 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         for g in group_map.values():
             g["categories"] = sorted(g.pop("_cat_map").values(), key=lambda c: c["amount"], reverse=True)
 
-        # Enrich with project_code + case_name
+        # Enrich with project_code + case_name + erp_quotation_id
         case_codes = [g["case_code"] for g in group_map.values() if g["case_code"]]
         if case_codes:
             from app.extended.models.pm import PMCase
+            from app.extended.models.erp import ERPQuotation
             code_stmt = select(PMCase.case_code, PMCase.project_code, PMCase.case_name).where(
                 PMCase.case_code.in_(case_codes)
             )
             code_result = await self.db.execute(code_stmt)
             code_map = {r.case_code: r for r in code_result.all()}
+
+            erp_stmt = select(ERPQuotation.case_code, ERPQuotation.id).where(
+                ERPQuotation.case_code.in_(case_codes)
+            )
+            erp_result = await self.db.execute(erp_stmt)
+            erp_map = {r.case_code: r.id for r in erp_result.all()}
+
             for g in group_map.values():
                 info = code_map.get(g["case_code"])
                 if info:
                     g["project_code"] = info.project_code
                     g["group_label"] = f"{info.project_code or info.case_code} {info.case_name or ''}"
+                g["erp_quotation_id"] = erp_map.get(g["case_code"])
 
         groups = sorted(group_map.values(), key=lambda x: x["total_amount"], reverse=True)
         return {
