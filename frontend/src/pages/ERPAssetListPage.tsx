@@ -5,8 +5,8 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Alert, Card, Table, Button, Space, Tag, Input, Select, Typography,
-  Statistic, Row, Col, Modal, Upload, message,
+  Alert, App, Card, Table, Button, Space, Tag, Input, Select, Typography,
+  Statistic, Row, Col, Modal, Upload,
 } from 'antd';
 import {
   PlusOutlined, ReloadOutlined, SearchOutlined, DownloadOutlined,
@@ -63,6 +63,7 @@ interface AssetListParams {
 
 const ERPAssetListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const [params, setParams] = useState<AssetListParams>({ skip: 0, limit: 20 });
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
@@ -149,22 +150,13 @@ const ERPAssetListPage: React.FC = () => {
     },
     {
       title: '目前價值',
-      dataIndex: 'current_value',
       key: 'current_value',
       width: 120,
       align: 'right',
-      render: (val?: number) => val != null ? val.toLocaleString() : '-',
-    },
-    {
-      title: '狀態',
-      dataIndex: 'status',
-      key: 'status',
-      width: 90,
-      render: (status: string) => (
-        <Tag color={STATUS_COLORS[status] ?? 'default'}>
-          {STATUS_LABELS[status] ?? status}
-        </Tag>
-      ),
+      render: (_: unknown, record: Asset) => {
+        const val = record.current_value ?? record.purchase_amount;
+        return val != null ? val.toLocaleString() : '-';
+      },
     },
     {
       title: '存放位置',
@@ -180,6 +172,17 @@ const ERPAssetListPage: React.FC = () => {
       key: 'custodian',
       width: 100,
       render: (val?: string) => val ?? '-',
+    },
+    {
+      title: '狀態',
+      dataIndex: 'status',
+      key: 'status',
+      width: 90,
+      render: (status: string) => (
+        <Tag color={STATUS_COLORS[status] ?? 'default'}>
+          {STATUS_LABELS[status] ?? status}
+        </Tag>
+      ),
     },
   ];
 
@@ -220,13 +223,14 @@ const ERPAssetListPage: React.FC = () => {
                 accept=".xlsx,.xls"
                 showUploadList={false}
                 beforeUpload={(file) => {
-                  importMutation.mutate(file, {
-                    onSuccess: (res) => {
-                      const d = res?.data;
-                      message.success(`匯入完成: ${d?.created ?? 0} 新增, ${d?.updated ?? 0} 更新`);
-                    },
-                    onError: () => message.error('匯入失敗'),
-                  });
+                  importMutation.mutateAsync(file).then((res) => {
+                    const d = res?.data;
+                    const parts = [`共 ${d?.total_rows ?? 0} 列`, `${d?.created ?? 0} 新增`, `${d?.updated ?? 0} 更新`];
+                    if (d?.skipped) parts.push(`${d.skipped} 跳過`);
+                    if (d?.errors?.length) parts.push(`${d.errors.length} 錯誤`);
+                    message.success(`匯入完成: ${parts.join(', ')}`);
+                    refetch();
+                  }).catch(() => message.error('匯入失敗'));
                   return false;
                 }}
               >

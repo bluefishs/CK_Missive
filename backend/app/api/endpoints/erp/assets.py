@@ -1,9 +1,13 @@
 """資產管理 API 端點 (POST-only)"""
+import os
+import uuid
 import logging
+from pathlib import Path
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import StreamingResponse
+import aiofiles
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse, FileResponse
 
 from app.core.dependencies import get_service, optional_auth, require_auth
 from app.extended.models import User
@@ -23,6 +27,10 @@ from app.schemas.erp.requests import ERPIdRequest
 from app.schemas.common import PaginatedResponse, SuccessResponse
 
 logger = logging.getLogger(__name__)
+
+ASSET_PHOTO_DIR = Path(os.getenv("ASSET_PHOTO_DIR", "uploads/asset_photos"))
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
+MAX_PHOTO_SIZE = 10 * 1024 * 1024  # 10MB
 
 router = APIRouter()
 
@@ -251,3 +259,89 @@ async def export_inventory_report(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/upload-photo")
+async def upload_asset_photo(
+    asset_id: int = Form(..., description="資產 ID"),
+    file: UploadFile = File(..., description="資產照片"),
+    service: AssetService = Depends(get_service(AssetService)),
+    current_user: User = Depends(require_auth()),
+):
+    """上傳資產照片"""
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="僅支援 JPEG/PNG/WebP/HEIC 格式")
+
+    content = await file.read()
+    if len(content) > MAX_PHOTO_SIZE:
+        raise HTTPException(status_code=400, detail="檔案大小超過 10MB")
+
+    asset = await service.get_asset(asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="資產不存在")
+
+    ASSET_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+    ext = Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
+    filename = f"asset_{asset_id}_{uuid.uuid4().hex[:8]}{ext}"
+    file_path = ASSET_PHOTO_DIR / filename
+
+    async with aiofiles.open(file_path, "wb") as f:
+        await f.write(content)
+
+    relative_path = f"uploads/asset_photos/{filename}"
+
+    # Gemma 4 Vision 自動描述 (背景執行，不阻塞回應)
+    ai_description = None
+    try:
+        import httpx, base64
+        from app.services.ai.ai_config import get_ai_config
+        config = get_ai_config()
+        img_b64 = base64.b64encode(content).decode("ascii")
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{config.ollama_base_url}/api/chat",
+                json={
+                    "model": config.ollama_model,
+                    "messages": [{
+                        "role": "user",
+                        "content": "請用繁體中文簡短描述這張資產照片的內容（設備型號、外觀、狀態），30字以內。",
+                        "images": [img_b64],
+                    }],
+                    "stream": False,
+                    "think": False,
+                    "options": {"temperature": 0.2, "num_predict": 60},
+                },
+                timeout=30,
+            )
+            ai_description = resp.json().get("message", {}).get("content", "").strip()
+    except Exception as e:
+        logger.debug(f"Vision 描述失敗: {e}")
+
+    from app.schemas.erp.asset import AssetUpdateRequest
+    update_data = AssetUpdateRequest(id=asset_id, photo_path=relative_path)
+    if ai_description and not asset.notes:
+        update_data.notes = ai_description
+    await service.update_asset(update_data, user_id=current_user.id)
+
+    return SuccessResponse(
+        data={"photo_path": relative_path, "ai_description": ai_description},
+        message="照片上傳成功" + (f"（AI: {ai_description}）" if ai_description else ""),
+    )
+
+
+@router.post("/photo")
+async def get_asset_photo(
+    params: ERPIdRequest,
+    service: AssetService = Depends(get_service(AssetService)),
+    current_user: User = Depends(require_auth()),
+):
+    """取得資產照片"""
+    asset = await service.get_asset(params.id)
+    if not asset or not asset.photo_path:
+        raise HTTPException(status_code=404, detail="照片不存在")
+
+    file_path = Path(asset.photo_path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="照片檔案遺失")
+
+    return FileResponse(str(file_path))

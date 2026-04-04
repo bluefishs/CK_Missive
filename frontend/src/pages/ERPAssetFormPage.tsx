@@ -3,19 +3,22 @@
  *
  * 偵測 :id 參數區分新增 vs 編輯模式
  *
- * @version 1.0.0
+ * @version 2.0.0
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Card, Form, Input, InputNumber, Select, DatePicker, Button,
-  Typography, Space, App,
+  Typography, Space, App, Upload, Image,
 } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SaveOutlined, CameraOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { useAssetDetail, useCreateAsset, useUpdateAsset } from '../hooks';
+import { useAssetDetail, useCreateAsset, useUpdateAsset, useCaseCodeMap } from '../hooks';
+import { useUsersDropdown } from '../hooks/business/useDropdownData';
 import { ROUTES } from '../router/types';
+import { ERP_ENDPOINTS } from '../api/endpoints';
+import apiClient from '../api/client';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -58,6 +61,26 @@ const ERPAssetFormPage: React.FC = () => {
   const { data: existingAsset, isLoading } = useAssetDetail(isEdit ? Number(id) : null);
   const createMutation = useCreateAsset();
   const updateMutation = useUpdateAsset();
+  const { users, isLoading: usersLoading } = useUsersDropdown();
+  const { data: caseCodeMap } = useCaseCodeMap();
+
+  // 保管人下拉選項 (存名字字串，相容現有資料)
+  const custodianOptions = useMemo(
+    () => users.map(u => ({
+      value: u.full_name || u.username,
+      label: `${u.full_name || u.username}${u.email ? ` (${u.email})` : ''}`,
+    })),
+    [users],
+  );
+
+  // 成案編號下拉選項
+  const projectCodeOptions = useMemo(() => {
+    if (!caseCodeMap) return [];
+    return Object.entries(caseCodeMap).map(([caseCode, projectCode]) => ({
+      value: caseCode,
+      label: projectCode || caseCode,
+    }));
+  }, [caseCodeMap]);
 
   // Populate form on edit
   React.useEffect(() => {
@@ -76,6 +99,26 @@ const ERPAssetFormPage: React.FC = () => {
       });
     }
   }, [existingAsset, isEdit, form]);
+
+  // 照片上傳
+  const handlePhotoUpload = async (file: File) => {
+    if (!isEdit) {
+      message.info('請先建立資產後再上傳照片');
+      return false;
+    }
+    const formData = new FormData();
+    formData.append('asset_id', String(id));
+    formData.append('file', file);
+    try {
+      await apiClient.postForm(ERP_ENDPOINTS.ASSETS_UPLOAD_PHOTO, formData);
+      message.success('照片上傳成功');
+      // Refresh asset detail
+      window.location.reload();
+    } catch {
+      message.error('照片上傳失敗');
+    }
+    return false;
+  };
 
   const handleSubmit = async () => {
     try {
@@ -102,6 +145,9 @@ const ERPAssetFormPage: React.FC = () => {
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
+  const photoUrl = existingAsset?.photo_path
+    ? `/${existingAsset.photo_path}`
+    : null;
 
   return (
     <ResponsiveContent>
@@ -139,6 +185,32 @@ const ERPAssetFormPage: React.FC = () => {
           initialValues={{ category: 'equipment', status: 'in_use', depreciation_rate: 0 }}
           style={{ maxWidth: 800 }}
         >
+          {/* 資產照片 */}
+          {isEdit && (
+            <Form.Item label="資產照片">
+              <Space orientation="vertical" align="center" style={{ width: '100%' }}>
+                {photoUrl ? (
+                  <Image
+                    src={photoUrl}
+                    alt="資產照片"
+                    width={200}
+                    style={{ borderRadius: 8, objectFit: 'cover' }}
+                    fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjY2NjIiBmb250LXNpemU9IjE0Ij7nhKfniYc8L3RleHQ+PC9zdmc+"
+                  />
+                ) : null}
+                <Upload
+                  accept="image/*"
+                  showUploadList={false}
+                  beforeUpload={(file) => handlePhotoUpload(file as File)}
+                >
+                  <Button icon={<CameraOutlined />}>
+                    {photoUrl ? '更換照片' : '上傳照片'}
+                  </Button>
+                </Upload>
+              </Space>
+            </Form.Item>
+          )}
+
           <Form.Item
             name="asset_code"
             label="資產編號"
@@ -198,11 +270,24 @@ const ERPAssetFormPage: React.FC = () => {
           </Form.Item>
 
           <Form.Item name="custodian" label="保管人">
-            <Input placeholder="例: 王大明" />
+            <Select
+              showSearch
+              allowClear
+              optionFilterProp="label"
+              options={custodianOptions}
+              loading={usersLoading}
+              placeholder="請選擇保管人"
+            />
           </Form.Item>
 
-          <Form.Item name="case_code" label="所屬案件">
-            <Input placeholder="案件代碼" />
+          <Form.Item name="case_code" label="成案編號">
+            <Select
+              showSearch
+              allowClear
+              optionFilterProp="label"
+              options={projectCodeOptions}
+              placeholder="請選擇成案編號"
+            />
           </Form.Item>
 
           <Form.Item name="expense_invoice_id" label="關聯發票 ID">

@@ -45,6 +45,7 @@ class AssetUpdateRequest(BaseModel):
     status: Optional[str] = None
     location: Optional[str] = None
     custodian: Optional[str] = None
+    photo_path: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -102,6 +103,7 @@ class AssetResponse(BaseModel):
     status: str = "in_use"
     location: Optional[str] = None
     custodian: Optional[str] = None
+    photo_path: Optional[str] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

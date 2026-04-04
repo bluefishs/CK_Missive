@@ -103,6 +103,37 @@ class AssetService(AuditableServiceMixin):
         """取得資產統計"""
         return await self.repo.get_asset_stats()
 
+    async def _get_project_code_map(self) -> Dict[str, str]:
+        """case_code→project_code 映射表"""
+        from sqlalchemy import select as sa_select
+        from app.extended.models.erp import ERPQuotation
+        result = await self.db.execute(
+            sa_select(ERPQuotation.case_code, ERPQuotation.project_code)
+            .where(ERPQuotation.project_code.isnot(None))
+        )
+        return {r[0]: r[1] for r in result.all()}
+
+    async def _get_reverse_project_code_map(self) -> Dict[str, str]:
+        """project_code→case_code 反查映射表"""
+        from sqlalchemy import select as sa_select
+        from app.extended.models.erp import ERPQuotation
+        result = await self.db.execute(
+            sa_select(ERPQuotation.project_code, ERPQuotation.case_code)
+            .where(ERPQuotation.project_code.isnot(None))
+        )
+        return {r[0]: r[1] for r in result.all()}
+
+    @staticmethod
+    def _resolve_case_code(value: Optional[str], reverse_map: Dict[str, str]) -> Optional[str]:
+        """解析使用者輸入的編號：若為 project_code 則反查 case_code，否則直接使用"""
+        if not value:
+            return None
+        # 如果是 project_code 格式，反查 case_code
+        if value in reverse_map:
+            return reverse_map[value]
+        # 否則當作 case_code 直接使用
+        return value
+
     async def export_assets_excel(
         self,
         category: Optional[str] = None,
@@ -116,6 +147,9 @@ class AssetService(AuditableServiceMixin):
             category=category, status=status, skip=0, limit=10000
         )
 
+        # 建立 case_code→project_code 映射
+        code_map = await self._get_project_code_map()
+
         wb = Workbook()
         ws = wb.active
         ws.title = "資產清單"
@@ -123,7 +157,7 @@ class AssetService(AuditableServiceMixin):
         headers = [
             "資產編號", "名稱", "類別", "品牌", "型號", "序號",
             "購入日期", "購入金額", "目前價值", "狀態", "存放位置",
-            "保管人", "案件代碼", "備註",
+            "保管人", "成案編號", "備註",
         ]
         ws.append(headers)
 
@@ -141,7 +175,7 @@ class AssetService(AuditableServiceMixin):
                 item.status,
                 item.location,
                 item.custodian,
-                item.case_code,
+                code_map.get(item.case_code, item.case_code) if item.case_code else "",
                 item.notes,
             ])
 
@@ -156,19 +190,54 @@ class AssetService(AuditableServiceMixin):
         return buffer.read()
 
     async def import_assets_excel(self, file_bytes: bytes, user_id: Optional[int] = None) -> dict:
-        """匯入資產清單 Excel — 用 asset_code 做 upsert"""
+        """匯入資產清單 Excel — 用 asset_code 做 upsert (header 驅動匹配)"""
         from app.services.base.excel_reader import load_workbook_any
 
         wb = load_workbook_any(file_bytes)
         ws = wb.active
 
-        rows = list(ws.iter_rows(min_row=2, values_only=True))  # Skip header
+        # ---- Header 驅動欄位映射 ----
+        header_row = [str(c.value or "").strip() for c in ws[1]]
+        # 標準欄位名→內部 key 映射 (支持多種中英文名稱)
+        HEADER_MAP: Dict[str, str] = {
+            "資產編號": "asset_code", "asset_code": "asset_code",
+            "名稱": "name", "name": "name",
+            "類別": "category", "category": "category",
+            "品牌": "brand", "brand": "brand",
+            "型號": "model", "model": "model", "asset_model": "model",
+            "序號": "serial_number", "serial_number": "serial_number",
+            "購入日期": "purchase_date", "purchase_date": "purchase_date",
+            "購入金額": "purchase_amount", "purchase_amount": "purchase_amount",
+            "目前價值": "current_value", "current_value": "current_value",
+            "狀態": "status", "status": "status",
+            "存放位置": "location", "location": "location",
+            "保管人": "custodian", "custodian": "custodian",
+            "案件代碼": "case_code", "成案編號": "case_code",
+            "case_code": "case_code", "project_code": "case_code",
+            "備註": "notes", "notes": "notes",
+        }
+        import unicodedata
+        col_map: Dict[str, int] = {}  # internal_key → column_index
+        for i, h in enumerate(header_row):
+            normalized = unicodedata.normalize('NFKC', h)
+            key = HEADER_MAP.get(normalized)
+            if key and key not in col_map:
+                col_map[key] = i
+
+        logger.info(f"資產匯入: 工作表='{ws.title}', header={header_row}, 映射={col_map}")
+
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
 
         created = 0
         updated = 0
+        skipped = 0
         errors: List[Dict[str, Any]] = []
 
-        # Expected columns: 資產編號, 名稱, 類別, 品牌, 型號, 序號, 購入日期, 購入金額, 目前價值, 狀態, 存放位置, 保管人, 案件代碼, 備註
+        logger.info(f"資產匯入: 資料列數={len(rows)}")
+
+        # 建立 project_code→case_code 反查映射
+        reverse_map = await self._get_reverse_project_code_map()
+
         CATEGORY_MAP = {
             "設備": "equipment", "車輛": "vehicle", "儀器": "instrument",
             "家具": "furniture", "其他": "other",
@@ -178,7 +247,7 @@ class AssetService(AuditableServiceMixin):
             "已報廢": "disposed", "遺失": "lost",
         }
 
-        import unicodedata, re
+        import re
 
         def _nfkc(v) -> Optional[str]:
             if v is None: return None
@@ -190,36 +259,57 @@ class AssetService(AuditableServiceMixin):
             s = re.sub(r'[NT$￥,\s]', '', str(v).strip())
             return float(s) if s else 0
 
+        def _get(row_data, key: str):
+            """根據 header 映射取得欄位值"""
+            idx = col_map.get(key)
+            if idx is None or idx >= len(row_data):
+                return None
+            return row_data[idx]
+
+        # 必要欄位檢查
+        if "asset_code" not in col_map or "name" not in col_map:
+            logger.warning(f"資產匯入: header 缺少必填欄位 (asset_code/name), 映射={col_map}")
+            wb.close()
+            return {"total_rows": 0, "created": 0, "updated": 0, "skipped": 0,
+                    "errors": [{"row": 1, "error": "Header 缺少必填欄位「資產編號」或「名稱」"}]}
+
         for idx, row in enumerate(rows, start=2):
             try:
-                if not row[0] or not row[1]:  # asset_code and name required
+                ac = _get(row, "asset_code")
+                nm = _get(row, "name")
+                if not ac or not nm:
+                    skipped += 1
                     continue
 
-                asset_code = _nfkc(row[0]) or ""
+                asset_code = _nfkc(ac) or ""
+                raw_cat = _nfkc(_get(row, "category"))
+                raw_status = _nfkc(_get(row, "status"))
+
                 data: Dict[str, Any] = {
                     "asset_code": asset_code,
-                    "name": _nfkc(row[1]) or "",
-                    "category": CATEGORY_MAP.get(_nfkc(row[2]) or "", _nfkc(row[2]) or "equipment") if row[2] else "equipment",
-                    "brand": _nfkc(row[3]),
-                    "model": _nfkc(row[4]),
-                    "serial_number": _nfkc(row[5]),
-                    "purchase_amount": _num(row[7]),
-                    "current_value": _num(row[8]) if row[8] else None,
-                    "status": STATUS_MAP.get(_nfkc(row[9]) or "", _nfkc(row[9]) or "in_use") if row[9] else "in_use",
-                    "location": _nfkc(row[10]),
-                    "custodian": _nfkc(row[11]),
-                    "case_code": _nfkc(row[12]),
-                    "notes": _nfkc(row[13]),
+                    "name": _nfkc(nm) or "",
+                    "category": CATEGORY_MAP.get(raw_cat or "", raw_cat or "equipment") if raw_cat else "equipment",
+                    "brand": _nfkc(_get(row, "brand")),
+                    "model": _nfkc(_get(row, "model")),
+                    "serial_number": _nfkc(_get(row, "serial_number")),
+                    "purchase_amount": _num(_get(row, "purchase_amount")),
+                    "current_value": _num(_get(row, "current_value")) if _get(row, "current_value") else None,
+                    "status": STATUS_MAP.get(raw_status or "", raw_status or "in_use") if raw_status else "in_use",
+                    "location": _nfkc(_get(row, "location")),
+                    "custodian": _nfkc(_get(row, "custodian")),
+                    "case_code": self._resolve_case_code(_nfkc(_get(row, "case_code")), reverse_map),
+                    "notes": _nfkc(_get(row, "notes")),
                 }
 
                 # Handle purchase_date
-                if row[6]:
+                raw_date = _get(row, "purchase_date")
+                if raw_date:
                     from datetime import date as date_type, datetime as datetime_type
-                    if isinstance(row[6], (date_type, datetime_type)):
-                        data["purchase_date"] = row[6] if isinstance(row[6], date_type) else row[6].date()
+                    if isinstance(raw_date, (date_type, datetime_type)):
+                        data["purchase_date"] = raw_date if isinstance(raw_date, date_type) else raw_date.date()
                     else:
                         try:
-                            data["purchase_date"] = datetime_type.strptime(str(row[6]).strip(), "%Y-%m-%d").date()
+                            data["purchase_date"] = datetime_type.strptime(str(raw_date).strip(), "%Y-%m-%d").date()
                         except ValueError:
                             pass
 
@@ -237,15 +327,18 @@ class AssetService(AuditableServiceMixin):
                     created += 1
 
             except Exception as e:
+                logger.warning(f"資產匯入 row {idx} 錯誤: {type(e).__name__}: {e}")
                 errors.append({"row": idx, "error": str(e)})
 
         await self.db.commit()
         wb.close()
 
+        logger.info(f"資產匯入完成: total={len(rows)}, created={created}, updated={updated}, skipped={skipped}, errors={len(errors)}")
         return {
             "total_rows": len(rows),
             "created": created,
             "updated": updated,
+            "skipped": skipped,
             "errors": errors,
         }
 
@@ -361,7 +454,7 @@ class AssetService(AuditableServiceMixin):
         headers = [
             "資產編號", "名稱", "類別", "品牌", "型號", "序號",
             "購入日期", "購入金額", "目前價值", "狀態", "存放位置",
-            "保管人", "案件代碼", "備註",
+            "保管人", "成案編號", "備註",
         ]
 
         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -372,12 +465,12 @@ class AssetService(AuditableServiceMixin):
             cell.fill = header_fill
             cell.font = header_font
 
-        # Example rows
+        # Example rows (成案編號欄位支持 project_code 或 case_code)
         examples = [
             ["AST-2026-001", "全測站 ES-105", "儀器", "Topcon", "ES-105", "SN20250001",
              "2025-06-15", 280000, 280000, "使用中", "公司倉庫", "王技師", "", ""],
             ["AST-2026-002", "GPS RTK", "儀器", "Trimble", "R12i", "SN20250002",
-             "2025-01-10", 450000, 400000, "使用中", "工地A", "李技師", "B114-B001", ""],
+             "2025-01-10", 450000, 400000, "使用中", "工地A", "李技師", "CK2025_PJ_01_001", ""],
         ]
         for row_data in examples:
             ws.append(row_data)

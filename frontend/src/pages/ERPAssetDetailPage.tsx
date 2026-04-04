@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import {
   Descriptions, Tag, Table, Button, Modal, Form, Input, InputNumber,
-  Select, DatePicker, Card, Empty, App,
+  Select, DatePicker, Card, Empty, App, Image,
 } from 'antd';
 import {
   InfoCircleOutlined, HistoryOutlined, FileTextOutlined,
@@ -16,7 +16,7 @@ import {
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { useAssetDetail, useAssetLogs, useCreateAssetLog, useAssetDetailFull } from '../hooks';
+import { useAssetDetail, useAssetLogs, useCreateAssetLog, useAssetDetailFull, useCaseCodeMap } from '../hooks';
 import type { AssetLog, AssetLogCreateRequest } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
@@ -62,6 +62,7 @@ const ERPAssetDetailPage: React.FC = () => {
   const { data: detailData, isLoading } = useAssetDetail(assetId);
   const { data: fullData } = useAssetDetailFull(assetId);
   const { data: logsData } = useAssetLogs(assetId);
+  const { data: caseCodeMap } = useCaseCodeMap();
   const createLogMutation = useCreateAssetLog();
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -105,8 +106,21 @@ const ERPAssetDetailPage: React.FC = () => {
   const statusInfo = STATUS_MAP[asset?.status ?? ''] ?? { label: asset?.status ?? '-', color: 'default' };
 
   // === Tab 1: 資產資訊 ===
+  const photoUrl = asset?.photo_path ? `/${asset.photo_path}` : null;
+
   const infoTab = (
-    <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
+    <>
+      {photoUrl && (
+        <div style={{ marginBottom: 16, textAlign: 'center' }}>
+          <Image
+            src={photoUrl}
+            alt={asset?.name ?? '資產照片'}
+            width={240}
+            style={{ borderRadius: 8, objectFit: 'cover' }}
+          />
+        </div>
+      )}
+      <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
       <Descriptions.Item label="資產編號">{asset?.asset_code}</Descriptions.Item>
       <Descriptions.Item label="名稱">{asset?.name}</Descriptions.Item>
       <Descriptions.Item label="類別">
@@ -120,7 +134,9 @@ const ERPAssetDetailPage: React.FC = () => {
         {asset?.purchase_amount != null ? `NT$ ${asset.purchase_amount.toLocaleString()}` : '-'}
       </Descriptions.Item>
       <Descriptions.Item label="目前價值">
-        {asset?.current_value != null ? `NT$ ${asset.current_value.toLocaleString()}` : '-'}
+        {(asset?.current_value ?? asset?.purchase_amount) != null
+          ? `NT$ ${(asset?.current_value ?? asset?.purchase_amount)!.toLocaleString()}`
+          : '-'}
       </Descriptions.Item>
       <Descriptions.Item label="折舊率">
         {asset?.depreciation_rate != null ? `${asset.depreciation_rate}%` : '-'}
@@ -130,9 +146,14 @@ const ERPAssetDetailPage: React.FC = () => {
       </Descriptions.Item>
       <Descriptions.Item label="存放位置">{asset?.location ?? '-'}</Descriptions.Item>
       <Descriptions.Item label="保管人">{asset?.custodian ?? '-'}</Descriptions.Item>
-      <Descriptions.Item label="所屬案件">{asset?.case_code ?? '-'}</Descriptions.Item>
+      <Descriptions.Item label="成案編號">
+        {asset?.case_code
+          ? (caseCodeMap?.[asset.case_code] || asset.case_code)
+          : '-'}
+      </Descriptions.Item>
       <Descriptions.Item label="備註" span={2}>{asset?.notes ?? '-'}</Descriptions.Item>
     </Descriptions>
+    </>
   );
 
   // === Tab 2: 行為紀錄 ===
@@ -208,7 +229,7 @@ const ERPAssetDetailPage: React.FC = () => {
       {caseQuotation ? (
         <Card size="small" title="所屬案件報價">
           <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
-            <Descriptions.Item label="案件代碼">{caseQuotation.case_code}</Descriptions.Item>
+            <Descriptions.Item label="成案編號">{caseCodeMap?.[caseQuotation.case_code] || caseQuotation.case_code}</Descriptions.Item>
             <Descriptions.Item label="案件名稱">{caseQuotation.case_name ?? '-'}</Descriptions.Item>
             <Descriptions.Item label="合約總價">NT$ {Number(caseQuotation.total_price).toLocaleString()}</Descriptions.Item>
             <Descriptions.Item label="狀態">
@@ -259,7 +280,7 @@ const ERPAssetDetailPage: React.FC = () => {
         onOk={handleCreateLog}
         onCancel={() => { setModalOpen(false); form.resetFields(); }}
         confirmLoading={createLogMutation.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" preserve={false}>
           <Form.Item name="action" label="行為類型" rules={[{ required: true, message: '請選擇行為類型' }]}>

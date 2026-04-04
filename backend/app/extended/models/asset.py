@@ -36,6 +36,7 @@ class Asset(Base):
                     comment="狀態: in_use/maintenance/idle/disposed/lost")
     location = Column(String(200), comment="存放位置")
     custodian = Column(String(100), comment="保管人")
+    photo_path = Column(String(500), nullable=True, comment="資產照片路徑")
     notes = Column(Text, comment="備註")
 
     # 時間戳
