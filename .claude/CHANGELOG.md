@@ -4,6 +4,47 @@
 
 ---
 
+## [5.4.0] - 2026-04-04
+
+### 型別重構 + ERP 費用增強 + Gemma 4 + 服務層拆分 (9 commits)
+
+#### 型別系統重構
+- **api.ts v3.0** — 1338L barrel → 132L re-export，新增 5 個領域型別檔 (api-user/entity/project/calendar/knowledge)
+- **pm.ts / erp.ts** — 從 api.ts 提取為獨立 SSOT，re-export 維持向後相容
+
+#### ERP 費用報銷增強
+- **三輸入新增頁** — ERPExpenseCreatePage v2.0 (手動/智慧掃描/財政部發票，396L)
+- **案件分組視圖** — grouped-summary API + 金額佔比 Progress bar + attribution_type 三面向
+- **智慧掃描** — invoice_recognizer 統一辨識器 (QR Head+Detail+OCR)
+- **PM Case 費用 Tab** — ExpensesTab 子元件 (統計卡片+列表)
+- **費用分類 AI** — suggest-category (Gemma 4, 15 類選項)
+- **attribution_type migration** — project/operational/none 三面向核銷歸屬
+- **ERP Hub 重組** — 5+5 主要/進階佈局
+
+#### 資產管理升級
+- **photo_path** — migration + upload-photo + Gemma 4 Vision 自動描述
+- **project_code 映射** — 匯出入改用成案編號 (fallback case_code)
+- **相機拍照** — capture=environment 支援行動裝置
+
+#### AI/推理引擎
+- **Gemma 4 P0** — inference-profiles v2.0 切換本地主力 (Ollama GPU)
+- **LINE 圖片辨識** — line_image_handler 升級統一辨識器
+- **ai_connector** — thinking mode 修正
+
+#### 服務層重構
+- **expense_invoice_service** — 625L → 3 模組 (facade 207L + approval 228L + import 265L)
+- **expenses.py endpoint** — 551L → crud 194L + io 316L
+
+#### 測試
+- **+15 test cases** — 標案排程 6 + 費用分組 4 + 審核流程 5 (total: 3,108)
+
+#### 基礎設施
+- **.gitattributes** — 源碼 LF / Windows CRLF / 二進制標記
+- **invoice-watcher** — PM2 Watchdog 資料夾監控
+- **vite proxy** — 新端點轉發
+
+---
+
 ## [5.3.22] - 2026-04-01~02
 
 ### 標案檢索模組 + 品質優化 + 資料標準化 (46 commits)

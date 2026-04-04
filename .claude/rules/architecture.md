@@ -183,10 +183,14 @@ backend/app/services/
 │   ├── invoice_service.py     # 開票管理
 │   ├── billing_service.py     # 請款管理
 │   ├── vendor_payable_service.py # 廠商應付帳款
-│   └── asset_service.py       # 資產管理 (CRUD+盤點+匯出入)
+│   ├── asset_service.py       # 資產管理 (CRUD+盤點+匯出入+Vision)
+│   └── operational_service.py # 營運帳目 (預算+審批+分類)
 ├── einvoice/                   # 電子發票
 │   └── einvoice_sync_service.py # MOF 電子發票同步 (HMAC-SHA256)
-├── expense_invoice_service.py  # 費用報銷 (QR + CRUD + 審核入帳)
+├── expense_invoice_service.py  # 費用報銷 Facade (v2.0 委派式, 207L)
+├── expense_approval_service.py # 費用審核工作流 (多層審批+預算聯防+通知, 228L)
+├── expense_import_service.py   # 費用匯入匯出 (QR+Excel+電子發票關聯, 265L)
+├── invoice_recognizer.py       # 統一發票辨識器 (QR Head+Detail+OCR, 378L)
 ├── finance_ledger_service.py   # 統一帳本 (餘額 + 分類)
 ├── financial_summary_service.py # 財務彙總 (專案/全案/公司級)
 ├── finance_export_service.py   # 財務報表匯出 (Excel/CSV)
@@ -238,7 +242,9 @@ backend/app/api/endpoints/
 │   ├── vendor_accounts.py      # 廠商帳款跨案件查詢 (2 端點)
 │   ├── client_accounts.py      # 委託單位帳款跨案件查詢 (2 端點)
 │   ├── assets.py               # 資產管理 (13 端點: CRUD+stats+logs+export+import+inventory)
-│   ├── expenses.py             # 費用報銷 (10 端點, +auto-link-einvoice)
+│   ├── expenses.py             # 費用報銷 CRUD (7 端點: list/create/detail/update/approve/reject/grouped-summary)
+│   ├── expenses_io.py          # 費用報銷 IO (9 端點: qr/ocr/smart-scan/import/export/receipt/suggest)
+│   ├── operational.py          # 營運帳目 (10 端點: CRUD+審批+預算)
 │   ├── ledger.py               # 統一帳本 (6 端點)
 │   ├── financial_summary.py    # 財務彙總 (8 端點, +aging+erp-overview)
 │   └── einvoice_sync.py        # 電子發票同步 (4 端點)
@@ -354,7 +360,11 @@ frontend/src/pages/
 │   ├── VendorPayablesTab.tsx   # 廠商應付頁籤 (310L)
 │   └── ProfitTrendTab.tsx      # 損益趨勢頁籤 (130L)
 ├── pmCase/                     # PM 案件詳情子元件
-│   └── MilestonesTab.tsx       # 里程碑/甘特圖頁籤 (含 XLS 匯出入)
+│   ├── MilestonesGanttTab.tsx  # 里程碑/甘特圖頁籤 (含 XLS 匯出入)
+│   ├── ExpensesTab.tsx         # 費用核銷頁籤 (統計+列表)
+│   ├── QuotationRecordsTab.tsx # 報價紀錄頁籤 (225L)
+│   ├── StaffTab.tsx            # 專案人員頁籤
+│   └── CrossModuleCard.tsx     # 跨模組資訊卡片
 ├── taoyuanDispatch/            # TaoyuanDispatchDetailPage 子元件
 │   ├── DispatchDetailHeader.tsx # 詳情頁標頭 (91L)
 │   └── tabs/                   # 既有頁籤元件
@@ -378,12 +388,17 @@ frontend/src/pages/
 │   ├── AccountInfoCard.tsx     # 帳號資訊卡片
 │   ├── PasswordChangeModal.tsx # 密碼變更 Modal
 │   └── ProfileInfoCard.tsx     # 個人資訊卡片
+├── erpExpense/                 # 費用報銷子元件 (v5.4.0)
+│   ├── SmartScanModal.tsx      # 智慧掃描 (QR+OCR) Modal (251L)
+│   ├── ExpenseImportModal.tsx  # Excel 匯入 Modal (175L)
+│   └── index.ts
 ├── SecurityCenterPage.tsx      # 資安管理中心 (OWASP Top 10 + 掃描 + 通知)
-├── ERPExpenseListPage.tsx      # 費用報銷列表 (篩選+搜尋+狀態標籤)
+├── ERPExpenseCreatePage.tsx    # 費用報銷新增 (三輸入合一: 手動/掃描/財政部, 396L)
+├── ERPExpenseListPage.tsx      # 費用報銷列表 (案件分組視圖+金額佔比, 450L)
 ├── ERPExpenseDetailPage.tsx    # 費用報銷詳情 (明細+審核+收據上傳)
 ├── ERPLedgerPage.tsx           # 統一帳本 (科目分類+餘額)
 ├── ERPFinancialDashboardPage.tsx # 財務儀表板 (月趨勢+預算排名+Recharts)
-├── ERPHubPage.tsx              # ERP 財務管理中心入口 (133L)
+├── ERPHubPage.tsx              # ERP 財務管理中心入口 (5+5 主要/進階)
 ├── ERPInvoiceSummaryPage.tsx   # 發票跨案件查詢 (168L)
 ├── ERPVendorAccountsPage.tsx   # 協力廠商帳款列表 (211L)
 ├── ERPVendorAccountDetailPage.tsx # 協力廠商帳款詳情 3-Tab (186L)

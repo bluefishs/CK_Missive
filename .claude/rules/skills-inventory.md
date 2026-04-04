@@ -124,6 +124,22 @@
 
 ---
 
+## v5.4.0 型別重構 + ERP 費用增強 + 服務拆分 (2026-04-04, 9 commits)
+
+| 類型 | 項目 | 說明 |
+|------|------|------|
+| refactor | 型別系統拆分 | api.ts 1338→132L barrel, 新增 api-user/entity/project/calendar/knowledge + pm/erp 獨立 |
+| feat | 費用報銷增強 | 三輸入新增 (手動/掃描/財政部) + 案件分組視圖 + attribution_type 三面向 |
+| feat | 資產管理升級 | photo_path + Gemma 4 Vision 描述 + project_code 映射 + 相機拍照 |
+| feat | Gemma 4 主力推理 | inference-profiles v2.0 切換 P0 本地, LINE 圖片辨識升級統一辨識器 |
+| refactor | 費用服務拆分 | expense_invoice_service 625L → 3 模組 (facade+approval+import, 207+228+265L) |
+| refactor | 費用端點拆分 | expenses.py 551L → crud+io (194+316L), 共用 /expenses prefix |
+| test | 新增 15 cases | 標案排程 6 + 費用分組 4 + 審核流程 5 |
+| chore | .gitattributes | 源碼 LF + Windows CRLF + 二進制標記 |
+| chore | 基礎設施 | invoice-watcher PM2 + vite proxy + ER model 同步 |
+
+---
+
 ## v5.3.23 品質修正 (2026-04-02, 15 commits)
 
 | 項目 | 說明 |
@@ -212,6 +228,10 @@
 | `docs/ALEMBIC_MIGRATION_GUIDE.md` | Alembic 遷移管理指南 |
 | `scripts/checks/verify_architecture.py` | 架構驗證腳本 (7 項自動化檢查) |
 | `scripts/checks/service-line-count-check.py` | 後端服務行數監控 (>600L 警告) |
+| `backend/app/services/expense_approval_service.py` | 費用審核工作流 (多層審批+預算聯防) |
+| `backend/app/services/expense_import_service.py` | 費用匯入匯出 (QR+Excel+電子發票) |
+| `backend/app/services/invoice_recognizer.py` | 統一發票辨識器 (QR+OCR) |
+| `backend/app/api/endpoints/erp/expenses_io.py` | 費用 IO 端點 (掃描/匯入/收據/AI分類) |
 | `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md` | LINE + OpenClaw 運維指南 |
 | `docs/LINE_BOT_SETUP_GUIDE.md` | LINE Bot 直連啟用指南 |
 | `docs/MULTICHANNEL_SETUP_GUIDE.md` | 多頻道部署指南 (Telegram + LINE) |
