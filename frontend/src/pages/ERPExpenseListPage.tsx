@@ -1,21 +1,21 @@
 /**
- * ERP 財務總覽 — 主管/財務視角
+ * ERP 費用核銷審核 — 主管/財務視角
  *
- * Tab 1: 全案件財務總覽 (應收/應付/費用核銷 by case)
- * Tab 2: 費用核銷審核 (分組+展開+審核操作)
- * Tab 3: 收支帳本
+ * Tab 1: 專案費用 (按案件分組的費用核銷 + 展開明細 + 審核操作)
+ * Tab 2: 收支帳本
  *
- * @version 4.0.0
+ * AR/AP 在各案件的 erp/quotations/:id 管理，此頁專注費用核銷。
+ *
+ * @version 5.0.0
  */
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Card, Table, Button, Space, Tag, Typography,
-  Statistic, Row, Col, Tabs, Segmented, Spin,
+  Statistic, Row, Col, Tabs, Segmented,
 } from 'antd';
 import {
   PlusOutlined, BookOutlined,
   UploadOutlined, FileTextOutlined,
-  FundOutlined,
 } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
@@ -38,7 +38,7 @@ import { ExpenseImportModal } from './erpExpense';
 import InvoiceSubTable from './erpExpense/InvoiceSubTable';
 import type { ExpenseGroup } from './erpExpense/InvoiceSubTable';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 // ExpenseGroup type imported from erpExpense/InvoiceSubTable
 
@@ -52,29 +52,9 @@ const ERPExpenseListPage: React.FC = () => {
   const { data: caseCodeMap } = useCaseCodeMap();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('expenses');
 
-  // 全案件財務總覽
-  interface OverviewCase {
-    case_code: string; case_name: string | null; project_code: string | null;
-    billing_count: number; billing_total: number; billing_received: number;
-    payable_count: number; payable_total: number; payable_paid: number;
-    expense_count: number; expense_total: number; expense_verified: number; expense_pending: number;
-  }
-  interface OverviewData {
-    cases: OverviewCase[];
-    totals: Record<string, number>;
-    unlinked_expenses: { count: number; total: number };
-  }
-  const { data: overviewData, isLoading: overviewLoading } = useQuery<OverviewData>({
-    queryKey: ['financial-overview'],
-    queryFn: async () => {
-      const res = await apiClient.post<{ data: OverviewData }>(ERP_ENDPOINTS.EXPENSES_FINANCIAL_OVERVIEW, {});
-      return res.data;
-    },
-  });
-
-  // Segmented filter (費用核銷 Tab)
+  // Segmented filter
   const [attributionType, setAttributionType] = useState<string>('all');
 
   // Grouped summary query
@@ -208,7 +188,7 @@ const ERPExpenseListPage: React.FC = () => {
       {/* Header + Toolbar */}
       <Card style={{ marginBottom: 16 }}>
         <Row justify="space-between" align="middle">
-          <Col><Title level={3} style={{ margin: 0 }}>財務總覽</Title></Col>
+          <Col><Title level={3} style={{ margin: 0 }}>費用核銷審核</Title></Col>
           <Col>
             <Space wrap>
               <Button
@@ -252,13 +232,8 @@ const ERPExpenseListPage: React.FC = () => {
           onChange={setActiveTab}
           items={[
             {
-              key: 'overview',
-              label: <><FundOutlined /> 全案件總覽 <Tag>{overviewData?.cases.length ?? 0}</Tag></>,
-              children: null,
-            },
-            {
               key: 'expenses',
-              label: <><FileTextOutlined /> 費用核銷審核 <Tag>{totalCount}</Tag></>,
+              label: <><FileTextOutlined /> 專案費用 <Tag>{totalCount}</Tag></>,
               children: null,
             },
             {
@@ -269,89 +244,7 @@ const ERPExpenseListPage: React.FC = () => {
           ]}
         />
 
-        {activeTab === 'overview' ? (
-          overviewLoading ? <Spin style={{ display: 'block', margin: '40px auto' }} /> : (
-            <Table<OverviewCase>
-              columns={[
-                {
-                  title: '案件', key: 'case',
-                  render: (_: unknown, r: OverviewCase) => (
-                    <Button type="link" size="small" style={{ padding: 0 }}
-                      onClick={() => navigate(ROUTES.ERP_QUOTATIONS)}>
-                      {r.project_code || r.case_code}
-                      {r.case_name && <span style={{ marginLeft: 4, fontSize: 12, color: '#999' }}>{r.case_name.slice(0, 20)}</span>}
-                    </Button>
-                  ),
-                },
-                {
-                  title: '應收(請款)', key: 'billing', width: 140, align: 'right',
-                  render: (_: unknown, r: OverviewCase) => (
-                    <span>
-                      <span style={{ color: '#1890ff' }}>{r.billing_total.toLocaleString()}</span>
-                      <Text type="secondary" style={{ fontSize: 11 }}> ({r.billing_count})</Text>
-                    </span>
-                  ),
-                  sorter: (a: OverviewCase, b: OverviewCase) => a.billing_total - b.billing_total,
-                },
-                {
-                  title: '已收', key: 'received', width: 120, align: 'right',
-                  render: (_: unknown, r: OverviewCase) => (
-                    <span style={{ color: r.billing_received > 0 ? '#52c41a' : '#999' }}>
-                      {r.billing_received.toLocaleString()}
-                    </span>
-                  ),
-                },
-                {
-                  title: '應付(外包)', key: 'payable', width: 140, align: 'right',
-                  render: (_: unknown, r: OverviewCase) => (
-                    <span>
-                      <span style={{ color: '#ff4d4f' }}>{r.payable_total.toLocaleString()}</span>
-                      <Text type="secondary" style={{ fontSize: 11 }}> ({r.payable_count})</Text>
-                    </span>
-                  ),
-                  sorter: (a: OverviewCase, b: OverviewCase) => a.payable_total - b.payable_total,
-                },
-                {
-                  title: '已付', key: 'paid', width: 120, align: 'right',
-                  render: (_: unknown, r: OverviewCase) => (
-                    <span style={{ color: r.payable_paid > 0 ? '#52c41a' : '#999' }}>
-                      {r.payable_paid.toLocaleString()}
-                    </span>
-                  ),
-                },
-                {
-                  title: '費用核銷', key: 'expense', width: 130, align: 'right',
-                  render: (_: unknown, r: OverviewCase) => (
-                    <span>
-                      <span style={{ color: '#fa8c16' }}>{r.expense_total.toLocaleString()}</span>
-                      {r.expense_pending > 0 && <Tag color="orange" style={{ marginLeft: 4, fontSize: 10 }}>待審</Tag>}
-                    </span>
-                  ),
-                },
-              ]}
-              dataSource={overviewData?.cases ?? []}
-              rowKey="case_code"
-              size="small"
-              pagination={{ pageSize: 20, showTotal: (t) => `共 ${t} 個案件` }}
-              summary={() => {
-                const t = overviewData?.totals;
-                if (!t) return null;
-                return (
-                  <Table.Summary fixed>
-                    <Table.Summary.Row>
-                      <Table.Summary.Cell index={0}><Text strong>合計</Text></Table.Summary.Cell>
-                      <Table.Summary.Cell index={1} align="right"><Text strong style={{ color: '#1890ff' }}>{(t.billing ?? 0).toLocaleString()}</Text></Table.Summary.Cell>
-                      <Table.Summary.Cell index={2} align="right"><Text strong style={{ color: '#52c41a' }}>{(t.billing_received ?? 0).toLocaleString()}</Text></Table.Summary.Cell>
-                      <Table.Summary.Cell index={3} align="right"><Text strong style={{ color: '#ff4d4f' }}>{(t.payable ?? 0).toLocaleString()}</Text></Table.Summary.Cell>
-                      <Table.Summary.Cell index={4} align="right"><Text strong style={{ color: '#52c41a' }}>{(t.payable_paid ?? 0).toLocaleString()}</Text></Table.Summary.Cell>
-                      <Table.Summary.Cell index={5} align="right"><Text strong style={{ color: '#fa8c16' }}>{(t.expense ?? 0).toLocaleString()}</Text></Table.Summary.Cell>
-                    </Table.Summary.Row>
-                  </Table.Summary>
-                );
-              }}
-            />
-          )
-        ) : activeTab === 'expenses' ? (
+        {activeTab === 'expenses' ? (
           <>
             <Segmented
               style={{ marginBottom: 16 }}
