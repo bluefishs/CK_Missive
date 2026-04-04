@@ -8,15 +8,14 @@
 1. Contractor bridging: Tunnel contractor ↔ Missive org (fuzzy ≥ 0.85)
 2. Location bridging: Missive location ↔ LvrLand land_parcel (section name)
 3. Project bridging: Missive project ↔ Tunnel tunnel (name similarity ≥ 0.80)
-4. Agency bridging: Missive org (with linked_agency_id) ↔ Tunnel inspection commissioned_by
+4. Agency bridging: Missive org (with linked_agency_id) ↔ Tunnel inspection
 
-Version: 1.2.0
-Created: 2026-03-22
-Updated: 2026-03-23 — KG-3 語意向量回退 + CanonicalEntityMatcher + link_after_contribution + agency meta
+匹配引擎已拆分至 cross_domain_matcher.py (trigram + 語意向量回退)。
+
+Version: 2.0.0 — refactored from 554L monolith
 """
 
 import logging
-import re
 import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
@@ -24,11 +23,8 @@ from typing import Dict, List, Optional
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.extended.models import (
-    CanonicalEntity,
-    EntityRelationship,
-)
-from app.services.ai.canonical_entity_matcher import CanonicalEntityMatcher
+from app.extended.models import CanonicalEntity
+from app.services.ai.cross_domain_matcher import CrossDomainMatchEngine
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +33,6 @@ CONTRACTOR_THRESHOLD = 0.85
 PROJECT_THRESHOLD = 0.80
 LOCATION_THRESHOLD = 0.75
 AGENCY_THRESHOLD = 0.85
-# 每次連結批次上限
 BATCH_LIMIT = 200
 
 
@@ -72,19 +67,12 @@ class CrossDomainLinker:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.matcher = CrossDomainMatchEngine(db)
 
     async def link_after_contribution(
         self, source_project: str,
     ) -> LinkingReport:
-        """
-        對指定來源專案的實體執行對應的橋接規則。
-
-        Args:
-            source_project: 剛完成貢獻的來源專案 (e.g. 'ck-tunnel', 'ck-lvrland')
-
-        Returns:
-            LinkingReport 包含建立的連結數與詳細結果
-        """
+        """對指定來源專案的實體執行對應的橋接規則。"""
         start = time.monotonic()
         report = LinkingReport()
 
@@ -111,12 +99,7 @@ class CrossDomainLinker:
         return report
 
     async def run_all_rules(self) -> LinkingReport:
-        """
-        執行所有跨域連結規則（全量掃描）。
-
-        Returns:
-            LinkingReport 包含所有規則的連結結果
-        """
+        """執行所有跨域連結規則（全量掃描）。"""
         start = time.monotonic()
         report = LinkingReport()
 
@@ -141,69 +124,59 @@ class CrossDomainLinker:
 
     # -----------------------------------------------------------------------
     # Rule 1: Contractor bridging
-    # Tunnel 'contractor' entity ↔ Missive 'org' entity
     # -----------------------------------------------------------------------
 
     async def _rule_contractor_bridging(self, report: LinkingReport) -> None:
         """Tunnel 承包商 ↔ Missive 機關/公司 模糊匹配 → contracted_by"""
-        tunnel_contractors = await self._get_entities(
-            "contractor", "ck-tunnel",
-        )
+        tunnel_contractors = await self.matcher.get_entities("contractor", "ck-tunnel")
         if not tunnel_contractors:
             return
 
-        missive_orgs = await self._get_entities("org", "ck-missive")
+        missive_orgs = await self.matcher.get_entities("org", "ck-missive")
         if not missive_orgs:
             return
 
         for contractor in tunnel_contractors:
-            best_match, best_score = await self._find_best_match(
+            best_match, best_score = await self.matcher.find_best_match(
                 contractor.canonical_name, missive_orgs,
                 threshold=CONTRACTOR_THRESHOLD,
             )
             if best_match is not None:
-                created = await self._create_relation_if_absent(
-                    contractor.id, best_match.id,
-                    "contracted_by", "ck-tunnel",
+                created = await self.matcher.create_relation_if_absent(
+                    contractor.id, best_match.id, "contracted_by", "ck-tunnel",
                 )
                 report.details.append(LinkResult(
-                    source_id=contractor.id,
-                    target_id=best_match.id,
+                    source_id=contractor.id, target_id=best_match.id,
                     relation_type="contracted_by",
                     source_name=contractor.canonical_name,
                     target_name=best_match.canonical_name,
-                    similarity=best_score,
-                    bridge_type="contractor",
+                    similarity=best_score, bridge_type="contractor",
                 ))
                 if created:
                     report.links_created += 1
-                    logger.info(
-                        "Contractor bridge: %s ↔ %s (%.2f)",
-                        contractor.canonical_name,
-                        best_match.canonical_name, best_score,
-                    )
+                    logger.info("Contractor bridge: %s ↔ %s (%.2f)",
+                                contractor.canonical_name, best_match.canonical_name, best_score)
                 else:
                     report.links_skipped += 1
 
     # -----------------------------------------------------------------------
     # Rule 2: Location bridging
-    # Missive 'location' entity ↔ LvrLand 'land_parcel' entity
     # -----------------------------------------------------------------------
 
     async def _rule_location_bridging(self, report: LinkingReport) -> None:
         """Missive 地點 ↔ LvrLand 地段 名稱匹配 → located_at"""
-        missive_locations = await self._get_entities("location", "ck-missive")
+        missive_locations = await self.matcher.get_entities("location", "ck-missive")
         if not missive_locations:
             return
 
-        lvrland_parcels = await self._get_entities("land_parcel", "ck-lvrland")
+        lvrland_parcels = await self.matcher.get_entities("land_parcel", "ck-lvrland")
         if not lvrland_parcels:
             return
 
-        # 建立段名索引: "桃園市桃園區大興段" → [parcel1, parcel2, ...]
+        # 建立段名索引
         section_index: Dict[str, List[CanonicalEntity]] = {}
         for parcel in lvrland_parcels:
-            section = self._extract_section_name(parcel.canonical_name)
+            section = self.matcher.extract_section_name(parcel.canonical_name)
             if section:
                 section_index.setdefault(section, []).append(parcel)
 
@@ -211,54 +184,40 @@ class CrossDomainLinker:
             loc_name = location.canonical_name
             matched = False
 
-            # 嘗試匹配段名
             for section, parcels in section_index.items():
                 if section in loc_name or loc_name in section:
-                    parcel = parcels[0]  # 取第一筆代表
-                    created = await self._create_relation_if_absent(
-                        location.id, parcel.id,
-                        "located_at", "ck-lvrland",
+                    parcel = parcels[0]
+                    created = await self.matcher.create_relation_if_absent(
+                        location.id, parcel.id, "located_at", "ck-lvrland",
                     )
                     report.details.append(LinkResult(
-                        source_id=location.id,
-                        target_id=parcel.id,
+                        source_id=location.id, target_id=parcel.id,
                         relation_type="located_at",
-                        source_name=loc_name,
-                        target_name=parcel.canonical_name,
-                        similarity=0.90,
-                        bridge_type="location",
+                        source_name=loc_name, target_name=parcel.canonical_name,
+                        similarity=0.90, bridge_type="location",
                     ))
                     if created:
                         report.links_created += 1
-                        logger.info(
-                            "Location bridge: %s → %s",
-                            loc_name, parcel.canonical_name,
-                        )
+                        logger.info("Location bridge: %s → %s", loc_name, parcel.canonical_name)
                     else:
                         report.links_skipped += 1
                     matched = True
                     break
 
-            # 段名未命中 → trigram 降級
             if not matched:
-                best_match, best_score = await self._find_best_match(
+                best_match, best_score = await self.matcher.find_best_match(
                     loc_name, lvrland_parcels,
-                    threshold=LOCATION_THRESHOLD,
-                    use_false_match_check=False,
+                    threshold=LOCATION_THRESHOLD, use_false_match_check=False,
                 )
                 if best_match is not None:
-                    created = await self._create_relation_if_absent(
-                        location.id, best_match.id,
-                        "located_at", "ck-lvrland",
+                    created = await self.matcher.create_relation_if_absent(
+                        location.id, best_match.id, "located_at", "ck-lvrland",
                     )
                     report.details.append(LinkResult(
-                        source_id=location.id,
-                        target_id=best_match.id,
+                        source_id=location.id, target_id=best_match.id,
                         relation_type="located_at",
-                        source_name=loc_name,
-                        target_name=best_match.canonical_name,
-                        similarity=best_score,
-                        bridge_type="location",
+                        source_name=loc_name, target_name=best_match.canonical_name,
+                        similarity=best_score, bridge_type="location",
                     ))
                     if created:
                         report.links_created += 1
@@ -267,60 +226,47 @@ class CrossDomainLinker:
 
     # -----------------------------------------------------------------------
     # Rule 3: Project bridging
-    # Missive 'project' entity ↔ Tunnel 'tunnel' entity
     # -----------------------------------------------------------------------
 
     async def _rule_project_bridging(self, report: LinkingReport) -> None:
         """Missive 專案 ↔ Tunnel 隧道 名稱相似度匹配 → part_of_project"""
-        missive_projects = await self._get_entities("project", "ck-missive")
+        missive_projects = await self.matcher.get_entities("project", "ck-missive")
         if not missive_projects:
             return
 
-        tunnel_tunnels = await self._get_entities("tunnel", "ck-tunnel")
+        tunnel_tunnels = await self.matcher.get_entities("tunnel", "ck-tunnel")
         if not tunnel_tunnels:
             return
 
         for tunnel in tunnel_tunnels:
-            best_match, best_score = await self._find_best_match(
+            best_match, best_score = await self.matcher.find_best_match(
                 tunnel.canonical_name, missive_projects,
                 threshold=PROJECT_THRESHOLD,
             )
             if best_match is not None:
-                created = await self._create_relation_if_absent(
-                    tunnel.id, best_match.id,
-                    "part_of_project", "ck-tunnel",
+                created = await self.matcher.create_relation_if_absent(
+                    tunnel.id, best_match.id, "part_of_project", "ck-tunnel",
                 )
                 report.details.append(LinkResult(
-                    source_id=tunnel.id,
-                    target_id=best_match.id,
+                    source_id=tunnel.id, target_id=best_match.id,
                     relation_type="part_of_project",
                     source_name=tunnel.canonical_name,
                     target_name=best_match.canonical_name,
-                    similarity=best_score,
-                    bridge_type="project",
+                    similarity=best_score, bridge_type="project",
                 ))
                 if created:
                     report.links_created += 1
-                    logger.info(
-                        "Project bridge: %s → %s (%.2f)",
-                        tunnel.canonical_name,
-                        best_match.canonical_name, best_score,
-                    )
+                    logger.info("Project bridge: %s → %s (%.2f)",
+                                tunnel.canonical_name, best_match.canonical_name, best_score)
                 else:
                     report.links_skipped += 1
 
     # -----------------------------------------------------------------------
     # Rule 4: Agency bridging
-    # Missive 'org' (with linked_agency_id) ↔ Tunnel 'inspection' commissioned_by
     # -----------------------------------------------------------------------
 
     async def _rule_agency_bridging(self, report: LinkingReport) -> None:
-        """Missive 機關 (linked_agency_id) ↔ Tunnel inspection 的委辦機關 → commissioned_by
-
-        從 Tunnel inspection 的 external_meta.commissioning_agency 取得委辦機關名稱，
-        與 Missive 中已連結 agency 的 org 實體進行模糊匹配。
-        """
-        # 取得有 linked_agency_id 的 Missive org 實體
+        """Missive 機關 (linked_agency_id) ↔ Tunnel inspection → commissioned_by"""
         result = await self.db.execute(
             select(CanonicalEntity).where(
                 and_(
@@ -334,221 +280,31 @@ class CrossDomainLinker:
         if not linked_orgs:
             return
 
-        tunnel_inspections = await self._get_entities("inspection", "ck-tunnel")
+        tunnel_inspections = await self.matcher.get_entities("inspection", "ck-tunnel")
         if not tunnel_inspections:
             return
 
         for inspection in tunnel_inspections:
-            # 從 external_meta 取得委辦機關名稱
             meta = inspection.external_meta or {}
-            commissioning = meta.get("commissioning_agency", "")
-            if not commissioning:
-                # 無委辦機關 meta — 回退到 inspection 名稱匹配
-                commissioning = inspection.canonical_name
+            commissioning = meta.get("commissioning_agency", "") or inspection.canonical_name
 
-            best_match, best_score = await self._find_best_match(
-                commissioning, linked_orgs,
-                threshold=AGENCY_THRESHOLD,
+            best_match, best_score = await self.matcher.find_best_match(
+                commissioning, linked_orgs, threshold=AGENCY_THRESHOLD,
             )
             if best_match is not None:
-                created = await self._create_relation_if_absent(
-                    inspection.id, best_match.id,
-                    "commissioned_by", "ck-tunnel",
+                created = await self.matcher.create_relation_if_absent(
+                    inspection.id, best_match.id, "commissioned_by", "ck-tunnel",
                 )
                 report.details.append(LinkResult(
-                    source_id=inspection.id,
-                    target_id=best_match.id,
+                    source_id=inspection.id, target_id=best_match.id,
                     relation_type="commissioned_by",
                     source_name=inspection.canonical_name,
                     target_name=best_match.canonical_name,
-                    similarity=best_score,
-                    bridge_type="agency",
+                    similarity=best_score, bridge_type="agency",
                 ))
                 if created:
                     report.links_created += 1
-                    logger.info(
-                        "Agency bridge: %s → %s (%.2f)",
-                        inspection.canonical_name,
-                        best_match.canonical_name, best_score,
-                    )
+                    logger.info("Agency bridge: %s → %s (%.2f)",
+                                inspection.canonical_name, best_match.canonical_name, best_score)
                 else:
                     report.links_skipped += 1
-
-    # -----------------------------------------------------------------------
-    # Utility methods
-    # -----------------------------------------------------------------------
-
-    async def _get_entities(
-        self, entity_type: str, source_project: str,
-    ) -> List[CanonicalEntity]:
-        """取得指定類型 + 來源的實體清單"""
-        result = await self.db.execute(
-            select(CanonicalEntity).where(
-                and_(
-                    CanonicalEntity.entity_type == entity_type,
-                    CanonicalEntity.source_project == source_project,
-                )
-            ).limit(BATCH_LIMIT)
-        )
-        return list(result.scalars().all())
-
-    async def _find_best_match(
-        self,
-        name: str,
-        candidates: List[CanonicalEntity],
-        threshold: float = CONTRACTOR_THRESHOLD,
-        use_false_match_check: bool = True,
-    ) -> tuple[Optional[CanonicalEntity], float]:
-        """
-        在候選清單中尋找最佳匹配（trigram → 語意向量回退）。
-
-        Stage 1: CanonicalEntityMatcher.compute_similarity (Python 端 trigram)
-        Stage 2: 若 trigram 無匹配且 pgvector 啟用，以 cosine_distance 嘗試語意匹配
-
-        Returns:
-            (best_entity, best_score) — 無匹配時回傳 (None, 0.0)
-        """
-        if not candidates or not name:
-            return None, 0.0
-
-        # ── Stage 1: Trigram 模糊匹配 ──
-        best_entity: Optional[CanonicalEntity] = None
-        best_score = 0.0
-
-        for candidate in candidates:
-            score = CanonicalEntityMatcher.compute_similarity(
-                name, candidate.canonical_name,
-            )
-            if score >= threshold and score > best_score:
-                if use_false_match_check and CanonicalEntityMatcher.is_false_fuzzy_match(
-                    name, candidate.canonical_name,
-                ):
-                    continue
-                best_entity = candidate
-                best_score = score
-
-        if best_entity is not None:
-            return best_entity, best_score
-
-        # ── Stage 2: 語意向量回退 (KG-3) ──
-        semantic_result = await self._semantic_fallback(name, candidates)
-        if semantic_result is not None:
-            return semantic_result
-
-        return None, 0.0
-
-    async def _semantic_fallback(
-        self,
-        name: str,
-        candidates: List[CanonicalEntity],
-    ) -> Optional[tuple[CanonicalEntity, float]]:
-        """
-        KG-3: 當 trigram 匹配失敗時，以 pgvector cosine_distance 嘗試語意匹配。
-
-        使用 DB-level pgvector 查詢（利用 ivfflat/hnsw 索引），
-        限定在候選實體 ID 範圍內搜尋，避免 Python 端 O(N) 向量比較。
-        門檻: cosine_distance ≤ 0.15 (similarity ≥ 0.85)。
-        """
-        from app.core.config import settings as _settings
-        if not _settings.PGVECTOR_ENABLED:
-            return None
-
-        candidate_ids = [c.id for c in candidates]
-        if not candidate_ids:
-            return None
-
-        try:
-            from app.services.ai.embedding_manager import EmbeddingManager
-            if not await EmbeddingManager.is_available():
-                return None
-
-            query_emb = await EmbeddingManager.get_embedding(name, connector=None)
-            if not query_emb:
-                return None
-        except Exception:
-            return None
-
-        SEMANTIC_MAX_DISTANCE = 0.15
-
-        try:
-            # DB-level pgvector cosine_distance — 利用索引，遠比 Python 端快
-            result = await self.db.execute(
-                select(CanonicalEntity)
-                .where(
-                    CanonicalEntity.id.in_(candidate_ids),
-                    CanonicalEntity.embedding.isnot(None),
-                    CanonicalEntity.embedding.cosine_distance(query_emb)
-                    <= SEMANTIC_MAX_DISTANCE,
-                )
-                .order_by(
-                    CanonicalEntity.embedding.cosine_distance(query_emb)
-                )
-                .limit(1)
-            )
-            best_entity = result.scalar_one_or_none()
-        except Exception as e:
-            logger.debug("Semantic fallback DB query failed: %s", e)
-            return None
-
-        if best_entity is not None:
-            # 重新計算精確距離用於日誌
-            try:
-                dist_result = await self.db.execute(
-                    select(
-                        CanonicalEntity.embedding.cosine_distance(query_emb)
-                    ).where(CanonicalEntity.id == best_entity.id)
-                )
-                dist = dist_result.scalar_one_or_none() or 0.0
-                similarity = 1.0 - dist
-            except Exception:
-                similarity = 0.85  # 門檻下限
-
-            logger.info(
-                "KG-3 semantic fallback: '%s' → '%s' (sim=%.3f)",
-                name, best_entity.canonical_name, similarity,
-            )
-            return best_entity, similarity
-
-        return None
-
-    async def _create_relation_if_absent(
-        self,
-        source_id: int,
-        target_id: int,
-        relation_type: str,
-        source_project: str,
-    ) -> bool:
-        """建立關係（若不存在）。回傳 True 表示新建。"""
-        existing = await self.db.execute(
-            select(EntityRelationship.id).where(
-                and_(
-                    EntityRelationship.source_entity_id == source_id,
-                    EntityRelationship.target_entity_id == target_id,
-                    EntityRelationship.relation_type == relation_type,
-                    EntityRelationship.invalidated_at.is_(None),
-                )
-            )
-        )
-        if existing.scalar_one_or_none() is not None:
-            return False
-
-        self.db.add(EntityRelationship(
-            source_entity_id=source_id,
-            target_entity_id=target_id,
-            relation_type=relation_type,
-            relation_label=relation_type.replace("_", " "),
-            weight=0.8,  # 自動連結權重略低於手動/公文佐證
-            source_project=source_project,
-            document_count=0,
-        ))
-        return True
-
-    @staticmethod
-    def _extract_section_name(parcel_name: str) -> Optional[str]:
-        """從地段名稱擷取段名 (去掉地號)
-
-        典型格式: "桃園市桃園區大興段0001-0000"
-        擷取: "桃園市桃園區大興段"
-        """
-        match = re.match(r'^(.+?段)', parcel_name)
-        return match.group(1) if match else None
