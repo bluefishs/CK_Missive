@@ -124,6 +124,77 @@ class ExpenseInvoiceService(AuditableServiceMixin):
     async def query(self, params: ExpenseInvoiceQuery) -> Tuple[List[ExpenseInvoice], int]:
         return await self.repo.query(params)
 
+    async def grouped_summary(self, attribution_type: Optional[str] = None) -> dict:
+        """費用按歸屬分組彙總 — 專案/營運/未歸屬各自統計"""
+        from sqlalchemy import select, func
+        from app.extended.models.invoice import ExpenseInvoice as EI
+
+        stmt = (
+            select(
+                EI.attribution_type, EI.case_code, EI.category,
+                func.count(EI.id).label("count"),
+                func.sum(EI.amount).label("total_amount"),
+            )
+            .group_by(EI.attribution_type, EI.case_code, EI.category)
+            .order_by(func.sum(EI.amount).desc())
+        )
+        if attribution_type:
+            stmt = stmt.where(EI.attribution_type == attribution_type)
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        group_map: dict = {}
+        for row in rows:
+            attr = row.attribution_type or "none"
+            cc = (row.case_code or "__operational__") if attr == "operational" else (row.case_code or "__none__")
+            key = f"{attr}:{cc}"
+
+            if key not in group_map:
+                group_map[key] = {
+                    "group_key": key,
+                    "group_label": cc if cc not in ("__operational__", "__none__") else ("營運支出" if attr == "operational" else "未歸屬"),
+                    "attribution_type": attr,
+                    "case_code": row.case_code,
+                    "total_amount": 0,
+                    "count": 0,
+                    "_cat_map": {},
+                }
+            g = group_map[key]
+            amt = float(row.total_amount or 0)
+            g["total_amount"] += amt
+            g["count"] += row.count
+            cat = row.category or "其他"
+            if cat not in g["_cat_map"]:
+                g["_cat_map"][cat] = {"category": cat, "count": 0, "amount": 0}
+            g["_cat_map"][cat]["count"] += row.count
+            g["_cat_map"][cat]["amount"] += amt
+
+        for g in group_map.values():
+            g["categories"] = sorted(g.pop("_cat_map").values(), key=lambda c: c["amount"], reverse=True)
+
+        # Enrich with project_code + case_name
+        case_codes = [g["case_code"] for g in group_map.values() if g["case_code"]]
+        if case_codes:
+            from app.extended.models.pm import PMCase
+            code_stmt = select(PMCase.case_code, PMCase.project_code, PMCase.case_name).where(
+                PMCase.case_code.in_(case_codes)
+            )
+            code_result = await self.db.execute(code_stmt)
+            code_map = {r.case_code: r for r in code_result.all()}
+            for g in group_map.values():
+                info = code_map.get(g["case_code"])
+                if info:
+                    g["project_code"] = info.project_code
+                    g["group_label"] = f"{info.project_code or info.case_code} {info.case_name or ''}"
+
+        groups = sorted(group_map.values(), key=lambda x: x["total_amount"], reverse=True)
+        return {
+            "groups": groups,
+            "total_count": sum(g["count"] for g in groups),
+            "total_amount": sum(g["total_amount"] for g in groups),
+        }
+
     # ========================================================================
     # 委派：審核工作流
     # ========================================================================
