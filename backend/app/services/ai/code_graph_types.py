@@ -49,3 +49,28 @@ CODE_RELATION_CATEGORIES: Dict[str, Set[str]] = {
     "data_flow": {"references_table", "validates_with"},
     "infrastructure": {"uses_service", "uses_repository", "serves_route", "provides_middleware"},
 }
+
+# ---------------------------------------------------------------------------
+# Constants shared between code_graph_service and code_graph_ingest
+# ---------------------------------------------------------------------------
+
+CODE_RELATION_TYPES: Set[str] = {
+    "defines_class",
+    "defines_function",
+    "has_method",
+    "imports",
+    "inherits",
+    "references_table",
+    "calls",
+    "defines_component",
+    "defines_hook",
+    # Infrastructure relations (v2.0 — inspired by Understand-Anything)
+    "uses_service",
+    "uses_repository",
+    "validates_with",
+    "serves_route",
+    "provides_middleware",
+    "depends_on",
+}
+
+CODE_GRAPH_LABEL: str = "code_graph"  # relation_label provenance tag
