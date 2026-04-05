@@ -181,6 +181,41 @@ class AssetService(AuditableServiceMixin):
         from app.services.erp.asset_service_io import AssetIOService
         return AssetIOService.generate_import_template()
 
+    async def assess_asset_condition(
+        self, image_bytes: bytes, asset_name: str = ""
+    ) -> dict:
+        """Use Gemma 4 vision to assess asset condition from photo.
+
+        Returns structured assessment with condition, description,
+        maintenance flag, and estimated remaining life.
+        Falls back to a generic result if vision is unavailable.
+        """
+        try:
+            from app.core.ai_connector import get_ai_connector
+            ai = get_ai_connector()
+            prompt = (
+                f"分析此資產照片{f' ({asset_name})' if asset_name else ''}。\n"
+                "評估：1.外觀狀態 2.預估使用年限 3.是否需要維修\n"
+                "以 JSON 回覆：\n"
+                '{"condition": "良好/一般/需維修/報廢", '
+                '"description": "描述", "maintenance_needed": true/false, '
+                '"estimated_remaining_life": "年數"}'
+            )
+            result = await ai.vision_completion(prompt, image_bytes, max_tokens=256)
+            from app.services.ai.agent_utils import parse_json_safe
+            parsed = parse_json_safe(result)
+            if parsed and parsed.get("condition"):
+                return parsed
+            return {"condition": "unknown", "description": result[:200]}
+        except Exception as e:
+            logger.debug("Gemma 4 vision asset assessment failed: %s", e)
+            return {
+                "condition": "unknown",
+                "description": "無法透過 AI 視覺評估資產狀態",
+                "maintenance_needed": False,
+                "estimated_remaining_life": None,
+            }
+
     async def list_logs(self, params: AssetLogListRequest) -> Tuple[List[AssetLog], int]:
         """取得資產行為紀錄列表"""
         return await self.log_repo.list_asset_logs(

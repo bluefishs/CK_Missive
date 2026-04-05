@@ -62,6 +62,22 @@ async def download_line_content(
         return None
 
 
+async def analyze_image_with_vision(image_bytes: bytes, user_message: str = "") -> str:
+    """Use Gemma 4 vision to understand a LINE user's image.
+
+    Handles invoices, official documents, and general images.
+    Falls back to a simple description if vision is unavailable.
+    """
+    try:
+        from app.core.ai_connector import get_ai_connector
+        ai = get_ai_connector()
+        prompt = user_message or "請描述這張圖片的內容。如果是發票或公文，請提取重要資訊。"
+        return await ai.vision_completion(prompt, image_bytes)
+    except Exception as e:
+        logger.debug("Gemma 4 vision analysis failed: %s", e)
+        return "無法分析此圖片，請嘗試重新拍攝或傳送更清晰的照片。"
+
+
 async def try_create_expense_from_ocr(
     line_user_id: str,
     ocr_result: "InvoiceOCRResult",

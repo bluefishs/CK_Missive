@@ -314,7 +314,7 @@ def _try_ocr(file_path: str) -> Optional[dict]:
 
 
 def _try_vision_ocr(file_path: str) -> Optional[dict]:
-    """用 Gemma 4 Vision 做發票 OCR"""
+    """用 Gemma 4 Vision 做發票 OCR (同步 HTTP 版，async 版見 _vision_ocr_async)"""
     import base64, httpx, json as _json, re
 
     try:
@@ -376,3 +376,109 @@ def _try_vision_ocr(file_path: str) -> Optional[dict]:
     except Exception as e:
         logger.debug(f"Vision OCR 失敗: {e}")
         return None
+
+
+# ---------------------------------------------------------------------------
+# Async Vision OCR (via ai_connector.vision_completion)
+# ---------------------------------------------------------------------------
+
+async def _vision_ocr_async(image_bytes: bytes) -> Optional[dict]:
+    """Use Gemma 4 vision_completion for structured invoice extraction.
+
+    Returns a dict compatible with RecognitionResult fields, or None on failure.
+    """
+    try:
+        from app.core.ai_connector import get_ai_connector
+        ai = get_ai_connector()
+        prompt = (
+            "分析此發票圖片，提取以下資訊並以 JSON 格式回覆：\n"
+            '{"inv_num": "發票號碼", "inv_date": "日期(YYYY-MM-DD)", '
+            '"seller_name": "賣方名稱", "seller_tax_id": "賣方統編", '
+            '"buyer_tax_id": "買方統編", "amount": 金額數字, '
+            '"tax": 稅額數字, "total": 合計數字, '
+            '"items": [{"name": "品名", "qty": 數量, "price": 單價}]}\n'
+            "如果無法辨識某欄位，設為 null。"
+        )
+        result = await ai.vision_completion(prompt, image_bytes, max_tokens=512)
+        from app.services.ai.agent_utils import parse_json_safe
+        parsed = parse_json_safe(result)
+        if parsed and parsed.get("inv_num"):
+            return parsed
+    except Exception as e:
+        logger.debug("Gemma 4 vision OCR (async) failed, falling back: %s", e)
+    return None
+
+
+async def recognize_invoice_async(file_path: str) -> RecognitionResult:
+    """Async invoice recognition — Gemma 4 Vision first, then QR+OCR fallback.
+
+    Uses ai_connector.vision_completion() for full structured extraction
+    before falling back to the synchronous QR/Tesseract pipeline.
+    """
+    # --- Step 0: Try Gemma 4 Vision (primary) ---
+    try:
+        with open(file_path, "rb") as f:
+            image_bytes = f.read()
+    except Exception as e:
+        logger.warning("Cannot read file for vision OCR: %s", e)
+        return recognize_invoice(file_path)
+
+    vision_data = await _vision_ocr_async(image_bytes)
+
+    if vision_data and vision_data.get("inv_num"):
+        result = RecognitionResult(success=True, method="vision")
+        result.inv_num = vision_data["inv_num"]
+        result.confidence = 0.85
+
+        # Parse date
+        inv_date_str = vision_data.get("inv_date")
+        if inv_date_str:
+            try:
+                result.date = date.fromisoformat(inv_date_str)
+            except (ValueError, TypeError):
+                pass
+
+        # Amounts
+        total = vision_data.get("total")
+        amount = vision_data.get("amount")
+        tax = vision_data.get("tax")
+        if total is not None:
+            result.total_amount = Decimal(str(total))
+            result.amount = result.total_amount
+        elif amount is not None:
+            result.amount = Decimal(str(amount))
+            result.total_amount = result.amount
+        if tax is not None:
+            result.tax_amount = Decimal(str(tax))
+        elif result.total_amount and result.amount and result.total_amount != result.amount:
+            result.tax_amount = result.total_amount - result.amount
+
+        # Sales amount
+        if result.total_amount and result.tax_amount:
+            result.sales_amount = result.total_amount - result.tax_amount
+
+        # Tax IDs
+        result.seller_ban = vision_data.get("seller_tax_id")
+        result.buyer_ban = vision_data.get("buyer_tax_id")
+
+        # Items
+        raw_items = vision_data.get("items") or []
+        for item in raw_items:
+            if isinstance(item, dict) and item.get("name"):
+                qty = float(item.get("qty", 1) or 1)
+                price = float(item.get("price", 0) or 0)
+                result.items.append(InvoiceItem(
+                    name=item["name"],
+                    qty=qty,
+                    unit_price=price,
+                    amount=round(qty * price, 2),
+                ))
+
+        logger.info(
+            "Vision recognition: %s / total=%s / items=%d",
+            result.inv_num, result.total_amount, len(result.items),
+        )
+        return result
+
+    # --- Fallback: sync QR + OCR pipeline ---
+    return recognize_invoice(file_path)

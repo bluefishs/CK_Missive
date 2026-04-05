@@ -187,6 +187,30 @@ _EXTRACTORS = {
 _SUPPORTED_EXTENSIONS = set(_EXTRACTORS.keys())
 
 
+async def _analyze_image_document(image_bytes: bytes, filename: str) -> dict:
+    """Gemma 4 vision analysis for image-type documents.
+
+    Returns structured info (doc_type, summary, entities) or a fallback dict.
+    """
+    try:
+        from app.core.ai_connector import get_ai_connector
+        ai = get_ai_connector()
+        prompt = (
+            f"分析此文件圖片 ({filename})。\n"
+            "1. 文件類型 (公文/發票/合約/報告/其他)\n"
+            "2. 主要內容摘要\n"
+            "3. 關鍵資訊 (日期/金額/機關/人名)\n"
+            "以 JSON 格式回覆：\n"
+            '{"doc_type": "...", "summary": "...", "entities": [...]}'
+        )
+        result = await ai.vision_completion(prompt, image_bytes, max_tokens=512)
+        from app.services.ai.agent_utils import parse_json_safe
+        return parse_json_safe(result) or {"doc_type": "unknown", "summary": result[:500]}
+    except Exception as e:
+        logger.debug("Gemma 4 vision document analysis failed for %s: %s", filename, e)
+        return None
+
+
 class DocumentToolExecutor:
     """Document parsing tool executor."""
 
@@ -260,8 +284,30 @@ class DocumentToolExecutor:
                 continue
 
             try:
-                extractor = _EXTRACTORS[ext]
-                text = extractor(file_path)
+                # For image files, try Gemma 4 Vision first
+                vision_result = None
+                if ext in {".png", ".jpg", ".jpeg", ".tiff", ".bmp"}:
+                    try:
+                        with open(file_path, "rb") as img_f:
+                            img_bytes = img_f.read()
+                        vision_result = await _analyze_image_document(img_bytes, file_name)
+                    except Exception as ve:
+                        logger.debug("Vision analysis skipped for %s: %s", file_name, ve)
+
+                if vision_result and vision_result.get("summary"):
+                    # Use vision result as structured text
+                    text = (
+                        f"[Gemma 4 Vision 分析]\n"
+                        f"文件類型: {vision_result.get('doc_type', 'unknown')}\n"
+                        f"摘要: {vision_result['summary']}\n"
+                    )
+                    entities = vision_result.get("entities")
+                    if entities:
+                        text += f"關鍵資訊: {', '.join(str(e) for e in entities)}\n"
+                else:
+                    # Fallback to existing extractor (Tesseract for images)
+                    extractor = _EXTRACTORS[ext]
+                    text = extractor(file_path)
 
                 # Truncate if total would exceed limit
                 remaining = MAX_EXTRACT_CHARS - total_chars
