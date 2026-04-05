@@ -1,9 +1,9 @@
 """
 AI 統計 API 端點
 
-Version: 3.2.0
+Version: 3.3.0
 Created: 2026-02-06
-Updated: 2026-03-30 - 監控/推薦/完整性端點遷移至 ai_monitoring.py
+Updated: 2026-04-05 - 新增搜尋品質基準測試端點
 
 端點:
 - POST /ai/stats - 取得 AI 使用統計
@@ -14,6 +14,7 @@ Updated: 2026-03-30 - 監控/推薦/完整性端點遷移至 ai_monitoring.py
 - GET  /ai/stats/agent-traces/{trace_id} - Trace 詳情
 - POST /ai/stats/patterns - 學習模式統計
 - POST /ai/stats/learnings - 持久化學習統計
+- POST /ai/stats/search/benchmark - 搜尋品質基準測試
 """
 
 import logging
@@ -27,6 +28,7 @@ from app.schemas.ai.common import AIStatsResponse, SuccessResponse
 from app.schemas.ai.stats import (
     AgentTraceQuery,
     AgentTracesResponse,
+    BenchmarkRequest,
     DailyTrendItem,
     DailyTrendResponse,
     LearningsResponse,
@@ -216,3 +218,121 @@ async def get_persistent_learnings(
     stats = await repo.get_stats()
 
     return LearningsResponse(learnings=learnings, stats=stats)
+
+
+@router.post("/stats/evolution/metrics")
+async def get_evolution_metrics(
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(optional_auth()),
+):
+    """Agent 進化指標 — 畢業率/chronic 率/進化歷史"""
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import select, func
+    from app.extended.models.agent_learning import AgentLearning, AgentEvolutionHistory
+
+    # Graduation stats
+    grad_result = await db.execute(
+        select(
+            AgentLearning.graduation_status,
+            func.count(AgentLearning.id),
+        )
+        .group_by(AgentLearning.graduation_status)
+    )
+    graduation_stats = {r[0]: r[1] for r in grad_result.all()}
+
+    total = sum(graduation_stats.values())
+    graduation_rate = graduation_stats.get("graduated", 0) / max(total, 1) * 100
+    chronic_rate = graduation_stats.get("chronic", 0) / max(total, 1) * 100
+
+    # Recent evolution history (last 10)
+    history_result = await db.execute(
+        select(AgentEvolutionHistory)
+        .order_by(AgentEvolutionHistory.created_at.desc())
+        .limit(10)
+    )
+    history = []
+    for h in history_result.scalars().all():
+        history.append({
+            "id": h.evolution_id,
+            "trigger": h.trigger_reason,
+            "signals": h.signals_evaluated,
+            "promoted": h.patterns_promoted,
+            "demoted": h.patterns_demoted,
+            "graduated": h.patterns_graduated or 0,
+            "chronic": h.patterns_chronic or 0,
+            "score_before": h.avg_score_before,
+            "score_after": h.avg_score_after,
+            "created_at": str(h.created_at) if h.created_at else None,
+        })
+
+    # Chronic patterns (need attention)
+    chronic_result = await db.execute(
+        select(AgentLearning)
+        .where(AgentLearning.graduation_status == "chronic")
+        .order_by(AgentLearning.failure_count.desc())
+        .limit(10)
+    )
+    chronic_patterns = []
+    for p in chronic_result.scalars().all():
+        chronic_patterns.append({
+            "id": p.id,
+            "type": p.learning_type,
+            "content": (p.content or "")[:100],
+            "failure_count": p.failure_count,
+            "created_at": str(p.created_at) if p.created_at else None,
+        })
+
+    return JSONResponse({
+        "success": True,
+        "data": {
+            "graduation_stats": graduation_stats,
+            "graduation_rate": round(graduation_rate, 1),
+            "chronic_rate": round(chronic_rate, 1),
+            "total_learnings": total,
+            "evolution_history": history,
+            "chronic_patterns": chronic_patterns,
+        }
+    }, media_type="application/json; charset=utf-8")
+
+
+# ── Search Quality Benchmark ──
+
+
+@router.post("/stats/search/benchmark")
+async def run_search_benchmark(
+    request: BenchmarkRequest = BenchmarkRequest(),
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(optional_auth()),
+):
+    """
+    搜尋品質基準測試 (admin only)
+
+    使用 30 筆 ground truth 查詢評估搜尋品質，
+    支援 v1 (rule-based) / v2 (Gemma4 rerank) / both (A/B 比較)。
+
+    回傳 Precision@K, MRR, nDCG@K, keyword hit rate, latency 等指標。
+    """
+    from fastapi.responses import JSONResponse
+
+    try:
+        from tests.benchmarks.reranker_benchmark import SearchBenchmark
+
+        benchmark = SearchBenchmark()
+        results = await benchmark.run_benchmark(
+            db_session=db,
+            mode=request.mode,
+            top_k=request.top_k,
+            categories=request.categories,
+        )
+
+        return JSONResponse(
+            {"success": True, "data": results},
+            media_type="application/json; charset=utf-8",
+        )
+    except Exception as e:
+        logger.error("Search benchmark failed: %s", e, exc_info=True)
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500,
+            media_type="application/json; charset=utf-8",
+        )

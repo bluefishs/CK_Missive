@@ -199,3 +199,73 @@ class LinkIntegrityResponse(BaseModel):
     passed: bool = True
     issues: List[LinkIntegrityIssue] = []
     stats: LinkIntegrityStats = LinkIntegrityStats()
+
+
+# ── Search Benchmark ──
+
+
+class BenchmarkRequest(BaseModel):
+    """搜尋品質基準測試請求"""
+    mode: str = Field(
+        default="v1",
+        description="Reranker mode: v1 (rule-based), v2 (Gemma4), both (A/B)",
+        pattern="^(v1|v2|both)$",
+    )
+    top_k: int = Field(default=5, ge=1, le=20, description="Top-K for P@K / nDCG@K")
+    categories: Optional[List[str]] = Field(
+        default=None,
+        description="Filter by categories (agency_search, keyword_search, etc.)",
+    )
+
+
+class BenchmarkCategoryMetrics(BaseModel):
+    """單一類別的基準指標"""
+    avg_precision_at_k: float = 0.0
+    avg_mrr: float = 0.0
+    avg_latency_ms: float = 0.0
+    count: int = 0
+
+
+class BenchmarkModeSummary(BaseModel):
+    """單一模式的彙總指標"""
+    avg_precision_at_k: float = 0.0
+    avg_mrr: float = 0.0
+    avg_ndcg_at_k: float = 0.0
+    avg_latency_ms: float = 0.0
+    avg_hit_rate: float = 0.0
+    meets_minimum_pct: float = 0.0
+    total_queries: int = 0
+    by_category: Dict[str, BenchmarkCategoryMetrics] = {}
+
+
+class BenchmarkComparison(BaseModel):
+    """A/B 比較結果"""
+    precision_delta: float = 0.0
+    mrr_delta: float = 0.0
+    latency_delta_ms: float = 0.0
+    hit_rate_delta: float = 0.0
+    v2_better_precision: bool = False
+    v2_faster: bool = False
+
+
+class BenchmarkQueryResult(BaseModel):
+    """單筆查詢的基準結果"""
+    id: str = ""
+    query: str
+    category: str
+    mode: str
+    latency_ms: float = 0.0
+    result_count: int = 0
+    precision_at_k: float = 0.0
+    mrr: float = 0.0
+    ndcg_at_k: float = 0.0
+    keyword_hit_rate: float = 0.0
+    meets_minimum: bool = True
+
+
+class BenchmarkResponse(BaseModel):
+    """搜尋品質基準測試回應"""
+    v1: List[BenchmarkQueryResult] = []
+    v2: List[BenchmarkQueryResult] = []
+    summary: Dict[str, Any] = {}
+    meta: Dict[str, Any] = {}

@@ -1,0 +1,272 @@
+[
+  {
+    "id": "agency_01",
+    "query": "桃園市政府測量相關公文",
+    "expected_keywords": ["桃園", "測量"],
+    "expected_doc_type": null,
+    "min_expected_results": 1,
+    "category": "agency_search",
+    "description": "搜尋含桃園市政府測量相關的公文"
+  },
+  {
+    "id": "agency_02",
+    "query": "經濟部水利署來函",
+    "expected_keywords": ["經濟部", "水利署"],
+    "expected_doc_type": "收文",
+    "min_expected_results": 1,
+    "category": "agency_search",
+    "description": "搜尋經濟部水利署寄來的收文"
+  },
+  {
+    "id": "agency_03",
+    "query": "交通部公路局發文",
+    "expected_keywords": ["交通部", "公路局"],
+    "expected_doc_type": null,
+    "min_expected_results": 1,
+    "category": "agency_search",
+    "description": "搜尋與交通部公路局相關的公文"
+  },
+  {
+    "id": "agency_04",
+    "query": "新北市政府工務局的公文",
+    "expected_keywords": ["新北", "工務"],
+    "expected_doc_type": null,
+    "min_expected_results": 1,
+    "category": "agency_search",
+    "description": "搜尋新北市政府工務局來文"
+  },
+  {
+    "id": "agency_05",
+    "query": "台北市環保局函覆",
+    "expected_keywords": ["台北", "環保"],
+    "expected_doc_type": "收文",
+    "min_expected_results": 1,
+    "category": "agency_search",
+    "description": "搜尋台北市環保局回覆的公文"
+  },
+  {
+    "id": "keyword_01",
+    "query": "工程驗收結案報告",
+    "expected_keywords": ["驗收", "結案"],
+    "expected_doc_type": null,
+    "min_expected_results": 1,
+    "category": "keyword_search",
+    "description": "搜尋含驗收與結案的公文"
+  },
+  {
+    "id": "keyword_02",
+    "query": "地質鑽探調查",
+    "expected_keywords": ["鑽探", "地質"],
+    "expected_doc_type": null,
+    "min_expected_results": 1,
+    "category": "keyword_search",
+    "description": "搜尋地質鑽探相關公文"
+  },
+  {
+    "id": "keyword_03",
+    "query": "環境影響評估報告",
+    "expected_keywords": ["環境影響", "評估"],
+    "expected_doc_type": null,
+    "min_expected_results": 1,
+    "category": "keyword_search",
+    "description": "搜尋環評報告相關公文"
+  },
+  {
+    "id": "keyword_04",
+    "query": "契約變更設計",
+    "expected_keywords": ["契約", "變更"],
+    "expected_doc_type": null,
+    "min_expected_results": 1,
+    "category": "keyword_search",
+    "description": "搜尋契約變更設計相關的公文"
+  },
+  {
+    "id": "keyword_05",
+    "query": "水土保持計畫審查",
+    "expected_keywords": ["水土保持", "審查"],
+    "expected_doc_type": null,
+    "min_expected_results": 1,
+    "category": "keyword_search",
+    "description": "搜尋水土保持計畫審查的公文"
+  },
+  {
+    "id": "dispatch_01",
+    "query": "派工單 115年 001",
+    "expected_keywords": ["115", "001"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "dispatch_search",
+    "description": "搜尋特定年度派工單"
+  },
+  {
+    "id": "dispatch_02",
+    "query": "桃園派工進度報告",
+    "expected_keywords": ["桃園", "派工"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "dispatch_search",
+    "description": "搜尋桃園派工進度相關公文"
+  },
+  {
+    "id": "dispatch_03",
+    "query": "派工施工日誌",
+    "expected_keywords": ["施工", "日誌"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "dispatch_search",
+    "description": "搜尋施工日誌相關派工紀錄"
+  },
+  {
+    "id": "dispatch_04",
+    "query": "監造紀錄檢查表",
+    "expected_keywords": ["監造", "檢查"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "dispatch_search",
+    "description": "搜尋監造檢查表文件"
+  },
+  {
+    "id": "dispatch_05",
+    "query": "派工完工驗收",
+    "expected_keywords": ["完工", "驗收"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "dispatch_search",
+    "description": "搜尋派工完工驗收紀錄"
+  },
+  {
+    "id": "date_01",
+    "query": "上個月的收文",
+    "expected_keywords": [],
+    "expected_doc_type": "收文",
+    "min_expected_results": 1,
+    "category": "date_range",
+    "description": "搜尋上個月的收文，需正確解析時間語意"
+  },
+  {
+    "id": "date_02",
+    "query": "2025年第四季發文",
+    "expected_keywords": ["2025"],
+    "expected_doc_type": "發文",
+    "min_expected_results": 0,
+    "category": "date_range",
+    "description": "搜尋特定年份特定季度的發文"
+  },
+  {
+    "id": "date_03",
+    "query": "最近一週到期的公文",
+    "expected_keywords": ["到期"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "date_range",
+    "description": "搜尋近期將到期的公文，需時間語意解析"
+  },
+  {
+    "id": "entity_01",
+    "query": "找張工程師負責的案件",
+    "expected_keywords": ["張"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "entity_search",
+    "description": "透過人名搜尋關聯案件"
+  },
+  {
+    "id": "entity_02",
+    "query": "大安區道路工程",
+    "expected_keywords": ["大安", "道路"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "entity_search",
+    "description": "搜尋特定地點的工程案件"
+  },
+  {
+    "id": "entity_03",
+    "query": "長鴻營造有限公司相關文件",
+    "expected_keywords": ["長鴻", "營造"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "entity_search",
+    "description": "搜尋特定廠商相關公文"
+  },
+  {
+    "id": "tender_01",
+    "query": "地下管線調查標案",
+    "expected_keywords": ["地下管線", "調查"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "tender_search",
+    "description": "搜尋地下管線調查類標案"
+  },
+  {
+    "id": "tender_02",
+    "query": "桃園市政府水務局招標案",
+    "expected_keywords": ["桃園", "水務"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "tender_search",
+    "description": "搜尋桃園水務局的招標公告"
+  },
+  {
+    "id": "tender_03",
+    "query": "測量技術服務案",
+    "expected_keywords": ["測量", "技術服務"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "tender_search",
+    "description": "搜尋測量技術服務類標案"
+  },
+  {
+    "id": "finance_01",
+    "query": "本月費用報銷統計",
+    "expected_keywords": ["費用", "報銷"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "finance_query",
+    "description": "查詢本月費用報銷數據"
+  },
+  {
+    "id": "finance_02",
+    "query": "營造廠商請款紀錄",
+    "expected_keywords": ["營造", "請款"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "finance_query",
+    "description": "搜尋營造廠商的請款紀錄"
+  },
+  {
+    "id": "finance_03",
+    "query": "專案損益表",
+    "expected_keywords": ["損益"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "finance_query",
+    "description": "查詢專案損益報表"
+  },
+  {
+    "id": "mixed_01",
+    "query": "桃園市政府水務局 114年度 工程驗收公文",
+    "expected_keywords": ["桃園", "水務", "驗收"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "mixed_query",
+    "description": "複合查詢：機關 + 年度 + 類型"
+  },
+  {
+    "id": "mixed_02",
+    "query": "新竹地區鑽探案件的發文和派工",
+    "expected_keywords": ["新竹", "鑽探"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "mixed_query",
+    "description": "跨模組複合查詢：區域 + 類型 + 多文件類型"
+  },
+  {
+    "id": "mixed_03",
+    "query": "今年承攬的環境監測案件有哪些廠商",
+    "expected_keywords": ["環境", "監測", "承攬"],
+    "expected_doc_type": null,
+    "min_expected_results": 0,
+    "category": "mixed_query",
+    "description": "複合查詢：時間 + 業務類型 + 廠商關聯"
+  }
+]
