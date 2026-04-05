@@ -1,14 +1,16 @@
 """
-Agent 工具迴圈 — ReAct Loop + Chain-of-Tools + 雙層評估
+Agent 工具迴圈 — ReAct Loop + Chain-of-Tools + 雙層評估 + 動態迭代
 
 從 agent_orchestrator.py 提取，負責：
-- 工具迴圈 (最多 MAX_ITERATIONS 輪)
+- 工具迴圈 (動態 MAX_ITERATIONS，依查詢複雜度 2~5 輪)
 - 單/多工具執行 (並行支援)
 - 雙層評估 (auto_correct → ReAct LLM)
+- 工具失敗自動重規劃 (re-plan on failure)
 - 自適應超時
 
-Version: 1.0.0 (拆分自 orchestrator v2.6.0)
+Version: 1.1.0 (動態迭代 + 失敗重規劃)
 Created: 2026-03-25
+Updated: 2026-04-05
 """
 
 import asyncio
@@ -28,6 +30,16 @@ logger = logging.getLogger(__name__)
 class AgentToolLoop:
     """封裝工具迴圈邏輯，供 AgentOrchestrator 呼叫"""
 
+    # Domain keyword mapping for complexity estimation
+    _DOMAIN_KEYWORDS: Dict[str, List[str]] = {
+        "doc": ["公文", "document", "search_documents", "收文", "發文"],
+        "dispatch": ["派工", "dispatch", "search_dispatch"],
+        "pm": ["專案", "project", "milestone", "案件"],
+        "erp": ["報價", "財務", "vendor", "billing", "費用", "發票"],
+        "kg": ["實體", "entity", "graph", "navigate", "知識圖譜"],
+        "tender": ["標案", "tender", "投標", "招標"],
+    }
+
     def __init__(
         self,
         tools: AgentToolExecutor,
@@ -39,6 +51,51 @@ class AgentToolLoop:
         self._planner = planner
         self.config = config
         self._adaptive_tool_timeout = adaptive_tool_timeout
+
+    def _estimate_complexity(self, plan: Dict[str, Any], question: str) -> int:
+        """
+        Estimate query complexity to determine dynamic max iterations.
+
+        Simple (1-2 tools planned): max 2 iterations
+        Medium (3-4 tools): max 3 iterations (default)
+        Complex (5+ tools or multi-domain): max 5 iterations
+
+        Falls back to config value on any estimation error.
+        """
+        try:
+            planned_tools = plan.get("tool_calls", [])
+            tool_count = len(planned_tools)
+
+            # Detect multi-domain queries
+            domains: set = set()
+            q_lower = question.lower()
+            for domain, keywords in self._DOMAIN_KEYWORDS.items():
+                if any(kw in q_lower for kw in keywords):
+                    domains.add(domain)
+            # Also check planned tool names for domain signals
+            for call in planned_tools:
+                name = call.get("name", "")
+                for domain, keywords in self._DOMAIN_KEYWORDS.items():
+                    if any(kw in name for kw in keywords):
+                        domains.add(domain)
+
+            if tool_count >= 5 or len(domains) >= 3:
+                max_iter = 5  # Complex
+            elif tool_count >= 3 or len(domains) >= 2:
+                max_iter = 3  # Medium
+            else:
+                max_iter = 2  # Simple
+
+            # Cap at 5 absolute max; use dynamic value directly
+            config_max = self.config.agent_max_iterations
+            result = min(max_iter, 5)
+            logger.info(
+                "Dynamic iterations: %d (tools=%d, domains=%d/%s, config_max=%d)",
+                result, tool_count, len(domains), domains, config_max,
+            )
+            return result
+        except Exception:
+            return self.config.agent_max_iterations
 
     async def execute_loop(
         self,
@@ -53,11 +110,12 @@ class AgentToolLoop:
         trace: Optional[AgentTrace] = None,
     ) -> Dict[str, Any]:
         """
-        執行工具迴圈（最多 MAX_ITERATIONS 輪）。
+        執行工具迴圈（動態 MAX_ITERATIONS，依查詢複雜度調整）。
 
-        雙層評估策略：
-        1. 快速路徑：規則式 auto_correct（0ms，覆蓋常見情境）
-        2. 慢路徑：ReAct LLM 推理（~500ms，處理複雜場景）
+        三層評估策略：
+        1. 失敗重規劃：工具返回錯誤/空結果時，立即觸發 auto_correct 重規劃
+        2. 快速路徑：規則式 auto_correct（0ms，覆蓋常見情境）
+        3. 慢路徑：ReAct LLM 推理（~500ms，處理複雜場景）
 
         SSE 事件即時推送至 event_queue，供 stream_agent_query 即時 yield。
 
@@ -67,7 +125,10 @@ class AgentToolLoop:
         iterations = 0
         memory = AgentWorkingMemory()
 
-        for iteration in range(self.config.agent_max_iterations):
+        # Dynamic max iterations based on query complexity
+        max_iterations = self._estimate_complexity(plan, question)
+
+        for iteration in range(max_iterations):
             iterations = iteration + 1
 
             # Chain-of-Tools: 注入前輪結果中的 ID/名稱到本輪工具參數
@@ -104,6 +165,32 @@ class AgentToolLoop:
                     original_question=question,
                 )
 
+            # ── Layer 0: 失敗重規劃 ──
+            # 當本輪最後一個工具返回 error 或 0 結果時，
+            # 立即觸發 auto_correct 嘗試替代工具，不等雙層評估
+            last_result = tool_results[-1] if tool_results else None
+            if last_result:
+                lr = last_result.get("result", {})
+                has_failure = lr.get("error") or lr.get("count", 1) == 0
+                if has_failure and not lr.get("degraded"):
+                    from app.services.ai.agent_auto_corrector import auto_correct_plan
+                    replan_from_failure = auto_correct_plan(question, tool_results)
+                    if replan_from_failure and replan_from_failure.get("tool_calls"):
+                        reasoning = replan_from_failure.get(
+                            "reasoning", "工具失敗，自動重規劃",
+                        )
+                        logger.info("Re-plan on failure: %s", reasoning)
+                        if trace:
+                            trace.record_correction(f"replan_on_failure: {reasoning}")
+                        await event_queue.put(sse(
+                            type="thinking",
+                            step=f"🔄 {reasoning}",
+                            step_index=step_index,
+                        ))
+                        step_index += 1
+                        plan = replan_from_failure
+                        continue
+
             # ── 雙層評估：快速路徑 → 慢路徑 ──
 
             # Layer 1: 規則式 auto_correct（快速路徑，0ms）
@@ -129,7 +216,7 @@ class AgentToolLoop:
             if (
                 not dispatch_has_result
                 and memory.total_results < 3
-                and iteration < self.config.agent_max_iterations - 1
+                and iteration < max_iterations - 1
             ):
                 react_plan = await self._planner.react(
                     question, tool_results, memory, context=context,
