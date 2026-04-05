@@ -104,7 +104,7 @@ async def test_transcribe_groq_failure_falls_through(transcriber, sample_audio):
     # Ollama tags returns no whisper model
     mock_ollama_tags = MagicMock()
     mock_ollama_tags.status_code = 200
-    mock_ollama_tags.json.return_value = {"models": [{"name": "qwen3:4b"}]}
+    mock_ollama_tags.json.return_value = {"models": [{"name": "gemma4"}]}
 
     with patch("httpx.AsyncClient") as MockClient:
         client_instance = AsyncMock()

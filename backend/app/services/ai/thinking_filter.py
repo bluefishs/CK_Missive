@@ -42,7 +42,7 @@ _REF_PATTERN = re.compile(r"\[(公文|派工單)\d+\]")
 
 def strip_thinking_from_synthesis(raw: str) -> str:
     """
-    從合成回答中提取真正的答案，丟棄 qwen3:4b 洩漏的推理段落。
+    從合成回答中提取真正的答案，丟棄 LLM 洩漏的推理段落 (Gemma 4 / Qwen3 等)。
 
     策略：「答案提取」而非「推理過濾」
     - Phase 1: 移除 <think> 標記
@@ -54,8 +54,11 @@ def strip_thinking_from_synthesis(raw: str) -> str:
     if not raw:
         return raw
 
-    # Phase 1: 移除 <think> 標記
-    cleaned = re.sub(r"<think>.*?</think>\s*", "", raw, flags=re.DOTALL).strip()
+    # Phase 1: 移除思考標記 (<think> for Qwen3, <start_of_thinking> for Gemma 4)
+    cleaned = re.sub(r"<think>.*?</think>\s*", "", raw, flags=re.DOTALL)
+    cleaned = re.sub(
+        r"<start_of_thinking>.*?<end_of_thinking>\s*", "", cleaned, flags=re.DOTALL
+    ).strip()
 
     # Phase 2: 短回答快速通過
     has_refs = bool(_REF_PATTERN.search(cleaned))

@@ -16,7 +16,7 @@ NVIDIA Cloud API:
 - 支援模型: nvidia/llama-3.3-nemotron-super-49b-v1.5
 - 需要 NVIDIA_API_KEY 環境變數 (build.nvidia.com 啟用)
 
-Qwen3 thinking mode 處理:
+Thinking mode 處理 (Gemma 4 / Qwen3 / DeepSeek-R1):
 - 結構化任務 (NER/intent/classify): think=false + format=json
 - 生成任務 (RAG chat/summary): think=false
 - 安全網: 內容後處理移除殘留 <think> 區塊
@@ -47,7 +47,7 @@ VLLM_LOCAL_MODEL = os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 
 # Ollama 配置
 OLLAMA_DEFAULT_URL = "http://localhost:11434"
-OLLAMA_DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:4b")
+OLLAMA_DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "gemma4")
 
 # Retry 配置
 MAX_RETRIES = 2
@@ -148,11 +148,12 @@ class AIConnector(AIConnectorManagementMixin):
             AIServiceException: 所有 AI 服務均不可用時拋出
         """
         # 分離 Groq / Ollama 模型選擇
-        # TASK_MODEL_MAP 是 Ollama 專用模型名（如 qwen3:4b）
+        # TASK_MODEL_MAP 是 Ollama 專用模型名（如 gemma4）
         # Groq 必須使用 GROQ_DEFAULT_MODEL（如 llama-3.3-70b-versatile）
         ollama_model = model or OLLAMA_DEFAULT_MODEL
-        # 若 model 是 Ollama 格式（含冒號如 qwen3:4b）或等於 Ollama 預設，使用 Groq 預設模型
-        groq_model = GROQ_DEFAULT_MODEL if not model or ":" in model else model
+        # 若 model 是 Ollama 格式（含冒號或等於 Ollama 預設），使用 Groq 預設模型
+        _is_ollama_model = not model or ":" in model or model == OLLAMA_DEFAULT_MODEL
+        groq_model = GROQ_DEFAULT_MODEL if _is_ollama_model else model
 
         if not model and task_type:
             ollama_model = TASK_MODEL_MAP.get(task_type, OLLAMA_DEFAULT_MODEL)
@@ -343,10 +344,19 @@ class AIConnector(AIConnectorManagementMixin):
 
     @staticmethod
     def _strip_think_tags(content: str) -> str:
-        """移除殘留的 <think>...</think> 區塊（安全網）"""
-        if "<think>" not in content:
+        """移除殘留的思考區塊（安全網）
+
+        支援:
+        - <think>...</think> (Qwen3 / DeepSeek-R1)
+        - <start_of_thinking>...</end_of_thinking> (Gemma 4)
+        """
+        if "<think>" not in content and "<start_of_thinking>" not in content:
             return content
-        return re.sub(r"<think>.*?</think>\s*", "", content, flags=re.DOTALL).strip()
+        content = re.sub(r"<think>.*?</think>\s*", "", content, flags=re.DOTALL)
+        content = re.sub(
+            r"<start_of_thinking>.*?<end_of_thinking>\s*", "", content, flags=re.DOTALL
+        )
+        return content.strip()
 
     async def _ollama_completion(
         self,

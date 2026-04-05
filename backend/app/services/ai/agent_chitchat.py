@@ -145,16 +145,19 @@ def get_smart_fallback(question: str) -> str:
 
 def clean_chitchat_response(raw: str, question: str) -> str:
     """
-    過濾 qwen3:4b 洩漏的思考鏈，提取真正的回覆內容
+    過濾 LLM 洩漏的思考鏈，提取真正的回覆內容
 
-    qwen3 小模型即使設定 think=false，仍會在 content 中混入推理分析。
+    本地小模型 (Gemma 4 / Qwen3 等) 即使設定 think=false，仍可能在 content 中混入推理分析。
     策略：偵測思考洩漏 → 嘗試提取有效回覆 → 回退到智慧預設。
     """
     if not raw:
         return get_smart_fallback(question)
 
-    # 移除 <think> 標記（標準格式）
-    cleaned = re.sub(r"<think>.*?</think>\s*", "", raw, flags=re.DOTALL).strip()
+    # 移除思考標記 (<think> for Qwen3, <start_of_thinking> for Gemma 4)
+    cleaned = re.sub(r"<think>.*?</think>\s*", "", raw, flags=re.DOTALL)
+    cleaned = re.sub(
+        r"<start_of_thinking>.*?<end_of_thinking>\s*", "", cleaned, flags=re.DOTALL
+    ).strip()
 
     # 偵測思考洩漏特徵
     _THINKING_MARKERS = (
@@ -166,7 +169,7 @@ def clean_chitchat_response(raw: str, question: str) -> str:
 
     has_thinking = any(m in cleaned for m in _THINKING_MARKERS)
     if not has_thinking:
-        # 額外檢查：是否包含大量簡體中文（qwen3 傾向用簡體推理）
+        # 額外檢查：是否包含大量簡體中文（部分模型傾向用簡體推理）
         simplified_chars = sum(1 for c in cleaned if '\u4e00' <= c <= '\u9fff')
         if simplified_chars > 0:
             # 簡體比例檢測（粗略：若含「这」「们」「还」等常見簡體字）

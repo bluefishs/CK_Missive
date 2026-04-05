@@ -32,7 +32,7 @@ class AIConfig:
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen3:4b"
+    ollama_model: str = "gemma4"
 
     # 超時設定 (秒)
     cloud_timeout: int = 30
@@ -264,7 +264,7 @@ class AIConfig:
             groq_api_key=os.getenv("GROQ_API_KEY", ""),
             groq_model=os.getenv("AI_DEFAULT_MODEL", "llama-3.3-70b-versatile"),
             ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-            ollama_model=os.getenv("OLLAMA_MODEL", "qwen3:4b"),
+            ollama_model=os.getenv("OLLAMA_MODEL", "gemma4"),
             cloud_timeout=int(os.getenv("AI_CLOUD_TIMEOUT", "30")),
             local_timeout=int(os.getenv("AI_LOCAL_TIMEOUT", "60")),
             rate_limit_requests=int(os.getenv("AI_RATE_LIMIT_REQUESTS", "30")),

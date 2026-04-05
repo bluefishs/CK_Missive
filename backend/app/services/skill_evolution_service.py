@@ -237,7 +237,7 @@ def build_skill_tree() -> Dict[str, Any]:
     nvidia = add_node("NVIDIA Cloud", "inference", "v1.0", 4, "auto",
                       "Nemotron-49B·高品質·P1")
     ollama = add_node("Ollama Local", "inference", "v3.0", 5, "auto",
-                      "qwen3:4b+nomic-embed·P2備援")
+                      "gemma4+nomic-embed·P0主力")
     nim = add_node("NIM Local", "inference", "v0.5", 2, "planned",
                    "待TRT-LLM profile支援", size=8)
     nvidia_embed = add_node("NVIDIA Embedding", "inference", "v0.1", 1, "planned",

@@ -3,7 +3,7 @@ Agent 合成模組 — 答案合成、thinking 過濾、context 建構
 
 職責：
 - synthesize_answer: 根據工具結果串流生成最終回答
-- strip_thinking: 從 qwen3:4b 回答中提取真正答案（5 階段策略）
+- strip_thinking: 從 LLM 回答中提取真正答案（5 階段策略，適用 Gemma 4 / Qwen3 等）
 - build_synthesis_context: 將工具結果建構為 LLM 上下文
 - summarize_tool_result: 生成工具結果的簡短摘要
 - fallback_rag: 無工具直接回答時回退到 RAG
@@ -89,7 +89,7 @@ class AgentSynthesizer:
         user_prompt = f"查詢結果：\n\n{synthesis_context}\n\n問題：{question}\n\n請根據上述資料回答問題。"
         messages.append({"role": "user", "content": user_prompt})
 
-        # 非串流呼叫 + 後處理：qwen3:4b 會在回覆中大量穿插推理段落
+        # 非串流呼叫 + 後處理：本地模型可能在回覆中穿插推理段落
         # 超時保護：避免 LLM 無回應時永久阻塞整個 SSE 串流
         synthesis_timeout = max(self.config.cloud_timeout, self.config.local_timeout)
         try:

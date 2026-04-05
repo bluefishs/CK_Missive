@@ -4,7 +4,7 @@ Agent 閒聊模組單元測試
 測試範圍：
 - is_chitchat: 閒聊偵測（精確匹配、前綴匹配、業務關鍵字反向偵測）
 - get_smart_fallback: 智慧預設回覆
-- clean_chitchat_response: qwen3:4b 思考洩漏過濾
+- clean_chitchat_response: LLM 思考洩漏過濾 (Gemma 4 / Qwen3 等)
 
 共 30+ test cases
 """
@@ -183,7 +183,7 @@ class TestGetSmartFallback:
 
 
 class TestCleanChitchatResponse:
-    """qwen3:4b 思考洩漏過濾測試"""
+    """LLM 思考洩漏過濾測試 (Gemma 4 / Qwen3 等)"""
 
     def test_clean_response_passthrough(self):
         """無洩漏的回答直接通過"""
