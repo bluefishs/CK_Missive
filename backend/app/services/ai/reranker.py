@@ -3,23 +3,23 @@
 
 三層混合重排策略：
 1. 向量相似度 (已有，由 pgvector cosine_distance 提供)
-2. 關鍵字覆蓋度 (新增，BM25-like 精確匹配)
-3. 批次 LLM 相關性評分 (可選，高延遲但高精度)
+2. 關鍵字覆蓋度 (BM25-like 精確匹配)
+3. LLM 相關性評分 (Gemma 4 預設啟用，>5 筆自動觸發)
 
 最終分數 = w_vector * vector_sim + w_keyword * keyword_score + w_llm * llm_score
 
-Version: 1.1.0
+Version: 2.0.0
 Created: 2026-02-26
-Updated: 2026-02-27 - v1.1.0 統一 STOPWORDS 為唯一來源（合併 RAG + reranker）
+Updated: 2026-04-05 - v2.0.0 Gemma 4 預設 reranking + adaptive weights + quick rerank
 """
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# 權重配置
+# 預設權重配置 (向後相容)
 W_VECTOR = 0.5
 W_KEYWORD = 0.3
 W_LLM = 0.2
@@ -42,6 +42,27 @@ STOPWORDS = {
 
 # 向後相容別名
 _STOPWORDS = STOPWORDS
+
+
+def _adaptive_weights(query_terms: List[str]) -> Tuple[float, float, float]:
+    """Adaptive weights based on query characteristics.
+
+    Short queries (1-2 terms): favor keyword matching (precision)
+    Medium queries (3-5 terms): balanced
+    Long queries (6+ terms): favor semantic (recall)
+
+    Returns:
+        (vector_weight, keyword_weight, llm_weight)
+    """
+    # Filter stopwords for accurate term count
+    effective = [t for t in query_terms if t not in _STOPWORDS and len(t) >= 2]
+    n = len(effective)
+    if n <= 2:
+        return (0.3, 0.5, 0.2)  # keyword-heavy for precision
+    elif n <= 5:
+        return (0.5, 0.3, 0.2)  # balanced (original default)
+    else:
+        return (0.6, 0.2, 0.2)  # semantic-heavy for recall
 
 
 def compute_keyword_score(
@@ -107,8 +128,9 @@ def build_doc_text(doc: Dict[str, Any]) -> str:
 def rerank_documents(
     documents: List[Dict[str, Any]],
     query_terms: List[str],
-    vector_weight: float = W_VECTOR,
-    keyword_weight: float = W_KEYWORD,
+    vector_weight: Optional[float] = None,
+    keyword_weight: Optional[float] = None,
+    use_adaptive: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     混合重排序
@@ -116,14 +138,24 @@ def rerank_documents(
     Args:
         documents: 檢索到的公文列表（需含 similarity 欄位）
         query_terms: 查詢關鍵字列表
-        vector_weight: 向量相似度權重
-        keyword_weight: 關鍵字覆蓋度權重
+        vector_weight: 向量相似度權重 (None = 自動)
+        keyword_weight: 關鍵字覆蓋度權重 (None = 自動)
+        use_adaptive: 是否使用自適應權重 (預設 True)
 
     Returns:
         重排序後的公文列表（附加 rerank_score 欄位）
     """
     if not documents:
         return documents
+
+    # Determine weights
+    if vector_weight is not None and keyword_weight is not None:
+        # Explicit weights provided — use them (backward compatible)
+        v_w, k_w = vector_weight, keyword_weight
+    elif use_adaptive and query_terms:
+        v_w, k_w, _ = _adaptive_weights(query_terms)
+    else:
+        v_w, k_w = W_VECTOR, W_KEYWORD
 
     scored = []
     for doc in documents:
@@ -133,8 +165,8 @@ def rerank_documents(
 
         # 混合分數
         final_score = (
-            vector_weight * vector_sim
-            + keyword_weight * keyword_score
+            v_w * vector_sim
+            + k_w * keyword_score
         )
 
         scored.append({
@@ -147,13 +179,156 @@ def rerank_documents(
     scored.sort(key=lambda d: d["rerank_score"], reverse=True)
 
     logger.debug(
-        "Reranked %d documents: top score=%.4f, keyword_boost=%d",
+        "Reranked %d documents (weights: v=%.2f k=%.2f): top score=%.4f, keyword_boost=%d",
         len(scored),
+        v_w,
+        k_w,
         scored[0]["rerank_score"] if scored else 0,
         sum(1 for d in scored if d["keyword_score"] > 0),
     )
 
     return scored
+
+
+async def rerank_with_llm(
+    ai_connector: Any,
+    documents: List[Dict[str, Any]],
+    query: str,
+    query_terms: List[str],
+    top_n: int = 10,
+    auto_llm_threshold: int = 5,
+) -> List[Dict[str, Any]]:
+    """
+    完整重排管線：keyword+vector rerank → optional LLM rerank
+
+    當結果數量超過 auto_llm_threshold 時，自動調用 Gemma 4 進行 LLM 重排。
+
+    Args:
+        ai_connector: AIConnector 實例 (None 時跳過 LLM)
+        documents: 候選公文列表
+        query: 原始查詢字串
+        query_terms: 分詞後的查詢詞
+        top_n: 最終回傳數量
+        auto_llm_threshold: 自動觸發 LLM rerank 的結果數量閾值
+
+    Returns:
+        重排序後的公文列表
+    """
+    # Step 1: keyword + vector hybrid rerank
+    reranked = rerank_documents(documents, query_terms)
+
+    # Step 2: LLM rerank if enough candidates and connector available
+    if ai_connector and len(reranked) > auto_llm_threshold:
+        try:
+            reranked = await gemma4_quick_rerank(
+                ai_connector, reranked, query, top_k=top_n
+            )
+        except Exception as e:
+            logger.warning("LLM rerank skipped: %s", e)
+
+    return reranked[:top_n]
+
+
+async def gemma4_quick_rerank(
+    ai_connector: Any,
+    documents: List[Dict[str, Any]],
+    query: str,
+    top_k: int = 5,
+) -> List[Dict[str, Any]]:
+    """
+    Fast Gemma 4 reranking — single-call batch scoring.
+
+    Uses a compact Chinese prompt optimized for Gemma 4 to rank
+    up to 10 candidates in a single LLM call.
+
+    Args:
+        ai_connector: AIConnector 實例
+        documents: 候選公文列表 (已經過 keyword+vector rerank)
+        query: 使用者查詢
+        top_k: 回傳前 K 篇
+
+    Returns:
+        重排序後的公文列表（附加 llm_relevance 欄位）
+    """
+    if not documents or len(documents) <= 1:
+        return documents[:top_k]
+
+    # Limit to 10 candidates for speed
+    candidates = documents[:10]
+
+    # Build compact doc summaries
+    doc_lines = []
+    for i, doc in enumerate(candidates):
+        subject = doc.get("subject", "")[:50]
+        sender = doc.get("sender", "")[:20]
+        doc_num = doc.get("doc_number", "")
+        doc_lines.append(f"{i + 1}. [{doc_num}] {subject} ({sender})")
+
+    docs_text = "\n".join(doc_lines)
+
+    system_prompt = (
+        "你是公文相關性排序專家。"
+        "根據問題從公文列表選出最相關的，按相關性高→低排序。"
+        "只回傳數字編號（逗號分隔），例如：3,1,5,2"
+    )
+
+    user_content = f"問題：{query}\n\n公文：\n{docs_text}"
+
+    try:
+        response = await ai_connector.chat_completion(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            temperature=0.0,
+            max_tokens=48,
+            task_type="rerank",
+        )
+
+        # Parse ranked indices
+        numbers = re.findall(r"\d+", response)
+        ranked_indices = []
+        seen = set()
+        for n in numbers:
+            idx = int(n) - 1  # 1-based → 0-based
+            if 0 <= idx < len(candidates) and idx not in seen:
+                ranked_indices.append(idx)
+                seen.add(idx)
+
+        if not ranked_indices:
+            logger.warning("Gemma4 quick rerank returned no valid indices: %s", response)
+            return documents[:top_k]
+
+        # Rebuild ranked list with LLM relevance scores
+        reranked = []
+        for rank, idx in enumerate(ranked_indices[:top_k]):
+            doc = {**candidates[idx]}
+            doc["llm_relevance"] = round(1.0 - rank * 0.1, 2)
+            reranked.append(doc)
+
+        # Fill remaining from candidates not yet included
+        for idx, doc in enumerate(candidates):
+            if idx not in seen and len(reranked) < top_k:
+                reranked.append({**doc, "llm_relevance": 0.0})
+
+        # If still short, append from remaining documents beyond candidates
+        if len(reranked) < top_k:
+            for doc in documents[len(candidates):]:
+                if len(reranked) >= top_k:
+                    break
+                reranked.append({**doc, "llm_relevance": 0.0})
+
+        logger.info(
+            "Gemma4 quick reranked %d → top %d: order=%s",
+            len(candidates),
+            len(reranked),
+            ranked_indices[:top_k],
+        )
+        return reranked
+
+    except Exception as e:
+        logger.warning("Gemma4 quick rerank failed, keeping original order: %s", e)
+        return documents[:top_k]
 
 
 async def llm_rerank(
@@ -163,9 +338,9 @@ async def llm_rerank(
     top_n: int = 5,
 ) -> List[Dict[str, Any]]:
     """
-    LLM 批次相關性重排序（可選，高品質但高延遲）
+    LLM 批次相關性重排序（向後相容入口）
 
-    使用單次 LLM 呼叫對所有文件進行相關性排序。
+    Uses Gemma 4 optimized prompt with reduced candidates (10 max).
 
     Args:
         ai_connector: AIConnector 實例
@@ -179,71 +354,7 @@ async def llm_rerank(
     if not documents or len(documents) <= 1:
         return documents[:top_n]
 
-    # 建構文件描述（精簡，控制 token 消耗）
-    doc_list = []
-    for i, doc in enumerate(documents[:15]):  # 最多 15 篇
-        doc_list.append(
-            f"{i + 1}. [{doc.get('doc_number', '')}] "
-            f"{doc.get('subject', '')[:60]} "
-            f"({doc.get('sender', '')} → {doc.get('receiver', '')})"
-        )
-
-    docs_text = "\n".join(doc_list)
-
-    system_prompt = (
-        "你是公文相關性評估專家。根據使用者問題，"
-        "從以下公文列表中選出最相關的文件編號，按相關性從高到低排列。"
-        "僅回傳數字編號（以逗號分隔），不要其他文字。"
-        f"例如：3,1,5,2"
+    # Delegate to Gemma 4 quick rerank (backward compatible)
+    return await gemma4_quick_rerank(
+        ai_connector, documents, question, top_k=top_n
     )
-
-    user_content = f"問題：{question}\n\n公文列表：\n{docs_text}"
-
-    try:
-        response = await ai_connector.chat_completion(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_content},
-            ],
-            temperature=0.1,
-            max_tokens=64,
-            task_type="classify",
-        )
-
-        # 解析排序結果
-        numbers = re.findall(r"\d+", response)
-        ranked_indices = []
-        seen = set()
-        for n in numbers:
-            idx = int(n) - 1  # 1-based → 0-based
-            if 0 <= idx < len(documents) and idx not in seen:
-                ranked_indices.append(idx)
-                seen.add(idx)
-
-        if not ranked_indices:
-            logger.warning("LLM rerank returned no valid indices: %s", response)
-            return documents[:top_n]
-
-        # 重建排序列表
-        reranked = []
-        for rank, idx in enumerate(ranked_indices[:top_n]):
-            doc = {**documents[idx]}
-            doc["llm_relevance"] = round(1.0 - rank * 0.1, 2)
-            reranked.append(doc)
-
-        # 補足 top_n（LLM 可能未返回足夠數量）
-        for idx, doc in enumerate(documents):
-            if idx not in seen and len(reranked) < top_n:
-                reranked.append({**doc, "llm_relevance": 0.0})
-
-        logger.info(
-            "LLM reranked %d → top %d: order=%s",
-            len(documents),
-            len(reranked),
-            ranked_indices[:top_n],
-        )
-        return reranked
-
-    except Exception as e:
-        logger.warning("LLM rerank failed, keeping original order: %s", e)
-        return documents[:top_n]
