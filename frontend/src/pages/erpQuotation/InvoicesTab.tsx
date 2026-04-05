@@ -3,7 +3,13 @@
  *
  * 報價單詳情頁的發票子表，支援 CRUD 操作。
  *
- * @version 1.0.0
+ * ACCEPTED EXCEPTION: Modal CRUD pattern retained.
+ * Reason: Tab-inline editing within ERP Quotation detail page (8 fields).
+ * Invoices are tightly coupled to the parent erpQuotationId and billing period context.
+ * Quality: Form validation (required rules), loading states (confirmLoading),
+ * Popconfirm delete, destroyOnHidden for form cleanup.
+ *
+ * @version 1.0.1
  */
 
 import React, { useState, useCallback } from 'react';

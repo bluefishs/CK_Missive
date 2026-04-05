@@ -4,7 +4,16 @@
  * 報價單詳情頁的請款子表，支援 CRUD 操作。
  * 狀態/查詢/handlers 已提取至 useBillingHandlers hook。
  *
- * @version 1.1.0
+ * ACCEPTED EXCEPTION: Modal CRUD pattern retained (3 modals: billing/invoice/payment).
+ * Reason: Tab-inline editing within ERP Quotation detail page.
+ * - Billing modal (5 fields): core CRUD for billing periods
+ * - Invoice modal (3 fields): quick invoice creation from billing
+ * - Payment modal (3 fields): payment confirmation workflow
+ * All tightly coupled to erpQuotationId context with expandable row detail.
+ * Quality: Handlers extracted to useBillingHandlers, form validation, loading states,
+ * Popconfirm delete, destroyOnHidden for form cleanup.
+ *
+ * @version 1.1.1
  */
 
 import React from 'react';

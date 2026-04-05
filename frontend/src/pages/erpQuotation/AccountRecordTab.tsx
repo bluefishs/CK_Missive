@@ -4,8 +4,14 @@
  * 統一欄位: 期別、對象、請款日期、請款金額、發票號碼、
  *          發票金額、收付款狀態、收付款日期、收付款金額
  *
- * @version 1.0.0
- * @date 2026-03-30
+ * ACCEPTED EXCEPTION: Modal CRUD pattern retained.
+ * Reason: Tab-inline editing within ERP Quotation detail page (7-8 fields, varies by direction).
+ * Bidirectional component (receivable/payable) tightly coupled to erpQuotationId context.
+ * Navigating away would lose the detail page tab state and statistics context.
+ * Quality: Form validation (required rules), loading states (confirmLoading), Popconfirm delete.
+ *
+ * @version 1.0.1
+ * @date 2026-04-05
  */
 import React, { useState, useCallback } from 'react';
 import {

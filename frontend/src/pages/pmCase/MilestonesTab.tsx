@@ -2,6 +2,12 @@
  * PM 案件里程碑管理頁籤
  *
  * 提供里程碑的 CRUD 功能（子表格模式）
+ *
+ * ACCEPTED EXCEPTION: Modal CRUD pattern retained.
+ * Reason: Tab-inline editing within PM Case detail page (7 fields).
+ * Milestones are tightly coupled to the parent pmCaseId context; navigating away
+ * would lose the detail page scroll position and tab state.
+ * Quality: Form validation (required rules), loading states (confirmLoading), Popconfirm delete.
  */
 import { useState, useCallback } from 'react';
 import { Table, Button, Modal, Form, Input, Select, DatePicker, Tag, Popconfirm, Space, message } from 'antd';

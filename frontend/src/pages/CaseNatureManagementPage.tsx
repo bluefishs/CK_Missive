@@ -3,8 +3,13 @@
  *
  * CRUD 管理作業性質代碼 (取代硬編碼常數)
  *
- * @version 1.0.0
- * @date 2026-03-30
+ * ACCEPTED EXCEPTION: Modal CRUD pattern retained.
+ * Reason: Configuration/lookup table management (4 fields: code, label, description, sort_order).
+ * Modal is the standard UX for simple code-management pages where navigating away would be disruptive.
+ * Quality: Form validation (required rules), loading states (confirmLoading), error handling (onError).
+ *
+ * @version 1.0.1
+ * @date 2026-04-05
  */
 import React, { useState } from 'react';
 import {
