@@ -2,11 +2,12 @@
  * ERP 請款管理 Tab
  *
  * 報價單詳情頁的請款子表，支援 CRUD 操作。
+ * 狀態/查詢/handlers 已提取至 useBillingHandlers hook。
  *
- * @version 1.0.0
+ * @version 1.1.0
  */
 
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import {
   Table,
   Button,
@@ -19,7 +20,6 @@ import {
   DatePicker,
   Select,
   Popconfirm,
-  App,
   Typography,
   Empty,
 } from 'antd';
@@ -27,33 +27,10 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, DollarOut
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
-import type {
-  ERPBilling,
-  ERPBillingCreate,
-  ERPBillingUpdate,
-  ERPBillingStatus,
-} from '../../types/erp';
+import type { ERPBilling, ERPBillingStatus } from '../../types/erp';
 import { ERP_BILLING_STATUS_LABELS } from '../../types/erp';
-import { useQuery } from '@tanstack/react-query';
 
-// 期別整合型別
-interface BillingWithDetails {
-  id: number;
-  billing_period?: string;
-  billing_date?: string;
-  billing_amount: number;
-  payment_status: string;
-  invoices: Array<{ id: number; invoice_number: string; invoice_date?: string; amount: number; status: string }>;
-  vendor_payables: Array<{ id: number; vendor_name: string; payable_amount: number; payment_status: string; description?: string }>;
-}
-
-import {
-  useERPBillings,
-  useCreateERPBilling,
-  useUpdateERPBilling,
-  useDeleteERPBilling,
-  useCreateInvoiceFromBilling,
-} from '../../hooks/business/useERPQuotations';
+import { useBillingHandlers } from './useBillingHandlers';
 
 // =============================================================================
 // 常數
@@ -79,155 +56,32 @@ export interface BillingsTabProps {
 // =============================================================================
 
 const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
-  const { message } = App.useApp();
-  const [form] = Form.useForm();
-  const [invoiceForm] = Form.useForm();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<ERPBilling | null>(null);
-  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
-  const [invoiceBillingId, setInvoiceBillingId] = useState<number | null>(null);
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [paymentBillingId, setPaymentBillingId] = useState<number | null>(null);
-  const [paymentForm] = Form.useForm();
-
-  // Data
-  const { data: billings, isLoading } = useERPBillings(erpQuotationId);
-
-  // 期別整合視圖 — 含關聯發票+廠商應付
-  const { data: billingsWithDetails } = useQuery({
-    queryKey: ['erp-billings-details', erpQuotationId],
-    queryFn: async () => {
-      const { apiClient } = await import('../../api/client');
-      const { ERP_ENDPOINTS } = await import('../../api/endpoints');
-      const resp = await apiClient.post<{ success: boolean; data: BillingWithDetails[] }>(
-        ERP_ENDPOINTS.BILLINGS_LIST_DETAILS,
-        { erp_quotation_id: erpQuotationId },
-      );
-      return resp.data;
-    },
-    staleTime: 60_000,
-  });
-  const createMutation = useCreateERPBilling();
-  const updateMutation = useUpdateERPBilling(erpQuotationId);
-  const deleteMutation = useDeleteERPBilling(erpQuotationId);
-  const createInvoiceMutation = useCreateInvoiceFromBilling();
-
-  // Handlers
-  const handleAdd = useCallback(() => {
-    setEditingRecord(null);
-    form.resetFields();
-    setModalOpen(true);
-  }, [form]);
-
-  const handleEdit = useCallback((record: ERPBilling) => {
-    setEditingRecord(record);
-    form.setFieldsValue({
-      ...record,
-      billing_date: record.billing_date ? dayjs(record.billing_date) : null,
-      billing_amount: record.billing_amount ? Number(record.billing_amount) : null,
-    });
-    setModalOpen(true);
-  }, [form]);
-
-  const handleDelete = useCallback(async (id: number) => {
-    try {
-      await deleteMutation.mutateAsync(id);
-      message.success('請款紀錄已刪除');
-    } catch {
-      message.error('刪除失敗');
-    }
-  }, [deleteMutation, message]);
-
-  const handleSubmit = useCallback(async () => {
-    try {
-      const values = await form.validateFields();
-      const payload = {
-        ...values,
-        billing_date: values.billing_date?.format('YYYY-MM-DD'),
-        billing_amount: String(values.billing_amount),
-      };
-
-      if (editingRecord) {
-        const updateData: ERPBillingUpdate = { ...payload };
-        await updateMutation.mutateAsync({ id: editingRecord.id, data: updateData });
-        message.success('請款紀錄已更新');
-      } else {
-        const createData: ERPBillingCreate = {
-          ...payload,
-          erp_quotation_id: erpQuotationId,
-        };
-        await createMutation.mutateAsync(createData);
-        message.success('請款紀錄已新增');
-      }
-      setModalOpen(false);
-      form.resetFields();
-      setEditingRecord(null);
-    } catch {
-      // form validation failed or API error
-    }
-  }, [form, editingRecord, erpQuotationId, createMutation, updateMutation, message]);
-
-  const handleCancel = useCallback(() => {
-    setModalOpen(false);
-    form.resetFields();
-    setEditingRecord(null);
-  }, [form]);
-
-  const handleOpenInvoiceModal = useCallback((billingId: number) => {
-    setInvoiceBillingId(billingId);
-    invoiceForm.resetFields();
-    setInvoiceModalOpen(true);
-  }, [invoiceForm]);
-
-  const handleConfirmPayment = useCallback((billingId: number, billingAmount: number) => {
-    setPaymentBillingId(billingId);
-    paymentForm.setFieldsValue({
-      payment_amount: billingAmount,
-      payment_date: dayjs(),
-      payment_status: 'paid',
-    });
-    setPaymentModalOpen(true);
-  }, [paymentForm]);
-
-  const handlePaymentSubmit = useCallback(async () => {
-    try {
-      const values = await paymentForm.validateFields();
-      if (!paymentBillingId) return;
-      await updateMutation.mutateAsync({
-        id: paymentBillingId,
-        data: {
-          payment_status: values.payment_status,
-          payment_date: values.payment_date?.format('YYYY-MM-DD'),
-          payment_amount: values.payment_amount,
-        },
-      });
-      message.success('收款確認成功，已自動入帳');
-      setPaymentModalOpen(false);
-      paymentForm.resetFields();
-      setPaymentBillingId(null);
-    } catch {
-      // form validation failed or API error
-    }
-  }, [paymentForm, paymentBillingId, updateMutation, message]);
-
-  const handleCreateInvoice = useCallback(async () => {
-    try {
-      const values = await invoiceForm.validateFields();
-      if (!invoiceBillingId) return;
-      await createInvoiceMutation.mutateAsync({
-        billing_id: invoiceBillingId,
-        invoice_number: values.invoice_number,
-        invoice_date: values.invoice_date?.format('YYYY-MM-DD'),
-        notes: values.notes,
-      });
-      message.success('發票開立成功');
-      setInvoiceModalOpen(false);
-      invoiceForm.resetFields();
-      setInvoiceBillingId(null);
-    } catch {
-      // form validation failed or API error
-    }
-  }, [invoiceForm, invoiceBillingId, createInvoiceMutation, message]);
+  const {
+    form,
+    invoiceForm,
+    paymentForm,
+    modalOpen,
+    editingRecord,
+    invoiceModalOpen,
+    paymentModalOpen,
+    billings,
+    billingsWithDetails,
+    isLoading,
+    createPending,
+    updatePending,
+    createInvoicePending,
+    handleAdd,
+    handleEdit,
+    handleDelete,
+    handleSubmit,
+    handleCancel,
+    handleOpenInvoiceModal,
+    handleCancelInvoiceModal,
+    handleConfirmPayment,
+    handleCancelPaymentModal,
+    handlePaymentSubmit,
+    handleCreateInvoice,
+  } = useBillingHandlers(erpQuotationId);
 
   // Columns
   const columns: ColumnsType<ERPBilling> = [
@@ -398,7 +252,7 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={handleCancel}
-        confirmLoading={createMutation.isPending || updateMutation.isPending}
+        confirmLoading={createPending || updatePending}
         destroyOnHidden
         width={560}
       >
@@ -451,8 +305,8 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
         title="開立發票"
         open={invoiceModalOpen}
         onOk={handleCreateInvoice}
-        onCancel={() => { setInvoiceModalOpen(false); invoiceForm.resetFields(); setInvoiceBillingId(null); }}
-        confirmLoading={createInvoiceMutation.isPending}
+        onCancel={handleCancelInvoiceModal}
+        confirmLoading={createInvoicePending}
         destroyOnHidden
         width={480}
       >
@@ -474,8 +328,8 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
       </Modal>
 
       <Modal title="確認收款" open={paymentModalOpen} onOk={handlePaymentSubmit}
-        onCancel={() => { setPaymentModalOpen(false); paymentForm.resetFields(); setPaymentBillingId(null); }}
-        confirmLoading={updateMutation.isPending} destroyOnHidden width={400}>
+        onCancel={handleCancelPaymentModal}
+        confirmLoading={updatePending} destroyOnHidden width={400}>
         <Form form={paymentForm} layout="vertical" size="small" preserve={false}>
           <Form.Item name="payment_amount" label="收款金額" rules={[{ required: true, message: '請輸入收款金額' }]}>
             <InputNumber style={{ width: '100%' }} min={0} precision={0}

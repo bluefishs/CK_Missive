@@ -13,7 +13,7 @@
  * @version 2.2.0
  * @date 2026-03-22
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Form,
@@ -33,8 +33,8 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import authService, { MFARequiredError } from '../services/authService';
-import { useResponsive } from '../hooks';
-import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID, LINE_LOGIN_CHANNEL_ID, LINE_LOGIN_REDIRECT_URI } from '../config/env';
+import { useResponsive, useGoogleSignIn, useLineLogin } from '../hooks';
+import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID, LINE_LOGIN_CHANNEL_ID } from '../config/env';
 import { logger } from '../utils/logger';
 
 const { Title, Text } = Typography;
@@ -45,8 +45,6 @@ const LoginPage: React.FC = () => {
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [lineLoading, setLineLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -73,43 +71,24 @@ const LoginPage: React.FC = () => {
   const showGoogleLogin = googleLoginEnabled && (envType === 'localhost' || envType === 'ngrok' || envType === 'public');
   const showLineLogin = lineLoginEnabled;
 
-  const [googleReady, setGoogleReady] = useState(!showGoogleLogin);
+  // Google Sign-In hook
+  const {
+    googleLoading,
+    googleReady,
+    googleError,
+    setGoogleError,
+    initializeGoogleSignIn,
+    handleGoogleLogin,
+  } = useGoogleSignIn({
+    onSuccess: (targetUrl) => navigate(targetUrl),
+    onMFARequired: (mfa_token) => navigate('/mfa/verify', {
+      state: { mfa_token, returnUrl: returnUrl || undefined },
+    }),
+    returnUrl,
+  });
 
-  // Google 登入回調處理
-  interface GoogleCredentialResponse {
-    credential?: string;
-  }
-
-  const handleGoogleCallback = useCallback(async (response: GoogleCredentialResponse) => {
-    if (response.credential) {
-      setGoogleLoading(true);
-      setError('');
-      try {
-        const result = await authService.googleLogin(response.credential);
-        message.success('Google 登入成功！');
-        window.dispatchEvent(new CustomEvent('user-logged-in'));
-
-        const targetUrl = returnUrl
-          ? decodeURIComponent(returnUrl)
-          : (result.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
-        navigate(targetUrl);
-      } catch (error: unknown) {
-        // MFA 流程：Google 認證成功但需要雙因素認證
-        if (error instanceof MFARequiredError) {
-          message.info('請完成雙因素認證');
-          navigate('/mfa/verify', {
-            state: { mfa_token: error.mfa_token, returnUrl: returnUrl || undefined },
-          });
-          return;
-        }
-        logger.error('Google login failed:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Google 登入失敗';
-        setError(errorMessage);
-      } finally {
-        setGoogleLoading(false);
-      }
-    }
-  }, [message, navigate, returnUrl]);
+  // LINE Login hook
+  const { lineLoading, handleLineLogin } = useLineLogin(returnUrl);
 
   useEffect(() => {
     logger.debug('🔐 LoginPage 載入 | 環境:', envType, '| 快速進入:', showQuickEntry, '| Google:', showGoogleLogin);
@@ -127,41 +106,6 @@ const LoginPage: React.FC = () => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- initializeGoogleSignIn is stable, adding it causes re-initialization
   }, [navigate, envType, showQuickEntry, showGoogleLogin]);
-
-  const initializeGoogleSignIn = async () => {
-    try {
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-        if (window.google) {
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: handleGoogleCallback,
-            auto_select: false,
-            cancel_on_tap_outside: true,
-          });
-          setGoogleReady(true);
-        }
-      };
-
-      if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
-        document.head.appendChild(script);
-      } else {
-        if (window.google) {
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: handleGoogleCallback,
-          });
-          setGoogleReady(true);
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to initialize Google Sign-In:', error);
-      setGoogleReady(true);
-    }
-  };
 
   // 快速進入
   const handleQuickEntry = async () => {
@@ -231,44 +175,6 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  // Google 登入觸發
-  const handleGoogleLogin = () => {
-    if (window.google) {
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed()) {
-          window.google?.accounts.id.renderButton(
-            document.getElementById('google-signin-container'),
-            { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill', width: 280 }
-          );
-        }
-      });
-    }
-  };
-
-  // LINE 登入觸發 — 重導向至 LINE Authorization URL
-  const handleLineLogin = () => {
-    setLineLoading(true);
-    // crypto.randomUUID() 僅在 Secure Context (https/localhost) 可用
-    // 內網 HTTP 環境使用 fallback
-    const state = typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    sessionStorage.setItem('line_login_state', state);
-    if (returnUrl) {
-      sessionStorage.setItem('line_login_return_url', returnUrl);
-    }
-
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: LINE_LOGIN_CHANNEL_ID,
-      redirect_uri: LINE_LOGIN_REDIRECT_URI,
-      state,
-      scope: 'profile openid email',
-    });
-
-    window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
-  };
-
   // 環境標籤
   const getEnvLabel = () => {
     switch (envType) {
@@ -315,14 +221,14 @@ const LoginPage: React.FC = () => {
         </div>
 
         {/* 錯誤訊息 */}
-        {error && (
+        {(error || googleError) && (
           <Alert
-            title={error}
+            title={error || googleError}
             type="error"
             showIcon
             style={{ marginBottom: '20px' }}
             closable
-            onClose={() => setError('')}
+            onClose={() => { setError(''); setGoogleError(''); }}
           />
         )}
 
