@@ -441,3 +441,40 @@ async def analytics_company_profile(request: Request):
     except Exception as e:
         logger.error(f"company-profile error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)[:200])
+
+
+@router.post("/analytics/price-analysis")
+async def tender_price_analysis(request: Request):
+    """底價分析 — 單一標案的預算/底價/決標金額比較"""
+    from app.services.tender_analytics_service import TenderAnalyticsService
+    body = await request.json()
+    unit_id = body.get("unit_id")
+    job_number = body.get("job_number")
+    if not unit_id or not job_number:
+        raise HTTPException(status_code=400, detail="unit_id 和 job_number 為必填")
+    try:
+        svc = TenderAnalyticsService()
+        result = await svc.price_analysis(unit_id=unit_id, job_number=job_number)
+        return JSONResponse(content={"success": True, "data": result},
+                            media_type="application/json; charset=utf-8")
+    except Exception as e:
+        logger.error(f"price-analysis error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)[:200])
+
+
+@router.post("/analytics/price-trends")
+async def tender_price_trends(request: Request):
+    """價格趨勢 — 同類標案的價格統計與分布"""
+    from app.services.tender_analytics_service import TenderAnalyticsService
+    body = await request.json()
+    query = body.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="query 為必填")
+    try:
+        svc = TenderAnalyticsService()
+        result = await svc.price_trends(query=query, pages=body.get("pages", 3))
+        return JSONResponse(content={"success": True, "data": result},
+                            media_type="application/json; charset=utf-8")
+    except Exception as e:
+        logger.error(f"price-trends error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)[:200])

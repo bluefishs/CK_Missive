@@ -11,7 +11,7 @@ Created: 2026-04-01
 """
 import logging
 import json
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 
 import httpx
@@ -286,6 +286,7 @@ class TenderSearchService:
                     "status": detail.get("招標資料:招標狀態", ""),
                     "pcc_url": detail.get("url", ""),
                 },
+                "award_details": self._extract_award_details(detail),
                 "companies": rec.get("brief", {}).get("companies", {}).get("names", []),
             })
 
@@ -296,6 +297,74 @@ class TenderSearchService:
             "events": events,
             "latest": events[0] if events else None,
         }
+
+    def _extract_award_details(self, detail: dict) -> dict:
+        """從 PCC API 決標資料中提取價格/得標明細
+
+        PCC API 使用中文鍵名，格式如：
+          - 決標資料:決標金額, 決標資料:決標日期
+          - 採購資料:底價
+          - 決標品項:第N品項:得標廠商, 決標品項:第N品項:決標金額
+        """
+        try:
+            award_date = detail.get("決標資料:決標日期") or None
+            total_award_amount = self._parse_amount(
+                detail.get("決標資料:決標金額")
+            )
+            floor_price = self._parse_amount(
+                detail.get("採購資料:底價")
+            )
+
+            # 提取各品項得標資訊
+            award_items = []
+            for i in range(1, 21):  # 最多掃 20 品項
+                item_prefix = f"決標品項:第{i}品項"
+                winner_key = f"{item_prefix}:得標廠商"
+                amount_key = f"{item_prefix}:決標金額"
+
+                # 得標廠商可能以編號後綴出現: 得標廠商1:得標廠商
+                winner_name = detail.get(winner_key)
+                if winner_name is None:
+                    # 嘗試 "得標廠商1:得標廠商" 格式
+                    alt_key = f"{item_prefix}:得標廠商1:得標廠商"
+                    winner_name = detail.get(alt_key)
+
+                if winner_name is None and detail.get(amount_key) is None:
+                    # 此品項不存在，停止掃描
+                    break
+
+                award_items.append({
+                    "item_no": i,
+                    "winner": winner_name,
+                    "amount": self._parse_amount(detail.get(amount_key)),
+                })
+
+            return {
+                "award_date": award_date,
+                "total_award_amount": total_award_amount,
+                "floor_price": floor_price,
+                "award_items": award_items,
+            }
+        except Exception as e:
+            logger.warning(f"Failed to extract award details: {e}")
+            return {
+                "award_date": None,
+                "total_award_amount": None,
+                "floor_price": None,
+                "award_items": [],
+            }
+
+    @staticmethod
+    def _parse_amount(raw: Any) -> Optional[float]:
+        """安全解析金額字串為浮點數，支援千分位逗號"""
+        if raw is None:
+            return None
+        try:
+            import re
+            cleaned = re.sub(r'[^\d.]', '', str(raw).replace(',', ''))
+            return float(cleaned) if cleaned else None
+        except (ValueError, TypeError):
+            return None
 
     def _match_category(self, record: dict, category: str) -> bool:
         """檢查標案是否匹配分類"""

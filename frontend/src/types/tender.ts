@@ -50,6 +50,7 @@ export interface TenderDetailEvent {
     status: string;
     pcc_url: string;
   };
+  award_details?: TenderAwardDetails;
   companies: string[];
 }
 
@@ -71,4 +72,73 @@ export interface TenderSearchParams {
   query: string;
   page?: number;
   category?: string;
+}
+
+/** 決標品項明細 */
+export interface TenderAwardItem {
+  item_no: number;
+  winner: string | null;
+  amount: number | null;
+}
+
+/** 決標/價格詳情 (嵌入 TenderDetailEvent) */
+export interface TenderAwardDetails {
+  award_date: string | null;
+  total_award_amount: number | null;
+  floor_price: number | null;
+  award_items: TenderAwardItem[];
+}
+
+/** 底價分析結果 */
+export interface TenderPriceAnalysis {
+  tender: {
+    title: string;
+    unit_id: string;
+    job_number: string;
+    unit_name: string;
+  };
+  prices: {
+    budget: number | null;
+    floor_price: number | null;
+    award_amount: number | null;
+    award_date: string | null;
+  };
+  analysis: {
+    budget_award_variance_pct: number | null;
+    floor_award_variance_pct: number | null;
+    budget_floor_variance_pct: number | null;
+    savings_rate_pct: number | null;
+  };
+  award_items: TenderAwardItem[];
+}
+
+/** 價格統計彙整 */
+export interface TenderPriceAgg {
+  count: number;
+  min: number | null;
+  max: number | null;
+  avg: number | null;
+  median: number | null;
+}
+
+/** 價格趨勢結果 */
+export interface TenderPriceTrends {
+  query: string;
+  total: number;
+  samples: number;
+  stats: {
+    budget: TenderPriceAgg;
+    floor_price: TenderPriceAgg;
+    award_amount: TenderPriceAgg;
+    award_rate_pct: number | null;
+  };
+  distribution: Array<{ range: string; count: number }>;
+  entries: Array<{
+    title: string;
+    date: string;
+    unit_name: string;
+    budget: number | null;
+    floor_price: number | null;
+    award_amount: number | null;
+  }>;
 }

@@ -38,6 +38,10 @@ export const TENDER_ENDPOINTS = {
   ANALYTICS_ORG_ECOSYSTEM: '/tender/analytics/org-ecosystem',
   /** 廠商分析 POST /tender/analytics/company-profile */
   ANALYTICS_COMPANY_PROFILE: '/tender/analytics/company-profile',
+  /** 底價分析 POST /tender/analytics/price-analysis */
+  ANALYTICS_PRICE_ANALYSIS: '/tender/analytics/price-analysis',
+  /** 價格趨勢 POST /tender/analytics/price-trends */
+  ANALYTICS_PRICE_TRENDS: '/tender/analytics/price-trends',
 } as const;
 
 /** 管理員資料庫 API 端點 */

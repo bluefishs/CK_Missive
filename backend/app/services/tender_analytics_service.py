@@ -214,6 +214,240 @@ class TenderAnalyticsService:
     # 4. 廠商分析 (潛在對手/自家)
     # =========================================================================
 
+    # =========================================================================
+    # 5. 底價分析 — 單一標案
+    # =========================================================================
+
+    async def price_analysis(
+        self,
+        unit_id: str,
+        job_number: str,
+    ) -> dict:
+        """單一標案底價分析 — budget vs floor vs award
+
+        Args:
+            unit_id: 機關代碼
+            job_number: 標案案號
+
+        Returns:
+            包含預算、底價、決標金額及差異百分比的結構化分析
+        """
+        detail = await self.search.get_tender_detail(unit_id, job_number)
+        if not detail:
+            return {"error": "標案不存在", "unit_id": unit_id, "job_number": job_number}
+
+        title = detail.get("title", "")
+        events = detail.get("events", [])
+
+        # 從所有事件中提取最完整的價格資料
+        budget = None
+        floor_price = None
+        award_amount = None
+        award_date = None
+        award_items: list = []
+
+        for event in events:
+            event_detail = event.get("detail", {})
+            award_detail = event.get("award_details", {})
+
+            # 預算金額 (從 detail.budget 解析)
+            if budget is None and event_detail.get("budget"):
+                budget = self._safe_parse_amount(event_detail["budget"])
+
+            # 底價 (從 award_details)
+            if floor_price is None and award_detail.get("floor_price") is not None:
+                floor_price = award_detail["floor_price"]
+
+            # 決標金額
+            if award_amount is None and award_detail.get("total_award_amount") is not None:
+                award_amount = award_detail["total_award_amount"]
+
+            # 決標日期
+            if award_date is None and award_detail.get("award_date"):
+                award_date = award_detail["award_date"]
+
+            # 品項明細 (取最完整的)
+            items = award_detail.get("award_items", [])
+            if items and len(items) > len(award_items):
+                award_items = items
+
+        # 計算差異百分比
+        budget_award_variance = None
+        floor_award_variance = None
+        budget_floor_variance = None
+        savings_rate = None
+
+        if budget and award_amount:
+            budget_award_variance = round((award_amount - budget) / budget * 100, 2)
+
+        if floor_price and award_amount:
+            floor_award_variance = round((award_amount - floor_price) / floor_price * 100, 2)
+
+        if budget and floor_price:
+            budget_floor_variance = round((floor_price - budget) / budget * 100, 2)
+            savings_rate = round((budget - floor_price) / budget * 100, 2)
+
+        return {
+            "tender": {
+                "title": title,
+                "unit_id": unit_id,
+                "job_number": job_number,
+                "unit_name": detail.get("unit_name", ""),
+            },
+            "prices": {
+                "budget": budget,
+                "floor_price": floor_price,
+                "award_amount": award_amount,
+                "award_date": award_date,
+            },
+            "analysis": {
+                "budget_award_variance_pct": budget_award_variance,
+                "floor_award_variance_pct": floor_award_variance,
+                "budget_floor_variance_pct": budget_floor_variance,
+                "savings_rate_pct": savings_rate,
+            },
+            "award_items": award_items,
+        }
+
+    # =========================================================================
+    # 6. 價格趨勢 — 同類標案
+    # =========================================================================
+
+    async def price_trends(
+        self,
+        query: str,
+        pages: int = 3,
+    ) -> dict:
+        """同類標案價格趨勢 — 多筆標案的價格統計
+
+        Args:
+            query: 搜尋關鍵字
+            pages: 搜尋頁數
+
+        Returns:
+            包含價格統計、分布、趨勢資料
+        """
+        all_records: list = []
+        for page in range(1, pages + 1):
+            result = await self.search.search_by_title(query=query, page=page)
+            records = result.get("records", [])
+            if not records:
+                break
+            all_records.extend(records)
+
+        if not all_records:
+            return {"query": query, "total": 0, "samples": 0, "stats": {}}
+
+        # 嘗試取得每筆標案的價格資料
+        price_entries: list = []
+        for r in all_records[:30]:  # 限制最多 30 筆避免過多 API 呼叫
+            unit_id = r.get("unit_id", "")
+            jn = r.get("job_number", "")
+            if not unit_id or not jn:
+                continue
+
+            try:
+                detail = await self.search.get_tender_detail(unit_id, jn)
+                if not detail:
+                    continue
+
+                events = detail.get("events", [])
+                budget = None
+                floor_price = None
+                award_amount = None
+
+                for event in events:
+                    ed = event.get("detail", {})
+                    ad = event.get("award_details", {})
+
+                    if budget is None and ed.get("budget"):
+                        budget = self._safe_parse_amount(ed["budget"])
+                    if floor_price is None and ad.get("floor_price") is not None:
+                        floor_price = ad["floor_price"]
+                    if award_amount is None and ad.get("total_award_amount") is not None:
+                        award_amount = ad["total_award_amount"]
+
+                # 至少要有一個價格欄位才計入
+                if budget or floor_price or award_amount:
+                    price_entries.append({
+                        "title": r.get("title", "")[:60],
+                        "date": r.get("date", ""),
+                        "unit_name": r.get("unit_name", ""),
+                        "budget": budget,
+                        "floor_price": floor_price,
+                        "award_amount": award_amount,
+                    })
+            except Exception as e:
+                logger.warning(f"price_trends detail fetch failed for {jn}: {e}")
+                continue
+
+        if not price_entries:
+            return {"query": query, "total": len(all_records), "samples": 0, "stats": {}}
+
+        # 統計彙整
+        budgets = [e["budget"] for e in price_entries if e["budget"] is not None]
+        floors = [e["floor_price"] for e in price_entries if e["floor_price"] is not None]
+        awards = [e["award_amount"] for e in price_entries if e["award_amount"] is not None]
+
+        def _agg(values: list) -> dict:
+            if not values:
+                return {"count": 0, "min": None, "max": None, "avg": None, "median": None}
+            sorted_v = sorted(values)
+            n = len(sorted_v)
+            median = sorted_v[n // 2] if n % 2 == 1 else (sorted_v[n // 2 - 1] + sorted_v[n // 2]) / 2
+            return {
+                "count": n,
+                "min": round(min(values), 2),
+                "max": round(max(values), 2),
+                "avg": round(sum(values) / n, 2),
+                "median": round(median, 2),
+            }
+
+        # 計算決標率 (有決標金額 / 有預算)
+        award_rate = None
+        if budgets and awards:
+            award_rate = round(len(awards) / len(budgets) * 100, 1)
+
+        # 價格帶分布 (以百萬為單位)
+        distribution = defaultdict(int)
+        for a in awards:
+            bracket = int(a // 1_000_000) * 1_000_000
+            label = f"{bracket // 10000}萬~{(bracket + 1_000_000) // 10000}萬"
+            distribution[label] += 1
+
+        return {
+            "query": query,
+            "total": len(all_records),
+            "samples": len(price_entries),
+            "stats": {
+                "budget": _agg(budgets),
+                "floor_price": _agg(floors),
+                "award_amount": _agg(awards),
+                "award_rate_pct": award_rate,
+            },
+            "distribution": [
+                {"range": k, "count": v}
+                for k, v in sorted(distribution.items())
+            ],
+            "entries": price_entries[:20],
+        }
+
+    @staticmethod
+    def _safe_parse_amount(raw) -> float | None:
+        """安全解析金額字串"""
+        if raw is None:
+            return None
+        try:
+            import re
+            cleaned = re.sub(r'[^\d.]', '', str(raw).replace(',', ''))
+            return float(cleaned) if cleaned else None
+        except (ValueError, TypeError):
+            return None
+
+    # =========================================================================
+    # 4. 廠商分析 (潛在對手/自家) [original section 4 renumbered]
+    # =========================================================================
+
     async def company_profile(
         self,
         company_name: str,
