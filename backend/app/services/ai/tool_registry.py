@@ -9,10 +9,11 @@ Tool Registry — 統一工具註冊中心
 自修正規則仍由 agent_planner._auto_correct 管理（動態邏輯，不適合聲明式）。
 Handler 路由由 agent_tools.AgentToolExecutor.dispatch_map 管理。
 
-Version: 1.2.0
+Version: 1.3.0
 Created: 2026-03-07
 Updated: 2026-03-07 - v1.1.0 移除未消費的 CorrectionRule 死碼
 Updated: 2026-03-18 - v1.2.0 新增 suggest_tools_for_query 動態工具推薦
+Updated: 2026-04-05 - v1.3.0 新增 Gemma 4 語意工具匹配 fallback
 """
 
 import json
@@ -292,16 +293,87 @@ class ToolRegistry:
                     "relevance_score": round(score, 2),
                 })
 
+        # Step 4: Gemma 4 fallback — if keyword matching is low-confidence
+        # (fewer than 3 tools with score > base priority)
+        high_score_count = sum(
+            1 for _, s in sorted_items[:top_k] if s > 1.0
+        )
+        if high_score_count < 3:
+            gemma4_tools = await self._gemma4_suggest_tools(
+                query, applicable_tools
+            )
+            if gemma4_tools:
+                # Merge Gemma 4 suggestions: boost matched tools
+                for tool_name in gemma4_tools:
+                    if tool_name in scores:
+                        scores[tool_name] += 5.0  # significant boost
+                    elif tool_name in self._tools:
+                        scores[tool_name] = 5.0
+
+                # Re-sort with Gemma 4 boosts applied
+                sorted_items = sorted(
+                    scores.items(), key=lambda x: x[1], reverse=True
+                )
+                results = []
+                for name, score in sorted_items[:top_k]:
+                    tool = self._tools.get(name)
+                    if tool:
+                        results.append({
+                            "name": name,
+                            "description": tool.description,
+                            "relevance_score": round(score, 2),
+                        })
+
         latency_ms = (time.time() - t0) * 1000
         logger.debug(
-            "Tool discovery: %d types detected, %d entity types, top=%s (%.1fms)",
+            "Tool discovery: %d types detected, %d entity types, "
+            "gemma4_fallback=%s, top=%s (%.1fms)",
             len(detected_types),
             len(entity_types_mentioned),
+            high_score_count < 3,
             results[0]["name"] if results else "none",
             latency_ms,
         )
 
         return results
+
+    async def _gemma4_suggest_tools(
+        self, query: str, available_tools: List[ToolDefinition]
+    ) -> List[str]:
+        """Gemma 4 semantic tool selection when keywords don't match well.
+
+        Returns a list of tool names suggested by Gemma 4.
+        Falls back to empty list on any error (never blocks tool discovery).
+        """
+        try:
+            from app.core.ai_connector import get_ai_connector
+
+            ai = get_ai_connector()
+            tool_names = [t.name for t in available_tools[:20]]
+            prompt = (
+                f"查詢: {query[:200]}\n"
+                f"可用工具: {', '.join(tool_names)}\n\n"
+                "選擇最適合的 1-3 個工具，以 JSON 回覆：\n"
+                '{"tools": ["tool1", "tool2"]}'
+            )
+            result = await ai.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=64,
+                task_type="classify",
+            )
+            from app.services.ai.agent_utils import parse_json_safe
+
+            parsed = parse_json_safe(result)
+            if parsed and isinstance(parsed.get("tools"), list):
+                # Validate tool names exist
+                valid = [t for t in parsed["tools"] if t in self._tools]
+                if valid:
+                    logger.debug("Gemma4 tool suggestion: %s", valid)
+                    return valid
+        except Exception as e:
+            logger.debug("Gemma4 tool suggestion failed: %s", e)
+        return []
 
     def _detect_query_types(self, query: str) -> List[str]:
         """偵測查詢屬於哪些類型"""

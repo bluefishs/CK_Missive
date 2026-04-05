@@ -12,8 +12,9 @@ Flow:
 
 Called by: ProactiveTriggerService.scan_all() or standalone via API.
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-03-16
+Updated: 2026-04-05 - v1.1.0 新增 Gemma 4 語意相關性評分
 """
 
 import logging
@@ -233,19 +234,39 @@ class ProactiveRecommender:
         recommendations: List[Dict[str, Any]] = []
 
         for user_id, interests in user_interests.items():
+            # Extract interest names for Gemma 4 semantic scoring
+            interest_names = []
+            for key in interests.keys():
+                parts = key.split(":", 1)
+                if len(parts) == 2 and len(parts[1]) >= 2:
+                    interest_names.append(parts[1])
+
             for doc in recent_docs:
                 if not doc["entities"]:
                     continue
 
                 matches = self._match_interests(interests, doc["entities"])
-                if not matches:
+                entity_score = sum(m["weight"] for m in matches) if matches else 0
+
+                # Fast filter: skip documents with zero entity overlap
+                if entity_score < 1 and not doc.get("subject"):
                     continue
 
-                score = sum(m["weight"] for m in matches)
-                if score < min_score:
+                # Gemma 4 semantic scoring for candidates with partial match
+                # or interesting subjects (entity_score > 0 but below threshold)
+                semantic_score = 0.0
+                if interest_names and doc.get("subject"):
+                    if entity_score > 0 or len(interest_names) >= 2:
+                        semantic_score = await self._semantic_relevance_score(
+                            interest_names[:5], doc["subject"]
+                        )
+
+                # Combined scoring: entity overlap + semantic relevance
+                combined_score = entity_score + (semantic_score * 3.0)
+                if combined_score < min_score:
                     continue
 
-                recommendations.append({
+                rec_entry: Dict[str, Any] = {
                     "user_id": user_id,
                     "document_id": doc["id"],
                     "subject": doc["subject"],
@@ -258,9 +279,12 @@ class ProactiveRecommender:
                             "weight": m["weight"],
                         }
                         for m in matches
-                    ],
-                    "score": score,
-                })
+                    ] if matches else [],
+                    "score": round(combined_score, 2),
+                }
+                if semantic_score > 0:
+                    rec_entry["semantic_score"] = round(semantic_score, 2)
+                recommendations.append(rec_entry)
 
         # Sort by score descending
         recommendations.sort(key=lambda x: x["score"], reverse=True)
@@ -350,3 +374,42 @@ class ProactiveRecommender:
 
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:limit]
+
+    # ========================================================================
+    # Gemma 4 語意相關性評分
+    # ========================================================================
+
+    async def _semantic_relevance_score(
+        self, user_interests: list, doc_summary: str
+    ) -> float:
+        """Score document relevance to user interests via Gemma 4.
+
+        Returns a float 0.0-1.0 representing semantic relevance.
+        Falls back to 0.0 on any error (never blocks recommendation flow).
+        """
+        try:
+            from app.core.ai_connector import get_ai_connector
+
+            ai = get_ai_connector()
+            prompt = (
+                f"用戶關注: {', '.join(str(i) for i in user_interests[:5])}\n"
+                f"新文件摘要: {doc_summary[:300]}\n\n"
+                "這份文件與用戶關注的相關程度 (0.0-1.0)？\n"
+                '回覆 JSON: {"relevance": 0.0-1.0, "reason": "一句話原因"}'
+            )
+            result = await ai.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=64,
+                task_type="classify",
+            )
+            from app.services.ai.agent_utils import parse_json_safe
+
+            parsed = parse_json_safe(result)
+            if parsed:
+                score = float(parsed.get("relevance", 0.0))
+                return max(0.0, min(1.0, score))  # clamp to [0, 1]
+            return 0.0
+        except Exception as e:
+            logger.debug("Gemma4 semantic relevance failed: %s", e)
+            return 0.0

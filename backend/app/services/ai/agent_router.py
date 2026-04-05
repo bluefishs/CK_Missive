@@ -6,16 +6,19 @@ Agent Router — 輕量路由層
 路由優先級：
 1. Chitchat 短路 — is_chitchat() (已有)
 2. Pattern Match — 歷史成功模式 (confidence >= threshold)
+2.5. Gemma 4 語意意圖分類 — 輕量 LLM 單次呼叫
 3. Fallthrough → LLM Planning（現有流程）
 
 設計原則：
 - 只在高信心時攔截（寧可多走 LLM，不可規劃錯誤）
 - 所有路由決策記錄至 AgentTrace
 - 降級工具自動過濾
-- 路由決策 < 10ms（零 LLM 呼叫）
+- Layer 1~2 路由決策 < 10ms（零 LLM 呼叫）
+- Layer 2.5 Gemma 4 為增強層，失敗不影響現有流程
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-03-14
+Updated: 2026-04-05 - v1.1.0 新增 Gemma 4 語意意圖分類 (Layer 2.5)
 """
 
 import logging
@@ -32,12 +35,13 @@ logger = logging.getLogger(__name__)
 class RouteDecision:
     """路由決策結果"""
 
-    route_type: str  # "chitchat" | "pattern" | "llm"
+    route_type: str  # "chitchat" | "pattern" | "gemma4" | "llm"
     plan: Optional[Dict[str, Any]] = None
     confidence: float = 0.0
     latency_ms: float = 0.0
     source: str = ""
     suggested_context: Optional[str] = None  # 建議的角色 context
+    gemma4_intent: Optional[Dict[str, Any]] = None  # Gemma 4 意圖分類結果
 
 
 class AgentRouter:
@@ -183,16 +187,109 @@ class AgentRouter:
         except Exception as e:
             logger.debug("Router pattern match failed: %s", e)
 
-        # ── Layer 2.5: 意圖偵測 → 建議角色 context ──
+        # ── Layer 2.5: Gemma 4 語意意圖分類 ──
+        gemma4_result = await self._classify_intent_gemma4(question)
+        if gemma4_result and gemma4_result.get("confidence", 0) >= 0.8:
+            intent = gemma4_result.get("intent", "")
+            suggested_tools = gemma4_result.get("suggested_tools", [])
+
+            # 高信心意圖 → 使用 Gemma 4 建議的工具（若有）
+            if suggested_tools:
+                tool_calls = [
+                    {"name": t, "params": {}} for t in suggested_tools[:3]
+                ]
+                # 過濾降級工具
+                tool_calls = await self._filter_degraded_tools(
+                    [tc["name"] for tc in tool_calls],
+                    {},
+                )
+                if tool_calls:
+                    return RouteDecision(
+                        route_type="gemma4",
+                        plan={"tool_calls": tool_calls},
+                        confidence=gemma4_result["confidence"],
+                        latency_ms=(time.time() - t0) * 1000,
+                        source=f"gemma4_intent:{intent}",
+                        suggested_context=self._intent_to_context(intent),
+                        gemma4_intent=gemma4_result,
+                    )
+
+        # ── Layer 2.75: 規則意圖偵測 → 建議角色 context ──
         suggested = self._detect_context(question)
+
+        # 若 Gemma 4 有結果但信心不足，仍附帶意圖資訊給 LLM 規劃參考
+        gemma4_hint = gemma4_result if gemma4_result else None
 
         # ── Layer 3: Fallthrough → LLM ──
         return RouteDecision(
             route_type="llm",
             latency_ms=(time.time() - t0) * 1000,
             source="fallthrough",
-            suggested_context=suggested,
+            suggested_context=suggested or (
+                self._intent_to_context(gemma4_result.get("intent", ""))
+                if gemma4_result else None
+            ),
+            gemma4_intent=gemma4_hint,
         )
+
+    async def _classify_intent_gemma4(self, question: str) -> Optional[dict]:
+        """Layer 2.5: Gemma 4 semantic intent classification.
+
+        Classifies query into: document | dispatch | project | vendor | finance |
+        entity | graph | statistics | tender | system | chitchat
+
+        Returns: {"intent": str, "confidence": float, "suggested_tools": [str]}
+        """
+        try:
+            from app.core.ai_connector import get_ai_connector
+
+            ai = get_ai_connector()
+            prompt = (
+                "將以下查詢分類為一個意圖類別，以 JSON 回覆：\n"
+                f"查詢: {question[:200]}\n\n"
+                "類別: document(公文), dispatch(派工), project(專案), "
+                "vendor(廠商), finance(財務), entity(實體), graph(圖譜), "
+                "statistics(統計), tender(標案), system(系統), chitchat(閒聊)\n\n"
+                '回覆格式: {"intent": "類別", "confidence": 0.0-1.0, '
+                '"suggested_tools": ["tool1", "tool2"]}'
+            )
+            result = await ai.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=100,
+                task_type="classify",
+            )
+            from app.services.ai.agent_utils import parse_json_safe
+
+            parsed = parse_json_safe(result)
+            if parsed and parsed.get("intent"):
+                logger.debug(
+                    "Gemma4 intent: %s (confidence=%.2f)",
+                    parsed.get("intent"),
+                    parsed.get("confidence", 0),
+                )
+                return parsed
+        except Exception as e:
+            logger.debug("Gemma4 intent classification failed: %s", e)
+        return None
+
+    @staticmethod
+    def _intent_to_context(intent: str) -> Optional[str]:
+        """Map Gemma 4 intent to router context."""
+        _INTENT_CONTEXT_MAP = {
+            "document": "doc",
+            "dispatch": "dispatch",
+            "project": "pm",
+            "vendor": "erp",
+            "finance": "erp",
+            "entity": "doc",
+            "graph": "dev",
+            "statistics": None,
+            "tender": None,
+            "system": "dev",
+            "chitchat": None,
+        }
+        return _INTENT_CONTEXT_MAP.get(intent)
 
     @staticmethod
     def _detect_context(question: str) -> Optional[str]:
