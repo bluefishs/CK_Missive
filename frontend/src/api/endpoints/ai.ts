@@ -119,6 +119,8 @@ export const AI_ENDPOINTS = {
   GRAPH_DB_GRAPH: '/ai/graph/db-graph',
   /** 跨圖譜統一搜尋 POST /ai/graph/unified-search */
   GRAPH_UNIFIED_SEARCH: '/ai/graph/unified-search',
+  /** 自然語言知識圖譜搜尋 POST /ai/graph/smart-search */
+  GRAPH_SMART_SEARCH: '/ai/graph/smart-search',
   /** 跨域橋接觸發 POST /ai/graph/cross-domain-link (Admin) */
   GRAPH_CROSS_DOMAIN_LINK: '/ai/graph/cross-domain-link',
   /** Embedding 批次回填 POST /ai/graph/embedding-backfill (Admin) */
@@ -215,4 +217,6 @@ export const KNOWLEDGE_BASE_ENDPOINTS = {
   ADR_LIST: '/knowledge-base/adr/list',
   DIAGRAMS_LIST: '/knowledge-base/diagrams/list',
   SEARCH: '/knowledge-base/search',
+  /** 知識卡片摘要 POST /knowledge-base/summarize-card */
+  SUMMARIZE_CARD: '/knowledge-base/summarize-card',
 } as const;

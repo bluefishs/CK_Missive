@@ -345,6 +345,45 @@ export async function analyzeDiffImpact(): Promise<{
   return await apiClient.post(AI_ENDPOINTS.GRAPH_DIFF_IMPACT, {});
 }
 
+/** 自然語言知識圖譜搜尋結果 */
+export interface SmartGraphSearchResult {
+  success: boolean;
+  data?: {
+    query_params: Record<string, unknown>;
+    entities: Array<{
+      id: number;
+      canonical_name: string;
+      entity_type: string;
+      mention_count: number;
+      description?: string;
+    }>;
+    count: number;
+    related_documents?: Array<{
+      document_id: number;
+      subject: string;
+      doc_number: string;
+      doc_date: string | null;
+      entity_id: number;
+    }>;
+  };
+  error?: string;
+}
+
+/** 自然語言知識圖譜搜尋 (Gemma 4 powered) */
+export async function smartGraphSearch(
+  question: string,
+): Promise<SmartGraphSearchResult> {
+  try {
+    return await apiClient.post<SmartGraphSearchResult>(
+      AI_ENDPOINTS.GRAPH_SMART_SEARCH,
+      { question },
+    );
+  } catch (error) {
+    logger.error('自然語言圖譜搜尋失敗:', error);
+    return { success: false, error: String(error) };
+  }
+}
+
 /** 取得 Skills 能力圖譜（靜態資料） */
 export async function getSkillsMap(): Promise<{
   success: boolean;

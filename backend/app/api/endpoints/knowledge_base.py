@@ -10,7 +10,8 @@ import logging
 import re
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin
@@ -358,3 +359,37 @@ async def get_kb_stats(
     kb_service = KBEmbeddingService(db)
     stats = await kb_service.get_stats()
     return KBStatsResponse(success=True, **stats)
+
+
+@router.post("/summarize-card")
+async def summarize_knowledge_card(
+    request: Request,
+    _admin: dict = Depends(require_admin),
+):
+    """Gemma 4 生成知識卡片摘要"""
+    body = await request.json()
+    content = body.get("content", "")
+    title = body.get("title", "")
+
+    if not content and not title:
+        return JSONResponse({"success": False, "error": "缺少 content 或 title"})
+
+    from app.core.ai_connector import get_ai_connector
+
+    ai = get_ai_connector()
+    prompt = (
+        f"為以下知識卡片生成 2-3 句摘要：\n\n"
+        f"標題: {title}\n內容:\n{content[:1000]}\n\n"
+        "摘要:"
+    )
+    try:
+        summary = await ai.chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=200,
+            task_type="summary",
+        )
+        return JSONResponse({"success": True, "summary": summary})
+    except Exception as e:
+        logger.error("summarize_knowledge_card failed: %s", e, exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)})

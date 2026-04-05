@@ -7,14 +7,21 @@ import {
   App,
   Tag,
   Tooltip,
+  Input,
+  Collapse,
+  List,
+  Spin,
 } from 'antd';
 import {
   RobotOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  SearchOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 
 import { aiApi } from '../api/aiApi';
+import type { SmartGraphSearchResult } from '../api/ai';
 import type {
   KGEntityItem,
   KGShortestPathResponse,
@@ -227,6 +234,28 @@ const KnowledgeGraphPage: React.FC = () => {
     setPathResult(null);
   }, []);
 
+  // --- NL Smart Search ---
+  const [nlSearchText, setNlSearchText] = useState('');
+  const [nlSearchResult, setNlSearchResult] = useState<SmartGraphSearchResult | null>(null);
+  const [nlSearchLoading, setNlSearchLoading] = useState(false);
+
+  const handleNlSearch = useCallback(async (value: string) => {
+    const q = value.trim();
+    if (!q) return;
+    setNlSearchLoading(true);
+    try {
+      const result = await aiApi.smartGraphSearch(q);
+      setNlSearchResult(result);
+      if (result.success && result.data?.count === 0) {
+        message.info('未找到相關實體');
+      }
+    } catch {
+      message.error('搜尋失敗');
+    } finally {
+      setNlSearchLoading(false);
+    }
+  }, [message]);
+
   const graphTypeDistribution = coverageStats.graph?.entity_type_distribution;
   const sourceProjectDistribution = coverageStats.graph?.source_project_distribution;
 
@@ -264,7 +293,71 @@ const KnowledgeGraphPage: React.FC = () => {
         onVisibleSourceProjectsChange={setVisibleSourceProjects}
       />
 
-      <div ref={graphContainerRef} style={{ flex: 1, minWidth: 0, overflow: 'hidden', background: '#fafafa' }}>
+      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', background: '#fafafa', display: 'flex', flexDirection: 'column' }}>
+        {/* NL Smart Search */}
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', background: '#fff', flexShrink: 0 }}>
+          <Input.Search
+            placeholder="自然語言搜尋知識圖譜..."
+            allowClear
+            enterButton={<><SearchOutlined /> 搜尋</>}
+            value={nlSearchText}
+            onChange={(e) => setNlSearchText(e.target.value)}
+            onSearch={handleNlSearch}
+            loading={nlSearchLoading}
+            style={{ maxWidth: 500 }}
+          />
+          {nlSearchLoading && <Spin size="small" style={{ marginLeft: 8 }} />}
+        </div>
+        {nlSearchResult?.success && nlSearchResult.data && (
+          <div style={{ flexShrink: 0, maxHeight: 260, overflow: 'auto', borderBottom: '1px solid #f0f0f0' }}>
+            <Collapse
+              defaultActiveKey={['entities']}
+              size="small"
+              items={[
+                {
+                  key: 'entities',
+                  label: `搜尋結果 (${nlSearchResult.data.count} 個實體)`,
+                  children: (
+                    <List
+                      size="small"
+                      dataSource={nlSearchResult.data.entities}
+                      renderItem={(item) => (
+                        <List.Item>
+                          <List.Item.Meta
+                            title={<span>{item.canonical_name} <Tag>{item.entity_type}</Tag></span>}
+                            description={`提及次數: ${item.mention_count}${item.description ? ` — ${item.description}` : ''}`}
+                          />
+                        </List.Item>
+                      )}
+                    />
+                  ),
+                },
+                ...(nlSearchResult.data.related_documents?.length
+                  ? [{
+                      key: 'documents',
+                      label: `相關公文 (${nlSearchResult.data.related_documents.length})`,
+                      children: (
+                        <List
+                          size="small"
+                          dataSource={nlSearchResult.data.related_documents}
+                          renderItem={(doc) => (
+                            <List.Item>
+                              <List.Item.Meta
+                                avatar={<FileTextOutlined />}
+                                title={doc.subject}
+                                description={`${doc.doc_number || ''}${doc.doc_date ? ` | ${doc.doc_date}` : ''}`}
+                              />
+                            </List.Item>
+                          )}
+                        />
+                      ),
+                    }]
+                  : []),
+              ]}
+            />
+          </div>
+        )}
+        <div ref={graphContainerRef} style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <ErrorBoundary>
           <KnowledgeGraph
             documentIds={emptyDocumentIds}
@@ -276,6 +369,7 @@ const KnowledgeGraphPage: React.FC = () => {
             visibleSourceProjects={visibleSourceProjects}
           />
         </ErrorBoundary>
+      </div>
       </div>
 
       {chatPanelOpen && (

@@ -234,7 +234,10 @@ import {
   unifiedGraphSearch,
   triggerCrossDomainLink,
   triggerEmbeddingBackfill,
+  smartGraphSearch,
 } from './knowledgeGraph';
+
+export type { SmartGraphSearchResult } from './knowledgeGraph';
 
 export type { DbSchemaGraphResponse, DbSchemaResponse, DbTableInfo, DbColumnInfo, ModuleMappingsResponse } from './knowledgeGraph';
 
@@ -327,6 +330,9 @@ export const aiApi = {
   // 跨域橋接 + Embedding 回填 (Admin)
   triggerCrossDomainLink,
   triggerEmbeddingBackfill,
+
+  // 自然語言圖譜搜尋
+  smartGraphSearch,
 
   // Ollama management
   getOllamaStatus,

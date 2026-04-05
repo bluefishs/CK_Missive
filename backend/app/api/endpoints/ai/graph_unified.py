@@ -11,7 +11,8 @@ Created: 2026-03-30
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, get_async_db
@@ -426,3 +427,26 @@ async def get_skills_capability_map(
         "nodes": nodes,
         "edges": edges,
     }
+
+
+@router.post("/graph/smart-search")
+async def smart_graph_search(
+    request: Request,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """自然語言知識圖譜搜尋 (Gemma 4 powered)"""
+    body = await request.json()
+    question = body.get("question", "")
+    if not question:
+        return JSONResponse({"success": False, "error": "缺少 question"})
+
+    svc = GraphQueryService(db)
+    try:
+        result = await svc.smart_graph_search(question, limit=20)
+    except Exception as e:
+        logger.error("smart_graph_search failed: %s", e, exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)})
+    return JSONResponse(
+        {"success": True, "data": result},
+        media_type="application/json; charset=utf-8",
+    )
