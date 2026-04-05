@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from app.services.ai.agent_planner import AgentPlanner, AgentWorkingMemory
 from app.services.ai.agent_tools import AgentToolExecutor, VALID_TOOL_NAMES
-from app.services.ai.agent_synthesis import summarize_tool_result
+from app.services.ai.tool_result_formatter import summarize_tool_result
 from app.services.ai.agent_trace import AgentTrace
 from app.services.ai.agent_utils import sse, collect_sources
 from app.services.ai.tool_chain_resolver import enrich_plan_with_chain

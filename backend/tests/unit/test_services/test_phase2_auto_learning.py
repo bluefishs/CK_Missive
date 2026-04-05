@@ -165,7 +165,7 @@ class TestSelfReflection:
 
     @pytest.mark.asyncio
     async def test_high_score_no_retry(self):
-        from app.services.ai.agent_synthesis import self_reflect
+        from app.services.ai.tool_result_formatter import self_reflect
 
         mock_ai = AsyncMock()
         mock_ai.chat_completion = AsyncMock(
@@ -184,7 +184,7 @@ class TestSelfReflection:
 
     @pytest.mark.asyncio
     async def test_low_score_with_issues(self):
-        from app.services.ai.agent_synthesis import self_reflect
+        from app.services.ai.tool_result_formatter import self_reflect
 
         mock_ai = AsyncMock()
         mock_ai.chat_completion = AsyncMock(
@@ -203,7 +203,7 @@ class TestSelfReflection:
 
     @pytest.mark.asyncio
     async def test_timeout_returns_safe_default(self):
-        from app.services.ai.agent_synthesis import self_reflect
+        from app.services.ai.tool_result_formatter import self_reflect
 
         mock_ai = AsyncMock()
         mock_ai.chat_completion = AsyncMock(
@@ -219,7 +219,7 @@ class TestSelfReflection:
 
     @pytest.mark.asyncio
     async def test_invalid_json_returns_safe_default(self):
-        from app.services.ai.agent_synthesis import self_reflect
+        from app.services.ai.tool_result_formatter import self_reflect
 
         mock_ai = AsyncMock()
         mock_ai.chat_completion = AsyncMock(return_value="not json")

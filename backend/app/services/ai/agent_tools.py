@@ -30,6 +30,7 @@ from app.services.ai.tool_executor_search import (
     SearchToolExecutor,
     ENTITY_TYPE_MAP,
 )
+from app.services.ai.tool_executor_kg_search import KGSearchExecutor
 from app.services.ai.tool_executor_analysis import AnalysisToolExecutor
 from app.services.ai.tool_executor_domain import DomainToolExecutor
 from app.services.ai.tool_executor_document import DocumentToolExecutor
@@ -186,6 +187,7 @@ class AgentToolExecutor:
         self.embedding_mgr = embedding_mgr
         self.config = config
         self._search = SearchToolExecutor(db, ai_connector, embedding_mgr, config)
+        self._kg_search = KGSearchExecutor(db, ai_connector, embedding_mgr, config)
         self._analysis = AnalysisToolExecutor(db, ai_connector, embedding_mgr, config)
         self._domain = DomainToolExecutor(db, ai_connector, embedding_mgr, config)
         self._document = DocumentToolExecutor(db, ai_connector, embedding_mgr, config)
@@ -278,9 +280,9 @@ class AgentToolExecutor:
             # Search tools
             "search_documents": self._search.search_documents,
             "search_dispatch_orders": self._search.search_dispatch_orders,
-            "search_entities": self._search.search_entities,
-            "find_similar": self._search.find_similar,
-            "find_correspondence": self._search.find_correspondence,
+            "search_entities": self._kg_search.search_entities,
+            "find_similar": self._kg_search.find_similar,
+            "find_correspondence": self._kg_search.find_correspondence,
             # Analysis tools
             "get_entity_detail": self._analysis.get_entity_detail,
             "get_statistics": self._analysis.get_statistics,

@@ -25,10 +25,8 @@ from app.services.ai.embedding_manager import EmbeddingManager
 
 from app.services.ai.agent_tools import AgentToolExecutor, VALID_TOOL_NAMES
 from app.services.ai.agent_planner import AgentPlanner, AgentWorkingMemory
-from app.services.ai.agent_synthesis import (
-    AgentSynthesizer,
-    summarize_tool_result,
-)
+from app.services.ai.agent_synthesis import AgentSynthesizer
+from app.services.ai.tool_result_formatter import summarize_tool_result
 from app.services.ai.agent_tool_loop import AgentToolLoop
 from app.services.ai.agent_roles import get_role_profile
 from app.services.ai.agent_trace import AgentTrace

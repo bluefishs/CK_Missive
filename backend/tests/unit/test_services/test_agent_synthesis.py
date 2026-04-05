@@ -14,9 +14,9 @@ from unittest.mock import MagicMock
 
 from app.services.ai.agent_synthesis import (
     strip_thinking_from_synthesis,
-    summarize_tool_result,
     AgentSynthesizer,
 )
+from app.services.ai.tool_result_formatter import summarize_tool_result
 
 
 # ============================================================================

@@ -232,7 +232,7 @@ async def run_post_synthesis(
         ctx.config.self_reflect_enabled
         and ctx.tool_results
     ):
-        from app.services.ai.agent_synthesis import self_reflect
+        from app.services.ai.tool_result_formatter import self_reflect
         reflect_result = await self_reflect(
             ctx.ai, ctx.question, ctx.answer_text,
             ctx.tool_results, ctx.config,
