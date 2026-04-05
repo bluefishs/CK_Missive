@@ -109,6 +109,24 @@ class AgentEvolutionScheduler:
         if not self.redis:
             return {"status": "skip", "reason": "no_redis"}
 
+        # Pre-evolution snapshot for safe rollback
+        try:
+            query_count_raw = await self.redis.get(QUERY_COUNTER_KEY)
+            _query_count_snapshot = int(query_count_raw) if query_count_raw else 0
+            signal_queue_len = await self.redis.llen(SIGNAL_QUEUE_KEY) or 0
+            from app.services.ai.skill_snapshot_service import SkillSnapshotService
+            snapshot_tag = await SkillSnapshotService.create_snapshot(
+                trigger="evolution",
+                metadata={
+                    "query_count": _query_count_snapshot,
+                    "signal_queue_length": signal_queue_len,
+                },
+            )
+            if snapshot_tag:
+                logger.info("Pre-evolution snapshot: %s", snapshot_tag)
+        except Exception as snap_err:
+            logger.debug("Snapshot before evolution skipped: %s", snap_err)
+
         report: Dict[str, Any] = {
             "timestamp": time.time(),
             "actions": [],

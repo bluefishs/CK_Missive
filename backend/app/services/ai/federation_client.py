@@ -437,6 +437,112 @@ class FederationClient:
                 elapsed_ms,
             )
 
+    async def delegate_with_patterns(
+        self,
+        query: str,
+        context: str = "",
+        max_patterns: int = 5,
+    ) -> Dict[str, Any]:
+        """Delegate query to external agent WITH learned patterns.
+
+        Includes top successful patterns from local agent to aid external.
+        Accepts contributed_patterns back from external agent.
+        """
+        # 1. Gather top local patterns
+        local_patterns = await self._get_top_patterns(max_patterns)
+
+        # 2. Build enhanced payload (patterns are informational for the target)
+        enhanced_context: Dict[str, Any] = {
+            "original_context": context,
+            "source_agent": _SELF_AGENT_ID,
+            "learned_patterns": local_patterns,
+        }
+
+        # 3. Delegate via existing mechanism
+        result = await self.delegate(
+            target_agent_id="auto",
+            intent=query,
+            context=enhanced_context,
+        )
+
+        # 4. If response includes contributed_patterns, merge locally
+        target_resp = result.get("target_response") or {}
+        contributed = (
+            target_resp.get("contributed_patterns", [])
+            if isinstance(target_resp, dict)
+            else []
+        )
+        if contributed:
+            merged = await self._merge_external_patterns(contributed)
+            result["patterns_merged"] = merged
+
+        return result
+
+    async def _get_top_patterns(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Get top graduated patterns for sharing."""
+        try:
+            from app.core.redis_client import get_redis
+
+            redis = await get_redis()
+            if not redis:
+                return []
+            # Get top patterns by hit count from Redis sorted set
+            patterns = await redis.zrevrange(
+                "agent:patterns:index", 0, limit - 1, withscores=True
+            )
+            result: List[Dict[str, Any]] = []
+            for key, score in patterns:
+                if isinstance(key, bytes):
+                    key = key.decode()
+                detail = await redis.hgetall(f"agent:patterns:detail:{key}")
+                if detail:
+                    # Normalise bytes keys from Redis
+                    tool_seq = detail.get(b"tool_sequence", detail.get("tool_sequence", b""))
+                    query_tpl = detail.get(b"query_template", detail.get("query_template", b""))
+                    if isinstance(tool_seq, bytes):
+                        tool_seq = tool_seq.decode()
+                    if isinstance(query_tpl, bytes):
+                        query_tpl = query_tpl.decode()
+                    result.append({
+                        "pattern_key": key,
+                        "score": score,
+                        "tool_sequence": tool_seq,
+                        "query_template": query_tpl,
+                    })
+            return result
+        except Exception:
+            return []
+
+    async def _merge_external_patterns(self, patterns: List[Dict[str, Any]]) -> int:
+        """Merge externally contributed patterns into local store."""
+        merged = 0
+        try:
+            from app.core.redis_client import get_redis
+
+            redis = await get_redis()
+            if not redis:
+                return 0
+            for p in patterns[:10]:  # Max 10 external patterns
+                raw_key = p.get("pattern_key", "")
+                if not raw_key:
+                    continue
+                key = f"ext:{raw_key}"
+                # Add with lower initial score (needs local validation)
+                await redis.zadd("agent:patterns:index", {key: 0.5})
+                await redis.hset(
+                    f"agent:patterns:detail:{key}",
+                    mapping={
+                        "tool_sequence": p.get("tool_sequence", ""),
+                        "query_template": p.get("query_template", ""),
+                        "source_agent": p.get("source_agent", "external"),
+                        "imported_at": str(datetime.now(timezone.utc)),
+                    },
+                )
+                merged += 1
+        except Exception as e:
+            logger.debug("Failed to merge external patterns: %s", e)
+        return merged
+
     async def delegate_auto(
         self,
         intent: str,
