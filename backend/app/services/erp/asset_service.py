@@ -47,7 +47,17 @@ class AssetService(AuditableServiceMixin):
     async def create_asset(
         self, data: AssetCreateRequest, user_id: Optional[int] = None
     ) -> Asset:
-        """建立資產"""
+        """建立資產 (asset_code 為空時自動生成)"""
+        # 自動生成 asset_code (ADR-0013 Phase 1)
+        if not data.asset_code:
+            from datetime import date as _date
+            from app.services.case_code_service import CaseCodeService
+            code_svc = CaseCodeService(self.db)
+            data.asset_code = await code_svc.generate_asset_code(
+                year=_date.today().year,
+                category=data.category or "equipment",
+            )
+
         # Check duplicate code
         if await self.repo.check_code_exists(data.asset_code):
             raise ValueError(f"資產編號 {data.asset_code} 已存在")

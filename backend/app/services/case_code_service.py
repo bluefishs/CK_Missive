@@ -208,20 +208,21 @@ class CaseCodeService:
         year_str = str(year) if year > 1911 else str(year + 1911)
         cat_code = category[:2].zfill(2) if category else "01"
         nat_code = case_nature[:2].zfill(2) if case_nature else "01"
-        prefix = f"{year_str}_{cat_code}_{nat_code}_"
+        prefix = f"CK{year_str}_{cat_code}_{nat_code}_"
 
-        # 透過 Repository 查最大流水號 (同時支援新舊格式)
+        # 查最大流水號 (同時查有/無 CK 前綴，相容舊資料)
         max_code = await self.project_repo.get_max_project_code_by_prefix(prefix)
-        # 相容舊 CK 前綴
-        if not max_code:
-            max_code = await self.project_repo.get_max_project_code_by_prefix(f"CK{prefix}")
+        old_prefix = f"{year_str}_{cat_code}_{nat_code}_"
+        old_max = await self.project_repo.get_max_project_code_by_prefix(old_prefix)
 
         next_serial = 1
-        if max_code:
-            try:
-                next_serial = int(max_code.split("_")[-1]) + 1
-            except (IndexError, ValueError):
-                pass
+        for code in (max_code, old_max):
+            if code:
+                try:
+                    serial = int(code.split("_")[-1])
+                    next_serial = max(next_serial, serial + 1)
+                except (IndexError, ValueError):
+                    pass
 
         return f"{prefix}{str(next_serial).zfill(3)}"
 
@@ -343,6 +344,54 @@ class CaseCodeService:
             return []
 
         return await self.doc_repo.get_by_project_ids(project_ids, limit=limit)
+
+    # =========================================================================
+    # Asset Code 自動生成 (ADR-0013 Phase 1)
+    # =========================================================================
+
+    ASSET_CATEGORY_CODES = {
+        "equipment": "EQ",   # 設備
+        "vehicle": "VH",     # 車輛
+        "instrument": "IN",  # 儀器
+        "furniture": "FN",   # 家具
+        "other": "OT",       # 其他
+    }
+
+    async def generate_asset_code(
+        self,
+        year: int,
+        category: str = "equipment",
+    ) -> str:
+        """自動產生資產編號
+
+        格式: AT_{yyyy}_{CC}_{NNN}
+        範例: AT_2026_EQ_001
+
+        Args:
+            year: 年度 (西元年)
+            category: 資產類別 (equipment/vehicle/instrument/furniture/other)
+        """
+        year_str = str(year) if year > 1911 else str(year + 1911)
+        cat_code = self.ASSET_CATEGORY_CODES.get(category, "OT")
+        prefix = f"AT_{year_str}_{cat_code}_"
+
+        from sqlalchemy import select, func
+        from app.extended.models.asset import Asset
+
+        result = await self.db.execute(
+            select(func.max(Asset.asset_code))
+            .where(Asset.asset_code.like(f"{prefix}%"))
+        )
+        max_code = result.scalar()
+
+        next_serial = 1
+        if max_code:
+            try:
+                next_serial = int(max_code.split("_")[-1]) + 1
+            except (IndexError, ValueError):
+                pass
+
+        return f"{prefix}{str(next_serial).zfill(3)}"
 
     @staticmethod
     def get_module_categories(module: str) -> dict:

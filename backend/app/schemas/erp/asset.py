@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class AssetCreateRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    asset_code: str = Field(..., max_length=50)
+    asset_code: Optional[str] = Field(None, max_length=50, description="資產編號 (空值時自動生成)")
     name: str = Field(..., max_length=200)
     category: str = Field(default="equipment", pattern=r"^(equipment|vehicle|instrument|furniture|other)$")
     brand: Optional[str] = None

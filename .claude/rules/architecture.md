@@ -77,7 +77,8 @@ backend/app/services/
 │   ├── agent_tools.py               # 工具調度入口 (260L, 委派子執行器)
 │   ├── agent_planner.py             # 意圖前處理+LLM規劃 (拆分後)
 │   ├── agent_plan_enricher.py       # 規劃豐富器 (158L, 拆分自 planner)
-│   ├── agent_synthesis.py           # 答案合成 v1.8.0 (518L)
+│   ├── agent_synthesis.py           # 答案合成 v2.0.0 (165L, 拆分後)
+│   ├── tool_result_formatter.py     # 工具結果格式化+摘要+自省 (389L, 拆分自 synthesis)
 │   ├── agent_chitchat.py            # 閒聊偵測+8回退模式 v1.0.0
 │   ├── agent_trace.py               # 執行追蹤+Span計時 v1.0.0
 │   ├── agent_router.py              # 3層路由(chitchat→pattern→llm) v1.0.0
@@ -94,7 +95,8 @@ backend/app/services/
 │   ├── agent_evolution_scheduler.py # 自動進化排程(50次/24h) v1.0.0
 │   ├── agent_utils.py               # parse_json_safe, sse 共用工具
 │   ├── # --- 工具子執行器 (拆分自 agent_tools) ---
-│   ├── tool_executor_search.py      # 搜尋工具 (584L): doc/dispatch/entity/similar
+│   ├── tool_executor_search.py      # 搜尋工具 (306L): doc/dispatch (拆分後)
+│   ├── tool_executor_kg_search.py   # KG搜尋工具 (314L): entity/similar/correspondence (拆分自 search)
 │   ├── tool_executor_analysis.py    # 分析工具 (498L): detail/stats/health/graph
 │   ├── tool_executor_domain.py      # PM/ERP工具 (105L): projects/vendors/contracts
 │   ├── tool_executor_document.py    # 文件工具子執行器 v1.0.0
@@ -124,7 +126,8 @@ backend/app/services/
 │   ├── # --- Code Graph 模組 (4 個) ---
 │   ├── code_graph_service.py         # 程式碼圖譜主服務 (558L)
 │   ├── code_graph_analysis.py        # 程式碼圖譜分析
-│   ├── code_graph_ast_analyzer.py    # AST 分析器 (Python/TypeScript)
+│   ├── code_graph_ast_analyzer.py    # AST 分析器 (497L, 拆分後)
+│   ├── ast_endpoint_extractor.py    # API端點提取 Mixin (170L, 拆分自 ast_analyzer)
 │   ├── code_graph_types.py           # 型別定義
 │   ├── graph_code_wiki_service.py    # Code Wiki 整合
 │   ├── schema_reflector.py           # DB Schema 反射 (asyncio.to_thread)
