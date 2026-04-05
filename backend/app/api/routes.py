@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from app.api.endpoints import (
     document_numbers, document_numbers_crud, auth, agencies, vendors,
     document_calendar, users, user_management, user_permissions, role_permissions,
-    admin, site_management,
+    admin, site_management, telegram_webhook,
     system_monitoring, public, csv_import, reminders, files,
     secure_site_management,
     dashboard, project_notifications, debug, project_vendors, project_staff,
@@ -83,6 +83,9 @@ api_router.include_router(line_webhook.router, prefix="/line", tags=["LINE Bot"]
 # --- Discord Bot 整合 (v5.2.2) ---
 from app.api.endpoints import discord_webhook
 api_router.include_router(discord_webhook.router, prefix="/discord", tags=["Discord Bot"])
+
+# --- Telegram Bot 整合 (v5.4.1) ---
+api_router.include_router(telegram_webhook.router, prefix="/telegram", tags=["Telegram Bot"])
 
 # --- 數位分身 (v5.2.3) --- 已在 ai/__init__.py 中透過 ai_router 掛載
 
