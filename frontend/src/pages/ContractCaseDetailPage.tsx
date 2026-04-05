@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import {
-  Card,
-  Tag,
   Button,
-  Typography,
   Spin,
-  Tabs,
   Form,
+  Space,
+  Popconfirm,
 } from 'antd';
 import {
   InfoCircleOutlined,
@@ -16,13 +14,16 @@ import {
   PaperClipOutlined,
   FileTextOutlined,
   DollarOutlined,
+  EditOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 
-import { DetailPageHeader } from './contractCase/DetailPageHeader';
+import { DetailPageLayout, createTabItem } from '../components/common/DetailPage';
 import { useContractCaseData } from './contractCase/useContractCaseData';
 import { useContractCaseHandlers } from './contractCase/useContractCaseHandlers';
 import { useCrossModuleLookup } from '../hooks/business/usePMCases';
+import { STATUS_OPTIONS, CATEGORY_OPTIONS } from './contractCase/tabs';
 import { Suspense, lazy } from 'react';
 
 const MilestonesGanttTab = lazy(() => import('./pmCase/MilestonesGanttTab'));
@@ -43,8 +44,6 @@ import type {
   StaffFormValues,
   VendorFormValues,
 } from './contractCase/tabs';
-
-const { Title } = Typography;
 
 // ============================================================================
 // Shared content component — used by both /contract-cases/:id and /pm/cases/:id
@@ -133,91 +132,62 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
     return Math.round((passedDays / totalDays) * 100);
   };
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: 50 }}><Spin size="large" /></div>;
-  }
-
-  if (!data) {
-    return (
-      <Card>
-        <div style={{ textAlign: 'center', padding: 50 }}>
-          <Title level={4}>案件不存在</Title>
-          <Button type="primary" onClick={handlers.handleBack}>返回列表</Button>
-        </div>
-      </Card>
-    );
-  }
+  // Build status/category tags for header
+  const statusOption = STATUS_OPTIONS.find(s => s.value === data?.status);
+  const categoryOption = CATEGORY_OPTIONS.find(c => c.value === data?.category);
+  const headerTags = [
+    ...(categoryOption ? [{ text: categoryOption.label || data?.category || '未分類', color: categoryOption.color }] : [{ text: '未分類', color: 'default' }]),
+    ...(statusOption ? [{ text: statusOption.label || data?.status || '未設定', color: statusOption.color }] : [{ text: '未設定', color: 'default' }]),
+  ];
 
   const tabItems = [
-    {
-      key: 'info',
-      label: <span><InfoCircleOutlined /> 案件資訊</span>,
-      children: (
+    createTabItem('info', { icon: <InfoCircleOutlined />, text: '案件資訊' },
+      data ? (
         <CaseInfoTab
           data={data} isEditing={isEditingCaseInfo} setIsEditing={setIsEditingCaseInfo}
           form={caseInfoForm} onSave={handlers.handleSaveCaseInfo} calculateProgress={calculateProgress}
         />
-      ),
-    },
-    {
-      key: 'agency',
-      label: <span><BankOutlined /> 機關承辦 <Tag color="blue" style={{ marginLeft: 8 }}>{agencyContacts.length}</Tag></span>,
-      children: (
-        <AgencyContactTab
-          agencyContacts={agencyContacts} modalVisible={agencyContactModalVisible}
-          setModalVisible={setAgencyContactModalVisible} editingId={editingAgencyContactId}
-          setEditingId={setEditingAgencyContactId} form={agencyContactForm}
-          onSubmit={handlers.handleAgencyContactSubmit} onDelete={handlers.handleDeleteAgencyContact}
-        />
-      ),
-    },
-    {
-      key: 'staff',
-      label: <span><TeamOutlined /> 承辦同仁 <Tag color="blue" style={{ marginLeft: 8 }}>{staffList.length}</Tag></span>,
-      children: (
-        <StaffTab
-          staffList={staffList} editingStaffId={editingStaffId} setEditingStaffId={setEditingStaffId}
-          onRoleChange={handlers.handleStaffRoleChange} onDelete={handlers.handleDeleteStaff}
-          modalVisible={staffModalVisible} setModalVisible={setStaffModalVisible}
-          form={staffForm} onAddStaff={handlers.handleAddStaff}
-          userOptions={userOptions} loadUserOptions={loadUserOptions}
-        />
-      ),
-    },
-    {
-      key: 'vendors',
-      label: <span><ShopOutlined /> 協力廠商 <Tag color="blue" style={{ marginLeft: 8 }}>{vendorList.length}</Tag></span>,
-      children: (
-        <VendorsTab
-          vendorList={vendorList} editingVendorId={editingVendorId} setEditingVendorId={setEditingVendorId}
-          onRoleChange={handlers.handleVendorRoleChange} onDelete={handlers.handleDeleteVendor}
-          modalVisible={vendorModalVisible} setModalVisible={setVendorModalVisible}
-          form={vendorForm} onAddVendor={handlers.handleAddVendor}
-          vendorOptions={vendorOptions} loadVendorOptions={loadVendorOptions}
-        />
-      ),
-    },
-    {
-      key: 'attachments',
-      label: <span><PaperClipOutlined /> 附件紀錄 <Tag color="blue" style={{ marginLeft: 8 }}>{attachments.length}</Tag></span>,
-      children: (
-        <AttachmentsTab
-          attachments={attachments} groupedAttachments={groupedAttachments}
-          loading={attachmentsLoading} onRefresh={reloadData}
-          onDownload={handlers.handleDownloadAttachment} onPreview={handlers.handlePreviewAttachment}
-          onDownloadAll={handlers.handleDownloadAllAttachments} relatedDocsCount={relatedDocs.length}
-        />
-      ),
-    },
-    {
-      key: 'documents',
-      label: <span><FileTextOutlined /> 關聯公文 <Tag color="blue" style={{ marginLeft: 8 }}>{relatedDocs.length}</Tag></span>,
-      children: <RelatedDocumentsTab relatedDocs={relatedDocs} onRefresh={reloadData} />,
-    },
-    {
-      key: 'milestones',
-      label: <span>里程碑/甘特圖</span>,
-      children: pmCaseId ? (
+      ) : null
+    ),
+    createTabItem('agency', { icon: <BankOutlined />, text: '機關承辦', count: agencyContacts.length },
+      <AgencyContactTab
+        agencyContacts={agencyContacts} modalVisible={agencyContactModalVisible}
+        setModalVisible={setAgencyContactModalVisible} editingId={editingAgencyContactId}
+        setEditingId={setEditingAgencyContactId} form={agencyContactForm}
+        onSubmit={handlers.handleAgencyContactSubmit} onDelete={handlers.handleDeleteAgencyContact}
+      />
+    ),
+    createTabItem('staff', { icon: <TeamOutlined />, text: '承辦同仁', count: staffList.length },
+      <StaffTab
+        staffList={staffList} editingStaffId={editingStaffId} setEditingStaffId={setEditingStaffId}
+        onRoleChange={handlers.handleStaffRoleChange} onDelete={handlers.handleDeleteStaff}
+        modalVisible={staffModalVisible} setModalVisible={setStaffModalVisible}
+        form={staffForm} onAddStaff={handlers.handleAddStaff}
+        userOptions={userOptions} loadUserOptions={loadUserOptions}
+      />
+    ),
+    createTabItem('vendors', { icon: <ShopOutlined />, text: '協力廠商', count: vendorList.length },
+      <VendorsTab
+        vendorList={vendorList} editingVendorId={editingVendorId} setEditingVendorId={setEditingVendorId}
+        onRoleChange={handlers.handleVendorRoleChange} onDelete={handlers.handleDeleteVendor}
+        modalVisible={vendorModalVisible} setModalVisible={setVendorModalVisible}
+        form={vendorForm} onAddVendor={handlers.handleAddVendor}
+        vendorOptions={vendorOptions} loadVendorOptions={loadVendorOptions}
+      />
+    ),
+    createTabItem('attachments', { icon: <PaperClipOutlined />, text: '附件紀錄', count: attachments.length },
+      <AttachmentsTab
+        attachments={attachments} groupedAttachments={groupedAttachments}
+        loading={attachmentsLoading} onRefresh={reloadData}
+        onDownload={handlers.handleDownloadAttachment} onPreview={handlers.handlePreviewAttachment}
+        onDownloadAll={handlers.handleDownloadAllAttachments} relatedDocsCount={relatedDocs.length}
+      />
+    ),
+    createTabItem('documents', { icon: <FileTextOutlined />, text: '關聯公文', count: relatedDocs.length },
+      <RelatedDocumentsTab relatedDocs={relatedDocs} onRefresh={reloadData} />
+    ),
+    createTabItem('milestones', { icon: <FileTextOutlined />, text: '里程碑/甘特圖' },
+      pmCaseId ? (
         <Suspense fallback={<Spin />}>
           <MilestonesGanttTab pmCaseId={pmCaseId} />
         </Suspense>
@@ -225,31 +195,57 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
         <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
           尚無關聯 PM 案件，請先在邀標/報價模組建立案件並成案
         </div>
-      ),
-    },
-    {
-      key: 'finance',
-      label: <span><DollarOutlined /> 財務紀錄</span>,
-      children: (
+      )
+    ),
+    createTabItem('finance', { icon: <DollarOutlined />, text: '財務紀錄' },
+      data ? (
         <FinanceTab
-          caseCode={data?.case_code ?? null}
-          projectCode={data?.project_code ?? null}
+          caseCode={data.case_code ?? null}
+          projectCode={data.project_code ?? null}
         />
-      ),
-    },
+      ) : null
+    ),
   ];
 
+  const headerExtra = (
+    <Space>
+      {handlers.handleEdit && (
+        <Button icon={<EditOutlined />} onClick={handlers.handleEdit}>
+          編輯
+        </Button>
+      )}
+      {handlers.handleDelete && (
+        <Popconfirm
+          title="確定要刪除此承攬案件嗎？"
+          description="刪除後將無法復原，關聯的承辦同仁與廠商資料也會一併刪除。"
+          onConfirm={handlers.handleDelete}
+          okText="確定刪除"
+          cancelText="取消"
+          okButtonProps={{ danger: true, loading: handlers.deleting }}
+        >
+          <Button danger icon={<DeleteOutlined />} loading={handlers.deleting}>
+            刪除
+          </Button>
+        </Popconfirm>
+      )}
+    </Space>
+  );
+
   return (
-    <div>
-      <DetailPageHeader
-        projectName={data.project_name} category={data.category}
-        status={data.status} onBack={handlers.handleBack}
-        onEdit={handlers.handleEdit} onDelete={handlers.handleDelete} deleting={handlers.deleting}
-      />
-      <Card>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="large" />
-      </Card>
-    </div>
+    <DetailPageLayout
+      header={{
+        title: data?.project_name || '承攬案件詳情',
+        tags: headerTags,
+        backText: '返回',
+        backPath: backRoute,
+        extra: headerExtra,
+      }}
+      tabs={tabItems}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      loading={loading}
+      hasData={!!data}
+    />
   );
 };
 
