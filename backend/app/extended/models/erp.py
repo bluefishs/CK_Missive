@@ -69,6 +69,8 @@ class ERPInvoice(Base):
 
     invoice_number = Column(String(50), unique=True, nullable=False, index=True,
                             comment="發票號碼")
+    invoice_ref = Column(String(20), unique=True, nullable=True, index=True,
+                         comment="系統發票參照碼 IV_{yyyy}_{NNN}")
     invoice_date = Column(Date, nullable=False, comment="發票開立日期")
     amount = Column(Numeric(15, 2), nullable=False, comment="發票金額 (含稅)")
     tax_amount = Column(Numeric(15, 2), default=0, comment="稅額")
@@ -101,6 +103,8 @@ class ERPBilling(Base):
     erp_quotation_id = Column(Integer, ForeignKey("erp_quotations.id", ondelete="CASCADE"),
                               nullable=False, index=True)
 
+    billing_code = Column(String(20), unique=True, nullable=True, index=True,
+                          comment="系統請款編碼 BL_{yyyy}_{NNN}")
     billing_period = Column(String(50), comment="期別 (第1期/第2期/尾款)")
     billing_date = Column(Date, nullable=False, comment="請款日期")
     billing_amount = Column(Numeric(15, 2), nullable=False, comment="請款金額")

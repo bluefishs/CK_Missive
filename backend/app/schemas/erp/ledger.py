@@ -19,6 +19,7 @@ class LedgerCreate(LedgerBase):
 
 class LedgerResponse(LedgerBase):
     id: int
+    ledger_code: Optional[str] = None
     user_id: Optional[int]
     source_type: str
     source_id: Optional[int]

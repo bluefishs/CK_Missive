@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class ERPBillingCreate(BaseModel):
     """建立請款"""
     erp_quotation_id: int
+    billing_code: Optional[str] = Field(None, max_length=20, description="系統請款編碼 BL_{yyyy}_{NNN}")
     billing_period: Optional[str] = Field(None, max_length=50, description="期別")
     billing_date: date = Field(..., description="請款日期")
     billing_amount: Decimal = Field(..., description="請款金額")
@@ -32,6 +33,7 @@ class ERPBillingResponse(BaseModel):
     """請款完整資訊"""
     id: int
     erp_quotation_id: int
+    billing_code: Optional[str] = None
     billing_period: Optional[str] = None
     billing_date: date
     billing_amount: Decimal

@@ -393,6 +393,79 @@ class CaseCodeService:
 
         return f"{prefix}{str(next_serial).zfill(3)}"
 
+    # =========================================================================
+    # Billing / Invoice / Ledger Code 自動生成 (ADR-0013 Phase 2)
+    # =========================================================================
+
+    async def generate_billing_code(self, year: int) -> str:
+        """生成請款編碼 BL_{yyyy}_{NNN}"""
+        year_str = str(year) if year > 1911 else str(year + 1911)
+        prefix = f"BL_{year_str}_"
+
+        from sqlalchemy import select, func
+        from app.extended.models.erp import ERPBilling
+
+        result = await self.db.execute(
+            select(func.max(ERPBilling.billing_code))
+            .where(ERPBilling.billing_code.like(f"{prefix}%"))
+        )
+        max_code = result.scalar()
+
+        next_serial = 1
+        if max_code:
+            try:
+                next_serial = int(max_code.split("_")[-1]) + 1
+            except (IndexError, ValueError):
+                pass
+
+        return f"{prefix}{str(next_serial).zfill(3)}"
+
+    async def generate_invoice_ref(self, year: int) -> str:
+        """生成發票參照碼 IV_{yyyy}_{NNN}"""
+        year_str = str(year) if year > 1911 else str(year + 1911)
+        prefix = f"IV_{year_str}_"
+
+        from sqlalchemy import select, func
+        from app.extended.models.erp import ERPInvoice
+
+        result = await self.db.execute(
+            select(func.max(ERPInvoice.invoice_ref))
+            .where(ERPInvoice.invoice_ref.like(f"{prefix}%"))
+        )
+        max_code = result.scalar()
+
+        next_serial = 1
+        if max_code:
+            try:
+                next_serial = int(max_code.split("_")[-1]) + 1
+            except (IndexError, ValueError):
+                pass
+
+        return f"{prefix}{str(next_serial).zfill(3)}"
+
+    async def generate_ledger_code(self, year: int) -> str:
+        """生成帳本編碼 FL_{yyyy}_{NNNNN}"""
+        year_str = str(year) if year > 1911 else str(year + 1911)
+        prefix = f"FL_{year_str}_"
+
+        from sqlalchemy import select, func
+        from app.extended.models.finance import FinanceLedger
+
+        result = await self.db.execute(
+            select(func.max(FinanceLedger.ledger_code))
+            .where(FinanceLedger.ledger_code.like(f"{prefix}%"))
+        )
+        max_code = result.scalar()
+
+        next_serial = 1
+        if max_code:
+            try:
+                next_serial = int(max_code.split("_")[-1]) + 1
+            except (IndexError, ValueError):
+                pass
+
+        return f"{prefix}{str(next_serial).zfill(5)}"
+
     @staticmethod
     def get_module_categories(module: str) -> dict:
         """取得模組可用類別"""

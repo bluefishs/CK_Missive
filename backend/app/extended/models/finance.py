@@ -28,6 +28,8 @@ class FinanceLedger(Base):
     # 跨模組橋樑
     case_code = Column(String(50), nullable=True, index=True,
                        comment="案號 (軟參照)，NULL=一般營運支出")
+    ledger_code = Column(String(20), unique=True, nullable=True, index=True,
+                         comment="帳本編碼 FL_{yyyy}_{NNNNN}")
 
     # 來源追蹤 (多態參照)
     source_type = Column(String(30), nullable=False, server_default="manual",

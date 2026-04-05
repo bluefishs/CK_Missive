@@ -9,6 +9,7 @@ class ERPInvoiceCreate(BaseModel):
     """建立發票"""
     erp_quotation_id: int
     invoice_number: str = Field(..., max_length=50, description="發票號碼")
+    invoice_ref: Optional[str] = Field(None, max_length=20, description="系統發票參照碼 IV_{yyyy}_{NNN}")
     invoice_date: date = Field(..., description="開立日期")
     amount: Decimal = Field(..., description="金額 (含稅)")
     tax_amount: Decimal = Field(Decimal("0"), description="稅額")
@@ -51,6 +52,7 @@ class ERPInvoiceResponse(BaseModel):
     id: int
     erp_quotation_id: int
     invoice_number: str
+    invoice_ref: Optional[str] = None
     invoice_date: date
     amount: Decimal
     tax_amount: Decimal = Decimal("0")
