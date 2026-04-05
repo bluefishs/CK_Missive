@@ -151,7 +151,7 @@ export function useERPOverview() {
       );
       return res.data ?? {};
     },
-    staleTime: 60_000,
+    staleTime: 300_000,
   });
 }
 

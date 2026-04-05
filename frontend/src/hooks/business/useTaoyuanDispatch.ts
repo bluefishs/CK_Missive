@@ -46,7 +46,7 @@ export const useTaoyuanDispatchOrders = (params: UseTaoyuanDispatchParams): UseT
   } = useQuery({
     queryKey: queryKeys.taoyuanDispatch.orders(params),
     queryFn: () => dispatchOrdersApi.getList(params),
-    staleTime: 30000,
+    staleTime: 120_000,
   });
 
   return {
@@ -99,7 +99,7 @@ export const useTaoyuanDispatchOrder = (orderId: number | undefined) => {
     queryKey: queryKeys.taoyuanDispatch.order(orderId),
     queryFn: () => dispatchOrdersApi.getDetail(orderId!),
     enabled: !!orderId,
-    staleTime: 30000,
+    staleTime: 120_000,
   });
 
   return {

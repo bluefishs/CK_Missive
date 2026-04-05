@@ -44,7 +44,7 @@ export const useTaoyuanProjects = (params: UseTaoyuanProjectsParams): UseTaoyuan
   } = useQuery({
     queryKey: queryKeys.taoyuanProjects.list(params),
     queryFn: () => taoyuanProjectsApi.getList(params),
-    staleTime: 30000,
+    staleTime: 120_000,
   });
 
   return {
@@ -69,7 +69,7 @@ export const useTaoyuanProject = (projectId: number | undefined) => {
     queryKey: queryKeys.taoyuanProjects.detail(projectId),
     queryFn: () => taoyuanProjectsApi.getDetail(projectId!),
     enabled: !!projectId,
-    staleTime: 30000,
+    staleTime: 120_000,
   });
 
   return {

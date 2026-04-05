@@ -32,7 +32,7 @@ export const useTaoyuanPayments = (dispatchOrderId: number): UseTaoyuanPaymentsR
   } = useQuery({
     queryKey: queryKeys.taoyuanPayments.byDispatch(dispatchOrderId),
     queryFn: () => contractPaymentsApi.getList(dispatchOrderId),
-    staleTime: 30000,
+    staleTime: 120_000,
     enabled: !!dispatchOrderId,
   });
 
@@ -57,7 +57,7 @@ export const useTaoyuanPaymentControl = (contractProjectId: number) => {
   } = useQuery({
     queryKey: queryKeys.taoyuanPayments.paymentControl(contractProjectId),
     queryFn: () => contractPaymentsApi.getControlList(contractProjectId),
-    staleTime: 30000,
+    staleTime: 120_000,
     enabled: !!contractProjectId,
   });
 
