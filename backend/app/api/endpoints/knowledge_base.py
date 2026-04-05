@@ -348,6 +348,45 @@ async def trigger_kb_embedding(
     return KBEmbedResponse(success=True, **stats)
 
 
+@router.post("/code-wiki/module")
+async def get_module_wiki(
+    request: Request,
+    _admin: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """生成模組 Wiki (Gemma 4)"""
+    body = await request.json()
+    module_name = body.get("module_name", "")
+    if not module_name:
+        return JSONResponse({"success": False, "error": "缺少 module_name"})
+
+    from app.services.ai.code_wiki_generator import CodeWikiGenerator
+
+    svc = CodeWikiGenerator(db)
+    result = await svc.generate_module_wiki(module_name)
+    return JSONResponse({"success": True, "data": result})
+
+
+@router.post("/code-wiki/overview")
+async def get_code_wiki_overview(
+    request: Request,
+    _admin: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """程式碼 Wiki 總覽"""
+    body = await request.json()
+    limit = body.get("limit", 50)
+    if not isinstance(limit, int) or limit < 1:
+        limit = 50
+    limit = min(limit, 200)
+
+    from app.services.ai.code_wiki_generator import CodeWikiGenerator
+
+    svc = CodeWikiGenerator(db)
+    result = await svc.generate_overview(limit=limit)
+    return JSONResponse({"success": True, "data": result})
+
+
 @router.post("/stats", response_model=KBStatsResponse)
 async def get_kb_stats(
     _admin: dict = Depends(require_admin),
