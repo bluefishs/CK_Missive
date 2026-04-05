@@ -160,6 +160,7 @@ export const ROUTES = {
   TENDER_ORG_ECOSYSTEM: '/tender/org-ecosystem',
   TENDER_COMPANY_PROFILE: '/tender/company-profile',
   TENDER_BATTLE_ROOM: '/tender/battle-room',
+  TENDER_PRICE_ANALYSIS: '/tender/price-analysis',
 } as const;
 
 // 路由元數據

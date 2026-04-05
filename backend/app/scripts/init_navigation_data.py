@@ -425,6 +425,17 @@ DEFAULT_NAVIGATION_ITEMS = [
         "description": "標案,知識圖譜,機關,廠商,關係網絡",
         "permission_required": "[]"
     },
+    {
+        "title": "底價分析",
+        "key": "tender-price-analysis",
+        "path": "/tender/price-analysis",
+        "icon": "FundOutlined",
+        "sort_order": 16,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "底價,預算,決標,價格趨勢,分析",
+        "permission_required": "[]"
+    },
 
     # =========================================================================
     # 行事曆管理 子項目
