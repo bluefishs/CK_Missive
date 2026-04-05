@@ -469,6 +469,23 @@ def register_default_tools(registry: ToolRegistry) -> None:
         contexts=["pm"],
     ))
 
+    # 31. analyze_diagram — 工程圖/測量圖 Vision 分析 (v5.4.1)
+    registry.register(ToolDefinition(
+        name="analyze_diagram",
+        description="分析工程圖、測量圖或地籍圖，提取座標、面積、標註等資訊。支援測量圖(survey)、地籍圖(cadastral)、工程圖(engineering)、藍圖(blueprint)四種類型。",
+        parameters={
+            "image_path": {"type": "string", "description": "附件路徑或 URL"},
+            "diagram_type": {"type": "string", "description": "圖面類型: survey|cadastral|engineering|blueprint (預設 survey)"},
+            "context": {"type": "string", "description": "可選背景資訊（如專案名稱、位置）"},
+        },
+        few_shot={
+            "question": "幫我分析這張測量圖的座標",
+            "response_json": '{"reasoning": "使用 Vision 分析測量圖提取座標和面積", "tool_calls": [{"name": "analyze_diagram", "params": {"image_path": "attachments/survey_001.png", "diagram_type": "survey"}}]}',
+        },
+        priority=5,
+        contexts=["doc", "pm"],
+    ))
+
     logger.info("Tool registry initialized: %d manual tools registered", registry.get_tool_count())
 
     # === NemoClaw Stage 3: 自動從 Skills 目錄發現並註冊工具 ===

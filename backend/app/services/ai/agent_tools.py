@@ -90,6 +90,8 @@ _DISPATCH_KEYS = {
     "search_tender",
     # Multi-Agent tender→case (v5.3.22)
     "auto_tender_to_case",
+    # Engineering diagram Vision analysis (v5.4.1)
+    "analyze_diagram",
 }
 # Validate: all dispatch keys must be in registry, and all non-skill registry tools
 # must be in dispatch keys. Skill tools (skill_*) are handled dynamically.
@@ -146,6 +148,8 @@ class ToolResultGuard:
         # Tender search (v5.3.22)
         "search_tender": {"tenders": [], "count": 0},
         "auto_tender_to_case": {"created": [], "count": 0},
+        # Engineering diagram (v5.4.1)
+        "analyze_diagram": {"diagram_type": "", "summary": "", "count": 0},
     }
 
     @classmethod
@@ -310,6 +314,8 @@ class AgentToolExecutor:
             # Tender search (v5.3.22)
             "search_tender": self._domain.search_tender,
             "auto_tender_to_case": self._domain.auto_tender_to_case,
+            # Engineering diagram Vision analysis (v5.4.1)
+            "analyze_diagram": self._domain.analyze_diagram,
             # Document parsing tool (v10.1)
             "parse_document": self._document.parse_document,
             # Knowledge Base search (v1.84.5)

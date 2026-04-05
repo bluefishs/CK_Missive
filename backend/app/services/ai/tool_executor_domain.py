@@ -330,3 +330,46 @@ class DomainToolExecutor:
             "created": len(created),
             "cases": created,
         }
+
+    async def analyze_diagram(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """分析工程圖/測量圖/地籍圖 (Gemma 4 Vision)"""
+        from app.services.ai.engineering_diagram_service import EngineeringDiagramService
+        from app.extended.models.document import DocumentAttachment
+        import os
+
+        image_path = params.get("image_path", "")
+        diagram_type = params.get("diagram_type", "survey")
+        context = params.get("context", "")
+
+        if not image_path:
+            return {"error": "缺少 image_path 參數", "count": 0}
+
+        # Resolve attachment path
+        upload_dir = os.getenv("UPLOAD_DIR", "uploads")
+        full_path = os.path.join(upload_dir, image_path) if not os.path.isabs(image_path) else image_path
+
+        if not os.path.isfile(full_path):
+            # Try looking up by attachment filename in DB
+            from sqlalchemy import select
+            stmt = select(DocumentAttachment).where(
+                DocumentAttachment.file_name.ilike(f"%{os.path.basename(image_path)}%")
+            )
+            result = await self.db.execute(stmt)
+            att = result.scalar_one_or_none()
+            if att and att.file_path:
+                full_path = os.path.join(upload_dir, att.file_path)
+
+        if not os.path.isfile(full_path):
+            return {"error": f"找不到圖檔: {image_path}", "count": 0}
+
+        with open(full_path, "rb") as f:
+            image_bytes = f.read()
+
+        service = EngineeringDiagramService()
+        result = await service.analyze_diagram(
+            image_bytes=image_bytes,
+            diagram_type=diagram_type,
+            context=context,
+        )
+        result["count"] = 1
+        return result
