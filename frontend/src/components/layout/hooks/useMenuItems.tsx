@@ -131,10 +131,11 @@ export interface MenuItem {
 }
 
 export const convertToMenuItems = (items: NavigationItem[]): MenuItem[] => {
+  let fallbackIndex = 0;
   const convertItem = (item: NavigationItem): MenuItem => {
     const uniqueKey = item.children && item.children.length > 0
-      ? `parent-${item.key || item.path || `nav-${Date.now()}`}`
-      : item.path || item.key || `leaf-${Date.now()}`;
+      ? `parent-${item.key || item.path || `nav-${fallbackIndex++}`}`
+      : item.path || item.key || `leaf-${fallbackIndex++}`;
 
     const menuItem: MenuItem = {
       key: uniqueKey,

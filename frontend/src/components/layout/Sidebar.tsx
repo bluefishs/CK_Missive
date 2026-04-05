@@ -3,7 +3,7 @@
  * 從 Layout.tsx 拆分出來
  */
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Layout, Menu, Typography, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -29,7 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
 
   // 查找選單項目
-  const findItemByKey = (items: MenuItem[], targetKey: string): MenuItem | null => {
+  const findItemByKey = useCallback((items: MenuItem[], targetKey: string): MenuItem | null => {
     for (const item of items) {
       if (item.key === targetKey) return item;
       if (item.children) {
@@ -38,10 +38,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
     }
     return null;
-  };
+  }, []);
 
   // 處理選單點擊
-  const handleMenuClick = ({ key }: { key: string }) => {
+  const handleMenuClick = useCallback(({ key }: { key: string }) => {
     logger.debug(`🔗 Menu clicked: ${key}`);
     const clickedItem = findItemByKey(menuItems, key);
     if (clickedItem && clickedItem.path) {
@@ -50,7 +50,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else {
       logger.debug(`❌ No path found for key: ${key}`);
     }
-  };
+  }, [findItemByKey, menuItems, navigate]);
+
+  const selectedKeys = useMemo(() => [getCurrentMenuKey(location.pathname)], [location.pathname]);
+  const defaultOpenKeys = useMemo(() => getDefaultOpenKeys(location.pathname), [location.pathname]);
 
   return (
     <Sider
@@ -97,8 +100,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[getCurrentMenuKey(location.pathname)]}
-          defaultOpenKeys={getDefaultOpenKeys(location.pathname)}
+          selectedKeys={selectedKeys}
+          defaultOpenKeys={defaultOpenKeys}
           items={menuItems as AntMenuItem[]}
           style={{ borderRight: 0 }}
           onClick={handleMenuClick}
@@ -108,4 +111,4 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
-export default Sidebar;
+export default React.memo(Sidebar);

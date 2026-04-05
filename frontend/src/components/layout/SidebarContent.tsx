@@ -8,7 +8,7 @@
  * @date 2026-02-08
  */
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Menu, Typography, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -34,7 +34,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   const location = useLocation();
 
   // 查找選單項目
-  const findItemByKey = (items: MenuItem[], targetKey: string): MenuItem | null => {
+  const findItemByKey = useCallback((items: MenuItem[], targetKey: string): MenuItem | null => {
     for (const item of items) {
       if (item.key === targetKey) return item;
       if (item.children) {
@@ -43,10 +43,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
       }
     }
     return null;
-  };
+  }, []);
 
   // 處理選單點擊
-  const handleMenuClick = ({ key }: { key: string }) => {
+  const handleMenuClick = useCallback(({ key }: { key: string }) => {
     logger.debug(`Menu clicked: ${key}`);
     const clickedItem = findItemByKey(menuItems, key);
     if (clickedItem && clickedItem.path) {
@@ -56,7 +56,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     } else {
       logger.debug(`No path found for key: ${key}`);
     }
-  };
+  }, [findItemByKey, menuItems, navigate, onMenuClick]);
+
+  const selectedKeys = useMemo(() => [getCurrentMenuKey(location.pathname)], [location.pathname]);
+  const defaultOpenKeys = useMemo(() => getDefaultOpenKeys(location.pathname), [location.pathname]);
 
   return (
     <div style={{ height: '100%', overflow: 'auto' }} role="navigation" aria-label="主選單">
@@ -87,8 +90,8 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[getCurrentMenuKey(location.pathname)]}
-          defaultOpenKeys={getDefaultOpenKeys(location.pathname)}
+          selectedKeys={selectedKeys}
+          defaultOpenKeys={defaultOpenKeys}
           items={menuItems as AntMenuItem[]}
           style={{ borderRight: 0 }}
           onClick={handleMenuClick}
@@ -98,4 +101,4 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   );
 };
 
-export default SidebarContent;
+export default React.memo(SidebarContent);
