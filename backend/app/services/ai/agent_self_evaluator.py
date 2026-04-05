@@ -70,8 +70,8 @@ class AgentSelfEvaluator:
     產生的信號儲存到 Redis，供 EvolutionScheduler 定期消費。
     """
 
-    # 權重配置
-    WEIGHTS = {
+    # 預設權重配置
+    DEFAULT_WEIGHTS = {
         "relevance": 0.30,
         "completeness": 0.25,
         "citation_accuracy": 0.20,
@@ -79,9 +79,32 @@ class AgentSelfEvaluator:
         "tool_efficiency": 0.15,
     }
 
+    # 領域特定權重
+    DOMAIN_WEIGHTS = {
+        "erp": {
+            "relevance": 0.25, "completeness": 0.25,
+            "citation_accuracy": 0.25, "latency": 0.10, "tool_efficiency": 0.15,
+        },
+        "dispatch": {
+            "relevance": 0.30, "completeness": 0.20,
+            "citation_accuracy": 0.15, "latency": 0.20, "tool_efficiency": 0.15,
+        },
+        "pm": {
+            "relevance": 0.25, "completeness": 0.30,
+            "citation_accuracy": 0.20, "latency": 0.10, "tool_efficiency": 0.15,
+        },
+    }
+
+    @staticmethod
+    def get_weights(context: Optional[str] = None) -> dict:
+        """Return domain-specific weights if context matches, else defaults."""
+        return AgentSelfEvaluator.DOMAIN_WEIGHTS.get(
+            context, AgentSelfEvaluator.DEFAULT_WEIGHTS
+        )
+
     # 閾值
     LATENCY_THRESHOLD_MS = 5000    # 延遲超過 5 秒扣分
-    MAX_REASONABLE_TOOLS = 4       # 工具呼叫超過 4 次扣分
+    MAX_REASONABLE_TOOLS = 6       # 工具呼叫超過 6 次扣分
     MIN_ANSWER_LENGTH = 20         # 回答少於 20 字扣分
     SIGNAL_QUEUE_KEY = "agent:evolution:signals"
     EVAL_HISTORY_KEY = "agent:evolution:eval_history"
@@ -93,9 +116,13 @@ class AgentSelfEvaluator:
         tool_results: List[Dict[str, Any]],
         trace: Any,
         citation_result: Optional[Dict[str, Any]] = None,
+        context: Optional[str] = None,
     ) -> EvalScore:
         """
         評估單次回答品質。純規則式，零 LLM 呼叫。
+
+        Args:
+            context: Domain context for weight selection (e.g. "erp", "dispatch", "pm")
 
         Returns:
             EvalScore with overall score and improvement signals
@@ -107,13 +134,14 @@ class AgentSelfEvaluator:
         score.latency_ok = self._eval_latency(trace)
         score.tool_efficiency = self._eval_tool_efficiency(tool_results, trace)
 
-        # 加權綜合分
+        # 加權綜合分 (領域感知)
+        weights = self.get_weights(context)
         score.overall = (
-            self.WEIGHTS["relevance"] * score.relevance
-            + self.WEIGHTS["completeness"] * score.completeness
-            + self.WEIGHTS["citation_accuracy"] * score.citation_accuracy
-            + self.WEIGHTS["latency"] * (1.0 if score.latency_ok else 0.3)
-            + self.WEIGHTS["tool_efficiency"] * score.tool_efficiency
+            weights["relevance"] * score.relevance
+            + weights["completeness"] * score.completeness
+            + weights["citation_accuracy"] * score.citation_accuracy
+            + weights["latency"] * (1.0 if score.latency_ok else 0.3)
+            + weights["tool_efficiency"] * score.tool_efficiency
         )
 
         # 層級化嚴重度分類 (Phase 8)

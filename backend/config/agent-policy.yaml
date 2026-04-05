@@ -15,6 +15,9 @@ tool_monitor:
   degrade_threshold: 0.30
   recovery_threshold: 0.70
   probe_interval_seconds: 600
+  auto_block_degraded: true
+  degradation_threshold: 0.3    # block tools with <30% success rate
+  recovery_check_interval: 300  # check every 5 minutes
 
 pattern_learner:
   max_patterns: 500
@@ -38,7 +41,7 @@ tool_guard:
 
 adaptive_fewshot:
   enabled: true
-  limit: 3
+  limit: 5
   min_results: 1
 
 self_reflection:
