@@ -223,6 +223,25 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ 服務健康探測器啟動失敗: {e}")
 
+    # 初始化 Domain Event Bus (v6.0 foundation)
+    try:
+        from app.core.event_bus import EventBus
+        from app.core.domain_events import EventType
+
+        bus = EventBus.get_instance()
+
+        async def on_project_promoted(event):
+            logger.info(
+                "Project promoted: %s → %s",
+                event.payload.get("case_code"),
+                event.payload.get("project_code"),
+            )
+
+        bus.subscribe(EventType.PROJECT_PROMOTED, on_project_promoted)
+        logger.info("✅ Domain Event Bus 已初始化")
+    except Exception as e:
+        logger.warning(f"⚠️ Domain Event Bus 初始化失敗 (不影響核心功能): {e}")
+
     logger.info("應用程式已啟動。")
     yield
     logger.info("應用程式關閉中...")

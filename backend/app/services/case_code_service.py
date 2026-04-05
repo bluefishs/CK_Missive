@@ -307,6 +307,20 @@ class CaseCodeService:
             f"contract_project_id={contract_project.id}, erp_linked={erp_linked}"
         )
 
+        # Publish domain event
+        try:
+            from app.core.event_bus import EventBus
+            from app.core.domain_events import project_promoted
+            bus = EventBus.get_instance()
+            await bus.publish(project_promoted(
+                case_code=case_code,
+                project_code=project_code,
+                contract_project_id=contract_project.id,
+                erp_linked=erp_linked,
+            ))
+        except Exception as e:
+            logger.warning(f"Domain event publish failed (non-blocking): {e}")
+
         return {
             "project_code": project_code,
             "contract_project_id": contract_project.id,
