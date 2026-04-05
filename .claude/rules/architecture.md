@@ -290,7 +290,9 @@ backend/app/repositories/
 ├── session_repository.py           # SessionRepository — active/revoke/cleanup
 ├── configuration_repository.py     # ConfigurationRepository — key-value
 ├── navigation_repository.py        # NavigationRepository — tree/order
-├── admin_repository.py             # AdminRepository — DB introspection/stats
+├── admin_repository.py             # AdminRepository — DB introspection/stats (12 methods)
+├── entity_extraction_repository.py # EntityExtractionRepository — NER operations (10 methods)
+├── relation_graph_repository.py    # RelationGraphRepository — KG building queries (14 methods)
 ├── # --- AI (5) ---
 ├── ai_synonym_repository.py        # AISynonymRepository — category/toggle
 ├── ai_prompt_repository.py         # AIPromptRepository — versioning
