@@ -80,6 +80,10 @@ class ProactiveTriggerService:
         unsummarized_alerts = await self.check_unsummarized_documents()
         alerts.extend(unsummarized_alerts)
 
+        # 10. Gemma 4 預測風險分析
+        predictive_alerts = await self.predict_risks()
+        alerts.extend(predictive_alerts)
+
         logger.info(
             "Proactive scan complete: %d alerts (%d critical, %d warning)",
             len(alerts),
@@ -363,6 +367,104 @@ class ProactiveTriggerService:
                     "document_ids": doc_ids[:20],
                 },
             ))
+
+        return alerts
+
+    async def predict_risks(self) -> List[TriggerAlert]:
+        """Gemma 4 predictive risk analysis based on recent data trends.
+
+        Analyzes recent document/project/dispatch patterns to predict
+        upcoming issues before they become problems.
+        """
+        from datetime import datetime
+
+        from sqlalchemy import text
+
+        alerts: List[TriggerAlert] = []
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+
+        try:
+            # Get recent document counts by week
+            doc_trend = await self.db.execute(
+                text(
+                    "SELECT date_trunc('week', created_at) AS week, COUNT(*) "
+                    "FROM documents "
+                    "WHERE created_at > :since "
+                    "GROUP BY week ORDER BY week"
+                ),
+                {"since": thirty_days_ago},
+            )
+            weekly_docs = [
+                {"week": str(r[0])[:10], "count": r[1]}
+                for r in doc_trend.all()
+            ]
+
+            # Get overdue items count
+            overdue = await self.db.execute(
+                text(
+                    "SELECT COUNT(*) FROM documents "
+                    "WHERE status = 'pending' AND deadline < NOW()"
+                )
+            )
+            overdue_count = overdue.scalar() or 0
+
+            # Get project milestone status
+            milestone_status = await self.db.execute(
+                text(
+                    "SELECT status, COUNT(*) FROM pm_milestones "
+                    "WHERE due_date BETWEEN NOW() AND NOW() + INTERVAL '14 days' "
+                    "GROUP BY status"
+                )
+            )
+            upcoming_milestones = {r[0]: r[1] for r in milestone_status.all()}
+
+            if not weekly_docs and overdue_count == 0:
+                return alerts
+
+            from app.core.ai_connector import get_ai_connector
+
+            ai = get_ai_connector()
+            trend_summary = (
+                f"近30天公文趨勢: {weekly_docs}\n"
+                f"逾期公文: {overdue_count} 筆\n"
+                f"未來14天里程碑: {upcoming_milestones}\n"
+            )
+
+            prompt = (
+                "分析以下系統數據趨勢，預測可能的風險，以 JSON 回覆：\n\n"
+                f"{trend_summary}\n"
+                "預測項目:\n"
+                "- workload_risk: 工作量是否有異常增加趨勢\n"
+                "- deadline_risk: 逾期風險等級 (low/medium/high)\n"
+                "- milestone_risk: 里程碑延遲風險\n"
+                "- recommendations: 建議的預防措施 (最多3條)\n\n"
+                '回覆: {"workload_risk": "low/medium/high", '
+                '"deadline_risk": "...", "milestone_risk": "...", '
+                '"risk_score": 0-10, "recommendations": [...]}'
+            )
+
+            result = await ai.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=256,
+                task_type="classify",
+            )
+            from app.services.ai.agent_utils import parse_json_safe
+
+            parsed = parse_json_safe(result)
+
+            if parsed and parsed.get("risk_score", 0) >= 5:
+                alerts.append(TriggerAlert(
+                    alert_type="predictive_risk",
+                    severity="warning" if parsed["risk_score"] < 7 else "critical",
+                    title="AI 風險預測警報",
+                    message="; ".join(parsed.get("recommendations", [])[:2]),
+                    entity_type="system",
+                    entity_id=None,
+                    metadata=parsed,
+                ))
+        except Exception as e:
+            logger.debug("Predictive risk analysis failed: %s", e)
 
         return alerts
 

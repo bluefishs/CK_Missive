@@ -11,7 +11,7 @@ import json
 import logging
 from typing import Any, Dict, List, Tuple
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import CODE_ENTITY_TYPES
@@ -322,3 +322,80 @@ async def compute_dependency_metrics(
 
     await db.flush()
     logger.info("依賴指標已回寫 %d 個模組", updated)
+
+
+async def semantic_architecture_review(db: AsyncSession) -> Dict[str, Any]:
+    """Gemma 4 semantic analysis of code architecture.
+
+    Analyzes module dependencies, identifies patterns/anti-patterns,
+    suggests refactoring opportunities.
+    """
+    from app.core.ai_connector import get_ai_connector
+    from app.extended.models.knowledge_graph import (
+        CanonicalEntity,
+        EntityRelationship,
+    )
+
+    # Gather code graph stats
+    stats = await analyze_architecture(db)
+
+    # Get top modules by relation count
+    result = await db.execute(
+        select(
+            CanonicalEntity.canonical_name,
+            CanonicalEntity.entity_type,
+            func.count(EntityRelationship.id).label("rel_count"),
+        )
+        .join(EntityRelationship, EntityRelationship.source_entity_id == CanonicalEntity.id)
+        .where(CanonicalEntity.entity_type.in_(["py_module", "service", "repository"]))
+        .group_by(CanonicalEntity.canonical_name, CanonicalEntity.entity_type)
+        .order_by(func.count(EntityRelationship.id).desc())
+        .limit(20)
+    )
+    top_modules = [{"name": r[0], "type": r[1], "relations": r[2]} for r in result.all()]
+
+    if not top_modules:
+        return {"status": "no_data", "modules_analyzed": 0}
+
+    ai = get_ai_connector()
+    module_summary = "\n".join(
+        f"- {m['name']} ({m['type']}, {m['relations']} relations)"
+        for m in top_modules[:15]
+    )
+
+    prompt = (
+        "分析以下系統模組的架構品質，以 JSON 回覆：\n\n"
+        f"模組列表 (依關聯數排序):\n{module_summary}\n\n"
+        "分析項目:\n"
+        "1. high_coupling: 耦合度過高的模組 (關聯數>平均值2倍)\n"
+        "2. suggested_splits: 建議拆分的模組\n"
+        "3. missing_abstractions: 缺少抽象層的地方\n"
+        "4. overall_score: 架構健康度 0-10\n"
+        "5. recommendations: 具體改善建議 (最多3條)\n\n"
+        '回覆: {"high_coupling": [...], "suggested_splits": [...], '
+        '"missing_abstractions": [...], "overall_score": N, '
+        '"recommendations": [...]}'
+    )
+
+    try:
+        result_text = await ai.chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=512,
+            task_type="classify",
+        )
+        from app.services.ai.agent_utils import parse_json_safe
+
+        parsed = parse_json_safe(result_text)
+        if parsed:
+            parsed["modules_analyzed"] = len(top_modules)
+            parsed["stats"] = stats.get("summary", {})
+            return parsed
+    except Exception as e:
+        logger.debug("Semantic architecture review failed: %s", e)
+
+    return {
+        "status": "analysis_failed",
+        "modules_analyzed": len(top_modules),
+        "stats": stats.get("summary", {}),
+    }
