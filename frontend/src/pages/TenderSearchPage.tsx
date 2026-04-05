@@ -241,7 +241,7 @@ const TenderSearchPage: React.FC = () => {
               <Button type="link" onClick={() => navigate(ROUTES.TENDER_DASHBOARD)}>採購儀表板</Button>
               <Button type="link" onClick={() => navigate(ROUTES.TENDER_ORG_ECOSYSTEM)}>機關分析</Button>
               <Button type="link" onClick={() => navigate(ROUTES.TENDER_COMPANY_PROFILE)}>廠商分析</Button>
-              <Button type="link" onClick={() => navigate('/tender/graph')}>標案圖譜</Button>
+              <Button type="link" onClick={() => navigate(ROUTES.TENDER_GRAPH)}>標案圖譜</Button>
             </Space>
           </Col>
           <Col><Statistic title="資料來源" value="政府電子採購網" styles={{ content: { fontSize: 14 } }} /></Col>

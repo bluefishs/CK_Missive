@@ -27,6 +27,7 @@ import {
   CheckCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import { apiClient } from '../api/client';
 import { AUTH_ENDPOINTS } from '../api/endpoints';
 
@@ -112,13 +113,13 @@ const ResetPasswordPage: React.FC = () => {
                 <Button
                   type="primary"
                   key="forgot"
-                  onClick={() => navigate('/forgot-password')}
+                  onClick={() => navigate(ROUTES.FORGOT_PASSWORD)}
                 >
                   重新申請
                 </Button>,
                 <Button
                   key="login"
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate(ROUTES.LOGIN)}
                 >
                   返回登入
                 </Button>,
@@ -158,7 +159,7 @@ const ResetPasswordPage: React.FC = () => {
                 <Button
                   type="primary"
                   size="large"
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate(ROUTES.LOGIN)}
                 >
                   前往登入
                 </Button>
@@ -368,7 +369,7 @@ const ResetPasswordPage: React.FC = () => {
                 <Button
                   type="link"
                   icon={<ArrowLeftOutlined />}
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate(ROUTES.LOGIN)}
                   style={{ padding: 0 }}
                 >
                   返回登入

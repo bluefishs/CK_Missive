@@ -10,6 +10,7 @@ import React from 'react';
 import { Form, Input, Select, Button, Card, Row, Col, App, Space } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import { logger } from '../utils/logger';
 import { useResponsive } from '../hooks';
 
@@ -29,7 +30,7 @@ export const DocumentCreatePage: React.FC = () => {
   const onFinish = (values: DocumentFormValues) => {
     logger.debug('Form values:', values);
     message.success('公文建立成功！');
-    navigate('/documents');
+    navigate(ROUTES.DOCUMENTS);
   };
 
   return (
@@ -50,7 +51,7 @@ export const DocumentCreatePage: React.FC = () => {
         }}>
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/documents')}
+            onClick={() => navigate(ROUTES.DOCUMENTS)}
             size={isMobile ? 'small' : 'middle'}
           >
             {isMobile ? '返回' : '返回列表'}
@@ -193,7 +194,7 @@ export const DocumentCreatePage: React.FC = () => {
                   <Button type="primary" htmlType="submit" block>
                     建立公文
                   </Button>
-                  <Button onClick={() => navigate('/documents')} block>
+                  <Button onClick={() => navigate(ROUTES.DOCUMENTS)} block>
                     取消
                   </Button>
                 </Space>
@@ -201,7 +202,7 @@ export const DocumentCreatePage: React.FC = () => {
                 // 桌面版: 按鈕並排靠右
                 <div style={{ textAlign: 'right' }}>
                   <Button
-                    onClick={() => navigate('/documents')}
+                    onClick={() => navigate(ROUTES.DOCUMENTS)}
                     style={{ marginRight: 8 }}
                   >
                     取消

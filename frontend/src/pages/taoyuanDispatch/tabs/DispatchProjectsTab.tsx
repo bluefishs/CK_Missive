@@ -26,6 +26,7 @@ import {
   Popconfirm,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { ROUTES } from '../../../router/types';
 import type { TaoyuanProject } from '../../../types/api';
 import { logger } from '../../../services/logger';
 
@@ -191,7 +192,7 @@ export const DispatchProjectsTab: React.FC<DispatchProjectsTabProps> = ({
       ) : (
         <Empty description="此派工單尚無關聯工程" image={Empty.PRESENTED_IMAGE_SIMPLE}>
           {!canEdit && (
-            <Button type="link" onClick={() => navigate('/taoyuan/dispatch')}>
+            <Button type="link" onClick={() => navigate(ROUTES.TAOYUAN_DISPATCH)}>
               返回派工列表
             </Button>
           )}

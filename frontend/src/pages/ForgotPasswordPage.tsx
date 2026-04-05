@@ -15,6 +15,7 @@ import {
   ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import { apiClient } from '../api/client';
 import { AUTH_ENDPOINTS } from '../api/endpoints';
 
@@ -72,7 +73,7 @@ const ForgotPasswordPage: React.FC = () => {
                 <Button
                   type="primary"
                   key="login"
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate(ROUTES.LOGIN)}
                 >
                   返回登入
                 </Button>,
@@ -164,7 +165,7 @@ const ForgotPasswordPage: React.FC = () => {
                   <Button
                     type="link"
                     icon={<ArrowLeftOutlined />}
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate(ROUTES.LOGIN)}
                     style={{ padding: 0 }}
                   >
                     返回登入
@@ -172,7 +173,7 @@ const ForgotPasswordPage: React.FC = () => {
                   <span style={{ color: '#d9d9d9' }}>|</span>
                   <Button
                     type="link"
-                    onClick={() => navigate('/register')}
+                    onClick={() => navigate(ROUTES.REGISTER)}
                     style={{ padding: 0 }}
                   >
                     建立新帳號

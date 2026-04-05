@@ -2,6 +2,7 @@ import React from 'react';
 import { Result, Button } from 'antd';
 import { HomeOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 
 export const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ export const NotFoundPage: React.FC = () => {
             type="primary" 
             icon={<HomeOutlined />}
             size="large"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate(ROUTES.DASHBOARD)}
           >
             回到首頁
           </Button>

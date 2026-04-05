@@ -31,6 +31,7 @@ import { LoginHistoryTab } from '../components/auth/LoginHistoryTab';
 import { SessionManagementTab } from '../components/auth/SessionManagementTab';
 import { MFASettingsTab } from '../components/auth/MFASettingsTab';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import authService from '../services/authService';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
@@ -70,7 +71,7 @@ export const ProfilePage = () => {
     queryFn: async () => {
       const userInfo = authService.getUserInfo();
       if (!userInfo) {
-        navigate('/login');
+        navigate(ROUTES.LOGIN);
         return null;
       }
 

@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { Form, Input, Select, Button, Card, Row, Col, Spin, App, Space } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import { useQuery } from '@tanstack/react-query';
 import { useResponsive } from '../hooks';
 import { logger } from '../services/logger';
@@ -84,7 +85,7 @@ export const DocumentEditPage: React.FC = () => {
       );
 
       message.success('公文更新成功！');
-      navigate('/documents');
+      navigate(ROUTES.DOCUMENTS);
     } catch (error) {
       logger.error('Update document failed:', error);
       message.error('更新公文失敗');
@@ -126,7 +127,7 @@ export const DocumentEditPage: React.FC = () => {
         }}>
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/documents')}
+            onClick={() => navigate(ROUTES.DOCUMENTS)}
             size={isMobile ? 'small' : 'middle'}
           >
             {isMobile ? '返回' : '返回列表'}
@@ -264,7 +265,7 @@ export const DocumentEditPage: React.FC = () => {
                   <Button type="primary" htmlType="submit" loading={loading} block>
                     更新公文
                   </Button>
-                  <Button onClick={() => navigate('/documents')} block>
+                  <Button onClick={() => navigate(ROUTES.DOCUMENTS)} block>
                     取消
                   </Button>
                 </Space>
@@ -272,7 +273,7 @@ export const DocumentEditPage: React.FC = () => {
                 // 桌面版: 按鈕並排靠右
                 <div style={{ textAlign: 'right' }}>
                   <Button
-                    onClick={() => navigate('/documents')}
+                    onClick={() => navigate(ROUTES.DOCUMENTS)}
                     style={{ marginRight: 8 }}
                   >
                     取消

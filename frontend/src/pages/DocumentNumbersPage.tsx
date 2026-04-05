@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import { logger } from '../services/logger';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
@@ -179,7 +180,7 @@ export const DocumentNumbersPage: React.FC = () => {
 
   const handleCreateDocument = () => {
     // 導航到新增發文頁面
-    navigate('/document-numbers/create');
+    navigate(ROUTES.SEND_DOCUMENT_CREATE);
   };
 
   const handleCopyDocument = (document: Document) => {

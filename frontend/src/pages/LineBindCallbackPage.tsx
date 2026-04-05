@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Spin, Result, Typography, App } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
+import { ROUTES } from '../router/types';
 import authService from '../services/authService';
 import { LINE_BIND_REDIRECT_URI } from '../config/env';
 import { logger } from '../utils/logger';
@@ -56,7 +57,7 @@ const LineBindCallbackPage: React.FC = () => {
       try {
         const result = await authService.bindLine(code, LINE_BIND_REDIRECT_URI);
         message.success(result.message);
-        navigate('/profile');
+        navigate(ROUTES.PROFILE);
       } catch (err) {
         logger.error('[LINE Bind] Failed:', err);
         const errorMsg = (err as { detail?: string })?.detail
@@ -84,7 +85,7 @@ const LineBindCallbackPage: React.FC = () => {
             title="LINE 綁定失敗"
             subTitle={error}
             extra={
-              <a href="/profile">
+              <a href={ROUTES.PROFILE}>
                 <Text style={{ color: '#c9a962' }}>返回個人設定</Text>
               </a>
             }

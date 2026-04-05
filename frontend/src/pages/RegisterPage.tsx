@@ -21,6 +21,7 @@ import {
   GoogleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import authService from '../services/authService';
 import { logger } from '../services/logger';
 
@@ -108,7 +109,7 @@ const RegisterPage: React.FC = () => {
                 <Button
                   type="primary"
                   size="large"
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate(ROUTES.LOGIN)}
                 >
                   返回登入頁面
                 </Button>
@@ -313,7 +314,7 @@ const RegisterPage: React.FC = () => {
                   <Button
                     type="link"
                     icon={<ArrowLeftOutlined />}
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate(ROUTES.LOGIN)}
                     style={{ padding: 0 }}
                   >
                     返回登入
@@ -321,7 +322,7 @@ const RegisterPage: React.FC = () => {
                   <span style={{ color: '#d9d9d9' }}>|</span>
                   <Button
                     type="link"
-                    onClick={() => navigate('/forgot-password')}
+                    onClick={() => navigate(ROUTES.FORGOT_PASSWORD)}
                     style={{ padding: 0 }}
                   >
                     忘記密碼？

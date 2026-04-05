@@ -12,6 +12,7 @@ import React, { useCallback, useMemo } from 'react';
 import { Collapse, Spin, Empty, Badge, Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../router/types';
 
 import { useResponsive } from '../../../hooks/utility/useResponsive';
 import { useKanbanData } from '../../../components/taoyuan/kanban/useKanbanData';
@@ -53,7 +54,7 @@ export const KanbanBoardTab: React.FC<KanbanBoardTabProps> = ({
 
   const handleAddNew = useCallback(
     (workType: string) => {
-      navigate('/taoyuan/dispatch/create', {
+      navigate(ROUTES.TAOYUAN_DISPATCH_CREATE, {
         state: {
           contract_project_id: contractProjectId,
           work_type: workType,

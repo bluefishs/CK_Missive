@@ -21,6 +21,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button, Spin, App, Tag } from 'antd';
 import { GoogleOutlined, LoadingOutlined, LoginOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import authService from '../services/authService';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
 import { logger } from '../utils/logger';
@@ -105,9 +106,9 @@ const EntryPage: React.FC = () => {
         message.success('登入成功！');
 
         if (result.user_info.is_admin) {
-          navigate('/admin/dashboard');
+          navigate(ROUTES.ADMIN_DASHBOARD);
         } else {
-          navigate('/dashboard');
+          navigate(ROUTES.DASHBOARD);
         }
       } catch (error: unknown) {
         logger.error('Google login failed:', error);
@@ -122,7 +123,7 @@ const EntryPage: React.FC = () => {
   useEffect(() => {
     // 檢查是否已登入
     if (authService.isAuthenticated()) {
-      navigate('/dashboard');
+      navigate(ROUTES.DASHBOARD);
       return;
     }
 
@@ -201,7 +202,7 @@ const EntryPage: React.FC = () => {
       window.dispatchEvent(new CustomEvent('user-logged-in'));
 
       message.success(`歡迎, ${userInfo.full_name || userInfo.username}!`);
-      navigate('/dashboard');
+      navigate(ROUTES.DASHBOARD);
     } catch (error: unknown) {
       logger.error('Quick entry failed:', error);
       message.error('快速進入失敗，請確認後端服務是否啟動');
@@ -351,7 +352,7 @@ const EntryPage: React.FC = () => {
                     size="large"
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate('/login');
+                      navigate(ROUTES.LOGIN);
                     }}
                   >
                     帳號密碼登入

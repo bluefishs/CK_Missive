@@ -19,6 +19,7 @@ import {
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../router/types';
 
 import type { DispatchOrder, ProjectDispatchLink } from '../../../types/api';
 
@@ -144,7 +145,7 @@ export const DispatchLinksTab: React.FC<DispatchLinksTabProps> = ({
       ) : (
         <Empty description="此工程尚無關聯派工紀錄" image={Empty.PRESENTED_IMAGE_SIMPLE}>
           {!canEdit && (
-            <Button type="link" onClick={() => navigate('/taoyuan/dispatch')}>
+            <Button type="link" onClick={() => navigate(ROUTES.TAOYUAN_DISPATCH)}>
               返回派工管理
             </Button>
           )}

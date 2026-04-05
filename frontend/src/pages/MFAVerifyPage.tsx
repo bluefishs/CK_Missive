@@ -24,6 +24,7 @@ import {
   ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import authService from '../services/authService';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
@@ -53,7 +54,7 @@ const MFAVerifyPage: React.FC = () => {
   // 若無 mfa_token，重導向到登入頁
   useEffect(() => {
     if (!mfaToken) {
-      navigate('/login', { replace: true });
+      navigate(ROUTES.LOGIN, { replace: true });
     }
   }, [mfaToken, navigate]);
 
@@ -98,7 +99,7 @@ const MFAVerifyPage: React.FC = () => {
 
       const targetUrl = returnUrl
         ? decodeURIComponent(returnUrl)
-        : '/dashboard';
+        : ROUTES.DASHBOARD;
       navigate(targetUrl, { replace: true });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '驗證失敗，請重試';
@@ -228,7 +229,7 @@ const MFAVerifyPage: React.FC = () => {
 
         {/* 返回登入 */}
         <div style={{ textAlign: 'center' }}>
-          <Link to="/login" style={{ color: '#8c8c8c' }}>
+          <Link to={ROUTES.LOGIN} style={{ color: '#8c8c8c' }}>
             <Space>
               <ArrowLeftOutlined />
               返回登入

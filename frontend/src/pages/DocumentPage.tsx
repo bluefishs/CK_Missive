@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import { Typography, Button, Space, Modal, App } from 'antd';
 import type { TablePaginationConfig, FilterValue, SorterResult, TableCurrentDataSource } from 'antd/es/table/interface';
 import { PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
@@ -153,7 +154,7 @@ export const DocumentPage: React.FC = () => {
   };
 
   const handleCreateDocument = () => {
-    navigate('/documents/create');
+    navigate(ROUTES.DOCUMENT_CREATE);
   };
 
   const handleDeleteDocument = (document: Document) => {

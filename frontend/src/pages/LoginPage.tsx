@@ -32,6 +32,7 @@ import {
   LoginOutlined
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import authService, { MFARequiredError } from '../services/authService';
 import { useResponsive, useGoogleSignIn, useLineLogin } from '../hooks';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID, LINE_LOGIN_CHANNEL_ID } from '../config/env';
@@ -81,7 +82,7 @@ const LoginPage: React.FC = () => {
     handleGoogleLogin,
   } = useGoogleSignIn({
     onSuccess: (targetUrl) => navigate(targetUrl),
-    onMFARequired: (mfa_token) => navigate('/mfa/verify', {
+    onMFARequired: (mfa_token) => navigate(ROUTES.MFA_VERIFY, {
       state: { mfa_token, returnUrl: returnUrl || undefined },
     }),
     returnUrl,
@@ -96,7 +97,7 @@ const LoginPage: React.FC = () => {
     // 檢查是否已登入
     if (authService.isAuthenticated()) {
       logger.debug('⚠️ 已登入，重導向到 dashboard');
-      navigate('/dashboard');
+      navigate(ROUTES.DASHBOARD);
       return;
     }
 
@@ -129,7 +130,7 @@ const LoginPage: React.FC = () => {
       // 導航到目標頁面
       const targetUrl = returnUrl
         ? decodeURIComponent(returnUrl)
-        : '/dashboard';
+        : ROUTES.DASHBOARD;
       navigate(targetUrl);
     } catch (error: unknown) {
       logger.error('Quick entry failed:', error);
@@ -156,13 +157,13 @@ const LoginPage: React.FC = () => {
 
       const targetUrl = returnUrl
         ? decodeURIComponent(returnUrl)
-        : (response.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
+        : (response.user_info.is_admin ? ROUTES.ADMIN_DASHBOARD : ROUTES.DASHBOARD);
       navigate(targetUrl);
     } catch (error: unknown) {
       // MFA 流程：密碼正確但需要雙因素認證
       if (error instanceof MFARequiredError) {
         message.info('請完成雙因素認證');
-        navigate('/mfa/verify', {
+        navigate(ROUTES.MFA_VERIFY, {
           state: { mfa_token: error.mfa_token, returnUrl: returnUrl || undefined },
         });
         return;
@@ -352,13 +353,13 @@ const LoginPage: React.FC = () => {
         <div style={{ textAlign: 'center' }}>
           <Text type="secondary" style={{ fontSize: isMobile ? 13 : 14 }}>
             還沒有帳號？
-            <Link to="/register" style={{ marginLeft: '8px', color: '#c9a962' }}>
+            <Link to={ROUTES.REGISTER} style={{ marginLeft: '8px', color: '#c9a962' }}>
               立即註冊
             </Link>
           </Text>
         </div>
         <div style={{ textAlign: 'center', marginTop: isMobile ? '8px' : '12px' }}>
-          <Link to="/forgot-password">
+          <Link to={ROUTES.FORGOT_PASSWORD}>
             <Text type="secondary" style={{ fontSize: isMobile ? 12 : 13 }}>忘記密碼？</Text>
           </Link>
         </div>

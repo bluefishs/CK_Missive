@@ -32,6 +32,7 @@ import {
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
+import { ROUTES } from '../../../router/types';
 import type { DispatchDocumentsTabProps, LinkableDocumentOption } from './types';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import { isReceiveDocument } from '../../../types/api';
@@ -360,7 +361,7 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
       ) : (
         <Empty description="此派工單尚無關聯公文" image={Empty.PRESENTED_IMAGE_SIMPLE}>
           {!canEdit && (
-            <Button type="link" onClick={() => navigate('/taoyuan/dispatch')}>
+            <Button type="link" onClick={() => navigate(ROUTES.TAOYUAN_DISPATCH)}>
               返回派工列表
             </Button>
           )}

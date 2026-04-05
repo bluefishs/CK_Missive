@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   Form,
@@ -176,7 +177,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
         message.success('派工單新增成功');
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      navigate(`/taoyuan/dispatch/${result.id}`);
+      navigate(`${ROUTES.TAOYUAN_DISPATCH}/${result.id}`);
     },
     onError: (error: Error) => {
       message.error(error?.message || '新增失敗');
@@ -309,7 +310,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
   };
 
   const handleCancel = () => {
-    navigate('/taoyuan/dispatch');
+    navigate(ROUTES.TAOYUAN_DISPATCH);
   };
 
   // =============================================================================

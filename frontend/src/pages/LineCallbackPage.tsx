@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Spin, Result, Typography, App } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
+import { ROUTES } from '../router/types';
 import authService, { MFARequiredError } from '../services/authService';
 import { LINE_LOGIN_REDIRECT_URI } from '../config/env';
 import { logger } from '../utils/logger';
@@ -86,12 +87,12 @@ const LineCallbackPage: React.FC = () => {
 
         const targetUrl = (returnUrl && isValidReturnUrl(returnUrl))
           ? decodeURIComponent(returnUrl)
-          : (result.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
+          : (result.user_info.is_admin ? ROUTES.ADMIN_DASHBOARD : ROUTES.DASHBOARD);
         navigate(targetUrl);
       } catch (err: unknown) {
         if (err instanceof MFARequiredError) {
           message.info('請完成雙因素認證');
-          navigate('/mfa/verify', {
+          navigate(ROUTES.MFA_VERIFY, {
             state: { mfa_token: err.mfa_token, returnUrl: returnUrl || undefined },
           });
           return;
@@ -126,7 +127,7 @@ const LineCallbackPage: React.FC = () => {
             title="LINE 登入失敗"
             subTitle={error}
             extra={
-              <a href="/login">
+              <a href={ROUTES.LOGIN}>
                 <Text style={{ color: '#c9a962' }}>返回登入頁面</Text>
               </a>
             }
