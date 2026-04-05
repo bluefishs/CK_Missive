@@ -63,11 +63,111 @@ class CrossDomainLinker:
 
     在 CrossDomainContributionService 完成實體貢獻後呼叫，
     掃描新貢獻的實體並與其他專案的實體建立橋接關係。
+
+    v2.1.0: 新增 Gemma 4 語意匹配 — 模糊分數落在 0.4-0.7 模糊區間時
+    透過 LLM 判斷兩實體是否為同一事物。
     """
+
+    # Ambiguous fuzzy score range — triggers Gemma 4 semantic judgment
+    AMBIGUOUS_LOW = 0.4
+    AMBIGUOUS_HIGH = 0.7
 
     def __init__(self, db: AsyncSession):
         self.db = db
         self.matcher = CrossDomainMatchEngine(db)
+
+    async def _semantic_match_score(
+        self, entity_a: dict, entity_b: dict,
+    ) -> float:
+        """Gemma 4 semantic matching for cross-domain entity pairs.
+
+        Used when fuzzy string matching is inconclusive (0.4-0.7 range).
+        Returns confidence score 0.0-1.0 if entities are the same, else 0.0.
+        """
+        try:
+            from app.core.ai_connector import get_ai_connector
+            ai = get_ai_connector()
+            prompt = (
+                "判斷以下兩個實體是否指同一事物：\n"
+                f"A: {entity_a.get('name', '')} (類型: {entity_a.get('type', '')}, "
+                f"來源: {entity_a.get('source', '')})\n"
+                f"B: {entity_b.get('name', '')} (類型: {entity_b.get('type', '')}, "
+                f"來源: {entity_b.get('source', '')})\n\n"
+                '回覆 JSON: {"is_same": true/false, "confidence": 0.0-1.0, "reason": "..."}'
+            )
+            result = await ai.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0, max_tokens=80, task_type="classify",
+            )
+            from app.services.ai.agent_utils import parse_json_safe
+            parsed = parse_json_safe(result)
+            if parsed and parsed.get("is_same"):
+                return float(parsed.get("confidence", 0.0))
+            return 0.0
+        except Exception:
+            return 0.0
+
+    async def enhanced_find_best_match(
+        self,
+        name: str,
+        candidates: List[CanonicalEntity],
+        threshold: float,
+        source_project: str = "",
+    ) -> tuple:
+        """Enhanced matching: trigram first, then Gemma 4 for ambiguous cases.
+
+        When the best fuzzy score falls in the ambiguous range (0.4-0.7),
+        Gemma 4 is used to make a semantic judgment.
+
+        Returns: (best_entity, best_score) or (None, 0.0)
+        """
+        from app.services.ai.canonical_entity_matcher import CanonicalEntityMatcher
+
+        if not candidates or not name:
+            return None, 0.0
+
+        # Collect all scores
+        scored: list[tuple[CanonicalEntity, float]] = []
+        for candidate in candidates:
+            score = CanonicalEntityMatcher.compute_similarity(
+                name, candidate.canonical_name,
+            )
+            scored.append((candidate, score))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        if not scored:
+            return None, 0.0
+
+        best_candidate, best_score = scored[0]
+
+        # Clear match above threshold — use directly
+        if best_score >= threshold:
+            if not CanonicalEntityMatcher.is_false_fuzzy_match(
+                name, best_candidate.canonical_name,
+            ):
+                return best_candidate, best_score
+
+        # Ambiguous range — ask Gemma 4
+        if self.AMBIGUOUS_LOW <= best_score <= self.AMBIGUOUS_HIGH:
+            entity_a = {"name": name, "type": "unknown", "source": source_project}
+            entity_b = {
+                "name": best_candidate.canonical_name,
+                "type": best_candidate.entity_type or "",
+                "source": best_candidate.source_project or "",
+            }
+            llm_score = await self._semantic_match_score(entity_a, entity_b)
+            if llm_score >= 0.7:
+                logger.info(
+                    "Gemma 4 semantic match: '%s' ↔ '%s' (fuzzy=%.2f, llm=%.2f)",
+                    name, best_candidate.canonical_name, best_score, llm_score,
+                )
+                return best_candidate, llm_score
+
+        # Fall through to matcher's original pipeline (includes semantic vector fallback)
+        return await self.matcher.find_best_match(
+            name, candidates, threshold=threshold,
+        )
 
     async def link_after_contribution(
         self, source_project: str,
@@ -137,9 +237,10 @@ class CrossDomainLinker:
             return
 
         for contractor in tunnel_contractors:
-            best_match, best_score = await self.matcher.find_best_match(
+            best_match, best_score = await self.enhanced_find_best_match(
                 contractor.canonical_name, missive_orgs,
                 threshold=CONTRACTOR_THRESHOLD,
+                source_project="ck-tunnel",
             )
             if best_match is not None:
                 created = await self.matcher.create_relation_if_absent(
@@ -205,9 +306,10 @@ class CrossDomainLinker:
                     break
 
             if not matched:
-                best_match, best_score = await self.matcher.find_best_match(
+                best_match, best_score = await self.enhanced_find_best_match(
                     loc_name, lvrland_parcels,
-                    threshold=LOCATION_THRESHOLD, use_false_match_check=False,
+                    threshold=LOCATION_THRESHOLD,
+                    source_project="ck-lvrland",
                 )
                 if best_match is not None:
                     created = await self.matcher.create_relation_if_absent(
@@ -239,9 +341,10 @@ class CrossDomainLinker:
             return
 
         for tunnel in tunnel_tunnels:
-            best_match, best_score = await self.matcher.find_best_match(
+            best_match, best_score = await self.enhanced_find_best_match(
                 tunnel.canonical_name, missive_projects,
                 threshold=PROJECT_THRESHOLD,
+                source_project="ck-tunnel",
             )
             if best_match is not None:
                 created = await self.matcher.create_relation_if_absent(
@@ -288,8 +391,10 @@ class CrossDomainLinker:
             meta = inspection.external_meta or {}
             commissioning = meta.get("commissioning_agency", "") or inspection.canonical_name
 
-            best_match, best_score = await self.matcher.find_best_match(
-                commissioning, linked_orgs, threshold=AGENCY_THRESHOLD,
+            best_match, best_score = await self.enhanced_find_best_match(
+                commissioning, linked_orgs,
+                threshold=AGENCY_THRESHOLD,
+                source_project="ck-tunnel",
             )
             if best_match is not None:
                 created = await self.matcher.create_relation_if_absent(

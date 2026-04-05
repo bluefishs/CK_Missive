@@ -336,6 +336,101 @@ class GraphQueryService:
             for e in result.scalars().all()
         ]
 
+    # ── NL → KG Query (Gemma 4 powered) ──
+
+    async def nl_graph_query(self, question: str) -> dict:
+        """Translate natural language to knowledge graph query via Gemma 4.
+
+        Examples:
+        - "桃園市政府相關的公文" → search entities type=org, name contains "桃園市政府", then find related docs
+        - "去年和乾坤有關的標案" → search entities type=project, time filter, related tenders
+
+        Returns: {"entity_type": str, "search_term": str, "relation_filter": str,
+                  "time_range": dict, "max_hops": int}
+        """
+        try:
+            from app.core.ai_connector import get_ai_connector
+            ai = get_ai_connector()
+            prompt = (
+                "將以下自然語言查詢轉換為知識圖譜查詢參數，以 JSON 回覆：\n\n"
+                f"查詢: {question[:300]}\n\n"
+                "可用參數:\n"
+                "- entity_type: org(機關), person(人), project(專案), location(地點), date(日期)\n"
+                "- search_term: 搜尋關鍵字\n"
+                "- relation_filter: 關係類型篩選 (optional)\n"
+                "- time_range: {\"start\": \"YYYY-MM-DD\", \"end\": \"YYYY-MM-DD\"} (optional)\n"
+                "- max_hops: 搜尋跳數 1-3 (default 2)\n"
+                "- include_documents: 是否包含關聯公文 (true/false)\n\n"
+                '回覆: {"entity_type": "...", "search_term": "...", "relation_filter": null, '
+                '"time_range": null, "max_hops": 2, "include_documents": true}'
+            )
+            result = await ai.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0, max_tokens=200, task_type="classify",
+            )
+            from app.services.ai.agent_utils import parse_json_safe
+            parsed = parse_json_safe(result)
+            if not parsed or not parsed.get("search_term"):
+                return {"search_term": question[:100], "max_hops": 2, "include_documents": True}
+            return parsed
+        except Exception as e:
+            logger.debug("NL graph query translation failed: %s", e)
+            return {"search_term": question[:100], "max_hops": 2, "include_documents": True}
+
+    async def smart_graph_search(self, question: str, limit: int = 20) -> dict:
+        """Natural language → knowledge graph search (Gemma 4 powered)."""
+        params = await self.nl_graph_query(question)
+
+        entities = await self.search_entities(
+            query=params.get("search_term", ""),
+            entity_type=params.get("entity_type"),
+            limit=limit,
+        )
+
+        result = {"query_params": params, "entities": entities, "count": len(entities)}
+
+        # If include_documents, fetch related docs for top entities
+        if params.get("include_documents") and entities:
+            top_entity_ids = [e.get("id") for e in entities[:5] if e.get("id")]
+            if top_entity_ids:
+                docs = await self._get_related_documents(top_entity_ids, limit=10)
+                result["related_documents"] = docs
+
+        return result
+
+    async def _get_related_documents(
+        self, entity_ids: list[int], limit: int = 10,
+    ) -> list[dict]:
+        """Fetch documents related to a list of entity IDs via mention table."""
+        try:
+            stmt = (
+                select(
+                    OfficialDocument.id,
+                    OfficialDocument.subject,
+                    OfficialDocument.doc_number,
+                    OfficialDocument.doc_date,
+                    DocumentEntityMention.canonical_entity_id,
+                )
+                .join(OfficialDocument, OfficialDocument.id == DocumentEntityMention.document_id)
+                .where(DocumentEntityMention.canonical_entity_id.in_(entity_ids))
+                .order_by(OfficialDocument.doc_date.desc().nullslast())
+                .limit(limit)
+            )
+            rows = await self.db.execute(stmt)
+            return [
+                {
+                    "document_id": row.id,
+                    "subject": row.subject,
+                    "doc_number": row.doc_number,
+                    "doc_date": str(row.doc_date) if row.doc_date else None,
+                    "entity_id": row.canonical_entity_id,
+                }
+                for row in rows.all()
+            ]
+        except Exception as e:
+            logger.debug("_get_related_documents failed: %s", e)
+            return []
+
     # ── Entity Graph (delegated to GraphEntityGraphBuilder) ──
 
     async def get_entity_graph(
