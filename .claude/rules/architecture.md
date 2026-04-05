@@ -123,12 +123,13 @@ backend/app/services/
 │   ├── graph_query_service.py        # 圖譜查詢服務 (v1.2.0 拆分重構)
 │   ├── graph_statistics_service.py   # 圖譜統計服務
 │   ├── graph_traversal_service.py    # 圖譜遍歷服務
-│   ├── # --- Code Graph 模組 (4 個) ---
-│   ├── code_graph_service.py         # 程式碼圖譜主服務 (558L)
+│   ├── # --- Code Graph 模組 (7 個) ---
+│   ├── code_graph_service.py         # 程式碼圖譜 Facade (194L, 拆分後)
+│   ├── code_graph_ingest.py          # 程式碼圖譜入庫 (445L, 拆分自 service)
 │   ├── code_graph_analysis.py        # 程式碼圖譜分析
 │   ├── code_graph_ast_analyzer.py    # AST 分析器 (497L, 拆分後)
-│   ├── ast_endpoint_extractor.py    # API端點提取 Mixin (170L, 拆分自 ast_analyzer)
-│   ├── code_graph_types.py           # 型別定義
+│   ├── ast_endpoint_extractor.py     # API端點提取 Mixin (170L, 拆分自 ast_analyzer)
+│   ├── code_graph_types.py           # 型別+常數定義 (76L)
 │   ├── graph_code_wiki_service.py    # Code Wiki 整合
 │   ├── schema_reflector.py           # DB Schema 反射 (asyncio.to_thread)
 │   ├── ts_extractor.py               # TypeScript AST 提取
@@ -182,11 +183,13 @@ backend/app/services/
 ├── audit_mixin.py              # CRUD 審計 Mixin (10 服務套用)
 ├── taoyuan_link_service.py     # 桃園派工關聯服務
 ├── erp/                        # ERP 子服務
-│   ├── quotation_service.py   # 報價管理
+│   ├── quotation_service.py   # 報價管理 CRUD (343L, 拆分後)
+│   ├── quotation_service_io.py # 報價匯出入 (243L, 拆分自 quotation)
 │   ├── invoice_service.py     # 開票管理
 │   ├── billing_service.py     # 請款管理
 │   ├── vendor_payable_service.py # 廠商應付帳款
-│   ├── asset_service.py       # 資產管理 (CRUD+盤點+匯出入+Vision)
+│   ├── asset_service.py       # 資產管理 CRUD (217L, 拆分後)
+│   ├── asset_service_io.py    # 資產匯出入 (393L, 拆分自 asset)
 │   └── operational_service.py # 營運帳目 (預算+審批+分類)
 ├── einvoice/                   # 電子發票
 │   └── einvoice_sync_service.py # MOF 電子發票同步 (HMAC-SHA256)
@@ -287,6 +290,7 @@ backend/app/repositories/
 ├── session_repository.py           # SessionRepository — active/revoke/cleanup
 ├── configuration_repository.py     # ConfigurationRepository — key-value
 ├── navigation_repository.py        # NavigationRepository — tree/order
+├── admin_repository.py             # AdminRepository — DB introspection/stats
 ├── # --- AI (5) ---
 ├── ai_synonym_repository.py        # AISynonymRepository — category/toggle
 ├── ai_prompt_repository.py         # AIPromptRepository — versioning
