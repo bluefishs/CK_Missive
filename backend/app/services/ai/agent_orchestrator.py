@@ -135,10 +135,36 @@ class AgentOrchestrator:
 
         # ── 對話記憶：session_id 優先於 request body history ──
         conv_memory = get_conversation_memory() if session_id else None
+        handoff_context = None
         if session_id and conv_memory:
             loaded = await conv_memory.load(session_id)
             if loaded:
                 history = loaded
+
+            # ── Session Handoff：檢查閒置交接 + 注入前次摘要 ──
+            try:
+                await conv_memory.check_and_generate_handoff(session_id)
+                handoff = await conv_memory.get_session_handoff(session_id)
+                if handoff:
+                    parts = []
+                    if handoff.get("active_topic"):
+                        parts.append(f"主題: {handoff['active_topic']}")
+                    if handoff.get("context_summary"):
+                        parts.append(f"摘要: {handoff['context_summary']}")
+                    if handoff.get("key_findings"):
+                        findings = ", ".join(handoff["key_findings"][:5])
+                        parts.append(f"關鍵發現: {findings}")
+                    if handoff.get("pending_actions"):
+                        actions = ", ".join(handoff["pending_actions"][:5])
+                        parts.append(f"待辦: {actions}")
+                    if handoff.get("last_question"):
+                        parts.append(f"上次問題: {handoff['last_question']}")
+                    if parts:
+                        handoff_context = "【前次對話摘要】\n" + "\n".join(parts)
+                    # Clear after consumption
+                    await conv_memory.clear_session_handoff(session_id)
+            except Exception as e:
+                logger.debug("Session handoff check failed: %s", e)
 
         try:
             # ── 對話摘要壓縮 ──
@@ -147,6 +173,10 @@ class AgentOrchestrator:
                 history = await summarizer.get_effective_history(
                     session_id or "", history,
                 )
+
+            # ── Session Handoff 注入：將前次摘要加入 context ──
+            if handoff_context:
+                context = f"{handoff_context}\n\n{context}" if context else handoff_context
 
             # ── 種子資料冷啟動（非阻塞，僅首次） ──
             asyncio.create_task(get_pattern_learner().load_seeds_if_empty())
