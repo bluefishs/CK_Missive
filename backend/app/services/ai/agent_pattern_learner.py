@@ -244,8 +244,50 @@ class QueryPatternLearner:
 
             await redis.expire(detail_key, self._TTL)
 
+            # Bridge to DB graduation system: update graduation status for
+            # any matching DB-persisted learnings tied to this template
+            try:
+                await self._update_db_graduation(template, success)
+            except Exception as grad_err:
+                logger.debug("Graduation update skipped: %s", grad_err)
+
         except Exception as e:
             logger.debug("PatternLearner.learn failed: %s", e)
+
+    async def _update_db_graduation(self, template: str, success: bool) -> None:
+        """
+        Bridge Redis pattern learning to DB graduation system.
+
+        Finds DB learnings whose source_question matches the template,
+        then updates their graduation counters.
+        """
+        try:
+            from app.db.database import AsyncSessionLocal
+            from app.repositories.agent_learning_repository import AgentLearningRepository
+            from app.extended.models.agent_learning import AgentLearning
+            from sqlalchemy import select, and_
+
+            async with AsyncSessionLocal() as session:
+                repo = AgentLearningRepository(session)
+
+                # Find active learnings with matching source_question pattern
+                stmt = (
+                    select(AgentLearning)
+                    .where(and_(
+                        AgentLearning.is_active == True,  # noqa: E712
+                        AgentLearning.graduation_status == "active",
+                        AgentLearning.source_question.ilike(f"%{template[:50]}%"),
+                    ))
+                    .limit(5)
+                )
+                result = await session.execute(stmt)
+                records = result.scalars().all()
+
+                for record in records:
+                    await repo.update_graduation(record.id, success)
+
+        except Exception as e:
+            logger.debug("_update_db_graduation failed: %s", e)
 
     def _calc_score(
         self, hit_count: int, success_rate: float, last_used: float

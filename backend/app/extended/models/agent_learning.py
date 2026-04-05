@@ -34,6 +34,21 @@ class AgentLearning(Base):
     hit_count = Column(Integer, default=1, comment="被強化次數")
     is_active = Column(Boolean, default=True, comment="是否啟用")
 
+    # Graduation system (inspired by crystal-seed methodology)
+    graduation_status = Column(
+        String(20), default="active", nullable=False, index=True,
+        comment="active=in use, graduated=internalized(7+ success), chronic=needs structural fix",
+    )
+    consecutive_success_count = Column(
+        Integer, default=0, nullable=False,
+        comment="Consecutive successful applications; reset to 0 on failure",
+    )
+    failure_count = Column(
+        Integer, default=0, nullable=False,
+        comment="Total times this learning failed to help",
+    )
+    last_applied_at = Column(DateTime, nullable=True, comment="Last time this learning was applied")
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(),
@@ -81,6 +96,8 @@ class AgentEvolutionHistory(Base):
     patterns_promoted = Column(Integer, default=0)
     patterns_demoted = Column(Integer, default=0)
     patterns_expired = Column(Integer, default=0)
+    patterns_graduated = Column(Integer, default=0, comment="Learnings graduated (internalized)")
+    patterns_chronic = Column(Integer, default=0, comment="Learnings flagged as chronic")
     thresholds_adjusted = Column(JSON, nullable=True, comment="{'key': 'old->new'} changes")
 
     # State snapshot

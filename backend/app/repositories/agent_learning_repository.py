@@ -13,6 +13,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+import sqlalchemy as sa
 from sqlalchemy import select, update, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -143,10 +144,21 @@ class AgentLearningRepository:
                 ]
                 conditions.append(or_(*kw_filters))
 
+            # Graduated patterns are already internalized -> exclude them
+            # to reduce noise. Chronic patterns are surfaced for review.
+            conditions.append(
+                AgentLearning.graduation_status.in_(["active", "chronic"])
+            )
+
             stmt = (
                 select(AgentLearning)
                 .where(and_(*conditions))
                 .order_by(
+                    # Surface chronic patterns first (need manual review)
+                    sa.case(
+                        (AgentLearning.graduation_status == "chronic", 0),
+                        else_=1,
+                    ),
                     AgentLearning.hit_count.desc(),
                     AgentLearning.created_at.desc(),
                 )
@@ -162,6 +174,7 @@ class AgentLearningRepository:
                     "hit_count": r.hit_count,
                     "confidence": r.confidence,
                     "source_question": r.source_question,
+                    "graduation_status": r.graduation_status or "active",
                 }
                 for r in records
             ]
@@ -254,3 +267,143 @@ class AgentLearningRepository:
         except Exception as e:
             logger.warning("get_stats failed: %s", e)
             return {"total_active": 0, "by_type": {}}
+
+    # ── Graduation System ──────────────────────────────────
+
+    async def update_graduation(self, learning_id: int, success: bool) -> Optional[str]:
+        """
+        Update graduation status based on success/failure.
+
+        On success: increment consecutive_success_count, update last_applied_at.
+            If consecutive_success_count >= 7 and status == 'active': graduate it.
+        On failure: reset consecutive_success_count to 0, increment failure_count.
+            If failure_count >= 3 and status == 'active': flag as 'chronic'.
+
+        Returns:
+            New graduation_status if changed, None otherwise.
+        """
+        try:
+            stmt = select(AgentLearning).where(AgentLearning.id == learning_id)
+            result = await self.db.execute(stmt)
+            record = result.scalar_one_or_none()
+            if not record:
+                return None
+
+            old_status = record.graduation_status or "active"
+            new_status = None
+
+            if success:
+                record.consecutive_success_count = (record.consecutive_success_count or 0) + 1
+                record.last_applied_at = datetime.now(timezone.utc)
+                # Graduate after 7 consecutive successes
+                if record.consecutive_success_count >= 7 and old_status == "active":
+                    record.graduation_status = "graduated"
+                    new_status = "graduated"
+                    logger.info(
+                        "Learning #%d GRADUATED (7+ consecutive successes): %s",
+                        learning_id, record.content[:60],
+                    )
+            else:
+                record.consecutive_success_count = 0
+                record.failure_count = (record.failure_count or 0) + 1
+                # Flag as chronic after 3 total failures
+                if record.failure_count >= 3 and old_status == "active":
+                    record.graduation_status = "chronic"
+                    new_status = "chronic"
+                    logger.warning(
+                        "Learning #%d flagged CHRONIC (3+ failures): %s",
+                        learning_id, record.content[:60],
+                    )
+
+            await self.db.commit()
+            return new_status
+
+        except Exception as e:
+            logger.warning("update_graduation failed for #%d: %s", learning_id, e)
+            await self.db.rollback()
+            return None
+
+    async def get_pending_graduations(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Query learnings ready for graduation or chronic flagging.
+
+        Returns:
+            {"ready_to_graduate": [...], "ready_for_chronic": [...]}
+        """
+        try:
+            # Active learnings with 7+ consecutive successes -> graduate
+            grad_stmt = (
+                select(AgentLearning)
+                .where(and_(
+                    AgentLearning.is_active == True,  # noqa: E712
+                    AgentLearning.graduation_status == "active",
+                    AgentLearning.consecutive_success_count >= 7,
+                ))
+            )
+            grad_result = await self.db.execute(grad_stmt)
+            grad_records = grad_result.scalars().all()
+
+            # Active learnings with 3+ failures -> chronic
+            chronic_stmt = (
+                select(AgentLearning)
+                .where(and_(
+                    AgentLearning.is_active == True,  # noqa: E712
+                    AgentLearning.graduation_status == "active",
+                    AgentLearning.failure_count >= 3,
+                ))
+            )
+            chronic_result = await self.db.execute(chronic_stmt)
+            chronic_records = chronic_result.scalars().all()
+
+            return {
+                "ready_to_graduate": [
+                    {"id": r.id, "content": r.content, "hit_count": r.hit_count,
+                     "consecutive_success_count": r.consecutive_success_count}
+                    for r in grad_records
+                ],
+                "ready_for_chronic": [
+                    {"id": r.id, "content": r.content, "hit_count": r.hit_count,
+                     "failure_count": r.failure_count}
+                    for r in chronic_records
+                ],
+            }
+
+        except Exception as e:
+            logger.warning("get_pending_graduations failed: %s", e)
+            return {"ready_to_graduate": [], "ready_for_chronic": []}
+
+    async def batch_graduate(self, learning_ids: List[int]) -> int:
+        """Batch update learnings to 'graduated' status."""
+        if not learning_ids:
+            return 0
+        try:
+            stmt = (
+                update(AgentLearning)
+                .where(AgentLearning.id.in_(learning_ids))
+                .values(graduation_status="graduated")
+            )
+            result = await self.db.execute(stmt)
+            await self.db.commit()
+            return result.rowcount
+        except Exception as e:
+            logger.warning("batch_graduate failed: %s", e)
+            await self.db.rollback()
+            return 0
+
+    async def batch_mark_chronic(self, learning_ids: List[int]) -> int:
+        """Batch update learnings to 'chronic' status."""
+        if not learning_ids:
+            return 0
+        try:
+            stmt = (
+                update(AgentLearning)
+                .where(AgentLearning.id.in_(learning_ids))
+                .values(graduation_status="chronic")
+            )
+            result = await self.db.execute(stmt)
+            await self.db.commit()
+            return result.rowcount
+        except Exception as e:
+            logger.warning("batch_mark_chronic failed: %s", e)
+            await self.db.rollback()
+            return 0

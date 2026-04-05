@@ -149,7 +149,20 @@ class AgentEvolutionScheduler:
             trend = await self._compute_quality_trend()
             report["quality_trend"] = trend
 
-            # 6. 清理過期學習
+            # 6. Process DB learning graduations
+            graduation_result = await self._process_graduations()
+            if graduation_result.get("graduated") or graduation_result.get("chronic"):
+                report["actions"].append({
+                    "type": "graduation_processing",
+                    "graduated": graduation_result.get("graduated", 0),
+                    "chronic": graduation_result.get("chronic", 0),
+                })
+                if graduation_result.get("graduated"):
+                    actions_taken.append({"type": "graduate", "count": graduation_result["graduated"]})
+                if graduation_result.get("chronic"):
+                    actions_taken.append({"type": "chronic", "count": graduation_result["chronic"]})
+
+            # 7. 清理過期學習
             cleaned = await self._cleanup_stale_learnings()
             if cleaned:
                 report["actions"].append({
@@ -433,6 +446,51 @@ class AgentEvolutionScheduler:
 
         return cleaned
 
+    async def _process_graduations(self) -> Dict[str, int]:
+        """
+        Process DB-backed learning graduations in bulk.
+
+        1. Query active learnings with consecutive_success_count >= 7 -> graduate
+        2. Query active learnings with failure_count >= 3 -> mark chronic
+        3. Return counts for the evolution report
+
+        Graduated patterns have REDUCED injection priority (already internalized).
+        Chronic patterns are SURFACED for manual review.
+        """
+        result = {"graduated": 0, "chronic": 0}
+        try:
+            from app.db.database import AsyncSessionLocal
+            from app.repositories.agent_learning_repository import AgentLearningRepository
+
+            async with AsyncSessionLocal() as session:
+                repo = AgentLearningRepository(session)
+                pending = await repo.get_pending_graduations()
+
+                # Graduate learnings with 7+ consecutive successes
+                grad_ids = [r["id"] for r in pending.get("ready_to_graduate", [])]
+                if grad_ids:
+                    count = await repo.batch_graduate(grad_ids)
+                    result["graduated"] = count
+                    logger.info(
+                        "Evolution: graduated %d learnings (internalized, reduced injection priority)",
+                        count,
+                    )
+
+                # Flag chronic learnings with 3+ failures
+                chronic_ids = [r["id"] for r in pending.get("ready_for_chronic", [])]
+                if chronic_ids:
+                    count = await repo.batch_mark_chronic(chronic_ids)
+                    result["chronic"] = count
+                    logger.warning(
+                        "Evolution: flagged %d learnings as CHRONIC (surfaced for manual review)",
+                        count,
+                    )
+
+        except Exception as e:
+            logger.debug("_process_graduations failed: %s", e)
+
+        return result
+
     async def _persist_evolution_history(
         self,
         report: Dict[str, Any],
@@ -463,6 +521,8 @@ class AgentEvolutionScheduler:
         promoted = sum(a.get("count", 0) for a in actions_taken if a.get("type") == "promote")
         demoted = sum(a.get("count", 0) for a in actions_taken if a.get("type") == "demote")
         expired = sum(a.get("count", 0) for a in actions_taken if a.get("type") == "cleanup")
+        graduated = sum(a.get("count", 0) for a in actions_taken if a.get("type") == "graduate")
+        chronic = sum(a.get("count", 0) for a in actions_taken if a.get("type") == "chronic")
 
         # Quality trend snapshot
         trend = report.get("quality_trend", {})
@@ -489,6 +549,8 @@ class AgentEvolutionScheduler:
             patterns_promoted=promoted,
             patterns_demoted=demoted,
             patterns_expired=expired,
+            patterns_graduated=graduated,
+            patterns_chronic=chronic,
             total_patterns_before=total_patterns_after + demoted + expired - promoted,
             total_patterns_after=total_patterns_after,
             avg_score_before=avg_score_before,
@@ -551,6 +613,13 @@ class AgentEvolutionScheduler:
                     actions_desc.append(f"降級了 {count} 個持續失敗的模式")
                 elif atype == "cleanup":
                     actions_desc.append(f"清理了 {count} 個過期學習記錄")
+                elif atype == "graduation_processing":
+                    grad = action.get("graduated", 0)
+                    chron = action.get("chronic", 0)
+                    if grad:
+                        actions_desc.append(f"畢業了 {grad} 個已內化的學習（降低注入優先）")
+                    if chron:
+                        actions_desc.append(f"標記了 {chron} 個慢性問題學習（需人工檢視）")
 
             trend = report.get("quality_trend", {})
             trend_desc = ""

@@ -130,7 +130,9 @@ async def inject_cross_session_learnings(
     items = []
     for l in filtered:
         hit_info = f"(使用 {l['hit_count']} 次)" if l.get("hit_count", 1) > 1 else ""
-        items.append(f"- [{l['type']}] {l['content']} {hit_info}".strip())
+        # Surface chronic patterns with a warning marker
+        chronic_tag = " [CHRONIC - needs structural fix]" if l.get("graduation_status") == "chronic" else ""
+        items.append(f"- [{l['type']}] {l['content']} {hit_info}{chronic_tag}".strip())
 
     block = "\n".join(items)
     logger.info(

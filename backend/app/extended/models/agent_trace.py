@@ -59,6 +59,9 @@ class AgentQueryTrace(Base):
     answer_preview = Column(String(500), nullable=True, comment="答案前 500 字")
     tools_used = Column(JSONB, nullable=True, comment="使用的工具名稱列表")
 
+    # === After-action improvement ===
+    improvement_hint = Column(Text, nullable=True, comment="After-action: what to improve next time")
+
     # === 時間戳 ===
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
