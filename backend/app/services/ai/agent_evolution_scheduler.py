@@ -28,6 +28,7 @@ Created: 2026-03-16
 import json
 import logging
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,16 @@ class AgentEvolutionScheduler:
                 await self.redis.ltrim("agent:evolution:journal", 0, 99)  # Keep last 100
             except Exception:
                 pass
+
+            # Persist evolution history to DB (non-blocking)
+            try:
+                await self._persist_evolution_history(
+                    report=report,
+                    signals=signals,
+                    actions_taken=actions_taken,
+                )
+            except Exception as persist_err:
+                logger.debug("Evolution history persistence skipped: %s", persist_err)
 
             # Phase 2D: LLM 生成進化摘要（非阻塞）
             if actions_taken or report.get("signals_consumed", 0) > 0:
@@ -421,6 +432,74 @@ class AgentEvolutionScheduler:
             logger.debug("Cleanup failed: %s", e)
 
         return cleaned
+
+    async def _persist_evolution_history(
+        self,
+        report: Dict[str, Any],
+        signals: List[Dict[str, Any]],
+        actions_taken: List[Dict[str, Any]],
+    ) -> None:
+        """Persist evolution audit record to DB."""
+        from app.db.database import AsyncSessionLocal
+        from app.extended.models.agent_learning import AgentEvolutionHistory
+
+        # Determine trigger reason
+        query_count_raw = await self.redis.get(QUERY_COUNTER_KEY) if self.redis else None
+        query_count = int(query_count_raw) if query_count_raw else 0
+        trigger_reason = (
+            "query_count"
+            if query_count % self.EVOLVE_EVERY_N_QUERIES == 0
+            else "daily_cycle"
+        )
+
+        # Count signals by severity
+        severity_counts: Dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        for sig in signals:
+            sev = sig.get("severity", "medium")
+            if sev in severity_counts:
+                severity_counts[sev] += 1
+
+        # Count actions
+        promoted = sum(a.get("count", 0) for a in actions_taken if a.get("type") == "promote")
+        demoted = sum(a.get("count", 0) for a in actions_taken if a.get("type") == "demote")
+        expired = sum(a.get("count", 0) for a in actions_taken if a.get("type") == "cleanup")
+
+        # Quality trend snapshot
+        trend = report.get("quality_trend", {})
+        avg_score_before = trend.get("older_avg")
+        avg_score_after = trend.get("recent_avg")
+
+        # Pattern counts (from Redis index)
+        total_patterns_after = 0
+        try:
+            if self.redis:
+                total_patterns_after = await self.redis.zcard("agent:patterns:index") or 0
+        except Exception:
+            pass
+
+        history = AgentEvolutionHistory(
+            evolution_id=str(uuid.uuid4()),
+            trigger_reason=trigger_reason,
+            trigger_value=query_count if trigger_reason == "query_count" else None,
+            signals_evaluated=len(signals),
+            signals_critical=severity_counts["critical"],
+            signals_high=severity_counts["high"],
+            signals_medium=severity_counts["medium"],
+            signals_low=severity_counts["low"],
+            patterns_promoted=promoted,
+            patterns_demoted=demoted,
+            patterns_expired=expired,
+            total_patterns_before=total_patterns_after + demoted + expired - promoted,
+            total_patterns_after=total_patterns_after,
+            avg_score_before=avg_score_before,
+            avg_score_after=avg_score_after,
+        )
+
+        async with AsyncSessionLocal() as session:
+            session.add(history)
+            await session.commit()
+
+        logger.info("Evolution history persisted: %s", history.evolution_id)
 
     async def _push_evolution_report(self, summary: str, report: Dict[str, Any]) -> None:
         """推送進化報告到已配置的通道 (LINE/Discord)"""

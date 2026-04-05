@@ -50,3 +50,53 @@ class AgentLearning(Base):
             postgresql_where=text("is_active = true"),
         ),
     )
+
+
+class AgentEvolutionHistory(Base):
+    """Agent 進化歷史紀錄 — 追蹤自我進化動作的審計表"""
+    __tablename__ = "agent_evolution_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    evolution_id = Column(
+        String(36), unique=True, nullable=False, index=True,
+        comment="UUID for this evolution event",
+    )
+    trigger_reason = Column(
+        String(50), nullable=False,
+        comment="query_count | daily_cycle | manual",
+    )
+    trigger_value = Column(
+        Integer, nullable=True,
+        comment="e.g., query count that triggered evolution",
+    )
+
+    # Signal batch
+    signals_evaluated = Column(Integer, default=0, comment="Number of signals processed")
+    signals_critical = Column(Integer, default=0)
+    signals_high = Column(Integer, default=0)
+    signals_medium = Column(Integer, default=0)
+    signals_low = Column(Integer, default=0)
+
+    # Actions taken
+    patterns_promoted = Column(Integer, default=0)
+    patterns_demoted = Column(Integer, default=0)
+    patterns_expired = Column(Integer, default=0)
+    thresholds_adjusted = Column(JSON, nullable=True, comment="{'key': 'old->new'} changes")
+
+    # State snapshot
+    total_patterns_before = Column(Integer, default=0)
+    total_patterns_after = Column(Integer, default=0)
+    avg_score_before = Column(Float, nullable=True)
+    avg_score_after = Column(Float, nullable=True)
+
+    # Effectiveness (computed 7 days later)
+    effectiveness_score = Column(Float, nullable=True, comment="Computed post-hoc")
+    effectiveness_computed_at = Column(DateTime, nullable=True)
+
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_evolution_trigger", "trigger_reason"),
+        Index("ix_evolution_created", "created_at"),
+    )

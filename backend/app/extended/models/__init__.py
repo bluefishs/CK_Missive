@@ -102,6 +102,7 @@ from .agent_trace import (
 # 12. Agent 學習持久化模組
 from .agent_learning import (
     AgentLearning,
+    AgentEvolutionHistory,
 )
 
 # 13. 文件分段模組
@@ -224,6 +225,7 @@ __all__ = [
     "AgentToolCallLog",
     # Agent 學習持久化
     "AgentLearning",
+    "AgentEvolutionHistory",
     # 文件分段
     "DocumentChunk",
     # 專案管理 (PM)
