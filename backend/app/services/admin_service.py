@@ -2,6 +2,11 @@
 """
 管理後台服務層 - 業務邏輯處理 (非同步化)
 
+@version 3.0.0 - Repository 層分離 (2026-04-05)
+- 原生 SQL 查詢遷移至 AdminRepository
+- Service 層專注業務邏輯（格式化、聚合、驗證）
+- 保留 SQL 注入多層防禦（驗證邏輯）
+
 @version 2.1.0 - SQL 注入多層防禦 (2026-02-28)
 - 修復 CTE 注入繞過 (WITH ... AS (INSERT) SELECT)
 - 多層防禦：去註解 → 去字串 → 單語句 → 首關鍵字 → DML/DDL 黑名單
@@ -14,8 +19,9 @@ import re
 from datetime import datetime
 from typing import Dict, Any, Set
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
 from fastapi import HTTPException
+
+from app.repositories.admin_repository import AdminRepository, _validate_table_name_format
 
 logger = logging.getLogger(__name__)
 
@@ -91,20 +97,9 @@ ALLOWED_TABLES: Set[str] = {
     'alembic_version',
 }
 
-def validate_table_name(table_name: str) -> bool:
-    """
-    驗證表格名稱是否安全（SQL 注入防禦）。
+# Re-export for backward compatibility
+validate_table_name = _validate_table_name_format
 
-    Security rationale: Table names cannot be parameterized in standard SQL,
-    so we enforce a strict lowercase identifier pattern. This is used as a
-    defense-in-depth measure alongside the ALLOWED_TABLES whitelist.
-    Only lowercase letters, digits, and underscores are permitted;
-    the name must start with a lowercase letter or underscore.
-    """
-    # 格式驗證：嚴格限制為小寫識別符（拒絕大寫、特殊字元、空白）
-    if not re.match(r'^[a-z_][a-z0-9_]*$', table_name):
-        return False
-    return True
 
 class AdminService:
     """管理後台服務類別 (非同步版本)"""
@@ -115,67 +110,33 @@ class AdminService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.repo = AdminRepository(db)
 
     async def get_database_info(self) -> Dict[str, Any]:
         """
         獲取 PostgreSQL 資料庫的基本信息，包括大小、表格列表、記錄數等。
         """
         try:
-            # 設定查詢超時保護
-            await self.db.execute(text(f"SET LOCAL statement_timeout = '{self.QUERY_TIMEOUT_SECONDS}s'"))
+            await self.repo.set_statement_timeout(self.QUERY_TIMEOUT_SECONDS)
 
-            # 獲取資料庫名稱和大小
-            db_name_query = text("SELECT current_database()")
-            db_name = (await self.db.execute(db_name_query)).scalar_one()
-            
-            db_size_query = text("SELECT pg_size_pretty(pg_database_size(current_database()))")
-            db_size = (await self.db.execute(db_size_query)).scalar_one()
+            db_name = await self.repo.get_current_database_name()
+            db_size = await self.repo.get_database_size_pretty()
 
-            # 獲取所有表格信息
-            tables_query = text("""
-                SELECT table_name
-                FROM information_schema.tables
-                WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-                ORDER BY table_name
-            """)
-            table_results = await self.db.execute(tables_query)
+            table_names = await self.repo.get_public_table_names()
             tables_data = []
             total_records = 0
 
-            for (table_name,) in table_results.fetchall():
+            for table_name in table_names:
                 # 安全性：驗證從資料庫返回的表格名稱格式
-                if not validate_table_name(table_name):
+                if not _validate_table_name_format(table_name):
                     logger.warning(f"跳過無效格式的表格名稱: {table_name}")
                     continue
 
-                # Security: table_name originates from information_schema (trusted
-                # DB catalog) and has passed validate_table_name() strict regex.
-                # Table names cannot be SQL-parameterized; format validation is
-                # the defense-in-depth measure here.
-                safe_table_name = f'"{table_name}"'
-
-                # 記錄數
-                count_query = text(f"SELECT COUNT(*) FROM {safe_table_name}")
-                record_count = (await self.db.execute(count_query)).scalar()
+                record_count = await self.repo.get_table_record_count(table_name)
                 total_records += record_count
 
-                # 表格大小
-                table_size_query = text("SELECT pg_size_pretty(pg_total_relation_size(:table_name))")
-                table_size = (await self.db.execute(table_size_query, {"table_name": table_name})).scalar()
-
-                # 欄位資訊
-                columns_query = text("""
-                    SELECT column_name, data_type, is_nullable
-                    FROM information_schema.columns
-                    WHERE table_name = :table_name AND table_schema = 'public'
-                    ORDER BY ordinal_position
-                """)
-                columns_results = await self.db.execute(columns_query, {"table_name": table_name})
-                columns = [{
-                    "name": col[0],
-                    "type": col[1],
-                    "nullable": col[2] == 'YES'
-                } for col in columns_results.fetchall()]
+                table_size = await self.repo.get_table_size_pretty(table_name)
+                columns = await self.repo.get_table_columns(table_name)
 
                 tables_data.append({
                     "name": table_name,
@@ -210,7 +171,7 @@ class AdminService:
         offset = max(offset, 0)
 
         # 安全性第一層：格式驗證
-        if not validate_table_name(table_name):
+        if not _validate_table_name_format(table_name):
             raise HTTPException(status_code=400, detail=f"無效的表格名稱格式: {table_name}")
 
         # 安全性第二層：白名單嚴格驗證（不在白名單中直接拒絕）
@@ -219,30 +180,11 @@ class AdminService:
             raise HTTPException(status_code=403, detail=f"表格 {table_name} 不允許存取")
 
         try:
-            # 設定查詢超時保護
-            await self.db.execute(text(f"SET LOCAL statement_timeout = '{self.QUERY_TIMEOUT_SECONDS}s'"))
+            await self.repo.set_statement_timeout(self.QUERY_TIMEOUT_SECONDS)
 
-            # 獲取欄位
-            columns_query = text("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name = :table_name AND table_schema = 'public'
-                ORDER BY ordinal_position
-            """)
-            columns_results = await self.db.execute(columns_query, {"table_name": table_name})
-            columns = [row[0] for row in columns_results.fetchall()]
-
-            # 安全性：使用 format_ident 概念，但由於已驗證表名格式，可安全使用
-            # 注意：table_name 已通過 validate_table_name() 驗證
-            safe_table_name = f'"{table_name}"'
-
-            # 獲取數據
-            data_query = text(f'SELECT * FROM {safe_table_name} LIMIT :limit OFFSET :offset')
-            data_results = await self.db.execute(data_query, {"limit": limit, "offset": offset})
-            rows = [list(row) for row in data_results.fetchall()]
-
-            # 獲取總記錄數
-            count_query = text(f'SELECT COUNT(*) FROM {safe_table_name}')
-            total = (await self.db.execute(count_query)).scalar()
+            columns = await self.repo.get_table_column_names(table_name)
+            rows = await self.repo.get_table_rows(table_name, limit, offset)
+            total = await self.repo.get_table_record_count(table_name)
 
             return {
                 "columns": columns,
@@ -269,15 +211,10 @@ class AdminService:
         _validate_read_only_sql(query)
 
         try:
-            # 設定查詢超時保護
-            await self.db.execute(text(f"SET LOCAL statement_timeout = '{self.QUERY_TIMEOUT_SECONDS}s'"))
+            await self.repo.set_statement_timeout(self.QUERY_TIMEOUT_SECONDS)
 
             start_time = datetime.now()
-            result = await self.db.execute(text(query))
-            
-            columns = list(result.keys()) if result.returns_rows else []
-            rows = [list(row) for row in result.fetchall()] if result.returns_rows else []
-            
+            columns, rows = await self.repo.execute_raw_select(query)
             end_time = datetime.now()
             execution_time = (end_time - start_time).total_seconds() * 1000
 
@@ -297,7 +234,7 @@ class AdminService:
         執行一個簡單的查詢來驗證資料庫連線是否正常。
         """
         try:
-            result = (await self.db.execute(text("SELECT 1"))).scalar()
+            result = await self.repo.ping()
             if result == 1:
                 return {
                     "status": "completed",
@@ -316,31 +253,15 @@ class AdminService:
         """
         issues = []
 
-        # 設定查詢超時保護
-        await self.db.execute(text(f"SET LOCAL statement_timeout = '{self.COUNT_TIMEOUT_SECONDS}s'"))
+        await self.repo.set_statement_timeout(self.COUNT_TIMEOUT_SECONDS)
 
-        # 1. 檢查外鍵約束違規
-        fk_query = text("""
-            SELECT tc.table_name, kcu.column_name,
-                   ccu.table_name AS foreign_table_name
-            FROM information_schema.table_constraints tc
-            JOIN information_schema.key_column_usage kcu
-              ON tc.constraint_name = kcu.constraint_name
-            JOIN information_schema.constraint_column_usage ccu
-              ON ccu.constraint_name = tc.constraint_name
-            WHERE tc.constraint_type = 'FOREIGN KEY'
-              AND tc.table_schema = 'public'
-        """)
-        fk_result = await self.db.execute(fk_query)
-        fk_rows = fk_result.fetchall()
+        fk_rows = await self.repo.get_foreign_key_constraints()
 
-        for row in fk_rows:
-            table, column, ref_table = row[0], row[1], row[2]
-
+        for table, column, ref_table in fk_rows:
             # Security: table/column/ref_table come from information_schema
             # (trusted DB catalog), but we still validate format as defense-in-depth.
-            # Table names cannot be SQL-parameterized, so strict regex is essential.
-            if not (validate_table_name(table) and validate_table_name(ref_table)
+            if not (_validate_table_name_format(table)
+                    and _validate_table_name_format(ref_table)
                     and re.match(r'^[a-z_][a-z0-9_]*$', column)):
                 logger.warning(
                     "Skipping orphan check for invalid identifier: "
@@ -348,26 +269,18 @@ class AdminService:
                 )
                 continue
 
-            # 檢查是否有 orphan 記錄
-            orphan_query = text(f"""
-                SELECT COUNT(*) FROM "{table}" t
-                LEFT JOIN "{ref_table}" r ON t."{column}" = r.id
-                WHERE t."{column}" IS NOT NULL AND r.id IS NULL
-            """)
-            try:
-                orphan_count = (await self.db.execute(orphan_query)).scalar()
-                if orphan_count and orphan_count > 0:
-                    issues.append({
-                        "type": "orphan_record",
-                        "table": table,
-                        "column": column,
-                        "ref_table": ref_table,
-                        "count": orphan_count,
-                        "severity": "warning",
-                    })
-            except Exception:
-                # 跳過無法檢查的 FK（可能是非 id 欄位）
-                pass
+            orphan_count = await self.repo.count_orphan_records(
+                table, column, ref_table
+            )
+            if orphan_count and orphan_count > 0:
+                issues.append({
+                    "type": "orphan_record",
+                    "table": table,
+                    "column": column,
+                    "ref_table": ref_table,
+                    "count": orphan_count,
+                    "severity": "warning",
+                })
 
         return {
             "checkTime": datetime.now().isoformat(),
