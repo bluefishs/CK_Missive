@@ -182,6 +182,8 @@ export const AI_ENDPOINTS = {
   GRAPH_SKILLS_MAP: '/ai/graph/skills-map',
   /** 技能演化樹 POST /ai/graph/skill-evolution */
   GRAPH_SKILL_EVOLUTION: '/ai/graph/skill-evolution',
+  /** 進化指標 POST /ai/stats/evolution/metrics */
+  STATS_EVOLUTION_METRICS: '/ai/stats/evolution/metrics',
 } as const;
 
 /** 數位分身 API 端點 — 透過 Missive 後端代理至 NemoClaw Gateway */

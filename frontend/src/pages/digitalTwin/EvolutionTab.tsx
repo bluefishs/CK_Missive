@@ -16,6 +16,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { enhanceColumns } from '../../utils/tableEnhancer';
+import { EvolutionMetricsCard } from './EvolutionMetricsCard';
 
 const { Text } = Typography;
 
@@ -236,6 +237,9 @@ export const EvolutionTab: React.FC = () => {
   return (
     <div>
       <QualityTrendCard />
+      <div style={{ marginTop: 12 }}>
+        <EvolutionMetricsCard />
+      </div>
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
         <Col xs={24} lg={14}>
           <ToolHealthCard />
