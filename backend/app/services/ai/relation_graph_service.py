@@ -13,19 +13,13 @@ import os
 from collections import Counter
 from typing import Dict, List, Optional, Set, Tuple
 
-from sqlalchemy import or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models import (
     OfficialDocument,
-    ContractProject,
     DocumentEntity,
-    EntityRelation,
-    TaoyuanDispatchOrder,
-    TaoyuanDispatchDocumentLink,
-    TaoyuanDispatchProjectLink,
-    TaoyuanProject,
 )
+from app.repositories.relation_graph_repository import RelationGraphRepository
 from app.services.ai.ai_config import get_ai_config
 from app.schemas.ai.graph import (
     GraphNode,
@@ -41,6 +35,7 @@ class RelationGraphService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.repo = RelationGraphRepository(db)
 
     # ------------------------------------------------------------------
     # 關聯圖譜
@@ -148,13 +143,7 @@ class RelationGraphService:
             return None
 
         # 取得來源 embedding
-        source_result = await self.db.execute(
-            select(
-                OfficialDocument.id,
-                OfficialDocument.embedding,
-            ).where(OfficialDocument.id == doc_id)
-        )
-        source_row = source_result.first()
+        source_row = await self.repo.get_document_embedding(doc_id)
         if not source_row:
             return None  # 呼叫方判斷 404
 
@@ -166,24 +155,7 @@ class RelationGraphService:
             source_embedding = list(source_embedding)
 
         # cosine_distance 查詢
-        distance_expr = OfficialDocument.embedding.cosine_distance(source_embedding)
-        similarity_expr = (1 - distance_expr).label("similarity")
-
-        similar_result = await self.db.execute(
-            select(
-                OfficialDocument.id,
-                OfficialDocument.doc_number,
-                OfficialDocument.subject,
-                OfficialDocument.category,
-                OfficialDocument.sender,
-                OfficialDocument.doc_date,
-                similarity_expr,
-            )
-            .where(OfficialDocument.id != doc_id)
-            .where(OfficialDocument.embedding.isnot(None))
-            .order_by(distance_expr)
-            .limit(limit)
-        )
+        similar_result = await self.repo.find_similar_documents(doc_id, source_embedding, limit)
 
         return [
             SemanticSimilarItem(
@@ -205,28 +177,9 @@ class RelationGraphService:
 
     async def _load_default_doc_ids(self) -> List[int]:
         """載入預設公文 ID — 有 NER 實體提取的公文 + 有派工關聯的公文"""
-        from app.extended.models import DocumentEntity
-
-        # 有 NER 提取的公文（核心數據源，上限 2000 筆防止無界查詢）
-        ner_result = await self.db.execute(
-            select(DocumentEntity.document_id).distinct().limit(2000)
-        )
-        ner_doc_ids = {row[0] for row in ner_result.all()}
-
-        # 有派工關聯的公文（確保派工單能對應）
-        dispatch_result = await self.db.execute(
-            select(TaoyuanDispatchDocumentLink.document_id).distinct().limit(2000)
-        )
-        dispatch_doc_ids = {row[0] for row in dispatch_result.all()}
-
-        fk_union = union_all(
-            select(TaoyuanDispatchOrder.agency_doc_id.label('doc_id'))
-            .where(TaoyuanDispatchOrder.agency_doc_id.isnot(None)),
-            select(TaoyuanDispatchOrder.company_doc_id.label('doc_id'))
-            .where(TaoyuanDispatchOrder.company_doc_id.isnot(None)),
-        ).subquery()
-        fk_result = await self.db.execute(select(fk_union.c.doc_id).distinct().limit(4000))
-        fk_ids = {row[0] for row in fk_result.all()}
+        ner_doc_ids = await self.repo.get_ner_document_ids(limit=2000)
+        dispatch_doc_ids = await self.repo.get_dispatch_linked_document_ids(limit=2000)
+        fk_ids = await self.repo.get_dispatch_fk_document_ids(limit=4000)
 
         all_ids = ner_doc_ids | dispatch_doc_ids | fk_ids
         logger.info(
@@ -236,10 +189,7 @@ class RelationGraphService:
         return list(all_ids)
 
     async def _fetch_documents(self, doc_ids: List[int]) -> list:
-        result = await self.db.execute(
-            select(OfficialDocument).where(OfficialDocument.id.in_(doc_ids))
-        )
-        return list(result.scalars().all())
+        return await self.repo.fetch_documents(doc_ids)
 
     @staticmethod
     def _add_agency_nodes(doc, node_id, add_node, add_edge):
@@ -262,16 +212,14 @@ class RelationGraphService:
                 add_edge(GraphEdge(source=node_id, target=ag_id, label=label, type=edge_type))
 
     async def _add_project_nodes(self, project_ids, documents, add_node, add_edge):
-        proj_result = await self.db.execute(
-            select(ContractProject).where(ContractProject.id.in_(list(project_ids)))
-        )
+        projects = await self.repo.fetch_projects(project_ids)
         # 預建 lookup dict 避免 O(projects × documents) 巢狀迴圈
         docs_by_project: Dict[int, List] = {}
         for doc in documents:
             if doc.contract_project_id:
                 docs_by_project.setdefault(doc.contract_project_id, []).append(doc)
 
-        for proj in proj_result.scalars().all():
+        for proj in projects:
             proj_node_id = f"project_{proj.id}"
             add_node(GraphNode(
                 id=proj_node_id,
@@ -287,14 +235,8 @@ class RelationGraphService:
                 ))
 
     async def _add_related_docs(self, project_ids, doc_ids, add_node, add_edge):
-        related_result = await self.db.execute(
-            select(OfficialDocument)
-            .where(OfficialDocument.contract_project_id.in_(list(project_ids)))
-            .where(OfficialDocument.id.notin_(doc_ids))
-            .order_by(OfficialDocument.doc_date.desc().nullslast())
-            .limit(20)
-        )
-        for rdoc in related_result.scalars().all():
+        related_docs = await self.repo.fetch_related_documents(project_ids, doc_ids, limit=20)
+        for rdoc in related_docs:
             rdoc_node_id = f"doc_{rdoc.id}"
             add_node(GraphNode(
                 id=rdoc_node_id,
@@ -327,12 +269,8 @@ class RelationGraphService:
 
     async def _add_ner_entities(self, doc_ids, add_node, add_edge) -> Tuple[int, int]:
         """加入 NER 提取的實體和關係，回傳 (entity_count, relation_count)"""
-        entity_result = await self.db.execute(
-            select(DocumentEntity)
-            .where(DocumentEntity.document_id.in_(doc_ids))
-            .where(DocumentEntity.confidence >= get_ai_config().ner_min_confidence)
-        )
-        extracted_entities = entity_result.scalars().all()
+        min_conf = get_ai_config().ner_min_confidence
+        extracted_entities = await self.repo.fetch_entities_for_docs(doc_ids, min_conf)
 
         entity_mention_counts: Counter = Counter()
         for ent in extracted_entities:
@@ -359,12 +297,7 @@ class RelationGraphService:
                 type="mentions",
             ))
 
-        relation_result = await self.db.execute(
-            select(EntityRelation)
-            .where(EntityRelation.document_id.in_(doc_ids))
-            .where(EntityRelation.confidence >= get_ai_config().ner_min_confidence)
-        )
-        extracted_relations = relation_result.scalars().all()
+        extracted_relations = await self.repo.fetch_relations_for_docs(doc_ids, min_conf)
 
         for rel in extracted_relations:
             src_id = entity_node_map.get(f"{rel.source_entity_type}:{rel.source_entity_name}")
@@ -385,26 +318,10 @@ class RelationGraphService:
     ) -> int:
         """加入派工單和桃園工程節點，回傳 dispatch link 數量"""
         # 路徑 1: dispatch_document_link（保留原始 links 供後續邊建立）
-        dispatch_link_result = await self.db.execute(
-            select(TaoyuanDispatchDocumentLink)
-            .where(TaoyuanDispatchDocumentLink.document_id.in_(doc_ids))
-        )
-        dispatch_links = dispatch_link_result.scalars().all()
+        dispatch_links = await self.repo.fetch_dispatch_doc_links(doc_ids)
 
         # 合併路徑 1 + FK 路徑 2 為單次查詢取得所有相關 dispatch orders
-        link_subquery = (
-            select(TaoyuanDispatchDocumentLink.dispatch_order_id)
-            .where(TaoyuanDispatchDocumentLink.document_id.in_(doc_ids))
-        ).subquery()
-        all_dispatch_result = await self.db.execute(
-            select(TaoyuanDispatchOrder)
-            .where(or_(
-                TaoyuanDispatchOrder.id.in_(select(link_subquery)),
-                TaoyuanDispatchOrder.agency_doc_id.in_(doc_ids),
-                TaoyuanDispatchOrder.company_doc_id.in_(doc_ids),
-            ))
-        )
-        all_dispatches = all_dispatch_result.scalars().all()
+        all_dispatches = await self.repo.fetch_dispatch_orders_by_docs(doc_ids)
         dispatch_ids = set(d.id for d in all_dispatches)
 
         if not dispatch_ids:
@@ -442,21 +359,14 @@ class RelationGraphService:
             ))
 
         # Phase 7: 桃園工程
-        dispatch_proj_result = await self.db.execute(
-            select(TaoyuanDispatchProjectLink)
-            .where(TaoyuanDispatchProjectLink.dispatch_order_id.in_(list(dispatch_ids)))
-        )
+        dispatch_proj_links = await self.repo.fetch_dispatch_project_links(dispatch_ids)
         ty_project_ids: Set[int] = set()
-        dispatch_proj_links = dispatch_proj_result.scalars().all()
         for dpl in dispatch_proj_links:
             ty_project_ids.add(dpl.taoyuan_project_id)
 
         if ty_project_ids:
-            ty_proj_result = await self.db.execute(
-                select(TaoyuanProject)
-                .where(TaoyuanProject.id.in_(list(ty_project_ids)))
-            )
-            for tp in ty_proj_result.scalars().all():
+            ty_projects = await self.repo.fetch_taoyuan_projects(ty_project_ids)
+            for tp in ty_projects:
                 tp_node_id = f"typroject_{tp.id}"
                 add_node(GraphNode(
                     id=tp_node_id,

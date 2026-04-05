@@ -11,11 +11,11 @@ Created: 2026-02-24
 import logging
 from typing import Dict, List, Optional
 
-from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ai_connector import get_ai_connector
 from app.extended.models import OfficialDocument, DocumentEntity, EntityRelation
+from app.repositories.entity_extraction_repository import EntityExtractionRepository
 from app.services.ai.entity_extraction_helpers import (
     VALID_ENTITY_TYPES,
     MIN_CONFIDENCE,
@@ -101,10 +101,8 @@ async def get_extracted_document_ids(db: AsyncSession) -> set:
     Returns:
         已存在 DocumentEntity 記錄的 document_id 集合
     """
-    result = await db.execute(
-        select(func.distinct(DocumentEntity.document_id))
-    )
-    return {row[0] for row in result.all()}
+    repo = EntityExtractionRepository(db)
+    return await repo.get_extracted_document_ids()
 
 
 async def extract_entities_for_document(
@@ -125,21 +123,16 @@ async def extract_entities_for_document(
     Returns:
         {"entities_count": int, "relations_count": int, "skipped": bool}
     """
+    repo = EntityExtractionRepository(db)
+
     # 取得公文
-    result = await db.execute(
-        select(OfficialDocument).where(OfficialDocument.id == doc_id)
-    )
-    doc = result.scalar_one_or_none()
+    doc = await repo.get_document_by_id(doc_id)
     if not doc:
         return {"entities_count": 0, "relations_count": 0, "skipped": True, "reason": "公文不存在"}
 
     # 檢查是否已提取
     if not force:
-        existing = await db.execute(
-            select(func.count(DocumentEntity.id))
-            .where(DocumentEntity.document_id == doc_id)
-        )
-        if (existing.scalar() or 0) > 0:
+        if await repo.count_document_entities(doc_id) > 0:
             return {"entities_count": 0, "relations_count": 0, "skipped": True, "reason": "已有提取結果"}
 
     # 組合文本
@@ -172,12 +165,8 @@ async def extract_entities_for_document(
 
     # 若 force 模式，先刪除舊資料
     if force:
-        await db.execute(
-            delete(EntityRelation).where(EntityRelation.document_id == doc_id)
-        )
-        await db.execute(
-            delete(DocumentEntity).where(DocumentEntity.document_id == doc_id)
-        )
+        await repo.delete_document_relations(doc_id)
+        await repo.delete_document_entities(doc_id)
 
     # 寫入 entities
     for e in entities:
@@ -219,54 +208,22 @@ async def extract_entities_for_document(
 
 async def get_pending_extraction_count(db: AsyncSession, force: bool = False) -> int:
     """取得待實體提取的公文數量"""
+    repo = EntityExtractionRepository(db)
     if force:
-        count_result = await db.execute(
-            select(func.count(OfficialDocument.id))
-        )
+        return await repo.count_all_documents()
     else:
-        extracted_subq = (
-            select(func.distinct(DocumentEntity.document_id))
-            .scalar_subquery()
-        )
-        count_result = await db.execute(
-            select(func.count(OfficialDocument.id))
-            .where(OfficialDocument.id.notin_(extracted_subq))
-        )
-    return count_result.scalar() or 0
+        return await repo.count_documents_without_extraction()
 
 
 async def get_entity_stats(db: AsyncSession) -> Dict:
     """取得實體提取覆蓋率統計"""
-    # 總公文數
-    total_result = await db.execute(
-        select(func.count(OfficialDocument.id))
-    )
-    total = total_result.scalar() or 0
+    repo = EntityExtractionRepository(db)
 
-    # 已提取實體的公文數（distinct document_id）
-    extracted_result = await db.execute(
-        select(func.count(func.distinct(DocumentEntity.document_id)))
-    )
-    extracted = extracted_result.scalar() or 0
-
-    # 總實體數
-    entity_count_result = await db.execute(
-        select(func.count(DocumentEntity.id))
-    )
-    entity_count = entity_count_result.scalar() or 0
-
-    # 總關係數
-    relation_count_result = await db.execute(
-        select(func.count(EntityRelation.id))
-    )
-    relation_count = relation_count_result.scalar() or 0
-
-    # 各類型實體統計
-    type_stats_result = await db.execute(
-        select(DocumentEntity.entity_type, func.count(DocumentEntity.id))
-        .group_by(DocumentEntity.entity_type)
-    )
-    type_stats = {row[0]: row[1] for row in type_stats_result.all()}
+    total = await repo.count_all_documents()
+    extracted = await repo.count_documents_with_entities()
+    entity_count = await repo.count_total_entities()
+    relation_count = await repo.count_total_relations()
+    type_stats = await repo.get_entity_count_by_type()
 
     coverage = (extracted / total * 100) if total > 0 else 0.0
 

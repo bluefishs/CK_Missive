@@ -58,6 +58,8 @@ from app.repositories.ai_analysis_repository import AIAnalysisRepository
 from app.repositories.agent_trace_repository import AgentTraceRepository
 from app.repositories.agent_learning_repository import AgentLearningRepository
 from app.repositories.admin_repository import AdminRepository
+from app.repositories.entity_extraction_repository import EntityExtractionRepository
+from app.repositories.relation_graph_repository import RelationGraphRepository
 
 # Taoyuan 子模組
 from app.repositories.taoyuan import (
@@ -115,6 +117,9 @@ __all__ = [
     "AgentLearningRepository",
     # Admin
     "AdminRepository",
+    # AI Domain
+    "EntityExtractionRepository",
+    "RelationGraphRepository",
     # Query Builders
     "DocumentQueryBuilder",
     "ProjectQueryBuilder",
