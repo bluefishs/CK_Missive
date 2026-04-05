@@ -176,6 +176,11 @@ class AIConfig:
     adaptive_context_query_long: int = 100     # 長查詢閾值（字元數）
     adaptive_context_tool_complex: int = 3     # 多工具複雜度閾值
 
+    # Vision settings (v5.4.1 — Gemma 4 multimodal)
+    vision_max_image_size: int = 1024              # 圖片最大維度 (pixels)
+    vision_max_tokens: int = 1024                  # Vision 回應最大 tokens
+    vision_temperature: float = 0.3                # Vision 生成溫度
+
     # --- Inference profiles & provider routing (loaded from YAML, read-only) ---
     _inference_profiles: dict = field(default_factory=dict, repr=False)
     _provider_routing: dict = field(default_factory=dict, repr=False)
@@ -425,6 +430,10 @@ class AIConfig:
                 "CAPABILITY_WEAK_THRESHOLD", ("capability", "weak_threshold"), 0.50, float),
             capability_cache_ttl_seconds=_env_or_yaml(
                 "CAPABILITY_CACHE_TTL", ("capability", "cache_ttl_seconds"), 300, int),
+            # Vision (env overrides)
+            vision_max_image_size=int(os.getenv("VISION_MAX_IMAGE_SIZE", "1024")),
+            vision_max_tokens=int(os.getenv("VISION_MAX_TOKENS", "1024")),
+            vision_temperature=float(os.getenv("VISION_TEMPERATURE", "0.3")),
         )
         # Attach resolved inference profiles & provider routing
         instance._inference_profiles = resolved_profiles

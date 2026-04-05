@@ -121,13 +121,14 @@ class AIConnector(AIConnectorManagementMixin):
 
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, Any]],
         model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1024,
         prefer_local: bool = False,
         task_type: Optional[str] = None,
         response_format: Optional[Dict[str, str]] = None,
+        images: Optional[List[str]] = None,
     ) -> str:
         """
         執行 AI 對話完成
@@ -140,6 +141,7 @@ class AIConnector(AIConnectorManagementMixin):
             prefer_local: True 時 Ollama 優先（適用於 NER、批次等非即時任務）
             task_type: 任務類型（ner/summary/classify/chat），用於選擇對應模型
             response_format: 回應格式（Groq 專用，如 {"type": "json_object"}）
+            images: base64-encoded 圖片列表（Ollama vision 專用，如 Gemma 4 multimodal）
 
         Returns:
             AI 生成的回應文字
@@ -159,6 +161,10 @@ class AIConnector(AIConnectorManagementMixin):
             ollama_model = TASK_MODEL_MAP.get(task_type, OLLAMA_DEFAULT_MODEL)
             groq_model = GROQ_DEFAULT_MODEL  # task_type 映射僅影響 Ollama
 
+        # Vision 路徑：images 只有 Ollama 支援，強制 Ollama-first
+        if images:
+            prefer_local = True
+
         # Ollama-First 路徑（NER、批次、非即時任務 — 本地無限量）
         if prefer_local:
             try:
@@ -166,6 +172,7 @@ class AIConnector(AIConnectorManagementMixin):
                 result = await self._ollama_completion(
                     messages, ollama_model, temperature, max_tokens,
                     response_format=response_format,
+                    images=images,
                 )
                 self._last_provider = "ollama"
                 return result
@@ -251,6 +258,7 @@ class AIConnector(AIConnectorManagementMixin):
             result = await self._ollama_completion(
                 messages, ollama_model, temperature, max_tokens,
                 response_format=response_format,
+                images=images,
             )
             self._last_provider = "ollama"
             return result
@@ -360,11 +368,12 @@ class AIConnector(AIConnectorManagementMixin):
 
     async def _ollama_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, Any]],
         model: str,
         temperature: float,
         max_tokens: int,
         response_format: Optional[Dict[str, str]] = None,
+        images: Optional[List[str]] = None,
     ) -> str:
         """
         查詢本地 Ollama
@@ -372,10 +381,21 @@ class AIConnector(AIConnectorManagementMixin):
         Args:
             response_format: 與 Groq/OpenAI 相容的格式設定。
                 {"type": "json_object"} 會映射到 Ollama 的 format="json"。
+            images: base64-encoded 圖片列表，注入到最後一條 user 訊息中
+                (Ollama vision format)。
         """
+        # 構建 Ollama 訊息（可能注入 images）
+        ollama_messages = [dict(m) for m in messages]  # shallow copy
+        if images:
+            # Ollama vision format: 在最後一條 user 訊息中加入 images 陣列
+            for msg in reversed(ollama_messages):
+                if msg.get("role") == "user":
+                    msg["images"] = images  # base64 strings
+                    break
+
         payload: Dict[str, Any] = {
             "model": model,
-            "messages": messages,
+            "messages": ollama_messages,
             "options": {
                 "temperature": temperature,
                 "num_predict": max_tokens,
@@ -415,6 +435,61 @@ class AIConnector(AIConnectorManagementMixin):
 
             logger.info("Ollama 回應成功 (model=%s, len=%d)", model, len(content))
             return content
+
+    @staticmethod
+    def preprocess_image(image_bytes: bytes, max_size: int = 1024) -> str:
+        """Resize and encode image to base64 for vision model.
+
+        Args:
+            image_bytes: Raw image bytes
+            max_size: Max dimension (pixels), resize if larger
+
+        Returns:
+            base64-encoded string (no data: prefix)
+        """
+        from PIL import Image
+        import io
+        import base64
+
+        img = Image.open(io.BytesIO(image_bytes))
+        # Resize if needed
+        if max(img.size) > max_size:
+            img.thumbnail((max_size, max_size), Image.LANCZOS)
+        # Convert to RGB (drop alpha) then JPEG for smaller payload
+        if img.mode in ("RGBA", "LA", "P"):
+            img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    async def vision_completion(
+        self,
+        prompt: str,
+        image_bytes: bytes,
+        temperature: float = 0.3,
+        max_tokens: int = 1024,
+        task_type: str = "vision",
+    ) -> str:
+        """Single image + prompt → text response via Gemma 4 vision.
+
+        Args:
+            prompt: 文字提示
+            image_bytes: 原始圖片位元組
+            temperature: 生成溫度
+            max_tokens: 最大回應長度
+            task_type: 任務類型標記
+
+        Returns:
+            AI 生成的文字回應
+        """
+        b64_image = self.preprocess_image(image_bytes)
+        return await self.chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            images=[b64_image],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            task_type=task_type,
+        )
 
     async def stream_completion(
         self,

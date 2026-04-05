@@ -50,6 +50,19 @@ profiles:
 
   # P2 本地回退 = P0 同模型 (Gemma 4)，雲端回退由 Groq/NVIDIA P1 承接
 
+  # === Vision — Gemma 4 multimodal (image understanding) ===
+  gemma4-vision:
+    provider: ollama
+    model: "gemma4"
+    base_url: "${OLLAMA_BASE_URL}"
+    timeout_seconds: 120
+    priority: 0
+    capabilities:
+      - vision
+      - image_understanding
+      - document_ocr
+    note: "Gemma 4 native vision — invoice/document/asset image analysis"
+
   # === Embedding ===
   nvidia-embed:
     provider: openai
