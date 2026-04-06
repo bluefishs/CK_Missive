@@ -367,22 +367,18 @@ class ProjectService(AuditableServiceMixin):
             logger.error(f"刪除專案失敗 (外鍵約束): {e}")
             raise ValueError("無法刪除此專案，仍有未處理的關聯資料")
 
-    async def get_project_statistics(self) -> dict:
-        """取得專案統計資料"""
-        try:
-            return await self.repository.get_project_statistics()
-        except Exception as e:
-            logger.error(f"取得專案統計資料失敗: {e}", exc_info=True)
-            return {
-                "total_projects": 0,
-                "status_breakdown": [],
-                "year_breakdown": [],
-                "average_contract_amount": 0.0,
-            }
+    # =========================================================================
+    # 委派至 ProjectAnalyticsService (統計與選項)
+    # =========================================================================
 
-    # =========================================================================
-    # 選項查詢方法 (下拉選單用)
-    # =========================================================================
+    def _analytics(self):
+        """Lazy-load analytics service"""
+        from app.services.project_analytics_service import ProjectAnalyticsService
+        return ProjectAnalyticsService(self.db)
+
+    async def get_project_statistics(self) -> dict:
+        """取得專案統計資料 (委派至 ProjectAnalyticsService)"""
+        return await self._analytics().get_project_statistics()
 
     async def get_distinct_options(
         self,
@@ -390,32 +386,20 @@ class ProjectService(AuditableServiceMixin):
         sort_order: str = "asc",
         exclude_null: bool = True,
     ) -> List[Any]:
-        """
-        取得欄位的去重值（用於下拉選單選項）
-
-        Args:
-            field_name: 欄位名稱
-            sort_order: 排序方向 ('asc' 或 'desc')
-            exclude_null: 是否排除 NULL 值（預設 True）
-
-        Returns:
-            去重後的值列表
-        """
-        if sort_order.lower() == "desc" and field_name == "year":
-            return await self.repository.get_year_options()
-        return await self.repository.get_distinct_values(
-            field_name, exclude_null=exclude_null
+        """取得欄位的去重值 (委派至 ProjectAnalyticsService)"""
+        return await self._analytics().get_distinct_options(
+            field_name, sort_order, exclude_null
         )
 
     async def get_year_options(self) -> List[int]:
-        """取得所有專案年度選項（降序排列）"""
-        return await self.repository.get_year_options()
+        """取得所有專案年度選項 (委派至 ProjectAnalyticsService)"""
+        return await self._analytics().get_year_options()
 
     async def get_category_options(self) -> List[str]:
-        """取得所有專案類別選項（升序排列）"""
-        return await self.repository.get_category_options()
+        """取得所有專案類別選項 (委派至 ProjectAnalyticsService)"""
+        return await self._analytics().get_category_options()
 
     async def get_status_options(self) -> List[str]:
-        """取得所有專案狀態選項（升序排列）"""
-        return await self.repository.get_status_options()
+        """取得所有專案狀態選項 (委派至 ProjectAnalyticsService)"""
+        return await self._analytics().get_status_options()
 

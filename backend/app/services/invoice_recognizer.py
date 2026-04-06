@@ -27,14 +27,14 @@
   2. QR 失敗則 OCR (Tesseract)
   3. 合併最佳結果
 
-Version: 2.0.0
+Version: 3.0.0 (拆分為 invoice_qr_decoder + invoice_ocr_parser)
 """
 import base64
 import logging
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class InvoiceItem:
 class RecognitionResult:
     """統一辨識結果"""
     success: bool = False
-    method: str = ""  # "qr", "ocr", "qr+ocr", "none"
+    method: str = ""  # "qr", "ocr", "qr+ocr", "vision", "none"
 
     # Head 資訊
     inv_num: Optional[str] = None
@@ -93,6 +93,33 @@ class RecognitionResult:
         }
 
 
+# ---------------------------------------------------------------------------
+# Backward-compatible aliases for internal functions (used by tests)
+# ---------------------------------------------------------------------------
+def _parse_head_qr(raw: str, result: RecognitionResult):
+    from app.services.invoice_qr_decoder import parse_head_qr
+    return parse_head_qr(raw, result)
+
+
+def _parse_detail_qr(raw: str) -> List[InvoiceItem]:
+    from app.services.invoice_qr_decoder import parse_detail_qr
+    return parse_detail_qr(raw)
+
+
+def _scan_all_qr(file_path: str) -> List[str]:
+    from app.services.invoice_qr_decoder import scan_all_qr
+    return scan_all_qr(file_path)
+
+
+def _try_ocr(file_path: str) -> Optional[dict]:
+    from app.services.invoice_ocr_parser import try_ocr
+    return try_ocr(file_path)
+
+
+# ---------------------------------------------------------------------------
+# Main entry point — QR first, OCR fallback
+# ---------------------------------------------------------------------------
+
 def recognize_invoice(file_path: str) -> RecognitionResult:
     """
     統一發票辨識入口 — QR 優先，OCR 補充
@@ -103,10 +130,13 @@ def recognize_invoice(file_path: str) -> RecognitionResult:
     Returns:
         RecognitionResult (含 Head + Detail)
     """
+    from app.services.invoice_qr_decoder import scan_all_qr, parse_head_qr, parse_detail_qr
+    from app.services.invoice_ocr_parser import try_ocr
+
     result = RecognitionResult()
 
     # --- Step 1: QR Code (可能掃到左右兩個) ---
-    qr_texts = _scan_all_qr(file_path)
+    qr_texts = scan_all_qr(file_path)
 
     head_text = None
     detail_text = None
@@ -129,7 +159,7 @@ def recognize_invoice(file_path: str) -> RecognitionResult:
     if head_text:
         result.raw_qr_head = head_text
         try:
-            _parse_head_qr(head_text, result)
+            parse_head_qr(head_text, result)
             result.method = "qr"
             result.confidence = 1.0
             result.success = True
@@ -141,7 +171,7 @@ def recognize_invoice(file_path: str) -> RecognitionResult:
     if detail_text:
         result.raw_qr_detail = detail_text
         try:
-            items = _parse_detail_qr(detail_text)
+            items = parse_detail_qr(detail_text)
             result.items = items
             if result.method == "qr":
                 result.method = "qr"  # still qr
@@ -151,7 +181,7 @@ def recognize_invoice(file_path: str) -> RecognitionResult:
 
     # --- Step 2: OCR 補充 ---
     if not result.success:
-        ocr = _try_ocr(file_path)
+        ocr = try_ocr(file_path)
         if ocr:
             result.method = "ocr"
             result.inv_num = ocr.get("inv_num")
@@ -169,7 +199,7 @@ def recognize_invoice(file_path: str) -> RecognitionResult:
                 logger.info(f"OCR 辨識: {result.inv_num} (conf={result.confidence:.0%})")
     elif not result.tax_amount:
         # QR 成功但缺稅額，OCR 補充
-        ocr = _try_ocr(file_path)
+        ocr = try_ocr(file_path)
         if ocr and ocr.get("tax_amount"):
             result.tax_amount = Decimal(str(ocr["tax_amount"]))
             result.method = "qr+ocr"
@@ -179,203 +209,6 @@ def recognize_invoice(file_path: str) -> RecognitionResult:
         result.warnings.append("QR 和 OCR 均未辨識出發票資訊")
 
     return result
-
-
-# ---------------------------------------------------------------------------
-# Head QR 解析 (財政部規範 77 字元)
-# ---------------------------------------------------------------------------
-
-def _parse_head_qr(raw: str, result: RecognitionResult):
-    """解析左側 Head QR Code"""
-    result.inv_num = raw[0:10]
-
-    # 民國日期
-    roc_y = int(raw[10:13])
-    m = int(raw[13:15])
-    d = int(raw[15:17])
-    result.date = date(roc_y + 1911, m, d)
-
-    result.random_code = raw[17:21]
-
-    # 銷售額 (未稅) — hex 8 碼
-    sales_hex = raw[21:29]
-    result.sales_amount = Decimal(str(int(sales_hex, 16)))
-
-    # 總額 (含稅) — hex 8 碼
-    total_hex = raw[29:37]
-    result.total_amount = Decimal(str(int(total_hex, 16)))
-
-    # 統一用 total_amount 作為 amount
-    result.amount = result.total_amount
-
-    # 稅額 = 總額 - 銷售額
-    result.tax_amount = result.total_amount - result.sales_amount
-
-    # 買方統編 (00000000 = 無)
-    buyer = raw[37:45]
-    result.buyer_ban = buyer if buyer != "00000000" else None
-
-    # 賣方統編
-    seller = raw[45:53]
-    result.seller_ban = seller
-
-
-# ---------------------------------------------------------------------------
-# Detail QR 解析 (品項明細)
-# ---------------------------------------------------------------------------
-
-def _parse_detail_qr(raw: str) -> List[InvoiceItem]:
-    """解析右側 Detail QR Code (UTF-8 格式)
-
-    格式: **:品名1:數量1:單價1:品名2:數量2:單價2:...
-    或可能是 base64 編碼
-    """
-    items = []
-
-    # 嘗試 base64 解碼
-    text = raw
-    if not text.startswith("**"):
-        try:
-            text = base64.b64decode(raw).decode("utf-8", errors="ignore")
-        except Exception:
-            pass
-
-    # 去除前綴 **
-    if text.startswith("**"):
-        text = text[2:]
-    if text.startswith(":"):
-        text = text[1:]
-
-    parts = text.split(":")
-    # 每 3 個為一組: 品名, 數量, 單價
-    i = 0
-    while i + 2 < len(parts):
-        try:
-            name = parts[i].strip()
-            qty = float(parts[i + 1]) if parts[i + 1] else 1.0
-            price = float(parts[i + 2]) if parts[i + 2] else 0.0
-            if name:
-                items.append(InvoiceItem(
-                    name=name,
-                    qty=qty,
-                    unit_price=price,
-                    amount=round(qty * price, 2),
-                ))
-            i += 3
-        except (ValueError, IndexError):
-            i += 1
-
-    return items
-
-
-# ---------------------------------------------------------------------------
-# QR 掃描 (pyzbar)
-# ---------------------------------------------------------------------------
-
-def _scan_all_qr(file_path: str) -> List[str]:
-    """掃描影像中所有 QR Code，回傳解碼文字列表"""
-    try:
-        from PIL import Image
-        from pyzbar.pyzbar import decode
-        img = Image.open(file_path)
-        results = decode(img)
-        texts = []
-        for r in results:
-            text = r.data.decode("utf-8", errors="ignore")
-            if text:
-                texts.append(text)
-        return texts
-    except Exception as e:
-        logger.debug(f"QR 掃描失敗: {e}")
-        return []
-
-
-# ---------------------------------------------------------------------------
-# OCR
-# ---------------------------------------------------------------------------
-
-def _try_ocr(file_path: str) -> Optional[dict]:
-    """嘗試 Tesseract OCR，失敗時用 Gemma 4 Vision 備援"""
-    # Step A: Tesseract
-    try:
-        from app.services.invoice_ocr_service import InvoiceOCRService
-        svc = InvoiceOCRService()
-        result = svc.parse_image(file_path)
-        if result.confidence > 0.3 and result.inv_num:
-            return result.model_dump()
-    except Exception:
-        pass
-
-    # Step B: Gemma 4 Vision (Tesseract 失敗或低信心度時)
-    try:
-        return _try_vision_ocr(file_path)
-    except Exception:
-        return None
-
-
-def _try_vision_ocr(file_path: str) -> Optional[dict]:
-    """用 Gemma 4 Vision 做發票 OCR (同步 HTTP 版，async 版見 _vision_ocr_async)"""
-    import base64, httpx, json as _json, re
-
-    try:
-        with open(file_path, "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode("ascii")
-    except Exception:
-        return None
-
-    prompt = (
-        "這是一張台灣發票照片。請提取以下資訊並以 JSON 格式回覆：\n"
-        '{"inv_num":"發票號碼(2英文+8數字)","date":"YYYY-MM-DD","amount":含稅金額數字,'
-        '"tax_amount":稅額數字,"buyer_ban":"買方統編8碼","seller_ban":"賣方統編8碼"}\n'
-        "如果某欄位無法辨識就設為 null。只回 JSON，不要其他文字。"
-    )
-
-    try:
-        from app.services.ai.ai_config import get_ai_config
-        config = get_ai_config()
-        resp = httpx.post(
-            f"{config.ollama_base_url}/api/chat",
-            json={
-                "model": config.ollama_model,
-                "messages": [{"role": "user", "content": prompt, "images": [img_b64]}],
-                "stream": False,
-                "think": False,
-                "options": {"temperature": 0.1, "num_predict": 150},
-            },
-            timeout=30,
-        )
-        raw = resp.json().get("message", {}).get("content", "")
-
-        # 提取 JSON
-        json_match = re.search(r'\{[^}]+\}', raw)
-        if not json_match:
-            return None
-        data = _json.loads(json_match.group())
-
-        if not data.get("inv_num"):
-            return None
-
-        # 轉換日期
-        inv_date = None
-        if data.get("date"):
-            from datetime import date as date_type
-            try:
-                inv_date = date_type.fromisoformat(data["date"])
-            except ValueError:
-                pass
-
-        return {
-            "inv_num": data["inv_num"],
-            "date": inv_date,
-            "amount": float(data["amount"]) if data.get("amount") else None,
-            "tax_amount": float(data["tax_amount"]) if data.get("tax_amount") else None,
-            "buyer_ban": data.get("buyer_ban"),
-            "seller_ban": data.get("seller_ban"),
-            "confidence": 0.7,  # Vision OCR 信心度固定 0.7
-        }
-    except Exception as e:
-        logger.debug(f"Vision OCR 失敗: {e}")
-        return None
 
 
 # ---------------------------------------------------------------------------
@@ -410,7 +243,7 @@ async def _vision_ocr_async(image_bytes: bytes) -> Optional[dict]:
 
 
 async def recognize_invoice_async(file_path: str) -> RecognitionResult:
-    """Async invoice recognition — Gemma 4 Vision first, then QR+OCR fallback.
+    """Async invoice recognition -- Gemma 4 Vision first, then QR+OCR fallback.
 
     Uses ai_connector.vision_completion() for full structured extraction
     before falling back to the synchronous QR/Tesseract pipeline.
