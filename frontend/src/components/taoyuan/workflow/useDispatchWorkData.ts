@@ -183,7 +183,7 @@ export function useDispatchWorkData({
     const overdue = records.filter((r) => r.status === 'overdue').length;
     const onHold = records.filter((r) => r.status === 'on_hold').length;
     const { incomingDocs, outgoingDocs } = computeDocStats(records, linkedDocuments);
-    const linkedDocCount = linkedDocuments.length;
+    const linkedDocCount = incomingDocs + outgoingDocs; // 不重複公文總數 (含 work record 引用的)
     const unassignedDocCount = unassignedDocs.incoming.length + unassignedDocs.outgoing.length;
     const currentStage = computeCurrentStage(records);
 

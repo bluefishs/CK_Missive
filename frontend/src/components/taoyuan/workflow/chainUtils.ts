@@ -241,32 +241,41 @@ export function computeDocStats(
   const incomingIds = new Set<number>();
   const outgoingIds = new Set<number>();
 
-  // 優先以 linkedDocuments 為真實來源 (dispatch_document_link 表)
-  // 它有明確的 link_type 和 document_id，不會有新舊格式混淆
-  if (linkedDocuments && linkedDocuments.length > 0) {
+  // 已分類的 doc_id (避免同一公文被歸入來文又歸入發文)
+  const classified = new Set<number>();
+
+  // 1. linkedDocuments 有明確 link_type，優先分類
+  if (linkedDocuments) {
     for (const link of linkedDocuments) {
-      if (!link.document_id) continue;
+      if (!link.document_id || classified.has(link.document_id)) continue;
       if (link.link_type === 'company_outgoing' || isOutgoingDocNumber(link.doc_number)) {
         outgoingIds.add(link.document_id);
       } else {
         incomingIds.add(link.document_id);
       }
+      classified.add(link.document_id);
     }
-    return { incomingDocs: incomingIds.size, outgoingDocs: outgoingIds.size };
   }
 
-  // Fallback: 從 work records 推導 (無 linkedDocuments 時，如 project 模式)
+  // 2. work records 引用的公文補齊 (可能有未關聯到 dispatch_document_link 的)
   for (const r of records) {
-    if (r.incoming_doc_id) incomingIds.add(r.incoming_doc_id);
-    if (r.outgoing_doc_id) outgoingIds.add(r.outgoing_doc_id);
-    if (r.document_id) {
-      // 避免與 incoming/outgoing_doc_id 重複計算
-      if (incomingIds.has(r.document_id) || outgoingIds.has(r.document_id)) continue;
+    // 舊格式
+    if (r.incoming_doc_id && !classified.has(r.incoming_doc_id)) {
+      incomingIds.add(r.incoming_doc_id);
+      classified.add(r.incoming_doc_id);
+    }
+    if (r.outgoing_doc_id && !classified.has(r.outgoing_doc_id)) {
+      outgoingIds.add(r.outgoing_doc_id);
+      classified.add(r.outgoing_doc_id);
+    }
+    // 新格式
+    if (r.document_id && !classified.has(r.document_id)) {
       if (isOutgoingDocNumber(r.document?.doc_number)) {
         outgoingIds.add(r.document_id);
       } else {
         incomingIds.add(r.document_id);
       }
+      classified.add(r.document_id);
     }
   }
 
