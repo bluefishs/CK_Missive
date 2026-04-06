@@ -4,24 +4,60 @@ Bridges the gap between Agent (executes queries) and Digital Twin (shows state).
 The Agent now knows its own capabilities, strengths, weaknesses, and evolution stage.
 
 Replaces separate digital_twin_service for self-model queries.
-Version: 1.0.0
+Version: 1.1.0 — Redis caching for profile/scores/dashboard
 """
+import json
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
 
+async def _cache_get(key: str) -> Optional[str]:
+    """Read from Redis cache, return None on miss or error."""
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if redis:
+            return await redis.get(key)
+    except Exception:
+        pass
+    return None
+
+
+async def _cache_set(key: str, value: str, ttl: int) -> None:
+    """Write to Redis cache with TTL, silently ignore errors."""
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if redis:
+            await redis.setex(key, ttl, value)
+    except Exception:
+        pass
+
+
 class AgentIntrospectionService:
     """Agent self-awareness: capabilities, evolution, performance."""
+
+    CACHE_KEY_PROFILE = "agent:introspection:profile"
+    CACHE_KEY_SCORES = "agent:introspection:capability_scores"
+    CACHE_KEY_DASHBOARD = "agent:introspection:dashboard"
+    CACHE_TTL_PROFILE = 60       # 60 seconds
+    CACHE_TTL_SCORES = 120       # 2 minutes
+    CACHE_TTL_DASHBOARD = 30     # 30 seconds
 
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_self_profile(self) -> Dict[str, Any]:
-        """Agent's self-portrait — who am I, what can I do, how well."""
+    async def get_self_profile(self, use_cache: bool = True) -> Dict[str, Any]:
+        """Agent's self-portrait with 60-second Redis cache."""
+        if use_cache:
+            cached = await _cache_get(self.CACHE_KEY_PROFILE)
+            if cached:
+                return json.loads(cached)
+
         from sqlalchemy import select, func
         from app.extended.models.agent_trace import AgentQueryTrace
         from app.extended.models.agent_learning import AgentLearning, AgentEvolutionHistory
@@ -57,7 +93,7 @@ class AgentIntrospectionService:
         )
         last_evo = latest_evolution.scalar_one_or_none()
 
-        return {
+        result = {
             "identity": {
                 "name": "乾坤智能體",
                 "version": "5.5.0",
@@ -85,6 +121,13 @@ class AgentIntrospectionService:
             },
         }
 
+        await _cache_set(
+            self.CACHE_KEY_PROFILE,
+            json.dumps(result, default=str, ensure_ascii=False),
+            self.CACHE_TTL_PROFILE,
+        )
+        return result
+
     def _get_capabilities(self) -> Dict[str, Any]:
         """Static capability manifest."""
         return {
@@ -103,14 +146,19 @@ class AgentIntrospectionService:
             ],
         }
 
-    async def get_capability_scores(self) -> Dict[str, Any]:
-        """Per-domain capability scores from recent query success rates."""
+    async def get_capability_scores(self, use_cache: bool = True) -> Dict[str, Any]:
+        """Per-domain capability scores with 2-minute Redis cache."""
+        if use_cache:
+            cached = await _cache_get(self.CACHE_KEY_SCORES)
+            if cached:
+                return json.loads(cached)
+
         from sqlalchemy import select, func, case, literal
         from app.extended.models.agent_trace import AgentQueryTrace
 
         thirty_days = datetime.utcnow() - timedelta(days=30)
 
-        # Score success by whether model_used is NOT 'error'
+        # Single batched query: all domain scores in one SQL round-trip
         result = await self.db.execute(
             select(
                 AgentQueryTrace.context,
@@ -133,6 +181,12 @@ class AgentIntrospectionService:
                 "queries": row[1],
                 "success_rate": round(float(row[2] or 0), 3),
             }
+
+        await _cache_set(
+            self.CACHE_KEY_SCORES,
+            json.dumps(scores, default=str, ensure_ascii=False),
+            self.CACHE_TTL_SCORES,
+        )
         return scores
 
     async def get_strengths_and_weaknesses(self) -> Dict[str, List[str]]:
@@ -151,16 +205,28 @@ class AgentIntrospectionService:
 
         return {"strengths": strengths, "weaknesses": weaknesses}
 
-    async def get_unified_dashboard(self) -> Dict[str, Any]:
-        """Unified dashboard merging Agent + Digital Twin data."""
-        profile = await self.get_self_profile()
-        scores = await self.get_capability_scores()
+    async def get_unified_dashboard(self, use_cache: bool = True) -> Dict[str, Any]:
+        """Unified dashboard with 30-second Redis cache."""
+        if use_cache:
+            cached = await _cache_get(self.CACHE_KEY_DASHBOARD)
+            if cached:
+                return json.loads(cached)
+
+        profile = await self.get_self_profile(use_cache=use_cache)
+        scores = await self.get_capability_scores(use_cache=use_cache)
         sw = await self.get_strengths_and_weaknesses()
 
-        return {
+        result = {
             "profile": profile,
             "capability_scores": scores,
             "strengths": sw["strengths"],
             "weaknesses": sw["weaknesses"],
             "timestamp": datetime.utcnow().isoformat(),
         }
+
+        await _cache_set(
+            self.CACHE_KEY_DASHBOARD,
+            json.dumps(result, default=str, ensure_ascii=False),
+            self.CACHE_TTL_DASHBOARD,
+        )
+        return result

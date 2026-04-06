@@ -11,15 +11,16 @@ Created: 2026-03-22
 Updated: 2026-03-27 — v3.0 OpenClaw 委派 + E-6 delegate_auto + self_awareness SSE
 """
 
+import hashlib
 import json
 import logging
 import re
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
+from starlette.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import StreamingResponse
 
 from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
@@ -424,14 +425,28 @@ async def get_predictive_insights(_current_user: User = Depends(require_auth()))
 
 @router.post("/digital-twin/introspection")
 async def agent_introspection(
+    request: Request,
     db: AsyncSession = Depends(get_async_db),
     _current_user: User = Depends(require_auth()),
 ):
-    """Agent 自省 — 統一的 self-model + capability + evolution 查詢"""
+    """Agent 自省 — 統一的 self-model + capability + evolution 查詢 (ETag 支援)"""
     from app.services.ai.agent_introspection import AgentIntrospectionService
     svc = AgentIntrospectionService(db)
     result = await svc.get_unified_dashboard()
-    return JSONResponse({"success": True, "data": result})
+
+    # Generate ETag from content hash
+    content_json = json.dumps(result, default=str, sort_keys=True)
+    etag = hashlib.md5(content_json.encode()).hexdigest()[:16]
+
+    # Check If-None-Match — return 304 if unchanged
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match == etag:
+        return Response(status_code=304)
+
+    response = JSONResponse({"success": True, "data": result})
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "private, max-age=30"
+    return response
 
 
 @router.post("/digital-twin/introspection/profile")

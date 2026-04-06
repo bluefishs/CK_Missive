@@ -107,20 +107,20 @@ class AgentOrchestrator:
         tools_used: List[str],
         success: bool,
     ) -> None:
-        """Lightweight capability tracking after each query (non-blocking)."""
+        """Lightweight capability tracking via Redis pipeline (single round-trip)."""
         try:
             from app.core.redis_client import get_redis
             from app.services.ai.agent_router import AgentRouter
             redis = await get_redis()
             if redis:
-                # Increment domain query counter
                 context = AgentRouter._detect_context(question) or "general"
-                await redis.hincrby("agent:capability:queries", context, 1)
+                pipe = redis.pipeline()
+                pipe.hincrby("agent:capability:queries", context, 1)
                 if success:
-                    await redis.hincrby("agent:capability:success", context, 1)
-                # Track tool usage
+                    pipe.hincrby("agent:capability:success", context, 1)
                 for tool in tools_used:
-                    await redis.hincrby("agent:tool:usage", tool, 1)
+                    pipe.hincrby("agent:tool:usage", tool, 1)
+                await pipe.execute()
         except Exception:
             pass  # Non-critical, silently ignore
 
