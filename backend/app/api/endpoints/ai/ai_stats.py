@@ -358,8 +358,8 @@ async def preview_morning_report(
 
     try:
         svc = MorningReportService(db)
-        summary = await svc.generate_summary()
         data = await svc.generate_report()
+        summary = await svc.generate_summary_from_data(data)
         return JSONResponse(
             {"success": True, "summary": summary, "data": data},
             media_type="application/json; charset=utf-8",

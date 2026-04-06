@@ -66,7 +66,10 @@ class MorningReportService:
     async def generate_summary(self) -> str:
         """Generate Gemma 4 natural language summary."""
         data = await self.generate_report()
+        return await self.generate_summary_from_data(data)
 
+    async def generate_summary_from_data(self, data: Dict[str, Any]) -> str:
+        """Generate Gemma 4 summary from pre-fetched report data."""
         # Build data summary for Gemma 4
         parts = []
         dd = data.get("dispatch_deadlines", {})
@@ -133,50 +136,69 @@ class MorningReportService:
 
     # ── Data Collection Methods ──
 
+    @staticmethod
+    def _parse_roc_date(s: str):
+        """Parse ROC date string like '115年01月15日' to datetime.date."""
+        import re
+        m = re.match(r'(\d{2,3})\D+(\d{1,2})\D+(\d{1,2})', s or '')
+        if m:
+            try:
+                from datetime import date as _date
+                return _date(int(m.group(1)) + 1911, int(m.group(2)), int(m.group(3)))
+            except (ValueError, TypeError):
+                pass
+        return None
+
     async def _get_dispatch_deadlines(self, today, week_later) -> dict:
+        """Count dispatch deadlines — handles ROC date format (varchar)."""
         try:
             r = await self.db.execute(
                 text("""
-                SELECT COUNT(*) FILTER (WHERE deadline::date = :today) as today_count,
-                       COUNT(*) FILTER (
-                           WHERE deadline::date BETWEEN :today AND :week
-                       ) as week_count
-                FROM taoyuan_dispatch_orders
-                WHERE deadline IS NOT NULL AND batch_no IS NULL
-            """),
-                {"today": today, "week": week_later},
+                SELECT id, deadline FROM taoyuan_dispatch_orders
+                WHERE deadline IS NOT NULL AND deadline != '' AND batch_no IS NULL
+            """)
             )
-            row = r.first()
-            return {
-                "today_count": row[0] or 0 if row else 0,
-                "week_count": row[1] or 0 if row else 0,
-            }
+            today_count = 0
+            week_count = 0
+            for row in r.all():
+                dl = self._parse_roc_date(row[1])
+                if not dl:
+                    continue
+                if dl == today:
+                    today_count += 1
+                if today <= dl <= week_later:
+                    week_count += 1
+            return {"today_count": today_count, "week_count": week_count}
         except Exception as e:
             logger.debug("dispatch_deadlines query failed: %s", e)
             return {"today_count": 0, "week_count": 0}
 
     async def _get_overdue_items(self, today) -> dict:
+        """Count overdue items — handles ROC date for dispatch, Date for documents."""
         try:
+            # Dispatch: ROC date varchar
             r1 = await self.db.execute(
                 text("""
-                SELECT COUNT(*) FROM taoyuan_dispatch_orders
-                WHERE deadline IS NOT NULL
-                  AND deadline::date < :today
-                  AND batch_no IS NULL
-            """),
-                {"today": today},
+                SELECT deadline FROM taoyuan_dispatch_orders
+                WHERE deadline IS NOT NULL AND deadline != '' AND batch_no IS NULL
+            """)
             )
+            dispatch_overdue = 0
+            for row in r1.all():
+                dl = self._parse_roc_date(row[0])
+                if dl and dl < today:
+                    dispatch_overdue += 1
+
+            # Documents: proper date field
             r2 = await self.db.execute(
                 text("""
                 SELECT COUNT(*) FROM documents
-                WHERE deadline IS NOT NULL
-                  AND deadline < :today
-                  AND status = 'pending'
+                WHERE deadline IS NOT NULL AND deadline < :today AND status = 'pending'
             """),
                 {"today": today},
             )
             return {
-                "dispatch_count": r1.scalar() or 0,
+                "dispatch_count": dispatch_overdue,
                 "doc_count": r2.scalar() or 0,
             }
         except Exception as e:
