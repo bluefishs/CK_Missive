@@ -10,7 +10,7 @@
  */
 
 import { useMemo } from 'react';
-import { Typography, Space, Tag, Button, Tooltip } from 'antd';
+import { Typography, Space, Tag, Button, Tooltip, Progress } from 'antd';
 import { LinkOutlined, PaperClipOutlined } from '@ant-design/icons';
 import type { ColumnsType, ColumnType } from 'antd/es/table';
 import Highlighter from 'react-highlight-words';
@@ -166,7 +166,6 @@ export function useDispatchOrderColumns({
         if (!wp) return <Text type="secondary">-</Text>;
         const statusMap: Record<string, { color: string; label: string }> = {
           completed: { color: 'success', label: '已完成' },
-          // overdue: { color: 'error', label: '逾期' },  // 暫隱藏：目前無逾期檢測邏輯
           in_progress: { color: 'processing', label: '進行中' },
           pending: { color: 'default', label: '待處理' },
         };
@@ -180,6 +179,15 @@ export function useDispatchOrderColumns({
               <Tag color={st.color} style={{ margin: 0, fontSize: 11, lineHeight: '18px' }}>
                 {st.label}
               </Tag>
+              {wp.total > 0 && (
+                <Progress
+                  percent={Math.round((wp.completed / wp.total) * 100)}
+                  size="small"
+                  steps={5}
+                  style={{ marginTop: 2 }}
+                  format={() => `${wp.completed}/${wp.total}`}
+                />
+              )}
             </Space>
           </Tooltip>
         );

@@ -29,6 +29,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   AppstoreOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../router/types';
@@ -112,6 +113,7 @@ function useDispatchOverviewKanban(contractProjectId: number) {
     let inProgress = 0;
     let overdue = 0;
     let pending = 0;
+    let atRisk = 0;
     const workTypeSet = new Set<string>();
 
     for (const d of dispatchOrders) {
@@ -120,6 +122,12 @@ function useDispatchOverviewKanban(contractProjectId: number) {
       else if (status === 'overdue') overdue++;
       else if (status === 'in_progress') inProgress++;
       else pending++;
+
+      // Count dispatches with deadline within 7 days (not completed)
+      if (d.deadline && status !== 'completed') {
+        const days = Math.ceil((new Date(d.deadline).getTime() - Date.now()) / 86400000);
+        if (days >= 0 && days <= 7) atRisk++;
+      }
 
       for (const wt of getWorkTypes(d)) {
         workTypeSet.add(wt);
@@ -132,6 +140,7 @@ function useDispatchOverviewKanban(contractProjectId: number) {
       inProgress,
       overdue,
       pending,
+      atRisk,
       workTypeCount: workTypeSet.size,
     };
   }, [dispatchOrders, total]);
@@ -176,6 +185,7 @@ const OverviewStats: React.FC<{
     inProgress: number;
     overdue: number;
     pending: number;
+    atRisk: number;
     workTypeCount: number;
   };
 }> = ({ stats }) => (
@@ -210,6 +220,16 @@ const OverviewStats: React.FC<{
             title="已逾期"
             value={stats.overdue}
             valueStyle={{ color: '#ff4d4f' }}
+          />
+        </Col>
+      )}
+      {stats.atRisk > 0 && (
+        <Col xs={12} sm={6} md={4}>
+          <Statistic
+            title="即將到期"
+            value={stats.atRisk}
+            prefix={<WarningOutlined />}
+            valueStyle={{ color: '#fa8c16' }}
           />
         </Col>
       )}
