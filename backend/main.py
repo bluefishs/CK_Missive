@@ -330,11 +330,21 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.debug("Expense approved notification failed: %s", e)
 
+        async def on_tender_awarded(event):
+            """Auto-update PM Case when tender is awarded."""
+            logger.info(
+                "Tender awarded: %s/%s",
+                event.payload.get("unit_id"),
+                event.payload.get("job_number"),
+            )
+            # Future: auto-link tender to existing PM Case
+
         bus.subscribe(EventType.PROJECT_PROMOTED, on_project_promoted)
         bus.subscribe(EventType.BILLING_PAID, on_billing_paid)
         bus.subscribe(EventType.DOCUMENT_RECEIVED, on_document_received)
         bus.subscribe(EventType.EXPENSE_APPROVED, on_expense_approved)
-        logger.info("✅ Domain Event Bus 已初始化 (4 handlers)")
+        bus.subscribe(EventType.TENDER_AWARDED, on_tender_awarded)
+        logger.info("✅ Domain Event Bus 已初始化 (5 handlers)")
     except Exception as e:
         logger.warning(f"⚠️ Domain Event Bus 初始化失敗 (不影響核心功能): {e}")
 

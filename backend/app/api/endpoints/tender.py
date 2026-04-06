@@ -353,10 +353,26 @@ async def update_bookmark(
     )).scalar_one_or_none()
     if not bookmark:
         return SuccessResponse(data=None, message="書籤不存在")
-    if "status" in req: bookmark.status = req["status"]
+    new_status = req.get("status")
+    if "status" in req: bookmark.status = new_status
     if "case_code" in req: bookmark.case_code = req["case_code"]
     if "notes" in req: bookmark.notes = req["notes"]
     await db.commit()
+
+    # If status changed to 'won', publish event
+    if new_status == "won" and bookmark:
+        try:
+            from app.core.event_bus import EventBus
+            from app.core.domain_events import tender_awarded
+            bus = EventBus.get_instance()
+            await bus.publish(tender_awarded(
+                unit_id=bookmark.unit_id or "",
+                job_number=bookmark.job_number or "",
+                award_amount=0,  # Will be enriched later
+            ))
+        except Exception:
+            pass
+
     return SuccessResponse(data={"id": bookmark.id, "status": bookmark.status})
 
 
