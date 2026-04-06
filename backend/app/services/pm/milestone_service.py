@@ -41,6 +41,7 @@ class PMMilestoneService:
         if not milestone:
             return None
 
+        old_status = milestone.status
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(milestone, key, value)
@@ -48,6 +49,37 @@ class PMMilestoneService:
         await self.db.flush()
         await self.db.refresh(milestone)
         await self.db.commit()
+
+        # Publish domain event when milestone transitions to completed
+        if milestone.status == "completed" and old_status != "completed":
+            try:
+                from app.core.event_bus import EventBus
+                from app.core.domain_events import DomainEvent, EventType
+
+                # Resolve case_code via pm_case relationship
+                case_code = ""
+                if milestone.pm_case:
+                    case_code = milestone.pm_case.case_code or ""
+                else:
+                    from sqlalchemy import select
+                    from app.extended.models.pm import PMCase
+                    result = await self.db.execute(
+                        select(PMCase.case_code).where(PMCase.id == milestone.pm_case_id)
+                    )
+                    case_code = result.scalar_one_or_none() or ""
+
+                bus = EventBus.get_instance()
+                await bus.publish(DomainEvent(
+                    event_type=EventType.MILESTONE_COMPLETED,
+                    payload={
+                        "milestone_id": milestone.id,
+                        "case_code": case_code,
+                        "milestone_name": milestone.milestone_name,
+                    },
+                ))
+            except Exception as e:
+                logger.warning("Failed to publish milestone_completed event: %s", e)
+
         return PMMilestoneResponse.model_validate(milestone)
 
     async def delete(self, milestone_id: int) -> bool:

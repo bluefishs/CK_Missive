@@ -94,6 +94,17 @@ class ExpenseApprovalService(AuditableServiceMixin):
                         "approved_by": invoice.user_id,
                     },
                 ))
+                # Large expense alert for potential asset capitalization
+                if float(invoice.amount or 0) >= 50000:
+                    await bus.publish(DomainEvent(
+                        event_type=EventType.EXPENSE_LARGE_APPROVED,
+                        payload={
+                            "expense_id": invoice.id,
+                            "amount": float(invoice.amount),
+                            "case_code": invoice.case_code or "",
+                            "description": "大額費用核銷，建議評估是否列入資產",
+                        },
+                    ))
             except Exception:
                 pass
 

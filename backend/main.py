@@ -339,12 +339,54 @@ async def lifespan(app: FastAPI):
             )
             # Future: auto-link tender to existing PM Case
 
+        async def on_milestone_completed(event):
+            """Auto-create billing draft when milestone completes."""
+            logger.info(
+                "Milestone completed: %s (case=%s)",
+                event.payload.get("milestone_name"),
+                event.payload.get("case_code"),
+            )
+            # Future: auto-create billing draft
+
+        async def on_expense_large_approved(event):
+            """Notify about potential asset capitalization for large expenses."""
+            logger.info(
+                "Large expense approved: $%s (case=%s) — consider asset capitalization",
+                event.payload.get("amount"),
+                event.payload.get("case_code"),
+            )
+            # Cross-module notification for asset team
+            try:
+                from app.db.database import AsyncSessionLocal
+                from app.services.notification_service import NotificationService
+                async with AsyncSessionLocal() as db:
+                    case_code = event.payload.get("case_code", "")
+                    amount = event.payload.get("amount", 0)
+                    await NotificationService.create_notification(
+                        db=db,
+                        notification_type="asset_capitalization_hint",
+                        severity="warning",
+                        title=f"大額費用提醒 — {case_code}" if case_code else "大額費用提醒",
+                        message=(
+                            f"核銷 #{event.payload.get('expense_id')} "
+                            f"(NT$ {amount:,.0f}) 已通過審核，"
+                            f"建議評估是否列入資產管理"
+                        ),
+                        source_table="expense_invoices",
+                        source_id=event.payload.get("expense_id"),
+                    )
+                    await db.commit()
+            except Exception as e:
+                logger.debug("Asset capitalization hint notification failed: %s", e)
+
         bus.subscribe(EventType.PROJECT_PROMOTED, on_project_promoted)
         bus.subscribe(EventType.BILLING_PAID, on_billing_paid)
         bus.subscribe(EventType.DOCUMENT_RECEIVED, on_document_received)
         bus.subscribe(EventType.EXPENSE_APPROVED, on_expense_approved)
         bus.subscribe(EventType.TENDER_AWARDED, on_tender_awarded)
-        logger.info("✅ Domain Event Bus 已初始化 (5 handlers)")
+        bus.subscribe(EventType.MILESTONE_COMPLETED, on_milestone_completed)
+        bus.subscribe(EventType.EXPENSE_LARGE_APPROVED, on_expense_large_approved)
+        logger.info("✅ Domain Event Bus 已初始化 (7 handlers)")
     except Exception as e:
         logger.warning(f"⚠️ Domain Event Bus 初始化失敗 (不影響核心功能): {e}")
 

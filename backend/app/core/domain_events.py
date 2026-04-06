@@ -26,6 +26,8 @@ class EventType(str, Enum):
     TENDER_AWARDED = "tender.awarded"
     DOCUMENT_RECEIVED = "document.received"
     EXPENSE_APPROVED = "expense.approved"
+    EXPENSE_LARGE_APPROVED = "expense.large_approved"
+    MILESTONE_COMPLETED = "milestone.completed"
     EVOLUTION_COMPLETED = "agent.evolution_completed"
 
 
@@ -108,6 +110,35 @@ def tender_awarded(
             "unit_id": unit_id,
             "job_number": job_number,
             "award_amount": award_amount,
+            **extra,
+        },
+    )
+
+
+def milestone_completed(
+    milestone_id: int, case_code: str, milestone_name: str, **extra
+) -> DomainEvent:
+    return DomainEvent(
+        event_type=EventType.MILESTONE_COMPLETED,
+        payload={
+            "milestone_id": milestone_id,
+            "case_code": case_code,
+            "milestone_name": milestone_name,
+            **extra,
+        },
+    )
+
+
+def expense_large_approved(
+    expense_id: int, amount: float, case_code: str, **extra
+) -> DomainEvent:
+    return DomainEvent(
+        event_type=EventType.EXPENSE_LARGE_APPROVED,
+        payload={
+            "expense_id": expense_id,
+            "amount": amount,
+            "case_code": case_code,
+            "description": "大額費用核銷，建議評估是否列入資產",
             **extra,
         },
     )
