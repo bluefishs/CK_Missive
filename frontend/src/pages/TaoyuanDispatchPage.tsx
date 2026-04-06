@@ -1,7 +1,8 @@
 /**
  * 桃園查估派工管理系統
  *
- * 四頁籤架構:
+ * 五頁籤架構:
+ * - Tab 0: 派工總覽 (Kanban 看板)
  * - Tab 1: 派工紀錄
  * - Tab 2: 函文紀錄 (公文管理)
  * - Tab 3: 契金管控
@@ -27,6 +28,7 @@ import {
   FileTextOutlined,
   SendOutlined,
   DollarOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 
 import { useResponsive } from '../hooks';
@@ -36,6 +38,7 @@ import { DocumentsTab } from '../components/taoyuan/DocumentsTab';
 import { DispatchOrdersTab } from '../components/taoyuan/DispatchOrdersTab';
 import { PaymentsTab } from '../components/taoyuan/PaymentsTab';
 import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
+import { DispatchOverviewTab } from '../components/taoyuan/DispatchOverviewTab';
 
 const { Title, Text } = Typography;
 
@@ -140,6 +143,20 @@ export const TaoyuanDispatchPage: React.FC = () => {
         size={isMobile ? 'middle' : 'large'}
         tabPlacement="top"
         items={[
+          {
+            key: '0',
+            label: (
+              <span>
+                <AppstoreOutlined />
+                {isMobile ? '總覽' : '派工總覽'}
+              </span>
+            ),
+            children: (
+              <DispatchOverviewTab
+                contractProjectId={selectedProjectId}
+              />
+            ),
+          },
           {
             key: '1',
             label: (
