@@ -27,16 +27,46 @@ class AgentQueryRequest(BaseModel):
         pattern=r"^[a-z_]+$",
         description="助理上下文 (doc/dev)，影響 system prompt 選擇",
     )
+    channel: Optional[Literal["line", "telegram", "openclaw", "mcp", "web", "discord"]] = Field(
+        None,
+        description="來源頻道標識，用於分析統計",
+    )
+
+
+class AgentSyncCapabilities(BaseModel):
+    """Agent 能力清單（供 OpenClaw/外部系統探索）"""
+    tools: List[str] = Field(default_factory=list, description="可用工具名稱")
+    vision: bool = Field(default=True, description="是否支援圖片辨識 (Gemma 4 Vision)")
+    voice: bool = Field(default=True, description="是否支援語音轉文字 (Whisper)")
+    domains: List[str] = Field(
+        default_factory=lambda: [
+            "document", "dispatch", "project", "vendor",
+            "finance", "tender", "knowledge_graph",
+        ],
+        description="支援的業務領域",
+    )
+
+
+class AgentSyncMetadata(BaseModel):
+    """Agent 回應後設資料（供 OpenClaw/外部系統使用）"""
+    model: str = Field(default="gemma4", description="使用的推理模型")
+    latency_ms: int = Field(default=0, description="處理延遲（毫秒）")
+    tools_used: List[str] = Field(default_factory=list, description="本次使用的工具")
+    source_channel: Optional[str] = Field(None, description="來源頻道")
+    agent_version: str = Field(default="5.5.0", description="Agent 版本")
 
 
 class AgentSyncResponse(BaseModel):
-    """Agent 同步問答回應（非串流，v0 legacy 格式）"""
+    """Agent 同步問答回應（非串流，v0 legacy 格式 + v0.1 增強欄位）"""
     success: bool = True
     answer: str = ""
     sources: List[Dict[str, Any]] = []
     tools_used: List[str] = []
     latency_ms: int = 0
     error: Optional[str] = None
+    error_code: Optional[str] = Field(None, description="結構化錯誤碼 (timeout|auth_failed|internal)")
+    capabilities: Optional[AgentSyncCapabilities] = Field(None, description="Agent 能力清單")
+    metadata: Optional[AgentSyncMetadata] = Field(None, description="回應後設資料")
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +121,9 @@ class AgentV1Meta(BaseModel):
     latency_ms: int = 0
     request_id: Optional[str] = None
     token_usage: Optional[Dict[str, int]] = None
+    model: str = Field(default="gemma4", description="推理模型")
+    source_channel: Optional[str] = Field(None, description="來源頻道")
+    agent_version: str = Field(default="5.5.0", description="Agent 版本")
 
 
 class AgentV1Response(BaseModel):
