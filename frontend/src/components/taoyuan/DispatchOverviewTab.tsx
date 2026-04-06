@@ -105,26 +105,32 @@ function useDispatchOverviewKanban(contractProjectId: number) {
     }));
   }, [dispatchOrders]);
 
-  // Summary stats
+  // Summary stats — derived from same inferStatusFromDispatch logic
   const stats = useMemo(() => {
-    const batchCompleted = dispatchOrders.filter((d) => d.batch_no != null).length;
-    const withDeadline = dispatchOrders.filter((d) => d.deadline).length;
-    const overdue = dispatchOrders.filter((d) => {
-      if (!d.deadline || d.batch_no != null) return false;
-      return new Date(d.deadline) < new Date();
-    }).length;
+    let completed = 0;
+    let inProgress = 0;
+    let overdue = 0;
+    let pending = 0;
     const workTypeSet = new Set<string>();
+
     for (const d of dispatchOrders) {
+      const status = inferStatusFromDispatch(d);
+      if (status === 'completed') completed++;
+      else if (status === 'overdue') overdue++;
+      else if (status === 'in_progress') inProgress++;
+      else pending++;
+
       for (const wt of getWorkTypes(d)) {
         workTypeSet.add(wt);
       }
     }
+
     return {
       total,
-      batchCompleted,
-      inProgress: total - batchCompleted,
-      withDeadline,
+      completed,
+      inProgress,
       overdue,
+      pending,
       workTypeCount: workTypeSet.size,
     };
   }, [dispatchOrders, total]);
@@ -133,15 +139,31 @@ function useDispatchOverviewKanban(contractProjectId: number) {
 }
 
 /**
- * Infer a dispatch order status from available data.
- * If batch_no is set, it's completed; otherwise pending.
+ * Infer dispatch status from multiple signals (not just batch_no).
+ *
+ * Priority: batch_no(結案) > deadline逾期 > company_doc(已覆文=進行中)
+ *           > linked_documents(有關聯公文=進行中) > agency_doc(有來文=進行中) > pending
  */
 function inferStatusFromDispatch(dispatch: DispatchOrder): WorkRecordStatus {
-  if (dispatch.batch_no != null) return 'completed';
+  // 1. 已結案 (有結案批次)
+  if (dispatch.batch_no != null && dispatch.batch_no > 0) return 'completed';
+
+  // 2. 逾期 (有期限且已過)
   if (dispatch.deadline) {
     const dl = new Date(dispatch.deadline);
     if (dl < new Date()) return 'overdue';
   }
+
+  // 3. 進行中 — 已發覆文
+  if (dispatch.company_doc_id) return 'in_progress';
+
+  // 4. 進行中 — 有關聯公文
+  if (dispatch.linked_documents && dispatch.linked_documents.length > 0) return 'in_progress';
+
+  // 5. 進行中 — 有機關來文 (表示已啟動)
+  if (dispatch.agency_doc_id) return 'in_progress';
+
+  // 6. 未開始
   return 'pending';
 }
 
@@ -152,9 +174,10 @@ function inferStatusFromDispatch(dispatch: DispatchOrder): WorkRecordStatus {
 const OverviewStats: React.FC<{
   stats: {
     total: number;
-    batchCompleted: number;
+    completed: number;
     inProgress: number;
     overdue: number;
+    pending: number;
     workTypeCount: number;
   };
 }> = ({ stats }) => (
@@ -170,7 +193,7 @@ const OverviewStats: React.FC<{
       <Col xs={12} sm={6} md={4}>
         <Statistic
           title="已結案"
-          value={stats.batchCompleted}
+          value={stats.completed}
           prefix={<CheckCircleOutlined />}
           valueStyle={{ color: '#52c41a' }}
         />
@@ -189,6 +212,15 @@ const OverviewStats: React.FC<{
             title="已逾期"
             value={stats.overdue}
             valueStyle={{ color: '#ff4d4f' }}
+          />
+        </Col>
+      )}
+      {stats.pending > 0 && (
+        <Col xs={12} sm={6} md={4}>
+          <Statistic
+            title="未開始"
+            value={stats.pending}
+            valueStyle={{ color: '#8c8c8c' }}
           />
         </Col>
       )}
