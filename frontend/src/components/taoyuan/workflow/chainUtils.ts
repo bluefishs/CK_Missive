@@ -231,12 +231,17 @@ export function filterBlankRecords(allRecords: WorkRecord[]): WorkRecord[] {
  *
  * 統一新舊格式相容邏輯，避免兩個 hook 各自實作
  */
-export function computeDocStats(records: WorkRecord[]): {
+export function computeDocStats(
+  records: WorkRecord[],
+  linkedDocuments?: Array<{ document_id: number; link_type?: string; doc_number?: string }>,
+): {
   incomingDocs: number;
   outgoingDocs: number;
 } {
   const incomingIds = new Set<number>();
   const outgoingIds = new Set<number>();
+
+  // 1. 從作業紀錄取得公文 (舊+新格式)
   for (const r of records) {
     if (r.incoming_doc_id) incomingIds.add(r.incoming_doc_id);
     if (r.outgoing_doc_id) outgoingIds.add(r.outgoing_doc_id);
@@ -248,6 +253,18 @@ export function computeDocStats(records: WorkRecord[]): {
       }
     }
   }
+
+  // 2. 從關聯公文補齊 (dispatch_document_link, 含未指派到 work record 的)
+  if (linkedDocuments) {
+    for (const link of linkedDocuments) {
+      if (link.link_type === 'company_outgoing' || isOutgoingDocNumber(link.doc_number)) {
+        outgoingIds.add(link.document_id);
+      } else {
+        incomingIds.add(link.document_id);
+      }
+    }
+  }
+
   return { incomingDocs: incomingIds.size, outgoingDocs: outgoingIds.size };
 }
 

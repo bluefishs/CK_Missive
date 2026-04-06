@@ -182,7 +182,7 @@ export function useDispatchWorkData({
     const inProgress = records.filter((r) => r.status === 'in_progress').length;
     const overdue = records.filter((r) => r.status === 'overdue').length;
     const onHold = records.filter((r) => r.status === 'on_hold').length;
-    const { incomingDocs, outgoingDocs } = computeDocStats(records);
+    const { incomingDocs, outgoingDocs } = computeDocStats(records, linkedDocuments);
     const linkedDocCount = linkedDocuments.length;
     const unassignedDocCount = unassignedDocs.incoming.length + unassignedDocs.outgoing.length;
     const currentStage = computeCurrentStage(records);
@@ -193,7 +193,7 @@ export function useDispatchWorkData({
       linkedDocCount, unassignedDocCount,
       currentStage,
     };
-  }, [records, linkedDocuments.length, unassignedDocs]);
+  }, [records, linkedDocuments, unassignedDocs]);
 
   // 公文對照資料（只含已指派到作業紀錄的公文）
   const correspondenceData = useMemo<CorrespondenceBodyData>(() => {
