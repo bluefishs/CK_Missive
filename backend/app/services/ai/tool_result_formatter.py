@@ -33,6 +33,15 @@ def format_tool_context(tool: str, result: Dict[str, Any], remaining_chars: int)
             if sum(len(p) for p in parts) + len(part) > remaining_chars:
                 break
             parts.append(part)
+        # Pre-computed analysis
+        try:
+            from app.services.ai.response_enricher import enrich_document_results
+            enriched = enrich_document_results(result.get("documents", []))
+            analysis = f"\n[分析摘要] {enriched.get('analysis_hint', '')}，類型分布: {enriched.get('by_type_summary', '')}\n"
+            if sum(len(p) for p in parts) + len(analysis) <= remaining_chars:
+                parts.append(analysis)
+        except Exception:
+            pass
 
     elif tool == "search_dispatch_orders":
         linked_docs = result.get("linked_documents", [])
@@ -61,6 +70,20 @@ def format_tool_context(tool: str, result: Dict[str, Any], remaining_chars: int)
             if sum(len(p) for p in parts) + len(part) > remaining_chars:
                 break
             parts.append(part)
+        # Pre-computed analysis from enricher
+        try:
+            from app.services.ai.response_enricher import enrich_dispatch_results
+            enriched = enrich_dispatch_results(result.get("dispatch_orders", []))
+            analysis = (
+                f"\n[分析摘要] {enriched.get('analysis_hint', '')}\n"
+                f"完成率: {enriched.get('completion_rate', '?')}, "
+                f"逾期: {enriched.get('overdue_count', 0)} 筆 ({enriched.get('overdue_pct', '0%')}), "
+                f"承辦人: {', '.join(enriched.get('handlers', [])[:3])}\n"
+            )
+            if sum(len(p) for p in parts) + len(analysis) <= remaining_chars:
+                parts.append(analysis)
+        except Exception:
+            pass
 
     elif tool == "search_entities":
         for e in result.get("entities", []):
