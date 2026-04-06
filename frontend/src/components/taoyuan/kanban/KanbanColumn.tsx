@@ -12,6 +12,7 @@ import { Badge, Button, Typography, theme } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 
 import type { KanbanColumnData } from './kanbanConstants';
+import type { WorkRecordStatus } from '../../../types/taoyuan';
 import { KanbanCard } from './KanbanCard';
 
 const { Text } = Typography;
@@ -20,10 +21,12 @@ interface KanbanColumnProps {
   data: KanbanColumnData;
   onCardClick: (dispatchId: number) => void;
   onAddNew?: (workType: string) => void;
+  onStatusChange?: (dispatchId: number, recordIds: number[], newStatus: WorkRecordStatus) => void;
+  updatingDispatchId?: number | null;
   canEdit?: boolean;
 }
 
-const KanbanColumnInner: React.FC<KanbanColumnProps> = ({ data, onCardClick, onAddNew, canEdit }) => {
+const KanbanColumnInner: React.FC<KanbanColumnProps> = ({ data, onCardClick, onAddNew, onStatusChange, updatingDispatchId, canEdit }) => {
   const { workType, color, cards } = data;
   const { token } = theme.useToken();
 
@@ -79,7 +82,13 @@ const KanbanColumnInner: React.FC<KanbanColumnProps> = ({ data, onCardClick, onA
         }}
       >
         {cards.map((card) => (
-          <KanbanCard key={card.dispatch.id} data={card} onClick={onCardClick} />
+          <KanbanCard
+            key={card.dispatch.id}
+            data={card}
+            onClick={onCardClick}
+            onStatusChange={onStatusChange}
+            isUpdating={updatingDispatchId === card.dispatch.id}
+          />
         ))}
       </div>
 

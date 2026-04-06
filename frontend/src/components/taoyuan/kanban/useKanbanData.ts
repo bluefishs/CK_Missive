@@ -84,6 +84,7 @@ export function useKanbanData({ projectId, contractProjectId, linkedDispatches }
         dispatch,
         computedStatus: computeDispatchStatus(records),
         recordCount: records.length,
+        recordIds: records.map((r) => r.id),
       };
 
       if (workTypes.length === 0) {

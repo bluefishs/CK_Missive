@@ -8,10 +8,11 @@
  * @date 2026-02-13
  */
 
-import React, { useCallback, useMemo } from 'react';
-import { Collapse, Spin, Empty, Badge, Button, Typography } from 'antd';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Collapse, Spin, Empty, Badge, Button, Typography, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ROUTES } from '../../../router/types';
 
 import { useResponsive } from '../../../hooks/utility/useResponsive';
@@ -19,7 +20,8 @@ import { useKanbanData } from '../../../components/taoyuan/kanban/useKanbanData'
 import { KanbanColumn } from '../../../components/taoyuan/kanban/KanbanColumn';
 import { KanbanCard } from '../../../components/taoyuan/kanban/KanbanCard';
 import { getWorkTypeColor, type KanbanColumnData } from '../../../components/taoyuan/kanban/kanbanConstants';
-import type { ProjectDispatchLinkItem } from '../../../types/taoyuan';
+import type { ProjectDispatchLinkItem, WorkRecordStatus } from '../../../types/taoyuan';
+import { workflowApi } from '../../../api/taoyuan';
 
 const { Text } = Typography;
 
@@ -39,11 +41,46 @@ export const KanbanBoardTab: React.FC<KanbanBoardTabProps> = ({
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
 
-  const { columns, isLoading } = useKanbanData({
+  const queryClient = useQueryClient();
+  const [messageApi, contextHolder] = message.useMessage();
+  const [updatingDispatchId, setUpdatingDispatchId] = useState<number | null>(null);
+
+  const { columns, isLoading, refetch } = useKanbanData({
     projectId,
     contractProjectId,
     linkedDispatches,
   });
+
+  // Quick status toggle mutation: update all work records for a dispatch
+  const statusMutation = useMutation({
+    mutationFn: async ({ recordIds, newStatus }: { dispatchId: number; recordIds: number[]; newStatus: WorkRecordStatus }) => {
+      // Update all records in parallel
+      await Promise.all(
+        recordIds.map((id) => workflowApi.update(id, { status: newStatus })),
+      );
+    },
+    onMutate: ({ dispatchId }) => {
+      setUpdatingDispatchId(dispatchId);
+    },
+    onSuccess: () => {
+      messageApi.success('狀態已更新');
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['kanban-workflow', projectId] });
+    },
+    onError: () => {
+      messageApi.error('狀態更新失敗');
+    },
+    onSettled: () => {
+      setUpdatingDispatchId(null);
+    },
+  });
+
+  const handleStatusChange = useCallback(
+    (dispatchId: number, recordIds: number[], newStatus: WorkRecordStatus) => {
+      statusMutation.mutate({ dispatchId, recordIds, newStatus });
+    },
+    [statusMutation],
+  );
 
   const handleCardClick = useCallback(
     (dispatchId: number) => {
@@ -103,38 +140,48 @@ export const KanbanBoardTab: React.FC<KanbanBoardTabProps> = ({
   // 手機：Collapse 摺疊
   if (isMobile) {
     return (
-      <MobileKanban
-        columns={columns}
-        onCardClick={handleCardClick}
-        onAddNew={canEdit ? handleAddNew : undefined}
-      />
+      <>
+        {contextHolder}
+        <MobileKanban
+          columns={columns}
+          onCardClick={handleCardClick}
+          onAddNew={canEdit ? handleAddNew : undefined}
+          onStatusChange={canEdit ? handleStatusChange : undefined}
+          updatingDispatchId={updatingDispatchId}
+        />
+      </>
     );
   }
 
   // 桌面：水平滾動
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 12,
-        overflowX: 'auto',
-        paddingBottom: 8,
-        alignItems: 'flex-start',
-        maxHeight: 'calc(100vh - 300px)',
-      }}
-    >
-      {columns
-        .filter((col) => col.cards.length > 0)
-        .map((col) => (
-          <KanbanColumn
-            key={col.workType}
-            data={col}
-            onCardClick={handleCardClick}
-            onAddNew={handleAddNew}
-            canEdit={canEdit}
-          />
-        ))}
-    </div>
+    <>
+      {contextHolder}
+      <div
+        style={{
+          display: 'flex',
+          gap: 12,
+          overflowX: 'auto',
+          paddingBottom: 8,
+          alignItems: 'flex-start',
+          maxHeight: 'calc(100vh - 300px)',
+        }}
+      >
+        {columns
+          .filter((col) => col.cards.length > 0)
+          .map((col) => (
+            <KanbanColumn
+              key={col.workType}
+              data={col}
+              onCardClick={handleCardClick}
+              onAddNew={handleAddNew}
+              onStatusChange={canEdit ? handleStatusChange : undefined}
+              updatingDispatchId={updatingDispatchId}
+              canEdit={canEdit}
+            />
+          ))}
+      </div>
+    </>
   );
 };
 
@@ -146,9 +193,11 @@ interface MobileKanbanProps {
   columns: KanbanColumnData[];
   onCardClick: (dispatchId: number) => void;
   onAddNew?: (workType: string) => void;
+  onStatusChange?: (dispatchId: number, recordIds: number[], newStatus: WorkRecordStatus) => void;
+  updatingDispatchId?: number | null;
 }
 
-const MobileKanbanInner: React.FC<MobileKanbanProps> = ({ columns, onCardClick, onAddNew }) => {
+const MobileKanbanInner: React.FC<MobileKanbanProps> = ({ columns, onCardClick, onAddNew, onStatusChange, updatingDispatchId }) => {
   // 預設展開有卡片的欄位
   const defaultActive = useMemo(
     () => columns.filter((c) => c.cards.length > 0).map((c) => c.workType),
@@ -173,7 +222,13 @@ const MobileKanbanInner: React.FC<MobileKanbanProps> = ({ columns, onCardClick, 
             children: (
               <div style={{ padding: '4px 0' }}>
                 {col.cards.map((card) => (
-                  <KanbanCard key={card.dispatch.id} data={card} onClick={onCardClick} />
+                  <KanbanCard
+                    key={card.dispatch.id}
+                    data={card}
+                    onClick={onCardClick}
+                    onStatusChange={onStatusChange}
+                    isUpdating={updatingDispatchId === card.dispatch.id}
+                  />
                 ))}
                 {onAddNew && (
                   <Button
@@ -196,7 +251,7 @@ const MobileKanbanInner: React.FC<MobileKanbanProps> = ({ columns, onCardClick, 
             ),
           };
         }),
-    [columns, onCardClick, onAddNew],
+    [columns, onCardClick, onAddNew, onStatusChange, updatingDispatchId],
   );
 
   return (

@@ -8,20 +8,23 @@
  */
 
 import React from 'react';
-import { Card, Tag, Typography, Space, theme } from 'antd';
-import { FileTextOutlined, HistoryOutlined } from '@ant-design/icons';
+import { Card, Tag, Typography, Space, Button, theme } from 'antd';
+import { FileTextOutlined, HistoryOutlined, PlayCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
-import { STATUS_CONFIG, type KanbanCardData } from './kanbanConstants';
+import { STATUS_CONFIG, STATUS_BUTTON_CONFIG, NEXT_STATUS, type KanbanCardData } from './kanbanConstants';
+import type { WorkRecordStatus } from '../../../types/taoyuan';
 
 const { Text } = Typography;
 
 interface KanbanCardProps {
   data: KanbanCardData;
   onClick: (dispatchId: number) => void;
+  onStatusChange?: (dispatchId: number, recordIds: number[], newStatus: WorkRecordStatus) => void;
+  isUpdating?: boolean;
 }
 
-const KanbanCardInner: React.FC<KanbanCardProps> = ({ data, onClick }) => {
-  const { dispatch, computedStatus, recordCount } = data;
+const KanbanCardInner: React.FC<KanbanCardProps> = ({ data, onClick, onStatusChange, isUpdating }) => {
+  const { dispatch, computedStatus, recordCount, recordIds } = data;
   const { token } = theme.useToken();
   const statusCfg = STATUS_CONFIG[computedStatus] || STATUS_CONFIG.pending;
 
@@ -94,6 +97,23 @@ const KanbanCardInner: React.FC<KanbanCardProps> = ({ data, onClick }) => {
           )}
         </Space>
       </div>
+
+      {/* Quick status toggle */}
+      {onStatusChange && STATUS_BUTTON_CONFIG[computedStatus] && NEXT_STATUS[computedStatus] && recordIds.length > 0 && (
+        <Button
+          type="link"
+          size="small"
+          icon={STATUS_BUTTON_CONFIG[computedStatus]!.icon === 'play' ? <PlayCircleOutlined /> : <CheckCircleOutlined />}
+          loading={isUpdating}
+          onClick={(e) => {
+            e.stopPropagation();
+            onStatusChange(dispatch.id, recordIds, NEXT_STATUS[computedStatus]!);
+          }}
+          style={{ padding: 0, fontSize: 12, marginTop: 4, height: 'auto', lineHeight: 1 }}
+        >
+          {STATUS_BUTTON_CONFIG[computedStatus]!.label}
+        </Button>
+      )}
     </Card>
   );
 };

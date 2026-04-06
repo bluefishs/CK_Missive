@@ -99,7 +99,25 @@ export interface KanbanCardData {
   dispatch: DispatchOrder;
   computedStatus: WorkRecordStatus;
   recordCount: number;
+  /** Work record IDs for status mutations */
+  recordIds: number[];
 }
+
+/** Status progression mapping for quick toggle */
+export const NEXT_STATUS: Partial<Record<WorkRecordStatus, WorkRecordStatus>> = {
+  pending: 'in_progress',
+  in_progress: 'completed',
+  overdue: 'in_progress',
+  on_hold: 'in_progress',
+};
+
+/** Button labels for each status */
+export const STATUS_BUTTON_CONFIG: Partial<Record<WorkRecordStatus, { label: string; icon: 'play' | 'check' }>> = {
+  pending: { label: '開始', icon: 'play' },
+  in_progress: { label: '完成', icon: 'check' },
+  overdue: { label: '恢復', icon: 'play' },
+  on_hold: { label: '恢復', icon: 'play' },
+};
 
 export interface KanbanColumnData {
   workType: string;

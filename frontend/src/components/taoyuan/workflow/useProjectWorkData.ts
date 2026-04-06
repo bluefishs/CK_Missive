@@ -249,6 +249,13 @@ function buildCorrespondenceGroups(
 }
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+/** 單次查詢的作業紀錄上限 */
+const WORK_RECORDS_MAX_LIMIT = 200;
+
+// ============================================================================
 // Main Hook
 // ============================================================================
 
@@ -271,7 +278,7 @@ export function useProjectWorkData({
   // Query 1: 全部 WorkRecords
   const { data: workflowData, isLoading: isLoadingWorkflow } = useQuery({
     queryKey: queryKeys.workRecords.project(projectId),
-    queryFn: () => workflowApi.listByProject(projectId, 1, 200),
+    queryFn: () => workflowApi.listByProject(projectId, 1, WORK_RECORDS_MAX_LIMIT),
     enabled: projectId > 0,
   });
 
@@ -281,7 +288,7 @@ export function useProjectWorkData({
     queryFn: () =>
       dispatchOrdersApi.getList({
         contract_project_id: contractProjectId,
-        limit: 200,
+        limit: WORK_RECORDS_MAX_LIMIT,
       }),
     enabled: !!contractProjectId && linkedDispatches.length > 0,
   });
@@ -406,6 +413,7 @@ export function useProjectWorkData({
         dispatch,
         computedStatus: computeDispatchStatus(dRecords),
         recordCount: dRecords.length,
+        recordIds: dRecords.map((r) => r.id),
       };
 
       if (workTypes.length === 0) {
