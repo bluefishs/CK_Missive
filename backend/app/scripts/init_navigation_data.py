@@ -715,6 +715,19 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # 智能體中心 (對應 ROUTES.AGENT_DASHBOARD)
+    {
+        "title": "智能體中心",
+        "key": "agent-dashboard",
+        "path": "/agent/dashboard",
+        "icon": "RobotOutlined",
+        "sort_order": 5,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "智能體,Agent,對話,自省,進化,拓撲,Dashboard",
+        "permission_required": "[]"
+    },
+
     # 技能演化樹 (對應 ROUTES.SKILL_EVOLUTION)
     {
         "title": "技能演化樹",

@@ -119,6 +119,8 @@ const ERPOperationalFormPage = lazy(() => import('../pages/ERPOperationalFormPag
 
 // 數位分身
 const DigitalTwinPage = lazy(() => import('../pages/DigitalTwinPage'));
+// 智能體中心
+const AgentDashboardPage = lazy(() => import('../pages/AgentDashboardPage'));
 
 // 資安管理
 const SecurityCenterPage = lazy(() => import('../pages/SecurityCenterPage'));
@@ -271,6 +273,8 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute><DatabaseGraphPage /></ProtectedRoute>} />
           {/* 數位分身 */}
           <Route path={ROUTES.DIGITAL_TWIN} element={<ProtectedRoute><DigitalTwinPage /></ProtectedRoute>} />
+          {/* 智能體中心 */}
+          <Route path={ROUTES.AGENT_DASHBOARD} element={<ProtectedRoute><AgentDashboardPage /></ProtectedRoute>} />
           {/* 資安管理中心 */}
           <Route path={ROUTES.SECURITY_CENTER} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SecurityCenterPage /></ProtectedRoute>} />
           {/* 作業性質代碼管理 */}

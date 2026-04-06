@@ -147,6 +147,8 @@ export const ROUTES = {
   ERP_OPERATIONAL_EDIT: '/erp/operational/:id/edit',
   // 數位分身
   DIGITAL_TWIN: '/ai/digital-twin',
+  // 智能體中心 (統一 Agent Dashboard)
+  AGENT_DASHBOARD: '/agent/dashboard',
   // 資安管理中心
   SECURITY_CENTER: '/admin/security-center',
   // 登入紀錄 (資安管理)
@@ -375,6 +377,12 @@ export const ROUTE_META = {
     title: '數位分身',
     description: 'NemoClaw 跨專案智能協作引擎 — 即時問答與能力展示',
     icon: 'CloudServerOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.AGENT_DASHBOARD]: {
+    title: '智能體中心',
+    description: '乾坤智能體 — 自覺型 Agent 問答、自省與進化',
+    icon: 'RobotOutlined',
     requireAuth: true,
   },
   [ROUTES.CODE_GRAPH_MANAGEMENT]: {
