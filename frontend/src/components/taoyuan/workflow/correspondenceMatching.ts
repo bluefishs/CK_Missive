@@ -50,6 +50,8 @@ export interface CorrespondenceMatrixRow {
   confidence?: MatchConfidence;
   sharedEntities?: string[];
   docTypeLabel?: string;
+  /** Groups rows sharing the same incoming doc (1:N pairing) */
+  groupId?: number;
 }
 
 export interface EntityPairScore {
@@ -230,23 +232,33 @@ export function buildCorrespondenceMatrix(
   const usedInRecordIds = new Set<number>();
   const usedOutRecordIds = new Set<number>();
 
-  // --- Phase 1: parent_record_id 鏈式配對 ---
+  // --- Phase 1: parent_record_id 鏈式配對 (supports 1:N) ---
+  // Track which incomings have been paired at least once (allow reuse for 1:N)
+  const pairedIncomingIds = new Set<number>();
+
   for (const outPair of assignedPairs.outgoingDocs) {
     if (!outPair.record.parent_record_id) continue;
+    if (usedOutRecordIds.has(outPair.record.id)) continue;
+
     const matchIn = assignedPairs.incomingDocs.find(
-      (ip) =>
-        ip.record.id === outPair.record.parent_record_id &&
-        !usedInRecordIds.has(ip.record.id),
+      (ip) => ip.record.id === outPair.record.parent_record_id,
     );
     if (matchIn) {
+      const groupId = matchIn.record.id; // Group by incoming record ID
       rows.push({
-        incoming: toMatrixItem(matchIn),
+        incoming: pairedIncomingIds.has(groupId) ? undefined : toMatrixItem(matchIn),
         outgoing: toMatrixItem(outPair),
         confidence: 'confirmed',
+        groupId,
       });
-      usedInRecordIds.add(matchIn.record.id);
+      pairedIncomingIds.add(groupId);
       usedOutRecordIds.add(outPair.record.id);
     }
+  }
+
+  // Mark all paired incomings as used AFTER processing all outgoings
+  for (const id of pairedIncomingIds) {
+    usedInRecordIds.add(id);
   }
 
   // --- 收集剩餘項目 ---
@@ -270,9 +282,10 @@ export function buildCorrespondenceMatrix(
     ...unassignedOutgoing.map(linkToMatrixItem),
   ].sort((a, b) => (a.docDate || '').localeCompare(b.docDate || ''));
 
-  // === Phase 1.5: 文號交叉引用配對 ===
+  // === Phase 1.5: 文號交叉引用配對 (supports 1:N) ===
   const usedInIdx15 = new Set<number>();
   const usedOutIdx15 = new Set<number>();
+  const pairedInIdx15 = new Set<number>(); // Track first-paired incomings for grouping
 
   for (let i = 0; i < allUnpairedIn.length; i++) {
     const inItem = allUnpairedIn[i]!;
@@ -290,16 +303,23 @@ export function buildCorrespondenceMatrix(
       const inRefersOut = outDocNum.length > 4 && inSubject.includes(outDocNum);
 
       if (outRefersIn || inRefersOut) {
+        const groupId = inItem.docId; // Group by incoming doc ID
         rows.push({
-          incoming: inItem,
+          incoming: pairedInIdx15.has(i) ? undefined : inItem,
           outgoing: outItem,
           confidence: 'confirmed',
           sharedEntities: [outRefersIn ? `引用文號:${inDocNum}` : `引用文號:${outDocNum}`],
+          groupId,
         });
-        usedInIdx15.add(i);
+        pairedInIdx15.add(i);
         usedOutIdx15.add(j);
-        break;
+        // DON'T break — continue scanning for more outgoings referencing this incoming
       }
+    }
+
+    // Mark incoming as used if it was paired at least once
+    if (pairedInIdx15.has(i)) {
+      usedInIdx15.add(i);
     }
   }
 
@@ -468,9 +488,27 @@ export function buildCorrespondenceMatrix(
     }
   }
 
-  // --- 排序 ---
+  // --- 排序 (preserving group contiguity) ---
   const confidenceOrder: Record<string, number> = { confirmed: 0, high: 1, medium: 2, low: 3 };
+
+  // First, collect group header positions so grouped rows stay together
+  const groupHeaderIdx = new Map<number, number>();
+  rows.forEach((row, idx) => {
+    if (row.groupId !== undefined && !groupHeaderIdx.has(row.groupId)) {
+      groupHeaderIdx.set(row.groupId, idx);
+    }
+  });
+
   rows.sort((a, b) => {
+    // If both belong to the same group, keep header first then preserve insertion order
+    if (a.groupId !== undefined && a.groupId === b.groupId) {
+      // Header (has incoming) comes first
+      if (a.incoming && !b.incoming) return -1;
+      if (!a.incoming && b.incoming) return 1;
+      return 0;
+    }
+
+    // For sorting across groups, use the group header's confidence/date
     const ca = confidenceOrder[a.confidence || 'low'] ?? 3;
     const cb = confidenceOrder[b.confidence || 'low'] ?? 3;
     if (ca !== cb) return ca - cb;

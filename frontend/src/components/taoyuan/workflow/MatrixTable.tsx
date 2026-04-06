@@ -191,110 +191,160 @@ const MatrixTableInner: React.FC<MatrixTableProps> = ({
 
         {/* 資料行 */}
         <tbody>
-          {visibleRows.map((row, i) => {
-            const hasBoth = !!row.incoming && !!row.outgoing;
-            const rowBg =
-              row.incoming?.isUnassigned || row.outgoing?.isUnassigned
-                ? token.colorBgTextHover
-                : i % 2 === 1
-                  ? token.colorBgLayout
-                  : undefined;
+          {(() => {
+            // Pre-compute group spans for rowSpan rendering
+            const groupSpans = new Map<number, number>();
+            visibleRows.forEach((row) => {
+              if (row.groupId !== undefined) {
+                groupSpans.set(row.groupId, (groupSpans.get(row.groupId) || 0) + 1);
+              }
+            });
+            const renderedGroupHeaders = new Set<number>();
+            // Track logical row number (groups share one number)
+            let logicalRowNum = 0;
+            const rowNumbers: number[] = [];
+            visibleRows.forEach((row) => {
+              if (row.groupId !== undefined && groupSpans.has(row.groupId)) {
+                if (!renderedGroupHeaders.has(row.groupId)) {
+                  logicalRowNum++;
+                  renderedGroupHeaders.add(row.groupId);
+                }
+              } else {
+                logicalRowNum++;
+              }
+              rowNumbers.push(logicalRowNum);
+            });
+            // Reset for actual render pass
+            renderedGroupHeaders.clear();
 
-            return (
-              <tr key={`${row.incoming?.docId ?? 'x'}-${row.outgoing?.docId ?? 'x'}-${i}`} style={{ background: rowBg }}>
-                {/* 行號 */}
-                <td
-                  style={{
-                    padding: '4px 0',
-                    borderRight: `1px solid ${borderColor}`,
-                    borderBottom: `1px solid ${borderColor}`,
-                    textAlign: 'center',
-                    verticalAlign: 'top',
-                  }}
-                >
-                  <Text type="secondary" style={{ fontSize: 11 }}>{i + 1}</Text>
-                </td>
+            return visibleRows.map((row, i) => {
+              const isGrouped = row.groupId !== undefined && (groupSpans.get(row.groupId) || 0) > 1;
+              const isGroupHeader = isGrouped && !renderedGroupHeaders.has(row.groupId!);
+              const span = isGrouped ? groupSpans.get(row.groupId!) || 1 : 1;
+              if (isGroupHeader) renderedGroupHeaders.add(row.groupId!);
+              const isGroupMember = isGrouped && !isGroupHeader;
 
-                {/* 來文 */}
-                <td
-                  style={{
-                    padding: cellPad,
-                    borderRight: `1px solid ${borderColor}`,
-                    borderBottom: `1px solid ${borderColor}`,
-                    verticalAlign: 'top',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <MatrixDocCell
-                    item={row.incoming}
-                    direction="incoming"
-                    onDocClick={onDocClick}
-                    onEditRecord={onEditRecord}
-                    onQuickCreateRecord={onQuickCreateRecord}
-                    canEdit={canEdit}
-                  />
-                </td>
+              // For grouped rows, determine hasBoth based on group having incoming + this row's outgoing
+              const hasBoth = isGrouped
+                ? !!row.outgoing // Group always has an incoming (on the header)
+                : !!row.incoming && !!row.outgoing;
 
-                {/* 箭頭 */}
-                <td
-                  style={{
-                    padding: 0,
-                    borderRight: `1px solid ${borderColor}`,
-                    borderBottom: `1px solid ${borderColor}`,
-                    textAlign: 'center',
-                    verticalAlign: 'middle',
-                    color: token.colorTextSecondary,
-                    fontSize: 10,
-                  }}
-                >
-                  {hasBoth ? (
-                    <Tooltip title={confidenceTooltip(row.confidence, row.sharedEntities)}>
-                      <span style={{ color: confidenceColor(row.confidence, token), display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                        <ArrowRightOutlined />
-                        {/* 只有雙方都有作業紀錄 + confirmed 才顯示綠勾 */}
-                        {row.confidence === 'confirmed' && !row.incoming?.isUnassigned && !row.outgoing?.isUnassigned ? (
-                          <CheckCircleFilled style={{ fontSize: 10, color: token.colorSuccess }} />
-                        ) : (row.confidence === 'high' || row.confidence === 'medium' || row.confidence === 'confirmed') && canEdit && onConfirmPair && row.incoming && row.outgoing ? (
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<CheckOutlined style={{ fontSize: 10 }} />}
-                            onClick={() => onConfirmPair(row.incoming!.docId, row.outgoing!.docId)}
-                            style={{ width: 18, height: 18, minWidth: 18, padding: 0, color: token.colorSuccess }}
-                          />
-                        ) : null}
-                      </span>
-                    </Tooltip>
-                  ) : row.docTypeLabel ? (
-                    <Tooltip title={`業務類型: ${row.docTypeLabel}`}>
-                      <Tag style={{ fontSize: 9, padding: '0 3px', margin: 0, lineHeight: '16px' }} color="default">
-                        {row.docTypeLabel.slice(0, 2)}
-                      </Tag>
-                    </Tooltip>
-                  ) : '—'}
-                </td>
+              const rowBg =
+                row.incoming?.isUnassigned || row.outgoing?.isUnassigned
+                  ? token.colorBgTextHover
+                  : i % 2 === 1
+                    ? token.colorBgLayout
+                    : undefined;
 
-                {/* 覆文 */}
-                <td
-                  style={{
-                    padding: cellPad,
-                    borderBottom: `1px solid ${borderColor}`,
-                    verticalAlign: 'top',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <MatrixDocCell
-                    item={row.outgoing}
-                    direction="outgoing"
-                    onDocClick={onDocClick}
-                    onEditRecord={onEditRecord}
-                    onQuickCreateRecord={onQuickCreateRecord}
-                    canEdit={canEdit}
-                  />
-                </td>
-              </tr>
-            );
-          })}
+              return (
+                <tr key={`${row.incoming?.docId ?? 'x'}-${row.outgoing?.docId ?? 'x'}-${i}`} style={{ background: rowBg }}>
+                  {/* 行號 — rowSpan for group header, skip for group members */}
+                  {!isGroupMember && (
+                    <td
+                      rowSpan={isGroupHeader ? span : 1}
+                      style={{
+                        padding: '4px 0',
+                        borderRight: `1px solid ${borderColor}`,
+                        borderBottom: `1px solid ${borderColor}`,
+                        textAlign: 'center',
+                        verticalAlign: 'top',
+                      }}
+                    >
+                      <Text type="secondary" style={{ fontSize: 11 }}>{rowNumbers[i]}</Text>
+                    </td>
+                  )}
+
+                  {/* 來文 — rowSpan for group header, skip for group members */}
+                  {!isGroupMember && (
+                    <td
+                      rowSpan={isGroupHeader ? span : 1}
+                      style={{
+                        padding: cellPad,
+                        borderRight: `1px solid ${borderColor}`,
+                        borderBottom: `1px solid ${borderColor}`,
+                        verticalAlign: 'top',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <MatrixDocCell
+                        item={row.incoming}
+                        direction="incoming"
+                        onDocClick={onDocClick}
+                        onEditRecord={onEditRecord}
+                        onQuickCreateRecord={onQuickCreateRecord}
+                        canEdit={canEdit}
+                      />
+                      {isGroupHeader && span > 1 && (
+                        <Tag color="blue" style={{ fontSize: 11, marginTop: 4 }}>
+                          1 &rarr; {span}
+                        </Tag>
+                      )}
+                    </td>
+                  )}
+
+                  {/* 箭頭 — rowSpan for group header, skip for group members */}
+                  {!isGroupMember && (
+                    <td
+                      rowSpan={isGroupHeader ? span : 1}
+                      style={{
+                        padding: 0,
+                        borderRight: `1px solid ${borderColor}`,
+                        borderBottom: `1px solid ${borderColor}`,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                        color: token.colorTextSecondary,
+                        fontSize: 10,
+                      }}
+                    >
+                      {hasBoth ? (
+                        <Tooltip title={confidenceTooltip(row.confidence, row.sharedEntities)}>
+                          <span style={{ color: confidenceColor(row.confidence, token), display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                            <ArrowRightOutlined />
+                            {row.confidence === 'confirmed' && !row.incoming?.isUnassigned && !row.outgoing?.isUnassigned ? (
+                              <CheckCircleFilled style={{ fontSize: 10, color: token.colorSuccess }} />
+                            ) : (row.confidence === 'high' || row.confidence === 'medium' || row.confidence === 'confirmed') && canEdit && onConfirmPair && row.incoming && row.outgoing ? (
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<CheckOutlined style={{ fontSize: 10 }} />}
+                                onClick={() => onConfirmPair(row.incoming!.docId, row.outgoing!.docId)}
+                                style={{ width: 18, height: 18, minWidth: 18, padding: 0, color: token.colorSuccess }}
+                              />
+                            ) : null}
+                          </span>
+                        </Tooltip>
+                      ) : row.docTypeLabel ? (
+                        <Tooltip title={`業務類型: ${row.docTypeLabel}`}>
+                          <Tag style={{ fontSize: 9, padding: '0 3px', margin: 0, lineHeight: '16px' }} color="default">
+                            {row.docTypeLabel.slice(0, 2)}
+                          </Tag>
+                        </Tooltip>
+                      ) : '—'}
+                    </td>
+                  )}
+
+                  {/* 覆文 — always individual (one per row) */}
+                  <td
+                    style={{
+                      padding: cellPad,
+                      borderBottom: `1px solid ${borderColor}`,
+                      verticalAlign: 'top',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <MatrixDocCell
+                      item={row.outgoing}
+                      direction="outgoing"
+                      onDocClick={onDocClick}
+                      onEditRecord={onEditRecord}
+                      onQuickCreateRecord={onQuickCreateRecord}
+                      canEdit={canEdit}
+                    />
+                  </td>
+                </tr>
+              );
+            });
+          })()}
         </tbody>
       </table>
 
