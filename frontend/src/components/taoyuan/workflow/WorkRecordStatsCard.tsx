@@ -151,14 +151,14 @@ const WorkRecordStatsCardInner: React.FC<WorkRecordStatsCardProps> = (props) => 
                   styles={{ content: { fontSize: 20 } }}
                 />
               )}
-              <Tooltip title="不重複來文數">
+              <Tooltip title="不重複來文數（含已關聯 + 作業紀錄引用）">
                 <Tag icon={<FileTextOutlined />} style={{ margin: 0 }}>
                   來文 {stats.incomingDocs}
                 </Tag>
               </Tooltip>
-              <Tooltip title="不重複發文數">
+              <Tooltip title="不重複發文/覆文數（含已關聯 + 作業紀錄引用）">
                 <Tag icon={<SendOutlined />} style={{ margin: 0 }}>
-                  發文 {stats.outgoingDocs}
+                  覆文 {stats.outgoingDocs}
                 </Tag>
               </Tooltip>
               {unassignedDocCount !== undefined && unassignedDocCount > 0 && (
