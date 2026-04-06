@@ -277,6 +277,55 @@ async def kg_embedding_backfill_job():
         logger.error(f"KG Embedding 回填失敗: {e}", exc_info=True)
 
 
+async def morning_report_job():
+    """每日 08:00 — 生成晨報並推送至 Telegram/LINE"""
+    from app.db.database import async_session_maker
+    from app.services.ai.morning_report_service import MorningReportService
+
+    logger.info("開始執行每日晨報生成")
+
+    try:
+        async with async_session_maker() as db:
+            svc = MorningReportService(db)
+            summary = await svc.generate_summary()
+
+        pushed_to = []
+
+        # Push to Telegram (direct, no OpenClaw needed)
+        try:
+            import os
+            from app.services.telegram_bot_service import get_telegram_bot_service
+            tg = get_telegram_bot_service()
+            chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+            if chat_id and tg.enabled:
+                ok = await tg.send_message(int(chat_id), summary)
+                if ok:
+                    pushed_to.append("Telegram")
+        except Exception as tg_err:
+            logger.debug("Morning report Telegram push skipped: %s", tg_err)
+
+        # Push to LINE (if configured)
+        try:
+            import os
+            from app.services.line_bot_service import LineBotService
+            line = LineBotService()
+            line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+            if line_user_id and line.enabled:
+                ok = await line.push_message(line_user_id, summary)
+                if ok:
+                    pushed_to.append("LINE")
+        except Exception as line_err:
+            logger.debug("Morning report LINE push skipped: %s", line_err)
+
+        if pushed_to:
+            logger.info("Morning report pushed to: %s", ", ".join(pushed_to))
+        else:
+            logger.info("Morning report generated (no push targets configured)")
+
+    except Exception as e:
+        logger.error("Morning report failed: %s", e, exc_info=True)
+
+
 async def tender_subscription_check_job():
     """標案訂閱檢查 — 每日 3 次比對 PCC API，新公告 → 系統+LINE 通知"""
     from app.db.database import async_session_maker
@@ -427,6 +476,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 KG Embedding 自動回填: 每日 04:30 執行")
+
+    # 每日晨報生成 + 推送 — 每日 08:00 (Telegram/LINE)
+    scheduler.add_job(
+        morning_report_job,
+        trigger=CronTrigger(hour=8, minute=0),
+        id='morning_report',
+        name='每日晨報生成 + 推送 (Telegram/LINE)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加每日晨報: 每日 08:00 執行")
 
     # 標案訂閱檢查 — 每日 08:00, 12:00, 18:00 (上班時段 3 次)
     for hour in [8, 12, 18]:

@@ -184,6 +184,10 @@ export const AI_ENDPOINTS = {
   GRAPH_SKILL_EVOLUTION: '/ai/graph/skill-evolution',
   /** 進化指標 POST /ai/stats/evolution/metrics */
   STATS_EVOLUTION_METRICS: '/ai/stats/evolution/metrics',
+  /** 晨報預覽 POST /ai/stats/morning-report/preview */
+  MORNING_REPORT_PREVIEW: '/ai/stats/morning-report/preview',
+  /** 晨報推送 POST /ai/stats/morning-report/push */
+  MORNING_REPORT_PUSH: '/ai/stats/morning-report/push',
 } as const;
 
 /** 數位分身 API 端點 — 透過 Missive 後端代理至 NemoClaw Gateway */

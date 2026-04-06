@@ -1,9 +1,9 @@
 """
 AI 統計 API 端點
 
-Version: 3.3.0
+Version: 3.4.0
 Created: 2026-02-06
-Updated: 2026-04-05 - 新增搜尋品質基準測試端點
+Updated: 2026-04-05 - 新增晨報預覽/推送端點
 
 端點:
 - POST /ai/stats - 取得 AI 使用統計
@@ -15,6 +15,8 @@ Updated: 2026-04-05 - 新增搜尋品質基準測試端點
 - POST /ai/stats/patterns - 學習模式統計
 - POST /ai/stats/learnings - 持久化學習統計
 - POST /ai/stats/search/benchmark - 搜尋品質基準測試
+- POST /ai/stats/morning-report/preview - 晨報預覽 (不推送)
+- POST /ai/stats/morning-report/push - 晨報手動推送
 """
 
 import logging
@@ -331,6 +333,105 @@ async def run_search_benchmark(
         )
     except Exception as e:
         logger.error("Search benchmark failed: %s", e, exc_info=True)
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500,
+            media_type="application/json; charset=utf-8",
+        )
+
+
+# ── Morning Report ──
+
+
+@router.post("/stats/morning-report/preview")
+async def preview_morning_report(
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(optional_auth()),
+):
+    """
+    預覽晨報（手動觸發，不推送）
+
+    返回 Gemma 4 生成的自然語言摘要 + 原始數據。
+    """
+    from fastapi.responses import JSONResponse
+    from app.services.ai.morning_report_service import MorningReportService
+
+    try:
+        svc = MorningReportService(db)
+        summary = await svc.generate_summary()
+        data = await svc.generate_report()
+        return JSONResponse(
+            {"success": True, "summary": summary, "data": data},
+            media_type="application/json; charset=utf-8",
+        )
+    except Exception as e:
+        logger.error("Morning report preview failed: %s", e, exc_info=True)
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500,
+            media_type="application/json; charset=utf-8",
+        )
+
+
+@router.post("/stats/morning-report/push")
+async def push_morning_report(
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(optional_auth()),
+):
+    """
+    手動推送晨報到 Telegram/LINE
+
+    生成摘要後推送到已設定的通道。
+    """
+    import os
+    from fastapi.responses import JSONResponse
+    from app.services.ai.morning_report_service import MorningReportService
+
+    try:
+        svc = MorningReportService(db)
+        summary = await svc.generate_summary()
+
+        pushed_to = []
+
+        # Telegram push
+        try:
+            from app.services.telegram_bot_service import get_telegram_bot_service
+            tg = get_telegram_bot_service()
+            chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+            if chat_id and tg.enabled:
+                ok = await tg.send_message(int(chat_id), summary)
+                if ok:
+                    pushed_to.append("Telegram")
+        except Exception as tg_err:
+            logger.debug("Morning report Telegram push skipped: %s", tg_err)
+
+        # LINE push
+        try:
+            from app.services.line_bot_service import LineBotService
+            line = LineBotService()
+            line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+            if line_user_id and line.enabled:
+                ok = await line.push_message(line_user_id, summary)
+                if ok:
+                    pushed_to.append("LINE")
+        except Exception as line_err:
+            logger.debug("Morning report LINE push skipped: %s", line_err)
+
+        return JSONResponse(
+            {
+                "success": True,
+                "summary": summary,
+                "pushed_to": pushed_to,
+                "message": (
+                    f"已推送至 {', '.join(pushed_to)}"
+                    if pushed_to
+                    else "已生成但無推送目標 (請設定 TELEGRAM_ADMIN_CHAT_ID 或 LINE_ADMIN_USER_ID)"
+                ),
+            },
+            media_type="application/json; charset=utf-8",
+        )
+    except Exception as e:
+        logger.error("Morning report push failed: %s", e, exc_info=True)
         return JSONResponse(
             {"success": False, "error": str(e)},
             status_code=500,
