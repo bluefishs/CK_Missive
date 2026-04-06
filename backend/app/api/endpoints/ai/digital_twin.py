@@ -420,6 +420,52 @@ async def get_predictive_insights(_current_user: User = Depends(require_auth()))
     return {"success": True, **result}
 
 
+# ── V-5.0: Agent Introspection (自省) ─────────────────────
+
+@router.post("/digital-twin/introspection")
+async def agent_introspection(
+    db: AsyncSession = Depends(get_async_db),
+    _current_user: User = Depends(require_auth()),
+):
+    """Agent 自省 — 統一的 self-model + capability + evolution 查詢"""
+    from app.services.ai.agent_introspection import AgentIntrospectionService
+    svc = AgentIntrospectionService(db)
+    result = await svc.get_unified_dashboard()
+    return JSONResponse({"success": True, "data": result})
+
+
+@router.post("/digital-twin/introspection/profile")
+async def agent_self_profile(
+    db: AsyncSession = Depends(get_async_db),
+    _current_user: User = Depends(require_auth()),
+):
+    """Agent 自我檔案"""
+    from app.services.ai.agent_introspection import AgentIntrospectionService
+    svc = AgentIntrospectionService(db)
+    result = await svc.get_self_profile()
+    return JSONResponse({"success": True, "data": result})
+
+
+@router.post("/digital-twin/introspection/capabilities")
+async def agent_capability_scores(
+    db: AsyncSession = Depends(get_async_db),
+    _current_user: User = Depends(require_auth()),
+):
+    """Agent 各領域能力分數"""
+    from app.services.ai.agent_introspection import AgentIntrospectionService
+    svc = AgentIntrospectionService(db)
+    scores = await svc.get_capability_scores()
+    sw = await svc.get_strengths_and_weaknesses()
+    return JSONResponse({
+        "success": True,
+        "data": {
+            "scores": scores,
+            "strengths": sw["strengths"],
+            "weaknesses": sw["weaknesses"],
+        },
+    })
+
+
 # ── Shared Helper ──────────────────────────────────────────
 
 async def _proxy_task_action(job_id: str, action: str, body: dict):

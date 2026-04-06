@@ -101,6 +101,29 @@ class AgentOrchestrator:
         except Exception as e:
             logger.warning("Lightweight trace flush failed: %s", e)
 
+    async def _update_self_model(
+        self,
+        question: str,
+        tools_used: List[str],
+        success: bool,
+    ) -> None:
+        """Lightweight capability tracking after each query (non-blocking)."""
+        try:
+            from app.core.redis_client import get_redis
+            from app.services.ai.agent_router import AgentRouter
+            redis = await get_redis()
+            if redis:
+                # Increment domain query counter
+                context = AgentRouter._detect_context(question) or "general"
+                await redis.hincrby("agent:capability:queries", context, 1)
+                if success:
+                    await redis.hincrby("agent:capability:success", context, 1)
+                # Track tool usage
+                for tool in tools_used:
+                    await redis.hincrby("agent:tool:usage", tool, 1)
+        except Exception:
+            pass  # Non-critical, silently ignore
+
     async def stream_agent_query(
         self,
         question: str,
@@ -471,6 +494,15 @@ class AgentOrchestrator:
                 tools_used=list(set(tools_used)),
                 iterations=actual_iterations,
                 providers_available=[p["name"] for p in self.ai.available_providers],
+            )
+
+            # Post-query self-model update (async, non-blocking)
+            asyncio.create_task(
+                self._update_self_model(
+                    question=question,
+                    tools_used=list(set(tools_used)),
+                    success=(model_used != "error"),
+                )
             )
 
         except Exception as e:
