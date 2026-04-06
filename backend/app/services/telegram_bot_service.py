@@ -57,7 +57,7 @@ class TelegramBotService:
             return True
         return header_token == self._webhook_secret
 
-    # ── 文字訊息處理 ──
+    # ── 文字訊息處理 (Edit-Streaming) ──
 
     async def handle_text_message(
         self,
@@ -67,77 +67,103 @@ class TelegramBotService:
         username: str = "",
     ) -> None:
         """
-        處理文字訊息：呼叫 AgentOrchestrator → Telegram 回覆。
+        處理文字訊息：呼叫 AgentOrchestrator → Edit-Streaming 回覆 Telegram。
+
+        Telegram 支援 editMessageText，因此採用與 Discord 相同的
+        edit-streaming 模式：先發一則「思考中」，再不斷 edit 更新內容。
 
         使用獨立 DB session（因為此方法在 BackgroundTask 中執行）。
         """
-        tools_used: list[str] = []
+        from app.services.agent_stream_helper import AgentStreamCollector
+
+        # Step 1: 送出初始訊息，取得 message_id
+        initial_msg_id = await self._send_and_get_id(chat_id, "\U0001f914 思考中...")
+
+        # Step 2: 建立 edit-streaming collector
+        async def on_text_update(partial: str) -> None:
+            """Edit 訊息以呈現部分回答 (附閃爍游標)"""
+            if not initial_msg_id or not partial:
+                return
+            # Telegram 4096 char limit; keep room for cursor
+            display = partial[:4000] + " \u258d" if len(partial) <= 4000 else partial[:4090] + "..."
+            await self._edit_message(chat_id, initial_msg_id, display)
+
+        collector = AgentStreamCollector(
+            on_text_update=on_text_update if initial_msg_id else None,
+            update_interval=1.5,
+        )
+
+        # Step 3: Stream from orchestrator
         try:
-            answer = await asyncio.wait_for(
-                self._query_agent(user_id, text, tools_used),
+            result = await asyncio.wait_for(
+                self._stream_agent(user_id, text, collector),
                 timeout=self._reply_timeout,
             )
         except asyncio.TimeoutError:
-            answer = "⏱ 查詢處理時間較長，請稍後再試。"
             logger.warning("Telegram agent query timeout for user %s", user_id)
+            final = "\u23f1 查詢處理時間較長，請稍後再試。"
+            if initial_msg_id:
+                await self._edit_message(chat_id, initial_msg_id, final)
+            else:
+                await self.send_message(chat_id, final)
+            return
         except Exception as e:
-            answer = "系統暫時無法回應，請稍後再試。"
             logger.error("Telegram agent query failed: %s", e)
+            final = "系統暫時無法回應，請稍後再試。"
+            if initial_msg_id:
+                await self._edit_message(chat_id, initial_msg_id, final)
+            else:
+                await self.send_message(chat_id, final)
+            return
 
-        # 附加工具摘要
-        if tools_used:
-            tools_str = "、".join(tools_used[:5])
-            answer += f"\n\n🔧 {tools_str}"
+        # Step 4: Final edit with complete response + tool footer
+        final = result.answer
+        final += AgentStreamCollector.build_tool_footer(result.tools_used)
+        if len(final) > 4090:
+            final = final[:4087] + "..."
 
-        # Telegram message limit: 4096 chars
-        if len(answer) > 4000:
-            answer = answer[:3997] + "..."
+        if initial_msg_id:
+            await self._edit_message(chat_id, initial_msg_id, final)
+        else:
+            await self.send_message(chat_id, final)
 
-        await self.send_message(chat_id, answer)
-
-    async def _query_agent(
-        self, user_id: int, text: str, tools_used: list[str] | None = None,
-    ) -> str:
-        """呼叫 AgentOrchestrator 取得回答（含 Redis 對話記憶）"""
+    async def _stream_agent(
+        self,
+        user_id: int,
+        text: str,
+        collector: "AgentStreamCollector",
+    ) -> "StreamResult":
+        """Run agent orchestrator and collect results via shared collector."""
         from app.db.database import AsyncSessionLocal
         from app.services.ai.agent_orchestrator import AgentOrchestrator
         from app.services.ai.agent_conversation_memory import get_conversation_memory
+        from app.services.sender_context import SenderContext
+        from app.services.agent_stream_helper import StreamResult
 
         session_id = f"telegram:{user_id}"
+
+        sender_ctx = SenderContext(
+            user_id=str(user_id),
+            display_name=f"Telegram#{str(user_id)[:8]}",
+            channel="telegram",
+        )
 
         conv_memory = get_conversation_memory()
         history = await conv_memory.load(session_id)
 
         async with AsyncSessionLocal() as db:
             orchestrator = AgentOrchestrator(db)
-            answer_tokens: list[str] = []
+            result = await collector.collect(
+                orchestrator.stream_agent_query(
+                    question=text,
+                    history=history,
+                    session_id=session_id,
+                    sender_context=sender_ctx,
+                )
+            )
 
-            async for event_str in orchestrator.stream_agent_query(
-                question=text,
-                history=history,
-                session_id=session_id,
-            ):
-                if not event_str.startswith("data: "):
-                    continue
-                try:
-                    event = json.loads(event_str[6:])
-                except (json.JSONDecodeError, IndexError):
-                    continue
-
-                event_type = event.get("type")
-                if event_type == "token":
-                    answer_tokens.append(event.get("token", ""))
-                elif event_type == "tool_call" and tools_used is not None:
-                    tool_name = event.get("tool", "")
-                    if tool_name and tool_name not in tools_used:
-                        tools_used.append(tool_name)
-                elif event_type == "error":
-                    return event.get("error", "查詢失敗")
-
-            answer = "".join(answer_tokens) or "無法產生回答，請換個方式提問。"
-
-        await conv_memory.save(session_id, text, answer, history)
-        return answer
+        await conv_memory.save(session_id, text, result.answer, history)
+        return result
 
     # ── 圖片訊息處理 ──
 
@@ -252,6 +278,65 @@ class TelegramBotService:
             payload["parse_mode"] = ""
             success = await self._call_telegram_api("/sendMessage", payload)
         return success
+
+    async def _send_and_get_id(
+        self, chat_id: int, text: str, parse_mode: str = "",
+    ) -> Optional[int]:
+        """Send a message and return its message_id (for later editing).
+
+        Returns None if the send fails.
+        """
+        if not self._bot_token:
+            return None
+
+        url = f"{TELEGRAM_API_BASE}/bot{self._bot_token}/sendMessage"
+        payload = {"chat_id": chat_id, "text": text}
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(url, json=payload)
+                if resp.status_code != 200:
+                    logger.error("Telegram sendMessage failed: %d %s", resp.status_code, resp.text[:200])
+                    return None
+                data = resp.json()
+                if not data.get("ok"):
+                    return None
+                return data.get("result", {}).get("message_id")
+        except Exception as e:
+            logger.error("Telegram sendMessage request failed: %s", e)
+            return None
+
+    async def _edit_message(
+        self, chat_id: int, message_id: int, text: str, parse_mode: str = "",
+    ) -> bool:
+        """Edit an existing message via editMessageText."""
+        if not self._bot_token:
+            return False
+
+        url = f"{TELEGRAM_API_BASE}/bot{self._bot_token}/editMessageText"
+        payload = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "text": text or "(empty)",
+        }
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(url, json=payload)
+                if resp.status_code != 200:
+                    # 400 "message is not modified" is expected if text unchanged
+                    if resp.status_code == 400 and "not modified" in resp.text.lower():
+                        return True
+                    logger.debug("Telegram editMessageText failed: %d %s", resp.status_code, resp.text[:200])
+                    return False
+                return True
+        except Exception as e:
+            logger.debug("Telegram editMessageText request failed: %s", e)
+            return False
 
     async def push_message(self, chat_id: int, text: str) -> bool:
         """主動推播訊息（與 send_message 相同，語意對齊 LineBotService）"""

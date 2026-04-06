@@ -159,14 +159,14 @@ class DiscordBotService:
     ) -> None:
         """Edit-Streaming: send initial followup, then edit as tokens arrive.
 
-        This replaces the old fire-and-forget deferred pattern. Instead of
-        collecting all tokens then posting once, we:
+        Uses AgentStreamCollector for shared streaming logic:
         1. POST initial "thinking" followup message
-        2. Stream tokens from agent, editing the message every ~1.5s
+        2. Stream tokens from agent, editing the message every ~1.5s via collector
         3. Final edit with complete response (removes cursor indicator)
         """
         import httpx
         from app.services.sender_context import SenderContext
+        from app.services.agent_stream_helper import AgentStreamCollector
 
         webhook_base = f"https://discord.com/api/v10/webhooks/{application_id}/{interaction_token}"
 
@@ -185,7 +185,7 @@ class DiscordBotService:
             async with httpx.AsyncClient() as client:
                 init_resp = await client.post(
                     webhook_base,
-                    json={"content": f"{status.format_prefix()}思考中..."},
+                    json={"content": f"{status.format_prefix()}\u601d\u8003\u4e2d..."},
                     timeout=10,
                 )
                 if init_resp.status_code not in (200, 204):
@@ -198,11 +198,22 @@ class DiscordBotService:
             logger.error("Discord followup init request failed: %s", e)
             return
 
-        # Step 2: Stream agent response, editing the message periodically
-        buffer: list = []
-        tools_used: list = []
-        last_edit_time = time.monotonic()
-        had_error = False
+        # Step 2: Stream via shared collector with edit callbacks
+        async def on_status_change(emoji: str, description: str) -> None:
+            status.set_status(emoji)
+
+        async def on_text_update(partial: str) -> None:
+            display = _truncate(partial, _SAFE_CONTENT_LEN)
+            await _edit_followup(
+                webhook_base,
+                f"{status.format_prefix()}{display} \u258d",  # cursor
+            )
+
+        collector = AgentStreamCollector(
+            on_status_change=on_status_change,
+            on_text_update=on_text_update,
+            update_interval=_EDIT_INTERVAL,
+        )
 
         try:
             from app.services.ai.agent_orchestrator import AgentOrchestrator
@@ -215,67 +226,38 @@ class DiscordBotService:
 
             async with AsyncSessionLocal() as db:
                 orchestrator = AgentOrchestrator(db)
+                result = await collector.collect(
+                    orchestrator.stream_agent_query(
+                        question=question[:2000],
+                        session_id=session_id,
+                        history=history,
+                        sender_context=sender_ctx,
+                    )
+                )
 
-                async for event_str in orchestrator.stream_agent_query(
-                    question=question[:2000],
-                    session_id=session_id,
-                    history=history,
-                    sender_context=sender_ctx,
-                ):
-                    if not event_str.startswith("data: "):
-                        continue
-                    try:
-                        event = json.loads(event_str[6:])
-                    except (json.JSONDecodeError, IndexError):
-                        continue
-
-                    event_type = event.get("type")
-
-                    if event_type == "token":
-                        buffer.append(event.get("token", ""))
-                        status.set_status(StatusIndicator.THINKING)
-                    elif event_type == "tool_call":
-                        tool_name = event.get("tool", "")
-                        if tool_name:
-                            status.on_tool_call(tool_name)
-                            if tool_name not in tools_used:
-                                tools_used.append(tool_name)
-                    elif event_type == "thinking":
-                        status.set_status(StatusIndicator.THINKING)
-                    elif event_type == "error":
-                        had_error = True
-                        buffer.append(event.get("error", "查詢失敗"))
-
-                    # Edit message at intervals (rate-limit friendly)
-                    now = time.monotonic()
-                    if now - last_edit_time >= _EDIT_INTERVAL and buffer:
-                        text = "".join(buffer)
-                        display = _truncate(text, _SAFE_CONTENT_LEN)
-                        await _edit_followup(
-                            webhook_base,
-                            f"{status.format_prefix()}{display} \u258d",  # ▍ cursor
-                        )
-                        last_edit_time = now
-
-            # Save conversation memory
-            answer = "".join(buffer) or "無法產生回答。"
-            await conv_memory.save(session_id, question, answer, history)
+            await conv_memory.save(session_id, question, result.answer, history)
 
         except Exception as e:
             logger.error("Discord edit-streaming agent query failed: %s", e)
-            had_error = True
-            if not buffer:
-                buffer.append("Agent 處理時發生錯誤，請稍後再試。")
+            if not collector._tokens:
+                collector._tokens.append("Agent \u8655\u7406\u6642\u767c\u751f\u932f\u8aa4\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002")
+            collector._had_error = True
+            # Build a minimal result for the final edit
+            from app.services.agent_stream_helper import StreamResult
+            result = StreamResult(
+                answer="".join(collector._tokens),
+                tools_used=list(collector._tools),
+                latency_ms=0,
+                token_count=len(collector._tokens),
+            )
 
         # Step 3: Final edit with complete response
-        final_status = StatusIndicator.ERROR if had_error else StatusIndicator.DONE
-        final_text = "".join(buffer) or "無法產生回答。"
-        display = _truncate(final_text, _SAFE_CONTENT_LEN)
+        final_status = StatusIndicator.ERROR if collector.had_error else StatusIndicator.DONE
+        display = _truncate(result.answer, _SAFE_CONTENT_LEN)
 
-        # Add tool usage footer if applicable
         footer = ""
-        if tools_used:
-            footer = f"\n\n`tools: {', '.join(tools_used[:5])}`"
+        if result.tools_used:
+            footer = f"\n\n`tools: {', '.join(result.tools_used[:5])}`"
 
         final_content = f"{final_status} {display}{footer}"
         await _edit_followup(webhook_base, final_content)

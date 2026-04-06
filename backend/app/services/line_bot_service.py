@@ -185,20 +185,39 @@ class LineBotService:
         """
         處理文字訊息：呼叫 AgentOrchestrator → Flex Message 回覆 LINE。
 
+        LINE 不支援 editMessage，因此無法做 edit-streaming。改為：
+        1. 顯示 LINE loading indicator (氣泡動畫)
+        2. 使用 AgentStreamCollector 收集完整回答 + 追蹤工具使用
+        3. 一次性回覆完整答案
+
         使用獨立 DB session（因為此方法在 BackgroundTask 中執行）。
         """
-        tools_used = []
+        from app.services.agent_stream_helper import AgentStreamCollector
+
+        # Show loading indicator (bubble animation) while processing
+        await self._show_loading(user_id)
+
+        # Collect full answer (no periodic updates -- LINE can't edit)
+        collector = AgentStreamCollector(update_interval=999)
+
         try:
-            answer = await asyncio.wait_for(
-                self._query_agent(user_id, text, tools_used),
+            result = await asyncio.wait_for(
+                self._stream_agent(user_id, text, collector),
                 timeout=self._reply_timeout,
             )
+            answer = result.answer
+            tools_used = result.tools_used
         except asyncio.TimeoutError:
             answer = "查詢處理時間較長，請稍後再試。"
+            tools_used = []
             logger.warning("LINE agent query timeout for user %s", user_id)
         except Exception as e:
             answer = "處理時發生錯誤，請稍後再試。"
+            tools_used = []
             logger.error("LINE agent query failed: %s", e)
+
+        # Append tool footer
+        answer += AgentStreamCollector.build_tool_footer(tools_used)
 
         # Flex Message 回覆 (含工具摘要 + Quick Reply)
         if tools_used and len(answer) > 60:
@@ -215,10 +234,13 @@ class LineBotService:
                 answer = answer[:4990] + "\n...(已截斷)"
             await self.reply_message(reply_token, answer)
 
-    async def _query_agent(
-        self, user_id: str, text: str, tools_used: list = None,
-    ) -> str:
-        """呼叫 AgentOrchestrator 取得回答（含 Redis 對話記憶）"""
+    async def _stream_agent(
+        self,
+        user_id: str,
+        text: str,
+        collector: "AgentStreamCollector",
+    ) -> "StreamResult":
+        """Run agent orchestrator and collect results via shared collector."""
         from app.db.database import AsyncSessionLocal
         from app.services.ai.agent_orchestrator import AgentOrchestrator
         from app.services.ai.agent_conversation_memory import get_conversation_memory
@@ -226,7 +248,6 @@ class LineBotService:
 
         session_id = f"line:{user_id}"
 
-        # Build sender context for agent
         sender_ctx = SenderContext(
             user_id=user_id,
             display_name=f"LINE#{user_id[:8]}",
@@ -238,35 +259,39 @@ class LineBotService:
 
         async with AsyncSessionLocal() as db:
             orchestrator = AgentOrchestrator(db)
-            answer_tokens = []
+            result = await collector.collect(
+                orchestrator.stream_agent_query(
+                    question=text,
+                    history=history,
+                    session_id=session_id,
+                    sender_context=sender_ctx,
+                )
+            )
 
-            async for event_str in orchestrator.stream_agent_query(
-                question=text,
-                history=history,
-                session_id=session_id,
-                sender_context=sender_ctx,
-            ):
-                if not event_str.startswith("data: "):
-                    continue
-                try:
-                    event = json.loads(event_str[6:])
-                except (json.JSONDecodeError, IndexError):
-                    continue
+        await conv_memory.save(session_id, text, result.answer, history)
+        return result
 
-                event_type = event.get("type")
-                if event_type == "token":
-                    answer_tokens.append(event.get("token", ""))
-                elif event_type == "tool_call" and tools_used is not None:
-                    tool_name = event.get("tool", "")
-                    if tool_name and tool_name not in tools_used:
-                        tools_used.append(tool_name)
-                elif event_type == "error":
-                    return event.get("error", "查詢失敗")
+    async def _show_loading(self, user_id: str) -> None:
+        """Show LINE loading indicator (bubble animation).
 
-            answer = "".join(answer_tokens) or "無法產生回答，請換個方式提問。"
-
-        await conv_memory.save(session_id, text, answer, history)
-        return answer
+        Uses POST /v2/bot/chat/loading/start which shows a typing
+        indicator for up to 20 seconds (or until a message is sent).
+        """
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.post(
+                    "https://api.line.me/v2/bot/chat/loading/start",
+                    json={"chatId": user_id},
+                    headers={
+                        "Authorization": f"Bearer {self._channel_access_token}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                if resp.status_code != 200:
+                    logger.debug("LINE loading indicator failed: %d", resp.status_code)
+        except Exception:
+            # Non-critical; silently ignore
+            pass
 
     async def reply_message(self, reply_token: str, text: str) -> bool:
         """使用 reply token 回覆 LINE 訊息"""
