@@ -1,7 +1,7 @@
 /**
  * 能力雷達 Tab — Recharts RadarChart 呈現領域能力 + 今日觀察
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Row, Col, Card, Typography, Space, Tag, Empty, Spin, Alert, Statistic } from 'antd';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
@@ -32,25 +32,28 @@ const DOMAIN_LABELS: Record<string, string> = {
   pm: '專案', erp: '財務', analysis: '分析', general: '通用',
 };
 
-export const CapabilityRadarTab: React.FC = () => {
+const CapabilityRadarTabInner: React.FC = () => {
   const { data, isLoading, isError } = useQuery<DashboardData>({
     queryKey: ['dt-dashboard'],
     queryFn: () => apiClient.post(DIGITAL_TWIN_ENDPOINTS.DASHBOARD, {}),
     staleTime: 5 * 60_000,
   });
 
-  if (isLoading) return <Spin tip="載入能力分析..." style={{ display: 'block', padding: 40, textAlign: 'center' }} />;
-  if (isError) return <Alert type="warning" showIcon title="能力資料載入失敗" />;
-
   const capability = data?.capability;
   const daily = data?.daily;
 
-  // 雷達圖資料
-  const radarData = (capability?.domains ?? []).map(d => ({
-    domain: DOMAIN_LABELS[d.domain] ?? d.domain,
-    score: Math.round(d.score * 100),
-    fullMark: 100,
-  }));
+  // 雷達圖資料 — memoize to avoid re-computation on every render (before early returns)
+  const radarData = useMemo(
+    () => (capability?.domains ?? []).map(d => ({
+      domain: DOMAIN_LABELS[d.domain] ?? d.domain,
+      score: Math.round(d.score * 100),
+      fullMark: 100,
+    })),
+    [capability?.domains],
+  );
+
+  if (isLoading) return <Spin tip="載入能力分析..." style={{ display: 'block', padding: 40, textAlign: 'center' }} />;
+  if (isError) return <Alert type="warning" showIcon title="能力資料載入失敗" />;
 
   return (
     <Row gutter={[16, 16]}>
@@ -141,3 +144,5 @@ export const CapabilityRadarTab: React.FC = () => {
     </Row>
   );
 };
+
+export const CapabilityRadarTab = React.memo(CapabilityRadarTabInner);

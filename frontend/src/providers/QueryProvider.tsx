@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React, { useEffect } from 'react';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 // DevTools 已停用 - 與 AI 助理浮動按鈕位置衝突
 // import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { message } from 'antd';
@@ -58,6 +58,29 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Prefetch agent profile + key data on auth success to warm caches */
+const PrefetchOnAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const handleLogin = () => {
+      // Prefetch agent self-profile (used by AgentDashboard sidebar)
+      qc.prefetchQuery({
+        queryKey: ['agent-self-profile'],
+        queryFn: () =>
+          import('../api/client').then(m =>
+            m.apiClient.post('/ai/digital-twin/introspection/profile', {}),
+          ),
+        staleTime: 5 * 60 * 1000,
+      });
+    };
+    window.addEventListener('user-logged-in', handleLogin);
+    // Also prefetch on mount if already authenticated
+    if (localStorage.getItem('access_token')) handleLogin();
+    return () => window.removeEventListener('user-logged-in', handleLogin);
+  }, [qc]);
+  return <>{children}</>;
+};
+
 interface QueryProviderProps {
   children: React.ReactNode;
 }
@@ -65,7 +88,7 @@ interface QueryProviderProps {
 export const QueryProvider: React.FC<QueryProviderProps> = ({ children }) => {
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <PrefetchOnAuth>{children}</PrefetchOnAuth>
     </QueryClientProvider>
   );
 };

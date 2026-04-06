@@ -129,7 +129,7 @@ const chronicColumns = [
   { title: '失敗次數', dataIndex: 'failure_count', key: 'failure_count', width: 90, render: (v: number) => <Text type="danger">{v}</Text> },
 ];
 
-export const EvolutionMetricsCard: React.FC = () => {
+const EvolutionMetricsCardInner: React.FC = () => {
   const { data, isLoading } = useQuery<EvolutionMetrics>({
     queryKey: ['evolution-metrics'],
     queryFn: () => apiClient.post<{ data: EvolutionMetrics }>(AI_ENDPOINTS.STATS_EVOLUTION_METRICS, {}).then((r) => r.data),
@@ -175,8 +175,8 @@ export const EvolutionMetricsCard: React.FC = () => {
               columns={enhanceColumns(historyColumns, data.evolution_history)}
               rowKey="id"
               size="small"
-              pagination={false}
-              scroll={{ x: 600, y: 280 }}
+              pagination={{ pageSize: 5, showSizeChanger: false }}
+              scroll={{ x: 600 }}
             />
           </Card>
         </Col>
@@ -190,8 +190,7 @@ export const EvolutionMetricsCard: React.FC = () => {
                 columns={enhanceColumns(chronicColumns, data.chronic_patterns)}
                 rowKey="id"
                 size="small"
-                pagination={false}
-                scroll={{ y: 280 }}
+                pagination={{ pageSize: 5, showSizeChanger: false }}
               />
             )}
           </Card>
@@ -200,3 +199,5 @@ export const EvolutionMetricsCard: React.FC = () => {
     </div>
   );
 };
+
+export const EvolutionMetricsCard = React.memo(EvolutionMetricsCardInner);

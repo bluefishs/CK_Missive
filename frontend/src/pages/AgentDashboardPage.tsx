@@ -11,9 +11,9 @@
  * @created 2026-04-05
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Row, Col, Typography, Badge, Tabs, Card, Alert, Spin, Tag,
+  Row, Col, Typography, Badge, Tabs, Card, Alert, Spin, Skeleton, Tag,
   Space, Progress, Statistic, Divider,
 } from 'antd';
 import {
@@ -22,7 +22,7 @@ import {
   RobotOutlined, ThunderboltOutlined, BookOutlined,
   TrophyOutlined, CloudServerOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { AI_ENDPOINTS, DIGITAL_TWIN_ENDPOINTS } from '../api/endpoints';
 import { checkGatewayHealth, getAgentTopology } from '../api/digitalTwin';
@@ -62,14 +62,13 @@ interface DashboardSnapshot {
   health: { available: boolean; systems_count: number } | null;
 }
 
-const AgentSidebar: React.FC<AgentSidebarProps> = ({
+const AgentSidebarInner: React.FC<AgentSidebarProps> = ({
   profile, loading, error, dashboardData, dashboardLoading,
 }) => {
   if (loading) {
     return (
-      <Card style={{ textAlign: 'center', padding: 32 }}>
-        <Spin size="large" />
-        <div style={{ marginTop: 12 }}><Text type="secondary">載入智能體檔案...</Text></div>
+      <Card styles={{ body: { padding: '20px 16px' } }}>
+        <Skeleton active avatar={{ shape: 'circle', size: 52 }} paragraph={{ rows: 6 }} />
       </Card>
     );
   }
@@ -214,6 +213,8 @@ const AgentSidebar: React.FC<AgentSidebarProps> = ({
   );
 };
 
+const AgentSidebar = React.memo(AgentSidebarInner);
+
 // ── Topology Tab (inline, re-uses digitalTwin API) ───────────
 
 const TopologyTab: React.FC = () => {
@@ -285,6 +286,16 @@ const GatewayHealthBadge: React.FC = () => {
 
 const AgentDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('chat');
+  const queryClient = useQueryClient();
+
+  // Prefetch self-profile on mount to warm cache
+  useEffect(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['agent-self-profile'],
+      queryFn: () => apiClient.post<AgentSelfProfile>(AI_ENDPOINTS.AGENT_SELF_PROFILE, {}),
+      staleTime: 5 * 60_000,
+    });
+  }, [queryClient]);
 
   // Self-profile
   const { data: profile, isLoading: profileLoading, isError: profileError } = useQuery<AgentSelfProfile>({
@@ -301,7 +312,8 @@ const AgentDashboardPage: React.FC = () => {
     staleTime: 5 * 60_000,
   });
 
-  const tabItems = [
+  // Memoize tab items to prevent re-creation on every render
+  const tabItems = useMemo(() => [
     createTabItem('chat', { icon: <MessageOutlined />, text: '對話' },
       <React.Suspense fallback={<Spin tip="載入對話..." style={{ display: 'block', padding: 40, textAlign: 'center' }} />}>
         <RAGChatPanel embedded agentMode />
@@ -320,7 +332,7 @@ const AgentDashboardPage: React.FC = () => {
     createTabItem('topology', { icon: <ApartmentOutlined />, text: '拓撲' },
       <TopologyTab />
     ),
-  ];
+  ], []);
 
   return (
     <div style={{ padding: '0 0 24px' }}>
