@@ -6,7 +6,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Form, App } from 'antd';
+import { Form, App, Modal } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../config/queryConfig';
 import dayjs from 'dayjs';
@@ -86,7 +86,7 @@ export function useTaoyuanProjectDetail() {
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tab 變更時更新 URL
-  const handleTabChange = useCallback(
+  const applyTabChange = useCallback(
     (tabKey: string) => {
       setActiveTab(tabKey);
       const params: Record<string, string> = { tab: tabKey };
@@ -210,6 +210,44 @@ export function useTaoyuanProjectDetail() {
     }
   }, [project, form]);
 
+  // === Unsaved changes guard ===
+
+  /** 若有未儲存的變更，彈出確認對話框；否則直接執行 onOk */
+  const confirmLeave = useCallback((onOk: () => void) => {
+    if (isEditing && form.isFieldsTouched()) {
+      Modal.confirm({
+        title: '尚有未儲存的變更',
+        content: '離開將會遺失所有修改，確定要離開嗎？',
+        okText: '離開',
+        cancelText: '繼續編輯',
+        okButtonProps: { danger: true },
+        onOk,
+      });
+    } else {
+      onOk();
+    }
+  }, [isEditing, form]);
+
+  /** Tab 切換時攔截未儲存變更 */
+  const handleTabChange = useCallback(
+    (tabKey: string) => {
+      confirmLeave(() => applyTabChange(tabKey));
+    },
+    [confirmLeave, applyTabChange],
+  );
+
+  // 瀏覽器關閉/重整前警告
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isEditing && form.isFieldsTouched()) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isEditing, form]);
+
   // === Handlers ===
 
   const handleSave = async () => {
@@ -269,6 +307,7 @@ export function useTaoyuanProjectDetail() {
     handleSave,
     handleCancelEdit,
     handleLinkDispatch,
+    confirmLeave,
     refetch,
     message,
   };
