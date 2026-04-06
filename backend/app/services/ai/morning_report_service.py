@@ -69,41 +69,91 @@ class MorningReportService:
         return await self.generate_summary_from_data(data)
 
     async def generate_summary_from_data(self, data: Dict[str, Any]) -> str:
-        """Generate Gemma 4 summary from pre-fetched report data."""
-        # Build data summary for Gemma 4
+        """Generate detailed summary with specific case information."""
         parts = []
-        dd = data.get("dispatch_deadlines", {})
-        if dd.get("today_count", 0) > 0:
-            parts.append(f"今日到期派工 {dd['today_count']} 筆")
-        if dd.get("week_count", 0) > 0:
-            parts.append(f"本週到期 {dd['week_count']} 筆")
+        details = []  # 具體案件明細
 
+        # 1. 本週到期派工 — 列出具體派工單
+        dd = data.get("dispatch_deadlines", {})
+        if dd.get("week_count", 0) > 0:
+            parts.append(f"本週到期派工 {dd['week_count']} 筆")
+            for item in dd.get("week_items", [])[:5]:
+                days = item.get("days_left", 0)
+                urgency = "🔴 今日" if days == 0 else f"⏰ 剩 {days} 天"
+                details.append(
+                    f"  {urgency} {item['dispatch_no']} — "
+                    f"{item.get('sub_case') or item.get('project_name', '')}"
+                    f" (承辦: {item.get('handler', '未指定')}，到期: {item['deadline']})"
+                )
+
+        # 2. 逾期項目 — 列出具體派工單和公文
         ov = data.get("overdue_items", {})
         if ov.get("dispatch_count", 0) > 0:
             parts.append(f"逾期派工 {ov['dispatch_count']} 筆")
+            for item in ov.get("dispatch_items", [])[:5]:
+                details.append(
+                    f"  🚨 逾期 {item['overdue_days']} 天 {item['dispatch_no']} — "
+                    f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
+                )
         if ov.get("doc_count", 0) > 0:
             parts.append(f"逾期公文 {ov['doc_count']} 筆")
+            for item in ov.get("doc_items", [])[:3]:
+                details.append(f"  📄 {item['doc_number']} — {item['subject']}")
 
+        # 3. 待審費用 — 列出具體發票
         pe = data.get("pending_expenses", {})
         if pe.get("count", 0) > 0:
-            parts.append(
-                f"待審費用 {pe['count']} 筆 (${pe.get('total_amount', 0):,.0f})"
-            )
+            parts.append(f"待審費用 {pe['count']} 筆 (NT${pe.get('total_amount', 0):,.0f})")
+            for item in pe.get("items", [])[:3]:
+                details.append(
+                    f"  💰 {item.get('inv_num', '無號')} NT${item['amount']:,.0f} "
+                    f"— {item.get('vendor', '')} ({item.get('case_code', '')})"
+                )
 
+        # 4. 里程碑
         ms = data.get("upcoming_milestones", {})
         if ms.get("count", 0) > 0:
             parts.append(f"近期里程碑 {ms['count']} 項")
 
+        # 5. 新收公文
         nd = data.get("new_documents", {})
         if nd.get("count", 0) > 0:
             parts.append(f"昨日新收公文 {nd['count']} 筆")
 
+        # 6. 標案
         ta = data.get("tender_alerts", {})
         if ta.get("count", 0) > 0:
-            parts.append(f"標案提醒 {ta['count']} 則")
+            parts.append(f"標案訂閱 {ta['count']} 則")
 
         if not parts:
-            return "📋 今日晨報：一切正常，無待處理事項。"
+            return "📋 今日晨報：一切正常，無待處理事項。👍"
+
+        # 組合：直接給明細，不需要 Gemma 4 (避免資訊遺失)
+        header = f"📋 {datetime.now().strftime('%m/%d')} 晨報\n"
+        summary_line = " | ".join(parts)
+        detail_text = "\n".join(details) if details else ""
+
+        report = f"{header}\n📊 {summary_line}\n"
+        if detail_text:
+            report += f"\n{detail_text}\n"
+
+        # 用 Gemma 4 只生成一句結尾建議
+        try:
+            from app.core.ai_connector import get_ai_connector
+            ai = get_ai_connector()
+            advice_prompt = (
+                f"根據以下追蹤事項，給出一句簡短的今日工作建議（20字內）：\n"
+                f"{summary_line}"
+            )
+            advice = await ai.chat_completion(
+                messages=[{"role": "user", "content": advice_prompt}],
+                temperature=0.5, max_tokens=50, task_type="chat",
+            )
+            report += f"\n💡 {advice.strip()}"
+        except Exception:
+            report += "\n💡 優先處理逾期和到期項目。"
+
+        return report
 
         # Gemma 4 summarize
         try:
@@ -150,78 +200,119 @@ class MorningReportService:
         return None
 
     async def _get_dispatch_deadlines(self, today, week_later) -> dict:
-        """Count dispatch deadlines — handles ROC date format (varchar)."""
+        """Get dispatch deadlines with DETAILS — not just counts."""
         try:
             r = await self.db.execute(
                 text("""
-                SELECT id, deadline FROM taoyuan_dispatch_orders
+                SELECT id, dispatch_no, deadline, project_name, case_handler, sub_case_name
+                FROM taoyuan_dispatch_orders
                 WHERE deadline IS NOT NULL AND deadline != '' AND batch_no IS NULL
             """)
             )
-            today_count = 0
-            week_count = 0
+            today_items = []
+            week_items = []
             for row in r.all():
-                dl = self._parse_roc_date(row[1])
+                dl = self._parse_roc_date(row[2])
                 if not dl:
                     continue
+                item = {
+                    "dispatch_no": row[1],
+                    "deadline": str(dl),
+                    "project_name": row[3] or "",
+                    "handler": row[4] or "",
+                    "sub_case": row[5] or "",
+                    "days_left": (dl - today).days,
+                }
                 if dl == today:
-                    today_count += 1
+                    today_items.append(item)
                 if today <= dl <= week_later:
-                    week_count += 1
-            return {"today_count": today_count, "week_count": week_count}
+                    week_items.append(item)
+            week_items.sort(key=lambda x: x["deadline"])
+            return {
+                "today_count": len(today_items),
+                "week_count": len(week_items),
+                "today_items": today_items,
+                "week_items": week_items,
+            }
         except Exception as e:
             logger.debug("dispatch_deadlines query failed: %s", e)
-            return {"today_count": 0, "week_count": 0}
+            return {"today_count": 0, "week_count": 0, "today_items": [], "week_items": []}
 
     async def _get_overdue_items(self, today) -> dict:
-        """Count overdue items — handles ROC date for dispatch, Date for documents."""
+        """Get overdue items with DETAILS."""
         try:
-            # Dispatch: ROC date varchar
             r1 = await self.db.execute(
                 text("""
-                SELECT deadline FROM taoyuan_dispatch_orders
+                SELECT id, dispatch_no, deadline, project_name, case_handler
+                FROM taoyuan_dispatch_orders
                 WHERE deadline IS NOT NULL AND deadline != '' AND batch_no IS NULL
             """)
             )
-            dispatch_overdue = 0
+            overdue_dispatches = []
             for row in r1.all():
-                dl = self._parse_roc_date(row[0])
+                dl = self._parse_roc_date(row[2])
                 if dl and dl < today:
-                    dispatch_overdue += 1
+                    overdue_dispatches.append({
+                        "dispatch_no": row[1],
+                        "deadline": str(dl),
+                        "project_name": row[3] or "",
+                        "handler": row[4] or "",
+                        "overdue_days": (today - dl).days,
+                    })
+            overdue_dispatches.sort(key=lambda x: -x["overdue_days"])
 
-            # Documents: proper date field
             r2 = await self.db.execute(
                 text("""
-                SELECT COUNT(*) FROM documents
+                SELECT id, doc_number, subject, deadline
+                FROM documents
                 WHERE deadline IS NOT NULL AND deadline < :today AND status = 'pending'
+                ORDER BY deadline
+                LIMIT 10
             """),
                 {"today": today},
             )
+            overdue_docs = [
+                {"doc_number": row[1], "subject": (row[2] or "")[:40], "deadline": str(row[3])}
+                for row in r2.all()
+            ]
             return {
-                "dispatch_count": dispatch_overdue,
-                "doc_count": r2.scalar() or 0,
+                "dispatch_count": len(overdue_dispatches),
+                "doc_count": len(overdue_docs),
+                "dispatch_items": overdue_dispatches[:10],
+                "doc_items": overdue_docs,
             }
         except Exception as e:
             logger.debug("overdue_items query failed: %s", e)
-            return {"dispatch_count": 0, "doc_count": 0}
+            return {"dispatch_count": 0, "doc_count": 0, "dispatch_items": [], "doc_items": []}
 
     async def _get_pending_expenses(self) -> dict:
         try:
             r = await self.db.execute(
                 text("""
-                SELECT COUNT(*), COALESCE(SUM(total_amount), 0)
+                SELECT id, inv_num, total_amount, status, case_code, vendor_name,
+                       created_at
                 FROM expense_invoices
                 WHERE status IN ('pending', 'manager_approved')
+                ORDER BY total_amount DESC
+                LIMIT 10
             """)
             )
-            row = r.first()
-            return {
-                "count": row[0] or 0 if row else 0,
-                "total_amount": float(row[1] or 0) if row else 0,
-            }
+            items = []
+            total_amount = 0.0
+            for row in r.all():
+                amt = float(row[2] or 0)
+                total_amount += amt
+                items.append({
+                    "inv_num": row[1] or "",
+                    "amount": amt,
+                    "status": row[3],
+                    "case_code": row[4] or "未歸屬",
+                    "vendor": row[5] or "",
+                })
+            return {"count": len(items), "total_amount": total_amount, "items": items}
         except Exception as e:
             logger.debug("pending_expenses query failed: %s", e)
-            return {"count": 0, "total_amount": 0}
+            return {"count": 0, "total_amount": 0, "items": []}
 
     async def _get_upcoming_milestones(self, today, week_later) -> dict:
         try:
