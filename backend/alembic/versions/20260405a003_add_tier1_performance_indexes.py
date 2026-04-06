@@ -45,8 +45,7 @@ def upgrade() -> None:
     # === Taoyuan Dispatch Orders ===
     op.create_index('ix_dispatch_orders_work_type', 'taoyuan_dispatch_orders',
                      ['work_type'], if_not_exists=True)
-    op.create_index('ix_dispatch_orders_status', 'taoyuan_dispatch_orders',
-                     ['status'], if_not_exists=True)
+    # NOTE: taoyuan_dispatch_orders has no 'status' column — skipped
 
     # === ERP Quotations (cross-module lookup) ===
     op.create_index('ix_erp_quotations_case_project', 'erp_quotations',
@@ -66,7 +65,6 @@ def downgrade() -> None:
     op.drop_index('ix_expense_invoices_status', table_name='expense_invoices')
     op.drop_index('ix_ledger_entry_type', table_name='finance_ledgers')
     op.drop_index('ix_erp_quotations_case_project', table_name='erp_quotations')
-    op.drop_index('ix_dispatch_orders_status', table_name='taoyuan_dispatch_orders')
     op.drop_index('ix_dispatch_orders_work_type', table_name='taoyuan_dispatch_orders')
     op.drop_index('ix_contract_projects_year_status', table_name='contract_projects')
     op.drop_index('ix_contract_projects_status', table_name='contract_projects')
