@@ -281,9 +281,60 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.warning("收款通知發送失敗 (不影響帳本): %s", e)
 
+        async def on_document_received(event):
+            """Auto-trigger NER extraction for new documents."""
+            doc_id = event.payload.get("document_id")
+            if not doc_id:
+                return
+            try:
+                from app.db.database import AsyncSessionLocal
+                from app.services.ai.entity_extraction_service import extract_entities_for_document
+                async with AsyncSessionLocal() as db:
+                    result = await extract_entities_for_document(db, doc_id, commit=True)
+                    logger.info(
+                        "Auto-NER triggered for document %s: %s entities, %s relations",
+                        doc_id,
+                        result.get("entities_count", 0),
+                        result.get("relations_count", 0),
+                    )
+            except Exception as e:
+                logger.debug("Auto-NER failed for document %s: %s", doc_id, e)
+
+        async def on_expense_approved(event):
+            """Log and notify when expense is approved (ledger already handled in approval service)."""
+            payload = event.payload
+            expense_id = payload.get("expense_id")
+            logger.info(
+                "Expense approved: #%s (case: %s, amount: %s)",
+                expense_id,
+                payload.get("case_code"),
+                payload.get("amount"),
+            )
+            # Cross-module notification (fire-and-forget)
+            try:
+                from app.db.database import AsyncSessionLocal
+                from app.services.notification_service import NotificationService
+                async with AsyncSessionLocal() as db:
+                    case_code = payload.get("case_code", "")
+                    amount = payload.get("amount", 0)
+                    await NotificationService.create_notification(
+                        db=db,
+                        notification_type="expense_approval",
+                        severity="success",
+                        title=f"費用核銷通過 — {case_code}" if case_code else "費用核銷通過",
+                        message=f"核銷 #{expense_id} (NT$ {amount:,.0f}) 已通過最終審核並入帳",
+                        source_table="expense_invoices",
+                        source_id=expense_id,
+                    )
+                    await db.commit()
+            except Exception as e:
+                logger.debug("Expense approved notification failed: %s", e)
+
         bus.subscribe(EventType.PROJECT_PROMOTED, on_project_promoted)
         bus.subscribe(EventType.BILLING_PAID, on_billing_paid)
-        logger.info("✅ Domain Event Bus 已初始化 (2 handlers)")
+        bus.subscribe(EventType.DOCUMENT_RECEIVED, on_document_received)
+        bus.subscribe(EventType.EXPENSE_APPROVED, on_expense_approved)
+        logger.info("✅ Domain Event Bus 已初始化 (4 handlers)")
     except Exception as e:
         logger.warning(f"⚠️ Domain Event Bus 初始化失敗 (不影響核心功能): {e}")
 

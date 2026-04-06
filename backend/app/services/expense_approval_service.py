@@ -79,6 +79,24 @@ class ExpenseApprovalService(AuditableServiceMixin):
         # 通知推送
         await self._notify_status_change(invoice, current, next_status, budget_warning)
 
+        # 發布 expense.approved 領域事件 (僅 verified 最終通過時)
+        if next_status == "verified":
+            try:
+                from app.core.event_bus import EventBus
+                from app.core.domain_events import DomainEvent, EventType
+                bus = EventBus.get_instance()
+                await bus.publish(DomainEvent(
+                    event_type=EventType.EXPENSE_APPROVED,
+                    payload={
+                        "expense_id": invoice.id,
+                        "amount": float(invoice.amount or 0),
+                        "case_code": invoice.case_code or "",
+                        "approved_by": invoice.user_id,
+                    },
+                ))
+            except Exception:
+                pass
+
         # 將預算警告附加為動態屬性，API 層可讀取
         invoice._budget_warning = budget_warning  # type: ignore[attr-defined]
         await self.audit_update(invoice_id, {"status": next_status, "action": "approve"})

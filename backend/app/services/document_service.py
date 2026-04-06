@@ -281,6 +281,22 @@ class DocumentService(AuditableServiceMixin):
             # 通知 NER 排程器有新公文（事件驅動，立即處理）
             from app.services.ai.extraction_scheduler import notify_new_documents
             notify_new_documents(1)
+            # 發布 document.received 領域事件
+            try:
+                from app.core.event_bus import EventBus
+                from app.core.domain_events import DomainEvent, EventType
+                bus = EventBus.get_instance()
+                await bus.publish(DomainEvent(
+                    event_type=EventType.DOCUMENT_RECEIVED,
+                    payload={
+                        "document_id": new_document.id,
+                        "doc_number": new_document.doc_number or "",
+                        "doc_type": new_document.doc_type or "",
+                        "subject": new_document.subject or "",
+                    },
+                ))
+            except Exception:
+                pass
             await self.audit_create(new_document.id, doc_data, user_id=current_user_id)
             return new_document
         except Exception as e:
