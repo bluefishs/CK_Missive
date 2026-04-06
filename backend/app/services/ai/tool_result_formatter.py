@@ -123,6 +123,18 @@ def format_tool_context(tool: str, result: Dict[str, Any], remaining_chars: int)
         if top:
             names = [f"{e.get('canonical_name', '')}({e.get('mention_count', 0)})" for e in top[:5]]
             part += f"  高頻實體: {', '.join(names)}\n"
+        # 分析提示：引導 LLM 做比較分析而非僅列數字
+        doc_by_cat = result.get("document_by_category", {})
+        if doc_by_cat and len(doc_by_cat) > 1:
+            max_cat = max(doc_by_cat, key=doc_by_cat.get) if doc_by_cat else ""
+            min_cat = min(doc_by_cat, key=doc_by_cat.get) if doc_by_cat else ""
+            part += (
+                f"  [分析提示: 最多類別為「{max_cat}」"
+                f"({doc_by_cat.get(max_cat, 0)} 筆)，"
+                f"最少為「{min_cat}」"
+                f"({doc_by_cat.get(min_cat, 0)} 筆)，"
+                f"請比較各類別比例並指出分布特徵]\n"
+            )
         if len(part) <= remaining_chars:
             parts.append(part)
 
@@ -232,6 +244,78 @@ def format_tool_context(tool: str, result: Dict[str, Any], remaining_chars: int)
             for rec in recommendations[:5]:
                 part += f"    - {rec}\n"
         if len(part) <= remaining_chars:
+            parts.append(part)
+
+    elif tool == "get_financial_summary":
+        # 財務彙總 — 附加預算分析提示
+        budget = result.get("budget", 0)
+        actual = result.get("actual_cost", 0)
+        revenue = result.get("revenue", 0)
+        profit = result.get("profit", 0)
+        part = f"[財務彙總]\n"
+        if budget:
+            exec_rate = (actual / budget * 100) if budget else 0
+            variance = ((actual - budget) / budget * 100) if budget else 0
+            part += (
+                f"  預算: NT${budget:,.0f} | 實際支出: NT${actual:,.0f}\n"
+                f"  預算執行率: {exec_rate:.0f}%\n"
+            )
+            part += f"  [分析提示: 偏差 {variance:+.1f}%"
+            if variance > 10:
+                part += "，已超預算，請標記為風險"
+            elif variance < -20:
+                part += "，執行率偏低，請建議加速"
+            part += "]\n"
+        if revenue:
+            part += f"  營收: NT${revenue:,.0f} | 利潤: NT${profit:,.0f}\n"
+            if revenue > 0:
+                margin = profit / revenue * 100
+                part += f"  [分析提示: 利潤率 {margin:.1f}%]\n"
+        # Pass through any other fields as JSON
+        for key in ("projects", "summary", "details"):
+            val = result.get(key)
+            if val:
+                part += f"  {key}: {json.dumps(val, ensure_ascii=False)[:500]}\n"
+        if len(part) <= remaining_chars:
+            parts.append(part)
+
+    else:
+        # 通用處理：PM/ERP/其他未明確處理的工具結果
+        # 將結構化結果轉為可讀文字，避免資料遺失
+        part = f"[{tool}]\n"
+        # 優先使用 summary 欄位
+        if result.get("summary"):
+            part += f"  {result['summary']}\n"
+        # 列出核心欄位
+        skip_keys = {"error", "guarded", "guard_reason", "summary"}
+        for key, val in result.items():
+            if key in skip_keys:
+                continue
+            if isinstance(val, list):
+                part += f"  {key}: {len(val)} 筆\n"
+                for item in val[:5]:
+                    if isinstance(item, dict):
+                        # 取最有代表性的欄位
+                        label = (
+                            item.get("name")
+                            or item.get("project_name")
+                            or item.get("case_code")
+                            or item.get("doc_number")
+                            or item.get("title")
+                            or str(item)[:80]
+                        )
+                        part += f"    - {label}\n"
+                    else:
+                        part += f"    - {str(item)[:80]}\n"
+            elif isinstance(val, dict):
+                part += f"  {key}: {json.dumps(val, ensure_ascii=False)[:200]}\n"
+            elif isinstance(val, (int, float)):
+                part += f"  {key}: {val:,}\n" if isinstance(val, int) else f"  {key}: {val:,.2f}\n"
+            elif val is not None:
+                part += f"  {key}: {str(val)[:200]}\n"
+            if sum(len(p) for p in parts) + len(part) > remaining_chars:
+                break
+        if len(part) > len(f"[{tool}]\n") and len(part) <= remaining_chars:
             parts.append(part)
 
     return "".join(parts)

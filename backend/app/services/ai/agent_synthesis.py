@@ -65,17 +65,29 @@ class AgentSynthesizer:
         system_prompt = (
             f"{base_prompt}\n\n"
             "根據以下查詢結果回答使用者的問題。\n\n"
-            "## 回覆風格\n"
-            "- 像一個有經驗的同事在跟你說明，不是在寫報告\n"
-            "- 直接給答案，不要廢話或解釋推理過程\n"
+            "## 回覆原則\n"
+            "1. **先分析再回答** — 不要只列資料，要給出你的判斷和建議\n"
+            "2. **整合多來源** — 如果有多個工具結果，要交叉分析，找出關聯和趨勢\n"
+            "3. **主動提醒** — 發現異常要主動說明（逾期、超預算、進度落後）\n"
+            "4. **量化表達** — 用百分比、比較、趨勢描述，不要只說「有幾筆」\n"
+            "5. **可行動建議** — 回答結尾給 1-2 個具體的下一步建議\n"
+            "6. **層次結構** — 用標題、列點、粗體組織回答，重點在前\n\n"
+            "## 統計/分析回覆模板\n"
+            "- 總覽：一句話結論\n"
+            "- 關鍵數字：最重要的 2-3 個指標\n"
+            "- 趨勢/比較：和上期比、和預算比\n"
+            "- 異常/風險：需要注意的問題\n"
+            "- 建議：具體的行動項目\n\n"
+            "## 一般回覆風格\n"
             "- 如果結果中有 summary 欄位，優先引用它的內容\n"
-            "- 統計問題直接回答數字（如「共 1643 筆公文」）\n"
-            "- 資料多時用列點整理，但語氣要自然\n"
             "- 公文列表附文號和日期\n"
             "- 多個工具的結果要整合成一份，不要按工具分開\n"
-            "- 結尾可以簡短問一句「需要更多細節嗎？」之類的\n"
-            "\n## 語言規範（嚴格遵守）\n"
+            "- 結尾可以簡短問一句「需要更多細節嗎？」之類的\n\n"
+            "## 語言規範（嚴格遵守）\n"
             "- 必須全程使用**繁體中文**，嚴禁簡體字\n"
+            "- 金額加千分位和幣別（NT$）\n"
+            "- 日期用 YYYY/MM/DD 格式\n"
+            "- 語氣像資深同事在做簡報，專業但不生硬\n"
             "- 常見錯誤：数据→資料、关系→關係、实体→實體、统计→統計、"
             "查询→查詢、文档→文件、系统→系統、节点→節點、信息→資訊\n"
         )
@@ -108,7 +120,10 @@ class AgentSynthesizer:
             cleaned = strip_thinking_from_synthesis(raw)
             # 簡體→繁體後處理（OpenCC s2twp，防 LLM 簡體輸出）
             from app.services.ai.agent_post_processing import _sc2tc
-            yield _sc2tc(cleaned)
+            cleaned = _sc2tc(cleaned)
+            # 品質審查：檢查回答是否充分利用資料，必要時請 LLM 改善
+            cleaned = await self._quality_review(question, cleaned, tool_results)
+            yield cleaned
         except asyncio.TimeoutError:
             logger.warning("Synthesis timed out after %ds", synthesis_timeout)
             yield "AI 回答生成超時，請參考上方查詢結果與來源文件。"
@@ -124,6 +139,98 @@ class AgentSynthesizer:
             except asyncio.TimeoutError:
                 logger.warning("Synthesis stream fallback also timed out")
                 yield "AI 回答生成超時，請參考上方查詢結果與來源文件。"
+
+    async def _quality_review(
+        self,
+        question: str,
+        answer: str,
+        tool_results: List[Dict[str, Any]],
+    ) -> str:
+        """Review and improve answer quality before sending.
+
+        Checks:
+        1. Does the answer actually address the question?
+        2. Are statistics properly contextualized (not just raw numbers)?
+        3. Are there actionable suggestions?
+        4. Is the format readable?
+
+        If quality is low, ask LLM to improve it.
+        """
+        # Quick heuristic checks
+        needs_improvement = False
+        reasons: List[str] = []
+
+        # Check 1: Answer is too short for a data-heavy query
+        has_data = any(
+            tr.get("result", {}).get("count", 0) > 0
+            or tr.get("result", {}).get("document_total", 0) > 0
+            or tr.get("result", {}).get("documents")
+            for tr in tool_results
+        )
+        if has_data and len(answer) < 100:
+            needs_improvement = True
+            reasons.append("回答過短，未充分利用查詢結果")
+
+        # Check 2: No analysis — just listing data without insight
+        analysis_keywords = [
+            "建議", "趨勢", "注意", "風險", "比較", "異常",
+            "應", "需要", "可以", "佔比", "偏高", "偏低",
+            "成長", "下降", "優先", "重點",
+        ]
+        if has_data and not any(kw in answer for kw in analysis_keywords):
+            needs_improvement = True
+            reasons.append("缺乏分析和建議，僅列出原始資料")
+
+        # Check 3: Statistics without context
+        has_stats = any(
+            tr["tool"] in ("get_statistics", "get_financial_summary")
+            for tr in tool_results
+        )
+        if has_stats and "建議" not in answer and "趨勢" not in answer:
+            needs_improvement = True
+            reasons.append("統計數字缺乏脈絡和行動建議")
+
+        if not needs_improvement:
+            return answer
+
+        # Ask LLM to improve
+        try:
+            logger.info(
+                "Quality review triggered: %s",
+                "; ".join(reasons),
+            )
+            improve_prompt = (
+                f"以下回答品質不足，請改善：\n\n"
+                f"問題：{question[:200]}\n"
+                f"原始回答：{answer[:800]}\n"
+                f"問題：{'; '.join(reasons)}\n\n"
+                "請重新撰寫，要求：\n"
+                "1. 加入分析觀點（不只列資料）\n"
+                "2. 標出異常或需注意的地方\n"
+                "3. 結尾給 1-2 個具體建議\n"
+                "4. 保持繁體中文\n"
+                "5. 保留原始回答中的所有數據和事實，不要遺漏"
+            )
+            improved = await asyncio.wait_for(
+                self.ai.chat_completion(
+                    messages=[{"role": "user", "content": improve_prompt}],
+                    temperature=0.4,
+                    max_tokens=800,
+                    task_type="synthesis",
+                ),
+                timeout=15,
+            )
+            if improved and len(improved.strip()) > len(answer) * 0.5:
+                from app.services.ai.agent_post_processing import _sc2tc
+                improved = _sc2tc(strip_thinking_from_synthesis(improved))
+                logger.info(
+                    "Quality review improved answer: %d -> %d chars",
+                    len(answer), len(improved),
+                )
+                return improved
+        except Exception as e:
+            logger.debug("Quality review LLM call failed: %s", e)
+        return answer
 
     def build_synthesis_context(self, tool_results: List[Dict[str, Any]]) -> str:
         """將所有工具結果建構為 LLM 合成上下文"""
@@ -149,6 +256,24 @@ class AgentSynthesizer:
             if part:
                 parts.append(part)
                 total_chars += len(part)
+
+        # 跨工具分析指示：多來源時引導 LLM 整合分析
+        if len(parts) >= 2:
+            successful_tools = [
+                tr["tool"] for tr in tool_results
+                if not tr.get("result", {}).get("error")
+                and not tr.get("result", {}).get("guarded")
+            ]
+            if len(successful_tools) >= 2:
+                cross_hint = (
+                    "\n[跨工具分析指示]\n"
+                    f"以上來自 {len(successful_tools)} 個工具的結果"
+                    f"（{', '.join(successful_tools)}），請整合分析：\n"
+                    "- 找出資料間的關聯（例：派工進度 vs 公文時間線）\n"
+                    "- 標出不一致或異常的地方\n"
+                    "- 給出綜合判斷\n"
+                )
+                parts.append(cross_hint)
 
         return "\n".join(parts) if parts else "(查詢未取得有效資料)"
 
