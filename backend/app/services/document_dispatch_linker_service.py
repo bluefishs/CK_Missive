@@ -99,6 +99,7 @@ class DocumentDispatchLinkerService:
                     self.db.add(TaoyuanDocumentProjectLink(
                         document_id=document.id,
                         taoyuan_project_id=proj_id,
+                        auto_sync_dispatch_id=dispatch_id,
                         link_type=link_type,
                         notes=f"自動同步自派工單關聯 (公文建立時)",
                     ))

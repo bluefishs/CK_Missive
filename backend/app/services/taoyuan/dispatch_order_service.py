@@ -387,11 +387,13 @@ class DispatchOrderService:
         dispatch_no = dispatch.dispatch_no
 
         # Step 1: 清理自動建立的公文-工程關聯
-        # 這些記錄的 notes 欄位包含 "自動同步自派工單 {dispatch_no}"
+        # 優先 FK (auto_sync_dispatch_id)，回退 notes LIKE
         if dispatch_no:
             from app.repositories.taoyuan import DispatchProjectLinkRepository
             proj_link_repo = DispatchProjectLinkRepository(self.db)
-            auto_links = await proj_link_repo.find_auto_links_by_notes(dispatch_no)
+            auto_links = await proj_link_repo.find_auto_links_by_dispatch(
+                dispatch_no, dispatch_order_id=dispatch_id
+            )
             for auto_link in auto_links:
                 await self.db.delete(auto_link)
                 logger.info(f"清理孤立公文-工程關聯: 公文 {auto_link.document_id} <- 工程 {auto_link.taoyuan_project_id}")

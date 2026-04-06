@@ -196,6 +196,12 @@ class TaoyuanDocumentProjectLink(Base):
     id = Column(Integer, primary_key=True, index=True)
     document_id = Column(Integer, ForeignKey('documents.id', ondelete='CASCADE'), nullable=False, index=True)
     taoyuan_project_id = Column(Integer, ForeignKey('taoyuan_projects.id', ondelete='CASCADE'), nullable=False, index=True)
+    auto_sync_dispatch_id = Column(
+        Integer,
+        ForeignKey('taoyuan_dispatch_orders.id', ondelete='SET NULL'),
+        nullable=True, index=True,
+        comment='Dispatch that auto-created this link (NULL=manual)',
+    )
     link_type = Column(String(20), nullable=True, comment="關聯類型：agency_incoming/company_outgoing")
     notes = Column(String(500), nullable=True, comment="關聯備註")
     created_at = Column(DateTime, server_default=func.now())
@@ -203,6 +209,7 @@ class TaoyuanDocumentProjectLink(Base):
     # 關聯關係
     document = relationship("OfficialDocument")
     project = relationship("TaoyuanProject", back_populates="document_links")
+    auto_sync_dispatch = relationship("TaoyuanDispatchOrder")
 
 
 class TaoyuanContractPayment(Base):

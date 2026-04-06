@@ -135,6 +135,7 @@ async def link_dispatch_to_project(
             doc_project_link = TaoyuanDocumentProjectLink(
                 document_id=doc_id,
                 taoyuan_project_id=project_id,
+                auto_sync_dispatch_id=dispatch_order_id,
                 link_type=doc_link_type or 'agency_incoming',
                 notes=f"自動同步自派工單 {order.dispatch_no}"
             )
@@ -212,8 +213,22 @@ async def unlink_dispatch_from_project(
 
     # Step 2: 刪除自動建立的公文-工程關聯
     auto_deleted_count = 0
-    if dispatch_no:
-        # 查詢該派工單關聯的所有公文
+
+    # 優先：FK-based 查詢（精確）
+    fk_result = await db.execute(
+        select(TaoyuanDocumentProjectLink).where(
+            TaoyuanDocumentProjectLink.auto_sync_dispatch_id == dispatch_order_id,
+            TaoyuanDocumentProjectLink.taoyuan_project_id == project_id,
+        )
+    )
+    fk_links = fk_result.scalars().all()
+    for auto_link in fk_links:
+        await db.delete(auto_link)
+        auto_deleted_count += 1
+        logger.info(f"反向清理公文-工程關聯 (FK): 公文 {auto_link.document_id} <- 工程 {project_id}")
+
+    # 回退：legacy notes-based（遷移前舊資料）
+    if not auto_deleted_count and dispatch_no:
         doc_links_result = await db.execute(
             select(TaoyuanDispatchDocumentLink.document_id).where(
                 TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id
@@ -221,7 +236,6 @@ async def unlink_dispatch_from_project(
         )
         doc_ids = [row[0] for row in doc_links_result.all()]
 
-        # 刪除自動建立的公文-工程關聯
         for doc_id in doc_ids:
             auto_link_result = await db.execute(
                 select(TaoyuanDocumentProjectLink).where(
@@ -234,7 +248,7 @@ async def unlink_dispatch_from_project(
             if auto_link:
                 await db.delete(auto_link)
                 auto_deleted_count += 1
-                logger.info(f"反向清理公文-工程關聯: 公文 {doc_id} <- 工程 {project_id}")
+                logger.info(f"反向清理公文-工程關聯 (legacy): 公文 {doc_id} <- 工程 {project_id}")
 
     # Step 3: 刪除派工-工程關聯
     await db.delete(link)

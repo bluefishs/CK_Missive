@@ -265,6 +265,7 @@ class DispatchLinkService:
                     project_id=project_id,
                     link_type=link_type,
                     notes=notes_tag,
+                    auto_sync_dispatch_id=dispatch.id,
                     auto_commit=False,
                 )
                 if result is not None:

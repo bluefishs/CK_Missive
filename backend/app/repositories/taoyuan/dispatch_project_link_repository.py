@@ -235,6 +235,7 @@ class DispatchProjectLinkRepository:
         project_id: int,
         link_type: Optional[str] = None,
         notes: Optional[str] = None,
+        auto_sync_dispatch_id: Optional[int] = None,
         auto_commit: bool = True,
     ) -> Optional[TaoyuanDocumentProjectLink]:
         """
@@ -247,6 +248,7 @@ class DispatchProjectLinkRepository:
             project_id: 工程 ID (TaoyuanProject.id)
             link_type: 關聯類型（可選）
             notes: 備註（可選）
+            auto_sync_dispatch_id: 自動建立此關聯的派工單 ID（可選，用於 FK 追蹤）
             auto_commit: 是否自動 commit
 
         Returns:
@@ -271,6 +273,7 @@ class DispatchProjectLinkRepository:
             taoyuan_project_id=project_id,
             link_type=link_type,
             notes=notes,
+            auto_sync_dispatch_id=auto_sync_dispatch_id,
         )
         self.db.add(link)
 
@@ -365,30 +368,44 @@ class DispatchProjectLinkRepository:
     async def cleanup_auto_synced_document_project_links(
         self,
         dispatch_no: str,
+        dispatch_order_id: Optional[int] = None,
         auto_commit: bool = False,
     ) -> int:
         """
         清理由派工單自動建立的公文-工程關聯
 
-        當刪除派工單時，需要清理由自動同步邏輯建立的
-        TaoyuanDocumentProjectLink 記錄（其 notes 欄位包含
-        "自動同步自派工單 {dispatch_no}"）。
+        優先使用 FK (auto_sync_dispatch_id) 查詢，若無結果則
+        回退到 notes LIKE 匹配（相容遷移前的舊資料）。
 
         Args:
             dispatch_no: 派工單號
+            dispatch_order_id: 派工單 ID（優先用 FK 查詢）
             auto_commit: 是否自動 commit
 
         Returns:
             清理的記錄數量
         """
-        result = await self.db.execute(
-            select(TaoyuanDocumentProjectLink).where(
-                TaoyuanDocumentProjectLink.notes.like(
-                    f"%自動同步自派工單 {dispatch_no}%"
+        auto_links = []
+
+        # 優先：FK-based 查詢
+        if dispatch_order_id is not None:
+            result = await self.db.execute(
+                select(TaoyuanDocumentProjectLink).where(
+                    TaoyuanDocumentProjectLink.auto_sync_dispatch_id == dispatch_order_id
                 )
             )
-        )
-        auto_links = list(result.scalars().all())
+            auto_links = list(result.scalars().all())
+
+        # 回退：legacy notes-based 查詢（遷移前舊資料）
+        if not auto_links:
+            result = await self.db.execute(
+                select(TaoyuanDocumentProjectLink).where(
+                    TaoyuanDocumentProjectLink.notes.like(
+                        f"%自動同步自派工單 {dispatch_no}%"
+                    )
+                )
+            )
+            auto_links = list(result.scalars().all())
 
         for auto_link in auto_links:
             await self.db.delete(auto_link)
@@ -414,6 +431,9 @@ class DispatchProjectLinkRepository:
         """
         當解除工程-派工關聯時，反向清理自動建立的公文-工程關聯
 
+        優先使用 FK (auto_sync_dispatch_id) 查詢，若無結果則
+        回退到 notes LIKE 匹配（相容遷移前的舊資料）。
+
         Args:
             dispatch_order_id: 派工單 ID
             project_id: 工程 ID
@@ -423,7 +443,28 @@ class DispatchProjectLinkRepository:
         Returns:
             清理的記錄數量
         """
-        # 查詢該派工單關聯的所有公文 ID
+        # 優先：FK-based 查詢（精確，不需要查公文 ID 再逐一比對）
+        fk_result = await self.db.execute(
+            select(TaoyuanDocumentProjectLink).where(
+                TaoyuanDocumentProjectLink.auto_sync_dispatch_id == dispatch_order_id,
+                TaoyuanDocumentProjectLink.taoyuan_project_id == project_id,
+            )
+        )
+        fk_links = list(fk_result.scalars().all())
+
+        if fk_links:
+            for auto_link in fk_links:
+                await self.db.delete(auto_link)
+                self.logger.info(
+                    "反向清理公文-工程關聯 (FK): 公文 %d <- 工程 %d (派工單 %s)",
+                    auto_link.document_id, project_id, dispatch_no,
+                )
+
+            if auto_commit:
+                await self.db.commit()
+            return len(fk_links)
+
+        # 回退：legacy notes-based 查詢（遷移前舊資料）
         doc_result = await self.db.execute(
             select(TaoyuanDispatchDocumentLink.document_id).where(
                 TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id
@@ -449,7 +490,7 @@ class DispatchProjectLinkRepository:
             for auto_link in auto_links:
                 await self.db.delete(auto_link)
                 self.logger.info(
-                    "反向清理公文-工程關聯: 公文 %d <- 工程 %d (派工單 %s)",
+                    "反向清理公文-工程關聯 (legacy): 公文 %d <- 工程 %d (派工單 %s)",
                     doc_id, project_id, dispatch_no,
                 )
                 cleaned += 1
@@ -575,10 +616,26 @@ class DispatchProjectLinkRepository:
         )
         return result.rowcount
 
-    async def find_auto_links_by_notes(
-        self, dispatch_no: str
+    async def find_auto_links_by_dispatch(
+        self,
+        dispatch_no: str,
+        dispatch_order_id: Optional[int] = None,
     ) -> List[TaoyuanDocumentProjectLink]:
-        """查詢自動建立的公文-工程關聯 (依 notes 包含派工單號)"""
+        """查詢自動建立的公文-工程關聯
+
+        優先使用 FK (auto_sync_dispatch_id)，回退到 notes LIKE。
+        """
+        if dispatch_order_id is not None:
+            result = await self.db.execute(
+                select(TaoyuanDocumentProjectLink).where(
+                    TaoyuanDocumentProjectLink.auto_sync_dispatch_id == dispatch_order_id
+                )
+            )
+            links = list(result.scalars().all())
+            if links:
+                return links
+
+        # Fallback: legacy notes-based
         result = await self.db.execute(
             select(TaoyuanDocumentProjectLink).where(
                 TaoyuanDocumentProjectLink.notes.like(
@@ -587,3 +644,12 @@ class DispatchProjectLinkRepository:
             )
         )
         return list(result.scalars().all())
+
+    async def find_auto_links_by_notes(
+        self, dispatch_no: str
+    ) -> List[TaoyuanDocumentProjectLink]:
+        """查詢自動建立的公文-工程關聯 (依 notes 包含派工單號)
+
+        .. deprecated:: Use find_auto_links_by_dispatch instead
+        """
+        return await self.find_auto_links_by_dispatch(dispatch_no)
