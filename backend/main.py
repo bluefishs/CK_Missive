@@ -237,8 +237,53 @@ async def lifespan(app: FastAPI):
                 event.payload.get("project_code"),
             )
 
+        async def on_billing_paid(event):
+            """Auto-create ledger entry when billing is paid."""
+            from app.db.database import AsyncSessionLocal
+            from app.services.finance_ledger_service import FinanceLedgerService
+
+            payload = event.payload
+            try:
+                async with AsyncSessionLocal() as db:
+                    ledger_svc = FinanceLedgerService(db)
+                    await ledger_svc.record_from_billing(
+                        billing_id=payload.get("billing_id"),
+                        case_code=payload.get("case_code", ""),
+                        payment_amount=payload.get("amount", 0),
+                        payment_date=payload.get("payment_date"),
+                        billing_period=payload.get("billing_period"),
+                    )
+                    await db.commit()
+                    logger.info(
+                        "Auto-ledger entry created for billing %s (case: %s, amount: %s)",
+                        payload.get("billing_id"),
+                        payload.get("case_code"),
+                        payload.get("amount"),
+                    )
+            except Exception as e:
+                logger.error("Auto-ledger failed for billing_paid: %s", e)
+
+            # 收款確認通知 (fire-and-forget)
+            try:
+                async with AsyncSessionLocal() as db:
+                    from app.services.notification_service import NotificationService
+                    period_text = f" ({payload.get('billing_period')})" if payload.get("billing_period") else ""
+                    await NotificationService.create_notification(
+                        db=db,
+                        notification_type="erp_payment",
+                        severity="info",
+                        title=f"收款確認 — {payload.get('case_code', '')}",
+                        message=f"{payload.get('case_code', '')}{period_text} 收款 ${payload.get('amount', 0):,.0f} 已入帳",
+                        source_table="erp_billings",
+                        source_id=payload.get("billing_id"),
+                    )
+                    await db.commit()
+            except Exception as e:
+                logger.warning("收款通知發送失敗 (不影響帳本): %s", e)
+
         bus.subscribe(EventType.PROJECT_PROMOTED, on_project_promoted)
-        logger.info("✅ Domain Event Bus 已初始化")
+        bus.subscribe(EventType.BILLING_PAID, on_billing_paid)
+        logger.info("✅ Domain Event Bus 已初始化 (2 handlers)")
     except Exception as e:
         logger.warning(f"⚠️ Domain Event Bus 初始化失敗 (不影響核心功能): {e}")
 

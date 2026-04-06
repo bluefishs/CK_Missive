@@ -1,6 +1,7 @@
 """ERP 請款服務
 
-Version: 1.2.0
+Version: 1.3.0
+- v1.3.0: 收款確認改用 EventBus 解耦 (billing_paid → 帳本入帳)
 - v1.2.0: create/delete 改用 Repository 方法 (合規修正)
 - v1.1.0: Phase 5-6 收款確認自動寫入 Ledger
 """
@@ -12,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.extended.models.erp import ERPBilling
 from app.repositories.erp import ERPBillingRepository, ERPQuotationRepository
 from app.schemas.erp import ERPBillingCreate, ERPBillingUpdate, ERPBillingResponse
-from app.services.finance_ledger_service import FinanceLedgerService
 from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,6 @@ class ERPBillingService(AuditableServiceMixin):
         self.db = db
         self.repo = ERPBillingRepository(db)
         self._quotation_repo = ERPQuotationRepository(db)
-        self.ledger_service = FinanceLedgerService(db)
 
     async def create(self, data: ERPBillingCreate) -> ERPBillingResponse:
         """建立請款"""
@@ -55,35 +54,32 @@ class ERPBillingService(AuditableServiceMixin):
         await self.db.flush()
         await self.db.refresh(billing)
 
-        # Phase 5-6: 收款確認 → 自動寫入 Ledger + 系統通知
+        # Phase 5-6: 收款確認 → 發布 domain event (帳本入帳+通知由 handler 處理)
         new_status = billing.payment_status
+        paid_event_data = None
         if new_status == "paid" and old_status != "paid" and billing.payment_amount:
             case_code = await self._get_case_code(billing.erp_quotation_id)
-            await self.ledger_service.record_from_billing(
-                billing_id=billing.id,
-                case_code=case_code,
-                payment_amount=billing.payment_amount,
-                payment_date=billing.payment_date,
-                billing_period=billing.billing_period,
-            )
-            # 收款確認通知
-            try:
-                from app.services.notification_service import NotificationService
-                period_text = f" ({billing.billing_period})" if billing.billing_period else ""
-                await NotificationService.create_notification(
-                    db=self.db,
-                    notification_type="erp_payment",
-                    severity="info",
-                    title=f"收款確認 — {case_code}",
-                    message=f"{case_code}{period_text} 收款 ${billing.payment_amount:,.0f} 已入帳",
-                    source_table="erp_billings",
-                    source_id=billing.id,
-                )
-            except Exception as e:
-                logger.warning(f"收款通知發送失敗 (不影響收款): {e}")
+            paid_event_data = {
+                "billing_id": billing.id,
+                "amount": float(billing.payment_amount),
+                "case_code": case_code,
+                "payment_date": str(billing.payment_date) if billing.payment_date else None,
+                "billing_period": billing.billing_period,
+            }
 
         await self.db.commit()
         await self.audit_update(billing_id, update_data)
+
+        # Publish after commit so subscribers see committed data
+        if paid_event_data:
+            try:
+                from app.core.event_bus import EventBus
+                from app.core.domain_events import billing_paid
+                bus = EventBus.get_instance()
+                await bus.publish(billing_paid(**paid_event_data))
+            except Exception as e:
+                logger.debug("Failed to publish billing_paid event: %s", e)
+
         return ERPBillingResponse.model_validate(billing)
 
     async def delete(self, billing_id: int) -> bool:
