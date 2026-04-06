@@ -6,13 +6,18 @@ Discord Bot 整合服務
 - Slash Command 處理 (/ck-ask, /ck-doc, /ck-case)
 - 文字訊息回覆 (Embed)
 - Push 通知 (Channel Message)
+- Edit-Streaming: 逐步編輯同一訊息呈現 Agent 串流回答
+- StatusIndicator: 訊息前綴狀態指示器 (inspired by agent-broker)
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-03-25
+Updated: 2026-04-05 - v1.1.0 Edit-Streaming + StatusIndicator + SenderContext
 """
 
+import json
 import logging
 import os
+import time
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -26,6 +31,60 @@ _COLOR_ERROR = 0xFF4D4F    # 紅
 # 回覆長度限制
 _MAX_EMBED_DESCRIPTION = 4096
 _MAX_MESSAGE_CONTENT = 2000
+
+# Edit-Streaming 設定
+_EDIT_INTERVAL = 1.5  # 秒，Discord API rate limit 友好間隔
+_SAFE_CONTENT_LEN = 1900  # Discord 2000 char limit，留 100 給 cursor/prefix
+
+
+class StatusIndicator:
+    """Message-prefix status indicators for Discord (HTTP webhook mode).
+
+    Since Interactions Endpoint mode has no gateway connection, we cannot
+    add/remove reactions. Instead, we prepend a status emoji line to the
+    message content during edits.
+
+    Inspired by agent-broker's reaction-based status pattern, adapted
+    for HTTP webhook mode.
+    """
+
+    THINKING = "\U0001f914"  # 🤔
+    TOOL_CODE = "\u2699\ufe0f"  # ⚙️
+    TOOL_SEARCH = "\U0001f50d"  # 🔍
+    TOOL_GRAPH = "\U0001f578\ufe0f"  # 🕸️
+    DONE = "\u2705"  # ✅
+    ERROR = "\u274c"  # ❌
+    STALL = "\u23f3"  # ⏳
+
+    def __init__(self):
+        self._current = self.THINKING
+        self._last_activity = time.monotonic()
+
+    @property
+    def current(self) -> str:
+        return self._current
+
+    def set_status(self, emoji: str) -> None:
+        """Update current status emoji."""
+        self._current = emoji
+        self._last_activity = time.monotonic()
+
+    def on_tool_call(self, tool_name: str) -> None:
+        """Map tool name to appropriate status emoji."""
+        lower = tool_name.lower()
+        if "search" in lower or "find" in lower:
+            self.set_status(self.TOOL_SEARCH)
+        elif "graph" in lower or "entity" in lower:
+            self.set_status(self.TOOL_GRAPH)
+        else:
+            self.set_status(self.TOOL_CODE)
+
+    def is_stalled(self, timeout: float = 10.0) -> bool:
+        return time.monotonic() - self._last_activity > timeout
+
+    def format_prefix(self) -> str:
+        """Generate a status prefix line for the message."""
+        return f"{self._current} "
 
 
 class DiscordBotService:
@@ -89,8 +148,140 @@ class DiscordBotService:
                 color=_COLOR_WARNING,
             )
 
+    async def handle_deferred_agent_query(
+        self,
+        question: str,
+        user_id: str,
+        interaction_token: str,
+        application_id: str,
+        channel_id: Optional[str] = None,
+        user_display_name: Optional[str] = None,
+    ) -> None:
+        """Edit-Streaming: send initial followup, then edit as tokens arrive.
+
+        This replaces the old fire-and-forget deferred pattern. Instead of
+        collecting all tokens then posting once, we:
+        1. POST initial "thinking" followup message
+        2. Stream tokens from agent, editing the message every ~1.5s
+        3. Final edit with complete response (removes cursor indicator)
+        """
+        import httpx
+        from app.services.sender_context import SenderContext
+
+        webhook_base = f"https://discord.com/api/v10/webhooks/{application_id}/{interaction_token}"
+
+        status = StatusIndicator()
+
+        # Build sender context for agent
+        sender_ctx = SenderContext(
+            user_id=user_id,
+            display_name=user_display_name or f"Discord#{user_id[:8]}",
+            channel="discord",
+            channel_id=channel_id,
+        )
+
+        # Step 1: Send initial "thinking" followup
+        try:
+            async with httpx.AsyncClient() as client:
+                init_resp = await client.post(
+                    webhook_base,
+                    json={"content": f"{status.format_prefix()}思考中..."},
+                    timeout=10,
+                )
+                if init_resp.status_code not in (200, 204):
+                    logger.error(
+                        "Discord followup init failed: %s %s",
+                        init_resp.status_code, init_resp.text,
+                    )
+                    return
+        except Exception as e:
+            logger.error("Discord followup init request failed: %s", e)
+            return
+
+        # Step 2: Stream agent response, editing the message periodically
+        buffer: list = []
+        tools_used: list = []
+        last_edit_time = time.monotonic()
+        had_error = False
+
+        try:
+            from app.services.ai.agent_orchestrator import AgentOrchestrator
+            from app.services.ai.agent_conversation_memory import get_conversation_memory
+            from app.db.database import AsyncSessionLocal
+
+            session_id = f"discord:{user_id}"
+            conv_memory = get_conversation_memory()
+            history = await conv_memory.load(session_id)
+
+            async with AsyncSessionLocal() as db:
+                orchestrator = AgentOrchestrator(db)
+
+                async for event_str in orchestrator.stream_agent_query(
+                    question=question[:2000],
+                    session_id=session_id,
+                    history=history,
+                    sender_context=sender_ctx,
+                ):
+                    if not event_str.startswith("data: "):
+                        continue
+                    try:
+                        event = json.loads(event_str[6:])
+                    except (json.JSONDecodeError, IndexError):
+                        continue
+
+                    event_type = event.get("type")
+
+                    if event_type == "token":
+                        buffer.append(event.get("token", ""))
+                        status.set_status(StatusIndicator.THINKING)
+                    elif event_type == "tool_call":
+                        tool_name = event.get("tool", "")
+                        if tool_name:
+                            status.on_tool_call(tool_name)
+                            if tool_name not in tools_used:
+                                tools_used.append(tool_name)
+                    elif event_type == "thinking":
+                        status.set_status(StatusIndicator.THINKING)
+                    elif event_type == "error":
+                        had_error = True
+                        buffer.append(event.get("error", "查詢失敗"))
+
+                    # Edit message at intervals (rate-limit friendly)
+                    now = time.monotonic()
+                    if now - last_edit_time >= _EDIT_INTERVAL and buffer:
+                        text = "".join(buffer)
+                        display = _truncate(text, _SAFE_CONTENT_LEN)
+                        await _edit_followup(
+                            webhook_base,
+                            f"{status.format_prefix()}{display} \u258d",  # ▍ cursor
+                        )
+                        last_edit_time = now
+
+            # Save conversation memory
+            answer = "".join(buffer) or "無法產生回答。"
+            await conv_memory.save(session_id, question, answer, history)
+
+        except Exception as e:
+            logger.error("Discord edit-streaming agent query failed: %s", e)
+            had_error = True
+            if not buffer:
+                buffer.append("Agent 處理時發生錯誤，請稍後再試。")
+
+        # Step 3: Final edit with complete response
+        final_status = StatusIndicator.ERROR if had_error else StatusIndicator.DONE
+        final_text = "".join(buffer) or "無法產生回答。"
+        display = _truncate(final_text, _SAFE_CONTENT_LEN)
+
+        # Add tool usage footer if applicable
+        footer = ""
+        if tools_used:
+            footer = f"\n\n`tools: {', '.join(tools_used[:5])}`"
+
+        final_content = f"{final_status} {display}{footer}"
+        await _edit_followup(webhook_base, final_content)
+
     async def _handle_agent_query(self, question: str, user_id: str) -> Dict[str, Any]:
-        """Agent 問答 — 同步模式 (5 秒限制)"""
+        """Agent 問答 — 同步模式 (非 deferred 的 fallback)"""
         if not question.strip():
             return _make_embed_response(
                 title="請輸入問題",
@@ -100,7 +291,14 @@ class DiscordBotService:
 
         try:
             from app.services.ai.agent_orchestrator import AgentOrchestrator
+            from app.services.sender_context import SenderContext
             from app.db.database import AsyncSessionLocal as async_session_factory
+
+            sender_ctx = SenderContext(
+                user_id=user_id,
+                display_name=f"Discord#{user_id[:8]}",
+                channel="discord",
+            )
 
             async with async_session_factory() as db:
                 orchestrator = AgentOrchestrator(db)
@@ -109,10 +307,10 @@ class DiscordBotService:
                 async for event in orchestrator.stream_agent_query(
                     question=question[:2000],
                     session_id=f"discord:{user_id}",
+                    sender_context=sender_ctx,
                 ):
-                    import json as _json
                     try:
-                        data = _json.loads(event.replace("data: ", "").strip())
+                        data = json.loads(event.replace("data: ", "").strip())
                         if data.get("type") == "token":
                             answer_parts.append(data.get("token", ""))
                     except (ValueError, AttributeError):
@@ -120,7 +318,7 @@ class DiscordBotService:
 
                 answer = "".join(answer_parts) or "抱歉，我無法回答這個問題。"
                 return _make_embed_response(
-                    title=f"🔍 {question[:80]}",
+                    title=f"\U0001f50d {question[:80]}",
                     description=answer[:_MAX_EMBED_DESCRIPTION],
                     color=_COLOR_INFO,
                 )
@@ -128,7 +326,7 @@ class DiscordBotService:
             logger.error("Discord agent query failed: %s", e)
             return _make_embed_response(
                 title="查詢失敗",
-                description=f"Agent 處理時發生錯誤，請稍後再試。",
+                description="Agent 處理時發生錯誤，請稍後再試。",
                 color=_COLOR_ERROR,
             )
 
@@ -149,19 +347,19 @@ class DiscordBotService:
                 doc = await repo.get_by_doc_number(doc_number.strip())
                 if doc:
                     fields = [
-                        {"name": "文號", "value": doc.doc_number or "—", "inline": True},
-                        {"name": "類型", "value": doc.doc_type or "—", "inline": True},
-                        {"name": "發文機關", "value": doc.sender or "—", "inline": True},
-                        {"name": "受文者", "value": doc.receiver or "—", "inline": True},
-                        {"name": "日期", "value": str(doc.doc_date) if doc.doc_date else "—", "inline": True},
+                        {"name": "文號", "value": doc.doc_number or "\u2014", "inline": True},
+                        {"name": "類型", "value": doc.doc_type or "\u2014", "inline": True},
+                        {"name": "發文機關", "value": doc.sender or "\u2014", "inline": True},
+                        {"name": "受文者", "value": doc.receiver or "\u2014", "inline": True},
+                        {"name": "日期", "value": str(doc.doc_date) if doc.doc_date else "\u2014", "inline": True},
                     ]
                     return _make_fields_embed(
-                        title=f"📄 {doc.subject or doc_number}",
+                        title=f"\U0001f4c4 {doc.subject or doc_number}",
                         fields=fields,
                         color=_COLOR_SUCCESS,
                     )
                 return _make_embed_response(
-                    title=f"📄 查無公文: {doc_number}",
+                    title=f"\U0001f4c4 查無公文: {doc_number}",
                     description="找不到符合的公文，請確認文號是否正確。",
                     color=_COLOR_WARNING,
                 )
@@ -189,17 +387,17 @@ class DiscordBotService:
                 project = await repo.get_by_project_code(case_code.strip())
                 if project:
                     fields = [
-                        {"name": "案號", "value": project.project_code or project.case_code or "—", "inline": True},
-                        {"name": "狀態", "value": project.status or "—", "inline": True},
-                        {"name": "委託單位", "value": getattr(project, "client_name", None) or "—", "inline": True},
+                        {"name": "案號", "value": project.project_code or project.case_code or "\u2014", "inline": True},
+                        {"name": "狀態", "value": project.status or "\u2014", "inline": True},
+                        {"name": "委託單位", "value": getattr(project, "client_name", None) or "\u2014", "inline": True},
                     ]
                     return _make_fields_embed(
-                        title=f"📋 {project.project_name or case_code}",
+                        title=f"\U0001f4cb {project.project_name or case_code}",
                         fields=fields,
                         color=_COLOR_SUCCESS,
                     )
                 return _make_embed_response(
-                    title=f"📋 查無案件: {case_code}",
+                    title=f"\U0001f4cb 查無案件: {case_code}",
                     description="找不到符合的案件，請確認案號格式。",
                     color=_COLOR_WARNING,
                 )
@@ -234,21 +432,21 @@ class DiscordBotService:
         in_progress = summary.get('in_progress', [])
         alerts = summary.get('key_alerts', [])
 
-        desc = f"✅ 已完成 {len(completed)} | 🔄 進行中 {len(in_progress)} | 🔴 逾期 {len(overdue)}"
+        desc = f"\u2705 已完成 {len(completed)} | \U0001f504 進行中 {len(in_progress)} | \U0001f534 逾期 {len(overdue)}"
         fields = []
 
         if overdue:
             overdue_text = "\n".join(
-                f"⚠️ {o['dispatch_no'].replace('115年_', '')} ({o.get('case_handler','?')}) 逾期{o.get('overdue_days',0)}天"
+                f"\u26a0\ufe0f {o['dispatch_no'].replace('115年_', '')} ({o.get('case_handler','?')}) 逾期{o.get('overdue_days',0)}天"
                 for o in overdue[:5]
             )
-            fields.append({"name": "🔴 逾期派工單", "value": overdue_text, "inline": False})
+            fields.append({"name": "\U0001f534 逾期派工單", "value": overdue_text, "inline": False})
 
         if alerts:
-            fields.append({"name": "關鍵提醒", "value": "\n".join(f"・{a}" for a in alerts[:3]), "inline": False})
+            fields.append({"name": "關鍵提醒", "value": "\n".join(f"\u30fb{a}" for a in alerts[:3]), "inline": False})
 
         return await self.send_channel_embed(
-            channel_id, "📊 派工進度彙整", desc,
+            channel_id, "\U0001f4ca 派工進度彙整", desc,
             color=0xE74C3C if overdue else _COLOR_SUCCESS, fields=fields,
         )
 
@@ -273,6 +471,28 @@ class DiscordBotService:
 
 
 # ── Helpers ──
+
+
+def _truncate(text: str, max_len: int) -> str:
+    """Truncate text to max_len, adding ellipsis if truncated."""
+    if len(text) <= max_len:
+        return text
+    return text[:max_len] + "..."
+
+
+async def _edit_followup(webhook_base: str, content: str) -> None:
+    """Edit the original followup message via Discord webhook."""
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            await client.patch(
+                f"{webhook_base}/messages/@original",
+                json={"content": content[:_MAX_MESSAGE_CONTENT]},
+                timeout=10,
+            )
+    except Exception as e:
+        logger.debug("Discord edit followup failed: %s", e)
+
 
 def _make_embed_response(
     title: str, description: str, color: int = _COLOR_INFO,

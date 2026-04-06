@@ -79,12 +79,19 @@ class ChannelAdapter(ABC):
     async def handle_agent_query(
         self, message: ChannelMessage, timeout: float = 25.0,
     ) -> str:
-        """統一 Agent 問答路徑"""
+        """統一 Agent 問答路徑（含 SenderContext 注入）"""
         try:
             from app.services.ai.agent_orchestrator import AgentOrchestrator
+            from app.services.sender_context import SenderContext
             from app.db.database import AsyncSessionLocal as async_session_factory
-            import asyncio
             import json
+
+            sender_ctx = SenderContext(
+                user_id=message.user_id,
+                display_name=f"{self.platform_name}#{message.user_id[:8]}",
+                channel=self.platform_name,
+                channel_id=message.channel_id or None,
+            )
 
             async with async_session_factory() as db:
                 orchestrator = AgentOrchestrator(db)
@@ -92,6 +99,7 @@ class ChannelAdapter(ABC):
                 async for event in orchestrator.stream_agent_query(
                     question=message.content[:2000],
                     session_id=f"{self.platform_name}:{message.user_id}",
+                    sender_context=sender_ctx,
                 ):
                     try:
                         data = json.loads(event.replace("data: ", "").strip())

@@ -222,8 +222,16 @@ class LineBotService:
         from app.db.database import AsyncSessionLocal
         from app.services.ai.agent_orchestrator import AgentOrchestrator
         from app.services.ai.agent_conversation_memory import get_conversation_memory
+        from app.services.sender_context import SenderContext
 
         session_id = f"line:{user_id}"
+
+        # Build sender context for agent
+        sender_ctx = SenderContext(
+            user_id=user_id,
+            display_name=f"LINE#{user_id[:8]}",
+            channel="line",
+        )
 
         conv_memory = get_conversation_memory()
         history = await conv_memory.load(session_id)
@@ -236,6 +244,7 @@ class LineBotService:
                 question=text,
                 history=history,
                 session_id=session_id,
+                sender_context=sender_ctx,
             ):
                 if not event_str.startswith("data: "):
                     continue

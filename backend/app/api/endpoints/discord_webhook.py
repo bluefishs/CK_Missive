@@ -78,15 +78,25 @@ async def discord_webhook(
 
         user = payload.get("member", {}).get("user", {}) or payload.get("user", {})
         user_id = user.get("id", "unknown")
+        user_display_name = (
+            user.get("global_name")
+            or user.get("username")
+            or f"Discord#{user_id[:8]}"
+        )
+        channel_id = payload.get("channel_id")
 
-        # 短命令快速回覆，長命令用 deferred
+        # 短命令快速回覆，長命令用 deferred + edit-streaming
         if command_name == "ck-ask":
-            # 先回 deferred (type=5)，背景處理後 followup
+            # 先回 deferred (type=5)，背景用 edit-streaming 逐步更新
+            question = options.get("question", "")
             background_tasks.add_task(
-                _handle_deferred_command,
-                service, command_name, options, user_id,
-                payload.get("token", ""),
-                payload.get("application_id", service.application_id),
+                service.handle_deferred_agent_query,
+                question=question,
+                user_id=user_id,
+                interaction_token=payload.get("token", ""),
+                application_id=payload.get("application_id", service.application_id),
+                channel_id=channel_id,
+                user_display_name=user_display_name,
             )
             return JSONResponse(content={"type": 5})  # DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
         else:
@@ -104,10 +114,13 @@ async def _handle_deferred_command(
     service, command_name: str, options: dict, user_id: str,
     interaction_token: str, application_id: str,
 ):
-    """背景處理耗時 Slash Command，透過 followup webhook 回覆"""
+    """Legacy: 背景處理耗時 Slash Command (non-streaming fallback).
+
+    Note: /ck-ask now uses handle_deferred_agent_query with edit-streaming.
+    This function remains for other commands that may need deferred responses.
+    """
     try:
         result = await service.handle_slash_command(command_name, options, user_id)
-        # 透過 Discord followup webhook 回覆
         import httpx
         async with httpx.AsyncClient() as client:
             await client.post(

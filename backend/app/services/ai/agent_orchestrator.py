@@ -15,9 +15,12 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+if TYPE_CHECKING:
+    from app.services.sender_context import SenderContext
 
 from app.core.ai_connector import get_ai_connector
 from app.services.ai.ai_config import get_ai_config
@@ -130,6 +133,7 @@ class AgentOrchestrator:
         history: Optional[List[Dict[str, str]]] = None,
         session_id: Optional[str] = None,
         context: Optional[str] = None,
+        sender_context: Optional["SenderContext"] = None,
     ) -> AsyncGenerator[str, None]:
         """
         Agentic 串流問答 — SSE event generator
@@ -200,6 +204,11 @@ class AgentOrchestrator:
             # ── Session Handoff 注入：將前次摘要加入 context ──
             if handoff_context:
                 context = f"{handoff_context}\n\n{context}" if context else handoff_context
+
+            # ── Sender Context 注入：多通道身份識別 ──
+            if sender_context:
+                sender_xml = sender_context.to_xml()
+                context = f"{sender_xml}\n\n{context}" if context else sender_xml
 
             # ── 種子資料冷啟動（非阻塞，僅首次） ──
             asyncio.create_task(get_pattern_learner().load_seeds_if_empty())
