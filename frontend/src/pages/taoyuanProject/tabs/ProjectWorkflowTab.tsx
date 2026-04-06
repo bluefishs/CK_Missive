@@ -48,6 +48,8 @@ import {
   getStatusLabel,
   getStatusColor,
   isOutgoingDocNumber,
+  computeDocStats,
+  computeCurrentStage,
 } from '../../../components/taoyuan/workflow';
 import { logger } from '../../../services/logger';
 import { WorkflowStatsCard } from './WorkflowStatsCard';
@@ -125,33 +127,10 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
     const completed = records.filter((r) => r.status === 'completed').length;
     const inProgress = records.filter((r) => r.status === 'in_progress').length;
     const overdue = records.filter((r) => r.status === 'overdue').length;
-    const incomingIds = new Set<number>();
-    const outgoingIds = new Set<number>();
-    for (const r of records) {
-      if (r.incoming_doc_id) incomingIds.add(r.incoming_doc_id);
-      if (r.outgoing_doc_id) outgoingIds.add(r.outgoing_doc_id);
-      if (r.document_id) {
-        if (isOutgoingDocNumber(r.document?.doc_number)) {
-          outgoingIds.add(r.document_id);
-        } else {
-          incomingIds.add(r.document_id);
-        }
-      }
-    }
+    const { incomingDocs, outgoingDocs } = computeDocStats(records);
+    const currentStage = computeCurrentStage(records);
 
-    let currentStage = '尚未開始';
-    for (let i = records.length - 1; i >= 0; i--) {
-      const rec = records[i];
-      if (rec && rec.status !== 'completed') {
-        currentStage = getCategoryLabel(rec);
-        break;
-      }
-    }
-    if (total > 0 && completed === total) {
-      currentStage = '全部完成';
-    }
-
-    return { total, completed, inProgress, overdue, incomingDocs: incomingIds.size, outgoingDocs: outgoingIds.size, currentStage };
+    return { total, completed, inProgress, overdue, incomingDocs, outgoingDocs, currentStage };
   }, [records]);
 
   const batchGroups = useMemo(() => groupByBatch(records), [records]);

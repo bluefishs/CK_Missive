@@ -241,26 +241,31 @@ export function computeDocStats(
   const incomingIds = new Set<number>();
   const outgoingIds = new Set<number>();
 
-  // 1. 從作業紀錄取得公文 (舊+新格式)
-  for (const r of records) {
-    if (r.incoming_doc_id) incomingIds.add(r.incoming_doc_id);
-    if (r.outgoing_doc_id) outgoingIds.add(r.outgoing_doc_id);
-    if (r.document_id) {
-      if (isOutgoingDocNumber(r.document?.doc_number)) {
-        outgoingIds.add(r.document_id);
-      } else {
-        incomingIds.add(r.document_id);
-      }
-    }
-  }
-
-  // 2. 從關聯公文補齊 (dispatch_document_link, 含未指派到 work record 的)
-  if (linkedDocuments) {
+  // 優先以 linkedDocuments 為真實來源 (dispatch_document_link 表)
+  // 它有明確的 link_type 和 document_id，不會有新舊格式混淆
+  if (linkedDocuments && linkedDocuments.length > 0) {
     for (const link of linkedDocuments) {
+      if (!link.document_id) continue;
       if (link.link_type === 'company_outgoing' || isOutgoingDocNumber(link.doc_number)) {
         outgoingIds.add(link.document_id);
       } else {
         incomingIds.add(link.document_id);
+      }
+    }
+    return { incomingDocs: incomingIds.size, outgoingDocs: outgoingIds.size };
+  }
+
+  // Fallback: 從 work records 推導 (無 linkedDocuments 時，如 project 模式)
+  for (const r of records) {
+    if (r.incoming_doc_id) incomingIds.add(r.incoming_doc_id);
+    if (r.outgoing_doc_id) outgoingIds.add(r.outgoing_doc_id);
+    if (r.document_id) {
+      // 避免與 incoming/outgoing_doc_id 重複計算
+      if (incomingIds.has(r.document_id) || outgoingIds.has(r.document_id)) continue;
+      if (isOutgoingDocNumber(r.document?.doc_number)) {
+        outgoingIds.add(r.document_id);
+      } else {
+        incomingIds.add(r.document_id);
       }
     }
   }
