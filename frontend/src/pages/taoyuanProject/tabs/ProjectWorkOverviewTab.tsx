@@ -18,6 +18,7 @@ import {
   Space,
   Empty,
   Table,
+  Spin,
 } from 'antd';
 import {
   PlusOutlined,
@@ -290,21 +291,29 @@ export const ProjectWorkOverviewTab: React.FC<ProjectWorkOverviewTabProps> = ({
           style={{ padding: '60px 0' }}
         />
       ) : viewMode === 'correspondence' ? (
-        <CorrespondenceMatrix
-          groups={correspondenceGroups}
-          highlightDispatchId={highlightDispatchId}
-          onDispatchClick={handleDispatchNavigate}
-          onDocClick={handleDocNavigate}
-          onEditRecord={canEdit ? handleEditRecord : undefined}
-          canEdit={canEdit}
-        />
+        isLoading ? (
+          <Spin tip="載入中..." style={{ display: 'block', textAlign: 'center', padding: 40 }} />
+        ) : (
+          <CorrespondenceMatrix
+            groups={correspondenceGroups}
+            highlightDispatchId={highlightDispatchId}
+            onDispatchClick={handleDispatchNavigate}
+            onDocClick={handleDocNavigate}
+            onEditRecord={canEdit ? handleEditRecord : undefined}
+            canEdit={canEdit}
+          />
+        )
       ) : viewMode === 'timeline' ? (
-        <WorkflowTimelineView
-          batchGroups={batchGroups}
-          canEdit={canEdit}
-          onEditRecord={handleEditRecord}
-          onDeleteRecord={handleDeleteRecord}
-        />
+        isLoading ? (
+          <Spin tip="載入中..." style={{ display: 'block', textAlign: 'center', padding: 40 }} />
+        ) : (
+          <WorkflowTimelineView
+            batchGroups={batchGroups}
+            canEdit={canEdit}
+            onEditRecord={handleEditRecord}
+            onDeleteRecord={handleDeleteRecord}
+          />
+        )
       ) : viewMode === 'table' ? (
         <Table<WorkRecord>
           columns={tableColumns}

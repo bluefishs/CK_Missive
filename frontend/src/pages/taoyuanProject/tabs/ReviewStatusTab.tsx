@@ -28,7 +28,7 @@ interface ReviewStatusTabProps {
   project: TaoyuanProject | undefined;
 }
 
-export const ReviewStatusTab: React.FC<ReviewStatusTabProps> = ({
+const ReviewStatusTabInner: React.FC<ReviewStatusTabProps> = ({
   form,
   isEditing,
   project,
@@ -134,3 +134,5 @@ export const ReviewStatusTab: React.FC<ReviewStatusTabProps> = ({
     )}
   </Form>
 );
+
+export const ReviewStatusTab = React.memo(ReviewStatusTabInner);

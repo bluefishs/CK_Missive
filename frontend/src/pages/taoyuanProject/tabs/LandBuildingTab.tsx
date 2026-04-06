@@ -21,7 +21,7 @@ interface LandBuildingTabProps {
   project: TaoyuanProject | undefined;
 }
 
-export const LandBuildingTab: React.FC<LandBuildingTabProps> = ({
+const LandBuildingTabInner: React.FC<LandBuildingTabProps> = ({
   form,
   isEditing,
   project,
@@ -63,3 +63,5 @@ export const LandBuildingTab: React.FC<LandBuildingTabProps> = ({
     )}
   </Form>
 );
+
+export const LandBuildingTab = React.memo(LandBuildingTabInner);

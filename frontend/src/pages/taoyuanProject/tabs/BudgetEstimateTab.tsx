@@ -24,7 +24,7 @@ interface BudgetEstimateTabProps {
   project: TaoyuanProject | undefined;
 }
 
-export const BudgetEstimateTab: React.FC<BudgetEstimateTabProps> = ({
+const BudgetEstimateTabInner: React.FC<BudgetEstimateTabProps> = ({
   form,
   isEditing,
   project,
@@ -72,3 +72,5 @@ export const BudgetEstimateTab: React.FC<BudgetEstimateTabProps> = ({
     )}
   </Form>
 );
+
+export const BudgetEstimateTab = React.memo(BudgetEstimateTabInner);

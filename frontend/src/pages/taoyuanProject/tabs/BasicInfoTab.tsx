@@ -33,7 +33,7 @@ interface BasicInfoTabProps {
   projectVendors: ProjectVendor[];
 }
 
-export const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
+const BasicInfoTabInner: React.FC<BasicInfoTabProps> = ({
   form,
   isEditing,
   project,
@@ -138,3 +138,5 @@ export const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
     )}
   </Form>
 );
+
+export const BasicInfoTab = React.memo(BasicInfoTabInner);

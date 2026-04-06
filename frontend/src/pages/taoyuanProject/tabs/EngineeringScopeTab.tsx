@@ -22,7 +22,7 @@ interface EngineeringScopeTabProps {
   project: TaoyuanProject | undefined;
 }
 
-export const EngineeringScopeTab: React.FC<EngineeringScopeTabProps> = ({
+const EngineeringScopeTabInner: React.FC<EngineeringScopeTabProps> = ({
   form,
   isEditing,
   project,
@@ -77,3 +77,5 @@ export const EngineeringScopeTab: React.FC<EngineeringScopeTabProps> = ({
     )}
   </Form>
 );
+
+export const EngineeringScopeTab = React.memo(EngineeringScopeTabInner);

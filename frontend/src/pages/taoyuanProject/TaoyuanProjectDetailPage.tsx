@@ -103,7 +103,7 @@ export const TaoyuanProjectDetailPage: React.FC = () => {
     ),
     createTabItem(
       'overview',
-      { icon: <AppstoreOutlined />, text: '作業總覽' },
+      { icon: <AppstoreOutlined />, text: '作業總覽', count: linkedDispatches.length },
       <ProjectWorkOverviewTab
         projectId={project?.id || 0}
         contractProjectId={project?.contract_project_id}
