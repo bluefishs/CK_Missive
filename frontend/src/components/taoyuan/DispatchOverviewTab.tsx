@@ -76,10 +76,11 @@ function useDispatchOverviewKanban(contractProjectId: number) {
 
     for (const dispatch of dispatchOrders) {
       const workTypes = getWorkTypes(dispatch);
+      const wp = dispatch.work_progress;
       const card: KanbanCardData = {
         dispatch,
-        computedStatus: inferStatusFromDispatch(dispatch),
-        recordCount: 0, // No work records at this overview level
+        computedStatus: getDispatchStatus(dispatch),
+        recordCount: wp?.total ?? 0,
         recordIds: [],
       };
 
@@ -105,7 +106,7 @@ function useDispatchOverviewKanban(contractProjectId: number) {
     }));
   }, [dispatchOrders]);
 
-  // Summary stats — derived from same inferStatusFromDispatch logic
+  // Summary stats — derived from same getDispatchStatus logic
   const stats = useMemo(() => {
     let completed = 0;
     let inProgress = 0;
@@ -114,7 +115,7 @@ function useDispatchOverviewKanban(contractProjectId: number) {
     const workTypeSet = new Set<string>();
 
     for (const d of dispatchOrders) {
-      const status = inferStatusFromDispatch(d);
+      const status = getDispatchStatus(d);
       if (status === 'completed') completed++;
       else if (status === 'overdue') overdue++;
       else if (status === 'in_progress') inProgress++;
@@ -139,31 +140,28 @@ function useDispatchOverviewKanban(contractProjectId: number) {
 }
 
 /**
- * Infer dispatch status from multiple signals (not just batch_no).
- *
- * Priority: batch_no(結案) > deadline逾期 > company_doc(已覆文=進行中)
- *           > linked_documents(有關聯公文=進行中) > agency_doc(有來文=進行中) > pending
+ * Get dispatch status — prefer backend work_progress.status (from work records),
+ * fallback to batch_no/deadline heuristics.
  */
-function inferStatusFromDispatch(dispatch: DispatchOrder): WorkRecordStatus {
-  // 1. 已結案 (有結案批次)
+function getDispatchStatus(dispatch: DispatchOrder): WorkRecordStatus {
+  // 1. 優先使用後端計算的 work_progress.status (最準確)
+  if (dispatch.work_progress?.status) {
+    return dispatch.work_progress.status as WorkRecordStatus;
+  }
+
+  // 2. Fallback: batch_no → 結案
   if (dispatch.batch_no != null && dispatch.batch_no > 0) return 'completed';
 
-  // 2. 逾期 (有期限且已過)
+  // 3. Fallback: deadline 已過 → 逾期
   if (dispatch.deadline) {
     const dl = new Date(dispatch.deadline);
     if (dl < new Date()) return 'overdue';
   }
 
-  // 3. 進行中 — 已發覆文
-  if (dispatch.company_doc_id) return 'in_progress';
-
-  // 4. 進行中 — 有關聯公文
+  // 4. Fallback: 有公文活動 → 進行中
+  if (dispatch.company_doc_id || dispatch.agency_doc_id) return 'in_progress';
   if (dispatch.linked_documents && dispatch.linked_documents.length > 0) return 'in_progress';
 
-  // 5. 進行中 — 有機關來文 (表示已啟動)
-  if (dispatch.agency_doc_id) return 'in_progress';
-
-  // 6. 未開始
   return 'pending';
 }
 
@@ -307,9 +305,9 @@ export const DispatchOverviewTab: React.FC<DispatchOverviewTabProps> = ({
             display: 'flex',
             gap: 12,
             overflowX: 'auto',
+            overflowY: 'hidden',
             paddingBottom: 8,
             alignItems: 'flex-start',
-            maxHeight: 'calc(100vh - 360px)',
           }}
         >
           {columns
