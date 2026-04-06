@@ -2,9 +2,10 @@
 Agent 工具定義資料
 
 從 tool_registry.py 拆分 (v1.2.0)
-包含系統內建 22 個工具的聲明式定義。
+包含系統內建 32+ 個工具的聲明式定義。
 
 新增工具時只需在此檔案加入 ToolDefinition 即可。
+Updated: v1.3.0 (2026-04-05) 新增 10 個業務模組工具 (asset/expense/dispatch/pm/document)
 """
 
 import logging
@@ -484,6 +485,160 @@ def register_default_tools(registry: ToolRegistry) -> None:
         },
         priority=5,
         contexts=["doc", "pm"],
+    ))
+
+    # === Asset Tools (v5.4.1) ===
+
+    # 32. list_assets — 資產清單查詢
+    registry.register(ToolDefinition(
+        name="list_assets",
+        description="查詢資產清單，可依類別（電腦設備/測量儀器/交通工具/辦公家具等）、狀態（in_use/idle/repair/disposed）或案件代碼篩選。",
+        parameters={
+            "category": {"type": "string", "description": "資產類別篩選 (如 電腦設備/測量儀器/交通工具)"},
+            "status": {"type": "string", "description": "狀態篩選 (in_use/idle/repair/disposed)"},
+            "case_code": {"type": "string", "description": "關聯案件代碼"},
+        },
+        few_shot={
+            "question": "目前有哪些測量儀器？",
+            "response_json": '{"reasoning": "查詢測量儀器類別的資產清單", "tool_calls": [{"name": "list_assets", "params": {"category": "測量儀器"}}]}',
+        },
+        priority=5,
+        contexts=["erp"],
+    ))
+
+    # 33. get_asset_detail — 資產詳情
+    registry.register(ToolDefinition(
+        name="get_asset_detail",
+        description="查詢資產詳情，包含折舊資訊、行為紀錄（領用/歸還/維修/盤點）和關聯發票。",
+        parameters={
+            "asset_id": {"type": "integer", "description": "資產 ID"},
+        },
+        priority=3,
+        contexts=["erp"],
+    ))
+
+    # 34. get_asset_stats — 資產統計
+    registry.register(ToolDefinition(
+        name="get_asset_stats",
+        description="資產統計摘要：類別分布、總值、各狀態數量、待盤點數。",
+        parameters={},
+        few_shot={
+            "question": "公司資產概況如何？",
+            "response_json": '{"reasoning": "查詢資產統計摘要", "tool_calls": [{"name": "get_asset_stats", "params": {}}]}',
+        },
+        priority=4,
+        contexts=["erp"],
+    ))
+
+    # === Invoice/Expense Tools (v5.4.1) ===
+
+    # 35. list_pending_expenses — 待審核費用
+    registry.register(ToolDefinition(
+        name="list_pending_expenses",
+        description="查詢待審核費用清單，可依審核狀態或案件代碼篩選。快速總覽哪些費用需要處理。",
+        parameters={
+            "status": {"type": "string", "description": "狀態篩選 (pending/verified/rejected)"},
+            "case_code": {"type": "string", "description": "案件代碼篩選"},
+        },
+        few_shot={
+            "question": "有哪些待審核的費用？",
+            "response_json": '{"reasoning": "查詢待審核狀態的費用清單", "tool_calls": [{"name": "list_pending_expenses", "params": {"status": "pending"}}]}',
+        },
+        priority=6,
+        contexts=["erp"],
+    ))
+
+    # 36. get_expense_detail — 費用報銷詳情
+    registry.register(ToolDefinition(
+        name="get_expense_detail",
+        description="查詢費用報銷詳情，包含發票明細項目和審核歷程。",
+        parameters={
+            "expense_id": {"type": "integer", "description": "費用報銷 ID"},
+        },
+        priority=3,
+        contexts=["erp"],
+    ))
+
+    # 37. suggest_expense_category — AI 費用分類建議
+    registry.register(ToolDefinition(
+        name="suggest_expense_category",
+        description="根據品名和廠商，使用 Gemma 4 AI 建議最適合的費用類別（交通/餐飲/文具/設備/其他）。",
+        parameters={
+            "description": {"type": "string", "description": "品名或費用描述"},
+            "vendor": {"type": "string", "description": "廠商名稱 (可選，輔助分類)"},
+        },
+        few_shot={
+            "question": "計程車費該歸到什麼類別？",
+            "response_json": '{"reasoning": "使用 AI 分析費用描述來建議類別", "tool_calls": [{"name": "suggest_expense_category", "params": {"description": "計程車費"}}]}',
+        },
+        priority=4,
+        contexts=["erp"],
+    ))
+
+    # === Dispatch Tools (v5.4.1) ===
+
+    # 38. get_dispatch_timeline — 派工單作業時間軸
+    registry.register(ToolDefinition(
+        name="get_dispatch_timeline",
+        description="查詢派工單完整作業時間軸，包含公文收發、工作紀錄和里程碑事件，以時間順序排列。",
+        parameters={
+            "dispatch_id": {"type": "integer", "description": "派工單 ID"},
+        },
+        few_shot={
+            "question": "派工單 14 的完整作業紀錄？",
+            "response_json": '{"reasoning": "查詢派工單的完整時間軸", "tool_calls": [{"name": "get_dispatch_timeline", "params": {"dispatch_id": 14}}]}',
+        },
+        priority=5,
+        contexts=["doc", "dispatch"],
+    ))
+
+    # 39. detect_dispatch_anomaly — 派工異常偵測
+    registry.register(ToolDefinition(
+        name="detect_dispatch_anomaly",
+        description="偵測派工異常狀況：逾期未回文、進度停滯、缺少工作紀錄等。使用 Gemma 4 AI 分析並給出風險等級。",
+        parameters={
+            "contract_project_id": {"type": "integer", "description": "承攬案件 ID (可選，不提供則掃描全部)"},
+        },
+        few_shot={
+            "question": "有沒有異常的派工案件？",
+            "response_json": '{"reasoning": "偵測所有派工案件的異常狀況", "tool_calls": [{"name": "detect_dispatch_anomaly", "params": {}}]}',
+        },
+        priority=6,
+        contexts=["dispatch", "pm"],
+    ))
+
+    # === PM Risk Tool (v5.4.1) ===
+
+    # 40. detect_project_risk — 專案風險偵測
+    registry.register(ToolDefinition(
+        name="detect_project_risk",
+        description="偵測專案風險：里程碑延遲、預算偏差、資源衝突。使用 Gemma 4 AI 分析並給出風險評分和建議。",
+        parameters={
+            "case_code": {"type": "string", "description": "案件代碼 (如 A-115-001)"},
+        },
+        few_shot={
+            "question": "A-115-001 這個案件有什麼風險？",
+            "response_json": '{"reasoning": "分析指定案件的多維度風險", "tool_calls": [{"name": "detect_project_risk", "params": {"case_code": "A-115-001"}}]}',
+        },
+        priority=7,
+        contexts=["pm"],
+    ))
+
+    # === Document Intent Tool (v5.4.1) ===
+
+    # 41. analyze_document_intent — 公文意圖分析
+    registry.register(ToolDefinition(
+        name="analyze_document_intent",
+        description="分析公文意圖：判斷是否需要回覆、需要轉發、還是僅供備查。使用 Gemma 4 AI 分析公文內容並給出建議動作。",
+        parameters={
+            "document_id": {"type": "integer", "description": "公文 ID"},
+        },
+        few_shot={
+            "question": "這封公文需要回覆嗎？",
+            "response_json": '{"reasoning": "分析公文意圖判斷需要的動作", "tool_calls": [{"name": "analyze_document_intent", "params": {"document_id": 123}}]}',
+        },
+        priority=5,
+        contexts=["doc"],
     ))
 
     logger.info("Tool registry initialized: %d manual tools registered", registry.get_tool_count())

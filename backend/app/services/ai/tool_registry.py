@@ -175,6 +175,8 @@ class ToolRegistry:
         "dispatch": {
             "search_dispatch_orders": 8.0,
             "find_correspondence": 5.0,
+            "get_dispatch_timeline": 4.0,
+            "detect_dispatch_anomaly": 5.0,
         },
         "project": {
             "search_projects": 8.0,
@@ -198,6 +200,14 @@ class ToolRegistry:
             "check_budget_alert": 6.0,
             "get_contract_summary": 4.0,
             "get_unpaid_billings": 3.0,
+            "list_pending_expenses": 5.0,
+            "get_expense_detail": 3.0,
+            "suggest_expense_category": 3.0,
+        },
+        "asset": {
+            "list_assets": 8.0,
+            "get_asset_detail": 5.0,
+            "get_asset_stats": 6.0,
         },
     }
 
@@ -210,6 +220,7 @@ class ToolRegistry:
         "vendor": ["廠商", "協力", "供應商", "承包"],
         "visual": ["畫", "圖", "結構圖", "架構圖", "ER圖", "流程圖", "依賴", "顯示結構"],
         "finance": ["財務", "預算", "報銷", "支出", "收入", "結餘", "帳本", "費用", "超支", "發票", "請款"],
+        "asset": ["資產", "設備", "儀器", "盤點", "折舊"],
     }
 
     # KG 實體類型 → 偵測關鍵字

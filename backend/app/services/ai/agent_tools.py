@@ -92,6 +92,21 @@ _DISPATCH_KEYS = {
     "auto_tender_to_case",
     # Engineering diagram Vision analysis (v5.4.1)
     "analyze_diagram",
+    # Asset tools (v5.4.1)
+    "list_assets",
+    "get_asset_detail",
+    "get_asset_stats",
+    # Invoice/Expense tools (v5.4.1)
+    "list_pending_expenses",
+    "get_expense_detail",
+    "suggest_expense_category",
+    # Dispatch tools (v5.4.1)
+    "get_dispatch_timeline",
+    "detect_dispatch_anomaly",
+    # PM risk tool (v5.4.1)
+    "detect_project_risk",
+    # Document intent tool (v5.4.1)
+    "analyze_document_intent",
 }
 # Validate: all dispatch keys must be in registry, and all non-skill registry tools
 # must be in dispatch keys. Skill tools (skill_*) are handled dynamically.
@@ -150,6 +165,21 @@ class ToolResultGuard:
         "auto_tender_to_case": {"created": [], "count": 0},
         # Engineering diagram (v5.4.1)
         "analyze_diagram": {"diagram_type": "", "summary": "", "count": 0},
+        # Asset tools (v5.4.1)
+        "list_assets": {"assets": [], "total": 0, "count": 0},
+        "get_asset_detail": {"asset": None, "count": 0},
+        "get_asset_stats": {"stats": {}, "count": 0},
+        # Invoice/Expense tools (v5.4.1)
+        "list_pending_expenses": {"items": [], "total": 0, "count": 0},
+        "get_expense_detail": {"expense": None, "count": 0},
+        "suggest_expense_category": {"category": "", "confidence": 0, "count": 0},
+        # Dispatch tools (v5.4.1)
+        "get_dispatch_timeline": {"timeline": [], "count": 0},
+        "detect_dispatch_anomaly": {"anomalies": [], "summary": "", "count": 0},
+        # PM risk tool (v5.4.1)
+        "detect_project_risk": {"risk_score": 0, "risks": [], "count": 0},
+        # Document intent tool (v5.4.1)
+        "analyze_document_intent": {"intent": "", "confidence": 0, "count": 0},
     }
 
     @classmethod
@@ -316,6 +346,21 @@ class AgentToolExecutor:
             "auto_tender_to_case": self._domain.auto_tender_to_case,
             # Engineering diagram Vision analysis (v5.4.1)
             "analyze_diagram": self._domain.analyze_diagram,
+            # Asset tools (v5.4.1)
+            "list_assets": self._domain.list_assets,
+            "get_asset_detail": self._domain.get_asset_detail,
+            "get_asset_stats": self._domain.get_asset_stats,
+            # Invoice/Expense tools (v5.4.1)
+            "list_pending_expenses": self._domain.list_pending_expenses,
+            "get_expense_detail": self._domain.get_expense_detail,
+            "suggest_expense_category": self._domain.suggest_expense_category,
+            # Dispatch tools (v5.4.1)
+            "get_dispatch_timeline": self._domain.get_dispatch_timeline,
+            "detect_dispatch_anomaly": self._domain.detect_dispatch_anomaly,
+            # PM risk tool (v5.4.1)
+            "detect_project_risk": self._domain.detect_project_risk,
+            # Document intent tool (v5.4.1)
+            "analyze_document_intent": self._domain.analyze_document_intent,
             # Document parsing tool (v10.1)
             "parse_document": self._document.parse_document,
             # Knowledge Base search (v1.84.5)
