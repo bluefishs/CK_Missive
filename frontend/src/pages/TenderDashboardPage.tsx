@@ -40,13 +40,12 @@ interface DashboardData {
   latest_date: string;
   today_date: string;
   ezbid_count: number;
-  today_count: number;
+  date_ranges: Record<string, string>;
   stats: {
     latest_bid: number; latest_award: number;
     week_new_bid: number; week_new_award: number;
     failed_award: number; rfp_count: number;
   };
-  today_list: TenderItem[];
   latest_bid_list: TenderItem[];
   latest_award_list: TenderItem[];
   week_new_bid_list: TenderItem[];
@@ -101,26 +100,16 @@ const TenderDashboardPage: React.FC = () => {
     },
   ];
 
-  const latestLabel = data?.latest_date ? `最新 (${data.latest_date})` : '最新';
-  const todayShort = data?.today_date ? data.today_date.slice(5) : '';
-  // 計算本週起始日 (週一)
-  const weekStart = (() => {
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(now.setDate(diff));
-    return `${String(monday.getMonth() + 1).padStart(2, '0')}/${String(monday.getDate()).padStart(2, '0')}`;
-  })();
+  const dr = data?.date_ranges ?? {};
 
-  // 列表資料映射
+  // 列表資料映射 — 使用後端回傳的實際日期範圍
   const listDataMap: Record<string, { title: string; data: TenderItem[] }> = {
-    today: { title: `今日標案 (${data?.today_date ?? ''})`, data: data?.today_list ?? [] },
-    week_bid: { title: '本週最新招標', data: data?.week_new_bid_list ?? [] },
-    week_award: { title: '本週最新決標', data: data?.week_new_award_list ?? [] },
-    latest_bid: { title: `${latestLabel} 招標`, data: data?.latest_bid_list ?? [] },
-    latest_award: { title: `${latestLabel} 決標`, data: data?.latest_award_list ?? [] },
-    failed: { title: '近期無法決標', data: data?.failed_award_list ?? [] },
-    rfp: { title: '最新公開徵求', data: data?.rfp_list ?? [] },
+    latest_bid: { title: `最新招標 (${dr.latest_bid || '–'})`, data: data?.latest_bid_list ?? [] },
+    latest_award: { title: `最新決標 (${dr.latest_award || '–'})`, data: data?.latest_award_list ?? [] },
+    week_bid: { title: `本週招標 (${dr.week_bid || '–'})`, data: data?.week_new_bid_list ?? [] },
+    week_award: { title: `本週決標 (${dr.week_award || '–'})`, data: data?.week_new_award_list ?? [] },
+    failed: { title: `無法決標 (${dr.failed || '近期'})`, data: data?.failed_award_list ?? [] },
+    rfp: { title: `公開徵求 (${dr.rfp || '近期'})`, data: data?.rfp_list ?? [] },
   };
 
   const currentList = listDataMap[activeList] ?? { title: '本週最新招標', data: [] };
@@ -148,23 +137,15 @@ const TenderDashboardPage: React.FC = () => {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`今日標案 (${todayShort})`} value={data?.today_count ?? 0}
-            icon={<CalendarOutlined />} color="#eb2f96"
-            active={activeList === 'today'}
-            onClick={() => setActiveList('today')}
-          />
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <ClickableStatCard
-            title={`最新招標 (${data?.latest_date?.slice(5) ?? ''})`} value={stats?.latest_bid ?? 0}
-            icon={<FileSearchOutlined />} color="#1890ff"
+            title={`最新招標 (${dr.latest_bid || '–'})`} value={stats?.latest_bid ?? 0}
+            icon={<CalendarOutlined />} color="#1890ff"
             active={activeList === 'latest_bid'}
             onClick={() => setActiveList('latest_bid')}
           />
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`最新決標 (${data?.latest_date?.slice(5) ?? ''})`} value={stats?.latest_award ?? 0}
+            title={`最新決標 (${dr.latest_award || '–'})`} value={stats?.latest_award ?? 0}
             icon={<CheckCircleOutlined />} color="#52c41a"
             active={activeList === 'latest_award'}
             onClick={() => setActiveList('latest_award')}
@@ -172,7 +153,7 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`本週招標 (${weekStart}~${todayShort})`} value={stats?.week_new_bid ?? 0}
+            title={`本週招標 (${dr.week_bid || '–'})`} value={stats?.week_new_bid ?? 0}
             icon={<FileSearchOutlined />} color="#722ed1"
             active={activeList === 'week_bid'}
             onClick={() => setActiveList('week_bid')}
@@ -180,7 +161,7 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`本週決標 (${weekStart}~${todayShort})`} value={stats?.week_new_award ?? 0}
+            title={`本週決標 (${dr.week_award || '–'})`} value={stats?.week_new_award ?? 0}
             icon={<TrophyOutlined />} color="#13c2c2"
             active={activeList === 'week_award'}
             onClick={() => setActiveList('week_award')}
@@ -188,7 +169,7 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`無法決標 (近期)`} value={stats?.failed_award ?? 0}
+            title={`無法決標 (${dr.failed || '近期'})`} value={stats?.failed_award ?? 0}
             icon={<WarningOutlined />} color="#ff4d4f"
             active={activeList === 'failed'}
             onClick={() => setActiveList('failed')}
@@ -196,7 +177,7 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`公開徵求 (近期)`} value={stats?.rfp_count ?? 0}
+            title={`公開徵求 (${dr.rfp || '近期'})`} value={stats?.rfp_count ?? 0}
             icon={<FileSearchOutlined />} color="#faad14"
             active={activeList === 'rfp'}
             onClick={() => setActiveList('rfp')}

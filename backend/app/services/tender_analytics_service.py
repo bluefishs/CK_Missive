@@ -102,8 +102,13 @@ class TenderAnalyticsService:
         def is_type(r, keyword):
             return keyword in r.get("type", "")
 
+        # 最新招標：使用整體最新日期 (含 ezbid)
         latest_bid = [r for r in all_records if r.get("date") == latest_date and is_type(r, "招標")]
-        latest_award = [r for r in all_records if r.get("date") == latest_date and is_type(r, "決標") and "無法" not in r.get("type", "")]
+
+        # 最新決標：使用 PCC 最新日期 (ezbid 不提供決標資料)
+        pcc_dates = sorted(set(r.get("date", "") for r in all_records if r.get("date") and r.get("source") != "ezbid"), reverse=True)
+        pcc_latest = pcc_dates[0] if pcc_dates else latest_date
+        latest_award = [r for r in all_records if r.get("date") == pcc_latest and is_type(r, "決標") and "無法" not in r.get("type", "")]
         week_new_bid = [r for r in all_records if r.get("date", "") >= week_ago and is_type(r, "招標")]
         week_new_award = [r for r in all_records if r.get("date", "") >= week_ago and is_type(r, "決標") and "無法" not in r.get("type", "")]
         recent_failed = [r for r in all_records if is_type(r, "無法決標")]
@@ -152,7 +157,15 @@ class TenderAnalyticsService:
 
         ezbid_count = sum(1 for r in all_records if r.get("source") == "ezbid")
         today_str = datetime.now().strftime("%Y-%m-%d")
-        today_all = [r for r in all_records if r.get("date") == today_str]
+
+        # 計算各列表的實際日期範圍
+        def date_range(records):
+            dates = sorted(set(r.get("date", "") for r in records if r.get("date")))
+            if not dates:
+                return ""
+            if len(dates) == 1:
+                return dates[0][5:]  # MM-DD
+            return f"{dates[0][5:]}~{dates[-1][5:]}"
 
         return {
             "total_found": len(all_records),
@@ -160,7 +173,15 @@ class TenderAnalyticsService:
             "latest_date": latest_date,
             "today_date": today_str,
             "ezbid_count": ezbid_count,
-            "today_count": len(today_all),
+            # 各區塊實際日期範圍
+            "date_ranges": {
+                "latest_bid": date_range(latest_bid),
+                "latest_award": date_range(latest_award),
+                "week_bid": date_range(week_new_bid),
+                "week_award": date_range(week_new_award),
+                "failed": date_range(recent_failed),
+                "rfp": date_range(recent_rfp),
+            },
             # 統計卡片
             "stats": {
                 "latest_bid": len(latest_bid),
@@ -171,9 +192,8 @@ class TenderAnalyticsService:
                 "rfp_count": len(recent_rfp),
             },
             # 列表區塊
-            "today_list": [slim(r) for r in today_all[:15]],
-            "latest_bid_list": [slim(r) for r in latest_bid[:10]],
-            "latest_award_list": [slim(r) for r in latest_award[:10]],
+            "latest_bid_list": [slim(r) for r in latest_bid[:20]],
+            "latest_award_list": [slim(r) for r in latest_award[:20]],
             "week_new_bid_list": [slim(r) for r in week_new_bid[:20]],
             "week_new_award_list": [slim(r) for r in week_new_award[:20]],
             "failed_award_list": [slim(r) for r in recent_failed[:10]],
