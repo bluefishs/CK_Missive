@@ -313,16 +313,40 @@ const TenderDetailPage: React.FC = () => {
         ) : <Empty description="查無相似標案" />}
       </Card>
 
-      {/* 2. 潛在對手 */}
-      <Card title="② 本案潛在對手" size="small" style={{ marginBottom: 16 }}>
+      {/* 2. 潛在對手 — 競爭強度 */}
+      <Card title="② 本案潛在對手 — 競爭強度" size="small" style={{ marginBottom: 16 }}>
         {battle?.competitors?.length ? (
-          <List size="small" dataSource={battle.competitors.slice(0, 10)}
-            renderItem={(c) => (
-              <List.Item extra={<Tag color="blue">{c.count} 次</Tag>}>
-                <a onClick={() => navigate(`/tender/company-profile?q=${encodeURIComponent(c.name)}`)}>{c.name}</a>
-              </List.Item>
-            )}
-          />
+          <table style={{ width: '100%', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #f0f0f0', textAlign: 'left' }}>
+                <th style={{ padding: '8px 4px' }}>廠商</th>
+                <th style={{ padding: '8px 4px', textAlign: 'center' }}>出現</th>
+                <th style={{ padding: '8px 4px', textAlign: 'center' }}>得標</th>
+                <th style={{ padding: '8px 4px', textAlign: 'center' }}>得標率</th>
+                <th style={{ padding: '8px 4px', textAlign: 'right' }}>得標金額</th>
+              </tr>
+            </thead>
+            <tbody>
+              {battle.competitors.slice(0, 10).map((c, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
+                  onClick={() => navigate(`/tender/company-profile?q=${encodeURIComponent(c.name)}`)}>
+                  <td style={{ padding: '6px 4px' }}>
+                    <a>{c.name}</a>
+                  </td>
+                  <td style={{ padding: '6px 4px', textAlign: 'center' }}>{c.appear_count ?? c.count ?? 0}</td>
+                  <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                    <Tag color={(c.win_count ?? 0) > 0 ? 'green' : 'default'}>{c.win_count ?? 0}</Tag>
+                  </td>
+                  <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                    <Tag color={c.win_rate && c.win_rate >= 50 ? 'blue' : 'default'}>{c.win_rate ?? 0}%</Tag>
+                  </td>
+                  <td style={{ padding: '6px 4px', textAlign: 'right', color: '#1890ff' }}>
+                    {c.total_amount ? `${(c.total_amount / 10000).toFixed(0)}萬` : '–'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : <Empty description="查無潛在對手資料" />}
       </Card>
 

@@ -32,13 +32,13 @@ export const tenderApi = {
   /** 標案完整戰情 (詳情+戰情室+機關生態) */
   async getDetailFull(unitId: string, jobNumber: string): Promise<{
     detail: TenderDetail | null;
-    battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count: number; win_rate?: number }> };
+    battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count?: number; appear_count?: number; win_count?: number; win_rate?: number; total_amount?: number }> };
     org_tenders: TenderRecord[];
     org_total: number;
   } | null> {
     const res = await apiClient.post<SuccessResponse<{
       detail: TenderDetail | null;
-      battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count: number; win_rate?: number }> };
+      battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count?: number; appear_count?: number; win_count?: number; win_rate?: number; total_amount?: number }> };
       org_tenders: TenderRecord[];
       org_total: number;
     } | null>>(
