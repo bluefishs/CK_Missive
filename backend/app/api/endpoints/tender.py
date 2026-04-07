@@ -163,23 +163,22 @@ async def get_tender_detail_full(
 
     agency_name = detail.get("unit_name", "")
 
-    # Step 2: 並行取得戰情+底價+機關生態 (用機關名稱搜尋)
+    # Step 2: 並行取得戰情+底價+機關生態完整分析
     battle_task = analytics.battle_room(req.unit_id, req.job_number)
     price_task = analytics.price_analysis(req.unit_id, req.job_number)
-    async def _empty_org(): return {"records": []}
-    org_task = service.search_by_org(agency_name, page=1) if agency_name else _empty_org()
+    async def _empty_org(): return {}
+    org_task = analytics.org_ecosystem(agency_name, pages=3) if agency_name else _empty_org()
 
     results = await asyncio.gather(battle_task, price_task, org_task, return_exceptions=True)
 
     battle = results[0] if not isinstance(results[0], Exception) else {}
     price = results[1] if not isinstance(results[1], Exception) else {}
-    org_tenders = results[2] if not isinstance(results[2], Exception) else {"records": []}
+    org_eco = results[2] if not isinstance(results[2], Exception) else {}
 
     return SuccessResponse(data={
         "detail": detail,
         "battle_room": battle,
-        "org_tenders": org_tenders.get("records", [])[:20],
-        "org_total": org_tenders.get("total_records", 0),
+        "org_ecosystem": org_eco,
         "price_analysis": price if not price.get("error") else None,
     })
 

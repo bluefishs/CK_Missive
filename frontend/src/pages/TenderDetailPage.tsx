@@ -364,29 +364,49 @@ const TenderDetailPage: React.FC = () => {
         ) : <Empty description="查無潛在對手資料" />}
       </Card>
 
-      {/* 3. 機關生態 */}
-      <Card title={`③ 機關生態 — ${detail?.unit_name ?? ''}`} size="small"
-        extra={<Button type="link" size="small" onClick={() => window.open(`/tender/org-ecosystem?org=${encodeURIComponent(detail?.unit_name ?? '')}`, '_blank')}>完整分析 →</Button>}
+      {/* 3. 機關生態完整分析 */}
+      <Card title={`③ 機關生態 — ${fullData?.org_ecosystem?.org_name ?? detail?.unit_name ?? ''} (${fullData?.org_ecosystem?.total ?? 0} 筆)`} size="small"
+        extra={<Button type="link" size="small" onClick={() => window.open(`/tender/org-ecosystem?org=${encodeURIComponent(detail?.unit_name ?? '')}`, '_blank')}>獨立頁面 →</Button>}
       >
-        {fullData?.org_tenders?.length ? (
-          <List size="small" dataSource={fullData.org_tenders.slice(0, 10)}
-            renderItem={(r) => (
-              <List.Item
-                key={`${r.unit_id}-${r.job_number}`}
-                actions={[<Button key="go" type="link" size="small" onClick={() => navigate(`/tender/${encodeURIComponent(r.unit_id)}/${encodeURIComponent(r.job_number)}`)}>查看</Button>]}
-              >
-                <List.Item.Meta title={r.title} description={<Space><Tag>{r.type?.slice(0, 10)}</Tag><Text type="secondary">{r.date}</Text></Space>} />
-              </List.Item>
-            )}
-          />
-        ) : <Empty description="查無同機關標案" />}
-        {(fullData?.org_total ?? 0) > 10 && (
-          <div style={{ textAlign: 'center', marginTop: 8 }}>
-            <Button type="link" onClick={() => navigate(`/tender/org-ecosystem?org=${encodeURIComponent(detail?.unit_name ?? '')}`)}>
-              查看全部 {fullData?.org_total} 筆 →
-            </Button>
-          </div>
-        )}
+        {fullData?.org_ecosystem?.top_vendors?.length ? (
+          <>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>Top 廠商 — 競爭強度</Text>
+            <table style={{ width: '100%', fontSize: 13, marginBottom: 16 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #f0f0f0', textAlign: 'left' }}>
+                  <th style={{ padding: '6px 4px' }}>廠商</th>
+                  <th style={{ padding: '6px 4px', textAlign: 'center' }}>出現</th>
+                  <th style={{ padding: '6px 4px', textAlign: 'center' }}>得標</th>
+                  <th style={{ padding: '6px 4px', textAlign: 'center' }}>得標率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fullData.org_ecosystem.top_vendors.slice(0, 10).map((v, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
+                    onClick={() => window.open(`/tender/company-profile?q=${encodeURIComponent(v.name)}`, '_blank')}>
+                    <td style={{ padding: '5px 4px' }}><a>{v.name}</a></td>
+                    <td style={{ padding: '5px 4px', textAlign: 'center' }}>{v.appear_count}</td>
+                    <td style={{ padding: '5px 4px', textAlign: 'center' }}><Tag color={(v.win_count ?? 0) > 0 ? 'green' : 'default'}>{v.win_count}</Tag></td>
+                    <td style={{ padding: '5px 4px', textAlign: 'center' }}><Tag color={v.win_rate >= 50 ? 'blue' : 'default'}>{v.win_rate}%</Tag></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {fullData.org_ecosystem.recent_tenders?.length ? (
+              <>
+                <Text strong style={{ display: 'block', marginBottom: 8 }}>近期標案</Text>
+                <List size="small" dataSource={fullData.org_ecosystem.recent_tenders.slice(0, 8)}
+                  renderItem={(r) => (
+                    <List.Item actions={[<Button key="go" type="link" size="small" onClick={() => navigate(`/tender/${encodeURIComponent(r.unit_id)}/${encodeURIComponent(r.job_number)}`)}>查看</Button>]}>
+                      <List.Item.Meta title={r.title} description={<Space><Tag>{r.type?.slice(0, 10)}</Tag><Text type="secondary">{r.date}</Text>{r.winner_names?.map((w, i) => <Tag key={i} color="green">{w}</Tag>)}</Space>} />
+                    </List.Item>
+                  )}
+                />
+              </>
+            ) : null}
+          </>
+        ) : <Empty description="查無機關生態資料" />}
       </Card>
     </div>
   );
