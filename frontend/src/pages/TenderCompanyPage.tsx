@@ -12,7 +12,7 @@ import {
   Card, Input, Table, Tag, Typography, Row, Col, Statistic,
   App, Progress, Empty,
 } from 'antd';
-import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
   TrophyOutlined, BankOutlined,
   BarChartOutlined, SearchOutlined,
@@ -69,14 +69,17 @@ const TenderCompanyPage: React.FC = () => {
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [records]);
 
-  // 年度趨勢
+  // 年度趨勢 — 近 5 年降冪
   const yearData = useMemo(() => {
     const map: Record<string, number> = {};
     records.forEach(r => {
       const year = r.date?.slice(0, 4) || '不明';
-      map[year] = (map[year] || 0) + 1;
+      if (year !== '不明') map[year] = (map[year] || 0) + 1;
     });
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => a.name.localeCompare(b.name));
+    const sorted = Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.name.localeCompare(a.name)); // 降冪
+    return sorted.slice(0, 5).reverse(); // 近 5 年，左舊右新
   }, [records]);
 
   const columns: ColumnsType<TenderRecord> = [
@@ -189,15 +192,15 @@ const TenderCompanyPage: React.FC = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12}>
-            <Card title="年度投標分布" size="small">
+            <Card title={`年度投標趨勢${yearData.length > 0 ? ` (${yearData[0]?.name} – ${yearData[yearData.length - 1]?.name})` : ''}`} size="small">
               <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={yearData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                    outerRadius={70} label={({ name, value }) => `${name} (${value})`}>
-                    {yearData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                  </Pie>
+                <BarChart data={yearData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
                   <RechartsTooltip />
-                </PieChart>
+                  <Bar dataKey="value" name="標案數" fill="#1890ff" />
+                </BarChart>
               </ResponsiveContainer>
             </Card>
           </Col>

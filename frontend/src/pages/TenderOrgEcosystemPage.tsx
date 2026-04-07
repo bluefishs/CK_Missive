@@ -87,25 +87,25 @@ const TenderOrgEcosystemPage: React.FC = () => {
           </Row>
 
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            {/* 年度趨勢 — 超過 15 年智能裁剪 */}
+            {/* 年度趨勢 — 近 5 年 */}
             <Col xs={24} lg={14}>
               {(() => {
-                const raw = data.year_trend.filter(d => d.year && d.year !== '未知').sort((a, b) => a.year.localeCompare(b.year));
-                const MAX_YEARS = 15;
-                const display = raw.length > MAX_YEARS ? raw.slice(-MAX_YEARS) : raw;
-                const yearRange = display.length > 0
-                  ? `${display[0]?.year ?? ''} – ${display[display.length - 1]?.year ?? ''}`
-                  : '';
-                const title = raw.length > MAX_YEARS
-                  ? `年度標案趨勢 (近 ${MAX_YEARS} 年: ${yearRange}，共 ${raw.length} 年資料)`
-                  : `年度標案趨勢 ${yearRange ? `(${yearRange})` : ''}`;
+                const sorted = (data.year_trend || [])
+                  .filter((d: { year: string }) => d.year && d.year !== '未知')
+                  .sort((a: { year: string }, b: { year: string }) => b.year.localeCompare(a.year));
+                const recent5 = sorted.slice(0, 5).reverse();
+                const range = recent5.length > 0 ? `${recent5[0]?.year ?? ''} – ${recent5[recent5.length - 1]?.year ?? ''}` : '';
+                const totalYears = sorted.length;
+                const title = totalYears > 5
+                  ? `年度標案趨勢 (${range}，共 ${totalYears} 年資料)`
+                  : `年度標案趨勢 ${range ? `(${range})` : ''}`;
                 return (
                   <Card title={title} size="small">
-                    {display.length > 0 ? (
+                    {recent5.length > 0 ? (
                       <ResponsiveContainer width="100%" height={280}>
-                        <BarChart data={display}>
+                        <BarChart data={recent5}>
                           <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="year" angle={display.length > 10 ? -45 : 0} textAnchor={display.length > 10 ? 'end' : 'middle'} height={display.length > 10 ? 60 : 30} />
+                          <XAxis dataKey="year" />
                           <YAxis />
                           <Tooltip />
                           <Bar dataKey="count" name="標案數" fill="#1890ff" />

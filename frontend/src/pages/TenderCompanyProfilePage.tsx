@@ -116,19 +116,28 @@ const TenderCompanyProfilePage: React.FC = () => {
           </Row>
 
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            {/* 年度趨勢 */}
+            {/* 年度趨勢 — 近 5 年降冪 */}
             <Col xs={24} lg={14}>
-              <Card title="年度投標趨勢" size="small">
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={data.year_trend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="year" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" name="參與標案" fill="#1890ff" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
+              {(() => {
+                const sorted = (data.year_trend || [])
+                  .filter((d: { year: string }) => d.year && d.year !== '未知')
+                  .sort((a: { year: string }, b: { year: string }) => b.year.localeCompare(a.year));
+                const recent5 = sorted.slice(0, 5).reverse(); // 近 5 年，升冪顯示 (左舊右新)
+                const range = recent5.length > 0 ? `${recent5[0]?.year} – ${recent5[recent5.length - 1]?.year}` : '';
+                return (
+                  <Card title={`年度投標趨勢 (${range})`} size="small">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={recent5}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="year" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="count" name="參與標案" fill="#1890ff" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Card>
+                );
+              })()}
             </Col>
 
             {/* 類別分布 — 超過 6 類合併為「其他」 */}
