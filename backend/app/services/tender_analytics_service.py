@@ -26,32 +26,110 @@ class TenderAnalyticsService:
     # =========================================================================
 
     async def dashboard(self, keywords: Optional[List[str]] = None) -> dict:
-        """招標採購儀表板 — 近期統計 + 類別分布 + 推薦標案
+        """招標採購儀表板 — 多區塊分類統計 + 最新標案列表
 
-        Args:
-            keywords: 監控關鍵字 (預設使用乾坤業務關鍵字)
+        回傳:
+        - 統計卡片: 招標/決標/無法決標 筆數
+        - 分類列表: 本週招標/決標/得標廠商/無法決標/公開徵求
+        - 類別分布圖表
         """
+        from datetime import datetime, timedelta
         from app.services.tender_search_service import CK_BUSINESS_KEYWORDS
         kw_list = keywords or CK_BUSINESS_KEYWORDS[:5]
 
-        # 推薦標案
-        recommend = await self.search.recommend_tenders(keywords=kw_list)
-        records = recommend.get("records", [])
+        # 多關鍵字搜尋，收集更多近期標案
+        all_records = []
+        seen_keys = set()
+        for kw in kw_list[:5]:
+            for page in range(1, 3):  # 每關鍵字取 2 頁
+                result = await self.search.search_by_title(kw, page=page)
+                for r in result.get("records", []):
+                    key = f"{r['unit_id']}-{r['job_number']}"
+                    if key not in seen_keys:
+                        seen_keys.add(key)
+                        r["matched_keyword"] = kw
+                        all_records.append(r)
 
-        # 統計
+        # 按日期排序
+        all_records.sort(key=lambda r: r.get("raw_date", 0), reverse=True)
+
+        # 日期判斷
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+
+        # 按類型分類
+        def is_type(r, keyword):
+            return keyword in r.get("type", "")
+
+        today_bid = [r for r in all_records if r.get("date") == today_str and is_type(r, "招標")]
+        today_award = [r for r in all_records if r.get("date") == today_str and is_type(r, "決標") and "無法" not in r.get("type", "")]
+        week_new_bid = [r for r in all_records if r.get("date", "") >= week_ago and is_type(r, "招標")]
+        week_new_award = [r for r in all_records if r.get("date", "") >= week_ago and is_type(r, "決標") and "無法" not in r.get("type", "")]
+        recent_failed = [r for r in all_records if is_type(r, "無法決標")]
+        recent_rfp = [r for r in all_records if is_type(r, "公開取得")]
+
+        # 得標廠商統計
+        winner_counter: Counter = Counter()
+        for r in all_records:
+            for w in r.get("winner_names", []):
+                if w:
+                    winner_counter[w] += 1
+
+        # 類別/機關統計
         category_counter: Counter = Counter()
         type_counter: Counter = Counter()
         agency_counter: Counter = Counter()
-
-        for r in records:
+        for r in all_records:
             category_counter[r.get("category", "未分類")] += 1
-            type_counter[r.get("type", "未分類")] += 1
+            t = r.get("type", "")
+            if "招標" in t:
+                type_counter["招標公告"] += 1
+            elif "無法決標" in t:
+                type_counter["無法決標"] += 1
+            elif "決標" in t:
+                type_counter["決標公告"] += 1
+            elif "取得報價" in t:
+                type_counter["公開取得報價"] += 1
+            else:
+                type_counter[t[:10] if t else "其他"] += 1
             agency_counter[r.get("unit_name", "未知")] += 1
 
+        def slim(r):
+            return {
+                "title": r.get("title", "")[:80],
+                "date": r.get("date", ""),
+                "type": r.get("type", "")[:20],
+                "category": r.get("category", ""),
+                "unit_name": r.get("unit_name", ""),
+                "unit_id": r.get("unit_id", ""),
+                "job_number": r.get("job_number", ""),
+                "winner_names": r.get("winner_names", [])[:3],
+                "matched_keyword": r.get("matched_keyword"),
+            }
+
         return {
-            "total_found": recommend.get("total", 0),
+            "total_found": len(all_records),
             "keywords_used": kw_list,
-            "recent_tenders": records[:10],
+            # 統計卡片
+            "stats": {
+                "today_bid": len(today_bid),
+                "today_award": len(today_award),
+                "week_new_bid": len(week_new_bid),
+                "week_new_award": len(week_new_award),
+                "failed_award": len(recent_failed),
+                "rfp_count": len(recent_rfp),
+            },
+            # 列表區塊
+            "today_bid_list": [slim(r) for r in today_bid[:10]],
+            "today_award_list": [slim(r) for r in today_award[:10]],
+            "week_new_bid_list": [slim(r) for r in week_new_bid[:20]],
+            "week_new_award_list": [slim(r) for r in week_new_award[:20]],
+            "failed_award_list": [slim(r) for r in recent_failed[:10]],
+            "rfp_list": [slim(r) for r in recent_rfp[:10]],
+            "top_winners": [
+                {"name": k, "count": v} for k, v in winner_counter.most_common(10)
+            ],
+            # 圖表
             "category_distribution": [
                 {"name": k, "value": v} for k, v in category_counter.most_common(10)
             ],

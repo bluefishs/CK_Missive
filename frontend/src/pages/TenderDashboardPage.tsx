@@ -1,33 +1,54 @@
 /**
- * 招標採購儀表板 — 近期標案統計 + 類別分布 + 推薦標案
+ * 招標採購儀表板
+ *
+ * 參照 acebidx.com 設計，提供多區塊分類統計：
+ * - 統計卡片: 今日招標/決標、本週招標/決標、無法決標、公開徵求
+ * - 列表: 本週招標/決標/得標廠商/無法決標
+ * - 圖表: 類別分布/類型分布
+ *
+ * @version 2.0.0
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Card, Row, Col, Table, Tag, Typography, Spin, Button, Space,
 } from 'antd';
 import {
-  FundOutlined, ReloadOutlined, BankOutlined, TagsOutlined, AppstoreOutlined,
+  FundOutlined, ReloadOutlined, BankOutlined, TrophyOutlined,
+  FileSearchOutlined, WarningOutlined, CalendarOutlined, CheckCircleOutlined,
 } from '@ant-design/icons';
 import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ResponsiveContent } from '@ck-shared/ui-components';
+import { useResponsive } from '../hooks';
 import apiClient from '../api/client';
 import CategoryPieChart from '../components/tender/CategoryPieChart';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
 import type { ColumnsType } from 'antd/es/table';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
+
+interface TenderItem {
+  title: string; date: string; type: string; category: string;
+  unit_name: string; unit_id: string; job_number: string;
+  winner_names?: string[]; matched_keyword?: string;
+}
 
 interface DashboardData {
   total_found: number;
   keywords_used: string[];
-  recent_tenders: Array<{
-    title: string; date: string; type: string; category: string;
-    unit_name: string; unit_id: string; job_number: string;
-    winner_names?: string[]; matched_keyword?: string;
-  }>;
+  stats: {
+    today_bid: number; today_award: number;
+    week_new_bid: number; week_new_award: number;
+    failed_award: number; rfp_count: number;
+  };
+  today_bid_list: TenderItem[];
+  today_award_list: TenderItem[];
+  week_new_bid_list: TenderItem[];
+  week_new_award_list: TenderItem[];
+  failed_award_list: TenderItem[];
+  rfp_list: TenderItem[];
+  top_winners: Array<{ name: string; count: number }>;
   category_distribution: Array<{ name: string; value: number }>;
   type_distribution: Array<{ name: string; value: number }>;
   top_agencies: Array<{ name: string; count: number }>;
@@ -35,7 +56,9 @@ interface DashboardData {
 
 const TenderDashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const [statFilter, setStatFilter] = useState<string | null>(null);
+  const { isMobile, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
+  const [activeList, setActiveList] = useState('week_bid');
 
   const { data, isLoading, refetch } = useQuery<DashboardData>({
     queryKey: ['tender-dashboard'],
@@ -48,43 +71,54 @@ const TenderDashboardPage: React.FC = () => {
     staleTime: 5 * 60_000,
   });
 
-  const filteredTenders = useMemo(() => {
-    const tenders = data?.recent_tenders ?? [];
-    if (!statFilter) return tenders;
-    if (statFilter === 'keyword') return tenders.filter(t => t.matched_keyword);
-    return tenders;
-  }, [data?.recent_tenders, statFilter]);
+  const stats = data?.stats;
 
-  const tenderColumns: ColumnsType<DashboardData['recent_tenders'][0]> = [
+  // 共用表格欄位
+  const tenderColumns: ColumnsType<TenderItem> = [
     {
-      title: '標案名稱', dataIndex: 'title', key: 'title', ellipsis: true,
+      title: '公告日', dataIndex: 'date', width: 100,
+      render: (v: string) => <Text type="secondary">{v}</Text>,
+    },
+    {
+      title: '標案名稱', dataIndex: 'title', ellipsis: true,
       render: (v: string, r) => (
-        <a onClick={() => navigate(`/tender/${r.unit_id}/${r.job_number}`)}>{v}</a>
-      ),
-    },
-    { title: '日期', dataIndex: 'date', key: 'date', width: 110 },
-    { title: '類型', dataIndex: 'type', key: 'type', width: 120, render: (v: string) => <Tag>{v}</Tag> },
-    {
-      title: '機關', dataIndex: 'unit_name', key: 'unit', width: 180, ellipsis: true,
-      render: (v: string) => (
-        <a onClick={() => navigate(`${ROUTES.TENDER_ORG_ECOSYSTEM}?org=${encodeURIComponent(v)}`)}>{v}</a>
+        <a onClick={() => navigate(`/tender/${encodeURIComponent(r.unit_id)}/${encodeURIComponent(r.job_number)}`)} style={{ fontWeight: 500 }}>{v}</a>
       ),
     },
     {
-      title: '關鍵字', dataIndex: 'matched_keyword', key: 'kw', width: 80,
-      render: (v?: string) => v ? <Tag color="blue">{v}</Tag> : null,
+      title: '招標機關', dataIndex: 'unit_name', width: 160, ellipsis: true,
+      render: (v: string) => <><BankOutlined style={{ marginRight: 4, color: '#8c8c8c' }} />{v}</>,
+    },
+    {
+      title: '得標', key: 'winner', width: 120, ellipsis: true,
+      render: (_: unknown, r: TenderItem) =>
+        r.winner_names?.length ? <Text style={{ color: '#52c41a' }}>{r.winner_names[0]}</Text> : <Text type="secondary">-</Text>,
     },
   ];
+
+  // 列表資料映射
+  const listDataMap: Record<string, { title: string; data: TenderItem[] }> = {
+    week_bid: { title: '本週最新招標', data: data?.week_new_bid_list ?? [] },
+    week_award: { title: '本週最新決標', data: data?.week_new_award_list ?? [] },
+    today_bid: { title: '今日招標', data: data?.today_bid_list ?? [] },
+    today_award: { title: '今日決標', data: data?.today_award_list ?? [] },
+    failed: { title: '近期無法決標', data: data?.failed_award_list ?? [] },
+    rfp: { title: '最新公開徵求', data: data?.rfp_list ?? [] },
+  };
+
+  const currentList = listDataMap[activeList] ?? { title: '本週最新招標', data: [] };
 
   if (isLoading) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />;
 
   return (
-    <ResponsiveContent maxWidth="full" padding="medium">
-      <Card style={{ marginBottom: 16 }}>
+    <div style={{ padding: pagePadding }}>
+      {/* 標題列 */}
+      <Card size={isMobile ? 'small' : undefined} style={{ marginBottom: 16 }}>
         <Row justify="space-between" align="middle">
-          <Col><Title level={3} style={{ margin: 0 }}><FundOutlined /> 招標採購儀表板</Title></Col>
+          <Col><Title level={isMobile ? 4 : 3} style={{ margin: 0 }}><FundOutlined /> 招標採購儀表板</Title></Col>
           <Col>
             <Space>
+              <Text type="secondary">共 {data?.total_found?.toLocaleString() ?? 0} 筆</Text>
               <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
               <Button type="primary" onClick={() => navigate(ROUTES.TENDER_SEARCH)}>搜尋標案</Button>
             </Space>
@@ -92,84 +126,126 @@ const TenderDashboardPage: React.FC = () => {
         </Row>
       </Card>
 
-      {/* 統計卡片 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={12} sm={6}>
+      {/* 統計卡片 — 6 張 */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="推薦標案總數"
-            value={data?.total_found ?? 0}
-            icon={<FundOutlined />}
-            color="#1890ff"
-            active={statFilter === 'all'}
-            onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
+            title="今日招標" value={stats?.today_bid ?? 0}
+            icon={<CalendarOutlined />} color="#1890ff"
+            active={activeList === 'today_bid'}
+            onClick={() => setActiveList('today_bid')}
           />
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="監控關鍵字"
-            value={data?.keywords_used?.length ?? 0}
-            icon={<TagsOutlined />}
-            color="#722ed1"
-            active={statFilter === 'keyword'}
-            onClick={() => setStatFilter(statFilter === 'keyword' ? null : 'keyword')}
+            title="今日決標" value={stats?.today_award ?? 0}
+            icon={<CheckCircleOutlined />} color="#52c41a"
+            active={activeList === 'today_award'}
+            onClick={() => setActiveList('today_award')}
           />
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="標案類別數"
-            value={data?.category_distribution?.length ?? 0}
-            icon={<AppstoreOutlined />}
-            color="#faad14"
-            active={statFilter === 'category'}
-            onClick={() => setStatFilter(statFilter === 'category' ? null : 'category')}
+            title="本週招標" value={stats?.week_new_bid ?? 0}
+            icon={<FileSearchOutlined />} color="#722ed1"
+            active={activeList === 'week_bid'}
+            onClick={() => setActiveList('week_bid')}
           />
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="涉及機關數"
-            value={data?.top_agencies?.length ?? 0}
-            icon={<BankOutlined />}
-            color="#52c41a"
-            active={statFilter === 'agency'}
-            onClick={() => setStatFilter(statFilter === 'agency' ? null : 'agency')}
+            title="本週決標" value={stats?.week_new_award ?? 0}
+            icon={<TrophyOutlined />} color="#13c2c2"
+            active={activeList === 'week_award'}
+            onClick={() => setActiveList('week_award')}
+          />
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          <ClickableStatCard
+            title="無法決標" value={stats?.failed_award ?? 0}
+            icon={<WarningOutlined />} color="#ff4d4f"
+            active={activeList === 'failed'}
+            onClick={() => setActiveList('failed')}
+          />
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          <ClickableStatCard
+            title="公開徵求" value={stats?.rfp_count ?? 0}
+            icon={<FileSearchOutlined />} color="#faad14"
+            active={activeList === 'rfp'}
+            onClick={() => setActiveList('rfp')}
           />
         </Col>
       </Row>
 
+      {/* 標案列表 — 點擊統計卡片切換 */}
+      <Card
+        title={currentList.title}
+        size="small"
+        extra={<Tag color="blue">{currentList.data.length} 筆</Tag>}
+        style={{ marginBottom: 16 }}
+      >
+        <Table<TenderItem>
+          columns={tenderColumns}
+          dataSource={currentList.data}
+          rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${i}`}
+          size="small"
+          scroll={{ x: 700 }}
+          pagination={currentList.data.length > 10 ? { pageSize: 10, showTotal: (t) => `共 ${t} 筆` } : false}
+          onRow={(record) => ({
+            onClick: () => navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number)}`),
+            style: { cursor: 'pointer' },
+          })}
+        />
+      </Card>
+
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         {/* 類別分布 */}
-        <Col xs={24} lg={12}>
-          <Card title="標案類別分布" size="small">
-            <CategoryPieChart data={data?.category_distribution ?? []} height={300} />
+        <Col xs={24} lg={8}>
+          <Card title="採購類別分布" size="small">
+            <CategoryPieChart data={data?.category_distribution ?? []} height={250} />
           </Card>
         </Col>
 
-        {/* 熱門機關 */}
-        <Col xs={24} lg={12}>
-          <Card title="熱門招標機關 (Top 10)" size="small">
-            {data?.top_agencies?.map((a, i) => (
+        {/* 公告類型分布 */}
+        <Col xs={24} lg={8}>
+          <Card title="公告類型分布" size="small">
+            <CategoryPieChart data={data?.type_distribution ?? []} height={250} />
+          </Card>
+        </Col>
+
+        {/* 近期得標廠商 */}
+        <Col xs={24} lg={8}>
+          <Card title="近期得標廠商 Top 10" size="small" bodyStyle={{ padding: '8px 16px' }}>
+            {data?.top_winners?.length ? data.top_winners.map((w, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f0f0f0' }}>
-                <a onClick={() => navigate(`${ROUTES.TENDER_ORG_ECOSYSTEM}?org=${encodeURIComponent(a.name)}`)}>
+                <a onClick={() => navigate(`${ROUTES.TENDER_COMPANY_PROFILE}?q=${encodeURIComponent(w.name)}`)} style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <TrophyOutlined style={{ marginRight: 6, color: i < 3 ? '#faad14' : '#8c8c8c' }} />
+                  {w.name}
+                </a>
+                <Tag color={i < 3 ? 'gold' : 'default'}>{w.count} 件</Tag>
+              </div>
+            )) : <Text type="secondary">無得標資料</Text>}
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 熱門招標機關 */}
+      <Card title="熱門招標機關 Top 10" size="small">
+        <Row gutter={[16, 8]}>
+          {data?.top_agencies?.map((a, i) => (
+            <Col xs={24} sm={12} key={i}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <a onClick={() => navigate(`${ROUTES.TENDER_ORG_ECOSYSTEM}?org=${encodeURIComponent(a.name)}`)} style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <BankOutlined style={{ marginRight: 6 }} />{a.name}
                 </a>
                 <Tag>{a.count} 件</Tag>
               </div>
-            ))}
-          </Card>
-        </Col>
-      </Row>
-
-      {/* 近期推薦標案 */}
-      <Card title="近期推薦標案" size="small">
-        <Table
-          columns={tenderColumns}
-          dataSource={filteredTenders}
-          rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${i}`}
-          size="small"
-          pagination={{ pageSize: 10 }}
-        />
+            </Col>
+          ))}
+        </Row>
       </Card>
-    </ResponsiveContent>
+    </div>
   );
 };
 
