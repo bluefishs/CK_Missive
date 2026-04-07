@@ -269,7 +269,7 @@ class TestFinanceProactiveTriggers:
     @pytest.mark.asyncio
     async def test_budget_overrun_trigger(self):
         """預算超支掃描應產生警報"""
-        from app.services.ai.proactive_triggers_erp import ERPTriggerScanner
+        from app.services.ai.proactive_triggers_finance import check_budget_overrun
 
         db = AsyncMock()
 
@@ -283,8 +283,7 @@ class TestFinanceProactiveTriggers:
         mock_result.all.return_value = [mock_row]
         db.execute = AsyncMock(return_value=mock_result)
 
-        scanner = ERPTriggerScanner(db)
-        alerts = await scanner.check_budget_overrun(threshold_pct=80)
+        alerts = await check_budget_overrun(db, threshold_pct=80)
 
         assert len(alerts) == 1
         assert alerts[0].alert_type == "budget_overrun"
@@ -294,7 +293,7 @@ class TestFinanceProactiveTriggers:
     @pytest.mark.asyncio
     async def test_budget_overrun_critical(self):
         """支出超過收入應為 critical"""
-        from app.services.ai.proactive_triggers_erp import ERPTriggerScanner
+        from app.services.ai.proactive_triggers_finance import check_budget_overrun
 
         db = AsyncMock()
 
@@ -307,8 +306,7 @@ class TestFinanceProactiveTriggers:
         mock_result.all.return_value = [mock_row]
         db.execute = AsyncMock(return_value=mock_result)
 
-        scanner = ERPTriggerScanner(db)
-        alerts = await scanner.check_budget_overrun(threshold_pct=80)
+        alerts = await check_budget_overrun(db, threshold_pct=80)
 
         assert len(alerts) == 1
         assert alerts[0].severity == "critical"
@@ -317,7 +315,7 @@ class TestFinanceProactiveTriggers:
     @pytest.mark.asyncio
     async def test_budget_overrun_skip_zero_income(self):
         """收入為 0 的專案不應觸發警報"""
-        from app.services.ai.proactive_triggers_erp import ERPTriggerScanner
+        from app.services.ai.proactive_triggers_finance import check_budget_overrun
 
         db = AsyncMock()
 
@@ -330,15 +328,14 @@ class TestFinanceProactiveTriggers:
         mock_result.all.return_value = [mock_row]
         db.execute = AsyncMock(return_value=mock_result)
 
-        scanner = ERPTriggerScanner(db)
-        alerts = await scanner.check_budget_overrun(threshold_pct=80)
+        alerts = await check_budget_overrun(db, threshold_pct=80)
 
         assert len(alerts) == 0
 
     @pytest.mark.asyncio
     async def test_pending_receipts_trigger(self):
         """待核銷發票掃描應產生提醒"""
-        from app.services.ai.proactive_triggers_erp import ERPTriggerScanner
+        from app.services.ai.proactive_triggers_finance import check_pending_receipts
 
         db = AsyncMock()
 
@@ -346,8 +343,7 @@ class TestFinanceProactiveTriggers:
         mock_result.scalar.return_value = 8
         db.execute = AsyncMock(return_value=mock_result)
 
-        scanner = ERPTriggerScanner(db)
-        alerts = await scanner.check_pending_receipts(stale_days=7)
+        alerts = await check_pending_receipts(db, stale_days=7)
 
         assert len(alerts) == 1
         assert alerts[0].alert_type == "pending_receipt_stale"
@@ -357,7 +353,7 @@ class TestFinanceProactiveTriggers:
     @pytest.mark.asyncio
     async def test_pending_receipts_none(self):
         """無待核銷發票不應產生提醒"""
-        from app.services.ai.proactive_triggers_erp import ERPTriggerScanner
+        from app.services.ai.proactive_triggers_finance import check_pending_receipts
 
         db = AsyncMock()
 
@@ -365,7 +361,6 @@ class TestFinanceProactiveTriggers:
         mock_result.scalar.return_value = 0
         db.execute = AsyncMock(return_value=mock_result)
 
-        scanner = ERPTriggerScanner(db)
-        alerts = await scanner.check_pending_receipts(stale_days=7)
+        alerts = await check_pending_receipts(db, stale_days=7)
 
         assert len(alerts) == 0

@@ -124,7 +124,7 @@ class TestAgentSelfEvaluator:
         assert score < 1.0
 
     def test_tool_efficiency_too_many_tools(self):
-        results = [{"tool": f"t{i}"} for i in range(6)]
+        results = [{"tool": f"t{i}"} for i in range(8)]
         trace = self._make_trace(tools_failed=[])
         score = self.evaluator._eval_tool_efficiency(results, trace)
         assert score < 1.0  # 超過 MAX_REASONABLE_TOOLS 扣分

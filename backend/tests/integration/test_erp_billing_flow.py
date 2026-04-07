@@ -90,6 +90,7 @@ class TestBillingToLedgerFlow:
         mock_billing = MagicMock(spec=ERPBilling)
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
+        mock_billing.billing_code = None
         mock_billing.billing_period = "第1期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
@@ -128,6 +129,7 @@ class TestBillingToLedgerFlow:
         mock_invoice = MagicMock(spec=ERPInvoice)
         mock_invoice.id = 10
         mock_invoice.erp_quotation_id = 100
+        mock_invoice.invoice_ref = None
         mock_invoice.invoice_number = "INV-2026-0001"
         mock_invoice.invoice_date = date(2026, 4, 5)
         mock_invoice.amount = Decimal("200000.00")
@@ -192,11 +194,12 @@ class TestBillingToLedgerFlow:
     async def test_confirm_payment_creates_ledger_entry(
         self, mock_db_session, mock_quotation, sample_payment_data
     ):
-        """Step 3+4: 收款確認後自動產生帳本收入記錄"""
+        """Step 3+4: 收款確認後發布 billing_paid 事件"""
         # Setup: billing in pending state
         mock_billing = MagicMock(spec=ERPBilling)
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
+        mock_billing.billing_code = None
         mock_billing.billing_period = "第1期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
@@ -208,10 +211,6 @@ class TestBillingToLedgerFlow:
         mock_billing.created_at = None
         mock_billing.updated_at = None
 
-        # After update, billing reflects paid status
-        def apply_update(key, value):
-            setattr(mock_billing, key, value)
-
         service = ERPBillingService(mock_db_session)
         service.repo = MagicMock()
         service.repo.get_by_id = AsyncMock(return_value=mock_billing)
@@ -219,49 +218,36 @@ class TestBillingToLedgerFlow:
         service._quotation_repo.get_by_id = AsyncMock(return_value=mock_quotation)
         service._audit_log = AsyncMock()
 
-        # Mock ledger service
-        mock_ledger_entry = MagicMock(spec=FinanceLedger)
-        mock_ledger_entry.id = 50
-        mock_ledger_entry.source_type = "erp_billing"
-        mock_ledger_entry.source_id = 1
-        mock_ledger_entry.amount = Decimal("200000.00")
-        mock_ledger_entry.entry_type = "income"
-        mock_ledger_entry.category = "收款"
-        mock_ledger_entry.case_code = "CASE-2026-001"
-        service.ledger_service = MagicMock(spec=FinanceLedgerService)
-        service.ledger_service.record_from_billing = AsyncMock(
-            return_value=mock_ledger_entry
-        )
-
         mock_db_session.flush = AsyncMock()
         mock_db_session.refresh = AsyncMock()
         mock_db_session.commit = AsyncMock()
 
         # Execute: confirm payment
         update_data = ERPBillingUpdate(**sample_payment_data)
-        result = await service.update(billing_id=1, data=update_data)
+
+        with patch("app.core.event_bus.EventBus") as MockBus:
+            mock_bus_instance = MagicMock()
+            mock_bus_instance.publish = AsyncMock()
+            MockBus.get_instance.return_value = mock_bus_instance
+
+            result = await service.update(billing_id=1, data=update_data)
 
         # Verify: billing was updated
         assert result is not None
         assert result.id == 1
 
-        # Verify: ledger entry was auto-created
-        service.ledger_service.record_from_billing.assert_called_once_with(
-            billing_id=1,
-            case_code="CASE-2026-001",
-            payment_amount=Decimal("200000.00"),
-            payment_date=date(2026, 4, 15),
-            billing_period="第1期",
-        )
+        # Verify: billing_paid event was published
+        mock_bus_instance.publish.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_no_ledger_entry_when_status_unchanged(
         self, mock_db_session, mock_quotation
     ):
-        """payment_status 未變更為 paid 時，不應產生帳本記錄"""
+        """payment_status 未變更為 paid 時，不應發布 billing_paid 事件"""
         mock_billing = MagicMock(spec=ERPBilling)
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
+        mock_billing.billing_code = None
         mock_billing.billing_period = "第1期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
@@ -277,8 +263,6 @@ class TestBillingToLedgerFlow:
         service.repo = MagicMock()
         service.repo.get_by_id = AsyncMock(return_value=mock_billing)
         service._audit_log = AsyncMock()
-        service.ledger_service = MagicMock(spec=FinanceLedgerService)
-        service.ledger_service.record_from_billing = AsyncMock()
 
         mock_db_session.flush = AsyncMock()
         mock_db_session.refresh = AsyncMock()
@@ -286,19 +270,25 @@ class TestBillingToLedgerFlow:
 
         # Update notes only, not payment_status
         update_data = ERPBillingUpdate(notes="更新備註")
-        await service.update(billing_id=1, data=update_data)
+        with patch("app.core.event_bus.EventBus") as MockBus:
+            mock_bus_instance = MagicMock()
+            mock_bus_instance.publish = AsyncMock()
+            MockBus.get_instance.return_value = mock_bus_instance
 
-        # Ledger should NOT be called
-        service.ledger_service.record_from_billing.assert_not_called()
+            await service.update(billing_id=1, data=update_data)
+
+            # EventBus should NOT be called (no status change to paid)
+            mock_bus_instance.publish.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_ledger_entry_when_already_paid(
         self, mock_db_session, mock_quotation
     ):
-        """已是 paid 狀態再次更新，不應重複產生帳本記錄"""
+        """已是 paid 狀態再次更新，不應重複發布事件"""
         mock_billing = MagicMock(spec=ERPBilling)
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
+        mock_billing.billing_code = None
         mock_billing.billing_period = "第1期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
@@ -314,8 +304,6 @@ class TestBillingToLedgerFlow:
         service.repo = MagicMock()
         service.repo.get_by_id = AsyncMock(return_value=mock_billing)
         service._audit_log = AsyncMock()
-        service.ledger_service = MagicMock(spec=FinanceLedgerService)
-        service.ledger_service.record_from_billing = AsyncMock()
 
         mock_db_session.flush = AsyncMock()
         mock_db_session.refresh = AsyncMock()
@@ -326,19 +314,25 @@ class TestBillingToLedgerFlow:
             payment_status="paid",
             notes="更新備註，狀態不變",
         )
-        await service.update(billing_id=1, data=update_data)
+        with patch("app.core.event_bus.EventBus") as MockBus:
+            mock_bus_instance = MagicMock()
+            mock_bus_instance.publish = AsyncMock()
+            MockBus.get_instance.return_value = mock_bus_instance
 
-        # Ledger should NOT be called (old_status == "paid")
-        service.ledger_service.record_from_billing.assert_not_called()
+            await service.update(billing_id=1, data=update_data)
+
+            # EventBus should NOT be called (old_status == "paid")
+            mock_bus_instance.publish.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_ledger_when_payment_amount_missing(
         self, mock_db_session, mock_quotation
     ):
-        """收款金額為空時，不應產生帳本記錄"""
+        """收款金額為空時，不應發布事件"""
         mock_billing = MagicMock(spec=ERPBilling)
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
+        mock_billing.billing_code = None
         mock_billing.billing_period = "第1期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
@@ -356,8 +350,6 @@ class TestBillingToLedgerFlow:
         service._quotation_repo = MagicMock()
         service._quotation_repo.get_by_id = AsyncMock(return_value=mock_quotation)
         service._audit_log = AsyncMock()
-        service.ledger_service = MagicMock(spec=FinanceLedgerService)
-        service.ledger_service.record_from_billing = AsyncMock()
 
         mock_db_session.flush = AsyncMock()
         mock_db_session.refresh = AsyncMock()
@@ -369,16 +361,21 @@ class TestBillingToLedgerFlow:
             payment_date=date(2026, 4, 15),
             # payment_amount intentionally omitted
         )
-        await service.update(billing_id=1, data=update_data)
+        with patch("app.core.event_bus.EventBus") as MockBus:
+            mock_bus_instance = MagicMock()
+            mock_bus_instance.publish = AsyncMock()
+            MockBus.get_instance.return_value = mock_bus_instance
 
-        # Ledger should NOT be called (payment_amount is None)
-        service.ledger_service.record_from_billing.assert_not_called()
+            await service.update(billing_id=1, data=update_data)
+
+            # EventBus should NOT be called (payment_amount is None)
+            mock_bus_instance.publish.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_case_code_fallback_when_quotation_has_no_case_code(
         self, mock_db_session
     ):
-        """報價單無 case_code 時，帳本記錄使用預設值"""
+        """報價單無 case_code 時，事件使用預設 case_code"""
         mock_quotation_no_code = MagicMock(spec=ERPQuotation)
         mock_quotation_no_code.id = 200
         mock_quotation_no_code.case_code = None
@@ -386,6 +383,7 @@ class TestBillingToLedgerFlow:
         mock_billing = MagicMock(spec=ERPBilling)
         mock_billing.id = 2
         mock_billing.erp_quotation_id = 200
+        mock_billing.billing_code = None
         mock_billing.billing_period = "尾款"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("100000.00")
@@ -406,12 +404,6 @@ class TestBillingToLedgerFlow:
         )
         service._audit_log = AsyncMock()
 
-        mock_ledger = MagicMock(spec=FinanceLedger)
-        service.ledger_service = MagicMock(spec=FinanceLedgerService)
-        service.ledger_service.record_from_billing = AsyncMock(
-            return_value=mock_ledger
-        )
-
         mock_db_session.flush = AsyncMock()
         mock_db_session.refresh = AsyncMock()
         mock_db_session.commit = AsyncMock()
@@ -421,16 +413,17 @@ class TestBillingToLedgerFlow:
             payment_date=date(2026, 4, 20),
             payment_amount=Decimal("100000.00"),
         )
-        await service.update(billing_id=2, data=update_data)
+        with patch("app.core.event_bus.EventBus") as MockBus:
+            mock_bus_instance = MagicMock()
+            mock_bus_instance.publish = AsyncMock()
+            MockBus.get_instance.return_value = mock_bus_instance
 
-        # Should use fallback case_code
-        service.ledger_service.record_from_billing.assert_called_once_with(
-            billing_id=2,
-            case_code="一般營運",
-            payment_amount=Decimal("100000.00"),
-            payment_date=date(2026, 4, 20),
-            billing_period="尾款",
-        )
+            await service.update(billing_id=2, data=update_data)
+
+            # Should publish event with fallback case_code
+            mock_bus_instance.publish.assert_called_once()
+            event = mock_bus_instance.publish.call_args[0][0]
+            assert event.payload["case_code"] == "一般營運"
 
     @pytest.mark.asyncio
     async def test_delete_billing(self, mock_db_session):

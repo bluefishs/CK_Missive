@@ -526,12 +526,13 @@ class TestERPQuotationServiceExportCsv:
         ]
 
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
+             patch("app.services.erp.quotation_service_io.ERPQuotationRepository") as MockIORepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
              patch("app.services.erp.quotation_service.CaseCodeService"):
 
-            MockRepo.return_value.filter_quotations = AsyncMock(return_value=(items, 2))
+            MockIORepo.return_value.filter_quotations = AsyncMock(return_value=(items, 2))
 
             service = ERPQuotationService(mock_db_session)
             csv_str = await service.export_csv(year=114)
@@ -546,12 +547,13 @@ class TestERPQuotationServiceExportCsv:
     async def test_export_csv_empty(self, mock_db_session):
         """Empty CSV has header only"""
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
+             patch("app.services.erp.quotation_service_io.ERPQuotationRepository") as MockIORepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
              patch("app.services.erp.quotation_service.CaseCodeService"):
 
-            MockRepo.return_value.filter_quotations = AsyncMock(return_value=([], 0))
+            MockIORepo.return_value.filter_quotations = AsyncMock(return_value=([], 0))
 
             service = ERPQuotationService(mock_db_session)
             csv_str = await service.export_csv()

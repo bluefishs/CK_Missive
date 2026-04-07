@@ -330,22 +330,22 @@ class TestCheckERPOverdueBillings:
         alerts = await svc.check_erp_overdue_billings()
 
         assert len(alerts) == 1
-        assert alerts[0].alert_type == "payment_overdue"
-        assert alerts[0].severity == "critical"  # > 60 days
+        assert alerts[0].alert_type == "billing_overdue"
+        assert alerts[0].severity == "critical"  # > 30 days
         assert alerts[0].entity_type == "erp_billing"
         assert "500,000" in alerts[0].title
 
     @pytest.mark.asyncio
     async def test_recent_pending_billing(self):
-        """請款後 20 天未收款 → warning"""
+        """即將到期 (2天) → billing_upcoming warning"""
         db = AsyncMock()
 
-        recent = date.today() - timedelta(days=20)
+        upcoming = date.today() + timedelta(days=2)
         mock_row = MagicMock()
         mock_row.id = 2
-        mock_row.billing_period = "第1期"
         mock_row.billing_amount = 200000
-        mock_row.billing_date = recent
+        mock_row.billing_date = upcoming
+        mock_row.description = "第1期"
         mock_row.case_code = "CK2025_FN_01_002"
         mock_row.case_name = "規劃案"
 
@@ -360,9 +360,9 @@ class TestCheckERPOverdueBillings:
         alerts = await svc.check_erp_overdue_billings()
 
         assert len(alerts) == 1
-        assert alerts[0].alert_type == "payment_warning"
-        assert alerts[0].severity == "warning"  # >= 14 days
-        assert alerts[0].metadata["days_since_billing"] == 20
+        assert alerts[0].alert_type == "billing_upcoming"
+        assert alerts[0].severity == "warning"  # <= 3 days
+        assert alerts[0].metadata["days_remaining"] == 2
 
     @pytest.mark.asyncio
     async def test_no_overdue_billings(self):
@@ -405,23 +405,21 @@ class TestCheckERPOverdueBillings:
         alerts = await svc.check_erp_overdue_billings()
 
         assert len(alerts) == 1
-        assert alerts[0].severity == "warning"  # <= 60 days
+        assert alerts[0].severity == "critical"  # > 30 days
 
 
 class TestCheckInvoiceReminder:
-    """發票催開預警測試"""
+    """發票催開預警測試 — 已請款但尚未開票"""
 
     @pytest.mark.asyncio
     async def test_completed_case_no_invoice(self):
-        """已完工案件無發票 → 產生 invoice_reminder 警報"""
+        """有請款無發票 → 產生 invoice_missing 警報"""
         db = AsyncMock()
 
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.case_code = "CK114_PM_01_001"
         mock_row.case_name = "道路拓寬案"
-        mock_row.actual_end_date = date.today() - timedelta(days=40)
-        mock_row.end_date = date.today() - timedelta(days=45)
 
         result = MagicMock()
         result.all.return_value = [mock_row]
@@ -431,23 +429,21 @@ class TestCheckInvoiceReminder:
         alerts = await svc.check_invoice_reminder()
 
         assert len(alerts) == 1
-        assert alerts[0].alert_type == "invoice_reminder"
-        assert alerts[0].severity == "critical"  # > 30 days
-        assert alerts[0].entity_type == "pm_case"
+        assert alerts[0].alert_type == "invoice_missing"
+        assert alerts[0].severity == "info"
+        assert alerts[0].entity_type == "erp_quotation"
         assert "道路拓寬案" in alerts[0].message
-        assert alerts[0].metadata["days_since_completion"] == 40
+        assert alerts[0].metadata["case_code"] == "CK114_PM_01_001"
 
     @pytest.mark.asyncio
     async def test_recent_completion_warning(self):
-        """完工未滿 30 天 → warning"""
+        """有請款無發票 → info severity"""
         db = AsyncMock()
 
         mock_row = MagicMock()
         mock_row.id = 2
         mock_row.case_code = "CK114_PM_01_002"
         mock_row.case_name = "測量案"
-        mock_row.actual_end_date = date.today() - timedelta(days=10)
-        mock_row.end_date = date.today() - timedelta(days=15)
 
         result = MagicMock()
         result.all.return_value = [mock_row]
@@ -457,11 +453,11 @@ class TestCheckInvoiceReminder:
         alerts = await svc.check_invoice_reminder()
 
         assert len(alerts) == 1
-        assert alerts[0].severity == "warning"  # <= 30 days
+        assert alerts[0].severity == "info"
 
     @pytest.mark.asyncio
     async def test_no_completed_cases(self):
-        """無完工案件 → 無警報"""
+        """無待開票案件 → 無警報"""
         db = AsyncMock()
 
         result = MagicMock()
@@ -474,15 +470,13 @@ class TestCheckInvoiceReminder:
 
     @pytest.mark.asyncio
     async def test_fallback_to_end_date(self):
-        """無 actual_end_date → 使用 end_date"""
+        """多筆待開票案件 → 各自產生警報"""
         db = AsyncMock()
 
         mock_row = MagicMock()
         mock_row.id = 3
         mock_row.case_code = "CK114_PM_01_003"
         mock_row.case_name = "規劃案"
-        mock_row.actual_end_date = None
-        mock_row.end_date = date.today() - timedelta(days=5)
 
         result = MagicMock()
         result.all.return_value = [mock_row]
@@ -492,7 +486,7 @@ class TestCheckInvoiceReminder:
         alerts = await svc.check_invoice_reminder()
 
         assert len(alerts) == 1
-        assert alerts[0].metadata["days_since_completion"] == 5
+        assert alerts[0].metadata["case_code"] == "CK114_PM_01_003"
 
 
 class TestCheckVendorPaymentMilestones:

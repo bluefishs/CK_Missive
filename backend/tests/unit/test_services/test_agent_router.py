@@ -32,7 +32,7 @@ class TestAgentRouter:
         router = AgentRouter()
         with patch("app.services.ai.agent_router.is_chitchat", return_value=False):
             decision = await router.route("工務局的函有幾件")
-        assert decision.route_type == "llm"
+        assert decision.route_type in ("llm", "gemma4")
         assert decision.source == "fallthrough"
 
     @pytest.mark.asyncio

@@ -126,7 +126,7 @@ class TestToolExecutorRouting:
     @pytest.mark.asyncio
     async def test_dispatch_to_search_entities(self, executor):
         with patch.object(
-            executor._search, "search_entities",
+            executor._kg_search, "search_entities",
             new_callable=AsyncMock,
             return_value={"entities": [], "count": 0},
         ) as mock:
@@ -159,7 +159,7 @@ class TestSearchEntities:
             "app.services.ai.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
-            result = await executor._search.search_entities({
+            result = await executor._kg_search.search_entities({
                 "query": "test",
                 "entity_type": "organization",
                 "limit": 5,
@@ -178,7 +178,7 @@ class TestSearchEntities:
             "app.services.ai.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
-            await executor._search.search_entities({"query": "test", "limit": 100})
+            await executor._kg_search.search_entities({"query": "test", "limit": 100})
             _, kwargs = mock_svc.search_entities.call_args
             assert kwargs["limit"] == 20
 
@@ -229,7 +229,7 @@ class TestFindSimilar:
 
     @pytest.mark.asyncio
     async def test_missing_document_id(self, executor):
-        result = await executor._search.find_similar({})
+        result = await executor._kg_search.find_similar({})
         assert "error" in result
         assert "document_id" in result["error"]
 
@@ -239,7 +239,7 @@ class TestFindSimilar:
         mock_result.scalar_one_or_none.return_value = None
         executor.db.execute.return_value = mock_result
 
-        result = await executor._search.find_similar({"document_id": 999})
+        result = await executor._kg_search.find_similar({"document_id": 999})
         assert "error" in result
         assert "999" in result["error"]
 

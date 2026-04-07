@@ -76,19 +76,28 @@ class TestHandleTextMessage:
             from app.services.line_bot_service import LineBotService
             return LineBotService()
 
+    def _make_stream_result(self, answer="短回答", tools_used=None):
+        from app.services.agent_stream_helper import StreamResult
+        return StreamResult(
+            answer=answer,
+            tools_used=tools_used or [],
+            latency_ms=100.0,
+            token_count=len(answer),
+        )
+
     @pytest.mark.asyncio
     async def test_handle_text_message_success(self):
         service = self._create_service()
 
-        # Mock _query_agent (v1.3.0: 第三參數 tools_used list)
-        service._query_agent = AsyncMock(return_value="短回答")
+        service._stream_agent = AsyncMock(return_value=self._make_stream_result("短回答"))
+        service._show_loading = AsyncMock()
         service.reply_message = AsyncMock(return_value=True)
 
         await service.handle_text_message("reply_token", "user123", "你好")
 
-        # _query_agent 現在接收三個參數 (user_id, text, tools_used)
-        assert service._query_agent.call_count == 1
-        call_args = service._query_agent.call_args[0]
+        # _stream_agent is called with (user_id, text, collector)
+        assert service._stream_agent.call_count == 1
+        call_args = service._stream_agent.call_args[0]
         assert call_args[0] == "user123"
         assert call_args[1] == "你好"
         # 短回答走純文字回覆
@@ -99,12 +108,13 @@ class TestHandleTextMessage:
         service = self._create_service()
         service._reply_timeout = 0.01  # Force timeout
 
-        async def slow_query(user_id, text, tools_used=None):
+        async def slow_stream(user_id, text, collector):
             import asyncio
             await asyncio.sleep(1)
-            return "never reached"
+            return self._make_stream_result("never reached")
 
-        service._query_agent = slow_query
+        service._stream_agent = slow_stream
+        service._show_loading = AsyncMock()
         service.reply_message = AsyncMock(return_value=True)
 
         await service.handle_text_message("reply_token", "user123", "test")
@@ -117,7 +127,8 @@ class TestHandleTextMessage:
     async def test_handle_text_message_truncation(self):
         service = self._create_service()
         long_answer = "A" * 6000
-        service._query_agent = AsyncMock(return_value=long_answer)
+        service._stream_agent = AsyncMock(return_value=self._make_stream_result(long_answer))
+        service._show_loading = AsyncMock()
         service.reply_message = AsyncMock(return_value=True)
 
         await service.handle_text_message("reply_token", "user123", "test")
@@ -128,7 +139,8 @@ class TestHandleTextMessage:
     @pytest.mark.asyncio
     async def test_handle_text_message_error(self):
         service = self._create_service()
-        service._query_agent = AsyncMock(side_effect=RuntimeError("DB error"))
+        service._stream_agent = AsyncMock(side_effect=RuntimeError("DB error"))
+        service._show_loading = AsyncMock()
         service.reply_message = AsyncMock(return_value=True)
 
         await service.handle_text_message("reply_token", "user123", "test")
@@ -223,10 +235,10 @@ class TestEnabled:
             assert LineBotService().enabled is False
 
 
-# ── _query_agent 完整鏈路驗證 ──
+# ── _stream_agent 完整鏈路驗證 ──
 
 
-class TestQueryAgentFlow:
+class TestStreamAgentFlow:
     """LINE → Agent Orchestrator → 回覆 完整流程"""
 
     def _create_service(self):
@@ -239,7 +251,7 @@ class TestQueryAgentFlow:
             return LineBotService()
 
     @pytest.mark.asyncio
-    async def test_query_agent_collects_tokens(self):
+    async def test_stream_agent_collects_tokens(self):
         """驗證 SSE token 事件被正確收集為完整回答"""
         service = self._create_service()
 
@@ -268,14 +280,16 @@ class TestQueryAgentFlow:
             MockSL.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             MockSL.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            result = await service._query_agent("user_123", "查公文")
+            from app.services.agent_stream_helper import AgentStreamCollector
+            collector = AgentStreamCollector(update_interval=999)
+            result = await service._stream_agent("user_123", "查公文", collector)
 
-        assert result == "公文查詢結果"
+        assert result.answer == "公文查詢結果"
         mock_conv.load.assert_awaited_once_with("line:user_123")
         mock_conv.save.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_query_agent_handles_error_event(self):
+    async def test_stream_agent_handles_error_event(self):
         """Agent 回傳 error 事件時應回傳錯誤訊息"""
         service = self._create_service()
 
@@ -296,12 +310,14 @@ class TestQueryAgentFlow:
             MockSL.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             MockSL.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            result = await service._query_agent("user_123", "test")
+            from app.services.agent_stream_helper import AgentStreamCollector
+            collector = AgentStreamCollector(update_interval=999)
+            result = await service._stream_agent("user_123", "test", collector)
 
-        assert "查詢失敗" in result
+        assert "查詢失敗" in result.answer
 
     @pytest.mark.asyncio
-    async def test_query_agent_empty_response(self):
+    async def test_stream_agent_empty_response(self):
         """無 token 時回傳預設訊息"""
         service = self._create_service()
 
@@ -322,6 +338,8 @@ class TestQueryAgentFlow:
             MockSL.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             MockSL.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            result = await service._query_agent("user_123", "test")
+            from app.services.agent_stream_helper import AgentStreamCollector
+            collector = AgentStreamCollector(update_interval=999)
+            result = await service._stream_agent("user_123", "test", collector)
 
-        assert "無法產生回答" in result
+        assert "無法產生回答" in result.answer

@@ -52,6 +52,13 @@ class ERPTriggerScanner:
 
         return alerts
 
+    async def check_pm_milestone_deadlines(
+        self, days_ahead: int = 7,
+    ) -> List[TriggerAlert]:
+        """委派至 proactive_triggers_pm"""
+        from app.services.ai.proactive_triggers_pm import check_pm_milestone_deadlines
+        return await check_pm_milestone_deadlines(self.db, days_ahead)
+
     async def check_erp_overdue_billings(self) -> List[TriggerAlert]:
         """檢查 ERP 逾期未收款請款單"""
         try:
@@ -69,7 +76,7 @@ class ERPTriggerScanner:
                 ERPBilling.billing_amount,
                 ERPBilling.billing_date,
                 ERPBilling.payment_status,
-                ERPBilling.description,
+                ERPBilling.billing_period,
                 ERPQuotation.case_code,
                 ERPQuotation.case_name,
             )
@@ -77,7 +84,7 @@ class ERPTriggerScanner:
             .where(
                 ERPBilling.billing_date < today,
                 ERPBilling.billing_date.isnot(None),
-                ERPBilling.payment_status.in_(["unpaid", "partial"]),
+                ERPBilling.payment_status.in_(["pending", "partial"]),
             )
             .order_by(ERPBilling.billing_date)
             .limit(20)
@@ -112,7 +119,7 @@ class ERPTriggerScanner:
                 ERPBilling.id,
                 ERPBilling.billing_amount,
                 ERPBilling.billing_date,
-                ERPBilling.description,
+                ERPBilling.billing_period,
                 ERPQuotation.case_code,
                 ERPQuotation.case_name,
             )
@@ -121,7 +128,7 @@ class ERPTriggerScanner:
                 ERPBilling.billing_date >= today,
                 ERPBilling.billing_date <= upcoming_threshold,
                 ERPBilling.billing_date.isnot(None),
-                ERPBilling.payment_status.in_(["unpaid", "partial"]),
+                ERPBilling.payment_status.in_(["pending", "partial"]),
             )
             .order_by(ERPBilling.billing_date)
             .limit(20)

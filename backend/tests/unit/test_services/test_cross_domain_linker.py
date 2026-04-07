@@ -4,6 +4,7 @@
 CrossDomainLinker Unit Tests
 
 測試 cross_domain_linker.py 的 4 條橋接規則與工具方法
+以及 cross_domain_matcher.py 的匹配引擎
 
 執行方式:
     pytest tests/unit/test_services/test_cross_domain_linker.py -v
@@ -23,6 +24,7 @@ from app.services.ai.cross_domain_linker import (
     CONTRACTOR_THRESHOLD,
     PROJECT_THRESHOLD,
 )
+from app.services.ai.cross_domain_matcher import CrossDomainMatchEngine
 
 
 # ============================================================================
@@ -55,110 +57,115 @@ def linker(mock_db):
     return CrossDomainLinker(mock_db)
 
 
+@pytest.fixture
+def matcher(mock_db):
+    return CrossDomainMatchEngine(mock_db)
+
+
 # ============================================================================
-# _extract_section_name 測試
+# extract_section_name 測試 (moved to CrossDomainMatchEngine)
 # ============================================================================
 
 class TestExtractSectionName:
     """段名擷取"""
 
     def test_standard_format(self):
-        assert CrossDomainLinker._extract_section_name("桃園市桃園區大興段0001-0000") == "桃園市桃園區大興段"
+        assert CrossDomainMatchEngine.extract_section_name("桃園市桃園區大興段0001-0000") == "桃園市桃園區大興段"
 
     def test_no_number(self):
-        assert CrossDomainLinker._extract_section_name("桃園市桃園區大興段") == "桃園市桃園區大興段"
+        assert CrossDomainMatchEngine.extract_section_name("桃園市桃園區大興段") == "桃園市桃園區大興段"
 
     def test_no_match(self):
-        assert CrossDomainLinker._extract_section_name("台北市信義路三號") is None
+        assert CrossDomainMatchEngine.extract_section_name("台北市信義路三號") is None
 
     def test_empty(self):
-        assert CrossDomainLinker._extract_section_name("") is None
+        assert CrossDomainMatchEngine.extract_section_name("") is None
 
 
 # ============================================================================
-# _find_best_match 測試
+# find_best_match 測試 (moved to CrossDomainMatchEngine)
 # ============================================================================
 
 class TestFindBestMatch:
     """模糊匹配"""
 
     @pytest.mark.asyncio
-    async def test_empty_candidates(self, linker):
-        result, score = await linker._find_best_match("test", [])
+    async def test_empty_candidates(self, matcher):
+        result, score = await matcher.find_best_match("test", [])
         assert result is None
         assert score == 0.0
 
     @pytest.mark.asyncio
-    async def test_empty_name(self, linker):
-        result, score = await linker._find_best_match("", [_make_entity(1, "test")])
+    async def test_empty_name(self, matcher):
+        result, score = await matcher.find_best_match("", [_make_entity(1, "test")])
         assert result is None
         assert score == 0.0
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.cross_domain_linker.CanonicalEntityMatcher")
-    async def test_exact_match(self, MockMatcher, linker):
+    @patch("app.services.ai.cross_domain_matcher.CanonicalEntityMatcher")
+    async def test_exact_match(self, MockMatcher, matcher):
         MockMatcher.compute_similarity.return_value = 1.0
         MockMatcher.is_false_fuzzy_match.return_value = False
 
         candidate = _make_entity(1, "桃園市政府")
 
-        with patch.object(linker, "_semantic_fallback", new_callable=AsyncMock, return_value=None):
-            result, score = await linker._find_best_match("桃園市政府", [candidate])
+        with patch.object(matcher, "_semantic_fallback", new_callable=AsyncMock, return_value=None):
+            result, score = await matcher.find_best_match("桃園市政府", [candidate])
 
         assert result == candidate
         assert score == 1.0
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.cross_domain_linker.CanonicalEntityMatcher")
-    async def test_false_match_rejected(self, MockMatcher, linker):
+    @patch("app.services.ai.cross_domain_matcher.CanonicalEntityMatcher")
+    async def test_false_match_rejected(self, MockMatcher, matcher):
         MockMatcher.compute_similarity.return_value = 0.90
         MockMatcher.is_false_fuzzy_match.return_value = True
 
         candidate = _make_entity(1, "桃園市")
 
-        with patch.object(linker, "_semantic_fallback", new_callable=AsyncMock, return_value=None):
-            result, score = await linker._find_best_match("桃園", [candidate])
+        with patch.object(matcher, "_semantic_fallback", new_callable=AsyncMock, return_value=None):
+            result, score = await matcher.find_best_match("桃園", [candidate])
 
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.cross_domain_linker.CanonicalEntityMatcher")
-    async def test_below_threshold(self, MockMatcher, linker):
+    @patch("app.services.ai.cross_domain_matcher.CanonicalEntityMatcher")
+    async def test_below_threshold(self, MockMatcher, matcher):
         MockMatcher.compute_similarity.return_value = 0.50
 
         candidate = _make_entity(1, "完全不同")
 
-        with patch.object(linker, "_semantic_fallback", new_callable=AsyncMock, return_value=None):
-            result, score = await linker._find_best_match("測試", [candidate], threshold=0.85)
+        with patch.object(matcher, "_semantic_fallback", new_callable=AsyncMock, return_value=None):
+            result, score = await matcher.find_best_match("測試", [candidate], threshold=0.85)
 
         assert result is None
 
 
 # ============================================================================
-# _create_relation_if_absent 測試
+# create_relation_if_absent 測試 (moved to CrossDomainMatchEngine)
 # ============================================================================
 
 class TestCreateRelationIfAbsent:
     """關係建立（去重）"""
 
     @pytest.mark.asyncio
-    async def test_creates_new_relation(self, linker, mock_db):
+    async def test_creates_new_relation(self, matcher, mock_db):
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        created = await linker._create_relation_if_absent(1, 2, "contracted_by", "ck-tunnel")
+        created = await matcher.create_relation_if_absent(1, 2, "contracted_by", "ck-tunnel")
 
         assert created is True
         mock_db.add.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_skips_existing_relation(self, linker, mock_db):
+    async def test_skips_existing_relation(self, matcher, mock_db):
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = 42  # existing ID
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        created = await linker._create_relation_if_absent(1, 2, "contracted_by", "ck-tunnel")
+        created = await matcher.create_relation_if_absent(1, 2, "contracted_by", "ck-tunnel")
 
         assert created is False
         mock_db.add.assert_not_called()

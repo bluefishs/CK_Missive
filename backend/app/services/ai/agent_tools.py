@@ -33,6 +33,8 @@ from app.services.ai.tool_executor_search import (
 from app.services.ai.tool_executor_kg_search import KGSearchExecutor
 from app.services.ai.tool_executor_analysis import AnalysisToolExecutor
 from app.services.ai.tool_executor_domain import DomainToolExecutor
+from app.services.ai.tool_executor_tender import TenderToolExecutor
+from app.services.ai.tool_executor_business import BusinessToolExecutor
 from app.services.ai.tool_executor_document import DocumentToolExecutor
 
 logger = logging.getLogger(__name__)
@@ -224,6 +226,8 @@ class AgentToolExecutor:
         self._kg_search = KGSearchExecutor(db, ai_connector, embedding_mgr, config)
         self._analysis = AnalysisToolExecutor(db, ai_connector, embedding_mgr, config)
         self._domain = DomainToolExecutor(db, ai_connector, embedding_mgr, config)
+        self._tender = TenderToolExecutor(db, ai_connector, embedding_mgr, config)
+        self._business = BusinessToolExecutor(db, ai_connector, embedding_mgr, config)
         self._document = DocumentToolExecutor(db, ai_connector, embedding_mgr, config)
 
     async def execute_parallel(
@@ -341,26 +345,21 @@ class AgentToolExecutor:
             "check_budget_alert": self._domain.check_budget_alert,
             # Dispatch progress (OC-2, v5.2.5)
             "get_dispatch_progress": self._domain.get_dispatch_progress,
-            # Tender search (v5.3.22)
-            "search_tender": self._domain.search_tender,
-            "auto_tender_to_case": self._domain.auto_tender_to_case,
-            # Engineering diagram Vision analysis (v5.4.1)
-            "analyze_diagram": self._domain.analyze_diagram,
-            # Asset tools (v5.4.1)
-            "list_assets": self._domain.list_assets,
-            "get_asset_detail": self._domain.get_asset_detail,
-            "get_asset_stats": self._domain.get_asset_stats,
-            # Invoice/Expense tools (v5.4.1)
-            "list_pending_expenses": self._domain.list_pending_expenses,
-            "get_expense_detail": self._domain.get_expense_detail,
-            "suggest_expense_category": self._domain.suggest_expense_category,
-            # Dispatch tools (v5.4.1)
-            "get_dispatch_timeline": self._domain.get_dispatch_timeline,
-            "detect_dispatch_anomaly": self._domain.detect_dispatch_anomaly,
-            # PM risk tool (v5.4.1)
-            "detect_project_risk": self._domain.detect_project_risk,
-            # Document intent tool (v5.4.1)
-            "analyze_document_intent": self._domain.analyze_document_intent,
+            # Tender tools (v5.3.22, split v5.5.0)
+            "search_tender": self._tender.search_tender,
+            "auto_tender_to_case": self._tender.auto_tender_to_case,
+            "analyze_diagram": self._tender.analyze_diagram,
+            # Business tools (v5.4.1, split v5.5.0)
+            "list_assets": self._business.list_assets,
+            "get_asset_detail": self._business.get_asset_detail,
+            "get_asset_stats": self._business.get_asset_stats,
+            "list_pending_expenses": self._business.list_pending_expenses,
+            "get_expense_detail": self._business.get_expense_detail,
+            "suggest_expense_category": self._business.suggest_expense_category,
+            "get_dispatch_timeline": self._business.get_dispatch_timeline,
+            "detect_dispatch_anomaly": self._business.detect_dispatch_anomaly,
+            "detect_project_risk": self._business.detect_project_risk,
+            "analyze_document_intent": self._business.analyze_document_intent,
             # Document parsing tool (v10.1)
             "parse_document": self._document.parse_document,
             # Knowledge Base search (v1.84.5)

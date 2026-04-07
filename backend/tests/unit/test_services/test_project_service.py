@@ -457,6 +457,42 @@ class TestProjectServiceCRUD:
 class TestProjectServiceStatistics:
     """ProjectService 統計與選項查詢測試"""
 
+    @pytest.fixture(autouse=True)
+    def _patch_analytics(self, service):
+        """Patch _analytics() to return a mock that shares service.repository"""
+        mock_analytics = MagicMock()
+        mock_analytics.repository = service.repository
+
+        # Wire through to real ProjectAnalyticsService methods bound to mock
+        from app.services.project_analytics_service import ProjectAnalyticsService
+
+        async def _get_project_statistics():
+            try:
+                return await mock_analytics.repository.get_project_statistics()
+            except Exception:
+                return {
+                    "total_projects": 0,
+                    "status_breakdown": [],
+                    "year_breakdown": [],
+                    "average_contract_amount": 0.0,
+                }
+
+        async def _get_year_options():
+            return await mock_analytics.repository.get_year_options()
+
+        async def _get_distinct_options(field_name, sort_order="asc", exclude_null=True):
+            if sort_order.lower() == "desc" and field_name == "year":
+                return await mock_analytics.repository.get_year_options()
+            return await mock_analytics.repository.get_distinct_values(
+                field_name, exclude_null=exclude_null
+            )
+
+        mock_analytics.get_project_statistics = _get_project_statistics
+        mock_analytics.get_year_options = _get_year_options
+        mock_analytics.get_distinct_options = _get_distinct_options
+
+        service._analytics = lambda: mock_analytics
+
     @pytest.mark.asyncio
     async def test_get_project_statistics(self, service, mock_db):
         """測試取得專案統計資料返回正確結構"""

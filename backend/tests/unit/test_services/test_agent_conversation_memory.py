@@ -133,8 +133,10 @@ class TestSave:
     async def test_save_appends_messages(self, memory_with_redis, mock_redis):
         """儲存時追加 user + assistant 訊息"""
         await memory_with_redis.save("session-1", "問題", "回答", [])
-        mock_redis.setex.assert_called_once()
-        args = mock_redis.setex.call_args
+        # setex called twice: once for last_message_time, once for conversation
+        assert mock_redis.setex.call_count == 2
+        # Last call is the conversation save
+        args = mock_redis.setex.call_args_list[-1]
         saved = json.loads(args[0][2])
         assert len(saved) == 2
         assert saved[0]["role"] == "user"
@@ -302,8 +304,8 @@ class TestAdaptiveContextWindow:
             mc.return_value = self._make_config()
             # 不傳 tool_count → 預設 0
             await memory_with_redis.save("s3", "hi", "hey", [])
-        # 不應拋出異常
-        mock_redis.setex.assert_called_once()
+        # 不應拋出異常; setex called twice (last_message_time + conversation)
+        assert mock_redis.setex.call_count == 2
 
 
 # ============================================================================
