@@ -58,6 +58,46 @@
 - **Digital Twin** — 進化指標儀表板 (EvolutionMetricsCard)
 - **tool_executor_kg_search** — KG 搜尋工具拆分自 search
 
+## [5.5.1] - 2026-04-07
+
+### 標案模組全面重構 + ezbid 即時爬蟲 + UI 統一 (45 commits)
+
+#### 品質修復
+- **75 failing tests → 0** — 12 test files mock 更新 + proactive_triggers bug
+- **file upload path** — DB 存 relative_path，download 拼接 UPLOAD_BASE_DIR
+
+#### 架構重構
+- **tool_executor_domain** — 826L → 3 files (219+166+458)
+- **tender_analytics_service** — 722L → 283L facade + battle(108L) + price(184L)
+- **TenderSearchPage** — 515L → 247L + 3 子元件 (SearchTab/SubscriptionTab/BookmarkTab)
+
+#### UI 統一
+- **ClickableStatCard** — 14 頁面統一互動統計卡片
+- **valueStyle → styles.content** — Ant Design v6 相容
+- **bodyStyle → styles.body** — deprecated 修正
+
+#### 標案搜尋 v3.1
+- 三模式搜尋 (標案/機關/廠商) + 招標類型篩選
+- 訂閱 → 搜尋 Tab 自動切換 (含 category 同步)
+- 收藏導航模式 Table + toggle 星星
+- 推薦: 訂閱關鍵字驅動 + 業務/今日分區
+- 30 天篩選 (移除 2016 等舊資料)
+
+#### ezbid 即時爬蟲
+- **ezbid_scraper.py** — cf.ezbid.tw HTML 解析 (當日即時資料)
+- **雙軌整合** — search/recommend/dashboard 全整合 g0v + ezbid
+- **POST /tender/realtime** — ezbid 即時 API 端點
+
+#### Dashboard v2
+- 6 統計卡片 (實際日期範圍) + 標案經費規模 + 得標廠商 + 機關 Top 10
+- 採購類別/公告類型圓餅圖 + 資料來源狀態列
+- 效能: 24.7s → 7.7s (asyncio.gather 並行)
+
+#### 標案詳情戰情室
+- **POST /tender/detail-full** — 並行取得詳情+戰情+機關生態
+- Tab 4 投標戰情: 歷史相似標案 + 潛在對手 + 機關生態
+- 訂閱 diff tracking: +N 新增 Tag + 標題去重
+
 ---
 
 ## [5.4.0] - 2026-04-04

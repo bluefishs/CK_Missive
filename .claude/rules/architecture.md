@@ -224,7 +224,10 @@ backend/app/services/
 ├── agent_stream_helper.py      # Agent 串流輔助 (跨通道統一)
 ├── tender_search_service.py        # 標案檢索 (PCC API + Redis 快取)
 ├── tender_subscription_scheduler.py # 標案訂閱排程 (每日3次 + LINE/Discord)
-├── tender_analytics_service.py     # 標案分析服務 (儀表板/機關/廠商)
+├── tender_analytics_service.py     # 標案分析 Facade (283L, 委派子模組)
+├── tender_analytics_battle.py     # 投標戰情室 + 機關生態 (108L, 拆分)
+├── tender_analytics_price.py      # 底價分析 + 廠商分析 (184L, 拆分)
+├── ezbid_scraper.py               # ezbid.tw 即時爬蟲 (當日資料補充)
 ├── project_analytics_service.py    # 專案分析服務 (拆分自 project_service)
 └── *_service.py                # 其他業務服務
 ```
@@ -458,6 +461,11 @@ frontend/src/pages/
 ├── TenderBattleRoomPage.tsx    # 戰情室 (雷達圖+對手排行) v5.5.0
 ├── TenderPriceAnalysisPage.tsx # 底價分析 v5.5.0
 ├── TenderGraphPage.tsx         # 標案知識圖譜 (力導引)
+├── tenderSearch/               # TenderSearchPage 子元件 (v5.5.1 拆分)
+│   ├── SearchTab.tsx           # 搜尋表單+表格+篩選 (192L)
+│   ├── SubscriptionTab.tsx     # 訂閱 CRUD+預覽 (167L)
+│   ├── BookmarkTab.tsx         # 收藏 Table (88L)
+│   └── index.ts
 ├── AgentDashboardPage.tsx      # Agent 統一儀表板 (聊天+反思+進化+拓撲) v5.5.0
 └── ...
 ```
