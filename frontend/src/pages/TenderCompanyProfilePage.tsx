@@ -131,17 +131,30 @@ const TenderCompanyProfilePage: React.FC = () => {
               </Card>
             </Col>
 
-            {/* 類別分布 */}
+            {/* 類別分布 — 超過 6 類合併為「其他」 */}
             <Col xs={24} lg={10}>
               <Card title="標案類別分布" size="small">
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={data.category_distribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                      {data.category_distribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip /><Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                {(() => {
+                  const MAX = 6;
+                  const raw = data.category_distribution;
+                  let pie = raw;
+                  if (raw.length > MAX) {
+                    const top = raw.slice(0, MAX - 1);
+                    const rest = raw.slice(MAX - 1).reduce((s: number, d: { value: number }) => s + d.value, 0);
+                    pie = [...top, { name: `其他 (${raw.length - MAX + 1} 類)`, value: rest }];
+                  }
+                  return (
+                    <ResponsiveContainer width="100%" height={280}>
+                      <PieChart>
+                        <Pie data={pie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}
+                          label={false}>
+                          {pie.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip /><Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
               </Card>
             </Col>
           </Row>

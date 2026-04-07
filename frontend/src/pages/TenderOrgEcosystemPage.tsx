@@ -117,19 +117,29 @@ const TenderOrgEcosystemPage: React.FC = () => {
               })()}
             </Col>
 
-            {/* 類別分布 */}
+            {/* 類別分布 — 超過 6 類合併小項為「其他」 */}
             <Col xs={24} lg={10}>
               <Card title="標案類別分布" size="small">
-                {data.category_distribution.length > 0 ? (
+                {data.category_distribution.length > 0 ? (() => {
+                  const MAX_SLICES = 6;
+                  const raw = data.category_distribution;
+                  let pieData = raw;
+                  if (raw.length > MAX_SLICES) {
+                    const top = raw.slice(0, MAX_SLICES - 1);
+                    const otherValue = raw.slice(MAX_SLICES - 1).reduce((s, d) => s + d.value, 0);
+                    pieData = [...top, { name: `其他 (${raw.length - MAX_SLICES + 1} 類)`, value: otherValue }];
+                  }
+                  return (
                   <ResponsiveContainer width="100%" height={280}>
                     <PieChart>
-                      <Pie data={data.category_distribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                        {data.category_distribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={false}>
+                        {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip /><Legend />
                     </PieChart>
                   </ResponsiveContainer>
-                ) : <Empty />}
+                  );
+                })() : <Empty />}
               </Card>
             </Col>
           </Row>
