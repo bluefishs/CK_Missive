@@ -35,12 +35,14 @@ export const tenderApi = {
     battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count?: number; appear_count?: number; win_count?: number; win_rate?: number; total_amount?: number }> };
     org_tenders: TenderRecord[];
     org_total: number;
+    price_analysis: { prices?: { budget?: number; floor_price?: number; award_amount?: number; award_date?: string }; analysis?: Record<string, number | null>; award_items?: Array<{ item_no: number; winner: string | null; amount: number | null }> } | null;
   } | null> {
     const res = await apiClient.post<SuccessResponse<{
       detail: TenderDetail | null;
       battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count?: number; appear_count?: number; win_count?: number; win_rate?: number; total_amount?: number }> };
       org_tenders: TenderRecord[];
       org_total: number;
+      price_analysis: { prices?: { budget?: number; floor_price?: number; award_amount?: number; award_date?: string }; analysis?: Record<string, number | null>; award_items?: Array<{ item_no: number; winner: string | null; amount: number | null }> } | null;
     } | null>>(
       TENDER_ENDPOINTS.DETAIL_FULL, { unit_id: unitId, job_number: jobNumber },
     );

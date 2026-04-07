@@ -156,16 +156,18 @@ async def get_tender_detail_full(
 
     analytics = TenderAnalyticsService()
 
-    # 並行取得所有資料
+    # 並行取得所有資料 (含底價分析)
     detail_task = service.get_tender_detail(req.unit_id, req.job_number)
     battle_task = analytics.battle_room(req.unit_id, req.job_number)
+    price_task = analytics.price_analysis(req.unit_id, req.job_number)
     org_task = service.search_by_org(req.unit_id.split(".")[0] if "." in req.unit_id else req.unit_id, page=1)
 
-    results = await asyncio.gather(detail_task, battle_task, org_task, return_exceptions=True)
+    results = await asyncio.gather(detail_task, battle_task, price_task, org_task, return_exceptions=True)
 
     detail = results[0] if not isinstance(results[0], Exception) else None
     battle = results[1] if not isinstance(results[1], Exception) else {}
-    org_tenders = results[2] if not isinstance(results[2], Exception) else {"records": []}
+    price = results[2] if not isinstance(results[2], Exception) else {}
+    org_tenders = results[3] if not isinstance(results[3], Exception) else {"records": []}
 
     if not detail:
         return SuccessResponse(data=None, message="查無此標案")
@@ -183,6 +185,7 @@ async def get_tender_detail_full(
         "battle_room": battle,
         "org_tenders": org_tenders.get("records", [])[:20],
         "org_total": org_tenders.get("total_records", 0),
+        "price_analysis": price if not price.get("error") else None,
     })
 
 
