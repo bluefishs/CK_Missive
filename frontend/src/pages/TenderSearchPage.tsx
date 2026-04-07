@@ -80,6 +80,7 @@ const TenderSearchPage: React.FC = () => {
   // 搜尋狀態
   const [searchInput, setSearchInput] = useState('');
   const [searchType, setSearchType] = useState<'title' | 'org' | 'company'>('title');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [params, setParams] = useState<TenderSearchParams | null>(null);
   const [showRecommend, setShowRecommend] = useState(true);
@@ -106,21 +107,22 @@ const TenderSearchPage: React.FC = () => {
     const q = value.trim();
     if (!q) { message.warning('請輸入搜尋關鍵字'); return; }
     const st = type ?? searchType;
-    setParams({ query: q, page: 1, search_type: st });
+    setParams({ query: q, page: 1, search_type: st, category: categoryFilter || undefined });
     setShowRecommend(false);
     setTypeFilter('');
-  }, [message, searchType]);
+  }, [message, searchType, categoryFilter]);
 
   const handleViewDetail = useCallback((record: TenderRecord) => {
     navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number)}`);
   }, [navigate]);
 
-  // 訂閱 → 搜尋 Tab 切換
-  const handleSubSearch = useCallback((keyword: string) => {
+  // 訂閱 → 搜尋 Tab 切換 (帶入關鍵字+類別)
+  const handleSubSearch = useCallback((keyword: string, category?: string | null) => {
     setSearchInput(keyword);
     setSearchType('title');
+    setCategoryFilter(category || '');
     setActiveTab('search');
-    setParams({ query: keyword, page: 1, search_type: 'title' });
+    setParams({ query: keyword, page: 1, search_type: 'title', category: category || undefined });
     setShowRecommend(false);
     setTypeFilter('');
   }, []);
@@ -246,8 +248,8 @@ const TenderSearchPage: React.FC = () => {
           />
         </Col>
         <Col xs={12} sm={4} md={3}>
-          <Select style={{ width: '100%' }} size="large" options={CATEGORY_OPTIONS} defaultValue=""
-            onChange={(v) => { if (params?.query) setParams(p => p ? { ...p, category: v || undefined, page: 1 } : null); }}
+          <Select style={{ width: '100%' }} size="large" options={CATEGORY_OPTIONS} value={categoryFilter}
+            onChange={(v) => { setCategoryFilter(v); if (params?.query) setParams(p => p ? { ...p, category: v || undefined, page: 1 } : null); }}
             placeholder="採購性質"
           />
         </Col>
@@ -341,7 +343,7 @@ const TenderSearchPage: React.FC = () => {
               ) : (
                 <div>
                   <Row justify="space-between" align="middle"
-                    onClick={() => handleSubSearch(s.keyword)}
+                    onClick={() => handleSubSearch(s.keyword, s.category)}
                     style={{ cursor: 'pointer' }}
                   >
                     <Col>
