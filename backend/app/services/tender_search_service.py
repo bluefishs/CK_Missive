@@ -117,6 +117,34 @@ class TenderSearchService:
         await self._set_cache(cache_key, result, ttl=3600)  # 1 hr
         return result
 
+    async def search_by_org(
+        self, org_name: str, page: int = 1
+    ) -> Dict[str, Any]:
+        """依機關名稱搜尋標案"""
+        cache_key = f"tender:org:{org_name}:{page}"
+        cached = await self._get_cache(cache_key)
+        if cached:
+            return cached
+
+        url = f"{PCC_API_BASE}/searchbyorgname"
+        params = {"query": org_name, "page": page}
+
+        data = await self._fetch(url, params)
+        if not data:
+            # Fallback: 用標題搜尋
+            return await self.search_by_title(query=org_name, page=page)
+
+        result = {
+            "query": org_name,
+            "page": data.get("page", page),
+            "total_records": data.get("total_records", 0),
+            "total_pages": data.get("total_pages", 0),
+            "records": [self._normalize_record(r) for r in data.get("records", [])],
+        }
+
+        await self._set_cache(cache_key, result, ttl=1800)
+        return result
+
     async def search_by_company(
         self, company_name: str, page: int = 1
     ) -> Dict[str, Any]:

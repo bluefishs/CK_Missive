@@ -157,8 +157,8 @@ class TenderAnalyticsService:
         all_records: list = []
 
         for page in range(1, pages + 1):
-            result = await self.search.search_by_title(
-                query=org_name, page=page,
+            result = await self.search.search_by_org(
+                org_name=org_name, page=page,
             )
             records = result.get("records", [])
             if not records:
