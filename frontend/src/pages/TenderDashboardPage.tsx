@@ -229,8 +229,13 @@ const TenderDashboardPage: React.FC = () => {
           </Card>
         </Col>
         <Col xs={24} lg={8}>
-          <Card title="標案經費規模" size="small">
-            <CategoryPieChart data={data?.budget_distribution ?? []} height={250} />
+          <Card title="標案經費規模 Top 10" size="small" styles={{ body: { padding: '8px 16px' } }}>
+            {data?.budget_distribution?.length ? data.budget_distribution.map((b, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <Text>{b.name}</Text>
+                <Tag color={i < 2 ? 'blue' : 'default'}>{b.value} 件</Tag>
+              </div>
+            )) : <Text type="secondary">無經費資料</Text>}
           </Card>
         </Col>
         <Col xs={24} lg={8}>
