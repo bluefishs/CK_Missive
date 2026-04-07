@@ -124,6 +124,27 @@
 
 ---
 
+## v5.5.0 Agent 進化 + Domain Events + 多通道整合 + 標案分析 Phase 2 (2026-04-05~07, 92 commits)
+
+| 類型 | 項目 | 說明 |
+|------|------|------|
+| feat | Domain Event System v1.0 | EventBus + 5 事件生產者 (document/expense/billing/milestone/tender) |
+| feat | Morning Report | 每日 08:00 自動推送 7 模組晨報 (Telegram/LINE) |
+| feat | Telegram Bot | telegram_bot_service + webhook + 智慧回覆 + reactions/reply thread |
+| feat | 統一串流 | Discord/Telegram/LINE 統一 streaming + status 指示 |
+| feat | Agent Dashboard | 統一儀表板 (聊天+反思+進化+拓撲) |
+| feat | Agent Introspection | 統一自感知運行時 + Redis 快取 + ETag |
+| feat | Response Enricher | domain_prompts + analysis-first synthesis 品質提升 |
+| feat | Role-based Personas | 角色化 Agent + 10 新業務工具 |
+| feat | 標案分析 Phase 2 | 儀表板+機關生態圈+戰情室+底價分析+廠商分析 (5 頁面) |
+| feat | 派工 Kanban | 看板視圖 + 快速狀態切換 + 進度百分比 + 截止倒計時 |
+| feat | ClickableStatCard | 可點擊互動統計卡片共用元件 |
+| refactor | 服務拆分 | project_service + invoice_recognizer + code_graph |
+| perf | 快取優化 | introspection Redis cache + ETag + agent dashboard memo |
+| fix | 標案/公文 | 圓餅圖/年度統一/導覽白名單/公文統計合併 (26 fixes) |
+
+---
+
 ## v5.4.0 型別重構 + ERP 費用增強 + 服務拆分 (2026-04-04, 9 commits)
 
 | 類型 | 項目 | 說明 |

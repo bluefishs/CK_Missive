@@ -4,6 +4,62 @@
 
 ---
 
+## [5.5.0] - 2026-04-05~07
+
+### Agent 進化 + Domain Events + 多通道整合 + 標案分析 Phase 2 (92 commits)
+
+#### Domain Event System v1.0
+- **EventBus 架構** — 解耦式事件匯流排，支援同步/非同步訂閱
+- **5 個事件生產者** — document.received, expense.approved, billing.paid, milestone_completed, tender.awarded
+- **自動帳本入帳** — billing.paid 事件觸發 FinanceLedger 自動記錄
+
+#### 多通道整合
+- **Telegram Bot** — telegram_bot_service + webhook 端點 + 智慧回覆整合
+- **統一串流** — Discord/Telegram/LINE 統一 streaming + status 指示
+- **Discord 增強** — edit-streaming + emoji status + sender context
+- **Telegram 互動** — reactions + reply thread + tool visibility
+- **通道抽象** — channel_adapter 統一介面 + sender_context 上下文
+
+#### Agent 智慧進化
+- **Agent Dashboard** — 統一儀表板 (聊天+反思+進化+拓撲)
+- **Introspection Service** — 統一自感知運行時 + Redis 快取 + ETag
+- **Response Enricher** — domain_prompts + analysis-first synthesis 品質提升
+- **Role-based Personas** — 角色化 Agent 回應 + 10 新業務工具
+- **Morning Report** — 每日 08:00 自動推送 7 模組晨報 (Telegram/LINE)
+- **Cross-agent Pattern Sharing** — 跨 Agent 模式共享 + 技能快照
+- **Session Handoff** — 跨會話續接協議
+- **Learning Graduation** — 學習畢業系統 + after-action hints
+- **Search Benchmark** — 30 ground truth 查詢品質基準
+
+#### 標案分析 Phase 2
+- **TenderDashboardPage** — 採購儀表板
+- **TenderOrgEcosystemPage** — 機關生態圈分析
+- **TenderBattleRoomPage** — 戰情室 (雷達圖+對手排行)
+- **TenderPriceAnalysisPage** — 底價分析
+- **TenderCompanyProfilePage** — 廠商分析整合頁
+- **CategoryPieChart** — 共用圓餅圖元件 (全標案頁面複用)
+- **ClickableStatCard** — 可點擊互動統計卡片共用元件
+
+#### 派工 Kanban + 進度追蹤
+- **Kanban Tab** — 派工列表頁新增看板視圖 + 快速狀態切換
+- **Progress** — 進度百分比 + 截止日倒計時
+- **Correspondence Matrix** — 1:n 公文配對 rowspan 分組
+- **Unsaved Warning** — 未儲存變更警告
+
+#### 服務拆分 + 效能
+- **project_service** — 421L 拆分 (+ project_analytics_service)
+- **invoice_recognizer** — 485L 拆分 (+ invoice_ocr_parser + invoice_qr_decoder)
+- **code_graph_service** — 拆分 ingest + ast_endpoint_extractor
+- **perf** — introspection Redis cache + ETag + agent dashboard memo + prefetch
+
+#### 其他
+- **Code Wiki** — Gemma 4 語意文件自動生成
+- **Engineering Diagram** — Vision 服務 (experimental P3)
+- **Digital Twin** — 進化指標儀表板 (EvolutionMetricsCard)
+- **tool_executor_kg_search** — KG 搜尋工具拆分自 search
+
+---
+
 ## [5.4.0] - 2026-04-04
 
 ### 型別重構 + ERP 費用增強 + Gemma 4 + 服務層拆分 (9 commits)

@@ -60,7 +60,7 @@ backend/app/extended/models/
 ```
 backend/app/services/
 ├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse)
-├── ai/                         # AI 服務 (98 個模組)
+├── ai/                         # AI 服務 (107 個模組)
 │   ├── # --- 核心基礎 ---
 │   ├── ai_config.py            # AI 配置管理 Singleton (v3.0.0, 48 params)
 │   ├── base_ai_service.py      # 基類：滑動窗口限流+Redis快取+統計 (v3.0.0)
@@ -93,12 +93,14 @@ backend/app/services/
 │   ├── agent_conductor.py           # Conductor式並行Agent編排 v1.0.0
 │   ├── agent_self_evaluator.py      # 自動評分(5維度) v1.0.0
 │   ├── agent_evolution_scheduler.py # 自動進化排程(50次/24h) v1.0.0
+│   ├── agent_introspection.py       # 統一自感知運行時 + Redis 快取 v1.0.0
 │   ├── agent_utils.py               # parse_json_safe, sse 共用工具
 │   ├── # --- 工具子執行器 (拆分自 agent_tools) ---
 │   ├── tool_executor_search.py      # 搜尋工具 (306L): doc/dispatch (拆分後)
 │   ├── tool_executor_kg_search.py   # KG搜尋工具 (314L): entity/similar/correspondence (拆分自 search)
 │   ├── tool_executor_analysis.py    # 分析工具 (498L): detail/stats/health/graph
-│   ├── tool_executor_domain.py      # PM/ERP工具 (105L): projects/vendors/contracts
+│   ├── tool_executor_domain.py      # PM/ERP/tender 工具 (826L): projects/vendors/contracts/tender
+│   ├── tool_definitions.py          # 工具定義 (671L): 全工具 JSON Schema
 │   ├── tool_executor_document.py    # 文件工具子執行器 v1.0.0
 │   ├── tool_chain_resolver.py       # Chain-of-Tools 自動參數注入 (175L)
 │   ├── citation_validator.py        # 引用準確性驗證 (精確+模糊匹配)
@@ -113,6 +115,12 @@ backend/app/services/
 │   ├── agent_post_processing.py     # 後處理管線 (拆分自orchestrator) v1.0.0
 │   ├── agent_streaming_helpers.py   # SSE串流輔助 (拆分自orchestrator) v1.0.0
 │   ├── digital_twin_service.py      # 數位分身業務邏輯 (442L, 拆分自endpoint)
+│   ├── response_enricher.py         # 回應品質增強 + 領域 Prompt v1.0.0
+│   ├── domain_prompts.py            # 領域專用 Prompt 模板 v1.0.0
+│   ├── morning_report_service.py    # 每日晨報 7 模組自動推送 v1.0.0
+│   ├── skill_snapshot_service.py    # 技能快照 + 跨 Agent 模式共享 v1.0.0
+│   ├── code_wiki_generator.py       # Gemma 4 語意文件自動生成 v1.0.0
+│   ├── engineering_diagram_service.py # 工程圖表 Vision 服務 (experimental)
 │   ├── # --- 知識圖譜模組 (8 個) ---
 │   ├── relation_graph_service.py     # 知識圖譜7-Phase建構 (v1.0.0)
 │   ├── canonical_entity_service.py   # 正規化實體4階段策略 (拆分後)
@@ -196,7 +204,9 @@ backend/app/services/
 ├── expense_invoice_service.py  # 費用報銷 Facade (v2.0 委派式, 207L)
 ├── expense_approval_service.py # 費用審核工作流 (多層審批+預算聯防+通知, 228L)
 ├── expense_import_service.py   # 費用匯入匯出 (QR+Excel+電子發票關聯, 265L)
-├── invoice_recognizer.py       # 統一發票辨識器 (QR Head+Detail+OCR, 378L)
+├── invoice_recognizer.py       # 統一發票辨識器 (QR Head+Detail+OCR, 拆分後)
+├── invoice_ocr_parser.py       # 發票 OCR 解析器 (拆分自 recognizer)
+├── invoice_qr_decoder.py       # 發票 QR 解碼器 (拆分自 recognizer)
 ├── finance_ledger_service.py   # 統一帳本 (餘額 + 分類)
 ├── financial_summary_service.py # 財務彙總 (專案/全案/公司級)
 ├── finance_export_service.py   # 財務報表匯出 (Excel/CSV)
@@ -208,9 +218,14 @@ backend/app/services/
 ├── notification_dispatcher.py  # 通知派發服務
 ├── document_calendar_integrator.py # 公文行事曆整合
 ├── discord_bot_service.py      # Discord Bot Interactions Endpoint
+├── telegram_bot_service.py     # Telegram Bot 智慧回覆整合 v1.0.0
 ├── channel_adapter.py          # 統一通道抽象 (LINE/Discord/Telegram)
+├── sender_context.py           # 發送者上下文 (頻道感知)
+├── agent_stream_helper.py      # Agent 串流輔助 (跨通道統一)
 ├── tender_search_service.py        # 標案檢索 (PCC API + Redis 快取)
 ├── tender_subscription_scheduler.py # 標案訂閱排程 (每日3次 + LINE/Discord)
+├── tender_analytics_service.py     # 標案分析服務 (儀表板/機關/廠商)
+├── project_analytics_service.py    # 專案分析服務 (拆分自 project_service)
 └── *_service.py                # 其他業務服務
 ```
 
@@ -240,7 +255,9 @@ backend/app/api/endpoints/
 │   ├── ollama_management.py      # Ollama 管理端點
 │   ├── prompts.py                # Prompt 模板端點
 │   ├── search_history.py         # 搜尋歷史端點
-│   └── synonyms.py               # 同義詞管理端點
+│   ├── synonyms.py               # 同義詞管理端點
+│   ├── diagram_analysis.py       # 工程圖表分析端點 v1.0.0
+│   └── tools_manifest.py         # Agent 工具清單端點
 ├── pm/                     # 專案管理 API (模組化)
 │   ├── cases.py, staff.py, milestones.py
 ├── erp/                    # ERP 財務管理 API (模組化)
@@ -258,6 +275,7 @@ backend/app/api/endpoints/
 ├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams/search)
 ├── security.py            # 資安管理中心 API (掃描/問題追蹤/通知/模式庫)
 ├── line_webhook.py        # LINE Webhook 整合端點
+├── telegram_webhook.py    # Telegram Bot Webhook 端點 v1.0.0
 ├── health.py              # 健康檢查端點 (含 detailed)
 ├── public.py              # 公開端點 (免認證)
 ├── events.py, events_create.py, events_batch.py  # 行事曆事件 (拆分)
@@ -395,6 +413,7 @@ frontend/src/pages/
 │   ├── DashboardTab.tsx        # 數位分身儀表板
 │   ├── DispatchProgressTab.tsx # 派工進度頁籤
 │   ├── EvolutionTab.tsx        # 進化歷程頁籤
+│   ├── EvolutionMetricsCard.tsx # 進化指標卡片 v5.5.0
 │   ├── ProfileCard.tsx         # Agent 個人檔案卡片
 │   └── TraceWaterfallTab.tsx   # 追蹤瀑布圖頁籤
 ├── skillEvolution/             # 技能進化頁面子元件 (v5.2.0+)
@@ -433,7 +452,13 @@ frontend/src/pages/
 ├── TenderSearchPage.tsx        # 標案搜尋 3-Tab (搜尋/收藏/訂閱)
 ├── TenderDetailPage.tsx        # 標案詳情 4-Tab (總覽/生命週期/得標/同機關)
 ├── TenderCompanyPage.tsx       # 廠商投標歷史 (統計+圓餅圖)
+├── TenderCompanyProfilePage.tsx # 廠商分析整合頁 v5.5.0
+├── TenderDashboardPage.tsx     # 採購儀表板 v5.5.0
+├── TenderOrgEcosystemPage.tsx  # 機關生態圈分析 v5.5.0
+├── TenderBattleRoomPage.tsx    # 戰情室 (雷達圖+對手排行) v5.5.0
+├── TenderPriceAnalysisPage.tsx # 底價分析 v5.5.0
 ├── TenderGraphPage.tsx         # 標案知識圖譜 (力導引)
+├── AgentDashboardPage.tsx      # Agent 統一儀表板 (聊天+反思+進化+拓撲) v5.5.0
 └── ...
 ```
 
@@ -501,6 +526,7 @@ frontend/src/utils/
 
 ```
 frontend/src/components/common/
+├── ClickableStatCard.tsx       # 可點擊互動統計卡片 (active 高亮+onClick 篩選) v5.5.0
 ├── GlobalApiErrorNotifier.tsx  # 全域 API 錯誤通知 (429/403/5xx)
 ├── MarkdownRenderer.tsx        # 通用 Markdown 渲染器 (GFM + Mermaid 委派)
 ├── PreviewDrawer/              # 預覽抽屜
