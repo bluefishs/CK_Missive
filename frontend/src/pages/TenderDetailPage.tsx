@@ -10,7 +10,7 @@
  *
  * @version 2.0.0 — ezbid 風格強化
  */
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import {
   Descriptions, Tag, Timeline, Card, Typography, Button, Space, List, Select, Popconfirm,
   Row, Col, Statistic, Empty, Alert,
@@ -60,17 +60,10 @@ const TenderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const uid = unitId ? decodeURIComponent(unitId) : null;
   const jn = jobNumber ? decodeURIComponent(jobNumber) : null;
-  const isEzbidId = uid && /^\d+$/.test(uid) && (!jn || jn === '');
+  const isEzbidOnly = uid && !jn;
 
-  const { data: detail, isLoading } = useTenderDetail(isEzbidId ? null : uid, isEzbidId ? null : jn);
-  const { data: fullData } = useTenderDetailFull(isEzbidId ? null : uid, isEzbidId ? null : jn);
-
-  // ezbid 純數字 ID → 重導向 ezbid 詳情頁
-  useEffect(() => {
-    if (isEzbidId && uid) {
-      window.location.href = `https://cf.ezbid.tw/tender/${uid}`;
-    }
-  }, [isEzbidId, uid]);
+  const { data: detail, isLoading } = useTenderDetail(uid, jn || null);
+  const { data: fullData } = useTenderDetailFull(isEzbidOnly ? null : uid, isEzbidOnly ? null : jn);
   const { data: allBookmarks } = useTenderBookmarks();
   const bookmarkMutation = useCreateBookmark();
   const updateBmMutation = useUpdateBookmark();
@@ -99,7 +92,19 @@ const TenderDetailPage: React.FC = () => {
     return (
       <DetailPageLayout
         header={{ title: '查無此標案', backPath: '/tender/search' }}
-        tabs={[]} hasData={false}
+        tabs={[createTabItem('empty', { icon: <ClockCircleOutlined />, text: '說明' },
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <Text type="secondary">PCC 開放資料中查無此標案</Text>
+            {uid && (
+              <div style={{ marginTop: 16 }}>
+                <Button type="primary" onClick={() => window.open(`https://cf.ezbid.tw/tender/${uid}`, '_blank')}>
+                  在 ezbid 查看此標案 →
+                </Button>
+              </div>
+            )}
+          </div>
+        )]}
+        hasData={false}
       />
     );
   }

@@ -201,13 +201,7 @@ const TenderDashboardPage: React.FC = () => {
           scroll={{ x: 700 }}
           pagination={currentList.data.length > 10 ? { pageSize: 10, showTotal: (t) => `共 ${t} 筆` } : false}
           onRow={(record) => ({
-            onClick: () => {
-              if (!record.job_number && record.unit_id) {
-                window.open(`https://cf.ezbid.tw/tender/${record.unit_id}`, '_blank');
-              } else {
-                navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number)}`);
-              }
-            },
+            onClick: () => navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number || '')}`),
             style: { cursor: 'pointer' },
           })}
           footer={() => currentList.data.length >= 10 ? (
