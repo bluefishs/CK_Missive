@@ -273,26 +273,13 @@ const TenderSearchPage: React.FC = () => {
           </Space>
         </Col>
       </Row>
+      {/* 推薦標題提示 */}
       {showRecommend && !params && recommendResult && (
-        <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
-          <Col xs={12} sm={8} md={6}>
-            <ClickableStatCard
-              title="業務推薦" value={recommendResult.records?.length ?? 0}
-              icon={<StarOutlined />} color="#722ed1"
-              suffix={recommendResult.keywords?.slice(0, 2).join('、')}
-              active={recommendView === 'business'}
-              onClick={() => setRecommendView('business')}
-            />
-          </Col>
-          <Col xs={12} sm={8} md={6}>
-            <ClickableStatCard
-              title="今日最新" value={recommendResult.today_records?.length ?? 0}
-              icon={<CalendarOutlined />} color="#eb2f96"
-              active={recommendView === 'today'}
-              onClick={() => setRecommendView('today')}
-            />
-          </Col>
-        </Row>
+        <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
+          {recommendView === 'business'
+            ? `依訂閱關鍵字推薦 (${(recommendResult.keywords ?? []).slice(0, 3).join('、')})`
+            : '今日最新公告 (ezbid 即時)'}
+        </Text>
       )}
       {typeFilter && <Tag closable onClose={() => setTypeFilter('')} color="blue" style={{ marginBottom: 8 }}>類型篩選: {typeFilter}</Tag>}
       <Table<TenderRecord> columns={columns} dataSource={filteredData} rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${r.raw_date}-${i}`}
@@ -484,9 +471,24 @@ const TenderSearchPage: React.FC = () => {
           </Col>
         </Row>
         <Row gutter={[12, 12]}>
-          <Col xs={8} sm={6} md={4}>
-            <ClickableStatCard title="搜尋結果" value={filteredData.length} icon={<SearchOutlined />} color="#1890ff" />
-          </Col>
+          {showRecommend && !params ? (
+            <>
+              <Col xs={8} sm={6} md={4}>
+                <ClickableStatCard title="業務推薦" value={recommendResult?.records?.length ?? 0}
+                  icon={<StarOutlined />} color="#722ed1"
+                  active={recommendView === 'business'} onClick={() => setRecommendView('business')} />
+              </Col>
+              <Col xs={8} sm={6} md={4}>
+                <ClickableStatCard title="今日最新" value={recommendResult?.today_records?.length ?? 0}
+                  icon={<CalendarOutlined />} color="#eb2f96"
+                  active={recommendView === 'today'} onClick={() => setRecommendView('today')} />
+              </Col>
+            </>
+          ) : (
+            <Col xs={8} sm={6} md={4}>
+              <ClickableStatCard title="搜尋結果" value={filteredData.length} icon={<SearchOutlined />} color="#1890ff" />
+            </Col>
+          )}
           <Col xs={8} sm={6} md={4}>
             <ClickableStatCard title="訂閱" value={subscriptions?.length ?? 0} icon={<BellOutlined />} color="#faad14"
               onClick={() => setActiveTab('subscriptions')} active={activeTab === 'subscriptions'} />
