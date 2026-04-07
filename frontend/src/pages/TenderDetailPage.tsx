@@ -12,7 +12,7 @@
  */
 import React, { useMemo } from 'react';
 import {
-  Descriptions, Tag, Timeline, Card, Typography, Button, Space, List, Select, Popconfirm,
+  Descriptions, Tag, Timeline, Card, Typography, Button, Space, Select, Popconfirm,
   Row, Col, Statistic, Empty, Alert,
 } from 'antd';
 import {
@@ -21,6 +21,7 @@ import {
   ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined,
   StarOutlined, StarFilled, UnorderedListOutlined, DeleteOutlined,
 } from '@ant-design/icons';
+import { BattleTab, PriceTab } from './tenderDetail';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
@@ -306,205 +307,21 @@ const TenderDetailPage: React.FC = () => {
     </div>
   );
 
-  // ========== Tab 4: 同機關相關標案 ==========
   // ========== Tab 4: 投標戰情 ==========
-  const battle = fullData?.battle_room;
   const battleTab = createTabItem('battle', { icon: <UnorderedListOutlined />, text: '投標戰情' },
-    <div>
-      {/* 1. 歷史相似標案 */}
-      <Card title="① 歷史相似標案" size="small" style={{ marginBottom: 16 }}>
-        {battle?.similar_tenders?.length ? (
-          <List size="small" dataSource={battle.similar_tenders.slice(0, 10)}
-            renderItem={(t) => (
-              <List.Item>
-                <List.Item.Meta
-                  title={t.title}
-                  description={<Space><Text type="secondary">{t.date}</Text>{t.winner_names?.map((w, i) => <Tag key={i} color="green">{w}</Tag>)}</Space>}
-                />
-              </List.Item>
-            )}
-          />
-        ) : <Empty description="查無相似標案" />}
-      </Card>
-
-      {/* 2. 潛在對手 — 競爭強度 */}
-      <Card title="② 本案潛在對手 — 競爭強度" size="small" style={{ marginBottom: 16 }}>
-        {battle?.competitors?.length ? (
-          <table style={{ width: '100%', fontSize: 13 }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #f0f0f0', textAlign: 'left' }}>
-                <th style={{ padding: '8px 4px' }}>廠商</th>
-                <th style={{ padding: '8px 4px', textAlign: 'center' }}>出現</th>
-                <th style={{ padding: '8px 4px', textAlign: 'center' }}>得標</th>
-                <th style={{ padding: '8px 4px', textAlign: 'center' }}>得標率</th>
-                <th style={{ padding: '8px 4px', textAlign: 'right' }}>得標金額</th>
-              </tr>
-            </thead>
-            <tbody>
-              {battle.competitors.slice(0, 10).map((c, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
-                  onClick={() => window.open(`/tender/company-profile?q=${encodeURIComponent(c.name)}`, '_blank')}>
-                  <td style={{ padding: '6px 4px' }}>
-                    <a>{c.name}</a>
-                  </td>
-                  <td style={{ padding: '6px 4px', textAlign: 'center' }}>{c.appear_count ?? c.count ?? 0}</td>
-                  <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                    <Tag color={(c.win_count ?? 0) > 0 ? 'green' : 'default'}>{c.win_count ?? 0}</Tag>
-                  </td>
-                  <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                    <Tag color={c.win_rate && c.win_rate >= 50 ? 'blue' : 'default'}>{c.win_rate ?? 0}%</Tag>
-                  </td>
-                  <td style={{ padding: '6px 4px', textAlign: 'right', color: '#1890ff' }}>
-                    {c.total_amount ? `${(c.total_amount / 10000).toFixed(0)}萬` : '–'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <Empty description="查無潛在對手資料" />}
-      </Card>
-
-      {/* 3. 機關生態完整分析 */}
-      <Card title={`③ 機關生態 — ${fullData?.org_ecosystem?.org_name ?? detail?.unit_name ?? ''} (${fullData?.org_ecosystem?.total ?? 0} 筆)`} size="small"
-        extra={<Button type="link" size="small" onClick={() => window.open(`/tender/org-ecosystem?org=${encodeURIComponent(detail?.unit_name ?? '')}`, '_blank')}>獨立頁面 →</Button>}
-      >
-        {fullData?.org_ecosystem?.top_vendors?.length ? (
-          <>
-            <Text strong style={{ display: 'block', marginBottom: 8 }}>Top 廠商 — 競爭強度</Text>
-            <table style={{ width: '100%', fontSize: 13, marginBottom: 16 }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #f0f0f0', textAlign: 'left' }}>
-                  <th style={{ padding: '6px 4px' }}>廠商</th>
-                  <th style={{ padding: '6px 4px', textAlign: 'center' }}>出現</th>
-                  <th style={{ padding: '6px 4px', textAlign: 'center' }}>得標</th>
-                  <th style={{ padding: '6px 4px', textAlign: 'center' }}>得標率</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fullData.org_ecosystem.top_vendors.slice(0, 10).map((v, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
-                    onClick={() => window.open(`/tender/company-profile?q=${encodeURIComponent(v.name)}`, '_blank')}>
-                    <td style={{ padding: '5px 4px' }}><a>{v.name}</a></td>
-                    <td style={{ padding: '5px 4px', textAlign: 'center' }}>{v.appear_count}</td>
-                    <td style={{ padding: '5px 4px', textAlign: 'center' }}><Tag color={(v.win_count ?? 0) > 0 ? 'green' : 'default'}>{v.win_count}</Tag></td>
-                    <td style={{ padding: '5px 4px', textAlign: 'center' }}><Tag color={v.win_rate >= 50 ? 'blue' : 'default'}>{v.win_rate}%</Tag></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {fullData.org_ecosystem.recent_tenders?.length ? (
-              <>
-                <Text strong style={{ display: 'block', marginBottom: 8 }}>近期標案</Text>
-                <List size="small" dataSource={fullData.org_ecosystem.recent_tenders.slice(0, 8)}
-                  renderItem={(r) => (
-                    <List.Item actions={[<Button key="go" type="link" size="small" onClick={() => navigate(`/tender/${encodeURIComponent(r.unit_id)}/${encodeURIComponent(r.job_number)}`)}>查看</Button>]}>
-                      <List.Item.Meta title={r.title} description={<Space><Tag>{r.type?.slice(0, 10)}</Tag><Text type="secondary">{r.date}</Text>{r.winner_names?.map((w, i) => <Tag key={i} color="green">{w}</Tag>)}</Space>} />
-                    </List.Item>
-                  )}
-                />
-              </>
-            ) : null}
-          </>
-        ) : <Empty description="查無機關生態資料" />}
-      </Card>
-    </div>
+    <BattleTab
+      battleRoom={fullData?.battle_room}
+      orgEcosystem={fullData?.org_ecosystem}
+      unitName={detail?.unit_name}
+    />
   );
 
   // ========== Tab 5: 底價分析 ==========
-  const priceData = fullData?.price_analysis;
   const priceTab = createTabItem('price', { icon: <DollarOutlined />, text: '底價分析' },
-    <div>
-    {priceData?.prices ? (
-      <div>
-        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          <Col xs={12} sm={6}>
-            <Card size="small" style={{ borderLeft: '4px solid #1890ff' }}>
-              <Statistic title="預算金額" value={priceData.prices.budget ?? '-'}
-                prefix={<DollarOutlined />} styles={{ content: { fontSize: 18, color: '#1890ff' } }} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card size="small" style={{ borderLeft: '4px solid #faad14' }}>
-              <Statistic title="底價" value={priceData.prices.floor_price ?? '-'}
-                styles={{ content: { fontSize: 18, color: '#faad14' } }} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card size="small" style={{ borderLeft: '4px solid #52c41a' }}>
-              <Statistic title="決標金額" value={priceData.prices.award_amount ?? '-'}
-                styles={{ content: { fontSize: 18, color: '#52c41a' } }} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card size="small" style={{ borderLeft: '4px solid #722ed1' }}>
-              <Statistic title="決標日期" value={priceData.prices.award_date ?? '-'}
-                styles={{ content: { fontSize: 14 } }} />
-            </Card>
-          </Col>
-        </Row>
-
-        {priceData.analysis && Object.keys(priceData.analysis).length > 0 && (
-          <Card title="差異分析" size="small" style={{ marginBottom: 16 }}>
-            <Descriptions column={{ xs: 1, sm: 2 }} size="small">
-              {priceData.analysis.budget_award_variance_pct != null && (
-                <Descriptions.Item label="預算 vs 決標">
-                  <Tag color={priceData.analysis.budget_award_variance_pct < 0 ? 'green' : 'red'}>
-                    {priceData.analysis.budget_award_variance_pct}%
-                  </Tag>
-                </Descriptions.Item>
-              )}
-              {priceData.analysis.floor_award_variance_pct != null && (
-                <Descriptions.Item label="底價 vs 決標">
-                  <Tag color={priceData.analysis.floor_award_variance_pct < 0 ? 'green' : 'red'}>
-                    {priceData.analysis.floor_award_variance_pct}%
-                  </Tag>
-                </Descriptions.Item>
-              )}
-              {priceData.analysis.savings_rate_pct != null && (
-                <Descriptions.Item label="節省率">
-                  <Tag color="blue">{priceData.analysis.savings_rate_pct}%</Tag>
-                </Descriptions.Item>
-              )}
-            </Descriptions>
-          </Card>
-        )}
-
-        {priceData.award_items && priceData.award_items.length > 0 && (
-          <Card title="決標品項明細" size="small">
-            <List size="small" dataSource={priceData.award_items}
-              renderItem={(item) => (
-                <List.Item extra={item.amount != null ? <Tag color="green">NT$ {item.amount.toLocaleString()}</Tag> : null}>
-                  <Text>第 {item.item_no} 品項: {item.winner ?? '未知'}</Text>
-                </List.Item>
-              )}
-            />
-          </Card>
-        )}
-      </div>
-    ) : <Empty description="尚無底價/決標資料 (標案可能尚在招標中)" />}
-    {fullData?.price_estimate && (
-      <Card title="決標金額推估 (基於相似標案歷史)" size="small" style={{ marginTop: 16, borderLeft: '4px solid #faad14' }}>
-        <Row gutter={[16, 16]}>
-          <Col xs={12} sm={6}>
-            <Statistic title="本案預算" value={fullData.price_estimate.budget} prefix="NT$" styles={{ content: { fontSize: 18 } }} />
-          </Col>
-          <Col xs={12} sm={6}>
-            <Statistic title="歷史平均折率" value={`${fullData.price_estimate.avg_ratio}%`} styles={{ content: { fontSize: 18, color: '#faad14' } }} />
-          </Col>
-          <Col xs={12} sm={6}>
-            <Statistic title="推估決標金額" value={fullData.price_estimate.estimated_award} prefix="NT$" styles={{ content: { fontSize: 18, color: '#52c41a' } }} />
-          </Col>
-          <Col xs={12} sm={6}>
-            <Statistic title="樣本數" value={`${fullData.price_estimate.sample_count} 筆`} styles={{ content: { fontSize: 14 } }} />
-          </Col>
-        </Row>
-        <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
-          * 基於 {fullData.price_estimate.sample_count} 筆相似標案的預算→決標比例推算，僅供參考
-        </Text>
-      </Card>
-    )}
-    </div>
+    <PriceTab
+      priceAnalysis={fullData?.price_analysis}
+      priceEstimate={fullData?.price_estimate}
+    />
   );
 
   return (
