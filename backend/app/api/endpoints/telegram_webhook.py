@@ -125,13 +125,15 @@ async def telegram_webhook(
             )
             return TelegramWebhookResponse()
 
-        # 一般文字 → Agent
+        # 一般文字 → Agent (傳入 user_message_id 供反應+回覆串接)
+        msg_id = message.get("message_id")
         background_tasks.add_task(
             service.handle_text_message,
             chat_id,
             user_id,
             text,
             username,
+            msg_id,
         )
 
     # 圖片

@@ -65,43 +65,74 @@ class TelegramBotService:
         user_id: int,
         text: str,
         username: str = "",
+        user_message_id: Optional[int] = None,
     ) -> None:
         """
-        處理文字訊息：呼叫 AgentOrchestrator → Edit-Streaming 回覆 Telegram。
+        處理文字訊息 — 互動式體驗 (agent-broker 風格)
 
-        Telegram 支援 editMessageText，因此採用與 Discord 相同的
-        edit-streaming 模式：先發一則「思考中」，再不斷 edit 更新內容。
-
-        使用獨立 DB session（因為此方法在 BackgroundTask 中執行）。
+        1. 在使用者訊息上加 👁️ 反應 (已收到)
+        2. 回覆串接：reply_to 使用者訊息
+        3. Edit-streaming：每 1.5s 更新同一則訊息
+        4. 工具執行時切換反應 emoji
+        5. 完成時加 ✅ + 工具摘要
         """
         from app.services.agent_stream_helper import AgentStreamCollector
 
-        # Step 1: 送出初始訊息，取得 message_id
-        initial_msg_id = await self._send_and_get_id(chat_id, "\U0001f914 思考中...")
+        # Step 1: 即時反應 — 在使用者訊息上加 👁️
+        if user_message_id:
+            await self.set_reaction(chat_id, user_message_id, "👀")
 
-        # Step 2: 建立 edit-streaming collector
+        # Step 2: 回覆串接 — reply_to 使用者訊息
+        initial_msg_id = None
+        if user_message_id:
+            initial_msg_id = await self.send_reply(
+                chat_id, "🤔 思考中...", user_message_id, parse_mode="",
+            )
+        if not initial_msg_id:
+            initial_msg_id = await self._send_and_get_id(chat_id, "🤔 思考中...")
+
+        # Step 3: 狀態反應 + Edit-streaming
+        _tool_lines: list = []  # 工具執行過程
+
+        async def on_status_change(emoji: str, description: str) -> None:
+            """切換使用者訊息上的 emoji 反應"""
+            if user_message_id:
+                await self.set_reaction(chat_id, user_message_id, emoji)
+            # 記錄工具過程到訊息中
+            if "執行" in description:
+                tool_name = description.replace("執行 ", "")
+                _tool_lines.append(f"{emoji} {tool_name}")
+
         async def on_text_update(partial: str) -> None:
-            """Edit 訊息以呈現部分回答 (附閃爍游標)"""
+            """Edit 訊息 — 附帶工具過程"""
             if not initial_msg_id or not partial:
                 return
-            # Telegram 4096 char limit; keep room for cursor
-            display = partial[:4000] + " \u258d" if len(partial) <= 4000 else partial[:4090] + "..."
+            display = partial
+            # 附加工具執行過程
+            if _tool_lines:
+                tool_section = "\n".join(_tool_lines[-3:])  # 最近 3 個工具
+                display = f"{tool_section}\n\n{partial}"
+            if len(display) > 4000:
+                display = display[:3997] + "..."
+            display += " ▍"
             await self._edit_message(chat_id, initial_msg_id, display)
 
         collector = AgentStreamCollector(
+            on_status_change=on_status_change,
             on_text_update=on_text_update if initial_msg_id else None,
             update_interval=1.5,
         )
 
-        # Step 3: Stream from orchestrator
+        # Step 4: Stream from orchestrator
         try:
             result = await asyncio.wait_for(
                 self._stream_agent(user_id, text, collector),
                 timeout=self._reply_timeout,
             )
         except asyncio.TimeoutError:
-            logger.warning("Telegram agent query timeout for user %s", user_id)
-            final = "\u23f1 查詢處理時間較長，請稍後再試。"
+            if user_message_id:
+                await self.set_reaction(chat_id, user_message_id, "⏳")
+            final = "⏱ 查詢處理時間較長，請稍後再試。"
             if initial_msg_id:
                 await self._edit_message(chat_id, initial_msg_id, final)
             else:
@@ -109,6 +140,8 @@ class TelegramBotService:
             return
         except Exception as e:
             logger.error("Telegram agent query failed: %s", e)
+            if user_message_id:
+                await self.set_reaction(chat_id, user_message_id, "❌")
             final = "系統暫時無法回應，請稍後再試。"
             if initial_msg_id:
                 await self._edit_message(chat_id, initial_msg_id, final)
@@ -116,9 +149,21 @@ class TelegramBotService:
                 await self.send_message(chat_id, final)
             return
 
-        # Step 4: Final edit with complete response + tool footer
+        # Step 5: 最終結果 + 完成反應
+        if user_message_id:
+            await self.set_reaction(chat_id, user_message_id, "✅")
+
         final = result.answer
-        final += AgentStreamCollector.build_tool_footer(result.tools_used)
+        tool_footer = AgentStreamCollector.build_tool_footer(result.tools_used)
+        # 加入工具過程摘要
+        if _tool_lines:
+            process_summary = " → ".join(
+                line.split(" ", 1)[1] if " " in line else line for line in _tool_lines
+            )
+            final += f"\n\n🔧 {process_summary}"
+        elif tool_footer:
+            final += tool_footer
+
         if len(final) > 4090:
             final = final[:4087] + "..."
 
@@ -341,6 +386,57 @@ class TelegramBotService:
     async def push_message(self, chat_id: int, text: str) -> bool:
         """主動推播訊息（與 send_message 相同，語意對齊 LineBotService）"""
         return await self.send_message(chat_id, text)
+
+    # ── Telegram Reactions (表情反應 — Bot API 7.2+) ──
+
+    async def set_reaction(
+        self, chat_id: int, message_id: int, emoji: str,
+    ) -> bool:
+        """Set emoji reaction on a message (replaces previous)."""
+        return await self._call_telegram_api("/setMessageReaction", {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "reaction": [{"type": "emoji", "emoji": emoji}],
+        })
+
+    async def remove_reaction(self, chat_id: int, message_id: int) -> bool:
+        """Remove all reactions from a message."""
+        return await self._call_telegram_api("/setMessageReaction", {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "reaction": [],
+        })
+
+    async def send_reply(
+        self, chat_id: int, text: str, reply_to_message_id: int,
+        parse_mode: str = "Markdown",
+    ) -> Optional[int]:
+        """Send a reply to a specific message (creates visual thread)."""
+        payload = {
+            "chat_id": chat_id,
+            "text": text,
+            "reply_to_message_id": reply_to_message_id,
+        }
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+
+        if not self._bot_token:
+            return None
+        url = f"{TELEGRAM_API_BASE}/bot{self._bot_token}/sendMessage"
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 200:
+                    return resp.json().get("result", {}).get("message_id")
+                # Markdown fail → retry plain
+                if parse_mode:
+                    payload["parse_mode"] = ""
+                    resp2 = await client.post(url, json=payload)
+                    if resp2.status_code == 200:
+                        return resp2.json().get("result", {}).get("message_id")
+        except Exception:
+            pass
+        return None
 
     async def _call_telegram_api(self, path: str, payload: dict) -> bool:
         """呼叫 Telegram Bot API"""
