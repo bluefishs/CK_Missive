@@ -290,6 +290,10 @@ class TenderSearchService:
                 "companies": rec.get("brief", {}).get("companies", {}).get("names", []),
             })
 
+        # 回填 unit_name: 優先 PCC 頂層 → event detail.agency_name
+        if not unit_name and events:
+            unit_name = events[0].get("detail", {}).get("agency_name", "") or ""
+
         return {
             "unit_name": unit_name,
             "job_number": records[0].get("job_number", ""),
