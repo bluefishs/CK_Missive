@@ -48,18 +48,21 @@ async def battle_room(search: TenderSearchService, unit_id: str, job_number: str
             seen_jobs.add(jn)
             similar_records.append(r)
 
-    # 競爭對手統計 — 含得標金額
+    # 只保留前 8 筆用於統計 (與顯示一致)
+    similar_records = similar_records[:8]
+
+    # 競爭對手統計 — 每筆標案每家廠商只計一次
     competitor_data = defaultdict(lambda: {"appear": 0, "wins": 0, "total_amount": 0})
     for r in similar_records:
         budget = _parse_amount(r.get("budget") or latest.get("budget"))
-        for w in r.get("winner_names", []):
-            if w:
-                competitor_data[w]["appear"] += 1
-                competitor_data[w]["wins"] += 1
-                competitor_data[w]["total_amount"] += budget
-        for b in r.get("bidder_names", []):
-            if b:
-                competitor_data[b]["appear"] += 1
+        winners = set(w for w in r.get("winner_names", []) if w)
+        bidders = set(b for b in r.get("bidder_names", []) if b)
+        all_companies = winners | bidders  # 聯集去重
+        for name in all_companies:
+            competitor_data[name]["appear"] += 1
+            if name in winners:
+                competitor_data[name]["wins"] += 1
+                competitor_data[name]["total_amount"] += budget
 
     competitors = []
     for name, d in sorted(competitor_data.items(), key=lambda x: x[1]["wins"], reverse=True)[:15]:
