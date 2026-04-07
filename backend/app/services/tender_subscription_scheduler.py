@@ -54,9 +54,17 @@ async def check_all_subscriptions(db: AsyncSession) -> dict:
             sub.last_diff = max(diff, 0)
             sub.last_count = new_total
 
-            # 記錄最新標案標題 (前 5 筆)
+            # 記錄最新標案標題 (去重後前 5 筆)
             import json as _json
-            new_titles = [r.get("title", "")[:80] for r in search_result.get("records", [])[:5]]
+            seen_titles = set()
+            new_titles = []
+            for r in search_result.get("records", [])[:15]:
+                t = r.get("title", "")[:80]
+                if t and t not in seen_titles:
+                    seen_titles.add(t)
+                    new_titles.append(t)
+                    if len(new_titles) >= 5:
+                        break
             sub.last_new_titles = _json.dumps(new_titles, ensure_ascii=False) if new_titles else None
 
             detail = {

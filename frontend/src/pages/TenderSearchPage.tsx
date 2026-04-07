@@ -342,29 +342,27 @@ const TenderSearchPage: React.FC = () => {
                 </Space>
               ) : (
                 <div>
-                  <Row justify="space-between" align="middle"
-                    onClick={() => handleSubSearch(s.keyword, s.category)}
-                    style={{ cursor: 'pointer' }}
-                  >
+                  <Row justify="space-between" align="middle">
                     <Col>
                       <Space>
                         <BellOutlined />
                         <strong>{s.keyword}</strong>
                         {s.category && <Tag>{s.category}</Tag>}
                         {!s.is_active && <Tag color="default">已停用</Tag>}
+                        {s.last_diff > 0 && <Tag color="red">+{s.last_diff} 新增</Tag>}
                       </Space>
                     </Col>
                     <Col>
                       <Space>
-                        {s.last_diff > 0 && <Tag color="red">+{s.last_diff} 新增</Tag>}
-                        <Tooltip title="點擊查看全部搜尋結果">
-                          <Tag color="blue" style={{ cursor: 'pointer' }}>共 {s.last_count.toLocaleString()} 筆 →</Tag>
-                        </Tooltip>
                         <Text type="secondary" style={{ fontSize: 12 }}>
                           {s.last_checked_at
                             ? new Date(s.last_checked_at).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                             : '等待排程'}
                         </Text>
+                        <Button type="primary" size="small"
+                          onClick={() => handleSubSearch(s.keyword, s.category)}>
+                          搜尋 {s.last_count.toLocaleString()} 筆
+                        </Button>
                       </Space>
                     </Col>
                   </Row>
@@ -376,7 +374,10 @@ const TenderSearchPage: React.FC = () => {
                         </div>
                       ))}
                       {s.last_new_titles.length > 3 && (
-                        <Text type="secondary" style={{ fontSize: 11 }}>...還有 {s.last_new_titles.length - 3} 筆</Text>
+                        <Button type="link" size="small" style={{ padding: 0, fontSize: 11 }}
+                          onClick={() => handleSubSearch(s.keyword, s.category)}>
+                          ...還有 {s.last_new_titles.length - 3} 筆，查看全部 →
+                        </Button>
                       )}
                     </div>
                   )}

@@ -370,15 +370,27 @@ async def create_subscription(
     await db.commit()
     await db.refresh(sub)
 
-    # 建立後立即查詢一次，更新 last_checked_at
+    # 建立後立即查詢一次，更新 last_checked_at + last_new_titles
     try:
+        import json as _json
         service = TenderSearchService()
         result = await service.search_by_title(query=req.keyword, page=1, category=req.category)
         sub.last_checked_at = datetime.utcnow()
         sub.last_count = result.get("total_records", 0)
+        # 去重後取前 5 筆標題
+        seen_t = set()
+        titles = []
+        for r in result.get("records", [])[:15]:
+            t = r.get("title", "")[:80] if isinstance(r, dict) else ""
+            if t and t not in seen_t:
+                seen_t.add(t)
+                titles.append(t)
+                if len(titles) >= 5:
+                    break
+        sub.last_new_titles = _json.dumps(titles, ensure_ascii=False) if titles else None
         await db.commit()
     except Exception:
-        pass  # 查詢失敗不影響建立
+        pass
 
     return SuccessResponse(data={"id": sub.id, "keyword": sub.keyword})
 
