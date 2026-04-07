@@ -14,7 +14,7 @@ import {
   Empty, Tooltip, App, Tabs, Popconfirm, Badge, Flex,
 } from 'antd';
 import {
-  SearchOutlined, StarOutlined, StarFilled, BankOutlined,
+  SearchOutlined, StarOutlined, StarFilled, BankOutlined, CalendarOutlined,
   ReloadOutlined, PlusOutlined, DeleteOutlined,
   BellOutlined, BookOutlined, FilterOutlined,
 } from '@ant-design/icons';
@@ -30,7 +30,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const CATEGORY_OPTIONS = [
   { value: '', label: '全部類別' },
@@ -159,8 +159,15 @@ const TenderSearchPage: React.FC = () => {
     }
   }, [createBm, deleteBm, findBookmarkId, message]);
 
+  // 推薦模式：今日最新 vs 業務推薦 切換
+  const [recommendView, setRecommendView] = useState<'business' | 'today'>('business');
+
   // 搜尋結果 + 客戶端招標類型篩選
-  const rawData = showRecommend && !params ? recommendResult?.records : searchResult?.records;
+  const rawData = useMemo(() => {
+    if (!showRecommend || params) return searchResult?.records ?? [];
+    if (recommendView === 'today') return recommendResult?.today_records ?? [];
+    return recommendResult?.records ?? [];
+  }, [showRecommend, params, recommendView, searchResult, recommendResult]);
   const filteredData = useMemo(() => {
     if (!rawData) return [];
     if (!typeFilter) return rawData;
@@ -267,7 +274,25 @@ const TenderSearchPage: React.FC = () => {
         </Col>
       </Row>
       {showRecommend && !params && recommendResult && (
-        <Paragraph type="secondary"><StarOutlined /> 依核心業務推薦（{recommendResult.keywords.join('、')}），共 {recommendResult.total} 筆</Paragraph>
+        <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+          <Col xs={12} sm={8} md={6}>
+            <ClickableStatCard
+              title="業務推薦" value={recommendResult.records?.length ?? 0}
+              icon={<StarOutlined />} color="#722ed1"
+              suffix={recommendResult.keywords?.slice(0, 2).join('、')}
+              active={recommendView === 'business'}
+              onClick={() => setRecommendView('business')}
+            />
+          </Col>
+          <Col xs={12} sm={8} md={6}>
+            <ClickableStatCard
+              title="今日最新" value={recommendResult.today_records?.length ?? 0}
+              icon={<CalendarOutlined />} color="#eb2f96"
+              active={recommendView === 'today'}
+              onClick={() => setRecommendView('today')}
+            />
+          </Col>
+        </Row>
       )}
       {typeFilter && <Tag closable onClose={() => setTypeFilter('')} color="blue" style={{ marginBottom: 8 }}>類型篩選: {typeFilter}</Tag>}
       <Table<TenderRecord> columns={columns} dataSource={filteredData} rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${r.raw_date}-${i}`}

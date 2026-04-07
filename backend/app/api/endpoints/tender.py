@@ -153,13 +153,28 @@ async def search_by_company(
 async def recommend_tenders(
     req: TenderRecommendRequest,
     service: TenderSearchService = Depends(get_tender_service),
+    db: AsyncSession = Depends(get_db),
 ):
-    """智能推薦 — g0v + ezbid 即時資料合併"""
-    result = await service.recommend_tenders(
-        keywords=req.keywords, page=req.page,
-    )
+    """智能推薦 — 訂閱關鍵字驅動 + ezbid 今日最新 (分區)"""
+    from app.extended.models.tender import TenderSubscription
 
-    # 合併 ezbid 最新標案到推薦結果
+    # 1. 取得訂閱關鍵字 (優先) 或使用預設
+    sub_keywords = req.keywords
+    if not sub_keywords:
+        subs = await db.execute(
+            select(TenderSubscription)
+            .where(TenderSubscription.is_active == True)  # noqa: E712
+            .order_by(TenderSubscription.last_count.desc())
+            .limit(5)
+        )
+        sub_list = subs.scalars().all()
+        sub_keywords = [s.keyword for s in sub_list] if sub_list else None
+
+    # 2. 業務推薦 (g0v)
+    result = await service.recommend_tenders(keywords=sub_keywords, page=req.page)
+
+    # 3. 今日最新 (ezbid)
+    today_records = []
     try:
         from app.services.ezbid_scraper import EzbidScraper
         scraper = EzbidScraper()
@@ -168,7 +183,7 @@ async def recommend_tenders(
         for r in ezbid.get("records", []):
             if r.get("title", "")[:20] not in seen_titles:
                 seen_titles.add(r.get("title", "")[:20])
-                result["records"].insert(0, {
+                today_records.append({
                     "date": r.get("date", ""),
                     "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
                     "title": r.get("title", ""),
@@ -180,15 +195,18 @@ async def recommend_tenders(
                     "company_names": [], "company_ids": [],
                     "winner_names": [], "bidder_names": [],
                     "tender_api_url": r.get("ezbid_url", ""),
-                    "matched_keyword": "即時",
                     "source": "ezbid",
                 })
-        result["records"].sort(key=lambda x: x.get("raw_date", 0), reverse=True)
-        result["total"] = len(result["records"])
     except Exception:
         pass
 
-    return SuccessResponse(data=result)
+    # 4. 分區回傳
+    return SuccessResponse(data={
+        "keywords": result.get("keywords", []),
+        "total": len(result.get("records", [])) + len(today_records),
+        "today_records": today_records,
+        "records": result.get("records", []),
+    })
 
 
 class TenderGraphRequest(BaseModel):

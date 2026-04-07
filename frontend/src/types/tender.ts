@@ -65,6 +65,7 @@ export interface TenderDetail {
 export interface TenderRecommendResult {
   keywords: string[];
   total: number;
+  today_records: TenderRecord[];
   records: TenderRecord[];
 }
 
