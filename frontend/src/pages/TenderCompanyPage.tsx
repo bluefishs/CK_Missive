@@ -12,7 +12,8 @@ import {
   Card, Input, Table, Tag, Typography, Row, Col, Statistic,
   App, Progress, Empty,
 } from 'antd';
-import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from 'recharts';
+import CategoryPieChart from '../components/tender/CategoryPieChart';
 import {
   TrophyOutlined, BankOutlined,
   BarChartOutlined, SearchOutlined,
@@ -46,7 +47,7 @@ const TenderCompanyPage: React.FC = () => {
   const { data, isLoading } = useTenderCompanySearch(company, page);
   const records = useMemo(() => data?.records ?? [], [data]);
 
-  const PIE_COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2'];
+  // PIE_COLORS moved to CategoryPieChart shared component
 
   // 統計
   const stats = useMemo(() => {
@@ -180,15 +181,7 @@ const TenderCompanyPage: React.FC = () => {
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12}>
             <Card title="標案類別分布" size="small">
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                    outerRadius={70} label>
-                    {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                  </Pie>
-                  <RechartsTooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <CategoryPieChart data={categoryData} height={200} />
             </Card>
           </Col>
           <Col xs={24} sm={12}>

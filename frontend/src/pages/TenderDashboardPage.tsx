@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import {
-  Card, Row, Col, Statistic, Table, Tag, Typography, Spin, Button, Space, Empty,
+  Card, Row, Col, Statistic, Table, Tag, Typography, Spin, Button, Space,
 } from 'antd';
 import {
   FundOutlined, ReloadOutlined, BankOutlined,
@@ -11,14 +11,13 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ResponsiveContent } from '@ck-shared/ui-components';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import apiClient from '../api/client';
+import CategoryPieChart from '../components/tender/CategoryPieChart';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title } = Typography;
-const COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'];
 
 interface DashboardData {
   total_found: number;
@@ -104,16 +103,7 @@ const TenderDashboardPage: React.FC = () => {
         {/* 類別分布 */}
         <Col xs={24} lg={12}>
           <Card title="標案類別分布" size="small">
-            {data?.category_distribution && data.category_distribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie data={data.category_distribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                    {data.category_distribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip /><Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : <Empty description="無資料" />}
+            <CategoryPieChart data={data?.category_distribution ?? []} height={300} />
           </Card>
         </Col>
 

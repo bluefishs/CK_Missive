@@ -13,14 +13,14 @@ import { useQuery } from '@tanstack/react-query';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
+  // PieChart moved to CategoryPieChart shared component
 } from 'recharts';
 import apiClient from '../api/client';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
+import CategoryPieChart from '../components/tender/CategoryPieChart';
 
 const { Title, Text } = Typography;
-const COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#eb2f96'];
 
 interface CompanyData {
   company_name: string;
@@ -140,32 +140,10 @@ const TenderCompanyProfilePage: React.FC = () => {
               })()}
             </Col>
 
-            {/* 類別分布 — 超過 6 類合併為「其他」 */}
+            {/* 類別分布 — 共用元件 */}
             <Col xs={24} lg={10}>
               <Card title="標案類別分布" size="small">
-                {(() => {
-                  const MAX = 6;
-                  const raw = data.category_distribution;
-                  let pie = raw;
-                  if (raw.length > MAX) {
-                    const top = raw.slice(0, MAX - 1);
-                    const rest = raw.slice(MAX - 1).reduce((s: number, d: { value: number }) => s + d.value, 0);
-                    pie = [...top, { name: `其他 (${raw.length - MAX + 1} 類)`, value: rest }];
-                  }
-                  return (
-                    <ResponsiveContainer width="100%" height={280}>
-                      <PieChart>
-                        <Pie data={pie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={35}
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          label={((p: any) => `${p.name} ${(p.percent * 100).toFixed(0)}%`) as any}
-                          labelLine={false} fontSize={12}>
-                          {pie.map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip formatter={(v: number) => [`${v} 筆`, '標案數']} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  );
-                })()}
+                <CategoryPieChart data={data.category_distribution} />
               </Card>
             </Col>
           </Row>
