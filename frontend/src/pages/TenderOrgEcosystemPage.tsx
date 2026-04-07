@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell,
 } from 'recharts';
 import apiClient from '../api/client';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
@@ -132,10 +132,13 @@ const TenderOrgEcosystemPage: React.FC = () => {
                   return (
                   <ResponsiveContainer width="100%" height={280}>
                     <PieChart>
-                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={false}>
+                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={35}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        label={((p: any) => `${p.name} ${(p.percent * 100).toFixed(0)}%`) as any}
+                        labelLine={false} fontSize={12}>
                         {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip /><Legend />
+                      <Tooltip formatter={(v: number) => [`${v} 筆`, '標案數']} />
                     </PieChart>
                   </ResponsiveContainer>
                   );
