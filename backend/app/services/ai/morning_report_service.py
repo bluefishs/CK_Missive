@@ -61,6 +61,11 @@ class MorningReportService:
         # 6. 標案訂閱
         sections["tender_alerts"] = await self._get_tender_alerts()
 
+        # 7. 待盤點資產
+        sections["asset_pending_inventory"] = await self._get_asset_pending_inventory(
+            today
+        )
+
         return sections
 
     async def generate_summary(self) -> str:
@@ -110,10 +115,16 @@ class MorningReportService:
                     f"— {item.get('vendor', '')} ({item.get('case_code', '')})"
                 )
 
-        # 4. 里程碑
+        # 4. 里程碑 — 列出具體項目
         ms = data.get("upcoming_milestones", {})
         if ms.get("count", 0) > 0:
             parts.append(f"近期里程碑 {ms['count']} 項")
+            for item in ms.get("items", [])[:3]:
+                details.append(
+                    f"  📌 {item['name']} — "
+                    f"{item.get('case_name', '')} "
+                    f"(到期: {item['due_date']})"
+                )
 
         # 5. 新收公文
         nd = data.get("new_documents", {})
@@ -124,6 +135,11 @@ class MorningReportService:
         ta = data.get("tender_alerts", {})
         if ta.get("count", 0) > 0:
             parts.append(f"標案訂閱 {ta['count']} 則")
+
+        # 7. 待盤點資產
+        ap = data.get("asset_pending_inventory", {})
+        if ap.get("count", 0) > 0:
+            parts.append(f"待盤點資產 {ap['count']} 項")
 
         if not parts:
             return "📋 今日晨報：一切正常，無待處理事項。👍"
@@ -318,16 +334,30 @@ class MorningReportService:
         try:
             r = await self.db.execute(
                 text("""
-                SELECT COUNT(*) FROM pm_milestones
-                WHERE due_date BETWEEN :today AND :week
-                  AND status != 'completed'
+                SELECT m.id, m.milestone_name, m.due_date, m.status,
+                       c.case_code, c.case_name
+                FROM pm_milestones m
+                LEFT JOIN pm_cases c ON c.id = m.pm_case_id
+                WHERE m.due_date BETWEEN :today AND :week
+                  AND m.status != 'completed'
+                ORDER BY m.due_date
+                LIMIT 5
             """),
                 {"today": today, "week": week_later},
             )
-            return {"count": r.scalar() or 0}
+            items = [
+                {
+                    "name": row[1] or "",
+                    "due_date": str(row[2]),
+                    "case_code": row[4] or "",
+                    "case_name": row[5] or "",
+                }
+                for row in r.all()
+            ]
+            return {"count": len(items), "items": items}
         except Exception as e:
             logger.debug("upcoming_milestones query failed: %s", e)
-            return {"count": 0}
+            return {"count": 0, "items": []}
 
     async def _get_new_documents(self, since) -> dict:
         try:
@@ -354,4 +384,21 @@ class MorningReportService:
             return {"count": r.scalar() or 0}
         except Exception as e:
             logger.debug("tender_alerts query failed: %s", e)
+            return {"count": 0}
+
+    async def _get_asset_pending_inventory(self, today) -> dict:
+        """Get count of assets needing inventory (last inspected > 6 months ago or never)."""
+        try:
+            six_months_ago = today - timedelta(days=180)
+            r = await self.db.execute(
+                text("""
+                SELECT COUNT(*) FROM assets
+                WHERE last_inspect_date < :cutoff
+                   OR last_inspect_date IS NULL
+            """),
+                {"cutoff": six_months_ago},
+            )
+            return {"count": r.scalar() or 0}
+        except Exception as e:
+            logger.debug("asset_pending_inventory query failed: %s", e)
             return {"count": 0}

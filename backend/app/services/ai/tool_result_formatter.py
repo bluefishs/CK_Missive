@@ -160,6 +160,17 @@ def format_tool_context(tool: str, result: Dict[str, Any], remaining_chars: int)
             )
         if len(part) <= remaining_chars:
             parts.append(part)
+        # Pre-computed enrichment for document stats
+        try:
+            from app.services.ai.response_enricher import enrich_document_results
+            docs_list = result.get("documents", [])
+            if docs_list:
+                enriched = enrich_document_results(docs_list)
+                analysis = f"\n[分析摘要] {enriched.get('analysis_hint', '')}\n"
+                if sum(len(p) for p in parts) + len(analysis) <= remaining_chars:
+                    parts.append(analysis)
+        except Exception:
+            pass
 
     elif tool == "navigate_graph":
         center = result.get("center_entity", {})
@@ -301,6 +312,68 @@ def format_tool_context(tool: str, result: Dict[str, Any], remaining_chars: int)
                 part += f"  {key}: {json.dumps(val, ensure_ascii=False)[:500]}\n"
         if len(part) <= remaining_chars:
             parts.append(part)
+        # Pre-computed financial enrichment
+        try:
+            from app.services.ai.response_enricher import enrich_financial_results
+            enriched = enrich_financial_results(result)
+            analysis = f"\n[分析摘要] {enriched.get('financial_hint', '')}\n"
+            if sum(len(p) for p in parts) + len(analysis) <= remaining_chars:
+                parts.append(analysis)
+        except Exception:
+            pass
+
+    elif tool == "get_expense_overview" or tool == "list_pending_expenses":
+        # 費用概覽/待審費用 — 結構化格式 + enrichment
+        expenses = result.get("expenses", result.get("items", []))
+        summary_text = result.get("summary", "")
+        if summary_text:
+            part = f"[費用] {summary_text}\n"
+        else:
+            part = f"[費用] 共 {result.get('count', len(expenses))} 筆\n"
+        for i, e in enumerate(expenses[:10], 1):
+            inv = e.get("inv_num", "") or e.get("invoice_number", "")
+            amt = e.get("total_amount", 0) or e.get("amount", 0)
+            status = e.get("status") or e.get("approval_status", "")
+            case = e.get("case_code", "")
+            part += f"  [{i}] {inv} NT${float(amt):,.0f} ({status}) {case}\n"
+            if sum(len(p) for p in parts) + len(part) > remaining_chars:
+                break
+        if len(part) <= remaining_chars:
+            parts.append(part)
+        # Pre-computed expense enrichment
+        try:
+            from app.services.ai.response_enricher import enrich_expense_results
+            enriched = enrich_expense_results(expenses)
+            analysis = f"\n[分析摘要] {enriched.get('analysis_hint', '')}\n"
+            if sum(len(p) for p in parts) + len(analysis) <= remaining_chars:
+                parts.append(analysis)
+        except Exception:
+            pass
+
+    elif tool == "get_project_progress":
+        # 專案進度 — 結構化格式 + enrichment
+        project = result.get("project", result)
+        milestones = result.get("milestones", [])
+        name = project.get("project_name") or project.get("case_name") or project.get("name", "")
+        part = f"[專案進度] {name}\n"
+        status = project.get("status", "")
+        if status:
+            part += f"  狀態: {status}\n"
+        for m in milestones[:8]:
+            m_status = m.get("status", "")
+            icon = "✅" if m_status == "completed" else "🔄"
+            part += f"  {icon} {m.get('name', m.get('milestone_name', ''))} (期限: {m.get('due_date', 'N/A')})\n"
+        if len(part) <= remaining_chars:
+            parts.append(part)
+        # Pre-computed project enrichment
+        try:
+            from app.services.ai.response_enricher import enrich_project_results
+            enriched = enrich_project_results(project, milestones)
+            analysis = f"\n[分析摘要] {enriched.get('progress_hint', '')}\n"
+            if sum(len(p) for p in parts) + len(analysis) <= remaining_chars:
+                parts.append(analysis)
+        except Exception:
+            pass
 
     else:
         # 通用處理：PM/ERP/其他未明確處理的工具結果
