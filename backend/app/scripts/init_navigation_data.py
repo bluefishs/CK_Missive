@@ -436,6 +436,39 @@ DEFAULT_NAVIGATION_ITEMS = [
         "description": "底價,預算,決標,價格趨勢,分析",
         "permission_required": "[]"
     },
+    {
+        "title": "戰情室",
+        "key": "tender-battle-room",
+        "path": "/tender/battle-room",
+        "icon": "RadarChartOutlined",
+        "sort_order": 17,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "競爭對手,雷達圖,得標率,戰情分析",
+        "permission_required": "[]"
+    },
+    {
+        "title": "標案儀表板",
+        "key": "tender-dashboard",
+        "path": "/tender/dashboard",
+        "icon": "DashboardOutlined",
+        "sort_order": 18,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "標案統計,類別分布,趨勢,儀表板",
+        "permission_required": "[]"
+    },
+    {
+        "title": "機關生態",
+        "key": "tender-org-ecosystem",
+        "path": "/tender/org-ecosystem",
+        "icon": "ApartmentOutlined",
+        "sort_order": 19,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "機關,歷年標案,得標廠商分布,生態",
+        "permission_required": "[]"
+    },
 
     # =========================================================================
     # 行事曆管理 子項目
