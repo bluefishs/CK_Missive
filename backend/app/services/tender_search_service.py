@@ -182,13 +182,24 @@ class TenderSearchService:
             keywords: 自訂關鍵字 (None = 使用預設業務關鍵字)
             page: 頁碼
         """
-        kw_list = keywords or CK_BUSINESS_KEYWORDS[:5]  # 預設取前 5 組
-        # 合併搜尋
+        import asyncio
+        kw_list = keywords or CK_BUSINESS_KEYWORDS[:5]
+
+        # 並行搜尋 (加速 3 倍)
+        async def fetch_kw(kw):
+            return kw, await self.search_by_title(kw, page=1)
+
+        results = await asyncio.gather(*[fetch_kw(kw) for kw in kw_list[:3]], return_exceptions=True)
+
         all_records = []
-        for kw in kw_list[:3]:  # 最多 3 組避免過多請求
-            result = await self.search_by_title(kw, page=1)
+        seen_jobs = set()
+        for item in results:
+            if isinstance(item, Exception):
+                continue
+            kw, result = item
             for r in result.get("records", [])[:10]:
-                if not any(existing["job_number"] == r["job_number"] for existing in all_records):
+                if r["job_number"] not in seen_jobs:
+                    seen_jobs.add(r["job_number"])
                     r["matched_keyword"] = kw
                     all_records.append(r)
 

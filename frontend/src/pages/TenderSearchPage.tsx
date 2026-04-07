@@ -250,7 +250,8 @@ const TenderSearchPage: React.FC = () => {
           <Input.Search
             placeholder={searchType === 'title' ? '輸入標案名稱關鍵字' : searchType === 'org' ? '輸入招標機關名稱' : '輸入廠商名稱'}
             enterButton="搜尋" size="large"
-            value={searchInput} onChange={e => setSearchInput(e.target.value)}
+            value={searchInput}
+            onChange={e => { setSearchInput(e.target.value); if (!e.target.value) { setParams(null); setShowRecommend(true); setTypeFilter(''); } }}
             onSearch={(v) => handleSearch(v)} allowClear
           />
         </Col>
@@ -267,10 +268,10 @@ const TenderSearchPage: React.FC = () => {
           />
         </Col>
         <Col>
-          <Space>
-            <Button icon={<StarOutlined />} size="large" onClick={() => { setParams(null); setShowRecommend(true); setSearchInput(''); setTypeFilter(''); }}>推薦</Button>
-            <Button icon={<ReloadOutlined />} size="large" onClick={() => { if (params) setParams({ ...params }); }} />
-          </Space>
+          <Button icon={<ReloadOutlined />} size="large" onClick={() => {
+            if (params) { setParams({ ...params }); }
+            else { setParams(null); setShowRecommend(true); setSearchInput(''); setCategoryFilter(''); setTypeFilter(''); }
+          }}>{params ? '重新搜尋' : '重新整理'}</Button>
         </Col>
       </Row>
       {/* 推薦標題提示 */}

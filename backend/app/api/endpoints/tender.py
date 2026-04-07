@@ -178,54 +178,56 @@ async def recommend_tenders(
         sub_list = subs.scalars().all()
         sub_keywords = [s.keyword for s in sub_list] if sub_list else None
 
-    # 2. 業務推薦 (g0v + ezbid 帶關鍵字)
-    result = await service.recommend_tenders(keywords=sub_keywords, page=req.page)
-    business_records = list(result.get("records", []))
+    # 2. 並行取得: g0v 推薦 + ezbid 關鍵字 + ezbid 最新
+    import asyncio
+    from app.services.ezbid_scraper import EzbidScraper
+    scraper = EzbidScraper()
 
+    g0v_task = service.recommend_tenders(keywords=sub_keywords, page=req.page)
+    async def _empty(): return {"records": []}
+    ezbid_kw_task = scraper.fetch_for_keywords(sub_keywords[:3]) if sub_keywords else _empty()
+    ezbid_latest_task = scraper.fetch_latest(pages=1, per_page=15)
+
+    results = await asyncio.gather(g0v_task, ezbid_kw_task, ezbid_latest_task, return_exceptions=True)
+    g0v_result = results[0] if not isinstance(results[0], Exception) else {"records": [], "keywords": []}
+    ezbid_kw_result = results[1] if not isinstance(results[1], Exception) else {"records": []}
+    ezbid_latest_result = results[2] if not isinstance(results[2], Exception) else {"records": []}
+
+    def to_record(r):
+        return {
+            "date": r.get("date", ""),
+            "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+            "title": r.get("title", ""),
+            "type": r.get("type", ""),
+            "category": r.get("category", ""),
+            "unit_id": r.get("ezbid_id", ""),
+            "unit_name": r.get("unit_name", ""),
+            "job_number": "",
+            "company_names": [], "company_ids": [],
+            "winner_names": [], "bidder_names": [],
+            "tender_api_url": r.get("ezbid_url", ""),
+            "source": "ezbid",
+        }
+
+    # 合併業務推薦
+    business_records = list(g0v_result.get("records", []))
+    seen_titles = {r.get("title", "")[:20] for r in business_records}
+    for r in ezbid_kw_result.get("records", []):
+        key = r.get("title", "")[:20]
+        if key not in seen_titles:
+            seen_titles.add(key)
+            rec = to_record(r)
+            rec["matched_keyword"] = r.get("matched_keyword", "")
+            business_records.append(rec)
+    business_records.sort(key=lambda x: x.get("raw_date", 0), reverse=True)
+
+    # 今日最新
     today_records = []
-    try:
-        from app.services.ezbid_scraper import EzbidScraper
-        scraper = EzbidScraper()
-
-        def to_record(r):
-            return {
-                "date": r.get("date", ""),
-                "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
-                "title": r.get("title", ""),
-                "type": r.get("type", ""),
-                "category": r.get("category", ""),
-                "unit_id": r.get("ezbid_id", ""),
-                "unit_name": r.get("unit_name", ""),
-                "job_number": "",
-                "company_names": [], "company_ids": [],
-                "winner_names": [], "bidder_names": [],
-                "tender_api_url": r.get("ezbid_url", ""),
-                "source": "ezbid",
-            }
-
-        # 2b. ezbid 帶訂閱關鍵字 → 合併入業務推薦
-        seen_titles = {r.get("title", "")[:20] for r in business_records}
-        if sub_keywords:
-            ezbid_biz = await scraper.fetch_for_keywords(sub_keywords[:3])
-            for r in ezbid_biz.get("records", []):
-                key = r.get("title", "")[:20]
-                if key not in seen_titles:
-                    seen_titles.add(key)
-                    rec = to_record(r)
-                    rec["matched_keyword"] = r.get("matched_keyword", "")
-                    business_records.append(rec)
-
-        business_records.sort(key=lambda x: x.get("raw_date", 0), reverse=True)
-
-        # 3. 今日最新 (ezbid 不帶關鍵字)
-        ezbid_latest = await scraper.fetch_latest(pages=1, per_page=15)
-        for r in ezbid_latest.get("records", []):
-            key = r.get("title", "")[:20]
-            if key not in seen_titles:
-                seen_titles.add(key)
-                today_records.append(to_record(r))
-    except Exception:
-        pass
+    for r in ezbid_latest_result.get("records", []):
+        key = r.get("title", "")[:20]
+        if key not in seen_titles:
+            seen_titles.add(key)
+            today_records.append(to_record(r))
 
     # 4. 篩選近 30 天
     from datetime import datetime, timedelta
@@ -234,7 +236,7 @@ async def recommend_tenders(
     today_records = [r for r in today_records if (r.get("date") or "9999") >= cutoff]
 
     return SuccessResponse(data={
-        "keywords": result.get("keywords", []),
+        "keywords": g0v_result.get("keywords", []),
         "total": len(business_records) + len(today_records),
         "today_records": today_records,
         "records": business_records,
