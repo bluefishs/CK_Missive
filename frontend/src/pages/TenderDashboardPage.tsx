@@ -102,6 +102,15 @@ const TenderDashboardPage: React.FC = () => {
   ];
 
   const latestLabel = data?.latest_date ? `最新 (${data.latest_date})` : '最新';
+  const todayShort = data?.today_date ? data.today_date.slice(5) : '';
+  // 計算本週起始日 (週一)
+  const weekStart = (() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    return `${String(monday.getMonth() + 1).padStart(2, '0')}/${String(monday.getDate()).padStart(2, '0')}`;
+  })();
 
   // 列表資料映射
   const listDataMap: Record<string, { title: string; data: TenderItem[] }> = {
@@ -139,7 +148,7 @@ const TenderDashboardPage: React.FC = () => {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="今日標案" value={data?.today_count ?? 0}
+            title={`今日標案 (${todayShort})`} value={data?.today_count ?? 0}
             icon={<CalendarOutlined />} color="#eb2f96"
             active={activeList === 'today'}
             onClick={() => setActiveList('today')}
@@ -165,7 +174,7 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="本週招標" value={stats?.week_new_bid ?? 0}
+            title={`本週招標 (${weekStart}~${todayShort})`} value={stats?.week_new_bid ?? 0}
             icon={<FileSearchOutlined />} color="#722ed1"
             active={activeList === 'week_bid'}
             onClick={() => setActiveList('week_bid')}
@@ -173,7 +182,7 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="本週決標" value={stats?.week_new_award ?? 0}
+            title={`本週決標 (${weekStart}~${todayShort})`} value={stats?.week_new_award ?? 0}
             icon={<TrophyOutlined />} color="#13c2c2"
             active={activeList === 'week_award'}
             onClick={() => setActiveList('week_award')}
@@ -181,7 +190,7 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="無法決標" value={stats?.failed_award ?? 0}
+            title={`無法決標 (近期)`} value={stats?.failed_award ?? 0}
             icon={<WarningOutlined />} color="#ff4d4f"
             active={activeList === 'failed'}
             onClick={() => setActiveList('failed')}
@@ -189,7 +198,7 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="公開徵求" value={stats?.rfp_count ?? 0}
+            title={`公開徵求 (近期)`} value={stats?.rfp_count ?? 0}
             icon={<FileSearchOutlined />} color="#faad14"
             active={activeList === 'rfp'}
             onClick={() => setActiveList('rfp')}
@@ -215,6 +224,13 @@ const TenderDashboardPage: React.FC = () => {
             onClick: () => navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number)}`),
             style: { cursor: 'pointer' },
           })}
+          footer={() => currentList.data.length >= 10 ? (
+            <div style={{ textAlign: 'center' }}>
+              <Button type="link" onClick={() => navigate(ROUTES.TENDER_SEARCH)}>
+                檢視更多標案 →
+              </Button>
+            </div>
+          ) : null}
         />
       </Card>
 
