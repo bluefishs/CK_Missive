@@ -327,13 +327,26 @@ async def morning_report_job():
 
 
 async def ezbid_cache_refresh_job():
-    """ezbid 即時資料快取刷新 — 每小時預取最新標案"""
+    """ezbid 即時資料快取刷新 — 每小時預取 + 寫入 DB"""
+    from app.db.database import async_session_maker
+
     logger.info("開始 ezbid 快取刷新")
     try:
         from app.services.ezbid_scraper import EzbidScraper
         scraper = EzbidScraper()
-        result = await scraper.fetch_latest(pages=1, per_page=30)
-        logger.info(f"ezbid 快取刷新完成: {result.get('total', 0)} 筆")
+        result = await scraper.fetch_latest(pages=2, per_page=30)
+        records = result.get("records", [])
+        logger.info(f"ezbid 快取刷新: {len(records)} 筆")
+
+        # 寫入 DB
+        if records:
+            try:
+                async with async_session_maker() as db:
+                    from app.services.tender_cache_service import save_search_results
+                    saved = await save_search_results(db, records, source="ezbid")
+                    logger.info(f"ezbid → DB: {saved} 筆新增")
+            except Exception as e:
+                logger.warning(f"ezbid DB 寫入失敗 (非致命): {e}")
     except Exception as e:
         logger.error(f"ezbid 快取刷新失敗: {e}")
 

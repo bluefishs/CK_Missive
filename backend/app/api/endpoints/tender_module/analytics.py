@@ -5,11 +5,23 @@ import logging
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
+
 from app.schemas.common import SuccessResponse
+from app.db.database import get_async_db as get_db
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.post("/analytics/cache-stats")
+async def cache_stats(db: AsyncSession = Depends(get_db)):
+    """標案快取 DB 統計"""
+    from app.services.tender_cache_service import get_db_stats
+    stats = await get_db_stats(db)
+    return SuccessResponse(data=stats)
 
 
 # ============================================================================
