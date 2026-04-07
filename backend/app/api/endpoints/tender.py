@@ -73,7 +73,7 @@ async def search_tenders(
     req: TenderSearchRequest,
     service: TenderSearchService = Depends(get_tender_service),
 ):
-    """搜尋標案 — 支援標案名稱/機關名稱/廠商名稱三種模式"""
+    """搜尋標案 — g0v + ezbid 雙軌合併"""
     if req.search_type == "org":
         result = await service.search_by_org(req.query, page=req.page)
     elif req.search_type == "company":
@@ -82,6 +82,44 @@ async def search_tenders(
         result = await service.search_by_title(
             query=req.query, page=req.page, category=req.category,
         )
+
+    # 合併 ezbid 即時資料 (僅第一頁)
+    if req.page in (None, 1):
+        try:
+            from app.services.ezbid_scraper import EzbidScraper
+            scraper = EzbidScraper()
+            category_map = {"工程": "WORK", "勞務": "SERV", "財物": "PPTY"}
+            cat = category_map.get(req.category or "", "ALL")
+            ezbid = await scraper.fetch_latest(query=req.query, category=cat, pages=1)
+
+            seen = {(r.get("unit_id", "") + r.get("title", "")[:20]) for r in result.get("records", [])}
+            ezbid_added = 0
+            for r in ezbid.get("records", []):
+                key = r.get("ezbid_id", "") + r.get("title", "")[:20]
+                if key not in seen:
+                    seen.add(key)
+                    result["records"].insert(0, {
+                        "date": r.get("date", ""),
+                        "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+                        "title": r.get("title", ""),
+                        "type": r.get("type", ""),
+                        "category": r.get("category", ""),
+                        "unit_id": r.get("ezbid_id", ""),
+                        "unit_name": r.get("unit_name", ""),
+                        "job_number": "",
+                        "company_names": [], "company_ids": [],
+                        "winner_names": [], "bidder_names": [],
+                        "tender_api_url": r.get("ezbid_url", ""),
+                        "source": "ezbid",
+                    })
+                    ezbid_added += 1
+
+            if ezbid_added > 0:
+                result["records"].sort(key=lambda x: x.get("raw_date", 0), reverse=True)
+                result["total_records"] = result.get("total_records", 0) + ezbid_added
+        except Exception:
+            pass  # ezbid 失敗不影響主搜尋
+
     return SuccessResponse(data=result)
 
 
@@ -116,10 +154,40 @@ async def recommend_tenders(
     req: TenderRecommendRequest,
     service: TenderSearchService = Depends(get_tender_service),
 ):
-    """智能推薦 — 依乾坤核心業務關鍵字推薦相關標案"""
+    """智能推薦 — g0v + ezbid 即時資料合併"""
     result = await service.recommend_tenders(
         keywords=req.keywords, page=req.page,
     )
+
+    # 合併 ezbid 最新標案到推薦結果
+    try:
+        from app.services.ezbid_scraper import EzbidScraper
+        scraper = EzbidScraper()
+        ezbid = await scraper.fetch_latest(pages=1, per_page=15)
+        seen_titles = {r.get("title", "")[:20] for r in result.get("records", [])}
+        for r in ezbid.get("records", []):
+            if r.get("title", "")[:20] not in seen_titles:
+                seen_titles.add(r.get("title", "")[:20])
+                result["records"].insert(0, {
+                    "date": r.get("date", ""),
+                    "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+                    "title": r.get("title", ""),
+                    "type": r.get("type", ""),
+                    "category": r.get("category", ""),
+                    "unit_id": r.get("ezbid_id", ""),
+                    "unit_name": r.get("unit_name", ""),
+                    "job_number": "",
+                    "company_names": [], "company_ids": [],
+                    "winner_names": [], "bidder_names": [],
+                    "tender_api_url": r.get("ezbid_url", ""),
+                    "matched_keyword": "即時",
+                    "source": "ezbid",
+                })
+        result["records"].sort(key=lambda x: x.get("raw_date", 0), reverse=True)
+        result["total"] = len(result["records"])
+    except Exception:
+        pass
+
     return SuccessResponse(data=result)
 
 
