@@ -85,11 +85,7 @@ async def search_tenders(
             query=req.query, page=req.page, category=req.category,
         )
 
-    # 預設篩選近 30 天 (移除過舊資料)
-    cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-    original_count = len(result.get("records", []))
-    result["records"] = [r for r in result.get("records", []) if (r.get("date") or "9999") >= cutoff]
-    result["total_records"] = len(result["records"])
+    # 搜尋模式不強制 30 天篩選 (推薦模式才篩選)
 
     # 合併 ezbid 即時資料 (僅第一頁)
     if req.page in (None, 1):
