@@ -50,10 +50,50 @@ class TenderAnalyticsService:
                         r["matched_keyword"] = kw
                         all_records.append(r)
 
+        # === P1: ezbid 即時補充 (當日資料) ===
+        try:
+            from app.services.ezbid_scraper import EzbidScraper
+            scraper = EzbidScraper()
+            # 先抓最新（不帶關鍵字），確保有當日資料
+            ezbid_latest = await scraper.fetch_latest(pages=1, per_page=30)
+            for r in ezbid_latest.get("records", []):
+                key = f"ezbid-{r.get('ezbid_id', '')}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    all_records.append({
+                        "date": r.get("date", ""), "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+                        "title": r.get("title", ""), "type": r.get("type", ""), "category": r.get("category", ""),
+                        "unit_id": r.get("ezbid_id", ""), "unit_name": r.get("unit_name", ""), "job_number": "",
+                        "winner_names": [], "source": "ezbid", "budget": r.get("budget"),
+                    })
+            # 再按關鍵字抓
+            ezbid_result = await scraper.fetch_for_keywords(kw_list[:3])
+            for r in ezbid_result.get("records", []):
+                key = f"ezbid-{r.get('ezbid_id', '')}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    # 轉換 ezbid 格式為統一格式
+                    all_records.append({
+                        "date": r.get("date", ""),
+                        "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+                        "title": r.get("title", ""),
+                        "type": r.get("type", ""),
+                        "category": r.get("category", ""),
+                        "unit_id": r.get("ezbid_id", ""),
+                        "unit_name": r.get("unit_name", ""),
+                        "job_number": "",
+                        "winner_names": [],
+                        "matched_keyword": r.get("matched_keyword"),
+                        "source": "ezbid",
+                        "budget": r.get("budget"),
+                    })
+        except Exception as e:
+            logger.debug(f"ezbid supplement failed (non-critical): {e}")
+
         # 按日期排序
         all_records.sort(key=lambda r: r.get("raw_date", 0), reverse=True)
 
-        # 日期判斷 — 使用資料中的最新日期 (PCC 資料延遲 1-5 天)
+        # 日期判斷 — 使用資料中的最新日期 (含 ezbid 即時資料)
         all_dates = sorted(set(r.get("date", "") for r in all_records if r.get("date")), reverse=True)
         latest_date = all_dates[0] if all_dates else datetime.now().strftime("%Y-%m-%d")
         week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
@@ -106,12 +146,21 @@ class TenderAnalyticsService:
                 "job_number": r.get("job_number", ""),
                 "winner_names": r.get("winner_names", [])[:3],
                 "matched_keyword": r.get("matched_keyword"),
+                "source": r.get("source", "pcc"),
+                "budget": r.get("budget"),
             }
+
+        ezbid_count = sum(1 for r in all_records if r.get("source") == "ezbid")
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        today_all = [r for r in all_records if r.get("date") == today_str]
 
         return {
             "total_found": len(all_records),
             "keywords_used": kw_list,
             "latest_date": latest_date,
+            "today_date": today_str,
+            "ezbid_count": ezbid_count,
+            "today_count": len(today_all),
             # 統計卡片
             "stats": {
                 "latest_bid": len(latest_bid),
@@ -122,6 +171,7 @@ class TenderAnalyticsService:
                 "rfp_count": len(recent_rfp),
             },
             # 列表區塊
+            "today_list": [slim(r) for r in today_all[:15]],
             "latest_bid_list": [slim(r) for r in latest_bid[:10]],
             "latest_award_list": [slim(r) for r in latest_award[:10]],
             "week_new_bid_list": [slim(r) for r in week_new_bid[:20]],

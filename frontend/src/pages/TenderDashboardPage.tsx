@@ -38,11 +38,15 @@ interface DashboardData {
   total_found: number;
   keywords_used: string[];
   latest_date: string;
+  today_date: string;
+  ezbid_count: number;
+  today_count: number;
   stats: {
     latest_bid: number; latest_award: number;
     week_new_bid: number; week_new_award: number;
     failed_award: number; rfp_count: number;
   };
+  today_list: TenderItem[];
   latest_bid_list: TenderItem[];
   latest_award_list: TenderItem[];
   week_new_bid_list: TenderItem[];
@@ -101,6 +105,7 @@ const TenderDashboardPage: React.FC = () => {
 
   // 列表資料映射
   const listDataMap: Record<string, { title: string; data: TenderItem[] }> = {
+    today: { title: `今日標案 (${data?.today_date ?? ''})`, data: data?.today_list ?? [] },
     week_bid: { title: '本週最新招標', data: data?.week_new_bid_list ?? [] },
     week_award: { title: '本週最新決標', data: data?.week_new_award_list ?? [] },
     latest_bid: { title: `${latestLabel} 招標`, data: data?.latest_bid_list ?? [] },
@@ -122,6 +127,7 @@ const TenderDashboardPage: React.FC = () => {
           <Col>
             <Space>
               <Text type="secondary">共 {data?.total_found?.toLocaleString() ?? 0} 筆</Text>
+              {(data?.ezbid_count ?? 0) > 0 && <Tag color="green">含 {data?.ezbid_count} 筆即時</Tag>}
               <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
               <Button type="primary" onClick={() => navigate(ROUTES.TENDER_SEARCH)}>搜尋標案</Button>
             </Space>
@@ -129,12 +135,20 @@ const TenderDashboardPage: React.FC = () => {
         </Row>
       </Card>
 
-      {/* 統計卡片 — 6 張 */}
+      {/* 統計卡片 */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
+            title="今日標案" value={data?.today_count ?? 0}
+            icon={<CalendarOutlined />} color="#eb2f96"
+            active={activeList === 'today'}
+            onClick={() => setActiveList('today')}
+          />
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          <ClickableStatCard
             title={`最新招標`} value={stats?.latest_bid ?? 0}
-            icon={<CalendarOutlined />} color="#1890ff"
+            icon={<FileSearchOutlined />} color="#1890ff"
             suffix={data?.latest_date ? data.latest_date.slice(5) : ''}
             active={activeList === 'latest_bid'}
             onClick={() => setActiveList('latest_bid')}
