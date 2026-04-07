@@ -16,7 +16,7 @@ from app.extended.models import DocumentAttachment, User
 from app.core.dependencies import require_auth
 from app.core.exceptions import ForbiddenException
 
-from .common import check_document_access
+from .common import check_document_access, UPLOAD_BASE_DIR
 
 router = APIRouter()
 
@@ -51,7 +51,14 @@ async def download_file(
         if not has_access:
             raise ForbiddenException("您沒有權限下載此檔案")
 
-    if not attachment.file_path or not os.path.exists(attachment.file_path):
+    # 解析實際檔案路徑 — DB 可能存 relative_path 或含 UPLOAD_BASE_DIR 前綴
+    stored_path = attachment.file_path or ''
+    if stored_path.startswith(UPLOAD_BASE_DIR):
+        actual_path = stored_path  # 舊資料：已含完整路徑
+    else:
+        actual_path = os.path.join(UPLOAD_BASE_DIR, stored_path)  # 新資料：相對路徑
+
+    if not stored_path or not os.path.exists(actual_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="檔案不存在於伺服器"
@@ -60,7 +67,7 @@ async def download_file(
     download_filename = attachment.original_name or attachment.file_name or 'download'
 
     return FileResponse(
-        path=attachment.file_path,
+        path=actual_path,
         filename=download_filename,
         media_type=attachment.mime_type or 'application/octet-stream'
     )

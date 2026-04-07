@@ -63,10 +63,10 @@ async def upload_files(
             continue
 
         checksum = calculate_checksum(content)
-        file_path, relative_path = get_structured_path(document_id, file.filename or 'unnamed')
+        full_path, relative_path = get_structured_path(document_id, file.filename or 'unnamed')
 
         try:
-            async with aiofiles.open(file_path, 'wb') as f:
+            async with aiofiles.open(full_path, 'wb') as f:
                 await f.write(content)
         except Exception as e:
             logger.error(f"儲存檔案失敗: {file.filename}: {e}")
@@ -79,7 +79,7 @@ async def upload_files(
                 attachment = DocumentAttachment(
                     document_id=document_id,
                     file_name=file.filename or 'unnamed',
-                    file_path=file_path,
+                    file_path=relative_path,
                     file_size=file_size,
                     mime_type=file.content_type,
                     original_name=file.filename,
@@ -93,7 +93,7 @@ async def upload_files(
                 attachment_id = attachment.id
             except Exception as e:
                 try:
-                    os.remove(file_path)
+                    os.remove(full_path)
                 except Exception as remove_err:
                     logger.warning(f"清理失敗的上傳檔案時發生錯誤: {remove_err}")
                 logger.error(f"建立附件記錄失敗: {e}")
