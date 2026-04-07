@@ -268,7 +268,7 @@ const TenderSearchPage: React.FC = () => {
         <Paragraph type="secondary"><StarOutlined /> 依核心業務推薦（{recommendResult.keywords.join('、')}），共 {recommendResult.total} 筆</Paragraph>
       )}
       {typeFilter && <Tag closable onClose={() => setTypeFilter('')} color="blue" style={{ marginBottom: 8 }}>類型篩選: {typeFilter}</Tag>}
-      <Table<TenderRecord> columns={columns} dataSource={filteredData} rowKey={(r) => `${r.unit_id}-${r.job_number}-${r.raw_date}-${r.title?.slice(0,10)}`}
+      <Table<TenderRecord> columns={columns} dataSource={filteredData} rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${r.raw_date}-${i}`}
         loading={isLoading} size="middle" scroll={{ x: 900 }}
         pagination={params ? { current: params.page ?? 1, pageSize: 100, total: typeFilter ? filteredData.length : (displayTotal ?? 0),
           onChange: (p) => { if (!typeFilter) setParams(prev => prev ? { ...prev, page: p } : null); }, showTotal: (t) => `共 ${t.toLocaleString()} 筆`, showSizeChanger: false } : false}

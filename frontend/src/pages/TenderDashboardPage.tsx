@@ -193,7 +193,7 @@ const TenderDashboardPage: React.FC = () => {
         <Table<TenderItem>
           columns={tenderColumns}
           dataSource={currentList.data}
-          rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${i}`}
+          rowKey={(_r, i) => `tender-${i}`}
           size="small"
           scroll={{ x: 700 }}
           pagination={currentList.data.length > 10 ? { pageSize: 10, showTotal: (t) => `共 ${t} 筆` } : false}
@@ -221,7 +221,7 @@ const TenderDashboardPage: React.FC = () => {
 
         {/* 近期得標廠商 */}
         <Col xs={24} lg={8}>
-          <Card title="近期得標廠商 Top 10" size="small" bodyStyle={{ padding: '8px 16px' }}>
+          <Card title="近期得標廠商 Top 10" size="small" styles={{ body: { padding: '8px 16px' } }}>
             {data?.top_winners?.length ? data.top_winners.map((w, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f0f0f0' }}>
                 <a onClick={() => navigate(`${ROUTES.TENDER_COMPANY_PROFILE}?q=${encodeURIComponent(w.name)}`)} style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
