@@ -8,7 +8,14 @@
  */
 
 import React, { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+
+/** Redirect /tender/company?q=xxx to /tender/company-profile?company=xxx */
+function TenderCompanyRedirect() {
+  const [params] = useSearchParams();
+  const q = params.get('q') || '乾坤測繪';
+  return <Navigate to={`/tender/company-profile?company=${encodeURIComponent(q)}`} replace />;
+}
 import { ROUTES } from './types';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PageLoading } from '../components/common';
@@ -128,7 +135,7 @@ const CaseNatureManagementPage = lazy(() => import('../pages/CaseNatureManagemen
 const AdminLoginHistoryPage = lazy(() => import('../pages/AdminLoginHistoryPage'));
 const TenderSearchPage = lazy(() => import('../pages/TenderSearchPage'));
 const TenderDetailPage = lazy(() => import('../pages/TenderDetailPage'));
-const TenderCompanyPage = lazy(() => import('../pages/TenderCompanyPage'));
+// TenderCompanyPage redirects to TenderCompanyProfilePage (unified data source)
 const TenderGraphPage = lazy(() => import('../pages/TenderGraphPage'));
 const TenderDashboardPage = lazy(() => import('../pages/TenderDashboardPage'));
 const TenderOrgEcosystemPage = lazy(() => import('../pages/TenderOrgEcosystemPage'));
@@ -282,7 +289,7 @@ export const AppRouter: React.FC = () => {
           {/* 標案檢索 */}
           <Route path={ROUTES.TENDER_SEARCH} element={<ProtectedRoute><TenderSearchPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_DETAIL} element={<ProtectedRoute><TenderDetailPage /></ProtectedRoute>} />
-          <Route path={ROUTES.TENDER_COMPANY} element={<ProtectedRoute><TenderCompanyPage /></ProtectedRoute>} />
+          <Route path={ROUTES.TENDER_COMPANY} element={<TenderCompanyRedirect />} />
           <Route path={ROUTES.TENDER_GRAPH} element={<ProtectedRoute><TenderGraphPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_DASHBOARD} element={<ProtectedRoute><TenderDashboardPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_ORG_ECOSYSTEM} element={<ProtectedRoute><TenderOrgEcosystemPage /></ProtectedRoute>} />
