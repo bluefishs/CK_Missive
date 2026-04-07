@@ -326,6 +326,18 @@ async def morning_report_job():
         logger.error("Morning report failed: %s", e, exc_info=True)
 
 
+async def ezbid_cache_refresh_job():
+    """ezbid 即時資料快取刷新 — 每小時預取最新標案"""
+    logger.info("開始 ezbid 快取刷新")
+    try:
+        from app.services.ezbid_scraper import EzbidScraper
+        scraper = EzbidScraper()
+        result = await scraper.fetch_latest(pages=1, per_page=30)
+        logger.info(f"ezbid 快取刷新完成: {result.get('total', 0)} 筆")
+    except Exception as e:
+        logger.error(f"ezbid 快取刷新失敗: {e}")
+
+
 async def tender_subscription_check_job():
     """標案訂閱檢查 — 每日 3 次比對 PCC API，新公告 → 系統+LINE 通知"""
     from app.db.database import async_session_maker
@@ -501,6 +513,18 @@ def setup_scheduler(
             coalesce=True
         )
     logger.info("已添加標案訂閱檢查: 每日 08:00/12:00/18:00 執行")
+
+    # ezbid 即時快取刷新 — 每小時
+    scheduler.add_job(
+        ezbid_cache_refresh_job,
+        trigger=IntervalTrigger(hours=1),
+        id='ezbid_cache_refresh',
+        name='ezbid 即時快取刷新 (每小時)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 ezbid 快取刷新: 每小時執行")
 
     return scheduler
 
