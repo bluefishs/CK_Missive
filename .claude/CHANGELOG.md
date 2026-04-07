@@ -58,7 +58,7 @@
 - **Digital Twin** — 進化指標儀表板 (EvolutionMetricsCard)
 - **tool_executor_kg_search** — KG 搜尋工具拆分自 search
 
-## [5.5.1] - 2026-04-07
+## [5.5.2] - 2026-04-07~08
 
 ### 標案模組全面重構 + ezbid 即時爬蟲 + UI 統一 (45 commits)
 
@@ -93,10 +93,24 @@
 - 採購類別/公告類型圓餅圖 + 資料來源狀態列
 - 效能: 24.7s → 7.7s (asyncio.gather 並行)
 
-#### 標案詳情戰情室
-- **POST /tender/detail-full** — 並行取得詳情+戰情+機關生態
-- Tab 4 投標戰情: 歷史相似標案 + 潛在對手 + 機關生態
+#### 標案詳情 5 Tab 整合
+- **POST /tender/detail-full** — 並行取得詳情+戰情+機關生態+底價 (避免重複 API)
+- **Tab 4 投標戰情**: 相似標案去重 + 競爭強度表 (出現/得標/得標率/金額)
+- **Tab 5 底價分析**: 預算/底價/決標 + 差異率 + 歷史折率推估
+- **機關生態**: 短名 fallback (機關改名相容) + Top 15 廠商
 - 訂閱 diff tracking: +N 新增 Tag + 標題去重
+
+#### 頁面整合
+- TenderBattleRoomPage → 重導向至 DetailPage Tab4
+- TenderPriceAnalysisPage → 重導向至搜尋頁
+- TenderCompanyPage → 重導向至 CompanyProfilePage
+- TenderDetailPage 524L → 拆分 BattleTab + PriceTab 子元件
+- **CompanyBookmark** — 廠商關注收藏 (competitor/partner)
+
+#### 資料一致性修復
+- 競爭對手統計: 每筆標案每家廠商只計一次 (union dedup)
+- 統計基數與顯示一致 (8 筆相似 = 8 筆統計)
+- 搜尋移除 30 天強制篩選 (推薦才篩)
 
 ---
 

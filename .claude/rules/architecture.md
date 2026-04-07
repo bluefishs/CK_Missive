@@ -461,6 +461,10 @@ frontend/src/pages/
 ├── TenderBattleRoomPage.tsx    # 戰情室 (雷達圖+對手排行) v5.5.0
 ├── TenderPriceAnalysisPage.tsx # 底價分析 v5.5.0
 ├── TenderGraphPage.tsx         # 標案知識圖譜 (力導引)
+├── tenderDetail/               # TenderDetailPage 子元件 (v5.5.2 拆分)
+│   ├── BattleTab.tsx           # 投標戰情 (相似標案+對手+機關生態)
+│   ├── PriceTab.tsx            # 底價分析 (預算/決標/推估)
+│   └── index.ts
 ├── tenderSearch/               # TenderSearchPage 子元件 (v5.5.1 拆分)
 │   ├── SearchTab.tsx           # 搜尋表單+表格+篩選 (192L)
 │   ├── SubscriptionTab.tsx     # 訂閱 CRUD+預覽 (167L)
