@@ -55,6 +55,7 @@ interface DashboardData {
   top_winners: Array<{ name: string; count: number }>;
   category_distribution: Array<{ name: string; value: number }>;
   type_distribution: Array<{ name: string; value: number }>;
+  budget_distribution: Array<{ name: string; value: number }>;
   top_agencies: Array<{ name: string; count: number }>;
 }
 
@@ -213,26 +214,29 @@ const TenderDashboardPage: React.FC = () => {
         />
       </Card>
 
+      {/* 第一排：熱門招標機關 + 標案經費規模 + 近期得標廠商 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        {/* 類別分布 */}
         <Col xs={24} lg={8}>
-          <Card title="採購類別分布" size="small">
-            <CategoryPieChart data={data?.category_distribution ?? []} height={250} />
+          <Card title="熱門招標機關 Top 10" size="small" styles={{ body: { padding: '8px 16px' } }}>
+            {data?.top_agencies?.map((a, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <a onClick={() => navigate(`${ROUTES.TENDER_ORG_ECOSYSTEM}?org=${encodeURIComponent(a.name)}`)} style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <BankOutlined style={{ marginRight: 6, color: i < 3 ? '#1890ff' : '#8c8c8c' }} />{a.name}
+                </a>
+                <Tag>{a.count} 件</Tag>
+              </div>
+            ))}
           </Card>
         </Col>
-
-        {/* 公告類型分布 */}
         <Col xs={24} lg={8}>
-          <Card title="公告類型分布" size="small">
-            <CategoryPieChart data={data?.type_distribution ?? []} height={250} />
+          <Card title="標案經費規模" size="small">
+            <CategoryPieChart data={data?.budget_distribution ?? []} height={250} />
           </Card>
         </Col>
-
-        {/* 近期得標廠商 */}
         <Col xs={24} lg={8}>
           <Card title="近期得標廠商 Top 10" size="small" styles={{ body: { padding: '8px 16px' } }}>
             {data?.top_winners?.length ? data.top_winners.map((w, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f0f0f0' }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f0f0f0' }}>
                 <a onClick={() => navigate(`${ROUTES.TENDER_COMPANY_PROFILE}?q=${encodeURIComponent(w.name)}`)} style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <TrophyOutlined style={{ marginRight: 6, color: i < 3 ? '#faad14' : '#8c8c8c' }} />
                   {w.name}
@@ -244,20 +248,34 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 熱門招標機關 */}
-      <Card title="熱門招標機關 Top 10" size="small">
-        <Row gutter={[16, 8]}>
-          {data?.top_agencies?.map((a, i) => (
-            <Col xs={24} sm={12} key={i}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f0f0f0' }}>
-                <a onClick={() => navigate(`${ROUTES.TENDER_ORG_ECOSYSTEM}?org=${encodeURIComponent(a.name)}`)} style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  <BankOutlined style={{ marginRight: 6 }} />{a.name}
-                </a>
-                <Tag>{a.count} 件</Tag>
-              </div>
-            </Col>
-          ))}
-        </Row>
+      {/* 第二排：採購類別分布 + 公告類型分布 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} lg={12}>
+          <Card title="採購類別分布" size="small">
+            <CategoryPieChart data={data?.category_distribution ?? []} height={250} />
+          </Card>
+        </Col>
+        <Col xs={24} lg={12}>
+          <Card title="公告類型分布" size="small">
+            <CategoryPieChart data={data?.type_distribution ?? []} height={250} />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 資料來源狀態 */}
+      <Card size="small" styles={{ body: { padding: '8px 16px' } }}>
+        <Space split={<span style={{ color: '#d9d9d9' }}>|</span>}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            g0v PCC: {data?.latest_date ?? '–'} (30min 快取)
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            ezbid: {data?.today_date ?? '–'} (10min 快取)
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            共 {data?.total_found?.toLocaleString() ?? 0} 筆
+            {(data?.ezbid_count ?? 0) > 0 && ` (含 ${data?.ezbid_count} 筆即時)`}
+          </Text>
+        </Space>
       </Card>
     </div>
   );

@@ -135,6 +135,29 @@ class TenderAnalyticsService:
                 if w:
                     winner_counter[w] += 1
 
+        # 經費規模分布
+        budget_ranges = Counter()
+        for r in all_records:
+            b = r.get("budget")
+            if not b:
+                continue
+            try:
+                amount = int(b) if isinstance(b, (int, float)) else int(str(b).replace(",", ""))
+            except (ValueError, TypeError):
+                continue
+            if amount < 500_000:
+                budget_ranges["50萬以下"] += 1
+            elif amount < 1_000_000:
+                budget_ranges["50~100萬"] += 1
+            elif amount < 5_000_000:
+                budget_ranges["100~500萬"] += 1
+            elif amount < 10_000_000:
+                budget_ranges["500~1000萬"] += 1
+            elif amount < 50_000_000:
+                budget_ranges["1000萬~5000萬"] += 1
+            else:
+                budget_ranges["5000萬以上"] += 1
+
         # 類別/機關統計
         category_counter: Counter = Counter()
         type_counter: Counter = Counter()
@@ -224,6 +247,9 @@ class TenderAnalyticsService:
             ],
             "top_agencies": [
                 {"name": k, "count": v} for k, v in agency_counter.most_common(10)
+            ],
+            "budget_distribution": [
+                {"name": k, "value": v} for k, v in budget_ranges.most_common()
             ],
         }
 
