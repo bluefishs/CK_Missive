@@ -73,7 +73,9 @@ async def search_tenders(
     req: TenderSearchRequest,
     service: TenderSearchService = Depends(get_tender_service),
 ):
-    """搜尋標案 — g0v + ezbid 雙軌合併"""
+    """搜尋標案 — g0v + ezbid 雙軌合併 (預設近 30 天)"""
+    from datetime import datetime, timedelta
+
     if req.search_type == "org":
         result = await service.search_by_org(req.query, page=req.page)
     elif req.search_type == "company":
@@ -82,6 +84,12 @@ async def search_tenders(
         result = await service.search_by_title(
             query=req.query, page=req.page, category=req.category,
         )
+
+    # 預設篩選近 30 天 (移除過舊資料)
+    cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    original_count = len(result.get("records", []))
+    result["records"] = [r for r in result.get("records", []) if (r.get("date") or "9999") >= cutoff]
+    result["total_records"] = len(result["records"])
 
     # 合併 ezbid 即時資料 (僅第一頁)
     if req.page in (None, 1):
@@ -219,7 +227,12 @@ async def recommend_tenders(
     except Exception:
         pass
 
-    # 4. 分區回傳
+    # 4. 篩選近 30 天
+    from datetime import datetime, timedelta
+    cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    business_records = [r for r in business_records if (r.get("date") or "9999") >= cutoff]
+    today_records = [r for r in today_records if (r.get("date") or "9999") >= cutoff]
+
     return SuccessResponse(data={
         "keywords": result.get("keywords", []),
         "total": len(business_records) + len(today_records),
