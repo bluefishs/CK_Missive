@@ -173,11 +173,46 @@ async def get_tender_detail_full(
     price = results[1] if not isinstance(results[1], Exception) else {}
     org_eco = results[2] if not isinstance(results[2], Exception) else {}
 
+    # 從相似標案推估決標折率
+    estimate = None
+    if battle.get("similar_tenders") and price and not price.get("error"):
+        budget_val = price.get("prices", {}).get("budget")
+        if budget_val and not price.get("prices", {}).get("award_amount"):
+            # 取相似標案的決標資料計算歷史折率
+            import re
+            ratios = []
+            for st in battle.get("similar_tenders", []):
+                try:
+                    st_detail = await service.get_tender_detail(st.get("unit_id", ""), st.get("job_number", ""))
+                    if not st_detail:
+                        continue
+                    for evt in st_detail.get("events", []):
+                        ad = evt.get("award_details") or {}
+                        ed = evt.get("detail") or {}
+                        b_raw = ed.get("budget", "")
+                        b = float(re.sub(r'[^\d.]', '', str(b_raw).replace(',', ''))) if b_raw else None
+                        a = ad.get("total_award_amount")
+                        if b and a and b > 0:
+                            ratios.append(a / b)
+                            break
+                except Exception:
+                    continue
+
+            if ratios:
+                avg_ratio = sum(ratios) / len(ratios)
+                estimate = {
+                    "avg_ratio": round(avg_ratio * 100, 1),
+                    "sample_count": len(ratios),
+                    "estimated_award": round(budget_val * avg_ratio),
+                    "budget": budget_val,
+                }
+
     return SuccessResponse(data={
         "detail": detail,
         "battle_room": battle,
         "org_ecosystem": org_eco,
         "price_analysis": price if not price.get("error") else None,
+        "price_estimate": estimate,
     })
 
 

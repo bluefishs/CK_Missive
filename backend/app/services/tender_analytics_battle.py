@@ -161,9 +161,17 @@ async def org_ecosystem(search: TenderSearchService, org_name: str, pages: int =
             "win_rate": round(wins / appear * 100, 1) if appear > 0 else 0,
         })
 
+    # 預算→決標折率統計 (用於推估未決標案件)
+    budget_award_pairs = []
+    for r in all_records:
+        # 從 winner_names 有值的記錄推算有決標
+        if r.get("winner_names"):
+            budget_award_pairs.append(r)
+
     return {
         "org_name": org_name,
         "total": len(all_records),
+        "awarded_count": len(budget_award_pairs),
         "year_trend": [{"year": k, "count": v} for k, v in sorted(year_counter.items())[-15:]],
         "top_vendors": top_vendors,
         "category_distribution": [{"name": k, "value": v} for k, v in category_counter.most_common(10)],

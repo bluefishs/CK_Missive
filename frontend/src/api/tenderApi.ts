@@ -34,12 +34,14 @@ export const tenderApi = {
     battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count?: number; appear_count?: number; win_count?: number; win_rate?: number; total_amount?: number }> };
     org_ecosystem: { org_name?: string; total?: number; top_vendors?: Array<{ name: string; appear_count: number; win_count: number; win_rate: number }>; year_trend?: Array<{ year: string; count: number }>; category_distribution?: Array<{ name: string; value: number }>; recent_tenders?: Array<{ title: string; date: string; type: string; unit_name: string; unit_id: string; job_number: string; winner_names?: string[] }> };
     price_analysis: { prices?: { budget?: number; floor_price?: number; award_amount?: number; award_date?: string }; analysis?: Record<string, number | null>; award_items?: Array<{ item_no: number; winner: string | null; amount: number | null }> } | null;
+    price_estimate?: { avg_ratio: number; sample_count: number; estimated_award: number; budget: number } | null;
   } | null> {
     const res = await apiClient.post<SuccessResponse<{
       detail: TenderDetail | null;
       battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count?: number; appear_count?: number; win_count?: number; win_rate?: number; total_amount?: number }> };
       org_ecosystem: { org_name?: string; total?: number; top_vendors?: Array<{ name: string; appear_count: number; win_count: number; win_rate: number }>; year_trend?: Array<{ year: string; count: number }>; category_distribution?: Array<{ name: string; value: number }>; recent_tenders?: Array<{ title: string; date: string; type: string; unit_name: string; unit_id: string; job_number: string; winner_names?: string[] }> };
       price_analysis: { prices?: { budget?: number; floor_price?: number; award_amount?: number; award_date?: string }; analysis?: Record<string, number | null>; award_items?: Array<{ item_no: number; winner: string | null; amount: number | null }> } | null;
+      price_estimate?: { avg_ratio: number; sample_count: number; estimated_award: number; budget: number } | null;
     } | null>>(
       TENDER_ENDPOINTS.DETAIL_FULL, { unit_id: unitId, job_number: jobNumber },
     );

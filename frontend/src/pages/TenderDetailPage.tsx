@@ -414,7 +414,8 @@ const TenderDetailPage: React.FC = () => {
   // ========== Tab 5: 底價分析 ==========
   const priceData = fullData?.price_analysis;
   const priceTab = createTabItem('price', { icon: <DollarOutlined />, text: '底價分析' },
-    priceData?.prices ? (
+    <div>
+    {priceData?.prices ? (
       <div>
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={12} sm={6}>
@@ -481,7 +482,29 @@ const TenderDetailPage: React.FC = () => {
           </Card>
         )}
       </div>
-    ) : <Empty description="尚無底價/決標資料 (標案可能尚在招標中)" />
+    ) : <Empty description="尚無底價/決標資料 (標案可能尚在招標中)" />}
+    {fullData?.price_estimate && (
+      <Card title="決標金額推估 (基於相似標案歷史)" size="small" style={{ marginTop: 16, borderLeft: '4px solid #faad14' }}>
+        <Row gutter={[16, 16]}>
+          <Col xs={12} sm={6}>
+            <Statistic title="本案預算" value={fullData.price_estimate.budget} prefix="NT$" styles={{ content: { fontSize: 18 } }} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="歷史平均折率" value={`${fullData.price_estimate.avg_ratio}%`} styles={{ content: { fontSize: 18, color: '#faad14' } }} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="推估決標金額" value={fullData.price_estimate.estimated_award} prefix="NT$" styles={{ content: { fontSize: 18, color: '#52c41a' } }} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="樣本數" value={`${fullData.price_estimate.sample_count} 筆`} styles={{ content: { fontSize: 14 } }} />
+          </Col>
+        </Row>
+        <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
+          * 基於 {fullData.price_estimate.sample_count} 筆相似標案的預算→決標比例推算，僅供參考
+        </Text>
+      </Card>
+    )}
+    </div>
   );
 
   return (
