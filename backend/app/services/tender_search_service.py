@@ -322,12 +322,21 @@ class TenderSearchService:
         if not unit_name and events:
             unit_name = events[0].get("detail", {}).get("agency_name", "") or ""
 
+        # 合併所有 events 的 detail — 不同公告類型有不同欄位
+        # (決標公告有決標方式, 招標公告有招標方式)
+        merged_detail = {}
+        for evt in events:
+            for k, v in evt.get("detail", {}).items():
+                if v and not merged_detail.get(k):  # 取第一個非空值
+                    merged_detail[k] = v
+
         return {
             "unit_name": unit_name,
             "job_number": records[0].get("job_number", ""),
             "title": records[0].get("brief", {}).get("title", ""),
             "events": events,
             "latest": events[0] if events else None,
+            "merged_detail": merged_detail,  # 所有事件合併的完整資料
         }
 
     def _extract_award_details(self, detail: dict) -> dict:

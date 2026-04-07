@@ -74,7 +74,16 @@ const TenderDetailPage: React.FC = () => {
     return allBookmarks.find(b => b.unit_id === uid && b.job_number === jn) ?? null;
   }, [allBookmarks, unitId, jobNumber]);
 
-  const latest = detail?.latest?.detail;
+  // Merge all event details — 決標公告 and 招標公告 have different fields
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const merged = (detail as any)?.merged_detail as Record<string, string> | undefined;
+  const rawLatest = detail?.latest?.detail;
+  // Use rawLatest first, fill gaps from merged (cross-event)
+  const latest = rawLatest
+    ? Object.fromEntries(
+        Object.keys(rawLatest).map(k => [k, (rawLatest as Record<string, string>)[k] || merged?.[k] || ''])
+      ) as typeof rawLatest
+    : (merged as typeof rawLatest);
   const days = useMemo(() => daysRemaining(latest?.deadline), [latest?.deadline]);
 
   if (!detail && !isLoading) {
