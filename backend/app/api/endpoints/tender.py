@@ -145,6 +145,47 @@ async def get_tender_detail(
     return SuccessResponse(data=result)
 
 
+@router.post("/detail-full")
+async def get_tender_detail_full(
+    req: TenderDetailRequest,
+    service: TenderSearchService = Depends(get_tender_service),
+):
+    """標案完整戰情 — 詳情 + 相似標案 + 機關生態 + 競爭對手 (並行)"""
+    import asyncio
+    from app.services.tender_analytics_service import TenderAnalyticsService
+
+    analytics = TenderAnalyticsService()
+
+    # 並行取得所有資料
+    detail_task = service.get_tender_detail(req.unit_id, req.job_number)
+    battle_task = analytics.battle_room(req.unit_id, req.job_number)
+    org_task = service.search_by_org(req.unit_id.split(".")[0] if "." in req.unit_id else req.unit_id, page=1)
+
+    results = await asyncio.gather(detail_task, battle_task, org_task, return_exceptions=True)
+
+    detail = results[0] if not isinstance(results[0], Exception) else None
+    battle = results[1] if not isinstance(results[1], Exception) else {}
+    org_tenders = results[2] if not isinstance(results[2], Exception) else {"records": []}
+
+    if not detail:
+        return SuccessResponse(data=None, message="查無此標案")
+
+    # 取機關名稱用於機關生態搜尋
+    agency_name = detail.get("unit_name", "")
+    if agency_name and not org_tenders.get("records"):
+        try:
+            org_tenders = await service.search_by_org(agency_name, page=1)
+        except Exception:
+            pass
+
+    return SuccessResponse(data={
+        "detail": detail,
+        "battle_room": battle,
+        "org_tenders": org_tenders.get("records", [])[:20],
+        "org_total": org_tenders.get("total_records", 0),
+    })
+
+
 @router.post("/search-company")
 async def search_by_company(
     req: TenderCompanySearchRequest,

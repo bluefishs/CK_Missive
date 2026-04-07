@@ -7,6 +7,7 @@ import type { SuccessResponse } from '../types';
 import type {
   TenderSearchResult,
   TenderDetail,
+  TenderRecord,
   TenderRecommendResult,
   TenderSearchParams,
 } from '../types/tender';
@@ -24,6 +25,24 @@ export const tenderApi = {
   async getDetail(unitId: string, jobNumber: string): Promise<TenderDetail | null> {
     const res = await apiClient.post<SuccessResponse<TenderDetail | null>>(
       TENDER_ENDPOINTS.DETAIL, { unit_id: unitId, job_number: jobNumber },
+    );
+    return res.data ?? null;
+  },
+
+  /** 標案完整戰情 (詳情+戰情室+機關生態) */
+  async getDetailFull(unitId: string, jobNumber: string): Promise<{
+    detail: TenderDetail | null;
+    battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count: number; win_rate?: number }> };
+    org_tenders: TenderRecord[];
+    org_total: number;
+  } | null> {
+    const res = await apiClient.post<SuccessResponse<{
+      detail: TenderDetail | null;
+      battle_room: { similar_tenders?: Array<{ title: string; date: string; unit_name: string; winner_names?: string[] }>; competitors?: Array<{ name: string; count: number; win_rate?: number }> };
+      org_tenders: TenderRecord[];
+      org_total: number;
+    } | null>>(
+      TENDER_ENDPOINTS.DETAIL_FULL, { unit_id: unitId, job_number: jobNumber },
     );
     return res.data ?? null;
   },

@@ -23,6 +23,15 @@ export function useTenderDetail(unitId: string | null, jobNumber: string | null)
   });
 }
 
+export function useTenderDetailFull(unitId: string | null, jobNumber: string | null) {
+  return useQuery({
+    queryKey: ['tender', 'detail-full', unitId, jobNumber],
+    queryFn: () => tenderApi.getDetailFull(unitId!, jobNumber!),
+    enabled: !!unitId && !!jobNumber,
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
 export function useTenderCompanySearch(companyName: string | null, page = 1) {
   return useQuery({
     queryKey: ['tender', 'company', companyName, page],

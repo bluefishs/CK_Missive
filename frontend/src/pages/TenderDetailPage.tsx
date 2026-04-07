@@ -24,7 +24,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
-import { useTenderDetail, useTenderSearch, useTenderBookmarks, useCreateBookmark, useUpdateBookmark, useDeleteBookmark } from '../hooks/business/useTender';
+import { useTenderDetail, useTenderDetailFull, useTenderBookmarks, useCreateBookmark, useUpdateBookmark, useDeleteBookmark } from '../hooks/business/useTender';
 import { tenderApi } from '../api/tenderApi';
 import { App } from 'antd';
 
@@ -58,10 +58,10 @@ const TenderDetailPage: React.FC = () => {
   const { unitId, jobNumber } = useParams<{ unitId: string; jobNumber: string }>();
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const { data: detail, isLoading } = useTenderDetail(
-    unitId ? decodeURIComponent(unitId) : null,
-    jobNumber ? decodeURIComponent(jobNumber) : null,
-  );
+  const uid = unitId ? decodeURIComponent(unitId) : null;
+  const jn = jobNumber ? decodeURIComponent(jobNumber) : null;
+  const { data: detail, isLoading } = useTenderDetail(uid, jn);
+  const { data: fullData } = useTenderDetailFull(uid, jn);
   const { data: allBookmarks } = useTenderBookmarks();
   const bookmarkMutation = useCreateBookmark();
   const updateBmMutation = useUpdateBookmark();
@@ -293,8 +293,64 @@ const TenderDetailPage: React.FC = () => {
   );
 
   // ========== Tab 4: 同機關相關標案 ==========
-  const relatedTab = createTabItem('related', { icon: <UnorderedListOutlined />, text: '同機關標案' },
-    <RelatedTenders unitName={detail?.unit_name ?? ''} currentJobNumber={detail?.job_number ?? ''} navigate={navigate} />
+  // ========== Tab 4: 投標戰情 ==========
+  const battle = fullData?.battle_room;
+  const battleTab = createTabItem('battle', { icon: <UnorderedListOutlined />, text: '投標戰情' },
+    <div>
+      {/* 1. 歷史相似標案 */}
+      <Card title="① 歷史相似標案" size="small" style={{ marginBottom: 16 }}>
+        {battle?.similar_tenders?.length ? (
+          <List size="small" dataSource={battle.similar_tenders.slice(0, 10)}
+            renderItem={(t) => (
+              <List.Item>
+                <List.Item.Meta
+                  title={t.title}
+                  description={<Space><Text type="secondary">{t.date}</Text>{t.winner_names?.map((w, i) => <Tag key={i} color="green">{w}</Tag>)}</Space>}
+                />
+              </List.Item>
+            )}
+          />
+        ) : <Empty description="查無相似標案" />}
+      </Card>
+
+      {/* 2. 潛在對手 */}
+      <Card title="② 本案潛在對手" size="small" style={{ marginBottom: 16 }}>
+        {battle?.competitors?.length ? (
+          <List size="small" dataSource={battle.competitors.slice(0, 10)}
+            renderItem={(c) => (
+              <List.Item extra={<Tag color="blue">{c.count} 次</Tag>}>
+                <a onClick={() => navigate(`/tender/company-profile?q=${encodeURIComponent(c.name)}`)}>{c.name}</a>
+              </List.Item>
+            )}
+          />
+        ) : <Empty description="查無潛在對手資料" />}
+      </Card>
+
+      {/* 3. 機關生態 */}
+      <Card title={`③ 機關生態 — ${detail?.unit_name ?? ''}`} size="small"
+        extra={<Button type="link" size="small" onClick={() => navigate(`/tender/org-ecosystem?org=${encodeURIComponent(detail?.unit_name ?? '')}`)}>完整分析 →</Button>}
+      >
+        {fullData?.org_tenders?.length ? (
+          <List size="small" dataSource={fullData.org_tenders.slice(0, 10)}
+            renderItem={(r) => (
+              <List.Item
+                key={`${r.unit_id}-${r.job_number}`}
+                actions={[<Button key="go" type="link" size="small" onClick={() => navigate(`/tender/${encodeURIComponent(r.unit_id)}/${encodeURIComponent(r.job_number)}`)}>查看</Button>]}
+              >
+                <List.Item.Meta title={r.title} description={<Space><Tag>{r.type?.slice(0, 10)}</Tag><Text type="secondary">{r.date}</Text></Space>} />
+              </List.Item>
+            )}
+          />
+        ) : <Empty description="查無同機關標案" />}
+        {(fullData?.org_total ?? 0) > 10 && (
+          <div style={{ textAlign: 'center', marginTop: 8 }}>
+            <Button type="link" onClick={() => navigate(`/tender/org-ecosystem?org=${encodeURIComponent(detail?.unit_name ?? '')}`)}>
+              查看全部 {fullData?.org_total} 筆 →
+            </Button>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 
   return (
@@ -304,43 +360,9 @@ const TenderDetailPage: React.FC = () => {
         backPath: '/tender/search',
         subtitle: `${detail?.unit_name ?? ''} | ${detail?.job_number ?? ''}`,
       }}
-      tabs={[overviewTab, lifecycleTab, companiesTab, relatedTab]}
+      tabs={[overviewTab, lifecycleTab, companiesTab, battleTab]}
       loading={isLoading}
       hasData={!!detail}
-    />
-  );
-};
-
-/** 同機關相關標案子元件 */
-const RelatedTenders: React.FC<{ unitName: string; currentJobNumber: string; navigate: ReturnType<typeof useNavigate> }> = ({ unitName, currentJobNumber, navigate }) => {
-  const { data, isLoading } = useTenderSearch(unitName ? { query: unitName, page: 1 } : null);
-  const filtered = useMemo(
-    () => (data?.records ?? []).filter(r => r.job_number !== currentJobNumber).slice(0, 10),
-    [data, currentJobNumber]
-  );
-
-  if (!unitName) return <Empty description="無機關資訊" />;
-
-  return (
-    <List
-      loading={isLoading}
-      dataSource={filtered}
-      locale={{ emptyText: '查無同機關標案' }}
-      renderItem={(r) => (
-        <List.Item
-          key={`${r.unit_id}-${r.job_number}`}
-          actions={[
-            <Button key="go" type="link" size="small" onClick={() => navigate(`/tender/${encodeURIComponent(r.unit_id)}/${encodeURIComponent(r.job_number)}`)}>
-              查看
-            </Button>,
-          ]}
-        >
-          <List.Item.Meta
-            title={r.title}
-            description={<Space><Tag>{r.type.slice(0, 10)}</Tag><Text type="secondary">{r.date}</Text></Space>}
-          />
-        </List.Item>
-      )}
     />
   );
 };

@@ -8,6 +8,8 @@ export const TENDER_ENDPOINTS = {
   SEARCH: '/tender/search',
   /** 標案詳情 POST /tender/detail */
   DETAIL: '/tender/detail',
+  /** 標案完整戰情 POST /tender/detail-full */
+  DETAIL_FULL: '/tender/detail-full',
   /** 廠商搜尋 POST /tender/search-company */
   SEARCH_COMPANY: '/tender/search-company',
   /** 智能推薦 POST /tender/recommend */
