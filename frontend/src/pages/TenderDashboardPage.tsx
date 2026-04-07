@@ -137,7 +137,7 @@ const TenderDashboardPage: React.FC = () => {
         <Table
           columns={tenderColumns}
           dataSource={data?.recent_tenders ?? []}
-          rowKey={(r) => `${r.unit_id}-${r.job_number}`}
+          rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${i}`}
           size="small"
           pagination={{ pageSize: 10 }}
         />

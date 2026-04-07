@@ -208,7 +208,7 @@ const TenderBattleRoomPage: React.FC = () => {
             },
           ]}
           dataSource={similar_tenders}
-          rowKey={(r) => `${r.unit_id}-${r.job_number}`}
+          rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${i}`}
           size="small"
           pagination={{ pageSize: 8 }}
         />
