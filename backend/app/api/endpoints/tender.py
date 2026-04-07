@@ -159,9 +159,11 @@ async def get_tender_detail_full(
 
     agency_name = detail.get("unit_name", "")
 
-    # Step 2: 並行取得戰情+底價+機關生態完整分析
-    battle_task = analytics.battle_room(req.unit_id, req.job_number)
-    price_task = analytics.price_analysis(req.unit_id, req.job_number)
+    # Step 2: 並行取得戰情+底價+機關生態 (傳入 detail 避免重複查詢)
+    from app.services.tender_analytics_battle import battle_room as _battle_room
+    battle_task = _battle_room(service, req.unit_id, req.job_number, detail=detail)
+    from app.services.tender_analytics_price import price_analysis as _price_analysis
+    price_task = _price_analysis(service, req.unit_id, req.job_number, detail=detail)
     async def _empty_org(): return {}
     org_task = analytics.org_ecosystem(agency_name, pages=3) if agency_name else _empty_org()
 

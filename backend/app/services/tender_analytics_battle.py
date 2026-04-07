@@ -24,9 +24,10 @@ def _parse_amount(raw) -> float:
         return 0
 
 
-async def battle_room(search: TenderSearchService, unit_id: str, job_number: str) -> dict:
+async def battle_room(search: TenderSearchService, unit_id: str, job_number: str, detail=None) -> dict:
     """投標戰情室 — 去重相似標案 + 競爭對手含得標金額"""
-    detail = await search.get_tender_detail(unit_id, job_number)
+    if not detail:
+        detail = await search.get_tender_detail(unit_id, job_number)
     if not detail:
         return {"error": "標案不存在"}
 

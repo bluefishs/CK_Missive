@@ -26,9 +26,10 @@ def _safe_parse_amount(raw) -> float | None:
         return None
 
 
-async def price_analysis(search: TenderSearchService, unit_id: str, job_number: str) -> dict:
+async def price_analysis(search: TenderSearchService, unit_id: str, job_number: str, detail=None) -> dict:
     """底價分析 — 單一標案的預算/底價/決標金額"""
-    detail = await search.get_tender_detail(unit_id, job_number)
+    if not detail:
+        detail = await search.get_tender_detail(unit_id, job_number)
     if not detail:
         return {"error": "標案不存在"}
 
