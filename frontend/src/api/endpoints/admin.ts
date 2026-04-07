@@ -34,6 +34,12 @@ export const TENDER_ENDPOINTS = {
   BOOKMARKS_UPDATE: '/tender/bookmarks/update',
   /** 刪除書籤 POST /tender/bookmarks/delete */
   BOOKMARKS_DELETE: '/tender/bookmarks/delete',
+  /** 關注廠商列表 POST /tender/companies/list */
+  COMPANIES_LIST: '/tender/companies/list',
+  /** 加入關注廠商 POST /tender/companies/add */
+  COMPANIES_ADD: '/tender/companies/add',
+  /** 移除關注廠商 POST /tender/companies/remove */
+  COMPANIES_REMOVE: '/tender/companies/remove',
   /** 招標採購儀表板 POST /tender/analytics/dashboard */
   ANALYTICS_DASHBOARD: '/tender/analytics/dashboard',
   /** 投標戰情室 POST /tender/analytics/battle-room */

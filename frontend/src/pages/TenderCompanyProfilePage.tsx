@@ -3,11 +3,11 @@
  *
  * 參考: https://app.acebidx.com/orgbidder/report/
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Card, Row, Col, Statistic, Table, Tag, Typography, Spin, Input, Button, Empty, Space, Progress,
 } from 'antd';
-import { TeamOutlined, SearchOutlined, TrophyOutlined } from '@ant-design/icons';
+import { TeamOutlined, SearchOutlined, TrophyOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -16,6 +16,7 @@ import {
   // PieChart moved to CategoryPieChart shared component
 } from 'recharts';
 import apiClient from '../api/client';
+import { useCompanyBookmarks, useAddCompanyBookmark, useRemoveCompanyBookmark } from '../hooks/business/useTender';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
 import CategoryPieChart from '../components/tender/CategoryPieChart';
@@ -43,6 +44,19 @@ const TenderCompanyProfilePage: React.FC = () => {
   const initialCompany = searchParams.get('q') || searchParams.get('company') || '';
   const [companyInput, setCompanyInput] = useState(initialCompany);
   const [companyName, setCompanyName] = useState(initialCompany);
+
+  // 廠商收藏
+  const { data: companyBms } = useCompanyBookmarks();
+  const addBm = useAddCompanyBookmark();
+  const removeBm = useRemoveCompanyBookmark();
+  const isBookmarked = useMemo(() => companyBms?.some((b: { company_name: string }) => b.company_name === companyName), [companyBms, companyName]);
+  const toggleBookmark = useCallback(() => {
+    if (isBookmarked) {
+      removeBm.mutate({ company_name: companyName });
+    } else {
+      addBm.mutate({ company_name: companyName, tag: 'competitor' });
+    }
+  }, [isBookmarked, companyName, addBm, removeBm]);
 
   const { data, isLoading } = useQuery<CompanyData>({
     queryKey: ['company-profile', companyName],
@@ -78,6 +92,16 @@ const TenderCompanyProfilePage: React.FC = () => {
           />
           <Button type="primary" icon={<SearchOutlined />} size="large" onClick={doSearch}>分析</Button>
         </Space.Compact>
+        {companyName && (
+          <Button
+            style={{ marginLeft: 12 }}
+            size="large"
+            icon={isBookmarked ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+            onClick={toggleBookmark}
+          >
+            {isBookmarked ? '已關注' : '關注廠商'}
+          </Button>
+        )}
       </Card>
 
       {isLoading && <Spin style={{ display: 'block', margin: '60px auto' }} size="large" />}

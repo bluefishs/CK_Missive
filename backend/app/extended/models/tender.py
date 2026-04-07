@@ -3,9 +3,9 @@
 
 - TenderSubscription: 關鍵字訂閱 (每日自動查詢)
 - TenderBookmark: 感興趣標案書籤 (截止提醒)
+- CompanyBookmark: 關注廠商 (競爭對手追蹤)
 
-Version: 1.0.0
-Created: 2026-04-01
+Version: 1.1.0
 """
 from ._base import *
 
@@ -50,3 +50,15 @@ class TenderBookmark(Base):
     __table_args__ = (
         Index("ix_tender_bookmark_unit_job", "unit_id", "job_number", unique=True),
     )
+
+
+class CompanyBookmark(Base):
+    """關注廠商 (競爭對手/合作夥伴追蹤)"""
+    __tablename__ = "company_bookmarks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_name = Column(String(200), nullable=False, unique=True, comment="廠商名稱")
+    tag = Column(String(50), default="competitor", comment="標籤: competitor/partner/self")
+    notes = Column(Text, nullable=True, comment="備註")
+    user_id = Column(Integer, nullable=True, comment="建立者 ID")
+    created_at = Column(DateTime, server_default=func.now())

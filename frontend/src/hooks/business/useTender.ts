@@ -109,6 +109,45 @@ export function useUpdateSubscription() {
   });
 }
 
+// ========== 廠商關注 ==========
+
+export function useCompanyBookmarks() {
+  return useQuery({
+    queryKey: ['tender', 'company-bookmarks'],
+    queryFn: async () => {
+      const { apiClient } = await import('../../api/client');
+      const { TENDER_ENDPOINTS } = await import('../../api/endpoints');
+      const res = await apiClient.post(TENDER_ENDPOINTS.COMPANIES_LIST, {});
+      return (res as { data: Array<{ id: number; company_name: string; tag: string; notes: string | null; created_at: string | null }> }).data ?? [];
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useAddCompanyBookmark() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { company_name: string; tag?: string; notes?: string }) => {
+      const { apiClient } = await import('../../api/client');
+      const { TENDER_ENDPOINTS } = await import('../../api/endpoints');
+      return apiClient.post(TENDER_ENDPOINTS.COMPANIES_ADD, params);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tender', 'company-bookmarks'] }),
+  });
+}
+
+export function useRemoveCompanyBookmark() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { id?: number; company_name?: string }) => {
+      const { apiClient } = await import('../../api/client');
+      const { TENDER_ENDPOINTS } = await import('../../api/endpoints');
+      return apiClient.post(TENDER_ENDPOINTS.COMPANIES_REMOVE, params);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tender', 'company-bookmarks'] }),
+  });
+}
+
 export function useDeleteBookmark() {
   const qc = useQueryClient();
   return useMutation({

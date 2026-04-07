@@ -652,6 +652,66 @@ async def check_subscriptions(db: AsyncSession = Depends(get_db)):
 
 
 # ============================================================================
+# 廠商關注 (Company Bookmarks)
+# ============================================================================
+
+@router.post("/companies/list")
+async def list_company_bookmarks(db: AsyncSession = Depends(get_db)):
+    """列出所有關注廠商"""
+    from app.extended.models.tender import CompanyBookmark
+    result = await db.execute(
+        select(CompanyBookmark).order_by(CompanyBookmark.created_at.desc())
+    )
+    items = result.scalars().all()
+    return SuccessResponse(data=[{
+        "id": c.id, "company_name": c.company_name,
+        "tag": c.tag, "notes": c.notes,
+        "created_at": str(c.created_at) if c.created_at else None,
+    } for c in items])
+
+
+@router.post("/companies/add")
+async def add_company_bookmark(request: Request, db: AsyncSession = Depends(get_db)):
+    """加入關注廠商"""
+    from app.extended.models.tender import CompanyBookmark
+    body = await request.json()
+    name = body.get("company_name", "").strip()
+    if not name:
+        return SuccessResponse(success=False, message="廠商名稱不可為空")
+
+    existing = await db.execute(
+        select(CompanyBookmark).where(CompanyBookmark.company_name == name)
+    )
+    if existing.scalar_one_or_none():
+        return SuccessResponse(success=False, message="已關注此廠商")
+
+    bm = CompanyBookmark(
+        company_name=name,
+        tag=body.get("tag", "competitor"),
+        notes=body.get("notes"),
+    )
+    db.add(bm)
+    await db.commit()
+    await db.refresh(bm)
+    return SuccessResponse(data={"id": bm.id, "company_name": bm.company_name})
+
+
+@router.post("/companies/remove")
+async def remove_company_bookmark(request: Request, db: AsyncSession = Depends(get_db)):
+    """移除關注廠商"""
+    from app.extended.models.tender import CompanyBookmark
+    body = await request.json()
+    company_id = body.get("id")
+    if company_id:
+        await db.execute(delete(CompanyBookmark).where(CompanyBookmark.id == company_id))
+    else:
+        name = body.get("company_name", "")
+        await db.execute(delete(CompanyBookmark).where(CompanyBookmark.company_name == name))
+    await db.commit()
+    return SuccessResponse(data={"removed": True})
+
+
+# ============================================================================
 # Analytics — 標案分析
 # ============================================================================
 
