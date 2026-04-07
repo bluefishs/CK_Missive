@@ -170,42 +170,61 @@ async def recommend_tenders(
         sub_list = subs.scalars().all()
         sub_keywords = [s.keyword for s in sub_list] if sub_list else None
 
-    # 2. 業務推薦 (g0v)
+    # 2. 業務推薦 (g0v + ezbid 帶關鍵字)
     result = await service.recommend_tenders(keywords=sub_keywords, page=req.page)
+    business_records = list(result.get("records", []))
 
-    # 3. 今日最新 (ezbid)
     today_records = []
     try:
         from app.services.ezbid_scraper import EzbidScraper
         scraper = EzbidScraper()
-        ezbid = await scraper.fetch_latest(pages=1, per_page=15)
-        seen_titles = {r.get("title", "")[:20] for r in result.get("records", [])}
-        for r in ezbid.get("records", []):
-            if r.get("title", "")[:20] not in seen_titles:
-                seen_titles.add(r.get("title", "")[:20])
-                today_records.append({
-                    "date": r.get("date", ""),
-                    "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
-                    "title": r.get("title", ""),
-                    "type": r.get("type", ""),
-                    "category": r.get("category", ""),
-                    "unit_id": r.get("ezbid_id", ""),
-                    "unit_name": r.get("unit_name", ""),
-                    "job_number": "",
-                    "company_names": [], "company_ids": [],
-                    "winner_names": [], "bidder_names": [],
-                    "tender_api_url": r.get("ezbid_url", ""),
-                    "source": "ezbid",
-                })
+
+        def to_record(r):
+            return {
+                "date": r.get("date", ""),
+                "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+                "title": r.get("title", ""),
+                "type": r.get("type", ""),
+                "category": r.get("category", ""),
+                "unit_id": r.get("ezbid_id", ""),
+                "unit_name": r.get("unit_name", ""),
+                "job_number": "",
+                "company_names": [], "company_ids": [],
+                "winner_names": [], "bidder_names": [],
+                "tender_api_url": r.get("ezbid_url", ""),
+                "source": "ezbid",
+            }
+
+        # 2b. ezbid 帶訂閱關鍵字 → 合併入業務推薦
+        seen_titles = {r.get("title", "")[:20] for r in business_records}
+        if sub_keywords:
+            ezbid_biz = await scraper.fetch_for_keywords(sub_keywords[:3])
+            for r in ezbid_biz.get("records", []):
+                key = r.get("title", "")[:20]
+                if key not in seen_titles:
+                    seen_titles.add(key)
+                    rec = to_record(r)
+                    rec["matched_keyword"] = r.get("matched_keyword", "")
+                    business_records.append(rec)
+
+        business_records.sort(key=lambda x: x.get("raw_date", 0), reverse=True)
+
+        # 3. 今日最新 (ezbid 不帶關鍵字)
+        ezbid_latest = await scraper.fetch_latest(pages=1, per_page=15)
+        for r in ezbid_latest.get("records", []):
+            key = r.get("title", "")[:20]
+            if key not in seen_titles:
+                seen_titles.add(key)
+                today_records.append(to_record(r))
     except Exception:
         pass
 
     # 4. 分區回傳
     return SuccessResponse(data={
         "keywords": result.get("keywords", []),
-        "total": len(result.get("records", [])) + len(today_records),
+        "total": len(business_records) + len(today_records),
         "today_records": today_records,
-        "records": result.get("records", []),
+        "records": business_records,
     })
 
 
