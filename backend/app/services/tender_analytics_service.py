@@ -146,13 +146,13 @@ class TenderAnalyticsService:
     async def org_ecosystem(
         self,
         org_name: str,
-        pages: int = 3,
+        pages: int = 10,
     ) -> dict:
         """機關生態分析 — 某機關的歷年標案 + 得標廠商分布
 
         Args:
             org_name: 機關名稱
-            pages: 搜尋頁數 (每頁約 100 筆)
+            pages: 搜尋頁數 (預設 10 頁，涵蓋更完整歷史)
         """
         all_records: list = []
 
