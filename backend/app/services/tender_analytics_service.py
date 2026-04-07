@@ -53,16 +53,17 @@ class TenderAnalyticsService:
         # 按日期排序
         all_records.sort(key=lambda r: r.get("raw_date", 0), reverse=True)
 
-        # 日期判斷
-        today_str = datetime.now().strftime("%Y-%m-%d")
+        # 日期判斷 — 使用資料中的最新日期 (PCC 資料延遲 1-5 天)
+        all_dates = sorted(set(r.get("date", "") for r in all_records if r.get("date")), reverse=True)
+        latest_date = all_dates[0] if all_dates else datetime.now().strftime("%Y-%m-%d")
         week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 
         # 按類型分類
         def is_type(r, keyword):
             return keyword in r.get("type", "")
 
-        today_bid = [r for r in all_records if r.get("date") == today_str and is_type(r, "招標")]
-        today_award = [r for r in all_records if r.get("date") == today_str and is_type(r, "決標") and "無法" not in r.get("type", "")]
+        latest_bid = [r for r in all_records if r.get("date") == latest_date and is_type(r, "招標")]
+        latest_award = [r for r in all_records if r.get("date") == latest_date and is_type(r, "決標") and "無法" not in r.get("type", "")]
         week_new_bid = [r for r in all_records if r.get("date", "") >= week_ago and is_type(r, "招標")]
         week_new_award = [r for r in all_records if r.get("date", "") >= week_ago and is_type(r, "決標") and "無法" not in r.get("type", "")]
         recent_failed = [r for r in all_records if is_type(r, "無法決標")]
@@ -110,18 +111,19 @@ class TenderAnalyticsService:
         return {
             "total_found": len(all_records),
             "keywords_used": kw_list,
+            "latest_date": latest_date,
             # 統計卡片
             "stats": {
-                "today_bid": len(today_bid),
-                "today_award": len(today_award),
+                "latest_bid": len(latest_bid),
+                "latest_award": len(latest_award),
                 "week_new_bid": len(week_new_bid),
                 "week_new_award": len(week_new_award),
                 "failed_award": len(recent_failed),
                 "rfp_count": len(recent_rfp),
             },
             # 列表區塊
-            "today_bid_list": [slim(r) for r in today_bid[:10]],
-            "today_award_list": [slim(r) for r in today_award[:10]],
+            "latest_bid_list": [slim(r) for r in latest_bid[:10]],
+            "latest_award_list": [slim(r) for r in latest_award[:10]],
             "week_new_bid_list": [slim(r) for r in week_new_bid[:20]],
             "week_new_award_list": [slim(r) for r in week_new_award[:20]],
             "failed_award_list": [slim(r) for r in recent_failed[:10]],

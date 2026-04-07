@@ -40,7 +40,7 @@ interface CompanyData {
 const TenderCompanyProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialCompany = searchParams.get('company') || '';
+  const initialCompany = searchParams.get('q') || searchParams.get('company') || '';
   const [companyInput, setCompanyInput] = useState(initialCompany);
   const [companyName, setCompanyName] = useState(initialCompany);
 

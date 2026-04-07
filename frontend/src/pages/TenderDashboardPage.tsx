@@ -37,13 +37,14 @@ interface TenderItem {
 interface DashboardData {
   total_found: number;
   keywords_used: string[];
+  latest_date: string;
   stats: {
-    today_bid: number; today_award: number;
+    latest_bid: number; latest_award: number;
     week_new_bid: number; week_new_award: number;
     failed_award: number; rfp_count: number;
   };
-  today_bid_list: TenderItem[];
-  today_award_list: TenderItem[];
+  latest_bid_list: TenderItem[];
+  latest_award_list: TenderItem[];
   week_new_bid_list: TenderItem[];
   week_new_award_list: TenderItem[];
   failed_award_list: TenderItem[];
@@ -96,12 +97,14 @@ const TenderDashboardPage: React.FC = () => {
     },
   ];
 
+  const latestLabel = data?.latest_date ? `最新 (${data.latest_date})` : '最新';
+
   // 列表資料映射
   const listDataMap: Record<string, { title: string; data: TenderItem[] }> = {
     week_bid: { title: '本週最新招標', data: data?.week_new_bid_list ?? [] },
     week_award: { title: '本週最新決標', data: data?.week_new_award_list ?? [] },
-    today_bid: { title: '今日招標', data: data?.today_bid_list ?? [] },
-    today_award: { title: '今日決標', data: data?.today_award_list ?? [] },
+    latest_bid: { title: `${latestLabel} 招標`, data: data?.latest_bid_list ?? [] },
+    latest_award: { title: `${latestLabel} 決標`, data: data?.latest_award_list ?? [] },
     failed: { title: '近期無法決標', data: data?.failed_award_list ?? [] },
     rfp: { title: '最新公開徵求', data: data?.rfp_list ?? [] },
   };
@@ -130,18 +133,20 @@ const TenderDashboardPage: React.FC = () => {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="今日招標" value={stats?.today_bid ?? 0}
+            title={`最新招標`} value={stats?.latest_bid ?? 0}
             icon={<CalendarOutlined />} color="#1890ff"
-            active={activeList === 'today_bid'}
-            onClick={() => setActiveList('today_bid')}
+            suffix={data?.latest_date ? data.latest_date.slice(5) : ''}
+            active={activeList === 'latest_bid'}
+            onClick={() => setActiveList('latest_bid')}
           />
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title="今日決標" value={stats?.today_award ?? 0}
+            title={`最新決標`} value={stats?.latest_award ?? 0}
             icon={<CheckCircleOutlined />} color="#52c41a"
-            active={activeList === 'today_award'}
-            onClick={() => setActiveList('today_award')}
+            suffix={data?.latest_date ? data.latest_date.slice(5) : ''}
+            active={activeList === 'latest_award'}
+            onClick={() => setActiveList('latest_award')}
           />
         </Col>
         <Col xs={12} sm={8} md={4}>
