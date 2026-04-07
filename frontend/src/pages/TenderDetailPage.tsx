@@ -329,7 +329,7 @@ const TenderDetailPage: React.FC = () => {
             <tbody>
               {battle.competitors.slice(0, 10).map((c, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
-                  onClick={() => navigate(`/tender/company-profile?q=${encodeURIComponent(c.name)}`)}>
+                  onClick={() => window.open(`/tender/company-profile?q=${encodeURIComponent(c.name)}`, '_blank')}>
                   <td style={{ padding: '6px 4px' }}>
                     <a>{c.name}</a>
                   </td>
@@ -352,7 +352,7 @@ const TenderDetailPage: React.FC = () => {
 
       {/* 3. 機關生態 */}
       <Card title={`③ 機關生態 — ${detail?.unit_name ?? ''}`} size="small"
-        extra={<Button type="link" size="small" onClick={() => navigate(`/tender/org-ecosystem?org=${encodeURIComponent(detail?.unit_name ?? '')}`)}>完整分析 →</Button>}
+        extra={<Button type="link" size="small" onClick={() => window.open(`/tender/org-ecosystem?org=${encodeURIComponent(detail?.unit_name ?? '')}`, '_blank')}>完整分析 →</Button>}
       >
         {fullData?.org_tenders?.length ? (
           <List size="small" dataSource={fullData.org_tenders.slice(0, 10)}
