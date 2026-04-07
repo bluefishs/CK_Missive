@@ -451,6 +451,25 @@ async def delete_bookmark(req: dict, db: AsyncSession = Depends(get_db)):
     return SuccessResponse(data={"deleted": True})
 
 
+@router.post("/realtime")
+async def realtime_tenders(req: TenderSearchRequest):
+    """即時標案 — 爬取 ezbid.tw 最新資料 (補充 PCC API 延遲)"""
+    from app.services.ezbid_scraper import EzbidScraper
+
+    category_map = {"工程": "WORK", "勞務": "SERV", "財物": "PPTY"}
+    cat = category_map.get(req.category or "", "ALL")
+
+    try:
+        from app.core.redis_client import get_redis_client
+        redis = get_redis_client()
+    except Exception:
+        redis = None
+
+    scraper = EzbidScraper(redis_client=redis)
+    result = await scraper.fetch_latest(query=req.query, category=cat, pages=1)
+    return SuccessResponse(data=result)
+
+
 @router.post("/check-subscriptions")
 async def check_subscriptions(db: AsyncSession = Depends(get_db)):
     """手動觸發訂閱檢查 (也可由排程器自動呼叫)"""
