@@ -485,8 +485,31 @@ class TenderAnalyticsService:
             year_counter[year] += 1
             agency_counter[r.get("unit_name", "未知")] += 1
             category_counter[r.get("category", "未分類")] += 1
-            if company_name in (r.get("winner_names") or []):
+            # 模糊匹配得標廠商 — "乾坤測繪" 匹配 "乾坤測繪科技有限公司"
+            winners = r.get("winner_names") or []
+            is_won = any(
+                company_name in w or w in company_name
+                for w in winners
+            )
+            if is_won:
                 won_count += 1
+                r["_is_won"] = True
+
+        # recent_tenders 加入得標結果資訊
+        recent = []
+        for r in all_records[:20]:
+            recent.append({
+                "title": r.get("title", ""),
+                "date": r.get("date", ""),
+                "unit_name": r.get("unit_name", ""),
+                "unit_id": r.get("unit_id", ""),
+                "job_number": r.get("job_number", ""),
+                "type": r.get("type", ""),
+                "category": r.get("category", ""),
+                "winner_names": r.get("winner_names", []),
+                "bidder_names": r.get("bidder_names", []),
+                "is_won": r.get("_is_won", False),
+            })
 
         return {
             "company_name": company_name,
@@ -505,5 +528,5 @@ class TenderAnalyticsService:
                 {"name": k, "value": v}
                 for k, v in category_counter.most_common(10)
             ],
-            "recent_tenders": all_records[:10],
+            "recent_tenders": recent,
         }

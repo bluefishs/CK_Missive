@@ -32,7 +32,8 @@ interface CompanyData {
   category_distribution: Array<{ name: string; value: number }>;
   recent_tenders: Array<{
     title: string; date: string; unit_name: string;
-    unit_id: string; job_number: string; winner_names?: string[];
+    unit_id: string; job_number: string; type?: string; category?: string;
+    winner_names?: string[]; bidder_names?: string[]; is_won?: boolean;
   }>;
 }
 
@@ -158,9 +159,9 @@ const TenderCompanyProfilePage: React.FC = () => {
               </Card>
             </Col>
 
-            {/* 近期標案 */}
+            {/* 近期標案 — 含得標結果 */}
             <Col xs={24} lg={12}>
-              <Card title="近期參與標案" size="small">
+              <Card title="投標紀錄" size="small">
                 <Table
                   columns={[
                     {
@@ -170,18 +171,34 @@ const TenderCompanyProfilePage: React.FC = () => {
                       ),
                     },
                     { title: '日期', dataIndex: 'date', key: 'date', width: 100 },
+                    { title: '類型', dataIndex: 'type', key: 'type', width: 70,
+                      render: (v: string) => <Tag>{v || '未知'}</Tag>,
+                    },
                     {
                       title: '結果', key: 'result', width: 80,
-                      render: (_: unknown, r: CompanyData['recent_tenders'][0]) =>
-                        r.winner_names?.includes(companyName)
+                      render: (_: unknown, r: CompanyData['recent_tenders'][0]) => {
+                        // 模糊匹配：搜尋名稱包含在得標廠商名中
+                        const isWon = r.is_won || (r.winner_names || []).some(
+                          (w: string) => w.includes(companyName) || companyName.includes(w)
+                        );
+                        return isWon
                           ? <Tag color="green">得標</Tag>
-                          : <Tag>投標</Tag>,
+                          : <Tag color="default">投標</Tag>;
+                      },
+                    },
+                    {
+                      title: '得標廠商', key: 'winner', width: 140, ellipsis: true,
+                      render: (_: unknown, r: CompanyData['recent_tenders'][0]) => {
+                        const winners = r.winner_names || [];
+                        if (winners.length === 0) return <Text type="secondary">-</Text>;
+                        return <Text style={{ fontSize: 12 }}>{winners.join('、')}</Text>;
+                      },
                     },
                   ]}
                   dataSource={data.recent_tenders}
                   rowKey={(r) => `${r.unit_id}-${r.job_number}`}
                   size="small"
-                  pagination={false}
+                  pagination={{ pageSize: 10, showSizeChanger: false }}
                 />
               </Card>
             </Col>
