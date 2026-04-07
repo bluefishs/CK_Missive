@@ -37,25 +37,39 @@ class TenderAnalyticsService:
         from app.services.tender_search_service import CK_BUSINESS_KEYWORDS
         kw_list = keywords or CK_BUSINESS_KEYWORDS[:5]
 
-        # 多關鍵字搜尋，收集更多近期標案
+        # 多關鍵字並行搜尋 (大幅加速)
+        import asyncio
         all_records = []
         seen_keys = set()
-        for kw in kw_list[:5]:
-            for page in range(1, 3):  # 每關鍵字取 2 頁
-                result = await self.search.search_by_title(kw, page=page)
-                for r in result.get("records", []):
-                    key = f"{r['unit_id']}-{r['job_number']}"
-                    if key not in seen_keys:
-                        seen_keys.add(key)
-                        r["matched_keyword"] = kw
-                        all_records.append(r)
+
+        async def fetch_kw(kw, page):
+            return kw, await self.search.search_by_title(kw, page=page)
+
+        tasks = [fetch_kw(kw, p) for kw in kw_list[:5] for p in range(1, 3)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for item in results:
+            if isinstance(item, Exception):
+                continue
+            kw, result = item
+            for r in result.get("records", []):
+                key = f"{r['unit_id']}-{r['job_number']}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    r["matched_keyword"] = kw
+                    all_records.append(r)
 
         # === P1: ezbid 即時補充 (當日資料) ===
         try:
             from app.services.ezbid_scraper import EzbidScraper
             scraper = EzbidScraper()
-            # 先抓最新（不帶關鍵字），確保有當日資料
-            ezbid_latest = await scraper.fetch_latest(pages=1, per_page=30)
+            # 並行：最新 + 關鍵字
+            ezbid_latest_task = scraper.fetch_latest(pages=1, per_page=30)
+            ezbid_kw_task = scraper.fetch_for_keywords(kw_list[:3])
+            ezbid_latest_result, ezbid_kw_result = await asyncio.gather(
+                ezbid_latest_task, ezbid_kw_task, return_exceptions=True,
+            )
+            ezbid_latest = ezbid_latest_result if not isinstance(ezbid_latest_result, Exception) else {"records": []}
             for r in ezbid_latest.get("records", []):
                 key = f"ezbid-{r.get('ezbid_id', '')}"
                 if key not in seen_keys:
@@ -66,8 +80,8 @@ class TenderAnalyticsService:
                         "unit_id": r.get("ezbid_id", ""), "unit_name": r.get("unit_name", ""), "job_number": "",
                         "winner_names": [], "source": "ezbid", "budget": r.get("budget"),
                     })
-            # 再按關鍵字抓
-            ezbid_result = await scraper.fetch_for_keywords(kw_list[:3])
+            # 關鍵字結果
+            ezbid_result = ezbid_kw_result if not isinstance(ezbid_kw_result, Exception) else {"records": []}
             for r in ezbid_result.get("records", []):
                 key = f"ezbid-{r.get('ezbid_id', '')}"
                 if key not in seen_keys:
