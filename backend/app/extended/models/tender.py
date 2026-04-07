@@ -23,6 +23,8 @@ class TenderSubscription(Base):
     notify_system = Column(Boolean, default=True, comment="系統通知")
     last_checked_at = Column(DateTime, nullable=True, comment="最後查詢時間")
     last_count = Column(Integer, default=0, comment="上次查詢結果數")
+    last_diff = Column(Integer, default=0, comment="最近一次新增筆數")
+    last_new_titles = Column(Text, nullable=True, comment="最近新增標案標題 (JSON array)")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

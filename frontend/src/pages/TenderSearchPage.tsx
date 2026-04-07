@@ -339,31 +339,46 @@ const TenderSearchPage: React.FC = () => {
                   <Button size="small" onClick={() => setEditingSubId(null)}>取消</Button>
                 </Space>
               ) : (
-                <Row justify="space-between" align="middle"
-                  onClick={() => handleSubSearch(s.keyword)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <Col>
-                    <Space>
-                      <BellOutlined />
-                      <strong>{s.keyword}</strong>
-                      {s.category && <Tag>{s.category}</Tag>}
-                      {!s.is_active && <Tag color="default">已停用</Tag>}
-                    </Space>
-                  </Col>
-                  <Col>
-                    <Space>
-                      <Tooltip title="點擊查看搜尋結果">
-                        <Tag color="blue" style={{ cursor: 'pointer' }}>{s.last_count.toLocaleString()} 筆 →</Tag>
-                      </Tooltip>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {s.last_checked_at
-                          ? new Date(s.last_checked_at).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                          : '等待排程'}
-                      </Text>
-                    </Space>
-                  </Col>
-                </Row>
+                <div>
+                  <Row justify="space-between" align="middle"
+                    onClick={() => handleSubSearch(s.keyword)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <Col>
+                      <Space>
+                        <BellOutlined />
+                        <strong>{s.keyword}</strong>
+                        {s.category && <Tag>{s.category}</Tag>}
+                        {!s.is_active && <Tag color="default">已停用</Tag>}
+                      </Space>
+                    </Col>
+                    <Col>
+                      <Space>
+                        {s.last_diff > 0 && <Tag color="red">+{s.last_diff} 新增</Tag>}
+                        <Tooltip title="點擊查看全部搜尋結果">
+                          <Tag color="blue" style={{ cursor: 'pointer' }}>共 {s.last_count.toLocaleString()} 筆 →</Tag>
+                        </Tooltip>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {s.last_checked_at
+                            ? new Date(s.last_checked_at).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '等待排程'}
+                        </Text>
+                      </Space>
+                    </Col>
+                  </Row>
+                  {s.last_new_titles?.length > 0 && (
+                    <div style={{ marginTop: 8, paddingLeft: 22 }}>
+                      {s.last_new_titles.slice(0, 3).map((title, i) => (
+                        <div key={i} style={{ fontSize: 12, color: '#595959', marginBottom: 2 }}>
+                          • {title}
+                        </div>
+                      ))}
+                      {s.last_new_titles.length > 3 && (
+                        <Text type="secondary" style={{ fontSize: 11 }}>...還有 {s.last_new_titles.length - 3} 筆</Text>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </Card>
           ))}

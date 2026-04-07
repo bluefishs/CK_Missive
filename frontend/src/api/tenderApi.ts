@@ -67,8 +67,8 @@ export const tenderApi = {
     return this.search({ query: unitName, page });
   },
 
-  async listSubscriptions(): Promise<Array<{ id: number; keyword: string; category: string | null; is_active: boolean; notify_line: boolean; notify_system: boolean; last_checked_at: string | null; last_count: number }>> {
-    const res = await apiClient.post<SuccessResponse<Array<{ id: number; keyword: string; category: string | null; is_active: boolean; notify_line: boolean; notify_system: boolean; last_checked_at: string | null; last_count: number }>>>(
+  async listSubscriptions(): Promise<Array<{ id: number; keyword: string; category: string | null; is_active: boolean; notify_line: boolean; notify_system: boolean; last_checked_at: string | null; last_count: number; last_diff: number; last_new_titles: string[] }>> {
+    const res = await apiClient.post<SuccessResponse<Array<{ id: number; keyword: string; category: string | null; is_active: boolean; notify_line: boolean; notify_system: boolean; last_checked_at: string | null; last_count: number; last_diff: number; last_new_titles: string[] }>>>(
       TENDER_ENDPOINTS.SUBSCRIPTIONS_LIST, {},
     );
     return res.data ?? [];

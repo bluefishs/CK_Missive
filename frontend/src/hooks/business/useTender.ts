@@ -7,7 +7,7 @@ import type { TenderSearchParams } from '../../types/tender';
 
 export function useTenderSearch(params: TenderSearchParams | null) {
   return useQuery({
-    queryKey: ['tender', 'search', params],
+    queryKey: ['tender', 'search', params?.query, params?.page, params?.search_type, params?.category],
     queryFn: () => tenderApi.search(params!),
     enabled: !!params?.query,
     staleTime: 5 * 60 * 1000,

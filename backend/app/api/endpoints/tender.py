@@ -273,12 +273,15 @@ async def list_subscriptions(db: AsyncSession = Depends(get_db)):
         select(TenderSubscription).order_by(TenderSubscription.created_at.desc())
     )
     items = result.scalars().all()
+    import json as _json
     return SuccessResponse(data=[{
         "id": s.id, "keyword": s.keyword, "category": s.category,
         "is_active": s.is_active, "notify_line": s.notify_line,
         "notify_system": s.notify_system,
         "last_checked_at": str(s.last_checked_at) if s.last_checked_at else None,
         "last_count": s.last_count,
+        "last_diff": getattr(s, 'last_diff', 0) or 0,
+        "last_new_titles": _json.loads(s.last_new_titles) if getattr(s, 'last_new_titles', None) else [],
     } for s in items])
 
 
