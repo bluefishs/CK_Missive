@@ -112,6 +112,46 @@ async def save_search_results(db: AsyncSession, records: List[Dict[str, Any]], s
     return saved
 
 
+async def search_from_db(
+    db: AsyncSession, query: str, limit: int = 50,
+) -> List[Dict[str, Any]]:
+    """從 DB 搜尋標案 (ILIKE 模糊匹配)"""
+    result = await db.execute(text("""
+        SELECT tr.*, array_agg(DISTINCT CASE WHEN tcl.role='winner' THEN tcl.company_name END) AS winners,
+               array_agg(DISTINCT CASE WHEN tcl.role='bidder' THEN tcl.company_name END) AS bidders
+        FROM tender_records tr
+        LEFT JOIN tender_company_links tcl ON tcl.tender_record_id = tr.id
+        WHERE tr.title ILIKE :q OR tr.unit_name ILIKE :q
+        GROUP BY tr.id
+        ORDER BY tr.announce_date DESC NULLS LAST
+        LIMIT :lim
+    """), {"q": f"%{query}%", "lim": limit})
+
+    rows = result.fetchall()
+    records = []
+    for r in rows:
+        winners = [w for w in (r.winners or []) if w] if hasattr(r, 'winners') else []
+        bidders = [b for b in (r.bidders or []) if b] if hasattr(r, 'bidders') else []
+        records.append({
+            "date": str(r.announce_date) if r.announce_date else "",
+            "raw_date": int(str(r.announce_date).replace("-", "")) if r.announce_date else 0,
+            "title": r.title or "",
+            "type": r.tender_type or "",
+            "category": r.category or "",
+            "unit_id": r.unit_id or "",
+            "unit_name": r.unit_name or "",
+            "job_number": r.job_number or "",
+            "company_names": winners + bidders,
+            "company_ids": [],
+            "winner_names": winners,
+            "bidder_names": bidders,
+            "tender_api_url": "",
+            "source": r.source or "db",
+            "budget": float(r.budget) if r.budget else None,
+        })
+    return records
+
+
 async def get_db_stats(db: AsyncSession) -> Dict[str, Any]:
     """取得快取統計"""
     total = (await db.execute(text("SELECT COUNT(*) FROM tender_records"))).scalar() or 0

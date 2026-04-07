@@ -116,6 +116,15 @@ async def search_tenders(
         except Exception:
             pass  # ezbid 失敗不影響主搜尋
 
+    # 搜尋結果自動入庫 (背景)
+    try:
+        from app.db.database import AsyncSessionLocal
+        from app.services.tender_cache_service import save_search_results
+        async with AsyncSessionLocal() as cache_db:
+            await save_search_results(cache_db, result.get("records", [])[:50], source="pcc")
+    except Exception:
+        pass
+
     return SuccessResponse(data=result)
 
 
