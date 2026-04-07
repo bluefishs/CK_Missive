@@ -77,6 +77,11 @@ const TenderSearchPage: React.FC = () => {
   }, [message, searchType, categoryFilter]);
 
   const handleViewDetail = useCallback((record: TenderRecord) => {
+    // ezbid 來源且無 job_number → 開 ezbid 詳情頁 (新分頁)
+    if ((!record.job_number || record.job_number === '') && record.unit_id) {
+      window.open(`https://cf.ezbid.tw/tender/${record.unit_id}`, '_blank');
+      return;
+    }
     navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number)}`);
   }, [navigate]);
 
