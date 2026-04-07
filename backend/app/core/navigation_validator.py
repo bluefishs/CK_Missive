@@ -44,11 +44,20 @@ def _build_valid_paths() -> Set[str]:
         "/auth/line/callback", "/auth/line/bind-callback",
         "/404", "/google-auth-diagnostic", "/unified-form-demo",
         "/api-mapping", "/api/docs", "/pure-calendar",
-        # ERP 子頁面（透過 /erp Hub 進入，非獨立導覽項）
-        "/erp/quotations", "/erp/quotations/create",
-        "/erp/invoices/summary-view",
+        # ERP 子頁面
+        "/erp", "/erp/quotations", "/erp/quotations/create",
+        "/erp/invoices/summary-view", "/erp/ledger", "/erp/ledger/create",
+        "/erp/operational", "/erp/operational/create",
         # 管理子頁面
-        "/admin/code-graph",
+        "/admin/code-graph", "/admin/case-nature",
+        # 標案子頁面
+        "/tender/battle-room", "/tender/dashboard",
+        "/tender/org-ecosystem", "/tender/price-analysis",
+        "/tender/company-profile",
+        # AI / Agent
+        "/agent/dashboard", "/ai/code-graph",
+        # 承攬案件別名
+        "/projects",
     })
 
     return paths
