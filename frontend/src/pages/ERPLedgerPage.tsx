@@ -8,10 +8,14 @@ import {
   Card, Table, Button, Space, Tag, Input, Select, Typography,
   Statistic, Row, Col, Modal, Form, DatePicker, Popconfirm, App, Alert,
 } from 'antd';
-import { PlusOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined, ReloadOutlined, DeleteOutlined,
+  ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, FileTextOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { ROUTES } from '../router/types';
+import { ClickableStatCard } from '../components/common';
 import {
   useLedger, useCreateLedger, useDeleteLedger,
   useLedgerCategoryBreakdown, useAuthGuard, useProjectsDropdown,
@@ -37,6 +41,7 @@ const ERPLedgerPage: React.FC = () => {
   const createMutation = useCreateLedger();
   const deleteMutation = useDeleteLedger();
 
+  const [statFilter, setStatFilter] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm] = Form.useForm<LedgerCreate>();
 
@@ -131,11 +136,37 @@ const ERPLedgerPage: React.FC = () => {
             )}
           </Col>
         </Row>
-        <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-          <Col xs={12} sm={6}><Statistic title="本頁收入" value={incomeSum} precision={0} styles={{ content: { color: '#3f8600' } }} /></Col>
-          <Col xs={12} sm={6}><Statistic title="本頁支出" value={expenseSum} precision={0} styles={{ content: { color: '#cf1322' } }} /></Col>
-          <Col xs={12} sm={6}><Statistic title="本頁淨額" value={incomeSum - expenseSum} precision={0} /></Col>
-          <Col xs={12} sm={6}><Statistic title="總筆數" value={total} /></Col>
+        <Row gutter={[12, 12]} style={{ marginTop: 16 }}>
+          <Col xs={12} sm={6}>
+            <ClickableStatCard
+              title="本頁收入" value={incomeSum.toLocaleString()}
+              icon={<ArrowUpOutlined />} color="#3f8600"
+              active={statFilter === 'income'}
+              onClick={() => { const v = statFilter === 'income' ? null : 'income'; setStatFilter(v); setParams(p => ({ ...p, entry_type: v as LedgerEntryType | undefined ?? undefined, skip: 0 })); }}
+            />
+          </Col>
+          <Col xs={12} sm={6}>
+            <ClickableStatCard
+              title="本頁支出" value={expenseSum.toLocaleString()}
+              icon={<ArrowDownOutlined />} color="#cf1322"
+              active={statFilter === 'expense'}
+              onClick={() => { const v = statFilter === 'expense' ? null : 'expense'; setStatFilter(v); setParams(p => ({ ...p, entry_type: v as LedgerEntryType | undefined ?? undefined, skip: 0 })); }}
+            />
+          </Col>
+          <Col xs={12} sm={6}>
+            <ClickableStatCard
+              title="本頁淨額" value={(incomeSum - expenseSum).toLocaleString()}
+              icon={<SwapOutlined />} color={incomeSum - expenseSum >= 0 ? '#52c41a' : '#ff4d4f'}
+            />
+          </Col>
+          <Col xs={12} sm={6}>
+            <ClickableStatCard
+              title="總筆數" value={total}
+              icon={<FileTextOutlined />} color="#1890ff"
+              active={statFilter === null}
+              onClick={() => { setStatFilter(null); setParams(p => ({ ...p, entry_type: undefined, skip: 0 })); }}
+            />
+          </Col>
         </Row>
       </Card>
 

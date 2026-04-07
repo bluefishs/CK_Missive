@@ -20,6 +20,8 @@ export const TENDER_ENDPOINTS = {
   SUBSCRIPTIONS_LIST: '/tender/subscriptions/list',
   /** 建立訂閱 POST /tender/subscriptions/create */
   SUBSCRIPTIONS_CREATE: '/tender/subscriptions/create',
+  /** 更新訂閱 POST /tender/subscriptions/update */
+  SUBSCRIPTIONS_UPDATE: '/tender/subscriptions/update',
   /** 刪除訂閱 POST /tender/subscriptions/delete */
   SUBSCRIPTIONS_DELETE: '/tender/subscriptions/delete',
   /** 書籤列表 POST /tender/bookmarks/list */

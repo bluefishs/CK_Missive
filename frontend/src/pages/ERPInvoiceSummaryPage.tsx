@@ -5,9 +5,13 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Card, Table, Tag, Select, Typography, Statistic, Row, Col, Space, Alert,
+  Card, Table, Tag, Select, Typography, Row, Col, Space, Alert,
 } from 'antd';
+import {
+  ArrowUpOutlined, ArrowDownOutlined, SwapOutlined,
+} from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
+import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
 import { useInvoiceSummary } from '../hooks';
 import type { InvoiceSummaryItem, InvoiceSummaryRequest } from '../types/erp';
@@ -49,6 +53,7 @@ const INVOICE_STATUS_LABELS: Record<string, string> = {
 const ERPInvoiceSummaryPage: React.FC = () => {
   const navigate = useNavigate();
   const [params, setParams] = useState<InvoiceSummaryRequest>({ skip: 0, limit: 20 });
+  const [statFilter, setStatFilter] = useState<string | null>(null);
   const { data, isLoading, isError } = useInvoiceSummary(params);
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
@@ -117,15 +122,28 @@ const ERPInvoiceSummaryPage: React.FC = () => {
         <Row justify="space-between" align="middle">
           <Col><Title level={3} style={{ margin: 0 }}>發票總覽</Title></Col>
         </Row>
-        <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Row gutter={[12, 12]} style={{ marginTop: 16 }}>
           <Col xs={12} sm={8}>
-            <Statistic title="銷項總額" value={salesTotal} precision={0} prefix="NT$" styles={{ content: { color: '#1677ff' } }} />
+            <ClickableStatCard
+              title="銷項總額" value={`NT$ ${salesTotal.toLocaleString()}`}
+              icon={<ArrowUpOutlined />} color="#1677ff"
+              active={statFilter === 'sales'}
+              onClick={() => { const v = statFilter === 'sales' ? null : 'sales'; setStatFilter(v); setParams(p => ({ ...p, invoice_type: v || undefined, skip: 0 })); }}
+            />
           </Col>
           <Col xs={12} sm={8}>
-            <Statistic title="進項總額" value={purchaseTotal} precision={0} prefix="NT$" styles={{ content: { color: '#fa8c16' } }} />
+            <ClickableStatCard
+              title="進項總額" value={`NT$ ${purchaseTotal.toLocaleString()}`}
+              icon={<ArrowDownOutlined />} color="#fa8c16"
+              active={statFilter === 'purchase'}
+              onClick={() => { const v = statFilter === 'purchase' ? null : 'purchase'; setStatFilter(v); setParams(p => ({ ...p, invoice_type: v || undefined, skip: 0 })); }}
+            />
           </Col>
           <Col xs={12} sm={8}>
-            <Statistic title="淨額" value={netAmount} precision={0} prefix="NT$" styles={{ content: { color: netAmount >= 0 ? '#52c41a' : '#ff4d4f' } }} />
+            <ClickableStatCard
+              title="淨額" value={`NT$ ${netAmount.toLocaleString()}`}
+              icon={<SwapOutlined />} color={netAmount >= 0 ? '#52c41a' : '#ff4d4f'}
+            />
           </Col>
         </Row>
       </Card>

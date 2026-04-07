@@ -2,8 +2,8 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Table, Button, Space, Input, Typography, Statistic, Row, Col, Popconfirm, Alert, App, Upload } from 'antd';
-import { PlusOutlined, ReloadOutlined, DownloadOutlined, EditOutlined, UploadOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { Card, Table, Button, Space, Input, Typography, Row, Col, Popconfirm, Alert, App, Upload } from 'antd';
+import { PlusOutlined, ReloadOutlined, DownloadOutlined, EditOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { useERPQuotations, useERPProfitSummary, useDeleteERPQuotation, useAuthGu
 import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
+import { ClickableStatCard } from '../components/common';
 
 const { Title } = Typography;
 
@@ -19,6 +20,7 @@ export const ERPQuotationListPage: React.FC = () => {
   const { message } = App.useApp();
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('projects:write');
+  const [statFilter, setStatFilter] = useState<string | null>(null);
   const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc' });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);
   const { data: profitSummary } = useERPProfitSummary();
@@ -112,21 +114,44 @@ export const ERPQuotationListPage: React.FC = () => {
         {profitSummary && (
           <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
             <Col xs={12} sm={6}>
-              <Statistic title="營收總額" value={Number(profitSummary.total_revenue)} precision={0} />
-            </Col>
-            <Col xs={12} sm={6}>
-              <Statistic title="成本總額" value={Number(profitSummary.total_cost)} precision={0} />
-            </Col>
-            <Col xs={12} sm={6}>
-              <Statistic
-                title="毛利"
-                value={grossProfit}
-                precision={0}
-                styles={{ content: { color: grossProfit >= 0 ? '#3f8600' : '#cf1322' } }}
+              <ClickableStatCard
+                title="營收總額"
+                value={Number(profitSummary.total_revenue).toLocaleString()}
+                icon={<DollarOutlined />}
+                color="#1890ff"
+                active={statFilter === 'revenue'}
+                onClick={() => setStatFilter(statFilter === 'revenue' ? null : 'revenue')}
               />
             </Col>
             <Col xs={12} sm={6}>
-              <Statistic title="應收未收" value={Number(profitSummary.total_outstanding)} precision={0} />
+              <ClickableStatCard
+                title="成本總額"
+                value={Number(profitSummary.total_cost).toLocaleString()}
+                icon={<BankOutlined />}
+                color="#faad14"
+                active={statFilter === 'cost'}
+                onClick={() => setStatFilter(statFilter === 'cost' ? null : 'cost')}
+              />
+            </Col>
+            <Col xs={12} sm={6}>
+              <ClickableStatCard
+                title="毛利"
+                value={grossProfit.toLocaleString()}
+                icon={<FundOutlined />}
+                color={grossProfit >= 0 ? '#3f8600' : '#cf1322'}
+                active={statFilter === 'profit'}
+                onClick={() => setStatFilter(statFilter === 'profit' ? null : 'profit')}
+              />
+            </Col>
+            <Col xs={12} sm={6}>
+              <ClickableStatCard
+                title="應收未收"
+                value={Number(profitSummary.total_outstanding).toLocaleString()}
+                icon={<ExclamationCircleOutlined />}
+                color="#ff4d4f"
+                active={statFilter === 'outstanding'}
+                onClick={() => setStatFilter(statFilter === 'outstanding' ? null : 'outstanding')}
+              />
             </Col>
           </Row>
         )}

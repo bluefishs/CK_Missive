@@ -18,7 +18,6 @@ import {
   Card,
   Button,
   Space,
-  Statistic,
   Row,
   Col,
   Typography,
@@ -46,6 +45,7 @@ import {
   documentsApi,
 } from '../api/documentsApi';
 import { Document } from '../types';
+import { ClickableStatCard } from '../components/common';
 
 const { Title, Text } = Typography;
 
@@ -53,6 +53,8 @@ export const DocumentNumbersPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { message } = App.useApp();
+
+  const [statFilter, setStatFilter] = useState<string | null>(null);
 
   // 分頁狀態
   const [pagination, setPagination] = useState({
@@ -63,7 +65,7 @@ export const DocumentNumbersPage: React.FC = () => {
   });
 
   // 統計資料 (React Query)
-  const { data: stats, isLoading: statsLoading } = useDocumentStatistics();
+  const { data: stats } = useDocumentStatistics();
 
   // 下一個可用字號 (React Query)
   const { data: nextNumber, isLoading: nextNumberLoading } = useQuery({
@@ -295,45 +297,45 @@ export const DocumentNumbersPage: React.FC = () => {
       {/* 統計卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={6}>
-          <Card loading={statsLoading}>
-            <Statistic
-              title="總發文數"
-              value={stats?.send_count ?? stats?.send ?? 0}
-              prefix={<NumberOutlined />}
-            />
-          </Card>
+          <ClickableStatCard
+            title="總發文數"
+            value={stats?.send_count ?? stats?.send ?? 0}
+            icon={<NumberOutlined />}
+            active={statFilter === 'all'}
+            onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
+          />
         </Col>
         <Col xs={24} sm={6}>
-          <Card loading={statsLoading}>
-            <Statistic
-              title="電子交換"
-              value={stats?.delivery_method_stats?.electronic ?? 0}
-              prefix={<CloudOutlined />}
-              styles={{ content: { color: '#52c41a' } }}
-              suffix="筆"
-            />
-          </Card>
+          <ClickableStatCard
+            title="電子交換"
+            value={stats?.delivery_method_stats?.electronic ?? 0}
+            icon={<CloudOutlined />}
+            color="#52c41a"
+            suffix="筆"
+            active={statFilter === 'electronic'}
+            onClick={() => setStatFilter(statFilter === 'electronic' ? null : 'electronic')}
+          />
         </Col>
         <Col xs={24} sm={6}>
-          <Card loading={statsLoading}>
-            <Statistic
-              title="紙本郵寄"
-              value={stats?.delivery_method_stats?.paper ?? 0}
-              prefix={<MailOutlined />}
-              styles={{ content: { color: '#faad14' } }}
-              suffix="筆"
-            />
-          </Card>
+          <ClickableStatCard
+            title="紙本郵寄"
+            value={stats?.delivery_method_stats?.paper ?? 0}
+            icon={<MailOutlined />}
+            color="#faad14"
+            suffix="筆"
+            active={statFilter === 'paper'}
+            onClick={() => setStatFilter(statFilter === 'paper' ? null : 'paper')}
+          />
         </Col>
         <Col xs={24} sm={6}>
-          <Card loading={statsLoading}>
-            <Statistic
-              title="本年度發文數"
-              value={stats?.current_year_send_count ?? 0}
-              prefix={<CalendarOutlined />}
-              styles={{ content: { color: '#1890ff' } }}
-            />
-          </Card>
+          <ClickableStatCard
+            title="本年度發文數"
+            value={stats?.current_year_send_count ?? 0}
+            icon={<CalendarOutlined />}
+            color="#1890ff"
+            active={statFilter === 'current_year'}
+            onClick={() => setStatFilter(statFilter === 'current_year' ? null : 'current_year')}
+          />
         </Col>
       </Row>
 

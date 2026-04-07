@@ -50,7 +50,7 @@ const ClickableStatCard: React.FC<ClickableStatCardProps> = ({
       value={value}
       prefix={icon}
       suffix={suffix}
-      valueStyle={{ color: active ? color : undefined, fontSize: 20 }}
+      styles={{ content: { color: active ? color : undefined, fontSize: 20 } }}
     />
   </Card>
 );

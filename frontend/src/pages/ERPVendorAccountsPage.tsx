@@ -10,9 +10,10 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Alert, Card, Table, Typography, Statistic, Row, Col, Tag, Select, Space, Input,
+  Alert, Card, Table, Typography, Row, Col, Tag, Select, Space, Input,
 } from 'antd';
 import { DollarOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { ClickableStatCard } from '../components/common';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
@@ -32,6 +33,7 @@ const ERPVendorAccountsPage: React.FC = () => {
   const navigate = useNavigate();
   const [year, setYear] = useState<number | undefined>();
   const [keyword, setKeyword] = useState('');
+  const [statFilter, setStatFilter] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useVendorAccountSummary({
     vendor_type: 'subcontractor',
@@ -56,6 +58,13 @@ const ERPVendorAccountsPage: React.FC = () => {
     }
     return { totalPayable, totalPaid, totalOutstanding };
   }, [items]);
+
+  const filteredItems = useMemo(() => {
+    if (!statFilter) return items;
+    if (statFilter === 'paid') return items.filter(i => Number(i.total_paid ?? 0) > 0);
+    if (statFilter === 'outstanding') return items.filter(i => Number(i.outstanding ?? 0) > 0);
+    return items;
+  }, [items, statFilter]);
 
   const columns: ColumnsType<VendorAccountSummaryItem> = [
     {
@@ -159,29 +168,33 @@ const ERPVendorAccountsPage: React.FC = () => {
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={8}>
-            <Statistic
+            <ClickableStatCard
               title="總應付"
-              value={stats.totalPayable}
-              precision={0}
-              prefix={<DollarOutlined />}
+              value={stats.totalPayable.toLocaleString()}
+              icon={<DollarOutlined />}
+              color="#1890ff"
+              active={statFilter === 'all'}
+              onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
             />
           </Col>
           <Col xs={24} sm={8}>
-            <Statistic
+            <ClickableStatCard
               title="總已付"
-              value={stats.totalPaid}
-              precision={0}
-              prefix={<CheckCircleOutlined />}
-              styles={{ content: { color: '#3f8600' } }}
+              value={stats.totalPaid.toLocaleString()}
+              icon={<CheckCircleOutlined />}
+              color="#3f8600"
+              active={statFilter === 'paid'}
+              onClick={() => setStatFilter(statFilter === 'paid' ? null : 'paid')}
             />
           </Col>
           <Col xs={24} sm={8}>
-            <Statistic
+            <ClickableStatCard
               title="總未付"
-              value={stats.totalOutstanding}
-              precision={0}
-              prefix={<ExclamationCircleOutlined />}
-              styles={{ content: { color: stats.totalOutstanding > 0 ? '#cf1322' : '#3f8600' } }}
+              value={stats.totalOutstanding.toLocaleString()}
+              icon={<ExclamationCircleOutlined />}
+              color={stats.totalOutstanding > 0 ? '#cf1322' : '#3f8600'}
+              active={statFilter === 'outstanding'}
+              onClick={() => setStatFilter(statFilter === 'outstanding' ? null : 'outstanding')}
             />
           </Col>
         </Row>
@@ -192,7 +205,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       <Card>
         <Table<VendorAccountSummaryItem>
           columns={columns}
-          dataSource={items}
+          dataSource={filteredItems}
           rowKey="vendor_id"
           loading={isLoading}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 廠商` }}

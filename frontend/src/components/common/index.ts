@@ -1,4 +1,5 @@
 export { ErrorBoundary } from './ErrorBoundary';
+export { default as ClickableStatCard } from './ClickableStatCard';
 export { PageLoading } from './PageLoading';
 export { NotificationCenter } from './NotificationCenter';
 export { AgencyMatchInput } from './AgencyMatchInput';

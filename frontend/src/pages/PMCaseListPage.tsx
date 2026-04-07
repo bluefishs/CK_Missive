@@ -7,11 +7,12 @@
  * @version 3.0.0 — 重新定位為邀標/報價專區
  */
 import React, { useState, useMemo } from 'react';
-import { Typography, Input, Button, Flex, Card, Statistic, Row, Col, Tag, Select, Table, Upload, App, Space } from 'antd';
+import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Table, Upload, App, Space } from 'antd';
 import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive } from '../hooks';
+import { ClickableStatCard } from '../components/common';
 import { PM_CATEGORY_LABELS } from '../types/api';
 import type { PMCase } from '../types/api';
 import type { ColumnsType } from 'antd/es/table';
@@ -26,6 +27,7 @@ export const PMCaseListPage: React.FC = () => {
   const { isMobile } = useResponsive();
   const { message } = App.useApp();
 
+  const [statFilter, setStatFilter] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const [yearFilter, setYearFilter] = useState<number | undefined>(new Date().getFullYear());
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
@@ -212,43 +214,42 @@ export const PMCaseListPage: React.FC = () => {
         {summary && (
           <Row gutter={[16, 16]}>
             <Col xs={12} sm={6}>
-              <Card size="small">
-                <Statistic
-                  title="邀標總數"
-                  value={summary.total_cases}
-                  prefix={<FileSearchOutlined />}
-                />
-              </Card>
+              <ClickableStatCard
+                title="邀標總數"
+                value={summary.total_cases}
+                icon={<FileSearchOutlined />}
+                active={statFilter === 'all'}
+                onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
+              />
             </Col>
             <Col xs={12} sm={6}>
-              <Card size="small">
-                <Statistic
-                  title="報價中"
-                  value={summary.by_status?.['in_progress'] ?? 0}
-                  prefix={<SendOutlined />}
-                  styles={{ content: { color: '#1890ff' } }}
-                />
-              </Card>
+              <ClickableStatCard
+                title="報價中"
+                value={summary.by_status?.['in_progress'] ?? 0}
+                icon={<SendOutlined />}
+                color="#1890ff"
+                active={statFilter === 'in_progress'}
+                onClick={() => setStatFilter(statFilter === 'in_progress' ? null : 'in_progress')}
+              />
             </Col>
             <Col xs={12} sm={6}>
-              <Card size="small">
-                <Statistic
-                  title="已成案"
-                  value={summary.by_status?.['closed'] ?? 0}
-                  prefix={<CheckCircleOutlined />}
-                  styles={{ content: { color: '#52c41a' } }}
-                />
-              </Card>
+              <ClickableStatCard
+                title="已成案"
+                value={summary.by_status?.['closed'] ?? 0}
+                icon={<CheckCircleOutlined />}
+                color="#52c41a"
+                active={statFilter === 'closed'}
+                onClick={() => setStatFilter(statFilter === 'closed' ? null : 'closed')}
+              />
             </Col>
             <Col xs={12} sm={6}>
-              <Card size="small">
-                <Statistic
-                  title="報價總額"
-                  value={summary.total_contract_amount ?? 0}
-                  prefix={<DollarOutlined />}
-                  formatter={(v) => `NT$${Number(v).toLocaleString()}`}
-                />
-              </Card>
+              <ClickableStatCard
+                title="報價總額"
+                value={`NT$${(summary.total_contract_amount ?? 0).toLocaleString()}`}
+                icon={<DollarOutlined />}
+                active={statFilter === 'amount'}
+                onClick={() => setStatFilter(statFilter === 'amount' ? null : 'amount')}
+              />
             </Col>
           </Row>
         )}

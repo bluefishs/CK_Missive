@@ -10,11 +10,12 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Alert, Card, Table, Typography, Statistic, Row, Col, Tag, Select, Space, Input,
+  Alert, Card, Table, Typography, Row, Col, Tag, Select, Space, Input,
 } from 'antd';
 import {
   DollarOutlined, CheckCircleOutlined, ExclamationCircleOutlined, FileTextOutlined,
 } from '@ant-design/icons';
+import { ClickableStatCard } from '../components/common';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
@@ -34,6 +35,7 @@ const ERPClientAccountsPage: React.FC = () => {
   const navigate = useNavigate();
   const [year, setYear] = useState<number | undefined>();
   const [keyword, setKeyword] = useState('');
+  const [statFilter, setStatFilter] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useClientAccountSummary({
     vendor_type: 'client',
@@ -60,6 +62,14 @@ const ERPClientAccountsPage: React.FC = () => {
     }
     return { totalContract, totalBilled, totalReceived, totalOutstanding };
   }, [items]);
+
+  const filteredItems = useMemo(() => {
+    if (!statFilter) return items;
+    if (statFilter === 'billed') return items.filter(i => Number(i.total_billed ?? 0) > 0);
+    if (statFilter === 'received') return items.filter(i => Number(i.total_received ?? 0) > 0);
+    if (statFilter === 'outstanding') return items.filter(i => Number(i.outstanding ?? 0) > 0);
+    return items;
+  }, [items, statFilter]);
 
   const columns: ColumnsType<ClientAccountSummaryItem> = [
     {
@@ -172,37 +182,43 @@ const ERPClientAccountsPage: React.FC = () => {
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={6}>
-            <Statistic
+            <ClickableStatCard
               title="合約總額"
-              value={stats.totalContract}
-              precision={0}
-              prefix={<FileTextOutlined />}
+              value={stats.totalContract.toLocaleString()}
+              icon={<FileTextOutlined />}
+              color="#1890ff"
+              active={statFilter === 'all'}
+              onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
             />
           </Col>
           <Col xs={24} sm={6}>
-            <Statistic
+            <ClickableStatCard
               title="已請款"
-              value={stats.totalBilled}
-              precision={0}
-              prefix={<DollarOutlined />}
+              value={stats.totalBilled.toLocaleString()}
+              icon={<DollarOutlined />}
+              color="#faad14"
+              active={statFilter === 'billed'}
+              onClick={() => setStatFilter(statFilter === 'billed' ? null : 'billed')}
             />
           </Col>
           <Col xs={24} sm={6}>
-            <Statistic
+            <ClickableStatCard
               title="已收款"
-              value={stats.totalReceived}
-              precision={0}
-              prefix={<CheckCircleOutlined />}
-              styles={{ content: { color: '#3f8600' } }}
+              value={stats.totalReceived.toLocaleString()}
+              icon={<CheckCircleOutlined />}
+              color="#3f8600"
+              active={statFilter === 'received'}
+              onClick={() => setStatFilter(statFilter === 'received' ? null : 'received')}
             />
           </Col>
           <Col xs={24} sm={6}>
-            <Statistic
+            <ClickableStatCard
               title="未收款"
-              value={stats.totalOutstanding}
-              precision={0}
-              prefix={<ExclamationCircleOutlined />}
-              styles={{ content: { color: stats.totalOutstanding > 0 ? '#cf1322' : '#3f8600' } }}
+              value={stats.totalOutstanding.toLocaleString()}
+              icon={<ExclamationCircleOutlined />}
+              color={stats.totalOutstanding > 0 ? '#cf1322' : '#3f8600'}
+              active={statFilter === 'outstanding'}
+              onClick={() => setStatFilter(statFilter === 'outstanding' ? null : 'outstanding')}
             />
           </Col>
         </Row>
@@ -213,7 +229,7 @@ const ERPClientAccountsPage: React.FC = () => {
       <Card>
         <Table<ClientAccountSummaryItem>
           columns={columns}
-          dataSource={items}
+          dataSource={filteredItems}
           rowKey="vendor_id"
           loading={isLoading}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 單位` }}

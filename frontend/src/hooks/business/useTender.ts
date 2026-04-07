@@ -92,6 +92,14 @@ export function useUpdateBookmark() {
   });
 }
 
+export function useUpdateSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: tenderApi.updateSubscription,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tender', 'subscriptions'], refetchType: 'all' }),
+  });
+}
+
 export function useDeleteBookmark() {
   const qc = useQueryClient();
   return useMutation({

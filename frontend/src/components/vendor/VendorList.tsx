@@ -9,7 +9,6 @@ import {
   Tag,
   Row,
   Col,
-  Statistic
 } from 'antd';
 import {
   PlusOutlined,
@@ -18,10 +17,12 @@ import {
   PhoneOutlined,
   MailOutlined,
   ShopOutlined,
+  TeamOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { TableColumnType } from 'antd';
-import { ResponsiveTable } from '../common';
+import { ResponsiveTable, ClickableStatCard } from '../common';
 import { useVendorsPage } from '../../hooks';
 import { useResponsive } from '../../hooks';
 import type { Vendor as ApiVendor } from '../../types/api';
@@ -55,6 +56,7 @@ const VendorList: React.FC<VendorListProps> = ({ vendorType, title, createRoute 
   const [searchText, setSearchText] = useState('');
   const [businessTypeFilter, setBusinessTypeFilter] = useState<string>('');
   const [ratingFilter, setRatingFilter] = useState<number | undefined>();
+  const [statFilter, setStatFilter] = useState<string | null>(null);
 
   // 構建查詢參數
   const queryParams = useMemo(() => ({
@@ -173,31 +175,49 @@ const VendorList: React.FC<VendorListProps> = ({ vendorType, title, createRoute 
   return (
     <div style={{ padding: pagePadding }}>
       <Card size={isMobile ? 'small' : undefined}>
-        <div style={{ marginBottom: isMobile ? 12 : 16 }}>
-          <Row gutter={[8, 8]} align="middle">
-            <Col xs={12} sm={6}>
-              <Statistic title={isMobile ? '總數' : '總廠商數'} value={total} />
-            </Col>
-            <Col xs={12} sm={18} style={{ textAlign: 'right' }}>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                size={isMobile ? 'small' : 'middle'}
-                onClick={handleAdd}
-              >
-                {isMobile ? '' : '新增廠商'}
-              </Button>
-            </Col>
-          </Row>
-        </div>
-
-        {/* ERP 彙總統計（僅協力廠商顯示） */}
-        {vendorType === 'subcontractor' && (
-          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            <Col xs={12} sm={6}><Card size="small"><Statistic title="協力廠商數" value={total} prefix={<ShopOutlined />} /></Card></Col>
-            <Col xs={12} sm={6}><Card size="small"><Statistic title="待付總額" value={vendors.reduce((s, v) => s + (v.rating || 0), 0)} prefix="NT$" /></Card></Col>
-          </Row>
-        )}
+        {/* 互動統計卡片 */}
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }} align="middle">
+          <Col xs={12} sm={6} md={4}>
+            <ClickableStatCard
+              title="全部"
+              value={total}
+              icon={<TeamOutlined />}
+              color="#1890ff"
+              active={statFilter === null}
+              onClick={() => { setStatFilter(null); setRatingFilter(undefined); setCurrent(1); }}
+            />
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <ClickableStatCard
+              title="高評價"
+              value={vendors.filter(v => (v.rating || 0) >= 4).length}
+              icon={<StarOutlined />}
+              color="#52c41a"
+              active={statFilter === 'high_rating'}
+              onClick={() => { setStatFilter(statFilter === 'high_rating' ? null : 'high_rating'); setRatingFilter(statFilter === 'high_rating' ? undefined : 4); setCurrent(1); }}
+            />
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <ClickableStatCard
+              title="未評價"
+              value={vendors.filter(v => !v.rating).length}
+              icon={<ShopOutlined />}
+              color="#faad14"
+              active={statFilter === 'no_rating'}
+              onClick={() => { setStatFilter(statFilter === 'no_rating' ? null : 'no_rating'); setRatingFilter(statFilter === 'no_rating' ? undefined : 0); setCurrent(1); }}
+            />
+          </Col>
+          <Col xs={12} sm={6} md={12} style={{ textAlign: 'right' }}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              size={isMobile ? 'small' : 'middle'}
+              onClick={handleAdd}
+            >
+              {isMobile ? '' : `新增${vendorType === 'client' ? '委託單位' : '廠商'}`}
+            </Button>
+          </Col>
+        </Row>
 
         <div style={{ marginBottom: isMobile ? 12 : 16 }}>
           <Title level={isMobile ? 4 : 3} style={{ marginBottom: isMobile ? 8 : 16 }}>

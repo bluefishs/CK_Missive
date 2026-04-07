@@ -32,6 +32,7 @@ class TenderSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=100, description="搜尋關鍵字")
     page: int = Field(1, ge=1, le=100)
     category: Optional[str] = Field(None, description="分類: 工程/勞務/財物")
+    search_type: Optional[str] = Field("title", description="搜尋模式: title/org/company")
 
 
 class TenderDetailRequest(BaseModel):
@@ -72,10 +73,15 @@ async def search_tenders(
     req: TenderSearchRequest,
     service: TenderSearchService = Depends(get_tender_service),
 ):
-    """搜尋標案 (依標題關鍵字)"""
-    result = await service.search_by_title(
-        query=req.query, page=req.page, category=req.category,
-    )
+    """搜尋標案 — 支援標案名稱/機關名稱/廠商名稱三種模式"""
+    if req.search_type == "org":
+        result = await service.search_by_org(req.query, page=req.page)
+    elif req.search_type == "company":
+        result = await service.search_by_company(req.query, page=req.page)
+    else:
+        result = await service.search_by_title(
+            query=req.query, page=req.page, category=req.category,
+        )
     return SuccessResponse(data=result)
 
 
@@ -280,8 +286,11 @@ async def list_subscriptions(db: AsyncSession = Depends(get_db)):
 async def create_subscription(
     req: SubscriptionCreateRequest, db: AsyncSession = Depends(get_db),
 ):
-    """建立訂閱"""
+    """建立訂閱 — 建立後立即執行一次查詢"""
+    from datetime import datetime
     from app.extended.models.tender import TenderSubscription
+    from app.services.tender_search_service import TenderSearchService
+
     sub = TenderSubscription(
         keyword=req.keyword, category=req.category,
         notify_line=req.notify_line, notify_system=req.notify_system,
@@ -289,7 +298,61 @@ async def create_subscription(
     db.add(sub)
     await db.commit()
     await db.refresh(sub)
+
+    # 建立後立即查詢一次，更新 last_checked_at
+    try:
+        service = TenderSearchService()
+        result = await service.search_by_title(query=req.keyword, page=1, category=req.category)
+        sub.last_checked_at = datetime.utcnow()
+        sub.last_count = result.get("total_records", 0)
+        await db.commit()
+    except Exception:
+        pass  # 查詢失敗不影響建立
+
     return SuccessResponse(data={"id": sub.id, "keyword": sub.keyword})
+
+
+class SubscriptionUpdateRequest(BaseModel):
+    id: int
+    keyword: Optional[str] = None
+    category: Optional[str] = None
+    is_active: Optional[bool] = None
+    notify_line: Optional[bool] = None
+    notify_system: Optional[bool] = None
+
+
+@router.post("/subscriptions/update")
+async def update_subscription(
+    req: SubscriptionUpdateRequest, db: AsyncSession = Depends(get_db),
+):
+    """更新訂閱"""
+    from app.extended.models.tender import TenderSubscription
+
+    result = await db.execute(
+        select(TenderSubscription).where(TenderSubscription.id == req.id)
+    )
+    sub = result.scalar_one_or_none()
+    if not sub:
+        return SuccessResponse(success=False, message="訂閱不存在")
+
+    if req.keyword is not None:
+        sub.keyword = req.keyword
+    if req.category is not None:
+        sub.category = req.category if req.category else None
+    if req.is_active is not None:
+        sub.is_active = req.is_active
+    if req.notify_line is not None:
+        sub.notify_line = req.notify_line
+    if req.notify_system is not None:
+        sub.notify_system = req.notify_system
+
+    await db.commit()
+    await db.refresh(sub)
+
+    return SuccessResponse(data={
+        "id": sub.id, "keyword": sub.keyword,
+        "category": sub.category, "is_active": sub.is_active,
+    })
 
 
 @router.post("/subscriptions/delete")

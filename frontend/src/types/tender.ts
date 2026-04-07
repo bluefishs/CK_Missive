@@ -72,6 +72,7 @@ export interface TenderSearchParams {
   query: string;
   page?: number;
   category?: string;
+  search_type?: 'title' | 'org' | 'company';
 }
 
 /** 決標品項明細 */

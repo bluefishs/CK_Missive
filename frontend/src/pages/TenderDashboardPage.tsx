@@ -1,13 +1,14 @@
 /**
  * 招標採購儀表板 — 近期標案統計 + 類別分布 + 推薦標案
  */
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  Card, Row, Col, Statistic, Table, Tag, Typography, Spin, Button, Space,
+  Card, Row, Col, Table, Tag, Typography, Spin, Button, Space,
 } from 'antd';
 import {
-  FundOutlined, ReloadOutlined, BankOutlined,
+  FundOutlined, ReloadOutlined, BankOutlined, TagsOutlined, AppstoreOutlined,
 } from '@ant-design/icons';
+import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -34,6 +35,7 @@ interface DashboardData {
 
 const TenderDashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const [statFilter, setStatFilter] = useState<string | null>(null);
 
   const { data, isLoading, refetch } = useQuery<DashboardData>({
     queryKey: ['tender-dashboard'],
@@ -45,6 +47,13 @@ const TenderDashboardPage: React.FC = () => {
     },
     staleTime: 5 * 60_000,
   });
+
+  const filteredTenders = useMemo(() => {
+    const tenders = data?.recent_tenders ?? [];
+    if (!statFilter) return tenders;
+    if (statFilter === 'keyword') return tenders.filter(t => t.matched_keyword);
+    return tenders;
+  }, [data?.recent_tenders, statFilter]);
 
   const tenderColumns: ColumnsType<DashboardData['recent_tenders'][0]> = [
     {
@@ -86,16 +95,44 @@ const TenderDashboardPage: React.FC = () => {
       {/* 統計卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={6}>
-          <Card><Statistic title="推薦標案總數" value={data?.total_found ?? 0} /></Card>
+          <ClickableStatCard
+            title="推薦標案總數"
+            value={data?.total_found ?? 0}
+            icon={<FundOutlined />}
+            color="#1890ff"
+            active={statFilter === 'all'}
+            onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
+          />
         </Col>
         <Col xs={12} sm={6}>
-          <Card><Statistic title="監控關鍵字" value={data?.keywords_used?.length ?? 0} /></Card>
+          <ClickableStatCard
+            title="監控關鍵字"
+            value={data?.keywords_used?.length ?? 0}
+            icon={<TagsOutlined />}
+            color="#722ed1"
+            active={statFilter === 'keyword'}
+            onClick={() => setStatFilter(statFilter === 'keyword' ? null : 'keyword')}
+          />
         </Col>
         <Col xs={12} sm={6}>
-          <Card><Statistic title="標案類別數" value={data?.category_distribution?.length ?? 0} /></Card>
+          <ClickableStatCard
+            title="標案類別數"
+            value={data?.category_distribution?.length ?? 0}
+            icon={<AppstoreOutlined />}
+            color="#faad14"
+            active={statFilter === 'category'}
+            onClick={() => setStatFilter(statFilter === 'category' ? null : 'category')}
+          />
         </Col>
         <Col xs={12} sm={6}>
-          <Card><Statistic title="涉及機關數" value={data?.top_agencies?.length ?? 0} /></Card>
+          <ClickableStatCard
+            title="涉及機關數"
+            value={data?.top_agencies?.length ?? 0}
+            icon={<BankOutlined />}
+            color="#52c41a"
+            active={statFilter === 'agency'}
+            onClick={() => setStatFilter(statFilter === 'agency' ? null : 'agency')}
+          />
         </Col>
       </Row>
 
@@ -126,7 +163,7 @@ const TenderDashboardPage: React.FC = () => {
       <Card title="近期推薦標案" size="small">
         <Table
           columns={tenderColumns}
-          dataSource={data?.recent_tenders ?? []}
+          dataSource={filteredTenders}
           rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${i}`}
           size="small"
           pagination={{ pageSize: 10 }}

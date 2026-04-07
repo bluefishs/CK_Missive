@@ -6,10 +6,14 @@
 import React, { useState, useMemo } from 'react';
 import {
   Alert, Card, Table, Button, Space, Tag, Input, Select, Typography,
-  Statistic, Row, Col, Progress,
+  Row, Col, Progress,
 } from 'antd';
-import { PlusOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined, ReloadOutlined, SearchOutlined,
+  AccountBookOutlined, DollarOutlined, PayCircleOutlined, PercentageOutlined,
+} from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
+import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import {
@@ -62,6 +66,7 @@ const ERPOperationalListPage: React.FC = () => {
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('operational:write');
 
+  const [statFilter, setStatFilter] = useState<string | null>(null);
   const { data, isLoading, isError, refetch } = useOperationalAccounts(params);
   const { data: stats } = useOperationalAccountStats();
 
@@ -169,32 +174,32 @@ const ERPOperationalListPage: React.FC = () => {
             )}
           </Col>
         </Row>
-        <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Row gutter={[12, 12]} style={{ marginTop: 16 }}>
           <Col xs={12} sm={6}>
-            <Statistic title="帳目數" value={stats?.total_accounts ?? 0} />
-          </Col>
-          <Col xs={12} sm={6}>
-            <Statistic
-              title="總預算"
-              value={stats?.total_budget ?? 0}
-              precision={0}
-              prefix="NT$"
+            <ClickableStatCard
+              title="帳目數" value={stats?.total_accounts ?? 0}
+              icon={<AccountBookOutlined />} color="#1890ff"
+              active={statFilter === null}
+              onClick={() => { setStatFilter(null); setParams(p => ({ ...p, status: undefined, skip: 0 })); }}
             />
           </Col>
           <Col xs={12} sm={6}>
-            <Statistic
-              title="總支出"
-              value={stats?.total_spent ?? 0}
-              precision={0}
-              prefix="NT$"
+            <ClickableStatCard
+              title="總預算" value={`NT$ ${(stats?.total_budget ?? 0).toLocaleString()}`}
+              icon={<DollarOutlined />} color="#722ed1"
             />
           </Col>
           <Col xs={12} sm={6}>
-            <Statistic
-              title="使用率"
-              value={usageRate}
-              suffix="%"
-              styles={{ content: { color: usageRate > 90 ? '#ff4d4f' : usageRate > 70 ? '#fa8c16' : '#52c41a' } }}
+            <ClickableStatCard
+              title="總支出" value={`NT$ ${(stats?.total_spent ?? 0).toLocaleString()}`}
+              icon={<PayCircleOutlined />} color="#fa8c16"
+            />
+          </Col>
+          <Col xs={12} sm={6}>
+            <ClickableStatCard
+              title="使用率" value={usageRate} suffix="%"
+              icon={<PercentageOutlined />}
+              color={usageRate > 90 ? '#ff4d4f' : usageRate > 70 ? '#fa8c16' : '#52c41a'}
             />
           </Col>
         </Row>

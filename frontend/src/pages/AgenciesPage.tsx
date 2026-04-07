@@ -4,12 +4,11 @@ import {
   Input,
   Button,
   Space,
-  Card,
-  Statistic,
   Row,
   Col,
   Select,
   Pagination,
+  Card,
 } from 'antd';
 import {
   SearchOutlined,
@@ -19,6 +18,7 @@ import {
   TeamOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
+import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveTable } from '../components/common';
 import { useAgenciesPage } from '../hooks';
@@ -39,6 +39,18 @@ export const AgenciesPage: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [statFilter, setStatFilter] = useState<string | null>(null);
+
+  const handleStatFilter = (filter: string, category?: string) => {
+    if (statFilter === filter) {
+      setStatFilter(null);
+      setCategoryFilter('');
+    } else {
+      setStatFilter(filter);
+      setCategoryFilter(category ?? '');
+    }
+    setCurrentPage(1);
+  };
   const pageSize = 20;
 
   const queryParams = useMemo(() => ({
@@ -104,51 +116,55 @@ export const AgenciesPage: React.FC = () => {
       {statistics && (
         <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]} style={{ marginBottom: isMobile ? 16 : 24 }}>
           <Col xs={12} sm={6}>
-            <Card size={isMobile ? 'small' : undefined}>
-              <Statistic
-                title={isMobile ? '總數' : '機關總數'}
-                value={statistics.total_agencies}
-                prefix={<BankOutlined />}
-                styles={{ content: { color: '#3f8600', fontSize: isMobile ? 20 : 24 } }}
-              />
-            </Card>
+            <ClickableStatCard
+              title={isMobile ? '總數' : '機關總數'}
+              value={statistics.total_agencies}
+              icon={<BankOutlined />}
+              color="#3f8600"
+              size={isMobile ? 'small' : 'default'}
+              active={statFilter === 'all'}
+              onClick={() => handleStatFilter('all')}
+            />
           </Col>
           <Col xs={12} sm={6}>
-            <Card size={isMobile ? 'small' : undefined}>
-              <Statistic
-                title="政府機關"
-                value={statistics.categories.find(c => c.category === '政府機關')?.count || 0}
-                suffix={!isMobile ? `(${statistics.categories.find(c => c.category === '政府機關')?.percentage || 0}%)` : undefined}
-                prefix={<BankOutlined />}
-                styles={{ content: { color: '#1890ff', fontSize: isMobile ? 20 : 24 } }}
-              />
-            </Card>
+            <ClickableStatCard
+              title="政府機關"
+              value={statistics.categories.find(c => c.category === '政府機關')?.count || 0}
+              suffix={!isMobile ? `(${statistics.categories.find(c => c.category === '政府機關')?.percentage || 0}%)` : undefined}
+              icon={<BankOutlined />}
+              color="#1890ff"
+              size={isMobile ? 'small' : 'default'}
+              active={statFilter === 'gov'}
+              onClick={() => handleStatFilter('gov', '政府機關')}
+            />
           </Col>
           <Col xs={12} sm={6}>
-            <Card size={isMobile ? 'small' : undefined}>
-              <Statistic
-                title="民間企業"
-                value={statistics.categories.find(c => c.category === '民間企業')?.count || 0}
-                suffix={!isMobile ? `(${statistics.categories.find(c => c.category === '民間企業')?.percentage || 0}%)` : undefined}
-                prefix={<BuildOutlined />}
-                styles={{ content: { color: '#722ed1', fontSize: isMobile ? 20 : 24 } }}
-              />
-            </Card>
+            <ClickableStatCard
+              title="民間企業"
+              value={statistics.categories.find(c => c.category === '民間企業')?.count || 0}
+              suffix={!isMobile ? `(${statistics.categories.find(c => c.category === '民間企業')?.percentage || 0}%)` : undefined}
+              icon={<BuildOutlined />}
+              color="#722ed1"
+              size={isMobile ? 'small' : 'default'}
+              active={statFilter === 'private'}
+              onClick={() => handleStatFilter('private', '民間企業')}
+            />
           </Col>
           <Col xs={12} sm={6}>
-            <Card size={isMobile ? 'small' : undefined}>
-              <Statistic
-                title="其他單位"
-                value={
-                  (statistics.categories.find(c => c.category === '其他機關')?.count || 0) +
-                  (statistics.categories.find(c => c.category === '其他單位')?.count || 0) +
-                  (statistics.categories.find(c => c.category === '社會團體')?.count || 0) +
-                  (statistics.categories.find(c => c.category === '教育機構')?.count || 0)
-                }
-                prefix={<TeamOutlined />}
-                styles={{ content: { color: '#fa541c', fontSize: isMobile ? 20 : 24 } }}
-              />
-            </Card>
+            <ClickableStatCard
+              title="其他單位"
+              value={
+                (statistics.categories.find(c => c.category === '其他機關')?.count || 0) +
+                (statistics.categories.find(c => c.category === '其他單位')?.count || 0) +
+                (statistics.categories.find(c => c.category === '社會團體')?.count || 0) +
+                (statistics.categories.find(c => c.category === '教育機構')?.count || 0)
+              }
+              icon={<TeamOutlined />}
+              color="#fa541c"
+              size={isMobile ? 'small' : 'default'}
+              active={statFilter === 'other'}
+              onClick={() => handleStatFilter('other')}
+            />
           </Col>
         </Row>
       )}

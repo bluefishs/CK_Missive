@@ -6,13 +6,15 @@
 import React, { useState, useMemo } from 'react';
 import {
   Alert, App, Card, Table, Button, Space, Tag, Input, Select, Typography,
-  Statistic, Row, Col, Modal, Upload,
+  Row, Col, Modal, Upload,
 } from 'antd';
 import {
   PlusOutlined, ReloadOutlined, SearchOutlined, DownloadOutlined,
   UploadOutlined, AuditOutlined, FileExcelOutlined,
+  ShoppingOutlined, CheckCircleOutlined, ToolOutlined, PauseCircleOutlined, DollarOutlined,
 } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
+import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import { useAssetList, useAssetStats, useExportAssets, useImportAssets, useBatchInventory, useExportInventory, useDownloadAssetTemplate } from '../hooks';
@@ -66,6 +68,7 @@ const ERPAssetListPage: React.FC = () => {
   const { message } = App.useApp();
   const [params, setParams] = useState<AssetListParams>({ skip: 0, limit: 20 });
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [statFilter, setStatFilter] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useAssetList(params);
   const { data: stats } = useAssetStats();
@@ -255,37 +258,43 @@ const ERPAssetListPage: React.FC = () => {
             </Space>
           </Col>
         </Row>
-        <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Row gutter={[12, 12]} style={{ marginTop: 16 }}>
           <Col xs={12} sm={4}>
-            <Statistic title="總資產數" value={stats?.total_count ?? 0} />
-          </Col>
-          <Col xs={12} sm={4}>
-            <Statistic
-              title="使用中"
-              value={stats?.in_use ?? 0}
-              styles={{ content: { color: '#52c41a' } }}
+            <ClickableStatCard
+              title="總資產數" value={stats?.total_count ?? 0}
+              icon={<ShoppingOutlined />} color="#1890ff"
+              active={statFilter === null}
+              onClick={() => { setStatFilter(null); setParams(p => ({ ...p, status: undefined, skip: 0 })); }}
             />
           </Col>
           <Col xs={12} sm={4}>
-            <Statistic
-              title="維修中"
-              value={stats?.maintenance ?? 0}
-              styles={{ content: { color: '#fa8c16' } }}
+            <ClickableStatCard
+              title="使用中" value={stats?.in_use ?? 0}
+              icon={<CheckCircleOutlined />} color="#52c41a"
+              active={statFilter === 'in_use'}
+              onClick={() => { setStatFilter('in_use'); setParams(p => ({ ...p, status: 'in_use', skip: 0 })); }}
             />
           </Col>
           <Col xs={12} sm={4}>
-            <Statistic
-              title="閒置"
-              value={stats?.idle ?? 0}
-              styles={{ content: { color: '#1890ff' } }}
+            <ClickableStatCard
+              title="維修中" value={stats?.maintenance ?? 0}
+              icon={<ToolOutlined />} color="#fa8c16"
+              active={statFilter === 'maintenance'}
+              onClick={() => { setStatFilter('maintenance'); setParams(p => ({ ...p, status: 'maintenance', skip: 0 })); }}
+            />
+          </Col>
+          <Col xs={12} sm={4}>
+            <ClickableStatCard
+              title="閒置" value={stats?.idle ?? 0}
+              icon={<PauseCircleOutlined />} color="#1890ff"
+              active={statFilter === 'idle'}
+              onClick={() => { setStatFilter('idle'); setParams(p => ({ ...p, status: 'idle', skip: 0 })); }}
             />
           </Col>
           <Col xs={12} sm={8}>
-            <Statistic
-              title="總價值"
-              value={stats?.total_value ?? 0}
-              precision={0}
-              prefix="NT$"
+            <ClickableStatCard
+              title="總價值" value={`NT$ ${(stats?.total_value ?? 0).toLocaleString()}`}
+              icon={<DollarOutlined />} color="#722ed1"
             />
           </Col>
         </Row>

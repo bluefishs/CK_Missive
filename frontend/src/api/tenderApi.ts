@@ -81,6 +81,13 @@ export const tenderApi = {
     return res.data!;
   },
 
+  async updateSubscription(params: { id: number; keyword?: string; category?: string; is_active?: boolean; notify_line?: boolean; notify_system?: boolean }): Promise<{ id: number; keyword: string }> {
+    const res = await apiClient.post<SuccessResponse<{ id: number; keyword: string }>>(
+      TENDER_ENDPOINTS.SUBSCRIPTIONS_UPDATE, params,
+    );
+    return res.data!;
+  },
+
   async deleteSubscription(id: number): Promise<void> {
     await apiClient.post(TENDER_ENDPOINTS.SUBSCRIPTIONS_DELETE, { id });
   },
