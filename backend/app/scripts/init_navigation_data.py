@@ -426,6 +426,17 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
     {
+        "title": "廠商分析",
+        "key": "tender-company-profile",
+        "path": "/tender/company-profile",
+        "icon": "TeamOutlined",
+        "sort_order": 16,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "廠商,投標分析,得標歷史,統計",
+        "permission_required": "[]"
+    },
+    {
         "title": "底價分析",
         "key": "tender-price-analysis",
         "path": "/tender/price-analysis",
