@@ -86,13 +86,39 @@ async def battle_room(search: TenderSearchService, unit_id: str, job_number: str
 
 async def org_ecosystem(search: TenderSearchService, org_name: str, pages: int = 10) -> dict:
     """機關生態分析 — 年度 Top 10 廠商 + 競爭強度 + 得標金額"""
-    all_records = []
-    for page in range(1, pages + 1):
-        result = await search.search_by_org(org_name=org_name, page=page)
-        records = result.get("records", [])
-        if not records:
+    import asyncio
+
+    # 並行搜尋: orgname + title (機關改名也能找到舊標案)
+    async def fetch_org(p):
+        return await search.search_by_org(org_name=org_name, page=p)
+    async def fetch_title(p):
+        return await search.search_by_title(query=org_name, page=p)
+
+    tasks = [fetch_org(p) for p in range(1, min(pages, 5) + 1)]
+    # 用機關名稱的核心部分搜標題 (處理改名問題)
+    short_name = org_name
+    for suffix in ['分局', '管理處', '工程處', '服務中心', '中心', '局']:
+        idx = org_name.rfind(suffix)
+        if idx > 4:
+            short_name = org_name[max(0, idx - 6):idx + len(suffix)]
             break
-        all_records.extend(records)
+    tasks += [fetch_title(p) for p in range(1, 3)]
+    if short_name != org_name:
+        async def fetch_short(p):
+            return await search.search_by_title(query=short_name, page=p)
+        tasks += [fetch_short(p) for p in range(1, 3)]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    seen_jobs = set()
+    all_records = []
+    for item in results:
+        if isinstance(item, Exception):
+            continue
+        for r in item.get("records", []):
+            jn = r.get("job_number", "")
+            if jn and jn not in seen_jobs:
+                seen_jobs.add(jn)
+                all_records.append(r)
 
     if not all_records:
         return {"org_name": org_name, "total": 0}
