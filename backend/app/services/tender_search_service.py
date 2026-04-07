@@ -269,7 +269,7 @@ class TenderSearchService:
             "raw_date": raw_date,
             "title": brief.get("title", ""),
             "type": brief.get("type", ""),
-            "category": brief.get("category", ""),
+            "category": self._clean_category(brief.get("category", "")),
             "unit_id": record.get("unit_id", ""),
             "unit_name": record.get("unit_name", ""),
             "job_number": record.get("job_number", ""),
@@ -402,6 +402,18 @@ class TenderSearchService:
         """檢查標案是否匹配分類"""
         cat = record.get("brief", {}).get("category", "")
         return category in cat
+
+    @staticmethod
+    def _clean_category(raw: str) -> str:
+        """Clean category: '482-勞務類' → '勞務類', '2-工程類' → '工程類'"""
+        if not raw:
+            return "未分類"
+        import re
+        # Remove leading numbers + dash: "482-勞務類" → "勞務類"
+        cleaned = re.sub(r'^[\d.]+-', '', raw).strip()
+        # Remove parenthetical codes: "勞務類(482)" → "勞務類"
+        cleaned = re.sub(r'\([\d.]+\)', '', cleaned).strip()
+        return cleaned or raw
 
     async def build_tender_graph(
         self, query: str, max_tenders: int = 20
