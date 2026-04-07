@@ -156,29 +156,24 @@ async def get_tender_detail_full(
 
     analytics = TenderAnalyticsService()
 
-    # 並行取得所有資料 (含底價分析)
-    detail_task = service.get_tender_detail(req.unit_id, req.job_number)
-    battle_task = analytics.battle_room(req.unit_id, req.job_number)
-    price_task = analytics.price_analysis(req.unit_id, req.job_number)
-    org_task = service.search_by_org(req.unit_id.split(".")[0] if "." in req.unit_id else req.unit_id, page=1)
-
-    results = await asyncio.gather(detail_task, battle_task, price_task, org_task, return_exceptions=True)
-
-    detail = results[0] if not isinstance(results[0], Exception) else None
-    battle = results[1] if not isinstance(results[1], Exception) else {}
-    price = results[2] if not isinstance(results[2], Exception) else {}
-    org_tenders = results[3] if not isinstance(results[3], Exception) else {"records": []}
-
+    # Step 1: 取得詳情 (需先知道機關名稱)
+    detail = await service.get_tender_detail(req.unit_id, req.job_number)
     if not detail:
         return SuccessResponse(data=None, message="查無此標案")
 
-    # 取機關名稱用於機關生態搜尋
     agency_name = detail.get("unit_name", "")
-    if agency_name and not org_tenders.get("records"):
-        try:
-            org_tenders = await service.search_by_org(agency_name, page=1)
-        except Exception:
-            pass
+
+    # Step 2: 並行取得戰情+底價+機關生態 (用機關名稱搜尋)
+    battle_task = analytics.battle_room(req.unit_id, req.job_number)
+    price_task = analytics.price_analysis(req.unit_id, req.job_number)
+    async def _empty_org(): return {"records": []}
+    org_task = service.search_by_org(agency_name, page=1) if agency_name else _empty_org()
+
+    results = await asyncio.gather(battle_task, price_task, org_task, return_exceptions=True)
+
+    battle = results[0] if not isinstance(results[0], Exception) else {}
+    price = results[1] if not isinstance(results[1], Exception) else {}
+    org_tenders = results[2] if not isinstance(results[2], Exception) else {"records": []}
 
     return SuccessResponse(data={
         "detail": detail,

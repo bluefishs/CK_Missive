@@ -10,7 +10,7 @@
  *
  * @version 2.0.0 — ezbid 風格強化
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
   Descriptions, Tag, Timeline, Card, Typography, Button, Space, List, Select, Popconfirm,
   Row, Col, Statistic, Empty, Alert,
@@ -60,8 +60,17 @@ const TenderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const uid = unitId ? decodeURIComponent(unitId) : null;
   const jn = jobNumber ? decodeURIComponent(jobNumber) : null;
-  const { data: detail, isLoading } = useTenderDetail(uid, jn);
-  const { data: fullData } = useTenderDetailFull(uid, jn);
+  const isEzbidId = uid && /^\d+$/.test(uid) && (!jn || jn === '');
+
+  const { data: detail, isLoading } = useTenderDetail(isEzbidId ? null : uid, isEzbidId ? null : jn);
+  const { data: fullData } = useTenderDetailFull(isEzbidId ? null : uid, isEzbidId ? null : jn);
+
+  // ezbid 純數字 ID → 重導向 ezbid 詳情頁
+  useEffect(() => {
+    if (isEzbidId && uid) {
+      window.location.href = `https://cf.ezbid.tw/tender/${uid}`;
+    }
+  }, [isEzbidId, uid]);
   const { data: allBookmarks } = useTenderBookmarks();
   const bookmarkMutation = useCreateBookmark();
   const updateBmMutation = useUpdateBookmark();
