@@ -156,18 +156,16 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`最新招標`} value={stats?.latest_bid ?? 0}
+            title={`最新招標 (${data?.latest_date?.slice(5) ?? ''})`} value={stats?.latest_bid ?? 0}
             icon={<FileSearchOutlined />} color="#1890ff"
-            suffix={data?.latest_date ? data.latest_date.slice(5) : ''}
             active={activeList === 'latest_bid'}
             onClick={() => setActiveList('latest_bid')}
           />
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`最新決標`} value={stats?.latest_award ?? 0}
+            title={`最新決標 (${data?.latest_date?.slice(5) ?? ''})`} value={stats?.latest_award ?? 0}
             icon={<CheckCircleOutlined />} color="#52c41a"
-            suffix={data?.latest_date ? data.latest_date.slice(5) : ''}
             active={activeList === 'latest_award'}
             onClick={() => setActiveList('latest_award')}
           />
