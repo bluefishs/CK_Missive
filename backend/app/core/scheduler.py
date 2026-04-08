@@ -180,6 +180,27 @@ async def einvoice_sync_job():
 
 
 @tracked_job("code_graph_update")
+@tracked_job("erp_graph_ingest")
+async def erp_graph_ingest_job():
+    """ERP 圖譜入圖 — 掃描 ERP 表 → canonical_entities + case_code 橋接"""
+    from app.db.database import async_session_maker
+
+    logger.info("開始執行 ERP 圖譜入圖")
+    try:
+        async with async_session_maker() as db:
+            from app.services.ai.erp_graph_ingest import ErpGraphIngestService
+            service = ErpGraphIngestService(db)
+            stats = await service.ingest_all()
+            logger.info(
+                "ERP 圖譜入圖完成: entities=%d, relations=%d, bridges=%d, %dms",
+                stats.get("entities", 0), stats.get("relations", 0),
+                stats.get("cross_graph_bridges", 0), stats.get("duration_ms", 0),
+            )
+    except Exception as e:
+        logger.error("ERP 圖譜入圖失敗: %s", e, exc_info=True)
+
+
+@tracked_job("code_graph_incremental")
 async def code_graph_incremental_job():
     """Code Graph 增量更新 — 掃描 Python/TypeScript AST 變更並更新圖譜實體"""
     from app.db.database import async_session_maker
@@ -681,6 +702,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加安全掃描: 每日 02:00 執行")
+
+    # ERP 圖譜入圖 — 每日 03:30 掃描 ERP 表
+    scheduler.add_job(
+        erp_graph_ingest_job,
+        trigger=CronTrigger(hour=3, minute=30),
+        id='erp_graph_ingest',
+        name='ERP 圖譜入圖 (quotation/expense/asset)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 ERP 圖譜入圖: 每日 03:30 執行")
 
     # 添加 Code Graph 增量更新 — 每日 03:00 掃描 Python/TypeScript AST
     scheduler.add_job(

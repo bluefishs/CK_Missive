@@ -549,3 +549,25 @@ async def merge_entities(
     except ValueError as e:
         logger.error("實體合併失敗: %s", e)
         raise HTTPException(status_code=400, detail="操作失敗，請稍後再試")
+
+
+@router.post("/graph/admin/erp-ingest", summary="手動觸發 ERP 圖譜入圖")
+async def trigger_erp_graph_ingest(
+    current_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    手動觸發 ERP 圖譜入圖。
+
+    掃描 ERP 表 (quotation/expense/asset/vendor) → canonical_entities，
+    自動建立 case_code 跨圖橋接。
+    """
+    from app.services.ai.erp_graph_ingest import ErpGraphIngestService
+
+    service = ErpGraphIngestService(db)
+    stats = await service.ingest_all()
+    return {
+        "success": True,
+        "message": f"ERP 入圖完成: {stats['entities']} 實體, {stats['relations']} 關係, {stats['cross_graph_bridges']} 橋接",
+        **stats,
+    }
