@@ -134,6 +134,17 @@ async def digital_twin_query_stream(
         yield _sse_event({"type": "thinking", "step": f"完成 ({model})", "step_index": 3})
         yield _sse_event({"type": "token", "token": answer})
 
+        # Token 追蹤 (OpenClaw federation)
+        try:
+            from app.services.ai.token_usage_tracker import get_token_tracker
+            await get_token_tracker().record(
+                provider="openclaw", model=model, feature="digital_twin",
+                input_tokens=max(len(prompt) // 2, 1),
+                output_tokens=max(len(answer) // 2, 1),
+            )
+        except Exception:
+            pass
+
         latency = int((time.time() - t0) * 1000)
         yield _sse_event({
             "type": "done",

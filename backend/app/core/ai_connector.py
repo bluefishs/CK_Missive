@@ -165,6 +165,25 @@ class AIConnector(AIConnectorManagementMixin):
         if images:
             prefer_local = True
 
+        # Token 追蹤輔助
+        input_text = " ".join(m.get("content", "") for m in messages if isinstance(m.get("content"), str))
+        _input_tokens_est = max(len(input_text) // 2, 1)  # CJK rough estimate
+
+        async def _track_and_return(result: str, provider: str, model_name: str) -> str:
+            output_tokens_est = max(len(result) // 2, 1)
+            try:
+                from app.services.ai.token_usage_tracker import get_token_tracker
+                await get_token_tracker().record(
+                    provider=provider,
+                    model=model_name,
+                    feature=task_type or "chat",
+                    input_tokens=_input_tokens_est,
+                    output_tokens=output_tokens_est,
+                )
+            except Exception:
+                pass  # token tracking 不應阻斷推理
+            return result
+
         # Ollama-First 路徑（NER、批次、非即時任務 — 本地無限量）
         if prefer_local:
             try:
@@ -175,7 +194,7 @@ class AIConnector(AIConnectorManagementMixin):
                     images=images,
                 )
                 self._last_provider = "ollama"
-                return result
+                return await _track_and_return(result, "ollama", ollama_model)
             except Exception as e:
                 logger.warning("Ollama-first 失敗，降級至 Groq: %s", e)
                 # 繼續到下方 Groq-first 邏輯作為 fallback
@@ -192,7 +211,7 @@ class AIConnector(AIConnectorManagementMixin):
                     api_url=VLLM_LOCAL_URL,
                 )
                 self._last_provider = "vllm"
-                return result
+                return await _track_and_return(result, "vllm", VLLM_LOCAL_MODEL)
             except Exception as e:
                 logger.warning("vLLM 本地失敗: %s", e)
 
@@ -215,7 +234,7 @@ class AIConnector(AIConnectorManagementMixin):
                         response_format=response_format,
                     )
                     self._last_provider = "groq"
-                    return result
+                    return await _track_and_return(result, "groq", groq_model)
                 except httpx.TimeoutException as e:
                     last_error = e
                     logger.warning("Groq API 逾時 (attempt %d/%d): %s",
@@ -248,7 +267,7 @@ class AIConnector(AIConnectorManagementMixin):
                     response_format=response_format,
                 )
                 self._last_provider = "nvidia"
-                return result
+                return await _track_and_return(result, "nvidia", NVIDIA_DEFAULT_MODEL)
             except Exception as e:
                 logger.warning("NVIDIA Cloud API 失敗: %s", e)
 
@@ -261,7 +280,7 @@ class AIConnector(AIConnectorManagementMixin):
                 images=images,
             )
             self._last_provider = "ollama"
-            return result
+            return await _track_and_return(result, "ollama", ollama_model)
         except Exception as e:
             logger.warning("Ollama 失敗: %s", e)
 

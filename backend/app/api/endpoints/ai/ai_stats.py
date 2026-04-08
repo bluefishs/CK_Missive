@@ -1,9 +1,9 @@
 """
 AI 統計 API 端點
 
-Version: 3.4.0
+Version: 3.5.0
 Created: 2026-02-06
-Updated: 2026-04-05 - 新增晨報預覽/推送端點
+Updated: 2026-04-08 - 新增 Token 用量報告端點
 
 端點:
 - POST /ai/stats - 取得 AI 使用統計
@@ -17,6 +17,7 @@ Updated: 2026-04-05 - 新增晨報預覽/推送端點
 - POST /ai/stats/search/benchmark - 搜尋品質基準測試
 - POST /ai/stats/morning-report/preview - 晨報預覽 (不推送)
 - POST /ai/stats/morning-report/push - 晨報手動推送
+- POST /ai/stats/token-usage - Token 用量報告 (按 provider/日/月)
 """
 
 import logging
@@ -437,3 +438,27 @@ async def push_morning_report(
             status_code=500,
             media_type="application/json; charset=utf-8",
         )
+
+
+# ── Token Usage Report ──
+
+
+@router.post("/stats/token-usage", summary="Token 用量報告")
+async def get_token_usage_report(
+    date: str = None,
+    _user=Depends(optional_auth),
+):
+    """
+    Token 用量報告 — 按 provider/日/月統計，含預算使用率。
+
+    Args:
+        date: 查詢日期 (YYYY-MM-DD)，預設今天
+    """
+    from app.services.ai.token_usage_tracker import get_token_tracker
+
+    tracker = get_token_tracker()
+    report = await tracker.get_usage_report(date)
+    return JSONResponse(
+        {"success": True, "data": report},
+        media_type="application/json; charset=utf-8",
+    )
