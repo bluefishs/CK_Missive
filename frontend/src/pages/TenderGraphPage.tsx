@@ -179,7 +179,7 @@ const TenderGraphPage: React.FC = () => {
                 if (agencyId) navigate(`/tender/${encodeURIComponent(agencyId)}/${encodeURIComponent(jobNum)}`);
                 else message.info(node.name);
               } else if (node.type === 'company') {
-                navigate(`/tender/company?q=${encodeURIComponent(node.name)}`);
+                navigate(`/tender/company-profile?q=${encodeURIComponent(node.name)}`);
               } else if (node.type === 'agency') {
                 // 搜尋該機關的標案
                 navigate(`/tender/search`);
