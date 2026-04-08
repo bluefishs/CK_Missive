@@ -164,6 +164,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ NER 實體提取排程器啟動失敗: {e}")
 
+    # 導覽自動同步 — 確保 init_navigation_data.py 的項目都在 DB 中
+    try:
+        from app.db.database import async_session_maker
+        from app.services.navigation_sync_service import sync_navigation_defaults
+        async with async_session_maker() as sync_db:
+            sync_result = await sync_navigation_defaults(sync_db)
+            if sync_result["inserted"] > 0:
+                logger.info(
+                    "✅ 導覽同步: 新增 %d 項 (checked=%d, skipped=%d)",
+                    sync_result["inserted"], sync_result["checked"], sync_result["skipped"],
+                )
+            else:
+                logger.debug("導覽同步: 無新增 (checked=%d)", sync_result["checked"])
+    except Exception as e:
+        logger.warning(f"⚠️ 導覽同步失敗 (不影響核心功能): {e}")
+
     # 啟動 APScheduler (安全掃描/Code Graph/DB Schema 等定時任務)
     try:
         from app.core.scheduler import setup_scheduler, start_scheduler

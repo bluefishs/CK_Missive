@@ -165,6 +165,13 @@ class AIConnector(AIConnectorManagementMixin):
         if images:
             prefer_local = True
 
+        # 智慧路由：圖譜感知 + Token 預算感知
+        if not prefer_local and not images:
+            prefer_local = await self._smart_route_decision(
+                input_text=" ".join(m.get("content", "") for m in messages if isinstance(m.get("content"), str)),
+                task_type=task_type,
+            )
+
         # Token 追蹤輔助
         input_text = " ".join(m.get("content", "") for m in messages if isinstance(m.get("content"), str))
         _input_tokens_est = max(len(input_text) // 2, 1)  # CJK rough estimate
@@ -704,6 +711,36 @@ class AIConnector(AIConnectorManagementMixin):
                         except json.JSONDecodeError:
                             continue
         logger.info("Ollama 串流完成 (model=%s)", model)
+
+    async def _smart_route_decision(self, input_text: str, task_type: Optional[str] = None) -> bool:
+        """
+        智慧路由器：根據查詢複雜度和 Token 預算決定是否強制本地。
+
+        Returns:
+            True = prefer_local (Gemma 4)，False = 雲端可用
+        """
+        # 規則 1: 簡單任務強制本地
+        simple_tasks = {"ner", "classify", "summary", "embedding"}
+        if task_type in simple_tasks:
+            return True
+
+        # 規則 2: Token 預算超額 → 強制本地
+        try:
+            from app.services.ai.token_usage_tracker import get_token_tracker
+            report = await get_token_tracker().get_usage_report()
+            daily_pct = report.get("daily", {}).get("usage_pct", 0)
+            if daily_pct >= 90:
+                logger.info("Smart router: daily budget %d%% → force local", daily_pct)
+                return True
+        except Exception:
+            pass
+
+        # 規則 3: 短查詢 (< 200 字) → 本地足夠
+        if len(input_text) < 200:
+            return True
+
+        # 預設: 雲端可用 (Groq-first)
+        return False
 
     def _generate_fallback_response(self, question: str) -> str:
         """生成智慧備用回應（公文相關）"""

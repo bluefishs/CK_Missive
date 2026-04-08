@@ -42,6 +42,7 @@ class ERPTriggerScanner:
         alerts.extend(await self.check_erp_overdue_billings())
         alerts.extend(await self.check_invoice_reminder())
         alerts.extend(await self.check_vendor_payment_milestones())
+        alerts.extend(await self.check_amount_mismatch())
 
         # 預算/收據 (委派)
         from app.services.ai.proactive_triggers_finance import (
@@ -298,5 +299,69 @@ class ERPTriggerScanner:
                     "due_date": str(row.due_date),
                 },
             ))
+
+        return alerts
+
+    async def check_amount_mismatch(self) -> List[TriggerAlert]:
+        """
+        財務異常偵測：報價↔請款↔應付金額不一致。
+
+        規則:
+        1. 請款總額 > 報價金額 (超支)
+        2. 應付總額 > 報價金額 (超支)
+        3. 請款總額 vs 應付總額差異 > 10% (不一致)
+        """
+        from app.extended.models.erp import ERPQuotation, ERPBilling, ERPVendorPayable
+        from sqlalchemy import func as sqlfunc
+
+        alerts: List[TriggerAlert] = []
+
+        quotations = (await self.db.execute(
+            select(ERPQuotation.id, ERPQuotation.case_code, ERPQuotation.case_name, ERPQuotation.total_price)
+            .where(ERPQuotation.deleted_at.is_(None))
+            .where(ERPQuotation.total_price > 0)
+        )).all()
+
+        for q_id, case_code, case_name, total_price in quotations:
+            q_amount = float(total_price)
+
+            billing_total = float((await self.db.execute(
+                select(sqlfunc.coalesce(sqlfunc.sum(ERPBilling.billing_amount), 0))
+                .where(ERPBilling.erp_quotation_id == q_id)
+            )).scalar() or 0)
+
+            payable_total = float((await self.db.execute(
+                select(sqlfunc.coalesce(sqlfunc.sum(ERPVendorPayable.payable_amount), 0))
+                .where(ERPVendorPayable.erp_quotation_id == q_id)
+            )).scalar() or 0)
+
+            if billing_total > q_amount * 1.01:
+                alerts.append(TriggerAlert(
+                    alert_type="billing_exceeds_quotation", severity="critical",
+                    title=f"請款超支 {billing_total - q_amount:,.0f} 元",
+                    message=f"案件「{case_name}」({case_code}) 請款 {billing_total:,.0f} > 報價 {q_amount:,.0f}",
+                    entity_type="erp_quotation", entity_id=q_id,
+                    metadata={"case_code": case_code, "quotation": q_amount, "billed": billing_total},
+                ))
+
+            if payable_total > q_amount * 1.01:
+                alerts.append(TriggerAlert(
+                    alert_type="payable_exceeds_quotation", severity="warning",
+                    title=f"應付超支 {payable_total - q_amount:,.0f} 元",
+                    message=f"案件「{case_name}」({case_code}) 應付 {payable_total:,.0f} > 報價 {q_amount:,.0f}",
+                    entity_type="erp_quotation", entity_id=q_id,
+                    metadata={"case_code": case_code, "quotation": q_amount, "payable": payable_total},
+                ))
+
+            if billing_total > 0 and payable_total > 0:
+                diff_pct = abs(billing_total - payable_total) / max(billing_total, payable_total) * 100
+                if diff_pct > 10:
+                    alerts.append(TriggerAlert(
+                        alert_type="billing_payable_mismatch", severity="warning",
+                        title=f"請款/應付差異 {diff_pct:.1f}%",
+                        message=f"案件「{case_name}」請款 {billing_total:,.0f} vs 應付 {payable_total:,.0f}",
+                        entity_type="erp_quotation", entity_id=q_id,
+                        metadata={"case_code": case_code, "billed": billing_total, "payable": payable_total},
+                    ))
 
         return alerts
