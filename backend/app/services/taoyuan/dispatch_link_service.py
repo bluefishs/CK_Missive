@@ -148,20 +148,20 @@ class DispatchLinkService:
                 contract_project_id, exclude_dispatch_id=dispatch_id
             )
 
-        if core_ids:
-            before = len(matched_docs)
-            matched_docs = [
-                doc for doc in matched_docs
-                if score_document_relevance(
-                    doc, core_ids, other_ids=other_ids
-                ) >= 0.3
-            ]
-            after = len(matched_docs)
-            if before != after:
-                logger.info(
-                    "[auto_match] 派工單 %s 相關性過濾: %d -> %d 筆",
-                    dispatch_id, before, after,
-                )
+        # 永遠執行關聯度篩選（即使無 core_ids 也能過濾通用公文）
+        before = len(matched_docs)
+        matched_docs = [
+            doc for doc in matched_docs
+            if score_document_relevance(
+                doc, core_ids or [], other_ids=other_ids
+            ) >= 0.4  # 提高閾值 0.3→0.4 減少誤關聯
+        ]
+        after = len(matched_docs)
+        if before != after:
+            logger.info(
+                "[auto_match] 派工單 %s 相關性過濾: %d -> %d 筆 (core_ids=%d)",
+                dispatch_id, before, after, len(core_ids or []),
+            )
 
         linked_count = 0
         for doc in matched_docs:
@@ -170,6 +170,10 @@ class DispatchLinkService:
             if not doc_id:
                 continue
 
+            # 計算並儲存關聯信心度
+            relevance = score_document_relevance(
+                doc, core_ids or [], other_ids=other_ids
+            )
             link_type = (
                 'company_outgoing'
                 if is_outgoing_doc_number(doc_number)
@@ -179,6 +183,7 @@ class DispatchLinkService:
             link = await self.link_repo.link_dispatch_to_document(
                 dispatch_id, doc_id,
                 link_type=link_type,
+                confidence=str(round(relevance, 2)),
                 auto_commit=False,
             )
             if link is not None:

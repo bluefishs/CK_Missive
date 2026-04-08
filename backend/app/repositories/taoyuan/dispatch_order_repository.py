@@ -311,13 +311,21 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
             )
 
         # 策略 3: 關鍵字拆解匹配（從工程名稱 + 作業類別提取）
+        # 修正: 關鍵字用 AND 組合 (需同時匹配多個關鍵字)，避免通用字眼產生大量誤關聯
         keywords = self._extract_search_keywords(
             project_name=project_name or '',
             work_type=work_type or '',
         )
-        for kw in keywords:
+        if len(keywords) >= 2:
+            # 至少 2 個關鍵字同時出現才視為匹配
+            keyword_and_conditions = [
+                OfficialDocument.subject.ilike(f"%{kw}%") for kw in keywords
+            ]
+            search_conditions.append(and_(*keyword_and_conditions))
+        elif keywords:
+            # 只有 1 個關鍵字，直接匹配
             search_conditions.append(
-                OfficialDocument.subject.ilike(f"%{kw}%")
+                OfficialDocument.subject.ilike(f"%{keywords[0]}%")
             )
 
         # 執行搜尋
