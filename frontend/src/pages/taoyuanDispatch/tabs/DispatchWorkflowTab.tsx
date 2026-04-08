@@ -319,8 +319,8 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         />
       )}
 
-      {/* 未指派公文列表（所有視圖通用） */}
-      {viewMode !== 'correspondence' && hasUnassigned && (
+      {/* 未指派公文列表（所有視圖通用，含公文對照模式） */}
+      {hasUnassigned && (
         <UnassignedDocumentsList
           unassignedDocs={unassignedDocs}
           hasCorrespondence={hasCorrespondence}
