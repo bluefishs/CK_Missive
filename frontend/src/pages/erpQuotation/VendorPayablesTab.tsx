@@ -14,7 +14,6 @@
 
 import React, { useState, useCallback } from 'react';
 import {
-  Table,
   Button,
   Space,
   Tag,
@@ -27,6 +26,7 @@ import {
   Popconfirm,
   App,
 } from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -245,7 +245,7 @@ const VendorPayablesTab: React.FC<VendorPayablesTabProps> = ({ erpQuotationId })
         </Button>
       </div>
 
-      <Table<ERPVendorPayable>
+      <EnhancedTable<ERPVendorPayable>
         columns={columns}
         dataSource={dataSource}
         rowKey="id"

@@ -34,6 +34,7 @@ import {
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, DollarOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import dayjs from 'dayjs';
 
 import type { ERPBilling, ERPBillingStatus } from '../../types/erp';
@@ -203,7 +204,7 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
         </Button>
       </div>
 
-      <Table<ERPBilling>
+      <EnhancedTable<ERPBilling>
         columns={columns}
         dataSource={dataSource}
         rowKey="id"

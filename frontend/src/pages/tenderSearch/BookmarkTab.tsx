@@ -3,8 +3,9 @@
  */
 import React from 'react';
 import {
-  Table, Tag, Button, Typography, Empty, Popconfirm,
+  Tag, Button, Typography, Empty, Popconfirm,
 } from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { BankOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { UseMutationResult } from '@tanstack/react-query';
 
@@ -40,7 +41,7 @@ const BookmarkTab: React.FC<BookmarkTabProps> = ({ bookmarks, deleteBm, onRowCli
   }
 
   return (
-    <Table
+    <EnhancedTable
       dataSource={bookmarks}
       rowKey="id"
       size="middle"

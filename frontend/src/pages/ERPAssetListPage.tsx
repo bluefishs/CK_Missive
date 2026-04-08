@@ -5,7 +5,7 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Alert, App, Card, Table, Button, Space, Tag, Input, Select, Typography,
+  Alert, App, Card, Button, Space, Tag, Input, Select, Typography,
   Row, Col, Modal, Upload,
 } from 'antd';
 import {
@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import { useAssetList, useAssetStats, useExportAssets, useImportAssets, useBatchInventory, useExportInventory, useDownloadAssetTemplate } from '../hooks';
 import type { Asset } from '../types/erp';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title } = Typography;
@@ -334,7 +335,7 @@ const ERPAssetListPage: React.FC = () => {
 
         {isError && <Alert type="error" message="資產資料載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
-        <Table<Asset>
+        <EnhancedTable<Asset>
           columns={columns}
           dataSource={items}
           rowKey="id"

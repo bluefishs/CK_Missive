@@ -7,7 +7,8 @@
  * @version 3.0.0 — 重新定位為邀標/報價專區
  */
 import React, { useState, useMemo } from 'react';
-import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Table, Upload, App, Space } from 'antd';
+import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -319,7 +320,7 @@ export const PMCaseListPage: React.FC = () => {
           </Col>
         </Row>
 
-        <Table<PMCase>
+        <EnhancedTable<PMCase>
           dataSource={cases}
           columns={columns}
           rowKey="id"

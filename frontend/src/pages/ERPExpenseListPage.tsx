@@ -10,7 +10,7 @@
  */
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  Card, Table, Button, Space, Tag, Typography,
+  Card, Button, Space, Tag, Typography,
   Statistic, Row, Col, Tabs,
 } from 'antd';
 import {
@@ -18,6 +18,7 @@ import {
   UploadOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -244,7 +245,7 @@ const ERPExpenseListPage: React.FC = () => {
 
         {activeTab !== 'ledger' ? (
           <>
-            <Table<ExpenseGroup>
+            <EnhancedTable<ExpenseGroup>
               columns={groupColumns}
               dataSource={groups}
               rowKey="group_key"
@@ -261,7 +262,7 @@ const ERPExpenseListPage: React.FC = () => {
           </>
         ) : (
           /* 帳本 Tab */
-          <Table<FinanceLedger>
+          <EnhancedTable<FinanceLedger>
             columns={[
               {
                 title: '日期', dataIndex: 'transaction_date', key: 'date', width: 110,
@@ -303,7 +304,7 @@ const ERPExpenseListPage: React.FC = () => {
             dataSource={ledgerItems}
             rowKey="id"
             size="small"
-            pagination={{ pageSize: 20, showTotal: (t) => `共 ${t} 筆` }}
+            pagination={{ pageSize: 20, showTotal: (t: number) => `共 ${t} 筆` }}
           />
         )}
       </Card>

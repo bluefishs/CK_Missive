@@ -5,7 +5,7 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Alert, Card, Table, Button, Space, Tag, Input, Select, Typography,
+  Alert, Card, Button, Space, Tag, Input, Select, Typography,
   Row, Col, Progress,
 } from 'antd';
 import {
@@ -26,6 +26,7 @@ import {
   OPERATIONAL_STATUS,
 } from '../types/erp';
 import type { OperationalAccount } from '../types/erp';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title } = Typography;
@@ -253,7 +254,7 @@ const ERPOperationalListPage: React.FC = () => {
           />
         )}
 
-        <Table<OperationalAccount>
+        <EnhancedTable<OperationalAccount>
           columns={columns}
           dataSource={items}
           rowKey="id"

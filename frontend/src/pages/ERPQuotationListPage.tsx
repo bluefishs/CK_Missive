@@ -2,7 +2,8 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Table, Button, Space, Input, Typography, Row, Col, Popconfirm, Alert, App, Upload } from 'antd';
+import { Card, Button, Space, Input, Typography, Row, Col, Popconfirm, Alert, App, Upload } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, DownloadOutlined, EditOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
@@ -220,7 +221,7 @@ export const ERPQuotationListPage: React.FC = () => {
           )}
         </Space>
 
-        <Table<ERPQuotation>
+        <EnhancedTable<ERPQuotation>
           columns={columns}
           dataSource={data?.items ?? []}
           rowKey="id"

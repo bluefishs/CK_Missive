@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import {
-  Card, Row, Col, Statistic, Table, Typography, Spin, Input, Button, Empty, Space,
+  Card, Row, Col, Statistic, Typography, Spin, Input, Button, Empty, Space,
 } from 'antd';
 import { BankOutlined, SearchOutlined } from '@ant-design/icons';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -18,6 +18,7 @@ import {
 import apiClient from '../api/client';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import CategoryPieChart from '../components/tender/CategoryPieChart';
 const { Title } = Typography;
 
@@ -129,7 +130,7 @@ const TenderOrgEcosystemPage: React.FC = () => {
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             <Col xs={24} lg={12}>
               <Card title="得標廠商排行 (Top 20)" size="small">
-                <Table
+                <EnhancedTable
                   columns={[
                     { title: '排名', key: 'rank', width: 60, render: (_: unknown, __: unknown, i: number) => i + 1 },
                     {
@@ -151,7 +152,7 @@ const TenderOrgEcosystemPage: React.FC = () => {
             {/* 近期標案 */}
             <Col xs={24} lg={12}>
               <Card title="近期標案" size="small">
-                <Table
+                <EnhancedTable
                   columns={[
                     {
                       title: '標案', dataIndex: 'title', key: 'title', ellipsis: true,

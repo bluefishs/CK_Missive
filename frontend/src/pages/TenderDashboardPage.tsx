@@ -10,7 +10,7 @@
  */
 import React, { useState } from 'react';
 import {
-  Card, Row, Col, Table, Tag, Typography, Spin, Button, Space,
+  Card, Row, Col, Tag, Typography, Spin, Button, Space,
 } from 'antd';
 import {
   FundOutlined, ReloadOutlined, BankOutlined, TrophyOutlined,
@@ -24,6 +24,7 @@ import apiClient from '../api/client';
 import CategoryPieChart from '../components/tender/CategoryPieChart';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title, Text } = Typography;
@@ -193,13 +194,13 @@ const TenderDashboardPage: React.FC = () => {
         extra={<Tag color="blue">{currentList.data.length} 筆</Tag>}
         style={{ marginBottom: 16 }}
       >
-        <Table<TenderItem>
+        <EnhancedTable<TenderItem>
           columns={tenderColumns}
           dataSource={currentList.data}
           rowKey={(_r, i) => `tender-${i}`}
           size="small"
           scroll={{ x: 700 }}
-          pagination={currentList.data.length > 10 ? { pageSize: 10, showTotal: (t) => `共 ${t} 筆` } : false}
+          pagination={currentList.data.length > 10 ? { pageSize: 10, showTotal: (t: number) => `共 ${t} 筆` } : false}
           onRow={(record) => ({
             onClick: () => navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number || '')}`),
             style: { cursor: 'pointer' },

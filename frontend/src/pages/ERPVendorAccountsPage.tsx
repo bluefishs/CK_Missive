@@ -10,7 +10,7 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Alert, Card, Table, Typography, Row, Col, Tag, Select, Space, Input,
+  Alert, Card, Typography, Row, Col, Tag, Select, Space, Input,
 } from 'antd';
 import { DollarOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ClickableStatCard } from '../components/common';
@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import { useVendorAccountSummary } from '../hooks';
 import type { VendorAccountSummaryItem } from '../types/erp';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title } = Typography;
@@ -203,7 +204,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       {isError && <Alert type="error" message="載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
       <Card>
-        <Table<VendorAccountSummaryItem>
+        <EnhancedTable<VendorAccountSummaryItem>
           columns={columns}
           dataSource={filteredItems}
           rowKey="vendor_id"

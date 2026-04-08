@@ -5,7 +5,7 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Card, Table, Tag, Select, Typography, Row, Col, Space, Alert,
+  Card, Tag, Select, Typography, Row, Col, Space, Alert,
 } from 'antd';
 import {
   ArrowUpOutlined, ArrowDownOutlined, SwapOutlined,
@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { useInvoiceSummary } from '../hooks';
 import type { InvoiceSummaryItem, InvoiceSummaryRequest } from '../types/erp';
 import { ERP_INVOICE_TYPE_LABELS } from '../types/erp';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
 
@@ -167,7 +168,7 @@ const ERPInvoiceSummaryPage: React.FC = () => {
           />
         </Space>
 
-        <Table<InvoiceSummaryItem>
+        <EnhancedTable<InvoiceSummaryItem>
           columns={columns}
           dataSource={items}
           rowKey="id"

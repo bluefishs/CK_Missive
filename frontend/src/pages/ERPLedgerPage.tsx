@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import {
-  Card, Table, Button, Space, Tag, Input, Select, Typography,
+  Card, Button, Space, Tag, Input, Select, Typography,
   Statistic, Row, Col, Modal, Form, DatePicker, Popconfirm, App, Alert,
 } from 'antd';
 import {
@@ -23,6 +23,7 @@ import {
 } from '../hooks';
 import type { FinanceLedger, LedgerQuery, LedgerCreate, LedgerEntryType } from '../types/erp';
 import { LEDGER_ENTRY_TYPE_LABELS } from '../types/erp';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
@@ -207,7 +208,7 @@ const ERPLedgerPage: React.FC = () => {
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
         </Space>
 
-        <Table<FinanceLedger>
+        <EnhancedTable<FinanceLedger>
           columns={columns}
           dataSource={items}
           rowKey="id"

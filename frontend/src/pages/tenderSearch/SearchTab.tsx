@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import {
-  Input, Table, Tag, Select, Button, Typography, Row, Col, Tooltip,
+  Input, Tag, Select, Button, Typography, Row, Col, Tooltip,
 } from 'antd';
 import {
   StarOutlined, StarFilled, BankOutlined,
@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import type { TenderRecord, TenderSearchParams, TenderRecommendResult } from '../../types/tender';
 import type { ColumnsType } from 'antd/es/table';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 
 const { Text } = Typography;
 
@@ -179,7 +180,7 @@ const SearchTab: React.FC<SearchTabProps> = ({
         </Text>
       )}
       {typeFilter && <Tag closable onClose={() => setTypeFilter('')} color="blue" style={{ marginBottom: 8 }}>類型篩選: {typeFilter}</Tag>}
-      <Table<TenderRecord> columns={columns} dataSource={filteredData} rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${r.raw_date}-${i}`}
+      <EnhancedTable<TenderRecord> columns={columns} dataSource={filteredData} rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${r.raw_date}-${i}`}
         loading={isLoading} size="middle" scroll={{ x: 900 }}
         pagination={params ? { current: params.page ?? 1, pageSize: 100, total: typeFilter ? filteredData.length : (displayTotal ?? 0),
           onChange: (p) => { if (!typeFilter) setParams(prev => prev ? { ...prev, page: p } : null); }, showTotal: (t) => `共 ${t.toLocaleString()} 筆`, showSizeChanger: false } : false}
