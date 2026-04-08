@@ -410,6 +410,73 @@ class QueryPatternLearner:
             )
         return "\n".join(lines)
 
+    # ── 實體偏好學習 ──
+
+    _ENTITY_PREF_PREFIX = "entity_pref"
+    _ENTITY_PREF_TTL = 30 * 86400  # 30 days
+    _ENTITY_PREF_THRESHOLD = 5
+
+    async def record_entity_usage(self, entity_ids: List[int]) -> None:
+        """記錄使用者查詢涉及的實體，高頻實體自動寫入 AgentLearning。
+
+        For each entity_id:
+        1. Increment Redis counter ``entity_pref:{entity_id}`` (TTL 30 days)
+        2. If counter >= threshold (5), upsert an AgentLearning record
+           with learning_type='entity_preference'
+        """
+        redis = await self._get_redis()
+        if not redis or not entity_ids:
+            return
+
+        for entity_id in entity_ids:
+            try:
+                redis_key = f"{self._ENTITY_PREF_PREFIX}:{entity_id}"
+                count = await redis.incr(redis_key)
+                await redis.expire(redis_key, self._ENTITY_PREF_TTL)
+
+                if count >= self._ENTITY_PREF_THRESHOLD:
+                    await self._persist_entity_preference(entity_id, count)
+            except Exception as e:
+                logger.debug("record_entity_usage failed for %s: %s", entity_id, e)
+
+    async def _persist_entity_preference(self, entity_id: int, query_count: int) -> None:
+        """Upsert entity preference into AgentLearning (DB)."""
+        try:
+            from app.db.database import AsyncSessionLocal
+            from app.extended.models.agent_learning import AgentLearning
+
+            content = f"entity:{entity_id}"
+            content_hash = hashlib.md5(content.encode()).hexdigest()
+
+            async with AsyncSessionLocal() as db:
+                # Check if already exists
+                from sqlalchemy import select
+                existing = await db.execute(
+                    select(AgentLearning).where(
+                        AgentLearning.content_hash == content_hash,
+                        AgentLearning.is_active == True,  # noqa: E712
+                    )
+                )
+                record = existing.scalar_one_or_none()
+
+                if record:
+                    record.hit_count = record.hit_count + 1
+                    record.confidence = min(1.0, 0.5 + query_count * 0.05)
+                else:
+                    db.add(AgentLearning(
+                        session_id="system",
+                        learning_type="entity_preference",
+                        content=content,
+                        content_hash=content_hash,
+                        source_question=f"Auto-detected: entity {entity_id} queried {query_count}+ times",
+                        confidence=min(1.0, 0.5 + query_count * 0.05),
+                        hit_count=1,
+                    ))
+                await db.commit()
+                logger.debug("Persisted entity preference for entity_id=%s (count=%s)", entity_id, query_count)
+        except Exception as e:
+            logger.debug("_persist_entity_preference failed: %s", e)
+
     # ── 種子資料載入 ──
 
     async def load_seeds_if_empty(self) -> int:

@@ -90,6 +90,13 @@ class TestParseAmount:
 class TestSaveSearchResults:
     """save_search_results 批次寫入測試"""
 
+    @pytest.fixture(autouse=True)
+    def patch_entity_ingestion(self):
+        """Patch entity ingestion to avoid DB calls in unit tests"""
+        from unittest.mock import patch, AsyncMock
+        with patch("app.services.tender_cache_service._ingest_tender_entities", new_callable=AsyncMock):
+            yield
+
     @pytest.mark.asyncio
     async def test_empty_list_returns_zero(self, mock_db):
         """空記錄列表應回傳 0"""

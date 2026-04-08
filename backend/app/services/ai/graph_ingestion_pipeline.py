@@ -6,7 +6,7 @@
 
 流程: 提取 → 正規化解析 → 關係連結 → 事件紀錄
 
-Version: 1.1.0
+Version: 1.2.0
 Created: 2026-02-24
 """
 
@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.extended.models import (
     OfficialDocument,
     DocumentEntity,
+    DocumentEntityMention,
     EntityRelation,
     EntityRelationship,
     GraphIngestionEvent,
@@ -29,6 +30,21 @@ from .ai_config import get_ai_config
 from .canonical_entity_service import CanonicalEntityService
 
 logger = logging.getLogger(__name__)
+
+# ── G-2: 關係反向映射 ──────────────────────────────────
+INVERSE_RELATION_MAP = {
+    "manages": "managed_by",
+    "managed_by": "manages",
+    "belongs_to": "contains",
+    "contains": "belongs_to",
+    "supervises": "supervised_by",
+    "supervised_by": "supervises",
+    "issues_to": "received_from",
+    "received_from": "issues_to",
+    "cooperates_with": "cooperates_with",  # symmetric
+    "located_in": "location_of",
+    "location_of": "located_in",
+}
 
 
 class GraphIngestionPipeline:
@@ -118,7 +134,8 @@ class GraphIngestionPipeline:
             else:
                 entities_merged += 1
 
-        # 記錄提及（每個 unique entity 僅一筆，與原邏輯一致）
+        # ── G-1: 批次記錄提及（取代 per-entity add_mention）──
+        mention_objects: list[DocumentEntityMention] = []
         for ent_name, ent_type in entity_inputs:
             key = f"{ent_type}:{ent_name}"
             canonical = canonical_map.get(key)
@@ -131,13 +148,19 @@ class GraphIngestionPipeline:
                 None,
             )
             if raw_ent:
-                await self._entity_service.add_mention(
+                mention_objects.append(DocumentEntityMention(
                     document_id=document_id,
-                    canonical_entity=canonical,
+                    canonical_entity_id=canonical.id,
                     mention_text=ent_name,
                     confidence=raw_ent.confidence,
-                    context=raw_ent.context,
-                )
+                    context=raw_ent.context[:500] if raw_ent.context else None,
+                ))
+                # 更新正規實體的統計
+                canonical.mention_count = (canonical.mention_count or 0) + 1
+                canonical.last_seen_at = sa_func.now()
+
+        if mention_objects:
+            self.db.add_all(mention_objects)
 
         # ── 正規化關係（v1.1.0: 預載 + 批次查詢）──────────────
         relation_result = await self.db.execute(
@@ -211,6 +234,29 @@ class GraphIngestionPipeline:
                 rel_lookup[lookup_key] = new_rel
 
             relations_found += 1
+
+            # ── G-2: 自動產生反向邊 ──
+            inverse_type = INVERSE_RELATION_MAP.get(rel.relation_type)
+            if inverse_type:
+                inv_key = (tgt_canonical.id, src_canonical.id, inverse_type)
+                inv_existing = rel_lookup.get(inv_key)
+                if inv_existing:
+                    inv_existing.weight = (inv_existing.weight or 1.0) + 1.0
+                    inv_existing.document_count = (inv_existing.document_count or 1) + 1
+                else:
+                    inv_rel = EntityRelationship(
+                        source_entity_id=tgt_canonical.id,
+                        target_entity_id=src_canonical.id,
+                        relation_type=inverse_type,
+                        relation_label=inverse_type.replace("_", " "),
+                        weight=1.0,
+                        confidence_level="extracted",
+                        valid_from=valid_from,
+                        first_document_id=document_id,
+                        document_count=1,
+                    )
+                    self.db.add(inv_rel)
+                    rel_lookup[inv_key] = inv_rel
 
         # 記錄入圖事件
         processing_ms = int((time.monotonic() - start_time) * 1000)

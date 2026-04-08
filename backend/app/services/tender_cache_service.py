@@ -15,6 +15,8 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.ai.name_utils import normalize_for_match
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,6 +39,53 @@ def _parse_amount(raw) -> Optional[float]:
         return float(cleaned) if cleaned else None
     except (ValueError, TypeError):
         return None
+
+
+async def _ingest_tender_entities(db: AsyncSession, records: List[Dict[str, Any]]) -> int:
+    """將標案中的機關與廠商名稱寫入 CanonicalEntity (知識圖譜自動入圖)
+
+    Uses INSERT...ON CONFLICT to upsert: new entities are created,
+    existing ones get mention_count incremented.
+    """
+    names: set[str] = set()
+
+    # Collect unique unit_name (org) from tender records
+    for r in records:
+        unit_name = (r.get("unit_name") or "").strip()
+        if unit_name:
+            names.add(unit_name)
+
+    # Collect unique company names from winner/bidder lists
+    for r in records:
+        for key in ("winner_names", "bidder_names"):
+            for name in (r.get(key) or []):
+                if name and name.strip():
+                    names.add(name.strip())
+
+    if not names:
+        return 0
+
+    ingested = 0
+    for raw_name in names:
+        normalized = normalize_for_match(raw_name)
+        if not normalized:
+            continue
+        try:
+            await db.execute(text("""
+                INSERT INTO canonical_entities (canonical_name, entity_type, description, mention_count)
+                VALUES (:name, 'org', :desc, 1)
+                ON CONFLICT (canonical_name, entity_type) DO UPDATE
+                    SET mention_count = canonical_entities.mention_count + 1,
+                        last_seen_at = NOW()
+            """), {"name": normalized, "desc": f"Auto-ingested from tender: {raw_name}"})
+            ingested += 1
+        except Exception as e:
+            logger.debug(f"Ingest tender entity '{raw_name}' failed: {e}")
+            continue
+
+    if ingested > 0:
+        logger.info(f"Ingested {ingested} tender entities into KG")
+    return ingested
 
 
 async def save_search_results(db: AsyncSession, records: List[Dict[str, Any]], source: str = "pcc"):
@@ -108,6 +157,15 @@ async def save_search_results(db: AsyncSession, records: List[Dict[str, Any]], s
     if saved > 0:
         await db.commit()
         logger.info(f"Saved {saved} tender records to DB ({source})")
+
+    # Auto-ingest tender entities into Knowledge Graph
+    if saved > 0:
+        try:
+            ingested = await _ingest_tender_entities(db, records)
+            if ingested > 0:
+                await db.commit()
+        except Exception as e:
+            logger.debug(f"Tender entity ingestion failed: {e}")
 
     return saved
 
