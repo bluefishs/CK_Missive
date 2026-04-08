@@ -1524,7 +1524,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 2983
+      "row_count_estimate": 3332
     },
     "canonical_entities": {
       "columns": [
@@ -3585,6 +3585,10 @@
         {
           "name": "ix_entity_aliases_canonical_entity_id",
           "definition": "CREATE INDEX ix_entity_aliases_canonical_entity_id ON public.entity_aliases USING btree (canonical_entity_id)"
+        },
+        {
+          "name": "ix_entity_alias_entity",
+          "definition": "CREATE INDEX ix_entity_alias_entity ON public.entity_aliases USING btree (canonical_entity_id, alias_name)"
         }
       ],
       "unique_constraints": {
@@ -3593,7 +3597,7 @@
           "canonical_entity_id"
         ]
       },
-      "row_count_estimate": 475
+      "row_count_estimate": 568
     },
     "entity_relations": {
       "columns": [
@@ -3799,6 +3803,14 @@
           "default": "'ck-missive'::character varying",
           "udt_name": "varchar",
           "max_length": 50
+        },
+        {
+          "name": "confidence_level",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'extracted'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
         }
       ],
       "primary_key": [
@@ -3857,10 +3869,18 @@
         {
           "name": "ix_entity_relationship_source_project",
           "definition": "CREATE INDEX ix_entity_relationship_source_project ON public.entity_relationships USING btree (source_project)"
+        },
+        {
+          "name": "ix_entity_rel_src_valid",
+          "definition": "CREATE INDEX ix_entity_rel_src_valid ON public.entity_relationships USING btree (source_entity_id, valid_from)"
+        },
+        {
+          "name": "ix_entity_rel_tgt_valid",
+          "definition": "CREATE INDEX ix_entity_rel_tgt_valid ON public.entity_relationships USING btree (target_entity_id, valid_from)"
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 3100
+      "row_count_estimate": 3103
     },
     "erp_billings": {
       "columns": [
@@ -3899,13 +3919,6 @@
           "nullable": false,
           "default": null,
           "udt_name": "numeric"
-        },
-        {
-          "name": "invoice_id",
-          "type": "INTEGER",
-          "nullable": true,
-          "default": null,
-          "udt_name": "int4"
         },
         {
           "name": "payment_status",
@@ -3967,11 +3980,6 @@
           "column": "erp_quotation_id",
           "ref_table": "erp_quotations",
           "ref_column": "id"
-        },
-        {
-          "column": "invoice_id",
-          "ref_table": "erp_invoices",
-          "ref_column": "id"
         }
       ],
       "indexes": [
@@ -3982,10 +3990,6 @@
         {
           "name": "ix_erp_billings_erp_quotation_id",
           "definition": "CREATE INDEX ix_erp_billings_erp_quotation_id ON public.erp_billings USING btree (erp_quotation_id)"
-        },
-        {
-          "name": "ix_erp_billings_invoice_id",
-          "definition": "CREATE INDEX ix_erp_billings_invoice_id ON public.erp_billings USING btree (invoice_id)"
         },
         {
           "name": "ix_erp_billings_payment_status",
@@ -4280,6 +4284,13 @@
           "default": null,
           "udt_name": "varchar",
           "max_length": 100
+        },
+        {
+          "name": "deleted_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamp"
         }
       ],
       "primary_key": [
@@ -4328,6 +4339,10 @@
         {
           "name": "ix_erp_quotations_case_project",
           "definition": "CREATE INDEX ix_erp_quotations_case_project ON public.erp_quotations USING btree (case_code, project_code)"
+        },
+        {
+          "name": "ix_erp_quotations_deleted_at",
+          "definition": "CREATE INDEX ix_erp_quotations_deleted_at ON public.erp_quotations USING btree (deleted_at)"
         }
       ],
       "unique_constraints": {},
@@ -9713,7 +9728,7 @@
           "ezbid_id"
         ]
       },
-      "row_count_estimate": 303
+      "row_count_estimate": 384
     },
     "tender_subscriptions": {
       "columns": [

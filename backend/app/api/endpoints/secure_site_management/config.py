@@ -37,7 +37,7 @@ async def config_action(
 ):
     """統一的配置操作接口"""
 
-    if not validate_csrf_token(request.csrf_token):
+    if not await validate_csrf_token(request.csrf_token):
         raise HTTPException(status_code=403, detail="Invalid or expired CSRF token")
 
     try:
@@ -64,7 +64,7 @@ async def config_action(
                     "skip": 0,
                     "limit": 100,
                 },
-                csrf_token=generate_csrf_token(),
+                csrf_token=await generate_csrf_token(),
             )
 
         elif action == "create":
@@ -84,7 +84,7 @@ async def config_action(
                 data={
                     "config": SiteConfigResponse.model_validate(new_config).model_dump()
                 },
-                csrf_token=generate_csrf_token(),
+                csrf_token=await generate_csrf_token(),
             )
 
         elif action == "update":
@@ -122,7 +122,7 @@ async def config_action(
                 data={
                     "config": SiteConfigResponse.model_validate(config).model_dump()
                 },
-                csrf_token=generate_csrf_token(),
+                csrf_token=await generate_csrf_token(),
             )
 
         elif action == "delete":
@@ -149,7 +149,7 @@ async def config_action(
             return SecureResponse(
                 success=True,
                 message="Configuration deleted successfully",
-                csrf_token=generate_csrf_token(),
+                csrf_token=await generate_csrf_token(),
             )
 
         else:

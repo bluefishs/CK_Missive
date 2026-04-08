@@ -83,7 +83,7 @@ async def navigation_action(
 ):
     """統一的導覽列操作接口"""
 
-    if not validate_csrf_token(csrf_token):
+    if not await validate_csrf_token(csrf_token):
         raise HTTPException(status_code=403, detail="Invalid or expired CSRF token")
 
     nav_repo = NavigationRepository(session)
@@ -106,7 +106,7 @@ async def navigation_action(
                 "success": True,
                 "message": "Navigation items retrieved successfully",
                 "data": {"items": items, "total": len(items)},
-                "csrf_token": generate_csrf_token(),
+                "csrf_token": await generate_csrf_token(),
             }
 
         elif action == "create":
@@ -122,7 +122,7 @@ async def navigation_action(
                 "success": True,
                 "message": "Navigation item created successfully",
                 "data": {"item": _item_to_dict(new_item)},
-                "csrf_token": generate_csrf_token(),
+                "csrf_token": await generate_csrf_token(),
             }
 
         elif action == "update":
@@ -182,7 +182,7 @@ async def navigation_action(
                 "success": True,
                 "message": "Navigation item updated successfully",
                 "data": {"item": _item_to_dict(item)},
-                "csrf_token": generate_csrf_token(),
+                "csrf_token": await generate_csrf_token(),
             }
 
         elif action == "reorder":
@@ -197,7 +197,7 @@ async def navigation_action(
             return {
                 "success": True,
                 "message": f"Successfully reordered {len(reorder_data)} items",
-                "csrf_token": generate_csrf_token(),
+                "csrf_token": await generate_csrf_token(),
             }
 
         elif action == "delete":
@@ -223,7 +223,7 @@ async def navigation_action(
             return {
                 "success": True,
                 "message": "Navigation item deleted successfully",
-                "csrf_token": generate_csrf_token(),
+                "csrf_token": await generate_csrf_token(),
             }
 
         else:

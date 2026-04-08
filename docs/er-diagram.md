@@ -34,7 +34,6 @@ erDiagram
     canonical_entities ||--o{ entity_relationships : "source_entity_id"
     canonical_entities ||--o{ entity_relationships : "target_entity_id"
     erp_quotations ||--o{ erp_billings : "erp_quotation_id"
-    erp_invoices ||--o{ erp_billings : "invoice_id"
     erp_billings ||--o{ erp_invoices : "billing_id"
     erp_quotations ||--o{ erp_invoices : "erp_quotation_id"
     users ||--o{ erp_quotations : "created_by"
@@ -519,6 +518,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
         varchar source_project "NOT NULL"
+        varchar confidence_level "NOT NULL"
     }
     erp_billings {
         int id "PK"
@@ -526,7 +526,6 @@ erDiagram
         varchar billing_period
         date billing_date "NOT NULL"
         numeric billing_amount "NOT NULL"
-        int invoice_id "FK"
         varchar payment_status
         date payment_date
         numeric payment_amount
@@ -570,6 +569,7 @@ erDiagram
         timestamp updated_at
         numeric budget_limit
         varchar project_code
+        timestamp deleted_at
     }
     erp_vendor_payables {
         int id "PK"
@@ -1234,6 +1234,6 @@ erDiagram
 | 指標 | 數值 |
 |------|------|
 | 總表數 | 69 |
-| 總欄位數 | 993 |
-| 外鍵關聯 | 94 |
+| 總欄位數 | 994 |
+| 外鍵關聯 | 93 |
 | 自訂列舉型別 | 0 |

@@ -16,8 +16,8 @@ router = APIRouter()
 @router.post("/csrf-token", response_model=SecureResponse)
 async def get_csrf_token():
     """獲取 CSRF 令牌"""
-    cleanup_expired_tokens()
-    token = generate_csrf_token()
+    await cleanup_expired_tokens()
+    token = await generate_csrf_token()
     return SecureResponse(
         success=True,
         message="CSRF token generated",
