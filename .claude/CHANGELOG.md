@@ -38,6 +38,43 @@
 - **test_tender_cache_service.py** — tender_cache_service 7 方法 ≥10 cases
 - **test_tender_analytics.py** — battle/price analytics ≥10 cases
 
+#### 行動核銷 + QR Code 入口
+- **ERPExpenseCreatePage v3.0** — 行動端步驟式單流程 (掃描→表單)
+- **圖片壓縮** — >2MB 自動 resize 1920px + JPEG 80%
+- **Steps 進度** — 掃描改用上傳→辨識中→完成三步驟
+- **ExpenseQRCode** — 共用 QR 元件 (下載/複製/列印)
+- **報價+PM 詳情頁** — 「核銷 QR」按鈕，工地掃描直開核銷頁
+
+#### ERP 帳務完整性
+- **AR 同步入帳** — billing→ledger 改同步呼叫，不依賴 EventBus
+- **帳本冪等** — find_by_source 三路檢查 (billing/payable/expense)
+- **刪除防護** — 有 paid billing/payable 的報價拒絕刪除
+- **帳本孤兒清理** — 刪除來源時同步清理 ledger entries
+- **AR 涵蓋未成案** — client_receivable 移除 project_code 限制
+- **vendor_id 自動解析** — by vendor_code 或 vendor_name
+- **帳本對帳排程** — 每日 05:00 AR+AP vs Ledger 差異告警
+- **利潤計算統一** — `compute_quotation_profit()` 模組級函數
+- **PM/ERP 金額差異** — detail API + 前端 Alert 警示
+
+#### 費用核銷品質修正
+- **Item 欄位 Bug** — description→item_name, quantity→qty
+- **金額驗證** — amount ≥ tax_amount schema 強制
+- **審批欄位回傳** — list API 附加 approval_level + next_approval
+- **併發審批鎖** — SELECT...FOR UPDATE 悲觀鎖
+- **批次審批** — POST /erp/expenses/batch-approve (最多 50 筆)
+- **多幣別自動換算** — 前端 useEffect 計算 original_amount × exchange_rate
+- **成案審計** — promote_to_project 寫入 audit_log
+
+#### 服務拆分 Phase 2
+- **agent_pattern_learner** — 528L 拆分
+- **discord_bot_service** — 526L 拆分
+- **audit_service** — 523L 拆分
+- **tender_search_service** — 515L 拆分
+
+#### ERPQuotation 軟刪除 + Billing FK 改單向
+- **deleted_at 欄位** — 軟刪除取代物理刪除
+- **ERPBilling.invoice_id 移除** — 改為 ERPInvoice 單向引用
+
 ---
 
 ## [5.5.0] - 2026-04-05~07
