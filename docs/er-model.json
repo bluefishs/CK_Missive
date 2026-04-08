@@ -1,5 +1,196 @@
 {
   "tables": {
+    "agent_evolution_history": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('agent_evolution_history_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "evolution_id",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 36
+        },
+        {
+          "name": "trigger_reason",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "trigger_value",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "signals_evaluated",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "signals_critical",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "signals_high",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "signals_medium",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "signals_low",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "patterns_promoted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "patterns_demoted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "patterns_expired",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "thresholds_adjusted",
+          "type": "JSON",
+          "nullable": true,
+          "default": null,
+          "udt_name": "json"
+        },
+        {
+          "name": "total_patterns_before",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "total_patterns_after",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "avg_score_before",
+          "type": "DOUBLE PRECISION",
+          "nullable": true,
+          "default": null,
+          "udt_name": "float8"
+        },
+        {
+          "name": "avg_score_after",
+          "type": "DOUBLE PRECISION",
+          "nullable": true,
+          "default": null,
+          "udt_name": "float8"
+        },
+        {
+          "name": "effectiveness_score",
+          "type": "DOUBLE PRECISION",
+          "nullable": true,
+          "default": null,
+          "udt_name": "float8"
+        },
+        {
+          "name": "effectiveness_computed_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": false,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "patterns_graduated",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "patterns_chronic",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "0",
+          "udt_name": "int4"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "agent_evolution_history_pkey",
+          "definition": "CREATE UNIQUE INDEX agent_evolution_history_pkey ON public.agent_evolution_history USING btree (id)"
+        },
+        {
+          "name": "ix_evolution_id",
+          "definition": "CREATE UNIQUE INDEX ix_evolution_id ON public.agent_evolution_history USING btree (evolution_id)"
+        },
+        {
+          "name": "ix_evolution_trigger",
+          "definition": "CREATE INDEX ix_evolution_trigger ON public.agent_evolution_history USING btree (trigger_reason)"
+        },
+        {
+          "name": "ix_evolution_created",
+          "definition": "CREATE INDEX ix_evolution_created ON public.agent_evolution_history USING btree (created_at)"
+        }
+      ],
+      "unique_constraints": {},
+      "row_count_estimate": -1
+    },
     "agent_learnings": {
       "columns": [
         {
@@ -81,6 +272,35 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamptz"
+        },
+        {
+          "name": "graduation_status",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'active'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "consecutive_success_count",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "failure_count",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "last_applied_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamp"
         }
       ],
       "primary_key": [
@@ -103,10 +323,14 @@
         {
           "name": "ix_learning_active_type",
           "definition": "CREATE INDEX ix_learning_active_type ON public.agent_learnings USING btree (is_active, learning_type)"
+        },
+        {
+          "name": "ix_learning_graduation_status",
+          "definition": "CREATE INDEX ix_learning_graduation_status ON public.agent_learnings USING btree (graduation_status)"
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 39
+      "row_count_estimate": 119
     },
     "agent_query_traces": {
       "columns": [
@@ -269,6 +493,13 @@
           "nullable": false,
           "default": "now()",
           "udt_name": "timestamptz"
+        },
+        {
+          "name": "improvement_hint",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
         }
       ],
       "primary_key": [
@@ -1293,7 +1524,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 2097
+      "row_count_estimate": 2983
     },
     "canonical_entities": {
       "columns": [
@@ -1486,7 +1717,7 @@
           "entity_type"
         ]
       },
-      "row_count_estimate": 7361
+      "row_count_estimate": 7959
     },
     "case_nature_codes": {
       "columns": [
@@ -1567,6 +1798,74 @@
       "unique_constraints": {
         "case_nature_codes_code_key": [
           "code"
+        ]
+      },
+      "row_count_estimate": -1
+    },
+    "company_bookmarks": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('company_bookmarks_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "company_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "tag",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'competitor'::character varying",
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "company_bookmarks_pkey",
+          "definition": "CREATE UNIQUE INDEX company_bookmarks_pkey ON public.company_bookmarks USING btree (id)"
+        },
+        {
+          "name": "company_bookmarks_company_name_key",
+          "definition": "CREATE UNIQUE INDEX company_bookmarks_company_name_key ON public.company_bookmarks USING btree (company_name)"
+        }
+      ],
+      "unique_constraints": {
+        "company_bookmarks_company_name_key": [
+          "company_name"
         ]
       },
       "row_count_estimate": -1
@@ -1891,6 +2190,14 @@
         {
           "name": "ix_contract_projects_client_agency_id",
           "definition": "CREATE INDEX ix_contract_projects_client_agency_id ON public.contract_projects USING btree (client_agency_id)"
+        },
+        {
+          "name": "ix_contract_projects_status",
+          "definition": "CREATE INDEX ix_contract_projects_status ON public.contract_projects USING btree (status)"
+        },
+        {
+          "name": "ix_contract_projects_year_status",
+          "definition": "CREATE INDEX ix_contract_projects_year_status ON public.contract_projects USING btree (year, status)"
         }
       ],
       "unique_constraints": {
@@ -2506,6 +2813,10 @@
         {
           "name": "ix_doc_chunks_doc_idx",
           "definition": "CREATE INDEX ix_doc_chunks_doc_idx ON public.document_chunks USING btree (document_id, chunk_index)"
+        },
+        {
+          "name": "ix_document_chunks_embedding_hnsw",
+          "definition": "CREATE INDEX ix_document_chunks_embedding_hnsw ON public.document_chunks USING hnsw (embedding vector_cosine_ops) WITH (m='16', ef_construction='64')"
         }
       ],
       "unique_constraints": {},
@@ -3066,6 +3377,18 @@
         {
           "name": "idx_documents_created",
           "definition": "CREATE INDEX idx_documents_created ON public.documents USING btree (created_at)"
+        },
+        {
+          "name": "ix_documents_created_at",
+          "definition": "CREATE INDEX ix_documents_created_at ON public.documents USING btree (created_at)"
+        },
+        {
+          "name": "ix_documents_updated_at",
+          "definition": "CREATE INDEX ix_documents_updated_at ON public.documents USING btree (updated_at)"
+        },
+        {
+          "name": "ix_documents_status_type_date",
+          "definition": "CREATE INDEX ix_documents_status_type_date ON public.documents USING btree (status, doc_type, doc_date)"
         }
       ],
       "unique_constraints": {
@@ -3073,7 +3396,7 @@
           "auto_serial"
         ]
       },
-      "row_count_estimate": 1661
+      "row_count_estimate": 1678
     },
     "einvoice_sync_logs": {
       "columns": [
@@ -3537,7 +3860,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 2894
+      "row_count_estimate": 3100
     },
     "erp_billings": {
       "columns": [
@@ -3626,6 +3949,14 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "billing_code",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
         }
       ],
       "primary_key": [
@@ -3659,6 +3990,10 @@
         {
           "name": "ix_erp_billings_payment_status",
           "definition": "CREATE INDEX ix_erp_billings_payment_status ON public.erp_billings USING btree (payment_status)"
+        },
+        {
+          "name": "ix_erp_billings_billing_code",
+          "definition": "CREATE UNIQUE INDEX ix_erp_billings_billing_code ON public.erp_billings USING btree (billing_code)"
         }
       ],
       "unique_constraints": {},
@@ -3767,6 +4102,14 @@
           "nullable": true,
           "default": null,
           "udt_name": "int4"
+        },
+        {
+          "name": "invoice_ref",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
         }
       ],
       "primary_key": [
@@ -3804,10 +4147,14 @@
         {
           "name": "ix_erp_invoices_billing_id",
           "definition": "CREATE INDEX ix_erp_invoices_billing_id ON public.erp_invoices USING btree (billing_id)"
+        },
+        {
+          "name": "ix_erp_invoices_invoice_ref",
+          "definition": "CREATE UNIQUE INDEX ix_erp_invoices_invoice_ref ON public.erp_invoices USING btree (invoice_ref)"
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": -1
+      "row_count_estimate": 47
     },
     "erp_quotations": {
       "columns": [
@@ -3977,6 +4324,10 @@
         {
           "name": "ix_erp_quotations_created_by",
           "definition": "CREATE INDEX ix_erp_quotations_created_by ON public.erp_quotations USING btree (created_by)"
+        },
+        {
+          "name": "ix_erp_quotations_case_project",
+          "definition": "CREATE INDEX ix_erp_quotations_case_project ON public.erp_quotations USING btree (case_code, project_code)"
         }
       ],
       "unique_constraints": {},
@@ -4423,7 +4774,7 @@
           "nullable": false,
           "default": null,
           "udt_name": "varchar",
-          "max_length": 20
+          "max_length": 50
         },
         {
           "name": "date",
@@ -4612,6 +4963,14 @@
           "nullable": true,
           "default": null,
           "udt_name": "int4"
+        },
+        {
+          "name": "voucher_type",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'invoice'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
         }
       ],
       "primary_key": [
@@ -4644,10 +5003,6 @@
           "definition": "CREATE INDEX ix_expense_invoices_id ON public.expense_invoices USING btree (id)"
         },
         {
-          "name": "ix_expense_invoices_inv_num",
-          "definition": "CREATE UNIQUE INDEX ix_expense_invoices_inv_num ON public.expense_invoices USING btree (inv_num)"
-        },
-        {
           "name": "ix_expense_invoices_case_code",
           "definition": "CREATE INDEX ix_expense_invoices_case_code ON public.expense_invoices USING btree (case_code)"
         },
@@ -4662,10 +5017,18 @@
         {
           "name": "ix_expense_invoices_attribution_type",
           "definition": "CREATE INDEX ix_expense_invoices_attribution_type ON public.expense_invoices USING btree (attribution_type)"
+        },
+        {
+          "name": "ix_expense_invoices_inv_num",
+          "definition": "CREATE UNIQUE INDEX ix_expense_invoices_inv_num ON public.expense_invoices USING btree (inv_num)"
+        },
+        {
+          "name": "ix_expense_invoices_status",
+          "definition": "CREATE INDEX ix_expense_invoices_status ON public.expense_invoices USING btree (status)"
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 2
+      "row_count_estimate": 3
     },
     "finance_ledgers": {
       "columns": [
@@ -4764,6 +5127,14 @@
           "nullable": true,
           "default": null,
           "udt_name": "int4"
+        },
+        {
+          "name": "ledger_code",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
         }
       ],
       "primary_key": [
@@ -4809,10 +5180,18 @@
         {
           "name": "ix_finance_ledgers_user_id",
           "definition": "CREATE INDEX ix_finance_ledgers_user_id ON public.finance_ledgers USING btree (user_id)"
+        },
+        {
+          "name": "ix_ledger_entry_type",
+          "definition": "CREATE INDEX ix_ledger_entry_type ON public.finance_ledgers USING btree (entry_type)"
+        },
+        {
+          "name": "ix_finance_ledgers_ledger_code",
+          "definition": "CREATE UNIQUE INDEX ix_finance_ledgers_ledger_code ON public.finance_ledgers USING btree (ledger_code)"
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": -1
+      "row_count_estimate": 35
     },
     "government_agencies": {
       "columns": [
@@ -7179,7 +7558,7 @@
           "key"
         ]
       },
-      "row_count_estimate": 59
+      "row_count_estimate": 72
     },
     "staff_certifications": {
       "columns": [
@@ -7425,7 +7804,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 374
+      "row_count_estimate": 462
     },
     "taoyuan_contract_payments": {
       "columns": [
@@ -8151,6 +8530,10 @@
         {
           "name": "idx_dispatch_handler_worktype",
           "definition": "CREATE INDEX idx_dispatch_handler_worktype ON public.taoyuan_dispatch_orders USING btree (case_handler, work_type)"
+        },
+        {
+          "name": "ix_dispatch_orders_work_type",
+          "definition": "CREATE INDEX ix_dispatch_orders_work_type ON public.taoyuan_dispatch_orders USING btree (work_type)"
         }
       ],
       "unique_constraints": {
@@ -8360,12 +8743,24 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "auto_sync_dispatch_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
         "id"
       ],
       "foreign_keys": [
+        {
+          "column": "auto_sync_dispatch_id",
+          "ref_table": "taoyuan_dispatch_orders",
+          "ref_column": "id"
+        },
         {
           "column": "document_id",
           "ref_table": "documents",
@@ -8397,6 +8792,10 @@
         {
           "name": "uq_document_project",
           "definition": "CREATE UNIQUE INDEX uq_document_project ON public.taoyuan_document_project_link USING btree (document_id, taoyuan_project_id)"
+        },
+        {
+          "name": "ix_taoyuan_document_project_link_auto_sync_dispatch_id",
+          "definition": "CREATE INDEX ix_taoyuan_document_project_link_auto_sync_dispatch_id ON public.taoyuan_document_project_link USING btree (auto_sync_dispatch_id)"
         }
       ],
       "unique_constraints": {
@@ -8405,7 +8804,7 @@
           "taoyuan_project_id"
         ]
       },
-      "row_count_estimate": -1
+      "row_count_estimate": 49
     },
     "taoyuan_projects": {
       "columns": [
@@ -8963,7 +9362,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 143
+      "row_count_estimate": 201
     },
     "tender_bookmarks": {
       "columns": [
@@ -9084,6 +9483,238 @@
       "unique_constraints": {},
       "row_count_estimate": -1
     },
+    "tender_company_links": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('tender_company_links_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "tender_record_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "company_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "role",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'bidder'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": null,
+          "udt_name": "numeric"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "tender_record_id",
+          "ref_table": "tender_records",
+          "ref_column": "id"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "tender_company_links_pkey",
+          "definition": "CREATE UNIQUE INDEX tender_company_links_pkey ON public.tender_company_links USING btree (id)"
+        },
+        {
+          "name": "ix_tcl_company",
+          "definition": "CREATE INDEX ix_tcl_company ON public.tender_company_links USING btree (company_name)"
+        },
+        {
+          "name": "ix_tcl_tender",
+          "definition": "CREATE INDEX ix_tcl_tender ON public.tender_company_links USING btree (tender_record_id)"
+        }
+      ],
+      "unique_constraints": {},
+      "row_count_estimate": 256
+    },
+    "tender_records": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('tender_records_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "unit_id",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "job_number",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "title",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "unit_name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "category",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "tender_type",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "budget",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": null,
+          "udt_name": "numeric"
+        },
+        {
+          "name": "award_amount",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": null,
+          "udt_name": "numeric"
+        },
+        {
+          "name": "announce_date",
+          "type": "DATE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "date"
+        },
+        {
+          "name": "deadline",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "source",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'pcc'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "ezbid_id",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "raw_data",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "tender_records_pkey",
+          "definition": "CREATE UNIQUE INDEX tender_records_pkey ON public.tender_records USING btree (id)"
+        },
+        {
+          "name": "tender_records_ezbid_id_key",
+          "definition": "CREATE UNIQUE INDEX tender_records_ezbid_id_key ON public.tender_records USING btree (ezbid_id)"
+        },
+        {
+          "name": "ix_tender_record_uid_jn",
+          "definition": "CREATE INDEX ix_tender_record_uid_jn ON public.tender_records USING btree (unit_id, job_number)"
+        },
+        {
+          "name": "ix_tender_record_date",
+          "definition": "CREATE INDEX ix_tender_record_date ON public.tender_records USING btree (announce_date)"
+        },
+        {
+          "name": "ix_tender_record_source",
+          "definition": "CREATE INDEX ix_tender_record_source ON public.tender_records USING btree (source)"
+        }
+      ],
+      "unique_constraints": {
+        "tender_records_ezbid_id_key": [
+          "ezbid_id"
+        ]
+      },
+      "row_count_estimate": 303
+    },
     "tender_subscriptions": {
       "columns": [
         {
@@ -9164,6 +9795,20 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "last_diff",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "last_new_titles",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
         }
       ],
       "primary_key": [

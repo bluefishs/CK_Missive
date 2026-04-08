@@ -4,6 +4,42 @@
 
 ---
 
+## [5.5.3] - 2026-04-08
+
+### 穩定化 + 監控 + 程式碼品質優化
+
+#### 排程器健康監控 (P0)
+- **SchedulerTracker** — 裝飾器追蹤每個排程任務的 last_run/status/duration/success_count/failure_count
+- **POST /health/scheduler** — 排程器健康端點 (合併 APScheduler next_run + 追蹤器 last_run)
+- **build_summary 整合** — 排程器狀態納入 /health/summary 聚合
+- **17 jobs 全追蹤** — `@tracked_job` 裝飾器覆蓋所有排程函數
+
+#### ezbid 爬蟲防禦 (P1)
+- **retry + exponential backoff** — MAX_RETRIES=3, BACKOFF_BASE=2.0
+- **封鎖偵測** — 403/captcha/block 自動放棄 + 日誌警告
+- **連續失敗熔斷** — ≥5 次失敗自動跳過 + 人工介入通知
+- **get_health_status()** — 爬蟲健康狀態 API
+
+#### 後端服務拆分 (P1)
+- **agent_evolution_scheduler** — 688L → scheduler + actions + persistence (3 files)
+- **tool_result_formatter** — 569L → dispatcher + doc/entity/business formatters (4 files)
+- **federation_client** — 606L → client + discovery + delegation (3 files)
+- **tool_registry** — 537L → registry + discovery (2 files)
+- 保留: tool_definitions(671L 純數據), agent_orchestrator(567L 薄編排), dispatch_order_service(550L 已拆分)
+
+#### 空殼頁面清理 (P2)
+- **刪除** TenderBattleRoomPage / TenderPriceAnalysisPage / TenderCompanyPage (3 redirect stubs)
+- **清理** AppRouter 路由 + ROUTES 常數 + 導覽初始化 + 白名單
+
+#### 記憶體精簡 (P2)
+- **MEMORY.md** — 222L → 81L (歷史記錄合併至 session_history_v55.md)
+
+#### 標案整合測試 (P0)
+- **test_tender_cache_service.py** — tender_cache_service 7 方法 ≥10 cases
+- **test_tender_analytics.py** — battle/price analytics ≥10 cases
+
+---
+
 ## [5.5.0] - 2026-04-05~07
 
 ### Agent 進化 + Domain Events + 多通道整合 + 標案分析 Phase 2 (92 commits)

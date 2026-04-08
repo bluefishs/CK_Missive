@@ -83,6 +83,7 @@ erDiagram
     taoyuan_dispatch_orders ||--o{ taoyuan_dispatch_project_link : "dispatch_order_id"
     taoyuan_projects ||--o{ taoyuan_dispatch_project_link : "taoyuan_project_id"
     taoyuan_dispatch_orders ||--o{ taoyuan_dispatch_work_types : "dispatch_order_id"
+    taoyuan_dispatch_orders ||--o{ taoyuan_document_project_link : "auto_sync_dispatch_id"
     documents ||--o{ taoyuan_document_project_link : "document_id"
     taoyuan_projects ||--o{ taoyuan_document_project_link : "taoyuan_project_id"
     contract_projects ||--o{ taoyuan_projects : "contract_project_id"
@@ -92,8 +93,34 @@ erDiagram
     documents ||--o{ taoyuan_work_records : "outgoing_doc_id"
     taoyuan_work_records ||--o{ taoyuan_work_records : "parent_record_id"
     taoyuan_projects ||--o{ taoyuan_work_records : "taoyuan_project_id"
+    tender_records ||--o{ tender_company_links : "tender_record_id"
     users ||--o{ user_sessions : "user_id"
 
+    agent_evolution_history {
+        int id "PK"
+        varchar evolution_id "NOT NULL"
+        varchar trigger_reason "NOT NULL"
+        int trigger_value
+        int signals_evaluated
+        int signals_critical
+        int signals_high
+        int signals_medium
+        int signals_low
+        int patterns_promoted
+        int patterns_demoted
+        int patterns_expired
+        json thresholds_adjusted
+        int total_patterns_before
+        int total_patterns_after
+        float8 avg_score_before
+        float8 avg_score_after
+        float8 effectiveness_score
+        timestamp effectiveness_computed_at
+        text notes
+        timestamp created_at "NOT NULL"
+        int patterns_graduated "NOT NULL"
+        int patterns_chronic "NOT NULL"
+    }
     agent_learnings {
         int id "PK"
         varchar session_id "NOT NULL"
@@ -106,6 +133,10 @@ erDiagram
         bool is_active
         timestamptz created_at
         timestamptz updated_at
+        varchar graduation_status "NOT NULL"
+        int consecutive_success_count "NOT NULL"
+        int failure_count "NOT NULL"
+        timestamp last_applied_at
     }
     agent_query_traces {
         int id "PK"
@@ -130,6 +161,7 @@ erDiagram
         varchar answer_preview
         jsonb tools_used
         timestamptz created_at "NOT NULL"
+        text improvement_hint
     }
     agent_tool_call_logs {
         int id "PK"
@@ -270,6 +302,14 @@ erDiagram
         bool is_active
         timestamp created_at
         timestamp updated_at
+    }
+    company_bookmarks {
+        int id "PK"
+        varchar company_name "NOT NULL"
+        varchar tag
+        text notes
+        int user_id
+        timestamp created_at
     }
     contract_projects {
         int id "PK"
@@ -493,6 +533,7 @@ erDiagram
         text notes
         timestamp created_at
         timestamp updated_at
+        varchar billing_code
     }
     erp_invoices {
         int id "PK"
@@ -509,6 +550,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
         int billing_id "FK"
+        varchar invoice_ref
     }
     erp_quotations {
         int id "PK"
@@ -605,6 +647,7 @@ erDiagram
         int vendor_id "FK"
         varchar attribution_type "NOT NULL"
         int operational_account_id "FK"
+        varchar voucher_type "NOT NULL"
     }
     finance_ledgers {
         int id "PK"
@@ -620,6 +663,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
         int vendor_id "FK"
+        varchar ledger_code
     }
     government_agencies {
         int id "PK"
@@ -1016,6 +1060,7 @@ erDiagram
         varchar link_type
         varchar notes
         timestamp created_at
+        int auto_sync_dispatch_id "FK"
     }
     taoyuan_projects {
         int id "PK"
@@ -1094,6 +1139,32 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
+    tender_company_links {
+        int id "PK"
+        int tender_record_id "FK"
+        varchar company_name "NOT NULL"
+        varchar role
+        numeric amount
+    }
+    tender_records {
+        int id "PK"
+        varchar unit_id "NOT NULL"
+        varchar job_number
+        varchar title "NOT NULL"
+        varchar unit_name
+        varchar category
+        varchar tender_type
+        numeric budget
+        numeric award_amount
+        date announce_date
+        varchar deadline
+        varchar status
+        varchar source
+        varchar ezbid_id
+        text raw_data
+        timestamp created_at
+        timestamp updated_at
+    }
     tender_subscriptions {
         int id "PK"
         varchar keyword "NOT NULL"
@@ -1106,6 +1177,8 @@ erDiagram
         int last_count
         timestamp created_at
         timestamp updated_at
+        int last_diff
+        text last_new_titles
     }
     user_sessions {
         int id "PK"
@@ -1160,7 +1233,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 65 |
-| 總欄位數 | 930 |
-| 外鍵關聯 | 92 |
+| 總表數 | 69 |
+| 總欄位數 | 993 |
+| 外鍵關聯 | 94 |
 | 自訂列舉型別 | 0 |

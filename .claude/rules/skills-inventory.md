@@ -124,6 +124,20 @@
 
 ---
 
+## v5.5.3 穩定化 + 監控 + 品質優化 (2026-04-08)
+
+| 類型 | 項目 | 說明 |
+|------|------|------|
+| feat | SchedulerTracker | `@tracked_job` 裝飾器追蹤 17 排程任務執行狀態 |
+| feat | POST /health/scheduler | 排程健康端點 (last_run/status/duration/counts) |
+| feat | ezbid 爬蟲防禦 | retry/backoff/封鎖偵測/連續失敗熔斷 |
+| refactor | 4 檔 >500L 拆分 | evolution_scheduler + tool_result_formatter + federation_client + tool_registry |
+| test | 標案整合測試 | tender_cache_service + analytics 20+ cases |
+| chore | 空殼頁面清理 | 刪除 3 redirect stubs + 路由/導覽清理 |
+| chore | MEMORY.md 精簡 | 222→81L (歷史合併至 topic file) |
+
+---
+
 ## v5.5.0 Agent 進化 + Domain Events + 多通道整合 + 標案分析 Phase 2 (2026-04-05~07, 92 commits)
 
 | 類型 | 項目 | 說明 |
