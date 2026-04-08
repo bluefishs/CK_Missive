@@ -86,12 +86,14 @@ class TenderSearchService:
         if category:
             records = [r for r in records if self._match_category(r, category)]
 
+        from app.services.tender_data_transformer import dedup_records
+        normalized = [self._normalize_record(r) for r in records]
         result = {
             "query": query,
             "page": data.get("page", page),
             "total_records": data.get("total_records", 0),
             "total_pages": data.get("total_pages", 0),
-            "records": [self._normalize_record(r) for r in records],
+            "records": dedup_records(normalized),
         }
 
         await self._set_cache(cache_key, result, ttl=1800)  # 30 min
@@ -194,12 +196,13 @@ class TenderSearchService:
         if not data:
             return {"query": company_name, "page": page, "total_records": 0, "records": []}
 
+        from app.services.tender_data_transformer import dedup_records
         result = {
             "query": company_name,
             "page": data.get("page", page),
             "total_records": data.get("total_records", 0),
             "total_pages": data.get("total_pages", 0),
-            "records": [self._normalize_record(r) for r in data.get("records", [])],
+            "records": dedup_records([self._normalize_record(r) for r in data.get("records", [])]),
         }
 
         await self._set_cache(cache_key, result, ttl=1800)

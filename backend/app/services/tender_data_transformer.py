@@ -15,6 +15,22 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+def dedup_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """同一標案 (unit_id+job_number) 多次公告只保留最新一筆（更正公告優先）"""
+    seen: Dict[str, Dict[str, Any]] = {}
+    for r in records:
+        uid = r.get("unit_id", "")
+        jn = r.get("job_number", "")
+        if uid and jn:
+            key = f"{uid}:{jn}"
+            existing = seen.get(key)
+            if not existing or (r.get("date", "") > existing.get("date", "")):
+                seen[key] = r
+        else:
+            seen[id(r)] = r
+    return list(seen.values())
+
+
 def normalize_record(record: dict) -> dict:
     """Standardise a list-level tender record."""
     brief = record.get("brief", {})

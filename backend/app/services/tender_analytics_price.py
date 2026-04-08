@@ -149,6 +149,18 @@ async def company_profile(search: TenderSearchService, company_name: str, pages:
     if not all_records:
         return {"company_name": company_name, "total": 0}
 
+    # 去重：同一標案 (unit_id+job_number) 多次公告只保留最新一筆
+    seen: dict = {}
+    for r in all_records:
+        key = f"{r.get('unit_id', '')}:{r.get('job_number', '')}"
+        if key and key != ":":
+            existing = seen.get(key)
+            if not existing or (r.get("date", "") > existing.get("date", "")):
+                seen[key] = r
+        else:
+            seen[id(r)] = r  # 無 key 的保留
+    all_records = list(seen.values())
+
     year_counter: Counter = Counter()
     agency_counter: Counter = Counter()
     category_counter: Counter = Counter()
