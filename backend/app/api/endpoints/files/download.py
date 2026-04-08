@@ -58,6 +58,12 @@ async def download_file(
     else:
         actual_path = os.path.join(UPLOAD_BASE_DIR, stored_path)  # 新資料：相對路徑
 
+    # Path traversal protection
+    actual = os.path.realpath(actual_path)
+    base = os.path.realpath(UPLOAD_BASE_DIR)
+    if not actual.startswith(base):
+        raise HTTPException(status_code=403, detail="存取路徑不合法")
+
     if not stored_path or not os.path.exists(actual_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -334,7 +334,7 @@ async def run_search_benchmark(
     except Exception as e:
         logger.error("Search benchmark failed: %s", e, exc_info=True)
         return JSONResponse(
-            {"success": False, "error": str(e)},
+            {"success": False, "error": "基準測試執行失敗，請稍後再試"},
             status_code=500,
             media_type="application/json; charset=utf-8",
         )
@@ -367,7 +367,7 @@ async def preview_morning_report(
     except Exception as e:
         logger.error("Morning report preview failed: %s", e, exc_info=True)
         return JSONResponse(
-            {"success": False, "error": str(e)},
+            {"success": False, "error": "晨報預覽失敗，請稍後再試"},
             status_code=500,
             media_type="application/json; charset=utf-8",
         )
@@ -433,7 +433,7 @@ async def push_morning_report(
     except Exception as e:
         logger.error("Morning report push failed: %s", e, exc_info=True)
         return JSONResponse(
-            {"success": False, "error": str(e)},
+            {"success": False, "error": "晨報推送失敗，請稍後再試"},
             status_code=500,
             media_type="application/json; charset=utf-8",
         )

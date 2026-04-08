@@ -28,7 +28,7 @@ def generate_csrf_token() -> str:
 def validate_csrf_token(token: str) -> bool:
     """驗證 CSRF 令牌"""
     from app.core.config import settings
-    if getattr(settings, 'AUTH_DISABLED', False) or token == 'dev-mode-skip':
+    if getattr(settings, 'AUTH_DISABLED', False):
         return True
 
     if not token or token not in csrf_tokens:

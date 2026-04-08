@@ -431,4 +431,4 @@ async def summarize_knowledge_card(
         return JSONResponse({"success": True, "summary": summary})
     except Exception as e:
         logger.error("summarize_knowledge_card failed: %s", e, exc_info=True)
-        return JSONResponse({"success": False, "error": str(e)})
+        return JSONResponse({"success": False, "error": "摘要生成失敗，請稍後再試"})

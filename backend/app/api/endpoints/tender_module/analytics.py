@@ -86,7 +86,7 @@ async def analytics_org_ecosystem(request: Request):
                             media_type="application/json; charset=utf-8")
     except Exception as e:
         logger.error(f"org-ecosystem error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="分析服務暫時無法使用")
 
 
 @router.post("/analytics/company-profile")
@@ -104,7 +104,7 @@ async def analytics_company_profile(request: Request):
                             media_type="application/json; charset=utf-8")
     except Exception as e:
         logger.error(f"company-profile error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="分析服務暫時無法使用")
 
 
 @router.post("/analytics/price-analysis")
@@ -123,7 +123,7 @@ async def tender_price_analysis(request: Request):
                             media_type="application/json; charset=utf-8")
     except Exception as e:
         logger.error(f"price-analysis error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="分析服務暫時無法使用")
 
 
 @router.post("/analytics/price-trends")
@@ -141,4 +141,4 @@ async def tender_price_trends(request: Request):
                             media_type="application/json; charset=utf-8")
     except Exception as e:
         logger.error(f"price-trends error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="分析服務暫時無法使用")
