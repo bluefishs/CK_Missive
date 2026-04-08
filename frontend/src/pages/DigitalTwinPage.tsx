@@ -1,12 +1,15 @@
 /**
- * 數位分身展示頁面 v2.0
+ * NemoClaw 數位分身展示頁面 v2.1
  *
- * Tab 架構：對話 / 能力概覽 / 系統拓撲
- * 左側 ProfileCard + 右側 Tab 內容
+ * 定位：跨專案智能協作引擎的外部觀測面板
+ * - 聚焦 Federation (OpenClaw/NemoClaw Gateway) 聯邦能力展示
+ * - 與 AgentDashboardPage（乾坤智能 Agent 自治中心）互補
  *
- * @version 2.0.0
+ * Tab 架構：對話 / 能力雷達 / 查詢軌跡 / 儀表板 / 進化 / 派工 / 拓撲
+ *
+ * @version 2.1.0
  * @created 2026-03-23
- * @updated 2026-03-25 — Tab 化重構 + Dashboard API 整合
+ * @updated 2026-04-08 — 釐清與 AgentDashboard 的定位區分
  */
 
 import React, { useState } from 'react';
@@ -60,7 +63,7 @@ const TopologyTab: React.FC = () => {
   });
 
   if (isLoading) return <Spin tip="載入拓撲圖..." style={{ display: 'block', padding: 40, textAlign: 'center' }} />;
-  if (isError) return <Alert type="warning" showIcon title="拓撲資料載入失敗" />;
+  if (isError) return <Alert type="warning" showIcon message="拓撲資料載入失敗" />;
 
   const nodes = (data?.nodes ?? []) as Array<{ id: string; label: string; type: string; status: string; project: string; capabilities?: string[] }>;
 
@@ -121,8 +124,8 @@ const DigitalTwinPage: React.FC = () => {
     <div style={{ padding: '0 0 24px' }}>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <Title level={4} style={{ margin: 0 }}><DashboardOutlined /> 數位分身</Title>
-          <Text type="secondary">NemoClaw 跨專案智能協作引擎 — 即時問答與能力展示</Text>
+          <Title level={4} style={{ margin: 0 }}><DashboardOutlined /> NemoClaw 數位分身</Title>
+          <Text type="secondary">跨專案智能協作引擎 — 聯邦問答與能力展示</Text>
         </div>
         <GatewayHealthBadge />
       </div>

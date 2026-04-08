@@ -1,14 +1,13 @@
 /**
- * Agent Dashboard - 智能體中心統一頁面
+ * Agent Dashboard - 乾坤智能體中心（統一頁面）
  *
- * 合併 Chat UI 與 Digital Twin 為單一自覺型 Agent 頁面。
- * 左側：Agent 自我檔案卡片 (self-profile)
- * 右側：4 Tab（對話 / 自省 / 進化 / 拓撲）
+ * 合併原 Digital Twin + Agent Dashboard 為單一自覺型 Agent 頁面。
+ * 左側：Agent 自我檔案 + 晨報
+ * 右側：7 Tab（對話 / 自省 / 進化 / 拓撲 / 追蹤 / 派工 / 儀表板）
  *
- * 重用 digitalTwin/ 子元件，不重複實作。
- *
- * @version 1.0.0
+ * @version 2.0.0
  * @created 2026-04-05
+ * @updated 2026-04-08 — 整合 DigitalTwinPage，移除 NemoClaw 品牌
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -22,6 +21,7 @@ import {
   RobotOutlined, ThunderboltOutlined, BookOutlined,
   TrophyOutlined, CloudServerOutlined,
   FileTextOutlined, SendOutlined,
+  DashboardOutlined, UnorderedListOutlined, ScheduleOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -40,6 +40,15 @@ const CapabilityRadarTab = React.lazy(() =>
 );
 const EvolutionTab = React.lazy(() =>
   import('./digitalTwin/EvolutionTab').then(m => ({ default: m.EvolutionTab }))
+);
+const TraceWaterfallTab = React.lazy(() =>
+  import('./digitalTwin/TraceWaterfallTab').then(m => ({ default: m.TraceWaterfallTab }))
+);
+const DashboardTab = React.lazy(() =>
+  import('./digitalTwin/DashboardTab').then(m => ({ default: m.DashboardTab }))
+);
+const DispatchProgressTab = React.lazy(() =>
+  import('./digitalTwin/DispatchProgressTab').then(m => ({ default: m.DispatchProgressTab }))
 );
 
 const { Title, Text } = Typography;
@@ -398,6 +407,21 @@ const AgentDashboardPage: React.FC = () => {
     createTabItem('topology', { icon: <ApartmentOutlined />, text: '拓撲' },
       <TopologyTab />
     ),
+    createTabItem('trace', { icon: <UnorderedListOutlined />, text: '追蹤' },
+      <React.Suspense fallback={<Spin tip="載入追蹤..." style={{ display: 'block', padding: 40, textAlign: 'center' }} />}>
+        <TraceWaterfallTab />
+      </React.Suspense>
+    ),
+    createTabItem('dispatch', { icon: <ScheduleOutlined />, text: '派工' },
+      <React.Suspense fallback={<Spin tip="載入派工進度..." style={{ display: 'block', padding: 40, textAlign: 'center' }} />}>
+        <DispatchProgressTab />
+      </React.Suspense>
+    ),
+    createTabItem('dashboard', { icon: <DashboardOutlined />, text: '儀表板' },
+      <React.Suspense fallback={<Spin tip="載入儀表板..." style={{ display: 'block', padding: 40, textAlign: 'center' }} />}>
+        <DashboardTab />
+      </React.Suspense>
+    ),
   ], []);
 
   return (
@@ -405,10 +429,10 @@ const AgentDashboardPage: React.FC = () => {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <Title level={4} style={{ margin: 0 }}>
-            <CloudServerOutlined /> 智能體中心
+            <CloudServerOutlined /> 乾坤智能體
           </Title>
           <Text type="secondary">
-            乾坤智能體 — 自覺型 Agent 問答、自省與進化
+            自覺型 AI 助理 — 問答、自省、進化與系統監控
           </Text>
         </div>
         <GatewayHealthBadge />
