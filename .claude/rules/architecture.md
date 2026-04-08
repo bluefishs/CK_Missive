@@ -141,6 +141,17 @@ backend/app/services/
 │   ├── graph_code_wiki_service.py    # Code Wiki 整合
 │   ├── schema_reflector.py           # DB Schema 反射 (asyncio.to_thread)
 │   ├── ts_extractor.py               # TypeScript AST 提取
+│   ├── obsidian_exporter.py          # Obsidian Vault 匯出 (entity→.md + wiki links)
+│   ├── name_utils.py                 # 名稱正規化共用工具 (NFKC+lowercase)
+│   ├── agent_evolution_actions.py    # 進化動作 (拆分自 scheduler, 222L)
+│   ├── agent_evolution_persistence.py # 進化持久化 (拆分自 scheduler, 227L)
+│   ├── agent_pattern_persistence.py  # 模式持久化 (拆分自 pattern_learner, 120L)
+│   ├── federation_discovery.py       # 聯邦服務發現 (拆分自 federation_client, 221L)
+│   ├── federation_delegation.py      # 聯邦跨域委派 (拆分自 federation_client, 245L)
+│   ├── tool_discovery.py             # 工具智慧推薦 (拆分自 tool_registry, 325L)
+│   ├── tool_result_formatters_doc.py # 文件工具格式化 (拆分自 formatter)
+│   ├── tool_result_formatters_entity.py # KG 工具格式化 (拆分自 formatter)
+│   ├── tool_result_formatters_business.py # 業務工具格式化 (拆分自 formatter)
 │   ├── # --- 搜尋/排序模組 ---
 │   ├── reranker.py                   # Hybrid 重排序器
 │   ├── search_intent_parser.py       # 搜尋意圖解析 (v1.0.0)
@@ -187,7 +198,8 @@ backend/app/services/
 ├── project_staff_service.py    # 專案人員服務
 ├── case_code_service.py        # 案件代碼服務
 ├── vendor_service.py           # 廠商服務
-├── audit_service.py            # 審計服務 (獨立 session)
+├── audit_service.py            # 審計服務 (303L, 拆分後)
+├── audit_event_loggers.py      # 審計事件記錄器 Mixin (拆分自 audit, 198L)
 ├── audit_mixin.py              # CRUD 審計 Mixin (10 服務套用)
 ├── taoyuan_link_service.py     # 桃園派工關聯服務
 ├── erp/                        # ERP 子服務
@@ -217,12 +229,14 @@ backend/app/services/
 ├── line_push_scheduler.py      # LINE 推播排程器
 ├── notification_dispatcher.py  # 通知派發服務
 ├── document_calendar_integrator.py # 公文行事曆整合
-├── discord_bot_service.py      # Discord Bot Interactions Endpoint
+├── discord_bot_service.py      # Discord Bot (430L, 拆分後)
+├── discord_helpers.py          # Discord 格式化工具 (拆分自 bot, 137L)
 ├── telegram_bot_service.py     # Telegram Bot 智慧回覆整合 v1.0.0
 ├── channel_adapter.py          # 統一通道抽象 (LINE/Discord/Telegram)
 ├── sender_context.py           # 發送者上下文 (頻道感知)
 ├── agent_stream_helper.py      # Agent 串流輔助 (跨通道統一)
-├── tender_search_service.py        # 標案檢索 (PCC API + Redis 快取)
+├── tender_search_service.py        # 標案檢索 (302L, 拆分後)
+├── tender_data_transformer.py     # 標案資料轉換 (拆分自 search, 263L)
 ├── tender_subscription_scheduler.py # 標案訂閱排程 (每日3次 + LINE/Discord)
 ├── tender_analytics_service.py     # 標案分析 Facade (283L, 委派子模組)
 ├── tender_analytics_battle.py     # 投標戰情室 + 機關生態 (108L, 拆分)
@@ -437,6 +451,8 @@ frontend/src/pages/
 │   └── ProfileInfoCard.tsx     # 個人資訊卡片
 ├── erpExpense/                 # 費用報銷子元件 (v5.4.0)
 │   ├── SmartScanModal.tsx      # 智慧掃描 (QR+OCR) Modal (251L)
+│   ├── ExpenseScanPanel.tsx   # 掃描/輸入面板 (拆分自 CreatePage, 178L) v5.5.3
+│   ├── imageUtils.ts          # 圖片壓縮工具 (compressImage) v5.5.3
 │   ├── ExpenseImportModal.tsx  # Excel 匯入 Modal (175L)
 │   └── index.ts
 ├── SecurityCenterPage.tsx      # 資安管理中心 (OWASP Top 10 + 掃描 + 通知)
@@ -546,6 +562,7 @@ frontend/src/utils/
 ```
 frontend/src/components/common/
 ├── ClickableStatCard.tsx       # 可點擊互動統計卡片 (active 高亮+onClick 篩選) v5.5.0
+├── ExpenseQRCode.tsx           # 案件核銷 QR Code (下載/複製/列印) v5.5.3
 ├── GlobalApiErrorNotifier.tsx  # 全域 API 錯誤通知 (429/403/5xx)
 ├── MarkdownRenderer.tsx        # 通用 Markdown 渲染器 (GFM + Mermaid 委派)
 ├── PreviewDrawer/              # 預覽抽屜

@@ -135,6 +135,20 @@
 | test | 標案整合測試 | tender_cache_service + analytics 20+ cases |
 | chore | 空殼頁面清理 | 刪除 3 redirect stubs + 路由/導覽清理 |
 | chore | MEMORY.md 精簡 | 222→81L (歷史合併至 topic file) |
+| feat | 行動核銷 v3.0 | 步驟式單流程 + 圖片壓縮 + Steps 進度 |
+| feat | ExpenseQRCode | 案件核銷 QR Code (下載/複製/列印) |
+| feat | ERP 帳務完整性 | 同步入帳 + 冪等 + 刪除防護 + 帳本對帳排程 |
+| feat | 併發審批鎖 | SELECT...FOR UPDATE + 批次審批 API |
+| feat | 軟刪除 | ERPQuotation.deleted_at + Alembic migration |
+| feat | FK 簡化 | ERPBilling.invoice_id 移除，改單向 |
+| feat | 圖譜置信度 | EntityRelationship.confidence_level (extracted/inferred/ambiguous) |
+| feat | 中心性分析 | centrality_analysis() + POST /ai/graph/admin/centrality |
+| feat | Obsidian 匯出 | POST /ai/graph/admin/export-obsidian (ZIP) |
+| feat | 圖譜索引 | timeline 複合索引 + alias 複合索引 |
+| feat | PM/ERP 差異 | amount_mismatch 前端 Alert + 成案審計 |
+| fix | Item 欄位 Bug | description→item_name, quantity→qty |
+| fix | 金額驗證 | amount ≥ tax_amount schema 強制 |
+| refactor | 4 檔拆分 Phase 2 | pattern_learner + discord + audit + tender_search |
 
 ---
 
