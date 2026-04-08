@@ -107,6 +107,15 @@
 - TenderDetailPage 524L → 拆分 BattleTab + PriceTab 子元件
 - **CompanyBookmark** — 廠商關注收藏 (competitor/partner)
 
+#### 資料持久化 + 排程更新
+- **tender_records** — 標案 DB 快取 (303+ 筆自動增長)
+- **tender_company_links** — 廠商關聯 (149+ 家)
+- **tender_cache_service** — save/search/refresh/stats
+- **搜尋自動入庫** — 每次搜尋結果寫入 DB
+- **ezbid 排程入庫** — 每小時爬取 → DB
+- **狀態定期更新** — 每日 06:00 重查等標期→決標
+- **tender.py 拆分** — 844L → 12L + 4 子模組 (search/graph_case/subscriptions/analytics)
+
 #### 資料一致性修復
 - 競爭對手統計: 每筆標案每家廠商只計一次 (union dedup)
 - 統計基數與顯示一致 (8 筆相似 = 8 筆統計)

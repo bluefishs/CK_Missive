@@ -228,6 +228,7 @@ backend/app/services/
 ├── tender_analytics_battle.py     # 投標戰情室 + 機關生態 (108L, 拆分)
 ├── tender_analytics_price.py      # 底價分析 + 廠商分析 (184L, 拆分)
 ├── ezbid_scraper.py               # ezbid.tw 即時爬蟲 (當日資料補充)
+├── tender_cache_service.py        # 標案 DB 持久化 (save/search/refresh/stats)
 ├── project_analytics_service.py    # 專案分析服務 (拆分自 project_service)
 └── *_service.py                # 其他業務服務
 ```
@@ -274,7 +275,13 @@ backend/app/api/endpoints/
 │   ├── ledger.py               # 統一帳本 (6 端點)
 │   ├── financial_summary.py    # 財務彙總 (8 端點, +aging+erp-overview)
 │   └── einvoice_sync.py        # 電子發票同步 (4 端點)
-├── tender.py              # 標案檢索 API (17 端點: search/detail/graph/subscriptions/bookmarks)
+├── tender.py              # 標案 API 入口 (12L wrapper → tender_module/)
+├── tender_module/         # 標案 API 子模組 (v5.5.2 拆分)
+│   ├── __init__.py        # 合併 4 個 sub-router
+│   ├── search.py          # search/detail/detail-full/recommend/realtime (324L)
+│   ├── graph_case.py      # graph/create-case (152L)
+│   ├── subscriptions.py   # subscriptions/bookmarks/companies CRUD (318L)
+│   └── analytics.py       # dashboard/battle-room/org/company/price + cache-stats (130L)
 ├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams/search)
 ├── security.py            # 資安管理中心 API (掃描/問題追蹤/通知/模式庫)
 ├── line_webhook.py        # LINE Webhook 整合端點
