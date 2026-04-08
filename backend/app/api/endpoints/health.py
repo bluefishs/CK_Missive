@@ -271,6 +271,43 @@ async def health_summary(
     return await service.build_summary()
 
 
+@router.post("/health/scheduler", summary="排程器健康狀態")
+@limiter.limit("60/minute")
+async def scheduler_health(
+    request: Request,
+    response: Response,
+    current_user: User = Depends(require_admin()),
+):
+    """取得排程器執行狀態 — 每個任務的最後執行時間、成功/失敗次數"""
+    from app.core.scheduler import get_scheduler_status, SchedulerTracker
+
+    scheduler_info = get_scheduler_status()
+    tracker_records = SchedulerTracker.get_all()
+    tracker_summary = SchedulerTracker.get_summary()
+
+    # 合併排程器的 next_run 與追蹤器的 last_run
+    jobs = []
+    for job in scheduler_info.get("jobs", []):
+        job_id = job["id"]
+        track = tracker_records.get(job_id, {})
+        jobs.append({
+            **job,
+            "last_run": track.get("last_run"),
+            "last_status": track.get("last_status"),
+            "last_duration_ms": track.get("last_duration_ms"),
+            "last_error": track.get("last_error"),
+            "success_count": track.get("success_count", 0),
+            "failure_count": track.get("failure_count", 0),
+        })
+
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "scheduler_running": scheduler_info["running"],
+        **tracker_summary,
+        "jobs": jobs,
+    }
+
+
 @router.post("/health/services", summary="推理服務健康狀態")
 @limiter.limit("60/minute")
 async def health_services(

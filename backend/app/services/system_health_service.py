@@ -283,7 +283,25 @@ class SystemHealthService:
             logger.debug(f"資料品質檢查失敗: {e}")
             summary["components"]["data_quality"] = {"status": "unknown"}
 
-        # 6. 備份狀態
+        # 6. 排程器狀態
+        try:
+            from app.core.scheduler import SchedulerTracker, get_scheduler_status
+            sched_info = get_scheduler_status()
+            sched_summary = SchedulerTracker.get_summary()
+            summary["components"]["scheduler"] = {
+                "status": sched_summary["status"],
+                "running": sched_info["running"],
+                "total_jobs": sched_summary["total_jobs"],
+                "healthy": sched_summary["healthy"],
+                "failed": sched_summary["failed"],
+            }
+            if sched_summary["status"] != "healthy":
+                issues.append("scheduler")
+        except Exception as e:
+            logger.debug(f"排程器健康檢查失敗: {e}")
+            summary["components"]["scheduler"] = {"status": "unknown"}
+
+        # 7. 備份狀態
         backup_check = self._checks.check_backup_status()
         summary["components"]["backup"] = {
             "status": backup_check["status"],

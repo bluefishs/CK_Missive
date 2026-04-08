@@ -6,10 +6,15 @@
 - 處理待發送提醒
 - 清理過期事件
 - 其他定時任務
+
+v2.0.0 - 2026-04-08: 新增排程執行追蹤 (SchedulerTracker)
 """
 import logging
-from typing import Optional
+import time
+from typing import Optional, Dict, Any
+from datetime import datetime
 from contextlib import asynccontextmanager
+from functools import wraps
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -21,6 +26,94 @@ logger = logging.getLogger(__name__)
 _scheduler: Optional[AsyncIOScheduler] = None
 
 
+# ---------------------------------------------------------------------------
+# 排程執行追蹤器
+# ---------------------------------------------------------------------------
+
+class SchedulerTracker:
+    """記錄每個排程任務的最後執行時間、持續時間、成功/失敗次數"""
+
+    _records: Dict[str, Dict[str, Any]] = {}
+
+    @classmethod
+    def record_start(cls, job_id: str):
+        if job_id not in cls._records:
+            cls._records[job_id] = {
+                "success_count": 0,
+                "failure_count": 0,
+                "last_status": None,
+                "last_run": None,
+                "last_duration_ms": None,
+                "last_error": None,
+            }
+        cls._records[job_id]["_start_time"] = time.time()
+
+    @classmethod
+    def record_success(cls, job_id: str):
+        rec = cls._records.get(job_id, {})
+        start = rec.pop("_start_time", None)
+        duration = round((time.time() - start) * 1000, 1) if start else None
+        rec.update({
+            "success_count": rec.get("success_count", 0) + 1,
+            "last_status": "success",
+            "last_run": datetime.now().isoformat(),
+            "last_duration_ms": duration,
+            "last_error": None,
+        })
+        cls._records[job_id] = rec
+
+    @classmethod
+    def record_failure(cls, job_id: str, error: str):
+        rec = cls._records.get(job_id, {})
+        start = rec.pop("_start_time", None)
+        duration = round((time.time() - start) * 1000, 1) if start else None
+        rec.update({
+            "failure_count": rec.get("failure_count", 0) + 1,
+            "last_status": "failure",
+            "last_run": datetime.now().isoformat(),
+            "last_duration_ms": duration,
+            "last_error": error[:200],
+        })
+        cls._records[job_id] = rec
+
+    @classmethod
+    def get_all(cls) -> Dict[str, Dict[str, Any]]:
+        return {k: {kk: vv for kk, vv in v.items() if not kk.startswith("_")}
+                for k, v in cls._records.items()}
+
+    @classmethod
+    def get_summary(cls) -> Dict[str, Any]:
+        records = cls.get_all()
+        total = len(records)
+        healthy = sum(1 for r in records.values() if r.get("last_status") == "success")
+        failed = sum(1 for r in records.values() if r.get("last_status") == "failure")
+        never_run = sum(1 for r in records.values() if r.get("last_run") is None)
+        return {
+            "total_jobs": total,
+            "healthy": healthy,
+            "failed": failed,
+            "never_run": never_run,
+            "status": "healthy" if failed == 0 else ("degraded" if failed < 3 else "unhealthy"),
+        }
+
+
+def tracked_job(job_id: str):
+    """裝飾器：自動追蹤排程任務的執行狀態"""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            SchedulerTracker.record_start(job_id)
+            try:
+                result = await func(*args, **kwargs)
+                SchedulerTracker.record_success(job_id)
+                return result
+            except Exception as e:
+                SchedulerTracker.record_failure(job_id, str(e))
+                raise
+        return wrapper
+    return decorator
+
+
 def get_scheduler() -> AsyncIOScheduler:
     """取得排程器實例"""
     global _scheduler
@@ -29,6 +122,7 @@ def get_scheduler() -> AsyncIOScheduler:
     return _scheduler
 
 
+@tracked_job("process_reminders")
 async def process_pending_reminders_job():
     """處理待發送提醒的排程任務"""
     from app.db.database import async_session_maker
@@ -45,6 +139,7 @@ async def process_pending_reminders_job():
         logger.error(f"提醒處理排程任務失敗: {e}", exc_info=True)
 
 
+@tracked_job("cleanup_events")
 async def cleanup_expired_events_job():
     """清理過期事件的排程任務"""
     from app.db.database import async_session_maker
@@ -63,6 +158,7 @@ async def cleanup_expired_events_job():
         logger.error(f"過期事件清理排程任務失敗: {e}", exc_info=True)
 
 
+@tracked_job("einvoice_sync")
 async def einvoice_sync_job():
     """電子發票自動同步排程任務 — 每晚從財政部下載公司統編發票"""
     from app.db.database import async_session_maker
@@ -83,6 +179,7 @@ async def einvoice_sync_job():
         logger.error(f"電子發票同步排程任務失敗: {e}", exc_info=True)
 
 
+@tracked_job("code_graph_update")
 async def code_graph_incremental_job():
     """Code Graph 增量更新 — 掃描 Python/TypeScript AST 變更並更新圖譜實體"""
     from app.db.database import async_session_maker
@@ -113,6 +210,7 @@ async def code_graph_incremental_job():
         logger.error(f"Code Graph 增量更新失敗: {e}", exc_info=True)
 
 
+@tracked_job("db_graph_refresh")
 async def db_schema_refresh_job():
     """DB Schema 快照更新 — 反射 PostgreSQL information_schema 並重建快取"""
 
@@ -130,6 +228,7 @@ async def db_schema_refresh_job():
         logger.error(f"DB Schema 快照更新失敗: {e}", exc_info=True)
 
 
+@tracked_job("kb_coverage_check")
 async def kb_coverage_check_job():
     """KB Embedding 覆蓋率檢查 — 確認所有文件分段都已產生向量"""
     from app.db.database import async_session_maker
@@ -156,6 +255,7 @@ async def kb_coverage_check_job():
         logger.error(f"KB 覆蓋率檢查失敗: {e}", exc_info=True)
 
 
+@tracked_job("security_scan")
 async def security_scan_job():
     """自動安全掃描 — 偵測硬編碼密鑰、SQL 注入、缺認證端點等"""
     from app.db.database import async_session_maker
@@ -175,6 +275,7 @@ async def security_scan_job():
         logger.error("安全掃描失敗: %s", e, exc_info=True)
 
 
+@tracked_job("proactive_trigger_scan")
 async def proactive_trigger_scan_job():
     """
     NemoClaw 夜間吹哨者 — 掃描 PM/ERP 預算超支、逾期請款、待核銷發票等警報。
@@ -254,6 +355,7 @@ async def proactive_trigger_scan_job():
         logger.error(f"NemoClaw 夜間吹哨者失敗: {e}", exc_info=True)
 
 
+@tracked_job("kg_embedding_backfill")
 async def kg_embedding_backfill_job():
     """KG 實體 Embedding 自動回填 — 批次生成缺少向量的跨專案實體"""
     from app.db.database import async_session_maker
@@ -277,6 +379,7 @@ async def kg_embedding_backfill_job():
         logger.error(f"KG Embedding 回填失敗: {e}", exc_info=True)
 
 
+@tracked_job("morning_report")
 async def morning_report_job():
     """每日 08:00 — 生成晨報並推送至 Telegram/LINE"""
     from app.db.database import async_session_maker
@@ -326,6 +429,7 @@ async def morning_report_job():
         logger.error("Morning report failed: %s", e, exc_info=True)
 
 
+@tracked_job("ezbid_cache_refresh")
 async def ezbid_cache_refresh_job():
     """ezbid 即時資料快取刷新 — 每小時預取 + 寫入 DB"""
     from app.db.database import async_session_maker
@@ -351,6 +455,7 @@ async def ezbid_cache_refresh_job():
         logger.error(f"ezbid 快取刷新失敗: {e}")
 
 
+@tracked_job("tender_refresh_pending")
 async def tender_refresh_pending_job():
     """標案狀態更新 — 每日重查等標期標案的決標結果"""
     from app.db.database import async_session_maker
@@ -365,6 +470,7 @@ async def tender_refresh_pending_job():
         logger.error(f"標案狀態更新失敗: {e}", exc_info=True)
 
 
+@tracked_job("tender_subscription")
 async def tender_subscription_check_job():
     """標案訂閱檢查 — 每日 3 次比對 PCC API，新公告 → 系統+LINE 通知"""
     from app.db.database import async_session_maker
