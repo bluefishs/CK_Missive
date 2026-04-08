@@ -351,6 +351,20 @@ async def ezbid_cache_refresh_job():
         logger.error(f"ezbid 快取刷新失敗: {e}")
 
 
+async def tender_refresh_pending_job():
+    """標案狀態更新 — 每日重查等標期標案的決標結果"""
+    from app.db.database import async_session_maker
+
+    logger.info("開始標案狀態更新")
+    try:
+        async with async_session_maker() as db:
+            from app.services.tender_cache_service import refresh_pending_tenders
+            result = await refresh_pending_tenders(db, limit=30)
+            logger.info(f"標案狀態更新完成: checked={result['checked']}, updated={result['updated']}")
+    except Exception as e:
+        logger.error(f"標案狀態更新失敗: {e}", exc_info=True)
+
+
 async def tender_subscription_check_job():
     """標案訂閱檢查 — 每日 3 次比對 PCC API，新公告 → 系統+LINE 通知"""
     from app.db.database import async_session_maker
@@ -538,6 +552,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 ezbid 快取刷新: 每小時執行")
+
+    # 標案狀態更新 — 每日 06:00 (重查等標期標案的決標結果)
+    scheduler.add_job(
+        tender_refresh_pending_job,
+        trigger=CronTrigger(hour=6, minute=0),
+        id='tender_refresh_pending',
+        name='標案狀態更新 (每日 06:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加標案狀態更新: 每日 06:00 執行")
 
     return scheduler
 

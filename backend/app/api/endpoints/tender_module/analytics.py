@@ -24,6 +24,14 @@ async def cache_stats(db: AsyncSession = Depends(get_db)):
     return SuccessResponse(data=stats)
 
 
+@router.post("/analytics/refresh-pending")
+async def refresh_pending(db: AsyncSession = Depends(get_db)):
+    """手動觸發：重查等標期標案的決標狀態"""
+    from app.services.tender_cache_service import refresh_pending_tenders
+    result = await refresh_pending_tenders(db, limit=30)
+    return SuccessResponse(data=result)
+
+
 # ============================================================================
 # Endpoints
 # ============================================================================

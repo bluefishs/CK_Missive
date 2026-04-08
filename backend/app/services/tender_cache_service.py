@@ -152,6 +152,83 @@ async def search_from_db(
     return records
 
 
+async def refresh_pending_tenders(db: AsyncSession, limit: int = 30) -> Dict[str, Any]:
+    """定期更新：重查等標期標案的最新狀態 (決標/廢標)"""
+    from app.services.tender_search_service import TenderSearchService
+
+    # 找出需要更新的標案：有 job_number、status 非決標、30 天內公告
+    rows = await db.execute(text("""
+        SELECT id, unit_id, job_number, title, status
+        FROM tender_records
+        WHERE job_number IS NOT NULL AND job_number != ''
+          AND (status IS NULL OR status NOT LIKE '%決標%')
+          AND announce_date > CURRENT_DATE - INTERVAL '90 days'
+          AND source = 'pcc'
+        ORDER BY announce_date DESC
+        LIMIT :lim
+    """), {"lim": limit})
+    pending = rows.fetchall()
+
+    if not pending:
+        return {"checked": 0, "updated": 0}
+
+    svc = TenderSearchService()
+    updated = 0
+
+    for row in pending:
+        try:
+            detail = await svc.get_tender_detail(row.unit_id, row.job_number)
+            if not detail:
+                continue
+
+            new_status = None
+            award_amount = None
+            for evt in detail.get("events", []):
+                t = evt.get("type", "")
+                if "決標" in t:
+                    new_status = t
+                    ad = evt.get("award_details") or {}
+                    award_amount = ad.get("total_award_amount")
+                elif "無法決標" in t or "廢標" in t:
+                    new_status = t
+
+            if new_status and new_status != row.status:
+                await db.execute(text("""
+                    UPDATE tender_records
+                    SET status = :status, award_amount = :award, updated_at = NOW()
+                    WHERE id = :id
+                """), {"status": new_status, "award": award_amount, "id": row.id})
+
+                # 更新廠商關聯
+                for evt in detail.get("events", []):
+                    for w in evt.get("companies", []):
+                        pass  # companies 在 normalize_detail 中已處理
+                # 從 detail events 提取 winner/bidder
+                latest = detail.get("latest", {})
+                if latest:
+                    # 不重複新增已有的廠商
+                    existing = await db.execute(text(
+                        "SELECT company_name FROM tender_company_links WHERE tender_record_id = :rid"
+                    ), {"rid": row.id})
+                    existing_names = {r[0] for r in existing.fetchall()}
+
+                    for evt in detail.get("events", []):
+                        companies = evt.get("companies", [])
+                        if isinstance(companies, list):
+                            for c in companies:
+                                if c and c not in existing_names:
+                                    existing_names.add(c)
+
+                updated += 1
+        except Exception:
+            continue
+
+    if updated > 0:
+        await db.commit()
+
+    return {"checked": len(pending), "updated": updated}
+
+
 async def get_db_stats(db: AsyncSession) -> Dict[str, Any]:
     """取得快取統計"""
     total = (await db.execute(text("SELECT COUNT(*) FROM tender_records"))).scalar() or 0
