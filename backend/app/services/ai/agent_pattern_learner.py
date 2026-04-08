@@ -255,39 +255,9 @@ class QueryPatternLearner:
             logger.debug("PatternLearner.learn failed: %s", e)
 
     async def _update_db_graduation(self, template: str, success: bool) -> None:
-        """
-        Bridge Redis pattern learning to DB graduation system.
-
-        Finds DB learnings whose source_question matches the template,
-        then updates their graduation counters.
-        """
-        try:
-            from app.db.database import AsyncSessionLocal
-            from app.repositories.agent_learning_repository import AgentLearningRepository
-            from app.extended.models.agent_learning import AgentLearning
-            from sqlalchemy import select, and_
-
-            async with AsyncSessionLocal() as session:
-                repo = AgentLearningRepository(session)
-
-                # Find active learnings with matching source_question pattern
-                stmt = (
-                    select(AgentLearning)
-                    .where(and_(
-                        AgentLearning.is_active == True,  # noqa: E712
-                        AgentLearning.graduation_status == "active",
-                        AgentLearning.source_question.ilike(f"%{template[:50]}%"),
-                    ))
-                    .limit(5)
-                )
-                result = await session.execute(stmt)
-                records = result.scalars().all()
-
-                for record in records:
-                    await repo.update_graduation(record.id, success)
-
-        except Exception as e:
-            logger.debug("_update_db_graduation failed: %s", e)
+        """Bridge Redis pattern learning to DB graduation system."""
+        from app.services.ai.agent_pattern_persistence import update_db_graduation
+        await update_db_graduation(template, success)
 
     def _calc_score(
         self, hit_count: int, success_rate: float, last_used: float
@@ -442,8 +412,6 @@ class QueryPatternLearner:
 
     # ── 種子資料載入 ──
 
-    _SEED_FLAG_KEY = "agent:seeds:loaded"
-
     async def load_seeds_if_empty(self) -> int:
         """
         冷啟動種子載入 — 當 Redis 無任何已學習模式時，載入預設種子。
@@ -451,61 +419,8 @@ class QueryPatternLearner:
         Returns:
             載入的種子數量（0 表示已有模式或 Redis 不可用）
         """
-        redis = await self._get_redis()
-        if not redis:
-            return 0
-
-        try:
-            # 檢查是否已載入過（冪等保護）
-            if await redis.get(self._SEED_FLAG_KEY):
-                return 0
-
-            # 檢查是否已有模式
-            index_key = f"{self._PREFIX}:index"
-            count = await redis.zcard(index_key)
-            if count > 0:
-                # 已有模式，設定旗標避免後續再檢查
-                await redis.set(self._SEED_FLAG_KEY, "1", ex=self._TTL)
-                return 0
-
-            # 載入種子
-            from app.services.ai.pattern_seeds import SEED_PATTERNS
-
-            loaded = 0
-            for seed in SEED_PATTERNS:
-                tool_calls = [
-                    {"name": name, "params": {}} for name in seed["tools"]
-                ]
-                await self.learn(
-                    question=seed["question"],
-                    hints=None,
-                    tool_calls=tool_calls,
-                    success=True,
-                    latency_ms=0.0,
-                )
-
-                # 提升 hit_count 至基線值（5），讓種子立即可被 match
-                template = self.normalize_question(seed["question"])
-                pattern_key = self._make_key(template)
-                detail_key = f"{self._PREFIX}:detail:{pattern_key}"
-                exists = await redis.exists(detail_key)
-                if exists:
-                    await redis.hset(detail_key, "hit_count", "5")
-                    # 更新 index score
-                    import time as _time
-
-                    score = self._calc_score(5, 1.0, _time.time())
-                    await redis.zadd(index_key, {pattern_key: score})
-                    loaded += 1
-
-            # 設定旗標
-            await redis.set(self._SEED_FLAG_KEY, "1", ex=self._TTL)
-            logger.info("Pattern seeds loaded: %d patterns", loaded)
-            return loaded
-
-        except Exception as e:
-            logger.warning("load_seeds_if_empty failed: %s", e)
-            return 0
+        from app.services.ai.agent_pattern_persistence import load_seeds_if_empty
+        return await load_seeds_if_empty(self)
 
 
 # ── Singleton ──

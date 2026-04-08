@@ -29,6 +29,8 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from sqlalchemy import text
 
+from app.services.audit_event_loggers import AuditEventLoggersMixin as _AuditEventLoggersMixin
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,7 +64,7 @@ CRITICAL_FIELDS = {
 }
 
 
-class AuditService:
+class AuditService(_AuditEventLoggersMixin):
     """
     統一審計服務
 
@@ -70,6 +72,9 @@ class AuditService:
     - 使用獨立 session，不污染主交易
     - 失敗時自動 rollback，不影響調用方
     - 支援同步和非同步調用
+
+    Event-specific loggers (log_auth_event, log_ai_event, log_permission_change,
+    log_user_change) are provided by AuditEventLoggersMixin.
     """
 
     @staticmethod
@@ -259,234 +264,9 @@ class AuditService:
         critical_fields = CRITICAL_FIELDS.get(table_name, {})
         return any(field in critical_fields for field in changes.keys())
 
-    # ============ 認證事件審計 (2026-01-09) ============
-
-    @staticmethod
-    async def log_auth_event(
-        event_type: str,
-        user_id: Optional[int] = None,
-        email: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-        success: bool = True
-    ) -> bool:
-        """
-        記錄認證相關事件
-
-        事件類型 (event_type):
-        - LOGIN_SUCCESS: 登入成功
-        - LOGIN_FAILED: 登入失敗
-        - LOGIN_BLOCKED: 登入被阻止 (網域不允許、帳號停用)
-        - LOGOUT: 登出
-        - TOKEN_REFRESH: Token 刷新
-        - SESSION_EXPIRED: 會話過期
-        - SESSION_REVOKED: 會話被撤銷
-        - ACCOUNT_CREATED: 帳號建立
-        - ACCOUNT_ACTIVATED: 帳號啟用
-        - ACCOUNT_DEACTIVATED: 帳號停用
-
-        Args:
-            event_type: 事件類型
-            user_id: 使用者 ID（可選）
-            email: 使用者 Email
-            ip_address: IP 位址
-            user_agent: User-Agent
-            details: 額外詳細資訊
-            success: 是否成功事件
-
-        Returns:
-            bool: 是否成功寫入資料庫
-        """
-        changes = {
-            "event_type": event_type,
-            "email": email,
-            "ip_address": ip_address,
-            "user_agent": user_agent[:200] if user_agent else None,  # 限制長度
-            "success": success,
-            **(details or {})
-        }
-
-        # 記錄到應用日誌
-        log_level = logging.INFO if success else logging.WARNING
-        logger.log(
-            log_level,
-            f"[AUTH_AUDIT] {event_type} | Email: {email} | "
-            f"User: {user_id} | IP: {ip_address} | Success: {success}"
-        )
-
-        return await AuditService.log_change(
-            table_name="auth_events",
-            record_id=user_id or 0,
-            action=event_type,
-            changes=changes,
-            user_id=user_id,
-            user_name=email,
-            source="AUTH",
-            ip_address=ip_address
-        )
-
-    # ============ AI 操作審計 (2026-02-08) ============
-
-    @staticmethod
-    async def log_ai_event(
-        event_type: str,
-        feature: str,
-        input_text: str,
-        user_id: Optional[int] = None,
-        user_name: Optional[str] = None,
-        source_provider: str = "unknown",
-        tokens_used: int = 0,
-        latency_ms: float = 0,
-        success: bool = True,
-        error: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-    ) -> bool:
-        """
-        記錄 AI 操作事件
-
-        事件類型 (event_type):
-        - AI_SUMMARY_GENERATED: AI 生成摘要
-        - AI_CLASSIFY_SUGGESTED: AI 分類建議
-        - AI_KEYWORDS_EXTRACTED: AI 關鍵字提取
-        - AI_SEARCH_EXECUTED: 自然語言搜尋
-        - AI_INTENT_PARSED: 意圖解析
-        - AI_AGENCY_MATCHED: AI 機關匹配
-
-        Args:
-            event_type: 事件類型
-            feature: 功能名稱 (summary, classify, keywords, search, intent, agency_match)
-            input_text: 輸入文字（截取前 200 字）
-            user_id: 使用者 ID
-            user_name: 使用者名稱
-            source_provider: AI 提供者 (groq, ollama, cache, fallback)
-            tokens_used: 消耗 token 數
-            latency_ms: 延遲毫秒數
-            success: 是否成功
-            error: 錯誤訊息
-            details: 額外詳細資訊
-
-        Returns:
-            bool: 是否成功寫入
-        """
-        changes = {
-            "event_type": event_type,
-            "feature": feature,
-            "input_text": input_text[:200] if input_text else "",
-            "source_provider": source_provider,
-            "tokens_used": tokens_used,
-            "latency_ms": round(latency_ms, 2),
-            "success": success,
-        }
-        if error:
-            changes["error"] = error[:500]
-        if details:
-            changes.update(details)
-
-        log_level = logging.INFO if success else logging.WARNING
-        logger.log(
-            log_level,
-            f"[AI_AUDIT] {event_type} | Feature: {feature} | "
-            f"Provider: {source_provider} | Tokens: {tokens_used} | "
-            f"Latency: {latency_ms:.0f}ms | Success: {success}"
-        )
-
-        return await AuditService.log_change(
-            table_name="ai_events",
-            record_id=user_id or 0,
-            action=event_type,
-            changes=changes,
-            user_id=user_id,
-            user_name=user_name,
-            source="AI",
-        )
-
-    @staticmethod
-    async def log_permission_change(
-        user_id: int,
-        action: str,
-        old_permissions: Optional[list] = None,
-        new_permissions: Optional[list] = None,
-        old_role: Optional[str] = None,
-        new_role: Optional[str] = None,
-        admin_id: Optional[int] = None,
-        admin_name: Optional[str] = None
-    ) -> bool:
-        """
-        記錄權限變更事件
-
-        Args:
-            user_id: 被變更權限的使用者 ID
-            action: 操作類型 (PERMISSION_GRANTED, PERMISSION_REVOKED, ROLE_CHANGED)
-            old_permissions: 原權限列表
-            new_permissions: 新權限列表
-            old_role: 原角色
-            new_role: 新角色
-            admin_id: 執行變更的管理員 ID
-            admin_name: 執行變更的管理員名稱
-
-        Returns:
-            bool: 是否成功寫入資料庫
-        """
-        changes = {}
-
-        if old_permissions is not None or new_permissions is not None:
-            changes["permissions"] = {
-                "old": old_permissions,
-                "new": new_permissions
-            }
-
-        if old_role or new_role:
-            changes["role"] = {
-                "old": old_role,
-                "new": new_role
-            }
-
-        logger.warning(
-            f"[PERMISSION_AUDIT] {action} | User: {user_id} | "
-            f"Admin: {admin_name}(#{admin_id}) | Changes: {changes}"
-        )
-
-        return await AuditService.log_change(
-            table_name="user_permissions",
-            record_id=user_id,
-            action=action,
-            changes=changes,
-            user_id=admin_id,
-            user_name=admin_name,
-            source="ADMIN"
-        )
-
-    @staticmethod
-    async def log_user_change(
-        user_id: int,
-        action: str,
-        changes: Dict[str, Any],
-        admin_id: Optional[int] = None,
-        admin_name: Optional[str] = None
-    ) -> bool:
-        """
-        記錄使用者資料變更
-
-        Args:
-            user_id: 被變更的使用者 ID
-            action: 操作類型 (CREATE, UPDATE, DELETE, ACTIVATE, DEACTIVATE)
-            changes: 變更內容
-            admin_id: 執行變更的管理員 ID
-            admin_name: 執行變更的管理員名稱
-
-        Returns:
-            bool: 是否成功寫入資料庫
-        """
-        return await AuditService.log_change(
-            table_name="users",
-            record_id=user_id,
-            action=action,
-            changes=changes,
-            user_id=admin_id,
-            user_name=admin_name,
-            source="ADMIN"
-        )
+    # ============ Event loggers (delegated to audit_event_loggers.py) ============
+    # These methods are inherited via AuditEventLoggersMixin.
+    # Kept here as imports for backward compatibility — see class definition above.
 
 
 def detect_changes(old_data: Dict[str, Any], new_data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:

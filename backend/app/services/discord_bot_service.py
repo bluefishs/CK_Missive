@@ -9,9 +9,9 @@ Discord Bot 整合服務
 - Edit-Streaming: 逐步編輯同一訊息呈現 Agent 串流回答
 - StatusIndicator: 訊息前綴狀態指示器 (inspired by agent-broker)
 
-Version: 1.1.0
+Version: 1.2.0
 Created: 2026-03-25
-Updated: 2026-04-05 - v1.1.0 Edit-Streaming + StatusIndicator + SenderContext
+Updated: 2026-04-08 - v1.2.0 Extract helpers to discord_helpers.py
 """
 
 import json
@@ -20,71 +20,37 @@ import os
 import time
 from typing import Any, Dict, Optional
 
+from app.services.discord_helpers import (
+    StatusIndicator,
+    COLOR_SUCCESS,
+    COLOR_INFO,
+    COLOR_WARNING,
+    COLOR_ERROR,
+    MAX_EMBED_DESCRIPTION,
+    MAX_MESSAGE_CONTENT,
+    EDIT_INTERVAL,
+    SAFE_CONTENT_LEN,
+    truncate,
+    edit_followup,
+    make_embed_response,
+    make_fields_embed,
+)
+
 logger = logging.getLogger(__name__)
 
-# Discord Embed 顏色
-_COLOR_SUCCESS = 0x52C41A  # 綠
-_COLOR_INFO = 0x1890FF     # 藍
-_COLOR_WARNING = 0xFAAD14  # 黃
-_COLOR_ERROR = 0xFF4D4F    # 紅
-
-# 回覆長度限制
-_MAX_EMBED_DESCRIPTION = 4096
-_MAX_MESSAGE_CONTENT = 2000
-
-# Edit-Streaming 設定
-_EDIT_INTERVAL = 1.5  # 秒，Discord API rate limit 友好間隔
-_SAFE_CONTENT_LEN = 1900  # Discord 2000 char limit，留 100 給 cursor/prefix
-
-
-class StatusIndicator:
-    """Message-prefix status indicators for Discord (HTTP webhook mode).
-
-    Since Interactions Endpoint mode has no gateway connection, we cannot
-    add/remove reactions. Instead, we prepend a status emoji line to the
-    message content during edits.
-
-    Inspired by agent-broker's reaction-based status pattern, adapted
-    for HTTP webhook mode.
-    """
-
-    THINKING = "\U0001f914"  # 🤔
-    TOOL_CODE = "\u2699\ufe0f"  # ⚙️
-    TOOL_SEARCH = "\U0001f50d"  # 🔍
-    TOOL_GRAPH = "\U0001f578\ufe0f"  # 🕸️
-    DONE = "\u2705"  # ✅
-    ERROR = "\u274c"  # ❌
-    STALL = "\u23f3"  # ⏳
-
-    def __init__(self):
-        self._current = self.THINKING
-        self._last_activity = time.monotonic()
-
-    @property
-    def current(self) -> str:
-        return self._current
-
-    def set_status(self, emoji: str) -> None:
-        """Update current status emoji."""
-        self._current = emoji
-        self._last_activity = time.monotonic()
-
-    def on_tool_call(self, tool_name: str) -> None:
-        """Map tool name to appropriate status emoji."""
-        lower = tool_name.lower()
-        if "search" in lower or "find" in lower:
-            self.set_status(self.TOOL_SEARCH)
-        elif "graph" in lower or "entity" in lower:
-            self.set_status(self.TOOL_GRAPH)
-        else:
-            self.set_status(self.TOOL_CODE)
-
-    def is_stalled(self, timeout: float = 10.0) -> bool:
-        return time.monotonic() - self._last_activity > timeout
-
-    def format_prefix(self) -> str:
-        """Generate a status prefix line for the message."""
-        return f"{self._current} "
+# Backward-compatible aliases for private names used in tests
+_COLOR_SUCCESS = COLOR_SUCCESS
+_COLOR_INFO = COLOR_INFO
+_COLOR_WARNING = COLOR_WARNING
+_COLOR_ERROR = COLOR_ERROR
+_MAX_EMBED_DESCRIPTION = MAX_EMBED_DESCRIPTION
+_MAX_MESSAGE_CONTENT = MAX_MESSAGE_CONTENT
+_EDIT_INTERVAL = EDIT_INTERVAL
+_SAFE_CONTENT_LEN = SAFE_CONTENT_LEN
+_truncate = truncate
+_edit_followup = edit_followup
+_make_embed_response = make_embed_response
+_make_fields_embed = make_fields_embed
 
 
 class DiscordBotService:
@@ -450,68 +416,6 @@ class DiscordBotService:
         except Exception as e:
             logger.error("Discord push failed: %s", e)
             return False
-
-
-# ── Helpers ──
-
-
-def _truncate(text: str, max_len: int) -> str:
-    """Truncate text to max_len, adding ellipsis if truncated."""
-    if len(text) <= max_len:
-        return text
-    return text[:max_len] + "..."
-
-
-async def _edit_followup(webhook_base: str, content: str) -> None:
-    """Edit the original followup message via Discord webhook."""
-    try:
-        import httpx
-        async with httpx.AsyncClient() as client:
-            await client.patch(
-                f"{webhook_base}/messages/@original",
-                json={"content": content[:_MAX_MESSAGE_CONTENT]},
-                timeout=10,
-            )
-    except Exception as e:
-        logger.debug("Discord edit followup failed: %s", e)
-
-
-def _make_embed_response(
-    title: str, description: str, color: int = _COLOR_INFO,
-) -> Dict[str, Any]:
-    """構建 Discord Interaction Response (type 4)"""
-    return {
-        "type": 4,
-        "data": {
-            "embeds": [{
-                "title": title,
-                "description": description,
-                "color": color,
-                "footer": {"text": "CK Missive Agent"},
-            }],
-        },
-    }
-
-
-def _make_fields_embed(
-    title: str, fields: list, color: int = _COLOR_INFO,
-) -> Dict[str, Any]:
-    """構建帶欄位的 Discord Embed (type 4)"""
-    embed_fields = [
-        {"name": f["name"], "value": f["value"], "inline": f.get("inline", False)}
-        for f in fields
-    ]
-    return {
-        "type": 4,
-        "data": {
-            "embeds": [{
-                "title": title,
-                "color": color,
-                "fields": embed_fields,
-                "footer": {"text": "CK Missive Agent"},
-            }],
-        },
-    }
 
 
 # ── Singleton ──
