@@ -147,10 +147,9 @@ export function useDispatchWorkData({
 
     for (const doc of linkedDocuments) {
       if (!doc.document_id) continue;
-      // 已被當前派工單的作業紀錄引用 → 跳過
+      // 已被當前派工單的作業紀錄引用 → 跳過（已指派）
       if (assignedDocIds.has(doc.document_id)) continue;
-      // 已被其他派工單的作業紀錄引用 → 跳過（跨派工單共用公文）
-      if (doc.referenced_by_dispatch_ids && doc.referenced_by_dispatch_ids.length > 0) continue;
+      // 注意：不再跳過「被其他派工單引用」的公文 — 使用者需要看到並能刪除錯誤關聯
       // 通用行政文件（契約/保險等）→ 跳過，不需關聯到特定作業紀錄
       if (doc.subject && GENERIC_ADMIN_KEYWORDS.test(doc.subject)) continue;
 
