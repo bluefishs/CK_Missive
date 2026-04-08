@@ -195,9 +195,18 @@ class Settings(BaseSettings):
     @field_validator('AUTH_DISABLED', mode='before')
     @classmethod
     def validate_auth_disabled(cls, v, info):
-        """確保生產環境不會禁用認證"""
+        """確保非開發環境不會禁用認證"""
         if v and os.getenv('DEVELOPMENT_MODE', 'true').lower() == 'false':
             raise ValueError("AUTH_DISABLED 不能在生產環境中啟用")
+        # 非 localhost 部署時強制警告
+        if v:
+            import socket
+            hostname = socket.gethostname()
+            import logging
+            logging.getLogger(__name__).warning(
+                "⚠️ AUTH_DISABLED=true on host '%s'. "
+                "Ensure this is a development-only deployment.", hostname
+            )
         return v
 
     @field_validator('SECRET_KEY', mode='after')

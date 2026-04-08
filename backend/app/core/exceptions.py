@@ -345,25 +345,42 @@ async def validation_exception_handler(
     )
 
 
+async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
+    """
+    ValueError 異常處理器
+
+    處理業務邏輯中的 ValueError，保留用戶可見的驗證訊息。
+    """
+    logger.warning(
+        "ValueError: %s [%s %s]", exc, request.method, request.url.path
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=format_error_response(
+            code=ErrorCode.BAD_REQUEST,
+            message=str(exc)
+        ),
+        headers=_get_cors_headers(request)
+    )
+
+
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
     通用異常處理器
 
-    處理所有未捕獲的異常，記錄錯誤並返回統一格式。
+    處理所有未捕獲的異常，記錄錯誤並返回統一格式（不洩漏內部細節）。
     """
-    logger.exception(
-        f"Unhandled exception on {request.url.path}: {str(exc)}",
-        extra={
-            "path": request.url.path,
-            "method": request.method
-        }
+    logger.error(
+        "Unhandled exception: %s [%s %s]", exc, request.method, request.url.path,
+        exc_info=True
     )
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=format_error_response(
             code=ErrorCode.INTERNAL_ERROR,
-            message="伺服器發生未預期的錯誤，請稍後再試"
+            message="伺服器內部錯誤，請稍後再試"
         ),
         headers=_get_cors_headers(request)
     )
@@ -386,5 +403,6 @@ def register_exception_handlers(app):
     app.add_exception_handler(AppException, app_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
-    # 啟用通用異常處理器以確保 CORS headers 正確返回
+    app.add_exception_handler(ValueError, value_error_handler)
+    # 啟用通用異常處理器以確保 CORS headers 正確返回（必須最後註冊）
     app.add_exception_handler(Exception, generic_exception_handler)

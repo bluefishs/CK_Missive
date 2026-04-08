@@ -1,11 +1,11 @@
 """
 安全網站管理模組 - 共用工具
 
-包含：CSRF 管理、遞迴查詢、重排序
+包含：CSRF 管理（Redis 後端）、遞迴查詢、重排序
 """
 
+import logging
 import secrets
-import time
 from typing import Dict, List, Optional
 from datetime import datetime
 
@@ -14,40 +14,58 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models import SiteNavigationItem
 
-# CSRF Token 儲存 (生產環境應使用 Redis 或資料庫)
-csrf_tokens: Dict[str, float] = {}
+logger = logging.getLogger(__name__)
+
+# CSRF Token TTL (秒)
+_CSRF_TOKEN_TTL = 3600  # 1 小時
 
 
-def generate_csrf_token() -> str:
-    """生成 CSRF 令牌"""
+async def generate_csrf_token() -> str:
+    """生成 CSRF 令牌並存入 Redis (1 小時 TTL，單次使用)"""
+    from app.core.redis_client import get_redis
+
     token = secrets.token_urlsafe(32)
-    csrf_tokens[token] = time.time()
+    redis = await get_redis()
+    if redis:
+        try:
+            await redis.setex(f"csrf:{token}", _CSRF_TOKEN_TTL, "1")
+        except Exception as e:
+            logger.warning("Failed to store CSRF token in Redis: %s", e)
+    else:
+        logger.warning("Redis unavailable — CSRF token not persisted")
     return token
 
 
-def validate_csrf_token(token: str) -> bool:
-    """驗證 CSRF 令牌"""
+async def validate_csrf_token(token: str) -> bool:
+    """驗證 CSRF 令牌（單次使用：驗證後立即刪除）"""
     from app.core.config import settings
     if getattr(settings, 'AUTH_DISABLED', False):
         return True
 
-    if not token or token not in csrf_tokens:
+    if not token:
         return False
 
-    if time.time() - csrf_tokens[token] > 1800:
-        del csrf_tokens[token]
+    from app.core.redis_client import get_redis
+    redis = await get_redis()
+    if not redis:
+        logger.warning("Redis unavailable — CSRF validation skipped (deny)")
         return False
 
-    return True
+    try:
+        exists = await redis.get(f"csrf:{token}")
+        if exists:
+            await redis.delete(f"csrf:{token}")
+            return True
+        return False
+    except Exception as e:
+        logger.warning("Failed to validate CSRF token in Redis: %s", e)
+        return False
 
 
-def cleanup_expired_tokens():
-    """清理過期的 CSRF 令牌"""
-    current_time = time.time()
-    expired_tokens = [token for token, timestamp in csrf_tokens.items()
-                     if current_time - timestamp > 1800]
-    for token in expired_tokens:
-        del csrf_tokens[token]
+async def cleanup_expired_tokens():
+    """清理過期的 CSRF 令牌 (Redis TTL 自動過期，此函數保留相容性)"""
+    # Redis 的 SETEX 會自動過期，無需手動清理
+    pass
 
 
 async def get_children_recursive(session: AsyncSession, parent_id: int, level: int = 2) -> List[Dict]:
