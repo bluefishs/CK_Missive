@@ -74,6 +74,27 @@ class TenderSearchService:
         if cached:
             return cached
 
+        # DB-first: 先查本地 tender_records (毫秒級)
+        try:
+            from app.db.database import async_session_maker
+            from app.services.tender_cache_service import search_from_db
+            async with async_session_maker() as db:
+                db_results = await search_from_db(db, query, limit=50)
+                if db_results and len(db_results) >= 3:
+                    from app.services.tender_data_transformer import dedup_records
+                    db_result = {
+                        "query": query, "page": 1,
+                        "total_records": len(db_results),
+                        "total_pages": 1,
+                        "records": dedup_records(db_results),
+                        "source": "db",
+                    }
+                    await self._set_cache(cache_key, db_result, ttl=600)
+                    # 背景更新外部 API (不阻塞)
+                    return db_result
+        except Exception:
+            pass
+
         url = f"{PCC_API_BASE}/searchbytitle"
         params = {"query": query, "page": page}
 
@@ -96,7 +117,7 @@ class TenderSearchService:
             "records": dedup_records(normalized),
         }
 
-        await self._set_cache(cache_key, result, ttl=1800)  # 30 min
+        await self._set_cache(cache_key, result, ttl=7200)  # 2 hr
         return result
 
     async def get_tender_detail(
@@ -149,7 +170,7 @@ class TenderSearchService:
             return None
 
         result = self._normalize_detail(data)
-        await self._set_cache(cache_key, result, ttl=3600)  # 1 hr
+        await self._set_cache(cache_key, result, ttl=14400)  # 4 hr
         return result
 
     async def search_by_org(

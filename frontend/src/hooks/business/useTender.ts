@@ -10,7 +10,7 @@ export function useTenderSearch(params: TenderSearchParams | null) {
     queryKey: ['tender', 'search', params?.query, params?.page, params?.search_type, params?.category],
     queryFn: () => tenderApi.search(params!),
     enabled: !!params?.query,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,  // 30 min (後端 Redis 快取 2hr)
   });
 }
 
@@ -19,7 +19,7 @@ export function useTenderDetail(unitId: string | null, jobNumber: string | null)
     queryKey: ['tender', 'detail', unitId, jobNumber],
     queryFn: () => tenderApi.getDetail(unitId!, jobNumber!),
     enabled: !!unitId && !!jobNumber,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 60 * 60 * 1000,  // 1 hr (後端 Redis 快取 4hr)
   });
 }
 
@@ -28,7 +28,7 @@ export function useTenderDetailFull(unitId: string | null, jobNumber: string | n
     queryKey: ['tender', 'detail-full', unitId, jobNumber],
     queryFn: () => tenderApi.getDetailFull(unitId!, jobNumber!),
     enabled: !!unitId && !!jobNumber,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 60 * 60 * 1000,  // 1 hr
   });
 }
 
@@ -37,7 +37,7 @@ export function useTenderCompanySearch(companyName: string | null, page = 1) {
     queryKey: ['tender', 'company', companyName, page],
     queryFn: () => tenderApi.searchByCompany(companyName!, page),
     enabled: !!companyName,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,  // 30 min
   });
 }
 

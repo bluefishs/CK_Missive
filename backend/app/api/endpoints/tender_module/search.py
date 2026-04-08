@@ -167,9 +167,22 @@ async def get_tender_detail_full(
     req: TenderDetailRequest,
     service: TenderSearchService = Depends(get_tender_service),
 ):
-    """標案完整戰情 — 詳情 + 相似標案 + 機關生態 + 競爭對手 (並行)"""
+    """標案完整戰情 — 詳情 + 相似標案 + 機關生態 + 競爭對手 (並行, Redis 快取)"""
     import asyncio
+    import json as _json
     from app.services.tender_analytics_service import TenderAnalyticsService
+
+    # Redis 快取 (整個 detail-full 結果, 2hr)
+    try:
+        from app.core.redis_client import get_redis
+        _redis = await get_redis()
+        if _redis:
+            cache_key = f"tender:detail-full:{req.unit_id}:{req.job_number}"
+            cached = await _redis.get(cache_key)
+            if cached:
+                return SuccessResponse(data=_json.loads(cached))
+    except Exception:
+        _redis = None
 
     analytics = TenderAnalyticsService()
 
@@ -227,13 +240,22 @@ async def get_tender_detail_full(
                     "budget": budget_val,
                 }
 
-    return SuccessResponse(data={
+    result_data = {
         "detail": detail,
         "battle_room": battle,
         "org_ecosystem": org_eco,
         "price_analysis": price if not price.get("error") else None,
         "price_estimate": estimate,
-    })
+    }
+
+    # 存入 Redis 快取 (2hr)
+    try:
+        if _redis:
+            await _redis.setex(cache_key, 7200, _json.dumps(result_data, default=str, ensure_ascii=False))
+    except Exception:
+        pass
+
+    return SuccessResponse(data=result_data)
 
 
 @router.post("/search-company")
