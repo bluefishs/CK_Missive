@@ -46,6 +46,11 @@ class CanonicalEntity(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    # === 版本控制欄位 (v1.2.0) ===
+    version = Column(Integer, nullable=False, server_default="1", comment="實體版本號")
+    valid_from = Column(DateTime, server_default=func.now(), comment="此版本生效時間")
+    valid_to = Column(DateTime, nullable=True, comment="此版本失效時間 (NULL=當前有效)")
+
     # === 跨專案聯邦欄位 (KG Federation, v1.1.0) ===
     source_project = Column(
         String(50), nullable=False, server_default="ck-missive", index=True,
