@@ -122,6 +122,7 @@ async def self_evaluate_and_evolve(
     tool_results: list,
     trace: Any,
     citation_result: dict,
+    context: Optional[str] = None,
 ) -> None:
     """
     自我評估 + 自動進化觸發。
@@ -145,9 +146,13 @@ async def self_evaluate_and_evolve(
         except Exception:
             pass
 
+        # 正規化 context → DOMAIN_WEIGHTS key
+        _ctx_map = {"knowledge-graph": "graph", "finance": "erp", "agent": None}
+        eval_context = _ctx_map.get(context, context) if context else None
+
         _score = await evaluator.evaluate_and_store(
             question, answer, tool_results, trace,
-            citation_result, redis,
+            citation_result, redis, context=eval_context,
         )
 
         # Step 2: 檢查是否觸發自動進化
@@ -167,7 +172,7 @@ class PostProcessingContext:
         "question", "answer_text", "tool_results", "tools_used",
         "hints", "model_used", "trace", "session_id",
         "history", "t0", "actual_iterations", "config",
-        "conv_memory", "summarizer", "db", "ai",
+        "conv_memory", "summarizer", "db", "ai", "context",
     )
 
     def __init__(
@@ -188,6 +193,7 @@ class PostProcessingContext:
         summarizer: Any,
         db: Any,
         ai: Any,
+        context: Optional[str] = None,
     ):
         self.question = question
         self.answer_text = answer_text
@@ -205,6 +211,7 @@ class PostProcessingContext:
         self.summarizer = summarizer
         self.db = db
         self.ai = ai
+        self.context = context
 
 
 async def run_post_synthesis(
@@ -316,7 +323,7 @@ async def run_post_synthesis(
     asyncio.create_task(
         self_evaluate_and_evolve(
             ctx.question, ctx.answer_text, ctx.tool_results,
-            ctx.trace, citation_result,
+            ctx.trace, citation_result, context=ctx.context,
         )
     )
 

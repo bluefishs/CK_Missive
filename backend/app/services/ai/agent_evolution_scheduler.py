@@ -291,6 +291,12 @@ class AgentEvolutionScheduler:
             logger.warning("Evolution failed (non-critical): %s", e)
             report["error"] = str(e)
 
+        # 進化後失效 IntelligenceState 快取，讓下次查詢讀到最新狀態
+        try:
+            await self.redis.delete("agent:intelligence:snapshot")
+        except Exception:
+            pass
+
         return report
 
     # ─── Internal helpers ──────────────────────────────────────

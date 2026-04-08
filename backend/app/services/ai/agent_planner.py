@@ -202,6 +202,34 @@ class AgentPlanner:
             except Exception as e:
                 logger.debug("Capability hint skipped: %s", e)
 
+        # CRITICAL 即時回饋 — 讀取近 5 分鐘內的嚴重失敗信號
+        critical_hint = ""
+        try:
+            from app.core.redis_client import get_redis
+            _redis = await get_redis()
+            if _redis:
+                import json
+                cursor = b"0"
+                signals = []
+                while True:
+                    cursor, keys = await _redis.scan(cursor, match="agent:critical_feedback:*", count=10)
+                    for key in keys:
+                        val = await _redis.get(key)
+                        if val:
+                            signals.append(json.loads(val))
+                    if cursor == b"0":
+                        break
+                if signals:
+                    sig_texts = [f"- {s['type']}: score={s['score']}" for s in signals[:3]]
+                    critical_hint = (
+                        f"\n<critical_feedback>\n\u26a0\ufe0f 近期嚴重失敗 ({len(signals)} 筆):\n"
+                        + "\n".join(sig_texts)
+                        + "\n請特別注意工具選擇準確性，多使用交叉驗證。\n</critical_feedback>"
+                    )
+                    logger.info("CRITICAL feedback injected: %d signals", len(signals))
+        except Exception as e:
+            logger.debug("CRITICAL feedback read skipped: %s", e)
+
         # Tool Discovery — 動態工具推薦 (v1.2.0)
         tool_discovery_hint = ""
         try:
@@ -238,6 +266,7 @@ class AgentPlanner:
 {cross_session_hints}
 {tool_discovery_hint}
 {capability_hint}
+{critical_hint}
 
 以下是幾個規劃範例：
 

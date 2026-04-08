@@ -217,6 +217,29 @@ class AgentRouter:
         # ── Layer 2.75: 規則意圖偵測 → 建議角色 context ──
         suggested = self._detect_context(question)
 
+        # ── Layer 2.8: 自適應角色升級 — 弱域自動提升到全能角色 ──
+        if suggested and suggested != "agent":
+            try:
+                from app.services.ai.agent_intelligence_state import (
+                    get_domain_readiness, get_active_critical_signals,
+                )
+                from app.core.redis_client import get_redis
+                _redis = await get_redis()
+                if _redis:
+                    readiness = await get_domain_readiness(None, _redis, suggested)
+                    criticals = await get_active_critical_signals(_redis)
+                    critical_domains = [s.get("type", "") for s in criticals]
+                    has_domain_critical = any(suggested in d for d in critical_domains)
+
+                    if readiness < 0.5 or has_domain_critical:
+                        logger.info(
+                            "Router 角色升級: %s → agent (readiness=%.2f, critical=%s)",
+                            suggested, readiness, has_domain_critical,
+                        )
+                        suggested = "agent"
+            except Exception as e:
+                logger.debug("Adaptive role escalation skipped: %s", e)
+
         # 若 Gemma 4 有結果但信心不足，仍附帶意圖資訊給 LLM 規劃參考
         gemma4_hint = gemma4_result if gemma4_result else None
 

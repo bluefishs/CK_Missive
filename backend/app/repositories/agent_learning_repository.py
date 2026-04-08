@@ -237,9 +237,34 @@ class AgentLearningRepository:
             return False
 
     async def get_stats(self) -> Dict[str, Any]:
-        """取得學習統計"""
+        """
+        Learning 統計摘要。
+
+        Returns:
+            {
+                total: int, active: int, graduated: int, chronic: int,
+                by_type: {preference: N, entity: N, ...},
+                total_hits: int,
+            }
+        """
         try:
-            stmt = (
+            # COUNT(*) GROUP BY graduation_status WHERE is_active=True
+            grad_stmt = (
+                select(
+                    AgentLearning.graduation_status,
+                    func.count().label("count"),
+                )
+                .where(AgentLearning.is_active == True)  # noqa: E712
+                .group_by(AgentLearning.graduation_status)
+            )
+            grad_result = await self.db.execute(grad_stmt)
+            grad_rows = grad_result.all()
+
+            by_status = {r.graduation_status or "active": r.count for r in grad_rows}
+            total_active_all = sum(by_status.values())
+
+            # COUNT(*) GROUP BY learning_type WHERE is_active=True
+            type_stmt = (
                 select(
                     AgentLearning.learning_type,
                     func.count().label("count"),
@@ -248,25 +273,30 @@ class AgentLearningRepository:
                 .where(AgentLearning.is_active == True)  # noqa: E712
                 .group_by(AgentLearning.learning_type)
             )
-            result = await self.db.execute(stmt)
-            rows = result.all()
+            type_result = await self.db.execute(type_stmt)
+            type_rows = type_result.all()
 
             by_type = {
-                r.learning_type: {
-                    "count": r.count,
-                    "total_hits": r.total_hits or 0,
-                }
-                for r in rows
+                r.learning_type: r.count
+                for r in type_rows
             }
+            total_hits = sum((r.total_hits or 0) for r in type_rows)
 
             return {
-                "total_active": sum(v["count"] for v in by_type.values()),
+                "total": total_active_all,
+                "active": by_status.get("active", 0),
+                "graduated": by_status.get("graduated", 0),
+                "chronic": by_status.get("chronic", 0),
                 "by_type": by_type,
+                "total_hits": total_hits,
             }
 
         except Exception as e:
             logger.warning("get_stats failed: %s", e)
-            return {"total_active": 0, "by_type": {}}
+            return {
+                "total": 0, "active": 0, "graduated": 0, "chronic": 0,
+                "by_type": {}, "total_hits": 0,
+            }
 
     # ── Graduation System ──────────────────────────────────
 

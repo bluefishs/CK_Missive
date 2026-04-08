@@ -489,6 +489,7 @@ class AgentOrchestrator:
                 summarizer=summarizer,
                 db=self.db,
                 ai=self.ai,
+                context=context,
             )
             pp_events = await run_post_synthesis(pp_ctx)
             for pp_event in pp_events:

@@ -93,6 +93,26 @@ class AgentSelfEvaluator:
             "relevance": 0.25, "completeness": 0.30,
             "citation_accuracy": 0.20, "latency": 0.10, "tool_efficiency": 0.15,
         },
+        "tender": {
+            "relevance": 0.25, "completeness": 0.30,
+            "citation_accuracy": 0.20, "latency": 0.10, "tool_efficiency": 0.15,
+        },
+        "graph": {
+            "relevance": 0.25, "completeness": 0.20,
+            "citation_accuracy": 0.30, "latency": 0.10, "tool_efficiency": 0.15,
+        },
+        "doc": {
+            "relevance": 0.30, "completeness": 0.20,
+            "citation_accuracy": 0.25, "latency": 0.10, "tool_efficiency": 0.15,
+        },
+        "sales": {
+            "relevance": 0.25, "completeness": 0.30,
+            "citation_accuracy": 0.15, "latency": 0.15, "tool_efficiency": 0.15,
+        },
+        "field": {
+            "relevance": 0.25, "completeness": 0.20,
+            "citation_accuracy": 0.15, "latency": 0.25, "tool_efficiency": 0.15,
+        },
     }
 
     @staticmethod
@@ -169,9 +189,10 @@ class AgentSelfEvaluator:
         trace: Any,
         citation_result: Optional[Dict[str, Any]] = None,
         redis: Optional[Any] = None,
+        context: Optional[str] = None,
     ) -> EvalScore:
         """評估並儲存信號到 Redis（供 EvolutionScheduler 消費）"""
-        score = self.evaluate(question, answer, tool_results, trace, citation_result)
+        score = self.evaluate(question, answer, tool_results, trace, citation_result, context)
 
         if redis and score.signals:
             try:
@@ -200,6 +221,30 @@ class AgentSelfEvaluator:
                 await redis.ltrim(self.EVAL_HISTORY_KEY, 0, 999)
             except Exception as e:
                 logger.debug("Eval store failed (non-critical): %s", e)
+
+        # CRITICAL 即時回饋：不等 EvolutionScheduler，直接寫入短效快取
+        if score.severity == "critical" and redis:
+            try:
+                import json
+                for sig in score.signals:
+                    sig_type = sig.get("type", "unknown")
+                    await redis.setex(
+                        f"agent:critical_feedback:{sig_type}",
+                        300,  # 5 minutes TTL
+                        json.dumps({
+                            "type": sig_type,
+                            "severity": "critical",
+                            "score": round(score.overall, 3),
+                            "question": question[:100],
+                            "timestamp": time.time(),
+                        }, ensure_ascii=False),
+                    )
+                logger.warning(
+                    "CRITICAL signal immediate write: %d signals, score=%.2f",
+                    len(score.signals), score.overall,
+                )
+            except Exception as e:
+                logger.debug("CRITICAL feedback write failed: %s", e)
 
         return score
 
