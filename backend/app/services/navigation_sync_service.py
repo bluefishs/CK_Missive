@@ -96,9 +96,13 @@ async def _fuzzy_find_parent(db: AsyncSession, parent_key: str) -> Optional[int]
     - "ai-features" → DB 中的 "Knowledge Map" 或 "AI Agents"
     - "system-management" → DB 中的 "system"
     """
+    # init_data parent_key → DB 中實際可能存在的 key（按優先級）
     KNOWN_MAPPINGS = {
-        "ai-features": ["Knowledge Map", "AI Agents"],
-        "system-management": ["system", "system-management"],
+        "ai-features": ["Knowledge Map", "AI Agents", "ai-features"],
+        "Knowledge Map": ["Knowledge Map"],
+        "AI Agents": ["AI Agents"],
+        "system-management": ["system", "system-management", "Site_Management"],
+        "reports": ["reports"],
     }
 
     candidates = KNOWN_MAPPINGS.get(parent_key, [parent_key])

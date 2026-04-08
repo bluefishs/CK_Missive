@@ -551,6 +551,52 @@ async def merge_entities(
         raise HTTPException(status_code=400, detail="操作失敗，請稍後再試")
 
 
+@router.post("/graph/admin/verify-entity", summary="實體置信度升級")
+async def verify_entity(
+    request: Request,
+    current_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    將實體或關係的 confidence_level 從 extracted/inferred → verified。
+    用於用戶確認 Agent 答案正確後，提升引用實體的置信度。
+    """
+    from app.extended.models.knowledge_graph import CanonicalEntity, EntityRelationship
+    from sqlalchemy import update
+
+    body = await request.json()
+    entity_ids = body.get("entity_ids", [])
+    relationship_ids = body.get("relationship_ids", [])
+
+    updated = 0
+
+    if entity_ids:
+        # CanonicalEntity 目前沒有 confidence_level，改為增加 mention_count
+        result = await db.execute(
+            update(CanonicalEntity)
+            .where(CanonicalEntity.id.in_(entity_ids))
+            .values(mention_count=CanonicalEntity.mention_count + 5)  # 驗證加權
+        )
+        updated += result.rowcount
+
+    if relationship_ids:
+        result = await db.execute(
+            update(EntityRelationship)
+            .where(EntityRelationship.id.in_(relationship_ids))
+            .where(EntityRelationship.confidence_level != "verified")
+            .values(confidence_level="verified")
+        )
+        updated += result.rowcount
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "message": f"已驗證 {updated} 個實體/關係",
+        "updated": updated,
+    }
+
+
 @router.post("/graph/admin/erp-ingest", summary="手動觸發 ERP 圖譜入圖")
 async def trigger_erp_graph_ingest(
     current_user: User = Depends(require_admin()),

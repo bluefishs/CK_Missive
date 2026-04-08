@@ -661,135 +661,67 @@ DEFAULT_NAVIGATION_ITEMS = [
     # AI 智慧功能 子項目
     # =========================================================================
 
-    # 公文圖譜 (對應 ROUTES.KNOWLEDGE_GRAPH)
-    {
-        "title": "公文圖譜",
-        "key": "knowledge-graph",
-        "path": "/ai/knowledge-graph",
-        "icon": "ApartmentOutlined",
-        "sort_order": 1,
-        "level": 2,
-        "parent_key": "ai-features",
-        "description": "公文圖譜,知識圖譜,實體,關聯,視覺化",
-        "permission_required": "[]"
-    },
+    # =========================================================================
+    # Knowledge Map 群組子項目 (圖譜類)
+    # DB parent: "Knowledge Map" (id=47, under system)
+    # =========================================================================
 
-    # 代碼圖譜 (對應 ROUTES.CODE_GRAPH)
-    {
-        "title": "代碼圖譜",
-        "key": "code-graph",
-        "path": "/ai/code-graph",
-        "icon": "CodeOutlined",
-        "sort_order": 2,
-        "level": 2,
-        "parent_key": "ai-features",
-        "description": "代碼,程式碼,模組,Code Wiki,圖譜,入圖,匯入,循環依賴,架構分析",
-        "permission_required": "[]"
-    },
+    # 公文圖譜
+    {"title": "公文圖譜", "key": "knowledge-graph", "path": "/ai/knowledge-graph",
+     "icon": "ApartmentOutlined", "sort_order": 0, "level": 2,
+     "parent_key": "Knowledge Map", "description": "公文圖譜,知識圖譜,實體,關聯,視覺化", "permission_required": "[]"},
 
-    # ERP 財務圖譜 (對應 ROUTES.ERP_GRAPH) — Knowledge Map 群組
-    {
-        "title": "ERP 財務圖譜",
-        "key": "erp-graph",
-        "path": "/ai/erp-graph",
-        "icon": "DollarOutlined",
-        "sort_order": 2,
-        "level": 2,
-        "parent_key": "Knowledge Map",
-        "description": "ERP,財務,圖譜,報價,費用,資產,廠商,應付,帳本",
-        "permission_required": "[]"
-    },
+    # 標案圖譜 (已在 DB, sort=1)
 
-    # 資料庫圖譜 (對應 ROUTES.DB_GRAPH)
-    {
-        "title": "資料庫圖譜",
-        "key": "db-graph",
-        "path": "/ai/db-graph",
-        "icon": "DatabaseOutlined",
-        "sort_order": 4,
-        "level": 2,
-        "parent_key": "ai-features",
-        "description": "資料庫,ER,資料表,關聯,欄位,FK",
-        "permission_required": "[]"
-    },
+    # 代碼圖譜
+    {"title": "代碼圖譜", "key": "code-graph", "path": "/ai/code-graph",
+     "icon": "CodeOutlined", "sort_order": 2, "level": 2,
+     "parent_key": "Knowledge Map", "description": "代碼,程式碼,模組,Code Wiki,圖譜", "permission_required": "[]"},
 
-    # Skills 能力圖譜 (對應 ROUTES.SKILLS_MAP)
-    {
-        "title": "Skills 能力圖譜",
-        "key": "skills-map",
-        "path": "/ai/skills-map",
-        "icon": "NodeIndexOutlined",
-        "sort_order": 4,
-        "level": 2,
-        "parent_key": "ai-features",
-        "description": "Skills,能力,圖譜,Agent,工具,技能",
-        "permission_required": "[]"
-    },
+    # ERP 財務圖譜
+    {"title": "ERP 財務圖譜", "key": "erp-graph", "path": "/ai/erp-graph",
+     "icon": "DollarOutlined", "sort_order": 2, "level": 2,
+     "parent_key": "Knowledge Map", "description": "ERP,財務,圖譜,報價,費用,資產,廠商", "permission_required": "[]"},
 
-    # 數位分身 (對應 ROUTES.DIGITAL_TWIN)
-    {
-        "title": "數位分身",
-        "key": "digital-twin",
-        "path": "/ai/digital-twin",
-        "icon": "CloudServerOutlined",
-        "sort_order": 5,
-        "level": 2,
-        "parent_key": "ai-features",
-        "description": "數位分身,NemoClaw,Agent,問答,跨專案,協作",
-        "permission_required": "[]"
-    },
+    # 資料庫圖譜
+    {"title": "資料庫圖譜", "key": "db-graph", "path": "/ai/db-graph",
+     "icon": "DatabaseOutlined", "sort_order": 3, "level": 2,
+     "parent_key": "Knowledge Map", "description": "資料庫,ER,資料表,關聯,欄位,FK", "permission_required": "[]"},
 
-    # 智能體中心 (對應 ROUTES.AGENT_DASHBOARD)
-    {
-        "title": "智能體中心",
-        "key": "agent-dashboard",
-        "path": "/agent/dashboard",
-        "icon": "RobotOutlined",
-        "sort_order": 5,
-        "level": 2,
-        "parent_key": "ai-features",
-        "description": "智能體,Agent,對話,自省,進化,拓撲,Dashboard",
-        "permission_required": "[]"
-    },
+    # Skills 能力圖譜
+    {"title": "Skills 能力圖譜", "key": "skills-map", "path": "/ai/skills-map",
+     "icon": "NodeIndexOutlined", "sort_order": 4, "level": 2,
+     "parent_key": "Knowledge Map", "description": "Skills,能力,圖譜,Agent,工具,技能", "permission_required": "[]"},
 
-    # 技能演化樹 (對應 ROUTES.SKILL_EVOLUTION)
-    {
-        "title": "技能演化樹",
-        "key": "skill-evolution",
-        "path": "/ai/skill-evolution",
-        "icon": "RiseOutlined",
-        "sort_order": 6,
-        "level": 2,
-        "parent_key": "ai-features",
-        "description": "技能,演化,演化樹,版本,融合,發展,藍圖",
-        "permission_required": "[]"
-    },
+    # 知識庫瀏覽器
+    {"title": "知識庫瀏覽器", "key": "knowledge-base", "path": "/admin/knowledge-base",
+     "icon": "BookOutlined", "sort_order": 6, "level": 2,
+     "parent_key": "Knowledge Map", "description": "知識庫,瀏覽器,ADR,架構圖", "permission_required": "[\"admin:settings\"]"},
 
-    # AI 助理管理 (對應 ROUTES.AI_ASSISTANT_MANAGEMENT)
-    {
-        "title": "AI 助理管理",
-        "key": "ai-assistant-management",
-        "path": "/admin/ai-assistant",
-        "icon": "ExperimentOutlined",
-        "sort_order": 7,
-        "level": 2,
-        "parent_key": "ai-features",
-        "description": "AI,助理,管理,儀表板",
-        "permission_required": "[\"admin:settings\"]"
-    },
+    # =========================================================================
+    # AI Agents 群組子項目 (Agent/分身類)
+    # DB parent: "AI Agents" (id=72, under system)
+    # =========================================================================
 
-    # 知識庫瀏覽器 (對應 ROUTES.KNOWLEDGE_BASE)
-    {
-        "title": "知識庫瀏覽器",
-        "key": "knowledge-base",
-        "path": "/admin/knowledge-base",
-        "icon": "BookOutlined",
-        "sort_order": 6,
-        "level": 2,
-        "parent_key": "ai-features",
-        "description": "知識庫,瀏覽器,ADR,架構圖,知識地圖",
-        "permission_required": "[\"admin:settings\"]"
-    },
+    # 智能體中心
+    {"title": "智能體中心", "key": "agent-dashboard", "path": "/agent/dashboard",
+     "icon": "RobotOutlined", "sort_order": 1, "level": 2,
+     "parent_key": "AI Agents", "description": "智能體,Agent,對話,自省,進化,拓撲", "permission_required": "[]"},
+
+    # 數位分身
+    {"title": "數位分身", "key": "digital-twin", "path": "/ai/digital-twin",
+     "icon": "CloudServerOutlined", "sort_order": 2, "level": 2,
+     "parent_key": "AI Agents", "description": "數位分身,NemoClaw,Agent,跨專案,協作", "permission_required": "[]"},
+
+    # 技能演化樹
+    {"title": "技能演化樹", "key": "skill-evolution", "path": "/ai/skill-evolution",
+     "icon": "RiseOutlined", "sort_order": 3, "level": 2,
+     "parent_key": "AI Agents", "description": "技能,演化,演化樹,版本,融合,藍圖", "permission_required": "[]"},
+
+    # AI 助理管理
+    {"title": "AI 助理管理", "key": "ai-assistant-management", "path": "/admin/ai-assistant",
+     "icon": "ExperimentOutlined", "sort_order": 4, "level": 2,
+     "parent_key": "AI Agents", "description": "AI,助理,管理,儀表板", "permission_required": "[\"admin:settings\"]"},
 
     # =========================================================================
     # 桃園查估專區 子項目

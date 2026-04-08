@@ -70,6 +70,34 @@ async def submit_feedback(
         except Exception as e:
             logger.debug("link_feedback to trace skipped: %s", e)
 
+        # Phase 1B: 正面回饋 → 圖譜置信度升級（品質閉環）
+        if request.score == 1:
+            try:
+                from app.services.ai.graph_query_service import GraphQueryService
+                from app.extended.models.knowledge_graph import EntityRelationship
+                from sqlalchemy import update as sql_update
+
+                # 從問題中提取前 3 個相關實體，提升置信度
+                gqs = GraphQueryService(db)
+                q_text = (request.question or "")[:50]
+                if q_text:
+                    entities = await gqs.search_entities(query=q_text, limit=3)
+                    entity_ids = [e.get("id") for e in entities if e.get("id")]
+                    if entity_ids:
+                        # 升級相關關係的 confidence_level
+                        await db.execute(
+                            sql_update(EntityRelationship)
+                            .where(EntityRelationship.source_entity_id.in_(entity_ids))
+                            .where(EntityRelationship.confidence_level.in_(["extracted", "inferred"]))
+                            .values(confidence_level="verified")
+                        )
+                        logger.info(
+                            "[FEEDBACK→KG] positive feedback → verified %d entities",
+                            len(entity_ids),
+                        )
+            except Exception as kg_err:
+                logger.debug("KG confidence upgrade skipped: %s", kg_err)
+
         # Phase 1A: 負面回饋注入進化信號（閉環）
         if request.score == -1:
             try:
