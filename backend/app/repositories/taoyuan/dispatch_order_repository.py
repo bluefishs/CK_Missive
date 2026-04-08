@@ -15,6 +15,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, text, delete, union_all
 from sqlalchemy.orm import selectinload
 
+# 繁簡異體字常見混用對照 (工程文件常見)
+_CJK_VARIANT_MAP = str.maketrans({
+    '\u5167': '\u5185',  # 內→内
+    '\u8457': '\u7740',  # 著→着
+    '\u88e1': '\u91cc',  # 裡→里
+    '\u7e23': '\u53bf',  # 縣→县
+    '\u8655': '\u5904',  # 處→处
+    '\u5340': '\u533a',  # 區→区
+    '\u6a13': '\u697c',  # 樓→楼
+    '\u689d': '\u6761',  # 條→条
+    '\u865f': '\u53f7',  # 號→号
+    '\u8def': '\u8def',  # 路 (same)
+    '\u5df7': '\u5df7',  # 巷 (same)
+})
+
+def _normalize_cjk_variants(text: str) -> str:
+    """將繁體常見字替換為簡體等價，用於模糊搜尋容錯"""
+    return text.translate(_CJK_VARIANT_MAP)
+
+
 from ..base_repository import BaseRepository
 from app.extended.models import (
     TaoyuanDispatchOrder,
@@ -304,11 +324,17 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
                 OfficialDocument.doc_number.ilike(f"%{agency_doc_number}%")
             )
 
-        # 策略 2: 完整工程名稱匹配主旨
+        # 策略 2: 完整工程名稱匹配主旨 (含繁簡異體字容錯)
         if project_name:
             search_conditions.append(
                 OfficialDocument.subject.ilike(f"%{project_name}%")
             )
+            # 繁簡異體字容錯：常見混用字替換後再搜一次
+            normalized = _normalize_cjk_variants(project_name)
+            if normalized != project_name:
+                search_conditions.append(
+                    OfficialDocument.subject.ilike(f"%{normalized}%")
+                )
 
         # 策略 3: 關鍵字拆解匹配（從工程名稱 + 作業類別提取）
         # 修正: 關鍵字用 AND 組合 (需同時匹配多個關鍵字)，避免通用字眼產生大量誤關聯
