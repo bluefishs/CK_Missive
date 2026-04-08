@@ -34,9 +34,11 @@ const detectLinkType = (docNumber?: string): LinkType => {
   return 'agency_incoming';
 };
 
-const formatCurrency = (val?: number | null): string => {
-  if (val === undefined || val === null || val === 0) return '-';
-  return `$${Math.round(val).toLocaleString()}`;
+const formatCurrency = (val?: number | string | null): string => {
+  if (val === undefined || val === null) return '-';
+  const num = Number(val);
+  if (isNaN(num) || num === 0) return '-';
+  return `$${Math.round(num).toLocaleString()}`;
 };
 
 /** 作業類別與金額欄位的對應表 */
@@ -92,13 +94,13 @@ const PaymentReadOnlySection: React.FC<PaymentReadOnlySectionProps> = ({
   );
 
   const currentAmount =
-    (paymentData?.work_01_amount ?? 0) +
-    (paymentData?.work_02_amount ?? 0) +
-    (paymentData?.work_03_amount ?? 0) +
-    (paymentData?.work_04_amount ?? 0) +
-    (paymentData?.work_05_amount ?? 0) +
-    (paymentData?.work_06_amount ?? 0) +
-    (paymentData?.work_07_amount ?? 0);
+    Number(paymentData?.work_01_amount ?? 0) +
+    Number(paymentData?.work_02_amount ?? 0) +
+    Number(paymentData?.work_03_amount ?? 0) +
+    Number(paymentData?.work_04_amount ?? 0) +
+    Number(paymentData?.work_05_amount ?? 0) +
+    Number(paymentData?.work_06_amount ?? 0) +
+    Number(paymentData?.work_07_amount ?? 0);
 
   const cumulativeAmount = paymentData?.cumulative_amount ?? 0;
   const remainingAmount = paymentData?.remaining_amount ?? 0;

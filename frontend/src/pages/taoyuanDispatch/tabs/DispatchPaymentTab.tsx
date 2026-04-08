@@ -183,14 +183,10 @@ const PaymentReadOnlyView: React.FC<PaymentReadOnlyViewProps> = ({
       }),
       { key: '本次派工總金額', label: '本次派工總金額', children: (
         <Text strong style={{ color: '#1890ff' }}>
-          {paymentData.current_amount && paymentData.current_amount > 0
-            ? `$${Math.round(paymentData.current_amount).toLocaleString()}`
-            : '-'}
+          {(() => { const n = Number(paymentData.current_amount); return !isNaN(n) && n > 0 ? `$${Math.round(n).toLocaleString()}` : '-'; })()}
         </Text>
       ) },
-      { key: '累進派工金額', label: '累進派工金額', children: paymentData.cumulative_amount && paymentData.cumulative_amount > 0
-        ? `$${Math.round(paymentData.cumulative_amount).toLocaleString()}`
-        : '-' },
+      { key: '累進派工金額', label: '累進派工金額', children: (() => { const n = Number(paymentData.cumulative_amount); return !isNaN(n) && n > 0 ? `$${Math.round(n).toLocaleString()}` : '-'; })() },
       { key: '剩餘金額', label: '剩餘金額', span: 2, children: formatCurrency(paymentData.remaining_amount) },
     ]} />
   );
