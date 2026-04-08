@@ -115,6 +115,30 @@ class TenderSearchService:
         if cached:
             return cached
 
+        # DB 快取優先：從 tender_records 查詢（毫秒級）
+        try:
+            from app.db.database import async_session_maker
+            from app.services.tender_cache_service import search_from_db
+            async with async_session_maker() as db:
+                db_results = await search_from_db(db, f"{unit_id} {job_number}", limit=1)
+                if db_results:
+                    db_record = db_results[0]
+                    # DB 有基本資料，先回傳（詳細資料背景補充）
+                    quick_result = {
+                        "unit_id": unit_id,
+                        "job_number": job_number,
+                        "title": db_record.get("title", ""),
+                        "unit_name": db_record.get("unit_name", ""),
+                        "budget": db_record.get("budget"),
+                        "award_amount": db_record.get("award_amount"),
+                        "announce_date": db_record.get("announce_date"),
+                        "status": db_record.get("status", ""),
+                        "source": "db_cache",
+                    }
+                    await self._set_cache(cache_key, quick_result, ttl=300)  # 5 min for DB cache
+        except Exception:
+            pass  # DB 不可用時 fallback 到外部 API
+
         url = f"{PCC_API_BASE}/tender"
         params = {"unit_id": unit_id, "job_number": job_number}
 
