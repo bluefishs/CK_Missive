@@ -5,9 +5,10 @@
  */
 import React, { useState } from 'react';
 import {
-  Descriptions, Tag, Table, Button, Modal, Form, Input, InputNumber,
+  Descriptions, Tag, Button, Modal, Form, Input, InputNumber,
   DatePicker, Select, Progress, Statistic, Row, Col, Card, Space, App,
 } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import {
   InfoCircleOutlined, FileTextOutlined, BarChartOutlined,
   PlusOutlined, EditOutlined, CheckOutlined, CloseOutlined,
@@ -225,7 +226,7 @@ const ERPOperationalDetailPage: React.FC = () => {
           </Button>
         )}
       </div>
-      <Table<OperationalExpense>
+      <EnhancedTable<OperationalExpense>
         columns={expenseColumns}
         dataSource={expenses}
         rowKey="id"

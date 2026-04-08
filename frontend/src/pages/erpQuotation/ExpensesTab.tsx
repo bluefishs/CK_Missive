@@ -5,9 +5,10 @@
  */
 import React from 'react';
 import {
-  Table, Tag, Empty, Button, Typography, Row, Col,
+  Tag, Empty, Button, Typography, Row, Col,
   Statistic, Card, Space, Popconfirm, App,
 } from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined,
   CheckCircleOutlined, CloseCircleOutlined,
@@ -194,7 +195,7 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
           </Button>
         </Empty>
       ) : (
-        <Table<FinanceRecord>
+        <EnhancedTable<FinanceRecord>
           columns={columns}
           dataSource={expenseRecords}
           rowKey={(r) => `expense-${r.id}`}

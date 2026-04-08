@@ -3,7 +3,8 @@
  *
  * 以表格 + 簡易長條圖顯示多年度收入/成本/毛利趨勢
  */
-import { Card, Table, Empty, Spin, Row, Col, Statistic, Progress } from 'antd';
+import { Card, Empty, Spin, Row, Col, Statistic, Progress } from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 import { useERPProfitTrend } from '../../hooks/business/useERPQuotations';
 import type { ERPProfitTrendItem } from '../../types/erp';
@@ -118,7 +119,7 @@ export default function ProfitTrendTab() {
       </Row>
 
       <Card title="年度損益趨勢">
-        <Table<ERPProfitTrendItem>
+        <EnhancedTable<ERPProfitTrendItem>
           rowKey="year"
           columns={columns}
           dataSource={trend}

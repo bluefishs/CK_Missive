@@ -5,9 +5,10 @@
  */
 import React, { useState } from 'react';
 import {
-  Card, Table, Button, Tag, Typography, Statistic, Row, Col,
+  Card, Button, Tag, Typography, Statistic, Row, Col,
   Tabs, Modal, Form, Input, Select, Upload, App, Alert,
 } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import {
   SyncOutlined, UploadOutlined, HistoryOutlined, FileImageOutlined, InboxOutlined,
 } from '@ant-design/icons';
@@ -155,7 +156,7 @@ const ERPEInvoiceSyncPage: React.FC = () => {
       key: 'pending',
       label: <span><FileImageOutlined /> 待核銷清單 ({pendingTotal})</span>,
       children: (
-        <Table<ExpenseInvoice>
+        <EnhancedTable<ExpenseInvoice>
           columns={pendingColumns}
           dataSource={pendingItems}
           rowKey="id"
@@ -178,7 +179,7 @@ const ERPEInvoiceSyncPage: React.FC = () => {
       key: 'logs',
       label: <span><HistoryOutlined /> 同步歷史 ({logTotal})</span>,
       children: (
-        <Table<EInvoiceSyncLog>
+        <EnhancedTable<EInvoiceSyncLog>
           columns={logColumns}
           dataSource={logItems}
           rowKey="id"

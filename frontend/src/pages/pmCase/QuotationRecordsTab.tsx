@@ -10,8 +10,9 @@
  */
 import { useState } from 'react';
 import {
-  Card, Table, Button, Upload, Space, Popconfirm, App, Empty, Modal, Image,
+  Card, Button, Upload, Space, Popconfirm, App, Empty, Modal, Image,
 } from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import {
   UploadOutlined, DownloadOutlined, DeleteOutlined, EyeOutlined,
   FileOutlined, FilePdfOutlined, FileExcelOutlined, FileWordOutlined, FileImageOutlined,
@@ -195,7 +196,7 @@ export default function QuotationRecordsTab({ caseCode, isEditing = false }: Quo
       {/* 附件列表 */}
       <Card size="small" title={`報價紀錄 (${attachments.length})`}>
         {attachments.length > 0 ? (
-          <Table<Attachment>
+          <EnhancedTable<Attachment>
             dataSource={attachments} columns={columns} rowKey="id"
             loading={isLoading} size="small" pagination={false}
           />

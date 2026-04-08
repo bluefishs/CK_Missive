@@ -9,7 +9,8 @@
  * @version 2.0.0
  */
 import React, { useMemo } from 'react';
-import { Button, Card, Col, Descriptions, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Button, Card, Col, Descriptions, Row, Space, Statistic, Tag, Typography } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import { InfoCircleOutlined, UnorderedListOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
@@ -78,7 +79,7 @@ const ERPVendorAccountDetailPage: React.FC = () => {
         <Descriptions.Item label="廠商代碼">{detail?.vendor_code ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="合作案件數">{detail?.cases?.length ?? 0}</Descriptions.Item>
       </Descriptions>
-      <Table<VendorCasePayableItem>
+      <EnhancedTable<VendorCasePayableItem>
         columns={simpleCaseColumns}
         dataSource={detail?.cases ?? []}
         rowKey="case_code"
@@ -116,7 +117,7 @@ const ERPVendorAccountDetailPage: React.FC = () => {
   ];
 
   const casesTab = createTabItem('cases', { icon: <UnorderedListOutlined />, text: '案件帳款明細', count: detail?.cases?.length }, (
-    <Table<VendorCasePayableItem>
+    <EnhancedTable<VendorCasePayableItem>
       columns={caseColumns}
       dataSource={detail?.cases ?? []}
       rowKey="case_code"
@@ -139,7 +140,7 @@ const ERPVendorAccountDetailPage: React.FC = () => {
                 </Space>
               </Descriptions.Item>
             </Descriptions>
-            <Table<VendorPayableRecord> columns={recordColumns} dataSource={record.items ?? []} rowKey="id" size="small" pagination={false} />
+            <EnhancedTable<VendorPayableRecord> columns={recordColumns} dataSource={record.items ?? []} rowKey="id" size="small" pagination={false} />
           </div>
         ),
         rowExpandable: () => true,
@@ -163,7 +164,7 @@ const ERPVendorAccountDetailPage: React.FC = () => {
   ];
 
   const timelineTab = createTabItem('timeline', { icon: <HistoryOutlined />, text: '付款紀錄', count: allPayments.length }, (
-    <Table<FlatPaymentRecord>
+    <EnhancedTable<FlatPaymentRecord>
       columns={timelineColumns}
       dataSource={allPayments}
       rowKey="id"

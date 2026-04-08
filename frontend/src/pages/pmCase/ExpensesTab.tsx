@@ -4,7 +4,8 @@
  * 使用 /erp/expenses/case-finance API 一次取得案件所有財務紀錄。
  */
 import React from 'react';
-import { Table, Tag, Empty, Button, Typography, Row, Col, Statistic, Card } from 'antd';
+import { Tag, Empty, Button, Typography, Row, Col, Statistic, Card } from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -132,7 +133,7 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
           新增核銷
         </Button>
       </div>
-      <Table<FinanceRecord>
+      <EnhancedTable<FinanceRecord>
         columns={columns}
         dataSource={records}
         rowKey={(r) => `${r.type}-${r.id}`}

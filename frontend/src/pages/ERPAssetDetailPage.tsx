@@ -7,9 +7,10 @@
  */
 import React, { useState } from 'react';
 import {
-  Descriptions, Tag, Table, Button, Modal, Form, Input, InputNumber,
+  Descriptions, Tag, Button, Modal, Form, Input, InputNumber,
   Select, DatePicker, Card, Empty, App, Image,
 } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import {
   InfoCircleOutlined, HistoryOutlined, FileTextOutlined,
   PlusOutlined, EditOutlined,
@@ -191,7 +192,7 @@ const ERPAssetDetailPage: React.FC = () => {
           新增紀錄
         </Button>
       </div>
-      <Table<AssetLog>
+      <EnhancedTable<AssetLog>
         rowKey="id"
         columns={logColumns}
         dataSource={logs}

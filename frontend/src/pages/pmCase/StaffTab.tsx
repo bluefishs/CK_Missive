@@ -8,7 +8,8 @@
  * @version 4.0.0 — 統一版型，移除外部人員，使用 useUsersDropdown
  */
 import { useState } from 'react';
-import { Table, Button, Modal, Form, Select, Tag, Popconfirm, App } from 'antd';
+import { Button, Modal, Form, Select, Tag, Popconfirm, App } from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -149,7 +150,7 @@ export default function StaffTab({ caseCode }: StaffTabProps) {
         </Button>
       </div>
 
-      <Table<StaffRecord>
+      <EnhancedTable<StaffRecord>
         dataSource={staff}
         columns={columns}
         rowKey="id"

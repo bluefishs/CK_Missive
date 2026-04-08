@@ -10,9 +10,10 @@
  * Quality: Form validation (required rules), loading states (confirmLoading), Popconfirm delete.
  */
 import { useState, useCallback } from 'react';
-import { Table, Button, Modal, Form, Input, Select, DatePicker, Tag, Popconfirm, Space, message } from 'antd';
+import { Button, Modal, Form, Input, Select, DatePicker, Tag, Popconfirm, Space, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { Upload } from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import type { PMMilestone, PMMilestoneType, PMMilestoneStatus } from '../../types/pm';
@@ -254,7 +255,7 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
         </Space>
       </div>
 
-      <Table<PMMilestone>
+      <EnhancedTable<PMMilestone>
         rowKey="id"
         columns={columns}
         dataSource={milestones ?? []}

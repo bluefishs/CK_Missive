@@ -10,9 +10,10 @@
 
 import React, { useState } from 'react';
 import {
-  Typography, Tabs, Card, Table, Tag, Statistic, Row, Col, Empty, Spin,
+  Typography, Tabs, Card, Tag, Statistic, Row, Col, Empty, Spin,
   Button, Badge, Space, List, Alert,
 } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import {
   SafetyCertificateOutlined, BugOutlined, ScanOutlined,
   BookOutlined, BellOutlined, ReloadOutlined,
@@ -173,7 +174,7 @@ const IssuesTab: React.FC = () => {
 
   return (
     <Card size="small" extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>}>
-      <Table dataSource={items} columns={columns} rowKey="id" size="small" loading={isLoading}
+      <EnhancedTable dataSource={items} columns={columns} rowKey="id" size="small" loading={isLoading}
         pagination={{ pageSize: 20, total: data?.total }} />
     </Card>
   );
@@ -214,7 +215,7 @@ const ScansTab: React.FC = () => {
         <Button size="small" icon={<ReloadOutlined />} onClick={() => refetch()} />
       </Space>
     }>
-      <Table dataSource={items} columns={columns} rowKey="id" size="small" loading={isLoading} pagination={false} />
+      <EnhancedTable dataSource={items} columns={columns} rowKey="id" size="small" loading={isLoading} pagination={false} />
     </Card>
   );
 };

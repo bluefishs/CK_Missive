@@ -15,9 +15,10 @@
  */
 import React, { useState, useCallback } from 'react';
 import {
-  Table, Button, Space, Tag, Modal, Form, Input, InputNumber,
+  Button, Space, Tag, Modal, Form, Input, InputNumber,
   DatePicker, Select, Popconfirm, App, Card, Statistic, Row, Col,
 } from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -251,7 +252,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>新增{dirLabel}</Button>
       </div>
 
-      <Table<AccountRecord>
+      <EnhancedTable<AccountRecord>
         columns={columns}
         dataSource={records}
         rowKey="id"

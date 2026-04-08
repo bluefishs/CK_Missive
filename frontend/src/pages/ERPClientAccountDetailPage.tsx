@@ -9,7 +9,8 @@
  * @version 2.0.0
  */
 import React, { useMemo } from 'react';
-import { Button, Card, Col, Descriptions, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Button, Card, Col, Descriptions, Row, Space, Statistic, Tag, Typography } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import { InfoCircleOutlined, UnorderedListOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
@@ -79,7 +80,7 @@ const ERPClientAccountDetailPage: React.FC = () => {
         <Descriptions.Item label="代碼">{detail?.vendor_code ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="案件數">{detail?.cases?.length ?? 0}</Descriptions.Item>
       </Descriptions>
-      <Table<ClientCaseReceivableItem>
+      <EnhancedTable<ClientCaseReceivableItem>
         columns={simpleCaseColumns}
         dataSource={detail?.cases ?? []}
         rowKey="case_code"
@@ -119,7 +120,7 @@ const ERPClientAccountDetailPage: React.FC = () => {
   ];
 
   const casesTab = createTabItem('cases', { icon: <UnorderedListOutlined />, text: '案件應收明細', count: detail?.cases?.length }, (
-    <Table<ClientCaseReceivableItem>
+    <EnhancedTable<ClientCaseReceivableItem>
       columns={caseColumns}
       dataSource={detail?.cases ?? []}
       rowKey="case_code"
@@ -142,7 +143,7 @@ const ERPClientAccountDetailPage: React.FC = () => {
                 </Space>
               </Descriptions.Item>
             </Descriptions>
-            <Table<BillingRecord> columns={billingColumns} dataSource={record.items ?? []} rowKey="id" size="small" pagination={false} />
+            <EnhancedTable<BillingRecord> columns={billingColumns} dataSource={record.items ?? []} rowKey="id" size="small" pagination={false} />
           </div>
         ),
         rowExpandable: () => true,
@@ -166,7 +167,7 @@ const ERPClientAccountDetailPage: React.FC = () => {
   ];
 
   const timelineTab = createTabItem('timeline', { icon: <HistoryOutlined />, text: '收款紀錄', count: allBillings.length }, (
-    <Table<FlatBillingRecord>
+    <EnhancedTable<FlatBillingRecord>
       columns={timelineColumns}
       dataSource={allBillings}
       rowKey="id"

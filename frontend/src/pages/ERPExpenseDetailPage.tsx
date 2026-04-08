@@ -8,9 +8,10 @@
  */
 import React, { useState } from 'react';
 import {
-  Descriptions, Tag, Button, Table, Popconfirm, Typography, Space,
+  Descriptions, Tag, Button, Popconfirm, Typography, Space,
   Upload, Image, Spin, App, Form, Input, Select,
 } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import {
   CheckCircleOutlined, CloseCircleOutlined, EditOutlined, SaveOutlined, CloseOutlined,
   UploadOutlined, FileImageOutlined, InfoCircleOutlined, UnorderedListOutlined, CloudSyncOutlined,
@@ -183,7 +184,7 @@ const ERPExpenseDetailPage: React.FC = () => {
     ),
     ...(invoice.items && invoice.items.length > 0 ? [
       createTabItem('items', { icon: <UnorderedListOutlined />, text: '明細項目', count: invoice.items.length },
-        <Table<ExpenseInvoiceItem> columns={itemColumns} dataSource={invoice.items} rowKey="id" pagination={false} size="small" />
+        <EnhancedTable<ExpenseInvoiceItem> columns={itemColumns} dataSource={invoice.items} rowKey="id" pagination={false} size="small" />
       ),
     ] : []),
     createTabItem('receipt', { icon: <FileImageOutlined />, text: '收據影像' },
@@ -235,7 +236,7 @@ const ERPExpenseDetailPage: React.FC = () => {
     ),
     ...(linkedAssets && linkedAssets.length > 0 ? [
       createTabItem('assets', { icon: <DatabaseOutlined />, text: '關聯資產', count: linkedAssets.length },
-        <Table
+        <EnhancedTable
           dataSource={linkedAssets}
           rowKey="id"
           size="small"

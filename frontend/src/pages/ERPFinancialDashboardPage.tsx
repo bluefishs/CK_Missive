@@ -5,8 +5,9 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Card, Table, Typography, Statistic, Row, Col, Tag, Select, Progress, Space, Button, Alert, Segmented,
+  Card, Typography, Statistic, Row, Col, Tag, Select, Progress, Space, Button, Alert, Segmented,
 } from 'antd';
+import { EnhancedTable } from '../components/common/EnhancedTable';
 import { ReloadOutlined, WarningOutlined, DownloadOutlined, ProjectOutlined, ShopOutlined, ToolOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
@@ -316,7 +317,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
               <Col span={12}><Statistic title="未收總額" value={Number(arAgingData?.data?.total_outstanding ?? 0)} precision={0} styles={{ content: { color: '#ff4d4f' } }} /></Col>
               <Col span={12}><Statistic title="未收筆數" value={arAgingData?.data?.total_count ?? 0} suffix="筆" /></Col>
             </Row>
-            <Table<AgingBucket>
+            <EnhancedTable<AgingBucket>
               columns={[
                 { title: '帳齡', dataIndex: 'bucket', width: 80, render: (v: string) => `${v} 天` },
                 { title: '筆數', dataIndex: 'count', width: 60, align: 'right' },
@@ -347,7 +348,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
           </Space>
         }
       >
-        <Table<ProjectFinancialSummary>
+        <EnhancedTable<ProjectFinancialSummary>
           columns={projectColumns}
           dataSource={projects}
           rowKey="case_code"
