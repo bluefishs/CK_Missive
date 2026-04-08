@@ -168,3 +168,6 @@ dispatch*.json
 
 # Bug test data (Excel files)
 \#BUG/
+
+# Runtime lock files
+backend/.startup.lock

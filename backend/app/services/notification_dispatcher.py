@@ -72,6 +72,13 @@ class NotificationDispatcher:
                 target.discord_channel_id, doc_subject, deadline,
             )
 
+        if target.telegram_chat_id and target.preferred_channel in (
+            NotificationChannel.TELEGRAM, NotificationChannel.ALL,
+        ):
+            results["telegram"] = await self._push_telegram_deadline(
+                target.telegram_chat_id, doc_subject, deadline,
+            )
+
         return results
 
     async def send_budget_alert(
@@ -157,6 +164,18 @@ class NotificationDispatcher:
             return await service.send_channel_message(channel_id, message)
         except Exception as e:
             logger.error("Discord deadline push failed: %s", e)
+            return False
+
+    async def _push_telegram_deadline(
+        self, chat_id: int, doc_subject: str, deadline: str,
+    ) -> bool:
+        try:
+            from app.services.telegram_bot_service import get_telegram_bot_service
+            service = get_telegram_bot_service()
+            message = f"📋 公文截止提醒\n主旨：{doc_subject}\n截止日：{deadline}"
+            return await service.push_message(chat_id, message)
+        except Exception as e:
+            logger.error("Telegram deadline push failed: %s", e)
             return False
 
     async def _broadcast(
