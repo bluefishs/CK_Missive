@@ -23,6 +23,7 @@ import { ROUTES } from '../router/types';
 
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
+import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
 
 const STATUS_OPTIONS = [
   { value: 'draft', label: '草稿', color: 'default' },
@@ -55,6 +56,9 @@ export const ERPQuotationDetailPage: React.FC = () => {
     tags: statusOpt ? [{ text: statusOpt.label, color: statusOpt.color }] : [],
     extra: canWrite ? (
       <>
+        {quotation?.case_code && (
+          <ExpenseQRButton caseCode={quotation.case_code} caseName={quotation.case_name} />
+        )}
         <Button type="primary" icon={<EditOutlined />}
           onClick={() => navigate(ROUTES.ERP_QUOTATION_EDIT.replace(':id', String(quotation?.id)))}
         >編輯</Button>

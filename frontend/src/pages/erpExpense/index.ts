@@ -4,5 +4,7 @@ export { default as OCRModal } from './OCRModal';
 export { default as MofInvoiceModal } from './MofInvoiceModal';
 export { default as SmartScanModal } from './SmartScanModal';
 export { default as ExpenseImportModal } from './ExpenseImportModal';
+export { default as ExpenseScanPanel } from './ExpenseScanPanel';
+export { compressImage } from './imageUtils';
 export { default as InvoiceSubTable } from './InvoiceSubTable';
 export type { ExpenseGroup } from './InvoiceSubTable';

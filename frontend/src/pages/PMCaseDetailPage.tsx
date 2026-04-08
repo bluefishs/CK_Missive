@@ -32,6 +32,7 @@ import { ROUTES } from '../router/types';
 import { ContractCaseDetailContent } from './ContractCaseDetailPage';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem, getTagColor } from '../components/common/DetailPage/utils';
+import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
 
 const MilestonesGanttTab = lazy(() => import('./pmCase/MilestonesGanttTab'));
 const PMStaffTab = lazy(() => import('./pmCase/StaffTab'));
@@ -169,6 +170,9 @@ export const PMCaseDetailPage: React.FC = () => {
       </>
     ) : (
       <>
+        {pmCase?.case_code && (
+          <ExpenseQRButton caseCode={pmCase.case_code} caseName={pmCase.case_name} />
+        )}
         {canWrite && (
           <Button type="primary" icon={<EditOutlined />} onClick={() => setIsEditing(true)}>編輯</Button>
         )}

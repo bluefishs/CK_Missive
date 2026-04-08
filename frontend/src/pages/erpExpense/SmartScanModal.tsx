@@ -11,7 +11,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   Modal, Upload, Button, Space, Tag, Alert,
-  Spin, Typography, Divider, App, Badge, List,
+  Spin, Typography, Divider, App, Badge, List, Steps,
 } from 'antd';
 import {
   CameraOutlined, ScanOutlined, PictureOutlined,
@@ -57,11 +57,35 @@ const SmartScanModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
     }
 
     setScanning(true);
-    const previewUrl = URL.createObjectURL(file);
+
+    // 壓縮圖片 — 手機照片通常 5-10MB
+    let processedFile = file;
+    if (file.size > 2 * 1024 * 1024) {
+      try {
+        processedFile = await new Promise<File>((resolve) => {
+          const img = new window.Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const scale = Math.min(1, 1920 / Math.max(img.width, img.height));
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(
+              (blob) => resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file),
+              'image/jpeg', 0.8,
+            );
+          };
+          img.onerror = () => resolve(file);
+          img.src = URL.createObjectURL(file);
+        });
+      } catch { /* use original */ }
+    }
+
+    const previewUrl = URL.createObjectURL(processedFile);
     setCurrentPreview(previewUrl);
 
     try {
-      const res = await expensesApi.smartScan(file, { auto_create: true });
+      const res = await expensesApi.smartScan(processedFile, { auto_create: true });
       const data = res.data;
 
       if (data) {
@@ -183,13 +207,19 @@ const SmartScanModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
 
       {/* 掃描中 */}
       {scanning && (
-        <div style={{ textAlign: 'center', padding: '30px 0' }}>
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <Steps
+            size="small" current={1}
+            items={[
+              { title: '上傳', status: 'finish' },
+              { title: '辨識中', status: 'process' },
+              { title: '完成', status: 'wait' },
+            ]}
+            style={{ maxWidth: 280, margin: '0 auto 16px' }}
+          />
           <Spin size="large" />
-          <div style={{ marginTop: 12 }}>
-            <Text type="secondary">辨識中... QR → OCR</Text>
-          </div>
           {currentPreview && (
-            <img src={currentPreview} alt="掃描中" style={{ maxWidth: 180, marginTop: 12, borderRadius: 8, opacity: 0.6 }} />
+            <img src={currentPreview} alt="掃描中" style={{ maxWidth: 160, marginTop: 12, borderRadius: 8, opacity: 0.6 }} />
           )}
         </div>
       )}
