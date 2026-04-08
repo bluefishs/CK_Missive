@@ -20,6 +20,7 @@ import { useCompanyBookmarks, useAddCompanyBookmark, useRemoveCompanyBookmark } 
 import { TENDER_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
 import CategoryPieChart from '../components/tender/CategoryPieChart';
+import { enhanceColumns } from '../utils/tableEnhancer';
 
 const { Title, Text } = Typography;
 
@@ -211,24 +212,22 @@ const TenderCompanyProfilePage: React.FC = () => {
           {/* 投標紀錄 — 全寬顯示以完整呈現標案名稱 */}
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             <Col xs={24}>
-              <Card title="投標紀錄" size="small">
+              <Card title={`投標紀錄 (${data.recent_tenders?.length ?? 0} 筆)`} size="small">
                 <Table
-                  columns={[
+                  columns={enhanceColumns([
                     {
                       title: '標案名稱', dataIndex: 'title', key: 'title',
-                      ellipsis: { showTitle: true },
                       render: (v: string, r: CompanyData['recent_tenders'][0]) => (
                         <a onClick={() => navigate(`/tender/${r.unit_id}/${r.job_number}`)} title={v}>{v}</a>
                       ),
                     },
                     { title: '日期', dataIndex: 'date', key: 'date', width: 105 },
-                    { title: '類型', dataIndex: 'type', key: 'type', width: 65,
+                    { title: '類型', dataIndex: 'type', key: 'type', width: 75,
                       render: (v: string) => <Tag>{v || '未知'}</Tag>,
                     },
                     {
-                      title: '結果', key: 'result', width: 80,
+                      title: '結果', key: 'result', dataIndex: 'is_won', width: 75,
                       render: (_: unknown, r: CompanyData['recent_tenders'][0]) => {
-                        // 模糊匹配：搜尋名稱包含在得標廠商名中
                         const isWon = r.is_won || (r.winner_names || []).some(
                           (w: string) => w.includes(companyName) || companyName.includes(w)
                         );
@@ -238,18 +237,19 @@ const TenderCompanyProfilePage: React.FC = () => {
                       },
                     },
                     {
-                      title: '得標廠商', key: 'winner', width: 140, ellipsis: true,
+                      title: '得標廠商', key: 'winner', dataIndex: 'winner_names',
                       render: (_: unknown, r: CompanyData['recent_tenders'][0]) => {
                         const winners = r.winner_names || [];
                         if (winners.length === 0) return <Text type="secondary">-</Text>;
                         return <Text style={{ fontSize: 12 }}>{winners.join('、')}</Text>;
                       },
                     },
-                  ]}
+                  ], data.recent_tenders)}
                   dataSource={data.recent_tenders}
                   rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${i}`}
                   size="small"
-                  pagination={{ pageSize: 10, showSizeChanger: false }}
+                  scroll={{ x: 800 }}
+                  pagination={{ pageSize: 15, showSizeChanger: true, showTotal: (t) => `共 ${t} 筆` }}
                 />
               </Card>
             </Col>
