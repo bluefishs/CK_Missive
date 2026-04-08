@@ -32,6 +32,15 @@ async def refresh_pending(db: AsyncSession = Depends(get_db)):
     return SuccessResponse(data=result)
 
 
+@router.post("/analytics/cross-reference")
+async def cross_reference(db: AsyncSession = Depends(get_db)):
+    """跨服務索引：標記已建案標案 + 廠商正規化"""
+    from app.services.tender_cache_service import cross_reference_pm_cases, normalize_company_names
+    pm_result = await cross_reference_pm_cases(db)
+    company_result = await normalize_company_names(db)
+    return SuccessResponse(data={"pm_cases": pm_result, "companies": company_result})
+
+
 # ============================================================================
 # Endpoints
 # ============================================================================

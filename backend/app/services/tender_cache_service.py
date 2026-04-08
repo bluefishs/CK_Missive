@@ -282,6 +282,54 @@ async def build_graph_from_db(db: AsyncSession, query: str, max_tenders: int = 2
     }
 
 
+async def cross_reference_pm_cases(db: AsyncSession) -> Dict[str, Any]:
+    """跨服務索引：標記已建案的標案"""
+    try:
+        # 找 PM Cases 的 notes 中含標案案號的
+        result = await db.execute(text("""
+            UPDATE tender_records tr
+            SET status = COALESCE(tr.status, '') || ' [已建案]'
+            FROM pm_cases pc
+            WHERE pc.notes LIKE '%' || tr.job_number || '%'
+              AND tr.job_number IS NOT NULL AND tr.job_number != ''
+              AND tr.status NOT LIKE '%已建案%'
+            RETURNING tr.id, tr.title, pc.case_code
+        """))
+        linked = result.fetchall()
+        if linked:
+            await db.commit()
+        return {"linked": len(linked), "cases": [{"title": r[1][:40], "case_code": r[2]} for r in linked[:10]]}
+    except Exception as e:
+        return {"linked": 0, "error": str(e)[:100]}
+
+
+async def normalize_company_names(db: AsyncSession) -> Dict[str, Any]:
+    """廠商名稱正規化：合併常見變體"""
+    # 移除「有限公司」「股份有限公司」等後綴建立 alias 對照
+    result = await db.execute(text("""
+        SELECT company_name, COUNT(*) as cnt
+        FROM tender_company_links
+        GROUP BY company_name
+        ORDER BY cnt DESC
+        LIMIT 50
+    """))
+    companies = result.fetchall()
+
+    # 找出可能的重複 (名稱前 4 字相同但全名不同)
+    from collections import defaultdict
+    prefix_groups = defaultdict(list)
+    for name, cnt in companies:
+        if len(name) >= 4:
+            prefix_groups[name[:4]].append({"name": name, "count": cnt})
+
+    duplicates = []
+    for prefix, group in prefix_groups.items():
+        if len(group) > 1:
+            duplicates.append({"prefix": prefix, "variants": group})
+
+    return {"total_companies": len(companies), "potential_duplicates": duplicates}
+
+
 async def get_db_stats(db: AsyncSession) -> Dict[str, Any]:
     """取得快取統計"""
     total = (await db.execute(text("SELECT COUNT(*) FROM tender_records"))).scalar() or 0
@@ -289,11 +337,13 @@ async def get_db_stats(db: AsyncSession) -> Dict[str, Any]:
     ezbid = (await db.execute(text("SELECT COUNT(*) FROM tender_records WHERE source='ezbid'"))).scalar() or 0
     companies = (await db.execute(text("SELECT COUNT(DISTINCT company_name) FROM tender_company_links"))).scalar() or 0
     latest = (await db.execute(text("SELECT MAX(announce_date) FROM tender_records"))).scalar()
+    awarded = (await db.execute(text("SELECT COUNT(*) FROM tender_records WHERE status LIKE '%決標%'"))).scalar() or 0
 
     return {
         "total_records": total,
         "pcc_records": pcc,
         "ezbid_records": ezbid,
+        "awarded_records": awarded,
         "unique_companies": companies,
         "latest_date": str(latest) if latest else None,
     }
