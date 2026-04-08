@@ -687,13 +687,26 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # ERP 財務圖譜 (對應 ROUTES.ERP_GRAPH)
+    {
+        "title": "ERP 財務圖譜",
+        "key": "erp-graph",
+        "path": "/ai/erp-graph",
+        "icon": "DollarOutlined",
+        "sort_order": 3,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "ERP,財務,圖譜,報價,費用,資產,廠商,應付,帳本",
+        "permission_required": "[]"
+    },
+
     # 資料庫圖譜 (對應 ROUTES.DB_GRAPH)
     {
         "title": "資料庫圖譜",
         "key": "db-graph",
         "path": "/ai/db-graph",
         "icon": "DatabaseOutlined",
-        "sort_order": 3,
+        "sort_order": 4,
         "level": 2,
         "parent_key": "ai-features",
         "description": "資料庫,ER,資料表,關聯,欄位,FK",

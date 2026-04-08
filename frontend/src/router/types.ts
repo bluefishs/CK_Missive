@@ -91,6 +91,7 @@ export const ROUTES = {
   // 代碼圖譜管理（獨立管理頁面）
   CODE_GRAPH_MANAGEMENT: '/admin/code-graph',
   // 資料庫圖譜
+  ERP_GRAPH: '/ai/erp-graph',
   DB_GRAPH: '/ai/db-graph',
   // 桃園查估專區
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
@@ -362,6 +363,12 @@ export const ROUTE_META = {
     title: '代碼圖譜',
     description: '視覺化程式碼結構與模組關聯',
     icon: 'CodeOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.ERP_GRAPH]: {
+    title: 'ERP 財務圖譜',
+    description: '報價/費用/資產/廠商在知識圖譜中的分布與跨圖關聯',
+    icon: 'DollarOutlined',
     requireAuth: true,
   },
   [ROUTES.DB_GRAPH]: {

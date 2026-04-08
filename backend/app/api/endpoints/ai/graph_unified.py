@@ -510,3 +510,30 @@ async def smart_graph_search(
         {"success": True, "data": result},
         media_type="application/json; charset=utf-8",
     )
+
+
+@router.post("/graph/case-flow", summary="案件全流程鏈查詢")
+async def get_case_flow(
+    request: Request,
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    以 case_code 為樞紐查詢完整業務鏈路:
+    tender -> pm_case -> quotation -> invoice -> billing -> vendor_payable -> expense
+    """
+    body = await request.json()
+    case_code = body.get("case_code", "").strip()
+    if not case_code:
+        return JSONResponse(
+            {"success": False, "error": "case_code is required"},
+            status_code=400,
+        )
+
+    from app.services.ai.case_flow_tracker import CaseFlowTracker
+    tracker = CaseFlowTracker(db)
+    flow = await tracker.get_full_flow(case_code)
+    return JSONResponse(
+        {"success": True, "data": flow},
+        media_type="application/json; charset=utf-8",
+    )

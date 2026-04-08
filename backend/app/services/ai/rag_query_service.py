@@ -119,7 +119,12 @@ class RAGQueryService:
                 "model": "none",
             }
 
+        # Graph-RAG: 2-hop 子圖擴充 — 從 KG 取相關實體鄰居注入 context
+        graph_context = await self._expand_with_graph(question, query_terms)
+
         context = build_context(sources)
+        if graph_context:
+            context = f"{context}\n\n--- 知識圖譜補充 ---\n{graph_context}"
         messages = self._build_messages(question, context, history)
 
         model_used = "ollama"
@@ -149,6 +154,61 @@ class RAGQueryService:
             "latency_ms": latency_ms,
             "model": model_used,
         }
+
+    async def _expand_with_graph(
+        self, question: str, query_terms: List[str],
+    ) -> str:
+        """
+        Graph-RAG 2-hop 子圖擴充。
+
+        從 KG 搜尋與查詢相關的實體 → 取 1-hop 鄰居 → 摘要注入 prompt。
+        跨 7 圖譜 (含 ERP/Tender entity types)。
+        """
+        try:
+            from app.services.ai.graph_query_service import GraphQueryService
+            gqs = GraphQueryService(self.db)
+
+            # 搜尋前 3 個最相關實體
+            entities = await gqs.search_entities(
+                query=" ".join(query_terms[:3]) if query_terms else question[:50],
+                limit=3,
+            )
+            if not entities:
+                return ""
+
+            parts = []
+            for ent in entities[:3]:
+                ent_id = ent.get("id")
+                name = ent.get("canonical_name", "")
+                etype = ent.get("entity_type", "")
+                desc = ent.get("description", "")
+
+                line = f"- {name} ({etype})"
+                if desc and isinstance(desc, str):
+                    line += f": {desc[:100]}"
+
+                # 1-hop 鄰居
+                if ent_id:
+                    try:
+                        neighbors = await gqs.get_entity_neighbors(
+                            entity_id=ent_id, max_depth=1, limit=5,
+                        )
+                        neighbor_names = [
+                            n.get("canonical_name", "")
+                            for n in (neighbors.get("entities", []) if isinstance(neighbors, dict) else [])
+                            if n.get("canonical_name") != name
+                        ][:5]
+                        if neighbor_names:
+                            line += f" | 關聯: {', '.join(neighbor_names)}"
+                    except Exception:
+                        pass
+
+                parts.append(line)
+
+            return "\n".join(parts) if parts else ""
+        except Exception as e:
+            logger.debug("Graph-RAG expansion failed (non-critical): %s", e)
+            return ""
 
     # ========================================================================
     # 串流問答 (SSE)

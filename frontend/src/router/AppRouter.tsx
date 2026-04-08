@@ -76,6 +76,7 @@ const AIAssistantManagementPage = lazy(() => import('../pages/AIAssistantManagem
 const KnowledgeGraphPage = lazy(() => import('../pages/KnowledgeGraphPage'));
 const SkillsCapabilityMapPage = lazy(() => import('../pages/SkillsCapabilityMapPage'));
 const CodeGraphManagementPage = lazy(() => import('../pages/CodeGraphManagementPage'));
+const ERPGraphPage = lazy(() => import('../pages/ERPGraphPage'));
 const DatabaseGraphPage = lazy(() => import('../pages/DatabaseGraphPage'));
 const KnowledgeBasePage = lazy(() => import('../pages/KnowledgeBasePage'));
 const SkillEvolutionPage = lazy(() => import('../pages/SkillEvolutionPage'));
@@ -266,6 +267,8 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.CODE_WIKI} element={<Navigate to={ROUTES.CODE_GRAPH} replace />} />
           {/* 代碼圖譜管理（舊路由相容重導向） */}
           <Route path={ROUTES.CODE_GRAPH_MANAGEMENT} element={<Navigate to={ROUTES.CODE_GRAPH} replace />} />
+          {/* ERP 財務圖譜 */}
+          <Route path={ROUTES.ERP_GRAPH} element={<ProtectedRoute><ERPGraphPage /></ProtectedRoute>} />
           {/* 資料庫圖譜 */}
           <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute><DatabaseGraphPage /></ProtectedRoute>} />
           {/* 數位分身 */}
