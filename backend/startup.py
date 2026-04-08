@@ -108,9 +108,28 @@ def main():
     log("Step 0", f"Checking port {port} availability...")
 
     if not check_port(port):
-        log("Step 0", f"Port {port} is occupied! Another process is using it.", "ERROR")
-        log("Step 0", f"Check: netstat -ano | findstr :{port}", "WARN")
-        sys.exit(1)
+        log("Step 0", f"Port {port} is occupied, attempting auto-cleanup...", "WARN")
+        # 自動清理佔用端口的殭屍進程
+        try:
+            result = subprocess.run(
+                ["netstat", "-ano"], capture_output=True, text=True, timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                if f":{port}" in line and "LISTENING" in line:
+                    parts = line.split()
+                    pid = parts[-1]
+                    if pid.isdigit() and int(pid) != os.getpid():
+                        log("Step 0", f"Killing orphan process PID={pid} on port {port}", "WARN")
+                        subprocess.run(["taskkill", "/PID", pid, "/F"], timeout=5,
+                                       capture_output=True)
+                        time.sleep(2)
+        except Exception as e:
+            log("Step 0", f"Auto-cleanup failed: {e}", "WARN")
+
+        # 重新檢查
+        if not check_port(port):
+            log("Step 0", f"Port {port} still occupied after cleanup!", "ERROR")
+            sys.exit(1)
 
     log("Step 0", f"Port {port} is available.")
 
