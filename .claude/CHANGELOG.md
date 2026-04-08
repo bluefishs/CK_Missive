@@ -38,6 +38,34 @@
 - **test_tender_cache_service.py** — tender_cache_service 7 方法 ≥10 cases
 - **test_tender_analytics.py** — battle/price analytics ≥10 cases
 
+#### 自主智能體進化閉環
+- **AgentIntelligenceState** — 中央聚合 (capability+eval+critical+learning stats, 30s cache)
+- **CRITICAL 即時回饋** — SelfEvaluator severity=critical 直寫 Redis 5min TTL → Planner 讀取
+- **6 域評估權重** — tender/graph/doc/sales/field 自訂維度權重 + context passthrough
+- **自適應角色升級** — Router 弱域 readiness<0.5 自動升級到 agent
+- **進化效果量測** — baseline→7天→比較 (improved/degraded 自動判定)
+- **Reflexion 軌跡** — scratchpad→trace.reasoning_trajectory 持久化
+- **學習共享池** — Redis agent:shared_pool 跨 session 即時可用
+- **promote→DB 閉環** — 進化升級的 pattern 寫入 AgentLearning → inject → planner 行為改變
+
+#### 六大圖譜增強
+- **置信度三級** — EntityRelationship.confidence_level (extracted/inferred/ambiguous)
+- **中心性分析** — centrality_analysis() SQL 度中心性 + coupling_risk
+- **Obsidian 匯出** — entity→.md + [[wiki links]] ZIP 下載
+- **timeline 索引** — 3 複合索引加速 10-100x
+- **反向邊自動產生** — INVERSE_RELATION_MAP 11 組對稱關係
+- **標案入圖** — 機關/廠商自動 upsert CanonicalEntity(org)
+- **DB Schema FK 入圖** — references 關係自動轉換
+- **Code↔Business 連結** — api_endpoint serves_domain (inferred)
+- **Federation health** — POST /ai/graph/admin/federation-health
+- **TS 提取增強** — interface/type/enum/re-export 5 新模式
+
+#### 派工公文關聯修正
+- **bigram OR→AND** — 關鍵字需同時匹配，避免通用詞誤關聯
+- **CJK 繁簡容錯** — 內/内、區/区 等 10 組異體字容錯搜尋
+- **公文對照顯示** — 移除 viewMode 限制 + 移除 referenced_by 跳過邏輯
+- **統計卡片統一** — 所有計數加「筆」字
+
 #### 行動核銷 + QR Code 入口
 - **ERPExpenseCreatePage v3.0** — 行動端步驟式單流程 (掃描→表單)
 - **圖片壓縮** — >2MB 自動 resize 1920px + JPEG 80%
