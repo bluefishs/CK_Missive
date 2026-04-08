@@ -10,6 +10,7 @@ ezbid.tw 標案爬蟲 — 即時資料補充源
 
 Version: 1.0.0
 """
+import asyncio
 import logging
 import re
 from datetime import datetime
@@ -22,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 EZBID_BASE = "https://cf.ezbid.tw"
 REQUEST_TIMEOUT = 15.0
+MAX_RETRIES = 3
+BACKOFF_BASE = 2.0
+BLOCK_THRESHOLD = 5
 
 # ezbid 分類對照
 EZBID_CATEGORIES = {
@@ -37,6 +41,7 @@ class EzbidScraper:
 
     def __init__(self, redis_client=None):
         self._redis = redis_client
+        self._consecutive_failures: int = 0
 
     async def fetch_latest(
         self,
@@ -102,10 +107,24 @@ class EzbidScraper:
             "fetched_at": datetime.utcnow().isoformat(),
         }
 
+    def get_health_status(self) -> Dict[str, Any]:
+        """回傳爬蟲健康狀態"""
+        return {
+            "healthy": self._consecutive_failures < BLOCK_THRESHOLD,
+            "consecutive_failures": self._consecutive_failures,
+        }
+
     async def _fetch_page(
         self, query: Optional[str], category: str, page: int, per_page: int,
     ) -> List[Dict[str, Any]]:
-        """爬取單頁"""
+        """爬取單頁 (含重試/退避/封鎖偵測)"""
+        # 連續失敗過多，跳過以避免洪水請求
+        if self._consecutive_failures >= BLOCK_THRESHOLD:
+            logger.error(
+                f"ezbid 爬蟲連續失敗 {self._consecutive_failures} 次，可能需要人工介入"
+            )
+            return []
+
         params = {
             "cat": category,
             "per_page": per_page,
@@ -116,17 +135,61 @@ class EzbidScraper:
         if page > 1:
             params["page"] = page
 
-        try:
-            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-                resp = await client.get(EZBID_BASE, params=params)
-                if resp.status_code != 200:
-                    logger.warning(f"ezbid HTTP {resp.status_code}")
-                    return []
+        last_error: Optional[Exception] = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                    resp = await client.get(EZBID_BASE, params=params)
 
-                return self._parse_html(resp.text)
-        except Exception as e:
-            logger.error(f"ezbid fetch error: {e}")
-            return []
+                    # 封鎖偵測: 403 或回應含 captcha/block 關鍵字
+                    if resp.status_code == 403:
+                        logger.warning("ezbid 可能已封鎖 IP (HTTP 403)")
+                        self._consecutive_failures += 1
+                        return []
+
+                    body_lower = resp.text[:2000].lower()
+                    if "captcha" in body_lower or "block" in body_lower:
+                        logger.warning("ezbid 可能已封鎖 IP (captcha/block detected)")
+                        self._consecutive_failures += 1
+                        return []
+
+                    # 可重試的 HTTP 狀態碼
+                    if resp.status_code in (429, 503):
+                        wait = BACKOFF_BASE ** attempt
+                        logger.warning(
+                            f"ezbid HTTP {resp.status_code}, 重試 {attempt + 1}/{MAX_RETRIES} "
+                            f"(等待 {wait:.1f}s)"
+                        )
+                        await asyncio.sleep(wait)
+                        continue
+
+                    if resp.status_code != 200:
+                        logger.warning(f"ezbid HTTP {resp.status_code}")
+                        self._consecutive_failures += 1
+                        return []
+
+                    # 成功
+                    self._consecutive_failures = 0
+                    return self._parse_html(resp.text)
+
+            except Exception as e:
+                last_error = e
+                wait = BACKOFF_BASE ** attempt
+                logger.warning(
+                    f"ezbid fetch error (attempt {attempt + 1}/{MAX_RETRIES}): {e}, "
+                    f"等待 {wait:.1f}s"
+                )
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(wait)
+
+        # 所有重試用盡
+        self._consecutive_failures += 1
+        logger.error(f"ezbid fetch failed after {MAX_RETRIES} retries: {last_error}")
+        if self._consecutive_failures >= BLOCK_THRESHOLD:
+            logger.error(
+                f"ezbid 爬蟲連續失敗 {self._consecutive_failures} 次，可能需要人工介入"
+            )
+        return []
 
     def _parse_html(self, html: str) -> List[Dict[str, Any]]:
         """解析 ezbid HTML，提取標案列表"""
