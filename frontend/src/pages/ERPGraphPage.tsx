@@ -8,14 +8,14 @@
  * @created 2026-04-08
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   Typography, Tabs, Card, Row, Col, Statistic, Table, Tag, Input,
-  Button, Space, Alert, message,
+  Button, Space, Alert, message, Spin,
 } from 'antd';
 import {
   DollarOutlined, SyncOutlined, SearchOutlined,
-  ToolOutlined,
+  ToolOutlined, ApartmentOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -311,6 +311,83 @@ const CaseFlowTab: React.FC = () => {
   );
 };
 
+// ── Graph Network Tab ──
+
+const ERP_NODE_COLORS: Record<string, string> = {
+  erp_quotation: '#1890ff', erp_vendor: '#52c41a', erp_expense: '#faad14',
+  erp_asset: '#722ed1', erp_invoice: '#13c2c2', erp_billing: '#eb2f96',
+  erp_client: '#fa8c16', erp_ledger: '#595959',
+};
+
+interface GNode { id: string; name: string; type: string; x?: number; y?: number }
+interface GLink { source: string; target: string; relation: string }
+
+const GraphNetworkTab: React.FC = () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fgRef = useRef<any>(undefined);
+  const [hoverNode, setHoverNode] = useState<GNode | null>(null);
+
+  const { data, isLoading } = useQuery<{ data: { nodes: GNode[]; links: GLink[] } }>({
+    queryKey: ['erp-graph-network'],
+    queryFn: () => apiClient.post<{ data: { nodes: GNode[]; links: GLink[] } }>('/api/ai/graph/erp-network', {}),
+    staleTime: 5 * 60_000,
+  });
+
+  const graphData = data?.data;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nodeCanvasObject = useCallback((node: any, ctx: CanvasRenderingContext2D) => {
+    const size = 5;
+    const color = ERP_NODE_COLORS[node.type] || '#999';
+    ctx.beginPath();
+    ctx.arc(node.x || 0, node.y || 0, size, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.font = '3px sans-serif';
+    ctx.fillStyle = '#333';
+    ctx.textAlign = 'center';
+    const label = (node.name || '').length > 12 ? node.name.slice(0, 12) + '...' : node.name;
+    ctx.fillText(label, node.x || 0, (node.y || 0) + size + 4);
+  }, []);
+
+  if (isLoading) return <Spin tip="載入關係網路..." style={{ display: 'block', padding: 60, textAlign: 'center' }} />;
+
+  if (!graphData?.nodes?.length) {
+    return <Alert message="尚無 ERP 圖譜資料。請先執行入圖管理。" type="info" showIcon />;
+  }
+
+  // Lazy import ForceGraph2D to avoid SSR issues
+  const ForceGraph2D = React.lazy(() => import('react-force-graph-2d'));
+
+  return (
+    <div>
+      <Space style={{ marginBottom: 8 }}>
+        {Object.entries(ERP_NODE_COLORS).map(([type, color]) => (
+          <Tag color={color} key={type}>{type.replace('erp_', '')}</Tag>
+        ))}
+        <Text type="secondary">節點 {graphData.nodes.length} | 關係 {graphData.links.length}</Text>
+      </Space>
+      {hoverNode && (
+        <Card size="small" style={{ marginBottom: 8 }}>
+          <Text strong>{hoverNode.name}</Text> <Tag>{hoverNode.type.replace('erp_', '')}</Tag>
+        </Card>
+      )}
+      <React.Suspense fallback={<Spin />}>
+        <ForceGraph2D
+          ref={fgRef}
+          graphData={{ nodes: graphData.nodes, links: graphData.links }}
+          nodeCanvasObject={nodeCanvasObject}
+          linkColor={() => '#ddd'}
+          linkWidth={1}
+          onNodeHover={(node) => setHoverNode(node as GNode | null)}
+          width={900}
+          height={500}
+        />
+      </React.Suspense>
+    </div>
+  );
+};
+
 // ── Main Page ──
 
 const ERPGraphPage: React.FC = () => {
@@ -323,6 +400,9 @@ const ERPGraphPage: React.FC = () => {
     ),
     createTabItem('flow', { icon: <DollarOutlined />, text: '案件全流程' },
       <CaseFlowTab />
+    ),
+    createTabItem('graph', { icon: <ApartmentOutlined />, text: '關係網路' },
+      <GraphNetworkTab />
     ),
     createTabItem('search', { icon: <SearchOutlined />, text: '實體搜尋' },
       <EntitySearchTab />

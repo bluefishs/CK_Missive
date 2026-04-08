@@ -512,6 +512,44 @@ async def smart_graph_search(
     )
 
 
+@router.post("/graph/erp-network", summary="ERP 財務圖譜關係網路")
+async def get_erp_graph_network(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """ERP 實體關係網路 — nodes + links for force-directed graph"""
+    from sqlalchemy import select as sa_select
+    from app.extended.models.knowledge_graph import CanonicalEntity, EntityRelationship
+    from app.services.ai.erp_graph_types import ERP_ENTITY_TYPES
+
+    ent_rows = (await db.execute(
+        sa_select(CanonicalEntity.id, CanonicalEntity.canonical_name,
+                  CanonicalEntity.entity_type, CanonicalEntity.external_id)
+        .where(CanonicalEntity.entity_type.in_(ERP_ENTITY_TYPES))
+        .order_by(CanonicalEntity.mention_count.desc())
+        .limit(150)
+    )).all()
+
+    id_set = {r[0] for r in ent_rows}
+    nodes = [{"id": str(r[0]), "name": r[1], "type": r[2]} for r in ent_rows]
+
+    links = []
+    if id_set:
+        rel_rows = (await db.execute(
+            sa_select(EntityRelationship.source_entity_id, EntityRelationship.target_entity_id,
+                      EntityRelationship.relation_type)
+            .where(EntityRelationship.source_entity_id.in_(id_set))
+            .where(EntityRelationship.target_entity_id.in_(id_set))
+            .limit(500)
+        )).all()
+        links = [{"source": str(r[0]), "target": str(r[1]), "relation": r[2]} for r in rel_rows]
+
+    return JSONResponse(
+        {"success": True, "data": {"nodes": nodes, "links": links}},
+        media_type="application/json; charset=utf-8",
+    )
+
+
 @router.post("/graph/case-flow", summary="案件全流程鏈查詢")
 async def get_case_flow(
     request: Request,
