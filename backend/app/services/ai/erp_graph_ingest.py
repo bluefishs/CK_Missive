@@ -115,10 +115,10 @@ class ErpGraphIngestService:
             ))
 
             # 關係：vendor → quotation
-            if vp.quotation_id:
+            if vp.erp_quotation_id:
                 # 找對應 quotation 的 case_name
                 for q in rows:
-                    if q.id == vp.quotation_id and q.case_name:
+                    if q.id == vp.erp_quotation_id and q.case_name:
                         relations.append(ErpRelation(
                             source_name=vp.vendor_name,
                             source_type="erp_vendor",
@@ -140,7 +140,7 @@ class ErpGraphIngestService:
         )).scalars().all()
 
         for e in rows:
-            name = e.invoice_number or f"expense_{e.id}"
+            name = e.inv_num or f"expense_{e.id}"
             entities.append(ErpEntity(
                 canonical_name=name,
                 entity_type="erp_expense",
@@ -172,15 +172,13 @@ class ErpGraphIngestService:
         rows = (await self.db.execute(select(Asset).limit(500))).scalars().all()
 
         for a in rows:
-            name = a.asset_name or a.asset_code or f"asset_{a.id}"
+            asset_name = a.name or a.asset_code or f"asset_{a.id}"
             entities.append(ErpEntity(
-                canonical_name=name,
+                canonical_name=asset_name,
                 entity_type="erp_asset",
                 description={
                     "asset_code": a.asset_code or "",
-                    "category": a.category or "",
                     "purchase_amount": float(a.purchase_amount) if a.purchase_amount else 0,
-                    "status": a.status or "",
                 },
                 external_id=a.asset_code or "",
             ))
@@ -260,20 +258,30 @@ class ErpGraphIngestService:
         if not values:
             return 0
 
-        BATCH_SIZE = 500
+        # 先查已存在的關係，避免重複插入
+        existing = set()
+        for v in values:
+            row = (await self.db.execute(
+                select(EntityRelationship.id)
+                .where(EntityRelationship.source_entity_id == v["source_entity_id"])
+                .where(EntityRelationship.target_entity_id == v["target_entity_id"])
+                .where(EntityRelationship.relation_type == v["relation_type"])
+                .limit(1)
+            )).scalar()
+            if row:
+                existing.add((v["source_entity_id"], v["target_entity_id"], v["relation_type"]))
+
+        new_values = [
+            v for v in values
+            if (v["source_entity_id"], v["target_entity_id"], v["relation_type"]) not in existing
+        ]
+
         count = 0
-        for i in range(0, len(values), BATCH_SIZE):
-            batch = values[i:i + BATCH_SIZE]
-            stmt = pg_insert(EntityRelationship).values(batch)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["source_entity_id", "target_entity_id", "relation_type"],
-                set_={
-                    "weight": EntityRelationship.weight + 1,
-                    "updated_at": func.now(),
-                },
-            )
-            result = await self.db.execute(stmt)
-            count += result.rowcount
+        BATCH_SIZE = 500
+        for i in range(0, len(new_values), BATCH_SIZE):
+            batch = new_values[i:i + BATCH_SIZE]
+            await self.db.execute(EntityRelationship.__table__.insert(), batch)
+            count += len(batch)
 
         await self.db.flush()
         return count
@@ -339,16 +347,22 @@ class ErpGraphIngestService:
         if not bridges:
             return 0
 
-        # Batch upsert bridges
-        for i in range(0, len(bridges), 500):
-            batch = bridges[i:i + 500]
-            stmt = pg_insert(EntityRelationship).values(batch)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["source_entity_id", "target_entity_id", "relation_type"],
-                set_={"weight": EntityRelationship.weight + 1, "updated_at": func.now()},
-            )
-            await self.db.execute(stmt)
+        # 過濾已存在的橋接
+        new_bridges = []
+        for b in bridges:
+            exists = (await self.db.execute(
+                select(EntityRelationship.id)
+                .where(EntityRelationship.source_entity_id == b["source_entity_id"])
+                .where(EntityRelationship.target_entity_id == b["target_entity_id"])
+                .where(EntityRelationship.relation_type == b["relation_type"])
+                .limit(1)
+            )).scalar()
+            if not exists:
+                new_bridges.append(b)
 
-        await self.db.flush()
-        logger.info("ERP cross-graph bridges: %d created", len(bridges))
-        return len(bridges)
+        if new_bridges:
+            await self.db.execute(EntityRelationship.__table__.insert(), new_bridges)
+            await self.db.flush()
+
+        logger.info("ERP cross-graph bridges: %d created", len(new_bridges))
+        return len(new_bridges)
