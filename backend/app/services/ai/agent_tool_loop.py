@@ -241,6 +241,10 @@ class AgentToolLoop:
             # 兩層都未觸發 → 結果充分，結束迴圈
             break
 
+        # Persist reasoning trajectory (Reflexion) on the trace
+        if trace and memory.scratchpad:
+            trace.reasoning_trajectory = list(memory.scratchpad)
+
         return {
             "iterations": iterations,
             "step_index": step_index,

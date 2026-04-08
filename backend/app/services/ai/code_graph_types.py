@@ -38,16 +38,17 @@ class CodeRelation:
 # ---------------------------------------------------------------------------
 
 CODE_ENTITY_CATEGORIES: Dict[str, Set[str]] = {
-    "code": {"py_module", "py_class", "py_function", "ts_module", "ts_component", "ts_hook"},
+    "code": {"py_module", "py_class", "py_function", "ts_module", "ts_component", "ts_hook", "ts_interface", "ts_type", "ts_enum"},
     "infrastructure": {"api_endpoint", "service", "repository", "schema", "config", "middleware"},
     "data": {"db_table"},
 }
 
 CODE_RELATION_CATEGORIES: Dict[str, Set[str]] = {
-    "structural": {"defines_class", "defines_function", "has_method", "defines_component", "defines_hook"},
+    "structural": {"defines_class", "defines_function", "has_method", "defines_component", "defines_hook", "defines_type", "defines_enum"},
     "dependency": {"imports", "inherits", "calls", "depends_on"},
-    "data_flow": {"references_table", "validates_with"},
+    "data_flow": {"references_table", "validates_with", "references"},
     "infrastructure": {"uses_service", "uses_repository", "serves_route", "provides_middleware"},
+    "cross_domain": {"serves_domain"},
 }
 
 # ---------------------------------------------------------------------------
@@ -64,6 +65,8 @@ CODE_RELATION_TYPES: Set[str] = {
     "calls",
     "defines_component",
     "defines_hook",
+    "defines_type",
+    "defines_enum",
     # Infrastructure relations (v2.0 — inspired by Understand-Anything)
     "uses_service",
     "uses_repository",
@@ -71,6 +74,9 @@ CODE_RELATION_TYPES: Set[str] = {
     "serves_route",
     "provides_middleware",
     "depends_on",
+    # DB FK relations (E-2) and cross-domain causal links (E-4)
+    "references",
+    "serves_domain",
 }
 
 CODE_GRAPH_LABEL: str = "code_graph"  # relation_label provenance tag

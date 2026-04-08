@@ -471,6 +471,62 @@ async def list_relation_types(
     }
 
 
+@router.post("/graph/admin/federation-health")
+async def federation_health(
+    current_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Federation 健康狀態：各來源專案的實體與關係數量。
+
+    回傳每個 source_project 的 entity_count / relation_count，
+    以及 federation_ready 旗標（至少 2 個專案有實體時為 True）。
+
+    🔒 權限要求: Admin
+    """
+    from sqlalchemy import func, select
+    from app.extended.models import CanonicalEntity, EntityRelationship
+
+    # Entity counts per source_project
+    entity_stmt = (
+        select(
+            CanonicalEntity.source_project,
+            func.count().label("entity_count"),
+        )
+        .group_by(CanonicalEntity.source_project)
+    )
+    entity_rows = (await db.execute(entity_stmt)).all()
+
+    # Relation counts per source_project
+    rel_stmt = (
+        select(
+            EntityRelationship.source_project,
+            func.count().label("relation_count"),
+        )
+        .group_by(EntityRelationship.source_project)
+    )
+    rel_rows = (await db.execute(rel_stmt)).all()
+
+    # Build per-project dict
+    rel_map = {r[0]: r[1] for r in rel_rows}
+    projects = {}
+    total_entities = 0
+    for row in entity_rows:
+        proj_name = row[0]
+        e_count = row[1]
+        projects[proj_name] = {
+            "entity_count": e_count,
+            "relation_count": rel_map.get(proj_name, 0),
+        }
+        total_entities += e_count
+
+    return {
+        "projects": projects,
+        "total_entities": total_entities,
+        "federation_ready": len(projects) >= 2,
+    }
+
+
 @router.post("/graph/admin/merge-entities", response_model=KGMergeEntitiesResponse)
 async def merge_entities(
     request: KGMergeEntitiesRequest,

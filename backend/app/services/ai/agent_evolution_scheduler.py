@@ -48,6 +48,9 @@ EVAL_HISTORY_KEY = "agent:evolution:eval_history"
 EVOLUTION_STATE_KEY = "agent:evolution:state"
 QUERY_COUNTER_KEY = "agent:evolution:query_count"
 LAST_EVOLUTION_KEY = "agent:evolution:last_run"
+BASELINE_KEY_PREFIX = "agent:evolution:baseline:"
+BASELINE_TTL = 8 * 86400  # 8 days
+BASELINE_CHECK_AGE = 7 * 86400  # 7 days
 
 
 class AgentEvolutionScheduler:
@@ -111,6 +114,112 @@ class AgentEvolutionScheduler:
         except Exception:
             return False
 
+    async def _get_current_avg_score(self) -> float:
+        """Compute average of last 10 eval scores from Redis."""
+        try:
+            raw_list = await self.redis.lrange(EVAL_HISTORY_KEY, 0, 9)
+            if not raw_list:
+                return 0.0
+            scores = []
+            for raw in raw_list:
+                try:
+                    record = json.loads(raw)
+                    scores.append(record.get("overall", 0))
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            return sum(scores) / len(scores) if scores else 0.0
+        except Exception:
+            return 0.0
+
+    async def check_evolution_effectiveness(self) -> Dict[str, Any]:
+        """
+        Check effectiveness of past evolutions by comparing baselines
+        recorded 7+ days ago with the current average eval score.
+
+        Returns dict with effectiveness results for the evolution report.
+        """
+        result: Dict[str, Any] = {"checked": 0, "improved": 0, "degraded": 0}
+        if not self.redis:
+            return result
+
+        try:
+            current_avg = await self._get_current_avg_score()
+            if current_avg == 0.0:
+                return result
+
+            # SCAN for all baseline keys
+            cursor = 0
+            expired_keys: List[str] = []
+            now = time.time()
+
+            while True:
+                cursor, keys = await self.redis.scan(
+                    cursor, match=f"{BASELINE_KEY_PREFIX}*", count=50,
+                )
+                for key in keys:
+                    if isinstance(key, bytes):
+                        key = key.decode()
+                    # Extract timestamp from key
+                    try:
+                        ts_str = key.replace(BASELINE_KEY_PREFIX, "")
+                        baseline_ts = float(ts_str)
+                    except (ValueError, TypeError):
+                        continue
+
+                    age = now - baseline_ts
+                    if age < BASELINE_CHECK_AGE:
+                        continue  # Not old enough to evaluate yet
+
+                    # Read baseline score
+                    raw = await self.redis.get(key)
+                    if not raw:
+                        continue
+                    try:
+                        baseline_score = float(raw)
+                    except (ValueError, TypeError):
+                        expired_keys.append(key)
+                        continue
+
+                    result["checked"] += 1
+                    diff = current_avg - baseline_score
+
+                    if diff > 0:
+                        result["improved"] += 1
+                        logger.info(
+                            "Evolution effective: +%.2f improvement "
+                            "(baseline=%.3f, current=%.3f, age=%.1fd)",
+                            diff, baseline_score, current_avg, age / 86400,
+                        )
+                    elif diff < 0:
+                        result["degraded"] += 1
+                        logger.warning(
+                            "Evolution degradation: %.2f "
+                            "(baseline=%.3f, current=%.3f, age=%.1fd), "
+                            "consider rollback",
+                            diff, baseline_score, current_avg, age / 86400,
+                        )
+
+                    # Baseline evaluated, clean it up
+                    expired_keys.append(key)
+
+                if cursor == 0:
+                    break
+
+            # Clean up evaluated baselines
+            for key in expired_keys:
+                await self.redis.delete(key)
+
+            if result["checked"]:
+                logger.info(
+                    "Evolution effectiveness: %d checked, %d improved, %d degraded",
+                    result["checked"], result["improved"], result["degraded"],
+                )
+
+        except Exception as e:
+            logger.debug("Evolution effectiveness check failed: %s", e)
+
+        return result
+
     async def evolve(self) -> Dict[str, Any]:
         """
         執行自動進化。非阻塞，在背景執行。
@@ -120,6 +229,9 @@ class AgentEvolutionScheduler:
         """
         if not self.redis:
             return {"status": "skip", "reason": "no_redis"}
+
+        # R-1: Check effectiveness of previous evolutions before consuming signals
+        effectiveness = await self.check_evolution_effectiveness()
 
         # Pre-evolution snapshot for safe rollback
         try:
@@ -286,6 +398,19 @@ class AgentEvolutionScheduler:
                         await push_evolution_report(summary, report)
                 except Exception as sum_err:
                     logger.debug("Evolution summary generation skipped: %s", sum_err)
+
+            # R-1: Record baseline score for future effectiveness measurement
+            try:
+                baseline_score = await self._get_current_avg_score()
+                if baseline_score > 0:
+                    baseline_key = f"{BASELINE_KEY_PREFIX}{time.time():.0f}"
+                    await self.redis.set(baseline_key, str(round(baseline_score, 4)))
+                    await self.redis.expire(baseline_key, BASELINE_TTL)
+            except Exception:
+                pass
+
+            # Store effectiveness result in report
+            report["evolution_effectiveness"] = effectiveness
 
         except Exception as e:
             logger.warning("Evolution failed (non-critical): %s", e)

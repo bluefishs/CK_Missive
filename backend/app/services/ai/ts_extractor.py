@@ -39,6 +39,25 @@ _RE_HOOK_FUNC = re.compile(
 _RE_HOOK_CONST = re.compile(
     r"""export\s+(?:default\s+)?const\s+(use[A-Z]\w+)\s*=""",
 )
+# Re-export patterns: `export { X } from './Y'` or `export * from './Y'`
+_RE_REEXPORT_NAMED = re.compile(
+    r"""export\s+\{[^}]*\}\s+from\s+['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+_RE_REEXPORT_STAR = re.compile(
+    r"""export\s+\*\s+from\s+['"]([^'"]+)['"]""",
+)
+# Type/Interface definitions
+_RE_INTERFACE = re.compile(
+    r"""export\s+(?:default\s+)?interface\s+(\w+)""",
+)
+_RE_TYPE_ALIAS = re.compile(
+    r"""export\s+(?:default\s+)?type\s+(\w+)\s*=""",
+)
+# Enum definitions
+_RE_ENUM = re.compile(
+    r"""export\s+(?:const\s+)?enum\s+(\w+)""",
+)
 
 TS_EXCLUDE_DIRS = {"__pycache__", ".git", "node_modules", ".claude", "dist", "build", "coverage"}
 
@@ -50,8 +69,11 @@ class TypeScriptExtractor:
     - ts_module: each .ts/.tsx file
     - ts_component: React components (PascalCase exported functions/consts)
     - ts_hook: Custom hooks (useXxx exported functions/consts)
-    - imports: intra-project import relations
-    - defines_component / defines_hook: module → component/hook relations
+    - ts_interface: exported interface definitions
+    - ts_type: exported type alias definitions
+    - ts_enum: exported enum definitions
+    - imports: intra-project import relations (including re-exports)
+    - defines_component / defines_hook / defines_type / defines_enum: module → entity relations
     """
 
     def __init__(self, project_prefix: str = "src"):
@@ -158,6 +180,60 @@ class TypeScriptExtractor:
                     relation_type="defines_hook",
                 ))
 
+        # Extract interfaces
+        for match in _RE_INTERFACE.finditer(source):
+            name = match.group(1)
+            iface_name = f"{module_path}::{name}"
+            entities.append(CodeEntity(
+                canonical_name=iface_name,
+                entity_type="ts_interface",
+                description={
+                    "file_path": file_rel,
+                    "interface_name": name,
+                },
+            ))
+            relations.append(CodeRelation(
+                source_name=module_path, source_type="ts_module",
+                target_name=iface_name, target_type="ts_interface",
+                relation_type="defines_type",
+            ))
+
+        # Extract type aliases
+        for match in _RE_TYPE_ALIAS.finditer(source):
+            name = match.group(1)
+            type_name = f"{module_path}::{name}"
+            entities.append(CodeEntity(
+                canonical_name=type_name,
+                entity_type="ts_type",
+                description={
+                    "file_path": file_rel,
+                    "type_name": name,
+                },
+            ))
+            relations.append(CodeRelation(
+                source_name=module_path, source_type="ts_module",
+                target_name=type_name, target_type="ts_type",
+                relation_type="defines_type",
+            ))
+
+        # Extract enums
+        for match in _RE_ENUM.finditer(source):
+            name = match.group(1)
+            enum_name = f"{module_path}::{name}"
+            entities.append(CodeEntity(
+                canonical_name=enum_name,
+                entity_type="ts_enum",
+                description={
+                    "file_path": file_rel,
+                    "enum_name": name,
+                },
+            ))
+            relations.append(CodeRelation(
+                source_name=module_path, source_type="ts_module",
+                target_name=enum_name, target_type="ts_enum",
+                relation_type="defines_enum",
+            ))
+
         # Extract imports (intra-project relative imports only)
         for match in _RE_IMPORT.finditer(source):
             import_path = match.group(1)
@@ -172,6 +248,20 @@ class TypeScriptExtractor:
                     target_name=resolved, target_type="ts_module",
                     relation_type="imports",
                 ))
+
+        # Extract re-exports: `export { X } from './Y'` and `export * from './Y'`
+        for pattern in (_RE_REEXPORT_NAMED, _RE_REEXPORT_STAR):
+            for match in pattern.finditer(source):
+                reexport_path = match.group(1)
+                if not reexport_path.startswith("."):
+                    continue
+                resolved = self._resolve_import(module_path, reexport_path)
+                if resolved and resolved != module_path:
+                    relations.append(CodeRelation(
+                        source_name=module_path, source_type="ts_module",
+                        target_name=resolved, target_type="ts_module",
+                        relation_type="imports",
+                    ))
 
         return entities, relations
 

@@ -15,6 +15,10 @@ from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
+# Shared learning pool constants
+SHARED_POOL_PREFIX = "agent:shared_pool:"
+SHARED_POOL_TTL = 30 * 86400  # 30 days
+
 # Severity priority for sorting (lower number = higher priority)
 SEVERITY_PRIORITY: Dict[str, int] = {
     "critical": 0,
@@ -113,6 +117,30 @@ async def promote_top_patterns(
                         )
                     except Exception as persist_err:
                         logger.debug("Promote DB persist skipped: %s", persist_err)
+
+                # R-3: Write to Redis shared learning pool for immediate cross-session availability
+                try:
+                    import hashlib
+                    tools_raw = detail.get(b"tools", detail.get("tools", ""))
+                    if isinstance(tools_raw, bytes):
+                        tools_raw = tools_raw.decode()
+                    content = f"[promoted] {template} → {tools_raw}"
+                    content_hash = hashlib.md5(content.encode()).hexdigest()
+                    pool_key = f"{SHARED_POOL_PREFIX}{content_hash}"
+                    pool_value = json.dumps({
+                        "type": "tool_combo",
+                        "content": content,
+                        "content_hash": content_hash,
+                        "source_question": template,
+                        "hit_count": hit_count,
+                        "confidence": min(1.0, success_rate),
+                        "promoted_at": time.time(),
+                    }, ensure_ascii=False)
+                    await redis.set(pool_key, pool_value)
+                    await redis.expire(pool_key, SHARED_POOL_TTL)
+                    logger.debug("Shared pool: wrote promoted pattern %s", content_hash[:8])
+                except Exception as pool_err:
+                    logger.debug("Shared pool write skipped: %s", pool_err)
 
     except Exception as e:
         logger.debug("Promote failed: %s", e)

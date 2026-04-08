@@ -79,6 +79,9 @@ class AgentTrace:
     citation_count: int = 0
     citation_verified: int = 0
 
+    # 推理軌跡 (Reflexion trajectory)
+    reasoning_trajectory: List[str] = field(default_factory=list)
+
     # 時間戳
     _start_time: float = field(default_factory=time.time)
     _end_time: float = 0.0
@@ -230,6 +233,7 @@ class AgentTrace:
             "answer_preview": getattr(self, "_answer_preview", None),
             "tools_used": list(set(self.tools_called)) if self.tools_called else None,
             "tool_calls": tool_calls,
+            "reasoning_trajectory": self.reasoning_trajectory if self.reasoning_trajectory else None,
         }
 
     async def flush_to_db(self, db: Any) -> Optional[int]:

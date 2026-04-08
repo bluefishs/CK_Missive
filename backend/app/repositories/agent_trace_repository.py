@@ -8,6 +8,7 @@ Version: 1.0.0
 Created: 2026-03-14
 """
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -59,6 +60,9 @@ class AgentTraceRepository:
                 model_used=trace_data.get("model_used"),
                 answer_preview=trace_data.get("answer_preview", "")[:500] if trace_data.get("answer_preview") else None,
                 tools_used=trace_data.get("tools_used"),
+                improvement_hint=json.dumps(
+                    trace_data["reasoning_trajectory"], ensure_ascii=False
+                ) if trace_data.get("reasoning_trajectory") else None,
             )
 
             self.db.add(trace_record)

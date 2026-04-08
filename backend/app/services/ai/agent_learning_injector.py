@@ -91,6 +91,70 @@ async def filter_learnings_by_similarity(
         return learnings[:inject_limit]
 
 
+async def _merge_shared_pool_learnings(
+    db_learnings: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    R-3: Read from Redis shared learning pool and merge with DB learnings.
+
+    Promoted patterns are written to Redis immediately, making them available
+    to ALL concurrent sessions before the next DB read cycle.
+    Deduplicates by content_hash.
+    """
+    try:
+        from app.core.redis_client import get_redis
+
+        redis = await get_redis()
+        if not redis:
+            return db_learnings
+
+        # Collect existing content_hashes for dedup
+        existing_hashes = {
+            l.get("content_hash") for l in db_learnings if l.get("content_hash")
+        }
+
+        shared_learnings: List[Dict[str, Any]] = []
+        cursor = 0
+        while True:
+            cursor, keys = await redis.scan(
+                cursor, match="agent:shared_pool:*", count=50,
+            )
+            for key in keys:
+                try:
+                    raw = await redis.get(key)
+                    if not raw:
+                        continue
+                    entry = json.loads(raw)
+                    content_hash = entry.get("content_hash", "")
+                    if content_hash and content_hash not in existing_hashes:
+                        existing_hashes.add(content_hash)
+                        shared_learnings.append({
+                            "type": entry.get("type", "tool_combo"),
+                            "content": entry.get("content", ""),
+                            "content_hash": content_hash,
+                            "source_question": entry.get("source_question", ""),
+                            "hit_count": entry.get("hit_count", 1),
+                            "confidence": entry.get("confidence", 0.5),
+                            "graduation_status": "graduated",
+                        })
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            if cursor == 0:
+                break
+
+        if shared_learnings:
+            logger.info(
+                "Shared pool: merged %d learnings (deduped from %d DB learnings)",
+                len(shared_learnings), len(db_learnings),
+            )
+            return db_learnings + shared_learnings
+
+    except Exception as e:
+        logger.debug("Shared pool read skipped: %s", e)
+
+    return db_learnings
+
+
 async def inject_cross_session_learnings(
     question: str,
     db: Any,
@@ -115,6 +179,9 @@ async def inject_cross_session_learnings(
         question,
         limit=candidate_limit,
     )
+
+    # R-3: Merge with Redis shared learning pool for immediate cross-session availability
+    learnings = await _merge_shared_pool_learnings(learnings)
 
     if not learnings:
         return ""
