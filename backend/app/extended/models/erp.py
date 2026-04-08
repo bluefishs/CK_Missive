@@ -47,6 +47,9 @@ class ERPQuotation(Base):
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                         nullable=True, index=True, comment="建立者")
 
+    deleted_at = Column(DateTime, nullable=True, index=True,
+                        comment="軟刪除時間 (NULL=未刪除)")
+
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -85,14 +88,13 @@ class ERPInvoice(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    # 請款期別關聯 (optional)
+    # 請款期別關聯 (optional, one-way: Invoice → Billing)
     billing_id = Column(Integer, ForeignKey("erp_billings.id", ondelete="SET NULL"),
                         nullable=True, index=True, comment="關聯請款期別")
 
     # 關聯
     quotation = relationship("ERPQuotation", back_populates="invoices")
-    billings = relationship("ERPBilling", back_populates="invoice", foreign_keys="ERPBilling.invoice_id")
-    billing = relationship("ERPBilling", foreign_keys=[billing_id], overlaps="billings")
+    billing = relationship("ERPBilling", foreign_keys=[billing_id], viewonly=True)
 
 
 class ERPBilling(Base):
@@ -109,10 +111,6 @@ class ERPBilling(Base):
     billing_date = Column(Date, nullable=False, comment="請款日期")
     billing_amount = Column(Numeric(15, 2), nullable=False, comment="請款金額")
 
-    # 發票關聯 (optional)
-    invoice_id = Column(Integer, ForeignKey("erp_invoices.id", ondelete="SET NULL"),
-                        nullable=True, index=True, comment="關聯發票")
-
     # 收款追蹤
     payment_status = Column(String(30), default="pending", index=True,
                             comment="狀態: pending/partial/paid/overdue")
@@ -125,8 +123,7 @@ class ERPBilling(Base):
 
     # 關聯
     quotation = relationship("ERPQuotation", back_populates="billings")
-    invoice = relationship("ERPInvoice", back_populates="billings", foreign_keys=[invoice_id])
-    # 反向: 本期關聯的發票和應付
+    # 反向: 本期關聯的發票和應付 (one-way: Invoice.billing_id → Billing)
     linked_invoices = relationship("ERPInvoice", foreign_keys="ERPInvoice.billing_id", viewonly=True)
     linked_payables = relationship("ERPVendorPayable", foreign_keys="ERPVendorPayable.billing_id", viewonly=True)
 

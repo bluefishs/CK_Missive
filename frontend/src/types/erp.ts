@@ -197,7 +197,6 @@ export interface ERPBilling {
   billing_period?: string;
   billing_date: string;
   billing_amount: number;
-  invoice_id?: number;
   payment_status: string;
   payment_date?: string;
   payment_amount?: number;
@@ -212,7 +211,6 @@ export interface ERPBillingCreate {
   billing_period?: string;
   billing_date: string;
   billing_amount: number;
-  invoice_id?: number;
   payment_status?: string;
   notes?: string;
 }

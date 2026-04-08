@@ -92,7 +92,12 @@ class ERPInvoiceService(AuditableServiceMixin):
         if not billing:
             raise ValueError("請款記錄不存在")
 
-        if billing.invoice_id:
+        # 檢查是否已有關聯發票 (透過 Invoice.billing_id 反查)
+        from app.extended.models.erp import ERPInvoice
+        existing_invoice = await self.db.execute(
+            select(ERPInvoice.id).where(ERPInvoice.billing_id == billing_id).limit(1)
+        )
+        if existing_invoice.scalar_one_or_none():
             raise ValueError("此請款記錄已有關聯發票")
 
         invoice_data = {
@@ -110,10 +115,5 @@ class ERPInvoiceService(AuditableServiceMixin):
 
         invoice = await self.repo.create(invoice_data)
         await self.audit_create(invoice.id, invoice_data)
-
-        # 雙向關聯: billing.invoice_id → invoice
-        billing.invoice_id = invoice.id
-        await self.db.commit()
-        await self.db.refresh(invoice)
 
         return ERPInvoiceResponse.model_validate(invoice)

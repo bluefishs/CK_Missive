@@ -1,10 +1,12 @@
 """ERP 報價/成本服務 — 含損益即時計算
 
-Version: 1.3.0
+Version: 1.4.0
+- v1.4.0: delete 改為軟刪除 (設定 deleted_at)
 - v1.3.0: create/update/delete 改用 Repository 方法 (合規修正)
 """
 import logging
 from typing import Optional, Tuple, List
+from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -142,17 +144,15 @@ class ERPQuotationService(AuditableServiceMixin):
                 "請先在應付帳款中撤銷付款狀態。"
             )
 
-        # 帳本孤兒清理：刪除來源為此報價下 billing/payable 的 ledger entries
-        ledger_svc = FinanceLedgerService(self.db)
-        for b in billings:
-            await ledger_svc.delete_by_source("erp_billing", b.id)
-        for p in payables:
-            await ledger_svc.delete_by_source("erp_vendor_payable", p.id)
+        # 軟刪除：設定 deleted_at 而非物理刪除
+        quotation = await self.repo.get_by_id(quotation_id)
+        if not quotation:
+            return False
 
-        result = await self.repo.delete(quotation_id)
-        if result:
-            await self.audit_delete(quotation_id)
-        return result
+        quotation.deleted_at = datetime.now()
+        await self.db.commit()
+        await self.audit_delete(quotation_id)
+        return True
 
     async def list_quotations(self, params: ERPQuotationListRequest) -> Tuple[List[ERPQuotationResponse], int]:
         """報價列表 — 使用批次聚合消除 N+1 查詢"""

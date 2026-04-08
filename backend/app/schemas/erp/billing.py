@@ -12,7 +12,6 @@ class ERPBillingCreate(BaseModel):
     billing_period: Optional[str] = Field(None, max_length=50, description="期別")
     billing_date: date = Field(..., description="請款日期")
     billing_amount: Decimal = Field(..., description="請款金額")
-    invoice_id: Optional[int] = Field(None, description="關聯發票 ID")
     payment_status: str = Field("pending", description="狀態")
     notes: Optional[str] = None
 
@@ -22,7 +21,6 @@ class ERPBillingUpdate(BaseModel):
     billing_period: Optional[str] = Field(None, max_length=50)
     billing_date: Optional[date] = None
     billing_amount: Optional[Decimal] = None
-    invoice_id: Optional[int] = None
     payment_status: Optional[str] = None
     payment_date: Optional[date] = None
     payment_amount: Optional[Decimal] = None
@@ -37,7 +35,6 @@ class ERPBillingResponse(BaseModel):
     billing_period: Optional[str] = None
     billing_date: date
     billing_amount: Decimal
-    invoice_id: Optional[int] = None
     payment_status: str = "pending"
     payment_date: Optional[date] = None
     payment_amount: Optional[Decimal] = None

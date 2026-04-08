@@ -319,24 +319,26 @@ class TestERPQuotationServiceDelete:
 
     @pytest.mark.asyncio
     async def test_delete_quotation(self, mock_db_session):
-        """Verify deletion returns True when no paid records"""
+        """Verify soft deletion sets deleted_at when no paid records"""
+        from unittest.mock import MagicMock
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBilling, \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPayable, \
              patch("app.services.erp.quotation_service.CaseCodeService"), \
-             patch("app.services.finance_ledger_service.FinanceLedgerService") as MockLedger:
+             patch("app.services.erp.quotation_service.FinanceLedgerService"):
 
-            MockRepo.return_value.delete = AsyncMock(return_value=True)
+            mock_quotation = MagicMock()
+            mock_quotation.deleted_at = None
+            MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_quotation)
             MockBilling.return_value.get_by_quotation_id = AsyncMock(return_value=[])
             MockPayable.return_value.get_by_quotation_id = AsyncMock(return_value=[])
-            MockLedger.return_value.delete_by_source = AsyncMock(return_value=0)
 
             service = ERPQuotationService(mock_db_session)
             result = await service.delete(1)
 
             assert result is True
-            MockRepo.return_value.delete.assert_awaited_once_with(1)
+            assert mock_quotation.deleted_at is not None
 
     @pytest.mark.asyncio
     async def test_delete_blocked_by_paid_billing(self, mock_db_session):
@@ -377,18 +379,17 @@ class TestERPQuotationServiceDelete:
 
     @pytest.mark.asyncio
     async def test_delete_quotation_not_found(self, mock_db_session):
-        """Verify deletion returns False for missing quotation"""
+        """Verify soft deletion returns False for missing quotation"""
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBilling, \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPayable, \
              patch("app.services.erp.quotation_service.CaseCodeService"), \
-             patch("app.services.finance_ledger_service.FinanceLedgerService") as MockLedger:
+             patch("app.services.erp.quotation_service.FinanceLedgerService"):
 
-            MockRepo.return_value.delete = AsyncMock(return_value=False)
+            MockRepo.return_value.get_by_id = AsyncMock(return_value=None)
             MockBilling.return_value.get_by_quotation_id = AsyncMock(return_value=[])
             MockPayable.return_value.get_by_quotation_id = AsyncMock(return_value=[])
-            MockLedger.return_value.delete_by_source = AsyncMock(return_value=0)
 
             service = ERPQuotationService(mock_db_session)
             result = await service.delete(999)

@@ -161,16 +161,14 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
               收款
             </Button>
           )}
-          {!record.invoice_id && (
-            <Button
-              type="link"
-              size="small"
-              icon={<FileTextOutlined />}
-              onClick={() => handleOpenInvoiceModal(record.id)}
-            >
-              開立發票
-            </Button>
-          )}
+          <Button
+            type="link"
+            size="small"
+            icon={<FileTextOutlined />}
+            onClick={() => handleOpenInvoiceModal(record.id)}
+          >
+            開立發票
+          </Button>
           <Button
             type="link"
             size="small"

@@ -21,10 +21,11 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         super().__init__(db, ERPQuotation)
 
     async def get_by_case_code(self, case_code: str) -> Optional[ERPQuotation]:
-        """依案號查詢 (取最新一筆)"""
+        """依案號查詢 (取最新一筆, 排除軟刪除)"""
         query = (
             select(ERPQuotation)
             .where(ERPQuotation.case_code == case_code)
+            .where(ERPQuotation.deleted_at.is_(None))
             .order_by(ERPQuotation.id.desc())
             .limit(1)
         )
@@ -41,8 +42,11 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         return result.scalar()
 
     async def exists_by_case_code(self, case_code: str) -> bool:
-        """檢查案號是否存在"""
-        query = select(func.count(ERPQuotation.id)).where(ERPQuotation.case_code == case_code)
+        """檢查案號是否存在 (排除軟刪除)"""
+        query = select(func.count(ERPQuotation.id)).where(
+            ERPQuotation.case_code == case_code,
+            ERPQuotation.deleted_at.is_(None),
+        )
         result = await self.db.execute(query)
         return (result.scalar() or 0) > 0
 
@@ -86,8 +90,8 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         sort_order: str = "desc",
     ) -> Tuple[List[ERPQuotation], int]:
         """篩選報價列表"""
-        query = select(ERPQuotation)
-        count_query = select(func.count(ERPQuotation.id))
+        query = select(ERPQuotation).where(ERPQuotation.deleted_at.is_(None))
+        count_query = select(func.count(ERPQuotation.id)).where(ERPQuotation.deleted_at.is_(None))
 
         conditions = []
         if year is not None:
@@ -136,6 +140,7 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
                 func.coalesce(func.sum(ERPQuotation.other_cost), 0).label("sum_other"),
             )
             .where(ERPQuotation.year.isnot(None))
+            .where(ERPQuotation.deleted_at.is_(None))
             .group_by(ERPQuotation.year)
             .order_by(ERPQuotation.year)
         )
