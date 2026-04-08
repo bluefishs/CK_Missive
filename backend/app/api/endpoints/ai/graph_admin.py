@@ -381,6 +381,96 @@ async def export_obsidian_vault(
         raise HTTPException(status_code=500, detail="Export failed")
 
 
+@router.post("/graph/admin/code-check")
+async def code_graph_check(
+    current_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Code Graph 快速檢查（dry-run）。
+
+    不執行入圖，僅統計來源檔案數量與目前圖譜實體數量。
+
+    🔒 權限要求: Admin
+    """
+    from pathlib import Path
+    from sqlalchemy import func, select
+    from app.extended.models import CanonicalEntity, EntityRelationship
+
+    # 偵測專案根目錄
+    _this_file = Path(__file__).resolve()
+    project_root = _this_file.parents[5]
+    for i in range(3, 7):
+        candidate = _this_file.parents[i]
+        if (candidate / "backend" / "app").is_dir():
+            project_root = candidate
+            break
+
+    backend_app = project_root / "backend" / "app"
+    frontend_src = project_root / "frontend" / "src"
+
+    py_files = len(list(backend_app.rglob("*.py"))) if backend_app.is_dir() else 0
+    ts_files = 0
+    if frontend_src.is_dir():
+        ts_files = len(list(frontend_src.rglob("*.ts"))) + len(list(frontend_src.rglob("*.tsx")))
+
+    # 查詢 DB 實體統計
+    stmt = (
+        select(CanonicalEntity.entity_type, func.count())
+        .group_by(CanonicalEntity.entity_type)
+    )
+    rows = (await db.execute(stmt)).all()
+    entity_counts_by_type = {r[0]: r[1] for r in rows}
+    total_entities = sum(entity_counts_by_type.values())
+
+    rel_count = (await db.execute(select(func.count()).select_from(EntityRelationship))).scalar() or 0
+
+    return {
+        "success": True,
+        "py_files": py_files,
+        "ts_files": ts_files,
+        "entity_counts_by_type": entity_counts_by_type,
+        "total_entities": total_entities,
+        "total_relations": rel_count,
+    }
+
+
+@router.post("/graph/admin/relation-types")
+async def list_relation_types(
+    current_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    列舉圖譜中所有關係類型，按 code_graph / knowledge_graph 分組。
+
+    🔒 權限要求: Admin
+    """
+    from sqlalchemy import distinct, select
+    from app.extended.models import EntityRelationship
+    from app.core.constants import CODE_ENTITY_TYPES
+
+    # Code graph 常見關係前綴/類型
+    _CODE_RELATION_PREFIXES = ("imports", "defines", "calls", "inherits", "has_column", "has_endpoint")
+
+    stmt = select(distinct(EntityRelationship.relation_type))
+    rows = (await db.execute(stmt)).all()
+
+    code_graph_types = []
+    knowledge_graph_types = []
+    for (rel_type,) in rows:
+        if any(rel_type.startswith(p) for p in _CODE_RELATION_PREFIXES):
+            code_graph_types.append(rel_type)
+        else:
+            knowledge_graph_types.append(rel_type)
+
+    return {
+        "success": True,
+        "code_graph": sorted(code_graph_types),
+        "knowledge_graph": sorted(knowledge_graph_types),
+        "total_types": len(code_graph_types) + len(knowledge_graph_types),
+    }
+
+
 @router.post("/graph/admin/merge-entities", response_model=KGMergeEntitiesResponse)
 async def merge_entities(
     request: KGMergeEntitiesRequest,

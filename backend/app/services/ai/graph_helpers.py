@@ -11,6 +11,10 @@ import logging
 import re
 
 from .base_ai_service import RedisCache
+from .name_utils import (
+    normalize_for_match as _normalize_for_match_impl,
+    clean_agency_name as _clean_agency_name_impl,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,22 +60,18 @@ _DISTRICT_RE = re.compile(r'([\u4e00-\u9fff]{2,3}[區鄉鎮])')
 # 非行政區的誤匹配詞彙
 _DISTRICT_EXCLUDE = {'遊樂區', '工業區', '科技區', '園區', '社區', '校區', '廠區'}
 
-# 公司 / 機關名稱正規化用的後綴
+# 公司 / 機關名稱正規化用的後綴（保留供 _names_overlap 等本地使用）
 _ORG_SUFFIXES = re.compile(r'(股份有限公司|有限公司|事務所|分公司|分局|工務段)$')
 
 
 def _clean_agency_name(raw: str) -> str:
-    """清理機關名稱：去除統編前綴、換行符"""
-    s = raw.strip().replace('\n', '').replace('\r', '')
-    s = re.sub(r'^\d{8,10}\s*', '', s)
-    return s.strip() if s.strip() else raw.strip()
+    """清理機關名稱：委派至 name_utils.clean_agency_name"""
+    return _clean_agency_name_impl(raw)
 
 
 def _normalize_for_match(name: str) -> str:
-    """正規化名稱用於模糊比對（去空白、去常見後綴）"""
-    s = re.sub(r'\s+', '', name).strip()
-    s = _ORG_SUFFIXES.sub('', s)
-    return s
+    """正規化名稱用於模糊比對：委派至 name_utils.normalize_for_match"""
+    return _normalize_for_match_impl(name)
 
 
 def _names_overlap(a: str, b: str) -> bool:

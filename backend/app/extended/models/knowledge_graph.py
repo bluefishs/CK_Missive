@@ -18,7 +18,13 @@ from ._base import *
 
 
 class CanonicalEntity(Base):
-    """正規化實體（去重合併後的唯一實體）"""
+    """正規化實體（去重合併後的唯一實體）
+
+    NOTE: This table stores BOTH code graph entities and knowledge graph entities.
+    - Code graph: entity_type IN (py_module, py_class, py_function, db_table, ts_module, ...)
+    - Knowledge graph: entity_type IN (org, person, project, location, topic)
+    Use graph_helpers._CODE_ENTITY_TYPES to filter. Query services exclude code entities by default.
+    """
     __tablename__ = "canonical_entities"
 
     id = Column(Integer, primary_key=True, index=True)
