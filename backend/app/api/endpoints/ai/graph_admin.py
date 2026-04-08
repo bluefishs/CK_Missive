@@ -11,7 +11,7 @@ Created: 2026-03-30
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin, get_async_db
