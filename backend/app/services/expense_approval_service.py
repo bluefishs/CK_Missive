@@ -70,9 +70,13 @@ class ExpenseApprovalService(AuditableServiceMixin):
 
         await self.repo.update_status(invoice, next_status)
 
-        # 僅最終 verified 才寫入帳本
+        # 僅最終 verified 才寫入帳本 (冪等：已有 entry 則跳過)
         if next_status == "verified":
-            await self.ledger_service.record_from_expense(invoice)
+            existing = await self.ledger_service.find_by_source("expense_invoice", invoice.id)
+            if not existing:
+                await self.ledger_service.record_from_expense(invoice)
+            else:
+                logger.warning("帳本已有 expense_invoice/%d 的 entry，跳過重複入帳", invoice.id)
 
         await self.repo.commit()
 

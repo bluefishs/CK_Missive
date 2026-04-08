@@ -69,11 +69,13 @@ class ERPVendorPayableService(AuditableServiceMixin):
         await self.db.flush()
         await self.db.refresh(payable)
 
-        # AP 自動拋轉：非 paid → paid 且有付款金額時入帳
+        # AP 自動拋轉：非 paid → paid 且有付款金額時入帳 (冪等)
         new_status = payable.payment_status
         if old_status != "paid" and new_status == "paid" and payable.paid_amount:
-            case_code = await self._get_case_code(payable.erp_quotation_id)
-            if case_code:
+            existing = await self.ledger_service.find_by_source("erp_vendor_payable", payable.id)
+            if existing:
+                logger.warning("帳本已有 erp_vendor_payable/%d 的 entry，跳過重複入帳", payable.id)
+            elif (case_code := await self._get_case_code(payable.erp_quotation_id)):
                 await self.ledger_service.record_from_vendor_payable(
                     payable_id=payable.id,
                     case_code=case_code,

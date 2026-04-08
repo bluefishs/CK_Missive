@@ -96,8 +96,8 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         if data.items:
             for item_data in data.items:
                 item = ExpenseInvoiceItem(
-                    description=item_data.description,
-                    quantity=item_data.quantity or 1,
+                    item_name=item_data.item_name,
+                    qty=item_data.qty or 1,
                     unit_price=Decimal(str(item_data.unit_price)) if item_data.unit_price else Decimal("0"),
                     amount=Decimal(str(item_data.amount)) if item_data.amount else Decimal("0"),
                 )

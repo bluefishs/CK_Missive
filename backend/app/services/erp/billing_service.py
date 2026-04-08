@@ -57,21 +57,25 @@ class ERPBillingService(AuditableServiceMixin):
         await self.db.flush()
         await self.db.refresh(billing)
 
-        # v2.0.0: 收款確認 → 同步帳本入帳 (不依賴 EventBus，確保資料一致性)
+        # v2.0.0: 收款確認 → 同步帳本入帳 (冪等：已有 entry 則跳過)
         new_status = billing.payment_status
         if new_status == "paid" and old_status != "paid" and billing.payment_amount:
-            case_code = await self._get_case_code(billing.erp_quotation_id)
-            await self.ledger_service.record_from_billing(
-                billing_id=billing.id,
-                case_code=case_code,
-                payment_amount=billing.payment_amount,
-                payment_date=billing.payment_date,
-                billing_period=billing.billing_period,
-            )
-            logger.info(
-                "AR 同步入帳: 請款 #%d, 金額 %s, 案號 %s",
-                billing.id, billing.payment_amount, case_code,
-            )
+            existing = await self.ledger_service.find_by_source("erp_billing", billing.id)
+            if existing:
+                logger.warning("帳本已有 erp_billing/%d 的 entry，跳過重複入帳", billing.id)
+            else:
+                case_code = await self._get_case_code(billing.erp_quotation_id)
+                await self.ledger_service.record_from_billing(
+                    billing_id=billing.id,
+                    case_code=case_code,
+                    payment_amount=billing.payment_amount,
+                    payment_date=billing.payment_date,
+                    billing_period=billing.billing_period,
+                )
+                logger.info(
+                    "AR 同步入帳: 請款 #%d, 金額 %s, 案號 %s",
+                    billing.id, billing.payment_amount, case_code,
+                )
 
         await self.db.commit()
         await self.audit_update(billing_id, update_data)

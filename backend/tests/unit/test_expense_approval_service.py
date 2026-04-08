@@ -35,6 +35,8 @@ def service(mock_db):
     svc.db = mock_db
     svc.repo = AsyncMock()
     svc.ledger_service = AsyncMock()
+    # 冪等檢查：預設無已存在的帳本記錄
+    svc.ledger_service.find_by_source = AsyncMock(return_value=None)
     return svc
 
 

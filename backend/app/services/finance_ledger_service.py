@@ -140,6 +140,17 @@ class FinanceLedgerService(AuditableServiceMixin):
         """取得帳本記錄"""
         return await self.repo.get_by_id(ledger_id)
 
+    async def find_by_source(self, source_type: str, source_id: int) -> Optional[FinanceLedger]:
+        """查找指定來源的帳本記錄 — 用於冪等檢查"""
+        from sqlalchemy import select
+        result = await self.db.execute(
+            select(FinanceLedger).where(
+                FinanceLedger.source_type == source_type,
+                FinanceLedger.source_id == source_id,
+            ).limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def delete_by_source(self, source_type: str, source_id: int) -> int:
         """依來源刪除帳本記錄 — 用於來源單據刪除時清理孤兒"""
         from sqlalchemy import delete as sql_delete

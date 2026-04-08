@@ -94,6 +94,13 @@ class ExpenseInvoiceCreate(ExpenseInvoiceBase):
     receipt_image_path: Optional[str] = Field(None, description="收據影像路徑")
 
     @model_validator(mode="after")
+    def validate_amount_gte_tax(self) -> "ExpenseInvoiceCreate":
+        """含稅總額必須 ≥ 稅額"""
+        if self.tax_amount is not None and self.amount < self.tax_amount:
+            raise ValueError(f"含稅總額 ({self.amount}) 不可小於稅額 ({self.tax_amount})")
+        return self
+
+    @model_validator(mode="after")
     def validate_inv_num_format(self) -> "ExpenseInvoiceCreate":
         """統一發票格式僅在 voucher_type=invoice 時強制驗證"""
         import re

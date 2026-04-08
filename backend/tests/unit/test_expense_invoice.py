@@ -263,6 +263,7 @@ class TestExpenseInvoiceService:
         svc = ExpenseApprovalService(mock_db)
         svc.repo = AsyncMock()
         svc.ledger_service = AsyncMock()
+        svc.ledger_service.find_by_source = AsyncMock(return_value=None)
         return svc
 
     @pytest.mark.asyncio
@@ -862,6 +863,7 @@ class TestBudgetAudit:
         svc.repo = AsyncMock()
         svc.repo.commit = AsyncMock()
         svc.ledger_service = AsyncMock()
+        svc.ledger_service.find_by_source = AsyncMock(return_value=None)
         return svc
 
     def _make_invoice(self, **overrides):
@@ -1150,6 +1152,7 @@ class TestVendorPayableAutoLedger:
         svc = ERPVendorPayableService(mock_db)
         svc.repo = AsyncMock()
         svc.ledger_service = AsyncMock()
+        svc.ledger_service.find_by_source = AsyncMock(return_value=None)
         return svc
 
     def _make_payable_mock(self, **overrides):

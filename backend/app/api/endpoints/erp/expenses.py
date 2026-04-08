@@ -32,8 +32,16 @@ async def list_expenses(
 ):
     """費用發票列表 (多條件查詢)"""
     items, total = await service.query(params)
+    # 附加審批層級資訊
+    responses = []
+    for i in items:
+        resp = ExpenseInvoiceResponse.model_validate(i)
+        info = service.get_approval_info(i)
+        resp.approval_level = info.get("approval_level")
+        resp.next_approval = info.get("next_approval")
+        responses.append(resp)
     return PaginatedResponse.create(
-        items=[ExpenseInvoiceResponse.model_validate(i) for i in items],
+        items=responses,
         total=total, page=(params.skip // params.limit) + 1, limit=params.limit
     )
 
