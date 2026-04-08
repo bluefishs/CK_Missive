@@ -19,11 +19,47 @@ from app.schemas.erp import (
     ERPQuotationListRequest, ERPProfitSummary, ERPProfitTrendItem,
 )
 from app.services.case_code_service import CaseCodeService
+from app.services.finance_ledger_service import FinanceLedgerService
 from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
 ZERO = Decimal("0")
+
+
+def compute_quotation_profit(
+    total_price, tax_amount=0,
+    outsourcing_fee=0, personnel_fee=0, overhead_fee=0, other_cost=0,
+) -> dict:
+    """統一利潤計算 — 全模組共用 (service/io/repository)
+
+    total_cost = outsourcing + personnel + overhead + other
+    gross_profit = (total_price - tax) - total_cost
+    gross_margin = gross_profit / (total_price - tax) * 100
+    """
+    tp = Decimal(str(total_price or 0))
+    tax = Decimal(str(tax_amount or 0))
+    out = Decimal(str(outsourcing_fee or 0))
+    pers = Decimal(str(personnel_fee or 0))
+    over = Decimal(str(overhead_fee or 0))
+    other = Decimal(str(other_cost or 0))
+
+    total_cost = out + pers + over + other
+    revenue = tp - tax
+    gross_profit = revenue - total_cost
+
+    gross_margin = None
+    if revenue > ZERO:
+        gross_margin = (gross_profit / revenue * 100).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+
+    return {
+        "total_cost": total_cost,
+        "gross_profit": gross_profit,
+        "gross_margin": gross_margin,
+        "net_profit": gross_profit,
+    }
 
 
 class ERPQuotationService(AuditableServiceMixin):
@@ -85,7 +121,34 @@ class ERPQuotationService(AuditableServiceMixin):
         return await self._to_response(quotation)
 
     async def delete(self, quotation_id: int) -> bool:
-        """刪除報價"""
+        """刪除報價 — 有已付帳單/應付的報價禁止刪除
+
+        刪除時同步清理對應的 FinanceLedger entries，避免帳本孤兒。
+        """
+        # 防護：檢查是否有已付款的帳單或應付
+        billings = await self.billing_repo.get_by_quotation_id(quotation_id)
+        paid_billings = [b for b in billings if b.payment_status == "paid"]
+        if paid_billings:
+            raise ValueError(
+                f"此報價有 {len(paid_billings)} 筆已收款帳單，無法刪除。"
+                "請先在帳單中撤銷收款狀態。"
+            )
+
+        payables = await self.payable_repo.get_by_quotation_id(quotation_id)
+        paid_payables = [p for p in payables if p.payment_status == "paid"]
+        if paid_payables:
+            raise ValueError(
+                f"此報價有 {len(paid_payables)} 筆已付款的廠商應付，無法刪除。"
+                "請先在應付帳款中撤銷付款狀態。"
+            )
+
+        # 帳本孤兒清理：刪除來源為此報價下 billing/payable 的 ledger entries
+        ledger_svc = FinanceLedgerService(self.db)
+        for b in billings:
+            await ledger_svc.delete_by_source("erp_billing", b.id)
+        for p in payables:
+            await ledger_svc.delete_by_source("erp_vendor_payable", p.id)
+
         result = await self.repo.delete(quotation_id)
         if result:
             await self.audit_delete(quotation_id)
@@ -188,36 +251,15 @@ class ERPQuotationService(AuditableServiceMixin):
 
     @staticmethod
     def compute_profit(quotation: ERPQuotation) -> dict:
-        """計算毛利/淨利
-
-        total_cost = outsourcing + personnel + overhead + other
-        gross_profit = total_price - tax - total_cost
-        gross_margin = gross_profit / (total_price - tax) * 100
-        net_profit = gross_profit (可擴充扣除額外費用)
-        """
-        total_price = Decimal(str(quotation.total_price or 0))
-        tax = Decimal(str(quotation.tax_amount or 0))
-        outsourcing = Decimal(str(quotation.outsourcing_fee or 0))
-        personnel = Decimal(str(quotation.personnel_fee or 0))
-        overhead = Decimal(str(quotation.overhead_fee or 0))
-        other = Decimal(str(quotation.other_cost or 0))
-
-        total_cost = outsourcing + personnel + overhead + other
-        revenue = total_price - tax
-        gross_profit = revenue - total_cost
-
-        gross_margin = None
-        if revenue > ZERO:
-            gross_margin = (gross_profit / revenue * 100).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
-
-        return {
-            "total_cost": total_cost,
-            "gross_profit": gross_profit,
-            "gross_margin": gross_margin,
-            "net_profit": gross_profit,  # 可擴充
-        }
+        """計算毛利/淨利 — 委派至模組級 compute_quotation_profit()"""
+        return compute_quotation_profit(
+            total_price=quotation.total_price,
+            tax_amount=quotation.tax_amount,
+            outsourcing_fee=quotation.outsourcing_fee,
+            personnel_fee=quotation.personnel_fee,
+            overhead_fee=quotation.overhead_fee,
+            other_cost=quotation.other_cost,
+        )
 
     # =========================================================================
     # 損益摘要

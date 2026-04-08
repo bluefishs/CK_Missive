@@ -32,13 +32,16 @@ class ERPVendorPayableService(AuditableServiceMixin):
         self.ledger_service = FinanceLedgerService(db)
 
     async def create(self, data: ERPVendorPayableCreate) -> ERPVendorPayableResponse:
-        """建立廠商應付 — 自動由 vendor_code 配對 vendor_id"""
+        """建立廠商應付 — 自動由 vendor_code 或 vendor_name 配對 vendor_id"""
         create_data = data.model_dump()
-        # 自動配對 vendor_id
-        if not create_data.get("vendor_id") and create_data.get("vendor_code"):
-            create_data["vendor_id"] = await self._resolve_vendor_id(
-                vendor_code=create_data["vendor_code"]
+        # 自動配對 vendor_id: 優先 vendor_code，其次 vendor_name 模糊匹配
+        if not create_data.get("vendor_id"):
+            resolved = await self._resolve_vendor_id(
+                vendor_code=create_data.get("vendor_code"),
+                vendor_name=create_data.get("vendor_name"),
             )
+            if resolved:
+                create_data["vendor_id"] = resolved
         payable = await self.repo.create(create_data)
         await self.audit_create(payable.id, create_data)
         return ERPVendorPayableResponse.model_validate(payable)
@@ -94,15 +97,27 @@ class ERPVendorPayableService(AuditableServiceMixin):
         quotation = await self._quotation_repo.get_by_id(quotation_id)
         return quotation.case_code if quotation else None
 
-    async def _resolve_vendor_id(self, vendor_code: Optional[str] = None) -> Optional[int]:
-        """由 vendor_code 查找 partner_vendors.id"""
-        if not vendor_code:
-            return None
-        vendor = await self._vendor_repo.find_one_by(vendor_code=vendor_code)
-        return vendor.id if vendor else None
+    async def _resolve_vendor_id(
+        self, vendor_code: Optional[str] = None, vendor_name: Optional[str] = None,
+    ) -> Optional[int]:
+        """由 vendor_code 或 vendor_name 查找 partner_vendors.id
+
+        優先順序：vendor_code 精確匹配 > vendor_name 精確匹配
+        """
+        if vendor_code:
+            vendor = await self._vendor_repo.find_one_by(vendor_code=vendor_code)
+            if vendor:
+                return vendor.id
+        if vendor_name:
+            vendor = await self._vendor_repo.find_one_by(vendor_name=vendor_name)
+            if vendor:
+                logger.info("vendor_id 自動解析: '%s' → vendor #%d", vendor_name, vendor.id)
+                return vendor.id
+        return None
 
     async def delete(self, payable_id: int) -> bool:
-        """刪除廠商應付"""
+        """刪除廠商應付 — 同步清理對應帳本 entries"""
+        await self.ledger_service.delete_by_source("erp_vendor_payable", payable_id)
         result = await self.repo.delete(payable_id)
         if result:
             await self.audit_delete(payable_id)

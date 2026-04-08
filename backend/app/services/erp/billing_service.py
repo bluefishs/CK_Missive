@@ -1,6 +1,7 @@
 """ERP 請款服務
 
-Version: 1.3.0
+Version: 2.0.0
+- v2.0.0: 收款入帳改為同步 (直接呼叫 ledger_service)，保留 EventBus 通知
 - v1.3.0: 收款確認改用 EventBus 解耦 (billing_paid → 帳本入帳)
 - v1.2.0: create/delete 改用 Repository 方法 (合規修正)
 - v1.1.0: Phase 5-6 收款確認自動寫入 Ledger
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.extended.models.erp import ERPBilling
 from app.repositories.erp import ERPBillingRepository, ERPQuotationRepository
 from app.schemas.erp import ERPBillingCreate, ERPBillingUpdate, ERPBillingResponse
+from app.services.finance_ledger_service import FinanceLedgerService
 from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,7 @@ class ERPBillingService(AuditableServiceMixin):
         self.db = db
         self.repo = ERPBillingRepository(db)
         self._quotation_repo = ERPQuotationRepository(db)
+        self.ledger_service = FinanceLedgerService(db)
 
     async def create(self, data: ERPBillingCreate) -> ERPBillingResponse:
         """建立請款"""
@@ -54,36 +57,47 @@ class ERPBillingService(AuditableServiceMixin):
         await self.db.flush()
         await self.db.refresh(billing)
 
-        # Phase 5-6: 收款確認 → 發布 domain event (帳本入帳+通知由 handler 處理)
+        # v2.0.0: 收款確認 → 同步帳本入帳 (不依賴 EventBus，確保資料一致性)
         new_status = billing.payment_status
-        paid_event_data = None
         if new_status == "paid" and old_status != "paid" and billing.payment_amount:
             case_code = await self._get_case_code(billing.erp_quotation_id)
-            paid_event_data = {
-                "billing_id": billing.id,
-                "amount": float(billing.payment_amount),
-                "case_code": case_code,
-                "payment_date": str(billing.payment_date) if billing.payment_date else None,
-                "billing_period": billing.billing_period,
-            }
+            await self.ledger_service.record_from_billing(
+                billing_id=billing.id,
+                case_code=case_code,
+                payment_amount=billing.payment_amount,
+                payment_date=billing.payment_date,
+                billing_period=billing.billing_period,
+            )
+            logger.info(
+                "AR 同步入帳: 請款 #%d, 金額 %s, 案號 %s",
+                billing.id, billing.payment_amount, case_code,
+            )
 
         await self.db.commit()
         await self.audit_update(billing_id, update_data)
 
-        # Publish after commit so subscribers see committed data
-        if paid_event_data:
+        # EventBus 通知 (非關鍵路徑 — 用於通知推播，失敗不影響帳本)
+        if new_status == "paid" and old_status != "paid":
             try:
                 from app.core.event_bus import EventBus
                 from app.core.domain_events import billing_paid
                 bus = EventBus.get_instance()
-                await bus.publish(billing_paid(**paid_event_data))
+                await bus.publish(billing_paid(
+                    billing_id=billing.id,
+                    amount=float(billing.payment_amount or 0),
+                    case_code=await self._get_case_code(billing.erp_quotation_id),
+                    payment_date=str(billing.payment_date) if billing.payment_date else None,
+                    billing_period=billing.billing_period,
+                ))
             except Exception as e:
-                logger.debug("Failed to publish billing_paid event: %s", e)
+                logger.debug("billing_paid event publish skipped: %s", e)
 
         return ERPBillingResponse.model_validate(billing)
 
     async def delete(self, billing_id: int) -> bool:
-        """刪除請款"""
+        """刪除請款 — 同步清理對應帳本 entries"""
+        # 先清理帳本孤兒
+        await self.ledger_service.delete_by_source("erp_billing", billing_id)
         result = await self.repo.delete(billing_id)
         if result:
             await self.audit_delete(billing_id)

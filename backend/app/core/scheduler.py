@@ -455,6 +455,75 @@ async def ezbid_cache_refresh_job():
         logger.error(f"ezbid 快取刷新失敗: {e}")
 
 
+@tracked_job("ledger_reconciliation")
+async def ledger_reconciliation_job():
+    """帳本對帳 — 每日比對 ERP billing/payable 與 FinanceLedger 差異"""
+    from app.db.database import async_session_maker
+
+    logger.info("開始帳本對帳檢查")
+    try:
+        async with async_session_maker() as db:
+            from sqlalchemy import select, func
+            from app.extended.models.erp import ERPBilling, ERPVendorPayable
+            from app.extended.models.finance import FinanceLedger
+
+            # AR: 已付 billing vs ledger
+            paid_billing_total = await db.scalar(
+                select(func.coalesce(func.sum(ERPBilling.payment_amount), 0))
+                .where(ERPBilling.payment_status == "paid")
+            ) or 0
+
+            ledger_billing_total = await db.scalar(
+                select(func.coalesce(func.sum(FinanceLedger.amount), 0))
+                .where(FinanceLedger.source_type == "erp_billing")
+            ) or 0
+
+            # AP: 已付 payable vs ledger
+            paid_payable_total = await db.scalar(
+                select(func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0))
+                .where(ERPVendorPayable.payment_status == "paid")
+            ) or 0
+
+            ledger_payable_total = await db.scalar(
+                select(func.coalesce(func.sum(FinanceLedger.amount), 0))
+                .where(FinanceLedger.source_type == "erp_vendor_payable")
+            ) or 0
+
+            from decimal import Decimal
+            ar_diff = abs(Decimal(str(paid_billing_total)) - Decimal(str(ledger_billing_total)))
+            ap_diff = abs(Decimal(str(paid_payable_total)) - Decimal(str(ledger_payable_total)))
+
+            if ar_diff > 0 or ap_diff > 0:
+                logger.warning(
+                    "帳本對帳差異: AR 差額=%.2f (billing=%s, ledger=%s), "
+                    "AP 差額=%.2f (payable=%s, ledger=%s)",
+                    ar_diff, paid_billing_total, ledger_billing_total,
+                    ap_diff, paid_payable_total, ledger_payable_total,
+                )
+                # 寫入告警通知
+                from app.services.notification_helpers import _safe_create_notification
+                if ar_diff > 0:
+                    await _safe_create_notification(
+                        notification_type="reconciliation_alert",
+                        severity="warning",
+                        title="帳本 AR 對帳差異",
+                        message=f"已收款帳單總額 {paid_billing_total} vs 帳本收入 {ledger_billing_total}，差額 {ar_diff}",
+                        source_table="finance_ledger",
+                    )
+                if ap_diff > 0:
+                    await _safe_create_notification(
+                        notification_type="reconciliation_alert",
+                        severity="warning",
+                        title="帳本 AP 對帳差異",
+                        message=f"已付應付總額 {paid_payable_total} vs 帳本支出 {ledger_payable_total}，差額 {ap_diff}",
+                        source_table="finance_ledger",
+                    )
+            else:
+                logger.info("帳本對帳通過: AR 一致, AP 一致")
+    except Exception as e:
+        logger.error(f"帳本對帳失敗: {e}", exc_info=True)
+
+
 @tracked_job("tender_refresh_pending")
 async def tender_refresh_pending_job():
     """標案狀態更新 — 每日重查等標期標案的決標結果"""
@@ -670,6 +739,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加標案狀態更新: 每日 06:00 執行")
+
+    # 帳本對帳 — 每日 05:00 比對 ERP billing/payable vs FinanceLedger
+    scheduler.add_job(
+        ledger_reconciliation_job,
+        trigger=CronTrigger(hour=5, minute=0),
+        id='ledger_reconciliation',
+        name='帳本對帳檢查 (每日 05:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加帳本對帳檢查: 每日 05:00 執行")
 
     return scheduler
 

@@ -319,14 +319,18 @@ class TestERPQuotationServiceDelete:
 
     @pytest.mark.asyncio
     async def test_delete_quotation(self, mock_db_session):
-        """Verify deletion returns True via repo.delete()"""
+        """Verify deletion returns True when no paid records"""
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
-             patch("app.services.erp.quotation_service.ERPBillingRepository"), \
-             patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBilling, \
+             patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPayable, \
+             patch("app.services.erp.quotation_service.CaseCodeService"), \
+             patch("app.services.finance_ledger_service.FinanceLedgerService") as MockLedger:
 
             MockRepo.return_value.delete = AsyncMock(return_value=True)
+            MockBilling.return_value.get_by_quotation_id = AsyncMock(return_value=[])
+            MockPayable.return_value.get_by_quotation_id = AsyncMock(return_value=[])
+            MockLedger.return_value.delete_by_source = AsyncMock(return_value=0)
 
             service = ERPQuotationService(mock_db_session)
             result = await service.delete(1)
@@ -335,15 +339,56 @@ class TestERPQuotationServiceDelete:
             MockRepo.return_value.delete.assert_awaited_once_with(1)
 
     @pytest.mark.asyncio
+    async def test_delete_blocked_by_paid_billing(self, mock_db_session):
+        """Verify deletion blocked when paid billings exist"""
+        from unittest.mock import MagicMock
+        with patch("app.services.erp.quotation_service.ERPQuotationRepository"), \
+             patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
+             patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBilling, \
+             patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
+             patch("app.services.erp.quotation_service.CaseCodeService"):
+
+            paid = MagicMock()
+            paid.payment_status = "paid"
+            MockBilling.return_value.get_by_quotation_id = AsyncMock(return_value=[paid])
+
+            service = ERPQuotationService(mock_db_session)
+            with pytest.raises(ValueError, match="已收款帳單"):
+                await service.delete(1)
+
+    @pytest.mark.asyncio
+    async def test_delete_blocked_by_paid_payable(self, mock_db_session):
+        """Verify deletion blocked when paid vendor payables exist"""
+        from unittest.mock import MagicMock
+        with patch("app.services.erp.quotation_service.ERPQuotationRepository"), \
+             patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
+             patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBilling, \
+             patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPayable, \
+             patch("app.services.erp.quotation_service.CaseCodeService"):
+
+            MockBilling.return_value.get_by_quotation_id = AsyncMock(return_value=[])
+            paid = MagicMock()
+            paid.payment_status = "paid"
+            MockPayable.return_value.get_by_quotation_id = AsyncMock(return_value=[paid])
+
+            service = ERPQuotationService(mock_db_session)
+            with pytest.raises(ValueError, match="已付款的廠商應付"):
+                await service.delete(1)
+
+    @pytest.mark.asyncio
     async def test_delete_quotation_not_found(self, mock_db_session):
         """Verify deletion returns False for missing quotation"""
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
-             patch("app.services.erp.quotation_service.ERPBillingRepository"), \
-             patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBilling, \
+             patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPayable, \
+             patch("app.services.erp.quotation_service.CaseCodeService"), \
+             patch("app.services.finance_ledger_service.FinanceLedgerService") as MockLedger:
 
             MockRepo.return_value.delete = AsyncMock(return_value=False)
+            MockBilling.return_value.get_by_quotation_id = AsyncMock(return_value=[])
+            MockPayable.return_value.get_by_quotation_id = AsyncMock(return_value=[])
+            MockLedger.return_value.delete_by_source = AsyncMock(return_value=0)
 
             service = ERPQuotationService(mock_db_session)
             result = await service.delete(999)

@@ -142,22 +142,18 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         result = await self.db.execute(query)
         rows = []
         for r in result.all():
-            revenue = Decimal(str(r.sum_price)) - Decimal(str(r.sum_tax))
-            cost = (
-                Decimal(str(r.sum_out)) + Decimal(str(r.sum_pers))
-                + Decimal(str(r.sum_over)) + Decimal(str(r.sum_other))
+            from app.services.erp.quotation_service import compute_quotation_profit
+            profit = compute_quotation_profit(
+                total_price=r.sum_price, tax_amount=r.sum_tax,
+                outsourcing_fee=r.sum_out, personnel_fee=r.sum_pers,
+                overhead_fee=r.sum_over, other_cost=r.sum_other,
             )
-            gross = revenue - cost
-            margin = None
-            if revenue > 0:
-                from decimal import ROUND_HALF_UP
-                margin = (gross / revenue * 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             rows.append({
                 "year": r.year,
-                "revenue": revenue,
-                "cost": cost,
-                "gross_profit": gross,
-                "gross_margin": margin,
+                "revenue": Decimal(str(r.sum_price)) - Decimal(str(r.sum_tax)),
+                "cost": profit["total_cost"],
+                "gross_profit": profit["gross_profit"],
+                "gross_margin": profit["gross_margin"],
                 "case_count": r.case_count,
             })
         return rows

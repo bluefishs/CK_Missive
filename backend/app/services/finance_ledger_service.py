@@ -140,6 +140,20 @@ class FinanceLedgerService(AuditableServiceMixin):
         """取得帳本記錄"""
         return await self.repo.get_by_id(ledger_id)
 
+    async def delete_by_source(self, source_type: str, source_id: int) -> int:
+        """依來源刪除帳本記錄 — 用於來源單據刪除時清理孤兒"""
+        from sqlalchemy import delete as sql_delete
+        result = await self.db.execute(
+            sql_delete(FinanceLedger).where(
+                FinanceLedger.source_type == source_type,
+                FinanceLedger.source_id == source_id,
+            )
+        )
+        deleted = result.rowcount
+        if deleted:
+            logger.info("清理帳本孤兒: source=%s/%s, 刪除 %d 筆", source_type, source_id, deleted)
+        return deleted
+
     async def delete(self, ledger_id: int) -> bool:
         """刪除帳本記錄 (僅限手動記帳)"""
         ledger = await self.repo.get_by_id(ledger_id)

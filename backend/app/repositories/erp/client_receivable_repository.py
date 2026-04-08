@@ -38,21 +38,18 @@ class ClientReceivableRepository:
           PartnerVendor ← PMCase.client_vendor_id
           → case_code → ERPQuotation → ERPBilling
         """
-        # Subquery: billing aggregates per quotation (only confirmed with project_code)
+        # Subquery: billing aggregates per quotation (含未成案，以 case_code 聚合)
         billing_agg = (
             select(
                 ERPQuotation.case_code,
                 ERPQuotation.id.label("quotation_id"),
+                ERPQuotation.project_code,
                 func.coalesce(ERPQuotation.total_price, 0).label("contract_amount"),
                 func.coalesce(func.sum(ERPBilling.billing_amount), 0).label("total_billed"),
                 func.coalesce(func.sum(ERPBilling.payment_amount), 0).label("total_received"),
             )
             .outerjoin(ERPBilling, ERPBilling.erp_quotation_id == ERPQuotation.id)
-            .where(
-                ERPQuotation.project_code.isnot(None),
-                ERPQuotation.project_code != '',
-            )
-            .group_by(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.total_price)
+            .group_by(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.project_code, ERPQuotation.total_price)
         ).subquery()
 
         # Main: join PMCase → PartnerVendor → billing_agg (inner join = 只有成案)
@@ -158,13 +155,11 @@ class ClientReceivableRepository:
                 "cases": [],
             }
 
-        # Get quotations for these case_codes (only with project_code = 已成案)
+        # Get quotations for these case_codes (含未成案，以 case_code 為準)
         quotations = (
             await self.db.execute(
                 select(ERPQuotation).where(
                     ERPQuotation.case_code.in_(case_codes),
-                    ERPQuotation.project_code.isnot(None),
-                    ERPQuotation.project_code != '',
                 )
             )
         ).scalars().all()
