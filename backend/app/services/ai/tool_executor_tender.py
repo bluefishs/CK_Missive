@@ -164,3 +164,107 @@ class TenderToolExecutor:
         )
         result["count"] = 1
         return result
+
+    # ── 跨圖譜工具 (v5.5.4) ──
+
+    async def search_across_graphs(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """7 大圖譜統一搜尋"""
+        query = params.get("query", "")
+        limit = params.get("limit", 5)
+        if not query:
+            return {"error": "query 為必填", "count": 0}
+
+        from app.services.ai.graph_query_service import GraphQueryService
+        from app.services.ai.erp_graph_types import ERP_ENTITY_TYPES
+        from app.extended.models.knowledge_graph import CanonicalEntity
+        from app.extended.models.tender_cache import TenderRecord
+        from sqlalchemy import select
+        import re
+
+        results = []
+        escaped = re.sub(r'([%_\\])', r'\\\1', query)
+
+        # KG-1: 知識圖譜
+        try:
+            svc = GraphQueryService(self.db)
+            kg_entities = await svc.search_entities(query=query, limit=limit)
+            for e in kg_entities:
+                results.append({
+                    "source": "kg", "type": e.get("entity_type", ""),
+                    "name": e.get("canonical_name", ""),
+                    "detail": e.get("description", ""),
+                })
+        except Exception as ex:
+            logger.debug("KG search failed: %s", ex)
+
+        # KG-5: 標案
+        try:
+            stmt = (
+                select(TenderRecord.title, TenderRecord.unit_name, TenderRecord.budget)
+                .where(TenderRecord.title.ilike(f"%{escaped}%"))
+                .limit(limit)
+            )
+            for row in (await self.db.execute(stmt)).all():
+                results.append({
+                    "source": "tender", "type": "tender_record",
+                    "name": row[0] or "", "detail": f"機關: {row[1]} | 預算: {row[2]}",
+                })
+        except Exception as ex:
+            logger.debug("Tender search failed: %s", ex)
+
+        # KG-7: ERP
+        try:
+            stmt = (
+                select(CanonicalEntity.canonical_name, CanonicalEntity.entity_type, CanonicalEntity.description)
+                .where(CanonicalEntity.entity_type.in_(ERP_ENTITY_TYPES))
+                .where(CanonicalEntity.canonical_name.ilike(f"%{escaped}%"))
+                .limit(limit)
+            )
+            for row in (await self.db.execute(stmt)).all():
+                results.append({
+                    "source": "erp", "type": row[1],
+                    "name": row[0], "detail": row[2] if isinstance(row[2], str) else "",
+                })
+        except Exception as ex:
+            logger.debug("ERP search failed: %s", ex)
+
+        return {"results": results, "count": len(results), "graphs_searched": 3}
+
+    async def search_erp_entities(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """ERP 財務圖譜搜尋"""
+        query = params.get("query", "")
+        entity_type = params.get("entity_type")
+        if not query:
+            return {"error": "query 為必填", "count": 0}
+
+        from app.services.ai.erp_graph_types import ERP_ENTITY_TYPES
+        from app.extended.models.knowledge_graph import CanonicalEntity
+        from sqlalchemy import select
+        import re
+
+        escaped = re.sub(r'([%_\\])', r'\\\1', query)
+        types = {entity_type} if entity_type and entity_type in ERP_ENTITY_TYPES else ERP_ENTITY_TYPES
+
+        stmt = (
+            select(
+                CanonicalEntity.canonical_name,
+                CanonicalEntity.entity_type,
+                CanonicalEntity.description,
+                CanonicalEntity.external_id,
+            )
+            .where(CanonicalEntity.entity_type.in_(types))
+            .where(CanonicalEntity.canonical_name.ilike(f"%{escaped}%"))
+            .order_by(CanonicalEntity.mention_count.desc())
+            .limit(10)
+        )
+        rows = (await self.db.execute(stmt)).all()
+
+        results = []
+        for r in rows:
+            results.append({
+                "name": r[0], "type": r[1],
+                "detail": r[2] if isinstance(r[2], str) else "",
+                "case_code": r[3] or "",
+            })
+
+        return {"results": results, "count": len(results)}

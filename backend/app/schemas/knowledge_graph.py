@@ -438,17 +438,19 @@ class KGJsonImportResponse(BaseModel):
 
 
 class UnifiedGraphSearchRequest(BaseModel):
-    """跨圖譜統一搜尋請求"""
+    """跨圖譜統一搜尋請求 — 7 大圖譜"""
     query: str = Field(..., min_length=2, max_length=200, description="搜尋關鍵字")
-    include_kg: bool = Field(True, description="搜尋知識圖譜")
-    include_code: bool = Field(True, description="搜尋代碼圖譜")
+    include_kg: bool = Field(True, description="搜尋知識圖譜 (KG-1)")
+    include_code: bool = Field(True, description="搜尋代碼圖譜 (KG-3)")
     include_db: bool = Field(True, description="搜尋資料庫圖譜")
+    include_erp: bool = Field(True, description="搜尋 ERP 財務圖譜 (KG-7)")
+    include_tender: bool = Field(True, description="搜尋標案圖譜 (KG-5)")
     limit_per_graph: int = Field(default=5, ge=1, le=20, description="每個圖譜最大結果數")
 
 
 class UnifiedGraphResult(BaseModel):
     """統一圖譜搜尋結果項目"""
-    source: str = Field(..., description="來源圖譜: kg / code / db")
+    source: str = Field(..., description="來源圖譜: kg / code / db / erp / tender")
     entity_type: str = Field(..., description="實體類型")
     name: str = Field(..., description="實體名稱")
     description: str = ""

@@ -98,6 +98,9 @@ _DISPATCH_KEYS = {
     "list_assets",
     "get_asset_detail",
     "get_asset_stats",
+    # Cross-graph tools (v5.5.4)
+    "search_across_graphs",
+    "search_erp_entities",
     # Invoice/Expense tools (v5.4.1)
     "list_pending_expenses",
     "get_expense_detail",
@@ -165,6 +168,9 @@ class ToolResultGuard:
         # Tender search (v5.3.22)
         "search_tender": {"tenders": [], "count": 0},
         "auto_tender_to_case": {"created": [], "count": 0},
+        # Cross-graph tools (v5.5.4)
+        "search_across_graphs": {"results": [], "count": 0},
+        "search_erp_entities": {"results": [], "count": 0},
         # Engineering diagram (v5.4.1)
         "analyze_diagram": {"diagram_type": "", "summary": "", "count": 0},
         # Asset tools (v5.4.1)
@@ -349,6 +355,9 @@ class AgentToolExecutor:
             "search_tender": self._tender.search_tender,
             "auto_tender_to_case": self._tender.auto_tender_to_case,
             "analyze_diagram": self._tender.analyze_diagram,
+            # Cross-graph tools (v5.5.4)
+            "search_across_graphs": self._tender.search_across_graphs,
+            "search_erp_entities": self._tender.search_erp_entities,
             # Business tools (v5.4.1, split v5.5.0)
             "list_assets": self._business.list_assets,
             "get_asset_detail": self._business.get_asset_detail,

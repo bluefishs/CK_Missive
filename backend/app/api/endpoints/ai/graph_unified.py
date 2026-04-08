@@ -92,7 +92,7 @@ async def unified_graph_search(
     current_user: User = Depends(require_auth()),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """跨圖譜統一搜尋 — 同時搜尋知識圖譜 + 代碼圖譜 + 資料庫圖譜"""
+    """跨圖譜統一搜尋 — 同時搜尋 7 大圖譜 (KG + Code + DB + ERP + Tender)"""
     import asyncio
 
     query = request.query.strip()
@@ -168,6 +168,60 @@ async def unified_graph_search(
                     break
         return hits
 
+    async def search_erp() -> list[UnifiedGraphResult]:
+        """搜尋 ERP 圖譜 (KG-7)"""
+        from sqlalchemy import select
+        from app.extended.models.knowledge_graph import CanonicalEntity
+        from app.services.ai.erp_graph_types import ERP_ENTITY_TYPES
+        import re
+
+        escaped = re.sub(r'([%_\\])', r'\\\1', query)
+        stmt = (
+            select(CanonicalEntity.canonical_name, CanonicalEntity.entity_type,
+                   CanonicalEntity.description, CanonicalEntity.external_id)
+            .where(CanonicalEntity.entity_type.in_(ERP_ENTITY_TYPES))
+            .where(CanonicalEntity.canonical_name.ilike(f"%{escaped}%"))
+            .order_by(CanonicalEntity.mention_count.desc())
+            .limit(request.limit_per_graph)
+        )
+        rows = (await db.execute(stmt)).all()
+        return [
+            UnifiedGraphResult(
+                source="erp",
+                entity_type=row[1],
+                name=row[0],
+                description=(row[2] if isinstance(row[2], str) else "") or "",
+                relevance=1.0,
+            )
+            for row in rows
+        ]
+
+    async def search_tender() -> list[UnifiedGraphResult]:
+        """搜尋標案圖譜 (KG-5)"""
+        from sqlalchemy import select
+        from app.extended.models.tender_cache import TenderRecord
+        import re
+
+        escaped = re.sub(r'([%_\\])', r'\\\1', query)
+        stmt = (
+            select(TenderRecord.title, TenderRecord.unit_name,
+                   TenderRecord.budget, TenderRecord.job_number)
+            .where(TenderRecord.title.ilike(f"%{escaped}%"))
+            .order_by(TenderRecord.announce_date.desc().nullslast())
+            .limit(request.limit_per_graph)
+        )
+        rows = (await db.execute(stmt)).all()
+        return [
+            UnifiedGraphResult(
+                source="tender",
+                entity_type="tender_record",
+                name=row[0] or "",
+                description=f"機關: {row[1] or '?'} | 預算: {row[2] or '?'} | {row[3] or ''}",
+                relevance=1.0,
+            )
+            for row in rows
+        ]
+
     tasks = []
     if request.include_kg:
         tasks.append(("kg", search_kg()))
@@ -178,6 +232,12 @@ async def unified_graph_search(
     if request.include_db:
         tasks.append(("db", search_db()))
         sources_queried.append("db")
+    if request.include_erp:
+        tasks.append(("erp", search_erp()))
+        sources_queried.append("erp")
+    if request.include_tender:
+        tasks.append(("tender", search_tender()))
+        sources_queried.append("tender")
 
     gathered = await asyncio.gather(
         *[t[1] for t in tasks], return_exceptions=True,

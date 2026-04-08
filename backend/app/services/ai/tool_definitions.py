@@ -641,6 +641,40 @@ def register_default_tools(registry: ToolRegistry) -> None:
         contexts=["doc"],
     ))
 
+    # === 跨圖譜工具 (v5.5.4) ===
+
+    # search_across_graphs — 7 大圖譜統一搜尋
+    registry.register(ToolDefinition(
+        name="search_across_graphs",
+        description="跨 7 大圖譜統一搜尋：知識圖譜(公文實體)、公文關係、代碼圖譜、業務實體、標案圖譜、ERP 財務圖譜、跨域連結。一次查詢即可觸及所有圖譜的實體和關係。適合回答涉及多個業務領域的問題。",
+        parameters={
+            "query": {"type": "string", "description": "搜尋關鍵字"},
+            "limit": {"type": "integer", "description": "每個圖譜最大結果數 (預設5)"},
+        },
+        few_shot={
+            "question": "跟台灣測量公司相關的所有資訊",
+            "response_json": '{"reasoning": "使用跨圖譜搜尋查找廠商在公文、標案、ERP 中的所有關聯", "tool_calls": [{"name": "search_across_graphs", "params": {"query": "台灣測量公司", "limit": 5}}]}',
+        },
+        priority=9,
+        contexts=["doc", "pm", "erp", "agent"],
+    ))
+
+    # search_erp_entities — ERP 財務圖譜搜尋
+    registry.register(ToolDefinition(
+        name="search_erp_entities",
+        description="搜尋 ERP 財務圖譜：報價案件、開票、請款、費用報銷、資產、廠商應付。可查詢案件金額、廠商帳款、費用歸屬等財務資訊。",
+        parameters={
+            "query": {"type": "string", "description": "搜尋關鍵字 (案件名稱/廠商名稱/發票號碼)"},
+            "entity_type": {"type": "string", "description": "限定類型: erp_quotation/erp_vendor/erp_expense/erp_asset (可選)"},
+        },
+        few_shot={
+            "question": "查一下南港測量案的報價和費用",
+            "response_json": '{"reasoning": "搜尋 ERP 圖譜中南港測量案的財務實體", "tool_calls": [{"name": "search_erp_entities", "params": {"query": "南港測量"}}]}',
+        },
+        priority=7,
+        contexts=["erp", "pm", "agent"],
+    ))
+
     logger.info("Tool registry initialized: %d manual tools registered", registry.get_tool_count())
 
     # === NemoClaw Stage 3: 自動從 Skills 目錄發現並註冊工具 ===
