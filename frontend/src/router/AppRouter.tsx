@@ -283,6 +283,10 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.TENDER_DASHBOARD} element={<ProtectedRoute><TenderDashboardPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_ORG_ECOSYSTEM} element={<ProtectedRoute><TenderOrgEcosystemPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_COMPANY_PROFILE} element={<ProtectedRoute><TenderCompanyProfilePage /></ProtectedRoute>} />
+          {/* 已整合路由重導向 (v5.5.3 — 功能已併入 TenderDetailPage) */}
+          <Route path="/tender/company" element={<Navigate to="/tender/search" replace />} />
+          <Route path="/tender/battle-room" element={<Navigate to="/tender/search" replace />} />
+          <Route path="/tender/price-analysis" element={<Navigate to="/tender/search" replace />} />
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
 
