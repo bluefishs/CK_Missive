@@ -128,13 +128,10 @@ const CaseNatureManagementPage = lazy(() => import('../pages/CaseNatureManagemen
 const AdminLoginHistoryPage = lazy(() => import('../pages/AdminLoginHistoryPage'));
 const TenderSearchPage = lazy(() => import('../pages/TenderSearchPage'));
 const TenderDetailPage = lazy(() => import('../pages/TenderDetailPage'));
-const TenderCompanyPage = lazy(() => import('../pages/TenderCompanyPage'));
 const TenderGraphPage = lazy(() => import('../pages/TenderGraphPage'));
 const TenderDashboardPage = lazy(() => import('../pages/TenderDashboardPage'));
 const TenderOrgEcosystemPage = lazy(() => import('../pages/TenderOrgEcosystemPage'));
 const TenderCompanyProfilePage = lazy(() => import('../pages/TenderCompanyProfilePage'));
-const TenderBattleRoomPage = lazy(() => import('../pages/TenderBattleRoomPage'));
-const TenderPriceAnalysisPage = lazy(() => import('../pages/TenderPriceAnalysisPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
@@ -282,13 +279,10 @@ export const AppRouter: React.FC = () => {
           {/* 標案檢索 */}
           <Route path={ROUTES.TENDER_SEARCH} element={<ProtectedRoute><TenderSearchPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_DETAIL} element={<ProtectedRoute><TenderDetailPage /></ProtectedRoute>} />
-          <Route path={ROUTES.TENDER_COMPANY} element={<ProtectedRoute><TenderCompanyPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_GRAPH} element={<ProtectedRoute><TenderGraphPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_DASHBOARD} element={<ProtectedRoute><TenderDashboardPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_ORG_ECOSYSTEM} element={<ProtectedRoute><TenderOrgEcosystemPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_COMPANY_PROFILE} element={<ProtectedRoute><TenderCompanyProfilePage /></ProtectedRoute>} />
-          <Route path={ROUTES.TENDER_BATTLE_ROOM} element={<ProtectedRoute><TenderBattleRoomPage /></ProtectedRoute>} />
-          <Route path={ROUTES.TENDER_PRICE_ANALYSIS} element={<ProtectedRoute><TenderPriceAnalysisPage /></ProtectedRoute>} />
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
 

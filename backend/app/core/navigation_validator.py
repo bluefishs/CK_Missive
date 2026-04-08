@@ -51,8 +51,8 @@ def _build_valid_paths() -> Set[str]:
         # 管理子頁面
         "/admin/code-graph", "/admin/case-nature",
         # 標案子頁面
-        "/tender/battle-room", "/tender/dashboard",
-        "/tender/org-ecosystem", "/tender/price-analysis",
+        "/tender/dashboard",
+        "/tender/org-ecosystem",
         "/tender/company-profile",
         # AI / Agent
         "/agent/dashboard", "/ai/code-graph",

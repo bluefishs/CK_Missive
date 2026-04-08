@@ -404,17 +404,6 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
     {
-        "title": "廠商投標歷史",
-        "key": "tender-company",
-        "path": "/tender/company",
-        "icon": "BarChartOutlined",
-        "sort_order": 14,
-        "level": 2,
-        "parent_key": "project-management",
-        "description": "廠商,投標,得標,歷史,統計",
-        "permission_required": "[]"
-    },
-    {
         "title": "標案圖譜",
         "key": "tender-graph",
         "path": "/tender/graph",
@@ -434,28 +423,6 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "廠商,投標分析,得標歷史,統計",
-        "permission_required": "[]"
-    },
-    {
-        "title": "底價分析",
-        "key": "tender-price-analysis",
-        "path": "/tender/price-analysis",
-        "icon": "FundOutlined",
-        "sort_order": 16,
-        "level": 2,
-        "parent_key": "project-management",
-        "description": "底價,預算,決標,價格趨勢,分析",
-        "permission_required": "[]"
-    },
-    {
-        "title": "戰情室",
-        "key": "tender-battle-room",
-        "path": "/tender/battle-room",
-        "icon": "RadarChartOutlined",
-        "sort_order": 17,
-        "level": 2,
-        "parent_key": "project-management",
-        "description": "競爭對手,雷達圖,得標率,戰情分析",
         "permission_required": "[]"
     },
     {
