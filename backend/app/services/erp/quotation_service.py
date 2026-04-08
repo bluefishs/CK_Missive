@@ -262,6 +262,35 @@ class ERPQuotationService(AuditableServiceMixin):
         )
 
     # =========================================================================
+    # PM 金額比對
+    # =========================================================================
+
+    async def get_pm_amount_check(self, case_code: Optional[str]) -> Optional[dict]:
+        """比對 ERP total_price 與 PM contract_amount，回傳差異資訊"""
+        if not case_code:
+            return None
+        try:
+            from app.extended.models.pm import PMCase
+            from sqlalchemy import select
+            result = await self.db.execute(
+                select(PMCase.contract_amount).where(PMCase.case_code == case_code)
+            )
+            pm_amount = result.scalar_one_or_none()
+            if pm_amount is None:
+                return None
+
+            quotation = await self.repo.get_by_case_code(case_code)
+            erp_amount = Decimal(str(quotation.total_price or 0)) if quotation else ZERO
+            pm_dec = Decimal(str(pm_amount or 0))
+
+            return {
+                "pm_contract_amount": str(pm_dec),
+                "mismatch": abs(erp_amount - pm_dec) > Decimal("0.01"),
+            }
+        except Exception:
+            return None
+
+    # =========================================================================
     # 損益摘要
     # =========================================================================
 

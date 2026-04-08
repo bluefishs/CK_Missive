@@ -42,11 +42,18 @@ async def get_quotation_detail(
     req: ERPIdRequest,
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
 ):
-    """報價詳情 (含損益計算)"""
+    """報價詳情 (含損益計算 + PM 金額比對)"""
     result = await service.get_detail(req.id)
     if not result:
         raise HTTPException(status_code=404, detail="報價不存在")
-    return SuccessResponse(data=result)
+
+    # PM 金額比對 — 附加 pm_contract_amount 和差異標記
+    data = result.model_dump() if hasattr(result, 'model_dump') else result
+    pm_info = await service.get_pm_amount_check(result.case_code)
+    if pm_info:
+        data["pm_contract_amount"] = pm_info["pm_contract_amount"]
+        data["amount_mismatch"] = pm_info["mismatch"]
+    return SuccessResponse(data=data)
 
 
 @router.post("/update")
