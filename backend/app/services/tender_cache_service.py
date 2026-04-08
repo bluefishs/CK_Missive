@@ -229,6 +229,59 @@ async def refresh_pending_tenders(db: AsyncSession, limit: int = 30) -> Dict[str
     return {"checked": len(pending), "updated": updated}
 
 
+async def build_graph_from_db(db: AsyncSession, query: str, max_tenders: int = 20) -> Dict[str, Any]:
+    """從 DB 建構標案知識圖譜 (機關→標案→廠商)"""
+    rows = await db.execute(text("""
+        SELECT tr.id, tr.title, tr.unit_name, tr.unit_id, tr.job_number, tr.category,
+               tr.announce_date, tcl.company_name, tcl.role
+        FROM tender_records tr
+        LEFT JOIN tender_company_links tcl ON tcl.tender_record_id = tr.id
+        WHERE tr.title ILIKE :q OR tr.unit_name ILIKE :q
+        ORDER BY tr.announce_date DESC NULLS LAST
+        LIMIT :lim
+    """), {"q": f"%{query}%", "lim": max_tenders * 3})
+
+    records = rows.fetchall()
+    nodes = {}
+    edges = []
+    tender_ids = set()
+
+    for r in records:
+        # 機關節點
+        agency_id = f"agency-{r.unit_name or r.unit_id}"
+        if agency_id not in nodes:
+            nodes[agency_id] = {"id": agency_id, "name": r.unit_name or r.unit_id, "type": "agency"}
+
+        # 標案節點
+        tender_id = f"tender-{r.id}"
+        if tender_id not in nodes and len(tender_ids) < max_tenders:
+            tender_ids.add(r.id)
+            nodes[tender_id] = {
+                "id": tender_id, "name": (r.title or "")[:40],
+                "type": "tender", "category": r.category,
+                "date": str(r.announce_date) if r.announce_date else "",
+            }
+            edges.append({"source": agency_id, "target": tender_id, "relation": "發標"})
+
+        # 廠商節點
+        if r.company_name and r.id in tender_ids:
+            comp_id = f"company-{r.company_name}"
+            if comp_id not in nodes:
+                nodes[comp_id] = {"id": comp_id, "name": r.company_name, "type": "company"}
+            rel = "得標" if r.role == "winner" else "投標"
+            edges.append({"source": tender_id, "target": comp_id, "relation": rel})
+
+    agencies = sum(1 for n in nodes.values() if n["type"] == "agency")
+    companies = sum(1 for n in nodes.values() if n["type"] == "company")
+
+    return {
+        "query": query,
+        "nodes": list(nodes.values()),
+        "edges": edges,
+        "stats": {"tenders": len(tender_ids), "agencies": agencies, "companies": companies, "edges": len(edges)},
+    }
+
+
 async def get_db_stats(db: AsyncSession) -> Dict[str, Any]:
     """取得快取統計"""
     total = (await db.execute(text("SELECT COUNT(*) FROM tender_records"))).scalar() or 0

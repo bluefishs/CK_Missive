@@ -67,8 +67,18 @@ async def search_tenders(
     req: TenderSearchRequest,
     service: TenderSearchService = Depends(get_tender_service),
 ):
-    """搜尋標案 — g0v + ezbid 雙軌合併 (預設近 30 天)"""
+    """搜尋標案 — DB 優先 + g0v + ezbid 三軌合併"""
     from datetime import datetime, timedelta
+
+    # Step 0: DB 快速查詢 (毫秒級)
+    db_records = []
+    try:
+        from app.db.database import AsyncSessionLocal
+        from app.services.tender_cache_service import search_from_db
+        async with AsyncSessionLocal() as cache_db:
+            db_records = await search_from_db(cache_db, req.query, limit=20)
+    except Exception:
+        pass
 
     if req.search_type == "org":
         result = await service.search_by_org(req.query, page=req.page)
@@ -115,6 +125,16 @@ async def search_tenders(
                 result["total_records"] = result.get("total_records", 0) + ezbid_added
         except Exception:
             pass  # ezbid 失敗不影響主搜尋
+
+    # 合併 DB 結果 (補充 API 未覆蓋的歷史資料)
+    if db_records:
+        seen_titles = {r.get("title", "")[:20] for r in result.get("records", [])}
+        for r in db_records:
+            if r.get("title", "")[:20] not in seen_titles:
+                seen_titles.add(r.get("title", "")[:20])
+                r["source"] = "db"
+                result["records"].append(r)
+        result["total_records"] = len(result["records"])
 
     # 搜尋結果自動入庫 (背景)
     try:

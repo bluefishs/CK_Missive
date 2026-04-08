@@ -57,7 +57,22 @@ async def get_tender_graph(
     req: TenderGraphRequest,
     service: TenderSearchService = Depends(get_tender_service),
 ):
-    """標案知識圖譜 — 機關→標案→廠商 關係網絡"""
+    """標案知識圖譜 — DB 優先 + API 補充"""
+    # 先從 DB 建圖
+    db_graph = None
+    try:
+        from app.db.database import AsyncSessionFromDB
+        from app.services.tender_cache_service import build_graph_from_db
+        from app.db.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            db_graph = await build_graph_from_db(db, req.query, req.max_tenders)
+    except Exception:
+        pass
+
+    if db_graph and db_graph.get("stats", {}).get("tenders", 0) >= 5:
+        return SuccessResponse(data=db_graph)
+
+    # DB 不足 → 回退 API
     result = await service.build_tender_graph(
         query=req.query, max_tenders=req.max_tenders,
     )
