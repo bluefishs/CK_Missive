@@ -173,6 +173,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ APScheduler 排程器啟動失敗 (不影響核心功能): {e}")
 
+    # 註冊 ERP 圖譜 Domain Event 訂閱（報價/請款/費用異動 → 增量入圖）
+    try:
+        from app.services.ai.erp_graph_event_handler import register_erp_graph_handlers
+        register_erp_graph_handlers()
+        logger.info("✅ ERP 圖譜事件訂閱已註冊")
+    except Exception as e:
+        logger.warning(f"⚠️ ERP 圖譜事件訂閱失敗: {e}")
+
     # 測試 Redis 連線（AI 快取與統計持久化）
     try:
         from app.core.redis_client import check_redis_health

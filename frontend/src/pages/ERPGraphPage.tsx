@@ -191,6 +191,126 @@ const IngestAdminTab: React.FC = () => {
   );
 };
 
+// ── Case Flow Tab ──
+
+interface FlowSummary {
+  quotation_amount: number;
+  billed_amount: number;
+  vendor_paid: number;
+  expenses_total: number;
+  has_tender: boolean;
+  has_pm_case: boolean;
+  invoice_count: number;
+  billing_count: number;
+  stage: string;
+}
+
+interface CaseFlowData {
+  case_code: string;
+  tender: { title: string; unit_name: string; budget: number } | null;
+  pm_case: { name: string; status: string; project_code: string } | null;
+  quotation: { case_name: string; total_price: number; status: string } | null;
+  invoices: Array<{ invoice_number: string; amount: number; status: string }>;
+  billings: Array<{ billing_code: string; billing_amount: number; payment_status: string; billing_period: string }>;
+  vendor_payables: Array<{ vendor_name: string; payable_amount: number; payment_status: string }>;
+  expenses: Array<{ inv_num: string; amount: number; category: string; status: string }>;
+  flow_summary: FlowSummary;
+}
+
+const stageLabels: Record<string, { text: string; color: string }> = {
+  tender_found: { text: '標案階段', color: 'purple' },
+  case_created: { text: '已建案', color: 'blue' },
+  quoted: { text: '已報價', color: 'cyan' },
+  invoiced: { text: '已開票', color: 'green' },
+  billing: { text: '請款中', color: 'orange' },
+  unknown: { text: '未知', color: 'default' },
+};
+
+const CaseFlowTab: React.FC = () => {
+  const [caseCode, setCaseCode] = useState('');
+  const [searchCode, setSearchCode] = useState('');
+
+  const { data, isLoading, isError } = useQuery<{ data: CaseFlowData }>({
+    queryKey: ['case-flow', searchCode],
+    queryFn: () => apiClient.post<{ data: CaseFlowData }>('/api/ai/graph/case-flow', { case_code: searchCode }),
+    enabled: !!searchCode,
+    staleTime: 60_000,
+  });
+
+  const flow = data?.data;
+  const summary = flow?.flow_summary;
+  const stageInfo = stageLabels[summary?.stage || 'unknown'] ?? stageLabels['unknown'];
+
+  return (
+    <div>
+      <Space style={{ marginBottom: 16 }}>
+        <Input
+          placeholder="輸入案件代碼 (case_code)"
+          prefix={<SearchOutlined />}
+          value={caseCode}
+          onChange={e => setCaseCode(e.target.value)}
+          onPressEnter={() => setSearchCode(caseCode)}
+          style={{ width: 350 }}
+        />
+        <Button type="primary" onClick={() => setSearchCode(caseCode)} loading={isLoading}>
+          查詢全流程
+        </Button>
+      </Space>
+
+      {isError && <Alert type="error" message="查詢失敗" showIcon style={{ marginBottom: 12 }} />}
+
+      {flow && summary && (
+        <>
+          <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+            <Col xs={8} sm={4}>
+              <Card size="small"><Statistic title="階段" valueRender={() => <Tag color={stageInfo?.color ?? 'default'}>{stageInfo?.text ?? '未知'}</Tag>} value=" " /></Card>
+            </Col>
+            <Col xs={8} sm={4}>
+              <Card size="small"><Statistic title="報價金額" value={summary.quotation_amount} precision={0} prefix="$" /></Card>
+            </Col>
+            <Col xs={8} sm={4}>
+              <Card size="small"><Statistic title="已請款" value={summary.billed_amount} precision={0} prefix="$" /></Card>
+            </Col>
+            <Col xs={8} sm={4}>
+              <Card size="small"><Statistic title="廠商已付" value={summary.vendor_paid} precision={0} prefix="$" /></Card>
+            </Col>
+            <Col xs={8} sm={4}>
+              <Card size="small"><Statistic title="費用支出" value={summary.expenses_total} precision={0} prefix="$" /></Card>
+            </Col>
+            <Col xs={8} sm={4}>
+              <Card size="small"><Statistic title="開票/請款" value={`${summary.invoice_count}/${summary.billing_count}`} /></Card>
+            </Col>
+          </Row>
+
+          {/* Flow Steps */}
+          <Card size="small" title="業務鏈路">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              {flow.tender && (
+                <Tag color="purple">標案: {flow.tender.title} ({flow.tender.unit_name})</Tag>
+              )}
+              {flow.pm_case && (
+                <Tag color="blue">專案: {flow.pm_case.name} [{flow.pm_case.status}]</Tag>
+              )}
+              {flow.quotation && (
+                <Tag color="cyan">報價: {flow.quotation.case_name} (${flow.quotation.total_price?.toLocaleString()})</Tag>
+              )}
+              {flow.billings.map((b, i) => (
+                <Tag color="orange" key={i}>{b.billing_period}: ${b.billing_amount?.toLocaleString()} [{b.payment_status}]</Tag>
+              ))}
+              {flow.vendor_payables.map((v, i) => (
+                <Tag color="green" key={i}>應付 {v.vendor_name}: ${v.payable_amount?.toLocaleString()} [{v.payment_status}]</Tag>
+              ))}
+              {flow.expenses.length > 0 && (
+                <Tag color="gold">費用 {flow.expenses.length} 筆 (${summary.expenses_total?.toLocaleString()})</Tag>
+              )}
+            </Space>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+};
+
 // ── Main Page ──
 
 const ERPGraphPage: React.FC = () => {
@@ -200,6 +320,9 @@ const ERPGraphPage: React.FC = () => {
   const tabItems = [
     createTabItem('overview', { icon: <DollarOutlined />, text: '總覽' },
       <StatsOverview />
+    ),
+    createTabItem('flow', { icon: <DollarOutlined />, text: '案件全流程' },
+      <CaseFlowTab />
     ),
     createTabItem('search', { icon: <SearchOutlined />, text: '實體搜尋' },
       <EntitySearchTab />

@@ -22,12 +22,13 @@ def _build_valid_paths() -> Set[str]:
     """
     paths: Set[str] = set()
 
-    # 1. 從導覽初始資料收集（導覽樹的所有 path）
+    # 1. 從導覽初始資料收集（扁平列表，所有 level 的 path）
     try:
         from app.scripts.init_navigation_data import DEFAULT_NAVIGATION_ITEMS
         for item in DEFAULT_NAVIGATION_ITEMS:
             if item.get("path"):
                 paths.add(item["path"])
+            # 支援巢狀 children 格式（向後相容）
             for child in item.get("children", []):
                 if child.get("path"):
                     paths.add(child["path"])

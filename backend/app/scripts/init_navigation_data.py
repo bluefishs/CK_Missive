@@ -687,15 +687,15 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
-    # ERP 財務圖譜 (對應 ROUTES.ERP_GRAPH)
+    # ERP 財務圖譜 (對應 ROUTES.ERP_GRAPH) — Knowledge Map 群組
     {
         "title": "ERP 財務圖譜",
         "key": "erp-graph",
         "path": "/ai/erp-graph",
         "icon": "DollarOutlined",
-        "sort_order": 3,
+        "sort_order": 2,
         "level": 2,
-        "parent_key": "ai-features",
+        "parent_key": "Knowledge Map",
         "description": "ERP,財務,圖譜,報價,費用,資產,廠商,應付,帳本",
         "permission_required": "[]"
     },
