@@ -104,6 +104,26 @@ const TenderCompanyProfilePage: React.FC = () => {
         )}
       </Card>
 
+      {/* 關注廠商清單 */}
+      {!companyName && companyBms && companyBms.length > 0 && (
+        <Card title={<><StarFilled style={{ color: '#faad14' }} /> 已關注廠商 ({companyBms.length})</>} size="small" style={{ marginBottom: 16 }}>
+          <Row gutter={[8, 8]}>
+            {companyBms.map((b) => (
+              <Col key={b.id} xs={24} sm={12} md={8} lg={6}>
+                <Card size="small" hoverable style={{ cursor: 'pointer' }}
+                  onClick={() => { setCompanyName(b.company_name); setCompanyInput(b.company_name); setSearchParams({ company: b.company_name }); }}>
+                  <Space>
+                    <StarFilled style={{ color: '#faad14', fontSize: 14 }} />
+                    <Text strong ellipsis style={{ maxWidth: 180 }} title={b.company_name}>{b.company_name}</Text>
+                    {b.tag && <Tag color="blue">{b.tag}</Tag>}
+                  </Space>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </Card>
+      )}
+
       {isLoading && <Spin style={{ display: 'block', margin: '60px auto' }} size="large" />}
 
       {data && data.total > 0 && (
@@ -172,32 +192,37 @@ const TenderCompanyProfilePage: React.FC = () => {
             </Col>
           </Row>
 
-          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            {/* 合作機關排行 */}
-            <Col xs={24} lg={12}>
-              <Card title="常合作機關 (Top 15)" size="small">
-                {data.top_agencies.map((a, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f5f5f5' }}>
-                    <a onClick={() => navigate(`${ROUTES.TENDER_ORG_ECOSYSTEM}?org=${encodeURIComponent(a.name)}`)}>{a.name}</a>
-                    <Tag>{a.count}</Tag>
+          {/* 合作機關排行 */}
+          <Card title="常合作機關 (Top 15)" size="small" style={{ marginBottom: 16 }}>
+            <Row gutter={[8, 4]}>
+              {(data.top_agencies || []).map((a, i) => (
+                <Col key={i} xs={24} sm={12} md={8}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f5f5f5' }}>
+                    <a onClick={() => navigate(`${ROUTES.TENDER_ORG_ECOSYSTEM}?org=${encodeURIComponent(a.name)}`)}
+                       style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
+                       title={a.name}>{a.name}</a>
+                    <Tag style={{ marginLeft: 4, flexShrink: 0 }}>{a.count}</Tag>
                   </div>
-                ))}
-              </Card>
-            </Col>
+                </Col>
+              ))}
+            </Row>
+          </Card>
 
-            {/* 近期標案 — 含得標結果 */}
-            <Col xs={24} lg={12}>
+          {/* 投標紀錄 — 全寬顯示以完整呈現標案名稱 */}
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={24}>
               <Card title="投標紀錄" size="small">
                 <Table
                   columns={[
                     {
-                      title: '標案', dataIndex: 'title', key: 'title', ellipsis: true,
+                      title: '標案名稱', dataIndex: 'title', key: 'title',
+                      ellipsis: { showTitle: true },
                       render: (v: string, r: CompanyData['recent_tenders'][0]) => (
-                        <a onClick={() => navigate(`/tender/${r.unit_id}/${r.job_number}`)}>{v}</a>
+                        <a onClick={() => navigate(`/tender/${r.unit_id}/${r.job_number}`)} title={v}>{v}</a>
                       ),
                     },
-                    { title: '日期', dataIndex: 'date', key: 'date', width: 100 },
-                    { title: '類型', dataIndex: 'type', key: 'type', width: 70,
+                    { title: '日期', dataIndex: 'date', key: 'date', width: 105 },
+                    { title: '類型', dataIndex: 'type', key: 'type', width: 65,
                       render: (v: string) => <Tag>{v || '未知'}</Tag>,
                     },
                     {
