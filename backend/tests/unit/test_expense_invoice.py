@@ -286,7 +286,7 @@ class TestExpenseInvoiceService:
         mock_invoice.status = "pending"
         mock_invoice.amount = Decimal("500")
 
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
 
@@ -304,7 +304,7 @@ class TestExpenseInvoiceService:
         mock_invoice.amount = Decimal("25000")
         mock_invoice.case_code = None  # 略過預算檢查
 
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
 
@@ -321,7 +321,7 @@ class TestExpenseInvoiceService:
         mock_invoice.status = "manager_approved"
         mock_invoice.amount = Decimal("50000")
 
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
 
@@ -339,7 +339,7 @@ class TestExpenseInvoiceService:
         mock_invoice.amount = Decimal("50000")
         mock_invoice.case_code = None  # 略過預算檢查
 
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
 
@@ -353,7 +353,7 @@ class TestExpenseInvoiceService:
         """已審核的發票不可再次審核"""
         mock_invoice = MagicMock()
         mock_invoice.status = "verified"
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
 
         with pytest.raises(ValueError, match="verified"):
             await approval_service.approve(1)
@@ -367,7 +367,7 @@ class TestExpenseInvoiceService:
         mock_invoice.amount = Decimal("30000")
         mock_invoice.case_code = None  # 略過預算檢查
 
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
 
@@ -384,7 +384,7 @@ class TestExpenseInvoiceService:
         mock_invoice.status = "manager_approved"
         mock_invoice.amount = Decimal("30001")
 
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
 
@@ -399,7 +399,7 @@ class TestExpenseInvoiceService:
         mock_invoice = MagicMock()
         mock_invoice.status = "pending"
         mock_invoice.notes = None
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
 
         await approval_service.reject(1, reason="金額有誤")
@@ -413,7 +413,7 @@ class TestExpenseInvoiceService:
         """主管已核准的仍可駁回"""
         mock_invoice = MagicMock()
         mock_invoice.status = "manager_approved"
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
 
         await approval_service.reject(1, reason="補充資料")
@@ -426,7 +426,7 @@ class TestExpenseInvoiceService:
         """已最終通過的不可駁回"""
         mock_invoice = MagicMock()
         mock_invoice.status = "verified"
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
 
         with pytest.raises(ValueError, match="verified"):
             await approval_service.reject(1)
@@ -436,7 +436,7 @@ class TestExpenseInvoiceService:
         """已駁回的不可再駁回"""
         mock_invoice = MagicMock()
         mock_invoice.status = "rejected"
-        approval_service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
 
         with pytest.raises(ValueError, match="rejected"):
             await approval_service.reject(1)
@@ -883,7 +883,7 @@ class TestBudgetAudit:
     async def test_budget_ok_no_warning(self, service, mock_db):
         """預算充足 (<80%)：正常通過，無警告"""
         mock_invoice = self._make_invoice(amount=Decimal("5000"))
-        service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         service.repo.update_status = AsyncMock(return_value=mock_invoice)
 
         # 模擬: 預算 100,000，累計支出 30,000，本筆 5,000 → 35% 使用率
@@ -904,7 +904,7 @@ class TestBudgetAudit:
     async def test_budget_warning_over_80pct(self, service, mock_db):
         """預算 >80%：放行但附帶預警"""
         mock_invoice = self._make_invoice(amount=Decimal("10000"))
-        service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         service.repo.update_status = AsyncMock(return_value=mock_invoice)
 
         # 模擬: 預算 100,000，累計 75,000，本筆 10,000 → 85% 使用率
@@ -929,7 +929,7 @@ class TestBudgetAudit:
     async def test_budget_block_over_100pct(self, service, mock_db):
         """預算 >100%：攔截審核"""
         mock_invoice = self._make_invoice(amount=Decimal("20000"))
-        service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         service.repo.update_status = AsyncMock(return_value=mock_invoice)
 
         # 模擬: 預算 100,000，累計 90,000，本筆 20,000 → 110% 使用率
@@ -950,7 +950,7 @@ class TestBudgetAudit:
     async def test_no_case_code_skips_budget_check(self, service, mock_db):
         """無案號 (一般營運支出)：略過預算檢查"""
         mock_invoice = self._make_invoice(case_code=None)
-        service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         service.repo.update_status = AsyncMock(return_value=mock_invoice)
 
         result = await service.approve(1)
@@ -964,7 +964,7 @@ class TestBudgetAudit:
     async def test_no_budget_limit_skips_check(self, service, mock_db):
         """案號存在但無預算設定：略過檢查"""
         mock_invoice = self._make_invoice()
-        service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         service.repo.update_status = AsyncMock(return_value=mock_invoice)
 
         # 模擬: 查無 budget_limit
@@ -988,7 +988,7 @@ class TestBudgetAudit:
     async def test_budget_boundary_exactly_80pct(self, service, mock_db):
         """預算剛好 80%：不觸發警告 (>80% 才觸發)"""
         mock_invoice = self._make_invoice(amount=Decimal("10000"))
-        service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         service.repo.update_status = AsyncMock(return_value=mock_invoice)
 
         # 模擬: 預算 100,000，累計 70,000，本筆 10,000 → 剛好 80%
@@ -1008,7 +1008,7 @@ class TestBudgetAudit:
     async def test_budget_boundary_exactly_100pct(self, service, mock_db):
         """預算剛好 100%：不攔截 (>100% 才攔截)"""
         mock_invoice = self._make_invoice(amount=Decimal("10000"))
-        service.repo.get_by_id = AsyncMock(return_value=mock_invoice)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         service.repo.update_status = AsyncMock(return_value=mock_invoice)
 
         # 模擬: 預算 100,000，累計 90,000，本筆 10,000 → 剛好 100%

@@ -44,7 +44,8 @@ class ExpenseApprovalService(AuditableServiceMixin):
         - >100%: 攔截審核 (需總經理介入)
         - >80%: 警告但放行 (附帶預警訊息)
         """
-        invoice = await self.repo.get_by_id(invoice_id)
+        # 悲觀鎖：SELECT...FOR UPDATE 防止併發審批
+        invoice = await self.repo.get_by_id_for_update(invoice_id)
         if not invoice:
             return None
 
@@ -118,8 +119,8 @@ class ExpenseApprovalService(AuditableServiceMixin):
         return invoice
 
     async def reject(self, invoice_id: int, reason: Optional[str] = None) -> Optional[ExpenseInvoice]:
-        """駁回報銷 — 任何非終態階段皆可駁回"""
-        invoice = await self.repo.get_by_id(invoice_id)
+        """駁回報銷 — 任何非終態階段皆可駁回 (悲觀鎖防併發)"""
+        invoice = await self.repo.get_by_id_for_update(invoice_id)
         if not invoice:
             return None
         if invoice.status in ("verified", "rejected"):

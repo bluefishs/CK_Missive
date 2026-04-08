@@ -86,6 +86,15 @@ class ExpenseInvoiceRepository(BaseRepository[ExpenseInvoice]):
         await self.db.refresh(invoice)
         return invoice
 
+    async def get_by_id_for_update(self, invoice_id: int) -> Optional[ExpenseInvoice]:
+        """取得發票並鎖定行 (SELECT...FOR UPDATE) — 防止併發審批"""
+        result = await self.db.execute(
+            select(self.model)
+            .where(self.model.id == invoice_id)
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
     async def update_status(
         self, invoice: ExpenseInvoice, status: str, notes_append: Optional[str] = None
     ) -> ExpenseInvoice:

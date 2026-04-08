@@ -338,6 +338,40 @@ async def approve_expense(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/batch-approve")
+async def batch_approve_expenses(
+    request: Request,
+    service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
+    current_user: User = Depends(require_permission("projects:write")),
+):
+    """批次審核 — 多筆同時推進至下一審核階段
+
+    Request body: {"ids": [1, 2, 3]}
+    """
+    body = await request.json()
+    ids = body.get("ids", [])
+    if not ids or not isinstance(ids, list):
+        raise HTTPException(status_code=400, detail="ids 為必填陣列")
+    if len(ids) > 50:
+        raise HTTPException(status_code=400, detail="單次最多 50 筆")
+
+    results = {"success": [], "failed": []}
+    for invoice_id in ids:
+        try:
+            result = await service.approve(invoice_id)
+            if result:
+                results["success"].append({"id": invoice_id, "new_status": result.status})
+            else:
+                results["failed"].append({"id": invoice_id, "error": "不存在"})
+        except ValueError as e:
+            results["failed"].append({"id": invoice_id, "error": str(e)})
+
+    return SuccessResponse(
+        data=results,
+        message=f"批次審核完成: {len(results['success'])} 成功, {len(results['failed'])} 失敗",
+    )
+
+
 @router.post("/reject")
 async def reject_expense(
     params: ExpenseInvoiceRejectRequest,

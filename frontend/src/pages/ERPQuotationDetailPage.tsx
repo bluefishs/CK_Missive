@@ -82,6 +82,13 @@ export const ERPQuotationDetailPage: React.FC = () => {
   const tabs = quotation ? [
     createTabItem('info', { icon: <InfoCircleOutlined />, text: '成本結構' }, (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {quotation.amount_mismatch && (
+          <Alert
+            type="warning"
+            showIcon
+            message={`PM 合約金額 (NT$ ${Number(quotation.pm_contract_amount ?? 0).toLocaleString()}) 與 ERP 報價總額不一致，請確認是否需要同步更新。`}
+          />
+        )}
         {/* 合約概況 */}
         <Card size="small" title="合約概況">
           <Row gutter={[16, 16]}>

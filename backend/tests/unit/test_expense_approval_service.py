@@ -47,7 +47,7 @@ class TestApprove:
     async def test_low_value_pending_to_manager(self, service):
         """≤30K: pending → manager_approved"""
         inv = _make_invoice(amount=Decimal("15000"))
-        service.repo.get_by_id = AsyncMock(return_value=inv)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=inv)
         service.repo.update_status = AsyncMock()
         service.repo.commit = AsyncMock()
 
@@ -62,7 +62,7 @@ class TestApprove:
     async def test_low_value_manager_to_verified(self, service):
         """≤30K: manager_approved → verified (帳本入帳)"""
         inv = _make_invoice(status="manager_approved", amount=Decimal("15000"))
-        service.repo.get_by_id = AsyncMock(return_value=inv)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=inv)
         service.repo.update_status = AsyncMock()
         service.repo.commit = AsyncMock()
 
@@ -78,7 +78,7 @@ class TestApprove:
     async def test_high_value_needs_finance(self, service):
         """>30K: manager_approved → finance_approved (不入帳)"""
         inv = _make_invoice(status="manager_approved", amount=Decimal("50000"))
-        service.repo.get_by_id = AsyncMock(return_value=inv)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=inv)
         service.repo.update_status = AsyncMock()
         service.repo.commit = AsyncMock()
 
@@ -94,7 +94,7 @@ class TestApprove:
     async def test_verified_cannot_approve(self, service):
         """已核准不可再審"""
         inv = _make_invoice(status="verified")
-        service.repo.get_by_id = AsyncMock(return_value=inv)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=inv)
 
         with pytest.raises(ValueError, match="不可進行審核"):
             await service.approve(1)
@@ -102,14 +102,14 @@ class TestApprove:
     @pytest.mark.asyncio
     async def test_not_found_returns_none(self, service):
         """ID 不存在返回 None"""
-        service.repo.get_by_id = AsyncMock(return_value=None)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=None)
         assert await service.approve(999) is None
 
     @pytest.mark.asyncio
     async def test_budget_warning_attached(self, service):
         """預算警告附加到 invoice 動態屬性"""
         inv = _make_invoice(status="manager_approved", amount=Decimal("15000"))
-        service.repo.get_by_id = AsyncMock(return_value=inv)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=inv)
         service.repo.update_status = AsyncMock()
         service.repo.commit = AsyncMock()
 
@@ -128,7 +128,7 @@ class TestReject:
     async def test_reject_pending(self, service):
         """pending 狀態可駁回"""
         inv = _make_invoice(status="pending")
-        service.repo.get_by_id = AsyncMock(return_value=inv)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=inv)
         service.repo.update_status = AsyncMock(return_value=inv)
 
         with patch.object(service, 'audit_update', new_callable=AsyncMock):
@@ -140,7 +140,7 @@ class TestReject:
     async def test_reject_verified_raises(self, service):
         """已核准不可駁回"""
         inv = _make_invoice(status="verified")
-        service.repo.get_by_id = AsyncMock(return_value=inv)
+        service.repo.get_by_id_for_update = AsyncMock(return_value=inv)
 
         with pytest.raises(ValueError, match="不可駁回"):
             await service.reject(1)

@@ -57,6 +57,8 @@ export interface ERPQuotation {
   total_received: number;
   total_payable: number;
   total_paid: number;
+  pm_contract_amount?: number;
+  amount_mismatch?: boolean;
 }
 
 /** ERP 報價建立 */

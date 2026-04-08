@@ -8,7 +8,7 @@
  *
  * v3.0.0 — 行動優先重構：手機端步驟式單流程，桌面端保持雙欄
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Button, Card, Form, Input, InputNumber, Select, DatePicker,
   Row, Col, Typography, App, Segmented, Alert, Divider, Space, Tag, Steps,
@@ -44,6 +44,19 @@ const ERPExpenseCreatePage: React.FC = () => {
   const { data: mofData } = useEInvoicePendingList({ skip: 0, limit: 50 });
   const mofInvoices = (mofData as { items?: Array<{ id: number; inv_num: string; date: string; amount: number; seller_ban?: string; status: string }> })?.items ?? [];
   const { isMobile } = useResponsive();
+
+  // Multi-currency auto-calculation
+  const watchCurrency = Form.useWatch('currency', form);
+  const watchOriginalAmount = Form.useWatch('original_amount', form);
+  const watchExchangeRate = Form.useWatch('exchange_rate', form);
+  const isForeignCurrency = watchCurrency && watchCurrency !== 'TWD';
+
+  useEffect(() => {
+    if (isForeignCurrency && watchOriginalAmount && watchExchangeRate) {
+      const calculated = Math.round(watchOriginalAmount * watchExchangeRate);
+      form.setFieldValue('amount', calculated);
+    }
+  }, [isForeignCurrency, watchOriginalAmount, watchExchangeRate, form]);
 
   const urlCaseCode = searchParams.get('case_code');
   const [method, setMethod] = useState<InputMethod>('智慧掃描');
@@ -211,6 +224,29 @@ const ERPExpenseCreatePage: React.FC = () => {
         </Col>
         {!isMobile && <Col sm={6}><Form.Item name="currency" label="幣別"><Select options={CURRENCY_OPTIONS} /></Form.Item></Col>}
       </Row>
+      {isForeignCurrency && (
+        <Row gutter={12}>
+          <Col xs={24} sm={8}>
+            <Form.Item name="original_amount" label="原幣金額" rules={[{ required: true, message: '請輸入原幣金額' }]}>
+              <InputNumber style={{ width: '100%' }} min={0}
+                formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(v) => Number(v!.replace(/,/g, '')) as unknown as 0} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item name="exchange_rate" label="匯率" rules={[{ required: true, message: '請輸入匯率' }]}>
+              <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={4} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item label="折算台幣">
+              <InputNumber style={{ width: '100%' }} value={watchOriginalAmount && watchExchangeRate ? Math.round(watchOriginalAmount * watchExchangeRate) : undefined}
+                disabled prefix="NT$"
+                formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+            </Form.Item>
+          </Col>
+        </Row>
+      )}
       <Form.Item name="notes" label="備註"><Input.TextArea rows={isMobile ? 1 : 2} maxLength={500} /></Form.Item>
       {isMobile && <Form.Item name="currency" hidden initialValue="TWD"><Input /></Form.Item>}
 

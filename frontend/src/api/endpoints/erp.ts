@@ -140,6 +140,8 @@ export const ERP_ENDPOINTS = {
   EXPENSES_UPDATE: '/erp/expenses/update',
   /** 審核通過 POST /erp/expenses/approve */
   EXPENSES_APPROVE: '/erp/expenses/approve',
+  /** 批次審核 POST /erp/expenses/batch-approve */
+  EXPENSES_BATCH_APPROVE: '/erp/expenses/batch-approve',
   /** 駁回報銷 POST /erp/expenses/reject */
   EXPENSES_REJECT: '/erp/expenses/reject',
   EXPENSES_DELETE: '/erp/expenses/delete',

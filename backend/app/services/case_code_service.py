@@ -302,6 +302,24 @@ class CaseCodeService:
 
         await self.db.commit()
 
+        # 審計記錄：成案事件
+        try:
+            from app.services.audit_service import AuditService
+            audit = AuditService(self.db)
+            await audit.log_action(
+                action="promote_to_project",
+                table_name="pm_cases",
+                record_id=pm_case.id,
+                changes={
+                    "case_code": case_code,
+                    "project_code": project_code,
+                    "contract_project_id": contract_project.id,
+                    "erp_linked": erp_linked,
+                },
+            )
+        except Exception as e:
+            logger.debug("成案審計記錄失敗 (非阻擋): %s", e)
+
         logger.info(
             f"成案完成: case_code={case_code} → project_code={project_code}, "
             f"contract_project_id={contract_project.id}, erp_linked={erp_linked}"
