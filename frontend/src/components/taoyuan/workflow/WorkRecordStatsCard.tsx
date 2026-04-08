@@ -21,7 +21,6 @@ import {
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
-  LinkOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
   SendOutlined,
@@ -121,16 +120,16 @@ const WorkRecordStatsCardInner: React.FC<WorkRecordStatsCardProps> = (props) => 
               <Text strong style={{ fontSize: 20 }}>{stats.total}</Text>
               <Text type="secondary" style={{ fontSize: 12 }}>筆</Text>
               <Tag color="success" style={{ margin: 0 }}>
-                <CheckCircleOutlined /> {stats.completed} 完成
+                <CheckCircleOutlined /> {stats.completed} 筆完成
               </Tag>
               {stats.inProgress > 0 && (
                 <Tag color="processing" style={{ margin: 0 }}>
-                  <ClockCircleOutlined /> {stats.inProgress} 進行中
+                  <ClockCircleOutlined /> {stats.inProgress} 筆進行中
                 </Tag>
               )}
               {onHold !== undefined && onHold > 0 && (
                 <Tag color="warning" style={{ margin: 0 }}>
-                  {onHold} 暫緩
+                  {onHold} 筆暫緩
                 </Tag>
               )}
             </div>
@@ -145,26 +144,25 @@ const WorkRecordStatsCardInner: React.FC<WorkRecordStatsCardProps> = (props) => 
             </Text>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {linkedDocCount !== undefined && (
-                <Statistic
-                  value={linkedDocCount}
-                  prefix={<LinkOutlined />}
-                  styles={{ content: { fontSize: 20 } }}
-                />
+                <>
+                  <Text strong style={{ fontSize: 20 }}>{linkedDocCount}</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>筆</Text>
+                </>
               )}
               <Tooltip title="不重複來文數（含已關聯 + 作業紀錄引用）">
                 <Tag icon={<FileTextOutlined />} style={{ margin: 0 }}>
-                  來文 {stats.incomingDocs}
+                  來文 {stats.incomingDocs} 筆
                 </Tag>
               </Tooltip>
               <Tooltip title="不重複發文/覆文數（含已關聯 + 作業紀錄引用）">
                 <Tag icon={<SendOutlined />} style={{ margin: 0 }}>
-                  覆文 {stats.outgoingDocs}
+                  覆文 {stats.outgoingDocs} 筆
                 </Tag>
               </Tooltip>
               {unassignedDocCount !== undefined && unassignedDocCount > 0 && (
                 <Tooltip title="已關聯但未指派到作業紀錄">
                   <Tag color="warning" icon={<ExclamationCircleOutlined />} style={{ margin: 0 }}>
-                    未指派 {unassignedDocCount}
+                    未指派 {unassignedDocCount} 筆
                   </Tag>
                 </Tooltip>
               )}
