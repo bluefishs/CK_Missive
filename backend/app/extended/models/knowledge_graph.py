@@ -170,6 +170,10 @@ class EntityRelationship(Base):
     relation_type = Column(String(100), nullable=False, index=True, comment="關係類型")
     relation_label = Column(String(100), nullable=True, comment="顯示文字")
     weight = Column(Float, default=1.0, comment="關係權重（佐證公文數）")
+    confidence_level = Column(
+        String(20), nullable=False, server_default="extracted",
+        comment="置信度: extracted (直接提取) / inferred (語意推導) / ambiguous (待審核)",
+    )
 
     # 時態追蹤
     valid_from = Column(DateTime, nullable=True, comment="關係起始時間")

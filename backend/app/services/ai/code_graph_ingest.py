@@ -306,6 +306,93 @@ class CodeGraphIngestService:
             "message": f"匯入完成: {len(all_entities)} 節點, {rel_count} 條邊",
         }
 
+    async def check_and_rebuild_if_changed(
+        self,
+        backend_dir: Path,
+        frontend_dir: Optional[Path] = None,
+    ) -> Dict[str, Any]:
+        """
+        Check file mtimes vs last ingest and trigger incremental rebuild if changed.
+
+        Designed to be called from the scheduler (e.g., code_graph_update job).
+        Compares current file mtimes against stored mtimes to decide whether
+        an incremental ingest is needed.
+
+        Args:
+            backend_dir: Backend app directory (e.g., project_root/backend/app)
+            frontend_dir: Optional frontend src directory
+
+        Returns:
+            Stats dict with rebuild info, or {"status": "up_to_date"} if no changes.
+        """
+        from app.extended.models.knowledge_graph import CanonicalEntity
+
+        start = time.monotonic()
+
+        # Load stored mtimes from DB
+        mtime_map = await self._load_mtime_map(CanonicalEntity)
+        if not mtime_map:
+            logger.info("No existing mtime data — full ingest needed")
+            return await self.ingest(
+                backend_app_dir=backend_dir,
+                frontend_src_dir=frontend_dir,
+                incremental=False,
+            )
+
+        # Scan current files and compare
+        from app.services.ai.code_graph_ast_analyzer import PythonASTExtractor
+
+        changed_count = 0
+        extractor = PythonASTExtractor(project_prefix="app")
+        for fpath, mod_name in extractor.discover_files(backend_dir):
+            try:
+                current_mtime = fpath.stat().st_mtime
+            except OSError:
+                continue
+            stored_mtime = mtime_map.get(mod_name, 0.0)
+            if current_mtime > stored_mtime:
+                changed_count += 1
+
+        # Check frontend files if provided
+        if frontend_dir and frontend_dir.is_dir():
+            from app.services.ai.ts_extractor import TypeScriptExtractor
+
+            ts_extractor = TypeScriptExtractor(project_prefix="src")
+            for fpath, mod_path in ts_extractor.discover_files(frontend_dir):
+                try:
+                    current_mtime = fpath.stat().st_mtime
+                except OSError:
+                    continue
+                stored_mtime = mtime_map.get(mod_path, 0.0)
+                if current_mtime > stored_mtime:
+                    changed_count += 1
+
+        elapsed_check = round(time.monotonic() - start, 2)
+
+        if changed_count == 0:
+            logger.info(
+                "Code graph up to date — no files changed (checked in %.1fs)",
+                elapsed_check,
+            )
+            return {
+                "status": "up_to_date",
+                "changed_files": 0,
+                "check_elapsed_s": elapsed_check,
+            }
+
+        logger.info(
+            "Code graph: %d files changed — triggering incremental rebuild",
+            changed_count,
+        )
+        result = await self.ingest(
+            backend_app_dir=backend_dir,
+            frontend_src_dir=frontend_dir,
+            incremental=True,
+        )
+        result["changed_files"] = changed_count
+        result["check_elapsed_s"] = elapsed_check
+        return result
+
     # -- private --
 
     async def _load_mtime_map(self, CanonicalEntity: Any) -> Dict[str, float]:

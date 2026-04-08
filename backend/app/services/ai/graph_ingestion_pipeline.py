@@ -201,6 +201,7 @@ class GraphIngestionPipeline:
                     relation_type=rel.relation_type,
                     relation_label=rel.relation_label,
                     weight=1.0,
+                    confidence_level="extracted",
                     valid_from=valid_from,
                     first_document_id=document_id,
                     document_count=1,

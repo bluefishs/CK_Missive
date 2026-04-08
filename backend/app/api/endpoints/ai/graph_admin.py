@@ -286,6 +286,101 @@ async def analyze_diff_impact(
         return {"success": False, "data": {"error": str(e)}}
 
 
+@router.post("/graph/admin/centrality")
+async def centrality_analysis(
+    top_n: int = 20,
+    current_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    God Node 中心性分析：找出圖譜中度數最高的樞紐實體。
+
+    回傳 top-N 高中心性實體、平均度數、耦合風險實體列表。
+
+    Args:
+        top_n: 回傳前 N 個樞紐實體 (預設 20)
+
+    🔒 權限要求: Admin
+    """
+    from app.services.ai.graph_statistics_service import GraphStatisticsService
+
+    svc = GraphStatisticsService(db)
+    try:
+        result = await svc.centrality_analysis(top_n=top_n)
+        return {"success": True, "data": result}
+    except Exception as e:
+        logger.error("Centrality analysis failed: %s", e, exc_info=True)
+        return {"success": False, "data": {"error": str(e)}}
+
+
+@router.post("/graph/admin/export-obsidian")
+async def export_obsidian_vault(
+    entity_types: list[str] | None = None,
+    current_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Export knowledge graph as Obsidian Markdown vault (ZIP download).
+
+    Generates one .md file per CanonicalEntity with [[wiki links]]
+    for automatic Obsidian graph connection.
+
+    Args:
+        entity_types: Optional list of entity types to include (None = all)
+
+    🔒 權限要求: Admin
+    """
+    import shutil
+    import tempfile
+
+    from fastapi.responses import StreamingResponse
+    from app.services.ai.obsidian_exporter import export_vault
+
+    tmpdir = tempfile.mkdtemp(prefix="obsidian_vault_")
+    try:
+        result = await export_vault(db, tmpdir, entity_types=entity_types)
+
+        if result["files_created"] == 0:
+            import json
+            return StreamingResponse(
+                iter([json.dumps({"success": True, "message": "No entities to export", **result}).encode()]),
+                media_type="application/json",
+            )
+
+        # Create ZIP archive
+        zip_path = shutil.make_archive(
+            base_name=tmpdir + "_archive",
+            format="zip",
+            root_dir=tmpdir,
+        )
+
+        def iter_file():
+            with open(zip_path, "rb") as f:
+                while chunk := f.read(8192):
+                    yield chunk
+            # Cleanup temp files after streaming
+            import os
+            try:
+                os.remove(zip_path)
+                shutil.rmtree(tmpdir, ignore_errors=True)
+            except Exception:
+                pass
+
+        return StreamingResponse(
+            iter_file(),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": "attachment; filename=obsidian_vault.zip",
+            },
+        )
+    except Exception as e:
+        logger.error("Obsidian vault export failed: %s", e, exc_info=True)
+        # Cleanup on error
+        import shutil as sh
+        sh.rmtree(tmpdir, ignore_errors=True)
+        raise HTTPException(status_code=500, detail="Export failed")
+
+
 @router.post("/graph/admin/merge-entities", response_model=KGMergeEntitiesResponse)
 async def merge_entities(
     request: KGMergeEntitiesRequest,
