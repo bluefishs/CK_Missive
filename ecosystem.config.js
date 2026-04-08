@@ -58,11 +58,12 @@ module.exports = {
       max_size: '10M',  // 超過 10MB 自動輪替（需 pm2-logrotate 或 PM2 >= 5.x）
 
       // 重啟策略
-      restart_delay: 10000,  // 增加到 10 秒，讓端口有時間釋放
+      exp_backoff_restart_delay: 1000, // 指數退避：1s→2s→4s...→15s，防止快速重啟競態
       max_restarts: 10,
       min_uptime: '30s',
       treekill: true,        // 殺掉整個進程樹（含 uvicorn 子進程）
       kill_timeout: 10000,   // 等 10 秒讓進程優雅關閉
+      wait_ready: false,     // startup.py 自行管理就緒狀態
     },
 
     // ===== 前端 Vite 開發服務 =====

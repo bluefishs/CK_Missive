@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.4.0 型別重構 + ERP 費用增強 + Gemma 4 主力推理 + 服務層拆分
-> **最後更新**: 2026-04-04
+> **版本**: v5.5.3 穩定化 + 監控 + 品質優化 + Telegram 健康推播
+> **最後更新**: 2026-04-08
 
 ---
 

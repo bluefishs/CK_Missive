@@ -266,6 +266,29 @@ function Start-Hybrid {
         Write-Warn "Redis not available. AI cache will use in-memory fallback."
     }
 
+    # Step 5.5: Port conflict detection (防止 PM2 重啟迴圈)
+    $ports = @(@{Port=8001; Name="Backend"}, @{Port=3000; Name="Frontend"})
+    foreach ($p in $ports) {
+        try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $tcp.Connect("127.0.0.1", $p.Port)
+            $tcp.Close()
+            Write-Warn "$($p.Name) port $($p.Port) is occupied, auto-cleaning..."
+            $netstat = netstat -ano | Select-String ":$($p.Port)\s.*LISTENING"
+            foreach ($line in $netstat) {
+                $pid = ($line -split '\s+')[-1]
+                if ($pid -match '^\d+$' -and [int]$pid -ne $PID) {
+                    Write-Warn "Killing orphan PID=$pid on port $($p.Port)"
+                    Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
+                }
+            }
+            Start-Sleep -Seconds 2
+            Write-OK "Port $($p.Port) cleaned"
+        } catch {
+            Write-OK "Port $($p.Port) is available"
+        }
+    }
+
     # Step 6: Start PM2
     Write-Info "Step 6: Starting PM2 services..."
     pm2 start ecosystem.config.js 2>&1 | Out-Null

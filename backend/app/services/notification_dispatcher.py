@@ -1,8 +1,8 @@
 """
-統一通知派發器 — LINE / Discord 多通道推送
+統一通知派發器 — LINE / Discord / Telegram 多通道推送
 
 集中管理所有主動推送：截止日提醒、預算警報、系統異常等。
-各通道自動適配格式（LINE Flex / Discord Embed / 純文字回退）。
+各通道自動適配格式（LINE Flex / Discord Embed / Telegram Markdown / 純文字回退）。
 
 Usage:
     dispatcher = NotificationDispatcher()
@@ -10,8 +10,9 @@ Usage:
     await dispatcher.send_budget_alert(user, project_name, amount)
     await dispatcher.broadcast_system_alert(message, severity)
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-03-25
+Updated: 2026-04-08 — 加入 Telegram 通道支援
 """
 
 import logging
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 class NotificationChannel(str, Enum):
     LINE = "line"
     DISCORD = "discord"
+    TELEGRAM = "telegram"
     ALL = "all"
 
 
@@ -40,6 +42,7 @@ class NotificationTarget:
     user_id: int                        # 系統 User ID
     line_user_id: Optional[str] = None  # LINE User ID
     discord_channel_id: Optional[str] = None  # Discord Channel ID
+    telegram_chat_id: Optional[int] = None    # Telegram Chat ID
     preferred_channel: NotificationChannel = NotificationChannel.ALL
 
 
@@ -103,9 +106,10 @@ class NotificationDispatcher:
         severity: Severity = Severity.INFO,
         line_user_ids: List[str] = None,
         discord_channel_ids: List[str] = None,
+        telegram_chat_ids: List[int] = None,
     ) -> Dict[str, int]:
-        """廣播通知到所有通道"""
-        sent = {"line": 0, "discord": 0}
+        """廣播通知到所有通道 (LINE / Discord / Telegram)"""
+        sent = {"line": 0, "discord": 0, "telegram": 0}
 
         if line_user_ids:
             from app.services.line_bot_service import get_line_bot_service
@@ -120,6 +124,13 @@ class NotificationDispatcher:
             for cid in discord_channel_ids:
                 if await service.send_channel_message(cid, message):
                     sent["discord"] += 1
+
+        if telegram_chat_ids:
+            from app.services.telegram_bot_service import get_telegram_bot_service
+            service = get_telegram_bot_service()
+            for cid in telegram_chat_ids:
+                if await service.push_message(cid, message):
+                    sent["telegram"] += 1
 
         return sent
 
@@ -176,5 +187,17 @@ class NotificationDispatcher:
             except Exception as e:
                 logger.error("Discord broadcast failed: %s", e)
                 results["discord"] = False
+
+        if target.telegram_chat_id and target.preferred_channel in (
+            NotificationChannel.TELEGRAM, NotificationChannel.ALL,
+        ):
+            try:
+                from app.services.telegram_bot_service import get_telegram_bot_service
+                results["telegram"] = await get_telegram_bot_service().push_message(
+                    target.telegram_chat_id, message,
+                )
+            except Exception as e:
+                logger.error("Telegram broadcast failed: %s", e)
+                results["telegram"] = False
 
         return results

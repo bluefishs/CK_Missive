@@ -68,14 +68,15 @@ def log(step: str, msg: str, level: str = "INFO"):
 
 
 def check_port(port: int) -> bool:
-    """檢查端口是否可用（使用 bind 測試，支援 SO_REUSEADDR 覆蓋殭屍 socket）"""
+    """檢查端口是否可用（使用 connect 測試，確保與 uvicorn bind 地址一致）"""
+    host = os.environ.get("BACKEND_HOST", "127.0.0.1")
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(("0.0.0.0", port))
-            return True  # bind 成功 = 可用
-    except OSError:
-        return False  # bind 失敗 = 真正被佔用
+            s.settimeout(1)
+            s.connect((host, port))
+            return False  # 連得上 = 被佔用
+    except (ConnectionRefusedError, OSError):
+        return True  # 連不上 = 可用
 
 
 def check_service(host: str, port: int, timeout: float = 2.0) -> bool:
@@ -100,10 +101,41 @@ def wait_for_service(host: str, port: int, name: str, max_wait: int = 30) -> boo
     return False
 
 
+def _acquire_lock() -> bool:
+    """PID 鎖檔防護：防止 PM2 競態啟動多個進程"""
+    lock_file = os.path.join(BACKEND_DIR, ".startup.lock")
+    my_pid = os.getpid()
+
+    if os.path.exists(lock_file):
+        try:
+            with open(lock_file, "r") as f:
+                old_pid = int(f.read().strip())
+            # 檢查舊進程是否還活著
+            if old_pid != my_pid:
+                try:
+                    os.kill(old_pid, 0)  # signal 0 = 探測存活
+                    log("Step 0", f"Another startup (PID={old_pid}) is running, aborting.", "ERROR")
+                    return False
+                except OSError:
+                    pass  # 舊進程已死，可以繼續
+        except (ValueError, IOError):
+            pass  # 鎖檔損壞，覆蓋
+
+    with open(lock_file, "w") as f:
+        f.write(str(my_pid))
+
+    import atexit
+    atexit.register(lambda: os.path.exists(lock_file) and os.remove(lock_file))
+    return True
+
+
 def main():
     # ================================================================
-    # Step 0: 端口衝突偵測
+    # Step 0: PID 鎖檔 + 端口衝突偵測
     # ================================================================
+    if not _acquire_lock():
+        sys.exit(1)
+
     port = int(os.environ.get("BACKEND_PORT", "8001"))
     log("Step 0", f"Checking port {port} availability...")
 
@@ -113,15 +145,16 @@ def main():
         try:
             result = subprocess.run(
                 ["netstat", "-ano"], capture_output=True, text=True, timeout=5,
+                encoding="utf-8", errors="replace",
             )
-            for line in result.stdout.splitlines():
+            for line in (result.stdout or "").splitlines():
                 if f":{port}" in line and "LISTENING" in line:
                     parts = line.split()
                     pid = parts[-1]
                     if pid.isdigit() and int(pid) != os.getpid():
                         log("Step 0", f"Killing orphan process PID={pid} on port {port}", "WARN")
                         subprocess.run(["taskkill", "/PID", pid, "/F"], timeout=5,
-                                       capture_output=True)
+                                       capture_output=True, encoding="utf-8", errors="replace")
                         time.sleep(2)
         except Exception as e:
             log("Step 0", f"Auto-cleanup failed: {e}", "WARN")

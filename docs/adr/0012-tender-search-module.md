@@ -40,10 +40,12 @@
 
 ### 前端頁面
 
-4 個頁面：
+6 個頁面（v5.5.3 更新）：
 - `TenderSearchPage.tsx` — 標案搜尋 3-Tab（搜尋/收藏/訂閱）
 - `TenderDetailPage.tsx` — 標案詳情 4-Tab（總覽/生命週期/得標/同機關）
-- `TenderCompanyPage.tsx` — 廠商投標歷史（統計+圓餅圖）
+- `TenderDashboardPage.tsx` — 採購儀表板（統計+趨勢分析）
+- `TenderCompanyProfilePage.tsx` — 廠商分析整合頁（投標歷史+收藏）
+- `TenderOrgEcosystemPage.tsx` — 機關生態圈分析
 - `TenderGraphPage.tsx` — 標案知識圖譜（力導引視覺化）
 
 ### Agent 整合

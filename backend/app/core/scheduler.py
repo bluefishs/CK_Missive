@@ -556,6 +556,45 @@ async def tender_subscription_check_job():
         logger.error(f"標案訂閱檢查失敗: {e}", exc_info=True)
 
 
+@tracked_job("health_check_broadcast")
+async def health_check_broadcast_job():
+    """系統健康檢查 — 每 5 分鐘輪詢，異常時推播到 Telegram 管理群組"""
+    import os
+    import httpx
+
+    admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+    if not admin_chat_id:
+        return  # 未設定管理 chat_id，跳過
+
+    health_url = "http://127.0.0.1:8001/health"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(health_url)
+            data = resp.json()
+
+        if resp.status_code != 200 or data.get("status") != "healthy":
+            db_status = data.get("database", {}).get("status", "unknown")
+            msg = (
+                f"🚨 公文系統健康異常\n\n"
+                f"狀態: {data.get('status', 'unknown')}\n"
+                f"資料庫: {db_status}\n"
+                f"時間: {data.get('timestamp', 'N/A')}"
+            )
+            from app.services.telegram_bot_service import get_telegram_bot_service
+            await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
+            logger.warning("健康檢查異常，已推播至 Telegram: %s", data.get("status"))
+
+    except Exception as e:
+        # API 完全無回應 — 這是最嚴重的情況
+        msg = f"🚨 公文系統 API 無回應\n\n錯誤: {str(e)[:200]}"
+        try:
+            from app.services.telegram_bot_service import get_telegram_bot_service
+            await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
+        except Exception:
+            pass  # Telegram 也失敗，只記 log
+        logger.error("健康檢查失敗: %s", e)
+
+
 def setup_scheduler(
     reminder_interval_minutes: int = 5,
     cleanup_hour: int = 2,
@@ -751,6 +790,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加帳本對帳檢查: 每日 05:00 執行")
+
+    # 系統健康檢查 + Telegram 推播 — 每 5 分鐘
+    scheduler.add_job(
+        health_check_broadcast_job,
+        trigger=IntervalTrigger(minutes=5),
+        id='health_check_broadcast',
+        name='系統健康檢查 + Telegram 推播 (每5分鐘)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加健康檢查 Telegram 推播: 每 5 分鐘")
 
     return scheduler
 
