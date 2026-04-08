@@ -112,9 +112,23 @@ class GraphStatisticsService:
         limit: int = 20,
         include_code: bool = False,
     ) -> list:
-        """高頻實體排名（預設排除程式碼圖譜實體）"""
+        """高頻實體排名（預設排除程式碼圖譜實體）
+
+        Uses time-decayed scoring: mention_count * exp(-age_seconds / (30*86400))
+        giving a 30-day half-life — entities unseen for 30 days have effective
+        score halved.
+        """
         try:
-            query = select(CanonicalEntity)
+            # Time-decayed score: mention_count * EXP(-age / 30 days)
+            decay_expr = (
+                sa_func.coalesce(CanonicalEntity.mention_count, 0)
+                * sa_func.exp(
+                    -sa_func.extract("epoch", sa_func.now() - CanonicalEntity.last_seen_at)
+                    / (30 * 86400)
+                )
+            ).label("decayed_score")
+
+            query = select(CanonicalEntity, decay_expr)
 
             if entity_type:
                 query = query.where(CanonicalEntity.entity_type == entity_type)
@@ -124,7 +138,7 @@ class GraphStatisticsService:
             if sort_by == "alias_count":
                 query = query.order_by(CanonicalEntity.alias_count.desc().nullslast())
             else:
-                query = query.order_by(CanonicalEntity.mention_count.desc().nullslast())
+                query = query.order_by(decay_expr.desc().nullslast())
 
             query = query.limit(limit)
             result = await self.db.execute(query)
@@ -138,12 +152,37 @@ class GraphStatisticsService:
                     "alias_count": e.alias_count,
                     "first_seen_at": str(e.first_seen_at) if e.first_seen_at else None,
                     "last_seen_at": str(e.last_seen_at) if e.last_seen_at else None,
+                    "decayed_score": round(float(score), 2) if score is not None else 0.0,
                 }
-                for e in result.scalars().all()
+                for e, score in result.all()
             ]
         except Exception as e:
             logger.error(f"get_top_entities failed: {e}")
             return []
+
+    async def get_decayed_score(self, entity_id: int) -> Optional[float]:
+        """Return the time-decayed score for a single entity.
+
+        Score = mention_count * exp(-age_seconds / (30 * 86400))
+        30-day half-life: an entity unseen for 30 days has its score halved.
+        """
+        try:
+            decay_expr = (
+                sa_func.coalesce(CanonicalEntity.mention_count, 0)
+                * sa_func.exp(
+                    -sa_func.extract("epoch", sa_func.now() - CanonicalEntity.last_seen_at)
+                    / (30 * 86400)
+                )
+            ).label("decayed_score")
+
+            result = await self.db.execute(
+                select(decay_expr).where(CanonicalEntity.id == entity_id)
+            )
+            score = result.scalar()
+            return round(float(score), 2) if score is not None else None
+        except Exception as e:
+            logger.error(f"get_decayed_score failed for entity {entity_id}: {e}")
+            return None
 
     async def get_federation_health(self) -> dict:
         """跨專案 KG 聯邦同步健康指標（30 分鐘快取）"""

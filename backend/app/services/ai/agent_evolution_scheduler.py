@@ -155,12 +155,28 @@ class AgentEvolutionScheduler:
             failure_patterns = analyze_failure_patterns(signals)
             report["failure_patterns"] = failure_patterns
 
-            # 3. 自動升級高頻成功模式為種子
+            # 3. 自動升級高頻成功模式為種子 (含 DB 閉環寫入)
+            db_session = None
+            try:
+                from app.db.database import async_session_maker
+                db_session = async_session_maker()
+                _db = await db_session.__aenter__()
+            except Exception:
+                _db = None
+
             promoted = await promote_top_patterns(
                 self.redis,
                 min_hits=self.SEED_PROMOTE_MIN_HITS,
                 min_success=self.SEED_PROMOTE_MIN_SUCCESS,
+                db=_db,
             )
+
+            if _db:
+                try:
+                    await _db.commit()
+                    await db_session.__aexit__(None, None, None)
+                except Exception:
+                    pass
             if promoted:
                 report["actions"].append({
                     "type": "seed_promotion",

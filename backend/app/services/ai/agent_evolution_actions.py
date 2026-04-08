@@ -70,8 +70,9 @@ async def promote_top_patterns(
     redis: Any,
     min_hits: int = 15,
     min_success: float = 0.90,
+    db: Any = None,
 ) -> List[str]:
-    """將高頻成功模式升級為永久種子"""
+    """將高頻成功模式升級為永久種子 + 同步寫入 DB (閉環關鍵)"""
     promoted = []
     try:
         index_key = "agent:patterns:index"
@@ -104,10 +105,64 @@ async def promote_top_patterns(
                     hit_count, success_rate, template[:50],
                 )
 
+                # 閉環關鍵：同步寫入 DB AgentLearning，讓 inject_cross_session_learnings 能讀到
+                if db:
+                    try:
+                        await _persist_promoted_pattern(
+                            db, template, hit_count, success_rate, detail,
+                        )
+                    except Exception as persist_err:
+                        logger.debug("Promote DB persist skipped: %s", persist_err)
+
     except Exception as e:
         logger.debug("Promote failed: %s", e)
 
     return promoted
+
+
+async def _persist_promoted_pattern(
+    db: Any, template: str, hit_count: int, success_rate: float, detail: dict,
+) -> None:
+    """將 Redis promoted pattern 寫入 DB AgentLearning — 閉環核心
+
+    寫入後，inject_cross_session_learnings 在下次查詢時能讀到此學習，
+    從而實際改變 Planner LLM 的工具選擇行為。
+    """
+    import hashlib
+    from app.extended.models.agent_learning import AgentLearning
+    from sqlalchemy import select
+
+    tools_raw = detail.get(b"tools", detail.get("tools", ""))
+    if isinstance(tools_raw, bytes):
+        tools_raw = tools_raw.decode()
+
+    content = f"[promoted] {template} → {tools_raw}"
+    content_hash = hashlib.md5(content.encode()).hexdigest()
+
+    # 檢查是否已存在
+    existing = await db.execute(
+        select(AgentLearning).where(
+            AgentLearning.content_hash == content_hash,
+            AgentLearning.is_active == True,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return  # 已存在，不重複寫入
+
+    learning = AgentLearning(
+        learning_type="tool_combo",
+        content=content,
+        content_hash=content_hash,
+        source_question=template,
+        session_id="evolution",
+        hit_count=hit_count,
+        confidence=min(1.0, success_rate),
+        graduation_status="graduated",
+        is_active=True,
+    )
+    db.add(learning)
+    await db.flush()
+    logger.info("Evolution→DB: promoted pattern persisted as AgentLearning (hash=%s)", content_hash[:8])
 
 
 async def demote_failing_patterns(
