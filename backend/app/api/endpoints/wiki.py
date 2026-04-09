@@ -1,0 +1,138 @@
+"""
+LLM Wiki API 端點
+
+提供 wiki 的 CRUD、搜尋、lint、index 重建等操作。
+"""
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+from app.services.wiki_service import get_wiki_service
+
+router = APIRouter(prefix="/wiki", tags=["wiki"])
+
+
+# ── Request / Response schemas ──
+
+class IngestEntityRequest(BaseModel):
+    name: str
+    entity_type: str
+    description: str
+    sources: List[str] = []
+    tags: List[str] = []
+    related_entities: List[str] = []
+    confidence: str = "medium"
+
+
+class IngestSourceRequest(BaseModel):
+    title: str
+    source_type: str
+    summary: str
+    key_points: List[str] = []
+    entities_mentioned: List[str] = []
+    source_id: Optional[str] = None
+    tags: List[str] = []
+
+
+class SaveSynthesisRequest(BaseModel):
+    title: str
+    content_md: str
+    sources: List[str] = []
+    tags: List[str] = []
+
+
+class SearchRequest(BaseModel):
+    query: str
+    limit: int = 10
+
+
+# ── Endpoints ──
+
+@router.post("/ingest/entity")
+async def ingest_entity(req: IngestEntityRequest):
+    """攝入實體到 wiki"""
+    svc = get_wiki_service()
+    result = await svc.ingest_entity(
+        name=req.name,
+        entity_type=req.entity_type,
+        description=req.description,
+        sources=req.sources,
+        tags=req.tags,
+        related_entities=req.related_entities,
+        confidence=req.confidence,
+    )
+    await svc.rebuild_index()
+    return {"success": True, "data": result}
+
+
+@router.post("/ingest/source")
+async def ingest_source(req: IngestSourceRequest):
+    """攝入來源摘要到 wiki"""
+    svc = get_wiki_service()
+    result = await svc.ingest_source(
+        title=req.title,
+        source_type=req.source_type,
+        summary=req.summary,
+        key_points=req.key_points,
+        entities_mentioned=req.entities_mentioned,
+        source_id=req.source_id,
+        tags=req.tags,
+    )
+    await svc.rebuild_index()
+    return {"success": True, "data": result}
+
+
+@router.post("/synthesis")
+async def save_synthesis(req: SaveSynthesisRequest):
+    """儲存綜合分析到 wiki"""
+    svc = get_wiki_service()
+    result = await svc.save_synthesis(
+        title=req.title,
+        content_md=req.content_md,
+        sources=req.sources,
+        tags=req.tags,
+    )
+    await svc.rebuild_index()
+    return {"success": True, "data": result}
+
+
+@router.post("/search")
+async def search_wiki(req: SearchRequest):
+    """搜尋 wiki 頁面"""
+    svc = get_wiki_service()
+    results = await svc.search_wiki(req.query, limit=req.limit)
+    return {"success": True, "data": results, "total": len(results)}
+
+
+@router.post("/page")
+async def read_page(page_path: str):
+    """讀取指定 wiki 頁面"""
+    svc = get_wiki_service()
+    content = await svc.read_page(page_path)
+    if content is None:
+        return {"success": False, "error": "Page not found"}
+    return {"success": True, "data": {"path": page_path, "content": content}}
+
+
+@router.post("/lint")
+async def lint_wiki():
+    """Wiki 健康檢查"""
+    svc = get_wiki_service()
+    result = await svc.lint()
+    return {"success": True, "data": result}
+
+
+@router.post("/rebuild-index")
+async def rebuild_index():
+    """重建 wiki 索引"""
+    svc = get_wiki_service()
+    counts = await svc.rebuild_index()
+    return {"success": True, "data": counts}
+
+
+@router.post("/stats")
+async def wiki_stats():
+    """Wiki 統計"""
+    svc = get_wiki_service()
+    return {"success": True, "data": svc.get_stats()}

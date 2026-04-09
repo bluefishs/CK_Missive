@@ -170,3 +170,45 @@ def register_analysis_tools(registry: ToolRegistry) -> None:
         priority=5,
         contexts=["doc"],
     ))
+
+    # === LLM Wiki 工具 (v5.5.4) ===
+
+    # 12. wiki_search — Agent 搜尋 wiki 知識庫
+    registry.register(ToolDefinition(
+        name="wiki_search",
+        description="搜尋 LLM Wiki 知識頁面，包含實體、主題、來源摘要、綜合分析。用於查詢已整理的結構化知識。",
+        parameters={
+            "query": {"type": "string", "description": "搜尋關鍵字"},
+        },
+        few_shot={
+            "question": "我們跟桃園市政府有什麼合作？",
+            "response_json": '{"reasoning": "搜尋 wiki 中桃園市政府相關頁面", "tool_calls": [{"name": "wiki_search", "params": {"query": "桃園市政府"}}]}',
+        },
+        priority=6,
+        contexts=["agent", "doc", "pm"],
+    ))
+
+    # 13. wiki_read — Agent 讀取特定 wiki 頁面
+    registry.register(ToolDefinition(
+        name="wiki_read",
+        description="讀取指定的 wiki 頁面完整內容。路徑格式: entities/X.md, topics/X.md, sources/X.md, synthesis/X.md",
+        parameters={
+            "page_path": {"type": "string", "description": "wiki 頁面路徑 (如 entities/桃園市政府.md)"},
+        },
+        priority=6,
+        contexts=["agent"],
+    ))
+
+    # 14. wiki_ingest — Agent 將知識寫入 wiki
+    registry.register(ToolDefinition(
+        name="wiki_ingest",
+        description="將新知識寫入 wiki。Agent 在回答問題後，若產出有價值的分析或發現，應主動存入 wiki 供未來查詢。",
+        parameters={
+            "title": {"type": "string", "description": "頁面標題"},
+            "content": {"type": "string", "description": "Markdown 內容"},
+            "page_type": {"type": "string", "description": "頁面類型: entity/topic/source/synthesis"},
+            "tags": {"type": "string", "description": "標籤 (逗號分隔)"},
+        },
+        priority=4,
+        contexts=["agent"],
+    ))

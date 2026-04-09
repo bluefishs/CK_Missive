@@ -101,6 +101,10 @@ api_router.include_router(erp_router, prefix="/erp", tags=["財務管理"])
 from app.api.endpoints.tender import router as tender_router
 api_router.include_router(tender_router)
 
+# --- LLM Wiki (v5.5.4) ---
+from app.api.endpoints.wiki import router as wiki_router
+api_router.include_router(wiki_router, tags=["LLM Wiki"])
+
 # --- 資安管理中心 (v5.2.5) ---
 from app.api.endpoints.security import router as security_router
 api_router.include_router(security_router)

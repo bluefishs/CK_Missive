@@ -112,6 +112,10 @@ _DISPATCH_KEYS = {
     "detect_project_risk",
     # Document intent tool (v5.4.1)
     "analyze_document_intent",
+    # LLM Wiki tools (v5.5.4)
+    "wiki_search",
+    "wiki_read",
+    "wiki_ingest",
 }
 # Validate: all dispatch keys must be in registry, and all non-skill registry tools
 # must be in dispatch keys. Skill tools (skill_*) are handled dynamically.
@@ -375,6 +379,10 @@ class AgentToolExecutor:
             "search_knowledge_base": self._analysis.search_knowledge_base,
             # Federation Intelligence Interface (v1.84.0)
             "ask_external_system": self._ask_external_system,
+            # LLM Wiki tools (v5.5.4)
+            "wiki_search": self._wiki_search,
+            "wiki_read": self._wiki_read,
+            "wiki_ingest": self._wiki_ingest,
         }
 
         handler = dispatch_map.get(tool_name)
@@ -428,3 +436,54 @@ class AgentToolExecutor:
                 "latency_ms": result["latency_ms"],
                 "count": 0,
             }
+
+    # ── LLM Wiki tools (v5.5.4) ──
+
+    async def _wiki_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """搜尋 wiki 知識頁面"""
+        from app.services.wiki_service import get_wiki_service
+        query = params.get("query", "")
+        if not query:
+            return {"error": "未提供搜尋關鍵字", "count": 0}
+        svc = get_wiki_service()
+        results = await svc.search_wiki(query, limit=10)
+        return {"results": results, "count": len(results), "source": "llm_wiki"}
+
+    async def _wiki_read(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """讀取 wiki 頁面"""
+        from app.services.wiki_service import get_wiki_service
+        page_path = params.get("page_path", "")
+        if not page_path:
+            return {"error": "未提供頁面路徑", "count": 0}
+        svc = get_wiki_service()
+        content = await svc.read_page(page_path)
+        if content is None:
+            return {"error": f"頁面不存在: {page_path}", "count": 0}
+        return {"content": content, "path": page_path, "count": 1}
+
+    async def _wiki_ingest(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """將知識寫入 wiki — Agent 自主進化核心"""
+        from app.services.wiki_service import get_wiki_service
+        title = params.get("title", "")
+        content = params.get("content", "")
+        page_type = params.get("page_type", "synthesis")
+        tags = [t.strip() for t in params.get("tags", "").split(",") if t.strip()]
+        if not title or not content:
+            return {"error": "標題和內容為必填", "count": 0}
+        svc = get_wiki_service()
+        if page_type == "entity":
+            result = await svc.ingest_entity(
+                name=title, entity_type="general",
+                description=content, sources=[], tags=tags,
+            )
+        elif page_type == "source":
+            result = await svc.ingest_source(
+                title=title, source_type="agent_analysis",
+                summary=content, key_points=[], entities_mentioned=[], tags=tags,
+            )
+        else:
+            result = await svc.save_synthesis(
+                title=title, content_md=content, sources=[], tags=tags,
+            )
+        await svc.rebuild_index()
+        return {**result, "count": 1}
