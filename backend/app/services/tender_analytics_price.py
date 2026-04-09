@@ -137,13 +137,32 @@ async def price_trends(search: TenderSearchService, query: str, pages: int = 3) 
 
 
 async def company_profile(search: TenderSearchService, company_name: str, pages: int = 3) -> dict:
-    """廠商得標分析 — 歷年得標 + 機關分布 + 類別分布"""
+    """廠商得標分析 — 歷年得標 + 機關分布 + 類別分布 (Redis 快取 30min)"""
+    import asyncio
+    import json as _json
+
+    # Redis 結果快取 (30 min) — 歷史資料不常變
+    redis = None
+    cache_key = f"tender:company_profile:{company_name}"
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if redis:
+            cached = await redis.get(cache_key)
+            if cached:
+                return _json.loads(cached)
+    except Exception:
+        pass
+
+    # 並行搜尋 (was 串行)
+    tasks = [search.search_by_company(company_name=company_name, page=p) for p in range(1, pages + 1)]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
     all_records: list = []
-    for page in range(1, pages + 1):
-        result = await search.search_by_company(company_name=company_name, page=page)
+    for result in results:
+        if isinstance(result, Exception):
+            continue
         records = result.get("records", [])
-        if not records:
-            break
         all_records.extend(records)
 
     if not all_records:
@@ -186,7 +205,7 @@ async def company_profile(search: TenderSearchService, company_name: str, pages:
         "is_won": r.get("_is_won", False),
     } for r in all_records[:20]]
 
-    return {
+    result = {
         "company_name": company_name, "total": len(all_records),
         "won_count": won_count,
         "win_rate": round(won_count / len(all_records) * 100, 1) if all_records else 0,
@@ -195,3 +214,12 @@ async def company_profile(search: TenderSearchService, company_name: str, pages:
         "category_distribution": [{"name": k, "value": v} for k, v in category_counter.most_common(10)],
         "recent_tenders": recent,
     }
+
+    # 寫入 Redis 快取 (30 min)
+    if redis:
+        try:
+            await redis.set(cache_key, _json.dumps(result, ensure_ascii=False, default=str), ex=1800)
+        except Exception:
+            pass
+
+    return result

@@ -89,8 +89,22 @@ async def battle_room(search: TenderSearchService, unit_id: str, job_number: str
 
 
 async def org_ecosystem(search: TenderSearchService, org_name: str, pages: int = 10) -> dict:
-    """機關生態分析 — 年度 Top 10 廠商 + 競爭強度 + 得標金額"""
+    """機關生態分析 — 年度 Top 10 廠商 + 競爭強度 + 得標金額 (Redis 快取 30min)"""
     import asyncio
+    import json as _json
+
+    # Redis 結果快取 (30 min)
+    redis = None
+    cache_key = f"tender:org_ecosystem:{org_name}"
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if redis:
+            cached = await redis.get(cache_key)
+            if cached:
+                return _json.loads(cached)
+    except Exception:
+        pass
 
     # 並行搜尋: orgname + title (機關改名也能找到舊標案)
     async def fetch_org(p):
@@ -171,7 +185,7 @@ async def org_ecosystem(search: TenderSearchService, org_name: str, pages: int =
         if r.get("winner_names"):
             budget_award_pairs.append(r)
 
-    return {
+    result = {
         "org_name": org_name,
         "total": len(all_records),
         "awarded_count": len(budget_award_pairs),
@@ -189,3 +203,12 @@ async def org_ecosystem(search: TenderSearchService, org_name: str, pages: int =
             for r in all_records[:20]
         ],
     }
+
+    # 寫入 Redis 快取 (30 min)
+    if redis:
+        try:
+            await redis.set(cache_key, _json.dumps(result, ensure_ascii=False, default=str), ex=1800)
+        except Exception:
+            pass
+
+    return result
