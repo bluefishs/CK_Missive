@@ -9,11 +9,11 @@
 import React, { useState } from 'react';
 import {
   Modal, Upload, Button, Alert, Space, Progress, Typography,
-  Descriptions, Tag, App,
+  Descriptions, Tag, App, Segmented, Input,
 } from 'antd';
 import {
   UploadOutlined, DownloadOutlined, InfoCircleOutlined,
-  CheckCircleOutlined, WarningOutlined,
+  CheckCircleOutlined, WarningOutlined, CopyOutlined,
 } from '@ant-design/icons';
 import { useImportExpenses, useDownloadExpenseTemplate } from '../../hooks';
 
@@ -39,6 +39,8 @@ const ExpenseImportModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
   const importMutation = useImportExpenses();
   const templateMutation = useDownloadExpenseTemplate();
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [mode, setMode] = useState<'excel' | 'paste'>('excel');
+  const [pasteText, setPasteText] = useState('');
 
   const handleClose = () => {
     setResult(null);
@@ -76,52 +78,69 @@ const ExpenseImportModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
       width={600}
       destroyOnHidden
     >
-      {/* 說明 + 範本下載 */}
-      <Alert
-        type="info"
-        showIcon
-        icon={<InfoCircleOutlined />}
-        message="核銷發票 Excel 匯入"
-        description={
-          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-            <li>適用於批次匯入紙本發票或手動整理的核銷紀錄</li>
-            <li>發票號碼為唯一識別，重複號碼自動跳過</li>
-            <li>自動匹配賣方統編→廠商、案號→成案編號</li>
-          </ul>
-        }
-        style={{ marginBottom: 16 }}
+      {/* 模式切換 */}
+      <Segmented block value={mode} onChange={(v) => { setMode(v as 'excel' | 'paste'); setResult(null); }}
+        options={[
+          { value: 'excel', icon: <UploadOutlined />, label: 'Excel 上傳' },
+          { value: 'paste', icon: <CopyOutlined />, label: '快速貼上' },
+        ]}
+        style={{ marginBottom: 12 }}
       />
 
-      <Space style={{ marginBottom: 16 }}>
-        <Button
-          icon={<DownloadOutlined />}
-          onClick={() => templateMutation.mutate()}
-          loading={templateMutation.isPending}
-        >
-          下載匯入範本
-        </Button>
-      </Space>
+      {mode === 'excel' && (
+        <>
+          <Space style={{ marginBottom: 12 }}>
+            <Button icon={<DownloadOutlined />} onClick={() => templateMutation.mutate()} loading={templateMutation.isPending} size="small">
+              下載範本
+            </Button>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>只填前 3 欄 (發票號/日期/金額) 即可匯入</Typography.Text>
+          </Space>
+          {!result && (
+            <Dragger accept=".xlsx,.xls" showUploadList={false}
+              beforeUpload={(file) => { handleUpload(file); return false; }}
+              disabled={importMutation.isPending}>
+              <div className="ant-upload-drag-icon">
+                {importMutation.isPending ? <Progress type="circle" percent={-1} size={48} /> : <UploadOutlined style={{ fontSize: 48, color: '#1890ff' }} />}
+              </div>
+              <p className="ant-upload-text">{importMutation.isPending ? '匯入中...' : '點擊或拖曳 Excel'}</p>
+            </Dragger>
+          )}
+        </>
+      )}
 
-      {/* 上傳區 */}
-      {!result && (
-        <Dragger
-          accept=".xlsx,.xls"
-          showUploadList={false}
-          beforeUpload={(file) => { handleUpload(file); return false; }}
-          disabled={importMutation.isPending}
-        >
-          <div className="ant-upload-drag-icon">
-            {importMutation.isPending ? (
-              <Progress type="circle" percent={-1} size={48} />
-            ) : (
-              <UploadOutlined style={{ fontSize: 48, color: '#1890ff' }} />
-            )}
-          </div>
-          <p className="ant-upload-text">
-            {importMutation.isPending ? '匯入中...' : '點擊或拖曳 Excel 檔案至此'}
-          </p>
-          <p className="ant-upload-hint">支援 .xlsx / .xls 格式</p>
-        </Dragger>
+      {mode === 'paste' && !result && (
+        <>
+          <Alert type="info" showIcon icon={<InfoCircleOutlined />} style={{ marginBottom: 8 }}
+            message="每行一筆，Tab 或逗號分隔：發票號碼、日期、金額、案件代碼(選填)"
+          />
+          <Input.TextArea
+            rows={6} value={pasteText} onChange={(e) => setPasteText(e.target.value)}
+            placeholder={'AB12345678\t2025-06-15\t5000\tB114-B001\nCD87654321\t2025-06-16\t3200'}
+            style={{ fontFamily: 'monospace', fontSize: 13 }}
+          />
+          <Button type="primary" block style={{ marginTop: 8 }}
+            disabled={!pasteText.trim()} loading={importMutation.isPending}
+            onClick={() => {
+              // 將貼上文字轉為 CSV → blob → 讓後端 Excel 解析
+              const lines = pasteText.trim().split('\n').filter(Boolean);
+              // 將貼上的文字轉為 XLSX 給後端解析
+              import('xlsx').then(XLSX => {
+                const ws = XLSX.utils.aoa_to_sheet(
+                  [['發票號碼', '日期', '金額', '案件代碼'],
+                   ...lines.map(l => l.split(/[\t,]/).map(c => c.trim()))]
+                );
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '費用報銷匯入');
+                const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+                const file = new File([buf], 'paste_import.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                handleUpload(file);
+              }).catch(() => {
+                messageApi.error('需要 xlsx 套件支援貼上匯入');
+              });
+            }}>
+            匯入 {pasteText.trim().split('\n').filter(Boolean).length} 筆
+          </Button>
+        </>
       )}
 
       {/* 匯入結果 */}
