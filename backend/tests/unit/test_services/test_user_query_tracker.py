@@ -11,7 +11,7 @@ Tests:
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.services.ai.user_query_tracker import (
+from app.services.ai.misc.user_query_tracker import (
     UserQueryTracker,
     classify_interest,
     _extract_names_from_tool_results,
@@ -318,7 +318,7 @@ class TestUserQueryTracker:
 class TestGetQueryTracker:
     def test_singleton(self):
         # Reset singleton
-        import app.services.ai.user_query_tracker as mod
+        import app.services.ai.misc.user_query_tracker as mod
         mod._tracker_instance = None
 
         t1 = get_query_tracker()
@@ -337,7 +337,7 @@ class TestTrackerNoRedis:
     async def test_track_query_no_redis(self):
         tracker = UserQueryTracker(redis=None)
         # Patch the lazy init to fail
-        with patch("app.services.ai.user_query_tracker.UserQueryTracker._get_redis", return_value=None):
+        with patch("app.services.ai.misc.user_query_tracker.UserQueryTracker._get_redis", return_value=None):
             count = await tracker.track_query("user1", "test", [
                 {"tool": "x", "result": {"entities": [{"entity_name": "ABC工務局"}]}},
             ])
@@ -346,6 +346,6 @@ class TestTrackerNoRedis:
     @pytest.mark.asyncio
     async def test_get_interests_no_redis(self):
         tracker = UserQueryTracker(redis=None)
-        with patch("app.services.ai.user_query_tracker.UserQueryTracker._get_redis", return_value=None):
+        with patch("app.services.ai.misc.user_query_tracker.UserQueryTracker._get_redis", return_value=None):
             interests = await tracker.get_interests("user1")
             assert interests == []

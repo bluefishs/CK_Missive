@@ -33,7 +33,7 @@ _CHITCHAT_PREFIXES = (
 )
 
 # 角色 Prompt 由 agent_roles.py 統一管理（SSOT）
-from app.services.ai.agent_roles import get_role_profile
+from app.services.ai.agent.agent_roles import get_role_profile
 
 
 def get_chat_system_prompt(context: str | None = None) -> str:

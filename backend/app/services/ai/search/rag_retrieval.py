@@ -19,8 +19,8 @@ from typing import Any, Dict, List, Optional
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.ai_config import get_ai_config
-from app.services.ai.reranker import STOPWORDS
+from app.services.ai.core.ai_config import get_ai_config
+from app.services.ai.search.reranker import STOPWORDS
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ async def expand_query_with_kg(
         return query_terms
 
     try:
-        from app.services.ai.search_entity_expander import (
+        from app.services.ai.search.search_entity_expander import (
             expand_search_terms,
             flatten_expansions,
         )
@@ -137,7 +137,7 @@ async def retrieve_documents(
 
     # Hybrid Reranking: 結合向量相似度 + 關鍵字覆蓋度
     if query_terms and len(sources) > 1:
-        from app.services.ai.reranker import rerank_documents
+        from app.services.ai.search.reranker import rerank_documents
         sources = rerank_documents(sources, query_terms)
         sources = sources[:top_k]
 
@@ -247,7 +247,7 @@ async def retrieve_chunks(
 
         # Hybrid reranking
         if query_terms and len(sources) > 1:
-            from app.services.ai.reranker import rerank_documents
+            from app.services.ai.search.reranker import rerank_documents
             sources = rerank_documents(sources, query_terms)
 
         return sources[:top_k]

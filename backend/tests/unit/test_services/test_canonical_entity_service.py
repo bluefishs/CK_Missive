@@ -12,11 +12,11 @@ canonical_entity_service 正規化實體服務單元測試
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.canonical_entity_service import (
+from app.services.ai.graph.canonical_entity_service import (
     _preprocess_entity_name,
     CanonicalEntityService,
 )
-from app.services.ai.canonical_entity_matcher import CanonicalEntityMatcher
+from app.services.ai.graph.canonical_entity_matcher import CanonicalEntityMatcher
 
 
 class TestPreprocessEntityName:

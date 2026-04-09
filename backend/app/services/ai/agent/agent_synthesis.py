@@ -15,11 +15,11 @@ import asyncio
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from app.services.ai.agent_roles import get_role_profile
-from app.services.ai.agent_utils import sanitize_history
-from app.services.ai.citation_validator import validate_citations  # noqa: F401
-from app.services.ai.thinking_filter import strip_thinking_from_synthesis  # noqa: F401
-from app.services.ai.tool_result_formatter import (  # noqa: F401
+from app.services.ai.agent.agent_roles import get_role_profile
+from app.services.ai.core.agent_utils import sanitize_history
+from app.services.ai.core.citation_validator import validate_citations  # noqa: F401
+from app.services.ai.core.thinking_filter import strip_thinking_from_synthesis  # noqa: F401
+from app.services.ai.tools.tool_result_formatter import (  # noqa: F401
     format_tool_context,
     summarize_tool_result,
     self_reflect,
@@ -43,7 +43,7 @@ class AgentSynthesizer:
         context: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """根據所有工具結果，串流生成最終回答"""
-        from app.services.ai.ai_prompt_manager import AIPromptManager
+        from app.services.ai.core.ai_prompt_manager import AIPromptManager
 
         synthesis_context = self.build_synthesis_context(tool_results)
 
@@ -124,7 +124,7 @@ class AgentSynthesizer:
             )
             cleaned = strip_thinking_from_synthesis(raw)
             # 簡體→繁體後處理（OpenCC s2twp，防 LLM 簡體輸出）
-            from app.services.ai.agent_post_processing import _sc2tc
+            from app.services.ai.agent.agent_post_processing import _sc2tc
             cleaned = _sc2tc(cleaned)
             # 品質審查：檢查回答是否充分利用資料，必要時請 LLM 改善
             cleaned = await self._quality_review(question, cleaned, tool_results)
@@ -226,7 +226,7 @@ class AgentSynthesizer:
                 timeout=15,
             )
             if improved and len(improved.strip()) > len(answer) * 0.5:
-                from app.services.ai.agent_post_processing import _sc2tc
+                from app.services.ai.agent.agent_post_processing import _sc2tc
                 improved = _sc2tc(strip_thinking_from_synthesis(improved))
                 logger.info(
                     "Quality review improved answer: %d -> %d chars",

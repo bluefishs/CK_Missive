@@ -283,7 +283,7 @@ def get_tool_monitor() -> ToolSuccessMonitor:
     """取得 ToolSuccessMonitor 單例"""
     global _monitor
     if _monitor is None:
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.core.ai_config import get_ai_config
 
         config = get_ai_config()
         _monitor = ToolSuccessMonitor(

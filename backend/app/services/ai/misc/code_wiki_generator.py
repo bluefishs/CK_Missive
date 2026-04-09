@@ -15,7 +15,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.knowledge_graph import CanonicalEntity, EntityRelationship
-from app.services.ai.graph_helpers import _graph_cache
+from app.services.ai.graph.graph_helpers import _graph_cache
 
 logger = logging.getLogger(__name__)
 

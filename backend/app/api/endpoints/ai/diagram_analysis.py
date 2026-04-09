@@ -38,7 +38,7 @@ async def analyze_diagram(
     if len(image_bytes) > _MAX_SIZE:
         return JSONResponse(status_code=400, content={"error": "圖片超過 10MB 限制"})
 
-    from app.services.ai.engineering_diagram_service import EngineeringDiagramService
+    from app.services.ai.document.engineering_diagram_service import EngineeringDiagramService
 
     service = EngineeringDiagramService()
     result = await service.analyze_diagram(
@@ -66,7 +66,7 @@ async def extract_coordinates(
     if len(image_bytes) > _MAX_SIZE:
         return JSONResponse(status_code=400, content={"error": "圖片超過 10MB 限制"})
 
-    from app.services.ai.engineering_diagram_service import EngineeringDiagramService
+    from app.services.ai.document.engineering_diagram_service import EngineeringDiagramService
 
     service = EngineeringDiagramService()
     result = await service.extract_coordinates_table(image_bytes=image_bytes)
@@ -95,7 +95,7 @@ async def compare_diagrams(
     if len(bytes_a) > _MAX_SIZE or len(bytes_b) > _MAX_SIZE:
         return JSONResponse(status_code=400, content={"error": "圖片超過 10MB 限制"})
 
-    from app.services.ai.engineering_diagram_service import EngineeringDiagramService
+    from app.services.ai.document.engineering_diagram_service import EngineeringDiagramService
 
     service = EngineeringDiagramService()
     result = await service.compare_diagrams(

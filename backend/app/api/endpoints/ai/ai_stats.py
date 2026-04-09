@@ -42,7 +42,7 @@ from app.schemas.ai.stats import (
     TraceDetailResponse,
     TraceToolCallItem,
 )
-from app.services.ai.base_ai_service import BaseAIService
+from app.services.ai.core.base_ai_service import BaseAIService
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ async def get_tool_success_rates(
     # 從 Redis ToolSuccessMonitor 取得降級狀態
     degraded = []
     try:
-        from app.services.ai.agent_tool_monitor import get_tool_monitor
+        from app.services.ai.agent.agent_tool_monitor import get_tool_monitor
         monitor = get_tool_monitor()
         degraded_set = await monitor.get_degraded_tools()
         degraded = list(degraded_set)
@@ -185,7 +185,7 @@ async def get_learned_patterns(
     """
     學習模式統計（來自 Redis QueryPatternLearner）
     """
-    from app.services.ai.agent_pattern_learner import get_pattern_learner
+    from app.services.ai.agent.agent_pattern_learner import get_pattern_learner
 
     learner = get_pattern_learner()
     patterns = await learner.get_top_patterns(n=30)
@@ -355,7 +355,7 @@ async def preview_morning_report(
     返回 Gemma 4 生成的自然語言摘要 + 原始數據。
     """
     from fastapi.responses import JSONResponse
-    from app.services.ai.morning_report_service import MorningReportService
+    from app.services.ai.domain.morning_report_service import MorningReportService
 
     try:
         svc = MorningReportService(db)
@@ -386,7 +386,7 @@ async def push_morning_report(
     """
     import os
     from fastapi.responses import JSONResponse
-    from app.services.ai.morning_report_service import MorningReportService
+    from app.services.ai.domain.morning_report_service import MorningReportService
 
     try:
         svc = MorningReportService(db)
@@ -454,7 +454,7 @@ async def get_token_usage_report(
     Args:
         date: 查詢日期 (YYYY-MM-DD)，預設今天
     """
-    from app.services.ai.token_usage_tracker import get_token_tracker
+    from app.services.ai.core.token_usage_tracker import get_token_tracker
 
     tracker = get_token_tracker()
     report = await tracker.get_usage_report(date)

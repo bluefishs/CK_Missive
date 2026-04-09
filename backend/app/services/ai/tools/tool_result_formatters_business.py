@@ -110,7 +110,7 @@ def format_get_financial_summary(result: Dict[str, Any], remaining_chars: int) -
     if len(part) <= remaining_chars:
         parts.append(part)
     try:
-        from app.services.ai.response_enricher import enrich_financial_results
+        from app.services.ai.core.response_enricher import enrich_financial_results
         enriched = enrich_financial_results(result)
         analysis = f"\n[分析摘要] {enriched.get('financial_hint', '')}\n"
         if _current_len(parts) + len(analysis) <= remaining_chars:
@@ -139,7 +139,7 @@ def format_get_expense_overview(result: Dict[str, Any], remaining_chars: int) ->
     if len(part) <= remaining_chars:
         parts.append(part)
     try:
-        from app.services.ai.response_enricher import enrich_expense_results
+        from app.services.ai.core.response_enricher import enrich_expense_results
         enriched = enrich_expense_results(expenses)
         analysis = f"\n[分析摘要] {enriched.get('analysis_hint', '')}\n"
         if _current_len(parts) + len(analysis) <= remaining_chars:
@@ -165,7 +165,7 @@ def format_get_project_progress(result: Dict[str, Any], remaining_chars: int) ->
     if len(part) <= remaining_chars:
         parts.append(part)
     try:
-        from app.services.ai.response_enricher import enrich_project_results
+        from app.services.ai.core.response_enricher import enrich_project_results
         enriched = enrich_project_results(project, milestones)
         analysis = f"\n[分析摘要] {enriched.get('progress_hint', '')}\n"
         if _current_len(parts) + len(analysis) <= remaining_chars:

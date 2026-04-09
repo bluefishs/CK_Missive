@@ -360,7 +360,7 @@ async def get_module_wiki(
     if not module_name:
         return JSONResponse({"success": False, "error": "缺少 module_name"})
 
-    from app.services.ai.code_wiki_generator import CodeWikiGenerator
+    from app.services.ai.misc.code_wiki_generator import CodeWikiGenerator
 
     svc = CodeWikiGenerator(db)
     result = await svc.generate_module_wiki(module_name)
@@ -380,7 +380,7 @@ async def get_code_wiki_overview(
         limit = 50
     limit = min(limit, 200)
 
-    from app.services.ai.code_wiki_generator import CodeWikiGenerator
+    from app.services.ai.misc.code_wiki_generator import CodeWikiGenerator
 
     svc = CodeWikiGenerator(db)
     result = await svc.generate_overview(limit=limit)

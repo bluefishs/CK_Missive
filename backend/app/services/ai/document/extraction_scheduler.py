@@ -158,7 +158,7 @@ class ExtractionScheduler:
         使用 CanonicalEntityService.resolve_entity() 進行去重處理，
         已存在的實體不會重複建立。僅在首次啟動時執行。
         """
-        from app.services.ai.canonical_entity_service import CanonicalEntityService
+        from app.services.ai.graph.canonical_entity_service import CanonicalEntityService
 
         db: Optional[AsyncSession] = None
         try:
@@ -262,10 +262,10 @@ class ExtractionScheduler:
         4. 每 COMMIT_EVERY 筆 commit
         5. 斷路器：連續失敗達閾值時停止
         """
-        from app.services.ai.entity_extraction_service import (
+        from app.services.ai.document.entity_extraction_service import (
             extract_entities_for_document,
         )
-        from app.services.ai.graph_ingestion_pipeline import GraphIngestionPipeline
+        from app.services.ai.graph.graph_ingestion_pipeline import GraphIngestionPipeline
 
         # Ollama 可用性檢查 → 決定文檔間休眠時間
         ollama_available = await self._check_ollama_available()

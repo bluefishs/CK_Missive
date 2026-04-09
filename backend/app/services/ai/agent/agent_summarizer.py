@@ -135,7 +135,7 @@ class ConversationSummarizer:
                 return cached.decode() if isinstance(cached, bytes) else cached
 
             # 2. DB 持久化 fallback（Phase 3A）
-            from app.services.ai.ai_config import get_ai_config
+            from app.services.ai.core.ai_config import get_ai_config
             config = get_ai_config()
             if not config.learning_persist_enabled:
                 return ""
@@ -177,7 +177,7 @@ class ConversationSummarizer:
             return
 
         try:
-            from app.services.ai.ai_config import get_ai_config
+            from app.services.ai.core.ai_config import get_ai_config
             config = get_ai_config()
             if not config.memory_flush_enabled:
                 return
@@ -284,7 +284,7 @@ class ConversationSummarizer:
         if not redis:
             return
 
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.core.ai_config import get_ai_config
         config = get_ai_config()
 
         summary_key = f"{self._PREFIX}:{session_id}"
@@ -449,7 +449,7 @@ def get_summarizer() -> ConversationSummarizer:
     """取得 ConversationSummarizer 單例"""
     global _summarizer
     if _summarizer is None:
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.core.ai_config import get_ai_config
 
         config = get_ai_config()
         _summarizer = ConversationSummarizer(

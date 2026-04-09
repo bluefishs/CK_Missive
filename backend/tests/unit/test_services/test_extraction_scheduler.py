@@ -14,7 +14,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.extraction_scheduler import (
+from app.services.ai.document.extraction_scheduler import (
     ExtractionScheduler,
     DEFAULT_INTERVAL_MINUTES,
     BATCH_LIMIT,
@@ -154,7 +154,7 @@ class TestCheckOllamaAvailable:
         mock_response = MagicMock()
         mock_response.status_code = 200
 
-        with patch("app.services.ai.extraction_scheduler.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.services.ai.document.extraction_scheduler.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -168,7 +168,7 @@ class TestCheckOllamaAvailable:
     async def test_ollama_unavailable(self):
         scheduler = ExtractionScheduler()
 
-        with patch("app.services.ai.extraction_scheduler.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.services.ai.document.extraction_scheduler.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(side_effect=Exception("Connection refused"))
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -207,7 +207,7 @@ class TestModuleLevelFunctions:
     """模組級便利函數"""
 
     def test_notify_new_documents_no_scheduler(self):
-        import app.services.ai.extraction_scheduler as mod
+        import app.services.ai.document.extraction_scheduler as mod
         original = mod._scheduler
         mod._scheduler = None
         # 不應拋出例外
@@ -215,7 +215,7 @@ class TestModuleLevelFunctions:
         mod._scheduler = original
 
     def test_get_extraction_scheduler_returns_instance(self):
-        import app.services.ai.extraction_scheduler as mod
+        import app.services.ai.document.extraction_scheduler as mod
         original = mod._scheduler
         mock_scheduler = MagicMock()
         mod._scheduler = mock_scheduler

@@ -37,7 +37,7 @@ def register_default_tools(registry: ToolRegistry) -> None:
 
     # === NemoClaw Stage 3: 自動從 Skills 目錄發現並註冊工具 ===
     try:
-        from app.services.ai.skill_scanner import scan_skills
+        from app.services.ai.misc.skill_scanner import scan_skills
         skills = scan_skills()
         auto_count = 0
         for skill in skills:

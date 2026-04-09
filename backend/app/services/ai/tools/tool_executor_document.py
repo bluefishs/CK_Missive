@@ -204,7 +204,7 @@ async def _analyze_image_document(image_bytes: bytes, filename: str) -> dict:
             '{"doc_type": "...", "summary": "...", "entities": [...]}'
         )
         result = await ai.vision_completion(prompt, image_bytes, max_tokens=512)
-        from app.services.ai.agent_utils import parse_json_safe
+        from app.services.ai.core.agent_utils import parse_json_safe
         return parse_json_safe(result) or {"doc_type": "unknown", "summary": result[:500]}
     except Exception as e:
         logger.debug("Gemma 4 vision document analysis failed for %s: %s", filename, e)

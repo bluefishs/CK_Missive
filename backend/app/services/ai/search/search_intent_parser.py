@@ -16,9 +16,9 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.ai.search import ParsedSearchIntent
-from app.services.ai.ai_config import get_ai_config
-from app.services.ai.ai_prompt_manager import AIPromptManager
-from app.services.ai.base_ai_service import BaseAIService
+from app.services.ai.core.ai_config import get_ai_config
+from app.services.ai.core.ai_prompt_manager import AIPromptManager
+from app.services.ai.core.base_ai_service import BaseAIService
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class SearchIntentParser:
             ai_service: BaseAIService 實例（提供 AI 呼叫能力）
         """
         self._ai = ai_service
-        from app.services.ai.rule_engine import get_rule_engine
+        from app.services.ai.search.rule_engine import get_rule_engine
         self._rule_engine = get_rule_engine()
 
     def _post_process_intent(
@@ -61,7 +61,7 @@ class SearchIntentParser:
         5. 低 confidence 回退：無有效條件時用原始查詢作為 keywords
         6. 低 confidence 補充：有部分結構化欄位但 confidence 低時，補充原始查詢詞
         """
-        from app.services.ai.synonym_expander import SynonymExpander
+        from app.services.ai.search.synonym_expander import SynonymExpander
 
         # 1. 關鍵字同義詞擴展
         if intent.keywords:
@@ -220,7 +220,7 @@ class SearchIntentParser:
             return None, None
 
         try:
-            from app.services.ai.embedding_manager import EmbeddingManager
+            from app.services.ai.core.embedding_manager import EmbeddingManager
             query_embedding = await EmbeddingManager.get_embedding(
                 query, self._ai.connector,
             )

@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-    from app.services.ai.tool_registry import ToolDefinition
+    from app.services.ai.tools.tool_registry import ToolDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +243,7 @@ async def _gemma4_suggest_tools(
             max_tokens=64,
             task_type="classify",
         )
-        from app.services.ai.agent_utils import parse_json_safe
+        from app.services.ai.core.agent_utils import parse_json_safe
 
         parsed = parse_json_safe(result)
         if parsed and isinstance(parsed.get("tools"), list):
@@ -308,7 +308,7 @@ async def _get_cached_kg_stats(db: "AsyncSession") -> Optional[Dict[str, Any]]:
         r = None
 
     try:
-        from app.services.ai.canonical_entity_service import CanonicalEntityService
+        from app.services.ai.graph.canonical_entity_service import CanonicalEntityService
         service = CanonicalEntityService()
         stats = await service.get_stats(db)
 

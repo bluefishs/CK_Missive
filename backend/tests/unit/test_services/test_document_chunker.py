@@ -1,7 +1,7 @@
 """Tests for document_chunker — text splitting and chunk generation"""
 
 import pytest
-from app.services.ai.document_chunker import (
+from app.services.ai.document.document_chunker import (
     split_into_chunks,
     build_document_text,
     MAX_CHUNK_CHARS,

@@ -17,12 +17,12 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
-from app.services.ai.agent_planner import AgentPlanner, AgentWorkingMemory
-from app.services.ai.agent_tools import AgentToolExecutor, VALID_TOOL_NAMES
-from app.services.ai.tool_result_formatter import summarize_tool_result
-from app.services.ai.agent_trace import AgentTrace
-from app.services.ai.agent_utils import sse, collect_sources
-from app.services.ai.tool_chain_resolver import enrich_plan_with_chain
+from app.services.ai.agent.agent_planner import AgentPlanner, AgentWorkingMemory
+from app.services.ai.agent.agent_tools import AgentToolExecutor, VALID_TOOL_NAMES
+from app.services.ai.tools.tool_result_formatter import summarize_tool_result
+from app.services.ai.agent.agent_trace import AgentTrace
+from app.services.ai.core.agent_utils import sse, collect_sources
+from app.services.ai.tools.tool_chain_resolver import enrich_plan_with_chain
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +173,7 @@ class AgentToolLoop:
                 lr = last_result.get("result", {})
                 has_failure = lr.get("error") or lr.get("count", 1) == 0
                 if has_failure and not lr.get("degraded"):
-                    from app.services.ai.agent_auto_corrector import auto_correct_plan
+                    from app.services.ai.agent.agent_auto_corrector import auto_correct_plan
                     replan_from_failure = auto_correct_plan(question, tool_results)
                     if replan_from_failure and replan_from_failure.get("tool_calls"):
                         reasoning = replan_from_failure.get(
@@ -368,7 +368,7 @@ class AgentToolLoop:
         """執行單個工具，回傳結果 dict（含 ToolResultGuard 守衛 + 自適應超時 + EVO-2 降級攔截）"""
         # EVO-2: 檢查工具降級狀態，避免呼叫已知失效的工具
         try:
-            from app.services.ai.agent_tool_monitor import get_tool_monitor
+            from app.services.ai.agent.agent_tool_monitor import get_tool_monitor
             monitor = get_tool_monitor()
             if monitor and await monitor.is_degraded(tool_name):
                 logger.warning("Tool %s is degraded (success_rate <30%%), skipping", tool_name)
@@ -388,13 +388,13 @@ class AgentToolLoop:
             logger.warning("Tool %s timed out (%.1fs)", tool_name, tt)
             raw = {"error": f"工具執行超時 ({tt:.0f}s)", "count": 0}
             if self.config.tool_guard_enabled:
-                from app.services.ai.agent_tools import ToolResultGuard
+                from app.services.ai.agent.agent_tools import ToolResultGuard
                 return ToolResultGuard.guard(tool_name, params, raw)
             return raw
         except Exception as e:
             logger.error("Tool %s failed: %s", tool_name, e)
             raw = {"error": "工具執行失敗", "count": 0}
             if self.config.tool_guard_enabled:
-                from app.services.ai.agent_tools import ToolResultGuard
+                from app.services.ai.agent.agent_tools import ToolResultGuard
                 return ToolResultGuard.guard(tool_name, params, raw)
             return raw

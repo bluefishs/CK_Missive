@@ -154,7 +154,7 @@ async def get_agent_capability_profile(
     db: AsyncSession = Depends(get_async_db),
 ):
     """Agent 能力自覺 — 分析最近 7 天各領域的表現。"""
-    from app.services.ai.agent_capability_tracker import get_capability_profile
+    from app.services.ai.agent.agent_capability_tracker import get_capability_profile
 
     try:
         profile = await get_capability_profile(db)
@@ -171,7 +171,7 @@ async def get_agent_mirror_report(
 ):
     """Agent 鏡像回饋 — 生成自我觀察報告。"""
     from app.core.ai_connector import get_ai_connector
-    from app.services.ai.agent_mirror_feedback import generate_mirror_report
+    from app.services.ai.agent.agent_mirror_feedback import generate_mirror_report
 
     try:
         ai_connector = get_ai_connector()
@@ -192,7 +192,7 @@ async def get_agent_self_profile(
     db: AsyncSession = Depends(get_async_db),
 ):
     """Agent 自我檔案 — 我是誰、我擅長什麼。"""
-    from app.services.ai.agent_self_profile import get_self_profile
+    from app.services.ai.agent.agent_self_profile import get_self_profile
 
     try:
         profile = await get_self_profile(db)
@@ -208,7 +208,7 @@ async def get_agent_proactive_alerts(
     db: AsyncSession = Depends(get_async_db),
 ):
     """Agent 主動提醒 — 即將到期公文 + 系統健康 + 未讀通知。"""
-    from app.services.ai.agent_proactive_scanner import scan_agent_alerts
+    from app.services.ai.agent.agent_proactive_scanner import scan_agent_alerts
 
     try:
         alerts = await scan_agent_alerts(db)
@@ -229,8 +229,8 @@ async def federated_contribute(
     db: AsyncSession = Depends(get_async_db),
 ):
     """接收外部專案的實體貢獻。"""
-    from app.services.ai.cross_domain_contribution_service import CrossDomainContributionService
-    from app.services.ai.cross_domain_linker import CrossDomainLinker
+    from app.services.ai.domain.cross_domain_contribution_service import CrossDomainContributionService
+    from app.services.ai.domain.cross_domain_linker import CrossDomainLinker
 
     _log_ctx = {"source_project": request.source_project, "entity_count": len(request.contributions), "relation_count": len(request.relations), "idempotency_key": request.idempotency_key}
     t0 = time.time()
@@ -247,7 +247,7 @@ async def federated_contribute(
         result = await svc.process_contribution(request)
 
         if result.success and result.resolved:
-            from app.services.ai.graph_helpers import invalidate_graph_cache
+            from app.services.ai.graph.graph_helpers import invalidate_graph_cache
             try:
                 cleared = await invalidate_graph_cache("path:*")
                 cleared += await invalidate_graph_cache("neighbors:*")
@@ -342,7 +342,7 @@ async def cross_domain_link(
     db: AsyncSession = Depends(get_async_db),
 ):
     """觸發 CrossDomainLinker 執行四條跨域連結規則。"""
-    from app.services.ai.cross_domain_linker import CrossDomainLinker
+    from app.services.ai.domain.cross_domain_linker import CrossDomainLinker
 
     try:
         from app.core.redis_client import get_redis
@@ -377,7 +377,7 @@ async def federation_health(
     db: AsyncSession = Depends(get_async_db),
 ):
     """回傳各來源專案的實體數量、最後更新時間、跨專案關係數。"""
-    from app.services.ai.graph_statistics_service import GraphStatisticsService
+    from app.services.ai.graph.graph_statistics_service import GraphStatisticsService
 
     try:
         svc = GraphStatisticsService(db)
@@ -395,7 +395,7 @@ async def embedding_backfill(
     db: AsyncSession = Depends(get_async_db),
 ):
     """KG-3: 批次回填缺少 embedding 的實體向量。"""
-    from app.services.ai.cross_domain_contribution_service import CrossDomainContributionService
+    from app.services.ai.domain.cross_domain_contribution_service import CrossDomainContributionService
 
     try:
         svc = CrossDomainContributionService(db)
@@ -414,7 +414,7 @@ async def cross_domain_path(
     db: AsyncSession = Depends(get_async_db),
 ):
     """KG-4: 跨專案最短路徑查詢。"""
-    from app.services.ai.graph_traversal_service import GraphTraversalService
+    from app.services.ai.graph.graph_traversal_service import GraphTraversalService
 
     try:
         svc = GraphTraversalService(db)

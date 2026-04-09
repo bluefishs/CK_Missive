@@ -17,7 +17,7 @@ from typing import Any, Dict, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.tool_executor_search import ENTITY_TYPE_MAP
+from app.services.ai.tools.tool_executor_search import ENTITY_TYPE_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class KGSearchExecutor:
 
     async def search_entities(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """搜尋知識圖譜實體"""
-        from app.services.ai.graph_query_service import GraphQueryService
+        from app.services.ai.graph.graph_query_service import GraphQueryService
 
         svc = GraphQueryService(self.db)
         query = params.get("query", "")

@@ -46,7 +46,7 @@ async def agent_query_stream(
       data: {"type":"error","error":"...","code":"RATE_LIMITED|SERVICE_ERROR|STREAM_TIMEOUT"}
     """
     # v5.0: 切換至 NemoClaw 代理人（自覺+主動+技能發現）
-    from app.services.ai.nemoclaw_agent import NemoClawAgent
+    from app.services.ai.misc.nemoclaw_agent import NemoClawAgent
 
     agent = NemoClawAgent(db)
 
@@ -77,7 +77,7 @@ async def nemoclaw_query_stream(
 
     對比測試: 同一問題分別用 /agent/query/stream (傳統) 和 /agent/nemoclaw/stream (代理人)
     """
-    from app.services.ai.nemoclaw_agent import NemoClawAgent
+    from app.services.ai.misc.nemoclaw_agent import NemoClawAgent
 
     agent = NemoClawAgent(db)
 
@@ -105,7 +105,7 @@ async def clear_agent_conversation(
     if not _SESSION_ID_PATTERN.match(session_id):
         raise HTTPException(status_code=400, detail="Invalid session_id format")
 
-    from app.services.ai.agent_orchestrator import get_conversation_memory
+    from app.services.ai.agent.agent_orchestrator import get_conversation_memory
 
     await get_conversation_memory().delete(session_id)
     return OkResponse(ok=True)

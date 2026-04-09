@@ -11,7 +11,7 @@ Agent 閒聊模組單元測試
 
 import pytest
 
-from app.services.ai.agent_chitchat import (
+from app.services.ai.agent.agent_chitchat import (
     is_chitchat,
     get_smart_fallback,
     clean_chitchat_response,

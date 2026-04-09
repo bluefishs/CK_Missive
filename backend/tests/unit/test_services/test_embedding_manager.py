@@ -16,7 +16,7 @@ import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.embedding_manager import EmbeddingManager
+from app.services.ai.core.embedding_manager import EmbeddingManager
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +64,7 @@ class TestLazyInit:
         assert EmbeddingManager._max_cache_size == 0
 
     def test_ensure_initialized_creates_lock(self, mock_config):
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             EmbeddingManager._ensure_initialized()
 
         assert EmbeddingManager._write_lock is not None
@@ -74,7 +74,7 @@ class TestLazyInit:
         assert EmbeddingManager._cache_ttl == 60.0
 
     def test_ensure_initialized_idempotent(self, mock_config):
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             EmbeddingManager._ensure_initialized()
             lock1 = EmbeddingManager._write_lock
             EmbeddingManager._ensure_initialized()
@@ -88,7 +88,7 @@ class TestCacheHitMiss:
 
     @pytest.mark.asyncio
     async def test_cache_miss_then_hit(self, mock_connector, mock_config):
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             # 第一次：cache miss
             result1 = await EmbeddingManager.get_embedding("hello", mock_connector)
             assert result1 is not None
@@ -105,7 +105,7 @@ class TestCacheHitMiss:
 
     @pytest.mark.asyncio
     async def test_empty_text_returns_none(self, mock_connector, mock_config):
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             result = await EmbeddingManager.get_embedding("", mock_connector)
             assert result is None
             mock_connector.generate_embedding.assert_not_called()
@@ -117,7 +117,7 @@ class TestCacheHitMiss:
         small_config.embedding_cache_max_size = 2
         small_config.embedding_cache_ttl = 3600
 
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=small_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=small_config):
             await EmbeddingManager.get_embedding("text1", mock_connector)
             await EmbeddingManager.get_embedding("text2", mock_connector)
             await EmbeddingManager.get_embedding("text3", mock_connector)
@@ -131,13 +131,13 @@ class TestBatchEmbedding:
 
     @pytest.mark.asyncio
     async def test_batch_empty_list(self, mock_connector, mock_config):
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             results = await EmbeddingManager.get_embeddings_batch([], mock_connector)
             assert results == []
 
     @pytest.mark.asyncio
     async def test_batch_with_cache_hits(self, mock_connector, mock_config):
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             # 預填快取
             await EmbeddingManager.get_embedding("cached", mock_connector)
             assert mock_connector.generate_embedding.call_count == 1
@@ -158,7 +158,7 @@ class TestStats:
 
     @pytest.mark.asyncio
     async def test_stats_accuracy(self, mock_connector, mock_config):
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             await EmbeddingManager.get_embedding("a", mock_connector)
             await EmbeddingManager.get_embedding("a", mock_connector)
             await EmbeddingManager.get_embedding("b", mock_connector)
@@ -170,7 +170,7 @@ class TestStats:
             assert stats["hit_rate_percent"] == pytest.approx(33.3, abs=0.1)
 
     def test_invalidate_clears_all(self, mock_config):
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             EmbeddingManager._ensure_initialized()
             EmbeddingManager._cache["test"] = ([0.1], time.monotonic())
             EmbeddingManager._hits = 5
@@ -193,7 +193,7 @@ class TestTTLExpiration:
         short_ttl_config.embedding_cache_max_size = 100
         short_ttl_config.embedding_cache_ttl = 0.01  # 10ms TTL
 
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=short_ttl_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=short_ttl_config):
             # 第一次呼叫: cache miss
             result1 = await EmbeddingManager.get_embedding("expire_test", mock_connector)
             assert result1 is not None
@@ -217,7 +217,7 @@ class TestConnectorFailure:
         failing_connector = MagicMock()
         failing_connector.generate_embedding = AsyncMock(side_effect=Exception("Ollama down"))
 
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             result = await EmbeddingManager.get_embedding("test_fail", failing_connector)
 
             assert result is None
@@ -237,7 +237,7 @@ class TestConnectorFailure:
         connector = MagicMock()
         connector.generate_embedding = selective_fail
 
-        with patch("app.services.ai.embedding_manager.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.core.embedding_manager.get_ai_config", return_value=mock_config):
             results = await EmbeddingManager.get_embeddings_batch(
                 ["good_text", "fail_text", "another_good"], connector
             )

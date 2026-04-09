@@ -97,8 +97,8 @@ class TestAgentTopology:
         return user
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.federation_client.get_federation_client")
-    @patch("app.services.ai.agent_roles.get_all_role_profiles")
+    @patch("app.services.ai.federation.federation_client.get_federation_client")
+    @patch("app.services.ai.agent.agent_roles.get_all_role_profiles")
     async def test_topology_structure(self, mock_roles, mock_fed, mock_user):
         # Mock agent roles
         role_profile = MagicMock()
@@ -131,11 +131,11 @@ class TestAgentTopology:
         mock_user.username = "admin"
 
         with patch(
-            "app.services.ai.agent_roles.get_all_role_profiles",
+            "app.services.ai.agent.agent_roles.get_all_role_profiles",
             side_effect=ImportError("not found"),
         ):
             with patch(
-                "app.services.ai.federation_client.get_federation_client",
+                "app.services.ai.federation.federation_client.get_federation_client",
                 side_effect=Exception("offline"),
             ):
                 result = await agent_topology(_current_user=mock_user)
@@ -213,8 +213,8 @@ class TestDigitalTwinHealth:
     """健康檢查"""
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.federation_client.get_federation_client")
-    @patch("app.services.ai.agent_roles.get_all_role_profiles", return_value={"ck-doc": MagicMock()})
+    @patch("app.services.ai.federation.federation_client.get_federation_client")
+    @patch("app.services.ai.agent.agent_roles.get_all_role_profiles", return_value={"ck-doc": MagicMock()})
     async def test_healthy(self, mock_roles, mock_fed):
         client = MagicMock()
         client.list_available_systems.return_value = [
@@ -229,9 +229,9 @@ class TestDigitalTwinHealth:
         assert result["local_roles_count"] >= 1
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.federation_client.get_federation_client",
+    @patch("app.services.ai.federation.federation_client.get_federation_client",
            side_effect=Exception("connection refused"))
-    @patch("app.services.ai.agent_roles.get_all_role_profiles", return_value={})
+    @patch("app.services.ai.agent.agent_roles.get_all_role_profiles", return_value={})
     async def test_unhealthy_gateway(self, mock_roles, mock_fed):
         result = await digital_twin_health()
 

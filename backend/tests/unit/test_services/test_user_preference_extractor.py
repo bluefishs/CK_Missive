@@ -1,7 +1,7 @@
 """Tests for user_preference_extractor — dual-layer user memory"""
 
 import pytest
-from app.services.ai.user_preference_extractor import (
+from app.services.ai.misc.user_preference_extractor import (
     extract_preferences_from_history,
     format_preferences_for_prompt,
 )

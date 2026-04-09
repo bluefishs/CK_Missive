@@ -67,7 +67,7 @@ class EngineeringDiagramService:
             Structured analysis with coordinates, areas, annotations.
         """
         from app.core.ai_connector import get_ai_connector
-        from app.services.ai.agent_utils import parse_json_safe
+        from app.services.ai.core.agent_utils import parse_json_safe
 
         ai = get_ai_connector()
 
@@ -119,7 +119,7 @@ class EngineeringDiagramService:
     ) -> Dict[str, Any]:
         """Extract coordinate table from survey diagram."""
         from app.core.ai_connector import get_ai_connector
-        from app.services.ai.agent_utils import parse_json_safe
+        from app.services.ai.core.agent_utils import parse_json_safe
 
         ai = get_ai_connector()
         prompt = (

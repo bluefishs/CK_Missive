@@ -11,7 +11,7 @@ Agent 工具函式單元測試
 import json
 import pytest
 
-from app.services.ai.agent_utils import parse_json_safe, sse
+from app.services.ai.core.agent_utils import parse_json_safe, sse
 
 
 class TestParseJsonSafe:

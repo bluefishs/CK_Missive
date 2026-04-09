@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.ai.agent_supervisor import (
+from app.services.ai.agent.agent_supervisor import (
     AgentSupervisor,
     SubTask,
     _get_default_calls,

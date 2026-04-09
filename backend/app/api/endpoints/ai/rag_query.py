@@ -38,7 +38,7 @@ async def rag_query(
 
     流程: 查詢向量化 -> pgvector 檢索 -> LLM 回答生成
     """
-    from app.services.ai.rag_query_service import RAGQueryService
+    from app.services.ai.search.rag_query_service import RAGQueryService
 
     svc = RAGQueryService(db)
     result = await svc.query(
@@ -66,7 +66,7 @@ async def rag_query_stream(
       data: {"type":"done","latency_ms":N,"model":"ollama"}
       data: {"type":"error","error":"..."}
     """
-    from app.services.ai.rag_query_service import RAGQueryService
+    from app.services.ai.search.rag_query_service import RAGQueryService
 
     svc = RAGQueryService(db)
     history = request.history
@@ -75,7 +75,7 @@ async def rag_query_stream(
     # session_id → 從 Redis 載入對話歷史
     conv_memory = None
     if session_id:
-        from app.services.ai.agent_orchestrator import get_conversation_memory
+        from app.services.ai.agent.agent_orchestrator import get_conversation_memory
         conv_memory = get_conversation_memory()
         loaded = await conv_memory.load(session_id)
         if loaded:

@@ -62,7 +62,7 @@ class DigitalTwinService:
 
         # 3. Missive Agent Roles
         try:
-            from app.services.ai.agent_roles import get_all_role_profiles
+            from app.services.ai.agent.agent_roles import get_all_role_profiles
             for ctx, profile in get_all_role_profiles().items():
                 node_id = f"missive-{ctx}"
                 nodes.append({
@@ -108,7 +108,7 @@ class DigitalTwinService:
 
         # 6. Registry 即時狀態
         try:
-            from app.services.ai.federation_client import get_federation_client
+            from app.services.ai.federation.federation_client import get_federation_client
             client = get_federation_client()
             systems = client.list_available_systems()
             status_map = {s["id"]: s.get("status", "unknown") for s in systems}
@@ -228,15 +228,15 @@ class DigitalTwinService:
                 return None
 
         async def _get_profile():
-            from app.services.ai.agent_self_profile import get_self_profile
+            from app.services.ai.agent.agent_self_profile import get_self_profile
             return await get_self_profile(db)
 
         async def _get_capability():
-            from app.services.ai.agent_capability_tracker import get_capability_profile
+            from app.services.ai.agent.agent_capability_tracker import get_capability_profile
             return await get_capability_profile(db)
 
         async def _get_daily():
-            from app.services.ai.agent_mirror_feedback import generate_mirror_report
+            from app.services.ai.agent.agent_mirror_feedback import generate_mirror_report
             return await generate_mirror_report(db)
 
         async def _get_quality():
@@ -248,7 +248,7 @@ class DigitalTwinService:
             return await AgentTraceRepository(db).get_recent_traces(limit=5)
 
         async def _get_health():
-            from app.services.ai.federation_client import get_federation_client
+            from app.services.ai.federation.federation_client import get_federation_client
             client = get_federation_client()
             systems = client.list_available_systems()
             return {
@@ -332,7 +332,7 @@ class DigitalTwinService:
 
         # 2. 工具降級預警 (基於 tool_monitor 成功率)
         try:
-            from app.services.ai.agent_tool_monitor import AgentToolMonitor
+            from app.services.ai.agent.agent_tool_monitor import AgentToolMonitor
             monitor = AgentToolMonitor()
             all_stats = await monitor.get_all_stats()
             degraded = await monitor.get_degraded_tools()

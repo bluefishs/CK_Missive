@@ -147,11 +147,11 @@ class AgentSupervisor:
 
         每個子任務使用對應 context 的工具集。
         """
-        from app.services.ai.agent_tools import AgentToolExecutor
-        from app.services.ai.ai_config import get_ai_config
-        from app.services.ai.embedding_manager import EmbeddingManager
-        from app.services.ai.base_ai_service import get_ai_connector
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.agent.agent_tools import AgentToolExecutor
+        from app.services.ai.core.ai_config import get_ai_config
+        from app.services.ai.core.embedding_manager import EmbeddingManager
+        from app.services.ai.core.base_ai_service import get_ai_connector
+        from app.services.ai.tools.tool_registry import get_tool_registry
 
         config = get_ai_config()
         ai = get_ai_connector()
@@ -286,11 +286,11 @@ class AgentSupervisor:
 
         每個子任務在獨立 DB session 中執行，互不干擾。
         """
-        from app.services.ai.agent_conductor import (
+        from app.services.ai.agent.agent_conductor import (
             AgentConductor,
             build_conductor_subtasks_from_domains,
         )
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.core.ai_config import get_ai_config
 
         config = get_ai_config()
         conductor = AgentConductor(timeout_per_task=tool_timeout)

@@ -17,7 +17,7 @@ import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from app.services.ai.agent_pattern_learner import QueryPatternLearner
+    from app.services.ai.agent.agent_pattern_learner import QueryPatternLearner
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ async def load_seeds_if_empty(learner: "QueryPatternLearner") -> int:
             return 0
 
         # Load seeds
-        from app.services.ai.pattern_seeds import SEED_PATTERNS
+        from app.services.ai.agent.pattern_seeds import SEED_PATTERNS
 
         loaded = 0
         for seed in SEED_PATTERNS:

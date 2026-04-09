@@ -13,7 +13,7 @@ import pytest
 from datetime import date, timedelta
 from unittest.mock import patch, MagicMock
 
-from app.services.ai.rule_engine import IntentRuleEngine, get_rule_engine
+from app.services.ai.search.rule_engine import IntentRuleEngine, get_rule_engine
 
 
 class TestIntentRuleEngineInit:

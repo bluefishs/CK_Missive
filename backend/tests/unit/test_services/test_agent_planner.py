@@ -14,7 +14,7 @@ Agent 規劃模組單元測試
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from app.services.ai.agent_planner import AgentPlanner
+from app.services.ai.agent.agent_planner import AgentPlanner
 
 
 # ── Fixtures ──

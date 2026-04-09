@@ -22,7 +22,7 @@ class TestFinanceToolRegistry:
 
     def test_finance_tools_registered(self):
         """確認 3 個財務工具已註冊"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
 
         registry = get_tool_registry()
         names = registry.valid_tool_names
@@ -33,7 +33,7 @@ class TestFinanceToolRegistry:
 
     def test_finance_tools_in_erp_context(self):
         """財務工具應出現在 erp context"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
 
         registry = get_tool_registry()
         erp_tools = registry.get_valid_names_for_context("erp")
@@ -44,7 +44,7 @@ class TestFinanceToolRegistry:
 
     def test_financial_summary_in_pm_context(self):
         """get_financial_summary 與 check_budget_alert 也應在 pm context"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
 
         registry = get_tool_registry()
         pm_tools = registry.get_valid_names_for_context("pm")
@@ -54,7 +54,7 @@ class TestFinanceToolRegistry:
 
     def test_finance_tool_definitions_have_few_shot(self):
         """財務工具應有 few_shot 範例"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
 
         registry = get_tool_registry()
         for name in ["get_financial_summary", "get_expense_overview", "check_budget_alert"]:
@@ -65,7 +65,7 @@ class TestFinanceToolRegistry:
 
     def test_finance_query_type_keywords(self):
         """finance 查詢類型關鍵字應觸發正確工具"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
 
         registry = get_tool_registry()
         detected = registry._detect_query_types("公司今年的財務狀況如何？")
@@ -73,7 +73,7 @@ class TestFinanceToolRegistry:
 
     def test_finance_tool_suggestion(self):
         """財務相關查詢應推薦 get_financial_summary"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
 
         registry = get_tool_registry()
         # Sync suggest (without DB)
@@ -90,7 +90,7 @@ class TestFinanceDispatchConsistency:
 
     def test_dispatch_keys_include_finance_tools(self):
         """_DISPATCH_KEYS 包含財務工具"""
-        from app.services.ai.agent_tools import _DISPATCH_KEYS
+        from app.services.ai.agent.agent_tools import _DISPATCH_KEYS
 
         assert "get_financial_summary" in _DISPATCH_KEYS
         assert "get_expense_overview" in _DISPATCH_KEYS
@@ -100,12 +100,12 @@ class TestFinanceDispatchConsistency:
         """dispatch keys 與 registry 非 skill 工具完全一致"""
         # 如果不一致，agent_tools 模組載入時會拋出 RuntimeError
         # 能成功 import 就代表通過
-        from app.services.ai.agent_tools import VALID_TOOL_NAMES
+        from app.services.ai.agent.agent_tools import VALID_TOOL_NAMES
         assert len(VALID_TOOL_NAMES) >= 27  # 24 原有 + 3 新增
 
     def test_guard_templates_include_finance(self):
         """ToolResultGuard 包含財務工具回退模板"""
-        from app.services.ai.agent_tools import ToolResultGuard
+        from app.services.ai.agent.agent_tools import ToolResultGuard
 
         templates = ToolResultGuard._GUARD_TEMPLATES
         assert "get_financial_summary" in templates
@@ -121,7 +121,7 @@ class TestFinanceToolExecutor:
     """財務工具執行器測試"""
 
     def _make_executor(self, db_mock=None):
-        from app.services.ai.tool_executor_domain import DomainToolExecutor
+        from app.services.ai.tools.tool_executor_domain import DomainToolExecutor
 
         db = db_mock or AsyncMock()
         return DomainToolExecutor(
@@ -269,7 +269,7 @@ class TestFinanceProactiveTriggers:
     @pytest.mark.asyncio
     async def test_budget_overrun_trigger(self):
         """預算超支掃描應產生警報"""
-        from app.services.ai.proactive_triggers_finance import check_budget_overrun
+        from app.services.ai.proactive.proactive_triggers_finance import check_budget_overrun
 
         db = AsyncMock()
 
@@ -293,7 +293,7 @@ class TestFinanceProactiveTriggers:
     @pytest.mark.asyncio
     async def test_budget_overrun_critical(self):
         """支出超過收入應為 critical"""
-        from app.services.ai.proactive_triggers_finance import check_budget_overrun
+        from app.services.ai.proactive.proactive_triggers_finance import check_budget_overrun
 
         db = AsyncMock()
 
@@ -315,7 +315,7 @@ class TestFinanceProactiveTriggers:
     @pytest.mark.asyncio
     async def test_budget_overrun_skip_zero_income(self):
         """收入為 0 的專案不應觸發警報"""
-        from app.services.ai.proactive_triggers_finance import check_budget_overrun
+        from app.services.ai.proactive.proactive_triggers_finance import check_budget_overrun
 
         db = AsyncMock()
 
@@ -335,7 +335,7 @@ class TestFinanceProactiveTriggers:
     @pytest.mark.asyncio
     async def test_pending_receipts_trigger(self):
         """待核銷發票掃描應產生提醒"""
-        from app.services.ai.proactive_triggers_finance import check_pending_receipts
+        from app.services.ai.proactive.proactive_triggers_finance import check_pending_receipts
 
         db = AsyncMock()
 
@@ -353,7 +353,7 @@ class TestFinanceProactiveTriggers:
     @pytest.mark.asyncio
     async def test_pending_receipts_none(self):
         """無待核銷發票不應產生提醒"""
-        from app.services.ai.proactive_triggers_finance import check_pending_receipts
+        from app.services.ai.proactive.proactive_triggers_finance import check_pending_receipts
 
         db = AsyncMock()
 

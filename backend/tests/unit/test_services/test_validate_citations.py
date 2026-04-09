@@ -9,7 +9,7 @@ validate_citations 單元測試
 
 import pytest
 
-from app.services.ai.agent_synthesis import validate_citations
+from app.services.ai.agent.agent_synthesis import validate_citations
 
 
 def _make_tool_results(docs: int = 0, dispatches: int = 0) -> list:

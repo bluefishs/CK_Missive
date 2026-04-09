@@ -190,7 +190,7 @@ class IntentRuleEngine:
             raw = self._resolve_value(spec[17:-1], match)
             if not raw:
                 return None
-            from app.services.ai.synonym_expander import SynonymExpander
+            from app.services.ai.search.synonym_expander import SynonymExpander
             status_map = SynonymExpander.get_status_normalize()
             return status_map.get(raw, raw)
 
@@ -225,7 +225,7 @@ class IntentRuleEngine:
 
     def _expand_agency(self, name: str) -> str:
         """機關縮寫轉全稱（委託 SynonymExpander，走 DB 統一資料源）"""
-        from app.services.ai.synonym_expander import SynonymExpander
+        from app.services.ai.search.synonym_expander import SynonymExpander
         return SynonymExpander.expand_agency(name)
 
 

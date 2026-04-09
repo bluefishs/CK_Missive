@@ -16,7 +16,7 @@ from typing import List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.proactive_triggers import TriggerAlert
+from app.services.ai.proactive.proactive_triggers import TriggerAlert
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class ERPTriggerScanner:
         alerts: List[TriggerAlert] = []
 
         # PM 里程碑 (委派)
-        from app.services.ai.proactive_triggers_pm import check_pm_milestone_deadlines
+        from app.services.ai.proactive.proactive_triggers_pm import check_pm_milestone_deadlines
         alerts.extend(await check_pm_milestone_deadlines(self.db, deadline_days))
 
         # ERP 請款/發票 (本地)
@@ -45,7 +45,7 @@ class ERPTriggerScanner:
         alerts.extend(await self.check_amount_mismatch())
 
         # 預算/收據 (委派)
-        from app.services.ai.proactive_triggers_finance import (
+        from app.services.ai.proactive.proactive_triggers_finance import (
             check_budget_overrun, check_pending_receipts,
         )
         alerts.extend(await check_budget_overrun(self.db))
@@ -57,7 +57,7 @@ class ERPTriggerScanner:
         self, days_ahead: int = 7,
     ) -> List[TriggerAlert]:
         """委派至 proactive_triggers_pm"""
-        from app.services.ai.proactive_triggers_pm import check_pm_milestone_deadlines
+        from app.services.ai.proactive.proactive_triggers_pm import check_pm_milestone_deadlines
         return await check_pm_milestone_deadlines(self.db, days_ahead)
 
     async def check_erp_overdue_billings(self) -> List[TriggerAlert]:

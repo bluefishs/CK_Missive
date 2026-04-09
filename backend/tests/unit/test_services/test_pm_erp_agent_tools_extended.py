@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from app.services.ai.tool_executor_domain import DomainToolExecutor
+from app.services.ai.tools.tool_executor_domain import DomainToolExecutor
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ class TestGetOverdueMilestones:
         """Verify delegation to PMQueryService.get_overdue_milestones"""
         expected = {"milestones": [{"name": "M1", "overdue_days": 5}], "count": 1}
 
-        with patch("app.services.ai.pm_query_service.PMQueryService") as MockSvc:
+        with patch("app.services.ai.domain.pm_query_service.PMQueryService") as MockSvc:
             MockSvc.return_value.get_overdue_milestones = AsyncMock(return_value=expected)
 
             result = await mock_executor.get_overdue_milestones({"limit": 10})
@@ -49,7 +49,7 @@ class TestGetOverdueMilestones:
     @pytest.mark.asyncio
     async def test_overdue_milestones_limit_capped(self, mock_executor):
         """Limit is capped at 50"""
-        with patch("app.services.ai.pm_query_service.PMQueryService") as MockSvc:
+        with patch("app.services.ai.domain.pm_query_service.PMQueryService") as MockSvc:
             MockSvc.return_value.get_overdue_milestones = AsyncMock(return_value={"milestones": [], "count": 0})
 
             await mock_executor.get_overdue_milestones({"limit": 100})
@@ -59,7 +59,7 @@ class TestGetOverdueMilestones:
     @pytest.mark.asyncio
     async def test_overdue_milestones_default_limit(self, mock_executor):
         """Default limit is 20"""
-        with patch("app.services.ai.pm_query_service.PMQueryService") as MockSvc:
+        with patch("app.services.ai.domain.pm_query_service.PMQueryService") as MockSvc:
             MockSvc.return_value.get_overdue_milestones = AsyncMock(return_value={"milestones": [], "count": 0})
 
             await mock_executor.get_overdue_milestones({})
@@ -69,7 +69,7 @@ class TestGetOverdueMilestones:
     @pytest.mark.asyncio
     async def test_overdue_milestones_empty_result(self, mock_executor):
         """Empty result returns count 0"""
-        with patch("app.services.ai.pm_query_service.PMQueryService") as MockSvc:
+        with patch("app.services.ai.domain.pm_query_service.PMQueryService") as MockSvc:
             MockSvc.return_value.get_overdue_milestones = AsyncMock(return_value={"milestones": [], "count": 0})
 
             result = await mock_executor.get_overdue_milestones({"limit": 5})
@@ -86,7 +86,7 @@ class TestGetUnpaidBillings:
         """Verify delegation to ERPQueryService.get_unpaid_billings"""
         expected = {"billings": [{"billing_id": 1, "outstanding": "50000"}], "count": 1}
 
-        with patch("app.services.ai.erp_query_service.ERPQueryService") as MockSvc:
+        with patch("app.services.ai.domain.erp_query_service.ERPQueryService") as MockSvc:
             MockSvc.return_value.get_unpaid_billings = AsyncMock(return_value=expected)
 
             result = await mock_executor.get_unpaid_billings({"limit": 15})
@@ -97,7 +97,7 @@ class TestGetUnpaidBillings:
     @pytest.mark.asyncio
     async def test_unpaid_billings_limit_capped(self, mock_executor):
         """Limit is capped at 50"""
-        with patch("app.services.ai.erp_query_service.ERPQueryService") as MockSvc:
+        with patch("app.services.ai.domain.erp_query_service.ERPQueryService") as MockSvc:
             MockSvc.return_value.get_unpaid_billings = AsyncMock(return_value={"billings": [], "count": 0})
 
             await mock_executor.get_unpaid_billings({"limit": 200})
@@ -107,7 +107,7 @@ class TestGetUnpaidBillings:
     @pytest.mark.asyncio
     async def test_unpaid_billings_default_limit(self, mock_executor):
         """Default limit is 20"""
-        with patch("app.services.ai.erp_query_service.ERPQueryService") as MockSvc:
+        with patch("app.services.ai.domain.erp_query_service.ERPQueryService") as MockSvc:
             MockSvc.return_value.get_unpaid_billings = AsyncMock(return_value={"billings": [], "count": 0})
 
             await mock_executor.get_unpaid_billings({})
@@ -117,7 +117,7 @@ class TestGetUnpaidBillings:
     @pytest.mark.asyncio
     async def test_unpaid_billings_empty_result(self, mock_executor):
         """Empty result returns count 0"""
-        with patch("app.services.ai.erp_query_service.ERPQueryService") as MockSvc:
+        with patch("app.services.ai.domain.erp_query_service.ERPQueryService") as MockSvc:
             MockSvc.return_value.get_unpaid_billings = AsyncMock(return_value={"billings": [], "count": 0})
 
             result = await mock_executor.get_unpaid_billings({"limit": 10})
@@ -131,14 +131,14 @@ class TestToolRegistryExtended:
 
     def test_registry_has_at_least_22_tools(self):
         """ToolRegistry should have >= 22 tools after P4-1"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         count = registry.get_tool_count()
         assert count >= 22, f"Expected >= 22 tools, got {count}"
 
     def test_overdue_milestones_in_registry(self):
         """get_overdue_milestones is registered with PM context"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         tool = registry.get("get_overdue_milestones")
         assert tool is not None, "get_overdue_milestones not found in registry"
@@ -147,7 +147,7 @@ class TestToolRegistryExtended:
 
     def test_unpaid_billings_in_registry(self):
         """get_unpaid_billings is registered with ERP context"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         tool = registry.get("get_unpaid_billings")
         assert tool is not None, "get_unpaid_billings not found in registry"
@@ -156,7 +156,7 @@ class TestToolRegistryExtended:
 
     def test_overdue_milestones_has_parameters(self):
         """get_overdue_milestones has limit parameter"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         tool = registry.get("get_overdue_milestones")
         assert tool is not None
@@ -164,7 +164,7 @@ class TestToolRegistryExtended:
 
     def test_unpaid_billings_has_parameters(self):
         """get_unpaid_billings has limit parameter"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         tool = registry.get("get_unpaid_billings")
         assert tool is not None
@@ -172,7 +172,7 @@ class TestToolRegistryExtended:
 
     def test_overdue_milestones_has_few_shot(self):
         """get_overdue_milestones has few-shot example"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         tool = registry.get("get_overdue_milestones")
         assert tool is not None
@@ -181,7 +181,7 @@ class TestToolRegistryExtended:
 
     def test_unpaid_billings_has_few_shot(self):
         """get_unpaid_billings has few-shot example"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         tool = registry.get("get_unpaid_billings")
         assert tool is not None
@@ -190,7 +190,7 @@ class TestToolRegistryExtended:
 
     def test_tools_visible_in_context_filter(self):
         """Tools appear when filtering by their context"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
 
         pm_names = registry.get_valid_names_for_context("pm")

@@ -46,7 +46,7 @@ class VoiceTranscriber:
     """
 
     def __init__(self):
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.core.ai_config import get_ai_config
 
         self._config = get_ai_config()
         self._groq_api_key = self._config.groq_api_key

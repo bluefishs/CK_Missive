@@ -17,14 +17,14 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from app.services.ai.cross_domain_linker import (
+from app.services.ai.domain.cross_domain_linker import (
     CrossDomainLinker,
     LinkResult,
     LinkingReport,
     CONTRACTOR_THRESHOLD,
     PROJECT_THRESHOLD,
 )
-from app.services.ai.cross_domain_matcher import CrossDomainMatchEngine
+from app.services.ai.domain.cross_domain_matcher import CrossDomainMatchEngine
 
 
 # ============================================================================
@@ -102,7 +102,7 @@ class TestFindBestMatch:
         assert score == 0.0
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.cross_domain_matcher.CanonicalEntityMatcher")
+    @patch("app.services.ai.domain.cross_domain_matcher.CanonicalEntityMatcher")
     async def test_exact_match(self, MockMatcher, matcher):
         MockMatcher.compute_similarity.return_value = 1.0
         MockMatcher.is_false_fuzzy_match.return_value = False
@@ -116,7 +116,7 @@ class TestFindBestMatch:
         assert score == 1.0
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.cross_domain_matcher.CanonicalEntityMatcher")
+    @patch("app.services.ai.domain.cross_domain_matcher.CanonicalEntityMatcher")
     async def test_false_match_rejected(self, MockMatcher, matcher):
         MockMatcher.compute_similarity.return_value = 0.90
         MockMatcher.is_false_fuzzy_match.return_value = True
@@ -129,7 +129,7 @@ class TestFindBestMatch:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.cross_domain_matcher.CanonicalEntityMatcher")
+    @patch("app.services.ai.domain.cross_domain_matcher.CanonicalEntityMatcher")
     async def test_below_threshold(self, MockMatcher, matcher):
         MockMatcher.compute_similarity.return_value = 0.50
 

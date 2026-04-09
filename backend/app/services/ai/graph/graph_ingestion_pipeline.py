@@ -26,7 +26,7 @@ from app.extended.models import (
     EntityRelationship,
     GraphIngestionEvent,
 )
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 from .canonical_entity_service import CanonicalEntityService
 
 logger = logging.getLogger(__name__)

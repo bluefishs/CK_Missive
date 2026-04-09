@@ -21,9 +21,9 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.ai_config import get_ai_config
-from app.services.ai.synonym_expander import SynonymExpander
-from app.services.ai.document_search_helpers import resolve_search_entities
+from app.services.ai.core.ai_config import get_ai_config
+from app.services.ai.search.synonym_expander import SynonymExpander
+from app.services.ai.document.document_search_helpers import resolve_search_entities
 from app.schemas.ai.search import (
     AttachmentInfo,
     DocumentSearchResult,
@@ -159,7 +159,7 @@ async def _expand_entities(db: AsyncSession, keywords: Optional[List[str]]):
         return False, None, keywords or []
 
     try:
-        from app.services.ai.search_entity_expander import expand_search_terms, flatten_expansions
+        from app.services.ai.search.search_entity_expander import expand_search_terms, flatten_expansions
         expansions = await expand_search_terms(db, keywords)
         flattened = flatten_expansions(expansions)
         if len(flattened) > len(keywords):
@@ -235,7 +235,7 @@ async def _resolve_embedding(service: Any, parsed_intent: Any, query: str, qb: A
     if parsed_intent.keywords:
         relevance_text = " ".join(parsed_intent.keywords)
         try:
-            from app.services.ai.embedding_manager import EmbeddingManager
+            from app.services.ai.core.embedding_manager import EmbeddingManager
             query_embedding = await EmbeddingManager.get_embedding(query, service.connector)
         except Exception as e:
             logger.warning(f"查詢 embedding 生成失敗，降級為 trigram 搜尋: {e}")

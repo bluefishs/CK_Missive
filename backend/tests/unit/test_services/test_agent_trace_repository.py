@@ -11,7 +11,7 @@ Agent Trace Repository + AgentTrace.to_db_dict 單元測試
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.agent_trace import AgentTrace
+from app.services.ai.agent.agent_trace import AgentTrace
 
 
 # ============================================================================

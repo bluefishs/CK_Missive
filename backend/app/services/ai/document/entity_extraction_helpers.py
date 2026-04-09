@@ -14,7 +14,7 @@ import re
 import unicodedata
 from typing import Dict, List, Optional, Tuple
 
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +144,7 @@ def _is_boilerplate_phrase(name: str) -> bool:
 
 
 # 代名詞/泛稱黑名單 — 從 core/name_utils 集中管理
-from app.services.ai.name_utils import PRONOUN_ENTITY_BLACKLIST
+from app.services.ai.core.name_utils import PRONOUN_ENTITY_BLACKLIST
 
 # 向後相容別名
 _PRONOUN_ENTITY_BLACKLIST = PRONOUN_ENTITY_BLACKLIST

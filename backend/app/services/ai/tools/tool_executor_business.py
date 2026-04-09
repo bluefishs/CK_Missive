@@ -185,7 +185,7 @@ class BusinessToolExecutor:
         prompt += '\n請以 JSON 回覆：{"category": "類別名稱", "confidence": 0.0~1.0, "reason": "原因"}'
 
         try:
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
 
             result = await self.ai.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
@@ -284,7 +284,7 @@ class BusinessToolExecutor:
         )
 
         try:
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
 
             result = await self.ai.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
@@ -362,7 +362,7 @@ class BusinessToolExecutor:
         )
 
         try:
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
 
             result = await self.ai.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
@@ -424,7 +424,7 @@ class BusinessToolExecutor:
         )
 
         try:
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
 
             result = await self.ai.chat_completion(
                 messages=[{"role": "user", "content": prompt}],

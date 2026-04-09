@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundException
 from app.extended.models import OfficialDocument, DocumentAIAnalysis
 from app.repositories.ai_analysis_repository import AIAnalysisRepository
-from app.services.ai.document_ai_service import get_document_ai_service
+from app.services.ai.document.document_ai_service import get_document_ai_service
 
 logger = logging.getLogger(__name__)
 

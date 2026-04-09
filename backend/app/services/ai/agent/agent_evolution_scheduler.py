@@ -71,7 +71,7 @@ class AgentEvolutionScheduler:
         self.redis = redis
         # EVO-4: 從 agent-policy.yaml 讀取閾值，fallback 硬編碼預設值
         try:
-            from app.services.ai.ai_config import AIConfig
+            from app.services.ai.core.ai_config import AIConfig
             cfg = AIConfig.get_instance()
             self.EVOLVE_EVERY_N_QUERIES = getattr(cfg, 'evolution_trigger_every_n_queries', 50)
             self.EVOLVE_INTERVAL_SECONDS = getattr(cfg, 'evolution_trigger_interval_hours', 24) * 3600
@@ -264,7 +264,7 @@ class AgentEvolutionScheduler:
             query_count_raw = await self.redis.get(QUERY_COUNTER_KEY)
             _query_count_snapshot = int(query_count_raw) if query_count_raw else 0
             signal_queue_len = await self.redis.llen(SIGNAL_QUEUE_KEY) or 0
-            from app.services.ai.skill_snapshot_service import SkillSnapshotService
+            from app.services.ai.misc.skill_snapshot_service import SkillSnapshotService
             snapshot_tag = await SkillSnapshotService.create_snapshot(
                 trigger="evolution",
                 metadata={

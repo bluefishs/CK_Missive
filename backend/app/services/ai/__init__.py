@@ -14,18 +14,18 @@ Updated: 2026-02-27 - Agent Orchestrator 模組化重構 (v2.0.0)
 - 意圖規則引擎
 """
 
-from .ai_config import AIConfig, get_ai_config
-from .ai_prompt_manager import AIPromptManager
-from .base_ai_service import (
+from .core.ai_config import AIConfig, get_ai_config
+from .core.ai_prompt_manager import AIPromptManager
+from .core.base_ai_service import (
     BaseAIService,
     RedisCache,
     AIStatsManager,
     get_stats_manager,
 )
-from .document_ai_service import DocumentAIService
-from .rule_engine import IntentRuleEngine, get_rule_engine
-from .search_intent_parser import SearchIntentParser
-from .agent_orchestrator import AgentOrchestrator
+from .document.document_ai_service import DocumentAIService
+from .search.rule_engine import IntentRuleEngine, get_rule_engine
+from .search.search_intent_parser import SearchIntentParser
+from .agent.agent_orchestrator import AgentOrchestrator
 
 __all__ = [
     "AIConfig",

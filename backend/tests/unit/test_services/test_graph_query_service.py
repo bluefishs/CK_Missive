@@ -13,7 +13,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
-from app.services.ai.graph_query_service import GraphQueryService
+from app.services.ai.graph.graph_query_service import GraphQueryService
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def mock_db():
 
 @pytest.fixture
 def service(mock_db):
-    with patch("app.services.ai.graph_query_service.get_ai_config") as mock_config:
+    with patch("app.services.ai.graph.graph_query_service.get_ai_config") as mock_config:
         config = MagicMock()
         config.kg_fuzzy_threshold = 0.6
         mock_config.return_value = config
@@ -52,7 +52,7 @@ class TestGetEntityDetail:
         """快取命中時直接返回"""
         cached_data = json.dumps({"canonical_name": "工務局", "id": 1})
         with patch(
-            "app.services.ai.graph_query_service._graph_cache.get",
+            "app.services.ai.graph.graph_query_service._graph_cache.get",
             new_callable=AsyncMock,
             return_value=cached_data,
         ):
@@ -63,7 +63,7 @@ class TestGetEntityDetail:
     async def test_returns_none_when_entity_not_found(self, service, mock_db):
         """實體不存在時返回 None"""
         with patch(
-            "app.services.ai.graph_query_service._graph_cache.get",
+            "app.services.ai.graph.graph_query_service._graph_cache.get",
             new_callable=AsyncMock,
             return_value=None,
         ):
@@ -83,11 +83,11 @@ class TestGetGraphStats:
     async def test_returns_stats(self, service, mock_db):
         """返回統計數據"""
         with patch(
-            "app.services.ai.graph_query_service._graph_cache.get",
+            "app.services.ai.graph.graph_query_service._graph_cache.get",
             new_callable=AsyncMock,
             return_value=None,
         ), patch(
-            "app.services.ai.graph_query_service._graph_cache.set",
+            "app.services.ai.graph.graph_query_service._graph_cache.set",
             new_callable=AsyncMock,
         ):
             # mock scalar for counts (7 calls)
@@ -123,11 +123,11 @@ class TestGetTopEntities:
     async def test_returns_list(self, service, mock_db):
         """返回排序後的實體列表"""
         with patch(
-            "app.services.ai.graph_query_service._graph_cache.get",
+            "app.services.ai.graph.graph_query_service._graph_cache.get",
             new_callable=AsyncMock,
             return_value=None,
         ), patch(
-            "app.services.ai.graph_query_service._graph_cache.set",
+            "app.services.ai.graph.graph_query_service._graph_cache.set",
             new_callable=AsyncMock,
         ):
             mock_result = MagicMock()
@@ -145,11 +145,11 @@ class TestSearchEntities:
     async def test_search_returns_list(self, service, mock_db):
         """搜尋返回實體列表"""
         with patch(
-            "app.services.ai.graph_query_service._graph_cache.get",
+            "app.services.ai.graph.graph_query_service._graph_cache.get",
             new_callable=AsyncMock,
             return_value=None,
         ), patch(
-            "app.services.ai.graph_query_service._graph_cache.set",
+            "app.services.ai.graph.graph_query_service._graph_cache.set",
             new_callable=AsyncMock,
         ):
             mock_result = MagicMock()
@@ -163,11 +163,11 @@ class TestSearchEntities:
     async def test_search_with_entity_type_filter(self, service, mock_db):
         """搜尋帶實體類型過濾"""
         with patch(
-            "app.services.ai.graph_query_service._graph_cache.get",
+            "app.services.ai.graph.graph_query_service._graph_cache.get",
             new_callable=AsyncMock,
             return_value=None,
         ), patch(
-            "app.services.ai.graph_query_service._graph_cache.set",
+            "app.services.ai.graph.graph_query_service._graph_cache.set",
             new_callable=AsyncMock,
         ):
             mock_result = MagicMock()

@@ -151,7 +151,7 @@ class AIPromptManager:
     @classmethod
     def reload_synonyms_from_db(cls, synonym_records: list) -> int:
         """從 DB 記錄重建同義詞查找索引（委託 SynonymExpander）"""
-        from app.services.ai.synonym_expander import SynonymExpander
+        from app.services.ai.search.synonym_expander import SynonymExpander
         total = SynonymExpander.reload_from_db(synonym_records)
         return total
 

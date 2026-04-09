@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.ai.schema_reflector import SchemaReflectorService, _classify_table
+from app.services.ai.graph.schema_reflector import SchemaReflectorService, _classify_table
 
 
 # ── Fixtures ──
@@ -150,8 +150,8 @@ class TestClassifyTable:
 class TestCacheBehavior:
     """Schema cache TTL and invalidation tests."""
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_cache_returns_same_result(self, mock_inspect, mock_engine):
         """Second call should use cache, not re-reflect."""
         mock_engine.return_value = MagicMock()
@@ -164,8 +164,8 @@ class TestCacheBehavior:
         # _reflect should only be called once
         mock_inspect.assert_called_once()
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_cache_invalidation(self, mock_inspect, mock_engine):
         """After invalidate_cache(), next call should re-reflect."""
         mock_engine.return_value = MagicMock()
@@ -177,9 +177,9 @@ class TestCacheBehavior:
 
         assert mock_inspect.call_count == 2
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
-    @patch("app.services.ai.schema_reflector.time")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.time")
     def test_cache_ttl_expiry(self, mock_time, mock_inspect, mock_engine):
         """Cache should expire after CACHE_TTL seconds."""
         mock_engine.return_value = MagicMock()
@@ -206,8 +206,8 @@ class TestCacheBehavior:
 class TestReflection:
     """Core _reflect() logic tests."""
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_empty_schema(self, mock_inspect, mock_engine):
         """Empty database returns empty tables list."""
         mock_engine.return_value = MagicMock()
@@ -216,8 +216,8 @@ class TestReflection:
         result = SchemaReflectorService.get_full_schema()
         assert result == {"tables": []}
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_basic_table_metadata(self, mock_inspect, mock_engine):
         """Table metadata includes columns, PK, FK, indexes."""
         mock_engine.return_value = MagicMock()
@@ -246,8 +246,8 @@ class TestReflection:
         email_col = next(c for c in table["columns"] if c["name"] == "email")
         assert email_col["primary_key"] is False
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_foreign_key_extraction(self, mock_inspect, mock_engine):
         """Foreign keys are extracted correctly."""
         mock_engine.return_value = MagicMock()
@@ -273,8 +273,8 @@ class TestReflection:
         assert fk["referred_table"] == "users"
         assert fk["referred_columns"] == ["id"]
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_index_extraction(self, mock_inspect, mock_engine):
         """Indexes are extracted correctly."""
         mock_engine.return_value = MagicMock()
@@ -304,8 +304,8 @@ class TestReflection:
         assert unique_idx["name"] == "ix_documents_doc_number"
         assert unique_idx["columns"] == ["doc_number"]
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_unique_constraint_extraction(self, mock_inspect, mock_engine):
         """Unique constraints are extracted correctly."""
         mock_engine.return_value = MagicMock()
@@ -325,8 +325,8 @@ class TestReflection:
         assert table["unique_constraints"][0]["name"] == "uq_agencies_code"
         assert table["unique_constraints"][0]["columns"] == ["code"]
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_table_without_fks(self, mock_inspect, mock_engine):
         """Table with no foreign keys should have empty FK list."""
         mock_engine.return_value = MagicMock()
@@ -338,8 +338,8 @@ class TestReflection:
         result = SchemaReflectorService.get_full_schema()
         assert result["tables"][0]["foreign_keys"] == []
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_multiple_tables_sorted(self, mock_inspect, mock_engine):
         """Tables should be returned in sorted order."""
         mock_engine.return_value = MagicMock()
@@ -349,8 +349,8 @@ class TestReflection:
         names = [t["name"] for t in result["tables"]]
         assert names == ["apple", "mango", "zebra"]
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     def test_engine_disposed_after_reflect(self, mock_inspect, mock_engine):
         """Engine should be disposed after reflection (even on success)."""
         engine_mock = MagicMock()
@@ -516,8 +516,8 @@ class TestGraphDataGeneration:
 class TestAsyncMethods:
     """Async entry point tests."""
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     @pytest.mark.asyncio
     async def test_get_full_schema_async(self, mock_inspect, mock_engine):
         """Async method returns same data as sync."""
@@ -529,8 +529,8 @@ class TestAsyncMethods:
         assert len(result["tables"]) == 1
         assert result["tables"][0]["name"] == "async_table"
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     @pytest.mark.asyncio
     async def test_get_full_schema_async_caches(self, mock_inspect, mock_engine):
         """Async method uses cache on second call."""
@@ -543,8 +543,8 @@ class TestAsyncMethods:
         assert r1 is r2
         mock_inspect.assert_called_once()
 
-    @patch("app.services.ai.schema_reflector.create_engine")
-    @patch("app.services.ai.schema_reflector.sa_inspect")
+    @patch("app.services.ai.graph.schema_reflector.create_engine")
+    @patch("app.services.ai.graph.schema_reflector.sa_inspect")
     @pytest.mark.asyncio
     async def test_get_graph_data_async(self, mock_inspect, mock_engine):
         """Async graph data method returns nodes and edges."""

@@ -28,7 +28,7 @@ from app.extended.models import (
     DocumentEntityMention,
     OfficialDocument,
 )
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 
 from .graph_helpers import (
     _graph_cache,
@@ -270,7 +270,7 @@ class GraphQueryService:
         limit: int = 20,
     ) -> list:
         """搜尋實體（無快取）"""
-        from app.services.ai.synonym_expander import SynonymExpander
+        from app.services.ai.search.synonym_expander import SynonymExpander
 
         # 擴展搜尋詞（原始 + 同義詞）
         search_terms = SynonymExpander.expand_search_terms(query)
@@ -367,7 +367,7 @@ class GraphQueryService:
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0, max_tokens=200, task_type="classify",
             )
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
             parsed = parse_json_safe(result)
             if not parsed or not parsed.get("search_term"):
                 return {"search_term": question[:100], "max_hops": 2, "include_documents": True}

@@ -21,7 +21,7 @@ from app.schemas.ai.graph import (
     EmbeddingBatchRequest,
     EmbeddingBatchResponse,
 )
-from app.services.ai.embedding_manager import EmbeddingManager
+from app.services.ai.core.embedding_manager import EmbeddingManager
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +327,7 @@ async def index_attachment_content(
     - limit: 批次上限 (預設 50)
     - force: 強制重新索引 (預設 false)
     """
-    from app.services.ai.attachment_content_indexer import AttachmentContentIndexer
+    from app.services.ai.document.attachment_content_indexer import AttachmentContentIndexer
 
     document_id = body.get("document_id")
     attachment_id = body.get("attachment_id")
@@ -360,7 +360,7 @@ async def get_attachment_index_stats(
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得附件內容索引覆蓋率統計"""
-    from app.services.ai.attachment_content_indexer import AttachmentContentIndexer
+    from app.services.ai.document.attachment_content_indexer import AttachmentContentIndexer
     indexer = AttachmentContentIndexer(db)
     stats = await indexer.get_indexing_stats()
     return {"success": True, **stats}
@@ -369,7 +369,7 @@ async def get_attachment_index_stats(
 async def _run_attachment_batch_index(limit: int, force: bool):
     """背景執行附件批次索引"""
     from app.db.database import AsyncSessionLocal
-    from app.services.ai.attachment_content_indexer import AttachmentContentIndexer
+    from app.services.ai.document.attachment_content_indexer import AttachmentContentIndexer
 
     try:
         async with AsyncSessionLocal() as db:

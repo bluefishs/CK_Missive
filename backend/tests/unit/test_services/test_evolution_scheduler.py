@@ -6,7 +6,7 @@ import json
 import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from app.services.ai.agent_evolution_scheduler import (
+from app.services.ai.agent.agent_evolution_scheduler import (
     AgentEvolutionScheduler,
     QUERY_COUNTER_KEY,
     LAST_EVOLUTION_KEY,

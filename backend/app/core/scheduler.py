@@ -188,7 +188,7 @@ async def erp_graph_ingest_job():
     logger.info("開始執行 ERP 圖譜入圖")
     try:
         async with async_session_maker() as db:
-            from app.services.ai.erp_graph_ingest import ErpGraphIngestService
+            from app.services.ai.graph.erp_graph_ingest import ErpGraphIngestService
             service = ErpGraphIngestService(db)
             stats = await service.ingest_all()
             logger.info(
@@ -210,7 +210,7 @@ async def code_graph_incremental_job():
 
     try:
         async with async_session_maker() as db:
-            from app.services.ai.code_graph_service import CodeGraphIngestionService
+            from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
             service = CodeGraphIngestionService(db)
             backend_dir = Path(__file__).parent.parent  # backend/app
             frontend_dir = Path(__file__).parent.parent.parent.parent / "frontend" / "src"
@@ -238,7 +238,7 @@ async def db_schema_refresh_job():
     logger.info("開始執行 DB Schema 快照更新")
 
     try:
-        from app.services.ai.schema_reflector import SchemaReflectorService
+        from app.services.ai.graph.schema_reflector import SchemaReflectorService
         # 清除快取，強制重新反射
         SchemaReflectorService._cache = None
         SchemaReflectorService._cache_time = 0
@@ -258,7 +258,7 @@ async def kb_coverage_check_job():
 
     try:
         async with async_session_maker() as db:
-            from app.services.ai.embedding_manager import EmbeddingManager
+            from app.services.ai.core.embedding_manager import EmbeddingManager
             stats = await EmbeddingManager.get_coverage_stats(db)
             total = stats.get("total_chunks", 0)
             embedded = stats.get("embedded_chunks", 0)
@@ -306,8 +306,8 @@ async def proactive_trigger_scan_job():
     2. 推播至 LINE (若已設定)
     """
     from app.db.database import async_session_maker
-    from app.services.ai.proactive_triggers import ProactiveTriggerService
-    from app.services.ai.proactive_triggers_erp import ERPTriggerScanner
+    from app.services.ai.proactive.proactive_triggers import ProactiveTriggerService
+    from app.services.ai.proactive.proactive_triggers_erp import ERPTriggerScanner
     from app.services.notification_helpers import _safe_create_notification
 
     logger.info("開始執行 NemoClaw 夜間吹哨者掃描")
@@ -385,7 +385,7 @@ async def kg_embedding_backfill_job():
 
     try:
         async with async_session_maker() as db:
-            from app.services.ai.cross_domain_contribution_service import (
+            from app.services.ai.domain.cross_domain_contribution_service import (
                 CrossDomainContributionService,
             )
             svc = CrossDomainContributionService(db)
@@ -404,7 +404,7 @@ async def kg_embedding_backfill_job():
 async def morning_report_job():
     """每日 08:00 — 生成晨報並推送至 Telegram/LINE"""
     from app.db.database import async_session_maker
-    from app.services.ai.morning_report_service import MorningReportService
+    from app.services.ai.domain.morning_report_service import MorningReportService
 
     logger.info("開始執行每日晨報生成")
 
@@ -586,7 +586,7 @@ async def embedding_warmup_job():
     """Embedding 預熱 — 為 top-500 高頻實體預先載入向量至記憶體快取"""
     logger.info("開始執行 Embedding 預熱")
     try:
-        from app.services.ai.embedding_manager import warmup_entity_embeddings
+        from app.services.ai.core.embedding_manager import warmup_entity_embeddings
         result = await warmup_entity_embeddings(top_n=500)
         warmed = result.get("warmed", 0)
         candidates = result.get("total_candidates", 0)

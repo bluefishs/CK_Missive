@@ -15,15 +15,15 @@ import json
 import logging
 from typing import Any, Dict, List
 
-from app.services.ai.tool_result_formatters_doc import (
+from app.services.ai.tools.tool_result_formatters_doc import (
     DOC_FORMAT_HANDLERS,
     DOC_SUMMARIZE_HANDLERS,
 )
-from app.services.ai.tool_result_formatters_entity import (
+from app.services.ai.tools.tool_result_formatters_entity import (
     ENTITY_FORMAT_HANDLERS,
     ENTITY_SUMMARIZE_HANDLERS,
 )
-from app.services.ai.tool_result_formatters_business import (
+from app.services.ai.tools.tool_result_formatters_business import (
     BUSINESS_FORMAT_HANDLERS,
 )
 
@@ -144,7 +144,7 @@ async def self_reflect(
             timeout=config.self_reflect_timeout,
         )
 
-        from app.services.ai.agent_utils import parse_json_safe
+        from app.services.ai.core.agent_utils import parse_json_safe
         result = parse_json_safe(response)
         if result and "score" in result:
             return result

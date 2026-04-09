@@ -8,7 +8,7 @@ ConversationSummarizer 單元測試
 
 import pytest
 from unittest.mock import AsyncMock, patch
-from app.services.ai.agent_summarizer import ConversationSummarizer
+from app.services.ai.agent.agent_summarizer import ConversationSummarizer
 
 
 def _make_history(turns: int) -> list:

@@ -12,7 +12,7 @@ from typing import List
 from sqlalchemy import case as sa_case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.proactive_triggers import TriggerAlert
+from app.services.ai.proactive.proactive_triggers import TriggerAlert
 
 logger = logging.getLogger(__name__)
 

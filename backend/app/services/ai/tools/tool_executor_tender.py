@@ -127,7 +127,7 @@ class TenderToolExecutor:
 
     async def analyze_diagram(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """分析工程圖/測量圖/地籍圖 (Gemma 4 Vision)"""
-        from app.services.ai.engineering_diagram_service import EngineeringDiagramService
+        from app.services.ai.document.engineering_diagram_service import EngineeringDiagramService
         from app.extended.models.document import DocumentAttachment
         from sqlalchemy import select
 
@@ -174,8 +174,8 @@ class TenderToolExecutor:
         if not query:
             return {"error": "query 為必填", "count": 0}
 
-        from app.services.ai.graph_query_service import GraphQueryService
-        from app.services.ai.erp_graph_types import ERP_ENTITY_TYPES
+        from app.services.ai.graph.graph_query_service import GraphQueryService
+        from app.services.ai.graph.erp_graph_types import ERP_ENTITY_TYPES
         from app.extended.models.knowledge_graph import CanonicalEntity
         from app.extended.models.tender_cache import TenderRecord
         from sqlalchemy import select
@@ -237,7 +237,7 @@ class TenderToolExecutor:
         if not query:
             return {"error": "query 為必填", "count": 0}
 
-        from app.services.ai.erp_graph_types import ERP_ENTITY_TYPES
+        from app.services.ai.graph.erp_graph_types import ERP_ENTITY_TYPES
         from app.extended.models.knowledge_graph import CanonicalEntity
         from sqlalchemy import select
         import re

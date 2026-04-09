@@ -109,8 +109,8 @@ async def preprocess_question(question: str, db) -> Dict[str, Any]:
                 break
 
     try:
-        from app.services.ai.base_ai_service import BaseAIService
-        from app.services.ai.search_intent_parser import SearchIntentParser
+        from app.services.ai.core.base_ai_service import BaseAIService
+        from app.services.ai.search.search_intent_parser import SearchIntentParser
 
         ai_service = BaseAIService()
         parser = SearchIntentParser(ai_service)
@@ -141,7 +141,7 @@ async def preprocess_question(question: str, db) -> Dict[str, Any]:
         logger.warning("Agent preprocessing SearchIntentParser failed: %s", e)
         # Fallback: 僅用規則引擎
         try:
-            from app.services.ai.rule_engine import get_rule_engine
+            from app.services.ai.search.rule_engine import get_rule_engine
             rule_engine = get_rule_engine()
             rule_result = rule_engine.match(question)
             if rule_result and rule_result.confidence >= 0.5:

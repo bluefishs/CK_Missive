@@ -1,7 +1,7 @@
 """Tests for tool_chain_resolver — Chain-of-Tools parameter injection"""
 
 import pytest
-from app.services.ai.tool_chain_resolver import (
+from app.services.ai.tools.tool_chain_resolver import (
     extract_chain_context,
     resolve_chain_params,
     enrich_plan_with_chain,

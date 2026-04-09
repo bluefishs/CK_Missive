@@ -14,8 +14,8 @@ Usage:
 import pytest
 from typing import Any, Dict, List, Optional
 
-from app.services.ai.agent_planner import AgentPlanner
-from app.services.ai.tool_chain_resolver import extract_chain_context, resolve_chain_params
+from app.services.ai.agent.agent_planner import AgentPlanner
+from app.services.ai.tools.tool_chain_resolver import extract_chain_context, resolve_chain_params
 
 
 # ============================================================================
@@ -304,7 +304,7 @@ class TestBenchmarkChitchat:
         b for b in BENCHMARKS if b["category"] == "chitchat"
     ], ids=[b["id"] for b in BENCHMARKS if b["category"] == "chitchat"])
     def test_chitchat_detection(self, bench):
-        from app.services.ai.agent_chitchat import is_chitchat
+        from app.services.ai.agent.agent_chitchat import is_chitchat
         result = is_chitchat(bench["q"])
         assert result is True, f"{bench['id']}: '{bench['q']}' should be chitchat"
 
@@ -321,7 +321,7 @@ class TestBenchmarkMetadata:
             assert b["q"].strip(), f"{b['id']} has empty question"
 
     def test_all_expected_tools_are_valid(self):
-        from app.services.ai.agent_tools import VALID_TOOL_NAMES
+        from app.services.ai.agent.agent_tools import VALID_TOOL_NAMES
         for b in BENCHMARKS:
             for tool in b["expected_tools"]:
                 assert tool in VALID_TOOL_NAMES, (

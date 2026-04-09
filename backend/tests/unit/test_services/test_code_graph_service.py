@@ -20,12 +20,12 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from app.services.ai.code_graph_service import (
+from app.services.ai.graph.code_graph_service import (
     PythonASTExtractor,
     CODE_RELATION_TYPES,
     EXCLUDE_DIRS,
 )
-from app.services.ai.code_graph_types import CodeEntity, CodeRelation
+from app.services.ai.graph.code_graph_types import CodeEntity, CodeRelation
 from app.core.constants import CODE_ENTITY_TYPES
 
 

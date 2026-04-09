@@ -14,7 +14,7 @@ import re
 from typing import Any, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.services.ai.agent_pattern_learner import QueryPattern
+    from app.services.ai.agent.agent_pattern_learner import QueryPattern
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +75,8 @@ async def _embedding_cosine_match(
 ) -> tuple:
     """使用 embedding 餘弦相似度匹配。回傳 (best_pattern, score) 或 (None, 0)。"""
     try:
-        from app.services.ai.embedding_manager import EmbeddingManager
-        from app.services.ai.base_ai_service import BaseAIService
+        from app.services.ai.core.embedding_manager import EmbeddingManager
+        from app.services.ai.core.base_ai_service import BaseAIService
 
         connector = BaseAIService.get_shared_connector()
         if not connector:

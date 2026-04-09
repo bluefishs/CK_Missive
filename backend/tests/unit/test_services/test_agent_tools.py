@@ -13,7 +13,7 @@ Agent 工具模組單元測試
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.agent_tools import (
+from app.services.ai.agent.agent_tools import (
     TOOL_DEFINITIONS,
     TOOL_DEFINITIONS_STR,
     VALID_TOOL_NAMES,
@@ -156,7 +156,7 @@ class TestSearchEntities:
         mock_svc.search_entities = AsyncMock(return_value=[])
 
         with patch(
-            "app.services.ai.graph_query_service.GraphQueryService",
+            "app.services.ai.graph.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
             result = await executor._kg_search.search_entities({
@@ -175,7 +175,7 @@ class TestSearchEntities:
         mock_svc.search_entities = AsyncMock(return_value=[])
 
         with patch(
-            "app.services.ai.graph_query_service.GraphQueryService",
+            "app.services.ai.graph.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
             await executor._kg_search.search_entities({"query": "test", "limit": 100})
@@ -198,7 +198,7 @@ class TestGetEntityDetail:
         mock_svc.get_entity_detail = AsyncMock(return_value=None)
 
         with patch(
-            "app.services.ai.graph_query_service.GraphQueryService",
+            "app.services.ai.graph.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
             result = await executor._analysis.get_entity_detail({"entity_id": 999})
@@ -216,7 +216,7 @@ class TestGetEntityDetail:
         mock_svc.get_entity_detail = AsyncMock(return_value=detail)
 
         with patch(
-            "app.services.ai.graph_query_service.GraphQueryService",
+            "app.services.ai.graph.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
             result = await executor._analysis.get_entity_detail({"entity_id": 1})
@@ -257,7 +257,7 @@ class TestGetStatistics:
         executor._analysis.db.scalar = AsyncMock(return_value=1500)
 
         with patch(
-            "app.services.ai.graph_query_service.GraphQueryService",
+            "app.services.ai.graph.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
             result = await executor._analysis.get_statistics({})
@@ -284,7 +284,7 @@ class TestExecuteParallel:
         mock_svc.get_top_entities = AsyncMock(return_value=[])
 
         with patch(
-            "app.services.ai.graph_query_service.GraphQueryService",
+            "app.services.ai.graph.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ), patch(
             "app.db.database.AsyncSessionLocal",

@@ -45,8 +45,8 @@ class SearchToolExecutor:
 
     async def search_documents(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """搜尋公文 — 向量+SQL搜尋 + Hybrid Reranking"""
-        from app.services.ai.search_entity_expander import expand_search_terms, flatten_expansions
-        from app.services.ai.reranker import rerank_documents
+        from app.services.ai.search.search_entity_expander import expand_search_terms, flatten_expansions
+        from app.services.ai.search.reranker import rerank_documents
         from app.repositories.query_builders.document_query_builder import DocumentQueryBuilder
 
         keywords = params.get("keywords", [])
@@ -67,11 +67,11 @@ class SearchToolExecutor:
         if keywords:
             qb = qb.with_keywords_full(keywords)
         if params.get("sender"):
-            from app.services.ai.synonym_expander import SynonymExpander
+            from app.services.ai.search.synonym_expander import SynonymExpander
             sender = SynonymExpander.expand_agency(params["sender"])
             qb = qb.with_sender_like(sender)
         if params.get("receiver"):
-            from app.services.ai.synonym_expander import SynonymExpander
+            from app.services.ai.search.synonym_expander import SynonymExpander
             receiver = SynonymExpander.expand_agency(params["receiver"])
             qb = qb.with_receiver_like(receiver)
         if params.get("doc_type"):
@@ -142,7 +142,7 @@ class SearchToolExecutor:
         # 從搜尋結果的文件 → 知識圖譜實體 → 1-hop 鄰域文件 → 合併擴展
         if docs and len(docs) < limit:
             try:
-                from app.services.ai.tool_executor_kg_search import expand_via_knowledge_graph
+                from app.services.ai.tools.tool_executor_kg_search import expand_via_knowledge_graph
                 expanded = await expand_via_knowledge_graph(
                     self.db,
                     [d["id"] for d in docs],

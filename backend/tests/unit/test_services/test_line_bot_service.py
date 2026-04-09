@@ -274,8 +274,8 @@ class TestStreamAgentFlow:
         mock_orch.stream_agent_query = mock_stream
 
         with patch("app.db.database.AsyncSessionLocal") as MockSL, \
-             patch("app.services.ai.agent_conversation_memory.get_conversation_memory", return_value=mock_conv), \
-             patch("app.services.ai.agent_orchestrator.AgentOrchestrator", return_value=mock_orch):
+             patch("app.services.ai.agent.agent_conversation_memory.get_conversation_memory", return_value=mock_conv), \
+             patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator", return_value=mock_orch):
             mock_db = AsyncMock()
             MockSL.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             MockSL.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -304,8 +304,8 @@ class TestStreamAgentFlow:
         mock_orch.stream_agent_query = mock_stream
 
         with patch("app.db.database.AsyncSessionLocal") as MockSL, \
-             patch("app.services.ai.agent_conversation_memory.get_conversation_memory", return_value=mock_conv), \
-             patch("app.services.ai.agent_orchestrator.AgentOrchestrator", return_value=mock_orch):
+             patch("app.services.ai.agent.agent_conversation_memory.get_conversation_memory", return_value=mock_conv), \
+             patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator", return_value=mock_orch):
             mock_db = AsyncMock()
             MockSL.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             MockSL.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -332,8 +332,8 @@ class TestStreamAgentFlow:
         mock_orch.stream_agent_query = mock_stream
 
         with patch("app.db.database.AsyncSessionLocal") as MockSL, \
-             patch("app.services.ai.agent_conversation_memory.get_conversation_memory", return_value=mock_conv), \
-             patch("app.services.ai.agent_orchestrator.AgentOrchestrator", return_value=mock_orch):
+             patch("app.services.ai.agent.agent_conversation_memory.get_conversation_memory", return_value=mock_conv), \
+             patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator", return_value=mock_orch):
             mock_db = AsyncMock()
             MockSL.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             MockSL.return_value.__aexit__ = AsyncMock(return_value=None)

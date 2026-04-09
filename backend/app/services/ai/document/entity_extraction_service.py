@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.ai_connector import get_ai_connector
 from app.extended.models import OfficialDocument, DocumentEntity, EntityRelation
 from app.repositories.entity_extraction_repository import EntityExtractionRepository
-from app.services.ai.entity_extraction_helpers import (
+from app.services.ai.document.entity_extraction_helpers import (
     VALID_ENTITY_TYPES,
     MIN_CONFIDENCE,
     _PRONOUN_ENTITY_BLACKLIST,

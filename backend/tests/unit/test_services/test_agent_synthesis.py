@@ -12,11 +12,11 @@ Agent 合成模組單元測試
 import pytest
 from unittest.mock import MagicMock
 
-from app.services.ai.agent_synthesis import (
+from app.services.ai.agent.agent_synthesis import (
     strip_thinking_from_synthesis,
     AgentSynthesizer,
 )
-from app.services.ai.tool_result_formatter import summarize_tool_result
+from app.services.ai.tools.tool_result_formatter import summarize_tool_result
 
 
 # ============================================================================

@@ -15,8 +15,8 @@ RAG 查詢服務單元測試
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
-from app.services.ai.rag_query_service import RAGQueryService
-from app.services.ai.rag_retrieval import extract_query_terms, build_context
+from app.services.ai.search.rag_query_service import RAGQueryService
+from app.services.ai.search.rag_retrieval import extract_query_terms, build_context
 
 
 # ============================================================================
@@ -44,9 +44,9 @@ def mock_config():
 
 @pytest.fixture
 def service(mock_db, mock_config):
-    with patch("app.services.ai.rag_query_service.get_ai_connector") as mock_ai, \
-         patch("app.services.ai.rag_query_service.EmbeddingManager") as mock_emb, \
-         patch("app.services.ai.rag_query_service.get_ai_config", return_value=mock_config):
+    with patch("app.services.ai.search.rag_query_service.get_ai_connector") as mock_ai, \
+         patch("app.services.ai.search.rag_query_service.EmbeddingManager") as mock_emb, \
+         patch("app.services.ai.search.rag_query_service.get_ai_config", return_value=mock_config):
         svc = RAGQueryService(mock_db)
         svc.ai = mock_ai.return_value
         svc.embedding_mgr = mock_emb.return_value
@@ -119,7 +119,7 @@ class TestBuildContext:
             }
             for i in range(10)
         ]
-        with patch("app.services.ai.rag_retrieval.get_ai_config", return_value=mock_config):
+        with patch("app.services.ai.search.rag_retrieval.get_ai_config", return_value=mock_config):
             context = build_context(sources)
         # Should be truncated at max_chars
         assert len(context) <= 200  # generous bound for single entry
@@ -167,8 +167,8 @@ class TestQuery:
     @pytest.mark.asyncio
     async def test_no_sources_returns_fallback(self, service):
         service.embedding_mgr.get_embedding = AsyncMock(return_value=[0.1] * 768)
-        with patch("app.services.ai.rag_query_service.retrieve_chunks", new_callable=AsyncMock, return_value=[]), \
-             patch("app.services.ai.rag_query_service.expand_query_with_kg", new_callable=AsyncMock, side_effect=lambda db, terms: terms):
+        with patch("app.services.ai.search.rag_query_service.retrieve_chunks", new_callable=AsyncMock, return_value=[]), \
+             patch("app.services.ai.search.rag_query_service.expand_query_with_kg", new_callable=AsyncMock, side_effect=lambda db, terms: terms):
             result = await service.query("不存在的問題")
         assert "找不到" in result["answer"]
         assert result["retrieval_count"] == 0

@@ -53,7 +53,7 @@ TOOL_DOMAIN_MAP: Dict[str, str] = {
 # 強弱項門檻
 # EVO-4: 從 agent-policy.yaml 讀取，fallback 預設值
 try:
-    from app.services.ai.ai_config import AIConfig
+    from app.services.ai.core.ai_config import AIConfig
     _cfg = AIConfig.get_instance()
     STRENGTH_THRESHOLD = getattr(_cfg, 'capability_strong_threshold', 0.7)
     WEAKNESS_THRESHOLD = getattr(_cfg, 'capability_weak_threshold', 0.5)

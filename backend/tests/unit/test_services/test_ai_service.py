@@ -17,8 +17,8 @@ import pytest_asyncio
 
 # 測試目標
 from app.core.ai_connector import AIConnector, get_ai_connector
-from app.services.ai.ai_config import AIConfig, get_ai_config
-from app.services.ai.document_ai_service import DocumentAIService
+from app.services.ai.core.ai_config import AIConfig, get_ai_config
+from app.services.ai.document.document_ai_service import DocumentAIService
 
 
 # ============================================================
@@ -399,7 +399,7 @@ class TestRateLimiterAndCache:
 
     def test_rate_limiter_allows_requests(self):
         """測試速率限制器允許請求"""
-        from app.services.ai.base_ai_service import RateLimiter
+        from app.services.ai.core.base_ai_service import RateLimiter
 
         limiter = RateLimiter(max_requests=5, window_seconds=60)
 
@@ -413,7 +413,7 @@ class TestRateLimiterAndCache:
 
     def test_rate_limiter_wait_time(self):
         """測試速率限制器等待時間計算"""
-        from app.services.ai.base_ai_service import RateLimiter
+        from app.services.ai.core.base_ai_service import RateLimiter
 
         limiter = RateLimiter(max_requests=1, window_seconds=60)
         limiter.record_request()
@@ -425,7 +425,7 @@ class TestRateLimiterAndCache:
 
     def test_simple_cache_set_get(self):
         """測試簡單快取的設定與取得"""
-        from app.services.ai.base_ai_service import SimpleCache
+        from app.services.ai.core.base_ai_service import SimpleCache
 
         cache = SimpleCache()
         cache.set("test_key", "test_value", ttl=3600)
@@ -435,7 +435,7 @@ class TestRateLimiterAndCache:
 
     def test_simple_cache_miss(self):
         """測試快取未命中"""
-        from app.services.ai.base_ai_service import SimpleCache
+        from app.services.ai.core.base_ai_service import SimpleCache
 
         cache = SimpleCache()
         result = cache.get("nonexistent_key")
@@ -443,7 +443,7 @@ class TestRateLimiterAndCache:
 
     def test_simple_cache_clear(self):
         """測試快取清除"""
-        from app.services.ai.base_ai_service import SimpleCache
+        from app.services.ai.core.base_ai_service import SimpleCache
 
         cache = SimpleCache()
         cache.set("key1", "value1", ttl=3600)
@@ -456,7 +456,7 @@ class TestRateLimiterAndCache:
 
     def test_cache_lru_eviction(self):
         """測試 LRU 淘汰：超出 max_size 應自動移除最早項目"""
-        from app.services.ai.base_ai_service import SimpleCache
+        from app.services.ai.core.base_ai_service import SimpleCache
 
         cache = SimpleCache(max_size=3)
         cache.set("key1", "value1", ttl=3600)
@@ -476,7 +476,7 @@ class TestRateLimiterAndCache:
     def test_cache_evict_expired_first(self):
         """測試 LRU 優先淘汰過期項目"""
         import time
-        from app.services.ai.base_ai_service import SimpleCache
+        from app.services.ai.core.base_ai_service import SimpleCache
 
         cache = SimpleCache(max_size=3)
         # 設定極短 TTL 使其立即過期
@@ -499,7 +499,7 @@ class TestRateLimiterAndCache:
 
     def test_cache_max_size_enforced(self):
         """測試 max_size 強制限制"""
-        from app.services.ai.base_ai_service import SimpleCache
+        from app.services.ai.core.base_ai_service import SimpleCache
 
         cache = SimpleCache(max_size=5)
 
@@ -513,7 +513,7 @@ class TestRateLimiterAndCache:
     def test_cache_cleanup_expired(self):
         """測試 cleanup_expired 清理過期項目"""
         import time
-        from app.services.ai.base_ai_service import SimpleCache
+        from app.services.ai.core.base_ai_service import SimpleCache
 
         cache = SimpleCache()
         cache.set("expired1", "val1", ttl=0)
@@ -528,8 +528,8 @@ class TestRateLimiterAndCache:
 
     def test_generate_cache_key(self):
         """測試快取鍵生成"""
-        from app.services.ai.base_ai_service import BaseAIService
-        from app.services.ai.ai_config import AIConfig
+        from app.services.ai.core.base_ai_service import BaseAIService
+        from app.services.ai.core.ai_config import AIConfig
 
         config = AIConfig(enabled=True)
         service = DocumentAIService(config=config)
@@ -548,8 +548,8 @@ class TestRateLimiterAndCache:
     @pytest.mark.asyncio
     async def test_service_with_rate_limit(self):
         """測試服務的速率限制整合"""
-        from app.services.ai.ai_config import AIConfig
-        from app.services.ai.base_ai_service import RateLimiter
+        from app.services.ai.core.ai_config import AIConfig
+        from app.services.ai.core.base_ai_service import RateLimiter
 
         config = AIConfig(
             enabled=True,

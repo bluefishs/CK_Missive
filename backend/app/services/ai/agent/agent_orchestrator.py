@@ -23,33 +23,33 @@ if TYPE_CHECKING:
     from app.services.sender_context import SenderContext
 
 from app.core.ai_connector import get_ai_connector
-from app.services.ai.ai_config import get_ai_config
-from app.services.ai.embedding_manager import EmbeddingManager
+from app.services.ai.core.ai_config import get_ai_config
+from app.services.ai.core.embedding_manager import EmbeddingManager
 
-from app.services.ai.agent_tools import AgentToolExecutor, VALID_TOOL_NAMES
-from app.services.ai.agent_planner import AgentPlanner, AgentWorkingMemory
-from app.services.ai.agent_synthesis import AgentSynthesizer
-from app.services.ai.tool_result_formatter import summarize_tool_result
-from app.services.ai.agent_tool_loop import AgentToolLoop
-from app.services.ai.agent_roles import get_role_profile
-from app.services.ai.agent_trace import AgentTrace
-from app.services.ai.agent_router import AgentRouter
-from app.services.ai.agent_tool_monitor import get_tool_monitor
-from app.services.ai.agent_pattern_learner import get_pattern_learner
-from app.services.ai.agent_summarizer import get_summarizer
-from app.services.ai.agent_supervisor import AgentSupervisor
-from app.services.ai.agent_utils import sse, sanitize_history, collect_sources, compute_adaptive_timeout
-from app.services.ai.agent_conversation_memory import get_conversation_memory
-from app.services.ai.tool_chain_resolver import enrich_plan_with_chain
-from app.services.ai.user_preference_extractor import (
+from app.services.ai.agent.agent_tools import AgentToolExecutor, VALID_TOOL_NAMES
+from app.services.ai.agent.agent_planner import AgentPlanner, AgentWorkingMemory
+from app.services.ai.agent.agent_synthesis import AgentSynthesizer
+from app.services.ai.tools.tool_result_formatter import summarize_tool_result
+from app.services.ai.agent.agent_tool_loop import AgentToolLoop
+from app.services.ai.agent.agent_roles import get_role_profile
+from app.services.ai.agent.agent_trace import AgentTrace
+from app.services.ai.agent.agent_router import AgentRouter
+from app.services.ai.agent.agent_tool_monitor import get_tool_monitor
+from app.services.ai.agent.agent_pattern_learner import get_pattern_learner
+from app.services.ai.agent.agent_summarizer import get_summarizer
+from app.services.ai.agent.agent_supervisor import AgentSupervisor
+from app.services.ai.core.agent_utils import sse, sanitize_history, collect_sources, compute_adaptive_timeout
+from app.services.ai.agent.agent_conversation_memory import get_conversation_memory
+from app.services.ai.tools.tool_chain_resolver import enrich_plan_with_chain
+from app.services.ai.misc.user_preference_extractor import (
     load_preferences,
     format_preferences_for_prompt,
 )
-from app.services.ai.agent_post_processing import (
+from app.services.ai.agent.agent_post_processing import (
     PostProcessingContext,
     run_post_synthesis,
 )
-from app.services.ai.agent_streaming_helpers import (
+from app.services.ai.agent.agent_streaming_helpers import (
     stream_chitchat,
     stream_fallback_rag,
 )
@@ -78,7 +78,7 @@ class AgentOrchestrator:
         self.embedding_mgr = EmbeddingManager()
 
         # 複用服務層速率限制器
-        from app.services.ai.base_ai_service import get_rate_limiter
+        from app.services.ai.core.base_ai_service import get_rate_limiter
         self._rate_limiter = get_rate_limiter(self.config)
 
         # 組合專責模組
@@ -113,7 +113,7 @@ class AgentOrchestrator:
         """Lightweight capability tracking via Redis pipeline (single round-trip)."""
         try:
             from app.core.redis_client import get_redis
-            from app.services.ai.agent_router import AgentRouter
+            from app.services.ai.agent.agent_router import AgentRouter
             redis = await get_redis()
             if redis:
                 context = AgentRouter._detect_context(question) or "general"
@@ -357,7 +357,7 @@ class AgentOrchestrator:
                 if not plan:
                     plan = {"tool_calls": []}
                 existing_tools = {c.get("name") for c in plan.get("tool_calls", [])}
-                from app.services.ai.agent_supervisor import _get_default_calls
+                from app.services.ai.agent.agent_supervisor import _get_default_calls
                 for domain in domains:
                     for call in _get_default_calls(domain, question):
                         if call["name"] not in existing_tools:

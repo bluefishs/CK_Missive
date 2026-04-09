@@ -175,7 +175,7 @@ class TestThreeTierCompaction:
     """3-Tier 壓縮策略測試"""
 
     def _make_summarizer(self):
-        from app.services.ai.agent_summarizer import ConversationSummarizer
+        from app.services.ai.agent.agent_summarizer import ConversationSummarizer
         return ConversationSummarizer(trigger_turns=3, max_chars=500, keep_recent=2)
 
     @pytest.mark.asyncio
@@ -195,7 +195,7 @@ class TestThreeTierCompaction:
             {"role": "assistant", "content": "a"},
         ] * 4
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             config = MagicMock()
             config.memory_flush_enabled = False
             config.compaction_tier1_timeout = 5
@@ -239,7 +239,7 @@ class TestThreeTierCompaction:
             {"role": "assistant", "content": "a"},
         ] * 4
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             config = MagicMock()
             config.memory_flush_enabled = False
             config.compaction_tier1_timeout = 5
@@ -271,7 +271,7 @@ class TestThreeTierCompaction:
             {"role": "assistant", "content": "找到 3 筆"},
         ] * 4
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             config = MagicMock()
             config.memory_flush_enabled = False
             config.compaction_tier1_timeout = 5
@@ -334,7 +334,7 @@ class TestSemanticPatternMatching:
 
     @pytest.mark.asyncio
     async def test_exact_match_takes_priority(self):
-        from app.services.ai.agent_pattern_learner import QueryPatternLearner
+        from app.services.ai.agent.agent_pattern_learner import QueryPatternLearner
 
         learner = QueryPatternLearner()
         mock_redis = AsyncMock()
@@ -355,7 +355,7 @@ class TestSemanticPatternMatching:
 
     @pytest.mark.asyncio
     async def test_semantic_fallback_on_exact_miss(self):
-        from app.services.ai.agent_pattern_learner import QueryPatternLearner
+        from app.services.ai.agent.agent_pattern_learner import QueryPatternLearner
 
         learner = QueryPatternLearner()
         mock_redis = AsyncMock()
@@ -376,7 +376,7 @@ class TestSemanticPatternMatching:
         mock_redis.zrevrange = AsyncMock(return_value=[b"abc123"])
         learner._redis = mock_redis
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             config = MagicMock()
             config.pattern_semantic_enabled = True
             config.pattern_semantic_threshold = 0.5  # 低閾值方便測試
@@ -390,7 +390,7 @@ class TestSemanticPatternMatching:
 
     @pytest.mark.asyncio
     async def test_semantic_disabled(self):
-        from app.services.ai.agent_pattern_learner import QueryPatternLearner
+        from app.services.ai.agent.agent_pattern_learner import QueryPatternLearner
 
         learner = QueryPatternLearner()
         mock_redis = AsyncMock()
@@ -398,7 +398,7 @@ class TestSemanticPatternMatching:
         mock_redis.hgetall = AsyncMock(return_value={})
         learner._redis = mock_redis
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             config = MagicMock()
             config.pattern_semantic_enabled = False
             mock_config.return_value = config
@@ -417,7 +417,7 @@ class TestDBDualWrite:
 
     @pytest.mark.asyncio
     async def test_persist_learnings_to_db_called(self):
-        from app.services.ai.agent_summarizer import ConversationSummarizer
+        from app.services.ai.agent.agent_summarizer import ConversationSummarizer
 
         summarizer = ConversationSummarizer(trigger_turns=3, max_chars=500, keep_recent=2)
         mock_redis = AsyncMock()
@@ -437,7 +437,7 @@ class TestDBDualWrite:
             {"role": "assistant", "content": "找到"},
         ] * 4
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             config = MagicMock()
             config.memory_flush_enabled = True
             config.memory_flush_max_learnings = 10
@@ -446,7 +446,7 @@ class TestDBDualWrite:
             mock_config.return_value = config
 
             with patch(
-                "app.services.ai.agent_summarizer.ConversationSummarizer._persist_learnings_to_db",
+                "app.services.ai.agent.agent_summarizer.ConversationSummarizer._persist_learnings_to_db",
                 new_callable=AsyncMock,
             ) as mock_persist:
                 await summarizer.extract_and_flush_learnings(
@@ -456,7 +456,7 @@ class TestDBDualWrite:
 
     @pytest.mark.asyncio
     async def test_persist_disabled_skips_db(self):
-        from app.services.ai.agent_summarizer import ConversationSummarizer
+        from app.services.ai.agent.agent_summarizer import ConversationSummarizer
 
         summarizer = ConversationSummarizer(trigger_turns=3, max_chars=500, keep_recent=2)
         mock_redis = AsyncMock()
@@ -469,7 +469,7 @@ class TestDBDualWrite:
             return_value='{"learnings": [{"type": "entity", "content": "test"}]}'
         )
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             config = MagicMock()
             config.memory_flush_enabled = True
             config.memory_flush_max_learnings = 10
@@ -478,7 +478,7 @@ class TestDBDualWrite:
             mock_config.return_value = config
 
             with patch(
-                "app.services.ai.agent_summarizer.ConversationSummarizer._persist_learnings_to_db",
+                "app.services.ai.agent.agent_summarizer.ConversationSummarizer._persist_learnings_to_db",
                 new_callable=AsyncMock,
             ) as mock_persist:
                 await summarizer.extract_and_flush_learnings(
@@ -488,7 +488,7 @@ class TestDBDualWrite:
 
     @pytest.mark.asyncio
     async def test_load_learnings_redis_first(self):
-        from app.services.ai.agent_summarizer import ConversationSummarizer
+        from app.services.ai.agent.agent_summarizer import ConversationSummarizer
 
         summarizer = ConversationSummarizer(trigger_turns=3, max_chars=500, keep_recent=2)
         mock_redis = AsyncMock()
@@ -499,13 +499,13 @@ class TestDBDualWrite:
 
     @pytest.mark.asyncio
     async def test_load_learnings_db_fallback(self):
-        from app.services.ai.agent_summarizer import ConversationSummarizer
+        from app.services.ai.agent.agent_summarizer import ConversationSummarizer
 
         summarizer = ConversationSummarizer(trigger_turns=3, max_chars=500, keep_recent=2)
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(return_value=None)
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             config = MagicMock()
             config.learning_persist_enabled = True
             config.learning_inject_limit = 5

@@ -19,7 +19,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 
 logger = logging.getLogger(__name__)
 
@@ -308,7 +308,7 @@ class ConversationMemory:
             )
 
             # Parse LLM response
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
             parsed = parse_json_safe(result)
             if not parsed or not isinstance(parsed, dict):
                 # Fallback: build a minimal handoff from raw data

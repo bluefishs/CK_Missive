@@ -6,7 +6,7 @@ import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.tool_executor_document import (
+from app.services.ai.tools.tool_executor_document import (
     DocumentToolExecutor,
     _extract_txt,
     _extract_text_ocr,
@@ -93,7 +93,7 @@ class TestParseDocumentExtraction:
         mock_result.scalars.return_value.all.return_value = [att]
         mock_db.execute.return_value = mock_result
 
-        with patch("app.services.ai.tool_executor_document._get_uploads_base", return_value="/tmp"):
+        with patch("app.services.ai.tools.tool_executor_document._get_uploads_base", return_value="/tmp"):
             result = await executor.parse_document({"document_id": 1})
         assert result["count"] == 0
         assert result["attachments"][0]["status"] == "error"
@@ -110,7 +110,7 @@ class TestParseDocumentExtraction:
         mock_result.scalars.return_value.all.return_value = [att]
         mock_db.execute.return_value = mock_result
 
-        with patch("app.services.ai.tool_executor_document._get_uploads_base", return_value=str(tmp_path)):
+        with patch("app.services.ai.tools.tool_executor_document._get_uploads_base", return_value=str(tmp_path)):
             result = await executor.parse_document({"document_id": 1})
 
         assert result["count"] == 1
@@ -128,7 +128,7 @@ class TestParseDocumentExtraction:
         mock_result.scalars.return_value.all.return_value = [att]
         mock_db.execute.return_value = mock_result
 
-        with patch("app.services.ai.tool_executor_document._get_uploads_base", return_value=str(tmp_path)):
+        with patch("app.services.ai.tools.tool_executor_document._get_uploads_base", return_value=str(tmp_path)):
             result = await executor.parse_document({"document_id": 1})
 
         assert result["count"] == 1
@@ -150,7 +150,7 @@ class TestParseDocumentExtraction:
         mock_result.scalars.return_value.all.return_value = [att1, att2]
         mock_db.execute.return_value = mock_result
 
-        with patch("app.services.ai.tool_executor_document._get_uploads_base", return_value=str(tmp_path)):
+        with patch("app.services.ai.tools.tool_executor_document._get_uploads_base", return_value=str(tmp_path)):
             result = await executor.parse_document({"document_id": 1})
 
         assert result["count"] == 2
@@ -204,7 +204,7 @@ class TestOCRExtraction:
 
     def test_ocr_unavailable_returns_message(self):
         """When OCR is not available, return a descriptive message."""
-        with patch("app.services.ai.tool_executor_document._OCR_AVAILABLE", False):
+        with patch("app.services.ai.tools.tool_executor_document._OCR_AVAILABLE", False):
             result = _extract_text_ocr("/fake/image.png")
         assert "OCR 不可用" in result
         assert "Tesseract" in result
@@ -215,8 +215,8 @@ class TestOCRExtraction:
         # exif_transpose may call .copy(), so mock it to return self
         mock_image.copy.return_value = mock_image
         with (
-            patch("app.services.ai.tool_executor_document._OCR_AVAILABLE", True),
-            patch("app.services.ai.tool_executor_document._is_ocr_available", return_value=True),
+            patch("app.services.ai.tools.tool_executor_document._OCR_AVAILABLE", True),
+            patch("app.services.ai.tools.tool_executor_document._is_ocr_available", return_value=True),
             patch("PIL.Image.open", return_value=mock_image) as mock_open,
             patch("PIL.ImageOps.exif_transpose", return_value=mock_image),
             patch("pytesseract.image_to_string", return_value="  公文字號：桃工養字第1130001號  ") as mock_ocr,
@@ -244,8 +244,8 @@ class TestOCRExtraction:
             return "English only text"
 
         with (
-            patch("app.services.ai.tool_executor_document._OCR_AVAILABLE", True),
-            patch("app.services.ai.tool_executor_document._is_ocr_available", return_value=True),
+            patch("app.services.ai.tools.tool_executor_document._OCR_AVAILABLE", True),
+            patch("app.services.ai.tools.tool_executor_document._is_ocr_available", return_value=True),
             patch("PIL.Image.open", return_value=mock_image),
             patch("pytesseract.image_to_string", side_effect=side_effect),
         ):
@@ -272,9 +272,9 @@ class TestOCRExtraction:
         mock_db.execute.return_value = mock_result
 
         with (
-            patch("app.services.ai.tool_executor_document._get_uploads_base", return_value=str(tmp_path)),
-            patch("app.services.ai.tool_executor_document._is_ocr_available", return_value=True),
-            patch("app.services.ai.tool_executor_document._OCR_AVAILABLE", True),
+            patch("app.services.ai.tools.tool_executor_document._get_uploads_base", return_value=str(tmp_path)),
+            patch("app.services.ai.tools.tool_executor_document._is_ocr_available", return_value=True),
+            patch("app.services.ai.tools.tool_executor_document._OCR_AVAILABLE", True),
             patch("PIL.Image.open") as mock_img_open,
             patch("pytesseract.image_to_string", return_value="OCR 提取的文字內容"),
         ):
@@ -304,11 +304,11 @@ class TestPDFOCRFallback:
 
         with (
             patch("pdfplumber.open", return_value=mock_pdf),
-            patch("app.services.ai.tool_executor_document._is_ocr_available", return_value=True),
-            patch("app.services.ai.tool_executor_document._OCR_AVAILABLE", True),
+            patch("app.services.ai.tools.tool_executor_document._is_ocr_available", return_value=True),
+            patch("app.services.ai.tools.tool_executor_document._OCR_AVAILABLE", True),
             patch("pytesseract.image_to_string", return_value="OCR extracted page text"),
         ):
-            from app.services.ai.tool_executor_document import _extract_pdf
+            from app.services.ai.tools.tool_executor_document import _extract_pdf
             result = _extract_pdf("/fake/scanned.pdf")
 
         assert "OCR extracted page text" in result
@@ -327,9 +327,9 @@ class TestPDFOCRFallback:
 
         with (
             patch("pdfplumber.open", return_value=mock_pdf),
-            patch("app.services.ai.tool_executor_document._ocr_pdf_page") as mock_ocr_page,
+            patch("app.services.ai.tools.tool_executor_document._ocr_pdf_page") as mock_ocr_page,
         ):
-            from app.services.ai.tool_executor_document import _extract_pdf
+            from app.services.ai.tools.tool_executor_document import _extract_pdf
             result = _extract_pdf("/fake/normal.pdf")
 
         mock_ocr_page.assert_not_called()
@@ -341,7 +341,7 @@ class TestToolRegistryInclusion:
     """Verify parse_document is registered in ToolRegistry."""
 
     def test_registered(self):
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         tool = registry.get("parse_document")
         assert tool is not None
@@ -350,7 +350,7 @@ class TestToolRegistryInclusion:
         assert tool.contexts == ["doc"]
 
     def test_description_mentions_ocr(self):
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         tool = registry.get("parse_document")
         assert "OCR" in tool.description or "圖片" in tool.description

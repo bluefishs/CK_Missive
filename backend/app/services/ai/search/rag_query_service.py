@@ -22,11 +22,11 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ai_connector import get_ai_connector
-from app.services.ai.ai_config import get_ai_config
-from app.services.ai.ai_prompt_manager import AIPromptManager
-from app.services.ai.embedding_manager import EmbeddingManager
-from app.services.ai.agent_utils import sse as _sse, sanitize_history
-from app.services.ai.rag_retrieval import (
+from app.services.ai.core.ai_config import get_ai_config
+from app.services.ai.core.ai_prompt_manager import AIPromptManager
+from app.services.ai.core.embedding_manager import EmbeddingManager
+from app.services.ai.core.agent_utils import sse as _sse, sanitize_history
+from app.services.ai.search.rag_retrieval import (
     expand_query_with_kg,
     retrieve_chunks,
     build_context,
@@ -165,7 +165,7 @@ class RAGQueryService:
         跨 7 圖譜 (含 ERP/Tender entity types)。
         """
         try:
-            from app.services.ai.graph_query_service import GraphQueryService
+            from app.services.ai.graph.graph_query_service import GraphQueryService
             gqs = GraphQueryService(self.db)
 
             # 搜尋前 3 個最相關實體

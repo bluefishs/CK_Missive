@@ -45,7 +45,7 @@ async def ingest_code_graph(
     """
     import os
     from pathlib import Path
-    from app.services.ai.code_graph_service import CodeGraphIngestionService
+    from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
 
     # 動態偵測專案根目錄（相容 PM2 + Docker + 直接執行）
     _this_file = Path(__file__).resolve()
@@ -133,7 +133,7 @@ async def detect_import_cycles(
 
     🔒 權限要求: Admin
     """
-    from app.services.ai.code_graph_service import CodeGraphIngestionService
+    from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
 
     svc = CodeGraphIngestionService(db)
     try:
@@ -163,7 +163,7 @@ async def analyze_architecture(
     - 孤立模組（無入向匯入）
     - 巨型類別（方法數最多）
     """
-    from app.services.ai.code_graph_service import CodeGraphIngestionService
+    from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
 
     svc = CodeGraphIngestionService(db)
     try:
@@ -189,7 +189,7 @@ async def import_json_graph(
     🔒 權限要求: Admin
     """
     from pathlib import Path
-    from app.services.ai.code_graph_service import CodeGraphIngestionService
+    from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
 
     project_root = Path(__file__).resolve().parents[5]
     json_path = (project_root / request.file_path).resolve()

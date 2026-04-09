@@ -10,7 +10,7 @@ ToolSuccessMonitor 單元測試
 from unittest.mock import patch, AsyncMock
 
 import pytest
-from app.services.ai.agent_tool_monitor import ToolStats, ToolSuccessMonitor
+from app.services.ai.agent.agent_tool_monitor import ToolStats, ToolSuccessMonitor
 
 
 class TestToolStats:

@@ -19,7 +19,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.entity_extraction_service import (
+from app.services.ai.document.entity_extraction_service import (
     _build_extraction_text,
     _extract_json_from_text,
     _validate_entities,

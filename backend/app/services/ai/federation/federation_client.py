@@ -35,8 +35,8 @@ try:
 except ImportError:  # pragma: no cover
     httpx = None  # type: ignore[assignment]
 
-from app.services.ai.federation_discovery import load_configs, maybe_refresh
-from app.services.ai import federation_delegation
+from app.services.ai.federation.federation_discovery import load_configs, maybe_refresh
+from app.services.ai.federation import federation_delegation
 
 logger = logging.getLogger(__name__)
 

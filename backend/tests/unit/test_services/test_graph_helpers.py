@@ -10,7 +10,7 @@ graph_helpers 圖譜工具函數單元測試
 
 import pytest
 
-from app.services.ai.graph_helpers import (
+from app.services.ai.graph.graph_helpers import (
     _clean_agency_name,
     _normalize_for_match,
     _names_overlap,

@@ -16,7 +16,7 @@ from app.db.database import get_async_db
 from app.core.dependencies import require_auth, require_admin
 from app.core.exceptions import NotFoundException
 from app.extended.models import User
-from app.services.ai.document_analysis_service import DocumentAnalysisService
+from app.services.ai.document.document_analysis_service import DocumentAnalysisService
 from app.schemas.ai.analysis import (
     DocumentAIAnalysisResponse,
     DocumentAIAnalysisBatchRequest,

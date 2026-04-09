@@ -10,7 +10,7 @@ AgentRouter 單元測試
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from app.services.ai.agent_router import AgentRouter, RouteDecision
+from app.services.ai.agent.agent_router import AgentRouter, RouteDecision
 
 
 class TestAgentRouter:
@@ -20,7 +20,7 @@ class TestAgentRouter:
     async def test_chitchat_routed(self):
         """閒聊問題被路由至 chitchat"""
         router = AgentRouter()
-        with patch("app.services.ai.agent_router.is_chitchat", return_value=True):
+        with patch("app.services.ai.agent.agent_router.is_chitchat", return_value=True):
             decision = await router.route("你好")
         assert decision.route_type == "chitchat"
         assert decision.confidence == 1.0
@@ -30,7 +30,7 @@ class TestAgentRouter:
     async def test_non_chitchat_falls_through(self):
         """非閒聊、無 pattern 時 fallthrough 至 LLM"""
         router = AgentRouter()
-        with patch("app.services.ai.agent_router.is_chitchat", return_value=False):
+        with patch("app.services.ai.agent.agent_router.is_chitchat", return_value=False):
             decision = await router.route("工務局的函有幾件")
         assert decision.route_type in ("llm", "gemma4")
         assert decision.source in ("fallthrough", "gemma4_intent:document", "gemma4_intent:dispatch", "gemma4_intent:general")
@@ -38,7 +38,7 @@ class TestAgentRouter:
     @pytest.mark.asyncio
     async def test_pattern_match_routed(self):
         """Pattern 匹配成功時路由至 pattern"""
-        from app.services.ai.agent_pattern_learner import QueryPattern
+        from app.services.ai.agent.agent_pattern_learner import QueryPattern
 
         mock_pattern = QueryPattern(
             pattern_key="abc123",
@@ -56,9 +56,9 @@ class TestAgentRouter:
         mock_monitor.get_degraded_tools = AsyncMock(return_value=set())
 
         router = AgentRouter(pattern_threshold=0.8)
-        with patch("app.services.ai.agent_router.is_chitchat", return_value=False), \
-             patch("app.services.ai.agent_pattern_learner.get_pattern_learner", return_value=mock_learner), \
-             patch("app.services.ai.agent_tool_monitor.get_tool_monitor", return_value=mock_monitor):
+        with patch("app.services.ai.agent.agent_router.is_chitchat", return_value=False), \
+             patch("app.services.ai.agent.agent_pattern_learner.get_pattern_learner", return_value=mock_learner), \
+             patch("app.services.ai.agent.agent_tool_monitor.get_tool_monitor", return_value=mock_monitor):
             decision = await router.route("工務局的函有幾件")
 
         assert decision.route_type == "pattern"
@@ -69,7 +69,7 @@ class TestAgentRouter:
     @pytest.mark.asyncio
     async def test_pattern_below_threshold_falls_through(self):
         """Pattern 信心度低於門檻時 fallthrough"""
-        from app.services.ai.agent_pattern_learner import QueryPattern
+        from app.services.ai.agent.agent_pattern_learner import QueryPattern
 
         mock_pattern = QueryPattern(
             pattern_key="abc123",
@@ -84,8 +84,8 @@ class TestAgentRouter:
         mock_learner.match = AsyncMock(return_value=[mock_pattern])
 
         router = AgentRouter(pattern_threshold=0.8)
-        with patch("app.services.ai.agent_router.is_chitchat", return_value=False), \
-             patch("app.services.ai.agent_pattern_learner.get_pattern_learner", return_value=mock_learner):
+        with patch("app.services.ai.agent.agent_router.is_chitchat", return_value=False), \
+             patch("app.services.ai.agent.agent_pattern_learner.get_pattern_learner", return_value=mock_learner):
             decision = await router.route("query")
 
         assert decision.route_type == "llm"
@@ -93,7 +93,7 @@ class TestAgentRouter:
     @pytest.mark.asyncio
     async def test_degraded_tool_filtered(self):
         """降級工具被過濾"""
-        from app.services.ai.agent_pattern_learner import QueryPattern
+        from app.services.ai.agent.agent_pattern_learner import QueryPattern
 
         mock_pattern = QueryPattern(
             pattern_key="abc123",
@@ -116,9 +116,9 @@ class TestAgentRouter:
         )
 
         router = AgentRouter(pattern_threshold=0.8)
-        with patch("app.services.ai.agent_router.is_chitchat", return_value=False), \
-             patch("app.services.ai.agent_pattern_learner.get_pattern_learner", return_value=mock_learner), \
-             patch("app.services.ai.agent_tool_monitor.get_tool_monitor", return_value=mock_monitor):
+        with patch("app.services.ai.agent.agent_router.is_chitchat", return_value=False), \
+             patch("app.services.ai.agent.agent_pattern_learner.get_pattern_learner", return_value=mock_learner), \
+             patch("app.services.ai.agent.agent_tool_monitor.get_tool_monitor", return_value=mock_monitor):
             decision = await router.route("query")
 
         assert decision.route_type == "pattern"
@@ -128,7 +128,7 @@ class TestAgentRouter:
     @pytest.mark.asyncio
     async def test_low_hit_count_falls_through(self):
         """命中次數 < 2 時 fallthrough"""
-        from app.services.ai.agent_pattern_learner import QueryPattern
+        from app.services.ai.agent.agent_pattern_learner import QueryPattern
 
         mock_pattern = QueryPattern(
             pattern_key="abc123",
@@ -143,8 +143,8 @@ class TestAgentRouter:
         mock_learner.match = AsyncMock(return_value=[mock_pattern])
 
         router = AgentRouter(pattern_threshold=0.8)
-        with patch("app.services.ai.agent_router.is_chitchat", return_value=False), \
-             patch("app.services.ai.agent_pattern_learner.get_pattern_learner", return_value=mock_learner):
+        with patch("app.services.ai.agent.agent_router.is_chitchat", return_value=False), \
+             patch("app.services.ai.agent.agent_pattern_learner.get_pattern_learner", return_value=mock_learner):
             decision = await router.route("query")
 
         assert decision.route_type == "llm"
@@ -156,8 +156,8 @@ class TestAgentRouter:
         mock_learner.match = AsyncMock(side_effect=Exception("Redis error"))
 
         router = AgentRouter()
-        with patch("app.services.ai.agent_router.is_chitchat", return_value=False), \
-             patch("app.services.ai.agent_pattern_learner.get_pattern_learner", return_value=mock_learner):
+        with patch("app.services.ai.agent.agent_router.is_chitchat", return_value=False), \
+             patch("app.services.ai.agent.agent_pattern_learner.get_pattern_learner", return_value=mock_learner):
             decision = await router.route("query")
 
         assert decision.route_type == "llm"

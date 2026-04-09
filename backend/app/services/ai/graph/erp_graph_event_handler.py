@@ -27,7 +27,7 @@ async def handle_erp_graph_update(event: DomainEvent) -> None:
     try:
         from app.db.database import async_session_maker
         async with async_session_maker() as db:
-            from app.services.ai.erp_graph_ingest import ErpGraphIngestService
+            from app.services.ai.graph.erp_graph_ingest import ErpGraphIngestService
             service = ErpGraphIngestService(db)
             stats = await service.ingest_all()
             logger.info(

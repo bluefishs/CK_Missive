@@ -10,8 +10,8 @@ Created: 2026-03-13
 import logging
 import re
 
-from app.services.ai.base_ai_service import RedisCache
-from app.services.ai.name_utils import (
+from app.services.ai.core.base_ai_service import RedisCache
+from app.services.ai.core.name_utils import (
     normalize_for_match as _normalize_for_match_impl,
     clean_agency_name as _clean_agency_name_impl,
 )

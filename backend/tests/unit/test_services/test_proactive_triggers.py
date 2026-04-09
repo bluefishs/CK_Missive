@@ -10,11 +10,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services.ai.proactive_triggers import (
+from app.services.ai.proactive.proactive_triggers import (
     ProactiveTriggerService,
     TriggerAlert,
 )
-from app.services.ai.proactive_triggers_erp import ERPTriggerScanner
+from app.services.ai.proactive.proactive_triggers_erp import ERPTriggerScanner
 
 
 class TestTriggerAlert:

@@ -63,7 +63,7 @@ class ProactiveTriggerService:
         alerts.extend(project_alerts)
 
         # 3. PM/ERP 觸發 (里程碑逾期、請款逾期、發票催開、外包付款)
-        from app.services.ai.proactive_triggers_erp import ERPTriggerScanner
+        from app.services.ai.proactive.proactive_triggers_erp import ERPTriggerScanner
         erp_scanner = ERPTriggerScanner(self.db)
         erp_alerts = await erp_scanner.scan_all(deadline_days)
         alerts.extend(erp_alerts)
@@ -278,7 +278,7 @@ class ProactiveTriggerService:
         """檢查新公文是否匹配使用者興趣（主動推薦）"""
         alerts: List[TriggerAlert] = []
         try:
-            from app.services.ai.proactive_recommender import ProactiveRecommender
+            from app.services.ai.proactive.proactive_recommender import ProactiveRecommender
 
             recommender = ProactiveRecommender(self.db)
             recs = await recommender.scan_recommendations(hours=24, min_score=2)
@@ -449,7 +449,7 @@ class ProactiveTriggerService:
                 max_tokens=256,
                 task_type="classify",
             )
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
 
             parsed = parse_json_safe(result)
 

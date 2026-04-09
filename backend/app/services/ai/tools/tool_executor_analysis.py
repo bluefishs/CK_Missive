@@ -65,7 +65,7 @@ class AnalysisToolExecutor:
 
     async def get_entity_detail(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """取得實體詳情"""
-        from app.services.ai.graph_query_service import GraphQueryService
+        from app.services.ai.graph.graph_query_service import GraphQueryService
 
         entity_id = params.get("entity_id")
         if not entity_id:
@@ -88,7 +88,7 @@ class AnalysisToolExecutor:
         """取得系統統計 — 公文總數 + 圖譜統計 + 高頻實體"""
         from sqlalchemy import select, func
         from app.extended.models import OfficialDocument
-        from app.services.ai.graph_query_service import GraphQueryService
+        from app.services.ai.graph.graph_query_service import GraphQueryService
 
         # 公文基本統計
         doc_total = 0
@@ -142,7 +142,7 @@ class AnalysisToolExecutor:
 
     async def navigate_graph(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """導航 Agent — 搜尋實體並回傳叢集資訊供前端 fly-to"""
-        from app.services.ai.graph_query_service import GraphQueryService
+        from app.services.ai.graph.graph_query_service import GraphQueryService
 
         svc = GraphQueryService(self.db)
         query = params.get("query", "")
@@ -198,7 +198,7 @@ class AnalysisToolExecutor:
 
     async def summarize_entity(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """摘要 Agent — 生成實體簡報（上下游關係 + 時間軸 + LLM 摘要）"""
-        from app.services.ai.graph_query_service import GraphQueryService
+        from app.services.ai.graph.graph_query_service import GraphQueryService
 
         entity_id = params.get("entity_id")
         if not entity_id:
@@ -324,7 +324,7 @@ class AnalysisToolExecutor:
         title = ""
         description = ""
 
-        from app.services.ai.agent_diagram_builder import (
+        from app.services.ai.agent.agent_diagram_builder import (
             build_er_diagram, build_dependency_graph, build_flowchart, build_class_diagram,
         )
 
@@ -368,7 +368,7 @@ class AnalysisToolExecutor:
 
     async def explore_entity_path(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """探索兩實體間的知識圖譜最短路徑"""
-        from app.services.ai.graph_query_service import GraphQueryService
+        from app.services.ai.graph.graph_query_service import GraphQueryService
         from app.extended.models import CanonicalEntity
         from sqlalchemy import select, func
 

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
-from app.services.ai.graph_query_service import GraphQueryService
+from app.services.ai.graph.graph_query_service import GraphQueryService
 from app.schemas.knowledge_graph import (
     KGEntitySearchRequest,
     KGEntitySearchResponse,
@@ -195,7 +195,7 @@ async def get_db_schema(
     回傳所有資料表的欄位、型別、主鍵、外鍵、索引、唯一約束。
     結果會快取 10 分鐘。
     """
-    from app.services.ai.schema_reflector import SchemaReflectorService
+    from app.services.ai.graph.schema_reflector import SchemaReflectorService
 
     try:
         schema = await SchemaReflectorService.get_full_schema_async()
@@ -215,7 +215,7 @@ async def get_db_graph(
     nodes = 資料表, edges = 外鍵關聯。
     相容前端 ExternalGraphData 格式。
     """
-    from app.services.ai.schema_reflector import SchemaReflectorService
+    from app.services.ai.graph.schema_reflector import SchemaReflectorService
 
     try:
         graph = await SchemaReflectorService.get_graph_data_async()

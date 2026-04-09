@@ -25,7 +25,7 @@ from app.extended.models import (
 logger = logging.getLogger(__name__)
 
 # 閾值由 AIConfig 統一管理
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 FUZZY_SIMILARITY_THRESHOLD = get_ai_config().kg_fuzzy_threshold
 
 
@@ -248,7 +248,7 @@ class CanonicalEntityMerger:
         await self.db.flush()
         # 快取失效：合併實體影響圖譜
         try:
-            from app.services.ai.graph_query_service import invalidate_graph_cache
+            from app.services.ai.graph.graph_query_service import invalidate_graph_cache
             await invalidate_graph_cache()
         except Exception:
             pass

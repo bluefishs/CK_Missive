@@ -26,16 +26,16 @@ from typing import Any, Dict, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.tool_executor_search import (
+from app.services.ai.tools.tool_executor_search import (
     SearchToolExecutor,
     ENTITY_TYPE_MAP,
 )
-from app.services.ai.tool_executor_kg_search import KGSearchExecutor
-from app.services.ai.tool_executor_analysis import AnalysisToolExecutor
-from app.services.ai.tool_executor_domain import DomainToolExecutor
-from app.services.ai.tool_executor_tender import TenderToolExecutor
-from app.services.ai.tool_executor_business import BusinessToolExecutor
-from app.services.ai.tool_executor_document import DocumentToolExecutor
+from app.services.ai.tools.tool_executor_kg_search import KGSearchExecutor
+from app.services.ai.tools.tool_executor_analysis import AnalysisToolExecutor
+from app.services.ai.tools.tool_executor_domain import DomainToolExecutor
+from app.services.ai.tools.tool_executor_tender import TenderToolExecutor
+from app.services.ai.tools.tool_executor_business import BusinessToolExecutor
+from app.services.ai.tools.tool_executor_document import DocumentToolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 # tool_registry.py 不匯入本模組，無循環匯入風險
 # ============================================================================
 
-from app.services.ai.tool_registry import get_tool_registry as _get_tool_registry
+from app.services.ai.tools.tool_registry import get_tool_registry as _get_tool_registry
 
 _registry = _get_tool_registry()
 
@@ -393,7 +393,7 @@ class AgentToolExecutor:
 
     async def _ask_external_system(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """聯邦式外部 AI 系統查詢"""
-        from app.services.ai.federation_client import get_federation_client
+        from app.services.ai.federation.federation_client import get_federation_client
 
         system_id = params.get("system_id", "openclaw")
         question = params.get("question", "")

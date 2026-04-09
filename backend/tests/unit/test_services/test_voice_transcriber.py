@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.ai.voice_transcriber import (
+from app.services.ai.misc.voice_transcriber import (
     MAX_AUDIO_SIZE_BYTES,
     VoiceTranscriber,
     get_voice_transcriber,
@@ -25,7 +25,7 @@ from app.services.ai.voice_transcriber import (
 @pytest.fixture
 def transcriber():
     """Create a VoiceTranscriber with mocked config."""
-    with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+    with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
         config = MagicMock()
         config.groq_api_key = "test-groq-key"
         config.ollama_base_url = "http://localhost:11434"
@@ -287,11 +287,11 @@ def test_error_result():
 
 def test_get_voice_transcriber_singleton():
     """get_voice_transcriber should return same instance."""
-    import app.services.ai.voice_transcriber as mod
+    import app.services.ai.misc.voice_transcriber as mod
 
     mod._transcriber = None  # Reset
 
-    with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+    with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
         config = MagicMock()
         config.groq_api_key = ""
         config.ollama_base_url = "http://localhost:11434"

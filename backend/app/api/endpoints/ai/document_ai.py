@@ -24,11 +24,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
 from app.core.dependencies import get_async_db, optional_auth
-from app.services.ai.document_ai_service import (
+from app.services.ai.document.document_ai_service import (
     DocumentAIService,
     get_document_ai_service,
 )
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 from app.services.audit_service import AuditService
 from app.schemas.ai.search import (
     ParseIntentRequest,

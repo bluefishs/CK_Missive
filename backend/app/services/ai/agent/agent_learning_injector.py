@@ -43,7 +43,7 @@ async def filter_learnings_by_similarity(
     若 embedding 不可用則 fallback 到原始行為（全部注入至 limit）。
     """
     try:
-        from app.services.ai.embedding_manager import EmbeddingManager
+        from app.services.ai.core.embedding_manager import EmbeddingManager
         from app.core.ai_connector import AIConnector
 
         connector = AIConnector()

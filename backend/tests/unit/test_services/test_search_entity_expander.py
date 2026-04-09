@@ -12,7 +12,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.search_entity_expander import (
+from app.services.ai.search.search_entity_expander import (
     expand_search_terms,
     flatten_expansions,
     MIN_TERM_LENGTH,
@@ -48,7 +48,7 @@ class TestExpandSearchTerms:
     async def test_self_included_in_expansions(self, mock_db):
         """原始詞必定包含在擴展結果中"""
         with patch(
-            "app.services.ai.synonym_expander.SynonymExpander"
+            "app.services.ai.search.synonym_expander.SynonymExpander"
         ) as MockExpander:
             MockExpander.expand_keywords.return_value = ["工務局"]
             MockExpander.find_synonyms.return_value = []
@@ -67,7 +67,7 @@ class TestExpandSearchTerms:
     async def test_knowledge_graph_expansion(self, mock_db):
         """知識圖譜層擴展（別名/正規名稱）"""
         with patch(
-            "app.services.ai.synonym_expander.SynonymExpander"
+            "app.services.ai.search.synonym_expander.SynonymExpander"
         ) as MockExpander:
             MockExpander.expand_keywords.return_value = ["桃園市政府"]
             MockExpander.find_synonyms.return_value = []
@@ -106,7 +106,7 @@ class TestExpandSearchTerms:
     async def test_short_term_skipped_in_knowledge_graph(self, mock_db):
         """短詞（< MIN_TERM_LENGTH）跳過知識圖譜擴展"""
         with patch(
-            "app.services.ai.synonym_expander.SynonymExpander"
+            "app.services.ai.search.synonym_expander.SynonymExpander"
         ) as MockExpander:
             MockExpander.expand_keywords.return_value = ["A"]
             MockExpander.find_synonyms.return_value = []
@@ -121,7 +121,7 @@ class TestExpandSearchTerms:
     async def test_synonym_layer_failure_graceful(self, mock_db):
         """SynonymExpander 失敗時優雅降級"""
         with patch(
-            "app.services.ai.synonym_expander.SynonymExpander",
+            "app.services.ai.search.synonym_expander.SynonymExpander",
             side_effect=ImportError("module not found"),
         ):
             empty_result = MagicMock()

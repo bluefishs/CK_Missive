@@ -20,7 +20,7 @@ from app.extended.models import (
     DocumentEntity,
 )
 from app.repositories.relation_graph_repository import RelationGraphRepository
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 from app.schemas.ai.graph import (
     GraphNode,
     GraphEdge,

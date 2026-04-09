@@ -20,7 +20,7 @@ class TestToolResultGuard:
     """Tool Result Guard — 對標 OpenClaw session-tool-result-guard"""
 
     def _guard(self):
-        from app.services.ai.agent_tools import ToolResultGuard
+        from app.services.ai.agent.agent_tools import ToolResultGuard
         return ToolResultGuard
 
     def test_guard_search_documents_timeout(self):
@@ -80,7 +80,7 @@ class TestToolResultGuard:
         """確認所有已知工具都有守衛模板（skill_ 前綴工具動態處理，不需模板）"""
         Guard = self._guard()
         # 確認守衛模板覆蓋所有非 skill 的已註冊工具
-        from app.services.ai.agent_tools import VALID_TOOL_NAMES
+        from app.services.ai.agent.agent_tools import VALID_TOOL_NAMES
         non_skill_tools = {n for n in VALID_TOOL_NAMES if not n.startswith("skill_")}
         assert set(Guard._GUARD_TEMPLATES.keys()) == non_skill_tools
 
@@ -94,7 +94,7 @@ class TestAdaptiveFewshot:
 
     @pytest.mark.asyncio
     async def test_build_adaptive_fewshot_with_traces(self):
-        from app.services.ai.agent_planner import AgentPlanner
+        from app.services.ai.agent.agent_planner import AgentPlanner
 
         mock_ai = AsyncMock()
         config = MagicMock()
@@ -128,7 +128,7 @@ class TestAdaptiveFewshot:
 
     @pytest.mark.asyncio
     async def test_build_adaptive_fewshot_no_traces(self):
-        from app.services.ai.agent_planner import AgentPlanner
+        from app.services.ai.agent.agent_planner import AgentPlanner
 
         mock_ai = AsyncMock()
         config = MagicMock()
@@ -165,7 +165,7 @@ class TestSelfReflection:
 
     @pytest.mark.asyncio
     async def test_high_score_no_retry(self):
-        from app.services.ai.tool_result_formatter import self_reflect
+        from app.services.ai.tools.tool_result_formatter import self_reflect
 
         mock_ai = AsyncMock()
         mock_ai.chat_completion = AsyncMock(
@@ -184,7 +184,7 @@ class TestSelfReflection:
 
     @pytest.mark.asyncio
     async def test_low_score_with_issues(self):
-        from app.services.ai.tool_result_formatter import self_reflect
+        from app.services.ai.tools.tool_result_formatter import self_reflect
 
         mock_ai = AsyncMock()
         mock_ai.chat_completion = AsyncMock(
@@ -203,7 +203,7 @@ class TestSelfReflection:
 
     @pytest.mark.asyncio
     async def test_timeout_returns_safe_default(self):
-        from app.services.ai.tool_result_formatter import self_reflect
+        from app.services.ai.tools.tool_result_formatter import self_reflect
 
         mock_ai = AsyncMock()
         mock_ai.chat_completion = AsyncMock(
@@ -219,7 +219,7 @@ class TestSelfReflection:
 
     @pytest.mark.asyncio
     async def test_invalid_json_returns_safe_default(self):
-        from app.services.ai.tool_result_formatter import self_reflect
+        from app.services.ai.tools.tool_result_formatter import self_reflect
 
         mock_ai = AsyncMock()
         mock_ai.chat_completion = AsyncMock(return_value="not json")
@@ -240,7 +240,7 @@ class TestMemoryFlush:
     """Memory Flush — 對標 OpenClaw memory-flush pre-compaction"""
 
     def _make_summarizer(self):
-        from app.services.ai.agent_summarizer import ConversationSummarizer
+        from app.services.ai.agent.agent_summarizer import ConversationSummarizer
         return ConversationSummarizer(trigger_turns=3, max_chars=500, keep_recent=2)
 
     @pytest.mark.asyncio
@@ -263,7 +263,7 @@ class TestMemoryFlush:
             {"role": "assistant", "content": "找到 3 筆公文..."},
         ] * 4  # 8 messages
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             mock_config.return_value.memory_flush_enabled = True
             mock_config.return_value.memory_flush_max_learnings = 10
             mock_config.return_value.memory_flush_learnings_ttl = 86400
@@ -283,7 +283,7 @@ class TestMemoryFlush:
 
         mock_ai = AsyncMock()
 
-        with patch("app.services.ai.ai_config.get_ai_config") as mock_config:
+        with patch("app.services.ai.core.ai_config.get_ai_config") as mock_config:
             mock_config.return_value.memory_flush_enabled = False
 
             await summarizer.extract_and_flush_learnings("sess-1", [], mock_ai)

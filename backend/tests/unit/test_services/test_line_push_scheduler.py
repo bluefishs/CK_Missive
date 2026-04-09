@@ -8,7 +8,7 @@ Created: 2026-03-15
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.proactive_triggers import TriggerAlert
+from app.services.ai.proactive.proactive_triggers import TriggerAlert
 
 
 # ── Test Data ──

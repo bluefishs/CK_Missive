@@ -257,7 +257,7 @@ class AgentTrace:
     async def flush_to_monitor(self) -> None:
         """將工具呼叫資料推送至 ToolSuccessMonitor"""
         try:
-            from app.services.ai.agent_tool_monitor import get_tool_monitor
+            from app.services.ai.agent.agent_tool_monitor import get_tool_monitor
 
             monitor = get_tool_monitor()
             for span in self.spans:

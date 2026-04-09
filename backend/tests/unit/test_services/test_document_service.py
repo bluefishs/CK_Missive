@@ -495,7 +495,7 @@ class TestImportDocuments:
         with patch.object(service, '_get_or_create_agency_id', new_callable=AsyncMock, return_value=1), \
              patch.object(service, '_get_or_create_project_id', new_callable=AsyncMock, return_value=None), \
              patch.object(service, '_get_next_auto_serial', new_callable=AsyncMock, return_value='R0001'), \
-             patch('app.services.ai.extraction_scheduler.notify_new_documents'):
+             patch('app.services.ai.document.extraction_scheduler.notify_new_documents'):
 
             docs_to_import = [
                 {

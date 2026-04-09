@@ -47,7 +47,7 @@ from app.schemas.ai.rag import (
     AgentV1Response,
     detect_request_format,
 )
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ def _verify_service_token(
 def _get_tool_names(limit: int = 15) -> List[str]:
     """取得 Agent 可用工具名稱清單（安全降級）"""
     try:
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
         registry = get_tool_registry()
         return registry.get_tool_names_by_priority(top_n=limit)
     except Exception:
@@ -206,7 +206,7 @@ async def _try_inject_handoff(
         return history
 
     try:
-        from app.services.ai.agent_conversation_memory import ConversationMemory
+        from app.services.ai.agent.agent_conversation_memory import ConversationMemory
         memory = ConversationMemory()
         handoff = await memory.get_session_handoff(session_id)
         if not handoff:
@@ -319,7 +319,7 @@ async def agent_query_sync(
     history = await _try_inject_handoff(session_id, history)
 
     # --- 4) 執行 Agent 查詢 ---
-    from app.services.ai.nemoclaw_agent import NemoClawAgent
+    from app.services.ai.misc.nemoclaw_agent import NemoClawAgent
 
     agent = NemoClawAgent(db)
 

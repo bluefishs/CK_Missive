@@ -22,7 +22,7 @@ from app.schemas.ai.entity import (
     EntityBatchResponse,
     EntityStatsResponse,
 )
-from app.services.ai.entity_extraction_service import (
+from app.services.ai.document.entity_extraction_service import (
     extract_entities_for_document,
     get_entity_stats,
     get_pending_extraction_count,
@@ -114,7 +114,7 @@ async def trigger_ner_scheduler(
     current_user: User = Depends(require_admin()),
 ):
     """手動觸發 NER 排程器立即執行一次批次提取"""
-    from app.services.ai.extraction_scheduler import get_extraction_scheduler
+    from app.services.ai.document.extraction_scheduler import get_extraction_scheduler
 
     scheduler = get_extraction_scheduler()
     if scheduler is None or not scheduler.is_running:
@@ -133,7 +133,7 @@ async def get_ner_scheduler_status(
     current_user: User = Depends(require_admin()),
 ):
     """取得 NER 排程器狀態"""
-    from app.services.ai.extraction_scheduler import get_extraction_scheduler
+    from app.services.ai.document.extraction_scheduler import get_extraction_scheduler
 
     scheduler = get_extraction_scheduler()
     if scheduler is None:

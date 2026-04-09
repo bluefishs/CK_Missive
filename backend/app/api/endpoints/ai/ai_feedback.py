@@ -73,7 +73,7 @@ async def submit_feedback(
         # Phase 1B: 正面回饋 → 圖譜置信度升級（品質閉環）
         if request.score == 1:
             try:
-                from app.services.ai.graph_query_service import GraphQueryService
+                from app.services.ai.graph.graph_query_service import GraphQueryService
                 from app.extended.models.knowledge_graph import EntityRelationship
                 from sqlalchemy import update as sql_update
 
@@ -175,7 +175,7 @@ async def get_analytics_overview(
         # 1. AI 功能使用量 (from AIStatsManager)
         ai_feature_usage = {}
         try:
-            from app.services.ai.base_ai_service import BaseAIService
+            from app.services.ai.core.base_ai_service import BaseAIService
             stats = await BaseAIService.get_stats()
             ai_feature_usage = stats.get("by_feature", {})
         except Exception as e:

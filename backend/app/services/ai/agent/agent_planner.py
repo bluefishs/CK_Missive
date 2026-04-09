@@ -20,20 +20,20 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from app.services.ai.tool_registry import get_tool_registry
-from app.services.ai.agent_utils import sanitize_history
-from app.services.ai.agent_auto_corrector import auto_correct_plan
-from app.services.ai.agent_learning_injector import (
+from app.services.ai.tools.tool_registry import get_tool_registry
+from app.services.ai.core.agent_utils import sanitize_history
+from app.services.ai.agent.agent_auto_corrector import auto_correct_plan
+from app.services.ai.agent.agent_learning_injector import (
     build_adaptive_fewshot,
     cosine_similarity,
     inject_cross_session_learnings,
 )
-from app.services.ai.agent_plan_enricher import (
+from app.services.ai.agent.agent_plan_enricher import (
     merge_hints_into_plan,
     build_forced_calls,
     build_fallback_plan,
 )
-from app.services.ai.agent_intent_preprocessor import (
+from app.services.ai.agent.agent_intent_preprocessor import (
     preprocess_question as _preprocess_question_impl,
 )
 
@@ -189,7 +189,7 @@ class AgentPlanner:
         capability_hint = ""
         if db:
             try:
-                from app.services.ai.agent_capability_tracker import get_capability_profile_cached
+                from app.services.ai.agent.agent_capability_tracker import get_capability_profile_cached
                 profile = await get_capability_profile_cached(db)
                 weaknesses = profile.get("weaknesses", [])
                 if weaknesses and isinstance(weaknesses, list):
@@ -240,7 +240,7 @@ class AgentPlanner:
         except Exception as e:
             logger.debug("Tool discovery skipped: %s", e)
 
-        from app.services.ai.agent_roles import get_role_profile
+        from app.services.ai.agent.agent_roles import get_role_profile
         role = get_role_profile(context)
 
         system_prompt = f"""你是「{role.identity}」。根據使用者問題，決定需要呼叫哪些工具來回答。
@@ -300,7 +300,7 @@ class AgentPlanner:
             )
             logger.info("Agent planning LLM call: %dms", int((time.time() - t_plan) * 1000))
 
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
             plan = parse_json_safe(response)
 
             # 解析失敗時初始化空計劃
@@ -426,7 +426,7 @@ class AgentPlanner:
         used_tools = {tr["tool"] for tr in tool_results}
         available_unused = [t for t in tool_names if t not in used_tools]
 
-        from app.services.ai.agent_roles import get_role_profile
+        from app.services.ai.agent.agent_roles import get_role_profile
         role = get_role_profile(context)
 
         system_prompt = f"""你是「{role.identity}」，正在進行多步推理來回答使用者的問題。
@@ -468,7 +468,7 @@ class AgentPlanner:
             )
             logger.info("ReAct LLM call: %dms", int((time.time() - t0) * 1000))
 
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
             decision = parse_json_safe(response)
 
             if not decision:

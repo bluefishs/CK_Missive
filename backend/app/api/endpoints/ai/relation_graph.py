@@ -21,7 +21,7 @@ from app.schemas.ai.graph import (
     SemanticSimilarRequest,
     SemanticSimilarResponse,
 )
-from app.services.ai.relation_graph_service import RelationGraphService
+from app.services.ai.graph.relation_graph_service import RelationGraphService
 
 logger = logging.getLogger(__name__)
 

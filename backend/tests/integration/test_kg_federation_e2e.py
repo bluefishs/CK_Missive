@@ -114,7 +114,7 @@ class TestFederatedContribute:
     async def test_contribute_success(self, client):
         """正常貢獻 — 應回傳 resolved 結果."""
         with patch(
-            "app.services.ai.cross_domain_contribution_service.CrossDomainContributionService.process_contribution",
+            "app.services.ai.domain.cross_domain_contribution_service.CrossDomainContributionService.process_contribution",
         ) as mock_process:
             from app.schemas.knowledge_graph import (
                 FederatedContributionResponse,
@@ -142,8 +142,8 @@ class TestFederatedContribute:
 
             # Also mock the linker and cache invalidation
             with (
-                patch("app.services.ai.cross_domain_linker.CrossDomainLinker") as mock_linker_cls,
-                patch("app.services.ai.graph_helpers.invalidate_graph_cache", new_callable=AsyncMock),
+                patch("app.services.ai.domain.cross_domain_linker.CrossDomainLinker") as mock_linker_cls,
+                patch("app.services.ai.graph.graph_helpers.invalidate_graph_cache", new_callable=AsyncMock),
             ):
                 mock_linker = AsyncMock()
                 mock_linker.run_all_rules = AsyncMock(return_value=MagicMock(
@@ -169,10 +169,10 @@ class TestFederatedContribute:
         """使用 previous token 認證 — 應接受 (雙令牌機制)."""
         with (
             patch(
-                "app.services.ai.cross_domain_contribution_service.CrossDomainContributionService.process_contribution",
+                "app.services.ai.domain.cross_domain_contribution_service.CrossDomainContributionService.process_contribution",
             ) as mock_process,
-            patch("app.services.ai.cross_domain_linker.CrossDomainLinker") as mock_linker_cls,
-            patch("app.services.ai.graph_helpers.invalidate_graph_cache", new_callable=AsyncMock),
+            patch("app.services.ai.domain.cross_domain_linker.CrossDomainLinker") as mock_linker_cls,
+            patch("app.services.ai.graph.graph_helpers.invalidate_graph_cache", new_callable=AsyncMock),
         ):
             from app.schemas.knowledge_graph import FederatedContributionResponse
             mock_process.return_value = FederatedContributionResponse(success=True, resolved=[], relations_created=0)
@@ -230,7 +230,7 @@ class TestFederationHealth:
     async def test_federation_health_success(self, client):
         """聯邦健康指標 — 應回傳各專案狀態."""
         with patch(
-            "app.services.ai.graph_statistics_service.GraphStatisticsService.get_federation_health",
+            "app.services.ai.graph.graph_statistics_service.GraphStatisticsService.get_federation_health",
         ) as mock_health:
             mock_health.return_value = {
                 "projects": [

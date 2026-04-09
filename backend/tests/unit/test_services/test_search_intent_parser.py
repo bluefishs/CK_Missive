@@ -13,7 +13,7 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
 from app.schemas.ai.search import ParsedSearchIntent
-from app.services.ai.search_intent_parser import SearchIntentParser
+from app.services.ai.search.search_intent_parser import SearchIntentParser
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def mock_ai():
 
 @pytest.fixture
 def parser(mock_ai):
-    with patch("app.services.ai.rule_engine.get_rule_engine") as mock_get:
+    with patch("app.services.ai.search.rule_engine.get_rule_engine") as mock_get:
         mock_engine = MagicMock()
         mock_engine.HIGH_CONFIDENCE_THRESHOLD = 0.85
         mock_get.return_value = mock_engine
@@ -91,7 +91,7 @@ class TestPostProcessIntent:
     def test_dispatch_entity_detection(self, parser):
         """自動偵測派工單關鍵字"""
         intent = ParsedSearchIntent(keywords=["派工單", "道路"], confidence=0.8)
-        with patch("app.services.ai.synonym_expander.SynonymExpander.expand_keywords",
+        with patch("app.services.ai.search.synonym_expander.SynonymExpander.expand_keywords",
                    return_value=["派工單", "道路"]):
             result = parser._post_process_intent(intent)
             assert result.related_entity == "dispatch_order"
@@ -103,7 +103,7 @@ class TestPostProcessIntent:
             keywords=["工務局", "工務局", "道路", "道路"],
             confidence=0.8,
         )
-        with patch("app.services.ai.synonym_expander.SynonymExpander.expand_keywords",
+        with patch("app.services.ai.search.synonym_expander.SynonymExpander.expand_keywords",
                    return_value=["工務局", "工務局", "道路", "道路"]):
             result = parser._post_process_intent(intent)
             assert len(result.keywords) == 2
@@ -111,7 +111,7 @@ class TestPostProcessIntent:
     def test_fallback_to_original_query(self, parser):
         """無有效條件時回退原始查詢"""
         intent = ParsedSearchIntent(confidence=0.3)
-        with patch("app.services.ai.synonym_expander.SynonymExpander.expand_keywords",
+        with patch("app.services.ai.search.synonym_expander.SynonymExpander.expand_keywords",
                    side_effect=lambda x: x):
             result = parser._post_process_intent(intent, original_query="測試查詢")
             assert result.keywords == ["測試查詢"]
@@ -119,7 +119,7 @@ class TestPostProcessIntent:
     def test_agency_expansion(self, parser):
         """機關名稱擴展"""
         intent = ParsedSearchIntent(sender="工務局", confidence=0.8)
-        with patch("app.services.ai.synonym_expander.SynonymExpander.expand_agency",
+        with patch("app.services.ai.search.synonym_expander.SynonymExpander.expand_agency",
                    return_value="桃園市政府工務局"):
             result = parser._post_process_intent(intent)
             assert result.sender == "桃園市政府工務局"
@@ -129,7 +129,7 @@ class TestPostProcessIntent:
         intent = ParsedSearchIntent(
             sender="工務局", confidence=0.5,
         )
-        with patch("app.services.ai.synonym_expander.SynonymExpander.expand_agency",
+        with patch("app.services.ai.search.synonym_expander.SynonymExpander.expand_agency",
                    return_value="工務局"):
             result = parser._post_process_intent(intent, original_query="工務局 道路改善")
             # 應補充非結構化的部分
@@ -148,9 +148,9 @@ class TestParseSearchIntent:
         )
         parser._rule_engine.match = MagicMock(return_value=rule_result)
 
-        with patch("app.services.ai.synonym_expander.SynonymExpander.expand_keywords",
+        with patch("app.services.ai.search.synonym_expander.SynonymExpander.expand_keywords",
                    side_effect=lambda x: x), \
-             patch("app.services.ai.synonym_expander.SynonymExpander.expand_agency",
+             patch("app.services.ai.search.synonym_expander.SynonymExpander.expand_agency",
                    side_effect=lambda x: x):
             intent, source = await parser.parse_search_intent("派工單")
             assert source == "rule_engine"

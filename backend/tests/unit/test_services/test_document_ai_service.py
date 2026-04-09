@@ -16,8 +16,8 @@ DocumentAIService 單元測試
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.document_ai_service import DocumentAIService
-from app.services.ai.document_search_helpers import resolve_search_entities
+from app.services.ai.document.document_ai_service import DocumentAIService
+from app.services.ai.document.document_search_helpers import resolve_search_entities
 
 
 # ============================================================
@@ -55,9 +55,9 @@ def _mock_get_system_prompt(key):
 @pytest.fixture
 def service(mock_ai_config):
     """建立 DocumentAIService，mock 所有外部依賴"""
-    with patch("app.services.ai.document_ai_service.AIPromptManager") as MockPM, \
-         patch("app.services.ai.document_ai_service.get_ai_config", return_value=mock_ai_config), \
-         patch("app.services.ai.base_ai_service.get_ai_config", return_value=mock_ai_config):
+    with patch("app.services.ai.document.document_ai_service.AIPromptManager") as MockPM, \
+         patch("app.services.ai.document.document_ai_service.get_ai_config", return_value=mock_ai_config), \
+         patch("app.services.ai.core.base_ai_service.get_ai_config", return_value=mock_ai_config):
 
         # Mock prompt manager
         MockPM.load_prompts = MagicMock()

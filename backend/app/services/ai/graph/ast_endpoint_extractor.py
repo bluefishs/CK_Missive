@@ -13,7 +13,7 @@ import logging
 from pathlib import PurePosixPath
 from typing import List, Optional
 
-from app.services.ai.code_graph_types import CodeEntity, CodeRelation
+from app.services.ai.graph.code_graph_types import CodeEntity, CodeRelation
 
 logger = logging.getLogger(__name__)
 

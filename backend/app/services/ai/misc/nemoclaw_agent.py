@@ -23,8 +23,8 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ai_connector import get_ai_connector
-from app.services.ai.agent_orchestrator import AgentOrchestrator
-from app.services.ai.agent_utils import sse
+from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
+from app.services.ai.core.agent_utils import sse
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,8 @@ class NemoClawAgent:
         user_prefs = {}
 
         try:
-            from app.services.ai.agent_self_profile import get_self_profile
-            from app.services.ai.agent_proactive_scanner import scan_agent_alerts
+            from app.services.ai.agent.agent_self_profile import get_self_profile
+            from app.services.ai.agent.agent_proactive_scanner import scan_agent_alerts
 
             profile_task = asyncio.create_task(get_self_profile(self.db))
             alerts_task = asyncio.create_task(scan_agent_alerts(self.db))
@@ -75,7 +75,7 @@ class NemoClawAgent:
             # 載入用戶偏好
             if session_id:
                 try:
-                    from app.services.ai.user_preference_extractor import load_preferences
+                    from app.services.ai.misc.user_preference_extractor import load_preferences
                     user_prefs = await load_preferences(session_id)
                 except Exception:
                     pass

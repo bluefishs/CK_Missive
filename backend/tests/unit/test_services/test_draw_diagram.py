@@ -15,9 +15,9 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.agent_tools import AgentToolExecutor
-from app.services.ai.tool_executor_analysis import AnalysisToolExecutor
-from app.services.ai.agent_diagram_builder import (
+from app.services.ai.agent.agent_tools import AgentToolExecutor
+from app.services.ai.tools.tool_executor_analysis import AnalysisToolExecutor
+from app.services.ai.agent.agent_diagram_builder import (
     build_er_diagram,
     build_dependency_graph,
     build_flowchart,

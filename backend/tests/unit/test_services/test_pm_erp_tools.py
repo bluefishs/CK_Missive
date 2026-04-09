@@ -19,7 +19,7 @@ class TestToolRegistryExpansion:
     """驗證 ToolRegistry 包含 18 個工具"""
 
     def test_registry_has_at_least_26_manual_tools(self):
-        from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
+        from app.services.ai.tools.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
@@ -29,7 +29,7 @@ class TestToolRegistryExpansion:
         assert registry.get_tool_count() >= 26
 
     def test_pm_tools_registered(self):
-        from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
+        from app.services.ai.tools.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
@@ -37,7 +37,7 @@ class TestToolRegistryExpansion:
         assert pm_tools.issubset(registry.valid_tool_names)
 
     def test_erp_tools_registered(self):
-        from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
+        from app.services.ai.tools.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
@@ -45,7 +45,7 @@ class TestToolRegistryExpansion:
         assert erp_tools.issubset(registry.valid_tool_names)
 
     def test_pm_context_filter(self):
-        from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
+        from app.services.ai.tools.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
@@ -57,7 +57,7 @@ class TestToolRegistryExpansion:
         assert "get_contract_summary" in pm_names
 
     def test_erp_context_filter(self):
-        from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
+        from app.services.ai.tools.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
@@ -69,7 +69,7 @@ class TestToolRegistryExpansion:
         assert "search_projects" not in erp_names
 
     def test_no_context_returns_all(self):
-        from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
+        from app.services.ai.tools.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
@@ -77,7 +77,7 @@ class TestToolRegistryExpansion:
         assert len(all_names) >= 22
 
     def test_few_shot_exists_for_pm_erp(self):
-        from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
+        from app.services.ai.tools.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
@@ -95,7 +95,7 @@ class TestToolResultGuardExpansion:
     """驗證 ToolResultGuard 包含 PM/ERP 回退模板"""
 
     def test_guard_templates_cover_all_non_skill_tools(self):
-        from app.services.ai.agent_tools import ToolResultGuard, VALID_TOOL_NAMES
+        from app.services.ai.agent.agent_tools import ToolResultGuard, VALID_TOOL_NAMES
 
         for name in VALID_TOOL_NAMES:
             if name.startswith("skill_"):
@@ -103,7 +103,7 @@ class TestToolResultGuardExpansion:
             assert name in ToolResultGuard._GUARD_TEMPLATES, f"Missing guard for {name}"
 
     def test_pm_guard_search_projects(self):
-        from app.services.ai.agent_tools import ToolResultGuard
+        from app.services.ai.agent.agent_tools import ToolResultGuard
 
         result = ToolResultGuard.guard(
             "search_projects", {}, {"error": "timeout", "count": 0}
@@ -112,7 +112,7 @@ class TestToolResultGuardExpansion:
         assert result["projects"] == []
 
     def test_erp_guard_search_vendors(self):
-        from app.services.ai.agent_tools import ToolResultGuard
+        from app.services.ai.agent.agent_tools import ToolResultGuard
 
         result = ToolResultGuard.guard(
             "search_vendors", {}, {"error": "timeout", "count": 0}
@@ -121,7 +121,7 @@ class TestToolResultGuardExpansion:
         assert result["vendors"] == []
 
     def test_erp_guard_contract_summary(self):
-        from app.services.ai.agent_tools import ToolResultGuard
+        from app.services.ai.agent.agent_tools import ToolResultGuard
 
         result = ToolResultGuard.guard(
             "get_contract_summary", {}, {"error": "db error", "count": 0}
@@ -147,7 +147,7 @@ class TestPMQueryService:
         mock_result.scalars.return_value.all.return_value = []
         db.execute.return_value = mock_result
 
-        from app.services.ai.pm_query_service import PMQueryService
+        from app.services.ai.domain.pm_query_service import PMQueryService
         svc = PMQueryService(db)
         result = await svc.search_projects(keywords=["不存在"])
         assert result["count"] == 0
@@ -173,7 +173,7 @@ class TestPMQueryService:
         mock_result.scalars.return_value.all.return_value = [mock_project]
         db.execute.return_value = mock_result
 
-        from app.services.ai.pm_query_service import PMQueryService
+        from app.services.ai.domain.pm_query_service import PMQueryService
         svc = PMQueryService(db)
         result = await svc.search_projects(status="執行中")
         assert result["count"] == 1
@@ -186,7 +186,7 @@ class TestPMQueryService:
         mock_result.scalar_one_or_none.return_value = None
         db.execute.return_value = mock_result
 
-        from app.services.ai.pm_query_service import PMQueryService
+        from app.services.ai.domain.pm_query_service import PMQueryService
         svc = PMQueryService(db)
         result = await svc.get_project_detail(999)
         assert "error" in result
@@ -198,7 +198,7 @@ class TestPMQueryService:
         mock_result.scalar_one_or_none.return_value = None
         db.execute.return_value = mock_result
 
-        from app.services.ai.pm_query_service import PMQueryService
+        from app.services.ai.domain.pm_query_service import PMQueryService
         svc = PMQueryService(db)
         result = await svc.get_project_progress(999)
         assert "error" in result
@@ -220,7 +220,7 @@ class TestERPQueryService:
         mock_result.scalars.return_value.all.return_value = []
         db.execute.return_value = mock_result
 
-        from app.services.ai.erp_query_service import ERPQueryService
+        from app.services.ai.domain.erp_query_service import ERPQueryService
         svc = ERPQueryService(db)
         result = await svc.search_vendors(keywords=["不存在"])
         assert result["count"] == 0
@@ -242,7 +242,7 @@ class TestERPQueryService:
         mock_result.scalars.return_value.all.return_value = [mock_vendor]
         db.execute.return_value = mock_result
 
-        from app.services.ai.erp_query_service import ERPQueryService
+        from app.services.ai.domain.erp_query_service import ERPQueryService
         svc = ERPQueryService(db)
         result = await svc.search_vendors(keywords=["測量"])
         assert result["count"] == 1
@@ -255,7 +255,7 @@ class TestERPQueryService:
         mock_result.scalar_one_or_none.return_value = None
         db.execute.return_value = mock_result
 
-        from app.services.ai.erp_query_service import ERPQueryService
+        from app.services.ai.domain.erp_query_service import ERPQueryService
         svc = ERPQueryService(db)
         result = await svc.get_vendor_detail(999)
         assert "error" in result
@@ -294,7 +294,7 @@ class TestERPQueryService:
 
         db.execute.side_effect = [mock_stats_result, mock_status_result, mock_year_result]
 
-        from app.services.ai.erp_query_service import ERPQueryService
+        from app.services.ai.domain.erp_query_service import ERPQueryService
         svc = ERPQueryService(db)
         result = await svc.get_contract_summary()
         assert result["count"] == 1
@@ -309,6 +309,6 @@ class TestDispatchMapConsistency:
     """確認 dispatch_map 與 ToolRegistry 一致"""
 
     def test_dispatch_keys_match_non_skill_registry(self):
-        from app.services.ai.agent_tools import _DISPATCH_KEYS, VALID_TOOL_NAMES
+        from app.services.ai.agent.agent_tools import _DISPATCH_KEYS, VALID_TOOL_NAMES
         non_skill = {n for n in VALID_TOOL_NAMES if not n.startswith("skill_")}
         assert _DISPATCH_KEYS == non_skill

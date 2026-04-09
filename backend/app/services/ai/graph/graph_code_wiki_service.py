@@ -59,7 +59,7 @@ class GraphCodeWikiService:
             db_tables: 資料表 ERD 摘要
             summary: 總計數
         """
-        from app.services.ai.code_graph_service import CODE_GRAPH_LABEL
+        from app.services.ai.graph.code_graph_service import CODE_GRAPH_LABEL
 
         # 1. 載入所有模組實體
         mod_result = await self.db.execute(
@@ -158,7 +158,7 @@ class GraphCodeWikiService:
         limit: int,
     ) -> dict:
         """取得 Code Wiki 代碼圖譜（無快取）"""
-        from app.services.ai.code_graph_service import CODE_ENTITY_TYPES, CODE_GRAPH_LABEL
+        from app.services.ai.graph.code_graph_service import CODE_ENTITY_TYPES, CODE_GRAPH_LABEL
 
         types = entity_types or ["py_module"]
         valid_types = [t for t in types if t in CODE_ENTITY_TYPES]

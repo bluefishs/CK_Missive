@@ -50,8 +50,8 @@ class CanonicalEntityResolver:
             return None
 
         try:
-            from app.services.ai.embedding_manager import EmbeddingManager
-            from app.services.ai.ai_config import AIConfig
+            from app.services.ai.core.embedding_manager import EmbeddingManager
+            from app.services.ai.core.ai_config import AIConfig
 
             if not await EmbeddingManager.is_available():
                 return None
@@ -101,7 +101,7 @@ class CanonicalEntityResolver:
         self.db.add(entity)
         await self.db.flush()
         try:
-            from app.services.ai.graph_query_service import invalidate_graph_cache
+            from app.services.ai.graph.graph_query_service import invalidate_graph_cache
             await invalidate_graph_cache("entity_graph:*")
         except Exception:
             pass
@@ -169,7 +169,7 @@ class CanonicalEntityResolver:
         )
 
         try:
-            from app.services.ai.graph_query_service import invalidate_graph_cache
+            from app.services.ai.graph.graph_query_service import invalidate_graph_cache
             await invalidate_graph_cache("entity_graph:*")
         except Exception:
             pass

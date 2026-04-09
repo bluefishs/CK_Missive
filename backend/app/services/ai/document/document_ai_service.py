@@ -23,10 +23,10 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.ai_config import get_ai_config
-from app.services.ai.ai_prompt_manager import AIPromptManager
-from app.services.ai.base_ai_service import BaseAIService
-from app.services.ai.search_intent_parser import SearchIntentParser
+from app.services.ai.core.ai_config import get_ai_config
+from app.services.ai.core.ai_prompt_manager import AIPromptManager
+from app.services.ai.core.base_ai_service import BaseAIService
+from app.services.ai.search.search_intent_parser import SearchIntentParser
 from app.schemas.ai.search import (
     ClassificationResponse,
     KeywordsValidationResponse,
@@ -352,7 +352,7 @@ class DocumentAIService(BaseAIService):
         current_user: Optional[Any] = None,
     ) -> NaturalSearchResponse:
         """執行自然語言公文搜尋（含韌性降級）"""
-        from app.services.ai.document_natural_search import execute_natural_search
+        from app.services.ai.search.document_natural_search import execute_natural_search
         return await execute_natural_search(self, db, request, current_user)
 
 

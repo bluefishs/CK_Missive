@@ -13,8 +13,8 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.agent_orchestrator import AgentOrchestrator
-from app.services.ai.agent_utils import collect_sources
+from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
+from app.services.ai.core.agent_utils import collect_sources
 
 
 # ── Fixtures ──
@@ -28,10 +28,10 @@ def mock_db():
 
 def make_orchestrator(mock_db):
     """建立帶 mock 依賴的 orchestrator"""
-    with patch("app.services.ai.agent_orchestrator.get_ai_connector") as mock_ai_fn, \
-         patch("app.services.ai.agent_orchestrator.get_ai_config") as mock_config_fn, \
-         patch("app.services.ai.agent_orchestrator.EmbeddingManager") as mock_emb_cls, \
-         patch("app.services.ai.base_ai_service.get_rate_limiter") as mock_rl_fn:
+    with patch("app.services.ai.agent.agent_orchestrator.get_ai_connector") as mock_ai_fn, \
+         patch("app.services.ai.agent.agent_orchestrator.get_ai_config") as mock_config_fn, \
+         patch("app.services.ai.agent.agent_orchestrator.EmbeddingManager") as mock_emb_cls, \
+         patch("app.services.ai.core.base_ai_service.get_rate_limiter") as mock_rl_fn:
 
         mock_ai = AsyncMock()
         mock_ai_fn.return_value = mock_ai
@@ -253,7 +253,7 @@ class TestStreamAgentQuery:
 
         events = []
         # 使用含業務關鍵字的問題，避免被閒聊偵測攔截
-        with patch("app.services.ai.agent_orchestrator.stream_fallback_rag", mock_rag):
+        with patch("app.services.ai.agent.agent_orchestrator.stream_fallback_rag", mock_rag):
             async for event in orchestrator.stream_agent_query("公文管理系統的一般問題"):
                 events.append(event)
 
@@ -380,8 +380,8 @@ class TestStreamAgentQuery:
 
         events = []
         with (
-            patch("app.services.ai.agent_orchestrator.AgentSupervisor") as mock_sup_cls,
-            patch("app.services.ai.agent_orchestrator.run_post_synthesis", new_callable=AsyncMock, return_value=[]),
+            patch("app.services.ai.agent.agent_orchestrator.AgentSupervisor") as mock_sup_cls,
+            patch("app.services.ai.agent.agent_orchestrator.run_post_synthesis", new_callable=AsyncMock, return_value=[]),
         ):
             mock_sup_cls.return_value.is_multi_domain.return_value = False
             async for event in orchestrator.stream_agent_query("道路工程相關公文和派工"):

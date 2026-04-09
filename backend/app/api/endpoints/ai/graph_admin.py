@@ -19,8 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin, get_async_db
 from app.extended.models import User
-from app.services.ai.graph_ingestion_pipeline import GraphIngestionPipeline
-from app.services.ai.canonical_entity_service import CanonicalEntityService
+from app.services.ai.graph.graph_ingestion_pipeline import GraphIngestionPipeline
+from app.services.ai.graph.canonical_entity_service import CanonicalEntityService
 from app.schemas.knowledge_graph import (
     KGIngestRequest,
     KGIngestResponse,
@@ -76,7 +76,7 @@ async def analyze_diff_impact(
 
     🔒 權限要求: Admin
     """
-    from app.services.ai.diff_impact_analyzer import DiffImpactAnalyzer
+    from app.services.ai.misc.diff_impact_analyzer import DiffImpactAnalyzer
 
     analyzer = DiffImpactAnalyzer(db)
     try:
@@ -103,7 +103,7 @@ async def centrality_analysis(
 
     🔒 權限要求: Admin
     """
-    from app.services.ai.graph_statistics_service import GraphStatisticsService
+    from app.services.ai.graph.graph_statistics_service import GraphStatisticsService
 
     svc = GraphStatisticsService(db)
     try:
@@ -135,7 +135,7 @@ async def export_obsidian_vault(
     import tempfile
 
     from fastapi.responses import StreamingResponse
-    from app.services.ai.obsidian_exporter import export_vault
+    from app.services.ai.graph.obsidian_exporter import export_vault
 
     tmpdir = tempfile.mkdtemp(prefix="obsidian_vault_")
     try:
@@ -355,7 +355,7 @@ async def trigger_erp_graph_ingest(
     掃描 ERP 表 (quotation/expense/asset/vendor) → canonical_entities，
     自動建立 case_code 跨圖橋接。
     """
-    from app.services.ai.erp_graph_ingest import ErpGraphIngestService
+    from app.services.ai.graph.erp_graph_ingest import ErpGraphIngestService
 
     service = ErpGraphIngestService(db)
     stats = await service.ingest_all()

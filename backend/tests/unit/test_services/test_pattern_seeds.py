@@ -14,8 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.ai.agent_pattern_learner import QueryPatternLearner
-from app.services.ai.pattern_seeds import SEED_PATTERNS
+from app.services.ai.agent.agent_pattern_learner import QueryPatternLearner
+from app.services.ai.agent.pattern_seeds import SEED_PATTERNS
 
 
 class TestSeedPatterns:
@@ -36,7 +36,7 @@ class TestSeedPatterns:
 
     def test_seed_tools_are_valid(self):
         """種子使用的工具名稱都是合法的"""
-        from app.services.ai.tool_registry import get_tool_registry
+        from app.services.ai.tools.tool_registry import get_tool_registry
 
         registry = get_tool_registry()
         valid_names = registry.valid_tool_names

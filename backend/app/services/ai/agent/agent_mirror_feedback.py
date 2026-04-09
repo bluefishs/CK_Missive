@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.agent_trace import AgentQueryTrace
 from app.extended.models.agent_learning import AgentLearning
-from app.services.ai.agent_capability_tracker import (
+from app.services.ai.agent.agent_capability_tracker import (
     get_capability_profile,
     _compute_trace_score,
 )

@@ -29,7 +29,7 @@ from app.schemas.knowledge_graph import (
     RelationContribution,
     ResolvedEntity,
 )
-from app.services.ai.canonical_entity_service import CanonicalEntityService
+from app.services.ai.graph.canonical_entity_service import CanonicalEntityService
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +246,7 @@ class CrossDomainContributionService:
             return
 
         try:
-            from app.services.ai.embedding_manager import EmbeddingManager
+            from app.services.ai.core.embedding_manager import EmbeddingManager
             if not await EmbeddingManager.is_available():
                 return
         except Exception:
@@ -306,13 +306,13 @@ class CrossDomainContributionService:
             return {"processed": 0, "embedded": 0, "skipped": 0, "reason": "pgvector disabled"}
 
         try:
-            from app.services.ai.embedding_manager import EmbeddingManager
+            from app.services.ai.core.embedding_manager import EmbeddingManager
             if not await EmbeddingManager.is_available():
                 return {"processed": 0, "embedded": 0, "skipped": 0, "reason": "embedding unavailable"}
         except Exception:
             return {"processed": 0, "embedded": 0, "skipped": 0, "reason": "embedding init error"}
 
-        from app.services.ai.graph_helpers import _CODE_ENTITY_TYPES
+        from app.services.ai.graph.graph_helpers import _CODE_ENTITY_TYPES
 
         result = await self.db.execute(
             select(CanonicalEntity)

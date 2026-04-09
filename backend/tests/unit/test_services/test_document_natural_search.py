@@ -19,7 +19,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from app.services.ai.document_natural_search import (
+from app.services.ai.search.document_natural_search import (
     execute_natural_search,
     _parse_intent_safe,
     _expand_entities,
@@ -108,7 +108,7 @@ class TestParseIntentSafe:
 
         mock_service.parse_search_intent = slow_parse
 
-        with patch("app.services.ai.document_natural_search.asyncio.wait_for",
+        with patch("app.services.ai.search.document_natural_search.asyncio.wait_for",
                     side_effect=asyncio.TimeoutError()):
             intent, source = await _parse_intent_safe(mock_service, "slow query", mock_db)
 
@@ -145,8 +145,8 @@ class TestExpandEntities:
         assert expanded is False
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.search_entity_expander.expand_search_terms")
-    @patch("app.services.ai.search_entity_expander.flatten_expansions")
+    @patch("app.services.ai.search.search_entity_expander.expand_search_terms")
+    @patch("app.services.ai.search.search_entity_expander.flatten_expansions")
     async def test_successful_expansion(self, mock_flatten, mock_expand, mock_db):
         mock_expand.return_value = {"桃園": ["桃園市政府", "桃園市"]}
         mock_flatten.return_value = ["桃園", "桃園市政府", "桃園市"]
@@ -157,7 +157,7 @@ class TestExpandEntities:
         assert len(result_kw) == 3
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.search_entity_expander.expand_search_terms", side_effect=ImportError("module not found"))
+    @patch("app.services.ai.search.search_entity_expander.expand_search_terms", side_effect=ImportError("module not found"))
     async def test_expansion_error_graceful(self, mock_expand, mock_db):
         """擴展失敗應不影響流程"""
         expanded, expanded_list, result_kw = await _expand_entities(mock_db, ["桃園"])
@@ -383,11 +383,11 @@ class TestExecuteNaturalSearch:
     """端對端整合測試"""
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.document_natural_search._write_search_history", new_callable=AsyncMock, return_value=1)
-    @patch("app.services.ai.document_natural_search.resolve_search_entities", new_callable=AsyncMock, return_value=[])
-    @patch("app.services.ai.document_natural_search._resolve_embedding", new_callable=AsyncMock, return_value=None)
-    @patch("app.services.ai.document_natural_search._expand_entities", new_callable=AsyncMock, return_value=(False, None, ["測試"]))
-    @patch("app.services.ai.document_natural_search._parse_intent_safe")
+    @patch("app.services.ai.search.document_natural_search._write_search_history", new_callable=AsyncMock, return_value=1)
+    @patch("app.services.ai.search.document_natural_search.resolve_search_entities", new_callable=AsyncMock, return_value=[])
+    @patch("app.services.ai.search.document_natural_search._resolve_embedding", new_callable=AsyncMock, return_value=None)
+    @patch("app.services.ai.search.document_natural_search._expand_entities", new_callable=AsyncMock, return_value=(False, None, ["測試"]))
+    @patch("app.services.ai.search.document_natural_search._parse_intent_safe")
     async def test_full_pipeline_success(
         self, mock_parse, mock_expand, mock_embedding, mock_resolve, mock_history,
         mock_db, mock_service,
@@ -401,10 +401,10 @@ class TestExecuteNaturalSearch:
         mock_qb.limit.return_value = mock_qb
         mock_qb.execute_with_count = AsyncMock(return_value=(docs, 1))
 
-        with patch("app.services.ai.document_natural_search._build_query", return_value=mock_qb):
-            with patch("app.services.ai.document_natural_search._fetch_attachments",
+        with patch("app.services.ai.search.document_natural_search._build_query", return_value=mock_qb):
+            with patch("app.services.ai.search.document_natural_search._fetch_attachments",
                         new_callable=AsyncMock, return_value={1: []}):
-                with patch("app.services.ai.document_natural_search._fetch_projects",
+                with patch("app.services.ai.search.document_natural_search._fetch_projects",
                             new_callable=AsyncMock, return_value={}):
                     from app.schemas.ai.search import NaturalSearchRequest
                     request = MagicMock(spec=NaturalSearchRequest)
@@ -420,8 +420,8 @@ class TestExecuteNaturalSearch:
         assert len(result.results) == 1
 
     @pytest.mark.asyncio
-    @patch("app.services.ai.document_natural_search._expand_entities", new_callable=AsyncMock, return_value=(False, None, ["超時"]))
-    @patch("app.services.ai.document_natural_search._parse_intent_safe")
+    @patch("app.services.ai.search.document_natural_search._expand_entities", new_callable=AsyncMock, return_value=(False, None, ["超時"]))
+    @patch("app.services.ai.search.document_natural_search._parse_intent_safe")
     async def test_query_timeout_returns_error(self, mock_parse, mock_expand, mock_db, mock_service):
         intent = _make_parsed_intent(keywords=["超時"])
         mock_parse.return_value = (intent, "llm")
@@ -430,10 +430,10 @@ class TestExecuteNaturalSearch:
         mock_qb.offset.return_value = mock_qb
         mock_qb.limit.return_value = mock_qb
 
-        with patch("app.services.ai.document_natural_search._build_query", return_value=mock_qb):
-            with patch("app.services.ai.document_natural_search._resolve_embedding",
+        with patch("app.services.ai.search.document_natural_search._build_query", return_value=mock_qb):
+            with patch("app.services.ai.search.document_natural_search._resolve_embedding",
                         new_callable=AsyncMock, return_value=None):
-                with patch("app.services.ai.document_natural_search.asyncio.wait_for",
+                with patch("app.services.ai.search.document_natural_search.asyncio.wait_for",
                             side_effect=asyncio.TimeoutError()):
                     from app.schemas.ai.search import NaturalSearchRequest
                     request = MagicMock(spec=NaturalSearchRequest)

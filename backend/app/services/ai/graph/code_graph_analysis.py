@@ -384,7 +384,7 @@ async def semantic_architecture_review(db: AsyncSession) -> Dict[str, Any]:
             max_tokens=512,
             task_type="classify",
         )
-        from app.services.ai.agent_utils import parse_json_safe
+        from app.services.ai.core.agent_utils import parse_json_safe
 
         parsed = parse_json_safe(result_text)
         if parsed:

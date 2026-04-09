@@ -24,7 +24,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models import CanonicalEntity
-from app.services.ai.cross_domain_matcher import CrossDomainMatchEngine
+from app.services.ai.domain.cross_domain_matcher import CrossDomainMatchEngine
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class CrossDomainLinker:
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0, max_tokens=80, task_type="classify",
             )
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
             parsed = parse_json_safe(result)
             if parsed and parsed.get("is_same"):
                 return float(parsed.get("confidence", 0.0))
@@ -121,7 +121,7 @@ class CrossDomainLinker:
 
         Returns: (best_entity, best_score) or (None, 0.0)
         """
-        from app.services.ai.canonical_entity_matcher import CanonicalEntityMatcher
+        from app.services.ai.graph.canonical_entity_matcher import CanonicalEntityMatcher
 
         if not candidates or not name:
             return None, 0.0

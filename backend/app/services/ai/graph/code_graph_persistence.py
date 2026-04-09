@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import CODE_ENTITY_TYPES
-from app.services.ai.code_graph_types import CODE_GRAPH_LABEL, CodeEntity, CodeRelation
+from app.services.ai.graph.code_graph_types import CODE_GRAPH_LABEL, CodeEntity, CodeRelation
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +187,7 @@ class CodeGraphPersistenceMixin:
         from sqlalchemy import insert as sa_insert
 
         try:
-            from app.services.ai.schema_reflector import SchemaReflectorService
+            from app.services.ai.graph.schema_reflector import SchemaReflectorService
             schema = await SchemaReflectorService.get_full_schema_async()
         except Exception as e:
             logger.warning("FK relation ingestion skipped — schema reflection failed: %s", e)

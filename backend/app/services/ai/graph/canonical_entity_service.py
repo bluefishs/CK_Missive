@@ -25,11 +25,11 @@ from app.extended.models import (
     EntityAlias,
     DocumentEntityMention,
 )
-from app.services.ai.canonical_entity_matcher import (
+from app.services.ai.graph.canonical_entity_matcher import (
     CanonicalEntityMatcher,
     CanonicalEntityMerger,
 )
-from app.services.ai.canonical_entity_resolver import CanonicalEntityResolver
+from app.services.ai.graph.canonical_entity_resolver import CanonicalEntityResolver
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ PGVECTOR_ENABLED = _settings.PGVECTOR_ENABLED
 _TAX_ID_PREFIX_RE = re.compile(r'^[A-Z0-9]{8,10}\s+')
 
 # 共用黑名單 — 集中定義於 core/name_utils
-from app.services.ai.name_utils import PRONOUN_ENTITY_BLACKLIST as _PRONOUN_ENTITY_BLACKLIST
+from app.services.ai.core.name_utils import PRONOUN_ENTITY_BLACKLIST as _PRONOUN_ENTITY_BLACKLIST
 
 
 def _preprocess_entity_name(name: str) -> Optional[str]:
@@ -232,7 +232,7 @@ class CanonicalEntityService:
             # 批次取得所有 embeddings（一次 API 呼叫取代 N 次）
             embeddings_map: Dict[str, list] = {}
             try:
-                from app.services.ai.embedding_manager import EmbeddingManager
+                from app.services.ai.core.embedding_manager import EmbeddingManager
                 if await EmbeddingManager.is_available():
                     names_list = [name for name, _ in semantic_candidates]
                     emb_results = await EmbeddingManager.get_embeddings_batch(names_list, connector=None)
@@ -243,7 +243,7 @@ class CanonicalEntityService:
                 logger.debug("批次 embedding 取得失敗: %s", e)
 
             if embeddings_map:
-                from app.services.ai.ai_config import AIConfig
+                from app.services.ai.core.ai_config import AIConfig
                 config = AIConfig.get_instance()
                 max_distance = config.kg_semantic_distance
 

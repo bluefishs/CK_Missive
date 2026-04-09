@@ -13,7 +13,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from app.services.ai.reranker import (
+from app.services.ai.search.reranker import (
     compute_keyword_score,
     build_doc_text,
     rerank_documents,

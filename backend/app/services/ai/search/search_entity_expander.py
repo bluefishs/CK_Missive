@@ -59,7 +59,7 @@ async def expand_search_terms(
 
     # ── Layer 1: SynonymExpander（ai_synonyms DB 表） ──
     try:
-        from app.services.ai.synonym_expander import SynonymExpander
+        from app.services.ai.search.synonym_expander import SynonymExpander
         expanded_keywords = SynonymExpander.expand_keywords(list(terms))
         # 將擴展結果歸入對應的原始詞
         original_set = set(terms)

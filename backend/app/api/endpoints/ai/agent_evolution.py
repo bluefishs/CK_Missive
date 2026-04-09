@@ -32,7 +32,7 @@ async def evolution_status(_current_user: User = Depends(require_auth())):
         if not redis:
             return {"status": "redis_unavailable"}
 
-        from app.services.ai.agent_evolution_scheduler import AgentEvolutionScheduler
+        from app.services.ai.agent.agent_evolution_scheduler import AgentEvolutionScheduler
         scheduler = AgentEvolutionScheduler(redis)
         return await scheduler.get_evolution_status()
     except Exception as e:
@@ -71,7 +71,7 @@ async def evolution_journal(
 async def tool_health(_current_user: User = Depends(require_auth())):
     """所有工具的健康度 + 降級狀態"""
     try:
-        from app.services.ai.agent_tool_monitor import get_tool_monitor
+        from app.services.ai.agent.agent_tool_monitor import get_tool_monitor
         monitor = get_tool_monitor()
         all_stats = await monitor.get_all_stats()
         degraded = await monitor.get_degraded_tools()
@@ -99,7 +99,7 @@ async def capability_profile(
 ):
     """Agent 能力剖面（帶 Redis 快取）"""
     try:
-        from app.services.ai.agent_capability_tracker import get_capability_profile_cached
+        from app.services.ai.agent.agent_capability_tracker import get_capability_profile_cached
         return await get_capability_profile_cached(db)
     except Exception as e:
         logger.error("Capability profile error: %s", e)

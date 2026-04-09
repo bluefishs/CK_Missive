@@ -51,7 +51,7 @@ async def get_snapshot(db: AsyncSession, redis=None) -> Dict[str, Any]:
 
     # 1. Capability profile
     try:
-        from app.services.ai.agent_capability_tracker import (
+        from app.services.ai.agent.agent_capability_tracker import (
             get_capability_profile_cached,
         )
         snapshot["capability"] = await get_capability_profile_cached(db)

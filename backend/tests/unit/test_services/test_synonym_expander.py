@@ -16,7 +16,7 @@ synonym_expander 同義詞擴展服務單元測試
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.services.ai.synonym_expander import SynonymExpander
+from app.services.ai.search.synonym_expander import SynonymExpander
 
 
 @pytest.fixture(autouse=True)

@@ -35,7 +35,7 @@ class DomainToolExecutor:
 
     async def search_projects(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """搜尋承攬案件"""
-        from app.services.ai.pm_query_service import PMQueryService
+        from app.services.ai.domain.pm_query_service import PMQueryService
 
         keywords = params.get("keywords", [])
         if isinstance(keywords, str):
@@ -52,7 +52,7 @@ class DomainToolExecutor:
 
     async def get_project_detail(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """取得案件詳情"""
-        from app.services.ai.pm_query_service import PMQueryService
+        from app.services.ai.domain.pm_query_service import PMQueryService
 
         project_id = params.get("project_id")
         if not project_id:
@@ -63,7 +63,7 @@ class DomainToolExecutor:
 
     async def get_project_progress(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """取得案件進度"""
-        from app.services.ai.pm_query_service import PMQueryService
+        from app.services.ai.domain.pm_query_service import PMQueryService
 
         project_id = params.get("project_id")
         if not project_id:
@@ -74,7 +74,7 @@ class DomainToolExecutor:
 
     async def search_vendors(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """搜尋協力廠商"""
-        from app.services.ai.erp_query_service import ERPQueryService
+        from app.services.ai.domain.erp_query_service import ERPQueryService
 
         keywords = params.get("keywords", [])
         if isinstance(keywords, str):
@@ -89,7 +89,7 @@ class DomainToolExecutor:
 
     async def get_vendor_detail(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """取得廠商詳情"""
-        from app.services.ai.erp_query_service import ERPQueryService
+        from app.services.ai.domain.erp_query_service import ERPQueryService
 
         vendor_id = params.get("vendor_id")
         if not vendor_id:
@@ -100,7 +100,7 @@ class DomainToolExecutor:
 
     async def get_contract_summary(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """取得合約金額統計"""
-        from app.services.ai.erp_query_service import ERPQueryService
+        from app.services.ai.domain.erp_query_service import ERPQueryService
 
         svc = ERPQueryService(self.db)
         return await svc.get_contract_summary(
@@ -110,7 +110,7 @@ class DomainToolExecutor:
 
     async def get_overdue_milestones(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """查詢逾期里程碑"""
-        from app.services.ai.pm_query_service import PMQueryService
+        from app.services.ai.domain.pm_query_service import PMQueryService
 
         svc = PMQueryService(self.db)
         return await svc.get_overdue_milestones(
@@ -119,7 +119,7 @@ class DomainToolExecutor:
 
     async def get_unpaid_billings(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """查詢未收款/逾期請款"""
-        from app.services.ai.erp_query_service import ERPQueryService
+        from app.services.ai.domain.erp_query_service import ERPQueryService
 
         svc = ERPQueryService(self.db)
         return await svc.get_unpaid_billings(
@@ -210,7 +210,7 @@ class DomainToolExecutor:
 
     async def get_dispatch_progress(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """派工進度彙整報告"""
-        from app.services.ai.dispatch_progress_synthesizer import DispatchProgressSynthesizer
+        from app.services.ai.domain.dispatch_progress_synthesizer import DispatchProgressSynthesizer
 
         synth = DispatchProgressSynthesizer(self.db)
         report = await synth.generate_report(

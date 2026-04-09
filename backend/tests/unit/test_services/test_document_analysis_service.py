@@ -16,7 +16,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.document_analysis_service import (
+from app.services.ai.document.document_analysis_service import (
     DocumentAnalysisService,
     ANALYSIS_VERSION,
 )
@@ -76,7 +76,7 @@ def mock_ai_service():
 @pytest.fixture
 def service(mock_db, mock_repo, mock_ai_service):
     with patch(
-        "app.services.ai.document_analysis_service.get_document_ai_service",
+        "app.services.ai.document.document_analysis_service.get_document_ai_service",
         return_value=mock_ai_service,
     ):
         svc = DocumentAnalysisService(mock_db)

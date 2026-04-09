@@ -13,7 +13,7 @@ Tool Registry 單元測試
 import json
 import pytest
 
-from app.services.ai.tool_registry import (
+from app.services.ai.tools.tool_registry import (
     ToolDefinition,
     ToolRegistry,
     get_tool_registry,
@@ -164,7 +164,7 @@ class TestDefaultTools:
 
     def test_registry_consistent_with_agent_tools(self):
         """確保 Registry 與 agent_tools.VALID_TOOL_NAMES 一致"""
-        from app.services.ai.agent_tools import VALID_TOOL_NAMES
+        from app.services.ai.agent.agent_tools import VALID_TOOL_NAMES
         registry = get_tool_registry()
         assert registry.valid_tool_names == VALID_TOOL_NAMES
 

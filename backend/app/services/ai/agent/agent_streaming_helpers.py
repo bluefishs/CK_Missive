@@ -14,13 +14,13 @@ import logging
 import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from app.services.ai.agent_chitchat import (
+from app.services.ai.agent.agent_chitchat import (
     get_smart_fallback,
     clean_chitchat_response,
     get_chat_system_prompt,
 )
-from app.services.ai.agent_roles import get_role_profile
-from app.services.ai.agent_utils import sse, sanitize_history
+from app.services.ai.agent.agent_roles import get_role_profile
+from app.services.ai.core.agent_utils import sse, sanitize_history
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ async def stream_chitchat(
             task_type="chat",
         )
         answer = clean_chitchat_response(raw, question)
-        from app.services.ai.agent_post_processing import _sc2tc
+        from app.services.ai.agent.agent_post_processing import _sc2tc
         yield sse(type="token", token=_sc2tc(answer))
     except Exception as e:
         logger.warning("Chitchat failed: %s", e)
@@ -83,7 +83,7 @@ async def stream_fallback_rag(
     history: Optional[List[Dict[str, str]]],
 ) -> AsyncGenerator[str, None]:
     """回退到基本 RAG 管線（無工具直接回答）"""
-    from app.services.ai.rag_query_service import RAGQueryService
+    from app.services.ai.search.rag_query_service import RAGQueryService
 
     svc = RAGQueryService(db)
     async for event in svc.stream_query(

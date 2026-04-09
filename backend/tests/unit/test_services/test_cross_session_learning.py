@@ -35,7 +35,7 @@ def _make_config(**overrides):
 
 
 def _make_planner(config=None):
-    from app.services.ai.agent_planner import AgentPlanner
+    from app.services.ai.agent.agent_planner import AgentPlanner
     ai = AsyncMock()
     return AgentPlanner(ai, config or _make_config())
 
@@ -136,10 +136,10 @@ class TestInjectCrossSessionLearnings:
             repo_instance.get_relevant_learnings = AsyncMock(
                 side_effect=Exception("DB connection lost")
             )
-            with patch("app.services.ai.agent_planner.get_tool_registry") as mock_registry:
+            with patch("app.services.ai.agent.agent_planner.get_tool_registry") as mock_registry:
                 mock_registry.return_value.get_definitions_json.return_value = "[]"
                 mock_registry.return_value.get_few_shot_prompt.return_value = ""
-                with patch("app.services.ai.agent_roles.get_role_profile") as mock_role:
+                with patch("app.services.ai.agent.agent_roles.get_role_profile") as mock_role:
                     mock_role.return_value.identity = "測試助理"
 
                     db = AsyncMock()
@@ -181,10 +181,10 @@ class TestPlanToolsLearningIntegration:
         )
 
         with patch(REPO_PATCH) as MockRepo:
-            with patch("app.services.ai.agent_planner.get_tool_registry") as mock_registry:
+            with patch("app.services.ai.agent.agent_planner.get_tool_registry") as mock_registry:
                 mock_registry.return_value.get_definitions_json.return_value = "[]"
                 mock_registry.return_value.get_few_shot_prompt.return_value = ""
-                with patch("app.services.ai.agent_roles.get_role_profile") as mock_role:
+                with patch("app.services.ai.agent.agent_roles.get_role_profile") as mock_role:
                     mock_role.return_value.identity = "測試助理"
 
                     db = AsyncMock()
@@ -204,10 +204,10 @@ class TestPlanToolsLearningIntegration:
         )
 
         with patch(REPO_PATCH) as MockRepo:
-            with patch("app.services.ai.agent_planner.get_tool_registry") as mock_registry:
+            with patch("app.services.ai.agent.agent_planner.get_tool_registry") as mock_registry:
                 mock_registry.return_value.get_definitions_json.return_value = "[]"
                 mock_registry.return_value.get_few_shot_prompt.return_value = ""
-                with patch("app.services.ai.agent_roles.get_role_profile") as mock_role:
+                with patch("app.services.ai.agent.agent_roles.get_role_profile") as mock_role:
                     mock_role.return_value.identity = "測試助理"
 
                     await planner.plan_tools("測試", [], db=None)
@@ -236,10 +236,10 @@ class TestPlanToolsLearningIntegration:
             repo_instance = MockRepo.return_value
             repo_instance.get_relevant_learnings = AsyncMock(return_value=mock_learnings)
 
-            with patch("app.services.ai.agent_planner.get_tool_registry") as mock_registry:
+            with patch("app.services.ai.agent.agent_planner.get_tool_registry") as mock_registry:
                 mock_registry.return_value.get_definitions_json.return_value = "[]"
                 mock_registry.return_value.get_few_shot_prompt.return_value = ""
-                with patch("app.services.ai.agent_roles.get_role_profile") as mock_role:
+                with patch("app.services.ai.agent.agent_roles.get_role_profile") as mock_role:
                     mock_role.return_value.identity = "測試助理"
 
                     db = AsyncMock()

@@ -4,7 +4,7 @@ AgentSelfEvaluator 單元測試
 
 import pytest
 from unittest.mock import MagicMock, AsyncMock
-from app.services.ai.agent_self_evaluator import (
+from app.services.ai.agent.agent_self_evaluator import (
     AgentSelfEvaluator,
     EvalScore,
     get_self_evaluator,

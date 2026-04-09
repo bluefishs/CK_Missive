@@ -174,7 +174,7 @@ async def reload_synonyms(
 
     從資料庫讀取所有啟用的同義詞群組，重建 AIPromptManager 的快取。
     """
-    from app.services.ai.ai_prompt_manager import AIPromptManager
+    from app.services.ai.core.ai_prompt_manager import AIPromptManager
 
     try:
         repo = AISynonymRepository(db)

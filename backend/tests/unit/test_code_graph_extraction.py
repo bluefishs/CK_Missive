@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.ai.code_graph_service import (
+from app.services.ai.graph.code_graph_service import (
     CodeEntity,
     CodeRelation,
     PythonASTExtractor,
@@ -32,7 +32,7 @@ def sample_py(tmp_path: Path) -> Path:
     code = textwrap.dedent('''\
         """Sample module docstring."""
 
-        from app.services.ai.agent_tools import AgentToolExecutor
+        from app.services.ai.agent.agent_tools import AgentToolExecutor
         from app.core.dependencies import get_async_db
         import sqlalchemy
 
@@ -160,7 +160,7 @@ class TestPythonASTExtractor:
         import_targets = {r.target_name for r in import_rels}
 
         # app.* imports should be captured
-        assert "app.services.ai.agent_tools" in import_targets
+        assert "app.services.ai.agent.agent_tools" in import_targets
         assert "app.core.dependencies" in import_targets
 
         # External (sqlalchemy) should NOT be captured

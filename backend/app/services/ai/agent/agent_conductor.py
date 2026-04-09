@@ -190,10 +190,10 @@ class AgentConductor:
 
         try:
             from app.db.database import AsyncSessionLocal
-            from app.services.ai.agent_tools import AgentToolExecutor
-            from app.services.ai.embedding_manager import EmbeddingManager
-            from app.services.ai.base_ai_service import get_ai_connector
-            from app.services.ai.tool_registry import get_tool_registry
+            from app.services.ai.agent.agent_tools import AgentToolExecutor
+            from app.services.ai.core.embedding_manager import EmbeddingManager
+            from app.services.ai.core.base_ai_service import get_ai_connector
+            from app.services.ai.tools.tool_registry import get_tool_registry
 
             ai = get_ai_connector()
             emb = EmbeddingManager()

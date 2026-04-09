@@ -12,7 +12,7 @@ Agent 角色系統單元測試
 
 import pytest
 
-from app.services.ai.agent_roles import (
+from app.services.ai.agent.agent_roles import (
     AgentRoleProfile,
     CK_AGENT,
     DOCUMENT_ASSISTANT,
@@ -212,5 +212,5 @@ class TestRoleRegistry:
         register_role_profile(custom)
         assert get_role_profile("custom_test").identity == "測試助理"
         # 清理
-        from app.services.ai.agent_roles import _ROLE_PROFILES
+        from app.services.ai.agent.agent_roles import _ROLE_PROFILES
         del _ROLE_PROFILES["custom_test"]

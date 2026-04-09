@@ -12,7 +12,7 @@ Tests cover:
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai.federation_client import FederationClient
+from app.services.ai.federation.federation_client import FederationClient
 
 
 class TestFederationClientAvailability:
@@ -112,7 +112,7 @@ class TestFederationClientQuery:
         }):
             client = FederationClient()
 
-        with patch("app.services.ai.federation_client.httpx") as mock_httpx:
+        with patch("app.services.ai.federation.federation_client.httpx") as mock_httpx:
             mock_httpx.AsyncClient.return_value = mock_inst
             result = await client.query_external("openclaw", "What channels?")
 
@@ -128,7 +128,7 @@ class TestFederationClientQuery:
         with patch.dict("os.environ", {"OPENCLAW_URL": "http://openclaw:18789"}):
             client = FederationClient()
 
-        with patch("app.services.ai.federation_client.httpx") as mock_httpx:
+        with patch("app.services.ai.federation.federation_client.httpx") as mock_httpx:
             mock_httpx.AsyncClient.return_value = mock_inst
             result = await client.query_external("openclaw", "test")
 
@@ -142,7 +142,7 @@ class TestFederationClientQuery:
         with patch.dict("os.environ", {"OPENCLAW_URL": "http://openclaw:18789"}):
             client = FederationClient()
 
-        with patch("app.services.ai.federation_client.httpx") as mock_httpx:
+        with patch("app.services.ai.federation.federation_client.httpx") as mock_httpx:
             mock_httpx.AsyncClient.return_value = mock_inst
             result = await client.query_external("openclaw", "test")
 
@@ -164,7 +164,7 @@ class TestFederationClientQuery:
         }):
             client = FederationClient()
 
-        with patch("app.services.ai.federation_client.httpx") as mock_httpx:
+        with patch("app.services.ai.federation.federation_client.httpx") as mock_httpx:
             mock_httpx.AsyncClient.return_value = mock_inst
             await client.query_external("openclaw", "test", context={"doc_id": "123"})
 
@@ -193,7 +193,7 @@ class TestFederationClientQuery:
         }):
             client = FederationClient()
 
-        with patch("app.services.ai.federation_client.httpx") as mock_httpx:
+        with patch("app.services.ai.federation.federation_client.httpx") as mock_httpx:
             mock_httpx.AsyncClient.return_value = mock_inst
             result = await client.query_external("openclaw", "test")
 
@@ -215,7 +215,7 @@ class TestFederationClientQuery:
         }):
             client = FederationClient()
 
-        with patch("app.services.ai.federation_client.httpx") as mock_httpx:
+        with patch("app.services.ai.federation.federation_client.httpx") as mock_httpx:
             mock_httpx.AsyncClient.return_value = mock_inst
             await client.query_external("openclaw", "test")
 
@@ -231,7 +231,7 @@ class TestFederationClientQuery:
         with patch.dict("os.environ", {"OPENCLAW_URL": "http://localhost:3001/"}):
             client = FederationClient()
 
-        with patch("app.services.ai.federation_client.httpx") as mock_httpx:
+        with patch("app.services.ai.federation.federation_client.httpx") as mock_httpx:
             mock_httpx.AsyncClient.return_value = mock_inst
             await client.query_external("openclaw", "test")
 

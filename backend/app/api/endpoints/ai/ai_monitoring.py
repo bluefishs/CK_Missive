@@ -51,7 +51,7 @@ async def get_proactive_alerts(
     """
     主動觸發警報掃描：截止日提醒 + 案件逾期 + 資料品質
     """
-    from app.services.ai.proactive_triggers import ProactiveTriggerService
+    from app.services.ai.proactive.proactive_triggers import ProactiveTriggerService
 
     svc = ProactiveTriggerService(db)
     summary = await svc.get_alert_summary()
@@ -88,7 +88,7 @@ async def get_tool_registry(
 
     包含工具名稱、描述、上下文、優先級、類別，以及 Redis 中的降級狀態與統計。
     """
-    from app.services.ai.tool_registry import get_tool_registry
+    from app.services.ai.tools.tool_registry import get_tool_registry
 
     registry = get_tool_registry()
 
@@ -96,7 +96,7 @@ async def get_tool_registry(
     degraded_set: set = set()
     monitor_stats: dict = {}
     try:
-        from app.services.ai.agent_tool_monitor import get_tool_monitor
+        from app.services.ai.agent.agent_tool_monitor import get_tool_monitor
         monitor = get_tool_monitor()
         degraded_set = await monitor.get_degraded_tools()
         all_stats = await monitor.get_all_stats()
@@ -143,7 +143,7 @@ async def get_recommendations(
     - 無 user_id: 全域掃描所有使用者
     - 有 user_id: 僅該使用者的個人化推薦
     """
-    from app.services.ai.proactive_recommender import ProactiveRecommender
+    from app.services.ai.proactive.proactive_recommender import ProactiveRecommender
 
     recommender = ProactiveRecommender(db)
 

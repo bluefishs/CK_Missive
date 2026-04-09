@@ -14,7 +14,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
-from app.services.ai.graph_ingestion_pipeline import GraphIngestionPipeline
+from app.services.ai.graph.graph_ingestion_pipeline import GraphIngestionPipeline
 
 
 # ============================================================================
@@ -36,9 +36,9 @@ def mock_db():
 @pytest.fixture
 def service(mock_db):
     with patch(
-        "app.services.ai.graph_ingestion_pipeline.CanonicalEntityService"
+        "app.services.ai.graph.graph_ingestion_pipeline.CanonicalEntityService"
     ), patch(
-        "app.services.ai.graph_ingestion_pipeline.get_ai_config"
+        "app.services.ai.graph.graph_ingestion_pipeline.get_ai_config"
     ) as mock_config:
         mock_config.return_value = MagicMock(ner_min_confidence=0.5)
         svc = GraphIngestionPipeline(mock_db)

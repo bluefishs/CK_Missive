@@ -19,7 +19,7 @@ from app.extended.models import (
     CanonicalEntity,
     EntityRelationship,
 )
-from app.services.ai.canonical_entity_matcher import CanonicalEntityMatcher
+from app.services.ai.graph.canonical_entity_matcher import CanonicalEntityMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class CrossDomainMatchEngine:
             return None
 
         try:
-            from app.services.ai.embedding_manager import EmbeddingManager
+            from app.services.ai.core.embedding_manager import EmbeddingManager
             if not await EmbeddingManager.is_available():
                 return None
 

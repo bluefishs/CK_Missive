@@ -12,8 +12,8 @@ import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from app.services.ai.agent_pattern_learner import QueryPattern, QueryPatternLearner
-from app.services.ai.pattern_semantic_matcher import _cosine_similarity, _jaccard_match
+from app.services.ai.agent.agent_pattern_learner import QueryPattern, QueryPatternLearner
+from app.services.ai.agent.pattern_semantic_matcher import _cosine_similarity, _jaccard_match
 
 
 class TestNormalizeQuestion:

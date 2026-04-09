@@ -26,7 +26,7 @@ def format_search_documents(result: Dict[str, Any], remaining_chars: int) -> str
             break
         parts.append(part)
     try:
-        from app.services.ai.response_enricher import enrich_document_results
+        from app.services.ai.core.response_enricher import enrich_document_results
         enriched = enrich_document_results(result.get("documents", []))
         analysis = f"\n[分析摘要] {enriched.get('analysis_hint', '')}，類型分布: {enriched.get('by_type_summary', '')}\n"
         if _current_len(parts) + len(analysis) <= remaining_chars:
@@ -65,7 +65,7 @@ def format_search_dispatch_orders(result: Dict[str, Any], remaining_chars: int) 
             break
         parts.append(part)
     try:
-        from app.services.ai.response_enricher import enrich_dispatch_results
+        from app.services.ai.core.response_enricher import enrich_dispatch_results
         enriched = enrich_dispatch_results(result.get("dispatch_orders", []))
         analysis = (
             f"\n[分析摘要] {enriched.get('analysis_hint', '')}\n"
@@ -131,7 +131,7 @@ def format_get_statistics(result: Dict[str, Any], remaining_chars: int) -> str:
     if len(part) <= remaining_chars:
         parts.append(part)
     try:
-        from app.services.ai.response_enricher import enrich_document_results
+        from app.services.ai.core.response_enricher import enrich_document_results
         docs_list = result.get("documents", [])
         if docs_list:
             enriched = enrich_document_results(docs_list)

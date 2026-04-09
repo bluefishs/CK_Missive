@@ -20,18 +20,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Re-export constants for backward compatibility
 from app.core.constants import CODE_ENTITY_TYPES  # noqa: F401
-from app.services.ai.code_graph_types import (  # noqa: F401
+from app.services.ai.graph.code_graph_types import (  # noqa: F401
     CodeEntity,
     CodeRelation,
     CODE_RELATION_TYPES,
     CODE_GRAPH_LABEL,
 )
-from app.services.ai.code_graph_ast_analyzer import (  # noqa: F401
+from app.services.ai.graph.code_graph_ast_analyzer import (  # noqa: F401
     EXCLUDE_DIRS,
     PythonASTExtractor,
     SchemaReflector,
 )
-from app.services.ai.code_graph_analysis import (
+from app.services.ai.graph.code_graph_analysis import (
     detect_import_cycles,
     analyze_architecture,
 )
@@ -53,7 +53,7 @@ class CodeGraphIngestionService:
     def __init__(self, db: AsyncSession):
         self.db = db
         # Lazy import to avoid circular dependency at module level
-        from app.services.ai.code_graph_ingest import CodeGraphIngestService
+        from app.services.ai.graph.code_graph_ingest import CodeGraphIngestService
         self._ingest = CodeGraphIngestService(db)
 
     # -- Delegated ingestion methods --
@@ -95,11 +95,11 @@ class CodeGraphIngestionService:
         frontend_src_dir: Optional[Path] = None,
     ) -> Dict[str, Any]:
         """Dry run: extract and count without writing to DB."""
-        from app.services.ai.code_graph_ast_analyzer import (
+        from app.services.ai.graph.code_graph_ast_analyzer import (
             PythonASTExtractor,
             SchemaReflector,
         )
-        from app.services.ai.ts_extractor import TypeScriptExtractor
+        from app.services.ai.graph.ts_extractor import TypeScriptExtractor
 
         extractor = PythonASTExtractor(project_prefix="app")
         all_entities: list = []

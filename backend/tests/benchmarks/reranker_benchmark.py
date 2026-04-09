@@ -157,8 +157,8 @@ class SearchBenchmark:
         Returns:
             Dict with query metadata and computed metrics.
         """
-        from app.services.ai.tool_executor_search import SearchToolExecutor
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.tools.tool_executor_search import SearchToolExecutor
+        from app.services.ai.core.ai_config import get_ai_config
 
         config = get_ai_config()
         query_text = query_entry["query"]
@@ -173,8 +173,8 @@ class SearchBenchmark:
 
         try:
             # Lazy-import to avoid import-time DB dependency
-            from app.services.ai.embedding_manager import EmbeddingManager
-            from app.services.ai.base_ai_service import BaseAIService
+            from app.services.ai.core.embedding_manager import EmbeddingManager
+            from app.services.ai.core.base_ai_service import BaseAIService
 
             ai_connector = BaseAIService.get_shared_connector()
             embedding_mgr = EmbeddingManager()
@@ -191,7 +191,7 @@ class SearchBenchmark:
             # If v2 mode, apply LLM reranking on top
             if reranker_mode == "v2" and len(documents) > 3:
                 try:
-                    from app.services.ai.reranker import rerank_with_llm
+                    from app.services.ai.search.reranker import rerank_with_llm
 
                     documents = await rerank_with_llm(
                         ai_connector=ai_connector,

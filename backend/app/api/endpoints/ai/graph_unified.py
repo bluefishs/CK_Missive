@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
-from app.services.ai.graph_query_service import GraphQueryService
+from app.services.ai.graph.graph_query_service import GraphQueryService
 from app.schemas.knowledge_graph import (
     UnifiedGraphSearchRequest,
     UnifiedGraphSearchResponse,
@@ -129,7 +129,7 @@ async def unified_graph_search(
         ]
 
     async def search_db() -> list[UnifiedGraphResult]:
-        from app.services.ai.schema_reflector import SchemaReflectorService
+        from app.services.ai.graph.schema_reflector import SchemaReflectorService
 
         schema = await SchemaReflectorService.get_full_schema_async()
         hits: list[UnifiedGraphResult] = []
@@ -161,7 +161,7 @@ async def unified_graph_search(
         """搜尋 ERP 圖譜 (KG-7)"""
         from sqlalchemy import select
         from app.extended.models.knowledge_graph import CanonicalEntity
-        from app.services.ai.erp_graph_types import ERP_ENTITY_TYPES
+        from app.services.ai.graph.erp_graph_types import ERP_ENTITY_TYPES
         import re
 
         escaped = re.sub(r'([%_\\])', r'\\\1', query)
@@ -321,7 +321,7 @@ async def get_erp_graph_network(
     """ERP 實體關係網路 — nodes + links for force-directed graph"""
     from sqlalchemy import select as sa_select
     from app.extended.models.knowledge_graph import CanonicalEntity, EntityRelationship
-    from app.services.ai.erp_graph_types import ERP_ENTITY_TYPES
+    from app.services.ai.graph.erp_graph_types import ERP_ENTITY_TYPES
 
     ent_rows = (await db.execute(
         sa_select(CanonicalEntity.id, CanonicalEntity.canonical_name,
@@ -369,7 +369,7 @@ async def get_case_flow(
             status_code=400,
         )
 
-    from app.services.ai.case_flow_tracker import CaseFlowTracker
+    from app.services.ai.domain.case_flow_tracker import CaseFlowTracker
     tracker = CaseFlowTracker(db)
     flow = await tracker.get_full_flow(case_code)
     return JSONResponse(

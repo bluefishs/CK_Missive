@@ -31,7 +31,7 @@ from app.schemas.ai.digital_twin import (
     TaskApprovalRequest,
     TaskRejectionRequest,
 )
-from app.services.ai.digital_twin_service import DigitalTwinService
+from app.services.ai.domain.digital_twin_service import DigitalTwinService
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ async def digital_twin_query_stream(
         answer = ""
         model = "fallback-local"
         try:
-            from app.services.ai.federation_client import get_federation_client
+            from app.services.ai.federation.federation_client import get_federation_client
             client = get_federation_client()
 
             prompt = (
@@ -123,7 +123,7 @@ async def digital_twin_query_stream(
         # Fallback: 無 OpenClaw 時用本地簡單合成
         if not answer:
             yield _sse_event({"type": "thinking", "step": "降級至本地 Agent...", "step_index": 3})
-            from app.services.ai.agent_orchestrator import AgentOrchestrator
+            from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
             orch = AgentOrchestrator(db)
             async for event in orch.stream_agent_query(
                 question=request.question, history=[], session_id=request.session_id or "",
@@ -136,7 +136,7 @@ async def digital_twin_query_stream(
 
         # Token 追蹤 (OpenClaw federation)
         try:
-            from app.services.ai.token_usage_tracker import get_token_tracker
+            from app.services.ai.core.token_usage_tracker import get_token_tracker
             await get_token_tracker().record(
                 provider="openclaw", model=model, feature="digital_twin",
                 input_tokens=max(len(prompt) // 2, 1),
@@ -189,7 +189,7 @@ async def _gather_local_data(db: AsyncSession, question: str) -> dict:
     # 派工進度
     if '進度' in question or '彙整' in question:
         try:
-            from app.services.ai.dispatch_progress_synthesizer import DispatchProgressSynthesizer
+            from app.services.ai.domain.dispatch_progress_synthesizer import DispatchProgressSynthesizer
             synth = DispatchProgressSynthesizer(db)
             report = await synth.generate_report()
             data["progress"] = synth.to_dict(report)
@@ -229,7 +229,7 @@ async def delegate_auto_proxy(
 
     三層路由：領域關鍵字 → capabilities 匹配 → KG Hub 回退
     """
-    from app.services.ai.federation_client import get_federation_client
+    from app.services.ai.federation.federation_client import get_federation_client
 
     client = get_federation_client()
     try:
@@ -392,7 +392,7 @@ async def digital_twin_health(_current_user: User = Depends(require_auth())):
     # 本地能力（永遠回傳）
     local_roles = []
     try:
-        from app.services.ai.agent_roles import get_all_role_profiles
+        from app.services.ai.agent.agent_roles import get_all_role_profiles
         local_roles = list(get_all_role_profiles().keys())
     except Exception:
         pass
@@ -407,7 +407,7 @@ async def digital_twin_health(_current_user: User = Depends(require_auth())):
 
     # Gateway（可選）
     try:
-        from app.services.ai.federation_client import get_federation_client
+        from app.services.ai.federation.federation_client import get_federation_client
         client = get_federation_client()
         systems = client.list_available_systems()
         health["gateway_available"] = any(s["id"] in ("openclaw", "nemoclaw") for s in systems)
@@ -441,7 +441,7 @@ async def agent_introspection(
     _current_user: User = Depends(require_auth()),
 ):
     """Agent 自省 — 統一的 self-model + capability + evolution 查詢 (ETag 支援)"""
-    from app.services.ai.agent_introspection import AgentIntrospectionService
+    from app.services.ai.agent.agent_introspection import AgentIntrospectionService
     svc = AgentIntrospectionService(db)
     result = await svc.get_unified_dashboard()
 
@@ -466,7 +466,7 @@ async def agent_self_profile(
     _current_user: User = Depends(require_auth()),
 ):
     """Agent 自我檔案"""
-    from app.services.ai.agent_introspection import AgentIntrospectionService
+    from app.services.ai.agent.agent_introspection import AgentIntrospectionService
     svc = AgentIntrospectionService(db)
     result = await svc.get_self_profile()
     return JSONResponse({"success": True, "data": result})
@@ -478,7 +478,7 @@ async def agent_capability_scores(
     _current_user: User = Depends(require_auth()),
 ):
     """Agent 各領域能力分數"""
-    from app.services.ai.agent_introspection import AgentIntrospectionService
+    from app.services.ai.agent.agent_introspection import AgentIntrospectionService
     svc = AgentIntrospectionService(db)
     scores = await svc.get_capability_scores()
     sw = await svc.get_strengths_and_weaknesses()

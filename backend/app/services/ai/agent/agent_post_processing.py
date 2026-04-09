@@ -21,14 +21,14 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
-from app.services.ai.agent_synthesis import validate_citations
-from app.services.ai.agent_pattern_learner import get_pattern_learner
-from app.services.ai.agent_utils import sse
-from app.services.ai.user_preference_extractor import (
+from app.services.ai.agent.agent_synthesis import validate_citations
+from app.services.ai.agent.agent_pattern_learner import get_pattern_learner
+from app.services.ai.core.agent_utils import sse
+from app.services.ai.misc.user_preference_extractor import (
     extract_preferences_from_history,
     save_preferences,
 )
-from app.services.ai.user_query_tracker import get_query_tracker
+from app.services.ai.misc.user_query_tracker import get_query_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +264,7 @@ async def run_post_synthesis(
         ctx.config.self_reflect_enabled
         and ctx.tool_results
     ):
-        from app.services.ai.tool_result_formatter import self_reflect
+        from app.services.ai.tools.tool_result_formatter import self_reflect
         reflect_result = await self_reflect(
             ctx.ai, ctx.question, ctx.answer_text,
             ctx.tool_results, ctx.config,

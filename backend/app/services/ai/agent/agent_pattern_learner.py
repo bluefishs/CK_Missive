@@ -256,7 +256,7 @@ class QueryPatternLearner:
 
     async def _update_db_graduation(self, template: str, success: bool) -> None:
         """Bridge Redis pattern learning to DB graduation system."""
-        from app.services.ai.agent_pattern_persistence import update_db_graduation
+        from app.services.ai.agent.agent_pattern_persistence import update_db_graduation
         await update_db_graduation(template, success)
 
     def _calc_score(
@@ -314,7 +314,7 @@ class QueryPatternLearner:
     ) -> List[QueryPattern]:
         """語意匹配 fallback — 委派至 pattern_semantic_matcher"""
         try:
-            from app.services.ai.ai_config import get_ai_config
+            from app.services.ai.core.ai_config import get_ai_config
             config = get_ai_config()
 
             # 取得候選模式（top-scored）
@@ -337,7 +337,7 @@ class QueryPatternLearner:
             if not candidate_patterns:
                 return []
 
-            from app.services.ai.pattern_semantic_matcher import semantic_match
+            from app.services.ai.agent.pattern_semantic_matcher import semantic_match
             return await semantic_match(
                 template, candidate_patterns, redis, self._PREFIX, config,
             )
@@ -486,7 +486,7 @@ class QueryPatternLearner:
         Returns:
             載入的種子數量（0 表示已有模式或 Redis 不可用）
         """
-        from app.services.ai.agent_pattern_persistence import load_seeds_if_empty
+        from app.services.ai.agent.agent_pattern_persistence import load_seeds_if_empty
         return await load_seeds_if_empty(self)
 
 
@@ -499,7 +499,7 @@ def get_pattern_learner() -> QueryPatternLearner:
     """取得 QueryPatternLearner 單例"""
     global _learner
     if _learner is None:
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.core.ai_config import get_ai_config
 
         config = get_ai_config()
         _learner = QueryPatternLearner(

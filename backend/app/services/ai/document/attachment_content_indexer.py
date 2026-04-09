@@ -94,7 +94,7 @@ class AttachmentContentIndexer:
         prefixed_text = f"[附件:{attachment.file_name}] {text}"
 
         # 分段
-        from app.services.ai.document_chunker import split_into_chunks
+        from app.services.ai.document.document_chunker import split_into_chunks
         chunks = split_into_chunks(prefixed_text)
         if not chunks:
             return {"success": True, "chunks_created": 0, "chars_extracted": len(text)}
@@ -300,7 +300,7 @@ class AttachmentContentIndexer:
     async def _generate_embeddings(self, texts: List[str]) -> List[Optional[list]]:
         """批次生成 embeddings"""
         try:
-            from app.services.ai.embedding_manager import EmbeddingManager
+            from app.services.ai.core.embedding_manager import EmbeddingManager
             from app.core.ai_connector import get_ai_connector
 
             manager = EmbeddingManager.get_instance()

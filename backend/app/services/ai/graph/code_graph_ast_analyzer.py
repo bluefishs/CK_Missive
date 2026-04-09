@@ -14,8 +14,8 @@ import os
 from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from app.services.ai.ast_endpoint_extractor import EndpointExtractorMixin
-from app.services.ai.code_graph_types import CodeEntity, CodeRelation
+from app.services.ai.graph.ast_endpoint_extractor import EndpointExtractorMixin
+from app.services.ai.graph.code_graph_types import CodeEntity, CodeRelation
 
 logger = logging.getLogger(__name__)
 

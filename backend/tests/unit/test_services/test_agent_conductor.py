@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.ai.agent_conductor import (
+from app.services.ai.agent.agent_conductor import (
     AgentConductor,
     ConductorResult,
     ConductorSubTask,

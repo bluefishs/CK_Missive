@@ -265,7 +265,7 @@ class TestDiscordSlashCommands:
         mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_db)
         mock_factory.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("app.services.ai.agent_orchestrator.AgentOrchestrator",
+        with patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator",
                     return_value=mock_orch):
             result = await svc._handle_agent_query("test question", "user1")
 
@@ -299,7 +299,7 @@ class TestDiscordSlashCommands:
         mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_db)
         mock_factory.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("app.services.ai.agent_orchestrator.AgentOrchestrator",
+        with patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator",
                     return_value=mock_orch):
             result = await svc._handle_agent_query("question", "user1")
 
@@ -755,7 +755,7 @@ class TestChannelAdapterAgentQuery:
         mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_db)
         mock_factory.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("app.services.ai.agent_orchestrator.AgentOrchestrator",
+        with patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator",
                     return_value=mock_orch):
             result = await adapter.handle_agent_query(msg)
 
@@ -778,7 +778,7 @@ class TestChannelAdapterAgentQuery:
         mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_db)
         mock_factory.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("app.services.ai.agent_orchestrator.AgentOrchestrator",
+        with patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator",
                     return_value=mock_orch):
             result = await adapter.handle_agent_query(msg)
 
@@ -793,7 +793,7 @@ class TestChannelAdapterAgentQuery:
         mock_factory.return_value.__aenter__ = AsyncMock(side_effect=RuntimeError("DB error"))
         mock_factory.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("app.services.ai.agent_orchestrator.AgentOrchestrator",
+        with patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator",
                     side_effect=RuntimeError("DB error")):
             result = await adapter.handle_agent_query(msg)
 
@@ -818,7 +818,7 @@ class TestChannelAdapterAgentQuery:
         mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_db)
         mock_factory.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("app.services.ai.agent_orchestrator.AgentOrchestrator",
+        with patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator",
                     return_value=mock_orch):
             result = await adapter.handle_agent_query(msg)
 
@@ -847,7 +847,7 @@ class TestChannelAdapterAgentQuery:
         mock_factory.return_value.__aenter__ = AsyncMock(return_value=mock_db)
         mock_factory.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("app.services.ai.agent_orchestrator.AgentOrchestrator",
+        with patch("app.services.ai.agent.agent_orchestrator.AgentOrchestrator",
                     return_value=mock_orch):
             await adapter.handle_agent_query(msg)
 

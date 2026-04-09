@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.ai.agent_trace import AgentTrace, TraceSpan
+from app.services.ai.agent.agent_trace import AgentTrace, TraceSpan
 
 
 class TestTraceSpan:

@@ -11,8 +11,8 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.document_ai_service import DocumentAIService
-from app.services.ai.ai_config import AIConfig
+from app.services.ai.document.document_ai_service import DocumentAIService
+from app.services.ai.core.ai_config import AIConfig
 from app.core.ai_connector import AIConnector
 
 
@@ -63,7 +63,7 @@ class TestPromptInjection:
 
     def _patch_prompt_manager(self):
         """返回同時 mock ensure_db_prompts_loaded + get_system_prompt 的 context manager"""
-        from app.services.ai.ai_prompt_manager import AIPromptManager
+        from app.services.ai.core.ai_prompt_manager import AIPromptManager
         return [
             patch.object(
                 AIPromptManager, "ensure_db_prompts_loaded",

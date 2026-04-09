@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.ai.proactive_triggers import TriggerAlert
+from app.services.ai.proactive.proactive_triggers import TriggerAlert
 
 
 def _make_alert(
@@ -65,8 +65,8 @@ class TestProactiveTriggerScanJob:
 
         with (
             patch("app.db.database.async_session_maker", return_value=mock_session_ctx),
-            patch("app.services.ai.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
-            patch("app.services.ai.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
+            patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
+            patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
             patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
             patch("app.services.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
         ):
@@ -102,8 +102,8 @@ class TestProactiveTriggerScanJob:
 
         with (
             patch("app.db.database.async_session_maker", return_value=mock_session_ctx),
-            patch("app.services.ai.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
-            patch("app.services.ai.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
+            patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
+            patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
             patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
             patch("app.services.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
         ):
@@ -133,8 +133,8 @@ class TestProactiveTriggerScanJob:
 
         with (
             patch("app.db.database.async_session_maker", return_value=mock_session_ctx),
-            patch("app.services.ai.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
-            patch("app.services.ai.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
+            patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
+            patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
             patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
             patch("app.services.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
         ):
@@ -160,8 +160,8 @@ class TestProactiveTriggerScanJob:
 
         with (
             patch("app.db.database.async_session_maker", return_value=mock_session_ctx),
-            patch("app.services.ai.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
-            patch("app.services.ai.proactive_triggers_erp.ERPTriggerScanner"),
+            patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
+            patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner"),
             patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
         ):
             from app.core.scheduler import proactive_trigger_scan_job

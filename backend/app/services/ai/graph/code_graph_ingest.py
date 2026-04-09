@@ -21,13 +21,13 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from app.services.ai.code_graph_types import CodeEntity, CodeRelation
-from app.services.ai.code_graph_ast_analyzer import (
+from app.services.ai.graph.code_graph_types import CodeEntity, CodeRelation
+from app.services.ai.graph.code_graph_ast_analyzer import (
     PythonASTExtractor,
     SchemaReflector,
 )
-from app.services.ai.code_graph_analysis import compute_dependency_metrics
-from app.services.ai.ts_extractor import TypeScriptExtractor
+from app.services.ai.graph.code_graph_analysis import compute_dependency_metrics
+from app.services.ai.graph.ts_extractor import TypeScriptExtractor
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -352,7 +352,7 @@ class CodeGraphIngestService(CodeGraphPersistenceMixin):
             )
 
         # Scan current files and compare
-        from app.services.ai.code_graph_ast_analyzer import PythonASTExtractor
+        from app.services.ai.graph.code_graph_ast_analyzer import PythonASTExtractor
 
         changed_count = 0
         extractor = PythonASTExtractor(project_prefix="app")
@@ -367,7 +367,7 @@ class CodeGraphIngestService(CodeGraphPersistenceMixin):
 
         # Check frontend files if provided
         if frontend_dir and frontend_dir.is_dir():
-            from app.services.ai.ts_extractor import TypeScriptExtractor
+            from app.services.ai.graph.ts_extractor import TypeScriptExtractor
 
             ts_extractor = TypeScriptExtractor(project_prefix="src")
             for fpath, mod_path in ts_extractor.discover_files(frontend_dir):

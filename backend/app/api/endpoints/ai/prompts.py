@@ -233,7 +233,7 @@ async def compare_prompt_versions(
 def _invalidate_prompt_cache() -> None:
     """清除 AIPromptManager 的 prompt 快取，強制重新載入"""
     try:
-        from app.services.ai.ai_prompt_manager import AIPromptManager
+        from app.services.ai.core.ai_prompt_manager import AIPromptManager
         AIPromptManager.invalidate_prompt_cache()
     except Exception as e:
         logger.warning(f"清除 Prompt 快取失敗: {e}")

@@ -21,7 +21,7 @@ from app.extended.models import (
     CanonicalEntity,
     EntityRelationship,
 )
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 from .graph_helpers import _graph_cache
 
 logger = logging.getLogger(__name__)

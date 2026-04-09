@@ -23,7 +23,7 @@ async def transcribe_voice(
 
     接受 webm/wav/m4a/mp3 格式，回傳辨識文字。
     """
-    from app.services.ai.voice_transcriber import get_voice_transcriber
+    from app.services.ai.misc.voice_transcriber import get_voice_transcriber
 
     # 驗證格式
     filename = audio.filename or "audio.webm"

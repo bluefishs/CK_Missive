@@ -26,7 +26,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from app.services.ai.agent_chitchat import is_chitchat
+from app.services.ai.agent.agent_chitchat import is_chitchat
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +154,7 @@ class AgentRouter:
 
         # ── Layer 2: Pattern Match ──
         try:
-            from app.services.ai.agent_pattern_learner import get_pattern_learner
+            from app.services.ai.agent.agent_pattern_learner import get_pattern_learner
 
             learner = get_pattern_learner()
             matched = await learner.match(question, hints, top_k=1)
@@ -220,7 +220,7 @@ class AgentRouter:
         # ── Layer 2.8: 自適應角色升級 — 弱域自動提升到全能角色 ──
         if suggested and suggested != "agent":
             try:
-                from app.services.ai.agent_intelligence_state import (
+                from app.services.ai.agent.agent_intelligence_state import (
                     get_domain_readiness, get_active_critical_signals,
                 )
                 from app.core.redis_client import get_redis
@@ -282,7 +282,7 @@ class AgentRouter:
                 max_tokens=100,
                 task_type="classify",
             )
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
 
             parsed = parse_json_safe(result)
             if parsed and parsed.get("intent"):
@@ -339,7 +339,7 @@ class AgentRouter:
     ) -> List[Dict[str, Any]]:
         """過濾掉被降級的工具"""
         try:
-            from app.services.ai.agent_tool_monitor import get_tool_monitor
+            from app.services.ai.agent.agent_tool_monitor import get_tool_monitor
 
             monitor = get_tool_monitor()
             degraded = await monitor.get_degraded_tools()
