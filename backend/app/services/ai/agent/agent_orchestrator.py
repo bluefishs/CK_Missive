@@ -515,11 +515,8 @@ class AgentOrchestrator:
                 )
             )
 
-            # Wiki auto-ingest: 將有價值的回答寫入 wiki (非阻塞)
-            if len(tools_used) >= 2 and len(answer_text) > 200:
-                asyncio.create_task(
-                    self._wiki_auto_ingest(question, answer_text, tools_used)
-                )
+            # Wiki auto-ingest: 停用自動寫入 — wiki 內容需人工或 Agent 明確判斷
+            # 若需啟用: wiki_ingest Agent tool 可主動調用
 
         except Exception as e:
             logger.error("Agent orchestrator error: %s", e, exc_info=True)

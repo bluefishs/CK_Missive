@@ -250,28 +250,8 @@ async def retrieve_chunks(
             from app.services.ai.search.reranker import rerank_documents
             sources = rerank_documents(sources, query_terms)
 
-        # Wiki-RAG 融合: 搜尋 wiki 頁面作為補充上下文
-        try:
-            from app.services.wiki_service import get_wiki_service
-            wiki_svc = get_wiki_service()
-            wiki_query = " ".join(query_terms[:5]) if query_terms else ""
-            if wiki_query:
-                wiki_results = await wiki_svc.search_wiki(wiki_query, limit=3)
-                for wr in wiki_results:
-                    page_content = await wiki_svc.read_page(wr["path"])
-                    if page_content:
-                        sources.append({
-                            "document_id": 0,
-                            "doc_number": f"wiki:{wr['path']}",
-                            "subject": wr["title"],
-                            "doc_type": "wiki",
-                            "category": wr["type"],
-                            "ck_note": page_content[:1500],
-                            "similarity": 0.8,
-                            "source": "wiki",
-                        })
-        except Exception as wiki_err:
-            logger.debug("Wiki-RAG fusion skipped: %s", wiki_err)
+        # Wiki-RAG 融合: 停用 — wiki 內容未經人工驗證，不自動混入 RAG
+        # Agent 可透過 wiki_search tool 主動查詢 wiki
 
         return sources[:top_k]
 

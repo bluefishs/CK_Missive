@@ -902,17 +902,8 @@ def setup_scheduler(
     )
     logger.info("已添加健康檢查 Telegram 推播: 每 5 分鐘")
 
-    # Wiki lint 健康檢查 — 每日 05:00
-    scheduler.add_job(
-        wiki_lint_job,
-        trigger=CronTrigger(hour=5, minute=0),
-        id='wiki_lint',
-        name='Wiki 健康檢查 (orphans/broken links)',
-        replace_existing=True,
-        max_instances=1,
-        coalesce=True
-    )
-    logger.info("已添加 Wiki lint: 每日 05:00 執行")
+    # Wiki lint: 停用排程 — wiki 有實質內容後再啟用
+    # 可透過 POST /wiki/lint 手動觸發
 
     return scheduler
 
