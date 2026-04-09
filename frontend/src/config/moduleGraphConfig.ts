@@ -104,7 +104,7 @@ export const DEFAULT_MODULE_MAPPINGS: ModuleMapping[] = [
     title: '知識地圖',
     icon: 'ExperimentOutlined',
     color: '#2f54eb',
-    pages: ['KnowledgeGraphPage', 'CodeGraphManagementPage', 'DatabaseGraphPage', 'KnowledgeBasePage', 'AISynonymManagementPage', 'AIAssistantManagementPage'],
+    pages: ['KnowledgeGraphPage', 'CodeGraphManagementPage', 'DatabaseGraphPage', 'KnowledgeBasePage', 'AISynonymManagementPage', 'UnifiedAgentPage'],
     apiGroups: ['AI'],
     backendServices: ['DocumentAIService', 'RAGQueryService', 'AgentOrchestrator', 'GraphQueryService', 'EmbeddingManager', 'SynonymExpander'],
     dbTables: ['canonical_entities', 'entity_aliases', 'entity_mentions', 'entity_relations', 'prompt_templates', 'search_history'],
