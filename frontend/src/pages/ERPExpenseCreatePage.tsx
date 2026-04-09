@@ -63,6 +63,7 @@ const ERPExpenseCreatePage: React.FC = () => {
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<SmartScanResult | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [scanImageFile, setScanImageFile] = useState<File | null>(null);
   const [attrType, setAttrType] = useState<'project' | 'operational' | 'none'>(urlCaseCode ? 'project' : 'none');
   const [voucherType, setVoucherType] = useState<VoucherType>('invoice');
   const [mobileStep, setMobileStep] = useState(0);
@@ -83,6 +84,7 @@ const ERPExpenseCreatePage: React.FC = () => {
     if (file.size > 10 * 1024 * 1024) { message.error('檔案過大，上限 10MB'); return; }
     setScanning(true);
     const compressed = await compressImage(file);
+    setScanImageFile(compressed);
     setPreviewUrl(URL.createObjectURL(compressed));
     setScanResult(null);
     try {
@@ -129,7 +131,27 @@ const ERPExpenseCreatePage: React.FC = () => {
         case_code: attrType === 'none' ? undefined : values.case_code,
         inv_num: values.inv_num || (voucherType !== 'invoice' ? `AUTO-${Date.now()}` : undefined),
       } as unknown as ExpenseInvoiceCreate;
-      await createMutation.mutateAsync(payload);
+      const result = await createMutation.mutateAsync(payload);
+
+      // 上傳掃描/拍照圖片作為收據附件
+      if (scanImageFile) {
+        try {
+          // result 可能是 {data: {id}} 或 {id} (視 API wrapper 結構)
+          const rd = result as { data?: { id?: number }; id?: number };
+          const expenseId = rd?.data?.id ?? rd?.id;
+          if (expenseId) {
+            await apiClient.upload(
+              ERP_ENDPOINTS.EXPENSES_UPLOAD_RECEIPT,
+              scanImageFile,
+              'file',
+              { invoice_id: String(expenseId) },
+            );
+          }
+        } catch {
+          message.warning('紀錄已建立，但收據圖片上傳失敗');
+        }
+      }
+
       message.success('核銷紀錄已建立');
       navigate(ROUTES.ERP_EXPENSES);
     } catch (err: unknown) {
