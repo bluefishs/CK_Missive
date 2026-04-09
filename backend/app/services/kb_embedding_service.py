@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.ai_connector import get_ai_connector
 from app.core.config import settings
 from app.extended.models.knowledge_base import KBChunk
-from app.services.ai.embedding_manager import EmbeddingManager
+from app.services.ai.core.embedding_manager import EmbeddingManager
 
 logger = logging.getLogger(__name__)
 

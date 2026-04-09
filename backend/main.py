@@ -46,7 +46,7 @@ from app.services.google_sync_scheduler import (
     stop_google_sync_scheduler,
 )
 from app.services.backup_scheduler import start_backup_scheduler, stop_backup_scheduler
-from app.services.ai.extraction_scheduler import (
+from app.services.ai.document.extraction_scheduler import (
     start_extraction_scheduler,
     stop_extraction_scheduler,
 )
@@ -191,7 +191,7 @@ async def lifespan(app: FastAPI):
 
     # 註冊 ERP 圖譜 Domain Event 訂閱（報價/請款/費用異動 → 增量入圖）
     try:
-        from app.services.ai.erp_graph_event_handler import register_erp_graph_handlers
+        from app.services.ai.graph.erp_graph_event_handler import register_erp_graph_handlers
         register_erp_graph_handlers()
         logger.info("✅ ERP 圖譜事件訂閱已註冊")
     except Exception as e:
@@ -312,7 +312,7 @@ async def lifespan(app: FastAPI):
                 return
             try:
                 from app.db.database import AsyncSessionLocal
-                from app.services.ai.entity_extraction_service import extract_entities_for_document
+                from app.services.ai.document.entity_extraction_service import extract_entities_for_document
                 async with AsyncSessionLocal() as db:
                     result = await extract_entities_for_document(db, doc_id, commit=True)
                     logger.info(

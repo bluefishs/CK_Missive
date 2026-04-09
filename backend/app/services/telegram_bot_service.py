@@ -180,8 +180,8 @@ class TelegramBotService:
     ) -> "StreamResult":
         """Run agent orchestrator and collect results via shared collector."""
         from app.db.database import AsyncSessionLocal
-        from app.services.ai.agent_orchestrator import AgentOrchestrator
-        from app.services.ai.agent_conversation_memory import get_conversation_memory
+        from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
+        from app.services.ai.agent.agent_conversation_memory import get_conversation_memory
         from app.services.sender_context import SenderContext
         from app.services.agent_stream_helper import StreamResult
 
@@ -288,7 +288,7 @@ class TelegramBotService:
                 await self.send_message(chat_id, "無法下載語音，請重新傳送。")
                 return
 
-            from app.services.ai.voice_transcriber import VoiceTranscriber
+            from app.services.ai.misc.voice_transcriber import VoiceTranscriber
             transcriber = VoiceTranscriber()
             text = await transcriber.transcribe(audio_bytes, format="ogg")
 

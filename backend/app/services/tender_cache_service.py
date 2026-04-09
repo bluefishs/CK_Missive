@@ -15,7 +15,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.name_utils import normalize_for_match
+from app.services.ai.core.name_utils import normalize_for_match
 
 logger = logging.getLogger(__name__)
 

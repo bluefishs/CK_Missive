@@ -37,7 +37,7 @@ async def _trigger_ner_background(doc_id: int, force: bool = False) -> None:
     """背景觸發 NER 實體提取（不阻塞主回應）"""
     try:
         from app.db.database import AsyncSessionLocal
-        from app.services.ai.entity_extraction_service import extract_entities_for_document
+        from app.services.ai.document.entity_extraction_service import extract_entities_for_document
 
         async with AsyncSessionLocal() as db:
             result = await extract_entities_for_document(db, doc_id, force=force, commit=True)

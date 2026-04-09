@@ -202,7 +202,7 @@ class AssetService(AuditableServiceMixin):
                 '"estimated_remaining_life": "年數"}'
             )
             result = await ai.vision_completion(prompt, image_bytes, max_tokens=256)
-            from app.services.ai.agent_utils import parse_json_safe
+            from app.services.ai.core.agent_utils import parse_json_safe
             parsed = parse_json_safe(result)
             if parsed and parsed.get("condition"):
                 return parsed

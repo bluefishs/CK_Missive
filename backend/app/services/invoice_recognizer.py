@@ -233,7 +233,7 @@ async def _vision_ocr_async(image_bytes: bytes) -> Optional[dict]:
             "如果無法辨識某欄位，設為 null。"
         )
         result = await ai.vision_completion(prompt, image_bytes, max_tokens=512)
-        from app.services.ai.agent_utils import parse_json_safe
+        from app.services.ai.core.agent_utils import parse_json_safe
         parsed = parse_json_safe(result)
         if parsed and parsed.get("inv_num"):
             return parsed

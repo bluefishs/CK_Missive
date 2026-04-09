@@ -410,7 +410,7 @@ def main() -> None:
 
         async def _do_ingest():
             from app.db.database import AsyncSessionLocal
-            from app.services.ai.code_graph_service import SchemaReflector, CodeGraphIngestionService
+            from app.services.ai.graph.code_graph_service import SchemaReflector, CodeGraphIngestionService
 
             reflector = SchemaReflector()
             schema_ents, schema_rels = reflector.reflect_tables(db_url)

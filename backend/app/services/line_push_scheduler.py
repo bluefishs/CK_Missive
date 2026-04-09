@@ -18,8 +18,8 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai.proactive_triggers import ProactiveTriggerService, TriggerAlert
-from app.services.ai.dispatch_progress_synthesizer import DispatchProgressSynthesizer
+from app.services.ai.proactive.proactive_triggers import ProactiveTriggerService, TriggerAlert
+from app.services.ai.domain.dispatch_progress_synthesizer import DispatchProgressSynthesizer
 from app.services.line_bot_service import get_line_bot_service
 from app.services.line_flex_builder import build_progress_report_flex
 

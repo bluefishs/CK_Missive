@@ -23,7 +23,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from app.db.database import AsyncSessionLocal
-from app.services.ai.document_chunker import chunk_documents_batch, chunk_document
+from app.services.ai.document.document_chunker import chunk_documents_batch, chunk_document
 
 
 async def get_unchunked_count(db) -> int:
@@ -68,7 +68,7 @@ async def main():
         ai_connector = None
         if args.with_embeddings:
             try:
-                from app.services.ai.embedding_manager import EmbeddingManager
+                from app.services.ai.core.embedding_manager import EmbeddingManager
                 from app.core.ai_connector import get_ai_connector
                 embedding_mgr = EmbeddingManager()
                 ai_connector = get_ai_connector()

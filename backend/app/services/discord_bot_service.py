@@ -182,8 +182,8 @@ class DiscordBotService:
         )
 
         try:
-            from app.services.ai.agent_orchestrator import AgentOrchestrator
-            from app.services.ai.agent_conversation_memory import get_conversation_memory
+            from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
+            from app.services.ai.agent.agent_conversation_memory import get_conversation_memory
             from app.db.database import AsyncSessionLocal
 
             session_id = f"discord:{user_id}"
@@ -238,7 +238,7 @@ class DiscordBotService:
             )
 
         try:
-            from app.services.ai.agent_orchestrator import AgentOrchestrator
+            from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
             from app.services.sender_context import SenderContext
             from app.db.database import AsyncSessionLocal as async_session_factory
 

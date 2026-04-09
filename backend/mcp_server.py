@@ -49,7 +49,7 @@ load_dotenv(_project_root / ".env", override=True)
 os.environ.setdefault("PYTHONUTF8", "1")
 
 from mcp.server.fastmcp import FastMCP
-from app.services.ai.ai_config import get_ai_config
+from app.services.ai.core.ai_config import get_ai_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger("mcp_server")
@@ -124,10 +124,10 @@ atexit.register(_dispose_engine)
 async def _execute_tool(tool_name: str, params: dict[str, Any]) -> str:
     """執行工具並回傳 JSON 字串"""
     async with _async_session() as db:
-        from app.services.ai.agent_tools import AgentToolExecutor
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.agent.agent_tools import AgentToolExecutor
+        from app.services.ai.core.ai_config import get_ai_config
         from app.core.ai_connector import get_ai_connector
-        from app.services.ai.embedding_manager import EmbeddingManager
+        from app.services.ai.core.embedding_manager import EmbeddingManager
 
         executor = AgentToolExecutor(db, get_ai_connector(), EmbeddingManager(), get_ai_config())
         result = await executor.execute(tool_name, params)
@@ -318,7 +318,7 @@ async def ask_question(
             ensure_ascii=False,
         )
 
-    from app.services.ai.agent_orchestrator import AgentOrchestrator
+    from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
 
     async def _run_query():
         async with _async_session() as db:
@@ -406,7 +406,7 @@ async def get_stats_overview() -> str:
 async def get_top_entities_resource() -> str:
     """知識圖譜中提及次數最多的前 20 個實體"""
     async with _async_session() as db:
-        from app.services.ai.graph_query_service import GraphQueryService
+        from app.services.ai.graph.graph_query_service import GraphQueryService
         svc = GraphQueryService(db)
         entities = await svc.get_top_entities(limit=20)
         return json.dumps(
@@ -425,7 +425,7 @@ async def get_entity_resource(entity_id: int) -> str:
 async def get_entity_neighbors_resource(entity_id: int) -> str:
     """取得實體的 2-hop 鄰居圖（節點 + 邊）"""
     async with _async_session() as db:
-        from app.services.ai.graph_query_service import GraphQueryService
+        from app.services.ai.graph.graph_query_service import GraphQueryService
         svc = GraphQueryService(db)
         result = await svc.get_neighbors(entity_id, max_hops=2, limit=50)
         return json.dumps(result, ensure_ascii=False, indent=2, default=str)

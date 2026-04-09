@@ -179,7 +179,7 @@ class AIConnector(AIConnectorManagementMixin):
         async def _track_and_return(result: str, provider: str, model_name: str) -> str:
             output_tokens_est = max(len(result) // 2, 1)
             try:
-                from app.services.ai.token_usage_tracker import get_token_tracker
+                from app.services.ai.core.token_usage_tracker import get_token_tracker
                 await get_token_tracker().record(
                     provider=provider,
                     model=model_name,
@@ -726,7 +726,7 @@ class AIConnector(AIConnectorManagementMixin):
 
         # 規則 2: Token 預算超額 → 強制本地
         try:
-            from app.services.ai.token_usage_tracker import get_token_tracker
+            from app.services.ai.core.token_usage_tracker import get_token_tracker
             report = await get_token_tracker().get_usage_report()
             daily_pct = report.get("daily", {}).get("usage_pct", 0)
             if daily_pct >= 90:

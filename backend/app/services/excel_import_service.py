@@ -307,7 +307,7 @@ class ExcelImportService(ImportBaseService):
             )
             # 通知 NER 排程器有新公文（事件驅動，立即處理）
             if result.inserted > 0:
-                from app.services.ai.extraction_scheduler import notify_new_documents
+                from app.services.ai.document.extraction_scheduler import notify_new_documents
                 notify_new_documents(result.inserted)
 
         except Exception as e:

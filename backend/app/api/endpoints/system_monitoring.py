@@ -367,7 +367,7 @@ async def get_review_dashboard(
 
     # --- DB Graph ---
     try:
-        from app.services.ai.schema_reflector import SchemaReflectorService
+        from app.services.ai.graph.schema_reflector import SchemaReflectorService
         schema = await SchemaReflectorService.get_full_schema_async()
         tables = schema.get("tables", [])
         result["subsystems"]["db_graph"] = {
@@ -381,7 +381,7 @@ async def get_review_dashboard(
 
     # --- Knowledge Base (Embedding) ---
     try:
-        from app.services.ai.embedding_manager import EmbeddingManager
+        from app.services.ai.core.embedding_manager import EmbeddingManager
         stats = await EmbeddingManager.get_coverage_stats(db)
         total = stats.get("total_chunks", 0)
         embedded = stats.get("embedded_chunks", 0)
@@ -398,7 +398,7 @@ async def get_review_dashboard(
 
     # --- Skill Evolution ---
     try:
-        from app.services.ai.agent_evolution_scheduler import AgentEvolutionScheduler
+        from app.services.ai.agent.agent_evolution_scheduler import AgentEvolutionScheduler
         evo = AgentEvolutionScheduler()
         should = await evo.should_evolve()
         result["subsystems"]["skill_evolution"] = {

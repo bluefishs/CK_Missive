@@ -81,7 +81,7 @@ class ChannelAdapter(ABC):
     ) -> str:
         """統一 Agent 問答路徑（含 SenderContext 注入）"""
         try:
-            from app.services.ai.agent_orchestrator import AgentOrchestrator
+            from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
             from app.services.sender_context import SenderContext
             from app.db.database import AsyncSessionLocal as async_session_factory
             import json

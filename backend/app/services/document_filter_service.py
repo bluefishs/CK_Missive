@@ -115,7 +115,7 @@ class DocumentFilterService:
 
         例：輸入「桃園市工務局」-> 擴展出 [「桃園市工務局」,「桃園市政府工務局」,「工務局」,「工務處」]
         """
-        from app.services.ai.synonym_expander import SynonymExpander
+        from app.services.ai.search.synonym_expander import SynonymExpander
 
         extracted = DocumentFilterService.extract_agency_names(agency_value)
         if not extracted:

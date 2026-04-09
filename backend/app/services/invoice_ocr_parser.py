@@ -51,7 +51,7 @@ def try_vision_ocr(file_path: str) -> Optional[dict]:
     )
 
     try:
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.core.ai_config import get_ai_config
         config = get_ai_config()
         resp = httpx.post(
             f"{config.ollama_base_url}/api/chat",

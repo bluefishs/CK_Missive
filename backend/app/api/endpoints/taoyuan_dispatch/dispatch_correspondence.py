@@ -43,7 +43,7 @@ async def confirm_correspondence(
         from app.extended.models import (
             CanonicalEntity, DocumentEntityMention, EntityRelationship,
         )
-        from app.services.ai.graph_helpers import invalidate_graph_cache
+        from app.services.ai.graph.graph_helpers import invalidate_graph_cache
 
         if not request.pairs:
             return {

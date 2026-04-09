@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from app.core.dependencies import require_auth
 from app.extended.models import User
 from app.services.taoyuan import TaoyuanStatisticsService
-from app.services.ai.dispatch_progress_synthesizer import DispatchProgressSynthesizer
+from app.services.ai.domain.dispatch_progress_synthesizer import DispatchProgressSynthesizer
 
 router = APIRouter()
 

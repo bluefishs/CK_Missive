@@ -279,7 +279,7 @@ class DocumentService(AuditableServiceMixin):
             # 自動匹配派工單（反向關聯）
             await self._auto_link_to_dispatch_orders(new_document)
             # 通知 NER 排程器有新公文（事件驅動，立即處理）
-            from app.services.ai.extraction_scheduler import notify_new_documents
+            from app.services.ai.document.extraction_scheduler import notify_new_documents
             notify_new_documents(1)
             # 發布 document.received 領域事件
             try:

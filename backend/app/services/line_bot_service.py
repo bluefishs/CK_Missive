@@ -120,7 +120,7 @@ class LineBotService:
 
         在 BackgroundTask 中執行。
         """
-        from app.services.ai.voice_transcriber import get_voice_transcriber
+        from app.services.ai.misc.voice_transcriber import get_voice_transcriber
 
         transcriber = get_voice_transcriber()
 
@@ -242,8 +242,8 @@ class LineBotService:
     ) -> "StreamResult":
         """Run agent orchestrator and collect results via shared collector."""
         from app.db.database import AsyncSessionLocal
-        from app.services.ai.agent_orchestrator import AgentOrchestrator
-        from app.services.ai.agent_conversation_memory import get_conversation_memory
+        from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
+        from app.services.ai.agent.agent_conversation_memory import get_conversation_memory
         from app.services.sender_context import SenderContext
 
         session_id = f"line:{user_id}"

@@ -68,7 +68,7 @@ async def main():
     # Step 2: 寫入 DB + Embedding
     from app.db.database import AsyncSessionLocal as async_session_factory
     from app.extended.models.knowledge_base import KBChunk
-    from app.services.ai.embedding_manager import EmbeddingManager
+    from app.services.ai.core.embedding_manager import EmbeddingManager
     from app.core.ai_connector import get_ai_connector
     from sqlalchemy import delete
 

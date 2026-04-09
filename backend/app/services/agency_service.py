@@ -100,7 +100,7 @@ class AgencyService(AuditableServiceMixin):
 
         # 回溯連結：將已存在的同名 CanonicalEntity 連結到新建機關
         try:
-            from app.services.ai.canonical_entity_service import CanonicalEntityService
+            from app.services.ai.graph.canonical_entity_service import CanonicalEntityService
             entity_svc = CanonicalEntityService(self.db)
             await entity_svc.link_existing_entities(
                 record_name=agency.agency_name,

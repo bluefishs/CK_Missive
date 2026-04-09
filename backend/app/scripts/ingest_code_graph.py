@@ -66,7 +66,7 @@ def _get_sync_db_url() -> str:
 async def cmd_check(args: argparse.Namespace) -> None:
     """Dry-run: show what would be ingested."""
     from app.db.database import AsyncSessionLocal
-    from app.services.ai.code_graph_service import CodeGraphIngestionService
+    from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
 
     db_url = None if args.skip_schema else _get_sync_db_url()
     backend_app = _get_backend_app_dir()
@@ -93,7 +93,7 @@ async def cmd_check(args: argparse.Namespace) -> None:
 async def cmd_ingest(args: argparse.Namespace) -> None:
     """Execute ingestion pipeline."""
     from app.db.database import AsyncSessionLocal
-    from app.services.ai.code_graph_service import CodeGraphIngestionService
+    from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
 
     db_url = None if args.skip_schema else _get_sync_db_url()
     backend_app = _get_backend_app_dir()
@@ -124,7 +124,7 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
 async def cmd_stats(args: argparse.Namespace) -> None:
     """Show code graph statistics from DB."""
     from app.db.database import AsyncSessionLocal
-    from app.services.ai.code_graph_service import CodeGraphIngestionService
+    from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
 
     async with AsyncSessionLocal() as db:
         svc = CodeGraphIngestionService(db)

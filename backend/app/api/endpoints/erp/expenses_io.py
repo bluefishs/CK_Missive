@@ -284,7 +284,7 @@ async def suggest_category(
     )
 
     try:
-        from app.services.ai.ai_config import get_ai_config
+        from app.services.ai.core.ai_config import get_ai_config
         config = get_ai_config()
         async with httpx.AsyncClient() as client:
             resp = await client.post(
