@@ -352,7 +352,7 @@ class DocumentAIService(BaseAIService):
         current_user: Optional[Any] = None,
     ) -> NaturalSearchResponse:
         """執行自然語言公文搜尋（含韌性降級）"""
-        from .document_natural_search import execute_natural_search
+        from app.services.ai.document_natural_search import execute_natural_search
         return await execute_natural_search(self, db, request, current_user)
 
 
