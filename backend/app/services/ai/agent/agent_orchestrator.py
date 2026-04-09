@@ -515,6 +515,12 @@ class AgentOrchestrator:
                 )
             )
 
+            # Wiki auto-ingest: 將有價值的回答寫入 wiki (非阻塞)
+            if len(tools_used) >= 2 and len(answer_text) > 200:
+                asyncio.create_task(
+                    self._wiki_auto_ingest(question, answer_text, tools_used)
+                )
+
         except Exception as e:
             logger.error("Agent orchestrator error: %s", e, exc_info=True)
             trace.route_type = getattr(trace, "route_type", None) or "error"
@@ -556,6 +562,29 @@ class AgentOrchestrator:
             question, plan, tool_results, tools_used, all_sources,
             step_index, event_queue, context=context, trace=trace,
         )
+
+    async def _wiki_auto_ingest(
+        self,
+        question: str,
+        answer: str,
+        tools_used: List[str],
+    ) -> None:
+        """將有價值的 Agent 回答自動寫入 wiki (非阻塞, fire-and-forget)"""
+        try:
+            from app.services.wiki_service import get_wiki_service
+            svc = get_wiki_service()
+            title = question[:60].strip()
+            tags = list(set(tools_used))[:5]
+            await svc.save_synthesis(
+                title=title,
+                content_md=f"## 問題\n\n{question}\n\n## 分析\n\n{answer}",
+                sources=[f"agent:{','.join(tools_used)}"],
+                tags=tags,
+            )
+            await svc.rebuild_index()
+            logger.debug("Wiki auto-ingest: %s", title)
+        except Exception as e:
+            logger.debug("Wiki auto-ingest failed (non-critical): %s", e)
 
     async def _execute_tool(
         self,
