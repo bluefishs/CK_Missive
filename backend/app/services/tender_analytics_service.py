@@ -33,73 +33,74 @@ class TenderAnalyticsService:
         - 分類列表: 本週招標/決標/得標廠商/無法決標/公開徵求
         - 類別分布圖表
         """
+        import json as _json
         from datetime import datetime, timedelta
         from app.services.tender_search_service import CK_BUSINESS_KEYWORDS
         kw_list = keywords or CK_BUSINESS_KEYWORDS[:5]
+
+        # Dashboard 結果快取 (Redis, 10 min) — 避免重複爬取
+        redis = None
+        cache_key = "tender:dashboard:result"
+        try:
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+            if redis:
+                cached = await redis.get(cache_key)
+                if cached:
+                    return _json.loads(cached)
+        except Exception:
+            pass
 
         import asyncio
         all_records = []
         seen_keys = set()
 
-        # === 主要來源: ezbid 今日全量 (統一服務層, 快取共享) ===
-        # dashboard / recommend / search 共用 get_today_all() 避免重複爬取
-        try:
-            from app.services.ezbid_scraper import EzbidScraper
-            scraper = EzbidScraper()
-            primary_result = await scraper.get_today_all()
-            for r in primary_result.get("records", []):
-                key = f"ezbid-{r.get('ezbid_id', '')}"
-                if key not in seen_keys:
-                    seen_keys.add(key)
-                    all_records.append({
-                        "date": r.get("date", ""),
-                        "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
-                        "title": r.get("title", ""),
-                        "type": r.get("type", ""),
-                        "category": r.get("category", ""),
-                        "unit_id": r.get("ezbid_id", ""),
-                        "unit_name": r.get("unit_name", ""),
-                        "job_number": "",
-                        "winner_names": [],
-                        "source": "ezbid",
-                        "budget": r.get("budget"),
-                        "days_left": r.get("days_left"),
-                        "ezbid_url": r.get("ezbid_url", ""),
-                    })
-            logger.info("ezbid today (shared cache): %d records", len(primary_result.get("records", [])))
-        except Exception as e:
-            logger.warning(f"ezbid today fetch failed: {e}")
+        # === 三源並行抓取 (ezbid + PCC + g0v) ===
+        # 全部並行 → 總延遲 = max(ezbid, PCC, g0v) ≈ 15s (was 串行 50s)
+        from app.services.ezbid_scraper import EzbidScraper
+        from app.services.pcc_today_scraper import PccTodayScraper
 
-        # === 補充來源 0: PCC 官網今日全量 (1900+ 筆, 含招標+決標+選擇性) ===
-        try:
-            from app.services.pcc_today_scraper import PccTodayScraper
-            pcc_scraper = PccTodayScraper()
-            pcc_result = await pcc_scraper.fetch_today_tenders()
-            for r in pcc_result.get("records", []):
-                key = f"pcc-{r.get('unit_id', '')}-{r.get('job_number', '')}"
-                if key and key != "pcc--" and key not in seen_keys:
-                    seen_keys.add(key)
-                    all_records.append(r)
-            logger.info(
-                "PCC today (verify=False): %d records, types=%s",
-                len(pcc_result.get("records", [])),
-                pcc_result.get("by_type", {}),
-            )
-        except Exception as e:
-            logger.debug(f"PCC today scrape skipped: {e}")
+        scraper = EzbidScraper()
+        pcc_scraper = PccTodayScraper()
 
-        # === 補充來源 1: g0v PCC API 關鍵字搜尋 (含決標資料) ===
-        # 擴大搜尋: 5 關鍵字 × 5 頁 + 通用詞 3 頁 → 涵蓋更多決標公告
         async def fetch_kw(kw, page):
             return kw, await self.search.search_by_title(kw, page=page)
 
-        # 業務關鍵字 5 頁 + 通用決標關鍵字 3 頁
-        general_kws = ["工程", "勞務", "財物"]
-        tasks = [fetch_kw(kw, p) for kw in kw_list[:5] for p in range(1, 6)]
-        tasks += [fetch_kw(kw, p) for kw in general_kws for p in range(1, 4)]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # 組合所有並行任務
+        ezbid_task = scraper.get_today_all()
+        pcc_task = pcc_scraper.fetch_today_tenders()
+        kw_tasks = [fetch_kw(kw, p) for kw in kw_list[:5] for p in range(1, 4)]
 
-        for item in results:
+        all_tasks = [ezbid_task, pcc_task] + kw_tasks
+        all_results = await asyncio.gather(*all_tasks, return_exceptions=True)
+
+        # 解構結果
+        ezbid_result = all_results[0] if not isinstance(all_results[0], Exception) else {"records": []}
+        pcc_result = all_results[1] if not isinstance(all_results[1], Exception) else {"records": []}
+        kw_results = all_results[2:]
+
+        # 合併 ezbid
+        for r in ezbid_result.get("records", []):
+            key = f"ezbid-{r.get('ezbid_id', '')}"
+            if key not in seen_keys:
+                seen_keys.add(key)
+                all_records.append({
+                    "date": r.get("date", ""), "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+                    "title": r.get("title", ""), "type": r.get("type", ""), "category": r.get("category", ""),
+                    "unit_id": r.get("ezbid_id", ""), "unit_name": r.get("unit_name", ""), "job_number": "",
+                    "winner_names": [], "source": "ezbid", "budget": r.get("budget"),
+                    "days_left": r.get("days_left"), "ezbid_url": r.get("ezbid_url", ""),
+                })
+
+        # 合併 PCC
+        for r in pcc_result.get("records", []):
+            key = f"pcc-{r.get('unit_id', '')}-{r.get('job_number', '')}"
+            if key and key != "pcc--" and key not in seen_keys:
+                seen_keys.add(key)
+                all_records.append(r)
+
+        # 合併 g0v 關鍵字搜尋
+        for item in kw_results:
             if isinstance(item, Exception):
                 continue
             kw, result = item
@@ -110,30 +111,13 @@ class TenderAnalyticsService:
                     r["matched_keyword"] = kw
                     all_records.append(r)
 
-        # === 補充來源 2: ezbid 關鍵字搜尋 (業務相關標案精準匹配) ===
-        try:
-            ezbid_kw_result = await scraper.fetch_for_keywords(kw_list[:5])
-            if not isinstance(ezbid_kw_result, Exception):
-                for r in ezbid_kw_result.get("records", []):
-                    key = f"ezbid-{r.get('ezbid_id', '')}"
-                    if key not in seen_keys:
-                        seen_keys.add(key)
-                        all_records.append({
-                            "date": r.get("date", ""),
-                            "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
-                            "title": r.get("title", ""),
-                            "type": r.get("type", ""),
-                            "category": r.get("category", ""),
-                            "unit_id": r.get("ezbid_id", ""),
-                            "unit_name": r.get("unit_name", ""),
-                            "job_number": "",
-                            "winner_names": [],
-                            "matched_keyword": r.get("matched_keyword"),
-                            "source": "ezbid",
-                            "budget": r.get("budget"),
-                        })
-        except Exception as e:
-            logger.debug(f"ezbid keyword supplement failed: {e}")
+        logger.info(
+            "Dashboard data: ezbid=%d, pcc=%d, g0v_kw=%d, total=%d",
+            len(ezbid_result.get("records", [])),
+            len(pcc_result.get("records", [])),
+            sum(1 for i in kw_results if not isinstance(i, Exception)),
+            len(all_records),
+        )
 
         # 按日期排序
         all_records.sort(key=lambda r: r.get("raw_date", 0), reverse=True)
@@ -252,7 +236,7 @@ class TenderAnalyticsService:
                 return dates[0][5:]  # MM-DD
             return f"{dates[0][5:]}~{dates[-1][5:]}"
 
-        return {
+        dashboard_result = {
             "total_found": len(all_records),
             "keywords_used": kw_list,
             "latest_date": latest_date,
@@ -300,6 +284,15 @@ class TenderAnalyticsService:
                 {"name": k, "value": v} for k, v in budget_ranges.most_common()
             ],
         }
+
+        # 寫入 Redis 快取 (10 min) — 後續請求秒回
+        if redis:
+            try:
+                await redis.set(cache_key, _json.dumps(dashboard_result, ensure_ascii=False, default=str), ex=600)
+            except Exception:
+                pass
+
+        return dashboard_result
 
     # =========================================================================
     # 委派方法 — 拆分至子模組
