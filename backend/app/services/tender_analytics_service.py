@@ -143,21 +143,38 @@ class TenderAnalyticsService:
         latest_date = all_dates[0] if all_dates else datetime.now().strftime("%Y-%m-%d")
         week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 
-        # 按類型分類
-        def is_type(r, keyword):
-            return keyword in r.get("type", "")
+        # 按類型分類 (精確匹配, 排除更正公告和非招標)
+        def is_bid(r):
+            """招標公告 (排除更正、決標、公開取得)"""
+            t = r.get("type", "")
+            return ("招標" in t and "更正" not in t and "決標" not in t
+                    and "公開取得" not in t)
 
-        # 最新招標：使用整體最新日期 (含 ezbid)
-        latest_bid = [r for r in all_records if r.get("date") == latest_date and is_type(r, "招標")]
+        def is_award(r):
+            """決標公告"""
+            return "決標" in r.get("type", "") and "無法" not in r.get("type", "")
+
+        def is_failed(r):
+            return "無法決標" in r.get("type", "")
+
+        def is_rfp(r):
+            """公開取得報價單/企劃書"""
+            return "公開取得" in r.get("type", "") and "更正" not in r.get("type", "")
+
+        # 最新招標：使用整體最新日期
+        # 統計卡片以 PCC 精確分類為準 (ezbid type 全為 '公開招標公告'，不精確)
+        # 列表顯示仍包含 ezbid 記錄
+        latest_bid = [r for r in all_records if r.get("date") == latest_date and is_bid(r)]
+        latest_bid_pcc_count = sum(1 for r in latest_bid if r.get("source") == "pcc")
 
         # 最新決標：使用 PCC 最新日期 (ezbid 不提供決標資料)
         pcc_dates = sorted(set(r.get("date", "") for r in all_records if r.get("date") and r.get("source") != "ezbid"), reverse=True)
         pcc_latest = pcc_dates[0] if pcc_dates else latest_date
-        latest_award = [r for r in all_records if r.get("date") == pcc_latest and is_type(r, "決標") and "無法" not in r.get("type", "")]
-        week_new_bid = [r for r in all_records if r.get("date", "") >= week_ago and is_type(r, "招標")]
-        week_new_award = [r for r in all_records if r.get("date", "") >= week_ago and is_type(r, "決標") and "無法" not in r.get("type", "")]
-        recent_failed = [r for r in all_records if is_type(r, "無法決標")]
-        recent_rfp = [r for r in all_records if is_type(r, "公開取得")]
+        latest_award = [r for r in all_records if r.get("date") == pcc_latest and is_award(r)]
+        week_new_bid = [r for r in all_records if r.get("date", "") >= week_ago and is_bid(r)]
+        week_new_award = [r for r in all_records if r.get("date", "") >= week_ago and is_award(r)]
+        recent_failed = [r for r in all_records if is_failed(r)]
+        recent_rfp = [r for r in all_records if is_rfp(r)]
 
         # 得標廠商統計
         winner_counter: Counter = Counter()
@@ -250,9 +267,9 @@ class TenderAnalyticsService:
                 "failed": date_range(recent_failed),
                 "rfp": date_range(recent_rfp),
             },
-            # 統計卡片
+            # 統計卡片 (PCC 精確分類為主)
             "stats": {
-                "latest_bid": len(latest_bid),
+                "latest_bid": latest_bid_pcc_count or len(latest_bid),
                 "latest_award": len(latest_award),
                 "week_new_bid": len(week_new_bid),
                 "week_new_award": len(week_new_award),

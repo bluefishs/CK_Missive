@@ -86,29 +86,77 @@ class PccTodayScraper:
         await self._set_cache(cache_key, result, ttl=900)
         return result
 
+    # PCC todayTender 頁面的 table 順序 → 類型映射
+    # 只有含 pkPmsMain links 的 table 才是資料 table
+    _TABLE_TYPE_ORDER = [
+        "公開招標公告",
+        "限制性招標",
+        "選擇性招標(名單)",
+        "選擇性招標(個案)",
+        "選擇性招標(後續邀標)",
+        "公開取得報價單或企劃書",
+        # 以下為更正公告
+        "公開招標更正公告",
+        "限制性招標更正公告",
+        "選擇性招標(名單)更正公告",
+        "選擇性招標(個案)更正公告",
+        "選擇性招標(後續邀標)更正公告",
+        "公開取得報價單更正公告",
+    ]
+
     def _parse_today_page(self, html: str) -> tuple:
-        """解析 PCC 今日標案 HTML"""
+        """
+        解析 PCC 今日標案 HTML — 依 table 順序判斷公告類型。
+
+        PCC 頁面結構: 每個類型有一對 table (header + data)
+        data table 含 pkPmsMain links，按出現順序對應 _TABLE_TYPE_ORDER。
+        """
         soup = BeautifulSoup(html, "html.parser")
         records: List[Dict[str, Any]] = []
         type_counts: Dict[str, int] = {}
         seen_ids = set()
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        today_int = int(datetime.now().strftime("%Y%m%d"))
 
-        # PCC 使用 <table> 結構，每個標案在 <tr> 中
-        # 結構: 項次 | 機關名稱 | 標案名稱 | 標案案號 | 截止投標
-        tables = soup.find_all("table")
+        # PCC 頁面結構: 每個 section 由 header_table (id=label_typeN_M) + data_table 配對
+        # header_table id 規則: label_type1_0~5 = 招標 6 類, label_type2_0~5 = 更正 6 類
+        _SECTION_TYPE_MAP = {
+            "label_type1_0": "公開招標公告",
+            "label_type1_1": "限制性招標",
+            "label_type1_2": "選擇性招標(名單)",
+            "label_type1_3": "選擇性招標(個案)",
+            "label_type1_4": "選擇性招標(後續邀標)",
+            "label_type1_5": "公開取得報價單或企劃書",
+            "label_type2_0": "公開招標更正公告",
+            "label_type2_1": "限制性招標更正公告",
+            "label_type2_2": "選擇性招標(名單)更正公告",
+            "label_type2_3": "選擇性招標(個案)更正公告",
+            "label_type2_4": "選擇性招標(後續邀標)更正公告",
+            "label_type2_5": "公開取得報價單更正公告",
+        }
 
-        for table in tables:
-            rows = table.find_all("tr")
-            current_type = ""
+        # 定位每個 header → 下一個 sibling table = data table
+        data_tables = []
+        for label_id, tender_type in _SECTION_TYPE_MAP.items():
+            header = soup.find("table", id=label_id)
+            if not header:
+                continue
+            # 找 header 之後的下一個 table (data table)
+            next_table = header.find_next_sibling("table")
+            if not next_table:
+                continue
+            links = next_table.find_all("a", href=lambda h: h and "pkPmsMain" in str(h))
+            data_tables.append((next_table, links, tender_type))
 
-            for row in rows:
+        for table, _links, tender_type in data_tables:
+            table_count = 0
+
+            for row in table.find_all("tr"):
                 cells = row.find_all("td")
                 if len(cells) < 4:
                     continue
 
-                # 嘗試提取標案資料
                 try:
-                    # 尋找含連結的欄位 (標案案號)
                     link = row.find("a", href=lambda h: h and "pkPmsMain" in str(h))
                     if not link:
                         continue
@@ -116,83 +164,46 @@ class PccTodayScraper:
                     href = link.get("href", "")
                     pk_match = re.search(r"pkPmsMain=([A-Za-z0-9=+/]+)", href)
                     tender_id = pk_match.group(1) if pk_match else ""
-
-                    if tender_id in seen_ids:
+                    if not tender_id or tender_id in seen_ids:
                         continue
                     seen_ids.add(tender_id)
 
-                    # 解析各欄位
                     cell_texts = [c.get_text(strip=True) for c in cells]
-
-                    # 判斷欄位位置 (PCC 表格: 項次/機關名稱/標案名稱/標案案號/截止投標)
-                    unit_name = ""
-                    title = ""
-                    job_number = ""
-                    deadline = ""
-
                     if len(cell_texts) >= 5:
-                        unit_name = cell_texts[1]
-                        title = cell_texts[2]
-                        job_number = cell_texts[3]
-                        deadline = cell_texts[4]
+                        unit_name, title, job_number, deadline = (
+                            cell_texts[1], cell_texts[2], cell_texts[3], cell_texts[4],
+                        )
                     elif len(cell_texts) >= 4:
-                        unit_name = cell_texts[0]
-                        title = cell_texts[1]
-                        job_number = cell_texts[2]
-                        deadline = cell_texts[3]
-
-                    # ROC 日期轉換
-                    deadline_date = self._roc_to_date(deadline)
+                        unit_name, title, job_number, deadline = (
+                            cell_texts[0], cell_texts[1], cell_texts[2], cell_texts[3],
+                        )
+                    else:
+                        continue
 
                     records.append({
                         "title": title,
-                        "date": datetime.now().strftime("%Y-%m-%d"),
-                        "raw_date": int(datetime.now().strftime("%Y%m%d")),
-                        "type": "公開招標公告",
+                        "date": today_str,
+                        "raw_date": today_int,
+                        "type": tender_type,
                         "category": "",
                         "unit_id": tender_id,
                         "unit_name": unit_name,
                         "job_number": job_number,
-                        "deadline": deadline_date,
+                        "deadline": self._roc_to_date(deadline),
                         "winner_names": [],
                         "source": "pcc",
                         "pcc_url": f"{PCC_BASE}{href}" if href.startswith("/") else href,
                     })
-
+                    table_count += 1
                 except Exception as e:
                     logger.debug(f"Parse PCC row failed: {e}")
                     continue
 
-        # 嘗試從頁面摘要提取類型統計
-        summary_texts = soup.find_all(string=re.compile(r"總筆數"))
-        for t in summary_texts:
-            match = re.search(r"總筆數[：:]\s*(\d+)", t)
-            if match:
-                type_counts["total_announced"] = int(match.group(1))
-
-        # 從 section headers 提取各類型筆數
-        headers = soup.find_all(string=re.compile(r"(\d+)\s*筆"))
-        for h in headers:
-            text = str(h).strip()
-            count_match = re.search(r"(\d+)\s*筆", text)
-            if count_match:
-                count = int(count_match.group(1))
-                if "公開招標" in text:
-                    type_counts["open_bid"] = count
-                elif "限制性" in text:
-                    type_counts["restricted"] = count
-                elif "選擇性" in text and "後續" in text:
-                    type_counts["selective_followup"] = count
-                elif "選擇性" in text:
-                    type_counts["selective"] = count
-                elif "公開取得" in text:
-                    type_counts["rfp"] = count
-                elif "更正" in text:
-                    type_counts["correction"] = count
+            type_counts[tender_type] = table_count
 
         logger.info(
-            "PCC today scrape: %d records parsed, types=%s",
-            len(records), type_counts,
+            "PCC today scrape: %d records, types=%s",
+            len(records), {k: v for k, v in type_counts.items() if v > 0},
         )
         return records, type_counts
 
