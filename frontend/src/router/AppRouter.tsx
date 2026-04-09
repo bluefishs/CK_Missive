@@ -72,7 +72,7 @@ const RolePermissionDetailPage = lazy(() => import('../pages/RolePermissionDetai
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagementPage'));
-const AIAssistantManagementPage = lazy(() => import('../pages/AIAssistantManagementPage'));
+const UnifiedAgentPage = lazy(() => import('../pages/UnifiedAgentPage'));
 const KnowledgeGraphPage = lazy(() => import('../pages/KnowledgeGraphPage'));
 const SkillsCapabilityMapPage = lazy(() => import('../pages/SkillsCapabilityMapPage'));
 const CodeGraphManagementPage = lazy(() => import('../pages/CodeGraphManagementPage'));
@@ -118,10 +118,8 @@ const ERPOperationalListPage = lazy(() => import('../pages/ERPOperationalListPag
 const ERPOperationalDetailPage = lazy(() => import('../pages/ERPOperationalDetailPage'));
 const ERPOperationalFormPage = lazy(() => import('../pages/ERPOperationalFormPage'));
 
-// 數位分身
-const DigitalTwinPage = lazy(() => import('../pages/DigitalTwinPage'));
-// 智能體中心
-const AgentDashboardPage = lazy(() => import('../pages/AgentDashboardPage'));
+// 數位分身 → redirect to /agent/dashboard
+// 智能體中心 → UnifiedAgentPage (defined above)
 
 // 資安管理
 const SecurityCenterPage = lazy(() => import('../pages/SecurityCenterPage'));
@@ -252,8 +250,8 @@ export const AppRouter: React.FC = () => {
           {/* 部署管理 */}
           <Route path={ROUTES.DEPLOYMENT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><DeploymentManagementPage /></ProtectedRoute>} />
 
-          {/* AI 助理管理（整合同義詞管理 + Prompt 管理） */}
-          <Route path={ROUTES.AI_ASSISTANT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AIAssistantManagementPage /></ProtectedRoute>} />
+          {/* AI 智能體管理（管理模式） */}
+          <Route path={ROUTES.AI_ASSISTANT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><UnifiedAgentPage mode="admin" /></ProtectedRoute>} />
 
           {/* 公文圖譜 */}
           <Route path={ROUTES.KNOWLEDGE_GRAPH} element={<ProtectedRoute><KnowledgeGraphPage /></ProtectedRoute>} />
@@ -271,10 +269,10 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ERP_GRAPH} element={<ProtectedRoute><ERPGraphPage /></ProtectedRoute>} />
           {/* 資料庫圖譜 */}
           <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute><DatabaseGraphPage /></ProtectedRoute>} />
-          {/* 數位分身 */}
-          <Route path={ROUTES.DIGITAL_TWIN} element={<ProtectedRoute><DigitalTwinPage /></ProtectedRoute>} />
-          {/* 智能體中心 */}
-          <Route path={ROUTES.AGENT_DASHBOARD} element={<ProtectedRoute><AgentDashboardPage /></ProtectedRoute>} />
+          {/* 數位分身（重導向至智能體中心） */}
+          <Route path={ROUTES.DIGITAL_TWIN} element={<Navigate to={ROUTES.AGENT_DASHBOARD} replace />} />
+          {/* 智能體中心（使用者模式） */}
+          <Route path={ROUTES.AGENT_DASHBOARD} element={<ProtectedRoute><UnifiedAgentPage mode="user" /></ProtectedRoute>} />
           {/* 資安管理中心 */}
           <Route path={ROUTES.SECURITY_CENTER} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SecurityCenterPage /></ProtectedRoute>} />
           {/* 作業性質代碼管理 */}
