@@ -708,10 +708,10 @@ DEFAULT_NAVIGATION_ITEMS = [
      "icon": "RobotOutlined", "sort_order": 1, "level": 2,
      "parent_key": "AI Agents", "description": "智能體,Agent,對話,自省,進化,拓撲", "permission_required": "[]"},
 
-    # 數位分身
+    # 數位分身 → 已整合至智能體中心，隱藏導覽 (hidden=True)
     {"title": "數位分身", "key": "digital-twin", "path": "/ai/digital-twin",
-     "icon": "CloudServerOutlined", "sort_order": 2, "level": 2,
-     "parent_key": "AI Agents", "description": "數位分身,NemoClaw,Agent,跨專案,協作", "permission_required": "[]"},
+     "icon": "CloudServerOutlined", "sort_order": 2, "level": 2, "hidden": True,
+     "parent_key": "AI Agents", "description": "已整合至智能體中心", "permission_required": "[]"},
 
     # 技能演化樹
     {"title": "技能演化樹", "key": "skill-evolution", "path": "/ai/skill-evolution",
