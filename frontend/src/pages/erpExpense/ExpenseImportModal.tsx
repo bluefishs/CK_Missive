@@ -31,7 +31,9 @@ interface ImportResult {
   skipped: number;
   total_rows?: number;
   total?: number;
+  batch_id?: string;
   errors: Array<{ row: number; error: string }>;
+  warnings?: Array<{ row: number; warning: string }>;
 }
 
 const ExpenseImportModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
@@ -171,16 +173,29 @@ const ExpenseImportModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
             </Descriptions.Item>
           </Descriptions>
 
+          {result.batch_id && (
+            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 11 }}>
+              批次編號: {result.batch_id}
+            </Text>
+          )}
+
+          {(result.warnings?.length ?? 0) > 0 && (
+            <Alert type="info" style={{ marginTop: 12 }}
+              message={`${result.warnings!.length} 筆案號警告`}
+              description={
+                <ul style={{ margin: '4px 0 0', paddingLeft: 20, maxHeight: 100, overflow: 'auto' }}>
+                  {result.warnings!.map((w, i) => <li key={i}>第 {w.row} 行: {w.warning}</li>)}
+                </ul>
+              }
+            />
+          )}
+
           {result.errors.length > 0 && (
-            <Alert
-              type="warning"
-              style={{ marginTop: 12 }}
+            <Alert type="warning" style={{ marginTop: 12 }}
               message={`${result.errors.length} 筆錯誤`}
               description={
                 <ul style={{ margin: '4px 0 0', paddingLeft: 20, maxHeight: 150, overflow: 'auto' }}>
-                  {result.errors.map((e, i) => (
-                    <li key={i}>第 {e.row} 行: {e.error}</li>
-                  ))}
+                  {result.errors.map((e, i) => <li key={i}>第 {e.row} 行: {e.error}</li>)}
                 </ul>
               }
             />

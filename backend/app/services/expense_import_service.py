@@ -176,16 +176,23 @@ class ExpenseImportService:
         return buf.getvalue()
 
     async def import_from_excel(self, file_bytes: bytes, user_id: Optional[int] = None) -> dict:
-        """匯入費用報銷 Excel，回傳 {total, created, skipped, errors}"""
+        """匯入費用報銷 Excel，回傳 {total, created, skipped, errors, warnings, batch_id}"""
         from app.services.base.excel_reader import load_workbook_any
 
         wb = load_workbook_any(file_bytes)
         ws = wb.active
         rows = list(ws.iter_rows(min_row=2, values_only=True))
 
+        # 匯入批次編號 — 追溯多人同時匯入
+        batch_id = f"IMP-{dt.now().strftime('%Y%m%d%H%M%S')}-{user_id or 0}"
+
+        # 預載有效 case_codes (一次查詢，避免 N+1)
+        valid_cases = await self._load_valid_case_codes()
+
         created = 0
         skipped = 0
         errors: list[dict] = []
+        warnings: list[dict] = []
 
         for idx, row in enumerate(rows, start=2):
             try:
@@ -241,6 +248,12 @@ class ExpenseImportService:
                     else:
                         data["date"] = dt.strptime(str(row[1]).strip(), "%Y-%m-%d").date()
 
+                # case_code 驗證 — 填了但不存在的案號回報 warning
+                cc = data["case_code"]
+                if cc and cc not in valid_cases:
+                    warnings.append({"row": idx, "warning": f"案件代碼 '{cc}' 不存在，已清除"})
+                    data["case_code"] = None
+
                 # 自動配對 vendor
                 vendor_id = await self._resolve_vendor_by_ban(data["seller_ban"]) if data.get("seller_ban") else None
 
@@ -253,11 +266,12 @@ class ExpenseImportService:
                     seller_ban=data["seller_ban"],
                     case_code=data["case_code"],
                     category=data["category"],
-                    notes=data["notes"],
+                    notes=f"[{batch_id}] {data['notes'] or ''}".strip(),
                     status="pending",
-                    source="manual",
+                    source="excel_import",
                     user_id=user_id,
                     vendor_id=vendor_id,
+                    attribution_type="project" if data["case_code"] else "none",
                 )
                 self.db.add(invoice)
                 created += 1
@@ -267,7 +281,30 @@ class ExpenseImportService:
         if created > 0:
             await self.db.commit()
         wb.close()
-        return {"total": len(rows), "created": created, "skipped": skipped, "errors": errors}
+        return {
+            "total": len(rows), "created": created, "skipped": skipped,
+            "errors": errors, "warnings": warnings, "batch_id": batch_id,
+        }
+
+    async def _load_valid_case_codes(self) -> set:
+        """一次查詢所有有效 case_code (pm_cases + erp_quotations)"""
+        from sqlalchemy import select, union_all, literal_column
+        try:
+            from app.extended.models.taoyuan import PmCase  # noqa
+            q1 = select(literal_column("case_code")).select_from(PmCase).where(PmCase.case_code.isnot(None))
+        except Exception:
+            q1 = None
+        try:
+            from app.extended.models.core import ContractProject
+            q2 = select(ContractProject.case_code).where(ContractProject.case_code.isnot(None))
+        except Exception:
+            q2 = None
+        queries = [q for q in [q1, q2] if q is not None]
+        if not queries:
+            return set()
+        combined = union_all(*queries)
+        result = await self.db.execute(combined)
+        return {str(r[0]) for r in result.fetchall() if r[0]}
 
     async def _resolve_vendor_by_ban(self, seller_ban: str) -> Optional[int]:
         """由賣方統編查找 partner_vendors.id"""
