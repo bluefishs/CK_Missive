@@ -120,7 +120,13 @@ class CaseCodeService:
         return f"{prefix}{str(next_serial).zfill(3)}"
 
     async def _find_next_serial(self, prefix: str) -> int:
-        """在 PM/ERP 表中查找最大流水號"""
+        """在 PM/ERP 表中查找最大流水號 (含 advisory lock 防併發跳號)"""
+        from sqlalchemy import text
+
+        # Advisory lock: 用 prefix hash 作為 lock key，防止併發產生同一號
+        lock_key = abs(hash(prefix)) % (2**31)
+        await self.db.execute(text(f"SELECT pg_advisory_xact_lock({lock_key})"))
+
         max_serial = 0
 
         # 查 PM

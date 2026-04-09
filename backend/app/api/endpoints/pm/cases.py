@@ -36,8 +36,11 @@ async def create_case(
     data: PMCaseCreate,
     service: PMCaseService = Depends(get_service(PMCaseService)),
 ):
-    """建立案件"""
-    result = await service.create(data)
+    """建立案件 — 含重複檢查、案號格式驗證"""
+    try:
+        result = await service.create(data)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     return SuccessResponse(data=result, message="案件建立成功")
 
 

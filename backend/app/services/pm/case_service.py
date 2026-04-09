@@ -34,12 +34,39 @@ class PMCaseService:
         return await self.code_service.generate_case_code("pm", year, category)
 
     async def create(self, data: PMCaseCreate, user_id: Optional[int] = None) -> PMCaseResponse:
-        """建立案件 — case_code 未提供時自動產生"""
+        """建立案件 — case_code 未提供時自動產生，含重複檢查"""
         dump = data.model_dump()
 
-        # 自動產生案號
-        if not dump.get("case_code"):
-            year = dump.get("year") or 114
+        # 1. 手動 case_code 格式驗證 + 重複檢查
+        manual_code = dump.get("case_code")
+        if manual_code:
+            if not await self.code_service.validate_case_code(manual_code):
+                raise ValueError(
+                    f"案號格式不合規: {manual_code}，"
+                    f"正確格式: CK2025_PM_01_001 (留空可自動產生)"
+                )
+            if await self.code_service.check_duplicate(manual_code):
+                raise ValueError(f"案號 {manual_code} 已存在")
+
+        # 2. 案名重複檢查 (同年度 + 同名 → 疑似重複)
+        case_name = dump.get("case_name", "")
+        year = dump.get("year") or 114
+        if case_name:
+            from sqlalchemy import select, func
+            dup_q = await self.db.execute(
+                select(func.count())
+                .select_from(PMCase)
+                .where(PMCase.case_name == case_name)
+                .where(PMCase.year == year)
+            )
+            if (dup_q.scalar() or 0) > 0:
+                raise ValueError(
+                    f"同年度已有同名案件「{case_name}」({year})，"
+                    f"請確認是否重複建案"
+                )
+
+        # 3. 自動產生案號 (未手動提供時)
+        if not manual_code:
             category = dump.get("category") or "01"
             dump["case_code"] = await self.code_service.generate_case_code(
                 "pm", year, category,
