@@ -279,6 +279,10 @@ class GraphIngestionPipeline:
             f"{relations_found} 關係, {processing_ms}ms"
         )
 
+        # Wiki hook: 非阻塞更新 wiki source 頁面
+        import asyncio
+        asyncio.create_task(self._wiki_on_ingest(document_id, raw_entities))
+
         return {
             "status": "completed",
             "document_id": document_id,
@@ -288,6 +292,38 @@ class GraphIngestionPipeline:
             "relations_found": relations_found,
             "processing_ms": processing_ms,
         }
+
+    async def _wiki_on_ingest(self, doc_id: int, entities) -> None:
+        """KG 入圖後自動建立 wiki source 頁面 (fire-and-forget)"""
+        try:
+            doc = await self.db.get(OfficialDocument, doc_id)
+            if not doc:
+                return
+            from app.services.wiki_service import get_wiki_service
+            svc = get_wiki_service()
+            entity_names = list(set(e.name for e in entities if e.name))[:10]
+            await svc.ingest_source(
+                title=doc.subject or f"公文-{doc_id}",
+                source_type="official_document",
+                summary=f"公文字號: {doc.doc_number or '–'}\n類型: {doc.doc_type or '–'}",
+                key_points=[f"提取 {len(entities)} 個實體"],
+                entities_mentioned=entity_names,
+                source_id=str(doc_id),
+                tags=[doc.doc_type or "公文"],
+            )
+            # 同時為新實體建立/更新 wiki entity 頁面
+            for e in entities[:5]:
+                if e.name and len(e.name) > 1:
+                    await svc.ingest_entity(
+                        name=e.name,
+                        entity_type=e.entity_type or "unknown",
+                        description=f"在公文「{doc.subject or doc_id}」中被提及。",
+                        sources=[f"doc:{doc_id}"],
+                        tags=[e.entity_type or "entity"],
+                    )
+            await svc.rebuild_index()
+        except Exception as e:
+            logger.debug("Wiki ingest hook failed (non-critical): %s", e)
 
     async def batch_ingest(
         self,

@@ -549,6 +549,39 @@ async def ledger_reconciliation_job():
         logger.error(f"帳本對帳失敗: {e}", exc_info=True)
 
 
+@tracked_job("wiki_lint")
+async def wiki_lint_job():
+    """Wiki 健康檢查 — 偵測孤立頁面、斷裂連結"""
+    try:
+        from app.services.wiki_service import get_wiki_service
+        svc = get_wiki_service()
+        result = await svc.lint()
+        stats = svc.get_stats()
+        logger.info(
+            "Wiki lint: %d pages, %d orphans, %d broken links, health=%s",
+            result["total_pages"], len(result["orphan_pages"]),
+            len(result["broken_links"]), result["health"],
+        )
+        # 推播至 Telegram (若有問題)
+        if result["health"] != "good":
+            try:
+                from app.services.telegram_bot_service import get_telegram_bot_service
+                tg = get_telegram_bot_service()
+                if tg.enabled:
+                    msg = (
+                        f"Wiki Lint: {result['total_pages']} pages, "
+                        f"{len(result['orphan_pages'])} orphans, "
+                        f"{len(result['broken_links'])} broken links"
+                    )
+                    admin_chat = int(os.getenv("TELEGRAM_ADMIN_CHAT_ID", "0"))
+                    if admin_chat:
+                        await tg.push_message(admin_chat, msg)
+            except Exception:
+                pass
+    except Exception as e:
+        logger.error("Wiki lint failed: %s", e, exc_info=True)
+
+
 @tracked_job("tender_refresh_pending")
 async def tender_refresh_pending_job():
     """標案狀態更新 — 每日重查等標期標案的決標結果"""
@@ -868,6 +901,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加健康檢查 Telegram 推播: 每 5 分鐘")
+
+    # Wiki lint 健康檢查 — 每日 05:00
+    scheduler.add_job(
+        wiki_lint_job,
+        trigger=CronTrigger(hour=5, minute=0),
+        id='wiki_lint',
+        name='Wiki 健康檢查 (orphans/broken links)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Wiki lint: 每日 05:00 執行")
 
     return scheduler
 
