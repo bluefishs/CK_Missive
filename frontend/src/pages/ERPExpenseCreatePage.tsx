@@ -68,16 +68,30 @@ const ERPExpenseCreatePage: React.FC = () => {
   const [voucherType, setVoucherType] = useState<VoucherType>('invoice');
   const [mobileStep, setMobileStep] = useState(0);
 
+  // 最近使用的案件 (localStorage 記錄，工地人員通常反覆報同一案件)
+  const RECENT_KEY = 'ck_expense_recent_cases';
+  const recentCodes: string[] = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
+  }, []);
+
   const caseOptions = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pmCases = (pmCasesData as any)?.items ?? (pmCasesData as any)?.data?.items ?? [];
-    return (Array.isArray(pmCases) ? pmCases : []).map((c: { case_code: string; project_code?: string; case_name: string; status: string }) => ({
+    const all = (Array.isArray(pmCases) ? pmCases : []).map((c: { case_code: string; project_code?: string; case_name: string; status: string }) => ({
       value: c.case_code,
       label: c.project_code ? `${c.project_code} ${c.case_name}` : `${c.case_code} ${c.case_name} (未成案)`,
       status: c.status,
       project_code: c.project_code,
     }));
-  }, [pmCasesData]);
+    // 最近使用的排前面
+    if (recentCodes.length > 0) {
+      const recentSet = new Set(recentCodes);
+      const recent = all.filter((c: { value: string }) => recentSet.has(c.value));
+      const rest = all.filter((c: { value: string }) => !recentSet.has(c.value));
+      return [...recent, ...rest];
+    }
+    return all;
+  }, [pmCasesData, recentCodes]);
 
   // --- 智慧掃描 (含圖片壓縮) ---
   const doScan = async (file: File) => {
@@ -153,6 +167,15 @@ const ERPExpenseCreatePage: React.FC = () => {
       }
 
       message.success('核銷紀錄已建立');
+      // 記住最近使用的案件 (行動端快速選擇)
+      const usedCase = values.case_code as string | undefined;
+      if (usedCase) {
+        try {
+          const prev: string[] = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+          const updated = [usedCase, ...prev.filter(c => c !== usedCase)].slice(0, 5);
+          localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
+        } catch { /* ignore */ }
+      }
       navigate(ROUTES.ERP_EXPENSES);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -210,20 +233,24 @@ const ERPExpenseCreatePage: React.FC = () => {
               parser={(v) => Number(v!.replace(/,/g, '')) as unknown as 0} />
           </Form.Item>
         </Col>
-        <Col xs={24} sm={12}>
-          <Form.Item name="tax_amount" label="稅額">
-            <InputNumber style={{ width: '100%' }} min={0} prefix="NT$" />
-          </Form.Item>
-        </Col>
+        {!isMobile && (
+          <Col sm={12}>
+            <Form.Item name="tax_amount" label="稅額">
+              <InputNumber style={{ width: '100%' }} min={0} prefix="NT$" />
+            </Form.Item>
+          </Col>
+        )}
       </Row>
-      <Row gutter={12}>
-        <Col xs={24} sm={12}>
-          <Form.Item name="buyer_ban" label="買方統編"><Input placeholder="8碼 (個人留空)" maxLength={8} /></Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
-          <Form.Item name="seller_ban" label="賣方統編"><Input placeholder="8碼" maxLength={8} /></Form.Item>
-        </Col>
-      </Row>
+      {!isMobile && (
+        <Row gutter={12}>
+          <Col xs={24} sm={12}>
+            <Form.Item name="buyer_ban" label="買方統編"><Input placeholder="8碼 (個人留空)" maxLength={8} /></Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="seller_ban" label="賣方統編"><Input placeholder="8碼" maxLength={8} /></Form.Item>
+          </Col>
+        </Row>
+      )}
 
       <Divider style={{ margin: '8px 0 16px' }}>核銷歸屬</Divider>
       <Form.Item label="歸屬類型">
@@ -232,9 +259,21 @@ const ERPExpenseCreatePage: React.FC = () => {
           options={[{ value: 'project', label: '專案費用' }, { value: 'operational', label: '營運費用' }, { value: 'none', label: '未歸屬' }]} />
       </Form.Item>
       {attrType === 'project' && (
-        <Form.Item name="case_code" label="關聯案件" extra={isMobile ? undefined : '已成案顯示成案編號'}>
-          <Select showSearch allowClear optionFilterProp="label" placeholder="選擇案件" options={caseOptions}
-            optionRender={(option) => (<Space><span>{option.label}</span>{!(option.data as { project_code?: string }).project_code && <Tag color="orange" style={{ fontSize: 11 }}>未成案</Tag>}</Space>)} />
+        <Form.Item name="case_code" label="關聯案件" extra={isMobile ? undefined : '已成案顯示成案編號，最近使用的排前面'}>
+          <Select showSearch allowClear optionFilterProp="label"
+            placeholder={isMobile ? '搜尋案件名稱或編號' : '選擇案件'}
+            options={caseOptions}
+            listHeight={isMobile ? 200 : 256}
+            optionRender={(option) => {
+              const isRecent = recentCodes.includes(option.value as string);
+              return (
+                <Space>
+                  {isRecent && <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>近期</Tag>}
+                  <span>{option.label}</span>
+                  {!(option.data as { project_code?: string }).project_code && <Tag color="orange" style={{ fontSize: 11 }}>未成案</Tag>}
+                </Space>
+              );
+            }} />
         </Form.Item>
       )}
       {attrType === 'operational' && <Alert type="info" showIcon message="營運費用將自動歸入營運帳目" style={{ marginBottom: 16 }} />}
