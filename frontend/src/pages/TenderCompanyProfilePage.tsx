@@ -246,7 +246,7 @@ const TenderCompanyProfilePage: React.FC = () => {
                     },
                   ], data.recent_tenders)}
                   dataSource={data.recent_tenders}
-                  rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${i}`}
+                  rowKey={(r) => `${r.unit_id}-${r.job_number}`}
                   size="small"
                   scroll={{ x: 800 }}
                   pagination={{ pageSize: 15, showSizeChanger: true, showTotal: (t) => `共 ${t} 筆` }}

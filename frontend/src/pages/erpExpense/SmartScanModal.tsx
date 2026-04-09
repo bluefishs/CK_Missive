@@ -257,7 +257,7 @@ const SmartScanModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
                     </Space>
                   }
                   description={
-                    <Space split="｜" size={0}>
+                    <Space separator="｜" size={0}>
                       {rec.result.amount != null && <Text>NT$ {rec.result.amount.toLocaleString()}</Text>}
                       {rec.result.date && <Text type="secondary">{rec.result.date}</Text>}
                       {rec.result.items && rec.result.items.length > 0 && (

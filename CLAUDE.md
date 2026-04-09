@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.5.3 穩定化 + 監控 + 品質優化 + Telegram 健康推播
-> **最後更新**: 2026-04-08
+> **版本**: v5.5.4 AI 子包重構 + UnifiedAgentPage 雙模式 + 標案分析快取 + antd 修正
+> **最後更新**: 2026-04-09
 
 ---
 

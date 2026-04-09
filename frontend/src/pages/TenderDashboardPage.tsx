@@ -197,7 +197,7 @@ const TenderDashboardPage: React.FC = () => {
         <EnhancedTable<TenderItem>
           columns={tenderColumns}
           dataSource={currentList.data}
-          rowKey={(_r, i) => `tender-${i}`}
+          rowKey={(r) => `${r.unit_id}-${r.job_number}`}
           size="small"
           scroll={{ x: 700 }}
           pagination={currentList.data.length > 10 ? { pageSize: 10, showTotal: (t: number) => `共 ${t} 筆` } : false}
@@ -270,7 +270,7 @@ const TenderDashboardPage: React.FC = () => {
 
       {/* 資料來源狀態 */}
       <Card size="small" styles={{ body: { padding: '8px 16px' } }}>
-        <Space split={<span style={{ color: '#d9d9d9' }}>|</span>}>
+        <Space separator={<span style={{ color: '#d9d9d9' }}>|</span>}>
           <Text type="secondary" style={{ fontSize: 12 }}>
             g0v PCC: {data?.latest_date ?? '–'} (30min 快取)
           </Text>

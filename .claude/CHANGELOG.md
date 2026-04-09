@@ -4,6 +4,35 @@
 
 ---
 
+## [5.5.4] - 2026-04-09
+
+### AI 子包重構 + UnifiedAgentPage 雙模式 + 標案分析快取
+
+#### AI 服務架構重構 (P0)
+- **11 子包拆分** — core(14)/agent(36)/tools(16)/graph(26)/document(10)/domain(10)/search(9)/proactive(5)/federation(3)/misc(9) + ~120 re-export stubs
+- **code_graph_ingest** — 685L → 407L + code_graph_persistence 318L (DB 操作獨立)
+- **tool_definitions** — 705L → 403L + tool_definitions_analysis 172L + tool_definitions_search 167L
+
+#### 統一智能體頁面 (P0)
+- **UnifiedAgentPage** — 雙模式 (user: 聊天助手 / admin: 管理儀表板)
+- **刪除** 3 個舊 AI 頁面 (AISearchPage/AgentPlannerPage/AIStatsPage)
+- **隱藏** 數位分身導覽 (已併入 Agent Dashboard)
+
+#### 標案分析快取 (P1)
+- **Redis 30min 快取** — company_profile + org_ecosystem + dashboard 並行查詢
+- **PCC 分類修正** — label_id section mapping (bid=1428/rfp=427)
+- **graph_domain 遷移** — knowledge domain filter + 4 新索引 (Alembic 20260409a001)
+
+#### Antd 6.x 相容性修正
+- **rowKey index 廢棄** — 移除所有 rowKey 函數的 index 參數 (7 處)
+- **Space split 廢棄** — `split` → `separator` 屬性 (2 處)
+
+#### Skills 清單同步
+- **新增** multi-channel.md + erp-finance.md 清單條目
+- **移除** plan-workflow + tdd-workflow (已刪除檔案的引用)
+
+---
+
 ## [5.5.3] - 2026-04-08
 
 ### 穩定化 + 監控 + 程式碼品質優化

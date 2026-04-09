@@ -167,7 +167,7 @@ const TenderOrgEcosystemPage: React.FC = () => {
                     },
                   ]}
                   dataSource={data.recent_tenders}
-                  rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${i}`}
+                  rowKey={(r) => `${r.unit_id}-${r.job_number}`}
                   size="small"
                   pagination={false}
                 />

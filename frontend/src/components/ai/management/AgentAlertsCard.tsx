@@ -42,7 +42,7 @@ export const AgentAlertsCard: React.FC<AgentAlertsCardProps> = ({ alerts }) => {
       </Row>
       <Table
         dataSource={alerts.alerts.slice(0, 20)}
-        rowKey={(_, i) => `alert-${i}`}
+        rowKey={(r) => `${r.severity}-${r.alert_type}-${r.title}`}
         size="small"
         pagination={false}
         scroll={{ x: 500 }}

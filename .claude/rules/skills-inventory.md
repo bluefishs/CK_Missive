@@ -79,6 +79,8 @@
 | `knowledge-management.md` | ADR, 決策, 架構圖, 知識管理, 功能生命週期 | 知識管理規範 (v1.0.0) |
 | `hooks-development.md` | hooks, 鉤子, 自動化, PreToolUse, PostToolUse | Hooks 開發規範 |
 | `skill-creator.md` | skill, 建立 skill, 新增 skill, 改善 skill, SKILL.md | Skill 建立/優化工作流 (v1.0.0) |
+| `multi-channel.md` | LINE, Telegram, Discord, 多通道, webhook, bot | 多通道整合開發規範 (v1.0.0) |
+| `erp-finance.md` | ERP, 報價, 開票, 請款, 帳本, 費用報銷, 資產 | ERP 財務模組開發規範 (v1.0.0) |
 
 ### Superpowers Skills (v4.0.3)
 
@@ -114,8 +116,6 @@
 | 工具 | `crud-migration` | CRUD, 遷移 | CRUD 遷移工具 |
 | 工具 | `service-refactoring` | 重構, refactor, service | 服務重構工具 |
 | 工具 | `test-generator` | 測試生成, test gen | 測試生成器 |
-| 工具 | `plan-workflow` | 計畫, workflow | 計畫工作流 |
-| 工具 | `tdd-workflow` | TDD, 測試驅動 | TDD 工作流 |
 | 工具 | `refactoring-migration-procedures` | 重構遷移, migration | 重構遷移程序 |
 
 > 位置: `.claude/skills/_shared/shared/`

@@ -141,7 +141,7 @@ const EntitySearchTab: React.FC = () => {
         dataSource={data?.results || []}
         columns={columns}
         loading={isLoading}
-        rowKey={(r, i) => `${r.name}-${i}`}
+        rowKey={(r) => r.name}
         size="small"
         pagination={{ pageSize: 15 }}
       />

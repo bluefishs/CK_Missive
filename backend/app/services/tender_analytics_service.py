@@ -151,10 +151,10 @@ class TenderAnalyticsService:
         latest_bid = [r for r in all_records if r.get("date") == latest_date and is_bid(r)]
         latest_bid_pcc_count = sum(1 for r in latest_bid if r.get("source") == "pcc")
 
-        # 最新決標：使用 PCC 最新日期 (ezbid 不提供決標資料)
-        pcc_dates = sorted(set(r.get("date", "") for r in all_records if r.get("date") and r.get("source") != "ezbid"), reverse=True)
-        pcc_latest = pcc_dates[0] if pcc_dates else latest_date
-        latest_award = [r for r in all_records if r.get("date") == pcc_latest and is_award(r)]
+        # 最新決標：找到實際有決標記錄的最新日期 (ezbid 不提供決標資料)
+        award_dates = sorted(set(r.get("date", "") for r in all_records if r.get("date") and is_award(r)), reverse=True)
+        latest_award_date = award_dates[0] if award_dates else latest_date
+        latest_award = [r for r in all_records if r.get("date") == latest_award_date and is_award(r)]
         week_new_bid = [r for r in all_records if r.get("date", "") >= week_ago and is_bid(r)]
         week_new_award = [r for r in all_records if r.get("date", "") >= week_ago and is_award(r)]
         recent_failed = [r for r in all_records if is_failed(r)]

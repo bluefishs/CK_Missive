@@ -39,6 +39,14 @@ async def sync_navigation_defaults(db: AsyncSession) -> Dict[str, int]:
     # 2. 載入 DB 的 key → id (含 level-1 群組，用於 parent 查找)
     all_items_by_key = existing_keys.copy()
 
+    # 載入 DB title → key 映射 (用於偵測等效群組)
+    title_rows = (await db.execute(
+        select(SiteNavigationItem.title, SiteNavigationItem.key, SiteNavigationItem.level)
+    )).all()
+    existing_titles_by_level: Dict[str, set] = {}
+    for r in title_rows:
+        existing_titles_by_level.setdefault(r[2], set()).add(r[0])
+
     inserted = 0
     skipped = 0
 
@@ -48,6 +56,26 @@ async def sync_navigation_defaults(db: AsyncSession) -> Dict[str, int]:
             continue
 
         if key in existing_keys:
+            skipped += 1
+            continue
+
+        # 跳過 init_data 中與 DB 已有等效群組的項目 (避免重複)
+        # 等效映射: init_data key → DB 中已存在的等效 key
+        EQUIVALENT_GROUPS = {
+            "system-management": "system",       # init: 系統管理 → DB: system (id=5)
+            "ai-features": "system",             # init: AI 智慧功能 → DB: system 下的子群組
+        }
+        if key in EQUIVALENT_GROUPS and EQUIVALENT_GROUPS[key] in existing_keys:
+            all_items_by_key[key] = existing_keys[EQUIVALENT_GROUPS[key]]
+            logger.debug("Nav sync: mapped '%s' → existing '%s'", key, EQUIVALENT_GROUPS[key])
+            skipped += 1
+            continue
+
+        # 跳過與 DB 中已有同名 level-1 群組的項目
+        title = item.get("title", "")
+        level = item.get("level", 2)
+        if level == 1 and not item.get("path") and title in existing_titles_by_level.get(1, set()):
+            logger.info("Nav sync: skipped '%s' — equivalent group '%s' already exists at level 1", key, title)
             skipped += 1
             continue
 
