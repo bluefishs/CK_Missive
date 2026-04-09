@@ -537,3 +537,17 @@ After build error resolution:
 ---
 
 **Remember**: The goal is to fix errors quickly with minimal changes. Don't refactor, don't optimize, don't redesign. Fix the error, verify the build passes, move on. Speed and precision over perfection.
+
+---
+
+## Python Circular Import 偵測 (v5.5.4)
+
+AI 子包重構後常見的 circular import 模式:
+- A → B → A 直接循環
+- A → B → C → A 間接循環
+- 通常發生在 agent/ 和 tools/ 之間
+
+修復策略:
+1. 延遲 import (在函數內 import)
+2. TYPE_CHECKING guard: `if TYPE_CHECKING: from ... import ...`
+3. 重新組織依賴方向 (讓 tools/ 依賴 agent/，不反向)

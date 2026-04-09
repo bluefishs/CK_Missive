@@ -1,3 +1,7 @@
+---
+description: "發布後文件同步 — 架構/Skills/CHANGELOG 自動檢查"
+---
+
 # Document Release — 發布後文件同步
 
 > 靈感來源: [gstack/document-release](https://github.com/garrytan/gstack) — 確保文件與程式碼同步

@@ -1,3 +1,7 @@
+---
+description: "工程回顧 — per-author 統計 + session 偵測 + 指標追蹤"
+---
+
 # Retro — 工程回顧與指標追蹤
 
 > 靈感來源: [gstack/retro](https://github.com/garrytan/gstack) — 團隊感知回顧分析

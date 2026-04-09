@@ -22,7 +22,7 @@ from app.extended.models import (
     EntityRelationship,
 )
 from app.services.ai.ai_config import get_ai_config
-from .graph_helpers import _graph_cache, _CODE_ENTITY_TYPES
+from .graph_helpers import _graph_cache
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class GraphStatisticsService:
 
             filters = [
                 EntityRelationship.valid_from.isnot(None),
-                CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES),
+                CanonicalEntity.graph_domain == 'knowledge',
             ]
             if relation_type:
                 filters.append(EntityRelationship.relation_type == relation_type)
@@ -133,7 +133,7 @@ class GraphStatisticsService:
             if entity_type:
                 query = query.where(CanonicalEntity.entity_type == entity_type)
             elif not include_code:
-                query = query.where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+                query = query.where(CanonicalEntity.graph_domain == 'knowledge')
 
             if sort_by == "alias_count":
                 query = query.order_by(CanonicalEntity.alias_count.desc().nullslast())
@@ -201,7 +201,7 @@ class GraphStatisticsService:
                     sa_func.count().label("count"),
                     sa_func.max(CanonicalEntity.updated_at).label("last_updated"),
                 )
-                .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+                .where(CanonicalEntity.graph_domain == 'knowledge')
                 .group_by(
                     sa_func.coalesce(CanonicalEntity.source_project, "ck-missive")
                 )
@@ -235,7 +235,7 @@ class GraphStatisticsService:
                         sa_func.count().label("total"),
                         sa_func.count(CanonicalEntity.embedding).label("with_embedding"),
                     )
-                    .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+                    .where(CanonicalEntity.graph_domain == 'knowledge')
                     .group_by(
                         sa_func.coalesce(CanonicalEntity.source_project, "ck-missive")
                     )
@@ -316,7 +316,7 @@ class GraphStatisticsService:
                 .where(
                     (sa_func.coalesce(in_deg.c.cnt, 0) + sa_func.coalesce(out_deg.c.cnt, 0)) > 0
                 )
-                .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+                .where(CanonicalEntity.graph_domain == 'knowledge')
                 .order_by(
                     (
                         sa_func.coalesce(in_deg.c.cnt, 0)

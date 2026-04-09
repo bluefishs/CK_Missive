@@ -33,7 +33,6 @@ from app.services.ai.ai_config import get_ai_config
 from .graph_helpers import (
     _graph_cache,
     invalidate_graph_cache,  # noqa: F401 — re-exported for backward compat
-    _CODE_ENTITY_TYPES,
 )
 from .graph_traversal_service import GraphTraversalService
 from .graph_statistics_service import GraphStatisticsService
@@ -183,14 +182,14 @@ class GraphQueryService:
             .join(CanonicalEntity, CanonicalEntity.id == EntityRelationship.target_entity_id)
             .where(EntityRelationship.source_entity_id == entity_id)
             .where(EntityRelationship.invalidated_at.is_(None))
-            .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+            .where(CanonicalEntity.graph_domain == 'knowledge')
         )
         in_result = await self.db.execute(
             select(EntityRelationship, CanonicalEntity.canonical_name, CanonicalEntity.entity_type)
             .join(CanonicalEntity, CanonicalEntity.id == EntityRelationship.source_entity_id)
             .where(EntityRelationship.target_entity_id == entity_id)
             .where(EntityRelationship.invalidated_at.is_(None))
-            .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+            .where(CanonicalEntity.graph_domain == 'knowledge')
         )
 
         relationships = []
@@ -297,7 +296,7 @@ class GraphQueryService:
         if entity_type:
             main_id_query = main_id_query.where(CanonicalEntity.entity_type == entity_type)
         else:
-            main_id_query = main_id_query.where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+            main_id_query = main_id_query.where(CanonicalEntity.graph_domain == 'knowledge')
 
         # 別名查詢：alias_name 匹配（獨立 ID 子查詢，JOIN 保留在完整語句中）
         alias_id_query = (
@@ -308,7 +307,7 @@ class GraphQueryService:
         if entity_type:
             alias_id_query = alias_id_query.where(CanonicalEntity.entity_type == entity_type)
         else:
-            alias_id_query = alias_id_query.where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+            alias_id_query = alias_id_query.where(CanonicalEntity.graph_domain == 'knowledge')
 
         # 合併去重（兩個子查詢都直接 select ID，無需 with_only_columns）
         combined = union_all(main_id_query, alias_id_query).subquery()

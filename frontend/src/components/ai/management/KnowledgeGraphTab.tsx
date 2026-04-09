@@ -1,7 +1,7 @@
 /**
  * KnowledgeGraphTab - Knowledge graph with entity extraction
  *
- * Extracted from AIAssistantManagementPage.tsx
+ * Used by UnifiedAgentPage (admin mode)
  */
 import React, { useCallback, useState } from 'react';
 import {

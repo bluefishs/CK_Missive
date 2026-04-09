@@ -530,6 +530,10 @@
         {
           "name": "ix_trace_route",
           "definition": "CREATE INDEX ix_trace_route ON public.agent_query_traces USING btree (route_type, created_at)"
+        },
+        {
+          "name": "ix_agent_trace_created",
+          "definition": "CREATE INDEX ix_agent_trace_created ON public.agent_query_traces USING btree (created_at DESC)"
         }
       ],
       "unique_constraints": {
@@ -537,7 +541,7 @@
           "query_id"
         ]
       },
-      "row_count_estimate": -1
+      "row_count_estimate": 3
     },
     "agent_tool_call_logs": {
       "columns": [
@@ -1643,6 +1647,35 @@
           "nullable": true,
           "default": "'{}'::jsonb",
           "udt_name": "jsonb"
+        },
+        {
+          "name": "version",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "1",
+          "udt_name": "int4"
+        },
+        {
+          "name": "valid_from",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "valid_to",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "graph_domain",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'knowledge'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
         }
       ],
       "primary_key": [
@@ -1704,6 +1737,14 @@
         {
           "name": "uq_source_ext_type",
           "definition": "CREATE UNIQUE INDEX uq_source_ext_type ON public.canonical_entities USING btree (source_project, external_id, entity_type)"
+        },
+        {
+          "name": "ix_ce_domain_knowledge",
+          "definition": "CREATE INDEX ix_ce_domain_knowledge ON public.canonical_entities USING btree (entity_type) WHERE ((graph_domain)::text = 'knowledge'::text)"
+        },
+        {
+          "name": "ix_ce_source_mention",
+          "definition": "CREATE INDEX ix_ce_source_mention ON public.canonical_entities USING btree (source_project, mention_count DESC)"
         }
       ],
       "unique_constraints": {
@@ -1717,7 +1758,7 @@
           "entity_type"
         ]
       },
-      "row_count_estimate": 7959
+      "row_count_estimate": 9801
     },
     "case_nature_codes": {
       "columns": [
@@ -2993,10 +3034,14 @@
         {
           "name": "ix_doc_mention_doc_entity",
           "definition": "CREATE INDEX ix_doc_mention_doc_entity ON public.document_entity_mentions USING btree (document_id, canonical_entity_id)"
+        },
+        {
+          "name": "ix_doc_mention_entity_doc",
+          "definition": "CREATE INDEX ix_doc_mention_entity_doc ON public.document_entity_mentions USING btree (canonical_entity_id, document_id)"
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 7631
+      "row_count_estimate": 7819
     },
     "documents": {
       "columns": [
@@ -3880,7 +3925,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 3103
+      "row_count_estimate": 4967
     },
     "erp_billings": {
       "columns": [
@@ -9728,7 +9773,7 @@
           "ezbid_id"
         ]
       },
-      "row_count_estimate": 384
+      "row_count_estimate": 474
     },
     "tender_subscriptions": {
       "columns": [

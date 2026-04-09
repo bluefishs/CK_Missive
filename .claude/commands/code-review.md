@@ -1,3 +1,7 @@
+---
+description: "結構化程式碼審查 — Scope Drift 偵測 + Fix-First 策略"
+---
+
 # Code Review — 結構化審查 + Scope Drift 偵測 + Fix-First
 
 > 靈感來源: [gstack/review](https://github.com/garrytan/gstack) — Pre-landing PR review

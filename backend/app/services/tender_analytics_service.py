@@ -37,15 +37,66 @@ class TenderAnalyticsService:
         from app.services.tender_search_service import CK_BUSINESS_KEYWORDS
         kw_list = keywords or CK_BUSINESS_KEYWORDS[:5]
 
-        # 多關鍵字並行搜尋 (大幅加速)
         import asyncio
         all_records = []
         seen_keys = set()
 
+        # === 主要來源: ezbid 今日全量 (統一服務層, 快取共享) ===
+        # dashboard / recommend / search 共用 get_today_all() 避免重複爬取
+        try:
+            from app.services.ezbid_scraper import EzbidScraper
+            scraper = EzbidScraper()
+            primary_result = await scraper.get_today_all()
+            for r in primary_result.get("records", []):
+                key = f"ezbid-{r.get('ezbid_id', '')}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    all_records.append({
+                        "date": r.get("date", ""),
+                        "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+                        "title": r.get("title", ""),
+                        "type": r.get("type", ""),
+                        "category": r.get("category", ""),
+                        "unit_id": r.get("ezbid_id", ""),
+                        "unit_name": r.get("unit_name", ""),
+                        "job_number": "",
+                        "winner_names": [],
+                        "source": "ezbid",
+                        "budget": r.get("budget"),
+                        "days_left": r.get("days_left"),
+                        "ezbid_url": r.get("ezbid_url", ""),
+                    })
+            logger.info("ezbid today (shared cache): %d records", len(primary_result.get("records", [])))
+        except Exception as e:
+            logger.warning(f"ezbid today fetch failed: {e}")
+
+        # === 補充來源 0: PCC 官網今日全量 (1900+ 筆, 含招標+決標+選擇性) ===
+        try:
+            from app.services.pcc_today_scraper import PccTodayScraper
+            pcc_scraper = PccTodayScraper()
+            pcc_result = await pcc_scraper.fetch_today_tenders()
+            for r in pcc_result.get("records", []):
+                key = f"pcc-{r.get('unit_id', '')}-{r.get('job_number', '')}"
+                if key and key != "pcc--" and key not in seen_keys:
+                    seen_keys.add(key)
+                    all_records.append(r)
+            logger.info(
+                "PCC today (verify=False): %d records, types=%s",
+                len(pcc_result.get("records", [])),
+                pcc_result.get("by_type", {}),
+            )
+        except Exception as e:
+            logger.debug(f"PCC today scrape skipped: {e}")
+
+        # === 補充來源 1: g0v PCC API 關鍵字搜尋 (含決標資料) ===
+        # 擴大搜尋: 5 關鍵字 × 5 頁 + 通用詞 3 頁 → 涵蓋更多決標公告
         async def fetch_kw(kw, page):
             return kw, await self.search.search_by_title(kw, page=page)
 
-        tasks = [fetch_kw(kw, p) for kw in kw_list[:5] for p in range(1, 3)]
+        # 業務關鍵字 5 頁 + 通用決標關鍵字 3 頁
+        general_kws = ["工程", "勞務", "財物"]
+        tasks = [fetch_kw(kw, p) for kw in kw_list[:5] for p in range(1, 6)]
+        tasks += [fetch_kw(kw, p) for kw in general_kws for p in range(1, 4)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for item in results:
@@ -59,50 +110,30 @@ class TenderAnalyticsService:
                     r["matched_keyword"] = kw
                     all_records.append(r)
 
-        # === P1: ezbid 即時補充 (當日資料) ===
+        # === 補充來源 2: ezbid 關鍵字搜尋 (業務相關標案精準匹配) ===
         try:
-            from app.services.ezbid_scraper import EzbidScraper
-            scraper = EzbidScraper()
-            # 並行：最新 + 關鍵字
-            ezbid_latest_task = scraper.fetch_latest(pages=1, per_page=30)
-            ezbid_kw_task = scraper.fetch_for_keywords(kw_list[:3])
-            ezbid_latest_result, ezbid_kw_result = await asyncio.gather(
-                ezbid_latest_task, ezbid_kw_task, return_exceptions=True,
-            )
-            ezbid_latest = ezbid_latest_result if not isinstance(ezbid_latest_result, Exception) else {"records": []}
-            for r in ezbid_latest.get("records", []):
-                key = f"ezbid-{r.get('ezbid_id', '')}"
-                if key not in seen_keys:
-                    seen_keys.add(key)
-                    all_records.append({
-                        "date": r.get("date", ""), "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
-                        "title": r.get("title", ""), "type": r.get("type", ""), "category": r.get("category", ""),
-                        "unit_id": r.get("ezbid_id", ""), "unit_name": r.get("unit_name", ""), "job_number": "",
-                        "winner_names": [], "source": "ezbid", "budget": r.get("budget"),
-                    })
-            # 關鍵字結果
-            ezbid_result = ezbid_kw_result if not isinstance(ezbid_kw_result, Exception) else {"records": []}
-            for r in ezbid_result.get("records", []):
-                key = f"ezbid-{r.get('ezbid_id', '')}"
-                if key not in seen_keys:
-                    seen_keys.add(key)
-                    # 轉換 ezbid 格式為統一格式
-                    all_records.append({
-                        "date": r.get("date", ""),
-                        "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
-                        "title": r.get("title", ""),
-                        "type": r.get("type", ""),
-                        "category": r.get("category", ""),
-                        "unit_id": r.get("ezbid_id", ""),
-                        "unit_name": r.get("unit_name", ""),
-                        "job_number": "",
-                        "winner_names": [],
-                        "matched_keyword": r.get("matched_keyword"),
-                        "source": "ezbid",
-                        "budget": r.get("budget"),
-                    })
+            ezbid_kw_result = await scraper.fetch_for_keywords(kw_list[:5])
+            if not isinstance(ezbid_kw_result, Exception):
+                for r in ezbid_kw_result.get("records", []):
+                    key = f"ezbid-{r.get('ezbid_id', '')}"
+                    if key not in seen_keys:
+                        seen_keys.add(key)
+                        all_records.append({
+                            "date": r.get("date", ""),
+                            "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+                            "title": r.get("title", ""),
+                            "type": r.get("type", ""),
+                            "category": r.get("category", ""),
+                            "unit_id": r.get("ezbid_id", ""),
+                            "unit_name": r.get("unit_name", ""),
+                            "job_number": "",
+                            "winner_names": [],
+                            "matched_keyword": r.get("matched_keyword"),
+                            "source": "ezbid",
+                            "budget": r.get("budget"),
+                        })
         except Exception as e:
-            logger.debug(f"ezbid supplement failed (non-critical): {e}")
+            logger.debug(f"ezbid keyword supplement failed: {e}")
 
         # 按日期排序
         all_records.sort(key=lambda r: r.get("raw_date", 0), reverse=True)
@@ -229,12 +260,12 @@ class TenderAnalyticsService:
                 "rfp_count": len(recent_rfp),
             },
             # 列表區塊
-            "latest_bid_list": [slim(r) for r in latest_bid[:20]],
-            "latest_award_list": [slim(r) for r in latest_award[:20]],
-            "week_new_bid_list": [slim(r) for r in week_new_bid[:20]],
-            "week_new_award_list": [slim(r) for r in week_new_award[:20]],
-            "failed_award_list": [slim(r) for r in recent_failed[:10]],
-            "rfp_list": [slim(r) for r in recent_rfp[:10]],
+            "latest_bid_list": [slim(r) for r in latest_bid[:50]],
+            "latest_award_list": [slim(r) for r in latest_award[:50]],
+            "week_new_bid_list": [slim(r) for r in week_new_bid[:50]],
+            "week_new_award_list": [slim(r) for r in week_new_award[:50]],
+            "failed_award_list": [slim(r) for r in recent_failed[:30]],
+            "rfp_list": [slim(r) for r in recent_rfp[:30]],
             "top_winners": [
                 {"name": k, "count": v} for k, v in winner_counter.most_common(10)
             ],

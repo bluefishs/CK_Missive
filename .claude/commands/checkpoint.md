@@ -1,3 +1,7 @@
+---
+description: "長對話進度保存 — 記錄當前工作狀態與待辦事項"
+---
+
 # Checkpoint Command
 
 Create or verify a checkpoint in your workflow.

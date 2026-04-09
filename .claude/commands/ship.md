@@ -1,3 +1,7 @@
+---
+description: "統一發布工作流 — 測試歸因 + review 就緒 + bisectable commits"
+---
+
 # Ship — 統一發布工作流
 
 > 靈感來源: [gstack/ship](https://github.com/garrytan/gstack) — 非互動式自動化發布管線

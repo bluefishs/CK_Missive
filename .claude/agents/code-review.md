@@ -97,3 +97,15 @@ updated: '2026-03-05'
 - node_modules
 - __pycache__
 - 測試假資料
+
+---
+
+## AI 子包 Import 路徑規則 (v5.5.4)
+
+AI 服務已重構為 11 子包 (`core/agent/tools/graph/document/domain/search/proactive/federation/misc`)。
+
+檢查要點:
+- 根層級 `services/ai/*.py` 應為 re-export stub (使用 `sys.modules` 轉發)
+- 新程式碼必須直接 import 子包: `from app.services.ai.agent.agent_orchestrator import ...`
+- 禁止在子包間使用相對 import (如 `from ..core import`)，應使用絕對路徑
+- `__init__.py` 的匯出清單 (`__all__`) 維持向後相容

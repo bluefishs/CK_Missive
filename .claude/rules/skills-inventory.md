@@ -120,114 +120,8 @@
 
 > 位置: `.claude/skills/_shared/shared/`
 
-> **版本歷史已移至** `.claude/CHANGELOG.md`，此處僅保留清單與代理。
-
----
-
-## v5.5.3 穩定化 + 監控 + 品質優化 (2026-04-08)
-
-| 類型 | 項目 | 說明 |
-|------|------|------|
-| feat | SchedulerTracker | `@tracked_job` 裝飾器追蹤 17 排程任務執行狀態 |
-| feat | POST /health/scheduler | 排程健康端點 (last_run/status/duration/counts) |
-| feat | ezbid 爬蟲防禦 | retry/backoff/封鎖偵測/連續失敗熔斷 |
-| refactor | 4 檔 >500L 拆分 | evolution_scheduler + tool_result_formatter + federation_client + tool_registry |
-| test | 標案整合測試 | tender_cache_service + analytics 20+ cases |
-| chore | 空殼頁面清理 | 刪除 3 redirect stubs + 路由/導覽清理 |
-| chore | MEMORY.md 精簡 | 222→81L (歷史合併至 topic file) |
-| feat | 行動核銷 v3.0 | 步驟式單流程 + 圖片壓縮 + Steps 進度 |
-| feat | ExpenseQRCode | 案件核銷 QR Code (下載/複製/列印) |
-| feat | ERP 帳務完整性 | 同步入帳 + 冪等 + 刪除防護 + 帳本對帳排程 |
-| feat | 併發審批鎖 | SELECT...FOR UPDATE + 批次審批 API |
-| feat | 軟刪除 | ERPQuotation.deleted_at + Alembic migration |
-| feat | FK 簡化 | ERPBilling.invoice_id 移除，改單向 |
-| feat | 圖譜置信度 | EntityRelationship.confidence_level (extracted/inferred/ambiguous) |
-| feat | 中心性分析 | centrality_analysis() + POST /ai/graph/admin/centrality |
-| feat | Obsidian 匯出 | POST /ai/graph/admin/export-obsidian (ZIP) |
-| feat | 圖譜索引 | timeline 複合索引 + alias 複合索引 |
-| feat | PM/ERP 差異 | amount_mismatch 前端 Alert + 成案審計 |
-| fix | Item 欄位 Bug | description→item_name, quantity→qty |
-| fix | 金額驗證 | amount ≥ tax_amount schema 強制 |
-| refactor | 4 檔拆分 Phase 2 | pattern_learner + discord + audit + tender_search |
-
----
-
-## v5.5.0 Agent 進化 + Domain Events + 多通道整合 + 標案分析 Phase 2 (2026-04-05~07, 92 commits)
-
-| 類型 | 項目 | 說明 |
-|------|------|------|
-| feat | Domain Event System v1.0 | EventBus + 5 事件生產者 (document/expense/billing/milestone/tender) |
-| feat | Morning Report | 每日 08:00 自動推送 7 模組晨報 (Telegram/LINE) |
-| feat | Telegram Bot | telegram_bot_service + webhook + 智慧回覆 + reactions/reply thread |
-| feat | 統一串流 | Discord/Telegram/LINE 統一 streaming + status 指示 |
-| feat | Agent Dashboard | 統一儀表板 (聊天+反思+進化+拓撲) |
-| feat | Agent Introspection | 統一自感知運行時 + Redis 快取 + ETag |
-| feat | Response Enricher | domain_prompts + analysis-first synthesis 品質提升 |
-| feat | Role-based Personas | 角色化 Agent + 10 新業務工具 |
-| feat | 標案分析 Phase 2 | 儀表板+機關生態圈+戰情室+底價分析+廠商分析 (5 頁面) |
-| feat | 派工 Kanban | 看板視圖 + 快速狀態切換 + 進度百分比 + 截止倒計時 |
-| feat | ClickableStatCard | 可點擊互動統計卡片共用元件 |
-| refactor | 服務拆分 | project_service + invoice_recognizer + code_graph |
-| perf | 快取優化 | introspection Redis cache + ETag + agent dashboard memo |
-| fix | 標案/公文 | 圓餅圖/年度統一/導覽白名單/公文統計合併 (26 fixes) |
-
----
-
-## v5.4.0 型別重構 + ERP 費用增強 + 服務拆分 (2026-04-04, 9 commits)
-
-| 類型 | 項目 | 說明 |
-|------|------|------|
-| refactor | 型別系統拆分 | api.ts 1338→132L barrel, 新增 api-user/entity/project/calendar/knowledge + pm/erp 獨立 |
-| feat | 費用報銷增強 | 三輸入新增 (手動/掃描/財政部) + 案件分組視圖 + attribution_type 三面向 |
-| feat | 資產管理升級 | photo_path + Gemma 4 Vision 描述 + project_code 映射 + 相機拍照 |
-| feat | Gemma 4 主力推理 | inference-profiles v2.0 切換 P0 本地, LINE 圖片辨識升級統一辨識器 |
-| refactor | 費用服務拆分 | expense_invoice_service 625L → 3 模組 (facade+approval+import, 207+228+265L) |
-| refactor | 費用端點拆分 | expenses.py 551L → crud+io (194+316L), 共用 /expenses prefix |
-| test | 新增 15 cases | 標案排程 6 + 費用分組 4 + 審核流程 5 |
-| chore | .gitattributes | 源碼 LF + Windows CRLF + 二進制標記 |
-| chore | 基礎設施 | invoice-watcher PM2 + vite proxy + ER model 同步 |
-
----
-
-## v5.3.23 品質修正 (2026-04-02, 15 commits)
-
-| 項目 | 說明 |
-|------|------|
-| fix: vendors 422 | 廠商 API 驗證修正 |
-| fix: tender create-case | 建案邏輯修正 (僅建 PM Case，不建 ERP) + duplicate prevention |
-| fix: PM cases year filter | 年度篩選改用 `date.today().year` (移除硬編碼 2025) |
-| fix: PM case delete | 刪除修正 + tender create-case 欄位映射 |
-| chore: ER model | 標案表更新後 ER 模型同步 |
-| docs: session summary | v5.3.23 版本文件同步 |
-
----
-
-## v5.3.22 標案檢索模組 (2026-04-01~02, 46 commits)
-
-### 標案模組
-
-| 類型 | 項目 | 說明 |
-|------|------|------|
-| Service | `tender_search_service.py` | PCC API 封裝 + Redis 快取 |
-| Service | `tender_subscription_scheduler.py` | 訂閱排程 3次/日 + LINE/Discord |
-| API | `tender.py` | 17 端點 (search/detail/graph/subscriptions/bookmarks) |
-| Model | `tender.py` | TenderSubscription + TenderBookmark |
-| Page | `TenderSearchPage.tsx` | 3-Tab (搜尋/收藏/訂閱) |
-| Page | `TenderDetailPage.tsx` | 4-Tab (總覽/生命週期/得標/同機關) |
-| Page | `TenderCompanyPage.tsx` | 廠商投標歷史 + 圓餅圖 |
-| Page | `TenderGraphPage.tsx` | 知識圖譜 (力導引) |
-| Agent | `#29 search_tender` | 標案搜尋 |
-| Agent | `#30 auto_tender_to_case` | Multi-Agent 自動建案 |
-
-### 品質優化
-
-| 項目 | 說明 |
-|------|------|
-| Bug Fix | 公文刪除 409, 導覽 400 (根治), 年度統一, client-accounts |
-| 標準化 | NFKC 5服務, .xls 統一, 千分位, 導覽自動同步 |
-| 架構 | endpoints 域拆分 (1309→8 files), context -33%, .dockerignore |
-| 測試 | 49→18 failures, ERP 整合 12 cases |
-| ERP | 47 請款 + 47 發票 + 35 帳本, 相機拍照, 收款通知 |
+> **版本歷史**: `.claude/CHANGELOG.md`
+> **最新版本**: v5.5.4 (2026-04-09) — AI 子包重構 + UnifiedAgentPage 雙模式 + 系統優化
 
 ---
 
@@ -286,5 +180,6 @@
 | `docs/MULTICHANNEL_SETUP_GUIDE.md` | 多頻道部署指南 (Telegram + LINE) |
 | `backend/app/services/line_bot_service.py` | LINE Bot Service (直連模式) |
 | `backend/app/services/audit_mixin.py` | CRUD 審計 Mixin (10 服務套用) |
-| `backend/app/services/ai/digital_twin_service.py` | 數位分身 Service 層 |
+| `backend/app/services/ai/domain/digital_twin_service.py` | 數位分身 Service 層 (ai/domain/ 子包) |
+| `frontend/src/pages/UnifiedAgentPage.tsx` | 智能體統一頁面 (雙模式: user/admin) |
 | `@AGENT.md` | 開發代理指引 |

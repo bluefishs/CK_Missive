@@ -1,3 +1,7 @@
+---
+description: "CSV 匯入驗證 — 欄位映射、資料型別與完整性檢查"
+---
+
 # CSV 匯入驗證 (CSV Import Validation)
 
 驗證並匯入公文 CSV 檔案，確保資料品質。

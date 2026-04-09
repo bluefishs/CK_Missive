@@ -1,3 +1,7 @@
+---
+description: "API 端點一致性檢查 — 驗證前後端路徑與型別同步"
+---
+
 # API 端點一致性檢查 (API Endpoint Consistency Check)
 
 執行前後端 API 端點一致性檢查，確保路由定義匹配並符合 POST-only 安全規範。

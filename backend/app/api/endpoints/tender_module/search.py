@@ -299,7 +299,8 @@ async def recommend_tenders(
     g0v_task = service.recommend_tenders(keywords=sub_keywords, page=req.page)
     async def _empty(): return {"records": []}
     ezbid_kw_task = scraper.fetch_for_keywords(sub_keywords[:3]) if sub_keywords else _empty()
-    ezbid_latest_task = scraper.fetch_latest(pages=1, per_page=15)
+    # 使用統一服務層: get_today_all() 共享 Redis 快取 (was pages=1, per_page=15)
+    ezbid_latest_task = scraper.get_today_all()
 
     results = await asyncio.gather(g0v_task, ezbid_kw_task, ezbid_latest_task, return_exceptions=True)
     g0v_result = results[0] if not isinstance(results[0], Exception) else {"records": [], "keywords": []}

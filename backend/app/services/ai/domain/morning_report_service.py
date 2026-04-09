@@ -169,6 +169,20 @@ class MorningReportService:
         except Exception:
             report += "\n💡 優先處理逾期和到期項目。"
 
+        # 主動推薦: 整合 proactive_triggers 的今日建議行動
+        try:
+            from app.services.ai.proactive.proactive_triggers import ProactiveTriggerService
+            trigger_svc = ProactiveTriggerService(self.db)
+            alerts = await trigger_svc.scan_all(deadline_days=3)
+            critical_alerts = [a for a in alerts if a.severity in ("critical", "warning")]
+            if critical_alerts:
+                report += "\n\n⚠️ 主動警報:\n"
+                for alert in critical_alerts[:5]:
+                    icon = "🔴" if alert.severity == "critical" else "🟡"
+                    report += f"  {icon} {alert.title}: {alert.message}\n"
+        except Exception:
+            pass  # proactive triggers are non-critical
+
         return report
 
         # Gemma 4 summarize

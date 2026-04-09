@@ -334,7 +334,11 @@ class AgentLearningRepository:
                         learning_id, record.content[:60],
                     )
             else:
-                record.consecutive_success_count = 0
+                # Rolling window: decrement by 2 instead of full reset (min 0)
+                # This allows recovery from occasional failures
+                record.consecutive_success_count = max(
+                    0, (record.consecutive_success_count or 0) - 2
+                )
                 record.failure_count = (record.failure_count or 0) + 1
                 # Flag as chronic after 3 total failures
                 if record.failure_count >= 3 and old_status == "active":

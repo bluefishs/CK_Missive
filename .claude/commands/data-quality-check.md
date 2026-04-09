@@ -1,3 +1,7 @@
+---
+description: "資料品質檢查 — 完整性、一致性、重複偵測"
+---
+
 # 資料品質檢查 (Data Quality Check)
 
 執行 CK_Missive 公文管理系統的資料品質檢查。

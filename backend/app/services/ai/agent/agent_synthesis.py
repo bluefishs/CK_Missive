@@ -47,6 +47,11 @@ class AgentSynthesizer:
 
         synthesis_context = self.build_synthesis_context(tool_results)
 
+        # Graph-RAG: 注入 2-hop KG context (增強答案品質)
+        kg_context = await self._inject_kg_context(tool_results)
+        if kg_context:
+            synthesis_context = f"## 知識圖譜關聯\n{kg_context}\n\n{synthesis_context}"
+
         await AIPromptManager.ensure_db_prompts_loaded()
 
         role = get_role_profile(context)
@@ -231,6 +236,50 @@ class AgentSynthesizer:
         except Exception as e:
             logger.debug("Quality review LLM call failed: %s", e)
         return answer
+
+    async def _inject_kg_context(self, tool_results: List[Dict[str, Any]]) -> str:
+        """
+        Graph-RAG: 從工具結果中提取實體 ID，查詢 2-hop 鄰居注入合成上下文。
+        提升答案品質 — 讓 LLM 看到實體間的關聯。
+        """
+        try:
+            # 收集工具結果中的實體 ID
+            entity_ids = set()
+            for tr in tool_results:
+                result = tr.get("result", {})
+                # 多種格式支援
+                for key in ("entity_ids", "entities", "canonical_entity_ids"):
+                    ids = result.get(key, [])
+                    if isinstance(ids, list):
+                        entity_ids.update(int(i) for i in ids if i)
+                # 從 records 中提取
+                for rec in result.get("records", [])[:5]:
+                    eid = rec.get("canonical_entity_id") or rec.get("entity_id")
+                    if eid:
+                        entity_ids.add(int(eid))
+
+            if not entity_ids or len(entity_ids) > 10:
+                return ""  # 太多則跳過（避免過重查詢）
+
+            from app.services.ai.graph.graph_traversal_service import GraphTraversalService
+            from app.db.database import AsyncSessionLocal
+            async with AsyncSessionLocal() as db:
+                traversal = GraphTraversalService(db)
+                context_parts = []
+                for eid in list(entity_ids)[:5]:
+                    neighbors = await traversal.get_neighbors(
+                        entity_id=eid, max_hops=2, limit=10,
+                    )
+                    nodes = neighbors.get("nodes", [])
+                    if len(nodes) > 1:  # Skip if only root node
+                        names = [f"{n['name']}({n['type']})" for n in nodes[1:6]]
+                        root = nodes[0]["name"] if nodes else str(eid)
+                        context_parts.append(f"- {root} 相關: {', '.join(names)}")
+
+                return "\n".join(context_parts) if context_parts else ""
+        except Exception as e:
+            logger.debug("KG context injection skipped: %s", e)
+            return ""
 
     def build_synthesis_context(self, tool_results: List[Dict[str, Any]]) -> str:
         """將所有工具結果建構為 LLM 合成上下文"""

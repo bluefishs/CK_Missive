@@ -64,7 +64,7 @@ interface FeatureDataItem {
 export const AIStatsPanel: React.FC = () => {
   const { isMobile } = useResponsive();
 
-  // 與 AIAssistantManagementPage 共享 queryKey，避免重複請求
+  // 與 UnifiedAgentPage (admin 模式) 共享 queryKey，避免重複請求
   const { data: stats = null, isLoading: statsLoading } = useQuery({
     queryKey: ['ai-management', 'ai-stats'],
     queryFn: () => aiApi.getStats(),

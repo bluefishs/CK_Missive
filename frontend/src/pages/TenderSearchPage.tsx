@@ -166,29 +166,29 @@ const TenderSearchPage: React.FC = () => {
         <Row gutter={[12, 12]}>
           {showRecommend && !params ? (
             <>
-              <Col xs={8} sm={6} md={4}>
-                <ClickableStatCard title="業務推薦" value={recommendResult?.records?.length ?? 0}
-                  icon={<StarOutlined />} color="#722ed1"
-                  active={recommendView === 'business'} onClick={() => setRecommendView('business')} />
-              </Col>
-              <Col xs={8} sm={6} md={4}>
+              <Col xs={12} sm={6} md={4}>
                 <ClickableStatCard title="今日最新" value={recommendResult?.today_records?.length ?? 0}
                   icon={<CalendarOutlined />} color="#eb2f96"
-                  active={recommendView === 'today'} onClick={() => setRecommendView('today')} />
+                  active={recommendView === 'today'} onClick={() => { setRecommendView('today'); setActiveTab('search'); }} />
+              </Col>
+              <Col xs={12} sm={6} md={4}>
+                <ClickableStatCard title="業務推薦" value={recommendResult?.records?.length ?? 0}
+                  icon={<StarOutlined />} color="#722ed1"
+                  active={recommendView === 'business'} onClick={() => { setRecommendView('business'); setActiveTab('search'); }} />
               </Col>
             </>
           ) : (
-            <Col xs={8} sm={6} md={4}>
+            <Col xs={12} sm={6} md={4}>
               <ClickableStatCard title="搜尋結果" value={filteredData.length} icon={<SearchOutlined />} color="#1890ff" />
             </Col>
           )}
-          <Col xs={8} sm={6} md={4}>
-            <ClickableStatCard title="訂閱" value={subscriptions?.length ?? 0} icon={<BellOutlined />} color="#faad14"
-              onClick={() => setActiveTab('subscriptions')} active={activeTab === 'subscriptions'} />
-          </Col>
-          <Col xs={8} sm={6} md={4}>
-            <ClickableStatCard title="收藏" value={bookmarks?.length ?? 0} icon={<BookOutlined />} color="#52c41a"
+          <Col xs={12} sm={6} md={4}>
+            <ClickableStatCard title="關注評估" value={bookmarks?.length ?? 0} icon={<BookOutlined />} color="#52c41a"
               onClick={() => setActiveTab('bookmarks')} active={activeTab === 'bookmarks'} />
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <ClickableStatCard title="關鍵訂閱" value={subscriptions?.length ?? 0} icon={<BellOutlined />} color="#faad14"
+              onClick={() => setActiveTab('subscriptions')} active={activeTab === 'subscriptions'} />
           </Col>
         </Row>
       </Card>
@@ -215,8 +215,18 @@ const TenderSearchPage: React.FC = () => {
             ),
           },
           {
+            key: 'bookmarks',
+            label: <><BookOutlined /> 關注評估 <Badge count={bookmarks?.length ?? 0} size="small" offset={[4, -2]} /></>,
+            children: (
+              <BookmarkTab
+                bookmarks={bookmarks} deleteBm={deleteBm}
+                onRowClick={handleBookmarkRowClick}
+              />
+            ),
+          },
+          {
             key: 'subscriptions',
-            label: <><BellOutlined /> 訂閱 <Badge count={subscriptions?.length ?? 0} size="small" offset={[4, -2]} /></>,
+            label: <><BellOutlined /> 關鍵訂閱 <Badge count={subscriptions?.length ?? 0} size="small" offset={[4, -2]} /></>,
             children: (
               <SubscriptionTab
                 subscriptions={subscriptions} subKeyword={subKeyword} setSubKeyword={setSubKeyword}
@@ -225,16 +235,6 @@ const TenderSearchPage: React.FC = () => {
                 editingKeyword={editingKeyword} setEditingKeyword={setEditingKeyword}
                 createSub={createSub} updateSub={updateSub} deleteSub={deleteSub}
                 handleSubSearch={handleSubSearch} message={message}
-              />
-            ),
-          },
-          {
-            key: 'bookmarks',
-            label: <><BookOutlined /> 收藏 <Badge count={bookmarks?.length ?? 0} size="small" offset={[4, -2]} /></>,
-            children: (
-              <BookmarkTab
-                bookmarks={bookmarks} deleteBm={deleteBm}
-                onRowClick={handleBookmarkRowClick}
               />
             ),
           },

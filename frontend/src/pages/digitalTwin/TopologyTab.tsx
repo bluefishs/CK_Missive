@@ -2,7 +2,7 @@
  * Agent 系統拓撲 Tab
  *
  * 顯示 Agent 聯邦節點的拓撲卡片視圖。
- * 抽取自 AgentDashboardPage / DigitalTwinPage 共用元件。
+ * 由 UnifiedAgentPage 雙模式共用。
  */
 import React from 'react';
 import { Row, Col, Typography, Badge, Card, Alert, Spin, Tag, Space } from 'antd';

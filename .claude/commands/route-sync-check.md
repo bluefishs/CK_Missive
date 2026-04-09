@@ -1,3 +1,7 @@
+---
+description: "前後端路由一致性檢查 — ROUTES/AppRouter/Navigation 三方比對"
+---
+
 # /route-sync-check - 前後端路由一致性檢查
 
 檢查前端路由定義與後端導覽資料的一致性，找出不匹配的項目。

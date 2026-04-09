@@ -1,3 +1,7 @@
+---
+description: "編輯範圍鎖定 — 限制 Edit/Write 到指定目錄"
+---
+
 # Freeze — 編輯範圍鎖定
 
 > 靈感來源: [gstack/freeze](https://github.com/garrytan/gstack) — 防止偵錯/重構時的 scope drift

@@ -1,3 +1,7 @@
+---
+description: "綜合驗證 — Build/Type/Lint/Test 全面檢查"
+---
+
 # Verification Command
 
 Run comprehensive verification on current codebase state.

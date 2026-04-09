@@ -452,24 +452,28 @@ async def morning_report_job():
 
 @tracked_job("ezbid_cache_refresh")
 async def ezbid_cache_refresh_job():
-    """ezbid 即時資料快取刷新 — 每小時預取 + 寫入 DB"""
+    """ezbid 全量快取刷新 — 每小時抓取今日全量 + 寫入 DB (統一服務層)"""
     from app.db.database import async_session_maker
 
-    logger.info("開始 ezbid 快取刷新")
+    logger.info("開始 ezbid 全量快取刷新")
     try:
         from app.services.ezbid_scraper import EzbidScraper
         scraper = EzbidScraper()
-        result = await scraper.fetch_latest(pages=2, per_page=30)
+        # 使用統一服務層 get_today_all() — 10 頁 × 100 筆 + Redis 共享快取
+        result = await scraper.get_today_all()
         records = result.get("records", [])
-        logger.info(f"ezbid 快取刷新: {len(records)} 筆")
+        logger.info(f"ezbid 全量刷新: {len(records)} 筆")
 
-        # 寫入 DB
+        # 寫入 DB (持久化)
         if records:
             try:
                 async with async_session_maker() as db:
                     from app.services.tender_cache_service import save_search_results
                     saved = await save_search_results(db, records, source="ezbid")
-                    logger.info(f"ezbid → DB: {saved} 筆新增")
+                    # 同步入圖 (標案機關/廠商 → canonical_entities)
+                    from app.services.tender_cache_service import _ingest_tender_entities
+                    ingested = await _ingest_tender_entities(db, records)
+                    logger.info(f"ezbid → DB: {saved} 筆新增, KG: {ingested} 實體入圖")
             except Exception as e:
                 logger.warning(f"ezbid DB 寫入失敗 (非致命): {e}")
     except Exception as e:
@@ -575,6 +579,23 @@ async def tender_subscription_check_job():
             )
     except Exception as e:
         logger.error(f"標案訂閱檢查失敗: {e}", exc_info=True)
+
+
+@tracked_job("embedding_warmup")
+async def embedding_warmup_job():
+    """Embedding 預熱 — 為 top-500 高頻實體預先載入向量至記憶體快取"""
+    logger.info("開始執行 Embedding 預熱")
+    try:
+        from app.services.ai.embedding_manager import warmup_entity_embeddings
+        result = await warmup_entity_embeddings(top_n=500)
+        warmed = result.get("warmed", 0)
+        candidates = result.get("total_candidates", 0)
+        logger.info(
+            "Embedding 預熱完成: warmed=%d, candidates=%d",
+            warmed, candidates,
+        )
+    except Exception as e:
+        logger.error("Embedding 預熱失敗: %s", e, exc_info=True)
 
 
 @tracked_job("health_check_broadcast")
@@ -811,6 +832,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加標案狀態更新: 每日 06:00 執行")
+
+    # Embedding 預熱 — 每日 04:45 為高頻實體預載向量 (在 KG 回填 04:30 之後)
+    scheduler.add_job(
+        embedding_warmup_job,
+        trigger=CronTrigger(hour=4, minute=45),
+        id='embedding_warmup',
+        name='Embedding 預熱 (top-500 實體)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Embedding 預熱: 每日 04:45 執行")
 
     # 帳本對帳 — 每日 05:00 比對 ERP billing/payable vs FinanceLedger
     scheduler.add_job(

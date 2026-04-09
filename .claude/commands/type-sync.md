@@ -1,3 +1,7 @@
+---
+description: "型別同步檢查 — 前後端 Schema/Type 定義一致性"
+---
+
 # 型別同步檢查 (Type Synchronization Check)
 
 > **版本**: 2.0.0

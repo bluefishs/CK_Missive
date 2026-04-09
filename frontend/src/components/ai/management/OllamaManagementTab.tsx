@@ -1,7 +1,7 @@
 /**
  * OllamaManagementTab - Ollama model management
  *
- * Extracted from AIAssistantManagementPage.tsx
+ * Used by UnifiedAgentPage (admin mode)
  */
 import React from 'react';
 import {

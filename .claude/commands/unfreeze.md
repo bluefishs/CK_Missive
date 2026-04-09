@@ -1,3 +1,7 @@
+---
+description: "解除編輯範圍鎖定 — 刪除 freeze-scope.json"
+---
+
 # Unfreeze — 解除編輯範圍鎖定
 
 解除 `/freeze` 設定的編輯範圍限制。

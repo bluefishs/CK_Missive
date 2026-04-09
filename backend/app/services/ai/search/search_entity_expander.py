@@ -86,17 +86,19 @@ async def expand_search_terms(
 
             canonical_ids: List[int] = []
 
-            # Step 1: 別名精確匹配
+            # Step 1: 別名精確匹配 (limit to avoid runaway results)
             alias_result = await db.execute(
                 select(EntityAlias.canonical_entity_id)
                 .where(EntityAlias.alias_name == clean)
+                .limit(MAX_EXPANSIONS_PER_TERM)
             )
             canonical_ids.extend(row[0] for row in alias_result.all())
 
-            # Step 2: 正規名稱精確匹配
+            # Step 2: 正規名稱精確匹配 (limit for safety)
             canon_result = await db.execute(
                 select(CanonicalEntity.id)
                 .where(CanonicalEntity.canonical_name == clean)
+                .limit(MAX_EXPANSIONS_PER_TERM)
             )
             canonical_ids.extend(row[0] for row in canon_result.all())
 
@@ -114,10 +116,11 @@ async def expand_search_terms(
             for row in all_aliases_result.all():
                 expansions[term].add(row[0])
 
-            # Step 4: 取得正規名稱
+            # Step 4: 取得正規名稱 (limit for safety)
             canon_names_result = await db.execute(
                 select(CanonicalEntity.canonical_name)
                 .where(CanonicalEntity.id.in_(unique_ids))
+                .limit(MAX_EXPANSIONS_PER_TERM)
             )
             for row in canon_names_result.all():
                 expansions[term].add(row[0])

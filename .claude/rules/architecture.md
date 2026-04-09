@@ -60,116 +60,21 @@ backend/app/extended/models/
 ```
 backend/app/services/
 ├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse)
-├── ai/                         # AI 服務 (107 個模組)
-│   ├── # --- 核心基礎 ---
-│   ├── ai_config.py            # AI 配置管理 Singleton (v3.0.0, 48 params)
-│   ├── base_ai_service.py      # 基類：滑動窗口限流+Redis快取+統計 (v3.0.0)
-│   ├── document_ai_service.py  # 公文摘要/分類/關鍵字/意圖 (v5.0.0)
-│   ├── document_analysis_service.py  # 文件分析服務
-│   ├── document_chunker.py     # 文件分段 (段落+滑動窗口+合併)
-│   ├── embedding_manager.py    # Embedding LRU快取+覆蓋率統計 (v1.1.0)
-│   ├── entity_extraction_service.py  # NER 實體提取+4策略JSON解析 (v1.0.0)
-│   ├── rag_query_service.py          # RAG 問答服務 (v2.4.0, 267L 拆分後)
-│   ├── rag_retrieval.py             # RAG 檢索服務 (348L, 拆分自 rag_query)
-│   ├── # --- 乾坤智能體 Agent 模組 (36 個) ---
-│   ├── agent_orchestrator.py        # 主編排 v2.7.0 ReAct+SSE+Router (497L)
-│   ├── agent_tool_loop.py           # 工具迴圈 (273L, 拆分自 orchestrator)
-│   ├── agent_tools.py               # 工具調度入口 (260L, 委派子執行器)
-│   ├── agent_planner.py             # 意圖前處理+LLM規劃 (拆分後)
-│   ├── agent_plan_enricher.py       # 規劃豐富器 (158L, 拆分自 planner)
-│   ├── agent_synthesis.py           # 答案合成 v2.0.0 (165L, 拆分後)
-│   ├── tool_result_formatter.py     # 工具結果格式化+摘要+自省 (389L, 拆分自 synthesis)
-│   ├── agent_chitchat.py            # 閒聊偵測+8回退模式 v1.0.0
-│   ├── agent_trace.py               # 執行追蹤+Span計時 v1.0.0
-│   ├── agent_router.py              # 3層路由(chitchat→pattern→llm) v1.0.0
-│   ├── agent_roles.py               # 5角色定義(SSOT) v1.1.0
-│   ├── agent_tool_monitor.py        # 滑動窗口+自動降級/恢復 v1.0.0
-│   ├── agent_pattern_learner.py     # 模式學習+MD5匹配 (486L, 拆分後)
-│   ├── pattern_semantic_matcher.py  # 語意匹配 (拆分自 pattern_learner)
-│   ├── agent_summarizer.py          # 3-Tier自適應壓縮+學習萃取 v2.0.0
-│   ├── agent_supervisor.py          # 多域分解+並行子任務+結果合併 v1.0.0
-│   ├── agent_diagram_builder.py     # 4類Mermaid圖表生成 v1.0.0
-│   ├── agent_conversation_memory.py # Redis對話記憶+TTL v1.0.0
-│   ├── agent_conductor.py           # Conductor式並行Agent編排 v1.0.0
-│   ├── agent_self_evaluator.py      # 自動評分(5維度) v1.0.0
-│   ├── agent_evolution_scheduler.py # 自動進化排程(50次/24h) v1.0.0
-│   ├── agent_introspection.py       # 統一自感知運行時 + Redis 快取 v1.0.0
-│   ├── agent_utils.py               # parse_json_safe, sse 共用工具
-│   ├── # --- 工具子執行器 (拆分自 agent_tools) ---
-│   ├── tool_executor_search.py      # 搜尋工具 (306L): doc/dispatch (拆分後)
-│   ├── tool_executor_kg_search.py   # KG搜尋工具 (314L): entity/similar/correspondence (拆分自 search)
-│   ├── tool_executor_analysis.py    # 分析工具 (498L): detail/stats/health/graph
-│   ├── tool_executor_domain.py      # PM/ERP/tender 工具 (826L): projects/vendors/contracts/tender
-│   ├── tool_definitions.py          # 工具定義 (671L): 全工具 JSON Schema
-│   ├── tool_executor_document.py    # 文件工具子執行器 v1.0.0
-│   ├── tool_chain_resolver.py       # Chain-of-Tools 自動參數注入 (175L)
-│   ├── citation_validator.py        # 引用準確性驗證 (精確+模糊匹配)
-│   ├── thinking_filter.py           # LLM thinking 標記 5 階段過濾
-│   ├── pattern_seeds.py             # 冷啟動種子模式 (29 個, 7 類別)
-│   ├── user_preference_extractor.py # 雙層使用者記憶 (Redis+DB)
-│   ├── user_query_tracker.py        # 使用者查詢追蹤統計 v1.0.0
-│   ├── voice_transcriber.py         # 語音轉文字服務 v1.0.0
-│   ├── federation_client.py         # OpenClaw聯邦整合客戶端 v1.0.0
-│   ├── agent_auto_corrector.py      # 6策略自動修正 (拆分自planner) v1.0.0
-│   ├── agent_learning_injector.py   # 跨會話學習注入 (拆分自planner) v1.0.0
-│   ├── agent_post_processing.py     # 後處理管線 (拆分自orchestrator) v1.0.0
-│   ├── agent_streaming_helpers.py   # SSE串流輔助 (拆分自orchestrator) v1.0.0
-│   ├── digital_twin_service.py      # 數位分身業務邏輯 (442L, 拆分自endpoint)
-│   ├── response_enricher.py         # 回應品質增強 + 領域 Prompt v1.0.0
-│   ├── domain_prompts.py            # 領域專用 Prompt 模板 v1.0.0
-│   ├── morning_report_service.py    # 每日晨報 7 模組自動推送 v1.0.0
-│   ├── skill_snapshot_service.py    # 技能快照 + 跨 Agent 模式共享 v1.0.0
-│   ├── code_wiki_generator.py       # Gemma 4 語意文件自動生成 v1.0.0
-│   ├── engineering_diagram_service.py # 工程圖表 Vision 服務 (experimental)
-│   ├── # --- 知識圖譜模組 (8 個) ---
-│   ├── relation_graph_service.py     # 知識圖譜7-Phase建構 (v1.0.0)
-│   ├── canonical_entity_service.py   # 正規化實體4階段策略 (拆分後)
-│   ├── canonical_entity_resolver.py # 實體解析器 (200L, 拆分自 canonical_entity_service)
-│   ├── graph_ingestion_pipeline.py   # 圖譜資料入圖管線 (v1.0.0)
-│   ├── graph_helpers.py              # 圖譜工具函數+常數+快取 (v1.0.0)
-│   ├── graph_merge_strategy.py       # 圖譜實體合併策略 Phase 2.5~4 (v1.0.0)
-│   ├── graph_query_service.py        # 圖譜查詢服務 (v1.2.0 拆分重構)
-│   ├── graph_statistics_service.py   # 圖譜統計服務
-│   ├── graph_traversal_service.py    # 圖譜遍歷服務
-│   ├── # --- Code Graph 模組 (7 個) ---
-│   ├── code_graph_service.py         # 程式碼圖譜 Facade (194L, 拆分後)
-│   ├── code_graph_ingest.py          # 程式碼圖譜入庫 (445L, 拆分自 service)
-│   ├── code_graph_analysis.py        # 程式碼圖譜分析
-│   ├── code_graph_ast_analyzer.py    # AST 分析器 (497L, 拆分後)
-│   ├── ast_endpoint_extractor.py     # API端點提取 Mixin (170L, 拆分自 ast_analyzer)
-│   ├── code_graph_types.py           # 型別+常數定義 (76L)
-│   ├── graph_code_wiki_service.py    # Code Wiki 整合
-│   ├── schema_reflector.py           # DB Schema 反射 (asyncio.to_thread)
-│   ├── ts_extractor.py               # TypeScript AST 提取
-│   ├── obsidian_exporter.py          # Obsidian Vault 匯出 (entity→.md + wiki links)
-│   ├── name_utils.py                 # 名稱正規化共用工具 (NFKC+lowercase)
-│   ├── agent_evolution_actions.py    # 進化動作 (拆分自 scheduler, 222L)
-│   ├── agent_evolution_persistence.py # 進化持久化 (拆分自 scheduler, 227L)
-│   ├── agent_pattern_persistence.py  # 模式持久化 (拆分自 pattern_learner, 120L)
-│   ├── federation_discovery.py       # 聯邦服務發現 (拆分自 federation_client, 221L)
-│   ├── federation_delegation.py      # 聯邦跨域委派 (拆分自 federation_client, 245L)
-│   ├── tool_discovery.py             # 工具智慧推薦 (拆分自 tool_registry, 325L)
-│   ├── tool_result_formatters_doc.py # 文件工具格式化 (拆分自 formatter)
-│   ├── tool_result_formatters_entity.py # KG 工具格式化 (拆分自 formatter)
-│   ├── tool_result_formatters_business.py # 業務工具格式化 (拆分自 formatter)
-│   ├── # --- 搜尋/排序模組 ---
-│   ├── reranker.py                   # Hybrid 重排序器
-│   ├── search_intent_parser.py       # 搜尋意圖解析 (v1.0.0)
-│   ├── search_entity_expander.py     # 搜尋實體擴展 (v1.0.0)
-│   ├── synonym_expander.py           # 同義詞擴展 (v1.0.0)
-│   ├── rule_engine.py                # 規則引擎 (v2.0.0)
-│   ├── # --- PM/ERP 查詢模組 ---
-│   ├── pm_query_service.py           # 專案管理查詢 (v1.0.0)
-│   ├── erp_query_service.py          # ERP廠商/合約查詢 (v1.0.0)
-│   ├── tool_registry.py              # Agent 工具註冊中心 Singleton (22工具)
-│   ├── # --- 排程/管理模組 ---
-│   ├── extraction_scheduler.py       # NER提取排程器 混合模式 (v2.0.0)
-│   ├── proactive_triggers.py         # 主動觸發掃描 (deadline/overdue/品質)
-│   ├── proactive_recommender.py      # 主動推薦引擎 v1.0.0
-│   ├── ai_prompt_manager.py          # Prompt模板管理(DB熱重載)
-│   ├── prompts.yaml                  # 5組Prompt模板 (v1.1.0)
-│   ├── synonyms.yaml                # 53組同義詞字典 (v1.0.0)
-│   └── intent_rules.yaml            # 意圖規則定義
+├── ai/                         # AI 服務 (11 子包 + ~120 re-export stubs)
+│   ├── core/                   # 核心基礎 (16): ai_config, base_ai_service, embedding_manager, token_tracker
+│   ├── agent/                  # 智能體 Agent (36): orchestrator, planner, evolution, pattern_learner
+│   ├── tools/                  # 工具執行器 (16): tool_definitions, tool_registry, 6 executor
+│   ├── graph/                  # 知識圖譜 (26): relation_graph, canonical_entity, code_graph, erp_graph
+│   ├── document/               # 文件處理 (10): document_ai, chunker, entity_extraction
+│   ├── domain/                 # 領域業務 (10): digital_twin, morning_report, pm/erp_query
+│   ├── search/                 # 搜尋排序 (9): rag_query, rag_retrieval, reranker
+│   ├── proactive/              # 主動觸發 (5): proactive_triggers + erp/finance/pm
+│   ├── federation/             # 聯邦整合 (3): federation_client/discovery/delegation
+│   ├── misc/                   # 雜項工具 (9): voice_transcriber, skill_snapshot, code_wiki
+│   ├── *.py                    # ~120 re-export stubs (向後相容 sys.modules 轉發)
+│   ├── prompts.yaml            # 5組Prompt模板
+│   ├── synonyms.yaml           # 53組同義詞字典
+│   └── intent_rules.yaml       # 意圖規則定義
 ├── calendar/                   # 行事曆服務
 │   ├── event_auto_builder.py   # 事件自動建立
 │   └── batch_create_events.py  # 批次建立事件

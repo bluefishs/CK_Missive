@@ -1,3 +1,7 @@
+---
+description: "開發環境檢查 — Docker/PM2/DB/Redis 服務狀態驗證"
+---
+
 # 開發環境檢查 (Development Environment Check)
 
 執行完整的開發環境和程式碼檢查。

@@ -110,6 +110,23 @@ class AgentEvolutionScheduler:
                 # 從未執行過，且已有足夠資料
                 return True
 
+            # Domain-aware trigger: if any domain has 5+ consecutive low scores (<0.5),
+            # trigger targeted evolution even if global thresholds not met
+            try:
+                for domain in ("doc", "dispatch", "erp", "graph", "pm", "analysis"):
+                    domain_key = f"agent:domain_scores:{domain}"
+                    raw_scores = await self.redis.lrange(domain_key, 0, 4)
+                    if len(raw_scores) >= 5:
+                        scores = [float(s) for s in raw_scores]
+                        if all(s < 0.5 for s in scores):
+                            logger.warning(
+                                "Domain-aware trigger: %s has 5 consecutive low scores (avg=%.2f)",
+                                domain, sum(scores) / len(scores),
+                            )
+                            return True
+            except Exception:
+                pass
+
             return False
         except Exception:
             return False
@@ -194,10 +211,19 @@ class AgentEvolutionScheduler:
                         result["degraded"] += 1
                         logger.warning(
                             "Evolution degradation: %.2f "
-                            "(baseline=%.3f, current=%.3f, age=%.1fd), "
-                            "consider rollback",
+                            "(baseline=%.3f, current=%.3f, age=%.1fd)",
                             diff, baseline_score, current_avg, age / 86400,
                         )
+                        # Auto-rollback: if significant degradation (>0.1),
+                        # demote recently promoted patterns to reduce damage
+                        if diff < -0.1:
+                            rollback_count = await self._auto_rollback_recent_promotions()
+                            result["rollback"] = rollback_count
+                            logger.warning(
+                                "Auto-rollback triggered: demoted %d recent promotions "
+                                "(degradation=%.3f)",
+                                rollback_count, diff,
+                            )
 
                     # Baseline evaluated, clean it up
                     expired_keys.append(key)
@@ -425,6 +451,50 @@ class AgentEvolutionScheduler:
         return report
 
     # ─── Internal helpers ──────────────────────────────────────
+
+    async def _auto_rollback_recent_promotions(self) -> int:
+        """
+        Auto-rollback: demote patterns promoted in the last 7 days
+        when significant quality degradation is detected (>0.1 drop).
+
+        Returns the number of patterns demoted.
+        """
+        demoted = 0
+        try:
+            # Scan Redis patterns index for recently promoted ones
+            # (patterns with high scores but added recently)
+            index_key = "agent:patterns:index"
+            members = await self.redis.zrevrange(index_key, 0, 19, withscores=True)
+            if not members:
+                return 0
+
+            for member_raw, score in members:
+                member = member_raw.decode() if isinstance(member_raw, bytes) else member_raw
+                detail_key = f"agent:patterns:detail:{member}"
+                detail_raw = await self.redis.hgetall(detail_key)
+                if not detail_raw:
+                    continue
+
+                # Check if pattern was recently promoted (< 7 days)
+                promoted_at = detail_raw.get(b"promoted_at") or detail_raw.get("promoted_at")
+                if promoted_at:
+                    try:
+                        promoted_ts = float(promoted_at)
+                        if time.time() - promoted_ts < 7 * 86400:
+                            # Recent promotion — demote it
+                            await self.redis.zrem(index_key, member)
+                            await self.redis.delete(detail_key)
+                            demoted += 1
+                    except (ValueError, TypeError):
+                        pass
+
+            if demoted:
+                logger.warning(
+                    "Auto-rollback: removed %d recently promoted patterns", demoted
+                )
+        except Exception as e:
+            logger.debug("Auto-rollback failed: %s", e)
+        return demoted
 
     async def _consume_signals(self) -> List[Dict[str, Any]]:
         """從 Redis 消費改進信號"""

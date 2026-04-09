@@ -233,24 +233,37 @@ class TenderSearchService:
         self, keywords: Optional[List[str]] = None, page: int = 1
     ) -> Dict[str, Any]:
         """
-        智能推薦 — 依乾坤核心業務關鍵字搜尋相關標案
+        智能推薦 — 業務推薦 + 今日最新標案
 
-        Args:
-            keywords: 自訂關鍵字 (None = 使用預設業務關鍵字)
-            page: 頁碼
+        Returns:
+            {keywords, total, records (業務推薦), today_records (今日全量)}
         """
         import asyncio
         kw_list = keywords or CK_BUSINESS_KEYWORDS[:5]
 
-        # 並行搜尋 (加速 3 倍)
+        # === 並行: 業務推薦 + ezbid 今日全量 ===
         async def fetch_kw(kw):
             return kw, await self.search_by_title(kw, page=1)
 
-        results = await asyncio.gather(*[fetch_kw(kw) for kw in kw_list[:3]], return_exceptions=True)
+        async def fetch_today():
+            """ezbid 今日全量 — 統一服務層 (與 dashboard 共享快取)"""
+            from app.services.ezbid_scraper import EzbidScraper
+            scraper = EzbidScraper()
+            result = await scraper.get_today_all()
+            return result.get("records", [])
 
+        tasks = [fetch_kw(kw) for kw in kw_list[:5]]
+        tasks.append(fetch_today())
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 分離結果: 前 N 個是關鍵字搜尋，最後一個是 ezbid
+        kw_results = results[:-1]
+        ezbid_result = results[-1] if not isinstance(results[-1], Exception) else []
+
+        # 業務推薦
         all_records = []
         seen_jobs = set()
-        for item in results:
+        for item in kw_results:
             if isinstance(item, Exception):
                 continue
             kw, result = item
@@ -259,14 +272,35 @@ class TenderSearchService:
                     seen_jobs.add(r["job_number"])
                     r["matched_keyword"] = kw
                     all_records.append(r)
-
-        # 依日期排序 (最新優先)
         all_records.sort(key=lambda r: r.get("date", 0), reverse=True)
 
+        # 今日最新 (ezbid 全量轉統一格式)
+        today_records = []
+        seen_today = set()
+        for r in ezbid_result:
+            key = r.get("ezbid_id", "")
+            if key and key not in seen_today:
+                seen_today.add(key)
+                today_records.append({
+                    "date": r.get("date", ""),
+                    "title": r.get("title", ""),
+                    "type": r.get("type", ""),
+                    "category": r.get("category", ""),
+                    "unit_id": r.get("ezbid_id", ""),
+                    "unit_name": r.get("unit_name", ""),
+                    "job_number": "",
+                    "winner_names": [],
+                    "source": "ezbid",
+                    "budget": r.get("budget"),
+                    "days_left": r.get("days_left"),
+                })
+
         return {
-            "keywords": kw_list[:3],
+            "keywords": kw_list[:5],
             "total": len(all_records),
-            "records": all_records[:20],
+            "records": all_records[:50],
+            "today_records": today_records,
+            "today_total": len(today_records),
         }
 
     # =========================================================================

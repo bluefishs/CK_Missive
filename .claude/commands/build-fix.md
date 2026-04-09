@@ -1,3 +1,7 @@
+---
+description: "快速修復構建錯誤 — TypeScript/Python 編譯問題診斷與修復"
+---
+
 # Build and Fix
 
 Incrementally fix TypeScript and build errors:

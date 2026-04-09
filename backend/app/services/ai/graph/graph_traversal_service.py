@@ -22,7 +22,7 @@ from app.extended.models import (
     EntityRelationship,
 )
 from app.services.ai.ai_config import get_ai_config
-from .graph_helpers import _graph_cache, _CODE_ENTITY_TYPES
+from .graph_helpers import _graph_cache
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +59,28 @@ class GraphTraversalService:
         max_hops: int,
         limit: int,
     ) -> dict:
-        """K 跳鄰居查詢（無快取）"""
+        """K 跳鄰居查詢（無快取），含 branching factor 動態降級"""
         from sqlalchemy import text
+
+        # Dynamic degradation: if branching factor > 20, reduce max_hops
+        bf_result = await self.db.execute(text(
+            "SELECT COUNT(*) FROM entity_relationships "
+            "WHERE (source_entity_id = :eid OR target_entity_id = :eid) "
+            "AND invalidated_at IS NULL"
+        ), {"eid": entity_id})
+        branching_factor = bf_result.scalar() or 0
+        if branching_factor > 20 and max_hops > 2:
+            max_hops = 2
+            logger.info(
+                "CTE degradation: entity %d has %d edges, reducing max_hops to %d",
+                entity_id, branching_factor, max_hops,
+            )
+        elif branching_factor > 50 and max_hops > 1:
+            max_hops = 1
+            logger.warning(
+                "CTE degradation: entity %d has %d edges (god node), max_hops=1",
+                entity_id, branching_factor,
+            )
 
         result = await self.db.execute(text("""
             WITH RECURSIVE traversal AS (
@@ -103,11 +123,7 @@ class GraphTraversalService:
                 WHERE t.hop < :max_hops
                     AND r.invalidated_at IS NULL
                     AND r.relation_label IS DISTINCT FROM 'code_graph'
-                    AND ce.entity_type NOT IN (
-                        'py_module', 'py_class', 'py_function',
-                        'db_table',
-                        'ts_module', 'ts_component', 'ts_hook'
-                    )
+                    AND ce.graph_domain = 'knowledge'
                     AND NOT (
                         CASE
                             WHEN r.source_entity_id = t.entity_id THEN r.target_entity_id
@@ -132,7 +148,7 @@ class GraphTraversalService:
         entities_result = await self.db.execute(
             select(CanonicalEntity)
             .where(CanonicalEntity.id.in_(node_ids))
-            .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+            .where(CanonicalEntity.graph_domain == 'knowledge')
         )
         entities = entities_result.scalars().all()
         filtered_ids = {e.id for e in entities}
@@ -202,8 +218,6 @@ class GraphTraversalService:
         try:
             from sqlalchemy import text
 
-            _code_types_tuple = tuple(_CODE_ENTITY_TYPES)
-
             result = await self.db.execute(text("""
                 WITH RECURSIVE pathfinder AS (
                     SELECT
@@ -228,18 +242,14 @@ class GraphTraversalService:
                         r.source_entity_id = p.current_id
                         OR r.target_entity_id = p.current_id
                     )
+                    JOIN canonical_entities ce ON ce.id = CASE
+                        WHEN r.source_entity_id = p.current_id THEN r.target_entity_id
+                        ELSE r.source_entity_id
+                    END
                     WHERE p.depth < :max_hops
                         AND r.invalidated_at IS NULL
                         AND r.relation_label IS DISTINCT FROM 'code_graph'
-                        AND (
-                            CASE
-                                WHEN r.source_entity_id = p.current_id THEN r.target_entity_id
-                                ELSE r.source_entity_id
-                            END
-                        ) NOT IN (
-                            SELECT id FROM canonical_entities
-                            WHERE entity_type = ANY(:code_types)
-                        )
+                        AND ce.graph_domain = 'knowledge'
                         AND NOT (
                             CASE
                                 WHEN r.source_entity_id = p.current_id THEN r.target_entity_id
@@ -256,7 +266,6 @@ class GraphTraversalService:
                 "source_id": source_id,
                 "target_id": target_id,
                 "max_hops": max_hops,
-                "code_types": list(_code_types_tuple),
             })
 
             row = result.first()
@@ -314,7 +323,7 @@ class GraphTraversalService:
                     (EntityRelationship.source_entity_id == entity_id)
                     | (EntityRelationship.target_entity_id == entity_id)
                 )
-                .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+                .where(CanonicalEntity.graph_domain == 'knowledge')
                 .order_by(EntityRelationship.valid_from.asc().nullslast())
             )
 

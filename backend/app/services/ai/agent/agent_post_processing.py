@@ -165,6 +165,31 @@ async def self_evaluate_and_evolve(
         logger.debug("Self-evolution failed (non-critical): %s", e)
 
 
+async def _learn_tool_combo(ctx, success: bool) -> None:
+    """
+    學習工具組合模式 — 追蹤哪些工具組合在特定場景下成功/失敗。
+
+    以 AgentLearning(learning_type='tool_combo') 持久化，
+    讓 inject_cross_session_learnings 在未來查詢中提供工具組合建議。
+    """
+    try:
+        tool_names = [tr["tool"] for tr in ctx.tool_results]
+        combo_key = " → ".join(tool_names)  # 保留順序
+        content = f"工具組合: {combo_key} ({'成功' if success else '失敗'})"
+
+        from app.repositories.agent_learning_repository import AgentLearningRepository
+        repo = AgentLearningRepository(ctx.db)
+        await repo.upsert_learning(
+            session_id=ctx.session_id or "unknown",
+            learning_type="tool_combo",
+            content=content[:500],
+            source_question=ctx.question[:200],
+            confidence=0.8 if success else 0.4,
+        )
+    except Exception as e:
+        logger.debug("Tool combo learning failed: %s", e)
+
+
 class PostProcessingContext:
     """封裝後處理所需的上下文資料"""
 
@@ -310,6 +335,12 @@ async def run_post_synthesis(
             latency_ms=(time.time() - ctx.t0) * 1000,
         )
     )
+
+    # 非阻塞：工具組合模式學習 (tool_combo)
+    if len(ctx.tool_results) >= 2:
+        asyncio.create_task(
+            _learn_tool_combo(ctx, success)
+        )
 
     # 非阻塞：使用者查詢興趣追蹤 (Phase 9.1)
     if ctx.session_id and ctx.tool_results:

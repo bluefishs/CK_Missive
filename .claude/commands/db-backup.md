@@ -1,3 +1,7 @@
+---
+description: "資料庫備份管理 — 備份建立、還原、排程與異地同步"
+---
+
 # 資料庫備份管理 (Database Backup Management)
 
 管理 CK_Missive PostgreSQL 資料庫與附件檔案的備份與還原操作。

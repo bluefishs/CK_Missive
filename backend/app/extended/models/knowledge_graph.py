@@ -39,6 +39,12 @@ class CanonicalEntity(Base):
     if Vector is not None:
         embedding = deferred(Column(Vector(768), nullable=True, comment="實體名稱 embedding (nomic-embed-text, 768 維)"))
 
+    # === 圖譜域隔離 (v1.2.0) ===
+    graph_domain = Column(
+        String(20), nullable=False, server_default="knowledge", index=True,
+        comment="圖譜域: knowledge (KG) / code (Code Graph) / erp (ERP)",
+    )
+
     alias_count = Column(Integer, default=1, comment="別名數量")
     mention_count = Column(Integer, default=0, comment="總被提及次數")
     first_seen_at = Column(DateTime, server_default=func.now(), comment="首次出現")
@@ -90,6 +96,8 @@ class CanonicalEntity(Base):
         UniqueConstraint("source_project", "external_id", "entity_type", name="uq_source_ext_type"),
         Index("ix_canonical_entity_name_trgm", "canonical_name"),
         Index("ix_canonical_entity_source_ext", "source_project", "external_id"),
+        # ix_ce_domain_knowledge: partial index WHERE graph_domain='knowledge' (created by migration)
+        # ix_ce_source_mention: (source_project, mention_count DESC) (created by migration)
     )
 
     def __repr__(self):

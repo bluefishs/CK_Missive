@@ -1,3 +1,7 @@
+---
+description: "Architecture Decision Record 管理 — 建立、列表、更新 ADR"
+---
+
 # /adr - Architecture Decision Record 管理
 
 管理架構決策記錄（ADR）的建立、查詢與維護。

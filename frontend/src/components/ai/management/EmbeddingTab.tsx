@@ -1,7 +1,7 @@
 /**
  * EmbeddingTab - Embedding management
  *
- * Extracted from AIAssistantManagementPage.tsx
+ * Used by UnifiedAgentPage (admin mode)
  */
 import React, { useState } from 'react';
 import {

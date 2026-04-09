@@ -7,7 +7,7 @@ export { ServiceMonitorTab } from './ServiceMonitorTab';
 export { OllamaManagementTab } from './OllamaManagementTab';
 export { ReviewDashboardPanel } from './ReviewDashboardPanel';
 
-// 合併 Tab 包裝器（AIAssistantManagementPage 使用）
+// 合併 Tab 包裝器（UnifiedAgentPage admin 模式使用）
 export { DataAnalyticsTab } from './DataAnalyticsTab';
 export { DataPipelineTab } from './DataPipelineTab';
 export { ServiceStatusTab } from './ServiceStatusTab';

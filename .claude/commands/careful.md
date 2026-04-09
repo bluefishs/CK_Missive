@@ -1,3 +1,7 @@
+---
+description: "危險命令攔截模式 — 啟用 PreToolUse hook 攔截破壞性操作"
+---
+
 # Careful — 危險命令攔截模式
 
 > 靈感來源: [gstack/careful](https://github.com/garrytan/gstack) — 破壞性操作防護

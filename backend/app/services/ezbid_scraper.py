@@ -82,6 +82,84 @@ class EzbidScraper:
         await self._set_cache(cache_key, result, ttl=600)  # 10 min
         return result
 
+    async def get_today_all(self) -> Dict[str, Any]:
+        """
+        今日全量標案 — 統一服務入口 (dashboard/search/recommend 共用)。
+
+        使用全域 Redis (get_redis) 確保跨實例快取共享。
+        cache key: 'ezbid:today:all'，TTL 15 分鐘。
+
+        Returns:
+            {total, records: [...], source: 'ezbid', fetched_at}
+        """
+        import json as _json
+
+        # 使用全域 async Redis (不依賴 self._redis)
+        redis = None
+        try:
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+        except Exception:
+            pass
+
+        cache_key = "ezbid:today:all"
+        if redis:
+            try:
+                cached_raw = await redis.get(cache_key)
+                if cached_raw:
+                    cached = _json.loads(cached_raw)
+                    logger.debug("ezbid today cache hit: %d records", cached.get("total", 0))
+                    return cached
+            except Exception:
+                pass
+
+        # 全量爬取: 10 頁 × 100 筆 (並行 + 節流，避免被封鎖)
+        import asyncio as _aio
+
+        async def _fetch_batch(pages):
+            """批次並行抓取，每批 3 頁"""
+            return await _aio.gather(
+                *[self._fetch_page(None, "ALL", p, 100) for p in pages],
+                return_exceptions=True,
+            )
+
+        all_records = []
+        # 分 4 批：[1,2,3], [4,5,6], [7,8,9], [10]
+        for batch_start in range(1, 11, 3):
+            batch_pages = list(range(batch_start, min(batch_start + 3, 11)))
+            batch_results = await _fetch_batch(batch_pages)
+            batch_empty = True
+            for result in batch_results:
+                if isinstance(result, Exception):
+                    continue
+                if result:
+                    all_records.extend(result)
+                    batch_empty = False
+            if batch_empty:
+                break  # No more data
+            await _aio.sleep(0.3)  # 節流間隔
+
+        result = {
+            "total": len(all_records),
+            "records": all_records,
+            "source": "ezbid",
+            "fetched_at": datetime.utcnow().isoformat(),
+        }
+
+        # 寫入全域 Redis 快取 (15 min)
+        if redis:
+            try:
+                await redis.set(
+                    cache_key,
+                    _json.dumps(result, ensure_ascii=False, default=str),
+                    ex=900,
+                )
+            except Exception:
+                pass
+
+        logger.info("ezbid today fetched: %d records (cached 15min)", len(all_records))
+        return result
+
     async def fetch_for_keywords(
         self, keywords: List[str], category: str = "ALL",
     ) -> Dict[str, Any]:

@@ -291,6 +291,10 @@ erDiagram
         varchar source_project "NOT NULL"
         varchar external_id
         jsonb external_meta
+        int version "NOT NULL"
+        timestamp valid_from
+        timestamp valid_to
+        varchar graph_domain "NOT NULL"
     }
     case_nature_codes {
         int id "PK"
@@ -1234,6 +1238,6 @@ erDiagram
 | 指標 | 數值 |
 |------|------|
 | 總表數 | 69 |
-| 總欄位數 | 994 |
+| 總欄位數 | 998 |
 | 外鍵關聯 | 93 |
 | 自訂列舉型別 | 0 |

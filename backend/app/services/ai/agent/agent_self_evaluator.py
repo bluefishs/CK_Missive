@@ -230,7 +230,7 @@ class AgentSelfEvaluator:
                     sig_type = sig.get("type", "unknown")
                     await redis.setex(
                         f"agent:critical_feedback:{sig_type}",
-                        300,  # 5 minutes TTL
+                        1800,  # 30 minutes TTL (was 5min, extended for planner visibility)
                         json.dumps({
                             "type": sig_type,
                             "severity": "critical",
@@ -245,6 +245,25 @@ class AgentSelfEvaluator:
                 )
             except Exception as e:
                 logger.debug("CRITICAL feedback write failed: %s", e)
+
+        # Domain-aware signal tracking (for targeted evolution)
+        if redis and tool_results:
+            try:
+                from app.services.ai.agent.agent_capability_tracker import TOOL_DOMAIN_MAP
+                domains = set()
+                for tool in tool_results:
+                    tool_name = tool if isinstance(tool, str) else tool.get("name", "")
+                    domain = TOOL_DOMAIN_MAP.get(tool_name)
+                    if domain:
+                        domains.add(domain)
+
+                for domain in domains:
+                    domain_key = f"agent:domain_scores:{domain}"
+                    await redis.lpush(domain_key, str(round(score.overall, 3)))
+                    await redis.ltrim(domain_key, 0, 49)  # Keep last 50
+                    await redis.expire(domain_key, 7 * 86400)  # 7 days
+            except Exception:
+                pass  # Non-critical
 
         return score
 

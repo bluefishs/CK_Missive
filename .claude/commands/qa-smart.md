@@ -1,3 +1,7 @@
+---
+description: "Diff-Aware 智慧測試 — 4 模式 + 8 維度健康度評估"
+---
+
 # QA Smart — Diff-Aware 智慧測試
 
 > 靈感來源: [gstack/qa](https://github.com/garrytan/gstack) — 系統化 QA 測試

@@ -1,3 +1,7 @@
+---
+description: "CSO 等級資安審計 — OWASP + STRIDE + 信心閾值"
+---
+
 # /security-audit — CSO 等級資安審計
 
 > **版本**: 2.0.0 (升級自 gstack /cso 理念)

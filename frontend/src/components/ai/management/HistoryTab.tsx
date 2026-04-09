@@ -1,7 +1,7 @@
 /**
  * HistoryTab - Search history with filters
  *
- * Extracted from AIAssistantManagementPage.tsx
+ * Used by UnifiedAgentPage (admin mode)
  */
 import React, { useMemo, useState } from 'react';
 import {

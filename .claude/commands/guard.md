@@ -1,3 +1,7 @@
+---
+description: "綜合安全防護 — careful + freeze 合一模式"
+---
+
 # Guard — 綜合安全防護模式
 
 > 靈感來源: [gstack/guard](https://github.com/garrytan/gstack) — careful + freeze 合一
