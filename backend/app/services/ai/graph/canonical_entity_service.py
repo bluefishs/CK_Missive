@@ -40,8 +40,8 @@ PGVECTOR_ENABLED = _settings.PGVECTOR_ENABLED
 # 統一編號前綴正則（8-10 碼英數 + 空格 + 名稱）
 _TAX_ID_PREFIX_RE = re.compile(r'^[A-Z0-9]{8,10}\s+')
 
-# 從 entity_extraction_service 匯入共用黑名單
-from app.services.ai.entity_extraction_service import _PRONOUN_ENTITY_BLACKLIST
+# 共用黑名單 — 集中定義於 core/name_utils
+from app.services.ai.name_utils import PRONOUN_ENTITY_BLACKLIST as _PRONOUN_ENTITY_BLACKLIST
 
 
 def _preprocess_entity_name(name: str) -> Optional[str]:

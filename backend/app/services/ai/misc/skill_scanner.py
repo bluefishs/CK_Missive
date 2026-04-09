@@ -15,7 +15,7 @@ from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
-# PROJECT_ROOT: backend/app/services/ai/ → parents[4] = CK_Missive/
+# PROJECT_ROOT: backend/app/services/ai/misc/ → parents[5] = CK_Missive/
 PROJECT_ROOT = Path(__file__).resolve().parents[5]
 
 # 排除的檔案名稱（非 skill 內容）

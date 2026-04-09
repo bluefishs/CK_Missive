@@ -14,8 +14,8 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Project root (backend/app/services/ai/ -> 4 levels up)
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
+# Project root (backend/app/services/ai/misc/ -> 5 levels up to CK_Missive/)
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
 
 
 class SkillSnapshotService:

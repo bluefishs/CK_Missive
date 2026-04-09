@@ -11,14 +11,14 @@ from .ai_stats_manager import AIStatsManager
 from .base_ai_service import BaseAIService, get_rate_limiter, get_stats_manager
 from .ai_prompt_manager import AIPromptManager
 from .embedding_manager import EmbeddingManager
-from .agent_utils import (
+from .utils import (
     parse_json_safe,
     sse,
     sanitize_history,
     compute_adaptive_timeout,
     collect_sources,
 )
-from .name_utils import normalize_for_match, clean_agency_name
+from .name_utils import normalize_for_match, clean_agency_name, PRONOUN_ENTITY_BLACKLIST
 from .thinking_filter import strip_thinking_from_synthesis
 from .domain_prompts import (  # noqa: F401 — constants, re-exported for discoverability
     DISPATCH_STATUS_PROMPT,
