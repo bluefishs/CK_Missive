@@ -490,3 +490,76 @@ class TestStreamAgentQuery:
         error_events = [p for p in parsed if p["type"] == "error"]
         assert len(error_events) == 1
         assert error_events[0]["code"] == "SERVICE_ERROR"
+
+    @pytest.mark.asyncio
+    async def test_tool_returns_empty_triggers_rag_fallback(self, mock_db):
+        """工具回傳 count=0 時應 fallback 到 RAG"""
+        orchestrator = make_orchestrator(mock_db)
+
+        orchestrator._planner = MagicMock()
+        orchestrator._planner.preprocess_question = AsyncMock(return_value={})
+        orchestrator._planner.plan_tools = AsyncMock(return_value={
+            "reasoning": "搜尋",
+            "tool_calls": [{"name": "search_documents", "params": {"keywords": ["不存在"]}}],
+        })
+        orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)
+
+        orchestrator._tools = MagicMock()
+        orchestrator._tools.execute = AsyncMock(return_value={"count": 0, "documents": []})
+
+        async def mock_synth(*args, **kwargs):
+            yield "抱歉，找不到相關資料。"
+
+        orchestrator._synthesizer = MagicMock()
+        orchestrator._synthesizer.synthesize_answer = mock_synth
+
+        events = []
+        async for event in orchestrator.stream_agent_query("不存在的東西"):
+            events.append(event)
+
+        parsed = [json.loads(e.replace("data: ", "").strip()) for e in events if e.strip()]
+        # 應該有 done event 且不會崩潰
+        done_events = [p for p in parsed if p["type"] == "done"]
+        assert len(done_events) == 1
+
+    @pytest.mark.asyncio
+    async def test_synthesis_failure_shows_fallback(self, mock_db):
+        """合成失敗時應顯示 fallback 訊息"""
+        orchestrator = make_orchestrator(mock_db)
+
+        orchestrator._planner = MagicMock()
+        orchestrator._planner.preprocess_question = AsyncMock(return_value={})
+        orchestrator._planner.plan_tools = AsyncMock(return_value={
+            "reasoning": "搜尋",
+            "tool_calls": [{"name": "search_documents", "params": {"keywords": ["測試"]}}],
+        })
+        orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)
+
+        orchestrator._tools = MagicMock()
+        orchestrator._tools.execute = AsyncMock(return_value={
+            "count": 1,
+            "documents": [{"id": 1, "doc_number": "D1", "subject": "測試",
+                          "doc_type": "函", "category": "", "sender": "A",
+                          "receiver": "B", "doc_date": "2026-01-01", "similarity": 0}],
+        })
+
+        # 合成拋出異常
+        async def bad_synth(*args, **kwargs):
+            raise RuntimeError("LLM down")
+            yield  # noqa: unreachable — makes it an async generator
+
+        orchestrator._synthesizer = MagicMock()
+        orchestrator._synthesizer.synthesize_answer = bad_synth
+
+        events = []
+        async for event in orchestrator.stream_agent_query("測試合成失敗"):
+            events.append(event)
+
+        parsed = [json.loads(e.replace("data: ", "").strip()) for e in events if e.strip()]
+        tokens = [p for p in parsed if p["type"] == "token"]
+        # 應該有 fallback 訊息
+        assert any("失敗" in p.get("token", "") or "參考" in p.get("token", "") for p in tokens)
+        # 仍然有 done event
+        assert any(p["type"] == "done" for p in parsed)
