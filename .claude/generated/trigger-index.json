@@ -1,5 +1,5 @@
 {
-  "generated": "2026-03-02T15:30:42.648Z",
+  "generated": "2026-04-10T05:51:48.640Z",
   "skills": {
     "可訪問性": {
       "id": "accessibility",
@@ -137,9 +137,9 @@
       "path": "alembic-migrations.md"
     },
     "migration": {
-      "id": "_shared-shared-refactoring-migration-procedures",
-      "name": "重構與遷移作業規範",
-      "path": "_shared/shared/refactoring-migration-procedures.md"
+      "id": "alembic-migrations",
+      "name": "alembic-migrations",
+      "path": "alembic-migrations.md"
     },
     "schema change": {
       "id": "alembic-migrations",
@@ -157,74 +157,74 @@
       "path": "alembic-migrations.md"
     },
     "API": {
-      "id": "api-development",
-      "name": "api-development",
-      "path": "api-development.md"
+      "id": "_shared-backend-api-development",
+      "name": "API 開發規範 (API Development Guide)",
+      "path": "_shared/backend/api-development.md"
     },
     "endpoint": {
-      "id": "api-development",
-      "name": "api-development",
-      "path": "api-development.md"
+      "id": "_shared-backend-api-development",
+      "name": "API 開發規範 (API Development Guide)",
+      "path": "_shared/backend/api-development.md"
     },
     "端點": {
-      "id": "api-development",
-      "name": "api-development",
-      "path": "api-development.md"
+      "id": "_shared-backend-api-development",
+      "name": "API 開發規範 (API Development Guide)",
+      "path": "_shared/backend/api-development.md"
     },
     "route": {
-      "id": "api-development",
-      "name": "api-development",
-      "path": "api-development.md"
+      "id": "_shared-backend-api-development",
+      "name": "API 開發規範 (API Development Guide)",
+      "path": "_shared/backend/api-development.md"
     },
     "路由": {
-      "id": "api-development",
-      "name": "api-development",
-      "path": "api-development.md"
+      "id": "_shared-backend-api-development",
+      "name": "API 開發規範 (API Development Guide)",
+      "path": "_shared/backend/api-development.md"
     },
     "FastAPI": {
-      "id": "api-development",
-      "name": "api-development",
-      "path": "api-development.md"
+      "id": "_shared-backend-api-development",
+      "name": "API 開發規範 (API Development Guide)",
+      "path": "_shared/backend/api-development.md"
     },
     "序列化": {
-      "id": "api-serialization",
-      "name": "api-serialization",
-      "path": "api-serialization.md"
+      "id": "_shared-backend-api-serialization",
+      "name": "API 序列化與資料返回規範",
+      "path": "_shared/backend/api-serialization.md"
     },
     "serialize": {
-      "id": "api-serialization",
-      "name": "api-serialization",
-      "path": "api-serialization.md"
+      "id": "_shared-backend-api-serialization",
+      "name": "API 序列化與資料返回規範",
+      "path": "_shared/backend/api-serialization.md"
     },
     "API 返回": {
-      "id": "api-serialization",
-      "name": "api-serialization",
-      "path": "api-serialization.md"
+      "id": "_shared-backend-api-serialization",
+      "name": "API 序列化與資料返回規範",
+      "path": "_shared/backend/api-serialization.md"
     },
     "ORM": {
-      "id": "api-serialization",
-      "name": "api-serialization",
-      "path": "api-serialization.md"
+      "id": "_shared-backend-api-serialization",
+      "name": "API 序列化與資料返回規範",
+      "path": "_shared/backend/api-serialization.md"
     },
     "500 錯誤": {
-      "id": "api-serialization",
-      "name": "api-serialization",
-      "path": "api-serialization.md"
+      "id": "_shared-backend-api-serialization",
+      "name": "API 序列化與資料返回規範",
+      "path": "_shared/backend/api-serialization.md"
     },
     "資料轉換": {
-      "id": "api-serialization",
-      "name": "api-serialization",
-      "path": "api-serialization.md"
+      "id": "_shared-backend-api-serialization",
+      "name": "API 序列化與資料返回規範",
+      "path": "_shared/backend/api-serialization.md"
     },
     "批次處理": {
-      "id": "api-serialization",
-      "name": "api-serialization",
-      "path": "api-serialization.md"
+      "id": "_shared-backend-api-serialization",
+      "name": "API 序列化與資料返回規範",
+      "path": "_shared/backend/api-serialization.md"
     },
     "效能": {
-      "id": "api-serialization",
-      "name": "api-serialization",
-      "path": "api-serialization.md"
+      "id": "_shared-backend-api-serialization",
+      "name": "API 序列化與資料返回規範",
+      "path": "_shared/backend/api-serialization.md"
     },
     "快取": {
       "id": "caching-patterns",
@@ -267,74 +267,74 @@
       "path": "caching-patterns.md"
     },
     "行事曆": {
-      "id": "calendar-integration",
-      "name": "calendar-integration",
-      "path": "calendar-integration.md"
+      "id": "_shared-backend-calendar-integration",
+      "name": "行事曆整合領域知識 (Calendar Integration Domain)",
+      "path": "_shared/backend/calendar-integration.md"
     },
     "calendar": {
-      "id": "calendar-integration",
-      "name": "calendar-integration",
-      "path": "calendar-integration.md"
+      "id": "_shared-backend-calendar-integration",
+      "name": "行事曆整合領域知識 (Calendar Integration Domain)",
+      "path": "_shared/backend/calendar-integration.md"
     },
     "Google Calendar": {
-      "id": "calendar-integration",
-      "name": "calendar-integration",
-      "path": "calendar-integration.md"
+      "id": "_shared-backend-calendar-integration",
+      "name": "行事曆整合領域知識 (Calendar Integration Domain)",
+      "path": "_shared/backend/calendar-integration.md"
     },
     "事件": {
-      "id": "calendar-integration",
-      "name": "calendar-integration",
-      "path": "calendar-integration.md"
+      "id": "_shared-backend-calendar-integration",
+      "name": "行事曆整合領域知識 (Calendar Integration Domain)",
+      "path": "_shared/backend/calendar-integration.md"
     },
     "截止日": {
-      "id": "calendar-integration",
-      "name": "calendar-integration",
-      "path": "calendar-integration.md"
+      "id": "_shared-backend-calendar-integration",
+      "name": "行事曆整合領域知識 (Calendar Integration Domain)",
+      "path": "_shared/backend/calendar-integration.md"
     },
     "event": {
-      "id": "calendar-integration",
-      "name": "calendar-integration",
-      "path": "calendar-integration.md"
+      "id": "_shared-backend-calendar-integration",
+      "name": "行事曆整合領域知識 (Calendar Integration Domain)",
+      "path": "_shared/backend/calendar-integration.md"
     },
     "慢查詢": {
-      "id": "database-performance",
-      "name": "database-performance",
-      "path": "database-performance.md"
+      "id": "_shared-backend-database-performance",
+      "name": "資料庫效能優化指南 (Database Performance Guide)",
+      "path": "_shared/backend/database-performance.md"
     },
     "N+1": {
-      "id": "database-performance",
-      "name": "database-performance",
-      "path": "database-performance.md"
+      "id": "_shared-backend-database-performance",
+      "name": "資料庫效能優化指南 (Database Performance Guide)",
+      "path": "_shared/backend/database-performance.md"
     },
     "索引": {
-      "id": "database-performance",
-      "name": "database-performance",
-      "path": "database-performance.md"
+      "id": "_shared-backend-database-performance",
+      "name": "資料庫效能優化指南 (Database Performance Guide)",
+      "path": "_shared/backend/database-performance.md"
     },
     "index": {
-      "id": "database-performance",
-      "name": "database-performance",
-      "path": "database-performance.md"
+      "id": "_shared-backend-database-performance",
+      "name": "資料庫效能優化指南 (Database Performance Guide)",
+      "path": "_shared/backend/database-performance.md"
     },
     "資料庫效能": {
-      "id": "database-performance",
-      "name": "database-performance",
-      "path": "database-performance.md"
+      "id": "_shared-backend-database-performance",
+      "name": "資料庫效能優化指南 (Database Performance Guide)",
+      "path": "_shared/backend/database-performance.md"
     },
     "查詢優化": {
-      "id": "database-performance",
-      "name": "database-performance",
-      "path": "database-performance.md"
+      "id": "_shared-backend-database-performance",
+      "name": "資料庫效能優化指南 (Database Performance Guide)",
+      "path": "_shared/backend/database-performance.md"
     },
     "slow query": {
-      "id": "database-performance",
-      "name": "database-performance",
-      "path": "database-performance.md"
+      "id": "_shared-backend-database-performance",
+      "name": "資料庫效能優化指南 (Database Performance Guide)",
+      "path": "_shared/backend/database-performance.md"
     },
     "schema": {
-      "id": "type-management",
+      "id": "_shared-shared-type-management",
       "name": "type-management",
-      "path": "type-management.md"
+      "path": "_shared/shared/type-management.md"
     },
     "資料庫": {
       "id": "database-schema",
@@ -411,60 +411,170 @@
       "name": "development-environment",
       "path": "development-environment.md"
     },
-    "公文": {
-      "id": "document-management",
-      "name": "document-management",
-      "path": "document-management.md"
+    "匯入": {
+      "id": "dispatch-import",
+      "name": "dispatch-import",
+      "path": "dispatch-import.md"
     },
-    "document": {
-      "id": "document-management",
-      "name": "document-management",
-      "path": "document-management.md"
+    "import": {
+      "id": "dispatch-import",
+      "name": "dispatch-import",
+      "path": "dispatch-import.md"
     },
-    "收文": {
-      "id": "document-management",
-      "name": "document-management",
-      "path": "document-management.md"
+    "Excel": {
+      "id": "dispatch-import",
+      "name": "dispatch-import",
+      "path": "dispatch-import.md"
     },
-    "發文": {
-      "id": "document-management",
-      "name": "document-management",
-      "path": "document-management.md"
+    "派工單匯入": {
+      "id": "dispatch-import",
+      "name": "dispatch-import",
+      "path": "dispatch-import.md"
+    },
+    "batch-relink": {
+      "id": "dispatch-import",
+      "name": "dispatch-import",
+      "path": "dispatch-import.md"
+    },
+    "文號": {
+      "id": "dispatch-import",
+      "name": "dispatch-import",
+      "path": "dispatch-import.md"
     },
     "doc_number": {
-      "id": "document-management",
-      "name": "document-management",
-      "path": "document-management.md"
+      "id": "_shared-backend-document-management",
+      "name": "公文管理領域知識 (Document Management Domain)",
+      "path": "_shared/backend/document-management.md"
+    },
+    "agency_doc_number": {
+      "id": "dispatch-import",
+      "name": "dispatch-import",
+      "path": "dispatch-import.md"
+    },
+    "company_doc_number": {
+      "id": "dispatch-import",
+      "name": "dispatch-import",
+      "path": "dispatch-import.md"
+    },
+    "公文": {
+      "id": "_shared-backend-document-management",
+      "name": "公文管理領域知識 (Document Management Domain)",
+      "path": "_shared/backend/document-management.md"
+    },
+    "document": {
+      "id": "_shared-backend-document-management",
+      "name": "公文管理領域知識 (Document Management Domain)",
+      "path": "_shared/backend/document-management.md"
+    },
+    "收文": {
+      "id": "_shared-backend-document-management",
+      "name": "公文管理領域知識 (Document Management Domain)",
+      "path": "_shared/backend/document-management.md"
+    },
+    "發文": {
+      "id": "_shared-backend-document-management",
+      "name": "公文管理領域知識 (Document Management Domain)",
+      "path": "_shared/backend/document-management.md"
     },
     "字號": {
-      "id": "document-management",
-      "name": "document-management",
-      "path": "document-management.md"
+      "id": "_shared-backend-document-management",
+      "name": "公文管理領域知識 (Document Management Domain)",
+      "path": "_shared/backend/document-management.md"
+    },
+    "ERP": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "報價": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "開票": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "請款": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "帳本": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "費用": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "資產": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "quotation": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "invoice": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "billing": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "ledger": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "expense": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "asset": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
+    },
+    "vendor_payable": {
+      "id": "erp-finance",
+      "name": "erp-finance",
+      "path": "erp-finance.md"
     },
     "錯誤處理": {
-      "id": "error-handling",
+      "id": "_shared-shared-error-handling",
       "name": "error-handling",
-      "path": "error-handling.md"
+      "path": "_shared/shared/error-handling.md"
     },
     "error": {
-      "id": "error-handling",
+      "id": "_shared-shared-error-handling",
       "name": "error-handling",
-      "path": "error-handling.md"
+      "path": "_shared/shared/error-handling.md"
     },
     "exception": {
-      "id": "error-handling",
+      "id": "_shared-shared-error-handling",
       "name": "error-handling",
-      "path": "error-handling.md"
+      "path": "_shared/shared/error-handling.md"
     },
     "例外": {
-      "id": "error-handling",
+      "id": "_shared-shared-error-handling",
       "name": "error-handling",
-      "path": "error-handling.md"
+      "path": "_shared/shared/error-handling.md"
     },
     "try-catch": {
-      "id": "error-handling",
+      "id": "_shared-shared-error-handling",
       "name": "error-handling",
-      "path": "error-handling.md"
+      "path": "_shared/shared/error-handling.md"
     },
     "紀錄消失": {
       "id": "error-handling",
@@ -511,87 +621,47 @@
       "name": "frontend-architecture",
       "path": "frontend-architecture.md"
     },
-    "h": {
+    "hook": {
       "id": "hooks-development",
       "name": "hooks-development",
       "path": "hooks-development.md"
     },
-    "o": {
+    "hooks": {
       "id": "hooks-development",
       "name": "hooks-development",
       "path": "hooks-development.md"
     },
-    "k": {
+    "鉤子": {
       "id": "hooks-development",
       "name": "hooks-development",
       "path": "hooks-development.md"
     },
-    ",": {
+    "automation": {
       "id": "hooks-development",
       "name": "hooks-development",
       "path": "hooks-development.md"
     },
-    "": {
+    "自動化": {
       "id": "hooks-development",
       "name": "hooks-development",
       "path": "hooks-development.md"
     },
-    "s": {
+    "PreToolUse": {
       "id": "hooks-development",
       "name": "hooks-development",
       "path": "hooks-development.md"
     },
-    "鉤": {
+    "PostToolUse": {
       "id": "hooks-development",
       "name": "hooks-development",
       "path": "hooks-development.md"
     },
-    "子": {
+    "SessionStart": {
       "id": "hooks-development",
       "name": "hooks-development",
       "path": "hooks-development.md"
     },
-    "a": {
-      "id": "hooks-development",
-      "name": "hooks-development",
-      "path": "hooks-development.md"
-    },
-    "u": {
-      "id": "hooks-development",
-      "name": "hooks-development",
-      "path": "hooks-development.md"
-    },
-    "t": {
-      "id": "hooks-development",
-      "name": "hooks-development",
-      "path": "hooks-development.md"
-    },
-    "m": {
-      "id": "hooks-development",
-      "name": "hooks-development",
-      "path": "hooks-development.md"
-    },
-    "i": {
-      "id": "hooks-development",
-      "name": "hooks-development",
-      "path": "hooks-development.md"
-    },
-    "n": {
-      "id": "hooks-development",
-      "name": "hooks-development",
-      "path": "hooks-development.md"
-    },
-    "自": {
-      "id": "hooks-development",
-      "name": "hooks-development",
-      "path": "hooks-development.md"
-    },
-    "動": {
-      "id": "hooks-development",
-      "name": "hooks-development",
-      "path": "hooks-development.md"
-    },
-    "化": {
+    "settings.json": {
       "id": "hooks-development",
       "name": "hooks-development",
       "path": "hooks-development.md"
@@ -621,35 +691,75 @@
       "name": "knowledge-management",
       "path": "knowledge-management.md"
     },
+    "LINE": {
+      "id": "multi-channel",
+      "name": "multi-channel",
+      "path": "multi-channel.md"
+    },
+    "Telegram": {
+      "id": "multi-channel",
+      "name": "multi-channel",
+      "path": "multi-channel.md"
+    },
+    "Discord": {
+      "id": "multi-channel",
+      "name": "multi-channel",
+      "path": "multi-channel.md"
+    },
+    "多通道": {
+      "id": "multi-channel",
+      "name": "multi-channel",
+      "path": "multi-channel.md"
+    },
+    "channel": {
+      "id": "multi-channel",
+      "name": "multi-channel",
+      "path": "multi-channel.md"
+    },
+    "webhook": {
+      "id": "multi-channel",
+      "name": "multi-channel",
+      "path": "multi-channel.md"
+    },
+    "推播": {
+      "id": "multi-channel",
+      "name": "multi-channel",
+      "path": "multi-channel.md"
+    },
+    "bot": {
+      "id": "multi-channel",
+      "name": "multi-channel",
+      "path": "multi-channel.md"
+    },
     "Pydantic": {
-      "id": "type-management",
+      "id": "_shared-shared-type-management",
       "name": "type-management",
-      "path": "type-management.md"
+      "path": "_shared/shared/type-management.md"
     },
     "forward reference": {
-      "id": "python-common-pitfalls",
-      "name": "python-common-pitfalls",
-      "path": "python-common-pitfalls.md"
+      "id": "_shared-backend-python-common-pitfalls",
+      "name": "Python 常見陷阱規範",
+      "path": "_shared/backend/python-common-pitfalls.md"
     },
     "async": {
-      "id": "python-common-pitfalls",
-      "name": "python-common-pitfalls",
-      "path": "python-common-pitfalls.md"
+      "id": "_shared-backend-python-common-pitfalls",
+      "name": "Python 常見陷阱規範",
+      "path": "_shared/backend/python-common-pitfalls.md"
     },
     "MissingGreenlet": {
-      "id": "python-common-pitfalls",
-      "name": "python-common-pitfalls",
-      "path": "python-common-pitfalls.md"
+      "id": "_shared-backend-python-common-pitfalls",
+      "name": "Python 常見陷阱規範",
+      "path": "_shared/backend/python-common-pitfalls.md"
     },
     "預設參數": {
-      "id": "python-common-pitfalls",
-      "name": "python-common-pitfalls",
-      "path": "python-common-pitfalls.md"
+      "id": "_shared-backend-python-common-pitfalls",
+      "name": "Python 常見陷阱規範",
+      "path": "_shared/backend/python-common-pitfalls.md"
     },
     "selectinload": {
-      "id": "python-common-pitfalls",
-      "name": "python-common-pitfalls",
-      "path": "python-common-pitfalls.md"
+      "id": "_shared-backend-python-common-pitfalls",
+      "name": "Python 常見陷阱規範",
+      "path": "_shared/backend/python-common-pitfalls.md"
     },
     "keyword1": {
       "id": "README",
@@ -667,34 +777,34 @@
       "path": "security-hardening.md"
     },
     "security": {
-      "id": "_shared-shared-security-audit",
-      "name": "安全性審計",
-      "path": "_shared/shared/security-audit.md"
+      "id": "security-hardening",
+      "name": "security-hardening",
+      "path": "security-hardening.md"
     },
     "防護": {
-      "id": "security-hardening",
+      "id": "_shared-shared-security-hardening",
       "name": "security-hardening",
-      "path": "security-hardening.md"
+      "path": "_shared/shared/security-hardening.md"
     },
     "漏洞": {
-      "id": "security-hardening",
+      "id": "_shared-shared-security-hardening",
       "name": "security-hardening",
-      "path": "security-hardening.md"
+      "path": "_shared/shared/security-hardening.md"
     },
     "vulnerability": {
-      "id": "security-hardening",
+      "id": "_shared-shared-security-hardening",
       "name": "security-hardening",
-      "path": "security-hardening.md"
+      "path": "_shared/shared/security-hardening.md"
     },
     "XSS": {
-      "id": "security-hardening",
+      "id": "_shared-shared-security-hardening",
       "name": "security-hardening",
-      "path": "security-hardening.md"
+      "path": "_shared/shared/security-hardening.md"
     },
     "SQL injection": {
-      "id": "security-hardening",
+      "id": "_shared-shared-security-hardening",
       "name": "security-hardening",
-      "path": "security-hardening.md"
+      "path": "_shared/shared/security-hardening.md"
     },
     "refresh token": {
       "id": "security-hardening",
@@ -705,6 +815,46 @@
       "id": "security-hardening",
       "name": "security-hardening",
       "path": "security-hardening.md"
+    },
+    "skill": {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "path": "skill-creator.md"
+    },
+    "skill-creator": {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "path": "skill-creator.md"
+    },
+    "建立 skill": {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "path": "skill-creator.md"
+    },
+    "新增 skill": {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "path": "skill-creator.md"
+    },
+    "改善 skill": {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "path": "skill-creator.md"
+    },
+    "優化觸發": {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "path": "skill-creator.md"
+    },
+    "SKILL.md": {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "path": "skill-creator.md"
+    },
+    "writing-skills": {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "path": "skill-creator.md"
     },
     "skills": {
       "id": "SKILLS_INVENTORY",
@@ -721,15 +871,60 @@
       "name": "skills-inventory",
       "path": "SKILLS_INVENTORY.md"
     },
+    "標案": {
+      "id": "tender-search",
+      "name": "tender-search",
+      "path": "tender-search.md"
+    },
+    "tender": {
+      "id": "tender-search",
+      "name": "tender-search",
+      "path": "tender-search.md"
+    },
+    "PCC": {
+      "id": "tender-search",
+      "name": "tender-search",
+      "path": "tender-search.md"
+    },
+    "訂閱": {
+      "id": "tender-search",
+      "name": "tender-search",
+      "path": "tender-search.md"
+    },
+    "招標": {
+      "id": "tender-search",
+      "name": "tender-search",
+      "path": "tender-search.md"
+    },
+    "決標": {
+      "id": "tender-search",
+      "name": "tender-search",
+      "path": "tender-search.md"
+    },
+    "採購": {
+      "id": "tender-search",
+      "name": "tender-search",
+      "path": "tender-search.md"
+    },
+    "戰情室": {
+      "id": "tender-search",
+      "name": "tender-search",
+      "path": "tender-search.md"
+    },
+    "battle-room": {
+      "id": "tender-search",
+      "name": "tender-search",
+      "path": "tender-search.md"
+    },
     "test": {
-      "id": "testing-guide",
-      "name": "testing-guide",
-      "path": "testing-guide.md"
+      "id": "_shared-backend-testing-guide",
+      "name": "測試框架指南 (Testing Framework Guide)",
+      "path": "_shared/backend/testing-guide.md"
     },
     "測試": {
-      "id": "testing-guide",
-      "name": "testing-guide",
-      "path": "testing-guide.md"
+      "id": "_shared-backend-testing-guide",
+      "name": "測試框架指南 (Testing Framework Guide)",
+      "path": "_shared/backend/testing-guide.md"
     },
     "pytest": {
       "id": "_shared-shared-test-generator",
@@ -737,9 +932,9 @@
       "path": "_shared/shared/test-generator.md"
     },
     "jest": {
-      "id": "testing-guide",
-      "name": "testing-guide",
-      "path": "testing-guide.md"
+      "id": "_shared-backend-testing-guide",
+      "name": "測試框架指南 (Testing Framework Guide)",
+      "path": "_shared/backend/testing-guide.md"
     },
     "unit test": {
       "id": "_shared-shared-test-generator",
@@ -752,26 +947,41 @@
       "path": "_shared/shared/test-generator.md"
     },
     "型別": {
-      "id": "type-management",
+      "id": "_shared-shared-type-management",
       "name": "type-management",
-      "path": "type-management.md"
+      "path": "_shared/shared/type-management.md"
     },
     "type": {
-      "id": "type-management",
+      "id": "_shared-shared-type-management",
       "name": "type-management",
-      "path": "type-management.md"
+      "path": "_shared/shared/type-management.md"
     },
     "TypeScript": {
-      "id": "type-management",
+      "id": "_shared-shared-type-management",
       "name": "type-management",
-      "path": "type-management.md"
+      "path": "_shared/shared/type-management.md"
     },
     "BaseModel": {
+      "id": "_shared-shared-type-management",
+      "name": "type-management",
+      "path": "_shared/shared/type-management.md"
+    },
+    "interface": {
+      "id": "_shared-shared-type-management",
+      "name": "type-management",
+      "path": "_shared/shared/type-management.md"
+    },
+    "Schema 繼承": {
       "id": "type-management",
       "name": "type-management",
       "path": "type-management.md"
     },
-    "interface": {
+    "ge": {
+      "id": "type-management",
+      "name": "type-management",
+      "path": "type-management.md"
+    },
+    "le": {
       "id": "type-management",
       "name": "type-management",
       "path": "type-management.md"
@@ -796,6 +1006,11 @@
       "name": "unicode-handling",
       "path": "unicode-handling.md"
     },
+    "CJK": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
     "正規化": {
       "id": "unicode-handling",
       "name": "unicode-handling",
@@ -806,45 +1021,139 @@
       "name": "unicode-handling",
       "path": "unicode-handling.md"
     },
+    "亂碼": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
+    "搜尋失敗": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
+    "ILIKE": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
     "workflow": {
-      "id": "workflow-management",
-      "name": "workflow-management",
-      "path": "workflow-management.md"
+      "id": "_shared-backend-workflow-management",
+      "name": "作業歷程管理 (Workflow Management)",
+      "path": "_shared/backend/workflow-management.md"
     },
     "作業歷程": {
-      "id": "workflow-management",
-      "name": "workflow-management",
-      "path": "workflow-management.md"
+      "id": "_shared-backend-workflow-management",
+      "name": "作業歷程管理 (Workflow Management)",
+      "path": "_shared/backend/workflow-management.md"
     },
     "時間軸": {
-      "id": "workflow-management",
-      "name": "workflow-management",
-      "path": "workflow-management.md"
+      "id": "_shared-backend-workflow-management",
+      "name": "作業歷程管理 (Workflow Management)",
+      "path": "_shared/backend/workflow-management.md"
     },
     "chain": {
-      "id": "workflow-management",
-      "name": "workflow-management",
-      "path": "workflow-management.md"
+      "id": "_shared-backend-workflow-management",
+      "name": "作業歷程管理 (Workflow Management)",
+      "path": "_shared/backend/workflow-management.md"
     },
     "timeline": {
-      "id": "workflow-management",
-      "name": "workflow-management",
-      "path": "workflow-management.md"
+      "id": "_shared-backend-workflow-management",
+      "name": "作業歷程管理 (Workflow Management)",
+      "path": "_shared/backend/workflow-management.md"
     },
     "鏈式": {
-      "id": "workflow-management",
-      "name": "workflow-management",
-      "path": "workflow-management.md"
+      "id": "_shared-backend-workflow-management",
+      "name": "作業歷程管理 (Workflow Management)",
+      "path": "_shared/backend/workflow-management.md"
     },
     "InlineRecordCreator": {
+      "id": "_shared-backend-workflow-management",
+      "name": "作業歷程管理 (Workflow Management)",
+      "path": "_shared/backend/workflow-management.md"
+    },
+    "work_category": {
+      "id": "_shared-backend-workflow-management",
+      "name": "作業歷程管理 (Workflow Management)",
+      "path": "_shared/backend/workflow-management.md"
+    },
+    "WorkRecordStatsCard": {
       "id": "workflow-management",
       "name": "workflow-management",
       "path": "workflow-management.md"
     },
-    "work_category": {
+    "useDeleteWorkRecord": {
       "id": "workflow-management",
       "name": "workflow-management",
       "path": "workflow-management.md"
+    },
+    "useWorkRecordColumns": {
+      "id": "workflow-management",
+      "name": "workflow-management",
+      "path": "workflow-management.md"
+    },
+    "[Alembic, 遷移, migration, schema change, DB 變更, autogenerate]": {
+      "id": "_shared-backend-alembic-migrations",
+      "path": "_shared/backend/alembic-migrations.md"
+    },
+    "/roundtrip-check": {
+      "id": "_shared-backend-import-export-roundtrip-checklist",
+      "name": "Import/Export Round-trip Checklist",
+      "path": "_shared/backend/import-export-roundtrip-checklist.md"
+    },
+    "import export": {
+      "id": "_shared-backend-import-export-roundtrip-checklist",
+      "name": "Import/Export Round-trip Checklist",
+      "path": "_shared/backend/import-export-roundtrip-checklist.md"
+    },
+    "往返測試": {
+      "id": "_shared-backend-import-export-roundtrip-checklist",
+      "name": "Import/Export Round-trip Checklist",
+      "path": "_shared/backend/import-export-roundtrip-checklist.md"
+    },
+    "/showcase-dev": {
+      "id": "_shared-backend-showcase-development-guidelines",
+      "name": "CK_Showcase 開發指南",
+      "path": "_shared/backend/showcase-development-guidelines.md"
+    },
+    "開發規範": {
+      "id": "_shared-backend-showcase-development-guidelines",
+      "name": "CK_Showcase 開發指南",
+      "path": "_shared/backend/showcase-development-guidelines.md"
+    },
+    "development guidelines": {
+      "id": "_shared-backend-showcase-development-guidelines",
+      "name": "CK_Showcase 開發指南",
+      "path": "_shared/backend/showcase-development-guidelines.md"
+    },
+    "coding standards": {
+      "id": "_shared-backend-showcase-development-guidelines",
+      "name": "CK_Showcase 開發指南",
+      "path": "_shared/backend/showcase-development-guidelines.md"
+    },
+    "/phase12": {
+      "id": "_shared-backend-system-optimization-phase12",
+      "name": "系統優化 Phase 12",
+      "path": "_shared/backend/system-optimization-phase12.md"
+    },
+    "系統優化": {
+      "id": "_shared-backend-system-optimization-phase12",
+      "name": "系統優化 Phase 12",
+      "path": "_shared/backend/system-optimization-phase12.md"
+    },
+    "CI/CD 強化": {
+      "id": "_shared-backend-system-optimization-phase12",
+      "name": "系統優化 Phase 12",
+      "path": "_shared/backend/system-optimization-phase12.md"
+    },
+    "資安優化": {
+      "id": "_shared-backend-system-optimization-phase12",
+      "name": "系統優化 Phase 12",
+      "path": "_shared/backend/system-optimization-phase12.md"
+    },
+    "部署優化": {
+      "id": "_shared-backend-system-optimization-phase12",
+      "name": "系統優化 Phase 12",
+      "path": "_shared/backend/system-optimization-phase12.md"
     },
     "/react-ui-patterns": {
       "id": "_shared-react-react-ui-patterns-SKILL",
@@ -966,66 +1275,6 @@
       "name": "dangerous-operations-policy",
       "path": "_shared/shared/dangerous-operations-policy.md"
     },
-    "/data-governance": {
-      "id": "_shared-shared-data-governance-framework",
-      "name": "資料治理框架",
-      "path": "_shared/shared/data-governance-framework.md"
-    },
-    "資料治理": {
-      "id": "_shared-shared-data-governance-framework",
-      "name": "資料治理框架",
-      "path": "_shared/shared/data-governance-framework.md"
-    },
-    "SSOT": {
-      "id": "_shared-shared-data-governance-framework",
-      "name": "資料治理框架",
-      "path": "_shared/shared/data-governance-framework.md"
-    },
-    "資料品質": {
-      "id": "_shared-shared-data-governance-framework",
-      "name": "資料治理框架",
-      "path": "_shared/shared/data-governance-framework.md"
-    },
-    "/mandatory-checklist": {
-      "id": "_shared-shared-mandatory-checklist",
-      "name": "跨專案強制性開發規範檢查清單",
-      "path": "_shared/shared/mandatory-checklist.md"
-    },
-    "開發規範": {
-      "id": "_shared-shared-mandatory-checklist",
-      "name": "跨專案強制性開發規範檢查清單",
-      "path": "_shared/shared/mandatory-checklist.md"
-    },
-    "checklist": {
-      "id": "_shared-shared-mandatory-checklist",
-      "name": "跨專案強制性開發規範檢查清單",
-      "path": "_shared/shared/mandatory-checklist.md"
-    },
-    "強制檢查": {
-      "id": "_shared-shared-mandatory-checklist",
-      "name": "跨專案強制性開發規範檢查清單",
-      "path": "_shared/shared/mandatory-checklist.md"
-    },
-    "/plan": {
-      "id": "_shared-shared-plan-workflow",
-      "name": "規劃工作流程",
-      "path": "_shared/shared/plan-workflow.md"
-    },
-    "規劃": {
-      "id": "_shared-shared-plan-workflow",
-      "name": "規劃工作流程",
-      "path": "_shared/shared/plan-workflow.md"
-    },
-    "建立計畫": {
-      "id": "_shared-shared-plan-workflow",
-      "name": "規劃工作流程",
-      "path": "_shared/shared/plan-workflow.md"
-    },
-    "實作計畫": {
-      "id": "_shared-shared-plan-workflow",
-      "name": "規劃工作流程",
-      "path": "_shared/shared/plan-workflow.md"
-    },
     "快速修復": {
       "id": "_shared-shared-quick-fix",
       "name": "quick-fix",
@@ -1051,54 +1300,49 @@
       "name": "quick-fix",
       "path": "_shared/shared/quick-fix.md"
     },
-    "/refactoring": {
-      "id": "_shared-shared-refactoring-migration-procedures",
-      "name": "重構與遷移作業規範",
-      "path": "_shared/shared/refactoring-migration-procedures.md"
+    "安全加固": {
+      "id": "_shared-shared-security-hardening",
+      "name": "security-hardening",
+      "path": "_shared/shared/security-hardening.md"
     },
-    "重構規範": {
-      "id": "_shared-shared-refactoring-migration-procedures",
-      "name": "重構與遷移作業規範",
-      "path": "_shared/shared/refactoring-migration-procedures.md"
+    "/security-hardening": {
+      "id": "_shared-shared-security-hardening",
+      "name": "security-hardening",
+      "path": "_shared/shared/security-hardening.md"
     },
-    "遷移作業": {
-      "id": "_shared-shared-refactoring-migration-procedures",
-      "name": "重構與遷移作業規範",
-      "path": "_shared/shared/refactoring-migration-procedures.md"
-    },
-    "/security-audit": {
-      "id": "_shared-shared-security-audit",
-      "name": "安全性審計",
-      "path": "_shared/shared/security-audit.md"
-    },
-    "安全掃描": {
-      "id": "_shared-shared-security-audit",
-      "name": "安全性審計",
-      "path": "_shared/shared/security-audit.md"
-    },
-    "漏洞檢查": {
-      "id": "_shared-shared-security-audit",
-      "name": "安全性審計",
-      "path": "_shared/shared/security-audit.md"
-    },
-    "/security-patterns": {
-      "id": "_shared-shared-security-patterns-SKILL",
-      "name": "OWASP 資安模式庫",
-      "path": "_shared/shared/security-patterns/SKILL.md"
-    },
-    "資安模式": {
-      "id": "_shared-shared-security-patterns-SKILL",
-      "name": "OWASP 資安模式庫",
-      "path": "_shared/shared/security-patterns/SKILL.md"
-    },
-    "OWASP patterns": {
-      "id": "_shared-shared-security-patterns-SKILL",
-      "name": "OWASP 資安模式庫",
-      "path": "_shared/shared/security-patterns/SKILL.md"
+    "OWASP": {
+      "id": "_shared-shared-security-hardening",
+      "name": "security-hardening",
+      "path": "_shared/shared/security-hardening.md"
     },
     "安全模式": {
       "id": "_shared-shared-security-patterns-SKILL",
-      "name": "OWASP 資安模式庫",
+      "name": "security-patterns",
+      "path": "_shared/shared/security-patterns/SKILL.md"
+    },
+    "security patterns": {
+      "id": "_shared-shared-security-patterns-SKILL",
+      "name": "security-patterns",
+      "path": "_shared/shared/security-patterns/SKILL.md"
+    },
+    "JWT": {
+      "id": "_shared-shared-security-patterns-SKILL",
+      "name": "security-patterns",
+      "path": "_shared/shared/security-patterns/SKILL.md"
+    },
+    "認證": {
+      "id": "_shared-shared-security-patterns-SKILL",
+      "name": "security-patterns",
+      "path": "_shared/shared/security-patterns/SKILL.md"
+    },
+    "授權": {
+      "id": "_shared-shared-security-patterns-SKILL",
+      "name": "security-patterns",
+      "path": "_shared/shared/security-patterns/SKILL.md"
+    },
+    "authentication": {
+      "id": "_shared-shared-security-patterns-SKILL",
+      "name": "security-patterns",
       "path": "_shared/shared/security-patterns/SKILL.md"
     },
     "服務重構": {
@@ -1126,31 +1370,6 @@
       "name": "service-refactoring",
       "path": "_shared/shared/service-refactoring.md"
     },
-    "/skill": {
-      "id": "_shared-shared-systematic-debugging-SKILL",
-      "name": "系統化除錯技能",
-      "path": "_shared/shared/systematic-debugging/SKILL.md"
-    },
-    "/tdd": {
-      "id": "_shared-shared-tdd-workflow",
-      "name": "TDD 測試驅動開發工作流程",
-      "path": "_shared/shared/tdd-workflow.md"
-    },
-    "測試驅動": {
-      "id": "_shared-shared-tdd-workflow",
-      "name": "TDD 測試驅動開發工作流程",
-      "path": "_shared/shared/tdd-workflow.md"
-    },
-    "TDD": {
-      "id": "_shared-shared-tdd-workflow",
-      "name": "TDD 測試驅動開發工作流程",
-      "path": "_shared/shared/tdd-workflow.md"
-    },
-    "先寫測試": {
-      "id": "_shared-shared-tdd-workflow",
-      "name": "TDD 測試驅動開發工作流程",
-      "path": "_shared/shared/tdd-workflow.md"
-    },
     "測試生成": {
       "id": "_shared-shared-test-generator",
       "name": "test-generator",
@@ -1168,32 +1387,32 @@
     },
     "測試模式": {
       "id": "_shared-shared-testing-patterns-SKILL",
-      "name": "測試模式技能",
+      "name": "testing-patterns",
       "path": "_shared/shared/testing-patterns/SKILL.md"
     },
     "testing patterns": {
       "id": "_shared-shared-testing-patterns-SKILL",
-      "name": "測試模式技能",
+      "name": "testing-patterns",
       "path": "_shared/shared/testing-patterns/SKILL.md"
     },
     "Vitest": {
       "id": "_shared-shared-testing-patterns-SKILL",
-      "name": "測試模式技能",
+      "name": "testing-patterns",
       "path": "_shared/shared/testing-patterns/SKILL.md"
     },
     "Pytest": {
       "id": "_shared-shared-testing-patterns-SKILL",
-      "name": "測試模式技能",
+      "name": "testing-patterns",
       "path": "_shared/shared/testing-patterns/SKILL.md"
     },
     "MSW": {
       "id": "_shared-shared-testing-patterns-SKILL",
-      "name": "測試模式技能",
+      "name": "testing-patterns",
       "path": "_shared/shared/testing-patterns/SKILL.md"
     },
     "測試策略": {
       "id": "_shared-shared-testing-patterns-SKILL",
-      "name": "測試模式技能",
+      "name": "testing-patterns",
       "path": "_shared/shared/testing-patterns/SKILL.md"
     }
   },

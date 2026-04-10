@@ -1,6 +1,6 @@
 {
-  "generated": "2026-03-02T15:30:42.641Z",
-  "total": 75,
+  "generated": "2026-04-10T05:51:48.632Z",
+  "total": 100,
   "categories": [
     "react",
     "ai",
@@ -13,7 +13,7 @@
       "id": "accessibility",
       "path": "accessibility.md",
       "title": "accessibility",
-      "description": "可訪問性 (Accessibility) 規範",
+      "description": [],
       "version": "1.0.0",
       "category": "react",
       "updated": "2026-02-21",
@@ -27,16 +27,16 @@
         "keyboard",
         "screen reader"
       ],
-      "lastModified": "2026-03-02T14:48:14.367Z"
+      "lastModified": "2026-03-08T17:59:10.426Z"
     },
     {
       "id": "ai-development",
       "path": "ai-development.md",
       "title": "ai-development",
       "description": "AI 相關功能開發與維護",
-      "version": "3.2.0",
+      "version": "3.4.0",
       "category": "ai",
-      "updated": "2026-02-26",
+      "updated": "2026-03-19",
       "triggers": [
         "AI",
         "Groq",
@@ -56,7 +56,7 @@
         "閒聊",
         "chitchat"
       ],
-      "lastModified": "2026-03-02T14:48:14.376Z"
+      "lastModified": "2026-03-19T03:34:55.472Z"
     },
     {
       "id": "alembic-migrations",
@@ -74,7 +74,7 @@
         "DB 變更",
         "autogenerate"
       ],
-      "lastModified": "2026-03-02T14:48:14.370Z"
+      "lastModified": "2026-03-04T09:12:30.777Z"
     },
     {
       "id": "api-development",
@@ -132,7 +132,7 @@
         "SimpleCache",
         "快取策略"
       ],
-      "lastModified": "2026-03-02T14:48:14.372Z"
+      "lastModified": "2026-03-19T03:34:55.473Z"
     },
     {
       "id": "calendar-integration",
@@ -156,7 +156,7 @@
       "id": "database-performance",
       "path": "database-performance.md",
       "title": "database-performance",
-      "description": "後端資料庫操作、ORM 查詢優化",
+      "description": [],
       "version": "1.0.0",
       "category": "backend",
       "updated": "2026-01-15",
@@ -169,7 +169,7 @@
         "查詢優化",
         "slow query"
       ],
-      "lastModified": "2026-03-02T14:48:14.381Z"
+      "lastModified": "2026-03-08T18:34:41.372Z"
     },
     {
       "id": "database-schema",
@@ -190,13 +190,13 @@
         "pgvector",
         "feature flag"
       ],
-      "lastModified": "2026-03-02T14:48:14.383Z"
+      "lastModified": "2026-03-04T09:15:51.837Z"
     },
     {
       "id": "development-environment",
       "path": "development-environment.md",
       "title": "development-environment",
-      "description": "本地開發環境設定與驗證",
+      "description": [],
       "version": "1.0.0",
       "category": "project",
       "updated": "2026-01-15",
@@ -209,13 +209,34 @@
         "env",
         "環境變數"
       ],
-      "lastModified": "2026-03-02T14:48:14.385Z"
+      "lastModified": "2026-03-08T18:34:54.835Z"
+    },
+    {
+      "id": "dispatch-import",
+      "path": "dispatch-import.md",
+      "title": "dispatch-import",
+      "description": "派工單匯入與公文關聯 (Dispatch Import & Document Linking)",
+      "version": "1.0.0",
+      "category": "project",
+      "updated": "2026-03-05",
+      "triggers": [
+        "匯入",
+        "import",
+        "Excel",
+        "派工單匯入",
+        "batch-relink",
+        "文號",
+        "doc_number",
+        "agency_doc_number",
+        "company_doc_number"
+      ],
+      "lastModified": "2026-03-04T22:57:24.968Z"
     },
     {
       "id": "document-management",
       "path": "document-management.md",
       "title": "document-management",
-      "description": "公文 CRUD、流水序號、附件管理",
+      "description": [],
       "version": "1.0.0",
       "category": "project",
       "updated": "2026-01-15",
@@ -227,7 +248,33 @@
         "doc_number",
         "字號"
       ],
-      "lastModified": "2026-03-02T14:48:14.385Z"
+      "lastModified": "2026-03-08T18:35:11.256Z"
+    },
+    {
+      "id": "erp-finance",
+      "path": "erp-finance.md",
+      "title": "erp-finance",
+      "description": "ERP 財務模組開發規範 — 報價/開票/請款/帳本/費用報銷/資產管理",
+      "version": "1.0.0",
+      "category": "project",
+      "updated": "2026-04-09",
+      "triggers": [
+        "ERP",
+        "報價",
+        "開票",
+        "請款",
+        "帳本",
+        "費用",
+        "資產",
+        "quotation",
+        "invoice",
+        "billing",
+        "ledger",
+        "expense",
+        "asset",
+        "vendor_payable"
+      ],
+      "lastModified": "2026-04-10T05:51:44.762Z"
     },
     {
       "id": "error-handling",
@@ -271,51 +318,28 @@
       "id": "hooks-development",
       "path": "hooks-development.md",
       "title": "hooks-development",
-      "description": "Claude Code Hooks 開發指南",
+      "description": [],
       "version": "1.0.0",
       "category": "project",
       "updated": "2026-02-26",
       "triggers": [
-        "h",
-        "o",
-        "o",
-        "k",
-        ",",
-        "",
-        "h",
-        "o",
-        "o",
-        "k",
-        "s",
-        ",",
-        "",
-        "鉤",
-        "子",
-        ",",
-        "",
-        "a",
-        "u",
-        "t",
-        "o",
-        "m",
-        "a",
-        "t",
-        "i",
-        "o",
-        "n",
-        ",",
-        "",
-        "自",
-        "動",
-        "化"
+        "hook",
+        "hooks",
+        "鉤子",
+        "automation",
+        "自動化",
+        "PreToolUse",
+        "PostToolUse",
+        "SessionStart",
+        "settings.json"
       ],
-      "lastModified": "2026-03-02T14:48:14.373Z"
+      "lastModified": "2026-03-08T22:45:46.893Z"
     },
     {
       "id": "knowledge-management",
       "path": "knowledge-management.md",
       "title": "knowledge-management",
-      "description": "知識管理規範",
+      "description": [],
       "version": "1.0.0",
       "category": "project",
       "updated": "2026-02-05",
@@ -326,7 +350,27 @@
         "知識管理",
         "decision"
       ],
-      "lastModified": "2026-03-02T14:49:04.227Z"
+      "lastModified": "2026-03-12T10:11:47.220Z"
+    },
+    {
+      "id": "multi-channel",
+      "path": "multi-channel.md",
+      "title": "multi-channel",
+      "description": "多通道整合開發規範 — LINE/Telegram/Discord 統一架構",
+      "version": "1.0.0",
+      "category": "project",
+      "updated": "2026-04-09",
+      "triggers": [
+        "LINE",
+        "Telegram",
+        "Discord",
+        "多通道",
+        "channel",
+        "webhook",
+        "推播",
+        "bot"
+      ],
+      "lastModified": "2026-04-10T05:51:44.847Z"
     },
     {
       "id": "python-common-pitfalls",
@@ -382,25 +426,66 @@
       "lastModified": "2026-03-02T14:48:14.391Z"
     },
     {
+      "id": "skill-creator",
+      "path": "skill-creator.md",
+      "title": "skill-creator",
+      "description": [],
+      "version": "1.0.0",
+      "category": "project",
+      "updated": "2026-03-09",
+      "triggers": [
+        "skill",
+        "skill-creator",
+        "建立 skill",
+        "新增 skill",
+        "改善 skill",
+        "優化觸發",
+        "SKILL.md",
+        "writing-skills"
+      ],
+      "lastModified": "2026-03-08T17:20:51.495Z"
+    },
+    {
       "id": "SKILLS_INVENTORY",
       "path": "SKILLS_INVENTORY.md",
       "title": "skills-inventory",
       "description": "追蹤所有 Skills 的版本與狀態",
       "version": "1.0.0",
       "category": "project",
-      "updated": "2026-02-05",
+      "updated": "2026-03-18",
       "triggers": [
         "skills",
         "inventory",
         "清單"
       ],
-      "lastModified": "2026-03-02T14:49:15.782Z"
+      "lastModified": "2026-03-19T03:34:55.470Z"
+    },
+    {
+      "id": "tender-search",
+      "path": "tender-search.md",
+      "title": "tender-search",
+      "description": "標案檢索模組開發規範 — PCC API/訂閱排程/標案分析/戰情室",
+      "version": "1.0.0",
+      "category": "project",
+      "updated": "2026-04-09",
+      "triggers": [
+        "標案",
+        "tender",
+        "PCC",
+        "訂閱",
+        "招標",
+        "決標",
+        "採購",
+        "戰情室",
+        "battle-room"
+      ],
+      "lastModified": "2026-04-10T05:51:44.886Z"
     },
     {
       "id": "testing-guide",
       "path": "testing-guide.md",
       "title": "testing-guide",
-      "description": "測試編寫、測試執行、覆蓋率",
+      "description": [],
       "version": "1.0.0",
       "category": "shared",
       "updated": "2026-01-15",
@@ -412,16 +497,16 @@
         "unit test",
         "單元測試"
       ],
-      "lastModified": "2026-03-02T14:48:14.393Z"
+      "lastModified": "2026-03-08T18:35:26.637Z"
     },
     {
       "id": "type-management",
       "path": "type-management.md",
       "title": "type-management",
       "description": "後端 Schema 定義、前端型別定義、型別同步",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "backend",
-      "updated": "2026-01-21",
+      "updated": "2026-03-04",
       "triggers": [
         "型別",
         "type",
@@ -429,36 +514,303 @@
         "Pydantic",
         "TypeScript",
         "BaseModel",
-        "interface"
+        "interface",
+        "Schema 繼承",
+        "ge",
+        "le"
       ],
-      "lastModified": "2026-03-02T14:48:14.395Z"
+      "lastModified": "2026-03-04T09:16:42.970Z"
     },
     {
       "id": "unicode-handling",
       "path": "unicode-handling.md",
       "title": "unicode-handling",
-      "description": "Unicode 字元處理指南",
-      "version": "1.0.0",
+      "description": "Unicode 字元處理指南（康熙部首 + CJK 相容漢字）",
+      "version": "2.0.0",
       "category": "backend",
-      "updated": "2026-01-16",
+      "updated": "2026-03-04",
       "triggers": [
         "Unicode",
         "編碼",
         "字元",
         "康熙部首",
+        "CJK",
         "正規化",
-        "normalize"
+        "normalize",
+        "亂碼",
+        "搜尋失敗",
+        "ILIKE"
       ],
-      "lastModified": "2026-03-02T14:48:14.396Z"
+      "lastModified": "2026-03-04T09:15:40.824Z"
     },
     {
       "id": "workflow-management",
       "path": "workflow-management.md",
       "title": "workflow-management",
       "description": "作業歷程管理 (Workflow Management)",
+      "version": "2.0.0",
+      "category": "project",
+      "updated": "2026-03-05",
+      "triggers": [
+        "workflow",
+        "作業歷程",
+        "時間軸",
+        "chain",
+        "timeline",
+        "鏈式",
+        "InlineRecordCreator",
+        "work_category",
+        "WorkRecordStatsCard",
+        "useDeleteWorkRecord",
+        "useWorkRecordColumns"
+      ],
+      "lastModified": "2026-03-12T10:11:47.222Z"
+    },
+    {
+      "id": "_shared-backend-alembic-migrations",
+      "path": "_shared/backend/alembic-migrations.md",
+      "version": "1.0.0",
+      "updated": "2026-02-21",
+      "triggers": [
+        "[Alembic, 遷移, migration, schema change, DB 變更, autogenerate]"
+      ],
+      "lastModified": "2026-04-09T07:52:04.932Z"
+    },
+    {
+      "id": "_shared-backend-api-development",
+      "path": "_shared/backend/api-development.md",
+      "title": "API 開發規範 (API Development Guide)",
+      "triggers": [
+        "API",
+        "endpoint",
+        "端點",
+        "route",
+        "路由",
+        "FastAPI"
+      ],
+      "description": "API 設計、端點定義、前後端整合",
+      "lastModified": "2026-04-09T07:52:04.929Z"
+    },
+    {
+      "id": "_shared-backend-api-serialization",
+      "path": "_shared/backend/api-serialization.md",
+      "title": "API 序列化與資料返回規範",
+      "triggers": [
+        "序列化",
+        "serialize",
+        "API 返回",
+        "ORM",
+        "500 錯誤",
+        "資料轉換",
+        "批次處理",
+        "效能"
+      ],
+      "description": "後端 API 端點、資料返回格式、ORM 模型處理、效能優化",
+      "version": "1.1.0",
+      "updated": "2026-01-21",
+      "最後更新": "2026-01-22",
+      "lastModified": "2026-04-09T07:52:04.929Z"
+    },
+    {
+      "id": "_shared-backend-calendar-integration",
+      "path": "_shared/backend/calendar-integration.md",
+      "title": "行事曆整合領域知識 (Calendar Integration Domain)",
+      "triggers": [
+        "行事曆",
+        "calendar",
+        "Google Calendar",
+        "事件",
+        "截止日",
+        "event"
+      ],
+      "description": "行事曆事件管理、Google Calendar 同步、公文到期追蹤",
+      "lastModified": "2026-04-09T07:52:04.929Z"
+    },
+    {
+      "id": "_shared-backend-codewiki-procedures",
+      "path": "_shared/backend/codewiki-procedures.md",
+      "title": "CODEWIKI 程序規範",
+      "lastModified": "2026-04-09T07:52:04.935Z"
+    },
+    {
+      "id": "_shared-backend-database-admin-procedures",
+      "path": "_shared/backend/database-admin-procedures.md",
+      "title": "Database Administration Procedures Skill",
+      "lastModified": "2026-04-09T07:52:04.927Z"
+    },
+    {
+      "id": "_shared-backend-database-performance",
+      "path": "_shared/backend/database-performance.md",
+      "title": "資料庫效能優化指南 (Database Performance Guide)",
+      "triggers": [
+        "慢查詢",
+        "N+1",
+        "索引",
+        "index",
+        "資料庫效能",
+        "查詢優化",
+        "slow query"
+      ],
+      "description": "後端資料庫操作、ORM 查詢優化",
+      "version": "1.0.0",
+      "最後更新": "2026-01-22",
+      "lastModified": "2026-04-09T07:52:04.929Z"
+    },
+    {
+      "id": "_shared-backend-document-management",
+      "path": "_shared/backend/document-management.md",
+      "title": "公文管理領域知識 (Document Management Domain)",
+      "triggers": [
+        "公文",
+        "document",
+        "收文",
+        "發文",
+        "doc_number",
+        "字號"
+      ],
+      "description": "公文 CRUD、流水序號、附件管理",
+      "lastModified": "2026-04-09T07:52:04.927Z"
+    },
+    {
+      "id": "_shared-backend-express-api-patterns-SKILL",
+      "path": "_shared/backend/express-api-patterns/SKILL.md",
+      "title": "Express API 模式技能",
+      "lastModified": "2026-04-09T07:52:04.934Z"
+    },
+    {
+      "id": "_shared-backend-frontend-architecture",
+      "path": "_shared/backend/frontend-architecture.md",
+      "title": "前端架構規範 (Frontend Architecture)",
+      "version": "1.0.0",
+      "updated": "2026-01-22",
+      "description": "前端 React + TypeScript 專案",
+      "lastModified": "2026-04-09T07:52:04.931Z"
+    },
+    {
+      "id": "_shared-backend-import-export-roundtrip-checklist",
+      "path": "_shared/backend/import-export-roundtrip-checklist.md",
+      "title": "Import/Export Round-trip Checklist",
+      "description": "確保表單導出→導入往返流程正確的檢查清單",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-02-09",
+      "triggers": [
+        "/roundtrip-check",
+        "import export",
+        "往返測試"
+      ],
+      "lastModified": "2026-04-09T07:52:04.934Z"
+    },
+    {
+      "id": "_shared-backend-postgres-patterns-SKILL",
+      "path": "_shared/backend/postgres-patterns/SKILL.md",
+      "title": "PostgreSQL 模式技能",
+      "lastModified": "2026-04-09T07:52:04.933Z"
+    },
+    {
+      "id": "_shared-backend-python-common-pitfalls",
+      "path": "_shared/backend/python-common-pitfalls.md",
+      "title": "Python 常見陷阱規範",
+      "version": "1.0.0",
+      "updated": "2026-01-28",
+      "triggers": [
+        "Pydantic",
+        "forward reference",
+        "async",
+        "MissingGreenlet",
+        "預設參數",
+        "selectinload"
+      ],
+      "lastModified": "2026-04-09T07:52:04.930Z"
+    },
+    {
+      "id": "_shared-backend-schema-design-patterns",
+      "path": "_shared/backend/schema-design-patterns.md",
+      "title": "Schema 設計規範",
+      "lastModified": "2026-04-09T07:52:04.931Z"
+    },
+    {
+      "id": "_shared-backend-service-dependency-matrix",
+      "path": "_shared/backend/service-dependency-matrix.md",
+      "title": "服務依賴矩陣",
+      "目的": "記錄各前端功能模組對後端服務、資料庫表格、外部 API 的依賴關係",
+      "updated": "2026-01-19",
+      "維護要求": "新增功能時同步更新此矩陣",
+      "lastModified": "2026-04-09T07:52:04.930Z"
+    },
+    {
+      "id": "_shared-backend-service-layer-migration-template",
+      "path": "_shared/backend/service-layer-migration-template.md",
+      "title": "服務層遷移範本",
+      "lastModified": "2026-04-09T07:52:04.928Z"
+    },
+    {
+      "id": "_shared-backend-showcase-development-guidelines",
+      "path": "_shared/backend/showcase-development-guidelines.md",
+      "title": "CK_Showcase 開發指南",
+      "技能名稱": "CK_Showcase 開發指南",
+      "triggers": [
+        "/showcase-dev",
+        "開發規範",
+        "development guidelines",
+        "coding standards"
+      ],
       "version": "1.0.0",
       "category": "project",
-      "updated": "2026-02-17",
+      "updated": "2026-01-28",
+      "lastModified": "2026-04-09T07:52:04.928Z"
+    },
+    {
+      "id": "_shared-backend-SKILLS_INVENTORY",
+      "path": "_shared/backend/SKILLS_INVENTORY.md",
+      "title": "Skills 清單與版本管理",
+      "version": "1.0.0",
+      "updated": "2026-02-05",
+      "用途": "追蹤所有 Skills 的版本與狀態",
+      "lastModified": "2026-04-09T07:52:04.931Z"
+    },
+    {
+      "id": "_shared-backend-system-optimization-phase12",
+      "path": "_shared/backend/system-optimization-phase12.md",
+      "title": "系統優化 Phase 12",
+      "description": "CI/CD 強化、資安深化、部署優化綜合指南",
+      "version": "1.0.0",
+      "category": "project",
+      "updated": "2026-02-02",
+      "triggers": [
+        "/phase12",
+        "系統優化",
+        "CI/CD 強化",
+        "資安優化",
+        "部署優化"
+      ],
+      "lastModified": "2026-04-09T07:52:04.934Z"
+    },
+    {
+      "id": "_shared-backend-testing-guide",
+      "path": "_shared/backend/testing-guide.md",
+      "title": "測試框架指南 (Testing Framework Guide)",
+      "triggers": [
+        "test",
+        "測試",
+        "pytest",
+        "jest",
+        "unit test",
+        "單元測試"
+      ],
+      "description": "測試編寫、測試執行、覆蓋率",
+      "lastModified": "2026-04-09T07:52:04.926Z"
+    },
+    {
+      "id": "_shared-backend-websocket-patterns",
+      "path": "_shared/backend/websocket-patterns.md",
+      "title": "WebSocket Patterns Skill",
+      "lastModified": "2026-04-09T07:52:04.927Z"
+    },
+    {
+      "id": "_shared-backend-workflow-management",
+      "path": "_shared/backend/workflow-management.md",
+      "title": "作業歷程管理 (Workflow Management)",
       "triggers": [
         "workflow",
         "作業歷程",
@@ -469,7 +821,9 @@
         "InlineRecordCreator",
         "work_category"
       ],
-      "lastModified": "2026-03-02T14:48:14.398Z"
+      "version": "1.0.0",
+      "日期": "2026-02-17",
+      "lastModified": "2026-04-09T07:52:04.927Z"
     },
     {
       "id": "_shared-react-component-refactoring-checklist",
@@ -527,7 +881,7 @@
         "code review",
         "程式碼品質"
       ],
-      "lastModified": "2026-02-02T07:07:19.275Z"
+      "lastModified": "2026-04-09T07:52:04.858Z"
     },
     {
       "id": "_shared-shared-crud-migration",
@@ -544,7 +898,7 @@
         "棄用警告",
         "deprecation"
       ],
-      "lastModified": "2026-01-28T14:03:23.569Z"
+      "lastModified": "2026-04-09T07:52:04.859Z"
     },
     {
       "id": "_shared-shared-dangerous-operations-policy",
@@ -562,55 +916,40 @@
         "TRUNCATE",
         "資料安全"
       ],
-      "lastModified": "2026-01-28T14:03:23.600Z"
+      "lastModified": "2026-04-09T07:52:04.859Z"
     },
     {
       "id": "_shared-shared-data-governance-framework",
       "path": "_shared/shared/data-governance-framework.md",
-      "title": "資料治理框架",
-      "description": "確保資料品質、完整性、一致性與可追溯性的頂層設計原則",
+      "title": "Data Governance Framework Skill",
+      "lastModified": "2026-04-09T07:52:04.859Z"
+    },
+    {
+      "id": "_shared-shared-error-handling",
+      "path": "_shared/shared/error-handling.md",
+      "title": "error-handling",
+      "description": "錯誤處理最佳實踐指南",
       "version": "1.0.0",
       "category": "shared",
-      "updated": "2026-01-28",
+      "updated": "2026-01-22",
       "triggers": [
-        "/data-governance",
-        "資料治理",
-        "SSOT",
-        "資料品質"
+        "錯誤處理",
+        "error",
+        "exception",
+        "例外",
+        "try-catch"
       ],
-      "lastModified": "2026-02-02T05:51:49.108Z"
+      "lastModified": "2026-04-09T07:52:04.859Z"
     },
     {
       "id": "_shared-shared-mandatory-checklist",
       "path": "_shared/shared/mandatory-checklist.md",
       "title": "跨專案強制性開發規範檢查清單",
-      "description": "所有開發任務啟動前必須檢視的強制性規範清單",
       "version": "1.0.0",
-      "category": "shared",
-      "updated": "2026-01-28",
-      "triggers": [
-        "/mandatory-checklist",
-        "開發規範",
-        "checklist",
-        "強制檢查"
-      ],
-      "lastModified": "2026-02-02T05:51:48.907Z"
-    },
-    {
-      "id": "_shared-shared-plan-workflow",
-      "path": "_shared/shared/plan-workflow.md",
-      "title": "規劃工作流程",
-      "description": "在撰寫程式碼前建立完整的實作計畫，包含需求分析、風險評估和分階段步驟",
-      "version": "1.0.0",
-      "category": "shared",
-      "updated": "2026-02-03",
-      "triggers": [
-        "/plan",
-        "規劃",
-        "建立計畫",
-        "實作計畫"
-      ],
-      "lastModified": "2026-02-02T21:59:18.254Z"
+      "updated": "2026-01-22",
+      "狀態": "強制執行 - 所有開發任務啟動前必須檢視",
+      "來源": "整合自 CK_Missive MANDATORY_CHECKLIST v1.8.0",
+      "lastModified": "2026-04-09T07:52:04.860Z"
     },
     {
       "id": "_shared-shared-quick-fix",
@@ -627,82 +966,57 @@
         "緊急修復",
         "常見問題"
       ],
-      "lastModified": "2026-01-28T14:03:23.661Z"
+      "lastModified": "2026-04-09T07:52:04.860Z"
     },
     {
       "id": "_shared-shared-refactoring-migration-procedures",
       "path": "_shared/shared/refactoring-migration-procedures.md",
       "title": "重構與遷移作業規範",
-      "description": "避免遷移一半造成維護地獄的重構與遷移標準作業規範",
-      "version": "1.0.0",
-      "category": "shared",
-      "updated": "2026-01-28",
-      "triggers": [
-        "/refactoring",
-        "重構規範",
-        "遷移作業",
-        "migration"
-      ],
-      "lastModified": "2026-02-02T05:51:49.303Z"
+      "lastModified": "2026-04-09T07:52:04.860Z"
     },
     {
       "id": "_shared-shared-security-audit",
       "path": "_shared/shared/security-audit.md",
-      "title": "安全性審計",
-      "description": "檢查專案中的安全性問題與漏洞，包含定期審計與部署前檢查",
+      "title": "Security Audit Skill",
+      "lastModified": "2026-04-09T07:52:04.862Z"
+    },
+    {
+      "id": "_shared-shared-security-hardening",
+      "path": "_shared/shared/security-hardening.md",
+      "title": "security-hardening",
+      "description": "安全加固最佳實踐 - OWASP Top 10 防護策略",
       "version": "1.0.0",
       "category": "shared",
-      "updated": "2026-01-28",
+      "updated": "2026-01-22",
       "triggers": [
-        "/security-audit",
-        "安全掃描",
-        "漏洞檢查",
-        "security"
+        "安全加固",
+        "/security-hardening",
+        "防護",
+        "漏洞",
+        "vulnerability",
+        "XSS",
+        "SQL injection",
+        "OWASP"
       ],
-      "lastModified": "2026-02-02T05:51:49.502Z"
-    },
-    {
-      "id": "_shared-shared-security-patterns-A01-access-control",
-      "path": "_shared/shared/security-patterns/A01-access-control.md",
-      "title": "A01 - 存取控制安全模式",
-      "OWASP 類別": "A01:2025 – Broken Access Control",
-      "嚴重性": "Critical",
-      "適用技術": "FastAPI, React, PostgreSQL",
-      "lastModified": "2026-02-02T07:02:55.040Z"
-    },
-    {
-      "id": "_shared-shared-security-patterns-A03-supply-chain",
-      "path": "_shared/shared/security-patterns/A03-supply-chain.md",
-      "title": "A03 - 供應鏈安全模式",
-      "OWASP 類別": "A03:2025 – Software Supply Chain Failures",
-      "嚴重性": "High",
-      "適用技術": "npm, pip, Docker",
-      "lastModified": "2026-02-02T07:02:55.095Z"
-    },
-    {
-      "id": "_shared-shared-security-patterns-A05-injection",
-      "path": "_shared/shared/security-patterns/A05-injection.md",
-      "title": "A05 - 注入攻擊防護模式",
-      "OWASP 類別": "A05:2025 – Injection",
-      "嚴重性": "Critical",
-      "適用技術": "SQL, NoSQL, LDAP, OS Command, XSS",
-      "lastModified": "2026-02-02T07:02:55.112Z"
+      "lastModified": "2026-04-09T07:52:04.862Z"
     },
     {
       "id": "_shared-shared-security-patterns-SKILL",
       "path": "_shared/shared/security-patterns/SKILL.md",
-      "title": "OWASP 資安模式庫",
-      "description": "基於 OWASP Top 10 2025 的可重用安全程式碼模式，供跨專案參考",
+      "title": "security-patterns",
+      "description": "安全最佳實踐和常見漏洞防護",
       "version": "1.0.0",
       "category": "shared",
-      "updated": "2026-02-02",
+      "updated": "2026-01-22",
       "triggers": [
-        "/security-patterns",
-        "資安模式",
-        "OWASP patterns",
-        "安全模式"
+        "安全模式",
+        "security patterns",
+        "JWT",
+        "認證",
+        "授權",
+        "authentication"
       ],
-      "lastModified": "2026-02-02T07:02:55.133Z"
+      "lastModified": "2026-04-09T07:52:04.863Z"
     },
     {
       "id": "_shared-shared-service-refactoring",
@@ -719,238 +1033,213 @@
         "模組化",
         "monolith"
       ],
-      "lastModified": "2026-01-28T14:03:23.728Z"
+      "lastModified": "2026-04-09T07:52:04.863Z"
     },
     {
       "id": "_shared-shared-superpowers-brainstorming-SKILL",
       "path": "_shared/shared/superpowers/brainstorming/SKILL.md",
       "title": "brainstorming",
       "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.",
-      "lastModified": "2026-01-28T14:03:23.755Z"
+      "lastModified": "2026-04-09T07:52:04.864Z"
     },
     {
       "id": "_shared-shared-superpowers-dispatching-parallel-agents-SKILL",
       "path": "_shared/shared/superpowers/dispatching-parallel-agents/SKILL.md",
       "title": "dispatching-parallel-agents",
       "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies",
-      "lastModified": "2026-01-28T14:03:23.780Z"
+      "lastModified": "2026-04-09T07:52:04.865Z"
     },
     {
       "id": "_shared-shared-superpowers-executing-plans-SKILL",
       "path": "_shared/shared/superpowers/executing-plans/SKILL.md",
       "title": "executing-plans",
       "description": "Use when you have a written implementation plan to execute in a separate session with review checkpoints",
-      "lastModified": "2026-01-28T14:03:23.793Z"
+      "lastModified": "2026-04-09T07:52:04.865Z"
     },
     {
       "id": "_shared-shared-superpowers-finishing-a-development-branch-SKILL",
       "path": "_shared/shared/superpowers/finishing-a-development-branch/SKILL.md",
       "title": "finishing-a-development-branch",
       "description": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup",
-      "lastModified": "2026-01-28T14:03:23.812Z"
+      "lastModified": "2026-04-09T07:52:04.866Z"
     },
     {
       "id": "_shared-shared-superpowers-receiving-code-review-SKILL",
       "path": "_shared/shared/superpowers/receiving-code-review/SKILL.md",
       "title": "receiving-code-review",
       "description": "Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation",
-      "lastModified": "2026-01-28T14:03:23.825Z"
+      "lastModified": "2026-04-09T07:52:04.867Z"
     },
     {
       "id": "_shared-shared-superpowers-requesting-code-review-code-reviewer",
       "path": "_shared/shared/superpowers/requesting-code-review/code-reviewer.md",
       "title": "Code Review Agent",
-      "lastModified": "2026-01-28T14:03:23.848Z"
+      "lastModified": "2026-04-09T07:52:04.868Z"
     },
     {
       "id": "_shared-shared-superpowers-requesting-code-review-SKILL",
       "path": "_shared/shared/superpowers/requesting-code-review/SKILL.md",
       "title": "requesting-code-review",
       "description": "Use when completing tasks, implementing major features, or before merging to verify work meets requirements",
-      "lastModified": "2026-01-28T14:03:23.838Z"
+      "lastModified": "2026-04-09T07:52:04.868Z"
     },
     {
       "id": "_shared-shared-superpowers-subagent-driven-development-code-quality-reviewer-prompt",
       "path": "_shared/shared/superpowers/subagent-driven-development/code-quality-reviewer-prompt.md",
       "title": "Code Quality Reviewer Prompt Template",
-      "lastModified": "2026-01-28T14:03:23.867Z"
+      "lastModified": "2026-04-09T07:52:04.869Z"
     },
     {
       "id": "_shared-shared-superpowers-subagent-driven-development-implementer-prompt",
       "path": "_shared/shared/superpowers/subagent-driven-development/implementer-prompt.md",
       "title": "Implementer Subagent Prompt Template",
-      "lastModified": "2026-01-28T14:03:23.051Z"
+      "lastModified": "2026-04-09T07:52:04.870Z"
     },
     {
       "id": "_shared-shared-superpowers-subagent-driven-development-SKILL",
       "path": "_shared/shared/superpowers/subagent-driven-development/SKILL.md",
       "title": "subagent-driven-development",
       "description": "Use when executing implementation plans with independent tasks in the current session",
-      "lastModified": "2026-01-28T14:03:23.861Z"
+      "lastModified": "2026-04-09T07:52:04.870Z"
     },
     {
       "id": "_shared-shared-superpowers-subagent-driven-development-spec-reviewer-prompt",
       "path": "_shared/shared/superpowers/subagent-driven-development/spec-reviewer-prompt.md",
       "title": "Spec Compliance Reviewer Prompt Template",
-      "lastModified": "2026-01-28T14:03:23.059Z"
+      "lastModified": "2026-04-09T07:52:04.870Z"
     },
     {
       "id": "_shared-shared-superpowers-systematic-debugging-condition-based-waiting",
       "path": "_shared/shared/superpowers/systematic-debugging/condition-based-waiting.md",
       "title": "Condition-Based Waiting",
-      "lastModified": "2026-01-28T14:03:23.195Z"
+      "lastModified": "2026-04-09T07:52:04.872Z"
     },
     {
       "id": "_shared-shared-superpowers-systematic-debugging-CREATION-LOG",
       "path": "_shared/shared/superpowers/systematic-debugging/CREATION-LOG.md",
       "title": "Creation Log: Systematic Debugging Skill",
-      "lastModified": "2026-01-28T14:03:23.082Z"
+      "lastModified": "2026-04-09T07:52:04.872Z"
     },
     {
       "id": "_shared-shared-superpowers-systematic-debugging-defense-in-depth",
       "path": "_shared/shared/superpowers/systematic-debugging/defense-in-depth.md",
       "title": "Defense-in-Depth Validation",
-      "lastModified": "2026-01-28T14:03:23.227Z"
+      "lastModified": "2026-04-09T07:52:04.873Z"
     },
     {
       "id": "_shared-shared-superpowers-systematic-debugging-root-cause-tracing",
       "path": "_shared/shared/superpowers/systematic-debugging/root-cause-tracing.md",
       "title": "Root Cause Tracing",
-      "lastModified": "2026-01-28T14:03:23.267Z"
+      "lastModified": "2026-04-09T07:52:04.874Z"
     },
     {
       "id": "_shared-shared-superpowers-systematic-debugging-SKILL",
       "path": "_shared/shared/superpowers/systematic-debugging/SKILL.md",
       "title": "systematic-debugging",
       "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes",
-      "lastModified": "2026-01-28T14:03:23.126Z"
+      "lastModified": "2026-04-09T07:52:04.874Z"
     },
     {
       "id": "_shared-shared-superpowers-systematic-debugging-test-academic",
       "path": "_shared/shared/superpowers/systematic-debugging/test-academic.md",
       "title": "Academic Test: Systematic Debugging Skill",
-      "lastModified": "2026-01-28T14:03:23.276Z"
+      "lastModified": "2026-04-09T07:52:04.874Z"
     },
     {
       "id": "_shared-shared-superpowers-systematic-debugging-test-pressure-1",
       "path": "_shared/shared/superpowers/systematic-debugging/test-pressure-1.md",
       "title": "Pressure Test 1: Emergency Production Fix",
-      "lastModified": "2026-01-28T14:03:23.286Z"
+      "lastModified": "2026-04-09T07:52:04.875Z"
     },
     {
       "id": "_shared-shared-superpowers-systematic-debugging-test-pressure-2",
       "path": "_shared/shared/superpowers/systematic-debugging/test-pressure-2.md",
       "title": "Pressure Test 2: Sunk Cost + Exhaustion",
-      "lastModified": "2026-01-28T14:03:23.297Z"
+      "lastModified": "2026-04-09T07:52:04.876Z"
     },
     {
       "id": "_shared-shared-superpowers-systematic-debugging-test-pressure-3",
       "path": "_shared/shared/superpowers/systematic-debugging/test-pressure-3.md",
       "title": "Pressure Test 3: Authority + Social Pressure",
-      "lastModified": "2026-01-28T14:03:23.308Z"
+      "lastModified": "2026-04-09T07:52:04.876Z"
     },
     {
       "id": "_shared-shared-superpowers-test-driven-development-SKILL",
       "path": "_shared/shared/superpowers/test-driven-development/SKILL.md",
       "title": "test-driven-development",
       "description": "Use when implementing any feature or bugfix, before writing implementation code",
-      "lastModified": "2026-01-28T14:03:23.345Z"
+      "lastModified": "2026-04-09T07:52:04.877Z"
     },
     {
       "id": "_shared-shared-superpowers-test-driven-development-testing-anti-patterns",
       "path": "_shared/shared/superpowers/test-driven-development/testing-anti-patterns.md",
       "title": "Testing Anti-Patterns",
-      "lastModified": "2026-01-28T14:03:23.395Z"
+      "lastModified": "2026-04-09T07:52:04.878Z"
     },
     {
       "id": "_shared-shared-superpowers-using-git-worktrees-SKILL",
       "path": "_shared/shared/superpowers/using-git-worktrees/SKILL.md",
       "title": "using-git-worktrees",
       "description": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktrees with smart directory selection and safety verification",
-      "lastModified": "2026-01-28T14:03:23.426Z"
+      "lastModified": "2026-04-09T07:52:04.879Z"
     },
     {
       "id": "_shared-shared-superpowers-using-superpowers-SKILL",
       "path": "_shared/shared/superpowers/using-superpowers/SKILL.md",
       "title": "using-superpowers",
       "description": "Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions",
-      "lastModified": "2026-01-28T14:03:23.443Z"
+      "lastModified": "2026-04-09T07:52:04.879Z"
     },
     {
       "id": "_shared-shared-superpowers-verification-before-completion-SKILL",
       "path": "_shared/shared/superpowers/verification-before-completion/SKILL.md",
       "title": "verification-before-completion",
       "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always",
-      "lastModified": "2026-01-28T14:03:23.463Z"
+      "lastModified": "2026-04-09T07:52:04.879Z"
     },
     {
       "id": "_shared-shared-superpowers-writing-plans-SKILL",
       "path": "_shared/shared/superpowers/writing-plans/SKILL.md",
       "title": "writing-plans",
       "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
-      "lastModified": "2026-01-28T14:03:23.478Z"
+      "lastModified": "2026-04-09T07:52:04.880Z"
     },
     {
       "id": "_shared-shared-superpowers-writing-skills-anthropic-best-practices",
       "path": "_shared/shared/superpowers/writing-skills/anthropic-best-practices.md",
       "title": "Skill authoring best practices",
-      "lastModified": "2026-01-28T14:03:23.721Z"
+      "lastModified": "2026-04-09T07:52:04.880Z"
     },
     {
       "id": "_shared-shared-superpowers-writing-skills-examples-CLAUDE_MD_TESTING",
       "path": "_shared/shared/superpowers/writing-skills/examples/CLAUDE_MD_TESTING.md",
       "title": "Testing CLAUDE.md Skills Documentation",
-      "lastModified": "2026-01-28T14:03:23.739Z"
+      "lastModified": "2026-04-09T07:52:04.882Z"
     },
     {
       "id": "_shared-shared-superpowers-writing-skills-persuasion-principles",
       "path": "_shared/shared/superpowers/writing-skills/persuasion-principles.md",
       "title": "Persuasion Principles for Skill Design",
-      "lastModified": "2026-01-28T14:03:23.772Z"
+      "lastModified": "2026-04-09T07:52:04.882Z"
     },
     {
       "id": "_shared-shared-superpowers-writing-skills-SKILL",
       "path": "_shared/shared/superpowers/writing-skills/SKILL.md",
       "title": "writing-skills",
       "description": "Use when creating new skills, editing existing skills, or verifying skills work before deployment",
-      "lastModified": "2026-01-28T14:03:23.586Z"
+      "lastModified": "2026-04-09T07:52:04.883Z"
     },
     {
       "id": "_shared-shared-superpowers-writing-skills-testing-skills-with-subagents",
       "path": "_shared/shared/superpowers/writing-skills/testing-skills-with-subagents.md",
       "title": "Testing Skills With Subagents",
-      "lastModified": "2026-01-28T14:03:23.844Z"
+      "lastModified": "2026-04-09T07:52:04.884Z"
     },
     {
       "id": "_shared-shared-systematic-debugging-SKILL",
       "path": "_shared/shared/systematic-debugging/SKILL.md",
       "title": "系統化除錯技能",
-      "技能名稱": "系統化除錯技能",
-      "triggers": [
-        "/skill"
-      ],
-      "version": "1.0.0",
-      "category": "project",
-      "updated": "2026-01-28",
-      "用途": "提供相關功能與規範",
-      "適用場景": "開發新功能、程式碼審查、重構",
-      "lastModified": "2026-01-28T14:03:23.860Z"
-    },
-    {
-      "id": "_shared-shared-tdd-workflow",
-      "path": "_shared/shared/tdd-workflow.md",
-      "title": "TDD 測試驅動開發工作流程",
-      "description": "遵循 RED-GREEN-REFACTOR 循環的測試驅動開發方法論，確保 80%+ 測試覆蓋率",
-      "version": "1.0.0",
-      "category": "shared",
-      "updated": "2026-02-03",
-      "triggers": [
-        "/tdd",
-        "測試驅動",
-        "TDD",
-        "先寫測試"
-      ],
-      "lastModified": "2026-02-02T21:59:18.287Z"
+      "lastModified": "2026-04-09T07:52:04.884Z"
     },
     {
       "id": "_shared-shared-test-generator",
@@ -968,13 +1257,16 @@
         "pytest",
         "vitest"
       ],
-      "lastModified": "2026-01-28T15:31:57.832Z"
+      "lastModified": "2026-04-09T07:52:04.885Z"
     },
     {
       "id": "_shared-shared-testing-patterns-SKILL",
       "path": "_shared/shared/testing-patterns/SKILL.md",
-      "title": "測試模式技能",
-      "技能名稱": "testing-patterns",
+      "title": "testing-patterns",
+      "description": "測試策略和模式指南 - Vitest, Pytest, MSW",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-01-22",
       "triggers": [
         "測試模式",
         "testing patterns",
@@ -983,12 +1275,26 @@
         "MSW",
         "測試策略"
       ],
-      "version": "1.0.0",
-      "category": "project",
+      "lastModified": "2026-04-09T07:52:04.885Z"
+    },
+    {
+      "id": "_shared-shared-type-management",
+      "path": "_shared/shared/type-management.md",
+      "title": "type-management",
+      "description": "SSOT 型別管理規範 - 後端 Schema 與前端型別同步",
+      "version": "1.1.0",
+      "category": "shared",
       "updated": "2026-01-22",
-      "用途": "測試策略和模式指南 - Vitest, Pytest, MSW",
-      "適用場景": "開發新功能、程式碼審查、重構",
-      "lastModified": "2026-01-28T14:03:23.919Z"
+      "triggers": [
+        "型別",
+        "type",
+        "schema",
+        "Pydantic",
+        "TypeScript",
+        "BaseModel",
+        "interface"
+      ],
+      "lastModified": "2026-04-09T07:52:04.886Z"
     }
   ]
 }

@@ -1,60 +1,90 @@
 {
-  "generated": "2026-03-02T15:30:42.648Z",
-  "total": 20,
+  "generated": "2026-04-10T05:51:48.639Z",
+  "total": 30,
   "items": [
     {
       "id": "adr",
       "path": "adr.md",
-      "title": "/adr - Architecture Decision Record 管理",
-      "lastModified": "2026-02-27T15:33:44.730Z"
+      "description": "Architecture Decision Record 管理 — 建立、列表、更新 ADR",
+      "lastModified": "2026-04-09T07:52:04.059Z"
     },
     {
       "id": "api-check",
       "path": "api-check.md",
-      "title": "API 端點一致性檢查 (API Endpoint Consistency Check)",
-      "lastModified": "2026-01-10T14:39:43.008Z"
+      "description": "API 端點一致性檢查 — 驗證前後端路徑與型別同步",
+      "lastModified": "2026-04-09T07:52:04.060Z"
     },
     {
       "id": "build-fix",
       "path": "build-fix.md",
-      "title": "Build and Fix",
-      "lastModified": "2026-02-02T21:49:35.936Z"
+      "description": "快速修復構建錯誤 — TypeScript/Python 編譯問題診斷與修復",
+      "lastModified": "2026-04-09T07:52:04.060Z"
+    },
+    {
+      "id": "careful",
+      "path": "careful.md",
+      "description": "危險命令攔截模式 — 啟用 PreToolUse hook 攔截破壞性操作",
+      "lastModified": "2026-04-09T07:52:04.062Z"
     },
     {
       "id": "checkpoint",
       "path": "checkpoint.md",
-      "title": "Checkpoint Command",
-      "lastModified": "2026-02-02T21:49:29.898Z"
+      "description": "長對話進度保存 — 記錄當前工作狀態與待辦事項",
+      "lastModified": "2026-04-09T07:52:04.062Z"
     },
     {
       "id": "code-review",
       "path": "code-review.md",
-      "title": "Code Review",
-      "lastModified": "2026-02-02T21:49:32.709Z"
+      "description": "結構化程式碼審查 — Scope Drift 偵測 + Fix-First 策略",
+      "lastModified": "2026-04-09T07:52:04.062Z"
     },
     {
       "id": "csv-import-validate",
       "path": "csv-import-validate.md",
-      "title": "CSV 匯入驗證 (CSV Import Validation)",
-      "lastModified": "2026-01-06T02:28:07.328Z"
+      "description": "CSV 匯入驗證 — 欄位映射、資料型別與完整性檢查",
+      "lastModified": "2026-04-09T07:52:04.063Z"
     },
     {
       "id": "data-quality-check",
       "path": "data-quality-check.md",
-      "title": "資料品質檢查 (Data Quality Check)",
-      "lastModified": "2026-01-06T02:26:09.585Z"
+      "description": "資料品質檢查 — 完整性、一致性、重複偵測",
+      "lastModified": "2026-04-09T07:52:04.063Z"
     },
     {
       "id": "db-backup",
       "path": "db-backup.md",
-      "title": "資料庫備份管理 (Database Backup Management)",
-      "lastModified": "2026-01-29T07:03:45.015Z"
+      "description": "資料庫備份管理 — 備份建立、還原、排程與異地同步",
+      "lastModified": "2026-04-09T07:52:04.064Z"
     },
     {
       "id": "dev-check",
       "path": "dev-check.md",
-      "title": "開發環境檢查 (Development Environment Check)",
-      "lastModified": "2026-01-21T09:00:07.832Z"
+      "description": "開發環境檢查 — Docker/PM2/DB/Redis 服務狀態驗證",
+      "lastModified": "2026-04-09T07:52:04.064Z"
+    },
+    {
+      "id": "document-release",
+      "path": "document-release.md",
+      "description": "發布後文件同步 — 架構/Skills/CHANGELOG 自動檢查",
+      "lastModified": "2026-04-09T07:52:04.065Z"
+    },
+    {
+      "id": "freeze",
+      "path": "freeze.md",
+      "description": "編輯範圍鎖定 — 限制 Edit/Write 到指定目錄",
+      "lastModified": "2026-04-09T07:52:04.065Z"
+    },
+    {
+      "id": "guard",
+      "path": "guard.md",
+      "description": "綜合安全防護 — careful + freeze 合一模式",
+      "lastModified": "2026-04-09T07:52:04.065Z"
+    },
+    {
+      "id": "health-dashboard",
+      "path": "health-dashboard.md",
+      "description": "系統健康儀表板 — 行數/測試/遷移/Git 活動統計",
+      "lastModified": "2026-04-09T07:52:04.067Z"
     },
     {
       "id": "knowledge-map",
@@ -73,32 +103,50 @@
     {
       "id": "performance-check",
       "path": "performance-check.md",
-      "title": "/performance-check - 效能檢查",
-      "version": "1.0.0",
-      "updated": "2026-01-15",
-      "用途": "系統效能診斷與優化建議",
-      "lastModified": "2026-01-15T09:53:35.769Z"
+      "description": "效能診斷檢查 — N+1 查詢、慢查詢、索引分析",
+      "lastModified": "2026-04-09T07:52:04.067Z"
     },
     {
       "id": "pre-dev-check",
       "path": "pre-dev-check.md",
-      "title": "/pre-dev-check - 開發前強制檢查",
-      "lastModified": "2026-01-11T06:24:33.762Z"
+      "description": "開發前強制檢查 — 根據任務類型載入對應檢查清單",
+      "lastModified": "2026-04-09T07:52:04.068Z"
+    },
+    {
+      "id": "qa-smart",
+      "path": "qa-smart.md",
+      "description": "Diff-Aware 智慧測試 — 4 模式 + 8 維度健康度評估",
+      "lastModified": "2026-04-09T07:52:04.068Z"
+    },
+    {
+      "id": "refactor-scan",
+      "path": "refactor-scan.md",
+      "description": "重構掃描 — 超閾值檔案掃描 + 拆分建議",
+      "lastModified": "2026-04-09T07:52:04.069Z"
+    },
+    {
+      "id": "retro",
+      "path": "retro.md",
+      "description": "工程回顧 — per-author 統計 + session 偵測 + 指標追蹤",
+      "lastModified": "2026-04-09T07:52:04.069Z"
     },
     {
       "id": "route-sync-check",
       "path": "route-sync-check.md",
-      "title": "/route-sync-check - 前後端路由一致性檢查",
-      "lastModified": "2026-01-12T03:44:28.358Z"
+      "description": "前後端路由一致性檢查 — ROUTES/AppRouter/Navigation 三方比對",
+      "lastModified": "2026-04-09T07:52:04.070Z"
     },
     {
       "id": "security-audit",
       "path": "security-audit.md",
-      "title": "/security-audit - 資安審計檢查",
-      "version": "1.0.0",
-      "updated": "2026-01-15",
-      "用途": "自動化資安合規檢查",
-      "lastModified": "2026-01-15T09:53:32.237Z"
+      "description": "CSO 等級資安審計 — OWASP + STRIDE + 信心閾值",
+      "lastModified": "2026-04-09T07:52:04.070Z"
+    },
+    {
+      "id": "ship",
+      "path": "ship.md",
+      "description": "統一發布工作流 — 測試歸因 + review 就緒 + bisectable commits",
+      "lastModified": "2026-04-09T07:52:04.071Z"
     },
     {
       "id": "superpowers-brainstorm",
@@ -127,16 +175,20 @@
     {
       "id": "type-sync",
       "path": "type-sync.md",
-      "title": "型別同步檢查 (Type Synchronization Check)",
-      "version": "2.0.0",
-      "updated": "2026-01-18",
-      "lastModified": "2026-01-18T03:03:55.300Z"
+      "description": "型別同步檢查 — 前後端 Schema/Type 定義一致性",
+      "lastModified": "2026-04-09T07:52:04.071Z"
+    },
+    {
+      "id": "unfreeze",
+      "path": "unfreeze.md",
+      "description": "解除編輯範圍鎖定 — 刪除 freeze-scope.json",
+      "lastModified": "2026-04-09T07:52:04.072Z"
     },
     {
       "id": "verify",
       "path": "verify.md",
-      "title": "Verification Command",
-      "lastModified": "2026-02-02T21:49:02.762Z"
+      "description": "綜合驗證 — Build/Type/Lint/Test 全面檢查",
+      "lastModified": "2026-04-09T07:52:04.072Z"
     }
   ]
 }

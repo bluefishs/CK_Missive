@@ -138,9 +138,11 @@ function validateFrontmatter(content, yamlFields, legacyFields) {
   if (yamlParsed) {
     format = 'yaml';
 
-    // 檢查是否為變體格式
+    // 檢查是否為變體格式 (僅檢查 frontmatter 內，避免內文 code block 的 update: 誤判為 date:)
     const rawContent = content.replace(/\r\n/g, '\n');
-    if (rawContent.includes('trigger_keywords:') || rawContent.includes('date:')) {
+    const fmMatch = rawContent.match(/^---\n([\s\S]*?)\n---/);
+    const fmText = fmMatch ? fmMatch[1] : '';
+    if (/^trigger_keywords:/m.test(fmText) || /^date:/m.test(fmText)) {
       warnings.push('使用 YAML 變體格式，建議遷移 trigger_keywords→triggers, date→updated');
     }
 

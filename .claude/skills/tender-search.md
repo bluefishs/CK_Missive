@@ -2,7 +2,7 @@
 name: tender-search
 description: 標案檢索模組開發規範 — PCC API/訂閱排程/標案分析/戰情室
 version: 1.0.0
-category: domain
+category: project
 triggers:
   - 標案
   - tender

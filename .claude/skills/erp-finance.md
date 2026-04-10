@@ -2,7 +2,7 @@
 name: erp-finance
 description: ERP 財務模組開發規範 — 報價/開票/請款/帳本/費用報銷/資產管理
 version: 1.0.0
-category: domain
+category: project
 triggers:
   - ERP
   - 報價

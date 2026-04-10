@@ -2,7 +2,7 @@
 name: multi-channel
 description: 多通道整合開發規範 — LINE/Telegram/Discord 統一架構
 version: 1.0.0
-category: domain
+category: project
 triggers:
   - LINE
   - Telegram
