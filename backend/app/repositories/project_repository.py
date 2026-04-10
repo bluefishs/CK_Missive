@@ -766,22 +766,27 @@ class ProjectRepository(BaseRepository[ContractProject]):
         case_nature: str
     ) -> str:
         """
-        產生下一個專案編號
+        產生下一個專案編號 (ADR-0013 Phase 1' 統一格式)
 
         格式: CK{年度4碼}_{類別2碼}_{性質2碼}_{流水號3碼}
-        例: CK2025_01_01_001
+        例:  CK2026_01_01_001 (委辦招標，地面測量，第1號)
+
+        對齊 CaseCodeService.generate_project_code 行為:
+        - year > 1911 視為西元年；<= 1911 視為民國年 (自動 +1911)
+        - 空類別/性質時預設 "01"（對齊業務語意）
 
         Args:
-            year: 年度
-            category: 類別代碼 (2碼)
-            case_nature: 性質代碼 (2碼)
+            year: 年度 (西元或民國)
+            category: 類別代碼 (2碼，預設 "01")
+            case_nature: 作業性質代碼 (2碼，預設 "01")
 
         Returns:
             新的專案編號
         """
-        category_code = category[:2] if category else "00"
-        nature_code = case_nature[:2] if case_nature else "00"
-        prefix = f"CK{year}_{category_code}_{nature_code}_"
+        year_str = str(year) if year > 1911 else str(year + 1911)
+        category_code = (category[:2] if category else "01").zfill(2)
+        nature_code = (case_nature[:2] if case_nature else "01").zfill(2)
+        prefix = f"CK{year_str}_{category_code}_{nature_code}_"
 
         # 查詢現有最大編號
         query = (

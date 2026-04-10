@@ -161,15 +161,27 @@ class AgencyMatcher:
     async def _create_agency(
         self,
         agency_code: Optional[str],
-        agency_name: str
+        agency_name: str,
+        source: str = "auto",
     ) -> Optional[int]:
-        """建立新機關 — 委派至 Repository"""
+        """建立新機關 — 委派至 Repository
+
+        Args:
+            agency_code: 機關代碼 (政府 OID 或自定，可為 None)
+            agency_name: 機關名稱
+            source: 資料來源 (auto|manual|import)，預設 'auto' 因為
+                    此方法由 match_or_create 自動觸發，非使用者手動輸入。
+        """
         try:
             agency = await self._repo.create(
-                {'agency_name': agency_name, 'agency_code': agency_code},
+                {
+                    'agency_name': agency_name,
+                    'agency_code': agency_code,
+                    'source': source,
+                },
                 auto_commit=False,
             )
-            logger.info(f"新增機關: 代碼='{agency_code}', 名稱='{agency_name}'")
+            logger.info(f"新增機關: 代碼='{agency_code}', 名稱='{agency_name}', source={source}")
             return agency.id
         except Exception as e:
             logger.error(f"建立機關失敗: {agency_name}, 錯誤: {e}")

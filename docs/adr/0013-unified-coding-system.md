@@ -1,9 +1,32 @@
 # ADR-0013: 統一編碼體系架構設計
 
-> **狀態**: proposed
+> **狀態**: **accepted** (Phase 1 + 2 已交付；Phase 3-4 延後)
 > **日期**: 2026-04-02
+> **接受**: 2026-04-10 (使用者選 Plan A — 接受 Phase 1' 範圍並重新規劃)
 > **決策者**: 系統架構覆盤
 > **關聯**: ADR-0012 (標案檢索), case_code_service.py, CHANGELOG v5.3.24
+
+## 2026-04-10 重新評估註記
+
+原 ADR phase 計畫 (v5.4/v5.5 目標) 版本號已過期，當前為 v5.5.4。
+實際進度盤點 (2026-04-10)：
+
+| 原 Phase | 目標 | 實際狀態 |
+|---------|------|---------|
+| Phase 1 | project_code 統一 (CK 前綴) | ✅ **已完成** 2026-04-10 — migration `20260405a002` DB 回補 70 contract_projects + 48 pm_cases + 70 erp_quotations；雙 generator 對齊 (`project_repository.get_next_project_code` + `case_code_service.generate_project_code`) |
+| Phase 1 | asset_code 自動生成 | ⏳ 未完成 |
+| Phase 2 | billing_code / invoice_ref / ledger_code 欄位 | ✅ **已完成** — migration `20260405a004` 已加入 3 欄位 (尚未接通自動生成) |
+| Phase 3 | dispatch_no 西元年遷移 | ⏸ **延後** — 影響既有紙本對照，blast radius 高 |
+| Phase 4 | CodeGenerationService 統一入口 | ⏸ **取消** — 現有 Repository 分散實作已足夠，ROI 低 |
+
+**下一步優先級**:
+1. P1 — asset_code 自動生成 (填補 Phase 1 剩餘部分)
+2. P2 — 接通 billing_code / invoice_ref / ledger_code 的自動生成邏輯 (欄位已在 DB)
+3. P3 — dispatch_no 漸進遷移 (可選，等業務需要時)
+
+原文件後續內容保留供參考，但請以上表為準。
+
+---
 
 ## 背景
 
