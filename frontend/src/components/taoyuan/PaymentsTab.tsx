@@ -12,7 +12,7 @@
  * @date 2026-02-27
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Typography,
   Button,
@@ -23,9 +23,11 @@ import {
   Row,
   Col,
   App,
-  List,
+  Pagination,
+  Spin,
   Collapse,
   Tag,
+  Empty,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -100,81 +102,106 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
     return totals;
   }, [items]);
 
-  // 手機版摺疊卡片
-  const MobilePaymentList = () => (
-    <List
-      dataSource={items}
-      loading={isLoading}
-      pagination={{
-        size: 'small',
-        pageSize: 10,
-        showTotal: (total) => `共 ${total} 筆`,
-      }}
-      renderItem={(item: PaymentControlItem, index: number) => (
-        <Card
-          size="small"
-          style={{ marginBottom: 8, cursor: 'pointer' }}
-          onClick={() => navigate(`/taoyuan/dispatch/${item.dispatch_order_id}`)}
-          hoverable
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1 }}>
-              <Text strong style={{ color: '#1890ff', fontSize: 13 }}>
-                #{index + 1} {item.dispatch_no}
-              </Text>
-              <div style={{ fontSize: 12, marginTop: 2, color: '#666' }}>
-                {item.project_name}
+  // 手機版摺疊卡片 (以 div + Pagination 取代 Antd List，避免 List 棄用警告)
+  const MobilePaymentList = () => {
+    const [page, setPage] = useState(1);
+    const pageSize = 10;
+    const pagedItems = useMemo(
+      () => items.slice((page - 1) * pageSize, page * pageSize),
+      [page]
+    );
+
+    if (isLoading) {
+      return <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>;
+    }
+
+    if (items.length === 0) {
+      return <Empty description="無契金紀錄" />;
+    }
+
+    return (
+      <div>
+        {pagedItems.map((item: PaymentControlItem, idx: number) => {
+          const index = (page - 1) * pageSize + idx;
+          return (
+            <Card
+              key={item.dispatch_order_id}
+              size="small"
+              style={{ marginBottom: 8, cursor: 'pointer' }}
+              onClick={() => navigate(`/taoyuan/dispatch/${item.dispatch_order_id}`)}
+              hoverable
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <Text strong style={{ color: '#1890ff', fontSize: 13 }}>
+                    #{index + 1} {item.dispatch_no}
+                  </Text>
+                  <div style={{ fontSize: 12, marginTop: 2, color: '#666' }}>
+                    {item.project_name}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <Row gutter={[8, 4]}>
+                      <Col span={12}>
+                        <Text type="secondary" style={{ fontSize: 11 }}>本次派工：</Text>
+                        <Text strong style={{ color: '#1890ff', fontSize: 12 }}>
+                          ${formatAmount(item.current_amount ? Math.round(item.current_amount) : undefined)}
+                        </Text>
+                      </Col>
+                      <Col span={12}>
+                        <Text type="secondary" style={{ fontSize: 11 }}>累進金額：</Text>
+                        <Text style={{ fontSize: 12 }}>
+                          ${formatAmount(item.cumulative_amount ? Math.round(item.cumulative_amount) : undefined)}
+                        </Text>
+                      </Col>
+                    </Row>
+                  </div>
+                  <Collapse
+                    ghost
+                    size="small"
+                    style={{ marginTop: 4 }}
+                    items={[{
+                      key: '1',
+                      label: <Text type="secondary" style={{ fontSize: 11 }}>展開作業類別明細</Text>,
+                      children: (
+                        <div style={{ fontSize: 11 }}>
+                          {WORK_TYPE_COLUMNS.map((wt) => {
+                            const amount = Number((item as unknown as Record<string, unknown>)[wt.amountField]) || 0;
+                            if (amount === 0) return null;
+                            return (
+                              <Row key={wt.key} style={{ marginBottom: 4 }}>
+                                <Col span={14}>
+                                  <Tag color="blue" style={{ fontSize: 10 }}>{wt.label.slice(0, 8)}</Tag>
+                                </Col>
+                                <Col span={10} style={{ textAlign: 'right' }}>
+                                  ${formatAmount(Math.round(amount))}
+                                </Col>
+                              </Row>
+                            );
+                          })}
+                        </div>
+                      ),
+                    }]}
+                  />
+                </div>
+                <RightOutlined style={{ color: '#ccc', marginTop: 4 }} />
               </div>
-              <div style={{ marginTop: 8 }}>
-                <Row gutter={[8, 4]}>
-                  <Col span={12}>
-                    <Text type="secondary" style={{ fontSize: 11 }}>本次派工：</Text>
-                    <Text strong style={{ color: '#1890ff', fontSize: 12 }}>
-                      ${formatAmount(item.current_amount ? Math.round(item.current_amount) : undefined)}
-                    </Text>
-                  </Col>
-                  <Col span={12}>
-                    <Text type="secondary" style={{ fontSize: 11 }}>累進金額：</Text>
-                    <Text style={{ fontSize: 12 }}>
-                      ${formatAmount(item.cumulative_amount ? Math.round(item.cumulative_amount) : undefined)}
-                    </Text>
-                  </Col>
-                </Row>
-              </div>
-              <Collapse
-                ghost
-                size="small"
-                style={{ marginTop: 4 }}
-                items={[{
-                  key: '1',
-                  label: <Text type="secondary" style={{ fontSize: 11 }}>展開作業類別明細</Text>,
-                  children: (
-                    <div style={{ fontSize: 11 }}>
-                      {WORK_TYPE_COLUMNS.map((wt) => {
-                        const amount = Number((item as unknown as Record<string, unknown>)[wt.amountField]) || 0;
-                        if (amount === 0) return null;
-                        return (
-                          <Row key={wt.key} style={{ marginBottom: 4 }}>
-                            <Col span={14}>
-                              <Tag color="blue" style={{ fontSize: 10 }}>{wt.label.slice(0, 8)}</Tag>
-                            </Col>
-                            <Col span={10} style={{ textAlign: 'right' }}>
-                              ${formatAmount(Math.round(amount))}
-                            </Col>
-                          </Row>
-                        );
-                      })}
-                    </div>
-                  ),
-                }]}
-              />
-            </div>
-            <RightOutlined style={{ color: '#ccc', marginTop: 4 }} />
-          </div>
-        </Card>
-      )}
-    />
-  );
+            </Card>
+          );
+        })}
+        <div style={{ textAlign: 'center', marginTop: 12 }}>
+          <Pagination
+            size="small"
+            current={page}
+            total={items.length}
+            pageSize={pageSize}
+            onChange={setPage}
+            showSizeChanger={false}
+            showTotal={(total) => `共 ${total} 筆`}
+          />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div>

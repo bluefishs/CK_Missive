@@ -276,7 +276,7 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
         </Space>
       }
       placement="right"
-      width={420}
+      styles={{ wrapper: { width: 420 } }}
       open={open}
       onClose={onClose}
       extra={
