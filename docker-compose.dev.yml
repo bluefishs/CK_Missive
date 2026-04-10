@@ -1,12 +1,12 @@
 # =============================================================================
-# [DEPRECATED] 乾坤測繪公文管理系統 - 開發環境 Docker Compose
+# [LEGACY · FullDocker Mode Only] 乾坤測繪公文管理系統 - 全 Docker 開發環境
 # =============================================================================
-# ⚠️  已棄用 (2026-02-13)：請改用 docker-compose.infra.yml + PM2 混合模式
-# ⚠️  啟動方式：.\scripts\dev-start.ps1
-# ⚠️  此檔案保留僅供全 Docker 模式參考，應用容器 restart: "no" 防止搶佔 PM2 端口
+# ⚠️  預設開發模式已改用: docker-compose.infra.yml + PM2 混合模式 (自 2026-02-13)
+# ⚠️  此檔案僅供 `.\scripts\dev\dev-start.ps1 -FullDocker` 使用
+# ⚠️  應用容器 restart: "no" 防止搶佔 PM2 端口
 # =============================================================================
-# 🎯 原始目標：開發環境專用，支援熱重載和即時同步
-# 🔧 原始使用：docker-compose -f docker-compose.dev.yml up
+# 🎯 用途: 全 Docker 模式（CI/無 Node.js 環境/端口隔離測試）
+# 🔧 啟動: .\scripts\dev\dev-start.ps1 -FullDocker
 # =============================================================================
 
 name: ${COMPOSE_PROJECT_NAME}_dev
