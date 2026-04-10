@@ -1,4 +1,5 @@
 from typing import Optional, List, Tuple
+from datetime import date
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.base_repository import BaseRepository
@@ -119,7 +120,18 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
         ]
 
     async def create_entry(self, ledger: FinanceLedger) -> FinanceLedger:
-        """新增帳本記錄 (flush only — 由呼叫端控制 commit 以確保交易原子性)"""
+        """新增帳本記錄 (flush only — 由呼叫端控制 commit 以確保交易原子性)
+
+        ADR-0013 Phase 2: 若無 ledger_code 則自動生成 FL_{yyyy}_{NNNNN}。
+        所有 record_from_* 入帳路徑均經過此方法，集中注入確保覆蓋率。
+        """
+        if not getattr(ledger, "ledger_code", None):
+            from app.services.case_code_service import CaseCodeService
+            year = (ledger.transaction_date.year
+                    if ledger.transaction_date else date.today().year)
+            code_svc = CaseCodeService(self.db)
+            ledger.ledger_code = await code_svc.generate_ledger_code(year=year)
+
         self.db.add(ledger)
         await self.db.flush()
         await self.db.refresh(ledger)
