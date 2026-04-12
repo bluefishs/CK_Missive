@@ -347,27 +347,31 @@ class WikiCompiler:
 
         compiled = 0
         for row in rows:
-            recent_docs = await self._get_project_recent_docs(row.id, limit=10)
+            all_docs = await self._get_project_all_docs(row.id)
             financial = await self._get_project_financial(row.project_code)
+            dispatches = await self._get_project_dispatches(row.id)
+            agencies = await self._get_project_agencies(row.id)
 
-            description = self._build_project_description(row, recent_docs, financial)
+            description = self._build_project_description_v2(
+                row, all_docs, financial, dispatches, agencies
+            )
 
+            related = [a["name"] for a in agencies[:5]]
             await self.wiki.ingest_entity(
                 name=row.project_name[:80],
                 entity_type="project",
                 description=description,
                 sources=[f"contract_projects #{row.id}, {row.doc_count} docs"],
                 tags=["案件", row.status or "unknown", f"Y{row.year}" if row.year else ""],
+                related_entities=related,
                 confidence="high" if row.doc_count >= 20 else "medium",
             )
             compiled += 1
 
         return {"compiled": compiled}
 
-    async def _get_project_recent_docs(
-        self, project_id: int, limit: int = 10
-    ) -> List[Dict]:
-        """取得案件關聯公文"""
+    async def _get_project_all_docs(self, project_id: int) -> List[Dict]:
+        """取得案件所有關聯公文"""
         from app.extended.models import OfficialDocument
 
         stmt = (
@@ -380,7 +384,6 @@ class WikiCompiler:
             )
             .where(OfficialDocument.contract_project_id == project_id)
             .order_by(desc(OfficialDocument.doc_date))
-            .limit(limit)
         )
         result = await self.db.execute(stmt)
         return [
@@ -393,6 +396,58 @@ class WikiCompiler:
             }
             for r in result.all()
         ]
+
+    async def _get_project_dispatches(self, project_id: int) -> List[Dict]:
+        """取得案件的派工單"""
+        try:
+            from app.extended.models.taoyuan import TaoyuanDispatchOrder
+            stmt = (
+                select(
+                    TaoyuanDispatchOrder.dispatch_no,
+                    TaoyuanDispatchOrder.work_type,
+                    TaoyuanDispatchOrder.status,
+                    TaoyuanDispatchOrder.dispatch_date,
+                )
+                .where(TaoyuanDispatchOrder.contract_project_id == project_id)
+                .order_by(desc(TaoyuanDispatchOrder.dispatch_date))
+            )
+            result = await self.db.execute(stmt)
+            return [
+                {
+                    "dispatch_no": r.dispatch_no,
+                    "work_type": r.work_type or "",
+                    "status": r.status or "",
+                    "date": str(r.dispatch_date) if r.dispatch_date else "",
+                }
+                for r in result.all()
+            ]
+        except Exception:
+            return []
+
+    async def _get_project_agencies(self, project_id: int) -> List[Dict]:
+        """取得案件往來的所有機關 (從公文 sender/receiver 統計)"""
+        from app.extended.models import OfficialDocument, GovernmentAgency
+
+        # sender agencies
+        stmt = (
+            select(
+                GovernmentAgency.agency_name,
+                func.count().label("doc_count"),
+            )
+            .join(OfficialDocument, or_(
+                OfficialDocument.sender_agency_id == GovernmentAgency.id,
+                OfficialDocument.receiver_agency_id == GovernmentAgency.id,
+            ))
+            .where(
+                OfficialDocument.contract_project_id == project_id,
+                GovernmentAgency.is_self.is_(False),
+            )
+            .group_by(GovernmentAgency.agency_name)
+            .order_by(desc("doc_count"))
+            .limit(10)
+        )
+        result = await self.db.execute(stmt)
+        return [{"name": r.agency_name, "doc_count": r.doc_count} for r in result.all()]
 
     async def _get_project_financial(
         self, project_code: Optional[str]
@@ -423,8 +478,10 @@ class WikiCompiler:
             "total_quoted": float(row.total_price) if row.total_price else 0,
         }
 
-    def _build_project_description(self, row, recent_docs, financial) -> str:
-        """建構案件 wiki 描述"""
+    def _build_project_description_v2(
+        self, row, all_docs, financial, dispatches, agencies
+    ) -> str:
+        """建構案件 wiki 描述 (v2 完整版 — 公文全量 + 派工 + 機關 + 財務)"""
         amount_str = (
             f"${row.contract_amount:,.0f}" if row.contract_amount else "(未登錄)"
         )
@@ -434,10 +491,22 @@ class WikiCompiler:
             f"**年度**: {row.year or '(未設定)'}",
             f"**合約金額**: {amount_str}",
             f"**地點**: {row.location or '(未登錄)'}",
-            f"**關聯公文**: {row.doc_count} 件",
+            f"**關聯公文**: {len(all_docs)} 件",
+            f"**派工單**: {len(dispatches)} 筆" if dispatches else "",
             "",
         ]
 
+        # 往來機關
+        if agencies:
+            lines.append("## 往來機關")
+            lines.append("")
+            lines.append("| 機關 | 公文數 |")
+            lines.append("|------|--------|")
+            for a in agencies:
+                lines.append(f"| [[entities/{a['name']}|{a['name']}]] | {a['doc_count']} |")
+            lines.append("")
+
+        # 財務
         if financial:
             lines.append("## 財務摘要")
             lines.append(
@@ -446,16 +515,40 @@ class WikiCompiler:
             )
             lines.append("")
 
-        if recent_docs:
-            lines.append("## 最近公文 (前 10 筆)")
+        # 派工單
+        if dispatches:
+            lines.append(f"## 派工單 ({len(dispatches)} 筆)")
             lines.append("")
-            lines.append("| 日期 | 類別 | 文號 | 主旨 |")
-            lines.append("|------|------|------|------|")
-            for d in recent_docs:
+            lines.append("| 派工單號 | 作業類別 | 狀態 | 日期 |")
+            lines.append("|----------|----------|------|------|")
+            for d in dispatches[:30]:
                 lines.append(
-                    f"| {d['date']} | {d['category']} | {d['doc_number'][:15]} | {d['subject'][:40]} |"
+                    f"| {d['dispatch_no']} | {d['work_type']} | {d['status']} | {d['date']} |"
                 )
+            if len(dispatches) > 30:
+                lines.append(f"| ... | 共 {len(dispatches)} 筆 | | |")
             lines.append("")
+
+        # 公文 — 按月份分組 (完整列表)
+        if all_docs:
+            lines.append(f"## 公文清單 ({len(all_docs)} 件)")
+            lines.append("")
+
+            # 按月份分組
+            by_month: Dict[str, List] = {}
+            for d in all_docs:
+                month = d['date'][:7] if d['date'] else 'unknown'
+                by_month.setdefault(month, []).append(d)
+
+            for month in sorted(by_month.keys(), reverse=True):
+                docs = by_month[month]
+                lines.append(f"### {month} ({len(docs)} 件)")
+                lines.append("")
+                for d in docs:
+                    lines.append(
+                        f"- [{d['category']}] {d['date']} `{d['doc_number'][:20]}` {d['subject'][:50]}"
+                    )
+                lines.append("")
 
         return "\n".join(lines)
 
