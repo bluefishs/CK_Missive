@@ -1,26 +1,45 @@
 """
 公文 → Wiki 結構化編譯器 (ADR-0013 + Karpathy Phase 2 Compile)
 
+v1.1: 增量編譯 — 記錄上次時間戳，只重編有新公文的機關/案件
 v1.0: SQL + Template 結構化編譯（無 LLM 呼叫，即時產出）
-- 按機關編譯：往來公文統計 + 關聯案件 + 時間軸
-- 按案件編譯：案件完整 profile (公文/派工/財務/人員)
-- 按類別編譯：收文/發文年度分佈
 
 後續 v2: 加 LLM narrative summary (Gemma 4 8B)
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-04-13
 """
+import json
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select, func, desc, and_, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.wiki_service import get_wiki_service, WikiService
+from app.services.wiki_service import get_wiki_service, WikiService, WIKI_ROOT
 
 logger = logging.getLogger(__name__)
+
+# 增量編譯 checkpoint
+_CHECKPOINT_FILE = WIKI_ROOT / ".compile_checkpoint.json"
+
+
+def _load_checkpoint() -> dict:
+    if _CHECKPOINT_FILE.exists():
+        try:
+            return json.loads(_CHECKPOINT_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def _save_checkpoint(data: dict):
+    _CHECKPOINT_FILE.write_text(
+        json.dumps(data, default=str, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 class WikiCompiler:
@@ -30,6 +49,89 @@ class WikiCompiler:
         self.db = db
         self.wiki = get_wiki_service()
 
+    async def compile_incremental(self, min_doc_count: int = 5) -> Dict[str, Any]:
+        """增量編譯：只處理上次編譯後有新/更新公文的機關和案件。
+
+        若無 checkpoint (首次) 則退回全量編譯。
+        """
+        from app.extended.models import OfficialDocument
+
+        ckpt = _load_checkpoint()
+        last_ts = ckpt.get("last_full_compile") or ckpt.get("last_incremental")
+        if not last_ts:
+            logger.info("Wiki incremental: no checkpoint, falling back to full compile")
+            return await self.compile_all(min_doc_count)
+
+        since = datetime.fromisoformat(last_ts)
+        logger.info("Wiki incremental since %s", since)
+
+        # 找出有新公文的機關 IDs
+        agency_ids = set()
+        stmt_agencies = (
+            select(OfficialDocument.sender_agency_id, OfficialDocument.receiver_agency_id)
+            .where(OfficialDocument.updated_at > since)
+        )
+        rows = (await self.db.execute(stmt_agencies)).all()
+        for r in rows:
+            if r.sender_agency_id:
+                agency_ids.add(r.sender_agency_id)
+            if r.receiver_agency_id:
+                agency_ids.add(r.receiver_agency_id)
+
+        # 找出有新公文的案件 IDs
+        project_ids = set()
+        stmt_projects = (
+            select(OfficialDocument.contract_project_id)
+            .where(
+                OfficialDocument.updated_at > since,
+                OfficialDocument.contract_project_id.isnot(None),
+            )
+        )
+        p_rows = (await self.db.execute(stmt_projects)).all()
+        for r in p_rows:
+            project_ids.add(r.contract_project_id)
+
+        results = {
+            "mode": "incremental",
+            "since": str(since),
+            "agencies": {"compiled": 0, "affected_ids": list(agency_ids)},
+            "projects": {"compiled": 0, "affected_ids": list(project_ids)},
+        }
+
+        # 重編受影響的機關
+        if agency_ids:
+            result = await self.compile_agencies(
+                min_doc_count, agency_id_filter=agency_ids
+            )
+            results["agencies"]["compiled"] = result["compiled"]
+
+        # 重編受影響的案件
+        if project_ids:
+            result = await self.compile_projects(
+                min_doc_count, project_id_filter=project_ids
+            )
+            results["projects"]["compiled"] = result["compiled"]
+
+        # 總覽 + interest signals 永遠更新
+        results["overview"] = await self.compile_overview()
+        results["interest"] = await self.compile_interest_signals(days=7)
+        await self.wiki.rebuild_index()
+
+        _save_checkpoint({
+            **ckpt,
+            "last_incremental": datetime.now().isoformat(),
+            "last_affected_agencies": len(agency_ids),
+            "last_affected_projects": len(project_ids),
+        })
+
+        logger.info(
+            "Wiki incremental done: %d agencies, %d projects (since %s)",
+            results["agencies"]["compiled"],
+            results["projects"]["compiled"],
+            since,
+        )
+        return results
+
     async def compile_all(self, min_doc_count: int = 5) -> Dict[str, Any]:
         """全量編譯：機關 + 案件 + 總覽"""
         results = {
@@ -38,6 +140,11 @@ class WikiCompiler:
             "overview": await self.compile_overview(),
         }
         await self.wiki.rebuild_index()
+        _save_checkpoint({
+            "last_full_compile": datetime.now().isoformat(),
+            "agencies": results["agencies"]["compiled"],
+            "projects": results["projects"]["compiled"],
+        })
         logger.info(
             "Wiki compile_all done: %d agencies, %d projects",
             results["agencies"]["compiled"],
@@ -49,11 +156,12 @@ class WikiCompiler:
     # 機關編譯
     # =========================================================================
 
-    async def compile_agencies(self, min_doc_count: int = 5) -> Dict[str, Any]:
-        """編譯所有機關的往來 wiki 頁面"""
+    async def compile_agencies(
+        self, min_doc_count: int = 5, agency_id_filter: Optional[set] = None,
+    ) -> Dict[str, Any]:
+        """編譯機關往來 wiki 頁面。agency_id_filter 可限定只編譯���定 IDs (增量模式)。"""
         from app.extended.models import GovernmentAgency, OfficialDocument
 
-        # 查詢有足夠公文的機關
         stmt = (
             select(
                 GovernmentAgency.id,
@@ -82,6 +190,8 @@ class WikiCompiler:
             .having(func.count(OfficialDocument.id) >= min_doc_count)
             .order_by(desc("doc_count"))
         )
+        if agency_id_filter:
+            stmt = stmt.where(GovernmentAgency.id.in_(agency_id_filter))
         result = await self.db.execute(stmt)
         rows = result.all()
 
@@ -204,8 +314,10 @@ class WikiCompiler:
     # 案件編譯
     # =========================================================================
 
-    async def compile_projects(self, min_doc_count: int = 5) -> Dict[str, Any]:
-        """編譯所有案件的完整 profile wiki 頁面"""
+    async def compile_projects(
+        self, min_doc_count: int = 5, project_id_filter: Optional[set] = None,
+    ) -> Dict[str, Any]:
+        """編譯案件 profile wiki 頁面。project_id_filter 可限定只編譯指定 IDs (增量模式)。"""
         from app.extended.models import ContractProject, OfficialDocument
 
         stmt = (
@@ -228,6 +340,8 @@ class WikiCompiler:
             .having(func.count(OfficialDocument.id) >= min_doc_count)
             .order_by(desc("doc_count"))
         )
+        if project_id_filter:
+            stmt = stmt.where(ContractProject.id.in_(project_id_filter))
         result = await self.db.execute(stmt)
         rows = result.all()
 
@@ -437,3 +551,90 @@ confidence: high
             lines.append(f"- **{r.category or '(未分類)'}**: {r.count} 件")
 
         return "\n".join(lines)
+
+    # =========================================================================
+    # Interest Signal — 從 Agent 查詢提取近期關注焦點
+    # =========================================================================
+
+    async def compile_interest_signals(self, days: int = 7) -> Dict[str, Any]:
+        """從 AgentTrace 提取近期高頻查詢主題，寫入 wiki topics 頁面。
+
+        Karpathy insight: 「每次提問都成為知識的一部分」。
+        將使用者關注焦點寫回 wiki，Agent 下次能優先命中。
+        """
+        from app.extended.models.agent_trace import AgentTrace as AgentTraceModel
+        from datetime import timedelta
+
+        cutoff = datetime.now() - timedelta(days=days)
+
+        stmt = (
+            select(AgentTraceModel.question)
+            .where(AgentTraceModel.created_at > cutoff)
+            .order_by(desc(AgentTraceModel.created_at))
+            .limit(100)
+        )
+        result = await self.db.execute(stmt)
+        questions = [r.question for r in result.all() if r.question]
+
+        if not questions:
+            return {"compiled": False, "reason": "no recent queries"}
+
+        # 簡易詞頻 (中文 bigram + 英文 word)
+        import re as _re
+        word_freq: Dict[str, int] = {}
+        stop_words = {"的", "是", "在", "有", "和", "了", "我", "你", "他", "她",
+                      "請", "嗎", "吧", "呢", "啊", "幫", "什麼", "怎麼", "哪些",
+                      "幫我", "查詢", "搜尋", "列出", "整理"}
+        for q in questions:
+            clean = _re.sub(r'[^\u4e00-\u9fff\w]', ' ', q)
+            chars = [c for c in clean if '\u4e00' <= c <= '\u9fff']
+            for i in range(len(chars) - 1):
+                bigram = chars[i] + chars[i + 1]
+                if bigram not in stop_words:
+                    word_freq[bigram] = word_freq.get(bigram, 0) + 1
+            for word in _re.findall(r'[a-zA-Z]{3,}', q):
+                word_freq[word.lower()] = word_freq.get(word.lower(), 0) + 1
+
+        top_terms = sorted(word_freq.items(), key=lambda x: -x[1])[:20]
+        if not top_terms:
+            return {"compiled": False, "reason": "no meaningful terms"}
+
+        lines = [
+            f"**統計期間**: 最近 {days} 天",
+            f"**查詢總數**: {len(questions)} 筆",
+            f"**提取時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "## 高頻關注詞",
+            "",
+            "| 關鍵詞 | 出現次數 |",
+            "|--------|---------|",
+        ]
+        for term, count in top_terms:
+            lines.append(f"| {term} | {count} |")
+        lines.extend(["", "## 最近 10 筆查詢", ""])
+        for q in questions[:10]:
+            lines.append(f"- {q[:80]}")
+
+        slug = "近期關注焦點"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = f"""---
+title: {slug}
+type: topic
+created: {datetime.now().strftime('%Y-%m-%d')}
+sources: [agent_traces, last {days} days]
+tags: [interest, auto-compiled]
+confidence: medium
+---
+
+# {slug}
+
+{chr(10).join(lines)}
+"""
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log("compile", f"topic | {slug} ({len(questions)} queries)")
+
+        return {
+            "compiled": True,
+            "queries_analyzed": len(questions),
+            "top_terms": top_terms[:10],
+        }

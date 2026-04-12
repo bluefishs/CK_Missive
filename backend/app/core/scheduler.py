@@ -551,15 +551,17 @@ async def ledger_reconciliation_job():
 
 @tracked_job("wiki_compile")
 async def wiki_compile_job():
-    """Wiki 公文編譯 — 從 DB 重新編譯機關/案件/總覽 wiki 頁面 (Karpathy Phase 2)"""
+    """Wiki 增量編��� — 只重編有新公文的機關/案件 (Karpathy Phase 2, v1.1 增量)"""
     from app.db.database import async_session_maker
     try:
         async with async_session_maker() as session:
             from app.services.wiki_compiler import WikiCompiler
             compiler = WikiCompiler(session)
-            result = await compiler.compile_all(min_doc_count=5)
+            result = await compiler.compile_incremental(min_doc_count=5)
+            mode = result.get("mode", "full")
             logger.info(
-                "Wiki compile: %d agencies, %d projects",
+                "Wiki compile (%s): agencies=%s, projects=%s",
+                mode,
                 result["agencies"]["compiled"],
                 result["projects"]["compiled"],
             )

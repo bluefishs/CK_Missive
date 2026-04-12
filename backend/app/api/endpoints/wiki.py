@@ -151,15 +151,20 @@ async def wiki_graph():
 @router.post("/compile")
 async def compile_wiki(
     min_doc_count: int = 5,
+    mode: str = "incremental",
     _admin=Depends(require_admin()),
     db: AsyncSession = Depends(get_async_db),
 ):
     """從公文/案件 DB 編譯 wiki 內容 (Admin 限定)
 
-    Karpathy Phase 2 Compile: 讀取原始資料 → 建立/更新 wiki 頁面 + 連結 + 索引。
-    按機關、案件、總覽三維度編譯。min_doc_count 控制最低公文數門檻。
+    Args:
+        min_doc_count: 最低公文數門檻
+        mode: "incremental" (預設，只編譯有新公文的) 或 "full" (全量重編)
     """
     from app.services.wiki_compiler import WikiCompiler
     compiler = WikiCompiler(db)
-    result = await compiler.compile_all(min_doc_count=min_doc_count)
+    if mode == "full":
+        result = await compiler.compile_all(min_doc_count=min_doc_count)
+    else:
+        result = await compiler.compile_incremental(min_doc_count=min_doc_count)
     return {"success": True, "data": result}

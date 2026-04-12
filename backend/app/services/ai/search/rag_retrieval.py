@@ -250,8 +250,30 @@ async def retrieve_chunks(
             from app.services.ai.search.reranker import rerank_documents
             sources = rerank_documents(sources, query_terms)
 
-        # Wiki-RAG 融合: 停用 — wiki 內容未經人工驗證，不自動混入 RAG
-        # Agent 可透過 wiki_search tool 主動查詢 wiki
+        # Wiki-RAG 融合: 啟用 (v1.1 — wiki 內容由 DB 結構化編譯，可信度 high)
+        # 將 wiki 搜尋結果追加到 RAG sources，boost 權重使 wiki 優先
+        try:
+            from app.services.wiki_service import get_wiki_service
+            wiki_svc = get_wiki_service()
+            wiki_query = " ".join(query_terms[:5]) if query_terms else ""
+            if wiki_query and wiki_svc.get_stats().get("total", 0) > 0:
+                wiki_results = await wiki_svc.search_wiki(wiki_query, limit=3)
+                for wr in wiki_results:
+                    if wr.get("score", 0) >= 2:  # 至少 2 個關鍵字命中
+                        content = await wiki_svc.read_page(wr["path"])
+                        if content:
+                            # 截取前 1000 字作為上下文
+                            snippet = content[:1000]
+                            sources.insert(0, {
+                                "document_id": None,
+                                "doc_number": f"[wiki:{wr['path']}]",
+                                "subject": wr.get("title", "Wiki"),
+                                "content": snippet,
+                                "similarity": 0.95,  # 高權重確保排前
+                                "source_type": "wiki",
+                            })
+        except Exception as e:
+            logger.debug("Wiki-RAG fusion skipped: %s", e)
 
         return sources[:top_k]
 
