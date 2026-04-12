@@ -6,13 +6,15 @@
  *
  * @version 1.0.0
  */
-import React from 'react';
-import { Tabs, Typography } from 'antd';
-import { BookOutlined, AuditOutlined, ApartmentOutlined } from '@ant-design/icons';
+import React, { lazy, Suspense } from 'react';
+import { Tabs, Typography, Spin } from 'antd';
+import { BookOutlined, AuditOutlined, ApartmentOutlined, DeploymentUnitOutlined } from '@ant-design/icons';
 
 import { KnowledgeMapTab } from './knowledgeBase/KnowledgeMapTab';
 import { AdrTab } from './knowledgeBase/AdrTab';
 import { DiagramsTab } from './knowledgeBase/DiagramsTab';
+
+const WikiGraphTab = lazy(() => import('./knowledgeBase/WikiGraphTab'));
 
 const KnowledgeBasePage: React.FC = () => {
   return (
@@ -27,6 +29,15 @@ const KnowledgeBasePage: React.FC = () => {
             key: 'map',
             label: <span><BookOutlined /> 知識地圖</span>,
             children: <KnowledgeMapTab />,
+          },
+          {
+            key: 'wiki-graph',
+            label: <span><DeploymentUnitOutlined /> Wiki 圖譜</span>,
+            children: (
+              <Suspense fallback={<Spin style={{ display: 'block', margin: '60px auto' }} />}>
+                <WikiGraphTab />
+              </Suspense>
+            ),
           },
           {
             key: 'adr',

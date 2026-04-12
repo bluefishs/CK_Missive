@@ -135,6 +135,20 @@ export const DISCORD_ENDPOINTS = {
 } as const;
 
 /** 安全網站管理 API 端點 */
+/** LLM Wiki 端點 */
+export const WIKI_ENDPOINTS = {
+  /** Wiki 圖譜 POST /wiki/graph */
+  GRAPH: '/wiki/graph',
+  /** Wiki 統計 POST /wiki/stats */
+  STATS: '/wiki/stats',
+  /** Wiki 健康檢查 POST /wiki/lint */
+  LINT: '/wiki/lint',
+  /** Wiki 搜尋 POST /wiki/search */
+  SEARCH: '/wiki/search',
+  /** Wiki 編譯 POST /wiki/compile */
+  COMPILE: '/wiki/compile',
+} as const;
+
 export const SECURE_SITE_MANAGEMENT_ENDPOINTS = {
   /** CSRF 令牌 POST /secure-site-management/csrf-token */
   CSRF_TOKEN: '/secure-site-management/csrf-token',

@@ -140,6 +140,14 @@ async def wiki_stats():
     return {"success": True, "data": svc.get_stats()}
 
 
+@router.post("/graph")
+async def wiki_graph():
+    """Wiki 頁面圖譜 — nodes + edges，供 force-graph 視覺化"""
+    svc = get_wiki_service()
+    result = await svc.get_graph()
+    return {"success": True, "data": result}
+
+
 @router.post("/compile")
 async def compile_wiki(
     min_doc_count: int = 5,

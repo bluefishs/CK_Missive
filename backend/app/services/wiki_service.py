@@ -296,6 +296,96 @@ tags: {tags or []}
         }
 
     # =========================================================================
+    # Graph — wiki 頁面圖譜 (force-graph 格���)
+    # =========================================================================
+
+    async def get_graph(self) -> Dict[str, Any]:
+        """取得 wiki 頁面圖譜 — nodes + edges，供前端 force-graph 視覺化。
+
+        Node 屬性: id, label, type (entity/topic/source/synthesis), doc_count
+        Edge 屬性: source, target (wiki link 方向)
+        """
+        nodes: List[Dict[str, Any]] = []
+        edges: List[Dict[str, Any]] = []
+        page_meta: Dict[str, Dict[str, Any]] = {}
+
+        # Phase 1: 收集所有頁面 metadata
+        for subdir in ["entities", "topics", "sources", "synthesis"]:
+            dir_path = self.root / subdir
+            if not dir_path.exists():
+                continue
+            for f in dir_path.glob("*.md"):
+                rel_path = f"{subdir}/{f.name}"
+                try:
+                    text = f.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+
+                # 解析 frontmatter
+                title = f.stem
+                entity_type = subdir
+                confidence = "medium"
+                title_m = re.search(r'^title:\s*(.+)$', text, re.MULTILINE)
+                if title_m:
+                    title = title_m.group(1).strip()
+                et_m = re.search(r'^entity_type:\s*(.+)$', text, re.MULTILINE)
+                if et_m:
+                    entity_type = et_m.group(1).strip()
+                conf_m = re.search(r'^confidence:\s*(.+)$', text, re.MULTILINE)
+                if conf_m:
+                    confidence = conf_m.group(1).strip()
+
+                # 統計公文數 (從描述中提取)
+                doc_count = 0
+                dc_m = re.search(r'共\s*(\d+)\s*件', text)
+                if dc_m:
+                    doc_count = int(dc_m.group(1))
+
+                page_meta[rel_path] = {
+                    "title": title[:50],
+                    "type": subdir,
+                    "entity_type": entity_type,
+                    "confidence": confidence,
+                    "doc_count": doc_count,
+                    "content": text,
+                }
+
+        all_paths = set(page_meta.keys())
+
+        # Phase 2: 建構 nodes + edges
+        for path, meta in page_meta.items():
+            nodes.append({
+                "id": path,
+                "label": meta["title"],
+                "type": meta["type"],
+                "entity_type": meta["entity_type"],
+                "confidence": meta["confidence"],
+                "doc_count": meta["doc_count"],
+            })
+
+            # 解析 wiki links
+            links = re.findall(
+                r'\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]', meta["content"]
+            )
+            for link in links:
+                target = link if link.endswith(".md") else f"{link}.md"
+                if target in all_paths and target != path:
+                    edges.append({"source": path, "target": target})
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "stats": {
+                "total_nodes": len(nodes),
+                "total_edges": len(edges),
+                "by_type": {
+                    t: sum(1 for n in nodes if n["type"] == t)
+                    for t in ["entities", "topics", "sources", "synthesis"]
+                },
+            },
+        }
+
+    # =========================================================================
     # Index — 更新索引
     # =========================================================================
 
