@@ -9,7 +9,7 @@
  * @created 2026-04-13
  */
 
-import React, { useCallback, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { Card, Spin, Empty, Row, Col, Statistic, Tag, Space } from 'antd';
 import {
   NodeIndexOutlined,
@@ -63,11 +63,16 @@ const TYPE_COLORS: Record<string, string> = {
   sources: '#fa8c16',
 };
 
-const CONFIDENCE_SIZE: Record<string, number> = {
-  high: 8,
-  medium: 5,
-  low: 3,
-};
+// 節點半徑: log 縮放 + 上下限，避免大節點遮蔽小節點
+const NODE_RADIUS_MIN = 4;
+const NODE_RADIUS_MAX = 16;
+
+function calcRadius(docCount: number): number {
+  if (docCount <= 0) return NODE_RADIUS_MIN;
+  // log10(1)=0, log10(10)=1, log10(100)=2, log10(1000)=3
+  const t = Math.log10(docCount + 1) / 3; // 正規化到 0~1 (假設 max ~1000)
+  return NODE_RADIUS_MIN + (NODE_RADIUS_MAX - NODE_RADIUS_MIN) * Math.min(t, 1);
+}
 
 // ── Component ──
 
@@ -91,7 +96,9 @@ const WikiGraphTab: React.FC = () => {
       nodes: data.nodes.map((n) => ({
         ...n,
         color: TYPE_COLORS[n.entity_type] || TYPE_COLORS[n.type] || '#8c8c8c',
-        val: (n.doc_count || 1) * 0.3 + (CONFIDENCE_SIZE[n.confidence] || 5),
+        _radius: calcRadius(n.doc_count),
+        // val 仍用於 force-graph 的 charge 計算，但用 log 縮放
+        val: calcRadius(n.doc_count) * 2,
       })),
       links: data.edges.map((e) => ({
         source: e.source,
@@ -99,6 +106,23 @@ const WikiGraphTab: React.FC = () => {
       })),
     };
   }, [data]);
+
+  // 碰撞力 — 避免節點重疊
+  useEffect(() => {
+    if (!graphRef.current || graphData.nodes.length === 0) return;
+    const fg = graphRef.current;
+    import('d3-force').then((d3) => {
+      fg.d3Force('collide',
+        d3.forceCollide()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .radius((node: any) => (node._radius || NODE_RADIUS_MIN) + 10)
+          .strength(0.8)
+      );
+      // 加大節點間距
+      fg.d3Force('charge')?.strength(-120);
+      fg.d3ReheatSimulation();
+    }).catch(() => {/* d3-force 已由 react-force-graph 內含 */});
+  }, [graphData]);
 
   const handleNodeClick = useCallback(
     (node: WikiNode) => {
@@ -113,23 +137,44 @@ const WikiGraphTab: React.FC = () => {
   const nodeCanvasObject = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       const label = node.label || '';
-      const fontSize = Math.max(10 / globalScale, 2);
-      const radius = Math.sqrt(node.val || 5) * 1.5;
+      const radius = node._radius || NODE_RADIUS_MIN;
+      const baseColor = node.color || '#8c8c8c';
 
-      // 圓圈
+      // 半透明填充 — 重疊時仍可看到下層
+      ctx.globalAlpha = 0.7;
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
-      ctx.fillStyle = node.color || '#8c8c8c';
+      ctx.fillStyle = baseColor;
       ctx.fill();
 
-      // 標籤 (縮放 > 1.5 才顯示)
-      if (globalScale > 1.2) {
-        ctx.font = `${fontSize}px sans-serif`;
+      // 邊框 — 區分節點邊界
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth = 1.2 / globalScale;
+      ctx.stroke();
+
+      // doc_count 數字 (節點內)
+      if (node.doc_count > 0 && globalScale > 0.8) {
+        const numSize = Math.max(7 / globalScale, 2);
+        ctx.font = `bold ${numSize}px sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = '#333';
-        ctx.fillText(label.slice(0, 20), node.x, node.y + radius + 2);
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(
+          node.doc_count > 999 ? `${Math.round(node.doc_count / 100) / 10}k` : String(node.doc_count),
+          node.x, node.y,
+        );
       }
+
+      // 標籤 (節點下方，任何縮放都顯示但大小自適應)
+      const fontSize = Math.min(Math.max(9 / globalScale, 2.5), 6);
+      ctx.font = `${fontSize}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = '#555';
+      const truncLen = globalScale > 1.5 ? 25 : globalScale > 0.8 ? 12 : 6;
+      const displayLabel = label.length > truncLen ? label.slice(0, truncLen) + '...' : label;
+      ctx.fillText(displayLabel, node.x, node.y + radius + 2);
     },
     [],
   );
@@ -194,16 +239,23 @@ const WikiGraphTab: React.FC = () => {
           graphData={graphData}
           nodeId="id"
           nodeCanvasObject={nodeCanvasObject}
+          nodePointerAreaPaint={(node: any, color, ctx) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            const r = node._radius || NODE_RADIUS_MIN;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, r + 2, 0, 2 * Math.PI);
+            ctx.fill();
+          }}
           onNodeClick={handleNodeClick}
-          linkColor={() => 'rgba(150,150,150,0.4)'}
-          linkWidth={1}
+          linkColor={() => 'rgba(150,150,150,0.35)'}
+          linkWidth={0.8}
           linkDirectionalArrowLength={3}
           linkDirectionalArrowRelPos={0.9}
           width={undefined}
           height={500}
-          cooldownTicks={80}
-          d3AlphaDecay={0.03}
-          d3VelocityDecay={0.3}
+          cooldownTicks={120}
+          d3AlphaDecay={0.02}
+          d3VelocityDecay={0.25}
         />
       </Card>
     </div>
