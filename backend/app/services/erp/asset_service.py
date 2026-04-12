@@ -46,34 +46,41 @@ class AssetService(AuditableServiceMixin):
     async def create_asset(
         self, data: AssetCreateRequest, user_id: Optional[int] = None
     ) -> Asset:
-        """建立資產 (asset_code 為空時自動生成)"""
-        # 自動生成 asset_code (ADR-0013 Phase 1)
-        if not data.asset_code:
-            from datetime import date as _date
-            from app.services.case_code_service import CaseCodeService
-            code_svc = CaseCodeService(self.db)
-            data.asset_code = await code_svc.generate_asset_code(
-                year=_date.today().year,
-                category=data.category or "equipment",
-            )
+        """建立資產 (asset_code 為空時自動生成 + 併發 retry)"""
+        from datetime import date as _date
+        from app.services.case_code_service import CaseCodeService
+        from app.services.coding_helpers import retry_on_code_conflict
 
-        # Check duplicate code
-        if await self.repo.check_code_exists(data.asset_code):
-            raise ValueError(f"資產編號 {data.asset_code} 已存在")
+        user_provided_code = bool(data.asset_code)
 
-        asset_data = data.model_dump()
-        # Map schema field to ORM column
-        if "asset_model" in asset_data:
-            asset_data["model"] = asset_data.pop("asset_model")
-        if data.current_value is None:
-            asset_data["current_value"] = data.purchase_amount
-        asset_data["created_by"] = user_id
+        # 使用者手動輸入代碼 → 維持原邏輯 (先檢查，避免覆寫使用者意圖)
+        if user_provided_code:
+            if await self.repo.check_code_exists(data.asset_code):
+                raise ValueError(f"資產編號 {data.asset_code} 已存在")
 
-        asset = await self.repo.create_asset(asset_data)
+        async def _create_op() -> Asset:
+            if not user_provided_code:
+                code_svc = CaseCodeService(self.db)
+                data.asset_code = await code_svc.generate_asset_code(
+                    year=_date.today().year,
+                    category=data.category or "equipment",
+                )
+
+            asset_data = data.model_dump()
+            if "asset_model" in asset_data:
+                asset_data["model"] = asset_data.pop("asset_model")
+            if data.current_value is None:
+                asset_data["current_value"] = data.purchase_amount
+            asset_data["created_by"] = user_id
+
+            asset = await self.repo.create_asset(asset_data)
+            await self.audit_create(asset.id, asset_data, user_id=user_id)
+            return asset
+
+        asset = await retry_on_code_conflict(
+            self.db, _create_op, unique_field="asset_code"
+        )
         await self.db.commit()
-
-        await self.audit_create(asset.id, asset_data, user_id=user_id)
-
         return asset
 
     async def update_asset(

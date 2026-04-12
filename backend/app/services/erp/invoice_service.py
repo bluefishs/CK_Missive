@@ -28,19 +28,27 @@ class ERPInvoiceService(AuditableServiceMixin):
         self.repo = ERPInvoiceRepository(db)
 
     async def create(self, data: ERPInvoiceCreate) -> ERPInvoiceResponse:
-        """建立發票 (ADR-0013 Phase 2: 自動生成 invoice_ref)"""
-        dump = data.model_dump()
+        """建立發票 (ADR-0013 Phase 2: 自動生成 invoice_ref + 併發 retry)
 
-        # 自動生成 invoice_ref (系統內部參照，不是法定統一發票號碼)
-        if not dump.get("invoice_ref"):
-            from app.services.case_code_service import CaseCodeService
-            code_svc = CaseCodeService(self.db)
-            dump["invoice_ref"] = await code_svc.generate_invoice_ref(
-                year=datetime.now().year
-            )
+        invoice_ref 為系統內部參照碼，非法定統一發票號碼 (invoice_number)。
+        """
+        from app.services.case_code_service import CaseCodeService
+        from app.services.coding_helpers import retry_on_code_conflict
 
-        invoice = await self.repo.create(dump)
-        await self.audit_create(invoice.id, dump)
+        async def _create_op():
+            dump = data.model_dump()
+            if not dump.get("invoice_ref"):
+                code_svc = CaseCodeService(self.db)
+                dump["invoice_ref"] = await code_svc.generate_invoice_ref(
+                    year=datetime.now().year
+                )
+            invoice = await self.repo.create(dump)
+            await self.audit_create(invoice.id, dump)
+            return invoice
+
+        invoice = await retry_on_code_conflict(
+            self.db, _create_op, unique_field="invoice_ref"
+        )
         return ERPInvoiceResponse.model_validate(invoice)
 
     async def get_by_quotation(self, quotation_id: int) -> List[ERPInvoiceResponse]:

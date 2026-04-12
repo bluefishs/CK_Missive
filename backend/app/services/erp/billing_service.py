@@ -32,20 +32,25 @@ class ERPBillingService(AuditableServiceMixin):
         self.ledger_service = FinanceLedgerService(db)
 
     async def create(self, data: ERPBillingCreate) -> ERPBillingResponse:
-        """建立請款 (ADR-0013 Phase 2: 自動生成 billing_code)"""
-        dump = data.model_dump()
+        """建立請款 (ADR-0013 Phase 2: 自動生成 billing_code + 併發 retry)"""
+        from datetime import datetime
+        from app.services.case_code_service import CaseCodeService
+        from app.services.coding_helpers import retry_on_code_conflict
 
-        # 自動生成 billing_code (若呼叫端未提供)
-        if not dump.get("billing_code"):
-            from datetime import datetime
-            from app.services.case_code_service import CaseCodeService
-            code_svc = CaseCodeService(self.db)
-            dump["billing_code"] = await code_svc.generate_billing_code(
-                year=datetime.now().year
-            )
+        async def _create_op() -> ERPBilling:
+            dump = data.model_dump()
+            if not dump.get("billing_code"):
+                code_svc = CaseCodeService(self.db)
+                dump["billing_code"] = await code_svc.generate_billing_code(
+                    year=datetime.now().year
+                )
+            billing = await self.repo.create(dump)
+            await self.audit_create(billing.id, dump)
+            return billing
 
-        billing = await self.repo.create(dump)
-        await self.audit_create(billing.id, dump)
+        billing = await retry_on_code_conflict(
+            self.db, _create_op, unique_field="billing_code"
+        )
         return ERPBillingResponse.model_validate(billing)
 
     async def get_by_quotation(self, quotation_id: int) -> List[ERPBillingResponse]:

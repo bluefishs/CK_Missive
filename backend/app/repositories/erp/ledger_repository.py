@@ -124,18 +124,26 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
 
         ADR-0013 Phase 2: 若無 ledger_code 則自動生成 FL_{yyyy}_{NNNNN}。
         所有 record_from_* 入帳路徑均經過此方法，集中注入確保覆蓋率。
+        使用 savepoint + retry 處理併發 unique constraint 衝突。
         """
-        if not getattr(ledger, "ledger_code", None):
-            from app.services.case_code_service import CaseCodeService
-            year = (ledger.transaction_date.year
-                    if ledger.transaction_date else date.today().year)
-            code_svc = CaseCodeService(self.db)
-            ledger.ledger_code = await code_svc.generate_ledger_code(year=year)
+        from app.services.coding_helpers import retry_on_code_conflict
 
-        self.db.add(ledger)
-        await self.db.flush()
-        await self.db.refresh(ledger)
-        return ledger
+        async def _add_and_flush() -> FinanceLedger:
+            if not getattr(ledger, "ledger_code", None):
+                from app.services.case_code_service import CaseCodeService
+                year = (ledger.transaction_date.year
+                        if ledger.transaction_date else date.today().year)
+                code_svc = CaseCodeService(self.db)
+                ledger.ledger_code = await code_svc.generate_ledger_code(year=year)
+
+            self.db.add(ledger)
+            await self.db.flush()
+            await self.db.refresh(ledger)
+            return ledger
+
+        return await retry_on_code_conflict(
+            self.db, _add_and_flush, unique_field="ledger_code"
+        )
 
     async def delete_entry(self, ledger: FinanceLedger) -> bool:
         """刪除帳本記錄"""
