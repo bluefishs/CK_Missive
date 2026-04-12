@@ -8,7 +8,9 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.core.dependencies import require_admin, get_async_db
 from app.services.wiki_service import get_wiki_service
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/wiki", tags=["wiki"])
 
@@ -136,3 +138,20 @@ async def wiki_stats():
     """Wiki 統計"""
     svc = get_wiki_service()
     return {"success": True, "data": svc.get_stats()}
+
+
+@router.post("/compile")
+async def compile_wiki(
+    min_doc_count: int = 5,
+    _admin=Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """從公文/案件 DB 編譯 wiki 內容 (Admin 限定)
+
+    Karpathy Phase 2 Compile: 讀取原始資料 → 建立/更新 wiki 頁面 + 連結 + 索引。
+    按機關、案件、總覽三維度編譯。min_doc_count 控制最低公文數門檻。
+    """
+    from app.services.wiki_compiler import WikiCompiler
+    compiler = WikiCompiler(db)
+    result = await compiler.compile_all(min_doc_count=min_doc_count)
+    return {"success": True, "data": result}

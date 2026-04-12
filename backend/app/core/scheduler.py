@@ -549,6 +549,24 @@ async def ledger_reconciliation_job():
         logger.error(f"帳本對帳失敗: {e}", exc_info=True)
 
 
+@tracked_job("wiki_compile")
+async def wiki_compile_job():
+    """Wiki 公文編譯 — 從 DB 重新編譯機關/案件/總覽 wiki 頁面 (Karpathy Phase 2)"""
+    from app.db.database import async_session_maker
+    try:
+        async with async_session_maker() as session:
+            from app.services.wiki_compiler import WikiCompiler
+            compiler = WikiCompiler(session)
+            result = await compiler.compile_all(min_doc_count=5)
+            logger.info(
+                "Wiki compile: %d agencies, %d projects",
+                result["agencies"]["compiled"],
+                result["projects"]["compiled"],
+            )
+    except Exception as e:
+        logger.error("Wiki compile failed: %s", e, exc_info=True)
+
+
 @tracked_job("wiki_lint")
 async def wiki_lint_job():
     """Wiki 健康檢查 — 偵測孤立頁面、斷裂連結"""
@@ -902,8 +920,29 @@ def setup_scheduler(
     )
     logger.info("已添加健康檢查 Telegram 推播: 每 5 分鐘")
 
-    # Wiki lint: 停用排程 — wiki 有實質內容後再啟用
-    # 可透過 POST /wiki/lint 手動觸發
+    # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
+    scheduler.add_job(
+        wiki_lint_job,
+        trigger=CronTrigger(hour=5, minute=30),
+        id='wiki_lint',
+        name='Wiki 健康檢查 (每日 05:30)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Wiki lint: 每日 05:30")
+
+    # Wiki compile — 每週一 05:00 重新編譯公文→wiki (Phase 2 Compile)
+    scheduler.add_job(
+        wiki_compile_job,
+        trigger=CronTrigger(day_of_week='mon', hour=5, minute=0),
+        id='wiki_compile',
+        name='Wiki 公文編譯 (每週一 05:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Wiki compile: 每週一 05:00")
 
     return scheduler
 
