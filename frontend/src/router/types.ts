@@ -104,6 +104,8 @@ export const ROUTES = {
   TAOYUAN_WORKFLOW_EDIT: '/taoyuan/dispatch/:dispatchId/workflow/:recordId/edit',
   // 知識庫瀏覽器
   KNOWLEDGE_BASE: '/admin/knowledge-base',
+  // LLM Wiki
+  WIKI: '/ai/wiki',
   // 專案管理 (PM)
   PM_CASES: '/pm/cases',
   PM_CASE_DETAIL: '/pm/cases/:id',
@@ -351,6 +353,12 @@ export const ROUTE_META = {
     title: 'Skills 能力圖譜',
     description: '視覺化 Skills/Agents/Tools 能力關聯圖譜',
     icon: 'NodeIndexOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.WIKI]: {
+    title: 'LLM Wiki',
+    description: '公文知識 Wiki — 圖譜瀏覽、搜尋、編譯',
+    icon: 'BookOutlined',
     requireAuth: true,
   },
   [ROUTES.CODE_WIKI]: {

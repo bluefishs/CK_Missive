@@ -698,6 +698,11 @@ DEFAULT_NAVIGATION_ITEMS = [
      "icon": "BookOutlined", "sort_order": 6, "level": 2,
      "parent_key": "Knowledge Map", "description": "知識庫,瀏覽器,ADR,架構圖", "permission_required": "[\"admin:settings\"]"},
 
+    # LLM Wiki
+    {"title": "LLM Wiki", "key": "llm-wiki", "path": "/ai/wiki",
+     "icon": "BookOutlined", "sort_order": 7, "level": 2,
+     "parent_key": "Knowledge Map", "description": "LLM Wiki,知識編譯,公文wiki,圖譜", "permission_required": "[]"},
+
     # =========================================================================
     # AI Agents 群組子項目 (Agent/分身類)
     # DB parent: "AI Agents" (id=72, under system)
