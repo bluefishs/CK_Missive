@@ -15,6 +15,13 @@ import {
   Typography, Tabs, Card, Spin, Button, Input, List, Tag, Space,
   Row, Col, Statistic, App, Empty, Descriptions, Result,
 } from 'antd';
+
+// Tabs content panel 需佔滿 flex 剩餘空間 (圖譜全版面)
+const TABS_FLEX_CSS = `
+.wiki-tabs .ant-tabs-content-holder { flex: 1; overflow: hidden; display: flex; }
+.wiki-tabs .ant-tabs-content { flex: 1; overflow: hidden; }
+.wiki-tabs .ant-tabs-tabpane-active { height: 100%; overflow: hidden; }
+`;
 import {
   DeploymentUnitOutlined, SearchOutlined, SettingOutlined,
   SyncOutlined, FileTextOutlined, BranchesOutlined,
@@ -345,13 +352,32 @@ const CoverageTab: React.FC = () => {
 // ── Main Page ──
 
 const WikiPage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('graph');
+  const isGraphTab = activeTab === 'graph';
+
   return (
-    <div style={{ padding: '0 4px' }}>
-      <Typography.Title level={4} style={{ marginBottom: 16 }}>
-        LLM Wiki
-      </Typography.Title>
+    <div style={{
+      // 圖譜 tab: 去除 padding 最大化空間; 其他 tab: 正常 padding
+      padding: isGraphTab ? '0' : '0 4px',
+      // 外容器佔滿 Layout Content 高度
+      height: 'calc(100vh - 88px)', // 64px header + 24px content padding
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+      {/* 非圖譜 tab 顯示標題 */}
+      {!isGraphTab && (
+        <Typography.Title level={4} style={{ marginBottom: 12, padding: '0 4px', flex: '0 0 auto' }}>
+          LLM Wiki
+        </Typography.Title>
+      )}
+      <style>{TABS_FLEX_CSS}</style>
       <Tabs
-        defaultActiveKey="graph"
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        className="wiki-tabs"
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        tabBarStyle={{ margin: 0, flex: '0 0 auto' }}
         items={[
           {
             key: 'graph',

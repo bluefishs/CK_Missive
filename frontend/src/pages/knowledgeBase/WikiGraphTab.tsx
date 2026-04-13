@@ -13,7 +13,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react';
-import { Spin, Empty, Row, Col, Statistic, Tag, Space, Tooltip, Button } from 'antd';
+import { Spin, Empty, Row, Col, Tag, Space, Tooltip, Button } from 'antd';
 import {
   LinkOutlined,
   FileTextOutlined,
@@ -248,13 +248,17 @@ const WikiGraphTab: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 220px)', minHeight: 400 }}>
-      {/* 頂部統計列 */}
-      <Row gutter={8} style={{ marginBottom: 8, flex: '0 0 auto' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      height: '100%',  // 填滿 Tabs content (由 WikiPage flex 控制)
+      overflow: 'hidden',
+    }}>
+      {/* 頂部統計列 — 壓縮單行 */}
+      <Row gutter={8} style={{ marginBottom: 4, flex: '0 0 auto', padding: '4px 8px' }}>
         <Col flex="auto">
-          <Space size="middle">
-            <Statistic title="頁面" value={data.stats.total_nodes} prefix={<FileTextOutlined />} valueStyle={{ fontSize: 16 }} />
-            <Statistic title="連結" value={data.stats.total_edges} prefix={<LinkOutlined />} valueStyle={{ fontSize: 16 }} />
+          <Space size="small" wrap={false}>
+            <span style={{ fontSize: 12, color: '#888' }}><FileTextOutlined /> {data.stats.total_nodes} 頁</span>
+            <span style={{ fontSize: 12, color: '#888' }}><LinkOutlined /> {data.stats.total_edges} 連結</span>
             {Object.entries(data.stats.by_type)
               .filter(([, v]) => v > 0)
               .map(([k, v]) => (
