@@ -43,6 +43,7 @@ class ERPTriggerScanner:
         alerts.extend(await self.check_invoice_reminder())
         alerts.extend(await self.check_vendor_payment_milestones())
         alerts.extend(await self.check_amount_mismatch())
+        alerts.extend(await self.check_monthly_trend_anomaly())
 
         # 預算/收據 (委派)
         from app.services.ai.proactive.proactive_triggers_finance import (
@@ -364,4 +365,38 @@ class ERPTriggerScanner:
                         metadata={"case_code": case_code, "billed": billing_total, "payable": payable_total},
                     ))
 
+        return alerts
+
+    async def check_monthly_trend_anomaly(self) -> List[TriggerAlert]:
+        """月度趨勢異常：本月支出 vs 前 3 月均值偏離 > 50%"""
+        from app.extended.models.finance import FinanceLedger
+        from sqlalchemy import func as sqlfunc
+        from datetime import date, timedelta
+
+        alerts: List[TriggerAlert] = []
+        today = date.today()
+        month_start = today.replace(day=1)
+
+        current = float((await self.db.execute(
+            select(sqlfunc.coalesce(sqlfunc.sum(FinanceLedger.amount), 0))
+            .where(FinanceLedger.entry_type == "expense", FinanceLedger.transaction_date >= month_start)
+        )).scalar() or 0)
+
+        ago = (month_start - timedelta(days=90)).replace(day=1)
+        prev = float((await self.db.execute(
+            select(sqlfunc.coalesce(sqlfunc.sum(FinanceLedger.amount), 0))
+            .where(FinanceLedger.entry_type == "expense", FinanceLedger.transaction_date >= ago, FinanceLedger.transaction_date < month_start)
+        )).scalar() or 0)
+
+        if prev > 0:
+            avg = prev / 3
+            if avg > 0 and current > avg * 1.5:
+                pct = (current / avg - 1) * 100
+                alerts.append(TriggerAlert(
+                    alert_type="monthly_expense_spike", severity="warning",
+                    title=f"本月支出異常 +{pct:.0f}%",
+                    message=f"本月支出 {current:,.0f} vs 前 3 月均值 {avg:,.0f} (+{pct:.0f}%)",
+                    entity_type="finance", entity_id=0,
+                    metadata={"current": current, "avg_3m": avg, "pct": round(pct, 1)},
+                ))
         return alerts

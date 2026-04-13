@@ -49,6 +49,36 @@ class WikiCompiler:
         self.db = db
         self.wiki = get_wiki_service()
         self._kg_cache: Dict[str, Optional[int]] = {}
+        self._pre_snapshot: Dict[str, int] = {}  # path → file_size
+
+    def _snapshot_pages(self) -> Dict[str, int]:
+        """快照所有 wiki 頁面 (path → 檔案大小)"""
+        snap: Dict[str, int] = {}
+        for subdir in ["entities", "topics", "sources", "synthesis"]:
+            d = self.wiki.root / subdir
+            if not d.exists():
+                continue
+            for f in d.glob("*.md"):
+                snap[f"{subdir}/{f.name}"] = f.stat().st_size
+        return snap
+
+    def _compute_diff(self, before: Dict[str, int], after: Dict[str, int]) -> Dict[str, Any]:
+        """比對前後快照，產出 diff 摘要"""
+        b_set, a_set = set(before.keys()), set(after.keys())
+        added = sorted(a_set - b_set)
+        removed = sorted(b_set - a_set)
+        updated = sorted(
+            p for p in (b_set & a_set) if before[p] != after[p]
+        )
+        return {
+            "added": len(added),
+            "updated": len(updated),
+            "removed": len(removed),
+            "unchanged": len(b_set & a_set) - len(updated),
+            "added_pages": added[:20],
+            "updated_pages": updated[:20],
+            "removed_pages": removed[:10],
+        }
 
     async def _lookup_kg_id(self, name: str) -> Optional[int]:
         """查詢 KG canonical_entity ID (exact → LIKE fallback，帶快取)"""
@@ -134,6 +164,8 @@ class WikiCompiler:
         for r in p_rows:
             project_ids.add(r.contract_project_id)
 
+        before = self._snapshot_pages()
+
         results = {
             "mode": "incremental",
             "since": str(since),
@@ -160,38 +192,52 @@ class WikiCompiler:
         results["interest"] = await self.compile_interest_signals(days=7)
         await self.wiki.rebuild_index()
 
+        after = self._snapshot_pages()
+        diff = self._compute_diff(before, after)
+        results["diff"] = diff
+
         _save_checkpoint({
             **ckpt,
             "last_incremental": datetime.now().isoformat(),
             "last_affected_agencies": len(agency_ids),
             "last_affected_projects": len(project_ids),
+            "diff": diff,
         })
 
         logger.info(
-            "Wiki incremental done: %d agencies, %d projects (since %s)",
+            "Wiki incremental: %d agencies, %d projects (since %s) | diff: +%d ~%d -%d",
             results["agencies"]["compiled"],
             results["projects"]["compiled"],
-            since,
+            since, diff["added"], diff["updated"], diff["removed"],
         )
         return results
 
     async def compile_all(self, min_doc_count: int = 5) -> Dict[str, Any]:
-        """全量編譯：機關 + 案件 + 總覽"""
+        """全量編譯：機關 + 案件 + 總覽 + diff"""
+        before = self._snapshot_pages()
+
         results = {
             "agencies": await self.compile_agencies(min_doc_count),
             "projects": await self.compile_projects(min_doc_count),
             "overview": await self.compile_overview(),
         }
         await self.wiki.rebuild_index()
+
+        after = self._snapshot_pages()
+        diff = self._compute_diff(before, after)
+        results["diff"] = diff
+
         _save_checkpoint({
             "last_full_compile": datetime.now().isoformat(),
             "agencies": results["agencies"]["compiled"],
             "projects": results["projects"]["compiled"],
+            "diff": diff,
         })
         logger.info(
-            "Wiki compile_all done: %d agencies, %d projects",
+            "Wiki compile_all: %d agencies, %d projects | diff: +%d ~%d -%d",
             results["agencies"]["compiled"],
             results["projects"]["compiled"],
+            diff["added"], diff["updated"], diff["removed"],
         )
         return results
 

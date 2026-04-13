@@ -311,6 +311,9 @@ const AdminTab: React.FC = () => {
 
       {/* 排程器狀態 */}
       <SchedulerPanel />
+
+      {/* Token 用量 */}
+      <TokenUsagePanel />
     </div>
   );
 };
@@ -381,6 +384,63 @@ const SchedulerPanel: React.FC = () => {
           </tbody>
         </table>
       </div>
+    </Card>
+  );
+};
+
+// ── Token Usage Panel ──
+
+interface TokenProvider {
+  provider: string;
+  total_input: number;
+  total_output: number;
+  total_cost_usd: number;
+  request_count: number;
+}
+
+const TokenUsagePanel: React.FC = () => {
+  const { data } = useQuery<{ providers: TokenProvider[]; daily_total: { input: number; output: number; cost: number } }>({
+    queryKey: ['token-usage'],
+    queryFn: async () => {
+      const resp = await apiClient.post<{ success: boolean; data: any }>( // eslint-disable-line @typescript-eslint/no-explicit-any
+        '/ai/stats/token-usage', {},
+      );
+      return resp.data;
+    },
+    staleTime: 60_000,
+  });
+
+  if (!data?.providers || data.providers.length === 0) return null;
+
+  return (
+    <Card title="Token 用量 (今日)" size="small" style={{ marginTop: 16 }}>
+      <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #f0f0f0', textAlign: 'left' }}>
+            <th style={{ padding: 4 }}>Provider</th>
+            <th style={{ padding: 4 }}>Input</th>
+            <th style={{ padding: 4 }}>Output</th>
+            <th style={{ padding: 4 }}>Requests</th>
+            <th style={{ padding: 4 }}>Cost (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.providers.map((p) => (
+            <tr key={p.provider} style={{ borderBottom: '1px solid #f5f5f5' }}>
+              <td style={{ padding: 4 }}><Tag>{p.provider}</Tag></td>
+              <td style={{ padding: 4 }}>{p.total_input.toLocaleString()}</td>
+              <td style={{ padding: 4 }}>{p.total_output.toLocaleString()}</td>
+              <td style={{ padding: 4 }}>{p.request_count}</td>
+              <td style={{ padding: 4 }}>${p.total_cost_usd.toFixed(4)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {data.daily_total && (
+        <div style={{ marginTop: 8, fontSize: 12, color: '#888' }}>
+          今日合計: {data.daily_total.input.toLocaleString()} input + {data.daily_total.output.toLocaleString()} output = ${data.daily_total.cost.toFixed(4)} USD
+        </div>
+      )}
     </Card>
   );
 };
