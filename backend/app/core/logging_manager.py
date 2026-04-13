@@ -121,13 +121,26 @@ class SystemLogManager:
 
         # 避免重複添加handler
         if not logger.handlers:
-            # 文件處理器 — RotatingFileHandler 自動輪替
+            # 文件處理器 — RotatingFileHandler + Windows safe rotation
             file_handler = logging.handlers.RotatingFileHandler(
                 self.log_dir / filename,
                 maxBytes=self.max_file_size,
                 backupCount=self.backup_count,
                 encoding='utf-8',
             )
+            # Windows PermissionError 防護: doRollover 時檔案可能被鎖
+            _original_rotate = file_handler.rotate
+            def _safe_rotate(source, dest):
+                import time as _time
+                for attempt in range(3):
+                    try:
+                        _original_rotate(source, dest)
+                        return
+                    except PermissionError:
+                        if attempt < 2:
+                            _time.sleep(0.1 * (attempt + 1))
+                # 最終放棄 rotation，繼續寫入當前檔案（不中斷服務）
+            file_handler.rotate = _safe_rotate
             file_handler.setLevel(logging.DEBUG)
             
             # 控制台處理器（僅錯誤級別）

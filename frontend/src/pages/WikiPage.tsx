@@ -61,9 +61,28 @@ interface WikiLintResult {
 
 // ── Browse Tab ──
 
+const MarkdownRenderer = lazy(() => import('../components/common/MarkdownRenderer'));
+
 const BrowseTab: React.FC = () => {
   const [search, setSearch] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedPage, setExpandedPage] = useState<string | null>(null);
+
+  // 載入展開頁面的內容
+  const { data: pageContent } = useQuery<string>({
+    queryKey: ['wiki-page', expandedPage],
+    queryFn: async () => {
+      if (!expandedPage) return '';
+      const resp = await apiClient.post<{ success: boolean; data: { content: string } }>(
+        '/wiki/page', null, { params: { page_path: expandedPage } },
+      );
+      // 去除 frontmatter
+      const raw = resp.data?.content || '';
+      return raw.replace(/^---[\s\S]*?---\n*/m, '');
+    },
+    enabled: !!expandedPage,
+    staleTime: 60_000,
+  });
 
   const { data: results, isLoading } = useQuery<WikiSearchResult[]>({
     queryKey: ['wiki-search', searchTerm],
@@ -120,8 +139,13 @@ const BrowseTab: React.FC = () => {
       {results && results.length > 0 && (
         <List
           dataSource={results}
-          renderItem={(item) => (
-            <List.Item>
+          renderItem={(item) => {
+            const isExpanded = expandedPage === item.path;
+            return (
+            <List.Item
+              style={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'stretch' }}
+              onClick={() => setExpandedPage(isExpanded ? null : item.path)}
+            >
               <List.Item.Meta
                 title={
                   <Space>
@@ -130,12 +154,28 @@ const BrowseTab: React.FC = () => {
                     </Tag>
                     {item.title}
                     <Tag>{item.score} hits</Tag>
+                    {isExpanded && <Tag color="green">展開中</Tag>}
                   </Space>
                 }
-                description={item.snippet || item.path}
+                description={isExpanded ? null : (item.snippet || item.path)}
               />
+              {isExpanded && (
+                <div style={{
+                  marginTop: 12, padding: 16, background: '#fafafa',
+                  borderRadius: 6, maxHeight: 500, overflow: 'auto', width: '100%',
+                }}>
+                  {pageContent ? (
+                    <Suspense fallback={<Spin size="small" />}>
+                      <MarkdownRenderer content={pageContent} />
+                    </Suspense>
+                  ) : (
+                    <Spin size="small" />
+                  )}
+                </div>
+              )}
             </List.Item>
-          )}
+            );
+          }}
         />
       )}
 

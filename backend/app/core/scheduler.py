@@ -549,6 +549,66 @@ async def ledger_reconciliation_job():
         logger.error(f"帳本對帳失敗: {e}", exc_info=True)
 
 
+@tracked_job("monthly_arch_review")
+async def monthly_architecture_review_job():
+    """月度架構覆盤 — ADR 狀態盤點 + Wiki/KG 健康 + 知識地圖重建提醒"""
+    from app.db.database import async_session_maker
+    try:
+        report_lines = ["[月度架構覆盤]"]
+
+        # 1. ADR 狀態盤點
+        import glob
+        adr_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "docs", "adr")
+        proposed = []
+        for f in sorted(glob.glob(os.path.join(adr_dir, "*.md"))):
+            try:
+                with open(f, encoding="utf-8") as fp:
+                    head = fp.read(500)
+                if "proposed" in head.lower():
+                    proposed.append(os.path.basename(f))
+            except Exception:
+                pass
+        report_lines.append(f"ADR: {len(proposed)} proposed — {', '.join(proposed) if proposed else 'all resolved'}")
+
+        # 2. Wiki 健康
+        from app.services.wiki_service import get_wiki_service
+        wiki = get_wiki_service()
+        lint = await wiki.lint()
+        stats = wiki.get_stats()
+        report_lines.append(
+            f"Wiki: {stats.get('total', 0)} pages, {lint['health']}, "
+            f"{len(lint['orphan_pages'])} orphans, {len(lint['broken_links'])} broken"
+        )
+
+        # 3. KG 統計
+        async with async_session_maker() as session:
+            from sqlalchemy import select, func
+            from app.extended.models.knowledge_graph import CanonicalEntity
+            kg_count = await session.scalar(
+                select(func.count()).where(CanonicalEntity.graph_domain == "knowledge")
+            ) or 0
+            report_lines.append(f"KG: {kg_count} entities (knowledge domain)")
+
+        # 4. 測試提醒
+        report_lines.append("Action: 檢查 MEMORY.md 鮮度 + 知識地圖 --if-stale")
+
+        report = "\n".join(report_lines)
+        logger.info(report)
+
+        # Telegram 推播
+        try:
+            from app.services.telegram_bot_service import get_telegram_bot_service
+            tg = get_telegram_bot_service()
+            if tg.enabled:
+                admin_chat = int(os.getenv("TELEGRAM_ADMIN_CHAT_ID", "0"))
+                if admin_chat:
+                    await tg.push_message(admin_chat, report)
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error("Monthly arch review failed: %s", e, exc_info=True)
+
+
 @tracked_job("wiki_compile")
 async def wiki_compile_job():
     """Wiki 增量編��� — 只重編有新公文的機關/案件 (Karpathy Phase 2, v1.1 增量)"""
@@ -945,6 +1005,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 Wiki compile: 每週一 05:00")
+
+    # 月度架構覆盤 — 每月 1 日 06:00
+    scheduler.add_job(
+        monthly_architecture_review_job,
+        trigger=CronTrigger(day=1, hour=6, minute=0),
+        id='monthly_arch_review',
+        name='月度架構覆盤 (每月1日 06:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加月度架構覆盤: 每月 1 日 06:00")
 
     return scheduler
 
