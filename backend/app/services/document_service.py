@@ -168,35 +168,34 @@ class DocumentService(AuditableServiceMixin):
             分頁結果字典
         """
         try:
-            query = select(Document)
+            # 基礎查詢 (不含 selectinload — count 不需要)
+            base_query = select(Document)
 
-            # N+1 查詢優化：預載入關聯資料
+            # 🔒 RLS
+            if current_user is not None:
+                user_id, is_admin, is_superuser = RLSFilter.get_user_rls_flags(current_user)
+                base_query = RLSFilter.apply_document_rls(
+                    base_query, Document, user_id, is_admin, is_superuser
+                )
+
+            if filters:
+                base_query = self._apply_filters(base_query, filters)
+
+            # COUNT — 用輕量 subquery (不含 selectinload)
+            count_query = select(func.count()).select_from(base_query.subquery())
+            total = (await self.db.execute(count_query)).scalar_one()
+
+            # 主查詢 — 加 selectinload
+            data_query = base_query
             if include_relations:
-                query = query.options(
+                data_query = data_query.options(
                     selectinload(Document.contract_project),
                     selectinload(Document.sender_agency),
                     selectinload(Document.receiver_agency),
                 )
 
-            # ================================================================
-            # 🔒 行級別權限過濾 (Row-Level Security) - 使用統一 RLSFilter
-            # ================================================================
-            if current_user is not None:
-                user_id, is_admin, is_superuser = RLSFilter.get_user_rls_flags(current_user)
-                query = RLSFilter.apply_document_rls(
-                    query, Document, user_id, is_admin, is_superuser
-                )
-
-            if filters:
-                query = self._apply_filters(query, filters)
-
-            # 計算總數
-            count_query = select(func.count()).select_from(query.subquery())
-            total = (await self.db.execute(count_query)).scalar_one()
-
-            # 預設按公文日期降冪排序（最新日期在最上方），日期相同時按 id 降冪
             result = await self.db.execute(
-                query.order_by(
+                data_query.order_by(
                     Document.doc_date.desc().nullslast(),
                     Document.id.desc()
                 ).offset(skip).limit(limit)

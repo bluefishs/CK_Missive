@@ -113,7 +113,8 @@ async def list_documents(
         items = result.get("items", [])
         total = result.get("total", 0)
 
-        # 收集所有 ID 以批次查詢 (委派至 Repository 層)
+        # selectinload 已預載 contract_project / sender_agency / receiver_agency
+        # 只需 2 個額外批次查詢: staff + attachment_count
         from app.repositories.document_repository import DocumentRepository
         from app.repositories.project_repository import ProjectRepository
 
@@ -122,24 +123,14 @@ async def list_documents(
 
         project_ids = list(set(doc.contract_project_id for doc in items if doc.contract_project_id))
         doc_ids = [doc.id for doc in items]
-        agency_ids = set()
-        for doc in items:
-            if doc.sender_agency_id:
-                agency_ids.add(doc.sender_agency_id)
-            if doc.receiver_agency_id:
-                agency_ids.add(doc.receiver_agency_id)
 
-        # 批次查詢關聯資料（循序執行，AsyncSession 不支援 gather 並行）
         try:
-            project_map = await doc_repo.get_project_names_by_ids(project_ids)
             staff_data = await proj_repo.get_staff_by_project_ids(project_ids)
             attachment_count_map = await doc_repo.get_attachment_counts_batch(doc_ids)
-            agency_map = await doc_repo.get_agency_names_by_ids(list(agency_ids))
         except Exception as e:
-            logger.warning(f"關聯查詢失敗，回退至基本資料: {e}")
-            project_map, staff_data, attachment_count_map, agency_map = {}, {}, {}, {}
+            logger.warning(f"關聯查詢失敗: {e}")
+            staff_data, attachment_count_map = {}, {}
 
-        # 轉換 staff_data 為 StaffInfo 物件
         staff_map = {}
         for pid, members in staff_data.items():
             staff_map[pid] = [
@@ -151,20 +142,27 @@ async def list_documents(
                 for m in members
             ]
 
-        # 轉換為 DocumentResponse
+        # 轉換為 DocumentResponse — 直接用 selectinload 資料 (不重複查詢)
         response_items = []
         for doc in items:
             try:
                 doc_dict = {
                     **doc.__dict__,
-                    'contract_project_name': project_map.get(doc.contract_project_id) if doc.contract_project_id else None,
+                    'contract_project_name': (
+                        doc.contract_project.project_name
+                        if doc.contract_project else None
+                    ),
                     'assigned_staff': staff_map.get(doc.contract_project_id, []) if doc.contract_project_id else [],
                     'attachment_count': attachment_count_map.get(doc.id, 0),
-                    # 機關名稱虛擬欄位
-                    'sender_agency_name': agency_map.get(doc.sender_agency_id) if doc.sender_agency_id else None,
-                    'receiver_agency_name': agency_map.get(doc.receiver_agency_id) if doc.receiver_agency_id else None,
+                    'sender_agency_name': (
+                        doc.sender_agency.agency_name
+                        if doc.sender_agency else None
+                    ),
+                    'receiver_agency_name': (
+                        doc.receiver_agency.agency_name
+                        if doc.receiver_agency else None
+                    ),
                 }
-                # 移除 SQLAlchemy 內部屬性
                 doc_dict.pop('_sa_instance_state', None)
                 response_items.append(DocumentResponse.model_validate(doc_dict))
             except Exception as e:
