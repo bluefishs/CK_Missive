@@ -816,11 +816,65 @@ confidence: high
         page_path.write_text(content, encoding="utf-8")
         self.wiki._append_log("compile", f"topic | {slug}")
 
+        # 自動建立索引頁 — 所有 entity 頁面至少有一個入站連結 (解決 orphan)
+        await self._build_index_pages()
+
         return {
             "documents": doc_count,
             "projects": project_count,
             "agencies": agency_count,
         }
+
+    async def _build_index_pages(self):
+        """建立機關/案件/派工索引 topic 頁，為所有 entity 建立入站連結 (消除 orphan)"""
+        from app.services.wiki_service import _slugify as _slug
+
+        entities_dir = self.wiki.root / "entities"
+        if not entities_dir.exists():
+            return
+
+        # 按 entity_type 分組
+        import re
+        groups: Dict[str, List[str]] = {"org": [], "project": [], "dispatch": []}
+        for f in sorted(entities_dir.glob("*.md")):
+            try:
+                head = f.read_text(encoding="utf-8")[:300]
+                et_m = re.search(r'^entity_type:\s*(.+)$', head, re.MULTILINE)
+                et = et_m.group(1).strip() if et_m else "unknown"
+                title_m = re.search(r'^title:\s*(.+)$', head, re.MULTILINE)
+                title = title_m.group(1).strip() if title_m else f.stem
+                if et in groups:
+                    groups[et].append(title)
+            except Exception:
+                pass
+
+        labels = {"org": "機關索引", "project": "案件索引", "dispatch": "派工單索引"}
+        for et, titles in groups.items():
+            if not titles:
+                continue
+            label = labels[et]
+            lines = [
+                f"**數量**: {len(titles)}",
+                f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                "",
+            ]
+            for t in titles:
+                lines.append(f"- [[entities/{_slug(t)}|{t[:50]}]]")
+
+            idx_path = self.wiki.root / "topics" / f"{label}.md"
+            idx_content = f"""---
+title: {label}
+type: topic
+created: {datetime.now().strftime('%Y-%m-%d')}
+tags: [索引, {et}]
+confidence: high
+---
+
+# {label}
+
+{chr(10).join(lines)}
+"""
+            idx_path.write_text(idx_content, encoding="utf-8")
 
     def _build_overview(self, doc_count, project_count, agency_count, year_rows, cat_rows) -> str:
         lines = [

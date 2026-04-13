@@ -556,19 +556,36 @@ async def monthly_architecture_review_job():
     try:
         report_lines = ["[月度架構覆盤]"]
 
-        # 1. ADR 狀態盤點
+        # 1. ADR 生命週期閘門 — proposed>14d 自動標記 overdue
         import glob
+        import re as _re
+        from datetime import datetime as _dt, timedelta as _td
         adr_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "docs", "adr")
         proposed = []
+        overdue = []
         for f in sorted(glob.glob(os.path.join(adr_dir, "*.md"))):
             try:
                 with open(f, encoding="utf-8") as fp:
-                    head = fp.read(500)
+                    head = fp.read(800)
                 if "proposed" in head.lower():
-                    proposed.append(os.path.basename(f))
+                    fname = os.path.basename(f)
+                    proposed.append(fname)
+                    # 檢查日期 — 超過 14 天標記 overdue
+                    date_m = _re.search(r'\*\*日期\*\*:\s*(\d{4}-\d{2}-\d{2})', head)
+                    if date_m:
+                        adr_date = _dt.strptime(date_m.group(1), "%Y-%m-%d")
+                        if (_dt.now() - adr_date) > _td(days=14):
+                            overdue.append(fname)
             except Exception:
                 pass
-        report_lines.append(f"ADR: {len(proposed)} proposed — {', '.join(proposed) if proposed else 'all resolved'}")
+        status_line = f"ADR: {len(proposed)} proposed"
+        if overdue:
+            status_line += f", {len(overdue)} OVERDUE (>14d): {', '.join(overdue)}"
+        elif proposed:
+            status_line += f" — {', '.join(proposed)}"
+        else:
+            status_line += " — all resolved"
+        report_lines.append(status_line)
 
         # 2. Wiki 健康
         from app.services.wiki_service import get_wiki_service

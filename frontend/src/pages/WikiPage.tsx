@@ -308,7 +308,80 @@ const AdminTab: React.FC = () => {
           )}
         </Card>
       )}
+
+      {/* 排程器狀態 */}
+      <SchedulerPanel />
     </div>
+  );
+};
+
+// ── Scheduler Panel ──
+
+interface SchedulerJob {
+  id: string;
+  name: string;
+  next_run?: string;
+  last_run?: string;
+  last_status?: string;
+  last_duration_ms?: number;
+  success_count: number;
+  failure_count: number;
+  last_error?: string;
+}
+
+const SchedulerPanel: React.FC = () => {
+  const { data: jobs } = useQuery<SchedulerJob[]>({
+    queryKey: ['scheduler-health'],
+    queryFn: async () => {
+      const resp = await apiClient.post<{
+        success: boolean;
+        scheduler: { jobs: SchedulerJob[] };
+      }>('/health/scheduler', {});
+      return resp.scheduler?.jobs || [];
+    },
+    staleTime: 30_000,
+  });
+
+  if (!jobs || jobs.length === 0) return null;
+
+  // 只顯示 wiki 相關 + 月度覆盤
+  const wikiJobs = jobs.filter((j) =>
+    j.id.includes('wiki') || j.id.includes('arch_review')
+  );
+
+  return (
+    <Card title={`排程器 (${jobs.length} jobs, 顯示 wiki 相關)`} size="small" style={{ marginTop: 16 }}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #f0f0f0', textAlign: 'left' }}>
+              <th style={{ padding: 4 }}>任務</th>
+              <th style={{ padding: 4 }}>上次執行</th>
+              <th style={{ padding: 4 }}>狀態</th>
+              <th style={{ padding: 4 }}>耗時</th>
+              <th style={{ padding: 4 }}>成功/失敗</th>
+            </tr>
+          </thead>
+          <tbody>
+            {wikiJobs.map((j) => (
+              <tr key={j.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                <td style={{ padding: 4 }}>{j.name || j.id}</td>
+                <td style={{ padding: 4, color: '#888' }}>
+                  {j.last_run ? new Date(j.last_run).toLocaleString('zh-TW') : '—'}
+                </td>
+                <td style={{ padding: 4 }}>
+                  <Tag color={j.last_status === 'success' ? 'green' : j.last_status === 'failure' ? 'red' : 'default'}>
+                    {j.last_status || 'pending'}
+                  </Tag>
+                </td>
+                <td style={{ padding: 4 }}>{j.last_duration_ms ? `${j.last_duration_ms}ms` : '—'}</td>
+                <td style={{ padding: 4 }}>{j.success_count}/{j.failure_count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 };
 
