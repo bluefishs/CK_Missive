@@ -16,12 +16,7 @@ import {
   Row, Col, Statistic, App, Empty, Descriptions, Result,
 } from 'antd';
 
-// Tabs content panel 需佔滿 flex 剩餘空間 (圖譜全版面)
-const TABS_FLEX_CSS = `
-.wiki-tabs .ant-tabs-content-holder { flex: 1; overflow: hidden; display: flex; }
-.wiki-tabs .ant-tabs-content { flex: 1; overflow: hidden; }
-.wiki-tabs .ant-tabs-tabpane-active { height: 100%; overflow: hidden; }
-`;
+// (TABS_FLEX_CSS removed — graph tab now renders outside Tabs)
 import {
   DeploymentUnitOutlined, SearchOutlined, SettingOutlined,
   SyncOutlined, FileTextOutlined, BranchesOutlined,
@@ -528,54 +523,47 @@ const WikiPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('graph');
   const isGraphTab = activeTab === 'graph';
 
+  // 圖譜 tab: 脫離 Tabs 容器，直接佔滿版面 (避免 Antd Tabs flex 不穩定)
+  if (isGraphTab) {
+    return (
+      <div style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* 只顯示 Tab bar 做切換 */}
+        <Tabs
+          activeKey="graph"
+          onChange={setActiveTab}
+          tabBarStyle={{ margin: 0, flex: '0 0 auto', padding: '0 8px' }}
+          items={[
+            { key: 'graph', label: <span><DeploymentUnitOutlined /> Wiki 圖譜</span> },
+            { key: 'browse', label: <span><SearchOutlined /> 頁面瀏覽</span> },
+            { key: 'coverage', label: <span><NodeIndexOutlined /> KG 比對</span> },
+            { key: 'admin', label: <span><SettingOutlined /> 管理</span> },
+          ]}
+          renderTabBar={(props, DefaultTabBar) => <DefaultTabBar {...props} />}
+        />
+        {/* 圖譜直接渲染，不在 Tabs children 內 */}
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <Suspense fallback={<Spin style={{ display: 'block', margin: '60px auto' }} />}>
+            <WikiGraphTab />
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+
+  // 其他 tab: 正常 Tabs 渲染
   return (
-    <div style={{
-      // 圖譜 tab: 去除 padding 最大化空間; 其他 tab: 正常 padding
-      padding: isGraphTab ? '0' : '0 4px',
-      // 外容器佔滿 Layout Content 高度
-      height: 'calc(100vh - 88px)', // 64px header + 24px content padding
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
-    }}>
-      {/* 非圖譜 tab 顯示標題 */}
-      {!isGraphTab && (
-        <Typography.Title level={4} style={{ marginBottom: 12, padding: '0 4px', flex: '0 0 auto' }}>
-          LLM Wiki
-        </Typography.Title>
-      )}
-      <style>{TABS_FLEX_CSS}</style>
+    <div style={{ padding: '0 4px' }}>
+      <Typography.Title level={4} style={{ marginBottom: 12 }}>
+        LLM Wiki
+      </Typography.Title>
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
-        className="wiki-tabs"
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-        tabBarStyle={{ margin: 0, flex: '0 0 auto' }}
         items={[
-          {
-            key: 'graph',
-            label: <span><DeploymentUnitOutlined /> Wiki 圖譜</span>,
-            children: (
-              <Suspense fallback={<Spin style={{ display: 'block', margin: '60px auto' }} />}>
-                <WikiGraphTab />
-              </Suspense>
-            ),
-          },
-          {
-            key: 'browse',
-            label: <span><SearchOutlined /> 頁面瀏覽</span>,
-            children: <BrowseTab />,
-          },
-          {
-            key: 'coverage',
-            label: <span><NodeIndexOutlined /> KG 比對</span>,
-            children: <CoverageTab />,
-          },
-          {
-            key: 'admin',
-            label: <span><SettingOutlined /> 管理</span>,
-            children: <AdminTab />,
-          },
+          { key: 'graph', label: <span><DeploymentUnitOutlined /> Wiki 圖譜</span>, children: null },
+          { key: 'browse', label: <span><SearchOutlined /> 頁面瀏覽</span>, children: <BrowseTab /> },
+          { key: 'coverage', label: <span><NodeIndexOutlined /> KG 比對</span>, children: <CoverageTab /> },
+          { key: 'admin', label: <span><SettingOutlined /> 管理</span>, children: <AdminTab /> },
         ]}
       />
     </div>
