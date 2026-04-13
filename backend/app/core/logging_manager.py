@@ -284,31 +284,33 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.log_manager = log_manager
     
+    # 不記錄 REQUEST_START 的高頻路徑（減少 I/O 開銷）
+    _SKIP_START_LOG = {
+        "/api/documents-enhanced/list",
+        "/api/system-notifications/unread-count",
+        "/health",
+    }
+
     async def dispatch(self, request: Request, call_next):
-        """處理HTTP請求日誌"""
+        """處理HTTP請求日誌 — 高頻路徑只記 END，低頻路徑記 START+END"""
         start_time = time.time()
-        request_id = f"{int(time.time() * 1000)}"  # 簡單的請求ID
-        
-        # 記錄請求開始
-        entry = LogEntry(
-            level=LogLevel.INFO,
-            category=ErrorCategory.API,
-            message=f"REQUEST_START {request.method} {request.url.path}",
-            request_id=request_id,
-            details={
-                "method": request.method,
-                "url": str(request.url),
-                "headers": {
-                    k: v for k, v in request.headers.items()
-                    if k.lower() not in (
-                        "authorization", "cookie", "x-csrf-token",
-                        "set-cookie", "proxy-authorization",
-                        "x-service-token",
-                    )
-                },
-            }
-        )
-        self.log_manager.log(entry)
+        request_id = f"{int(time.time() * 1000)}"
+        path = request.url.path
+
+        # 高頻路徑跳過 START log (省 ~50ms header serialization + file write)
+        if path not in self._SKIP_START_LOG:
+            entry = LogEntry(
+                level=LogLevel.INFO,
+                category=ErrorCategory.API,
+                message=f"REQUEST_START {request.method} {path}",
+                request_id=request_id,
+                details={
+                    "method": request.method,
+                    "url": str(request.url),
+                    "headers": str(dict(request.headers))[:500],
+                }
+            )
+            self.log_manager.log(entry)
         
         try:
             response = await call_next(request)
