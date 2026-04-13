@@ -148,6 +148,17 @@ async def wiki_graph():
     return {"success": True, "data": result}
 
 
+@router.post("/coverage")
+async def wiki_coverage(
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Wiki ↔ KG 交叉比對 — 列出覆蓋差異 (exact/fuzzy/wiki-only/kg-only)"""
+    from app.services.wiki_coverage_service import WikiCoverageService
+    svc = WikiCoverageService(db)
+    result = await svc.compare()
+    return {"success": True, "data": result}
+
+
 @router.post("/compile")
 async def compile_wiki(
     min_doc_count: int = 5,

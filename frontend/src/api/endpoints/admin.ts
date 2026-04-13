@@ -147,6 +147,8 @@ export const WIKI_ENDPOINTS = {
   SEARCH: '/wiki/search',
   /** Wiki 編譯 POST /wiki/compile */
   COMPILE: '/wiki/compile',
+  /** Wiki ↔ KG 交叉比對 POST /wiki/coverage */
+  COVERAGE: '/wiki/coverage',
 } as const;
 
 export const SECURE_SITE_MANAGEMENT_ENDPOINTS = {

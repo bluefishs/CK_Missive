@@ -58,6 +58,7 @@ class WikiService:
         tags: List[str],
         related_entities: Optional[List[str]] = None,
         confidence: str = "medium",
+        kg_entity_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """將實體寫入 wiki 頁面 (建立或更新)"""
         slug = _slugify(name)
@@ -72,8 +73,9 @@ class WikiService:
                 for e in related_entities
             )
 
+        kg_line = f"\nkg_entity_id: {kg_entity_id}" if kg_entity_id else ""
         content = f"""---
-title: {name}
+title: {name}{kg_line}
 type: entity
 entity_type: {entity_type}
 created: {_now_str()}

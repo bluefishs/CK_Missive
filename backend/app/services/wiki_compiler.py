@@ -48,6 +48,27 @@ class WikiCompiler:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.wiki = get_wiki_service()
+        self._kg_cache: Dict[str, Optional[int]] = {}
+
+    async def _lookup_kg_id(self, name: str) -> Optional[int]:
+        """查詢 KG canonical_entity ID (帶快取)"""
+        if name in self._kg_cache:
+            return self._kg_cache[name]
+        try:
+            from app.extended.models.knowledge_graph import CanonicalEntity
+            result = await self.db.execute(
+                select(CanonicalEntity.id)
+                .where(
+                    CanonicalEntity.canonical_name == name,
+                    CanonicalEntity.graph_domain == "knowledge",
+                )
+                .limit(1)
+            )
+            row = result.first()
+            self._kg_cache[name] = row.id if row else None
+            return self._kg_cache[name]
+        except Exception:
+            return None
 
     async def compile_incremental(self, min_doc_count: int = 5) -> Dict[str, Any]:
         """增量編譯：只處理上次編譯後有新/更新公文的機關和案件。
@@ -206,6 +227,7 @@ class WikiCompiler:
             # 編譯成 wiki 頁面
             description = self._build_agency_description(row, projects, recent_docs)
 
+            kg_id = await self._lookup_kg_id(row.agency_name)
             await self.wiki.ingest_entity(
                 name=row.agency_name,
                 entity_type="org",
@@ -214,6 +236,7 @@ class WikiCompiler:
                 tags=["機關", row.agency_type or "government"],
                 related_entities=[p["name"] for p in projects[:5]],
                 confidence="high" if row.doc_count >= 20 else "medium",
+                kg_entity_id=kg_id,
             )
             compiled += 1
 
@@ -363,6 +386,7 @@ class WikiCompiler:
             for eng in engineering[:3]:
                 related.append(eng["name"])
 
+            kg_id = await self._lookup_kg_id(row.project_name)
             await self.wiki.ingest_entity(
                 name=row.project_name[:80],
                 entity_type="project",
@@ -371,6 +395,7 @@ class WikiCompiler:
                 tags=["案件", row.status or "unknown", f"Y{row.year}" if row.year else ""],
                 related_entities=related,
                 confidence="high" if row.doc_count >= 20 else "medium",
+                kg_entity_id=kg_id,
             )
             compiled += 1
 
