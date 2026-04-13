@@ -346,17 +346,23 @@ class WikiCompiler:
         rows = result.all()
 
         compiled = 0
+        dispatch_compiled = 0
         for row in rows:
             all_docs = await self._get_project_all_docs(row.id)
             financial = await self._get_project_financial(row.project_code)
             dispatches = await self._get_project_dispatches(row.id)
             agencies = await self._get_project_agencies(row.id)
+            engineering = await self._get_project_engineering(row.id)
 
             description = self._build_project_description_v2(
-                row, all_docs, financial, dispatches, agencies
+                row, all_docs, financial, dispatches, agencies, engineering
             )
 
             related = [a["name"] for a in agencies[:5]]
+            # 工程名稱也加入 related
+            for eng in engineering[:3]:
+                related.append(eng["name"])
+
             await self.wiki.ingest_entity(
                 name=row.project_name[:80],
                 entity_type="project",
@@ -368,7 +374,13 @@ class WikiCompiler:
             )
             compiled += 1
 
-        return {"compiled": compiled}
+            # 每張派工單產出獨立 wiki 頁
+            for d in dispatches:
+                dc = await self._compile_dispatch_page(d, row)
+                if dc:
+                    dispatch_compiled += 1
+
+        return {"compiled": compiled, "dispatch_pages": dispatch_compiled}
 
     async def _get_project_all_docs(self, project_id: int) -> List[Dict]:
         """取得案件所有關聯公文"""
@@ -403,21 +415,27 @@ class WikiCompiler:
             from app.extended.models.taoyuan import TaoyuanDispatchOrder
             stmt = (
                 select(
+                    TaoyuanDispatchOrder.id.label("dispatch_order_id"),
                     TaoyuanDispatchOrder.dispatch_no,
+                    TaoyuanDispatchOrder.project_name,  # 工程名稱
                     TaoyuanDispatchOrder.work_type,
-                    TaoyuanDispatchOrder.status,
-                    TaoyuanDispatchOrder.dispatch_date,
+                    TaoyuanDispatchOrder.deadline,
+                    TaoyuanDispatchOrder.case_handler,
                 )
                 .where(TaoyuanDispatchOrder.contract_project_id == project_id)
-                .order_by(desc(TaoyuanDispatchOrder.dispatch_date))
+                .order_by(TaoyuanDispatchOrder.id)
             )
             result = await self.db.execute(stmt)
             return [
                 {
+                    "dispatch_order_id": r.dispatch_order_id,
                     "dispatch_no": r.dispatch_no,
+                    "project_name": r.project_name or "",
                     "work_type": r.work_type or "",
-                    "status": r.status or "",
-                    "date": str(r.dispatch_date) if r.dispatch_date else "",
+                    "deadline": r.deadline or "",
+                    "handler": r.case_handler or "",
+                    "date": "",
+                    "status": "",
                 }
                 for r in result.all()
             ]
@@ -449,6 +467,130 @@ class WikiCompiler:
         result = await self.db.execute(stmt)
         return [{"name": r.agency_name, "doc_count": r.doc_count} for r in result.all()]
 
+    async def _get_project_engineering(self, project_id: int) -> List[Dict]:
+        """取得案件下的工程名稱 (taoyuan_projects)"""
+        try:
+            from app.extended.models.taoyuan import TaoyuanProject
+            stmt = (
+                select(
+                    TaoyuanProject.project_name,
+                    TaoyuanProject.district,
+                    TaoyuanProject.start_point,
+                    TaoyuanProject.end_point,
+                )
+                .where(TaoyuanProject.contract_project_id == project_id)
+                .order_by(TaoyuanProject.id)
+            )
+            result = await self.db.execute(stmt)
+            return [
+                {
+                    "name": r.project_name or "",
+                    "district": r.district or "",
+                    "start_point": r.start_point or "",
+                    "end_point": r.end_point or "",
+                }
+                for r in result.all()
+            ]
+        except Exception:
+            return []
+
+    async def _compile_dispatch_page(self, dispatch: Dict, project_row) -> bool:
+        """為單張派工單建立 wiki 頁面 — 含完整公文時間軸"""
+        dispatch_no = dispatch.get("dispatch_no", "")
+        dispatch_id = dispatch.get("dispatch_order_id")
+        if not dispatch_no or not dispatch_id:
+            return False
+
+        # 取得派工單關聯的公文
+        from app.extended.models import OfficialDocument
+        from app.extended.models.taoyuan import TaoyuanDispatchDocumentLink
+
+        stmt = (
+            select(
+                OfficialDocument.subject,
+                OfficialDocument.doc_number,
+                OfficialDocument.doc_date,
+                OfficialDocument.category,
+            )
+            .join(
+                TaoyuanDispatchDocumentLink,
+                TaoyuanDispatchDocumentLink.document_id == OfficialDocument.id,
+            )
+            .where(TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id)
+            .order_by(OfficialDocument.doc_date)
+        )
+        result = await self.db.execute(stmt)
+        docs = [
+            {
+                "subject": r.subject,
+                "doc_number": r.doc_number or "",
+                "date": str(r.doc_date) if r.doc_date else "",
+                "category": r.category or "",
+            }
+            for r in result.all()
+        ]
+
+        # 取得工程名稱 (從 taoyuan_projects via dispatch link)
+        eng_names = []
+        try:
+            from app.extended.models.taoyuan import (
+                TaoyuanDispatchProjectLink, TaoyuanProject,
+            )
+            eng_stmt = (
+                select(TaoyuanProject.project_name, TaoyuanProject.district)
+                .join(
+                    TaoyuanDispatchProjectLink,
+                    TaoyuanDispatchProjectLink.taoyuan_project_id == TaoyuanProject.id,
+                )
+                .where(TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id)
+            )
+            eng_result = await self.db.execute(eng_stmt)
+            eng_names = [
+                {"name": r.project_name, "district": r.district or ""}
+                for r in eng_result.all()
+            ]
+        except Exception:
+            pass
+
+        lines = [
+            f"**所屬案件**: [[entities/{project_row.project_name[:80]}|{project_row.project_name[:40]}]]",
+            f"**案號**: {project_row.project_code or ''}",
+            f"**作業類別**: {dispatch.get('work_type', '')}",
+            f"**狀態**: {dispatch.get('status', '')}",
+            f"**派工日期**: {dispatch.get('date', '')}",
+            f"**關聯公文**: {len(docs)} 件",
+            "",
+        ]
+
+        if eng_names:
+            lines.append("## 工程名稱")
+            lines.append("")
+            for eng in eng_names:
+                lines.append(f"- {eng['name']} ({eng['district']})" if eng['district'] else f"- {eng['name']}")
+            lines.append("")
+
+        if docs:
+            lines.append(f"## 公文時間軸 ({len(docs)} 件)")
+            lines.append("")
+            lines.append("| 日期 | 類別 | 文號 | 主旨 |")
+            lines.append("|------|------|------|------|")
+            for d in docs:
+                lines.append(
+                    f"| {d['date']} | {d['category']} | {d['doc_number'][:18]} | {d['subject'][:45]} |"
+                )
+            lines.append("")
+
+        await self.wiki.ingest_entity(
+            name=dispatch_no,
+            entity_type="dispatch",
+            description="\n".join(lines),
+            sources=[f"dispatch #{dispatch_id}, {len(docs)} docs"],
+            tags=["派工單", dispatch.get("work_type", ""), dispatch.get("status", "")],
+            related_entities=[project_row.project_name[:80]],
+            confidence="high" if len(docs) >= 3 else "medium",
+        )
+        return True
+
     async def _get_project_financial(
         self, project_code: Optional[str]
     ) -> Dict[str, Any]:
@@ -479,9 +621,9 @@ class WikiCompiler:
         }
 
     def _build_project_description_v2(
-        self, row, all_docs, financial, dispatches, agencies
+        self, row, all_docs, financial, dispatches, agencies, engineering=None,
     ) -> str:
-        """建構案件 wiki 描述 (v2 完整版 — 公文全量 + 派工 + 機關 + 財務)"""
+        """建構案件 wiki 描述 (v2 完整版 — 工程 + 公文 + 派工 + 機關 + 財務)"""
         amount_str = (
             f"${row.contract_amount:,.0f}" if row.contract_amount else "(未登錄)"
         )
@@ -495,6 +637,18 @@ class WikiCompiler:
             f"**派工單**: {len(dispatches)} 筆" if dispatches else "",
             "",
         ]
+
+        # 工程名稱
+        if engineering:
+            lines.append(f"## 工程名稱 ({len(engineering)} 筆)")
+            lines.append("")
+            lines.append("| 工程 | 區域 | 起點 | 終點 |")
+            lines.append("|------|------|------|------|")
+            for eng in engineering:
+                lines.append(
+                    f"| {eng['name'][:40]} | {eng['district']} | {eng['start_point']} | {eng['end_point']} |"
+                )
+            lines.append("")
 
         # 往來機關
         if agencies:
@@ -519,14 +673,15 @@ class WikiCompiler:
         if dispatches:
             lines.append(f"## 派工單 ({len(dispatches)} 筆)")
             lines.append("")
-            lines.append("| 派工單號 | 作業類別 | 狀態 | 日期 |")
-            lines.append("|----------|----------|------|------|")
-            for d in dispatches[:30]:
+            lines.append("| 派工單號 | 工程名稱 | 作業類別 | 承辦 | 履約期限 |")
+            lines.append("|----------|----------|----------|------|----------|")
+            for d in dispatches[:50]:
+                dno = d['dispatch_no']
                 lines.append(
-                    f"| {d['dispatch_no']} | {d['work_type']} | {d['status']} | {d['date']} |"
+                    f"| [[entities/{dno}|{dno}]] | {d.get('project_name','')[:25]} | {d['work_type'][:15]} | {d.get('handler','')} | {d.get('deadline','')[:15]} |"
                 )
-            if len(dispatches) > 30:
-                lines.append(f"| ... | 共 {len(dispatches)} 筆 | | |")
+            if len(dispatches) > 50:
+                lines.append(f"| ... | 共 {len(dispatches)} 筆 | | | |")
             lines.append("")
 
         # 公文 — 按月份分組 (完整列表)
