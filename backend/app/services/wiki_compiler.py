@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import select, func, desc, and_, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.wiki_service import get_wiki_service, WikiService, WIKI_ROOT
+from app.services.wiki_service import get_wiki_service, WikiService, WIKI_ROOT, _slugify
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +51,13 @@ class WikiCompiler:
         self._kg_cache: Dict[str, Optional[int]] = {}
 
     async def _lookup_kg_id(self, name: str) -> Optional[int]:
-        """查詢 KG canonical_entity ID (帶快取)"""
+        """查詢 KG canonical_entity ID (exact → LIKE fallback，帶快取)"""
         if name in self._kg_cache:
             return self._kg_cache[name]
         try:
             from app.extended.models.knowledge_graph import CanonicalEntity
+
+            # 1. Exact match
             result = await self.db.execute(
                 select(CanonicalEntity.id)
                 .where(
@@ -65,8 +67,28 @@ class WikiCompiler:
                 .limit(1)
             )
             row = result.first()
-            self._kg_cache[name] = row.id if row else None
-            return self._kg_cache[name]
+            if row:
+                self._kg_cache[name] = row.id
+                return row.id
+
+            # 2. LIKE fallback — 前 20 字匹配 (案件名稱常被截斷或帶括號差異)
+            if len(name) >= 10:
+                prefix = name[:20].replace("(", "%").replace(")", "%")
+                result2 = await self.db.execute(
+                    select(CanonicalEntity.id)
+                    .where(
+                        CanonicalEntity.canonical_name.like(f"{prefix}%"),
+                        CanonicalEntity.graph_domain == "knowledge",
+                    )
+                    .limit(1)
+                )
+                row2 = result2.first()
+                if row2:
+                    self._kg_cache[name] = row2.id
+                    return row2.id
+
+            self._kg_cache[name] = None
+            return None
         except Exception:
             return None
 
@@ -234,7 +256,10 @@ class WikiCompiler:
                 description=description,
                 sources=[f"documents (auto-compiled, {row.doc_count} docs)"],
                 tags=["機關", row.agency_type or "government"],
-                related_entities=[p["name"] for p in projects[:5]],
+                related_entities=[
+                    p["name"] for p in projects[:5]
+                    if (self.wiki.root / "entities" / f"{_slugify(p['name'][:80])}.md").exists()
+                ],
                 confidence="high" if row.doc_count >= 20 else "medium",
                 kg_entity_id=kg_id,
             )
@@ -382,9 +407,8 @@ class WikiCompiler:
             )
 
             related = [a["name"] for a in agencies[:5]]
-            # 工程名稱也加入 related
-            for eng in engineering[:3]:
-                related.append(eng["name"])
+            # 工程名稱不加入 related (無對應 wiki 頁面，會產生 broken link)
+            # 已在描述的「工程名稱」表格中呈現
 
             kg_id = await self._lookup_kg_id(row.project_name)
             await self.wiki.ingest_entity(
@@ -700,13 +724,11 @@ class WikiCompiler:
             lines.append("")
             lines.append("| 派工單號 | 工程名稱 | 作業類別 | 承辦 | 履約期限 |")
             lines.append("|----------|----------|----------|------|----------|")
-            for d in dispatches[:50]:
+            for d in dispatches:
                 dno = d['dispatch_no']
                 lines.append(
                     f"| [[entities/{dno}|{dno}]] | {d.get('project_name','')[:25]} | {d['work_type'][:15]} | {d.get('handler','')} | {d.get('deadline','')[:15]} |"
                 )
-            if len(dispatches) > 50:
-                lines.append(f"| ... | 共 {len(dispatches)} 筆 | | | |")
             lines.append("")
 
         # 公文 — 按月份分組 (完整列表)
