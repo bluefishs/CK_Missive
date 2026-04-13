@@ -23,7 +23,7 @@ import { parseCurrencyInput } from '../../utils/format';
 const { Option } = Select;
 
 interface VendorAssociationFormProps {
-  visible: boolean;
+  open: boolean;
   editing: boolean;
   form: FormInstance;
   availableVendors: Vendor[];
@@ -39,7 +39,7 @@ interface VendorAssociationFormProps {
 }
 
 const VendorAssociationForm: React.FC<VendorAssociationFormProps> = ({
-  visible,
+  open,
   editing,
   form,
   availableVendors,
@@ -48,7 +48,7 @@ const VendorAssociationForm: React.FC<VendorAssociationFormProps> = ({
 }) => (
   <Modal
     title={editing ? '編輯廠商關聯' : '新增廠商關聯'}
-    open={visible}
+    open={open}
     onCancel={onCancel}
     footer={null}
     width={600}

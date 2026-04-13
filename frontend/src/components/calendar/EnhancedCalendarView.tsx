@@ -254,7 +254,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
 
         {/* 篩選面板 */}
         <CalendarFilters
-          visible={showFilterModal}
+          open={showFilterModal}
           filters={vm.filters}
           isMobile={isMobile}
           onClose={() => setShowFilterModal(false)}
@@ -263,7 +263,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
 
         {/* 事件詳情模態框 */}
         <EventDetailModal
-          visible={showEventModal}
+          open={showEventModal}
           event={selectedEvent}
           isMobile={isMobile}
           onClose={() => setShowEventModal(false)}
@@ -272,7 +272,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
 
         {/* 事件表單模態框 */}
         <EventFormModal
-          visible={showEventFormModal}
+          open={showEventFormModal}
           mode={eventFormMode}
           event={selectedEvent ? { ...selectedEvent, all_day: selectedEvent.all_day ?? true } : null}
           onClose={() => {
@@ -288,7 +288,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
 
         {/* 提醒設定模態框 */}
         <ReminderSettingsModal
-          visible={showReminderModal}
+          open={showReminderModal}
           event={selectedEvent}
           onClose={() => setShowReminderModal(false)}
           onSuccess={() => {

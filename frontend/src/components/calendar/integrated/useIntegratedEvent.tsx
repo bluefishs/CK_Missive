@@ -64,7 +64,7 @@ function buildDescription(doc: DocumentInfo): string {
 }
 
 export function useIntegratedEvent(
-  visible: boolean,
+  open: boolean,
   document: DocumentInfo | null | undefined,
   onClose: () => void,
   onSuccess?: (eventId: number) => void,
@@ -98,7 +98,7 @@ export function useIntegratedEvent(
       }>(API_ENDPOINTS.CALENDAR.EVENTS_CHECK_DOCUMENT, { document_id: document.id });
       return response;
     },
-    enabled: visible && !!document,
+    enabled: open && !!document,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -146,7 +146,7 @@ export function useIntegratedEvent(
   // === 初始化表單 ===
 
   useEffect(() => {
-    if (visible && document) {
+    if (open && document) {
       const eventType = determineEventType(document);
       const eventDate = determineEventDate(document);
 
@@ -168,7 +168,7 @@ export function useIntegratedEvent(
                             eventType === 'meeting' ? 60 :
                             eventType === 'review' ? 480 : 1440;
       setReminders([{ minutes_before: defaultMinutes, notification_type: 'system' }]);
-    } else if (visible && !document) {
+    } else if (open && !document) {
       form.resetFields();
       form.setFieldsValue({
         event_type: 'reminder',
@@ -179,7 +179,7 @@ export function useIntegratedEvent(
       setAllDay(true);
       setReminders([{ minutes_before: 60, notification_type: 'system' }]);
     }
-  }, [visible, document, form]);
+  }, [open, document, form]);
 
   // === 提醒管理 ===
 

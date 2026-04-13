@@ -297,7 +297,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
 
       {/* 公文匯入 */}
       <DocumentImport
-        visible={importModalVisible}
+        open={importModalVisible}
         onClose={() => setImportModalVisible(false)}
         onSuccess={forceRefresh}
       />

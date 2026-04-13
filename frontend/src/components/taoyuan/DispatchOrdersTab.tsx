@@ -388,7 +388,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
 
       {/* 批次設定 Modal */}
       <BatchSetModal
-        visible={batchModalVisible}
+        open={batchModalVisible}
         selectedCount={selectedRowKeys.length}
         form={batchForm}
         isPending={batchSetMutation.isPending}
@@ -398,7 +398,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
 
       {/* Excel 匯入 Modal */}
       <ImportDispatchModal
-        visible={importModalVisible}
+        open={importModalVisible}
         isMobile={isMobile}
         onCancel={() => setImportModalVisible(false)}
         onImport={handleImport}

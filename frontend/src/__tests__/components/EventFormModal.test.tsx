@@ -112,10 +112,10 @@ describe('EventFormModal', () => {
     vi.clearAllMocks();
   });
 
-  it('renders without crashing (visible=false)', () => {
+  it('renders without crashing (open=false)', () => {
     renderWithProviders(
       <EventFormModal
-        visible={false}
+        open={false}
         mode="create"
         event={undefined}
         onClose={vi.fn()}
@@ -124,10 +124,10 @@ describe('EventFormModal', () => {
     );
   });
 
-  it('renders visible modal with title', () => {
+  it('renders open modal with title', () => {
     const { getByText } = renderWithProviders(
       <EventFormModal
-        visible={true}
+        open={true}
         mode="create"
         event={undefined}
         onClose={vi.fn()}

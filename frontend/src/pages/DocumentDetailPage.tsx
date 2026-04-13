@@ -184,7 +184,7 @@ export const DocumentDetailPage: React.FC = () => {
       />
 
       <IntegratedEventModal
-        visible={showIntegratedEventModal}
+        open={showIntegratedEventModal}
         document={document ? {
           id: document.id,
           doc_number: document.doc_number,

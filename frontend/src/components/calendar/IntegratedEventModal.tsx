@@ -31,7 +31,7 @@ const { TextArea } = Input;
 const { Text } = Typography;
 
 export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
-  visible,
+  open,
   document,
   onClose,
   onSuccess,
@@ -56,7 +56,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
     handleRemoveReminder,
     getReminderLabel,
     handleSubmit,
-  } = useIntegratedEvent(visible, document, onClose, onSuccess);
+  } = useIntegratedEvent(open, document, onClose, onSuccess);
 
   return (
     <Modal
@@ -67,7 +67,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
           {document && <Tag color="blue">{document.doc_number}</Tag>}
         </Space>
       }
-      open={visible}
+      open={open}
       onCancel={onClose}
       width={isMobile ? '95%' : 800}
       style={{ maxWidth: '95vw', top: 20 }}

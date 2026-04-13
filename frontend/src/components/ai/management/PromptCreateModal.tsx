@@ -19,7 +19,7 @@ const FEATURE_LABELS: Record<string, string> = {
 };
 
 interface PromptCreateModalProps {
-  visible: boolean;
+  open: boolean;
   form: FormInstance;
   allFeatures: string[];
   loading: boolean;
@@ -28,7 +28,7 @@ interface PromptCreateModalProps {
 }
 
 export const PromptCreateModal: React.FC<PromptCreateModalProps> = ({
-  visible,
+  open,
   form,
   allFeatures,
   loading,
@@ -38,7 +38,7 @@ export const PromptCreateModal: React.FC<PromptCreateModalProps> = ({
   return (
     <Modal
       title="新增 Prompt 版本"
-      open={visible}
+      open={open}
       onOk={onOk}
       onCancel={onCancel}
       confirmLoading={loading}

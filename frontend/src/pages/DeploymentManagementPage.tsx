@@ -213,7 +213,7 @@ const DeploymentManagementPage: React.FC = () => {
         />
 
         <TriggerDeployModal
-          visible={triggerModalVisible}
+          open={triggerModalVisible}
           onOk={handleTriggerDeploy}
           onCancel={() => setTriggerModalVisible(false)}
           loading={triggerLoading}
@@ -226,7 +226,7 @@ const DeploymentManagementPage: React.FC = () => {
         />
 
         <LogsModal
-          visible={logsModalVisible}
+          open={logsModalVisible}
           onCancel={() => {
             setLogsModalVisible(false);
             setSelectedLogs(null);
@@ -236,7 +236,7 @@ const DeploymentManagementPage: React.FC = () => {
         />
 
         <ConfigModal
-          visible={configModalVisible}
+          open={configModalVisible}
           onCancel={() => setConfigModalVisible(false)}
           config={deployConfig}
         />

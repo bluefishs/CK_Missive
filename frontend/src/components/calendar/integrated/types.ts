@@ -21,7 +21,7 @@ export interface DocumentInfo {
 }
 
 export interface IntegratedEventModalProps {
-  visible: boolean;
+  open: boolean;
   document?: DocumentInfo | null;
   onClose: () => void;
   onSuccess?: (eventId: number) => void;

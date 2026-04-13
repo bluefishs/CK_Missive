@@ -28,7 +28,7 @@ const FEATURE_LABELS: Record<string, string> = {
 };
 
 interface PromptCompareModalProps {
-  visible: boolean;
+  open: boolean;
   items: PromptVersionItem[];
   compareIds: { a: number | null; b: number | null };
   compareResult: PromptCompareResponse | null;
@@ -39,7 +39,7 @@ interface PromptCompareModalProps {
 }
 
 export const PromptCompareModal: React.FC<PromptCompareModalProps> = ({
-  visible,
+  open,
   items,
   compareIds,
   compareResult,
@@ -51,7 +51,7 @@ export const PromptCompareModal: React.FC<PromptCompareModalProps> = ({
   return (
     <Modal
       title="版本比較"
-      open={visible}
+      open={open}
       onCancel={onClose}
       footer={null}
       width={900}

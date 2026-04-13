@@ -27,7 +27,7 @@ import type { FormInstance } from 'antd';
 const { Text } = Typography;
 
 export interface BatchSetModalProps {
-  visible: boolean;
+  open: boolean;
   selectedCount: number;
   form: FormInstance;
   isPending: boolean;
@@ -36,7 +36,7 @@ export interface BatchSetModalProps {
 }
 
 export const BatchSetModal: React.FC<BatchSetModalProps> = ({
-  visible,
+  open,
   selectedCount,
   form,
   isPending,
@@ -45,7 +45,7 @@ export const BatchSetModal: React.FC<BatchSetModalProps> = ({
 }) => (
   <Modal
     title={`批量設定結案批次 (${selectedCount} 筆)`}
-    open={visible}
+    open={open}
     onOk={onOk}
     onCancel={onCancel}
     confirmLoading={isPending}
@@ -75,7 +75,7 @@ export const BatchSetModal: React.FC<BatchSetModalProps> = ({
 );
 
 export interface ImportDispatchModalProps {
-  visible: boolean;
+  open: boolean;
   isMobile: boolean;
   onCancel: () => void;
   onImport: (file: File) => void;
@@ -83,7 +83,7 @@ export interface ImportDispatchModalProps {
 }
 
 export const ImportDispatchModal: React.FC<ImportDispatchModalProps> = ({
-  visible,
+  open,
   isMobile,
   onCancel,
   onImport,
@@ -91,7 +91,7 @@ export const ImportDispatchModal: React.FC<ImportDispatchModalProps> = ({
 }) => (
   <Modal
     title="Excel 匯入派工紀錄"
-    open={visible}
+    open={open}
     onCancel={onCancel}
     footer={null}
     width={isMobile ? '95%' : 600}

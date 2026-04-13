@@ -16,7 +16,7 @@ import { logger } from '../../../services/logger';
 const { useBreakpoint } = Grid;
 
 export function useEventForm(
-  visible: boolean,
+  open: boolean,
   mode: 'create' | 'edit',
   event: CalendarEventData | null | undefined,
   onClose: () => void,
@@ -168,7 +168,7 @@ export function useEventForm(
   // === 初始化表單 ===
 
   useEffect(() => {
-    if (visible && mode === 'edit' && event) {
+    if (open && mode === 'edit' && event) {
       form.setFieldsValue({
         title: event.title,
         description: event.description,
@@ -189,7 +189,7 @@ export function useEventForm(
           subject: '',
         }]);
       }
-    } else if (visible && mode === 'create') {
+    } else if (open && mode === 'create') {
       form.resetFields();
       form.setFieldsValue({
         event_type: 'reminder',
@@ -203,7 +203,7 @@ export function useEventForm(
       setExistingEventsDetail([]);
       setDuplicateConfirmed(true);
     }
-  }, [visible, mode, event, form]);
+  }, [open, mode, event, form]);
 
   // === 提交 ===
 

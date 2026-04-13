@@ -305,7 +305,7 @@ export const ContractCasePage: React.FC = () => {
         <ProjectVendorManagement
           projectId={selectedProject.id}
           projectName={selectedProject.project_name}
-          visible={vendorManagementVisible}
+          open={vendorManagementVisible}
           onClose={() => { setVendorManagementVisible(false); setSelectedProject(null); }}
         />
       )}

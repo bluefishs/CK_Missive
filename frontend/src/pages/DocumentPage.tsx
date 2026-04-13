@@ -302,7 +302,7 @@ export const DocumentPage: React.FC = () => {
       </Modal>
 
       <DocumentImport
-        visible={importModalVisible}
+        open={importModalVisible}
         onClose={() => setImportModalVisible(false)}
         onSuccess={async () => {
           await forceRefresh();

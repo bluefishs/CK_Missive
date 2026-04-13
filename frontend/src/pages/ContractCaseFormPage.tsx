@@ -272,7 +272,7 @@ export const ContractCaseFormPage: React.FC = () => {
       </Card>
 
       <AddAgencyModal
-        visible={addAgencyModalVisible}
+        open={addAgencyModalVisible}
         onCancel={() => setAddAgencyModalVisible(false)}
         onSubmit={handleAddAgencySubmit}
         submitting={addAgencySubmitting}

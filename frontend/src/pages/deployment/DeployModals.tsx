@@ -21,7 +21,7 @@ import { DeploymentStatusTag } from './StatusTags';
 const { Text } = Typography;
 
 interface TriggerModalProps {
-  visible: boolean;
+  open: boolean;
   onOk: () => void;
   onCancel: () => void;
   loading: boolean;
@@ -34,7 +34,7 @@ interface TriggerModalProps {
 }
 
 export const TriggerDeployModal: React.FC<TriggerModalProps> = ({
-  visible,
+  open,
   onOk,
   onCancel,
   loading,
@@ -53,7 +53,7 @@ export const TriggerDeployModal: React.FC<TriggerModalProps> = ({
           觸發部署
         </Space>
       }
-      open={visible}
+      open={open}
       onOk={onOk}
       onCancel={onCancel}
       confirmLoading={loading}
@@ -108,14 +108,14 @@ export const TriggerDeployModal: React.FC<TriggerModalProps> = ({
 };
 
 interface LogsModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
   loading: boolean;
   logs: DeploymentLogsResponse | null;
 }
 
 export const LogsModal: React.FC<LogsModalProps> = ({
-  visible,
+  open,
   onCancel,
   loading,
   logs,
@@ -129,7 +129,7 @@ export const LogsModal: React.FC<LogsModalProps> = ({
           {logs && <Tag>Run #{logs.run_id}</Tag>}
         </Space>
       }
-      open={visible}
+      open={open}
       onCancel={onCancel}
       footer={null}
       width={800}
@@ -181,7 +181,7 @@ export const LogsModal: React.FC<LogsModalProps> = ({
 };
 
 interface ConfigModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
   config: {
     github_repo: string;
@@ -193,7 +193,7 @@ interface ConfigModalProps {
 }
 
 export const ConfigModal: React.FC<ConfigModalProps> = ({
-  visible,
+  open,
   onCancel,
   config,
 }) => {
@@ -205,7 +205,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           部署配置
         </Space>
       }
-      open={visible}
+      open={open}
       onCancel={onCancel}
       footer={null}
     >

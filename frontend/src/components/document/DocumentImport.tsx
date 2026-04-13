@@ -30,13 +30,13 @@ import { ImportResultCard } from './import/ImportResultCard';
 const { Dragger } = Upload;
 
 interface DocumentImportProps {
-  visible: boolean;
+  open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
 export const DocumentImport: React.FC<DocumentImportProps> = ({
-  visible,
+  open,
   onClose,
   onSuccess,
 }) => {
@@ -200,7 +200,7 @@ export const DocumentImport: React.FC<DocumentImportProps> = ({
   return (
     <Modal
       title="公文匯入"
-      open={visible}
+      open={open}
       onCancel={handleClose}
       footer={null}
       width={800}

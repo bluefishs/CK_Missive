@@ -37,7 +37,7 @@ export interface DocumentOption {
 }
 
 export interface EventFormModalProps {
-  visible: boolean;
+  open: boolean;
   mode: 'create' | 'edit';
   event?: CalendarEventData | null;
   onClose: () => void;

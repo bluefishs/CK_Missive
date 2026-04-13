@@ -37,7 +37,7 @@ interface EventReminder {
 type ReminderEvent = Pick<CalendarEvent, 'id' | 'title' | 'start_date' | 'reminder_enabled'>;
 
 interface ReminderSettingsModalProps {
-  visible: boolean;
+  open: boolean;
   event: ReminderEvent | null;
   onClose: () => void;
   onSuccess?: () => void;
@@ -61,7 +61,7 @@ const REMINDER_TYPES = [
 ];
 
 export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
-  visible,
+  open,
   event,
   onClose,
   onSuccess
@@ -93,7 +93,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
       }
       return [];
     },
-    enabled: visible && !!event,
+    enabled: open && !!event,
     staleTime: 5 * 60 * 1000,
     retry: 1,
     meta: {
@@ -225,7 +225,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
           {event && !isMobile && <Text type="secondary">- {event.title.substring(0, 30)}{event.title.length > 30 && '...'}</Text>}
         </Space>
       }
-      open={visible}
+      open={open}
       onCancel={onClose}
       width={isMobile ? '95%' : 600}
       style={{ maxWidth: '95vw' }}

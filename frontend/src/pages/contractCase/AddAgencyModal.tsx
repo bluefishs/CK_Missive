@@ -11,7 +11,7 @@ interface AgencyOption {
 }
 
 interface AddAgencyModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
   onSubmit: (values: { agency_name: string; agency_short_name?: string; agency_type?: string }) => Promise<void>;
   submitting: boolean;
@@ -20,7 +20,7 @@ interface AddAgencyModalProps {
 }
 
 export const AddAgencyModal: React.FC<AddAgencyModalProps> = ({
-  visible,
+  open,
   onCancel,
   onSubmit,
   submitting,
@@ -85,7 +85,7 @@ export const AddAgencyModal: React.FC<AddAgencyModalProps> = ({
           <span>新增機關單位</span>
         </Space>
       }
-      open={visible}
+      open={open}
       onCancel={handleCancel}
       onOk={handleOk}
       confirmLoading={submitting}

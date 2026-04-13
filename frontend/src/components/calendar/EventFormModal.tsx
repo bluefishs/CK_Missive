@@ -30,7 +30,7 @@ const EVENT_TYPE_ICONS: Record<string, React.ReactNode> = {
 };
 
 export const EventFormModal: React.FC<EventFormModalProps> = ({
-  visible,
+  open,
   mode,
   event,
   onClose,
@@ -49,12 +49,12 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
     searchDocuments,
     handleDocumentChange,
     handleSubmit,
-  } = useEventForm(visible, mode, event, onClose, onSuccess);
+  } = useEventForm(open, mode, event, onClose, onSuccess);
 
   return (
     <Modal
       title={mode === 'create' ? '新增日曆事件' : '編輯日曆事件'}
-      open={visible}
+      open={open}
       onCancel={onClose}
       width={isMobile ? '95%' : 700}
       style={{ maxWidth: '95vw' }}

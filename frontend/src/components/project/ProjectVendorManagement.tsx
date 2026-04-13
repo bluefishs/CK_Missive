@@ -60,7 +60,7 @@ interface ProjectVendorFormData {
 interface ProjectVendorManagementProps {
   projectId: number;
   projectName: string;
-  visible: boolean;
+  open: boolean;
   onClose: () => void;
 }
 
@@ -91,7 +91,7 @@ const formatAmount = (amount?: number) => {
 };
 
 const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
-  projectId, projectName, visible, onClose,
+  projectId, projectName, open, onClose,
 }) => {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
@@ -107,7 +107,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
       );
       return data.associations || [];
     },
-    enabled: visible && !!projectId,
+    enabled: open && !!projectId,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -118,7 +118,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
       const data = await apiClient.post<{ items: Vendor[] }>(API_ENDPOINTS.VENDORS.LIST, { page: 1, limit: 100 });
       return data.items || [];
     },
-    enabled: visible,
+    enabled: open,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -256,7 +256,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
 
   return (
     <>
-      <Modal title={`專案廠商管理 - ${projectName}`} open={visible} onCancel={onClose} footer={null} width={1200}>
+      <Modal title={`專案廠商管理 - ${projectName}`} open={open} onCancel={onClose} footer={null} width={1200}>
         <Card style={{ marginBottom: 16 }}>
           <Row gutter={16}>
             <Col span={8}><Statistic title="關聯廠商數" value={associations.length} /></Col>
@@ -285,7 +285,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
       </Modal>
 
       <VendorAssociationForm
-        visible={formVisible}
+        open={formVisible}
         editing={!!editingAssociation}
         form={form}
         availableVendors={getAvailableVendors()}

@@ -72,10 +72,10 @@ describe('DocumentImport', () => {
     vi.clearAllMocks();
   });
 
-  it('renders without crashing when visible', async () => {
+  it('renders without crashing when open', async () => {
     const { DocumentImport } = await import('../../components/document/DocumentImport');
     const { container } = renderWithProviders(
-      <DocumentImport visible={true} onClose={vi.fn()} />
+      <DocumentImport open={true} onClose={vi.fn()} />
     );
     expect(container).toBeTruthy();
   });
@@ -83,15 +83,15 @@ describe('DocumentImport', () => {
   it('renders modal title', async () => {
     const { DocumentImport } = await import('../../components/document/DocumentImport');
     renderWithProviders(
-      <DocumentImport visible={true} onClose={vi.fn()} />
+      <DocumentImport open={true} onClose={vi.fn()} />
     );
     expect(screen.getByText('公文匯入')).toBeInTheDocument();
   });
 
-  it('does not render content when not visible', async () => {
+  it('does not render content when not open', async () => {
     const { DocumentImport } = await import('../../components/document/DocumentImport');
     renderWithProviders(
-      <DocumentImport visible={false} onClose={vi.fn()} />
+      <DocumentImport open={false} onClose={vi.fn()} />
     );
     expect(screen.queryByText('公文匯入')).not.toBeInTheDocument();
   });

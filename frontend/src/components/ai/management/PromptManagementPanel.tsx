@@ -380,7 +380,7 @@ export const PromptManagementContent: React.FC = () => {
       </Card>
 
       <PromptCreateModal
-        visible={createModalVisible}
+        open={createModalVisible}
         form={createForm}
         allFeatures={allFeatures}
         loading={createMutation.isPending}
@@ -392,7 +392,7 @@ export const PromptManagementContent: React.FC = () => {
       />
 
       <PromptCompareModal
-        visible={compareModalVisible}
+        open={compareModalVisible}
         items={filteredItems}
         compareIds={compareIds}
         compareResult={compareResult}

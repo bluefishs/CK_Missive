@@ -11,7 +11,7 @@ const { RangePicker } = DatePicker;
 const { Search } = Input;
 
 export interface CalendarFiltersProps {
-  visible: boolean;
+  open: boolean;
   filters: FilterState;
   isMobile: boolean;
   onClose: () => void;
@@ -19,7 +19,7 @@ export interface CalendarFiltersProps {
 }
 
 export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
-  visible,
+  open,
   filters,
   isMobile,
   onClose,
@@ -32,7 +32,7 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
   return (
     <Modal
       title="事件篩選"
-      open={visible}
+      open={open}
       onCancel={onClose}
       onOk={onClose}
       width={isMobile ? '95%' : 600}

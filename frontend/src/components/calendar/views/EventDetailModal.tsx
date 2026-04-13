@@ -12,7 +12,7 @@ import { EVENT_TYPE_CONFIG, PRIORITY_CONFIG } from './constants';
 const { Title, Text } = Typography;
 
 export interface EventDetailModalProps {
-  visible: boolean;
+  open: boolean;
   event: CalendarEvent | null;
   isMobile: boolean;
   onClose: () => void;
@@ -20,7 +20,7 @@ export interface EventDetailModalProps {
 }
 
 export const EventDetailModal: React.FC<EventDetailModalProps> = ({
-  visible,
+  open,
   event,
   isMobile,
   onClose,
@@ -31,7 +31,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   return (
     <Modal
       title="事件詳情"
-      open={visible}
+      open={open}
       onCancel={onClose}
       footer={[
         <Button key="close" onClick={onClose}>
