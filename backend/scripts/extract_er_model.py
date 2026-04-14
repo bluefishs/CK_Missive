@@ -172,14 +172,18 @@ def extract_schema(db_url: str, table_filter: list[str] | None = None) -> dict[s
             """)
             row_count = conn.execute(count_sql, {"tbl": table_name}).scalar() or 0
 
-            schema["tables"][table_name] = {
+            table_entry = {
                 "columns": columns,
                 "primary_key": pk_cols,
                 "foreign_keys": foreign_keys,
                 "indexes": indexes,
                 "unique_constraints": unique_constraints,
-                "row_count_estimate": int(row_count),
             }
+            # row_count 隨資料量每次變動，會污染 er-model.json 結構 diff。
+            # 預設不寫入；需要時用 --include-row-counts 或設 ER_INCLUDE_ROW_COUNTS=1。
+            if os.getenv("ER_INCLUDE_ROW_COUNTS") == "1" or "--include-row-counts" in sys.argv:
+                table_entry["row_count_estimate"] = int(row_count)
+            schema["tables"][table_name] = table_entry
 
         # 8. Get custom enum types
         enum_sql = text("""

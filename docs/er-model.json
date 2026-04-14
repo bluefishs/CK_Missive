@@ -188,8 +188,7 @@
           "definition": "CREATE INDEX ix_evolution_created ON public.agent_evolution_history USING btree (created_at)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "agent_learnings": {
       "columns": [
@@ -329,8 +328,7 @@
           "definition": "CREATE INDEX ix_learning_graduation_status ON public.agent_learnings USING btree (graduation_status)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 119
+      "unique_constraints": {}
     },
     "agent_query_traces": {
       "columns": [
@@ -540,8 +538,7 @@
         "agent_query_traces_query_id_key": [
           "query_id"
         ]
-      },
-      "row_count_estimate": 3
+      }
     },
     "agent_tool_call_logs": {
       "columns": [
@@ -646,8 +643,7 @@
           "definition": "CREATE INDEX ix_tool_log_success ON public.agent_tool_call_logs USING btree (tool_name, success)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "ai_conversation_feedback": {
       "columns": [
@@ -769,8 +765,7 @@
           "definition": "CREATE INDEX ix_conv_feedback_user ON public.ai_conversation_feedback USING btree (user_id, created_at)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "ai_prompt_versions": {
       "columns": [
@@ -859,8 +854,7 @@
           "definition": "CREATE INDEX ix_prompt_feature_version ON public.ai_prompt_versions USING btree (feature, version)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "ai_search_history": {
       "columns": [
@@ -994,8 +988,7 @@
           "definition": "CREATE INDEX ix_search_history_query_embedding_hnsw ON public.ai_search_history USING hnsw (query_embedding vector_cosine_ops) WITH (m='16', ef_construction='64')"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 19
+      "unique_constraints": {}
     },
     "ai_synonyms": {
       "columns": [
@@ -1061,8 +1054,7 @@
           "definition": "CREATE INDEX ix_ai_synonyms_is_active ON public.ai_synonyms USING btree (is_active)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 126
+      "unique_constraints": {}
     },
     "asset_logs": {
       "columns": [
@@ -1200,8 +1192,7 @@
           "definition": "CREATE INDEX idx_asset_logs_invoice ON public.asset_logs USING btree (expense_invoice_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "assets": {
       "columns": [
@@ -1413,8 +1404,7 @@
         "assets_asset_code_key": [
           "asset_code"
         ]
-      },
-      "row_count_estimate": -1
+      }
     },
     "audit_logs": {
       "columns": [
@@ -1527,8 +1517,7 @@
           "definition": "CREATE INDEX idx_audit_logs_is_critical ON public.audit_logs USING btree (is_critical)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 3332
+      "unique_constraints": {}
     },
     "canonical_entities": {
       "columns": [
@@ -1757,8 +1746,7 @@
           "external_id",
           "entity_type"
         ]
-      },
-      "row_count_estimate": 9801
+      }
     },
     "case_nature_codes": {
       "columns": [
@@ -1840,8 +1828,7 @@
         "case_nature_codes_code_key": [
           "code"
         ]
-      },
-      "row_count_estimate": -1
+      }
     },
     "company_bookmarks": {
       "columns": [
@@ -1908,8 +1895,7 @@
         "company_bookmarks_company_name_key": [
           "company_name"
         ]
-      },
-      "row_count_estimate": -1
+      }
     },
     "contract_projects": {
       "columns": [
@@ -2245,8 +2231,7 @@
         "contract_projects_project_code_key": [
           "project_code"
         ]
-      },
-      "row_count_estimate": 82
+      }
     },
     "document_ai_analyses": {
       "columns": [
@@ -2444,8 +2429,7 @@
           "definition": "CREATE INDEX ix_document_ai_analyses_is_stale ON public.document_ai_analyses USING btree (is_stale)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "document_attachments": {
       "columns": [
@@ -2577,8 +2561,7 @@
           "definition": "CREATE INDEX ix_document_attachments_uploaded_by ON public.document_attachments USING btree (uploaded_by)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 935
+      "unique_constraints": {}
     },
     "document_calendar_events": {
       "columns": [
@@ -2763,8 +2746,7 @@
           "definition": "CREATE INDEX ix_document_calendar_events_created_by ON public.document_calendar_events USING btree (created_by)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 815
+      "unique_constraints": {}
     },
     "document_chunks": {
       "columns": [
@@ -2860,8 +2842,7 @@
           "definition": "CREATE INDEX ix_document_chunks_embedding_hnsw ON public.document_chunks USING hnsw (embedding vector_cosine_ops) WITH (m='16', ef_construction='64')"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 1641
+      "unique_constraints": {}
     },
     "document_entities": {
       "columns": [
@@ -2946,8 +2927,7 @@
           "definition": "CREATE INDEX ix_doc_entities_doc_type ON public.document_entities USING btree (document_id, entity_type)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 5565
+      "unique_constraints": {}
     },
     "document_entity_mentions": {
       "columns": [
@@ -3040,8 +3020,7 @@
           "definition": "CREATE INDEX ix_doc_mention_entity_doc ON public.document_entity_mentions USING btree (canonical_entity_id, document_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 7819
+      "unique_constraints": {}
     },
     "documents": {
       "columns": [
@@ -3440,8 +3419,7 @@
         "documents_auto_serial_key": [
           "auto_serial"
         ]
-      },
-      "row_count_estimate": 1678
+      }
     },
     "einvoice_sync_logs": {
       "columns": [
@@ -3554,8 +3532,7 @@
           "definition": "CREATE INDEX idx_einvoice_query_date ON public.einvoice_sync_logs USING btree (query_start, query_end)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "entity_aliases": {
       "columns": [
@@ -3641,8 +3618,7 @@
           "alias_name",
           "canonical_entity_id"
         ]
-      },
-      "row_count_estimate": 568
+      }
     },
     "entity_relations": {
       "columns": [
@@ -3743,8 +3719,7 @@
           "definition": "CREATE INDEX ix_entity_relations_document_id ON public.entity_relations USING btree (document_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 1911
+      "unique_constraints": {}
     },
     "entity_relationships": {
       "columns": [
@@ -3924,8 +3899,7 @@
           "definition": "CREATE INDEX ix_entity_rel_tgt_valid ON public.entity_relationships USING btree (target_entity_id, valid_from)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 4967
+      "unique_constraints": {}
     },
     "erp_billings": {
       "columns": [
@@ -4045,8 +4019,7 @@
           "definition": "CREATE UNIQUE INDEX ix_erp_billings_billing_code ON public.erp_billings USING btree (billing_code)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 48
+      "unique_constraints": {}
     },
     "erp_invoices": {
       "columns": [
@@ -4202,8 +4175,7 @@
           "definition": "CREATE UNIQUE INDEX ix_erp_invoices_invoice_ref ON public.erp_invoices USING btree (invoice_ref)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 47
+      "unique_constraints": {}
     },
     "erp_quotations": {
       "columns": [
@@ -4390,8 +4362,7 @@
           "definition": "CREATE INDEX ix_erp_quotations_deleted_at ON public.erp_quotations USING btree (deleted_at)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 70
+      "unique_constraints": {}
     },
     "erp_vendor_payables": {
       "columns": [
@@ -4559,8 +4530,7 @@
           "definition": "CREATE INDEX ix_erp_vendor_payables_billing_id ON public.erp_vendor_payables USING btree (billing_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 32
+      "unique_constraints": {}
     },
     "event_reminders": {
       "columns": [
@@ -4736,8 +4706,7 @@
           "definition": "CREATE INDEX idx_event_reminders_recipient_user ON public.event_reminders USING btree (recipient_user_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 24
+      "unique_constraints": {}
     },
     "expense_invoice_items": {
       "columns": [
@@ -4816,8 +4785,7 @@
           "definition": "CREATE INDEX ix_expense_invoice_items_invoice_id ON public.expense_invoice_items USING btree (invoice_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "expense_invoices": {
       "columns": [
@@ -5087,8 +5055,7 @@
           "definition": "CREATE INDEX ix_expense_invoices_status ON public.expense_invoices USING btree (status)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 3
+      "unique_constraints": {}
     },
     "finance_ledgers": {
       "columns": [
@@ -5250,8 +5217,7 @@
           "definition": "CREATE UNIQUE INDEX ix_finance_ledgers_ledger_code ON public.finance_ledgers USING btree (ledger_code)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 35
+      "unique_constraints": {}
     },
     "government_agencies": {
       "columns": [
@@ -5429,8 +5395,7 @@
         "uq_agency_name": [
           "agency_name"
         ]
-      },
-      "row_count_estimate": 93
+      }
     },
     "graph_ingestion_events": {
       "columns": [
@@ -5542,8 +5507,7 @@
           "definition": "CREATE INDEX ix_graph_ingestion_events_document_id ON public.graph_ingestion_events USING btree (document_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 3439
+      "unique_constraints": {}
     },
     "kb_chunks": {
       "columns": [
@@ -5632,8 +5596,7 @@
           "definition": "CREATE INDEX ix_kb_chunks_file_path_idx ON public.kb_chunks USING btree (file_path, chunk_index)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 2083
+      "unique_constraints": {}
     },
     "notifications": {
       "columns": [
@@ -5771,8 +5734,7 @@
           "definition": "CREATE INDEX idx_notifications_source ON public.notifications USING btree (source_table, source_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "operational_accounts": {
       "columns": [
@@ -5906,8 +5868,7 @@
         "operational_accounts_account_code_key": [
           "account_code"
         ]
-      },
-      "row_count_estimate": -1
+      }
     },
     "operational_expenses": {
       "columns": [
@@ -6061,8 +6022,7 @@
           "definition": "CREATE INDEX idx_oe_asset ON public.operational_expenses USING btree (asset_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "partner_vendors": {
       "columns": [
@@ -6207,8 +6167,7 @@
         "partner_vendors_vendor_name_key": [
           "vendor_name"
         ]
-      },
-      "row_count_estimate": 15
+      }
     },
     "pm_case_attachments": {
       "columns": [
@@ -6327,8 +6286,7 @@
           "definition": "CREATE INDEX ix_pm_case_attachments_case_code ON public.pm_case_attachments USING btree (case_code)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "pm_cases": {
       "columns": [
@@ -6557,8 +6515,7 @@
           "definition": "CREATE INDEX ix_pm_cases_client_vendor_id ON public.pm_cases USING btree (client_vendor_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 70
+      "unique_constraints": {}
     },
     "pm_milestones": {
       "columns": [
@@ -6667,8 +6624,7 @@
           "definition": "CREATE INDEX ix_pm_milestones_milestone_type ON public.pm_milestones USING btree (milestone_type)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "project_agency_contacts": {
       "columns": [
@@ -6823,8 +6779,7 @@
           "definition": "CREATE INDEX ix_project_agency_contacts_project_id ON public.project_agency_contacts USING btree (project_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "project_user_assignments": {
       "columns": [
@@ -6969,8 +6924,7 @@
           "project_id",
           "user_id"
         ]
-      },
-      "row_count_estimate": 28
+      }
     },
     "project_vendor_association": {
       "columns": [
@@ -7062,8 +7016,7 @@
           "definition": "CREATE UNIQUE INDEX project_vendor_association_pkey ON public.project_vendor_association USING btree (project_id, vendor_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "security_issues": {
       "columns": [
@@ -7238,8 +7191,7 @@
           "definition": "CREATE UNIQUE INDEX security_issues_pkey ON public.security_issues USING btree (id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 187
+      "unique_constraints": {}
     },
     "security_scans": {
       "columns": [
@@ -7389,8 +7341,7 @@
           "definition": "CREATE INDEX ix_security_scans_project ON public.security_scans USING btree (project_name)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "site_configurations": {
       "columns": [
@@ -7472,8 +7423,7 @@
         "site_configurations_key_key": [
           "key"
         ]
-      },
-      "row_count_estimate": -1
+      }
     },
     "site_navigation_items": {
       "columns": [
@@ -7617,8 +7567,7 @@
         "site_navigation_items_key_key": [
           "key"
         ]
-      },
-      "row_count_estimate": 72
+      }
     },
     "staff_certifications": {
       "columns": [
@@ -7748,8 +7697,7 @@
           "definition": "CREATE INDEX idx_staff_certs_expiry ON public.staff_certifications USING btree (expiry_date)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "system_notifications": {
       "columns": [
@@ -7863,8 +7811,7 @@
           "definition": "CREATE INDEX idx_system_notifications_created_at ON public.system_notifications USING btree (created_at)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 462
+      "unique_constraints": {}
     },
     "taoyuan_contract_payments": {
       "columns": [
@@ -8051,8 +7998,7 @@
         "uq_payment_dispatch_order": [
           "dispatch_order_id"
         ]
-      },
-      "row_count_estimate": 120
+      }
     },
     "taoyuan_dispatch_attachments": {
       "columns": [
@@ -8180,8 +8126,7 @@
           "definition": "CREATE INDEX idx_taoyuan_dispatch_attachments_uploaded_by ON public.taoyuan_dispatch_attachments USING btree (uploaded_by)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 35
+      "unique_constraints": {}
     },
     "taoyuan_dispatch_document_link": {
       "columns": [
@@ -8280,8 +8225,7 @@
           "dispatch_order_id",
           "document_id"
         ]
-      },
-      "row_count_estimate": 694
+      }
     },
     "taoyuan_dispatch_entity_link": {
       "columns": [
@@ -8367,8 +8311,7 @@
           "dispatch_order_id",
           "canonical_entity_id"
         ]
-      },
-      "row_count_estimate": 998
+      }
     },
     "taoyuan_dispatch_orders": {
       "columns": [
@@ -8600,8 +8543,7 @@
         "taoyuan_dispatch_orders_dispatch_no_key": [
           "dispatch_no"
         ]
-      },
-      "row_count_estimate": 125
+      }
     },
     "taoyuan_dispatch_project_link": {
       "columns": [
@@ -8680,8 +8622,7 @@
           "dispatch_order_id",
           "taoyuan_project_id"
         ]
-      },
-      "row_count_estimate": -1
+      }
     },
     "taoyuan_dispatch_work_types": {
       "columns": [
@@ -8755,8 +8696,7 @@
           "dispatch_order_id",
           "work_type"
         ]
-      },
-      "row_count_estimate": 25
+      }
     },
     "taoyuan_document_project_link": {
       "columns": [
@@ -8863,8 +8803,7 @@
           "document_id",
           "taoyuan_project_id"
         ]
-      },
-      "row_count_estimate": 49
+      }
     },
     "taoyuan_projects": {
       "columns": [
@@ -9177,8 +9116,7 @@
           "definition": "CREATE INDEX idx_taoyuan_projects_year ON public.taoyuan_projects USING btree (review_year)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 0
+      "unique_constraints": {}
     },
     "taoyuan_work_records": {
       "columns": [
@@ -9421,8 +9359,7 @@
           "definition": "CREATE INDEX ix_work_records_work_category ON public.taoyuan_work_records USING btree (work_category)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 201
+      "unique_constraints": {}
     },
     "tender_bookmarks": {
       "columns": [
@@ -9540,8 +9477,7 @@
           "definition": "CREATE UNIQUE INDEX ix_tender_bookmark_unit_job ON public.tender_bookmarks USING btree (unit_id, job_number)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "tender_company_links": {
       "columns": [
@@ -9607,8 +9543,7 @@
           "definition": "CREATE INDEX ix_tcl_tender ON public.tender_company_links USING btree (tender_record_id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": 256
+      "unique_constraints": {}
     },
     "tender_records": {
       "columns": [
@@ -9772,8 +9707,7 @@
         "tender_records_ezbid_id_key": [
           "ezbid_id"
         ]
-      },
-      "row_count_estimate": 942
+      }
     },
     "tender_subscriptions": {
       "columns": [
@@ -9881,8 +9815,7 @@
           "definition": "CREATE UNIQUE INDEX tender_subscriptions_pkey ON public.tender_subscriptions USING btree (id)"
         }
       ],
-      "unique_constraints": {},
-      "row_count_estimate": -1
+      "unique_constraints": {}
     },
     "user_sessions": {
       "columns": [
@@ -10006,8 +9939,7 @@
         "user_sessions_token_jti_key": [
           "token_jti"
         ]
-      },
-      "row_count_estimate": -1
+      }
     },
     "users": {
       "columns": [
@@ -10280,8 +10212,7 @@
         "users_username_key": [
           "username"
         ]
-      },
-      "row_count_estimate": 14
+      }
     }
   },
   "enums": []
