@@ -177,7 +177,14 @@
 | `backend/app/services/expense_import_service.py` | 費用匯入匯出 (QR+Excel+電子發票) |
 | `backend/app/services/invoice_recognizer.py` | 統一發票辨識器 (QR+OCR) |
 | `backend/app/api/endpoints/erp/expenses_io.py` | 費用 IO 端點 (掃描/匯入/收據/AI分類) |
-| `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md` | LINE + OpenClaw 運維指南 |
+| `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md` | LINE + OpenClaw 運維指南（**將下線** — ADR-0014） |
+| `docs/adr/0014-hermes-replace-openclaw.md` | 🆕 ADR-0014：以 NousResearch Hermes Agent 取代 OpenClaw |
+| `docs/HERMES_MIGRATION_PLAN.md` | 🆕 Hermes 4-Phase 遷移計畫（Day 0~28） |
+| `docs/hermes-skills/README.md` | 🆕 Hermes skill 整合層次 L1~L4 + API public contract |
+| `docs/hermes-skills/ck-missive-bridge/` | 🆕 Hermes skill 部署包（SKILL.md + tools.py + tool_spec.json + install.sh）|
+| `backend/app/services/ai/agent/shadow_logger.py` | 🆕 Shadow Logger（PII 遮罩 + 30d retention + A/B provider 分析） |
+| `scripts/checks/shadow-baseline-report.cjs` | 🆕 Shadow baseline 報告（channel/provider/tool 分佈） |
+| `backend/app/api/endpoints/ai/tools_manifest.py` | 🆕 v1.1 — 加 compat/endpoints/auth，Hermes public contract 入口 |
 | `docs/LINE_BOT_SETUP_GUIDE.md` | LINE Bot 直連啟用指南 |
 | `docs/MULTICHANNEL_SETUP_GUIDE.md` | 多頻道部署指南 (Telegram + LINE) |
 | `backend/app/services/line_bot_service.py` | LINE Bot Service (直連模式) |
