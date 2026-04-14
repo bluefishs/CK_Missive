@@ -134,16 +134,22 @@ jobs:
           pip install pytest pytest-asyncio
           python -m pytest tests/unit/ -v --tb=short
 
-      - name: Hermes ACP + Manifest public contract (HARD FAIL)
-        # ADR-0014: Hermes integration depends on manifest v1.1 + ACP schema.
+      - name: Hermes ACP + Manifest + POST-only security policy (HARD FAIL)
+        # ADR-0014: Hermes integration depends on manifest v1.2 + ACP schema.
         # Any breaking change here requires ADR + 30-day deprecation.
+        # POST-only policy: all endpoints must be POST (SSE allowlisted).
         run: |
           python -m pytest \
             tests/integration/test_tools_manifest_contract.py \
             tests/integration/test_hermes_acp_endpoint.py \
+            tests/integration/test_hermes_feedback_endpoint.py \
+            tests/integration/test_hermes_security_lint.py \
+            tests/integration/test_post_only_policy.py \
             tests/unit/test_hermes_acp_schema.py \
+            tests/unit/test_hermes_feedback_schema.py \
             tests/unit/test_provider_resolver.py \
             tests/unit/test_shadow_logger.py \
+            tests/unit/test_shadow_helpers.py \
             -v --tb=short
 
       - name: Run integration tests (soft-fail)
