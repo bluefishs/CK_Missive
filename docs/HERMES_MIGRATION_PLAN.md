@@ -7,15 +7,15 @@
 
 ---
 
-## 里程碑總覽
+## 里程碑總覽（合併 ADR-0015 Cloudflare Tunnel）
 
 | Phase | 目標 | 期程 | 可回滾 |
 |---|---|---|---|
 | P0 | 基線採集 + 環境準備 | Day 0–3 | — |
-| P1 | Hermes 安裝 + Missive Bridge Tool 就緒 | Day 4–10 | ✅ |
-| P2 | Telegram 灰度切換 | Day 11–17 | ✅（24h） |
-| P3 | Discord 切換 + LINE 下線預告 | Day 18–24 | ⚠️ LINE 下線不可逆 |
-| P4 | OpenClaw 容器歸檔 | Day 25–28 | — |
+| P1 | **Cloudflare Tunnel 上線** + Hermes 安裝 + Bridge Tool 就緒 | Day 4–10 | ✅ |
+| P2 | Telegram 灰度切換（webhook 走 CF Tunnel） | Day 11–17 | ✅（24h） |
+| P3 | Discord 切換 + LINE 下線 | Day 18–24 | ⚠️ LINE 下線不可逆 |
+| P4 | OpenClaw 容器歸檔 + **NemoClaw repo 歸檔** | Day 25–28 | — |
 
 ---
 
