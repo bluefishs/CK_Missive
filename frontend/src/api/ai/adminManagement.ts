@@ -788,8 +788,9 @@ export async function getTraceDetail(
   traceId: number
 ): Promise<TraceDetailResponse | null> {
   try {
-    return await apiClient.get<TraceDetailResponse>(
-      AI_ENDPOINTS.STATS_AGENT_TRACE_DETAIL(traceId)
+    return await apiClient.post<TraceDetailResponse>(
+      AI_ENDPOINTS.STATS_AGENT_TRACE_DETAIL(traceId),
+      {}
     );
   } catch {
     return null;

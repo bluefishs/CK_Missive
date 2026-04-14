@@ -166,7 +166,7 @@ export const AI_ENDPOINTS = {
   STATS_TOOL_SUCCESS_RATES: '/ai/stats/tool-success-rates',
   /** Agent 追蹤記錄 POST /ai/stats/agent-traces */
   STATS_AGENT_TRACES: '/ai/stats/agent-traces',
-  /** 單筆 Trace 詳情 GET /ai/stats/agent-traces/{id} (V-1.2 Timeline) */
+  /** 單筆 Trace 詳情 POST /ai/stats/agent-traces/{id} (V-1.2 Timeline, POST-only 資安政策) */
   STATS_AGENT_TRACE_DETAIL: (traceId: number) => `/ai/stats/agent-traces/${traceId}`,
   /** 學習模式統計 POST /ai/stats/patterns */
   STATS_PATTERNS: '/ai/stats/patterns',

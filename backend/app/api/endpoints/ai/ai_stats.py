@@ -157,7 +157,7 @@ async def get_agent_traces(
     )
 
 
-@router.get("/stats/agent-traces/{trace_id}", response_model=TraceDetailResponse)
+@router.post("/stats/agent-traces/{trace_id}", response_model=TraceDetailResponse)
 async def get_trace_detail(
     trace_id: int,
     db: AsyncSession = Depends(get_async_db),
@@ -165,6 +165,8 @@ async def get_trace_detail(
 ) -> TraceDetailResponse:
     """
     單筆 Trace 詳情含 tool_calls 時序（V-1.2 Timeline 用）
+
+    資安政策：POST-only（ADR-0014 一併套用）
     """
     from app.repositories.agent_trace_repository import AgentTraceRepository
 
