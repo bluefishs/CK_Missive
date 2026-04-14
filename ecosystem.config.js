@@ -106,6 +106,25 @@ module.exports = {
       min_uptime: '10s',
     },
 
+    // ---- Cloudflare Tunnel（ADR-0015，取代 NemoClaw Nginx）----
+    // 前置：需先完成 `cloudflared tunnel create ck-missive` 與 DNS 路由
+    // 啟用：設環境變數 CLOUDFLARED_ENABLED=1 再 pm2 reload
+    ...(process.env.CLOUDFLARED_ENABLED === '1' ? [{
+      name: 'cloudflared',
+      script: 'cloudflared',
+      args: 'tunnel run ck-missive',
+      interpreter: 'none',
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: '30s',
+      restart_delay: 3000,
+      error_file: './logs/cloudflared-error.log',
+      out_file: './logs/cloudflared-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      max_size: '10M',
+    }] : []),
+
     // ---- 發票影像 Watchdog 監控 ----
     {
       name: 'invoice-watcher',

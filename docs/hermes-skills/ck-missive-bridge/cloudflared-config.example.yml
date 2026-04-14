@@ -1,0 +1,27 @@
+# Cloudflare Tunnel 配置範本（ADR-0015）
+#
+# 路徑：~/.cloudflared/config.yml（Windows: C:\Users\<you>\.cloudflared\config.yml）
+# 使用方式：
+#   1. 將 <TUNNEL_UUID> 替換為 `cloudflared tunnel create ck-missive` 回傳的 UUID
+#   2. 將 <HOSTNAME> 替換為您的公網域名（如 api.tree60901.com）
+#   3. 將 <CREDENTIALS_PATH> 替換為實際憑證路徑
+#   4. 儲存後：pm2 set CLOUDFLARED_ENABLED 1 && pm2 reload ecosystem.config.js
+
+tunnel: <TUNNEL_UUID>
+credentials-file: <CREDENTIALS_PATH>  # 如 C:\Users\User1\.cloudflared\<UUID>.json
+
+ingress:
+  # Missive REST API（Telegram/Discord webhook + Hermes ACP + manifest）
+  - hostname: <HOSTNAME>  # 例：api.tree60901.com
+    service: http://localhost:8001
+    originRequest:
+      connectTimeout: 10s
+      noHappyEyeballs: true
+      httpHostHeader: <HOSTNAME>
+
+  # Missive Web UI（選用；若不開外網，直接刪除此段）
+  # - hostname: app.<YOUR_DOMAIN>
+  #   service: http://localhost:3000
+
+  # Fallback：未知 hostname 一律 404
+  - service: http_status:404
