@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.5.4 AI 子包重構 + UnifiedAgentPage 雙模式 + 標案分析快取 + antd 修正
-> **最後更新**: 2026-04-09
+> **版本**: v5.5.5 LLM Wiki 全棧 + KG 連結 + ADR 生命週期門檻 + 效能優化
+> **最後更新**: 2026-04-14
 
 ---
 
@@ -60,7 +60,9 @@ Discord → Interactions Endpoint → Missive Agent API (直連)
 | `ci-cd.md` | CI/CD 工作流 |
 | `auth-environment.md` | 認證與環境檢測規範 |
 | `development-rules.md` | 開發強制規範 (SSOT, 型別, API, 服務層, DI) |
-| `architecture.md` | 專案結構與架構 |
+| `architecture.md` | 專案結構總覽（索引） |
+| `architecture-backend.md` | 後端：Models/Services/API/Repositories |
+| `architecture-frontend.md` | 前端：Pages/Hooks/型別/錯誤處理 |
 | `directory-structure.md` | `.claude/` 配置目錄結構 |
 | `security.md` | 安全規範 |
 | `testing.md` | 測試規範 |

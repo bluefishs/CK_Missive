@@ -4,6 +4,59 @@
 
 ---
 
+## [5.5.5] - 2026-04-10 ~ 2026-04-14
+
+### LLM Wiki 全棧 + KG 連結 + ADR 生命週期 + 效能優化
+
+#### LLM Wiki 4-Phase 全棧 (P0, Karpathy Pattern)
+- **Phase 1 Ingest** — 實體/主題抽取入 wiki/（220 pages：62 agencies + 30 projects + 127 dispatches + 1 overview，10,603 lines）
+- **Phase 2 Compile** — document-to-wiki 編譯 + 增量 compile diff + token panel
+- **Phase 3 Query** — Wiki-RAG 融合（wiki search → RAG sources boost similarity=0.95）
+- **Phase 4 Lint** — broken links + orphans 掃描，每日 05:30 排程
+- **KG 連結** — kg_entity_id 嵌入 69 wiki pages；KG coverage API + Tab
+- **Wiki ↔ KG 比對** — 79 exact match (36.1%)，獨立雙源不互相污染
+- **前端 /ai/wiki** — 獨立頁面 4-Tab（圖譜/瀏覽/KG比對/管理）
+- **force-graph 2D** — 220 nodes / 477 edges，log scale + collision + fullscreen fix
+
+#### ADR-0013 統一編碼系統 Phase 1'+2 (P0)
+- **project_code CK 前綴** + billing/invoice/ledger code 自動產生器
+- **並發保護** — savepoint retry on unique conflict
+- **agency source tagging** — matcher 顯式 `source='auto'`
+- **ADR lifecycle gate** — ADR 狀態機（proposed/accepted/superseded）+ orphan index pages
+
+#### 效能優化 (P1)
+- **/documents 清單 42% 加速** — 消除冗餘查詢 + DB warmup + orphan fix
+- **月度費用異常偵測** — 3 規則（同比/環比/類別偏離）
+- **Token Tracker 強化** — 5 provider 計量 + 日/月預算 + 智慧路由
+
+#### Antd 6 相容性延續
+- **Drawer width + List→Pagination** 移除廢棄
+- **wrapper visible→open** rename
+
+#### 維運工具
+- **scheduler panel** — 前端面板呈現 19 jobs 狀態 + last_run/next_run
+- **pyc-clear-reload** helper + `docker-compose.dev.yml` 重新標記
+- **DEVELOPMENT_GUIDELINES 精簡** — 971→286L
+
+#### 文件與簡報
+- **CK_Missive Overview (AI)** — 10-page Marp PPTX 簡報
+- **feedback memory 擴充** — 7 項使用者主張長駐 MEMORY.md
+- **MEMORY.md 重建** — stale snapshots 轉 archive/
+
+#### 文檔同步機制 (本次)
+- **CLAUDE.md → v5.5.5** + skills-inventory 補 tender-search
+- **.gitignore** 加入 Office 暫存檔 `~$*.pptx`
+
+### 已知待處理 (P1/P2)
+- Agent Memory Snapshot
+- 費用報銷 + 資產清冊 Excel 匯入（等範例）
+- Agent orchestrator/evolution 整合測試
+- Wiki LLM narrative (v2)
+- 47 agencies 補齊 agency_code（等業務規則）
+- Wiki orphan (71) + broken links (5) 清理
+
+---
+
 ## [5.5.4] - 2026-04-09
 
 ### AI 子包重構 + UnifiedAgentPage 雙模式 + 標案分析快取

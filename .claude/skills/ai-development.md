@@ -1,7 +1,7 @@
 ---
 name: ai-development
 description: AI 相關功能開發與維護
-version: 3.4.0
+version: 3.5.0
 category: ai
 triggers:
   - AI
@@ -21,10 +21,18 @@ triggers:
   - dispatch
   - 閒聊
   - chitchat
-updated: '2026-03-19'
+updated: '2026-04-14'
 ---
 
 # AI 功能開發規範
+
+## v3.5 更新要點 (2026-04-14)
+
+- **UnifiedAgentPage 雙模式**：user=聊天助手 / admin=儀表板，取代舊 3 頁（AISearchPage/AgentPlannerPage/AIStatsPage）
+- **Wiki-RAG 融合**：RAG synthesis 前，先查 wiki 作為高可信來源（similarity=0.95 boost），詳見 `wiki-authoring.md`
+- **Graph-RAG 自動注入**：帶 `kg_entity_id` 的來源會自動疊加 2-hop KG context
+- **graph_domain 遷移**：所有 KG 查詢必須帶 `graph_domain='knowledge'` filter（禁用 NOT IN 黑名單）
+- **Token Tracker**：5 provider（Groq/NVIDIA/Ollama/vLLM/OpenAI）統一計量 + 日/月預算門檻 + 智慧路由
 
 
 ## 架構概述

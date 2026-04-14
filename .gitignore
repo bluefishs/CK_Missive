@@ -25,6 +25,14 @@ yarn-error.log*
 .idea/
 .DS_Store
 
+# Office 暫存/鎖定檔
+~$*.pptx
+~$*.docx
+~$*.xlsx
+
+# 簡報素材（不納管）
+docs/presentations/*.pptx
+
 # Vite cache
 .vite/
 frontend/.vite/

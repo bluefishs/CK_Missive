@@ -81,6 +81,8 @@
 | `skill-creator.md` | skill, 建立 skill, 新增 skill, 改善 skill, SKILL.md | Skill 建立/優化工作流 (v1.0.0) |
 | `multi-channel.md` | LINE, Telegram, Discord, 多通道, webhook, bot | 多通道整合開發規範 (v1.0.0) |
 | `erp-finance.md` | ERP, 報價, 開票, 請款, 帳本, 費用報銷, 資產 | ERP 財務模組開發規範 (v1.0.0) |
+| `tender-search.md` | 標案, tender, PCC, ezbid, g0v, 投標, 決標, 底價 | 標案檢索與分析開發規範 |
+| `wiki-authoring.md` | wiki, LLM Wiki, Karpathy, Ingest, Compile, wiki lint, wiki-rag, kg_entity_id | LLM Wiki 4-Phase 開發與維運規範 (v1.0.0) |
 
 ### Superpowers Skills (v4.0.3)
 

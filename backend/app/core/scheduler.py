@@ -679,6 +679,38 @@ async def wiki_lint_job():
         logger.error("Wiki lint failed: %s", e, exc_info=True)
 
 
+@tracked_job("health_snapshot_log")
+async def health_snapshot_log_job():
+    """每日健康快照 → wiki/log.md append
+
+    指標：24h commits / wiki 頁數 / scheduler jobs / DB/Redis 狀態 / AgentLearning 數。
+    純 append，不觸發其他排程，失敗不影響其他 job。
+    """
+    import subprocess
+    from pathlib import Path
+    from datetime import date
+
+    project_root = Path(__file__).resolve().parents[3]
+    script = project_root / "scripts" / "health" / "log-health-snapshot.cjs"
+    if not script.exists():
+        logger.warning("health_snapshot: script not found at %s", script)
+        return
+    try:
+        proc = subprocess.run(
+            ["node", str(script)],
+            cwd=str(project_root),
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+        if proc.returncode == 0:
+            logger.info("health_snapshot: %s", proc.stdout.strip() or "ok")
+        else:
+            logger.warning("health_snapshot failed (rc=%d): %s", proc.returncode, proc.stderr.strip())
+    except subprocess.TimeoutExpired:
+        logger.warning("health_snapshot timeout (>30s)")
+    except Exception as e:
+        logger.error("health_snapshot error: %s", e)
+
+
 @tracked_job("tender_refresh_pending")
 async def tender_refresh_pending_job():
     """標案狀態更新 — 每日重查等標期標案的決標結果"""
@@ -1022,6 +1054,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 Wiki compile: 每週一 05:00")
+
+    # 健康快照 — 每日 06:05 寫入 wiki/log.md（緊接 wiki_lint 05:30 之後）
+    scheduler.add_job(
+        health_snapshot_log_job,
+        trigger=CronTrigger(hour=6, minute=5),
+        id='health_snapshot_log',
+        name='健康快照 → wiki/log.md (每日 06:05)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加健康快照: 每日 06:05")
 
     # 月度架構覆盤 — 每月 1 日 06:00
     scheduler.add_job(
