@@ -12,7 +12,7 @@ credentials-file: <CREDENTIALS_PATH>  # 如 C:\Users\User1\.cloudflared\<UUID>.j
 
 ingress:
   # Missive REST API（Telegram/Discord webhook + Hermes ACP + manifest）
-  - hostname: <HOSTNAME>  # 例：api.tree60901.com
+  - hostname: <HOSTNAME>  # 例：api.cksurvey.tw
     service: http://localhost:8001
     originRequest:
       connectTimeout: 10s

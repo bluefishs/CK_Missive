@@ -107,9 +107,25 @@ module.exports = {
     },
 
     // ---- Cloudflare Tunnel（ADR-0015，取代 NemoClaw Nginx）----
-    // 前置：需先完成 `cloudflared tunnel create ck-missive` 與 DNS 路由
-    // 啟用：設環境變數 CLOUDFLARED_ENABLED=1 再 pm2 reload
-    ...(process.env.CLOUDFLARED_ENABLED === '1' ? [{
+    // 啟用方式（兩種擇一）：
+    //   Token 模式（推薦，Dashboard 建立）：設 CF_TUNNEL_TOKEN 於 .env
+    //   Config 模式（CLI 建立）：設 CLOUDFLARED_ENABLED=1 + ~/.cloudflared/config.yml
+    // 安全：token 絕不進版控；token 洩漏需至 CF Dashboard 刪 tunnel 重建
+    ...(process.env.CF_TUNNEL_TOKEN ? [{
+      name: 'cloudflared',
+      script: 'cloudflared',
+      args: `tunnel run --token ${process.env.CF_TUNNEL_TOKEN}`,
+      interpreter: 'none',
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: '30s',
+      restart_delay: 3000,
+      error_file: './logs/cloudflared-error.log',
+      out_file: './logs/cloudflared-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      max_size: '10M',
+    }] : process.env.CLOUDFLARED_ENABLED === '1' ? [{
       name: 'cloudflared',
       script: 'cloudflared',
       args: 'tunnel run ck-missive',
