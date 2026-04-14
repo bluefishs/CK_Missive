@@ -114,6 +114,7 @@ async def process_acp(req: AcpRequest, headers: Mapping[str, str]) -> AcpRespons
 
 
 @router.post("/acp", response_model=AcpResponse)
+# Rate limit: 由 SlowAPIMiddleware 統一處理（per-route 裝飾器與 pydantic 回應不相容）
 async def hermes_acp_endpoint(
     req: AcpRequest,
     request: Request,
