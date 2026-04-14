@@ -9,7 +9,7 @@ Agent 同步問答 API 端點（非串流）
   - v1 (Schema v1.0): { agent_id, action, payload, timestamp, ... }
 
 增強功能 (v3.0.0):
-  - channel 來源追蹤 (line/telegram/openclaw/mcp/web/discord)
+  - channel 來源追蹤 (line/telegram/openclaw/mcp/web/discord/hermes)
   - capabilities 能力探索
   - metadata 回應後設資料
   - session_handoff 跨會話上下文注入
@@ -260,7 +260,7 @@ async def agent_query_sync(
       - v1 (Schema v1.0): 含 agent_id + action + payload + timestamp → 回傳 AgentV1Response 信封
 
     v3.0.0 增強：
-      - channel: 來源頻道追蹤 (line/telegram/openclaw/mcp/web/discord)
+      - channel: 來源頻道追蹤 (line/telegram/openclaw/mcp/web/discord/hermes)
       - capabilities: Agent 能力探索（工具/Vision/Voice/領域）
       - metadata: 回應後設資料（模型/延遲/版本）
       - session_handoff: 跨會話上下文自動注入
@@ -396,6 +396,20 @@ async def agent_query_sync(
         if not latency_ms:
             latency_ms = int((time.monotonic() - start_time) * 1000)
 
+        # Shadow trace — 統一 helper (provider auto-resolve + X-Hermes-Session)
+        from app.services.ai.agent.shadow_helpers import fire_shadow_trace
+        asyncio.create_task(fire_shadow_trace(
+            request=request,
+            channel=channel,
+            question=question,
+            answer=answer,
+            success=True,
+            latency_ms=latency_ms,
+            tools_used=tools_used,
+            sources_count=len(sources),
+            session_id=session_id,
+        ))
+
         if fmt == "v1":
             return JSONResponse(content=_build_v1_success(
                 action=action,
@@ -432,6 +446,12 @@ async def agent_query_sync(
         timeout_s = get_ai_config().agent_sync_query_timeout
         elapsed_ms = int((time.monotonic() - start_time) * 1000)
         logger.warning("Agent sync query timed out after %ds", timeout_s)
+        from app.services.ai.agent.shadow_helpers import fire_shadow_trace
+        asyncio.create_task(fire_shadow_trace(
+            request=request, channel=channel, question=question, answer="",
+            success=False, latency_ms=elapsed_ms, error_code="timeout",
+            session_id=session_id,
+        ))
         if fmt == "v1":
             return JSONResponse(
                 status_code=504,
@@ -462,6 +482,12 @@ async def agent_query_sync(
     except Exception as e:
         elapsed_ms = int((time.monotonic() - start_time) * 1000)
         logger.error("Agent sync query failed: %s", e, exc_info=True)
+        from app.services.ai.agent.shadow_helpers import fire_shadow_trace
+        asyncio.create_task(fire_shadow_trace(
+            request=request, channel=channel, question=question, answer="",
+            success=False, latency_ms=elapsed_ms, error_code="internal",
+            session_id=session_id,
+        ))
         if fmt == "v1":
             return JSONResponse(
                 status_code=500,

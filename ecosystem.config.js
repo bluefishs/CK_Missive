@@ -42,6 +42,11 @@ module.exports = {
         PYTHONUNBUFFERED: '1',
         PYTHONIOENCODING: 'utf-8',
         PYTHONUTF8: '1',
+        // Shadow 基線記錄（ADR-0014 Hermes 遷移 Phase 0 基線）
+        // 30 天自動清理；PII 遮罩已啟用；採樣 0.3 控制 IO
+        SHADOW_ENABLED: '1',
+        SHADOW_SAMPLE_RATIO: '0.3',
+        SHADOW_RETENTION_DAYS: '30',
       },
 
       // 進程管理

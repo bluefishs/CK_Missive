@@ -27,9 +27,9 @@ class AgentQueryRequest(BaseModel):
         pattern=r"^[a-z_]+$",
         description="助理上下文 (doc/dev)，影響 system prompt 選擇",
     )
-    channel: Optional[Literal["line", "telegram", "openclaw", "mcp", "web", "discord"]] = Field(
+    channel: Optional[Literal["line", "telegram", "openclaw", "mcp", "web", "discord", "hermes"]] = Field(
         None,
-        description="來源頻道標識，用於分析統計",
+        description="來源頻道標識，用於分析統計（hermes = NousResearch Hermes Agent gateway，ADR-0014）",
     )
 
 
