@@ -18,8 +18,36 @@ router = APIRouter(prefix="/agent", tags=["AI-工具清冊"])
 logger = logging.getLogger(__name__)
 
 TOOL_MANIFEST = {
-    "version": "1.0",
+    "version": "1.2",
     "serverName": "ck_missive",
+    "compat": {
+        "ck_aaap": "1.0",
+        "hermes_agent": ">=0.9",  # ADR-0014
+        "mcp": "2024-11-05",
+    },
+    # Hermes 端讀此區塊自動註冊 tool，不需硬編碼路徑
+    "hermes": {
+        "acp_endpoint": "/api/hermes/acp",
+        "feedback_endpoint": "/api/hermes/feedback",
+        "min_hermes_version": "0.9.0",
+        "tool_prefix": "missive_",
+        "recommended_llm": "gemma4:8b-q4",
+    },
+    "endpoints": {
+        "document_search": "/api/ai/rag/query",
+        "dispatch_search": "/api/ai/agent/query_sync",
+        "entity_search": "/api/ai/graph/entity",
+        "entity_detail": "/api/ai/graph/entity",
+        "semantic_similar": "/api/ai/rag/query",
+        "system_statistics": "/api/ai/agent/query_sync",
+        "federated_search": "/api/ai/federation/search",
+        "federated_contribute": "/api/ai/federation/contribute",
+    },
+    "auth": {
+        "type": "bearer",
+        "header": "X-Service-Token",
+        "env_var": "MCP_SERVICE_TOKEN",
+    },
     "tools": [
         {
             "name": "document_search",
@@ -251,10 +279,13 @@ TOOL_MANIFEST = {
 }
 
 
-@router.get(
+@router.post(
     "/tools",
-    summary="工具清冊 (Plugin Contract v1.1)",
+    summary="工具清冊 (Plugin Contract v1.2) — POST（資安政策）",
 )
 async def get_tools():
-    """回傳 CK_Missive 的工具清冊，供 NemoClaw 動態工具發現使用。"""
+    """回傳 CK_Missive 的工具清冊，供 NemoClaw / Hermes 動態工具發現使用。
+
+    資安規範：所有端點採 POST（含無狀態查詢）。
+    """
     return TOOL_MANIFEST

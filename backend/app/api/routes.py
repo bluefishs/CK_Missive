@@ -87,6 +87,10 @@ api_router.include_router(discord_webhook.router, prefix="/discord", tags=["Disc
 # --- Telegram Bot 整合 (v5.4.1) ---
 api_router.include_router(telegram_webhook.router, prefix="/telegram", tags=["Telegram Bot"])
 
+# --- Hermes ACP 整合 (v5.5.5, ADR-0014) ---
+from app.api.endpoints import hermes_acp
+api_router.include_router(hermes_acp.router, tags=["Hermes ACP"])
+
 # --- 數位分身 (v5.2.3) --- 已在 ai/__init__.py 中透過 ai_router 掛載
 
 # --- 專案管理模組 (PM, v1.85.0) ---

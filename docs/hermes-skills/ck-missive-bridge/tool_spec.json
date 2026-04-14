@@ -1,0 +1,45 @@
+{
+  "name": "query_missive",
+  "toolset": "ck_missive",
+  "description": "Query CK_Missive backend for domain knowledge: official documents, contract cases, calendar, ERP finance, knowledge graph, tender search. Returns a natural-language answer plus structured sources.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "question": {
+        "type": "string",
+        "description": "The user's question in natural language (zh-TW preferred)."
+      },
+      "channel": {
+        "type": "string",
+        "enum": ["telegram", "discord", "cli", "web"],
+        "description": "Originating channel; used for trace & rate-limit bucketing."
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Hermes session id to correlate with Missive agent_trace."
+      }
+    },
+    "required": ["question"]
+  },
+  "http": {
+    "method": "POST",
+    "url": "${MISSIVE_BASE_URL}/api/ai/agent/query_sync",
+    "headers": {
+      "Authorization": "Bearer ${MISSIVE_API_TOKEN}",
+      "Content-Type": "application/json",
+      "X-Channel": "${channel:-cli}"
+    },
+    "body": {
+      "question": "${question}",
+      "channel": "${channel:-cli}",
+      "session_id": "${session_id}",
+      "fmt": "v1"
+    },
+    "timeout_seconds": 60
+  },
+  "response": {
+    "success_path": "answer",
+    "sources_path": "sources",
+    "error_path": "detail"
+  }
+}
