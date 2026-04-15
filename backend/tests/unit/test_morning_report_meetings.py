@@ -61,6 +61,82 @@ class TestFormatEventTime:
         assert service._format_event_time(None, all_day=False) == ""
 
 
+class TestComputeTodaySchedule:
+    """_compute_today_schedule 分桶 + 衝突偵測"""
+
+    def test_empty_schedule(self, service):
+        result = service._compute_today_schedule(
+            {"items": []}, {"items": []}
+        )
+        assert result["total"] == 0
+        assert result["conflicts"] == []
+        assert result["overload"] is False
+
+    def test_buckets_morning_afternoon_evening(self, service):
+        meetings = {
+            "items": [
+                {"title": "早會", "days_left": 0, "time_str": "04/16 09:00"},
+                {"title": "午會", "days_left": 0, "time_str": "04/16 14:00"},
+                {"title": "晚會", "days_left": 0, "time_str": "04/16 19:30"},
+            ]
+        }
+        result = service._compute_today_schedule(meetings, {"items": []})
+        assert result["total"] == 3
+        assert result["morning"] == 1
+        assert result["afternoon"] == 1
+        assert result["evening"] == 1
+
+    def test_conflict_detected_within_30min(self, service):
+        meetings = {
+            "items": [
+                {"title": "A 會議", "days_left": 0, "time_str": "04/16 10:00"},
+                {"title": "B 會議", "days_left": 0, "time_str": "04/16 10:20"},  # 20 min gap
+            ]
+        }
+        result = service._compute_today_schedule(meetings, {"items": []})
+        assert len(result["conflicts"]) == 1
+        assert result["conflicts"][0]["gap_minutes"] == 20
+
+    def test_no_conflict_when_30min_plus(self, service):
+        meetings = {
+            "items": [
+                {"title": "A", "days_left": 0, "time_str": "04/16 10:00"},
+                {"title": "B", "days_left": 0, "time_str": "04/16 10:30"},  # exactly 30
+            ]
+        }
+        result = service._compute_today_schedule(meetings, {"items": []})
+        assert result["conflicts"] == []
+
+    def test_overload_flag_at_5_plus(self, service):
+        items = [
+            {"title": f"會 {i}", "days_left": 0, "time_str": f"04/16 {9 + i}:00"}
+            for i in range(5)
+        ]
+        result = service._compute_today_schedule({"items": items}, {"items": []})
+        assert result["total"] == 5
+        assert result["overload"] is True
+
+    def test_site_visit_with_no_time_excluded_from_buckets(self, service):
+        site_visits = {
+            "items": [
+                {"title": "派工現勘", "days_left": 0, "time_str": "04/16 現勘", "source": "dispatch"},
+            ]
+        }
+        result = service._compute_today_schedule({"items": []}, site_visits)
+        assert result["total"] == 1
+        assert result["morning"] + result["afternoon"] + result["evening"] == 0
+
+    def test_cross_day_events_excluded(self, service):
+        meetings = {
+            "items": [
+                {"title": "明日", "days_left": 1, "time_str": "04/17 10:00"},
+                {"title": "後日", "days_left": 2, "time_str": "04/18 14:00"},
+            ]
+        }
+        result = service._compute_today_schedule(meetings, {"items": []})
+        assert result["total"] == 0
+
+
 class TestSummaryIncludesMeetingSections:
     """generate_summary_from_data 對新 section 產出正確文案。"""
 

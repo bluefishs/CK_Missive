@@ -451,6 +451,97 @@ async def morning_report_job():
         logger.error("Morning report failed: %s", e, exc_info=True)
 
 
+@tracked_job("pre_event_reminder")
+async def pre_event_reminder_job():
+    """事件即時提醒 — 每 15 分鐘檢查下一小時內開始的會議/現勘，推播未提醒過的事件。
+
+    去重：用 Redis SET 標記已推播（key: pre_event_notified:<event_id>，TTL 90 min）。
+    不依賴 DB 寫入，故即使 Redis 不可用也只是可能重複推播，不影響正確性。
+    上班時段（工作日 08:00-20:00）才啟動，避免夜間誤擾。
+    """
+    from datetime import datetime, timedelta
+    from sqlalchemy import text as _sql_text
+    from app.db.database import async_session_maker
+
+    now = datetime.now()
+    if now.weekday() >= 5 or now.hour < 8 or now.hour >= 20:
+        return  # 非上班時段
+
+    window_start = now
+    window_end = now + timedelta(minutes=60)
+
+    try:
+        async with async_session_maker() as db:
+            r = await db.execute(
+                _sql_text("""
+                SELECT id, title, start_date, location, event_type, priority
+                FROM document_calendar_events
+                WHERE event_type = 'meeting'
+                  AND status != 'cancelled'
+                  AND start_date BETWEEN :a AND :b
+                ORDER BY start_date
+                LIMIT 20
+            """),
+                {"a": window_start, "b": window_end},
+            )
+            events = list(r.all())
+    except Exception as e:
+        logger.debug("pre_event_reminder query failed: %s", e)
+        return
+
+    if not events:
+        return
+
+    # Redis 去重
+    notified_keys = set()
+    rc = None
+    try:
+        from app.core.redis_client import get_redis
+        rc = await get_redis()
+    except Exception:
+        rc = None
+
+    # Telegram 推播器
+    try:
+        from app.services.telegram_bot_service import get_telegram_bot_service
+        tg = get_telegram_bot_service()
+    except Exception:
+        tg = None
+
+    admin_chat = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
+    if not admin_chat or not tg or not tg.enabled:
+        logger.debug("pre_event_reminder: no push target configured")
+        return
+
+    for ev in events:
+        ev_id, title, start_dt, location, event_type, priority = ev
+        key = f"pre_event_notified:{ev_id}"
+        if rc is not None:
+            try:
+                if await rc.exists(key):
+                    continue
+                await rc.set(key, "1", ex=5400)  # 90 min TTL
+            except Exception:
+                pass
+        notified_keys.add(key)
+
+        # 判斷現勘 vs 會議
+        is_site = any(k in (title or "") for k in ("會勘", "現勘", "勘查", "勘驗", "履勘"))
+        icon = "🏗️" if is_site else "🔔"
+        kind = "現勘" if is_site else "會議"
+        mins_until = int((start_dt - now).total_seconds() // 60) if start_dt else 0
+        loc = f"\n📍 {location}" if location else ""
+        msg = (
+            f"{icon} {kind}即將開始（{mins_until} 分鐘後）\n"
+            f"{start_dt.strftime('%H:%M')} {title}{loc}"
+        )
+        try:
+            await tg.send_message(int(admin_chat), msg)
+            logger.info("pre_event_reminder pushed: event_id=%s, %s", ev_id, title)
+        except Exception as e:
+            logger.warning("pre_event_reminder push failed for %s: %s", ev_id, e)
+
+
 @tracked_job("ezbid_cache_refresh")
 async def ezbid_cache_refresh_job():
     """ezbid 全量快取刷新 — 每小時抓取今日全量 + 寫入 DB (統一服務層)"""
@@ -1095,6 +1186,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加每日晨報: 每日 08:00 執行")
+
+    # 事件即時提醒 — 每 15 分鐘（上班時段工作日）
+    scheduler.add_job(
+        pre_event_reminder_job,
+        trigger=IntervalTrigger(minutes=15),
+        id='pre_event_reminder',
+        name='事件即時提醒 (每 15 分鐘)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加事件即時提醒: 每 15 分鐘（上班時段）")
 
     # 標案訂閱檢查 — 每日 08:00, 12:00, 18:00 (上班時段 3 次)
     for hour in [8, 12, 18]:

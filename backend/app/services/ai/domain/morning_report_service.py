@@ -76,6 +76,15 @@ class MorningReportService:
             today, week_later
         )
 
+        # 10. 今日分桶（上午/下午/晚間）+ 行程衝突
+        sections["today_schedule"] = self._compute_today_schedule(
+            sections["upcoming_meetings"],
+            sections["upcoming_site_visits"],
+        )
+
+        # 11. 遺漏建檔：開會/會勘通知單近 14 天內未建 calendar event
+        sections["missing_calendar_events"] = await self._get_missing_calendar_events(today)
+
         return sections
 
     async def generate_summary(self) -> str:
@@ -184,6 +193,40 @@ class MorningReportService:
                 location = f" @ {item['location']}" if item.get("location") else ""
                 details.append(
                     f"  {urgency} {time_str} {item['title'][:40]}{location}{source}"
+                )
+
+        # 10. 今日分桶 + 衝突
+        ts = data.get("today_schedule", {})
+        if ts.get("total", 0) > 0:
+            morning = ts.get("morning", 0)
+            afternoon = ts.get("afternoon", 0)
+            evening = ts.get("evening", 0)
+            time_of_day = []
+            if morning:
+                time_of_day.append(f"上午 {morning}")
+            if afternoon:
+                time_of_day.append(f"下午 {afternoon}")
+            if evening:
+                time_of_day.append(f"晚間 {evening}")
+            parts.append(f"今日行程 {ts['total']} 場（{'/'.join(time_of_day) or '時段未定'}）")
+            if ts.get("overload"):
+                details.append(
+                    f"  📛 今日 {ts['total']} 場行程超載（>=5），建議提前協調"
+                )
+            for conflict in ts.get("conflicts", [])[:3]:
+                details.append(
+                    f"  ⚠️ 衝突：{conflict['a_time']} {conflict['a_title'][:20]} "
+                    f"與 {conflict['b_time']} {conflict['b_title'][:20]}"
+                )
+
+        # 11. 遺漏建檔
+        mc = data.get("missing_calendar_events", {})
+        if mc.get("count", 0) > 0:
+            parts.append(f"⚠️ 公文未建行事曆 {mc['count']} 件")
+            for item in mc.get("items", [])[:3]:
+                details.append(
+                    f"  📭 {item['doc_number']} {item['subject'][:35]}"
+                    f"（{item['category']}，收文 {item['days_ago']} 天）"
                 )
 
         if not parts:
@@ -464,6 +507,109 @@ class MorningReportService:
 
     # 現勘關鍵字（從 title 判斷是否屬於現勘；會勘因常走現場，歸為現勘）
     _SITE_VISIT_KEYWORDS = ("會勘", "現勘", "勘查", "勘驗", "履勘", "現場勘查", "現場會勘")
+
+    # 遺漏建檔偵測：這些公文類別應主動建行事曆事件
+    _DOC_CATEGORIES_REQUIRE_EVENT = ("開會通知單", "會勘通知單", "會議通知單")
+
+    def _compute_today_schedule(self, meetings: dict, site_visits: dict) -> dict:
+        """合併今日會議 + 現勘，分桶（上午/下午/晚間）+ 衝突偵測。
+
+        衝突定義：兩事件開始時間差 < 30 分鐘視為潛在衝突。
+        超載警示：今日總場次 >= 5。
+        """
+        today_items = []
+        for src_name, src in (("meeting", meetings), ("site_visit", site_visits)):
+            for item in src.get("items", []):
+                if item.get("days_left") != 0:
+                    continue
+                time_str = item.get("time_str") or ""
+                # 從 time_str 提取 HH:MM（格式：04/16 14:30 或 04/16 現勘）
+                hour = None
+                minute = 0
+                import re
+                m = re.search(r"(\d{2}):(\d{2})", time_str)
+                if m:
+                    hour = int(m.group(1))
+                    minute = int(m.group(2))
+                today_items.append({
+                    "kind": src_name,
+                    "title": item.get("title", ""),
+                    "time_str": time_str,
+                    "hour": hour,
+                    "minute": minute,
+                    "location": item.get("location", ""),
+                })
+
+        morning = sum(1 for x in today_items if x["hour"] is not None and x["hour"] < 12)
+        afternoon = sum(
+            1 for x in today_items
+            if x["hour"] is not None and 12 <= x["hour"] < 18
+        )
+        evening = sum(1 for x in today_items if x["hour"] is not None and x["hour"] >= 18)
+
+        # 衝突偵測（只看有明確時間的）
+        scheduled = [x for x in today_items if x["hour"] is not None]
+        scheduled.sort(key=lambda x: x["hour"] * 60 + x["minute"])
+        conflicts = []
+        for i in range(len(scheduled) - 1):
+            a = scheduled[i]
+            b = scheduled[i + 1]
+            a_min = a["hour"] * 60 + a["minute"]
+            b_min = b["hour"] * 60 + b["minute"]
+            if b_min - a_min < 30:
+                conflicts.append({
+                    "a_title": a["title"],
+                    "a_time": a["time_str"],
+                    "b_title": b["title"],
+                    "b_time": b["time_str"],
+                    "gap_minutes": b_min - a_min,
+                })
+
+        total = len(today_items)
+        return {
+            "total": total,
+            "morning": morning,
+            "afternoon": afternoon,
+            "evening": evening,
+            "overload": total >= 5,
+            "conflicts": conflicts,
+            "items": today_items,
+        }
+
+    async def _get_missing_calendar_events(self, today) -> dict:
+        """偵測近 14 天開會/會勘通知單但未建 calendar event 的公文。"""
+        try:
+            cutoff = today - timedelta(days=14)
+            # category 可能為全名或縮寫，以 LIKE 寬鬆比對
+            r = await self.db.execute(
+                text("""
+                SELECT d.id, d.doc_number, d.subject, d.category, d.receive_date,
+                       d.created_at
+                FROM documents d
+                LEFT JOIN document_calendar_events e ON e.document_id = d.id
+                WHERE d.category IN ('開會通知單', '會勘通知單', '會議通知單')
+                  AND d.created_at::date >= :cutoff
+                  AND e.id IS NULL
+                ORDER BY d.created_at DESC
+                LIMIT 10
+            """),
+                {"cutoff": cutoff},
+            )
+            items = []
+            for row in r.all():
+                created = row[5]
+                days_ago = (today - created.date()).days if created else 0
+                items.append({
+                    "doc_number": row[1] or "",
+                    "subject": (row[2] or "")[:60],
+                    "category": row[3] or "",
+                    "receive_date": str(row[4]) if row[4] else "",
+                    "days_ago": days_ago,
+                })
+            return {"count": len(items), "items": items}
+        except Exception as e:
+            logger.debug("missing_calendar_events query failed: %s", e)
+            return {"count": 0, "items": []}
 
     def _format_event_time(self, start_dt, all_day: bool) -> str:
         """格式化會議/現勘時間為可讀字串。"""
