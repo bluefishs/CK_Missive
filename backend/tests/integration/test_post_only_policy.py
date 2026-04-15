@@ -16,10 +16,23 @@ from typing import Set, Tuple
 import pytest
 
 
-# SSE / EventSource 等技術必需 GET 的端點，需明確記錄原因
+# SSE / EventSource / 健康檢查 等技術必需 GET 的端點，需明確記錄原因
 GET_ALLOWLIST: Set[Tuple[str, str]] = {
     # (file 相對 backend/app, route path 子字串)
     ("api/endpoints/ai/digital_twin.py", "/digital-twin/live-activity/stream"),  # SSE
+    # Health endpoints — CF Tunnel / k8s / LB 探針業界標準要求 GET
+    ("api/endpoints/health.py", "/health"),
+    ("api/endpoints/health.py", "/health/detailed"),
+    ("api/endpoints/health.py", "/health/metrics"),
+    ("api/endpoints/health.py", "/health/readiness"),
+    ("api/endpoints/health.py", "/health/liveness"),
+    ("api/endpoints/health.py", "/health/pool"),
+    ("api/endpoints/health.py", "/health/tasks"),
+    ("api/endpoints/health.py", "/health/audit"),
+    ("api/endpoints/health.py", "/health/backup"),
+    ("api/endpoints/health.py", "/health/summary"),
+    ("api/endpoints/health.py", "/health/scheduler"),
+    ("api/endpoints/health.py", "/health/services"),
 }
 
 

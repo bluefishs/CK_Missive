@@ -195,11 +195,20 @@ class Settings(BaseSettings):
     @field_validator('AUTH_DISABLED', mode='before')
     @classmethod
     def validate_auth_disabled(cls, v, info):
-        """確保非開發環境不會禁用認證"""
-        if v and os.getenv('DEVELOPMENT_MODE', 'true').lower() == 'false':
+        """確保非開發環境不會禁用認證。
+
+        注意：mode='before' 收到的可能是字串 "false"，bool("false") == True 會造成誤判，
+        因此必須先把字串正規化為 bool，再做生產環境守門。
+        """
+        if isinstance(v, str):
+            normalized = v.strip().lower() in ('true', '1', 'yes', 'on')
+        else:
+            normalized = bool(v)
+
+        if normalized and os.getenv('DEVELOPMENT_MODE', 'true').lower() == 'false':
             raise ValueError("AUTH_DISABLED 不能在生產環境中啟用")
-        # 非 localhost 部署時強制警告
-        if v:
+
+        if normalized:
             import socket
             hostname = socket.gethostname()
             import logging
@@ -207,7 +216,7 @@ class Settings(BaseSettings):
                 "⚠️ AUTH_DISABLED=true on host '%s'. "
                 "Ensure this is a development-only deployment.", hostname
             )
-        return v
+        return normalized
 
     @field_validator('SECRET_KEY', mode='after')
     @classmethod

@@ -10,6 +10,7 @@
 v2.0.0 - 2026-04-08: 新增排程執行追蹤 (SchedulerTracker)
 """
 import logging
+import os
 import time
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -711,6 +712,64 @@ async def health_snapshot_log_job():
         logger.error("health_snapshot error: %s", e)
 
 
+@tracked_job("cf_tunnel_verify")
+async def cloudflare_tunnel_verify_job():
+    """每日 Cloudflare Tunnel 健康驗證（ADR-0015/0016）
+
+    呼叫 scripts/ops/verify-cloudflare-tunnel.ps1，檢查：
+    - Tunnel online / TLS 憑證 / POST-only 政策 / service token 驗證
+    失敗時寫入 wiki/log.md 並 logger.error（後續可接 LINE/Discord 通知）。
+    只在有 MISSIVE_PUBLIC_URL (且含 cksurvey.tw) 時執行。
+    """
+    import subprocess
+    import shutil
+    from pathlib import Path
+    from datetime import datetime
+
+    public_url = os.getenv("MISSIVE_PUBLIC_URL", "")
+    if "cksurvey.tw" not in public_url:
+        logger.debug("cf_tunnel_verify: 非公網部署，跳過")
+        return
+
+    project_root = Path(__file__).resolve().parents[3]
+    script = project_root / "scripts" / "ops" / "verify-cloudflare-tunnel.ps1"
+    if not script.exists():
+        logger.warning("cf_tunnel_verify: script not found at %s", script)
+        return
+
+    pwsh = shutil.which("pwsh") or shutil.which("powershell")
+    if not pwsh:
+        logger.warning("cf_tunnel_verify: pwsh/powershell 不存在，跳過")
+        return
+
+    try:
+        proc = subprocess.run(
+            [pwsh, "-NoProfile", "-File", str(script), "-PublicUrl", public_url],
+            cwd=str(project_root),
+            capture_output=True, text=True, timeout=120, check=False,
+        )
+        if proc.returncode == 0:
+            logger.info("cf_tunnel_verify: PASS")
+        else:
+            logger.error(
+                "cf_tunnel_verify: FAIL rc=%d\n%s",
+                proc.returncode, proc.stdout[-800:]
+            )
+            log_path = project_root / "wiki" / "log.md"
+            if log_path.exists():
+                ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+                log_path.write_text(
+                    log_path.read_text(encoding="utf-8")
+                    + f"\n## {ts} — CF Tunnel verify FAIL (rc={proc.returncode})\n"
+                    + f"```\n{proc.stdout[-600:]}\n```\n",
+                    encoding="utf-8",
+                )
+    except subprocess.TimeoutExpired:
+        logger.error("cf_tunnel_verify timeout (>120s)")
+    except Exception as e:
+        logger.error("cf_tunnel_verify error: %s", e)
+
+
 @tracked_job("tender_refresh_pending")
 async def tender_refresh_pending_job():
     """標案狀態更新 — 每日重查等標期標案的決標結果"""
@@ -1066,6 +1125,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加健康快照: 每日 06:05")
+
+    # Cloudflare Tunnel 健康驗證 — 每日 06:15（緊接 health_snapshot 之後）
+    scheduler.add_job(
+        cloudflare_tunnel_verify_job,
+        trigger=CronTrigger(hour=6, minute=15),
+        id='cf_tunnel_verify',
+        name='Cloudflare Tunnel 驗證 (每日 06:15)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 CF Tunnel 驗證: 每日 06:15")
 
     # 月度架構覆盤 — 每月 1 日 06:00
     scheduler.add_job(

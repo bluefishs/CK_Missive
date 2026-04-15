@@ -145,6 +145,7 @@ jobs:
             tests/integration/test_hermes_feedback_endpoint.py \
             tests/integration/test_hermes_security_lint.py \
             tests/integration/test_post_only_policy.py \
+            tests/integration/test_production_config_guard.py \
             tests/unit/test_hermes_acp_schema.py \
             tests/unit/test_hermes_feedback_schema.py \
             tests/unit/test_provider_resolver.py \

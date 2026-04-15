@@ -20,6 +20,7 @@
 | [SECURITY_AUDIT_REPORT.md](./SECURITY_AUDIT_REPORT.md) | 資安審計報告 |
 | [SECURITY_CICD_RECOMMENDATIONS.md](./SECURITY_CICD_RECOMMENDATIONS.md) | CI/CD 安全建議 |
 | [KG_FEDERATION_TOKEN_ROTATION_SOP.md](./KG_FEDERATION_TOKEN_ROTATION_SOP.md) | KG 聯邦 Token 輪換 SOP |
+| [SECRETS_INVENTORY_2026-04-15.md](./SECRETS_INVENTORY_2026-04-15.md) | 🆕 Secrets 盤點快照（Phase 1 rotation 基礎） |
 | [incidents/](./incidents/) | 事件紀錄目錄 |
 
 ## 🚀 部署 / 維運 (Deployment / Ops)
