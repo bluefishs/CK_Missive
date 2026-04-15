@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 ALLOWED_EXTERNAL_PATHS = frozenset({
     "/api/health",                    # 健康檢查（CF Tunnel 自動探針）
     "/api/public",                    # 公開端點（免認證）
+    # --- 身分驗證（人員登入必經）---
+    "/api/auth/",                     # google / line / login / logout / refresh / mfa 等
     # --- 通道 webhook ---
     "/api/line/webhook",              # LINE（過渡期保留）
     "/api/discord/webhook",           # Discord bot

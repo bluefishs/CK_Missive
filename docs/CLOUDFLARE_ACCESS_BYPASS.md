@@ -24,6 +24,7 @@ Zero Trust → Access → Applications → CK Platform → Edit → Policies
 |---|---|
 | Path | `/api/health` |
 | Path | `/api/health/detailed` |
+| Path | `/api/auth/` **← 人員登入必備（google/line/login/logout/refresh/mfa）** |
 | Path | `/api/ai/agent/tools` |
 | Path | `/api/ai/agent/query_sync` |
 | Path | `/api/hermes/acp` |
@@ -31,6 +32,8 @@ Zero Trust → Access → Applications → CK Platform → Edit → Policies
 | Path | `/api/telegram/webhook` |
 | Path | `/api/discord/interactions` |
 | Path | `/api/line/webhook`（LINE 下線前過渡期保留） |
+
+> **為何 `/api/auth/` 須 Bypass**：CF Access SSO 擋非 bypass 路徑會 302 redirect 到 `<team>.cloudflareaccess.com`，但應用層自己有 Google/LINE OAuth 登入，兩者衝突。Bypass 讓登入 API 直達後端，由 app 層處理身分；SSO 則只擋 `/`（UI 頁面）。
 
 > 這些路徑走 `X-Service-Token` 或平台自身 webhook 驗證，不需人員登入。
 

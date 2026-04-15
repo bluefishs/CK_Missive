@@ -747,6 +747,36 @@ async def detailed_health_check(
 app.include_router(api_router, prefix="/api")
 
 
+# --- 系統端點（必須在 SPA catch-all 前註冊，否則會被 spa_fallback 搶走）---
+@app.get("/health", tags=["System"])
+async def health_check(db: AsyncSession = Depends(get_async_db)):
+    """基本健康檢查端點，回傳系統狀態 + 資料庫連線 + 版本。"""
+    from app.core.cors import allowed_origins, local_ips
+
+    db_status = "disconnected"
+    db_latency_ms = None
+    try:
+        import time
+        start = time.time()
+        result = await db.execute(text("SELECT 1"))
+        db_latency_ms = round((time.time() - start) * 1000, 2)
+        if result.scalar() == 1:
+            db_status = "connected"
+    except Exception as e:
+        logger.error(f"Health check DB error: {e}")
+        db_status = "error"
+
+    is_healthy = db_status == "connected"
+    return {
+        "status": "healthy" if is_healthy else "unhealthy",
+        "version": app.version,
+        "environment": "development" if settings.DEVELOPMENT_MODE else "production",
+        "database": {"status": db_status, "latency_ms": db_latency_ms},
+        "cors": {"origins_count": len(allowed_origins), "local_ips_detected": len(local_ips)},
+        "timestamp": datetime.now().isoformat(),
+    }
+
+
 # --- 前端靜態服務（ADR-0016 公網部署）---
 # 當 frontend/dist 存在時，FastAPI 同時服務 SPA + API
 # 路由優先順序：API > /assets/* > index.html (SPA fallback)
@@ -774,6 +804,7 @@ if _FRONTEND_INDEX.exists():
         """SPA fallback：未匹配的路徑回傳 index.html（讓 React Router 處理）。
 
         排除：/api/*, /docs, /redoc, /openapi.json, /assets/*, /uploads/*, /static/*
+        註：系統端點 /health*, /metrics 必須在此 catch-all 註冊之「前」定義才能生效。
         """
         # 直接服務存在的檔案（favicon、manifest、robots 等）
         candidate = _FRONTEND_DIST / spa_path
@@ -795,47 +826,6 @@ else:
             "status": "running",
             "documentation": app.docs_url,
         }
-
-
-@app.get("/health", tags=["System"])
-async def health_check(db: AsyncSession = Depends(get_async_db)):
-    """
-    基本健康檢查端點
-
-    回傳系統健康狀態，包含資料庫連線、版本資訊等。
-    """
-    from app.core.cors import allowed_origins, local_ips
-
-    db_status = "disconnected"
-    db_latency_ms = None
-
-    try:
-        import time
-        start = time.time()
-        result = await db.execute(text("SELECT 1"))
-        db_latency_ms = round((time.time() - start) * 1000, 2)
-        if result.scalar() == 1:
-            db_status = "connected"
-    except Exception as e:
-        logger.error(f"Health check DB error: {e}")
-        db_status = "error"
-
-    is_healthy = db_status == "connected"
-
-    return {
-        "status": "healthy" if is_healthy else "unhealthy",
-        "version": app.version,
-        "environment": "development" if settings.DEVELOPMENT_MODE else "production",
-        "database": {
-            "status": db_status,
-            "latency_ms": db_latency_ms,
-        },
-        "cors": {
-            "origins_count": len(allowed_origins),
-            "local_ips_detected": len(local_ips),
-        },
-        "timestamp": datetime.now().isoformat(),
-    }
 
 
 # --- Prometheus Metrics 端點 (P4 觀測層) ---
