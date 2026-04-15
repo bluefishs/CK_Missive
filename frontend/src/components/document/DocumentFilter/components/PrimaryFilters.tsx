@@ -184,8 +184,15 @@ const PrimaryFilters: React.FC<PrimaryFiltersProps> = ({
               )
             }
           >
-            {contractCaseOptions.map((option) => (
-              <Option key={option.value} value={option.value} label={option.label}>
+            {contractCaseOptions.map((option, idx) => (
+              // 防禦性 key：若兩個 option value 相同（例如 DB 殘留同名重複），
+              // 用 index 保底避免 React key 衝突導致 Select 虛擬化渲染錯亂
+              // （症狀：所有下拉項目都顯示成同一筆）。
+              <Option
+                key={`${option.value}__${idx}`}
+                value={option.value}
+                label={option.label}
+              >
                 {option.label}
               </Option>
             ))}

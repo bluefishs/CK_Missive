@@ -1285,25 +1285,69 @@ class ProjectRepository(BaseRepository[ContractProject]):
         self,
         search: Optional[str] = None,
         limit: int = 50,
+        exclude_categories: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
-        """取得承攬案件下拉選項"""
-        query = select(
+        """取得承攬案件下拉選項
+
+        Args:
+            search: 模糊搜尋（project_name / project_code / client_agency）
+            limit: 回傳上限
+            exclude_categories: 排除的 category 清單（預設 ['02']，即
+                「02承攬報價」— 該類型無公文往返需求，不在 /documents 下拉顯示）
+
+        注意：DB schema 對 (project_name, year) 未施加 unique constraint，
+        歷史資料可能存在同名同年份多筆。此處用 DISTINCT ON 以
+        (project_name, year) 去重，保留最大 id（通常為最新建立者）。
+        根因修復見 scripts/dev/dedupe_contract_projects.sql。
+        """
+        # 預設排除「02承攬報價」— /documents 下拉僅顯示有公文往返需求的案件
+        if exclude_categories is None:
+            exclude_categories = ["02"]
+
+        # 先用 DISTINCT ON 子查詢挑出每組 (project_name, year) 的最大 id
+        inner_query = select(
             ContractProject.id,
             ContractProject.project_name,
             ContractProject.year,
             ContractProject.category,
+            ContractProject.project_code,
+            ContractProject.client_agency,
+        )
+        if exclude_categories:
+            inner_query = inner_query.where(
+                or_(
+                    ContractProject.category.is_(None),
+                    ~ContractProject.category.in_(exclude_categories),
+                )
+            )
+        inner = (
+            inner_query
+            .distinct(ContractProject.project_name, ContractProject.year)
+            .order_by(
+                ContractProject.project_name,
+                ContractProject.year,
+                ContractProject.id.desc(),
+            )
+            .subquery()
+        )
+
+        query = select(
+            inner.c.id,
+            inner.c.project_name,
+            inner.c.year,
+            inner.c.category,
         )
         if search:
             query = query.where(
                 or_(
-                    ContractProject.project_name.ilike(f"%{search}%"),
-                    ContractProject.project_code.ilike(f"%{search}%"),
-                    ContractProject.client_agency.ilike(f"%{search}%"),
+                    inner.c.project_name.ilike(f"%{search}%"),
+                    inner.c.project_code.ilike(f"%{search}%"),
+                    inner.c.client_agency.ilike(f"%{search}%"),
                 )
             )
         query = query.order_by(
-            ContractProject.year.desc(),
-            ContractProject.project_name.asc(),
+            inner.c.year.desc(),
+            inner.c.project_name.asc(),
         ).limit(limit)
         result = await self.db.execute(query)
         return [
