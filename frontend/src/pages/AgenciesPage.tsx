@@ -9,6 +9,8 @@ import {
   Select,
   Pagination,
   Card,
+  Alert,
+  Tag,
 } from 'antd';
 import {
   SearchOutlined,
@@ -17,6 +19,7 @@ import {
   BuildOutlined,
   TeamOutlined,
   PlusOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
@@ -167,6 +170,30 @@ export const AgenciesPage: React.FC = () => {
             />
           </Col>
         </Row>
+      )}
+
+      {/* 資料品質警示：agency_code 缺失 */}
+      {statistics?.data_quality && statistics.data_quality.missing_agency_code > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<WarningOutlined />}
+          style={{ marginBottom: isMobile ? 12 : 16 }}
+          message={
+            <span>
+              共 <strong>{statistics.data_quality.missing_agency_code}</strong> 筆機關尚未填寫 agency_code
+            </span>
+          }
+          description={
+            <Space size={[8, 4]} wrap>
+              {Object.entries(statistics.data_quality.missing_by_source).map(([source, count]) => (
+                <Tag key={source} color={source === 'auto' ? 'orange' : source === 'import' ? 'geekblue' : 'default'}>
+                  {source}: {count}
+                </Tag>
+              ))}
+            </Space>
+          }
+        />
       )}
 
       {/* 搜尋和篩選 */}

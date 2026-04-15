@@ -4,7 +4,7 @@ Pydantic schemas for Government Agencies
 v1.1.0 - 2026-01-26: 新增名稱標準化驗證器，避免重複資料
 """
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from datetime import datetime
 import re
@@ -99,10 +99,17 @@ class CategoryStat(BaseModel):
     count: int
     percentage: float
 
+class DataQualityStat(BaseModel):
+    """資料品質統計 schema"""
+    missing_agency_code: int = 0
+    missing_by_source: Dict[str, int] = {}
+
+
 class AgencyStatistics(BaseModel):
     """機關統計資訊 schema"""
     total_agencies: int
     categories: List[CategoryStat]
+    data_quality: Optional[DataQualityStat] = None
 
 class AgenciesResponse(BaseModel):
     """機關列表回應 schema"""

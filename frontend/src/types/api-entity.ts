@@ -119,10 +119,17 @@ export interface CategoryStat {
   percentage: number;
 }
 
+/** 機關資料品質統計 */
+export interface AgencyDataQuality {
+  missing_agency_code: number;
+  missing_by_source: Record<string, number>;
+}
+
 /** 機關統計資料 */
 export interface AgencyStatistics {
   total_agencies: number;
   categories: CategoryStat[];
+  data_quality?: AgencyDataQuality | null;
 }
 
 // ============================================================================

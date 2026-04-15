@@ -207,10 +207,39 @@ class AgencyStatisticsService:
                         'percentage': round((cnt / total_agencies * 100), 1) if total_agencies > 0 else 0,
                     })
 
+            data_quality = await self._get_data_quality()
+
             return {
                 "total_agencies": total_agencies,
                 "categories": categories,
+                "data_quality": data_quality,
             }
         except Exception as e:
             self.logger.error(f"取得機關統計資料失敗: {e}", exc_info=True)
-            return {"total_agencies": 0, "categories": []}
+            return {"total_agencies": 0, "categories": [], "data_quality": None}
+
+    async def _get_data_quality(self) -> Dict[str, Any]:
+        """取得資料品質統計：agency_code 缺失依 source 分類"""
+        query = (
+            select(
+                func.coalesce(GovernmentAgency.source, "manual").label("source"),
+                func.count(GovernmentAgency.id).label("missing_count"),
+            )
+            .where(
+                or_(
+                    GovernmentAgency.agency_code.is_(None),
+                    GovernmentAgency.agency_code == "",
+                )
+            )
+            .group_by(func.coalesce(GovernmentAgency.source, "manual"))
+        )
+        result = await self.db.execute(query)
+        missing_by_source: Dict[str, int] = {}
+        total_missing = 0
+        for row in result.all():
+            missing_by_source[row.source] = row.missing_count
+            total_missing += row.missing_count
+        return {
+            "missing_agency_code": total_missing,
+            "missing_by_source": missing_by_source,
+        }

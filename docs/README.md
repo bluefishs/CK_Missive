@@ -1,174 +1,125 @@
 # CK Missive 文件中心
 
-> 版本: 2.0.0
-> 最後更新: 2026-01-08
+> 版本: 3.0.0 (分類索引改版)
+> 最後更新: 2026-04-15
 > 乾坤測繪公文管理系統 (CK_Missive) 技術文件索引
 
----
-
-## 快速導覽
-
-| 我要... | 請參閱 |
-|---------|--------|
-| 了解開發規範 | [DEVELOPMENT_STANDARDS.md](./DEVELOPMENT_STANDARDS.md) |
-| 查看資料庫結構 | [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) |
-| 了解 API 對應 | [FRONTEND_API_MAPPING.md](./FRONTEND_API_MAPPING.md) |
-| 查看待辦事項 | [TODO.md](./TODO.md) |
-| 處理 CSV 匯入 | [CSV_IMPORT_MAINTENANCE.md](./CSV_IMPORT_MAINTENANCE.md) |
+> 採分類索引策略：根目錄 50+ 檔不搬移（避免破壞外部引用），改以主題分類導覽。新文件建立時請歸屬對應主題並在本索引登記。
 
 ---
 
-## 文件結構
-
-```
-docs/
-├── README.md                      ← 你在這裡
-├── DEVELOPMENT_STANDARDS.md       # 🔴 統一開發規範總綱 (必讀)
-├── TODO.md                        # 待辦事項與規劃
-├── DATABASE_SCHEMA.md             # 資料庫結構
-├── FRONTEND_API_MAPPING.md        # 前後端 API 對應
-├── CSV_IMPORT_MAINTENANCE.md      # CSV 匯入維護指南
-├── ERROR_HANDLING_GUIDE.md        # 錯誤處理指南
-├── CONTRIBUTING.md                # 貢獻指南
-├── DEVELOPMENT_GUIDE.md           # 開發指南
-├── DOCUMENT_CENTER_DESIGN.md      # 文管中心設計
-├── SYSTEM_MAINTENANCE.md          # 系統維護指南
-├── FILTER_OPTIMIZATION.md         # 篩選器優化
-│
-├── specifications/                # 🔴 規範文件 (強制遵守)
-│   ├── TYPE_CONSISTENCY.md        # 型別一致性規範
-│   ├── SCHEMA_VALIDATION.md       # Schema 驗證規範
-│   ├── TYPE_MAPPING.md            # 前後端型別對照表
-│   ├── API_RESPONSE_FORMAT.md     # API 回應格式規範
-│   ├── API_ENDPOINT_CONSISTENCY.md # API 端點一致性規範
-│   ├── PORT_CONFIGURATION.md      # 端口配置規範
-│   ├── CSV_IMPORT.md              # CSV 匯入規範
-│   ├── PROJECT_CODE.md            # 專案編號規範
-│   └── TESTING_FRAMEWORK.md       # 測試框架規劃
-│
-├── architecture/                  # 架構設計文件
-│   ├── PROJECT_OPTIMIZATION_INTEGRATION_PLAN.md
-│   └── VERSION_MANAGEMENT_STRATEGY.md
-│
-├── wiki/                          # 技術 Wiki
-│   ├── Home.md
-│   ├── Backend-API-Overview.md
-│   ├── Frontend-Architecture.md
-│   ├── Frontend-Components.md
-│   ├── Database-Models.md
-│   ├── Service-Layer-Architecture.md
-│   └── CODEWIKI.md
-│
-└── reports/                       # 系統報告
-    ├── SYSTEM_REVIEW_20260108.md
-    ├── ARCHITECTURE_REVIEW_20260108.md
-    ├── SYSTEM_SPECIFICATION_UPDATE_20260108.md
-    ├── CALENDAR_OPTIMIZATION_20260108.md
-    └── ...
-```
-
----
-
-## 核心規範文件
-
-### 🔴 必讀文件 (MANDATORY)
-
-| 文件 | 說明 | 強制等級 |
-|------|------|----------|
-| [DEVELOPMENT_STANDARDS.md](./DEVELOPMENT_STANDARDS.md) | **統一開發規範總綱** | 🔴 必讀 |
-| [specifications/TYPE_CONSISTENCY.md](./specifications/TYPE_CONSISTENCY.md) | 型別一致性規範 | 🔴 必須 |
-| [specifications/SCHEMA_VALIDATION.md](./specifications/SCHEMA_VALIDATION.md) | Schema 驗證規範 | 🔴 必須 |
-| [specifications/API_ENDPOINT_CONSISTENCY.md](./specifications/API_ENDPOINT_CONSISTENCY.md) | API 端點一致性 | 🔴 必須 |
-| [specifications/PORT_CONFIGURATION.md](./specifications/PORT_CONFIGURATION.md) | 端口配置規範 | 🔴 必須 |
-| [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | 資料庫架構 | 🔴 必須 |
-
-### 🟡 相關時參閱
-
-| 文件 | 說明 | 適用情境 |
-|------|------|----------|
-| [specifications/TYPE_MAPPING.md](./specifications/TYPE_MAPPING.md) | 型別對照表 | 前後端整合時 |
-| [specifications/API_RESPONSE_FORMAT.md](./specifications/API_RESPONSE_FORMAT.md) | API 回應格式 | 開發 API 時 |
-| [specifications/CSV_IMPORT.md](./specifications/CSV_IMPORT.md) | CSV 匯入規範 | 開發匯入功能時 |
-| [specifications/PROJECT_CODE.md](./specifications/PROJECT_CODE.md) | 專案編號規範 | 開發案件功能時 |
-| [specifications/TESTING_FRAMEWORK.md](./specifications/TESTING_FRAMEWORK.md) | 測試框架規劃 | 開發測試時 |
-| [FRONTEND_API_MAPPING.md](./FRONTEND_API_MAPPING.md) | API 對應表 | 開發 API 時 |
-
-### 🟢 參考文件
+## 🔐 安全 (Security)
 
 | 文件 | 說明 |
 |------|------|
-| [wiki/Service-Layer-Architecture.md](./wiki/Service-Layer-Architecture.md) | 服務層架構說明 |
-| [wiki/Frontend-Architecture.md](./wiki/Frontend-Architecture.md) | 前端架構說明 |
-| [wiki/Backend-API-Overview.md](./wiki/Backend-API-Overview.md) | 後端 API 總覽 |
+| [AUTH_FLOW_DIAGRAM.md](./AUTH_FLOW_DIAGRAM.md) | 登入流程 + middleware 順序 + 錯誤碼速查 |
+| [SECURITY_THREAT_MODEL.md](./SECURITY_THREAT_MODEL.md) | STRIDE 威脅分析 + Top 5 優先項 |
+| [INCIDENT_RESPONSE_PLAYBOOK.md](./INCIDENT_RESPONSE_PLAYBOOK.md) | 六大資安場景應變 SOP |
+| [SECRET_ROTATION_SOP.md](./SECRET_ROTATION_SOP.md) | 密碼 / Token 輪換流程 |
+| [PRODUCTION_SECURITY_CHECKLIST.md](./PRODUCTION_SECURITY_CHECKLIST.md) | 上線前安全檢查 |
+| [SECURITY_AUDIT_REPORT.md](./SECURITY_AUDIT_REPORT.md) | 資安審計報告 |
+| [SECURITY_CICD_RECOMMENDATIONS.md](./SECURITY_CICD_RECOMMENDATIONS.md) | CI/CD 安全建議 |
+| [KG_FEDERATION_TOKEN_ROTATION_SOP.md](./KG_FEDERATION_TOKEN_ROTATION_SOP.md) | KG 聯邦 Token 輪換 SOP |
+| [incidents/](./incidents/) | 事件紀錄目錄 |
 
----
+## 🚀 部署 / 維運 (Deployment / Ops)
 
-## 開發檢查清單
-
-### 每次提交前
-
-```bash
-# 1. TypeScript 型別檢查 (必須 0 錯誤)
-cd frontend && npx tsc --noEmit
-
-# 2. 建置檢查 (必須成功)
-cd frontend && npm run build
-```
-
-### 新增欄位時
-
-1. [ ] 更新 `backend/app/extended/models.py`
-2. [ ] 建立 Alembic migration
-3. [ ] 更新 `backend/app/schemas/*.py`
-4. [ ] 更新 `frontend/src/api/*Api.ts`
-5. [ ] 更新 `docs/DATABASE_SCHEMA.md`
-6. [ ] 更新 `docs/specifications/TYPE_MAPPING.md`
-
-### 新增 API 時
-
-1. [ ] 建立後端端點
-2. [ ] 更新 Swagger 文件
-3. [ ] 建立前端 API 方法
-4. [ ] 更新 `docs/FRONTEND_API_MAPPING.md`
-
----
-
-## 系統概況
-
-### 技術棧
-
-| 層級 | 技術 |
+| 文件 | 說明 |
 |------|------|
-| 前端 | React 18 + TypeScript + Ant Design + React Query |
-| 後端 | FastAPI + SQLAlchemy + Pydantic |
-| 資料庫 | PostgreSQL 15 (Docker) |
-| 快取 | Redis (可選) |
-| 部署 | Docker Compose |
+| [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) | 部署主指南 |
+| [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) | 部署前檢查 |
+| [DEPLOYMENT_GAP_ANALYSIS.md](./DEPLOYMENT_GAP_ANALYSIS.md) | 部署落差分析 |
+| [DEPLOYMENT_LESSONS_LEARNED.md](./DEPLOYMENT_LESSONS_LEARNED.md) | 部署教訓 |
+| [PRODUCTION_DEPLOYMENT_GUIDE.md](./PRODUCTION_DEPLOYMENT_GUIDE.md) | 正式環境部署 |
+| [MANUAL_DEPLOYMENT_GUIDE.md](./MANUAL_DEPLOYMENT_GUIDE.md) | 手動部署 |
+| [NAS_DEPLOYMENT_GUIDE.md](./NAS_DEPLOYMENT_GUIDE.md) | NAS 部署 |
+| [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) | Cloudflare Tunnel 建置 |
+| [CLOUDFLARE_TUNNEL_CKSURVEY.md](./CLOUDFLARE_TUNNEL_CKSURVEY.md) | cksurvey.tw 專用部署 |
+| [CLOUDFLARE_ACCESS_BYPASS.md](./CLOUDFLARE_ACCESS_BYPASS.md) | Access Bypass Policy |
+| [SIMPLE_RESTART_GUIDE.md](./SIMPLE_RESTART_GUIDE.md) | 快速重啟 |
+| [SYSTEM_MAINTENANCE.md](./SYSTEM_MAINTENANCE.md) | 系統維護 |
+| [SYSTEM_CONFIG_CHECKLIST.md](./SYSTEM_CONFIG_CHECKLIST.md) | 系統配置檢查 |
+| [GITHUB_RUNNER_SETUP.md](./GITHUB_RUNNER_SETUP.md) | GitHub Runner 建置 |
+| [GITOPS_EVALUATION.md](./GITOPS_EVALUATION.md) | GitOps 評估 |
 
-### 主要功能模組
+## 🏗️ 架構 / 設計 (Architecture)
 
-| 模組 | 說明 |
+| 文件 | 說明 |
 |------|------|
-| 公文管理 | 收發文登錄、匯入、匯出、查詢 |
-| 承攬案件 | 案件建立、追蹤、廠商關聯 |
-| 行事曆 | 事件管理、Google Calendar 同步 |
-| 使用者 | 帳號管理、權限控制 |
-| 系統管理 | 資料庫管理、網站配置 |
+| [ARCHITECTURE_REVIEW_2026-04-15.md](./ARCHITECTURE_REVIEW_2026-04-15.md) | 最新架構健康度 (8.0/10) |
+| [Architecture_Optimization_Recommendations.md](./Architecture_Optimization_Recommendations.md) | 架構優化建議 |
+| [PROJECT_STRUCTURE_STANDARD.md](./PROJECT_STRUCTURE_STANDARD.md) | 專案結構標準 |
+| [SERVICE_ARCHITECTURE_STANDARDS.md](./SERVICE_ARCHITECTURE_STANDARDS.md) | 服務架構標準 |
+| [STRUCTURE.md](./STRUCTURE.md) | 結構總覽 |
+| [DOCUMENT_AI_ARCHITECTURE.md](./DOCUMENT_AI_ARCHITECTURE.md) | 文件 AI 架構 |
+| [DOCUMENT_CENTER_DESIGN.md](./DOCUMENT_CENTER_DESIGN.md) | 文管中心設計 |
+| [CALENDAR_ARCHITECTURE.md](./CALENDAR_ARCHITECTURE.md) | 行事曆架構 |
+| [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | 資料庫結構 |
+| [er-diagram.md](./er-diagram.md) | ER 圖 |
+| [adr/](./adr/) | **架構決策紀錄目錄 (ADR 0001~0016)** |
+| [architecture/](./architecture/) | 深度架構文件目錄 |
+
+## 📘 開發規範 (Development)
+
+| 文件 | 說明 |
+|------|------|
+| [DEVELOPMENT_STANDARDS.md](./DEVELOPMENT_STANDARDS.md) | 🔴 統一開發規範總綱 |
+| [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) | 開發指南 |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | 貢獻指南 |
+| [CSV_IMPORT_MAINTENANCE.md](./CSV_IMPORT_MAINTENANCE.md) | CSV 匯入維護 |
+| [ERROR_HANDLING_GUIDE.md](./ERROR_HANDLING_GUIDE.md) | 錯誤處理指南 |
+| [FRONTEND_API_MAPPING.md](./FRONTEND_API_MAPPING.md) | 前後端 API 對應 |
+| [ALEMBIC_MIGRATION_GUIDE.md](./ALEMBIC_MIGRATION_GUIDE.md) | Alembic 遷移指南 |
+| [ENV_MANAGEMENT_GUIDE.md](./ENV_MANAGEMENT_GUIDE.md) | 環境設定管理 |
+| [UNIFIED_CONFIG_GUIDE.md](./UNIFIED_CONFIG_GUIDE.md) | 統一配置指南 |
+| [specifications/](./specifications/) | **規範文件目錄 (型別/API/Schema 強制規範)** |
+
+## 🤖 AI / Agent / 整合 (AI & Integration)
+
+| 文件 | 說明 |
+|------|------|
+| [HERMES_MIGRATION_PLAN.md](./HERMES_MIGRATION_PLAN.md) | Hermes 4-Phase 遷移計畫 |
+| [hermes-skills/](./hermes-skills/) | Hermes skill 部署包 |
+| [LINE_OPENCLAW_OPERATIONAL_GUIDE.md](./LINE_OPENCLAW_OPERATIONAL_GUIDE.md) | LINE + OpenClaw 運維（將下線） |
+| [LINE_BOT_SETUP_GUIDE.md](./LINE_BOT_SETUP_GUIDE.md) | LINE Bot 直連 |
+| [MULTICHANNEL_SETUP_GUIDE.md](./MULTICHANNEL_SETUP_GUIDE.md) | 多頻道整合 |
+| [OLLAMA_SETUP_GUIDE.md](./OLLAMA_SETUP_GUIDE.md) | Ollama 建置 |
+| [Google_Calendar_Integration_Setup.md](./Google_Calendar_Integration_Setup.md) | Google Calendar 整合 |
+| [openclaw-skill-update.md](./openclaw-skill-update.md) | OpenClaw skill 更新 |
+
+## 📊 報告 / 優化 (Reports & Optimization)
+
+| 文件 | 說明 |
+|------|------|
+| [SYSTEM_OPTIMIZATION_REPORT.md](./SYSTEM_OPTIMIZATION_REPORT.md) | 系統優化報告 |
+| [OPTIMIZATION_ACTION_PLAN.md](./OPTIMIZATION_ACTION_PLAN.md) | 優化行動計畫 |
+| [reports/](./reports/) | 歷史報告目錄 |
+| [plans/](./plans/) | 規劃目錄 |
+| [presentations/](./presentations/) | 簡報目錄 |
+| [archive/](./archive/) | 已封存文件 |
+
+## 🗺️ 知識系統 (Knowledge)
+
+| 文件 | 說明 |
+|------|------|
+| [wiki/](./wiki/) | LLM Wiki (220 pages, Karpathy 4-Phase) |
+| [knowledge-map/](./knowledge-map/) | 知識地圖生成輸出 |
+| [diagrams/](./diagrams/) | Mermaid 架構圖 |
+| [generated/](./generated/) | 自動生成文件 |
+| [er-model.json](./er-model.json) | ER Model 結構化輸出 |
 
 ---
 
-## 聯絡資訊
+## 新增文件規範
 
-- **專案維護**: 乾坤測繪開發團隊
-- **技術支援**: 系統管理員
-- **文件更新**: Claude Code Assistant
+1. 新文件**歸屬到既有主題**，放在 `docs/` 根或對應子目錄
+2. 在本 `README.md` 對應表格新增一列
+3. 命名採大寫底線 `SCREAMING_SNAKE_CASE.md`（既有慣例）
+4. 引用路徑使用相對路徑，避免 hardcoded 絕對路徑
+5. 一次性產出（事件 postmortem / migration 筆記）放 `archive/` 或 `incidents/`
 
----
+## 相關索引
 
-## 變更記錄
-
-| 日期 | 版本 | 變更內容 |
-|------|------|----------|
-| 2026-01-08 | v2.1.0 | 新增 API 端點、端口配置、回應格式規範 |
-| 2026-01-08 | v2.0.0 | 重建文件索引，新增規範目錄結構 |
-| 2025-09-10 | v1.0.0 | 初始建立 |
+- [CLAUDE.md](../CLAUDE.md) — 專案主配置
+- [.claude/rules/](../.claude/rules/) — 自動載入規範 (architecture / security / testing 等)
+- [.claude/CHANGELOG.md](../.claude/CHANGELOG.md) — 完整版本紀錄
