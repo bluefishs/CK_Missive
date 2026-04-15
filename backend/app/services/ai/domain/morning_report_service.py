@@ -66,6 +66,16 @@ class MorningReportService:
             today
         )
 
+        # 8. 近期會議（CalendarEvent.event_type='meeting'，排除現勘關鍵字）
+        sections["upcoming_meetings"] = await self._get_upcoming_meetings(
+            today, week_later
+        )
+
+        # 9. 近期現勘（CalendarEvent 現勘關鍵字 + taoyuan work_records survey）
+        sections["upcoming_site_visits"] = await self._get_upcoming_site_visits(
+            today, week_later
+        )
+
         return sections
 
     async def generate_summary(self) -> str:
@@ -140,6 +150,41 @@ class MorningReportService:
         ap = data.get("asset_pending_inventory", {})
         if ap.get("count", 0) > 0:
             parts.append(f"待盤點資產 {ap['count']} 項")
+
+        # 8. 近期會議 — 列出具體場次
+        mt = data.get("upcoming_meetings", {})
+        if mt.get("count", 0) > 0:
+            parts.append(f"近期會議 {mt['count']} 場")
+            for item in mt.get("items", [])[:5]:
+                days = item.get("days_left", 0)
+                urgency = (
+                    "🔔 今日" if days == 0
+                    else "📅 明日" if days == 1
+                    else f"📅 {days} 天後"
+                )
+                time_str = item.get("time_str") or item.get("start_date", "")
+                location = f" @ {item['location']}" if item.get("location") else ""
+                details.append(
+                    f"  {urgency} {time_str} {item['title'][:40]}{location}"
+                )
+
+        # 9. 近期現勘
+        sv = data.get("upcoming_site_visits", {})
+        if sv.get("count", 0) > 0:
+            parts.append(f"近期現勘 {sv['count']} 場")
+            for item in sv.get("items", [])[:5]:
+                days = item.get("days_left", 0)
+                urgency = (
+                    "🏗️ 今日" if days == 0
+                    else "🏗️ 明日" if days == 1
+                    else f"🏗️ {days} 天後"
+                )
+                time_str = item.get("time_str") or item.get("start_date", "")
+                source = f" [{item['source']}]" if item.get("source") else ""
+                location = f" @ {item['location']}" if item.get("location") else ""
+                details.append(
+                    f"  {urgency} {time_str} {item['title'][:40]}{location}{source}"
+                )
 
         if not parts:
             return "📋 今日晨報：一切正常，無待處理事項。👍"
@@ -416,3 +461,129 @@ class MorningReportService:
         except Exception as e:
             logger.debug("asset_pending_inventory query failed: %s", e)
             return {"count": 0}
+
+    # 現勘關鍵字（從 title 判斷是否屬於現勘；會勘因常走現場，歸為現勘）
+    _SITE_VISIT_KEYWORDS = ("會勘", "現勘", "勘查", "勘驗", "履勘", "現場勘查", "現場會勘")
+
+    def _format_event_time(self, start_dt, all_day: bool) -> str:
+        """格式化會議/現勘時間為可讀字串。"""
+        if not start_dt:
+            return ""
+        if all_day:
+            return start_dt.strftime("%m/%d") + " 全天"
+        return start_dt.strftime("%m/%d %H:%M")
+
+    def _is_site_visit(self, title: str) -> bool:
+        return any(k in (title or "") for k in self._SITE_VISIT_KEYWORDS)
+
+    async def _get_upcoming_meetings(self, today, week_later) -> dict:
+        """近期會議（不含現勘），來源：document_calendar_events.event_type='meeting'"""
+        try:
+            r = await self.db.execute(
+                text("""
+                SELECT id, title, start_date, end_date, all_day, location, priority, status
+                FROM document_calendar_events
+                WHERE event_type = 'meeting'
+                  AND status != 'cancelled'
+                  AND DATE(start_date) BETWEEN :today AND :week
+                ORDER BY start_date
+                LIMIT 20
+            """),
+                {"today": today, "week": week_later},
+            )
+            items = []
+            for row in r.all():
+                title = row[1] or ""
+                if self._is_site_visit(title):
+                    continue  # 現勘另收
+                start_dt = row[2]
+                start_date = start_dt.date() if start_dt else None
+                items.append({
+                    "title": title,
+                    "start_date": str(start_date) if start_date else "",
+                    "time_str": self._format_event_time(start_dt, bool(row[4])),
+                    "location": row[5] or "",
+                    "priority": row[6] or "normal",
+                    "days_left": (start_date - today).days if start_date else 0,
+                })
+            return {"count": len(items), "items": items}
+        except Exception as e:
+            logger.debug("upcoming_meetings query failed: %s", e)
+            return {"count": 0, "items": []}
+
+    async def _get_upcoming_site_visits(self, today, week_later) -> dict:
+        """近期現勘：合併兩個來源
+        1. document_calendar_events.event_type='meeting' 且 title 含現勘關鍵字
+        2. taoyuan_work_records.work_category='survey_notice' 且 record_date 在未來範圍
+        """
+        items = []
+
+        # Source 1: Calendar events
+        try:
+            r1 = await self.db.execute(
+                text("""
+                SELECT id, title, start_date, all_day, location, priority
+                FROM document_calendar_events
+                WHERE event_type = 'meeting'
+                  AND status != 'cancelled'
+                  AND DATE(start_date) BETWEEN :today AND :week
+                ORDER BY start_date
+                LIMIT 30
+            """),
+                {"today": today, "week": week_later},
+            )
+            for row in r1.all():
+                title = row[1] or ""
+                if not self._is_site_visit(title):
+                    continue
+                start_dt = row[2]
+                start_date = start_dt.date() if start_dt else None
+                items.append({
+                    "title": title,
+                    "start_date": str(start_date) if start_date else "",
+                    "time_str": self._format_event_time(start_dt, bool(row[3])),
+                    "location": row[4] or "",
+                    "priority": row[5] or "normal",
+                    "source": "calendar",
+                    "days_left": (start_date - today).days if start_date else 0,
+                })
+        except Exception as e:
+            logger.debug("site_visits calendar query failed: %s", e)
+
+        # Source 2: Taoyuan work records (survey_notice)
+        try:
+            r2 = await self.db.execute(
+                text("""
+                SELECT wr.id, wr.description, wr.record_date, wr.milestone_type,
+                       d.dispatch_no, d.project_name, d.sub_case_name
+                FROM taoyuan_work_records wr
+                LEFT JOIN taoyuan_dispatch_orders d ON d.id = wr.dispatch_order_id
+                WHERE wr.work_category = 'survey_notice'
+                  AND wr.status IN ('pending', 'in_progress')
+                  AND wr.record_date BETWEEN :today AND :week
+                ORDER BY wr.record_date
+                LIMIT 20
+            """),
+                {"today": today, "week": week_later},
+            )
+            for row in r2.all():
+                record_date = row[2]
+                desc = row[1] or ""
+                dispatch_no = row[4] or ""
+                project = row[6] or row[5] or ""
+                title = f"{dispatch_no} {project}".strip() or desc or "派工現勘"
+                items.append({
+                    "title": title[:60],
+                    "start_date": str(record_date) if record_date else "",
+                    "time_str": record_date.strftime("%m/%d") + " 現勘" if record_date else "",
+                    "location": "",
+                    "priority": "normal",
+                    "source": "dispatch",
+                    "days_left": (record_date - today).days if record_date else 0,
+                })
+        except Exception as e:
+            logger.debug("site_visits dispatch query failed: %s", e)
+
+        # 依 days_left 排序（近的先）
+        items.sort(key=lambda x: x["days_left"])
+        return {"count": len(items), "items": items}
