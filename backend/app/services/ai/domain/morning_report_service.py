@@ -220,13 +220,41 @@ class MorningReportService:
         return None
 
     async def _get_dispatch_deadlines(self, today, week_later) -> dict:
-        """Get dispatch deadlines with DETAILS — not just counts."""
+        """到期派工（本週+今日）— 同樣排除「實質已完成」者，與逾期判定一致。"""
         try:
             r = await self.db.execute(
                 text("""
-                SELECT id, dispatch_no, deadline, project_name, case_handler, sub_case_name
-                FROM taoyuan_dispatch_orders
-                WHERE deadline IS NOT NULL AND deadline != '' AND batch_no IS NULL
+                WITH closed_signals AS (
+                  -- 訊號 A：work_records 有完成的成果/結案紀錄
+                  SELECT DISTINCT dispatch_order_id
+                  FROM taoyuan_work_records
+                  WHERE work_category IN ('work_result', 'closed', 'submit_result')
+                    AND status = 'completed'
+                  UNION
+                  -- 訊號 B：work_records 有對應公文的成果類紀錄（不需 status）
+                  SELECT DISTINCT dispatch_order_id
+                  FROM taoyuan_work_records
+                  WHERE work_category IN ('work_result', 'submit_result')
+                    AND document_id IS NOT NULL
+                  UNION
+                  -- 訊號 C：派工-公文鏈結有 company_outgoing（乾坤發文 = 已交付）
+                  SELECT DISTINCT dispatch_order_id
+                  FROM taoyuan_dispatch_document_link
+                  WHERE link_type = 'company_outgoing'
+                  UNION
+                  -- 訊號 D：派工主表 company_doc_id 已填（舊欄位相容）
+                  SELECT id AS dispatch_order_id
+                  FROM taoyuan_dispatch_orders
+                  WHERE company_doc_id IS NOT NULL
+                )
+                SELECT d.id, d.dispatch_no, d.deadline, d.project_name,
+                       d.case_handler, d.sub_case_name
+                FROM taoyuan_dispatch_orders d
+                LEFT JOIN closed_signals c ON c.dispatch_order_id = d.id
+                WHERE d.deadline IS NOT NULL
+                  AND d.deadline != ''
+                  AND d.batch_no IS NULL
+                  AND c.dispatch_order_id IS NULL
             """)
             )
             today_items = []
@@ -259,13 +287,50 @@ class MorningReportService:
             return {"today_count": 0, "week_count": 0, "today_items": [], "week_items": []}
 
     async def _get_overdue_items(self, today) -> dict:
-        """Get overdue items with DETAILS."""
+        """逾期判定（雙條件）：
+
+        一張派工視為「實質已完成」並排除在逾期之外，須符合任一：
+        - 主表 batch_no IS NOT NULL（最終結案批次已建立）
+        - work_records 鏈上有 work_category IN
+          ('work_result','closed','submit_result') 且 status='completed'
+          （已交付 / 已結案 / 已提送成果）
+
+        僅當「未結案 + deadline < today」才列入逾期。
+        對應派工單 001 案例：batch_no=NULL 但有 work_result completed → 排除。
+        """
         try:
             r1 = await self.db.execute(
                 text("""
-                SELECT id, dispatch_no, deadline, project_name, case_handler
-                FROM taoyuan_dispatch_orders
-                WHERE deadline IS NOT NULL AND deadline != '' AND batch_no IS NULL
+                WITH closed_signals AS (
+                  -- 訊號 A：work_records 有完成的成果/結案紀錄
+                  SELECT DISTINCT dispatch_order_id
+                  FROM taoyuan_work_records
+                  WHERE work_category IN ('work_result', 'closed', 'submit_result')
+                    AND status = 'completed'
+                  UNION
+                  -- 訊號 B：work_records 有對應公文的成果類紀錄（不需 status）
+                  SELECT DISTINCT dispatch_order_id
+                  FROM taoyuan_work_records
+                  WHERE work_category IN ('work_result', 'submit_result')
+                    AND document_id IS NOT NULL
+                  UNION
+                  -- 訊號 C：派工-公文鏈結有 company_outgoing（乾坤發文 = 已交付）
+                  SELECT DISTINCT dispatch_order_id
+                  FROM taoyuan_dispatch_document_link
+                  WHERE link_type = 'company_outgoing'
+                  UNION
+                  -- 訊號 D：派工主表 company_doc_id 已填（舊欄位相容）
+                  SELECT id AS dispatch_order_id
+                  FROM taoyuan_dispatch_orders
+                  WHERE company_doc_id IS NOT NULL
+                )
+                SELECT d.id, d.dispatch_no, d.deadline, d.project_name, d.case_handler
+                FROM taoyuan_dispatch_orders d
+                LEFT JOIN closed_signals c ON c.dispatch_order_id = d.id
+                WHERE d.deadline IS NOT NULL
+                  AND d.deadline != ''
+                  AND d.batch_no IS NULL
+                  AND c.dispatch_order_id IS NULL
             """)
             )
             overdue_dispatches = []
