@@ -136,7 +136,7 @@ class MorningReportService:
                 time_str = item.get("time_str") or item.get("start_date", "")
                 location = f" @ {item['location']}" if item.get("location") else ""
                 details.append(
-                    f"  {urgency} {time_str} {item['title'][:40]}{location}"
+                    f"  {urgency} {time_str} {item['title']}{location}"
                 )
 
         # 9. 近期現勘
@@ -154,7 +154,7 @@ class MorningReportService:
                 source = f" [{item['source']}]" if item.get("source") else ""
                 location = f" @ {item['location']}" if item.get("location") else ""
                 details.append(
-                    f"  {urgency} {time_str} {item['title'][:40]}{location}{source}"
+                    f"  {urgency} {time_str} {item['title']}{location}{source}"
                 )
 
         # 10. 今日分桶 + 衝突
@@ -177,8 +177,8 @@ class MorningReportService:
                 )
             for conflict in ts.get("conflicts", [])[:3]:
                 details.append(
-                    f"  ⚠️ 衝突：{conflict['a_time']} {conflict['a_title'][:20]} "
-                    f"與 {conflict['b_time']} {conflict['b_title'][:20]}"
+                    f"  ⚠️ 衝突：{conflict['a_time']} {conflict['a_title']} "
+                    f"與 {conflict['b_time']} {conflict['b_title']}"
                 )
 
         # 11. 遺漏建檔
@@ -187,7 +187,7 @@ class MorningReportService:
             parts.append(f"⚠️ 公文未建行事曆 {mc['count']} 件")
             for item in mc.get("items", [])[:3]:
                 details.append(
-                    f"  📭 {item['doc_number']} {item['subject'][:35]}"
+                    f"  📭 {item['doc_number']} {item['subject']}"
                     f"（{item['category']}，收文 {item['days_ago']} 天）"
                 )
 

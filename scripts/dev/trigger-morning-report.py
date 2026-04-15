@@ -66,7 +66,7 @@ async def main() -> int:
         + summary
     )
     try:
-        ok = await tg.send_message(int(chat_id), confirm_msg)
+        ok = await tg.send_message(int(chat_id), confirm_msg, parse_mode="")
     except Exception as e:
         print(f"✗ 推送失敗: {e}")
         return 1

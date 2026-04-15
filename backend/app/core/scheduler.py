@@ -423,7 +423,8 @@ async def morning_report_job():
             tg = get_telegram_bot_service()
             chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
             if chat_id and tg.enabled:
-                ok = await tg.send_message(int(chat_id), summary)
+                # 晨報用純文字推送（避免「『」「』」等全形括號觸發 Markdown 解析錯誤）
+                ok = await tg.send_message(int(chat_id), summary, parse_mode="")
                 if ok:
                     pushed_to.append("Telegram")
         except Exception as tg_err:
