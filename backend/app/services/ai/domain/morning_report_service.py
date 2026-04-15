@@ -106,10 +106,13 @@ class MorningReportService:
             for item in dd.get("week_items", [])[:5]:
                 days = item.get("days_left", 0)
                 urgency = "🔴 今日" if days == 0 else f"⏰ 剩 {days} 天"
+                progress = item.get("progress", "")
+                progress_tag = f" 〔{progress}〕" if progress else ""
                 details.append(
                     f"  {urgency} {item['dispatch_no']} — "
                     f"{item.get('sub_case') or item.get('project_name', '')}"
                     f" (承辦: {item.get('handler', '未指定')}，到期: {item['deadline']})"
+                    f"{progress_tag}"
                 )
 
         # 2. 派工：逾期
@@ -117,9 +120,12 @@ class MorningReportService:
         if ov.get("dispatch_count", 0) > 0:
             parts.append(f"逾期派工 {ov['dispatch_count']} 筆")
             for item in ov.get("dispatch_items", [])[:5]:
+                progress = item.get("progress", "")
+                progress_tag = f" 〔{progress}〕" if progress else ""
                 details.append(
                     f"  🚨 逾期 {item['overdue_days']} 天 {item['dispatch_no']} — "
                     f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
+                    f"{progress_tag}"
                 )
 
         # 3. 會議
@@ -220,41 +226,45 @@ class MorningReportService:
         return None
 
     async def _get_dispatch_deadlines(self, today, week_later) -> dict:
-        """到期派工（本週+今日）— 同樣排除「實質已完成」者，與逾期判定一致。"""
+        """到期派工（本週+今日）— 不採 batch_no 為依據。
+
+        以「公文關聯事件狀態」+「派工作業進度」判定（依用戶要求）：
+        - 取派工最新 work_record（record_date desc, id desc）為當前狀態
+        - 嚴格結案：最新一筆 milestone_type IN ('closed','final_approval')
+          且 status='completed' → 排除
+        - 其餘均列入，並標註作業進度標籤供承辦人辨識
+        """
         try:
             r = await self.db.execute(
                 text("""
-                WITH closed_signals AS (
-                  -- 訊號 A：work_records 有完成的成果/結案紀錄
-                  SELECT DISTINCT dispatch_order_id
+                WITH latest_record AS (
+                  SELECT DISTINCT ON (dispatch_order_id)
+                    dispatch_order_id, milestone_type, work_category, status, record_date
                   FROM taoyuan_work_records
-                  WHERE work_category IN ('work_result', 'closed', 'submit_result')
-                    AND status = 'completed'
-                  UNION
-                  -- 訊號 B：work_records 有對應公文的成果類紀錄（不需 status）
-                  SELECT DISTINCT dispatch_order_id
-                  FROM taoyuan_work_records
-                  WHERE work_category IN ('work_result', 'submit_result')
-                    AND document_id IS NOT NULL
-                  UNION
-                  -- 訊號 C：派工-公文鏈結有 company_outgoing（乾坤發文 = 已交付）
-                  SELECT DISTINCT dispatch_order_id
+                  WHERE dispatch_order_id IS NOT NULL
+                  ORDER BY dispatch_order_id, record_date DESC, id DESC
+                ),
+                doc_links AS (
+                  SELECT dispatch_order_id,
+                         BOOL_OR(link_type = 'agency_incoming') AS has_in,
+                         BOOL_OR(link_type = 'company_outgoing') AS has_out
                   FROM taoyuan_dispatch_document_link
-                  WHERE link_type = 'company_outgoing'
-                  UNION
-                  -- 訊號 D：派工主表 company_doc_id 已填（舊欄位相容）
-                  SELECT id AS dispatch_order_id
-                  FROM taoyuan_dispatch_orders
-                  WHERE company_doc_id IS NOT NULL
+                  GROUP BY dispatch_order_id
                 )
                 SELECT d.id, d.dispatch_no, d.deadline, d.project_name,
-                       d.case_handler, d.sub_case_name
+                       d.case_handler, d.sub_case_name,
+                       l.milestone_type, l.work_category, l.status,
+                       COALESCE(dl.has_in, false) AS has_in,
+                       COALESCE(dl.has_out, false) AS has_out
                 FROM taoyuan_dispatch_orders d
-                LEFT JOIN closed_signals c ON c.dispatch_order_id = d.id
+                LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
+                LEFT JOIN doc_links dl ON dl.dispatch_order_id = d.id
                 WHERE d.deadline IS NOT NULL
                   AND d.deadline != ''
-                  AND d.batch_no IS NULL
-                  AND c.dispatch_order_id IS NULL
+                  AND NOT (
+                    l.milestone_type IN ('closed', 'final_approval')
+                    AND l.status = 'completed'
+                  )
             """)
             )
             today_items = []
@@ -270,6 +280,9 @@ class MorningReportService:
                     "handler": row[4] or "",
                     "sub_case": row[5] or "",
                     "days_left": (dl - today).days,
+                    "progress": self._format_dispatch_progress(
+                        row[6], row[7], row[8], row[9], row[10]
+                    ),
                 }
                 if dl == today:
                     today_items.append(item)
@@ -282,55 +295,94 @@ class MorningReportService:
                 "today_items": today_items,
                 "week_items": week_items,
             }
-        except Exception as e:
-            logger.debug("dispatch_deadlines query failed: %s", e)
-            return {"today_count": 0, "week_count": 0, "today_items": [], "week_items": []}
+        except Exception:
+            raise
+
+    @staticmethod
+    def _format_dispatch_progress(
+        milestone_type, work_category, status, has_in, has_out
+    ) -> str:
+        """組合派工當前作業進度標籤。
+
+        例：「成果已交付/已對應發文」「現勘進行中/僅有來文」「無作業紀錄」
+        """
+        # 階段判定：以最新 record 的 milestone/category 為準
+        stage_map = {
+            "closed": "已結案",
+            "final_approval": "最終驗收完成",
+            "submit_result": "提送成果",
+            "review_meeting": "審查會議",
+            "negotiation": "協商中",
+            "boundary_survey": "界址測量",
+            "survey": "查估",
+            "revision": "修正中",
+            "dispatch": "派工通知",
+        }
+        cat_map = {
+            "work_result": "成果回函",
+            "meeting_notice": "會議通知",
+            "meeting_record": "會議紀錄",
+            "survey_notice": "現勘通知",
+            "survey_record": "現勘紀錄",
+            "dispatch_notice": "派工通知",
+        }
+        status_map = {
+            "completed": "完成", "in_progress": "進行中",
+            "pending": "待辦", "overdue": "逾期", "on_hold": "暫緩",
+        }
+
+        if milestone_type or work_category:
+            stage = stage_map.get(milestone_type) or cat_map.get(work_category) or "處理中"
+            st = status_map.get(status, status or "")
+            stage_str = f"{stage} {st}" if st else stage
+        else:
+            stage_str = "無作業紀錄"
+
+        # 公文對照狀態
+        if has_out:
+            doc_str = "已對應發文"
+        elif has_in:
+            doc_str = "僅有來文"
+        else:
+            doc_str = "無公文對照"
+
+        return f"{stage_str} / {doc_str}"
 
     async def _get_overdue_items(self, today) -> dict:
-        """逾期判定（雙條件）：
+        """逾期判定（同到期邏輯）：
 
-        一張派工視為「實質已完成」並排除在逾期之外，須符合任一：
-        - 主表 batch_no IS NOT NULL（最終結案批次已建立）
-        - work_records 鏈上有 work_category IN
-          ('work_result','closed','submit_result') 且 status='completed'
-          （已交付 / 已結案 / 已提送成果）
-
-        僅當「未結案 + deadline < today」才列入逾期。
-        對應派工單 001 案例：batch_no=NULL 但有 work_result completed → 排除。
+        以「公文關聯狀態」+「最新 work_record 進度」判定，不依賴 batch_no。
+        嚴格結案（最新 milestone='closed'/'final_approval' 且 completed）才排除。
         """
         try:
             r1 = await self.db.execute(
                 text("""
-                WITH closed_signals AS (
-                  -- 訊號 A：work_records 有完成的成果/結案紀錄
-                  SELECT DISTINCT dispatch_order_id
+                WITH latest_record AS (
+                  SELECT DISTINCT ON (dispatch_order_id)
+                    dispatch_order_id, milestone_type, work_category, status, record_date
                   FROM taoyuan_work_records
-                  WHERE work_category IN ('work_result', 'closed', 'submit_result')
-                    AND status = 'completed'
-                  UNION
-                  -- 訊號 B：work_records 有對應公文的成果類紀錄（不需 status）
-                  SELECT DISTINCT dispatch_order_id
-                  FROM taoyuan_work_records
-                  WHERE work_category IN ('work_result', 'submit_result')
-                    AND document_id IS NOT NULL
-                  UNION
-                  -- 訊號 C：派工-公文鏈結有 company_outgoing（乾坤發文 = 已交付）
-                  SELECT DISTINCT dispatch_order_id
+                  WHERE dispatch_order_id IS NOT NULL
+                  ORDER BY dispatch_order_id, record_date DESC, id DESC
+                ),
+                doc_links AS (
+                  SELECT dispatch_order_id,
+                         BOOL_OR(link_type = 'agency_incoming') AS has_in,
+                         BOOL_OR(link_type = 'company_outgoing') AS has_out
                   FROM taoyuan_dispatch_document_link
-                  WHERE link_type = 'company_outgoing'
-                  UNION
-                  -- 訊號 D：派工主表 company_doc_id 已填（舊欄位相容）
-                  SELECT id AS dispatch_order_id
-                  FROM taoyuan_dispatch_orders
-                  WHERE company_doc_id IS NOT NULL
+                  GROUP BY dispatch_order_id
                 )
-                SELECT d.id, d.dispatch_no, d.deadline, d.project_name, d.case_handler
+                SELECT d.id, d.dispatch_no, d.deadline, d.project_name, d.case_handler,
+                       l.milestone_type, l.work_category, l.status,
+                       COALESCE(dl.has_in, false), COALESCE(dl.has_out, false)
                 FROM taoyuan_dispatch_orders d
-                LEFT JOIN closed_signals c ON c.dispatch_order_id = d.id
+                LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
+                LEFT JOIN doc_links dl ON dl.dispatch_order_id = d.id
                 WHERE d.deadline IS NOT NULL
                   AND d.deadline != ''
-                  AND d.batch_no IS NULL
-                  AND c.dispatch_order_id IS NULL
+                  AND NOT (
+                    l.milestone_type IN ('closed', 'final_approval')
+                    AND l.status = 'completed'
+                  )
             """)
             )
             overdue_dispatches = []
@@ -340,6 +392,9 @@ class MorningReportService:
                     overdue_dispatches.append({
                         "dispatch_no": row[1],
                         "deadline": str(dl),
+                        "progress": self._format_dispatch_progress(
+                            row[5], row[6], row[7], row[8], row[9]
+                        ),
                         "project_name": row[3] or "",
                         "handler": row[4] or "",
                         "overdue_days": (today - dl).days,
