@@ -747,15 +747,54 @@ async def detailed_health_check(
 app.include_router(api_router, prefix="/api")
 
 
-# --- 根路徑核心端點 ---
-@app.get("/", tags=["System"])
-async def root():
-    return {
-        "message": "乾坤測繪公文管理系統 API",
-        "version": app.version,
-        "status": "running",
-        "documentation": app.docs_url,
-    }
+# --- 前端靜態服務（ADR-0016 公網部署）---
+# 當 frontend/dist 存在時，FastAPI 同時服務 SPA + API
+# 路由優先順序：API > /assets/* > index.html (SPA fallback)
+import os
+from pathlib import Path
+from fastapi.responses import FileResponse
+
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+_FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
+
+if _FRONTEND_INDEX.exists():
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(_FRONTEND_DIST / "assets")),
+        name="frontend-assets",
+    )
+    logger.info("Frontend dist mounted: %s", _FRONTEND_DIST)
+
+    @app.get("/", include_in_schema=False)
+    async def serve_index():
+        return FileResponse(_FRONTEND_INDEX)
+
+    @app.get("/{spa_path:path}", include_in_schema=False)
+    async def spa_fallback(spa_path: str):
+        """SPA fallback：未匹配的路徑回傳 index.html（讓 React Router 處理）。
+
+        排除：/api/*, /docs, /redoc, /openapi.json, /assets/*, /uploads/*, /static/*
+        """
+        # 直接服務存在的檔案（favicon、manifest、robots 等）
+        candidate = _FRONTEND_DIST / spa_path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_FRONTEND_INDEX)
+else:
+    logger.warning(
+        "Frontend dist not found at %s — SPA disabled. "
+        "Run `cd frontend && npm run build` to enable public UI.",
+        _FRONTEND_DIST,
+    )
+
+    @app.get("/", tags=["System"])
+    async def root():
+        return {
+            "message": "乾坤測繪公文管理系統 API",
+            "version": app.version,
+            "status": "running",
+            "documentation": app.docs_url,
+        }
 
 
 @app.get("/health", tags=["System"])
