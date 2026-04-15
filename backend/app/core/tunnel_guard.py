@@ -20,12 +20,22 @@ from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
-# 允許外部存取的路徑前綴
+# 允許外部存取的路徑前綴（ADR-0014/0015/0016）
+# 機器流量（webhook / ACP / agent API）經 CF Tunnel 進入；
+# 人員流量應走 CF Access SSO，不在此清單內。
 ALLOWED_EXTERNAL_PATHS = frozenset({
-    "/api/line/webhook",
-    "/api/discord/webhook",
-    "/api/health",
-    "/api/public",
+    "/api/health",                    # 健康檢查（CF Tunnel 自動探針）
+    "/api/public",                    # 公開端點（免認證）
+    # --- 通道 webhook ---
+    "/api/line/webhook",              # LINE（過渡期保留）
+    "/api/discord/webhook",           # Discord bot
+    "/api/discord/interactions",      # Discord Interactions Endpoint
+    "/api/telegram/webhook",          # Telegram Bot
+    # --- Hermes ACP (ADR-0014) ---
+    "/api/hermes/",                   # acp + feedback 同前綴
+    # --- Agent public contract (manifest + 同步問答) ---
+    "/api/ai/agent/tools",            # manifest v1.2
+    "/api/ai/agent/query_sync",       # 通用 Agent 查詢（token 保護）
 })
 
 # 內網 IP 判斷
