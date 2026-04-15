@@ -26,7 +26,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_health_reachable_via_tunnel():
     """CF Tunnel 正確轉發 /api/health 到 localhost:8001"""
-    r = httpx.get(f"{PUBLIC_URL}/api/health", timeout=10.0)
+    r = httpx.post(f"{PUBLIC_URL}/api/health", json={}, timeout=10.0)
     assert r.status_code == 200
 
 
@@ -72,5 +72,5 @@ def test_acp_happy_path_via_tunnel():
 def test_tls_certificate_valid():
     """驗證 Cloudflare 提供的 TLS 憑證有效。"""
     # httpx 預設 verify=True，若憑證壞會 raise SSLError
-    r = httpx.get(f"{PUBLIC_URL}/api/health", timeout=10.0)
+    r = httpx.post(f"{PUBLIC_URL}/api/health", json={}, timeout=10.0)
     assert r.url.scheme == "https"
