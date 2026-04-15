@@ -31,61 +31,63 @@ class MorningReportService:
         self.db = db
 
     async def generate_report(self) -> Dict[str, Any]:
-        """Generate daily morning report data."""
+        """Generate daily morning report — 聚焦 4 主題：派工 / 會議 / 現勘 / 遺漏建檔。
+
+        每段獨立呼叫 _safe_query；任一段查詢失敗即 rollback session，
+        避免 PostgreSQL transaction abort 連帶讓後續查詢全數靜默失敗。
+        """
         today = datetime.now().date()
         week_later = today + timedelta(days=7)
 
         sections: Dict[str, Any] = {}
 
-        # 1. 今日/本週到期派工
-        sections["dispatch_deadlines"] = await self._get_dispatch_deadlines(
-            today, week_later
+        # 1. 派工：今日/本週到期 + 逾期
+        sections["dispatch_deadlines"] = await self._safe_query(
+            self._get_dispatch_deadlines, today, week_later,
+            default={"today_count": 0, "week_count": 0, "today_items": [], "week_items": []},
+        )
+        sections["overdue_items"] = await self._safe_query(
+            self._get_overdue_items, today,
+            default={"dispatch_count": 0, "dispatch_items": []},
         )
 
-        # 2. 逾期未結案
-        sections["overdue_items"] = await self._get_overdue_items(today)
-
-        # 3. 待審核費用
-        sections["pending_expenses"] = await self._get_pending_expenses()
-
-        # 4. 近期里程碑
-        sections["upcoming_milestones"] = await self._get_upcoming_milestones(
-            today, week_later
+        # 2. 會議（含 review 含會議字樣的補抓）
+        sections["upcoming_meetings"] = await self._safe_query(
+            self._get_upcoming_meetings, today, week_later,
+            default={"count": 0, "items": []},
         )
 
-        # 5. 昨日新收公文
-        sections["new_documents"] = await self._get_new_documents(
-            today - timedelta(days=1)
+        # 3. 現勘（calendar + 派工 work_records 雙來源）
+        sections["upcoming_site_visits"] = await self._safe_query(
+            self._get_upcoming_site_visits, today, week_later,
+            default={"count": 0, "items": []},
         )
 
-        # 6. 標案訂閱
-        sections["tender_alerts"] = await self._get_tender_alerts()
-
-        # 7. 待盤點資產
-        sections["asset_pending_inventory"] = await self._get_asset_pending_inventory(
-            today
-        )
-
-        # 8. 近期會議（CalendarEvent.event_type='meeting'，排除現勘關鍵字）
-        sections["upcoming_meetings"] = await self._get_upcoming_meetings(
-            today, week_later
-        )
-
-        # 9. 近期現勘（CalendarEvent 現勘關鍵字 + taoyuan work_records survey）
-        sections["upcoming_site_visits"] = await self._get_upcoming_site_visits(
-            today, week_later
-        )
-
-        # 10. 今日分桶（上午/下午/晚間）+ 行程衝突
+        # 4. 今日分桶 + 衝突（純函數，不需 safe wrapper）
         sections["today_schedule"] = self._compute_today_schedule(
             sections["upcoming_meetings"],
             sections["upcoming_site_visits"],
         )
 
-        # 11. 遺漏建檔：開會/會勘通知單近 14 天內未建 calendar event
-        sections["missing_calendar_events"] = await self._get_missing_calendar_events(today)
+        # 5. 遺漏建檔：開會/會勘通知單 14 天內未建 calendar event
+        sections["missing_calendar_events"] = await self._safe_query(
+            self._get_missing_calendar_events, today,
+            default={"count": 0, "items": []},
+        )
 
         return sections
+
+    async def _safe_query(self, fn, *args, default):
+        """執行查詢；失敗時 rollback session 並回 default，避免 transaction abort 擴散。"""
+        try:
+            return await fn(*args)
+        except Exception as e:
+            logger.warning("morning_report query failed (%s): %s", fn.__name__, e)
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+            return default
 
     async def generate_summary(self) -> str:
         """Generate Gemma 4 natural language summary."""
@@ -93,11 +95,11 @@ class MorningReportService:
         return await self.generate_summary_from_data(data)
 
     async def generate_summary_from_data(self, data: Dict[str, Any]) -> str:
-        """Generate detailed summary with specific case information."""
+        """生成晨報摘要 — 聚焦 4 主題：派工 / 會議 / 現勘 / 遺漏建檔。"""
         parts = []
         details = []  # 具體案件明細
 
-        # 1. 本週到期派工 — 列出具體派工單
+        # 1. 派工：本週到期
         dd = data.get("dispatch_deadlines", {})
         if dd.get("week_count", 0) > 0:
             parts.append(f"本週到期派工 {dd['week_count']} 筆")
@@ -110,7 +112,7 @@ class MorningReportService:
                     f" (承辦: {item.get('handler', '未指定')}，到期: {item['deadline']})"
                 )
 
-        # 2. 逾期項目 — 列出具體派工單和公文
+        # 2. 派工：逾期
         ov = data.get("overdue_items", {})
         if ov.get("dispatch_count", 0) > 0:
             parts.append(f"逾期派工 {ov['dispatch_count']} 筆")
@@ -119,48 +121,8 @@ class MorningReportService:
                     f"  🚨 逾期 {item['overdue_days']} 天 {item['dispatch_no']} — "
                     f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
                 )
-        if ov.get("doc_count", 0) > 0:
-            parts.append(f"逾期公文 {ov['doc_count']} 筆")
-            for item in ov.get("doc_items", [])[:3]:
-                details.append(f"  📄 {item['doc_number']} — {item['subject']}")
 
-        # 3. 待審費用 — 列出具體發票
-        pe = data.get("pending_expenses", {})
-        if pe.get("count", 0) > 0:
-            parts.append(f"待審費用 {pe['count']} 筆 (NT${pe.get('total_amount', 0):,.0f})")
-            for item in pe.get("items", [])[:3]:
-                details.append(
-                    f"  💰 {item.get('inv_num', '無號')} NT${item['amount']:,.0f} "
-                    f"— {item.get('vendor', '')} ({item.get('case_code', '')})"
-                )
-
-        # 4. 里程碑 — 列出具體項目
-        ms = data.get("upcoming_milestones", {})
-        if ms.get("count", 0) > 0:
-            parts.append(f"近期里程碑 {ms['count']} 項")
-            for item in ms.get("items", [])[:3]:
-                details.append(
-                    f"  📌 {item['name']} — "
-                    f"{item.get('case_name', '')} "
-                    f"(到期: {item['due_date']})"
-                )
-
-        # 5. 新收公文
-        nd = data.get("new_documents", {})
-        if nd.get("count", 0) > 0:
-            parts.append(f"昨日新收公文 {nd['count']} 筆")
-
-        # 6. 標案
-        ta = data.get("tender_alerts", {})
-        if ta.get("count", 0) > 0:
-            parts.append(f"標案訂閱 {ta['count']} 則")
-
-        # 7. 待盤點資產
-        ap = data.get("asset_pending_inventory", {})
-        if ap.get("count", 0) > 0:
-            parts.append(f"待盤點資產 {ap['count']} 項")
-
-        # 8. 近期會議 — 列出具體場次
+        # 3. 會議
         mt = data.get("upcoming_meetings", {})
         if mt.get("count", 0) > 0:
             parts.append(f"近期會議 {mt['count']} 場")
@@ -230,9 +192,9 @@ class MorningReportService:
                 )
 
         if not parts:
-            return "📋 今日晨報：一切正常，無待處理事項。👍"
+            return f"📋 {datetime.now().strftime('%m/%d')} 晨報：今日無待處理派工/會議/現勘事項。👍"
 
-        # 組合：直接給明細，不需要 Gemma 4 (避免資訊遺失)
+        # 組合輸出（不依賴 LLM，避免資訊遺失與延遲）
         header = f"📋 {datetime.now().strftime('%m/%d')} 晨報\n"
         summary_line = " | ".join(parts)
         detail_text = "\n".join(details) if details else ""
@@ -240,67 +202,7 @@ class MorningReportService:
         report = f"{header}\n📊 {summary_line}\n"
         if detail_text:
             report += f"\n{detail_text}\n"
-
-        # 用 Gemma 4 只生成一句結尾建議
-        try:
-            from app.core.ai_connector import get_ai_connector
-            ai = get_ai_connector()
-            advice_prompt = (
-                f"根據以下追蹤事項，給出一句簡短的今日工作建議（20字內）：\n"
-                f"{summary_line}"
-            )
-            advice = await ai.chat_completion(
-                messages=[{"role": "user", "content": advice_prompt}],
-                temperature=0.5, max_tokens=50, task_type="chat",
-            )
-            report += f"\n💡 {advice.strip()}"
-        except Exception:
-            report += "\n💡 優先處理逾期和到期項目。"
-
-        # 主動推薦: 整合 proactive_triggers 的今日建議行動
-        try:
-            from app.services.ai.proactive.proactive_triggers import ProactiveTriggerService
-            trigger_svc = ProactiveTriggerService(self.db)
-            alerts = await trigger_svc.scan_all(deadline_days=3)
-            critical_alerts = [a for a in alerts if a.severity in ("critical", "warning")]
-            if critical_alerts:
-                report += "\n\n⚠️ 主動警報:\n"
-                for alert in critical_alerts[:5]:
-                    icon = "🔴" if alert.severity == "critical" else "🟡"
-                    report += f"  {icon} {alert.title}: {alert.message}\n"
-        except Exception:
-            pass  # proactive triggers are non-critical
-
         return report
-
-        # Gemma 4 summarize
-        try:
-            from app.core.ai_connector import get_ai_connector
-
-            ai = get_ai_connector()
-            data_text = "\n".join(f"- {p}" for p in parts)
-            prompt = (
-                f"你是乾坤測繪的 AI 助理。根據以下今日摘要生成簡潔晨報：\n\n"
-                f"日期: {datetime.now().strftime('%Y-%m-%d %A')}\n"
-                f"追蹤事項:\n{data_text}\n\n"
-                "要求:\n"
-                "- 用 emoji 開頭每個項目\n"
-                "- 重要/緊急的放前面\n"
-                "- 結尾給一句鼓勵\n"
-                "- 控制在 500 字內"
-            )
-            summary = await ai.chat_completion(
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.5,
-                max_tokens=600,
-                task_type="summary",
-            )
-            return f"📋 {datetime.now().strftime('%m/%d')} 晨報\n\n{summary}"
-        except Exception as e:
-            logger.warning("Gemma 4 summary failed: %s", e)
-            # Fallback: plain format
-            header = f"📋 {datetime.now().strftime('%m/%d')} 晨報\n"
-            return header + "\n".join(f"• {p}" for p in parts)
 
     # ── Data Collection Methods ──
 
@@ -379,131 +281,12 @@ class MorningReportService:
                     })
             overdue_dispatches.sort(key=lambda x: -x["overdue_days"])
 
-            r2 = await self.db.execute(
-                text("""
-                SELECT id, doc_number, subject, deadline
-                FROM documents
-                WHERE deadline IS NOT NULL AND deadline < :today AND status = 'pending'
-                ORDER BY deadline
-                LIMIT 10
-            """),
-                {"today": today},
-            )
-            overdue_docs = [
-                {"doc_number": row[1], "subject": (row[2] or "")[:40], "deadline": str(row[3])}
-                for row in r2.all()
-            ]
             return {
                 "dispatch_count": len(overdue_dispatches),
-                "doc_count": len(overdue_docs),
                 "dispatch_items": overdue_dispatches[:10],
-                "doc_items": overdue_docs,
             }
-        except Exception as e:
-            logger.debug("overdue_items query failed: %s", e)
-            return {"dispatch_count": 0, "doc_count": 0, "dispatch_items": [], "doc_items": []}
-
-    async def _get_pending_expenses(self) -> dict:
-        try:
-            r = await self.db.execute(
-                text("""
-                SELECT id, inv_num, total_amount, status, case_code, vendor_name,
-                       created_at
-                FROM expense_invoices
-                WHERE status IN ('pending', 'manager_approved')
-                ORDER BY total_amount DESC
-                LIMIT 10
-            """)
-            )
-            items = []
-            total_amount = 0.0
-            for row in r.all():
-                amt = float(row[2] or 0)
-                total_amount += amt
-                items.append({
-                    "inv_num": row[1] or "",
-                    "amount": amt,
-                    "status": row[3],
-                    "case_code": row[4] or "未歸屬",
-                    "vendor": row[5] or "",
-                })
-            return {"count": len(items), "total_amount": total_amount, "items": items}
-        except Exception as e:
-            logger.debug("pending_expenses query failed: %s", e)
-            return {"count": 0, "total_amount": 0, "items": []}
-
-    async def _get_upcoming_milestones(self, today, week_later) -> dict:
-        try:
-            r = await self.db.execute(
-                text("""
-                SELECT m.id, m.milestone_name, m.due_date, m.status,
-                       c.case_code, c.case_name
-                FROM pm_milestones m
-                LEFT JOIN pm_cases c ON c.id = m.pm_case_id
-                WHERE m.due_date BETWEEN :today AND :week
-                  AND m.status != 'completed'
-                ORDER BY m.due_date
-                LIMIT 5
-            """),
-                {"today": today, "week": week_later},
-            )
-            items = [
-                {
-                    "name": row[1] or "",
-                    "due_date": str(row[2]),
-                    "case_code": row[4] or "",
-                    "case_name": row[5] or "",
-                }
-                for row in r.all()
-            ]
-            return {"count": len(items), "items": items}
-        except Exception as e:
-            logger.debug("upcoming_milestones query failed: %s", e)
-            return {"count": 0, "items": []}
-
-    async def _get_new_documents(self, since) -> dict:
-        try:
-            r = await self.db.execute(
-                text("""
-                SELECT COUNT(*) FROM documents
-                WHERE created_at::date >= :since
-            """),
-                {"since": since},
-            )
-            return {"count": r.scalar() or 0}
-        except Exception as e:
-            logger.debug("new_documents query failed: %s", e)
-            return {"count": 0}
-
-    async def _get_tender_alerts(self) -> dict:
-        try:
-            r = await self.db.execute(
-                text("""
-                SELECT COUNT(*) FROM tender_subscriptions
-                WHERE is_active = true
-            """)
-            )
-            return {"count": r.scalar() or 0}
-        except Exception as e:
-            logger.debug("tender_alerts query failed: %s", e)
-            return {"count": 0}
-
-    async def _get_asset_pending_inventory(self, today) -> dict:
-        """Get count of assets needing inventory (last inspected > 6 months ago or never)."""
-        try:
-            six_months_ago = today - timedelta(days=180)
-            r = await self.db.execute(
-                text("""
-                SELECT COUNT(*) FROM assets
-                WHERE last_inspect_date < :cutoff
-                   OR last_inspect_date IS NULL
-            """),
-                {"cutoff": six_months_ago},
-            )
-            return {"count": r.scalar() or 0}
-        except Exception as e:
-            logger.debug("asset_pending_inventory query failed: %s", e)
-            return {"count": 0}
+        except Exception:
+            raise  # 由 _safe_query 統一處理 rollback
 
     # 現勘關鍵字（從 title 判斷是否屬於現勘；會勘因常走現場，歸為現勘）
     _SITE_VISIT_KEYWORDS = ("會勘", "現勘", "勘查", "勘驗", "履勘", "現場勘查", "現場會勘")
@@ -623,17 +406,27 @@ class MorningReportService:
         return any(k in (title or "") for k in self._SITE_VISIT_KEYWORDS)
 
     async def _get_upcoming_meetings(self, today, week_later) -> dict:
-        """近期會議（不含現勘），來源：document_calendar_events.event_type='meeting'"""
+        """近期會議（不含現勘）。
+
+        擴大涵蓋 event_type IN ('meeting', 'review')，避免「審查會議」被歸到
+        review 而漏掉（CalendarEventAutoBuilder KEYWORD 規則順序：審查 > 會議）。
+        review 類別需 title 含會議/開會字樣才納入；純「[審查]」公文不算。
+        """
         try:
             r = await self.db.execute(
                 text("""
-                SELECT id, title, start_date, end_date, all_day, location, priority, status
+                SELECT id, title, start_date, end_date, all_day, location, priority, status, event_type
                 FROM document_calendar_events
-                WHERE event_type = 'meeting'
-                  AND status != 'cancelled'
+                WHERE status != 'cancelled'
                   AND DATE(start_date) BETWEEN :today AND :week
+                  AND (
+                    event_type = 'meeting'
+                    OR (event_type = 'review' AND (
+                        title LIKE '%會議%' OR title LIKE '%開會%' OR title LIKE '%協商%'
+                    ))
+                  )
                 ORDER BY start_date
-                LIMIT 20
+                LIMIT 30
             """),
                 {"today": today, "week": week_later},
             )
@@ -665,16 +458,17 @@ class MorningReportService:
         items = []
 
         # Source 1: Calendar events
+        # 同樣放寬 event_type 涵蓋 meeting + review，由 _is_site_visit 二次過濾
         try:
             r1 = await self.db.execute(
                 text("""
                 SELECT id, title, start_date, all_day, location, priority
                 FROM document_calendar_events
-                WHERE event_type = 'meeting'
+                WHERE event_type IN ('meeting', 'review')
                   AND status != 'cancelled'
                   AND DATE(start_date) BETWEEN :today AND :week
                 ORDER BY start_date
-                LIMIT 30
+                LIMIT 50
             """),
                 {"today": today, "week": week_later},
             )
