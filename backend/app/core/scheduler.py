@@ -649,27 +649,106 @@ async def wiki_compile_job():
 
 @tracked_job("wiki_lint")
 async def wiki_lint_job():
-    """Wiki 健康檢查 — 偵測孤立頁面、斷裂連結"""
+    """Wiki 健康檢查 — 偵測孤立頁面、斷裂連結
+
+    漂移通知策略（避免長期背景雜訊）：
+    - 只有「超過閾值」或「較上次惡化」才寫入 wiki/log.md + Telegram
+    - 閾值透過 env 可調：WIKI_ORPHAN_RATIO_THRESHOLD (default 0.35),
+      WIKI_BROKEN_LINKS_THRESHOLD (default 10),
+      WIKI_DRIFT_DELTA (default 5) — orphans/broken 比上次多這麼多就警示
+    - 上次狀態記於 wiki/.lint_state.json
+    """
+    import json
+    from pathlib import Path
+    from datetime import datetime
+
     try:
         from app.services.wiki_service import get_wiki_service
         svc = get_wiki_service()
         result = await svc.lint()
-        stats = svc.get_stats()
+        total_pages = result["total_pages"] or 1
+        orphan_count = len(result["orphan_pages"])
+        broken_count = len(result["broken_links"])
+        orphan_ratio = orphan_count / total_pages
         logger.info(
-            "Wiki lint: %d pages, %d orphans, %d broken links, health=%s",
-            result["total_pages"], len(result["orphan_pages"]),
-            len(result["broken_links"]), result["health"],
+            "Wiki lint: %d pages, %d orphans (%.1f%%), %d broken links, health=%s",
+            total_pages, orphan_count, orphan_ratio * 100,
+            broken_count, result["health"],
         )
-        # 推播至 Telegram (若有問題)
-        if result["health"] != "good":
+
+        # 讀閾值
+        orphan_ratio_th = float(os.getenv("WIKI_ORPHAN_RATIO_THRESHOLD", "0.35"))
+        broken_th = int(os.getenv("WIKI_BROKEN_LINKS_THRESHOLD", "10"))
+        drift_delta = int(os.getenv("WIKI_DRIFT_DELTA", "5"))
+
+        # 讀前次狀態
+        project_root = Path(__file__).resolve().parents[3]
+        state_path = project_root / "wiki" / ".lint_state.json"
+        prev_orphan = 0
+        prev_broken = 0
+        if state_path.exists():
+            try:
+                prev = json.loads(state_path.read_text(encoding="utf-8"))
+                prev_orphan = int(prev.get("orphans", 0))
+                prev_broken = int(prev.get("broken", 0))
+            except Exception:
+                pass
+
+        # 判定警示條件
+        alerts = []
+        if orphan_ratio > orphan_ratio_th:
+            alerts.append(
+                f"orphan_ratio={orphan_ratio:.1%} > {orphan_ratio_th:.0%}"
+            )
+        if broken_count > broken_th:
+            alerts.append(f"broken_links={broken_count} > {broken_th}")
+        if orphan_count - prev_orphan >= drift_delta:
+            alerts.append(
+                f"orphans drift: {prev_orphan}→{orphan_count} (+{orphan_count - prev_orphan})"
+            )
+        if broken_count - prev_broken >= drift_delta:
+            alerts.append(
+                f"broken drift: {prev_broken}→{broken_count} (+{broken_count - prev_broken})"
+            )
+
+        # 更新狀態
+        try:
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps({
+                    "timestamp": datetime.now().isoformat(),
+                    "total_pages": total_pages,
+                    "orphans": orphan_count,
+                    "broken": broken_count,
+                }, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as e:
+            logger.warning("wiki_lint state save failed: %s", e)
+
+        # 有警示才通知
+        if alerts:
+            logger.warning("Wiki lint ALERTS: %s", "; ".join(alerts))
+            # wiki/log.md append 審計
+            log_path = project_root / "wiki" / "log.md"
+            if log_path.exists():
+                ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+                log_path.write_text(
+                    log_path.read_text(encoding="utf-8")
+                    + f"\n## {ts} — Wiki lint drift alert\n"
+                    + f"- pages={total_pages}, orphans={orphan_count} ({orphan_ratio:.1%}), broken={broken_count}\n"
+                    + "".join(f"- ⚠️ {a}\n" for a in alerts),
+                    encoding="utf-8",
+                )
+            # Telegram（低頻，不再每天重複推播）
             try:
                 from app.services.telegram_bot_service import get_telegram_bot_service
                 tg = get_telegram_bot_service()
                 if tg.enabled:
                     msg = (
-                        f"Wiki Lint: {result['total_pages']} pages, "
-                        f"{len(result['orphan_pages'])} orphans, "
-                        f"{len(result['broken_links'])} broken links"
+                        f"⚠️ Wiki Lint Drift\n"
+                        f"pages={total_pages}, orphans={orphan_count}, broken={broken_count}\n"
+                        + "\n".join(f"• {a}" for a in alerts)
                     )
                     admin_chat = int(os.getenv("TELEGRAM_ADMIN_CHAT_ID", "0"))
                     if admin_chat:
