@@ -1,8 +1,9 @@
 # Cloudflare Tunnel — cksurvey.tw 部署步驟
 
-> **專案實例**: ADR-0015 落地配置
+> **專案實例**: ADR-0015 + ADR-0016 落地配置
 > **域名**: `cksurvey.tw`（Gandi 註冊）
-> **公網入口**: `https://api.cksurvey.tw` → `localhost:8001`
+> **公網入口**: `https://missive.cksurvey.tw` → `localhost:8001`
+> **平台策略**: 多專案平坦分域（ADR-0016），每專案獨立 subdomain
 > **建立**: 2026-04-15
 
 ---
@@ -60,13 +61,13 @@ pm2 logs cloudflared --lines 30  # 應見 "Registered tunnel connection"
 
 ### 瀏覽器
 ```
-https://api.cksurvey.tw/api/health
+https://missive.cksurvey.tw/api/health
 → {"status":"ok", ...}
 ```
 
 ### 終端機（帶 token）
 ```powershell
-$env:MISSIVE_PUBLIC_URL = "https://api.cksurvey.tw"
+$env:MISSIVE_PUBLIC_URL = "https://missive.cksurvey.tw"
 $env:MCP_SERVICE_TOKEN  = "<your service token>"
 cd backend
 python -m pytest tests/integration/test_public_exposure_smoke.py -v
@@ -95,7 +96,7 @@ Dashboard → `cksurvey.tw` → Security → WAF → Custom Rules：
 
 **規則 2：API rate limit**
 ```
-(http.host eq "api.cksurvey.tw")
+(http.host eq "missive.cksurvey.tw")
 → Rate Limit: 600 req/min/IP
 ```
 
@@ -112,13 +113,13 @@ Dashboard → `cksurvey.tw` → Security → WAF → Custom Rules：
 ```powershell
 $env:TG_TOKEN = "<your bot token>"
 curl -X POST "https://api.telegram.org/bot$($env:TG_TOKEN)/setWebhook" `
-  --data "url=https://api.cksurvey.tw/api/telegram/webhook"
+  --data "url=https://missive.cksurvey.tw/api/telegram/webhook"
 ```
 
 ### Discord
 Discord Developer Portal → Application → General Information → **Interactions Endpoint URL**：
 ```
-https://api.cksurvey.tw/api/discord/interactions
+https://missive.cksurvey.tw/api/discord/interactions
 ```
 
 ## 回滾
