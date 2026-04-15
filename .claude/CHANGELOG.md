@@ -4,6 +4,32 @@
 
 ---
 
+## [5.5.6] - 2026-04-14 ~ 2026-04-15
+
+### Hermes Agent + Cloudflare Tunnel + 多專案平台級架構
+
+#### 三 ADR（P0）
+- **ADR-0014** — NousResearch/hermes-agent (MIT) 取代 OpenClaw，LINE 通道下線
+- **ADR-0015** — Cloudflare Tunnel 取代 NemoClaw（Universal SSL + 零費用）
+- **ADR-0016** — 平坦子網域 `*.cksurvey.tw`，獨立 DB + CF Access SSO
+
+#### 端點 / 協議
+- `POST /api/hermes/acp` — Hermes ACP 原生入口（service token）
+- `POST /api/hermes/feedback` — L4 學習閉環回寫
+- `POST /api/ai/agent/tools` — Manifest v1.0 → v1.2 (compat/endpoints/auth/hermes 四區塊)
+- 全專案 POST-only — AST 守門 + Hermes 結構 lint
+
+#### 公網部署
+- `https://missive.cksurvey.tw` — CF Tunnel + FastAPI 掛 frontend/dist (SPA + API 同 host)
+- TunnelGuard allowlist 對齊 9 條機器流量 path
+- Shadow Logger v1.1 — PII 遮罩 + 30d retention + provider A/B 標籤 + VACUUM fix
+
+#### TDD 統計
+- 80+ tests added，3 真 bug 捕獲（VACUUM tx / 5 虛構 tool / GET 違規）
+- CI hard-fail gate — 10 測試檔合約守護
+
+---
+
 ## [5.5.5] - 2026-04-10 ~ 2026-04-14
 
 ### LLM Wiki 全棧 + KG 連結 + ADR 生命週期 + 效能優化
