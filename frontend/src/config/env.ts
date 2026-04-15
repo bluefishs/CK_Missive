@@ -14,8 +14,11 @@ const getEnvVar = (key: string): string | undefined => {
 // ============================================================================
 // API 配置
 // ============================================================================
-export const API_BASE_URL = (getEnvVar('VITE_API_BASE_URL') || 'http://localhost:8001') + '/api';
-export const VITE_API_BASE_URL = getEnvVar('VITE_API_BASE_URL') || 'http://localhost:8001';
+// 相對路徑 '/api' 瀏覽器自動用同 origin — 內網 / 公網 / CF Tunnel 皆通用
+// 僅當明確設 VITE_API_BASE_URL 時才走絕對 URL（跨域 / SSR 情境）
+const _explicitBase = getEnvVar('VITE_API_BASE_URL');
+export const API_BASE_URL = _explicitBase ? `${_explicitBase}/api` : '/api';
+export const VITE_API_BASE_URL = _explicitBase || '';
 
 // ============================================================================
 // 內網 IP 模式 (Single Source of Truth)
