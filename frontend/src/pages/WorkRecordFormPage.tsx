@@ -34,6 +34,9 @@ import {
   HistoryOutlined,
 } from '@ant-design/icons';
 
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
+import { TAOYUAN_DISPATCH_ENDPOINTS } from '../api/endpoints';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   WORK_CATEGORY_GROUPS,
@@ -67,6 +70,18 @@ const WorkRecordFormPage: React.FC = () => {
     || searchParams.get('outgoing_doc_id');
   const urlParentRecordId = searchParams.get('parent_record_id');
   const urlWorkCategory = searchParams.get('work_category');
+
+  // 取得 dispatch 的 work_type_items（所屬作業選擇器用）
+  const { data: dispatchDetail } = useQuery({
+    queryKey: ['dispatch-detail', dispatchOrderId],
+    queryFn: () =>
+      apiClient.post<{ work_type_items?: { id: number; work_type: string }[] }>(
+        TAOYUAN_DISPATCH_ENDPOINTS.DISPATCH_ORDERS_DETAIL(dispatchOrderId), {}
+      ),
+    enabled: dispatchOrderId > 0,
+    staleTime: 300_000,
+  });
+  const workTypeItems = dispatchDetail?.work_type_items ?? [];
 
   // 公文選項 (extracted hook)
   const {
@@ -153,6 +168,23 @@ const WorkRecordFormPage: React.FC = () => {
                 }
               />
             </Form.Item>
+
+            {/* 所屬作業（多 work_type 時顯示） */}
+            {workTypeItems.length >= 2 && (
+              <Form.Item
+                name="work_type_id"
+                label="所屬作業"
+                rules={[{ required: true, message: '請選擇此紀錄所屬的作業項目' }]}
+              >
+                <Select
+                  placeholder="請選擇所屬作業項目"
+                  options={workTypeItems.map(wt => ({
+                    value: wt.id,
+                    label: wt.work_type,
+                  }))}
+                />
+              </Form.Item>
+            )}
 
             <Row gutter={12}>
               <Col span={14}>

@@ -121,6 +121,7 @@ export function useWorkRecordFormLogic({
       }
       form.setFieldsValue({
         work_category: record.work_category,
+        work_type_id: record.work_type_id,
         document_id: record.document_id,
         parent_record_id: record.parent_record_id,
         deadline_date: record.deadline_date ? dayjs(record.deadline_date) : undefined,
@@ -215,6 +216,7 @@ export function useWorkRecordFormLogic({
 
       const payload: Record<string, unknown> = {
         work_category: values.work_category,
+        work_type_id: values.work_type_id ?? null,
         document_id: values.document_id ?? null,
         parent_record_id: values.parent_record_id ?? null,
         deadline_date: formatDate(values.deadline_date) ?? null,
