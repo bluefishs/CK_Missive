@@ -2,7 +2,7 @@
 
 > **建立**：2026-04-15
 > **適用**：CK_Missive 所有 `.env` 密碼與 token
-> **關聯決策**：`CK_AaaP/CK_AaaP_Docker_Secrets_Evaluation.md`（Docker Secrets 暫不導入，配套 SOP）
+> **關聯決策**：`CK_AaaP/evaluations/docker-secrets.md`（Docker Secrets 暫不導入，配套 SOP）
 
 ---
 

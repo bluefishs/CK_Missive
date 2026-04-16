@@ -92,7 +92,9 @@ erDiagram
     documents ||--o{ taoyuan_work_records : "outgoing_doc_id"
     taoyuan_work_records ||--o{ taoyuan_work_records : "parent_record_id"
     taoyuan_projects ||--o{ taoyuan_work_records : "taoyuan_project_id"
+    taoyuan_dispatch_work_types ||--o{ taoyuan_work_records : "work_type_id"
     tender_records ||--o{ tender_company_links : "tender_record_id"
+    users ||--o{ user_morning_report_subscriptions : "user_id"
     users ||--o{ user_sessions : "user_id"
 
     agent_evolution_history {
@@ -711,6 +713,28 @@ erDiagram
         timestamp updated_at
         vector embedding
     }
+    morning_report_delivery_log {
+        int id "PK"
+        date report_date "NOT NULL"
+        varchar channel "NOT NULL"
+        varchar recipient
+        varchar status "NOT NULL"
+        text error_msg
+        int summary_length
+        int sections_count
+        varchar trigger_source "NOT NULL"
+        timestamptz created_at "NOT NULL"
+    }
+    morning_report_snapshots {
+        int id "PK"
+        date report_date "NOT NULL"
+        json sections_json "NOT NULL"
+        text summary_text "NOT NULL"
+        int summary_length "NOT NULL"
+        int sections_count "NOT NULL"
+        varchar generator_version
+        timestamptz generated_at "NOT NULL"
+    }
     notifications {
         bigint id "PK"
         varchar type "NOT NULL"
@@ -1056,6 +1080,7 @@ erDiagram
         varchar work_type "NOT NULL"
         int sort_order
         timestamp created_at
+        date deadline
     }
     taoyuan_document_project_link {
         int id "PK"
@@ -1127,6 +1152,7 @@ erDiagram
         int document_id "FK"
         int parent_record_id "FK"
         varchar work_category
+        int work_type_id "FK"
     }
     tender_bookmarks {
         int id "PK"
@@ -1184,6 +1210,18 @@ erDiagram
         int last_diff
         text last_new_titles
     }
+    user_morning_report_subscriptions {
+        int id "PK"
+        int user_id "FK"
+        varchar display_name
+        varchar channel "NOT NULL"
+        varchar channel_recipient "NOT NULL"
+        varchar sections "NOT NULL"
+        varchar handler_filter
+        bool enabled "NOT NULL"
+        timestamptz created_at "NOT NULL"
+        timestamptz updated_at "NOT NULL"
+    }
     user_sessions {
         int id "PK"
         int user_id "FK,NOT NULL"
@@ -1237,7 +1275,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 69 |
-| 總欄位數 | 998 |
-| 外鍵關聯 | 93 |
+| 總表數 | 72 |
+| 總欄位數 | 1028 |
+| 外鍵關聯 | 95 |
 | 自訂列舉型別 | 0 |

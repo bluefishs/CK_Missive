@@ -5598,6 +5598,183 @@
       ],
       "unique_constraints": {}
     },
+    "morning_report_delivery_log": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('morning_report_delivery_log_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "report_date",
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "udt_name": "date"
+        },
+        {
+          "name": "channel",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 32
+        },
+        {
+          "name": "recipient",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 128
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 16
+        },
+        {
+          "name": "error_msg",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "summary_length",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "sections_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "trigger_source",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'scheduler'::character varying",
+          "udt_name": "varchar",
+          "max_length": 16
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "now()",
+          "udt_name": "timestamptz"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "morning_report_delivery_log_pkey",
+          "definition": "CREATE UNIQUE INDEX morning_report_delivery_log_pkey ON public.morning_report_delivery_log USING btree (id)"
+        },
+        {
+          "name": "ix_morning_report_delivery_log_report_date",
+          "definition": "CREATE INDEX ix_morning_report_delivery_log_report_date ON public.morning_report_delivery_log USING btree (report_date)"
+        },
+        {
+          "name": "ix_morning_report_delivery_log_date_channel",
+          "definition": "CREATE INDEX ix_morning_report_delivery_log_date_channel ON public.morning_report_delivery_log USING btree (report_date, channel)"
+        },
+        {
+          "name": "ix_morning_report_delivery_log_status",
+          "definition": "CREATE INDEX ix_morning_report_delivery_log_status ON public.morning_report_delivery_log USING btree (status)"
+        }
+      ],
+      "unique_constraints": {}
+    },
+    "morning_report_snapshots": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('morning_report_snapshots_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "report_date",
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "udt_name": "date"
+        },
+        {
+          "name": "sections_json",
+          "type": "JSON",
+          "nullable": false,
+          "default": null,
+          "udt_name": "json"
+        },
+        {
+          "name": "summary_text",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "summary_length",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "sections_count",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "generator_version",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 32
+        },
+        {
+          "name": "generated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "now()",
+          "udt_name": "timestamptz"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "morning_report_snapshots_pkey",
+          "definition": "CREATE UNIQUE INDEX morning_report_snapshots_pkey ON public.morning_report_snapshots USING btree (id)"
+        },
+        {
+          "name": "ix_morning_report_snapshots_report_date",
+          "definition": "CREATE UNIQUE INDEX ix_morning_report_snapshots_report_date ON public.morning_report_snapshots USING btree (report_date)"
+        }
+      ],
+      "unique_constraints": {}
+    },
     "notifications": {
       "columns": [
         {
@@ -8661,6 +8838,13 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "deadline",
+          "type": "DATE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "date"
         }
       ],
       "primary_key": [
@@ -9272,6 +9456,13 @@
           "default": null,
           "udt_name": "varchar",
           "max_length": 50
+        },
+        {
+          "name": "work_type_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
@@ -9306,6 +9497,11 @@
         {
           "column": "taoyuan_project_id",
           "ref_table": "taoyuan_projects",
+          "ref_column": "id"
+        },
+        {
+          "column": "work_type_id",
+          "ref_table": "taoyuan_dispatch_work_types",
           "ref_column": "id"
         }
       ],
@@ -9357,6 +9553,10 @@
         {
           "name": "ix_work_records_work_category",
           "definition": "CREATE INDEX ix_work_records_work_category ON public.taoyuan_work_records USING btree (work_category)"
+        },
+        {
+          "name": "ix_taoyuan_work_records_work_type_id",
+          "definition": "CREATE INDEX ix_taoyuan_work_records_work_type_id ON public.taoyuan_work_records USING btree (work_type_id)"
         }
       ],
       "unique_constraints": {}
@@ -9816,6 +10016,115 @@
         }
       ],
       "unique_constraints": {}
+    },
+    "user_morning_report_subscriptions": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('user_morning_report_subscriptions_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "display_name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 64
+        },
+        {
+          "name": "channel",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 32
+        },
+        {
+          "name": "channel_recipient",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 128
+        },
+        {
+          "name": "sections",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'dispatch,meeting,site_visit,missing'::character varying",
+          "udt_name": "varchar",
+          "max_length": 255
+        },
+        {
+          "name": "handler_filter",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 64
+        },
+        {
+          "name": "enabled",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "default": "true",
+          "udt_name": "bool"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "now()",
+          "udt_name": "timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "now()",
+          "udt_name": "timestamptz"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "user_id",
+          "ref_table": "users",
+          "ref_column": "id"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "user_morning_report_subscriptions_pkey",
+          "definition": "CREATE UNIQUE INDEX user_morning_report_subscriptions_pkey ON public.user_morning_report_subscriptions USING btree (id)"
+        },
+        {
+          "name": "uq_morning_sub_channel_recipient",
+          "definition": "CREATE UNIQUE INDEX uq_morning_sub_channel_recipient ON public.user_morning_report_subscriptions USING btree (channel, channel_recipient)"
+        },
+        {
+          "name": "ix_user_morning_report_subscriptions_user_id",
+          "definition": "CREATE INDEX ix_user_morning_report_subscriptions_user_id ON public.user_morning_report_subscriptions USING btree (user_id)"
+        }
+      ],
+      "unique_constraints": {
+        "uq_morning_sub_channel_recipient": [
+          "channel",
+          "channel_recipient"
+        ]
+      }
     },
     "user_sessions": {
       "columns": [
