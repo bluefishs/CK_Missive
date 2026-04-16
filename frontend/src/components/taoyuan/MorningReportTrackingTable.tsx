@@ -250,19 +250,30 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
         expandable={{
           rowExpandable: (record) => record.per_type_progress.length >= 2,
           expandedRowRender: (record) => (
-            <div style={{ paddingLeft: 16 }}>
-              {record.per_type_progress.map((pt) => {
-                const pct = pt.total ? Math.round((pt.completed / pt.total) * 100) : 0;
-                const color = pct === 100 ? 'green' : pct >= 50 ? 'blue' : 'orange';
-                return (
-                  <div key={pt.work_type_id} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 4 }}>
-                    <Tag style={{ minWidth: 160 }}>{pt.work_type}</Tag>
-                    <Tag color={color}>{pt.completed}/{pt.total}</Tag>
-                    {pt.deadline && <Tag icon={<CalendarOutlined />} color="blue">{pt.deadline}</Tag>}
-                  </div>
-                );
-              })}
-            </div>
+            <table style={{ width: '100%', marginLeft: 32, fontSize: 13 }}>
+              <tbody>
+                {record.per_type_progress.map((pt) => {
+                  const pct = pt.total ? Math.round((pt.completed / pt.total) * 100) : 0;
+                  const color = pct === 100 ? 'green' : pct >= 50 ? 'blue' : 'orange';
+                  return (
+                    <tr key={pt.work_type_id}>
+                      <td style={{ padding: '4px 8px', width: 200 }}>
+                        <Tag style={{ margin: 0 }}>{pt.work_type}</Tag>
+                      </td>
+                      <td style={{ padding: '4px 8px', width: 70 }}>
+                        <Tag color={color} style={{ margin: 0 }}>{pt.completed}/{pt.total}</Tag>
+                      </td>
+                      <td style={{ padding: '4px 8px' }}>
+                        {pt.deadline
+                          ? <Tag icon={<CalendarOutlined />} color="blue" style={{ margin: 0 }}>{pt.deadline}</Tag>
+                          : <Text type="secondary" style={{ fontSize: 12 }}>交付期限未設定</Text>
+                        }
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           ),
         }}
       />
