@@ -383,6 +383,16 @@ class MorningReportService:
           WHERE dispatch_order_id IS NOT NULL
           ORDER BY dispatch_order_id, record_date DESC, id DESC
         ),
+        bottleneck_record AS (
+          SELECT DISTINCT ON (dispatch_order_id)
+            dispatch_order_id,
+            work_category AS bottleneck_category,
+            status AS bottleneck_status
+          FROM taoyuan_work_records
+          WHERE dispatch_order_id IS NOT NULL
+            AND status != 'completed'
+          ORDER BY dispatch_order_id, record_date DESC, id DESC
+        ),
         doc_links AS (
           SELECT dispatch_order_id,
                  BOOL_OR(link_type = 'agency_incoming') AS has_in,
@@ -427,10 +437,13 @@ class MorningReportService:
                END AS closure_level,
                COALESCE(rp.completed_count, 0) AS completed_count,
                COALESCE(rp.total_records, 0) AS total_records,
-               ue.next_event_date
+               ue.next_event_date,
+               COALESCE(bn.bottleneck_category, l.work_category) AS display_category,
+               COALESCE(bn.bottleneck_status, l.status) AS display_cat_status
         FROM taoyuan_dispatch_orders d
         LEFT JOIN record_progress rp ON rp.dispatch_order_id = d.id
         LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
+        LEFT JOIN bottleneck_record bn ON bn.dispatch_order_id = d.id
         LEFT JOIN doc_links dl ON dl.dispatch_order_id = d.id
         LEFT JOIN upcoming_events ue ON ue.dispatch_order_id = d.id
         WHERE d.deadline IS NOT NULL

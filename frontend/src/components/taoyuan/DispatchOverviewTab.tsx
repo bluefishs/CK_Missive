@@ -218,7 +218,7 @@ export const DispatchOverviewTab: React.FC<DispatchOverviewTabProps> = ({
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
   const { columns, morningData, total, isLoading } = useDispatchOverviewKanban(contractProjectId);
-  const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'table'>('table');
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
 
   const handleCardClick = useCallback(

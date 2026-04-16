@@ -134,7 +134,7 @@ async def dispatch_morning_status(
         completed_n, total_n = row[12], row[13]
         next_event = row[14]
         closure = row[11]
-        work_cat = row[7] or ""
+        display_cat = row[15] or row[7] or ""  # bottleneck fallback latest
 
         # display_status: 依 closure_level + 期限 + 紀錄數 細分
         if closure in ("closed",):
@@ -162,8 +162,8 @@ async def dispatch_morning_status(
             "sub_case": row[5] or "",
             "closure_level": closure,
             "display_status": display_status,
-            "work_category": work_cat,
-            "work_category_label": cat_labels.get(work_cat, work_cat or "-"),
+            "work_category": display_cat,
+            "work_category_label": cat_labels.get(display_cat, display_cat or "-"),
             "completed_count": completed_n,
             "total_records": total_n,
             "progress": svc._format_dispatch_progress(
