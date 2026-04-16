@@ -196,4 +196,10 @@
 | `backend/app/services/audit_mixin.py` | CRUD 審計 Mixin (10 服務套用) |
 | `backend/app/services/ai/domain/digital_twin_service.py` | 數位分身 Service 層 (ai/domain/ 子包) |
 | `frontend/src/pages/UnifiedAgentPage.tsx` | 智能體統一頁面 (雙模式: user/admin) |
+| `backend/app/services/ai/domain/morning_report_service.py` | 🆕 晨報生成 (926L) — 聚合 CTE + 6 層 closure_level + sections filter |
+| `backend/app/services/ai/domain/morning_report_delivery.py` | 🆕 晨報派送 (240L) — delivery_log + snapshot + subscription + 失敗告警 |
+| `frontend/src/components/taoyuan/MorningReportTrackingTable.tsx` | 🆕 派工狀態追蹤表格（expandable per-type rows） |
+| `frontend/src/components/taoyuan/DispatchOverviewTab.tsx` | 🆕 v2.0 — 方案 C 看板+表格 Segmented，統一 morning-status |
+| `scripts/init/backfill_work_type_id.py` | 🆕 work_type_id 回填腳本（62 auto / 7 manual） |
+| `docs/DOCKER_SECRETS_PHASE1.md` | 🆕 Docker Secrets Phase 1 盤點（76 env vars 3 tier） |
 | `@AGENT.md` | 開發代理指引 |

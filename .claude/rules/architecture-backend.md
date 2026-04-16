@@ -41,7 +41,7 @@ backend/app/extended/models/
 ├── core.py              # 基礎實體 (Vendor, ContractProject, Agency, User)
 ├── document.py          # 公文模組 (OfficialDocument, Attachment)
 ├── calendar.py          # 行事曆 (CalendarEvent, Reminder)
-├── system.py            # 系統 (Notification, Session, Navigation, Config)
+├── system.py            # 系統 (Notification, Session, Navigation, Config, MorningReport 3 表)
 ├── staff.py             # 專案人員 (AgencyContact, Certification)
 ├── taoyuan.py           # 桃園派工 (Project, DispatchOrder, WorkRecord, etc.)
 ├── entity.py            # 實體識別 (DocumentEntity, EntityRelation)
@@ -67,6 +67,9 @@ backend/app/services/
 │   ├── graph/                  # 知識圖譜 (26): relation_graph, canonical_entity, code_graph, erp_graph
 │   ├── document/               # 文件處理 (10): document_ai, chunker, entity_extraction
 │   ├── domain/                 # 領域業務 (10): digital_twin, morning_report, pm/erp_query
+│   │   ├── morning_report_service.py   # 晨報生成 (926L) — 聚合 CTE + 6 層 closure_level + sections filter
+│   │   ├── morning_report_delivery.py  # 晨報派送 (240L) — delivery_log + snapshot + subscription + 失敗告警
+│   │   └── dispatch_progress_synthesizer.py  # 派工進度彙整
 │   ├── search/                 # 搜尋排序 (9): rag_query, rag_retrieval, reranker
 │   ├── proactive/              # 主動觸發 (5): proactive_triggers + erp/finance/pm
 │   ├── federation/             # 聯邦整合 (3): federation_client/discovery/delegation
@@ -172,7 +175,7 @@ backend/app/api/endpoints/
 │   ├── graph_unified.py           # 知識圖譜統一查詢端點 (拆分自 graph_query)
 │   ├── rag_query.py              # RAG 問答端點
 │   ├── relation_graph.py         # 關係圖譜端點
-│   ├── ai_stats.py               # AI 統計端點
+│   ├── ai_stats.py               # AI 統計端點 + 晨報 (preview/push/status/history)
 │   ├── ai_monitoring.py          # AI 監控端點 (拆分自 ai_stats)
 │   ├── ai_feedback.py            # AI 回饋端點
 │   ├── ollama_management.py      # Ollama 管理端點

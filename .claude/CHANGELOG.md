@@ -4,6 +4,53 @@
 
 ---
 
+## [5.5.7] - 2026-04-16
+
+### 晨報機制全面重構 + 派工追蹤整合 + per-type 進度架構（17 commits）
+
+#### 晨報 Phase A — 防禦性基礎
+- **Delivery log** — `morning_report_delivery_log` 表 + `/status` 端點 + 連續 2 天失敗告警
+- **時區固定** — `datetime.now()` → `datetime.now(ZoneInfo('Asia/Taipei'))` 全文替換
+- **SQL CTE 抽取** — `_ACTIVE_DISPATCHES_SQL` 共用常數，消除 deadlines/overdue 重複維護
+- **Regression tests** — 6 tests 固化 7 次 commit 的過濾/輸出修正
+
+#### 晨報 Phase B — 價值擴張
+- **Snapshot 歷史** — `morning_report_snapshots` 表 + `/history` 端點，每日快照供回顧
+- **Per-user routing** — `user_morning_report_subscriptions` 表 + subscription fanout + ENV admin fallback
+- **內容擴張** — PM 逾期里程碑 + ERP 待審費用（optional sections，`sections=` filter 機制）
+
+#### 逾期判定重構（三層 → 六層 closure_level）
+- **聚合 CTE** — `record_progress` 替代 `DISTINCT ON`，與前端進度條 (n/m) 對齊
+- **6 層 closure_level** — closed / delivered / all_completed / pending_closure / scheduled / active
+- **排程偵測** — `upcoming_events` CTE 偵測未來行事曆事件 → 有排程不算逾期
+- **display_status** — 7 階段（逾期/闕漏紀錄/進行中/排程中/待結案/已交付/已結案）
+- **瓶頸類別** — `bottleneck_record` CTE 取最新未完成紀錄的 category（非 latest by id）
+
+#### 派工追蹤整合（方案 C）
+- **Tab 0 Segmented** — 看板 + 表格雙模式，統一 `morning-status` API 為唯一狀態來源
+- **Tab 5 移除** — `?tab=5` redirect → `?tab=0`，消除雙 Tab 狀態不一致
+- **統計卡片** — 已完成/交付 | 排程中 | 進行中 | 需處理（看板+表格共用互動篩選）
+- **API scope** — `morning-status` 加 `contract_project_id` 過濾，數字與看板對齊
+
+#### per work_type 進度追蹤（Phase 2）
+- **Migration** — `work_records.work_type_id` nullable FK + `dispatch_work_types.deadline`
+- **UI** — InlineRecordCreator + WorkRecordFormPage「所屬作業」下拉（共用/特定）
+- **回填** — 62 筆 records 自動歸屬，7 multi-type dispatches 需手動
+- **展開行** — 表格 `expandedRowRender` 顯示 per-type n/m + 交付期限
+
+#### 其他
+- **行政作業** — `admin_notice` work_category + WORK_CATEGORY_GROUPS 排序
+- **ezbid contract test** — 10 tests + HTML fixture snapshot
+- **Hermes baseline cron** — 每日 20:00 匯出 `logs/shadow-baseline/`
+- **Docker Secrets Phase 1** — 76 env vars 分 3 tier 盤點 + compose override 範本
+
+#### 測試統計
+- Morning report: 56 tests (meetings 35 + progress 21)
+- ezbid: 10 contract tests
+- **Total new: 66 tests, all green**
+
+---
+
 ## [5.5.6] - 2026-04-14 ~ 2026-04-15
 
 ### Hermes Agent + Cloudflare Tunnel + 多專案平台級架構

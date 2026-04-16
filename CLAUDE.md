@@ -2,21 +2,21 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.5.6 Hermes 替換 OpenClaw + Cloudflare Tunnel 公網部署 + 多專案平台
-> **最後更新**: 2026-04-15
+> **版本**: v5.5.7 晨報重構 + 派工追蹤整合 + per-type 進度架構
+> **最後更新**: 2026-04-16
 
 ---
 
 ## 專案概述
 
-CK_Missive 是一套企業級公文管理系統，搭載 NemoClaw 自覺型代理人：
+CK_Missive 是一套企業級公文管理系統，搭載 Hermes Agent 智慧助理：
 
 1. **公文管理** - 收發文登錄、流水序號自動編排、附件管理
 2. **行事曆整合** - 公文截止日追蹤、Google Calendar 雙向同步、批次操作
 3. **邀標/報價管理** - 案件建案(case_code)、報價紀錄上傳、承攬狀態追蹤、成案觸發
 4. **承攬案件管理** - 成案專案(project_code)、人員配置、里程碑/甘特圖、公文關聯
 5. **委託單位/協力廠商** - vendor_type 分離管理、inline 新增、ERP 關聯
-6. **NemoClaw 代理人** - 26 真工具、自省閉環、主動推薦、vLLM 本地推理
+6. **AI 代理人** - 26 真工具、自省閉環、主動推薦、Hermes Agent gateway (via ck-missive-bridge skill)
 7. **ERP 財務模組** - 費用報銷、統一帳本、財務彙總、電子發票同步
 8. **知識圖譜** - Code-graph 5,721 實體、DB/TS/Python AST 入圖
 
@@ -45,21 +45,21 @@ kg.cksurvey.tw        →  聯邦知識圖譜 Hub (選用)
 > **架構原則**: Cloudflare Tunnel 統一公網入口；Cloudflare Access SSO 跨專案；
 > 各專案獨立 DB；Hermes 共用 gateway 跨專案聯邦。零費用全 Free 方案。
 
-### LINE / Telegram 多頻道整合（via OpenClaw）
+### LINE / Telegram 多頻道整合（via Hermes Agent Gateway）
 
 ```
-LINE 小花貓Aroan → OpenClaw (Claude Haiku) → bash curl → Missive Agent API
-Telegram @Aaron_ckbot → OpenClaw → bash curl → Missive Agent API
+LINE 小花貓Aroan → Hermes Agent → skill(ck-missive-bridge) → Missive Agent API
+Telegram @Aaron_ckbot → Hermes Agent → skill(ck-missive-bridge) → Missive Agent API
 Discord → Interactions Endpoint → Missive Agent API (直連)
 ```
 
-- 運維指南: `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md`
-- OpenClaw Docker: `CK_NemoClaw/docker-compose.yml` (openclaw service)
-- OpenClaw config: `C:\Users\User1\.openclaw\openclaw.json`
-- Skill 定義: container 內 `/home/node/.openclaw/workspace/skills/ck-missive-bridge/SKILL.md`
+- Hermes 部署指南: `CK_AaaP/runbooks/hermes-stack/`
+- Skill 定義: `docs/hermes-skills/ck-missive-bridge/`
 - **重點**: Skill 中 API URL 必須用 `host.docker.internal:8001`（不是 `localhost`）
-- **重點**: container 重建後需重新寫入 IDENTITY.md 和 SKILL.md（Docker volume 不同步 host）
-- **重點**: LINE webhook 需要公網 HTTPS（ngrok），URL 變更時需重設
+- **重點**: LINE webhook 需要公網 HTTPS，由 Cloudflare Tunnel 提供
+
+> **歷史**: OpenClaw 整合已於 ADR-0014 廢止（2026-05-12），由 Hermes Agent 取代。
+> 舊運維指南: `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md`（僅供參考）
 
 ---
 
@@ -97,7 +97,7 @@ Discord → Interactions Endpoint → Missive Agent API (直連)
 - 後端 API: http://localhost:8001/docs
 - 前端開發: http://localhost:3000
 - 資料庫: PostgreSQL 16 (Docker, port 5434)
-- NemoClaw 監控塔: http://localhost:9000 (Docker, CK_NemoClaw)
+- ~~NemoClaw 監控塔: http://localhost:9000~~ — **廢止** (ADR-0015)
 - vLLM 本地推理: http://localhost:8000 (Docker, Qwen2.5-7B-AWQ)
 - Ollama: http://localhost:11434 (Docker, nomic-embed)
 
