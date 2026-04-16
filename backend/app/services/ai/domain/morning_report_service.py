@@ -9,9 +9,8 @@
 6. 標案訂閱通知
 
 透過 Gemma 4 合成自然語言摘要，推送到 Telegram/LINE。
-不依賴 OpenClaw — 後端 APScheduler 直接觸發。
 
-Version: 1.0.0
+Version: 2.0.0 — 格式化邏輯拆分至 morning_report_formatter.py
 """
 import logging
 import os
@@ -120,11 +119,22 @@ class MorningReportService:
         data: Dict[str, Any],
         sections: set[str] | None = None,
     ) -> str:
-        """生成晨報摘要 — 聚焦 4 主題：派工 / 會議 / 現勘 / 遺漏建檔。
+        """生成晨報摘要 — 委派至 MorningReportFormatter。
 
         B2: sections 參數限定渲染範圍；None 保留既有行為（4 主題 default）。
         可選 key: dispatch, meeting, site_visit, missing, pm_milestone, erp_expense, all
         """
+        from app.services.ai.domain.morning_report_formatter import MorningReportFormatter
+        formatter = MorningReportFormatter()
+        return formatter.format_summary(data, sections)
+
+    # --- Legacy: 保留原始 format 邏輯作為 _format_summary_legacy (供測試比對) ---
+    def _format_summary_legacy(
+        self,
+        data: Dict[str, Any],
+        sections: set[str] | None = None,
+    ) -> str:
+        """[LEGACY] 原始 generate_summary_from_data 邏輯 — 僅供回歸測試比對。"""
         allowed = sections
         if allowed is None:
             allowed = {"dispatch", "meeting", "site_visit", "missing"}
