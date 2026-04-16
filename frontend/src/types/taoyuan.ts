@@ -739,6 +739,7 @@ export type WorkRecordStatus = 'pending' | 'in_progress' | 'completed' | 'overdu
 
 /** 作業類別 (新格式，鏈式時間軸) */
 export type WorkCategory =
+  | 'admin_notice'
   | 'dispatch_notice'
   | 'work_result'
   | 'meeting_notice'

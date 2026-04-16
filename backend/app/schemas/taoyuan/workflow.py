@@ -27,6 +27,7 @@ class MilestoneType(str, Enum):
 
 
 class WorkCategory(str, Enum):
+    ADMIN_NOTICE = "admin_notice"
     DISPATCH_NOTICE = "dispatch_notice"
     WORK_RESULT = "work_result"
     MEETING_NOTICE = "meeting_notice"

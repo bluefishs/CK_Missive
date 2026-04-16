@@ -169,22 +169,7 @@ class MorningReportService:
                     f"{progress_tag}"
                 )
 
-        # 2b. 派工：有排程（有未來行事曆事件，非停滯逾期）
-        sc = ov.get("scheduled_count", 0) if _on("dispatch") else 0
-        if sc > 0:
-            parts.append(f"排程中 {sc} 筆")
-            for item in ov.get("scheduled_items", [])[:3]:
-                progress = item.get("progress", "")
-                progress_tag = f" 〔{progress}〕" if progress else ""
-                next_ev = item.get("next_event", "")
-                next_tag = f" → 下次 {next_ev}" if next_ev else ""
-                details.append(
-                    f"  📅 {item['dispatch_no']} — "
-                    f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
-                    f"{progress_tag}{next_tag}"
-                )
-
-        # 2c. 派工：待結案確認（L3 — 全部完成但未發文）
+        # 2b. 派工：待結案確認（L3 — 全部完成但未發文）
         pc = ov.get("pending_closure_count", 0) if _on("dispatch") else 0
         if pc > 0:
             parts.append(f"待結案確認 {pc} 筆")
@@ -197,7 +182,7 @@ class MorningReportService:
                     f"{progress_tag}"
                 )
 
-        # 3. 會議
+        # 3. 會議（header 第二位）
         mt = data.get("upcoming_meetings", {}) if _on("meeting") else {}
         if mt.get("count", 0) > 0:
             parts.append(f"近期會議 {mt['count']} 場")
@@ -230,6 +215,21 @@ class MorningReportService:
                 location = f" @ {item['location']}" if item.get("location") else ""
                 details.append(
                     f"  {urgency} {time_str} {item['title']}{location}{source}"
+                )
+
+        # 2d. 排程作業（有未來行事曆事件，非停滯逾期）— header 第三位
+        sc = ov.get("scheduled_count", 0) if _on("dispatch") else 0
+        if sc > 0:
+            parts.append(f"排程作業 {sc} 筆")
+            for item in ov.get("scheduled_items", [])[:3]:
+                progress = item.get("progress", "")
+                progress_tag = f" 〔{progress}〕" if progress else ""
+                next_ev = item.get("next_event", "")
+                next_tag = f" → 下次 {next_ev}" if next_ev else ""
+                details.append(
+                    f"  📅 {item['dispatch_no']} — "
+                    f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
+                    f"{progress_tag}{next_tag}"
                 )
 
         # 10. 今日分桶 + 衝突
@@ -472,12 +472,13 @@ class MorningReportService:
             "dispatch": "派工通知",
         }
         cat_map = {
+            "admin_notice": "行政通知",
+            "dispatch_notice": "派工通知",
             "work_result": "成果回函",
             "meeting_notice": "會議通知",
             "meeting_record": "會議紀錄",
             "survey_notice": "現勘通知",
             "survey_record": "現勘紀錄",
-            "dispatch_notice": "派工通知",
         }
         status_map = {
             "completed": "完成", "in_progress": "進行中",

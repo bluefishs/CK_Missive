@@ -95,6 +95,12 @@ export interface WorkCategoryGroup {
 
 export const WORK_CATEGORY_GROUPS: WorkCategoryGroup[] = [
   {
+    group: '行政作業',
+    items: [
+      { value: 'admin_notice', label: '行政通知', color: 'volcano' },
+    ],
+  },
+  {
     group: '派工作業',
     items: [
       { value: 'dispatch_notice', label: '派工通知', color: 'blue' },
