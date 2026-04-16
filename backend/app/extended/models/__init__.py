@@ -51,6 +51,7 @@ from .system import (
     AISearchHistory,
     AIConversationFeedback,
     AISynonym,
+    MorningReportDeliveryLog,
 )
 
 # 6. 專案人員模組

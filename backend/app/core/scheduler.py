@@ -403,53 +403,123 @@ async def kg_embedding_backfill_job():
 
 @tracked_job("morning_report")
 async def morning_report_job():
-    """每日 08:00 — 生成晨報並推送至 Telegram/LINE"""
+    """每日 08:00 — 生成晨報並推送至 Telegram/LINE（含 delivery log + 連續失敗告警）"""
+    import os
     from app.db.database import async_session_maker
     from app.services.ai.domain.morning_report_service import MorningReportService
+    from app.services.ai.domain.morning_report_delivery import (
+        log_delivery, consecutive_failure_days, today_taipei,
+    )
 
     logger.info("開始執行每日晨報生成")
+    report_date = today_taipei()
+    summary: str = ""
+    sections_count: int | None = None
 
     try:
         async with async_session_maker() as db:
             svc = MorningReportService(db)
-            summary = await svc.generate_summary()
-
-        pushed_to = []
-
-        # Push to Telegram (direct, no OpenClaw needed)
-        try:
-            import os
-            from app.services.telegram_bot_service import get_telegram_bot_service
-            tg = get_telegram_bot_service()
-            chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-            if chat_id and tg.enabled:
-                # 晨報用純文字推送（避免「『」「』」等全形括號觸發 Markdown 解析錯誤）
-                ok = await tg.send_message(int(chat_id), summary, parse_mode="")
-                if ok:
-                    pushed_to.append("Telegram")
-        except Exception as tg_err:
-            logger.debug("Morning report Telegram push skipped: %s", tg_err)
-
-        # Push to LINE (if configured)
-        try:
-            import os
-            from app.services.line_bot_service import LineBotService
-            line = LineBotService()
-            line_user_id = os.getenv("LINE_ADMIN_USER_ID")
-            if line_user_id and line.enabled:
-                ok = await line.push_message(line_user_id, summary)
-                if ok:
-                    pushed_to.append("LINE")
-        except Exception as line_err:
-            logger.debug("Morning report LINE push skipped: %s", line_err)
-
-        if pushed_to:
-            logger.info("Morning report pushed to: %s", ", ".join(pushed_to))
-        else:
-            logger.info("Morning report generated (no push targets configured)")
-
+            data = await svc.generate_report()
+            summary = await svc.generate_summary_from_data(data)
+            sections_count = sum(
+                1 for k, v in data.items()
+                if isinstance(v, dict) and (v.get("count", 0) or v.get("week_count", 0)
+                                             or v.get("dispatch_count", 0))
+            )
     except Exception as e:
-        logger.error("Morning report failed: %s", e, exc_info=True)
+        logger.error("Morning report generation failed: %s", e, exc_info=True)
+        async with async_session_maker() as db2:
+            await log_delivery(
+                db2, report_date=report_date, channel="system",
+                status="failed", error_msg=f"generation: {e}",
+                trigger_source="scheduler",
+            )
+        return
+
+    pushed_to: list[str] = []
+
+    # Push to Telegram
+    tg_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+    if tg_chat_id:
+        async with async_session_maker() as db:
+            try:
+                from app.services.telegram_bot_service import get_telegram_bot_service
+                tg = get_telegram_bot_service()
+                if tg.enabled:
+                    ok = await tg.send_message(int(tg_chat_id), summary, parse_mode="")
+                    status = "success" if ok else "failed"
+                    await log_delivery(
+                        db, report_date=report_date, channel="telegram",
+                        recipient=str(tg_chat_id), status=status,
+                        summary_length=len(summary), sections_count=sections_count,
+                        error_msg=None if ok else "send_message returned false",
+                    )
+                    if ok:
+                        pushed_to.append("Telegram")
+                else:
+                    await log_delivery(
+                        db, report_date=report_date, channel="telegram",
+                        recipient=str(tg_chat_id), status="skipped",
+                        error_msg="tg service disabled",
+                    )
+            except Exception as tg_err:
+                logger.warning("Morning report Telegram push failed: %s", tg_err)
+                await log_delivery(
+                    db, report_date=report_date, channel="telegram",
+                    recipient=str(tg_chat_id), status="failed",
+                    error_msg=str(tg_err),
+                )
+
+    # Push to LINE
+    line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+    if line_user_id:
+        async with async_session_maker() as db:
+            try:
+                from app.services.line_bot_service import LineBotService
+                line = LineBotService()
+                if line.enabled:
+                    ok = await line.push_message(line_user_id, summary)
+                    status = "success" if ok else "failed"
+                    await log_delivery(
+                        db, report_date=report_date, channel="line",
+                        recipient=line_user_id, status=status,
+                        summary_length=len(summary), sections_count=sections_count,
+                        error_msg=None if ok else "push_message returned false",
+                    )
+                    if ok:
+                        pushed_to.append("LINE")
+                else:
+                    await log_delivery(
+                        db, report_date=report_date, channel="line",
+                        recipient=line_user_id, status="skipped",
+                        error_msg="line service disabled",
+                    )
+            except Exception as line_err:
+                logger.warning("Morning report LINE push failed: %s", line_err)
+                await log_delivery(
+                    db, report_date=report_date, channel="line",
+                    recipient=line_user_id, status="failed",
+                    error_msg=str(line_err),
+                )
+
+    if pushed_to:
+        logger.info("Morning report pushed to: %s", ", ".join(pushed_to))
+    else:
+        logger.warning("Morning report generated but NO channels pushed")
+
+    # 連續失敗告警（A2）：任一 channel 連續 2 天失敗 → error log
+    async with async_session_maker() as db:
+        for ch in ("telegram", "line"):
+            try:
+                streak = await consecutive_failure_days(db, ch, window_days=7)
+                if streak >= 2:
+                    logger.error(
+                        "MORNING_REPORT_ALERT: channel=%s 連續 %d 天失敗，"
+                        "請檢查 bot token / recipient 設定",
+                        ch, streak,
+                    )
+            except Exception as e:
+                logger.debug("consecutive_failure_days check failed: %s", e)
 
 
 @tracked_job("ezbid_cache_refresh")

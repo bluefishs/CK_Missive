@@ -188,6 +188,8 @@ export const AI_ENDPOINTS = {
   MORNING_REPORT_PREVIEW: '/ai/stats/morning-report/preview',
   /** 晨報推送 POST /ai/stats/morning-report/push */
   MORNING_REPORT_PUSH: '/ai/stats/morning-report/push',
+  /** 晨報派送狀態 POST /ai/stats/morning-report/status */
+  MORNING_REPORT_STATUS: '/ai/stats/morning-report/status',
 } as const;
 
 /** 數位分身 API 端點 — 透過 Missive 後端代理至 NemoClaw Gateway */

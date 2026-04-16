@@ -8,8 +8,32 @@
 - AIPromptVersion: AI Prompt 版本控制
 - AISearchHistory: AI 搜尋歷史
 - AISynonym: AI 同義詞
+- MorningReportDeliveryLog: 晨報派送紀錄（觀測性）
 """
 from ._base import *
+
+
+class MorningReportDeliveryLog(Base):
+    """晨報派送紀錄 — 每日 push 成功/失敗 audit trail。
+
+    用途：
+    - 觀測每日推送狀態（連續失敗告警）
+    - 晨報效果度量（summary 長度、sections 趨勢）
+    - 手動 vs 排程觸發來源統計
+    """
+    __tablename__ = "morning_report_delivery_log"
+
+    id = Column(Integer, primary_key=True)
+    report_date = Column(Date, nullable=False, index=True, comment="晨報所屬日期 (Asia/Taipei)")
+    channel = Column(String(32), nullable=False, comment="telegram/line/discord/manual")
+    recipient = Column(String(128), nullable=True, comment="chat_id/user_id/email")
+    status = Column(String(16), nullable=False, index=True, comment="success/failed/skipped")
+    error_msg = Column(Text, nullable=True)
+    summary_length = Column(Integer, nullable=True, comment="推送內容字元數")
+    sections_count = Column(Integer, nullable=True, comment="含內容 section 數")
+    trigger_source = Column(String(16), nullable=False, default="scheduler",
+                            comment="scheduler/manual/api")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class SystemNotification(Base):

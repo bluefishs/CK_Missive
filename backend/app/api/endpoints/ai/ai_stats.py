@@ -442,6 +442,44 @@ async def push_morning_report(
         )
 
 
+@router.post("/stats/morning-report/status")
+async def morning_report_status(
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(optional_auth()),
+):
+    """晨報派送觀測性 — 近 7 天 delivery log + 連續失敗天數（A1）"""
+    from fastapi.responses import JSONResponse
+    from app.services.ai.domain.morning_report_delivery import (
+        get_recent_deliveries, consecutive_failure_days, today_taipei,
+    )
+
+    try:
+        deliveries = await get_recent_deliveries(db, days=7)
+        tg_streak = await consecutive_failure_days(db, "telegram")
+        line_streak = await consecutive_failure_days(db, "line")
+
+        return JSONResponse(
+            {
+                "success": True,
+                "today": today_taipei().isoformat(),
+                "deliveries": deliveries,
+                "alerts": {
+                    "telegram_consecutive_failures": tg_streak,
+                    "line_consecutive_failures": line_streak,
+                    "should_alert": tg_streak >= 2 or line_streak >= 2,
+                },
+            },
+            media_type="application/json; charset=utf-8",
+        )
+    except Exception as e:
+        logger.error("Morning report status failed: %s", e, exc_info=True)
+        return JSONResponse(
+            {"success": False, "error": "晨報狀態查詢失敗"},
+            status_code=500,
+            media_type="application/json; charset=utf-8",
+        )
+
+
 # ── Token Usage Report ──
 
 

@@ -17,11 +17,20 @@ import logging
 import os
 from datetime import datetime, timedelta
 from typing import Any, Dict
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
+
+# A3: 顯式時區，避免 server TZ 漂移導致日期邊界錯誤
+TZ_TAIPEI = ZoneInfo("Asia/Taipei")
+
+
+def _now_taipei() -> datetime:
+    """統一取得 Asia/Taipei 當前時間。"""
+    return datetime.now(TZ_TAIPEI)
 
 
 class MorningReportService:
@@ -36,7 +45,7 @@ class MorningReportService:
         每段獨立呼叫 _safe_query；任一段查詢失敗即 rollback session，
         避免 PostgreSQL transaction abort 連帶讓後續查詢全數靜默失敗。
         """
-        today = datetime.now().date()
+        today = _now_taipei().date()
         week_later = today + timedelta(days=7)
 
         sections: Dict[str, Any] = {}
@@ -198,10 +207,10 @@ class MorningReportService:
                 )
 
         if not parts:
-            return f"📋 {datetime.now().strftime('%m/%d')} 晨報：今日無待處理派工/會議/現勘事項。👍"
+            return f"📋 {_now_taipei().strftime('%m/%d')} 晨報：今日無待處理派工/會議/現勘事項。👍"
 
         # 組合輸出（不依賴 LLM，避免資訊遺失與延遲）
-        header = f"📋 {datetime.now().strftime('%m/%d')} 晨報\n"
+        header = f"📋 {_now_taipei().strftime('%m/%d')} 晨報\n"
         summary_line = " | ".join(parts)
         detail_text = "\n".join(details) if details else ""
 
@@ -225,6 +234,40 @@ class MorningReportService:
                 pass
         return None
 
+    # A4: 共用 CTE — latest_record + doc_links + 嚴格結案過濾
+    # 任何 active dispatch 查詢均由此產生，避免 _get_dispatch_deadlines
+    # 與 _get_overdue_items 的 SQL 漂移。
+    _ACTIVE_DISPATCHES_SQL = """
+        WITH latest_record AS (
+          SELECT DISTINCT ON (dispatch_order_id)
+            dispatch_order_id, milestone_type, work_category, status, record_date
+          FROM taoyuan_work_records
+          WHERE dispatch_order_id IS NOT NULL
+          ORDER BY dispatch_order_id, record_date DESC, id DESC
+        ),
+        doc_links AS (
+          SELECT dispatch_order_id,
+                 BOOL_OR(link_type = 'agency_incoming') AS has_in,
+                 BOOL_OR(link_type = 'company_outgoing') AS has_out
+          FROM taoyuan_dispatch_document_link
+          GROUP BY dispatch_order_id
+        )
+        SELECT d.id, d.dispatch_no, d.deadline, d.project_name,
+               d.case_handler, d.sub_case_name,
+               l.milestone_type, l.work_category, l.status,
+               COALESCE(dl.has_in, false) AS has_in,
+               COALESCE(dl.has_out, false) AS has_out
+        FROM taoyuan_dispatch_orders d
+        LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
+        LEFT JOIN doc_links dl ON dl.dispatch_order_id = d.id
+        WHERE d.deadline IS NOT NULL
+          AND d.deadline != ''
+          AND NOT (
+            l.milestone_type IN ('closed', 'final_approval')
+            AND l.status = 'completed'
+          )
+    """
+
     async def _get_dispatch_deadlines(self, today, week_later) -> dict:
         """到期派工（本週+今日）— 不採 batch_no 為依據。
 
@@ -235,38 +278,7 @@ class MorningReportService:
         - 其餘均列入，並標註作業進度標籤供承辦人辨識
         """
         try:
-            r = await self.db.execute(
-                text("""
-                WITH latest_record AS (
-                  SELECT DISTINCT ON (dispatch_order_id)
-                    dispatch_order_id, milestone_type, work_category, status, record_date
-                  FROM taoyuan_work_records
-                  WHERE dispatch_order_id IS NOT NULL
-                  ORDER BY dispatch_order_id, record_date DESC, id DESC
-                ),
-                doc_links AS (
-                  SELECT dispatch_order_id,
-                         BOOL_OR(link_type = 'agency_incoming') AS has_in,
-                         BOOL_OR(link_type = 'company_outgoing') AS has_out
-                  FROM taoyuan_dispatch_document_link
-                  GROUP BY dispatch_order_id
-                )
-                SELECT d.id, d.dispatch_no, d.deadline, d.project_name,
-                       d.case_handler, d.sub_case_name,
-                       l.milestone_type, l.work_category, l.status,
-                       COALESCE(dl.has_in, false) AS has_in,
-                       COALESCE(dl.has_out, false) AS has_out
-                FROM taoyuan_dispatch_orders d
-                LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
-                LEFT JOIN doc_links dl ON dl.dispatch_order_id = d.id
-                WHERE d.deadline IS NOT NULL
-                  AND d.deadline != ''
-                  AND NOT (
-                    l.milestone_type IN ('closed', 'final_approval')
-                    AND l.status = 'completed'
-                  )
-            """)
-            )
+            r = await self.db.execute(text(self._ACTIVE_DISPATCHES_SQL))
             today_items = []
             week_items = []
             for row in r.all():
@@ -355,36 +367,7 @@ class MorningReportService:
         嚴格結案（最新 milestone='closed'/'final_approval' 且 completed）才排除。
         """
         try:
-            r1 = await self.db.execute(
-                text("""
-                WITH latest_record AS (
-                  SELECT DISTINCT ON (dispatch_order_id)
-                    dispatch_order_id, milestone_type, work_category, status, record_date
-                  FROM taoyuan_work_records
-                  WHERE dispatch_order_id IS NOT NULL
-                  ORDER BY dispatch_order_id, record_date DESC, id DESC
-                ),
-                doc_links AS (
-                  SELECT dispatch_order_id,
-                         BOOL_OR(link_type = 'agency_incoming') AS has_in,
-                         BOOL_OR(link_type = 'company_outgoing') AS has_out
-                  FROM taoyuan_dispatch_document_link
-                  GROUP BY dispatch_order_id
-                )
-                SELECT d.id, d.dispatch_no, d.deadline, d.project_name, d.case_handler,
-                       l.milestone_type, l.work_category, l.status,
-                       COALESCE(dl.has_in, false), COALESCE(dl.has_out, false)
-                FROM taoyuan_dispatch_orders d
-                LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
-                LEFT JOIN doc_links dl ON dl.dispatch_order_id = d.id
-                WHERE d.deadline IS NOT NULL
-                  AND d.deadline != ''
-                  AND NOT (
-                    l.milestone_type IN ('closed', 'final_approval')
-                    AND l.status = 'completed'
-                  )
-            """)
-            )
+            r1 = await self.db.execute(text(self._ACTIVE_DISPATCHES_SQL))
             overdue_dispatches = []
             for row in r1.all():
                 dl = self._parse_roc_date(row[2])
@@ -393,7 +376,7 @@ class MorningReportService:
                         "dispatch_no": row[1],
                         "deadline": str(dl),
                         "progress": self._format_dispatch_progress(
-                            row[5], row[6], row[7], row[8], row[9]
+                            row[6], row[7], row[8], row[9], row[10]
                         ),
                         "project_name": row[3] or "",
                         "handler": row[4] or "",
