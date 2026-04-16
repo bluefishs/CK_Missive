@@ -257,6 +257,80 @@ class TestMorningReportRegression:
         assert "〔初勘〕" in summary
 
     @pytest.mark.asyncio
+    async def test_l2l3_overdue_split_rendering(self, service):
+        """L2+L3 三層結案：overdue 拆為真正逾期 🚨 + 待結案 📋。
+
+        L2 (work_result+completed+has_out) 由 SQL 排除不進 data；
+        L3 (completed+has_out) 進 pending_closure_items。
+        """
+        data = {
+            "overdue_items": {
+                "dispatch_count": 2,
+                "dispatch_items": [
+                    {
+                        "dispatch_no": "115年_派工單號001",
+                        "project_name": "教育訓練",
+                        "handler": "廖偉翔",
+                        "overdue_days": 91,
+                        "progress": "派工通知 進行中 / 已對應發文",
+                    },
+                    {
+                        "dispatch_no": "115年_派工單號007",
+                        "project_name": "廣場用地",
+                        "handler": "葉致雯",
+                        "overdue_days": 45,
+                        "progress": "現勘通知 進行中 / 已對應發文",
+                    },
+                ],
+                "pending_closure_count": 2,
+                "pending_closure_items": [
+                    {
+                        "dispatch_no": "115年_派工單號002",
+                        "project_name": "霄裡公園",
+                        "handler": "粘亞溱",
+                        "overdue_days": 67,
+                        "progress": "會議通知 完成 / 已對應發文",
+                    },
+                    {
+                        "dispatch_no": "115年_派工單號003",
+                        "project_name": "龍岡路",
+                        "handler": "吳佳芸",
+                        "overdue_days": 62,
+                        "progress": "處理中 完成 / 已對應發文",
+                    },
+                ],
+            }
+        }
+        summary = await service.generate_summary_from_data(data)
+        # 真正逾期顯示 🚨
+        assert "逾期派工 2 筆" in summary
+        assert "🚨 逾期 91 天" in summary
+        assert "🚨 逾期 45 天" in summary
+        # 待結案顯示 📋
+        assert "待結案確認 2 筆" in summary
+        assert "📋 待結案 115年_派工單號002" in summary
+        assert "📋 待結案 115年_派工單號003" in summary
+        # L2 排除的（如 work_result+completed）不應出現（上游 SQL 已過濾不送進來）
+
+    @pytest.mark.asyncio
+    async def test_pending_closure_only_no_overdue(self, service):
+        """只有待結案、無真正逾期時，header 只顯示待結案。"""
+        data = {
+            "overdue_items": {
+                "dispatch_count": 0,
+                "dispatch_items": [],
+                "pending_closure_count": 3,
+                "pending_closure_items": [
+                    {"dispatch_no": "X", "project_name": "P", "handler": "H",
+                     "overdue_days": 10, "progress": "完成"},
+                ],
+            }
+        }
+        summary = await service.generate_summary_from_data(data)
+        assert "逾期派工" not in summary
+        assert "待結案確認 3 筆" in summary
+
+    @pytest.mark.asyncio
     async def test_plain_text_no_title_truncation(self, service):
         """commit 4467f75: 純文字模式 + 標題不截斷 — 長標題完整保留。"""
         long_title = "第三次 Q2 跨部門協調會議（含法務/財務/工程三方聯席審查）"

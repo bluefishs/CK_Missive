@@ -156,7 +156,7 @@ class MorningReportService:
                     f"{progress_tag}"
                 )
 
-        # 2. 派工：逾期
+        # 2a. 派工：真正逾期（active 狀態 + 超過期限）
         ov = data.get("overdue_items", {}) if _on("dispatch") else {}
         if ov.get("dispatch_count", 0) > 0:
             parts.append(f"逾期派工 {ov['dispatch_count']} 筆")
@@ -165,6 +165,19 @@ class MorningReportService:
                 progress_tag = f" 〔{progress}〕" if progress else ""
                 details.append(
                     f"  🚨 逾期 {item['overdue_days']} 天 {item['dispatch_no']} — "
+                    f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
+                    f"{progress_tag}"
+                )
+
+        # 2b. 派工：待結案確認（L3 — 作業完成+已發文，建議補正式結案）
+        pc = ov.get("pending_closure_count", 0) if _on("dispatch") else 0
+        if pc > 0:
+            parts.append(f"待結案確認 {pc} 筆")
+            for item in ov.get("pending_closure_items", [])[:3]:
+                progress = item.get("progress", "")
+                progress_tag = f" 〔{progress}〕" if progress else ""
+                details.append(
+                    f"  📋 待結案 {item['dispatch_no']} — "
                     f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
                     f"{progress_tag}"
                 )
@@ -292,9 +305,15 @@ class MorningReportService:
                 pass
         return None
 
-    # A4: 共用 CTE — latest_record + doc_links + 嚴格結案過濾
-    # 任何 active dispatch 查詢均由此產生，避免 _get_dispatch_deadlines
-    # 與 _get_overdue_items 的 SQL 漂移。
+    # A4+L2L3: 共用 CTE — latest_record + doc_links + 三層結案判定
+    #
+    # closure_level 分層：
+    #   'closed'          — L1: milestone=closed/final_approval + completed → 完全排除
+    #   'delivered'       — L2: work_result + completed + has_out → 完全排除（成果已交付）
+    #   'pending_closure' — L3: any completed + has_out → 降級顯示為「待結案確認」
+    #   'active'          — 真正進行中或逾期
+    #
+    # 設計依據：用戶指示「以作業進度 + 公文對照其狀態期限為基準，非 batch_no」。
     _ACTIVE_DISPATCHES_SQL = """
         WITH latest_record AS (
           SELECT DISTINCT ON (dispatch_order_id)
@@ -314,32 +333,43 @@ class MorningReportService:
                d.case_handler, d.sub_case_name,
                l.milestone_type, l.work_category, l.status,
                COALESCE(dl.has_in, false) AS has_in,
-               COALESCE(dl.has_out, false) AS has_out
+               COALESCE(dl.has_out, false) AS has_out,
+               CASE
+                 WHEN l.milestone_type IN ('closed', 'final_approval')
+                      AND l.status = 'completed'
+                   THEN 'closed'
+                 WHEN l.work_category = 'work_result'
+                      AND l.status = 'completed'
+                      AND COALESCE(dl.has_out, false) = true
+                   THEN 'delivered'
+                 WHEN l.status = 'completed'
+                      AND COALESCE(dl.has_out, false) = true
+                   THEN 'pending_closure'
+                 ELSE 'active'
+               END AS closure_level
         FROM taoyuan_dispatch_orders d
         LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
         LEFT JOIN doc_links dl ON dl.dispatch_order_id = d.id
         WHERE d.deadline IS NOT NULL
           AND d.deadline != ''
-          AND NOT (
-            l.milestone_type IN ('closed', 'final_approval')
-            AND l.status = 'completed'
-          )
     """
 
     async def _get_dispatch_deadlines(self, today, week_later) -> dict:
-        """到期派工（本週+今日）— 不採 batch_no 為依據。
+        """到期派工（本週+今日）— 以作業進度 + 公文對照為基準。
 
-        以「公文關聯事件狀態」+「派工作業進度」判定（依用戶要求）：
-        - 取派工最新 work_record（record_date desc, id desc）為當前狀態
-        - 嚴格結案：最新一筆 milestone_type IN ('closed','final_approval')
-          且 status='completed' → 排除
-        - 其餘均列入，並標註作業進度標籤供承辦人辨識
+        三層結案判定（closure_level）：
+        - closed / delivered → 完全排除（L1+L2，系統結案或成果已交付）
+        - pending_closure → 排除到期清單（已實質完成，僅差補結案）
+        - active → 列入，標註作業進度標籤
         """
         try:
             r = await self.db.execute(text(self._ACTIVE_DISPATCHES_SQL))
             today_items = []
             week_items = []
             for row in r.all():
+                closure = row[11]  # closure_level
+                if closure in ("closed", "delivered", "pending_closure"):
+                    continue  # 到期清單不含已完成項目
                 dl = self._parse_roc_date(row[2])
                 if not dl:
                     continue
@@ -421,30 +451,45 @@ class MorningReportService:
     async def _get_overdue_items(self, today) -> dict:
         """逾期判定（同到期邏輯）：
 
-        以「公文關聯狀態」+「最新 work_record 進度」判定，不依賴 batch_no。
-        嚴格結案（最新 milestone='closed'/'final_approval' 且 completed）才排除。
+        以「作業進度 + 公文對照狀態期限」為基準（不依賴 batch_no）。
+        三層結案判定：
+        - L1 closed/L2 delivered → 完全排除
+        - L3 pending_closure → 拆到 pending_closure_items（待結案確認）
+        - active → 真正逾期
         """
         try:
             r1 = await self.db.execute(text(self._ACTIVE_DISPATCHES_SQL))
             overdue_dispatches = []
+            pending_closure = []
             for row in r1.all():
                 dl = self._parse_roc_date(row[2])
-                if dl and dl < today:
-                    overdue_dispatches.append({
-                        "dispatch_no": row[1],
-                        "deadline": str(dl),
-                        "progress": self._format_dispatch_progress(
-                            row[6], row[7], row[8], row[9], row[10]
-                        ),
-                        "project_name": row[3] or "",
-                        "handler": row[4] or "",
-                        "overdue_days": (today - dl).days,
-                    })
+                if not dl or dl >= today:
+                    continue
+                closure = row[11]  # closure_level
+                if closure in ("closed", "delivered"):
+                    continue  # L1+L2: 完全排除
+                item = {
+                    "dispatch_no": row[1],
+                    "deadline": str(dl),
+                    "progress": self._format_dispatch_progress(
+                        row[6], row[7], row[8], row[9], row[10]
+                    ),
+                    "project_name": row[3] or "",
+                    "handler": row[4] or "",
+                    "overdue_days": (today - dl).days,
+                }
+                if closure == "pending_closure":
+                    pending_closure.append(item)  # L3: 待結案確認
+                else:
+                    overdue_dispatches.append(item)  # active: 真正逾期
             overdue_dispatches.sort(key=lambda x: -x["overdue_days"])
+            pending_closure.sort(key=lambda x: -x["overdue_days"])
 
             return {
                 "dispatch_count": len(overdue_dispatches),
                 "dispatch_items": overdue_dispatches[:10],
+                "pending_closure_count": len(pending_closure),
+                "pending_closure_items": pending_closure[:10],
             }
         except Exception:
             raise  # 由 _safe_query 統一處理 rollback
