@@ -202,3 +202,127 @@ class TestSummaryIncludesMeetingSections:
         # 緊急度 emoji 出現
         assert "📅 明日" in summary or "📅 1 天後" in summary
         assert "🏗️" in summary
+
+
+class TestMorningReportRegression:
+    """Regression tests for commits 098fc38/4467f75/22fd75d/4bb3f95 — 固化晨報 4 主題聚焦與純文字輸出。
+
+    這些 commit 反覆調整過濾/輸出邏輯，以此測試固化避免再度漂移。
+    """
+
+    @pytest.mark.asyncio
+    async def test_dispatch_progress_tag_rendered(self, service):
+        """commit 098fc38: dispatch items 帶 work_record progress 標籤，輸出應含『〔進度〕』。"""
+        data = {
+            "dispatch_deadlines": {
+                "week_count": 1,
+                "today_count": 0,
+                "today_items": [],
+                "week_items": [
+                    {
+                        "dispatch_no": "TY-20260416-001",
+                        "project_name": "大溪邊坡專案",
+                        "sub_case": "",
+                        "handler": "張工程師",
+                        "deadline": "2026-04-20",
+                        "days_left": 4,
+                        "progress": "現勘完成",
+                    }
+                ],
+            }
+        }
+        summary = await service.generate_summary_from_data(data)
+        assert "〔現勘完成〕" in summary
+        assert "本週到期派工 1 筆" in summary
+
+    @pytest.mark.asyncio
+    async def test_overdue_dispatch_progress_tag(self, service):
+        """逾期派工同樣需要 progress 標籤輔助承辦人辨識狀態。"""
+        data = {
+            "overdue_items": {
+                "dispatch_count": 1,
+                "dispatch_items": [
+                    {
+                        "dispatch_no": "TY-20260401-003",
+                        "project_name": "XX 工程",
+                        "handler": "李技師",
+                        "overdue_days": 5,
+                        "progress": "初勘",
+                    }
+                ],
+            }
+        }
+        summary = await service.generate_summary_from_data(data)
+        assert "🚨 逾期 5 天" in summary
+        assert "〔初勘〕" in summary
+
+    @pytest.mark.asyncio
+    async def test_plain_text_no_title_truncation(self, service):
+        """commit 4467f75: 純文字模式 + 標題不截斷 — 長標題完整保留。"""
+        long_title = "第三次 Q2 跨部門協調會議（含法務/財務/工程三方聯席審查）"
+        data = {
+            "upcoming_meetings": {
+                "count": 1,
+                "items": [
+                    {
+                        "title": long_title,
+                        "start_date": "2026-04-17",
+                        "time_str": "04/17 10:00",
+                        "location": "會議室 A",
+                        "days_left": 1,
+                    }
+                ],
+            }
+        }
+        summary = await service.generate_summary_from_data(data)
+        assert long_title in summary, "長標題不得截斷"
+        assert "..." not in summary.split(long_title)[0][-5:], "標題前不得有截斷符號"
+
+    @pytest.mark.asyncio
+    async def test_empty_report_fallback_message(self, service):
+        """commit 4bb3f95: 無任何 section 資料時，輸出固定 fallback 訊息。"""
+        summary = await service.generate_summary_from_data({})
+        assert "晨報" in summary
+        assert "無待處理" in summary
+
+    @pytest.mark.asyncio
+    async def test_only_four_themes_in_summary_header(self, service):
+        """commit 4bb3f95: 摘要 header 只聚焦 4 主題（派工/會議/現勘/遺漏建檔），
+        其他 legacy section（新收公文、待審費用、里程碑...）不應洩漏到 parts 裡。"""
+        data = {
+            "dispatch_deadlines": {"week_count": 1, "week_items": [
+                {"dispatch_no": "X", "project_name": "P", "handler": "H",
+                 "deadline": "2026-04-20", "days_left": 4, "progress": ""}
+            ]},
+            "upcoming_meetings": {"count": 1, "items": [
+                {"title": "T", "start_date": "2026-04-17", "time_str": "04/17 10:00",
+                 "location": "", "days_left": 1}
+            ]},
+            "upcoming_site_visits": {"count": 0, "items": []},
+            "missing_calendar_events": {"count": 0, "items": []},
+        }
+        summary = await service.generate_summary_from_data(data)
+        forbidden_legacy_keywords = ["新收公文", "待審費用", "近期里程碑", "標案訂閱"]
+        for kw in forbidden_legacy_keywords:
+            assert kw not in summary, f"legacy section '{kw}' 不應出現在 4 主題聚焦的晨報"
+
+    @pytest.mark.asyncio
+    async def test_missing_calendar_events_section(self, service):
+        """遺漏建檔提醒格式正確（件號 + 主旨 + 天數）。"""
+        data = {
+            "missing_calendar_events": {
+                "count": 1,
+                "items": [
+                    {
+                        "doc_number": "府工程字第 11500012345 號",
+                        "subject": "開會通知單 — Q2 工進檢討",
+                        "category": "會議",
+                        "days_ago": 3,
+                    }
+                ],
+            }
+        }
+        summary = await service.generate_summary_from_data(data)
+        assert "⚠️ 公文未建行事曆 1 件" in summary
+        assert "府工程字第 11500012345 號" in summary
+        assert "3 天" in summary

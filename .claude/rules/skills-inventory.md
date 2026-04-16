@@ -1,5 +1,8 @@
 # Skills / Commands / Agents 清單
 
+> **最後同步**：2026-04-16（v5.5.6，ADR-0014~0016 之後）
+> **重大變更**：OpenClaw/NemoClaw 已廢止（ADR-0014/0015），Hermes Agent + CF Tunnel 取代中
+
 ## Slash Commands (可用指令)
 
 | 指令 | 說明 | 檔案 |
@@ -26,10 +29,10 @@
 | `/ship` | 🚀 **統一發布工作流 v2** — 測試歸因+review就緒+bisectable | `.claude/commands/ship.md` |
 | `/retro` | 📊 **工程回顧 v2** — per-author+compare+session偵測 | `.claude/commands/retro.md` |
 | `/qa-smart` | 🧪 **Diff-Aware 智慧測試** — 4 模式 + 8 維度健康度 | `.claude/commands/qa-smart.md` |
-| `/careful` | 🛡️ **危險命令攔截** — PreToolUse hook 自動攔截破壞性操作 | `.claude/commands/careful.md` |
-| `/freeze` | 🔒 **編輯範圍鎖定** — 限制 Edit/Write 到指定目錄 | `.claude/commands/freeze.md` |
-| `/unfreeze` | 🔓 **解除範圍鎖定** — 刪除 freeze-scope.json | `.claude/commands/unfreeze.md` |
-| `/guard` | 🛡️🔒 **綜合安全防護** — careful + freeze 合一 | `.claude/commands/guard.md` |
+| `/guard` | 🛡️🔒 **綜合安全防護（主入口）** — careful + freeze 合一 | `.claude/commands/guard.md` |
+| `/careful` | 🛡️ 危險命令攔截（`/guard` 子集，alias） | `.claude/commands/careful.md` |
+| `/freeze` | 🔒 編輯範圍鎖定（`/guard` 子集，alias） | `.claude/commands/freeze.md` |
+| `/unfreeze` | 🔓 解除範圍鎖定 — 刪除 freeze-scope.json | `.claude/commands/unfreeze.md` |
 | `/document-release` | 📝 **發布後文件同步** — 架構/Skills/CHANGELOG 自動檢查 | `.claude/commands/document-release.md` |
 
 ### Everything Claude Code 指令
@@ -177,8 +180,10 @@
 | `backend/app/services/expense_import_service.py` | 費用匯入匯出 (QR+Excel+電子發票) |
 | `backend/app/services/invoice_recognizer.py` | 統一發票辨識器 (QR+OCR) |
 | `backend/app/api/endpoints/erp/expenses_io.py` | 費用 IO 端點 (掃描/匯入/收據/AI分類) |
-| `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md` | LINE + OpenClaw 運維指南（**將下線** — ADR-0014） |
+| `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md` | LINE + OpenClaw 運維指南（**將下線** — ADR-0014，2026-05-12 歸檔） |
 | `docs/adr/0014-hermes-replace-openclaw.md` | 🆕 ADR-0014：以 NousResearch Hermes Agent 取代 OpenClaw |
+| `docs/adr/0015-retire-nemoclaw-cloudflare-tunnel.md` | 🆕 ADR-0015：廢止 NemoClaw，改用 Cloudflare Tunnel |
+| `docs/adr/0016-multi-project-platform-subdomain.md` | 🆕 ADR-0016：多專案平坦分域（missive/hermes/lvrland/pile） |
 | `docs/HERMES_MIGRATION_PLAN.md` | 🆕 Hermes 4-Phase 遷移計畫（Day 0~28） |
 | `docs/hermes-skills/README.md` | 🆕 Hermes skill 整合層次 L1~L4 + API public contract |
 | `docs/hermes-skills/ck-missive-bridge/` | 🆕 Hermes skill 部署包（SKILL.md + tools.py + tool_spec.json + install.sh）|
