@@ -235,11 +235,6 @@ export const DispatchOverviewTab: React.FC<DispatchOverviewTabProps> = ({
     [navigate, contractProjectId],
   );
 
-  const totalCards = useMemo(
-    () => columns.reduce((sum, col) => sum + col.cards.length, 0),
-    [columns],
-  );
-
   const summary = useMemo(() => morningData?.summary ?? {}, [morningData]);
 
   if (isLoading) {
@@ -280,17 +275,32 @@ export const DispatchOverviewTab: React.FC<DispatchOverviewTabProps> = ({
           externalFilter={statusFilter}
         />
       ) : (
-        totalCards === 0 ? (
-          <Empty description="尚無派工紀錄" style={{ padding: '60px 0' }} />
-        ) : isMobile ? (
-          <MobileOverviewKanban columns={columns} onCardClick={handleCardClick} onAddNew={handleAddNew} />
-        ) : (
-          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, alignItems: 'flex-start' }}>
-            {columns.filter((col) => col.cards.length > 0).map((col) => (
-              <KanbanColumn key={col.workType} data={col} onCardClick={handleCardClick} onAddNew={handleAddNew} canEdit />
-            ))}
+        (() => {
+          // 看板模式：依 statusFilter 過濾卡片（與統計卡片互動）
+          const filteredColumns = statusFilter
+            ? columns.map(col => ({
+                ...col,
+                cards: col.cards.filter(c => {
+                  const ds = (c.dispatch as unknown as Record<string, unknown>)._displayStatus as string;
+                  if (statusFilter === '已交付') return ds === '已交付' || ds === '已結案';
+                  return ds === statusFilter;
+                }),
+              }))
+            : columns;
+          const filteredTotal = filteredColumns.reduce((s, col) => s + col.cards.length, 0);
+
+          return filteredTotal === 0 ? (
+            <Empty description={statusFilter ? `「${statusFilter}」無符合項目` : '尚無派工紀錄'} style={{ padding: '60px 0' }} />
+          ) : isMobile ? (
+            <MobileOverviewKanban columns={filteredColumns} onCardClick={handleCardClick} onAddNew={handleAddNew} />
+          ) : (
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, alignItems: 'flex-start' }}>
+              {filteredColumns.filter((col) => col.cards.length > 0).map((col) => (
+                <KanbanColumn key={col.workType} data={col} onCardClick={handleCardClick} onAddNew={handleAddNew} canEdit />
+              ))}
           </div>
-        )
+          );
+        })()
       )}
     </>
   );
