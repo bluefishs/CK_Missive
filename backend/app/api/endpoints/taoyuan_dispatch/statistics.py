@@ -99,8 +99,14 @@ async def dispatch_progress_report(
     return synthesizer.to_dict(report)
 
 
-@router.post("/dispatch/morning-status", summary="晨報追蹤 — 全量派工狀態")
+class MorningStatusRequest(BaseModel):
+    """晨報追蹤請求"""
+    contract_project_id: Optional[int] = Field(None, description="限定承攬案件（None=全量）")
+
+
+@router.post("/dispatch/morning-status", summary="晨報追蹤 — 派工狀態")
 async def dispatch_morning_status(
+    params: MorningStatusRequest = MorningStatusRequest(),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth()),
 ):
@@ -114,11 +120,26 @@ async def dispatch_morning_status(
 
     svc = MorningReportService(db)
     from sqlalchemy import text
-    from datetime import date as _date
     from app.services.ai.domain.morning_report_service import _now_taipei
 
     today = _now_taipei().date()
-    r = await db.execute(text(svc._ACTIVE_DISPATCHES_SQL))
+
+    # 可選 project 過濾
+    sql = svc._ACTIVE_DISPATCHES_SQL
+    bind_params: dict = {}
+    if params.contract_project_id:
+        sql += "\n          AND d.contract_project_id = :cpid"
+        bind_params["cpid"] = params.contract_project_id
+    r = await db.execute(text(sql), bind_params)
+
+    # 取 work_type_items 一次查詢
+    wt_rows = await db.execute(text("""
+        SELECT dwt.dispatch_order_id,
+               STRING_AGG(dwt.work_type, ',' ORDER BY dwt.sort_order) AS types
+        FROM taoyuan_dispatch_work_types dwt
+        GROUP BY dwt.dispatch_order_id
+    """))
+    work_types_map: dict = {row[0]: row[1] for row in wt_rows.all()}
 
     # 作業類別 label 對照
     cat_labels = {
@@ -152,8 +173,10 @@ async def dispatch_morning_status(
         else:
             display_status = "逾期"
 
+        dispatch_id = row[0]
+        wt_str = work_types_map.get(dispatch_id, "")
         items.append({
-            "id": row[0],
+            "id": dispatch_id,
             "dispatch_no": row[1],
             "deadline": str(dl) if dl else "",
             "deadline_raw": row[2],
@@ -164,6 +187,7 @@ async def dispatch_morning_status(
             "display_status": display_status,
             "work_category": display_cat,
             "work_category_label": cat_labels.get(display_cat, display_cat or "-"),
+            "work_types": [t.strip() for t in wt_str.split(",") if t.strip()] if wt_str else [],
             "completed_count": completed_n,
             "total_records": total_n,
             "progress": svc._format_dispatch_progress(

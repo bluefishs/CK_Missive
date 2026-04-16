@@ -90,12 +90,13 @@ function useDispatchOverviewKanban(contractProjectId: number) {
     limit: 200,
   });
 
-  // 同時 fetch morning-status 用 display_status 統一狀態
+  // 同時 fetch morning-status 用 display_status 統一狀態（project scoped）
   const { data: morningData, isLoading: morningLoading } = useQuery({
-    queryKey: ['dispatch-morning-status'],
+    queryKey: ['dispatch-morning-status', contractProjectId],
     queryFn: () =>
       apiClient.post<MorningStatusResponse>(
-        TAOYUAN_DISPATCH_ENDPOINTS.DISPATCH_MORNING_STATUS, {}
+        TAOYUAN_DISPATCH_ENDPOINTS.DISPATCH_MORNING_STATUS,
+        { contract_project_id: contractProjectId },
       ),
     staleTime: 60_000,
   });
@@ -194,8 +195,8 @@ const OverviewStats: React.FC<{
         </Card>
       </Col>
       <Col xs={12} sm={6}>
-        <Card size="small" hoverable onClick={() => toggle('逾期')}
-              style={{ borderTop: activeFilter === '逾期' ? '3px solid #cf1322' : undefined }}>
+        <Card size="small" hoverable onClick={() => toggle('__action_needed__')}
+              style={{ borderTop: activeFilter === '__action_needed__' ? '3px solid #cf1322' : undefined }}>
           <Statistic title="需處理" value={actionNeeded}
                      valueStyle={{ color: actionNeeded > 0 ? '#cf1322' : '#999' }}
                      prefix={<WarningOutlined />}
@@ -283,6 +284,7 @@ export const DispatchOverviewTab: React.FC<DispatchOverviewTabProps> = ({
                 cards: col.cards.filter(c => {
                   const ds = (c.dispatch as unknown as Record<string, unknown>)._displayStatus as string;
                   if (statusFilter === '已交付') return ds === '已交付' || ds === '已結案';
+                  if (statusFilter === '__action_needed__') return ds === '逾期' || ds === '闕漏紀錄';
                   return ds === statusFilter;
                 }),
               }))

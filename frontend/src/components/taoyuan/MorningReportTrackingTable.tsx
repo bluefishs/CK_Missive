@@ -28,6 +28,7 @@ export interface MorningStatusItem {
   handler: string;
   display_status: string;
   work_category_label: string;
+  work_types: string[];
   completed_count: number;
   total_records: number;
   progress: string;
@@ -75,9 +76,10 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
   const filteredItems = useMemo(() => {
     let result = items;
     if (activeFilter) {
-      // 「已交付」卡片點擊時也包含「已結案」
       if (activeFilter === '已交付') {
         result = result.filter(i => i.display_status === '已交付' || i.display_status === '已結案');
+      } else if (activeFilter === '__action_needed__') {
+        result = result.filter(i => i.display_status === '逾期' || i.display_status === '闕漏紀錄');
       } else {
         result = result.filter(i => i.display_status === activeFilter);
       }
@@ -103,7 +105,13 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
   []);
 
   const categoryOptions = useMemo(() => {
-    const set = new Set(items.map(i => i.work_category_label).filter(v => v && v !== '-'));
+    const set = new Set<string>();
+    for (const item of items) {
+      for (const t of item.work_types) set.add(t);
+      if (item.work_category_label && item.work_category_label !== '-') {
+        set.add(item.work_category_label);
+      }
+    }
     return Array.from(set).sort().map(c => ({ text: c, value: c }));
   }, [items]);
 
@@ -132,12 +140,23 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
     },
     {
       title: '作業類別',
-      dataIndex: 'work_category_label',
-      width: 100,
+      width: 160,
       filters: categoryOptions,
-      onFilter: (value, record) => record.work_category_label === value,
-      render: (text: string) =>
-        text && text !== '-' ? <Tag>{text}</Tag> : <Text type="secondary">-</Text>,
+      onFilter: (value, record) =>
+        record.work_types.some(t => t === value) || record.work_category_label === value,
+      render: (_: unknown, record) => {
+        if (record.work_types.length > 0) {
+          return (
+            <Space size={2} wrap>
+              {record.work_types.map(t => (
+                <Tag key={t} style={{ fontSize: 11, margin: 1 }}>{t}</Tag>
+              ))}
+            </Space>
+          );
+        }
+        const label = record.work_category_label;
+        return label && label !== '-' ? <Tag>{label}</Tag> : <Text type="secondary">-</Text>;
+      },
     },
     {
       title: '狀態',
