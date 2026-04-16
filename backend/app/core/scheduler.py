@@ -792,6 +792,47 @@ async def health_snapshot_log_job():
         logger.error("health_snapshot error: %s", e)
 
 
+@tracked_job("shadow_baseline_export")
+async def shadow_baseline_export_job():
+    """每日 20:00 匯出 Hermes shadow baseline（ADR-0014 Phase 0）
+
+    寫入 logs/shadow-baseline/YYYY-MM-DD.json 供 GO/NO-GO 累積判斷。
+    目標：樣本 ≥100 筆且 3+ 頻道後，進入 Telegram 灰度。
+    """
+    import subprocess
+    from pathlib import Path
+    from datetime import date as _date
+
+    project_root = Path(__file__).resolve().parents[3]
+    script = project_root / "scripts" / "checks" / "shadow-baseline-report.cjs"
+    if not script.exists():
+        logger.warning("shadow_baseline: script not found at %s", script)
+        return
+
+    out_dir = project_root / "logs" / "shadow-baseline"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / f"{_date.today().isoformat()}.json"
+
+    try:
+        proc = subprocess.run(
+            ["node", str(script), "--json"],
+            cwd=str(project_root),
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            out_file.write_text(proc.stdout, encoding="utf-8")
+            logger.info("shadow_baseline: exported → %s", out_file.name)
+        else:
+            logger.warning(
+                "shadow_baseline failed (rc=%d): %s",
+                proc.returncode, proc.stderr.strip() or "empty stdout",
+            )
+    except subprocess.TimeoutExpired:
+        logger.warning("shadow_baseline timeout (>60s)")
+    except Exception as e:
+        logger.error("shadow_baseline error: %s", e)
+
+
 @tracked_job("cf_tunnel_verify")
 async def cloudflare_tunnel_verify_job():
     """每日 Cloudflare Tunnel 健康驗證（ADR-0015/0016）
@@ -1217,6 +1258,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 CF Tunnel 驗證: 每日 06:15")
+
+    # Hermes shadow baseline — 每日 20:00 匯出（ADR-0014 Phase 0）
+    scheduler.add_job(
+        shadow_baseline_export_job,
+        trigger=CronTrigger(hour=20, minute=0),
+        id='shadow_baseline_export',
+        name='Hermes shadow baseline 匯出 (每日 20:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Hermes baseline 匯出: 每日 20:00")
 
     # 月度架構覆盤 — 每月 1 日 06:00
     scheduler.add_job(
