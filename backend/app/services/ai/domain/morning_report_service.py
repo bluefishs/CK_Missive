@@ -169,7 +169,22 @@ class MorningReportService:
                     f"{progress_tag}"
                 )
 
-        # 2b. 派工：待結案確認（L3 — 作業完成+已發文，建議補正式結案）
+        # 2b. 派工：有排程（有未來行事曆事件，非停滯逾期）
+        sc = ov.get("scheduled_count", 0) if _on("dispatch") else 0
+        if sc > 0:
+            parts.append(f"排程中 {sc} 筆")
+            for item in ov.get("scheduled_items", [])[:3]:
+                progress = item.get("progress", "")
+                progress_tag = f" 〔{progress}〕" if progress else ""
+                next_ev = item.get("next_event", "")
+                next_tag = f" → 下次 {next_ev}" if next_ev else ""
+                details.append(
+                    f"  📅 {item['dispatch_no']} — "
+                    f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
+                    f"{progress_tag}{next_tag}"
+                )
+
+        # 2c. 派工：待結案確認（L3 — 全部完成但未發文）
         pc = ov.get("pending_closure_count", 0) if _on("dispatch") else 0
         if pc > 0:
             parts.append(f"待結案確認 {pc} 筆")
@@ -305,21 +320,18 @@ class MorningReportService:
                 pass
         return None
 
-    # A4+L2L3: 共用 CTE — 聚合完成比例 + doc_links + 三層結案判定
-    #
-    # 改用聚合邏輯（與前端 UI 進度條 3/3 對齊）：
-    #   record_progress: total_records, completed_count, completion_ratio
-    #   latest_record:   最新一筆的 category/milestone（供 progress label 渲染）
-    #   has_work_result: 是否有任何 work_result + completed（成果已交付信號）
+    # A4+L2L3: 共用 CTE — 聚合完成比例 + doc_links + 行事曆排程 + 結案判定
     #
     # closure_level 分層：
     #   'closed'          — L1: milestone=closed/final_approval 且 completed
-    #   'delivered'       — L2: 有 work_result completed + has_out（成果已交付）
-    #   'all_completed'   — L2b: 聚合完成比例 = 100% + has_out（全部完成+已發文）
-    #   'pending_closure' — L3: 聚合完成比例 = 100% 但無 has_out（完成但未發文）
-    #   'active'          — 進行中或逾期
+    #   'delivered'       — L2: 100% completed + has work_result + has_out（成果已交付）
+    #   'all_completed'   — L2b: 100% completed + has_out（全部完成+已發文）
+    #   'pending_closure' — L3: 100% completed（完成但未發文）
+    #   'scheduled'       — 未全部完成但有未來行事曆事件（有排程，非停滯）
+    #   'active'          — 進行中且無排程 → 真正逾期/到期
     #
     # 設計依據：用戶指示「以作業進度 + 公文對照其狀態期限為基準，非 batch_no」。
+    # 有排程的 dispatch 不算逾期，應以行事曆事件時間為下次行動基準。
     _ACTIVE_DISPATCHES_SQL = """
         WITH record_progress AS (
           SELECT dispatch_order_id,
@@ -344,6 +356,17 @@ class MorningReportService:
                  BOOL_OR(link_type = 'company_outgoing') AS has_out
           FROM taoyuan_dispatch_document_link
           GROUP BY dispatch_order_id
+        ),
+        upcoming_events AS (
+          SELECT ddl.dispatch_order_id,
+                 MIN(ce.start_date) AS next_event_date,
+                 COUNT(*) AS upcoming_count
+          FROM taoyuan_dispatch_document_link ddl
+          JOIN documents doc ON doc.id = ddl.document_id
+          JOIN document_calendar_events ce ON ce.document_id = doc.id
+          WHERE ce.start_date >= CURRENT_DATE
+            AND ce.status != 'cancelled'
+          GROUP BY ddl.dispatch_order_id
         )
         SELECT d.id, d.dispatch_no, d.deadline, d.project_name,
                d.case_handler, d.sub_case_name,
@@ -365,14 +388,18 @@ class MorningReportService:
                  WHEN rp.total_records > 0
                       AND rp.completed_count = rp.total_records
                    THEN 'pending_closure'
+                 WHEN ue.upcoming_count > 0
+                   THEN 'scheduled'
                  ELSE 'active'
                END AS closure_level,
                COALESCE(rp.completed_count, 0) AS completed_count,
-               COALESCE(rp.total_records, 0) AS total_records
+               COALESCE(rp.total_records, 0) AS total_records,
+               ue.next_event_date
         FROM taoyuan_dispatch_orders d
         LEFT JOIN record_progress rp ON rp.dispatch_order_id = d.id
         LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
         LEFT JOIN doc_links dl ON dl.dispatch_order_id = d.id
+        LEFT JOIN upcoming_events ue ON ue.dispatch_order_id = d.id
         WHERE d.deadline IS NOT NULL
           AND d.deadline != ''
     """
@@ -391,8 +418,9 @@ class MorningReportService:
             week_items = []
             for row in r.all():
                 closure = row[11]  # closure_level
-                if closure in ("closed", "delivered", "all_completed", "pending_closure"):
-                    continue  # 到期清單不含已完成項目
+                if closure in ("closed", "delivered", "all_completed",
+                              "pending_closure", "scheduled"):
+                    continue  # 到期清單不含已完成/有排程項目
                 dl = self._parse_roc_date(row[2])
                 if not dl:
                     continue
@@ -486,14 +514,16 @@ class MorningReportService:
             r1 = await self.db.execute(text(self._ACTIVE_DISPATCHES_SQL))
             overdue_dispatches = []
             pending_closure = []
+            scheduled_items = []
             for row in r1.all():
                 dl = self._parse_roc_date(row[2])
                 if not dl or dl >= today:
                     continue
                 closure = row[11]  # closure_level
                 if closure in ("closed", "delivered", "all_completed"):
-                    continue  # L1+L2+L2b: 完全排除（成果已交付或全部完成+已發文）
+                    continue  # L1+L2+L2b: 完全排除
                 completed_n, total_n = row[12], row[13]
+                next_event = row[14]  # next_event_date or None
                 progress_bar = f" ({completed_n}/{total_n})" if total_n else ""
                 item = {
                     "dispatch_no": row[1],
@@ -504,19 +534,25 @@ class MorningReportService:
                     "project_name": row[3] or "",
                     "handler": row[4] or "",
                     "overdue_days": (today - dl).days,
+                    "next_event": str(next_event.date()) if hasattr(next_event, 'date') else str(next_event) if next_event else None,
                 }
                 if closure == "pending_closure":
-                    pending_closure.append(item)  # L3: 全部完成但未發文
+                    pending_closure.append(item)
+                elif closure == "scheduled":
+                    scheduled_items.append(item)
                 else:
                     overdue_dispatches.append(item)  # active: 真正逾期
             overdue_dispatches.sort(key=lambda x: -x["overdue_days"])
             pending_closure.sort(key=lambda x: -x["overdue_days"])
+            scheduled_items.sort(key=lambda x: x.get("next_event") or "")
 
             return {
                 "dispatch_count": len(overdue_dispatches),
                 "dispatch_items": overdue_dispatches[:10],
                 "pending_closure_count": len(pending_closure),
                 "pending_closure_items": pending_closure[:10],
+                "scheduled_count": len(scheduled_items),
+                "scheduled_items": scheduled_items[:10],
             }
         except Exception:
             raise  # 由 _safe_query 統一處理 rollback
