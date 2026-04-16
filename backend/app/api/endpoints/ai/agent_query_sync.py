@@ -319,9 +319,9 @@ async def agent_query_sync(
     history = await _try_inject_handoff(session_id, history)
 
     # --- 4) 執行 Agent 查詢 ---
-    from app.services.ai.misc.nemoclaw_agent import NemoClawAgent
+    from app.services.ai.misc.missive_agent import MissiveAgent
 
-    agent = NemoClawAgent(db)
+    agent = MissiveAgent(db)
 
     answer_tokens: list[str] = []
     sources: list[Dict[str, Any]] = []

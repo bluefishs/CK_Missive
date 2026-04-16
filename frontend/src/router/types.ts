@@ -387,7 +387,7 @@ export const ROUTE_META = {
   },
   [ROUTES.DIGITAL_TWIN]: {
     title: '數位分身',
-    description: 'NemoClaw 跨專案智能協作引擎 — 即時問答與能力展示',
+    description: '智能代理人 — 即時問答與能力展示',
     icon: 'CloudServerOutlined',
     requireAuth: true,
   },

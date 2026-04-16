@@ -1,15 +1,16 @@
 /**
  * 雙模式並列比較面板
  *
- * 同時發送問題至 Missive Agent 和 NemoClaw 數位分身，
- * 左右並列顯示回答結果，供使用者比較兩個引擎的差異。
+ * 同時發送問題至 Missive Agent 和數位分身，
+ * 左右並列顯示回答結果，供使用者比較差異。
  *
  * 架構:
- *   左面板: useAgentSSE (Missive 本地 Agent)
- *   右面板: useDigitalTwinSSE (NemoClaw Gateway → OpenClaw)
+ *   左面板: useAgentSSE (Missive Agent)
+ *   右面板: useDigitalTwinSSE (Digital Twin Agent)
  *
- * @version 1.0.0
+ * @version 2.0.0
  * @created 2026-03-22
+ * @updated 2026-04-17 — v2.0 移除 NemoClaw 引用 (ADR-0014/0015)
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -70,7 +71,7 @@ export const DualModeChatPanel: React.FC<DualModeChatPanelProps> = ({
     ),
   });
 
-  // --- 右: NemoClaw 數位分身 ---
+  // --- 右: 數位分身 ---
   const [twinStatus, setTwinStatus] = useState<string>('');
   const twin = useDigitalTwinSSE({
     onError: useCallback(
@@ -161,7 +162,7 @@ export const DualModeChatPanel: React.FC<DualModeChatPanelProps> = ({
           {renderMessageList(agent.messages, leftEndRef, '等待問題...')}
         </div>
 
-        {/* 右: NemoClaw 數位分身 */}
+        {/* 右: 數位分身 */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '6px 10px', background: '#fafafa', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
             <Space size={4}>

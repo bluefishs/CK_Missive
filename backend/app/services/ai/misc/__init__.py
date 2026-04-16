@@ -1,11 +1,12 @@
 """
 AI 雜項模組
 
-語音轉文字、使用者偏好、技能掃描、Code Wiki、NemoClaw Agent。
+語音轉文字、使用者偏好、技能掃描、Code Wiki、Missive Agent。
 """
 
 __all__ = [
-    "NemoClawAgent",
+    "MissiveAgent",
+    "NemoClawAgent",  # 向後相容別名
     "VoiceTranscriber",
     "UserQueryTracker",
     "CodeWikiGenerator",
@@ -16,7 +17,8 @@ __all__ = [
 
 def __getattr__(name: str):
     _map = {
-        "NemoClawAgent": ("nemoclaw_agent", "NemoClawAgent"),
+        "MissiveAgent": ("missive_agent", "MissiveAgent"),
+        "NemoClawAgent": ("nemoclaw_agent", "NemoClawAgent"),  # 向後相容
         "VoiceTranscriber": ("voice_transcriber", "VoiceTranscriber"),
         "get_voice_transcriber": ("voice_transcriber", "get_voice_transcriber"),
         "UserQueryTracker": ("user_query_tracker", "UserQueryTracker"),

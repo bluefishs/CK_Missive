@@ -180,6 +180,4 @@ networks:
   app_network:
     name: ck_missive_network
     driver: bridge
-  nemoclaw_network:
-    external: true
-    name: nemoclaw_network
+  # nemoclaw_network: 已移除 (ADR-0015, 2026-04-16)

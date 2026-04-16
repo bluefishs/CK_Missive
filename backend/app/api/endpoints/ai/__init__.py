@@ -22,7 +22,7 @@ from .graph_admin import router as graph_admin_router
 from .graph_admin_code import router as graph_admin_code_router
 from .graph_unified import router as graph_unified_router
 from .graph_skills_map import router as graph_skills_map_router
-from .agent_nemoclaw import router as agent_nemoclaw_router
+from .agent_capability import router as agent_nemoclaw_router  # renamed from agent_nemoclaw
 from .ollama_management import router as ollama_management_router
 from .rag_query import router as rag_query_router
 from .agent_query import router as agent_query_router

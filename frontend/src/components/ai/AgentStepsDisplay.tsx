@@ -68,7 +68,7 @@ export const AgentStepsDisplay: React.FC<{ steps: AgentStepInfo[]; streaming: bo
 
   const stepsItems = sorted.map((s, idx) => {
     if (s.type === 'thinking') {
-      // NemoClaw 自覺資訊 (step_index < 0)
+      // Agent 自覺資訊 (step_index < 0)
       if (s.step_index === -1) {
         return {
           title: <Text style={{ fontSize: 11, color: '#1677ff' }}><RobotOutlined /> {s.step}</Text>,

@@ -1,49 +1,42 @@
 # =============================================================================
-# 多通道部署 — OpenClaw (Telegram/LINE) + CK_Missive (Agent)
+# ⚠️ DEPRECATED — ADR-0014 (2026-04-14)
 # =============================================================================
-# 使用方式:
-#   docker compose -f docker-compose.infra.yml -f docker-compose.multichannel.yml up -d
+# OpenClaw 已由 Hermes Agent 取代。本檔保留供參考，不再使用。
+# Hermes 部署方式見: CK_AaaP/runbooks/hermes-stack/docker-compose.yml
 #
-# 前提:
-#   1. CK_Missive 後端 (PM2 ck-backend) 運行於 port 8001
-#   2. OpenClaw 已配置 Telegram/LINE channel
-#   3. .env 中設定 MCP_SERVICE_TOKEN (OpenClaw ↔ Missive 共用)
+# 歸檔日期: 2026-05-12 後可刪除
+# =============================================================================
 #
-# 流程:
+# 原功能:
 #   LINE/Telegram → OpenClaw Gateway → ck-missive-bridge skill
 #   → POST http://host.docker.internal:8001/api/ai/agent/query
-#   → NemoClawAgent → 回覆
+#
+# 替代方案:
+#   LINE/Telegram → Hermes Agent Gateway → ck-missive-bridge skill
+#   → POST http://host.docker.internal:8001/api/ai/agent/query_sync
 # =============================================================================
 
 name: ck_multichannel
 
 services:
+  # OpenClaw 服務已停用 (ADR-0014)
+  # Hermes Agent 已接管 Telegram/LINE 通道
   openclaw:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
     container_name: ck_openclaw
-    restart: unless-stopped
+    profiles: ["deprecated"]  # 不會被 docker compose up 啟動
+    restart: "no"
     ports:
-      - "127.0.0.1:18789:18789"  # Gateway UI
+      - "127.0.0.1:18789:18789"
     volumes:
       - ${OPENCLAW_CONFIG_DIR:-C:/Users/User1/.openclaw}:/home/node/.openclaw
     environment:
       - OPENCLAW_GATEWAY_PORT=18789
-      - OPENCLAW_GATEWAY_BIND=0.0.0.0
       - MCP_SERVICE_TOKEN=${MCP_SERVICE_TOKEN}
-      - CONVERSATION_REDIS_HOST=ck_missive_redis_dev
-      - CONVERSATION_REDIS_PORT=6379
-      - CONVERSATION_REDIS_DB=4
-      # LINE (from openclaw.json channels.line)
-      # Telegram (from openclaw.json channels.telegram)
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - ck_infra
-    depends_on:
-      - redis
-
-  # Redis 已在 docker-compose.infra.yml 定義
-  # 此處僅宣告依賴
 
 networks:
   ck_infra:

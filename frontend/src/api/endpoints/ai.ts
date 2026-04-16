@@ -194,7 +194,7 @@ export const AI_ENDPOINTS = {
   MORNING_REPORT_HISTORY: '/ai/stats/morning-report/history',
 } as const;
 
-/** 數位分身 API 端點 — 透過 Missive 後端代理至 NemoClaw Gateway */
+/** 數位分身 API 端點 — 本地 Agent 推理 */
 export const DIGITAL_TWIN_ENDPOINTS = {
   /** 串流查詢 POST /ai/digital-twin/query/stream (SSE) */
   QUERY_STREAM: '/ai/digital-twin/query/stream',

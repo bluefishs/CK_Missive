@@ -1,14 +1,13 @@
 """
-Digital Twin 代理端點 — OpenClaw 推理 + 本地 Agent fallback
+Digital Twin 代理端點 — 本地 Agent 推理 + 自省能力
 
 流程:
   前端 → POST /ai/digital-twin/query/stream
-       → FederationClient.query_external('openclaw') → SSE 回傳
-       → fallback: AgentOrchestrator 本地推理
+       → 本地資料查詢 → AgentOrchestrator 合成 → SSE 回傳
 
-Version: 3.0.0
+Version: 4.0.0
 Created: 2026-03-22
-Updated: 2026-03-27 — v3.0 OpenClaw 委派 + E-6 delegate_auto + self_awareness SSE
+Updated: 2026-04-16 — v4.0 移除 OpenClaw/NemoClaw 依賴 (ADR-0014/0015)
 """
 
 import hashlib
@@ -59,30 +58,27 @@ async def digital_twin_query_stream(
     db: AsyncSession = Depends(get_async_db),
 ) -> StreamingResponse:
     """
-    數位分身串流查詢 — 透過 OpenClaw (Claude Haiku) 回答
+    數位分身串流查詢 — 本地 Agent 推理
 
-    v3.0: 委派至 OpenClaw 外部 AI，與左側本地 Agent 形成對比。
-    流程: 問題 → FederationClient.query_external('openclaw') → SSE 回傳
-    Fallback: OpenClaw 不可用時降級至本地 NemoClawAgent。
+    v4.0: 直接使用本地 AgentOrchestrator（ADR-0014/0015 移除 OpenClaw/NemoClaw 依賴）。
+    流程: 問題 → 本地資料查詢 → AgentOrchestrator 串流合成
     """
 
-    async def _stream_data_then_haiku():
+    async def _stream_local_agent():
         """
-        v4.0 一層 LLM 架構:
+        v4.0 本地 Agent 架構:
         1. Missive 本地直查資料 API（無 LLM，純 DB）→ 原始 JSON
-        2. 打包資料 + 問題 → OpenClaw Claude Haiku 一次合成
-        3. Fallback: OpenClaw 不可用 → 本地 Agent
+        2. AgentOrchestrator 串流合成
         """
         t0 = time.time()
 
         yield _sse_event({"type": "self_awareness", "identity": "數位分身"})
-        yield _sse_event({"type": "role", "identity": "數位分身 (Claude Haiku)", "context": "openclaw"})
+        yield _sse_event({"type": "role", "identity": "數位分身 (本地 Agent)", "context": "local"})
 
         # ── Step 1: 本地資料查詢（無 LLM，純 DB，快速） ──
         yield _sse_event({"type": "thinking", "step": "查詢本地資料庫...", "step_index": 0})
 
         data_context = await _gather_local_data(db, request.question)
-        data_summary = json.dumps(data_context, ensure_ascii=False, default=str)[:4000]
 
         tool_names = [k for k, v in data_context.items() if v]
         if tool_names:
@@ -92,70 +88,17 @@ async def digital_twin_query_stream(
                 "count": len(tool_names), "step_index": 1,
             })
 
-        # ── Step 2: 送給 OpenClaw Claude Haiku 合成（一次 LLM） ──
-        yield _sse_event({"type": "thinking", "step": "Claude Haiku 合成中...", "step_index": 2})
+        # ── Step 2: 本地 Agent 串流合成 ──
+        yield _sse_event({"type": "thinking", "step": "Agent 合成中...", "step_index": 2})
 
-        answer = ""
-        model = "fallback-local"
-        try:
-            from app.services.ai.federation.federation_client import get_federation_client
-            client = get_federation_client()
-
-            prompt = (
-                f"根據以下資料回答問題。請用繁體中文，結構化回答。\n\n"
-                f"問題: {request.question}\n\n"
-                f"資料:\n{data_summary}\n\n"
-                f"請直接回答，不要說「根據資料」。如果資料不足以回答，請說明缺少什麼。"
-            )
-
-            result = await client.query_external(
-                system_id="openclaw",
-                question=prompt,
-                context={"source": "digital-twin-v4", "mode": "data-synthesis"},
-                timeout=20.0,
-            )
-            answer = result.get("answer", result.get("response", ""))
-            model = result.get("model", "claude-haiku")
-
-        except Exception as e:
-            logger.info("OpenClaw unavailable (%s), fallback synthesis", e)
-
-        # Fallback: 無 OpenClaw 時用本地簡單合成
-        if not answer:
-            yield _sse_event({"type": "thinking", "step": "降級至本地 Agent...", "step_index": 3})
-            from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
-            orch = AgentOrchestrator(db)
-            async for event in orch.stream_agent_query(
-                question=request.question, history=[], session_id=request.session_id or "",
-            ):
-                yield event
-            return
-
-        yield _sse_event({"type": "thinking", "step": f"完成 ({model})", "step_index": 3})
-        yield _sse_event({"type": "token", "token": answer})
-
-        # Token 追蹤 (OpenClaw federation)
-        try:
-            from app.services.ai.core.token_usage_tracker import get_token_tracker
-            await get_token_tracker().record(
-                provider="openclaw", model=model, feature="digital_twin",
-                input_tokens=max(len(prompt) // 2, 1),
-                output_tokens=max(len(answer) // 2, 1),
-            )
-        except Exception:
-            pass
-
-        latency = int((time.time() - t0) * 1000)
-        yield _sse_event({
-            "type": "done",
-            "latency_ms": latency,
-            "model": model,
-            "tools_used": tool_names,
-            "iterations": 1,
-        })
-
+        from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
+        orch = AgentOrchestrator(db)
+        async for event in orch.stream_agent_query(
+            question=request.question, history=[], session_id=request.session_id or "",
+        ):
+            yield event
     return StreamingResponse(
-        _stream_data_then_haiku(),
+        _stream_local_agent(),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
@@ -225,7 +168,7 @@ async def delegate_auto_proxy(
     current_user: User = Depends(require_auth()),
 ):
     """
-    跨域自動委派 — NemoClaw Gateway 依 intent 自動選擇最佳插件
+    跨域自動委派 — Federation Client 依 intent 自動選擇最佳插件
 
     三層路由：領域關鍵字 → capabilities 匹配 → KG Hub 回退
     """
@@ -260,9 +203,8 @@ async def approve_task(
     job_id: str, request: TaskApprovalRequest,
     current_user: User = Depends(require_auth()),
 ):
-    """代理審批 — 轉發至 OpenClaw"""
-    _validate_job_id(job_id)
-    return await _proxy_task_action(job_id, "approve", {"approved_by": request.approved_by or current_user.username})
+    """代理審批 — 已停用 (ADR-0014/0015)"""
+    return JSONResponse(status_code=410, content={"success": False, "error": "Task approval service retired (ADR-0014/0015)"})
 
 
 @router.post("/digital-twin/tasks/{job_id}/reject")
@@ -270,41 +212,14 @@ async def reject_task(
     job_id: str, request: TaskRejectionRequest,
     current_user: User = Depends(require_auth()),
 ):
-    """代理拒絕 — 轉發至 OpenClaw"""
-    _validate_job_id(job_id)
-    return await _proxy_task_action(job_id, "reject", {
-        "rejected_by": request.rejected_by or current_user.username, "reason": request.reason,
-    })
+    """代理拒絕 — 已停用 (ADR-0014/0015)"""
+    return JSONResponse(status_code=410, content={"success": False, "error": "Task rejection service retired (ADR-0014/0015)"})
 
 
 @router.post("/digital-twin/tasks/{job_id}")
 async def get_task_status(job_id: str, _current_user: User = Depends(require_auth())):
-    """代理查詢任務狀態"""
-    _validate_job_id(job_id)
-    import os
-    try:
-        import httpx
-    except ImportError:
-        return JSONResponse(status_code=503, content={"success": False, "error": "後端缺少必要套件"})
-
-    gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
-    token = os.getenv("MCP_SERVICE_TOKEN", "")
-    headers: dict[str, str] = {"Accept": "application/json"}
-    if token:
-        headers["X-Service-Token"] = token
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{gateway_url.rstrip('/')}/tasks/{job_id}", headers=headers)
-            if resp.status_code >= 400:
-                return JSONResponse(
-                    status_code=resp.status_code,
-                    content={"success": False, "error": f"上游服務回應 HTTP {resp.status_code}"},
-                )
-            return resp.json()
-    except Exception as e:
-        logger.error("Task status proxy error: %s", e)
-        return JSONResponse(status_code=503, content={"success": False, "error": "任務狀態查詢失敗"})
+    """代理查詢任務狀態 — 已停用 (ADR-0014/0015)"""
+    return JSONResponse(status_code=410, content={"success": False, "error": "Task status service retired (ADR-0014/0015)"})
 
 
 # ── V-2.2: Live Activity Stream ────────────────────────────
@@ -313,42 +228,12 @@ async def get_task_status(job_id: str, _current_user: User = Depends(require_aut
 async def live_activity_stream(
     channel: str = "jobs", _current_user: User = Depends(require_auth()),
 ) -> StreamingResponse:
-    """即時 Swarm 轉播 — 代理 OpenClaw EventRelay SSE"""
-    import os
-    allowed_channels = {"jobs", "agents"}
-    if channel not in allowed_channels:
-        channel = "jobs"
+    """即時活動轉播 — 已停用 (ADR-0014/0015，原 OpenClaw EventRelay)"""
 
-    gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
-    token = os.getenv("MCP_SERVICE_TOKEN", "")
+    async def _retired_stream():
+        yield _sse_event({"type": "error", "error": "Live activity service retired (ADR-0014/0015)"})
 
-    async def event_generator():
-        try:
-            import httpx
-        except ImportError:
-            yield _sse_event({"type": "error", "error": "httpx not installed"})
-            return
-
-        headers: dict[str, str] = {"Accept": "text/event-stream"}
-        if token:
-            headers["X-Service-Token"] = token
-
-        try:
-            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                async with client.stream("GET", f"{gateway_url.rstrip('/')}/events",
-                                         params={"channel": channel}, headers=headers) as resp:
-                    if resp.status_code != 200:
-                        yield _sse_event({"type": "error", "error": f"EventRelay HTTP {resp.status_code}"})
-                        return
-                    async for line in resp.aiter_lines():
-                        if line.startswith("data: ") or line.startswith(":"):
-                            yield f"{line}\n\n"
-        except Exception as e:
-            logger.warning("Live activity stream error: %s", e)
-            yield _sse_event({"type": "error", "error": "即時轉播連線中斷"})
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
+    return StreamingResponse(_retired_stream(), media_type="text/event-stream", headers=SSE_HEADERS)
 
 
 # ── V-3.1: Agent Topology (委派 Service) ───────────────────
@@ -410,7 +295,7 @@ async def digital_twin_health(_current_user: User = Depends(require_auth())):
         from app.services.ai.federation.federation_client import get_federation_client
         client = get_federation_client()
         systems = client.list_available_systems()
-        health["gateway_available"] = any(s["id"] in ("openclaw", "nemoclaw") for s in systems)
+        health["gateway_available"] = len(systems) > 0
         health["gateway_systems"] = systems
     except Exception as e:
         health["gateway_error"] = str(e)
@@ -495,27 +380,8 @@ async def agent_capability_scores(
 # ── Shared Helper ──────────────────────────────────────────
 
 async def _proxy_task_action(job_id: str, action: str, body: dict):
-    import os
-    try:
-        import httpx
-    except ImportError:
-        return JSONResponse(status_code=503, content={"success": False, "error": "後端缺少必要套件"})
-
-    gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
-    token = os.getenv("MCP_SERVICE_TOKEN", "")
-    headers: dict[str, str] = {"Content-Type": "application/json"}
-    if token:
-        headers["X-Service-Token"] = token
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(f"{gateway_url.rstrip('/')}/tasks/{job_id}/{action}", json=body, headers=headers)
-            if resp.status_code >= 400:
-                return JSONResponse(
-                    status_code=resp.status_code,
-                    content={"success": False, "error": f"上游服務回應 HTTP {resp.status_code}"},
-                )
-            return resp.json()
-    except Exception as e:
-        logger.error("Task %s proxy error: %s", action, e)
-        return JSONResponse(status_code=503, content={"success": False, "error": f"任務{action}操作失敗"})
+    """已停用 — OpenClaw/NemoClaw gateway 不再可用 (ADR-0014/0015)"""
+    return JSONResponse(
+        status_code=410,
+        content={"success": False, "error": "Task proxy service retired (ADR-0014/0015)"},
+    )

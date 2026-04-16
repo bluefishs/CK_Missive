@@ -45,10 +45,10 @@ async def agent_query_stream(
       data: {"type":"done","latency_ms":N,"model":"...","tools_used":[...],"iterations":N}
       data: {"type":"error","error":"...","code":"RATE_LIMITED|SERVICE_ERROR|STREAM_TIMEOUT"}
     """
-    # v5.0: 切換至 NemoClaw 代理人（自覺+主動+技能發現）
-    from app.services.ai.misc.nemoclaw_agent import NemoClawAgent
+    # v5.0: 自覺型代理人（自覺+主動+技能發現）
+    from app.services.ai.misc.missive_agent import MissiveAgent
 
-    agent = NemoClawAgent(db)
+    agent = MissiveAgent(db)
 
     return create_sse_response(
         stream_fn=lambda: agent.stream_query(
@@ -57,7 +57,7 @@ async def agent_query_stream(
             session_id=request.session_id,
             context=request.context,
         ),
-        endpoint_name="NemoClaw",
+        endpoint_name="MissiveAgent",
         done_extra={"tools_used": [], "iterations": 0},
     )
 
@@ -77,9 +77,9 @@ async def nemoclaw_query_stream(
 
     對比測試: 同一問題分別用 /agent/query/stream (傳統) 和 /agent/nemoclaw/stream (代理人)
     """
-    from app.services.ai.misc.nemoclaw_agent import NemoClawAgent
+    from app.services.ai.misc.missive_agent import MissiveAgent
 
-    agent = NemoClawAgent(db)
+    agent = MissiveAgent(db)
 
     return create_sse_response(
         stream_fn=lambda: agent.stream_query(
@@ -88,7 +88,7 @@ async def nemoclaw_query_stream(
             session_id=request.session_id,
             context=request.context,
         ),
-        endpoint_name="NemoClaw",
+        endpoint_name="MissiveAgent",
         done_extra={"tools_used": [], "iterations": 0},
     )
 

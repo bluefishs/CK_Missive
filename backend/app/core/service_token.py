@@ -1,6 +1,6 @@
 """Service-to-service authentication via X-Service-Token header.
 
-Used by NemoClaw and other internal service integrations.
+Used by KG Federation and other internal service integrations.
 Supports dual-token rotation for zero-downtime token changes (S-3).
 """
 

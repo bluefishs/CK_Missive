@@ -21,7 +21,7 @@ class RequestIdMiddleware:
     """Add unique request ID to every request for distributed tracing.
 
     - Accepts incoming ``X-Correlation-Id`` or ``X-Request-ID`` header
-      (pass-through for upstream proxies like NemoClaw/OpenClaw).
+      (pass-through for upstream proxies like Cloudflare Tunnel).
     - Falls back to a short uuid4 if none provided.
     - Sets both ``X-Request-ID`` and ``X-Correlation-Id`` response headers
       so clients and observability tools (Loki) can correlate across services.
@@ -35,7 +35,7 @@ class RequestIdMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Accept X-Correlation-Id (NemoClaw/OpenClaw) or X-Request-ID, or generate new
+        # Accept X-Correlation-Id or X-Request-ID from upstream proxy, or generate new
         headers = dict(scope.get("headers", []))
         incoming_id = (
             headers.get(b"x-correlation-id", b"").decode()

@@ -99,7 +99,7 @@ class SchedulerTracker:
 
 
 def tracked_job(job_id: str):
-    """裝飾器：自動追蹤排程任務的執行狀態"""
+    """裝飾器：自動追蹤排程任務的執行狀態，失敗時觸發 Telegram 告警"""
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -110,6 +110,19 @@ def tracked_job(job_id: str):
                 return result
             except Exception as e:
                 SchedulerTracker.record_failure(job_id, str(e))
+                # 失敗告警 (fire-and-forget)
+                try:
+                    from app.core.scheduler_alert import get_alert_manager
+                    mgr = get_alert_manager()
+                    rec = SchedulerTracker._records.get(job_id, {})
+                    failure_count = rec.get("failure_count", 1)
+                    if mgr.should_alert(job_id, failure_count):
+                        import asyncio
+                        asyncio.create_task(
+                            mgr.send_failure_alert(job_id, str(e), failure_count)
+                        )
+                except Exception:
+                    pass  # 告警失敗不影響主流程
                 raise
         return wrapper
     return decorator
@@ -300,7 +313,7 @@ async def security_scan_job():
 @tracked_job("proactive_trigger_scan")
 async def proactive_trigger_scan_job():
     """
-    NemoClaw 夜間吹哨者 — 掃描 PM/ERP 預算超支、逾期請款、待核銷發票等警報。
+    夜間吹哨者 — 掃描 PM/ERP 預算超支、逾期請款、待核銷發票等警報。
 
     掃描結果：
     1. 持久化至 SystemNotification (DB)
@@ -311,7 +324,7 @@ async def proactive_trigger_scan_job():
     from app.services.ai.proactive.proactive_triggers_erp import ERPTriggerScanner
     from app.services.notification_helpers import _safe_create_notification
 
-    logger.info("開始執行 NemoClaw 夜間吹哨者掃描")
+    logger.info("開始執行夜間吹哨者掃描")
 
     try:
         async with async_session_maker() as db:
@@ -347,7 +360,7 @@ async def proactive_trigger_scan_job():
                     persisted += 1
 
             logger.info(
-                f"NemoClaw 吹哨者完成: "
+                f"吹哨者完成: "
                 f"掃描={len(all_alerts)}, "
                 f"warning+={len(actionable)}, "
                 f"已通知={persisted}"
@@ -374,7 +387,7 @@ async def proactive_trigger_scan_job():
                 logger.debug(f"派工進度推送跳過: {progress_err}")
 
     except Exception as e:
-        logger.error(f"NemoClaw 夜間吹哨者失敗: {e}", exc_info=True)
+        logger.error(f"夜間吹哨者失敗: {e}", exc_info=True)
 
 
 @tracked_job("kg_embedding_backfill")
@@ -1130,17 +1143,17 @@ def setup_scheduler(
     else:
         logger.info("電子發票同步未啟用 (MOF_APP_ID 未設定)")
 
-    # 添加 NemoClaw 夜間吹哨者 — 每日 00:30 掃描預算/逾期/待核銷
+    # 夜間吹哨者 — 每日 00:30 掃描預算/逾期/待核銷
     scheduler.add_job(
         proactive_trigger_scan_job,
         trigger=CronTrigger(hour=0, minute=30),
         id='proactive_trigger_scan',
-        name='NemoClaw 夜間吹哨者 (預算/逾期/待核銷)',
+        name='夜間吹哨者 (預算/逾期/待核銷)',
         replace_existing=True,
         max_instances=1,
         coalesce=True
     )
-    logger.info("已添加 NemoClaw 夜間吹哨者: 每日 00:30 執行")
+    logger.info("已添加夜間吹哨者: 每日 00:30 執行")
 
     # 添加安全掃描 — 每日 02:00 自動偵測資安問題
     scheduler.add_job(

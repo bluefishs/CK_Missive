@@ -1,15 +1,11 @@
 /**
- * Digital Twin API — 透過 Missive 後端代理至 NemoClaw Gateway
+ * Digital Twin API — 本地 Agent 推理
  *
- * 前端不直接呼叫 NemoClaw Gateway (CORS + X-Service-Token 認證限制)，
- * 改為呼叫 Missive 後端 /ai/digital-twin/query/stream 代理端點。
+ * 流程: POST /ai/digital-twin/query/stream → 後端 AgentOrchestrator → SSE 串流回傳
  *
- * 流程: POST /ai/digital-twin/query/stream → 後端 FederationClient
- *       → NemoClaw Gateway → SSE 串流回傳
- *
- * @version 2.0.0
+ * @version 3.0.0
  * @created 2026-03-22
- * @updated 2026-03-22 — v2.0 改為後端代理模式 (修復 CORS + Auth)
+ * @updated 2026-04-17 — v3.0 移除 OpenClaw/NemoClaw 依賴 (ADR-0014/0015)
  */
 
 import { DIGITAL_TWIN_ENDPOINTS } from './endpoints';

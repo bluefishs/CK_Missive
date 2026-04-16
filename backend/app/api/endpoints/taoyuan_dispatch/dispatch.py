@@ -45,6 +45,7 @@ from app.schemas.taoyuan.dispatch import (
 from app.utils.doc_helpers import is_outgoing_doc_number
 from app.services.taoyuan import DispatchOrderService, DispatchExportService, ExportTaskManager
 from app.services.taoyuan.dispatch_response_formatter import dispatch_to_response_dict
+from app.extended.models import User
 
 router = APIRouter()
 

@@ -34,7 +34,7 @@ class AgentQueryRequest(BaseModel):
 
 
 class AgentSyncCapabilities(BaseModel):
-    """Agent 能力清單（供 OpenClaw/外部系統探索）"""
+    """Agent 能力清單（供 Hermes/外部系統探索）"""
     tools: List[str] = Field(default_factory=list, description="可用工具名稱")
     vision: bool = Field(default=True, description="是否支援圖片辨識 (Gemma 4 Vision)")
     voice: bool = Field(default=True, description="是否支援語音轉文字 (Whisper)")
@@ -48,7 +48,7 @@ class AgentSyncCapabilities(BaseModel):
 
 
 class AgentSyncMetadata(BaseModel):
-    """Agent 回應後設資料（供 OpenClaw/外部系統使用）"""
+    """Agent 回應後設資料（供 Hermes/外部系統使用）"""
     model: str = Field(default="gemma4", description="使用的推理模型")
     latency_ms: int = Field(default=0, description="處理延遲（毫秒）")
     tools_used: List[str] = Field(default_factory=list, description="本次使用的工具")

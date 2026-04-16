@@ -138,7 +138,7 @@ class AgentIntrospectionService:
                 "document", "dispatch", "project", "vendor",
                 "finance", "tender", "knowledge_graph", "diagram",
             ],
-            "channels": ["web", "line", "telegram", "openclaw", "mcp"],
+            "channels": ["web", "line", "telegram", "hermes", "mcp", "discord"],
             "features": [
                 "hybrid_search", "adaptive_reranker", "nl_graph_query",
                 "vision_ocr", "predictive_alerts", "session_handoff",

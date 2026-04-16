@@ -3,8 +3,8 @@
 Provider Resolver — 決定 Shadow Logger trace 的 provider 標籤。
 
 用於 Hermes 遷移期 A/B 比對（ADR-0014）：
-  - 舊路徑：LINE/TG/Discord → OpenClaw (Haiku) → Missive   → haiku-openclaw
-  - 新路徑：Telegram/Discord → Hermes (Gemma)   → Missive   → gemma-hermes
+  - Telegram/Discord → Hermes (Gemma) → Missive → gemma-hermes
+  - Web → Missive 直連 → gemma-local
 
 呼叫者可透過 HTTP header ``X-Provider`` 覆蓋自動判斷。
 """
@@ -16,11 +16,13 @@ _DEFAULT = "unknown"
 
 _CHANNEL_PROVIDER_MAP = {
     "hermes": "gemma-hermes",
+    "telegram": "gemma-hermes",
+    "discord": "gemma-hermes",
+    "line": "gemma-hermes",
+    "web": "gemma-local",
+    "mcp": "gemma-local",
+    # 歷史相容 — 舊日誌可能帶此標籤
     "openclaw": "haiku-openclaw",
-    # OpenClaw 為 LINE/TG/Discord 的 gateway，流量仍走 Haiku
-    "line": "haiku-openclaw",
-    "telegram": "haiku-openclaw",
-    "discord": "haiku-openclaw",
 }
 
 

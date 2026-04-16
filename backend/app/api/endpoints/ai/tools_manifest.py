@@ -1,12 +1,12 @@
 """
 CK-AaaP Tool Manifest 端點 — Plugin Contract v1.1
 
-提供 CK_Missive 的工具清冊，供 NemoClaw 動態工具發現使用。
+提供 CK_Missive 的工具清冊，供 Hermes Agent skill bridge 動態工具發現使用。
 回傳格式遵循 CK-AaaP ToolSpec Standard v1.0。
-工具定義基於 MCP Server 已有的 7 個工具轉換而來。
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-04-01
+Updated: 2026-04-16 — 更新為 Hermes 公約 (ADR-0014)
 """
 
 import logging
@@ -284,7 +284,7 @@ TOOL_MANIFEST = {
     summary="工具清冊 (Plugin Contract v1.2) — POST（資安政策）",
 )
 async def get_tools():
-    """回傳 CK_Missive 的工具清冊，供 NemoClaw / Hermes 動態工具發現使用。
+    """回傳 CK_Missive 的工具清冊，供 Hermes Agent skill bridge 動態工具發現使用。
 
     資安規範：所有端點採 POST（含無狀態查詢）。
     """

@@ -52,7 +52,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [dualMode, setDualMode] = useState(false);
-  // v5.0: NemoClaw 統一入口，不再區分 doc/agent
+  // v5.0: 統一 Agent 入口，不再區分 doc/agent
   const mode = 'agent' as const;
 
   // 拖曳功能狀態

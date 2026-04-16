@@ -403,7 +403,7 @@ class AgentToolExecutor:
         """聯邦式外部 AI 系統查詢"""
         from app.services.ai.federation.federation_client import get_federation_client
 
-        system_id = params.get("system_id", "openclaw")
+        system_id = params.get("system_id", "hermes")
         question = params.get("question", "")
 
         if not question:

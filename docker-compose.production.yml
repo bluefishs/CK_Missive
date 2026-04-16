@@ -144,9 +144,6 @@ services:
       - ./backend/GoogleCalendarAPIKEY.json:/app/GoogleCalendarAPIKEY.json:ro
     networks:
       ck_network: {}
-      nemoclaw_network:
-        aliases:
-          - ck_missive_app
     depends_on:
       postgres:
         condition: service_healthy
@@ -220,6 +217,4 @@ networks:
   ck_network:
     name: ck_missive_network
     driver: bridge
-  nemoclaw_network:
-    external: true
-    name: nemoclaw_network
+  # nemoclaw_network: 已移除 (ADR-0015, 2026-04-16)

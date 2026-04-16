@@ -1,17 +1,18 @@
 /**
- * useDigitalTwinSSE - NemoClaw 數位分身串流 Hook
+ * useDigitalTwinSSE - 數位分身串流 Hook
  *
- * 透過 NemoClaw Gateway 委派問答，使用與 useAgentSSE 相同的
- * useStreamingChat 底層，但注入 NemoClaw-specific StreamingChatAPIs adapter。
+ * 透過本地 Agent 推理，使用與 useAgentSSE 相同的
+ * useStreamingChat 底層，但注入 Digital Twin adapter。
  *
  * 架構:
  *   useDigitalTwinSSE (本 hook)
  *     → useStreamingChat (通用 DI hook from @ck-shared)
- *       → StreamingChatAPIs<RAGSourceItem> (NemoClaw adapter)
+ *       → StreamingChatAPIs<RAGSourceItem> (Digital Twin adapter)
  *         → streamDigitalTwin() (api/digitalTwin.ts)
  *
- * @version 1.0.0
+ * @version 2.0.0
  * @created 2026-03-22
+ * @updated 2026-04-17 — v2.0 移除 NemoClaw 引用 (ADR-0014/0015)
  */
 
 import { useMemo, useRef } from 'react';
@@ -42,7 +43,7 @@ export interface UseDigitalTwinSSEReturn {
 }
 
 // ---------------------------------------------------------------------------
-// NemoClaw StreamingChatAPIs adapter
+// Digital Twin StreamingChatAPIs adapter
 // ---------------------------------------------------------------------------
 
 function createDigitalTwinAPIs(
@@ -63,7 +64,7 @@ function createDigitalTwinAPIs(
         {
           onToken: callbacks.onToken,
           onDone: (latencyMs) => {
-            callbacks.onDone(latencyMs, 'nemoclaw-gateway');
+            callbacks.onDone(latencyMs, 'digital-twin');
           },
           onError: (error) => {
             onErrorRef.current?.(error, 'error');
@@ -79,7 +80,7 @@ function createDigitalTwinAPIs(
         },
       );
     },
-    // NemoClaw uses Redis session memory — no explicit clear needed from frontend
+    // Session memory via Redis — no explicit clear needed from frontend
     // (sessions expire via TTL in Redis DB 4)
   };
 }
@@ -89,9 +90,9 @@ function createDigitalTwinAPIs(
 // ---------------------------------------------------------------------------
 
 /**
- * NemoClaw 數位分身串流問答 Hook。
+ * 數位分身串流問答 Hook。
  *
- * 與 useAgentSSE 平行使用，透過 NemoClaw Gateway 委派至 OpenClaw 引擎。
+ * 與 useAgentSSE 平行使用，透過本地 AgentOrchestrator 推理。
  *
  * @example
  * ```tsx

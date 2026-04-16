@@ -28,7 +28,7 @@ class DigitalTwinService:
     @staticmethod
     async def build_topology() -> Dict[str, Any]:
         """
-        構建 Agent 組織圖 — 聚合 NemoClaw Registry + Missive Agent Roles
+        構建 Agent 組織圖 — Hermes Agent Gateway + Missive Agent Roles
 
         Returns:
             {"nodes": [...], "edges": [...], "meta": {...}}
@@ -36,31 +36,17 @@ class DigitalTwinService:
         nodes: List[Dict] = []
         edges: List[Dict] = []
 
-        # 1. NemoClaw 節點
+        # 1. Hermes Agent Gateway (取代 NemoClaw + OpenClaw, ADR-0014/0015)
         nodes.append({
-            "id": "nemoclaw", "type": "leader",
-            "label": "NemoClaw 監控塔",
-            "description": "Gateway + Registry + Scheduler + Health Probe",
-            "status": "unknown",
-            "capabilities": ["gateway", "registry", "scheduler", "health_probe"],
-            "project": "CK_NemoClaw",
+            "id": "hermes", "type": "leader",
+            "label": "Hermes Agent Gateway",
+            "description": "Skill-based Agent + Session Store + Tool Discovery",
+            "status": "active",
+            "capabilities": ["gateway", "skill_execution", "session_store", "tool_discovery"],
+            "project": "hermes-agent",
         })
 
-        # 2. OpenClaw 節點
-        nodes.append({
-            "id": "openclaw", "type": "engine",
-            "label": "OpenClaw 通用引擎",
-            "description": "Multi-Agent + Memory + Leader Agent 編排",
-            "status": "unknown",
-            "capabilities": ["reason", "delegate", "event_relay", "memory"],
-            "project": "CK_OpenClaw",
-        })
-        edges.append({
-            "source": "nemoclaw", "target": "openclaw",
-            "label": "gateway → engine", "type": "delegation",
-        })
-
-        # 3. Missive Agent Roles
+        # 2. Missive Agent Roles
         try:
             from app.services.ai.agent.agent_roles import get_all_role_profiles
             for ctx, profile in get_all_role_profiles().items():
@@ -74,13 +60,13 @@ class DigitalTwinService:
                     "project": "CK_Missive", "context": ctx,
                 })
                 edges.append({
-                    "source": "openclaw", "target": node_id,
-                    "label": f"delegate → {ctx}", "type": "delegation",
+                    "source": "hermes", "target": node_id,
+                    "label": f"skill → {ctx}", "type": "delegation",
                 })
         except Exception as e:
             logger.warning("Failed to load agent roles: %s", e)
 
-        # 4. 外部專案 Agent
+        # 3. 外部專案 Agent
         for agent in _EXTERNAL_AGENTS:
             nodes.append({
                 "id": agent["id"], "type": "plugin",
@@ -92,8 +78,8 @@ class DigitalTwinService:
                 "triggers": agent.get("triggers", []),
             })
             edges.append({
-                "source": "openclaw", "target": agent["id"],
-                "label": f"delegate → {agent['id']}", "type": "delegation",
+                "source": "hermes", "target": agent["id"],
+                "label": f"skill → {agent['id']}", "type": "delegation",
             })
 
         # 5. KG Hub 連線
@@ -252,7 +238,7 @@ class DigitalTwinService:
             client = get_federation_client()
             systems = client.list_available_systems()
             return {
-                "available": any(s["id"] in ("openclaw", "nemoclaw") for s in systems),
+                "available": len(systems) > 0,
                 "systems_count": len(systems),
             }
 
