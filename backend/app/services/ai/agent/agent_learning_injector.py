@@ -163,7 +163,7 @@ async def inject_cross_session_learnings(
     """
     Cross-session Learning 注入 -- 從 DB 載入歷史學習記錄作為規劃提示。
 
-    Phase 3A+: 對標 OpenClaw cross-session memory injection。
+    Phase 3A+: Cross-session memory injection。
     Phase 7.1: Semantic filtering -- 使用 embedding cosine similarity
     篩選最相關的 top-5 學習（similarity > 0.3），降低雜訊注入。
 
@@ -219,7 +219,7 @@ async def build_adaptive_fewshot(
     """
     從 agent_query_traces 查詢歷史成功案例，格式化為 few-shot 範例。
 
-    Phase 2B: 對標 OpenClaw Adaptive Few-shot 模式。
+    Phase 2B: Adaptive Few-shot 模式。
     """
     from app.repositories.agent_trace_repository import AgentTraceRepository
     repo = AgentTraceRepository(db)

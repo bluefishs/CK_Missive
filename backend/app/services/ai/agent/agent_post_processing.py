@@ -56,7 +56,7 @@ async def self_talk(
     ai_connector: Any,
     db: Any,
 ) -> None:
-    """NemoClaw 自省對話：Agent 與自己對話，產生改進教訓"""
+    """Agent 自省對話：Agent 與自己對話，產生改進教訓"""
     try:
         tools_summary = ", ".join(tools_used) if tools_used else "無"
         result_count = sum(r.get("count", 0) for r in tool_results)
@@ -358,7 +358,7 @@ async def run_post_synthesis(
         )
     )
 
-    # 非阻塞：NemoClaw 自省對話 (用 vLLM 本地推理)
+    # 非阻塞：Agent 自省對話 (用本地推理)
     if ctx.tool_results and ctx.ai:
         asyncio.create_task(
             self_talk(

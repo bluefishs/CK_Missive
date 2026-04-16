@@ -1,7 +1,7 @@
 """
 Agent Learning Repository — 學習記錄持久化
 
-Phase 3A: 對標 OpenClaw agent-reflect 永久學習。
+Phase 3A: 持久化學習記錄。
 將 Memory Flush 提取的學習從 Redis TTL 升級為 DB 持久化。
 
 Version: 1.0.0

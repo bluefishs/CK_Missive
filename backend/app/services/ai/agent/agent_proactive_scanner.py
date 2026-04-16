@@ -1,5 +1,5 @@
 """
-Agent Proactive Scanner -- NemoClaw Stage 2
+Agent Proactive Scanner — 主動告警掃描
 
 Scans for actionable alerts the agent can proactively mention:
 1. Documents with calendar events ending within 3 days

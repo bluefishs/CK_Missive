@@ -1,5 +1,5 @@
 """
-Agent Self-Profile -- NemoClaw Stage 1B
+Agent Self-Profile — 智能體身份卡
 
 Builds an "identity card" for the agent from DB data:
 - Total queries answered

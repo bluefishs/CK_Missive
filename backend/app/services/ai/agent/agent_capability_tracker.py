@@ -1,5 +1,5 @@
 """
-Agent 能力自覺模組 — NemoClaw Phase B
+Agent 能力自覺模組
 
 分析歷史查詢的成功率，自動識別強項和弱項領域。
 供 planner 注入「弱項提醒」，讓 Agent 知道自己的能力邊界。

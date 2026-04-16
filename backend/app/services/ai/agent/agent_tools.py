@@ -128,7 +128,7 @@ if _DISPATCH_KEYS != _non_skill_registry:
 
 class ToolResultGuard:
     """
-    工具結果守衛 — 對標 OpenClaw session-tool-result-guard.ts
+    工具結果守衛 — 失敗回退合成機制
 
     工具超時/失敗時合成回退結果，避免中斷對話流。
     合成結果設定 guarded=True，讓下游合成知道這是回退資料。

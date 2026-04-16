@@ -316,7 +316,7 @@ class AgentRouter:
 
     @staticmethod
     def _detect_context(question: str) -> Optional[str]:
-        """根據問題關鍵字推薦角色 context（採用 OpenClaw 3-layer 模式）"""
+        """根據問題關鍵字推薦角色 context（3-layer 關鍵字匹配）"""
         _DISPATCH_KW = ("派工", "派工單", "逾期", "進度彙整", "派工進度", "工程進度", "查估")
         _DOC_KW = ("公文", "文號", "來函", "發文", "收文", "函覆")
         _ERP_KW = ("請款", "報銷", "發票", "帳本", "預算", "費用", "財務")

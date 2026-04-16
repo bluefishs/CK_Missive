@@ -102,7 +102,7 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
 
 
 # ============================================================================
-# 品質自省 — 對標 OpenClaw Thinking/Reflection (Phase 2C)
+# 品質自省 — 答案品質 LLM 評估 (Phase 2C)
 # ============================================================================
 
 async def self_reflect(

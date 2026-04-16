@@ -2,7 +2,7 @@
 派工進度彙整合成服務
 
 將 proactive_triggers 的原始告警升級為 AI 合成的結構化進度報告。
-對標 OpenClaw 的派工進度彙整輸出格式（已完成/進行中/逾期+負責人+建議）。
+結構化派工進度輸出格式（已完成/進行中/逾期+負責人+建議）。
 
 三階段流程:
   1. DB 掃描: 查詢所有派工單狀態 + 作業紀錄進度
@@ -233,7 +233,7 @@ class DispatchProgressSynthesizer:
         return alerts
 
     def format_text_report(self, report: DispatchProgressReport) -> str:
-        """格式化為結構化文字（對標 OpenClaw 派工進度彙整格式）"""
+        """格式化為結構化文字報告"""
         lines = [
             f"📊 派工進度彙整 — {date.today().strftime('%Y-%m-%d %H:%M')}",
             "",

@@ -2,7 +2,7 @@
 12. Agent 學習持久化模組 (Agent Learning Persistence)
 
 Phase 3A of 乾坤智能體自動學習架構：
-- AgentLearning: 持久化學習記錄（對標 OpenClaw agent-reflect 永久編碼）
+- AgentLearning: 持久化學習記錄（永久保存跨 session 學習）
 
 將 Redis TTL 學習升級為 DB 持久化，
 學習記錄存活無期限，支援去重、強化、注入 planner prompt。

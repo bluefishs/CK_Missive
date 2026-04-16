@@ -87,7 +87,7 @@ async def dispatch_progress_report(
     current_user: User = Depends(require_auth()),
 ):
     """
-    生成派工進度彙整報告（對標 OpenClaw 進度彙整格式）
+    生成派工進度彙整報告（結構化進度分類）
 
     回傳結構化報告：已完成/進行中/逾期分類 + 負責人統計 + 關鍵提醒
     """

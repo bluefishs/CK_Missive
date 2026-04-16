@@ -3,7 +3,7 @@ AI 配置管理
 
 Version: 3.1.0
 Created: 2026-02-04
-Updated: 2026-03-18 - v3.1.0 NemoClaw-inspired: YAML policy + inference profiles
+Updated: 2026-03-18 - v3.1.0 YAML policy + inference profiles
 """
 
 import logging
@@ -121,30 +121,30 @@ class AIConfig:
     router_pattern_threshold: float = 0.8      # Pattern 路由信心門檻
     router_rule_threshold: float = 0.9         # Rule 路由信心門檻
 
-    # Tool Result Guard (v2.7.0 — Phase 2A, 對標 OpenClaw session-tool-result-guard)
+    # Tool Result Guard (v2.7.0 — 工具失敗回退合成)
     tool_guard_enabled: bool = True            # 工具失敗時合成回退結果
 
-    # Adaptive Few-shot (v2.7.0 — Phase 2B, 對標 OpenClaw Adaptive Few-shot)
+    # Adaptive Few-shot (v2.7.0 — 歷史成功案例注入)
     adaptive_fewshot_enabled: bool = True      # 從 trace 注入歷史成功案例
     adaptive_fewshot_limit: int = 3            # 最多注入 N 條
     adaptive_fewshot_min_results: int = 1      # 歷史查詢最低結果數
 
-    # Self-Reflection (v2.7.0 — Phase 2C, 對標 OpenClaw Thinking/Reflection)
+    # Self-Reflection (v2.7.0 — 答案品質自省)
     self_reflect_enabled: bool = True          # 答案品質自省
     self_reflect_threshold: int = 5            # score < N 觸發重試
     self_reflect_timeout: int = 5              # 自省超時 (秒)
 
-    # Memory Flush (v2.7.0 — Phase 2D, 對標 OpenClaw memory-flush pre-compaction)
+    # Memory Flush (v2.7.0 — 壓縮前學習萃取)
     memory_flush_enabled: bool = True          # 壓縮前提取學習
     memory_flush_learnings_ttl: int = 86400    # 學習 TTL 24 小時
     memory_flush_max_learnings: int = 10       # 最多 N 條學習項
 
-    # Persistent Learning Store (v3.0.0 — Phase 3A, 對標 OpenClaw agent-reflect)
+    # Persistent Learning Store (v3.0.0 — 持久化學習記錄)
     learning_persist_enabled: bool = True      # 學習寫入 DB 永久保存
     learning_max_per_session: int = 10         # 每次 session 最多學習數
     learning_inject_limit: int = 5             # 注入 planner prompt 的最大學習數
 
-    # 3-Tier Adaptive Compaction (v3.0.0 — Phase 3A, 對標 OpenClaw compaction.ts)
+    # 3-Tier Adaptive Compaction (v3.0.0 — 三階降級壓縮策略)
     compaction_tier1_timeout: int = 10         # Tier 1 完整摘要超時 (秒)
     compaction_tier2_max_msg_chars: int = 500  # Tier 2 跳過超長訊息的閾值
     compaction_tier3_topic_limit: int = 10     # Tier 3 元數據最大主題數

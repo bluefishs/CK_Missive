@@ -5,7 +5,7 @@ Phase 1 of 乾坤智能體自動學習架構：
 - AgentQueryTrace: 每次問答完整軌跡
 - AgentToolCallLog: 工具呼叫明細（trace 子表）
 
-對標 OpenClaw 的 Tool Success Logging + Feedback Loop，
+工具使用追蹤與回饋迴圈，
 將 Redis-only 的 in-memory trace 持久化到 PostgreSQL，
 為後續 Reflection Loop / Adaptive Few-shot / Memory Consolidation 提供資料基礎。
 

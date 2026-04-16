@@ -1,7 +1,7 @@
 """
 Agent Conversation Summarizer — 長對話摘要壓縮
 
-3-Tier Adaptive Compaction（對標 OpenClaw compaction.ts）：
+3-Tier Adaptive Compaction：
 - Tier 1: 完整 LLM 摘要（Full）
 - Tier 2: 部分摘要（跳過超長訊息）
 - Tier 3: 元數據降級（純規則，無 LLM）
