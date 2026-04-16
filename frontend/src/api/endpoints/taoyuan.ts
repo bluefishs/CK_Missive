@@ -156,6 +156,9 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   /** 工程歷程總覽 POST /taoyuan-dispatch/workflow/summary/:projectId */
   WORKFLOW_SUMMARY: (projectId: number) => `/taoyuan-dispatch/workflow/summary/${projectId}`,
 
+  /** 更新作業類別交付期限 POST /taoyuan-dispatch/dispatch/work-type/update-deadline */
+  WORK_TYPE_UPDATE_DEADLINE: '/taoyuan-dispatch/dispatch/work-type/update-deadline',
+
   // 晨報追蹤
   /** 派工晨報狀態 POST /taoyuan-dispatch/dispatch/morning-status */
   DISPATCH_MORNING_STATUS: '/taoyuan-dispatch/dispatch/morning-status',

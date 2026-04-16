@@ -204,6 +204,7 @@ async def dispatch_morning_status(
             "project_name": row[3] or "",
             "handler": row[4] or "",
             "sub_case": row[5] or "",
+            "survey_unit": row[17] or "",
             "closure_level": closure,
             "display_status": display_status,
             "work_category": display_cat,

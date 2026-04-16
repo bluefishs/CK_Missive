@@ -297,6 +297,30 @@ async def create_dispatch_order(
         )
 
 
+@router.post("/dispatch/work-type/update-deadline", summary="更新作業類別交付期限")
+async def update_work_type_deadline(
+    work_type_id: int,
+    deadline: Optional[str] = None,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth()),
+):
+    """設定 dispatch_work_types.deadline（per-type 交付期限）"""
+    from sqlalchemy import select, update
+    from app.extended.models import TaoyuanDispatchWorkType
+    from datetime import date as _date
+
+    wt = await db.execute(
+        select(TaoyuanDispatchWorkType).where(TaoyuanDispatchWorkType.id == work_type_id)
+    )
+    wt = wt.scalar_one_or_none()
+    if not wt:
+        raise HTTPException(status_code=404, detail="作業類別不存在")
+
+    wt.deadline = _date.fromisoformat(deadline) if deadline else None
+    await db.commit()
+    return {"success": True, "id": work_type_id, "deadline": str(wt.deadline) if wt.deadline else None}
+
+
 @router.post("/dispatch/{dispatch_id}/update", response_model=DispatchOrderSchema, summary="更新派工紀錄")
 async def update_dispatch_order(
     dispatch_id: int,

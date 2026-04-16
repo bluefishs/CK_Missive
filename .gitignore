@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Docker Secrets (Phase 1)
+secrets/
+
 # Databases
 *.db
 *.sqlite3

@@ -140,18 +140,24 @@ class MorningReportService:
         parts = []
         sections_detail: list[list[str]] = []  # 分段明細，每段之間加區隔線
 
-        # ── 1. 本週到期派工 ──
+        def _team_tag(item: dict) -> str:
+            """格式化估價團隊標籤"""
+            su = item.get("survey_unit", "")
+            return f"({su})" if su else ""
+
+        # ── 1. 派工事件 ──
         dd = data.get("dispatch_deadlines", {}) if _on("dispatch") else {}
         sec = []
         if dd.get("week_count", 0) > 0:
             parts.append(f"本週到期派工 {dd['week_count']} 筆")
+            sec.append("【1. 派工事件】")
             for item in dd.get("week_items", [])[:5]:
                 days = item.get("days_left", 0)
                 urgency = "🔴 今日" if days == 0 else f"⏰ 剩 {days} 天"
                 progress = item.get("progress", "")
                 progress_tag = f" 〔{progress}〕" if progress else ""
                 sec.append(
-                    f"  {urgency} {item['dispatch_no']} — "
+                    f"  {urgency} {item['dispatch_no']}{_team_tag(item)} — "
                     f"{item.get('sub_case') or item.get('project_name', '')}"
                     f" (承辦: {item.get('handler', '未指定')}，到期: {item['deadline']})"
                     f"{progress_tag}"
@@ -168,7 +174,7 @@ class MorningReportService:
                 progress = item.get("progress", "")
                 progress_tag = f" 〔{progress}〕" if progress else ""
                 sec.append(
-                    f"  🚨 逾期 {item['overdue_days']} 天 {item['dispatch_no']} — "
+                    f"  🚨 逾期 {item['overdue_days']} 天 {item['dispatch_no']}{_team_tag(item)} — "
                     f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
                     f"{progress_tag}"
                 )
@@ -191,11 +197,12 @@ class MorningReportService:
         if sec:
             sections_detail.append(sec)
 
-        # ── 3. 近期會議 ──
+        # ── 3. 會議事件 ──
         mt = data.get("upcoming_meetings", {}) if _on("meeting") else {}
         sec = []
         if mt.get("count", 0) > 0:
             parts.append(f"近期會議 {mt['count']} 場")
+            sec.append("【2. 會議事件】")
             for item in mt.get("items", [])[:5]:
                 days = item.get("days_left", 0)
                 urgency = (
@@ -232,18 +239,19 @@ class MorningReportService:
         if sec:
             sections_detail.append(sec)
 
-        # ── 5. 排程作業 ──
+        # ── 5. 排程事件 ──
         sec = []
         sc = ov.get("scheduled_count", 0) if _on("dispatch") else 0
         if sc > 0:
             parts.append(f"排程作業 {sc} 筆")
+            sec.append("【3. 排程事件】")
             for item in ov.get("scheduled_items", [])[:5]:
                 progress = item.get("progress", "")
                 progress_tag = f" 〔{progress}〕" if progress else ""
                 next_ev = item.get("next_event", "")
                 next_tag = f" → 交付期限 {next_ev}" if next_ev else ""
                 sec.append(
-                    f"  📅 {item['dispatch_no']} — "
+                    f"  📅 {item['dispatch_no']}{_team_tag(item)} — "
                     f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
                     f"{progress_tag}{next_tag}"
                 )
@@ -439,7 +447,8 @@ class MorningReportService:
                COALESCE(rp.total_records, 0) AS total_records,
                ue.next_event_date,
                COALESCE(bn.bottleneck_category, l.work_category) AS display_category,
-               COALESCE(bn.bottleneck_status, l.status) AS display_cat_status
+               COALESCE(bn.bottleneck_status, l.status) AS display_cat_status,
+               d.survey_unit
         FROM taoyuan_dispatch_orders d
         LEFT JOIN record_progress rp ON rp.dispatch_order_id = d.id
         LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
@@ -477,6 +486,7 @@ class MorningReportService:
                     "project_name": row[3] or "",
                     "handler": row[4] or "",
                     "sub_case": row[5] or "",
+                    "survey_unit": row[17] or "",
                     "days_left": (dl - today).days,
                     "progress": self._format_dispatch_progress(
                         row[6], row[7], row[8], row[9], row[10]
@@ -579,6 +589,7 @@ class MorningReportService:
                     ) + progress_bar,
                     "project_name": row[3] or "",
                     "handler": row[4] or "",
+                    "survey_unit": row[17] or "",
                     "overdue_days": (today - dl).days,
                     "next_event": str(next_event.date()) if hasattr(next_event, 'date') else str(next_event) if next_event else None,
                 }

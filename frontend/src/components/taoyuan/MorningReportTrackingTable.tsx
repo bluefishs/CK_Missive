@@ -5,7 +5,8 @@
  * 接收 morning-status API 資料 + 外部篩選條件。
  */
 import React, { useMemo, useState } from 'react';
-import { Table, Tag, Card, Select, Space, Typography, Tooltip, Input } from 'antd';
+import { Table, Tag, Card, Select, Space, Typography, Tooltip, Input, DatePicker, App } from 'antd';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -16,7 +17,10 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
 import { ROUTES } from '../../router/types';
+import { apiClient } from '../../api/client';
+import { TAOYUAN_DISPATCH_ENDPOINTS } from '../../api/endpoints';
 
 const { Text } = Typography;
 
@@ -65,8 +69,22 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
   externalFilter,
 }) => {
   const navigate = useNavigate();
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined);
   const [searchText, setSearchText] = useState('');
+
+  const updateDeadlineMutation = useMutation({
+    mutationFn: (params: { work_type_id: number; deadline: string | null }) =>
+      apiClient.post(
+        `${TAOYUAN_DISPATCH_ENDPOINTS.WORK_TYPE_UPDATE_DEADLINE}?work_type_id=${params.work_type_id}${params.deadline ? `&deadline=${params.deadline}` : ''}`,
+        {},
+      ),
+    onSuccess: () => {
+      message.success('交付期限已更新');
+      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
+    },
+  });
 
   const items = useMemo(() => (data?.items ?? []) as MorningStatusItem[], [data]);
   const summary = useMemo(() => data?.summary ?? {}, [data]);
@@ -264,10 +282,16 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
                         <Tag color={color} style={{ margin: 0 }}>{pt.completed}/{pt.total}</Tag>
                       </td>
                       <td style={{ padding: '4px 8px' }}>
-                        {pt.deadline
-                          ? <Tag icon={<CalendarOutlined />} color="blue" style={{ margin: 0 }}>{pt.deadline}</Tag>
-                          : <Text type="secondary" style={{ fontSize: 12 }}>交付期限未設定</Text>
-                        }
+                        <DatePicker
+                          size="small"
+                          value={pt.deadline ? dayjs(pt.deadline) : null}
+                          placeholder="設定交付期限"
+                          onChange={(d) => updateDeadlineMutation.mutate({
+                            work_type_id: pt.work_type_id,
+                            deadline: d ? d.format('YYYY-MM-DD') : null,
+                          })}
+                          style={{ width: 130 }}
+                        />
                       </td>
                     </tr>
                   );
