@@ -138,10 +138,11 @@ class MorningReportService:
             return key in allowed
 
         parts = []
-        details = []  # 具體案件明細
+        sections_detail: list[list[str]] = []  # 分段明細，每段之間加區隔線
 
-        # 1. 派工：本週到期
+        # ── 1. 本週到期派工 ──
         dd = data.get("dispatch_deadlines", {}) if _on("dispatch") else {}
+        sec = []
         if dd.get("week_count", 0) > 0:
             parts.append(f"本週到期派工 {dd['week_count']} 筆")
             for item in dd.get("week_items", [])[:5]:
@@ -149,41 +150,50 @@ class MorningReportService:
                 urgency = "🔴 今日" if days == 0 else f"⏰ 剩 {days} 天"
                 progress = item.get("progress", "")
                 progress_tag = f" 〔{progress}〕" if progress else ""
-                details.append(
+                sec.append(
                     f"  {urgency} {item['dispatch_no']} — "
                     f"{item.get('sub_case') or item.get('project_name', '')}"
                     f" (承辦: {item.get('handler', '未指定')}，到期: {item['deadline']})"
                     f"{progress_tag}"
                 )
+        if sec:
+            sections_detail.append(sec)
 
-        # 2a. 派工：真正逾期（active 狀態 + 超過期限）
+        # ── 2a. 逾期派工 ──
         ov = data.get("overdue_items", {}) if _on("dispatch") else {}
+        sec = []
         if ov.get("dispatch_count", 0) > 0:
             parts.append(f"逾期派工 {ov['dispatch_count']} 筆")
             for item in ov.get("dispatch_items", [])[:5]:
                 progress = item.get("progress", "")
                 progress_tag = f" 〔{progress}〕" if progress else ""
-                details.append(
+                sec.append(
                     f"  🚨 逾期 {item['overdue_days']} 天 {item['dispatch_no']} — "
                     f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
                     f"{progress_tag}"
                 )
+        if sec:
+            sections_detail.append(sec)
 
-        # 2b. 派工：待結案確認（L3 — 全部完成但未發文）
+        # ── 2b. 待結案確認 ──
+        sec = []
         pc = ov.get("pending_closure_count", 0) if _on("dispatch") else 0
         if pc > 0:
             parts.append(f"待結案確認 {pc} 筆")
             for item in ov.get("pending_closure_items", [])[:3]:
                 progress = item.get("progress", "")
                 progress_tag = f" 〔{progress}〕" if progress else ""
-                details.append(
+                sec.append(
                     f"  📋 待結案 {item['dispatch_no']} — "
                     f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
                     f"{progress_tag}"
                 )
+        if sec:
+            sections_detail.append(sec)
 
-        # 3. 會議（header 第二位）
+        # ── 3. 近期會議 ──
         mt = data.get("upcoming_meetings", {}) if _on("meeting") else {}
+        sec = []
         if mt.get("count", 0) > 0:
             parts.append(f"近期會議 {mt['count']} 場")
             for item in mt.get("items", [])[:5]:
@@ -195,12 +205,15 @@ class MorningReportService:
                 )
                 time_str = item.get("time_str") or item.get("start_date", "")
                 location = f" @ {item['location']}" if item.get("location") else ""
-                details.append(
+                sec.append(
                     f"  {urgency} {time_str} {item['title']}{location}"
                 )
+        if sec:
+            sections_detail.append(sec)
 
-        # 9. 近期現勘
+        # ── 4. 近期現勘 ──
         sv = data.get("upcoming_site_visits", {}) if _on("site_visit") else {}
+        sec = []
         if sv.get("count", 0) > 0:
             parts.append(f"近期現勘 {sv['count']} 場")
             for item in sv.get("items", [])[:5]:
@@ -213,27 +226,33 @@ class MorningReportService:
                 time_str = item.get("time_str") or item.get("start_date", "")
                 source = f" [{item['source']}]" if item.get("source") else ""
                 location = f" @ {item['location']}" if item.get("location") else ""
-                details.append(
+                sec.append(
                     f"  {urgency} {time_str} {item['title']}{location}{source}"
                 )
+        if sec:
+            sections_detail.append(sec)
 
-        # 2d. 排程作業（有未來行事曆事件，非停滯逾期）— header 第三位
+        # ── 5. 排程作業 ──
+        sec = []
         sc = ov.get("scheduled_count", 0) if _on("dispatch") else 0
         if sc > 0:
             parts.append(f"排程作業 {sc} 筆")
-            for item in ov.get("scheduled_items", [])[:3]:
+            for item in ov.get("scheduled_items", [])[:5]:
                 progress = item.get("progress", "")
                 progress_tag = f" 〔{progress}〕" if progress else ""
                 next_ev = item.get("next_event", "")
-                next_tag = f" → 下次 {next_ev}" if next_ev else ""
-                details.append(
+                next_tag = f" → 交付期限 {next_ev}" if next_ev else ""
+                sec.append(
                     f"  📅 {item['dispatch_no']} — "
                     f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')})"
                     f"{progress_tag}{next_tag}"
                 )
+        if sec:
+            sections_detail.append(sec)
 
-        # 10. 今日分桶 + 衝突
+        # ── 6. 今日分桶 + 衝突 ──
         ts = data.get("today_schedule", {})
+        sec = []
         if ts.get("total", 0) > 0:
             morning = ts.get("morning", 0)
             afternoon = ts.get("afternoon", 0)
@@ -247,39 +266,48 @@ class MorningReportService:
                 time_of_day.append(f"晚間 {evening}")
             parts.append(f"今日行程 {ts['total']} 場（{'/'.join(time_of_day) or '時段未定'}）")
             if ts.get("overload"):
-                details.append(
+                sec.append(
                     f"  📛 今日 {ts['total']} 場行程超載（>=5），建議提前協調"
                 )
             for conflict in ts.get("conflicts", [])[:3]:
-                details.append(
+                sec.append(
                     f"  ⚠️ 衝突：{conflict['a_time']} {conflict['a_title']} "
                     f"與 {conflict['b_time']} {conflict['b_title']}"
                 )
+        if sec:
+            sections_detail.append(sec)
 
-        # 11. 遺漏建檔
+        # ── 7. 遺漏建檔 ──
         mc = data.get("missing_calendar_events", {}) if _on("missing") else {}
+        sec = []
         if mc.get("count", 0) > 0:
             parts.append(f"⚠️ 公文未建行事曆 {mc['count']} 件")
             for item in mc.get("items", [])[:3]:
-                details.append(
+                sec.append(
                     f"  📭 {item['doc_number']} {item['subject']}"
                     f"（{item['category']}，收文 {item['days_ago']} 天）"
                 )
+        if sec:
+            sections_detail.append(sec)
 
-        # 12. PM 逾期里程碑（B2 optional）
+        # ── 8. PM 逾期里程碑（B2 optional）──
         if _on("pm_milestone"):
             pm = data.get("pm_overdue_milestones", {}) or {}
+            sec = []
             if pm.get("count", 0) > 0:
                 parts.append(f"PM 逾期里程碑 {pm['count']} 項")
                 for item in pm.get("items", [])[:5]:
-                    details.append(
+                    sec.append(
                         f"  🏁 逾期 {item['overdue_days']} 天 {item['case_code']} "
                         f"{item['milestone_name']}（{item['status']}）"
                     )
+            if sec:
+                sections_detail.append(sec)
 
-        # 13. ERP 待審費用（B2 optional）— >3 天 pending
+        # ── 9. ERP 待審費用（B2 optional）──
         if _on("erp_expense"):
             ex = data.get("erp_pending_expenses", {}) or {}
+            sec = []
             if ex.get("count", 0) > 0:
                 total = ex.get("total_amount", 0)
                 parts.append(
@@ -287,18 +315,23 @@ class MorningReportService:
                     f"(合計 NT$ {int(total):,})"
                 )
                 for item in ex.get("items", [])[:3]:
-                    details.append(
+                    sec.append(
                         f"  💰 {item['inv_num']} NT$ {int(item['amount']):,} "
                         f"〔{item['status']}〕{item['uploader']}"
                     )
+            if sec:
+                sections_detail.append(sec)
 
         if not parts:
             return f"📋 {_now_taipei().strftime('%m/%d')} 晨報：今日無待處理派工/會議/現勘事項。👍"
 
-        # 組合輸出（不依賴 LLM，避免資訊遺失與延遲）
+        # 組合輸出 — 各 section 之間加區隔線
         header = f"📋 {_now_taipei().strftime('%m/%d')} 晨報\n"
         summary_line = " | ".join(parts)
-        detail_text = "\n".join(details) if details else ""
+        separator = "\n  ─────────────────"
+        detail_text = separator.join(
+            "\n".join(lines) for lines in sections_detail if lines
+        )
 
         report = f"{header}\n📊 {summary_line}\n"
         if detail_text:
@@ -418,9 +451,8 @@ class MorningReportService:
             week_items = []
             for row in r.all():
                 closure = row[11]  # closure_level
-                if closure in ("closed", "delivered", "all_completed",
-                              "pending_closure", "scheduled"):
-                    continue  # 到期清單不含已完成/有排程項目
+                if closure in ("closed", "delivered", "all_completed"):
+                    continue  # 到期清單：排除已交付，保留 scheduled/pending_closure
                 dl = self._parse_roc_date(row[2])
                 if not dl:
                     continue
