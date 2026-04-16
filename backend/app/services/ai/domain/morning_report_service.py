@@ -305,19 +305,35 @@ class MorningReportService:
                 pass
         return None
 
-    # A4+L2L3: 共用 CTE — latest_record + doc_links + 三層結案判定
+    # A4+L2L3: 共用 CTE — 聚合完成比例 + doc_links + 三層結案判定
+    #
+    # 改用聚合邏輯（與前端 UI 進度條 3/3 對齊）：
+    #   record_progress: total_records, completed_count, completion_ratio
+    #   latest_record:   最新一筆的 category/milestone（供 progress label 渲染）
+    #   has_work_result: 是否有任何 work_result + completed（成果已交付信號）
     #
     # closure_level 分層：
-    #   'closed'          — L1: milestone=closed/final_approval + completed → 完全排除
-    #   'delivered'       — L2: work_result + completed + has_out → 完全排除（成果已交付）
-    #   'pending_closure' — L3: any completed + has_out → 降級顯示為「待結案確認」
-    #   'active'          — 真正進行中或逾期
+    #   'closed'          — L1: milestone=closed/final_approval 且 completed
+    #   'delivered'       — L2: 有 work_result completed + has_out（成果已交付）
+    #   'all_completed'   — L2b: 聚合完成比例 = 100% + has_out（全部完成+已發文）
+    #   'pending_closure' — L3: 聚合完成比例 = 100% 但無 has_out（完成但未發文）
+    #   'active'          — 進行中或逾期
     #
     # 設計依據：用戶指示「以作業進度 + 公文對照其狀態期限為基準，非 batch_no」。
     _ACTIVE_DISPATCHES_SQL = """
-        WITH latest_record AS (
+        WITH record_progress AS (
+          SELECT dispatch_order_id,
+                 COUNT(*) AS total_records,
+                 COUNT(*) FILTER (WHERE status = 'completed') AS completed_count,
+                 BOOL_OR(work_category = 'work_result' AND status = 'completed') AS has_work_result_completed,
+                 BOOL_OR(milestone_type IN ('closed', 'final_approval') AND status = 'completed') AS has_formal_closure
+          FROM taoyuan_work_records
+          WHERE dispatch_order_id IS NOT NULL
+          GROUP BY dispatch_order_id
+        ),
+        latest_record AS (
           SELECT DISTINCT ON (dispatch_order_id)
-            dispatch_order_id, milestone_type, work_category, status, record_date
+            dispatch_order_id, milestone_type, work_category, status
           FROM taoyuan_work_records
           WHERE dispatch_order_id IS NOT NULL
           ORDER BY dispatch_order_id, record_date DESC, id DESC
@@ -335,19 +351,26 @@ class MorningReportService:
                COALESCE(dl.has_in, false) AS has_in,
                COALESCE(dl.has_out, false) AS has_out,
                CASE
-                 WHEN l.milestone_type IN ('closed', 'final_approval')
-                      AND l.status = 'completed'
+                 WHEN COALESCE(rp.has_formal_closure, false)
                    THEN 'closed'
-                 WHEN l.work_category = 'work_result'
-                      AND l.status = 'completed'
+                 WHEN rp.total_records > 0
+                      AND rp.completed_count = rp.total_records
+                      AND COALESCE(rp.has_work_result_completed, false)
                       AND COALESCE(dl.has_out, false) = true
                    THEN 'delivered'
-                 WHEN l.status = 'completed'
+                 WHEN rp.total_records > 0
+                      AND rp.completed_count = rp.total_records
                       AND COALESCE(dl.has_out, false) = true
+                   THEN 'all_completed'
+                 WHEN rp.total_records > 0
+                      AND rp.completed_count = rp.total_records
                    THEN 'pending_closure'
                  ELSE 'active'
-               END AS closure_level
+               END AS closure_level,
+               COALESCE(rp.completed_count, 0) AS completed_count,
+               COALESCE(rp.total_records, 0) AS total_records
         FROM taoyuan_dispatch_orders d
+        LEFT JOIN record_progress rp ON rp.dispatch_order_id = d.id
         LEFT JOIN latest_record l ON l.dispatch_order_id = d.id
         LEFT JOIN doc_links dl ON dl.dispatch_order_id = d.id
         WHERE d.deadline IS NOT NULL
@@ -368,11 +391,13 @@ class MorningReportService:
             week_items = []
             for row in r.all():
                 closure = row[11]  # closure_level
-                if closure in ("closed", "delivered", "pending_closure"):
+                if closure in ("closed", "delivered", "all_completed", "pending_closure"):
                     continue  # 到期清單不含已完成項目
                 dl = self._parse_roc_date(row[2])
                 if not dl:
                     continue
+                completed_n, total_n = row[12], row[13]
+                progress_bar = f" ({completed_n}/{total_n})" if total_n else ""
                 item = {
                     "dispatch_no": row[1],
                     "deadline": str(dl),
@@ -382,7 +407,7 @@ class MorningReportService:
                     "days_left": (dl - today).days,
                     "progress": self._format_dispatch_progress(
                         row[6], row[7], row[8], row[9], row[10]
-                    ),
+                    ) + progress_bar,
                 }
                 if dl == today:
                     today_items.append(item)
@@ -466,20 +491,22 @@ class MorningReportService:
                 if not dl or dl >= today:
                     continue
                 closure = row[11]  # closure_level
-                if closure in ("closed", "delivered"):
-                    continue  # L1+L2: 完全排除
+                if closure in ("closed", "delivered", "all_completed"):
+                    continue  # L1+L2+L2b: 完全排除（成果已交付或全部完成+已發文）
+                completed_n, total_n = row[12], row[13]
+                progress_bar = f" ({completed_n}/{total_n})" if total_n else ""
                 item = {
                     "dispatch_no": row[1],
                     "deadline": str(dl),
                     "progress": self._format_dispatch_progress(
                         row[6], row[7], row[8], row[9], row[10]
-                    ),
+                    ) + progress_bar,
                     "project_name": row[3] or "",
                     "handler": row[4] or "",
                     "overdue_days": (today - dl).days,
                 }
                 if closure == "pending_closure":
-                    pending_closure.append(item)  # L3: 待結案確認
+                    pending_closure.append(item)  # L3: 全部完成但未發文
                 else:
                     overdue_dispatches.append(item)  # active: 真正逾期
             overdue_dispatches.sort(key=lambda x: -x["overdue_days"])
