@@ -30,8 +30,8 @@ class TenderSearchRequest(BaseModel):
 
 
 class TenderDetailRequest(BaseModel):
-    unit_id: str = Field(..., description="機關代碼")
-    job_number: str = Field(..., description="標案案號")
+    unit_id: str = Field(..., description="機關代碼 或 ezbid_id")
+    job_number: Optional[str] = Field(None, description="標案案號（ezbid 時可為空）")
 
 
 class TenderCompanySearchRequest(BaseModel):
@@ -153,9 +153,52 @@ async def get_tender_detail(
     req: TenderDetailRequest,
     service: TenderSearchService = Depends(get_tender_service),
 ):
-    """取得標案詳情 (含歷次公告)"""
+    """取得標案詳情 (含歷次公告)
+
+    支援兩種 ID：
+    - PCC: unit_id + job_number (e.g. "A.19.4.8" + "115-1528-02")
+    - ezbid: unit_id = 純數字 ezbid_id, job_number = None
+    """
+    # ezbid-only: 純數字 + 無 job_number → 查 DB tender_records
+    is_ezbid = req.unit_id.isdigit() and not req.job_number
+    if is_ezbid:
+        try:
+            from app.db.database import async_session_maker
+            from sqlalchemy import text as sa_text
+            async with async_session_maker() as db:
+                r = await db.execute(sa_text("""
+                    SELECT title, unit_name, budget, announce_date, status,
+                           unit_id, job_number, source, ezbid_url
+                    FROM tender_records
+                    WHERE ezbid_id = :eid
+                    ORDER BY announce_date DESC LIMIT 1
+                """), {"eid": req.unit_id})
+                row = r.one_or_none()
+                if row:
+                    result = {
+                        "unit_id": row[5] or req.unit_id,
+                        "job_number": row[6] or "",
+                        "title": row[0] or "",
+                        "unit_name": row[1] or "",
+                        "budget": row[2],
+                        "announce_date": str(row[3]) if row[3] else "",
+                        "status": row[4] or "",
+                        "source": "ezbid_db",
+                        "ezbid_url": row[8] or f"https://cf.ezbid.tw/tender/{req.unit_id}",
+                    }
+                    # 如果有 PCC unit_id + job_number，嘗試補充 PCC 詳情
+                    if row[5] and row[6] and not row[5].isdigit():
+                        pcc_result = await service.get_tender_detail(row[5], row[6])
+                        if pcc_result:
+                            pcc_result["ezbid_url"] = result["ezbid_url"]
+                            return SuccessResponse(data=pcc_result)
+                    return SuccessResponse(data=result)
+        except Exception:
+            pass
+        return SuccessResponse(data=None, message="查無此 ezbid 標案")
+
     result = await service.get_tender_detail(
-        unit_id=req.unit_id, job_number=req.job_number,
+        unit_id=req.unit_id, job_number=req.job_number or "",
     )
     if not result:
         return SuccessResponse(data=None, message="查無此標案")
