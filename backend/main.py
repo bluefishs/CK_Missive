@@ -56,6 +56,7 @@ from app.extended.models import Base
 from app.core.cors import allowed_origins
 from app.core.rate_limiter import setup_rate_limiter
 from app.core.middleware import RequestIdMiddleware
+from app.core.prometheus_middleware import PrometheusMiddleware, get_metrics_endpoint
 
 # --- 統一日誌編碼配置 (解決 Windows 終端中文亂碼) ---
 if sys.platform == "win32":
@@ -530,6 +531,13 @@ app.add_middleware(CSRFMiddleware)
 # --- 🛡️ Tunnel 路由守衛 (v5.2.2) ---
 from app.core.tunnel_guard import TunnelGuardMiddleware
 app.add_middleware(TunnelGuardMiddleware)
+
+# --- 📊 Prometheus 指標中間件 (v5.5.8) ---
+app.add_middleware(
+    PrometheusMiddleware,
+    exclude_paths=["/health", "/health/liveness", "/health/readiness", "/metrics"],
+)
+app.add_route("/metrics", get_metrics_endpoint())
 
 # --- 🔍 Request ID 追蹤中間件 (v1.83.0) ---
 # 最後加入 = 最外層執行，確保所有中間件/端點都能存取 request_id

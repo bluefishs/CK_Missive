@@ -20,9 +20,15 @@ import sys
 import secrets
 import logging
 from pathlib import Path
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
+from app.core.secret_loader import read_secret
 
 logger = logging.getLogger(__name__)
+
+
+def _secret_or_default(env_key: str, default: Optional[str] = None) -> Optional[str]:
+    """Settings field default_factory helper — Docker Secrets > env var > default."""
+    return read_secret(env_key, default=default)
 
 
 def generate_default_secret_key() -> str:
@@ -236,6 +242,28 @@ class Settings(BaseSettings):
                 "請在 .env 中設定固定的 SECRET_KEY"
             )
         return v
+
+    @model_validator(mode="after")
+    def _apply_docker_secrets(self):
+        """Tier-1 Docker Secrets: 檔案值覆蓋空白的 env var 設定。
+
+        支援的 secret 檔案名稱:
+        - /run/secrets/postgres_password → POSTGRES_PASSWORD
+        - /run/secrets/secret_key → SECRET_KEY
+        """
+        _TIER1_FIELDS = {
+            "POSTGRES_PASSWORD": "postgres_password",
+            "SECRET_KEY": "secret_key",
+        }
+        for env_key, secret_name in _TIER1_FIELDS.items():
+            current = getattr(self, env_key, "")
+            # 只在值為空或是自動生成的 dev key 時嘗試 Docker Secrets
+            is_empty_or_dev = not current or current.startswith("dev_only_")
+            if is_empty_or_dev:
+                secret_val = read_secret(env_key, secret_name=secret_name)
+                if secret_val:
+                    object.__setattr__(self, env_key, secret_val)
+        return self
 
     model_config = ConfigDict(
         # 自動搜尋 .env 檔案：優先使用專案根目錄

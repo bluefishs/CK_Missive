@@ -147,14 +147,15 @@ class SystemLogManager:
             console_handler = logging.StreamHandler()
             console_handler.setLevel(logging.ERROR)
             
-            # 日誌格式
-            formatter = logging.Formatter(
+            # 日誌格式 — file handler 用 JSON (Loki compatible)，console 用 human-readable
+            from app.core.json_log_formatter import JsonLogFormatter
+            file_handler.setFormatter(JsonLogFormatter())
+
+            console_formatter = logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             )
-            
-            file_handler.setFormatter(formatter)
-            console_handler.setFormatter(formatter)
+            console_handler.setFormatter(console_formatter)
             
             logger.addHandler(file_handler)
             logger.addHandler(console_handler)
