@@ -114,21 +114,56 @@ async def dispatch_morning_status(
 
     svc = MorningReportService(db)
     from sqlalchemy import text
+    from datetime import date as _date
+    from app.services.ai.domain.morning_report_service import _now_taipei
+
+    today = _now_taipei().date()
     r = await db.execute(text(svc._ACTIVE_DISPATCHES_SQL))
+
+    # 作業類別 label 對照
+    cat_labels = {
+        "admin_notice": "行政通知", "dispatch_notice": "派工通知",
+        "work_result": "成果回函", "meeting_notice": "會議通知",
+        "meeting_record": "會議紀錄", "survey_notice": "會勘通知",
+        "survey_record": "會勘紀錄", "other": "其他",
+    }
+
     items = []
     for row in r.all():
         dl = svc._parse_roc_date(row[2])
         completed_n, total_n = row[12], row[13]
         next_event = row[14]
+        closure = row[11]
+        work_cat = row[7] or ""
+
+        # display_status: 依 closure_level + 期限 + 紀錄數 細分
+        if closure in ("closed",):
+            display_status = "已結案"
+        elif closure in ("delivered", "all_completed"):
+            display_status = "已交付"
+        elif closure == "scheduled":
+            display_status = "排程中"
+        elif closure == "pending_closure":
+            display_status = "待結案"
+        elif total_n == 0:
+            display_status = "闕漏紀錄"
+        elif dl and dl >= today:
+            display_status = "進行中"
+        else:
+            display_status = "逾期"
+
         items.append({
             "id": row[0],
             "dispatch_no": row[1],
-            "deadline": str(dl) if dl else row[2],
+            "deadline": str(dl) if dl else "",
             "deadline_raw": row[2],
             "project_name": row[3] or "",
             "handler": row[4] or "",
             "sub_case": row[5] or "",
-            "closure_level": row[11],
+            "closure_level": closure,
+            "display_status": display_status,
+            "work_category": work_cat,
+            "work_category_label": cat_labels.get(work_cat, work_cat or "-"),
             "completed_count": completed_n,
             "total_records": total_n,
             "progress": svc._format_dispatch_progress(
@@ -137,17 +172,17 @@ async def dispatch_morning_status(
             "next_event": str(next_event.date()) if hasattr(next_event, 'date') and next_event else str(next_event) if next_event else None,
         })
 
-    # 統計摘要
-    levels = {}
+    # 統計摘要 — 以 display_status 計
+    status_counts = {}
     for item in items:
-        lv = item["closure_level"]
-        levels[lv] = levels.get(lv, 0) + 1
+        ds = item["display_status"]
+        status_counts[ds] = status_counts.get(ds, 0) + 1
 
     return JSONResponse(
         {
             "success": True,
             "total": len(items),
-            "summary": levels,
+            "summary": status_counts,
             "items": items,
         },
         media_type="application/json; charset=utf-8",
