@@ -29,6 +29,7 @@ import {
   SendOutlined,
   DollarOutlined,
   AppstoreOutlined,
+  AlertOutlined,
 } from '@ant-design/icons';
 
 import { useResponsive } from '../hooks';
@@ -39,6 +40,7 @@ import { DispatchOrdersTab } from '../components/taoyuan/DispatchOrdersTab';
 import { PaymentsTab } from '../components/taoyuan/PaymentsTab';
 import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
 import { DispatchOverviewTab } from '../components/taoyuan/DispatchOverviewTab';
+import { MorningReportTrackingTab } from '../components/taoyuan/MorningReportTrackingTab';
 
 const { Title, Text } = Typography;
 
@@ -201,6 +203,16 @@ export const TaoyuanDispatchPage: React.FC = () => {
               </span>
             ),
             children: <ProjectsTab contractProjectId={selectedProjectId} />,
+          },
+          {
+            key: '5',
+            label: (
+              <span>
+                <AlertOutlined />
+                {isMobile ? '晨報' : '晨報追蹤'}
+              </span>
+            ),
+            children: <MorningReportTrackingTab />,
           },
         ]}
       />

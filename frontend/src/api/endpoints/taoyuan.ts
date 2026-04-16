@@ -155,4 +155,8 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   WORKFLOW_BATCH_UPDATE: '/taoyuan-dispatch/workflow/batch-update',
   /** 工程歷程總覽 POST /taoyuan-dispatch/workflow/summary/:projectId */
   WORKFLOW_SUMMARY: (projectId: number) => `/taoyuan-dispatch/workflow/summary/${projectId}`,
+
+  // 晨報追蹤
+  /** 派工晨報狀態 POST /taoyuan-dispatch/dispatch/morning-status */
+  DISPATCH_MORNING_STATUS: '/taoyuan-dispatch/dispatch/morning-status',
 } as const;
