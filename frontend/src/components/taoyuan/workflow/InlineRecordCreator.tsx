@@ -196,7 +196,8 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
         taoyuan_project_id: projectId,
         work_category: values.work_category,
         work_type_id: values.work_type_id
-          || (workTypeItems.length === 1 ? workTypeItems[0]!.id : undefined),
+          || (workTypeItems.length === 1 ? workTypeItems[0]!.id : undefined)
+          || undefined,
         document_id: values.document_id || undefined,
         parent_record_id: values.parent_record_id || undefined,
         status: values.status,
@@ -284,15 +285,18 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
           <Form.Item
             name="work_type_id"
             label="所屬作業"
-            rules={[{ required: true, message: '請選擇所屬作業' }]}
             style={{ marginBottom: 8 }}
           >
             <Select
-              placeholder="請選擇此紀錄所屬的作業項目"
-              options={workTypeItems.map(wt => ({
-                value: wt.id,
-                label: wt.work_type,
-              }))}
+              placeholder="共用 (全部作業)"
+              allowClear
+              options={[
+                { value: null as unknown as number, label: '共用 (全部作業)' },
+                ...workTypeItems.map(wt => ({
+                  value: wt.id,
+                  label: wt.work_type,
+                })),
+              ]}
             />
           </Form.Item>
         )}

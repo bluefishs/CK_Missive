@@ -174,14 +174,17 @@ const WorkRecordFormPage: React.FC = () => {
               <Form.Item
                 name="work_type_id"
                 label="所屬作業"
-                rules={[{ required: true, message: '請選擇此紀錄所屬的作業項目' }]}
               >
                 <Select
-                  placeholder="請選擇所屬作業項目"
-                  options={workTypeItems.map(wt => ({
-                    value: wt.id,
-                    label: wt.work_type,
-                  }))}
+                  placeholder="共用 (全部作業)"
+                  allowClear
+                  options={[
+                    { value: null as unknown as number, label: '共用 (全部作業)' },
+                    ...workTypeItems.map(wt => ({
+                      value: wt.id,
+                      label: wt.work_type,
+                    })),
+                  ]}
                 />
               </Form.Item>
             )}
