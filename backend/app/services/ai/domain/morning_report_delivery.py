@@ -203,6 +203,46 @@ async def get_active_subscriptions(
     ]
 
 
+async def ensure_admin_subscription(db: AsyncSession) -> None:
+    """B-fix2: 啟動時自動從 ENV 建立 admin 訂閱（如尚無任何訂閱）。
+
+    僅在 subscriptions 表為空時建立，避免重複。
+    """
+    import os
+    r = await db.execute(
+        select(func.count(UserMorningReportSubscription.id))
+    )
+    if (r.scalar() or 0) > 0:
+        return  # 已有訂閱，不覆蓋
+
+    tg_chat = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+    if tg_chat:
+        db.add(UserMorningReportSubscription(
+            display_name="Admin (Telegram)",
+            channel="telegram",
+            channel_recipient=str(tg_chat),
+            sections="all",
+            enabled=True,
+        ))
+
+    line_uid = os.getenv("LINE_ADMIN_USER_ID")
+    if line_uid:
+        db.add(UserMorningReportSubscription(
+            display_name="Admin (LINE)",
+            channel="line",
+            channel_recipient=line_uid,
+            sections="all",
+            enabled=True,
+        ))
+
+    try:
+        await db.commit()
+        logger.info("morning_report: admin subscription seeded from ENV")
+    except Exception as e:
+        logger.warning("morning_report: admin seed failed: %s", e)
+        await db.rollback()
+
+
 async def consecutive_failure_days(
     db: AsyncSession, channel: str, window_days: int = 7
 ) -> int:

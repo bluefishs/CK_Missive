@@ -16,18 +16,29 @@ logger = logging.getLogger(__name__)
 
 
 def dedup_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """同一標案 (unit_id+job_number) 多次公告只保留最新一筆（更正公告優先）"""
+    """同一標案去重 — unit_id+job_number 優先，fallback title+unit_name。
+
+    多 source (PCC + ezbid) 的同一標案保留最新一筆。
+    """
     seen: Dict[str, Dict[str, Any]] = {}
     for r in records:
         uid = r.get("unit_id", "")
         jn = r.get("job_number", "")
+        title = r.get("title", "")
+
         if uid and jn:
             key = f"{uid}:{jn}"
-            existing = seen.get(key)
-            if not existing or (r.get("date", "") > existing.get("date", "")):
-                seen[key] = r
+        elif title:
+            # ezbid 紀錄無 job_number — 用 title+unit_name 做 dedup key
+            unit = r.get("unit_name", "")
+            key = f"title:{title[:80]}:{unit[:30]}"
         else:
-            seen[id(r)] = r
+            seen[str(id(r))] = r
+            continue
+
+        existing = seen.get(key)
+        if not existing or (r.get("date", "") > existing.get("date", "")):
+            seen[key] = r
     return list(seen.values())
 
 

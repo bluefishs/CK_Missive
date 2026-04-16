@@ -1375,11 +1375,30 @@ def setup_scheduler(
 
 
 def start_scheduler():
-    """啟動排程器"""
+    """啟動排程器 + admin subscription seed"""
     scheduler = get_scheduler()
     if not scheduler.running:
         scheduler.start()
         logger.info("排程器已啟動")
+
+        # B-fix2: 自動從 ENV 建立 admin 訂閱（首次啟動時）
+        import asyncio
+        async def _seed():
+            try:
+                from app.db.database import async_session_maker
+                from app.services.ai.domain.morning_report_delivery import ensure_admin_subscription
+                async with async_session_maker() as db:
+                    await ensure_admin_subscription(db)
+            except Exception as e:
+                logger.debug("admin subscription seed skipped: %s", e)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(_seed())
+            else:
+                loop.run_until_complete(_seed())
+        except Exception:
+            pass
     else:
         logger.info("排程器已在運行中")
 
