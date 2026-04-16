@@ -1,16 +1,17 @@
 /**
- * DispatchOverviewTab - 派工總覽看板
+ * DispatchOverviewTab - 派工總覽（看板 + 表格雙模式）
  *
- * 以作業類別為欄位、派工單為卡片的 Kanban 看板總覽。
- * 直接從承攬案件的所有派工單產生看板資料，不需要關聯工程。
+ * 方案 C 整合：統一使用 morning-status API 的 display_status
+ * - Segmented 切換：看板模式 / 表格模式
+ * - 統計卡片共用 display_status（唯一狀態來源）
+ * - 看板卡片標示 display_status Badge
+ * - 表格模式 = 原晨報追蹤功能（排序/篩選/搜尋）
  *
- * 桌面：水平滾動看板欄；手機：Collapse 摺疊面板。
- *
- * @version 1.0.0
- * @date 2026-04-05
+ * @version 2.0.0 — 方案 C 整合
+ * @date 2026-04-16
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Collapse,
   Spin,
@@ -22,17 +23,22 @@ import {
   Col,
   Statistic,
   Card,
+  Segmented,
 } from 'antd';
 import {
   PlusOutlined,
-  SendOutlined,
   CheckCircleOutlined,
-  ClockCircleOutlined,
-  AppstoreOutlined,
+  CalendarOutlined,
+  SyncOutlined,
   WarningOutlined,
+  AppstoreOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ROUTES } from '../../router/types';
+import { apiClient } from '../../api/client';
+import { TAOYUAN_DISPATCH_ENDPOINTS } from '../../api/endpoints';
 
 import { useResponsive } from '../../hooks/utility/useResponsive';
 import { useTaoyuanDispatchOrders } from '../../hooks';
@@ -45,7 +51,8 @@ import {
   type KanbanColumnData,
   type KanbanCardData,
 } from './kanban/kanbanConstants';
-import type { DispatchOrder, WorkRecordStatus } from '../../types/taoyuan';
+import { MorningReportTrackingTable, type MorningStatusResponse } from './MorningReportTrackingTable';
+import type { WorkRecordStatus } from '../../types/taoyuan';
 
 const { Text } = Typography;
 
@@ -57,36 +64,69 @@ interface DispatchOverviewTabProps {
   contractProjectId: number;
 }
 
+// display_status → WorkRecordStatus 映射（供看板 Tag 相容）
+const STATUS_TO_WRS: Record<string, WorkRecordStatus> = {
+  '已交付': 'completed',
+  '已結案': 'completed',
+  '排程中': 'in_progress',
+  '進行中': 'in_progress',
+  '逾期': 'overdue',
+  '闕漏紀錄': 'pending',
+  '待結案': 'completed',
+};
+
 // ============================================================================
-// Hook: build kanban data from dispatch orders
+// Hook: build kanban data from dispatch orders + morning-status
 // ============================================================================
 
 function useDispatchOverviewKanban(contractProjectId: number) {
   const {
     dispatchOrders,
     total,
-    isLoading,
+    isLoading: ordersLoading,
     refetch,
   } = useTaoyuanDispatchOrders({
     contract_project_id: contractProjectId,
     limit: 200,
   });
 
+  // 同時 fetch morning-status 用 display_status 統一狀態
+  const { data: morningData, isLoading: morningLoading } = useQuery({
+    queryKey: ['dispatch-morning-status'],
+    queryFn: () =>
+      apiClient.post<MorningStatusResponse>(
+        TAOYUAN_DISPATCH_ENDPOINTS.DISPATCH_MORNING_STATUS, {}
+      ),
+    staleTime: 60_000,
+  });
+
+  const isLoading = ordersLoading || morningLoading;
+
+  // 建立 id → display_status 查找表
+  const statusMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const item of (morningData?.items ?? []) as { id: number; display_status: string }[]) {
+      map.set(item.id, item.display_status);
+    }
+    return map;
+  }, [morningData]);
+
   const columns = useMemo<KanbanColumnData[]>(() => {
     const columnMap = new Map<string, KanbanCardData[]>();
 
     for (const dispatch of dispatchOrders) {
       const workTypes = getWorkTypes(dispatch);
+      const displayStatus = statusMap.get(dispatch.id) || '進行中';
+      const wrs = STATUS_TO_WRS[displayStatus] || 'in_progress';
       const wp = dispatch.work_progress;
       const card: KanbanCardData = {
-        dispatch,
-        computedStatus: getDispatchStatus(dispatch),
+        dispatch: { ...dispatch, _displayStatus: displayStatus } as typeof dispatch,
+        computedStatus: wrs,
         recordCount: wp?.total ?? 0,
         recordIds: [],
       };
 
       if (workTypes.length === 0) {
-        // No work type assigned -- put in first column
         const first = ALL_WORK_TYPES[0] as string;
         const list = columnMap.get(first) || [];
         list.push(card);
@@ -105,153 +145,68 @@ function useDispatchOverviewKanban(contractProjectId: number) {
       color: getWorkTypeColor(wt),
       cards: columnMap.get(wt) || [],
     }));
-  }, [dispatchOrders]);
+  }, [dispatchOrders, statusMap]);
 
-  // Summary stats — derived from same getDispatchStatus logic
-  const stats = useMemo(() => {
-    let completed = 0;
-    let inProgress = 0;
-    let overdue = 0;
-    let pending = 0;
-    let atRisk = 0;
-    const workTypeSet = new Set<string>();
-
-    for (const d of dispatchOrders) {
-      const status = getDispatchStatus(d);
-      if (status === 'completed') completed++;
-      else if (status === 'overdue') overdue++;
-      else if (status === 'in_progress') inProgress++;
-      else pending++;
-
-      // Count dispatches with deadline within 7 days (not completed)
-      if (d.deadline && status !== 'completed') {
-        const days = Math.ceil((new Date(d.deadline).getTime() - Date.now()) / 86400000);
-        if (days >= 0 && days <= 7) atRisk++;
-      }
-
-      for (const wt of getWorkTypes(d)) {
-        workTypeSet.add(wt);
-      }
-    }
-
-    return {
-      total,
-      completed,
-      inProgress,
-      overdue,
-      pending,
-      atRisk,
-      workTypeCount: workTypeSet.size,
-    };
-  }, [dispatchOrders, total]);
-
-  return { columns, stats, isLoading, refetch };
-}
-
-/**
- * Get dispatch status — prefer backend work_progress.status (from work records),
- * fallback to batch_no/deadline heuristics.
- */
-function getDispatchStatus(dispatch: DispatchOrder): WorkRecordStatus {
-  // 1. 優先使用後端計算的 work_progress.status (最準確)
-  if (dispatch.work_progress?.status) {
-    return dispatch.work_progress.status as WorkRecordStatus;
-  }
-
-  // 2. Fallback: batch_no → 結案
-  if (dispatch.batch_no != null && dispatch.batch_no > 0) return 'completed';
-
-  // 3. Fallback: deadline 已過 → 逾期
-  if (dispatch.deadline) {
-    const dl = new Date(dispatch.deadline);
-    if (dl < new Date()) return 'overdue';
-  }
-
-  // 4. Fallback: 有公文活動 → 進行中
-  if (dispatch.company_doc_id || dispatch.agency_doc_id) return 'in_progress';
-  if (dispatch.linked_documents && dispatch.linked_documents.length > 0) return 'in_progress';
-
-  return 'pending';
+  return { columns, morningData, total, isLoading, refetch };
 }
 
 // ============================================================================
-// Stats summary
+// Stats summary — 統一使用 morning-status display_status
 // ============================================================================
 
 const OverviewStats: React.FC<{
-  stats: {
-    total: number;
-    completed: number;
-    inProgress: number;
-    overdue: number;
-    pending: number;
-    atRisk: number;
-    workTypeCount: number;
-  };
-}> = ({ stats }) => (
-  <Card size="small" style={{ marginBottom: 16 }}>
-    <Row gutter={[16, 8]} align="middle">
-      <Col xs={12} sm={6} md={4}>
-        <Statistic
-          title="派工總數"
-          value={stats.total}
-          prefix={<SendOutlined />}
-        />
+  summary: Record<string, number>;
+  total: number;
+  onFilter: (status: string | undefined) => void;
+  activeFilter: string | undefined;
+}> = ({ summary, total, onFilter, activeFilter }) => {
+  const done = (summary['已交付'] ?? 0) + (summary['已結案'] ?? 0);
+  const scheduled = summary['排程中'] ?? 0;
+  const inProgress = summary['進行中'] ?? 0;
+  const overdue = summary['逾期'] ?? 0;
+  const missing = summary['闕漏紀錄'] ?? 0;
+  const actionNeeded = overdue + missing;
+
+  const toggle = (s: string) => onFilter(activeFilter === s ? undefined : s);
+
+  return (
+    <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+      <Col xs={12} sm={6}>
+        <Card size="small" hoverable onClick={() => toggle('已交付')}
+              style={{ borderTop: activeFilter === '已交付' ? '3px solid #52c41a' : undefined }}>
+          <Statistic title="已完成/交付" value={done} valueStyle={{ color: '#52c41a' }}
+                     prefix={<CheckCircleOutlined />}
+                     suffix={<Text type="secondary" style={{ fontSize: 12 }}>/{total}</Text>} />
+        </Card>
       </Col>
-      <Col xs={12} sm={6} md={4}>
-        <Statistic
-          title="已結案"
-          value={stats.completed}
-          prefix={<CheckCircleOutlined />}
-          valueStyle={{ color: '#52c41a' }}
-        />
+      <Col xs={12} sm={6}>
+        <Card size="small" hoverable onClick={() => toggle('排程中')}
+              style={{ borderTop: activeFilter === '排程中' ? '3px solid #1890ff' : undefined }}>
+          <Statistic title="排程中" value={scheduled} valueStyle={{ color: '#1890ff' }}
+                     prefix={<CalendarOutlined />} suffix="筆" />
+        </Card>
       </Col>
-      <Col xs={12} sm={6} md={4}>
-        <Statistic
-          title="進行中"
-          value={stats.inProgress}
-          prefix={<ClockCircleOutlined />}
-          valueStyle={{ color: '#1677ff' }}
-        />
+      <Col xs={12} sm={6}>
+        <Card size="small" hoverable onClick={() => toggle('進行中')}
+              style={{ borderTop: activeFilter === '進行中' ? '3px solid #fa8c16' : undefined }}>
+          <Statistic title="進行中" value={inProgress} valueStyle={{ color: '#fa8c16' }}
+                     prefix={<SyncOutlined />} suffix="筆" />
+        </Card>
       </Col>
-      {stats.overdue > 0 && (
-        <Col xs={12} sm={6} md={4}>
-          <Statistic
-            title="已逾期"
-            value={stats.overdue}
-            valueStyle={{ color: '#ff4d4f' }}
-          />
-        </Col>
-      )}
-      {stats.atRisk > 0 && (
-        <Col xs={12} sm={6} md={4}>
-          <Statistic
-            title="即將到期"
-            value={stats.atRisk}
-            prefix={<WarningOutlined />}
-            valueStyle={{ color: '#fa8c16' }}
-          />
-        </Col>
-      )}
-      {stats.pending > 0 && (
-        <Col xs={12} sm={6} md={4}>
-          <Statistic
-            title="未開始"
-            value={stats.pending}
-            valueStyle={{ color: '#8c8c8c' }}
-          />
-        </Col>
-      )}
-      <Col xs={12} sm={6} md={4}>
-        <Statistic
-          title="作業類別"
-          value={stats.workTypeCount}
-          prefix={<AppstoreOutlined />}
-        />
+      <Col xs={12} sm={6}>
+        <Card size="small" hoverable onClick={() => toggle('逾期')}
+              style={{ borderTop: activeFilter === '逾期' ? '3px solid #cf1322' : undefined }}>
+          <Statistic title="需處理" value={actionNeeded}
+                     valueStyle={{ color: actionNeeded > 0 ? '#cf1322' : '#999' }}
+                     prefix={<WarningOutlined />}
+                     suffix={missing > 0
+                       ? <Text type="secondary" style={{ fontSize: 11 }}>逾期{overdue}+闕漏{missing}</Text>
+                       : '筆'} />
+        </Card>
       </Col>
     </Row>
-  </Card>
-);
+  );
+};
 
 // ============================================================================
 // Main component
@@ -262,22 +217,19 @@ export const DispatchOverviewTab: React.FC<DispatchOverviewTabProps> = ({
 }) => {
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
-  const { columns, stats, isLoading } = useDispatchOverviewKanban(contractProjectId);
+  const { columns, morningData, total, isLoading } = useDispatchOverviewKanban(contractProjectId);
+  const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
 
   const handleCardClick = useCallback(
-    (dispatchId: number) => {
-      navigate(`/taoyuan/dispatch/${dispatchId}`);
-    },
+    (dispatchId: number) => navigate(`/taoyuan/dispatch/${dispatchId}`),
     [navigate],
   );
 
   const handleAddNew = useCallback(
     (workType: string) => {
       navigate(ROUTES.TAOYUAN_DISPATCH_CREATE, {
-        state: {
-          contract_project_id: contractProjectId,
-          work_type: workType,
-        },
+        state: { contract_project_id: contractProjectId, work_type: workType },
       });
     },
     [navigate, contractProjectId],
@@ -288,60 +240,57 @@ export const DispatchOverviewTab: React.FC<DispatchOverviewTabProps> = ({
     [columns],
   );
 
+  const summary = useMemo(() => morningData?.summary ?? {}, [morningData]);
+
   if (isLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 0' }}>
-        <Spin>
-          <div style={{ padding: 20 }}>
-            <Text type="secondary">載入派工總覽...</Text>
-          </div>
-        </Spin>
+        <Spin><div style={{ padding: 20 }}><Text type="secondary">載入派工總覽...</Text></div></Spin>
       </div>
-    );
-  }
-
-  if (totalCards === 0) {
-    return (
-      <Empty
-        description="尚無派工紀錄"
-        style={{ padding: '60px 0' }}
-      />
     );
   }
 
   return (
     <>
-      <OverviewStats stats={stats} />
+      {/* 統一統計卡片 */}
+      <OverviewStats
+        summary={summary}
+        total={morningData?.total ?? total}
+        onFilter={setStatusFilter}
+        activeFilter={statusFilter}
+      />
 
-      {isMobile ? (
-        <MobileOverviewKanban
-          columns={columns}
-          onCardClick={handleCardClick}
-          onAddNew={handleAddNew}
+      {/* Segmented 切換 */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Segmented
+          value={viewMode}
+          onChange={(v) => setViewMode(v as 'kanban' | 'table')}
+          options={[
+            { value: 'kanban', icon: <AppstoreOutlined />, label: isMobile ? '' : '看板' },
+            { value: 'table', icon: <UnorderedListOutlined />, label: isMobile ? '' : '表格' },
+          ]}
+          size={isMobile ? 'small' : 'middle'}
+        />
+      </div>
+
+      {viewMode === 'table' ? (
+        <MorningReportTrackingTable
+          data={morningData}
+          isLoading={false}
+          externalFilter={statusFilter}
         />
       ) : (
-        <div
-          style={{
-            display: 'flex',
-            gap: 12,
-            overflowX: 'auto',
-            overflowY: 'hidden',
-            paddingBottom: 8,
-            alignItems: 'flex-start',
-          }}
-        >
-          {columns
-            .filter((col) => col.cards.length > 0)
-            .map((col) => (
-              <KanbanColumn
-                key={col.workType}
-                data={col}
-                onCardClick={handleCardClick}
-                onAddNew={handleAddNew}
-                canEdit
-              />
+        totalCards === 0 ? (
+          <Empty description="尚無派工紀錄" style={{ padding: '60px 0' }} />
+        ) : isMobile ? (
+          <MobileOverviewKanban columns={columns} onCardClick={handleCardClick} onAddNew={handleAddNew} />
+        ) : (
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, alignItems: 'flex-start' }}>
+            {columns.filter((col) => col.cards.length > 0).map((col) => (
+              <KanbanColumn key={col.workType} data={col} onCardClick={handleCardClick} onAddNew={handleAddNew} canEdit />
             ))}
-        </div>
+          </div>
+        )
       )}
     </>
   );
@@ -385,25 +334,10 @@ const MobileOverviewKanbanInner: React.FC<MobileOverviewKanbanProps> = ({
             children: (
               <div style={{ padding: '4px 0' }}>
                 {col.cards.map((card) => (
-                  <KanbanCard
-                    key={card.dispatch.id}
-                    data={card}
-                    onClick={onCardClick}
-                  />
+                  <KanbanCard key={card.dispatch.id} data={card} onClick={onCardClick} />
                 ))}
-                <Button
-                  type="text"
-                  icon={<PlusOutlined />}
-                  onClick={() => onAddNew(col.workType)}
-                  block
-                  style={{
-                    marginTop: 4,
-                    color: '#8c8c8c',
-                    borderRadius: 6,
-                    height: 32,
-                    fontSize: 12,
-                  }}
-                >
+                <Button type="text" icon={<PlusOutlined />} onClick={() => onAddNew(col.workType)} block
+                  style={{ marginTop: 4, color: '#8c8c8c', borderRadius: 6, height: 32, fontSize: 12 }}>
                   新增派工
                 </Button>
               </div>
@@ -413,13 +347,7 @@ const MobileOverviewKanbanInner: React.FC<MobileOverviewKanbanProps> = ({
     [columns, onCardClick, onAddNew],
   );
 
-  return (
-    <Collapse
-      defaultActiveKey={defaultActive}
-      ghost
-      items={items}
-    />
-  );
+  return <Collapse defaultActiveKey={defaultActive} ghost items={items} />;
 };
 
 const MobileOverviewKanban = React.memo(MobileOverviewKanbanInner);

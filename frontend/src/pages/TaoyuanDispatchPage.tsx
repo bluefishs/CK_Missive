@@ -29,7 +29,6 @@ import {
   SendOutlined,
   DollarOutlined,
   AppstoreOutlined,
-  AlertOutlined,
 } from '@ant-design/icons';
 
 import { useResponsive } from '../hooks';
@@ -40,7 +39,6 @@ import { DispatchOrdersTab } from '../components/taoyuan/DispatchOrdersTab';
 import { PaymentsTab } from '../components/taoyuan/PaymentsTab';
 import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
 import { DispatchOverviewTab } from '../components/taoyuan/DispatchOverviewTab';
-import { MorningReportTrackingTab } from '../components/taoyuan/MorningReportTrackingTab';
 
 const { Title, Text } = Typography;
 
@@ -49,7 +47,9 @@ const { Title, Text } = Typography;
  */
 export const TaoyuanDispatchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') || '1';
+  // tab=5 (舊晨報追蹤) → tab=0 (已整合到總覽)
+  const rawTab = searchParams.get('tab') || '1';
+  const initialTab = rawTab === '5' ? '0' : rawTab;
   const initialProjectId = Number(searchParams.get('project')) || TAOYUAN_CONTRACT.PROJECT_ID;
   const [activeTab, setActiveTab] = useState(initialTab);
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId);
@@ -203,16 +203,6 @@ export const TaoyuanDispatchPage: React.FC = () => {
               </span>
             ),
             children: <ProjectsTab contractProjectId={selectedProjectId} />,
-          },
-          {
-            key: '5',
-            label: (
-              <span>
-                <AlertOutlined />
-                {isMobile ? '晨報' : '晨報追蹤'}
-              </span>
-            ),
-            children: <MorningReportTrackingTab />,
           },
         ]}
       />
