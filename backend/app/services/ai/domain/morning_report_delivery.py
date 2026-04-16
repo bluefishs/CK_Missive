@@ -15,7 +15,18 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.extended.models import MorningReportDeliveryLog
+from app.extended.models import (
+    MorningReportDeliveryLog,
+    MorningReportSnapshot,
+    UserMorningReportSubscription,
+)
+
+# B2: section key 對應 generate_report 的 dict key（供訂閱解析）
+SECTION_KEYS = {
+    "dispatch", "meeting", "site_visit", "missing",
+    "pm_milestone", "erp_expense",
+}
+DEFAULT_SECTIONS = {"dispatch", "meeting", "site_visit", "missing"}
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +99,105 @@ async def get_recent_deliveries(
             "sections_count": row.sections_count,
             "trigger_source": row.trigger_source,
             "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
+async def save_snapshot(
+    db: AsyncSession,
+    *,
+    report_date: date,
+    sections_json: dict,
+    summary_text: str,
+    sections_count: int,
+    generator_version: str = "v1.0",
+) -> None:
+    """B4: 寫入每日快照；同日重複寫入時 upsert 更新。"""
+    try:
+        existing = await db.execute(
+            select(MorningReportSnapshot).where(
+                MorningReportSnapshot.report_date == report_date
+            )
+        )
+        row = existing.scalar_one_or_none()
+        if row:
+            row.sections_json = sections_json
+            row.summary_text = summary_text
+            row.summary_length = len(summary_text)
+            row.sections_count = sections_count
+            row.generator_version = generator_version
+        else:
+            db.add(MorningReportSnapshot(
+                report_date=report_date,
+                sections_json=sections_json,
+                summary_text=summary_text,
+                summary_length=len(summary_text),
+                sections_count=sections_count,
+                generator_version=generator_version,
+            ))
+        await db.commit()
+    except Exception as e:
+        logger.warning("morning_report snapshot save failed: %s", e)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+
+
+async def get_snapshots(
+    db: AsyncSession, days: int = 14
+) -> list[dict[str, Any]]:
+    """B4: 回傳近 N 天 snapshot（依日期 desc）。"""
+    since = today_taipei() - timedelta(days=days - 1)
+    r = await db.execute(
+        select(MorningReportSnapshot)
+        .where(MorningReportSnapshot.report_date >= since)
+        .order_by(MorningReportSnapshot.report_date.desc())
+    )
+    rows = r.scalars().all()
+    return [
+        {
+            "report_date": row.report_date.isoformat(),
+            "summary_length": row.summary_length,
+            "sections_count": row.sections_count,
+            "generator_version": row.generator_version,
+            "generated_at": row.generated_at.isoformat() if row.generated_at else None,
+        }
+        for row in rows
+    ]
+
+
+def parse_sections_csv(csv: str | None) -> set[str]:
+    """B1: 解析訂閱 sections CSV，過濾無效 key。"""
+    if not csv:
+        return set(DEFAULT_SECTIONS)
+    tokens = {t.strip() for t in csv.split(",") if t.strip()}
+    if "all" in tokens:
+        return {"all"}
+    valid = tokens & SECTION_KEYS
+    return valid or set(DEFAULT_SECTIONS)
+
+
+async def get_active_subscriptions(
+    db: AsyncSession,
+) -> list[dict[str, Any]]:
+    """B1: 取得所有 enabled 訂閱（純 dict 回傳，解耦 ORM session）。"""
+    r = await db.execute(
+        select(UserMorningReportSubscription).where(
+            UserMorningReportSubscription.enabled.is_(True)
+        )
+    )
+    rows = r.scalars().all()
+    return [
+        {
+            "id": row.id,
+            "user_id": row.user_id,
+            "display_name": row.display_name,
+            "channel": row.channel,
+            "channel_recipient": row.channel_recipient,
+            "sections": parse_sections_csv(row.sections),
+            "handler_filter": row.handler_filter,
         }
         for row in rows
     ]

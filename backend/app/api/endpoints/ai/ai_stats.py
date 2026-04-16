@@ -442,6 +442,30 @@ async def push_morning_report(
         )
 
 
+@router.post("/stats/morning-report/history")
+async def morning_report_history(
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(optional_auth()),
+):
+    """晨報歷史快照（B4）— 近 14 天 snapshot 列表"""
+    from fastapi.responses import JSONResponse
+    from app.services.ai.domain.morning_report_delivery import get_snapshots
+
+    try:
+        snapshots = await get_snapshots(db, days=14)
+        return JSONResponse(
+            {"success": True, "snapshots": snapshots},
+            media_type="application/json; charset=utf-8",
+        )
+    except Exception as e:
+        logger.error("Morning report history failed: %s", e, exc_info=True)
+        return JSONResponse(
+            {"success": False, "error": "晨報歷史查詢失敗"},
+            status_code=500,
+            media_type="application/json; charset=utf-8",
+        )
+
+
 @router.post("/stats/morning-report/status")
 async def morning_report_status(
     db: AsyncSession = Depends(get_async_db),

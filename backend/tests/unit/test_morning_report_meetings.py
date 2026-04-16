@@ -307,6 +307,55 @@ class TestMorningReportRegression:
             assert kw not in summary, f"legacy section '{kw}' 不應出現在 4 主題聚焦的晨報"
 
     @pytest.mark.asyncio
+    async def test_pm_milestone_section_when_opted_in(self, service):
+        """B2: pm_milestone section 在 sections={'all'} 時出現。"""
+        data = {
+            "pm_overdue_milestones": {
+                "count": 1,
+                "items": [
+                    {
+                        "milestone_name": "送審成果報告",
+                        "planned_date": "2026-04-01",
+                        "status": "overdue",
+                        "case_code": "CK-2026-003",
+                        "case_name": "邊坡整治",
+                        "overdue_days": 15,
+                    }
+                ],
+            }
+        }
+        summary = await service.generate_summary_from_data(data, sections={"all"})
+        assert "PM 逾期里程碑 1 項" in summary
+        assert "CK-2026-003" in summary
+        assert "送審成果報告" in summary
+
+    @pytest.mark.asyncio
+    async def test_pm_milestone_hidden_by_default(self, service):
+        """B2: pm_milestone 預設不出現。"""
+        data = {"pm_overdue_milestones": {"count": 2, "items": [
+            {"milestone_name": "X", "overdue_days": 5, "case_code": "Y",
+             "case_name": "Z", "planned_date": "2026-04-10", "status": "overdue"}
+        ]}}
+        summary = await service.generate_summary_from_data(data)
+        assert "PM 逾期" not in summary
+
+    @pytest.mark.asyncio
+    async def test_erp_expense_section_when_opted_in(self, service):
+        """B2: erp_expense section opt-in。"""
+        data = {
+            "erp_pending_expenses": {
+                "count": 2, "total_amount": 53000.0,
+                "items": [
+                    {"inv_num": "AB-12345678", "amount": 28000, "date": "2026-04-01",
+                     "category": "設備", "status": "pending", "uploader": "王會計"},
+                ],
+            }
+        }
+        summary = await service.generate_summary_from_data(data, sections={"erp_expense"})
+        assert "ERP 待審費用 2 筆" in summary
+        assert "53,000" in summary
+
+    @pytest.mark.asyncio
     async def test_missing_calendar_events_section(self, service):
         """遺漏建檔提醒格式正確（件號 + 主旨 + 天數）。"""
         data = {

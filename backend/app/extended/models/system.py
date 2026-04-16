@@ -13,6 +13,52 @@
 from ._base import *
 
 
+class MorningReportSnapshot(Base):
+    """晨報歷史快照 (B4) — 每日 08:00 生成後寫入。
+
+    用途：
+    - 回顧分析（過去 30 天每天多少逾期？）
+    - LLM 訓練樣本累積（sections → 自然語言摘要）
+    - 趨勢儀表板
+    """
+    __tablename__ = "morning_report_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    report_date = Column(Date, nullable=False, unique=True, index=True,
+                         comment="晨報日期，unique 避免同日覆蓋")
+    sections_json = Column(JSON, nullable=False)
+    summary_text = Column(Text, nullable=False)
+    summary_length = Column(Integer, nullable=False)
+    sections_count = Column(Integer, nullable=False)
+    generator_version = Column(String(32), nullable=True)
+    generated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class UserMorningReportSubscription(Base):
+    """使用者晨報訂閱 (B1) — 支援 per-user 個人化推送。
+
+    設計：
+    - user_id NULL = 管理員 fallback（向後相容 TELEGRAM_ADMIN_CHAT_ID 行為）
+    - sections CSV = 選取的 section key，'all' 代表全部
+    - handler_filter = 僅推送該承辦人相關 dispatch
+    """
+    __tablename__ = "user_morning_report_subscriptions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=True, index=True)
+    display_name = Column(String(64), nullable=True)
+    channel = Column(String(32), nullable=False, comment="telegram/line/discord/email")
+    channel_recipient = Column(String(128), nullable=False)
+    sections = Column(String(255), nullable=False,
+                      default="dispatch,meeting,site_visit,missing")
+    handler_filter = Column(String(64), nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(),
+                        onupdate=func.now(), nullable=False)
+
+
 class MorningReportDeliveryLog(Base):
     """晨報派送紀錄 — 每日 push 成功/失敗 audit trail。
 

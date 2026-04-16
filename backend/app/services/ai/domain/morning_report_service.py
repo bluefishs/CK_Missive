@@ -84,6 +84,18 @@ class MorningReportService:
             default={"count": 0, "items": []},
         )
 
+        # 6. PM 逾期里程碑（B2 optional section，預設收集但僅訂閱者看到）
+        sections["pm_overdue_milestones"] = await self._safe_query(
+            self._get_pm_overdue_milestones, today,
+            default={"count": 0, "items": []},
+        )
+
+        # 7. ERP 待審費用（B2 optional section）
+        sections["erp_pending_expenses"] = await self._safe_query(
+            self._get_erp_pending_expenses,
+            default={"count": 0, "total_amount": 0, "items": []},
+        )
+
         return sections
 
     async def _safe_query(self, fn, *args, default):
@@ -103,13 +115,33 @@ class MorningReportService:
         data = await self.generate_report()
         return await self.generate_summary_from_data(data)
 
-    async def generate_summary_from_data(self, data: Dict[str, Any]) -> str:
-        """生成晨報摘要 — 聚焦 4 主題：派工 / 會議 / 現勘 / 遺漏建檔。"""
+    async def generate_summary_from_data(
+        self,
+        data: Dict[str, Any],
+        sections: set[str] | None = None,
+    ) -> str:
+        """生成晨報摘要 — 聚焦 4 主題：派工 / 會議 / 現勘 / 遺漏建檔。
+
+        B2: sections 參數限定渲染範圍；None 保留既有行為（4 主題 default）。
+        可選 key: dispatch, meeting, site_visit, missing, pm_milestone, erp_expense, all
+        """
+        allowed = sections
+        if allowed is None:
+            allowed = {"dispatch", "meeting", "site_visit", "missing"}
+        elif "all" in allowed:
+            allowed = {
+                "dispatch", "meeting", "site_visit", "missing",
+                "pm_milestone", "erp_expense",
+            }
+
+        def _on(key: str) -> bool:
+            return key in allowed
+
         parts = []
         details = []  # 具體案件明細
 
         # 1. 派工：本週到期
-        dd = data.get("dispatch_deadlines", {})
+        dd = data.get("dispatch_deadlines", {}) if _on("dispatch") else {}
         if dd.get("week_count", 0) > 0:
             parts.append(f"本週到期派工 {dd['week_count']} 筆")
             for item in dd.get("week_items", [])[:5]:
@@ -125,7 +157,7 @@ class MorningReportService:
                 )
 
         # 2. 派工：逾期
-        ov = data.get("overdue_items", {})
+        ov = data.get("overdue_items", {}) if _on("dispatch") else {}
         if ov.get("dispatch_count", 0) > 0:
             parts.append(f"逾期派工 {ov['dispatch_count']} 筆")
             for item in ov.get("dispatch_items", [])[:5]:
@@ -138,7 +170,7 @@ class MorningReportService:
                 )
 
         # 3. 會議
-        mt = data.get("upcoming_meetings", {})
+        mt = data.get("upcoming_meetings", {}) if _on("meeting") else {}
         if mt.get("count", 0) > 0:
             parts.append(f"近期會議 {mt['count']} 場")
             for item in mt.get("items", [])[:5]:
@@ -155,7 +187,7 @@ class MorningReportService:
                 )
 
         # 9. 近期現勘
-        sv = data.get("upcoming_site_visits", {})
+        sv = data.get("upcoming_site_visits", {}) if _on("site_visit") else {}
         if sv.get("count", 0) > 0:
             parts.append(f"近期現勘 {sv['count']} 場")
             for item in sv.get("items", [])[:5]:
@@ -197,7 +229,7 @@ class MorningReportService:
                 )
 
         # 11. 遺漏建檔
-        mc = data.get("missing_calendar_events", {})
+        mc = data.get("missing_calendar_events", {}) if _on("missing") else {}
         if mc.get("count", 0) > 0:
             parts.append(f"⚠️ 公文未建行事曆 {mc['count']} 件")
             for item in mc.get("items", [])[:3]:
@@ -205,6 +237,32 @@ class MorningReportService:
                     f"  📭 {item['doc_number']} {item['subject']}"
                     f"（{item['category']}，收文 {item['days_ago']} 天）"
                 )
+
+        # 12. PM 逾期里程碑（B2 optional）
+        if _on("pm_milestone"):
+            pm = data.get("pm_overdue_milestones", {}) or {}
+            if pm.get("count", 0) > 0:
+                parts.append(f"PM 逾期里程碑 {pm['count']} 項")
+                for item in pm.get("items", [])[:5]:
+                    details.append(
+                        f"  🏁 逾期 {item['overdue_days']} 天 {item['case_code']} "
+                        f"{item['milestone_name']}（{item['status']}）"
+                    )
+
+        # 13. ERP 待審費用（B2 optional）— >3 天 pending
+        if _on("erp_expense"):
+            ex = data.get("erp_pending_expenses", {}) or {}
+            if ex.get("count", 0) > 0:
+                total = ex.get("total_amount", 0)
+                parts.append(
+                    f"ERP 待審費用 {ex['count']} 筆 "
+                    f"(合計 NT$ {int(total):,})"
+                )
+                for item in ex.get("items", [])[:3]:
+                    details.append(
+                        f"  💰 {item['inv_num']} NT$ {int(item['amount']):,} "
+                        f"〔{item['status']}〕{item['uploader']}"
+                    )
 
         if not parts:
             return f"📋 {_now_taipei().strftime('%m/%d')} 晨報：今日無待處理派工/會議/現勘事項。👍"
@@ -496,6 +554,88 @@ class MorningReportService:
         except Exception as e:
             logger.debug("missing_calendar_events query failed: %s", e)
             return {"count": 0, "items": []}
+
+    # B2: PM 逾期里程碑 — 非預設主題，由訂閱開關
+    async def _get_pm_overdue_milestones(self, today) -> dict:
+        """PM 里程碑逾期：planned_date < today 且 status 非 completed/skipped。"""
+        try:
+            r = await self.db.execute(
+                text("""
+                SELECT m.id, m.milestone_name, m.planned_date, m.status,
+                       c.case_code, c.case_name
+                FROM pm_milestones m
+                JOIN pm_cases c ON c.id = m.pm_case_id
+                WHERE m.planned_date IS NOT NULL
+                  AND m.planned_date < :today
+                  AND m.status NOT IN ('completed', 'skipped')
+                ORDER BY m.planned_date ASC
+                LIMIT 10
+            """),
+                {"today": today},
+            )
+            items = []
+            for row in r.all():
+                pd = row[2]
+                items.append({
+                    "milestone_name": row[1] or "",
+                    "planned_date": str(pd) if pd else "",
+                    "status": row[3] or "",
+                    "case_code": row[4] or "",
+                    "case_name": row[5] or "",
+                    "overdue_days": (today - pd).days if pd else 0,
+                })
+            return {"count": len(items), "items": items}
+        except Exception:
+            raise
+
+    # B2: ERP 待審費用 — 非預設主題，由訂閱開關
+    async def _get_erp_pending_expenses(self) -> dict:
+        """ERP 費用報銷處於 pending 狀態 > 3 天者，彙總金額 + 前 10 筆明細。"""
+        try:
+            r = await self.db.execute(
+                text("""
+                SELECT e.id, e.inv_num, e.amount, e.date, e.category, e.status,
+                       u.full_name
+                FROM expense_invoices e
+                LEFT JOIN users u ON u.id = e.user_id
+                WHERE e.status IN ('pending', 'pending_receipt', 'manager_approved')
+                  AND e.created_at < NOW() - INTERVAL '3 days'
+                ORDER BY e.created_at ASC
+                LIMIT 10
+            """)
+            )
+            items = []
+            total = 0
+            for row in r.all():
+                amt = float(row[2] or 0)
+                total += amt
+                items.append({
+                    "inv_num": row[1] or "",
+                    "amount": amt,
+                    "date": str(row[3]) if row[3] else "",
+                    "category": row[4] or "",
+                    "status": row[5] or "",
+                    "uploader": row[6] or "未知",
+                })
+            # 再補上 total 實際全量（不受 LIMIT 影響）
+            r2 = await self.db.execute(
+                text("""
+                SELECT COUNT(*), COALESCE(SUM(amount), 0)
+                FROM expense_invoices
+                WHERE status IN ('pending', 'pending_receipt', 'manager_approved')
+                  AND created_at < NOW() - INTERVAL '3 days'
+            """)
+            )
+            row = r2.one()
+            full_count = int(row[0] or 0)
+            full_total = float(row[1] or 0)
+            return {
+                "count": full_count,
+                "total_amount": full_total,
+                "items": items,
+            }
+        except Exception:
+            raise
 
     def _format_event_time(self, start_dt, all_day: bool) -> str:
         """格式化會議/現勘時間為可讀字串。"""

@@ -401,30 +401,55 @@ async def kg_embedding_backfill_job():
         logger.error(f"KG Embedding 回填失敗: {e}", exc_info=True)
 
 
+async def _push_channel(channel: str, recipient: str, text: str) -> tuple[bool, str | None]:
+    """B1: 統一 channel push 抽象，回傳 (ok, error_msg)。"""
+    try:
+        if channel == "telegram":
+            from app.services.telegram_bot_service import get_telegram_bot_service
+            tg = get_telegram_bot_service()
+            if not tg.enabled:
+                return False, "telegram service disabled"
+            ok = await tg.send_message(int(recipient), text, parse_mode="")
+            return bool(ok), None if ok else "send_message returned false"
+        if channel == "line":
+            from app.services.line_bot_service import LineBotService
+            line = LineBotService()
+            if not line.enabled:
+                return False, "line service disabled"
+            ok = await line.push_message(recipient, text)
+            return bool(ok), None if ok else "push_message returned false"
+        return False, f"unsupported channel: {channel}"
+    except Exception as e:
+        return False, str(e)
+
+
 @tracked_job("morning_report")
 async def morning_report_job():
-    """每日 08:00 — 生成晨報並推送至 Telegram/LINE（含 delivery log + 連續失敗告警）"""
+    """每日 08:00 — 晨報生成 + snapshot 留存 + per-user 訂閱分發（A1~A3 + B1+B4）"""
     import os
     from app.db.database import async_session_maker
     from app.services.ai.domain.morning_report_service import MorningReportService
     from app.services.ai.domain.morning_report_delivery import (
         log_delivery, consecutive_failure_days, today_taipei,
+        save_snapshot, get_active_subscriptions,
     )
 
     logger.info("開始執行每日晨報生成")
     report_date = today_taipei()
-    summary: str = ""
-    sections_count: int | None = None
+    data: dict = {}
+    sections_count: int = 0
 
+    # Step 1: Generate report data (once, 共用給所有訂閱者)
     try:
         async with async_session_maker() as db:
             svc = MorningReportService(db)
             data = await svc.generate_report()
-            summary = await svc.generate_summary_from_data(data)
             sections_count = sum(
-                1 for k, v in data.items()
-                if isinstance(v, dict) and (v.get("count", 0) or v.get("week_count", 0)
-                                             or v.get("dispatch_count", 0))
+                1 for v in data.values()
+                if isinstance(v, dict) and (
+                    v.get("count", 0) or v.get("week_count", 0)
+                    or v.get("dispatch_count", 0)
+                )
             )
     except Exception as e:
         logger.error("Morning report generation failed: %s", e, exc_info=True)
@@ -432,82 +457,75 @@ async def morning_report_job():
             await log_delivery(
                 db2, report_date=report_date, channel="system",
                 status="failed", error_msg=f"generation: {e}",
-                trigger_source="scheduler",
             )
         return
 
+    # Step 2: Build admin default summary for snapshot + fallback
+    admin_svc = MorningReportService(None)  # pure formatter, db not needed
+    admin_summary = await admin_svc.generate_summary_from_data(data)
+
+    # Step 3: Persist snapshot (B4)
+    async with async_session_maker() as db:
+        await save_snapshot(
+            db, report_date=report_date, sections_json=data,
+            summary_text=admin_summary, sections_count=sections_count,
+        )
+
+    # Step 4: Resolve recipients — subscriptions first, fallback to ENV admins
+    async with async_session_maker() as db:
+        subscriptions = await get_active_subscriptions(db)
+
     pushed_to: list[str] = []
 
-    # Push to Telegram
-    tg_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-    if tg_chat_id:
-        async with async_session_maker() as db:
-            try:
-                from app.services.telegram_bot_service import get_telegram_bot_service
-                tg = get_telegram_bot_service()
-                if tg.enabled:
-                    ok = await tg.send_message(int(tg_chat_id), summary, parse_mode="")
-                    status = "success" if ok else "failed"
-                    await log_delivery(
-                        db, report_date=report_date, channel="telegram",
-                        recipient=str(tg_chat_id), status=status,
-                        summary_length=len(summary), sections_count=sections_count,
-                        error_msg=None if ok else "send_message returned false",
-                    )
-                    if ok:
-                        pushed_to.append("Telegram")
-                else:
-                    await log_delivery(
-                        db, report_date=report_date, channel="telegram",
-                        recipient=str(tg_chat_id), status="skipped",
-                        error_msg="tg service disabled",
-                    )
-            except Exception as tg_err:
-                logger.warning("Morning report Telegram push failed: %s", tg_err)
+    if subscriptions:
+        # B1: per-user fanout
+        for sub in subscriptions:
+            personalized = await admin_svc.generate_summary_from_data(
+                data, sections=sub["sections"]
+            )
+            ok, err = await _push_channel(
+                sub["channel"], sub["channel_recipient"], personalized
+            )
+            async with async_session_maker() as db:
                 await log_delivery(
-                    db, report_date=report_date, channel="telegram",
-                    recipient=str(tg_chat_id), status="failed",
-                    error_msg=str(tg_err),
+                    db, report_date=report_date, channel=sub["channel"],
+                    recipient=sub["channel_recipient"],
+                    status="success" if ok else "failed",
+                    summary_length=len(personalized),
+                    sections_count=sections_count,
+                    error_msg=err,
                 )
-
-    # Push to LINE
-    line_user_id = os.getenv("LINE_ADMIN_USER_ID")
-    if line_user_id:
-        async with async_session_maker() as db:
-            try:
-                from app.services.line_bot_service import LineBotService
-                line = LineBotService()
-                if line.enabled:
-                    ok = await line.push_message(line_user_id, summary)
-                    status = "success" if ok else "failed"
-                    await log_delivery(
-                        db, report_date=report_date, channel="line",
-                        recipient=line_user_id, status=status,
-                        summary_length=len(summary), sections_count=sections_count,
-                        error_msg=None if ok else "push_message returned false",
-                    )
-                    if ok:
-                        pushed_to.append("LINE")
-                else:
-                    await log_delivery(
-                        db, report_date=report_date, channel="line",
-                        recipient=line_user_id, status="skipped",
-                        error_msg="line service disabled",
-                    )
-            except Exception as line_err:
-                logger.warning("Morning report LINE push failed: %s", line_err)
+            if ok:
+                pushed_to.append(f"{sub['channel']}:{sub.get('display_name') or sub['channel_recipient']}")
+    else:
+        # Fallback: ENV admin (向後相容，無訂閱時仍推給管理員)
+        env_targets = [
+            ("telegram", os.getenv("TELEGRAM_ADMIN_CHAT_ID")),
+            ("line", os.getenv("LINE_ADMIN_USER_ID")),
+        ]
+        for channel, recipient in env_targets:
+            if not recipient:
+                continue
+            ok, err = await _push_channel(channel, recipient, admin_summary)
+            async with async_session_maker() as db:
                 await log_delivery(
-                    db, report_date=report_date, channel="line",
-                    recipient=line_user_id, status="failed",
-                    error_msg=str(line_err),
+                    db, report_date=report_date, channel=channel,
+                    recipient=recipient,
+                    status="success" if ok else "failed",
+                    summary_length=len(admin_summary),
+                    sections_count=sections_count,
+                    error_msg=err,
                 )
+            if ok:
+                pushed_to.append(f"{channel} (env admin)")
 
     if pushed_to:
-        logger.info("Morning report pushed to: %s", ", ".join(pushed_to))
+        logger.info("Morning report pushed to %d recipients: %s",
+                    len(pushed_to), ", ".join(pushed_to))
     else:
-        logger.warning("Morning report generated but NO channels pushed")
+        logger.warning("Morning report generated but NO recipients")
 
-    # 連續失敗告警（A2）：任一 channel 連續 2 天失敗 → error log
+    # Step 5: 連續失敗告警（A2）
     async with async_session_maker() as db:
         for ch in ("telegram", "line"):
             try:

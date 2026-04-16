@@ -52,6 +52,8 @@ from .system import (
     AIConversationFeedback,
     AISynonym,
     MorningReportDeliveryLog,
+    MorningReportSnapshot,
+    UserMorningReportSubscription,
 )
 
 # 6. 專案人員模組
