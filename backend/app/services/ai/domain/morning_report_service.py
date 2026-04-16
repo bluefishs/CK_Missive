@@ -141,9 +141,9 @@ class MorningReportService:
         sections_detail: list[list[str]] = []  # 分段明細，每段之間加區隔線
 
         def _team_tag(item: dict) -> str:
-            """格式化估價團隊標籤"""
+            """格式化估價團隊標籤 — 僅取前兩字（如 乾坤、冠誠、昇揚）"""
             su = item.get("survey_unit", "")
-            return f"({su})" if su else ""
+            return f"({su[:2]})" if su else ""
 
         # ── 1. 派工事件 ──
         dd = data.get("dispatch_deadlines", {}) if _on("dispatch") else {}
