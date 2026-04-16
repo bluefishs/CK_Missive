@@ -141,6 +141,27 @@ async def dispatch_morning_status(
     """))
     work_types_map: dict = {row[0]: row[1] for row in wt_rows.all()}
 
+    # per-type 進度 — work_records 按 work_type_id 分組聚合
+    pt_rows = await db.execute(text("""
+        SELECT wr.dispatch_order_id, dwt.id AS wt_id, dwt.work_type, dwt.deadline,
+               COUNT(wr.id) AS total,
+               COUNT(wr.id) FILTER (WHERE wr.status = 'completed') AS completed
+        FROM taoyuan_work_records wr
+        JOIN taoyuan_dispatch_work_types dwt ON dwt.id = wr.work_type_id
+        GROUP BY wr.dispatch_order_id, dwt.id, dwt.work_type, dwt.deadline
+        ORDER BY dwt.sort_order
+    """))
+    per_type_map: dict[int, list] = {}
+    for row in pt_rows.all():
+        did = row[0]
+        per_type_map.setdefault(did, []).append({
+            "work_type_id": row[1],
+            "work_type": row[2],
+            "deadline": str(row[3]) if row[3] else None,
+            "total": row[4],
+            "completed": row[5],
+        })
+
     # 作業類別 label 對照
     cat_labels = {
         "admin_notice": "行政通知", "dispatch_notice": "派工通知",
@@ -188,6 +209,7 @@ async def dispatch_morning_status(
             "work_category": display_cat,
             "work_category_label": cat_labels.get(display_cat, display_cat or "-"),
             "work_types": [t.strip() for t in wt_str.split(",") if t.strip()] if wt_str else [],
+            "per_type_progress": per_type_map.get(dispatch_id, []),
             "completed_count": completed_n,
             "total_records": total_n,
             "progress": svc._format_dispatch_progress(

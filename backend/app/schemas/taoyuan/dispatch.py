@@ -62,6 +62,7 @@ class DispatchWorkTypeItem(BaseModel):
     id: int
     work_type: str = Field(..., description="作業類別名稱")
     sort_order: int = Field(0, description="排序順序")
+    deadline: Optional[date] = Field(None, description="此類別交付期限")
 
     model_config = ConfigDict(from_attributes=True)
 

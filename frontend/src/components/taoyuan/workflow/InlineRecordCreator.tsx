@@ -55,6 +55,8 @@ export interface InlineRecordCreatorProps {
   linkedDocuments?: DispatchDocumentLink[];
   /** 關聯的工程列表（單一工程時自動帶入） */
   linkedProjects?: { project_id: number; project_name?: string }[];
+  /** 作業類別列表（多 work_type 時顯示選擇器） */
+  workTypeItems?: { id: number; work_type: string }[];
   /** 建立成功後 callback */
   onCreated?: () => void;
 }
@@ -68,6 +70,7 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
   existingRecords,
   linkedDocuments = [],
   linkedProjects = [],
+  workTypeItems = [],
   onCreated,
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -192,6 +195,8 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
         dispatch_order_id: dispatchOrderId,
         taoyuan_project_id: projectId,
         work_category: values.work_category,
+        work_type_id: values.work_type_id
+          || (workTypeItems.length === 1 ? workTypeItems[0]!.id : undefined),
         document_id: values.document_id || undefined,
         parent_record_id: values.parent_record_id || undefined,
         status: values.status,
@@ -208,7 +213,7 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
     } catch {
       // form validation failed
     }
-  }, [form, dispatchOrderId, linkedProjects, createMutation]);
+  }, [form, dispatchOrderId, linkedProjects, workTypeItems, createMutation]);
 
   const handleCancel = useCallback(() => {
     form.resetFields();
@@ -273,6 +278,24 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
             }
           />
         </Form.Item>
+
+        {/* Row 2a: 所屬作業（多 work_type 時顯示） */}
+        {workTypeItems.length >= 2 && (
+          <Form.Item
+            name="work_type_id"
+            label="所屬作業"
+            rules={[{ required: true, message: '請選擇所屬作業' }]}
+            style={{ marginBottom: 8 }}
+          >
+            <Select
+              placeholder="請選擇此紀錄所屬的作業項目"
+              options={workTypeItems.map(wt => ({
+                value: wt.id,
+                label: wt.work_type,
+              }))}
+            />
+          </Form.Item>
+        )}
 
         {/* Row 2: 作業類別 + 狀態 */}
         <Row gutter={8}>

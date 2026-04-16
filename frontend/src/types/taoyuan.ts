@@ -242,6 +242,7 @@ export interface DispatchWorkTypeItem {
   id: number;
   work_type: string;
   sort_order: number;
+  deadline?: string | null;
 }
 
 /** 派工單基礎介面 (匹配後端 DispatchOrder Schema) */
@@ -767,6 +768,7 @@ export interface WorkRecord {
   document_id?: number;
   parent_record_id?: number;
   work_category?: WorkCategory;
+  work_type_id?: number;
   batch_no?: number;
   batch_label?: string;
   milestone_type: MilestoneType;
@@ -805,6 +807,7 @@ export interface WorkRecordCreate {
   document_id?: number;
   parent_record_id?: number;
   work_category?: WorkCategory;
+  work_type_id?: number;
   batch_no?: number;
   batch_label?: string;
   milestone_type?: MilestoneType;

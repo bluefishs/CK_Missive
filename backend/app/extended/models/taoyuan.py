@@ -269,10 +269,13 @@ class TaoyuanDispatchWorkType(Base):
     work_type = Column(String(100), nullable=False, index=True,
         comment="作業類別名稱 (如：01.地上物查估作業)")
     sort_order = Column(Integer, default=0, comment="排序順序")
+    deadline = Column(Date, nullable=True, comment="此作業類別的交付期限")
     created_at = Column(DateTime, server_default=func.now())
 
     # 關聯關係
     dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="work_type_links")
+    work_records = relationship("TaoyuanWorkRecord", back_populates="work_type_link",
+                                foreign_keys="TaoyuanWorkRecord.work_type_id")
 
 
 class TaoyuanDispatchAttachment(Base):
@@ -351,6 +354,12 @@ class TaoyuanWorkRecord(Base):
     work_category = Column(String(50), nullable=True, index=True,
         comment="作業類別 (dispatch_notice/work_result/meeting_notice/meeting_record/survey_notice/survey_record/other)")
 
+    # v3 作業類別歸屬
+    work_type_id = Column(Integer,
+        ForeignKey('taoyuan_dispatch_work_types.id', ondelete='SET NULL'),
+        nullable=True, index=True,
+        comment="所屬作業類別 (nullable=舊紀錄未歸屬)")
+
     # 批次結案欄位
     batch_no = Column(Integer, nullable=True, index=True,
         comment="批次序號 (第幾批結案，如 1,2,3...)")
@@ -386,3 +395,5 @@ class TaoyuanWorkRecord(Base):
     document = relationship("OfficialDocument", foreign_keys=[document_id])
     parent_record = relationship("TaoyuanWorkRecord", remote_side=[id],
         backref=backref("child_records", lazy="noload"))
+    work_type_link = relationship("TaoyuanDispatchWorkType", back_populates="work_records",
+        foreign_keys=[work_type_id])

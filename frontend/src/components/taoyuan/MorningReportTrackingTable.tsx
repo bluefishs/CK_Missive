@@ -29,6 +29,7 @@ export interface MorningStatusItem {
   display_status: string;
   work_category_label: string;
   work_types: string[];
+  per_type_progress: { work_type_id: number; work_type: string; deadline: string | null; total: number; completed: number }[];
   completed_count: number;
   total_records: number;
   progress: string;
@@ -246,6 +247,24 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
         size="small"
         pagination={{ pageSize: 25, showSizeChanger: true, showTotal: (t) => `共 ${t} 筆` }}
         scroll={{ x: 950 }}
+        expandable={{
+          rowExpandable: (record) => record.per_type_progress.length >= 2,
+          expandedRowRender: (record) => (
+            <div style={{ paddingLeft: 16 }}>
+              {record.per_type_progress.map((pt) => {
+                const pct = pt.total ? Math.round((pt.completed / pt.total) * 100) : 0;
+                const color = pct === 100 ? 'green' : pct >= 50 ? 'blue' : 'orange';
+                return (
+                  <div key={pt.work_type_id} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 4 }}>
+                    <Tag style={{ minWidth: 160 }}>{pt.work_type}</Tag>
+                    <Tag color={color}>{pt.completed}/{pt.total}</Tag>
+                    {pt.deadline && <Tag icon={<CalendarOutlined />} color="blue">{pt.deadline}</Tag>}
+                  </div>
+                );
+              })}
+            </div>
+          ),
+        }}
       />
     </Card>
   );

@@ -71,6 +71,7 @@ class WorkRecordBase(BaseModel):
     document_id: Optional[int] = Field(None, description="關聯公文 ID (新格式)")
     parent_record_id: Optional[int] = Field(None, description="前序紀錄 ID (鏈式)")
     work_category: Optional[WorkCategory] = Field(None, description="作業類別 (新格式)")
+    work_type_id: Optional[int] = Field(None, description="所屬作業類別 ID (FK → dispatch_work_types)")
     batch_no: Optional[int] = Field(None, description="批次序號 (第幾批結案)")
     batch_label: Optional[str] = Field(None, max_length=50, description="批次標籤")
     milestone_type: MilestoneType = Field(default=MilestoneType.OTHER, description="里程碑類型")
@@ -95,6 +96,7 @@ class WorkRecordUpdate(BaseModel):
     document_id: Optional[int] = None
     parent_record_id: Optional[int] = None
     work_category: Optional[WorkCategory] = None
+    work_type_id: Optional[int] = None
     batch_no: Optional[int] = None
     batch_label: Optional[str] = None
     milestone_type: Optional[MilestoneType] = None
