@@ -169,61 +169,66 @@ const WorkRecordFormPage: React.FC = () => {
               />
             </Form.Item>
 
-            {/* 所屬作業（多 work_type 時顯示） */}
-            {workTypeItems.length >= 2 && (
-              <Form.Item
-                name="work_type_id"
-                label="所屬作業"
-              >
-                <Select
-                  placeholder="共用 (全部作業)"
-                  allowClear
-                  options={[
-                    { value: null as unknown as number, label: '共用 (全部作業)' },
-                    ...workTypeItems.map(wt => ({
-                      value: wt.id,
-                      label: wt.work_type,
-                    })),
-                  ]}
-                />
-              </Form.Item>
-            )}
-
-            <Row gutter={12}>
-              <Col span={14}>
+            {/* 作業分類區塊 — 縮排呈現 */}
+            <Card size="small" style={{ marginBottom: 16, background: '#fafafa' }}
+                  title={<Text type="secondary" style={{ fontSize: 13 }}>作業分類</Text>}>
+              {/* 所屬作業（多 work_type 時顯示） */}
+              {workTypeItems.length >= 2 && (
                 <Form.Item
-                  name="work_category"
-                  label="作業類別"
-                  rules={[{ required: true, message: '請選擇作業類別' }]}
+                  name="work_type_id"
+                  label="所屬作業"
+                  tooltip="派工通知、行政等共用紀錄可選「共用」；成果回函請選對應作業"
                 >
                   <Select
-                    placeholder="請選擇"
-                    options={WORK_CATEGORY_GROUPS.map((group) => ({
-                      label: group.group,
-                      options: group.items.map((item) => ({
-                        value: item.value,
-                        label: item.label,
+                    placeholder="共用 (全部作業)"
+                    allowClear
+                    options={[
+                      { value: null as unknown as number, label: '共用 (全部作業)' },
+                      ...workTypeItems.map(wt => ({
+                        value: wt.id,
+                        label: wt.work_type,
                       })),
-                    }))}
+                    ]}
                   />
                 </Form.Item>
-              </Col>
-              <Col span={10}>
-                <Form.Item
-                  name="status"
-                  label="狀態"
-                  rules={[{ required: true, message: '請選擇狀態' }]}
-                >
-                  <Radio.Group>
-                    {CHAIN_STATUS_OPTIONS.map((opt) => (
-                      <Radio.Button key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </Radio.Button>
-                    ))}
-                  </Radio.Group>
-                </Form.Item>
-              </Col>
-            </Row>
+              )}
+
+              <Row gutter={12}>
+                <Col span={14}>
+                  <Form.Item
+                    name="work_category"
+                    label="作業類別"
+                    rules={[{ required: true, message: '請選擇作業類別' }]}
+                  >
+                    <Select
+                      placeholder="請選擇"
+                      options={WORK_CATEGORY_GROUPS.map((group) => ({
+                        label: group.group,
+                        options: group.items.map((item) => ({
+                          value: item.value,
+                          label: item.label,
+                        })),
+                      }))}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={10}>
+                  <Form.Item
+                    name="status"
+                    label="狀態"
+                    rules={[{ required: true, message: '請選擇狀態' }]}
+                  >
+                    <Radio.Group>
+                      {CHAIN_STATUS_OPTIONS.map((opt) => (
+                        <Radio.Button key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </Radio.Button>
+                      ))}
+                    </Radio.Group>
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Card>
 
             <Row gutter={12}>
               <Col span={14}>
