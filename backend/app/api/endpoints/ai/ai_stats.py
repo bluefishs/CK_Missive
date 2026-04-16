@@ -381,44 +381,77 @@ async def push_morning_report(
     db: AsyncSession = Depends(get_async_db),
     current_user=Depends(optional_auth()),
 ):
-    """
-    手動推送晨報到 Telegram/LINE
-
-    生成摘要後推送到已設定的通道。
-    """
+    """手動推送晨報到 Telegram/LINE（含 delivery log + 字數截斷保護）"""
     import os
     from fastapi.responses import JSONResponse
     from app.services.ai.domain.morning_report_service import MorningReportService
+    from app.services.ai.domain.morning_report_delivery import (
+        log_delivery, today_taipei,
+    )
+
+    MAX_MSG_LEN = 4500  # LINE 上限 5000，留 buffer
 
     try:
         svc = MorningReportService(db)
-        summary = await svc.generate_summary()
+        data = await svc.generate_report()
+        summary = await svc.generate_summary_from_data(data)
 
+        # B-fix5: 字數截斷保護
+        if len(summary) > MAX_MSG_LEN:
+            summary = summary[:MAX_MSG_LEN] + "\n\n⋯ 完整版請查閱系統"
+
+        report_date = today_taipei()
         pushed_to = []
 
-        # Telegram push
-        try:
-            from app.services.telegram_bot_service import get_telegram_bot_service
-            tg = get_telegram_bot_service()
-            chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-            if chat_id and tg.enabled:
-                ok = await tg.send_message(int(chat_id), summary)
-                if ok:
-                    pushed_to.append("Telegram")
-        except Exception as tg_err:
-            logger.debug("Morning report Telegram push skipped: %s", tg_err)
+        # Telegram push + delivery log
+        tg_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+        if tg_chat_id:
+            try:
+                from app.services.telegram_bot_service import get_telegram_bot_service
+                tg = get_telegram_bot_service()
+                if tg.enabled:
+                    ok = await tg.send_message(int(tg_chat_id), summary, parse_mode="")
+                    await log_delivery(
+                        db, report_date=report_date, channel="telegram",
+                        recipient=str(tg_chat_id),
+                        status="success" if ok else "failed",
+                        summary_length=len(summary),
+                        trigger_source="api",
+                    )
+                    if ok:
+                        pushed_to.append("Telegram")
+            except Exception as tg_err:
+                logger.warning("Morning report Telegram push failed: %s", tg_err)
+                await log_delivery(
+                    db, report_date=report_date, channel="telegram",
+                    recipient=str(tg_chat_id), status="failed",
+                    error_msg=str(tg_err), trigger_source="api",
+                )
 
-        # LINE push
-        try:
-            from app.services.line_bot_service import LineBotService
-            line = LineBotService()
-            line_user_id = os.getenv("LINE_ADMIN_USER_ID")
-            if line_user_id and line.enabled:
-                ok = await line.push_message(line_user_id, summary)
-                if ok:
-                    pushed_to.append("LINE")
-        except Exception as line_err:
-            logger.debug("Morning report LINE push skipped: %s", line_err)
+        # LINE push + delivery log
+        line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+        if line_user_id:
+            try:
+                from app.services.line_bot_service import LineBotService
+                line = LineBotService()
+                if line.enabled:
+                    ok = await line.push_message(line_user_id, summary)
+                    await log_delivery(
+                        db, report_date=report_date, channel="line",
+                        recipient=line_user_id,
+                        status="success" if ok else "failed",
+                        summary_length=len(summary),
+                        trigger_source="api",
+                    )
+                    if ok:
+                        pushed_to.append("LINE")
+            except Exception as line_err:
+                logger.warning("Morning report LINE push failed: %s", line_err)
+                await log_delivery(
+                    db, report_date=report_date, channel="line",
+                    recipient=line_user_id, status="failed",
+                    error_msg=str(line_err), trigger_source="api",
+                )
 
         return JSONResponse(
             {
