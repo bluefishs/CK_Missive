@@ -80,18 +80,25 @@ async def get_async_db() -> AsyncSession:
     取得非同步資料庫會話的依賴項
 
     增強錯誤處理：
-    - SATimeoutError: 連線池耗盡
+    - SATimeoutError: 連線池耗盡 → 503
     - statement_timeout: SQL 查詢超時
     - connection_lost: 連線中斷
     """
     try:
         session = AsyncSessionLocal()
     except SATimeoutError:
+        pool = engine.pool
         logger.error(
             "Database connection pool exhausted. "
-            f"pool_size={settings.POOL_SIZE}, max_overflow={settings.MAX_OVERFLOW}"
+            f"pool_size={settings.POOL_SIZE}, max_overflow={settings.MAX_OVERFLOW}, "
+            f"checked_in={pool.checkedin()}, checked_out={pool.checkedout()}, "
+            f"overflow={pool.overflow()}"
         )
-        raise
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection pool exhausted, please retry later",
+        )
 
     try:
         yield session

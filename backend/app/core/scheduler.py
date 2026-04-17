@@ -934,6 +934,41 @@ async def shadow_baseline_export_job():
         logger.error("shadow_baseline error: %s", e)
 
 
+@tracked_job("synthetic_baseline_inject")
+async def synthetic_baseline_inject_job():
+    """每日 3 次合成基線注入（09:00/14:00/20:00）
+
+    執行 scripts/checks/synthetic-baseline-inject.py 注入合成測試資料，
+    用於 shadow baseline 持續累積與 GO/NO-GO 品質監控。
+    """
+    import subprocess
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[3]
+    script = project_root / "scripts" / "checks" / "synthetic-baseline-inject.py"
+    if not script.exists():
+        logger.warning("synthetic_baseline_inject: script not found at %s", script)
+        return
+
+    try:
+        proc = subprocess.run(
+            ["python", str(script), "--count", "10", "--timeout", "90"],
+            cwd=str(project_root),
+            capture_output=True, text=True, timeout=120, check=False,
+        )
+        if proc.returncode == 0:
+            logger.info("synthetic_baseline_inject: %s", proc.stdout.strip() or "ok")
+        else:
+            logger.warning(
+                "synthetic_baseline_inject failed (rc=%d): %s",
+                proc.returncode, proc.stderr.strip() or "empty stdout",
+            )
+    except subprocess.TimeoutExpired:
+        logger.warning("synthetic_baseline_inject timeout (>120s)")
+    except Exception as e:
+        logger.error("synthetic_baseline_inject error: %s", e)
+
+
 @tracked_job("cf_tunnel_verify")
 async def cloudflare_tunnel_verify_job():
     """每日 Cloudflare Tunnel 健康驗證（ADR-0015/0016）
@@ -1371,6 +1406,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 Hermes baseline 匯出: 每日 20:00")
+
+    # 合成基線注入 — 每日 3 次 (09:00/14:00/20:00)
+    scheduler.add_job(
+        synthetic_baseline_inject_job,
+        trigger=CronTrigger(hour='9,14,20', minute=0),
+        id='synthetic_baseline_inject',
+        name='合成基線注入 (每日 09:00/14:00/20:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加合成基線注入: 每日 09:00/14:00/20:00")
 
     # 月度架構覆盤 — 每月 1 日 06:00
     scheduler.add_job(

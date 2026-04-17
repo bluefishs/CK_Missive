@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
+import app.core.structured_logging  # noqa: F401 — 啟動 structlog stdlib bridge (ADR-0019)
 from app.core.dependencies import require_admin
 from app.api.routes import api_router
 from app.db.database import get_async_db, engine
@@ -788,12 +789,28 @@ async def health_check(db: AsyncSession = Depends(get_async_db)):
         logger.error(f"Health check DB error: {e}")
         db_status = "error"
 
+    # Pool 狀態 — PM2/監控可判斷是否需要重啟
+    pool_status = {}
+    try:
+        pool = engine.pool
+        pool_status = {
+            "size": pool.size(),
+            "checked_in": pool.checkedin(),
+            "checked_out": pool.checkedout(),
+            "overflow": pool.overflow(),
+            "max_overflow": pool._max_overflow,
+        }
+    except Exception as e:
+        logger.warning("Health check pool status error: %s", e)
+        pool_status = {"error": str(e)}
+
     is_healthy = db_status == "connected"
     return {
         "status": "healthy" if is_healthy else "unhealthy",
         "version": app.version,
         "environment": "development" if settings.DEVELOPMENT_MODE else "production",
         "database": {"status": db_status, "latency_ms": db_latency_ms},
+        "pool": pool_status,
         "cors": {"origins_count": len(allowed_origins), "local_ips_detected": len(local_ips)},
         "timestamp": datetime.now().isoformat(),
     }

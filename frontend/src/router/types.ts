@@ -94,6 +94,7 @@ export const ROUTES = {
   ERP_GRAPH: '/ai/erp-graph',
   DB_GRAPH: '/ai/db-graph',
   // 桃園查估專區
+  TAOYUAN: '/taoyuan',
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
   TAOYUAN_DISPATCH_CREATE: '/taoyuan/dispatch/create',
   TAOYUAN_DISPATCH_DETAIL: '/taoyuan/dispatch/:id',

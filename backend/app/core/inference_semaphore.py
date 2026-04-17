@@ -42,14 +42,23 @@ class InferenceSemaphore:
         )
 
     @asynccontextmanager
-    async def acquire(self):
-        """取得推理 slot。超過上限時排隊等待。"""
+    async def acquire(self, timeout: float = 90.0):
+        """取得推理 slot。超過上限時排隊等待，超過 timeout 秒拋出 TimeoutError。"""
         self._waiting += 1
         self._queue_gauge.set(self._waiting)
         try:
-            await self._sem.acquire()
+            await asyncio.wait_for(self._sem.acquire(), timeout=timeout)
             self._waiting -= 1
             self._queue_gauge.set(self._waiting)
+        except asyncio.TimeoutError:
+            self._waiting -= 1
+            self._queue_gauge.set(self._waiting)
+            logger.error(
+                "Inference semaphore timeout after %.1fs (queue=%d, max=%d)",
+                timeout, self._waiting, self._max,
+            )
+            raise
+        try:
             yield
         finally:
             self._sem.release()

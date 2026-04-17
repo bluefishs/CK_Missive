@@ -30,6 +30,7 @@ export interface MorningStatusItem {
   deadline: string;
   project_name: string;
   handler: string;
+  survey_unit: string;
   display_status: string;
   work_category_label: string;
   work_types: string[];
@@ -108,7 +109,8 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
       result = result.filter(i =>
         i.dispatch_no.toLowerCase().includes(kw) ||
         i.project_name.toLowerCase().includes(kw) ||
-        i.handler.includes(kw)
+        i.handler.includes(kw) ||
+        (i.survey_unit && i.survey_unit.toLowerCase().includes(kw))
       );
     }
     return result;
@@ -156,6 +158,17 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
       width: 80,
       filters: handlerOptions,
       onFilter: (value, record) => record.handler === value,
+    },
+    {
+      title: '查估單位',
+      dataIndex: 'survey_unit',
+      width: 100,
+      ellipsis: true,
+      filters: (() => {
+        const set = new Set(items.map(i => i.survey_unit).filter(Boolean));
+        return Array.from(set).sort().map(s => ({ text: s, value: s }));
+      })(),
+      onFilter: (value, record) => record.survey_unit === value,
     },
     {
       title: '作業類別',
@@ -264,7 +277,7 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
         loading={isLoading}
         size="small"
         pagination={{ pageSize: 25, showSizeChanger: true, showTotal: (t) => `共 ${t} 筆` }}
-        scroll={{ x: 950 }}
+        scroll={{ x: 1050 }}
         expandable={{
           rowExpandable: (record) => record.per_type_progress.length >= 2,
           expandedRowRender: (record) => (

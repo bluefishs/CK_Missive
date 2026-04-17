@@ -51,14 +51,23 @@ def configure_structlog(
     log_level: str = "INFO"
 ) -> None:
     """
-    配置 structlog
+    配置 structlog + 橋接 stdlib logging。
+
+    全 backend 統一策略：
+    - structlog.get_logger() 直接走 structlog pipeline
+    - logging.getLogger() (239+ service 檔案) 經由 stdlib integration
+      自動被 structlog ProcessorFormatter 格式化
+    - 開發環境: colored console 輸出
+    - 生產環境: JSON 單行輸出（Loki / ELK 友善）
 
     Args:
         json_format: 是否使用 JSON 格式輸出 (生產環境建議啟用)
         log_level: 日誌等級
     """
-    # 共用處理器
-    shared_processors = [
+    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
+
+    # 共用前處理器（structlog native + stdlib 共用）
+    shared_processors: list = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         add_timestamp,
@@ -68,26 +77,58 @@ def configure_structlog(
     ]
 
     if json_format:
-        # JSON 格式 - 適合生產環境和日誌聚合
-        processors = shared_processors + [
+        renderer = structlog.processors.JSONRenderer(ensure_ascii=False)
+        final_processors = shared_processors + [
             structlog.processors.format_exc_info,
-            structlog.processors.JSONRenderer(ensure_ascii=False)
+            renderer,
         ]
     else:
-        # Console 格式 - 適合開發環境
-        processors = shared_processors + [
-            structlog.dev.ConsoleRenderer(colors=True)
-        ]
+        renderer = structlog.dev.ConsoleRenderer(colors=True)
+        final_processors = shared_processors + [renderer]
 
+    # --- 1) 配置 structlog native loggers ---
     structlog.configure(
-        processors=processors,
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, log_level.upper(), logging.INFO)
-        ),
+        processors=final_processors,
+        wrapper_class=structlog.make_filtering_bound_logger(numeric_level),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
+
+    # --- 2) 橋接 stdlib logging → structlog 格式化 ---
+    # 讓既有 logging.getLogger(__name__) 的輸出也走 structlog pipeline
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            renderer,
+        ],
+        foreign_pre_chain=[
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.add_logger_name,
+            add_timestamp,
+            add_app_context,
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.UnicodeDecoder(),
+            structlog.processors.format_exc_info,
+        ],
+    )
+
+    # 替換 root logger 的所有 handler formatter
+    root = logging.getLogger()
+    root.setLevel(numeric_level)
+
+    # 確保至少有 stderr handler
+    if not root.handlers:
+        handler = logging.StreamHandler(sys.stderr)
+        root.addHandler(handler)
+
+    for handler in root.handlers:
+        handler.setFormatter(formatter)
+
+    # 降低 noisy 第三方庫的 log level
+    for noisy in ("httpcore", "httpx", "watchfiles", "asyncio", "multipart"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
 def get_logger(name: str = __name__) -> structlog.BoundLogger:
@@ -163,8 +204,10 @@ class StructuredLogger:
 
 
 # 預設配置
-# 開發環境使用 console 格式，生產環境使用 JSON 格式
-_json_format = not settings.DEVELOPMENT_MODE
+# v5.6.0: 統一 JSON 格式（Loki 觀測棧需求，ADR-0019）
+# 開發環境亦使用 JSON 確保 Loki 可解析；如需 console 可設 STRUCTLOG_CONSOLE=1
+import os as _os
+_json_format = _os.getenv("STRUCTLOG_CONSOLE") != "1"
 configure_structlog(json_format=_json_format, log_level=settings.LOG_LEVEL)
 
 # 全域日誌實例

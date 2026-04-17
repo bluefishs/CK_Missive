@@ -53,7 +53,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,  // 開發時可設為 true 啟用熱重載
-      max_memory_restart: '1G',
+      max_memory_restart: '2G',
 
       // 日誌配置 (cwd 已是 ./backend，路徑相對於 backend/)
       error_file: './logs/backend-error.log',

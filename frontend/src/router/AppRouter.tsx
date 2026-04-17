@@ -216,6 +216,7 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.REPORTS} element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
 
           {/* 桃園查估專區（需要認證） */}
+          <Route path={ROUTES.TAOYUAN} element={<Navigate to={ROUTES.TAOYUAN_DISPATCH} replace />} />
           <Route path={ROUTES.TAOYUAN_DISPATCH} element={<ProtectedRoute><TaoyuanDispatchPage /></ProtectedRoute>} />
           <Route path={ROUTES.TAOYUAN_DISPATCH_CREATE} element={<ProtectedRoute><TaoyuanDispatchCreatePage /></ProtectedRoute>} />
           <Route path={ROUTES.TAOYUAN_DISPATCH_DETAIL} element={<ProtectedRoute><TaoyuanDispatchDetailPage /></ProtectedRoute>} />
