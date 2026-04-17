@@ -24,6 +24,14 @@ export interface PreviewResult {
   errors: string[];
 }
 
+export interface ImportRowDetail {
+  row: number;
+  status: string;
+  message: string;
+  doc_number?: string;
+  doc_id?: number;
+}
+
 export interface ImportResult {
   success: boolean;
   filename: string;
@@ -31,13 +39,8 @@ export interface ImportResult {
   inserted: number;
   updated: number;
   skipped: number;
-  errors: string[];
-  details?: Array<{
-    row: number;
-    status: string;
-    message: string;
-    doc_number: string;
-  }>;
+  errors: Array<string | ImportRowDetail>;
+  details?: ImportRowDetail[];
 }
 
 export type ImportStep = 'upload' | 'preview' | 'result';

@@ -77,7 +77,7 @@ const ImportResultCardInner: React.FC<ImportResultCardProps> = ({
                   {errors.slice(0, 10).map((item, idx) => (
                     <div key={idx} style={{ padding: '4px 0' }}>
                       <CloseCircleOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
-                      {item}
+                      {typeof item === 'string' ? item : (item as { message?: string })?.message || JSON.stringify(item)}
                     </div>
                   ))}
                 </Flex>
