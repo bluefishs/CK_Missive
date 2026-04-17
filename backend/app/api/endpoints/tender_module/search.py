@@ -136,6 +136,14 @@ async def search_tenders(
                 result["records"].append(r)
         result["total_records"] = len(result["records"])
 
+    # Relevance re-ranking — 合併後按標題相似度重排序
+    if result.get("records") and len(req.query) > 5:
+        from app.services.tender_search_query import rerank_by_title_similarity
+        result["records"] = rerank_by_title_similarity(
+            result["records"], req.query, top_k=30,
+        )
+        result["total_records"] = len(result["records"])
+
     # 搜尋結果自動入庫 (背景)
     try:
         from app.db.database import AsyncSessionLocal
