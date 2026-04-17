@@ -345,6 +345,45 @@
   color: white;
 }
 
+/* 內嵌帳密表單 */
+.inline-login-form {
+  width: 100%;
+  max-width: 320px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.inline-login-form .ant-form-item-label > label {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.inline-login-form .ant-form-item-explain-error {
+  color: #ff7875;
+  font-size: 12px;
+}
+
+.entry-input,
+.entry-input .ant-input,
+.entry-input .ant-input-password {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+  border-radius: 8px;
+}
+
+.entry-input .ant-input::placeholder,
+.entry-input .ant-input-password .ant-input::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.entry-input .ant-input-suffix .anticon {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
 .entry-hint {
   color: rgba(255, 255, 255, 0.5);
   font-size: 14px;

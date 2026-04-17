@@ -18,11 +18,11 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Button, Spin, App, Tag } from 'antd';
-import { GoogleOutlined, LoadingOutlined, LoginOutlined, UserOutlined } from '@ant-design/icons';
+import { Button, Spin, App, Tag, Input, Form } from 'antd';
+import { GoogleOutlined, LoadingOutlined, LoginOutlined, UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
-import authService from '../services/authService';
+import authService, { MFARequiredError } from '../services/authService';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID, LINE_LOGIN_CHANNEL_ID } from '../config/env';
 import { useLineLogin } from '../hooks';
 import { logger } from '../utils/logger';
@@ -83,10 +83,38 @@ const EntryPage: React.FC = () => {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  const [showLoginForm, setShowLoginForm] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [form] = Form.useForm();
   const navigate = useNavigate();
 
   // LINE Login hook
   const { lineLoading, handleLineLogin } = useLineLogin(null);
+
+  // 帳密登入（內嵌表單）
+  const handlePasswordLogin = async (values: { username: string; password: string }) => {
+    setLoading(true);
+    setLoginError('');
+    try {
+      const response = await authService.login({
+        username: values.username,
+        password: values.password,
+      });
+      message.success('登入成功！');
+      window.dispatchEvent(new CustomEvent('user-logged-in'));
+      navigate(response.user_info.is_admin ? ROUTES.ADMIN_DASHBOARD : ROUTES.DASHBOARD);
+    } catch (error: unknown) {
+      if (error instanceof MFARequiredError) {
+        message.info('請完成雙因素認證');
+        navigate(ROUTES.MFA_VERIFY, { state: { mfa_token: error.mfa_token } });
+        return;
+      }
+      const msg = error instanceof Error ? error.message : '登入失敗，請檢查帳號密碼';
+      setLoginError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 預先生成星星
   const stars = useMemo(
@@ -349,22 +377,59 @@ const EntryPage: React.FC = () => {
                   </Button>
                 )}
 
-                {/* 帳密登入：所有環境 */}
-                {SHOW_PASSWORD_LOGIN && (
+                {/* 帳密登入：內嵌展開式表單 */}
+                {SHOW_PASSWORD_LOGIN && !showLoginForm && (
                   <Button
                     className="password-login-btn"
                     icon={<UserOutlined />}
                     size="large"
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(ROUTES.LOGIN);
+                      setShowLoginForm(true);
                     }}
                   >
                     帳號密碼登入
                   </Button>
                 )}
 
-                {/* Google 登入：localhost + ngrok + public */}
+                {showLoginForm && (
+                  <div className="inline-login-form" onClick={(e) => e.stopPropagation()}>
+                    {loginError && (
+                      <div style={{ color: '#ff4d4f', fontSize: 13, marginBottom: 8, textAlign: 'center' }}>
+                        {loginError}
+                      </div>
+                    )}
+                    <Form form={form} onFinish={handlePasswordLogin} layout="vertical" size="large">
+                      <Form.Item name="username" rules={[{ required: true, message: '請輸入帳號' }]} style={{ marginBottom: 12 }}>
+                        <Input
+                          prefix={<UserOutlined style={{ color: 'rgba(255,255,255,0.5)' }} />}
+                          placeholder="帳號或電子郵件"
+                          autoComplete="username"
+                          className="entry-input"
+                        />
+                      </Form.Item>
+                      <Form.Item name="password" rules={[{ required: true, message: '請輸入密碼' }]} style={{ marginBottom: 16 }}>
+                        <Input.Password
+                          prefix={<LockOutlined style={{ color: 'rgba(255,255,255,0.5)' }} />}
+                          placeholder="密碼"
+                          autoComplete="current-password"
+                          className="entry-input"
+                        />
+                      </Form.Item>
+                      <Button
+                        className="dev-entry-btn"
+                        htmlType="submit"
+                        loading={loading}
+                        block
+                        size="large"
+                      >
+                        登入
+                      </Button>
+                    </Form>
+                  </div>
+                )}
+
+                {/* Google 登入：僅 localhost / ngrok 可用（公網 Google API 可能受限）*/}
                 {SHOW_GOOGLE_LOGIN && (
                   <Button
                     id="google-signin-btn"
@@ -380,7 +445,7 @@ const EntryPage: React.FC = () => {
                   </Button>
                 )}
 
-                {/* LINE 登入：已配置即顯示 */}
+                {/* LINE 登入 */}
                 {SHOW_LINE_LOGIN && (
                   <Button
                     className="line-login-btn"
