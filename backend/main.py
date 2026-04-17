@@ -772,7 +772,7 @@ app.include_router(api_router, prefix="/api")
 
 # --- 系統端點（必須在 SPA catch-all 前註冊，否則會被 spa_fallback 搶走）---
 @app.get("/health", tags=["System"])
-async def health_check(db: AsyncSession = Depends(get_async_db)):
+async def health_check(request: Request, db: AsyncSession = Depends(get_async_db)):
     """基本健康檢查端點，回傳系統狀態 + 資料庫連線 + 版本。"""
     from app.core.cors import allowed_origins, local_ips
 
@@ -805,15 +805,20 @@ async def health_check(db: AsyncSession = Depends(get_async_db)):
         pool_status = {"error": str(e)}
 
     is_healthy = db_status == "connected"
-    return {
+    result = {
         "status": "healthy" if is_healthy else "unhealthy",
         "version": app.version,
         "environment": "development" if settings.DEVELOPMENT_MODE else "production",
         "database": {"status": db_status, "latency_ms": db_latency_ms},
-        "pool": pool_status,
-        "cors": {"origins_count": len(allowed_origins), "local_ips_detected": len(local_ips)},
         "timestamp": datetime.now().isoformat(),
     }
+    # Pool / CORS 詳情僅內部請求暴露（公網不應洩漏基礎設施資訊）
+    client_host = request.client.host if request.client else ""
+    is_internal = client_host in ("127.0.0.1", "::1", "localhost") or client_host.startswith(("10.", "192.168.", "172."))
+    if is_internal:
+        result["pool"] = pool_status
+        result["cors"] = {"origins_count": len(allowed_origins), "local_ips_detected": len(local_ips)}
+    return result
 
 
 # --- 前端靜態服務（ADR-0016 公網部署）---
