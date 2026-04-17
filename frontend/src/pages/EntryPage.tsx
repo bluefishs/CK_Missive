@@ -23,7 +23,8 @@ import { GoogleOutlined, LoadingOutlined, LoginOutlined, UserOutlined } from '@a
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import authService from '../services/authService';
-import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
+import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID, LINE_LOGIN_CHANNEL_ID } from '../config/env';
+import { useLineLogin } from '../hooks';
 import { logger } from '../utils/logger';
 import './EntryPage.css';
 
@@ -55,6 +56,7 @@ const IS_NGROK_OR_PUBLIC = ENV_TYPE === 'ngrok' || ENV_TYPE === 'public';  // ng
 const SHOW_QUICK_ENTRY = IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL;  // localhost + 內網 顯示快速進入
 const SHOW_PASSWORD_LOGIN = true;                                          // 所有環境都有帳密登入
 const SHOW_GOOGLE_LOGIN = GOOGLE_LOGIN_ENABLED && (IS_LOCALHOST || IS_NGROK_OR_PUBLIC);  // localhost/ngrok/public 顯示 Google 登入
+const SHOW_LINE_LOGIN = Boolean(LINE_LOGIN_CHANNEL_ID);  // LINE Login 已配置即顯示
 
 // 星星組件
 interface StarProps {
@@ -82,6 +84,9 @@ const EntryPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const navigate = useNavigate();
+
+  // LINE Login hook
+  const { lineLoading, handleLineLogin } = useLineLogin(null);
 
   // 預先生成星星
   const stars = useMemo(
@@ -372,6 +377,21 @@ const EntryPage: React.FC = () => {
                     }}
                   >
                     使用 Google 帳號登入
+                  </Button>
+                )}
+
+                {/* LINE 登入：已配置即顯示 */}
+                {SHOW_LINE_LOGIN && (
+                  <Button
+                    className="line-login-btn"
+                    size="large"
+                    loading={lineLoading}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLineLogin();
+                    }}
+                  >
+                    使用 LINE 帳號登入
                   </Button>
                 )}
               </div>
