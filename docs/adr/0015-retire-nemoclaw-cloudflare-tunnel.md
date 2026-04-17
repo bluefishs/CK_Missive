@@ -79,7 +79,14 @@ Day 11 (2026-04-25) ────── Telegram webhook 切至 CF Tunnel URL + H
 Day 14 ~ 17           ────── 灰度觀察
 Day 18 ~ 22           ────── Discord 切換 + LINE 下線
 Day 25 (2026-05-09) ────── OpenClaw 容器下線（NemoClaw 剩空殼）
-Day 28 (2026-05-12) ────── CK_NemoClaw repo 歸檔（README 指向本 ADR）
+Day 28 (2026-05-12) ────── 原定歸檔日 → 延展至 2026-05-26（Phase 1 軟切緩衝）
+Day 42 (2026-05-26) ────── CK_NemoClaw repo 歸檔（README 指向本 ADR）
+
+## 2026-04-17 時程修訂記錄
+
+原 Day 28 (2026-05-12) 歸檔時程偏緊 — Phase 1 軟切（LINE bot AGENT_PRIMARY routing flag）
+尚未啟動，25 天壓力窗口不足以穩定灰度。延展兩週至 2026-05-26，Phase 1 獲得
+4/24–5/01 完整軟切窗口 + 5/01–5/26 灰度觀察期。
 ```
 
 ## 驗收標準
