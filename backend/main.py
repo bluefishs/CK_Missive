@@ -933,6 +933,13 @@ async def prometheus_metrics():
         )
         cpu.set(process.cpu_percent(interval=0))
 
+        try:
+            from app.core.shadow_baseline_metrics import populate_shadow_metrics
+            populate_shadow_metrics(registry)
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger(__name__).debug("shadow_baseline_metrics unavailable: %s", e)
+
         return Response(
             content=generate_latest(registry),
             media_type=CONTENT_TYPE_LATEST,
