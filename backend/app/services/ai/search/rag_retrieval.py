@@ -163,7 +163,7 @@ async def retrieve_chunks(
     """
     try:
         from app.extended.models import DocumentChunk, OfficialDocument
-        from sqlalchemy import select as sa_select, func as sa_func
+        from sqlalchemy import select as sa_select, func as sa_func, text as sa_text
 
         # 確認是否有 chunks
         count_result = await db.execute(
@@ -218,6 +218,13 @@ async def retrieve_chunks(
             .order_by("distance")
             .limit(top_k * 2)
         )
+        # HNSW ef_search 調優 — 精確搜尋用高 recall
+        try:
+            from app.core.hnsw_config import get_hnsw_config
+            await db.execute(sa_text(get_hnsw_config().get_set_local_sql("precise")))
+        except Exception:
+            pass  # non-critical
+
         result = await db.execute(stmt)
         rows = result.fetchall()
 

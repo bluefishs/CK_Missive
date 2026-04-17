@@ -272,8 +272,9 @@ class AgentPlanner:
 
 {few_shot_str_block}
 
-你只能回傳 JSON，格式如下：
-{{"reasoning": "簡短中文分析", "tool_calls": [{{"name": "工具名稱", "params": {{...}}}}]}}"""
+回應格式（嚴格 JSON，不可包含 markdown 或解釋文字）：
+{{"reasoning": "簡短中文分析", "tool_calls": [{{"name": "工具名稱", "params": {{...}}}}]}}
+回應必須是合法 JSON 且僅一行。禁止 ```json 代碼區塊、禁止額外文字。"""
 
         messages: List[Dict[str, str]] = [
             {"role": "system", "content": system_prompt},

@@ -63,6 +63,14 @@ class CanonicalEntityResolver:
             config = AIConfig.get_instance()
             max_distance = config.kg_semantic_distance
 
+            # HNSW ef_search 調優 — entity resolution 用精確模式
+            try:
+                from sqlalchemy import text as _text
+                from app.core.hnsw_config import get_hnsw_config
+                await self.db.execute(_text(get_hnsw_config().get_set_local_sql("precise")))
+            except Exception:
+                pass
+
             result = await self.db.execute(
                 select(CanonicalEntity)
                 .where(

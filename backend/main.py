@@ -98,6 +98,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ DB pool metrics setup failed: {e}")
 
+    # 📊 DB 查詢延遲追蹤 (p50/p95/p99 + slow query counter)
+    try:
+        from app.core.db_query_listener import setup_query_listener
+        setup_query_listener(engine)
+    except Exception as e:
+        logger.warning(f"⚠️ DB query listener setup failed: {e}")
+
     # Schema 驗證（開發環境嚴格模式：阻止啟動，生產環境僅警告）
     # 在開發環境中，若模型與資料庫不一致將直接拋出錯誤並阻止啟動
     is_development = (

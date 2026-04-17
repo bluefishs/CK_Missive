@@ -189,7 +189,20 @@ class AIConnector(AIConnectorManagementMixin):
                 )
             except Exception:
                 pass  # token tracking 不應阻斷推理
+            # Prometheus provider 指標
+            try:
+                from app.core.inference_provider_metrics import get_inference_provider_metrics
+                get_inference_provider_metrics().record_completion(provider, task_type or "chat")
+            except Exception:
+                pass
             return result
+
+        def _record_fallback(from_p: str, to_p: str, reason: str = "error"):
+            try:
+                from app.core.inference_provider_metrics import get_inference_provider_metrics
+                get_inference_provider_metrics().record_fallback(from_p, to_p, reason)
+            except Exception:
+                pass
 
         # Ollama-First 路徑（NER、批次、非即時任務 — 本地無限量）
         if prefer_local:
@@ -204,6 +217,7 @@ class AIConnector(AIConnectorManagementMixin):
                 return await _track_and_return(result, "ollama", ollama_model)
             except Exception as e:
                 logger.warning("Ollama-first 失敗，降級至 Groq: %s", e)
+                _record_fallback("ollama", "groq", "error")
                 # 繼續到下方 Groq-first 邏輯作為 fallback
 
         # 嘗試 vLLM 本地（最低延遲，P0 優先）
