@@ -410,6 +410,24 @@ class AIConnector(AIConnectorManagementMixin):
             images: base64-encoded 圖片列表，注入到最後一條 user 訊息中
                 (Ollama vision format)。
         """
+        # GPU 並發控制 — 避免多請求同時 OOM (RTX 4060 8GB)
+        from app.core.inference_semaphore import get_inference_semaphore
+        sem = get_inference_semaphore()
+        async with sem.acquire():
+            return await self._ollama_completion_inner(
+                messages, model, temperature, max_tokens, response_format, images,
+            )
+
+    async def _ollama_completion_inner(
+        self,
+        messages: List[Dict[str, Any]],
+        model: str,
+        temperature: float,
+        max_tokens: int,
+        response_format: Optional[Dict[str, str]] = None,
+        images: Optional[List[str]] = None,
+    ) -> str:
+        """Ollama 實際推理 (由 _ollama_completion semaphore 保護)"""
         # 構建 Ollama 訊息（可能注入 images）
         ollama_messages = [dict(m) for m in messages]  # shallow copy
         if images:

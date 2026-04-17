@@ -150,8 +150,8 @@ class Settings(BaseSettings):
     # =========================================================================
     # 連線池設定
     # =========================================================================
-    POOL_SIZE: int = Field(default=10, description="資料庫連線池大小")
-    MAX_OVERFLOW: int = Field(default=20, description="最大溢出連線數")
+    POOL_SIZE: int = Field(default=15, description="資料庫連線池大小")
+    MAX_OVERFLOW: int = Field(default=30, description="最大溢出連線數")
     POOL_RECYCLE: int = Field(default=180, description="連線回收時間（秒）")
     STATEMENT_TIMEOUT: int = Field(default=30000, description="SQL 查詢超時（毫秒）")
 

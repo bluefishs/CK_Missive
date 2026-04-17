@@ -91,6 +91,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ DB warmup failed (non-blocking): {e}")
 
+    # 📊 DB 連線池 Prometheus 指標掛接
+    try:
+        from app.core.db_pool_metrics import setup_pool_metrics
+        setup_pool_metrics(engine)
+    except Exception as e:
+        logger.warning(f"⚠️ DB pool metrics setup failed: {e}")
+
     # Schema 驗證（開發環境嚴格模式：阻止啟動，生產環境僅警告）
     # 在開發環境中，若模型與資料庫不一致將直接拋出錯誤並阻止啟動
     is_development = (
