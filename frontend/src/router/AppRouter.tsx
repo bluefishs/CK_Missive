@@ -13,6 +13,7 @@ import { ROUTES } from './types';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PageLoading } from '../components/common';
 import Layout from '../components/Layout';
+import authService from '../services/authService';
 
 // --- 整合說明 ---
 // ContractCasePage 是功能和 UI 完整的主體。
@@ -141,8 +142,10 @@ export const AppRouter: React.FC = () => {
     <Layout>
       <Suspense fallback={<PageLoading message="載入頁面中..." />}>
         <Routes>
-          {/* 首頁重導向至儀表板 */}
-          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.ENTRY} replace />} />
+          {/* 首頁：已登入 → 儀表板；未登入 → 星空入口 */}
+          <Route path={ROUTES.HOME} element={
+            <Navigate to={authService.isAuthenticated() ? ROUTES.DASHBOARD : ROUTES.ENTRY} replace />
+          } />
 
           {/* 公開入口 + 登入 */}
           <Route path={ROUTES.ENTRY} element={<EntryPage />} />
