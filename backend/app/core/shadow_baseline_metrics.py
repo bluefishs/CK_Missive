@@ -3,11 +3,19 @@
 Shadow Baseline Prometheus Metrics
 
 從 backend/logs/shadow_trace.db 讀取 query_trace，匯出為 Prometheus gauges。
-作為 Hermes Phase 0 → Phase 1 GO/NO-GO 三指標的儀表板資料源：
+作為 Hermes Phase 0 → Phase 1 GO/NO-GO 儀表板的資料源：
 
   1. p95 latency by provider — shadow_baseline_latency_p95_ms
-  2. tool-call equivalence rate — shadow_baseline_tool_equivalence_ratio
-  3. success rate by provider — shadow_baseline_success_ratio
+  2. success rate by provider — shadow_baseline_success_ratio
+  3. tool usage by provider — shadow_baseline_tool_use_count
+
+⚠️ 架構說明（2026-04-18 修正）：
+shadow_logger 為 single-write — 每 request 寫一筆 trace，
+provider_resolver 一個 channel 對應固定一個 provider，
+故同 request_id 不會出現在兩個 provider。
+
+原設計的 tool_equivalence_ratio（基於 request_id 配對）永遠為空，
+已移除。改以 tool usage 分布讓使用者目視比較兩 provider 的 tool 偏好。
 
 Compression 觸發率非本 DB 範圍，由 Hermes 側 inference_provider_metrics 接管。
 
@@ -58,34 +66,22 @@ def _load_recent_rows() -> List[Dict]:
         return []
 
 
-def _compute_tool_equivalence(rows: List[Dict]) -> Dict[Tuple[str, str], float]:
-    """配對相同 request_id 的兩 provider 呼叫，計算 tools_used 集合等價率。
+def _compute_tool_usage(rows: List[Dict]) -> Dict[Tuple[str, str], int]:
+    """統計各 provider 的 tool 使用次數。
 
-    回傳 {(provider_a, provider_b): ratio_0_to_1}。
+    回傳 {(provider, tool_name): count}。
     """
-    by_request: Dict[str, Dict[str, set]] = defaultdict(dict)
+    counts: Dict[Tuple[str, str], int] = defaultdict(int)
     for r in rows:
-        req_id = r.get("request_id")
         provider = r.get("provider") or "unknown"
-        if not req_id:
-            continue
         try:
-            tools = set(json.loads(r.get("tools_used") or "[]"))
+            tools = json.loads(r.get("tools_used") or "[]")
         except (TypeError, ValueError):
-            tools = set()
-        by_request[req_id][provider] = tools
-
-    pair_match: Dict[Tuple[str, str], List[bool]] = defaultdict(list)
-    for providers_map in by_request.values():
-        provs = sorted(providers_map.keys())
-        for i, a in enumerate(provs):
-            for b in provs[i + 1 :]:
-                pair_match[(a, b)].append(providers_map[a] == providers_map[b])
-
-    return {
-        pair: sum(matches) / len(matches) if matches else 0.0
-        for pair, matches in pair_match.items()
-    }
+            continue
+        for tool in tools:
+            if isinstance(tool, str):
+                counts[(provider, tool)] += 1
+    return counts
 
 
 def populate_shadow_metrics(registry: CollectorRegistry) -> None:
@@ -138,13 +134,13 @@ def populate_shadow_metrics(registry: CollectorRegistry) -> None:
         success_ratio.labels(provider=provider).set(ok / len(prov_rows))
         call_total.labels(provider=provider).set(len(prov_rows))
 
-    equivalence = _compute_tool_equivalence(rows)
-    if equivalence:
-        equiv_gauge = Gauge(
-            "shadow_baseline_tool_equivalence_ratio",
-            "Tool-call set equivalence between two providers on shared request_id (last 24h)",
-            ["provider_a", "provider_b"],
+    tool_usage = _compute_tool_usage(rows)
+    if tool_usage:
+        tool_gauge = Gauge(
+            "shadow_baseline_tool_use_count",
+            "Tool invocation count by provider and tool (last 24h)",
+            ["provider", "tool"],
             registry=registry,
         )
-        for (a, b), ratio in equivalence.items():
-            equiv_gauge.labels(provider_a=a, provider_b=b).set(ratio)
+        for (provider, tool), count in tool_usage.items():
+            tool_gauge.labels(provider=provider, tool=tool).set(count)
