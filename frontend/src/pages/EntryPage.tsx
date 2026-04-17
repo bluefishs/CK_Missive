@@ -83,6 +83,7 @@ const EntryPage: React.FC = () => {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState(true); // Google API 可用性
   const [showLoginForm, setShowLoginForm] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [form] = Form.useForm();
@@ -180,13 +181,20 @@ const EntryPage: React.FC = () => {
   }, [navigate]);
 
   const initializeGoogleSignIn = async () => {
+    // 5 秒超時 — Google API 不可達（防火牆/GFW）時自動降級
+    const timeout = setTimeout(() => {
+      logger.warn('Google Sign-In API timeout (5s), hiding Google button');
+      setGoogleAvailable(false);
+      setGoogleReady(true);
+    }, 5000);
+
     try {
-      // 載入 Google Identity Services API
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
       script.defer = true;
       script.onload = () => {
+        clearTimeout(timeout);
         if (window.google) {
           window.google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
@@ -197,20 +205,27 @@ const EntryPage: React.FC = () => {
           setGoogleReady(true);
         }
       };
+      script.onerror = () => {
+        clearTimeout(timeout);
+        logger.warn('Google Sign-In API failed to load, hiding Google button');
+        setGoogleAvailable(false);
+        setGoogleReady(true);
+      };
 
       if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
         document.head.appendChild(script);
-      } else {
-        if (window.google) {
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: handleGoogleCallback,
-          });
-          setGoogleReady(true);
-        }
+      } else if (window.google) {
+        clearTimeout(timeout);
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCallback,
+        });
+        setGoogleReady(true);
       }
     } catch (error) {
+      clearTimeout(timeout);
       logger.error('Failed to initialize Google Sign-In:', error);
+      setGoogleAvailable(false);
       setGoogleReady(true);
     }
   };
@@ -429,8 +444,8 @@ const EntryPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Google 登入：僅 localhost / ngrok 可用（公網 Google API 可能受限）*/}
-                {SHOW_GOOGLE_LOGIN && (
+                {/* Google 登入：僅在 API 可達時顯示 */}
+                {SHOW_GOOGLE_LOGIN && googleAvailable && (
                   <Button
                     id="google-signin-btn"
                     className="google-login-btn"

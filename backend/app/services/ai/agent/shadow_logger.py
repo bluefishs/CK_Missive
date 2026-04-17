@@ -190,7 +190,9 @@ async def log_trace(
     """
     if not _ENABLED:
         return
-    if random.random() > _SAMPLE_RATIO:
+    # 合成基線（synthetic-*）永遠 100% 記錄，不受取樣率限制
+    is_synthetic = session_id and str(session_id).startswith("synthetic-")
+    if not is_synthetic and random.random() > _SAMPLE_RATIO:
         return
     row = {
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),

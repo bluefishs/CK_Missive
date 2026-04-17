@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!frontend/.env.production
 
 # Docker Secrets (Phase 1)
 secrets/

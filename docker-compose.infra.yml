@@ -166,6 +166,25 @@ services:
     profiles:
       - vllm
 
+  # --- ☁️ Cloudflare Tunnel（ADR-0015/0016，Docker 模式）---
+  # CF Dashboard 建立 tunnel 後取得 token，設於 .env 的 CF_TUNNEL_TOKEN
+  # 路由到 host 上的 PM2 backend (host.docker.internal:8001)
+  # 啟動：docker compose -f docker-compose.infra.yml up -d cloudflared
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ${COMPOSE_PROJECT_NAME}_cloudflared
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    networks:
+      - app_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "localhost:host-gateway"
+    restart: unless-stopped
+    profiles:
+      - tunnel
+
 # --- 持久化儲存（與 docker-compose.dev.yml 共享） ---
 volumes:
   postgres_dev_data:

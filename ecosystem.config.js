@@ -141,6 +141,23 @@ module.exports = {
       max_size: '10M',
     }] : []),
 
+    // ---- Health Watchdog（每 2 分鐘偵測 backend 假死，連續 2 次失敗自動 restart）----
+    {
+      name: 'health-watchdog',
+      script: 'scripts/health/health-watchdog.sh',
+      interpreter: 'bash',
+      cwd: __dirname,
+      autorestart: false,       // 不自動重啟（由 cron 觸發）
+      cron_restart: '*/2 * * * *',  // 每 2 分鐘
+      watch: false,
+
+      error_file: './logs/watchdog-error.log',
+      out_file: './logs/watchdog-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      max_size: '5M',
+    },
+
     // ---- 發票影像 Watchdog 監控 ----
     {
       name: 'invoice-watcher',

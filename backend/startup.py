@@ -266,6 +266,9 @@ def main():
         port=port,
         reload=False,
         log_level="info",
+        timeout_keep_alive=30,      # 閒置連線 30s 後關閉（防 keep-alive 堆積）
+        limit_concurrency=50,       # 最大併發請求數（超過則 503）
+        timeout_graceful_shutdown=15,  # graceful shutdown 15s 後強制結束
     )
 
 
