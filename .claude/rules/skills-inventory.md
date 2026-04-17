@@ -1,7 +1,7 @@
 # Skills / Commands / Agents 清單
 
-> **最後同步**：2026-04-16（v5.5.6，ADR-0014~0016 之後）
-> **重大變更**：OpenClaw/NemoClaw 已廢止（ADR-0014/0015），Hermes Agent + CF Tunnel 取代中
+> **最後同步**：2026-04-17（v5.5.8，NemoClaw 退場完成 + 觀測棧）
+> **重大變更**：OpenClaw/NemoClaw 已全面退場（ADR-0014/0015），程式碼遷移完成 (MissiveAgent + agent_capability)
 
 ## Slash Commands (可用指令)
 
@@ -201,5 +201,20 @@
 | `frontend/src/components/taoyuan/MorningReportTrackingTable.tsx` | 🆕 派工狀態追蹤表格（expandable per-type rows） |
 | `frontend/src/components/taoyuan/DispatchOverviewTab.tsx` | 🆕 v2.0 — 方案 C 看板+表格 Segmented，統一 morning-status |
 | `scripts/init/backfill_work_type_id.py` | 🆕 work_type_id 回填腳本（62 auto / 7 manual） |
-| `docs/DOCKER_SECRETS_PHASE1.md` | 🆕 Docker Secrets Phase 1 盤點（76 env vars 3 tier） |
+| `docs/DOCKER_SECRETS_PHASE1.md` | Docker Secrets Phase 1 盤點（76 env vars 3 tier） |
+| `backend/app/core/prometheus_middleware.py` | 🆕 Prometheus /metrics 中介層（request count/duration/active） |
+| `backend/app/core/scheduler_alert.py` | 🆕 排程器失敗 Telegram 告警（threshold + cooldown） |
+| `backend/app/core/secret_loader.py` | 🆕 Docker Secrets file→env fallback 載入器 |
+| `backend/app/core/json_log_formatter.py` | 🆕 Loki-compatible JSON 日誌格式化 |
+| `backend/app/core/db_pool_metrics.py` | 🆕 DB Pool Prometheus gauge（active/checkout/overflow） |
+| `backend/app/core/db_query_metrics.py` | 🆕 DB Query duration histogram + slow query counter |
+| `backend/app/core/db_query_listener.py` | 🆕 SQLAlchemy event listener → query metrics |
+| `backend/app/core/inference_semaphore.py` | 🆕 GPU 推理並發控制（max=3，防 VRAM OOM） |
+| `backend/app/core/inference_provider_metrics.py` | 🆕 推理 provider completion/fallback Prometheus |
+| `backend/app/core/hnsw_config.py` | 🆕 HNSW ef_search 動態配置（precise/default/batch） |
+| `backend/app/core/kg_stats_metrics.py` | 🆕 KG entity/edge/wiki Prometheus gauge |
+| `backend/app/core/entity_resolution_benchmark.py` | 🆕 Entity resolution 效能基準報告 |
+| `backend/app/services/ai/misc/missive_agent.py` | 🆕 MissiveAgent（自覺型 Agent，renamed from NemoClawAgent） |
+| `backend/app/api/endpoints/ai/agent_capability.py` | 🆕 Agent 能力自覺 + 聯邦端點（renamed from agent_nemoclaw） |
+| `backend/app/services/ai/domain/morning_report_formatter.py` | 🆕 晨報格式化（純函數，拆分自 service） |
 | `@AGENT.md` | 開發代理指引 |

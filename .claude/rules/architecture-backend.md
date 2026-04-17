@@ -62,18 +62,21 @@ backend/app/services/
 ├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse)
 ├── ai/                         # AI 服務 (11 子包 + ~120 re-export stubs)
 │   ├── core/                   # 核心基礎 (16): ai_config, base_ai_service, embedding_manager, token_tracker
-│   ├── agent/                  # 智能體 Agent (36): orchestrator, planner, evolution, pattern_learner
+│   ├── agent/                  # 智能體 Agent (36): orchestrator, planner, evolution, pattern_learner, missive_agent
+│   │   └── missive_agent.py    # MissiveAgent (v3.0, renamed from NemoClawAgent)
 │   ├── tools/                  # 工具執行器 (16): tool_definitions, tool_registry, 6 executor
 │   ├── graph/                  # 知識圖譜 (26): relation_graph, canonical_entity, code_graph, erp_graph
 │   ├── document/               # 文件處理 (10): document_ai, chunker, entity_extraction
-│   ├── domain/                 # 領域業務 (10): digital_twin, morning_report, pm/erp_query
-│   │   ├── morning_report_service.py   # 晨報生成 (926L) — 聚合 CTE + 6 層 closure_level + sections filter
-│   │   ├── morning_report_delivery.py  # 晨報派送 (240L) — delivery_log + snapshot + subscription + 失敗告警
+│   ├── domain/                 # 領域業務 (12): digital_twin, morning_report, pm/erp_query
+│   │   ├── morning_report_service.py     # 晨報生成 (937L) — 聚合 CTE + queries (v2.0 委派 formatter)
+│   │   ├── morning_report_formatter.py   # 晨報格式化 (~250L) — 純函數，無 DB (v1.0 拆分)
+│   │   ├── morning_report_queries.py     # 晨報查詢層 (Phase 1 stub)
+│   │   ├── morning_report_delivery.py    # 晨報派送 (240L)
 │   │   └── dispatch_progress_synthesizer.py  # 派工進度彙整
 │   ├── search/                 # 搜尋排序 (9): rag_query, rag_retrieval, reranker
 │   ├── proactive/              # 主動觸發 (5): proactive_triggers + erp/finance/pm
 │   ├── federation/             # 聯邦整合 (3): federation_client/discovery/delegation
-│   ├── misc/                   # 雜項工具 (9): voice_transcriber, skill_snapshot, code_wiki
+│   ├── misc/                   # 雜項工具 (10): voice_transcriber, skill_snapshot, code_wiki, missive_agent
 │   ├── *.py                    # ~120 re-export stubs (向後相容 sys.modules 轉發)
 │   ├── prompts.yaml            # 5組Prompt模板
 │   ├── synonyms.yaml           # 53組同義詞字典

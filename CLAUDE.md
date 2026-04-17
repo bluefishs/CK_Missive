@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.5.7 晨報重構 + 派工追蹤整合 + per-type 進度架構
-> **最後更新**: 2026-04-16
+> **版本**: v5.5.8 NemoClaw 退場 + 觀測棧 + 效能優化 + Hermes-centric
+> **最後更新**: 2026-04-17
 
 ---
 

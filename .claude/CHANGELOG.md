@@ -4,6 +4,52 @@
 
 ---
 
+## [5.5.8] - 2026-04-17
+
+### NemoClaw 退場 + 觀測棧 + 效能優化 + Hermes-centric（10 commits, 98 new tests）
+
+#### NemoClaw/OpenClaw 全面退場（ADR-0014/0015）
+- **MissiveAgent** — `NemoClawAgent` → `MissiveAgent` (re-export stub 向後相容)
+- **agent_capability.py** — `agent_nemoclaw.py` → `agent_capability.py` (端點路徑不變)
+- **Digital Twin** — 移除 OpenClaw federation，本地 AgentOrchestrator 直接推理
+- **Task proxy** — HTTP 410 Gone（service retired）
+- **Docker compose** — `nemoclaw_network` 移除，multichannel `profiles: ["deprecated"]`
+- **Topology 圖** — NemoClaw+OpenClaw 節點 → Hermes Agent 節點
+- **Provider resolver** — channel mapping 更新為 Hermes era (LINE/TG/Discord → gemma-hermes)
+- **Frontend** — 25+ JSDoc NemoClaw/OpenClaw 引用更新
+- **歷史註解** — 22 處「對標 OpenClaw」全部轉為中性描述
+
+#### 觀測棧新增
+- **Prometheus /metrics** — `prometheus_middleware.py` (request count/duration/active gauge)
+- **排程器失敗告警** — `scheduler_alert.py` (Telegram, threshold=2, cooldown=5min)
+- **JSON Log Formatter** — `json_log_formatter.py` (Loki-compatible structured logging)
+- **DB Pool Metrics** — `db_pool_metrics.py` (active/checkout/overflow/timeout gauge)
+- **DB Query Metrics** — `db_query_metrics.py` (duration histogram p50/p95/p99 + slow counter)
+- **DB Query Listener** — `db_query_listener.py` (SQLAlchemy before/after_cursor_execute)
+- **Inference Provider Metrics** — completion/fallback/duration per provider
+- **KG Stats Metrics** — entity_count/edge_count/wiki_pages gauge
+
+#### 安全硬化
+- **Docker Secrets** — `secret_loader.py` (file → env fallback) + config model_validator
+- **Compose overlay** — `docker-compose.infra.secrets.yml` + `secrets/.gitignore`
+
+#### 效能優化
+- **DB Pool** — POOL_SIZE 10→15, MAX_OVERFLOW 20→30
+- **GPU Inference Semaphore** — `inference_semaphore.py` (max=3, 防 RTX 4060 OOM)
+- **HNSW ef_search** — `hnsw_config.py` (precise=200/default=100/batch=40)
+- **RAG + Entity Resolution** — SET LOCAL hnsw.ef_search 整合
+- **Gemma 4 Prompt** — agent_planner JSON-only 指令強化
+- **Entity Resolution Benchmark** — 效能基準報告產生器
+
+#### 晨報拆分
+- **morning_report_formatter.py** — 純函數格式化邏輯 (~250L)
+- **morning_report_queries.py** — 查詢層 Phase 1 stub
+
+#### Bug Fix
+- **ImportResultCard** — 修復物件渲染為 React child 的 crash
+
+---
+
 ## [5.5.7] - 2026-04-16
 
 ### 晨報機制全面重構 + 派工追蹤整合 + per-type 進度架構（17 commits）
