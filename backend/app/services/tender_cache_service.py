@@ -173,29 +173,19 @@ async def save_search_results(db: AsyncSession, records: List[Dict[str, Any]], s
 async def search_from_db(
     db: AsyncSession, query: str, limit: int = 50,
 ) -> List[Dict[str, Any]]:
-    """從 DB 搜尋標案 — trigram 相似度優先，ILIKE fallback
+    """從 DB 搜尋標案 — trigram 相似度 + ILIKE，長查詢自動提高門檻
 
     排序策略：
-    1. 完全匹配 title → 最高優先
-    2. trigram similarity 降序（需 pg_trgm extension）
-    3. 日期降序
+    1. 完全匹配 title → relevance = 1.0（最高優先）
+    2. trigram similarity 降序（短查詢 ≥0.3，長查詢 ≥0.4）
+    3. ILIKE substring match
+    4. 日期降序
+
+    v5.5.8: 修復長查詢（>20字）回傳過多不相關結果的問題
     """
-    # 截斷過長關鍵字（ILIKE 對超長字串效能差）
-    search_q = query[:100] if len(query) > 100 else query
-    result = await db.execute(text("""
-        SELECT tr.*, array_agg(DISTINCT CASE WHEN tcl.role='winner' THEN tcl.company_name END) AS winners,
-               array_agg(DISTINCT CASE WHEN tcl.role='bidder' THEN tcl.company_name END) AS bidders,
-               CASE WHEN tr.title = :exact THEN 1.0
-                    ELSE COALESCE(similarity(tr.title, :sim_q), 0)
-               END AS relevance
-        FROM tender_records tr
-        LEFT JOIN tender_company_links tcl ON tcl.tender_record_id = tr.id
-        WHERE tr.title ILIKE :q OR tr.unit_name ILIKE :q
-           OR similarity(tr.title, :sim_q) > 0.15
-        GROUP BY tr.id
-        ORDER BY relevance DESC, tr.announce_date DESC NULLS LAST
-        LIMIT :lim
-    """), {"q": f"%{search_q}%", "exact": query, "sim_q": search_q, "lim": limit})
+    from app.services.tender_search_query import build_tender_search_sql
+    sql, params = build_tender_search_sql(query, limit=limit)
+    result = await db.execute(text(sql), params)
 
     rows = result.fetchall()
     records = []
