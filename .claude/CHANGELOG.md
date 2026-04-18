@@ -4,6 +4,37 @@
 
 ---
 
+## [5.6.1] - 2026-04-19
+
+### asyncpg 併發 race 根治 + 告警去抖動 + 文件同步
+
+#### 🐛 根因修復（P0 — 2026-04-19 00:13 Telegram 告警觸發）
+- **asyncpg race condition**：`asyncio.gather` 多 task 共用同一 session 造成
+  `InterfaceError: another operation is in progress`；連線被 pool invalidate，
+  health probe 看到即發警報。
+- **修復機制**：新增 `app.db.database.run_with_fresh_session(fn)` helper，
+  每個並行 DB task 各自取 session（asyncpg 單飛模式）。
+- **熱點修復（3 處）**：
+  * `agent_orchestrator.py:317` — hints + plan 並行
+  * `digital_twin_service.py:get_dashboard_snapshot` — 6 路並行查詢
+  * `graph_unified.py:/graph/unified-search` — kg/code/erp/tender 四路搜尋
+- **測試** — 4 新測試（`test_run_with_fresh_session.py`）覆蓋：
+  * 正常回值 + commit
+  * 例外 rollback
+  * gather N task 取到 N 個獨立 session（核心保證）
+  * partial failure 不污染 siblings
+
+#### 🛡️ 告警去抖動（P2）
+- **scheduler.py:health_check_broadcast_job** — 加入 2-strike threshold：
+  連續 2 次（10 分鐘）失敗才推 Telegram，避免 transient DB invalidate 誤警。
+- **恢復通知** — streak 歸零時若曾告警過，推送「系統已恢復」訊息閉環。
+
+#### 📝 文件同步
+- ADR-0021：asyncpg 併發模式（見 `docs/adr/0021-asyncpg-concurrent-session.md`）
+- CLAUDE.md：新增「並行 DB 操作」規範（強制使用 `run_with_fresh_session`）
+
+---
+
 ## [5.6.0] - 2026-04-18
 
 ### 穩定性強化 + 安全硬化 + structlog 統一 + 星空首頁（14 commits, 27 files）

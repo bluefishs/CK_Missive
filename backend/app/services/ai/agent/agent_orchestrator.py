@@ -313,10 +313,16 @@ class AgentOrchestrator:
                 # 過濾歷史：只保留最近 2 輪，避免閒聊歷史干擾規劃
                 planning_history = history[-4:] if history else None
 
-                # 並行：意圖前處理（需 db）+ LLM 工具規劃（不需 db）
+                # 並行：意圖前處理 + LLM 工具規劃
+                # 注意：兩者都用 DB，必須各自 session（asyncpg 不允許同一 connection 併發）
+                from app.db.database import run_with_fresh_session
                 hints, plan = await asyncio.gather(
                     self._planner.preprocess_question(question, self.db),
-                    self._planner.plan_tools(question, planning_history, context=context, db=self.db),
+                    run_with_fresh_session(
+                        lambda db: self._planner.plan_tools(
+                            question, planning_history, context=context, db=db,
+                        )
+                    ),
                 )
 
                 # 後合併：將前處理 hints 注入 LLM 生成的 plan

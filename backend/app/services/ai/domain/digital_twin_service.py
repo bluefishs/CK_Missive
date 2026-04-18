@@ -213,27 +213,35 @@ class DigitalTwinService:
                 logger.debug("Dashboard: %s unavailable: %s", label, e)
                 return None
 
+        # asyncpg 不允許同一 connection 併發：每個 DB task 各自取 session
+        from app.db.database import run_with_fresh_session
+
         async def _get_profile():
             from app.services.ai.agent.agent_self_profile import get_self_profile
-            return await get_self_profile(db)
+            return await run_with_fresh_session(lambda s: get_self_profile(s))
 
         async def _get_capability():
             from app.services.ai.agent.agent_capability_tracker import get_capability_profile
-            return await get_capability_profile(db)
+            return await run_with_fresh_session(lambda s: get_capability_profile(s))
 
         async def _get_daily():
             from app.services.ai.agent.agent_mirror_feedback import generate_mirror_report
-            return await generate_mirror_report(db)
+            return await run_with_fresh_session(lambda s: generate_mirror_report(s))
 
         async def _get_quality():
             from app.repositories.agent_trace_repository import AgentTraceRepository
-            return await AgentTraceRepository(db).get_quality_summary()
+            return await run_with_fresh_session(
+                lambda s: AgentTraceRepository(s).get_quality_summary()
+            )
 
         async def _get_traces():
             from app.repositories.agent_trace_repository import AgentTraceRepository
-            return await AgentTraceRepository(db).get_recent_traces(limit=5)
+            return await run_with_fresh_session(
+                lambda s: AgentTraceRepository(s).get_recent_traces(limit=5)
+            )
 
         async def _get_health():
+            # 不需 DB — 直接 HTTP 檢查
             from app.services.ai.federation.federation_client import get_federation_client
             client = get_federation_client()
             systems = client.list_available_systems()

@@ -1062,9 +1062,16 @@ async def embedding_warmup_job():
         logger.error("Embedding 預熱失敗: %s", e, exc_info=True)
 
 
+# Health check 去抖動 — 連續 N 次失敗才告警，避免 transient 偽警報
+# 2026-04-19: asyncpg connection invalidate 瞬間觸發誤警，加入 2-strike 門檻
+_HEALTH_FAIL_STREAK = 0
+_HEALTH_ALERT_THRESHOLD = 2  # 連續 2 次（10 分鐘）失敗才告警
+
+
 @tracked_job("health_check_broadcast")
 async def health_check_broadcast_job():
-    """系統健康檢查 — 每 5 分鐘輪詢，異常時推播到 Telegram 管理群組"""
+    """系統健康檢查 — 每 5 分鐘輪詢，連續 2 次異常才推播 Telegram（去抖動）"""
+    global _HEALTH_FAIL_STREAK
     import os
     import httpx
 
@@ -1078,27 +1085,58 @@ async def health_check_broadcast_job():
             resp = await client.get(health_url)
             data = resp.json()
 
-        if resp.status_code != 200 or data.get("status") != "healthy":
-            db_status = data.get("database", {}).get("status", "unknown")
-            msg = (
-                f"🚨 公文系統健康異常\n\n"
-                f"狀態: {data.get('status', 'unknown')}\n"
-                f"資料庫: {db_status}\n"
-                f"時間: {data.get('timestamp', 'N/A')}"
-            )
-            from app.services.telegram_bot_service import get_telegram_bot_service
-            await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
-            logger.warning("健康檢查異常，已推播至 Telegram: %s", data.get("status"))
+        is_healthy = resp.status_code == 200 and data.get("status") == "healthy"
+
+        if is_healthy:
+            # 健康 — 若上次剛告警（streak >= threshold），推一次「恢復」通知後歸零
+            if _HEALTH_FAIL_STREAK >= _HEALTH_ALERT_THRESHOLD:
+                try:
+                    from app.services.telegram_bot_service import get_telegram_bot_service
+                    await get_telegram_bot_service().push_message(
+                        int(admin_chat_id),
+                        f"✅ 公文系統已恢復\n\n時間: {data.get('timestamp', 'N/A')}",
+                    )
+                except Exception:
+                    pass
+            _HEALTH_FAIL_STREAK = 0
+            return
+
+        # 不健康 — 累計 streak，達閾值才告警
+        _HEALTH_FAIL_STREAK += 1
+        logger.warning(
+            "健康檢查異常 (streak=%d/%d): status=%s",
+            _HEALTH_FAIL_STREAK, _HEALTH_ALERT_THRESHOLD, data.get("status"),
+        )
+        if _HEALTH_FAIL_STREAK < _HEALTH_ALERT_THRESHOLD:
+            return  # 還沒到閾值，暫不告警
+
+        # 連續失敗達閾值 — 告警
+        db_status = data.get("database", {}).get("status", "unknown")
+        msg = (
+            f"🚨 公文系統健康異常（連續 {_HEALTH_FAIL_STREAK} 次失敗）\n\n"
+            f"狀態: {data.get('status', 'unknown')}\n"
+            f"資料庫: {db_status}\n"
+            f"時間: {data.get('timestamp', 'N/A')}"
+        )
+        from app.services.telegram_bot_service import get_telegram_bot_service
+        await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
+        logger.warning("健康檢查連續異常已推播至 Telegram: %s", data.get("status"))
 
     except Exception as e:
-        # API 完全無回應 — 這是最嚴重的情況
-        msg = f"🚨 公文系統 API 無回應\n\n錯誤: {str(e)[:200]}"
+        # API 完全無回應 — 同樣採用 streak 機制
+        _HEALTH_FAIL_STREAK += 1
+        logger.error(
+            "健康檢查失敗 (streak=%d/%d): %s",
+            _HEALTH_FAIL_STREAK, _HEALTH_ALERT_THRESHOLD, e,
+        )
+        if _HEALTH_FAIL_STREAK < _HEALTH_ALERT_THRESHOLD:
+            return
+        msg = f"🚨 公文系統 API 無回應（連續 {_HEALTH_FAIL_STREAK} 次）\n\n錯誤: {str(e)[:200]}"
         try:
             from app.services.telegram_bot_service import get_telegram_bot_service
             await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
         except Exception:
             pass  # Telegram 也失敗，只記 log
-        logger.error("健康檢查失敗: %s", e)
 
 
 def setup_scheduler(

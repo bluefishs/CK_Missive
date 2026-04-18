@@ -89,9 +89,14 @@ async def unified_graph_search(
     results: list[UnifiedGraphResult] = []
     sources_queried: list[str] = []
 
+    # 每個並行 DB task 必須用獨立 session（避免 asyncpg "another operation in progress"）
+    from app.db.database import run_with_fresh_session
+
     async def search_kg() -> list[UnifiedGraphResult]:
-        svc = GraphQueryService(db)
-        entities = await svc.search_entities(query=query, limit=request.limit_per_graph)
+        async def _q(fresh_db):
+            svc = GraphQueryService(fresh_db)
+            return await svc.search_entities(query=query, limit=request.limit_per_graph)
+        entities = await run_with_fresh_session(_q)
         return [
             UnifiedGraphResult(
                 source="kg",
@@ -117,7 +122,8 @@ async def unified_graph_search(
             .order_by(CanonicalEntity.mention_count.desc())
             .limit(request.limit_per_graph)
         )
-        rows = (await db.execute(stmt)).all()
+        rows = await run_with_fresh_session(lambda s: s.execute(stmt))
+        rows = rows.all()
         return [
             UnifiedGraphResult(
                 source="code",
@@ -173,7 +179,8 @@ async def unified_graph_search(
             .order_by(CanonicalEntity.mention_count.desc())
             .limit(request.limit_per_graph)
         )
-        rows = (await db.execute(stmt)).all()
+        rows = await run_with_fresh_session(lambda s: s.execute(stmt))
+        rows = rows.all()
         return [
             UnifiedGraphResult(
                 source="erp",
@@ -199,7 +206,8 @@ async def unified_graph_search(
             .order_by(TenderRecord.announce_date.desc().nullslast())
             .limit(request.limit_per_graph)
         )
-        rows = (await db.execute(stmt)).all()
+        rows = await run_with_fresh_session(lambda s: s.execute(stmt))
+        rows = rows.all()
         return [
             UnifiedGraphResult(
                 source="tender",

@@ -116,6 +116,37 @@ async def get_async_db() -> AsyncSession:
     finally:
         await session.close()
 
+
+# ---- 並行安全輔助（2026-04-19，修 asyncpg "another operation in progress" race）----
+
+async def run_with_fresh_session(fn):
+    """為單一 coroutine 提供獨立 session，避免 asyncio.gather 共用 session 造成
+    asyncpg `another operation is in progress` race。
+
+    asyncpg connection 為單飛模式（一次一個 op），若同一 session 被兩個並行
+    coroutine 使用會直接 raise InterfaceError。因此並行 DB 操作務必每個
+    task 自己拿 session。
+
+    Usage:
+        from app.db.database import run_with_fresh_session
+        results = await asyncio.gather(
+            run_with_fresh_session(lambda db: service_a.query(db)),
+            run_with_fresh_session(lambda db: service_b.query(db)),
+        )
+
+    Args:
+        fn: Callable[[AsyncSession], Awaitable[T]] — 接 session，回傳 coroutine
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await fn(session)
+            await session.commit()
+            return result
+        except Exception:
+            await session.rollback()
+            raise
+
+
 # -- (可選) 同步操作，用於腳本或 Alembic --
 # 雖然應用程式本身是非同步的，但某些腳本可能需要同步操作
 from sqlalchemy import create_engine

@@ -154,6 +154,32 @@ docs, total = await doc_repo.filter_documents(doc_type='收文', skip=0, limit=2
 
 **BaseService 繼承原則**：簡單 CRUD 用 BaseService，複雜業務邏輯用 Repository。
 
+### 5.1 並行 DB 操作強制規範（ADR-0021）
+
+**asyncpg connection 單飛模式**：一個 connection 同時只能執行一個 operation。
+`asyncio.gather` 多個 task 共用同一 session 會導致
+`InterfaceError: another operation is in progress`。
+
+```python
+# ❌ 錯誤 — 兩個 task 共用同一 db session，會爆 asyncpg race
+hints, plan = await asyncio.gather(
+    planner.preprocess(db),
+    planner.plan_tools(db),
+)
+
+# ✅ 正確 — 每個並行 task 使用獨立 session
+from app.db.database import run_with_fresh_session
+
+hints, plan = await asyncio.gather(
+    run_with_fresh_session(lambda s: planner.preprocess(s)),
+    run_with_fresh_session(lambda s: planner.plan_tools(s)),
+)
+```
+
+**判斷規則**：`asyncio.gather(...)` 內只要有 2+ 個 task 會做 DB 操作（含 ORM 查詢、
+`session.execute`、`repository.get_*`），**必須**用 `run_with_fresh_session` 包裝。
+單一 task 或純 HTTP/LLM 呼叫不受此限。
+
 ## 6. 前端狀態管理 (雙層架構)
 
 | 層級 | 位置 | 職責 |
