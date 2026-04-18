@@ -36,6 +36,7 @@ from starlette.responses import Response
 
 from app.core.dependencies import get_async_db
 from app.core.rate_limiter import limiter
+from app.core.service_auth import require_scope
 from app.schemas.ai.rag import (
     AgentQueryRequest,
     AgentSyncCapabilities,
@@ -249,7 +250,7 @@ async def _try_inject_handoff(
 async def agent_query_sync(
     request: Request,
     response: Response,
-    _auth: bool = Depends(_verify_service_token),
+    _auth: bool = Depends(require_scope("read:agent")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """

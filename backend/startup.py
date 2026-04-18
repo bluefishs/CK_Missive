@@ -185,26 +185,37 @@ def main():
         log("Step 0.5", "Redis on port 6380 not available. AI cache will use in-memory fallback.", "WARN")
 
     # ================================================================
-    # Step 1: 安裝/更新 Python 依賴
+    # Step 1: 安裝/更新 Python 依賴（條件式 — hash 不變則跳過，省 ~20s）
     # ================================================================
-    log("Step 1", "Checking Python dependencies...")
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "--quiet"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            encoding="utf-8",
-            errors="replace",
-        )
-        if result.returncode == 0:
-            log("Step 1", "Dependencies check completed.")
-        else:
-            log("Step 1", f"pip install returned code {result.returncode}", "WARN")
-    except subprocess.TimeoutExpired:
-        log("Step 1", "pip install timed out (120s), continuing...", "WARN")
-    except Exception as e:
-        log("Step 1", f"pip install failed: {e}", "WARN")
+    import hashlib
+    req_file = os.path.join(BACKEND_DIR, "requirements.txt")
+    hash_file = os.path.join(BACKEND_DIR, ".pip_hash")
+    req_hash = hashlib.md5(open(req_file, "rb").read()).hexdigest() if os.path.exists(req_file) else ""
+    cached_hash = open(hash_file).read().strip() if os.path.exists(hash_file) else ""
+
+    if req_hash and req_hash == cached_hash:
+        log("Step 1", "Dependencies unchanged, skipping pip install.")
+    else:
+        log("Step 1", "Checking Python dependencies...")
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "--quiet"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                encoding="utf-8",
+                errors="replace",
+            )
+            if result.returncode == 0:
+                log("Step 1", "Dependencies installed.")
+                with open(hash_file, "w") as f:
+                    f.write(req_hash)
+            else:
+                log("Step 1", f"pip install returned code {result.returncode}", "WARN")
+        except subprocess.TimeoutExpired:
+            log("Step 1", "pip install timed out (120s), continuing...", "WARN")
+        except Exception as e:
+            log("Step 1", f"pip install failed: {e}", "WARN")
 
     # ================================================================
     # Step 2: 套用資料庫遷移

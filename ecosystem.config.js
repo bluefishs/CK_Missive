@@ -37,13 +37,25 @@ module.exports = {
       args: 'startup.py',
       interpreter: 'none',
 
-      // 環境變數 (UTF-8 強制：避免 Windows cp950 編碼錯誤)
+      // 環境變數 — 開發模式（預設）
       env: {
         PYTHONUNBUFFERED: '1',
         PYTHONIOENCODING: 'utf-8',
         PYTHONUTF8: '1',
-        // Shadow 基線記錄（ADR-0014 Hermes 遷移 Phase 0 基線）
-        // 30 天自動清理；PII 遮罩已啟用；採樣 0.3 控制 IO
+        SHADOW_ENABLED: '1',
+        SHADOW_SAMPLE_RATIO: '0.3',
+        SHADOW_RETENTION_DAYS: '30',
+      },
+
+      // 環境變數 — 公網生產模式 (pm2 start --env production)
+      env_production: {
+        PYTHONUNBUFFERED: '1',
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1',
+        DEVELOPMENT_MODE: 'false',
+        AUTH_DISABLED: 'false',
+        DEBUG: 'false',
+        LOG_LEVEL: 'WARNING',
         SHADOW_ENABLED: '1',
         SHADOW_SAMPLE_RATIO: '0.3',
         SHADOW_RETENTION_DAYS: '30',
@@ -141,15 +153,15 @@ module.exports = {
       max_size: '10M',
     }] : []),
 
-    // ---- Health Watchdog（每 2 分鐘偵測 backend 假死，連續 2 次失敗自動 restart）----
+    // ---- Health Watchdog（常駐 loop，每 2 分鐘偵測假死，連續 2 次失敗自動 restart）----
     {
       name: 'health-watchdog',
       script: 'scripts/health/health-watchdog.sh',
       interpreter: 'bash',
       cwd: __dirname,
-      autorestart: false,       // 不自動重啟（由 cron 觸發）
-      cron_restart: '*/2 * * * *',  // 每 2 分鐘
+      autorestart: true,        // 常駐模式（v2.0 — 修復 PM2 cron 在 Windows 不穩定）
       watch: false,
+      max_memory_restart: '64M',
 
       error_file: './logs/watchdog-error.log',
       out_file: './logs/watchdog-out.log',

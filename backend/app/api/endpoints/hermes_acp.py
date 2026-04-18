@@ -31,6 +31,7 @@ from typing import Dict, Mapping
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from app.core.service_auth import require_scope
 from app.schemas.hermes_acp import AcpRequest, AcpResponse, HermesFeedback
 from app.services.ai.agent.provider_resolver import resolve_provider
 
@@ -118,7 +119,7 @@ async def process_acp(req: AcpRequest, headers: Mapping[str, str]) -> AcpRespons
 async def hermes_acp_endpoint(
     req: AcpRequest,
     request: Request,
-    _: bool = Depends(_verify_service_token),
+    _: bool = Depends(require_scope("read:agent")),
 ) -> AcpResponse:
     headers: Dict[str, str] = {k.lower(): v for k, v in request.headers.items()}
     provider = resolve_provider(channel="hermes", headers=headers)
@@ -189,7 +190,7 @@ async def persist_feedback(payload: HermesFeedback) -> None:
 @router.post("/feedback", status_code=202)
 async def hermes_feedback_endpoint(
     payload: HermesFeedback,
-    _: bool = Depends(_verify_service_token),
+    _: bool = Depends(require_scope("read:agent")),
 ):
     """接收 Hermes skill 執行後的回饋訊號（L4 學習閉環入口）。"""
     try:

@@ -1,37 +1,40 @@
 #!/bin/bash
-# Health Watchdog — 偵測 backend 假死並自動重啟
+# Health Watchdog — 常駐偵測 backend 假死並自動重啟
 #
-# PM2 cron-restart 無法偵測 event loop 阻塞，此腳本補位。
-# 每 2 分鐘由 PM2/cron 執行，連續 2 次失敗則 restart。
+# PM2 以 autorestart 常駐執行，每 2 分鐘檢查一次。
+# 連續 2 次失敗則 restart ck-backend。
 #
-# Usage:
-#   bash scripts/health/health-watchdog.sh
-#
-# Version: 1.0.0
+# Version: 2.0.0 — 改為 while-true 常駐模式（修復 PM2 cron 在 Windows 不穩定）
 
 HEALTH_URL="http://localhost:8001/health"
-FAIL_FILE="/tmp/ck_backend_health_fails"
 MAX_FAILS=2
 TIMEOUT=10
+INTERVAL=120  # 秒
 
-# 檢查 health
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$TIMEOUT" "$HEALTH_URL" 2>/dev/null)
+FAILS=0
 
-if [ "$HTTP_CODE" = "200" ]; then
-    # 成功，重置計數
-    echo 0 > "$FAIL_FILE"
-    exit 0
-fi
+echo "[watchdog] Started (interval=${INTERVAL}s, max_fails=${MAX_FAILS})"
 
-# 失敗，累加計數
-FAILS=$(cat "$FAIL_FILE" 2>/dev/null || echo 0)
-FAILS=$((FAILS + 1))
-echo "$FAILS" > "$FAIL_FILE"
+while true; do
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$TIMEOUT" "$HEALTH_URL" 2>/dev/null)
 
-echo "[watchdog] Health check failed: HTTP=$HTTP_CODE, consecutive=$FAILS/$MAX_FAILS"
+    if [ "$HTTP_CODE" = "200" ]; then
+        if [ "$FAILS" -gt 0 ]; then
+            echo "[watchdog] Recovered after $FAILS failures"
+        fi
+        FAILS=0
+    else
+        FAILS=$((FAILS + 1))
+        echo "[watchdog] FAIL #$FAILS/$MAX_FAILS (HTTP=$HTTP_CODE)"
 
-if [ "$FAILS" -ge "$MAX_FAILS" ]; then
-    echo "[watchdog] Max failures reached, restarting ck-backend..."
-    pm2 restart ck-backend --update-env
-    echo 0 > "$FAIL_FILE"
-fi
+        if [ "$FAILS" -ge "$MAX_FAILS" ]; then
+            echo "[watchdog] Restarting ck-backend..."
+            pm2 restart ck-backend --update-env 2>&1 | tail -1
+            FAILS=0
+            # 重啟後等額外 30s 讓 backend 啟動
+            sleep 30
+        fi
+    fi
+
+    sleep "$INTERVAL"
+done
