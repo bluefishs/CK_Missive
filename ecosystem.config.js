@@ -170,6 +170,29 @@ module.exports = {
       max_size: '5M',
     },
 
+    // ---- Synthetic Baseline Inject Loop（每 4 小時注入 20 筆合成查詢，累積 Phase 0 shadow baseline）----
+    // 同 health-watchdog：常駐 while-true（避免 PM2 cron 在 Windows 不穩定）
+    {
+      name: 'synthetic-baseline',
+      script: 'scripts/checks/synthetic-baseline-loop.sh',
+      interpreter: 'bash',
+      cwd: __dirname,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '128M',
+      env: {
+        BACKEND_URL: 'http://localhost:8001',
+        INTERVAL: '14400',       // 4 小時（每日 6 輪 × 20 筆 = 120 筆基線）
+        COUNT: '20',
+      },
+
+      error_file: './logs/synthetic-baseline-error.log',
+      out_file: './logs/synthetic-baseline-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      max_size: '10M',
+    },
+
     // ---- 發票影像 Watchdog 監控 ----
     {
       name: 'invoice-watcher',

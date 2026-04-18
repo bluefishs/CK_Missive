@@ -183,3 +183,6 @@ dispatch*.json
 
 # Runtime lock files
 backend/.startup.lock
+
+# Hermes Phase 0 — soul fidelity eval outputs (產出檔，每次執行覆寫)
+scripts/checks/.soul-eval-*.json
