@@ -6,13 +6,15 @@
 version: "2.0.0"
 
 profiles:
-  # === P0: 本地主力 — Gemma 4 8B (Ollama GPU) ===
+  # === P2: 本地備援 — Gemma 4 (Ollama GPU) ===
+  # 2026-04-18: model tag 從 "gemma4" 修正為 "gemma4:e2b"（Ollama 實際註冊名）
+  # priority 從 0→2：Groq/NVIDIA 雲端設為主力（P1），Ollama 作備援
   gemma4-local:
     provider: ollama
-    model: "gemma4"
+    model: "gemma4:e2b"
     base_url: "${OLLAMA_BASE_URL}"
     timeout_seconds: 120
-    priority: 0
+    priority: 2
     capabilities:
       - chat
       - planning
@@ -53,7 +55,7 @@ profiles:
   # === Vision — Gemma 4 multimodal (image understanding) ===
   gemma4-vision:
     provider: ollama
-    model: "gemma4"
+    model: "gemma4:e2b"
     base_url: "${OLLAMA_BASE_URL}"
     timeout_seconds: 120
     priority: 0

@@ -47,7 +47,7 @@ VLLM_LOCAL_MODEL = os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 
 # Ollama 配置
 OLLAMA_DEFAULT_URL = "http://localhost:11434"
-OLLAMA_DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "gemma4")
+OLLAMA_DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
 
 # Retry 配置
 MAX_RETRIES = 2
@@ -193,6 +193,12 @@ class AIConnector(AIConnectorManagementMixin):
             try:
                 from app.core.inference_provider_metrics import get_inference_provider_metrics
                 get_inference_provider_metrics().record_completion(provider, task_type or "chat")
+            except Exception:
+                pass
+            # Request-scoped ContextVar — shadow_logger 讀此以標記實體 LLM provider
+            try:
+                from app.core.inference_provider_context import set_actual_provider
+                set_actual_provider(provider)
             except Exception:
                 pass
             return result

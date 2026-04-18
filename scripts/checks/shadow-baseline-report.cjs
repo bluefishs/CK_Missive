@@ -88,12 +88,20 @@ for (const r of rows) {
 
 const errors = rows.filter(r => r.error_code).map(r => r.error_code);
 
-// 依 provider 分組（A/B 比對）
+// 依 provider 分組（A/B 比對）— channel label（gemma-local / gemma-hermes）
 const byProvider = new Map();
 for (const r of rows) {
   const k = r.provider || 'unknown';
   if (!byProvider.has(k)) byProvider.set(k, []);
   byProvider.get(k).push(r);
+}
+
+// 依實體 LLM provider 分組（groq / ollama / nvidia ...）— 反映真實推理路徑
+const byActualLLM = new Map();
+for (const r of rows) {
+  const k = r.actual_llm_provider || '(unset)';
+  if (!byActualLLM.has(k)) byActualLLM.set(k, []);
+  byActualLLM.get(k).push(r);
 }
 
 // 每日分佈
@@ -137,6 +145,17 @@ const report = {
       }];
     })
   ),
+  by_actual_llm: Object.fromEntries(
+    [...byActualLLM.entries()].map(([k, v]) => {
+      const lat = v.map(r => r.latency_ms || 0).filter(x => x > 0);
+      return [k, {
+        count: v.length,
+        success_rate: +(v.filter(r => r.success === 1).length / v.length * 100).toFixed(2),
+        p50: pctl(lat, 0.5),
+        p95: pctl(lat, 0.95),
+      }];
+    })
+  ),
   top_tools: [...count(allTools).entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
   errors: Object.fromEntries(count(errors)),
   by_date: Object.fromEntries(
@@ -158,8 +177,12 @@ console.log(`各頻道:`);
 for (const [ch, s] of Object.entries(report.by_channel)) {
   console.log(`  ${ch.padEnd(10)} count=${String(s.count).padStart(4)}  ok=${s.success_rate}%  p50=${s.p50}ms  p95=${s.p95}ms`);
 }
-console.log(`\n依 provider (A/B 比對):`);
+console.log(`\n依 provider label (channel 標籤，A/B 比對):`);
 for (const [p, s] of Object.entries(report.by_provider)) {
+  console.log(`  ${p.padEnd(20)} count=${String(s.count).padStart(4)}  ok=${s.success_rate}%  p50=${s.p50}ms  p95=${s.p95}ms`);
+}
+console.log(`\n依實體 LLM provider (真實推理路徑):`);
+for (const [p, s] of Object.entries(report.by_actual_llm)) {
   console.log(`  ${p.padEnd(20)} count=${String(s.count).padStart(4)}  ok=${s.success_rate}%  p50=${s.p50}ms  p95=${s.p95}ms`);
 }
 console.log(`\n熱門工具 Top 10:`);

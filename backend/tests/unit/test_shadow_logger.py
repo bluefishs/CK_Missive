@@ -114,6 +114,66 @@ def test_provider_defaults_from_env(tmp_db, monkeypatch):
     assert provider == "haiku-openclaw"
 
 
+def test_actual_llm_provider_explicit(tmp_db):
+    """明確傳入 actual_llm_provider 時應寫入 DB。"""
+    db, sl = tmp_db
+    asyncio.run(sl.log_trace(
+        channel="web", question="q", answer="a",
+        success=True, latency_ms=50,
+        provider="gemma-local",              # channel label
+        actual_llm_provider="groq",          # 實體 LLM
+    ))
+    conn = sqlite3.connect(db)
+    (provider, actual) = conn.execute(
+        "SELECT provider, actual_llm_provider FROM query_trace"
+    ).fetchone()
+    conn.close()
+    assert provider == "gemma-local"
+    assert actual == "groq"
+
+
+def test_actual_llm_provider_from_contextvar(tmp_db):
+    """未明確傳入 actual_llm_provider 時，從 ContextVar 讀取。"""
+    db, sl = tmp_db
+    from app.core.inference_provider_context import set_actual_provider, reset_actual_provider
+
+    set_actual_provider("ollama")
+    try:
+        asyncio.run(sl.log_trace(
+            channel="web", question="q", answer="a",
+            success=True, latency_ms=50,
+            provider="gemma-local",
+            # 不傳 actual_llm_provider → 應自動從 ContextVar 撿 ollama
+        ))
+    finally:
+        reset_actual_provider()
+
+    conn = sqlite3.connect(db)
+    (actual,) = conn.execute(
+        "SELECT actual_llm_provider FROM query_trace"
+    ).fetchone()
+    conn.close()
+    assert actual == "ollama"
+
+
+def test_actual_llm_provider_none_when_unset(tmp_db):
+    """ContextVar 未設定且 caller 未傳 → 欄位為 NULL。"""
+    db, sl = tmp_db
+    from app.core.inference_provider_context import reset_actual_provider
+
+    reset_actual_provider()
+    asyncio.run(sl.log_trace(
+        channel="web", question="q", answer="a",
+        success=True, latency_ms=50,
+    ))
+    conn = sqlite3.connect(db)
+    (actual,) = conn.execute(
+        "SELECT actual_llm_provider FROM query_trace"
+    ).fetchone()
+    conn.close()
+    assert actual is None
+
+
 def test_write_failure_silent(tmp_path, monkeypatch, caplog):
     """寫入失敗時不該 raise。"""
     from app.services.ai.agent import shadow_logger as sl

@@ -44,32 +44,40 @@ _RETENTION_DAYS = int(os.getenv("SHADOW_RETENTION_DAYS", "30"))
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS query_trace (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    ts            TEXT    NOT NULL,
-    channel       TEXT,
-    provider      TEXT,
-    question      TEXT,
-    answer        TEXT,
-    success       INTEGER NOT NULL DEFAULT 1,
-    latency_ms    INTEGER,
-    tools_used    TEXT,
-    sources_count INTEGER,
-    error_code    TEXT,
-    session_id    TEXT,
-    request_id    TEXT
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts                  TEXT    NOT NULL,
+    channel             TEXT,
+    provider            TEXT,
+    actual_llm_provider TEXT,
+    question            TEXT,
+    answer              TEXT,
+    success             INTEGER NOT NULL DEFAULT 1,
+    latency_ms          INTEGER,
+    tools_used          TEXT,
+    sources_count       INTEGER,
+    error_code          TEXT,
+    session_id          TEXT,
+    request_id          TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_trace_ts ON query_trace(ts);
 CREATE INDEX IF NOT EXISTS idx_trace_channel ON query_trace(channel);
 CREATE INDEX IF NOT EXISTS idx_trace_provider ON query_trace(provider);
+CREATE INDEX IF NOT EXISTS idx_trace_actual_provider ON query_trace(actual_llm_provider);
 """
 
 
 def _migrate_add_provider_column(conn: sqlite3.Connection) -> None:
-    """Idempotent migration — 既有 DB 升級時補 provider 欄位。"""
+    """Idempotent migration — 既有 DB 升級時補欄位。"""
     cols = {row[1] for row in conn.execute("PRAGMA table_info(query_trace)")}
     if "provider" not in cols:
         conn.execute("ALTER TABLE query_trace ADD COLUMN provider TEXT")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_trace_provider ON query_trace(provider)")
+    if "actual_llm_provider" not in cols:
+        # 實體 LLM provider（groq/ollama/nvidia...），區分 channel label（gemma-local/gemma-hermes）
+        conn.execute("ALTER TABLE query_trace ADD COLUMN actual_llm_provider TEXT")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_trace_actual_provider ON query_trace(actual_llm_provider)"
+        )
 
 
 # PII 遮罩 regex（最小集，不追求完美）
@@ -134,14 +142,15 @@ def _write_sync(row: Dict[str, Any]) -> None:
             conn.execute(
                 """
                 INSERT INTO query_trace
-                (ts, channel, provider, question, answer, success, latency_ms,
-                 tools_used, sources_count, error_code, session_id, request_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                (ts, channel, provider, actual_llm_provider, question, answer, success,
+                 latency_ms, tools_used, sources_count, error_code, session_id, request_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     row.get("ts") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
                     row.get("channel"),
                     row.get("provider"),
+                    row.get("actual_llm_provider"),
                     _mask_pii((row.get("question") or "")[:2000]),
                     _mask_pii((row.get("answer") or "")[:4000]),
                     1 if row.get("success", True) else 0,
@@ -191,6 +200,7 @@ async def log_trace(
     success: bool,
     latency_ms: int,
     provider: Optional[str] = None,
+    actual_llm_provider: Optional[str] = None,
     tools_used: Optional[List[str]] = None,
     sources_count: Optional[int] = None,
     error_code: Optional[str] = None,
@@ -199,8 +209,13 @@ async def log_trace(
 ) -> None:
     """Fire-and-forget 紀錄一筆 trace。取樣不通過則直接跳過。
 
-    provider: 推論提供者標籤（如 haiku-openclaw / gemma-hermes / groq-llama）
-              供 Hermes 遷移期 A/B 比對用。若未指定，由 env ``SHADOW_DEFAULT_PROVIDER`` 決定。
+    provider: 推論提供者標籤（如 haiku-openclaw / gemma-hermes / gemma-local）
+              供 Hermes 遷移期 A/B 比對用。**僅是 channel-based label**。
+              若未指定，由 env ``SHADOW_DEFAULT_PROVIDER`` 決定。
+    actual_llm_provider: **實體 LLM provider**（groq / ollama / nvidia / openai）。
+              若未指定，自動從 request-scoped ContextVar
+              （``app.core.inference_provider_context``）讀取最後成功推理的 provider。
+              用於區分 channel label 與真實推理路徑，baseline 品質分析依此判 GO/NO-GO。
     """
     if not _get_enabled():
         return
@@ -208,10 +223,20 @@ async def log_trace(
     is_synthetic = session_id and str(session_id).startswith("synthetic-")
     if not is_synthetic and random.random() > _get_sample_ratio():
         return
+
+    # 自動從 ContextVar 讀實體 provider（若 caller 未明確指定）
+    if actual_llm_provider is None:
+        try:
+            from app.core.inference_provider_context import get_actual_provider
+            actual_llm_provider = get_actual_provider()
+        except Exception:
+            actual_llm_provider = None
+
     row = {
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "channel": channel,
         "provider": provider or os.getenv("SHADOW_DEFAULT_PROVIDER", "unknown"),
+        "actual_llm_provider": actual_llm_provider,
         "question": question,
         "answer": answer,
         "success": success,
