@@ -11,7 +11,7 @@ Created: 2026-04-05
 import logging
 import time
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from starlette.responses import JSONResponse
 
 from app.core.rate_limiter import limiter
@@ -48,6 +48,7 @@ def _is_duplicate_update(update_id: int) -> bool:
 @limiter.limit("30/minute")
 async def telegram_webhook(
     request: Request,
+    response: Response,  # slowapi rate-limiter 需此參數 inject X-RateLimit headers
     background_tasks: BackgroundTasks,
 ) -> TelegramWebhookResponse:
     """

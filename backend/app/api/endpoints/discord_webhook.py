@@ -13,7 +13,7 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, Response
 from starlette.responses import JSONResponse
 
 from app.core.rate_limiter import limiter
@@ -32,6 +32,7 @@ router = APIRouter()
 @limiter.limit("30/minute")
 async def discord_webhook(
     request: Request,
+    response: Response,  # slowapi rate-limiter 需此參數 inject X-RateLimit headers
     background_tasks: BackgroundTasks,
 ):
     """

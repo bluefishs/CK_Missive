@@ -388,15 +388,28 @@ class TelegramBotService:
         return await self.send_message(chat_id, text)
 
     # ── Telegram Reactions (表情反應 — Bot API 7.2+) ──
+    # Telegram 僅允許特定 emoji 作為 reaction（見 core.telegram.org/api/reactions）。
+    # 常見不被接受：✅ ❌ ⏳ 等；映射為 allowed 版本。
+    _REACTION_EMOJI_MAP = {
+        "✅": "👍",   # 成功
+        "❌": "👎",   # 失敗
+        "⏳": "🤔",   # 處理中
+        # 以下已在 allowed list，直通：👀 👍 👎 ❤ 🔥 🎉 🤔 🙏 ⚡
+    }
 
     async def set_reaction(
         self, chat_id: int, message_id: int, emoji: str,
     ) -> bool:
-        """Set emoji reaction on a message (replaces previous)."""
+        """Set emoji reaction on a message (replaces previous).
+
+        Telegram API 限制 reaction emoji 必須在 allowed list，不允許的會回 400。
+        使用 ``_REACTION_EMOJI_MAP`` 映射常見 emoji 到 allowed 版本。
+        """
+        mapped = self._REACTION_EMOJI_MAP.get(emoji, emoji)
         return await self._call_telegram_api("/setMessageReaction", {
             "chat_id": chat_id,
             "message_id": message_id,
-            "reaction": [{"type": "emoji", "emoji": emoji}],
+            "reaction": [{"type": "emoji", "emoji": mapped}],
         })
 
     async def remove_reaction(self, chat_id: int, message_id: int) -> bool:

@@ -215,6 +215,48 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ APScheduler 排程器啟動失敗 (不影響核心功能): {e}")
 
+    # Telegram webhook 自動註冊（防 webhook URL 被清空導致 bot 無反應）
+    # 2026-04-19: @Aaron_ckbot webhook 曾被意外清除，加啟動自動設定作為防線
+    try:
+        if _os.getenv("TELEGRAM_BOT_ENABLED", "false").lower() == "true":
+            bot_token = _os.getenv("TELEGRAM_BOT_TOKEN", "")
+            webhook_base = _os.getenv("TELEGRAM_WEBHOOK_BASE_URL", "")
+            secret = _os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+            if bot_token and webhook_base:
+                import httpx
+                webhook_url = f"{webhook_base.rstrip('/')}/api/telegram/webhook"
+                async with httpx.AsyncClient(timeout=10) as client:
+                    # 先查現有 webhook
+                    info_resp = await client.get(
+                        f"https://api.telegram.org/bot{bot_token}/getWebhookInfo"
+                    )
+                    current = info_resp.json().get("result", {}).get("url", "")
+                    if current == webhook_url:
+                        logger.info("✅ Telegram webhook 已正確設定: %s", webhook_url)
+                    else:
+                        set_resp = await client.post(
+                            f"https://api.telegram.org/bot{bot_token}/setWebhook",
+                            data={
+                                "url": webhook_url,
+                                "secret_token": secret,
+                                "drop_pending_updates": "false",
+                            },
+                        )
+                        if set_resp.json().get("ok"):
+                            logger.info(
+                                "✅ Telegram webhook 已自動設定: %s (was: %s)",
+                                webhook_url, current or "(empty)",
+                            )
+                        else:
+                            logger.warning(
+                                "⚠️ Telegram webhook 設定失敗: %s",
+                                set_resp.json().get("description"),
+                            )
+            elif bot_token and not webhook_base:
+                logger.debug("未設定 TELEGRAM_WEBHOOK_BASE_URL，跳過 webhook 自動註冊")
+    except Exception as e:
+        logger.warning(f"⚠️ Telegram webhook 自動註冊失敗 (不影響核心功能): {e}")
+
     # 註冊 ERP 圖譜 Domain Event 訂閱（報價/請款/費用異動 → 增量入圖）
     try:
         from app.services.ai.graph.erp_graph_event_handler import register_erp_graph_handlers
