@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, require_admin, get_async_db
+from app.core.service_auth import require_scope
 from app.extended.models import User
 from app.schemas.knowledge_graph import (
     FederatedContributionRequest,
@@ -224,7 +225,7 @@ async def get_agent_proactive_alerts(
 @router.post("/graph/federated-contribute", response_model=FederatedContributionResponse)
 async def federated_contribute(
     request: FederatedContributionRequest,
-    _auth: bool = Depends(_verify_federation_token),
+    _auth: bool = Depends(require_scope("write:kg")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """接收外部專案的實體貢獻。"""
