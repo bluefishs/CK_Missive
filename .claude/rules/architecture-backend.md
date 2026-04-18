@@ -11,9 +11,9 @@ CK_Missive/
 ├── docs/                       # 文件目錄
 ├── scripts/                    # 腳本目錄 (分類組織)
 │   ├── dev/                    #   開發工具 (dev-start, dev-stop, start-backend)
-│   ├── checks/                 #   驗證檢查 (architecture, api, route, skills-sync)
-│   ├── health/                 #   系統健康 (health_check, monitor)
-│   ├── deploy/                 #   部署腳本 (deploy-nas)
+│   ├── checks/                 #   驗證檢查 (architecture, api, route, skills-sync, synthetic-baseline, soul-fidelity)
+│   ├── health/                 #   系統健康 (health_check, monitor, health-watchdog)
+│   ├── deploy/                 #   部署腳本 (deploy-nas, deploy-public)
 │   ├── init/                   #   初始化/配置 (database-init, config-manager)
 │   ├── backup/                 #   備份腳本
 │   └── archive/                #   過時腳本存檔
@@ -155,6 +155,8 @@ backend/app/services/
 ├── ezbid_scraper.py               # ezbid.tw 即時爬蟲 (當日資料補充)
 ├── tender_cache_service.py        # 標案 DB 持久化 (save/search/refresh/stats)
 ├── project_analytics_service.py    # 專案分析服務 (拆分自 project_service)
+├── wiki_compiler.py               # Wiki 結構化編譯器 (910L, v5.6.0 拆分)
+├── wiki_formatter.py              # Wiki Markdown 格式化 (164L, 拆分自 compiler)
 └── *_service.py                # 其他業務服務
 ```
 

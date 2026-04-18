@@ -1,6 +1,6 @@
 # Skills / Commands / Agents 清單
 
-> **最後同步**：2026-04-17（v5.5.8，NemoClaw 退場完成 + 觀測棧）
+> **最後同步**：2026-04-18（v5.6.0，穩定性強化 + 安全硬化 + structlog + 星空首頁）
 > **重大變更**：OpenClaw/NemoClaw 已全面退場（ADR-0014/0015），程式碼遷移完成 (MissiveAgent + agent_capability)
 
 ## Slash Commands (可用指令)
@@ -184,11 +184,18 @@
 | `docs/adr/0014-hermes-replace-openclaw.md` | 🆕 ADR-0014：以 NousResearch Hermes Agent 取代 OpenClaw |
 | `docs/adr/0015-retire-nemoclaw-cloudflare-tunnel.md` | 🆕 ADR-0015：廢止 NemoClaw，改用 Cloudflare Tunnel |
 | `docs/adr/0016-multi-project-platform-subdomain.md` | 🆕 ADR-0016：多專案平坦分域（missive/hermes/lvrland/pile） |
+| `docs/adr/0019-structlog-unified-logging.md` | 🆕 ADR-0019：structlog stdlib bridge 統一 JSON 日誌（v5.6.0 accepted） |
 | `docs/HERMES_MIGRATION_PLAN.md` | 🆕 Hermes 4-Phase 遷移計畫（Day 0~28） |
 | `docs/hermes-skills/README.md` | 🆕 Hermes skill 整合層次 L1~L4 + API public contract |
 | `docs/hermes-skills/ck-missive-bridge/` | 🆕 Hermes skill 部署包（SKILL.md + tools.py + tool_spec.json + install.sh）|
 | `backend/app/services/ai/agent/shadow_logger.py` | 🆕 Shadow Logger（PII 遮罩 + 30d retention + A/B provider 分析） |
 | `scripts/checks/shadow-baseline-report.cjs` | 🆕 Shadow baseline 報告（channel/provider/tool 分佈） |
+| `scripts/checks/synthetic-baseline-inject.py` | 🆕 合成基線注入（24 query × 5 域，排程 3x/日） |
+| `scripts/checks/soul-fidelity-eval.py` | 🆕 Soul.md 人格一致性跨 provider 評估 |
+| `scripts/health/health-watchdog.sh` | 🆕 Health Watchdog（PM2 cron */2min，假死偵測 + 自動 restart） |
+| `scripts/deploy/deploy-public.sh` | 🆕 公網部署一鍵腳本（build → restart → verify） |
+| `backend/app/services/wiki_formatter.py` | 🆕 Wiki Markdown 格式化（拆分自 wiki_compiler，164L） |
+| `backend/app/core/structured_logging.py` | 🆕 structlog stdlib bridge（239 service 自動 JSON，ADR-0019） |
 | `backend/app/api/endpoints/ai/tools_manifest.py` | 🆕 v1.1 — 加 compat/endpoints/auth，Hermes public contract 入口 |
 | `docs/LINE_BOT_SETUP_GUIDE.md` | LINE Bot 直連啟用指南 |
 | `docs/MULTICHANNEL_SETUP_GUIDE.md` | 多頻道部署指南 (Telegram + LINE) |

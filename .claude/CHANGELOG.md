@@ -4,6 +4,64 @@
 
 ---
 
+## [5.6.0] - 2026-04-18
+
+### 穩定性強化 + 安全硬化 + structlog 統一 + 星空首頁（14 commits, 27 files）
+
+#### 伺服器穩定性（P0 — 修復 API 假死）
+- **DB Pool 擴容** — POOL_SIZE 5→15, MAX_OVERFLOW 10→20, POOL_RECYCLE 180s
+- **PG max_connections** — 50→100 + idle_in_transaction_session_timeout
+- **PM2 memory** — 1G→2G（防 OOM kill）
+- **uvicorn 硬化** — limit_concurrency=50, timeout_keep_alive=30, graceful_shutdown=15
+- **Health Watchdog** — PM2 cron */2min，連續 2 次失敗自動 restart（偵測 event loop 凍結）
+- **Pool exhaustion** — 503 + pool metrics 日誌（非裸 exception）
+- **Inference Semaphore** — 90s timeout（防 Ollama 掛起無限等待）
+- **/health pool 遮蔽** — 公網請求僅返回 status/version/database（request IP 判斷）
+
+#### 安全硬化（P0）
+- **frontend/.env.production** — `VITE_AUTH_DISABLED=false` bake 進公網 build
+- **Google Client ID** — 修正 .env.production typo（482047826162→482047526162）
+- **.gitignore** — 加例外允許 frontend/.env.production 入庫
+
+#### 觀測棧統一（ADR-0019 accepted）
+- **structlog stdlib bridge** — 239 service 自動走 structlog JSON pipeline（零改動 service）
+- **Loki 友善** — 預設 JSON 輸出（`STRUCTLOG_CONSOLE=1` 切 dev console）
+- **Shadow Logger** — lazy env init 修復（_ENABLED 模組載入時機問題）
+- **Shadow Schema** — provider 欄位自動 migration 修復
+- **Synthetic bypass** — `synthetic-*` session_id 100% 記錄（不受 30% 取樣限制）
+- **Shadow baseline metrics** — Prometheus gauge（Phase 0 GO/NO-GO）
+- **SHADOW_ENABLED** — 加入 .env（PM2 env 區塊傳遞不穩定）
+
+#### Hermes 基線加速
+- **合成注入腳本** — `scripts/checks/synthetic-baseline-inject.py`（24 query × 5 域）
+- **排程** — scheduler 每日 09:00/14:00/20:00 注入 10 筆
+- **Soul Fidelity Eval** — `scripts/checks/soul-fidelity-eval.py` 跨 provider 人格一致性
+
+#### Cloudflare Tunnel 正規化
+- **docker-compose tunnel profile** — `docker compose --profile tunnel up -d cloudflared`
+- **extra_hosts** — `localhost:host-gateway` + `host.docker.internal:host-gateway`（修復 502）
+- **CF_TUNNEL_TOKEN** — 移入 .env 統一管理
+
+#### 前端 — 星空首頁恢復 + RWD
+- **EntryPage 恢復** — 從 LoginPage 回歸星空入口（深藍背景 + 星座裝飾）
+- **LINE 登入** — EntryPage 新增 LINE OAuth 按鈕（#06C755 品牌色）
+- **帳密內嵌** — 展開式玻璃磨砂表單（不跳頁到 /login）
+- **Google 降級** — 5s timeout + onerror 自動隱藏不可用按鈕
+- **RWD 優化** — 手機星星減半（115→53）、按鈕全寬、公網預設展開帳密
+- **智慧首頁** — `/` 依登入狀態重導向（已登入→dashboard，未登入→entry）
+- **/taoyuan/ 404** — 新增路由重導向到 /taoyuan/dispatch
+- **查估單位欄位** — MorningReportTrackingTable 承辦後新增 survey_unit 欄
+
+#### 技術債
+- **wiki_compiler 拆分** — 1035L → 910L + wiki_formatter.py 164L
+- **ADR-0019** — `docs/adr/0019-structlog-unified-logging.md` accepted
+
+#### 部署自動化
+- **deploy-public.sh** — 一鍵：build(production) → restart → health wait → public verify
+- **NemoClaw 退場延展** — 5/12 → 5/26（ADR-0015 更新）
+
+---
+
 ## [5.5.8] - 2026-04-17
 
 ### NemoClaw 退場 + 觀測棧 + 效能優化 + Hermes-centric（10 commits, 98 new tests）

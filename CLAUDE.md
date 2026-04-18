@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.5.8 NemoClaw 退場 + 觀測棧 + 效能優化 + Hermes-centric
-> **最後更新**: 2026-04-17
+> **版本**: v5.6.0 穩定性強化 + 安全硬化 + structlog 統一 + 星空首頁
+> **最後更新**: 2026-04-18
 
 ---
 
@@ -117,6 +117,9 @@ cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8001
 cd frontend && npm run dev
 pm2 start ecosystem.config.js
 
+# === 公網部署 ===
+bash scripts/deploy/deploy-public.sh     # 一鍵：build → restart → verify
+
 # === 驗證 ===
 cd frontend && npx tsc --noEmit          # TypeScript 檢查
 cd backend && python -m py_compile app/main.py  # Python 語法檢查
@@ -144,4 +147,4 @@ node .claude/scripts/promote-learned-patterns.cjs # 學習模式升級
 
 ---
 
-> 配置維護: Claude Code Assistant | 版本: v1.85.0
+> 配置維護: Claude Code Assistant | 版本: v1.86.0
