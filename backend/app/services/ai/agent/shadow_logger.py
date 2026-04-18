@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 
 _DB_PATH = Path(__file__).resolve().parents[4] / "logs" / "shadow_trace.db"
 _LOCK = threading.Lock()
-_ENABLED = os.getenv("SHADOW_ENABLED", "0") == "1"
-_SAMPLE_RATIO = float(os.getenv("SHADOW_SAMPLE_RATIO", "0.3"))
+_ENABLED: Optional[bool] = None  # lazy — 首次呼叫時從 env 讀取
+_SAMPLE_RATIO: Optional[float] = None
 _RETENTION_DAYS = int(os.getenv("SHADOW_RETENTION_DAYS", "30"))
 
 
@@ -108,8 +108,22 @@ def _conn():
             conn.close()
 
 
-def is_enabled() -> bool:
+def _get_enabled() -> bool:
+    global _ENABLED
+    if _ENABLED is None:
+        _ENABLED = os.getenv("SHADOW_ENABLED", "0") == "1"
     return _ENABLED
+
+
+def _get_sample_ratio() -> float:
+    global _SAMPLE_RATIO
+    if _SAMPLE_RATIO is None:
+        _SAMPLE_RATIO = float(os.getenv("SHADOW_SAMPLE_RATIO", "0.3"))
+    return _SAMPLE_RATIO
+
+
+def is_enabled() -> bool:
+    return _get_enabled()
 
 
 def _write_sync(row: Dict[str, Any]) -> None:
@@ -188,11 +202,11 @@ async def log_trace(
     provider: 推論提供者標籤（如 haiku-openclaw / gemma-hermes / groq-llama）
               供 Hermes 遷移期 A/B 比對用。若未指定，由 env ``SHADOW_DEFAULT_PROVIDER`` 決定。
     """
-    if not _ENABLED:
+    if not _get_enabled():
         return
     # 合成基線（synthetic-*）永遠 100% 記錄，不受取樣率限制
     is_synthetic = session_id and str(session_id).startswith("synthetic-")
-    if not is_synthetic and random.random() > _SAMPLE_RATIO:
+    if not is_synthetic and random.random() > _get_sample_ratio():
         return
     row = {
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
