@@ -17,11 +17,44 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 from functools import wraps
 
+import asyncio as _asyncio
+import subprocess as _subprocess
+from pathlib import Path as _Path
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger(__name__)
+
+
+async def _run_script_async(
+    cmd: list[str],
+    cwd: str,
+    timeout: int = 120,
+    job_name: str = "script",
+) -> tuple[int, str, str]:
+    """非阻塞執行外部腳本（不凍結 event loop）。"""
+    try:
+        proc = await _asyncio.create_subprocess_exec(
+            *cmd, cwd=cwd,
+            stdout=_asyncio.subprocess.PIPE,
+            stderr=_asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await _asyncio.wait_for(proc.communicate(), timeout=timeout)
+        return (
+            proc.returncode or 0,
+            (stdout or b"").decode("utf-8", errors="replace").strip(),
+            (stderr or b"").decode("utf-8", errors="replace").strip(),
+        )
+    except _asyncio.TimeoutError:
+        proc.kill()  # type: ignore[union-attr]
+        logger.warning("%s timeout (>%ds), killed", job_name, timeout)
+        return (-1, "", "timeout")
+    except Exception as e:
+        logger.error("%s subprocess error: %s", job_name, e)
+        return (-1, "", str(e))
+
 
 # 全域排程器實例
 _scheduler: Optional[AsyncIOScheduler] = None
@@ -157,7 +190,6 @@ async def process_pending_reminders_job():
 async def cleanup_expired_events_job():
     """清理過期事件的排程任務"""
     from app.db.database import async_session_maker
-    from app.services.document_calendar_service import DocumentCalendarService
     from datetime import datetime, timedelta
 
     logger.info("開始執行過期事件清理排程任務")
@@ -868,29 +900,19 @@ async def health_snapshot_log_job():
     指標：24h commits / wiki 頁數 / scheduler jobs / DB/Redis 狀態 / AgentLearning 數。
     純 append，不觸發其他排程，失敗不影響其他 job。
     """
-    import subprocess
-    from pathlib import Path
-    from datetime import date
 
-    project_root = Path(__file__).resolve().parents[3]
+    project_root = _Path(__file__).resolve().parents[3]
     script = project_root / "scripts" / "health" / "log-health-snapshot.cjs"
     if not script.exists():
         logger.warning("health_snapshot: script not found at %s", script)
         return
-    try:
-        proc = subprocess.run(
-            ["node", str(script)],
-            cwd=str(project_root),
-            capture_output=True, text=True, timeout=30, check=False,
-        )
-        if proc.returncode == 0:
-            logger.info("health_snapshot: %s", proc.stdout.strip() or "ok")
-        else:
-            logger.warning("health_snapshot failed (rc=%d): %s", proc.returncode, proc.stderr.strip())
-    except subprocess.TimeoutExpired:
-        logger.warning("health_snapshot timeout (>30s)")
-    except Exception as e:
-        logger.error("health_snapshot error: %s", e)
+    rc, out, err = await _run_script_async(
+        ["node", str(script)], cwd=str(project_root), timeout=30, job_name="health_snapshot",
+    )
+    if rc == 0:
+        logger.info("health_snapshot: %s", out or "ok")
+    else:
+        logger.warning("health_snapshot failed (rc=%d): %s", rc, err)
 
 
 @tracked_job("shadow_baseline_export")
@@ -900,11 +922,9 @@ async def shadow_baseline_export_job():
     寫入 logs/shadow-baseline/YYYY-MM-DD.json 供 GO/NO-GO 累積判斷。
     目標：樣本 ≥100 筆且 3+ 頻道後，進入 Telegram 灰度。
     """
-    import subprocess
-    from pathlib import Path
     from datetime import date as _date
 
-    project_root = Path(__file__).resolve().parents[3]
+    project_root = _Path(__file__).resolve().parents[3]
     script = project_root / "scripts" / "checks" / "shadow-baseline-report.cjs"
     if not script.exists():
         logger.warning("shadow_baseline: script not found at %s", script)
@@ -914,24 +934,14 @@ async def shadow_baseline_export_job():
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / f"{_date.today().isoformat()}.json"
 
-    try:
-        proc = subprocess.run(
-            ["node", str(script), "--json"],
-            cwd=str(project_root),
-            capture_output=True, text=True, timeout=60, check=False,
-        )
-        if proc.returncode == 0 and proc.stdout.strip():
-            out_file.write_text(proc.stdout, encoding="utf-8")
-            logger.info("shadow_baseline: exported → %s", out_file.name)
-        else:
-            logger.warning(
-                "shadow_baseline failed (rc=%d): %s",
-                proc.returncode, proc.stderr.strip() or "empty stdout",
-            )
-    except subprocess.TimeoutExpired:
-        logger.warning("shadow_baseline timeout (>60s)")
-    except Exception as e:
-        logger.error("shadow_baseline error: %s", e)
+    rc, out, err = await _run_script_async(
+        ["node", str(script), "--json"], cwd=str(project_root), timeout=60, job_name="shadow_baseline",
+    )
+    if rc == 0 and out:
+        out_file.write_text(out, encoding="utf-8")
+        logger.info("shadow_baseline: exported → %s", out_file.name)
+    else:
+        logger.warning("shadow_baseline failed (rc=%d): %s", rc, err or "empty stdout")
 
 
 @tracked_job("synthetic_baseline_inject")
@@ -941,32 +951,20 @@ async def synthetic_baseline_inject_job():
     執行 scripts/checks/synthetic-baseline-inject.py 注入合成測試資料，
     用於 shadow baseline 持續累積與 GO/NO-GO 品質監控。
     """
-    import subprocess
-    from pathlib import Path
-
-    project_root = Path(__file__).resolve().parents[3]
+    project_root = _Path(__file__).resolve().parents[3]
     script = project_root / "scripts" / "checks" / "synthetic-baseline-inject.py"
     if not script.exists():
         logger.warning("synthetic_baseline_inject: script not found at %s", script)
         return
 
-    try:
-        proc = subprocess.run(
-            ["python", str(script), "--count", "10", "--timeout", "90"],
-            cwd=str(project_root),
-            capture_output=True, text=True, timeout=120, check=False,
-        )
-        if proc.returncode == 0:
-            logger.info("synthetic_baseline_inject: %s", proc.stdout.strip() or "ok")
-        else:
-            logger.warning(
-                "synthetic_baseline_inject failed (rc=%d): %s",
-                proc.returncode, proc.stderr.strip() or "empty stdout",
-            )
-    except subprocess.TimeoutExpired:
-        logger.warning("synthetic_baseline_inject timeout (>120s)")
-    except Exception as e:
-        logger.error("synthetic_baseline_inject error: %s", e)
+    rc, out, err = await _run_script_async(
+        ["python", str(script), "--count", "10", "--timeout", "90"],
+        cwd=str(project_root), timeout=1200, job_name="synthetic_baseline_inject",
+    )
+    if rc == 0:
+        logger.info("synthetic_baseline_inject: %s", out[-200:] if out else "ok")
+    else:
+        logger.warning("synthetic_baseline_inject failed (rc=%d): %s", rc, err[-200:] if err else "unknown")
 
 
 @tracked_job("cf_tunnel_verify")
@@ -978,17 +976,14 @@ async def cloudflare_tunnel_verify_job():
     失敗時寫入 wiki/log.md 並 logger.error（後續可接 LINE/Discord 通知）。
     只在有 MISSIVE_PUBLIC_URL (且含 cksurvey.tw) 時執行。
     """
-    import subprocess
     import shutil
-    from pathlib import Path
-    from datetime import datetime
 
     public_url = os.getenv("MISSIVE_PUBLIC_URL", "")
     if "cksurvey.tw" not in public_url:
         logger.debug("cf_tunnel_verify: 非公網部署，跳過")
         return
 
-    project_root = Path(__file__).resolve().parents[3]
+    project_root = _Path(__file__).resolve().parents[3]
     script = project_root / "scripts" / "ops" / "verify-cloudflare-tunnel.ps1"
     if not script.exists():
         logger.warning("cf_tunnel_verify: script not found at %s", script)
@@ -999,32 +994,23 @@ async def cloudflare_tunnel_verify_job():
         logger.warning("cf_tunnel_verify: pwsh/powershell 不存在，跳過")
         return
 
-    try:
-        proc = subprocess.run(
-            [pwsh, "-NoProfile", "-File", str(script), "-PublicUrl", public_url],
-            cwd=str(project_root),
-            capture_output=True, text=True, timeout=120, check=False,
-        )
-        if proc.returncode == 0:
-            logger.info("cf_tunnel_verify: PASS")
-        else:
-            logger.error(
-                "cf_tunnel_verify: FAIL rc=%d\n%s",
-                proc.returncode, proc.stdout[-800:]
+    rc, out, err = await _run_script_async(
+        [pwsh, "-NoProfile", "-File", str(script), "-PublicUrl", public_url],
+        cwd=str(project_root), timeout=120, job_name="cf_tunnel_verify",
+    )
+    if rc == 0:
+        logger.info("cf_tunnel_verify: PASS")
+    else:
+        logger.error("cf_tunnel_verify: FAIL rc=%d\n%s", rc, out[-800:] if out else err)
+        log_path = project_root / "wiki" / "log.md"
+        if log_path.exists():
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+            log_path.write_text(
+                log_path.read_text(encoding="utf-8")
+                + f"\n## {ts} — CF Tunnel verify FAIL (rc={rc})\n"
+                + f"```\n{out[-600:] if out else err}\n```\n",
+                encoding="utf-8",
             )
-            log_path = project_root / "wiki" / "log.md"
-            if log_path.exists():
-                ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-                log_path.write_text(
-                    log_path.read_text(encoding="utf-8")
-                    + f"\n## {ts} — CF Tunnel verify FAIL (rc={proc.returncode})\n"
-                    + f"```\n{proc.stdout[-600:]}\n```\n",
-                    encoding="utf-8",
-                )
-    except subprocess.TimeoutExpired:
-        logger.error("cf_tunnel_verify timeout (>120s)")
-    except Exception as e:
-        logger.error("cf_tunnel_verify error: %s", e)
 
 
 @tracked_job("tender_refresh_pending")

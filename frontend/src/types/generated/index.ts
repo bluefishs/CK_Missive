@@ -24,12 +24,12 @@ export type ApiDocumentUpdateRequest = components['schemas']['DocumentUpdateRequ
 export type ApiDocumentListResponse = components['schemas']['DocumentListResponse'];
 
 // 使用者相關
-export type ApiUserResponse = components['schemas']['UserResponse'];
+export type ApiUserResponse = components['schemas']['app__schemas__auth__UserResponse'];
 
 // 機關相關
 export type ApiAgency = components['schemas']['Agency'];
 export type ApiAgencyWithStats = components['schemas']['AgencyWithStats'];
-export type ApiAgenciesResponse = components['schemas']['AgenciesResponse'];
+export type ApiAgenciesResponse = components['schemas']['FixAgenciesResponse'];
 
 // 通知相關
 export type ApiNotificationItem = components['schemas']['NotificationItem'];
