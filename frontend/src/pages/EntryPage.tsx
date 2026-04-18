@@ -79,12 +79,16 @@ const generateStars = (count: number, className: string): StarProps[] => {
   }));
 };
 
+// 手機偵測（星星減量 + RWD）
+const isMobileDevice = () => typeof window !== 'undefined' && window.innerWidth < 768;
+
 const EntryPage: React.FC = () => {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
-  const [googleAvailable, setGoogleAvailable] = useState(true); // Google API 可用性
-  const [showLoginForm, setShowLoginForm] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState(true);
+  // 公網/ngrok 預設展開帳密表單（主要登入方式）；localhost/internal 預設收合（有快速進入）
+  const [showLoginForm, setShowLoginForm] = useState(IS_NGROK_OR_PUBLIC);
   const [loginError, setLoginError] = useState('');
   const [form] = Form.useForm();
   const navigate = useNavigate();
@@ -117,14 +121,15 @@ const EntryPage: React.FC = () => {
     }
   };
 
-  // 預先生成星星
+  // 預先生成星星（手機端減半，降低 GPU 負擔）
+  const mobile = isMobileDevice();
   const stars = useMemo(
     () => ({
-      small: generateStars(60, 'star-small'),
-      medium: generateStars(35, 'star-medium'),
-      large: generateStars(20, 'star-large'),
+      small: generateStars(mobile ? 30 : 60, 'star-small'),
+      medium: generateStars(mobile ? 15 : 35, 'star-medium'),
+      large: generateStars(mobile ? 8 : 20, 'star-large'),
     }),
-    []
+    [mobile]
   );
 
   // Google 登入回調處理

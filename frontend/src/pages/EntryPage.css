@@ -407,36 +407,73 @@
 
 @media (max-width: 768px) {
   .entry-title {
-    font-size: 32px;
-    letter-spacing: 6px;
+    font-size: 28px;
+    letter-spacing: 4px;
+    margin: 0 0 30px 0;
   }
 
   .entry-content {
-    padding: 30px 20px;
+    padding: 24px 16px;
   }
 
-  .google-login-btn {
-    height: 46px;
-    padding: 0 30px;
-    font-size: 15px;
+  /* 按鈕統一縮小 + 間距調密 */
+  .internal-login-options {
+    gap: 10px;
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .dev-entry-btn,
+  .password-login-btn,
+  .google-login-btn,
+  .line-login-btn {
+    height: 44px;
+    padding: 0 24px;
+    font-size: 14px;
+    width: 100%;
+  }
+
+  /* 內嵌表單手機適配 */
+  .inline-login-form {
+    max-width: 100%;
+    padding: 16px;
+    border-radius: 12px;
   }
 
   .arc-decoration {
     width: 100%;
     top: 15%;
   }
+
+  /* 星座裝飾手機端隱藏 */
+  .constellation-dots {
+    display: none;
+  }
+
+  .entry-action {
+    margin-top: 24px;
+    gap: 12px;
+  }
 }
 
 @media (max-width: 480px) {
   .entry-title {
-    font-size: 24px;
-    letter-spacing: 4px;
+    font-size: 22px;
+    letter-spacing: 3px;
+    margin: 0 0 20px 0;
   }
 
-  .google-login-btn {
-    height: 44px;
-    padding: 0 24px;
-    font-size: 14px;
+  .title-gold {
+    font-size: 18px;
+  }
+
+  .dev-entry-btn,
+  .password-login-btn,
+  .google-login-btn,
+  .line-login-btn {
+    height: 40px;
+    font-size: 13px;
+    border-radius: 20px;
   }
 
   .star-decoration-1 {
@@ -445,7 +482,13 @@
   }
 
   .entry-hint {
-    font-size: 12px;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  /* 弧線裝飾手機端隱藏 */
+  .arc-decoration {
+    display: none;
   }
 }
 
