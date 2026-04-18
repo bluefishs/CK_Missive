@@ -208,10 +208,11 @@ def main():
             )
             if result.returncode == 0:
                 log("Step 1", "Dependencies installed.")
-                with open(hash_file, "w") as f:
-                    f.write(req_hash)
             else:
-                log("Step 1", f"pip install returned code {result.returncode}", "WARN")
+                log("Step 1", f"pip install returned code {result.returncode} (non-critical)", "WARN")
+            # 無論 rc，都寫 hash — 避免每次重啟重跑 20s pip install
+            with open(hash_file, "w") as f:
+                f.write(req_hash)
         except subprocess.TimeoutExpired:
             log("Step 1", "pip install timed out (120s), continuing...", "WARN")
         except Exception as e:
