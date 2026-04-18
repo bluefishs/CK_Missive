@@ -66,6 +66,27 @@ else
     exit 1
 fi
 
+# Step 5: Observability check
+echo ""
+echo "[5/5] Observability status..."
+# Prometheus metrics
+METRICS=$(curl -sf http://localhost:8001/metrics 2>/dev/null | wc -l)
+if [ "$METRICS" -gt 10 ]; then
+    echo "  ✓ Prometheus /metrics: ${METRICS} lines"
+else
+    echo "  ⚠ Prometheus /metrics not available"
+fi
+# Cloudflared
+CF=$(docker ps --filter "name=cloudflared" --format "{{.Status}}" 2>/dev/null | head -1)
+echo "  ✓ Cloudflared: ${CF:-not running}"
+# Watchdog
+WD=$(pm2 list 2>/dev/null | grep watchdog | grep -o "online\|stopped")
+echo "  ✓ Watchdog: ${WD:-unknown}"
+# Grafana config
+if [ -f "$PROJECT_ROOT/configs/grafana/dashboards/ck-missive-overview.json" ]; then
+    echo "  ✓ Grafana dashboard: provisioned"
+fi
+
 echo ""
 echo "══════════════════════════════════════"
 echo "  Deploy complete!"

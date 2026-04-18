@@ -1,0 +1,45 @@
+# Promtail 配置 — 抓取 CK_Missive PM2 JSON 日誌
+#
+# 用於 CK_DigitalTunnel PLG stack 的 Promtail 額外 scrape target。
+# 將此檔案加入 Promtail 的 scrape_configs 或 --config.expand-env 引入。
+#
+# PM2 日誌路徑（Windows）：
+#   backend error log → structlog JSON 格式
+#   backend out log   → uvicorn access log (plain text)
+#
+# Version: 1.0.0
+
+server:
+  http_listen_port: 0  # 由主 Promtail 管理
+  grpc_listen_port: 0
+
+scrape_configs:
+  - job_name: ck-missive-backend
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: ck-missive
+          service: backend
+          __path__: D:/CKProject/CK_Missive/backend/logs/backend-error.log
+    pipeline_stages:
+      # structlog JSON 格式自動解析
+      - json:
+          expressions:
+            level: level
+            event: event
+            logger: logger
+            timestamp: timestamp
+      - labels:
+          level:
+          logger:
+      - timestamp:
+          source: timestamp
+          format: "2006-01-02T15:04:05.999999"
+
+  - job_name: ck-missive-watchdog
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: ck-missive
+          service: watchdog
+          __path__: D:/CKProject/CK_Missive/logs/watchdog-out.log

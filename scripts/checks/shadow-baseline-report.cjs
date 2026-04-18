@@ -49,8 +49,8 @@ try {
   const out = execSync(
     `python -c "import sqlite3, json; c=sqlite3.connect(r'${DB}'); c.row_factory=sqlite3.Row; ` +
       `rows=[dict(r) for r in c.execute(\\"SELECT * FROM query_trace ${where} ORDER BY ts\\")]; ` +
-      `print(json.dumps(rows, ensure_ascii=False))"`,
-    { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 }
+      `print(json.dumps(rows, ensure_ascii=True))"`,
+    { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024, env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' } }
   );
   rows = JSON.parse(out);
 }

@@ -1,0 +1,169 @@
+{
+  "dashboard": {
+    "title": "CK Missive — System Overview",
+    "uid": "ck-missive-overview",
+    "tags": ["ck-missive", "overview"],
+    "timezone": "Asia/Taipei",
+    "refresh": "30s",
+    "panels": [
+      {
+        "title": "HTTP Request Rate (5m)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{path}} {{status_code}}"
+          }
+        ]
+      },
+      {
+        "title": "HTTP Request Duration p95",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50"
+          }
+        ]
+      },
+      {
+        "title": "Active HTTP Requests",
+        "type": "gauge",
+        "gridPos": { "x": 0, "y": 8, "w": 6, "h": 6 },
+        "targets": [
+          { "expr": "http_requests_active", "legendFormat": "active" }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 20 },
+                { "color": "red", "value": 40 }
+              ]
+            },
+            "max": 50
+          }
+        }
+      },
+      {
+        "title": "DB Pool Status",
+        "type": "timeseries",
+        "gridPos": { "x": 6, "y": 8, "w": 9, "h": 6 },
+        "targets": [
+          { "expr": "db_pool_checked_out", "legendFormat": "checked_out" },
+          { "expr": "db_pool_checked_in", "legendFormat": "checked_in" },
+          { "expr": "db_pool_overflow", "legendFormat": "overflow" }
+        ]
+      },
+      {
+        "title": "DB Pool Overflow Events",
+        "type": "stat",
+        "gridPos": { "x": 15, "y": 8, "w": 4, "h": 6 },
+        "targets": [
+          { "expr": "db_pool_overflow_total", "legendFormat": "overflow_events" }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "red", "value": 1 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "DB Pool Size Config",
+        "type": "stat",
+        "gridPos": { "x": 19, "y": 8, "w": 5, "h": 6 },
+        "targets": [
+          { "expr": "db_pool_size", "legendFormat": "pool_size" }
+        ]
+      },
+      {
+        "title": "DB Query Duration p95",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 14, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(db_query_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50"
+          }
+        ]
+      },
+      {
+        "title": "Slow Queries (>1s)",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 14, "w": 6, "h": 4 },
+        "targets": [
+          { "expr": "increase(db_slow_queries_total[1h])", "legendFormat": "slow/hr" }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 5 },
+                { "color": "red", "value": 20 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Inference Queue Waiting",
+        "type": "gauge",
+        "gridPos": { "x": 18, "y": 14, "w": 6, "h": 4 },
+        "targets": [
+          { "expr": "inference_queue_waiting", "legendFormat": "waiting" }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "max": 10,
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 3 },
+                { "color": "red", "value": 6 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Inference Completions by Provider",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 18, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(inference_completions_total[5m])",
+            "legendFormat": "{{provider}} {{status}}"
+          }
+        ]
+      },
+      {
+        "title": "KG Entity / Edge / Wiki Counts",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 22, "w": 12, "h": 4 },
+        "targets": [
+          { "expr": "kg_entity_count", "legendFormat": "entities" },
+          { "expr": "kg_edge_count", "legendFormat": "edges" },
+          { "expr": "kg_wiki_page_count", "legendFormat": "wiki_pages" }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

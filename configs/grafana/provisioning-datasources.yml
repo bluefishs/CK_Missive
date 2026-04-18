@@ -1,0 +1,24 @@
+# Grafana Datasource Provisioning — CK_Missive
+#
+# 將此檔案放入 Grafana 的 provisioning/datasources/ 目錄。
+# 或透過 GF_PATHS_PROVISIONING 環境變數指向此目錄。
+#
+# Version: 1.0.0
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 5000
