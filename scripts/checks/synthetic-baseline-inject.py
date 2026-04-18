@@ -58,11 +58,24 @@ QUERY_POOL: List[Dict[str, str]] = [
     {"q": "你有什麼功能？", "domain": "cross"},
     {"q": "幫我整理本週工作���要", "domain": "cross"},
     {"q": "知識圖譜有多少實體？", "domain": "cross"},
-    # 閒聊 / 邊界
+    # 閒聊 / 邊界（快速回應，不觸發工具，Ollama 1-3s）
     {"q": "你好", "domain": "chitchat"},
     {"q": "天氣如何？", "domain": "chitchat"},
     {"q": "謝謝你的幫助", "domain": "chitchat"},
     {"q": "可以幫我訂便當嗎", "domain": "chitchat"},
+    # 短問句（加速基線累積，p95 < 5s）
+    {"q": "嗨", "domain": "fast"},
+    {"q": "早安", "domain": "fast"},
+    {"q": "OK", "domain": "fast"},
+    {"q": "了解", "domain": "fast"},
+    {"q": "再見", "domain": "fast"},
+    {"q": "你是誰", "domain": "fast"},
+    {"q": "功能", "domain": "fast"},
+    {"q": "幫我", "domain": "fast"},
+    {"q": "測試", "domain": "fast"},
+    {"q": "狀態", "domain": "fast"},
+    {"q": "謝謝", "domain": "fast"},
+    {"q": "好的", "domain": "fast"},
 ]
 
 
@@ -112,8 +125,8 @@ def inject_queries(base_url: str, count: int, timeout: float = 120.0, token: str
                 stats["error"] += 1
                 logger.error("[%d/%d] ERROR q=%s: %s", i + 1, count, item["q"][:40], e)
 
-            # 隨機間隔 1-3 秒，模擬人類節奏
-            time.sleep(random.uniform(1.0, 3.0))
+            # 隨機間隔（短問句快速、複雜問句慢）
+            time.sleep(random.uniform(0.5, 1.5))
 
     # 計算百分位
     latencies = sorted(stats["latencies"])
