@@ -440,9 +440,31 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ Domain Event Bus 初始化失敗 (不影響核心功能): {e}")
 
+    # 🏥 Self-health watchdog（取代外部 PM2 bash 進程）
+    # 每 120s 檢查 event loop 是否阻塞，阻塞時記錄警告
+    _watchdog_task = None
+    try:
+        async def _self_health_check():
+            import asyncio as _aio
+            while True:
+                await _aio.sleep(120)
+                t0 = time.time()
+                await asyncio.sleep(0)  # yield to event loop
+                lag = time.time() - t0
+                if lag > 5:
+                    logger.error(f"Event loop lag detected: {lag:.1f}s (threshold 5s)")
+        _watchdog_task = asyncio.create_task(_self_health_check())
+        logger.info("✅ Self-health watchdog started (120s interval)")
+    except Exception as e:
+        logger.warning(f"⚠️ Self-health watchdog failed: {e}")
+
     logger.info("應用程式已啟動。")
     yield
     logger.info("應用程式關閉中...")
+
+    # 取消 watchdog
+    if _watchdog_task:
+        _watchdog_task.cancel()
 
     # 停止服務健康探測器
     try:
