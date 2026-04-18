@@ -22,7 +22,7 @@ from .graph_admin import router as graph_admin_router
 from .graph_admin_code import router as graph_admin_code_router
 from .graph_unified import router as graph_unified_router
 from .graph_skills_map import router as graph_skills_map_router
-from .agent_capability import router as agent_nemoclaw_router  # renamed from agent_nemoclaw
+from .agent_capability import router as agent_capability_router  # ADR-0014/0015 後繼（原 agent_nemoclaw）
 from .ollama_management import router as ollama_management_router
 from .rag_query import router as rag_query_router
 from .agent_query import router as agent_query_router
@@ -53,7 +53,7 @@ router.include_router(graph_admin_router)
 router.include_router(graph_admin_code_router)
 router.include_router(graph_unified_router)
 router.include_router(graph_skills_map_router)
-router.include_router(agent_nemoclaw_router)
+router.include_router(agent_capability_router)
 router.include_router(ollama_management_router)
 router.include_router(rag_query_router)
 router.include_router(agent_query_router)

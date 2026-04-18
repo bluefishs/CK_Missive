@@ -62,20 +62,20 @@ async def agent_query_stream(
     )
 
 
-@router.post("/agent/nemoclaw/stream")
-async def nemoclaw_query_stream(
+@router.post("/agent/capability/stream")
+async def capability_query_stream(
     request: AgentQueryRequest,
     current_user: User = Depends(require_auth()),
     db: AsyncSession = Depends(get_async_db),
 ) -> StreamingResponse:
     """
-    NemoClaw 代理人串流問答 — 自覺型 Agent
+    MissiveAgent 串流問答 — 自覺型 Agent（ADR-0014/0015 後繼，取代 NemoClaw 路徑）
 
     在原有 Agent 基礎上增加:
       data: {"type":"self_awareness","identity":"...","personality":"...","strengths":[...]}
       data: {"type":"proactive_alert","message":"...","count":N}
 
-    對比測試: 同一問題分別用 /agent/query/stream (傳統) 和 /agent/nemoclaw/stream (代理人)
+    對比測試: 同一問題分別用 /agent/query/stream (傳統) 和 /agent/capability/stream (代理人)
     """
     from app.services.ai.misc.missive_agent import MissiveAgent
 
