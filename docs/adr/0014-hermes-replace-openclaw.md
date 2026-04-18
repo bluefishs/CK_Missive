@@ -1,9 +1,25 @@
 # ADR-0014: 以 NousResearch Hermes Agent 取代 OpenClaw
 
-> **狀態**: accepted
+> **狀態**: accepted (amended 2026-04-18)
 > **日期**: 2026-04-14
 > **決策者**: 專案 Owner
 > **關聯**: ADR-0010 (Qwen3-4B 本地 LLM), `memory/hermes_openclaw_deferred.md` (superseded), docs/HERMES_MIGRATION_PLAN.md
+
+## 2026-04-18 修訂（Amendment）
+
+原決策內容保留作為歷史脈絡。以下兩點為後續執行中發現的實質變更，在本節補註（未更動正文），後續若範圍再擴大將另立 ADR：
+
+1. **LINE 通道保留**（覆蓋原「LINE 小花貓 Aroan 下線」）
+   - **原因**：臺灣用戶主力集中於 LINE，Telegram/Discord 無法替代。
+   - **執行路線**：Phase 0/1 不動 LINE bot（續走 OpenClaw / Missive LINE adapter），Phase 2 硬切時再評估 LINE adapter 改寫（對接 Hermes gateway OpenAI-API `:8642/v1`）。
+   - **影響**：OpenClaw 下線時程需與 LINE adapter 遷移同步；NemoClaw 歸檔日（2026-05-26，ADR-0015）仍維持，但 LINE bot 所需的底層服務需確保不在歸檔範圍。
+
+2. **Phase 0 主力 LLM 為 Groq，Anthropic 暫緩**（覆蓋原「Groq 作為 P1 fallback」定位）
+   - **原因**：Anthropic credit 未充值；Groq 免費層（llama-3.3-70b-versatile）在 Phase 0 shadow 流量下額度充裕。
+   - **執行**：`CK_AaaP/runbooks/hermes-stack/config.yaml.example` 已將 Groq 設為 `model`（主），Ollama gemma4:e2b 設為 `fallback_model`；Anthropic 區塊註解化，待後續架構穩定後再議。
+   - **GO/NO-GO 影響**：Phase 0 baseline p95 / tool-call 等價率改以「Groq + Ollama」為實測對象；若 Groq tool-calling 品質達標，可直接進 Phase 1，無需等 Anthropic。
+
+
 
 ## 背景
 
