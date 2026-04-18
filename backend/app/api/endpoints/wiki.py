@@ -8,11 +8,12 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.core.dependencies import require_admin, get_async_db
+from app.core.dependencies import require_admin, require_auth, get_async_db
 from app.services.wiki_service import get_wiki_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(prefix="/wiki", tags=["wiki"])
+# 整組需登入（Wiki 為內部知識庫）；寫端點額外 require_admin 於單端點（見下方）
+router = APIRouter(prefix="/wiki", tags=["wiki"], dependencies=[Depends(require_auth())])
 
 
 # ── Request / Response schemas ──
@@ -52,8 +53,8 @@ class SearchRequest(BaseModel):
 # ── Endpoints ──
 
 @router.post("/ingest/entity")
-async def ingest_entity(req: IngestEntityRequest):
-    """攝入實體到 wiki"""
+async def ingest_entity(req: IngestEntityRequest, _admin=Depends(require_admin())):
+    """攝入實體到 wiki（Admin 限定）"""
     svc = get_wiki_service()
     result = await svc.ingest_entity(
         name=req.name,
@@ -69,8 +70,8 @@ async def ingest_entity(req: IngestEntityRequest):
 
 
 @router.post("/ingest/source")
-async def ingest_source(req: IngestSourceRequest):
-    """攝入來源摘要到 wiki"""
+async def ingest_source(req: IngestSourceRequest, _admin=Depends(require_admin())):
+    """攝入來源摘要到 wiki（Admin 限定）"""
     svc = get_wiki_service()
     result = await svc.ingest_source(
         title=req.title,
@@ -86,8 +87,8 @@ async def ingest_source(req: IngestSourceRequest):
 
 
 @router.post("/synthesis")
-async def save_synthesis(req: SaveSynthesisRequest):
-    """儲存綜合分析到 wiki"""
+async def save_synthesis(req: SaveSynthesisRequest, _admin=Depends(require_admin())):
+    """儲存綜合分析到 wiki（Admin 限定）"""
     svc = get_wiki_service()
     result = await svc.save_synthesis(
         title=req.title,
@@ -118,16 +119,16 @@ async def read_page(page_path: str):
 
 
 @router.post("/lint")
-async def lint_wiki():
-    """Wiki 健康檢查"""
+async def lint_wiki(_admin=Depends(require_admin())):
+    """Wiki 健康檢查（Admin 限定）"""
     svc = get_wiki_service()
     result = await svc.lint()
     return {"success": True, "data": result}
 
 
 @router.post("/rebuild-index")
-async def rebuild_index():
-    """重建 wiki 索引"""
+async def rebuild_index(_admin=Depends(require_admin())):
+    """重建 wiki 索引（Admin 限定）"""
     svc = get_wiki_service()
     counts = await svc.rebuild_index()
     return {"success": True, "data": counts}
