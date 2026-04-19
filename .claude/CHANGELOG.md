@@ -53,6 +53,8 @@
   crystal_applier `apply_proposal`；三處 best-effort try/except 不 raise
 - `/memory/stats` endpoint 觸發時同步 `refresh_from_disk(WIKI_MEMORY)` 更新 gauge
 - 活體驗證：`/metrics` 暴露 `memory_diary_days_total 1.0` 等完整 series
+- Grafana dashboard：`CK_AaaP/platform/observability/grafana/provisioning/dashboards/json/ck-missive-memory-wiki.json`
+  （14 panels / 4 rows：總覽卡 + Diary 心跳 + 30 天成長曲線 + Crystal apply rate）
 
 #### 排程器新增
 - `memory_pattern_extract_job` cron 04:00
