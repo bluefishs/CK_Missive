@@ -1238,6 +1238,40 @@ async def llm_quota_check_job():
 # Memory Wiki Phase 2: Pattern Extractor scheduled job
 # 2026-04-19: 每日掃 agent_query_traces → patterns/failures wiki pages
 # ─────────────────────────────────────────────────
+@tracked_job("memory_crystallization_scan")
+async def memory_crystallization_scan_job():
+    """每日掃 patterns/ 產生 crystal proposals（不自動 apply，等人批准）。
+
+    2026-04-19 Memory Wiki Phase 3：
+    - scan crystallization_candidates（hit >= 5, success_rate >= 95%）
+    - 寫 proposal 至 wiki/memory/proposals/
+    - **不自動改 yaml**，需人批准（via Phase 5 UI 或 API）
+    """
+    from app.services.memory.crystallizer import Crystallizer
+    logger.info("開始執行 Memory Crystallization Scan")
+    try:
+        crys = Crystallizer()
+        proposals = await crys.scan_and_propose()
+        logger.info("Memory Crystallization Scan 完成: %d proposals", len(proposals))
+        # Telegram 通知（若有新 proposal）
+        if proposals:
+            import os
+            admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+            if admin_chat_id:
+                try:
+                    from app.services.telegram_bot_service import get_telegram_bot_service
+                    msg = (
+                        f"🔮 新 Crystal 提案（{len(proposals)} 筆）\n\n"
+                        + "\n".join(f"• {p.proposal_id}: {p.reason[:80]}" for p in proposals[:5])
+                        + "\n\n批准請至 /ai/memory Dashboard（Phase 5）或使用 API。"
+                    )
+                    await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
+                except Exception as e:
+                    logger.debug("Crystal proposal Telegram notify failed: %s", e)
+    except Exception as e:
+        logger.error("Memory Crystallization 失敗: %s", e, exc_info=True)
+
+
 @tracked_job("memory_pattern_extract")
 async def memory_pattern_extract_job():
     """每日從 traces 萃取 success patterns + failure modes 寫入 wiki/memory/。
@@ -1536,6 +1570,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 Memory Pattern Extractor: 每日 04:00 執行")
+
+    # 2026-04-19 Memory Wiki Phase 3: 每日 04:30 crystal scan（在 pattern extract 之後）
+    scheduler.add_job(
+        memory_crystallization_scan_job,
+        trigger=CronTrigger(hour=4, minute=30),
+        id='memory_crystallization_scan',
+        name='Memory Wiki Crystallization Scan (每日 04:30)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Memory Crystallization Scan: 每日 04:30 執行")
 
     # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
     scheduler.add_job(

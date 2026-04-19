@@ -1,0 +1,327 @@
+# -*- coding: utf-8 -*-
+"""Crystal Applier — 批准 crystal proposal 後實際改 yaml（snapshot + validate + rollback）
+
+2026-04-19 Memory Wiki Phase 3 新建。
+
+安全閘：
+1. snapshot 原 yaml（備份到 wiki/memory/evolutions/yaml-snapshots/）
+2. apply diff via yaml_safe_editor
+3. validate 新 yaml 語法
+4. 失敗自動 rollback
+5. 成功寫 crystal record
+"""
+from __future__ import annotations
+
+import logging
+import re
+import shutil
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Optional, Tuple
+
+from zoneinfo import ZoneInfo
+
+from app.services.memory.yaml_safe_editor import (
+    add_synonym_group,
+    add_intent_rule,
+    validate_yaml,
+)
+
+logger = logging.getLogger(__name__)
+
+TZ_TAIPEI = ZoneInfo("Asia/Taipei")
+
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+PROPOSALS_DIR = PROJECT_ROOT / "wiki" / "memory" / "proposals"
+CRYSTALS_DIR = PROJECT_ROOT / "wiki" / "memory" / "crystals"
+SNAPSHOTS_DIR = PROJECT_ROOT / "wiki" / "memory" / "evolutions" / "yaml-snapshots"
+
+SYNONYMS_YAML = PROJECT_ROOT / "backend" / "app" / "services" / "ai" / "synonyms.yaml"
+INTENT_RULES_YAML = PROJECT_ROOT / "backend" / "app" / "services" / "ai" / "intent_rules.yaml"
+
+
+@dataclass
+class ApplyResult:
+    ok: bool
+    crystal_id: Optional[str] = None
+    snapshot_path: Optional[Path] = None
+    error: Optional[str] = None
+
+
+class CrystalApplier:
+    """批准 crystal proposal，安全改 yaml。"""
+
+    def __init__(self):
+        CRYSTALS_DIR.mkdir(parents=True, exist_ok=True)
+        SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    async def apply_proposal(
+        self,
+        proposal_id: str,
+        approved_by: str = "admin",
+    ) -> ApplyResult:
+        """批准並套用 proposal。安全閘全程守護。"""
+        proposal_path = PROPOSALS_DIR / f"{proposal_id}.md"
+        if not proposal_path.exists():
+            return ApplyResult(ok=False, error=f"Proposal {proposal_id} 不存在")
+
+        try:
+            # Step 1: parse proposal
+            meta, payload = self._parse_proposal(proposal_path)
+            if not meta:
+                return ApplyResult(ok=False, error="Proposal 解析失敗")
+
+            if meta.get("status") != "pending":
+                return ApplyResult(
+                    ok=False,
+                    error=f"Proposal 狀態為 {meta.get('status')}，無法 apply",
+                )
+
+            target_file = meta.get("target_file")
+            target_path = self._resolve_target(target_file)
+            if not target_path or not target_path.exists():
+                return ApplyResult(ok=False, error=f"Target {target_file} 不存在")
+
+            # Step 2: snapshot
+            snapshot_path = self._snapshot(target_path)
+
+            # Step 3: apply
+            original = target_path.read_text(encoding="utf-8")
+            new_yaml = self._build_new_yaml(original, meta, payload)
+            if new_yaml == original:
+                # No-op（已存在）
+                return ApplyResult(
+                    ok=False, error="Proposal 已套用或無變化", snapshot_path=snapshot_path,
+                )
+
+            # Step 4: validate
+            v = validate_yaml(new_yaml)
+            if not v.ok:
+                logger.error("Yaml validation failed: %s", v.error)
+                return ApplyResult(
+                    ok=False, error=f"YAML 驗證失敗: {v.error}", snapshot_path=snapshot_path,
+                )
+
+            # Step 5: write new
+            target_path.write_text(new_yaml, encoding="utf-8")
+
+            # Step 6: record crystal
+            crystal_id = self._write_crystal_record(
+                proposal_id=proposal_id,
+                target_file=target_file,
+                snapshot_path=snapshot_path,
+                approved_by=approved_by,
+                meta=meta,
+            )
+
+            # Step 7: 標記 proposal 為 applied
+            self._mark_proposal_status(proposal_path, "applied", extra={
+                "applied_at": datetime.now(TZ_TAIPEI).isoformat(),
+                "crystal_id": crystal_id,
+                "approved_by": approved_by,
+            })
+
+            # Step 8: 清快取（讓 yaml reload）
+            await self._invalidate_caches()
+
+            logger.info(
+                "Crystal applied: proposal=%s crystal=%s target=%s",
+                proposal_id, crystal_id, target_file,
+            )
+            return ApplyResult(
+                ok=True, crystal_id=crystal_id, snapshot_path=snapshot_path,
+            )
+
+        except Exception as e:
+            logger.error("Crystal apply failed: %s", e, exc_info=True)
+            return ApplyResult(ok=False, error=str(e))
+
+    # ────────── Helpers ──────────
+
+    @staticmethod
+    def _parse_proposal(path: Path) -> Tuple[Optional[Dict], Optional[Dict]]:
+        """解析 proposal frontmatter 與 payload yaml 區塊。"""
+        text = path.read_text(encoding="utf-8")
+        fm_match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+        if not fm_match:
+            return None, None
+        fm = fm_match.group(1)
+
+        meta: Dict = {}
+        for key in ("proposal_kind", "target_file", "source_pattern", "status"):
+            m = re.search(rf"^{key}:\s*(.+?)\s*$", fm, re.MULTILINE)
+            if m:
+                meta[key] = m.group(1).strip()
+
+        # Payload 在 ```yaml ... ``` 區塊
+        import yaml as pyyaml  # PyYAML 足夠解析結構
+        payload_match = re.search(r"```yaml\s*\n(.*?)\n```", text, re.DOTALL)
+        payload: Optional[Dict] = None
+        if payload_match:
+            try:
+                payload = pyyaml.safe_load(payload_match.group(1))
+            except Exception as e:
+                logger.warning("Payload parse failed: %s", e)
+                payload = None
+
+        return meta, payload
+
+    @staticmethod
+    def _resolve_target(target_file: str) -> Optional[Path]:
+        """target_file 對照實體路徑。"""
+        mapping = {
+            "synonyms.yaml": SYNONYMS_YAML,
+            "intent_rules.yaml": INTENT_RULES_YAML,
+        }
+        return mapping.get(target_file)
+
+    @staticmethod
+    def _snapshot(target_path: Path) -> Path:
+        """複製一份備份。"""
+        timestamp = datetime.now(TZ_TAIPEI).strftime("%Y%m%d-%H%M%S")
+        backup = SNAPSHOTS_DIR / f"{target_path.stem}-{timestamp}.yaml.bak"
+        shutil.copy2(target_path, backup)
+        return backup
+
+    @staticmethod
+    def _build_new_yaml(
+        original: str,
+        meta: Dict,
+        payload: Optional[Dict],
+    ) -> str:
+        """根據 proposal 類型套用差異。"""
+        if not payload:
+            return original
+
+        kind = meta.get("proposal_kind")
+        if kind == "synonym":
+            category = payload.get("category", "agency_synonyms")
+            new_group = payload.get("group", [])
+            new_text, _changed = add_synonym_group(original, category, new_group)
+            return new_text
+
+        elif kind == "intent_rule":
+            rule_block = payload.get("rule") or {}
+            if not rule_block.get("name") or not rule_block.get("pattern"):
+                # Phase 3 初版：若 pattern 為空（pattern_extractor 目前不生 pattern 欄位）
+                # 跳過實際寫入，回 original（caller 會判斷 no-op）
+                logger.info("Intent rule missing pattern, skipping apply (proposal awaits manual pattern)")
+                return original
+            new_text, _changed = add_intent_rule(original, rule_block)
+            return new_text
+
+        else:
+            logger.warning("Unknown proposal_kind: %s", kind)
+            return original
+
+    def _write_crystal_record(
+        self,
+        *,
+        proposal_id: str,
+        target_file: str,
+        snapshot_path: Path,
+        approved_by: str,
+        meta: Dict,
+    ) -> str:
+        """寫 crystal 紀錄（audit trail）。"""
+        crystal_id = f"crystal-{datetime.now(TZ_TAIPEI).strftime('%Y%m%d-%H%M%S')}"
+        crystal_path = CRYSTALS_DIR / f"{crystal_id}.md"
+        crystal_path.write_text(
+            f"""---
+type: agent_memory
+memory_type: crystal
+crystal_id: {crystal_id}
+source_proposal: {proposal_id}
+source_pattern: {meta.get('source_pattern', '-')}
+target_file: {target_file}
+snapshot: {snapshot_path.name}
+approved_by: {approved_by}
+approved_at: {datetime.now(TZ_TAIPEI).isoformat()}
+tags: [memory, crystal, {target_file.replace('.yaml', '')}]
+---
+
+# Crystal {crystal_id}
+
+成功套用 proposal `{proposal_id}` → 改動 `{target_file}`。
+
+Snapshot 備份至：`{snapshot_path}`
+
+若需回滾：`POST /api/ai/memory/crystals/rollback` with `crystal_id={crystal_id}`
+""",
+            encoding="utf-8",
+        )
+        return crystal_id
+
+    @staticmethod
+    def _mark_proposal_status(
+        path: Path, new_status: str, extra: Optional[Dict] = None,
+    ) -> None:
+        """更新 proposal frontmatter 的 status 欄位。"""
+        text = path.read_text(encoding="utf-8")
+        # Replace status 行
+        text = re.sub(
+            r"^status:\s*\S+",
+            f"status: {new_status}",
+            text, count=1, flags=re.MULTILINE,
+        )
+        # 追加 extra 欄位（在 --- 之前）
+        if extra:
+            extra_lines = "\n".join(f"{k}: {v}" for k, v in extra.items())
+            text = re.sub(
+                r"(^---\s*\n.*?)(\n---\s*\n)",
+                rf"\1\n{extra_lines}\2",
+                text, count=1, flags=re.DOTALL,
+            )
+        path.write_text(text, encoding="utf-8")
+
+    @staticmethod
+    async def _invalidate_caches() -> None:
+        """清除 AI config 快取讓 yaml 重讀。"""
+        try:
+            from app.services.ai.core.ai_config import AIConfig
+            # AIConfig 採 class-level state；清 synonyms/rules 欄位
+            config = AIConfig.get_instance() if hasattr(AIConfig, "get_instance") else None
+            if config:
+                for attr in ("_synonyms", "_intent_rules", "_synonyms_loaded"):
+                    if hasattr(config, attr):
+                        setattr(config, attr, None)
+        except Exception as e:
+            logger.debug("Cache invalidation partial: %s", e)
+
+    async def rollback(self, crystal_id: str) -> ApplyResult:
+        """回滾指定 crystal（從 snapshot 還原）。"""
+        crystal_path = CRYSTALS_DIR / f"{crystal_id}.md"
+        if not crystal_path.exists():
+            return ApplyResult(ok=False, error=f"Crystal {crystal_id} 不存在")
+
+        try:
+            text = crystal_path.read_text(encoding="utf-8")
+            target_m = re.search(r"^target_file:\s*(\S+)", text, re.MULTILINE)
+            snap_m = re.search(r"^snapshot:\s*(\S+)", text, re.MULTILINE)
+            if not target_m or not snap_m:
+                return ApplyResult(ok=False, error="Crystal frontmatter 缺欄位")
+
+            target_path = self._resolve_target(target_m.group(1))
+            snap_path = SNAPSHOTS_DIR / snap_m.group(1)
+            if not target_path or not snap_path.exists():
+                return ApplyResult(ok=False, error="Target 或 snapshot 缺失")
+
+            # 還原
+            shutil.copy2(snap_path, target_path)
+
+            # 記錄 rollback
+            rollback_log = PROJECT_ROOT / "wiki" / "memory" / "evolutions" / "rollbacks.md"
+            rollback_log.parent.mkdir(parents=True, exist_ok=True)
+            with rollback_log.open("a", encoding="utf-8") as f:
+                f.write(
+                    f"- {datetime.now(TZ_TAIPEI).isoformat()}: "
+                    f"rollback crystal={crystal_id} target={target_path.name}\n",
+                )
+
+            await self._invalidate_caches()
+            logger.info("Crystal rollback OK: %s", crystal_id)
+            return ApplyResult(ok=True, crystal_id=crystal_id)
+
+        except Exception as e:
+            return ApplyResult(ok=False, error=str(e))
