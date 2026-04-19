@@ -220,6 +220,36 @@ export const DIGITAL_TWIN_ENDPOINTS = {
   INSIGHTS: '/ai/digital-twin/insights',
 } as const;
 
+/** Memory Wiki API 端點（Phase 5 Slice 1） */
+export const MEMORY_ENDPOINTS = {
+  /** 查指定日期 diary POST /ai/memory/diary/date */
+  DIARY_DATE: '/ai/memory/diary/date',
+  /** 查最近 N 天 diary POST /ai/memory/diary/recent */
+  DIARY_RECENT: '/ai/memory/diary/recent',
+  /** 成功模式列表 POST /ai/memory/patterns/list */
+  PATTERNS_LIST: '/ai/memory/patterns/list',
+  /** 失敗模式列表 POST /ai/memory/failures/list */
+  FAILURES_LIST: '/ai/memory/failures/list',
+  /** 待決 proposal 列表 POST /ai/memory/proposals/list */
+  PROPOSALS_LIST: '/ai/memory/proposals/list',
+  /** 批准 proposal (admin) POST /ai/memory/proposals/approve */
+  PROPOSALS_APPROVE: '/ai/memory/proposals/approve',
+  /** 拒絕 proposal (admin) POST /ai/memory/proposals/reject */
+  PROPOSALS_REJECT: '/ai/memory/proposals/reject',
+  /** Crystal 列表 POST /ai/memory/crystals/list */
+  CRYSTALS_LIST: '/ai/memory/crystals/list',
+  /** Crystal 回滾 (admin) POST /ai/memory/crystals/rollback */
+  CRYSTALS_ROLLBACK: '/ai/memory/crystals/rollback',
+  /** 最新週自傳 POST /ai/memory/autobiography/latest */
+  AUTOBIOGRAPHY_LATEST: '/ai/memory/autobiography/latest',
+  /** 週自傳歷史 POST /ai/memory/autobiography/list */
+  AUTOBIOGRAPHY_LIST: '/ai/memory/autobiography/list',
+  /** 技能星雲圖譜 POST /ai/memory/nebula/graph */
+  NEBULA_GRAPH: '/ai/memory/nebula/graph',
+  /** Memory 總覽統計 POST /ai/memory/stats */
+  STATS: '/ai/memory/stats',
+} as const;
+
 /** 知識庫瀏覽器 API 端點 */
 export const KNOWLEDGE_BASE_ENDPOINTS = {
   TREE: '/knowledge-base/tree',
