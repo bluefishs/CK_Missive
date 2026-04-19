@@ -225,7 +225,6 @@ async def einvoice_sync_job():
         logger.error(f"電子發票同步排程任務失敗: {e}", exc_info=True)
 
 
-@tracked_job("code_graph_update")
 @tracked_job("erp_graph_ingest")
 async def erp_graph_ingest_job():
     """ERP 圖譜入圖 — 掃描 ERP 表 → canonical_entities + case_code 橋接"""

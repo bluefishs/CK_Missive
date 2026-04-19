@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS query_trace (
 CREATE INDEX IF NOT EXISTS idx_trace_ts ON query_trace(ts);
 CREATE INDEX IF NOT EXISTS idx_trace_channel ON query_trace(channel);
 CREATE INDEX IF NOT EXISTS idx_trace_provider ON query_trace(provider);
-CREATE INDEX IF NOT EXISTS idx_trace_actual_provider ON query_trace(actual_llm_provider);
+-- actual_llm_provider 的 index 移至 _migrate_add_provider_column（需先 ALTER TABLE 加 column 再建 index）
 """
 
 
