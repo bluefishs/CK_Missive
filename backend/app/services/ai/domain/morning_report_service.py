@@ -118,15 +118,39 @@ class MorningReportService:
         self,
         data: Dict[str, Any],
         sections: set[str] | None = None,
+        *,
+        narrative: bool | None = None,
+        channel: str = "telegram",
     ) -> str:
-        """生成晨報摘要 — 委派至 MorningReportFormatter。
+        """生成晨報摘要 — 委派至 MorningReportFormatter + 可選 LLM narrative 升級。
 
         B2: sections 參數限定渲染範圍；None 保留既有行為（4 主題 default）。
         可選 key: dispatch, meeting, site_visit, missing, pm_milestone, erp_expense, all
+
+        2026-04-19: narrative 參數控制是否套用「副手備忘錄」LLM 改寫。
+            None: 依 MORNING_REPORT_NARRATIVE_ENABLED env 決定（預設 true）
+            True: 強制啟用
+            False: 僅用原結構化格式
         """
         from app.services.ai.domain.morning_report_formatter import MorningReportFormatter
         formatter = MorningReportFormatter()
-        return formatter.format_summary(data, sections)
+        structured_text = formatter.format_summary(data, sections)
+
+        # Narrative 升級（非同步 LLM call，失敗自動回退）
+        if narrative is False:
+            return structured_text
+
+        try:
+            from app.services.ai.domain.morning_report_narrative import (
+                narrate_report, compose_final_report,
+            )
+            narrative_text = await narrate_report(
+                data, structured_text, channel=channel,
+            )
+            return compose_final_report(narrative_text, structured_text)
+        except Exception as e:
+            logger.warning("Morning report narrative wrapping failed: %s", e)
+            return structured_text
 
     # --- Legacy: 保留原始 format 邏輯作為 _format_summary_legacy (供測試比對) ---
     def _format_summary_legacy(
