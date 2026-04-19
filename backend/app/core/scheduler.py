@@ -1234,6 +1234,39 @@ async def llm_quota_check_job():
         logger.warning("LLM quota check 失敗: %s", e)
 
 
+# ─────────────────────────────────────────────────
+# Memory Wiki Phase 2: Pattern Extractor scheduled job
+# 2026-04-19: 每日掃 agent_query_traces → patterns/failures wiki pages
+# ─────────────────────────────────────────────────
+@tracked_job("memory_pattern_extract")
+async def memory_pattern_extract_job():
+    """每日從 traces 萃取 success patterns + failure modes 寫入 wiki/memory/。
+
+    成功率 > 80% 且 count >= 3 → wiki/memory/patterns/
+    失敗率 > 50% → wiki/memory/failures/ + defensive_rule（planner 自動注入）
+    """
+    from app.db.database import AsyncSessionLocal
+    from app.services.memory.pattern_extractor import PatternExtractor
+    from datetime import date, timedelta
+
+    target_date = date.today() - timedelta(days=1)  # 萃取昨日的 traces
+    logger.info("開始執行 Memory Pattern Extraction for %s", target_date)
+
+    try:
+        async with AsyncSessionLocal() as db:
+            extractor = PatternExtractor(db)
+            result = await extractor.extract_daily(target_date)
+            logger.info(
+                "Memory Pattern Extract 完成: scanned=%d patterns=%d (saved %d) failures=%d (saved %d) in %dms",
+                result.total_traces_scanned,
+                len(result.patterns), result.saved_pattern_files,
+                len(result.failures), result.saved_failure_files,
+                result.duration_ms,
+            )
+    except Exception as e:
+        logger.error("Memory Pattern Extraction 失敗: %s", e, exc_info=True)
+
+
 async def _sum_monthly_count(tracker, provider: str) -> int:
     """Helper: 取 provider 當月累計 request count（掃 Redis monthly key）。"""
     try:
@@ -1491,6 +1524,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 LLM quota 預警: 每 6 小時檢查")
+
+    # 2026-04-19 Memory Wiki Phase 2: 每日 04:00 萃取 patterns/failures
+    scheduler.add_job(
+        memory_pattern_extract_job,
+        trigger=CronTrigger(hour=4, minute=0),
+        id='memory_pattern_extract',
+        name='Memory Wiki Pattern Extractor (每日 04:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Memory Pattern Extractor: 每日 04:00 執行")
 
     # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
     scheduler.add_job(

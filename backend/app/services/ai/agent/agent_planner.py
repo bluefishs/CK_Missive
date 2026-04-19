@@ -185,6 +185,15 @@ class AgentPlanner:
             except Exception as e:
                 logger.debug("Cross-session learning injection skipped: %s", e)
 
+        # 2026-04-19 Memory Wiki Phase 2: 失敗教訓注入
+        # 從 wiki/memory/failures/*.md active:true 的 defensive_rule 取出，讓 Agent 從過去錯誤學習
+        defense_block = ""
+        try:
+            from app.services.memory.auto_defense import get_defensive_rules_block
+            defense_block = await get_defensive_rules_block(max_items=5)
+        except Exception as e:
+            logger.debug("Auto defense injection skipped: %s", e)
+
         # EVO-1: 能力弱項提示 — 讓 Planner 知道 Agent 的能力邊界
         capability_hint = ""
         if db:
@@ -267,6 +276,7 @@ class AgentPlanner:
 {tool_discovery_hint}
 {capability_hint}
 {critical_hint}
+{defense_block}
 
 以下是幾個規劃範例：
 
