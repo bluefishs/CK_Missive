@@ -350,6 +350,26 @@ async def run_post_synthesis(
             )
         )
 
+    # 2026-04-19 Memory Wiki Phase 1: 非阻塞 Diary append（自我觀層 L3 入口）
+    # 每次成功 query 結束 → 寫一筆到 wiki/memory/diary/{today}.md
+    try:
+        from app.services.memory.diary_service import get_diary_service
+        latency_ms_int = int((time.time() - ctx.t0) * 1000)
+        asyncio.create_task(
+            get_diary_service().append_entry(
+                question=ctx.question,
+                answer=ctx.answer_text,
+                tools_used=list(set(ctx.tools_used)) if ctx.tools_used else [],
+                success=(ctx.model_used != "fallback" and ctx.model_used != "error"),
+                latency_ms=latency_ms_int,
+                session_id=ctx.session_id,
+                channel=getattr(ctx, "channel", None),
+                route_type=getattr(ctx.trace, "route_type", "llm"),
+            )
+        )
+    except Exception as _e:
+        logger.debug("Diary append scheduling failed: %s", _e)
+
     # 非阻塞：自我評估 + 進化觸發
     asyncio.create_task(
         self_evaluate_and_evolve(

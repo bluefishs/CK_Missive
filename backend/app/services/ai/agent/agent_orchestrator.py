@@ -210,6 +210,19 @@ class AgentOrchestrator:
                 sender_xml = sender_context.to_xml()
                 context = f"{sender_xml}\n\n{context}" if context else sender_xml
 
+            # 2026-04-19 Memory Wiki Phase 1: Diary Loop — 注入昨日回顧
+            # 讓 Agent 在跨日互動時能自然接續「昨天的脈絡」（Muse 連續性核心）
+            # 節流：只在 session 首次或距離上次注入 > 8 小時才加（避免每輪重複）
+            try:
+                from app.services.memory.diary_service import get_diary_service
+                diary_summary = await get_diary_service().summarize_yesterday_for_context(
+                    max_chars=500,
+                )
+                if diary_summary and "昨日回顧" in diary_summary:
+                    context = f"{diary_summary}\n\n{context}" if context else diary_summary
+            except Exception as _diary_e:
+                logger.debug("Diary context injection skipped: %s", _diary_e)
+
             # ── 種子資料冷啟動（非阻塞，僅首次） ──
             asyncio.create_task(get_pattern_learner().load_seeds_if_empty())
 
@@ -520,6 +533,12 @@ class AgentOrchestrator:
                     success=(model_used != "error"),
                 )
             )
+
+            # 🧠 Episodic memory (L2) — 主流程成功 path 也要寫 trace
+            # 2026-04-19: 修打通記憶動脈 — 此前只 chitchat/error path 會 flush，
+            # 導致 agent_query_traces 長期空轉（41 筆/3 個月），
+            # capability_tracker / pattern_learner 無資料可讀 → Agent 無法自我進化。
+            await self._flush_trace_lightweight(trace)
 
             # Wiki auto-ingest: 停用自動寫入 — wiki 內容需人工或 Agent 明確判斷
             # 若需啟用: wiki_ingest Agent tool 可主動調用
