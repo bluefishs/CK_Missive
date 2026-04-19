@@ -34,6 +34,7 @@ from .digital_twin import router as digital_twin_router
 from .agent_evolution import router as agent_evolution_router
 from .tools_manifest import router as tools_manifest_router
 from .diagram_analysis import router as diagram_analysis_router
+from .memory import router as memory_router
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -64,3 +65,4 @@ router.include_router(digital_twin_router)
 router.include_router(agent_evolution_router)
 router.include_router(tools_manifest_router)
 router.include_router(diagram_analysis_router)
+router.include_router(memory_router, tags=["AI Memory"])
