@@ -13,6 +13,7 @@ import {
   BranchesOutlined,
   BulbOutlined,
   CrownOutlined,
+  DeploymentUnitOutlined,
   HistoryOutlined,
 } from '@ant-design/icons';
 
@@ -22,6 +23,7 @@ const DiaryTab = lazy(() => import('./memoryWiki/DiaryTab'));
 const PatternsTab = lazy(() => import('./memoryWiki/PatternsTab'));
 const ProposalsTab = lazy(() => import('./memoryWiki/ProposalsTab'));
 const AutobiographyTab = lazy(() => import('./memoryWiki/AutobiographyTab'));
+const SkillNebulaTab = lazy(() => import('./memoryWiki/SkillNebulaTab'));
 
 const MemoryDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('diary');
@@ -123,6 +125,11 @@ const MemoryDashboardPage: React.FC = () => {
             key: 'autobiography',
             label: <span><HistoryOutlined /> 週自傳</span>,
             children: <Suspense fallback={fallback}><AutobiographyTab /></Suspense>,
+          },
+          {
+            key: 'nebula',
+            label: <span><DeploymentUnitOutlined /> 技能星雲</span>,
+            children: <Suspense fallback={fallback}><SkillNebulaTab /></Suspense>,
           },
         ]}
       />

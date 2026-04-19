@@ -107,22 +107,29 @@ export type ProposalSummary = MdSummary<ProposalMeta>;
 export type CrystalSummary = MdSummary<CrystalMeta>;
 export type AutobiographySummary = MdSummary<AutobiographyMeta>;
 
-// ─── Nebula graph ───
+// ─── Nebula graph（對應後端 /memory/nebula/graph） ───
 
 export interface NebulaNode {
   id: string;
   label: string;
-  kind: 'skill' | 'tool' | 'domain' | 'pattern' | string;
-  domain?: string;
-  color?: string;
-  size?: number;
-  meta?: Record<string, unknown>;
+  tools: string[];
+  domains: string[];
+  hit_count: number;
+  success_rate: number;
+  size: number;
+  color: string;
+  is_crystal: boolean;
+  /** 力導向運算後由 graph 引擎寫入 */
+  x?: number;
+  y?: number;
+  /** force-graph value（供圖引擎縮放） */
+  val?: number;
 }
 
 export interface NebulaEdge {
-  source: string;
-  target: string;
-  kind?: string;
+  source: string | NebulaNode;
+  target: string | NebulaNode;
+  label?: string;
   weight?: number;
 }
 
@@ -130,10 +137,9 @@ export interface NebulaGraph {
   nodes: NebulaNode[];
   edges: NebulaEdge[];
   stats?: {
-    skills: number;
-    tools: number;
-    domains: number;
-    patterns: number;
+    total_nodes: number;
+    total_edges: number;
+    crystal_count: number;
   };
 }
 
