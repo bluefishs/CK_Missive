@@ -95,12 +95,20 @@ class AgentOrchestrator:
         )
 
     async def _flush_trace_lightweight(self, trace: "AgentTrace") -> None:
-        """輕量 trace 持久化 — 用於 chitchat/rate-limited/fallback 等短路路徑"""
+        """輕量 trace 持久化 — 短路路徑 & 主成功路徑共用。
+
+        2026-04-19 修：原 fire-and-forget 用 `self.db` 導致 FastAPI request
+        結束後 session 被 dispose，背景 task 寫入靜默失敗（trace drought 的
+        真正根因）。改為獨立 session（ADR-0021 pattern）。
+        """
         trace.finish()
         trace.log_summary()
         try:
+            from app.db.database import run_with_fresh_session
             asyncio.create_task(trace.flush_to_monitor())
-            asyncio.create_task(trace.flush_to_db(self.db))
+            asyncio.create_task(
+                run_with_fresh_session(lambda db: trace.flush_to_db(db))
+            )
         except Exception as e:
             logger.warning("Lightweight trace flush failed: %s", e)
 

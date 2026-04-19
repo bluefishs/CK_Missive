@@ -214,11 +214,20 @@ class AgentTrace:
                     "error_message": span.metadata.get("error") if span.status != "ok" else None,
                 })
 
+        # context/route_type 欄位為 varchar(20)，過長會 trigger
+        # StringDataRightTruncationError 讓整個 trace 寫入失敗
+        ctx = (self.context or None)
+        if isinstance(ctx, str) and len(ctx) > 20:
+            ctx = ctx[:20]
+        route = (self.route_type or "llm")
+        if isinstance(route, str) and len(route) > 20:
+            route = route[:20]
+
         return {
             "query_id": self.query_id,
             "question": self.question,
-            "context": self.context,
-            "route_type": self.route_type or "llm",
+            "context": ctx,
+            "route_type": route,
             "plan_tool_count": len(self.tools_called),
             "hint_count": 0,
             "iterations": self.iterations,
