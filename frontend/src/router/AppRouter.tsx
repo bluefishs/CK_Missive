@@ -81,6 +81,7 @@ const ERPGraphPage = lazy(() => import('../pages/ERPGraphPage'));
 const DatabaseGraphPage = lazy(() => import('../pages/DatabaseGraphPage'));
 const KnowledgeBasePage = lazy(() => import('../pages/KnowledgeBasePage'));
 const WikiPage = lazy(() => import('../pages/WikiPage'));
+const MemoryDashboardPage = lazy(() => import('../pages/MemoryDashboardPage'));
 const SkillEvolutionPage = lazy(() => import('../pages/SkillEvolutionPage'));
 
 // 桃園查估專區
@@ -296,6 +297,7 @@ export const AppRouter: React.FC = () => {
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
           <Route path={ROUTES.WIKI} element={<ProtectedRoute requireAuth={true}><WikiPage /></ProtectedRoute>} />
+          <Route path={ROUTES.MEMORY_DASHBOARD} element={<ProtectedRoute requireAuth={true}><MemoryDashboardPage /></ProtectedRoute>} />
 
           {/* 專案管理 (PM) — 與 contract-cases 功能對齊 */}
           <Route path={ROUTES.PM_CASES} element={<ProtectedRoute><PMCaseListPage /></ProtectedRoute>} />

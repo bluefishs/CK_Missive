@@ -107,6 +107,8 @@ export const ROUTES = {
   KNOWLEDGE_BASE: '/admin/knowledge-base',
   // LLM Wiki
   WIKI: '/ai/wiki',
+  // Memory Wiki（助理自我記憶系統）
+  MEMORY_DASHBOARD: '/ai/memory',
   // 專案管理 (PM)
   PM_CASES: '/pm/cases',
   PM_CASE_DETAIL: '/pm/cases/:id',
@@ -360,6 +362,12 @@ export const ROUTE_META = {
     title: 'LLM Wiki',
     description: '公文知識 Wiki — 圖譜瀏覽、搜尋、編譯',
     icon: 'BookOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.MEMORY_DASHBOARD]: {
+    title: '記憶中樞',
+    description: '助理記憶系統 — 日記 / 模式 / 提案 / 週自傳',
+    icon: 'HistoryOutlined',
     requireAuth: true,
   },
   [ROUTES.CODE_WIKI]: {

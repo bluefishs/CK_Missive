@@ -703,6 +703,11 @@ DEFAULT_NAVIGATION_ITEMS = [
      "icon": "BookOutlined", "sort_order": 7, "level": 2,
      "parent_key": "Knowledge Map", "description": "LLM Wiki,知識編譯,公文wiki,圖譜", "permission_required": "[]"},
 
+    # Memory Wiki（助理自我記憶系統）
+    {"title": "記憶中樞", "key": "memory-dashboard", "path": "/ai/memory",
+     "icon": "HistoryOutlined", "sort_order": 8, "level": 2,
+     "parent_key": "Knowledge Map", "description": "助理記憶,日記,成功模式,結晶提案,週自傳", "permission_required": "[]"},
+
     # =========================================================================
     # AI Agents 群組子項目 (Agent/分身類)
     # DB parent: "AI Agents" (id=72, under system)
