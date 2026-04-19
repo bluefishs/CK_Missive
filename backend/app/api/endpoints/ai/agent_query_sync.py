@@ -241,6 +241,43 @@ async def _try_inject_handoff(
         return history
 
 
+async def _flush_timeout_trace(
+    *,
+    question: str,
+    tools_used: List[str],
+    session_id: Optional[str],
+    channel: Optional[str],
+    latency_ms: int,
+) -> None:
+    """Timeout path 的輕量 trace 寫入（ADR-0022 Memory Wiki 閉環骨幹）。
+
+    原 flow：orchestrator 超時 → 被 asyncio.wait_for 取消 → 永遠跑不到
+    `_flush_trace_lightweight` → Pattern Extractor 看不到超時資料。
+
+    改：在 endpoint timeout handler 自建最小 trace 透過獨立 session 寫入。
+    """
+    try:
+        from app.services.ai.agent.agent_trace import AgentTrace
+        from app.db.database import run_with_fresh_session_no_commit
+
+        trace = AgentTrace(
+            query_id=session_id or "timeout",
+            question=question,
+            context=(channel or "")[:20] or None,
+        )
+        trace.route_type = "timeout"
+        trace.tools_called = list(tools_used) if tools_used else []
+        trace.total_ms = latency_ms
+        trace._answer_length = 0
+        trace._answer_preview = None
+        trace._model_used = None
+        trace.finish()
+        # save_trace 內部已 commit；用 no_commit 版本避免 double commit
+        await run_with_fresh_session_no_commit(lambda db: trace.flush_to_db(db))
+    except Exception as e:
+        logger.warning("Timeout trace flush failed: %s", e)
+
+
 @router.post(
     "/agent/query",
     response_model=None,
@@ -452,6 +489,12 @@ async def agent_query_sync(
             request=request, channel=channel, question=question, answer="",
             success=False, latency_ms=elapsed_ms, error_code="timeout",
             session_id=session_id,
+        ))
+        # 2026-04-20 修：timeout path 也寫 agent_query_traces，否則 Pattern
+        # Extractor 看不到超時查詢 → 無法學到「哪些 tool_sequence 會拖到 60s+」
+        asyncio.create_task(_flush_timeout_trace(
+            question=question, tools_used=tools_used, session_id=session_id,
+            channel=channel, latency_ms=elapsed_ms,
         ))
         if fmt == "v1":
             return JSONResponse(

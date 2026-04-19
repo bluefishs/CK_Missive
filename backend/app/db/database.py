@@ -147,6 +147,16 @@ async def run_with_fresh_session(fn):
             raise
 
 
+async def run_with_fresh_session_no_commit(fn):
+    """供 callee 自己 commit 的情境（e.g. save_trace 內部已 commit/rollback）。
+
+    外層再 commit 會得 'This transaction is closed' 錯誤。因此此版本只負責
+    session lifecycle，commit/rollback 由 callee 負責。
+    """
+    async with AsyncSessionLocal() as session:
+        return await fn(session)
+
+
 # -- (可選) 同步操作，用於腳本或 Alembic --
 # 雖然應用程式本身是非同步的，但某些腳本可能需要同步操作
 from sqlalchemy import create_engine

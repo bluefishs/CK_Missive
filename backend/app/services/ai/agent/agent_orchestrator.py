@@ -104,10 +104,11 @@ class AgentOrchestrator:
         trace.finish()
         trace.log_summary()
         try:
-            from app.db.database import run_with_fresh_session
+            from app.db.database import run_with_fresh_session_no_commit
             asyncio.create_task(trace.flush_to_monitor())
+            # save_trace 內部已 commit/rollback，外層 session 只管 lifecycle
             asyncio.create_task(
-                run_with_fresh_session(lambda db: trace.flush_to_db(db))
+                run_with_fresh_session_no_commit(lambda db: trace.flush_to_db(db))
             )
         except Exception as e:
             logger.warning("Lightweight trace flush failed: %s", e)
