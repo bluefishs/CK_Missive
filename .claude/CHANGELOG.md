@@ -4,6 +4,45 @@
 
 ---
 
+## [5.6.2] - 2026-04-19
+
+### LLM 告警整合（方案 B）+ PM2 log 接入 Loki + Telegram 修復 + asyncpg race lint
+
+#### 🔄 LLM 告警整合（避免重複建構）
+- 盤點發現：`token_usage_tracker._send_budget_alert`（token 量 50 萬/日）與新增
+  `llm_quota_check_job`（per-provider request）並存但角度不同（成本 vs free-tier）。
+- **整合為單一 job `llm_quota_check_job`**，同時檢查 3 維度：
+  1. Groq 日請求量（對 vendor free tier）
+  2. NVIDIA 月 credits（對 NIM 免費額度）
+  3. **LLM 日總成本 USD**（跨 provider 成本 ceiling）
+- `_send_budget_alert` 標 deprecated 為 no-op（保留簽名向後相容）
+- 單一 Telegram 訊息整合三維度，去重機制（每日每維度一次）
+- env 新增 `TOKEN_DAILY_COST_USD_LIMIT`（預設 $1.00/day）
+
+#### 🔌 PM2 log → Loki 接入
+- `CK_DigitalTunnel/monitoring/promtail/promtail-config.yml` 加 `ck-missive-pm2` scrape job
+- 收集：`backend-*.log` / `synthetic-baseline-*.log` / `watchdog-*.log` / `invoice-watcher-*.log`
+- structlog JSON 自動解析為 level/logger/event 標籤（ADR-0019）
+- 丟棄 `/metrics` / `/api/health` scrape 噪音
+- Mount `/d/CKProject/CK_Missive/logs` → `/var/log/missive` 已存在（docker-compose.yml）
+
+#### 📨 Telegram bot 修復（Incident）
+- 根因 3 層：webhook URL 被清空 + slowapi 要求 `response: Response` 參數 + emoji reaction 無效
+- 修 `telegram_webhook.py` / `discord_webhook.py` 加 Response 參數
+- `telegram_bot_service.py` emoji 映射表（✅→👍 ❌→👎 ⏳→🤔）
+- `main.py` lifespan 啟動時自動 setWebhook（防 URL 失效）
+
+#### 🧪 asyncpg race 防線擴充（ADR-0021 回歸測試）
+- 新增 `test_asyncpg_race_lint.py` 掃全專案 gather+session 共用 pattern
+- ALLOWLIST 13 個人工驗證安全檔案
+- 審計剩餘 7 個 gather 位置：5 個各自建 session + 2 個純 HTTP，皆無 race
+
+#### ⚙️ Scheduler 新排程
+- `llm_quota_check` 每 6 小時跑一次
+- `health_check_broadcast` 2-strike 連續失敗才告警 + 恢復通知
+
+---
+
 ## [5.6.1] - 2026-04-19
 
 ### asyncpg 併發 race 根治 + 告警去抖動 + 文件同步

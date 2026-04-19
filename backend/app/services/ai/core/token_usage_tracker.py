@@ -131,7 +131,11 @@ class TokenUsageTracker:
         }
 
     async def _check_budget(self, today: str, month: str) -> Dict[str, Any]:
-        """檢查是否超過預算，超額時發送 Telegram 告警"""
+        """檢查是否超過預算並回報 pct。
+
+        **2026-04-19 整合改動**: Telegram 告警移交 `scheduler.llm_quota_check_job`
+        單一 job 統一處理（成本 + free-tier 額度兩維度），此處僅回傳 pct 供 record() 附帶資訊。
+        """
         daily_total = await self._get_daily_total(today)
         monthly_total = await self._get_monthly_total(month)
 
@@ -139,11 +143,6 @@ class TokenUsageTracker:
         monthly_pct = monthly_total / DEFAULT_MONTHLY_BUDGET * 100 if DEFAULT_MONTHLY_BUDGET > 0 else 0
 
         budget_exceeded = daily_pct >= 100 or monthly_pct >= 100
-        budget_warning = daily_pct >= 80 or monthly_pct >= 80
-
-        if (budget_exceeded or budget_warning) and not self._alert_sent_today:
-            self._alert_sent_today = True
-            await self._send_budget_alert(daily_total, monthly_total, daily_pct, monthly_pct)
 
         return {
             "budget_exceeded": budget_exceeded,
@@ -189,24 +188,16 @@ class TokenUsageTracker:
     async def _send_budget_alert(
         self, daily: int, monthly: int, daily_pct: float, monthly_pct: float,
     ) -> None:
-        """預算告警推播至 Telegram"""
-        admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-        if not admin_chat_id:
-            return
+        """**Deprecated 2026-04-19**: 告警已整合至 `scheduler.llm_quota_check_job`
+        （單一 job 統一檢查成本 + free-tier 額度兩維度）。
 
-        status = "🚨 超額" if daily_pct >= 100 or monthly_pct >= 100 else "⚠️ 接近上限"
-        msg = (
-            f"{status} Token 用量警報\n\n"
-            f"日用量: {daily:,} / {DEFAULT_DAILY_BUDGET:,} ({daily_pct:.1f}%)\n"
-            f"月用量: {monthly:,} / {DEFAULT_MONTHLY_BUDGET:,} ({monthly_pct:.1f}%)\n"
-            f"時間: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        保留簽名供既有呼叫者向後相容，本方法為 no-op。
+        """
+        logger.debug(
+            "_send_budget_alert 已整合至 llm_quota_check_job，此呼叫 no-op "
+            "(daily_pct=%.1f%% monthly_pct=%.1f%%)",
+            daily_pct, monthly_pct,
         )
-        try:
-            from app.services.telegram_bot_service import get_telegram_bot_service
-            await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
-            logger.info("Token budget alert sent to Telegram")
-        except Exception as e:
-            logger.error("Failed to send token budget alert: %s", e)
 
     async def get_usage_report(self, date: Optional[str] = None) -> Dict[str, Any]:
         """

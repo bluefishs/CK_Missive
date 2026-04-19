@@ -1139,6 +1139,116 @@ async def health_check_broadcast_job():
             pass  # Telegram 也失敗，只記 log
 
 
+# LLM quota 預警 — 已告警旗標（防重複通知，每日 00:00 自動 reset）
+_LLM_QUOTA_ALERT_FLAGS: dict[str, str] = {}  # provider -> alert_date
+
+
+@tracked_job("llm_quota_check")
+async def llm_quota_check_job():
+    """LLM 統一告警（2026-04-19 整合）：三維度一次 Telegram 推送。
+
+    **整合 3 維度**：
+      1. Groq per-day request（對應 free tier 每日上限）
+      2. NVIDIA per-month credits（對應 NIM 免費額度）
+      3. Token 總成本（日 USD cost ceiling）
+
+    每日每維度僅告警一次（去重 via ``_LLM_QUOTA_ALERT_FLAGS``）。
+
+    env 配置:
+      GROQ_DAILY_REQ_LIMIT        Groq free tier 每日請求上限（預設 1000）
+      NVIDIA_MONTHLY_CRED_LIMIT   NVIDIA NIM 每月 credits（預設 5000）
+      TOKEN_DAILY_COST_USD_LIMIT  日總成本上限 USD（預設 1.00）
+      LLM_QUOTA_WARN_PCT          告警閾值百分比（預設 80）
+    """
+    import os
+    admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+    if not admin_chat_id:
+        return
+
+    groq_daily_limit = int(os.getenv("GROQ_DAILY_REQ_LIMIT", "1000"))
+    nvidia_monthly_limit = int(os.getenv("NVIDIA_MONTHLY_CRED_LIMIT", "5000"))
+    cost_daily_limit = float(os.getenv("TOKEN_DAILY_COST_USD_LIMIT", "1.00"))
+    warn_pct = float(os.getenv("LLM_QUOTA_WARN_PCT", "80"))
+
+    try:
+        from app.services.ai.core.token_usage_tracker import get_token_tracker
+        tracker = get_token_tracker()
+        report = await tracker.get_usage_report()
+
+        providers = report.get("daily", {}).get("by_provider", {})
+        groq_req = providers.get("groq", {}).get("count", 0)
+        nvidia_req = providers.get("nvidia", {}).get("count", 0)
+
+        # 月 NVIDIA 累計（token tracker 月指標用 token，我們直接累 count — 用 Redis scan）
+        nvidia_month_req = await _sum_monthly_count(tracker, "nvidia")
+
+        # 今日總成本（跨 provider）
+        daily_cost = report.get("daily", {}).get("total_cost_usd", 0.0)
+
+        alerts = []
+        today = report["date"]
+
+        # (1) Groq 日 request
+        groq_pct = (groq_req / groq_daily_limit * 100) if groq_daily_limit > 0 else 0
+        if groq_pct >= warn_pct and _LLM_QUOTA_ALERT_FLAGS.get("groq") != today:
+            alerts.append(
+                f"🟡 Groq 日請求量 {groq_req}/{groq_daily_limit} ({groq_pct:.0f}%)"
+                f"\n   {'🚨 已超額，將降級 NVIDIA/Ollama' if groq_pct >= 100 else f'達告警閾值 {warn_pct}%'}"
+            )
+            _LLM_QUOTA_ALERT_FLAGS["groq"] = today
+
+        # (2) NVIDIA 月 credit
+        nvidia_pct = (nvidia_month_req / nvidia_monthly_limit * 100) if nvidia_monthly_limit > 0 else 0
+        if nvidia_pct >= warn_pct and _LLM_QUOTA_ALERT_FLAGS.get("nvidia") != today:
+            alerts.append(
+                f"🟡 NVIDIA 月 credits {nvidia_month_req}/{nvidia_monthly_limit} ({nvidia_pct:.0f}%)"
+                f"\n   {'🚨 已超額，將降級 Ollama' if nvidia_pct >= 100 else f'達告警閾值 {warn_pct}%'}"
+            )
+            _LLM_QUOTA_ALERT_FLAGS["nvidia"] = today
+
+        # (3) 日總成本 USD
+        cost_pct = (daily_cost / cost_daily_limit * 100) if cost_daily_limit > 0 else 0
+        if cost_pct >= warn_pct and _LLM_QUOTA_ALERT_FLAGS.get("cost") != today:
+            alerts.append(
+                f"🟡 LLM 日成本 ${daily_cost:.4f}/${cost_daily_limit:.2f} ({cost_pct:.0f}%)"
+                f"\n   {'🚨 超過成本上限，建議下調 provider priority' if cost_pct >= 100 else f'達告警閾值 {warn_pct}%'}"
+            )
+            _LLM_QUOTA_ALERT_FLAGS["cost"] = today
+
+        if alerts:
+            msg = "⚡ LLM Quota 預警\n\n" + "\n\n".join(alerts) + f"\n\n時間: {today}"
+            from app.services.telegram_bot_service import get_telegram_bot_service
+            await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
+            logger.warning(
+                "LLM quota 預警推送: groq=%.0f%% nvidia=%.0f%% cost=%.0f%%",
+                groq_pct, nvidia_pct, cost_pct,
+            )
+        else:
+            logger.debug(
+                "LLM quota OK: groq=%d/%d (%.0f%%) nvidia_mo=%d/%d (%.0f%%) cost=$%.4f/$%.2f (%.0f%%)",
+                groq_req, groq_daily_limit, groq_pct,
+                nvidia_month_req, nvidia_monthly_limit, nvidia_pct,
+                daily_cost, cost_daily_limit, cost_pct,
+            )
+
+    except Exception as e:
+        logger.warning("LLM quota check 失敗: %s", e)
+
+
+async def _sum_monthly_count(tracker, provider: str) -> int:
+    """Helper: 取 provider 當月累計 request count（掃 Redis monthly key）。"""
+    try:
+        r = await tracker._get_redis()
+        if not r:
+            return 0
+        from datetime import datetime
+        month = datetime.now().strftime("%Y-%m")
+        data = await r.hgetall(f"{tracker.PREFIX}:monthly:{month}:{provider}")
+        return int(data.get("count", 0)) if data else 0
+    except Exception:
+        return 0
+
+
 def setup_scheduler(
     reminder_interval_minutes: int = 5,
     cleanup_hour: int = 2,
@@ -1370,6 +1480,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加健康檢查 Telegram 推播: 每 5 分鐘")
+
+    # LLM quota 預警 — 每 6 小時檢查 Groq/NVIDIA 用量，達 80% 閾值即告警
+    scheduler.add_job(
+        llm_quota_check_job,
+        trigger=IntervalTrigger(hours=6),
+        id='llm_quota_check',
+        name='LLM quota 預警 (Groq/NVIDIA, 每6h)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 LLM quota 預警: 每 6 小時檢查")
 
     # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
     scheduler.add_job(
