@@ -43,6 +43,17 @@
 - 技能星雲 force-graph 2D（log-scale radius、結晶金色外圈、深藍漸層背景，靈感來自 Muse）
 - Nav 三方同步（ROUTES / AppRouter / init_navigation_data）
 
+#### Phase 6 — Observability（Prometheus /metrics）
+- `memory_wiki_metrics.py` 99L，11 指標（7 Gauge + 3 Counter with `status` label）
+- Gauges：`memory_diary_days_total` / `memory_patterns_total` / `memory_failures_total` /
+  `memory_crystals_total` / `memory_proposals_{total,pending}` / `memory_autobiographies_total`
+- Counters：`memory_diary_appends_total` / `memory_pattern_extract_runs_total{status}` /
+  `memory_crystal_applied_total`
+- Hook 點：diary `append_entry` / pattern_extractor `extract_daily`（ok/empty 分流）/
+  crystal_applier `apply_proposal`；三處 best-effort try/except 不 raise
+- `/memory/stats` endpoint 觸發時同步 `refresh_from_disk(WIKI_MEMORY)` 更新 gauge
+- 活體驗證：`/metrics` 暴露 `memory_diary_days_total 1.0` 等完整 series
+
 #### 排程器新增
 - `memory_pattern_extract_job` cron 04:00
 - `memory_crystallization_scan_job` cron 04:30
@@ -53,8 +64,10 @@
 - `/memory/*` 全 require_auth；approve/reject/rollback 加 require_admin
 
 #### 測試 & 驗證
-- 59 unit tests 全通過（soul_loader / diary_service / pattern_extractor / crystal_flow / autobiography）
+- **65 unit tests 全通過**（soul_loader / diary_service / pattern_extractor /
+  crystal_flow / autobiography / memory_wiki_metrics）
 - Backend 7 endpoint 活體探測 200 OK
+- `/metrics` 暴露 11 memory_* series
 - TSC 0 error
 
 ---
