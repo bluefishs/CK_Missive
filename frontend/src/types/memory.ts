@@ -143,17 +143,15 @@ export interface NebulaGraph {
   };
 }
 
-/** Memory dashboard 統計 */
+/** Memory dashboard 統計（對應後端 /memory/stats） */
 export interface MemoryStats {
   diary_days: number;
-  latest_diary?: string;
-  patterns_total: number;
-  crystallization_candidates: number;
-  failures_active: number;
+  patterns: number;
+  failures: number;
+  crystals: number;
+  proposals_total: number;
   proposals_pending: number;
-  crystals_total: number;
-  autobiographies_total: number;
-  latest_autobiography?: string;
+  evolutions: number;
 }
 
 // ─── Request payloads ───

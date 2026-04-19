@@ -55,23 +55,18 @@ const MemoryDashboardPage: React.FC = () => {
           <Card size="small" loading={loadingStats}>
             <Statistic
               title="成功模式"
-              value={stats?.patterns_total ?? 0}
+              value={stats?.patterns ?? 0}
               prefix={<BranchesOutlined />}
-              suffix={
-                <span style={{ fontSize: 12, color: '#52c41a' }}>
-                  {stats?.crystallization_candidates ?? 0} 候選
-                </span>
-              }
             />
           </Card>
         </Col>
         <Col xs={12} md={6} lg={4}>
           <Card size="small" loading={loadingStats}>
             <Statistic
-              title="失敗教訓（active）"
-              value={stats?.failures_active ?? 0}
+              title="失敗教訓"
+              value={stats?.failures ?? 0}
               prefix={<BulbOutlined />}
-              valueStyle={{ color: (stats?.failures_active ?? 0) > 0 ? '#fa541c' : undefined }}
+              valueStyle={{ color: (stats?.failures ?? 0) > 0 ? '#fa541c' : undefined }}
             />
           </Card>
         </Col>
@@ -80,6 +75,11 @@ const MemoryDashboardPage: React.FC = () => {
             <Statistic
               title="待決提案"
               value={stats?.proposals_pending ?? 0}
+              suffix={
+                <span style={{ fontSize: 12, color: '#888' }}>
+                  / {stats?.proposals_total ?? 0}
+                </span>
+              }
               prefix={<CrownOutlined />}
               valueStyle={{ color: (stats?.proposals_pending ?? 0) > 0 ? '#fa8c16' : undefined }}
             />
@@ -87,14 +87,14 @@ const MemoryDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} md={6} lg={4}>
           <Card size="small" loading={loadingStats}>
-            <Statistic title="已套用 Crystal" value={stats?.crystals_total ?? 0} />
+            <Statistic title="已套用 Crystal" value={stats?.crystals ?? 0} />
           </Card>
         </Col>
         <Col xs={12} md={6} lg={4}>
           <Card size="small" loading={loadingStats}>
             <Statistic
               title="週自傳累積"
-              value={stats?.autobiographies_total ?? 0}
+              value={stats?.evolutions ?? 0}
               prefix={<HistoryOutlined />}
             />
           </Card>
