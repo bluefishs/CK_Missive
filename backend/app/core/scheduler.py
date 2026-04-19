@@ -1238,6 +1238,34 @@ async def llm_quota_check_job():
 # Memory Wiki Phase 2: Pattern Extractor scheduled job
 # 2026-04-19: 每日掃 agent_query_traces → patterns/failures wiki pages
 # ─────────────────────────────────────────────────
+@tracked_job("memory_weekly_autobiography")
+async def memory_weekly_autobiography_job():
+    """週日 18:00 生成 Agent 週自傳。
+
+    2026-04-19 Memory Wiki Phase 4:
+    - 聚合本週 signals → LLM 第一人稱 narrative
+    - 寫 wiki/memory/evolutions/YYYY-WNN.md
+    - SOUL.md 成長段落自動追加（agent_writable section 特權）
+    - Telegram 推播
+    """
+    from app.db.database import AsyncSessionLocal
+    from app.services.memory.autobiography import AutobiographyGenerator
+
+    logger.info("開始執行 Memory Weekly Autobiography")
+    try:
+        async with AsyncSessionLocal() as db:
+            gen = AutobiographyGenerator(db)
+            result = await gen.run()
+            logger.info(
+                "Weekly Autobiography 完成: %s, queries=%d, soul=%s, telegram=%s, chars=%d",
+                result.get("week_id"), result.get("total_queries"),
+                result.get("soul_updated"), result.get("telegram_pushed"),
+                result.get("narrative_chars"),
+            )
+    except Exception as e:
+        logger.error("Weekly Autobiography 失敗: %s", e, exc_info=True)
+
+
 @tracked_job("memory_crystallization_scan")
 async def memory_crystallization_scan_job():
     """每日掃 patterns/ 產生 crystal proposals（不自動 apply，等人批准）。
@@ -1582,6 +1610,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 Memory Crystallization Scan: 每日 04:30 執行")
+
+    # 2026-04-19 Memory Wiki Phase 4: 週日 18:00 Agent 週自傳
+    scheduler.add_job(
+        memory_weekly_autobiography_job,
+        trigger=CronTrigger(day_of_week='sun', hour=18, minute=0),
+        id='memory_weekly_autobiography',
+        name='Memory Wiki Weekly Autobiography (週日 18:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Memory Weekly Autobiography: 週日 18:00 執行")
 
     # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
     scheduler.add_job(
