@@ -419,7 +419,12 @@ class AIConnector(AIConnectorManagementMixin):
             )
             response.raise_for_status()
             data = response.json()
-            content = data["choices"][0]["message"]["content"]
+            msg = data["choices"][0]["message"]
+            # Nemotron 新版：content 可能為 None（推理內容放在 reasoning_content）
+            content = msg.get("content") or msg.get("reasoning_content") or ""
+            if not content:
+                logger.warning("NVIDIA 回應 content/reasoning_content 皆空: keys=%s", list(msg.keys()))
+                raise ValueError("NVIDIA returned empty content")
             # Strip residual <think> tags (Nemotron models may include them)
             content = self._strip_think_tags(content)
             logger.info(f"NVIDIA Cloud API 回應成功 (model={model})")
@@ -432,13 +437,17 @@ class AIConnector(AIConnectorManagementMixin):
         return any(model_lower.startswith(p) for p in _THINKING_MODEL_PREFIXES)
 
     @staticmethod
-    def _strip_think_tags(content: str) -> str:
+    def _strip_think_tags(content: Optional[str]) -> str:
         """移除殘留的思考區塊（安全網）
 
         支援:
         - <think>...</think> (Qwen3 / DeepSeek-R1)
         - <start_of_thinking>...</end_of_thinking> (Gemma 4)
+
+        None-safe: content 為 None 時回 ""（2026-04-19 修復 NVIDIA Nemotron race）
         """
+        if content is None:
+            return ""
         if "<think>" not in content and "<start_of_thinking>" not in content:
             return content
         content = re.sub(r"<think>.*?</think>\s*", "", content, flags=re.DOTALL)

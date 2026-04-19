@@ -52,6 +52,11 @@ class AgentSynthesizer:
         if kg_context:
             synthesis_context = f"## 知識圖譜關聯\n{kg_context}\n\n{synthesis_context}"
 
+        # Wiki-RAG: 注入 LLM Wiki narrative (2026-04-19 KG+Wiki 雙源融合)
+        wiki_context = await self._inject_wiki_context(question)
+        if wiki_context:
+            synthesis_context = f"## Wiki 相關頁面\n{wiki_context}\n\n{synthesis_context}"
+
         await AIPromptManager.ensure_db_prompts_loaded()
 
         role = get_role_profile(context)
@@ -279,6 +284,47 @@ class AgentSynthesizer:
                 return "\n".join(context_parts) if context_parts else ""
         except Exception as e:
             logger.debug("KG context injection skipped: %s", e)
+            return ""
+
+    async def _inject_wiki_context(self, question: str) -> str:
+        """Wiki-RAG: 從 LLM Wiki 檢索相關 narrative，注入合成上下文。
+
+        2026-04-19 新增：補 KG + Wiki 雙源融合缺口。
+        - 原本 Wiki 只在 rag_retrieval 路徑被使用，agent 走 tool 路徑時 wiki 完全不被讀
+        - 此函數讓 synthesis 階段**無條件**查 wiki（若命中 top 3）
+        - 每筆限 300 字，避免 prompt 過長
+        """
+        try:
+            from app.services.wiki_service import get_wiki_service
+            svc = get_wiki_service()
+            stats = svc.get_stats()
+            if not stats or stats.get("total", 0) == 0:
+                return ""
+
+            # 取 query 前 60 字作為 wiki 搜尋關鍵字（避免傳整句含標點）
+            wiki_query = question.replace("？", " ").replace("?", " ").strip()[:60]
+            if not wiki_query:
+                return ""
+
+            results = await svc.search_wiki(wiki_query, limit=3)
+            if not results:
+                return ""
+
+            parts: List[str] = []
+            for wr in results:
+                try:
+                    content = await svc.read_page(wr["path"])
+                    if not content:
+                        continue
+                    # 去除 frontmatter + 只取前 300 字
+                    body = content.split("---", 2)[-1].strip()[:300]
+                    parts.append(f"- **{wr.get('title', wr['path'])}** (score={wr.get('score', 0)})\n  {body}")
+                except Exception:
+                    continue
+
+            return "\n\n".join(parts) if parts else ""
+        except Exception as e:
+            logger.debug("Wiki context injection skipped: %s", e)
             return ""
 
     def build_synthesis_context(self, tool_results: List[Dict[str, Any]]) -> str:
