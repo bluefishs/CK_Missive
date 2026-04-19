@@ -214,14 +214,17 @@ class AgentTrace:
                     "error_message": span.metadata.get("error") if span.status != "ok" else None,
                 })
 
-        # context/route_type 欄位為 varchar(20)，過長會 trigger
-        # StringDataRightTruncationError 讓整個 trace 寫入失敗
+        # DB varchar 欄位防禦性截斷（避免 StringDataRightTruncationError
+        # 讓整個 trace 寫入失敗，silent 累積空 trace → Pattern Extractor 無料）
         ctx = (self.context or None)
         if isinstance(ctx, str) and len(ctx) > 20:
             ctx = ctx[:20]
         route = (self.route_type or "llm")
         if isinstance(route, str) and len(route) > 20:
             route = route[:20]
+        model = getattr(self, "_model_used", None)
+        if isinstance(model, str) and len(model) > 50:
+            model = model[:50]
 
         return {
             "query_id": self.query_id,
@@ -238,7 +241,7 @@ class AgentTrace:
             "citation_verified": self.citation_verified,
             "answer_length": getattr(self, "_answer_length", 0),
             "total_ms": self.total_ms,
-            "model_used": getattr(self, "_model_used", None),
+            "model_used": model,
             "answer_preview": getattr(self, "_answer_preview", None),
             "tools_used": list(set(self.tools_called)) if self.tools_called else None,
             "tool_calls": tool_calls,

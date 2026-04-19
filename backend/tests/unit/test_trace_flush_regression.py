@@ -60,6 +60,14 @@ def test_trace_to_db_dict_route_type_defaults_llm():
     assert trace.to_db_dict()["route_type"] == "llm"
 
 
+def test_trace_to_db_dict_truncates_long_model_used():
+    """model_used varchar(50) — 長 model 名要截斷（e.g. NIM 全名 > 50 chars）。"""
+    from app.services.ai.agent.agent_trace import AgentTrace
+    trace = AgentTrace(query_id="t", question="q")
+    trace._model_used = "nvidia/meta-llama-3.3-nemotron-super-49b-v1.5-extended"  # 53 chars
+    assert len(trace.to_db_dict()["model_used"]) <= 50
+
+
 # ────────── 2. run_with_fresh_session_no_commit 存在且不做外層 commit ──────────
 
 def test_run_with_fresh_session_no_commit_exists():
