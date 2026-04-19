@@ -4,6 +4,61 @@
 
 ---
 
+## [5.7.0] - 2026-04-19
+
+### 🌟 Memory Wiki — 助理自我記憶與進化系統（ADR-0022）
+
+三層統一 wiki 記憶架構，解 Agent 三大缺口（記憶不連續 / 學習散落 / 無身份連續性），
+靈感來自 Muse（muse.cheyuwu.com）數位生命體。
+
+#### Phase 0 — SOUL.md 身份層
+- `wiki/SOUL.md` 落地（identity + agent_writable_sections: [我的成長, 我學到的偏好, 我的能力自評]）
+- `soul_loader.py` 334L（class-level cache + mtime invalidation + fallback soul）
+- 5 處 agent_roles / synthesis / chitchat 改走 `build_system_prompt_with_soul()`
+
+#### Phase 1 — Diary Loop（每日日記）
+- `diary_service.py` 196L（asyncio.Lock + aiofiles + PII 遮罩沿用 shadow_logger）
+- 每次 agent answer 後 fire-and-forget append；Orchestrator 補 `_flush_trace_lightweight`（修 3 個月 trace drought）
+- `summarize_yesterday_for_context(max_chars=800)` 自動注入 planner / synthesis
+
+#### Phase 2 — Pattern Extractor
+- `pattern_extractor.py` 300L，cron 04:00 聚合 traces → patterns / failures
+- `auto_defense.py` 95L Redis 5min cache，`active:true` failure 注入 planner system prompt
+
+#### Phase 3 — Crystallization（自動進化 yaml）
+- `crystallizer.py` / `crystal_applier.py` / `yaml_safe_editor.py`（ruamel.yaml 保 comment）
+- snapshot → apply → validate → rollback on fail；admin-only approve
+- `synonyms.yaml` / `intent_rules.yaml` 成為 Agent 可進化的能力層
+
+#### Phase 4 — Autobiography（週自傳）
+- `autobiography.py` 360L + `narrative_validator.py` 80L
+- 6-step：signals → LLM → 4 硬規則驗證 → persist → SOUL 成長區追加 → Telegram
+- 規則：100-600 字 / ≥1 具體數字 / 無簡體「这为时说」 / 無 sk-\*/gsk_\*/JWT / ≤3 模糊詞
+- LLM 失敗 fallback 純模板（保證合格產出）
+
+#### Phase 5 — UI Dashboard（`/ai/memory` 路由）
+- Backend: `memory.py` 13 endpoints（diary/patterns/failures/proposals/crystals/autobiography/nebula/stats）
+- Frontend: `types/memory.ts` + `memoryApi.ts` + `useMemoryData.ts`（10 query + 3 admin mutation）
+- `MemoryDashboardPage` + 5 Tab：日記 / 模式教訓 / 提案 Crystal / 週自傳 / 技能星雲
+- 技能星雲 force-graph 2D（log-scale radius、結晶金色外圈、深藍漸層背景，靈感來自 Muse）
+- Nav 三方同步（ROUTES / AppRouter / init_navigation_data）
+
+#### 排程器新增
+- `memory_pattern_extract_job` cron 04:00
+- `memory_crystallization_scan_job` cron 04:30
+- `memory_weekly_autobiography_job` cron Sun 18:00
+
+#### 安全閘
+- SOUL 區段白名單 / Diary PII 遮罩 / Crystal snapshot + validate + rollback
+- `/memory/*` 全 require_auth；approve/reject/rollback 加 require_admin
+
+#### 測試 & 驗證
+- 59 unit tests 全通過（soul_loader / diary_service / pattern_extractor / crystal_flow / autobiography）
+- Backend 7 endpoint 活體探測 200 OK
+- TSC 0 error
+
+---
+
 ## [5.6.2] - 2026-04-19
 
 ### LLM 告警整合（方案 B）+ PM2 log 接入 Loki + Telegram 修復 + asyncpg race lint
