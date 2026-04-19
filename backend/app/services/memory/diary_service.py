@@ -131,6 +131,13 @@ tags: [memory, diary]
                 with path.open("a", encoding="utf-8") as f:
                     f.write(entry)
 
+            # Prometheus: diary append counter（best-effort，失敗不 raise）
+            try:
+                from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+                get_memory_wiki_metrics().diary_appends.inc()
+            except Exception:
+                pass
+
         except Exception as e:
             logger.warning("Diary append failed: %s", e)
 

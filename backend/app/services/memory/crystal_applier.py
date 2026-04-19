@@ -129,6 +129,12 @@ class CrystalApplier:
                 "Crystal applied: proposal=%s crystal=%s target=%s",
                 proposal_id, crystal_id, target_file,
             )
+            # Prometheus counter（best-effort）
+            try:
+                from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+                get_memory_wiki_metrics().crystal_applied.inc()
+            except Exception:
+                pass
             return ApplyResult(
                 ok=True, crystal_id=crystal_id, snapshot_path=snapshot_path,
             )

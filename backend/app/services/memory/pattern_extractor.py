@@ -161,6 +161,7 @@ class PatternExtractor:
         result = ExtractResult(total_traces_scanned=len(rows))
         if not rows:
             logger.info("No traces for %s", target_date)
+            self._inc_extract_run("empty")
             return result
 
         # 聚合 by tool_sequence hash
@@ -222,7 +223,17 @@ class PatternExtractor:
             result.saved_pattern_files, result.saved_failure_files,
             result.duration_ms,
         )
+        self._inc_extract_run("ok")
         return result
+
+    @staticmethod
+    def _inc_extract_run(status: str) -> None:
+        """Prometheus counter（best-effort）。"""
+        try:
+            from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+            get_memory_wiki_metrics().pattern_extract_runs.labels(status=status).inc()
+        except Exception:
+            pass
 
     @staticmethod
     def _parse_tools(tools_used: Any) -> List[str]:

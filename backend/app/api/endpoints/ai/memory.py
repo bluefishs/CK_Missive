@@ -403,15 +403,21 @@ async def memory_stats():
                 pass
         return cnt
 
-    return {
-        "success": True,
-        "data": {
-            "diary_days": _count_files(DIARY_DIR),
-            "patterns": _count_files(PATTERNS_DIR, "pattern-*.md"),
-            "failures": _count_files(FAILURES_DIR, "failure-*.md"),
-            "crystals": _count_files(CRYSTALS_DIR, "crystal-*.md"),
-            "proposals_total": _count_files(PROPOSALS_DIR),
-            "proposals_pending": _count_pending_proposals(),
-            "evolutions": _count_files(EVOLUTIONS_DIR, "20*-W*.md"),
-        },
+    data = {
+        "diary_days": _count_files(DIARY_DIR),
+        "patterns": _count_files(PATTERNS_DIR, "pattern-*.md"),
+        "failures": _count_files(FAILURES_DIR, "failure-*.md"),
+        "crystals": _count_files(CRYSTALS_DIR, "crystal-*.md"),
+        "proposals_total": _count_files(PROPOSALS_DIR),
+        "proposals_pending": _count_pending_proposals(),
+        "evolutions": _count_files(EVOLUTIONS_DIR, "20*-W*.md"),
     }
+
+    # Prometheus gauges refresh（best-effort）
+    try:
+        from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+        get_memory_wiki_metrics().refresh_from_disk(WIKI_MEMORY)
+    except Exception as e:
+        logger.debug("Memory wiki metrics refresh failed: %s", e)
+
+    return {"success": True, "data": data}
