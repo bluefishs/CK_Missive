@@ -53,6 +53,12 @@ OLLAMA_DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
 MAX_RETRIES = 2
 RETRY_BASE_DELAY = 0.5  # 秒（首次重試加速）
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
+# 2026-04-19: 429 不重試（Groq TPM 已頂，重試只會浪費時間），直接 fallback NVIDIA
+RATE_LIMIT_NO_RETRY_CODES = {429, 413}
+
+# Context-aware routing 閾值（零花費前提下避開 Groq free tier TPM 上限）
+# CJK 每字符約 1.5 tokens，設 10,000 字符 ≈ 15K tokens > Groq llama-3.3-70b TPM 12K
+GROQ_SKIP_PROMPT_CHARS = int(os.getenv("GROQ_SKIP_PROMPT_CHARS", "10000"))
 
 # 任務→模型映射 — 不同任務可配置不同模型（未來可替換為更適合的模型）
 TASK_MODEL_MAP = {
@@ -242,8 +248,26 @@ class AIConnector(AIConnectorManagementMixin):
             except Exception as e:
                 logger.warning("vLLM 本地失敗: %s", e)
 
-        # 嘗試 Groq API（雲端、免費）— 含重試機制
-        if self.groq_api_key:
+        # 2026-04-19 Context-aware routing（零花費前提下的 Groq TPM 預防）:
+        # 若估算 prompt 長度 > 閾值（≈15K tokens），直接跳過 Groq 走 NVIDIA。
+        # 避開 Groq free tier 12K TPM，減少 429 浪費 + 讓 NVIDIA free credits 發揮長 context 優勢。
+        _prompt_chars = len(input_text) if input_text else 0
+        _skip_groq_for_context = _prompt_chars > GROQ_SKIP_PROMPT_CHARS
+        if _skip_groq_for_context:
+            logger.info(
+                "Context-aware routing: prompt %d 字 > %d → 跳過 Groq 直接走 NVIDIA",
+                _prompt_chars, GROQ_SKIP_PROMPT_CHARS,
+            )
+            try:
+                from app.core.inference_provider_metrics import get_inference_provider_metrics
+                get_inference_provider_metrics().record_context_route(
+                    reason="large_prompt", target_provider="nvidia",
+                )
+            except Exception:
+                pass
+
+        # 嘗試 Groq API（雲端、免費）— 含重試機制 + 429 立即 fallback
+        if self.groq_api_key and not _skip_groq_for_context:
             last_error: Optional[Exception] = None
             for attempt in range(MAX_RETRIES + 1):
                 try:
@@ -268,15 +292,26 @@ class AIConnector(AIConnectorManagementMixin):
                                    attempt + 1, MAX_RETRIES + 1, e)
                 except httpx.HTTPStatusError as e:
                     last_error = e
-                    if e.response.status_code in RETRYABLE_STATUS_CODES:
+                    code = e.response.status_code
+                    # 記錄 rate-limit 指標（429/413/503 等）
+                    try:
+                        from app.core.inference_provider_metrics import get_inference_provider_metrics
+                        get_inference_provider_metrics().record_rate_limit("groq", code)
+                    except Exception:
+                        pass
+                    # 2026-04-19: 429/413 不重試，立即 fallback NVIDIA 節省 ~5s 等待
+                    if code in RATE_LIMIT_NO_RETRY_CODES:
+                        logger.warning(
+                            "Groq HTTP %d 不重試 → 立即 fallback NVIDIA", code,
+                        )
+                        break
+                    if code in RETRYABLE_STATUS_CODES:
                         logger.warning(
                             "Groq API HTTP %d (attempt %d/%d): %s",
-                            e.response.status_code, attempt + 1,
-                            MAX_RETRIES + 1, e,
+                            code, attempt + 1, MAX_RETRIES + 1, e,
                         )
                     else:
-                        logger.warning("Groq API 不可重試錯誤 HTTP %d: %s",
-                                       e.response.status_code, e)
+                        logger.warning("Groq API 不可重試錯誤 HTTP %d: %s", code, e)
                         break
                 except Exception as e:
                     last_error = e
