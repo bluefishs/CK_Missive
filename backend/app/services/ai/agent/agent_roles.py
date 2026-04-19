@@ -313,6 +313,45 @@ def get_role_profile(context: Optional[str] = None) -> AgentRoleProfile:
     return CK_AGENT
 
 
+async def build_system_prompt_with_soul(
+    role_context: Optional[str] = None,
+    session_id: Optional[str] = None,
+) -> str:
+    """組合 SOUL.md 身份層 + role-specific block 為 system prompt。
+
+    2026-04-19 Memory Wiki Phase 0 新增。取代原本硬編碼的 `role.system_prompt`。
+
+    - SOUL.md 提供身份/語氣/行為基底（慢變，人控制）
+    - role profile 提供角色特定指令（context 分流）
+    - SOUL 載入失敗時 fallback 回既有 role.system_prompt（保護層）
+
+    Args:
+        role_context: 角色 context（agent/doc/dispatch/...）
+        session_id: session id（保留給未來 personalization）
+
+    Returns:
+        組合後的 system prompt 字串
+    """
+    role = get_role_profile(role_context)
+
+    try:
+        from app.services.memory.soul_loader import get_soul_loader
+        soul = await get_soul_loader().load_soul()
+
+        # role-specific block = 原 role.system_prompt 減去身份重複部分
+        # 保留實用內容：能力、工具、回覆原則
+        return soul.build_system_prompt(
+            role_context=role.context,
+            role_specific_block=role.system_prompt,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(
+            "SOUL load failed, falling back to static role prompt: %s", e,
+        )
+        return role.system_prompt
+
+
 def get_all_role_profiles() -> Dict[str, AgentRoleProfile]:
     """取得所有角色 Profile。"""
     return dict(_ROLE_PROFILES)

@@ -37,8 +37,20 @@ from app.services.ai.agent.agent_roles import get_role_profile
 
 
 def get_chat_system_prompt(context: str | None = None) -> str:
-    """根據 context 回傳對應的閒聊系統 Prompt（委派給 AgentRoleProfile）。"""
+    """根據 context 回傳對應的閒聊系統 Prompt（同步版 — 靜態 fallback）。"""
     return get_role_profile(context).system_prompt
+
+
+async def get_chat_system_prompt_async(context: str | None = None) -> str:
+    """Async 版：優先用 SOUL.md 動態載入（Memory Wiki Phase 0）。
+
+    Agent 走閒聊路徑時也應載入 SOUL（身份一致），但 SOUL 失敗時 fallback 靜態 role。
+    """
+    try:
+        from app.services.ai.agent.agent_roles import build_system_prompt_with_soul
+        return await build_system_prompt_with_soul(role_context=context)
+    except Exception:
+        return get_role_profile(context).system_prompt
 
 # 問題類型 → 智慧回覆（Ollama 回退時使用）
 _SMART_FALLBACKS: List[tuple] = [

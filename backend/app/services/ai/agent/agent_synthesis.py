@@ -61,16 +61,27 @@ class AgentSynthesizer:
 
         role = get_role_profile(context)
 
-        # 嘗試從 DB Prompt 模板載入，回退到角色定義
-        db_prompt = AIPromptManager.get_system_prompt("rag_system") if context != "dev" else None
-        if db_prompt:
-            base_prompt = db_prompt
+        # 2026-04-19 Memory Wiki Phase 0: SOUL.md 動態載入 > DB prompt > 靜態 role
+        # 優先序：SOUL（身份層 SSOT）→ DB-stored rag_system → 硬編碼 fallback
+        try:
+            from app.services.ai.agent.agent_roles import build_system_prompt_with_soul
+            soul_prompt = await build_system_prompt_with_soul(role_context=context)
+        except Exception:
+            soul_prompt = None
+
+        if soul_prompt and len(soul_prompt) > 100:
+            base_prompt = soul_prompt
         else:
-            base_prompt = (
-                f"你是{role.identity}。根據檢索到的資料回答使用者問題。"
-                f"引用來源時使用 {role.citation_format} 格式。使用繁體中文回答。"
-                f"{(' ' + role.style_hints) if role.style_hints else ''}"
-            )
+            # 舊路徑 fallback
+            db_prompt = AIPromptManager.get_system_prompt("rag_system") if context != "dev" else None
+            if db_prompt:
+                base_prompt = db_prompt
+            else:
+                base_prompt = (
+                    f"你是{role.identity}。根據檢索到的資料回答使用者問題。"
+                    f"引用來源時使用 {role.citation_format} 格式。使用繁體中文回答。"
+                    f"{(' ' + role.style_hints) if role.style_hints else ''}"
+                )
 
         system_prompt = (
             f"{base_prompt}\n\n"

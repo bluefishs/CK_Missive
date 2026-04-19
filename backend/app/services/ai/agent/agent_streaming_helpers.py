@@ -18,6 +18,7 @@ from app.services.ai.agent.agent_chitchat import (
     get_smart_fallback,
     clean_chitchat_response,
     get_chat_system_prompt,
+    get_chat_system_prompt_async,
 )
 from app.services.ai.agent.agent_roles import get_role_profile
 from app.services.ai.core.agent_utils import sse, sanitize_history
@@ -43,8 +44,10 @@ async def stream_chitchat(
     yield sse(type="role", identity=role.identity, context=role.context)
     yield sse(type="thinking", step="正在回覆您...", step_index=0)
 
+    # 2026-04-19 Memory Wiki Phase 0: 優先用 SOUL.md 動態載入（fallback 靜態 role prompt）
+    system_prompt = await get_chat_system_prompt_async(context)
     messages: List[Dict[str, str]] = [
-        {"role": "system", "content": get_chat_system_prompt(context)},
+        {"role": "system", "content": system_prompt},
     ]
     messages.extend(sanitize_history(history, config.rag_max_history_turns))
     messages.append({"role": "user", "content": question})
