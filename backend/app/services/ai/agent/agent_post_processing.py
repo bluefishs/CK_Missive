@@ -171,6 +171,12 @@ async def _learn_tool_combo(ctx, success: bool) -> None:
 
     以 AgentLearning(learning_type='tool_combo') 持久化，
     讓 inject_cross_session_learnings 在未來查詢中提供工具組合建議。
+
+    2026-04-20 修：不可用 ctx.db（request session），此函式透過
+    asyncio.create_task 背景執行；FastAPI request 結束時 get_async_db
+    會 commit session，若此 task 還在用 → asyncpg 'another operation
+    is in progress' race。改用 run_with_fresh_session_no_commit 拿獨立
+    session（ADR-0021 pattern）。
     """
     try:
         tool_names = [tr["tool"] for tr in ctx.tool_results]
@@ -178,14 +184,19 @@ async def _learn_tool_combo(ctx, success: bool) -> None:
         content = f"工具組合: {combo_key} ({'成功' if success else '失敗'})"
 
         from app.repositories.agent_learning_repository import AgentLearningRepository
-        repo = AgentLearningRepository(ctx.db)
-        await repo.upsert_learning(
-            session_id=ctx.session_id or "unknown",
-            learning_type="tool_combo",
-            content=content[:500],
-            source_question=ctx.question[:200],
-            confidence=0.8 if success else 0.4,
-        )
+        from app.db.database import run_with_fresh_session_no_commit
+
+        async def _do_upsert(db):
+            repo = AgentLearningRepository(db)
+            return await repo.upsert_learning(
+                session_id=ctx.session_id or "unknown",
+                learning_type="tool_combo",
+                content=content[:500],
+                source_question=ctx.question[:200],
+                confidence=0.8 if success else 0.4,
+            )
+
+        await run_with_fresh_session_no_commit(_do_upsert)
     except Exception as e:
         logger.debug("Tool combo learning failed: %s", e)
 
@@ -301,11 +312,16 @@ async def run_post_synthesis(
             )
 
         # 非阻塞：使用者偏好萃取 (每 4 輪萃取一次)
+        # 2026-04-20 修：同上，save_preferences 若用 ctx.db 會與 FastAPI 結束
+        # 時的 session.commit() 搶 asyncpg connection。改用獨立 session。
         if len(full_history) >= 8:
             prefs = extract_preferences_from_history(full_history)
             if prefs:
+                from app.db.database import run_with_fresh_session_no_commit
                 asyncio.create_task(
-                    save_preferences(ctx.session_id, prefs, ctx.db)
+                    run_with_fresh_session_no_commit(
+                        lambda db: save_preferences(ctx.session_id, prefs, db)
+                    )
                 )
 
     # ── 追蹤完成 + 推送至 Monitor + DB 持久化 + Pattern 學習 ──
@@ -320,7 +336,13 @@ async def run_post_synthesis(
     asyncio.create_task(ctx.trace.flush_to_monitor())
 
     # 非阻塞：持久化至 PostgreSQL
-    asyncio.create_task(ctx.trace.flush_to_db(ctx.db))
+    # 2026-04-20 修：不可用 ctx.db（request session）做背景 task，會與
+    # FastAPI 結束時的 session.commit() 搶 asyncpg connection → race。
+    # 用 run_with_fresh_session_no_commit 拿獨立 session（save_trace 內部已 commit）。
+    from app.db.database import run_with_fresh_session_no_commit
+    asyncio.create_task(
+        run_with_fresh_session_no_commit(lambda db: ctx.trace.flush_to_db(db))
+    )
 
     # 非阻塞：模式學習
     tool_calls_for_learn = [
