@@ -324,7 +324,9 @@ class AgentLearningRepository:
 
             if success:
                 record.consecutive_success_count = (record.consecutive_success_count or 0) + 1
-                record.last_applied_at = datetime.now(timezone.utc)
+                # AgentLearning.last_applied_at 是 TIMESTAMP WITHOUT TIME ZONE (naive)
+                # aware datetime 會 DataError → 改用 utcnow() 給 naive
+                record.last_applied_at = datetime.utcnow()
                 # Graduate after 7 consecutive successes
                 if record.consecutive_success_count >= 7 and old_status == "active":
                     record.graduation_status = "graduated"
