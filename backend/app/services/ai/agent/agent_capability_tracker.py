@@ -154,7 +154,12 @@ _CAPABILITY_CACHE_TTL = 300  # 5 分鐘
 
 
 async def get_capability_profile_cached(db: AsyncSession) -> dict:
-    """帶 Redis 快取的能力剖面（EVO-3: 3s→<100ms）"""
+    """帶 Redis 快取的能力剖面（EVO-3: 3s→<100ms）
+
+    db 可為 None — 某些 router/planner 路徑只想拿快取，不想等 DB session。
+    cache miss 時若 db=None 直接回空 profile（非致命；下次有 db 的呼叫會
+    rebuild cache）。
+    """
     import json as _json
     try:
         from app.core.redis_client import get_redis
@@ -165,6 +170,10 @@ async def get_capability_profile_cached(db: AsyncSession) -> dict:
                 return _json.loads(cached)
     except Exception:
         pass
+
+    # cache miss + no db session → 回空 profile（避免 NoneType.execute 錯誤）
+    if db is None:
+        return _empty_profile()
 
     profile = await get_capability_profile(db)
 
