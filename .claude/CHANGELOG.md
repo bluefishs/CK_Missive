@@ -4,6 +4,52 @@
 
 ---
 
+## [5.7.1] - 2026-04-20
+
+### 🔧 覆盤修復：Agent 進化閉環四層 silent failure
+
+ADR-0022 Memory Wiki Phase 1 實作後，深度覆盤揭露 Agent 自我優化鏈路
+存在四層獨立又相互連鎖的 silent failure，逐一修正：
+
+| 層級 | 位置 | 症狀 | Commit |
+|---|---|---|---|
+| 1 | `agent_orchestrator._flush_trace_lightweight` | FastAPI request 結束後 session dispose，`asyncio.create_task(flush_to_db(self.db))` 靜默失敗 | `1988f6f5` |
+| 2 | `agent_trace.to_db_dict` | `context` / `route_type` varchar(20) 被寫入長字串 → StringDataRightTruncationError | `3687ce0d` |
+| 3 | `run_with_fresh_session` 外層 commit + `save_trace` 內層 commit 雙 commit | `This transaction is closed` | `1988f6f5` |
+| 4 | `agent_learning_repository.update_graduation` | `datetime.now(timezone.utc)` (aware) 寫入 `last_applied_at` (naive column) → DataError 連鎖觸發 session state 錯亂，間接讓 save_trace 再次失敗 | `0e972b65` |
+
+**共同根因**：save_trace 失敗路徑內只 `logger.warning` 不 raise，PG 拒絕寫入完全
+靜默。這讓 `agent_query_traces` 空寫入 3 個月，Pattern Extractor 無米可炊，
+進化閉環假性運作。
+
+**修復後驗證**：
+- Manual pattern_extract 對今日 49 traces 抽出 2 個真實 pattern
+  （`[get_statistics, search_dispatch_orders]` hit=4 / `[find_correspondence, get_statistics, ...]` hit=4）
+- pattern 檔自動標 `wiki_topics: ["wiki/topics/派工單索引.md"]`（Phase 7 橋接）
+- Diary 新 entry 含 `**wiki**: [[topics/派工單索引.md]]` 雙向連結
+
+### 🌉 Memory Wiki Phase 7 — SOUL + Memory + LLM Wiki 三層橋接
+
+先前 Memory / LLM Wiki 各自獨立；此 session 補建三處橋接：
+- **Diary ↔ Wiki**：`append_entry` 每次查 wiki 前 2 名寫為 `[[path]]`
+- **Pattern ↔ Wiki**：`_write_pattern` frontmatter 加 `wiki_topics` 欄位（domain→wiki topic map）
+- **Autobiography ↔ Wiki**：`WeekSignals` 加 `top_wiki_pages`；LLM prompt 新增「本週陪伴最深的三個實體」段
+
+### 🧪 Regression Tests
+
+- `test_trace_flush_regression.py` 11 tests（鎖三層 silent failure + model_used 防禦）
+- `test_memory_wiki_integration.py` 7 tests（鎖 Phase 7 橋接不退回）
+- `test_agent_learning_datetime.py` 2 tests（鎖 naive column + 源碼掃描）
+
+**Total**: 85 Memory Wiki 相關 tests 全綠（含 20 新 regression）。
+
+### 🌐 其他
+
+- CF Tunnel 502 根因：ingress origin 應為 `http://host.docker.internal:8001`（Windows Docker 特性），記入 `memory/access_urls.md`
+- 公網登入確認走 Google OAuth + LINE Login，無帳號密碼流程
+
+---
+
 ## [5.7.0] - 2026-04-19
 
 ### 🌟 Memory Wiki — 助理自我記憶與進化系統（ADR-0022）
