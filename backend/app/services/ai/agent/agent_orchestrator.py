@@ -543,11 +543,11 @@ class AgentOrchestrator:
                 )
             )
 
-            # 🧠 Episodic memory (L2) — 主流程成功 path 也要寫 trace
-            # 2026-04-19: 修打通記憶動脈 — 此前只 chitchat/error path 會 flush，
-            # 導致 agent_query_traces 長期空轉（41 筆/3 個月），
-            # capability_tracker / pattern_learner 無資料可讀 → Agent 無法自我進化。
-            await self._flush_trace_lightweight(trace)
+            # 🧠 Episodic memory (L2) — 主流程 trace flush 已由 run_post_synthesis
+            # (agent_post_processing line ~344) 負責。2026-04-19 原本在此多加一次
+            # flush 修 trace drought，但與 post_processing 的 flush 同時觸發
+            # → UniqueViolationError (query_id duplicate key)。2026-04-20 移除。
+            # chitchat/error/timeout 等短路徑仍會自行呼叫 _flush_trace_lightweight。
 
             # Wiki auto-ingest: 停用自動寫入 — wiki 內容需人工或 Agent 明確判斷
             # 若需啟用: wiki_ingest Agent tool 可主動調用
