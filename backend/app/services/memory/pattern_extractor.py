@@ -261,6 +261,16 @@ class PatternExtractor:
 
     # ────────── Write wiki pages ──────────
 
+    # Phase 7 整合：domain → wiki topic page 對照（讓 pattern 可點擊跳到 wiki）
+    _DOMAIN_WIKI_MAP: Dict[str, str] = {
+        "doc": "wiki/topics/公文管理系統總覽.md",
+        "dispatch": "wiki/topics/派工單索引.md",
+        "agency": "wiki/topics/機關索引.md",
+        "project": "wiki/topics/案件索引.md",
+        "pm": "wiki/topics/案件索引.md",
+        "erp": "wiki/topics/案件索引.md",
+    }
+
     def _write_pattern(self, p: PatternRecord, target_date: date) -> bool:
         path = PATTERNS_DIR / f"pattern-{p.template_hash}.md"
         try:
@@ -270,12 +280,20 @@ class PatternExtractor:
             merged_success = p.success_count + existing_stats.get("success_count", 0)
             merged_failure = p.failure_count + existing_stats.get("failure_count", 0)
 
+            wiki_topics = [
+                self._DOMAIN_WIKI_MAP[d] for d in p.domains
+                if d in self._DOMAIN_WIKI_MAP
+            ]
+            # 去重保序
+            wiki_topics = list(dict.fromkeys(wiki_topics))
+
             content = f"""---
 type: agent_memory
 memory_type: pattern
 template_hash: {p.template_hash}
 tool_sequence: {json.dumps(p.tool_sequence, ensure_ascii=False)}
 domains: {json.dumps(p.domains, ensure_ascii=False)}
+wiki_topics: {json.dumps(wiki_topics, ensure_ascii=False)}
 hit_count: {merged_hit}
 success_count: {merged_success}
 failure_count: {merged_failure}
@@ -299,6 +317,7 @@ tags: [memory, pattern, {", ".join(p.domains) if p.domains else "multi_domain"}]
 - **成功率**：{merged_success / merged_hit:.1%}
 - **平均延遲**：{p.avg_latency_ms:.0f}ms
 - **涉及領域**：{", ".join(p.domains) if p.domains else "(混合)"}
+- **相關 Wiki**：{" · ".join(f"[[{t}]]" for t in wiki_topics) if wiki_topics else "(無對應)"}
 
 ## 典型問法
 

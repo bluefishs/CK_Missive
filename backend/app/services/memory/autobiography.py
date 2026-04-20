@@ -55,6 +55,8 @@ class WeekSignals:
     active_failures_count: int = 0
     crystals_count: int = 0
     prev_week_total: int = 0  # 供比較
+    # ADR-0022 Phase 7 整合：本週最常命中的 wiki 實體（供週自傳敘事用）
+    top_wiki_pages: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def success_rate(self) -> float:
@@ -171,6 +173,41 @@ class AutobiographyGenerator:
         if CRYSTALS_DIR.exists():
             signals.crystals_count = len(list(CRYSTALS_DIR.glob("crystal-*.md")))
 
+        # ── Phase 7 整合：抓本週最常命中的 wiki 實體（給週自傳敘事血肉）──
+        # 取本週 3 句最長 question（通常代表最有份量的案子），用 wiki search
+        # 找最相關頁，避免 LLM 敘事只剩乾巴巴的數字。
+        try:
+            top_questions_rows = (await self.db.execute(
+                sa_text(
+                    "SELECT question FROM agent_query_traces "
+                    "WHERE created_at >= :s AND created_at < :e "
+                    "  AND route_type != 'chitchat' "
+                    "ORDER BY LENGTH(question) DESC LIMIT 3"
+                ),
+                {"s": s_dt, "e": e_dt},
+            )).all()
+            from app.services.wiki_service import get_wiki_service
+            wiki = get_wiki_service()
+            seen_paths: set = set()
+            for (q,) in top_questions_rows:
+                if not q:
+                    continue
+                hits = await wiki.search_wiki(q, limit=2)
+                for h in hits:
+                    path = h.get("path") or h.get("filename")
+                    if path and path not in seen_paths:
+                        seen_paths.add(path)
+                        signals.top_wiki_pages.append({
+                            "path": path,
+                            "title": h.get("title") or path,
+                        })
+                    if len(signals.top_wiki_pages) >= 3:
+                        break
+                if len(signals.top_wiki_pages) >= 3:
+                    break
+        except Exception as e:
+            logger.debug("top_wiki_pages lookup failed: %s", e)
+
         return signals
 
     @staticmethod
@@ -247,6 +284,10 @@ class AutobiographyGenerator:
         if s.prev_week_total > 0:
             sign = "+" if s.vs_prev_week_pct >= 0 else ""
             vs_prev = f"（vs 上週 {s.prev_week_total} 筆，{sign}{s.vs_prev_week_pct:.0f}%）"
+        wiki_str = ""
+        if s.top_wiki_pages:
+            titles = "、".join(p.get("title", "?") for p in s.top_wiki_pages[:3])
+            wiki_str = f"\n- 本週陪伴最深的三個實體（wiki）：{titles}"
         return (
             f"- 週期：{s.week_start} 至 {s.week_end}\n"
             f"- 處理查詢：{s.total_queries} 筆{vs_prev}\n"
@@ -256,7 +297,7 @@ class AutobiographyGenerator:
             f"- 最常用工具：{tools_str}\n"
             f"- 新學會模式：{s.new_patterns_count} 個\n"
             f"- 進行中失敗模式：{s.active_failures_count} 個\n"
-            f"- 已結晶為規則：累計 {s.crystals_count} 個"
+            f"- 已結晶為規則：累計 {s.crystals_count} 個{wiki_str}"
         )
 
     # ────────── Persist ──────────

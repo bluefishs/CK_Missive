@@ -117,6 +117,14 @@ tags: [memory, diary]
             status_emoji = "✅" if success else "❌"
             tools_str = ", ".join(tools_used) if tools_used else "(none)"
 
+            # Phase 7 整合：本筆 Q 在 wiki 的命中頁（前 2 名），用雙向連結
+            wiki_links = await self._lookup_wiki_entities(question)
+            wiki_line = ""
+            if wiki_links:
+                wiki_line = "\n**wiki**: " + " · ".join(
+                    f"[[{w}]]" for w in wiki_links
+                )
+
             entry = f"""
 ## {now.strftime('%H:%M:%S')} — {status_emoji} [{route_type or 'query'}] {channel or '-'}
 
@@ -124,7 +132,7 @@ tags: [memory, diary]
 
 **A**: {a_masked}
 
-**tools**: `{tools_str}` | **latency**: {latency_ms or '?'}ms | **session**: `{(session_id or '-')[:20]}`
+**tools**: `{tools_str}` | **latency**: {latency_ms or '?'}ms | **session**: `{(session_id or '-')[:20]}`{wiki_line}
 
 """
             async with self._write_lock:
@@ -140,6 +148,20 @@ tags: [memory, diary]
 
         except Exception as e:
             logger.warning("Diary append failed: %s", e)
+
+    @staticmethod
+    async def _lookup_wiki_entities(question: str) -> List[str]:
+        """抓 question 最像的 2 個 wiki 頁（best-effort，失敗回空）。
+
+        Phase 7 整合：讓 diary 成為雙向入口 — 從日記能跳回 wiki 頁，
+        以後可在 wiki 頁反查「此實體最近哪幾天被提及」。
+        """
+        try:
+            from app.services.wiki_service import get_wiki_service
+            hits = await get_wiki_service().search_wiki(question, limit=2)
+            return [h.get("path") or h.get("filename", "?") for h in hits if h.get("path") or h.get("filename")]
+        except Exception:
+            return []
 
     @staticmethod
     def _mask_pii(text: str) -> str:
