@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
+from app.api.sse_utils import SSE_HEADERS
 from app.core.dependencies import get_async_db, optional_auth
 from app.services.ai.document.document_ai_service import (
     DocumentAIService,
@@ -169,11 +170,7 @@ async def stream_summary(
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
+        headers=SSE_HEADERS,
     )
 
 
