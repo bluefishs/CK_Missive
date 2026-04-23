@@ -895,13 +895,22 @@ from fastapi.responses import FileResponse
 _FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 _FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
 
+_FRONTEND_ASSETS = _FRONTEND_DIST / "assets"
+
 if _FRONTEND_INDEX.exists():
-    app.mount(
-        "/assets",
-        StaticFiles(directory=str(_FRONTEND_DIST / "assets")),
-        name="frontend-assets",
-    )
-    logger.info("Frontend dist mounted: %s", _FRONTEND_DIST)
+    # ADR-0028 防禦式：index.html 存在不保證 assets/ 存在（開發中未 build）
+    # 只有兩者都存在才 mount，避免 StaticFiles 拋 RuntimeError 讓整個 app 起不來
+    if _FRONTEND_ASSETS.is_dir():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(_FRONTEND_ASSETS)),
+            name="frontend-assets",
+        )
+        logger.info("Frontend dist mounted: %s", _FRONTEND_DIST)
+    else:
+        logger.warning(
+            "Frontend index.html exists but assets/ missing — skip mount (run 'npm run build' to generate)"
+        )
 
     @app.get("/", include_in_schema=False)
     async def serve_index():
