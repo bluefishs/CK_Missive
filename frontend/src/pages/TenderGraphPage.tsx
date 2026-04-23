@@ -9,7 +9,7 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Card, Input, Row, Col, Typography, Space, Tag, Statistic, App, Spin } from 'antd';
 import { ApartmentOutlined, SearchOutlined } from '@ant-design/icons';
-import ForceGraph2D from 'react-force-graph-2d';
+import { ForceGraphLazy } from '../components/graph/ForceGraphLazy';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useQuery } from '@tanstack/react-query';
@@ -149,7 +149,7 @@ const TenderGraphPage: React.FC = () => {
             <Text type="secondary">輸入關鍵字開始探索標案關係網絡</Text>
           </div>
         ) : (
-          <ForceGraph2D
+          <ForceGraphLazy<GraphNode, GraphLink>
             ref={fgRef}
             graphData={graphData}
             width={typeof window !== 'undefined' ? Math.min(window.innerWidth - 80, 1400) : 1200}

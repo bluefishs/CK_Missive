@@ -4,6 +4,305 @@
 
 ---
 
+## [5.9.2] - 2026-04-23（遺留作業收尾：Navigation + ADR archive + ForceGraphLazy generic）
+
+### 🎯 Release Theme
+
+收斂 v5.9.1 遺留的 4 項 v6.0.1 跟進工作；Phase 6（GraphCanvas v2）評估後正式延至 v6.1.0。
+
+### 📋 本版交付
+
+| 作業 | 狀態 | 交付 |
+|---|---|---|
+| **Navigation 同步 GRAPH_HUB** | ✅ | `backend/app/scripts/init_navigation_data.py` 加「圖譜與 Wiki 中樞」導覽項；技能演化樹 rename 為「技能族譜」（配合 ADR-0031 Phase 5） |
+| **ADR archive sprint（10 則）** | ✅ | ADR-0001~0010 遷入 `docs/adr/archived/`；`README.md` 索引重寫為「活躍 + 歷史」兩段；**active_count 從 27 降至 17 （GREEN- 接近健康區間）** |
+| **ForceGraphLazy generic 擴展** | ✅ | v1.1.0 支援 `<MyNode, MyLink>` 泛型；TenderGraphPage 與 WikiGraphTab 成功遷移採用 |
+| **Phase 6 子 PR 1（ERP GraphCanvas 共用）** | ❌ **正式延 v6.1.0** | 評估後發現現有 `knowledgeGraph/GraphCanvas.tsx` 與 KG business object（MergedNodeConfig / EntityDetailSidebar / SelectedNodeInfoCard）深度耦合，強行擴展會破壞 KG 功能。正確做法是 v6.1 新建 `components/graph/BaseGraphCanvas.tsx` 抽象層（L 規模，3-5 天），拆 4 子 PR 分階段遷移 ERP → Tender → Skill → KG |
+
+### 🆕 新增檔案
+
+- `docs/adr/archived/` 目錄（10 個歷史 ADR）
+
+### 🔧 修改
+
+- `docs/adr/README.md`：重寫為活躍（17）+ 歷史（10）雙段索引；加入 ADR 治理自動化章節
+- `backend/app/scripts/init_navigation_data.py`：補 graph-hub 項；skill-evolution 標題改為「技能族譜」
+- `frontend/src/components/graph/ForceGraphLazy.tsx`：v1.0.0 → v1.1.0，升級為 generic component
+- `frontend/src/pages/TenderGraphPage.tsx`：改用 `ForceGraphLazy<GraphNode, GraphLink>`
+- `frontend/src/pages/knowledgeBase/WikiGraphTab.tsx`：改用 `ForceGraphLazy<WikiNode, WikiEdge>`
+
+### 📊 ADR 治理效益
+
+```
+Before: Active 27 / Archived 0  [RED: > 25]
+After:  Active 17 / Archived 10 [GREEN-: 接近 ≤15 目標]
+```
+
+首波 archive 10 則（0001 Groq / 0002 httpOnly / 0003 內網免認證 / 0004 SSOT / 0005 混合部署 / 0006 pgvector / 0007 AI 四層 / 0008 Repository flush / 0009 Agent 規則式 / 0010 qwen3:4b）— 全部為交付 > 3 個月、穩定運行、且有更新 ADR 接手的決策。
+
+### 🎯 ForceGraphLazy generic 細節
+
+```tsx
+// v1.1.0 使用方式
+interface MyNode { id: string; name: string; type: string; }
+interface MyLink { source: string; target: string; relation: string; }
+
+const fgRef = useRef<ForceGraphMethods<MyNode, MyLink>>(null);
+<ForceGraphLazy<MyNode, MyLink>
+  ref={fgRef}
+  graphData={{ nodes, links }}
+  nodeLabel={(n) => n.name}
+  linkLabel={(l) => l.relation}
+/>
+```
+
+TypeScript 原生不支援 `forwardRef + generic`，採 as-cast 模式保留完整型別推導能力。
+
+### 🔜 v6.1.0 明確路線
+
+- **Phase 6 子 PR 1 (ERP)**：新建 `components/graph/BaseGraphCanvas.tsx`，ERP 首個 consumer
+- **Phase 6 子 PR 2 (Tender)**：Tender 遷移
+- **Phase 6 子 PR 3 (Skill)**：SkillNebula 遷移
+- **Phase 6 子 PR 4 (KG)**：最後遷移 KG（最高風險，留最後）
+- **死路由清除**：2026-10-22 review 後，若無人用則移除 4 個 @deprecated 常數
+- **下次 ADR archive review**：2026-10-22（ADR-0012~0020 是否可 archive 評估）
+
+### ✅ 全面驗證（104+ tests）
+
+- 前端 TS：`npx tsc --noEmit` 乾淨
+- 前端 tests：`useStreamingChat` 22 + `useAgentSSE` 18 + `RAGChatPanel` 5 = **45 全綠**
+- 後端 tests：`test_soul_loader` 10 + `test_kunge_anti_echo` 6 + `test_memory_wiki_*` 13 + `test_schema_consistency` 6 + `test_agent_conversation_memory` 24 = **59 全綠**
+- 靜態守護：`async_session_race` 0 ERR / `sse_headers` clean / `adr_lifecycle` GREEN-
+- Python syntax：`init_navigation_data.py` OK
+
+---
+
+## [5.9.1] - 2026-04-22（ADR-0031 頁面整合：意識體入口統一 + 圖譜/Wiki 中樞）
+
+### 🎯 Release Theme
+
+基於 planner 深度分析的 7-phase 整合計畫，消除坤哥 / UnifiedAgent / DigitalTwin / Memory / Skill / Graph 之間的重複設計。本版交付 Phase 1-5 + 7（Phase 6 GraphCanvas v2 延至 v6.1.0）。
+
+### 📋 本版交付（ADR-0031）
+
+| Phase | 項目 | 交付 |
+|---|---|---|
+| 1 | 死路由常數加 `@deprecated` 註解（AI_ASSISTANT_MANAGEMENT / CODE_WIKI / DIGITAL_TWIN / AGENT_DASHBOARD） | ✅ JSDoc 標示，保留 Navigate redirect 至 v6.1.0 |
+| 2 | `UnifiedAgentPage` 降格為 `components/kunge/OpsDashboard` | ✅ re-export stub（低風險遷移）|
+| 3 | 提取 `components/memory/MemoryStatsRow` | ✅ 省 126L 重複（kunge/MemoryTab + MemoryDashboardPage） |
+| 4 | 建立 `components/graph/ForceGraphLazy` 統一 wrapper | ✅ ERP 示範採用；Tender/Wiki 因 typing 複雜保留 direct import |
+| 5 | Evolution 三路命名正名 | ✅ 輕量版：tab label 改「結晶進化/健康進化/技能族譜」+ JSDoc 標註職責分工 |
+| 6 | GraphCanvas v2 統一 5 圖譜元件 | ⏸️ **延至 v6.1.0**（分 4 子 PR） |
+| 7 | `/ai/graphs` GraphHub 入口 + ADR-0031 + CHANGELOG | ✅ GraphHubPage 上線 |
+
+### 🆕 新增檔案
+
+- `docs/adr/0031-frontend-page-consolidation.md`
+- `frontend/src/components/kunge/OpsDashboard.tsx`
+- `frontend/src/components/memory/MemoryStatsRow.tsx`
+- `frontend/src/components/graph/ForceGraphLazy.tsx`
+- `frontend/src/pages/GraphHubPage.tsx`
+
+### 🔧 修改
+
+- `frontend/src/router/types.ts`：4 常數加 @deprecated；新增 `GRAPH_HUB`
+- `frontend/src/router/AppRouter.tsx`：lazy 載入 GraphHubPage + 新 Route
+- `frontend/src/pages/kunge/OpsTab.tsx`：import 改用 OpsDashboard
+- `frontend/src/pages/kunge/MemoryTab.tsx`：使用 MemoryStatsRow（省 67L）
+- `frontend/src/pages/MemoryDashboardPage.tsx`：標題改「記憶中樞 Memory Wiki」+ 使用 MemoryStatsRow（省 59L）
+- `frontend/src/pages/kunge/EvolutionTab.tsx`：JSDoc 命名正名為「結晶進化」
+- `frontend/src/pages/digitalTwin/EvolutionTab.tsx`：JSDoc 命名正名為「健康進化」
+- `frontend/src/pages/SkillEvolutionPage.tsx`：標題改「技能族譜」
+- `frontend/src/pages/UnifiedAgentPage.tsx`：tab label「進化」→「健康進化」
+- `frontend/src/pages/KungePage.tsx`：tab label「進化史」→「結晶進化」
+- `frontend/src/pages/ERPGraphPage.tsx`：採用 ForceGraphLazy
+
+### 🎯 設計原則落地（ADR-0031）
+
+1. **坤哥為唯一意識體入口**（/kunge 7 tabs；UnifiedAgent / DigitalTwin redirect 至 /kunge/ops）
+2. **圖譜保留 5 獨立頁 + 共用元件**（方案 B，非合併成 tab hub）
+3. **LLM Wiki 與 Memory Wiki 並存不合併**（外顯世界 vs 內在心智）
+4. **Evolution 三視角職責分工**：結晶進化（pattern→crystal）/ 健康進化（agent journal）/ 技能族譜（skill DB lineage）
+5. **死路由保留 Navigate 6 個月 buffer**，v6.1.0 才真正移除
+
+### 📊 預估效益
+
+- 重複程式碼刪減 ~126L（MemoryStatsRow）
+- Evolution 命名歧義從 3 處降至 0（tab label + JSDoc 清楚區分）
+- 新人 onboarding 成本：14+ 分散頁面 → 單一 `/ai/graphs` 導覽入口
+- 後續 GraphCanvas v2 可在 v6.1 於 4 個子 PR 內完成
+
+### 🔜 v6.1 延續工作
+
+- Phase 6 GraphCanvas v2（分 4 子 PR：ERP → Tender → Skill → KG）
+- ForceGraphLazy 擴展 generic type 以接受 Tender/Wiki 複雜 node type
+- 死路由常數正式移除
+- Navigation NAVIGATION_ITEMS + `init_navigation_data.py` 補 GRAPH_HUB（本版未做，留 v6.0.1）
+
+---
+
+## [5.9.0] - 2026-04-22（整合優化：穩定性收斂 + 治理瘦身）
+
+### 🎯 Release Theme
+
+把 v5.7.1 / v5.8.1 兩次 silent failure 覆盤模式法制化，
+同步做 ADR 治理瘦身、觀測棧完工、NemoClaw 歸檔啟動。
+
+### 📋 本版落地（10 項）
+
+| # | 項目 | 產出 | Task |
+|---|---|---|---|
+| 1 | **ADR-0028 錯誤合約化** | 7 層 silent failure 根因歸納 + 原則 1-5 | 已 accepted |
+| 2 | **靜態守護：async session race detector** | `scripts/checks/async_session_race_guard.py`（AST 偵測 gather + db 共用） | 18+ gather 位置可掃 |
+| 2 | **靜態守護：SSE headers guard** | `scripts/checks/sse_headers_guard.py`（攔截 Content-Encoding 遺漏） | 修復 1 真實 bug（document_ai.py:169）|
+| 3 | **ADR-0029 ADR Lifecycle Policy** | 引入 `archived` 狀態；目標 active_count ≤ 15 | 已 accepted |
+| 3 | **adr_lifecycle_check.py** | 自動統計 active / inactive / unknown | 現況：25 accepted / 1 removed |
+| 4 | **ADR-0030 Hermes GO/NO-GO 重訂** | baseline 50→30；Telegram canary 退場；LINE 白名單 + dogfooding | 2026-05-20 硬 deadline |
+| 5 | **NemoClaw 歸檔 checklist** | 99 檔 / 423 引用分類 + 5 Sprint 計畫 | 5/26 deadline 執行中 |
+| 5 | **Archived 標頭落地** | `LINE_OPENCLAW_OPERATIONAL_GUIDE.md` + `openclaw-skill-update.md` | Sprint 1 部分完成 |
+| 6 | **BUSINESS_VALUE.md 對外敘事** | 把 Memory Wiki / 坤哥意識體翻譯為商業語言 | Q2 對外溝通用 |
+| 7 | **Grafana 3 dashboards** | HTTP (6 panels) + DB Pool (6) + Inference (7) | 總 19 panels |
+| 8 | **Prometheus alert rules** | 4 groups / 12 rules（error_budget / silent_failure / capacity / business） | 待 Prometheus server 載入 |
+| 9 | **Promtail PM2 配置 v2.0** | 5 scrape targets（error / out / app / admin_push / watchdog） | 待 Loki 驗證 |
+
+### 🆕 新增檔案
+
+- `docs/adr/0028-error-contract-silent-failure-policy.md`
+- `docs/adr/0029-adr-lifecycle-policy.md`
+- `docs/adr/0030-hermes-go-no-go-revision.md`
+- `scripts/checks/async_session_race_guard.py`
+- `scripts/checks/sse_headers_guard.py`
+- `scripts/checks/adr_lifecycle_check.py`
+- `docs/archive/nemoclaw-archival-checklist.md`
+- `docs/BUSINESS_VALUE.md`
+- `configs/grafana/dashboards/ck-missive-http.json`
+- `configs/grafana/dashboards/ck-missive-db-pool.json`
+- `configs/grafana/dashboards/ck-missive-inference.json`
+- `configs/grafana/README.md`
+- `configs/prometheus/alerts.yml`
+
+### 🔧 修正
+
+- `backend/app/api/endpoints/ai/document_ai.py`：SSE stream headers 改用 `SSE_HEADERS`（原 dict 缺 Content-Encoding: identity）
+- `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md`：加 ARCHIVED 標頭
+- `docs/openclaw-skill-update.md`：加 ARCHIVED 標頭
+- `configs/grafana/promtail-pm2.yml`：v1 → v2，scrape target 2 → 5
+
+### 🐛 坤哥第二次詢問卡死修復（ADR-0028 落地實例）
+
+**症狀**：坤哥 ChatTab / RAG chat 成功回答第 1 次後，第 2 次輸入被忽略。
+
+**根因**：3 個 SSE endpoint 在 `AbortError`（用戶取消或 60s timeout）時直接 `return`，未呼叫 `onDone`。前端 `useStreamingChat.loading` 卡在 `true`，阻擋 `sendMessage` 第 2 次送出。
+
+**修復**：
+- `frontend/src/api/ai/adminManagement.ts`：`streamAgentQuery` + `streamRAGQuery` AbortError 分支補 `onDone(0, 'aborted', ...)`
+- `frontend/src/api/ai/coreFeatures.ts`：串流摘要 AbortError 分支補 `onDone()`
+- `frontend/src/api/digitalTwin.ts`：`_attemptStream` AbortError 分支補 `onDone()`（同樣影響 `useDigitalTwinSSE`）
+- `shared-modules/ui-components/hooks/useStreamingChat.ts` v1.1.0：新增 `maxLoadingMs` watchdog（預設 3 分鐘），底層 API 忘記 onDone 時強制 finishStream + 發 warning + abort controller
+- `backend/main.py`：`_FRONTEND_DIST` 掛載檢查補強 — 原只檢查 `index.html` 存在就 mount `assets/`，改為兩者皆存在才 mount（防 StaticFiles RuntimeError 擋住整個 app 啟動）
+
+**Regression tests**（4 個，全綠）：
+- allows second sendMessage after onDone
+- allows second sendMessage after onError
+- watchdog force-finishes after maxLoadingMs
+- watchdog cleared on normal onDone
+
+**影響面**：所有基於 `useStreamingChat` 的對話 UI（坤哥 ChatTab、RAGChatPanel、DualModeChatPanel、DigitalTwinPage）皆受益。
+
+**驗證**（前後端共 104 tests 綠燈）：
+- 前端：`useStreamingChat.test.ts` 22 / `useAgentSSE.test.ts` 18 / `RAGChatPanel.test.tsx` 5 全綠
+- 後端：`test_soul_loader` 10 / `test_kunge_anti_echo` 6 / `test_memory_wiki_integration` 7 / `test_memory_wiki_metrics` 6 / `test_schema_consistency` 6 / `test_agent_conversation_memory` 24 全綠
+- 靜態：`npx tsc --noEmit` 乾淨、3 個守護腳本（schema_lazy_load / async_session_race / sse_headers）清潔
+
+### 🎯 v5.9 Release Gate（驗收條件）
+
+- [x] 錯誤合約化 ADR 落地（ADR-0028）
+- [x] 2 個新靜態守護（async session race + SSE headers）pre-commit 可用
+- [x] ADR lifecycle policy 建立 + 自動統計腳本
+- [x] Hermes 決策重訂（ADR-0030）
+- [x] NemoClaw 歸檔 checklist
+- [x] Grafana 3 dashboards 完成
+- [x] Prometheus alert rules 完成
+- [x] Promtail PM2 配置完成
+- [ ] *[待部署]* Grafana dashboards 實際 provisioning
+- [ ] *[待部署]* Prometheus alerts 實際載入
+- [ ] *[待部署]* Loki 收到 CK_Missive log 驗證
+- [ ] *[未做]* `except Exception: logger.warning` 漸進升級（v5.9.x 每週 5 處）
+
+### 🔜 v5.10 Preview
+
+- 2026-05-20 Hermes GO/NO-GO 決策會議
+- NemoClaw 歸檔 Sprint 2~3（deprecated 段落清理 + 程式碼引用審計）
+- Orval 全面取代手動 SSOT（漸進遷移）
+- Celery worker for long-running tasks
+
+### 📚 參照
+
+- ADR-0028 / 0029 / 0030（本版新增）
+- ADR-0019（structlog 基礎設施）
+- ADR-0021（asyncpg concurrent session — 本 ADR-0028 承接 Lint rules 承諾）
+- ADR-0022 / 0023（Memory Wiki / 坤哥意識體 — 對外敘事翻譯對象）
+
+---
+
+## [5.8.3] - 2026-04-21（同日 bugfix 補丁）
+
+### 🐛 修復 v5.8.x 三項誤操作
+
+1. **登入介面誤關**：`SHOW_PASSWORD_LOGIN = false` 誤設導致公網 3 路徑全斷
+   - 根因：關閉帳密 UI 時未確認 Google/LINE 平台配置完成，違反「功能替代先於刪除」原則
+   - 修正：恢復 `SHOW_PASSWORD_LOGIN = true` + `LoginPage` 帳密 Form 完整還原
+   - 待 GCP Console 加 `https://missive.cksurvey.tw` 授權 origin + LINE Callback 驗證後再關
+
+2. **ChatTab context="kunge" 60s timeout**：Backend 未註冊 `kunge` role → agent 走 fallback 卡 60s
+   - 修正：`context="web"`（後端已註冊）；SOUL v2.0 人格由 `build_system_prompt_with_soul` 自動注入（與 context 解耦）
+
+3. **ChatTab 從 embed 改跳頁是過度反應**：
+   - 修正：恢復 embed 版本（`RAGChatPanel` in-page），context 問題修正後不再 timeout
+
+### 🔧 Test 同步
+
+`test_work_record_calendar_sync.py` `CATEGORY_LABELS['work_result']` 從「成果回函」更新為「成果」（對齊 v5.8.1 統一 title 模板）。
+
+26 regression tests 全綠。
+
+---
+
+## [5.8.0] - 2026-04-21
+
+### 🌟 坤哥意識體上線（ADR-0023）
+
+對標 Muse 數位生命體願景，CK_Missive 升級為「Missive 意識體」。
+七維自評總分：52 → **72**（+20；B 靈魂 85% / F 對外展示 70% / G 陪伴 55% 皆超標）。
+
+**軌 A — Soul + Evolution**：
+- `wiki/SOUL.md` v1.0 → v2.0：身份宣言 4 條 + 三信念 + 反迴聲室協議 + 倫理紅線
+- `agent_tool_loop.py` + `agent_synthesis.py` 加 start/end log（解 60s silent gap）
+- `anti_echo.py` 週一 06:00 cron（首次活體觸發 3 條質疑候選）
+- `crystallizer.py` 移除 `len==1` gate，pattern `bbd8990563` 結晶候選（hit=9）
+
+**軌 B — Presence + Companionship**：
+- `/kunge` 路由 + 5 板塊全 live
+- `EntryPage` 星空首頁加坤哥入口（金色 ✨ 引導）
+- `soul_loader.py` 擴充擷取（2691 字 system prompt 含完整坤哥人格）
+- Telegram/Agent 對話自動走 SOUL v2.0
+
+### 🔗 衍生 ADR（加碼完成）
+
+- **ADR-0024** Calendar Visibility：承辦同仁可見 + superuser 直通
+- **ADR-0025** Identity Unification：canonical_user_id + 3 對分身合併
+- **ADR-0026** WorkRecord ↔ Calendar Sync：58 筆 backfill + 統一 title 模板
+
+### 📊 派工狀態 4 桶
+
+已完成/交付 · 排程中 · 預警案件 · 闕漏紀錄（解「進行中」語意矛盾）
+
+### 🧪 測試覆蓋
+
+26 新增 regression tests 全綠（anti-echo / visibility / identity / sync）
+
+---
+
 ## [5.7.1] - 2026-04-20
 
 ### 🔧 覆盤修復：Agent 進化閉環四層 silent failure

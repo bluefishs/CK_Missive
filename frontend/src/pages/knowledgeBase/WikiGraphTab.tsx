@@ -20,7 +20,7 @@ import {
   AimOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import ForceGraph2D from 'react-force-graph-2d';
+import { ForceGraphLazy } from '../../components/graph/ForceGraphLazy';
 
 import apiClient from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
@@ -298,7 +298,7 @@ const WikiGraphTab: React.FC = () => {
         ref={containerRef}
         style={{ flex: 1, minHeight: 0, border: '1px solid #f0f0f0', borderRadius: 6, overflow: 'hidden', position: 'relative' }}
       >
-        <ForceGraph2D
+        <ForceGraphLazy<WikiNode, WikiEdge>
           ref={graphRef}
           graphData={graphData}
           nodeId="id"

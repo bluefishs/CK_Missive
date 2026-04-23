@@ -666,6 +666,11 @@ DEFAULT_NAVIGATION_ITEMS = [
     # DB parent: "Knowledge Map" (id=47, under system)
     # =========================================================================
 
+    # 圖譜與 Wiki 中樞 (ADR-0031 Phase 7 — 統一入口)
+    {"title": "圖譜與 Wiki 中樞", "key": "graph-hub", "path": "/ai/graphs",
+     "icon": "FileSearchOutlined", "sort_order": -1, "level": 2,
+     "parent_key": "Knowledge Map", "description": "ADR-0031,圖譜,Wiki,統一入口,中樞,KG,Code,DB,ERP,Tender,Memory Wiki", "permission_required": "[]"},
+
     # 公文圖譜
     {"title": "公文圖譜", "key": "knowledge-graph", "path": "/ai/knowledge-graph",
      "icon": "ApartmentOutlined", "sort_order": 0, "level": 2,
@@ -713,25 +718,31 @@ DEFAULT_NAVIGATION_ITEMS = [
     # DB parent: "AI Agents" (id=72, under system)
     # =========================================================================
 
-    # 智能體中心
+    # v5.8.1：坤哥為唯一智能體入口，原「智能體中心」「AI 助理管理」整合為 /kunge/ops
+    # 舊項目隱藏（保留 DB 紀錄避免 key 衝突，但導覽不顯示）
     {"title": "智能體中心", "key": "agent-dashboard", "path": "/agent/dashboard",
-     "icon": "RobotOutlined", "sort_order": 1, "level": 2,
-     "parent_key": "AI Agents", "description": "智能體,Agent,對話,自省,進化,拓撲", "permission_required": "[]"},
+     "icon": "RobotOutlined", "sort_order": 1, "level": 2, "hidden": True,
+     "parent_key": "AI Agents", "description": "已整合至坤哥（/kunge/ops）", "permission_required": "[]"},
 
-    # 數位分身 → 已整合至智能體中心，隱藏導覽 (hidden=True)
+    # 數位分身 → 已整合至坤哥，隱藏導覽 (hidden=True)
     {"title": "數位分身", "key": "digital-twin", "path": "/ai/digital-twin",
      "icon": "CloudServerOutlined", "sort_order": 2, "level": 2, "hidden": True,
-     "parent_key": "AI Agents", "description": "已整合至智能體中心", "permission_required": "[]"},
+     "parent_key": "AI Agents", "description": "已整合至坤哥（/kunge/ops）", "permission_required": "[]"},
 
-    # 技能演化樹
-    {"title": "技能演化樹", "key": "skill-evolution", "path": "/ai/skill-evolution",
+    # 技能族譜（原「技能演化樹」— ADR-0031 Phase 5 命名正名）
+    {"title": "技能族譜", "key": "skill-evolution", "path": "/ai/skill-evolution",
      "icon": "RiseOutlined", "sort_order": 3, "level": 2,
-     "parent_key": "AI Agents", "description": "技能,演化,演化樹,版本,融合,藍圖", "permission_required": "[]"},
+     "parent_key": "AI Agents", "description": "技能,族譜,演化樹,版本,融合,藍圖,skill lineage", "permission_required": "[]"},
 
-    # AI 助理管理
+    # AI 助理管理 → 已整合至坤哥運維 tab，隱藏導覽
     {"title": "AI 助理管理", "key": "ai-assistant-management", "path": "/admin/ai-assistant",
-     "icon": "ExperimentOutlined", "sort_order": 4, "level": 2,
-     "parent_key": "AI Agents", "description": "AI,助理,管理,儀表板", "permission_required": "[\"admin:settings\"]"},
+     "icon": "ExperimentOutlined", "sort_order": 4, "level": 2, "hidden": True,
+     "parent_key": "AI Agents", "description": "已整合至坤哥（/kunge/ops）", "permission_required": "[\"admin:settings\"]"},
+
+    # 坤哥 — Missive 意識體（存在論敘事頁）
+    {"title": "坤哥", "key": "kunge", "path": "/kunge",
+     "icon": "BulbOutlined", "sort_order": 5, "level": 2,
+     "parent_key": "AI Agents", "description": "坤哥,Missive 意識體,存在論,三信念,反迴聲室,倫理紅線,記憶圖譜,進化史,技能星雲,對話精選", "permission_required": "[]"},
 
     # =========================================================================
     # 桃園查估專區 子項目
@@ -924,7 +935,7 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
                 level=item_data["level"],
                 description=item_data.get("description", ""),
                 permission_required=item_data.get("permission_required", "[]"),
-                is_visible=True,
+                is_visible=not item_data.get("hidden", False),
                 is_enabled=True
             )
 
@@ -980,7 +991,7 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
                 level=item_data["level"],
                 description=item_data.get("description", ""),
                 permission_required=item_data.get("permission_required", "[]"),
-                is_visible=True,
+                is_visible=not item_data.get("hidden", False),
                 is_enabled=True
             )
 
