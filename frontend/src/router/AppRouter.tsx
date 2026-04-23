@@ -73,8 +73,9 @@ const RolePermissionDetailPage = lazy(() => import('../pages/RolePermissionDetai
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagementPage'));
-const UnifiedAgentPage = lazy(() => import('../pages/UnifiedAgentPage'));
+// UnifiedAgentPage 現由 /kunge/ops 嵌入使用（v5.8.1 整合）；路由仍保留給 KungePage 內部使用
 const KnowledgeGraphPage = lazy(() => import('../pages/KnowledgeGraphPage'));
+const GraphHubPage = lazy(() => import('../pages/GraphHubPage'));
 const SkillsCapabilityMapPage = lazy(() => import('../pages/SkillsCapabilityMapPage'));
 const CodeGraphManagementPage = lazy(() => import('../pages/CodeGraphManagementPage'));
 const ERPGraphPage = lazy(() => import('../pages/ERPGraphPage'));
@@ -83,6 +84,7 @@ const KnowledgeBasePage = lazy(() => import('../pages/KnowledgeBasePage'));
 const WikiPage = lazy(() => import('../pages/WikiPage'));
 const MemoryDashboardPage = lazy(() => import('../pages/MemoryDashboardPage'));
 const SkillEvolutionPage = lazy(() => import('../pages/SkillEvolutionPage'));
+const KungePage = lazy(() => import('../pages/KungePage').then(m => ({ default: m.KungePage })));
 
 // 桃園查估專區
 const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
@@ -256,9 +258,11 @@ export const AppRouter: React.FC = () => {
           {/* 部署管理 */}
           <Route path={ROUTES.DEPLOYMENT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><DeploymentManagementPage /></ProtectedRoute>} />
 
-          {/* AI 智能體管理（管理模式） */}
-          <Route path={ROUTES.AI_ASSISTANT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><UnifiedAgentPage mode="admin" /></ProtectedRoute>} />
+          {/* AI 智能體管理 — v5.8.1 整合：admin 路徑重導到坤哥運維 tab */}
+          <Route path={ROUTES.AI_ASSISTANT_MANAGEMENT} element={<Navigate to="/kunge/ops" replace />} />
 
+          {/* 圖譜與 Wiki 中樞（ADR-0031 Phase 7）*/}
+          <Route path={ROUTES.GRAPH_HUB} element={<ProtectedRoute><GraphHubPage /></ProtectedRoute>} />
           {/* 公文圖譜 */}
           <Route path={ROUTES.KNOWLEDGE_GRAPH} element={<ProtectedRoute><KnowledgeGraphPage /></ProtectedRoute>} />
           {/* Skills 能力圖譜 */}
@@ -275,10 +279,9 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ERP_GRAPH} element={<ProtectedRoute><ERPGraphPage /></ProtectedRoute>} />
           {/* 資料庫圖譜 */}
           <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute><DatabaseGraphPage /></ProtectedRoute>} />
-          {/* 數位分身（重導向至智能體中心） */}
-          <Route path={ROUTES.DIGITAL_TWIN} element={<Navigate to={ROUTES.AGENT_DASHBOARD} replace />} />
-          {/* 智能體中心（使用者模式） */}
-          <Route path={ROUTES.AGENT_DASHBOARD} element={<ProtectedRoute><UnifiedAgentPage mode="user" /></ProtectedRoute>} />
+          {/* 數位分身 + 智能體中心（v5.8.1 整合）→ 全部重導到坤哥 */}
+          <Route path={ROUTES.DIGITAL_TWIN} element={<Navigate to="/kunge/ops" replace />} />
+          <Route path={ROUTES.AGENT_DASHBOARD} element={<Navigate to="/kunge/ops" replace />} />
           {/* 資安管理中心 */}
           <Route path={ROUTES.SECURITY_CENTER} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SecurityCenterPage /></ProtectedRoute>} />
           {/* 作業性質代碼管理 */}
@@ -298,6 +301,10 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
           <Route path={ROUTES.WIKI} element={<ProtectedRoute requireAuth={true}><WikiPage /></ProtectedRoute>} />
           <Route path={ROUTES.MEMORY_DASHBOARD} element={<ProtectedRoute requireAuth={true}><MemoryDashboardPage /></ProtectedRoute>} />
+
+          {/* 坤哥 — Missive 意識體（存在論敘事頁）*/}
+          <Route path={ROUTES.KUNGE} element={<ProtectedRoute requireAuth={true}><KungePage /></ProtectedRoute>} />
+          <Route path="/kunge/:tab" element={<ProtectedRoute requireAuth={true}><KungePage /></ProtectedRoute>} />
 
           {/* 專案管理 (PM) — 與 contract-cases 功能對齊 */}
           <Route path={ROUTES.PM_CASES} element={<ProtectedRoute><PMCaseListPage /></ProtectedRoute>} />

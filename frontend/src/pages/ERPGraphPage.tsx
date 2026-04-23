@@ -21,6 +21,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { createTabItem } from '../components/common/DetailPage/utils';
 import { useAuthGuard } from '../hooks/utility/useAuthGuard';
+import { ForceGraphLazy } from '../components/graph/ForceGraphLazy';
 
 const { Title, Text } = Typography;
 
@@ -356,9 +357,7 @@ const GraphNetworkTab: React.FC = () => {
     return <Alert message="尚無 ERP 圖譜資料。請先執行入圖管理。" type="info" showIcon />;
   }
 
-  // Lazy import ForceGraph2D to avoid SSR issues
-  const ForceGraph2D = React.lazy(() => import('react-force-graph-2d'));
-
+  // ForceGraph2D via shared lazy wrapper (ADR-0031 Phase 4)
   return (
     <div>
       <Space style={{ marginBottom: 8 }}>
@@ -372,18 +371,16 @@ const GraphNetworkTab: React.FC = () => {
           <Text strong>{hoverNode.name}</Text> <Tag>{hoverNode.type.replace('erp_', '')}</Tag>
         </Card>
       )}
-      <React.Suspense fallback={<Spin />}>
-        <ForceGraph2D
-          ref={fgRef}
-          graphData={{ nodes: graphData.nodes, links: graphData.links }}
-          nodeCanvasObject={nodeCanvasObject}
-          linkColor={() => '#ddd'}
-          linkWidth={1}
-          onNodeHover={(node) => setHoverNode(node as GNode | null)}
-          width={900}
-          height={500}
-        />
-      </React.Suspense>
+      <ForceGraphLazy
+        ref={fgRef}
+        graphData={{ nodes: graphData.nodes, links: graphData.links }}
+        nodeCanvasObject={nodeCanvasObject}
+        linkColor={() => '#ddd'}
+        linkWidth={1}
+        onNodeHover={(node) => setHoverNode(node as GNode | null)}
+        width={900}
+        height={500}
+      />
     </div>
   );
 };

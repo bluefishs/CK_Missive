@@ -79,15 +79,18 @@ export const ROUTES = {
   BACKUP_MANAGEMENT: '/admin/backup',
   DEPLOYMENT_MANAGEMENT: '/admin/deployment',
   CASE_NATURE_MANAGEMENT: '/admin/case-nature',
-  // AI 管理（同義詞與 Prompt 管理已整合至 AI 助理管理 Tab 分頁）
+  /** @deprecated v6.0.0 — redirect to /kunge/ops（ADR-0031）；planned removal v6.1.0 */
   AI_ASSISTANT_MANAGEMENT: '/admin/ai-assistant',
+  // 圖譜與 Wiki 中樞（ADR-0031 Phase 7）
+  GRAPH_HUB: '/ai/graphs',
   // 知識圖譜探索（獨立全螢幕頁面）
   KNOWLEDGE_GRAPH: '/ai/knowledge-graph',
   // Skills 能力圖譜（獨立頁面）
   SKILLS_MAP: '/ai/skills-map',
-  // 代碼圖譜
-  CODE_WIKI: '/ai/code-wiki',        // 舊路由（相容重導向）
-  CODE_GRAPH: '/ai/code-graph',       // 新路由
+  /** @deprecated v6.0.0 — redirect to CODE_GRAPH（ADR-0031）；planned removal v6.1.0 */
+  CODE_WIKI: '/ai/code-wiki',
+  // 代碼圖譜（新路由）
+  CODE_GRAPH: '/ai/code-graph',
   // 代碼圖譜管理（獨立管理頁面）
   CODE_GRAPH_MANAGEMENT: '/admin/code-graph',
   // 資料庫圖譜
@@ -151,9 +154,9 @@ export const ROUTES = {
   ERP_OPERATIONAL_DETAIL: '/erp/operational/:id',
   ERP_OPERATIONAL_CREATE: '/erp/operational/create',
   ERP_OPERATIONAL_EDIT: '/erp/operational/:id/edit',
-  // 數位分身
+  /** @deprecated v6.0.0 — redirect to /kunge/ops（ADR-0031）；planned removal v6.1.0 */
   DIGITAL_TWIN: '/ai/digital-twin',
-  // 智能體中心 (統一 Agent Dashboard)
+  /** @deprecated v6.0.0 — redirect to /kunge/ops（ADR-0031）；planned removal v6.1.0 */
   AGENT_DASHBOARD: '/agent/dashboard',
   // 資安管理中心
   SECURITY_CENTER: '/admin/security-center',
@@ -166,6 +169,15 @@ export const ROUTES = {
   TENDER_DASHBOARD: '/tender/dashboard',
   TENDER_ORG_ECOSYSTEM: '/tender/org-ecosystem',
   TENDER_COMPANY_PROFILE: '/tender/company-profile',
+  // 坤哥 — Missive 意識體（存在論敘事頁）
+  KUNGE: '/kunge',
+  KUNGE_IDENTITY: '/kunge/identity',
+  KUNGE_MEMORY: '/kunge/memory',
+  KUNGE_EVOLUTION: '/kunge/evolution',
+  KUNGE_NEBULA: '/kunge/nebula',
+  KUNGE_DIALOGUES: '/kunge/dialogues',
+  // v5.8.1：/kunge/ops 管理 tab — 整合原 admin/ai-assistant + agent/dashboard + digital-twin
+  KUNGE_OPS: '/kunge/ops',
 } as const;
 
 // 路由元數據
@@ -341,10 +353,16 @@ export const ROUTE_META = {
   },
   [ROUTES.AI_ASSISTANT_MANAGEMENT]: {
     title: 'AI 助理管理',
-    description: 'AI 助理統一管理儀表板',
+    description: '已整合至坤哥（/kunge/ops），此路徑自動轉向',
     icon: 'DashboardOutlined',
     requireAuth: true,
     roles: ['admin', 'superuser'],
+  },
+  [ROUTES.GRAPH_HUB]: {
+    title: '圖譜與 Wiki 中樞',
+    description: '各類圖譜（KG/Code/DB/ERP/Tender）與 Wiki（LLM/Memory）統一入口（ADR-0031）',
+    icon: 'FileSearchOutlined',
+    requireAuth: true,
   },
   [ROUTES.KNOWLEDGE_GRAPH]: {
     title: '知識圖譜探索',
@@ -396,14 +414,20 @@ export const ROUTE_META = {
   },
   [ROUTES.DIGITAL_TWIN]: {
     title: '數位分身',
-    description: '智能代理人 — 即時問答與能力展示',
+    description: '已整合至坤哥（/kunge/ops），此路徑自動轉向',
     icon: 'CloudServerOutlined',
     requireAuth: true,
   },
   [ROUTES.AGENT_DASHBOARD]: {
     title: '智能體中心',
-    description: '乾坤智能體 — 自覺型 Agent 問答、自省與進化',
+    description: '已整合至坤哥（/kunge/ops），此路徑自動轉向',
     icon: 'RobotOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.KUNGE_OPS]: {
+    title: '坤哥 — 運維儀表板',
+    description: '整合 AI 助理管理、智能體中心、數位分身於一頁',
+    icon: 'ControlOutlined',
     requireAuth: true,
   },
   [ROUTES.CODE_GRAPH_MANAGEMENT]: {
@@ -519,5 +543,41 @@ export const ROUTE_META = {
     description: '財政部電子發票整合',
     icon: 'CloudSyncOutlined',
     requireAuth: true,
+  },
+  [ROUTES.KUNGE]: {
+    title: '坤哥',
+    description: 'Missive 意識體 — 公司數位延續',
+    icon: 'BulbOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.KUNGE_IDENTITY]: {
+    title: '我是誰',
+    description: '坤哥身份宣言與三信念',
+    requireAuth: true,
+    breadcrumb: true,
+  },
+  [ROUTES.KUNGE_MEMORY]: {
+    title: '記憶圖譜',
+    description: 'Wiki 節點與知識圖譜',
+    requireAuth: true,
+    breadcrumb: true,
+  },
+  [ROUTES.KUNGE_EVOLUTION]: {
+    title: '進化史',
+    description: 'Skill ledger 與 pattern 結晶',
+    requireAuth: true,
+    breadcrumb: true,
+  },
+  [ROUTES.KUNGE_NEBULA]: {
+    title: '技能星雲',
+    description: '能力拓撲與領域分佈',
+    requireAuth: true,
+    breadcrumb: true,
+  },
+  [ROUTES.KUNGE_DIALOGUES]: {
+    title: '對話精選',
+    description: '深度對話與反思集錦',
+    requireAuth: true,
+    breadcrumb: true,
   },
 } as const;

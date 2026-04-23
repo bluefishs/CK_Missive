@@ -1,9 +1,13 @@
 /**
- * Agent 進化歷程 Tab — 展示自主進化閉環的可視化
+ * AgentHealthEvolutionTab（原「Agent 進化歷程 Tab」）— Agent「健康進化」視角
  *
  * 三區塊：品質趨勢 + 工具健康度 + 進化日誌
  *
- * @version 1.0.0
+ * ADR-0031 Phase 5：與以下兩者職責分工明確，不應混為一談：
+ *   - /kunge/evolution 的「結晶進化」= pattern → crystal 學習閉環
+ *   - /ai/skill-evolution 的「技能族譜」= DB skill 節點演化樹
+ *
+ * @version 1.1.0 — ADR-0031 命名正名
  * @created 2026-03-27
  */
 

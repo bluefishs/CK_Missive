@@ -127,8 +127,9 @@ const UnifiedAgentPage: React.FC<UnifiedAgentPageProps> = ({ mode }) => {
         suspense(<DashboardTab />, '載入儀表板...')
       ),
       // ── 進階 Tab（兩模式共用但使用者模式可選顯示）──
-      createTabItem('evolution', { icon: <ExperimentOutlined />, text: '進化' },
-        suspense(<EvolutionTab />, '載入進化歷程...')
+      // ADR-0031 Phase 5：rename `進化` → `健康進化`（Agent 健康視角，對比坤哥「結晶進化」）
+      createTabItem('evolution', { icon: <ExperimentOutlined />, text: '健康進化' },
+        suspense(<EvolutionTab />, '載入 Agent 健康進化...')
       ),
       createTabItem('topology', { icon: <ApartmentOutlined />, text: '拓撲' },
         <TopologyTab />

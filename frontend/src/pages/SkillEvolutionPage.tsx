@@ -1,7 +1,13 @@
 /**
- * 技能演化樹 — 與平台白底設計一致的互動式視覺化
+ * 技能族譜 / 技能演化樹 — 與平台白底設計一致的互動式視覺化
  *
- * @version 3.0.0 — 白底主題重構
+ * ADR-0031 Phase 5：與 /kunge/evolution（結晶進化）、UnifiedAgent/evolution（健康進化）
+ * 為三種不同視角：
+ *   - 本頁 = **skill lineage**（DB 中 skill 節點的演化/融合族譜樹）
+ *   - 結晶進化 = pattern → crystal 的學習閉環
+ *   - 健康進化 = Agent journal / tool-health 監控
+ *
+ * @version 3.1.0 — ADR-0031 命名正名（標題改「技能族譜」）
  */
 
 import React, { useState, useMemo } from 'react';
@@ -109,7 +115,7 @@ const SkillEvolutionPage: React.FC = () => {
       <Flex align="center" justify="space-between" style={{ marginBottom: 12 }}>
         <Space size={12}>
           <RiseOutlined style={{ fontSize: 20, color: '#1890ff' }} />
-          <Title level={4} style={{ margin: 0 }}>技能演化樹</Title>
+          <Title level={4} style={{ margin: 0 }}>技能族譜</Title>
         </Space>
         <Space size={16}>
           <Flex align="center" gap={4}>

@@ -7,17 +7,17 @@
  * 對應後端 /ai/memory/* 13 端點（皆需登入；批准/回滾需 admin）。
  */
 import React, { lazy, Suspense, useState } from 'react';
-import { Card, Col, Row, Spin, Statistic, Tabs, Typography } from 'antd';
+import { Spin, Tabs, Typography } from 'antd';
 import {
   BookOutlined,
   BranchesOutlined,
-  BulbOutlined,
   CrownOutlined,
   DeploymentUnitOutlined,
   HistoryOutlined,
 } from '@ant-design/icons';
 
 import { useMemoryStats } from '../hooks/useMemoryData';
+import { MemoryStatsRow } from '../components/memory/MemoryStatsRow';
 
 const DiaryTab = lazy(() => import('./memoryWiki/DiaryTab'));
 const PatternsTab = lazy(() => import('./memoryWiki/PatternsTab'));
@@ -34,72 +34,17 @@ const MemoryDashboardPage: React.FC = () => {
   return (
     <div style={{ padding: '0 4px' }}>
       <Typography.Title level={4} style={{ marginBottom: 4 }}>
-        Memory Wiki
+        記憶中樞 Memory Wiki
       </Typography.Title>
       <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
-        助理自我記憶系統 — 每日日記 / 成功模式 / 結晶提案 / 週自傳。
+        助理自我記憶系統（內在心智）— 每日日記 / 成功模式 / 結晶提案 / 週自傳。
+        與 LLM Wiki（業務領域知識）為不同世界觀，見 ADR-0031。
       </Typography.Paragraph>
 
-      {/* Stats */}
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={12} md={6} lg={4}>
-          <Card size="small" loading={loadingStats}>
-            <Statistic
-              title="日記天數"
-              value={stats?.diary_days ?? 0}
-              prefix={<BookOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6} lg={4}>
-          <Card size="small" loading={loadingStats}>
-            <Statistic
-              title="成功模式"
-              value={stats?.patterns ?? 0}
-              prefix={<BranchesOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6} lg={4}>
-          <Card size="small" loading={loadingStats}>
-            <Statistic
-              title="失敗教訓"
-              value={stats?.failures ?? 0}
-              prefix={<BulbOutlined />}
-              valueStyle={{ color: (stats?.failures ?? 0) > 0 ? '#fa541c' : undefined }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6} lg={4}>
-          <Card size="small" loading={loadingStats}>
-            <Statistic
-              title="待決提案"
-              value={stats?.proposals_pending ?? 0}
-              suffix={
-                <span style={{ fontSize: 12, color: '#888' }}>
-                  / {stats?.proposals_total ?? 0}
-                </span>
-              }
-              prefix={<CrownOutlined />}
-              valueStyle={{ color: (stats?.proposals_pending ?? 0) > 0 ? '#fa8c16' : undefined }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6} lg={4}>
-          <Card size="small" loading={loadingStats}>
-            <Statistic title="已套用 Crystal" value={stats?.crystals ?? 0} />
-          </Card>
-        </Col>
-        <Col xs={12} md={6} lg={4}>
-          <Card size="small" loading={loadingStats}>
-            <Statistic
-              title="週自傳累積"
-              value={stats?.evolutions ?? 0}
-              prefix={<HistoryOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* Stats — 共用 MemoryStatsRow (ADR-0031 Phase 3) */}
+      <div style={{ marginBottom: 16 }}>
+        <MemoryStatsRow stats={stats} loading={loadingStats} colSpans={{ xs: 12, md: 6, lg: 4 }} />
+      </div>
 
       {/* Tabs */}
       <Tabs
