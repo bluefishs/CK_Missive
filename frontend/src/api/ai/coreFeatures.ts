@@ -114,7 +114,12 @@ export function streamSummary(
       onDone();
     } catch (err) {
       clearTimeout(timeoutId);
-      if (err instanceof DOMException && err.name === 'AbortError') return;
+      // ADR-0028 錯誤合約化：AbortError 也必須 call onDone
+      // 避免前端串流 UI 的 loading 卡住，擋住第 2 次詢問
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        onDone();
+        return;
+      }
       logger.error('SSE 串流錯誤:', err);
       onError?.('串流連線失敗');
       onDone();

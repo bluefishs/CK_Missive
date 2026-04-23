@@ -360,4 +360,136 @@ describe('useStreamingChat', () => {
 
     expect(result.current.messages[1]!.agentSteps).toBeUndefined();
   });
+
+  // ==========================================================================
+  // Regression: 第 2 次詢問必須可用（ADR-0028 錯誤合約化）
+  // ==========================================================================
+
+  it('allows second sendMessage after onDone (ADR-0028 regression)', () => {
+    let capturedCallbacks: StreamingChatCallbacks | null = null;
+    const apis = createMockAPIs({
+      startStream: vi.fn((_, cbs) => {
+        capturedCallbacks = cbs;
+        return mockAbortController;
+      }),
+    });
+
+    const { result } = renderHook(() => useStreamingChat({ apis }));
+
+    // 第一次詢問
+    act(() => {
+      result.current.sendMessage('第一個問題');
+    });
+    expect(result.current.loading).toBe(true);
+    expect(apis.startStream).toHaveBeenCalledTimes(1);
+
+    // 第一次完成
+    act(() => {
+      capturedCallbacks!.onDone(800, 'groq');
+    });
+    expect(result.current.loading).toBe(false);
+
+    // 第二次詢問必須可發送
+    act(() => {
+      result.current.sendMessage('第二個問題');
+    });
+    expect(apis.startStream).toHaveBeenCalledTimes(2);
+    expect(result.current.messages).toHaveLength(4); // Q1 + A1 + Q2 + A2 placeholder
+  });
+
+  it('allows second sendMessage after onError (ADR-0028 regression)', () => {
+    let capturedCallbacks: StreamingChatCallbacks | null = null;
+    const apis = createMockAPIs({
+      startStream: vi.fn((_, cbs) => {
+        capturedCallbacks = cbs;
+        return mockAbortController;
+      }),
+    });
+
+    const { result } = renderHook(() => useStreamingChat({ apis, onError: vi.fn() }));
+
+    act(() => {
+      result.current.sendMessage('第一個問題');
+    });
+
+    // 錯誤結束
+    act(() => {
+      capturedCallbacks!.onError!('超時', 'STREAM_TIMEOUT');
+    });
+    expect(result.current.loading).toBe(false);
+
+    // 第二次可繼續發問
+    act(() => {
+      result.current.sendMessage('第二個問題');
+    });
+    expect(apis.startStream).toHaveBeenCalledTimes(2);
+  });
+
+  it('watchdog force-finishes after maxLoadingMs when onDone never called', () => {
+    vi.useFakeTimers();
+    const onError = vi.fn();
+    const apis = createMockAPIs({
+      startStream: vi.fn(() => mockAbortController),
+    });
+
+    const { result } = renderHook(() =>
+      useStreamingChat({ apis, onError, maxLoadingMs: 5000 }),
+    );
+
+    act(() => {
+      result.current.sendMessage('卡住的問題');
+    });
+    expect(result.current.loading).toBe(true);
+
+    // 模擬底層 API 從未 call onDone（bug pattern: AbortError fall-through）
+    act(() => {
+      vi.advanceTimersByTime(5001);
+    });
+
+    expect(result.current.loading).toBe(false);
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining('逾時'), 'warning');
+    expect(mockAbort).toHaveBeenCalled();
+
+    // 第二次詢問必須可用
+    act(() => {
+      result.current.sendMessage('第二個問題');
+    });
+    expect(apis.startStream).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+  });
+
+  it('watchdog is cleared when onDone arrives normally', () => {
+    vi.useFakeTimers();
+    let capturedCallbacks: StreamingChatCallbacks | null = null;
+    const onError = vi.fn();
+    const apis = createMockAPIs({
+      startStream: vi.fn((_, cbs) => {
+        capturedCallbacks = cbs;
+        return mockAbortController;
+      }),
+    });
+
+    const { result } = renderHook(() =>
+      useStreamingChat({ apis, onError, maxLoadingMs: 5000 }),
+    );
+
+    act(() => {
+      result.current.sendMessage('問題');
+    });
+
+    // 正常 done，watchdog 不該 trigger
+    act(() => {
+      capturedCallbacks!.onDone(1000, 'groq');
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(result.current.loading).toBe(false);
+
+    vi.useRealTimers();
+  });
 });

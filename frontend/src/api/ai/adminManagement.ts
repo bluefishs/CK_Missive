@@ -455,7 +455,12 @@ export function streamRAGQuery(
       callbacks.onDone(0, 'unknown');
     } catch (err) {
       clearTimeout(timeoutId);
-      if (err instanceof DOMException && err.name === 'AbortError') return;
+      // ADR-0028 錯誤合約化：AbortError 也必須 call onDone
+      // 避免前端 useStreamingChat 的 loading 卡住，擋住第 2 次詢問
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        callbacks.onDone(0, 'aborted');
+        return;
+      }
       logger.error('RAG SSE error:', err);
       callbacks.onError?.('RAG 串流連線失敗');
       callbacks.onDone(0, 'error');
@@ -649,7 +654,12 @@ export function streamAgentQuery(
       callbacks.onDone(0, 'unknown', [], 0);
     } catch (err) {
       clearTimeout(timeoutId);
-      if (err instanceof DOMException && err.name === 'AbortError') return;
+      // ADR-0028 錯誤合約化：AbortError 也必須 call onDone
+      // 避免前端 useStreamingChat 的 loading 卡住，擋住第 2 次詢問
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        callbacks.onDone(0, 'aborted', [], 0);
+        return;
+      }
       logger.error('Agent SSE error:', err);
       callbacks.onError?.('Agent 串流連線失敗');
       callbacks.onDone(0, 'error', [], 0);

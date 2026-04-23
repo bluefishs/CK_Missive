@@ -70,6 +70,9 @@ async function _attemptStream(
   controller: AbortController,
   startTime: number,
 ): Promise<'success' | 'aborted' | string> {
+  // 提到 try 外部 — catch 需存取以便 AbortError 時把累積的 token 帶給 onDone（ADR-0028）
+  let fullAnswer = '';
+
   try {
     callbacks.onStatus?.('connecting', '正在連接數位分身...');
 
@@ -91,13 +94,13 @@ async function _attemptStream(
     if (!res.ok || !res.body) {
       clearTimeout(timeoutId);
       const errText = await res.text().catch(() => '');
+      // HTTP error 不直接 call onDone — caller retry 迴圈最終會在 retry 耗盡後補 onError+onDone
       return `後端回應異常 (HTTP ${res.status}): ${errText.slice(0, 200)}`;
     }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullAnswer = '';
       let answered = false;
 
       // eslint-disable-next-line no-constant-condition
@@ -204,7 +207,12 @@ async function _attemptStream(
       }
       return 'success';
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return 'aborted';
+      // ADR-0028 錯誤合約化：AbortError 也必須 call onDone
+      // 避免 useDigitalTwinSSE → useStreamingChat 的 loading 卡住擋住第 2 次詢問
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        callbacks.onDone(Date.now() - startTime, fullAnswer || undefined);
+        return 'aborted';
+      }
       logger.error('[DigitalTwin] Stream error (will retry):', err);
       return `連線失敗: ${err instanceof Error ? err.message : String(err)}`;
     }
