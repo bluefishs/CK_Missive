@@ -1,8 +1,11 @@
 """
 CK_Missive MCP Server — Model Context Protocol 服務
 
-將 7 個 Agent 工具暴露為 MCP Tools，供 Claude Desktop、OpenClaw 等 MCP 客戶端存取。
-MCP 透過 stdio 通訊，存取控制由父 process（Claude Desktop / OpenClaw）負責。
+將 7 個 Agent 工具暴露為 MCP Tools，供 Claude Desktop、Cursor、Hermes 等 MCP 客戶端存取。
+MCP 透過 stdio 通訊，存取控制由父 process（MCP client）負責。
+
+Note: OpenClaw 已於 ADR-0014 退場（2026-04-14），由 Hermes Agent 接管；本服務仍保留
+通用 MCP 介面供任何 MCP-compatible client 使用。
 
 啟動方式:
     cd backend
@@ -293,7 +296,7 @@ async def get_statistics() -> str:
 
 
 # ============================================================================
-# 非串流問答工具（供 OpenClaw 等外部系統呼叫）
+# 非串流問答工具（供外部 MCP client 或 Hermes skill 呼叫）
 # ============================================================================
 
 

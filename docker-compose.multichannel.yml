@@ -1,43 +1,17 @@
 # =============================================================================
-# ⚠️ DEPRECATED — ADR-0014 (2026-04-14)
+# Multichannel Bot Stack — LINE / Telegram / Discord Webhooks
 # =============================================================================
-# OpenClaw 已由 Hermes Agent 取代。本檔保留供參考，不再使用。
-# Hermes 部署方式見: CK_AaaP/runbooks/hermes-stack/docker-compose.yml
+# ADR-0014 (2026-04-14): OpenClaw 已由 Hermes Agent 取代，原 openclaw service
+#   於 2026-04-23（NemoClaw Sprint 2）正式從本檔案移除。
+#   歷史見：docs/archive/nemoclaw-archival-checklist.md
 #
-# 歸檔日期: 2026-05-12 後可刪除
-# =============================================================================
-#
-# 原功能:
-#   LINE/Telegram → OpenClaw Gateway → ck-missive-bridge skill
-#   → POST http://host.docker.internal:8001/api/ai/agent/query
-#
-# 替代方案:
-#   LINE/Telegram → Hermes Agent Gateway → ck-missive-bridge skill
-#   → POST http://host.docker.internal:8001/api/ai/agent/query_sync
+# Hermes 部署：CK_AaaP/runbooks/hermes-stack/docker-compose.yml
+# 主通道：LINE / Telegram webhook → CK_Missive backend(:8001) 直連
 # =============================================================================
 
 name: ck_multichannel
 
-services:
-  # OpenClaw 服務已停用 (ADR-0014)
-  # Hermes Agent 已接管 Telegram/LINE 通道
-  openclaw:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
-    container_name: ck_openclaw
-    profiles: ["deprecated"]  # 不會被 docker compose up 啟動
-    restart: "no"
-    ports:
-      - "127.0.0.1:18789:18789"
-    volumes:
-      - ${OPENCLAW_CONFIG_DIR:-C:/Users/User1/.openclaw}:/home/node/.openclaw
-    environment:
-      - OPENCLAW_GATEWAY_PORT=18789
-      - MCP_SERVICE_TOKEN=${MCP_SERVICE_TOKEN}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - ck_infra
-
+# v5.9.2 後本檔無實際 service，保留 networks 宣告供其他 compose 引用相容
 networks:
   ck_infra:
     external: true
