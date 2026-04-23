@@ -1,9 +1,22 @@
 # Hermes Agent 遷移計畫（取代 OpenClaw）
 
-> **狀態**: active
-> **依據**: ADR-0014
+> **狀態**: active（已於 2026-04-22 經 ADR-0030 修訂）
+> **依據**: ADR-0014（原計畫）+ **ADR-0030（2026-04-22 決策重訂）**
 > **日期**: 2026-04-14 啟動
-> **預計完成**: 2026-05-12（4 週）
+> **原預計完成**: 2026-05-12 → **修訂為 2026-05-20 硬 deadline**
+
+## ⚠️ ADR-0030 關鍵修訂（2026-04-22）
+
+因 Telegram 個人號封禁（ADR-0027），原 Phase 2 Telegram canary 失效。**新決策**：
+- baseline 門檻 50 → **30**（synthetic 占比過高，邊際效益遞減）
+- Canary 通道：Telegram 退場 → **LINE 白名單 3~5 人 + 內部 Web UI dogfooding**
+- 新增 **Owner 連續 7 天 Web UI dogfooding** 作為真實用戶訊號（見 `memory/hermes_dogfooding_log.md`）
+- **2026-05-20 硬 deadline**：必須做出 GO / NO-GO 決策
+- NO-GO 觸發 ADR-0014 deprecated + 資源回 Missive 本體增強
+
+本計畫的 P2/P3 Telegram 相關段落以 ADR-0030 為準，原表格保留做歷史。
+
+---
 
 ---
 

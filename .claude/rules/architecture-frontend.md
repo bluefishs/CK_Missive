@@ -1,5 +1,47 @@
 # 前端結構
 
+> **v5.9.1 頁面整合（ADR-0031）**：坤哥為唯一意識體入口；死路由 @deprecated 保留 Navigate redirect 6 個月。
+
+## 意識體入口統一架構（ADR-0031）
+
+```
+/kunge  (KungePage) ← 唯一意識體入口
+  ├── chat       → RAGChatPanel embedded (context="web")
+  ├── identity   → IdentityTab（SOUL v2.0 三信念 + 反迴聲 + 倫理紅線）
+  ├── memory     → MemoryTab（MemoryStatsRow 共用元件 + 3 導引卡）
+  ├── evolution  → EvolutionTab（「結晶進化」= pattern→crystal 學習閉環）
+  ├── nebula     → NebulaTab（轉發 memoryWiki/SkillNebulaTab）
+  ├── dialogues  → DialoguesTab（對話精選）
+  └── ops        → OpsTab → <OpsDashboard>（原 UnifiedAgentPage 降格）
+                    └── 7~12 子 tab（含「健康進化」= Agent journal）
+
+Redirect（6 個月相容期）：
+  /agent/dashboard         → Navigate /kunge/ops
+  /ai/digital-twin         → Navigate /kunge/ops
+  /admin/ai-assistant      → Navigate /kunge/ops
+  /ai/code-wiki            → Navigate /ai/code-graph
+
+/ai/graphs  (GraphHubPage) ← 圖譜與 Wiki 中樞（ADR-0031 Phase 7）
+  圖譜：KG / Code / DB / ERP / Tender（5 preview card）
+  Wiki：LLM Wiki（外顯世界）/ Memory Wiki（內在心智）
+```
+
+## 共用元件（ADR-0031 提取）
+
+| 元件 | 路徑 | 用途 |
+|---|---|---|
+| `OpsDashboard` | `components/kunge/OpsDashboard.tsx` | 原 UnifiedAgentPage 降格（ADR-0023 實作細則） |
+| `MemoryStatsRow` | `components/memory/MemoryStatsRow.tsx` | 6-Card 記憶統計（kunge/MemoryTab + MemoryDashboardPage 共用，省 126L） |
+| `ForceGraphLazy` | `components/graph/ForceGraphLazy.tsx` | react-force-graph-2d 統一 lazy wrapper（generic） |
+
+## Evolution 三路職責分工（ADR-0031 Phase 5）
+
+| 路徑 | 舊名 | 新意涵 | 資料源 |
+|---|---|---|---|
+| `/kunge/evolution` | 進化史 | **結晶進化** — pattern→crystal 學習閉環 | `/ai/memory/{patterns,proposals,crystals}` |
+| `/kunge/ops` (evolution tab) | 進化 | **健康進化** — Agent 品質監控 | `/ai/agent/evolution/{status,journal,tool-health}` |
+| `/ai/skill-evolution` | 技能演化樹 | **技能族譜** — DB skill lineage 樹 | `AI_ENDPOINTS.GRAPH_SKILL_EVOLUTION` |
+
 ## 前端元件結構
 
 ### 頁面模組化拆分 (v1.83.0)

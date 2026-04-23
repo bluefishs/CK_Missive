@@ -1,7 +1,11 @@
 # Skills / Commands / Agents 清單
 
-> **最後同步**：2026-04-18（v5.6.0，穩定性強化 + 安全硬化 + structlog + 星空首頁）
-> **重大變更**：OpenClaw/NemoClaw 已全面退場（ADR-0014/0015），程式碼遷移完成 (MissiveAgent + agent_capability)
+> **最後同步**：2026-04-23（v5.9.2，整合優化 3 版 ship — ADR-0028~0031 + 3 靜態守護 + 觀測棧完工）
+> **重大變更**：
+> - OpenClaw/NemoClaw 已全面退場（ADR-0014/0015），repo archive 進行中（5/26 deadline）
+> - 坤哥為唯一意識體入口（ADR-0023 + ADR-0031），UnifiedAgent/DigitalTwin 已 Navigate 合流
+> - 錯誤合約化（ADR-0028）：3 靜態守護 + useStreamingChat watchdog
+> - ADR 治理（ADR-0029）：Active 17 / Archived 10（GREEN-）
 
 ## Slash Commands (可用指令)
 
@@ -176,6 +180,24 @@
 | `docs/ALEMBIC_MIGRATION_GUIDE.md` | Alembic 遷移管理指南 |
 | `scripts/checks/verify_architecture.py` | 架構驗證腳本 (7 項自動化檢查) |
 | `scripts/checks/service-line-count-check.py` | 後端服務行數監控 (>600L 警告) |
+| `scripts/checks/async_session_race_guard.py` | 🆕 ADR-0028 靜態守護：`asyncio.gather` 內多 task 不得共用 db session（承接 ADR-0021） |
+| `scripts/checks/sse_headers_guard.py` | 🆕 ADR-0028 靜態守護：SSE endpoint 必須含 `Content-Encoding: identity` |
+| `scripts/checks/adr_lifecycle_check.py` | 🆕 ADR-0029 自動統計 active / archived / removed ADR 分佈 |
+| `scripts/checks/schema_lazy_load_guard.py` | ADR-0027 配套：Pydantic schema 不得訪問 ORM lazy relationship |
+| `docs/adr/0028-error-contract-silent-failure-policy.md` | 🆕 錯誤合約化 + Silent Failure 政策（歸納 v5.7.1+v5.8.1 共 11 層） |
+| `docs/adr/0029-adr-lifecycle-policy.md` | 🆕 ADR Lifecycle Policy + archived 狀態引入 |
+| `docs/adr/0030-hermes-go-no-go-revision.md` | 🆕 Hermes GO/NO-GO 決策重訂（baseline 30 + LINE canary + 2026-05-20 硬 deadline）|
+| `docs/adr/0031-frontend-page-consolidation.md` | 🆕 前端頁面整合 v6.0（坤哥唯一入口 + 圖譜中樞）|
+| `docs/BUSINESS_VALUE.md` | 🆕 對外敘事：把 Memory Wiki / 坤哥翻譯為商業語言 |
+| `docs/archive/nemoclaw-archival-checklist.md` | 🆕 NemoClaw/OpenClaw 5 Sprint 歸檔清單（5/26 deadline）|
+| `configs/grafana/dashboards/ck-missive-{http,db-pool,inference}.json` | 🆕 觀測棧 3 Grafana dashboards（19 panels）|
+| `configs/prometheus/alerts.yml` | 🆕 觀測棧 12 alert rules（error_budget / silent_failure / capacity / business）|
+| `configs/grafana/promtail-pm2.yml` v2 | PM2 log → Loki 5 scrape targets |
+| `configs/grafana/README.md` | 🆕 觀測棧部署指南（CK_DigitalTunnel 端 provisioning） |
+| `frontend/src/components/kunge/OpsDashboard.tsx` | 🆕 ADR-0031：原 UnifiedAgentPage 降格 |
+| `frontend/src/components/memory/MemoryStatsRow.tsx` | 🆕 ADR-0031：6-Card 記憶統計共用元件（省 126L） |
+| `frontend/src/components/graph/ForceGraphLazy.tsx` | 🆕 ADR-0031：react-force-graph-2d 統一 lazy wrapper（generic） |
+| `frontend/src/pages/GraphHubPage.tsx` | 🆕 ADR-0031：`/ai/graphs` 圖譜與 Wiki 中樞 |
 | `backend/app/services/expense_approval_service.py` | 費用審核工作流 (多層審批+預算聯防) |
 | `backend/app/services/expense_import_service.py` | 費用匯入匯出 (QR+Excel+電子發票) |
 | `backend/app/services/invoice_recognizer.py` | 統一發票辨識器 (QR+OCR) |

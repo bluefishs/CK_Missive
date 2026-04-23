@@ -1,5 +1,8 @@
 # 專案結構與架構
 
+> **v5.9.0 錯誤合約化（ADR-0028）**：3 靜態守護 + Silent failure 零容忍 + Timeout 合約
+> **v5.9.0 觀測棧完工**：Prometheus 16 指標 + 3 Grafana dashboards + 12 alert rules + Promtail v2
+
 ## 根目錄結構
 
 ```
@@ -7,11 +10,20 @@ CK_Missive/
 ├── .claude/                    # Claude Code 配置
 ├── backend/                    # FastAPI 後端
 ├── frontend/                   # React 前端
-├── configs/                    # 外部配置 (PostgreSQL tuning, init.sql)
-├── docs/                       # 文件目錄
+├── configs/                    # 外部配置
+│   ├── grafana/                #   3 dashboards (HTTP / DB Pool / Inference) + README + promtail-pm2.yml
+│   ├── prometheus/             #   alerts.yml (12 rules: error_budget / silent_failure / capacity / business)
+│   ├── init.sql, nginx.conf, postgresql-tuning.conf, cloudflare-tunnel.yml
+├── docs/                       # 文件目錄（含 adr/ archived/ archive/）
 ├── scripts/                    # 腳本目錄 (分類組織)
 │   ├── dev/                    #   開發工具 (dev-start, dev-stop, start-backend)
-│   ├── checks/                 #   驗證檢查 (architecture, api, route, skills-sync, synthetic-baseline, soul-fidelity)
+│   ├── checks/                 #   驗證檢查
+│   │                              • verify_architecture, api, route, skills-sync
+│   │                              • synthetic-baseline, soul-fidelity, shadow-baseline-report
+│   │                              • 🆕 async_session_race_guard（ADR-0028）
+│   │                              • 🆕 sse_headers_guard（ADR-0028）
+│   │                              • 🆕 adr_lifecycle_check（ADR-0029）
+│   │                              • schema_lazy_load_guard（ADR-0027）
 │   ├── health/                 #   系統健康 (health_check, monitor, health-watchdog)
 │   ├── deploy/                 #   部署腳本 (deploy-nas, deploy-public)
 │   ├── init/                   #   初始化/配置 (database-init, config-manager)
@@ -20,6 +32,7 @@ CK_Missive/
 ├── .env                        # 環境設定 (唯一來源)
 ├── docker-compose.infra.yml    # 基礎設施 Compose (PostgreSQL+Redis)
 ├── docker-compose.dev.yml      # 全 Docker 開發 Compose
+├── docker-compose.multichannel.yml  # v5.9.2 openclaw service 已移除（NemoClaw Sprint 2）
 ├── backend/config/
 │   ├── agent-policy.yaml       # Agent 路由/工具/回退策略
 │   ├── inference-profiles.yaml # 推理 Profile (6 profiles: nim/groq/ollama...)
@@ -28,6 +41,34 @@ CK_Missive/
 ├── README.md                   # 專案說明
 └── ecosystem.config.js         # PM2 配置
 ```
+
+## 錯誤合約化（ADR-0028）
+
+所有 `except` 區塊必須同時滿足三件事：
+1. `logger.error`（非 warning）+ `exc_info=True` + 結構化 context
+2. 打 Prometheus metric counter（error_type label）
+3. 默認 re-raise；吞錯必須註明理由
+
+**Timeouts 統一合約**（`backend/app/core/timeouts.py`）：
+- LLM synthesis 35s / Quality review 10s / RAG retrieval 8s / Tool execution 15s / DB query 5s
+
+**3 靜態守護 pre-commit 執行**：
+- `async_session_race_guard.py` — `asyncio.gather` + `ctx.db` 共用偵測
+- `sse_headers_guard.py` — SSE endpoint 必須含 `Content-Encoding: identity`
+- `schema_lazy_load_guard.py` — Pydantic schema 不得訪問 ORM lazy relationship
+
+**Regression lock tests**：每一個 silent failure 修復必須附 `test_*_regression.py` 鎖定。
+
+## 觀測棧（configs/grafana/ + configs/prometheus/）
+
+| 類別 | 檔案 | 內容 |
+|---|---|---|
+| Dashboards | `configs/grafana/dashboards/ck-missive-http.json` | HTTP 流量 / 錯誤率 / P50/95/99 latency（6 panels） |
+| Dashboards | `configs/grafana/dashboards/ck-missive-db-pool.json` | Pool 狀態 / 查詢 p95 / 慢查詢（6 panels） |
+| Dashboards | `configs/grafana/dashboards/ck-missive-inference.json` | LLM completion / fallback / rate limit / shadow baseline（7 panels） |
+| Alert rules | `configs/prometheus/alerts.yml` | 4 groups × 12 rules — error_budget / silent_failure / capacity / business |
+| Promtail | `configs/grafana/promtail-pm2.yml` v2 | 5 scrape targets（error / out / app / admin_push / watchdog） |
+| 部署指南 | `configs/grafana/README.md` | CK_DigitalTunnel 端 provisioning 步驟 |
 
 ## 後端模型結構
 

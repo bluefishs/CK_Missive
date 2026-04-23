@@ -2,8 +2,15 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.6.0 穩定性強化 + 安全硬化 + structlog 統一 + 星空首頁
-> **最後更新**: 2026-04-18
+> **版本**: v5.9.2（2026-04-23）整合優化 3 版 ship + NemoClaw Sprint 2
+> **最後更新**: 2026-04-23
+>
+> **近期重大里程碑**：
+> - **v5.9.0 ~ v5.9.2**（11 commits）：ADR-0028 錯誤合約化 + 3 靜態守護 + 觀測棧完工 + 坤哥第 2 次詢問修復 + ADR-0031 頁面整合
+> - **ADR 治理**（ADR-0029）：Active 27 → 17（GREEN-）；首波 archive 10 則
+> - **Hermes GO/NO-GO**（ADR-0030）：baseline 30 + LINE canary + Owner 7 天 dogfooding，**2026-05-20 硬 deadline**
+> - **坤哥為唯一意識體入口**（ADR-0023 + ADR-0031）：/kunge 7 tabs 統一
+> - **NemoClaw 歸檔**：5/26 deadline，Sprint 2 已完成（docker-compose 清理）
 
 ---
 
