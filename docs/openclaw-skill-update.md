@@ -1,5 +1,8 @@
 # CK Missive Bridge Skill — Updated for v5.5.0
 
+> ⚠️ **ARCHIVED（2026-04-22）**：OpenClaw 已由 Hermes Agent 取代（ADR-0014）。
+> 本文件為歷史參考，Hermes skill 部署請見 `docs/hermes-skills/ck-missive-bridge/`。
+
 > Reference document for updating the OpenClaw container SKILL.md.
 > NOT deployed automatically — requires manual copy to Docker container.
 > Target: container `/home/node/.openclaw/workspace/skills/ck-missive-bridge/SKILL.md`

@@ -1,6 +1,16 @@
 # LINE + OpenClaw 運維指南
 
-> 最後更新: 2026-03-25 | 狀態: 運行中
+> ⚠️ **ARCHIVED（2026-04-22）**：OpenClaw 已由 Hermes Agent 取代（ADR-0014），
+> LINE 通道改由 Hermes gateway 接管。本指南保留僅供歷史參考，**不再維護**。
+>
+> 現行架構請見：
+> - `docs/HERMES_MIGRATION_PLAN.md` — Hermes 遷移計畫
+> - `docs/adr/0014-hermes-replace-openclaw.md` — 取代決策
+> - `docs/adr/0030-hermes-go-no-go-revision.md` — GO/NO-GO 最新決策
+>
+> ---
+>
+> 最後更新（archived 狀態）: 2026-03-25 | 原狀態: 運行中
 
 ## 現行架構
 
