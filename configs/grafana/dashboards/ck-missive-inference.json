@@ -1,0 +1,102 @@
+{
+  "dashboard": {
+    "title": "CK Missive — LLM Inference",
+    "uid": "ck-missive-inference",
+    "tags": ["ck-missive", "llm", "inference"],
+    "timezone": "Asia/Taipei",
+    "refresh": "30s",
+    "schemaVersion": 38,
+    "panels": [
+      {
+        "title": "Completions Rate (by provider)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum by (provider) (rate(inference_completions_total[5m]))",
+            "legendFormat": "{{provider}}"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "reqps" } }
+      },
+      {
+        "title": "Latency p95 (by provider)",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (provider, le) (rate(inference_duration_seconds_bucket[5m])))",
+            "legendFormat": "p95 {{provider}}"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "s" } }
+      },
+      {
+        "title": "Fallback Events (by reason)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum by (from_provider, to_provider, reason) (rate(inference_fallbacks_total[5m]))",
+            "legendFormat": "{{from_provider}}→{{to_provider}} ({{reason}})"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "reqps" } }
+      },
+      {
+        "title": "Rate Limit Hits (by provider)",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum by (provider, status_code) (rate(inference_rate_limits_total[5m]))",
+            "legendFormat": "{{provider}} [{{status_code}}]"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "color": { "mode": "fixed", "fixedColor": "orange" }
+          }
+        }
+      },
+      {
+        "title": "Context-Aware Routing Decisions (15m)",
+        "type": "table",
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum by (reason, target_provider) (increase(inference_context_routes_total[15m]))",
+            "format": "table",
+            "instant": true
+          }
+        ]
+      },
+      {
+        "title": "Shadow Baseline — Rows (24h lookback)",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 16, "w": 6, "h": 8 },
+        "targets": [{ "expr": "shadow_baseline_rows_total{lookback_hours=\"24\"}" }],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": 0 },
+                { "color": "yellow", "value": 15 },
+                { "color": "green", "value": 30 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Shadow Baseline — Latency p95 (by provider)",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 16, "w": 6, "h": 8 },
+        "targets": [{ "expr": "shadow_baseline_latency_p95_ms" }],
+        "fieldConfig": { "defaults": { "unit": "ms" } }
+      }
+    ]
+  }
+}

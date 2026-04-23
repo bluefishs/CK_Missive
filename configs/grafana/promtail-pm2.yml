@@ -1,45 +1,100 @@
-# Promtail 配置 — 抓取 CK_Missive PM2 JSON 日誌
+# Promtail Scrape Config — CK_Missive PM2 日誌
 #
-# 用於 CK_DigitalTunnel PLG stack 的 Promtail 額外 scrape target。
-# 將此檔案加入 Promtail 的 scrape_configs 或 --config.expand-env 引入。
+# 用途：將 CK_Missive 本機 PM2 產生的 log 推送至 CK_DigitalTunnel 的 Loki。
 #
-# PM2 日誌路徑（Windows）：
-#   backend error log → structlog JSON 格式
-#   backend out log   → uvicorn access log (plain text)
+# 部署：
+#   1) Promtail 容器（hostname: promtail）透過 volume mount 可讀
+#      `D:/CKProject/CK_Missive/backend/logs/` 與 `D:/CKProject/CK_Missive/logs/`
+#   2) 將本檔（或其 scrape_configs 段）合併到主 Promtail 配置
+#   3) 重啟 Promtail：docker compose -f CK_DigitalTunnel/docker-compose.yml restart promtail
 #
-# Version: 1.0.0
+# Loki 驗證（部署後）：
+#   curl -G -s "http://localhost:3100/loki/api/v1/label/job/values"
+#   # 預期回傳含 "ck-missive-backend"
+#
+# Grafana Explore 快測：
+#   {job="ck-missive-backend"} |= "ERROR"
+#
+# Version: 2.0.0 (2026-04-22 擴展：納入 admin_push / watchdog / uvicorn / api logs)
+# Related: ADR-0019 structlog, ADR-0028 錯誤合約化
 
 server:
-  http_listen_port: 0  # 由主 Promtail 管理
+  http_listen_port: 0   # 由主 Promtail 管理，此為 child config
   grpc_listen_port: 0
 
+# positions 由主 Promtail 管理
+
 scrape_configs:
-  - job_name: ck-missive-backend
+  # ---------------------------------------------------------------------------
+  # Backend structlog JSON (error + structured events, ADR-0019)
+  # ---------------------------------------------------------------------------
+  - job_name: ck-missive-backend-error
     static_configs:
       - targets: [localhost]
         labels:
-          job: ck-missive
+          job: ck-missive-backend
           service: backend
-          __path__: D:/CKProject/CK_Missive/backend/logs/backend-error.log
+          stream: error
+          __path__: D:/CKProject/CK_Missive/backend/logs/backend-error*.log
     pipeline_stages:
-      # structlog JSON 格式自動解析
       - json:
           expressions:
             level: level
             event: event
             logger: logger
             timestamp: timestamp
+            error_type: error_type
       - labels:
           level:
           logger:
+          error_type:
       - timestamp:
           source: timestamp
           format: "2006-01-02T15:04:05.999999"
 
+  # ---------------------------------------------------------------------------
+  # Backend uvicorn stdout (access + startup)
+  # ---------------------------------------------------------------------------
+  - job_name: ck-missive-backend-out
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: ck-missive-backend
+          service: backend
+          stream: stdout
+          __path__: D:/CKProject/CK_Missive/backend/logs/backend-out*.log
+
+  # ---------------------------------------------------------------------------
+  # Backend 應用 log (app.log, api.log, errors.log)
+  # ---------------------------------------------------------------------------
+  - job_name: ck-missive-backend-app
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: ck-missive-backend
+          service: backend
+          stream: app
+          __path__: D:/CKProject/CK_Missive/backend/logs/{app,api,errors,system,database}*.log
+
+  # ---------------------------------------------------------------------------
+  # Admin push 專屬失敗 log（ADR-0027/0028）
+  # ---------------------------------------------------------------------------
+  - job_name: ck-missive-admin-push
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: ck-missive-backend
+          service: admin_push
+          stream: failures
+          __path__: D:/CKProject/CK_Missive/backend/logs/admin_push_failures.log
+
+  # ---------------------------------------------------------------------------
+  # Health Watchdog
+  # ---------------------------------------------------------------------------
   - job_name: ck-missive-watchdog
     static_configs:
       - targets: [localhost]
         labels:
-          job: ck-missive
+          job: ck-missive-watchdog
           service: watchdog
-          __path__: D:/CKProject/CK_Missive/logs/watchdog-out.log
+          __path__: D:/CKProject/CK_Missive/logs/watchdog-*.log

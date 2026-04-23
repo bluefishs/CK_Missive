@@ -1,0 +1,199 @@
+# CK_Missive Prometheus Alert Rules
+#
+# Version: 1.0.0 (2026-04-22, ADR-0028 error budget 落地)
+#
+# 用法：
+#   Prometheus server 的 rule_files: 加入此檔路徑。
+#   Alertmanager 依 severity label 路由：critical → 即時；warning → 批次。
+#
+# 設計原則（ADR-0028 錯誤合約化）：
+#   - error_budget 群組：單一 endpoint / tool / provider 10min error rate > 5%
+#   - silent_failure 群組：已知 silent failure pattern 偵測
+#   - capacity 群組：資源耗盡前警示
+#   - business 群組：業務路徑失效（晨報 / 推播 / Hermes baseline）
+
+groups:
+  # ==========================================================================
+  # Error Budget — ADR-0028 錯誤合約化
+  # ==========================================================================
+  - name: error_budget
+    interval: 30s
+    rules:
+      - alert: HttpEndpointErrorBudgetBurn
+        expr: |
+          (
+            sum by (path) (rate(http_requests_total{status_code=~"5.."}[10m]))
+            /
+            sum by (path) (rate(http_requests_total[10m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: http
+        annotations:
+          summary: "Endpoint {{ $labels.path }} 10min 錯誤率 > 5%"
+          description: |
+            {{ $labels.path }} 過去 10 分鐘 5xx 錯誤率為 {{ $value | humanizePercentage }}，
+            超過 error budget 門檻（5%）。檢查 JSON log / trace 找根因。
+
+      - alert: HttpEndpointLatencyP95High
+        expr: |
+          histogram_quantile(0.95,
+            sum by (path, le) (rate(http_request_duration_seconds_bucket[5m]))
+          ) > 8
+        for: 10m
+        labels:
+          severity: warning
+          component: http
+        annotations:
+          summary: "Endpoint {{ $labels.path }} P95 latency > 8s"
+          description: |
+            {{ $labels.path }} P95 延遲 {{ $value | humanizeDuration }}，
+            超過使用者體驗下限（ADR-0028）。
+
+      - alert: InferenceProviderErrorBudget
+        expr: |
+          (
+            sum by (provider) (rate(inference_rate_limits_total[10m]))
+            /
+            sum by (provider) (rate(inference_completions_total[10m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: inference
+        annotations:
+          summary: "Provider {{ $labels.provider }} rate limit > 5%"
+          description: |
+            {{ $labels.provider }} 過去 10 分鐘 rate-limit 比例 {{ $value | humanizePercentage }}；
+            檢查 token tracker / fallback 是否正常。
+
+  # ==========================================================================
+  # Silent Failure — 已知 pattern
+  # ==========================================================================
+  - name: silent_failure
+    interval: 30s
+    rules:
+      - alert: AdminPushConsecutiveFailures
+        expr: admin_push_consecutive_fails >= 3
+        for: 1m
+        labels:
+          severity: critical
+          component: admin_push
+        annotations:
+          summary: "通道 {{ $labels.channel }} 連續推播失敗 {{ $value }} 次"
+          description: |
+            Admin push {{ $labels.channel }} 連續失敗 ≥ 3 次，用戶可能錯過晨報 / 告警。
+            檢查 logs/admin_push_failures.log。
+
+      - alert: DbPoolTimeoutSpike
+        expr: rate(db_pool_timeout_total[5m]) > 0.01
+        for: 3m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "DB pool timeout 觸發（5m rate {{ $value }}/s）"
+          description: |
+            asyncpg pool 獲取 connection 超時。可能是：
+            1) 並發高於 pool size（檢查 db_pool_active vs db_pool_size）
+            2) 長查詢卡住 connection（檢查 db_slow_query_total）
+            3) ADR-0021 race condition 回歸
+
+      - alert: InferenceFallbackBurst
+        expr: |
+          sum by (from_provider, to_provider) (rate(inference_fallbacks_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: inference
+        annotations:
+          summary: "{{ $labels.from_provider }} → {{ $labels.to_provider }} fallback 頻繁"
+          description: |
+            過去 5 分鐘 fallback 速率 {{ $value }}/s。
+            主 provider 可能異常或 rate-limited；確認是否需切換主 provider。
+
+  # ==========================================================================
+  # Capacity — 資源耗盡預警
+  # ==========================================================================
+  - name: capacity
+    interval: 30s
+    rules:
+      - alert: DbPoolHighUtilization
+        expr: (db_pool_active / db_pool_size) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "DB pool 使用率 > 90%"
+          description: |
+            pool active {{ $value | humanizePercentage }}。
+            可能是流量高峰或 connection 未正確釋放。
+
+      - alert: DbPoolOverflowActive
+        expr: db_pool_overflow_active > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "DB pool overflow connections > 5"
+          description: |
+            已有 {{ $value }} 個 overflow 連線；pool size 可能需調大。
+
+      - alert: HighActiveRequests
+        expr: http_requests_active > 50
+        for: 3m
+        labels:
+          severity: warning
+          component: http
+        annotations:
+          summary: "活躍 HTTP 請求 > 50"
+          description: "可能流量突增或慢請求堆積；檢查 p95 latency。"
+
+  # ==========================================================================
+  # Business — 業務路徑失效
+  # ==========================================================================
+  - name: business
+    interval: 60s
+    rules:
+      - alert: ShadowBaselineStalled
+        expr: |
+          shadow_baseline_rows_total{lookback_hours="24"} < 10
+        for: 30m
+        labels:
+          severity: warning
+          component: hermes
+        annotations:
+          summary: "Hermes Shadow baseline 24h 筆數 < 10"
+          description: |
+            近 24 小時 shadow baseline 累積不足 10 筆。
+            檢查 synthetic-baseline-inject 排程是否正常（預期 3x/日 × 24 queries ≈ 72/day）。
+            若持續 stalled，觸發 ADR-0030 NO-GO 路徑的風險升高。
+
+      - alert: InferenceNoCompletions
+        expr: |
+          sum(rate(inference_completions_total[10m])) == 0
+          and on() hour() > 8 and on() hour() < 22
+        for: 15m
+        labels:
+          severity: critical
+          component: inference
+        annotations:
+          summary: "工作時段內無任何 LLM completion"
+          description: |
+            8:00~22:00 之間 10 分鐘內無 inference completion。
+            系統可能異常或 Ollama/Groq/Gemma 全部失效。
+
+      - alert: SchedulerJobFailure
+        expr: increase(scheduler_job_failures_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: scheduler
+        annotations:
+          summary: "排程器 1h 內 {{ $value }} 次 job 失敗"
+          description: |
+            檢查 logs/backend-error.log 的 scheduler event；
+            已配合 scheduler_alert.py Telegram 告警（ADR-0019）。
