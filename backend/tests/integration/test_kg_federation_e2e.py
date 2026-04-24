@@ -246,7 +246,8 @@ class TestFederationHealth:
             }
 
             # 此端點需要 admin JWT — mock require_admin
-            with patch("app.api.endpoints.ai.agent_nemoclaw.require_admin") as mock_admin:
+            # 2026-04-25: patch path 改 agent_capability（agent_nemoclaw 為 deprecated stub）
+            with patch("app.api.endpoints.ai.agent_capability.require_admin") as mock_admin:
                 mock_admin.return_value = lambda: MagicMock()
 
                 resp = await client.post(
