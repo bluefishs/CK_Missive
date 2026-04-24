@@ -161,6 +161,10 @@ class AIConnector(AIConnectorManagementMixin):
         Raises:
             AIServiceException: 所有 AI 服務均不可用時拋出
         """
+        # 2026-04-25: 推理 duration 計時起點（供 Prometheus histogram 觀測）
+        import time as _time
+        _inference_start_monotonic = _time.monotonic()
+
         # 分離 Groq / Ollama 模型選擇
         # TASK_MODEL_MAP 是 Ollama 專用模型名（如 gemma4）
         # Groq 必須使用 GROQ_DEFAULT_MODEL（如 llama-3.3-70b-versatile）
@@ -247,7 +251,11 @@ class AIConnector(AIConnectorManagementMixin):
             # Prometheus provider 指標
             try:
                 from app.core.inference_provider_metrics import get_inference_provider_metrics
-                get_inference_provider_metrics().record_completion(provider, task_type or "chat")
+                _metrics = get_inference_provider_metrics()
+                _metrics.record_completion(provider, task_type or "chat")
+                # 2026-04-25: 推理 duration histogram（dead config 接線）
+                _duration = _time.monotonic() - _inference_start_monotonic
+                _metrics.record_duration(provider, _duration)
             except Exception:
                 pass
             # Request-scoped ContextVar — shadow_logger 讀此以標記實體 LLM provider
