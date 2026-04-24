@@ -181,9 +181,26 @@ class AIConnector(AIConnectorManagementMixin):
         if images:
             prefer_local = True
 
-        # 2026-04-22：planning/classify 等短任務自動 Ollama-first（避開雲端 429 fallback）
-        if task_type in _LOCAL_FIRST_TASKS:
-            prefer_local = True
+        # 2026-04-24：yaml SSOT 優先 — agent-policy.yaml provider_routing 是聲明來源，
+        # 若 task_type 在 yaml 中定義，以 yaml 為準；未定義才退回 _LOCAL_FIRST_TASKS hardcode
+        # 修復 ADR-0030 審計發現：過去 get_preferred_providers / should_prefer_local 定義但
+        # 無生產呼叫點，yaml 形同 dead config
+        _effective_task_type = task_type or "chat"
+        try:
+            from app.services.ai.core.ai_config import get_ai_config
+            _ai_cfg = get_ai_config()
+            _yaml_routing = _ai_cfg.provider_routing or {}
+            if _effective_task_type in _yaml_routing:
+                # yaml 贏 — 即使 hardcode 說強制 local，yaml 說 False 就是 False
+                if _ai_cfg.should_prefer_local(_effective_task_type):
+                    prefer_local = True
+            elif task_type in _LOCAL_FIRST_TASKS:
+                # yaml 未配置此 task_type → fallback 到 hardcode
+                prefer_local = True
+        except Exception:
+            # ai_config 載入失敗時仍退回 hardcode 確保推理可用
+            if task_type in _LOCAL_FIRST_TASKS:
+                prefer_local = True
 
         # 智慧路由：圖譜感知 + Token 預算感知
         if not prefer_local and not images:
