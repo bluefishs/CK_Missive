@@ -2807,3 +2807,273 @@
 ## [2026-04-18] lint | pages=223 orphans=4 broken=0
 ## [2026-04-17] health-snapshot | commits_24h=18 | wiki_pages=226 | health=unreachable
 
+
+## [2026-04-19] lint | pages=223 orphans=4 broken=0
+## [2026-04-18] health-snapshot | commits_24h=23 | wiki_pages=226 | health=unreachable
+
+
+## [2026-04-19] synthesis | query → synthesis | 乾坤測繪科技有限公司
+
+## [2026-04-19] synthesis | query → synthesis | 桃園市政府工務局
+
+## [2026-04-19] synthesis | query → synthesis | 交通部公路局中區養護工程分局
+
+## [2026-04-19] synthesis | query → synthesis | 南投縣政府
+
+## [2026-04-19] synthesis | query → synthesis | 桃園市政府
+
+## [2026-04-19] synthesis | query → synthesis | 交通部公路局中區養護工程分局信義工務段
+
+## [2026-04-19] synthesis | query → synthesis | 交通部公路局中區養護工程分局埔里工務段
+
+## [2026-04-19] synthesis | query → synthesis | 內政部
+
+## [2026-04-19] synthesis | query → synthesis | 桃園市政府養護工程處
+
+## [2026-04-19] synthesis | query → synthesis | 苗栗縣政府
+
+## [2026-04-19] synthesis | query → synthesis | 平鎮區金陵路五、六段替代道路新闢工程
+
+## [2026-04-19] synthesis | query → synthesis | 埔里工務段信義工務段優先關注邊坡光達應用暨進階檢測圖資建置計畫(第五期)
+
+## [2026-04-19] synthesis | query → synthesis | 八德區和強路(和平路至延平路)拓寬工程
+
+## [2026-04-19] synthesis | query → synthesis | 埔里工務段信義工務段優先關注邊坡光達應用暨進階檢測圖資建置計畫(第六期)
+
+## [2026-04-19] synthesis | query → synthesis | 112年度南投縣都市計畫樁位測補釘委託技術服務案(開口契約)
+
+## [2026-04-19] synthesis | query → synthesis | 新屋區中華南路一段(福九路至高鐵南路七段)道路拓寬工程
+
+## [2026-04-19] synthesis | query → synthesis | 113年度南投縣都市計畫樁位測補釘案委託技術服務案(開口契約)
+
+## [2026-04-19] synthesis | query → synthesis | 112年及113年多維度空間資訊基礎圖資監審工作採購案(第1作業區)
+
+## [2026-04-19] synthesis | query → synthesis | 桃園市政府養護工程處轄管道路範圍私設斜坡道調查及成果分類建置計畫第六期(新屋大溪)
+
+## [2026-04-19] synthesis | query → synthesis | 桃園市政府養護工程處轄管道路範圍私設斜坡道調查及成果分類建置計畫第八期(平鎮龍潭)
+
+## [2026-04-20] update | entity | 桃園市政府工務局 (org)
+
+## [2026-04-20] update | entity | 南投縣政府 (org)
+
+## [2026-04-20] update | entity | 交通部公路局中區養護工程分局 (org)
+
+## [2026-04-20] update | entity | 嘉義縣竹崎地政事務所 (org)
+
+## [2026-04-20] update | entity | 南投縣埔里地政事務所 (org)
+
+## [2026-04-20] update | entity | 嘉義縣政府 (org)
+
+## [2026-04-20] update | entity | 112至113年度桃園市轄內興辦公共設施工程用地取得所需土地市價及地上物查估、測量作業暨相關計畫書製作委託專業服務(開口契約) (project)
+
+## [2026-04-20] update | entity | 112年_派工單號001 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號002 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號003 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號004 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號005 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號006 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號007 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號008 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號009 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號010 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號011 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號012 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號013 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號014 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號015 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號016 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號017 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號018 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號019 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號020 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號021 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號022 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號023 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號024 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號025 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號026 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號027 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號028 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號029 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號030 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號031 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號032 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號033 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號034 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號035 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號036 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號037 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號038 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號039 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號040 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號041 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號042 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號043 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號044 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號045 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號046 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號047 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號048 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號049 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號050 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號051 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號052 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號053 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號054 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號055 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號056 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號057 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號058 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號059 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號060 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號061 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號062 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號063 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號064 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號065 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號066 (dispatch)
+
+## [2026-04-20] update | entity | 112年_派工單號067 (dispatch)
+
+## [2026-04-20] update | entity | 埔里工務段、信義工務段優先關注邊坡光達應用暨進階檢測圖資建置計畫(第七期) (project)
+
+## [2026-04-20] update | entity | 115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約) (project)
+
+## [2026-04-20] update | entity | 115年_派工單號001 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號002 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號003 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號004 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號006 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號005 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號007 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號008 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號009 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號010 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號011 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號012 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號013 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號014 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號015 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號016 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號017 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號018 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號019 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號020 (dispatch)
+
+## [2026-04-20] update | entity | 115年_派工單號021 (dispatch)
+
+## [2026-04-20] update | entity | 114年度南投縣都市計畫樁位測補釘案委託技術服務案(開口契約) (project)
+
+## [2026-04-20] update | entity | 115年度仁愛鄉非都市計畫地區圖解數化地籍圖整合建置作業 (project)
+
+## [2026-04-20] update | entity | 115年度番路鄉、竹崎鄉非都市計畫地區圖解數化地籍圖整合建置作業 (project)
+
+## [2026-04-20] compile | topic | 公文管理系統總覽
+
+## [2026-04-20] lint | pages=243 orphans=24 broken=0
+
+## 2026-04-20 05:30 — Wiki lint drift alert
+- pages=243, orphans=24 (9.9%), broken=0
+- ⚠️ orphans drift: 4→24 (+20)
+## [2026-04-19] health-snapshot | commits_24h=26 | wiki_pages=250 | health=unreachable
+
+
+## [2026-04-21] lint | pages=243 orphans=24 broken=0
+## [2026-04-20] health-snapshot | commits_24h=6 | wiki_pages=255 | health=unreachable
+
+
+## [2026-04-22] lint | pages=243 orphans=24 broken=0
+## [2026-04-21] health-snapshot | commits_24h=0 | wiki_pages=257 | health=unreachable
+
+
+## [2026-04-23] lint | pages=243 orphans=24 broken=0
+## [2026-04-22] health-snapshot | commits_24h=0 | wiki_pages=260 | health=unreachable
+
+
+## [2026-04-24] lint | pages=243 orphans=24 broken=0
+## [2026-04-23] health-snapshot | commits_24h=12 | wiki_pages=262 | health=unreachable
+
