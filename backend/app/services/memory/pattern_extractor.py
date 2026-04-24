@@ -300,10 +300,12 @@ class PatternExtractor:
             # 去重保序
             wiki_topics = list(dict.fromkeys(wiki_topics))
 
+            # 2026-04-24 ADR-0028 修復：template_hash 強制加引號，避免純數字 hash
+            # （如 "8692128536"）被 YAML parse 為 int 導致 sorted mixed types 爆錯
             content = f"""---
 type: agent_memory
 memory_type: pattern
-template_hash: {p.template_hash}
+template_hash: "{p.template_hash}"
 tool_sequence: {json.dumps(p.tool_sequence, ensure_ascii=False)}
 domains: {json.dumps(p.domains, ensure_ascii=False)}
 wiki_topics: {json.dumps(wiki_topics, ensure_ascii=False)}

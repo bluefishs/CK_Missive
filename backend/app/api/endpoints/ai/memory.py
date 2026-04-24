@@ -349,10 +349,19 @@ async def memory_nebula_graph(req: NebulaReq):
     tool_to_patterns: Dict[str, List[str]] = {}
 
     for path in PATTERNS_DIR.glob("pattern-*.md"):
-        meta = _parse_frontmatter(path.read_text(encoding="utf-8"))
+        try:
+            meta = _parse_frontmatter(path.read_text(encoding="utf-8"))
+        except Exception as e:
+            logger.error(
+                "nebula_graph: 解析 pattern frontmatter 失敗 %s: %s",
+                path.name, e, exc_info=True,
+            )
+            continue
         if not meta.get("template_hash"):
             continue
-        t_hash = meta["template_hash"]
+        # 2026-04-24 ADR-0028 防禦：template_hash 純數字時 YAML 會 parse 為 int，
+        # 混入 str hash 會讓 sorted([int, str]) 爆 TypeError。強制 coerce 為 str。
+        t_hash = str(meta["template_hash"])
         hit = meta.get("hit_count", 0) or 0
         success_rate = meta.get("success_rate", 0.0) or 0.0
         tools = meta.get("tool_sequence", []) or []
