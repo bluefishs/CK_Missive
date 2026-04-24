@@ -182,9 +182,10 @@ python -c "print('實際掃描：'); " && grep -rn "nemoclaw\|openclaw" --includ
 
 | Sprint | 狀態 | 完成日 | Notes |
 |---|---|---|---|
-| 1（文件） | 🟡 部分完成 | 2026-04-22 | LINE_OPENCLAW_OPERATIONAL_GUIDE + openclaw-skill-update 加 ARCHIVED 標頭 |
+| 1（文件） | ✅ 完成 | 2026-04-25 | LINE_OPENCLAW_OPERATIONAL_GUIDE + openclaw-skill-update + MULTICHANNEL_SETUP_GUIDE + SECRET_ROTATION_SOP §4 + HERMES_MIGRATION_PLAN + SECURITY_THREAT_MODEL 全加 ARCHIVED/退場標頭 |
 | 2（deprecated 段落） | ✅ 完成 | 2026-04-23 | docker-compose.multichannel.yml openclaw service 移除；mcp_server.py docstring 通用化 |
 | 3（程式碼引用） | 🟢 審計完成 | 2026-04-24 | 73 處分 5 類盤點完畢，見 nemoclaw-sprint3-audit-2026-04-24.md；執行延後至 Hermes GO 後 |
+| 3.5（stub 強化）| ✅ 完成 | 2026-04-25 | agent_nemoclaw.py 加 DeprecationWarning（commit fe468a00），test patch path 改 agent_capability，stub 仍保留為 NO-GO rollback 路徑 |
 | 4（stub 刪除） | ⬜ blocked on Hermes GO | — | 等 ADR-0030 決策（2026-05-20）|
 | 5（repo archive） | ⬜ pending | — | 需 GitHub admin，2026-05-26 deadline |
 
