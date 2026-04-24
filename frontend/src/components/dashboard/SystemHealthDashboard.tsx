@@ -120,7 +120,8 @@ export const SystemHealthDashboard: React.FC = () => {
     queryKey: ['system-health'],
     queryFn: async () => {
       try {
-        return await apiClient.post<HealthSummaryResponse>(
+        // 2026-04-24: 後端 health/summary 是 GET（非 POST），前端對齊
+        return await apiClient.get<HealthSummaryResponse>(
           SYSTEM_ENDPOINTS.HEALTH_SUMMARY
         );
       } catch (err) {
