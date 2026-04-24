@@ -21,6 +21,7 @@ FALLBACK_METRIC = "inference_fallback_total"
 DURATION_METRIC = "inference_duration_seconds"
 RATE_LIMIT_METRIC = "inference_rate_limit_total"
 CONTEXT_ROUTE_METRIC = "inference_context_route_total"
+ROUTING_DECISION_METRIC = "inference_routing_decision_total"
 
 
 class InferenceProviderMetrics:
@@ -61,6 +62,16 @@ class InferenceProviderMetrics:
             ["reason", "target_provider"],
             registry=reg,
         )
+        # 2026-04-25 (R6): prefer_local routing 決策源觀測（SSOT 審計配套）
+        # 解答：「yaml config 到底接管了多少 routing 決策？」
+        self.routing_decisions = Counter(
+            ROUTING_DECISION_METRIC,
+            "prefer_local routing decision source (SSOT audit)",
+            # source: yaml_config / hardcode_fallback / vision / smart_route / caller_explicit
+            # prefer_local: true / false (final outcome)
+            ["source", "task_type", "prefer_local"],
+            registry=reg,
+        )
 
     def record_completion(self, provider: str, task: str = "chat"):
         self.completions.labels(provider=provider, task=task).inc()
@@ -80,6 +91,20 @@ class InferenceProviderMetrics:
     def record_context_route(self, reason: str, target_provider: str):
         """記錄 context-aware routing 決策，如 large_prompt → nvidia。"""
         self.context_routes.labels(reason=reason, target_provider=target_provider).inc()
+
+    def record_routing_decision(self, source: str, task_type: str, prefer_local: bool):
+        """記錄 prefer_local 決策源（R6 / ADR-0030 SSOT 審計配套）。
+
+        Args:
+            source: 'yaml_config' | 'hardcode_fallback' | 'vision' | 'smart_route' | 'caller_explicit'
+            task_type: chat / planning / ner / classify / ... (空字串回退為 'unknown')
+            prefer_local: 最終 prefer_local 結果 (True / False)
+        """
+        self.routing_decisions.labels(
+            source=source,
+            task_type=task_type or "unknown",
+            prefer_local=str(prefer_local).lower(),
+        ).inc()
 
 
 _instance: Optional[InferenceProviderMetrics] = None

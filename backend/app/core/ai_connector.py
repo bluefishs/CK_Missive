@@ -177,9 +177,13 @@ class AIConnector(AIConnectorManagementMixin):
         else:
             ollama_model = OLLAMA_DEFAULT_MODEL
 
+        # 2026-04-25 (R6): 追蹤 routing decision source 供 SSOT 審計
+        _routing_source = "caller_explicit" if prefer_local else "default_false"
+
         # Vision 路徑：images 只有 Ollama 支援，強制 Ollama-first
         if images:
             prefer_local = True
+            _routing_source = "vision"
 
         # 2026-04-24：yaml SSOT 優先 — agent-policy.yaml provider_routing 是聲明來源，
         # 若 task_type 在 yaml 中定義，以 yaml 為準；未定義才退回 _LOCAL_FIRST_TASKS hardcode
@@ -194,13 +198,27 @@ class AIConnector(AIConnectorManagementMixin):
                 # yaml 贏 — 即使 hardcode 說強制 local，yaml 說 False 就是 False
                 if _ai_cfg.should_prefer_local(_effective_task_type):
                     prefer_local = True
+                _routing_source = "yaml_config"
             elif task_type in _LOCAL_FIRST_TASKS:
                 # yaml 未配置此 task_type → fallback 到 hardcode
                 prefer_local = True
+                _routing_source = "hardcode_fallback"
         except Exception:
             # ai_config 載入失敗時仍退回 hardcode 確保推理可用
             if task_type in _LOCAL_FIRST_TASKS:
                 prefer_local = True
+                _routing_source = "hardcode_fallback"
+
+        # R6: record routing decision (observability for SSOT audit)
+        try:
+            from app.core.inference_provider_metrics import get_inference_provider_metrics
+            get_inference_provider_metrics().record_routing_decision(
+                source=_routing_source,
+                task_type=_effective_task_type,
+                prefer_local=prefer_local,
+            )
+        except Exception:
+            pass  # metric 不應阻斷推理
 
         # 智慧路由：圖譜感知 + Token 預算感知
         if not prefer_local and not images:

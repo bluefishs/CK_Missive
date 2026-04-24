@@ -414,5 +414,79 @@ export function detectEnvironment(): 'localhost' | 'internal' | 'ngrok' | 'publi
 
 ---
 
+---
+
+## 13. AI-Native UX 範本 — 意識體入口模式（坤哥範本）
+
+若 repo 有 AI assistant 性質功能（非單純工具），建議採「單一意識體入口」模式避免介面
+碎片化（CK_Missive 早期分散於 `/admin/ai-assistant` + `/agent/dashboard` + `/digital-twin`，
+ADR-0031 統一至 `/kunge`）。
+
+### 13.1 結構
+
+```
+/assistant 或 /<persona-name>    ← 唯一意識體入口
+├── chat          ← 直接對話（預設 tab，降低進入摩擦）
+├── identity      ← SOUL / 人格定義（三信念 / 反迴聲 / 倫理紅線）
+├── memory        ← 記憶圖譜（patterns / crystals / diary）
+├── evolution     ← 結晶進化（pattern → crystal 學習閉環）
+├── nebula        ← 技能星雲（能力拓撲分佈）
+├── dialogues     ← 對話精選（深度互動集錦）
+└── ops           ← 運維儀表板（dual mode: user 精簡 / admin 完整）
+```
+
+### 13.2 路由設計
+
+```typescript
+// 單一 page + dynamic tab param
+/<persona>/:tab?  →  single page component with Tabs
+
+// Redirect 相容期（6 個月）
+/admin/<old-path>  →  <Navigate to="/<persona>/ops" />
+/agent/<old-path>  →  <Navigate to="/<persona>/ops" />
+```
+
+### 13.3 雙模式設計（user / admin）
+
+```typescript
+const { isAdmin } = useAuthGuard();
+<Component mode={isAdmin ? 'admin' : 'user'} />
+// user: 7 子 tab 精簡（日常使用）
+// admin: 12 子 tab 完整（效能/管線/雙模式比較）
+```
+
+### 13.4 共用元件（省行數）
+
+```
+components/<persona>/
+├── OpsDashboard.tsx       ← dual-mode dashboard
+├── MemoryStatsRow.tsx     ← 6-Card 記憶統計（kunge + 其他頁共用）
+└── ForceGraphLazy.tsx     ← 通用 lazy wrapper（generic）
+```
+
+### 13.5 後端支撐（見 §5 Hermes）
+
+```
+api/endpoints/ai/
+├── agent_query.py         ← chat 主對話 SSE
+├── agent_capability.py    ← identity + self-profile + federation
+├── agent_evolution.py     ← evolution + journal
+├── memory.py              ← memory tab 資料源
+└── tools_manifest.py      ← 能力 topology（nebula tab）
+```
+
+### 13.6 為何不只「聊天窗」就好
+
+單一聊天窗缺乏「元認知透明性」（用戶不知道 AI 記了什麼、如何學、能做什麼）。7-tab
+結構讓用戶能檢視：
+- **identity** → AI 的自我定位（防止人格漂移）
+- **memory** → 記了什麼（可增刪）
+- **evolution** → 怎麼進化（patterns/crystals 閉環可視化）
+
+這些對**用戶信任 + AI 對齊治理**至關重要。
+
+---
+
 **變更歷史**
 - v1.0（2026-04-25）：首版，抽象自 CK_Missive v5.9.5 P0 事故與 SSOT 修復教訓
+- v1.1（2026-04-25）：加 §13 AI-Native UX 範本（坤哥 /kunge 7-tab 模式）
