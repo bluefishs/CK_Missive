@@ -178,6 +178,38 @@ python scripts/checks/synthetic-baseline-inject.py --dry-run
 
 此修訂不影響其他四條 GO 條件達標狀態。
 
+### 2026-04-25 v5.9.6 架構標準化完成事實記錄
+
+接續 2026-04-24 中期檢點，延伸發現 → 解決：
+- **新發現**：Patch A 本身為 no-op — `agent-policy.yaml provider_routing` 定義了但 `get_preferred_providers`/`should_prefer_local` 生產 0 呼叫點。47%→100% 改善**幾乎全由 Patch B（qwen2.5:7b）貢獻**
+- **根因**：SSOT 聲明 vs 實作斷鏈（dead config 反模式）
+
+完整修復鏈（10 commits 累計）：
+
+| 修復 | Commit | 證據 |
+|---|---|---|
+| SSOT yaml 接線 + 4 integration tests | e33df6fd | `should_prefer_local` ALIVE |
+| inference_semaphore 分池（local+cloud） | 5bfbdb92 | 5 tests 獨立驗證 |
+| R6 routing decision metric | f01cc529 | 5-source observability |
+| Cloud semaphore 真接線（Groq/NVIDIA） | 870fefb5 | `get_cloud_semaphore` ALIVE |
+| `record_duration` histogram 接線 | 742c0c75 | inference_provider_metrics 0 dead |
+| STANDARD_REFERENCE.md 12 章 | 2eed285f | 跨 repo 參考 |
+| SERVICE_CONTEXT_MAP 85 散戶 | 57f63ef9 | 16 context 映射 |
+| Fitness scanners（service entropy + dead config） | 82285acb | 閾值 20% + scanner v2 |
+| 本地 fitness runner + /arch-fitness | 7d06b86e | 零 CI 費用 |
+| CLAUDE.md + scanner v2 + CHANGELOG v5.9.6 | 6bbd8dce | 索引同步 |
+
+**治理結晶**（永久 feedback memory）：
+- `feedback_ddd_over_line_count` — 拆分看職責不看行數
+- `feedback_no_github_actions_cost` — CI 費用規範
+
+**5/20 會議 artifact 現狀**：
+- GO #1 Baseline ≥ 30：✅ 累計 370+
+- GO #2 Owner dogfooding：🟡 D1/D2 客觀齊，D3-D7 待填
+- GO #3 Soul fidelity ≥ 70%：✅ ollama 85% / groq 75%
+- GO #4 Error rate < 5%：✅ patch 後 25+ 筆 100% success
+- GO #5 P95 < 8s：❌ 實測 58s，**建議會議採方案 A/B/C 之一**
+
 **決策結果（待填）**：
 
 ```

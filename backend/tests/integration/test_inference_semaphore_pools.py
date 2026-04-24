@@ -99,3 +99,45 @@ def test_prometheus_gauge_labels_pool():
     # legacy gauge 只 local 有（向後相容）
     assert local._legacy_gauge is not None, "local pool 需維持 legacy gauge 供舊 alert"
     assert cloud._legacy_gauge is None, "cloud pool 不應寫 legacy gauge（避免覆蓋）"
+
+
+def test_groq_completion_uses_cloud_semaphore():
+    """鎖定 870fefb5：_groq_completion 必須經過 cloud semaphore（非 local）。
+
+    Regression guard：若有人誤把 Groq 路徑改走 local pool，此 test 會亮燈。
+    """
+    import inspect
+    from app.core.ai_connector import AIConnector
+
+    src = inspect.getsource(AIConnector._groq_completion)
+    assert "get_cloud_semaphore" in src, (
+        "_groq_completion 必須 import get_cloud_semaphore（R5 分池設計）"
+    )
+    assert "sem.acquire" in src, "_groq_completion 必須 acquire cloud semaphore"
+    assert "get_inference_semaphore" not in src, (
+        "_groq_completion 不應用 local semaphore（GPU pool 是給 Ollama）"
+    )
+
+
+def test_nvidia_completion_uses_cloud_semaphore():
+    """鎖定 870fefb5：_nvidia_completion 必須經過 cloud semaphore（非 local）。"""
+    import inspect
+    from app.core.ai_connector import AIConnector
+
+    src = inspect.getsource(AIConnector._nvidia_completion)
+    assert "get_cloud_semaphore" in src, (
+        "_nvidia_completion 必須 import get_cloud_semaphore"
+    )
+    assert "sem.acquire" in src
+    assert "get_inference_semaphore" not in src
+
+
+def test_ollama_completion_still_uses_local_semaphore():
+    """Ollama 路徑應保持 local semaphore（GPU VRAM 保護）。"""
+    import inspect
+    from app.core.ai_connector import AIConnector
+
+    src = inspect.getsource(AIConnector._ollama_completion)
+    assert "get_inference_semaphore" in src, (
+        "_ollama_completion 必須用 local semaphore（RTX 4060 8GB VRAM 保護）"
+    )
