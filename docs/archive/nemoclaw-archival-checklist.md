@@ -184,7 +184,7 @@ python -c "print('實際掃描：'); " && grep -rn "nemoclaw\|openclaw" --includ
 |---|---|---|---|
 | 1（文件） | 🟡 部分完成 | 2026-04-22 | LINE_OPENCLAW_OPERATIONAL_GUIDE + openclaw-skill-update 加 ARCHIVED 標頭 |
 | 2（deprecated 段落） | ✅ 完成 | 2026-04-23 | docker-compose.multichannel.yml openclaw service 移除；mcp_server.py docstring 通用化 |
-| 3（程式碼引用） | ⬜ pending | — | 31 處 federation_* / test 檔案 / 前端 JSDoc 待審計 |
+| 3（程式碼引用） | 🟢 審計完成 | 2026-04-24 | 73 處分 5 類盤點完畢，見 nemoclaw-sprint3-audit-2026-04-24.md；執行延後至 Hermes GO 後 |
 | 4（stub 刪除） | ⬜ blocked on Hermes GO | — | 等 ADR-0030 決策（2026-05-20）|
 | 5（repo archive） | ⬜ pending | — | 需 GitHub admin，2026-05-26 deadline |
 
