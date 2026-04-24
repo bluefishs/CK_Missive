@@ -17,6 +17,8 @@ export interface TenderRecord {
   bidder_names: string[];
   tender_api_url: string;
   matched_keyword?: string;
+  ezbid_id?: string;
+  source?: string;
 }
 
 export interface TenderSearchResult {

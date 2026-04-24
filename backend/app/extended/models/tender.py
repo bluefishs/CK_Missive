@@ -48,7 +48,8 @@ class TenderBookmark(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("ix_tender_bookmark_unit_job", "unit_id", "job_number", unique=True),
+        # v5.9.3 (2026-04-24): per-user unique
+        Index("ix_tender_bookmark_user_unit_job", "user_id", "unit_id", "job_number", unique=True),
     )
 
 

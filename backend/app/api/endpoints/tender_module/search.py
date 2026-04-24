@@ -93,7 +93,12 @@ async def search_tenders(
     if req.page in (None, 1):
         try:
             from app.services.ezbid_scraper import EzbidScraper
-            scraper = EzbidScraper()
+            from app.core.redis_client import get_redis
+            try:
+                _redis = await get_redis()
+            except Exception:
+                _redis = None
+            scraper = EzbidScraper(redis_client=_redis)
             category_map = {"工程": "WORK", "勞務": "SERV", "財物": "PPTY"}
             cat = category_map.get(req.category or "", "ALL")
             ezbid = await scraper.fetch_latest(query=req.query, category=cat, pages=1)
@@ -144,12 +149,21 @@ async def search_tenders(
         )
         result["total_records"] = len(result["records"])
 
-    # 搜尋結果自動入庫 (背景)
+    # 搜尋結果自動入庫 — 2026-04-24 改非同步背景任務，不阻塞 response
     try:
+        import asyncio as _aio
         from app.db.database import AsyncSessionLocal
         from app.services.tender_cache_service import save_search_results
-        async with AsyncSessionLocal() as cache_db:
-            await save_search_results(cache_db, result.get("records", [])[:50], source="pcc")
+
+        async def _bg_save(records_snapshot):
+            try:
+                async with AsyncSessionLocal() as cache_db:
+                    await save_search_results(cache_db, records_snapshot, source="pcc")
+            except Exception as e:
+                import logging as _logging
+                _logging.getLogger(__name__).debug(f"bg tender save failed: {e}")
+
+        _aio.create_task(_bg_save(list(result.get("records", []))[:50]))
     except Exception:
         pass
 

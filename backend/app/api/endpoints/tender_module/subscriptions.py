@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.common import SuccessResponse
 from app.db.database import get_async_db as get_db
+from app.core.dependencies import require_auth
+from app.extended.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -173,11 +175,16 @@ async def delete_subscription(
 # ============================================================================
 
 @router.post("/bookmarks/list")
-async def list_bookmarks(db: AsyncSession = Depends(get_db)):
-    """列出所有書籤"""
+async def list_bookmarks(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth()),
+):
+    """列出當前用戶的書籤（per-user，2026-04-24 起）"""
     from app.extended.models.tender import TenderBookmark
     result = await db.execute(
-        select(TenderBookmark).order_by(TenderBookmark.created_at.desc())
+        select(TenderBookmark)
+        .where(TenderBookmark.user_id == current_user.id)
+        .order_by(TenderBookmark.created_at.desc())
     )
     items = result.scalars().all()
     return SuccessResponse(data=[{
@@ -191,12 +198,16 @@ async def list_bookmarks(db: AsyncSession = Depends(get_db)):
 
 @router.post("/bookmarks/create")
 async def create_bookmark(
-    req: BookmarkCreateRequest, db: AsyncSession = Depends(get_db),
+    req: BookmarkCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth()),
 ):
-    """收藏標案"""
+    """收藏標案（綁定當前用戶，2026-04-24 起）"""
     from app.extended.models.tender import TenderBookmark
+    # job_number 允許空字串（ezbid 案件）
     bookmark = TenderBookmark(
-        unit_id=req.unit_id, job_number=req.job_number,
+        user_id=current_user.id,
+        unit_id=req.unit_id, job_number=req.job_number or "",
         title=req.title, unit_name=req.unit_name,
         budget=req.budget, deadline=req.deadline, notes=req.notes,
     )
@@ -208,16 +219,21 @@ async def create_bookmark(
 
 @router.post("/bookmarks/update")
 async def update_bookmark(
-    req: dict, db: AsyncSession = Depends(get_db),
+    req: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth()),
 ):
-    """更新書籤狀態"""
+    """更新書籤狀態（限當前用戶自己的書籤）"""
     from app.extended.models.tender import TenderBookmark
     bookmark_id = req.get("id")
     bookmark = (await db.execute(
-        select(TenderBookmark).where(TenderBookmark.id == bookmark_id)
+        select(TenderBookmark).where(
+            TenderBookmark.id == bookmark_id,
+            TenderBookmark.user_id == current_user.id,
+        )
     )).scalar_one_or_none()
     if not bookmark:
-        return SuccessResponse(data=None, message="書籤不存在")
+        return SuccessResponse(data=None, message="書籤不存在或非本人擁有")
     new_status = req.get("status")
     if "status" in req: bookmark.status = new_status
     if "case_code" in req: bookmark.case_code = req["case_code"]
@@ -242,10 +258,17 @@ async def update_bookmark(
 
 
 @router.post("/bookmarks/delete")
-async def delete_bookmark(req: dict, db: AsyncSession = Depends(get_db)):
-    """刪除書籤"""
+async def delete_bookmark(
+    req: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth()),
+):
+    """刪除書籤（限當前用戶自己的書籤）"""
     from app.extended.models.tender import TenderBookmark
-    await db.execute(delete(TenderBookmark).where(TenderBookmark.id == req.get("id")))
+    await db.execute(delete(TenderBookmark).where(
+        TenderBookmark.id == req.get("id"),
+        TenderBookmark.user_id == current_user.id,
+    ))
     await db.commit()
     return SuccessResponse(data={"deleted": True})
 

@@ -106,20 +106,28 @@ const TenderSearchPage: React.FC = () => {
 
   const handleToggleBookmark = useCallback(async (record: TenderRecord) => {
     const existingId = findBookmarkId(record);
+    const errMsg = (e: unknown, fallback: string) => {
+      const err = e as { response?: { status?: number } } | undefined;
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) return '請先登入以收藏標案';
+      if (status === 422) return '收藏資料格式錯誤';
+      return fallback;
+    };
     if (existingId) {
       try {
         await deleteBm.mutateAsync(existingId);
         message.success('已取消收藏');
-      } catch { message.error('取消收藏失敗'); }
+      } catch (e) { message.error(errMsg(e, '取消收藏失敗')); }
     } else {
       try {
         await createBm.mutateAsync({
-          unit_id: record.unit_id, job_number: record.job_number,
+          unit_id: record.unit_id || record.ezbid_id || '',
+          job_number: record.job_number || '',
           title: record.title,
           unit_name: record.unit_name || '(未知機關)',
         });
         message.success('已收藏');
-      } catch { message.error('收藏失敗'); }
+      } catch (e) { message.error(errMsg(e, '收藏失敗')); }
     }
   }, [createBm, deleteBm, findBookmarkId, message]);
 

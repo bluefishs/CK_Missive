@@ -9708,8 +9708,8 @@
           "definition": "CREATE UNIQUE INDEX tender_bookmarks_pkey ON public.tender_bookmarks USING btree (id)"
         },
         {
-          "name": "ix_tender_bookmark_unit_job",
-          "definition": "CREATE UNIQUE INDEX ix_tender_bookmark_unit_job ON public.tender_bookmarks USING btree (unit_id, job_number)"
+          "name": "ix_tender_bookmark_user_unit_job",
+          "definition": "CREATE UNIQUE INDEX ix_tender_bookmark_user_unit_job ON public.tender_bookmarks USING btree (user_id, unit_id, job_number)"
         }
       ],
       "unique_constraints": {}

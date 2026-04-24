@@ -371,20 +371,35 @@ class EzbidScraper:
     # =========================================================================
 
     async def _get_cache(self, key: str):
-        if not self._redis:
+        # 2026-04-24: 改 async redis（前版是 sync API，注入 async client 時會 coroutine leak 導致 cache 永遠 miss）
+        redis = self._redis
+        if redis is None:
+            try:
+                from app.core.redis_client import get_redis
+                redis = await get_redis()
+            except Exception:
+                return None
+        if redis is None:
             return None
         try:
             import json
-            data = self._redis.get(key)
+            data = await redis.get(key)
             return json.loads(data) if data else None
         except Exception:
             return None
 
     async def _set_cache(self, key: str, value, ttl: int = 600):
-        if not self._redis:
+        redis = self._redis
+        if redis is None:
+            try:
+                from app.core.redis_client import get_redis
+                redis = await get_redis()
+            except Exception:
+                return
+        if redis is None:
             return
         try:
             import json
-            self._redis.setex(key, ttl, json.dumps(value, ensure_ascii=False))
+            await redis.set(key, json.dumps(value, ensure_ascii=False, default=str), ex=ttl)
         except Exception:
             pass

@@ -93,10 +93,15 @@ async def save_search_results(db: AsyncSession, records: List[Dict[str, Any]], s
     saved = 0
     for r in records:
         try:
-            unit_id = r.get("unit_id", "")
-            job_number = r.get("job_number", "")
+            unit_id = r.get("unit_id", "") or ""
+            job_number = r.get("job_number", "") or ""
             ezbid_id = r.get("ezbid_id")
             title = r.get("title", "")[:500]
+
+            # 2026-04-24: ezbid 來源如果 unit_id 為空，fallback 到 ezbid_id
+            # 避免 DB 出現 unit_id='' 的壞資料（React rowKey 重複 + detail URL 404）
+            if not unit_id and ezbid_id:
+                unit_id = str(ezbid_id)
 
             if not title:
                 continue

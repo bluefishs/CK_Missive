@@ -164,7 +164,7 @@ export const ROUTES = {
   ADMIN_LOGIN_HISTORY: '/admin/login-history',
   // 標案檢索
   TENDER_SEARCH: '/tender/search',
-  TENDER_DETAIL: '/tender/:unitId/:jobNumber',
+  TENDER_DETAIL: '/tender/:unitId/:jobNumber?',
   TENDER_GRAPH: '/tender/graph',
   TENDER_DASHBOARD: '/tender/dashboard',
   TENDER_ORG_ECOSYSTEM: '/tender/org-ecosystem',
