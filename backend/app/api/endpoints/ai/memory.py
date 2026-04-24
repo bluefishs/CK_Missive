@@ -90,8 +90,13 @@ def _parse_frontmatter(text: str) -> Dict[str, Any]:
         m = re.match(r"^([a-zA-Z_][\w]*?):\s*(.+?)\s*$", line)
         if m:
             key, val = m.group(1), m.group(2).strip()
-            # 嘗試解析為 int/float/bool
-            if val.isdigit():
+            # 2026-04-24 ADR-0028：quoted string 優先，永遠 str
+            # （防純數字 hash 如 "8692128536" 被誤推為 int，造成 sorted mixed types 爆錯）
+            if (val.startswith('"') and val.endswith('"') and len(val) >= 2) or \
+               (val.startswith("'") and val.endswith("'") and len(val) >= 2):
+                meta[key] = val[1:-1]
+            # 嘗試解析為 int/float/bool（未加引號的純值）
+            elif val.isdigit():
                 meta[key] = int(val)
             elif re.match(r"^-?\d+\.\d+$", val):
                 meta[key] = float(val)

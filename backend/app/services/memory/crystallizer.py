@@ -113,7 +113,13 @@ class Crystallizer:
             for key in ("template_hash",):
                 m = re.search(rf"^{key}:\s*(.+?)\s*$", fm, re.MULTILINE)
                 if m:
-                    meta[key] = m.group(1).strip()
+                    # 2026-04-24 ADR-0028：剝除可能的雙/單引號
+                    # （寫端會加引號防 YAML int coercion，讀端需一致剝除）
+                    val = m.group(1).strip()
+                    if (val.startswith('"') and val.endswith('"')) or \
+                       (val.startswith("'") and val.endswith("'")):
+                        val = val[1:-1]
+                    meta[key] = val
 
             for int_key in ("hit_count", "success_count", "failure_count"):
                 m = re.search(rf"^{int_key}:\s*(\d+)", fm, re.MULTILINE)
