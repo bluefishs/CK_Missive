@@ -56,7 +56,7 @@ def _create_mfa_token(user: User) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
-@router.post("/login", response_model=TokenResponse, summary="帳號密碼登入")
+@router.post("/login", response_model=TokenResponse, summary="帳號密碼登入（已停用）")
 @limiter.limit("5/minute")
 async def login_for_access_token(
     request: Request,
@@ -65,98 +65,45 @@ async def login_for_access_token(
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    使用者帳號密碼登入（內網環境主要認證方式）
+    ⚠️ **2026-04-24 起帳密登入機制已關閉（ADR-0033 資安考量）**
 
-    - **username**: 使用者名稱或信箱
-    - **password**: 密碼
+    理由：避免暴力破解、credential stuffing、憑證洩漏風險。
+    改用 Google OAuth / LINE Login SSO 認證（無密碼，由 IdP 處理）。
 
-    適用場景:
-    - 內網環境（無法使用 Google OAuth）
-    - 本地開發測試
-    - 備用認證方式
-
-    回應:
-    - JSON body 包含 token 資訊（向後相容）
-    - 同時設定 httpOnly cookies（新安全機制）
+    本 endpoint 保留以利 client 取得明確 410 Gone 回應（而非 404），
+    並記錄嘗試事件供資安監控。
     """
     masked_user = form_data.username[:2] + "***" if len(form_data.username) > 2 else "***"
-    logger.info(f"[AUTH] 帳密登入嘗試: {masked_user}")
     ip_address, user_agent = get_client_info(request)
+
+    # 資安監控：記錄帳密登入嘗試（應該已無正常流量，持續嘗試視為異常訊號）
+    logger.warning(
+        f"[SECURITY] 帳密登入嘗試 (已停用 ADR-0033): user={masked_user} ip={ip_address}"
+    )
     try:
-        user = await AuthService.authenticate_user(
-            db, form_data.username, form_data.password
-        )
-        if not user:
-            await AuditService.log_auth_event(
-                event_type="LOGIN_FAILED",
-                email=form_data.username,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                details={"auth_provider": "email", "reason": "invalid_credentials"},
-                success=False,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="帳號或密碼錯誤",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        # 檢查 MFA 狀態
-        if user.mfa_enabled and user.mfa_secret:
-            mfa_token = _create_mfa_token(user)
-            logger.info(f"[AUTH] 使用者 {user.id} 需要 MFA 驗證")
-            return JSONResponse(
-                content={
-                    "mfa_required": True,
-                    "mfa_token": mfa_token,
-                    "message": "請輸入雙因素認證驗證碼",
-                },
-            )
-
-        token_response = await AuthService.generate_login_response(
-            db, user, ip_address, user_agent
-        )
-
         await AuditService.log_auth_event(
-            event_type="LOGIN_SUCCESS",
-            user_id=user.id,
-            email=user.email,
+            event_type="LOGIN_BLOCKED_PASSWORD_DISABLED",
+            email=form_data.username,
             ip_address=ip_address,
             user_agent=user_agent,
-            details={"auth_provider": "email"},
-            success=True,
+            details={"auth_provider": "email", "reason": "password_auth_disabled_adr_0033"},
+            success=False,
+        )
+    except Exception as audit_err:
+        logger.error(
+            f"[AUDIT] LOGIN_BLOCKED 審計寫入失敗: {audit_err}", exc_info=True
         )
 
-        # 建立 JSONResponse 以便同時設定 cookies
-        response = JSONResponse(
-            content=token_response.model_dump(mode="json"),
-        )
-
-        # 設定 httpOnly cookies（新安全機制）
-        AuthService.set_auth_cookies(response, token_response)
-
-        return response
-
-    except HTTPException as http_exc:
-        # 帳號鎖定 (423) 時，返回包含剩餘時間的 JSON 回應
-        if http_exc.status_code == 423:
-            locked_until = http_exc.headers.get("X-Locked-Until") if http_exc.headers else None
-            remaining_minutes = http_exc.headers.get("X-Remaining-Minutes") if http_exc.headers else None
-            return JSONResponse(
-                status_code=423,
-                content={
-                    "detail": http_exc.detail,
-                    "locked_until": locked_until,
-                    "remaining_minutes": int(remaining_minutes) if remaining_minutes else None,
-                },
-            )
-        raise http_exc
-    except Exception as e:
-        logger.error(f"[AUTH] 登入服務內部錯誤: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="登入服務內部錯誤，請稍後再試或聯繫管理員",
-        )
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "帳密登入機制已停用（資安考量，ADR-0033）。"
+            "請改用 Google 或 LINE 帳號登入。"
+        ),
+    )
+    # 舊實作（authenticate_user + MFA + set_auth_cookies）已移除。
+    # 如需還原，請見 git 歷史（commit 8537ba95 之前），
+    # 並先經資安評估 + 更新 ADR-0033。
 
 
 @router.post("/google", response_model=TokenResponse, summary="Google OAuth 登入")

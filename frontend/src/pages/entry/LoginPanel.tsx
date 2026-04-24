@@ -78,8 +78,8 @@ const LoginPanel: React.FC<LoginPanelProps> = ({
           </Button>
         )}
 
-        {/* 帳密登入：內嵌表單 */}
-        {showLoginForm && (
+        {/* 帳密登入：內嵌表單 — v5.9.4 資安考量必須同時 flags.password 為 true（ADR-0033） */}
+        {flags.password && showLoginForm && (
           <div className="inline-login-form" onClick={(e) => e.stopPropagation()}>
             {loginError && (
               <div style={{ color: '#ff4d4f', fontSize: 13, marginBottom: 8, textAlign: 'center' }}>

@@ -43,19 +43,24 @@ const IS_INTERNAL = ENV_TYPE === 'internal';
 const IS_NGROK_OR_PUBLIC = ENV_TYPE === 'ngrok' || ENV_TYPE === 'public';
 
 const SHOW_QUICK_ENTRY = IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL;
-// v5.8.3：恢復帳密登入入口（Google/LINE 平台配置完成前保留後備，避免三路徑全斷）
-// 待 GCP Console 加 origin + LINE Callback 驗證 OK 後再關
-const SHOW_PASSWORD_LOGIN = true;
+// v5.9.4 (2026-04-24) 資安考量：關閉帳密登入機制
+// ─────────────────────────────────────────────────────────────────
+// 理由：避免暴力破解、credential stuffing、憑證洩漏風險
+// 替代方案：Google OAuth / LINE Login SSO（無密碼，由 IdP 處理認證）
+// 後端 /api/auth/login endpoint 同步回 410 Gone（見 oauth.py）
+// 相關 ADR: docs/adr/0033-disable-password-authentication.md
+// 如需重啟帳密登入，請先經資安評估並取消下行註記
+const SHOW_PASSWORD_LOGIN = false;
 const SHOW_GOOGLE_LOGIN = Boolean(GOOGLE_LOGIN_ENABLED);
 const SHOW_LINE_LOGIN = Boolean(LINE_LOGIN_CHANNEL_ID);
 
 const ENV_HINT = IS_AUTH_DISABLED
   ? '開發模式 - 認證已停用，點擊任意處進入'
   : IS_LOCALHOST
-    ? '本機開發模式 - 三種登入方式可用'
+    ? '本機開發模式 - 透過 SSO 登入'
     : IS_INTERNAL
-      ? '內網環境 - 快速進入或帳密登入'
-      : '請選擇登入方式';
+      ? '內網環境 - 快速進入'
+      : '請使用 Google / LINE 帳號登入';
 
 const getEnvLabel = () => {
   switch (ENV_TYPE) {
