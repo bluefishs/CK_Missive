@@ -24,14 +24,18 @@ def test_nebula_graph_coerces_template_hash_to_str():
     )
 
 
-def test_pattern_extractor_quotes_template_hash():
-    """pattern_extractor 寫入時必須為 template_hash 加引號"""
+def test_pattern_extractor_writes_str_template_hash():
+    """pattern_extractor 寫入時必須強制 template_hash 為 str（yaml.safe_dump 會自動加引號）"""
     from app.services.memory import pattern_extractor
     src = inspect.getsource(pattern_extractor)
-    # f-string 裡必須是 "{p.template_hash}" 含引號
-    assert 'template_hash: "{p.template_hash}"' in src, (
-        "pattern_extractor 寫 YAML 時 template_hash 必須加雙引號，"
-        "讓 YAML parse 永遠得到 str（即使 hash 全數字）"
+    # 2026-04-24 safe_dump 重構後：檢查 str() cast + yaml.safe_dump 使用
+    assert '"template_hash": str(p.template_hash)' in src, (
+        "pattern_extractor 必須對 template_hash 強制 str() cast，"
+        "yaml.safe_dump 會自動對 str 純數字加引號"
+    )
+    assert "yaml.safe_dump" in src, (
+        "pattern_extractor 必須用 yaml.safe_dump 產 frontmatter，"
+        "替代手寫 f-string（避免型別推斷隱患）"
     )
 
 

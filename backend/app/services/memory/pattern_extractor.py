@@ -24,6 +24,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+
+import yaml
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -300,25 +302,46 @@ class PatternExtractor:
             # 去重保序
             wiki_topics = list(dict.fromkeys(wiki_topics))
 
-            # 2026-04-24 ADR-0028 修復：template_hash 強制加引號，避免純數字 hash
-            # （如 "8692128536"）被 YAML parse 為 int 導致 sorted mixed types 爆錯
+            # 2026-04-24 ADR-0028 根本修法：改 yaml.safe_dump 防手寫 f-string 型別隱患
+            # str 會自動加引號（純數字 hash 永遠 str），中文 allow_unicode=True，
+            # sort_keys=False 保留原順序（人類可讀性）
+            frontmatter_meta = {
+                "type": "agent_memory",
+                "memory_type": "pattern",
+                # force str — 即使 p.template_hash 變 int 也被 cast
+                "template_hash": str(p.template_hash),
+                "tool_sequence": list(p.tool_sequence),
+                "domains": list(p.domains),
+                "wiki_topics": list(wiki_topics),
+                "hit_count": merged_hit,
+                "success_count": merged_success,
+                "failure_count": merged_failure,
+                "success_rate": round(merged_success / merged_hit, 3),
+                "avg_latency_ms": int(p.avg_latency_ms),
+                "first_seen": existing_stats.get(
+                    "first_seen", target_date.isoformat()
+                ),
+                "last_seen": target_date.isoformat(),
+                "crystallization_candidate": (
+                    merged_hit >= 5 and merged_success / merged_hit >= 0.95
+                ),
+                "tags": (
+                    ["memory", "pattern"] + list(p.domains)
+                    if p.domains
+                    else ["memory", "pattern", "multi_domain"]
+                ),
+            }
+            # default_flow_style=None：簡單 list/dict 用 flow [a, b]，複雜結構用 block
+            # 這樣與既有 _parse_frontmatter 自訂 regex parser 相容（只處理 inline list）
+            frontmatter_yaml = yaml.safe_dump(
+                frontmatter_meta,
+                allow_unicode=True,
+                sort_keys=False,
+                default_flow_style=None,
+                width=10000,  # 防止長 list 被折行成 block
+            )
             content = f"""---
-type: agent_memory
-memory_type: pattern
-template_hash: "{p.template_hash}"
-tool_sequence: {json.dumps(p.tool_sequence, ensure_ascii=False)}
-domains: {json.dumps(p.domains, ensure_ascii=False)}
-wiki_topics: {json.dumps(wiki_topics, ensure_ascii=False)}
-hit_count: {merged_hit}
-success_count: {merged_success}
-failure_count: {merged_failure}
-success_rate: {merged_success / merged_hit:.3f}
-avg_latency_ms: {p.avg_latency_ms:.0f}
-first_seen: {existing_stats.get("first_seen", target_date.isoformat())}
-last_seen: {target_date.isoformat()}
-crystallization_candidate: {merged_hit >= 5 and merged_success / merged_hit >= 0.95}
-tags: [memory, pattern, {", ".join(p.domains) if p.domains else "multi_domain"}]
----
+{frontmatter_yaml}---
 
 # Pattern {p.template_hash}
 

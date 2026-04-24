@@ -17,6 +17,8 @@
 from __future__ import annotations
 
 import json
+
+import yaml
 import logging
 import re
 from datetime import date as date_type, datetime, timedelta
@@ -80,35 +82,32 @@ class NebulaReq(BaseModel):
 # ────────── Helpers ──────────
 
 def _parse_frontmatter(text: str) -> Dict[str, Any]:
-    """Extract simple scalar values from YAML frontmatter."""
+    """解析 YAML frontmatter（2026-04-24 ADR-0028 根本重構）
+
+    改用 yaml.safe_load 取代自訂 regex parser，徹底解決：
+    - 純數字字串 template_hash 被誤推為 int（導致 sorted mixed types 爆錯）
+    - Flow list [a, b] 解析不完整
+    - JSON list ["a", "b"] 需額外處理
+    - 型別推斷不可控
+
+    safe_load 是 YAML 標準行為，與 yaml.safe_dump 寫入端天然相容。
+    """
     fm_match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
     if not fm_match:
         return {}
-    fm = fm_match.group(1)
-    meta: Dict[str, Any] = {}
-    for line in fm.splitlines():
-        m = re.match(r"^([a-zA-Z_][\w]*?):\s*(.+?)\s*$", line)
-        if m:
-            key, val = m.group(1), m.group(2).strip()
-            # 2026-04-24 ADR-0028：quoted string 優先，永遠 str
-            # （防純數字 hash 如 "8692128536" 被誤推為 int，造成 sorted mixed types 爆錯）
-            if (val.startswith('"') and val.endswith('"') and len(val) >= 2) or \
-               (val.startswith("'") and val.endswith("'") and len(val) >= 2):
-                meta[key] = val[1:-1]
-            # 嘗試解析為 int/float/bool（未加引號的純值）
-            elif val.isdigit():
-                meta[key] = int(val)
-            elif re.match(r"^-?\d+\.\d+$", val):
-                meta[key] = float(val)
-            elif val.lower() in ("true", "false"):
-                meta[key] = val.lower() == "true"
-            elif val.startswith("[") and val.endswith("]"):
-                try:
-                    meta[key] = json.loads(val)
-                except Exception:
-                    meta[key] = val
-            else:
-                meta[key] = val
+    try:
+        meta = yaml.safe_load(fm_match.group(1))
+    except yaml.YAMLError as e:
+        logger.warning("Frontmatter YAML parse failed: %s", e)
+        return {}
+    if not isinstance(meta, dict):
+        return {}
+    # 對 id-like 欄位強制 str（即使被 YAML 推為 int，pattern_yaml_type_guard
+    # 會在 pre-commit 抓到源頭寫錯；此處讀端做最後一道防禦）
+    for id_field in ("template_hash", "pattern_id", "session_id", "failure_id",
+                     "proposal_id", "crystal_id"):
+        if id_field in meta and meta[id_field] is not None:
+            meta[id_field] = str(meta[id_field])
     return meta
 
 
