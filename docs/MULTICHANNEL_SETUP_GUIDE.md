@@ -1,5 +1,12 @@
 # 多通道部署指南 — Telegram + LINE via OpenClaw
 
+> ⚠️ **ARCHIVED（2026-04-24）**：OpenClaw 已由 Hermes Agent 取代（ADR-0014），
+> 多通道整合改由 Hermes gateway + `docs/hermes-skills/ck-missive-bridge/`。
+> 本指南保留僅供歷史參考，**不再維護**。新環境部署請見：
+> - `CK_AaaP/runbooks/hermes-stack/` — Hermes 部署
+> - `docs/LINE_BOT_SETUP_GUIDE.md` — LINE Bot 直連（無 OpenClaw）
+> - `docs/runbooks/line-login-setup.md` — LINE Login OAuth
+
 ## 架構
 
 ```

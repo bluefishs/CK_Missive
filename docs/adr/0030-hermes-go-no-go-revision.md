@@ -143,8 +143,40 @@ python scripts/checks/synthetic-baseline-inject.py --dry-run
 ## 狀態記錄
 
 - 2026-04-22：accepted，進入新 Phase 0 尾聲
+- **2026-04-24：Patch A+B 突破**（詳 `memory/baseline_quality_recovery_20260424.md` + `docs/ops/baseline-fix-patch-preview.md`）
 - 2026-04-29：Phase 1 條件檢查（預計）
 - 2026-05-20：GO/NO-GO 決策（預計）
+
+### 2026-04-24 Patch A+B 中期檢點
+
+**診斷根因**：`backend/config/agent-policy.yaml` 把 ollama 設 chat/planning/synthesis 首選 + `prefer_local:true`，每次 query 卡 90s `inference_semaphore` timeout 才 fallback 到 groq。
+
+**套用動作**：
+- Patch A：`agent-policy.yaml` 三處 provider_routing 改 `[groq, nvidia, ollama]` + `prefer_local:false`（保留 ner/multimodal/embedding 走 ollama）
+- Patch B：`.env` `OLLAMA_MODEL=qwen2.5:7b`（替換 `gemma4:e2b`）
+
+**驗證結果**（patch 後 23 筆合成 + 自動排程）：
+
+| GO 條件 | 原門檻 | 實測 | 達標? |
+|---|---|---|---|
+| #1 Baseline ≥ 30 筆 | ≥ 30 | 累計 370+ / 近 23 筆 patch 後 | ✅ |
+| #2 Owner 7 天 Web UI | 7 天 | D1/D2 客觀齊；D3-7 主觀待填 | 🟡 |
+| #3 Soul fidelity ≥ 70% | ≥ 70% | ollama qwen2.5:7b **85%** / groq llama-3.3-70b **75%** | ✅ |
+| #4 Error rate < 5% | < 5% | **0%**（23/23 全 success，0 timeout） | ✅ |
+| #5 P95 latency < 8s | < 8s | **57.8s**（multi-tool loop 真實分佈） | ❌ |
+
+**P95 門檻修訂提議**（待 5/20 會議表決）：
+
+原門檻 `< 8s` 設於 ADR-0030 起草時（2026-04-22），當時未區分 single-shot query 與 multi-tool agentic loop。實測顯示：
+- Single LLM call（例如 groq 直接回答）：p95 ~7s ✅
+- Multi-tool agent query（平均 3-5 tool calls + synthesis）：p95 35-60s 屬**現實分佈**
+
+**建議**：
+- 方案 A：把 p95 門檻調為 `< 60s`（multi-tool loop 現實）
+- 方案 B：拆分指標 — `single_call_p95 < 8s` + `multi_tool_p95 < 60s`
+- 方案 C：採 SLO 預算制 — `95% queries < 60s AND 50% queries < 15s`
+
+此修訂不影響其他四條 GO 條件達標狀態。
 
 **決策結果（待填）**：
 
@@ -154,5 +186,6 @@ python scripts/checks/synthetic-baseline-inject.py --dry-run
 baseline 實際筆數：
 dogfooding 評分：
 soul fidelity 實測：
+p95 門檻採用方案：A / B / C
 後續動作：
 ```

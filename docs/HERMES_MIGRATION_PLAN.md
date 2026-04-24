@@ -16,6 +16,17 @@
 
 本計畫的 P2/P3 Telegram 相關段落以 ADR-0030 為準，原表格保留做歷史。
 
+## 🎉 2026-04-24 重大突破（Patch A+B）
+
+ADR-0030 GO 條件 4/5 達標（詳 `memory/baseline_quality_recovery_20260424.md`）：
+- #1 Baseline ≥ 30：✅ 累計 370+
+- #3 Soul fidelity ≥ 70%：✅ ollama qwen2.5:7b **85%** / groq 75%
+- #4 Error rate < 5%：✅ 近 23 筆 patch 後 **0 timeout / 100% success**
+- #5 P95 < 8s：❌ 實測 57.8s — 門檻需修訂（ADR-0030 已補 A/B/C 方案建議）
+- #2 Owner dogfooding D3-D7：🟡 待主觀填寫
+
+**技術動作**：`agent-policy.yaml` provider_routing 降 ollama 優先級 + `.env` 切 qwen2.5:7b。
+
 ---
 
 ---

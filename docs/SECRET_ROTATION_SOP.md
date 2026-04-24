@@ -106,7 +106,11 @@ curl -s https://missive.cksurvey.tw/api/health | jq .status
 
 ## 4. MCP_SERVICE_TOKEN 雙 Token 緩衝輪換
 
-此 token 供 NemoClaw / OpenClaw / 外部插件使用，**不能同步切換**（會 race）。
+> **2026-04-24 更新**：NemoClaw/OpenClaw 已退場（ADR-0014/0015，5/26 歸檔）。
+> 此 token 現主要供 Hermes gateway + 外部插件使用。下列步驟中 `nemoclaw_tower`、
+> `openclaw_engine` docker restart 命令**不再適用**，改為重啟 hermes-stack 容器。
+
+此 token 供 Hermes / 外部插件使用，**不能同步切換**（會 race）。
 
 `auth.lua` 已實作雙 token 驗證（`MCP_SERVICE_TOKEN` 為 current、`MCP_SERVICE_TOKEN_PREV` 為舊）。
 
