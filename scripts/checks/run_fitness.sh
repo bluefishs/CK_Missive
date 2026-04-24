@@ -47,14 +47,31 @@ fi
 echo ""
 
 # ----------------------------------------------------------------------------
-# 2. Dead config reader
+# 2. Dead config reader（掃多個高信號檔）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[2/3] Dead config reader scan${NC}"
-if $STRICT; then
-    PYTHONIOENCODING=utf-8 python scripts/checks/config_dead_reader_scan.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
-else
-    PYTHONIOENCODING=utf-8 python scripts/checks/config_dead_reader_scan.py
-fi
+echo -e "${CYAN}[2/3] Dead config reader scan (multi-target v3)${NC}"
+
+# v3 (2026-04-25): 擴為多 target 掃描
+# 原 v1/v2 只掃 ai_config.py → 錯過 record_duration / get_cloud_semaphore 等 dead
+# 新增核心 config/factory/metrics 檔案
+SCAN_TARGETS=(
+    "backend/app/services/ai/core/ai_config.py"
+    "backend/app/core/inference_semaphore.py"
+    "backend/app/core/inference_provider_metrics.py"
+)
+
+for target in "${SCAN_TARGETS[@]}"; do
+    if [[ ! -f "$target" ]]; then
+        echo -e "  ${YELLOW}⚠${NC} Skipping (missing): $target"
+        continue
+    fi
+    echo ""
+    if $STRICT; then
+        PYTHONIOENCODING=utf-8 python scripts/checks/config_dead_reader_scan.py --target "$target" --ci || FAIL_COUNT=$((FAIL_COUNT+1))
+    else
+        PYTHONIOENCODING=utf-8 python scripts/checks/config_dead_reader_scan.py --target "$target"
+    fi
+done
 echo ""
 
 # ----------------------------------------------------------------------------
