@@ -13,6 +13,7 @@ Extracted from agent_orchestrator.py v1.8.0
 
 import asyncio
 import logging
+import os
 import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -129,21 +130,24 @@ class AgentSynthesizer:
         # 舊設 max(cloud=30, local=120)=120s 太寬，silent gap 可達兩分鐘。
         # 改為 cloud_timeout+5s buffer（約 35s），fallback 鏈內部有獨立 timeout。
         synthesis_timeout = self.config.cloud_timeout + 5
+        # 2026-04-24: model env-based，支援 qwen/qwen3-32b 切換（零成本整合評估）
+        # 預設保留 llama-3.3-70b（與現狀一致，backward compat）
+        synthesis_model = os.getenv("SYNTHESIS_MODEL", "llama-3.3-70b-versatile")
         # D2-A: synthesis start/end 觀測性 — 防止 silent gap
         logger.info(
-            "synthesis_start timeout=%ds messages=%d model=llama-3.3-70b-versatile",
-            synthesis_timeout, len(messages),
+            "synthesis_start timeout=%ds messages=%d model=%s",
+            synthesis_timeout, len(messages), synthesis_model,
         )
         _t0 = time.monotonic()
         try:
-            # 合成優先用 Groq Cloud（llama-3.3-70B，~1.5s），vLLM 7B 合成 ~7s
+            # 合成優先用 Groq Cloud（llama-3.3-70B，~1.5s）或 Qwen3-32B（~0.6s）
             # 指定 model 跳過 vLLM P0，直接走 Groq→NVIDIA→Ollama fallback
             raw = await asyncio.wait_for(
                 self.ai.chat_completion(
                     messages=messages,
                     temperature=self.config.rag_temperature,
                     max_tokens=self.config.rag_max_tokens,
-                    model="llama-3.3-70b-versatile",  # Groq Cloud
+                    model=synthesis_model,
                     task_type="synthesis",
                 ),
                 timeout=synthesis_timeout,

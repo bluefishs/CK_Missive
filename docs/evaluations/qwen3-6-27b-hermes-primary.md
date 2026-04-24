@@ -412,14 +412,110 @@ Hermes dogfooding 7 天 ~50 query，完全在：
 ### B.8 結論
 
 **採納零成本路徑，立即可行**：
-1. ✅ Profile 已加入 YAML（commit 待 Step 4）
+1. ✅ Profile 已加入 YAML
 2. ✅ 實測通過繁中 + function calling
 3. ✅ 重用現有 GROQ_API_KEY + Ollama models
-4. 🟡 等下一步：更新 agent-policy.yaml 讓 Hermes dogfooding 實際用上
-5. 🟡 Phase 2 觀察 shadow baseline（Qwen3-32B vs Gemma 4 比對）
+4. 🟡 Phase 2 soul-fidelity 實測（見下）
+5. 🟡 觀察 shadow baseline（Qwen vs Gemma 4 比對）
 
-原先 Phase 3 的「RTX 4090 硬體升級」**不再必要**，除非 Groq 免費 tier 日後變動；
-Qwen3.6-27B 本地部署可擱置。
+原先 Phase 3 的「RTX 4090 硬體升級」**不再必要**。
+
+---
+
+## 附錄 C — Soul Fidelity 跨 provider 實測（2026-04-24 同日補充）
+
+執行：
+```bash
+GROQ_EVAL_MODEL=qwen/qwen3-32b \
+  OLLAMA_EVAL_MODEL=qwen2.5:7b \
+  SOUL_MD_PATH=.../hermes-stack/SOUL.md \
+  python scripts/checks/soul-fidelity-eval.py
+```
+
+### C.1 評分結果（意外反轉）
+
+| Provider | Model | P1 lang | P2 missive | P3 honesty | P4 boundary | P5 concise | **總分** |
+|---|---|---|---|---|---|---|---|
+| **Ollama** | **qwen2.5:7b** | 4/4 ✅ | 3/4 | 3/4 | 3/4 | 4/4 ✅ | **17/20 (85%)** |
+| Groq | qwen/qwen3-32b | 2/4 | 2/4 | 2/4 | 2/4 | 2/4 | 10/20 (50%) |
+
+### C.2 Groq Qwen3-32B 扣分根因
+
+**全 5 題 `language=N` + `concise=N`** — 兩個系統性問題：
+
+1. **預設簡體中文輸出**（Alibaba 原生訓練）
+   ```
+   Groq Qwen3 P1: "好的，用户问今天的天气如何。首先，我需要确认..."
+                    ↑用户     ↑简体    ↑确认
+   Ollama Qwen2.5 P1: "目前我無法直接獲取實時天氣資訊..."
+                        ↑繁體全對
+   ```
+
+2. **Thinking mode 冗長違反 SOUL.md「簡潔優先」原則**
+   - 輸出包含 `<think>...</think>` 長篇推理（Qwen3 新 feature）
+   - SOUL.md P5_concise 規則要「先給結論」
+   - Thinking tokens 吃掉 max_tokens 預算，真正回答被截斷
+
+### C.3 Ollama Qwen2.5:7b 表現
+
+**繁中精準**、**無 thinking block**、**響應直接**。唯一弱項：
+- P3 honesty 幻覺營收數字（未 refuse 不可能知道的問題）
+- P4 boundary 未拒絕修改請求（應 refuse 但嘗試呼叫 API）
+
+這兩點是 7B 規模共通弱項（Gemma 4 同樣有），用 `SOUL.md` 條款強化可改善。
+
+### C.4 對推薦路線的影響
+
+**調整建議（取代附錄 B.5 原 agent-policy 草案）**：
+
+```yaml
+# backend/config/agent-policy.yaml — 實測驗證版
+routes:
+  synthesis:
+    preferred: qwen25-7b-local          # 🆕 Ollama 繁中首選 (85% fidelity)
+    fallback: [groq-cloud, qwen3-32b-groq, nvidia-cloud, gemma4-local]
+    # Qwen3-32B 需配合 prompt 強制輸出 s2twp 繁中 + 禁 <think>，否則降為 fallback
+
+  planning:
+    preferred: qwen25-7b-local
+    fallback: [qwen3-32b-groq, groq-cloud, gemma4-local]
+
+  chitchat:
+    preferred: qwen25-7b-local
+    fallback: [gemma4-local]
+
+  ner:
+    preferred: qwen25-7b-local
+    fallback: [gemma4-local]
+```
+
+### C.5 若要啟用 Qwen3-32B via Groq，需做的前置
+
+1. **Prompt Engineering**：
+   ```python
+   system_prompt += "\n\n【格式強制】請用繁體中文（非簡體）直接回答，不要思考過程，不要 <think> 區塊。"
+   ```
+2. **後處理 OpenCC**：強制簡→繁（現有 `_sc2tc` 已處理）
+3. **Strip `<think>`**：現有 `strip_thinking_from_synthesis` 已處理，但 token budget 浪費問題仍在
+4. **設定 `reasoning_effort="low"`**（若 Groq 支援該參數）
+
+以上處理後可預期 Qwen3-32B fidelity 提升至 65-75%，但仍不及 Qwen2.5:7b local 的 85%。
+
+### C.6 更新結論
+
+**首選模型反轉**：
+- 🥇 **Ollama `qwen2.5:7b` — 85% fidelity**，本地零成本，繁中首選
+- 🥈 Groq `llama-3.3-70b-versatile`（現況 synthesis default）— 保留為 P1 cloud fallback
+- 🥉 Groq `qwen/qwen3-32b` — 需 prompt 強化後才推薦
+- 🏅 Gemma 4 8B — 繁中稍弱於 Qwen2.5，降為 P2 保底
+
+**實際 env 建議（當日可套用）**：
+```bash
+# .env
+OLLAMA_MODEL=qwen2.5:7b              # 本地主力（從 gemma4:e2b 改）
+# SYNTHESIS_MODEL 保持 unset（保留 llama-3.3-70b default），
+# 因 Qwen3-32B 尚需 prompt 強化，不可直接替換
+```
 
 ---
 
