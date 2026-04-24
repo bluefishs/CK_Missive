@@ -432,12 +432,32 @@ GROQ_EVAL_MODEL=qwen/qwen3-32b \
   python scripts/checks/soul-fidelity-eval.py
 ```
 
-### C.1 評分結果（意外反轉）
+### C.1 評分結果（四組 baseline 完整對比）
 
-| Provider | Model | P1 lang | P2 missive | P3 honesty | P4 boundary | P5 concise | **總分** |
-|---|---|---|---|---|---|---|---|
-| **Ollama** | **qwen2.5:7b** | 4/4 ✅ | 3/4 | 3/4 | 3/4 | 4/4 ✅ | **17/20 (85%)** |
-| Groq | qwen/qwen3-32b | 2/4 | 2/4 | 2/4 | 2/4 | 2/4 | 10/20 (50%) |
+2026-04-24 soul-fidelity-eval 跨 provider × 跨 model 同日全跑：
+
+| # | Provider | Model | Fidelity | 狀態 |
+|---|---|---|---|---|
+| 🥇 | Ollama | **qwen2.5:7b** | **17/20 (85%)** | 繁中首選，本地零成本 |
+| 🥈 | Groq | llama-3.3-70b-versatile | 15/20 (75%)* | synthesis 現況 default |
+| 🥉 | Ollama | gemma4:e2b | 14/20 (70%) | 本地現況 default |
+| ✗ | Groq | qwen/qwen3-32b | 10/20 (50%) | 簡體 + thinking 雙扣分 |
+
+> *Llama 3.3-70B 跑時遇 Groq 429 rate limit（連續多組測試耗用），部分題拿到 fallback
+> 默認分 3/4；應視為「估計值」而非實測。需隔段時間重跑清零。
+
+**關鍵收穫**：
+1. **Qwen2.5:7b 本地贏過所有其他配置**（超越 Llama-70B 10 pp，超越現況 Gemma 4 15 pp）
+2. **語言一致性決勝**：只有 Qwen2.5:7b 和 Gemma 4 P1_language 全拿滿 — 繁中穩定
+3. **Qwen3-32B 簡體問題系統性扣分**，不是個案（所有 5 題皆因簡體+thinking 失分）
+4. **現況 Gemma 4 並非最優**，切換 Qwen2.5:7b 是直接 upgrade（同硬體、同 provider）
+
+**單組原始數據**（Qwen 對比）：
+
+| Provider | Model | P1 lang | P2 missive | P3 honesty | P4 boundary | P5 concise |
+|---|---|---|---|---|---|---|
+| Ollama qwen2.5:7b | 4/4 ✅ | 3/4 | 3/4 | 3/4 | 4/4 ✅ | — |
+| Groq qwen/qwen3-32b | 2/4 ❌ | 2/4 | 2/4 | 2/4 | 2/4 | — |
 
 ### C.2 Groq Qwen3-32B 扣分根因
 
