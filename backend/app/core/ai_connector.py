@@ -410,7 +410,12 @@ class AIConnector(AIConnectorManagementMixin):
         max_tokens: int,
         response_format: Optional[Dict[str, str]] = None,
     ) -> str:
-        """查詢 Groq API"""
+        """查詢 Groq API（走 cloud semaphore pool）"""
+        # Cloud pool（max=10）— 與 local Ollama pool（max=3）獨立計量
+        # 2026-04-25 R5 接線：避免 get_cloud_semaphore 成為 dead config
+        from app.core.inference_semaphore import get_cloud_semaphore
+        sem = get_cloud_semaphore()
+
         payload: Dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -420,21 +425,22 @@ class AIConnector(AIConnectorManagementMixin):
         if response_format:
             payload["response_format"] = response_format
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                GROQ_API_URL,
-                headers={
-                    "Authorization": f"Bearer {self.groq_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-                timeout=self.cloud_timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
-            content = data["choices"][0]["message"]["content"]
-            logger.info(f"Groq API 回應成功 (model={model})")
-            return content
+        async with sem.acquire(timeout=self.cloud_timeout + 10):
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    GROQ_API_URL,
+                    headers={
+                        "Authorization": f"Bearer {self.groq_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=self.cloud_timeout,
+                )
+                response.raise_for_status()
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+                logger.info(f"Groq API 回應成功 (model={model})")
+                return content
 
     async def _nvidia_completion(
         self,
@@ -445,7 +451,12 @@ class AIConnector(AIConnectorManagementMixin):
         response_format: Optional[Dict[str, str]] = None,
         api_url: Optional[str] = None,
     ) -> str:
-        """查詢 NVIDIA Cloud / vLLM API (OpenAI-compatible)"""
+        """查詢 NVIDIA Cloud / vLLM API (OpenAI-compatible, 走 cloud semaphore pool)"""
+        # vLLM 本地路徑也走 cloud pool — vLLM 雖本地但非 Ollama GPU 排程同一 queue，
+        # 用 cloud pool 避免與 Ollama contention。正式 NVIDIA API 則走 cloud 是本意。
+        from app.core.inference_semaphore import get_cloud_semaphore
+        sem = get_cloud_semaphore()
+
         url = api_url or NVIDIA_API_URL
         payload: Dict[str, Any] = {
             "model": model,
@@ -456,28 +467,29 @@ class AIConnector(AIConnectorManagementMixin):
         if response_format:
             payload["response_format"] = response_format
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url,
-                headers={
-                    "Authorization": f"Bearer {self.nvidia_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-                timeout=self.cloud_timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
-            msg = data["choices"][0]["message"]
-            # Nemotron 新版：content 可能為 None（推理內容放在 reasoning_content）
-            content = msg.get("content") or msg.get("reasoning_content") or ""
-            if not content:
-                logger.warning("NVIDIA 回應 content/reasoning_content 皆空: keys=%s", list(msg.keys()))
-                raise ValueError("NVIDIA returned empty content")
-            # Strip residual <think> tags (Nemotron models may include them)
-            content = self._strip_think_tags(content)
-            logger.info(f"NVIDIA Cloud API 回應成功 (model={model})")
-            return content
+        async with sem.acquire(timeout=self.cloud_timeout + 10):
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {self.nvidia_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=self.cloud_timeout,
+                )
+                response.raise_for_status()
+                data = response.json()
+                msg = data["choices"][0]["message"]
+                # Nemotron 新版：content 可能為 None（推理內容放在 reasoning_content）
+                content = msg.get("content") or msg.get("reasoning_content") or ""
+                if not content:
+                    logger.warning("NVIDIA 回應 content/reasoning_content 皆空: keys=%s", list(msg.keys()))
+                    raise ValueError("NVIDIA returned empty content")
+                # Strip residual <think> tags (Nemotron models may include them)
+                content = self._strip_think_tags(content)
+                logger.info(f"NVIDIA Cloud API 回應成功 (model={model})")
+                return content
 
     @staticmethod
     def _is_thinking_model(model: str) -> bool:
