@@ -96,14 +96,14 @@ capability:
 #    原生簡體模型（qwen3-32b 等）必須 prompt 強制繁中 + OpenCC s2twp 雙保險
 provider_routing:
   chat:
-    preferred: [ollama, groq, nvidia]
-    prefer_local: true
+    preferred: [groq, nvidia, ollama]
+    prefer_local: false
   planning:
-    preferred: [ollama, groq, nvidia]
-    prefer_local: true
+    preferred: [groq, nvidia, ollama]
+    prefer_local: false
   synthesis:
-    preferred: [ollama, groq, nvidia]
-    prefer_local: true
+    preferred: [groq, nvidia, ollama]
+    prefer_local: false
   ner:
     preferred: [ollama, nvidia, groq]
     prefer_local: true
