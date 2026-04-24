@@ -1,13 +1,14 @@
 # CK_Missive 公文管理系統 - Claude Code 配置
 
 > **專案代碼**: CK_Missive
-> **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.9.2（2026-04-23）整合優化 3 版 ship + NemoClaw Sprint 2
-> **最後更新**: 2026-04-23
+> **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
+> **版本**: v5.9.4（2026-04-24）/tender 整合 + 資安硬化 + Qwen 零成本整合 + parser 重構
+> **最後更新**: 2026-04-24
 >
 > **近期重大里程碑**：
+> - **v5.9.3 ~ v5.9.4**（37 commits，2026-04-24）：ADR-0032（tender 多源統一）+ ADR-0033（關閉帳密登入）+ Qwen 零成本整合（Ollama qwen2.5:7b + Groq qwen3-32b）+ memory parser 全改 yaml.safe_{load,dump} + Nebula graph 500 治根 + 3 運維 runbook（Google OAuth / LINE Login / Hermes model swap）+ Qwen3.6-27B 首選評估
 > - **v5.9.0 ~ v5.9.2**（11 commits）：ADR-0028 錯誤合約化 + 3 靜態守護 + 觀測棧完工 + 坤哥第 2 次詢問修復 + ADR-0031 頁面整合
-> - **ADR 治理**（ADR-0029）：Active 27 → 17（GREEN-）；首波 archive 10 則
+> - **ADR 治理**（ADR-0029）：Active 17 + 2 新（0032/0033）= 19；Archived 10
 > - **Hermes GO/NO-GO**（ADR-0030）：baseline 30 + LINE canary + Owner 7 天 dogfooding，**2026-05-20 硬 deadline**
 > - **坤哥為唯一意識體入口**（ADR-0023 + ADR-0031）：/kunge 7 tabs 統一
 > - **NemoClaw 歸檔**：5/26 deadline，Sprint 2 已完成（docker-compose 清理）

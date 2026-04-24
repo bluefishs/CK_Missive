@@ -4,6 +4,77 @@
 
 ---
 
+## [5.9.4] - 2026-04-24（/tender 整合 + 資安硬化 + Qwen 零成本整合 + parser 重構 + 3 runbook）
+
+### 🎯 Release Theme
+
+單日 37 commits 大作業：
+- **/tender 模組 5 輪追修 → 架構重構**（ADR-0032 discriminated union + URL 分流）
+- **資安**（ADR-0033）：關閉帳密登入，SSO 唯一路徑
+- **Hermes/Qwen 整合**：零成本路徑（Ollama qwen2.5:7b / Groq qwen3-32b），soul-fidelity 實測 qwen2.5:7b 85% 為繁中首選
+- **Memory parser silent-failure 治根**：yaml.safe_{load,dump} 取代手寫 parser，Nebula graph 500 高頻錯誤消除
+- **3 份運維 runbook**（Google OAuth / LINE Login / Hermes model swap）
+
+### 📋 本版交付（按主題）
+
+| 主題 | 關鍵 commits | 交付 |
+|---|---|---|
+| Tender 架構重構 | 8537ba95 (ADR-0032) + 5 前置修復 | URL 分流 `/tender/pcc/.../...` + `/tender/ezbid/:id` + getTenderDetailPath util + TenderDetail discriminated union |
+| 資安硬化 | 7334aa29 (ADR-0033) | /api/auth/login 回 410 Gone + 審計事件 LOGIN_BLOCKED_PASSWORD_DISABLED + Google/LINE SSO 唯一路徑 |
+| Qwen 零成本整合 | 0a6c159e + 8a0bc8bb + b5784a34 | 3 新 profile + synthesis SYNTHESIS_MODEL env + 簡體避免規則（memory feedback）+ 4 configs baseline |
+| Memory parser | aa001f9a + f481ef63 + 3e125807 + dfc3e769 | _parse_frontmatter / pattern_extractor / crystallizer 全改 yaml.safe_{load,dump} + pattern_yaml_type_guard + install-hooks |
+| Runbooks | 50cb74cd + cbf8f223 + c65163f6 | hermes-model-swap / google-oauth-setup / line-login-setup |
+| 資料 migration | b75e0a82 (20260424a001/a002) | 回填 ezbid unit_id 9567 筆 + per-user bookmark + NULL user_id 回填 superuser |
+
+### 📦 新 ADR
+- **ADR-0032** Tender 多源識別統一策略
+- **ADR-0033** 關閉帳密登入機制（資安）
+
+### 📄 新 Memory Feedback
+- `feedback_simplified_chinese_avoidance` — LLM 簡體輸出禁用三層規則
+
+### 🧪 新 Regression Tests（16 tests 全綠）
+- `test_nebula_graph_mixed_hash_types` (3)
+- `test_memory_frontmatter_parser` (7)
+- `test_synthesis_model_env` (3)
+- `test_tender_detail_kind_field` (3)
+
+### 🛠️ 新工具 / Guard
+- `scripts/checks/pattern_yaml_type_guard.py` + `--fix` 模式
+- `scripts/hooks/pre-commit-pattern-yaml-guard.sh`（install-hooks 自動 append）
+- `scripts/checks/soul-fidelity-multi-baseline.sh`
+- `frontend/src/utils/tenderPath.ts` + `frontend/src/pages/LegacyTenderRedirect.tsx`
+
+### 🔬 新文件 Evaluation
+- `docs/evaluations/qwen3-6-27b-hermes-primary.md`（含附錄 A-C + 4 configs 實測）
+
+### 📏 soul-fidelity 實測（2026-04-24）
+| Provider | Model | Fidelity | 狀態 |
+|---|---|---|---|
+| 🥇 Ollama | qwen2.5:7b | **85%** | 繁中首選（zero-cost）|
+| 🥈 Groq | llama-3.3-70b | 75%* | synthesis 現況 default |
+| 🥉 Ollama | gemma4:e2b | 70% | 現況本地 |
+| ✗ | Groq qwen/qwen3-32b | 50% | 簡體+thinking 雙扣分 |
+
+**結論**：Phase 3 RTX 4090 硬體升級**不再必要**（Groq free tier + Ollama 已覆蓋需求）。
+
+### 📊 實測效能提升
+
+| 場景 | Before | After |
+|---|---|---|
+| `/tender/search` cold | 3.47s | 1.29s (-62%) |
+| `/tender/search` warm | 1.02s | 0.25s (-76%) |
+| `/tender/dashboard` cold | 15s+ | 2.75s (-82%) |
+| `/tender/dashboard` warm | — | 0.22s |
+| `/api/ai/memory/nebula/graph` | 500 高頻 | 200 / 0.22s |
+
+### 🔒 ADR-0033 後身份驗證
+- `POST /api/auth/login` → 410 Gone ✅
+- `/entry` 無帳密按鈕 ✅
+- Google OAuth + LINE Login 作為 SSO 唯一路徑（待 Owner 執行 runbook 啟用）
+
+---
+
 ## [5.9.2] - 2026-04-23（遺留作業收尾：Navigation + ADR archive + ForceGraphLazy generic）
 
 ### 🎯 Release Theme
