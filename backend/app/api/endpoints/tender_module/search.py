@@ -211,6 +211,8 @@ async def get_tender_detail(
                             pass
 
                     result = {
+                        "kind": "ezbid",  # ADR-0032 discriminated union
+                        "ezbid_id": req.unit_id,
                         "unit_id": row[5] or req.unit_id,
                         "job_number": row[6] or "",
                         "title": row[0] or "",
@@ -225,6 +227,7 @@ async def get_tender_detail(
                     if row[5] and row[6] and not row[5].isdigit():
                         pcc_result = await service.get_tender_detail(row[5], row[6])
                         if pcc_result:
+                            pcc_result["kind"] = "pcc"
                             pcc_result["ezbid_url"] = result["ezbid_url"]
                             return SuccessResponse(data=pcc_result)
                     return SuccessResponse(data=result)
@@ -239,6 +242,8 @@ async def get_tender_detail(
     )
     if not result:
         return SuccessResponse(data=None, message="查無此標案")
+    # ADR-0032: PCC response 明確標記 kind
+    result["kind"] = "pcc"
     return SuccessResponse(data=result)
 
 

@@ -56,13 +56,44 @@ export interface TenderDetailEvent {
   companies: string[];
 }
 
-export interface TenderDetail {
+/** PCC 政府採購網詳情（複合鍵：unit_id + job_number） */
+export interface TenderDetailPcc {
+  kind: 'pcc';
+  unit_id?: string;
   unit_name: string;
   job_number: string;
   title: string;
   events: TenderDetailEvent[];
   latest: TenderDetailEvent | null;
+  /** 若該案同時在 ezbid 有資料，附上外連 URL */
+  ezbid_url?: string;
+  /** 同一公告跨事件合併欄位（決標與招標資訊互補） */
+  merged_detail?: Record<string, string>;
 }
+
+/** ezbid.tw 詳情（單一 ezbid_id） */
+export interface TenderDetailEzbid {
+  kind: 'ezbid';
+  ezbid_id: string;
+  unit_id?: string;
+  job_number?: string;
+  title: string;
+  unit_name: string;
+  budget?: string | number | null;
+  announce_date?: string;
+  status?: string;
+  source: string;
+  ezbid_url: string;
+}
+
+/** ADR-0032: Tender 多源 detail discriminated union */
+export type TenderDetail = TenderDetailPcc | TenderDetailEzbid;
+
+/** Type guards */
+export const isPccDetail = (d: TenderDetail | null | undefined): d is TenderDetailPcc =>
+  !!d && d.kind === 'pcc';
+export const isEzbidDetail = (d: TenderDetail | null | undefined): d is TenderDetailEzbid =>
+  !!d && d.kind === 'ezbid';
 
 export interface TenderRecommendResult {
   keywords: string[];

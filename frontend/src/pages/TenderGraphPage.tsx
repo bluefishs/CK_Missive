@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useQuery } from '@tanstack/react-query';
 import { tenderApi } from '../api/tenderApi';
+import { getTenderDetailPath } from '../utils/tenderPath';
 
 const { Title, Text } = Typography;
 
@@ -176,7 +177,7 @@ const TenderGraphPage: React.FC = () => {
                 );
                 const agencyId = edge ? (typeof edge.source === 'string' ? edge.source : (edge.source as GraphNode).id).replace('agency:', '') : '';
                 const jobNum = node.id.replace('tender:', '');
-                if (agencyId) navigate(`/tender/${encodeURIComponent(agencyId)}/${encodeURIComponent(jobNum)}`);
+                if (agencyId) navigate(getTenderDetailPath({ unit_id: agencyId, job_number: jobNum }));
                 else message.info(node.name);
               } else if (node.type === 'company') {
                 navigate(`/tender/company-profile?q=${encodeURIComponent(node.name)}`);

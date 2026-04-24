@@ -164,6 +164,10 @@ export const ROUTES = {
   ADMIN_LOGIN_HISTORY: '/admin/login-history',
   // 標案檢索
   TENDER_SEARCH: '/tender/search',
+  // ADR-0032: 多源 URL 分流
+  TENDER_DETAIL_PCC: '/tender/pcc/:unitId/:jobNumber',
+  TENDER_DETAIL_EZBID: '/tender/ezbid/:ezbidId',
+  /** @deprecated 2026-04-24 legacy format → LegacyTenderRedirect 自動轉址 */
   TENDER_DETAIL: '/tender/:unitId/:jobNumber?',
   TENDER_GRAPH: '/tender/graph',
   TENDER_DASHBOARD: '/tender/dashboard',

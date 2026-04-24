@@ -27,6 +27,7 @@ import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayo
 import { createTabItem } from '../components/common/DetailPage/utils';
 import { useTenderDetail, useTenderDetailFull, useTenderBookmarks, useCreateBookmark, useUpdateBookmark, useDeleteBookmark } from '../hooks/business/useTender';
 import { tenderApi } from '../api/tenderApi';
+import { isEzbidDetail, isPccDetail } from '../types/tender';
 import { App } from 'antd';
 
 const { Text, Paragraph } = Typography;
@@ -56,12 +57,19 @@ function getTimelineColor(type: string): string {
 }
 
 const TenderDetailPage: React.FC = () => {
-  const { unitId, jobNumber } = useParams<{ unitId: string; jobNumber: string }>();
+  // ADR-0032: 支援兩種 URL 格式
+  //   /tender/pcc/:unitId/:jobNumber (PCC)
+  //   /tender/ezbid/:ezbidId (ezbid)
+  const { unitId, jobNumber, ezbidId } = useParams<{
+    unitId?: string; jobNumber?: string; ezbidId?: string;
+  }>();
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const uid = unitId ? decodeURIComponent(unitId) : null;
+  const uid = ezbidId
+    ? decodeURIComponent(ezbidId)
+    : (unitId ? decodeURIComponent(unitId) : null);
   const jn = jobNumber ? decodeURIComponent(jobNumber) : null;
-  const isEzbidOnly = uid && !jn;
+  const isEzbidOnly = !!ezbidId;
 
   const { data: detail, isLoading } = useTenderDetail(uid, jn || null);
   const { data: fullData } = useTenderDetailFull(isEzbidOnly ? null : uid, isEzbidOnly ? null : jn);
@@ -77,11 +85,13 @@ const TenderDetailPage: React.FC = () => {
     return allBookmarks.find(b => b.unit_id === uid && b.job_number === jn) ?? null;
   }, [allBookmarks, unitId, jobNumber]);
 
-  // Merge all event details — 決標公告 and 招標公告 have different fields
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const merged = (detail as any)?.merged_detail as Record<string, string> | undefined;
-  const rawLatest = detail?.latest?.detail;
-  // Use rawLatest first, fill gaps from merged (cross-event)
+  // ADR-0032: 以 type guard 明確分派 PCC / ezbid 資料來源
+  const pccDetail = isPccDetail(detail) ? detail : null;
+  const ezbidData = isEzbidDetail(detail) ? detail : null;
+
+  // PCC 決標公告 and 招標公告 have different fields — 以 merged_detail 互補
+  const merged = pccDetail?.merged_detail;
+  const rawLatest = pccDetail?.latest?.detail;
   const latest = rawLatest
     ? Object.fromEntries(
         Object.keys(rawLatest).map(k => [k, (rawLatest as Record<string, string>)[k] || merged?.[k] || ''])
@@ -89,14 +99,7 @@ const TenderDetailPage: React.FC = () => {
     : (merged as typeof rawLatest);
   const days = useMemo(() => daysRemaining(latest?.deadline), [latest?.deadline]);
 
-  // 2026-04-24: ezbid-only 案件 detail 無 latest/events，改讀 ezbid_db 頂層欄位
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ezbidData = (detail as any) as {
-    unit_id?: string; job_number?: string; title?: string; unit_name?: string;
-    budget?: string | number; announce_date?: string; status?: string;
-    source?: string; ezbid_url?: string;
-  } | null | undefined;
-  const isEzbidDbOnly = !latest && ezbidData?.source === 'ezbid_db';
+  const isEzbidDbOnly = !!ezbidData;
 
   if (!detail && !isLoading) {
     return (
@@ -306,14 +309,14 @@ const TenderDetailPage: React.FC = () => {
   );
 
   // ========== Tab 2: 生命週期 ==========
-  const lifecycleTab = createTabItem('lifecycle', { icon: <CalendarOutlined />, text: '生命週期', count: detail?.events?.length },
+  const lifecycleTab = createTabItem('lifecycle', { icon: <CalendarOutlined />, text: '生命週期', count: pccDetail?.events?.length },
     <div>
       <Paragraph type="secondary" style={{ marginBottom: 16 }}>
         標案從公告到決標的完整歷程，每個節點代表一次公告或決標事件。
       </Paragraph>
       <Timeline
         mode="left"
-        items={(detail?.events ?? []).map((evt, i) => {
+        items={(pccDetail?.events ?? []).map((evt, i) => {
           const color = getTimelineColor(evt.type);
           const icon = evt.type.includes('決標')
             ? <CheckCircleOutlined style={{ color: '#52c41a' }} />
@@ -346,10 +349,10 @@ const TenderDetailPage: React.FC = () => {
   // ========== Tab 3: 投標/得標 ==========
   const companiesTab = createTabItem('companies', { icon: <BankOutlined />, text: '投標/得標' },
     <div>
-      {(detail?.events ?? []).filter(e => e.companies.length > 0).length === 0 ? (
+      {(pccDetail?.events ?? []).filter(e => e.companies.length > 0).length === 0 ? (
         <Empty description="尚無投標/得標紀錄" />
       ) : (
-        (detail?.events ?? []).filter(e => e.companies.length > 0).map((evt, i) => (
+        (pccDetail?.events ?? []).filter(e => e.companies.length > 0).map((evt, i) => (
           <Card key={i} size="small" title={<><Tag color={getTimelineColor(evt.type)}>{evt.type}</Tag> {evt.date}</>} style={{ marginBottom: 8 }}>
             <Space wrap>
               {evt.companies.map((c, j) => <Tag key={j} color="blue" style={{ cursor: 'pointer' }} onClick={() => navigate(`/tender/company-profile?q=${encodeURIComponent(c)}`)}>{c}</Tag>)}

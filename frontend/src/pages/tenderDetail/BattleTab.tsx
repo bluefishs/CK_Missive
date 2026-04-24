@@ -11,6 +11,7 @@ import {
   Card, Typography, Space, List, Tag, Button, Empty,
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import { getTenderDetailPath } from '../../utils/tenderPath';
 
 const { Text } = Typography;
 
@@ -126,7 +127,7 @@ const BattleTab: React.FC<BattleTabProps> = ({ battleRoom: battle, orgEcosystem,
                 <Text strong style={{ display: 'block', marginBottom: 8 }}>近期標案</Text>
                 <List size="small" dataSource={orgEcosystem.recent_tenders.slice(0, 8)}
                   renderItem={(r) => (
-                    <List.Item actions={[<Button key="go" type="link" size="small" onClick={() => navigate(`/tender/${encodeURIComponent(r.unit_id)}/${encodeURIComponent(r.job_number)}`)}>查看</Button>]}>
+                    <List.Item actions={[<Button key="go" type="link" size="small" onClick={() => navigate(getTenderDetailPath(r))}>查看</Button>]}>
                       <List.Item.Meta title={r.title} description={<Space><Tag>{r.type?.slice(0, 10)}</Tag><Text type="secondary">{r.date}</Text>{r.winner_names?.map((w, i) => <Tag key={i} color="green">{w}</Tag>)}</Space>} />
                     </List.Item>
                   )}

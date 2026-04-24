@@ -132,6 +132,7 @@ const CaseNatureManagementPage = lazy(() => import('../pages/CaseNatureManagemen
 const AdminLoginHistoryPage = lazy(() => import('../pages/AdminLoginHistoryPage'));
 const TenderSearchPage = lazy(() => import('../pages/TenderSearchPage'));
 const TenderDetailPage = lazy(() => import('../pages/TenderDetailPage'));
+const LegacyTenderRedirect = lazy(() => import('../pages/LegacyTenderRedirect'));
 const TenderGraphPage = lazy(() => import('../pages/TenderGraphPage'));
 const TenderDashboardPage = lazy(() => import('../pages/TenderDashboardPage'));
 const TenderOrgEcosystemPage = lazy(() => import('../pages/TenderOrgEcosystemPage'));
@@ -288,7 +289,11 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.CASE_NATURE_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><CaseNatureManagementPage /></ProtectedRoute>} />
           {/* 標案檢索 */}
           <Route path={ROUTES.TENDER_SEARCH} element={<ProtectedRoute><TenderSearchPage /></ProtectedRoute>} />
-          <Route path={ROUTES.TENDER_DETAIL} element={<ProtectedRoute><TenderDetailPage /></ProtectedRoute>} />
+          {/* ADR-0032 多源 URL 分流 — PCC 與 ezbid 使用不同 namespace */}
+          <Route path={ROUTES.TENDER_DETAIL_PCC} element={<ProtectedRoute><TenderDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.TENDER_DETAIL_EZBID} element={<ProtectedRoute><TenderDetailPage /></ProtectedRoute>} />
+          {/* Legacy 相容：舊格式 /tender/:u/:j? 自動 redirect 至新 namespace */}
+          <Route path={ROUTES.TENDER_DETAIL} element={<ProtectedRoute><LegacyTenderRedirect /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_GRAPH} element={<ProtectedRoute><TenderGraphPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_DASHBOARD} element={<ProtectedRoute><TenderDashboardPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_ORG_ECOSYSTEM} element={<ProtectedRoute><TenderOrgEcosystemPage /></ProtectedRoute>} />

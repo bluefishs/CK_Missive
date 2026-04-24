@@ -18,6 +18,7 @@ import {
 import apiClient from '../api/client';
 import { useCompanyBookmarks, useAddCompanyBookmark, useRemoveCompanyBookmark } from '../hooks/business/useTender';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
+import { getTenderDetailPath } from '../utils/tenderPath';
 import { ROUTES } from '../router/types';
 import CategoryPieChart from '../components/tender/CategoryPieChart';
 import { enhanceColumns } from '../utils/tableEnhancer';
@@ -218,7 +219,7 @@ const TenderCompanyProfilePage: React.FC = () => {
                     {
                       title: '標案名稱', dataIndex: 'title', key: 'title',
                       render: (v: string, r: CompanyData['recent_tenders'][0]) => (
-                        <a onClick={() => navigate(`/tender/${r.unit_id}/${r.job_number}`)} title={v}>{v}</a>
+                        <a onClick={() => navigate(getTenderDetailPath(r))} title={v}>{v}</a>
                       ),
                     },
                     { title: '日期', dataIndex: 'date', key: 'date', width: 105 },

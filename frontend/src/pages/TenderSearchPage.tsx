@@ -26,6 +26,7 @@ import {
 import type { TenderRecord, TenderSearchParams } from '../types/tender';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
+import { getTenderDetailPath } from '../utils/tenderPath';
 import { SearchTab } from './tenderSearch';
 import { SubscriptionTab } from './tenderSearch';
 import { BookmarkTab } from './tenderSearch';
@@ -77,7 +78,7 @@ const TenderSearchPage: React.FC = () => {
   }, [message, searchType, categoryFilter]);
 
   const handleViewDetail = useCallback((record: TenderRecord) => {
-    navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number || '')}`);
+    navigate(getTenderDetailPath(record));
   }, [navigate]);
 
   // 訂閱 → 搜尋 Tab 切換 (帶入關鍵字+類別)
@@ -150,7 +151,7 @@ const TenderSearchPage: React.FC = () => {
 
   // 收藏 row click handler
   const handleBookmarkRowClick = useCallback((record: { unit_id: string; job_number: string }) => {
-    navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number)}`);
+    navigate(getTenderDetailPath(record));
   }, [navigate]);
 
   return (

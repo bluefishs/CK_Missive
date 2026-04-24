@@ -24,6 +24,7 @@ import apiClient from '../api/client';
 import CategoryPieChart from '../components/tender/CategoryPieChart';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
+import { getTenderDetailPath } from '../utils/tenderPath';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -88,7 +89,7 @@ const TenderDashboardPage: React.FC = () => {
     {
       title: '標案名稱', dataIndex: 'title', ellipsis: true,
       render: (v: string, r) => (
-        <a onClick={() => navigate(`/tender/${encodeURIComponent(r.unit_id)}/${encodeURIComponent(r.job_number)}`)} style={{ fontWeight: 500 }}>{v}</a>
+        <a onClick={() => navigate(getTenderDetailPath(r))} style={{ fontWeight: 500 }}>{v}</a>
       ),
     },
     {
@@ -202,7 +203,7 @@ const TenderDashboardPage: React.FC = () => {
           scroll={{ x: 700 }}
           pagination={currentList.data.length > 10 ? { pageSize: 10, showTotal: (t: number) => `共 ${t} 筆` } : false}
           onRow={(record) => ({
-            onClick: () => navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number || '')}`),
+            onClick: () => navigate(getTenderDetailPath(record)),
             style: { cursor: 'pointer' },
           })}
           footer={() => currentList.data.length >= 10 ? (

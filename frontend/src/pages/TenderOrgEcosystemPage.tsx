@@ -18,6 +18,7 @@ import {
 import apiClient from '../api/client';
 import { TENDER_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
+import { getTenderDetailPath } from '../utils/tenderPath';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import CategoryPieChart from '../components/tender/CategoryPieChart';
 const { Title } = Typography;
@@ -157,7 +158,7 @@ const TenderOrgEcosystemPage: React.FC = () => {
                     {
                       title: '標案', dataIndex: 'title', key: 'title', ellipsis: true,
                       render: (v: string, r: OrgData['recent_tenders'][0]) => (
-                        <a onClick={() => navigate(`/tender/${r.unit_id}/${r.job_number}`)}>{v}</a>
+                        <a onClick={() => navigate(getTenderDetailPath(r))}>{v}</a>
                       ),
                     },
                     { title: '日期', dataIndex: 'date', key: 'date', width: 100 },
