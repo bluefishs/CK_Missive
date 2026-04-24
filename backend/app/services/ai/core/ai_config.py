@@ -442,21 +442,38 @@ class AIConfig:
 
     @property
     def inference_profiles(self) -> dict:
-        """Get resolved inference provider profiles."""
+        """Get resolved inference provider profiles.
+
+        TODO（2026-04-24 審計）：目前 0 生產呼叫點。設計意圖為讓 ai_connector 按 profile
+        切換模型組合（qwen25-7b-local / qwen3-32b-groq 等），但尚未接線。未來整合
+        token budget-aware routing 時可啟用。
+        """
         return self._inference_profiles
 
     @property
     def provider_routing(self) -> dict:
-        """Get provider routing preferences per task type."""
+        """Get provider routing preferences per task type.
+
+        已於 2026-04-24 Patch（ai_connector.py）接線 — yaml 贏過 hardcoded
+        _LOCAL_FIRST_TASKS（見 test_ai_connector_yaml_routing_ssot.py）。
+        """
         return self._provider_routing
 
     def get_preferred_providers(self, task_type: str = "chat") -> list:
-        """Get ordered provider list for a task type."""
+        """Get ordered provider list for a task type.
+
+        TODO（2026-04-24 審計）：目前 0 生產呼叫點。設計意圖為讓 ai_connector fallback
+        chain 順序跟 yaml 走（如 chat 走 [groq, nvidia, ollama]）。目前 fallback 順序
+        在 ai_connector.chat_completion 中 hardcode，應遷移用此 getter。
+        """
         routing = self._provider_routing.get(task_type, {})
         return routing.get("preferred", ["groq", "nvidia", "ollama"])
 
     def should_prefer_local(self, task_type: str = "chat") -> bool:
-        """Check if a task type should prefer local providers."""
+        """Check if a task type should prefer local providers.
+
+        已於 2026-04-24 Patch（ai_connector.py）接線。
+        """
         routing = self._provider_routing.get(task_type, {})
         return routing.get("prefer_local", False)
 
