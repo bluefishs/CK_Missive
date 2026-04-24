@@ -82,8 +82,18 @@ capability:
   # Redis 快取 TTL (秒)
   cache_ttl_seconds: 300
 
-# Provider routing preferences (v3.0.0 — Gemma 4 primary)
+# Provider routing preferences (v3.1.0 — 2026-04-24 qwen2.5 首選調整註記)
 # Task types: chat, planning, synthesis, ner, multimodal, embedding
+#
+# 📌 2026-04-24 soul-fidelity 實測（docs/evaluations/qwen3-6-27b-hermes-primary.md 附錄 C）：
+#    Ollama qwen2.5:7b 85% > Groq llama-3.3-70b 75%* > Ollama gemma4 70% > Groq qwen3-32b 50%
+#
+# 📌 OLLAMA_MODEL env 控制實際本地模型：
+#    - gemma4:e2b（現況 default，prod .env 仍此值）
+#    - qwen2.5:7b（推薦切換，零成本提升 15 pp，運維步驟見 docs/runbooks/hermes-model-swap.md）
+#
+# 📌 簡體避免規則（memory feedback_simplified_chinese_avoidance）：
+#    原生簡體模型（qwen3-32b 等）必須 prompt 強制繁中 + OpenCC s2twp 雙保險
 provider_routing:
   chat:
     preferred: [ollama, groq, nvidia]
