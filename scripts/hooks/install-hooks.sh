@@ -43,3 +43,17 @@ fi
 
 echo "✓ pre-commit hook 已安裝/更新（含 secret-guard）"
 echo "  驗證：嘗試 git add .env 然後 git commit —應被阻擋"
+
+# Pattern YAML type guard（2026-04-24 ADR-0028）
+if ! grep -q "pre-commit-pattern-yaml-guard.sh" "$PRE_COMMIT"; then
+    echo "追加 pattern YAML type guard"
+    cat >> "$PRE_COMMIT" <<'EOF'
+
+# --- Auto-appended by install-hooks.sh (pattern YAML type guard, ADR-0028) ---
+if [ -x "$(git rev-parse --show-toplevel)/scripts/hooks/pre-commit-pattern-yaml-guard.sh" ]; then
+    bash "$(git rev-parse --show-toplevel)/scripts/hooks/pre-commit-pattern-yaml-guard.sh" || exit $?
+fi
+EOF
+fi
+
+echo "✓ pre-commit hook 含 pattern-yaml-guard"
