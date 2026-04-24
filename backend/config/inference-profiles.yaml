@@ -23,6 +23,58 @@ profiles:
       - multimodal
     note: "Gemma 4 8B Q4_K_M via Ollama GPU. ~6.7GB VRAM. Primary for all tasks including vision."
 
+  # === 🆕 2026-04-24 Qwen 三路整合（零新成本 — Hermes 評估 docs/evaluations/qwen3-6-27b-hermes-primary.md）===
+
+  # P2 本地：Qwen2.5 7B Q4 (Ollama GPU) — 繁中能力優於 Gemma 4 8B
+  # 模型已下載（docker exec ck-ollama ollama list → qwen2.5:7b 4.7GB）
+  qwen25-7b-local:
+    provider: ollama
+    model: "qwen2.5:7b"
+    base_url: "${OLLAMA_BASE_URL}"
+    timeout_seconds: 120
+    priority: 2
+    capabilities:
+      - chat
+      - planning
+      - synthesis
+      - ner
+      - chinese-native
+    note: "Qwen 2.5 7B Q4 via Ollama GPU. ~4.7GB VRAM. 繁中優於 Gemma 4。"
+
+  # P2 本地長 context：Qwen2.5 7B 64K context（已預編）
+  qwen25-7b-64k-local:
+    provider: ollama
+    model: "qwen2.5:7b-ctx64k"
+    base_url: "${OLLAMA_BASE_URL}"
+    timeout_seconds: 150
+    priority: 2
+    capabilities:
+      - chat
+      - planning
+      - synthesis
+      - ner
+      - chinese-native
+      - long-context
+    note: "Qwen 2.5 7B with 64K context — 適用於 Hermes 長工具迴圈上下文。"
+
+  # P1 雲端：Groq Qwen3-32B（免費 tier, 60 RPM 專用配額）
+  # 2026-04-24 驗證：curl /v1/chat/completions 通過，模型已活化
+  qwen3-32b-groq:
+    provider: openai  # Groq OpenAI-compatible endpoint
+    model: "qwen/qwen3-32b"
+    api_key_env: GROQ_API_KEY  # 重用現有 Groq key（零新費用）
+    base_url: "https://api.groq.com/openai/v1"
+    timeout_seconds: 30
+    priority: 1
+    capabilities:
+      - chat
+      - planning
+      - synthesis
+      - function-calling
+      - chinese-native
+      - reasoning  # Qwen3 內建 thinking mode
+    note: "Qwen3 32B dense via Groq Cloud free tier. 繁中 + agentic 首選。60 RPM / 14.4K RPD。"
+
   # === P1: 雲端回退 ===
   groq-cloud:
     provider: groq
