@@ -40,11 +40,16 @@ PRODUCTION_ROOT = Path("backend/app")
 EXCLUDE_FRAGMENTS = ("/tests/", "/test_", "\\tests\\", "\\test_")
 # Constructor patterns（透過 module-level factory 間接呼叫，scanner 無法追蹤）
 CONSTRUCTOR_PATTERNS = {"from_env", "from_dict", "from_yaml", "create", "build"}
+# Test helper 名稱模式（不算 production dead）
+TEST_HELPER_SUFFIXES = ("_for_test", "_for_tests", "_test_helper")
 
 
 def find_public_methods_and_properties(target: Path) -> list[tuple[str, str]]:
-    """從 target Python 檔找 public def / property
-    Returns: [(name, kind)] where kind in {"method", "property"}
+    """從 target Python 檔找 public def / property / module-level function
+    Returns: [(name, kind)] where kind in {"method", "property", "function"}
+
+    v2 (2026-04-25)：支援 module-level function（修補 v1 miss get_cloud_semaphore
+    這類 module factory 的 dead detection gap）
     """
     if not target.exists():
         print(f"ERROR: target {target} not found", file=sys.stderr)
@@ -53,21 +58,32 @@ def find_public_methods_and_properties(target: Path) -> list[tuple[str, str]]:
     src = target.read_text(encoding="utf-8")
     results: list[tuple[str, str]] = []
 
-    # 找 class 內的 def（粗略 AST — re-based 簡化）
     prop_next = False
     for line in src.splitlines():
         stripped = line.strip()
         if stripped == "@property":
             prop_next = True
             continue
-        m = re.match(r"^\s+def\s+([a-zA-Z_]\w*)\s*\(", line)
-        if m:
-            name = m.group(1)
+
+        # 縮排的 def = class method/property
+        m_method = re.match(r"^\s+def\s+([a-zA-Z_]\w*)\s*\(", line)
+        if m_method:
+            name = m_method.group(1)
             if not name.startswith("_"):
                 kind = "property" if prop_next else "method"
                 results.append((name, kind))
             prop_next = False
             continue
+
+        # 無縮排的 def = module-level function（v2 新增）
+        m_func = re.match(r"^def\s+([a-zA-Z_]\w*)\s*\(", line)
+        if m_func:
+            name = m_func.group(1)
+            if not name.startswith("_"):
+                results.append((name, "function"))
+            prop_next = False
+            continue
+
         # 非 def 行且不是空白/裝飾器 → reset prop flag
         if stripped and not stripped.startswith("@") and not stripped.startswith("#"):
             prop_next = False
@@ -91,6 +107,10 @@ def count_production_callers(name: str, kind: str, target: Path) -> tuple[int, l
     """
     if kind == "method":
         pattern = re.compile(rf"\.{re.escape(name)}\(")
+    elif kind == "function":
+        # module-level function: 直接呼叫 name(...) 或 import 後呼叫
+        # 不限定 `\.` prefix（可能是 `from xxx import name; name()`）
+        pattern = re.compile(rf"\b{re.escape(name)}\s*\(")
     else:  # property
         pattern = re.compile(rf"\.{re.escape(name)}(?![A-Za-z0-9_])")
 
@@ -141,6 +161,10 @@ def main() -> int:
         if name in CONSTRUCTOR_PATTERNS:
             # Constructor 透過 factory 間接呼叫，scanner 無法追蹤；標 skipped 不算 dead
             skipped.append((name, kind, "constructor-via-factory"))
+            continue
+        if any(name.endswith(suffix) for suffix in TEST_HELPER_SUFFIXES):
+            # Test helper（production 不該呼叫）
+            skipped.append((name, kind, "test-helper"))
             continue
         n, callers = count_production_callers(name, kind, args.target)
         if n == 0:

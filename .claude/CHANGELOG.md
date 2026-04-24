@@ -4,6 +4,69 @@
 
 ---
 
+## [5.9.6] - 2026-04-25（架構標準化 + SSOT 完整閉環）
+
+### 🎯 Release Theme
+
+延續 v5.9.5 Patch A+B 事故教訓，**把一次性修復結晶為跨 repo 可復用架構**：
+- 📘 跨 repo 架構參考文件（12 章 STANDARD_REFERENCE）
+- 🗂 services/ 85 散戶 bounded context 映射（DDD 漸進 vs 搬檔高風險）
+- 🧪 Fitness functions 本地零費用守門（service entropy + dead config scanner）
+- ✅ SSOT 完整閉環（ai_connector 接線 yaml provider_routing + cloud semaphore 真生效）
+- 📈 新觀測：inference_routing_decision_total + inference_queue_waiting_by_pool
+
+### 💥 核心修復（從 v5.9.5 dead config 教訓延伸）
+
+**架構漏洞**：`get_cloud_semaphore()` 定義但 0 生產呼叫 — 重演 v5.9.5 ADR-0030 的 dead config pattern（`should_prefer_local`/`get_preferred_providers` 未接線）。
+
+**接線（commit 870fefb5）**：
+- `_groq_completion` + `_nvidia_completion` 包 cloud semaphore（max=10, timeout=cloud_timeout+10）
+- Ollama 保留 local sem（max=3）
+- `/metrics` 暴露 `inference_queue_waiting_by_pool{pool="cloud"|"local"}`
+
+### 📋 本版交付（14 commits 按主題）
+
+| 主題 | 代表 commit | 交付 |
+|---|---|---|
+| P0 修復 | f6494fe5 + e33df6fd | Patch A+B baseline 47%→100% + SSOT yaml 接線 |
+| 架構標準化 | 2eed285f + 57f63ef9 | STANDARD_REFERENCE.md (12 章) + SERVICE_CONTEXT_MAP.md (85 散戶 × 16 context) |
+| 分池與觀測 | 5bfbdb92 + 870fefb5 + f01cc529 | Inference semaphore 分池 + R6 routing decision metric + cloud 接線 |
+| Fitness functions | 82285acb + 7d06b86e | service entropy + dead config scanner + 本地 runner + /arch-fitness |
+| 文件索引同步 | 本 commit | CLAUDE.md + skills-inventory 加新架構資產 |
+
+### 🧪 新 Regression Tests（13 tests 全綠）
+
+- `test_ai_connector_yaml_routing_ssot.py` (4)
+- `test_inference_semaphore_pools.py` (5)
+- `test_routing_decision_metric.py` (4)
+
+### 📄 新 Memory Feedback（永久規範）
+
+- `feedback_ddd_over_line_count` — 拆分看職責不看行數
+- `feedback_no_github_actions_cost` — CI 費用規範：全本地執行
+
+### 🏗️ 新架構資產（`docs/architecture/`）
+
+- `STANDARD_REFERENCE.md` v1.1 — 12 章 + §13 AI-Native UX（跨 repo 參考）
+- `SERVICE_CONTEXT_MAP.md` v1.0 — 漸進 DDD 映射 85→16
+- `run_fitness.sh` + 2 Python scanner + `/arch-fitness` slash command
+
+### 🔑 關鍵教訓（結晶為永久規範）
+
+1. **SSOT 必有 integration test 鎖定** — 否則重蹈 dead config 覆轍
+2. **領域驅動 > 行數驅動** — 拆分看職責不看 LoC 門檻
+3. **零 CI 費用原則** — 所有守門本地執行
+4. **接線才算 SSOT** — 定義 config 但無 reader = 裝飾
+5. **加註 > 搬檔** — 85 散戶先映射再遷移，降風險
+
+### ⚠️ 仍待觸發的後續
+
+- Q1 `agent_nemoclaw.py` rename（ADR-0014 退場，5/26 repo archive）
+- SERVICE_CONTEXT_MAP Phase 2 批次搬檔（觸發條件：ADR-0020 Phase 1 啟動或散戶 >100）
+- `get_preferred_providers` / `inference_profiles` 接線（TODO 註記，等機會）
+
+---
+
 ## [5.9.5] - 2026-04-24（Hermes Baseline 品質修復 — Patch A+B）
 
 ### 🎯 Release Theme

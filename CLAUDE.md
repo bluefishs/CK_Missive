@@ -97,6 +97,18 @@ Discord → Interactions Endpoint → Missive Agent API (直連)
 | `.claude/DEVELOPMENT_GUIDELINES.md` | 開發指引與常見錯誤 |
 | `.claude/CHANGELOG.md` | 完整版本更新記錄 |
 
+### 架構標準化（v5.9.6, 2026-04-25）
+
+| 文件 | 說明 |
+|------|------|
+| `docs/architecture/STANDARD_REFERENCE.md` | 📘 **跨 repo 架構標準** — DDD/SSOT/Hermes/觀測棧 12 章 + §13 AI-Native UX |
+| `docs/architecture/SERVICE_CONTEXT_MAP.md` | 🗂 services/ 頂層 85 散戶 × 16 bounded context 映射（漸進 DDD）|
+| `docs/ops/baseline-fix-patch-preview.md` | ⚙️ Hermes baseline 修復 patch 預覽（Patch A+B 三路徑）|
+| `scripts/checks/run_fitness.sh` | 🧪 本地 fitness runner（零 CI 費用）|
+| `scripts/checks/service_dir_entropy.py` | 📊 services/ 頂層散戶比例（閾值 20%）|
+| `scripts/checks/config_dead_reader_scan.py` | 🔍 yaml config dead reader 偵測 |
+| `/arch-fitness` slash command | 本地月度架構覆盤觸發 |
+
 ---
 
 ## 快速連結

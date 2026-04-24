@@ -25,6 +25,7 @@
 | `/knowledge-map` | 🗺️ **知識地圖重建與差異報告** | `.claude/commands/knowledge-map.md` |
 | `/health-dashboard` | 📊 **系統健康儀表板** — 行數/測試/遷移/Git 活動 | `.claude/commands/health-dashboard.md` |
 | `/refactor-scan` | 🔍 **重構掃描** — 超閾值檔案掃描+拆分建議 | `.claude/commands/refactor-scan.md` |
+| `/arch-fitness` | 🧪 **架構 Fitness Functions 本地執行**（零 CI 費用，月度覆盤）| `.claude/commands/arch-fitness.md` |
 
 ### gstack 啟發指令 (v2.0.0, 2026-03-23 升級)
 
@@ -179,7 +180,13 @@
 | `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 系統優化報告 |
 | `docs/ALEMBIC_MIGRATION_GUIDE.md` | Alembic 遷移管理指南 |
 | `scripts/checks/verify_architecture.py` | 架構驗證腳本 (7 項自動化檢查) |
-| `scripts/checks/service-line-count-check.py` | 後端服務行數監控 (>600L 警告) |
+| `scripts/checks/service-line-count-check.py` | 後端服務行數監控 (>600L 警告，已修正為觀察而非拆分依據 — 見 feedback_ddd_over_line_count) |
+| `scripts/checks/service_dir_entropy.py` | 🆕 v5.9.6 — services/ 頂層散戶比例（閾值 20%）|
+| `scripts/checks/config_dead_reader_scan.py` | 🆕 v5.9.6 — yaml config dead reader 偵測（ADR-0030 審計配套）|
+| `scripts/checks/run_fitness.sh` | 🆕 v5.9.6 — 本地 fitness runner（零 CI 費用）|
+| `docs/architecture/STANDARD_REFERENCE.md` | 🆕 v5.9.6 — 跨 repo 架構標準（12 章 + §13 AI-Native UX）|
+| `docs/architecture/SERVICE_CONTEXT_MAP.md` | 🆕 v5.9.6 — 85 散戶 × 16 bounded context 映射 |
+| `docs/ops/baseline-fix-patch-preview.md` | 🆕 v5.9.5 — Hermes baseline 修復 patch 預覽 |
 | `scripts/checks/async_session_race_guard.py` | 🆕 ADR-0028 靜態守護：`asyncio.gather` 內多 task 不得共用 db session（承接 ADR-0021） |
 | `scripts/checks/sse_headers_guard.py` | 🆕 ADR-0028 靜態守護：SSE endpoint 必須含 `Content-Encoding: identity` |
 | `scripts/checks/adr_lifecycle_check.py` | 🆕 ADR-0029 自動統計 active / archived / removed ADR 分佈 |
