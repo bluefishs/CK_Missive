@@ -1,9 +1,14 @@
 # CK_Missive 安全威脅模型（STRIDE）
 
 > **建立**：2026-04-15
+> **最後更新**：2026-04-24（NemoClaw/OpenClaw 退場註記）
 > **方法論**：STRIDE（Spoofing / Tampering / Repudiation / Info Disclosure / DoS / Elevation of Privilege）
 > **適用範圍**：CK_Missive 後端 / 前端 / 整合通道 / 部署鏈
 > **前置閱讀**：`AUTH_FLOW_DIAGRAM.md`、`ARCHITECTURE_REVIEW_2026-04-15.md`
+>
+> **2026-04-24 註記**：本文件中 NemoClaw / OpenClaw 相關項目（I7 / E4 / 監控指標 nemoclaw log）已於
+> ADR-0014 / 0015 退場（2026-05-26 歸檔 deadline）。歷史記錄保留；新環境僅保留
+> Cloudflare Tunnel + Hermes gateway 相關威脅模型。
 
 ---
 
