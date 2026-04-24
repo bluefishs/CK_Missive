@@ -4,6 +4,75 @@
 
 ---
 
+## [5.9.5] - 2026-04-24（Hermes Baseline 品質修復 — Patch A+B）
+
+### 🎯 Release Theme
+
+v5.9.4 Qwen 整合的**實戰突破**：診斷並修復 Hermes baseline 成功率崩壞問題，ADR-0030 GO/NO-GO 條件達標 4/5。
+
+### 💥 P0 診斷：Ollama GPU Semaphore 飽和
+
+**症狀**：shadow baseline 成功率 47.26%（門檻 ≥95%）、Ollama 9.7% 成功率、p95 latency 90s、timeout 累積 183 筆。
+
+**根因**：`backend/config/agent-policy.yaml` 把 ollama 設 chat/planning/synthesis 首選 + `prefer_local:true`，每次 agent query 先卡 `inference_semaphore(max=3, timeout=90s)` 才 fallback 到 groq。
+
+### ✅ Patch A+B（3 commits）
+
+**f6494fe5 fix — Patch A**：`agent-policy.yaml` 三處 provider_routing 翻轉
+- chat / planning / synthesis: `[groq, nvidia, ollama]` + `prefer_local:false`
+- ner / multimodal / embedding: 保留 ollama 首選（groq 不支援）
+
+**Patch B**（`.env`，不進 git）：`OLLAMA_MODEL=gemma4:e2b → qwen2.5:7b`
+
+**2513bb44 docs**：ADR-0030 中期檢點 + Sprint 1 B 類文件清理
+- `docs/adr/0030` 加 2026-04-24 檢點段（4/5 GO 達標 + p95 門檻 A/B/C 修訂方案）
+- `docs/HERMES_MIGRATION_PLAN.md` + `docs/ops/baseline-fix-patch-preview.md`（新）
+- `docs/MULTICHANNEL_SETUP_GUIDE.md` + `docs/SECRET_ROTATION_SOP.md` 加 ARCHIVED/更新標頭
+
+**5c4b5a7c chore**：Hermes auto-diary 2026-04-24
+
+### 📊 修復前後對比
+
+| 指標 | 修復前 | Patch 後 | GO 門檻 | 達標 |
+|---|---|---|---|---|
+| 成功率 | 47.26% | **100%**（23+ 筆 clean） | ≥95% | ✅ |
+| Ollama ok | 9.7% | **100%** | — | ✅ |
+| Timeout | 183 | **0** | — | ✅ |
+| p50 | 90,001ms | 39,387ms | — | 🟡 |
+| p95 | 90,009ms | 57,787ms | <8s | ❌（門檻不合理，建議修訂）|
+| Soul fidelity (ollama qwen2.5:7b) | — | **85%** | ≥70% | ✅ |
+| Soul fidelity (groq llama-3.3-70b) | — | 75% | ≥70% | ✅ |
+
+### 🧪 本版交付物
+
+| 主題 | 檔案 |
+|---|---|
+| 修復預覽 | `docs/ops/baseline-fix-patch-preview.md`（新，三路徑精確 diff + 指令 + 風險） |
+| ADR 修訂 | `docs/adr/0030-hermes-go-no-go-revision.md` 補 2026-04-24 檢點段 |
+| Session memory | `baseline_quality_recovery_20260424.md`（新） |
+| dogfooding 補記 | `hermes_dogfooding_log.md` Day 2 19:24 突破段 |
+
+### 📌 ADR-0030 GO 條件總結
+
+| # | 條件 | 狀態 |
+|---|---|---|
+| 1 | Baseline ≥ 30 筆 | ✅ 累計 370+ |
+| 2 | Owner 7 天 Web UI | 🟡 D1/D2 客觀齊、D3-7 主觀待填 |
+| 3 | Soul fidelity ≥ 70% 跨 provider | ✅ 雙 provider 達標 |
+| 4 | Error rate < 5% | ✅ 0 timeout, 100% success |
+| 5 | P95 < 8s | ❌ 57.8s — 建議門檻修訂（multi-tool loop 現實）|
+
+5/20 GO/NO-GO 會議將依 ADR-0030 補段三方案（A: <60s / B: 拆分指標 / C: SLO 預算制）決議。
+
+### 🔑 關鍵教訓
+
+1. **Fallback chain 必須驗證運作**：修復前 chain 順序設對但 semaphore 卡死 → 全部失敗
+2. **Semaphore timeout 應 << 外層 timeout**：原 semaphore 90s = `agent_sync_query_timeout` 導致無機會 fallback
+3. **Provider 優先級與模型品質獨立調整**：A（routing）+ B（model swap）組合最大化 ROI
+4. **shadow_trace.db 是真相**：比 pm2 log 更可靠，應成為未來診斷首選
+
+---
+
 ## [5.9.4] - 2026-04-24（/tender 整合 + 資安硬化 + Qwen 零成本整合 + parser 重構 + 3 runbook）
 
 ### 🎯 Release Theme
