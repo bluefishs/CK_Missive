@@ -285,10 +285,11 @@ class TenderAnalyticsService:
             ],
         }
 
-        # 寫入 Redis 快取 (10 min) — 後續請求秒回
+        # 寫入 Redis 快取 — 2026-04-24 延長至 65 分鐘（比排程預熱間隔 60 min 略長，
+        # 確保用戶訪問永遠 cache hit；資料當日範圍內即時性 1hr 可接受）
         if redis:
             try:
-                await redis.set(cache_key, _json.dumps(dashboard_result, ensure_ascii=False, default=str), ex=600)
+                await redis.set(cache_key, _json.dumps(dashboard_result, ensure_ascii=False, default=str), ex=3900)
             except Exception:
                 pass
 

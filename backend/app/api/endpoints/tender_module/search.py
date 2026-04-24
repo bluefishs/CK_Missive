@@ -184,19 +184,32 @@ async def get_tender_detail(
     # ezbid-only: 純數字 + 無 job_number → 查 DB tender_records
     is_ezbid = req.unit_id.isdigit() and not req.job_number
     if is_ezbid:
+        # 2026-04-24 修復：原 SQL 引用不存在的 ezbid_url 欄位導致 silent fail（ADR-0028）
+        import logging as _log
+        _logger = _log.getLogger(__name__)
         try:
             from app.db.database import async_session_maker
             from sqlalchemy import text as sa_text
             async with async_session_maker() as db:
                 r = await db.execute(sa_text("""
                     SELECT title, unit_name, budget, announce_date, status,
-                           unit_id, job_number, source, ezbid_url
+                           unit_id, job_number, source, raw_data
                     FROM tender_records
                     WHERE ezbid_id = :eid
                     ORDER BY announce_date DESC LIMIT 1
                 """), {"eid": req.unit_id})
                 row = r.one_or_none()
                 if row:
+                    # 從 raw_data 取 ezbid_url；若無則組預設 URL
+                    ezbid_url = f"https://cf.ezbid.tw/tender/{req.unit_id}"
+                    if row[8]:
+                        try:
+                            import json as _json
+                            raw = _json.loads(row[8])
+                            ezbid_url = raw.get("ezbid_url") or ezbid_url
+                        except Exception:
+                            pass
+
                     result = {
                         "unit_id": row[5] or req.unit_id,
                         "job_number": row[6] or "",
@@ -206,7 +219,7 @@ async def get_tender_detail(
                         "announce_date": str(row[3]) if row[3] else "",
                         "status": row[4] or "",
                         "source": "ezbid_db",
-                        "ezbid_url": row[8] or f"https://cf.ezbid.tw/tender/{req.unit_id}",
+                        "ezbid_url": ezbid_url,
                     }
                     # 如果有 PCC unit_id + job_number，嘗試補充 PCC 詳情
                     if row[5] and row[6] and not row[5].isdigit():
@@ -215,8 +228,10 @@ async def get_tender_detail(
                             pcc_result["ezbid_url"] = result["ezbid_url"]
                             return SuccessResponse(data=pcc_result)
                     return SuccessResponse(data=result)
-        except Exception:
-            pass
+                # row is None → 真的查無
+                _logger.info(f"ezbid detail not found: ezbid_id={req.unit_id}")
+        except Exception as e:
+            _logger.error(f"ezbid detail query failed for {req.unit_id}: {e}", exc_info=True)
         return SuccessResponse(data=None, message="查無此 ezbid 標案")
 
     result = await service.get_tender_detail(

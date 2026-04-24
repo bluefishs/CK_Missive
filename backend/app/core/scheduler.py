@@ -596,7 +596,7 @@ async def morning_report_job():
 
 @tracked_job("ezbid_cache_refresh")
 async def ezbid_cache_refresh_job():
-    """ezbid 全量快取刷新 — 每小時抓取今日全量 + 寫入 DB (統一服務層)"""
+    """ezbid 全量快取刷新 — 每小時抓取今日全量 + 寫入 DB + 預熱 dashboard"""
     from app.db.database import async_session_maker
 
     logger.info("開始 ezbid 全量快取刷新")
@@ -620,8 +620,24 @@ async def ezbid_cache_refresh_job():
                     logger.info(f"ezbid → DB: {saved} 筆新增, KG: {ingested} 實體入圖")
             except Exception as e:
                 logger.warning(f"ezbid DB 寫入失敗 (非致命): {e}")
+
+        # 2026-04-24: 預熱 dashboard Redis cache，使 /tender/dashboard 首次訪問
+        # 就能 cache-hit（否則首次 miss 要並行爬 ezbid+PCC+15 keywords 約 15s）
+        try:
+            # 先刪舊 cache 強制重算
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+            if redis:
+                await redis.delete("tender:dashboard:result")
+
+            from app.services.tender_analytics_service import TenderAnalyticsService
+            warmup = await TenderAnalyticsService().dashboard()
+            total = warmup.get("total_found", 0) if warmup else 0
+            logger.info(f"dashboard cache 預熱完成: total_found={total}")
+        except Exception as e:
+            logger.warning(f"dashboard cache 預熱失敗 (非致命): {e}")
     except Exception as e:
-        logger.error(f"ezbid 快取刷新失敗: {e}")
+        logger.error(f"ezbid 快取刷新失敗: {e}", exc_info=True)
 
 
 @tracked_job("ledger_reconciliation")
