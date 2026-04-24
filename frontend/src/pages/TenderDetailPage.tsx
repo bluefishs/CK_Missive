@@ -89,6 +89,15 @@ const TenderDetailPage: React.FC = () => {
     : (merged as typeof rawLatest);
   const days = useMemo(() => daysRemaining(latest?.deadline), [latest?.deadline]);
 
+  // 2026-04-24: ezbid-only 案件 detail 無 latest/events，改讀 ezbid_db 頂層欄位
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ezbidData = (detail as any) as {
+    unit_id?: string; job_number?: string; title?: string; unit_name?: string;
+    budget?: string | number; announce_date?: string; status?: string;
+    source?: string; ezbid_url?: string;
+  } | null | undefined;
+  const isEzbidDbOnly = !latest && ezbidData?.source === 'ezbid_db';
+
   if (!detail && !isLoading) {
     return (
       <DetailPageLayout
@@ -247,6 +256,50 @@ const TenderDetailPage: React.FC = () => {
               message.success(result.message);
             } catch { message.error('建案失敗'); }
           }}>一鍵建案</Button>
+        </Space>
+      </div>
+    ) : isEzbidDbOnly ? (
+      /* 2026-04-24: ezbid-only 簡版檢視 — 無 PCC 細節（latest/events）但有基本欄位 */
+      <div>
+        <Alert
+          type="info"
+          showIcon
+          message="此為 ezbid 來源標案"
+          description="尚未從政府採購網 (PCC) 取得完整公告細節，以下顯示 ezbid 資料庫摘要。點擊下方按鈕可前往 ezbid 查看原始頁面。"
+          style={{ marginBottom: 16 }}
+        />
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          {ezbidData?.budget && (
+            <Col xs={12} sm={8} lg={6}>
+              <Card size="small" style={{ borderLeft: '4px solid #1890ff' }}>
+                <Statistic title="預算金額" value={String(ezbidData.budget)} prefix={<DollarOutlined />}
+                  styles={{ content: { fontSize: 22, color: '#1890ff' } }} />
+              </Card>
+            </Col>
+          )}
+          <Col xs={12} sm={8} lg={6}>
+            <Card size="small" style={{ borderLeft: '4px solid #52c41a' }}>
+              <Statistic title="狀態" value={ezbidData?.status || '-'} styles={{ content: { fontSize: 14 } }} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={8} lg={6}>
+            <Card size="small" style={{ borderLeft: '4px solid #faad14' }}>
+              <Statistic title="公告日" value={ezbidData?.announce_date || '-'} styles={{ content: { fontSize: 14 } }} />
+            </Card>
+          </Col>
+        </Row>
+        <Card title={<><BankOutlined /> 招標機關</>} size="small" style={{ marginBottom: 16 }}>
+          <Descriptions column={{ xs: 1, sm: 2 }} size="small">
+            <Descriptions.Item label="機關名稱" span={2}><Text strong>{ezbidData?.unit_name || '-'}</Text></Descriptions.Item>
+            <Descriptions.Item label="ezbid ID"><Text copyable>{ezbidData?.unit_id}</Text></Descriptions.Item>
+          </Descriptions>
+        </Card>
+        <Space>
+          {ezbidData?.ezbid_url && (
+            <Button type="primary" icon={<LinkOutlined />} href={ezbidData.ezbid_url} target="_blank">
+              在 ezbid 查看此標案
+            </Button>
+          )}
         </Space>
       </div>
     ) : <Empty />
