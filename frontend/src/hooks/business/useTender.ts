@@ -17,8 +17,10 @@ export function useTenderSearch(params: TenderSearchParams | null) {
 export function useTenderDetail(unitId: string | null, jobNumber: string | null) {
   return useQuery({
     queryKey: ['tender', 'detail', unitId, jobNumber],
-    queryFn: () => tenderApi.getDetail(unitId!, jobNumber!),
-    enabled: !!unitId && !!jobNumber,
+    // ezbid 案件 jobNumber 為空是合法的，後端自動走 ezbid_id 分支
+    queryFn: () => tenderApi.getDetail(unitId!, jobNumber ?? ''),
+    // 2026-04-24: 放寬 enabled — 只要 unitId 在即查，jobNumber 可為空 (ezbid-only)
+    enabled: !!unitId,
     staleTime: 60 * 60 * 1000,  // 1 hr (後端 Redis 快取 4hr)
   });
 }
