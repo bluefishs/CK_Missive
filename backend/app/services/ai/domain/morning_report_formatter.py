@@ -106,7 +106,25 @@ class MorningReportFormatter:
         if sec:
             sections_detail.append(sec)
 
-        # ── 2b. 待結案確認 ──
+        # ── 2b. 預警派工（v5.8.1 新增）：有律定期限且 ≤ 7 天 ──
+        sec = []
+        wc = ov.get("warning_count", 0) if _on("dispatch") else 0
+        if wc > 0:
+            parts.append(f"預警派工 {wc} 筆")
+            for item in ov.get("warning_items", [])[:5]:
+                progress = item.get("progress", "")
+                progress_tag = f" 〔{progress}〕" if progress else ""
+                next_ev = item.get("next_event", "")
+                next_tag = f"，期限 {next_ev}" if next_ev else ""
+                sec.append(
+                    f"  🟠 預警 {item['dispatch_no']}{_team_tag(item)} — "
+                    f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')}{next_tag})"
+                    f"{progress_tag}"
+                )
+        if sec:
+            sections_detail.append(sec)
+
+        # ── 2c. 待結案確認 ──
         sec = []
         pc = ov.get("pending_closure_count", 0) if _on("dispatch") else 0
         if pc > 0:
@@ -130,10 +148,11 @@ class MorningReportFormatter:
             sec.append("【2. 會議事件】")
             for item in mt.get("items", [])[:5]:
                 days = item.get("days_left", 0)
+                # v5.8.1：會議用 🤝（協作），與排程事件 📅 區隔
                 urgency = (
                     "🔔 今日" if days == 0
-                    else "📅 明日" if days == 1
-                    else f"📅 {days} 天後"
+                    else "🤝 明日" if days == 1
+                    else f"🤝 {days} 天後"
                 )
                 time_str = item.get("time_str") or item.get("start_date", "")
                 location = f" @ {item['location']}" if item.get("location") else ""
@@ -251,7 +270,8 @@ class MorningReportFormatter:
 
         header = f"📋 {_now_taipei().strftime('%m/%d')} 晨報\n"
         summary_line = " | ".join(parts)
-        separator = "\n  ─────────────────"
+        # 2026-04-22：分隔線前後加空行，避免段落緊貼
+        separator = "\n\n─────────────────\n"
         detail_text = separator.join(
             "\n".join(lines) for lines in sections_detail if lines
         )

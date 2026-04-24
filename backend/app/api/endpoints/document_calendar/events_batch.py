@@ -14,6 +14,8 @@
 """
 from fastapi import APIRouter
 
+from sqlalchemy import exists
+
 from .common import (
     Depends, HTTPException, status,
     AsyncSession, select, or_, and_,
@@ -26,6 +28,18 @@ from .common import (
 )
 from app.schemas.document_calendar import BatchUpdateStatusRequest, BatchDeleteRequest
 from app.extended.models import ContractProject
+from app.extended.models.associations import project_user_assignment
+from app.services.user_alias_service import expand_user_alias
+
+
+def _is_superuser(user: User) -> bool:
+    """坤哥 v5.8.0 (ADR-0024)：統一超級用戶判定。
+
+    is_superuser 旗標 OR role == 'superuser' 任一即可。
+    """
+    return bool(getattr(user, 'is_superuser', False)) or (
+        getattr(user, 'role', None) == 'superuser'
+    )
 
 router = APIRouter()
 
@@ -103,17 +117,48 @@ async def get_user_calendar_events(
             .where(
                 DocumentCalendarEvent.start_date >= start_dt,
                 DocumentCalendarEvent.start_date <= end_dt,
+            )
+        )
+
+        # ADR-0024 + ADR-0025 坤哥 v5.8.0：Calendar Visibility 擴充 + Identity Unification
+        # - Superuser（is_superuser=true 或 role='superuser'）直通看全部
+        # - 一般用戶四層可見：assigned / created / 公共 / 承辦同仁（新增）
+        # - Identity alias：所有 FK 比對皆展開 alias group（王駿穠 aaronfly/jujuiacc 同群）
+        if _is_superuser(current_user):
+            logger.info(
+                "Calendar visibility bypass for superuser %s (%s)",
+                current_user.id, current_user.email,
+            )
+        else:
+            # ADR-0025: 展開 alias group — 任何等價身份都算同一人
+            alias_ids = await expand_user_alias(db, request.user_id)
+            alias_id_list = list(alias_ids)
+
+            # 承辦同仁 correlated EXISTS：該 event 關聯公文所屬案件，
+            # requester 或其 alias 是 active staff
+            is_staff_collaborator = exists(
+                select(1)
+                .select_from(project_user_assignment)
+                .where(
+                    project_user_assignment.c.project_id == OfficialDocument.contract_project_id,
+                    project_user_assignment.c.user_id.in_(alias_id_list),
+                    project_user_assignment.c.status == 'active',
+                )
+                .correlate(OfficialDocument)
+            )
+            query = query.where(
                 or_(
-                    DocumentCalendarEvent.assigned_user_id == request.user_id,
-                    DocumentCalendarEvent.created_by == request.user_id,
-                    # 包含無指派使用者的公共事件（公文匯入自動建立）
+                    DocumentCalendarEvent.assigned_user_id.in_(alias_id_list),
+                    DocumentCalendarEvent.created_by.in_(alias_id_list),
+                    # 公共事件（匯入自動建立，無歸屬）
                     and_(
                         DocumentCalendarEvent.assigned_user_id.is_(None),
                         DocumentCalendarEvent.created_by.is_(None)
-                    )
+                    ),
+                    # 承辦同仁可見：同一案件的 active staff 可看該案件所有事件
+                    is_staff_collaborator,
                 )
             )
-        )
 
         result = await db.execute(query)
         events = result.all()

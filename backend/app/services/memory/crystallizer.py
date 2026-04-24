@@ -80,9 +80,13 @@ class Crystallizer:
                 if self._has_pending_proposal(meta["template_hash"]):
                     continue
 
-                # 產 proposal（目前只針對 tool_sequence 長度 1 的做 synonym；
-                # 更複雜的 pattern 暫時跳過等未來 LLM-based 推斷）
-                if len(meta.get("tool_sequence", [])) == 1:
+                # 產 proposal（v5.8.0 解鎖多工具 pattern）：
+                # _propose_synonym_from_pattern 產出 intent_rule kind，
+                # payload 內 tool_preference 本就支援任意工具數（line 209），
+                # 原 `len == 1` gate 是保守設計；移除後多工具 pattern 亦可
+                # 生成 intent_rule proposal（語意：偏好此 tool_sequence）。
+                # 仍由人類批准後才套用（non-destructive）。
+                if meta.get("tool_sequence"):
                     p = self._propose_synonym_from_pattern(meta)
                     if p:
                         self._write_proposal(p)

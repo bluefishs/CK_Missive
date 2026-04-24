@@ -34,11 +34,18 @@ class TelegramBotService:
         self._bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
         self._webhook_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
         self._enabled = os.getenv("TELEGRAM_BOT_ENABLED", "false").lower() == "true"
+        # ADR-0027：主動 push 獨立開關；2026-04-21 Telegram 個人號封禁後預設關閉
+        self._push_enabled = os.getenv("TELEGRAM_ADMIN_PUSH_ENABLED", "false").lower() == "true"
         self._reply_timeout = 25  # Telegram 沒有硬限，但保持一致
 
     @property
     def enabled(self) -> bool:
         return self._enabled and bool(self._bot_token)
+
+    @property
+    def push_enabled(self) -> bool:
+        """主動 push 是否啟用（ADR-0027，與被動 webhook 解耦）"""
+        return self._push_enabled and self.enabled
 
     def verify_secret_token(self, header_token: str) -> bool:
         """
@@ -311,7 +318,9 @@ class TelegramBotService:
     async def send_message(
         self, chat_id: int, text: str, parse_mode: str = "Markdown",
     ) -> bool:
-        """發送訊息至 Telegram chat"""
+        """發送訊息至 Telegram chat（ADR-0027：自動套用敏感詞過濾）"""
+        from app.services.common.telegram_content_sanitizer import sanitize
+        text = sanitize(text)
         payload = {
             "chat_id": chat_id,
             "text": text,
@@ -384,8 +393,32 @@ class TelegramBotService:
             return False
 
     async def push_message(self, chat_id: int, text: str) -> bool:
-        """主動推播訊息（與 send_message 相同，語意對齊 LineBotService）"""
-        return await self.send_message(chat_id, text)
+        """
+        主動推播訊息（ADR-0027：受 TELEGRAM_ADMIN_PUSH_ENABLED 控制）
+
+        與 send_message 的差別：
+        - send_message = 被動回覆（用戶先發訊息 → 回應）
+        - push_message = 主動推播（晨報 / 告警 / 結晶提案）
+
+        2026-04-21 Telegram 個人號封禁後，push_message 預設關閉；
+        被動 webhook（send_message）保留可用。
+        """
+        if not self._push_enabled:
+            logger.info(
+                "Telegram push_message skipped (push disabled, ADR-0027): chat_id=%s, text_len=%d",
+                chat_id, len(text or ""),
+            )
+            return False
+        ok = await self.send_message(chat_id, text)
+        try:
+            from app.core.admin_push_metrics import get_admin_push_metrics
+            if ok:
+                get_admin_push_metrics().record_success("telegram")
+            else:
+                get_admin_push_metrics().record_failure("telegram", reason="send_failed")
+        except Exception:
+            pass
+        return ok
 
     # ── Telegram Reactions (表情反應 — Bot API 7.2+) ──
     # Telegram 僅允許特定 emoji 作為 reaction（見 core.telegram.org/api/reactions）。

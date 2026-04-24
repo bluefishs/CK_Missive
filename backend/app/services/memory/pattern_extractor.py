@@ -275,10 +275,23 @@ class PatternExtractor:
         path = PATTERNS_DIR / f"pattern-{p.template_hash}.md"
         try:
             # 若檔案已存在，merge 統計（跨日累積）
+            # D2-A fix: 同日重跑不雙計 — 若 existing.last_seen == target_date，
+            # 視為本次取代今日貢獻（冪等），只累加歷史（last_seen < target_date）部分
             existing_stats = self._read_existing_stats(path)
-            merged_hit = p.hit_count + existing_stats.get("hit_count", 0)
-            merged_success = p.success_count + existing_stats.get("success_count", 0)
-            merged_failure = p.failure_count + existing_stats.get("failure_count", 0)
+            existing_last_seen = existing_stats.get("last_seen")
+            same_day_rerun = (
+                existing_last_seen == target_date.isoformat()
+            )
+            if same_day_rerun:
+                # 同日重跑：既有統計的 today 部分不可靠推算，採「取代」語意
+                # （保守：假設既有計數即今日貢獻；重跑結果覆寫今日部分）
+                merged_hit = p.hit_count
+                merged_success = p.success_count
+                merged_failure = p.failure_count
+            else:
+                merged_hit = p.hit_count + existing_stats.get("hit_count", 0)
+                merged_success = p.success_count + existing_stats.get("success_count", 0)
+                merged_failure = p.failure_count + existing_stats.get("failure_count", 0)
 
             wiki_topics = [
                 self._DOMAIN_WIKI_MAP[d] for d in p.domains
@@ -340,10 +353,14 @@ _由 pattern_extractor 自動產生，最後更新：{target_date.isoformat()}_
     def _write_failure(self, f: FailureRecord, target_date: date) -> bool:
         path = FAILURES_DIR / f"failure-{f.signature}.md"
         try:
-            # 失敗模式也 merge
+            # 失敗模式也 merge（同日重跑不雙計，同 _write_pattern 修法）
             existing_stats = self._read_existing_stats(path)
-            merged_hit = f.hit_count + existing_stats.get("hit_count", 0)
-            merged_failure = f.failure_count + existing_stats.get("failure_count", 0)
+            if existing_stats.get("last_seen") == target_date.isoformat():
+                merged_hit = f.hit_count
+                merged_failure = f.failure_count
+            else:
+                merged_hit = f.hit_count + existing_stats.get("hit_count", 0)
+                merged_failure = f.failure_count + existing_stats.get("failure_count", 0)
 
             defensive_rule = self._generate_defensive_rule(f.tool_sequence, f.common_error)
 
@@ -410,6 +427,9 @@ _由 pattern_extractor 自動產生。此規則將在 agent_planner 規劃階段
             fs_match = re.search(r"^first_seen:\s*(\S+)", fm, re.MULTILINE)
             if fs_match:
                 stats["first_seen"] = fs_match.group(1).strip()
+            ls_match = re.search(r"^last_seen:\s*(\S+)", fm, re.MULTILINE)
+            if ls_match:
+                stats["last_seen"] = ls_match.group(1).strip()
             return stats
         except Exception:
             return {}

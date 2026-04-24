@@ -105,6 +105,10 @@ def event_to_dict(
         "created_by": event.created_by,
         "google_event_id": getattr(event, 'google_event_id', None),
         "google_sync_status": getattr(event, 'google_sync_status', None),
+        # v5.8.1 ADR-0026：事件來源追蹤
+        "source_type": getattr(event, 'source_type', 'document'),
+        "source_id": getattr(event, 'source_id', None),
+        "dispatch_order_id": getattr(event, 'dispatch_order_id', None),
         "created_at": event.created_at.isoformat() if event.created_at else None,
         "updated_at": event.updated_at.isoformat() if event.updated_at else None
     }

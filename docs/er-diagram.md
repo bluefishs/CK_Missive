@@ -21,6 +21,7 @@ erDiagram
     users ||--o{ document_calendar_events : "assigned_user_id"
     users ||--o{ document_calendar_events : "created_by"
     documents ||--o{ document_calendar_events : "document_id"
+    taoyuan_dispatch_orders ||--o{ document_calendar_events : "dispatch_order_id"
     documents ||--o{ document_chunks : "document_id"
     documents ||--o{ document_entities : "document_id"
     canonical_entities ||--o{ document_entity_mentions : "canonical_entity_id"
@@ -96,6 +97,7 @@ erDiagram
     tender_records ||--o{ tender_company_links : "tender_record_id"
     users ||--o{ user_morning_report_subscriptions : "user_id"
     users ||--o{ user_sessions : "user_id"
+    users ||--o{ users : "canonical_user_id"
 
     agent_evolution_history {
         int id "PK"
@@ -410,6 +412,9 @@ erDiagram
         varchar google_event_id
         varchar google_sync_status
         varchar status
+        varchar source_type "NOT NULL"
+        int source_id
+        int dispatch_order_id "FK"
     }
     document_chunks {
         int id "PK"
@@ -1210,6 +1215,19 @@ erDiagram
         int last_diff
         text last_new_titles
     }
+    user_merge_log {
+        int id "PK"
+        int canonical_id "NOT NULL"
+        int alias_id "NOT NULL"
+        varchar canonical_role
+        varchar alias_role
+        bool role_harmonized "NOT NULL"
+        int merged_by
+        timestamptz merged_at
+        text notes
+        timestamptz reversed_at
+        int reversed_by
+    }
     user_morning_report_subscriptions {
         int id "PK"
         int user_id "FK"
@@ -1268,6 +1286,7 @@ erDiagram
         timestamptz email_verification_expires
         varchar line_user_id
         varchar line_display_name
+        int canonical_user_id "FK"
     }
 ```
 
@@ -1275,7 +1294,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 72 |
-| 總欄位數 | 1028 |
-| 外鍵關聯 | 95 |
+| 總表數 | 73 |
+| 總欄位數 | 1043 |
+| 外鍵關聯 | 97 |
 | 自訂列舉型別 | 0 |

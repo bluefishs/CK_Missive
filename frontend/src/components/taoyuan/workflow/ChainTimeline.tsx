@@ -80,7 +80,21 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
 
   const borderColor = direction === 'outgoing' ? '#52c41a' : direction === 'incoming' ? '#1677ff' : token.colorBorderSecondary;
   const borderStyle = hasDoc ? 'solid' : 'dashed';
-  const dateStr = doc?.doc_date ? dayjs(doc.doc_date).format('YYYY.MM.DD') : record.record_date ? dayjs(record.record_date).format('YYYY.MM.DD') : '';
+  // v5.8.0 A1：主要日期優先顯示「期限」，符合管理者心智（什麼時候要辦完）
+  // 若無期限才 fallback 到公文日 / 收文日
+  const dateStr = record.deadline_date
+    ? dayjs(record.deadline_date).format('YYYY.MM.DD')
+    : doc?.doc_date
+      ? dayjs(doc.doc_date).format('YYYY.MM.DD')
+      : record.record_date
+        ? dayjs(record.record_date).format('YYYY.MM.DD')
+        : '';
+  const dateLabel = record.deadline_date ? '期限' : doc?.doc_date ? '公文日' : '紀錄';
+  // 輔助日期（收文/紀錄）— 當主日期是期限時，額外呈現
+  const supplementaryDate = record.deadline_date
+    ? (doc?.doc_date || record.record_date)
+    : null;
+  const supplementaryLabel = doc?.doc_date ? '公文日' : '收文';
 
   return (
     <div style={{ position: 'relative', paddingLeft: depth > 0 ? 24 : 0 }}>
@@ -170,7 +184,11 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
               <Text type="secondary" style={{ fontSize: 12 }}>(無文號)</Text>
             )}
             {dateStr && (
-              <Text type="secondary" style={{ fontSize: 11 }}>{dateStr}</Text>
+              <Tooltip title={`${dateLabel} ${dateStr}`}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {dateLabel}: {dateStr}
+                </Text>
+              </Tooltip>
             )}
           </div>
         ) : (
@@ -180,7 +198,11 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
               待關聯公文
             </Text>
             {dateStr && (
-              <Text type="secondary" style={{ fontSize: 11 }}>{dateStr}</Text>
+              <Tooltip title={`${dateLabel} ${dateStr}`}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {dateLabel}: {dateStr}
+                </Text>
+              </Tooltip>
             )}
           </div>
         )}
@@ -196,10 +218,10 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
           </Text>
         )}
 
-        {/* 第四行：期限 */}
-        {record.deadline_date && (
+        {/* v5.8.0 A1：主日期已是期限，這裡改顯示輔助日期（公文日 / 收文） */}
+        {supplementaryDate && (
           <Text type="secondary" style={{ fontSize: 11, marginTop: 2, display: 'block' }}>
-            期限: {dayjs(record.deadline_date).format('YYYY.MM.DD')}
+            {supplementaryLabel}: {dayjs(supplementaryDate).format('YYYY.MM.DD')}
           </Text>
         )}
       </div>

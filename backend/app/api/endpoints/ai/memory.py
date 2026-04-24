@@ -172,6 +172,51 @@ async def memory_diary_recent(req: ListReq):
     return {"success": True, "data": items, "total": len(items)}
 
 
+@router.post("/memory/anti-echo/recent")
+async def memory_anti_echo_recent(req: ListReq):
+    """列近 N 天 diary 中的反迴聲室觸發段落（v5.8.3 坤哥對外展示）。
+
+    前端 IdentityTab / Header 用於呈現「坤哥最近的自我質疑」。
+    格式：{date, time, reflections: [...], reason: 觸發原因}
+    """
+    import re as _re
+    if not DIARY_DIR.exists():
+        return {"success": True, "data": [], "total": 0}
+
+    paths = sorted(DIARY_DIR.glob("*.md"), key=lambda p: p.name, reverse=True)[:14]
+    blocks: List[Dict[str, Any]] = []
+    for p in paths:
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        # 找 `## HH:MM:SS — 🔔 反迴聲室` 開頭至下一個 `## ` 之前
+        pattern = _re.compile(
+            r"^## (\d{2}:\d{2}:\d{2}) — 🔔 反迴聲室[^\n]*\n(.*?)(?=\n## |\Z)",
+            _re.MULTILINE | _re.DOTALL,
+        )
+        for m in pattern.finditer(text):
+            body = m.group(2).strip()
+            # 解析觸發原因 + 候選
+            reason_m = _re.search(r"\*\*觸發\*\*：([^\n]+)", body)
+            reason = reason_m.group(1).strip() if reason_m else ""
+            reflections = _re.findall(r"^\d+\.\s+([^\n]+)", body, _re.MULTILINE)
+            blocks.append({
+                "date": p.stem,
+                "time": m.group(1),
+                "reason": reason,
+                "reflections": reflections,
+                "body_preview": body[:400],
+            })
+    # 最近優先
+    blocks.sort(key=lambda x: (x["date"], x["time"]), reverse=True)
+    return {
+        "success": True,
+        "data": blocks[req.offset:req.offset + req.limit],
+        "total": len(blocks),
+    }
+
+
 # ────────── Patterns / Failures ──────────
 
 @router.post("/memory/patterns/list")

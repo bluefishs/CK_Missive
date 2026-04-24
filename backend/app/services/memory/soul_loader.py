@@ -155,10 +155,26 @@ class SoulLoader:
         sections = self._split_sections(body)
 
         # 核心識別區段（合併）
+        # v5.8.0 ADR-0022/0026：擴充擷取 SOUL v2.0 坤哥人格的三信念、反迴聲室、倫理紅線
+        # 使用 fuzzy match — section title 含關鍵字即擷取（容錯版本差異）
         identity_parts = []
-        for title in ("身份", "語言", "語氣與風格", "三層智能記憶架構（你的心智）"):
-            if title in sections:
-                identity_parts.append(f"## {title}\n{sections[title]}")
+        identity_keywords = [
+            "身份",           # 身份 / 身份宣言
+            "三信念",         # 三信念（世界觀底層）
+            "反迴聲室",       # 反迴聲室協議
+            "倫理紅線",       # 倫理紅線（不可逾越）
+            "語言",           # 語言
+            "語氣與風格",     # 語氣與風格
+            "三層智能記憶架構", # 三層智能記憶架構（你的心智）
+        ]
+        # 維持 keyword 出現順序 + 避免重複擷取同一 section
+        matched_titles: set = set()
+        for keyword in identity_keywords:
+            for section_title, section_body in sections.items():
+                if keyword in section_title and section_title not in matched_titles:
+                    identity_parts.append(f"## {section_title}\n{section_body}")
+                    matched_titles.add(section_title)
+                    break
         # 加頂部 intro（第一個 ## 前的文字）
         intro_match = re.match(r"^(.*?)(?=\n##\s)", body, re.DOTALL)
         if intro_match:

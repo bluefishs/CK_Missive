@@ -5,6 +5,7 @@
 import logging
 from datetime import datetime, timedelta, date
 from typing import Optional, Dict, Any, List, Tuple
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models import OfficialDocument, DocumentCalendarEvent, User
@@ -81,9 +82,38 @@ class DocumentCalendarIntegrator:
                 else:
                     event_datetime = event_date
 
+                # v5.8.1 ADR-0026：套用統一模板，嘗試關聯派工單資訊
+                # 公文若已關聯派工單（contract_project + dispatch），title 會更具體
+                try:
+                    from app.services.common.calendar_title_template import build_calendar_event_title
+                    from app.extended.models import TaoyuanDispatchOrder
+                    dispatch = None
+                    if getattr(document, 'contract_project_id', None):
+                        dispatch_result = await db.execute(
+                            select(TaoyuanDispatchOrder).where(
+                                TaoyuanDispatchOrder.contract_project_id == document.contract_project_id
+                            ).limit(1)
+                        )
+                        dispatch = dispatch_result.scalar_one_or_none()
+                    # event_type 映射到 work_category（儘量）
+                    category_map = {
+                        'reminder': 'admin_notice', 'meeting': 'meeting_notice',
+                        'deadline': 'dispatch_notice', 'submission': 'work_result',
+                    }
+                    title = build_calendar_event_title(
+                        category=category_map.get(event_type, 'other'),
+                        dispatch=dispatch,
+                        doc_subject=document.subject,
+                        user_description=None,
+                    )
+                except Exception as _e:
+                    # Fallback 保留舊格式，避免影響主流程
+                    logger.debug("title template fallback: %s", _e)
+                    title = f"[{event_type.upper()}] {document.subject}"
+
                 calendar_event = DocumentCalendarEvent(
                     document_id=document.id,
-                    title=f"[{event_type.upper()}] {document.subject}",
+                    title=title,
                     description=self._build_event_description(document, description),
                     start_date=event_datetime,
                     end_date=event_datetime,  # 單一時間點

@@ -69,11 +69,11 @@ class WeekSignals:
         return (self.total_queries - self.prev_week_total) / self.prev_week_total * 100
 
 
-_SYSTEM_PROMPT = """你是 CK 助理（小乾）的週自傳編輯。你要用第一人稱寫一份週自傳給老闆（阿榮）。
+_SYSTEM_PROMPT = """你是 CK 助理（小乾）的週自傳編輯。你要用第一人稱寫一份週自傳給老闆（Aaron）。
 
 **寫作準則（必守）**：
 - 繁體中文，200-400 字
-- 開頭直呼「阿榮」
+- 開頭直呼「Aaron」
 - 結構：這週我做了什麼 → 最印象深刻的一題 → 學到的教訓 → 下週想做到什麼
 - 第一人稱（我、本週、這個月...）
 - 必須引用具體數字（處理了 N 筆 query、成功率 XX%、新學會 M 個模式）
@@ -243,7 +243,7 @@ class AutobiographyGenerator:
                             "content": (
                                 f"本週 ({signals.week_id}) 信號：\n\n"
                                 f"{signals_text}\n\n"
-                                f"請以第一人稱寫一份週自傳給阿榮，250-350 字。"
+                                f"請以第一人稱寫一份週自傳給Aaron，250-350 字。"
                                 f"結構：這週做了什麼 → 印象深刻 → 學到什麼 → 下週想做什麼。"
                             ),
                         },
@@ -457,7 +457,7 @@ tags: [memory, autobiography, evolution]
     def _fallback_narrative(s: WeekSignals) -> str:
         """LLM 失敗時用的純模板（含數字、無 LLM 胡扯風險）。"""
         return (
-            f"阿榮，本週（{s.week_start} ~ {s.week_end}）我總共處理了 {s.total_queries} 筆查詢，"
+            f"Aaron，本週（{s.week_start} ~ {s.week_end}）我總共處理了 {s.total_queries} 筆查詢，"
             f"成功率 {s.success_rate:.0%}。其中閒聊 {s.chitchat_count} 筆，"
             f"其餘是實際業務查詢。平均延遲 {s.avg_latency_ms:.0f} 毫秒。\n\n"
             f"本週我新學會 {s.new_patterns_count} 個查詢模式，"

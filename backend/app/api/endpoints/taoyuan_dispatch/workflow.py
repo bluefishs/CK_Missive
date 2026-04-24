@@ -113,8 +113,18 @@ async def create_work_record(
     service: WorkRecordService = Depends(get_work_record_service),
     current_user=Depends(require_auth()),
 ):
-    """建立新的作業紀錄"""
+    """建立新的作業紀錄。
+
+    ADR-0026：若帶 deadline_date，自動同步至 document_calendar_events。
+    """
     record = await service.create_record(data)
+
+    # v5.8.0 ADR-0026：work_record → calendar 同步
+    from app.services.taoyuan.work_record_calendar_sync import sync_work_record_to_calendar
+    await sync_work_record_to_calendar(
+        service.db, record, actor_id=getattr(current_user, 'id', None),
+    )
+
     await service.db.commit()
 
     # 重新載入含關聯公文
@@ -195,10 +205,19 @@ async def update_work_record(
     service: WorkRecordService = Depends(get_work_record_service),
     current_user=Depends(require_auth()),
 ):
-    """更新作業紀錄"""
+    """更新作業紀錄。
+
+    ADR-0026：deadline_date 異動自動同步對應 calendar event。
+    """
     record = await service.update_record(record_id, data)
     if not record:
         raise HTTPException(status_code=404, detail="作業紀錄不存在")
+
+    # v5.8.0 ADR-0026：同步至 calendar event
+    from app.services.taoyuan.work_record_calendar_sync import sync_work_record_to_calendar
+    await sync_work_record_to_calendar(
+        service.db, record, actor_id=getattr(current_user, 'id', None),
+    )
 
     await service.db.commit()
 
@@ -213,7 +232,11 @@ async def delete_work_record(
     service: WorkRecordService = Depends(get_work_record_service),
     current_user=Depends(require_auth()),
 ):
-    """刪除作業紀錄（自動清理子紀錄的 parent_record_id）"""
+    """刪除作業紀錄（自動清理子紀錄的 parent_record_id + 標 calendar event cancelled）"""
+    # ADR-0026：刪除前先標對應 event cancelled（保留歷史）
+    from app.services.taoyuan.work_record_calendar_sync import cancel_work_record_calendar
+    await cancel_work_record_calendar(service.db, record_id)
+
     orphaned = await service.delete_record(record_id)
     if orphaned is None:
         raise HTTPException(status_code=404, detail="作業紀錄不存在")

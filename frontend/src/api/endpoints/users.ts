@@ -109,8 +109,10 @@ export const ADMIN_USER_MANAGEMENT_ENDPOINTS = {
   USERS_DETAIL: (id: number) => `/admin/user-management/users/${id}/detail`,
   /** 更新使用者 POST /admin/user-management/users/:id/update */
   USERS_UPDATE: (id: number) => `/admin/user-management/users/${id}/update`,
-  /** 刪除使用者 POST /admin/user-management/users/:id/delete */
+  /** 軟刪除使用者 POST /admin/user-management/users/:id/delete（is_active=false）*/
   USERS_DELETE: (id: number) => `/admin/user-management/users/${id}/delete`,
+  /** v5.8.0: 永久刪除使用者 POST /admin/user-management/users/:id/purge（不可復原）*/
+  USERS_PURGE: (id: number) => `/admin/user-management/users/${id}/purge`,
   /** 使用者權限詳情 POST /admin/user-management/users/:id/permissions/detail */
   USERS_PERMISSIONS_DETAIL: (id: number) => `/admin/user-management/users/${id}/permissions/detail`,
   /** 更新使用者權限 POST /admin/user-management/users/:id/permissions/update */

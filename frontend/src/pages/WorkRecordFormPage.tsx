@@ -244,14 +244,33 @@ const WorkRecordFormPage: React.FC = () => {
                 </Form.Item>
               </Col>
               <Col span={10}>
-                <Form.Item name="deadline_date" label="期限日期">
+                <Form.Item
+                  name="deadline_date"
+                  label="期限日期"
+                  tooltip="ADR-0026：設定此期限會自動同步為日曆事件，相同資料僅需設定一次（派工作業 = 公文事件 = 日曆事件）"
+                  extra={
+                    <span style={{ fontSize: 11, color: '#1677ff' }}>
+                      📅 設定後自動建立日曆事件（來源：派工作業）
+                    </span>
+                  }
+                >
                   <DatePicker style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
             </Row>
 
-            <Form.Item name="description" label="事項描述">
-              <TextArea rows={3} placeholder="選擇公文後自動帶入主旨，可自行修改補充" />
+            <Form.Item
+              name="description"
+              label="事項描述"
+              tooltip="留空則套用自動模板【動詞+類別】派工單號(團隊)_工程名稱_項目；若以【 或 [ 開頭則整句作為日曆標題（override）"
+              extra={
+                <span style={{ fontSize: 11, color: '#888' }}>
+                  💡 留空 → 自動模板（例：【提交成果】派工單號020(全國)_工程名稱_徵收市價報告）；
+                  以 【 開頭則整句作日曆標題
+                </span>
+              }
+            >
+              <TextArea rows={3} placeholder="選擇公文後自動帶入主旨，可自行修改補充。留空則走自動模板。" />
             </Form.Item>
 
             {/* 隱藏欄位 */}

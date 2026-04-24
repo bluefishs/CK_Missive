@@ -44,6 +44,14 @@ export interface User {
   // 多 provider 追蹤
   google_id?: string;
   auth_providers?: string[];
+  // ADR-0025 Identity Unification
+  canonical_user_id?: number | null;
+  /** 合併後由後端 join 注入（canonical_only 查詢時使用） */
+  alias_count?: number;
+  /** 此 canonical 底下所有 alias 的 email 列表 */
+  alias_emails?: string[];
+  /** canonical + 所有 alias 的 auth_providers 聯集（一人一列呈現用） */
+  merged_auth_providers?: string[];
 }
 
 /** 使用者選項（下拉選單用） */

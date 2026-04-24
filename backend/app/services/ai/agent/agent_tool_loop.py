@@ -15,6 +15,7 @@ Updated: 2026-04-05
 
 import asyncio
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from app.services.ai.agent.agent_planner import AgentPlanner, AgentWorkingMemory
@@ -279,9 +280,20 @@ class AgentToolLoop:
         step_index += 1
 
         tool_span = trace.start_span(f"tool:{tool_name}") if trace else None
+        # D2-A: per-tool start/end 觀測性 — 防止 silent gap（v5.7.1 40-60s 空窗根因）
+        logger.info(
+            "tool_start name=%s timeout=%.1fs param_keys=%s step=%d",
+            tool_name, self._adaptive_tool_timeout, list(params.keys()), step_index,
+        )
+        t0 = time.monotonic()
         result = await self.execute_tool(tool_name, params)
+        elapsed = time.monotonic() - t0
         success = "error" not in result
         count = result.get("count", 0)
+        logger.info(
+            "tool_end name=%s elapsed=%.2fs success=%s count=%d step=%d",
+            tool_name, elapsed, success, count, step_index,
+        )
         if tool_span:
             tool_span.finish(status="ok" if success else "error", count=count)
         if trace:
@@ -332,8 +344,21 @@ class AgentToolLoop:
             for call in valid_calls:
                 call.setdefault("params", {})["_original_question"] = original_question
 
+        # D2-A: parallel tools start/end 觀測性
+        tool_names = [c.get("name", "") for c in valid_calls]
+        logger.info(
+            "tools_parallel_start tools=%s count=%d timeout=%.1fs",
+            tool_names, len(valid_calls), self._adaptive_tool_timeout,
+        )
+        t0 = time.monotonic()
         results = await self._tools.execute_parallel(
             valid_calls, self._adaptive_tool_timeout,
+        )
+        elapsed = time.monotonic() - t0
+        success_count = sum(1 for r in results if "error" not in r)
+        logger.info(
+            "tools_parallel_end tools=%s elapsed=%.2fs success=%d/%d",
+            tool_names, elapsed, success_count, len(valid_calls),
         )
 
         for call, result in zip(valid_calls, results):

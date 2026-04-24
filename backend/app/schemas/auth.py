@@ -84,26 +84,57 @@ class UserResponse(UserBase):
     google_id: Optional[str] = None
     auth_providers: List[str] = []
 
+    # ADR-0025 Identity Unification：以 full_name 為群組聚合 canonical + aliases
+    canonical_user_id: Optional[int] = None
+    alias_count: int = 0                 # 本 user 名下的 alias 數（canonical 視角）
+    alias_emails: List[str] = []         # alias 們的 email 列表
+    merged_auth_providers: List[str] = []  # canonical + aliases 的 providers 聯集
+
     model_config = ConfigDict(from_attributes=True) # 使用 model_config
 
     @classmethod
     def model_validate(cls, obj, **kwargs):
-        """覆寫 model_validate 以自動計算 auth_providers"""
+        """覆寫 model_validate 以自動計算 auth_providers。
+
+        v5.8.0：若 ORM 物件帶 `aliases` collection（canonical 角度），
+        自動聚合 alias_count / alias_emails / merged_auth_providers。
+        """
         instance = super().model_validate(obj, **kwargs)
-        # 從 ORM 物件的實際欄位計算可用認證方式
-        providers = []
-        if hasattr(obj, 'password_hash') and obj.password_hash:
-            providers.append('email')
-        if hasattr(obj, 'google_id') and obj.google_id:
-            providers.append('google')
-        if hasattr(obj, 'line_user_id') and obj.line_user_id:
-            providers.append('line')
-        if hasattr(obj, 'auth_provider') and obj.auth_provider == 'internal':
-            providers.append('internal')
-        # 如果都沒有，至少保留 auth_provider 欄位值
-        if not providers and instance.auth_provider:
-            providers.append(instance.auth_provider.value if isinstance(instance.auth_provider, AuthProvider) else str(instance.auth_provider))
+
+        def _providers_of(u) -> List[str]:
+            ps: List[str] = []
+            if getattr(u, 'password_hash', None):
+                ps.append('email')
+            if getattr(u, 'google_id', None):
+                ps.append('google')
+            if getattr(u, 'line_user_id', None):
+                ps.append('line')
+            if getattr(u, 'auth_provider', None) == 'internal':
+                ps.append('internal')
+            if not ps and getattr(u, 'auth_provider', None):
+                ps.append(str(u.auth_provider))
+            return ps
+
+        # 本身 providers
+        providers = _providers_of(obj)
         instance.auth_providers = providers
+
+        # 聚合 alias 資訊（若 ORM 有 eager-load aliases relationship）
+        # 用 __dict__ 而非 getattr，避免在 async session 外觸發 lazy-load → MissingGreenlet
+        aliases = (obj.__dict__.get('aliases') if hasattr(obj, '__dict__') else None) or []
+        if aliases:
+            merged = set(providers)
+            emails = []
+            for a in aliases:
+                merged.update(_providers_of(a))
+                if getattr(a, 'email', None):
+                    emails.append(a.email)
+            instance.alias_count = len(aliases)
+            instance.alias_emails = emails
+            instance.merged_auth_providers = sorted(merged)
+        else:
+            instance.merged_auth_providers = providers
+
         return instance
 
 class UserProfile(UserResponse):
@@ -171,6 +202,13 @@ class UserSessionsResponse(BaseModel):
 # === 管理員功能 ===
 
 class UserUpdate(BaseModel):
+    """管理員更新使用者資訊 schema。
+
+    v5.8.0 修復：補齊 department / position 等前端既有欄位，
+    避免「There was an error parsing the body」400。
+    """
+    model_config = ConfigDict(extra='ignore')  # 忽略未知欄位而非拒絕
+
     email: Optional[EmailStr] = None
     username: Optional[str] = None
     full_name: Optional[str] = None
@@ -178,6 +216,8 @@ class UserUpdate(BaseModel):
     is_admin: Optional[bool] = None
     role: Optional[UserRole] = None
     permissions: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
 
 class UserListResponse(BaseModel):
     users: List[UserResponse]
@@ -192,6 +232,11 @@ class UserSearchParams(BaseModel):
     is_active: Optional[bool] = None
     page: int = Field(default=1, ge=1)
     per_page: int = Field(default=20, ge=1, le=100)
+    # ADR-0025 Identity Unification：承辦同仁下拉等場景開此旗標過濾 canonical
+    canonical_only: bool = Field(
+        default=False,
+        description="只回 canonical user（canonical_user_id IS NULL）；承辦同仁下拉用",
+    )
 
 # === 登入歷史 ===
 

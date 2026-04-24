@@ -446,21 +446,31 @@ async def kg_embedding_backfill_job():
 
 
 async def _push_channel(channel: str, recipient: str, text: str) -> tuple[bool, str | None]:
-    """B1: 統一 channel push 抽象，回傳 (ok, error_msg)。"""
+    """
+    B1: 統一 channel push 抽象，回傳 (ok, error_msg)。
+
+    2026-04-22 修正：telegram 改用 push_message（含 ADR-0027 gate + sanitizer），
+    避免 scheduler 繞過 gate 直接送 send_message。
+    """
     try:
         if channel == "telegram":
             from app.services.telegram_bot_service import get_telegram_bot_service
             tg = get_telegram_bot_service()
             if not tg.enabled:
                 return False, "telegram service disabled"
-            ok = await tg.send_message(int(recipient), text, parse_mode="")
-            return bool(ok), None if ok else "send_message returned false"
+            if not tg.push_enabled:
+                return False, "telegram push disabled (ADR-0027)"
+            ok = await tg.push_message(int(recipient), text)
+            return bool(ok), None if ok else "push_message returned false"
         if channel == "line":
             from app.services.line_bot_service import LineBotService
             line = LineBotService()
             if not line.enabled:
                 return False, "line service disabled"
-            ok = await line.push_message(recipient, text)
+            # LINE push 也套用 sanitizer（與 telegram 一致）
+            from app.services.common.telegram_content_sanitizer import sanitize
+            safe_text = sanitize(text)
+            ok = await line.push_message(recipient, safe_text)
             return bool(ok), None if ok else "push_message returned false"
         return False, f"unsupported channel: {channel}"
     except Exception as e:
@@ -1266,6 +1276,59 @@ async def memory_weekly_autobiography_job():
         logger.error("Weekly Autobiography 失敗: %s", e, exc_info=True)
 
 
+@tracked_job("memory_anti_echo_scan")
+async def memory_anti_echo_scan_job():
+    """反迴聲室協議 — 每週一 06:00 掃近 7 天 diary，偵測過度一致。
+
+    2026-04-21 v5.8.0 坤哥意識體 D5-A。
+
+    觸發條件（預設）：
+    - 7 天內 ≥ 20 筆 diary entry
+    - success_rate ≥ 90%
+    - failure ≤ 2
+    - 3 天內未觸發過（cooldown）
+
+    觸發後在當日 diary append「反迴聲室」段落，列 1-3 條質疑候選。
+    """
+    from app.services.memory.anti_echo import AntiEchoProtocol
+    logger.info("開始執行 Anti-Echo Chamber Scan")
+    try:
+        protocol = AntiEchoProtocol()
+        result = await protocol.scan_and_reflect()
+        if result.get("triggered"):
+            logger.info(
+                "AntiEcho triggered: %s reflections=%d",
+                result.get("reason"),
+                len(result.get("reflections", [])),
+            )
+            # Telegram 通知（若觸發）
+            import os
+            admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+            if admin_chat_id:
+                try:
+                    from app.services.telegram_bot_service import get_telegram_bot_service
+                    msg = (
+                        "🔔 反迴聲室觸發\n\n"
+                        f"原因：{result.get('reason')}\n\n"
+                        "候選質疑：\n"
+                        + "\n".join(
+                            f"{i+1}. {r}" for i, r in enumerate(
+                                result.get("reflections", [])[:3]
+                            )
+                        )
+                        + "\n\n（已寫入今日 diary）"
+                    )
+                    await get_telegram_bot_service().push_message(
+                        int(admin_chat_id), msg,
+                    )
+                except Exception as e:
+                    logger.debug("AntiEcho Telegram notify failed: %s", e)
+        else:
+            logger.info("AntiEcho not triggered: %s", result.get("reason"))
+    except Exception as e:
+        logger.error("Anti-Echo Scan 失敗: %s", e, exc_info=True)
+
+
 @tracked_job("memory_crystallization_scan")
 async def memory_crystallization_scan_job():
     """每日掃 patterns/ 產生 crystal proposals（不自動 apply，等人批准）。
@@ -1622,6 +1685,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 Memory Weekly Autobiography: 週日 18:00 執行")
+
+    # 2026-04-21 v5.8.0 D5-A: 反迴聲室協議（週一 06:00）
+    scheduler.add_job(
+        memory_anti_echo_scan_job,
+        trigger=CronTrigger(day_of_week='mon', hour=6, minute=0),
+        id='memory_anti_echo_scan',
+        name='反迴聲室協議 (週一 06:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 Anti-Echo Chamber Scan: 週一 06:00 執行")
 
     # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
     scheduler.add_job(

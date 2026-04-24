@@ -194,6 +194,15 @@ class LineBotService:
         """
         from app.services.agent_stream_helper import AgentStreamCollector
 
+        # 2026-04-22：admin 指令 — /subscribe <token>（自註冊晨報接收）
+        # 用於 Telegram 封禁後（ADR-0027），LINE 成為主要 admin push 通道
+        stripped = text.strip()
+        if stripped.startswith("/subscribe "):
+            from app.services.common.line_admin_commands import handle_subscribe_command
+            reply = await handle_subscribe_command(user_id, stripped[len("/subscribe "):].strip())
+            await self.reply_message(reply_token, reply)
+            return
+
         # Show loading indicator (bubble animation) while processing
         await self._show_loading(user_id)
 
@@ -356,7 +365,8 @@ class LineBotService:
         return await self.push_flex(user_id, flex, alt_text=f"公文截止提醒: {doc_subject[:30]}")
 
     async def _call_line_api(self, path: str, payload: dict) -> bool:
-        """呼叫 LINE Messaging API"""
+        """呼叫 LINE Messaging API（ADR-0027：push 類路徑接 admin_push_metrics）"""
+        is_push = path.startswith("/message/push")
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
@@ -374,10 +384,32 @@ class LineBotService:
                         resp.status_code,
                         resp.text[:200],
                     )
+                    if is_push:
+                        try:
+                            from app.core.admin_push_metrics import get_admin_push_metrics
+                            get_admin_push_metrics().record_failure(
+                                "line", reason=f"http_{resp.status_code}",
+                            )
+                        except Exception:
+                            pass
                     return False
+                if is_push:
+                    try:
+                        from app.core.admin_push_metrics import get_admin_push_metrics
+                        get_admin_push_metrics().record_success("line")
+                    except Exception:
+                        pass
                 return True
         except Exception as e:
             logger.error("LINE API call failed: %s", e)
+            if is_push:
+                try:
+                    from app.core.admin_push_metrics import get_admin_push_metrics
+                    get_admin_push_metrics().record_failure(
+                        "line", reason=type(e).__name__,
+                    )
+                except Exception:
+                    pass
             return False
 
 

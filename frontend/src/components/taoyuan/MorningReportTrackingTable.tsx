@@ -48,14 +48,29 @@ export interface MorningStatusResponse {
   items: MorningStatusItem[];
 }
 
-const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode; order: number }> = {
-  '逾期':     { color: 'red',     icon: <ExclamationCircleOutlined />, order: 0 },
-  '闕漏紀錄': { color: 'magenta', icon: <QuestionCircleOutlined />,   order: 1 },
-  '進行中':   { color: 'orange',  icon: <SyncOutlined />,             order: 2 },
-  '排程中':   { color: 'blue',    icon: <CalendarOutlined />,         order: 3 },
-  '待結案':   { color: 'gold',    icon: <ClockCircleOutlined />,      order: 4 },
-  '已交付':   { color: 'green',   icon: <CheckCircleOutlined />,      order: 5 },
-  '已結案':   { color: 'default', icon: <CheckCircleOutlined />,      order: 6 },
+// v5.8.0 最終版：4 大類 — 顯示順序：已完成/交付 → 排程中 → 預警案件 → 闕漏紀錄
+// legacy keys 保留歷史相容；新系統不產生
+const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode; order: number; hint: string }> = {
+  '已完成/交付':  { color: 'green',   icon: <CheckCircleOutlined />,      order: 0, hint: '作業已完成、交付或結案' },
+  '排程中':       { color: 'blue',    icon: <CalendarOutlined />,         order: 1, hint: '交付期限 > 7 天 — 等時間到即執行' },
+  '預警案件':     { color: 'red',     icon: <ExclamationCircleOutlined />, order: 2, hint: '交付期限 ≤ 7 天（含已逾期）— 立即處理' },
+  '闕漏紀錄':     { color: 'orange',  icon: <QuestionCircleOutlined />,   order: 3, hint: '缺律定期限或作業紀錄 — 需補建期限、事件或 work_record' },
+
+  // legacy（歷史相容，新系統不產生）
+  '已結案':       { color: 'green',   icon: <CheckCircleOutlined />,      order: 0, hint: '（舊狀態，等同「已完成/交付」）' },
+  '已交付':       { color: 'green',   icon: <CheckCircleOutlined />,      order: 0, hint: '（舊狀態，等同「已完成/交付」）' },
+  '待結案':       { color: 'green',   icon: <ClockCircleOutlined />,      order: 0, hint: '（舊狀態，等同「已完成/交付」）' },
+  '逾期':         { color: 'red',     icon: <ExclamationCircleOutlined />, order: 2, hint: '（舊狀態，等同「預警案件」）' },
+  '需處理':       { color: 'orange',  icon: <SyncOutlined />,             order: 3, hint: '（舊狀態，等同「闕漏紀錄」）' },
+  '進行中':       { color: 'orange',  icon: <SyncOutlined />,             order: 3, hint: '（舊狀態，等同「闕漏紀錄」）' },
+};
+
+// v5.8.1：4 主類 → legacy 值映射（單一真理來源，供 filter 與卡片合計共用）
+const CATEGORY_LEGACY_MAP: Record<string, string[]> = {
+  '已完成/交付': ['已完成/交付', '已交付', '已結案', '待結案'],
+  '排程中':      ['排程中'],
+  '預警案件':    ['預警案件', '逾期'],
+  '闕漏紀錄':    ['闕漏紀錄', '需處理', '進行中'],
 };
 
 interface Props {
@@ -96,10 +111,17 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
   const filteredItems = useMemo(() => {
     let result = items;
     if (activeFilter) {
-      if (activeFilter === '已交付') {
-        result = result.filter(i => i.display_status === '已交付' || i.display_status === '已結案');
+      // 4 主類：展開所含 legacy 值；非主類（例如外部直接傳 legacy 名）→ 精確比對
+      const allowed = CATEGORY_LEGACY_MAP[activeFilter];
+      if (allowed) {
+        result = result.filter(i => allowed.includes(i.display_status));
       } else if (activeFilter === '__action_needed__') {
-        result = result.filter(i => i.display_status === '逾期' || i.display_status === '闕漏紀錄');
+        // legacy 別名：動作需求合集（預警 + 闕漏）
+        const merged = [
+          ...(CATEGORY_LEGACY_MAP['預警案件'] ?? []),
+          ...(CATEGORY_LEGACY_MAP['闕漏紀錄'] ?? []),
+        ];
+        result = result.filter(i => merged.includes(i.display_status));
       } else {
         result = result.filter(i => i.display_status === activeFilter);
       }
@@ -121,9 +143,13 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
     return Array.from(set).sort().map(h => ({ text: h, value: h }));
   }, [items]);
 
-  const statusFilterOptions = useMemo(() =>
-    Object.keys(STATUS_CONFIG).map(s => ({ text: s, value: s })),
-  []);
+  // v5.8.1：只列 4 主類（不再顯示 legacy 值避免篩選介面雜亂）
+  const statusFilterOptions = useMemo(() => [
+    { text: '已完成/交付', value: '已完成/交付' },
+    { text: '排程中',      value: '排程中' },
+    { text: '預警案件',    value: '預警案件' },
+    { text: '闕漏紀錄',    value: '闕漏紀錄' },
+  ], []);
 
   const categoryOptions = useMemo(() => {
     const set = new Set<string>();
@@ -195,13 +221,19 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
       dataIndex: 'display_status',
       width: 100,
       filters: statusFilterOptions,
-      onFilter: (value, record) => record.display_status === value,
+      // v5.8.1：4 主類 filter 時，內部展開 legacy 值比對
+      onFilter: (value, record) => {
+        const allowed = CATEGORY_LEGACY_MAP[value as string];
+        if (allowed) return allowed.includes(record.display_status);
+        return record.display_status === value;
+      },
       sorter: (a, b) =>
         (STATUS_CONFIG[a.display_status]?.order ?? 9) - (STATUS_CONFIG[b.display_status]?.order ?? 9),
       defaultSortOrder: 'ascend',
       render: (status: string) => {
-        const cfg = STATUS_CONFIG[status] || { color: 'default', icon: null };
-        return <Tag color={cfg.color} icon={cfg.icon}>{status}</Tag>;
+        const cfg = STATUS_CONFIG[status] || { color: 'default', icon: null, hint: '' };
+        const tagEl = <Tag color={cfg.color} icon={cfg.icon}>{status}</Tag>;
+        return cfg.hint ? <Tooltip title={cfg.hint}>{tagEl}</Tooltip> : tagEl;
       },
     },
     {

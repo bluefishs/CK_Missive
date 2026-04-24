@@ -57,6 +57,9 @@ def _build_valid_paths() -> Set[str]:
         "/tender/company-profile",
         # AI / Agent
         "/agent/dashboard", "/ai/code-graph",
+        # 坤哥整合（v5.8.1）— 所有 agent 入口收攏到 /kunge/*
+        "/kunge", "/kunge/chat", "/kunge/identity", "/kunge/memory",
+        "/kunge/evolution", "/kunge/nebula", "/kunge/dialogues", "/kunge/ops",
         # 承攬案件別名
         "/projects",
     })

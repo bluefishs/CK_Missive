@@ -16,10 +16,13 @@ from starlette.responses import StreamingResponse
 logger = logging.getLogger(__name__)
 
 # 共用 SSE 回應標頭
+# - X-Accel-Buffering: no → nginx/CF 不緩衝
+# - Content-Encoding: identity → 跳過 GZipMiddleware（防 SSE chunk 被壓縮緩衝，導致前端收不到即時 event）
 SSE_HEADERS = {
     "Cache-Control": "no-cache",
     "X-Accel-Buffering": "no",
     "Connection": "keep-alive",
+    "Content-Encoding": "identity",
 }
 
 

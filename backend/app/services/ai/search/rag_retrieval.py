@@ -303,16 +303,17 @@ def build_context(sources: List[Dict[str, Any]]) -> str:
     total_chars = 0
 
     for i, src in enumerate(sources, 1):
+        # 2026-04-22：sources 可能來自 wiki / chunk / 非公文來源，欄位不完整時需安全取值
         part = (
-            f"[公文{i}] 字號: {src['doc_number']}\n"
-            f"  主旨: {src['subject']}\n"
-            f"  類型: {src['doc_type']} | 類別: {src['category']}\n"
-            f"  發文: {src['sender']} → 受文: {src['receiver']}\n"
-            f"  日期: {src['doc_date']}\n"
+            f"[公文{i}] 字號: {src.get('doc_number') or '-'}\n"
+            f"  主旨: {src.get('subject') or '-'}\n"
+            f"  類型: {src.get('doc_type') or '-'} | 類別: {src.get('category') or '-'}\n"
+            f"  發文: {src.get('sender') or '-'} → 受文: {src.get('receiver') or '-'}\n"
+            f"  日期: {src.get('doc_date') or '-'}\n"
         )
         if src.get("ck_note"):
             part += f"  備註: {src['ck_note']}\n"
-        part += f"  相似度: {src['similarity']}\n"
+        part += f"  相似度: {src.get('similarity', 0)}\n"
 
         if total_chars + len(part) > max_chars:
             break

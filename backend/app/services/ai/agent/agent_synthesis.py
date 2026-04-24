@@ -13,6 +13,7 @@ Extracted from agent_orchestrator.py v1.8.0
 
 import asyncio
 import logging
+import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from app.services.ai.agent.agent_roles import get_role_profile
@@ -124,7 +125,16 @@ class AgentSynthesizer:
 
         # 非串流呼叫 + 後處理：本地模型可能在回覆中穿插推理段落
         # 超時保護：避免 LLM 無回應時永久阻塞整個 SSE 串流
-        synthesis_timeout = max(self.config.cloud_timeout, self.config.local_timeout)
+        # 2026-04-22 P0-1：synthesis 優先走 Groq（~1.5s），cloud_timeout 已足；
+        # 舊設 max(cloud=30, local=120)=120s 太寬，silent gap 可達兩分鐘。
+        # 改為 cloud_timeout+5s buffer（約 35s），fallback 鏈內部有獨立 timeout。
+        synthesis_timeout = self.config.cloud_timeout + 5
+        # D2-A: synthesis start/end 觀測性 — 防止 silent gap
+        logger.info(
+            "synthesis_start timeout=%ds messages=%d model=llama-3.3-70b-versatile",
+            synthesis_timeout, len(messages),
+        )
+        _t0 = time.monotonic()
         try:
             # 合成優先用 Groq Cloud（llama-3.3-70B，~1.5s），vLLM 7B 合成 ~7s
             # 指定 model 跳過 vLLM P0，直接走 Groq→NVIDIA→Ollama fallback
@@ -137,6 +147,10 @@ class AgentSynthesizer:
                     task_type="synthesis",
                 ),
                 timeout=synthesis_timeout,
+            )
+            logger.info(
+                "synthesis_end elapsed=%.2fs raw_len=%d",
+                time.monotonic() - _t0, len(raw or ""),
             )
             cleaned = strip_thinking_from_synthesis(raw)
             # 簡體→繁體後處理（OpenCC s2twp，防 LLM 簡體輸出）
@@ -232,6 +246,7 @@ class AgentSynthesizer:
                 "4. 保持繁體中文\n"
                 "5. 保留原始回答中的所有數據和事實，不要遺漏"
             )
+            # P0-1：quality review 降至 10s（原 15s），非關鍵路徑避免拖慢整體
             improved = await asyncio.wait_for(
                 self.ai.chat_completion(
                     messages=[{"role": "user", "content": improve_prompt}],
@@ -239,7 +254,7 @@ class AgentSynthesizer:
                     max_tokens=800,
                     task_type="synthesis",
                 ),
-                timeout=15,
+                timeout=10,
             )
             if improved and len(improved.strip()) > len(answer) * 0.5:
                 from app.services.ai.agent.agent_post_processing import _sc2tc

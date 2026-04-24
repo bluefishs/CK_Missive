@@ -37,10 +37,9 @@ import authService, { MFARequiredError } from '../services/authService';
 import { useResponsive, useGoogleSignIn, useLineLogin } from '../hooks';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID, LINE_LOGIN_CHANNEL_ID } from '../config/env';
 import { logger } from '../utils/logger';
+import type { LoginFormValues } from '../types/forms';
 
 const { Title, Text } = Typography;
-
-import type { LoginFormValues } from '../types/forms';
 
 const LoginPage: React.FC = () => {
   const { message } = App.useApp();
@@ -146,7 +145,6 @@ const LoginPage: React.FC = () => {
   const handleLogin = async (values: LoginFormValues) => {
     setLoading(true);
     setError('');
-
     try {
       const response = await authService.login({
         username: values.username,
@@ -154,13 +152,11 @@ const LoginPage: React.FC = () => {
       });
       message.success('登入成功！');
       window.dispatchEvent(new CustomEvent('user-logged-in'));
-
       const targetUrl = returnUrl
         ? decodeURIComponent(returnUrl)
         : (response.user_info.is_admin ? ROUTES.ADMIN_DASHBOARD : ROUTES.DASHBOARD);
       navigate(targetUrl);
     } catch (error: unknown) {
-      // MFA 流程：密碼正確但需要雙因素認證
       if (error instanceof MFARequiredError) {
         message.info('請完成雙因素認證');
         navigate(ROUTES.MFA_VERIFY, {

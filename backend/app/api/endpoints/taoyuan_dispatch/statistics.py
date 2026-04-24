@@ -178,21 +178,25 @@ async def dispatch_morning_status(
         closure = row[11]
         display_cat = row[15] or row[7] or ""  # bottleneck fallback latest
 
-        # display_status: 依 closure_level + 期限 + 紀錄數 細分
-        if closure in ("closed",):
-            display_status = "已結案"
-        elif closure in ("delivered", "all_completed"):
-            display_status = "已交付"
+        # display_status: 4 大類精簡呈現（v5.8.0 最終版）
+        # - 已完成/交付：closed / delivered / all_completed / pending_closure
+        # - 排程中：有律定 + 交付期限 > 7 天
+        # - 預警案件：交付期限 ≤ 7 天（含已逾期）
+        # - 闕漏紀錄：無律定 或 0 紀錄（缺少必要資料）
+        if closure in ("closed", "delivered", "all_completed", "pending_closure"):
+            display_status = "已完成/交付"
         elif closure == "scheduled":
             display_status = "排程中"
-        elif closure == "pending_closure":
-            display_status = "待結案"
         elif total_n == 0:
             display_status = "闕漏紀錄"
-        elif dl and dl >= today:
-            display_status = "進行中"
+        elif dl and dl < today:
+            display_status = "預警案件"
+        elif closure == "warning":
+            display_status = "預警案件"
+        elif closure in ("needs_action", "active"):
+            display_status = "闕漏紀錄"
         else:
-            display_status = "逾期"
+            display_status = "闕漏紀錄"  # fallback
 
         dispatch_id = row[0]
         wt_str = work_types_map.get(dispatch_id, "")

@@ -44,6 +44,7 @@ async def get_users(
         search=params.q,
         page=params.page,
         limit=params.per_page,
+        canonical_only=params.canonical_only,
     )
 
     return UserListResponse(
@@ -186,7 +187,7 @@ async def update_user(
     return UserResponse.model_validate(updated_user)
 
 
-@router.post("/users/{user_id}/delete", summary="刪除使用者")
+@router.post("/users/{user_id}/delete", summary="軟刪除使用者（is_active=false，保留記錄）")
 async def delete_user(
     user_id: int,
     user_repo: UserRepository = Depends(get_user_repository),
@@ -233,3 +234,88 @@ async def delete_user(
 
     logger.info(f"[USER_MGMT] 使用者 {user_id} ({user_email}) 已刪除 by {admin_user.email}")
     return {"message": "使用者已刪除"}
+
+
+# v5.8.0 新增：硬刪除（ADR-0025 CRUD 澄清）
+@router.post("/users/{user_id}/purge", summary="永久刪除使用者（不可復原；需 admin）")
+async def purge_user(
+    user_id: int,
+    user_repo: UserRepository = Depends(get_user_repository),
+    admin_user: User = Depends(require_admin()),
+):
+    """硬刪除使用者（真正 DELETE FROM users）。
+
+    v5.8.0 新增 — 解決「軟刪除無差別可見」UX 問題。
+
+    執行前檢：
+      - 不可刪除自己
+      - 不可刪除 superuser（防誤刪主事者）
+      - NO ACTION 類 FK 必須 0 筆（ai_search_history / ai_conversation_feedback /
+        document_calendar_events 的 created_by、assigned_user_id）
+      - CASCADE / SET NULL 類 FK 由 DB 自動處理
+
+    若 NO ACTION FK 有資料 → 拒絕並回建議：先將相關紀錄 reassign 或保留軟刪除。
+    """
+    from sqlalchemy import text as _text
+
+    if user_id == admin_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="無法永久刪除自己的帳號",
+        )
+
+    target = await user_repo.get_by_id(user_id)
+    if not target:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="使用者不存在",
+        )
+    if getattr(target, "is_superuser", False) or target.role == "superuser":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="拒絕永久刪除 superuser 帳號（防誤刪）",
+        )
+
+    # FK 預檢（NO ACTION 表）
+    blockers = {}
+    for table, col in [
+        ("ai_search_history", "user_id"),
+        ("ai_conversation_feedback", "user_id"),
+        ("document_calendar_events", "created_by"),
+        ("document_calendar_events", "assigned_user_id"),
+    ]:
+        row = (await user_repo.db.execute(
+            _text(f"SELECT COUNT(*) FROM {table} WHERE {col} = :uid"),
+            {"uid": user_id},
+        )).scalar()
+        if row and row > 0:
+            blockers[f"{table}.{col}"] = row
+
+    if blockers:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "此帳號有相關紀錄無法永久刪除",
+                "blockers": blockers,
+                "suggestion": "請先處理相關紀錄（reassign 或保留軟刪除），或改用 /users/{id}/delete 軟刪除",
+            },
+        )
+
+    user_email = target.email
+    # Hard delete（CASCADE/SET NULL 自動處理）
+    await user_repo.db.execute(
+        _text("DELETE FROM users WHERE id = :uid"), {"uid": user_id},
+    )
+    await user_repo.db.commit()
+
+    await AuditService.log_user_change(
+        user_id=user_id,
+        action="PURGE",
+        changes={"deleted": {"old": False, "new": True}},
+        admin_id=admin_user.id,
+        admin_name=admin_user.full_name,
+    )
+    logger.warning(
+        "[USER_MGMT] 使用者 %d (%s) 已永久刪除 by %s",
+        user_id, user_email, admin_user.email,
+    )
+    return {"message": "使用者已永久刪除", "user_id": user_id, "email": user_email}

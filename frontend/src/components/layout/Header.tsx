@@ -4,14 +4,15 @@
  */
 
 import React from 'react';
-import { Layout, Typography, Button, Avatar, Dropdown, Space } from 'antd';
+import { Layout, Typography, Button, Avatar, Dropdown, Space, Tooltip, Tag } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   MenuOutlined,
   UserOutlined,
   LogoutOutlined,
-  ProfileOutlined
+  ProfileOutlined,
+  BulbOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { UserInfo } from '../../services/authService';
@@ -121,8 +122,28 @@ const Header: React.FC<HeaderProps> = ({
         </Title>
       </div>
 
-      {/* 右側：通知中心 + 使用者選單 */}
+      {/* 右側：坤哥入口 + 通知中心 + 使用者選單 */}
       <Space size="large">
+        <Tooltip title="坤哥 · Missive 意識體：記憶、學習、質疑、進化">
+          <Tag
+            color="gold"
+            style={{
+              cursor: 'pointer',
+              fontSize: 13,
+              padding: '4px 12px',
+              borderRadius: 16,
+              margin: 0,
+              background: 'linear-gradient(90deg, #ffd700 0%, #ffb300 100%)',
+              color: '#5c2d00',
+              border: 'none',
+              fontWeight: 600,
+            }}
+            onClick={() => navigate('/kunge')}
+          >
+            <BulbOutlined /> 坤哥
+          </Tag>
+        </Tooltip>
+
         <NotificationCenter />
 
         <Dropdown

@@ -85,7 +85,24 @@ def inject_queries(base_url: str, count: int, timeout: float = 120.0, token: str
     if count > len(QUERY_POOL):
         selected += random.choices(QUERY_POOL, k=count - len(QUERY_POOL))
 
-    stats = {"total": 0, "success": 0, "error": 0, "timeout": 0, "latencies": []}
+    stats = {
+        "total": 0, "success": 0, "error": 0, "timeout": 0,
+        "latencies": [],
+        # P1-5 (2026-04-22)：內容衛生量測 — 偵測 bot 回應含類詐騙特徵
+        "content_risk_hits": 0,       # 身分證/金額/長編號 擊中數
+        "scam_keyword_hits": 0,       # 反詐騙詞彙擊中數
+        "risky_samples": [],           # 最多保留 3 則樣本供人工檢視
+    }
+    # 延遲載入 sanitizer（單元模組，無 backend 依賴）
+    try:
+        sys.path.insert(0, str((__import__("pathlib").Path(__file__).resolve().parents[2] / "backend").resolve()))
+        from app.services.common.telegram_content_sanitizer import (  # type: ignore
+            sanitize, has_scam_keywords,
+        )
+    except Exception:
+        sanitize = None  # type: ignore
+        has_scam_keywords = None  # type: ignore
+
     url = f"{base_url}/api/ai/agent/query"
     headers = {"Content-Type": "application/json; charset=utf-8"}
     if token:
@@ -110,6 +127,24 @@ def inject_queries(base_url: str, count: int, timeout: float = 120.0, token: str
                         "[%d/%d] OK %dms domain=%s q=%s",
                         i + 1, count, latency_ms, item["domain"], item["q"][:40],
                     )
+                    # P1-5：檢查 bot 回應內容衛生
+                    if sanitize is not None:
+                        try:
+                            body = resp.json()
+                            answer = body.get("answer") or body.get("result", {}).get("answer") or ""
+                            cleaned = sanitize(answer)
+                            if cleaned != answer:
+                                stats["content_risk_hits"] += 1
+                                if len(stats["risky_samples"]) < 3:
+                                    stats["risky_samples"].append({
+                                        "q": item["q"],
+                                        "raw_snippet": answer[:120],
+                                        "masked_snippet": cleaned[:120],
+                                    })
+                            if has_scam_keywords and has_scam_keywords(answer):
+                                stats["scam_keyword_hits"] += 1
+                        except Exception:
+                            pass  # sanitizer 量測失敗不影響基線主流程
                 else:
                     stats["error"] += 1
                     logger.warning(
@@ -169,8 +204,18 @@ def main():
     if stats.get("p50"):
         logger.info("Latency p50=%dms p95=%dms mean=%dms", stats["p50"], stats["p95"], stats["mean"])
 
+    # P1-5：內容衛生量測告警（若擊中 → 觸發 LINE admin push 觀察）
+    risk = stats.get("content_risk_hits", 0) + stats.get("scam_keyword_hits", 0)
+    if risk > 0:
+        logger.warning(
+            "⚠ 內容衛生告警：%d 次擊中（risk=%d scam_kw=%d）— bot 回應含類詐騙特徵，請檢查 LLM 輸出",
+            risk, stats["content_risk_hits"], stats["scam_keyword_hits"],
+        )
+        if stats.get("risky_samples"):
+            logger.warning("樣本：%s", json.dumps(stats["risky_samples"], ensure_ascii=False))
+
     # JSON 輸出供排程器採集
-    print(json.dumps(stats, indent=2))
+    print(json.dumps(stats, indent=2, ensure_ascii=False))
 
     # 非零退出表示有問題
     if stats["success"] < stats["total"] * 0.5:

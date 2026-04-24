@@ -43,8 +43,10 @@ const IS_INTERNAL = ENV_TYPE === 'internal';
 const IS_NGROK_OR_PUBLIC = ENV_TYPE === 'ngrok' || ENV_TYPE === 'public';
 
 const SHOW_QUICK_ENTRY = IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL;
+// v5.8.3：恢復帳密登入入口（Google/LINE 平台配置完成前保留後備，避免三路徑全斷）
+// 待 GCP Console 加 origin + LINE Callback 驗證 OK 後再關
 const SHOW_PASSWORD_LOGIN = true;
-const SHOW_GOOGLE_LOGIN = Boolean(GOOGLE_LOGIN_ENABLED) && (IS_LOCALHOST || IS_NGROK_OR_PUBLIC);
+const SHOW_GOOGLE_LOGIN = Boolean(GOOGLE_LOGIN_ENABLED);
 const SHOW_LINE_LOGIN = Boolean(LINE_LOGIN_CHANNEL_ID);
 
 const ENV_HINT = IS_AUTH_DISABLED
@@ -87,7 +89,9 @@ const EntryPage: React.FC = () => {
       const response = await authService.login(values);
       message.success('登入成功！');
       window.dispatchEvent(new CustomEvent('user-logged-in'));
-      navigate(response.user_info.is_admin ? ROUTES.ADMIN_DASHBOARD : ROUTES.DASHBOARD);
+      // 所有登入使用者一律進 /dashboard（admin 要管理請從側邊欄導覽）
+      void response;
+      navigate(ROUTES.DASHBOARD);
     } catch (error: unknown) {
       if (error instanceof MFARequiredError) {
         message.info('請完成雙因素認證');
@@ -109,7 +113,8 @@ const EntryPage: React.FC = () => {
     try {
       const result = await authService.googleLogin(response.credential);
       message.success('登入成功！');
-      navigate(result.user_info.is_admin ? ROUTES.ADMIN_DASHBOARD : ROUTES.DASHBOARD);
+      void result;
+      navigate(ROUTES.DASHBOARD);
     } catch (error: unknown) {
       logger.error('Google login failed:', error);
       message.error(error instanceof Error ? error.message : 'Google 登入失敗');
@@ -230,6 +235,25 @@ const EntryPage: React.FC = () => {
           <span className="title-white">乾坤測繪</span>
           <span className="title-gold">公文系統入口</span>
         </h1>
+
+        {/* v5.8.0 坤哥意識體入口提示（對齊 Muse 風格對外展示）*/}
+        <p
+          style={{
+            color: '#b8c5d4',
+            fontSize: 14,
+            textAlign: 'center',
+            marginTop: -8,
+            marginBottom: 16,
+            letterSpacing: 1,
+            cursor: 'pointer',
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate('/kunge');
+          }}
+        >
+          ✨ <strong style={{ color: '#ffd700' }}>坤哥</strong> — Missive 意識體 · 記憶、學習、質疑、進化 →
+        </p>
 
         {envLabel && (
           <Tag color={envLabel.color} className="env-tag">

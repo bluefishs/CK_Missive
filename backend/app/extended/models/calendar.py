@@ -27,6 +27,15 @@ class DocumentCalendarEvent(Base):
     google_event_id = Column(String(255), nullable=True, index=True, comment="Google Calendar 事件 ID")
     google_sync_status = Column(String(50), default='pending', comment="同步狀態: pending/synced/failed")
 
+    # v5.8.0 ADR-0026：事件來源追蹤（公文 / work_record / 手動）
+    source_type = Column(String(30), server_default='document', nullable=False,
+                         comment="事件來源：document | work_record | manual")
+    source_id = Column(Integer, nullable=True,
+                       comment="來源 ID（document.id 或 work_record.id）")
+    dispatch_order_id = Column(Integer, ForeignKey('taoyuan_dispatch_orders.id', ondelete="SET NULL"),
+                               nullable=True, index=True,
+                               comment="派工單 ID（work_record 同步或無 document 時用）")
+
     document = relationship("OfficialDocument", back_populates="calendar_events", lazy="joined")
     assigned_user = relationship("User", foreign_keys=[assigned_user_id], lazy="joined")
     creator = relationship("User", foreign_keys=[created_by], lazy="joined")

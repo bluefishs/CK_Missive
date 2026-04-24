@@ -29,10 +29,10 @@ import {
   PlusOutlined,
   CheckCircleOutlined,
   CalendarOutlined,
-  SyncOutlined,
-  WarningOutlined,
   AppstoreOutlined,
   UnorderedListOutlined,
+  ExclamationCircleOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -161,20 +161,21 @@ const OverviewStats: React.FC<{
   onFilter: (status: string | undefined) => void;
   activeFilter: string | undefined;
 }> = ({ summary, total, onFilter, activeFilter }) => {
-  const done = (summary['已交付'] ?? 0) + (summary['已結案'] ?? 0);
+  // v5.8.0 最終版：4 大類（顯示順序：完成 → 排程 → 預警 → 闕漏）
+  const done = (summary['已完成/交付'] ?? 0)
+    + (summary['已交付'] ?? 0) + (summary['已結案'] ?? 0) + (summary['待結案'] ?? 0);
   const scheduled = summary['排程中'] ?? 0;
-  const inProgress = summary['進行中'] ?? 0;
-  const overdue = summary['逾期'] ?? 0;
-  const missing = summary['闕漏紀錄'] ?? 0;
-  const actionNeeded = overdue + missing;
+  const warning = (summary['預警案件'] ?? 0) + (summary['逾期'] ?? 0);
+  const missing = (summary['闕漏紀錄'] ?? 0)
+    + (summary['需處理'] ?? 0) + (summary['進行中'] ?? 0);  // legacy keys 併入
 
   const toggle = (s: string) => onFilter(activeFilter === s ? undefined : s);
 
   return (
     <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
       <Col xs={12} sm={6}>
-        <Card size="small" hoverable onClick={() => toggle('已交付')}
-              style={{ borderTop: activeFilter === '已交付' ? '3px solid #52c41a' : undefined }}>
+        <Card size="small" hoverable onClick={() => toggle('已完成/交付')}
+              style={{ borderTop: activeFilter === '已完成/交付' ? '3px solid #52c41a' : undefined }}>
           <Statistic title="已完成/交付" value={done} valueStyle={{ color: '#52c41a' }}
                      prefix={<CheckCircleOutlined />}
                      suffix={<Text type="secondary" style={{ fontSize: 12 }}>/{total}</Text>} />
@@ -188,21 +189,19 @@ const OverviewStats: React.FC<{
         </Card>
       </Col>
       <Col xs={12} sm={6}>
-        <Card size="small" hoverable onClick={() => toggle('進行中')}
-              style={{ borderTop: activeFilter === '進行中' ? '3px solid #fa8c16' : undefined }}>
-          <Statistic title="進行中" value={inProgress} valueStyle={{ color: '#fa8c16' }}
-                     prefix={<SyncOutlined />} suffix="筆" />
+        <Card size="small" hoverable onClick={() => toggle('預警案件')}
+              style={{ borderTop: activeFilter === '預警案件' ? '3px solid #cf1322' : undefined }}>
+          <Statistic title="預警案件" value={warning}
+                     valueStyle={{ color: warning > 0 ? '#cf1322' : '#999' }}
+                     prefix={<ExclamationCircleOutlined />} suffix="筆" />
         </Card>
       </Col>
       <Col xs={12} sm={6}>
-        <Card size="small" hoverable onClick={() => toggle('__action_needed__')}
-              style={{ borderTop: activeFilter === '__action_needed__' ? '3px solid #cf1322' : undefined }}>
-          <Statistic title="需處理" value={actionNeeded}
-                     valueStyle={{ color: actionNeeded > 0 ? '#cf1322' : '#999' }}
-                     prefix={<WarningOutlined />}
-                     suffix={missing > 0
-                       ? <Text type="secondary" style={{ fontSize: 11 }}>逾期{overdue}+闕漏{missing}</Text>
-                       : '筆'} />
+        <Card size="small" hoverable onClick={() => toggle('闕漏紀錄')}
+              style={{ borderTop: activeFilter === '闕漏紀錄' ? '3px solid #fa8c16' : undefined }}>
+          <Statistic title="闕漏紀錄" value={missing}
+                     valueStyle={{ color: missing > 0 ? '#fa8c16' : '#999' }}
+                     prefix={<QuestionCircleOutlined />} suffix="筆" />
         </Card>
       </Col>
     </Row>

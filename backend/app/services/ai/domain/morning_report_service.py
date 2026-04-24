@@ -215,7 +215,25 @@ class MorningReportService:
         if sec:
             sections_detail.append(sec)
 
-        # ── 2b. 待結案確認 ──
+        # ── 2b. 預警派工（v5.8.1 新增）：有律定期限且 ≤ 7 天 ──
+        sec = []
+        wc = ov.get("warning_count", 0) if _on("dispatch") else 0
+        if wc > 0:
+            parts.append(f"預警派工 {wc} 筆")
+            for item in ov.get("warning_items", [])[:5]:
+                progress = item.get("progress", "")
+                progress_tag = f" 〔{progress}〕" if progress else ""
+                next_ev = item.get("next_event", "")
+                next_tag = f"，期限 {next_ev}" if next_ev else ""
+                sec.append(
+                    f"  🟠 預警 {item['dispatch_no']}{_team_tag(item)} — "
+                    f"{item.get('project_name', '')} (承辦: {item.get('handler', '未指定')}{next_tag})"
+                    f"{progress_tag}"
+                )
+        if sec:
+            sections_detail.append(sec)
+
+        # ── 2c. 待結案確認 ──
         sec = []
         pc = ov.get("pending_closure_count", 0) if _on("dispatch") else 0
         if pc > 0:
@@ -239,10 +257,11 @@ class MorningReportService:
             sec.append("【2. 會議事件】")
             for item in mt.get("items", [])[:5]:
                 days = item.get("days_left", 0)
+                # v5.8.1：會議用 🤝（協作），與排程事件 📅 區隔
                 urgency = (
                     "🔔 今日" if days == 0
-                    else "📅 明日" if days == 1
-                    else f"📅 {days} 天後"
+                    else "🤝 明日" if days == 1
+                    else f"🤝 {days} 天後"
                 )
                 time_str = item.get("time_str") or item.get("start_date", "")
                 location = f" @ {item['location']}" if item.get("location") else ""
@@ -370,7 +389,8 @@ class MorningReportService:
         # 組合輸出 — 各 section 之間加區隔線
         header = f"📋 {_now_taipei().strftime('%m/%d')} 晨報\n"
         summary_line = " | ".join(parts)
-        separator = "\n  ─────────────────"
+        # 2026-04-22：分隔線前後加空行，避免段落緊貼
+        separator = "\n\n─────────────────\n"
         detail_text = separator.join(
             "\n".join(lines) for lines in sections_detail if lines
         )
@@ -442,16 +462,60 @@ class MorningReportService:
           FROM taoyuan_dispatch_document_link
           GROUP BY dispatch_order_id
         ),
+        -- v5.8.0：upcoming_events 合併兩路徑，但 next_event_date 優先 work_record 期限
+        -- upcoming_count：closure_level 判定「是否有排程」（兩路徑都算）
+        -- next_event_date：「交付期限」顯示 — 優先用未完成 work_record.deadline_date
+        --   用戶心智：次欄應顯示「最近的辦理截止日」，而非「任一日曆事件」
         upcoming_events AS (
-          SELECT ddl.dispatch_order_id,
-                 MIN(ce.start_date) AS next_event_date,
-                 COUNT(*) AS upcoming_count
-          FROM taoyuan_dispatch_document_link ddl
-          JOIN documents doc ON doc.id = ddl.document_id
-          JOIN document_calendar_events ce ON ce.document_id = doc.id
-          WHERE ce.start_date >= CURRENT_DATE
-            AND ce.status != 'cancelled'
-          GROUP BY ddl.dispatch_order_id
+          SELECT
+            dispatch_order_id,
+            -- 優先顯示 work_record.deadline_date，fallback 到 calendar_event 的日期
+            COALESCE(wd_next, ce_next) AS next_event_date,
+            (COALESCE(wd_cnt, 0) + COALESCE(ce_cnt, 0)) AS upcoming_count
+          FROM (
+            SELECT
+              all_ids.dispatch_order_id,
+              wd.next_event_date AS wd_next,
+              wd.upcoming_count AS wd_cnt,
+              ce.next_event_date AS ce_next,
+              ce.upcoming_count AS ce_cnt
+            FROM (
+              -- 所有有「排程」的 dispatch_order_id（任一路徑）
+              SELECT DISTINCT dispatch_order_id FROM (
+                SELECT ddl.dispatch_order_id
+                FROM taoyuan_dispatch_document_link ddl
+                JOIN document_calendar_events ce ON ce.document_id = ddl.document_id
+                WHERE ce.start_date >= CURRENT_DATE AND ce.status != 'cancelled'
+                UNION ALL
+                SELECT dispatch_order_id FROM taoyuan_work_records
+                WHERE deadline_date >= CURRENT_DATE
+                  AND status != 'completed'
+                  AND dispatch_order_id IS NOT NULL
+              ) merged
+            ) all_ids
+            LEFT JOIN (
+              -- 路徑 B：work_record 期限（優先作為「交付期限」顯示）
+              SELECT dispatch_order_id,
+                     MIN(deadline_date) AS next_event_date,
+                     COUNT(*) AS upcoming_count
+              FROM taoyuan_work_records
+              WHERE deadline_date >= CURRENT_DATE
+                AND status != 'completed'
+                AND dispatch_order_id IS NOT NULL
+              GROUP BY dispatch_order_id
+            ) wd ON wd.dispatch_order_id = all_ids.dispatch_order_id
+            LEFT JOIN (
+              -- 路徑 A：日曆事件（fallback）
+              SELECT ddl.dispatch_order_id,
+                     MIN(ce.start_date::date) AS next_event_date,
+                     COUNT(*) AS upcoming_count
+              FROM taoyuan_dispatch_document_link ddl
+              JOIN document_calendar_events ce ON ce.document_id = ddl.document_id
+              WHERE ce.start_date >= CURRENT_DATE
+                AND ce.status != 'cancelled'
+              GROUP BY ddl.dispatch_order_id
+            ) ce ON ce.dispatch_order_id = all_ids.dispatch_order_id
+          ) sub
         )
         SELECT d.id, d.dispatch_no, d.deadline, d.project_name,
                d.case_handler, d.sub_case_name,
@@ -473,9 +537,16 @@ class MorningReportService:
                  WHEN rp.total_records > 0
                       AND rp.completed_count = rp.total_records
                    THEN 'pending_closure'
+                 -- v5.8.0 預警案件：有律定且交付期限 ≤ 7 天（不含已逾期）
+                 WHEN ue.upcoming_count > 0
+                      AND ue.next_event_date IS NOT NULL
+                      AND ue.next_event_date <= CURRENT_DATE + INTERVAL '7 days'
+                   THEN 'warning'
+                 -- 排程中：有律定且交付期限 > 7 天（安心等時間到）
                  WHEN ue.upcoming_count > 0
                    THEN 'scheduled'
-                 ELSE 'active'
+                 -- 需處理：未完成且無任何律定（無 deadline 無 event）→ 需補建期限或事件
+                 ELSE 'needs_action'
                END AS closure_level,
                COALESCE(rp.completed_count, 0) AS completed_count,
                COALESCE(rp.total_records, 0) AS total_records,
@@ -605,37 +676,66 @@ class MorningReportService:
             overdue_dispatches = []
             pending_closure = []
             scheduled_items = []
+            warning_items = []
             for row in r1.all():
-                dl = self._parse_roc_date(row[2])
-                if not dl or dl >= today:
-                    continue
                 closure = row[11]  # closure_level
                 if closure in ("closed", "delivered", "all_completed"):
                     continue  # L1+L2+L2b: 完全排除
+
+                # 2026-04-22 修正：逾期計算基準
+                # 原本只看 d.deadline（派工單本身欄位，可能是舊發文日），
+                # 導致有未來 work_record.deadline_date（next_event_date）
+                # 的案件被誤判逾期 47 天。
+                # 正確邏輯：優先用 next_event_date（實際交付期限），
+                # 若無再退回 d.deadline。
+                next_event_raw = row[14]
+                next_event_date = None
+                if next_event_raw:
+                    next_event_date = (
+                        next_event_raw.date()
+                        if hasattr(next_event_raw, 'date')
+                        else next_event_raw
+                    )
+                dispatch_deadline = self._parse_roc_date(row[2])
+
+                # 有效 deadline：未來 next_event 為主；無則用 dispatch_deadline
+                effective_dl = next_event_date or dispatch_deadline
+                if not effective_dl:
+                    continue  # 無任何期限 → 跳過（needs_action 由別處處理）
+
                 completed_n, total_n = row[12], row[13]
-                next_event = row[14]  # next_event_date or None
                 progress_bar = f" ({completed_n}/{total_n})" if total_n else ""
                 item = {
                     "dispatch_no": row[1],
-                    "deadline": str(dl),
+                    "deadline": str(effective_dl),
                     "progress": self._format_dispatch_progress(
                         row[6], row[7], row[8], row[9], row[10]
                     ) + progress_bar,
                     "project_name": row[3] or "",
                     "handler": row[4] or "",
                     "survey_unit": row[17] or "",
-                    "overdue_days": (today - dl).days,
-                    "next_event": str(next_event.date()) if hasattr(next_event, 'date') else str(next_event) if next_event else None,
+                    # overdue_days 用 effective_dl 為基準
+                    "overdue_days": (today - effective_dl).days,
+                    "next_event": str(next_event_date) if next_event_date else None,
                 }
+
+                # closure_level 優先；effective_dl 二次核實
                 if closure == "pending_closure":
                     pending_closure.append(item)
                 elif closure == "scheduled":
                     scheduled_items.append(item)
+                elif closure == "warning":
+                    warning_items.append(item)
+                elif effective_dl < today:
+                    # 只有在「效期日期已過」時才算真正逾期
+                    overdue_dispatches.append(item)
                 else:
-                    overdue_dispatches.append(item)  # active: 真正逾期
+                    # 有效期日在未來，視同 scheduled（安全網）
+                    scheduled_items.append(item)
             overdue_dispatches.sort(key=lambda x: -x["overdue_days"])
             pending_closure.sort(key=lambda x: -x["overdue_days"])
             scheduled_items.sort(key=lambda x: x.get("next_event") or "")
+            warning_items.sort(key=lambda x: x.get("next_event") or "")
 
             return {
                 "dispatch_count": len(overdue_dispatches),
@@ -644,6 +744,9 @@ class MorningReportService:
                 "pending_closure_items": pending_closure[:10],
                 "scheduled_count": len(scheduled_items),
                 "scheduled_items": scheduled_items[:10],
+                # v5.8.1 新增：預警桶獨立，不再混入「逾期」
+                "warning_count": len(warning_items),
+                "warning_items": warning_items[:10],
             }
         except Exception:
             raise  # 由 _safe_query 統一處理 rollback

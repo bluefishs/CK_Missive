@@ -104,7 +104,7 @@ export const UserFormPage: React.FC = () => {
     mutationFn: (data: UserFormData) => adminUsersApi.createUser(data),
     onSuccess: () => {
       message.success('使用者建立成功');
-      queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
       navigate(ROUTES.USER_MANAGEMENT);
     },
     onError: (error: Error) => {
@@ -117,7 +117,7 @@ export const UserFormPage: React.FC = () => {
     mutationFn: (data: Partial<UserFormData>) => adminUsersApi.updateUser(userId!, data),
     onSuccess: () => {
       message.success('使用者更新成功');
-      queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
       queryClient.invalidateQueries({ queryKey: ['user', userId] });
       navigate(ROUTES.USER_MANAGEMENT);
     },
@@ -138,30 +138,68 @@ export const UserFormPage: React.FC = () => {
     },
   });
 
-  // 刪除 mutation
+  // 軟刪除 mutation（is_active=false）
   const deleteMutation = useMutation({
     mutationFn: () => adminUsersApi.deleteUser(userId!),
     onSuccess: () => {
-      message.success('使用者刪除成功');
-      queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      message.success('使用者已停用（軟刪除，資料保留）');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
       navigate(ROUTES.USER_MANAGEMENT);
     },
     onError: (error: Error) => {
-      message.error(error.message || '刪除失敗');
+      message.error(error.message || '停用失敗');
     },
   });
 
-  // 刪除確認
+  // v5.8.0 永久刪除 mutation（DELETE FROM users）
+  const purgeMutation = useMutation({
+    mutationFn: () => adminUsersApi.purgeUser(userId!),
+    onSuccess: (data) => {
+      message.success(`使用者 ${data.email} 已永久刪除`);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      navigate(ROUTES.USER_MANAGEMENT);
+    },
+    onError: (error: Error) => {
+      // Backend 409 會夾帶 blockers 提示
+      const msg = error.message || '永久刪除失敗';
+      message.error(msg);
+    },
+  });
+
+  // 停用或永久刪除 — 依當前 is_active 決定
   const handleDelete = () => {
-    modal.confirm({
-      title: '確定要刪除此使用者？',
-      icon: <ExclamationCircleOutlined />,
-      content: '刪除後將無法復原，該使用者將無法登入系統。',
-      okText: '確定刪除',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: () => deleteMutation.mutate(),
-    });
+    const isAlreadyInactive = user && user.is_active === false;
+
+    if (!isAlreadyInactive) {
+      // 目前啟用 → 先軟刪除
+      modal.confirm({
+        title: '確定停用此使用者？',
+        icon: <ExclamationCircleOutlined />,
+        content: '停用後將無法登入系統，但資料與歷史記錄保留。可再次啟用。',
+        okText: '確定停用',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: () => deleteMutation.mutate(),
+      });
+    } else {
+      // 已停用 → 提供永久刪除選項
+      modal.confirm({
+        title: '永久刪除此使用者？（不可復原）',
+        icon: <ExclamationCircleOutlined style={{ color: '#cf1322' }} />,
+        content: (
+          <div>
+            <p>此操作會 <strong style={{ color: '#cf1322' }}>真正刪除 users 記錄</strong>，CASCADE/SET NULL FK 會自動處理。</p>
+            <p>若該帳號有 AI 搜尋歷史 / 日曆事件等紀錄，後端會拒絕並回 409。</p>
+            <p>建議：保留軟刪除即可（查歷史仍可追溯）。</p>
+          </div>
+        ),
+        okText: '確定永久刪除',
+        okType: 'danger',
+        okButtonProps: { danger: true, type: 'primary' },
+        cancelText: '取消',
+        onOk: () => purgeMutation.mutate(),
+      });
+    }
   };
 
   // 保存處理
@@ -300,14 +338,15 @@ export const UserFormPage: React.FC = () => {
                 name="status"
                 label="狀態"
                 rules={[{ required: true, message: '請選擇狀態' }]}
+                tooltip="v5.8.0 修正：目前資料庫僅 is_active boolean，僅「啟用 / 停用」為有效選項；pending / suspended 需後端新增 status 欄位後才支援"
               >
                 <Select placeholder="請選擇狀態">
-                  {Object.entries(USER_STATUSES).map(([key, status]) => (
-                    <Option key={key} value={key}>
-                      {status.name_zh}
-                      {!status.can_login && ' (無法登入)'}
-                    </Option>
-                  ))}
+                  <Option value="active">
+                    {USER_STATUSES.active.name_zh}
+                  </Option>
+                  <Option value="inactive">
+                    {USER_STATUSES.inactive.name_zh} (無法登入)
+                  </Option>
                 </Select>
               </Form.Item>
             </Col>

@@ -2690,6 +2690,28 @@
           "default": "'pending'::character varying",
           "udt_name": "varchar",
           "max_length": 50
+        },
+        {
+          "name": "source_type",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'document'::character varying",
+          "udt_name": "varchar",
+          "max_length": 30
+        },
+        {
+          "name": "source_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "dispatch_order_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
@@ -2709,6 +2731,11 @@
         {
           "column": "document_id",
           "ref_table": "documents",
+          "ref_column": "id"
+        },
+        {
+          "column": "dispatch_order_id",
+          "ref_table": "taoyuan_dispatch_orders",
           "ref_column": "id"
         }
       ],
@@ -2744,6 +2771,14 @@
         {
           "name": "ix_document_calendar_events_created_by",
           "definition": "CREATE INDEX ix_document_calendar_events_created_by ON public.document_calendar_events USING btree (created_by)"
+        },
+        {
+          "name": "uq_calendar_source",
+          "definition": "CREATE UNIQUE INDEX uq_calendar_source ON public.document_calendar_events USING btree (source_type, source_id) WHERE (((source_type)::text <> 'manual'::text) AND (source_id IS NOT NULL))"
+        },
+        {
+          "name": "ix_calendar_dispatch_order_id",
+          "definition": "CREATE INDEX ix_calendar_dispatch_order_id ON public.document_calendar_events USING btree (dispatch_order_id)"
         }
       ],
       "unique_constraints": {}
@@ -10017,6 +10052,112 @@
       ],
       "unique_constraints": {}
     },
+    "user_merge_log": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('user_merge_log_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "canonical_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "alias_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "canonical_role",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "alias_role",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "role_harmonized",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "default": "false",
+          "udt_name": "bool"
+        },
+        {
+          "name": "merged_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "merged_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamptz"
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "reversed_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamptz"
+        },
+        {
+          "name": "reversed_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "user_merge_log_pkey",
+          "definition": "CREATE UNIQUE INDEX user_merge_log_pkey ON public.user_merge_log USING btree (id)"
+        },
+        {
+          "name": "ix_user_merge_log_canonical_id",
+          "definition": "CREATE INDEX ix_user_merge_log_canonical_id ON public.user_merge_log USING btree (canonical_id)"
+        },
+        {
+          "name": "ix_user_merge_log_alias_id",
+          "definition": "CREATE INDEX ix_user_merge_log_alias_id ON public.user_merge_log USING btree (alias_id)"
+        },
+        {
+          "name": "ix_user_merge_log_merged_by",
+          "definition": "CREATE INDEX ix_user_merge_log_merged_by ON public.user_merge_log USING btree (merged_by)"
+        }
+      ],
+      "unique_constraints": {}
+    },
     "user_morning_report_subscriptions": {
       "columns": [
         {
@@ -10483,12 +10624,25 @@
           "default": null,
           "udt_name": "varchar",
           "max_length": 100
+        },
+        {
+          "name": "canonical_user_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
         "id"
       ],
-      "foreign_keys": [],
+      "foreign_keys": [
+        {
+          "column": "canonical_user_id",
+          "ref_table": "users",
+          "ref_column": "id"
+        }
+      ],
       "indexes": [
         {
           "name": "users_pkey",
@@ -10509,6 +10663,10 @@
         {
           "name": "ix_users_line_user_id",
           "definition": "CREATE UNIQUE INDEX ix_users_line_user_id ON public.users USING btree (line_user_id)"
+        },
+        {
+          "name": "ix_users_canonical_user_id",
+          "definition": "CREATE INDEX ix_users_canonical_user_id ON public.users USING btree (canonical_user_id)"
         }
       ],
       "unique_constraints": {

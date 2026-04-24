@@ -32,9 +32,13 @@ const UserManagementPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
+  // ADR-0025 Identity Unification：永遠以完整姓名為單位呈現（canonical + 聚合 aliases），
+  // 活躍用戶優先。已停用帳號以狀態過濾器檢視。
   const queryParams = useMemo(() => ({
     page: currentPage,
     per_page: pageSize,
+    canonical_only: true,         // 一人一列，alias 內化為聚合資訊
+    is_active: true,              // 預設只看活躍；如需看已停用請用狀態過濾器（未來擴充）
     ...(searchText && { q: searchText }),
     ...(roleFilter && { role: roleFilter }),
     ...(providerFilter && { auth_provider: providerFilter }),

@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from app.api.endpoints import (
     document_numbers, document_numbers_crud, auth, agencies, vendors,
     document_calendar, users, user_management, user_permissions, role_permissions,
+    user_alias_admin,
     admin, site_management, telegram_webhook,
     system_monitoring, public, csv_import, reminders, files,
     secure_site_management,
@@ -47,6 +48,8 @@ api_router.include_router(auth.router, prefix="/auth", tags=["認證"])
 api_router.include_router(users.router, prefix="/users", tags=["使用者"])
 api_router.include_router(certifications.router, prefix="/certifications", tags=["證照管理"])
 api_router.include_router(user_management.router, prefix="/admin/user-management", tags=["使用者管理"])
+# ADR-0025 Identity Unification — 分身合併 Admin API
+api_router.include_router(user_alias_admin.router, prefix="/admin/users", tags=["分身合併"])
 api_router.include_router(user_permissions.router, prefix="/admin/user-management", tags=["權限管理"])
 api_router.include_router(role_permissions.router, prefix="/admin/user-management", tags=["角色權限"])
 api_router.include_router(admin.router, prefix="/admin", tags=["管理後台"])

@@ -145,6 +145,28 @@ class User(Base):
     line_user_id = Column(String(64), unique=True, nullable=True, index=True, comment="LINE User ID (帳號綁定)")
     line_display_name = Column(String(100), nullable=True, comment="LINE 顯示名稱")
 
+    # Identity Unification (ADR-0025, v5.8.0)
+    # NULL = 本身即 canonical；非 NULL = 指向真正代表本人的 user.id
+    canonical_user_id = Column(
+        Integer,
+        ForeignKey('users.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+        comment='Identity Unification: 指向 canonical user；NULL 代表本身即 canonical',
+    )
+    # 自引用 relationships
+    canonical = relationship(
+        "User",
+        remote_side="User.id",
+        foreign_keys=[canonical_user_id],
+        back_populates="aliases",
+    )
+    aliases = relationship(
+        "User",
+        foreign_keys=[canonical_user_id],
+        back_populates="canonical",
+    )
+
     # 證照關聯
     certifications = relationship("StaffCertification", back_populates="user", cascade="all, delete-orphan")
 

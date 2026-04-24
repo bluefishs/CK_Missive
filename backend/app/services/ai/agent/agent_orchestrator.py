@@ -337,15 +337,27 @@ class AgentOrchestrator:
 
                 # 並行：意圖前處理 + LLM 工具規劃
                 # 注意：兩者都用 DB，必須各自 session（asyncpg 不允許同一 connection 併發）
+                # 2026-04-22 P0-1+：整體 hard cap 25s 防 plan_tools 內任一 await 死鎖（Redis scan / capability / fewshot）
                 from app.db.database import run_with_fresh_session
-                hints, plan = await asyncio.gather(
-                    self._planner.preprocess_question(question, self.db),
-                    run_with_fresh_session(
-                        lambda db: self._planner.plan_tools(
-                            question, planning_history, context=context, db=db,
-                        )
-                    ),
-                )
+                PLANNER_HARD_CAP = 25
+                try:
+                    hints, plan = await asyncio.wait_for(
+                        asyncio.gather(
+                            self._planner.preprocess_question(question, self.db),
+                            run_with_fresh_session(
+                                lambda db: self._planner.plan_tools(
+                                    question, planning_history, context=context, db=db,
+                                )
+                            ),
+                        ),
+                        timeout=PLANNER_HARD_CAP,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "Planner 整體超時 %ds，fallback 為無 hints+空計劃 → 走 stream_fallback_rag",
+                        PLANNER_HARD_CAP,
+                    )
+                    hints, plan = None, None
 
                 # 後合併：將前處理 hints 注入 LLM 生成的 plan
                 if hints and plan:

@@ -5,7 +5,7 @@
  */
 
 import { useState, useRef, useCallback, useMemo } from 'react';
-import { Input, Button, Space, Typography, Tag } from 'antd';
+import { Input, Button, Space, Typography, Tag, Tooltip } from 'antd';
 import type { InputRef } from 'antd';
 import type { ColumnType, ColumnsType } from 'antd/es/table';
 import type { FilterConfirmProps } from 'antd/es/table/interface';
@@ -140,11 +140,14 @@ export function useUserColumns(isMobile: boolean) {
     {
       title: '使用者',
       key: 'user',
-      width: isMobile ? 150 : 200,
+      width: isMobile ? 150 : 220,
       ...getColumnSearchProps('user', '使用者'),
       sorter: (a, b) => (a.full_name || a.username).localeCompare(b.full_name || b.username, 'zh-TW'),
       render: (_: unknown, record: User) => {
         const displayName = record.full_name || record.username;
+        // ADR-0025: canonical + aliases 的完整 email 集合
+        const aliasEmails = record.alias_emails || [];
+        const hasAliases = aliasEmails.length > 0;
         return (
           <Space>
             <UserOutlined style={{ color: '#1976d2' }} />
@@ -158,6 +161,22 @@ export function useUserColumns(isMobile: boolean) {
                     textToHighlight={displayName}
                   />
                 ) : displayName}
+                {hasAliases && (
+                  <Tooltip
+                    title={
+                      <div>
+                        <div style={{ marginBottom: 4 }}>分身帳號：</div>
+                        {aliasEmails.map((e) => (
+                          <div key={e} style={{ fontSize: 12 }}>• {e}</div>
+                        ))}
+                      </div>
+                    }
+                  >
+                    <Tag color="purple" style={{ marginLeft: 6, cursor: 'help', fontSize: 11 }}>
+                      +{aliasEmails.length}
+                    </Tag>
+                  </Tooltip>
+                )}
               </div>
               <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
                 {searchedColumn === 'user' && tableSearchText ? (
@@ -191,9 +210,12 @@ export function useUserColumns(isMobile: boolean) {
         return aProviders.localeCompare(bProviders);
       },
       render: (_: unknown, record: User) => {
-        const providers = record.auth_providers?.length
-          ? record.auth_providers
-          : [record.auth_provider || 'email'];
+        // ADR-0025：優先顯示 merged providers（canonical 聚合所有 alias 的登入機制）
+        const providers = record.merged_auth_providers?.length
+          ? record.merged_auth_providers
+          : record.auth_providers?.length
+            ? record.auth_providers
+            : [record.auth_provider || 'email'];
         return (
           <Space size={2} wrap>
             {providers.map((p) => {

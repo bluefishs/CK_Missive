@@ -114,11 +114,21 @@ export const adminUsersApi = {
   },
 
   /**
-   * 刪除使用者 (POST)
+   * 軟刪除使用者 (POST) - is_active=false，保留記錄
    */
   async deleteUser(userId: number): Promise<void> {
     await apiClient.post(
       API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_DELETE(userId)
+    );
+  },
+
+  /**
+   * 永久刪除使用者 (POST) - v5.8.0 新增
+   * 真正 DELETE FROM users；前端須二次確認；會先做 FK 預檢
+   */
+  async purgeUser(userId: number): Promise<{ message: string; user_id: number; email: string }> {
+    return await apiClient.post<{ message: string; user_id: number; email: string }>(
+      API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_PURGE(userId)
     );
   },
 

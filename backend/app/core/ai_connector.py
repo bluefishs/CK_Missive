@@ -66,8 +66,14 @@ TASK_MODEL_MAP = {
     "ner": os.getenv("OLLAMA_NER_MODEL", OLLAMA_DEFAULT_MODEL),
     "summary": os.getenv("OLLAMA_SUMMARY_MODEL", OLLAMA_DEFAULT_MODEL),
     "classify": os.getenv("OLLAMA_CLASSIFY_MODEL", OLLAMA_DEFAULT_MODEL),
+    # 2026-04-22：planning 專用（短輸出、強結構，本地 gemma4:e2b 夠用）
+    # 避開 Groq 429 → NVIDIA 49B fallback 的 17-27s 慢路徑
+    "planning": os.getenv("OLLAMA_PLANNING_MODEL", OLLAMA_DEFAULT_MODEL),
     "embedding": os.getenv("EMBEDDING_MODEL", "nomic-embed-text"),
 }
+
+# 自動 Ollama-first 的 task_type（規劃、NER 等短任務，本地夠用且無 TPM 限制）
+_LOCAL_FIRST_TASKS = {"planning", "ner", "classify"}
 
 # 需要禁用 thinking mode 的模型前綴（Qwen3、DeepSeek-R1 等推理模型）
 _THINKING_MODEL_PREFIXES = ("qwen3", "deepseek-r1", "gemma4")
@@ -158,17 +164,25 @@ class AIConnector(AIConnectorManagementMixin):
         # 分離 Groq / Ollama 模型選擇
         # TASK_MODEL_MAP 是 Ollama 專用模型名（如 gemma4）
         # Groq 必須使用 GROQ_DEFAULT_MODEL（如 llama-3.3-70b-versatile）
-        ollama_model = model or OLLAMA_DEFAULT_MODEL
-        # 若 model 是 Ollama 格式（含冒號或等於 Ollama 預設），使用 Groq 預設模型
         _is_ollama_model = not model or ":" in model or model == OLLAMA_DEFAULT_MODEL
         groq_model = GROQ_DEFAULT_MODEL if _is_ollama_model else model
 
-        if not model and task_type:
-            ollama_model = TASK_MODEL_MAP.get(task_type, OLLAMA_DEFAULT_MODEL)
-            groq_model = GROQ_DEFAULT_MODEL  # task_type 映射僅影響 Ollama
+        # 2026-04-22：Ollama fallback model 優先用 task_type 映射，再退回 default
+        # 這樣即使 caller 指定了 Groq-style model（如 llama-3.3-70b-versatile），
+        # Ollama fallback 也不會 404（先前的 synthesis path bug）
+        if _is_ollama_model and model:
+            ollama_model = model
+        elif task_type and task_type in TASK_MODEL_MAP:
+            ollama_model = TASK_MODEL_MAP[task_type]
+        else:
+            ollama_model = OLLAMA_DEFAULT_MODEL
 
         # Vision 路徑：images 只有 Ollama 支援，強制 Ollama-first
         if images:
+            prefer_local = True
+
+        # 2026-04-22：planning/classify 等短任務自動 Ollama-first（避開雲端 429 fallback）
+        if task_type in _LOCAL_FIRST_TASKS:
             prefer_local = True
 
         # 智慧路由：圖譜感知 + Token 預算感知

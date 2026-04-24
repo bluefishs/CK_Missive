@@ -39,9 +39,9 @@ export function useGoogleSignIn(options: UseGoogleSignInOptions) {
         message.success('Google 登入成功！');
         window.dispatchEvent(new CustomEvent('user-logged-in'));
 
-        const targetUrl = returnUrl
-          ? decodeURIComponent(returnUrl)
-          : (result.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
+        // 統一導向 /dashboard；admin 要進管理頁請自側邊欄點
+        void result;
+        const targetUrl = returnUrl ? decodeURIComponent(returnUrl) : '/dashboard';
         onSuccess(targetUrl);
       } catch (error: unknown) {
         // MFA 流程：Google 認證成功但需要雙因素認證

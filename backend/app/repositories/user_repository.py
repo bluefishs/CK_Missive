@@ -267,6 +267,7 @@ class UserRepository(BaseRepository[User]):
         sort_order: str = "asc",
         page: int = 1,
         limit: int = 20,
+        canonical_only: bool = False,
     ) -> Tuple[List[User], int]:
         """
         篩選、搜尋、排序、分頁查詢使用者列表
@@ -314,6 +315,16 @@ class UserRepository(BaseRepository[User]):
         if department is not None:
             data_query = data_query.where(User.department == department)
             count_query = count_query.where(User.department == department)
+
+        # ADR-0025 Identity Unification: canonical_only 過濾 + eager-load aliases
+        if canonical_only:
+            from sqlalchemy.orm import selectinload
+            data_query = (
+                data_query
+                .where(User.canonical_user_id.is_(None))
+                .options(selectinload(User.aliases))  # 讓 UserResponse 聚合 merged providers / alias_emails
+            )
+            count_query = count_query.where(User.canonical_user_id.is_(None))
 
         # 模糊搜尋
         if search:

@@ -13,6 +13,7 @@ Updated: v2.8.0 — Cross-session Learning 啟動注入
 Updated: v2.9.0 — 自動修正/學習注入提取至獨立模組
 """
 
+import asyncio
 import logging
 import re
 import time
@@ -185,67 +186,106 @@ class AgentPlanner:
             except Exception as e:
                 logger.debug("Cross-session learning injection skipped: %s", e)
 
+        # 2026-04-22 P0-1+ 強化：每個 enrichment section 加 individual timeout
+        # 根因調查（v5.8.1）：planner gather 曾無限卡在此區塊任一 await，
+        # 現每段獨立 cap ≤3s，且所有 timing 入 log 供追蹤真正卡點。
+        import time as _t
+        _section_budgets = {
+            "defense": 2.0,
+            "capability": 2.0,
+            "redis_critical": 2.0,
+            "tool_discovery": 3.0,
+        }
+
+        async def _bounded(name: str, coro, budget: float):
+            t0 = _t.monotonic()
+            try:
+                result = await asyncio.wait_for(coro, timeout=budget)
+                elapsed = _t.monotonic() - t0
+                if elapsed > budget * 0.8:
+                    logger.warning("planner.%s slow: %.2fs (budget=%.1fs)", name, elapsed, budget)
+                else:
+                    logger.debug("planner.%s ok: %.2fs", name, elapsed)
+                return result
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "planner.%s timed out after %.1fs — continuing without it",
+                    name, budget,
+                )
+                return None
+            except Exception as e:
+                logger.debug("planner.%s failed: %s", name, e)
+                return None
+
         # 2026-04-19 Memory Wiki Phase 2: 失敗教訓注入
-        # 從 wiki/memory/failures/*.md active:true 的 defensive_rule 取出，讓 Agent 從過去錯誤學習
         defense_block = ""
         try:
             from app.services.memory.auto_defense import get_defensive_rules_block
-            defense_block = await get_defensive_rules_block(max_items=5)
+            result = await _bounded("defense", get_defensive_rules_block(max_items=5), _section_budgets["defense"])
+            if result:
+                defense_block = result
         except Exception as e:
             logger.debug("Auto defense injection skipped: %s", e)
 
-        # EVO-1: 能力弱項提示 — 讓 Planner 知道 Agent 的能力邊界
+        # EVO-1: 能力弱項提示
         capability_hint = ""
         if db:
             try:
                 from app.services.ai.agent.agent_capability_tracker import get_capability_profile_cached
-                profile = await get_capability_profile_cached(db)
-                weaknesses = profile.get("weaknesses", [])
-                if weaknesses and isinstance(weaknesses, list):
-                    domains = profile.get("domains", {})
-                    weak_details = []
-                    for w in weaknesses[:3]:
-                        score = domains.get(w, {}).get("score", 0) if isinstance(domains, dict) else 0
-                        weak_details.append(f"{w}({score:.1f})" if score else w)
-                    capability_hint = f"\n⚠️ 已知弱項領域: {', '.join(weak_details)}。這些領域的回答品質較低，建議使用更多工具交叉驗證。"
+                profile = await _bounded("capability", get_capability_profile_cached(db), _section_budgets["capability"])
+                if profile:
+                    weaknesses = profile.get("weaknesses", [])
+                    if weaknesses and isinstance(weaknesses, list):
+                        domains = profile.get("domains", {})
+                        weak_details = []
+                        for w in weaknesses[:3]:
+                            score = domains.get(w, {}).get("score", 0) if isinstance(domains, dict) else 0
+                            weak_details.append(f"{w}({score:.1f})" if score else w)
+                        capability_hint = f"\n⚠️ 已知弱項領域: {', '.join(weak_details)}。這些領域的回答品質較低，建議使用更多工具交叉驗證。"
             except Exception as e:
                 logger.debug("Capability hint skipped: %s", e)
 
         # CRITICAL 即時回饋 — 讀取近 5 分鐘內的嚴重失敗信號
         critical_hint = ""
-        try:
+
+        async def _read_critical_signals():
             from app.core.redis_client import get_redis
             _redis = await get_redis()
-            if _redis:
-                import json
-                cursor = b"0"
-                signals = []
-                while True:
-                    cursor, keys = await _redis.scan(cursor, match="agent:critical_feedback:*", count=10)
-                    for key in keys:
-                        val = await _redis.get(key)
-                        if val:
-                            signals.append(json.loads(val))
-                    if cursor == b"0":
-                        break
-                if signals:
-                    sig_texts = [f"- {s['type']}: score={s['score']}" for s in signals[:3]]
-                    critical_hint = (
-                        f"\n<critical_feedback>\n\u26a0\ufe0f 近期嚴重失敗 ({len(signals)} 筆):\n"
-                        + "\n".join(sig_texts)
-                        + "\n請特別注意工具選擇準確性，多使用交叉驗證。\n</critical_feedback>"
-                    )
-                    logger.info("CRITICAL feedback injected: %d signals", len(signals))
-        except Exception as e:
-            logger.debug("CRITICAL feedback read skipped: %s", e)
+            if not _redis:
+                return []
+            import json as _json
+            cursor = b"0"
+            signals = []
+            while True:
+                cursor, keys = await _redis.scan(cursor, match="agent:critical_feedback:*", count=10)
+                for key in keys:
+                    val = await _redis.get(key)
+                    if val:
+                        signals.append(_json.loads(val))
+                if cursor == b"0":
+                    break
+            return signals
+
+        signals = await _bounded("redis_critical", _read_critical_signals(), _section_budgets["redis_critical"])
+        if signals:
+            sig_texts = [f"- {s['type']}: score={s['score']}" for s in signals[:3]]
+            critical_hint = (
+                f"\n<critical_feedback>\n\u26a0\ufe0f 近期嚴重失敗 ({len(signals)} 筆):\n"
+                + "\n".join(sig_texts)
+                + "\n請特別注意工具選擇準確性，多使用交叉驗證。\n</critical_feedback>"
+            )
+            logger.info("CRITICAL feedback injected: %d signals", len(signals))
 
         # Tool Discovery — 動態工具推薦 (v1.2.0)
         tool_discovery_hint = ""
         try:
-            suggestions = await registry.suggest_tools_for_query(
-                question, db=db, top_k=5, context=context,
+            suggestions = await _bounded(
+                "tool_discovery",
+                registry.suggest_tools_for_query(question, db=db, top_k=5, context=context),
+                _section_budgets["tool_discovery"],
             )
-            tool_discovery_hint = registry.get_tool_suggestions_prompt(suggestions)
+            if suggestions:
+                tool_discovery_hint = registry.get_tool_suggestions_prompt(suggestions)
         except Exception as e:
             logger.debug("Tool discovery skipped: %s", e)
 
@@ -302,11 +342,13 @@ class AgentPlanner:
 
         try:
             t_plan = time.time()
+            # 2026-04-22：task_type="planning" 觸發 Ollama-first
+            # 避開 Groq 429 → NVIDIA 49B 17-27s 慢路徑（本地 gemma4 足以產生結構化 JSON）
             response = await self.ai.chat_completion(
                 messages=messages,
                 temperature=0.2,
                 max_tokens=512,
-                task_type="chat",
+                task_type="planning",
                 response_format={"type": "json_object"},
             )
             logger.info("Agent planning LLM call: %dms", int((time.time() - t_plan) * 1000))
