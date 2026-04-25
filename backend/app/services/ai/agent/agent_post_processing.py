@@ -209,6 +209,7 @@ class PostProcessingContext:
         "hints", "model_used", "trace", "session_id",
         "history", "t0", "actual_iterations", "config",
         "conv_memory", "summarizer", "db", "ai", "context",
+        "channel",  # 2026-04-25: 修復 Hermes 對話無法進 diary 斷鏈
     )
 
     def __init__(
@@ -230,6 +231,7 @@ class PostProcessingContext:
         db: Any,
         ai: Any,
         context: Optional[str] = None,
+        channel: Optional[str] = None,
     ):
         self.question = question
         self.answer_text = answer_text
@@ -248,6 +250,7 @@ class PostProcessingContext:
         self.db = db
         self.ai = ai
         self.context = context
+        self.channel = channel
 
 
 async def run_post_synthesis(

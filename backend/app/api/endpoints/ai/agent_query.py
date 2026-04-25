@@ -56,6 +56,7 @@ async def agent_query_stream(
             history=request.history,
             session_id=request.session_id,
             context=request.context,
+            channel=request.channel,  # 2026-04-25: 修復 Hermes 對話無法進 diary 斷鏈
         ),
         endpoint_name="MissiveAgent",
         done_extra={"tools_used": [], "iterations": 0},
@@ -87,6 +88,7 @@ async def capability_query_stream(
             history=request.history,
             session_id=request.session_id,
             context=request.context,
+            channel=request.channel,  # 2026-04-25: 修復 Hermes 對話無法進 diary 斷鏈
         ),
         endpoint_name="MissiveAgent",
         done_extra={"tools_used": [], "iterations": 0},

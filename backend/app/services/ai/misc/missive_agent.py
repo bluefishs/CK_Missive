@@ -49,6 +49,7 @@ class MissiveAgent:
         history: Optional[List[Dict[str, str]]] = None,
         session_id: Optional[str] = None,
         context: Optional[str] = None,
+        channel: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """
         自覺型代理人串流問答
@@ -116,6 +117,7 @@ class MissiveAgent:
             history=history,
             session_id=session_id,
             context=enhanced_context,
+            channel=channel,  # 2026-04-25: Hermes 通道追蹤
         ):
             yield event
 

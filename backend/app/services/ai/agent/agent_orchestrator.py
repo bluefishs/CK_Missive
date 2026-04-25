@@ -143,6 +143,7 @@ class AgentOrchestrator:
         session_id: Optional[str] = None,
         context: Optional[str] = None,
         sender_context: Optional["SenderContext"] = None,
+        channel: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """
         Agentic 串流問答 — SSE event generator
@@ -530,6 +531,7 @@ class AgentOrchestrator:
                 db=self.db,
                 ai=self.ai,
                 context=context,
+                channel=channel,  # 2026-04-25: Hermes 對話進 diary 修復
             )
             pp_events = await run_post_synthesis(pp_ctx)
             for pp_event in pp_events:
