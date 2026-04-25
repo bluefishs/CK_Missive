@@ -97,9 +97,20 @@ fi
 echo ""
 
 # ----------------------------------------------------------------------------
-# 5. Architecture docs presence
+# 5. KG pgvector embedding 覆蓋率
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[5/5] Architecture standard docs presence${NC}"
+echo -e "${CYAN}[5/6] KG pgvector embedding coverage${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/kg_embedding_coverage_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/kg_embedding_coverage_check.py
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# 6. Architecture docs presence
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[6/6] Architecture standard docs presence${NC}"
 REQUIRED_DOCS=(
     "docs/architecture/STANDARD_REFERENCE.md"
     "docs/architecture/SERVICE_CONTEXT_MAP.md"

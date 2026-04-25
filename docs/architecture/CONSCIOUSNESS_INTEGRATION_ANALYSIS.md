@@ -282,11 +282,32 @@ grep -c "kg_entity_id" wiki/**/*.md  # Wiki → KG 連結數
 - 交付：drift detector + 手動同步 SOP + fitness step 3
 - Owner 動作：bash scripts/sync/sync_soul_to_hermes.sh --apply
 
-### 9.3 O2.1 — Wiki↔KG 連結率審計（commit 本輪, 2026-04-25）
+### 9.3 O2.1 — Wiki↔KG 連結率審計（commit fd530504, 2026-04-25）
 - audit script 揭露 **dispatch 127 個全 0% KG 連結**（整體 30%, 閾值 80%）
 - 已連結集中 org (93%) / project (56%) — 命名匹配模式參考
 - backfill 路線寫入 audit script 註釋（短期/長期方案）
 - fitness step 4 自動跑
+
+### 9.4 O2.2 — 方案 X 完整實施（commit a0dc6901, 2026-04-25）
+- Phase 1: dispatch_kg_ingest.py — 127 dispatch 入 KG (id 261744-261870)
+- Phase 2: backfill_wiki_dispatch_kg.py — 127 wiki frontmatter 補 kg_entity_id
+- Phase 3: 重跑 audit — 整體 30% → **83%** ✓ 達標 / dispatch 0% → **100%**
+- 工作量實績: 預估 1-2 天 → 實際 30 min（entity_type 是 varchar 不需 migration）
+
+### 9.5 O3 — SOUL drift 修復（commit dc3f7a7 in CK_AaaP, 2026-04-25）
+- 跨 repo cp + commit/push 完整落地
+- Missive (8.4KB) 與 hermes-stack (5.1KB) 雙端統一為 8.4KB 完整版
+- 對 ADR-0030 #3 影響：建議 5/20 前重跑 soul-fidelity-eval.py 取得修正值
+
+### 9.6 ⚠️ 意外發現：KG embedding 系統性 0%（待後續處理）
+- 執行 dispatch embedding backfill 時發現整個 21,575 KG entities **全 0% embedding**
+- pgvector 768D 形同空架構 — RAG 向量搜尋失效
+- 影響範圍超出本輪：tender_record (5973) / py_function (5449) / org (2363) 等全 RAG-blind
+- 工具：scripts/checks/kg_embedding_coverage_check.py（detect, fitness step 5）
+- 路線（建議）：
+  - 短期：排程 nightly job 跑 batch via Ollama nomic-embed-text（zero cost）
+  - 優先：dispatch / project / org（業務核心）先補
+  - 評估：21K LLM 呼叫負載與排程時段
 
 ---
 
