@@ -7,7 +7,13 @@
 - 從 wiki/SOUL.md 載入 Agent 人格定義
 - 提供 propose/apply/rollback 流程（Agent 自動編輯需人批准）
 - class-level 快取 + mtime 失效
-- 同步鏡像至 CK_AaaP/runbooks/hermes-stack/SOUL.md（單向，Missive → AaaP）
+
+⚠️ 跨 repo 同步（v5.9.6 修正：原宣稱「同步鏡像」實為 docstring lie）：
+- wiki/SOUL.md 是 Missive 的 SSOT
+- CK_AaaP/runbooks/hermes-stack/SOUL.md 為 Hermes gateway 用
+- **無自動同步**，避免跨 repo 寫覆蓋 AaaP 端手動 edit
+- 手動同步：bash scripts/sync/sync_soul_to_hermes.sh --apply
+- Drift 偵測：python scripts/checks/soul_mirror_drift_check.py
 
 安全設計：
 - Agent 無法直接改 SOUL.md

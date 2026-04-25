@@ -75,9 +75,20 @@ done
 echo ""
 
 # ----------------------------------------------------------------------------
-# 3. Architecture docs presence
+# 3. SOUL.md 跨 repo drift（坤哥意識體跨通道一致性）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[3/3] Architecture standard docs presence${NC}"
+echo -e "${CYAN}[3/4] SOUL.md mirror drift check${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/soul_mirror_drift_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/soul_mirror_drift_check.py
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# 4. Architecture docs presence
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[4/4] Architecture standard docs presence${NC}"
 REQUIRED_DOCS=(
     "docs/architecture/STANDARD_REFERENCE.md"
     "docs/architecture/SERVICE_CONTEXT_MAP.md"

@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Architecture Fitness Function: SOUL.md 跨 repo 同步漂移偵測
+
+CONSCIOUSNESS_INTEGRATION_ANALYSIS.md 額外發現的整合斷鏈：
+- wiki/SOUL.md (Missive 為 SSOT) vs CK_AaaP/runbooks/hermes-stack/SOUL.md (Hermes 用)
+- soul_loader.py docstring 聲稱「同步鏡像」但**無實作** — docstring lie
+- 結果：Web UI 用戶（Missive 8KB SOUL）vs Telegram/LINE 用戶（Hermes 5KB SOUL）
+  看到的是不同人格的「坤哥」
+
+本 detector 偵測 drift 並輸出 diff，供 Owner 手動跑同步腳本。
+
+用法：
+    python scripts/checks/soul_mirror_drift_check.py
+    python scripts/checks/soul_mirror_drift_check.py --ci   # drift 即 exit 1
+
+Version: 1.0.0 (2026-04-25)
+關聯:
+- docs/architecture/CONSCIOUSNESS_INTEGRATION_ANALYSIS.md §4 整合斷鏈
+- backend/app/services/memory/soul_loader.py docstring 待誠實化
+- 修復：scripts/sync/sync_soul_to_hermes.sh（手動同步）
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+MISSIVE_SOUL = Path("wiki/SOUL.md")
+HERMES_SOUL = Path("../CK_AaaP/runbooks/hermes-stack/SOUL.md")
+
+
+def load(p: Path) -> str | None:
+    if not p.exists():
+        return None
+    return p.read_text(encoding="utf-8")
+
+
+def extract_sections(content: str) -> list[str]:
+    """提 ## 標題 list（順序保留）"""
+    return re.findall(r"^##\s+(.+)$", content, re.M)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--ci", action="store_true", help="drift 時 exit 1")
+    args = parser.parse_args()
+
+    print("=== SOUL.md Mirror Drift Check ===\n")
+
+    missive = load(MISSIVE_SOUL)
+    hermes = load(HERMES_SOUL)
+
+    if missive is None:
+        print(f"✗ {MISSIVE_SOUL} 不存在")
+        return 2
+    if hermes is None:
+        print(f"⚠️  {HERMES_SOUL} 不存在（CK_AaaP 可能未 clone）")
+        return 0  # 不算 drift（缺 mirror target 是另一回事）
+
+    print(f"Missive (SSOT): {MISSIVE_SOUL}  {len(missive):>6} chars")
+    print(f"Hermes mirror:  {HERMES_SOUL}  {len(hermes):>6} chars")
+    print(f"Size delta:     {len(missive) - len(hermes):+d} chars\n")
+
+    if missive == hermes:
+        print("✅ 完全同步")
+        return 0
+
+    # Section drift
+    m_secs = extract_sections(missive)
+    h_secs = extract_sections(hermes)
+    missive_only = [s for s in m_secs if s not in h_secs]
+    hermes_only = [s for s in h_secs if s not in m_secs]
+    common_count = len(set(m_secs) & set(h_secs))
+
+    print(f"📑 Section 對比：")
+    print(f"   Missive sections: {len(m_secs)}")
+    print(f"   Hermes sections:  {len(h_secs)}")
+    print(f"   共同:             {common_count}")
+    print()
+
+    severity = "🟢 minor"
+    if missive_only:
+        severity = "🔴 SEVERE"
+        print(f"🔴 Missive 獨有 sections（Hermes 缺，**跨通道人格不一致**）：")
+        for s in missive_only:
+            tag = ""
+            if any(k in s for k in ["三信念", "倫理紅線", "反迴聲", "身份"]):
+                tag = " ⚠️ 核心人格元素"
+            print(f"   - {s}{tag}")
+
+    if hermes_only:
+        print(f"\n🟡 Hermes 獨有（少見，可能是 AaaP 端手動加的）：")
+        for s in hermes_only:
+            print(f"   - {s}")
+
+    print(f"\n嚴重度: {severity}")
+
+    if missive_only:
+        print("\n📌 修復建議：")
+        print("   1. 確認 wiki/SOUL.md 為 SSOT（Missive 端最新）")
+        print("   2. 手動跑同步：bash scripts/sync/sync_soul_to_hermes.sh")
+        print("   3. CK_AaaP 端 commit 鏡像更新")
+        print("   4. 跨 repo commit message: 'sync: SOUL.md from Missive (drift YYYY-MM-DD)'")
+
+    if args.ci and missive_only:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
