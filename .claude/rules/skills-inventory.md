@@ -183,10 +183,21 @@
 | `scripts/checks/service-line-count-check.py` | 後端服務行數監控 (>600L 警告，已修正為觀察而非拆分依據 — 見 feedback_ddd_over_line_count) |
 | `scripts/checks/service_dir_entropy.py` | 🆕 v5.9.6 — services/ 頂層散戶比例（閾值 20%）|
 | `scripts/checks/config_dead_reader_scan.py` | 🆕 v5.9.6 — yaml config dead reader 偵測（ADR-0030 審計配套）|
-| `scripts/checks/run_fitness.sh` | 🆕 v5.9.6 — 本地 fitness runner（零 CI 費用）|
+| `scripts/checks/run_fitness.sh` | 🆕 v5.9.6 — 本地 fitness runner（零 CI 費用，v5.9.8 升級為 6 step）|
 | `docs/architecture/STANDARD_REFERENCE.md` | 🆕 v5.9.6 — 跨 repo 架構標準（12 章 + §13 AI-Native UX）|
 | `docs/architecture/SERVICE_CONTEXT_MAP.md` | 🆕 v5.9.6 — 85 散戶 × 16 bounded context 映射 |
 | `docs/ops/baseline-fix-patch-preview.md` | 🆕 v5.9.5 — Hermes baseline 修復 patch 預覽 |
+| `docs/architecture/CONSCIOUSNESS_INTEGRATION_ANALYSIS.md` | 🆕 v5.9.7/v5.9.8 — 坤哥意識體 5 整合面向 + O1-O6 路線（含落地紀錄 §9）|
+| `docs/architecture/WIKI_KG_BACKFILL_STRATEGY.md` | 🆕 v5.9.7 — 方案 X/Y/Z ROI 對比（已執行 X）|
+| `scripts/checks/soul_mirror_drift_check.py` | 🆕 v5.9.7 — SOUL.md 跨 repo drift 偵測（fitness step 3）|
+| `scripts/checks/wiki_kg_link_audit.py` | 🆕 v5.9.7 — Wiki↔KG 連結率 by entity_type 審計（fitness step 4）|
+| `scripts/checks/kg_embedding_coverage_check.py` | 🆕 v5.9.8 — KG pgvector embedding 覆蓋率審計（fitness step 5）|
+| `scripts/sync/sync_soul_to_hermes.sh` | 🆕 v5.9.7 — SOUL.md 跨 repo 手動同步（--apply gate）|
+| `scripts/sync/dispatch_kg_ingest.py` | 🆕 v5.9.8 — dispatch → KG canonical_entities ingest |
+| `scripts/sync/backfill_wiki_dispatch_kg.py` | 🆕 v5.9.8 — wiki dispatch frontmatter 補 kg_entity_id |
+| `scripts/sync/backfill_wiki_project_kg.py` | 🆕 v5.9.8 — wiki project 跨 entity_type 匹配 |
+| `scripts/sync/backfill_kg_embeddings_all.py` | 🆕 v5.9.8 — 通用 KG embedding backfill（critical/types/all 模式）|
+| `scripts/sync/backfill_dispatch_embeddings.py` | 🆕 v5.9.8 — dispatch embedding pilot（127 筆 / 4 秒驗證）|
 | `scripts/checks/async_session_race_guard.py` | 🆕 ADR-0028 靜態守護：`asyncio.gather` 內多 task 不得共用 db session（承接 ADR-0021） |
 | `scripts/checks/sse_headers_guard.py` | 🆕 ADR-0028 靜態守護：SSE endpoint 必須含 `Content-Encoding: identity` |
 | `scripts/checks/adr_lifecycle_check.py` | 🆕 ADR-0029 自動統計 active / archived / removed ADR 分佈 |

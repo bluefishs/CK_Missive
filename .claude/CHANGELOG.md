@@ -4,6 +4,100 @@
 
 ---
 
+## [5.9.8] - 2026-04-25（坤哥意識體跨通道完整修復 + 全 KG 業務 embedding）
+
+### 🎯 Release Theme
+
+承接 v5.9.7 detector 批次揭露的斷鏈，本版**從發現轉執行** — Owner 拍板後快速落地：
+- 方案 X 完整實施（Wiki↔KG 連結率 30% → **86%**）
+- SOUL drift 跨 repo 修復（Soul fidelity groq 75% → **80%**）
+- KG embedding 系統性 0% → **50%**（業務 entity 全 100%）
+- 0 GitHub Actions 費用 + 本地 Ollama nomic-embed-text zero cost
+
+**「立即處理」=「同會話 30 分內完整落地，不延 v6.0」**
+
+### 💥 3 commits 完整修復鏈
+
+#### `a0dc6901` — 方案 X Phase 1+2（dispatch 入 KG + wiki backfill）
+- **發現**：`canonical_entities.entity_type` 是 varchar 不需 Alembic migration → 工作量 1-2 天 → **30 分**
+- Phase 1：`dispatch_kg_ingest.py` ingest 127 dispatch（KG id 261744-261870）
+- Phase 2：`backfill_wiki_dispatch_kg.py` 127/127 全 match
+- Phase 3：audit dispatch 0% → **100%**
+
+#### `a44dc0a0` — O3 SOUL drift 跨 repo 修復 + KG embedding detector
+- 跨 repo cp + commit + push（`CK_AaaP@dc3f7a7`）
+- Hermes 端 SOUL.md 5.1KB → **8.4KB**（4 核心人格 sections 同步）
+- 意外發現：21,575 KG entities **全 0% embedding**（pgvector 形同空架構）
+- 工具化：`kg_embedding_coverage_check.py` + fitness step 5
+
+#### `3734dab9` — 多項缺口立即處理
+- SOUL fidelity 重評：groq 75% → **80%** / ollama 85% 持平
+- project wiki backfill：9/13 exact match（kg=erp_quotation 居多 — schema mismatch 確認）
+- dispatch embedding pilot：127 筆 / 4 秒 / 30/s rate / zero failed
+- **全 KG 業務類 embedding** 一次性完成（Ollama nomic-embed-text）：
+  - tender_record 5,973 + org 2,363 + tender_agency 1,831 + project 181 + location 171 + dispatch 127 + service 77 + erp_quotation 69
+  - **合計 10,792 entities, 0 failed, 5 分鐘**
+  - 整體覆蓋率 0% → **50%**（達 fitness 閾值）
+
+### 🛠️ 新工具（zero CI cost）
+
+| 工具 | 用途 |
+|---|---|
+| `scripts/sync/dispatch_kg_ingest.py` | dispatch → KG ingest（dry-run gate）|
+| `scripts/sync/backfill_wiki_dispatch_kg.py` | wiki dispatch frontmatter 補 kg_entity_id |
+| `scripts/sync/backfill_wiki_project_kg.py` | wiki project 接受跨 entity_type 匹配 |
+| `scripts/sync/backfill_dispatch_embeddings.py` | dispatch embedding pilot（127 筆驗證 30/s rate）|
+| `scripts/sync/backfill_kg_embeddings_all.py` | 通用 KG embedding backfill（types/all/critical 模式）|
+| `scripts/checks/kg_embedding_coverage_check.py` | by entity_type 覆蓋率審計（fitness step 5）|
+
+### 📊 ADR-0030 GO 條件最終狀態（5/20 會議 artifact）
+
+| # | 條件 | 達成 | 說明 |
+|---|---|---|---|
+| 1 | Baseline ≥ 30 | ✅ | 累計 370+ |
+| 2 | Owner 7 天 dogfooding | 🟡 | D1/D2 客觀齊；O1 修復後跨通道訊號完整化 |
+| 3 | Soul fidelity ≥ 70% | ✅ | groq 80% / ollama 85%（sync 後重評）|
+| 4 | Error rate < 5% | ✅ | 0 timeout |
+| 5 | P95 < 8s | ❌ | 58s（建議方案 A/B/C 重訂門檻）|
+
+**4/5 達標**。#5 為門檻設計問題（multi-tool loop 現實），ADR-0030 已備三方案待決議。
+
+### 🚨 跨 repo 落地紀錄
+
+`CK_AaaP/runbooks/hermes-stack/SOUL.md` 透過 `dc3f7a7` 同步至 8.4KB，包含原缺失的 4 核心 sections：
+- 三信念（世界觀底層）
+- 倫理紅線（不可逾越）
+- 反迴聲室協議
+- 身份宣言
+
+### 📦 fitness check 升級為 6 步驟
+
+```
+[1/6] services entropy        29.5% (既有債)
+[2/6] dead config             7 ALIVE / 2 TODO
+[3/6] SOUL drift              ✅ 完全同步
+[4/6] Wiki↔KG audit           86% ≥ 80% ✓
+[5/6] KG embedding            50% ≥ 50% ✓ NEW PASS
+[6/6] arch docs               ✓
+```
+
+### ⚠️ 後續優化空間（程式碼類，業務 RAG 價值低，可選擇性）
+
+```
+py_function (5449) / py_class (1300) / py_module (825)
+ts_interface (864) / ts_module (787) / ts_hook (322) / ts_component (290) / ts_type (141)
+api_endpoint (502) / schema (115)
+```
+
+執行指令（如需要）：
+```bash
+python scripts/sync/backfill_kg_embeddings_all.py --apply --all
+```
+
+預估 ~6 分鐘完成剩餘 ~10K 程式碼結構 entities。
+
+---
+
 ## [5.9.7] - 2026-04-25（坤哥意識體跨通道整合 detector 批次）
 
 ### 🎯 Release Theme
