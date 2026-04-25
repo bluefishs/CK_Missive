@@ -4,6 +4,71 @@
 
 ---
 
+## [5.9.7] - 2026-04-25（坤哥意識體跨通道整合 detector 批次）
+
+### 🎯 Release Theme
+
+延續 v5.9.6 的 fitness function 工具化精神，本版聚焦於**坤哥意識體**的跨通道一致性 — 透過 detector 揭露隱性架構斷鏈，不執行 backfill 而交付決策輔助文件，讓 Owner 在資源緊張期保持清楚的修復路線。
+
+**核心理念：發現比修復更重要** — 用工具揭露真相，讓決策有資料基礎。
+
+### 💥 4 commits 揭露的隱性斷鏈
+
+| Commit | 發現 | 嚴重度 |
+|---|---|---|
+| `25607495` | Hermes/外部通道對話 channel 永遠 fallback None — `PostProcessingContext.__slots__` 缺欄位 | 🟡 |
+| `7451985c` | SOUL.md 跨 repo drift — 4 核心人格 sections（三信念/倫理紅線/反迴聲室/身份宣言）只在 Missive | 🔴 嚴重 |
+| `fd530504` | Wiki↔KG 連結率僅 30%；dispatch 127 個全 0% | 🟡 |
+| `acb8afd3` | KG schema 設計止於 project 粒度，dispatch 從未入圖（非資料缺漏，是 schema 決策）| 📋 待決策 |
+
+### 🛠️ 永久工具沉澱
+
+| 工具 | 用途 |
+|---|---|
+| `docs/architecture/CONSCIOUSNESS_INTEGRATION_ANALYSIS.md` | 5 大整合面向健康度評估 + 6 項優化路線 |
+| `scripts/checks/soul_mirror_drift_check.py` | SOUL.md section-level drift 偵測 |
+| `scripts/sync/sync_soul_to_hermes.sh` | 手動同步 SOP（--apply gate）|
+| `scripts/checks/wiki_kg_link_audit.py` | 連結率 by entity_type 統計 |
+| `docs/architecture/WIKI_KG_BACKFILL_STRATEGY.md` | 3 方案 ROI 對比（X/Y/Z 決策輔助）|
+| `run_fitness.sh` v3 升級至 **5 步驟** | 加 step 3 SOUL drift + step 4 wiki↔kg audit |
+
+### 🧪 新 Integration Tests（7 全綠）
+
+`test_channel_propagation_to_diary.py`：
+- 鎖定 channel 傳遞鏈完整性（5 處改動 = 1 endpoint + 1 agent + 1 orchestrator + 1 ctx slot + 1 init param）
+- 每處改動有對應 inspect-based regression test
+
+### 🚨 識別反模式：「docstring lie」
+
+繼 v5.9.5 `ai_config.py` 的 `get_preferred_providers` 後，第 2 例：
+- `soul_loader.py` 聲稱「同步鏡像至 CK_AaaP」但**無實作**
+- v5.9.6 引入的 `config_dead_reader_scan.py` 設計初衷正是防此模式
+- 本版手動發現（detector 適用範圍待擴）— 升級為跨檔 cross-reference scan 列入未來路線
+
+### 📋 治理規範補強
+
+1. **跨 repo 同步永遠 manual gate**：避免自動寫覆蓋他端 edit
+2. **detector 優於 backfill**：先看清再決定怎麼修
+3. **schema 決策獨立於資料補齊**：dispatch 入 KG 不入 KG 是設計問題，非 backfill 工作
+
+### ⚠️ Owner 待決策
+
+| 項目 | 選擇 |
+|---|---|
+| SOUL drift 修復時機 | `bash scripts/sync/sync_soul_to_hermes.sh --apply` 何時跑 |
+| Wiki↔KG backfill | 方案 X（擴 KG schema, 1-2 天）/ Y（折衷）/ Z（短期降噪）|
+
+### 🎯 對應 ADR-0030 GO 條件影響
+
+- **GO #3 Soul fidelity ≥ 70%**：原評估基於 5KB Hermes SOUL，實際 Missive 用戶看到 8KB 完整版 — **fidelity 評估方法本身需修正**（建議 Soul drift 修復後重評）
+- **GO #2 Owner dogfooding**：O1 修復後跨通道訊號完整化（D3-D7 主觀評分更具參考價值）
+
+### 📦 0 GitHub Actions 費用
+
+維持 v5.9.6 規範：所有 fitness 跑本地 `bash scripts/checks/run_fitness.sh`。
+
+---
+
 ## [5.9.6] - 2026-04-25（架構標準化 + SSOT 完整閉環）
 
 ### 🎯 Release Theme
