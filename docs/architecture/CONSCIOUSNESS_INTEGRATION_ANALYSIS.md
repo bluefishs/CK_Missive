@@ -267,5 +267,29 @@ grep -c "kg_entity_id" wiki/**/*.md  # Wiki → KG 連結數
 
 ---
 
+## 9. 落地紀錄
+
+### 9.1 O1 — Hermes 對話進 diary（commit 25607495, 2026-04-25）
+- 5 處改動 + 7 integration tests
+- 修復 `PostProcessingContext.__slots__` 缺 channel 的根因斷鏈
+- 預期效益：Telegram/LINE/Hermes 對話進入 evolution loop
+
+### 9.2 O2 pivot — SOUL.md 跨 repo drift（commit 7451985c, 2026-04-25）
+- 原計劃 O2 (Wiki↔KG) 暫緩，發現更嚴重隱性斷鏈：
+  - 4 個核心人格 sections（三信念/倫理紅線/反迴聲室/身份宣言）僅在 Missive 端
+  - Hermes 通道用戶看到 5KB 殘缺 SOUL → 跨通道根本不是同一個坤哥
+  - `soul_loader.py` docstring 聲稱「同步鏡像」但無實作（docstring lie）
+- 交付：drift detector + 手動同步 SOP + fitness step 3
+- Owner 動作：bash scripts/sync/sync_soul_to_hermes.sh --apply
+
+### 9.3 O2.1 — Wiki↔KG 連結率審計（commit 本輪, 2026-04-25）
+- audit script 揭露 **dispatch 127 個全 0% KG 連結**（整體 30%, 閾值 80%）
+- 已連結集中 org (93%) / project (56%) — 命名匹配模式參考
+- backfill 路線寫入 audit script 註釋（短期/長期方案）
+- fitness step 4 自動跑
+
+---
+
 **變更歷史**
 - v1.0（2026-04-25）：首版盤點，識別 5 大整合面向 + 6 項優化（O1-O6）
+- v1.1（2026-04-25）：加 §9 落地紀錄；O2 pivot 為 SOUL drift；O2.1 加 wiki_kg audit

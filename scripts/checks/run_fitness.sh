@@ -86,9 +86,20 @@ fi
 echo ""
 
 # ----------------------------------------------------------------------------
-# 4. Architecture docs presence
+# 4. Wiki ↔ KG 雙向引用率
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[4/4] Architecture standard docs presence${NC}"
+echo -e "${CYAN}[4/5] Wiki ↔ KG link audit${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/wiki_kg_link_audit.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/wiki_kg_link_audit.py
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# 5. Architecture docs presence
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[5/5] Architecture standard docs presence${NC}"
 REQUIRED_DOCS=(
     "docs/architecture/STANDARD_REFERENCE.md"
     "docs/architecture/SERVICE_CONTEXT_MAP.md"
