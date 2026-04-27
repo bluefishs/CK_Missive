@@ -170,7 +170,7 @@ class OperationalAccountService(AuditableServiceMixin):
 
         # 自動入帳至統一帳本
         try:
-            from app.services.finance_ledger_service import FinanceLedgerService
+            from .finance_ledger import FinanceLedgerService
             ledger_service = FinanceLedgerService(self.db)
             account = await self.account_repo.get_by_id(expense.account_id)
             await ledger_service.record_from_operational(

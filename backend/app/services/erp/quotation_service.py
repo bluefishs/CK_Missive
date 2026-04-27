@@ -21,7 +21,7 @@ from app.schemas.erp import (
     ERPQuotationListRequest, ERPProfitSummary, ERPProfitTrendItem,
 )
 from app.services.case_code_service import CaseCodeService
-from app.services.finance_ledger_service import FinanceLedgerService
+from .finance_ledger import FinanceLedgerService
 from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)

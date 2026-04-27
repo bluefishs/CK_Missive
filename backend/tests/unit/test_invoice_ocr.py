@@ -166,14 +166,14 @@ class TestInvoiceOCRImage:
     def service(self):
         return InvoiceOCRService()
 
-    @patch('app.services.invoice_ocr_service._is_ocr_available', return_value=False)
+    @patch('app.services.erp.invoice_ocr_service._is_ocr_available', return_value=False)
     def test_ocr_unavailable(self, mock_avail, service):
         """OCR 不可用時回傳警告"""
         result = service.parse_image("/fake/path.jpg")
         assert "Tesseract OCR 未安裝" in result.warnings[0]
 
-    @patch('app.services.invoice_ocr_service._is_ocr_available', return_value=True)
-    @patch('app.services.invoice_ocr_service.InvoiceOCRService._extract_text')
+    @patch('app.services.erp.invoice_ocr_service._is_ocr_available', return_value=True)
+    @patch('app.services.erp.invoice_ocr_service.InvoiceOCRService._extract_text')
     def test_parse_image_success(self, mock_extract, mock_avail, service):
         """成功解析影像"""
         mock_extract.return_value = "AB12345678 115年03月21日 合計 500"
@@ -181,8 +181,8 @@ class TestInvoiceOCRImage:
         assert result.inv_num == "AB12345678"
         assert result.amount == Decimal("500")
 
-    @patch('app.services.invoice_ocr_service._is_ocr_available', return_value=True)
-    @patch('app.services.invoice_ocr_service.InvoiceOCRService._extract_text')
+    @patch('app.services.erp.invoice_ocr_service._is_ocr_available', return_value=True)
+    @patch('app.services.erp.invoice_ocr_service.InvoiceOCRService._extract_text')
     def test_parse_image_empty_text(self, mock_extract, mock_avail, service):
         """空白影像"""
         mock_extract.return_value = ""

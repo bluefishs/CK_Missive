@@ -190,7 +190,7 @@ class TestFinanceToolExecutor:
         mock_invoice.description = "原子筆"
 
         with patch(
-            "app.services.expense_invoice_service.ExpenseInvoiceService.query",
+            "app.services.erp.expense_invoice.ExpenseInvoiceService.query",
             new_callable=AsyncMock,
             return_value=([mock_invoice], 1),
         ):

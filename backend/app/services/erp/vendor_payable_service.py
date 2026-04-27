@@ -13,7 +13,7 @@ from app.extended.models.erp import ERPVendorPayable
 from app.repositories.erp import ERPVendorPayableRepository, ERPQuotationRepository
 from app.repositories.vendor_repository import VendorRepository
 from app.schemas.erp import ERPVendorPayableCreate, ERPVendorPayableUpdate, ERPVendorPayableResponse
-from app.services.finance_ledger_service import FinanceLedgerService
+from .finance_ledger import FinanceLedgerService
 from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)

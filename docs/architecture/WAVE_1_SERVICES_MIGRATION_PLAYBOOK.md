@@ -240,6 +240,32 @@ multi-line 寫法。**必用 ripgrep --multiline 或 grep -P 才完整**。
 
 修正後 commit 應 include test 檔（這是預期的行為變更，違反「pure stub 零行為變更」原則但**必須**做）。
 
+### 4.6 Private function (`_` 開頭) re-export SOP（**Wave 2 ERP 實測踩雷後新增**）
+
+Python `from module import *` 預設**不 import** 底線開頭的名字（private convention）。
+若 sub-batch 內某模組有 private function 被測試或其他模組 import，stub 必須
+explicit 列出：
+
+```python
+# ❌ 失敗：test 嘗試 from app.services.invoice_recognizer import _parse_head_qr
+# 但 stub 只有 wildcard，_parse_head_qr 不會被 export
+from .erp.invoice_recognizer import *
+from .erp.invoice_recognizer import InvoiceItem, RecognitionResult
+
+# ✅ 正解：stub 必須 explicit 列出底線開頭函數
+from .erp.invoice_recognizer import *
+from .erp.invoice_recognizer import (
+    InvoiceItem,
+    RecognitionResult,
+    _parse_head_qr,    # explicit 必要
+    _parse_detail_qr,
+    _scan_all_qr,
+)
+```
+
+**SOP**：每個 stub 建立後，跑 `grep "from app.services.<old> import _" backend/`
+找出所有 private function import，補進 stub 的 explicit re-export 清單。
+
 ### 4.5 內部循環 import SOP（**Wave 1 sub-batch A document 實測踩雷後新增**）
 
 當 sub-batch 包含「互相 lazy import」的 service（如 `document_service` 與

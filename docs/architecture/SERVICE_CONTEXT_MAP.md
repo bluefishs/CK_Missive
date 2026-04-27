@@ -61,7 +61,9 @@ commit title: refactor: services/* → services/<context>/ (bounded context migr
 > | vendor | 1 | ✅ migrated | sub-batch B vendor+agency |
 > | audit | 3 | ✅ migrated | sub-batch C |
 > | notification | 4 | ✅ migrated | sub-batch C + pilot |
-> | **小計** | **28** | **Wave 1 100%** | — |
+> | **Wave 1 小計** | **28** | **Wave 1 100%** | v5.10.0-rc |
+> | erp (extension) | 9 | ✅ migrated | Wave 2 |
+> | **Wave 1+2 小計** | **37** | — | v5.10.0+ |
 >
 > 其他 context（tender / erp / integration / calendar / ai / ...）尚未遷移，
 > 散戶仍在頂層。等 Wave 2 排程。
