@@ -240,6 +240,44 @@ multi-line 寫法。**必用 ripgrep --multiline 或 grep -P 才完整**。
 
 修正後 commit 應 include test 檔（這是預期的行為變更，違反「pure stub 零行為變更」原則但**必須**做）。
 
+### 4.5 內部循環 import SOP（**Wave 1 sub-batch A document 實測踩雷後新增**）
+
+當 sub-batch 包含「互相 lazy import」的 service（如 `document_service` 與
+`document_import_service` 互引），標準 SOP 的 stub 機制會造成循環 import 死鎖：
+
+```
+1. import services.document_service (stub)
+2.   stub 載入 services.document.core 透過 from .document.core import *
+3.     services.document.__init__.py 載入所有子模組
+4.       services.document.import_facade 載入
+5.         import_facade.py 內 lazy: from app.services.document_service import ...
+6.         ↑ 此時 document_service stub 還在 partial init → ImportError
+```
+
+**解法**：把子模組之間的 lazy circular import 改用 **relative import 走子包內部**，
+完全不經過 stub：
+
+```python
+# ❌ 失效（走 stub 路徑造成死鎖）
+# document/import_facade.py
+from app.services.document_service import DocumentService
+
+# ✅ 正解（relative import，走子包內部）
+from .core import DocumentService
+```
+
+**SOP**：每個 sub-batch git mv 完成後立即跑：
+
+```bash
+# 找出子包內部走 stub 的 import（潛在循環點）
+grep -rn "from app\.services\.<old_name>" backend/app/services/<context>/
+
+# 批次替換成 relative import
+sed -i 's|from app\.services\.foo_service|from .core|g' backend/app/services/foo/import_facade.py
+```
+
+實測 document sub-batch：5 處內部 lazy import 全改 relative → 死鎖解除。
+
 ### 4.4 Class name collision SOP（notification 子包實測）
 
 當子包 2+ 模組定義同名類別（如 `notification.service.NotificationType` 與
