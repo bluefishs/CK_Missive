@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.tender_search_service import TenderSearchService
+from app.services.tender.search import TenderSearchService
 from app.schemas.common import SuccessResponse
 from app.db.database import get_async_db as get_db
 
@@ -74,7 +74,7 @@ async def search_tenders(
     db_records = []
     try:
         from app.db.database import AsyncSessionLocal
-        from app.services.tender_cache_service import search_from_db
+        from app.services.tender.cache import search_from_db
         async with AsyncSessionLocal() as cache_db:
             db_records = await search_from_db(cache_db, req.query, limit=20)
     except Exception:
@@ -92,7 +92,7 @@ async def search_tenders(
     # 合併 ezbid 即時資料 (僅第一頁)
     if req.page in (None, 1):
         try:
-            from app.services.ezbid_scraper import EzbidScraper
+            from app.services.tender.ezbid_scraper import EzbidScraper
             from app.core.redis_client import get_redis
             try:
                 _redis = await get_redis()
@@ -143,7 +143,7 @@ async def search_tenders(
 
     # Relevance re-ranking — 合併後按標題相似度重排序
     if result.get("records") and len(req.query) > 5:
-        from app.services.tender_search_query import rerank_by_title_similarity
+        from app.services.tender.search_query import rerank_by_title_similarity
         result["records"] = rerank_by_title_similarity(
             result["records"], req.query, top_k=30,
         )
@@ -153,7 +153,7 @@ async def search_tenders(
     try:
         import asyncio as _aio
         from app.db.database import AsyncSessionLocal
-        from app.services.tender_cache_service import save_search_results
+        from app.services.tender.cache import save_search_results
 
         async def _bg_save(records_snapshot):
             try:
@@ -255,7 +255,7 @@ async def get_tender_detail_full(
     """標案完整戰情 — 詳情 + 相似標案 + 機關生態 + 競爭對手 (並行, Redis 快取)"""
     import asyncio
     import json as _json
-    from app.services.tender_analytics_service import TenderAnalyticsService
+    from app.services.tender.analytics import TenderAnalyticsService
 
     # Redis 快取 (整個 detail-full 結果, 2hr)
     try:
@@ -279,9 +279,9 @@ async def get_tender_detail_full(
     agency_name = detail.get("unit_name", "")
 
     # Step 2: 並行取得戰情+底價+機關生態 (傳入 detail 避免重複查詢)
-    from app.services.tender_analytics_battle import battle_room as _battle_room
+    from app.services.tender.analytics_battle import battle_room as _battle_room
     battle_task = _battle_room(service, req.unit_id, req.job_number, detail=detail)
-    from app.services.tender_analytics_price import price_analysis as _price_analysis
+    from app.services.tender.analytics_price import price_analysis as _price_analysis
     price_task = _price_analysis(service, req.unit_id, req.job_number, detail=detail)
     async def _empty_org(): return {}
     org_task = analytics.org_ecosystem(agency_name, pages=3) if agency_name else _empty_org()
@@ -378,7 +378,7 @@ async def recommend_tenders(
 
     # 2. 並行取得: g0v 推薦 + ezbid 關鍵字 + ezbid 最新
     import asyncio
-    from app.services.ezbid_scraper import EzbidScraper
+    from app.services.tender.ezbid_scraper import EzbidScraper
     scraper = EzbidScraper()
 
     g0v_task = service.recommend_tenders(keywords=sub_keywords, page=req.page)
@@ -445,7 +445,7 @@ async def recommend_tenders(
 @router.post("/realtime")
 async def realtime_tenders(req: TenderSearchRequest):
     """即時標案 — 爬取 ezbid.tw 最新資料 (補充 PCC API 延遲)"""
-    from app.services.ezbid_scraper import EzbidScraper
+    from app.services.tender.ezbid_scraper import EzbidScraper
 
     category_map = {"工程": "WORK", "勞務": "SERV", "財物": "PPTY"}
     cat = category_map.get(req.category or "", "ALL")

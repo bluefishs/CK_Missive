@@ -86,7 +86,7 @@ async def create_subscription(
     """建立訂閱 — 建立後立即執行一次查詢"""
     from datetime import datetime
     from app.extended.models.tender import TenderSubscription
-    from app.services.tender_search_service import TenderSearchService
+    from app.services.tender.search import TenderSearchService
 
     sub = TenderSubscription(
         keyword=req.keyword, category=req.category,
@@ -276,7 +276,7 @@ async def delete_bookmark(
 @router.post("/check-subscriptions")
 async def check_subscriptions(db: AsyncSession = Depends(get_db)):
     """手動觸發訂閱檢查 (也可由排程器自動呼叫)"""
-    from app.services.tender_subscription_scheduler import check_all_subscriptions
+    from app.services.tender.subscription_scheduler import check_all_subscriptions
     result = await check_all_subscriptions(db)
     return SuccessResponse(data=result)
 

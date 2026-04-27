@@ -19,7 +19,7 @@ router = APIRouter()
 @router.post("/analytics/cache-stats")
 async def cache_stats(db: AsyncSession = Depends(get_db)):
     """標案快取 DB 統計"""
-    from app.services.tender_cache_service import get_db_stats
+    from app.services.tender.cache import get_db_stats
     stats = await get_db_stats(db)
     return SuccessResponse(data=stats)
 
@@ -27,7 +27,7 @@ async def cache_stats(db: AsyncSession = Depends(get_db)):
 @router.post("/analytics/refresh-pending")
 async def refresh_pending(db: AsyncSession = Depends(get_db)):
     """手動觸發：重查等標期標案的決標狀態"""
-    from app.services.tender_cache_service import refresh_pending_tenders
+    from app.services.tender.cache import refresh_pending_tenders
     result = await refresh_pending_tenders(db, limit=30)
     return SuccessResponse(data=result)
 
@@ -35,7 +35,7 @@ async def refresh_pending(db: AsyncSession = Depends(get_db)):
 @router.post("/analytics/cross-reference")
 async def cross_reference(db: AsyncSession = Depends(get_db)):
     """跨服務索引：標記已建案標案 + 廠商正規化"""
-    from app.services.tender_cache_service import cross_reference_pm_cases, normalize_company_names
+    from app.services.tender.cache import cross_reference_pm_cases, normalize_company_names
     pm_result = await cross_reference_pm_cases(db)
     company_result = await normalize_company_names(db)
     return SuccessResponse(data={"pm_cases": pm_result, "companies": company_result})
@@ -48,7 +48,7 @@ async def cross_reference(db: AsyncSession = Depends(get_db)):
 @router.post("/analytics/dashboard")
 async def analytics_dashboard(request: Request):
     """招標採購儀表板 — 近期統計+類別分布+推薦標案"""
-    from app.services.tender_analytics_service import TenderAnalyticsService
+    from app.services.tender.analytics import TenderAnalyticsService
     body = await request.json() if request.headers.get("content-length", "0") != "0" else {}
     keywords = body.get("keywords")
     svc = TenderAnalyticsService()
@@ -59,7 +59,7 @@ async def analytics_dashboard(request: Request):
 @router.post("/analytics/battle-room")
 async def analytics_battle_room(request: Request):
     """投標戰情室 — 相似標案+競爭對手分析"""
-    from app.services.tender_analytics_service import TenderAnalyticsService
+    from app.services.tender.analytics import TenderAnalyticsService
     body = await request.json()
     unit_id = body.get("unit_id")
     job_number = body.get("job_number")
@@ -73,7 +73,7 @@ async def analytics_battle_room(request: Request):
 @router.post("/analytics/org-ecosystem")
 async def analytics_org_ecosystem(request: Request):
     """機關生態分析 — 歷年標案+得標廠商分布"""
-    from app.services.tender_analytics_service import TenderAnalyticsService
+    from app.services.tender.analytics import TenderAnalyticsService
     body = await request.json()
     org_name = body.get("org_name")
     if not org_name:
@@ -92,7 +92,7 @@ async def analytics_org_ecosystem(request: Request):
 @router.post("/analytics/company-profile")
 async def analytics_company_profile(request: Request):
     """廠商分析 — 得標歷史+機關分布+勝率"""
-    from app.services.tender_analytics_service import TenderAnalyticsService
+    from app.services.tender.analytics import TenderAnalyticsService
     body = await request.json()
     company_name = body.get("company_name")
     if not company_name:
@@ -110,7 +110,7 @@ async def analytics_company_profile(request: Request):
 @router.post("/analytics/price-analysis")
 async def tender_price_analysis(request: Request):
     """底價分析 — 單一標案的預算/底價/決標金額比較"""
-    from app.services.tender_analytics_service import TenderAnalyticsService
+    from app.services.tender.analytics import TenderAnalyticsService
     body = await request.json()
     unit_id = body.get("unit_id")
     job_number = body.get("job_number")
@@ -129,7 +129,7 @@ async def tender_price_analysis(request: Request):
 @router.post("/analytics/price-trends")
 async def tender_price_trends(request: Request):
     """價格趨勢 — 同類標案的價格統計與分布"""
-    from app.services.tender_analytics_service import TenderAnalyticsService
+    from app.services.tender.analytics import TenderAnalyticsService
     body = await request.json()
     query = body.get("query")
     if not query:

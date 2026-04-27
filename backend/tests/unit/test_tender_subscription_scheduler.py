@@ -67,7 +67,7 @@ class TestCheckAllSubscriptions:
         mock_db.execute.return_value = result_mock
 
         with patch(
-            "app.services.tender_subscription_scheduler.TenderSearchService"
+            "app.services.tender.subscription_scheduler.TenderSearchService"
         ) as MockService:
             instance = MockService.return_value
             instance.search_by_title = AsyncMock(return_value={
@@ -103,7 +103,7 @@ class TestCheckAllSubscriptions:
         mock_db.execute.return_value = result_mock
 
         with patch(
-            "app.services.tender_subscription_scheduler.TenderSearchService"
+            "app.services.tender.subscription_scheduler.TenderSearchService"
         ) as MockService:
             instance = MockService.return_value
             instance.search_by_title = AsyncMock(return_value={
@@ -129,7 +129,7 @@ class TestCheckAllSubscriptions:
         mock_db.execute.return_value = result_mock
 
         with patch(
-            "app.services.tender_subscription_scheduler.TenderSearchService"
+            "app.services.tender.subscription_scheduler.TenderSearchService"
         ) as MockService:
             instance = MockService.return_value
             instance.search_by_title = AsyncMock(return_value={
@@ -154,7 +154,7 @@ class TestCheckAllSubscriptions:
         mock_db.execute.return_value = result_mock
 
         with patch(
-            "app.services.tender_subscription_scheduler.TenderSearchService"
+            "app.services.tender.subscription_scheduler.TenderSearchService"
         ) as MockService:
             instance = MockService.return_value
             instance.search_by_title = AsyncMock(side_effect=Exception("API timeout"))
@@ -178,7 +178,7 @@ class TestCheckAllSubscriptions:
         mock_db.execute.return_value = result_mock
 
         with patch(
-            "app.services.tender_subscription_scheduler.TenderSearchService"
+            "app.services.tender.subscription_scheduler.TenderSearchService"
         ) as MockService:
             instance = MockService.return_value
             instance.search_by_title = AsyncMock(side_effect=[

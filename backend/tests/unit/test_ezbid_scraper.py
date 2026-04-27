@@ -122,7 +122,7 @@ class TestFetchLatest:
     @pytest.mark.asyncio
     async def test_fetch_latest_returns_records(self):
         scraper = EzbidScraper()
-        with patch("app.services.ezbid_scraper.httpx.AsyncClient") as mock_client:
+        with patch("app.services.tender.ezbid_scraper.httpx.AsyncClient") as mock_client:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
             mock_resp.text = SAMPLE_HTML
@@ -139,7 +139,7 @@ class TestFetchLatest:
     @pytest.mark.asyncio
     async def test_fetch_latest_http_error(self):
         scraper = EzbidScraper()
-        with patch("app.services.ezbid_scraper.httpx.AsyncClient") as mock_client:
+        with patch("app.services.tender.ezbid_scraper.httpx.AsyncClient") as mock_client:
             mock_resp = MagicMock()
             mock_resp.status_code = 503
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)

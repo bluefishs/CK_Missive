@@ -601,7 +601,7 @@ async def ezbid_cache_refresh_job():
 
     logger.info("開始 ezbid 全量快取刷新")
     try:
-        from app.services.ezbid_scraper import EzbidScraper
+        from app.services.tender.ezbid_scraper import EzbidScraper
         scraper = EzbidScraper()
         # 使用統一服務層 get_today_all() — 10 頁 × 100 筆 + Redis 共享快取
         result = await scraper.get_today_all()
@@ -612,10 +612,10 @@ async def ezbid_cache_refresh_job():
         if records:
             try:
                 async with async_session_maker() as db:
-                    from app.services.tender_cache_service import save_search_results
+                    from app.services.tender.cache import save_search_results
                     saved = await save_search_results(db, records, source="ezbid")
                     # 同步入圖 (標案機關/廠商 → canonical_entities)
-                    from app.services.tender_cache_service import _ingest_tender_entities
+                    from app.services.tender.cache import _ingest_tender_entities
                     ingested = await _ingest_tender_entities(db, records)
                     logger.info(f"ezbid → DB: {saved} 筆新增, KG: {ingested} 實體入圖")
             except Exception as e:
@@ -630,7 +630,7 @@ async def ezbid_cache_refresh_job():
             if redis:
                 await redis.delete("tender:dashboard:result")
 
-            from app.services.tender_analytics_service import TenderAnalyticsService
+            from app.services.tender.analytics import TenderAnalyticsService
             warmup = await TenderAnalyticsService().dashboard()
             total = warmup.get("total_found", 0) if warmup else 0
             logger.info(f"dashboard cache 預熱完成: total_found={total}")
@@ -1046,7 +1046,7 @@ async def tender_refresh_pending_job():
     logger.info("開始標案狀態更新")
     try:
         async with async_session_maker() as db:
-            from app.services.tender_cache_service import refresh_pending_tenders
+            from app.services.tender.cache import refresh_pending_tenders
             result = await refresh_pending_tenders(db, limit=30)
             logger.info(f"標案狀態更新完成: checked={result['checked']}, updated={result['updated']}")
     except Exception as e:
@@ -1061,7 +1061,7 @@ async def tender_subscription_check_job():
     logger.info("開始執行標案訂閱檢查")
     try:
         async with async_session_maker() as db:
-            from app.services.tender_subscription_scheduler import check_all_subscriptions
+            from app.services.tender.subscription_scheduler import check_all_subscriptions
             result = await check_all_subscriptions(db)
             logger.info(
                 f"標案訂閱檢查完成: checked={result['checked']}, notified={result['notified']}"

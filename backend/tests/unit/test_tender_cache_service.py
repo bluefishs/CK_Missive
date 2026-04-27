@@ -94,7 +94,7 @@ class TestSaveSearchResults:
     def patch_entity_ingestion(self):
         """Patch entity ingestion to avoid DB calls in unit tests"""
         from unittest.mock import patch, AsyncMock
-        with patch("app.services.tender_cache_service._ingest_tender_entities", new_callable=AsyncMock):
+        with patch("app.services.tender.cache._ingest_tender_entities", new_callable=AsyncMock):
             yield
 
     @pytest.mark.asyncio
@@ -522,7 +522,7 @@ class TestRefreshPendingTenders:
             _fetchall_result([]),             # SELECT existing company_names
         ]
 
-        with patch("app.services.tender_search_service.TenderSearchService") as MockSvc:
+        with patch("app.services.tender.search.TenderSearchService") as MockSvc:
             instance = MockSvc.return_value
             instance.get_tender_detail = AsyncMock(return_value={
                 "title": "測試標案",
@@ -551,7 +551,7 @@ class TestRefreshPendingTenders:
 
         mock_db.execute.return_value = _fetchall_result([pending_row])
 
-        with patch("app.services.tender_search_service.TenderSearchService") as MockSvc:
+        with patch("app.services.tender.search.TenderSearchService") as MockSvc:
             instance = MockSvc.return_value
             instance.get_tender_detail = AsyncMock(return_value={
                 "title": "測試標案2",

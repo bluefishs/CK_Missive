@@ -29,7 +29,7 @@ class TenderToolExecutor:
 
     async def search_tender(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """搜尋政府標案"""
-        from app.services.tender_search_service import TenderSearchService
+        from app.services.tender.search import TenderSearchService
 
         service = TenderSearchService()
         query = params.get("query", "測量")
@@ -59,7 +59,7 @@ class TenderToolExecutor:
 
         流程: 搜尋標案 → 篩選符合乾坤業務的 → 自動建立 PM Case + ERP Quotation
         """
-        from app.services.tender_search_service import TenderSearchService
+        from app.services.tender.search import TenderSearchService
         from app.services.case_code_service import CaseCodeService
         from app.extended.models.pm import PMCase
         from app.extended.models.erp import ERPQuotation

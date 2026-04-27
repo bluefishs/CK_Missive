@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 import logging
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.services.tender_search_service import TenderSearchService
+from app.services.tender.search import TenderSearchService
 from app.schemas.common import SuccessResponse
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ async def get_tender_graph(
     db_graph = None
     try:
         from app.db.database import AsyncSessionFromDB
-        from app.services.tender_cache_service import build_graph_from_db
+        from app.services.tender.cache import build_graph_from_db
         from app.db.database import AsyncSessionLocal
         async with AsyncSessionLocal() as db:
             db_graph = await build_graph_from_db(db, req.query, req.max_tenders)
