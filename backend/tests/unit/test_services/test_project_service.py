@@ -52,7 +52,7 @@ def mock_db():
 def service(mock_db):
     """建立 ProjectService 並注入 mock repository"""
     with patch(
-        "app.services.project_service.ProjectRepository"
+        "app.services.contract.core.ProjectRepository"
     ) as MockRepo:
         mock_repo = MagicMock()
         # 預設所有 async 方法為 AsyncMock
@@ -99,7 +99,7 @@ class TestProjectServiceInit:
     def test_init(self, mock_db):
         """測試 ProjectService(db) 正確建立 repository 和屬性"""
         with patch(
-            "app.services.project_service.ProjectRepository"
+            "app.services.contract.core.ProjectRepository"
         ) as MockRepo:
             mock_repo = MagicMock()
             MockRepo.return_value = mock_repo
@@ -187,7 +187,7 @@ class TestProjectServiceAccess:
     async def test_check_user_project_access_admin(self, service):
         """測試管理員可以存取專案（透過 RLSFilter）"""
         with patch(
-            "app.services.project_service.RLSFilter"
+            "app.services.contract.core.RLSFilter"
         ) as MockRLS:
             MockRLS.check_user_project_access = AsyncMock(
                 return_value=True
@@ -206,7 +206,7 @@ class TestProjectServiceAccess:
     async def test_check_user_project_access_assigned(self, service):
         """測試已指派使用者可以存取專案"""
         with patch(
-            "app.services.project_service.RLSFilter"
+            "app.services.contract.core.RLSFilter"
         ) as MockRLS:
             MockRLS.check_user_project_access = AsyncMock(
                 return_value=True
@@ -222,7 +222,7 @@ class TestProjectServiceAccess:
     async def test_check_user_project_access_denied(self, service):
         """測試未授權使用者無法存取專案"""
         with patch(
-            "app.services.project_service.RLSFilter"
+            "app.services.contract.core.RLSFilter"
         ) as MockRLS:
             MockRLS.check_user_project_access = AsyncMock(
                 return_value=False
@@ -376,7 +376,7 @@ class TestProjectServiceCRUD:
         service.repository.update = AsyncMock(return_value=updated_project)
 
         with patch(
-            "app.services.project_service.PaymentRepository"
+            "app.services.contract.core.PaymentRepository"
         ) as MockPaymentRepo:
             mock_payment_repo = MagicMock()
             mock_payment_repo.update_cumulative_amounts = AsyncMock(

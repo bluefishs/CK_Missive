@@ -221,13 +221,22 @@ with patch("app.services.foo.core.FooRepository") as MockRepo:
 **SOP**：每個 sub-batch 完成 git mv 後立即跑：
 
 ```bash
-# 找出所有需要更新的 patch 路徑
+# 找出所有需要更新的 patch 路徑（注意：必須兩種格式都掃）
+
+# 格式 1: 同行 — patch("app.services.foo_service.X")
 grep -rn 'patch("app\.services\.<old_name>\.' backend/tests/
 
-# 批次替換（per service）
+# 格式 2: 跨行 — patch(\n    "app.services.foo_service.X"\n)
+# Python 常見 multi-line 寫法，普通 grep 抓不到，必用 ripgrep multiline 模式
+rg --multiline 'patch\(\s*["\x27]app\.services\.<old_name>\.' backend/tests/
+
+# 批次替換（per service，此 sed 同時 cover 兩種格式因為 sed 是 line-based）
 sed -i 's|app\.services\.foo_service\.\([A-Z]\w*\)|app.services.foo.core.\1|g' \
   backend/tests/unit/test_services/test_foo_service.py
 ```
+
+**Wave 1 sub-batch B contract 實測**：grep 同行模式找到 0 處，但實際有 6 處在
+multi-line 寫法。**必用 ripgrep --multiline 或 grep -P 才完整**。
 
 修正後 commit 應 include test 檔（這是預期的行為變更，違反「pure stub 零行為變更」原則但**必須**做）。
 
