@@ -32,7 +32,7 @@ def mock_db():
 @pytest.fixture
 def service(mock_db):
     with patch(
-        "app.services.document_statistics_service.DocumentStatsRepository"
+        "app.services.document.statistics.DocumentStatsRepository"
     ) as MockRepo:
         svc = DocumentStatisticsService(mock_db)
         svc.repository = AsyncMock()
