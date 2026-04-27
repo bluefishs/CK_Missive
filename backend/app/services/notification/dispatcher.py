@@ -119,21 +119,21 @@ class NotificationDispatcher:
         sent = {"line": 0, "discord": 0, "telegram": 0}
 
         if line_user_ids:
-            from app.services.line_bot_service import get_line_bot_service
+            from app.services.integration.line_bot import get_line_bot_service
             service = get_line_bot_service()
             for uid in line_user_ids:
                 if await service.push_message(uid, message):
                     sent["line"] += 1
 
         if discord_channel_ids:
-            from app.services.discord_bot_service import get_discord_bot_service
+            from app.services.integration.discord_bot import get_discord_bot_service
             service = get_discord_bot_service()
             for cid in discord_channel_ids:
                 if await service.send_channel_message(cid, message):
                     sent["discord"] += 1
 
         if telegram_chat_ids:
-            from app.services.telegram_bot_service import get_telegram_bot_service
+            from app.services.integration.telegram_bot import get_telegram_bot_service
             service = get_telegram_bot_service()
             for cid in telegram_chat_ids:
                 if await service.push_message(cid, message):
@@ -147,7 +147,7 @@ class NotificationDispatcher:
         self, line_user_id: str, doc_subject: str, deadline: str,
     ) -> bool:
         try:
-            from app.services.line_bot_service import get_line_bot_service
+            from app.services.integration.line_bot import get_line_bot_service
             service = get_line_bot_service()
             return await service.push_deadline_reminder(line_user_id, doc_subject, deadline)
         except Exception as e:
@@ -158,7 +158,7 @@ class NotificationDispatcher:
         self, channel_id: str, doc_subject: str, deadline: str,
     ) -> bool:
         try:
-            from app.services.discord_bot_service import get_discord_bot_service
+            from app.services.integration.discord_bot import get_discord_bot_service
             service = get_discord_bot_service()
             message = f"📋 **公文截止提醒**\n主旨：{doc_subject}\n截止日：{deadline}"
             return await service.send_channel_message(channel_id, message)
@@ -170,7 +170,7 @@ class NotificationDispatcher:
         self, chat_id: int, doc_subject: str, deadline: str,
     ) -> bool:
         try:
-            from app.services.telegram_bot_service import get_telegram_bot_service
+            from app.services.integration.telegram_bot import get_telegram_bot_service
             service = get_telegram_bot_service()
             message = f"📋 公文截止提醒\n主旨：{doc_subject}\n截止日：{deadline}"
             return await service.push_message(chat_id, message)
@@ -187,7 +187,7 @@ class NotificationDispatcher:
             NotificationChannel.LINE, NotificationChannel.ALL,
         ):
             try:
-                from app.services.line_bot_service import get_line_bot_service
+                from app.services.integration.line_bot import get_line_bot_service
                 results["line"] = await get_line_bot_service().push_message(
                     target.line_user_id, message,
                 )
@@ -199,7 +199,7 @@ class NotificationDispatcher:
             NotificationChannel.DISCORD, NotificationChannel.ALL,
         ):
             try:
-                from app.services.discord_bot_service import get_discord_bot_service
+                from app.services.integration.discord_bot import get_discord_bot_service
                 results["discord"] = await get_discord_bot_service().send_channel_message(
                     target.discord_channel_id, message,
                 )
@@ -211,7 +211,7 @@ class NotificationDispatcher:
             NotificationChannel.TELEGRAM, NotificationChannel.ALL,
         ):
             try:
-                from app.services.telegram_bot_service import get_telegram_bot_service
+                from app.services.integration.telegram_bot import get_telegram_bot_service
                 results["telegram"] = await get_telegram_bot_service().push_message(
                     target.telegram_chat_id, message,
                 )

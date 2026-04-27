@@ -49,8 +49,8 @@ class TestLinePushScheduler:
     def _create_scheduler(self, line_enabled=True, alerts=None):
         mock_db = AsyncMock()
 
-        with patch("app.services.line_push_scheduler.ProactiveTriggerService") as mock_trigger, \
-             patch("app.services.line_push_scheduler.get_line_bot_service") as mock_line_fn:
+        with patch("app.services.integration.line_push_scheduler.ProactiveTriggerService") as mock_trigger, \
+             patch("app.services.integration.line_push_scheduler.get_line_bot_service") as mock_line_fn:
 
             mock_trigger_instance = AsyncMock()
             mock_trigger_instance.scan_all = AsyncMock(return_value=alerts or [])
@@ -147,8 +147,8 @@ class TestFormatAlerts:
 
     def _create_scheduler(self):
         mock_db = AsyncMock()
-        with patch("app.services.line_push_scheduler.ProactiveTriggerService"), \
-             patch("app.services.line_push_scheduler.get_line_bot_service"):
+        with patch("app.services.integration.line_push_scheduler.ProactiveTriggerService"), \
+             patch("app.services.integration.line_push_scheduler.get_line_bot_service"):
             from app.services.line_push_scheduler import LinePushScheduler
             return LinePushScheduler(mock_db)
 

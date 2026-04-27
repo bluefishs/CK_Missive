@@ -415,7 +415,7 @@ tags: [memory, autobiography, evolution]
         if not admin_chat_id:
             return False
         try:
-            from app.services.telegram_bot_service import get_telegram_bot_service
+            from app.services.integration.telegram_bot import get_telegram_bot_service
             msg = (
                 f"📖 *Agent 週自傳 {signals.week_id}*\n\n"
                 f"{narrative}\n\n"

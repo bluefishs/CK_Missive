@@ -104,7 +104,7 @@ async def check_all_subscriptions(db: AsyncSession) -> dict:
 
                 if sub.notify_line:
                     try:
-                        from app.services.line_bot_service import get_line_bot_service
+                        from app.services.integration.line_bot import get_line_bot_service
                         line_service = get_line_bot_service()
                         if line_service:
                             await line_service.broadcast_to_admins(push_text)
@@ -113,7 +113,7 @@ async def check_all_subscriptions(db: AsyncSession) -> dict:
 
                 # Discord 推播
                 try:
-                    from app.services.discord_bot_service import DiscordBotService
+                    from app.services.integration.discord_bot import DiscordBotService
                     discord = DiscordBotService()
                     await discord.push_message(push_text)
                 except Exception:

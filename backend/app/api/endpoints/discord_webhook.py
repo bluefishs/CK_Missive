@@ -18,7 +18,7 @@ from starlette.responses import JSONResponse
 
 from app.core.rate_limiter import limiter
 from app.schemas.discord import DiscordPushRequest, DiscordWebhookResponse
-from app.services.discord_bot_service import get_discord_bot_service
+from app.services.integration.discord_bot import get_discord_bot_service
 
 logger = logging.getLogger(__name__)
 

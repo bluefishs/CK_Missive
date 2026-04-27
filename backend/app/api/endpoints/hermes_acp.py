@@ -65,7 +65,7 @@ async def process_acp(req: AcpRequest, headers: Mapping[str, str]) -> AcpRespons
     測試以 monkeypatch 替換此函式；生產期由 orchestrator 實作。
     """
     from app.services.ai.agent.agent_orchestrator import AgentOrchestrator
-    from app.services.sender_context import SenderContext
+    from app.services.integration.sender_context import SenderContext
     from app.db.database import AsyncSessionLocal
 
     user_msg = next(

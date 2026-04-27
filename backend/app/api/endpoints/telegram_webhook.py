@@ -16,7 +16,7 @@ from starlette.responses import JSONResponse
 
 from app.core.rate_limiter import limiter
 from app.schemas.telegram import TelegramPushRequest, TelegramWebhookResponse
-from app.services.telegram_bot_service import get_telegram_bot_service
+from app.services.integration.telegram_bot import get_telegram_bot_service
 
 logger = logging.getLogger(__name__)
 

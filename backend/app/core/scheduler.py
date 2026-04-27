@@ -399,7 +399,7 @@ async def proactive_trigger_scan_job():
 
             # LINE 推播 (嘗試性，失敗不影響主流程)
             try:
-                from app.services.line_push_scheduler import LinePushScheduler
+                from app.services.integration.line_push_scheduler import LinePushScheduler
                 push_scheduler = LinePushScheduler(db)
                 push_result = await push_scheduler.scan_and_push(min_severity="warning")
                 if push_result.get("sent", 0) > 0:
@@ -409,7 +409,7 @@ async def proactive_trigger_scan_job():
 
             # 派工進度彙整推送 (LINE Flex + Discord Embed)
             try:
-                from app.services.line_push_scheduler import LinePushScheduler
+                from app.services.integration.line_push_scheduler import LinePushScheduler
                 progress_scheduler = LinePushScheduler(db)
                 progress_result = await progress_scheduler.push_dispatch_progress()
                 if progress_result.get("sent", 0) > 0:
@@ -454,7 +454,7 @@ async def _push_channel(channel: str, recipient: str, text: str) -> tuple[bool, 
     """
     try:
         if channel == "telegram":
-            from app.services.telegram_bot_service import get_telegram_bot_service
+            from app.services.integration.telegram_bot import get_telegram_bot_service
             tg = get_telegram_bot_service()
             if not tg.enabled:
                 return False, "telegram service disabled"
@@ -463,7 +463,7 @@ async def _push_channel(channel: str, recipient: str, text: str) -> tuple[bool, 
             ok = await tg.push_message(int(recipient), text)
             return bool(ok), None if ok else "push_message returned false"
         if channel == "line":
-            from app.services.line_bot_service import LineBotService
+            from app.services.integration.line_bot import LineBotService
             line = LineBotService()
             if not line.enabled:
                 return False, "line service disabled"
@@ -774,7 +774,7 @@ async def monthly_architecture_review_job():
 
         # Telegram 推播
         try:
-            from app.services.telegram_bot_service import get_telegram_bot_service
+            from app.services.integration.telegram_bot import get_telegram_bot_service
             tg = get_telegram_bot_service()
             if tg.enabled:
                 admin_chat = int(os.getenv("TELEGRAM_ADMIN_CHAT_ID", "0"))
@@ -901,7 +901,7 @@ async def wiki_lint_job():
                 )
             # Telegram（低頻，不再每天重複推播）
             try:
-                from app.services.telegram_bot_service import get_telegram_bot_service
+                from app.services.integration.telegram_bot import get_telegram_bot_service
                 tg = get_telegram_bot_service()
                 if tg.enabled:
                     msg = (
@@ -1116,7 +1116,7 @@ async def health_check_broadcast_job():
             # 健康 — 若上次剛告警（streak >= threshold），推一次「恢復」通知後歸零
             if _HEALTH_FAIL_STREAK >= _HEALTH_ALERT_THRESHOLD:
                 try:
-                    from app.services.telegram_bot_service import get_telegram_bot_service
+                    from app.services.integration.telegram_bot import get_telegram_bot_service
                     await get_telegram_bot_service().push_message(
                         int(admin_chat_id),
                         f"✅ 公文系統已恢復\n\n時間: {data.get('timestamp', 'N/A')}",
@@ -1143,7 +1143,7 @@ async def health_check_broadcast_job():
             f"資料庫: {db_status}\n"
             f"時間: {data.get('timestamp', 'N/A')}"
         )
-        from app.services.telegram_bot_service import get_telegram_bot_service
+        from app.services.integration.telegram_bot import get_telegram_bot_service
         await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
         logger.warning("健康檢查連續異常已推播至 Telegram: %s", data.get("status"))
 
@@ -1158,7 +1158,7 @@ async def health_check_broadcast_job():
             return
         msg = f"🚨 公文系統 API 無回應（連續 {_HEALTH_FAIL_STREAK} 次）\n\n錯誤: {str(e)[:200]}"
         try:
-            from app.services.telegram_bot_service import get_telegram_bot_service
+            from app.services.integration.telegram_bot import get_telegram_bot_service
             await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
         except Exception:
             pass  # Telegram 也失敗，只記 log
@@ -1242,7 +1242,7 @@ async def llm_quota_check_job():
 
         if alerts:
             msg = "⚡ LLM Quota 預警\n\n" + "\n\n".join(alerts) + f"\n\n時間: {today}"
-            from app.services.telegram_bot_service import get_telegram_bot_service
+            from app.services.integration.telegram_bot import get_telegram_bot_service
             await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
             logger.warning(
                 "LLM quota 預警推送: groq=%.0f%% nvidia=%.0f%% cost=%.0f%%",
@@ -1322,7 +1322,7 @@ async def memory_anti_echo_scan_job():
             admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
             if admin_chat_id:
                 try:
-                    from app.services.telegram_bot_service import get_telegram_bot_service
+                    from app.services.integration.telegram_bot import get_telegram_bot_service
                     msg = (
                         "🔔 反迴聲室觸發\n\n"
                         f"原因：{result.get('reason')}\n\n"
@@ -1366,7 +1366,7 @@ async def memory_crystallization_scan_job():
             admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
             if admin_chat_id:
                 try:
-                    from app.services.telegram_bot_service import get_telegram_bot_service
+                    from app.services.integration.telegram_bot import get_telegram_bot_service
                     msg = (
                         f"🔮 新 Crystal 提案（{len(proposals)} 筆）\n\n"
                         + "\n".join(f"• {p.proposal_id}: {p.reason[:80]}" for p in proposals[:5])

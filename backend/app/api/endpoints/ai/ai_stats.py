@@ -408,7 +408,7 @@ async def push_morning_report(
         tg_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
         if tg_chat_id:
             try:
-                from app.services.telegram_bot_service import get_telegram_bot_service
+                from app.services.integration.telegram_bot import get_telegram_bot_service
                 tg = get_telegram_bot_service()
                 if tg.enabled:
                     ok = await tg.send_message(int(tg_chat_id), summary, parse_mode="")
@@ -433,7 +433,7 @@ async def push_morning_report(
         line_user_id = os.getenv("LINE_ADMIN_USER_ID")
         if line_user_id:
             try:
-                from app.services.line_bot_service import LineBotService
+                from app.services.integration.line_bot import LineBotService
                 line = LineBotService()
                 if line.enabled:
                     ok = await line.push_message(line_user_id, summary)

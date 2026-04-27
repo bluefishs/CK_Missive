@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_async_db
 from app.core.rate_limiter import limiter
 from app.schemas.line import LinePushRequest, LinePushAlertsRequest, LinePushAlertsResponse, WebhookResponse
-from app.services.line_bot_service import get_line_bot_service
+from app.services.integration.line_bot import get_line_bot_service
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +187,7 @@ async def line_push_alerts(
     認證：X-Service-Token header
     可由 cron job / APScheduler 定期呼叫。
     """
-    from app.services.line_push_scheduler import LinePushScheduler
+    from app.services.integration.line_push_scheduler import LinePushScheduler
 
     scheduler = LinePushScheduler(db)
     result = await scheduler.scan_and_push(

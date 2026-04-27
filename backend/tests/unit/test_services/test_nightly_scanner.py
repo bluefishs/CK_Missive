@@ -68,7 +68,7 @@ class TestProactiveTriggerScanJob:
             patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
             patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
             patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
-            patch("app.services.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
+            patch("app.services.integration.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
         ):
             from app.core.scheduler import proactive_trigger_scan_job
             await proactive_trigger_scan_job()
@@ -105,7 +105,7 @@ class TestProactiveTriggerScanJob:
             patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
             patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
             patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
-            patch("app.services.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
+            patch("app.services.integration.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
         ):
             from app.core.scheduler import proactive_trigger_scan_job
             await proactive_trigger_scan_job()
@@ -136,7 +136,7 @@ class TestProactiveTriggerScanJob:
             patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
             patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
             patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
-            patch("app.services.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
+            patch("app.services.integration.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
         ):
             from app.core.scheduler import proactive_trigger_scan_job
             # 不應拋出異常

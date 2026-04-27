@@ -20,7 +20,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, TYPE_CHECKING
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
-    from app.services.sender_context import SenderContext
+    from app.services.integration.sender_context import SenderContext
 
 from app.core.ai_connector import get_ai_connector
 from app.services.ai.core.ai_config import get_ai_config

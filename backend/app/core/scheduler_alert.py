@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def get_telegram_bot_service():
     """Lazy import to avoid circular dependencies."""
-    from app.services.telegram_bot_service import get_telegram_bot_service as _get
+    from app.services.integration.telegram_bot import get_telegram_bot_service as _get
     return _get()
 
 

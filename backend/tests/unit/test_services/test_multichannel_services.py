@@ -946,7 +946,7 @@ class TestDeadlineAlert:
         mock_line_svc = MagicMock()
         mock_line_svc.push_deadline_reminder = AsyncMock(return_value=True)
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc):
             results = await dispatcher.send_deadline_alert(target, "重要公文", "2026-04-01")
 
@@ -967,7 +967,7 @@ class TestDeadlineAlert:
         mock_discord_svc = MagicMock()
         mock_discord_svc.send_channel_message = AsyncMock(return_value=True)
 
-        with patch("app.services.discord_bot_service.get_discord_bot_service",
+        with patch("app.services.integration.discord_bot.get_discord_bot_service",
                     return_value=mock_discord_svc):
             results = await dispatcher.send_deadline_alert(target, "截止公文", "2026-05-01")
 
@@ -991,9 +991,9 @@ class TestDeadlineAlert:
         mock_discord_svc = MagicMock()
         mock_discord_svc.send_channel_message = AsyncMock(return_value=True)
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc), \
-             patch("app.services.discord_bot_service.get_discord_bot_service",
+             patch("app.services.integration.discord_bot.get_discord_bot_service",
                    return_value=mock_discord_svc):
             results = await dispatcher.send_deadline_alert(target, "公文", "2026-06-01")
 
@@ -1015,7 +1015,7 @@ class TestDeadlineAlert:
             preferred_channel=NotificationChannel.LINE,
         )
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     side_effect=RuntimeError("import error")):
             results = await dispatcher.send_deadline_alert(target, "公文", "2026-01-01")
 
@@ -1029,7 +1029,7 @@ class TestDeadlineAlert:
             preferred_channel=NotificationChannel.DISCORD,
         )
 
-        with patch("app.services.discord_bot_service.get_discord_bot_service",
+        with patch("app.services.integration.discord_bot.get_discord_bot_service",
                     side_effect=RuntimeError("import error")):
             results = await dispatcher.send_deadline_alert(target, "公文", "2026-01-01")
 
@@ -1047,7 +1047,7 @@ class TestDeadlineAlert:
         mock_discord_svc = MagicMock()
         mock_discord_svc.send_channel_message = AsyncMock(return_value=True)
 
-        with patch("app.services.discord_bot_service.get_discord_bot_service",
+        with patch("app.services.integration.discord_bot.get_discord_bot_service",
                     return_value=mock_discord_svc):
             results = await dispatcher.send_deadline_alert(target, "公文", "2026-01-01")
 
@@ -1069,7 +1069,7 @@ class TestBudgetAlert:
         mock_line_svc = MagicMock()
         mock_line_svc.push_message = AsyncMock(return_value=True)
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc):
             results = await dispatcher.send_budget_alert(
                 target, "大專案", 85.5, 1234567,
@@ -1096,9 +1096,9 @@ class TestBudgetAlert:
         mock_discord_svc = MagicMock()
         mock_discord_svc.send_channel_message = AsyncMock(return_value=True)
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc), \
-             patch("app.services.discord_bot_service.get_discord_bot_service",
+             patch("app.services.integration.discord_bot.get_discord_bot_service",
                    return_value=mock_discord_svc):
             results = await dispatcher.send_budget_alert(target, "P1", 90.0, 500000)
 
@@ -1120,7 +1120,7 @@ class TestSystemAlert:
         mock_discord_svc = MagicMock()
         mock_discord_svc.send_channel_message = AsyncMock(return_value=True)
 
-        with patch("app.services.discord_bot_service.get_discord_bot_service",
+        with patch("app.services.integration.discord_bot.get_discord_bot_service",
                     return_value=mock_discord_svc):
             await dispatcher.send_system_alert(target, "System OK", Severity.INFO)
 
@@ -1138,7 +1138,7 @@ class TestSystemAlert:
         mock_line_svc = MagicMock()
         mock_line_svc.push_message = AsyncMock(return_value=True)
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc):
             await dispatcher.send_system_alert(target, "DB Down", Severity.CRITICAL)
 
@@ -1157,7 +1157,7 @@ class TestSystemAlert:
         mock_line_svc = MagicMock()
         mock_line_svc.push_message = AsyncMock(return_value=True)
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc):
             await dispatcher.send_system_alert(target, "Disk 90%", Severity.WARNING)
 
@@ -1178,9 +1178,9 @@ class TestBroadcastToAll:
         mock_discord_svc = MagicMock()
         mock_discord_svc.send_channel_message = AsyncMock(return_value=True)
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc), \
-             patch("app.services.discord_bot_service.get_discord_bot_service",
+             patch("app.services.integration.discord_bot.get_discord_bot_service",
                    return_value=mock_discord_svc):
             results = await dispatcher.broadcast_to_all(
                 "System maintenance",
@@ -1198,7 +1198,7 @@ class TestBroadcastToAll:
         mock_line_svc = MagicMock()
         mock_line_svc.push_message = AsyncMock(side_effect=[True, False, True])
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc):
             results = await dispatcher.broadcast_to_all(
                 "msg",
@@ -1229,7 +1229,7 @@ class TestBroadcastToAll:
         mock_discord_svc = MagicMock()
         mock_discord_svc.send_channel_message = AsyncMock(side_effect=[True, False])
 
-        with patch("app.services.discord_bot_service.get_discord_bot_service",
+        with patch("app.services.integration.discord_bot.get_discord_bot_service",
                     return_value=mock_discord_svc):
             results = await dispatcher.broadcast_to_all(
                 "msg",
@@ -1254,7 +1254,7 @@ class TestBroadcastPrivateMethod:
         mock_line_svc = MagicMock()
         mock_line_svc.push_message = AsyncMock(return_value=True)
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc):
             results = await dispatcher._broadcast(target, "msg", Severity.INFO)
 
@@ -1272,7 +1272,7 @@ class TestBroadcastPrivateMethod:
         mock_discord_svc = MagicMock()
         mock_discord_svc.send_channel_message = AsyncMock(return_value=True)
 
-        with patch("app.services.discord_bot_service.get_discord_bot_service",
+        with patch("app.services.integration.discord_bot.get_discord_bot_service",
                     return_value=mock_discord_svc):
             results = await dispatcher._broadcast(target, "msg", Severity.INFO)
 
@@ -1287,7 +1287,7 @@ class TestBroadcastPrivateMethod:
             preferred_channel=NotificationChannel.ALL,
         )
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     side_effect=RuntimeError("boom")):
             results = await dispatcher._broadcast(target, "msg", Severity.INFO)
 
@@ -1301,7 +1301,7 @@ class TestBroadcastPrivateMethod:
             preferred_channel=NotificationChannel.ALL,
         )
 
-        with patch("app.services.discord_bot_service.get_discord_bot_service",
+        with patch("app.services.integration.discord_bot.get_discord_bot_service",
                     side_effect=RuntimeError("boom")):
             results = await dispatcher._broadcast(target, "msg", Severity.INFO)
 
@@ -1321,9 +1321,9 @@ class TestBroadcastPrivateMethod:
         mock_discord_svc = MagicMock()
         mock_discord_svc.send_channel_message = AsyncMock(return_value=True)
 
-        with patch("app.services.line_bot_service.get_line_bot_service",
+        with patch("app.services.integration.line_bot.get_line_bot_service",
                     return_value=mock_line_svc), \
-             patch("app.services.discord_bot_service.get_discord_bot_service",
+             patch("app.services.integration.discord_bot.get_discord_bot_service",
                    return_value=mock_discord_svc):
             results = await dispatcher._broadcast(target, "msg", Severity.INFO)
 

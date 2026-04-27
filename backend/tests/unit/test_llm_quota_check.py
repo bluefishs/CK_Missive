@@ -65,7 +65,7 @@ async def test_no_alert_when_below_threshold(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=1500),  # 30% of 5000
     ), patch(
-        "app.services.telegram_bot_service.get_telegram_bot_service",
+        "app.services.integration.telegram_bot.get_telegram_bot_service",
         return_value=MagicMock(push_message=push),
     ):
         from app.core.scheduler import llm_quota_check_job
@@ -92,7 +92,7 @@ async def test_alert_when_groq_over_threshold(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=100),  # NVIDIA under threshold
     ), patch(
-        "app.services.telegram_bot_service.get_telegram_bot_service",
+        "app.services.integration.telegram_bot.get_telegram_bot_service",
         return_value=MagicMock(push_message=push),
     ):
         from app.core.scheduler import llm_quota_check_job
@@ -122,7 +122,7 @@ async def test_alert_when_nvidia_over_threshold(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=4000),  # 80% of 5000
     ), patch(
-        "app.services.telegram_bot_service.get_telegram_bot_service",
+        "app.services.integration.telegram_bot.get_telegram_bot_service",
         return_value=MagicMock(push_message=push),
     ):
         from app.core.scheduler import llm_quota_check_job
@@ -150,7 +150,7 @@ async def test_dedup_same_day(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=0),
     ), patch(
-        "app.services.telegram_bot_service.get_telegram_bot_service",
+        "app.services.integration.telegram_bot.get_telegram_bot_service",
         return_value=MagicMock(push_message=push),
     ):
         from app.core.scheduler import llm_quota_check_job
@@ -168,7 +168,7 @@ async def test_skip_when_no_admin_chat_id(monkeypatch):
     push = AsyncMock()
 
     with patch(
-        "app.services.telegram_bot_service.get_telegram_bot_service",
+        "app.services.integration.telegram_bot.get_telegram_bot_service",
         return_value=MagicMock(push_message=push),
     ):
         from app.core.scheduler import llm_quota_check_job
@@ -199,7 +199,7 @@ async def test_alert_when_cost_over_threshold(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=100),
     ), patch(
-        "app.services.telegram_bot_service.get_telegram_bot_service",
+        "app.services.integration.telegram_bot.get_telegram_bot_service",
         return_value=MagicMock(push_message=push),
     ):
         from app.core.scheduler import llm_quota_check_job
@@ -232,7 +232,7 @@ async def test_alert_combines_all_dimensions(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=4500),  # NVIDIA 90%
     ), patch(
-        "app.services.telegram_bot_service.get_telegram_bot_service",
+        "app.services.integration.telegram_bot.get_telegram_bot_service",
         return_value=MagicMock(push_message=push),
     ):
         from app.core.scheduler import llm_quota_check_job
@@ -250,7 +250,7 @@ async def test_send_budget_alert_is_noop(monkeypatch):
     push = AsyncMock()
 
     with patch(
-        "app.services.telegram_bot_service.get_telegram_bot_service",
+        "app.services.integration.telegram_bot.get_telegram_bot_service",
         return_value=MagicMock(push_message=push),
     ):
         from app.services.ai.core.token_usage_tracker import TokenUsageTracker
@@ -277,7 +277,7 @@ async def test_alert_when_groq_over_100(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=0),
     ), patch(
-        "app.services.telegram_bot_service.get_telegram_bot_service",
+        "app.services.integration.telegram_bot.get_telegram_bot_service",
         return_value=MagicMock(push_message=push),
     ):
         from app.core.scheduler import llm_quota_check_job
