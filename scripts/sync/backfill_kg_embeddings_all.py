@@ -97,7 +97,11 @@ async def run_for_type(conn, client, entity_type: str, apply: bool) -> tuple[int
             eta = (len(rows) - i) / max(rate, 0.01)
             print(f"  [{i}/{len(rows)}] rate={rate:.1f}/s eta={eta:.0f}s")
     elapsed = time.time() - t0
-    print(f"  ✓ {entity_type}: success={success} failed={failed} in {elapsed:.0f}s")
+    msg = f"  [OK] {entity_type}: success={success} failed={failed} in {elapsed:.0f}s"
+    try:
+        print(msg)
+    except UnicodeEncodeError:
+        sys.stdout.buffer.write((msg + "\n").encode("utf-8"))
     return success, failed, elapsed
 
 

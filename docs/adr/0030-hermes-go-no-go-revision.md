@@ -221,3 +221,41 @@ soul fidelity 實測：
 p95 門檻採用方案：A / B / C
 後續動作：
 ```
+
+### 2026-04-27 v5.9.9 ready-to-vote 提案（為 5/20 會議準備）
+
+**前置修復**：原 ADR-0028 承諾的 `backend/app/core/timeouts.py` 從未實作（dead doc 反模式，正是 ADR-0028 自己批評的）。本次補齊：
+
+- 建立 `backend/app/core/timeouts.py` 作為 timeout SSOT（re-export 自 `ai_config.AIConfig`，不重複定義）
+- 加 `SLOContract` dataclass — derived from TimeoutContract，作為 ADR-0030 P95 拍板的客觀錨點
+
+**P95 #5 拍板提案：採方案 B+C 混合**（取代原 A/B/C 三選一）
+
+理由：方案 A（單一 60s）資訊量太低，方案 B（拆分指標）對齊現實但需多個閾值，方案 C（SLO 預算制）符合 SRE 業界實踐。混合方案如下：
+
+| 指標類型 | 閾值 | 對齊合約 |
+|---|---|---|
+| **single_call_p95** | < 8s | 對齊用戶體感（簡單問答無工具） |
+| **multi_tool_e2e_p95** | < 60s | 對齊 `TIMEOUTS.stream_e2e` |
+| **tool_call_p95** | < 15s | 對齊 `TIMEOUTS.tool_execution` |
+| **composite SLO（NEW）** | 50% queries < 15s **AND** 95% queries < 60s | SRE 業界做法 |
+| **error_rate** | < 5% | ADR-0030 GO #4（不變） |
+
+**為什麼這套會議該採用**：
+1. **不靠新猜測** — 所有閾值都對應實作裡的 `agent_*_timeout` 既有契約
+2. **可程式化驗證** — 從 `app.core.timeouts.SLO` 直接 import 給 Prometheus alert / synthetic baseline 用
+3. **跨 repo 範本化** — 此模式可直接 cherry-pick 到 lvrland/PileMgmt 等子專案
+
+**5/20 會議只需投票一個問題**：
+
+```
+問題：Hermes Phase 1 GO？
+- GO 1-4 已達標（baseline 370+ / soul fidelity 85% / error rate 0% / dogfooding 進行中）
+- GO #5 採用 v5.9.9 混合 SLO 提案？  □ 採用，啟動 Phase 1 LINE 白名單 canary
+                                       □ 不採用，回到原 8s 標準 → NO-GO
+
+實際數據（投票時應驗證）：
+  single_call_p95 = ___ s  (target < 8s)
+  e2e_p95         = ___ s  (target < 60s)
+  composite       = __% < 15s, __% < 60s  (target 50/95)
+```

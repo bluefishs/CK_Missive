@@ -149,7 +149,12 @@ async def main(apply: bool) -> int:
     if not apply:
         print("\n（dry-run，未改 wiki；加 --apply 執行）")
     else:
-        print(f"\n✓ Backfilled {stats['matched']} wiki dispatch with kg_entity_id")
+        # 避免 Windows cp950 對 Unicode 符號失敗
+        msg = f"\n[OK] Backfilled {stats['matched']} wiki dispatch with kg_entity_id"
+        try:
+            print(msg)
+        except UnicodeEncodeError:
+            sys.stdout.buffer.write((msg + "\n").encode("utf-8"))
     return 0
 
 
