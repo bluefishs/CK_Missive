@@ -64,7 +64,9 @@ commit title: refactor: services/* → services/<context>/ (bounded context migr
 > | **Wave 1 小計** | **28** | **Wave 1 100%** | v5.10.0-rc |
 > | erp (extension) | 9 | ✅ migrated | Wave 2 |
 > | integration (line/telegram/discord/共用) | 10 | ✅ migrated | Wave 3 |
-> | **Wave 1+2+3 累計** | **47** | — | v5.10.0+ |
+> | tender (search/cache/scrapers/analytics) | 10 | ✅ migrated | Wave 4 |
+> | calendar (extension) | 5 | ✅ migrated | Wave 5 |
+> | **Wave 1~5 累計** | **62** | — | v5.10.0+ |
 >
 > 其他 context（tender / erp / integration / calendar / ai / ...）尚未遷移，
 > 散戶仍在頂層。等 Wave 2 排程。

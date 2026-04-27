@@ -28,7 +28,7 @@ from app.schemas.reminder import (
     ReminderActionRequest,
     ReminderStatusResponse,
 )
-from app.services.document_calendar_integrator import DocumentCalendarIntegrator
+from app.services.calendar.document_integrator import DocumentCalendarIntegrator
 
 router = APIRouter()
 

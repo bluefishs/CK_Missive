@@ -37,7 +37,7 @@ def mock_db():
 @pytest.fixture
 def service(mock_db):
     with patch(
-        "app.services.reminder_service.NotificationService"
+        "app.services.calendar.reminder_service.NotificationService"
     ):
         svc = ReminderService(mock_db)
         svc.notification_service = AsyncMock()

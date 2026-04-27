@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
 from app.schemas.document import DocumentFilter, DocumentImportResult, DocumentSearchRequest
 from app.repositories.document_repository import DocumentRepository
-from app.services.document_calendar_integrator import DocumentCalendarIntegrator
+from app.services.calendar.document_integrator import DocumentCalendarIntegrator
 from .filter import DocumentFilterService
 from app.services.strategies.agency_matcher import AgencyMatcher, ProjectMatcher
 from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder

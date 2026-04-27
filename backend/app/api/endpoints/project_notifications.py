@@ -10,7 +10,7 @@ from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
 from app.extended.models import User
 from app.services.project_notification_service import ProjectNotificationService
-from app.services.document_calendar_integrator import DocumentCalendarIntegrator
+from app.services.calendar.document_integrator import DocumentCalendarIntegrator
 
 # 統一從 schemas 匯入型別定義
 from app.schemas.notification import (

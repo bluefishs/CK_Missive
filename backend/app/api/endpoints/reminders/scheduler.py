@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 from app.api.endpoints.auth import get_current_user
 from app.extended.models import User
-from app.services.reminder_scheduler import ReminderSchedulerController
+from app.services.calendar.reminder_scheduler import ReminderSchedulerController
 
 router = APIRouter(prefix="/scheduler")
 

@@ -18,7 +18,7 @@ from app.api.endpoints.auth import get_current_user
 from app.extended.models import User, EventReminder
 from app.schemas.reminder import BatchProcessResponse
 from app.api.endpoints.reminders.events import calendar_integrator
-from app.services.reminder_service import ReminderService
+from app.services.calendar.reminder_service import ReminderService
 
 router = APIRouter()
 

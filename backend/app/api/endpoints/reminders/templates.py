@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
 from app.extended.models import User, EventReminder
-from app.services.reminder_service import ReminderService
+from app.services.calendar.reminder_service import ReminderService
 
 router = APIRouter()
 

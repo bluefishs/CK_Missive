@@ -38,7 +38,7 @@ from app.core.dependencies import require_admin
 from app.api.routes import api_router
 from app.db.database import get_async_db, engine
 from app.core.logging_manager import log_manager, LoggingMiddleware, log_info
-from app.services.reminder_scheduler import (
+from app.services.calendar.reminder_scheduler import (
     start_reminder_scheduler,
     stop_reminder_scheduler,
 )
@@ -788,7 +788,7 @@ async def detailed_health_check(
         health_data["checks"]["cpu"] = {"status": "unknown", "error": "CPU check failed"}
 
     # 排程器狀態
-    from app.services.reminder_scheduler import get_reminder_scheduler
+    from app.services.calendar.reminder_scheduler import get_reminder_scheduler
     from app.services.google_sync_scheduler import get_google_sync_scheduler
     from app.services.backup_scheduler import get_backup_scheduler
 

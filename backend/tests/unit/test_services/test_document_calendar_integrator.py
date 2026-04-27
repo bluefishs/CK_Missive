@@ -25,8 +25,8 @@ from app.services.document_calendar_integrator import DocumentCalendarIntegrator
 
 @pytest.fixture
 def integrator():
-    with patch("app.services.document_calendar_integrator.DocumentCalendarService"), \
-         patch("app.services.document_calendar_integrator.ProjectNotificationService"):
+    with patch("app.services.calendar.document_integrator.DocumentCalendarService"), \
+         patch("app.services.calendar.document_integrator.ProjectNotificationService"):
         return DocumentCalendarIntegrator()
 
 
@@ -126,8 +126,8 @@ class TestConvertDocumentToEvents:
         mock_event = MagicMock()
         mock_event.id = 1
 
-        with patch("app.services.document_calendar_integrator.DocumentCalendarEvent", return_value=mock_event) as MockEvent, \
-             patch("app.services.document_calendar_integrator.ReminderService") as MockReminder:
+        with patch("app.services.calendar.document_integrator.DocumentCalendarEvent", return_value=mock_event) as MockEvent, \
+             patch("app.services.calendar.document_integrator.ReminderService") as MockReminder:
             mock_reminder = AsyncMock()
             MockReminder.return_value = mock_reminder
 

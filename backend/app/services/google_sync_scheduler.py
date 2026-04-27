@@ -9,7 +9,7 @@ from typing import Optional
 from contextlib import asynccontextmanager
 
 from app.db.database import AsyncSessionLocal
-from app.services.document_calendar_service import calendar_service
+from app.services.calendar.document_service import calendar_service
 
 logger = logging.getLogger(__name__)
 

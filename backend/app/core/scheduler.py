@@ -173,7 +173,7 @@ def get_scheduler() -> AsyncIOScheduler:
 async def process_pending_reminders_job():
     """處理待發送提醒的排程任務"""
     from app.db.database import async_session_maker
-    from app.services.reminder_service import ReminderService
+    from app.services.calendar.reminder_service import ReminderService
 
     logger.info("開始執行提醒處理排程任務")
 

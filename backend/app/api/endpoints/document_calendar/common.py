@@ -15,8 +15,8 @@ from sqlalchemy import select, or_, func, and_
 from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
 from app.extended.models import User, OfficialDocument, DocumentCalendarEvent, EventReminder
-from app.services.document_calendar_service import DocumentCalendarService
-from app.services.document_calendar_integrator import DocumentCalendarIntegrator
+from app.services.calendar.document_service import DocumentCalendarService
+from app.services.calendar.document_integrator import DocumentCalendarIntegrator
 from app.schemas.document_calendar import (
     SyncStatusResponse,
     DocumentCalendarEventCreate,

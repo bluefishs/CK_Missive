@@ -1,0 +1,297 @@
+"""
+公文行事曆整合器服務
+實作公文事件轉換為行事曆事件的核心邏輯 (已修復API呼叫參數錯誤)
+"""
+import logging
+from datetime import datetime, timedelta, date
+from typing import Optional, Dict, Any, List, Tuple
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.extended.models import OfficialDocument, DocumentCalendarEvent, User
+from app.repositories.calendar_repository import CalendarRepository
+from .document_service import DocumentCalendarService
+from app.services.project_notification_service import ProjectNotificationService
+from .reminder_service import ReminderService
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+class DocumentCalendarIntegrator:
+    """公文行事曆整合器"""
+
+    def __init__(self) -> None:
+        """初始化行事曆整合器"""
+        self.calendar_service: DocumentCalendarService = DocumentCalendarService()
+        self.notification_service: ProjectNotificationService = ProjectNotificationService()
+
+    def parse_document_dates(self, document: OfficialDocument) -> List[Tuple[str, datetime, str]]:
+        """
+        解析公文中的重要日期
+        """
+        important_dates = []
+        if document.doc_date:
+            important_dates.append((
+                "reference",
+                document.doc_date,
+                f"公文發文日期: {document.subject}"
+            ))
+        if document.receive_date:
+            important_dates.append((
+                "reminder",
+                document.receive_date,
+                f"公文收文提醒: {document.subject}"
+            ))
+        if document.send_date:
+            important_dates.append((
+                "deadline",
+                document.send_date,
+                f"公文發文截止: {document.subject}"
+            ))
+        content_dates = self._extract_dates_from_content(document)
+        important_dates.extend(content_dates)
+        return important_dates
+
+    def _extract_dates_from_content(self, document: OfficialDocument) -> List[Tuple[str, datetime, str]]:
+        return [] # 暫時簡化
+
+    async def convert_document_to_events(
+        self,
+        db: AsyncSession,
+        document: OfficialDocument,
+        assigned_user_id: Optional[int] = None,
+        notification_recipients: Optional[List[int]] = None,
+        creator_id: Optional[int] = None # 新增 creator_id
+    ) -> List[DocumentCalendarEvent]:
+        """
+        將公文轉換為行事曆事件
+        """
+        try:
+            important_dates = self.parse_document_dates(document)
+            if not important_dates:
+                logger.warning(f"公文 {document.id} 沒有可解析的重要日期")
+                return []
+
+            created_events = []
+            for event_type, event_date, description in important_dates:
+                # 將 date 物件轉換為 datetime (中午 12:00 防 UTC 偏移)
+                from datetime import time as dt_time
+                _NOON = dt_time(12, 0)
+                if isinstance(event_date, date) and not isinstance(event_date, datetime):
+                    event_datetime = datetime.combine(event_date, _NOON)
+                else:
+                    event_datetime = event_date
+
+                # v5.8.1 ADR-0026：套用統一模板，嘗試關聯派工單資訊
+                # 公文若已關聯派工單（contract_project + dispatch），title 會更具體
+                try:
+                    from app.services.common.calendar_title_template import build_calendar_event_title
+                    from app.extended.models import TaoyuanDispatchOrder
+                    dispatch = None
+                    if getattr(document, 'contract_project_id', None):
+                        dispatch_result = await db.execute(
+                            select(TaoyuanDispatchOrder).where(
+                                TaoyuanDispatchOrder.contract_project_id == document.contract_project_id
+                            ).limit(1)
+                        )
+                        dispatch = dispatch_result.scalar_one_or_none()
+                    # event_type 映射到 work_category（儘量）
+                    category_map = {
+                        'reminder': 'admin_notice', 'meeting': 'meeting_notice',
+                        'deadline': 'dispatch_notice', 'submission': 'work_result',
+                    }
+                    title = build_calendar_event_title(
+                        category=category_map.get(event_type, 'other'),
+                        dispatch=dispatch,
+                        doc_subject=document.subject,
+                        user_description=None,
+                    )
+                except Exception as _e:
+                    # Fallback 保留舊格式，避免影響主流程
+                    logger.debug("title template fallback: %s", _e)
+                    title = f"[{event_type.upper()}] {document.subject}"
+
+                calendar_event = DocumentCalendarEvent(
+                    document_id=document.id,
+                    title=title,
+                    description=self._build_event_description(document, description),
+                    start_date=event_datetime,
+                    end_date=event_datetime,  # 單一時間點
+                    all_day=True,
+                    event_type=event_type,
+                    assigned_user_id=assigned_user_id,
+                    created_by=creator_id, # 使用傳入的 creator_id
+                    priority=self._determine_priority(event_type, document),
+                    reminder_enabled=True,
+                    reminder_minutes=self._get_default_reminder_minutes(event_type)
+                )
+                db.add(calendar_event)
+                created_events.append(calendar_event)
+
+            await db.commit()
+
+            for event in created_events:
+                await db.refresh(event)
+
+            logger.info(f"成功為公文 {document.id} 創建 {len(created_events)} 個行事曆事件")
+
+            # 後續處理 (提醒、通知、同步)
+            for event in created_events:
+                # 創建提醒
+                try:
+                    reminder_service = ReminderService(db)
+                    await reminder_service.create_multi_level_reminders(event=event)
+                except Exception as e:
+                    logger.error(f"為事件 {event.id} 創建提醒失敗: {e}")
+
+                # 同步到 Google Calendar
+                if self.calendar_service.is_ready():
+                    try:
+                        await self._sync_events_to_google(db, [event], document)
+                    except Exception as e:
+                        logger.error(f"同步事件 {event.id} 到 Google Calendar 失敗: {e}")
+
+            return created_events
+
+        except Exception as e:
+            logger.error(f"轉換公文 {document.id} 為行事曆事件時發生錯誤: {e}", exc_info=True)
+            await db.rollback()
+            raise
+
+    def _build_event_description(self, document: OfficialDocument, base_description: str) -> str:
+        """
+        構建事件描述
+
+        Args:
+            document: 公文物件
+            base_description: 基礎描述
+
+        Returns:
+            完整的事件描述字串
+        """
+        return f"{base_description}\n公文字號: {document.doc_number}"
+
+    def _determine_priority(self, event_type: str, document: OfficialDocument) -> int:
+        """
+        決定事件優先級
+
+        Args:
+            event_type: 事件類型
+            document: 公文物件
+
+        Returns:
+            優先級數值 (1-5)
+        """
+        return 3  # 簡化
+
+    def _get_default_reminder_minutes(self, event_type: str) -> int:
+        """
+        取得預設提醒時間（分鐘）
+
+        Args:
+            event_type: 事件類型
+
+        Returns:
+            提醒時間（分鐘）
+        """
+        return 60  # 簡化
+
+    async def _sync_events_to_google(
+        self,
+        db: AsyncSession,
+        events: List[DocumentCalendarEvent],
+        document: OfficialDocument
+    ) -> None:
+        """同步事件到Google Calendar (已修復參數不匹配問題)"""
+        try:
+            synced_count = 0
+            for event in events:
+                # 獲取建立者 email
+                user_email = "cksurvey0605@gmail.com"  # 預設值
+                if event.creator:
+                    user_email = event.creator.email
+
+                # 呼叫 Google Calendar API 建立事件
+                google_event_id = await self.calendar_service.create_event_from_document(
+                    document=document,
+                    summary=event.title,
+                    description=event.description,
+                    start_time=event.start_date,
+                    end_time=event.end_date,
+                    user_email=user_email,
+                    calendar_id=getattr(settings, 'GOOGLE_CALENDAR_ID', 'primary')
+                )
+
+                # 關鍵修復：保存 google_event_id 到本地事件
+                if google_event_id:
+                    event.google_event_id = google_event_id
+                    event.google_sync_status = 'synced'
+                    synced_count += 1
+                    logger.info(f"事件 {event.id} 成功同步至 Google Calendar (ID: {google_event_id})")
+                else:
+                    event.google_sync_status = 'failed'
+                    logger.warning(f"事件 {event.id} 同步至 Google Calendar 失敗")
+
+            # 提交更新的 google_event_id 和 sync_status
+            await db.commit()
+            logger.info(f"成功同步 {synced_count}/{len(events)} 個事件到 Google Calendar")
+
+        except Exception as e:
+            logger.error(f"同步事件到 Google Calendar 失敗: {e}", exc_info=True)
+            # 不拋出異常，避免影響本地事件創建
+
+    async def get_document_events(
+        self,
+        db: AsyncSession,
+        document_id: int
+    ) -> List[DocumentCalendarEvent]:
+        """獲取公文相關的所有行事曆事件"""
+        repo = CalendarRepository(db)
+        return await repo.get_events_by_document_ordered(document_id)
+
+    async def get_reminder_status(
+        self,
+        db: AsyncSession,
+        document_id: int
+    ) -> Dict[str, Any]:
+        """獲取公文所有事件的提醒狀態"""
+        repo = CalendarRepository(db)
+        events = await self.get_document_events(db, document_id)
+        if not events:
+            return {"error": f"公文 {document_id} 沒有行事曆事件"}
+
+        all_reminders = []
+        for event in events:
+            event_with_reminders = await repo.get_with_reminders(event.id)
+            reminders = event_with_reminders.reminders if event_with_reminders else []
+            for r in reminders:
+                all_reminders.append({
+                    "id": r.id,
+                    "event_id": r.event_id,
+                    "event_title": event.title,
+                    "reminder_time": r.reminder_time.isoformat() if r.reminder_time else None,
+                    "notification_type": r.notification_type,
+                    "status": r.status or "pending",
+                })
+
+        by_status: Dict[str, int] = {}
+        for r in all_reminders:
+            s = r["status"]
+            by_status[s] = by_status.get(s, 0) + 1
+
+        return {
+            "document_id": document_id,
+            "event_count": len(events),
+            "total_reminders": len(all_reminders),
+            "by_status": by_status,
+            "reminders": all_reminders,
+        }
+
+    async def process_pending_reminders(
+        self,
+        db: AsyncSession,
+    ) -> Dict[str, Any]:
+        """批量處理待發送的提醒"""
+        reminder_service = ReminderService(db)
+        stats = await reminder_service.process_pending_reminders()
+        return stats
