@@ -1,17 +1,19 @@
-"""Notification bounded context (DDD Wave 1, 2026-04-27).
+"""Notification bounded context (DDD Wave 1 sub-batch C, 2026-04-27).
 
-Currently houses the unified multi-channel dispatcher.
-Future migrations will move `services/notification_service.py` here as well.
+Houses unified multi-channel push (dispatcher) + in-app notifications (service)
++ helpers + template engine.
 
-Public API:
-    NotificationDispatcher — multi-channel push (LINE/Discord/Telegram/...)
-    NotificationChannel    — channel enum
-    NotificationPayload    — payload dataclass
+Public API (use specific submodule path for sub-types to avoid name
+collisions — both `service` and `template` define `NotificationType`):
+
+    .dispatcher  — NotificationDispatcher / NotificationChannel / Severity / NotificationTarget
+    .service     — NotificationService / NotificationType / NotificationSeverity / CRITICAL_FIELDS
+    .helpers     — safe_notify_critical_change / safe_notify_document_deleted / ...
+    .template    — NotificationTemplateService / NotificationTemplate / NotificationPriority
+
+For convenience this `__init__.py` re-exports only the three main service
+classes; everything else should be imported from its specific submodule.
 """
-from .dispatcher import *  # noqa: F401,F403
-from .dispatcher import (  # noqa: F401  (explicit re-export for IDE)
-    NotificationDispatcher,
-    NotificationChannel,
-    NotificationTarget,
-    Severity,
-)
+from .dispatcher import NotificationDispatcher  # noqa: F401
+from .service import NotificationService  # noqa: F401
+from .template import NotificationTemplateService  # noqa: F401
