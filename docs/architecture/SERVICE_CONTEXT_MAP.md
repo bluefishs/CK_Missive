@@ -50,6 +50,25 @@ commit title: refactor: services/* → services/<context>/ (bounded context migr
 
 ### 1.2 完整映射（85 檔 × 16 context）
 
+> **Wave 1 完成狀態（2026-04-27, v5.9.9）**：
+> 6 contexts × 28 檔已實際遷移到子包，原路徑保留 stub（DeprecationWarning + re-export）。
+>
+> | Context | 檔數 | 狀態 | Commit |
+> |---|---|---|---|
+> | document | 11 | ✅ migrated | sub-batch A |
+> | contract | 6 | ✅ migrated | sub-batch B contract |
+> | agency | 3 | ✅ migrated | sub-batch B vendor+agency |
+> | vendor | 1 | ✅ migrated | sub-batch B vendor+agency |
+> | audit | 3 | ✅ migrated | sub-batch C |
+> | notification | 4 | ✅ migrated | sub-batch C + pilot |
+> | **小計** | **28** | **Wave 1 100%** | — |
+>
+> 其他 context（tender / erp / integration / calendar / ai / ...）尚未遷移，
+> 散戶仍在頂層。等 Wave 2 排程。
+>
+> Stub 預計 2026-Q3 移除（給內部 import 3 個月遷移時間）。
+
+
 | Context | 檔案 | 子職責 | 備註 |
 |---|---|---|---|
 | **document** (7) | `document_service.py` | core | 公文 CRUD 主入口 |

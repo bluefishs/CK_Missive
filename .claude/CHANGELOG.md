@@ -4,6 +4,77 @@
 
 ---
 
+## [5.10.0-rc] - 2026-04-27（Wave 1 services DDD 遷移 100% — 6/6 contexts 落地）
+
+### 🎯 Release Theme
+
+承接 v5.9.9 整合優化第一輪，本版**從文件落地到實戰**：將 SERVICE_CONTEXT_MAP
+所列 6 contexts × 28 檔的 services/ 散戶**全部遷移到子包**，原路徑保留 stub。
+
+**單一 dynamic /loop session 跨 6 輪迭代** — 從用戶單一 prompt 觸發，
+自我節奏執行直至 Wave 1 100%，0 行為變更。
+
+### 💥 9 commits 總結
+
+| Commit | Sub-batch | 檔數 | 重點 |
+|---|---|---|---|
+| `91c5fc16` | C pilot (notification_dispatcher) | 1 | SOP 驗證 |
+| `b106cc3a` | C 完整 (audit + notification 6 檔) | 6 | name collision SOP |
+| `173230f1` | B 部分 (vendor + agency 4 檔) | 4 | mock.patch SOP |
+| (sub-batch B contract) | B 完整 (contract 6 檔) | 6 | multi-line patch SOP |
+| (sub-batch A document) | A 完整 (document 11 檔) | 11 | 循環 import SOP |
+| `6c67ceba` | playbook v1.3 | docs | 收錄 4 次踩雷 |
+
+### 📊 Wave 1 最終成果
+
+```
+Bounded contexts 落地 (6/6)：
+  audit/        mixin / event_loggers / core
+  notification/ dispatcher / service / helpers / template
+  vendor/       core
+  agency/       core / matching / statistics
+  contract/     core / staff / analytics / case_code / field_sync / agency_contact
+  document/     core / dispatch_linker / import_logic / import_facade / filter /
+                statistics / export / processor / query_filter / serial_number /
+                receiver_normalizer
+```
+
+### 📐 範本化資產升級
+
+- `WAVE_1_SERVICES_MIGRATION_PLAYBOOK.md` v1.3 — 4 次實測踩雷皆收錄 SOP
+  - §4.3 mock.patch 路徑遷移（含 multi-line grep）
+  - §4.4 Class name collision
+  - §4.5 內部循環 import → relative import
+- `WAVE_1_RETROSPECTIVE.md` 新建 — 給其他 repo 引用的回顧文件
+- `SERVICE_CONTEXT_MAP.md` 加遷移狀態欄（28/85 檔已遷移）
+
+對 lvrland/PileMgmt 後續移植：**節省至少 1 小時摸索**（4 次踩雷皆已預警）。
+
+### 🛡️ 驗證
+
+- pytest 累計：461 passed / 7 pre-existing failed（皆為 async mock 設定問題，
+  逐個用 git stash 證實與遷移無關）
+- 22+ 條 import 路徑全綠，class identity 全保留
+- service entropy: 29.4% → 26.9%（短期下降有限，stub 算散戶 — 待 v6.0 移除）
+
+### 🔧 已知行為變更
+
+mock.patch 字串路徑 13 處 + 內部 lazy circular import 5 處 修正。
+這是「pure stub 零行為變更」原則的合理例外（playbook §4.3 / §4.5 已記載）。
+
+### 📝 v6.0 計畫
+
+- 2026-Q3：grep 確認 0 使用方後移除全部 stub，service entropy 大幅下降
+- Wave 2 候選：erp 收斂 + integration 集中（`integration/<channel>/`）
+
+### 🔗 引用
+
+跨 repo 引用此里程碑請用 FQID：
+- `CK_Missive#WAVE_1_RETROSPECTIVE_v1.0`
+- `CK_Missive#WAVE_1_SERVICES_MIGRATION_PLAYBOOK_v1.3`
+
+---
+
 ## [5.9.9] - 2026-04-27（整合優化第一輪 — KG 100% / Wiki 85% / SLO SSOT / 範本治理）
 
 ### 🎯 Release Theme
