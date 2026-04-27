@@ -1,6 +1,7 @@
 # ADR-0019: structlog 統一日誌格式
 
-> **狀態**: accepted
+> **狀態**: archived（2026-04-27，已落地完工）
+> **歸檔原因**: structlog stdlib bridge 已於 v5.6.0 全面落地，239 service 自動 JSON。Loki + Grafana 觀測棧穩定運行，本 ADR 降為實作參考
 > **日期**: 2026-04-18
 > **決策者**: Aaron (CK_Missive maintainer)
 > **關聯**: CHANGELOG v5.6.0, backend/app/core/structured_logging.py

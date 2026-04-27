@@ -1,9 +1,10 @@
 # ADR-0021: asyncpg 並行 DB 操作需使用獨立 session
 
-> **狀態**: accepted
+> **狀態**: archived（2026-04-27，superseded by ADR-0028）
+> **歸檔原因**: 政策已被 `scripts/checks/async_session_race_guard.py` 靜態守護吸收，pre-commit 自動阻擋違規。本 ADR 政策永久生效，但無需 active 追蹤
 > **日期**: 2026-04-19
 > **決策者**: 專案 Owner（事件觸發）
-> **關聯**: ADR-0019 (structlog), incident 2026-04-19T00:13:30 Telegram 告警
+> **關聯**: ADR-0028 (錯誤合約化 + 靜態守護), incident 2026-04-19T00:13:30 Telegram 告警
 
 ## 背景 — 告警事件
 

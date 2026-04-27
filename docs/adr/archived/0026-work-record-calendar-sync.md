@@ -1,6 +1,7 @@
 # ADR-0026: WorkRecord ↔ Calendar 自動同步 + 狀態三桶重構
 
-- **Status**: Accepted
+- **Status**: archived（2026-04-27，feature 已上線）
+- **歸檔原因**: WorkRecord ↔ Calendar 雙向同步已穩定運行，狀態三桶（pending/in_progress/closed）落地。降為實作參考
 - **Date**: 2026-04-21
 - **Deciders**: Aaron (jujuiacc@gmail.com, superuser)
 - **Related**: ADR-0024（Calendar Visibility）, morning_report_service

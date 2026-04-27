@@ -1,6 +1,7 @@
 # ADR-0024: Calendar 可見性擴充至承攬案件承辦同仁 + Superuser 直通
 
-- **Status**: Accepted
+- **Status**: archived（2026-04-27，feature 已上線）
+- **歸檔原因**: feature 於 v5.8.x 上線並穩定運行，業務驗收通過。降為實作參考
 - **Date**: 2026-04-21
 - **Deciders**: Aaron (jujuiacc@gmail.com)
 - **Related**: ADR-0003 (內網認證繞過), ADR-0013 (統一案號 case_code)
