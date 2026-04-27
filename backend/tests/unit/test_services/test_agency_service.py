@@ -74,7 +74,7 @@ def mock_agency_2():
 @pytest.fixture
 def service(mock_db):
     """建立 AgencyService，內部 repository 使用 mock"""
-    with patch("app.services.agency_service.AgencyRepository") as MockRepo:
+    with patch("app.services.agency.core.AgencyRepository") as MockRepo:
         mock_repo = MagicMock()
         # 將所有 async 方法設定為 AsyncMock
         mock_repo.get_by_id = AsyncMock()
@@ -93,7 +93,7 @@ def service(mock_db):
 @pytest.fixture
 def stats_service(mock_db):
     """建立 AgencyStatisticsService，內部 repository 使用 mock"""
-    with patch("app.services.agency_statistics_service.AgencyRepository") as MockRepo:
+    with patch("app.services.agency.statistics.AgencyRepository") as MockRepo:
         mock_repo = MagicMock()
         MockRepo.return_value = mock_repo
         svc = AgencyStatisticsService(mock_db)
@@ -104,7 +104,7 @@ def stats_service(mock_db):
 @pytest.fixture
 def matching_service(mock_db):
     """建立 AgencyMatchingService，內部 repository 使用 mock"""
-    with patch("app.services.agency_matching_service.AgencyRepository") as MockRepo:
+    with patch("app.services.agency.matching.AgencyRepository") as MockRepo:
         mock_repo = MagicMock()
         mock_repo.find_one_by = AsyncMock()
         mock_repo.get_by_name = AsyncMock(return_value=None)
@@ -131,7 +131,7 @@ class TestAgencyServiceInit:
 
     def test_init(self, mock_db):
         """測試 AgencyService 初始化 - 應建立 repository 並設定屬性"""
-        with patch("app.services.agency_service.AgencyRepository") as MockRepo:
+        with patch("app.services.agency.core.AgencyRepository") as MockRepo:
             mock_repo = MagicMock()
             MockRepo.return_value = mock_repo
 

@@ -58,7 +58,7 @@ def mock_repository():
 @pytest.fixture
 def service(mock_db, mock_repository):
     """建立測試用 VendorService，注入 mock repository"""
-    with patch("app.services.vendor_service.VendorRepository") as MockRepoClass:
+    with patch("app.services.vendor.core.VendorRepository") as MockRepoClass:
         MockRepoClass.return_value = mock_repository
         svc = VendorService(mock_db)
         # 確保使用 mock repository
@@ -102,7 +102,7 @@ class TestVendorServiceInit:
 
     def test_init(self, mock_db):
         """測試 VendorService 初始化時建立 repository"""
-        with patch("app.services.vendor_service.VendorRepository") as MockRepoClass:
+        with patch("app.services.vendor.core.VendorRepository") as MockRepoClass:
             mock_repo_instance = MagicMock()
             MockRepoClass.return_value = mock_repo_instance
 

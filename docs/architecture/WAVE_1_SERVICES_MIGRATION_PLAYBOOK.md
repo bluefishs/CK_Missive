@@ -188,6 +188,77 @@ bash scripts/checks/run_fitness.sh 2>&1 | grep entropy
 | 環形 import（document.core → contract.core → document.core）| 低 | runtime ImportError | sub-batch C 先做（無業務依賴） |
 | 測試套件 fixture path 寫死 | 低 | 測試 fail | 跑測試時若 fail 看 `tests/conftest.py` 是否硬編碼 |
 | pre-commit pyflakes 拒收 unused import | 低 | commit 失敗 | 用 `# noqa: F401` 標註 |
+| **mock.patch 字串路徑指向舊位置** ⚠️ | **高** | 測試 fail（assert called_once 失效） | 見 §4.3 SOP — 必跑測試前批次更新 patch 路徑 |
+| Class name collision（同子包 2+ 模組同名 type） | 中 | __init__.py wildcard 失敗 | 見 §4.4 — 改 explicit re-export 主類別策略 |
+
+### 4.3 mock.patch 路徑遷移 SOP（**Wave 1 sub-batch B 實測踩雷後新增**）
+
+mock.patch 替換的是「使用該名稱的 namespace」，不是定義位置。
+service 從 `services/foo_service.py` 搬到 `services/foo/core.py` 後：
+
+```python
+# foo/core.py 內部
+from app.repositories.foo_repository import FooRepository
+
+class FooService:
+    def __init__(self, db):
+        self.repository = FooRepository(db)  # 引用 foo.core.FooRepository
+```
+
+**測試碼若還用舊路徑** patch，會完全失效：
+
+```python
+# ❌ 失效（patch 的是 stub 模組的 namespace，service 不引用該 namespace）
+with patch("app.services.foo_service.FooRepository") as MockRepo:
+    svc = FooService(mock_db)
+    assert svc.repository is mock_repo.return_value  # AssertionError
+
+# ✅ 正解（patch service 實際所在的 namespace）
+with patch("app.services.foo.core.FooRepository") as MockRepo:
+    ...
+```
+
+**SOP**：每個 sub-batch 完成 git mv 後立即跑：
+
+```bash
+# 找出所有需要更新的 patch 路徑
+grep -rn 'patch("app\.services\.<old_name>\.' backend/tests/
+
+# 批次替換（per service）
+sed -i 's|app\.services\.foo_service\.\([A-Z]\w*\)|app.services.foo.core.\1|g' \
+  backend/tests/unit/test_services/test_foo_service.py
+```
+
+修正後 commit 應 include test 檔（這是預期的行為變更，違反「pure stub 零行為變更」原則但**必須**做）。
+
+### 4.4 Class name collision SOP（notification 子包實測）
+
+當子包 2+ 模組定義同名類別（如 `notification.service.NotificationType` 與
+`notification.template.NotificationType`），`__init__.py` 不能用 wildcard：
+
+```python
+# ❌ 失敗：from .service import * → NotificationType A
+#         from .template import * → NotificationType B 覆蓋 A
+from .service import *
+from .template import *
+
+# ✅ 改採 explicit re-export 主 service 類別策略
+from .service import NotificationService
+from .template import NotificationTemplateService
+# 子類型 NotificationType 等需從具體 .service / .template 路徑 import
+```
+
+對應 stub 必須 explicit 列出全部 names：
+
+```python
+# stub services/notification_service.py
+from .notification.service import (
+    NotificationService,
+    NotificationType,
+    NotificationSeverity,
+    CRITICAL_FIELDS,
+)
+```
 
 ### 4.2 回滾 SOP
 
