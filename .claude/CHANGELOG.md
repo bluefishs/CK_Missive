@@ -4,6 +4,108 @@
 
 ---
 
+## [5.9.9] - 2026-04-27（整合優化第一輪 — KG 100% / Wiki 85% / SLO SSOT / 範本治理）
+
+### 🎯 Release Theme
+
+承接 v5.9.8 業務 embedding 100%，本版**從業務面擴到全棧治理面**：
+
+- **KG embedding 49% → 100%**（補齊 code-graph 9,774 entity，py_function/py_class/ts_*/api_endpoint/schema 全綠）
+- **Wiki↔KG 49% → 85%**（dispatch 30% → 100%，達 §4.2 80% 閾值）
+- **timeouts.py SSOT 落地**（兌現 ADR-0028 承諾，原是 dead doc）
+- **ADR 健康度 19 → 15 [GREEN]**（歸檔 4 已落地/已被吸收 ADR）
+- **TEMPLATE_EXTRACTION.md 350+ 行**（30-min quick-start，給 lvrland/PileMgmt/KMapAdvisor 引用）
+- **scripts/checks/README.md**（31 checker 分類索引 + 範本化等級）
+- **Wave 1 services DDD playbook**（27 檔遷移 SOP，待 owner 拍板）
+
+**「dynamic /loop」整合優化模式驗證**：用戶單一 prompt 觸發 6 任務自我節奏執行，3 commits 落地
+
+### 💥 3 commits
+
+#### `284ef07e` — feat: v5.9.9 整合優化第一輪主體（109 files / +926 -319）
+
+- **P0-1**: `backfill_kg_embeddings_all.py --apply --all` 補齊 10,792 entity（~3 min, zero cost）
+  - py_function 5,453 / py_class 1,300 / ts_interface 864 / py_module 825 / ts_module 787 / api_endpoint 502 / ts_hook 322 / ts_component 290 / ts_type 141 / schema 115 / db_table 63 / 其他
+- **P0-2**: `backend/app/core/timeouts.py` SSOT 建立
+  - `TimeoutContract` re-export 自 ai_config（無重複定義）
+  - `SLOContract` 提供 ADR-0030 P95 拍板的客觀錨點
+  - 兌現 ADR-0028 承諾的 SSOT — 原本只是 dead doc 反模式（ADR-0028 自批評的）
+- **P0-3**: `backfill_wiki_dispatch_kg.py --apply` 88 dispatch wiki 補 kg_entity_id
+  - 整體連結率 49% → **85%**（dispatch 30% → 100%）
+- **P1**: `docs/architecture/TEMPLATE_EXTRACTION.md` 350+ 行
+  - 30-min quick-start checklist (10 項)
+  - L1-L4 範本化等級分類
+  - 跨 repo 移植 SOP（Fitness / ADR / 觀測棧 / Hermes Bridge Skill）
+  - 6 反模式（從本 repo 淬鍊）
+- **P2**: `scripts/checks/README.md` 31 checker 分類索引
+  - FITNESS / PRE-COMMIT / ON-DEMAND / SCHEDULED 4 類
+  - 各 checker 標範本化等級 + 移植成本
+
+#### `eb28174b` — docs: ADR 健康度衝 GREEN（active 19 → 15）
+
+歸檔 4 個已落地/已被吸收 ADR：
+- **ADR-0019** structlog 統一日誌 — v5.6.0 全面落地穩定運行
+- **ADR-0021** asyncpg 並行 session — superseded by ADR-0028 靜態守護
+- **ADR-0024** Calendar 可見性擴充 — feature 於 v5.8.x 上線
+- **ADR-0026** WorkRecord ↔ Calendar 同步 — 雙向同步穩定
+
+每檔加歸檔原因 metadata（保 history，僅標記降為實作參考）。
+
+#### `c8769fd2` — docs: Wave 1 services DDD 遷移 playbook（待 owner 拍板）
+
+- 6 context × 27 檔遷移計畫
+- 3 sub-batch 切片（C audit/notification 1h, B contract/agency/vendor 1.5h, A document 2h）
+- 每 sub-batch 標準 5 步驟 SOP + DoD 驗證準則 + 回滾 SOP
+- 範本化指引（給 lvrland/PileMgmt 等子專案）
+
+### 📊 Fitness 6 step 全綠（首次 100% KG embedding）
+
+```
+[1/6] Service entropy:           PASS（散戶比例待 Wave 1 落地後再降）
+[2/6] Dead config scan:          PASS
+[3/6] SOUL mirror drift:         PASS
+[4/6] Wiki↔KG link audit:        PASS（49% → 85%, 達標 80% 閾值）
+[5/6] KG embedding coverage:     PASS（49% → 100%）✨
+[6/6] Architecture standard:     PASS
+```
+
+### 🛡️ ADR 治理
+
+- Active 19 → **15** [GREEN]（≤ 15 健康區間）
+- Archived 10 → 14
+- 治理結晶：ADR Lifecycle Policy（ADR-0029）首次達標
+
+### 📐 範本化資產（給 CKProject 子專案引用）
+
+- **L4 Plug-and-Play**: 6 step fitness、4 靜態守護、`prometheus_middleware.py`、`backfill_kg_embeddings_all.py`
+- **L3 Configurable**: `timeouts.py`、Grafana dashboards、alerts.yml
+- **L2 Reference**: STANDARD_REFERENCE / TEMPLATE_EXTRACTION / WAVE_1_PLAYBOOK / SERVICE_CONTEXT_MAP
+
+### 🔧 Bug Fixes
+
+- `backfill_kg_embeddings_all.py`：Windows cp950 unicode 編碼問題
+- `backfill_wiki_dispatch_kg.py`：同上
+
+### 🧪 Verification
+
+```bash
+bash scripts/checks/run_fitness.sh           # 6 step 全綠
+python -c "from app.core.timeouts import TIMEOUTS, SLO; print(TIMEOUTS, SLO)"
+python scripts/checks/adr_lifecycle_check.py  # [GREEN] active 15
+```
+
+### 📝 Hermes 5/20 GO 條件最新狀態
+
+| GO 條件 | 閾值 | 實測 | 達標? |
+|---|---|---|---|
+| #1 Baseline | ≥ 30 | 累計 370+ | ✅ |
+| #2 Owner dogfooding | 7 天 | D1/D2 客觀齊；D3-7 待填 | 🟡 |
+| #3 Soul fidelity | ≥ 70% | ollama qwen2.5:7b **85%** / groq **75%** | ✅ |
+| #4 Error rate | < 5% | **0%** | ✅ |
+| #5 P95 | （重訂中） | v5.9.9 提案：混合 SLO 方案 B+C | 🟡 待 5/20 投票 |
+
+---
+
 ## [5.9.8] - 2026-04-25（坤哥意識體跨通道完整修復 + 全 KG 業務 embedding）
 
 ### 🎯 Release Theme
