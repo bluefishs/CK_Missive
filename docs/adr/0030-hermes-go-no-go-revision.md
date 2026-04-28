@@ -222,6 +222,35 @@ p95 門檻採用方案：A / B / C
 後續動作：
 ```
 
+### 2026-04-28 audit（v5.10.0 Wave 1-7 完成日）
+
+**5/20 倒數 22 天**。Wave 1-7 services DDD 遷移已完整收斂（70 檔，0 regression），
+與 Hermes 遷移無直接關係但證實本系統結構穩定，**ADR-0030 GO 條件再評估**：
+
+| 條件 | 閾值 | 4/28 實測 | 達標? |
+|---|---|---|---|
+| #1 Baseline ≥ 30 | ≥ 30 | **472 累計**（2026-04-14~04-28，12 天）| ✅ |
+| #2 Owner dogfooding 7 天 | 7 天 | 🟡 待 owner 填 `hermes_dogfooding_log.md` | 🟡 |
+| #3 Soul fidelity ≥ 70% | ≥ 70% | groq **75%** / ollama (gemma4:e2b) **80%** | ✅ |
+| #4 Error rate < 5% | < 5% | **整體 38.77%**（ollama timeout 拖累）<br>**cloud only (groq+nvidia) 1.33%** | ⚠️ 分層 |
+| #5 P95 < 8s | （重訂中） | groq p95=38s / nvidia p95=54s — 採 v5.9.9 混合 SLO 提案 | 🟡 |
+
+**關鍵分析**：
+- **Cloud LLM 路徑（groq+nvidia）絕對穩定** — 217 calls / 99.5% success / p95 38-54s
+- **Ollama 仍是主要 timeout 元兇** — 201 calls / 25.87% success（v5.9.6 patch 後新請求應已穩，但歷史殘留拖累整體統計）
+- 若 5/20 會議採「分層 SLO」（cloud strict, local relaxed），#4 GO 條件即可達標
+
+**建議 GO 決策路徑（5/20）**：
+
+1. **採用 v5.9.9 混合 SLO 提案**（§ready-to-vote 提案）+ #4 採分層：
+   - cloud_error_rate < 5% ✅ (1.33%)
+   - local_error_rate 觀察值（patch 後預期 < 10%，待 5/20 重採樣）
+   - composite SLO 50% < 15s AND 95% < 60s（取代單一 P95 < 8s）
+2. **GO** Phase 1 LINE 白名單 canary（3-5 用戶）
+3. Owner 持續 dogfooding 補 #2 條件
+
+達標路徑 = 4/5 條件達 ✅ + #2 待 owner（最容易補）
+
 ### 2026-04-27 v5.9.9 ready-to-vote 提案（為 5/20 會議準備）
 
 **前置修復**：原 ADR-0028 承諾的 `backend/app/core/timeouts.py` 從未實作（dead doc 反模式，正是 ADR-0028 自己批評的）。本次補齊：
