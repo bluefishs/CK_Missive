@@ -137,6 +137,12 @@ export const ADMIN_USER_MANAGEMENT_ENDPOINTS = {
   LINE_BIND: (id: number) => `/admin/user-management/users/${id}/line-bind`,
   /** 管理員解除 LINE POST /admin/user-management/users/:id/line-unbind */
   LINE_UNBIND: (id: number) => `/admin/user-management/users/${id}/line-unbind`,
+  /** ADR-0025 偵測潛在分身 POST /admin/users/alias-candidates */
+  ALIAS_CANDIDATES: '/admin/users/alias-candidates',
+  /** ADR-0025 合併分身 POST /admin/users/merge-alias */
+  ALIAS_MERGE: '/admin/users/merge-alias',
+  /** ADR-0025 合併歷史 POST /admin/users/merge-history */
+  ALIAS_MERGE_HISTORY: '/admin/users/merge-history',
 } as const;
 
 /** 案件廠商關聯 API 端點 */

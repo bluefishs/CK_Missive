@@ -6,16 +6,17 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card, Button, Input, Select, Row, Col, Typography, AutoComplete,
+  Card, Button, Input, Select, Row, Col, Typography, AutoComplete, Space,
 } from 'antd';
 import type { TableProps } from 'antd';
 import { ResponsiveTable } from '../components/common';
 import debounce from 'lodash/debounce';
-import { PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, TeamOutlined, UserSwitchOutlined } from '@ant-design/icons';
 import type { User } from '../types/api';
 import { useAdminUsersPage, useResponsive } from '../hooks';
 import { ROUTES } from '../router/types';
 import { useUserColumns } from './useUserColumns';
+import { AliasIntegrationDrawer } from '../components/admin/AliasIntegrationDrawer';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -31,6 +32,7 @@ const UserManagementPage: React.FC = () => {
   const [searchOptions, setSearchOptions] = useState<{ value: string; label: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [aliasDrawerOpen, setAliasDrawerOpen] = useState(false);
 
   // ADR-0025 Identity Unification：永遠以完整姓名為單位呈現（canonical + 聚合 aliases），
   // 活躍用戶優先。已停用帳號以狀態過濾器檢視。
@@ -89,9 +91,19 @@ const UserManagementPage: React.FC = () => {
               </Title>
             </Col>
             <Col xs={24} sm={12} style={{ textAlign: isMobile ? 'left' : 'right' }}>
-              <Button type="primary" icon={<PlusOutlined />} size={isMobile ? 'small' : 'middle'} onClick={handleCreate}>
-                {isMobile ? '' : '新增使用者'}
-              </Button>
+              <Space>
+                <Button
+                  icon={<UserSwitchOutlined />}
+                  size={isMobile ? 'small' : 'middle'}
+                  onClick={() => setAliasDrawerOpen(true)}
+                  title="ADR-0025 Identity Unification — 整合多種認證方式建立的同名分身"
+                >
+                  {isMobile ? '' : '認證整合'}
+                </Button>
+                <Button type="primary" icon={<PlusOutlined />} size={isMobile ? 'small' : 'middle'} onClick={handleCreate}>
+                  {isMobile ? '' : '新增使用者'}
+                </Button>
+              </Space>
             </Col>
           </Row>
         </div>
@@ -156,6 +168,14 @@ const UserManagementPage: React.FC = () => {
           }}
         />
       </Card>
+
+      <AliasIntegrationDrawer
+        open={aliasDrawerOpen}
+        onClose={() => {
+          setAliasDrawerOpen(false);
+          refetch();
+        }}
+      />
     </div>
   );
 };
