@@ -240,6 +240,59 @@ multi-line 寫法。**必用 ripgrep --multiline 或 grep -P 才完整**。
 
 修正後 commit 應 include test 檔（這是預期的行為變更，違反「pure stub 零行為變更」原則但**必須**做）。
 
+### 4.7 Production caller 路徑同步 SOP（**Wave 3 integration 實測踩雷後新增**）
+
+當 sub-batch 包含被多處 mock.patch 的 service（如 line_bot / discord_bot），
+若僅 patch 「定義位置」(stub re-export) 而 production caller 仍走舊 stub path，
+patch 將因 namespace 不一致而**完全失效**。
+
+```python
+# ❌ 失效情境：
+# test patch:        @patch("app.services.integration.line_bot.get_line_bot_service")
+# notification/dispatcher.py 內部:
+#   from app.services.line_bot_service import get_line_bot_service  # 走 stub
+#   service = get_line_bot_service()  # 走 stub namespace 的 reference
+# patch 命中 integration.line_bot.get_line_bot_service binding
+# 但 dispatcher 用的是 stub namespace → patch 失效
+```
+
+**解法**：sub-batch 完成後，**production code 也批次更新到新路徑**：
+
+```bash
+for f in $(grep -rl "from app\.services\.<old_name>" backend/app/ backend/main.py); do
+  sed -i 's|from app\.services\.<old_name>|from app.services.<context>.<new_name>|g' "$f"
+done
+```
+
+實測 Wave 3 integration：23 個 regression 全消（修正 production caller 後）。
+此 SOP 違反「pure stub 零行為變更」但**必須**做，否則測試 patch 無法命中。
+
+### 4.8 Multi-line patch sed 失效 → 手動 Edit SOP（**Wave 4 tender 實測踩雷後新增**）
+
+sed 是 line-based 替換工具，但 Python 慣用法允許 patch 字串跨行：
+
+```python
+with patch(
+    "app.services.<old>.<Cls>"   # ← 字串在獨立一行
+) as MockSvc:
+    ...
+```
+
+`sed 's|app\.services\.<old>\.|new|g' file.py` **可能失敗**，因為跨行字串中
+`app.services.<old>.<Cls>` 整體在同一行（OK），但 `with patch(\n    "..."` 寫法時
+sed 的行模式可能誤判 word boundary。
+
+**SOP**：每個 sub-batch 完成 sed 替換後跑：
+
+```bash
+# 找出殘留的舊路徑
+rg --multiline "patch\(\s*[\"']app\.services\.<old>\." backend/tests/
+
+# 對殘留逐個 manual Edit（不用 sed）
+```
+
+實測 Wave 4：sed 漏 5 處 multi-line patch，手動 Edit 才修好。
+
 ### 4.6 Private function (`_` 開頭) re-export SOP（**Wave 2 ERP 實測踩雷後新增**）
 
 Python `from module import *` 預設**不 import** 底線開頭的名字（private convention）。

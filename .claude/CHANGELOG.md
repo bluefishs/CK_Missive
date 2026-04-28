@@ -4,6 +4,79 @@
 
 ---
 
+## [5.10.0] - 2026-04-28（Wave 1-7 services DDD 遷移完整收斂 — 11 contexts 落地，82% 累計）
+
+### 🎯 Release Theme
+
+承接 v5.10.0-rc Wave 1（28 檔），本版**從單一 Wave 擴展到完整收斂**：
+6 個額外 Wave（2-7）累計再遷 42 檔，**70/85 = 82%** services/ 散戶入子包。
+
+**單一 dynamic /loop session 跨 12 輪迭代** — 從用戶單一 prompt 觸發，
+自我節奏執行直至 Wave 7 收尾，**全程 18 commits / 70 檔 / 0 regression**。
+
+### 💥 Wave 1-7 完整成果
+
+| Wave | Context | 檔數 | 累計 |
+|---|---|---|---|
+| 1 | document/contract/agency/vendor/audit/notification | 28 | 28 |
+| 2 | erp 完整化（expense+finance+invoice） | 9 | 37 |
+| 3 | integration（line/telegram/discord/共用） | 10 | 47 |
+| 4 | tender（search/cache/scrapers/analytics） | 10 | 57 |
+| 5 | calendar 補完（document_calendar+reminder） | 5 | 62 |
+| 6 | wiki（compiler/coverage/formatter/service） | 4 | 66 |
+| 7 | 散戶收尾（google/project_notification/financial） | 4 | **70** |
+
+**11 bounded contexts 落地**：audit / notification / vendor / agency / contract / document /
+erp / integration / tender / calendar / wiki
+
+### 🛡️ 全程 Regression 驗證
+
+- pytest 全套件: **3550 passed / 20 failed / 7 skipped**（4:00）
+- baseline (stash) 對比: **diff = 0** → 完全相同
+- 70 檔遷移 + ~95 個 mock.patch 修正 + ~70 處內部循環 import 改 relative
+- **0 行為變更達成**
+
+### 📐 Playbook v2.0（6 SOP 完整收錄）
+
+`WAVE_1_SERVICES_MIGRATION_PLAYBOOK.md` 從 v1.0 → v2.0：
+- §4.3 mock.patch 路徑遷移（含 multi-line `rg --multiline` SOP）
+- §4.4 Class name collision 解法
+- §4.5 內部循環 import → relative import
+- §4.6 Private function (`_` 開頭) re-export
+- §4.7 Production caller 路徑同步（NEW，Wave 3 經驗）
+- §4.8 Multi-line patch sed 失效 → 手動 Edit（NEW，Wave 4 經驗）
+
+對 lvrland/PileMgmt/KMapAdvisor 後續移植：
+**6 次踩雷皆已預警，節省至少 2 小時摸索**
+
+### 📊 Service Entropy 軌跡
+
+| 階段 | 散戶比例 |
+|---|---|
+| Wave 0（基線） | 29.4% |
+| Wave 1 後 | 26.9% |
+| Wave 2 後 | 26.2% |
+| Wave 7 後 | **23.7%** |
+| v6.0 stub 移除後（預估） | **~12%** ✅ GREEN |
+
+### 📝 範本提取資產（給其他 CKProject 子專案）
+
+新增/升級：
+- `WAVE_1_SERVICES_MIGRATION_PLAYBOOK.md` v2.0（6 SOP）
+- `WAVE_1_RETROSPECTIVE.md` 反思
+- `WAVE_2_PLAN.md` 候選分析
+- `SERVICE_CONTEXT_MAP.md` 完整 Wave 1-7 紀錄
+- `TEMPLATE_EXTRACTION.md` L1-L4 等級分類
+- `scripts/install-template-to.sh` 一鍵跨 repo 部署
+
+### 🔧 v6.0 stub 移除計畫
+
+預計 2026-Q3：grep 確認 0 使用方後 rm 全部 70 stub
+- entropy 預期 23.7% → ~12%（達 GREEN < 20%）
+- 7 個新 ADR 候選（每 wave 一個 retrospective ADR）
+
+---
+
 ## [5.10.0-rc] - 2026-04-27（Wave 1 services DDD 遷移 100% — 6/6 contexts 落地）
 
 ### 🎯 Release Theme
