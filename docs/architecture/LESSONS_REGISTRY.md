@@ -227,8 +227,18 @@
 | **Trigger** | Owner / 新 Claude session 接手時，需從 git log + 7 份 doc 重建 incident 脈絡 |
 | **Cause** | 對策淬鍊散在 commit messages（R1~R7）+ ADR 章節 + PLAYBOOK §4.x + RETROSPECTIVE 等 |
 | **Fix** | v5.10.1：建本檔 `LESSONS_REGISTRY.md` 為單點查詢 SSOT |
-| **Prevention** | 任何「發現 → 對策」必新增 L## entry 在本檔；commit message 末尾加 `Refs: L##` |
-| **Refs** | 本檔自身 / commit `<this-commit>` |
+| **Prevention** | 任何「發現 → 對策」必新增 L## entry 在本檔；commit message 末尾加 `Refs: L##`；`lessons_drift_check.py` (commit `2cee9943`) detector 月度跑防 dead doc |
+| **Refs** | 本檔自身 / commit `3fd04734` / `lessons_drift_check.py` |
+
+## L22 — 範本資產缺跨 repo 引用治理規範
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 範本資產（playbook / lesson / detector / component）數量爆炸性增長（27+），但 consumer repo 不知如何引用、升級、回饋 |
+| **Cause** | CK_AaaP/CONVENTIONS §1.3 只涵蓋 ADR FQID（`Repo#NNNN`），沒涵蓋範本資產的 FQID 命名 / 版本管理 / 引用模式 / 升級通知 / 貢獻回流規範 |
+| **Fix** | v5.10.1：建 `CROSS_REPO_REFERENCE_GUIDE.md` 補完規範 — 5 大類別 FQID + 3 引用模式 + SemVer + 月度健檢 SOP + 27 範本資產目錄 + 4 個 consumer anti-pattern |
+| **Prevention** | (a) 新增範本資產時必加 FQID 至 §6 目錄 (b) 升 minor/major 必更新 CHANGELOG `Note for consumers` 段 (c) `notify-consumers.py` (v6.0 規劃) |
+| **Refs** | commit `b3112a9d` / `CROSS_REPO_REFERENCE_GUIDE_v1.0` / 同類 L20 dead doc 預防 |
 
 ---
 
