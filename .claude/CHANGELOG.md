@@ -4,6 +4,79 @@
 
 ---
 
+## [5.10.2] - 2026-04-28（範本治理體系完整收尾 — Cross-Repo Reference v6.0 100%）
+
+### 🎯 Release Theme
+
+承接 v5.10.1 lessons registry，本版**從單檔 SSOT 擴展到完整跨 repo 治理體系**：
+- LESSONS_REGISTRY 22 條 lessons 完整收錄
+- 4 detector 三件組（agent_evolution + lessons_drift + dead_ui + notify_consumers）
+- CROSS_REPO_REFERENCE_GUIDE v6.0 規劃 100% 完成
+- consumers.yml + PR template + notify_consumers.py 治理三件套
+
+### 💥 14 commits 累計（v5.10.1 → v5.10.2）
+
+#### LESSONS_REGISTRY 完整建構（22 lessons）
+- L01~L20 v5.10.1 首批 20 條
+- L21 agent evolution scheduler 整合斷鏈（commit `e86580a3`）
+- L22 範本資產跨 repo 引用治理規範（commit `b3112a9d`）
+
+#### 4 Detector 三件組
+- `agent_evolution_health.py` (commit `e86580a3`) — L21 prevention
+- `lessons_drift_check.py` (commit `2cee9943`) — L20 prevention
+- `dead_ui_detector.py` (commit `6ccb795e`) — L10 / PLAYBOOK §6.5
+- `notify_consumers.py` (commit `d7fd0038`) — L22 / CROSS_REPO_REFERENCE_GUIDE §4.3
+
+#### CROSS_REPO_REFERENCE_GUIDE v6.0 100% 完成
+- `CROSS_REPO_REFERENCE_GUIDE.md` (commit `b3112a9d`) — 383 行 9 章
+- `.github/PULL_REQUEST_TEMPLATE.md` (commit `26fc3eff`) — 變更 + 範本貢獻雙模板
+- `docs/architecture/consumers.yml` (commit `26fc3eff`) — 7 consumer 註冊 + asset_compatibility
+- `notify_consumers.py` (commit `d7fd0038`) — pull-based 升級通知 detector
+
+#### Fitness 6 → 7 step + Playbook v2.0 → v2.2
+- `[7/7] Agent evolution health` (commit `310a0e46`)
+- `install-template-to.sh` 從 8 → 12 fitness 檔
+- §4.9 Deferred config marker SOP（v2.1）
+- §6.5 Dead UI Anti-pattern（v2.2）
+
+### 🛡️ 全程驗證（41 commits 累計）
+
+- **pytest tests/**: 3550 passed / 20 failed / 7 skipped (3:22)
+- vs Wave 7 baseline = **diff 0** → 全程 0 regression
+- **fitness 7 step 全綠**
+
+### 📐 Source Repo 自我治理閉環達成
+
+```
+發現 lesson → LESSONS_REGISTRY 記錄 → lessons_drift_check 驗證 →
+  install-template-to 範本化 → consumers.yml 註冊 →
+    notify_consumers 升級通知 → PR template 回流貢獻
+```
+
+### 📊 範本資產目錄 29 件
+
+| 等級 | 數量 |
+|---|---|
+| L4 Plug-and-Play | 12 |
+| L3 Configurable | 4 |
+| L2 Reference | 10 |
+| ADR | 3 |
+
+詳見 `docs/architecture/CROSS_REPO_REFERENCE_GUIDE.md` §6
+
+### 🔧 Owner 月度治理 SOP
+
+```bash
+bash scripts/checks/run_fitness.sh                    # fitness 7 step
+python scripts/checks/lessons_drift_check.py          # lessons 健康
+python scripts/checks/notify_consumers.py             # 通知 consumer 升級
+python scripts/checks/adr_lifecycle_check.py          # ADR GREEN
+```
+
+引用 FQID: `CK_Missive#CHANGELOG_v5.10.2`
+
+---
+
 ## [5.10.1] - 2026-04-28（Wave 8 + bug fixes + admin UI 整合）
 
 ### 🎯 Release Theme
