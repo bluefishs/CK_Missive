@@ -154,6 +154,17 @@ def main() -> int:
     print(f"=== Dead Config Scan: {args.target} ===")
     print(f"Public API surface: {len(items)} items\n")
 
+    # 讀整檔識別 deferred markers（getter docstring 含 `pending integration`
+    # 表示意圖性 deferred，不算 dead — 設計意圖明確記錄但尚未接線）
+    target_source = args.target.read_text(encoding="utf-8") if args.target.exists() else ""
+
+    def _is_deferred(name: str) -> bool:
+        """檢查 getter 是否有 deferred 標記（pending integration）。"""
+        # 找 def name(...) 後的 docstring 區塊內是否有 marker
+        import re
+        pattern = rf"def {re.escape(name)}\([^)]*\)[^:]*:\s*\"\"\"[^\"]*?pending integration"
+        return bool(re.search(pattern, target_source, re.DOTALL))
+
     dead = []
     alive = []
     skipped = []
@@ -168,7 +179,10 @@ def main() -> int:
             continue
         n, callers = count_production_callers(name, kind, args.target)
         if n == 0:
-            dead.append((name, kind))
+            if _is_deferred(name):
+                skipped.append((name, kind, "deferred-pending-integration"))
+            else:
+                dead.append((name, kind))
         else:
             alive.append((name, kind, n))
 

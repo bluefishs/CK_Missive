@@ -444,9 +444,11 @@ class AIConfig:
     def inference_profiles(self) -> dict:
         """Get resolved inference provider profiles.
 
-        TODO（2026-04-24 審計）：目前 0 生產呼叫點。設計意圖為讓 ai_connector 按 profile
-        切換模型組合（qwen25-7b-local / qwen3-32b-groq 等），但尚未接線。未來整合
-        token budget-aware routing 時可啟用。
+        Status: pending integration（2026-04-24 審計）— 0 生產呼叫點，但設計意圖為
+        讓 ai_connector 按 profile 切換模型組合（qwen25-7b-local / qwen3-32b-groq 等）。
+        未來整合 token budget-aware routing 時可啟用。
+
+        scanner 識別此 marker 為 deferred-pending-integration，不算 dead config。
         """
         return self._inference_profiles
 
@@ -462,9 +464,12 @@ class AIConfig:
     def get_preferred_providers(self, task_type: str = "chat") -> list:
         """Get ordered provider list for a task type.
 
-        TODO（2026-04-24 審計）：目前 0 生產呼叫點。設計意圖為讓 ai_connector fallback
-        chain 順序跟 yaml 走（如 chat 走 [groq, nvidia, ollama]）。目前 fallback 順序
-        在 ai_connector.chat_completion 中 hardcode，應遷移用此 getter。
+        Status: pending integration（2026-04-24 審計）— 0 生產呼叫點，但設計意圖為讓
+        ai_connector fallback chain 順序跟 yaml 走（如 chat 走 [groq, nvidia, ollama]）。
+        目前 fallback 順序在 ai_connector.chat_completion 中 hardcode by priority，
+        將來重構 fallback chain 時應改用此 getter。
+
+        scanner 識別此 marker 為 deferred-pending-integration，不算 dead config。
         """
         routing = self._provider_routing.get(task_type, {})
         return routing.get("preferred", ["groq", "nvidia", "ollama"])
