@@ -105,7 +105,7 @@ class TestDatabaseCheck:
 class TestConnectionPoolCheck:
     """測試連線池狀態檢查"""
 
-    @patch("app.services.system_health_service.engine")
+    @patch("app.services.system.health_service.engine")
     def test_pool_healthy(self, mock_engine):
         """連線池正常"""
         from app.services.system_health_service import SystemHealthService
@@ -124,7 +124,7 @@ class TestConnectionPoolCheck:
         assert result["pool_info"]["size"] == 10
         assert result["pool_info"]["checked_out"] == 3
 
-    @patch("app.services.system_health_service.engine")
+    @patch("app.services.system.health_service.engine")
     def test_pool_zero_size(self, mock_engine):
         """連線池大小為 0 時不除零"""
         from app.services.system_health_service import SystemHealthService
@@ -141,7 +141,7 @@ class TestConnectionPoolCheck:
         assert result["status"] == "healthy"
         assert result["utilization_percent"] == 0
 
-    @patch("app.services.system_health_service.engine")
+    @patch("app.services.system.health_service.engine")
     def test_pool_check_failure(self, mock_engine):
         """連線池檢查失敗"""
         from app.services.system_health_service import SystemHealthService
@@ -161,7 +161,7 @@ class TestConnectionPoolCheck:
 class TestSystemResourcesCheck:
     """測試系統資源檢查"""
 
-    @patch("app.services.system_health_service.psutil")
+    @patch("app.services.system.health_service.psutil")
     def test_resources_healthy(self, mock_psutil):
         """系統資源正常"""
         from app.services.system_health_service import SystemHealthService
@@ -184,7 +184,7 @@ class TestSystemResourcesCheck:
         assert result["memory"]["used_percent"] == 65.0
         assert result["disk"]["used_percent"] == 50.0
 
-    @patch("app.services.system_health_service.psutil")
+    @patch("app.services.system.health_service.psutil")
     def test_resources_high_memory_warning(self, mock_psutil):
         """記憶體使用過高時顯示警告"""
         from app.services.system_health_service import SystemHealthService
@@ -206,7 +206,7 @@ class TestSystemResourcesCheck:
         assert result["status"] == "warning"
         assert "High memory usage" in result["warnings"]
 
-    @patch("app.services.system_health_service.psutil")
+    @patch("app.services.system.health_service.psutil")
     def test_resources_high_disk_warning(self, mock_psutil):
         """磁碟使用過高時顯示警告"""
         from app.services.system_health_service import SystemHealthService
@@ -228,7 +228,7 @@ class TestSystemResourcesCheck:
         assert result["status"] == "warning"
         assert "High disk usage" in result["warnings"]
 
-    @patch("app.services.system_health_service.psutil")
+    @patch("app.services.system.health_service.psutil")
     def test_resources_both_warnings(self, mock_psutil):
         """記憶體和磁碟都過高"""
         from app.services.system_health_service import SystemHealthService
@@ -452,7 +452,7 @@ class TestDataQualityCheck:
 class TestBackupStatusCheck:
     """測試備份狀態檢查"""
 
-    @patch("app.services.system_health_service.SystemHealthService.check_backup_status")
+    @patch("app.services.system.health_service.SystemHealthService.check_backup_status")
     def test_backup_healthy(self, mock_check):
         """備份正常"""
         mock_check.return_value = {
@@ -466,7 +466,7 @@ class TestBackupStatusCheck:
         assert result["status"] == "healthy"
         assert result["scheduler_running"] is True
 
-    @patch("app.services.system_health_service.SystemHealthService.check_backup_status")
+    @patch("app.services.system.health_service.SystemHealthService.check_backup_status")
     def test_backup_warning_failures(self, mock_check):
         """備份有失敗記錄"""
         mock_check.return_value = {

@@ -70,7 +70,9 @@ commit title: refactor: services/* → services/<context>/ (bounded context migr
 > | calendar (補 google) | 2 | ✅ migrated | Wave 7 |
 > | notification (補 project) | 1 | ✅ migrated | Wave 7 |
 > | erp (補 financial_summary) | 1 | ✅ migrated | Wave 7 |
-> | **Wave 1~7 累計** | **70** | — | v5.10.0+ |
+> | backup (補 auto_scheduler) | 1 | ✅ migrated | Wave 8 |
+> | system (NEW health_service+health_checks) | 2 | ✅ migrated | Wave 8 |
+> | **Wave 1~8 累計** | **73** | — | v5.10.0+ |
 >
 > 剩 ~15 雜項散戶（admin/backup/system_health/import/excel/csv/coding/skill/
 > kb_embedding/search_optimizer/security/navigation/taoyuan_link/user_alias 等），

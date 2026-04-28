@@ -123,7 +123,7 @@ class AnalysisToolExecutor:
 
     async def get_system_health_report(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """取得系統健康報告（乾坤智能體專用）"""
-        from app.services.system_health_service import SystemHealthService
+        from app.services.system.health_service import SystemHealthService
 
         svc = SystemHealthService(self.db)
         summary = await svc.build_summary()

@@ -14,7 +14,7 @@ from datetime import datetime
 from app.core.rate_limiter import limiter
 from app.extended.models import User
 from app.core.dependencies import require_admin, get_service
-from app.services.system_health_service import (
+from app.services.system.health_service import (
     SystemHealthService,
     set_startup_time,
     get_uptime,

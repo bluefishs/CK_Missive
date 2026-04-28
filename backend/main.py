@@ -46,7 +46,7 @@ from app.services.calendar.google_sync_scheduler import (
     start_google_sync_scheduler,
     stop_google_sync_scheduler,
 )
-from app.services.backup_scheduler import start_backup_scheduler, stop_backup_scheduler
+from app.services.backup.auto_scheduler import start_backup_scheduler, stop_backup_scheduler
 from app.services.ai.document.extraction_scheduler import (
     start_extraction_scheduler,
     stop_extraction_scheduler,
@@ -790,7 +790,7 @@ async def detailed_health_check(
     # 排程器狀態
     from app.services.calendar.reminder_scheduler import get_reminder_scheduler
     from app.services.calendar.google_sync_scheduler import get_google_sync_scheduler
-    from app.services.backup_scheduler import get_backup_scheduler
+    from app.services.backup.auto_scheduler import get_backup_scheduler
 
     try:
         reminder_scheduler = get_reminder_scheduler()

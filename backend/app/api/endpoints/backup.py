@@ -14,7 +14,7 @@ from app.core.rate_limiter import limiter
 from app.api.endpoints.auth import get_current_user
 from app.core.dependencies import require_admin
 from app.services.backup import backup_service
-from app.services.backup_scheduler import (
+from app.services.backup.auto_scheduler import (
     get_backup_scheduler_status,
     start_backup_scheduler,
     stop_backup_scheduler,
