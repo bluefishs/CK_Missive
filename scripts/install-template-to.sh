@@ -19,7 +19,7 @@
 #   2. 改 ADR 範本 header 的 repo 名稱
 #   3. 跑 bash scripts/checks/run_fitness.sh 取得 baseline
 #
-# 範本來源版本: CK_Missive v5.10.0-rc (2026-04-27)
+# 範本來源版本: CK_Missive v5.10.1+ (2026-04-28，含 fitness step 7 + L21 prevention)
 # 對應文件: docs/architecture/TEMPLATE_EXTRACTION.md
 
 set -euo pipefail
@@ -97,7 +97,7 @@ copy_dir() {
     fi
 }
 
-# === 1. Fitness Functions (6 step + scanners) ===
+# === 1. Fitness Functions (7 step + scanners + L21 prevention) ===
 if [[ "$INCLUDE" == *"fitness"* ]]; then
     echo ""
     echo "[1/5] Fitness Functions"
@@ -108,6 +108,7 @@ if [[ "$INCLUDE" == *"fitness"* ]]; then
     copy_file "$SOURCE/scripts/checks/wiki_kg_link_audit.py"               "$TARGET/scripts/checks/wiki_kg_link_audit.py"
     copy_file "$SOURCE/scripts/checks/kg_embedding_coverage_check.py"      "$TARGET/scripts/checks/kg_embedding_coverage_check.py"
     copy_file "$SOURCE/scripts/checks/adr_lifecycle_check.py"              "$TARGET/scripts/checks/adr_lifecycle_check.py"
+    copy_file "$SOURCE/scripts/checks/agent_evolution_health.py"           "$TARGET/scripts/checks/agent_evolution_health.py"
     copy_file "$SOURCE/scripts/checks/README.md"                           "$TARGET/scripts/checks/README.md"
 fi
 
