@@ -1,0 +1,152 @@
+# Consumer Registry — 引用 CK_Missive 範本資產的 repo 清單
+#
+# 用途：
+#   1. notify-consumers.py (v6.0 規劃) 讀取此檔，diff 各 consumer 範本版本
+#   2. owner 月度跑 lessons_drift_check 後可逐個提醒 consumer 升級
+#   3. 文件治理 — 一處查詢「誰用了我的範本」
+#
+# 維護準則：
+#   - 新 consumer 採用範本即註冊（commit 入此檔）
+#   - 升級後 update 該 consumer 的 versions 段
+#   - 若 consumer 不再使用 → 改 status: archived（不刪，保歷史）
+#
+# 跨 repo 引用 FQID: CK_Missive#consumers_v1.0
+# 關聯: docs/architecture/CROSS_REPO_REFERENCE_GUIDE.md §4.3
+
+version: 1.0
+updated: 2026-04-28
+
+# 註冊的 consumer repos
+consumers:
+
+  # ---------------------------------------------------------------------------
+  # CK_AaaP — 跨專案治理 + Hermes 控制平面
+  # ---------------------------------------------------------------------------
+  - id: CK_AaaP
+    repo_path: D:/CKProject/CK_AaaP
+    role: governance + platform base
+    status: active
+    contact: "@bluefishs"
+    adopted_assets:
+      # 已採用的範本（FQID + 採用版本）
+      - fqid: "CK_Missive#0028"  # Error contract policy
+        consumer_version: v1.0
+        notes: "適配 hermes-stack 內 service"
+    pending_review:
+      - "CK_Missive#WAVE_1_PLAYBOOK_v2.2"
+      - "CK_Missive#install-template-to_v1.0"
+
+  # ---------------------------------------------------------------------------
+  # hermes-agent — NousResearch Hermes Agent fork
+  # ---------------------------------------------------------------------------
+  - id: hermes-agent
+    repo_path: D:/CKProject/hermes-agent
+    role: control core (L0 assistant)
+    status: active
+    contact: "@bluefishs"
+    adopted_assets:
+      # 已驗證 install-template-to.sh dry-run OK，待實際 apply
+      - fqid: "CK_Missive#SOUL.md_v1.0"  # SOUL.md mirror（已同步）
+        consumer_version: v1.0
+        notes: "SOUL.md 跨 repo mirror，drift detector 月度檢查"
+    pending_review:
+      - "CK_Missive#agent_evolution_health_v1.0"
+      - "CK_Missive#run_fitness_v3.0"
+
+  # ---------------------------------------------------------------------------
+  # CK_lvrland_Webmap — 土地查估 Webmap
+  # ---------------------------------------------------------------------------
+  - id: CK_lvrland_Webmap
+    repo_path: D:/CKProject/CK_lvrland_Webmap
+    role: business (Phase 2+ 待接入)
+    status: planned
+    contact: "@bluefishs"
+    adopted_assets: []
+    pending_review:
+      - "CK_Missive#TEMPLATE_EXTRACTION_v1.0"
+      - "CK_Missive#STANDARD_REFERENCE_v1.0"
+      - "CK_Missive#install-template-to_v1.0"
+
+  # ---------------------------------------------------------------------------
+  # CK_lvrland_dataform — LvrLand 表單系統
+  # ---------------------------------------------------------------------------
+  - id: CK_lvrland_dataform
+    repo_path: D:/CKProject/CK_lvrland_dataform
+    role: business (Phase 2+ 待接入)
+    status: planned
+    contact: "@bluefishs"
+    adopted_assets: []
+    pending_review:
+      - "CK_Missive#TEMPLATE_EXTRACTION_v1.0"
+
+  # ---------------------------------------------------------------------------
+  # CK_PileMgmt — 樁管理子系統
+  # ---------------------------------------------------------------------------
+  - id: CK_PileMgmt
+    repo_path: D:/CKProject/CK_PileMgmt
+    role: business (Phase 2+ 待接入)
+    status: planned
+    contact: "@bluefishs"
+    adopted_assets: []
+    pending_review:
+      - "CK_Missive#TEMPLATE_EXTRACTION_v1.0"
+      - "CK_Missive#install-template-to_v1.0"
+
+  # ---------------------------------------------------------------------------
+  # CK_KMapAdvisor — 知識地圖顧問
+  # ---------------------------------------------------------------------------
+  - id: CK_KMapAdvisor
+    repo_path: D:/CKProject/CK_KMapAdvisor
+    role: business
+    status: observation_only
+    contact: "@bluefishs"
+    notes: "main.py 整合擱置中；observability 模組已落地"
+    adopted_assets: []
+    pending_review:
+      - "CK_Missive#prometheus_middleware_v1.0"
+
+  # ---------------------------------------------------------------------------
+  # CK_Showcase — 治理 API（待入 AaaP）
+  # ---------------------------------------------------------------------------
+  - id: CK_Showcase
+    repo_path: D:/CKProject/CK_Showcase
+    role: governance API (ADR-0020 將遷入 AaaP)
+    status: deprecated_pending_migration
+    contact: "@bluefishs"
+    notes: "ADR-0020 Phase 2 遷入 AaaP；本 repo 不主動採新範本"
+    adopted_assets: []
+
+# ---------------------------------------------------------------------------
+# 範本資產的「最低相容 consumer 版本」聲明
+# ---------------------------------------------------------------------------
+#
+# 當 source 升 Major bump 時，列「最低需 consumer 升到 vN.M」
+# notify-consumers.py 可據此提醒
+asset_compatibility:
+  "CK_Missive#run_fitness_v3.0":
+    requires_consumer_features: ["python>=3.10", "bash>=4"]
+    breaking_from: null  # 首版
+
+  "CK_Missive#dead_ui_detector_v1.0":
+    requires_consumer_features: ["FastAPI router pattern", "axios baseURL frontend"]
+    notes: "若 consumer 不用 axios（如純 fetch），需自己改 path normalize"
+
+  "CK_Missive#agent_evolution_health_v1.0":
+    requires_consumer_features: ["asyncpg", "redis", "agent_evolution_history table"]
+    notes: "consumer 若無 agent system，可整段略過此 detector"
+
+# ---------------------------------------------------------------------------
+# 月度健檢結果（owner 月度跑 lessons_drift_check 後手動 update）
+# ---------------------------------------------------------------------------
+last_audit:
+  date: 2026-04-28
+  performed_by: "@bluefishs"
+  source_state:
+    commits_in_window: 38
+    lessons_count: 22
+    fitness_steps: 7
+  consumer_drift_summary:
+    healthy: ["CK_AaaP", "hermes-agent"]  # 範本是同步的
+    pending_first_adoption: ["CK_lvrland_Webmap", "CK_lvrland_dataform", "CK_PileMgmt"]
+    observation_only: ["CK_KMapAdvisor"]
+    deprecated: ["CK_Showcase"]
