@@ -499,7 +499,7 @@ class TestGetSystemHealth:
         })
 
         with patch(
-            "app.services.system_health_service.SystemHealthService",
+            "app.services.system.health_service.SystemHealthService",
             return_value=mock_svc,
         ):
             result = await executor._analysis.get_system_health_report({})
@@ -521,7 +521,7 @@ class TestGetSystemHealth:
         ])
 
         with patch(
-            "app.services.system_health_service.SystemHealthService",
+            "app.services.system.health_service.SystemHealthService",
             return_value=mock_svc,
         ):
             result = await executor._analysis.get_system_health_report({"include_benchmarks": True})
@@ -541,7 +541,7 @@ class TestGetSystemHealth:
         )
 
         with patch(
-            "app.services.system_health_service.SystemHealthService",
+            "app.services.system.health_service.SystemHealthService",
             return_value=mock_svc,
         ):
             result = await executor._analysis.get_system_health_report({"include_benchmarks": True})
@@ -555,7 +555,7 @@ class TestGetSystemHealth:
         mock_svc.build_summary = AsyncMock(return_value={"status": "ok"})
 
         with patch(
-            "app.services.system_health_service.SystemHealthService",
+            "app.services.system.health_service.SystemHealthService",
             return_value=mock_svc,
         ):
             result = await executor._analysis.get_system_health_report({})
@@ -568,7 +568,7 @@ class TestGetSystemHealth:
         mock_svc.build_summary = AsyncMock(return_value={"status": "ok"})
 
         with patch(
-            "app.services.system_health_service.SystemHealthService",
+            "app.services.system.health_service.SystemHealthService",
             return_value=mock_svc,
         ):
             result = await executor.execute("get_system_health", {})
