@@ -34,6 +34,35 @@ Redirect（6 個月相容期）：
 | `MemoryStatsRow` | `components/memory/MemoryStatsRow.tsx` | 6-Card 記憶統計（kunge/MemoryTab + MemoryDashboardPage 共用，省 126L） |
 | `ForceGraphLazy` | `components/graph/ForceGraphLazy.tsx` | react-force-graph-2d 統一 lazy wrapper（generic） |
 
+## v5.10.x 新增元件（ADR-0025 認證整合 + bug fixes）
+
+| 元件 | 路徑 | 用途 | FQID |
+|---|---|---|---|
+| `AliasIntegrationDrawer` | `components/admin/AliasIntegrationDrawer.tsx` | 使用者認證方式整合 UI（後端 user_alias_admin endpoints 接通），雙 Tab：潛在分身偵測 + 合併歷史 | `CK_Missive#AliasIntegrationDrawer_v1.0` |
+
+**範本價值**：Drawer 雙 Tab + Modal 多選操作模式 — 任何「admin 對 N records 做 batch action」場景可借鏡。
+詳見 `docs/architecture/WAVE_1_SERVICES_MIGRATION_PLAYBOOK.md` §6.5（Dead UI 反模式案例）。
+
+## v5.10.x 重要 React Query Cache Invalidate 規約（morning-status 修復）
+
+派工總覽 (`/taoyuan/dispatch?tab=0`) 的 `dispatch-morning-status` queryKey 涉及 **8 處 mutation 必須 invalidate**：
+
+| Hook / 元件 | 為何 invalidate | Commit |
+|---|---|---|
+| `useDispatchMutations.updateMutation` | 派工單更新 → display_status 變動 | `244593d0` |
+| `useDispatchMutations.deleteMutation` | 派工單刪除 | 同上 |
+| `useDispatchMutations.linkProjectMutation` | 工程關聯影響顯示 | 同上 |
+| `useDispatchMutations.unlinkProjectMutation` | 工程解除關聯 | 同上 |
+| `useDeleteWorkRecord` (通用) | 作業紀錄刪除 → work_progress 變動 | 同上 |
+| `useWorkRecordFormLogic.createMutation` | 作業紀錄建立 | 同上 |
+| `useWorkRecordFormLogic.updateMutation` | 作業紀錄更新 | 同上 |
+| `InlineRecordCreator.createMutation` | 內聯作業紀錄建立 | 同上 |
+| `KanbanBoardTab.statusMutation` | 看板批次狀態切換 | 同上 |
+
+配合 `DispatchOverviewTab.useQuery` 的 `refetchOnMount: 'always'` + staleTime 30s 形成雙保險。
+
+**範本提取**（LESSON L11）：任何 useQuery `staleTime > 0` + 跨 tab/詳情頁變更場景都應採此雙管齊下規約。
+
 ## Evolution 三路職責分工（ADR-0031 Phase 5）
 
 | 路徑 | 舊名 | 新意涵 | 資料源 |
