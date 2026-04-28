@@ -2,16 +2,25 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
-> **版本**: v5.9.4（2026-04-24）/tender 整合 + 資安硬化 + Qwen 零成本整合 + parser 重構
-> **最後更新**: 2026-04-24
+> **版本**: v5.10.2（2026-04-28）/ Wave 1-8 完整收斂 + 跨 repo 治理體系 + LESSONS_REGISTRY
+> **最後更新**: 2026-04-28
 >
 > **近期重大里程碑**：
-> - **v5.9.3 ~ v5.9.4**（37 commits，2026-04-24）：ADR-0032（tender 多源統一）+ ADR-0033（關閉帳密登入）+ Qwen 零成本整合（Ollama qwen2.5:7b + Groq qwen3-32b）+ memory parser 全改 yaml.safe_{load,dump} + Nebula graph 500 治根 + 3 運維 runbook（Google OAuth / LINE Login / Hermes model swap）+ Qwen3.6-27B 首選評估
-> - **v5.9.0 ~ v5.9.2**（11 commits）：ADR-0028 錯誤合約化 + 3 靜態守護 + 觀測棧完工 + 坤哥第 2 次詢問修復 + ADR-0031 頁面整合
-> - **ADR 治理**（ADR-0029）：Active 17 + 2 新（0032/0033）= 19；Archived 10
-> - **Hermes GO/NO-GO**（ADR-0030）：baseline 30 + LINE canary + Owner 7 天 dogfooding，**2026-05-20 硬 deadline**
+> - **v5.10.0 ~ v5.10.2**（42 commits，2026-04-27~04-28）：
+>   - Wave 1-8 services DDD 遷移完整收斂（73 檔 / 12 bounded contexts / 0 regression）
+>   - LESSONS_REGISTRY v1.0（22 條 lessons L01~L22 — 跨 session 知識傳承 SSOT）
+>   - 4 detector 治理三件組（agent_evolution / lessons_drift / dead_ui / notify_consumers）
+>   - CROSS_REPO_REFERENCE_GUIDE v1.0（FQID 5 大類別 + SemVer + 7 consumer registry）
+>   - Playbook v2.0 → v2.2（7 SOP + 1 anti-pattern）
+>   - Fitness 6 → 7 step（加 agent_evolution_health）
+>   - install-template-to.sh 12 fitness 檔跨 repo 一鍵部署
+>   - PR template + consumers.yml 規範化貢獻回流
+>   - Bug fixes: 派工總覽 morning-status 即時刷新 + 認證整合 UI 接通
+> - **v5.9.3 ~ v5.9.9**（37 commits）：ADR-0028~0033 + Qwen 零成本整合 + KG 100% / Wiki 85% / SLO SSOT
+> - **ADR 治理**（ADR-0029）：Active 15 [GREEN] / Archived 14 / Removed 1
+> - **Hermes GO/NO-GO**（ADR-0030）：baseline 472 / soul fidelity 75-80% / **2026-05-20 硬 deadline**
 > - **坤哥為唯一意識體入口**（ADR-0023 + ADR-0031）：/kunge 7 tabs 統一
-> - **NemoClaw 歸檔**：5/26 deadline，Sprint 2 已完成（docker-compose 清理）
+> - **Source Repo 自我治理閉環**：發現→記錄→驗證→範本化→註冊→通知→回流
 
 ---
 

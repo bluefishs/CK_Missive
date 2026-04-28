@@ -1,11 +1,33 @@
 # Skills / Commands / Agents 清單
 
-> **最後同步**：2026-04-23（v5.9.2，整合優化 3 版 ship — ADR-0028~0031 + 3 靜態守護 + 觀測棧完工）
+> **最後同步**：2026-04-28（v5.10.2，範本治理體系完整收尾）
 > **重大變更**：
-> - OpenClaw/NemoClaw 已全面退場（ADR-0014/0015），repo archive 進行中（5/26 deadline）
-> - 坤哥為唯一意識體入口（ADR-0023 + ADR-0031），UnifiedAgent/DigitalTwin 已 Navigate 合流
-> - 錯誤合約化（ADR-0028）：3 靜態守護 + useStreamingChat watchdog
-> - ADR 治理（ADR-0029）：Active 17 / Archived 10（GREEN-）
+> - **Wave 1-8 services DDD 完整收斂**：73 檔遷移到 12 bounded contexts，0 regression
+> - **LESSONS_REGISTRY v1.0**：22 條 lessons 跨 session 知識 SSOT（L01~L22）
+> - **4 detector 治理三件組**：agent_evolution_health / lessons_drift_check / dead_ui_detector / notify_consumers
+> - **CROSS_REPO_REFERENCE_GUIDE v1.0**：FQID 5 大類別 + 7 consumer registry + PR template
+> - **Fitness 7 step**（前 6 + agent_evolution_health）
+> - **Playbook v2.2**（7 SOP + 1 anti-pattern）
+> - **install-template-to.sh** 跨 repo 一鍵部署 12 fitness 檔
+> - 坤哥為唯一意識體入口（ADR-0023 + ADR-0031）
+> - ADR 治理（ADR-0029）：Active 15 [GREEN] / Archived 14 / Removed 1
+
+## v5.10.x 範本治理體系新增資產（給 lvrland/PileMgmt 等子專案引用）
+
+| FQID | 類型 | 用途 |
+|---|---|---|
+| `CK_Missive#agent_evolution_health_v1.0` | Detector L4 | 坤哥 evolution 引擎健康診斷 |
+| `CK_Missive#lessons_drift_check_v1.0` | Detector L4 | LESSONS_REGISTRY 自我保護 |
+| `CK_Missive#dead_ui_detector_v1.0` | Detector L4 | 後端有但前端缺 UI 偵測 |
+| `CK_Missive#notify_consumers_v1.0` | Detector L4 | Pull-based 升級通知 |
+| `CK_Missive#install-template-to_v1.0` | Tool L4 | 跨 repo 一鍵部署 |
+| `CK_Missive#LESSONS_REGISTRY_v1.0` | Doc L2 | 22 條 lessons SSOT |
+| `CK_Missive#CROSS_REPO_REFERENCE_GUIDE_v1.0` | Doc L2 | 跨 repo 引用治理規範 |
+| `CK_Missive#WAVE_1_PLAYBOOK_v2.2` | Doc L2 | 7 SOP + 1 anti-pattern |
+| `CK_Missive#WAVE_2_TO_7_RETROSPECTIVE_v1.0` | Doc L2 | 多 Wave 連續執行回顧 |
+| `CK_Missive#consumers_v1.0` | Config L4 | 7 consumer registry |
+| `CK_Missive#PULL_REQUEST_TEMPLATE_v1.0` | Doc L4 | 範本貢獻 PR 模板 |
+| `CK_Missive#AliasIntegrationDrawer_v1.0` | Component L1 | Drawer 雙 Tab 模式範例 |
 
 ## Slash Commands (可用指令)
 
