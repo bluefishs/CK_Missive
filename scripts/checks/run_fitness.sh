@@ -38,7 +38,7 @@ FAIL_COUNT=0
 # ----------------------------------------------------------------------------
 # 1. Services 頂層散戶比例
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[1/3] Services directory entropy${NC}"
+echo -e "${CYAN}[1/7] Services directory entropy${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/service_dir_entropy.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -49,7 +49,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 2. Dead config reader（掃多個高信號檔）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[2/3] Dead config reader scan (multi-target v3)${NC}"
+echo -e "${CYAN}[2/7] Dead config reader scan (multi-target v3)${NC}"
 
 # v3 (2026-04-25): 擴為多 target 掃描
 # 原 v1/v2 只掃 ai_config.py → 錯過 record_duration / get_cloud_semaphore 等 dead
@@ -77,7 +77,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 3. SOUL.md 跨 repo drift（坤哥意識體跨通道一致性）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[3/4] SOUL.md mirror drift check${NC}"
+echo -e "${CYAN}[3/7] SOUL.md mirror drift check${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/soul_mirror_drift_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -88,7 +88,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 4. Wiki ↔ KG 雙向引用率
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[4/5] Wiki ↔ KG link audit${NC}"
+echo -e "${CYAN}[4/7] Wiki ↔ KG link audit${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/wiki_kg_link_audit.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -99,7 +99,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 5. KG pgvector embedding 覆蓋率
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[5/6] KG pgvector embedding coverage${NC}"
+echo -e "${CYAN}[5/7] KG pgvector embedding coverage${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/kg_embedding_coverage_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -110,7 +110,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 6. Architecture docs presence
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[6/6] Architecture standard docs presence${NC}"
+echo -e "${CYAN}[6/7] Architecture standard docs presence${NC}"
 REQUIRED_DOCS=(
     "docs/architecture/STANDARD_REFERENCE.md"
     "docs/architecture/SERVICE_CONTEXT_MAP.md"
@@ -125,6 +125,19 @@ for doc in "${REQUIRED_DOCS[@]}"; do
     fi
 done
 if [[ $MISSING -gt 0 ]]; then
+    FAIL_COUNT=$((FAIL_COUNT+1))
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# 7. Agent evolution health（坤哥進化引擎是否在跑 — L21 prevention）
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[7/7] Agent evolution health${NC}"
+# exit codes: 0 healthy / 1 warning (trigger 久未觸發但 redis OK) / 2 error (redis 不可達)
+# non-strict 模式 — exit 1/2 都僅警告（dev 環境可能沒 redis），strict 才算 fail
+PYTHONIOENCODING=utf-8 python scripts/checks/agent_evolution_health.py 2>&1 || EVOLUTION_EXIT=$?
+EVOLUTION_EXIT=${EVOLUTION_EXIT:-0}
+if [[ $EVOLUTION_EXIT -ne 0 ]] && $STRICT; then
     FAIL_COUNT=$((FAIL_COUNT+1))
 fi
 echo ""
