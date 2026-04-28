@@ -91,6 +91,8 @@ function useDispatchOverviewKanban(contractProjectId: number) {
   });
 
   // 同時 fetch morning-status 用 display_status 統一狀態（project scoped）
+  // refetchOnMount: 'always' — 每次切回派工總覽 tab 都重新 fetch，
+  // 確保用戶在其他 tab/詳情頁更新狀態後，切回 Overview 看到最新狀態
   const { data: morningData, isLoading: morningLoading } = useQuery({
     queryKey: ['dispatch-morning-status', contractProjectId],
     queryFn: () =>
@@ -98,7 +100,8 @@ function useDispatchOverviewKanban(contractProjectId: number) {
         TAOYUAN_DISPATCH_ENDPOINTS.DISPATCH_MORNING_STATUS,
         { contract_project_id: contractProjectId },
       ),
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
   });
 
   const isLoading = ordersLoading || morningLoading;

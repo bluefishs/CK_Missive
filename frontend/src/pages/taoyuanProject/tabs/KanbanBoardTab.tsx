@@ -66,6 +66,8 @@ export const KanbanBoardTab: React.FC<KanbanBoardTabProps> = ({
       messageApi.success('狀態已更新');
       refetch();
       queryClient.invalidateQueries({ queryKey: ['kanban-workflow', projectId] });
+      // 狀態變更影響派工總覽 morning-status display_status 計算
+      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
     },
     onError: () => {
       messageApi.error('狀態更新失敗');

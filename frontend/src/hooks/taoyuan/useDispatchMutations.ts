@@ -96,6 +96,7 @@ export function useDispatchMutations({
       message.success('派工單更新成功');
       refetch();
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
       setIsEditing(false);
     },
     onError: () => message.error('更新失敗'),
@@ -106,6 +107,7 @@ export function useDispatchMutations({
     onSuccess: () => {
       message.success('派工單刪除成功');
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
       navigate('/taoyuan/dispatch');
     },
     onError: () => message.error('刪除失敗'),
@@ -124,6 +126,7 @@ export function useDispatchMutations({
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
       queryClient.invalidateQueries({ queryKey: ['document-project-links'] });
+      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
     },
     onError: () => message.error('關聯失敗'),
   });
@@ -173,6 +176,7 @@ export function useDispatchMutations({
       refetch();
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
+      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
     },
     onError: (error: Error) => {
       message.error(`移除關聯失敗: ${error.message}`);

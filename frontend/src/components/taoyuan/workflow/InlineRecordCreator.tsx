@@ -170,6 +170,8 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+      // 作業紀錄變動影響派工總覽 morning-status display_status
+      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
       onCreated?.();
     },
     onError: (error: Error) => {

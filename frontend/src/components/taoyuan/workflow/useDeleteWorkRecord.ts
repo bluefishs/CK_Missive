@@ -34,6 +34,8 @@ export function useDeleteWorkRecord({
       for (const key of invalidateKeys) {
         queryClient.invalidateQueries({ queryKey: key });
       }
+      // 作業紀錄變動會影響 work_progress → 派工總覽 morning-status 須刷新
+      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
     },
     onError: (error: Error) => {
       logger.error(`[${logPrefix}] 刪除失敗:`, error);
