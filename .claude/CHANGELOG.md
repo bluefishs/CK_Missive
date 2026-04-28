@@ -4,6 +4,63 @@
 
 ---
 
+## [5.10.1] - 2026-04-28（Wave 8 + bug fixes + admin UI 整合）
+
+### 🎯 Release Theme
+
+承接 v5.10.0 Wave 1-7（70 檔 / 11 contexts），本版**收斂 + 整合 + 修復**：
+
+- Wave 8：backup + system 收尾（3 檔，第 12 個 bounded context）
+- 派工總覽 morning-status 即時刷新修復（前端 8 處 invalidate）
+- ADR-0025 認證整合 UI 接通（後端 endpoints 早已實作但前端缺 UI）
+- Dead config scanner v3（pending integration marker）+ Playbook v2.1（7 SOP）
+
+### 💥 27 commits 累計（v5.10.0 → v5.10.1）
+
+#### Wave 8 完整收斂
+- backup_scheduler → backup/auto_scheduler
+- system_health_service + system_health_checks → 新建 system/ 子包
+- 73/85 = 86% 累計遷移到 12 bounded contexts
+
+#### 派工總覽 morning-status fix（commit 244593d0）
+- 根因：useQuery (`['dispatch-morning-status']`) staleTime=60s + 0 mutation invalidate
+- 雙管齊下：refetchOnMount: 'always' + 8 處 mutation invalidate
+- 涵蓋 useDispatchMutations × 4 / useDeleteWorkRecord / useWorkRecordFormLogic × 2 /
+  InlineRecordCreator / KanbanBoardTab.statusMutation
+
+#### ADR-0025 認證整合 UI 接通（commit 03963499）
+- 後端 user_alias_admin endpoints 早已實作但前端完全沒 UI（admin 看不見也無法操作）
+- 新建 `AliasIntegrationDrawer.tsx` 270 行
+  - Tab 1 潛在分身: cluster 偵測 + canonical 王冠 + provider 顏色標籤 + 一鍵 merge Modal
+  - Tab 2 合併歷史: user_merge_log 最近 100 筆
+  - Modal 含 canonical/alias 多選 + 規則 B harmonize_role + 備註
+- UserManagementPage 標題列加「認證整合」按鈕
+- 加 3 個 endpoints 常數（ALIAS_CANDIDATES / ALIAS_MERGE / ALIAS_MERGE_HISTORY）
+
+#### Dead config scanner v3 + Playbook v2.1
+- scanner 加 `deferred-pending-integration` SKIP 類別
+- 識別 docstring `Status: pending integration` 標籤
+- ai_config 兩個 deferred getter 標籤化（dead 2 → 0）
+- Playbook §4.9 — 跨 repo 通用 deferred config marker SOP
+
+### 🛡️ 全程驗證（27 commits 累計）
+
+- pytest tests/: **3550 passed / 20 failed / 7 skipped**
+- vs Wave 7 baseline = **diff 0** → 整體 0 regression
+- 70 檔 services 遷移 + 1 frontend bug fix + alias UI 整合 = 0 行為變更
+
+### 📐 範本資產最終形態
+
+- Playbook v2.1（7 SOP）
+- WAVE_1 + WAVE_2_TO_7 + Wave 8 隱含 retrospective
+- install-template-to.sh + 23 L4 資產
+- Scanner v3 + deferred marker
+- AliasIntegrationDrawer（**FQID: CK_Missive#AliasIntegrationDrawer_v1.0**）
+
+對 lvrland/PileMgmt/KMapAdvisor 後續移植：完整範本就緒。
+
+---
+
 ## [5.10.0] - 2026-04-28（Wave 1-7 services DDD 遷移完整收斂 — 11 contexts 落地，82% 累計）
 
 ### 🎯 Release Theme
