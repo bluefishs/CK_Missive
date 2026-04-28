@@ -299,7 +299,7 @@ class GraphIngestionPipeline:
             doc = await self.db.get(OfficialDocument, doc_id)
             if not doc:
                 return
-            from app.services.wiki_service import get_wiki_service
+            from app.services.wiki.service import get_wiki_service
             svc = get_wiki_service()
             entity_names = list(set(e.name for e in entities if e.name))[:10]
             await svc.ingest_source(

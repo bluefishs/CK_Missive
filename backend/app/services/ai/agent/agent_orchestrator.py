@@ -616,7 +616,7 @@ class AgentOrchestrator:
     ) -> None:
         """將有價值的 Agent 回答自動寫入 wiki (非阻塞, fire-and-forget)"""
         try:
-            from app.services.wiki_service import get_wiki_service
+            from app.services.wiki.service import get_wiki_service
             svc = get_wiki_service()
             title = question[:60].strip()
             tags = list(set(tools_used))[:5]

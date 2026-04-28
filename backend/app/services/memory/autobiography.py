@@ -186,7 +186,7 @@ class AutobiographyGenerator:
                 ),
                 {"s": s_dt, "e": e_dt},
             )).all()
-            from app.services.wiki_service import get_wiki_service
+            from app.services.wiki.service import get_wiki_service
             wiki = get_wiki_service()
             seen_paths: set = set()
             for (q,) in top_questions_rows:

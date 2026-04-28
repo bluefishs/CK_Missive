@@ -157,7 +157,7 @@ tags: [memory, diary]
         以後可在 wiki 頁反查「此實體最近哪幾天被提及」。
         """
         try:
-            from app.services.wiki_service import get_wiki_service
+            from app.services.wiki.service import get_wiki_service
             hits = await get_wiki_service().search_wiki(question, limit=2)
             return [h.get("path") or h.get("filename", "?") for h in hits if h.get("path") or h.get("filename")]
         except Exception:

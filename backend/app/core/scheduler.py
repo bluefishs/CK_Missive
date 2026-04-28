@@ -748,7 +748,7 @@ async def monthly_architecture_review_job():
         report_lines.append(status_line)
 
         # 2. Wiki 健康
-        from app.services.wiki_service import get_wiki_service
+        from app.services.wiki.service import get_wiki_service
         wiki = get_wiki_service()
         lint = await wiki.lint()
         stats = wiki.get_stats()
@@ -792,7 +792,7 @@ async def wiki_compile_job():
     from app.db.database import async_session_maker
     try:
         async with async_session_maker() as session:
-            from app.services.wiki_compiler import WikiCompiler
+            from app.services.wiki.compiler import WikiCompiler
             compiler = WikiCompiler(session)
             result = await compiler.compile_incremental(min_doc_count=5)
             mode = result.get("mode", "full")
@@ -822,7 +822,7 @@ async def wiki_lint_job():
     from datetime import datetime
 
     try:
-        from app.services.wiki_service import get_wiki_service
+        from app.services.wiki.service import get_wiki_service
         svc = get_wiki_service()
         result = await svc.lint()
         total_pages = result["total_pages"] or 1

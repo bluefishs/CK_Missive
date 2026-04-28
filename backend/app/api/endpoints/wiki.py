@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.core.dependencies import require_admin, require_auth, get_async_db
-from app.services.wiki_service import get_wiki_service
+from app.services.wiki.service import get_wiki_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # 整組需登入（Wiki 為內部知識庫）；寫端點額外 require_admin 於單端點（見下方）
@@ -154,7 +154,7 @@ async def wiki_coverage(
     db: AsyncSession = Depends(get_async_db),
 ):
     """Wiki ↔ KG 交叉比對 — 列出覆蓋差異 (exact/fuzzy/wiki-only/kg-only)"""
-    from app.services.wiki_coverage_service import WikiCoverageService
+    from app.services.wiki.coverage import WikiCoverageService
     svc = WikiCoverageService(db)
     result = await svc.compare()
     return {"success": True, "data": result}
@@ -173,7 +173,7 @@ async def compile_wiki(
         min_doc_count: 最低公文數門檻
         mode: "incremental" (預設，只編譯有新公文的) 或 "full" (全量重編)
     """
-    from app.services.wiki_compiler import WikiCompiler
+    from app.services.wiki.compiler import WikiCompiler
     compiler = WikiCompiler(db)
     if mode == "full":
         result = await compiler.compile_all(min_doc_count=min_doc_count)

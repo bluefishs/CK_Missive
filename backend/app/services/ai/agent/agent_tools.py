@@ -441,7 +441,7 @@ class AgentToolExecutor:
 
     async def _wiki_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """搜尋 wiki 知識頁面"""
-        from app.services.wiki_service import get_wiki_service
+        from app.services.wiki.service import get_wiki_service
         query = params.get("query", "")
         if not query:
             return {"error": "未提供搜尋關鍵字", "count": 0}
@@ -451,7 +451,7 @@ class AgentToolExecutor:
 
     async def _wiki_read(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """讀取 wiki 頁面"""
-        from app.services.wiki_service import get_wiki_service
+        from app.services.wiki.service import get_wiki_service
         page_path = params.get("page_path", "")
         if not page_path:
             return {"error": "未提供頁面路徑", "count": 0}
@@ -463,7 +463,7 @@ class AgentToolExecutor:
 
     async def _wiki_ingest(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """將知識寫入 wiki — Agent 自主進化核心"""
-        from app.services.wiki_service import get_wiki_service
+        from app.services.wiki.service import get_wiki_service
         title = params.get("title", "")
         content = params.get("content", "")
         page_type = params.get("page_type", "synthesis")

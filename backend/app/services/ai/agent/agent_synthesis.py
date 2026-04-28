@@ -325,7 +325,7 @@ class AgentSynthesizer:
         - 每筆限 300 字，避免 prompt 過長
         """
         try:
-            from app.services.wiki_service import get_wiki_service
+            from app.services.wiki.service import get_wiki_service
             svc = get_wiki_service()
             stats = svc.get_stats()
             if not stats or stats.get("total", 0) == 0:

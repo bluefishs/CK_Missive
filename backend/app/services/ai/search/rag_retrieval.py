@@ -260,7 +260,7 @@ async def retrieve_chunks(
         # Wiki-RAG 融合: 啟用 (v1.1 — wiki 內容由 DB 結構化編譯，可信度 high)
         # 將 wiki 搜尋結果追加到 RAG sources，boost 權重使 wiki 優先
         try:
-            from app.services.wiki_service import get_wiki_service
+            from app.services.wiki.service import get_wiki_service
             wiki_svc = get_wiki_service()
             wiki_query = " ".join(query_terms[:5]) if query_terms else ""
             if wiki_query and wiki_svc.get_stats().get("total", 0) > 0:
