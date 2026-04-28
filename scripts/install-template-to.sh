@@ -111,6 +111,7 @@ if [[ "$INCLUDE" == *"fitness"* ]]; then
     copy_file "$SOURCE/scripts/checks/agent_evolution_health.py"           "$TARGET/scripts/checks/agent_evolution_health.py"
     copy_file "$SOURCE/scripts/checks/lessons_drift_check.py"              "$TARGET/scripts/checks/lessons_drift_check.py"
     copy_file "$SOURCE/scripts/checks/dead_ui_detector.py"                 "$TARGET/scripts/checks/dead_ui_detector.py"
+    copy_file "$SOURCE/scripts/checks/notify_consumers.py"                 "$TARGET/scripts/checks/notify_consumers.py"
     copy_file "$SOURCE/scripts/checks/README.md"                           "$TARGET/scripts/checks/README.md"
 fi
 
