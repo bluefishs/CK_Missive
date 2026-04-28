@@ -240,6 +240,52 @@ multi-line 寫法。**必用 ripgrep --multiline 或 grep -P 才完整**。
 
 修正後 commit 應 include test 檔（這是預期的行為變更，違反「pure stub 零行為變更」原則但**必須**做）。
 
+### 4.9 Deferred config marker SOP（**Wave 8 後 dead-config 清理時新增**）
+
+當 `config_dead_reader_scan.py` 報出 dead config（getter 0 production callers），
+**不一定該刪**。常見場景：
+
+```
+某 yaml 配置欄位（如 inference_profiles / preferred_providers）已定義 schema，
+但 production code 尚未接線 — 設計意圖已明確記錄，但等待重構時機才整合。
+```
+
+兩種 anti-pattern：
+- ❌ **直接刪 getter**：丟失設計意圖文件，未來重新發現需求時白繞遠路
+- ❌ **直接接線**：可能引入未經充分設計的 fallback chain（如 Wave 8 ai_connector 案例）
+
+**SOP — Deferred config marker**：
+
+1. **getter docstring 加標準標籤**：
+   ```python
+   @property
+   def inference_profiles(self) -> dict:
+       """Get resolved inference provider profiles.
+
+       Status: pending integration（YYYY-MM-DD 審計）— 0 生產呼叫點，但
+       設計意圖為 [描述為什麼存在 + 什麼條件下啟用]。
+
+       scanner 識別此 marker 為 deferred-pending-integration，不算 dead config。
+       """
+       return self._inference_profiles
+   ```
+
+2. **scanner 自動識別**（已內建於 `config_dead_reader_scan.py` v3+）：
+   ```python
+   def _is_deferred(name: str) -> bool:
+       pattern = rf"def {re.escape(name)}\([^)]*\)[^:]*:\s*\"\"\"[^\"]*?pending integration"
+       return bool(re.search(pattern, target_source, re.DOTALL))
+   ```
+
+3. **Output 從 DEAD 改為 SKIP**：
+   ```
+   ⊙ SKIP   property   inference_profiles   (deferred-pending-integration)
+   ```
+
+**範本提取**：此 marker 跨 repo 通用 — 任何有 yaml-driven config 的 repo 都
+可能有「定義好但未接線」的 deferred 場景。透過 `install-template-to.sh --include=fitness`
+即可獲得 scanner v3 + 標準寫法。
+
 ### 4.7 Production caller 路徑同步 SOP（**Wave 3 integration 實測踩雷後新增**）
 
 當 sub-batch 包含被多處 mock.patch 的 service（如 line_bot / discord_bot），
