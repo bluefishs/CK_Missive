@@ -98,108 +98,79 @@ backend/app/extended/models/
 
 ## 後端 Service 層結構
 
+### Wave 1-8 後 12 Bounded Contexts 結構（v5.10.2）
+
+**重要**：73 個原頂層散戶已遷入 12 bounded context 子包（73 stub 維持向後相容，預計 2026-Q3 移除）。
+詳見 `docs/architecture/SERVICE_CONTEXT_MAP.md` + `docs/architecture/WAVE_1_SERVICES_MIGRATION_PLAYBOOK.md` v2.2。
+
 ```
 backend/app/services/
-├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse)
-├── ai/                         # AI 服務 (11 子包 + ~120 re-export stubs)
-│   ├── core/                   # 核心基礎 (16): ai_config, base_ai_service, embedding_manager, token_tracker
-│   ├── agent/                  # 智能體 Agent (36): orchestrator, planner, evolution, pattern_learner, missive_agent
+├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse, audit Mixin)
+├── ai/                         # AI 服務 (11 子包 + ~120 re-export stubs，未被 Wave 動)
+│   ├── core/                   # ai_config, base_ai_service, embedding_manager, token_tracker
+│   ├── agent/                  # orchestrator, planner, evolution, pattern_learner, missive_agent
 │   │   └── missive_agent.py    # MissiveAgent (v3.0, renamed from NemoClawAgent)
-│   ├── tools/                  # 工具執行器 (16): tool_definitions, tool_registry, 6 executor
-│   ├── graph/                  # 知識圖譜 (26): relation_graph, canonical_entity, code_graph, erp_graph
-│   ├── document/               # 文件處理 (10): document_ai, chunker, entity_extraction
-│   ├── domain/                 # 領域業務 (12): digital_twin, morning_report, pm/erp_query
-│   │   ├── morning_report_service.py     # 晨報生成 (937L) — 聚合 CTE + queries (v2.0 委派 formatter)
-│   │   ├── morning_report_formatter.py   # 晨報格式化 (~250L) — 純函數，無 DB (v1.0 拆分)
-│   │   ├── morning_report_queries.py     # 晨報查詢層 (Phase 1 stub)
-│   │   ├── morning_report_delivery.py    # 晨報派送 (240L)
-│   │   └── dispatch_progress_synthesizer.py  # 派工進度彙整
-│   ├── search/                 # 搜尋排序 (9): rag_query, rag_retrieval, reranker
-│   ├── proactive/              # 主動觸發 (5): proactive_triggers + erp/finance/pm
-│   ├── federation/             # 聯邦整合 (3): federation_client/discovery/delegation
-│   ├── misc/                   # 雜項工具 (10): voice_transcriber, skill_snapshot, code_wiki, missive_agent
-│   ├── *.py                    # ~120 re-export stubs (向後相容 sys.modules 轉發)
-│   ├── prompts.yaml            # 5組Prompt模板
-│   ├── synonyms.yaml           # 53組同義詞字典
-│   └── intent_rules.yaml       # 意圖規則定義
-├── calendar/                   # 行事曆服務
-│   ├── event_auto_builder.py   # 事件自動建立
-│   └── batch_create_events.py  # 批次建立事件
-├── strategies/                 # 策略模式
-│   └── agency_matcher.py       # 機關智慧匹配
-├── taoyuan/                    # 桃園派工服務 (dispatch_import/order/payment/dispatch_link + enrichment)
-├── backup/                     # 備份服務套件 (v3.0.0)
-│   ├── __init__.py             # BackupService (組合 4 個 Mixin)
-│   ├── utils.py                # Docker 偵測、路徑、環境、日誌
-│   ├── db_backup.py            # PostgreSQL pg_dump/restore
-│   ├── attachment_backup.py    # 附件增量備份
-│   └── scheduler.py            # 備份建立/列表/刪除、異地同步
-├── receiver_normalizer.py       # 收發文單位正規化 (v1.0.0)
-├── backup_scheduler.py         # 備份排程器 + 異地自動同步 (v2.0.0)
-├── system_health_service.py    # 系統健康檢查 (含備份狀態)
-├── security_scanner.py         # 自動安全掃描 (每日 02:00, OWASP 15 規則)
-├── agency_service.py           # 機關服務
-├── agency_matching_service.py  # 機關智慧匹配服務
-├── agency_statistics_service.py # 機關統計服務
-├── document_service.py         # 公文服務 (421L)
-├── document_dispatch_linker_service.py  # 公文-派工關聯服務 (拆分自 document_service)
-├── document_import_logic_service.py     # 匯入邏輯服務 (拆分自 document_service)
-├── document_filter_service.py  # 公文篩選服務
-├── document_statistics_service.py # 公文統計服務
-├── project_service.py          # 專案服務 (419L)
-├── project_staff_service.py    # 專案人員服務
-├── case_code_service.py        # 案件代碼服務
-├── vendor_service.py           # 廠商服務
-├── audit_service.py            # 審計服務 (303L, 拆分後)
-├── audit_event_loggers.py      # 審計事件記錄器 Mixin (拆分自 audit, 198L)
-├── audit_mixin.py              # CRUD 審計 Mixin (10 服務套用)
-├── taoyuan_link_service.py     # 桃園派工關聯服務
-├── erp/                        # ERP 子服務
-│   ├── quotation_service.py   # 報價管理 CRUD (343L, 拆分後)
-│   ├── quotation_service_io.py # 報價匯出入 (243L, 拆分自 quotation)
-│   ├── invoice_service.py     # 開票管理
-│   ├── billing_service.py     # 請款管理
-│   ├── vendor_payable_service.py # 廠商應付帳款
-│   ├── asset_service.py       # 資產管理 CRUD (217L, 拆分後)
-│   ├── asset_service_io.py    # 資產匯出入 (393L, 拆分自 asset)
-│   └── operational_service.py # 營運帳目 (預算+審批+分類)
-├── einvoice/                   # 電子發票
-│   └── einvoice_sync_service.py # MOF 電子發票同步 (HMAC-SHA256)
-├── expense_invoice_service.py  # 費用報銷 Facade (v2.0 委派式, 207L)
-├── expense_approval_service.py # 費用審核工作流 (多層審批+預算聯防+通知, 228L)
-├── expense_import_service.py   # 費用匯入匯出 (QR+Excel+電子發票關聯, 265L)
-├── invoice_recognizer.py       # 統一發票辨識器 (QR Head+Detail+OCR, 拆分後)
-├── invoice_ocr_parser.py       # 發票 OCR 解析器 (拆分自 recognizer)
-├── invoice_qr_decoder.py       # 發票 QR 解碼器 (拆分自 recognizer)
-├── finance_ledger_service.py   # 統一帳本 (餘額 + 分類)
-├── financial_summary_service.py # 財務彙總 (專案/全案/公司級)
-├── finance_export_service.py   # 財務報表匯出 (Excel/CSV)
-├── invoice_ocr_service.py      # 發票 OCR 解析 (Tesseract)
-├── line_bot_service.py         # LINE Bot 整合服務 (362L, 拆分後)
-├── line_flex_builder.py        # LINE Flex Message 建構器 (拆分自 line_bot)
-├── line_image_handler.py       # LINE 圖片處理 (拆分自 line_bot)
-├── line_push_scheduler.py      # LINE 推播排程器
-├── notification_dispatcher.py  # 通知派發服務
-├── document_calendar_integrator.py # 公文行事曆整合
-├── discord_bot_service.py      # Discord Bot (430L, 拆分後)
-├── discord_helpers.py          # Discord 格式化工具 (拆分自 bot, 137L)
-├── telegram_bot_service.py     # Telegram Bot 智慧回覆整合 v1.0.0
-├── channel_adapter.py          # 統一通道抽象 (LINE/Discord/Telegram)
-├── sender_context.py           # 發送者上下文 (頻道感知)
-├── agent_stream_helper.py      # Agent 串流輔助 (跨通道統一)
-├── tender_search_service.py        # 標案檢索 (302L, 拆分後)
-├── tender_data_transformer.py     # 標案資料轉換 (拆分自 search, 263L)
-├── tender_subscription_scheduler.py # 標案訂閱排程 (每日3次 + LINE/Discord)
-├── tender_analytics_service.py     # 標案分析 Facade (283L, 委派子模組)
-├── tender_analytics_battle.py     # 投標戰情室 + 機關生態 (108L, 拆分)
-├── tender_analytics_price.py      # 底價分析 + 廠商分析 (184L, 拆分)
-├── ezbid_scraper.py               # ezbid.tw 即時爬蟲 (當日資料補充)
-├── tender_cache_service.py        # 標案 DB 持久化 (save/search/refresh/stats)
-├── project_analytics_service.py    # 專案分析服務 (拆分自 project_service)
-├── wiki_compiler.py               # Wiki 結構化編譯器 (910L, v5.6.0 拆分)
-├── wiki_formatter.py              # Wiki Markdown 格式化 (164L, 拆分自 compiler)
-└── *_service.py                # 其他業務服務
+│   │   └── agent_evolution_scheduler.py  # L21: redis counter, should_evolve()
+│   ├── tools/                  # tool_definitions, tool_registry, 6 executor
+│   ├── graph/                  # relation_graph, canonical_entity, code_graph, erp_graph
+│   ├── document/               # document_ai, chunker, entity_extraction
+│   ├── domain/                 # digital_twin, morning_report (937L+formatter), pm/erp_query
+│   ├── search/                 # rag_query, rag_retrieval, reranker
+│   ├── proactive/              # proactive_triggers + erp/finance/pm
+│   ├── federation/             # federation_client/discovery/delegation
+│   ├── misc/                   # voice_transcriber, skill_snapshot, code_wiki, missive_agent
+│   ├── prompts.yaml / synonyms.yaml / intent_rules.yaml
+│
+├── memory/                     # 坤哥意識體 (ADR-0022 / ADR-0023)
+│   ├── crystallizer.py         # pattern → proposal（每日 04:30 cron）
+│   ├── crystal_applier.py      # 人工 gate: proposal → crystal（admin approve）
+│   ├── pattern_extractor.py    # trace → pattern（每日 04:00 cron）
+│   ├── soul_loader.py / autobiography.py / diary_service.py / anti_echo.py
+│   └── auto_defense.py / narrative_validator.py / yaml_safe_editor.py
+│
+├── # === Wave 1-8 12 Bounded Contexts（73 檔遷移完成，0 regression）===
+├── document/                   # Wave 1A (11 檔): core/dispatch_linker/import_logic/import_facade/
+│                              #   filter/statistics/export/processor/query_filter/serial_number/receiver_normalizer
+├── contract/                   # Wave 1B (6 檔): core (project)/staff/analytics/case_code/field_sync/agency_contact
+├── agency/                     # Wave 1B (3 檔): core/matching/statistics
+├── vendor/                     # Wave 1B (1 檔): core
+├── audit/                      # Wave 1C (3 檔): core/mixin/event_loggers
+├── notification/               # Wave 1C (4 檔) + Wave 7 (1): dispatcher/service/helpers/template + project_notification
+├── erp/                        # Wave 0 (4) + Wave 2 (5) + Wave 7 (1):
+│   │                          #   quotation/invoice/billing/vendor_payable/asset/operational +
+│   │                          #   expense_invoice/expense_approval/expense_import/finance_ledger/finance_export +
+│   │                          #   invoice_recognizer/invoice_ocr_*/invoice_qr_decoder + financial_summary
+├── integration/                # Wave 3 (10 檔): line_bot/line_flex_builder/line_image_handler/line_push_scheduler/
+│                              #   telegram_bot/discord_bot/discord_helpers/channel_adapter/sender_context/agent_stream_helper
+├── tender/                     # Wave 4 (10 檔): search/search_query/data_transformer/subscription_scheduler/
+│                              #   analytics + analytics_battle + analytics_price/cache/ezbid_scraper/pcc_today_scraper
+├── calendar/                   # Wave 0 (2) + Wave 5 (5) + Wave 7 (2):
+│                              #   event_auto_builder/batch_create_events +
+│                              #   document_integrator/document_service/google_sync/reminder_scheduler/reminder_service +
+│                              #   google_client/google_sync_scheduler
+├── wiki/                       # Wave 6 (4 檔): compiler/coverage/formatter/service
+├── system/                     # Wave 8 (NEW, 2 檔): health_service/health_checks
+├── backup/                     # Wave 0 (5) + Wave 8 (1):
+│                              #   utils/db_backup/attachment_backup/scheduler/remote_syncer + auto_scheduler
+│
+├── einvoice/                   # MOF 電子發票同步 (HMAC-SHA256)
+├── strategies/                 # 策略模式 (agency_matcher 等)
+├── taoyuan/                    # 桃園派工 (dispatch_import/order/payment/dispatch_link + enrichment)
+│
+├── # === 12+ 個保留散戶（single-purpose，符合「3+ contexts 才獨立子包」例外）===
+├── admin_service.py / coding_helpers.py / csv_processor.py / excel_import_service.py /
+├── import_validators.py / kb_embedding_service.py / navigation_sync_service.py /
+├── search_optimizer.py / security_scanner.py / skill_evolution_service.py /
+├── taoyuan_link_service.py / user_alias_service.py
+│
+└── # === 73 stub 檔（Wave 1-8 遷移後保留向後相容，預計 2026-Q3 移除）===
+    document_service.py → document/core.py
+    project_service.py → contract/core.py
+    line_bot_service.py → integration/line_bot.py
+    ... (詳見 SERVICE_CONTEXT_MAP §1.2)
 ```
+
+**Service Entropy 軌跡**：29.4% (Wave 0) → 23.5% (Wave 8) → ~12% (v6.0 stub 移除後預估 GREEN)
 
 ## 後端 API 結構
 
