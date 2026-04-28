@@ -66,12 +66,21 @@ commit title: refactor: services/* → services/<context>/ (bounded context migr
 > | integration (line/telegram/discord/共用) | 10 | ✅ migrated | Wave 3 |
 > | tender (search/cache/scrapers/analytics) | 10 | ✅ migrated | Wave 4 |
 > | calendar (extension) | 5 | ✅ migrated | Wave 5 |
-> | **Wave 1~5 累計** | **62** | — | v5.10.0+ |
+> | wiki | 4 | ✅ migrated | Wave 6 |
+> | calendar (補 google) | 2 | ✅ migrated | Wave 7 |
+> | notification (補 project) | 1 | ✅ migrated | Wave 7 |
+> | erp (補 financial_summary) | 1 | ✅ migrated | Wave 7 |
+> | **Wave 1~7 累計** | **70** | — | v5.10.0+ |
 >
-> 其他 context（tender / erp / integration / calendar / ai / ...）尚未遷移，
-> 散戶仍在頂層。等 Wave 2 排程。
+> 剩 ~15 雜項散戶（admin/backup/system_health/import/excel/csv/coding/skill/
+> kb_embedding/search_optimizer/security/navigation/taoyuan_link/user_alias 等），
+> 多為跨界或單一用途，未必符合「3+ contexts 才獨立子包」規則。可保散戶或
+> 集中到 misc/ 子包，待 Wave 8+ 評估。
 >
 > Stub 預計 2026-Q3 移除（給內部 import 3 個月遷移時間）。
+>
+> Service entropy: 29.4% (Wave 0) → 26.9% (W1) → 26.2% (W2) → 23.7% (W7)
+> v6.0 stub 移除後預估降至 ~12%（達 GREEN < 20%）
 
 
 | Context | 檔案 | 子職責 | 備註 |

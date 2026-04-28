@@ -42,7 +42,7 @@ from app.services.calendar.reminder_scheduler import (
     start_reminder_scheduler,
     stop_reminder_scheduler,
 )
-from app.services.google_sync_scheduler import (
+from app.services.calendar.google_sync_scheduler import (
     start_google_sync_scheduler,
     stop_google_sync_scheduler,
 )
@@ -789,7 +789,7 @@ async def detailed_health_check(
 
     # 排程器狀態
     from app.services.calendar.reminder_scheduler import get_reminder_scheduler
-    from app.services.google_sync_scheduler import get_google_sync_scheduler
+    from app.services.calendar.google_sync_scheduler import get_google_sync_scheduler
     from app.services.backup_scheduler import get_backup_scheduler
 
     try:

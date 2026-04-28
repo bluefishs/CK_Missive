@@ -233,7 +233,7 @@ async def create_event_with_reminders(
         # 6. 發送專案成員通知
         notifications_sent = 0
         try:
-            from app.services.project_notification_service import ProjectNotificationService
+            from app.services.notification.project_notification import ProjectNotificationService
             notification_service = ProjectNotificationService()
             notification_ids = await notification_service.send_calendar_event_notifications(
                 db=db, event=new_event, exclude_user_id=current_user.id

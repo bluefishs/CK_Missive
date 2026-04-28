@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.extended.models import DocumentCalendarEvent, OfficialDocument
 from app.schemas.document_calendar import DocumentCalendarEventUpdate
 from app.repositories.calendar_repository import CalendarRepository
-from app.services.google_calendar_client import GoogleCalendarClient
+from .google_client import GoogleCalendarClient
 from .google_sync import CalendarGoogleSync
 
 logger = logging.getLogger(__name__)

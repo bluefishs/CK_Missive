@@ -20,7 +20,7 @@ from .common import (
     SyncIntervalRequest,
     logger
 )
-from app.services.google_sync_scheduler import GoogleSyncSchedulerController
+from app.services.calendar.google_sync_scheduler import GoogleSyncSchedulerController
 
 router = APIRouter()
 

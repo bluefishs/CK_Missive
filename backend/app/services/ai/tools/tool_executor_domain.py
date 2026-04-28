@@ -128,7 +128,7 @@ class DomainToolExecutor:
 
     async def get_financial_summary(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """查詢專案或公司財務總覽"""
-        from app.services.financial_summary_service import FinancialSummaryService
+        from app.services.erp.financial_summary import FinancialSummaryService
 
         case_code = params.get("case_code")
         year = params.get("year")
@@ -179,7 +179,7 @@ class DomainToolExecutor:
 
     async def check_budget_alert(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """預算超支警報檢查"""
-        from app.services.financial_summary_service import FinancialSummaryService
+        from app.services.erp.financial_summary import FinancialSummaryService
 
         threshold_pct = min(float(params.get("threshold_pct", 80)), 100)
         year = params.get("year")

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.extended.models import OfficialDocument, DocumentCalendarEvent, User
 from app.repositories.calendar_repository import CalendarRepository
 from .document_service import DocumentCalendarService
-from app.services.project_notification_service import ProjectNotificationService
+from app.services.notification.project_notification import ProjectNotificationService
 from .reminder_service import ReminderService
 from app.core.config import settings
 
