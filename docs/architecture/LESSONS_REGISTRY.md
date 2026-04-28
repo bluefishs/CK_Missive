@@ -210,6 +210,16 @@
 | **Prevention** | fitness step 5 月度跑；考慮 nightly cron auto-trigger 若 coverage < 95% |
 | **Refs** | v5.10.1 fitness 後 996% → 100% / Ollama nomic-embed-text |
 
+## L21 — Agent evolution scheduler 整合斷鏈（redis counter 卡 0）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | `agent_evolution_history` 14d+ 0 新增；`crystals/` 持續空 |
+| **Cause** | `AgentEvolutionScheduler.should_evolve()` 應在每次 query 結束時被 orchestrator 呼叫遞增 redis counter，但 production redis counter 卡 0（`agent_evolution_health.py` 診斷實證 counter=0 + last_run=None + domain_scores 全空）。可能 PM2 重啟後 orchestrator 整合失效，或 redis 連線注入沒到 scheduler。**注意**：crystallizer 鏈路（pattern→proposal）正常跑，proposals/ 有 2 檔等 owner 批准；evolution 引擎是另一獨立鏈路 |
+| **Fix** | （待 owner 排查）跑 `scripts/checks/agent_evolution_health.py` → 看 PM2 log 搜 `should_evolve` → 確認 orchestrator 是否呼叫 |
+| **Prevention** | (a) `agent_evolution_health.py` 加入 fitness step 7（自動偵測 14d 0 觸發即報）(b) orchestrator 接 evolution scheduler 時加 integration test 鎖定鏈路（避免 dead integration）(c) Redis `appendonly yes` persist counter |
+| **Refs** | commit `e86580a3` / `agent_evolution_scheduler.py` / 同類 L01 dead integration |
+
 ## L20 — Lessons 散落 commit/ADR/PLAYBOOK → 需 SSOT
 
 | 欄位 | 內容 |
