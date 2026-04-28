@@ -478,6 +478,70 @@ git commit -m "refactor: 移除 wave 1 deprecated stub（document_service.py）"
 
 ---
 
+## 6.5 Anti-pattern：Dead UI（後端實作但前端缺 UI）
+
+**v5.10.1 Alias UI 接通實測淬鍊**。本反模式與「dead config」性質類似，
+但發生在前端整合層 — 後端 endpoint 完整實作 + router 已註冊，但前端**完全沒人呼叫**，
+導致該功能對 admin/end-user **不可見也不可操作**。
+
+### 6.5.1 案例：ADR-0025 認證整合
+
+```
+後端時間軸：
+  v5.8.0 (2026-04-21) — 實作 user_alias_service + 3 endpoints
+  routes.py:52       — 註冊 /api/admin/users/{alias-candidates,merge-alias,merge-history}
+  ✅ Backend 100% 完工
+
+前端時間軸：
+  v5.8.0~v5.10.0     — UserManagementPage 加 canonical_only filter（被動展示）
+  ❌ 但無「整合管理」入口 — admin 無法操作 merge / 看歷史 / 偵測潛在分身
+
+結果：用戶反映「使用者重複問題仍無統整」（v5.10.1 才修）
+```
+
+### 6.5.2 為什麼會發生
+
+| 原因 | 解法 |
+|---|---|
+| 後端先做 PoC 但前端 PR 卡住 | 兩端 PR 綁同一 milestone |
+| 前端規劃時不知後端有此 endpoint | endpoints inventory 自動 cross-link |
+| ADR 寫了但只描述後端，沒寫 admin UI 需求 | ADR 模板加 `## UI Integration` 段 |
+| feature flag 開後忘記 enable UI | flag 命名加 `:ui` `:backend` 後綴明確分層 |
+
+### 6.5.3 Detector 思路（未來實作）
+
+```python
+# scripts/checks/dead_ui_detector.py（規劃中）
+"""
+1. parse backend api/routes.py 全部 router prefix + endpoints
+2. grep frontend/src/api/endpoints/*.ts 看哪些已被 export
+3. cross-check：endpoint 存在於後端但不在前端 endpoints 常數 → DEAD UI candidate
+4. 進一步：endpoint 在前端常數但無 useQuery/useMutation 呼叫 → DEAD UI confirmed
+"""
+```
+
+### 6.5.4 SOP — 修復 dead UI
+
+1. **Inventory**：grep `routes.py` 所有 router include + endpoint paths
+2. **Cross-check 前端**：對每個 endpoint，grep `frontend/src/api/endpoints/` 是否有對應常數
+3. **缺什麼補什麼**：
+   - 缺 endpoint 常數 → 加 `frontend/src/api/endpoints/<domain>.ts`
+   - 缺 hook → `useQuery/useMutation` + invalidate 規則
+   - 缺 UI → page 內加按鈕/Drawer/Modal 觸發 hook
+
+### 6.5.5 範本提取
+
+`AliasIntegrationDrawer.tsx`（FQID: `CK_Missive#AliasIntegrationDrawer_v1.0`）
+是 dead UI 修復的標準範例：
+- Drawer 兩 Tab 模式（候選 + 歷史）
+- Modal 內多選操作 + 規則開關
+- mutation 後 invalidate 三組 query keys
+- provider 顏色標籤統一（google red / line green / email blue）
+
+跨 repo 任何「一個 admin 操作 dropdown 對 N 個 records 做 batch action」都可借鏡。
+
+---
+
 ## 7. 範本提取備註（給 lvrland/PileMgmt 等子專案）
 
 本 playbook 本身就是範本資產：
