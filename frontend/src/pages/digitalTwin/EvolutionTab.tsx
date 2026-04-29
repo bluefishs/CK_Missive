@@ -45,6 +45,17 @@ interface ToolHealthItem {
 
 // ── 品質趨勢卡 ──
 
+interface TriggerHealth {
+  query_counter?: number;
+  queries_until_next?: number;
+  evolve_every_n_queries?: number;
+  last_run_ts?: number | null;
+  seconds_since_last_run?: number | null;
+  evolve_interval_seconds?: number;
+  seconds_until_interval_trigger?: number | null;
+  is_alive?: boolean;
+}
+
 const QualityTrendCard: React.FC = () => {
   const { data, isLoading } = useQuery({
     queryKey: ['evolution-status'],
@@ -60,6 +71,15 @@ const QualityTrendCard: React.FC = () => {
   const promoted = (data.promoted_count as number) ?? 0;
   const demoted = (data.demoted_count as number) ?? 0;
   const queryCount = (data.total_queries as number) ?? 0;
+  // v5.10.2 Phase 3：trigger_health 區塊（修 #4 後關鍵觀測）
+  const trig = (data.trigger_health as TriggerHealth | undefined) ?? {};
+  const isAlive = trig.is_alive === true;
+  const queryCounter = trig.query_counter ?? 0;
+  const queriesUntilNext = trig.queries_until_next ?? 0;
+  const secondsUntilInterval = trig.seconds_until_interval_trigger;
+  const hoursUntilInterval = secondsUntilInterval !== null && secondsUntilInterval !== undefined
+    ? Math.max(0, Math.floor(secondsUntilInterval / 3600))
+    : null;
 
   const trendIcon = trend === 'improving' ? <RiseOutlined style={{ color: '#52c41a' }} /> :
     trend === 'declining' ? <FallOutlined style={{ color: '#ff4d4f' }} /> :
@@ -93,6 +113,37 @@ const QualityTrendCard: React.FC = () => {
           上次進化: {new Date(lastRun).toLocaleString('zh-TW')}
         </Text>
       )}
+
+      {/* v5.10.2 Phase 3：觸發健康度（修 #4 後關鍵觀測，避免 silent dead）*/}
+      <div style={{
+        marginTop: 12,
+        padding: '8px 12px',
+        background: isAlive ? '#f6ffed' : '#fff2e8',
+        borderRadius: 6,
+        border: `1px solid ${isAlive ? '#b7eb8f' : '#ffbb96'}`,
+      }}>
+        <Space size="middle" wrap>
+          <Badge status={isAlive ? 'success' : 'warning'} text={
+            <Text strong style={{ fontSize: 12 }}>
+              {isAlive ? '進化引擎運轉中' : '進化引擎沉默'}
+            </Text>
+          } />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            counter <Text strong>{queryCounter}</Text> · 距下次觸發 <Text strong>{queriesUntilNext}</Text> 個 query
+          </Text>
+          {hoursUntilInterval !== null && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              或 <Text strong>{hoursUntilInterval}</Text> 小時後（時間條件）
+            </Text>
+          )}
+        </Space>
+        {!isAlive && (
+          <Text type="warning" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+            ⚠ counter=0 且 last_run=None — 確認 should_evolve() 是否被呼叫（L21 silent failure 警報）
+          </Text>
+        )}
+      </div>
+
       {/* 進化摘要 (LLM 生成) */}
       {(data.latest_summary as { summary?: string; timestamp?: number } | undefined)?.summary && (
         <div style={{ marginTop: 12, padding: '8px 12px', background: '#f6ffed', borderRadius: 6, border: '1px solid #b7eb8f' }}>

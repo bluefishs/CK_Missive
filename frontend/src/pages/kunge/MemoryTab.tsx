@@ -1,35 +1,49 @@
 /**
- * 坤哥 — 記憶圖譜板塊
+ * 坤哥 — 記憶圖譜板塊（v2.0 v5.10.2 Phase 3：嵌入完整 5 sub-tabs）
  *
- * 呈現三層記憶心智架構：
+ * 三層記憶心智架構：
  *   - 身份層（SOUL.md，由 IdentityTab 呈現）
  *   - 世界觀層（wiki/entities, wiki/topics 220 nodes / KG 2504 entities）
- *   - 自我觀層（wiki/memory/ diary / patterns / autobiographies）
+ *   - 自我觀層（wiki/memory/ diary / patterns / autobiographies）— 本 Tab 內呈現
  *
- * 資料來源：
- *   - /ai/memory/stats — Memory Wiki 聚合統計
- *   - /ai/graph/stats — Knowledge Graph 實體/關係統計
+ * v2.0 變更（ADR-0031 落實）：
+ *   原本只有導引卡 → 改為內嵌 MemoryDashboardPage 的 5 sub-tabs，
+ *   不再讓使用者跳出 /kunge 才能看完整記憶。
  *
- * @version 1.0.0 — D3-B 填充
+ * @version 2.0.0 — kunge 唯一入口落實
  */
 
-import React from 'react';
-import { Card, Typography, Row, Col, Button, Space, Alert } from 'antd';
+import React, { lazy, Suspense, useState } from 'react';
+import { Card, Typography, Tabs, Spin, Alert, Space, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOutlined,
+  BranchesOutlined,
+  CrownOutlined,
+  DeploymentUnitOutlined,
+  HistoryOutlined,
   DatabaseOutlined,
-  ArrowRightOutlined,
   NodeIndexOutlined,
+  ArrowRightOutlined,
 } from '@ant-design/icons';
 import { useMemoryStats } from '../../hooks/useMemoryData';
 import { MemoryStatsRow } from '../../components/memory/MemoryStatsRow';
 
 const { Title, Paragraph, Text } = Typography;
 
+// 共用 MemoryDashboardPage 的 5 個子 tabs（不重複實作，保 single source of truth）
+const DiaryTab = lazy(() => import('../memoryWiki/DiaryTab'));
+const PatternsTab = lazy(() => import('../memoryWiki/PatternsTab'));
+const ProposalsTab = lazy(() => import('../memoryWiki/ProposalsTab'));
+const AutobiographyTab = lazy(() => import('../memoryWiki/AutobiographyTab'));
+const SkillNebulaTab = lazy(() => import('../memoryWiki/SkillNebulaTab'));
+
+const fallback = <Spin style={{ display: 'block', margin: '40px auto' }} />;
+
 export const MemoryTab: React.FC = () => {
   const navigate = useNavigate();
   const { data: stats, isLoading } = useMemoryStats();
+  const [activeTab, setActiveTab] = useState('diary');
 
   return (
     <div>
@@ -54,72 +68,64 @@ export const MemoryTab: React.FC = () => {
         <MemoryStatsRow stats={stats} loading={isLoading} />
       </Card>
 
-      <Card bordered={false} style={{ marginTop: 16 }} title="深入探索">
-        <Row gutter={[12, 12]}>
-          <Col xs={24} md={8}>
-            <Card
-              hoverable
-              size="small"
-              onClick={() => navigate('/ai/memory')}
-              style={{ height: '100%' }}
-            >
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <Space>
-                  <BookOutlined style={{ fontSize: 20, color: '#1677ff' }} />
-                  <Text strong>Memory Wiki 完整儀表板</Text>
-                </Space>
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                  diary / patterns / proposals / autobiography / 技能星雲 五頁籤
-                </Text>
-                <Button type="link" style={{ padding: 0 }}>
-                  開啟 <ArrowRightOutlined />
-                </Button>
-              </Space>
-            </Card>
-          </Col>
-          <Col xs={24} md={8}>
-            <Card
-              hoverable
-              size="small"
-              onClick={() => navigate('/ai/wiki')}
-              style={{ height: '100%' }}
-            >
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <Space>
-                  <NodeIndexOutlined style={{ fontSize: 20, color: '#722ed1' }} />
-                  <Text strong>LLM Wiki Force-Graph</Text>
-                </Space>
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                  220 節點 · 477 雙向連結 · 4-Phase Karpathy ingest→compile→query→lint
-                </Text>
-                <Button type="link" style={{ padding: 0 }}>
-                  開啟 <ArrowRightOutlined />
-                </Button>
-              </Space>
-            </Card>
-          </Col>
-          <Col xs={24} md={8}>
-            <Card
-              hoverable
-              size="small"
-              onClick={() => navigate('/ai/knowledge-graph')}
-              style={{ height: '100%' }}
-            >
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <Space>
-                  <DatabaseOutlined style={{ fontSize: 20, color: '#52c41a' }} />
-                  <Text strong>知識圖譜 Hub</Text>
-                </Space>
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                  2,504 canonical entities · 跨域關係查詢 · 最短路徑
-                </Text>
-                <Button type="link" style={{ padding: 0 }}>
-                  開啟 <ArrowRightOutlined />
-                </Button>
-              </Space>
-            </Card>
-          </Col>
-        </Row>
+      {/* v2.0：嵌入 5 sub-tabs，不再讓使用者跳出 /kunge */}
+      <Card bordered={false} style={{ marginTop: 16 }}>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={[
+            {
+              key: 'diary',
+              label: <span><BookOutlined /> 日記</span>,
+              children: <Suspense fallback={fallback}><DiaryTab /></Suspense>,
+            },
+            {
+              key: 'patterns',
+              label: <span><BranchesOutlined /> 模式 / 教訓</span>,
+              children: <Suspense fallback={fallback}><PatternsTab /></Suspense>,
+            },
+            {
+              key: 'proposals',
+              label: <span><CrownOutlined /> 提案 / Crystal</span>,
+              children: <Suspense fallback={fallback}><ProposalsTab /></Suspense>,
+            },
+            {
+              key: 'autobiography',
+              label: <span><HistoryOutlined /> 週自傳</span>,
+              children: <Suspense fallback={fallback}><AutobiographyTab /></Suspense>,
+            },
+            {
+              key: 'nebula',
+              label: <span><DeploymentUnitOutlined /> 技能星雲</span>,
+              children: <Suspense fallback={fallback}><SkillNebulaTab /></Suspense>,
+            },
+          ]}
+        />
+      </Card>
+
+      {/* 進階探索（外部 Wiki / KG hub） */}
+      <Card bordered={false} style={{ marginTop: 16 }} size="small">
+        <Space size="middle" wrap>
+          <Text type="secondary" style={{ fontSize: 13 }}>進階探索：</Text>
+          <Button
+            type="link"
+            size="small"
+            icon={<NodeIndexOutlined />}
+            onClick={() => navigate('/ai/wiki')}
+          >
+            LLM Wiki Force-Graph 220 節點
+            <ArrowRightOutlined style={{ marginLeft: 4 }} />
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            icon={<DatabaseOutlined />}
+            onClick={() => navigate('/ai/knowledge-graph')}
+          >
+            知識圖譜 Hub 2,504 entities
+            <ArrowRightOutlined style={{ marginLeft: 4 }} />
+          </Button>
+        </Space>
       </Card>
 
       <Card
