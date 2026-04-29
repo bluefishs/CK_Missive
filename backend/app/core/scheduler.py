@@ -441,8 +441,42 @@ async def kg_embedding_backfill_job():
             logger.info(
                 f"KG Embedding 回填完成: processed={processed}, skipped={skipped}"
             )
+
+            # v5.10.2 #7：順手 refresh KG metrics（避免 dead integration / L01）
+            try:
+                from app.core.kg_stats_metrics import get_kg_stats_metrics
+                metrics = get_kg_stats_metrics()
+                stats = await metrics.refresh_from_db(db)
+                logger.info(
+                    "KG metrics refreshed: total=%d embedded=%d coverage=%.3f edges=%d",
+                    stats["total"], stats["embedded"], stats["coverage"], stats["edges"],
+                )
+            except Exception as m_err:
+                logger.error("KG metrics refresh failed: %s", m_err, exc_info=True)
     except Exception as e:
         logger.error(f"KG Embedding 回填失敗: {e}", exc_info=True)
+
+
+async def kg_metrics_refresh_job():
+    """v5.10.2 #7：KG metrics 即時刷新 — 每 15 分鐘從 DB 讀最新覆蓋率到 Prometheus
+
+    領域：knowledge growth governance
+      讓 Grafana dashboard 能看「kg_embedding_coverage_ratio」即時值，
+      而非依賴每日 04:30 backfill job 才更新一次。
+    """
+    from app.db.database import async_session_maker
+    from app.core.kg_stats_metrics import get_kg_stats_metrics
+
+    try:
+        async with async_session_maker() as db:
+            metrics = get_kg_stats_metrics()
+            stats = await metrics.refresh_from_db(db)
+            logger.debug(
+                "KG metrics refreshed: total=%d embedded=%d coverage=%.3f",
+                stats["total"], stats["embedded"], stats["coverage"],
+            )
+    except Exception as e:
+        logger.error("KG metrics refresh job 失敗: %s", e, exc_info=True)
 
 
 async def _push_channel(channel: str, recipient: str, text: str) -> tuple[bool, str | None]:
@@ -1677,6 +1711,21 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 Memory Pattern Extractor: 每日 04:00 執行")
+
+    # v5.10.2 #7 KG metrics 即時刷新（Prometheus + Grafana dashboard）
+    # next_run_time=now：startup 後立刻 fire 一次填值，不等 15 分（避免 dead startup gap）
+    from datetime import datetime as _dt, timedelta as _td
+    scheduler.add_job(
+        kg_metrics_refresh_job,
+        trigger=IntervalTrigger(minutes=15),
+        id='kg_metrics_refresh',
+        name='KG metrics refresh (每 15 分鐘 → Prometheus)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        next_run_time=_dt.now() + _td(seconds=10),  # 啟動 10s 後 fire 首次
+    )
+    logger.info("已添加 KG metrics 刷新: 每 15 分鐘 + startup +10s 首次")
 
     # 2026-04-19 Memory Wiki Phase 3: 每日 04:30 crystal scan（在 pattern extract 之後）
     scheduler.add_job(
