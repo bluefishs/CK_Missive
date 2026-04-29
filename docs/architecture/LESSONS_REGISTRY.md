@@ -215,10 +215,10 @@
 | 欄位 | 內容 |
 |---|---|
 | **Trigger** | `agent_evolution_history` 14d+ 0 新增；`crystals/` 持續空 |
-| **Cause** | `AgentEvolutionScheduler.should_evolve()` 應在每次 query 結束時被 orchestrator 呼叫遞增 redis counter，但 production redis counter 卡 0（`agent_evolution_health.py` 診斷實證 counter=0 + last_run=None + domain_scores 全空）。可能 PM2 重啟後 orchestrator 整合失效，或 redis 連線注入沒到 scheduler。**注意**：crystallizer 鏈路（pattern→proposal）正常跑，proposals/ 有 2 檔等 owner 批准；evolution 引擎是另一獨立鏈路 |
-| **Fix** | （待 owner 排查）跑 `scripts/checks/agent_evolution_health.py` → 看 PM2 log 搜 `should_evolve` → 確認 orchestrator 是否呼叫 |
-| **Prevention** | (a) `agent_evolution_health.py` 加入 fitness step 7（自動偵測 14d 0 觸發即報）(b) orchestrator 接 evolution scheduler 時加 integration test 鎖定鏈路（避免 dead integration）(c) Redis `appendonly yes` persist counter |
-| **Refs** | commit `e86580a3` / `agent_evolution_scheduler.py` / 同類 L01 dead integration |
+| **Cause** | **2026-04-29 v5.10.2 根因確認 — 兩個 silent failure 疊加**：(1) `agent_post_processing.py:144` 用 `from app.core.redis import get_redis`，正確 module 是 `app.core.redis_client` → ImportError → 被 `except Exception: pass` 吞掉（違反 ADR-0028）→ `redis=None` → `should_evolve()` line 92 直接 return False → counter 永不 incr → evolution 永不跑 (2) `agent_evolution_health.py:44` 寫 `agent:evolution:query_counter`（多 `er`），scheduler 實際用 `agent:evolution:query_count` → health script 永遠報 counter=0 誤導 owner 判斷。crystallizer 鏈路（pattern→proposal）正常跑因為走別的路徑 |
+| **Fix** | **v5.10.2** (1) `agent_post_processing.py:144` 改用 `app.core.redis_client` + silent `except` 改 `logger.error(exc_info=True)`（ADR-0028 合規）(2) `agent_evolution_health.py:44` 修 key 名稱對齊 scheduler。**實證**：fix 後送 1 次 agent query → counter `0 → 1` ✓，`agent:evolution:signals` + `eval_history` keys 出現 ✓ |
+| **Prevention** | (a) Module 名稱以 string import 時加 unit test 驗 module 真實存在（避免 ImportError 被當例外吞）(b) Redis key 常數**集中到單一 const module** 供 scheduler + health script 共用，避免 typo 漂移(c) ADR-0028 守護擴大：silent `except: pass` 在 fitness 加 lint(d) Integration test 鎖定 `should_evolve()` 鏈路（avoid dead integration） |
+| **Refs** | v5.10.2 fix commit pending / `agent_post_processing.py:144` / `agent_evolution_health.py:44` / `agent_evolution_scheduler.py` / 同類 L01 dead integration / **這是「silent failure × silent failure」疊加經典反例**（ADR-0028 教材） |
 
 ## L20 — Lessons 散落 commit/ADR/PLAYBOOK → 需 SSOT
 
@@ -229,6 +229,16 @@
 | **Fix** | v5.10.1：建本檔 `LESSONS_REGISTRY.md` 為單點查詢 SSOT |
 | **Prevention** | 任何「發現 → 對策」必新增 L## entry 在本檔；commit message 末尾加 `Refs: L##`；`lessons_drift_check.py` (commit `2cee9943`) detector 月度跑防 dead doc |
 | **Refs** | 本檔自身 / commit `3fd04734` / `lessons_drift_check.py` |
+
+## L23 — 領域驅動拆分 vs 行數驅動拆分（拒拆判準）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 維護者看到「1000 行檔案」直覺反應「該拆」，提案把 morning_report_service.py (1,074L) / agent_orchestrator.py (642L) 拆成多檔 |
+| **Cause** | 行數本身不是 DDD 邊界依據（feedback_ddd_over_line_count）：「1000 行單一領域不拆，200 行混三領域必拆」。但人對「大檔案」有本能厭惡，容易誤把行數當拆分理由 |
+| **Fix** | **v5.10.2 評估後拒拆**（兩件案例驗證判準）：(1) `morning_report_service.py` 1,074L — 4 主題 sections（派工/會議/現勘/遺漏建檔）是「晨報生成」**單一領域內的層次分解**，`_get_*` (queries) / `_format_*` (formatting) / `_compute_*` (純函數) 是領域內 helper，不是混多領域。`morning_report_queries.py` (27L) 是 Phase 1 標記檔已預留 future 遷移路徑，但時機應在「新增領域邏輯時自然發生」(2) `agent_orchestrator.py` 642L — 7 個 method 全是 agent loop 不可分割環節（stream/tool loop/wiki ingest/trace flush）。原規劃「抽 plugin contract」評估後不必要：plugin pattern 已分散在 `agent_tools/` 子包、`agent_self_evaluator.py`、`agent_pattern_learner.py` 等別處 |
+| **Prevention** | (a) 提案拆分時必先回答 3 個問題：① 內部方法是否屬不同 bounded subdomain？② 拆完後跨檔呼叫多還是單檔內呼叫多？③ 是否有外部消費者目前需要的 pattern？三題若無一個 yes → 不拆 (b) 對比範例：v5.10.2 #1 拆 `ai_stats.py` 692L (混 7 領域 → 拆) vs 本 lesson 不拆 morning_report 1,074L (單一領域) — 領域邊界才是判準 (c) 「行數是結果，不是目標」每次拆分後 commit message 要說明「拆出哪 N 個 bounded subdomain」 |
+| **Refs** | v5.10.2 #6 評估 / `morning_report_service.py` (kept 1,074L) / `agent_orchestrator.py` (kept 642L) / 對比 `ai_stats.py` (拆 692L → 7 檔) / `feedback_ddd_over_line_count.md` |
 
 ## L22 — 範本資產缺跨 repo 引用治理規範
 

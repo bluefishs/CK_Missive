@@ -231,5 +231,21 @@ commit title: refactor: services/* → services/<context>/ (bounded context migr
 
 ---
 
+## 5. 拒拆決策（v5.10.2 案例庫）
+
+> 行數驅動的拆分提案會反覆出現。把已評估後**拒拆**的決策列出來，避免重複討論。
+
+| 檔案 | 行數 | 表面看 | DDD 評估後 | 理由 |
+|---|---|---|---|---|
+| `services/ai/domain/morning_report_service.py` | 1,074L | 「該拆」 | **不拆** | 4 主題 sections（派工/會議/現勘/遺漏建檔）是「晨報生成」**單一領域內層次分解**。`_get_*` queries / `_format_*` formatting / `_compute_*` 純函數是領域內 helper。`morning_report_queries.py` 27L 標記檔已預留 Phase 2 路徑，**未來新領域邏輯加入時再啟動** |
+| `services/ai/agent/agent_orchestrator.py` | 642L | 「該拆」 | **不拆** | 7 個 method 全是 agent loop 不可分割環節（stream / tool loop / wiki ingest / trace flush）。原 v5.10.2 #6 規劃「抽 plugin contract」評估後不必要——plugin pattern 已分散在 `agent_tools/` 子包、`agent_self_evaluator.py`、`agent_pattern_learner.py` |
+
+**對比拆分案例**（v5.10.2 #1）：`ai_stats.py` 692L 雖比 `agent_orchestrator.py` 行數多，但**拆**——因為它混了 7 個 bounded subdomain（observability / tracing / evolution / benchmark / morning ops / subscription CRUD / token economics）。**領域邊界才是判準，不是行數**。
+
+詳見 `LESSONS_REGISTRY.md#L23`。
+
+---
+
 **變更歷史**
 - v1.0（2026-04-25）：首版映射，85 檔 → 16 contexts
+- v1.1（2026-04-29，v5.10.2 #6）：新增 §5 拒拆決策案例庫
