@@ -479,6 +479,41 @@ async def kg_metrics_refresh_job():
         logger.error("KG metrics refresh job 失敗: %s", e, exc_info=True)
 
 
+async def memory_metrics_refresh_job():
+    """v5.10.2 Phase 1：Memory Wiki metrics 即時刷新 — 每 15 分鐘掃 wiki/memory/*
+
+    領域：consciousness observability
+      過去 metrics 定義齊全但 refresh_from_disk 只在 endpoint /api/ai/memory/stats
+      被觸發時 lazy refresh，沒人進 memory dashboard 時 gauge 永遠 0
+      → Grafana 看不到坤哥意識體健康度（同 #4 dead integration 病灶）。
+
+    本 job 從 wiki/memory/ 子目錄計檔數（diary / patterns / failures /
+    crystals / proposals / evolutions），更新 7 個 gauge 到 Prometheus。
+    """
+    from pathlib import Path
+    from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+
+    try:
+        # PROJECT_ROOT/wiki/memory 路徑（同 endpoints/ai/memory.py 用法）
+        project_root = Path(__file__).resolve().parents[3]
+        wiki_memory = project_root / "wiki" / "memory"
+        if not wiki_memory.exists():
+            logger.warning("wiki/memory 目錄不存在，skip metrics refresh")
+            return
+
+        metrics = get_memory_wiki_metrics()
+        metrics.refresh_from_disk(wiki_memory)
+        logger.debug(
+            "Memory metrics refreshed: diary=%d patterns=%d crystals=%d proposals_pending=%d",
+            int(metrics.diary_days._value.get()),
+            int(metrics.patterns._value.get()),
+            int(metrics.crystals._value.get()),
+            int(metrics.proposals_pending._value.get()),
+        )
+    except Exception as e:
+        logger.error("Memory metrics refresh job 失敗: %s", e, exc_info=True)
+
+
 async def _push_channel(channel: str, recipient: str, text: str) -> tuple[bool, str | None]:
     """
     B1: 統一 channel push 抽象，回傳 (ok, error_msg)。
@@ -1726,6 +1761,19 @@ def setup_scheduler(
         next_run_time=_dt.now() + _td(seconds=10),  # 啟動 10s 後 fire 首次
     )
     logger.info("已添加 KG metrics 刷新: 每 15 分鐘 + startup +10s 首次")
+
+    # v5.10.2 Phase 1: Memory Wiki metrics 刷新（坤哥意識體觀測，修 hollow gauge）
+    scheduler.add_job(
+        memory_metrics_refresh_job,
+        trigger=IntervalTrigger(minutes=15),
+        id='memory_metrics_refresh',
+        name='Memory metrics refresh (每 15 分鐘 → Prometheus)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        next_run_time=_dt.now() + _td(seconds=12),  # 啟動 12s 後 fire 首次（KG 後 2 秒）
+    )
+    logger.info("已添加 Memory metrics 刷新: 每 15 分鐘 + startup +12s 首次")
 
     # 2026-04-19 Memory Wiki Phase 3: 每日 04:30 crystal scan（在 pattern extract 之後）
     scheduler.add_job(
