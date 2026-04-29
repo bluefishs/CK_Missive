@@ -12,6 +12,7 @@ import { App } from 'antd';
 
 import { workflowApi } from '../../../api/taoyuan';
 import { logger } from '../../../services/logger';
+import { useDispatchCacheInvalidator } from '../../../hooks/taoyuan/useDispatchCacheInvalidator';
 
 interface UseDeleteWorkRecordOptions {
   /** 需要 invalidate 的 query keys */
@@ -25,6 +26,7 @@ export function useDeleteWorkRecord({
   logPrefix = 'WorkRecord',
 }: UseDeleteWorkRecordOptions) {
   const queryClient = useQueryClient();
+  const dispatchCache = useDispatchCacheInvalidator();
   const { message } = App.useApp();
 
   return useMutation({
@@ -34,8 +36,7 @@ export function useDeleteWorkRecord({
       for (const key of invalidateKeys) {
         queryClient.invalidateQueries({ queryKey: key });
       }
-      // 作業紀錄變動會影響 work_progress → 派工總覽 morning-status 須刷新
-      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
+      dispatchCache.invalidateWorkRecord();
     },
     onError: (error: Error) => {
       logger.error(`[${logPrefix}] 刪除失敗:`, error);

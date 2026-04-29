@@ -29,6 +29,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { workflowApi } from '../../../api/taoyuan';
 import { queryKeys } from '../../../config/queryConfig';
+import { useDispatchCacheInvalidator } from '../../../hooks/taoyuan/useDispatchCacheInvalidator';
 import type {
   WorkRecord,
   WorkRecordCreate,
@@ -77,6 +78,7 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
   const [form] = Form.useForm();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+  const dispatchCache = useDispatchCacheInvalidator();
 
   // =========================================================================
   // 公文選項
@@ -169,9 +171,7 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
         queryKey: queryKeys.workRecords.dispatch(dispatchOrderId),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      // 作業紀錄變動影響派工總覽 morning-status display_status
-      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
+      dispatchCache.invalidateWorkRecord();
       onCreated?.();
     },
     onError: (error: Error) => {

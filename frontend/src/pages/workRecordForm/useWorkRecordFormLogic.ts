@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { workflowApi } from '../../api/taoyuan';
 import { queryKeys } from '../../config/queryConfig';
+import { useDispatchCacheInvalidator } from '../../hooks/taoyuan/useDispatchCacheInvalidator';
 import type {
   WorkRecordCreate,
   WorkRecordUpdate,
@@ -53,6 +54,7 @@ export function useWorkRecordFormLogic({
   searchedDocsResult,
 }: UseWorkRecordFormLogicParams) {
   const queryClient = useQueryClient();
+  const dispatchCache = useDispatchCacheInvalidator();
 
   // 查詢現有紀錄
   const { data: record, isLoading } = useQuery({
@@ -175,9 +177,7 @@ export function useWorkRecordFormLogic({
       message.success('作業紀錄建立成功');
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      // 作業紀錄變動會影響派工總覽 morning-status 計算結果
-      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
+      dispatchCache.invalidateWorkRecord();
       navigate(returnPath);
     },
     onError: (error: Error) => {
@@ -193,10 +193,7 @@ export function useWorkRecordFormLogic({
       message.success('作業紀錄更新成功');
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
-      // 作業紀錄狀態變更會影響派工單列表的「作業進度」欄位
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      // 同時影響派工總覽 morning-status display_status 計算
-      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
+      dispatchCache.invalidateWorkRecord();
       navigate(returnPath);
     },
     onError: (error: Error) => {

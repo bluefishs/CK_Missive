@@ -12,10 +12,11 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Collapse, Spin, Empty, Badge, Button, Typography, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { ROUTES } from '../../../router/types';
 
 import { useResponsive } from '../../../hooks/utility/useResponsive';
+import { useDispatchCacheInvalidator } from '../../../hooks/taoyuan/useDispatchCacheInvalidator';
 import { useKanbanData } from '../../../components/taoyuan/kanban/useKanbanData';
 import { KanbanColumn } from '../../../components/taoyuan/kanban/KanbanColumn';
 import { KanbanCard } from '../../../components/taoyuan/kanban/KanbanCard';
@@ -41,7 +42,7 @@ export const KanbanBoardTab: React.FC<KanbanBoardTabProps> = ({
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
 
-  const queryClient = useQueryClient();
+  const dispatchCache = useDispatchCacheInvalidator();
   const [messageApi, contextHolder] = message.useMessage();
   const [updatingDispatchId, setUpdatingDispatchId] = useState<number | null>(null);
 
@@ -65,9 +66,7 @@ export const KanbanBoardTab: React.FC<KanbanBoardTabProps> = ({
     onSuccess: () => {
       messageApi.success('狀態已更新');
       refetch();
-      queryClient.invalidateQueries({ queryKey: ['kanban-workflow', projectId] });
-      // 狀態變更影響派工總覽 morning-status display_status 計算
-      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
+      dispatchCache.invalidateKanbanStatus(projectId);
     },
     onError: () => {
       messageApi.error('狀態更新失敗');

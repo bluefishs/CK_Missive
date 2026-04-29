@@ -6,7 +6,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Table, Tag, Card, Select, Space, Typography, Tooltip, Input, DatePicker, App } from 'antd';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -21,6 +21,7 @@ import dayjs from 'dayjs';
 import { ROUTES } from '../../router/types';
 import { apiClient } from '../../api/client';
 import { TAOYUAN_DISPATCH_ENDPOINTS } from '../../api/endpoints';
+import { useDispatchCacheInvalidator } from '../../hooks/taoyuan/useDispatchCacheInvalidator';
 
 const { Text } = Typography;
 
@@ -86,7 +87,7 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
 }) => {
   const navigate = useNavigate();
   const { message } = App.useApp();
-  const queryClient = useQueryClient();
+  const dispatchCache = useDispatchCacheInvalidator();
   const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined);
   const [searchText, setSearchText] = useState('');
 
@@ -98,7 +99,7 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
       ),
     onSuccess: () => {
       message.success('交付期限已更新');
-      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
+      dispatchCache.invalidateMorningStatusOnly();
     },
   });
 
