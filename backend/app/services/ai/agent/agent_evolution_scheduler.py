@@ -569,19 +569,65 @@ class AgentEvolutionScheduler:
         await push_evolution_report(summary, report)
 
     async def get_evolution_status(self) -> Dict[str, Any]:
-        """取得最近一次進化狀態（供前端儀表板顯示）"""
+        """取得最近一次進化狀態（供前端儀表板顯示）
+
+        v5.10.2 Phase 2 擴充：加 trigger_health 區塊，讓前端能看到
+        「距下次觸發還差 N 個 query / 多少小時」等診斷資訊（修 #4 後配套）。
+        """
         if not self.redis:
             return {"status": "no_redis"}
 
         try:
+            # 1. 既有 state（最近一次進化結果）
             raw = await self.redis.get(EVOLUTION_STATE_KEY)
-            if raw:
-                state = json.loads(raw)
-                # 附加最新摘要
-                summary_raw = await self.redis.get("agent:evolution:latest_summary")
-                if summary_raw:
-                    state["latest_summary"] = json.loads(summary_raw)
-                return state
-            return {"status": "never_run"}
-        except Exception:
-            return {"status": "error"}
+            state: Dict[str, Any] = json.loads(raw) if raw else {"status": "never_run"}
+
+            # 2. 附加 latest_summary
+            summary_raw = await self.redis.get("agent:evolution:latest_summary")
+            if summary_raw:
+                state["latest_summary"] = json.loads(summary_raw)
+
+            # 3. v5.10.2 Phase 2：觸發健康度（前端顯示「距下次觸發 N 個 query」）
+            counter_raw = await self.redis.get(QUERY_COUNTER_KEY)
+            try:
+                current_counter = int(counter_raw) if counter_raw else 0
+            except (TypeError, ValueError):
+                current_counter = 0
+
+            last_run_raw = await self.redis.get(LAST_EVOLUTION_KEY)
+            last_run_ts = None
+            seconds_since_last_run = None
+            try:
+                if last_run_raw:
+                    last_run_ts = float(last_run_raw)
+                    seconds_since_last_run = time.time() - last_run_ts
+            except (TypeError, ValueError):
+                pass
+
+            queries_until_next = (
+                self.EVOLVE_EVERY_N_QUERIES
+                - (current_counter % self.EVOLVE_EVERY_N_QUERIES)
+            ) if current_counter > 0 else self.EVOLVE_EVERY_N_QUERIES
+
+            seconds_until_interval = None
+            if seconds_since_last_run is not None:
+                seconds_until_interval = max(
+                    self.EVOLVE_INTERVAL_SECONDS - seconds_since_last_run, 0
+                )
+
+            state["trigger_health"] = {
+                "query_counter": current_counter,
+                "queries_until_next": queries_until_next,
+                "evolve_every_n_queries": self.EVOLVE_EVERY_N_QUERIES,
+                "last_run_ts": last_run_ts,
+                "seconds_since_last_run": seconds_since_last_run,
+                "evolve_interval_seconds": self.EVOLVE_INTERVAL_SECONDS,
+                "seconds_until_interval_trigger": seconds_until_interval,
+                # 健康燈號：counter > 0 表示 should_evolve() 真的有跑（避免 #4 重演）
+                "is_alive": current_counter > 0 or last_run_ts is not None,
+            }
+
+            return state
+        except Exception as e:
+            logger.error("get_evolution_status error: %s", e, exc_info=True)
+            return {"status": "error", "error": str(e)}

@@ -479,3 +479,67 @@ async def memory_stats():
         logger.debug("Memory wiki metrics refresh failed: %s", e)
 
     return {"success": True, "data": data}
+
+
+# ────────── Memory Cron Jobs 健康度（v5.10.2 Phase 2）──────────
+
+# 4 個坤哥意識體相關 cron job（含 metrics refresh）
+MEMORY_JOB_IDS = [
+    "memory_pattern_extract",
+    "memory_crystallization_scan",
+    "memory_weekly_autobiography",
+    "memory_anti_echo_scan",
+    "memory_metrics_refresh",
+]
+
+
+@router.post("/memory/jobs")
+async def memory_jobs_status():
+    """4 個 memory cron job 狀態（last_run / success / failure_count / next_run）。
+
+    領域：consciousness scheduler observability
+      讓前端 ops dashboard 看「哪個 cron 多久沒跑過 / 失敗連續次數」，
+      即時發現意識體鏈路斷鏈（早於 fitness 月度 audit）。
+    """
+    from app.core.scheduler import SchedulerTracker, get_scheduler
+
+    all_records = SchedulerTracker.get_all()
+    scheduler = get_scheduler()
+
+    items = []
+    for job_id in MEMORY_JOB_IDS:
+        rec = all_records.get(job_id, {})
+        next_run = None
+        try:
+            job = scheduler.get_job(job_id)
+            if job and job.next_run_time:
+                next_run = job.next_run_time.isoformat()
+        except Exception:
+            pass
+        items.append({
+            "job_id": job_id,
+            "last_run": rec.get("last_run"),
+            "last_status": rec.get("last_status") or "never_run",
+            "last_duration_ms": rec.get("last_duration_ms"),
+            "last_error": rec.get("last_error"),
+            "success_count": rec.get("success_count", 0),
+            "failure_count": rec.get("failure_count", 0),
+            "next_run": next_run,
+        })
+
+    # 健康燈號
+    never_run = sum(1 for i in items if i["last_status"] == "never_run")
+    failed = sum(1 for i in items if i["last_status"] == "failure")
+
+    return {
+        "success": True,
+        "data": {
+            "jobs": items,
+            "summary": {
+                "total": len(items),
+                "healthy": len(items) - never_run - failed,
+                "never_run": never_run,
+                "failed": failed,
+            },
+        },
+    }
