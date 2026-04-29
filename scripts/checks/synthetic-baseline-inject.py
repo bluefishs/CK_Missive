@@ -39,10 +39,16 @@ QUERY_POOL: List[Dict[str, str]] = [
     {"q": "今天到期的公文", "domain": "document"},
     {"q": "幫我查 113 年的發文清單", "domain": "document"},
     # 派工/作業
-    {"q": "派工單 11301-001 的進度如何？", "domain": "dispatch"},
+    # 2026-04-29：修正 2 條無解 query（v5.10.2 #4 evolution 修復後配套）
+    # - 「派工單 11301-001」格式錯（實際 dispatch_no 為「115年_派工單號021」）
+    # - 「承辦人老蕭」系統內無此人（13 個 distinct case_handler 無「蕭」）
+    # 兩條無解 query 每日 cron 3x 注入會誤導 evolution pattern，且
+    # 04-23 diary 已觀察到 agent 在無解場景產生 hallucination（列 6 個無關
+    # 公文後否認）→ 改用系統實際存在的單號 + 承辦人名
+    {"q": "派工單 115年_派工單號021 的進度如何？", "domain": "dispatch"},
     {"q": "哪些派工單已逾期？", "domain": "dispatch"},
     {"q": "查估專區目前有幾件進行中？", "domain": "dispatch"},
-    {"q": "承辦人老蕭負責的案件有哪些？", "domain": "dispatch"},
+    {"q": "承辦人劉虹吟負責的案件有哪些？", "domain": "dispatch"},
     # ERP 財務
     {"q": "本月費用報銷總額多少？", "domain": "erp"},
     {"q": "哪些案件有未審批的費用？", "domain": "erp"},
