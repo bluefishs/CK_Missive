@@ -25,7 +25,7 @@ from app.schemas.auth import UserProfile, ProfileUpdate, PasswordChange
 from app.extended.models import User
 from app.repositories.user_repository import UserRepository
 
-from .common import get_current_user, get_superuser_mock
+from .common import get_current_user, get_superuser_mock, is_internal_ip
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -57,11 +57,7 @@ async def get_current_user_info(
     if forwarded_for:
         ip_address = forwarded_for.split(",")[0].strip()
 
-    is_development_localhost = (
-        ip_address in ["127.0.0.1", "localhost"] and settings.DEVELOPMENT_MODE
-    )
-
-    if settings.AUTH_DISABLED and not is_development_localhost:
+    if settings.AUTH_DISABLED and is_internal_ip(ip_address):
         logger.info(
             f"[AUTH] Internal/Dev access - IP: {ip_address}, AUTH_DISABLED: {settings.AUTH_DISABLED}"
         )

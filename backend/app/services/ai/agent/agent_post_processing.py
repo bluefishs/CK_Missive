@@ -139,12 +139,20 @@ async def self_evaluate_and_evolve(
         evaluator = get_self_evaluator()
 
         # Step 1: 自我評估（零 LLM 呼叫，純規則式）
+        # 2026-04-29 修：原 import 路徑 `app.core.redis` 不存在 → ImportError 被
+        # silent except 吞掉（違反 ADR-0028）→ redis=None → should_evolve() 永
+        # 不呼叫 incr → counter 14 天卡 0 → evolution 從未跑。
+        # 正確 module 是 `app.core.redis_client`（agent_evolution.py 用法相同）。
         redis = None
         try:
-            from app.core.redis import get_redis
+            from app.core.redis_client import get_redis
             redis = await get_redis()
-        except Exception:
-            pass
+        except Exception as redis_err:
+            logger.error(
+                "Failed to acquire redis for self-evaluation (evolution will skip): %s",
+                redis_err,
+                exc_info=True,
+            )
 
         # 正規化 context → DOMAIN_WEIGHTS key
         _ctx_map = {"knowledge-graph": "graph", "finance": "erp", "agent": None}

@@ -41,7 +41,7 @@ except ImportError as e:
 DSN = os.getenv("DATABASE_URL", "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6380/0")
 
-QUERY_COUNTER_KEY = "agent:evolution:query_counter"
+QUERY_COUNTER_KEY = "agent:evolution:query_count"  # 2026-04-29 修：原 'query_counter' 拼錯（scheduler 實際用 'query_count'）→ health script 永遠報 counter=0
 LAST_EVOLUTION_KEY = "agent:evolution:last_run"
 EVAL_HISTORY_KEY = "agent:evolution:eval_history"
 EVOLVE_EVERY_N = 50
