@@ -11,6 +11,11 @@ from fastapi import APIRouter
 from .document_ai import router as document_ai_router
 from .ai_stats import router as ai_stats_router
 from .ai_monitoring import router as ai_monitoring_router
+from .agent_traces import router as agent_traces_router
+from .search_benchmark import router as search_benchmark_router
+from .morning_report import router as morning_report_router
+from .morning_report_subscriptions import router as morning_report_subs_router
+from .token_usage import router as token_usage_router
 from .synonyms import router as synonyms_router
 from .prompts import router as prompts_router
 from .search_history import router as search_history_router
@@ -42,6 +47,11 @@ router = APIRouter(prefix="/ai", tags=["AI"])
 router.include_router(document_ai_router)
 router.include_router(ai_stats_router)
 router.include_router(ai_monitoring_router)
+router.include_router(agent_traces_router)
+router.include_router(search_benchmark_router)
+router.include_router(morning_report_router)
+router.include_router(morning_report_subs_router)
+router.include_router(token_usage_router)
 router.include_router(ai_feedback_router)
 router.include_router(synonyms_router)
 router.include_router(prompts_router)
