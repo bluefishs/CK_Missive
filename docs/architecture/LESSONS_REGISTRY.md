@@ -220,6 +220,16 @@
 | **Prevention** | (a) Module 名稱以 string import 時加 unit test 驗 module 真實存在（避免 ImportError 被當例外吞）(b) Redis key 常數**集中到單一 const module** 供 scheduler + health script 共用，避免 typo 漂移(c) ADR-0028 守護擴大：silent `except: pass` 在 fitness 加 lint(d) Integration test 鎖定 `should_evolve()` 鏈路（avoid dead integration） |
 | **Refs** | v5.10.2 fix commit pending / `agent_post_processing.py:144` / `agent_evolution_health.py:44` / `agent_evolution_scheduler.py` / 同類 L01 dead integration / **這是「silent failure × silent failure」疊加經典反例**（ADR-0028 教材） |
 
+## L24 — Self-evaluator 標準過鬆 / Pattern 門檻過緊（雙重失衡）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | v5.10.2 #4 evolution 修復後審 Redis pattern 分布：53 個 pattern 全部 success_rate ≥ 0.95（無一例外），但 hit 分布偏低（23 筆 hit 1-2 / 5 筆 hit 3-4），結晶 candidates 累積太慢 |
+| **Cause** | (a) `MIN_HIT_FOR_CRYSTAL=5` + `MIN_SUCCESS_RATE_FOR_CRYSTAL=0.95` 雙閘設計，預期「高成功 + 高頻」才結晶。實測 success_rate 全卡頂 → success 閘形同虛設，hit 閘變成唯一瓶頸 (b) self_evaluator 給分過鬆：每次 query 後評，但「能回應 = 高分」沒區分 hallucination / 找不到 / 完美回答（04-23 列無關公文 hallucination 仍評高分案例佐證） |
+| **Fix** | （v5.10.2 評估記錄，未即刻 apply）門檻 5→3 立即解鎖 5 筆候選（+10%）。但更根本是修 self_evaluator 區分度 — 增加 negative-test hallucination 偵測規則 |
+| **Prevention** | (a) Pattern 門檻調整前 dry-run，評估「會新增多少 promotion」(b) self_evaluator 應有 calibration test：人工標注 20 筆 query，看評分 vs 標注一致率，<70% 即報警 (c) success_rate 分布 entropy 監測 — 若全卡 1.0 即評分機制失效信號 |
+| **Refs** | v5.10.2 Phase 4.1 評估 / `agent_evolution_scheduler.py:78-79` 門檻常數 / synthetic-baseline-inject.py 修正後仍 100% 高分問題 |
+
 ## L20 — Lessons 散落 commit/ADR/PLAYBOOK → 需 SSOT
 
 | 欄位 | 內容 |
