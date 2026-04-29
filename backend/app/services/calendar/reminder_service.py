@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.extended.models import DocumentCalendarEvent, EventReminder, User
 from app.repositories.calendar_repository import CalendarRepository
-from app.services.notification_service import NotificationService
+from app.services.notification import NotificationService
 
 logger = logging.getLogger(__name__)
 

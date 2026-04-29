@@ -132,7 +132,7 @@ async def delete_document(
         await db.commit()
 
         # 6. 審計日誌和通知（使用統一服務，自動管理獨立 session）
-        from app.services.audit_service import AuditService
+        from app.services.audit import AuditService
         await AuditService.log_document_change(
             document_id=document_id,
             action="DELETE",

@@ -16,7 +16,7 @@ Notification Service
 - 保留 send_email/system_notification stubs（reminder_service 依賴）
 
 使用方式（推薦）：
-    from app.services.notification_service import NotificationService
+    from app.services.notification import NotificationService
 
     # 推薦：使用獨立 session 的安全版本
     await NotificationService.safe_notify_critical_change(

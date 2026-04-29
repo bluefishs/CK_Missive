@@ -87,7 +87,7 @@ async def create_case_from_tender(
     """從標案一鍵建立 PM Case + ERP Quotation"""
     from sqlalchemy.ext.asyncio import AsyncSession
     from app.db.database import get_async_db as get_db
-    from app.services.case_code_service import CaseCodeService
+    from app.services.contract import CaseCodeService
     from app.extended.models.pm import PMCase
     from app.extended.models.erp import ERPQuotation
     from app.db.database import AsyncSessionLocal

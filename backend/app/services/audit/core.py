@@ -5,7 +5,7 @@
 重要：此服務使用獨立的資料庫 session，避免交易污染問題。
 
 使用方式：
-    from app.services.audit_service import AuditService
+    from app.services.audit import AuditService
 
     # 記錄變更（自動管理 session，不影響主交易）
     await AuditService.log_change(

@@ -15,7 +15,7 @@ from app.schemas.pm import (
     PMCaseCreate, PMCaseUpdate, PMCaseResponse, PMCaseListRequest, PMCaseSummary,
     PMYearlyTrendItem,
 )
-from app.services.case_code_service import CaseCodeService
+from app.services.contract import CaseCodeService
 
 logger = logging.getLogger(__name__)
 

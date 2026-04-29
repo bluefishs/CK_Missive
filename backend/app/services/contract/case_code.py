@@ -310,7 +310,7 @@ class CaseCodeService:
 
         # 審計記錄：成案事件
         try:
-            from app.services.audit_service import AuditService
+            from app.services.audit import AuditService
             audit = AuditService(self.db)
             await audit.log_action(
                 action="promote_to_project",

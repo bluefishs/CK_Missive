@@ -32,7 +32,7 @@ class ERPInvoiceService(AuditableServiceMixin):
 
         invoice_ref 為系統內部參照碼，非法定統一發票號碼 (invoice_number)。
         """
-        from app.services.case_code_service import CaseCodeService
+        from app.services.contract import CaseCodeService
         from app.services.coding_helpers import retry_on_code_conflict
 
         async def _create_op():

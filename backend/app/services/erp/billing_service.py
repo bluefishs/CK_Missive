@@ -34,7 +34,7 @@ class ERPBillingService(AuditableServiceMixin):
     async def create(self, data: ERPBillingCreate) -> ERPBillingResponse:
         """建立請款 (ADR-0013 Phase 2: 自動生成 billing_code + 併發 retry)"""
         from datetime import datetime
-        from app.services.case_code_service import CaseCodeService
+        from app.services.contract import CaseCodeService
         from app.services.coding_helpers import retry_on_code_conflict
 
         async def _create_op() -> ERPBilling:

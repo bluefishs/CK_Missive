@@ -177,7 +177,7 @@ async def create_document(
         user_name = current_user.username if current_user else "Anonymous"
         logger.info(f"公文 {document.id} 建立 by {user_name}")
 
-        from app.services.audit_service import AuditService
+        from app.services.audit import AuditService
         await AuditService.log_document_change(
             document_id=document.id,
             action="CREATE",
@@ -330,7 +330,7 @@ async def update_document(
             logger.info(f"公文 {document_id} 更新 by {user_name}: {list(changes.keys())}")
 
             # 使用 AuditService（自動使用獨立 session，不會污染主交易）
-            from app.services.audit_service import AuditService
+            from app.services.audit import AuditService
             await AuditService.log_document_change(
                 document_id=document_id,
                 action="UPDATE",

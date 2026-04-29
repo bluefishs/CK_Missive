@@ -39,7 +39,7 @@ from app.core.domain_whitelist import (
 )
 from app.extended.models import User, UserSession
 from app.schemas.auth import UserResponse, GoogleUserInfo, TokenResponse
-from app.services.audit_service import AuditService
+from app.services.audit import AuditService
 
 logger = logging.getLogger(__name__)
 

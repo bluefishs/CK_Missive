@@ -32,7 +32,7 @@ from app.db.database import get_async_db
 from app.repositories.user_repository import UserRepository
 from app.repositories.session_repository import SessionRepository
 from app.schemas.auth import PasswordReset, PasswordResetConfirm
-from app.services.audit_service import AuditService
+from app.services.audit import AuditService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

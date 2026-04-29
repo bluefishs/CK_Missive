@@ -186,7 +186,7 @@ class OperationalAccountService(AuditableServiceMixin):
 
         # 審批通知
         try:
-            from app.services.notification_service import NotificationService
+            from app.services.notification import NotificationService
             account = account or await self.account_repo.get_by_id(expense.account_id)
             acct_name = account.name if account else "營運帳目"
             await NotificationService.create_notification(

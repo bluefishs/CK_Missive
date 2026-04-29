@@ -20,7 +20,7 @@ from app.schemas.erp import (
     ERPQuotationCreate, ERPQuotationUpdate, ERPQuotationResponse,
     ERPQuotationListRequest, ERPProfitSummary, ERPProfitTrendItem,
 )
-from app.services.case_code_service import CaseCodeService
+from app.services.contract import CaseCodeService
 from .finance_ledger import FinanceLedgerService
 from app.services.audit_mixin import AuditableServiceMixin
 

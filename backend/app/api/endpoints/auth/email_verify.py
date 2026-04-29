@@ -29,7 +29,7 @@ from app.core.config import settings
 from app.core.rate_limiter import limiter
 from app.db.database import get_async_db
 from app.repositories.user_repository import UserRepository
-from app.services.audit_service import AuditService
+from app.services.audit import AuditService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

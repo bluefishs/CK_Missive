@@ -28,19 +28,20 @@ logger = logging.getLogger(__name__)
 
 
 # 重新匯入常數（避免循環依賴）
-# 這些常數也在 notification_service.py 中定義，此處為了獨立性重新引用
+# 2026-04-29 v5.10.2：原從 notification_service.py（stub）import 改為直接從
+# notification.service（實作）import，避免子包內部還繞 stub。
 def _get_critical_fields() -> Dict[str, Dict[str, str]]:
-    from app.services.notification_service import CRITICAL_FIELDS
+    from app.services.notification.service import CRITICAL_FIELDS
     return CRITICAL_FIELDS
 
 
 def _get_severity():
-    from app.services.notification_service import NotificationSeverity
+    from app.services.notification.service import NotificationSeverity
     return NotificationSeverity
 
 
 def _get_notification_type():
-    from app.services.notification_service import NotificationType
+    from app.services.notification.service import NotificationType
     return NotificationType
 
 

@@ -23,7 +23,7 @@ from app.core.config import settings
 from app.core.rate_limiter import limiter
 from app.schemas.auth import TokenResponse, RefreshTokenRequest
 from app.extended.models import User
-from app.services.audit_service import AuditService
+from app.services.audit import AuditService
 
 from .common import get_client_info, get_current_user
 
@@ -171,7 +171,7 @@ async def check_auth_status(
             already_logged = await redis.get(dedup_key)
             if not already_logged:
                 await redis.setex(dedup_key, 86400, "1")
-                from app.services.audit_service import AuditService
+                from app.services.audit import AuditService
                 ua = request.headers.get("user-agent", "")[:200]
                 await AuditService.log_auth_event(
                     event_type="LOGIN_SUCCESS",

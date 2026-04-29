@@ -71,7 +71,7 @@ class AuditableServiceMixin:
             return
 
         try:
-            from app.services.audit_service import AuditService
+            from app.services.audit import AuditService
             await AuditService.log_change(
                 table_name=table,
                 record_id=record_id,

@@ -18,7 +18,7 @@ from app.schemas.auth import (
 )
 from app.schemas.admin import AdminLineBindRequest
 from app.extended.models import User
-from app.services.audit_service import AuditService
+from app.services.audit import AuditService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)

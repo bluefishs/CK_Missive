@@ -30,7 +30,7 @@ from app.services.ai.document.document_ai_service import (
     get_document_ai_service,
 )
 from app.services.ai.core.ai_config import get_ai_config
-from app.services.audit_service import AuditService
+from app.services.audit import AuditService
 from app.schemas.ai.search import (
     ParseIntentRequest,
     ParseIntentResponse,

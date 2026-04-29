@@ -98,7 +98,7 @@ class BackgroundTaskManager:
         """
         async def _audit_task():
             try:
-                from app.services.audit_service import AuditService
+                from app.services.audit import AuditService
                 result = await AuditService.log_change(
                     table_name=table_name,
                     record_id=record_id,
@@ -135,7 +135,7 @@ class BackgroundTaskManager:
         """
         async def _notification_task():
             try:
-                from app.services.notification_service import NotificationService
+                from app.services.notification import NotificationService
 
                 if notification_type == "critical_change":
                     result = await NotificationService.safe_notify_critical_change(

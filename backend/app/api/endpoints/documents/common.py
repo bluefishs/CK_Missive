@@ -56,7 +56,7 @@ from app.schemas.document_query import (
 from app.core.exceptions import NotFoundException, ForbiddenException
 from app.core.rls_filter import RLSFilter
 from app.core.audit_logger import DocumentUpdateGuard
-from app.services.notification_service import NotificationService, CRITICAL_FIELDS
+from app.services.notification.service import NotificationService, CRITICAL_FIELDS
 from app.core.dependencies import require_auth, require_permission, get_service
 from app.api.endpoints.auth import get_current_user
 

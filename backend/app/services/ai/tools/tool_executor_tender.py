@@ -60,7 +60,7 @@ class TenderToolExecutor:
         流程: 搜尋標案 → 篩選符合乾坤業務的 → 自動建立 PM Case + ERP Quotation
         """
         from app.services.tender.search import TenderSearchService
-        from app.services.case_code_service import CaseCodeService
+        from app.services.contract import CaseCodeService
         from app.extended.models.pm import PMCase
         from app.extended.models.erp import ERPQuotation
         from datetime import date

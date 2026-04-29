@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.rate_limiter import limiter
 
 from app.db.database import get_async_db
-from app.services.notification_service import (
+from app.services.notification.service import (
     NotificationService,
     NotificationType,
     NotificationSeverity

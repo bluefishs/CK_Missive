@@ -30,7 +30,7 @@ from app.schemas.auth import (
     TokenResponse,
 )
 from app.extended.models import User
-from app.services.audit_service import AuditService
+from app.services.audit import AuditService
 
 from .common import get_current_user, get_client_info
 

@@ -43,7 +43,7 @@ class AuditEventLoggersMixin:
         - LOGOUT, TOKEN_REFRESH, SESSION_EXPIRED, SESSION_REVOKED
         - ACCOUNT_CREATED, ACCOUNT_ACTIVATED, ACCOUNT_DEACTIVATED
         """
-        from app.services.audit_service import AuditService
+        from app.services.audit import AuditService
 
         changes = {
             "event_type": event_type,
@@ -95,7 +95,7 @@ class AuditEventLoggersMixin:
         - AI_SUMMARY_GENERATED, AI_CLASSIFY_SUGGESTED, AI_KEYWORDS_EXTRACTED
         - AI_SEARCH_EXECUTED, AI_INTENT_PARSED, AI_AGENCY_MATCHED
         """
-        from app.services.audit_service import AuditService
+        from app.services.audit import AuditService
 
         changes: Dict[str, Any] = {
             "event_type": event_type,
@@ -143,7 +143,7 @@ class AuditEventLoggersMixin:
         admin_name: Optional[str] = None,
     ) -> bool:
         """Record permission change events."""
-        from app.services.audit_service import AuditService
+        from app.services.audit import AuditService
 
         changes: Dict[str, Any] = {}
 
@@ -185,7 +185,7 @@ class AuditEventLoggersMixin:
         admin_name: Optional[str] = None,
     ) -> bool:
         """Record user data changes."""
-        from app.services.audit_service import AuditService
+        from app.services.audit import AuditService
 
         return await AuditService.log_change(
             table_name="users",

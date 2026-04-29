@@ -48,7 +48,7 @@ class AssetService(AuditableServiceMixin):
     ) -> Asset:
         """建立資產 (asset_code 為空時自動生成 + 併發 retry)"""
         from datetime import date as _date
-        from app.services.case_code_service import CaseCodeService
+        from app.services.contract import CaseCodeService
         from app.services.coding_helpers import retry_on_code_conflict
 
         user_provided_code = bool(data.asset_code)

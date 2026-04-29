@@ -358,7 +358,7 @@ async def lifespan(app: FastAPI):
             # 收款確認通知 (fire-and-forget)
             try:
                 async with AsyncSessionLocal() as db:
-                    from app.services.notification_service import NotificationService
+                    from app.services.notification import NotificationService
                     period_text = f" ({payload.get('billing_period')})" if payload.get("billing_period") else ""
                     await NotificationService.create_notification(
                         db=db,
@@ -405,7 +405,7 @@ async def lifespan(app: FastAPI):
             # Cross-module notification (fire-and-forget)
             try:
                 from app.db.database import AsyncSessionLocal
-                from app.services.notification_service import NotificationService
+                from app.services.notification import NotificationService
                 async with AsyncSessionLocal() as db:
                     case_code = payload.get("case_code", "")
                     amount = payload.get("amount", 0)
@@ -450,7 +450,7 @@ async def lifespan(app: FastAPI):
             # Cross-module notification for asset team
             try:
                 from app.db.database import AsyncSessionLocal
-                from app.services.notification_service import NotificationService
+                from app.services.notification import NotificationService
                 async with AsyncSessionLocal() as db:
                     case_code = event.payload.get("case_code", "")
                     amount = event.payload.get("amount", 0)

@@ -84,7 +84,7 @@ async def check_all_subscriptions(db: AsyncSession) -> dict:
                 # 系統通知
                 if sub.notify_system:
                     try:
-                        from app.services.notification_service import NotificationService
+                        from app.services.notification import NotificationService
                         await NotificationService.create_notification(
                             db=db,
                             notification_type="tender_alert",

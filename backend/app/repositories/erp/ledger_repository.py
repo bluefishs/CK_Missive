@@ -130,7 +130,7 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
 
         async def _add_and_flush() -> FinanceLedger:
             if not getattr(ledger, "ledger_code", None):
-                from app.services.case_code_service import CaseCodeService
+                from app.services.contract import CaseCodeService
                 year = (ledger.transaction_date.year
                         if ledger.transaction_date else date.today().year)
                 code_svc = CaseCodeService(self.db)

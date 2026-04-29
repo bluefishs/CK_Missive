@@ -11,7 +11,7 @@ from sqlalchemy import select as sa_select
 
 from app.core.dependencies import get_async_db, require_admin
 from app.extended.models import User
-from app.services.audit_service import AuditService
+from app.services.audit import AuditService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
