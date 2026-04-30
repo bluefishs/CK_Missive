@@ -18,6 +18,8 @@ branch_labels = None
 depends_on = None
 
 
+# ADR-0027-EXEMPT: 歷史 migration（vector(384)），DB 已由 fix_vector_dimensions_and_hnsw.py
+# ALTER 為 768D；docstring 內 vector(384) 字樣為歷史描述，保留作 audit trail。
 def upgrade() -> None:
     """
     啟用 pgvector 擴展並新增 embedding 欄位
@@ -43,6 +45,7 @@ def upgrade() -> None:
     # 啟用 pgvector 擴展
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
+    # ADR-0027-EXEMPT: 歷史 migration，DB 已由 fix_vector_dimensions_and_hnsw.py 升 768D
     # 2. 新增 embedding 欄位（冪等設計）
     op.execute("""
         DO $$

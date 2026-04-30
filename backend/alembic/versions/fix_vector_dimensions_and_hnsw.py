@@ -36,6 +36,8 @@ def upgrade() -> None:
         )
         return
 
+    # ADR-0027-EXEMPT: 此 migration 本身就是 384D → 768D 升級邏輯，
+    # 需保留 'vector(384)' 字串作條件比對（line 49）+ ALTER COLUMN source dim（line 87 downgrade）
     # ---------------------------------------------------------------
     # 1. canonical_entities.embedding: vector(384) → vector(768)
     # ---------------------------------------------------------------
@@ -46,6 +48,7 @@ def upgrade() -> None:
         WHERE c.relname = 'canonical_entities' AND a.attname = 'embedding'
     """))
     row = col_check.first()
+    # ADR-0027-EXEMPT: 384D → 768D 升級條件比對（此檔案本身為升維 migration）
     if row and 'vector(384)' in str(row[0]):
         op.execute("""
             ALTER TABLE canonical_entities
@@ -81,6 +84,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """還原向量維度和索引"""
 
+    # ADR-0027-EXEMPT: downgrade 邏輯（768D → 384D），ALTER COLUMN source dim 字面值
     # canonical_entities 還原為 384
     op.execute("""
         ALTER TABLE canonical_entities

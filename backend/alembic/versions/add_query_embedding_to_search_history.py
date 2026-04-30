@@ -41,6 +41,7 @@ def upgrade() -> None:
                 SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'ai_search_history' AND column_name = 'query_embedding'
             ) THEN
+                -- ADR-0027-EXEMPT: 歷史 migration，DB 已由 fix_vector_dimensions_and_hnsw.py 升 768D
                 ALTER TABLE ai_search_history ADD COLUMN query_embedding vector(384);
                 COMMENT ON COLUMN ai_search_history.query_embedding
                     IS '查詢向量嵌入 (nomic-embed-text, 384 維)';

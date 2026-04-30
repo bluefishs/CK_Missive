@@ -32,6 +32,7 @@ def upgrade() -> None:
     op.create_index("ix_doc_chunks_document_id", "document_chunks", ["document_id"])
     op.create_index("ix_doc_chunks_doc_idx", "document_chunks", ["document_id", "chunk_index"])
 
+    # ADR-0027-EXEMPT: ivfflat 為歷史選型；待業務窗口升級為 hnsw（CROSS_SESSION_BLOCKERS Missive §1）
     # pgvector embedding column (conditionally add)
     op.execute("""
         DO $$
