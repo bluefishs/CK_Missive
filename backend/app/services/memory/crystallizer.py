@@ -2,21 +2,31 @@
 """Crystallizer — Pattern → Synonym / Intent Rule 提案（結晶）
 
 2026-04-19 Memory Wiki Phase 3 新建。
+2026-04-30 v5.11 Phase 1：加 auto-apply（高 confidence proposal 自動 apply，
+  打破「owner 14 天不批准」斷鏈，落實 KUNGE_LEARNING_VERIFICATION 鏈路 1B）。
 
 職責：
 - 掃 wiki/memory/patterns/*.md 找 crystallization_candidate: true
 - 生成結晶提案 → 寫 wiki/memory/proposals/crystal-*.md
-- **不自動 apply**（需人批准，由 CrystalApplier 執行）
+- v5.11：高 confidence 自動 apply（dry-run 為預設安全模式）
+- 邊緣 case 仍進 proposals/ 等 owner 批
 
 設計：
 - 兩種結晶類型：synonym / intent_rule
 - 目前主力 synonym（最常見、低風險）
 - intent_rule 需 pattern 提供正則，暫時依 tool_sequence 推斷
+
+Auto-apply 安全閘（v5.11）：
+- env CRYSTAL_AUTO_APPLY_MODE = "dry-run" | "live"（預設 dry-run）
+- confidence ≥ 0.9 才嘗試 auto-apply
+- 僅 intent_rules.yaml（synonyms.yaml 仍需人批，較敏感）
+- 沿用 yaml_safe_editor snapshot/rollback 雙閘
 """
 from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -36,6 +46,11 @@ PROPOSALS_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "propo
 # 結晶門檻（比 pattern extractor 更嚴）
 MIN_HIT_FOR_CRYSTAL = 5
 MIN_SUCCESS_RATE_FOR_CRYSTAL = 0.95
+
+# Auto-apply 安全參數（v5.11 Phase 1）
+AUTO_APPLY_MIN_CONFIDENCE = 0.9
+AUTO_APPLY_ALLOWED_TARGETS = {"intent_rules.yaml"}  # synonyms.yaml 仍需人批
+AUTO_APPLY_MODE_ENV = "CRYSTAL_AUTO_APPLY_MODE"  # dry-run | live
 
 
 @dataclass
@@ -96,7 +111,142 @@ class Crystallizer:
                 logger.warning("Pattern scan failed (%s): %s", path.name, e)
 
         logger.info("Crystallizer: proposed %d crystal(s)", len(proposals))
+
+        # v5.11 Phase 1: Auto-apply 高 confidence proposal（落實鏈路 1B 閉環）
+        await self._auto_apply_eligible(proposals)
+
         return proposals
+
+    # ────────── Auto-apply (v5.11 Phase 1) ──────────
+
+    @staticmethod
+    def _confidence_score(meta: Dict[str, Any]) -> float:
+        """從 pattern meta 計算 auto-apply confidence。
+
+        綜合 hit_count（流量）+ success_rate（品質）：
+        - hit ≥ 15 飽和到 hit_factor=1.0
+        - success_rate 直接乘上 hit_factor
+
+        舉例：
+        - hit=6,  succ=1.00 → 0.40 * 1.00 = 0.40（low — 留 owner 批）
+        - hit=10, succ=1.00 → 0.67 * 1.00 = 0.67（middle）
+        - hit=15, succ=1.00 → 1.00 * 1.00 = 1.00（high → auto-apply）
+        - hit=20, succ=0.90 → 1.00 * 0.90 = 0.90（剛達標）
+        """
+        hit = meta.get("hit_count", 0)
+        succ = meta.get("success_rate", 0.0)
+        hit_factor = min(1.0, hit / 15.0)
+        return round(succ * hit_factor, 3)
+
+    async def _auto_apply_eligible(self, proposals: List[CrystalProposal]) -> None:
+        """掃 proposals，符合 auto-apply 條件的直接 apply（雙閘安全）。
+
+        條件：
+        1. mode=live（dry-run 模式只 log 不真改）
+        2. confidence >= 0.9
+        3. target_file in {intent_rules.yaml}
+        4. CrystalApplier 內部 yaml_safe_editor 仍提供 snapshot/rollback
+
+        v5.11 預設 dry-run，first week owner 確認 log 全合理才切 live。
+        """
+        mode = os.getenv(AUTO_APPLY_MODE_ENV, "dry-run").strip().lower()
+        if mode not in ("dry-run", "live"):
+            logger.warning("CRYSTAL_AUTO_APPLY_MODE=%s 不認識，fallback dry-run", mode)
+            mode = "dry-run"
+
+        applied_count = 0
+        skipped_count = 0
+        for p in proposals:
+            try:
+                # 重新讀 pattern meta 算 confidence
+                pattern_meta = self._lookup_pattern_meta(p.source_pattern)
+                if not pattern_meta:
+                    continue
+                confidence = self._confidence_score(pattern_meta)
+
+                # 安全閘 1: confidence
+                if confidence < AUTO_APPLY_MIN_CONFIDENCE:
+                    skipped_count += 1
+                    continue
+                # 安全閘 2: target file
+                if p.target_file not in AUTO_APPLY_ALLOWED_TARGETS:
+                    logger.info(
+                        "Auto-apply skip: target=%s not in allowlist (proposal=%s)",
+                        p.target_file, p.proposal_id,
+                    )
+                    skipped_count += 1
+                    continue
+
+                if mode == "dry-run":
+                    logger.info(
+                        "[DRY-RUN] Auto-apply would trigger: %s confidence=%.3f target=%s",
+                        p.proposal_id, confidence, p.target_file,
+                    )
+                    skipped_count += 1
+                    continue
+
+                # mode=live → 真 apply
+                from app.services.memory.crystal_applier import CrystalApplier
+                applier = CrystalApplier()
+                result = await applier.apply_proposal(
+                    p.proposal_id, approved_by="crystallizer-auto",
+                )
+                if result.ok:
+                    applied_count += 1
+                    logger.info(
+                        "Auto-apply ok: %s → crystal=%s confidence=%.3f",
+                        p.proposal_id, result.crystal_id, confidence,
+                    )
+                    # 通知 owner（best-effort）
+                    await self._notify_auto_apply(p, confidence, result.crystal_id)
+                else:
+                    logger.warning(
+                        "Auto-apply failed: %s error=%s",
+                        p.proposal_id, result.error,
+                    )
+
+            except Exception as e:
+                logger.error(
+                    "Auto-apply error on %s: %s", p.proposal_id, e, exc_info=True,
+                )
+
+        logger.info(
+            "Crystallizer auto-apply summary: mode=%s applied=%d skipped=%d",
+            mode, applied_count, skipped_count,
+        )
+
+    def _lookup_pattern_meta(self, template_hash: str) -> Optional[Dict[str, Any]]:
+        """從 patterns/ 找對應 hash 的 meta。"""
+        if not PATTERNS_DIR.exists():
+            return None
+        for path in PATTERNS_DIR.glob("pattern-*.md"):
+            meta = self._parse_pattern_meta(path)
+            if meta and meta.get("template_hash") == template_hash:
+                return meta
+        return None
+
+    @staticmethod
+    async def _notify_auto_apply(
+        proposal: CrystalProposal, confidence: float, crystal_id: Optional[str],
+    ) -> None:
+        """Best-effort 推通知（Telegram/LINE 任一即可）。失敗只 log。"""
+        try:
+            msg = (
+                f"🔮 自動結晶通知\n"
+                f"proposal={proposal.proposal_id[:30]}\n"
+                f"crystal={crystal_id}\n"
+                f"confidence={confidence:.2f}\n"
+                f"target={proposal.target_file}\n"
+                f"如需 rollback 請於 7 天內：crystal_applier rollback {crystal_id}"
+            )
+            tg_chat = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+            if tg_chat:
+                from app.services.integration.telegram_bot import get_telegram_bot_service
+                tg = get_telegram_bot_service()
+                if tg.enabled:
+                    await tg.send_message(int(tg_chat), msg)
+        except Exception as e:
+            logger.debug("Auto-apply notify failed (non-critical): %s", e)
 
     # ────────── Parsing ──────────
 
