@@ -60,6 +60,7 @@ def upgrade() -> None:
         END $$;
     """)
 
+    # ADR-0027-EXEMPT: 歷史 ivfflat 索引；DB 已由 fix_vector_dimensions_and_hnsw.py 升 hnsw
     # 3. 建立 ivfflat 索引（用於加速向量搜尋）
     # 注意：ivfflat 需要表中有資料才能建立有效索引
     # lists 參數建議為 sqrt(rows)，100 適用於 ~10000 筆文件

@@ -49,6 +49,7 @@ def upgrade() -> None:
         END $$;
     """)
 
+    # ADR-0027-EXEMPT: 歷史 ivfflat；fix_vector_dimensions_and_hnsw.py 後已升 hnsw
     # 建立 ivfflat 索引（加速向量搜尋）
     op.execute("""
         CREATE INDEX IF NOT EXISTS ix_search_history_query_embedding

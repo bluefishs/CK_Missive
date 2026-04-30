@@ -91,6 +91,7 @@ def downgrade() -> None:
         ALTER COLUMN embedding TYPE vector(384)
     """)
 
+    # ADR-0027-EXEMPT: downgrade 邏輯（hnsw → ivfflat）
     # 還原索引為 IVFFlat
     op.execute("DROP INDEX IF EXISTS ix_canonical_entities_embedding_hnsw")
     op.execute("DROP INDEX IF EXISTS ix_search_history_query_embedding_hnsw")
