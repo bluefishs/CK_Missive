@@ -230,6 +230,16 @@
 | **Prevention** | (a) Pattern 門檻調整前 dry-run，評估「會新增多少 promotion」(b) self_evaluator 應有 calibration test：人工標注 20 筆 query，看評分 vs 標注一致率，<70% 即報警 (c) success_rate 分布 entropy 監測 — 若全卡 1.0 即評分機制失效信號 |
 | **Refs** | v5.10.2 Phase 4.1 評估 / `agent_evolution_scheduler.py:78-79` 門檻常數 / synthetic-baseline-inject.py 修正後仍 100% 高分問題 |
 
+## L25 — 鏈路驗證 vs 鏈路盤點（grep 關鍵字陷阱）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 驗證「坤哥自我學習進化」鏈路 2（Failure → Defense rule → Planner prompt）時，初判 `load_active_defenses` 0 caller 即斷定 dead integration |
+| **Cause** | 用了原始函式名稱關鍵字 grep，但實際 export 是包裝過的便捷函式 `get_defensive_rules_block`（agent_planner.py 用後者，不直接用 load_active_defenses）。「grep 找不到 caller」≠「沒有 caller」 |
+| **Fix** | v5.10.2 KUNGE_LEARNING_VERIFICATION 救：補做 Phase C 直接呼叫該模組任一 export 函式看輸出，**1136 chars defense block 證實鏈路活著**。原判斷 dead 改為閉環 ✓ |
+| **Prevention** | (a) 鏈路驗證**必跑實際呼叫**（asyncio.run + module call），不能只靠 grep (b) grep 時應掃整個模組所有 public export，不只 1 個關鍵字 (c) 對 dead integration 判斷加二次驗證——真試呼叫看輸出 |
+| **Refs** | KUNGE_LEARNING_VERIFICATION.md §1 鏈路 2 / `auto_defense.py:97 get_defensive_rules_block` / 同類 L01（dead integration 判斷需證據而非假設） |
+
 ## L20 — Lessons 散落 commit/ADR/PLAYBOOK → 需 SSOT
 
 | 欄位 | 內容 |
