@@ -543,3 +543,121 @@ async def memory_jobs_status():
             },
         },
     }
+
+
+# ────────── Crystal Auto-Apply Mode 切換（v5.12 Phase A）──────────
+
+class AutoApplyModeReq(BaseModel):
+    mode: str = Field(..., description="dry-run | live")
+    confirmed_by: str = Field("admin", description="切換人")
+
+
+@router.post("/memory/crystal/auto-apply-mode/get")
+async def crystal_auto_apply_mode_get():
+    """取得 crystal auto-apply 當前 mode + readiness 評估。
+
+    領域：v5.12 鏈路 1B 真活閘 — 給 owner 從前端決定是否切 live。
+    """
+    import os
+    from app.services.memory.crystallizer import (
+        AUTO_APPLY_MODE_ENV, AUTO_APPLY_MIN_CONFIDENCE,
+        AUTO_APPLY_ALLOWED_TARGETS, Crystallizer,
+    )
+
+    mode = os.getenv(AUTO_APPLY_MODE_ENV, "dry-run").strip().lower()
+
+    # Readiness check: 跑一次 dry-run 看會 apply 哪些 proposals
+    c = Crystallizer()
+    readiness = {
+        "would_auto_apply": [],
+        "skipped_low_confidence": [],
+        "total_proposals": 0,
+    }
+    try:
+        for path in PROPOSALS_DIR.glob("*.md"):
+            text = path.read_text(encoding="utf-8")
+            if "status: pending" not in text:
+                continue
+            readiness["total_proposals"] += 1
+            # 解 source_pattern + target
+            import re as _re
+            target_m = _re.search(r"^target_file:\s*(\S+)", text, _re.MULTILINE)
+            source_m = _re.search(r"^source_pattern:\s*(\S+)", text, _re.MULTILINE)
+            if not (target_m and source_m):
+                continue
+            target = target_m.group(1)
+            source_pattern = source_m.group(1)
+            pmeta = c._lookup_pattern_meta(source_pattern)
+            if not pmeta:
+                continue
+            confidence = c._confidence_score(pmeta)
+            entry = {
+                "proposal_id": path.stem,
+                "target": target,
+                "confidence": confidence,
+                "hit_count": pmeta.get("hit_count"),
+                "success_rate": pmeta.get("success_rate"),
+            }
+            would_apply = (
+                confidence >= AUTO_APPLY_MIN_CONFIDENCE
+                and target in AUTO_APPLY_ALLOWED_TARGETS
+            )
+            if would_apply:
+                readiness["would_auto_apply"].append(entry)
+            else:
+                readiness["skipped_low_confidence"].append(entry)
+    except Exception as e:
+        logger.warning("Readiness check failed: %s", e)
+
+    return {
+        "success": True,
+        "data": {
+            "current_mode": mode,
+            "min_confidence": AUTO_APPLY_MIN_CONFIDENCE,
+            "allowed_targets": list(AUTO_APPLY_ALLOWED_TARGETS),
+            "readiness": readiness,
+            "switch_recommendation": (
+                "ready"
+                if mode == "dry-run" and len(readiness["would_auto_apply"]) >= 1
+                else "wait"
+            ),
+        },
+    }
+
+
+@router.post("/memory/crystal/auto-apply-mode/set")
+async def crystal_auto_apply_mode_set(
+    req: AutoApplyModeReq,
+    _admin=Depends(require_admin()),
+):
+    """切換 crystal auto-apply mode（admin only）。
+
+    切 live 後 7 天內若有任何 rollback → 自動回 dry-run（保護機制）。
+    Note: env var 修改在當前進程立刻生效，但重啟後讀 .env 會回到原設定。
+    """
+    import os
+    from app.services.memory.crystallizer import AUTO_APPLY_MODE_ENV
+
+    if req.mode not in ("dry-run", "live"):
+        raise HTTPException(status_code=400, detail="mode 必須為 dry-run 或 live")
+
+    old = os.getenv(AUTO_APPLY_MODE_ENV, "dry-run")
+    os.environ[AUTO_APPLY_MODE_ENV] = req.mode
+
+    logger.info(
+        "Crystal auto-apply mode 切換: %s → %s by %s",
+        old, req.mode, req.confirmed_by,
+    )
+
+    return {
+        "success": True,
+        "data": {
+            "old_mode": old,
+            "new_mode": req.mode,
+            "confirmed_by": req.confirmed_by,
+            "note": (
+                "切換僅在當前 process 生效；重啟後讀 .env 預設值。"
+                "永久切換請改 .env CRYSTAL_AUTO_APPLY_MODE=live"
+            ),
+        },
+    }
