@@ -360,7 +360,27 @@ async def run_post_synthesis(
         {"name": tr["tool"], "params": tr.get("params", {})}
         for tr in ctx.tool_results
     ]
-    success = ctx.model_used != "fallback" and citation_result["valid"]
+    # v5.12 Phase B.1：排除 hallucination 案例汙染 pattern_learner
+    # 若 query 含具名 entity 但 answer 沒提到 → 不算成功（避免 53/53 全 success≥0.95 病）
+    try:
+        from app.services.ai.agent.agent_self_evaluator import get_self_evaluator
+        _eval = get_self_evaluator()
+        _entity_alignment = _eval._eval_query_entity_alignment(
+            ctx.question, ctx.answer_text,
+        )
+    except Exception:
+        _entity_alignment = 1.0  # 偵測失敗時不擋 learn
+
+    success = (
+        ctx.model_used != "fallback"
+        and citation_result["valid"]
+        and _entity_alignment >= 0.5
+    )
+    if _entity_alignment < 0.5:
+        logger.info(
+            "Pattern learn skipped (entity_alignment=%.2f, hallucination 警示): %s",
+            _entity_alignment, ctx.question[:80],
+        )
     asyncio.create_task(
         get_pattern_learner().learn(
             ctx.question, ctx.hints, tool_calls_for_learn,

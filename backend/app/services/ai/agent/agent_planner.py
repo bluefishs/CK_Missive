@@ -276,6 +276,27 @@ class AgentPlanner:
             )
             logger.info("CRITICAL feedback injected: %d signals", len(signals))
 
+        # v5.12 Phase B.3：Entity Preservation 警示（防 hallucination）
+        entity_preservation_hint = ""
+        try:
+            from app.services.ai.agent.agent_self_evaluator import get_self_evaluator
+            _eval = get_self_evaluator()
+            _ents = _eval._extract_named_entities_from_query(question)
+            if _ents:
+                ent_str = "、".join(_ents[:5])  # 最多顯示 5 個
+                entity_preservation_hint = (
+                    f"\n<entity_preservation>\n"
+                    f"⚠️ Query 含具名 entity: **{ent_str}**\n"
+                    f"答案必須直接回應這個（這些） entity：\n"
+                    f"  - 找到 → 答案明確提到該 entity\n"
+                    f"  - 找不到 → 明確說「系統內無此 {_ents[0]}」\n"
+                    f"  - **不可** 列出其他無關案件當答案 (KUNGE_LEARNING_VERIFICATION 04-23 hallucination 反例)\n"
+                    f"</entity_preservation>"
+                )
+                logger.debug("Entity preservation hint injected: %s", _ents)
+        except Exception as e:
+            logger.debug("Entity preservation hint skipped: %s", e)
+
         # Tool Discovery — 動態工具推薦 (v1.2.0)
         tool_discovery_hint = ""
         try:
@@ -317,6 +338,7 @@ class AgentPlanner:
 {capability_hint}
 {critical_hint}
 {defense_block}
+{entity_preservation_hint}
 
 以下是幾個規劃範例：
 
