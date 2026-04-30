@@ -156,8 +156,8 @@ class SelfDiagnosis:
         # Gap 1 主動性：self_diagnosis cron 在跑（本身執行就證明）
         status["gap_1_proactivity"] = "alive"
 
-        # Gap 2 跨會話記憶：cross_session_learnings 已實作，但 query history 跨 session 未做
-        status["gap_2_cross_session"] = "partial"
+        # Gap 2 跨會話記憶：v5.14 query history 跨 session 已接通（learnings + history 雙維度）
+        status["gap_2_cross_session"] = "alive"
 
         # Gap 3 反思迴路：entity_alignment signal 真改變行為（v5.12 B）
         status["gap_3_reflection"] = "alive"
@@ -168,8 +168,8 @@ class SelfDiagnosis:
         # Gap 5 演化人格：agent_writable 段落自動演化（v5.11 P2），4 信念演化未做
         status["gap_5_persona"] = "partial" if base.get("soul_alive") else "dead"
 
-        # Gap 6 多 modality：後端 voice/diagram 齊備，前端未整合
-        status["gap_6_multimodal"] = "partial"
+        # Gap 6 多 modality：v5.14 voice 真活（VoiceInputButton），image 留 v5.15
+        status["gap_6_multimodal"] = "partial"  # voice ✓ / image 仍未做
 
         # Gap 7 multi-agent：v6.x 戰略級保留
         status["gap_7_multi_agent"] = "strategic"

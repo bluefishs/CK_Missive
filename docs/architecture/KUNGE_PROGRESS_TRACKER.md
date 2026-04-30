@@ -27,17 +27,19 @@
 | Gap | 主題 | v5.10.2 | v5.11 | v5.12 | **v5.13** | 計畫 |
 |---|---|---|---|---|---|---|
 | **1** 主動性 | 從被動 → 主動 | ✗ | 部分（auto_apply 邏輯）| ✓ part（owner endpoint）| ✓ **真活**（self_diagnosis cron）| done |
-| **2** 跨會話記憶 | 從單次 → 連續 | ✗ | ✗ | ✗ | ⚠ **部分**（learnings 跨 session 但 query history 未跨）| **v5.14** 補完 |
+| **2** 跨會話記憶 | 從單次 → 連續 | ✗ | ✗ | ✗ | ⚠ partial（learnings 跨 session）| ✓ **v5.14 真活**（query history user×time 雙索引）|
 | **3** 反思迴路 | 從反應 → 反思 | ✗ | 部分 | ✓ **真活**（hallucination signal 真消費）| ✓ | done |
 | **4** 評分區分度 | 從鬆 → 區分 | ✗ | 部分 | ✓ **真活**（entity_alignment 進 success 判定）| ✓ | done |
 | **5** 演化人格 | 從靜 → 動 | ✗ | ✓ part（agent_writable）| ✓ part | ✓ part | **v5.15+** 4 信念 propose |
-| **6** 多 modality | 從文字 → 多媒 | ✗ | ✗ | ✗ | ⚠ **後端齊備前端缺**（voice_transcriber + diagram_analysis 已有，ChatTab 未整合）| **v5.14** 前端整合 |
+| **6** 多 modality | 從文字 → 多媒 | ✗ | ✗ | ✗ | ⚠ partial（後端齊備前端缺）| ⚠ **v5.14 voice 真活**（VoiceInputButton 已 wire）/ image 留 v5.15 |
 | **7** Multi-agent | 單 agent → 生態 | ✗ | ✗ | ✗ | ✗ | **v6.x** 戰略 |
 
-**Score**：
-- 真活：3.5/7（Gap 1/3/4 完整 + Gap 5 part）
-- 部分：2/7（Gap 2/6）
-- 未動：1.5/7（Gap 5 信念部分 + Gap 7）
+**Score**（v5.14 後）：
+- 真活：4.5/7（Gap 1/2/3/4 完整 + Gap 5 part）
+- 部分：1.5/7（Gap 5 信念 / Gap 6 image）
+- 戰略保留：1/7（Gap 7）
+
+v5.13 → v5.14 進步：Gap 2 從 partial → 真活（+1）、Gap 6 部分強化（voice 真活）
 
 ---
 
@@ -154,8 +156,8 @@ v5.10.2: 30%（observability + 0 真閉環）
 v5.11:   55%（2 真閉環 + 部分 producer 接通）
 v5.12:   75%（5 真閉環 + signal 真改行為 + 治理 SSOT）
 v5.13:   85%（+ 主動 self_diagnosis + 持續追蹤）
-v5.14:   90%（+ 跨會話 + 多 modality）
-v5.15:   95%（+ 信念演化）
+v5.14:   92%（+ Gap 2 真活 + voice 真活）  ← 當前
+v5.15:   95%（+ 信念演化 + image 補完）
 v6.0:    100%（multi-agent 生態）
 ```
 
