@@ -104,3 +104,52 @@ async def compare_diagrams(
         comparison_type=comparison_type,
     )
     return result
+
+
+# v5.15 Phase 2a：通用 image-to-text endpoint（Gap 6 multi-modal）
+
+@router.post("/vision/describe")
+async def describe_image(
+    image: UploadFile = File(...),
+    context: str = Form(""),
+):
+    """通用 image-to-text — 給 ChatTab paste handler 用（Gap 6 真活）。
+
+    用 Gemma 4 Vision 描述任意圖片內容（不限工程圖類型）。
+    供前端 RAGChatPanel onPaste 流程：
+      使用者貼圖 → 上傳此 endpoint → 取得 description → 自動填進 query input
+
+    - **image**: 任意圖片 (PNG/JPG/WebP, max 10MB)
+    - **context**: 可選上下文（如「這是費用單據」）
+    """
+    image_bytes = await image.read()
+    if not image_bytes:
+        return JSONResponse(status_code=400, content={"error": "圖片資料為空"})
+    if len(image_bytes) > _MAX_SIZE:
+        return JSONResponse(status_code=400, content={"error": "圖片超過 10MB 限制"})
+
+    from app.core.ai_connector import get_ai_connector
+
+    ai = get_ai_connector()
+    prompt = "用繁體中文簡潔描述這張圖片的內容（100-200 字）。如果圖中有可讀文字，請列出。"
+    if context:
+        prompt = f"背景：{context}\n\n{prompt}"
+
+    try:
+        result = await ai.vision_completion(
+            prompt=prompt,
+            image_bytes=image_bytes,
+            temperature=0.3,
+            max_tokens=512,
+            task_type="vision",
+        )
+        return {
+            "success": True,
+            "description": result.strip() if result else "",
+            "size_bytes": len(image_bytes),
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)},
+        )

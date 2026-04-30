@@ -30,8 +30,8 @@
 | **2** 跨會話記憶 | 從單次 → 連續 | ✗ | ✗ | ✗ | ⚠ partial（learnings 跨 session）| ✓ **v5.14 真活**（query history user×time 雙索引）|
 | **3** 反思迴路 | 從反應 → 反思 | ✗ | 部分 | ✓ **真活**（hallucination signal 真消費）| ✓ | done |
 | **4** 評分區分度 | 從鬆 → 區分 | ✗ | 部分 | ✓ **真活**（entity_alignment 進 success 判定）| ✓ | done |
-| **5** 演化人格 | 從靜 → 動 | ✗ | ✓ part（agent_writable）| ✓ part | ✓ part | **v5.15+** 4 信念 propose |
-| **6** 多 modality | 從文字 → 多媒 | ✗ | ✗ | ✗ | ⚠ partial（後端齊備前端缺）| ⚠ **v5.14 voice 真活**（VoiceInputButton 已 wire）/ image 留 v5.15 |
+| **5** 演化人格 | 從靜 → 動 | ✗ | ✓ part（agent_writable）| ✓ part | ✓ part | ⚠ **v5.15「我的能力自評」真活**（self_diagnosis 自動更新）/ 4 信念演化 v5.16+ |
+| **6** 多 modality | 從文字 → 多媒 | ✗ | ✗ | ✗ | ⚠ partial（後端齊備前端缺）| ⚠ **v5.14 voice 真活** + **v5.15 後端 /vision/describe** / 前端 paste v5.16 |
 | **7** Multi-agent | 單 agent → 生態 | ✗ | ✗ | ✗ | ✗ | **v6.x** 戰略 |
 
 **Score**（v5.14 後）：
@@ -40,6 +40,7 @@
 - 戰略保留：1/7（Gap 7）
 
 v5.13 → v5.14 進步：Gap 2 從 partial → 真活（+1）、Gap 6 部分強化（voice 真活）
+v5.14 → v5.15 進步：Gap 5「我的能力自評」producer 真活、Gap 6 後端 image endpoint 真活
 
 ---
 

@@ -293,12 +293,98 @@ class SelfDiagnosis:
             logger.warning("Self-diagnosis push failed: %s", e)
             return False
 
+    async def update_soul_capability_section(self, result: Dict[str, Any]) -> bool:
+        """v5.15 Phase 1: 更新 SOUL.md「我的能力自評」段落（Gap 5 partial → 真活）。
+
+        將 placeholder「_待資料累積_」替換為真實 metrics：
+        - 掌握領域：strong/weak domain
+        - 當前進化等級：L1~L5（按 evolution counter / pattern 數）
+        - 成功率（7 日移動平均）：從 capability profile
+
+        SOUL.md 此段落原本標註「每次 capability_tracker 更新時刷新」但 0 caller。
+        """
+        try:
+            from pathlib import Path
+            soul_path = Path(__file__).resolve().parents[4] / "wiki" / "SOUL.md"
+            if not soul_path.exists():
+                return False
+
+            # 取 capability profile
+            domains_str = "_待資料累積_"
+            success_rate_str = "_待統計_"
+            try:
+                from app.db.database import async_session_maker
+                from app.services.ai.agent.agent_capability_tracker import (
+                    get_capability_profile_cached,
+                )
+                async with async_session_maker() as db:
+                    profile = await get_capability_profile_cached(db)
+                    strengths = profile.get("strengths", [])
+                    weaknesses = profile.get("weaknesses", [])
+                    overall = profile.get("overall_score", 0)
+                    if strengths or weaknesses:
+                        parts = []
+                        if strengths:
+                            parts.append(f"擅長 {'/'.join(strengths[:3])}")
+                        if weaknesses:
+                            parts.append(f"待補 {'/'.join(weaknesses[:3])}")
+                        domains_str = "、".join(parts)
+                    if overall:
+                        success_rate_str = f"{overall * 100:.1f}%"
+            except Exception as e:
+                logger.debug("Capability profile lookup failed: %s", e)
+
+            # 進化等級：按 evolution counter + diary days 推
+            counter = result.get("evolution_counter_value", 0)
+            diary_days = result.get("memory_diary_days", 0)
+            if counter >= 200 or diary_days >= 30:
+                level_str = "L4 成熟期"
+            elif counter >= 100 or diary_days >= 14:
+                level_str = "L3 進化中"
+            elif counter >= 50 or diary_days >= 7:
+                level_str = "L2 累積中"
+            else:
+                level_str = "L1 啟動"
+
+            # 用 regex 取代「我的能力自評」段落內容
+            import re as _re
+            text = soul_path.read_text(encoding="utf-8")
+            pattern = _re.compile(
+                r"(## 我的能力自評\s*\n+<!--[^>]+-->\s*\n+)(.*?)(?=\n##\s|\Z)",
+                _re.DOTALL,
+            )
+            m = pattern.search(text)
+            if not m:
+                logger.warning("SOUL.md 無「我的能力自評」段落")
+                return False
+
+            new_body = (
+                f"- 掌握領域：{domains_str}\n"
+                f"- 當前進化等級：{level_str}\n"
+                f"- 成功率（7 日移動平均）：{success_rate_str}\n"
+                f"- 最後更新：{datetime.now(TZ_TAIPEI).strftime('%Y-%m-%d %H:%M')}\n"
+            )
+            new_section = m.group(1) + new_body
+            new_text = text[:m.start()] + new_section + text[m.end():]
+            soul_path.write_text(new_text, encoding="utf-8")
+            logger.info(
+                "SOUL「我的能力自評」已更新: domains=%s level=%s success=%s",
+                domains_str, level_str, success_rate_str,
+            )
+            return True
+        except Exception as e:
+            logger.warning("update_soul_capability_section failed: %s", e)
+            return False
+
     async def run(self) -> Dict[str, Any]:
-        """主入口：診斷 + 寫 diary + push alert。"""
+        """主入口：診斷 + 寫 diary + 更新 SOUL「我的能力自評」+ push alert。"""
         result = await self.diagnose()
         section = self.format_diary_section(result)
         path = await self.append_to_diary(section)
         result["diary_path"] = str(path) if path else None
+        # v5.15 Phase 1: 接通 SOUL「我的能力自評」producer（Gap 5 真活）
+        capability_updated = await self.update_soul_capability_section(result)
+        result["capability_section_updated"] = capability_updated
         pushed = await self.push_alert_if_needed(result)
         result["alert_pushed"] = pushed
         return result
