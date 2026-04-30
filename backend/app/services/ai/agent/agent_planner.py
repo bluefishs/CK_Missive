@@ -99,6 +99,7 @@ class AgentPlanner:
         history: Optional[List[Dict[str, str]]],
         context: Optional[str] = None,
         db: Optional[Any] = None,
+        session_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         LLM 分析問題，決定要呼叫哪些工具。
@@ -291,6 +292,39 @@ class AgentPlanner:
             )
             logger.info("CRITICAL feedback injected: %d signals", len(signals))
 
+        # v5.14 Gap 2：跨 session 同 user 歷史 query 注入（cross-session memory）
+        cross_session_history_block = ""
+        if session_id:
+            try:
+                from app.services.ai.agent.agent_conversation_memory import (
+                    get_conversation_memory,
+                )
+                cm = get_conversation_memory()
+                history_items = await _bounded(
+                    "cross_session_hist",
+                    cm.get_recent_user_history(session_id, days=30, limit=5),
+                    _section_budgets.get("cross_session_hist", 0.3),
+                )
+                if history_items:
+                    from datetime import datetime as _dt
+                    lines = []
+                    for h in history_items:
+                        try:
+                            d = _dt.fromtimestamp(h.get("ts", 0)).strftime("%m/%d")
+                        except Exception:
+                            d = "?"
+                        lines.append(f"- ({d}) Q: {h.get('q', '')[:80]}")
+                    cross_session_history_block = (
+                        "# 同使用者過去查詢（30 天內，最近 5 次）\n\n"
+                        + "\n".join(lines)
+                        + "\n\n_若新查詢與上述相關，請主動關聯（避免讓使用者重複問）_"
+                    )
+                    logger.debug(
+                        "Cross-session history injected: %d items", len(history_items),
+                    )
+            except Exception as e:
+                logger.debug("Cross-session history skipped: %s", e)
+
         # v5.12 Phase B.3：Entity Preservation 警示（防 hallucination）
         entity_preservation_hint = ""
         try:
@@ -354,6 +388,7 @@ class AgentPlanner:
 {critical_hint}
 {defense_block}
 {anti_echo_block}
+{cross_session_history_block}
 {entity_preservation_hint}
 
 以下是幾個規劃範例：

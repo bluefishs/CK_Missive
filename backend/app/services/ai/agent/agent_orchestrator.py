@@ -348,6 +348,7 @@ class AgentOrchestrator:
                             run_with_fresh_session(
                                 lambda db: self._planner.plan_tools(
                                     question, planning_history, context=context, db=db,
+                                    session_id=session_id,  # v5.14 Gap 2: 跨 session 歷史
                                 )
                             ),
                         ),

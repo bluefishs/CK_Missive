@@ -125,6 +125,91 @@ class ConversationMemory:
             "complex": config.adaptive_context_complex,
         }.get(complexity, config.rag_max_history_turns)
 
+    @staticmethod
+    def _derive_user_key(session_id: str) -> str:
+        """v5.14 Gap 2：從 session_id 推導 user_key（跨 session 識別）。
+
+        規則：取前 2 個 dash-separated parts（穩定 channel-user 識別）：
+        - 'web-123-uuid-abc' → 'web-123'
+        - 'line-Uabc-conv' → 'line-Uabc'
+        - 'telegram-456-789' → 'telegram-456'
+        - 'synthetic-xxx' → 'synthetic-xxx'（合成基線當獨立 user）
+        """
+        if not session_id:
+            return ""
+        parts = session_id.split("-", 2)
+        if len(parts) >= 2:
+            return "-".join(parts[:2])
+        return parts[0]
+
+    async def append_to_user_history(
+        self, session_id: str, question: str, answer: str,
+    ) -> None:
+        """v5.14 Gap 2 producer：寫 query 到 user-scoped history（跨 session）。
+
+        zset agent:user_history:{user_key}: member=json(entry), score=ts
+        保留近 50 筆 / 30 天 TTL。
+        """
+        try:
+            user_key = self._derive_user_key(session_id)
+            if not user_key:
+                return
+            r = await self._get_redis()
+            if r is None:
+                return
+            import time as _t
+            ts = int(_t.time())
+            entry = json.dumps({
+                "ts": ts,
+                "session_id": session_id,
+                "q": (question or "")[:200],
+                "a": (answer or "")[:300],
+            }, ensure_ascii=False)
+            key = f"agent:user_history:{user_key}"
+            await r.zadd(key, {entry: ts})
+            await r.zremrangebyrank(key, 0, -51)  # 保留近 50 筆
+            await r.expire(key, 30 * 86400)  # 30 天 TTL
+        except Exception as e:
+            logger.debug("append_to_user_history failed: %s", e)
+
+    async def get_recent_user_history(
+        self, session_id: str, days: int = 30, limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """v5.14 Gap 2 consumer：抽該 user 過去 N 天最近 N 次 query。
+
+        Returns:
+            [{ts, session_id, q, a}, ...]（按 score DESC 排序）
+        """
+        try:
+            user_key = self._derive_user_key(session_id)
+            if not user_key:
+                return []
+            r = await self._get_redis()
+            if r is None:
+                return []
+            import time as _t
+            cutoff = int(_t.time()) - days * 86400
+            key = f"agent:user_history:{user_key}"
+            # 排除自己當前 session（避免回顯本次 query）
+            raw = await r.zrevrangebyscore(
+                key, "+inf", cutoff, start=0, num=limit + 5,
+            )
+            items: List[Dict[str, Any]] = []
+            for s in raw or []:
+                try:
+                    e = json.loads(s)
+                    if e.get("session_id") == session_id:
+                        continue  # 跳過自己
+                    items.append(e)
+                    if len(items) >= limit:
+                        break
+                except Exception:
+                    continue
+            return items
+        except Exception as e:
+            logger.debug("get_recent_user_history failed: %s", e)
+            return []
+
     async def save(
         self,
         session_id: str,
@@ -141,6 +226,8 @@ class ConversationMemory:
                 return
             # Track last message time for idle detection
             await self._update_last_message_time(session_id)
+            # v5.14 Gap 2: 順手寫 user-scoped history（跨 session）
+            await self.append_to_user_history(session_id, question, answer)
             history = list(existing_history)
             # 截斷過長的使用者問題和回答，避免 Redis 記憶體膨脹
             history.append({
