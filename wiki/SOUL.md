@@ -159,7 +159,7 @@ tags: [agent, identity, persona, kunge, missive]
 
 <!-- agent_writable: true | 由 weekly_autobiography_job 自動追加，保留最新 10 筆 -->
 
-_待首次週自傳生成_
+- **2026-W17** (2026-04-20 ~ 2026-04-26): W17 fallback narrative (queries=307, success=33%)
 
 ## 我學到的偏好
 
