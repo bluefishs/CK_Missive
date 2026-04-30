@@ -53,6 +53,7 @@ class EvalScore:
     citation_accuracy: float = 0.0  # 引用準確率 (0-1)
     latency_ok: bool = True         # 延遲是否達標
     tool_efficiency: float = 0.0    # 工具使用效率 (0-1)
+    entity_alignment: float = 1.0   # v5.11 Phase 3：query 具名 entity 與 answer 對齊度 (1.0=N/A or 全對齊, 0.0=hallucination)
     overall: float = 0.0           # 綜合分數 (0-1)
     severity: str = SEVERITY_LOW   # hierarchical severity level
     signals: List[Dict[str, Any]] = field(default_factory=list)
@@ -153,6 +154,8 @@ class AgentSelfEvaluator:
         score.citation_accuracy = self._eval_citation(citation_result)
         score.latency_ok = self._eval_latency(trace)
         score.tool_efficiency = self._eval_tool_efficiency(tool_results, trace)
+        # v5.11 Phase 3: hallucination 偵測（signal-only，不入 overall weight 避免副作用）
+        score.entity_alignment = self._eval_query_entity_alignment(question, answer)
 
         # 加權綜合分 (領域感知)
         weights = self.get_weights(context)
@@ -268,6 +271,64 @@ class AgentSelfEvaluator:
         return score
 
     # ─── 評估維度 ──────────────────────────────────────────
+
+    # ────────── Hallucination 偵測（v5.11 Phase 3）──────────
+
+    # Query 中可能含具名 entity 的句式（人名 / 機構 / 編號）
+    _NAMED_ENTITY_PATTERNS = [
+        # 「承辦人 X」「聯絡人 X」「窗口 X」（取後 1-4 字中文）
+        r'(?:承辦人|聯絡人|窗口|案件承辦)\s*[:：]?\s*([一-鿿]{1,4})',
+        # 「老 X」「小 X」（取整個暱稱）
+        r'((?:老|小)[一-鿿])',
+        # 案件編號（CK-N、113-N、XXX-NNN）
+        r'(\d{2,3}[-_]\w{2,5})',
+        # 派工單號（115年_派工單號021）
+        r'(\d{2,3}年_派工單號\d+)',
+    ]
+
+    def _extract_named_entities_from_query(self, question: str) -> List[str]:
+        """從 query 抽具名 entity（hallucination 偵測用）。
+
+        v5.11 Phase 3 — 簡單啟發式，不依賴 NER engine。
+        若 query 含具名 entity 但 answer 不提，視為 hallucination 警示。
+        """
+        import re
+        extracted: List[str] = []
+        for pattern in self._NAMED_ENTITY_PATTERNS:
+            for m in re.finditer(pattern, question):
+                ent = m.group(1) if m.groups() else m.group(0)
+                ent = ent.strip()
+                if ent and ent not in extracted:
+                    extracted.append(ent)
+        return extracted
+
+    def _eval_query_entity_alignment(self, question: str, answer: str) -> float:
+        """偵測 query 具名 entity 與 answer 的對齊度。
+
+        Returns:
+            1.0 = query 無具名 entity（無從判斷，無扣分）
+            1.0 = query 有具名 entity 且全在 answer 中
+            0.0 = query 有具名 entity 但 answer 完全沒提（hallucination 高度警示）
+
+        範例（v5.10.2 觀察案例）：
+            Q: 「承辦人老蕭負責的案件有哪些？」
+            A: （列了 6 個無關公文，完全沒提「蕭」字）
+            → 抽出「老蕭」/「蕭」，answer 不含 → 0.0 強警示
+        """
+        entities = self._extract_named_entities_from_query(question)
+        if not entities:
+            return 1.0  # 無具名 entity，不適用此規則
+
+        # 檢查 answer 是否包含至少一個 entity（部分匹配也算）
+        found = 0
+        for ent in entities:
+            # 整字匹配 OR 包含核心字（如「老蕭」匹配「蕭」）
+            if ent in answer:
+                found += 1
+            elif len(ent) > 1 and any(c in answer for c in ent[1:]):
+                # 「老蕭」→ answer 含「蕭」即算
+                found += 1
+        return found / len(entities)
 
     def _eval_relevance(self, question: str, answer: str) -> float:
         """問答相關性：關鍵詞重疊率"""
@@ -434,6 +495,23 @@ class AgentSelfEvaluator:
                 "severity": SEVERITY_MEDIUM,
                 "detail": f"efficiency={score.tool_efficiency:.2f}, failed={failed}",
                 "suggestion": "工具失敗率過高，檢查工具健康狀態",
+            })
+
+        # v5.11 Phase 3：hallucination 警示（query 具名 entity 不在 answer）
+        if score.entity_alignment < 0.5:
+            extracted = self._extract_named_entities_from_query(question)
+            signals.append({
+                "type": "entity_alignment_low",
+                "severity": SEVERITY_HIGH,
+                "detail": (
+                    f"alignment={score.entity_alignment:.2f}, "
+                    f"query_entities={extracted}, "
+                    f"answer_preview={answer[:100]}"
+                ),
+                "suggestion": (
+                    "Query 含具名 entity 但 answer 完全沒提到 — 高度疑似 hallucination "
+                    "（如 04-23「列無關公文後否認」案例）。建議 prompt 強化「query 主詞驗證」"
+                ),
             })
 
         # Attach overall severity to every signal for filtering
