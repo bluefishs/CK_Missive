@@ -1448,6 +1448,29 @@ async def memory_crystallization_scan_job():
         logger.error("Memory Crystallization 失敗: %s", e, exc_info=True)
 
 
+@tracked_job("agent_self_diagnosis")
+async def agent_self_diagnosis_job():
+    """v5.13 Gap 1: 每日 06:00 主動讀自己 metrics 寫 diary。
+
+    讓 agent 真正「回看自己」，不只執行還會反思健康度。
+    異常即 push Telegram alert（agent 主動告訴 owner 問題）。
+    """
+    from app.services.memory.self_diagnosis import SelfDiagnosis
+
+    logger.info("開始執行 Agent Self-Diagnosis")
+    try:
+        sd = SelfDiagnosis()
+        result = await sd.run()
+        logger.info(
+            "Self-diagnosis 完成: counter=%d alerts=%d alert_pushed=%s",
+            result.get("evolution_counter_value", 0),
+            len(result.get("alerts", [])),
+            result.get("alert_pushed"),
+        )
+    except Exception as e:
+        logger.error("Self-diagnosis 失敗: %s", e, exc_info=True)
+
+
 @tracked_job("memory_pattern_extract")
 async def memory_pattern_extract_job():
     """每日從 traces 萃取 success patterns + failure modes 寫入 wiki/memory/。
@@ -1746,6 +1769,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 Memory Pattern Extractor: 每日 04:00 執行")
+
+    # v5.13 Gap 1: 每日 06:00 agent self-diagnosis（主動讀自己 metrics）
+    scheduler.add_job(
+        agent_self_diagnosis_job,
+        trigger=CronTrigger(hour=6, minute=0),
+        id='agent_self_diagnosis',
+        name='Agent Self-Diagnosis (每日 06:00 — 主動性 Gap 1)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Agent Self-Diagnosis: 每日 06:00 執行")
 
     # v5.10.2 #7 KG metrics 即時刷新（Prometheus + Grafana dashboard）
     # next_run_time=now：startup 後立刻 fire 一次填值，不等 15 分（避免 dead startup gap）
