@@ -260,3 +260,52 @@ class AntiEchoProtocol:
         except Exception as e:
             logger.warning("AntiEcho append failed: %s", e)
             return None
+
+
+# ────────── v5.12 Phase C：Planner Consumer 接通 ──────────
+
+async def get_recent_reflections_block(
+    days: int = 7, max_items: int = 3,
+) -> str:
+    """抽近 N 天 diary「反迴聲室」段落 → 組 system prompt block。
+
+    領域：v5.12 鏈路 5 真活閘 — agent_planner 注入「我可能錯了的地方」
+    讓 agent 在規劃時看到自己過去的反思候選，避免迴聲效應。
+
+    Returns:
+        非空字串 = N 條 reflections / 空字串 = 沒有反迴聲記錄
+    """
+    today = datetime.now(TZ_TAIPEI).date()
+    reflections: List[str] = []
+    try:
+        for i in range(days):
+            d = today - timedelta(days=i)
+            path = DIARY_DIR / f"{d.isoformat()}.md"
+            if not path.exists():
+                continue
+            text = path.read_text(encoding="utf-8")
+            # 抓「我可能錯了的地方（候選）」段落
+            m = re.search(
+                r"\*\*我可能錯了的地方（候選）\*\*[：:]?\s*\n+(.*?)(?=\n## |\Z)",
+                text,
+                re.DOTALL,
+            )
+            if m:
+                for line_m in re.finditer(r"^\d+\.\s+(.+)$", m.group(1), re.MULTILINE):
+                    reflections.append(line_m.group(1).strip())
+                    if len(reflections) >= max_items:
+                        break
+            if len(reflections) >= max_items:
+                break
+    except Exception as e:
+        logger.debug("get_recent_reflections_block failed: %s", e)
+        return ""
+
+    if not reflections:
+        return ""
+
+    return (
+        "# 我可能錯了的地方（過去 7 天反迴聲室質疑）\n\n"
+        + "\n".join(f"- {r}" for r in reflections)
+        + "\n\n_規劃時請對這些質疑保持警覺，避免重蹈迴聲效應。_"
+    )

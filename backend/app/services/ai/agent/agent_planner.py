@@ -227,6 +227,21 @@ class AgentPlanner:
         except Exception as e:
             logger.debug("Auto defense injection skipped: %s", e)
 
+        # v5.12 Phase C：反迴聲室質疑注入（鏈路 5 真活）
+        anti_echo_block = ""
+        try:
+            from app.services.memory.anti_echo import get_recent_reflections_block
+            result = await _bounded(
+                "anti_echo",
+                get_recent_reflections_block(days=7, max_items=3),
+                _section_budgets.get("anti_echo", 0.3),
+            )
+            if result:
+                anti_echo_block = result
+                logger.debug("AntiEcho block injected (%d chars)", len(result))
+        except Exception as e:
+            logger.debug("AntiEcho injection skipped: %s", e)
+
         # EVO-1: 能力弱項提示
         capability_hint = ""
         if db:
@@ -338,6 +353,7 @@ class AgentPlanner:
 {capability_hint}
 {critical_hint}
 {defense_block}
+{anti_echo_block}
 {entity_preservation_hint}
 
 以下是幾個規劃範例：
