@@ -169,6 +169,28 @@ async def self_evaluate_and_evolve(
             if await scheduler.should_evolve():
                 await scheduler.evolve()
 
+        # v6.0 Gap 7 POC: critic agent 審品質（multi-agent 雛形）
+        try:
+            from app.services.ai.agent.agent_critic import get_agent_critic
+            critic = get_agent_critic()
+            tools_used_names = [
+                tr.get("tool", "") for tr in (tool_results or [])
+                if isinstance(tr, dict)
+            ]
+            await critic.review(
+                question=question,
+                answer=answer,
+                tools_used=tools_used_names,
+                eval_score={
+                    "entity_alignment": getattr(_score, "entity_alignment", 1.0),
+                    "completeness": getattr(_score, "completeness", 1.0),
+                    "tool_efficiency": getattr(_score, "tool_efficiency", 1.0),
+                    "overall": getattr(_score, "overall", 1.0),
+                },
+            )
+        except Exception as critic_err:
+            logger.debug("Critic review skipped: %s", critic_err)
+
     except Exception as e:
         logger.debug("Self-evolution failed (non-critical): %s", e)
 
