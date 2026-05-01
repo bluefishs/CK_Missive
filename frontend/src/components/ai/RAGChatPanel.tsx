@@ -33,6 +33,7 @@ import {
   SwapOutlined,
 } from '@ant-design/icons';
 import { submitAIFeedback } from '../../api/ai/adminManagement';
+import { apiClient } from '../../api/client';
 import { MessageBubble } from './MessageBubble';
 import { VoiceInputButton } from './VoiceInputButton';
 import { useGraphAgentBridgeOptional } from './knowledgeGraph/GraphAgentBridge';
@@ -64,7 +65,52 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
   const { message: messageApi } = App.useApp();
   const [input, setInput] = useState('');
   const [dualMode, setDualMode] = useState(false);
+  const [pastingImage, setPastingImage] = useState(false);  // v5.16 Gap 6
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // v5.16 Gap 6 真活：clipboard image → /vision/describe → 自動填 input
+  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imgItem = items.find(it => it.type.startsWith('image/'));
+    if (!imgItem) return;
+
+    e.preventDefault();
+    const file = imgItem.getAsFile();
+    if (!file) return;
+
+    setPastingImage(true);
+    messageApi.loading({ content: '🖼️ 圖片辨識中...', key: 'vision', duration: 0 });
+
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const resp = await apiClient.post<{
+        success: boolean;
+        description?: string;
+        error?: string;
+      }>('/ai/vision/describe', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+      });
+      if (resp.success && resp.description) {
+        setInput(prev => {
+          const desc = `[圖片內容] ${resp.description}`;
+          return prev ? `${prev}\n${desc}` : desc;
+        });
+        messageApi.success({ content: '🖼️ 圖片已辨識', key: 'vision', duration: 2 });
+      } else {
+        messageApi.error({ content: resp.error || '圖片辨識失敗', key: 'vision', duration: 3 });
+      }
+    } catch (err) {
+      messageApi.error({
+        content: `圖片上傳失敗：${(err as Error).message}`,
+        key: 'vision',
+        duration: 3,
+      });
+    } finally {
+      setPastingImage(false);
+    }
+  }, [messageApi]);
 
   // 三位一體：GraphAgentBridge 連接（可選）
   const bridge = useGraphAgentBridgeOptional();
@@ -262,9 +308,16 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={embedded ? '輸入問題... (Enter 送出)' : '輸入您的問題... (Enter 送出, Shift+Enter 換行)'}
+            onPaste={handlePaste}
+            placeholder={
+              pastingImage
+                ? '🖼️ 圖片辨識中...'
+                : (embedded
+                  ? '輸入問題... (Enter 送出 / 可貼圖)'
+                  : '輸入您的問題... (Enter 送出, Shift+Enter 換行, Ctrl+V 可貼圖)')
+            }
             autoSize={{ minRows: 1, maxRows: embedded ? 2 : 3 }}
-            disabled={loading}
+            disabled={loading || pastingImage}
             style={{ borderRadius: '6px 0 0 6px' }}
           />
           <Button

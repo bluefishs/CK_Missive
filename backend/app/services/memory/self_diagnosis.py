@@ -168,8 +168,8 @@ class SelfDiagnosis:
         # Gap 5 演化人格：agent_writable 段落自動演化（v5.11 P2），4 信念演化未做
         status["gap_5_persona"] = "partial" if base.get("soul_alive") else "dead"
 
-        # Gap 6 多 modality：v5.14 voice 真活（VoiceInputButton），image 留 v5.15
-        status["gap_6_multimodal"] = "partial"  # voice ✓ / image 仍未做
+        # Gap 6 多 modality：v5.14 voice 真活 + v5.15 後端 + v5.16 前端 paste 全通
+        status["gap_6_multimodal"] = "alive"  # voice ✓ + image paste handler ✓
 
         # Gap 7 multi-agent：v6.x 戰略級保留
         status["gap_7_multi_agent"] = "strategic"

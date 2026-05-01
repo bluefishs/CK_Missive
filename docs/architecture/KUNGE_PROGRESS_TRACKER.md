@@ -31,16 +31,17 @@
 | **3** 反思迴路 | 從反應 → 反思 | ✗ | 部分 | ✓ **真活**（hallucination signal 真消費）| ✓ | done |
 | **4** 評分區分度 | 從鬆 → 區分 | ✗ | 部分 | ✓ **真活**（entity_alignment 進 success 判定）| ✓ | done |
 | **5** 演化人格 | 從靜 → 動 | ✗ | ✓ part（agent_writable）| ✓ part | ✓ part | ⚠ **v5.15「我的能力自評」真活**（self_diagnosis 自動更新）/ 4 信念演化 v5.16+ |
-| **6** 多 modality | 從文字 → 多媒 | ✗ | ✗ | ✗ | ⚠ partial（後端齊備前端缺）| ⚠ **v5.14 voice 真活** + **v5.15 後端 /vision/describe** / 前端 paste v5.16 |
+| **6** 多 modality | 從文字 → 多媒 | ✗ | ✗ | ✗ | ⚠ partial（後端齊備前端缺）| ✓ **v5.16 真活**（voice + image paste 全通：onPaste → /vision/describe → 自動填 input）|
 | **7** Multi-agent | 單 agent → 生態 | ✗ | ✗ | ✗ | ✗ | **v6.x** 戰略 |
 
-**Score**（v5.14 後）：
-- 真活：4.5/7（Gap 1/2/3/4 完整 + Gap 5 part）
-- 部分：1.5/7（Gap 5 信念 / Gap 6 image）
-- 戰略保留：1/7（Gap 7）
+**Score**（v5.16 後）：
+- 真活：5.5/7（Gap 1/2/3/4/6 完整 + Gap 5 part）
+- 部分：0.5/7（Gap 5 4 信念 propose）
+- 戰略保留：1/7（Gap 7 multi-agent）
 
-v5.13 → v5.14 進步：Gap 2 從 partial → 真活（+1）、Gap 6 部分強化（voice 真活）
-v5.14 → v5.15 進步：Gap 5「我的能力自評」producer 真活、Gap 6 後端 image endpoint 真活
+v5.13 → v5.14：Gap 2 真活
+v5.14 → v5.15：Gap 5「我的能力自評」producer + Gap 6 後端
+v5.15 → v5.16：**Gap 6 完整真活**（image paste handler 接通）
 
 ---
 
