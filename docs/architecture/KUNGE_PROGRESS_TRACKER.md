@@ -30,18 +30,18 @@
 | **2** 跨會話記憶 | 從單次 → 連續 | ✗ | ✗ | ✗ | ⚠ partial（learnings 跨 session）| ✓ **v5.14 真活**（query history user×time 雙索引）|
 | **3** 反思迴路 | 從反應 → 反思 | ✗ | 部分 | ✓ **真活**（hallucination signal 真消費）| ✓ | done |
 | **4** 評分區分度 | 從鬆 → 區分 | ✗ | 部分 | ✓ **真活**（entity_alignment 進 success 判定）| ✓ | done |
-| **5** 演化人格 | 從靜 → 動 | ✗ | ✓ part（agent_writable）| ✓ part | ✓ part | ⚠ **v5.15「我的能力自評」真活**（self_diagnosis 自動更新）/ 4 信念演化 v5.16+ |
+| **5** 演化人格 | 從靜 → 動 | ✗ | ✓ part（agent_writable）| ✓ part | ✓ part | ✓ **v5.17 真活**（v5.15「我的能力自評」+ v5.17 belief evolution propose 架構就位等 4 週累積）|
 | **6** 多 modality | 從文字 → 多媒 | ✗ | ✗ | ✗ | ⚠ partial（後端齊備前端缺）| ✓ **v5.16 真活**（voice + image paste 全通：onPaste → /vision/describe → 自動填 input）|
 | **7** Multi-agent | 單 agent → 生態 | ✗ | ✗ | ✗ | ✗ | **v6.x** 戰略 |
 
-**Score**（v5.16 後）：
-- 真活：5.5/7（Gap 1/2/3/4/6 完整 + Gap 5 part）
-- 部分：0.5/7（Gap 5 4 信念 propose）
-- 戰略保留：1/7（Gap 7 multi-agent）
+**Score**（v5.17 後）：
+- 真活：6/7（Gap 1/2/3/4/5/6 全閉環）
+- 戰略保留：1/7（Gap 7 multi-agent，留 v6.x）
 
 v5.13 → v5.14：Gap 2 真活
 v5.14 → v5.15：Gap 5「我的能力自評」producer + Gap 6 後端
-v5.15 → v5.16：**Gap 6 完整真活**（image paste handler 接通）
+v5.15 → v5.16：Gap 6 完整真活（image paste handler）
+v5.16 → v5.17：**Gap 5 完整真活**（belief evolution propose 架構就位）
 
 ---
 
@@ -158,9 +158,11 @@ v5.10.2: 30%（observability + 0 真閉環）
 v5.11:   55%（2 真閉環 + 部分 producer 接通）
 v5.12:   75%（5 真閉環 + signal 真改行為 + 治理 SSOT）
 v5.13:   85%（+ 主動 self_diagnosis + 持續追蹤）
-v5.14:   92%（+ Gap 2 真活 + voice 真活）  ← 當前
-v5.15:   95%（+ 信念演化 + image 補完）
-v6.0:    100%（multi-agent 生態）
+v5.14:   92%（+ Gap 2 真活 + voice 真活）
+v5.15:   95%（+「我的能力自評」+ 後端 vision endpoint）
+v5.16:   97%（+ Gap 6 完整真活：image paste handler）
+v5.17:   98%（+ Gap 5 完整真活：belief evolution propose 架構）  ← 當前
+v6.0:    100%（multi-agent 生態 — v6.x 戰略）
 ```
 
 ---

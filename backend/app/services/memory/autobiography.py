@@ -432,7 +432,7 @@ tags: [memory, autobiography, evolution]
     # ────────── Main ──────────
 
     async def run(self, week_end: Optional[date] = None) -> Dict[str, Any]:
-        """一鍵執行：collect → generate → persist → SOUL update → Telegram。"""
+        """一鍵執行：collect → generate → persist → SOUL update → 信念演化 propose → Telegram。"""
         signals = await self.collect_week_signals(week_end)
 
         narrative = await self.generate_narrative(signals)
@@ -442,16 +442,139 @@ tags: [memory, autobiography, evolution]
 
         path = self.persist_autobiography(signals, narrative)
         soul_updated = await self.update_soul_growth(signals, narrative)
+
+        # v5.17 Gap 5: 4 信念演化 propose（累積 4 週觀察才觸發，archetypal safety）
+        belief_proposal_id = await self._propose_belief_evolution_if_signal(signals)
+
         pushed = await self.push_to_telegram(signals, narrative)
 
         return {
             "week_id": signals.week_id,
             "path": str(path),
             "soul_updated": soul_updated,
+            "belief_proposal_id": belief_proposal_id,
             "telegram_pushed": pushed,
             "total_queries": signals.total_queries,
             "narrative_chars": len(narrative),
         }
+
+    async def _propose_belief_evolution_if_signal(
+        self, current_signals: "WeekSignals",
+    ) -> Optional[str]:
+        """v5.17 Gap 5：偵測信念演化跡象 → propose 寫進「我的成長」段落。
+
+        設計哲學（雙閘安全）：
+        - SOUL 4 信念是 source_of_truth=human，agent **不直接改**
+        - 但 agent 可以**觀察累積跡象 + propose**「考慮某信念可能需修」
+        - 寫進 proposals/，owner 透過 ProposalsTab 批准
+
+        觸發條件（archetypal safety — 至少 4 週累積才考慮）：
+        - 連續 3+ 週 success_rate < 0.5（暗示「穩定即信任」需修）
+        - 連續 4+ 週 active_failures ≥ 5（暗示「異常即訊號」未發揮作用）
+
+        v5.17 預期狀態：「架構就位等資料」（evolutions/ 不足 4 週時不觸發）。
+        """
+        try:
+            # 收集前 4 週 evolutions frontmatter
+            past_signals = self._collect_past_week_signals(weeks_back=4)
+            if len(past_signals) < 3:
+                logger.debug(
+                    "Belief evolution check skipped: only %d past weeks",
+                    len(past_signals),
+                )
+                return None
+
+            # 檢測連續趨勢
+            trigger_reasons: List[str] = []
+            recent_rates = [s.get("success_rate", 1.0) for s in past_signals[:3]]
+            if all(r < 0.5 for r in recent_rates):
+                trigger_reasons.append(
+                    f"連續 3 週 success_rate < 0.5（{recent_rates}）— 「穩定即信任」"
+                    f"信念可能需修：穩定不等於對的時候"
+                )
+
+            recent_failures = [s.get("active_failures", 0) for s in past_signals[:4]]
+            if len(recent_failures) >= 4 and all(f >= 5 for f in recent_failures):
+                trigger_reasons.append(
+                    f"連續 4 週 active_failures ≥ 5（{recent_failures}）— 「異常即訊號」"
+                    f"信念可能需修：訊號發出但無人接收"
+                )
+
+            if not trigger_reasons:
+                return None
+
+            # 觸發 propose（寫進 「我的成長」 agent_writable section）
+            from app.services.memory.soul_loader import get_soul_loader
+            soul = get_soul_loader()
+            new_text = (
+                f"### 信念演化觀察（{current_signals.week_id}）\n\n"
+                "經過數週累積，以下指標暗示核心信念可能需要修正：\n\n"
+                + "\n".join(f"- {r}" for r in trigger_reasons)
+                + "\n\n_此為 agent 觀察結果，是否實際修改 4 信念由 owner 決定。_"
+            )
+            reason = (
+                f"autobiography 累積 {len(past_signals)} 週觀察觸發。"
+                f"trigger: {trigger_reasons[0][:60]}..."
+            )
+            proposal_id = await soul.propose_section_update(
+                section_title="我的成長",
+                new_text=new_text,
+                reason=reason,
+                proposed_by="autobiography_belief_check",
+            )
+            if proposal_id:
+                logger.info(
+                    "Belief evolution proposal: %s (triggers=%d)",
+                    proposal_id, len(trigger_reasons),
+                )
+            return proposal_id
+        except Exception as e:
+            logger.warning("Belief evolution check failed: %s", e)
+            return None
+
+    def _collect_past_week_signals(self, weeks_back: int = 4) -> List[Dict[str, Any]]:
+        """從 evolutions/*.md frontmatter 收集前 N 週 signals。"""
+        import re
+        results: List[Dict[str, Any]] = []
+        if not EVOLUTIONS_DIR.exists():
+            return results
+
+        # 取最新 N 個檔案（按 mtime DESC）
+        files = sorted(
+            EVOLUTIONS_DIR.glob("20*-W*.md"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )[:weeks_back]
+
+        for path in files:
+            try:
+                text = path.read_text(encoding="utf-8")
+                m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+                if not m:
+                    continue
+                fm = m.group(1)
+                signal = {}
+                for key in ["week_id", "success_rate", "active_failures",
+                           "new_patterns", "total_queries"]:
+                    km = re.search(rf"^{key}:\s*(.+?)\s*$", fm, re.MULTILINE)
+                    if km:
+                        val = km.group(1).strip()
+                        if key in ("success_rate",):
+                            try:
+                                val = float(val)
+                            except ValueError:
+                                continue
+                        elif key in ("active_failures", "new_patterns", "total_queries"):
+                            try:
+                                val = int(val)
+                            except ValueError:
+                                continue
+                        signal[key] = val
+                if signal:
+                    results.append(signal)
+            except Exception as e:
+                logger.debug("collect_past_week_signals %s failed: %s", path.name, e)
+        return results
 
     @staticmethod
     def _fallback_narrative(s: WeekSignals) -> str:

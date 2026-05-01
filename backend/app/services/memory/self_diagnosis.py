@@ -165,8 +165,9 @@ class SelfDiagnosis:
         # Gap 4 評分區分度：entity_alignment 進 success 判定（v5.12 B.1）
         status["gap_4_score_calibration"] = "alive"
 
-        # Gap 5 演化人格：agent_writable 段落自動演化（v5.11 P2），4 信念演化未做
-        status["gap_5_persona"] = "partial" if base.get("soul_alive") else "dead"
+        # Gap 5 演化人格：v5.15「我的能力自評」producer + v5.17 belief evolution propose
+        # 架構全活（雙閘安全：agent 觀察 + propose / owner 批准）
+        status["gap_5_persona"] = "alive" if base.get("soul_alive") else "partial"
 
         # Gap 6 多 modality：v5.14 voice 真活 + v5.15 後端 + v5.16 前端 paste 全通
         status["gap_6_multimodal"] = "alive"  # voice ✓ + image paste handler ✓
