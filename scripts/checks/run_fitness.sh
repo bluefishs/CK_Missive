@@ -38,7 +38,7 @@ FAIL_COUNT=0
 # ----------------------------------------------------------------------------
 # 1. Services 頂層散戶比例
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[1/12] Services directory entropy${NC}"
+echo -e "${CYAN}[1/13] Services directory entropy${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/service_dir_entropy.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -49,7 +49,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 2. Dead config reader（掃多個高信號檔）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[2/12] Dead config reader scan (multi-target v3)${NC}"
+echo -e "${CYAN}[2/13] Dead config reader scan (multi-target v3)${NC}"
 
 # v3 (2026-04-25): 擴為多 target 掃描
 # 原 v1/v2 只掃 ai_config.py → 錯過 record_duration / get_cloud_semaphore 等 dead
@@ -77,7 +77,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 3. SOUL.md 跨 repo drift（坤哥意識體跨通道一致性）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[3/12] SOUL.md mirror drift check${NC}"
+echo -e "${CYAN}[3/13] SOUL.md mirror drift check${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/soul_mirror_drift_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -88,7 +88,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 4. Wiki ↔ KG 雙向引用率
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[4/12] Wiki ↔ KG link audit${NC}"
+echo -e "${CYAN}[4/13] Wiki ↔ KG link audit${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/wiki_kg_link_audit.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -99,7 +99,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 5. KG pgvector embedding 覆蓋率
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[5/12] KG pgvector embedding coverage${NC}"
+echo -e "${CYAN}[5/13] KG pgvector embedding coverage${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/kg_embedding_coverage_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -110,7 +110,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 6. Architecture docs presence
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[6/12] Architecture standard docs presence${NC}"
+echo -e "${CYAN}[6/13] Architecture standard docs presence${NC}"
 REQUIRED_DOCS=(
     "docs/architecture/STANDARD_REFERENCE.md"
     "docs/architecture/SERVICE_CONTEXT_MAP.md"
@@ -132,7 +132,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 7. Agent evolution health（坤哥進化引擎是否在跑 — L21 prevention）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[7/12] Agent evolution health${NC}"
+echo -e "${CYAN}[7/13] Agent evolution health${NC}"
 # exit codes: 0 healthy / 1 warning (trigger 久未觸發但 redis OK) / 2 error (redis 不可達)
 # non-strict 模式 — exit 1/2 都僅警告（dev 環境可能沒 redis），strict 才算 fail
 PYTHONIOENCODING=utf-8 python scripts/checks/agent_evolution_health.py 2>&1 || EVOLUTION_EXIT=$?
@@ -145,7 +145,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 8. Dispatch cache contract（派工 invalidate 必須透過 hook，cache 一致性）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[8/12] Dispatch cache contract${NC}"
+echo -e "${CYAN}[8/13] Dispatch cache contract${NC}"
 if $STRICT; then
     bash scripts/checks/dispatch_cache_contract.sh || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -156,7 +156,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 9. Stub import lint（DDD 邊界落實，2026-Q3 stub 移除前置）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[9/12] Stub import lint (DDD boundary)${NC}"
+echo -e "${CYAN}[9/13] Stub import lint (DDD boundary)${NC}"
 # warning-only mode：v5.10.2 已清 26 處最大宗，剩 ~58 處列入 Q3 移除前 follow-up
 # strict 模式才報 fail（鼓勵新增程式碼用新路徑，不增加 stub debt）
 if $STRICT; then
@@ -169,7 +169,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 10. Memory metrics alive check（坤哥意識體觀測，防 hollow gauge L21）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[10/12] Memory Wiki metrics alive${NC}"
+echo -e "${CYAN}[10/13] Memory Wiki metrics alive${NC}"
 # 需要 ck-backend 啟動才能 scrape /metrics — dev 模式可能後端沒起來，warning-only
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/memory_metrics_alive_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
@@ -181,7 +181,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 11. SOUL evolution alive check（v5.11 Phase 2，鏈路 4 silent gap 防護）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[11/12] SOUL evolution alive${NC}"
+echo -e "${CYAN}[11/13] SOUL evolution alive${NC}"
 # 防 KUNGE_LEARNING_VERIFICATION 鏈路 4 silent gap 重演（autobiography 寫但
 # SOUL 沒同步）— evolutions/ 有檔但 SOUL「我的成長」仍 placeholder 即報警
 if $STRICT; then
@@ -194,13 +194,26 @@ echo ""
 # ----------------------------------------------------------------------------
 # 12. Memory signal consumer lint（v5.12 Phase D，孤兒 signal 治理）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[12/12] Memory signal consumer lint${NC}"
+echo -e "${CYAN}[12/13] Memory signal consumer lint${NC}"
 # 偵測 redis-based signal 是否完全孤兒（0 caller）
 # 防止 v5.10.2 #4 silent failure 同類問題重演
 if $STRICT; then
     bash scripts/checks/signal_consumer_lint.sh || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     bash scripts/checks/signal_consumer_lint.sh || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# 13. Cron 健康度（v6.2 Phase C2，防 cron silent fail 雪崩）
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[13/13] Cron health check${NC}"
+# 連續失敗 ≥ 2 / 上次成功 > 預期 × 2 / never_run 但 next_run 已過 → fail
+# warning-only mode：dev 環境後端可能未啟動，endpoint 不可達不算 fail
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/cron_health_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/cron_health_check.py || true
 fi
 echo ""
 

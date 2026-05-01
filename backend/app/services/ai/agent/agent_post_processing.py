@@ -170,6 +170,7 @@ async def self_evaluate_and_evolve(
                 await scheduler.evolve()
 
         # v6.0 Gap 7 POC: critic agent 審品質（multi-agent 雛形）
+        # v6.2 Phase B3 (ADR-0028 合規)：silent fail debug → error + exc_info
         try:
             from app.services.ai.agent.agent_critic import get_agent_critic
             critic = get_agent_critic()
@@ -189,7 +190,11 @@ async def self_evaluate_and_evolve(
                 },
             )
         except Exception as critic_err:
-            logger.debug("Critic review skipped: %s", critic_err)
+            logger.error(
+                "Critic review failed (multi-agent loop 部分受影響): %s",
+                critic_err,
+                exc_info=True,
+            )
 
     except Exception as e:
         logger.debug("Self-evolution failed (non-critical): %s", e)

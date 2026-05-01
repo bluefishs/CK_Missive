@@ -151,7 +151,12 @@ class AgentCritic:
             path.write_text(content, encoding="utf-8")
             logger.debug("Critique persisted: %s", filename)
         except Exception as e:
-            logger.debug("persist critique failed: %s", e)
+            # v6.2 Phase B3 (ADR-0028 合規)：silent fail debug → error + exc_info
+            # 寫 critique 失敗 = multi-agent 學習迴圈斷鏈（同 L21 教訓）
+            logger.error(
+                "Critique 持久化失敗（multi-agent 學習迴圈影響）: %s",
+                e, exc_info=True,
+            )
 
 
 _critic_instance: Optional[AgentCritic] = None
