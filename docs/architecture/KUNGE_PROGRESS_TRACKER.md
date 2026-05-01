@@ -16,9 +16,9 @@
 | **5 條鏈路真活率** | 5/5 (100%) ✓（v5.12 達成）|
 | **斷鏈** | 0 ✓ |
 | **孤兒 signal** | 0 完全孤兒 ✓ |
-| **Fitness step** | 12/12 全綠 |
+| **Fitness step** | 14/14（v6.2 加 cron 健康度 + wiki Unicode 重名偵測）|
 | **7 個 Gap 解決度** | **7/7 全真活** ✓（v6.1 達成）|
-| **下一里程碑** | v5.14 跨會話 query history（深層 Gap 2）|
+| **下一里程碑** | v5.14 跨會話 query history（深層 Gap 2）/ v6.3 三層 Wiki 連結補完 |
 
 ---
 
@@ -110,8 +110,9 @@ v6.0 → v6.1：**Gap 7 完整真活（critique→planner 閉環）**
 
 | Commit | Phase | 內容 |
 |---|---|---|
-| `bf3f33b0` | Phase 1 | agent self-diagnosis cron（Gap 1 真活）|
-| (本輪) | Phase 4 | KUNGE_PROGRESS_TRACKER + self_diagnosis 升級含 Gap 進度 |
+| `bf3f33b0` | v5.13 P1 | agent self-diagnosis cron（Gap 1 真活）|
+| `d9e914fb` | v6.2 C2+B3 | cron 健康度 fitness step 13 + critic ADR-0028 合規 |
+| (本輪) | v6.2 B1+I4+C3 | tracker 同步 + wiki↔KG 6 entities backfill（94.9%→98.2%）+ Unicode 重名偵測 step 14 |
 
 ---
 
@@ -127,7 +128,7 @@ v6.0 → v6.1：**Gap 7 完整真活（critique→planner 閉環）**
 ### 6.2 每月（半自動）
 
 每月架構覆盤時：
-1. 跑 `bash scripts/checks/run_fitness.sh` 看 12/12 step
+1. 跑 `bash scripts/checks/run_fitness.sh` 看 13/13 step
 2. 手動更新本檔 §1 演進矩陣（標 ✗ → part → 真活）
 3. commit `chore: kunge_progress_tracker 同步 vM.X`
 
@@ -150,7 +151,9 @@ v6.0 → v6.1：**Gap 7 完整真活（critique→planner 閉環）**
 | **v5.13 ✓** | **能不能主動發現問題** | **Gap 1 真活 + 持續追蹤 SSOT** |
 | v5.14 | 能不能跨會話連續記憶 | Gap 2 + Gap 6 |
 | v5.15 | 能不能演化核心信念 | Gap 5 信念 propose |
-| v6.x | 從單 agent 到 multi-agent 生態 | Gap 7 |
+| v6.0~v6.1 ✓ | 從單 agent 到 multi-agent 生態 | Gap 7 真活 |
+| **v6.2 ✓** | **cron 健康度 + critic 合規 + 三層 Wiki review** | **C2+B3+整合 review** |
+| v6.3+ | 三層 Wiki 連結補完（diary↔KG / critique↔entity / topics 擴充）| I2/I3/I5 |
 
 ---
 
@@ -166,8 +169,9 @@ v5.15:   95%（+「我的能力自評」+ 後端 vision endpoint）
 v5.16:   97%（+ Gap 6 完整真活：image paste handler）
 v5.17:   98%（+ Gap 5 完整真活：belief evolution propose 架構）
 v6.0:    99%（+ Gap 7 POC：agent_critic 接通）
-v6.1:   100%（+ critique→planner 閉環：multi-agent 學習迴圈真活）  ← 當前
-v6.2+:  100% (進階：LLM critic 二審 / 多視角投票 / AgentMessageBus)
+v6.1:   100%（+ critique→planner 閉環：multi-agent 學習迴圈真活）
+v6.2:   100%（+ cron 健康度 fitness step 13 + critic ADR-0028 合規 + 三層 Wiki 整合 review）  ← 當前
+v6.3+:  進階：三層 Wiki 連結補完（I2 diary entity link / I3 critique entity tag / I5 topics 擴充）/ LLM critic 二審 / 多視角投票 / AgentMessageBus
 ```
 
 ---

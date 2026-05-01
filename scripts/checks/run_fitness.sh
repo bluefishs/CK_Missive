@@ -207,13 +207,26 @@ echo ""
 # ----------------------------------------------------------------------------
 # 13. Cron 健康度（v6.2 Phase C2，防 cron silent fail 雪崩）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[13/13] Cron health check${NC}"
+echo -e "${CYAN}[13/14] Cron health check${NC}"
 # 連續失敗 ≥ 2 / 上次成功 > 預期 × 2 / never_run 但 next_run 已過 → fail
 # warning-only mode：dev 環境後端可能未啟動，endpoint 不可達不算 fail
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/cron_health_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/cron_health_check.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# 14. Wiki Unicode 重名偵測（v6.2 Phase C3，wiki_compiler 寫檔正規化）
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[14/14] Wiki Unicode dup check${NC}"
+# wiki_compiler 寫過 NFC + CJK Compatibility 兩種正規化的同名檔
+# warning-only：dup 不阻擋 ship，但提醒 wiki_compiler 該補 NFC normalize
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/wiki_unicode_dup_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/wiki_unicode_dup_check.py || true
 fi
 echo ""
 
