@@ -34,14 +34,17 @@
 | **6** 多 modality | 從文字 → 多媒 | ✗ | ✗ | ✗ | ⚠ partial（後端齊備前端缺）| ✓ **v5.16 真活**（voice + image paste 全通：onPaste → /vision/describe → 自動填 input）|
 | **7** Multi-agent | 單 agent → 生態 | ✗ | ✗ | ✗ | ✗ | ✓ **v6.1 真活**（critic 寫 critique signal → planner inject 學習迴圈閉環）|
 
-**Score**（v5.17 後）：
-- 真活：6/7（Gap 1/2/3/4/5/6 全閉環）
-- 戰略保留：1/7（Gap 7 multi-agent，留 v6.x）
+**Score**（v6.1 後）：
+- 真活：**7/7（全閉環）✓**
+- 部分：0
+- 戰略保留：0
 
 v5.13 → v5.14：Gap 2 真活
-v5.14 → v5.15：Gap 5「我的能力自評」producer + Gap 6 後端
-v5.15 → v5.16：Gap 6 完整真活（image paste handler）
-v5.16 → v5.17：**Gap 5 完整真活**（belief evolution propose 架構就位）
+v5.14 → v5.15：Gap 5「我的能力自評」+ Gap 6 後端
+v5.15 → v5.16：Gap 6 完整真活
+v5.16 → v5.17：Gap 5 完整真活
+v5.17 → v6.0：Gap 7 POC 就位
+v6.0 → v6.1：**Gap 7 完整真活（critique→planner 閉環）**
 
 ---
 
