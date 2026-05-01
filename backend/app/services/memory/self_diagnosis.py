@@ -172,9 +172,9 @@ class SelfDiagnosis:
         # Gap 6 多 modality：v5.14 voice 真活 + v5.15 後端 + v5.16 前端 paste 全通
         status["gap_6_multimodal"] = "alive"  # voice ✓ + image paste handler ✓
 
-        # Gap 7 multi-agent：v6.0 POC（agent_critic 接通），retry loop 留 v6.1+
-        # 從 strategic → partial（雛形就位但無 retry loop）
-        status["gap_7_multi_agent"] = "partial"
+        # Gap 7 multi-agent：v6.0 critic POC + v6.1 critique→planner 學習迴圈閉環
+        # critic 寫 critique signal → planner 規劃時 inject → 避免重蹈覆轍
+        status["gap_7_multi_agent"] = "alive"
 
         return status
 

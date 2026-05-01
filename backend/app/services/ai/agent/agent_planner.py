@@ -325,6 +325,21 @@ class AgentPlanner:
             except Exception as e:
                 logger.debug("Cross-session history skipped: %s", e)
 
+        # v6.1 Phase 1：critique signal 累積警示（multi-agent 學習迴圈）
+        critique_warning_block = ""
+        try:
+            from app.services.ai.agent.agent_critic import get_recent_critiques_block
+            result = await _bounded(
+                "critique_warning",
+                get_recent_critiques_block(days=7, max_items=3),
+                _section_budgets.get("critique_warning", 0.3),
+            )
+            if result:
+                critique_warning_block = result
+                logger.debug("Critique warning injected (%d chars)", len(result))
+        except Exception as e:
+            logger.debug("Critique warning skipped: %s", e)
+
         # v5.12 Phase B.3：Entity Preservation 警示（防 hallucination）
         entity_preservation_hint = ""
         try:
@@ -389,6 +404,7 @@ class AgentPlanner:
 {defense_block}
 {anti_echo_block}
 {cross_session_history_block}
+{critique_warning_block}
 {entity_preservation_hint}
 
 以下是幾個規劃範例：

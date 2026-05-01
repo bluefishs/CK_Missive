@@ -162,3 +162,67 @@ def get_agent_critic() -> AgentCritic:
     if _critic_instance is None:
         _critic_instance = AgentCritic()
     return _critic_instance
+
+
+# ────────── v6.1 Phase 1: Planner Consumer 接通 ──────────
+
+async def get_recent_critiques_block(
+    days: int = 7, max_items: int = 3,
+) -> str:
+    """v6.1 Phase 1：抽近 N 天 critique 組 system prompt block。
+
+    領域：multi-agent 學習迴圈 — agent_planner 規劃時看「過去 N 天 critic 抓出的問題」，
+    避免重蹈覆轍。比 retry loop 更務實（無無限遞迴風險）。
+
+    Returns:
+        非空字串 = N 條最新 critique 警示 / 空字串 = 沒有近期 critique
+    """
+    import re
+    from datetime import datetime, timedelta
+
+    if not CRITIQUES_DIR.exists():
+        return ""
+
+    try:
+        # 取最新 N 個 critique（按 mtime DESC）
+        cutoff_ts = (datetime.now() - timedelta(days=days)).timestamp()
+        files = sorted(
+            [p for p in CRITIQUES_DIR.glob("critique-*.md")
+             if p.stat().st_mtime >= cutoff_ts],
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )[:max_items]
+
+        if not files:
+            return ""
+
+        warnings: List[str] = []
+        for path in files:
+            try:
+                text = path.read_text(encoding="utf-8")
+                # 抓 question + 第一條 critique
+                q_m = re.search(r"\*\*Question\*\*:\s*(.+?)(?:\n|$)", text)
+                c_m = re.search(
+                    r"\*\*Critiques\*\*:\s*\n(?:- )(.+?)(?:\n|$)",
+                    text,
+                )
+                v_m = re.search(r"^verdict:\s*(\S+)", text, re.MULTILINE)
+                if q_m and c_m:
+                    q = q_m.group(1)[:60]
+                    c = c_m.group(1)[:120]
+                    v = v_m.group(1) if v_m else "?"
+                    warnings.append(f"- ({v}) Q「{q}」: {c}")
+            except Exception:
+                continue
+
+        if not warnings:
+            return ""
+
+        return (
+            "# 過去 7 天 critic 抓出的問題（避免重蹈覆轍）\n\n"
+            + "\n".join(warnings)
+            + "\n\n_規劃時請對這些 pattern 警覺，特別是 entity_alignment 類問題。_"
+        )
+    except Exception as e:
+        logger.debug("get_recent_critiques_block failed: %s", e)
+        return ""

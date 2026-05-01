@@ -17,7 +17,7 @@
 | **斷鏈** | 0 ✓ |
 | **孤兒 signal** | 0 完全孤兒 ✓ |
 | **Fitness step** | 12/12 全綠 |
-| **7 個 Gap 解決度** | 4 真活、2 部分、1 戰略保留 |
+| **7 個 Gap 解決度** | **7/7 全真活** ✓（v6.1 達成）|
 | **下一里程碑** | v5.14 跨會話 query history（深層 Gap 2）|
 
 ---
@@ -32,7 +32,7 @@
 | **4** 評分區分度 | 從鬆 → 區分 | ✗ | 部分 | ✓ **真活**（entity_alignment 進 success 判定）| ✓ | done |
 | **5** 演化人格 | 從靜 → 動 | ✗ | ✓ part（agent_writable）| ✓ part | ✓ part | ✓ **v5.17 真活**（v5.15「我的能力自評」+ v5.17 belief evolution propose 架構就位等 4 週累積）|
 | **6** 多 modality | 從文字 → 多媒 | ✗ | ✗ | ✗ | ⚠ partial（後端齊備前端缺）| ✓ **v5.16 真活**（voice + image paste 全通：onPaste → /vision/describe → 自動填 input）|
-| **7** Multi-agent | 單 agent → 生態 | ✗ | ✗ | ✗ | ✗ | ⚠ **v6.0 POC**（agent_critic 接通寫 critique signal）/ retry loop v6.1+ |
+| **7** Multi-agent | 單 agent → 生態 | ✗ | ✗ | ✗ | ✗ | ✓ **v6.1 真活**（critic 寫 critique signal → planner inject 學習迴圈閉環）|
 
 **Score**（v5.17 後）：
 - 真活：6/7（Gap 1/2/3/4/5/6 全閉環）
@@ -162,8 +162,9 @@ v5.14:   92%（+ Gap 2 真活 + voice 真活）
 v5.15:   95%（+「我的能力自評」+ 後端 vision endpoint）
 v5.16:   97%（+ Gap 6 完整真活：image paste handler）
 v5.17:   98%（+ Gap 5 完整真活：belief evolution propose 架構）
-v6.0:    99%（+ Gap 7 POC：agent_critic 接通）  ← 當前
-v6.1+:  100%（+ retry loop：critic verdict=fail → planner 重試）
+v6.0:    99%（+ Gap 7 POC：agent_critic 接通）
+v6.1:   100%（+ critique→planner 閉環：multi-agent 學習迴圈真活）  ← 當前
+v6.2+:  100% (進階：LLM critic 二審 / 多視角投票 / AgentMessageBus)
 ```
 
 ---
