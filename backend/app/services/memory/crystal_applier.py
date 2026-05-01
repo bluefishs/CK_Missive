@@ -135,6 +135,18 @@ class CrystalApplier:
                 get_memory_wiki_metrics().crystal_applied.inc()
             except Exception:
                 pass
+
+            # Step 9: 通知 owner（v6.3 體感型輸出，ADR-0027 LINE 主通道）
+            # best-effort，不阻擋主流程
+            try:
+                await self._notify_owner_growth(
+                    crystal_id=crystal_id,
+                    target_file=target_file,
+                    meta=meta,
+                )
+            except Exception as e:
+                logger.warning("Crystal growth notify failed (non-blocking): %s", e)
+
             return ApplyResult(
                 ok=True, crystal_id=crystal_id, snapshot_path=snapshot_path,
             )
@@ -294,6 +306,58 @@ Snapshot 備份至：`{snapshot_path}`
                         setattr(config, attr, None)
         except Exception as e:
             logger.debug("Cache invalidation partial: %s", e)
+
+    @staticmethod
+    async def _notify_owner_growth(
+        *, crystal_id: str, target_file: str, meta: Dict,
+    ) -> None:
+        """v6.3 體感型輸出：crystal apply 成功時推一則 LINE 給 owner。
+
+        設計（坤哥第一人稱）：
+        - 標題：「🌱 我學到了一條新規則」
+        - 來源 pattern + 影響檔 + 完整紀錄路徑
+        - 不含 PII（crystal_id 是時間戳，無使用者資料）
+
+        ADR-0027：LINE 為 owner 主推送通道（Telegram 個人號 4/21 封禁後）。
+        ENV 控制：
+        - LINE_ADMIN_USER_ID 未設定 → silent skip
+        - LINE_GROWTH_NOTIFY_ENABLED=false → 顯式關閉
+        """
+        import os
+        if os.getenv("LINE_GROWTH_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
+            return
+        line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+        if not line_user_id:
+            return
+
+        kind = meta.get("proposal_kind", "rule")
+        source_pattern = meta.get("source_pattern", "-")
+        text = (
+            f"🌱 我學到了一條新規則\n"
+            f"\n"
+            f"📚 {crystal_id}\n"
+            f"🎯 影響：{target_file}（{kind}）\n"
+            f"🔍 來源：{source_pattern}\n"
+            f"\n"
+            f"從現在起遇到類似情境，我會用這個新方式回應。\n"
+            f"完整紀錄：wiki/memory/crystals/{crystal_id}.md"
+        )
+
+        try:
+            from app.services.integration.line_bot import LineBotService
+            line_bot = LineBotService()
+            if not line_bot.enabled:
+                return
+            ok = await line_bot.push_message(line_user_id, text)
+            if ok:
+                logger.info("Crystal growth notify pushed: crystal=%s", crystal_id)
+            else:
+                logger.warning("Crystal growth notify push returned False: crystal=%s", crystal_id)
+        except Exception as e:
+            logger.error(
+                "Crystal growth notify error (multi-channel 體感斷鏈): %s",
+                e, exc_info=True,
+            )
 
     async def rollback(self, crystal_id: str) -> ApplyResult:
         """回滾指定 crystal（從 snapshot 還原）。"""

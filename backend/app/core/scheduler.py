@@ -1352,9 +1352,10 @@ async def memory_weekly_autobiography_job():
             gen = AutobiographyGenerator(db)
             result = await gen.run()
             logger.info(
-                "Weekly Autobiography 完成: %s, queries=%d, soul=%s, telegram=%s, chars=%d",
+                "Weekly Autobiography 完成: %s, queries=%d, soul=%s, tg=%s, line=%s, chars=%d",
                 result.get("week_id"), result.get("total_queries"),
-                result.get("soul_updated"), result.get("telegram_pushed"),
+                result.get("soul_updated"),
+                result.get("telegram_pushed"), result.get("line_pushed"),
                 result.get("narrative_chars"),
             )
     except Exception as e:

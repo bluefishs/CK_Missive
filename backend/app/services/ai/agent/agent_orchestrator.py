@@ -495,9 +495,22 @@ class AgentOrchestrator:
             synth_span = trace.start_span("synthesis")
             model_used = getattr(self.ai, '_last_provider', None) or "unknown"
             answer_tokens: List[str] = []
+
+            # v6.3 體感型：synthesis 前抓 cross-session hints（同 user 30 天歷史）
+            # planner 端已 inject 給 LLM 規劃用，這裡再給 synthesis 用於明確 acknowledge
+            cross_session_hints: List[Dict[str, Any]] = []
+            if session_id and conv_memory:
+                try:
+                    cross_session_hints = await conv_memory.get_recent_user_history(
+                        session_id, days=30, limit=5,
+                    ) or []
+                except Exception as e:
+                    logger.debug("cross_session_hints fetch failed: %s", e)
+
             try:
                 async for token in self._synthesizer.synthesize_answer(
-                    question, tool_results, history, context=context
+                    question, tool_results, history, context=context,
+                    cross_session_hints=cross_session_hints,
                 ):
                     answer_tokens.append(token)
                     yield sse(type="token", token=token)

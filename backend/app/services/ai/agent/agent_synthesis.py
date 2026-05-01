@@ -43,8 +43,14 @@ class AgentSynthesizer:
         tool_results: List[Dict[str, Any]],
         history: Optional[List[Dict[str, str]]] = None,
         context: Optional[str] = None,
+        cross_session_hints: Optional[List[Dict[str, Any]]] = None,
     ) -> AsyncGenerator[str, None]:
-        """根據所有工具結果，串流生成最終回答"""
+        """根據所有工具結果，串流生成最終回答。
+
+        v6.3 體感型輸出：cross_session_hints 為同 user 過去 30 天最近 5 次 query。
+        若提供且與本問題相關，synthesis 會在回應第一句明確 acknowledge
+        「上次（日期）你問過 X」— 解決「沒有延續性」體感斷鏈。
+        """
         from app.services.ai.core.ai_prompt_manager import AIPromptManager
 
         synthesis_context = self.build_synthesis_context(tool_results)
@@ -114,6 +120,32 @@ class AgentSynthesizer:
             "- 常見錯誤：数据→資料、关系→關係、实体→實體、统计→統計、"
             "查询→查詢、文档→文件、系统→系統、节点→節點、信息→資訊\n"
         )
+
+        # v6.3 體感型：cross-session 連續性 acknowledgment（解「沒有延續性」斷鏈）
+        if cross_session_hints:
+            try:
+                from datetime import datetime as _dt
+                lines = []
+                for h in cross_session_hints[:5]:
+                    try:
+                        d = _dt.fromtimestamp(h.get("ts", 0)).strftime("%m/%d")
+                    except Exception:
+                        d = "?"
+                    q_text = (h.get("q") or "")[:80]
+                    if q_text:
+                        lines.append(f"- ({d}) {q_text}")
+                if lines:
+                    system_prompt += (
+                        "\n## 連續性原則（v6.3 體感型輸出）\n"
+                        "以下是同位使用者過去 30 天的相關提問：\n"
+                        + "\n".join(lines) + "\n\n"
+                        "**若上述任一項與本次問題相關（同主題 / 同人物 / 同案件），"
+                        "回應的第一句必須明確 acknowledge**，例如：\n"
+                        "  「上次（M/D）你問過 X，今天的 Y 是延續/相關，差別是…」\n"
+                        "若無相關，可忽略本區塊。不要硬塞無關 acknowledge。\n"
+                    )
+            except Exception as e:
+                logger.debug("cross_session_hints inject failed: %s", e)
 
         messages: List[Dict[str, str]] = [
             {"role": "system", "content": system_prompt},

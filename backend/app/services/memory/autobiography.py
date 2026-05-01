@@ -429,6 +429,46 @@ tags: [memory, autobiography, evolution]
             logger.warning("Autobiography Telegram push failed: %s", e)
             return False
 
+    async def push_to_line(self, signals: WeekSignals, narrative: str) -> bool:
+        """v6.3 體感型輸出：每週日 18:00 推週成長卡片到 LINE owner。
+
+        ADR-0027：LINE 為 owner 主推送通道（Telegram 個人號 4/21 封禁後）。
+        ENV：
+        - LINE_ADMIN_USER_ID 未設 → silent skip
+        - LINE_GROWTH_NOTIFY_ENABLED=false → 顯式關閉
+        """
+        if os.getenv("LINE_GROWTH_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
+            return False
+        line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+        if not line_user_id:
+            return False
+        try:
+            from app.services.integration.line_bot import LineBotService
+            line_bot = LineBotService()
+            if not line_bot.enabled:
+                return False
+            # LINE 不支援 markdown，純文字
+            msg = (
+                f"📖 我的週成長 {signals.week_id}\n"
+                f"\n"
+                f"{narrative}\n"
+                f"\n"
+                f"───\n"
+                f"本週 {signals.total_queries} 筆查詢 | "
+                f"成功率 {signals.success_rate:.0%} | "
+                f"結晶 {signals.crystals_count} 個"
+            )
+            ok = await line_bot.push_message(line_user_id, msg[:4000])
+            if ok:
+                logger.info("Autobiography LINE pushed: week=%s", signals.week_id)
+            return ok
+        except Exception as e:
+            logger.error(
+                "Autobiography LINE push failed (體感斷鏈): %s",
+                e, exc_info=True,
+            )
+            return False
+
     # ────────── Main ──────────
 
     async def run(self, week_end: Optional[date] = None) -> Dict[str, Any]:
@@ -446,14 +486,17 @@ tags: [memory, autobiography, evolution]
         # v5.17 Gap 5: 4 信念演化 propose（累積 4 週觀察才觸發，archetypal safety）
         belief_proposal_id = await self._propose_belief_evolution_if_signal(signals)
 
-        pushed = await self.push_to_telegram(signals, narrative)
+        # v6.3：雙通道推送（LINE 為主，Telegram 為備援）— ADR-0027
+        tg_pushed = await self.push_to_telegram(signals, narrative)
+        line_pushed = await self.push_to_line(signals, narrative)
 
         return {
             "week_id": signals.week_id,
             "path": str(path),
             "soul_updated": soul_updated,
             "belief_proposal_id": belief_proposal_id,
-            "telegram_pushed": pushed,
+            "telegram_pushed": tg_pushed,
+            "line_pushed": line_pushed,
             "total_queries": signals.total_queries,
             "narrative_chars": len(narrative),
         }

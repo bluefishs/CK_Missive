@@ -279,3 +279,112 @@ async def test_update_soul_growth_idempotent_same_week(temp_phase4):
     soul_content = temp_phase4["soul"].read_text(encoding="utf-8")
     # 同 week_id 不該有兩筆
     assert soul_content.count("2026-W17") == 1
+
+
+# ────────── v6.3 體感型輸出：autobiography → LINE 推送 ──────────
+
+
+@pytest.mark.asyncio
+async def test_push_to_line_skip_when_no_admin_id(temp_phase4, monkeypatch):
+    """LINE_ADMIN_USER_ID 未設 → silent skip 回 False。"""
+    from app.services.memory.autobiography import AutobiographyGenerator, WeekSignals
+
+    monkeypatch.delenv("LINE_ADMIN_USER_ID", raising=False)
+    db = _mock_db_with_traces([])
+    gen = AutobiographyGenerator(db)
+    s = WeekSignals(
+        week_id="2026-W17", week_start=date(2026, 4, 13),
+        week_end=date(2026, 4, 19), total_queries=50, success_count=40,
+        crystals_count=2,
+    )
+    ok = await gen.push_to_line(s, "本週成長記錄...")
+    assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_push_to_line_skip_when_disabled(temp_phase4, monkeypatch):
+    """LINE_GROWTH_NOTIFY_ENABLED=false → 顯式關閉。"""
+    from app.services.memory.autobiography import AutobiographyGenerator, WeekSignals
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-test")
+    monkeypatch.setenv("LINE_GROWTH_NOTIFY_ENABLED", "false")
+    db = _mock_db_with_traces([])
+    gen = AutobiographyGenerator(db)
+    s = WeekSignals(
+        week_id="2026-W17", week_start=date(2026, 4, 13),
+        week_end=date(2026, 4, 19), total_queries=50,
+    )
+    ok = await gen.push_to_line(s, "narrative")
+    assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_push_to_line_calls_line_bot(temp_phase4, monkeypatch):
+    """有 user_id 且未顯式關閉 → 呼叫 LINE push_message，含週成長關鍵詞。"""
+    from app.services.memory.autobiography import AutobiographyGenerator, WeekSignals
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-week-test")
+    monkeypatch.delenv("LINE_GROWTH_NOTIFY_ENABLED", raising=False)
+
+    push_calls = []
+
+    class FakeLineBot:
+        @property
+        def enabled(self):
+            return True
+        async def push_message(self, user_id, text):
+            push_calls.append({"user_id": user_id, "text": text})
+            return True
+
+    import sys
+    fake_module = type(sys)("app.services.integration.line_bot")
+    fake_module.LineBotService = FakeLineBot
+    monkeypatch.setitem(sys.modules, "app.services.integration.line_bot", fake_module)
+
+    db = _mock_db_with_traces([])
+    gen = AutobiographyGenerator(db)
+    s = WeekSignals(
+        week_id="2026-W18", week_start=date(2026, 4, 27),
+        week_end=date(2026, 5, 3),
+        total_queries=87, success_count=80, crystals_count=3,
+    )
+    narrative = "阿榮，本週累積新洞察：連續 3 天派工順暢。"
+    ok = await gen.push_to_line(s, narrative)
+    assert ok is True
+    assert len(push_calls) == 1
+    assert push_calls[0]["user_id"] == "U-week-test"
+    msg = push_calls[0]["text"]
+    assert "週成長" in msg
+    assert "2026-W18" in msg
+    assert "87 筆查詢" in msg
+    assert "結晶 3 個" in msg
+    assert narrative in msg
+
+
+@pytest.mark.asyncio
+async def test_push_to_line_failure_returns_false(temp_phase4, monkeypatch):
+    """LINE API 拋例外 → 回 False（不上拋；caller 主流程不破）。"""
+    from app.services.memory.autobiography import AutobiographyGenerator, WeekSignals
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-broken")
+
+    class BrokenLineBot:
+        @property
+        def enabled(self):
+            return True
+        async def push_message(self, user_id, text):
+            raise RuntimeError("LINE API outage")
+
+    import sys
+    fake_module = type(sys)("app.services.integration.line_bot")
+    fake_module.LineBotService = BrokenLineBot
+    monkeypatch.setitem(sys.modules, "app.services.integration.line_bot", fake_module)
+
+    db = _mock_db_with_traces([])
+    gen = AutobiographyGenerator(db)
+    s = WeekSignals(
+        week_id="2026-W18", week_start=date(2026, 4, 27),
+        week_end=date(2026, 5, 3), total_queries=10,
+    )
+    ok = await gen.push_to_line(s, "narrative")
+    assert ok is False  # 不破 caller

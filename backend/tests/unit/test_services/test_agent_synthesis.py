@@ -394,3 +394,92 @@ class TestBuildSynthesisContext:
         ctx = synthesizer.build_synthesis_context(tool_results)
         assert "[公文1]" in ctx
         assert "機關A" in ctx
+
+
+# ============================================================================
+# v6.3 體感型輸出：cross_session_hints synthesis prompt 注入
+# ============================================================================
+
+class TestCrossSessionHintsInject:
+    """驗證 cross-session 連續性原則進入 synthesis system_prompt（解體感斷鏈第 1 項）。"""
+
+    @pytest.fixture
+    def synthesizer(self):
+        config = MagicMock()
+        config.rag_max_context_chars = 5000
+        config.rag_max_history_turns = 5
+        config.rag_temperature = 0.3
+        config.rag_max_tokens = 1024
+        config.cloud_timeout = 30
+        return AgentSynthesizer(ai_connector=MagicMock(), config=config)
+
+    @pytest.mark.asyncio
+    async def test_synthesize_accepts_cross_session_hints_kwarg(self, synthesizer):
+        """synthesize_answer 接受 cross_session_hints kwarg；prompt 含連續性原則 + hint 內容。"""
+        hints = [
+            {"ts": 1714000000, "session_id": "web-aaa", "q": "老蕭最近的派工狀況", "a": "..."},
+            {"ts": 1713000000, "session_id": "line-bbb", "q": "派工糾紛處理流程", "a": "..."},
+        ]
+
+        captured = {}
+        async def fake_chat(messages, **kw):
+            captured["messages"] = messages
+            return "ok"
+        synthesizer.ai.chat_completion = fake_chat  # type: ignore[assignment]
+
+        async def noop_quality(q, ans, tools):
+            return ans
+        synthesizer._quality_review = noop_quality  # type: ignore[assignment]
+
+        async def empty_inject(*args, **kw):
+            return ""
+        synthesizer._inject_kg_context = empty_inject  # type: ignore[assignment]
+        synthesizer._inject_wiki_context = empty_inject  # type: ignore[assignment]
+
+        gen = synthesizer.synthesize_answer(
+            question="老蕭今天怎樣",
+            tool_results=[],
+            history=[],
+            context="web",
+            cross_session_hints=hints,
+        )
+        async for _ in gen:
+            pass
+
+        sys_prompt = captured["messages"][0]["content"]
+        assert "連續性原則" in sys_prompt
+        assert "v6.3 體感型輸出" in sys_prompt
+        assert "老蕭最近的派工狀況" in sys_prompt
+        assert "派工糾紛處理流程" in sys_prompt
+        assert "回應的第一句必須明確 acknowledge" in sys_prompt
+
+    @pytest.mark.asyncio
+    async def test_synthesize_no_hints_no_continuity_block(self, synthesizer):
+        """無 cross_session_hints → system_prompt 不該有「連續性原則」區塊。"""
+        captured = {}
+        async def fake_chat(messages, **kw):
+            captured["messages"] = messages
+            return "ok"
+        synthesizer.ai.chat_completion = fake_chat  # type: ignore[assignment]
+
+        async def noop_quality(q, ans, tools):
+            return ans
+        synthesizer._quality_review = noop_quality  # type: ignore[assignment]
+
+        async def empty_inject(*args, **kw):
+            return ""
+        synthesizer._inject_kg_context = empty_inject  # type: ignore[assignment]
+        synthesizer._inject_wiki_context = empty_inject  # type: ignore[assignment]
+
+        gen = synthesizer.synthesize_answer(
+            question="今天派工幾筆",
+            tool_results=[],
+            history=[],
+            context="web",
+            cross_session_hints=None,
+        )
+        async for _ in gen:
+            pass
+
+        sys_prompt = captured["messages"][0]["content"]
+        assert "連續性原則" not in sys_prompt

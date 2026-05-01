@@ -343,3 +343,157 @@ async def test_apply_missing_proposal(temp_phase3):
     r = await CrystalApplier().apply_proposal("nonexistent-id")
     assert r.ok is False
     assert "不存在" in r.error
+
+
+# ────────── v6.3 體感型輸出：crystal apply → LINE 推送（ADR-0027）──────────
+
+
+@pytest.mark.asyncio
+async def test_growth_notify_skip_when_no_admin_id(temp_phase3, monkeypatch):
+    """無 LINE_ADMIN_USER_ID env → silent skip，不影響 apply 結果。"""
+    from app.services.memory.crystal_applier import CrystalApplier
+
+    monkeypatch.delenv("LINE_ADMIN_USER_ID", raising=False)
+    proposal_id = "crystal-no-line-id"
+    (temp_phase3["proposals"] / f"{proposal_id}.md").write_text(
+        """---
+type: memory_proposal
+proposal_kind: synonym
+target_file: synonyms.yaml
+source_pattern: noid-pat
+status: pending
+---
+
+```yaml
+category: agency_synonyms
+group: ["臺中市政府", "中市府"]
+```
+""", encoding="utf-8",
+    )
+    r = await CrystalApplier().apply_proposal(proposal_id)
+    assert r.ok is True  # apply 成功，notify silent skip
+
+
+@pytest.mark.asyncio
+async def test_growth_notify_skip_when_disabled(temp_phase3, monkeypatch):
+    """LINE_GROWTH_NOTIFY_ENABLED=false → 顯式關閉，apply 仍成功。"""
+    from app.services.memory.crystal_applier import CrystalApplier
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-test-uid")
+    monkeypatch.setenv("LINE_GROWTH_NOTIFY_ENABLED", "false")
+    proposal_id = "crystal-disabled-test"
+    (temp_phase3["proposals"] / f"{proposal_id}.md").write_text(
+        """---
+type: memory_proposal
+proposal_kind: synonym
+target_file: synonyms.yaml
+source_pattern: dis-pat
+status: pending
+---
+
+```yaml
+category: agency_synonyms
+group: ["臺南市政府", "南市府"]
+```
+""", encoding="utf-8",
+    )
+    r = await CrystalApplier().apply_proposal(proposal_id)
+    assert r.ok is True
+
+
+@pytest.mark.asyncio
+async def test_growth_notify_calls_line_push(temp_phase3, monkeypatch):
+    """有 LINE_ADMIN_USER_ID 且未顯式關閉 → 呼叫 line_bot.push_message。
+
+    防 silent fail：apply 主流程不可被 notify 失敗影響（ADR-0028 一致性）。
+    """
+    from app.services.memory import crystal_applier as ca_mod
+    from app.services.memory.crystal_applier import CrystalApplier
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-growth-test")
+    monkeypatch.delenv("LINE_GROWTH_NOTIFY_ENABLED", raising=False)
+
+    push_calls = []
+
+    class FakeLineBot:
+        @property
+        def enabled(self):
+            return True
+        async def push_message(self, user_id, text):
+            push_calls.append({"user_id": user_id, "text": text})
+            return True
+
+    # patch LineBotService 避免真實 LINE API
+    import sys
+    fake_module = type(sys)("app.services.integration.line_bot")
+    fake_module.LineBotService = FakeLineBot
+    monkeypatch.setitem(sys.modules, "app.services.integration.line_bot", fake_module)
+
+    proposal_id = "crystal-notify-test"
+    (temp_phase3["proposals"] / f"{proposal_id}.md").write_text(
+        """---
+type: memory_proposal
+proposal_kind: synonym
+target_file: synonyms.yaml
+source_pattern: notify-pat-x
+status: pending
+---
+
+```yaml
+category: agency_synonyms
+group: ["基隆市政府", "基市府"]
+```
+""", encoding="utf-8",
+    )
+
+    r = await CrystalApplier().apply_proposal(proposal_id)
+    assert r.ok is True
+    assert len(push_calls) == 1
+    assert push_calls[0]["user_id"] == "U-growth-test"
+    # 訊息含關鍵體感詞
+    msg = push_calls[0]["text"]
+    assert "我學到了" in msg
+    assert r.crystal_id in msg
+    assert "synonyms.yaml" in msg
+    assert "notify-pat-x" in msg
+
+
+@pytest.mark.asyncio
+async def test_growth_notify_failure_does_not_break_apply(temp_phase3, monkeypatch):
+    """notify 拋例外時，apply 主流程仍回 ok=True（best-effort，ADR-0028）。"""
+    from app.services.memory.crystal_applier import CrystalApplier
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-fail-test")
+
+    class BrokenLineBot:
+        @property
+        def enabled(self):
+            return True
+        async def push_message(self, user_id, text):
+            raise RuntimeError("simulated LINE API outage")
+
+    import sys
+    fake_module = type(sys)("app.services.integration.line_bot")
+    fake_module.LineBotService = BrokenLineBot
+    monkeypatch.setitem(sys.modules, "app.services.integration.line_bot", fake_module)
+
+    proposal_id = "crystal-fail-test"
+    (temp_phase3["proposals"] / f"{proposal_id}.md").write_text(
+        """---
+type: memory_proposal
+proposal_kind: synonym
+target_file: synonyms.yaml
+source_pattern: fail-pat
+status: pending
+---
+
+```yaml
+category: agency_synonyms
+group: ["新竹市政府", "竹市府"]
+```
+""", encoding="utf-8",
+    )
+
+    r = await CrystalApplier().apply_proposal(proposal_id)
+    assert r.ok is True  # 主流程不破
+    assert r.crystal_id is not None
