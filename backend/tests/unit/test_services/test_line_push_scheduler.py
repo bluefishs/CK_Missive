@@ -200,3 +200,76 @@ class TestFormatAlerts:
         ]
         message = scheduler._format_alerts(many_alerts)
         assert "另有 10 項警報" in message
+
+
+# ────────── v6.3 體感型輸出：_get_push_targets env fallback ──────────
+
+
+class TestPushTargetsEnvFallback:
+    """驗證 DB 0 user 時 LINE_ADMIN_USER_ID env fallback（解「被動等問」斷鏈）。"""
+
+    def _create(self, db_users=None):
+        from app.services.integration.line_push_scheduler import LinePushScheduler
+        mock_db = AsyncMock()
+        sched = LinePushScheduler.__new__(LinePushScheduler)  # 跳過 __init__
+        sched.db = mock_db
+        sched._trigger_service = MagicMock()
+        sched._line_service = MagicMock()
+        return sched
+
+    @pytest.mark.asyncio
+    async def test_db_has_users_returns_db_users(self, monkeypatch):
+        """DB 有 line_user_id → 用 DB；env 不該介入。"""
+        sched = self._create()
+
+        with patch("app.repositories.user_repository.UserRepository") as mock_repo_cls:
+            mock_repo = AsyncMock()
+            mock_repo.get_line_user_ids = AsyncMock(return_value=["U-db1", "U-db2"])
+            mock_repo_cls.return_value = mock_repo
+            monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-env-fallback")
+            targets = await sched._get_push_targets()
+            assert targets == ["U-db1", "U-db2"]
+            assert "U-env-fallback" not in targets
+
+    @pytest.mark.asyncio
+    async def test_db_empty_falls_back_to_env(self, monkeypatch):
+        """DB 0 user → 用 LINE_ADMIN_USER_ID env。"""
+        sched = self._create()
+        with patch("app.repositories.user_repository.UserRepository") as mock_repo_cls:
+            mock_repo = AsyncMock()
+            mock_repo.get_line_user_ids = AsyncMock(return_value=[])
+            mock_repo_cls.return_value = mock_repo
+            monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-owner-env")
+            targets = await sched._get_push_targets()
+            assert targets == ["U-owner-env"]
+
+    @pytest.mark.asyncio
+    async def test_db_empty_no_env_returns_empty(self, monkeypatch):
+        """DB 0 user 且無 env → 回 []（不假裝有 target）。"""
+        sched = self._create()
+        with patch("app.repositories.user_repository.UserRepository") as mock_repo_cls:
+            mock_repo = AsyncMock()
+            mock_repo.get_line_user_ids = AsyncMock(return_value=[])
+            mock_repo_cls.return_value = mock_repo
+            monkeypatch.delenv("LINE_ADMIN_USER_ID", raising=False)
+            targets = await sched._get_push_targets()
+            assert targets == []
+
+    @pytest.mark.asyncio
+    async def test_proactive_disabled_returns_empty(self, monkeypatch):
+        """LINE_PROACTIVE_NOTIFY_ENABLED=false → 顯式關閉，不查 DB 也不用 env。"""
+        sched = self._create()
+        monkeypatch.setenv("LINE_PROACTIVE_NOTIFY_ENABLED", "false")
+        monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-should-not-use")
+        targets = await sched._get_push_targets()
+        assert targets == []
+
+    @pytest.mark.asyncio
+    async def test_db_exception_falls_back_to_env(self, monkeypatch):
+        """UserRepository 拋例外 → 仍能用 env fallback（容錯）。"""
+        sched = self._create()
+        with patch("app.repositories.user_repository.UserRepository") as mock_repo_cls:
+            mock_repo_cls.side_effect = RuntimeError("DB outage")
+            monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-env-recovery")
+            targets = await sched._get_push_targets()
+            assert targets == ["U-env-recovery"]

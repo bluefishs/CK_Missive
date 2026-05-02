@@ -177,16 +177,32 @@ class LinePushScheduler:
         """
         從 DB 查詢啟用 LINE 通知的使用者。
 
-        查詢 User 表的 line_user_id 欄位（若已建立）。
-        若欄位不存在，回傳空列表。
+        v6.3 體感修法（解「被動等問」斷鏈）：
+        - 原邏輯：DB User 無 line_user_id → 回空 → push 0 人 → owner 永遠收不到
+        - 新邏輯：DB 空時用 LINE_ADMIN_USER_ID env fallback（owner 至少收得到）
+        - ENV gate：LINE_PROACTIVE_NOTIFY_ENABLED=false 顯式關閉
+
+        查詢 User 表的 line_user_id 欄位（若已建立）；空時用 env fallback。
         """
+        import os
+        if os.getenv("LINE_PROACTIVE_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
+            return []
+
+        targets: List[str] = []
         try:
             from app.repositories.user_repository import UserRepository
             user_repo = UserRepository(self.db)
-            return await user_repo.get_line_user_ids()
+            targets = await user_repo.get_line_user_ids() or []
         except Exception as e:
-            logger.debug("Failed to get push targets: %s", e)
-            return []
+            logger.debug("Failed to get push targets from DB: %s", e)
+
+        if not targets:
+            admin_uid = os.getenv("LINE_ADMIN_USER_ID")
+            if admin_uid:
+                targets = [admin_uid]
+                logger.debug("Push targets fallback to LINE_ADMIN_USER_ID")
+
+        return targets
 
     def _format_alerts(self, alerts: List[TriggerAlert]) -> str:
         """將警報格式化為 LINE 訊息文字"""
