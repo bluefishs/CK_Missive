@@ -31,6 +31,31 @@ TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
 CRITIQUES_DIR = Path(__file__).resolve().parents[5] / "wiki" / "memory" / "critiques"
 
+# v6.4 I3：critique entity tag — reuse self_evaluator 的 NER pattern
+# （承辦人 / 老X / 案件編號 / 派工單號），讓「哪些 entity 最常觸發
+# hallucination」變 join-able
+_CRITIQUE_ENTITY_PATTERNS = [
+    r'(?:承辦人|聯絡人|窗口|案件承辦)\s*[:：]?\s*([一-鿿]{1,4})',
+    r'((?:老|小)[一-鿿])',
+    r'(\d{2,3}[-_]\w{2,5})',
+    r'(\d{2,3}年_派工單號\d+)',
+]
+
+
+def _extract_critique_entities(text: str) -> List[str]:
+    """從 question / answer 抽具名 entity（去重，最多 5 個）。"""
+    import re
+    extracted: List[str] = []
+    for pattern in _CRITIQUE_ENTITY_PATTERNS:
+        for m in re.finditer(pattern, text):
+            ent = m.group(1) if m.groups() else m.group(0)
+            ent = ent.strip()
+            if ent and ent not in extracted:
+                extracted.append(ent)
+                if len(extracted) >= 5:
+                    return extracted
+    return extracted
+
 
 class AgentCritic:
     """Critic agent — 審 query / answer 品質（v6.0 POC）。
@@ -128,28 +153,38 @@ class AgentCritic:
         tools_used: List[str],
         critique: Dict[str, Any],
     ) -> None:
-        """寫 critique 到 wiki/memory/critiques/（fire-and-forget）。"""
+        """寫 critique 到 wiki/memory/critiques/（fire-and-forget）。
+
+        v6.4 I3：frontmatter 加 entities 欄位（從 question + answer 抽具名 entity），
+        讓「哪些 entity 最常觸發 hallucination」可由 grep `entities:.*老蕭` 統計。
+        """
         try:
             now = datetime.now(TZ_TAIPEI)
             filename = f"critique-{now:%Y%m%d-%H%M%S}-{abs(hash(question)) % 10000:04d}.md"
             path = CRITIQUES_DIR / filename
+
+            # v6.4 I3：抽 entity（question + answer 合併抽）
+            entities = _extract_critique_entities(f"{question} {answer}")
+
             content = (
                 f"---\n"
                 f"type: agent_critique\n"
                 f"verdict: {critique['verdict']}\n"
                 f"created_at: {now.isoformat()}\n"
                 f"tools_used: {json.dumps(tools_used, ensure_ascii=False)}\n"
+                f"entities: {json.dumps(entities, ensure_ascii=False)}\n"
                 f"should_retry: {critique['should_retry']}\n"
                 f"---\n\n"
                 f"# Critique\n\n"
                 f"**Question**: {question[:200]}\n\n"
                 f"**Answer preview**: {answer[:300]}\n\n"
+                f"**Entities**: {', '.join(entities) if entities else '(none)'}\n\n"
                 f"**Critiques**:\n"
             )
             for c in critique["critiques"]:
                 content += f"- {c}\n"
             path.write_text(content, encoding="utf-8")
-            logger.debug("Critique persisted: %s", filename)
+            logger.debug("Critique persisted: %s entities=%d", filename, len(entities))
         except Exception as e:
             # v6.2 Phase B3 (ADR-0028 合規)：silent fail debug → error + exc_info
             # 寫 critique 失敗 = multi-agent 學習迴圈斷鏈（同 L21 教訓）

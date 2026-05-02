@@ -1501,6 +1501,60 @@ async def memory_pattern_extract_job():
         logger.error("Memory Pattern Extraction 失敗: %s", e, exc_info=True)
 
 
+@tracked_job("soul_mirror_sync")
+async def soul_mirror_sync_job():
+    """SOUL.md 跨 repo 自動同步（v6.4 C1）— 每日 04:45。
+
+    為何自動：
+    - soul_mirror_drift_check.py 已偵測 drift，但同步腳本 sync_soul_to_hermes.sh
+      原為 manual gate（owner 手動跑 --apply）→ 跨通道人格漂移持續存在
+    - Web 用戶看 Missive SOUL，Telegram/LINE 用戶看 Hermes SOUL，內容不同步
+    - 跨 repo 寫檔風險評估後接受：cp 是 reversible（AaaP 端 git 可回溯）
+
+    安全閘：
+    - 只覆蓋 ../CK_AaaP/runbooks/hermes-stack/SOUL.md（單一 target）
+    - 不自動 git commit/push（owner 端決定 commit 時機）
+    - 內容相同時 no-op（exit 0 silent）
+    - target 不存在時 silent skip（dev 環境 AaaP 可能未 clone）
+
+    關聯：
+    - SYSTEM_INTEGRATION_REVIEW_v2.md 軸線 C
+    - scripts/sync/sync_soul_to_hermes.sh
+    """
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[3]
+    script_path = project_root / "scripts" / "sync" / "sync_soul_to_hermes.sh"
+    target_path = project_root.parent / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
+
+    if not script_path.exists():
+        logger.warning("SOUL sync script missing, skip: %s", script_path)
+        return
+    if not target_path.exists():
+        logger.debug("AaaP target SOUL.md missing, skip (dev env?): %s", target_path)
+        return
+
+    logger.info("開始執行 SOUL Mirror Sync")
+    rc, stdout, stderr = await _run_script_async(
+        ["bash", str(script_path), "--apply"],
+        cwd=str(project_root),
+        timeout=30,
+        job_name="soul_mirror_sync",
+    )
+    if rc == 0:
+        # 解析 stdout 取 delta 資訊（best-effort）
+        identical = "identical" in (stdout or "")
+        logger.info(
+            "SOUL Mirror Sync 完成: identical=%s rc=%d",
+            identical, rc,
+        )
+    else:
+        logger.error(
+            "SOUL Mirror Sync 失敗 rc=%d stderr=%s",
+            rc, (stderr or "")[:200],
+        )
+
+
 async def _sum_monthly_count(tracker, provider: str) -> int:
     """Helper: 取 provider 當月累計 request count（掃 Redis monthly key）。"""
     try:
@@ -1846,6 +1900,19 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 Anti-Echo Chamber Scan: 週一 06:00 執行")
+
+    # 2026-05-02 v6.4 C1: SOUL.md 跨 repo 自動同步（每日 04:45）
+    # 解 SEVERE drift（Missive SOUL ↔ AaaP/Hermes SOUL 不同步問題）
+    scheduler.add_job(
+        soul_mirror_sync_job,
+        trigger=CronTrigger(hour=4, minute=45),
+        id='soul_mirror_sync',
+        name='SOUL.md 跨 repo 自動同步 (每日 04:45)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 SOUL Mirror Sync: 每日 04:45 執行")
 
     # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
     scheduler.add_job(

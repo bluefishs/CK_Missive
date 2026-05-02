@@ -368,10 +368,14 @@ async def agent_query_sync(
 
     async def _collect_response():
         nonlocal latency_ms
+        # v6.4 A1：傳 channel 進 stream_query → orchestrator → post_processing 寫 diary
+        # 過去 sync endpoint 漏傳 channel，造成 LINE/Hermes/Telegram 通道對話的
+        # diary 全標 channel=None，pattern_extractor 無法 by-channel 統計
         async for event_str in agent.stream_query(
             question=question,
             history=history,
             session_id=session_id,
+            channel=channel,
         ):
             if not event_str.startswith("data: "):
                 continue

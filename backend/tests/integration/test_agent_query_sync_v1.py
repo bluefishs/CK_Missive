@@ -69,12 +69,19 @@ def auth_headers():
     return {"X-Service-Token": "test-secret-token"}
 
 
-def _mock_stream_query(answer="測試回答", sources=None, tools=None):
-    """建立 mock stream_query，回傳預設的 SSE 事件。"""
+def _mock_stream_query(answer="測試回答", sources=None, tools=None, capture=None):
+    """建立 mock stream_query，回傳預設的 SSE 事件。
+
+    v6.4 A1：接受 channel kwarg（sync endpoint 修復後會傳）。
+    若提供 capture dict，會記錄 kwargs 供斷言。
+    """
     sources = sources or [{"type": "doc", "id": "D-001", "relevance": 0.9}]
     tools = tools or ["doc_search"]
 
-    async def stream_query(question, history=None, session_id=None):
+    async def stream_query(question, history=None, session_id=None, channel=None, **_kw):
+        if capture is not None:
+            capture["channel"] = channel
+            capture["session_id"] = session_id
         events = [
             f'data: {json.dumps({"type": "token", "token": answer})}',
             f'data: {json.dumps({"type": "sources", "sources": sources})}',
@@ -91,7 +98,7 @@ def _mock_stream_query(answer="測試回答", sources=None, tools=None):
 
 def _mock_stream_query_error(error_msg="Agent 內部錯誤"):
     """建立回傳錯誤的 mock stream_query。"""
-    async def stream_query(question, history=None, session_id=None):
+    async def stream_query(question, history=None, session_id=None, channel=None, **_kw):
         yield f'data: {json.dumps({"type": "error", "error": error_msg})}'
 
     return stream_query
