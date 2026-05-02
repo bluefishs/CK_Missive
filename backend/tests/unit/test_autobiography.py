@@ -208,7 +208,7 @@ async def test_fallback_narrative_always_valid_length(temp_phase4):
     narrative = AutobiographyGenerator._fallback_narrative(s)
     assert 100 <= len(narrative) <= 600
     assert "50" in narrative  # 具體數字
-    assert "阿榮" in narrative
+    assert "Aaron" in narrative  # source 用 "Aaron"，與 SOUL.md 對齊
 
 
 @pytest.mark.asyncio

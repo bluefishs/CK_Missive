@@ -174,7 +174,7 @@ class TestV0Format:
     async def test_v0_success(self, service_client, auth_headers):
         """v0 格式正常查詢 → 扁平 AgentSyncResponse"""
         with patch(
-            "app.services.ai.misc.nemoclaw_agent.NemoClawAgent"
+            "app.services.ai.misc.missive_agent.MissiveAgent"
         ) as MockAgent:
             instance = MockAgent.return_value
             instance.stream_query = _mock_stream_query(answer="v0回答")
@@ -198,7 +198,7 @@ class TestV0Format:
     async def test_v0_agent_error(self, service_client, auth_headers):
         """v0 格式 agent 錯誤 → success=False + error 字串"""
         with patch(
-            "app.services.ai.misc.nemoclaw_agent.NemoClawAgent"
+            "app.services.ai.misc.missive_agent.MissiveAgent"
         ) as MockAgent:
             instance = MockAgent.return_value
             instance.stream_query = _mock_stream_query_error("工具執行失敗")
@@ -216,12 +216,12 @@ class TestV0Format:
 
     async def test_v0_timeout(self, service_client, auth_headers):
         """v0 格式逾時 → success=False + 逾時錯誤"""
-        async def slow_stream(question, history=None, session_id=None):
+        async def slow_stream(question, history=None, session_id=None, channel=None, **_kw):
             await asyncio.sleep(999)
             yield 'data: {"type": "done"}'
 
         with patch(
-            "app.services.ai.misc.nemoclaw_agent.NemoClawAgent"
+            "app.services.ai.misc.missive_agent.MissiveAgent"
         ) as MockAgent, patch(
             "app.api.endpoints.ai.agent_query_sync.get_ai_config"
         ) as mock_config:
@@ -259,7 +259,7 @@ class TestV1Format:
     async def test_v1_success(self, service_client, auth_headers):
         """v1 格式正常查詢 → Schema v1.0 信封回應"""
         with patch(
-            "app.services.ai.misc.nemoclaw_agent.NemoClawAgent"
+            "app.services.ai.misc.missive_agent.MissiveAgent"
         ) as MockAgent:
             instance = MockAgent.return_value
             instance.stream_query = _mock_stream_query(answer="v1回答")
@@ -289,7 +289,7 @@ class TestV1Format:
     async def test_v1_reason_action(self, service_client, auth_headers):
         """v1 action=reason 也能正常處理"""
         with patch(
-            "app.services.ai.misc.nemoclaw_agent.NemoClawAgent"
+            "app.services.ai.misc.missive_agent.MissiveAgent"
         ) as MockAgent:
             instance = MockAgent.return_value
             instance.stream_query = _mock_stream_query(answer="reason回答")
@@ -326,7 +326,7 @@ class TestV1Format:
     async def test_v1_agent_error(self, service_client, auth_headers):
         """v1 格式 agent 錯誤 → 信封錯誤回應"""
         with patch(
-            "app.services.ai.misc.nemoclaw_agent.NemoClawAgent"
+            "app.services.ai.misc.missive_agent.MissiveAgent"
         ) as MockAgent:
             instance = MockAgent.return_value
             instance.stream_query = _mock_stream_query_error("推理引擎異常")
@@ -346,12 +346,12 @@ class TestV1Format:
 
     async def test_v1_timeout(self, service_client, auth_headers):
         """v1 格式逾時 → 504 + TIMEOUT"""
-        async def slow_stream(question, history=None, session_id=None):
+        async def slow_stream(question, history=None, session_id=None, channel=None, **_kw):
             await asyncio.sleep(999)
             yield 'data: {"type": "done"}'
 
         with patch(
-            "app.services.ai.misc.nemoclaw_agent.NemoClawAgent"
+            "app.services.ai.misc.missive_agent.MissiveAgent"
         ) as MockAgent, patch(
             "app.api.endpoints.ai.agent_query_sync.get_ai_config"
         ) as mock_config:
@@ -373,7 +373,7 @@ class TestV1Format:
     async def test_v1_with_session_id(self, service_client, auth_headers):
         """v1 含 session_id → 正確傳遞"""
         with patch(
-            "app.services.ai.misc.nemoclaw_agent.NemoClawAgent"
+            "app.services.ai.misc.missive_agent.MissiveAgent"
         ) as MockAgent:
             instance = MockAgent.return_value
             instance.stream_query = _mock_stream_query()
