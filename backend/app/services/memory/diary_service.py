@@ -105,7 +105,12 @@ tags: [memory, diary]
         channel: Optional[str] = None,
         route_type: Optional[str] = None,
     ) -> None:
-        """追加一筆日記 entry（fire-and-forget，失敗只 log 不 raise）。"""
+        """追加一筆日記 entry（fire-and-forget，失敗只 log 不 raise）。
+
+        v6.5 I2：每筆 entry 加 entities 行（NER 抽 question + answer），
+        補 KG ↔ Memory Wiki ❺ 弱連結。reuse critic 的 NER pattern（人名暱稱
+        /案件編號/派工單號）。grep `entities.*老蕭` 即可統計提及次數。
+        """
         try:
             path = await self.ensure_today_header()
             now = datetime.now(TZ_TAIPEI)
@@ -125,6 +130,14 @@ tags: [memory, diary]
                     f"[[{w}]]" for w in wiki_links
                 )
 
+            # v6.5 I2：NER entity 抽取（補 ❺ KG ↔ Memory 連結）
+            ner_entities = self._extract_ner_entities(f"{question} {answer}")
+            entities_line = ""
+            if ner_entities:
+                entities_line = "\n**entities**: " + ", ".join(
+                    f"`{e}`" for e in ner_entities
+                )
+
             entry = f"""
 ## {now.strftime('%H:%M:%S')} — {status_emoji} [{route_type or 'query'}] {channel or '-'}
 
@@ -132,7 +145,7 @@ tags: [memory, diary]
 
 **A**: {a_masked}
 
-**tools**: `{tools_str}` | **latency**: {latency_ms or '?'}ms | **session**: `{(session_id or '-')[:20]}`{wiki_line}
+**tools**: `{tools_str}` | **latency**: {latency_ms or '?'}ms | **session**: `{(session_id or '-')[:20]}`{wiki_line}{entities_line}
 
 """
             async with self._write_lock:
@@ -172,6 +185,31 @@ tags: [memory, diary]
         text = re.sub(r"09\d{2}[- ]?\d{3}[- ]?\d{3}", "[PHONE]", text)
         text = re.sub(r"[\w.+-]+@[\w-]+\.[\w.-]+", "[EMAIL]", text)
         return text
+
+    # v6.5 I2：NER entity 抽取（reuse self_evaluator / critic pattern）
+    # 為避免 circular import 採 inline copy；pattern 同步以 LESSONS_REGISTRY 追蹤
+    _NER_PATTERNS = [
+        r'(?:承辦人|聯絡人|窗口|案件承辦)\s*[:：]?\s*([一-鿿]{1,4})',
+        r'((?:老|小)[一-鿿])',
+        r'(\d{2,3}[-_]\w{2,5})',
+        r'(\d{2,3}年_派工單號\d+)',
+    ]
+
+    @classmethod
+    def _extract_ner_entities(cls, text: str, cap: int = 5) -> List[str]:
+        """從文字抽具名 entity（去重，最多 cap 個）。"""
+        if not text:
+            return []
+        extracted: List[str] = []
+        for pattern in cls._NER_PATTERNS:
+            for m in re.finditer(pattern, text):
+                ent = m.group(1) if m.groups() else m.group(0)
+                ent = ent.strip()
+                if ent and ent not in extracted:
+                    extracted.append(ent)
+                    if len(extracted) >= cap:
+                        return extracted
+        return extracted
 
     # ────────── Read ──────────
 

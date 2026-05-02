@@ -184,3 +184,61 @@ async def test_stats(temp_diary):
     assert stats["diary_days"] == 1
     assert stats["today_exists"] is True
     assert stats["total_entries_approx"] >= 2
+
+
+# ────────── v6.5 I2: NER entity auto-link ──────────
+
+
+def test_extract_ner_entities_persons_and_codes():
+    """抽人名暱稱 / 案件編號 / 派工單號。"""
+    from app.services.memory.diary_service import DiaryService
+    text = "承辦人老蕭跟小陳討論 113-A001 案件，已寫進 115年_派工單號021"
+    ents = DiaryService._extract_ner_entities(text)
+    assert "老蕭" in ents
+    assert "小陳" in ents
+    assert any("113" in e for e in ents)
+    assert any("派工單號021" in e for e in ents)
+
+
+def test_extract_ner_entities_dedup_and_cap():
+    """重複去重 + 上限 cap。"""
+    from app.services.memory.diary_service import DiaryService
+    text = "老蕭老蕭老蕭 案件 111-001 112-002 113-003 114-004 115-005 116-006"
+    ents = DiaryService._extract_ner_entities(text, cap=5)
+    assert ents.count("老蕭") == 1
+    assert len(ents) <= 5
+
+
+def test_extract_ner_entities_empty_text():
+    """空字串 → 空 list。"""
+    from app.services.memory.diary_service import DiaryService
+    assert DiaryService._extract_ner_entities("") == []
+    assert DiaryService._extract_ner_entities(None) == []
+
+
+@pytest.mark.asyncio
+async def test_append_entry_writes_entities_line(temp_diary):
+    """diary entry body 含 **entities** 行（grep-able）。"""
+    from app.services.memory.diary_service import get_diary_service, _diary_path, today_date
+    svc = get_diary_service()
+    await svc.append_entry(
+        question="承辦人老蕭負責的 113-A001 案件進度？",
+        answer="本案進行中",
+    )
+    content = _diary_path(today_date()).read_text(encoding="utf-8")
+    assert "**entities**:" in content
+    assert "老蕭" in content
+    assert "113-A001" in content
+
+
+@pytest.mark.asyncio
+async def test_append_entry_no_entities_omits_line(temp_diary):
+    """無 NER 命中 → 不該出現 **entities** 行（避免雜訊）。"""
+    from app.services.memory.diary_service import get_diary_service, _diary_path, today_date
+    svc = get_diary_service()
+    await svc.append_entry(
+        question="今天天氣不錯",
+        answer="是的",
+    )
+    content = _diary_path(today_date()).read_text(encoding="utf-8")
+    assert "**entities**:" not in content

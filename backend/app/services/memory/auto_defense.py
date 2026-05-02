@@ -95,8 +95,71 @@ class AutoDefenseLoader:
 
 
 async def get_defensive_rules_block(max_items: int = 5) -> str:
-    """便捷函式：回傳組合好的「失敗教訓」區塊，供 planner 直接 concat。"""
+    """便捷函式：回傳組合好的「失敗教訓」區塊，供 planner 直接 concat。
+
+    v6.5 C2：補 SOUL 跨 repo 一致性防線 — 偵測 wiki/SOUL.md 與
+    ../CK_AaaP/runbooks/hermes-stack/SOUL.md 不同步時，注入一條 defensive rule
+    警示坤哥當下人格版本可能不一致（C1 cron 兜底）。
+    """
     rules = await AutoDefenseLoader.load_active_defenses(max_items=max_items)
+
+    # v6.5 C2：SOUL drift 防線（reuse soul_mirror_drift_check 邏輯）
+    soul_drift_rule = check_soul_drift_defense()
+    if soul_drift_rule:
+        rules = [soul_drift_rule] + rules  # 排最前（人格議題優先）
+
     if not rules:
         return ""
     return "# 失敗教訓（過去 7 天的反思）\n\n" + "\n\n".join(rules)
+
+
+# v6.5 C2：SOUL 跨 repo 一致性防線
+SOUL_SOURCE_PATH = Path(__file__).resolve().parents[4] / "wiki" / "SOUL.md"
+SOUL_MIRROR_PATH = (
+    Path(__file__).resolve().parents[5] / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
+)
+_SOUL_DRIFT_CACHE: Optional[dict] = None
+_SOUL_DRIFT_CACHE_TTL = 300  # 5 min
+
+
+def check_soul_drift_defense() -> Optional[str]:
+    """偵測 SOUL 跨 repo drift，drift 存在時回一條 defensive rule。
+
+    回傳 None：
+    - 兩端任一檔不存（dev 環境 AaaP 可能未 clone）
+    - 兩端內容相同（C1 cron 跑成功）
+
+    回傳 defensive rule 文字：
+    - 兩端內容不同 → 警告坤哥跨通道人格可能不一致
+    """
+    global _SOUL_DRIFT_CACHE
+    now = datetime.now()
+
+    if _SOUL_DRIFT_CACHE and (now - _SOUL_DRIFT_CACHE["at"]).total_seconds() < _SOUL_DRIFT_CACHE_TTL:
+        return _SOUL_DRIFT_CACHE["rule"]
+
+    rule: Optional[str] = None
+    try:
+        if not SOUL_SOURCE_PATH.exists() or not SOUL_MIRROR_PATH.exists():
+            # dev 環境，不警示
+            rule = None
+        else:
+            src = SOUL_SOURCE_PATH.read_bytes()
+            mir = SOUL_MIRROR_PATH.read_bytes()
+            if src != mir:
+                src_size = len(src)
+                mir_size = len(mir)
+                rule = (
+                    "### 跨通道人格防線（SOUL 跨 repo drift）\n"
+                    f"當前 wiki/SOUL.md ({src_size}B) ≠ "
+                    f"AaaP/hermes-stack/SOUL.md ({mir_size}B)。\n"
+                    "影響：Web 用戶與 LINE/Telegram 用戶看到的坤哥人格版本可能不同步。\n"
+                    "規則：回答涉及人格、信念、自我介紹時保守用「最近版本可能尚未同步到此通道」"
+                    "暗示，避免越權聲稱跨通道一致；待 soul_mirror_sync 04:45 cron 同步後恢復。"
+                )
+    except Exception as e:
+        logger.debug("SOUL drift defense check failed: %s", e)
+        rule = None
+
+    _SOUL_DRIFT_CACHE = {"at": now, "rule": rule}
+    return rule
