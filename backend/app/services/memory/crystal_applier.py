@@ -391,7 +391,62 @@ Snapshot 備份至：`{snapshot_path}`
 
             await self._invalidate_caches()
             logger.info("Crystal rollback OK: %s", crystal_id)
+
+            # v6.6 Phase A3 5b：rollback 也推 LINE（體感「主動性 / self-correction」）
+            try:
+                await self._notify_owner_rollback(
+                    crystal_id=crystal_id,
+                    target_file=target_path.name,
+                )
+            except Exception as e:
+                logger.warning("Rollback notify failed (non-blocking): %s", e)
+
             return ApplyResult(ok=True, crystal_id=crystal_id)
 
         except Exception as e:
             return ApplyResult(ok=False, error=str(e))
+
+    @staticmethod
+    async def _notify_owner_rollback(
+        *, crystal_id: str, target_file: str,
+    ) -> None:
+        """v6.6 Phase A3 5b：crystal rollback 推 LINE owner。
+
+        坤哥第一人稱訊息：「↩ 我撤回了一條規則」— 體感「self-correction / 主動性」。
+
+        ENV 共用 v6.3 _notify_owner_growth 的 gate：
+        - LINE_ADMIN_USER_ID 未設 → silent skip
+        - LINE_GROWTH_NOTIFY_ENABLED=false → 顯式關閉
+        """
+        import os
+        if os.getenv("LINE_GROWTH_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
+            return
+        line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+        if not line_user_id:
+            return
+
+        text = (
+            f"↩ 我撤回了一條規則\n"
+            f"\n"
+            f"📚 {crystal_id}\n"
+            f"🎯 還原：{target_file}（從 snapshot）\n"
+            f"\n"
+            f"這條規則之前學歪了或不再適合，我已從 snapshot 還原。\n"
+            f"完整紀錄：wiki/memory/evolutions/rollbacks.md"
+        )
+
+        try:
+            from app.services.integration.line_bot import LineBotService
+            line_bot = LineBotService()
+            if not line_bot.enabled:
+                return
+            ok = await line_bot.push_message(line_user_id, text)
+            if ok:
+                logger.info("Crystal rollback notify pushed: crystal=%s", crystal_id)
+            else:
+                logger.warning("Crystal rollback notify returned False: %s", crystal_id)
+        except Exception as e:
+            logger.error(
+                "Crystal rollback notify error: %s",
+                e, exc_info=True,
+            )

@@ -403,10 +403,64 @@ tags: [memory, autobiography, evolution]
             new_text = text[:match.start()] + new_section + text[match.end():]
             SOUL_PATH.write_text(new_text, encoding="utf-8")
             logger.info("SOUL.md 成長段落已追加 %s", signals.week_id)
+
+            # v6.6 Phase A3 5a：SOUL changelog 推 LINE（人格演化的鄭重感）
+            try:
+                await self._notify_owner_soul_changelog(
+                    week_id=signals.week_id, highlight=highlight_short,
+                )
+            except Exception as e:
+                logger.warning("SOUL changelog notify failed (non-blocking): %s", e)
+
             return True
         except Exception as e:
             logger.warning("SOUL 成長追加失敗: %s", e)
             return False
+
+    @staticmethod
+    async def _notify_owner_soul_changelog(
+        *, week_id: str, highlight: str,
+    ) -> None:
+        """v6.6 Phase A3 5a：SOUL.md「我的成長」append 後推 LINE owner。
+
+        坤哥第一人稱訊息：「📜 我的人格更新了一段」— 體感「演化的鄭重感」。
+        SOUL 是人格 SSOT，每次改是「成長事件」，不該悄悄發生。
+
+        ENV 共用 LINE_ADMIN_USER_ID + LINE_GROWTH_NOTIFY_ENABLED。
+        """
+        import os
+        if os.getenv("LINE_GROWTH_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
+            return
+        line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+        if not line_user_id:
+            return
+
+        text = (
+            f"📜 我的人格更新了一段\n"
+            f"\n"
+            f"🗓 {week_id}\n"
+            f"💭 亮點：{highlight}\n"
+            f"\n"
+            f"這條成長已寫入我的 SOUL.md，"
+            f"04:45 cron 會同步到跨通道（LINE/Telegram/Discord）。\n"
+            f"完整紀錄：wiki/SOUL.md「我的成長」"
+        )
+
+        try:
+            from app.services.integration.line_bot import LineBotService
+            line_bot = LineBotService()
+            if not line_bot.enabled:
+                return
+            ok = await line_bot.push_message(line_user_id, text)
+            if ok:
+                logger.info("SOUL changelog notify pushed: week=%s", week_id)
+            else:
+                logger.warning("SOUL changelog notify returned False: %s", week_id)
+        except Exception as e:
+            logger.error(
+                "SOUL changelog notify error: %s",
+                e, exc_info=True,
+            )
 
     # ────────── Telegram ──────────
 

@@ -497,3 +497,131 @@ group: ["新竹市政府", "竹市府"]
     r = await CrystalApplier().apply_proposal(proposal_id)
     assert r.ok is True  # 主流程不破
     assert r.crystal_id is not None
+
+
+# ────────── v6.6 Phase A3 5b：crystal rollback → LINE 通知 ──────────
+
+
+@pytest.mark.asyncio
+async def test_rollback_calls_line_notify(temp_phase3, monkeypatch):
+    """rollback 成功 → LINE 推送「↩ 我撤回了一條規則」。"""
+    from app.services.memory.crystal_applier import CrystalApplier
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-rollback-test")
+    monkeypatch.delenv("LINE_GROWTH_NOTIFY_ENABLED", raising=False)
+
+    push_calls = []
+
+    class FakeLineBot:
+        @property
+        def enabled(self):
+            return True
+        async def push_message(self, user_id, text):
+            push_calls.append({"user_id": user_id, "text": text})
+            return True
+
+    import sys
+    fake_module = type(sys)("app.services.integration.line_bot")
+    fake_module.LineBotService = FakeLineBot
+    monkeypatch.setitem(sys.modules, "app.services.integration.line_bot", fake_module)
+
+    # 先 apply 一條 proposal
+    proposal_id = "crystal-rollback-setup"
+    (temp_phase3["proposals"] / f"{proposal_id}.md").write_text(
+        """---
+type: memory_proposal
+proposal_kind: synonym
+target_file: synonyms.yaml
+source_pattern: rb-pat
+status: pending
+---
+
+```yaml
+category: agency_synonyms
+group: ["嘉義市政府", "嘉市府"]
+```
+""", encoding="utf-8",
+    )
+    applier = CrystalApplier()
+    apply_r = await applier.apply_proposal(proposal_id)
+    assert apply_r.ok is True
+    push_calls.clear()  # 清掉 apply 那次的 notify
+
+    # rollback
+    rb = await applier.rollback(apply_r.crystal_id)
+    assert rb.ok is True
+    assert len(push_calls) == 1
+    assert push_calls[0]["user_id"] == "U-rollback-test"
+    msg = push_calls[0]["text"]
+    assert "我撤回了一條規則" in msg
+    assert apply_r.crystal_id in msg
+
+
+@pytest.mark.asyncio
+async def test_rollback_notify_skip_when_no_admin_id(temp_phase3, monkeypatch):
+    """無 LINE_ADMIN_USER_ID → silent skip，rollback 仍成功。"""
+    from app.services.memory.crystal_applier import CrystalApplier
+
+    monkeypatch.delenv("LINE_ADMIN_USER_ID", raising=False)
+
+    proposal_id = "crystal-no-rb-id"
+    (temp_phase3["proposals"] / f"{proposal_id}.md").write_text(
+        """---
+type: memory_proposal
+proposal_kind: synonym
+target_file: synonyms.yaml
+source_pattern: noid-rb-pat
+status: pending
+---
+
+```yaml
+category: agency_synonyms
+group: ["屏東縣政府", "屏縣府"]
+```
+""", encoding="utf-8",
+    )
+    applier = CrystalApplier()
+    apply_r = await applier.apply_proposal(proposal_id)
+    rb = await applier.rollback(apply_r.crystal_id)
+    assert rb.ok is True
+
+
+@pytest.mark.asyncio
+async def test_rollback_notify_failure_does_not_break(temp_phase3, monkeypatch):
+    """notify 拋例外時 rollback 主流程仍回 ok=True。"""
+    from app.services.memory.crystal_applier import CrystalApplier
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-rb-broken")
+
+    class BrokenLineBot:
+        @property
+        def enabled(self):
+            return True
+        async def push_message(self, user_id, text):
+            raise RuntimeError("LINE outage on rollback")
+
+    import sys
+    fake_module = type(sys)("app.services.integration.line_bot")
+    fake_module.LineBotService = BrokenLineBot
+    monkeypatch.setitem(sys.modules, "app.services.integration.line_bot", fake_module)
+
+    proposal_id = "crystal-rb-fail"
+    (temp_phase3["proposals"] / f"{proposal_id}.md").write_text(
+        """---
+type: memory_proposal
+proposal_kind: synonym
+target_file: synonyms.yaml
+source_pattern: rb-fail-pat
+status: pending
+---
+
+```yaml
+category: agency_synonyms
+group: ["花蓮縣政府新", "花新府"]
+```
+""", encoding="utf-8",
+    )
+    applier = CrystalApplier()
+    apply_r = await applier.apply_proposal(proposal_id)
+    rb = await applier.rollback(apply_r.crystal_id)
+    assert rb.ok is True  # 不破

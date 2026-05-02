@@ -361,6 +361,95 @@ async def test_push_to_line_calls_line_bot(temp_phase4, monkeypatch):
     assert narrative in msg
 
 
+# ────────── v6.6 Phase A3 5a: SOUL changelog → LINE 通知 ──────────
+
+
+@pytest.mark.asyncio
+async def test_soul_changelog_notify_called_on_update(temp_phase4, monkeypatch):
+    """update_soul_growth 成功 → LINE 推「📜 我的人格更新了一段」。"""
+    from app.services.memory.autobiography import AutobiographyGenerator, WeekSignals
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-soul-test")
+    monkeypatch.delenv("LINE_GROWTH_NOTIFY_ENABLED", raising=False)
+
+    push_calls = []
+
+    class FakeLineBot:
+        @property
+        def enabled(self):
+            return True
+        async def push_message(self, user_id, text):
+            push_calls.append({"user_id": user_id, "text": text})
+            return True
+
+    import sys
+    fake_module = type(sys)("app.services.integration.line_bot")
+    fake_module.LineBotService = FakeLineBot
+    monkeypatch.setitem(sys.modules, "app.services.integration.line_bot", fake_module)
+
+    db = _mock_db_with_traces([])
+    gen = AutobiographyGenerator(db)
+    s = WeekSignals(
+        week_id="2026-W18", week_start=date(2026, 4, 27),
+        week_end=date(2026, 5, 3),
+        total_queries=100, success_count=85,
+    )
+    narrative = "Aaron，本週我學到三件重要的事：一是溝通要慢，二是規則要嚴。"
+    ok = await gen.update_soul_growth(s, narrative)
+    assert ok is True
+    assert len(push_calls) == 1
+    assert push_calls[0]["user_id"] == "U-soul-test"
+    msg = push_calls[0]["text"]
+    assert "我的人格更新了一段" in msg
+    assert "2026-W18" in msg
+
+
+@pytest.mark.asyncio
+async def test_soul_changelog_notify_skip_when_no_admin_id(temp_phase4, monkeypatch):
+    """無 LINE_ADMIN_USER_ID → silent skip，update_soul_growth 仍 ok。"""
+    from app.services.memory.autobiography import AutobiographyGenerator, WeekSignals
+
+    monkeypatch.delenv("LINE_ADMIN_USER_ID", raising=False)
+    db = _mock_db_with_traces([])
+    gen = AutobiographyGenerator(db)
+    s = WeekSignals(
+        week_id="2026-W19", week_start=date(2026, 5, 4),
+        week_end=date(2026, 5, 10),
+        total_queries=50,
+    )
+    ok = await gen.update_soul_growth(s, "Aaron，本週簡短亮點。")
+    assert ok is True  # 寫入 SOUL 仍成功
+
+
+@pytest.mark.asyncio
+async def test_soul_changelog_notify_failure_does_not_break(temp_phase4, monkeypatch):
+    """LINE notify 拋例外不影響 SOUL 寫入結果。"""
+    from app.services.memory.autobiography import AutobiographyGenerator, WeekSignals
+
+    monkeypatch.setenv("LINE_ADMIN_USER_ID", "U-soul-broken")
+
+    class BrokenLineBot:
+        @property
+        def enabled(self):
+            return True
+        async def push_message(self, user_id, text):
+            raise RuntimeError("LINE outage on SOUL changelog")
+
+    import sys
+    fake_module = type(sys)("app.services.integration.line_bot")
+    fake_module.LineBotService = BrokenLineBot
+    monkeypatch.setitem(sys.modules, "app.services.integration.line_bot", fake_module)
+
+    db = _mock_db_with_traces([])
+    gen = AutobiographyGenerator(db)
+    s = WeekSignals(
+        week_id="2026-W20", week_start=date(2026, 5, 11),
+        week_end=date(2026, 5, 17), total_queries=30,
+    )
+    ok = await gen.update_soul_growth(s, "Aaron，notify 故障測試。")
+    assert ok is True
+
+
 @pytest.mark.asyncio
 async def test_push_to_line_failure_returns_false(temp_phase4, monkeypatch):
     """LINE API 拋例外 → 回 False（不上拋；caller 主流程不破）。"""
