@@ -761,6 +761,13 @@ confidence: high
         # 自動建立索引頁 — 所有 entity 頁面至少有一個入站連結 (解決 orphan)
         await self._build_index_pages()
 
+        # v6.6 Phase B1（I5）：自動聚合 topics（5 篇跨 entity 主題）
+        # 補 wiki/topics/ 從 4 → 9 篇（總覽 + 3 索引 + 1 interest + 5 聚合）
+        try:
+            await self._compile_aggregate_topics()
+        except Exception as e:
+            logger.warning("Aggregate topics compile failed (non-blocking): %s", e)
+
         return {
             "documents": doc_count,
             "projects": project_count,
@@ -821,6 +828,299 @@ confidence: high
     def _build_overview(self, doc_count, project_count, agency_count, year_rows, cat_rows) -> str:
         """建構總覽 wiki 描述 (委派 WikiFormatter)"""
         return WikiFormatter.build_overview(doc_count, project_count, agency_count, year_rows, cat_rows)
+
+    # =========================================================================
+    # Aggregate Topics (v6.6 Phase B1, I5) — 跨 entity 聚合主題（純 SQL）
+    # =========================================================================
+
+    async def _compile_aggregate_topics(self) -> Dict[str, Any]:
+        """產出 5 個跨 entity 聚合 topic（純 SQL，不碰 LLM）。
+
+        補 wiki/topics/ 從 4 → 9 篇（topics 不再貧瘠）。每篇都是
+        「跨 entity 聚合主題」，與 entities/（單一實體）和 synthesis/（綜合）區分。
+
+        包含：
+        - 高頻機關 Top 10（公文 sender + receiver 累計）
+        - 逾期公文 Top 20（截止日已過但未結案）
+        - 月派工量趨勢（過去 12 月）
+        - KG 高 degree entities Top 10
+        - 資料品質快照（無 KG 連結 wiki / 無 doc agency）
+        """
+        results = {}
+        for name, fn in [
+            ("top_agencies", self._topic_top_agencies),
+            ("overdue_docs", self._topic_overdue_docs),
+            ("monthly_dispatch_volume", self._topic_monthly_dispatch_volume),
+            ("kg_top_degree", self._topic_kg_top_degree),
+            ("data_quality_snapshot", self._topic_data_quality_snapshot),
+        ]:
+            try:
+                results[name] = await fn()
+            except Exception as e:
+                logger.warning("Aggregate topic %s failed: %s", name, e)
+                results[name] = {"compiled": False, "error": str(e)[:100]}
+        return results
+
+    async def _topic_top_agencies(self) -> Dict[str, Any]:
+        """高頻往來機關 Top 10（公文 sender 與 receiver 累計次數）。"""
+        from app.extended.models import OfficialDocument
+        # sender + receiver 各算
+        s_rows = (await self.db.execute(
+            select(OfficialDocument.sender, func.count().label("c"))
+            .where(OfficialDocument.sender.isnot(None))
+            .group_by(OfficialDocument.sender)
+        )).all()
+        r_rows = (await self.db.execute(
+            select(OfficialDocument.receiver, func.count().label("c"))
+            .where(OfficialDocument.receiver.isnot(None))
+            .group_by(OfficialDocument.receiver)
+        )).all()
+        merged: Dict[str, int] = {}
+        for name, c in s_rows:
+            if name:
+                merged[name] = merged.get(name, 0) + c
+        for name, c in r_rows:
+            if name:
+                merged[name] = merged.get(name, 0) + c
+        top = sorted(merged.items(), key=lambda x: -x[1])[:10]
+        if not top:
+            return {"compiled": False, "reason": "no agency data"}
+
+        lines = [
+            f"**統計來源**: official_documents.sender + receiver 累計",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "| 排名 | 機關 | 公文累計 |",
+            "|------|------|----------|",
+        ]
+        for i, (name, c) in enumerate(top, 1):
+            lines.append(f"| {i} | [[entities/{_slugify(name)}|{name[:40]}]] | {c} |")
+
+        slug = "高頻往來機關 Top 10"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [official_documents]\ntags: [統計, 機關, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log("compile", f"topic | {slug} ({len(top)} agencies)")
+        return {"compiled": True, "count": len(top)}
+
+    async def _topic_overdue_docs(self) -> Dict[str, Any]:
+        """逾期公文 Top 20（依 calendar_event.end_date < today 且 status != completed）。"""
+        from app.extended.models import OfficialDocument
+        from app.extended.models.calendar import DocumentCalendarEvent
+        from datetime import date as _date
+        today = _date.today()
+
+        rows = (await self.db.execute(
+            select(
+                OfficialDocument.doc_number,
+                OfficialDocument.subject,
+                OfficialDocument.sender,
+                DocumentCalendarEvent.end_date,
+            )
+            .join(DocumentCalendarEvent,
+                  OfficialDocument.id == DocumentCalendarEvent.document_id)
+            .where(DocumentCalendarEvent.end_date < today)
+            .where(DocumentCalendarEvent.status != 'completed')
+            .order_by(DocumentCalendarEvent.end_date)
+            .limit(20)
+        )).all()
+
+        if not rows:
+            return {"compiled": False, "reason": "no overdue docs"}
+
+        lines = [
+            f"**統計時間**: {today.isoformat()}",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "| 文號 | 主旨 | 發文者 | 截止日 | 逾期天數 |",
+            "|------|------|--------|--------|----------|",
+        ]
+        for doc_no, subj, sender, end_date in rows:
+            overdue = (today - end_date).days if end_date else 0
+            subj_short = (subj or "")[:40]
+            lines.append(
+                f"| {doc_no or '-'} | {subj_short} | {(sender or '-')[:20]} | "
+                f"{end_date} | {overdue} |"
+            )
+
+        slug = "逾期公文 Top 20"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [official_documents, document_calendar_events]\n"
+            f"tags: [統計, 逾期, auto-compiled]\nconfidence: high\n---\n\n"
+            f"# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log("compile", f"topic | {slug} ({len(rows)} overdue)")
+        return {"compiled": True, "count": len(rows)}
+
+    async def _topic_monthly_dispatch_volume(self) -> Dict[str, Any]:
+        """月派工量趨勢（過去 12 月，依 created_at 統計）。"""
+        from app.extended.models.taoyuan import TaoyuanDispatchOrder
+        from datetime import timedelta
+        cutoff = datetime.now() - timedelta(days=400)
+
+        rows = (await self.db.execute(
+            select(
+                func.to_char(TaoyuanDispatchOrder.created_at, 'YYYY-MM').label("month"),
+                func.count().label("c"),
+            )
+            .where(TaoyuanDispatchOrder.created_at >= cutoff)
+            .group_by("month")
+            .order_by("month")
+        )).all()
+
+        if not rows:
+            return {"compiled": False, "reason": "no dispatch data"}
+
+        lines = [
+            f"**統計範圍**: 過去 12 個月（≥ {cutoff.strftime('%Y-%m-%d')}）",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "| 月份 | 派工量 |",
+            "|------|--------|",
+        ]
+        for month, c in rows:
+            lines.append(f"| {month} | {c} |")
+
+        slug = "月派工量趨勢"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [dispatch_orders]\ntags: [統計, 派工, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log("compile", f"topic | {slug} ({len(rows)} months)")
+        return {"compiled": True, "count": len(rows)}
+
+    async def _topic_kg_top_degree(self) -> Dict[str, Any]:
+        """KG 高 degree entities Top 10（連線最多的 entity）。"""
+        rows = (await self.db.execute(
+            text(
+                """
+                SELECT ce.canonical_name, ce.entity_type, COUNT(ee.id) AS deg
+                FROM canonical_entities ce
+                LEFT JOIN entity_edges ee
+                  ON ce.id = ee.source_id OR ce.id = ee.target_id
+                GROUP BY ce.id, ce.canonical_name, ce.entity_type
+                HAVING COUNT(ee.id) > 0
+                ORDER BY deg DESC
+                LIMIT 10
+                """
+            )
+        )).all()
+
+        if not rows:
+            return {"compiled": False, "reason": "no KG edges"}
+
+        lines = [
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"**KG 來源**: canonical_entities + entity_edges",
+            "",
+            "| 排名 | 實體 | 類型 | 連線數 |",
+            "|------|------|------|--------|",
+        ]
+        for i, (name, etype, deg) in enumerate(rows, 1):
+            lines.append(f"| {i} | {(name or '-')[:40]} | {etype or '-'} | {deg} |")
+
+        slug = "KG 高連線 Top 10"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [canonical_entities, entity_edges]\n"
+            f"tags: [統計, 圖譜, auto-compiled]\nconfidence: high\n---\n\n"
+            f"# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log("compile", f"topic | {slug} ({len(rows)} entities)")
+        return {"compiled": True, "count": len(rows)}
+
+    async def _topic_data_quality_snapshot(self) -> Dict[str, Any]:
+        """資料品質快照（無 KG 連結的 wiki entity / 缺 agency_code 的機關等）。"""
+        # Wiki entities 未連 KG
+        import re
+        no_kg = 0
+        with_kg = 0
+        wiki_entities_dir = self.wiki.root / "entities"
+        if wiki_entities_dir.exists():
+            for f in wiki_entities_dir.glob("*.md"):
+                try:
+                    head = f.read_text(encoding="utf-8")[:400]
+                    if re.search(r"^kg_entity_id:\s*\d+", head, re.MULTILINE):
+                        with_kg += 1
+                    else:
+                        no_kg += 1
+                except Exception:
+                    pass
+        total_wiki = with_kg + no_kg
+        link_rate = with_kg / total_wiki if total_wiki else 0
+
+        # 缺 agency_code 的機關
+        from app.extended.models import GovernmentAgency
+        no_code_count = await self.db.scalar(
+            select(func.count()).where(
+                GovernmentAgency.agency_code.is_(None)
+            )
+        ) or 0
+        total_agency = await self.db.scalar(
+            select(func.count(GovernmentAgency.id))
+        ) or 0
+
+        # 派工 KG canonical_entity 覆蓋（dispatch type 的 entity 數）
+        dispatch_kg_count = (await self.db.execute(
+            text(
+                "SELECT COUNT(*) FROM canonical_entities "
+                "WHERE entity_type = 'dispatch'"
+            )
+        )).scalar() or 0
+
+        lines = [
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "## Wiki ↔ KG 連結率",
+            "",
+            f"- 總 wiki entities：**{total_wiki}**",
+            f"- 已連 KG：**{with_kg}**（{link_rate:.1%}）",
+            f"- 未連 KG：**{no_kg}**",
+            "",
+            "## 機關資料完整度",
+            "",
+            f"- 總機關數：**{total_agency}**",
+            f"- 缺 agency_code：**{no_code_count}**",
+            "",
+            "## KG 派工 entity 覆蓋",
+            "",
+            f"- canonical_entities 中 type=dispatch：**{dispatch_kg_count}**",
+        ]
+
+        slug = "資料品質快照"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [wiki/entities, government_agencies, canonical_entities]\n"
+            f"tags: [統計, 品質, auto-compiled]\nconfidence: high\n---\n\n"
+            f"# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log(
+            "compile", f"topic | {slug} (link={link_rate:.1%})"
+        )
+        return {
+            "compiled": True,
+            "wiki_total": total_wiki,
+            "kg_link_rate": round(link_rate, 4),
+        }
 
     # =========================================================================
     # Interest Signal — 從 Agent 查詢提取近期關注焦點
