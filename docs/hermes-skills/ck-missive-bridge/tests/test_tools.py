@@ -186,3 +186,93 @@ def test_check_up_connect_error(monkeypatch):
 
     with patch.object(t.httpx, "Client", return_value=client):
         assert t._check_missive_up() is False
+
+
+# ──────────────────────────────────────────────────────────
+# v6.6 Phase C (A2 read-only): 觀測坤哥內在狀態的 3 個 tools
+# ──────────────────────────────────────────────────────────
+
+def test_endpoint_map_includes_a2_readonly_tools():
+    """3 個 A2 read-only tool 都該在 _TOOL_ENDPOINT_MAP 註冊正確 endpoint。"""
+    assert t._TOOL_ENDPOINT_MAP["get_memory_status"] == "/api/ai/memory/jobs"
+    assert t._TOOL_ENDPOINT_MAP["get_evolution_journal"] == "/api/ai/agent/evolution/journal"
+    assert t._TOOL_ENDPOINT_MAP["query_graph_unified"] == "/api/v1/ai/graph/unified-search"
+
+
+def test_static_tools_includes_a2_readonly_tools():
+    """3 個 A2 read-only tool 都該在 _STATIC_TOOLS（manifest 不可達時的 fallback）。"""
+    names = {tool["name"] for tool in t._STATIC_TOOLS}
+    assert "get_memory_status" in names
+    assert "get_evolution_journal" in names
+    assert "query_graph_unified" in names
+
+
+def test_a2_tools_have_required_fields():
+    """3 個 A2 tool 結構合法（name + description + inputSchema）。"""
+    a2 = {"get_memory_status", "get_evolution_journal", "query_graph_unified"}
+    for tool in t._STATIC_TOOLS:
+        if tool["name"] not in a2:
+            continue
+        assert isinstance(tool["description"], str) and len(tool["description"]) >= 10
+        assert "inputSchema" in tool
+        schema = tool["inputSchema"]
+        assert schema["type"] == "object"
+        assert "properties" in schema
+
+
+def test_get_memory_status_handler_routes_to_correct_endpoint(monkeypatch):
+    """get_memory_status handler POST 到 /api/ai/memory/jobs。"""
+    captured = {}
+
+    def fake_post(url, headers, payload, retries=1):
+        captured["url"] = url
+        return _resp(200, json_body={"data": {"jobs": [], "summary": {"total": 0}}})
+
+    monkeypatch.setattr(t, "_post_with_retry", fake_post)
+    handler = t._make_handler("get_memory_status")
+    handler({}, session_id="s")
+    assert captured["url"].endswith("/api/ai/memory/jobs")
+
+
+def test_get_evolution_journal_handler_routes_correctly(monkeypatch):
+    """get_evolution_journal handler POST 到 /api/ai/agent/evolution/journal。"""
+    captured = {}
+
+    def fake_post(url, headers, payload, retries=1):
+        captured["url"] = url
+        captured["payload"] = payload
+        return _resp(200, json_body={"data": []})
+
+    monkeypatch.setattr(t, "_post_with_retry", fake_post)
+    handler = t._make_handler("get_evolution_journal")
+    handler({"limit": 30}, session_id="s")
+    assert captured["url"].endswith("/api/ai/agent/evolution/journal")
+    assert captured["payload"]["limit"] == 30
+
+
+def test_query_graph_unified_handler_routes_correctly(monkeypatch):
+    """query_graph_unified handler POST 到 /api/v1/ai/graph/unified-search。"""
+    captured = {}
+
+    def fake_post(url, headers, payload, retries=1):
+        captured["url"] = url
+        captured["payload"] = payload
+        return _resp(200, json_body={"results": []})
+
+    monkeypatch.setattr(t, "_post_with_retry", fake_post)
+    handler = t._make_handler("query_graph_unified")
+    handler({"query": "派工糾紛"}, session_id="s")
+    assert captured["url"].endswith("/api/v1/ai/graph/unified-search")
+    assert captured["payload"]["query"] == "派工糾紛"
+
+
+def test_register_all_includes_a2_when_fallback(monkeypatch):
+    """fallback 到 _STATIC_TOOLS 時 register count 含 A2 tool。"""
+    monkeypatch.setattr(t, "_fetch_manifest", lambda: (_ for _ in ()).throw(httpx.ConnectError("x")))
+    registry = MagicMock()
+    count = t.register_all(registry)
+    assert count == len(t._STATIC_TOOLS)
+    names = [c.kwargs["name"] for c in registry.register.call_args_list]
+    assert "missive_get_memory_status" in names
+    assert "missive_get_evolution_journal" in names
+    assert "missive_query_graph_unified" in names

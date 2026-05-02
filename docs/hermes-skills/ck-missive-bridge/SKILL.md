@@ -66,6 +66,13 @@ docker compose cp ck-missive-bridge/ hermes-gateway:/opt/data/skills/ck-missive-
 | `missive_system_statistics` | `/api/ai/agent/query_sync` | 系統概況統計 |
 | `missive_federated_search` | `/api/ai/federation/search` | KG 跨域聯邦搜尋 |
 | `missive_federated_contribute` | `/api/ai/federation/contribute` | KG 跨域貢獻實體 |
+| `missive_get_memory_status` | `/api/ai/memory/jobs` | **v6.6 A2** 觀測坤哥記憶 cron 健康度（owner-only） |
+| `missive_get_evolution_journal` | `/api/ai/agent/evolution/journal` | **v6.6 A2** 觀測坤哥進化日誌（owner-only） |
+| `missive_query_graph_unified` | `/api/v1/ai/graph/unified-search` | **v6.6 A2** 統一圖譜搜尋（5 圖一查） |
+
+> v6.6 Phase C 補的 3 個 A2 read-only tool 讓 owner 透過 Hermes 跨通道
+> （Telegram / LINE / Discord）觀測坤哥內在狀態。寫入操作（如批准 proposal、
+> 修改 SOUL）仍鎖在 web 端，等 ADR-0020 Phase 1 啟動才擴。
 
 ### 靜態 fallback
 

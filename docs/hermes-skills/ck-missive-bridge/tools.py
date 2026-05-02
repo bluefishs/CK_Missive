@@ -63,6 +63,13 @@ _TOOL_ENDPOINT_MAP = {
     "document_list": "/api/v1/documents-enhanced/list",
     "project_list": "/api/v1/projects/list",
     "project_detail": "/api/v1/projects/{id}/detail",
+    # v6.6 Phase C (A2 read-only) — 觀測坤哥內在狀態（owner-only read endpoints）
+    "get_memory_status": "/api/ai/memory/jobs",
+    "memory_patterns_list": "/api/ai/memory/patterns/list",
+    "memory_proposals_list": "/api/ai/memory/proposals/list",
+    "memory_crystals_list": "/api/ai/memory/crystals/list",
+    "get_evolution_journal": "/api/ai/agent/evolution/journal",
+    "query_graph_unified": "/api/v1/ai/graph/unified-search",
 }
 
 
@@ -173,6 +180,57 @@ _STATIC_TOOLS: List[Dict[str, Any]] = [
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "限定搜尋的 domain（預設全部）",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    # v6.6 Phase C (A2 read-only): 觀測坤哥內在狀態（owner-only read tools）
+    # 這些 tool 讓 owner 透過 Hermes 跨通道（Telegram/LINE/Discord）查 Missive
+    # 內部 evolution loop 狀態，補 SYSTEM_INTEGRATION_REVIEW_v2 軸 A 局部缺口。
+    {
+        "name": "get_memory_status",
+        "description": "取得坤哥意識體記憶狀態：5 個 memory cron 健康度（patterns/proposals/crystals/autobiography/anti_echo）。owner 觀測用。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_evolution_journal",
+        "description": "取得坤哥進化日誌（agent_evolution_scheduler 累積的事件記錄）。看坤哥近期演化軌跡與健康指標。owner 觀測用。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "回傳筆數上限（預設 20）",
+                    "default": 20,
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "query_graph_unified",
+        "description": "知識圖譜統一搜尋（KG / Code / DB / ERP / Tender 5 圖一次查）。owner 跨通道用 Hermes 查圖譜時呼叫。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "搜尋關鍵字或自然語言",
+                },
+                "graph_types": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "限定圖譜類型（kg/code/db/erp/tender，預設全部）",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "回傳筆數上限（預設 10）",
+                    "default": 10,
                 },
             },
             "required": ["query"],
