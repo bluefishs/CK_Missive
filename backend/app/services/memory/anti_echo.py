@@ -262,6 +262,62 @@ class AntiEchoProtocol:
             return None
 
 
+# ────────── v6.6 Phase B2：日終反思摘要（5c LINE 彙總）──────────
+
+def summarize_today_self_reflection(today=None) -> Optional[Dict[str, Any]]:
+    """讀今日 diary，抽自我反思相關內容（22:00 cron 用）。
+
+    解體感「sclient anti_echo 觸發即推會變雜訊」問題 — 改每日彙總一次。
+
+    Returns:
+        None — 今日無 diary 或無反思內容（不推 LINE 避免雜訊）
+        dict — 含 anti_echo_count / failure_count / reflection_lines 等
+    """
+    from datetime import date as _date
+    import re
+    if today is None:
+        today = _date.today()
+
+    diary_path = DIARY_DIR / f"{today.isoformat()}.md"
+    if not diary_path.exists():
+        return None
+
+    try:
+        text = diary_path.read_text(encoding="utf-8")
+    except Exception:
+        return None
+
+    # 抽「反迴聲室」段落
+    anti_echo_blocks = re.findall(
+        r"##\s+\d{2}:\d{2}:\d{2}\s+—\s+🔔\s+反迴聲室.*?(?=\n##\s|\Z)",
+        text, re.DOTALL,
+    )
+    # 抽今日反思 candidate 條目（編號項）
+    reflection_lines: List[str] = []
+    for blk in anti_echo_blocks:
+        for m in re.finditer(r"^\d+\.\s+(.+?)$", blk, re.MULTILINE):
+            line = m.group(1).strip()
+            if line:
+                reflection_lines.append(line[:120])
+
+    # 抽今日失敗 query 數
+    failure_count = len(re.findall(r"##\s+\d{2}:\d{2}:\d{2}\s+—\s+❌", text))
+    success_count = len(re.findall(r"##\s+\d{2}:\d{2}:\d{2}\s+—\s+✅", text))
+
+    if not anti_echo_blocks and failure_count == 0:
+        # 今日無自我警覺也無失敗 — silent skip（避免無事彙總雜訊）
+        return None
+
+    return {
+        "today": today.isoformat(),
+        "anti_echo_count": len(anti_echo_blocks),
+        "reflection_lines": reflection_lines[:5],
+        "failure_count": failure_count,
+        "success_count": success_count,
+        "total_count": failure_count + success_count,
+    }
+
+
 # ────────── v5.12 Phase C：Planner Consumer 接通 ──────────
 
 async def get_recent_reflections_block(

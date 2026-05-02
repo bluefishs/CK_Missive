@@ -1415,6 +1415,67 @@ async def memory_anti_echo_scan_job():
         logger.error("Anti-Echo Scan 失敗: %s", e, exc_info=True)
 
 
+@tracked_job("daily_self_reflection_line_push")
+async def daily_self_reflection_line_push_job():
+    """v6.6 Phase B2 (5c)：每日 22:00 彙總當日自我反思推 LINE owner。
+
+    解體感「anti_echo 觸發即推會變雜訊」— 改每日彙總一次。
+
+    來源：今日 diary 中的「反迴聲室」段落 + 失敗 query 統計。
+    無觸發、無失敗 → silent skip（不推「沒事」雜訊）。
+
+    ENV：
+    - LINE_ADMIN_USER_ID 未設 → silent skip
+    - LINE_GROWTH_NOTIFY_ENABLED=false → 顯式關閉
+    """
+    import os
+    if os.getenv("LINE_GROWTH_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
+        return
+    line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+    if not line_user_id:
+        return
+
+    from app.services.memory.anti_echo import summarize_today_self_reflection
+    summary = summarize_today_self_reflection()
+    if not summary:
+        logger.info("Daily self-reflection: no events today, skip LINE push")
+        return
+
+    lines = [
+        f"🌙 我今日的自我反思（{summary['today']}）",
+        "",
+        f"📊 今日對話：{summary['total_count']} 筆"
+        f"（成功 {summary['success_count']} / 失敗 {summary['failure_count']}）",
+    ]
+    if summary["anti_echo_count"] > 0:
+        lines.append(f"🔔 反迴聲室觸發：{summary['anti_echo_count']} 次")
+        if summary["reflection_lines"]:
+            lines.append("")
+            lines.append("💭 我可能錯了的地方：")
+            for i, r in enumerate(summary["reflection_lines"][:3], 1):
+                lines.append(f"  {i}. {r}")
+    elif summary["failure_count"] > 0:
+        lines.append("")
+        lines.append("⚠ 今日無 anti_echo 觸發，但有失敗 query — 明日可關注。")
+
+    text_msg = "\n".join(lines)
+    try:
+        from app.services.integration.line_bot import LineBotService
+        line_bot = LineBotService()
+        if not line_bot.enabled:
+            return
+        ok = await line_bot.push_message(line_user_id, text_msg)
+        if ok:
+            logger.info(
+                "Daily self-reflection pushed to LINE: anti_echo=%d failure=%d",
+                summary["anti_echo_count"], summary["failure_count"],
+            )
+    except Exception as e:
+        logger.error(
+            "Daily self-reflection LINE push failed: %s", e, exc_info=True,
+        )
+
+
 @tracked_job("memory_crystallization_scan")
 async def memory_crystallization_scan_job():
     """每日掃 patterns/ 產生 crystal proposals（不自動 apply，等人批准）。
@@ -1913,6 +1974,19 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 SOUL Mirror Sync: 每日 04:45 執行")
+
+    # 2026-05-02 v6.6 Phase B2 (5c): 日終反思 LINE 彙總（每日 22:00）
+    # 解體感「anti_echo 觸發即推雜訊」— 每日一次彙總當日自我反思
+    scheduler.add_job(
+        daily_self_reflection_line_push_job,
+        trigger=CronTrigger(hour=22, minute=0),
+        id='daily_self_reflection_line_push',
+        name='日終反思 LINE 彙總 (每日 22:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 Daily Self-Reflection LINE Push: 每日 22:00 執行")
 
     # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
     scheduler.add_job(
