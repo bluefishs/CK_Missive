@@ -26,8 +26,13 @@ WIKI_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "wiki"
 
 
 def _slugify(text: str) -> str:
-    """將中文/英文標題轉為安全檔名"""
-    text = text.strip()
+    """將中文/英文標題轉為安全檔名。
+
+    v6.7 E3：先 Unicode NFC 正規化，避免 wiki_compiler 寫入 CJK Compatibility
+    Ideograph（如 U+F9E9 「里」）造成同名兩檔（與 fitness step 14 偵測對齊）。
+    """
+    import unicodedata
+    text = unicodedata.normalize("NFC", text.strip())
     text = re.sub(r'[\\/:*?"<>|]', '_', text)
     text = re.sub(r'\s+', '_', text)
     return text[:80]

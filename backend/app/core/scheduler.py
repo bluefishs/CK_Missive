@@ -1476,6 +1476,82 @@ async def daily_self_reflection_line_push_job():
         )
 
 
+@tracked_job("cron_self_health_alert")
+async def cron_self_health_alert_job():
+    """v6.7 E4：cron 自我健康檢查推 LINE owner（每日 06:30）。
+
+    解體感「fitness step 13 偵測 cron 健康但只 log 不推 LINE」斷鏈
+    （與 v6.6 5a/5b/5c 對齊：所有重要事件都該 LINE 體感）。
+
+    判定規則：
+    - failed >= 1 → 推 LINE「⚠ cron 異常通知」（含失敗 cron 名稱）
+    - never_run >= total / 2 → 推 LINE「⚠ 多數 cron 從未執行」（系統剛重啟）
+    - 全綠 → silent（不推「沒事」雜訊）
+
+    ENV 共用：
+    - LINE_ADMIN_USER_ID 未設 → silent skip
+    - LINE_GROWTH_NOTIFY_ENABLED=false → 顯式關閉
+    """
+    import os
+    if os.getenv("LINE_GROWTH_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
+        return
+    line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+    if not line_user_id:
+        return
+
+    summary = SchedulerTracker.get_summary()
+    records = SchedulerTracker.get_all()
+
+    total = summary.get("total_jobs", 0)
+    failed = summary.get("failed", 0)
+    never_run = summary.get("never_run", 0)
+    status = summary.get("status", "unknown")
+
+    # 全綠 → silent
+    if failed == 0 and never_run < (total / 2 if total else 0):
+        logger.info("Cron self-health: all healthy, skip LINE push")
+        return
+
+    failed_jobs = [
+        job_id for job_id, rec in records.items()
+        if rec.get("last_status") == "failure"
+    ]
+
+    lines = [
+        f"⚠ cron 異常通知（{datetime.now().strftime('%Y-%m-%d %H:%M')}）",
+        "",
+        f"📊 排程狀態：{status}",
+        f"  總計 {total} / 健康 {summary.get('healthy', 0)} / 失敗 {failed} / 未跑 {never_run}",
+    ]
+    if failed_jobs:
+        lines.append("")
+        lines.append("🔴 失敗的 cron：")
+        for job_id in failed_jobs[:10]:
+            rec = records.get(job_id, {})
+            err = (rec.get("last_error") or "")[:80]
+            lines.append(f"  • {job_id}: {err}")
+    if never_run >= (total / 2 if total else 0) and total > 0:
+        lines.append("")
+        lines.append("⏳ 多數 cron 從未執行（可能剛重啟，等候首次觸發）")
+
+    text_msg = "\n".join(lines)
+    try:
+        from app.services.integration.line_bot import LineBotService
+        line_bot = LineBotService()
+        if not line_bot.enabled:
+            return
+        ok = await line_bot.push_message(line_user_id, text_msg)
+        if ok:
+            logger.info(
+                "Cron self-health alert pushed: failed=%d never_run=%d",
+                failed, never_run,
+            )
+    except Exception as e:
+        logger.error(
+            "Cron self-health LINE push failed: %s", e, exc_info=True,
+        )
+
+
 @tracked_job("memory_crystallization_scan")
 async def memory_crystallization_scan_job():
     """每日掃 patterns/ 產生 crystal proposals（不自動 apply，等人批准）。
@@ -1987,6 +2063,19 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 Daily Self-Reflection LINE Push: 每日 22:00 執行")
+
+    # 2026-05-03 v6.7 E4: cron 自我健康檢查 LINE 推（每日 06:30，其他 cron 跑完）
+    # 解 fitness step 13 偵測但 silent 的體感斷鏈（與 v6.6 5a/5b/5c 對齊）
+    scheduler.add_job(
+        cron_self_health_alert_job,
+        trigger=CronTrigger(hour=6, minute=30),
+        id='cron_self_health_alert',
+        name='Cron 自我健康檢查 LINE 推 (每日 06:30)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 Cron Self-Health Alert: 每日 06:30 執行")
 
     # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
     scheduler.add_job(

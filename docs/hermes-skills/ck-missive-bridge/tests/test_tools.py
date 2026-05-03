@@ -276,3 +276,69 @@ def test_register_all_includes_a2_when_fallback(monkeypatch):
     assert "missive_get_memory_status" in names
     assert "missive_get_evolution_journal" in names
     assert "missive_query_graph_unified" in names
+
+
+# ──────────────────────────────────────────────────────────
+# v6.7 E5: A2 read-only 延伸 — patterns/proposals/crystals 3 list tools
+# ──────────────────────────────────────────────────────────
+
+def test_endpoint_map_includes_memory_list_tools():
+    """3 個 list tool 都該在 _TOOL_ENDPOINT_MAP 註冊正確 endpoint。"""
+    assert t._TOOL_ENDPOINT_MAP["memory_patterns_list"] == "/api/ai/memory/patterns/list"
+    assert t._TOOL_ENDPOINT_MAP["memory_proposals_list"] == "/api/ai/memory/proposals/list"
+    assert t._TOOL_ENDPOINT_MAP["memory_crystals_list"] == "/api/ai/memory/crystals/list"
+
+
+def test_static_tools_includes_memory_list_tools():
+    """3 個 list tool 都該在 _STATIC_TOOLS。"""
+    names = {tool["name"] for tool in t._STATIC_TOOLS}
+    assert "memory_patterns_list" in names
+    assert "memory_proposals_list" in names
+    assert "memory_crystals_list" in names
+
+
+def test_memory_list_tools_have_pagination_params():
+    """3 個 list tool 都該支援 limit + offset 分頁參數。"""
+    list_names = {"memory_patterns_list", "memory_proposals_list", "memory_crystals_list"}
+    for tool in t._STATIC_TOOLS:
+        if tool["name"] not in list_names:
+            continue
+        props = tool["inputSchema"]["properties"]
+        assert "limit" in props
+        assert "offset" in props
+        # 預設值合理
+        assert props["limit"].get("default", 0) > 0
+        assert props["offset"].get("default", 0) == 0
+
+
+@pytest.mark.parametrize("tool_name,expected_path", [
+    ("memory_patterns_list", "/api/ai/memory/patterns/list"),
+    ("memory_proposals_list", "/api/ai/memory/proposals/list"),
+    ("memory_crystals_list", "/api/ai/memory/crystals/list"),
+])
+def test_memory_list_handler_routes_correctly(monkeypatch, tool_name, expected_path):
+    """3 個 list handler 各自 POST 到正確 endpoint，args 完整傳遞。"""
+    captured = {}
+
+    def fake_post(url, headers, payload, retries=1):
+        captured["url"] = url
+        captured["payload"] = payload
+        return _resp(200, json_body={"data": []})
+
+    monkeypatch.setattr(t, "_post_with_retry", fake_post)
+    handler = t._make_handler(tool_name)
+    handler({"limit": 30, "offset": 10}, session_id="s")
+    assert captured["url"].endswith(expected_path)
+    assert captured["payload"]["limit"] == 30
+    assert captured["payload"]["offset"] == 10
+
+
+def test_register_all_includes_memory_list_when_fallback(monkeypatch):
+    """fallback 註冊時 3 個 list tool 也該進。"""
+    monkeypatch.setattr(t, "_fetch_manifest", lambda: (_ for _ in ()).throw(httpx.ConnectError("x")))
+    registry = MagicMock()
+    t.register_all(registry)
+    names = [c.kwargs["name"] for c in registry.register.call_args_list]
+    assert "missive_memory_patterns_list" in names
+    assert "missive_memory_proposals_list" in names
+    assert "missive_memory_crystals_list" in names

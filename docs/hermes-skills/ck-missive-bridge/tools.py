@@ -236,6 +236,70 @@ _STATIC_TOOLS: List[Dict[str, Any]] = [
             "required": ["query"],
         },
     },
+    # v6.7 E5（A2 read-only 延伸）: 列出坤哥內在演化的 3 個層次
+    # patterns（已成形模式）/ proposals（待批准結晶）/ crystals（已套用規則）
+    # 與 v6.6 C 的 memory_status / evolution_journal 並用，owner 可跨通道
+    # 看坤哥「正在學什麼」/「等批什麼」/「已套用什麼」。
+    {
+        "name": "memory_patterns_list",
+        "description": "列坤哥已從對話中提取的 success patterns（hit≥3 + success_rate>80% 寫入）。owner 觀測坤哥近期學會了哪些查詢模式。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "回傳筆數上限（預設 20）",
+                    "default": 20,
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "分頁起始（預設 0）",
+                    "default": 0,
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "memory_proposals_list",
+        "description": "列待批准的 crystal proposals（hit≥5 + success≥95% 自動產生，等 owner 批）。owner 跨通道看「我有什麼想學但等你決定」。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "回傳筆數上限（預設 20）",
+                    "default": 20,
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "分頁起始（預設 0）",
+                    "default": 0,
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "memory_crystals_list",
+        "description": "列已套用的 crystal records（owner 批准後寫入 yaml 並產生 audit trail）。owner 看「我已正式學會的規則」。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "回傳筆數上限（預設 20）",
+                    "default": 20,
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "分頁起始（預設 0）",
+                    "default": 0,
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 
