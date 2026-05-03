@@ -64,12 +64,16 @@ class InferenceProviderMetrics:
         )
         # 2026-04-25 (R6): prefer_local routing 決策源觀測（SSOT 審計配套）
         # 解答：「yaml config 到底接管了多少 routing 決策？」
+        # v6.7 E1（D1-prep）：加 soul_section_active label
+        # 為 5/20 後 ADR-0030 GO/NO-GO 提供「routing 切換 × SOUL section 啟用」交叉資料
         self.routing_decisions = Counter(
             ROUTING_DECISION_METRIC,
-            "prefer_local routing decision source (SSOT audit)",
+            "prefer_local routing decision source (SSOT audit + SOUL mapping)",
             # source: yaml_config / hardcode_fallback / vision / smart_route / caller_explicit
             # prefer_local: true / false (final outcome)
-            ["source", "task_type", "prefer_local"],
+            # soul_section_active: identity / belief_stable / belief_transparent / belief_reflective
+            #                      / mixed / none (planner inject 期間哪段 SOUL section 主導)
+            ["source", "task_type", "prefer_local", "soul_section_active"],
             registry=reg,
         )
 
@@ -92,18 +96,30 @@ class InferenceProviderMetrics:
         """記錄 context-aware routing 決策，如 large_prompt → nvidia。"""
         self.context_routes.labels(reason=reason, target_provider=target_provider).inc()
 
-    def record_routing_decision(self, source: str, task_type: str, prefer_local: bool):
+    def record_routing_decision(
+        self,
+        source: str,
+        task_type: str,
+        prefer_local: bool,
+        soul_section_active: str = "none",
+    ):
         """記錄 prefer_local 決策源（R6 / ADR-0030 SSOT 審計配套）。
 
         Args:
             source: 'yaml_config' | 'hardcode_fallback' | 'vision' | 'smart_route' | 'caller_explicit'
             task_type: chat / planning / ner / classify / ... (空字串回退為 'unknown')
             prefer_local: 最終 prefer_local 結果 (True / False)
+            soul_section_active: v6.7 E1（D1-prep）— 'identity' / 'belief_stable' /
+                'belief_transparent' / 'belief_reflective' / 'mixed' / 'none'。
+                planner inject 期間哪段 SOUL section 主導當下決策；fallback 切 provider
+                時可看「人格段落 × routing」交叉趨勢，作為 5/20 後 provider-aware
+                persona 校準的測量基線。預設 'none' 兼容舊 callsite。
         """
         self.routing_decisions.labels(
             source=source,
             task_type=task_type or "unknown",
             prefer_local=str(prefer_local).lower(),
+            soul_section_active=soul_section_active or "none",
         ).inc()
 
 

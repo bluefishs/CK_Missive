@@ -224,7 +224,60 @@ def _call(provider: ProviderConfig, system: str, user: str) -> tuple[str, Option
         return "", str(e)[:200], int((time.monotonic() - start) * 1000)
 
 
+def _persist_fidelity_log(scores: List["Score"]) -> Optional[Path]:
+    """v6.7 E1（D1-prep）：寫一筆到 fidelity_log.jsonl 累積長期趨勢基線。
+
+    每行 1 JSON record（jsonl），含 timestamp + provider + 各 prompt 分數。
+    供 5/20 後 ADR-0030 GO/NO-GO 決策時看 fidelity 跨 provider 趨勢。
+    """
+    log_path = (
+        Path(__file__).resolve().parents[3]
+        / "wiki" / "memory" / "evolutions" / "fidelity_log.jsonl"
+    )
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now(timezone.utc).isoformat()
+        # 按 provider 聚合
+        by_prov: dict[str, list[Score]] = {}
+        for s in scores:
+            by_prov.setdefault(s.provider, []).append(s)
+        with log_path.open("a", encoding="utf-8") as f:
+            for prov, ss in by_prov.items():
+                total = sum(s.total_pass for s in ss)
+                max_pts = len(ss) * 4
+                pct = (total / max_pts) if max_pts else 0
+                record = {
+                    "ts": ts,
+                    "provider": prov,
+                    "prompts": len(ss),
+                    "total_pass": total,
+                    "max_pts": max_pts,
+                    "fidelity": round(pct, 4),
+                    "by_prompt": {s.prompt_id: s.total_pass for s in ss},
+                    "avg_latency_ms": round(
+                        sum(s.latency_ms for s in ss) / max(len(ss), 1), 1,
+                    ),
+                }
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        return log_path
+    except Exception as e:
+        print(f"[WARN] fidelity_log persist failed: {e}", file=sys.stderr)
+        return None
+
+
 def main() -> int:
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--by-provider", action="store_true",
+        help="輸出 per-provider per-prompt 詳細分數（v6.7 E1 D1-prep）",
+    )
+    parser.add_argument(
+        "--no-persist", action="store_true",
+        help="不寫 fidelity_log.jsonl（測試用）",
+    )
+    args = parser.parse_args()
+
     soul = _load_soul()
     print(f"SOUL.md loaded ({len(soul)} chars from {SOUL_PATH})")
     scores: List[Score] = []
@@ -258,6 +311,28 @@ def main() -> int:
         max_pts = len(ss) * 4
         pct = (total / max_pts * 100) if max_pts else 0
         print(f"  {prov}: {total}/{max_pts} ({pct:.0f}%)")
+
+    # v6.7 E1（D1-prep）：--by-provider 詳細表 + persistent log
+    if args.by_provider:
+        print("\nDetail by provider × prompt:")
+        prompt_ids = sorted({s.prompt_id for s in scores})
+        providers_listed = sorted(by_prov.keys())
+        # header
+        print(f"  {'prompt_id':<20} | " + " | ".join(f"{p:>10}" for p in providers_listed))
+        print("  " + "-" * (22 + (13 * len(providers_listed))))
+        # rows
+        for pid in prompt_ids:
+            cells = []
+            for prov in providers_listed:
+                match = next((s for s in by_prov[prov] if s.prompt_id == pid), None)
+                cells.append(f"{match.total_pass}/4" if match else "  -  ")
+            print(f"  {pid:<20} | " + " | ".join(f"{c:>10}" for c in cells))
+
+    if not args.no_persist and scores:
+        log_path = _persist_fidelity_log(scores)
+        if log_path:
+            print(f"\nFidelity log appended: {log_path}")
+
     return 0
 
 
