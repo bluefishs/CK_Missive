@@ -13,6 +13,7 @@ import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
 import type { DispatchOrder } from '../../types/api';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 import { setDispatchProjectIds } from '../../config/projectModules';
+import { isAuthDisabled } from '../../config/env';
 
 interface UseTaoyuanDispatchParams {
   skip?: number;
@@ -60,11 +61,16 @@ export const useTaoyuanDispatchOrders = (params: UseTaoyuanDispatchParams): UseT
 
 /**
  * 桃園派工承攬案件列表 Hook（專案切換下拉選單用）
+ *
+ * F22 (5/04 修復)：useDispatchProjectIds 在 App 頂層 mount 此 hook，
+ * 過去無 auth gate → /entry 登入頁也會 fetch → 401 spam。
+ * 加 user_info gate（同 F20/F21 模式）。
  */
 export const useTaoyuanContractProjects = () => {
   return useQuery({
     queryKey: [...queryKeys.taoyuanDispatch.all, 'contract-projects'],
     queryFn: () => dispatchOrdersApi.getContractProjects(),
+    enabled: isAuthDisabled() || !!localStorage.getItem('user_info'),
     ...defaultQueryOptions.dropdown,
   });
 };

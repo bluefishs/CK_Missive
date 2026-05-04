@@ -158,10 +158,10 @@ class AgentSynthesizer:
 
         # 非串流呼叫 + 後處理：本地模型可能在回覆中穿插推理段落
         # 超時保護：避免 LLM 無回應時永久阻塞整個 SSE 串流
-        # 2026-04-22 P0-1：synthesis 優先走 Groq（~1.5s），cloud_timeout 已足；
-        # 舊設 max(cloud=30, local=120)=120s 太寬，silent gap 可達兩分鐘。
-        # 改為 cloud_timeout+5s buffer（約 35s），fallback 鏈內部有獨立 timeout。
-        synthesis_timeout = self.config.cloud_timeout + 5
+        # Q3 (5/04 v3.0 覆盤): 改用 TIMEOUTS.synthesis SSOT（cloud_llm + 5 = 35s）
+        # ADR-0028 contract enforced，避免 dead config 兩處不同值
+        from app.core.timeouts import TIMEOUTS
+        synthesis_timeout = TIMEOUTS.synthesis
         # 2026-04-24: model env-based，支援 qwen/qwen3-32b 切換（零成本整合評估）
         # 預設保留 llama-3.3-70b（與現狀一致，backward compat）
         synthesis_model = os.getenv("SYNTHESIS_MODEL", "llama-3.3-70b-versatile")

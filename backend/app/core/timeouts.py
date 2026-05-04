@@ -65,10 +65,11 @@ class TimeoutContract:
     def synthesis(self) -> int:
         """Synthesis = single LLM call producing final answer.
 
-        Bounded by cloud_llm timeout (30s) but Hermes baseline observed
-        synthesis at ~10-30s typical. P95 target derived from this.
+        ADR-0028 contract: cloud_llm (30s) + 5s buffer = 35s。
+        agent_synthesis.py:164 已用此公式；本 property 同步對齊
+        避免 dead config smell（兩處不同值）。
         """
-        return self.cloud_llm  # 30s
+        return self.cloud_llm + 5  # 35s aligned with agent_synthesis.py
 
 
 @dataclass(frozen=True)
