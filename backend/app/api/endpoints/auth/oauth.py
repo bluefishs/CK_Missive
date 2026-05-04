@@ -263,8 +263,8 @@ async def google_oauth_login(
             content=token_response.model_dump(mode="json"),
         )
 
-        # 設定 httpOnly cookies（新安全機制）
-        AuthService.set_auth_cookies(response, token_response)
+        # 設定 httpOnly cookies（新安全機制）— A+B：以 request scheme 決定 Secure
+        AuthService.set_auth_cookies(response, token_response, request=request)
 
         return response
 

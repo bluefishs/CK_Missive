@@ -81,8 +81,8 @@ async def refresh_token(
         content=token_response.model_dump(mode="json"),
     )
 
-    # 設定新的 httpOnly cookies
-    AuthService.set_auth_cookies(response, token_response)
+    # 設定新的 httpOnly cookies — A+B：以 request scheme 決定 Secure
+    AuthService.set_auth_cookies(response, token_response, request=request)
 
     return response
 

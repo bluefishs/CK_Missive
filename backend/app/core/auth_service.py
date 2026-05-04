@@ -24,7 +24,9 @@ from google.auth.transport import requests
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from fastapi import HTTPException, status
+from typing import Optional
+
+from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPBearer
 from starlette.responses import Response
 
@@ -636,30 +638,34 @@ class AuthService:
     # ============ httpOnly Cookie 認證 (v2.1) ============
 
     @staticmethod
-    def set_auth_cookies(response: Response, token_data: TokenResponse) -> None:
+    def set_auth_cookies(
+        response: Response,
+        token_data: TokenResponse,
+        request: Optional[Request] = None,
+    ) -> None:
         """
         設定認證相關的 httpOnly cookies
 
-        設定項目:
-        - access_token: HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600
-        - refresh_token: HttpOnly; Secure; SameSite=Strict; Path=/api/auth/refresh; Max-Age=604800
-        - csrf_token: non-HttpOnly (由 csrf 模組處理)
-
-        Args:
-            response: FastAPI/Starlette Response 物件
-            token_data: 包含 access_token 和 refresh_token 的 TokenResponse
+        A+B 路徑（2026-05-04）：
+        - 若 request 提供：依實際 scheme 決定 Secure（公網 HTTPS / 內網 HTTP）
+        - 若無 request：fallback 用 settings.DEVELOPMENT_MODE
         """
         is_dev = settings.DEVELOPMENT_MODE
+        if request is not None:
+            from app.core.csrf import is_request_https
+            secure = is_request_https(request)
+        else:
+            secure = not is_dev
 
         # 設定 access_token cookie
         response.set_cookie(
             key="access_token",
             value=token_data.access_token,
             httponly=True,
-            secure=not is_dev,  # 開發環境允許 HTTP
+            secure=secure,
             samesite="lax",
             path="/",
-            max_age=token_data.expires_in,  # 使用 token 本身的過期時間
+            max_age=token_data.expires_in,
         )
 
         # 設定 refresh_token cookie
@@ -668,17 +674,20 @@ class AuthService:
                 key="refresh_token",
                 value=token_data.refresh_token,
                 httponly=True,
-                secure=not is_dev,
-                samesite="strict",  # refresh token 使用更嚴格的 SameSite
-                path="/api/auth/refresh",  # 限制只在 refresh 端點發送
-                max_age=604800,  # 7 天
+                secure=secure,
+                samesite="strict",
+                path="/api/auth/refresh",
+                max_age=604800,
             )
 
         # 設定 CSRF token（non-httpOnly，前端 JS 需要讀取）
         csrf_token = generate_csrf_token()
-        set_csrf_cookie(response, csrf_token, is_development=is_dev)
+        set_csrf_cookie(response, csrf_token, is_development=is_dev, request=request)
 
-        logger.info("[AUTH] 已設定認證 cookies (access_token, refresh_token, csrf_token)")
+        logger.info(
+            "[AUTH] 已設定認證 cookies (secure=%s, scheme=%s)",
+            secure, request.url.scheme if request else "n/a",
+        )
 
     @staticmethod
     def clear_auth_cookies(response: Response) -> None:

@@ -17,7 +17,7 @@ CSRF (Cross-Site Request Forgery) 防護模組
 
 import secrets
 import logging
-from typing import Set
+from typing import Optional, Set
 
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -62,20 +62,48 @@ def generate_csrf_token() -> str:
     return secrets.token_hex(CSRF_TOKEN_LENGTH)
 
 
-def set_csrf_cookie(response: Response, csrf_token: str, is_development: bool = False) -> None:
+def is_request_https(request: Optional[Request]) -> bool:
+    """偵測請求是否為 HTTPS（含經 reverse proxy 轉 HTTP→HTTPS 的情況）
+
+    A+B 路徑（2026-05-04）：
+    - A 路：公網 missive.cksurvey.tw（CF Tunnel x-forwarded-proto=https）→ True
+    - B 路：內網 192.168.50.210:8001（HTTP 直連）→ False
+    """
+    if request is None:
+        return False
+    if request.headers.get("x-forwarded-proto", "").lower() == "https":
+        return True
+    if str(request.url).startswith("https://"):
+        return True
+    return False
+
+
+def set_csrf_cookie(
+    response: Response,
+    csrf_token: str,
+    is_development: bool = False,
+    request: Optional[Request] = None,
+) -> None:
     """
     設定 CSRF token cookie（non-httpOnly，前端 JS 需要讀取）
 
     Args:
         response: FastAPI/Starlette Response 物件
         csrf_token: CSRF token 值
-        is_development: 是否為開發環境（影響 Secure flag）
+        is_development: legacy fallback（無 request 時使用）
+        request: 用來偵測實際 scheme（A+B 路徑優先使用）
     """
+    # 有 request 就以實際 scheme 決定 Secure（公網 HTTPS=True、內網 HTTP=False）
+    if request is not None:
+        secure = is_request_https(request)
+    else:
+        secure = not is_development
+
     response.set_cookie(
         key="csrf_token",
         value=csrf_token,
         httponly=False,  # 前端 JS 需要讀取此 cookie
-        secure=not is_development,  # 開發環境允許 HTTP
+        secure=secure,
         samesite="lax",
         path="/",
         max_age=3600,  # 1 小時，與 access_token 同步

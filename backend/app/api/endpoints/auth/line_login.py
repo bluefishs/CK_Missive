@@ -266,7 +266,7 @@ async def line_login_callback(
         )
 
         response = JSONResponse(content=token_response.model_dump(mode="json"))
-        AuthService.set_auth_cookies(response, token_response)
+        AuthService.set_auth_cookies(response, token_response, request=request)
 
         return response
 
