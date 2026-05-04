@@ -113,7 +113,12 @@ export const useNavigationData = (): UseNavigationDataReturn => {
       logger.debug('Raw navigation items received:', items.length, 'items');
       return items;
     },
-    enabled: !permissionsLoading,
+    // F21 (5/04 修復)：只在已登入時 fetch，避免 /entry 登入頁觸發 401 死循環。
+    // user_info 由 setAuthData() 寫入 localStorage（真登入後才有）。
+    // AUTH_DISABLED=true 內網時也允許 fetch（後端會回 mock）。
+    enabled: !permissionsLoading && (
+      isAuthDisabled() || !!localStorage.getItem('user_info')
+    ),
     staleTime: 5 * 60 * 1000, // 5 分鐘內不重新請求
     gcTime: 10 * 60 * 1000,   // 10 分鐘後回收
   });
