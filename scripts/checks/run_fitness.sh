@@ -220,13 +220,26 @@ echo ""
 # ----------------------------------------------------------------------------
 # 14. Wiki Unicode 重名偵測（v6.2 Phase C3，wiki_compiler 寫檔正規化）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[14/14] Wiki Unicode dup check${NC}"
+echo -e "${CYAN}[14/15] Wiki Unicode dup check${NC}"
 # wiki_compiler 寫過 NFC + CJK Compatibility 兩種正規化的同名檔
 # warning-only：dup 不阻擋 ship，但提醒 wiki_compiler 該補 NFC normalize
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/wiki_unicode_dup_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/wiki_unicode_dup_check.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# 15. Integration liveness check（F14 / v3.0 洞察 11 — 8 接觸面活體驗證）
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[15/15] Integration liveness check${NC}"
+# 對 v3.0 SYSTEM_INTEGRATION_REVIEW 8 接觸面 evidence query
+# warning-only：dev 環境 mirror/diary 可能 sparse
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/integration_liveness_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/integration_liveness_check.py || true
 fi
 echo ""
 

@@ -39,7 +39,22 @@ class SelfDiagnosis:
     METRICS_URL = os.getenv("AGENT_METRICS_URL", "http://localhost:8001/metrics")
 
     async def diagnose(self) -> Dict[str, Any]:
-        """跑 6 個健康指標檢查 + 7 個 Gap spot check，回傳 result dict。"""
+        """跑 6 個健康指標檢查 + 7 個 Gap spot check，回傳 result dict。
+
+        F17 (5/04 修復)：開頭強制 refresh memory metrics，避免 cron 排程順序
+        造成「diary 16 檔但 self_diagnosis 報 0 hollow」誤報（Q1 派生事故）。
+        """
+        # F17：強制刷新 Prometheus gauge，使 memory_metrics scrape 即時準確
+        try:
+            from pathlib import Path
+            from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+            project_root = Path(__file__).resolve().parents[3]
+            wiki_memory = project_root / "wiki" / "memory"
+            if wiki_memory.exists():
+                get_memory_wiki_metrics().refresh_from_disk(wiki_memory)
+        except Exception as e:
+            logger.warning("F17 self_diagnosis pre-refresh failed: %s", e)
+
         result: Dict[str, Any] = {
             "evolution_counter_alive": False,
             "evolution_counter_value": 0,
