@@ -104,10 +104,23 @@ class PrometheusMiddleware:
 
 
 def get_metrics_endpoint(registry: Optional[CollectorRegistry] = None):
-    """回傳 Starlette route handler，暴露 /metrics"""
+    """回傳 Starlette route handler，暴露 /metrics
+
+    F26 (5/04 修復)：原來 main.py:958 有第二個 /metrics endpoint 含 shadow
+    baseline injection，但因 line 619 已先註冊本 endpoint → 第二個 dead code。
+    解：把 shadow_baseline_metrics inject 移到本 handler，per-scrape lazy
+    populate 到 global REGISTRY（best-effort，失敗不阻擋核心 metrics）。
+    """
     reg = registry or REGISTRY
 
     async def metrics_handler(request: Request) -> Response:
+        # F26: per-scrape inject shadow baseline metrics (lazy populate)
+        try:
+            from app.core.shadow_baseline_metrics import populate_shadow_metrics
+            populate_shadow_metrics(reg)
+        except Exception:
+            pass  # best-effort，不影響核心 metrics
+
         data = generate_latest(reg)
         return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
