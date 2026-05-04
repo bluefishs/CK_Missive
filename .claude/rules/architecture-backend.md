@@ -61,14 +61,33 @@ CK_Missive/
 
 ## 觀測棧（configs/grafana/ + configs/prometheus/）
 
+> v6.8 重大重構：6 類 metric 集中於 `prometheus_middleware.get_metrics_endpoint()`
+> per-scrape lazy populate（解 F26+F27 dual /metrics endpoint silent fail 事故）
+
 | 類別 | 檔案 | 內容 |
 |---|---|---|
 | Dashboards | `configs/grafana/dashboards/ck-missive-http.json` | HTTP 流量 / 錯誤率 / P50/95/99 latency（6 panels） |
 | Dashboards | `configs/grafana/dashboards/ck-missive-db-pool.json` | Pool 狀態 / 查詢 p95 / 慢查詢（6 panels） |
 | Dashboards | `configs/grafana/dashboards/ck-missive-inference.json` | LLM completion / fallback / rate limit / shadow baseline（7 panels） |
-| Alert rules | `configs/prometheus/alerts.yml` | 4 groups × 12 rules — error_budget / silent_failure / capacity / business |
+| Dashboards | `configs/grafana/dashboards/ck-missive-overview.json` | 系統總覽 |
+| Dashboards | 🆕 `configs/grafana/dashboards/ck-missive-v7-integration.json` | **v6.8 M1 v7.0 4 指標**（channel diversity / reference density / SOUL drift / provider gap）+ 7 天趨勢（6 panels） |
+| Alert rules | `configs/prometheus/alerts.yml` | **5 groups × 17 rules**（v6.8 加 v7_integration_quality 5 rules） |
 | Promtail | `configs/grafana/promtail-pm2.yml` v2 | 5 scrape targets（error / out / app / admin_push / watchdog） |
 | 部署指南 | `configs/grafana/README.md` | CK_DigitalTunnel 端 provisioning 步驟 |
+
+### Prometheus metric 集中清單（v6.8 後）
+
+| 類別 | 來源檔 | 範例 metric |
+|---|---|---|
+| HTTP / middleware | `prometheus_middleware.py` | `http_requests_total` / `http_request_duration_seconds` |
+| 系統 5 metric (F27) | `prometheus_middleware.py` | `ck_missive_app_info` / `ck_missive_up` / `ck_missive_db_healthy` / `ck_missive_memory_rss_bytes` / `ck_missive_cpu_percent` |
+| Memory Wiki 7 gauge + 4 counter | `memory_wiki_metrics.py` | `memory_diary_days_total` / `memory_proposals_pending` / ... |
+| **v7.0 5 gauge (M1+M4)** | `memory_wiki_metrics.py` | `v7_channel_diversity` / `v7_reference_density_diary_pct` / `v7_reference_density_critique_pct` / `v7_soul_drift_lines` / `v7_provider_fidelity_gap_pct` |
+| **F19 fact_check counter** | `memory_wiki_metrics.py` | `agent_synthesis_unsourced_numbers_total` |
+| KG stats | `kg_stats_metrics.py` | `kg_entities_total` / ... |
+| DB pool / query | `db_pool_metrics.py` / `db_query_metrics.py` | pool active / query duration histogram |
+| Inference provider | `inference_provider_metrics.py` | completion / fallback counter |
+| **Shadow baseline 5 gauge (F26)** | `shadow_baseline_metrics.py` | `shadow_baseline_rows_total` / `shadow_baseline_latency_p95_ms` / `shadow_baseline_success_ratio` / `shadow_baseline_call_total` / `shadow_baseline_tool_use_count` |
 
 ## 後端模型結構
 

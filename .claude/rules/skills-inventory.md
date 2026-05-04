@@ -1,16 +1,23 @@
 # Skills / Commands / Agents 清單
 
-> **最後同步**：2026-04-28（v5.10.2，範本治理體系完整收尾）
-> **重大變更**：
+> **最後同步**：2026-05-04（v6.8，v3.0 覆盤實作 + 認證事故鏈完整修復）
+> **v6.8 重大變更**：
+> - **v3.0 覆盤主軸 9 task** 全 done（W0/Q1/Q2/Q3/F14/F15/M1/I5+/A2 — 36 commits）
+> - **5/04 認證事故鏈 10 fix**（auth_disabled / CSRF / refresh / interceptor / SPA cache）
+> - **fitness 7 → 16 step**（+F14 integration_liveness +F15 LINE notify watchdog +9 既有）
+> - **M1 v7.0 4 指標完整鏈**：lite report → Prometheus gauge → alert → Grafana panel
+> - **I5+ wiki topics 5 → 14 aggregate**（vendor/weekly/ADR/ERP/lessons/observability/SOUL/multi-channel/integration）
+> - **F26+F27 雙重 silent fail 修復**：shadow_baseline 救活揭露 ADR-0030 真實 p95=58s 警訊
+> - **acceptance test 11/11 PASS**：`bash scripts/checks/v6_8_acceptance.sh`
+> - **release notes**：`docs/release/v6.8.md`
+>
+> **v5.10.x 變更**（保留歷史）：
 > - **Wave 1-8 services DDD 完整收斂**：73 檔遷移到 12 bounded contexts，0 regression
 > - **LESSONS_REGISTRY v1.0**：22 條 lessons 跨 session 知識 SSOT（L01~L22）
 > - **4 detector 治理三件組**：agent_evolution_health / lessons_drift_check / dead_ui_detector / notify_consumers
 > - **CROSS_REPO_REFERENCE_GUIDE v1.0**：FQID 5 大類別 + 7 consumer registry + PR template
-> - **Fitness 7 step**（前 6 + agent_evolution_health）
-> - **Playbook v2.2**（7 SOP + 1 anti-pattern）
-> - **install-template-to.sh** 跨 repo 一鍵部署 12 fitness 檔
 > - 坤哥為唯一意識體入口（ADR-0023 + ADR-0031）
-> - ADR 治理（ADR-0029）：Active 15 [GREEN] / Archived 14 / Removed 1
+> - ADR 治理（ADR-0029）：v6.8 後 Active 17 / Archived 10 / Removed 1
 
 ## v5.10.x 範本治理體系新增資產（給 lvrland/PileMgmt 等子專案引用）
 
@@ -205,7 +212,11 @@
 | `scripts/checks/service-line-count-check.py` | 後端服務行數監控 (>600L 警告，已修正為觀察而非拆分依據 — 見 feedback_ddd_over_line_count) |
 | `scripts/checks/service_dir_entropy.py` | 🆕 v5.9.6 — services/ 頂層散戶比例（閾值 20%）|
 | `scripts/checks/config_dead_reader_scan.py` | 🆕 v5.9.6 — yaml config dead reader 偵測（ADR-0030 審計配套）|
-| `scripts/checks/run_fitness.sh` | 🆕 v5.9.6 — 本地 fitness runner（零 CI 費用，v5.9.8 升級為 6 step）|
+| `scripts/checks/run_fitness.sh` | 🆕 v5.9.6 — 本地 fitness runner（零 CI 費用，v6.8 升級為 **16 step**）|
+| `scripts/checks/integration_liveness_check.py` | 🆕 v6.8 F14 — 整合鏈活體驗證（v3.0 8 接觸面 evidence query / fitness step 15）|
+| `scripts/checks/line_notify_heartbeat_check.py` | 🆕 v6.8 F15 — LINE notify 7d 推送計數 watchdog（fitness step 16）|
+| `scripts/checks/v7_metrics_report.py` | 🆕 v6.8 M1 — v7.0 4 指標 lite report（取代「成熟度 %」baseline）|
+| `scripts/checks/v6_8_acceptance.sh` | 🆕 v6.8 — 一鍵驗證 36 commits 真活（11 項 sanity check，PASS 11/11 0 fail）|
 | `docs/architecture/STANDARD_REFERENCE.md` | 🆕 v5.9.6 — 跨 repo 架構標準（12 章 + §13 AI-Native UX）|
 | `docs/architecture/SERVICE_CONTEXT_MAP.md` | 🆕 v5.9.6 — 85 散戶 × 16 bounded context 映射 |
 | `docs/ops/baseline-fix-patch-preview.md` | 🆕 v5.9.5 — Hermes baseline 修復 patch 預覽 |

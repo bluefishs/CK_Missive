@@ -2,10 +2,22 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
-> **版本**: v5.10.2（2026-04-28）/ Wave 1-8 完整收斂 + 跨 repo 治理體系 + LESSONS_REGISTRY
-> **最後更新**: 2026-04-28
+> **版本**: v6.8（2026-05-04）/ v3.0 覆盤實作 + 認證事故鏈完整修復 + v7.0 4 指標 baseline
+> **最後更新**: 2026-05-04
 >
 > **近期重大里程碑**：
+> - **v6.8**（36 commits，2026-05-04，5 小時內完成）：
+>   - **v3.0 覆盤主軸 9 task** 全 done（W0/Q1/Q2/Q3/F14/F15/M1/I5+/A2）
+>   - **5/04 認證事故鏈 10 fix**（auth_disabled / CSRF middleware / refresh schema /
+>     interceptor user_info gate / SPA index.html no-cache）
+>   - **M1 v7.0 4 指標完整鏈**：lite report → Prometheus gauge → Alert → Grafana panel
+>   - **I5+ wiki topics 9/9 backlog**（vendor / weekly heatmap / ADR / ERP / lessons /
+>     observability / SOUL evolution / multi-channel / integration health）
+>   - **F25-F27 wiki+observability 修復**：13/14 OK + shadow_baseline 救活
+>     （p95=58s 揭露 ADR-0030 baseline 真實警訊）
+>   - **fitness 14 → 16 step**（+F14 integration_liveness +F15 LINE notify watchdog）
+>   - **acceptance test 11/11 PASS**（`bash scripts/checks/v6_8_acceptance.sh`）
+>   - 詳見：`docs/release/v6.8.md` + `docs/architecture/SYSTEM_INTEGRATION_REVIEW_v3.md`
 > - **v5.10.0 ~ v5.10.2**（42 commits，2026-04-27~04-28）：
 >   - Wave 1-8 services DDD 遷移完整收斂（73 檔 / 12 bounded contexts / 0 regression）
 >   - LESSONS_REGISTRY v1.0（22 條 lessons L01~L22 — 跨 session 知識傳承 SSOT）
@@ -17,10 +29,17 @@
 >   - PR template + consumers.yml 規範化貢獻回流
 >   - Bug fixes: 派工總覽 morning-status 即時刷新 + 認證整合 UI 接通
 > - **v5.9.3 ~ v5.9.9**（37 commits）：ADR-0028~0033 + Qwen 零成本整合 + KG 100% / Wiki 85% / SLO SSOT
-> - **ADR 治理**（ADR-0029）：Active 15 [GREEN] / Archived 14 / Removed 1
-> - **Hermes GO/NO-GO**（ADR-0030）：baseline 472 / soul fidelity 75-80% / **2026-05-20 硬 deadline**
+> - **ADR 治理**（ADR-0029）：Active 17 / Archived 10 / Removed 1（v6.8 加 ADR-0020 v3 提案）
+> - **Hermes GO/NO-GO**（ADR-0030）：v6.8 F26 救活 shadow_baseline → real **p95=58s 警訊**
+>   接近 60s 邊界。5/20 用 `docs/adr/0020-hermes-role-decision-proposal-v3.md` 三方案投票
 > - **坤哥為唯一意識體入口**（ADR-0023 + ADR-0031）：/kunge 7 tabs 統一
 > - **Source Repo 自我治理閉環**：發現→記錄→驗證→範本化→註冊→通知→回流
+> - **v7.0 baseline 量化**（v6.8 取代「成熟度 %」）：
+>   - `v7_channel_diversity = 1`（target ≥ 4）— line only
+>   - `v7_reference_density_diary_pct = 1.1%`（target ≥ 50%）
+>   - `v7_reference_density_critique_pct = 100%` ✓
+>   - `v7_soul_drift_lines = 57`（target ≤ 5）— Missive vs AaaP
+>   - `v7_provider_fidelity_gap_pct` = (待 owner 跑 soul-fidelity-eval.py)
 
 ---
 
