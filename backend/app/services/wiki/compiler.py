@@ -863,6 +863,10 @@ confidence: high
             ("erp_monthly_trend", self._topic_erp_monthly_trend),
             # I5+ phase 5: lessons registry 索引（純檔案掃描）
             ("lessons_registry_index", self._topic_lessons_registry),
+            # I5+ phase 6: observability 端點目錄
+            ("observability_index", self._topic_observability_index),
+            # I5+ phase 7: SOUL 演化史
+            ("soul_evolution_history", self._topic_soul_evolution),
         ]:
             try:
                 results[name] = await fn()
@@ -1275,6 +1279,159 @@ confidence: high
         page_path.write_text(content, encoding="utf-8")
         self.wiki._append_log("compile", f"topic | {slug} ({len(lessons)} lessons)")
         return {"compiled": True, "count": len(lessons)}
+
+    async def _topic_observability_index(self) -> Dict[str, Any]:
+        """I5+ phase 6：observability 端點目錄（grafana dashboards + prometheus alerts）。
+
+        承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #16。
+        """
+        import re
+        import json as _json
+        from pathlib import Path
+        cfg_root = Path(__file__).resolve().parents[4] / "configs"
+        dash_dir = cfg_root / "grafana" / "dashboards"
+        alerts_path = cfg_root / "prometheus" / "alerts.yml"
+
+        # ── grafana dashboards ──
+        dashboards = []
+        if dash_dir.exists():
+            for f in sorted(dash_dir.glob("*.json")):
+                try:
+                    data = _json.loads(f.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                title = data.get("title", f.stem)
+                desc = (data.get("description") or "")[:80]
+                panel_count = len(data.get("panels", []))
+                dashboards.append((f.name, title, desc, panel_count))
+
+        # ── prometheus alerts ──
+        alert_groups: List[tuple] = []
+        if alerts_path.exists():
+            try:
+                text = alerts_path.read_text(encoding="utf-8")
+                for m in re.finditer(r"^  - name:\s*(\S+)", text, re.MULTILINE):
+                    name = m.group(1)
+                    # 計該 group 內 alert 數（從此 name 行到下一 name 行之間）
+                    after = text[m.end():]
+                    next_grp = re.search(r"^  - name:", after, re.MULTILINE)
+                    chunk = after[:next_grp.start()] if next_grp else after
+                    cnt = len(re.findall(r"^      - alert:", chunk, re.MULTILINE))
+                    alert_groups.append((name, cnt))
+            except Exception:
+                pass
+
+        if not dashboards and not alert_groups:
+            return {"compiled": False, "reason": "no observability configs"}
+
+        lines = [
+            f"**統計來源**: configs/grafana/dashboards/ + configs/prometheus/alerts.yml",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "## Grafana Dashboards",
+            "",
+            "| 檔案 | 標題 | Panel 數 | 描述 |",
+            "|------|------|---------:|------|",
+        ]
+        for fname, title, desc, panel_cnt in dashboards:
+            lines.append(f"| `{fname}` | {title[:40]} | {panel_cnt} | {desc} |")
+
+        lines.extend([
+            "",
+            "## Prometheus Alert Groups",
+            "",
+            "| Group | Alert 數 |",
+            "|-------|---------:|",
+        ])
+        for name, cnt in alert_groups:
+            lines.append(f"| `{name}` | {cnt} |")
+        total_alerts = sum(c for _, c in alert_groups)
+        lines.append(f"| **總計** | **{total_alerts}** |")
+
+        slug = "observability 端點目錄"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [configs/grafana, configs/prometheus]\n"
+            f"tags: [架構, observability, monitoring, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log(
+            "compile",
+            f"topic | {slug} ({len(dashboards)} dashboards / {total_alerts} alerts)",
+        )
+        return {
+            "compiled": True,
+            "dashboards": len(dashboards),
+            "alert_groups": len(alert_groups),
+            "total_alerts": total_alerts,
+        }
+
+    async def _topic_soul_evolution(self) -> Dict[str, Any]:
+        """I5+ phase 7：SOUL 演化史（從 wiki/SOUL.md「我的成長」抽取）。
+
+        承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #19。
+        """
+        import re
+        from pathlib import Path
+        soul_path = Path(__file__).resolve().parents[4] / "wiki" / "SOUL.md"
+        if not soul_path.exists():
+            return {"compiled": False, "reason": "wiki/SOUL.md not found"}
+
+        try:
+            text = soul_path.read_text(encoding="utf-8")
+        except Exception as e:
+            return {"compiled": False, "error": f"read failed: {e}"}
+
+        # 抓「我的成長」段落（含直到下一 H2 為止）
+        m = re.search(
+            r"^##\s*我的成長[^\n]*\n(.*?)(?=^##|\Z)",
+            text, re.MULTILINE | re.DOTALL,
+        )
+        if not m:
+            return {"compiled": False, "reason": "「我的成長」section not found in SOUL.md"}
+
+        growth_text = m.group(1).strip()
+        # 計入記次數（每個 H3 或 bullet 都算一次）
+        h3_count = len(re.findall(r"^###\s+", growth_text, re.MULTILINE))
+        bullet_count = len(re.findall(r"^[-*]\s+", growth_text, re.MULTILINE))
+
+        soul_lines = len(text.splitlines())
+
+        lines = [
+            f"**統計來源**: wiki/SOUL.md「我的成長」段落",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"**SOUL.md 總行數**: {soul_lines}",
+            f"**H3 演化事件數**: {h3_count}",
+            f"**Bullet entries**: {bullet_count}",
+            "",
+            "## 我的成長（取自 SOUL.md）",
+            "",
+            growth_text[:3000] + ("..." if len(growth_text) > 3000 else ""),
+        ]
+
+        slug = "SOUL 演化史"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [wiki/SOUL.md]\n"
+            f"tags: [意識體, soul, 演化, kunge, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log(
+            "compile",
+            f"topic | {slug} ({h3_count} events / {bullet_count} bullets)",
+        )
+        return {
+            "compiled": True,
+            "events_h3": h3_count,
+            "bullets": bullet_count,
+            "soul_lines": soul_lines,
+        }
 
     async def _topic_overdue_docs(self) -> Dict[str, Any]:
         """逾期公文 Top 20（依 calendar_event.end_date < today 且 status != completed）。"""
