@@ -233,13 +233,27 @@ echo ""
 # ----------------------------------------------------------------------------
 # 15. Integration liveness check（F14 / v3.0 洞察 11 — 8 接觸面活體驗證）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[15/15] Integration liveness check${NC}"
+echo -e "${CYAN}[15/16] Integration liveness check${NC}"
 # 對 v3.0 SYSTEM_INTEGRATION_REVIEW 8 接觸面 evidence query
 # warning-only：dev 環境 mirror/diary 可能 sparse
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/integration_liveness_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/integration_liveness_check.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# 16. LINE notify 7d heartbeat（F15 / v3.0 洞察 15 — 體感推送 watchdog）
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[16/16] LINE notify 7d heartbeat${NC}"
+# silent skip 對主流程對，但對體感層 silent = 死亡。
+# 連續 7 天 0 推送 → 警報（5/04 5 天無人察覺事故預防）
+# warning-only：dev 環境 cron 可能未跑 / .env 未設皆視為 OK
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/line_notify_heartbeat_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/line_notify_heartbeat_check.py || true
 fi
 echo ""
 
