@@ -54,8 +54,14 @@ class PasswordResetConfirm(BaseModel):
     token: str = Field(..., description="重設 token")
     new_password: str = Field(..., min_length=12, max_length=100, description="新密碼")
 
-class RefreshTokenRequest(BaseModel): # 新增 RefreshTokenRequest
-    refresh_token: str = Field(..., description="刷新令牌")
+class RefreshTokenRequest(BaseModel):
+    """Refresh token 請求 — refresh_token 可從 body 或 httpOnly cookie 取。
+
+    F18 (5/04 事故修復)：原本 refresh_token 是 required，前端送空 body {}
+    時 422 → 前端進入 401→refresh 422→401 死循環。改 Optional 配合
+    session.py refresh_token endpoint 的 cookie fallback 邏輯。
+    """
+    refresh_token: Optional[str] = Field(None, description="刷新令牌（可從 cookie 取）")
 
 # === 回應模型 ===
 
