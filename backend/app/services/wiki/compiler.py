@@ -857,6 +857,10 @@ confidence: high
             ("top_vendors", self._topic_top_vendors),
             # I5+ phase 2: 每週工作流量熱圖
             ("weekly_work_heatmap", self._topic_weekly_work_heatmap),
+            # I5+ phase 3: ADR active 索引（純檔案掃描，無需 DB）
+            ("adr_active_index", self._topic_adr_active_index),
+            # I5+ phase 4: ERP 月度趨勢（報價+開票+請款）
+            ("erp_monthly_trend", self._topic_erp_monthly_trend),
         ]:
             try:
                 results[name] = await fn()
@@ -1054,6 +1058,165 @@ confidence: high
             "compile", f"topic | {slug} ({len(sorted_weeks)}w × {len(sorted_cats)}cat)",
         )
         return {"compiled": True, "weeks": len(sorted_weeks), "categories": len(sorted_cats)}
+
+    async def _topic_adr_active_index(self) -> Dict[str, Any]:
+        """I5+ phase 3：ADR active 索引（掃 docs/adr/ 取 status=accepted）。
+
+        承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #15。
+        純檔案系統掃描，無需 DB；wiki cron 跑一次即更新。
+        """
+        import re
+        from pathlib import Path
+        adr_dir = Path(__file__).resolve().parents[4] / "docs" / "adr"
+        if not adr_dir.exists():
+            return {"compiled": False, "reason": "docs/adr/ not found"}
+
+        adrs: List[tuple] = []  # (number, title, status)
+        for f in sorted(adr_dir.glob("*.md")):
+            try:
+                text = f.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            # 提 ADR number from filename (e.g., 0028-error-contract-...)
+            m_num = re.match(r"^(\d{4})-(.+)\.md$", f.name)
+            if not m_num:
+                continue
+            num = m_num.group(1)
+            slug_from_name = m_num.group(2)
+            # 從 frontmatter 或 H1 取 title
+            m_title = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
+            title = m_title.group(1).strip() if m_title else slug_from_name
+            # 從 status 區塊取狀態
+            m_status = re.search(
+                r"(?:Status|狀態)[:：]\s*([A-Za-z一-鿿]+)",
+                text, re.IGNORECASE,
+            )
+            status = m_status.group(1).strip() if m_status else "?"
+            adrs.append((num, title[:60], status))
+
+        if not adrs:
+            return {"compiled": False, "reason": "no ADR files"}
+
+        # 分類 active / archived / proposal
+        active = [a for a in adrs if a[2].lower() in ("accepted", "active")]
+        proposed = [a for a in adrs if a[2].lower() in ("proposed", "proposal")]
+        other = [a for a in adrs if a not in active and a not in proposed]
+
+        lines = [
+            f"**統計來源**: docs/adr/ 全 {len(adrs)} 篇 frontmatter 解析",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            f"## Active ({len(active)})",
+            "",
+            "| # | Title | Status |",
+            "|---|---|---|",
+        ]
+        for num, title, status in active:
+            lines.append(f"| {num} | {title} | {status} |")
+
+        if proposed:
+            lines.extend([
+                "",
+                f"## Proposed ({len(proposed)})",
+                "",
+                "| # | Title | Status |",
+                "|---|---|---|",
+            ])
+            for num, title, status in proposed:
+                lines.append(f"| {num} | {title} | {status} |")
+
+        if other:
+            lines.extend([
+                "",
+                f"## Other ({len(other)})",
+                "",
+                "| # | Title | Status |",
+                "|---|---|---|",
+            ])
+            for num, title, status in other:
+                lines.append(f"| {num} | {title} | {status} |")
+
+        slug = "ADR 索引"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [docs/adr]\n"
+            f"tags: [架構, ADR, 治理, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log(
+            "compile", f"topic | {slug} ({len(active)} active / {len(adrs)} total)",
+        )
+        return {
+            "compiled": True,
+            "active": len(active),
+            "proposed": len(proposed),
+            "total": len(adrs),
+        }
+
+    async def _topic_erp_monthly_trend(self) -> Dict[str, Any]:
+        """I5+ phase 4：ERP 月度趨勢（報價+開票+請款 過去 6 個月）。
+
+        承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #11。
+        """
+        from app.extended.models.invoice import ExpenseInvoice
+        from sqlalchemy import select as _select, func as _func
+        from datetime import date as _date, timedelta as _td
+
+        cutoff = _date.today() - _td(days=180)
+        # 簡化：以 expense_invoice.created_at 月份分組（後續可加 quotation/billing
+        # 等其他 ERP 表，本 lite 版只覆蓋 invoice）
+        try:
+            rows = (await self.db.execute(
+                _select(
+                    _func.date_trunc("month", ExpenseInvoice.created_at).label("month"),
+                    _func.count().label("invoice_count"),
+                    _func.sum(ExpenseInvoice.amount).label("total_amount"),
+                )
+                .where(ExpenseInvoice.created_at >= cutoff)
+                .group_by("month")
+                .order_by("month")
+            )).all()
+        except Exception as e:
+            return {"compiled": False, "error": f"query failed: {e}"}
+
+        if not rows:
+            return {"compiled": False, "reason": "no expense_invoice last 6 months"}
+
+        lines = [
+            f"**統計來源**: expense_invoices 過去 6 個月 by month",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "| 月份 | 發票筆數 | 累計金額（含稅）|",
+            "|------|---------:|----------------:|",
+        ]
+        total_count = 0
+        total_amount = 0.0
+        for r in rows:
+            month_str = r.month.strftime("%Y-%m") if r.month else "?"
+            cnt = int(r.invoice_count or 0)
+            amt = float(r.total_amount or 0)
+            total_count += cnt
+            total_amount += amt
+            lines.append(f"| {month_str} | {cnt} | NT$ {amt:,.0f} |")
+        lines.append(f"| **6個月總計** | **{total_count}** | **NT$ {total_amount:,.0f}** |")
+
+        slug = "ERP 月度趨勢"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [expense_invoices]\n"
+            f"tags: [統計, ERP, 財務, 趨勢, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log(
+            "compile", f"topic | {slug} ({len(rows)} months / NT$ {total_amount:,.0f})",
+        )
+        return {"compiled": True, "months": len(rows), "total_amount": total_amount}
 
     async def _topic_overdue_docs(self) -> Dict[str, Any]:
         """逾期公文 Top 20（依 calendar_event.end_date < today 且 status != completed）。"""
