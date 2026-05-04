@@ -47,30 +47,40 @@ async def get_current_user_info(
     """
     取得當前登入使用者的詳細資訊 (POST-only 安全模式)
 
-    內網 IP 無需認證即可獲得超級管理員身份
-
-    注意: 此端點委託給 AuthService 處理認證邏輯，
-    保留 db 參數因為 AuthService 需要它。
+    A+B 雙模式（5/04 owner 確認）：
+    - 內網（192.168.x / 10.x / 172.16-31.x / 127.x）+ AUTH_DISABLED → mock superuser
+    - 公網（CF Tunnel x-forwarded-for / cf-connecting-ip）→ 認 cookie 或 header 真認證
     """
+    # 縱深防禦（commit 4ac57f55 同邏輯）：CF 公網一律不走 mock
+    is_public_request = bool(
+        request.headers.get("cf-connecting-ip") or request.headers.get("cf-ray")
+    )
+
     ip_address = request.client.host if request.client else None
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
         ip_address = forwarded_for.split(",")[0].strip()
 
-    if settings.AUTH_DISABLED and is_internal_ip(ip_address):
+    if settings.AUTH_DISABLED and not is_public_request and is_internal_ip(ip_address):
         logger.info(
-            f"[AUTH] Internal/Dev access - IP: {ip_address}, AUTH_DISABLED: {settings.AUTH_DISABLED}"
+            f"[AUTH] /me Internal/Dev access - IP: {ip_address}"
         )
         return UserProfile.model_validate(get_superuser_mock())
 
-    if credentials is None:
+    # 真實認證：優先 Authorization header，再 fallback 到 access_token cookie
+    token = None
+    if credentials is not None:
+        token = credentials.credentials
+    if not token:
+        token = request.cookies.get("access_token")
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="未提供認證憑證",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = credentials.credentials
     user = await AuthService.get_current_user_from_token(db, token)
 
     if not user:
