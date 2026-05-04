@@ -954,89 +954,14 @@ else:
         }
 
 
-# --- Prometheus Metrics 端點 (P4 觀測層) ---
-@app.get("/metrics", tags=["System Monitoring"], include_in_schema=False)
-async def prometheus_metrics():
-    """
-    Prometheus metrics endpoint（無認證，供 Prometheus scraper 使用）
-    """
-    try:
-        from prometheus_client import (
-            CollectorRegistry,
-            Counter,
-            Gauge,
-            generate_latest,
-            CONTENT_TYPE_LATEST,
-        )
-        from starlette.responses import Response
-
-        registry = CollectorRegistry()
-
-        # App info
-        info = Gauge(
-            "ck_missive_app_info",
-            "CK Missive application info",
-            ["version"],
-            registry=registry,
-        )
-        info.labels(version=app.version).set(1)
-
-        # Uptime
-        up = Gauge("ck_missive_up", "CK Missive is up", registry=registry)
-        up.set(1)
-
-        # DB health probe
-        db_healthy = Gauge(
-            "ck_missive_db_healthy",
-            "Database connectivity (1=ok, 0=fail)",
-            registry=registry,
-        )
-        try:
-            from app.db.database import engine as _engine
-            from sqlalchemy import text as _text
-            import sqlalchemy
-
-            async with _engine.connect() as conn:
-                await conn.execute(_text("SELECT 1"))
-            db_healthy.set(1)
-        except Exception:
-            db_healthy.set(0)
-
-        # Process metrics
-        import psutil, os
-
-        process = psutil.Process(os.getpid())
-        mem = Gauge(
-            "ck_missive_memory_rss_bytes",
-            "Resident memory in bytes",
-            registry=registry,
-        )
-        mem.set(process.memory_info().rss)
-
-        cpu = Gauge(
-            "ck_missive_cpu_percent",
-            "CPU usage percent",
-            registry=registry,
-        )
-        cpu.set(process.cpu_percent(interval=0))
-
-        try:
-            from app.core.shadow_baseline_metrics import populate_shadow_metrics
-            populate_shadow_metrics(registry)
-        except Exception as e:
-            import logging as _logging
-            _logging.getLogger(__name__).debug("shadow_baseline_metrics unavailable: %s", e)
-
-        return Response(
-            content=generate_latest(registry),
-            media_type=CONTENT_TYPE_LATEST,
-        )
-    except ImportError:
-        from starlette.responses import JSONResponse
-        return JSONResponse(
-            status_code=501,
-            content={"error": "prometheus-client not installed"},
-        )
+# --- Prometheus Metrics 端點（已移至 prometheus_middleware.py，F27 5/04 移除）---
+# 原 main.py:958 dead /metrics endpoint 因 line 619 prometheus_middleware
+# add_route 先勝出而從未執行（dual endpoint conflict）。
+#
+# F27：5 個系統 metric (app_info/up/db_healthy/mem/cpu) + shadow_baseline
+# 已搬到 prometheus_middleware.get_metrics_endpoint() per-scrape populate。
+#
+# 移除 dead code 避免後續維護混淆。
 
 
 @app.get("/api/debug/cors", tags=["Debug"])
