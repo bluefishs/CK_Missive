@@ -194,6 +194,8 @@ class AgentSynthesizer:
             cleaned = _sc2tc(cleaned)
             # 品質審查：檢查回答是否充分利用資料，必要時請 LLM 改善
             cleaned = await self._quality_review(question, cleaned, tool_results)
+            # F19 (5/04 v3.0 覆盤): fact_check — 偵測 LLM hallucinated 數字
+            self._fact_check_numbers(cleaned, tool_results)
             yield cleaned
         except asyncio.TimeoutError:
             logger.warning("Synthesis timed out after %ds", synthesis_timeout)
@@ -303,6 +305,61 @@ class AgentSynthesizer:
         except Exception as e:
             logger.debug("Quality review LLM call failed: %s", e)
         return answer
+
+    def _fact_check_numbers(
+        self,
+        answer: str,
+        tool_results: List[Dict[str, Any]],
+    ) -> None:
+        """F19 (5/04 v3.0 覆盤洞察 12)：偵測 LLM 編造數字。
+
+        策略：
+        1. 從 answer 提 ≥3 位數字（小數字過多 false positive）
+        2. 從 tool_results 提所有出現過的數字（含 dict values）
+        3. 標記 answer 中數字不在 source 集合的（potential hallucination）
+        4. 僅 log warning（不改 answer，避免 over-correction）
+
+        對應事故：5/03 14:00:40 LLM 回「知識圖譜共 3 個實體」但 tool 回 12118。
+        現在 Q2 (commit dd0ce4db) 已加 summary 引導；此 fact_check 是雙保險。
+        """
+        try:
+            import json
+            import re
+
+            # 1. 從 answer 抓 ≥3 位數字（避免 1-2 位高 false positive）
+            answer_nums = set(re.findall(r"\b\d{3,}\b", answer))
+            if not answer_nums:
+                return
+
+            # 2. 把整個 tool_results 序列化後抓所有數字
+            try:
+                tools_json = json.dumps(tool_results, ensure_ascii=False, default=str)
+            except Exception:
+                return
+            source_nums = set(re.findall(r"\b\d{3,}\b", tools_json))
+
+            # 3. 找 answer 中沒 source 的數字
+            unsourced = answer_nums - source_nums
+            if unsourced:
+                logger.warning(
+                    "[fact_check] potential hallucinated numbers in answer: %s "
+                    "(source had: %d distinct ≥3-digit numbers)",
+                    sorted(unsourced)[:5],  # log 最多 5 個
+                    len(source_nums),
+                )
+                # 後續可選：發 Prometheus metric counter
+                try:
+                    from prometheus_client import Counter
+                    if not hasattr(self.__class__, "_fact_check_counter"):
+                        self.__class__._fact_check_counter = Counter(
+                            "agent_synthesis_unsourced_numbers_total",
+                            "Numbers in synthesis answer not found in tool results",
+                        )
+                    self.__class__._fact_check_counter.inc(len(unsourced))
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.debug("fact_check failed: %s", e)
 
     async def _inject_kg_context(self, tool_results: List[Dict[str, Any]]) -> str:
         """
