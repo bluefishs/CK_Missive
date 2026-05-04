@@ -1627,11 +1627,13 @@ confidence: high
             "|------|------|--------|--------|----------|",
         ]
         for doc_no, subj, sender, end_date in rows:
-            overdue = (today - end_date).days if end_date else 0
+            # F25 修：end_date 可能是 datetime → 取 .date() 才能與 today (date) 相減
+            end_d = end_date.date() if hasattr(end_date, "date") else end_date
+            overdue = (today - end_d).days if end_d else 0
             subj_short = (subj or "")[:40]
             lines.append(
                 f"| {doc_no or '-'} | {subj_short} | {(sender or '-')[:20]} | "
-                f"{end_date} | {overdue} |"
+                f"{end_d} | {overdue} |"
             )
 
         slug = "逾期公文 Top 20"
@@ -1690,15 +1692,18 @@ confidence: high
 
     async def _topic_kg_top_degree(self) -> Dict[str, Any]:
         """KG 高 degree entities Top 10（連線最多的 entity）。"""
+        # F25 修：原 sql 用 entity_edges 但實際 table 是 entity_relationships
+        # （參 backend/app/extended/models/knowledge_graph.py:174）
         rows = (await self.db.execute(
             text(
                 """
-                SELECT ce.canonical_name, ce.entity_type, COUNT(ee.id) AS deg
+                SELECT ce.canonical_name, ce.entity_type, COUNT(er.id) AS deg
                 FROM canonical_entities ce
-                LEFT JOIN entity_edges ee
-                  ON ce.id = ee.source_id OR ce.id = ee.target_id
+                LEFT JOIN entity_relationships er
+                  ON (ce.id = er.source_entity_id OR ce.id = er.target_entity_id)
+                  AND er.invalidated_at IS NULL
                 GROUP BY ce.id, ce.canonical_name, ce.entity_type
-                HAVING COUNT(ee.id) > 0
+                HAVING COUNT(er.id) > 0
                 ORDER BY deg DESC
                 LIMIT 10
                 """
