@@ -39,6 +39,13 @@ MEM_DIARY_APPENDS = "memory_diary_appends_total"
 MEM_PATTERN_EXTRACT_RUNS = "memory_pattern_extract_runs_total"
 MEM_CRYSTAL_APPLIED = "memory_crystal_applied_total"
 
+# ───── M1 v7.0 Gauges (5/04 v3.0 覆盤洞察 14) ─────
+# 取代「成熟度 %」作為新 baseline
+M1_CHANNEL_DIVERSITY = "v7_channel_diversity"
+M1_REF_DENSITY_DIARY = "v7_reference_density_diary_pct"
+M1_REF_DENSITY_CRITIQUE = "v7_reference_density_critique_pct"
+M1_SOUL_DRIFT_LINES = "v7_soul_drift_lines"
+
 
 class MemoryWikiMetrics:
     def __init__(self, registry: Optional[CollectorRegistry] = None):
@@ -81,6 +88,29 @@ class MemoryWikiMetrics:
             MEM_CRYSTAL_APPLIED, "Crystal apply successes", registry=reg,
         )
 
+        # M1 v7.0 gauges (5/04 v3.0 覆盤洞察 14 取代「成熟度 %」)
+        self.v7_channel_diversity = Gauge(
+            M1_CHANNEL_DIVERSITY,
+            "Distinct channels with diary entries last 7 days "
+            "(target: 4 = line+telegram+web+discord)",
+            registry=reg,
+        )
+        self.v7_ref_density_diary = Gauge(
+            M1_REF_DENSITY_DIARY,
+            "Diary entries with KG entity tag, percentage (target: ≥50)",
+            registry=reg,
+        )
+        self.v7_ref_density_critique = Gauge(
+            M1_REF_DENSITY_CRITIQUE,
+            "Critique entries with KG entity tag, percentage (target: ≥80)",
+            registry=reg,
+        )
+        self.v7_soul_drift = Gauge(
+            M1_SOUL_DRIFT_LINES,
+            "SOUL.md line count diff Missive vs AaaP mirror (target: ≤5)",
+            registry=reg,
+        )
+
     def refresh_from_disk(self, wiki_memory_dir: Path) -> None:
         """讀 wiki/memory/* 當下檔數更新 gauges。"""
         def _count(subdir: str, pattern: str = "*.md") -> int:
@@ -109,6 +139,107 @@ class MemoryWikiMetrics:
         self.proposals_total.set(_count("proposals"))
         self.proposals_pending.set(_count_pending_proposals())
         self.autobiographies.set(_count("evolutions", "20*-W*.md"))
+
+        # M1 v7.0 metrics (best-effort，失敗不影響原 metrics)
+        try:
+            self._refresh_v7_metrics(wiki_memory_dir)
+        except Exception:
+            pass
+
+    def _refresh_v7_metrics(self, wiki_memory_dir: Path) -> None:
+        """M1 v7.0 4 個新指標（5/04 v3.0 覆盤洞察 14）。
+
+        從 disk 計算：
+        - channel diversity (diary 7d session 含 line/telegram/web/discord)
+        - reference density diary (含 entity tag 比例)
+        - reference density critique (含 entity 引用比例)
+        - SOUL drift (Missive vs AaaP line diff)
+        """
+        import re
+        from datetime import date, timedelta
+
+        cutoff = date.today() - timedelta(days=7)
+
+        # ── channel diversity (diary 7d) ──
+        diary_dir = wiki_memory_dir / "diary"
+        channels: set = set()
+        if diary_dir.exists():
+            for f in diary_dir.glob("20*.md"):
+                try:
+                    if date.fromisoformat(f.stem) < cutoff:
+                        continue
+                except ValueError:
+                    continue
+                try:
+                    text = f.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+                for ch in ("line", "telegram", "web", "discord", "mcp", "hermes"):
+                    if re.search(rf"session.*{ch}:", text):
+                        channels.add(ch)
+        self.v7_channel_diversity.set(len(channels))
+
+        # ── reference density (diary entries with entity tag) ──
+        if diary_dir.exists():
+            total_entries = 0
+            with_entity = 0
+            for f in diary_dir.glob("20*.md"):
+                try:
+                    if date.fromisoformat(f.stem) < cutoff:
+                        continue
+                except ValueError:
+                    continue
+                try:
+                    text = f.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+                entries = re.findall(r"^## \d{2}:\d{2}:\d{2}", text, re.MULTILINE)
+                total_entries += len(entries)
+                with_entity += len(re.findall(r"\*\*entities\*\*:", text))
+            pct = (with_entity / total_entries * 100) if total_entries else 0.0
+            self.v7_ref_density_diary.set(round(pct, 1))
+
+        # ── reference density (critique entries with entity) ──
+        critique_dir = wiki_memory_dir / "critiques"
+        if critique_dir.exists():
+            crit_total = 0
+            crit_with_entity = 0
+            for f in critique_dir.glob("critique-*.md"):
+                m = re.search(r"critique-(\d{8})", f.name)
+                if not m:
+                    continue
+                try:
+                    dt = date(
+                        int(m.group(1)[:4]),
+                        int(m.group(1)[4:6]),
+                        int(m.group(1)[6:8]),
+                    )
+                    if dt < cutoff:
+                        continue
+                except ValueError:
+                    continue
+                try:
+                    text = f.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+                crit_total += 1
+                if re.search(r"entit(?:y|ies)|kg_entity_id|實體", text, re.IGNORECASE):
+                    crit_with_entity += 1
+            pct_crit = (crit_with_entity / crit_total * 100) if crit_total else 0.0
+            self.v7_ref_density_critique.set(round(pct_crit, 1))
+
+        # ── SOUL drift (Missive vs AaaP) ──
+        # wiki_memory_dir 是 wiki/memory/，往上走兩層到 project root
+        project_root = wiki_memory_dir.parent.parent
+        soul_a = project_root / "wiki" / "SOUL.md"
+        soul_b = project_root.parent / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
+        if soul_a.exists() and soul_b.exists():
+            try:
+                a_lines = len(soul_a.read_text(encoding="utf-8").splitlines())
+                b_lines = len(soul_b.read_text(encoding="utf-8").splitlines())
+                self.v7_soul_drift.set(abs(a_lines - b_lines))
+            except Exception:
+                pass
 
 
 _instance: Optional[MemoryWikiMetrics] = None
