@@ -149,6 +149,41 @@
     },
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "M4 Provider fidelity gap (max-min %) — 跨 provider 人格遵循度差距",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 10},
+              {"color": "red", "value": 15}
+            ]
+          },
+          "unit": "none",
+          "min": 0,
+          "max": 30
+        }
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 18},
+      "id": 6,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "title": "v7-4 Provider Fidelity Gap (M4)",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "v7_provider_fidelity_gap_pct{aggregation=\"24h_avg\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "description": "v7.0 4 metrics 7 day trend",
       "fieldConfig": {
         "defaults": {

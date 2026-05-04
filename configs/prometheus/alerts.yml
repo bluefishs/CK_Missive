@@ -257,3 +257,18 @@ groups:
             v7.0 指標 2b：critique 含 entity tag 比例過低。
             v6.4 commit caf814de I3 已加 entity 自動 tag，
             若此 alert 觸發代表 critic 流程斷或 NER 失效。
+
+      - alert: V7ProviderFidelityGapHigh
+        expr: v7_provider_fidelity_gap_pct{aggregation="24h_avg"} > 15
+        for: 24h
+        labels:
+          severity: warning
+          component: provider_fidelity
+        annotations:
+          summary: "Provider fidelity gap {{ $value }}pp > 15 (連 24h)"
+          description: |
+            v7.0 指標 4：跨 provider 人格遵循度差距過大。
+            ollama/groq/nvidia 中至少兩 provider 的 SOUL fidelity 差距 > 15pp。
+            可能 fallback chain 切換導致用戶體驗大幅波動。
+            診斷：python scripts/checks/soul-fidelity-eval.py
+            log: wiki/memory/evolutions/fidelity_log.jsonl

@@ -163,15 +163,60 @@ def metric_3_soul_drift() -> dict:
 
 
 def metric_4_provider_fidelity_gap() -> dict:
-    """指標 4：Provider fidelity gap（待後端 soul-fidelity-eval endpoint 回填）。
+    """指標 4：Provider fidelity gap（讀 fidelity_log.jsonl 24h average）。
 
-    現階段佔位 — 後續實作可呼叫 scripts/checks/soul-fidelity-eval.py 取
-    Ollama / Groq / NVIDIA 三個 provider 跑 24 query 的 SOUL 一致率，計差距。
+    M4 (5/04 補完)：fidelity_log.jsonl 由 soul-fidelity-eval.py 累積寫入。
+    Owner 月度跑 `python scripts/checks/soul-fidelity-eval.py` 即會 append。
     """
+    log_path = PROJECT_ROOT / "wiki" / "memory" / "evolutions" / "fidelity_log.jsonl"
+    if not log_path.exists():
+        return {
+            "metric": "provider_fidelity_gap",
+            "status": "no fidelity_log.jsonl (尚未跑過 soul-fidelity-eval)",
+            "providers": ["ollama", "groq", "nvidia"],
+            "v7_target": "max gap ≤ 10 percentage points",
+        }
+
+    from datetime import datetime, timedelta, timezone as _tz
+    cutoff = datetime.now(_tz.utc) - timedelta(hours=24)
+    by_provider: dict = {}
+    try:
+        with log_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                    ts = datetime.fromisoformat(rec.get("ts", "").replace("Z", "+00:00"))
+                    if ts < cutoff:
+                        continue
+                    prov = rec.get("provider")
+                    fid = rec.get("fidelity")
+                    if prov and fid is not None:
+                        by_provider.setdefault(prov, []).append(float(fid))
+                except Exception:
+                    continue
+    except Exception as e:
+        return {
+            "metric": "provider_fidelity_gap",
+            "status": f"read failed: {e}",
+            "v7_target": "max gap ≤ 10 percentage points",
+        }
+
+    if len(by_provider) < 2:
+        return {
+            "metric": "provider_fidelity_gap",
+            "status": f"need ≥2 providers, got {len(by_provider)} ({list(by_provider)})",
+            "v7_target": "max gap ≤ 10 percentage points",
+        }
+
+    avg_by_prov = {p: round(sum(v) / len(v) * 100, 1) for p, v in by_provider.items() if v}
+    max_pct = max(avg_by_prov.values())
+    min_pct = min(avg_by_prov.values())
+    gap_pp = round(max_pct - min_pct, 1)
     return {
         "metric": "provider_fidelity_gap",
-        "status": "PLACEHOLDER — 待 v6.9 實作（接 soul-fidelity-eval.py）",
-        "providers": ["ollama", "groq", "nvidia"],
+        "by_provider_24h_avg_pct": avg_by_prov,
+        "gap_pp": gap_pp,
+        "status": "OK" if gap_pp <= 10 else "WARN — exceeds 10pp",
         "v7_target": "max gap ≤ 10 percentage points",
     }
 

@@ -45,6 +45,8 @@ M1_CHANNEL_DIVERSITY = "v7_channel_diversity"
 M1_REF_DENSITY_DIARY = "v7_reference_density_diary_pct"
 M1_REF_DENSITY_CRITIQUE = "v7_reference_density_critique_pct"
 M1_SOUL_DRIFT_LINES = "v7_soul_drift_lines"
+# M4 (5/04 補完)：provider fidelity 從 fidelity_log.jsonl 讀
+M1_PROVIDER_FIDELITY_GAP = "v7_provider_fidelity_gap_pct"
 
 
 class MemoryWikiMetrics:
@@ -108,6 +110,14 @@ class MemoryWikiMetrics:
         self.v7_soul_drift = Gauge(
             M1_SOUL_DRIFT_LINES,
             "SOUL.md line count diff Missive vs AaaP mirror (target: ≤5)",
+            registry=reg,
+        )
+        # M4 (5/04 補完)：provider fidelity gap (max - min) percentage points
+        self.v7_provider_fidelity_gap = Gauge(
+            M1_PROVIDER_FIDELITY_GAP,
+            "Provider fidelity gap (max-min %) across providers from "
+            "fidelity_log.jsonl last 24h (target: ≤10 pp)",
+            ["aggregation"],  # latest / 24h_avg
             registry=reg,
         )
 
@@ -240,6 +250,72 @@ class MemoryWikiMetrics:
                 self.v7_soul_drift.set(abs(a_lines - b_lines))
             except Exception:
                 pass
+
+        # ── M4 provider fidelity gap (從 fidelity_log.jsonl 讀) ──
+        try:
+            self._refresh_provider_fidelity(wiki_memory_dir)
+        except Exception:
+            pass
+
+    def _refresh_provider_fidelity(self, wiki_memory_dir: Path) -> None:
+        """M4 (5/04 補完)：讀 wiki/memory/evolutions/fidelity_log.jsonl
+        計各 provider 24h average fidelity，gap = max - min。
+        """
+        import json as _json
+        from datetime import datetime, timedelta, timezone as _tz
+
+        log_path = wiki_memory_dir / "evolutions" / "fidelity_log.jsonl"
+        if not log_path.exists():
+            return  # 留 0 (cron 沒跑或 placeholder)
+
+        cutoff = datetime.now(_tz.utc) - timedelta(hours=24)
+        by_provider: Dict[str, list] = {}
+        try:
+            with log_path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        rec = _json.loads(line)
+                        ts = datetime.fromisoformat(rec.get("ts", "").replace("Z", "+00:00"))
+                        if ts < cutoff:
+                            continue
+                        prov = rec.get("provider")
+                        fid = rec.get("fidelity")
+                        if prov and fid is not None:
+                            by_provider.setdefault(prov, []).append(float(fid))
+                    except Exception:
+                        continue
+        except Exception:
+            return
+
+        if len(by_provider) < 2:
+            return  # 至少 2 provider 才有 gap
+
+        avg_by_prov = {p: sum(v) / len(v) for p, v in by_provider.items() if v}
+        if not avg_by_prov:
+            return
+        max_fid = max(avg_by_prov.values())
+        min_fid = min(avg_by_prov.values())
+        gap_pp = (max_fid - min_fid) * 100  # percentage points
+        self.v7_provider_fidelity_gap.labels(aggregation="24h_avg").set(round(gap_pp, 1))
+
+        # 也記 latest（每 provider 最新一筆）
+        try:
+            latest_by_prov: Dict[str, float] = {}
+            with log_path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        rec = _json.loads(line)
+                        prov = rec.get("provider")
+                        fid = rec.get("fidelity")
+                        if prov and fid is not None:
+                            latest_by_prov[prov] = float(fid)  # 後讀者覆蓋先讀者
+                    except Exception:
+                        continue
+            if len(latest_by_prov) >= 2:
+                latest_gap = (max(latest_by_prov.values()) - min(latest_by_prov.values())) * 100
+                self.v7_provider_fidelity_gap.labels(aggregation="latest").set(round(latest_gap, 1))
+        except Exception:
+            pass
 
 
 _instance: Optional[MemoryWikiMetrics] = None
