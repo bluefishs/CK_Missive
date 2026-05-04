@@ -1,0 +1,186 @@
+{
+  "annotations": {"list": []},
+  "description": "v7.0 Integration Quality (M1 — 取代「成熟度 %」). 5/04 v3.0 覆盤洞察 14。",
+  "editable": true,
+  "graphTooltip": 0,
+  "id": null,
+  "iteration": 1714800000000,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "跨通道 pattern 多樣性 (target: ≥4 = line+telegram+web+discord)",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 2},
+              {"color": "green", "value": 4}
+            ]
+          },
+          "unit": "none",
+          "min": 0,
+          "max": 6
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "title": "v7-1 跨通道多樣性",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "v7_channel_diversity",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Diary 含 KG entity tag 比例 (target: ≥50%)",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 30},
+              {"color": "green", "value": 50}
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "title": "v7-2a Diary↔KG 連結率",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "v7_reference_density_diary_pct",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Critique 含 KG entity 引用 (target: ≥80%)",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 70},
+              {"color": "green", "value": 80}
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "title": "v7-2b Critique↔KG 引用率",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "v7_reference_density_critique_pct",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "SOUL.md Missive vs AaaP 行數差 (target: ≤5)",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5},
+              {"color": "red", "value": 10}
+            ]
+          },
+          "unit": "none",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "title": "v7-3 SOUL drift",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "v7_soul_drift_lines",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "v7.0 4 metrics 7 day trend",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10},
+          "unit": "none"
+        }
+      },
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
+      "id": 5,
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "table", "placement": "right"}
+      },
+      "title": "v7.0 4 指標 7 天趨勢",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "v7_channel_diversity", "legendFormat": "channel diversity", "refId": "A"},
+        {"expr": "v7_reference_density_diary_pct", "legendFormat": "diary↔KG %", "refId": "B"},
+        {"expr": "v7_reference_density_critique_pct", "legendFormat": "critique↔KG %", "refId": "C"},
+        {"expr": "v7_soul_drift_lines", "legendFormat": "SOUL drift lines", "refId": "D"}
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["ck-missive", "v7", "integration", "kunge"],
+  "templating": {"list": []},
+  "time": {"from": "now-7d", "to": "now"},
+  "timepicker": {},
+  "timezone": "Asia/Taipei",
+  "title": "CK_Missive v7.0 Integration Quality (M1)",
+  "uid": "ck-missive-v7-integration",
+  "version": 1,
+  "weekStart": ""
+}

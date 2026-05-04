@@ -197,3 +197,63 @@ groups:
           description: |
             檢查 logs/backend-error.log 的 scheduler event；
             已配合 scheduler_alert.py Telegram 告警（ADR-0019）。
+
+  # ==========================================================================
+  # v7.0 Integration Quality (M1 — 取代「成熟度 %」)
+  # 5/04 v3.0 覆盤洞察 14：4 個指標衡量真實整合品質
+  # ==========================================================================
+  - name: v7_integration_quality
+    interval: 5m
+    rules:
+      - alert: V7ChannelDiversityLow
+        expr: v7_channel_diversity < 2
+        for: 14d
+        labels:
+          severity: warning
+          component: integration
+        annotations:
+          summary: "跨通道多樣性連 14 天 < 2 (僅 {{ $value }} 通道有 diary)"
+          description: |
+            v7.0 指標 1：跨通道 pattern 多樣性 = {{ $value }}（目標 ≥ 4）。
+            意味 telegram/discord/web 等通道 14 天無對話寫入 diary。
+            可能 hermes channel passthrough 斷鏈，或單一通道用戶。
+            檢查：scripts/checks/v7_metrics_report.py
+
+      - alert: V7DiaryReferenceDensityLow
+        expr: v7_reference_density_diary_pct < 30
+        for: 7d
+        labels:
+          severity: warning
+          component: integration
+        annotations:
+          summary: "Diary entity-tag 連 7 天 < 30% (現 {{ $value }}%)"
+          description: |
+            v7.0 指標 2a：diary 含 KG entity 比例過低。
+            v3.0 review 識別此為「KG↔Memory Wiki 弱」裂縫。
+            修法：planner inject 階段加 entity tag annotation。
+
+      - alert: V7SoulDriftHigh
+        expr: v7_soul_drift_lines > 10
+        for: 1d
+        labels:
+          severity: warning
+          component: cross_repo
+        annotations:
+          summary: "SOUL drift {{ $value }} 行 > 10 (Missive vs AaaP)"
+          description: |
+            v7.0 指標 3：SOUL.md 跨 repo 同步偏離。
+            可能 cron `soul_mirror_sync_job` 沒跑或 AaaP 端有人手改 mirror。
+            修法：bash scripts/sync/sync_soul_to_hermes.sh --apply
+
+      - alert: V7CritiqueReferenceDensityLow
+        expr: v7_reference_density_critique_pct < 70
+        for: 14d
+        labels:
+          severity: warning
+          component: integration
+        annotations:
+          summary: "Critique entity 連 14 天 < 70% (現 {{ $value }}%)"
+          description: |
+            v7.0 指標 2b：critique 含 entity tag 比例過低。
+            v6.4 commit caf814de I3 已加 entity 自動 tag，
+            若此 alert 觸發代表 critic 流程斷或 NER 失效。
