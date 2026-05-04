@@ -877,6 +877,13 @@ confidence: high
             except Exception as e:
                 logger.warning("Aggregate topic %s failed: %s", name, e)
                 results[name] = {"compiled": False, "error": str(e)[:100]}
+            # F25 (5/04 修復)：防 sqlalchemy session 級聯失效（一個 topic
+            # query 失敗會讓後續所有 query 卡 InFailedSQLTransactionError）。
+            # 每 topic 後 rollback 確保 session 乾淨；DB topic 各自起新 transaction。
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
         return results
 
     async def _topic_top_agencies(self) -> Dict[str, Any]:
@@ -1097,8 +1104,10 @@ confidence: high
             m_title = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
             title = m_title.group(1).strip() if m_title else slug_from_name
             # 從 status 區塊取狀態
+            # F25 修正：ADR 實際 pattern 是 `> **狀態**：accepted` (markdown blockquote)
+            # 加 \*\* 兼容 + 去 character class 限制（直接抓到行尾或標點）
             m_status = re.search(
-                r"(?:Status|狀態)[:：]\s*([A-Za-z一-鿿]+)",
+                r"(?:Status|狀態)\*?\*?[:：]\s*\*?\*?([^\n*<>]+?)(?:\s|$|\*|<|>)",
                 text, re.IGNORECASE,
             )
             status = m_status.group(1).strip() if m_status else "?"
