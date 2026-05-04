@@ -912,9 +912,18 @@ if _FRONTEND_INDEX.exists():
             "Frontend index.html exists but assets/ missing — skip mount (run 'npm run build' to generate)"
         )
 
+    # F23 (5/04 事故修復)：index.html no-cache，避免瀏覽器 cache 舊 index 後
+    # 載入已刪除的舊 chunk hash → 404 → 頁面壞 → 用戶誤以為「login 死循環」。
+    # SPA 標準做法：index.html no-cache、assets/* hash-named 可長 cache。
+    _INDEX_NO_CACHE_HEADERS = {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
     @app.get("/", include_in_schema=False)
     async def serve_index():
-        return FileResponse(_FRONTEND_INDEX)
+        return FileResponse(_FRONTEND_INDEX, headers=_INDEX_NO_CACHE_HEADERS)
 
     @app.get("/{spa_path:path}", include_in_schema=False)
     async def spa_fallback(spa_path: str):
@@ -927,7 +936,7 @@ if _FRONTEND_INDEX.exists():
         candidate = _FRONTEND_DIST / spa_path
         if candidate.is_file():
             return FileResponse(candidate)
-        return FileResponse(_FRONTEND_INDEX)
+        return FileResponse(_FRONTEND_INDEX, headers=_INDEX_NO_CACHE_HEADERS)
 else:
     logger.warning(
         "Frontend dist not found at %s — SPA disabled. "
