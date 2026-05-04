@@ -853,6 +853,8 @@ confidence: high
             ("monthly_dispatch_volume", self._topic_monthly_dispatch_volume),
             ("kg_top_degree", self._topic_kg_top_degree),
             ("data_quality_snapshot", self._topic_data_quality_snapshot),
+            # I5+ phase 1 (5/04 v3.0 覆盤派生): 第一個新增 topic
+            ("top_vendors", self._topic_top_vendors),
         ]:
             try:
                 results[name] = await fn()
@@ -907,6 +909,72 @@ confidence: high
         page_path.write_text(content, encoding="utf-8")
         self.wiki._append_log("compile", f"topic | {slug} ({len(top)} agencies)")
         return {"compiled": True, "count": len(top)}
+
+    async def _topic_top_vendors(self) -> Dict[str, Any]:
+        """I5+ phase 1：高頻廠商 Top 10（依 expense_invoice 累計金額）。
+
+        承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #10。
+        """
+        from app.extended.models.invoice import ExpenseInvoice
+        from sqlalchemy import select as _select, func as _func
+        try:
+            rows = (await self.db.execute(
+                _select(
+                    ExpenseInvoice.vendor_id,
+                    _func.count().label("invoice_count"),
+                    _func.sum(ExpenseInvoice.amount).label("total_amount"),
+                )
+                .where(ExpenseInvoice.vendor_id.isnot(None))
+                .group_by(ExpenseInvoice.vendor_id)
+                .order_by(_func.sum(ExpenseInvoice.amount).desc())
+                .limit(10)
+            )).all()
+        except Exception as e:
+            return {"compiled": False, "error": f"query failed: {e}"}
+
+        if not rows:
+            return {"compiled": False, "reason": "no expense_invoice with vendor_id"}
+
+        # 取 vendor name
+        from app.extended.models.core import PartnerVendor
+        vendor_ids = [r.vendor_id for r in rows]
+        vendor_map: Dict[int, str] = {}
+        try:
+            v_rows = (await self.db.execute(
+                _select(PartnerVendor.id, PartnerVendor.name)
+                .where(PartnerVendor.id.in_(vendor_ids))
+            )).all()
+            vendor_map = {v.id: v.name for v in v_rows}
+        except Exception:
+            pass
+
+        lines = [
+            f"**統計來源**: expense_invoices.amount 累計（含稅）",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "| 排名 | 廠商 | 發票筆數 | 累計金額（含稅）|",
+            "|------|------|---------:|----------------:|",
+        ]
+        for i, r in enumerate(rows, 1):
+            name = vendor_map.get(r.vendor_id, f"vendor#{r.vendor_id}")
+            amount = float(r.total_amount or 0)
+            lines.append(
+                f"| {i} | [[entities/{_slugify(name)}|{name[:40]}]] "
+                f"| {r.invoice_count} | NT$ {amount:,.0f} |"
+            )
+
+        slug = "高頻廠商 Top 10"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [expense_invoices, partner_vendors]\n"
+            f"tags: [統計, 廠商, erp, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log("compile", f"topic | {slug} ({len(rows)} vendors)")
+        return {"compiled": True, "count": len(rows)}
 
     async def _topic_overdue_docs(self) -> Dict[str, Any]:
         """逾期公文 Top 20（依 calendar_event.end_date < today 且 status != completed）。"""
