@@ -112,10 +112,32 @@ class AnalysisToolExecutor:
         graph_stats = await svc.get_graph_stats()
         top_entities = await svc.get_top_entities(limit=10)
 
+        # Q2 修復（5/04 v3.0 覆盤洞察）：明示 LLM 使用哪些欄位作 entity 總數，
+        # 避免過去 LLM 從 dict 中亂選小數字（5/03 14:00 誤回「3 個實體」事故）
+        kg_total = graph_stats.get("total_entities", 0) if isinstance(graph_stats, dict) else 0
+        kg_code = graph_stats.get("total_code_entities", 0) if isinstance(graph_stats, dict) else 0
+        kg_relations = graph_stats.get("total_relationships", 0) if isinstance(graph_stats, dict) else 0
+
+        summary_parts = [
+            f"系統共有 {doc_total} 筆公文" + (
+                f"（收文 {doc_by_cat.get('收文',0)}、發文 {doc_by_cat.get('發文',0)}）"
+                if doc_by_cat else ""
+            ),
+            f"知識圖譜共 {kg_total} 個實體（業務 {kg_total - kg_code}、程式碼 {kg_code}）"
+            f"、{kg_relations} 條關係",
+        ]
+        if top_entities:
+            top_names = [e.get("name", "") for e in top_entities[:5] if e.get("name")]
+            if top_names:
+                summary_parts.append(
+                    f"高頻實體 Top 5：{', '.join(top_names)}"
+                )
+
         return {
             "document_total": doc_total or 0,
             "document_by_category": doc_by_cat,
-            "summary": f"系統共有 {doc_total} 筆公文" + (f"（收文 {doc_by_cat.get('收文',0)}、發文 {doc_by_cat.get('發文',0)}）" if doc_by_cat else ""),
+            # 權威 summary：LLM 應直接引用此字串作為事實基礎，不自己從 dict 組合數字
+            "summary": "。".join(summary_parts) + "。",
             "graph_stats": graph_stats,
             "top_entities": top_entities,
             "count": max(doc_total, 10),  # 統計結果充分，防止 ReAct 追加工具
