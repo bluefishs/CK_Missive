@@ -149,7 +149,19 @@ async def get_current_user(
     - 生產環境必須設為 False
     - 開發模式下會返回模擬的超級管理員
     """
-    if settings.AUTH_DISABLED:
+    # 縱深防禦（2026-05-04 事故）：即使 AUTH_DISABLED=true，
+    # 經 Cloudflare Tunnel 進來的公網請求仍強制走真實認證。
+    # 防止將來誤把 AUTH_DISABLED+DEVELOPMENT_MODE 同時打開時，公網變裸奔。
+    is_public_request = bool(
+        request.headers.get("cf-connecting-ip") or request.headers.get("cf-ray")
+    )
+    if settings.AUTH_DISABLED and is_public_request:
+        logger.error(
+            "[AUTH] AUTH_DISABLED=true 但收到 CF 公網請求 — 拒絕 mock，強制真認證 "
+            "(cf-ray=%s)", request.headers.get("cf-ray", "?"),
+        )
+        # fall through to real auth path below
+    elif settings.AUTH_DISABLED:
         logger.warning("[AUTH] 開發模式 - 認證已停用，回傳模擬管理員使用者")
         dev_permissions = [
             "documents:read",
