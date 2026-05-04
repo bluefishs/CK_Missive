@@ -867,6 +867,10 @@ confidence: high
             ("observability_index", self._topic_observability_index),
             # I5+ phase 7: SOUL 演化史
             ("soul_evolution_history", self._topic_soul_evolution),
+            # I5+ phase 8: 多通道整合目錄（line/telegram/discord/hermes-skill）
+            ("multi_channel_index", self._topic_multi_channel_index),
+            # I5+ phase 9: integration health 月報（v3.0 8 接觸面歷史快照）
+            ("integration_health_monthly", self._topic_integration_health),
         ]:
             try:
                 results[name] = await fn()
@@ -1431,6 +1435,154 @@ confidence: high
             "events_h3": h3_count,
             "bullets": bullet_count,
             "soul_lines": soul_lines,
+        }
+
+    async def _topic_multi_channel_index(self) -> Dict[str, Any]:
+        """I5+ phase 8：多通道整合目錄（line/telegram/discord + hermes-skill）。
+
+        承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #17+#18 合併。
+        """
+        from pathlib import Path
+        repo_root = Path(__file__).resolve().parents[4]
+        integration_dir = repo_root / "backend" / "app" / "services" / "integration"
+        hermes_skills_dir = repo_root / "docs" / "hermes-skills"
+
+        channels: List[tuple] = []  # (channel_name, file, line_count)
+        if integration_dir.exists():
+            for f in sorted(integration_dir.glob("*_bot.py")):
+                ch_name = f.stem.replace("_bot", "")
+                try:
+                    line_cnt = len(f.read_text(encoding="utf-8").splitlines())
+                except Exception:
+                    line_cnt = 0
+                channels.append((ch_name, f.name, line_cnt))
+
+        skills: List[tuple] = []  # (skill_name, manifest)
+        if hermes_skills_dir.exists():
+            for skill_dir in sorted(hermes_skills_dir.iterdir()):
+                if not skill_dir.is_dir():
+                    continue
+                manifest = skill_dir / "SKILL.md"
+                if manifest.exists():
+                    try:
+                        text = manifest.read_text(encoding="utf-8")
+                        # 抓 first H1 / title
+                        import re as _re
+                        m = _re.search(r"^#\s+(.+)$", text, _re.MULTILINE)
+                        title = m.group(1).strip() if m else skill_dir.name
+                        skills.append((skill_dir.name, title[:50]))
+                    except Exception:
+                        skills.append((skill_dir.name, skill_dir.name))
+
+        if not channels and not skills:
+            return {"compiled": False, "reason": "no integration / hermes-skills"}
+
+        lines = [
+            f"**統計來源**: backend/app/services/integration/ + docs/hermes-skills/",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            f"## 通道實作（{len(channels)}）",
+            "",
+            "| Channel | File | Lines |",
+            "|---------|------|------:|",
+        ]
+        for ch_name, fname, line_cnt in channels:
+            lines.append(f"| `{ch_name}` | `{fname}` | {line_cnt} |")
+
+        lines.extend([
+            "",
+            f"## Hermes Skills（{len(skills)}）",
+            "",
+            "| Skill Dir | Title |",
+            "|-----------|-------|",
+        ])
+        for sname, title in skills:
+            lines.append(f"| `{sname}` | {title} |")
+
+        slug = "多通道整合目錄"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [backend/app/services/integration, docs/hermes-skills]\n"
+            f"tags: [架構, integration, hermes, line, telegram, discord, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log(
+            "compile", f"topic | {slug} ({len(channels)} channels / {len(skills)} skills)",
+        )
+        return {"compiled": True, "channels": len(channels), "skills": len(skills)}
+
+    async def _topic_integration_health(self) -> Dict[str, Any]:
+        """I5+ phase 9：integration health 月報（v3.0 8 接觸面當下健康度）。
+
+        承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #20。
+        從現有 v7.0 4 個 prometheus gauge + integration_liveness_check 摘要。
+        """
+        # 取 v7 metric 當下值（從 memory_wiki_metrics get_memory_wiki_metrics）
+        try:
+            from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+            m = get_memory_wiki_metrics()
+            # gauge 取值用 ._value.get() 是 prometheus_client 內部 API
+            v_channel = float(m.v7_channel_diversity._value.get())
+            v_diary = float(m.v7_ref_density_diary._value.get())
+            v_critique = float(m.v7_ref_density_critique._value.get())
+            v_drift = float(m.v7_soul_drift._value.get())
+        except Exception as e:
+            return {"compiled": False, "error": f"prometheus gauge read failed: {e}"}
+
+        def _status(value: float, target: float, op: str = ">=") -> str:
+            ok = (value >= target) if op == ">=" else (value <= target)
+            return "✓ OK" if ok else "✗ WARN"
+
+        lines = [
+            f"**統計來源**: prometheus v7 gauges (M1, 5/04 v3.0 覆盤)",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "## v3.0 8 接觸面當下健康度",
+            "",
+            "| 接觸面 | 當前 | 目標 | 狀態 |",
+            "|--------|-----:|-----:|------|",
+            f"| ❼ 跨通道 pattern 多樣性 | {v_channel:.0f} | ≥ 4 | {_status(v_channel, 4)} |",
+            f"| ❺ Diary↔KG entity tag % | {v_diary:.1f}% | ≥ 50% | {_status(v_diary, 50)} |",
+            f"| ❹ Critique↔KG 引用 % | {v_critique:.1f}% | ≥ 80% | {_status(v_critique, 80)} |",
+            f"| ❽ SOUL drift lines | {v_drift:.0f} | ≤ 5 | {_status(v_drift, 5, '<=')} |",
+            "",
+            "## 對應 v3.0 review 洞察",
+            "",
+            "- 洞察 11：整合 commit ≠ 活體運轉，需 fitness step 14",
+            "- 洞察 14：「成熟度 %」已死，v7.0 用以上 4 指標取代",
+            "- 洞察 15：silent skip + 體感層 = 死亡，需 LINE notify watchdog",
+            "",
+            "## 月度 SOP",
+            "",
+            "1. owner 月度跑 `bash scripts/checks/run_fitness.sh`（16 step）",
+            "2. 看 `python scripts/checks/v7_metrics_report.py` 完整報表",
+            "3. Grafana `CK_Missive v7.0 Integration Quality (M1)` dashboard 即時",
+            "4. 連 7/14 天 warn 觸發 alert → owner 處理",
+        ]
+
+        slug = "integration health 月報"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [prometheus v7 gauges]\n"
+            f"tags: [架構, integration, v7, fitness, monthly, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log(
+            "compile",
+            f"topic | {slug} (channel={v_channel:.0f} diary={v_diary:.0f}% drift={v_drift:.0f})",
+        )
+        return {
+            "compiled": True,
+            "channel": v_channel,
+            "diary_pct": v_diary,
+            "critique_pct": v_critique,
+            "drift_lines": v_drift,
         }
 
     async def _topic_overdue_docs(self) -> Dict[str, Any]:
