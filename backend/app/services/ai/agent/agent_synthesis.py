@@ -347,15 +347,11 @@ class AgentSynthesizer:
                     sorted(unsourced)[:5],  # log 最多 5 個
                     len(source_nums),
                 )
-                # 後續可選：發 Prometheus metric counter
+                # F19 v2 (5/04 修): 改用 memory_wiki_metrics 集中管理的 Counter
+                # 啟動就註冊，/metrics 永遠暴露（即使 0），owner 可看到差異。
                 try:
-                    from prometheus_client import Counter
-                    if not hasattr(self.__class__, "_fact_check_counter"):
-                        self.__class__._fact_check_counter = Counter(
-                            "agent_synthesis_unsourced_numbers_total",
-                            "Numbers in synthesis answer not found in tool results",
-                        )
-                    self.__class__._fact_check_counter.inc(len(unsourced))
+                    from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+                    get_memory_wiki_metrics().synthesis_unsourced_numbers.inc(len(unsourced))
                 except Exception:
                     pass
         except Exception as e:

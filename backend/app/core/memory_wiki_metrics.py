@@ -38,6 +38,8 @@ MEM_AUTOBIOS = "memory_autobiographies_total"
 MEM_DIARY_APPENDS = "memory_diary_appends_total"
 MEM_PATTERN_EXTRACT_RUNS = "memory_pattern_extract_runs_total"
 MEM_CRYSTAL_APPLIED = "memory_crystal_applied_total"
+# F19 (5/04): synthesis fact_check 偵測到 LLM 編造數字計數（啟動就註冊）
+SYNTHESIS_UNSOURCED_NUMBERS = "agent_synthesis_unsourced_numbers_total"
 
 # ───── M1 v7.0 Gauges (5/04 v3.0 覆盤洞察 14) ─────
 # 取代「成熟度 %」作為新 baseline
@@ -88,6 +90,14 @@ class MemoryWikiMetrics:
         )
         self.crystal_applied = Counter(
             MEM_CRYSTAL_APPLIED, "Crystal apply successes", registry=reg,
+        )
+        # F19 fact_check counter — 啟動就註冊，避免「動態建立」造成 metric
+        # 在第一次觸發前完全不暴露的問題。
+        self.synthesis_unsourced_numbers = Counter(
+            SYNTHESIS_UNSOURCED_NUMBERS,
+            "Numbers in synthesis answer not found in tool results "
+            "(potential LLM hallucination, F19/v3.0 洞察 12)",
+            registry=reg,
         )
 
         # M1 v7.0 gauges (5/04 v3.0 覆盤洞察 14 取代「成熟度 %」)
