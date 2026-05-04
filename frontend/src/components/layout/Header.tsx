@@ -157,7 +157,22 @@ const Header: React.FC<HeaderProps> = ({
               style={{ backgroundColor: '#1976d2' }}
             />
             <span style={{ color: '#666' }}>
-              {currentUser?.full_name || currentUser?.username || '訪客'}
+              {currentUser?.full_name || currentUser?.username || (
+                // F24 (5/04 debug)：訪客 fallback 加 console.warn 協助診斷
+                // 出現此 fallback = useNavigationData 拿到 currentUser=null
+                // 可能根因：localStorage user_info 缺、saveAuthData race、bundle stale
+                (() => {
+                  if (typeof window !== 'undefined') {
+                    const uinfo = window.localStorage.getItem('user_info');
+                    console.warn(
+                      '[Header] currentUser=null 顯示「訪客」。',
+                      'localStorage.user_info =',
+                      uinfo ? uinfo.slice(0, 200) : 'NULL',
+                    );
+                  }
+                  return '訪客';
+                })()
+              )}
             </span>
           </Space>
         </Dropdown>
