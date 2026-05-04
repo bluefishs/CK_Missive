@@ -21,7 +21,7 @@ from typing import Set
 
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import Response
+from starlette.responses import Response, JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +32,12 @@ CSRF_TOKEN_LENGTH = 32
 CSRF_EXEMPT_PATHS: Set[str] = {
     "/api/auth/login",
     "/api/auth/google",
+    "/api/auth/line/callback",       # LINE login callback（OAuth bootstrap）
     "/api/auth/register",
     "/api/auth/password-reset",
     "/api/auth/password-reset-confirm",
     "/api/auth/verify-email",
+    "/api/secure-site-management/csrf-token",  # CSRF token issue endpoint（雞生蛋）
     "/health",
     "/health/detailed",
     "/",
@@ -142,16 +144,18 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         cookie_csrf = request.cookies.get("csrf_token")
         access_token_cookie = request.cookies.get("access_token")
 
+        # F16 (2026-05-04 事故修復)：在 middleware 內 raise HTTPException 會被
+        # starlette TaskGroup 包成 500（不會被 FastAPI exception handler 接到），
+        # 故此處改為直接 return JSONResponse(403)。
         if not cookie_csrf:
             if access_token_cookie:
-                # Cookie 認證模式下 csrf_token 必須存在，否則拒絕
                 logger.warning(
                     f"[CSRF] Cookie 認證缺少 csrf_token: "
                     f"method={request.method} path={request.url.path}"
                 )
-                raise HTTPException(
+                return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="CSRF 驗證失敗：缺少 csrf_token cookie",
+                    content={"detail": "CSRF 驗證失敗：缺少 csrf_token cookie"},
                 )
             # 純 Authorization header 認證（無 cookie）= 豁免 CSRF
             return await call_next(request)
@@ -164,9 +168,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 f"[CSRF] 缺少 X-CSRF-Token header: "
                 f"method={request.method} path={request.url.path}"
             )
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="CSRF 驗證失敗：缺少 X-CSRF-Token header",
+                content={"detail": "CSRF 驗證失敗：缺少 X-CSRF-Token header"},
             )
 
         # 比較 cookie 和 header 中的 CSRF token
@@ -175,9 +179,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 f"[CSRF] Token 不匹配: "
                 f"method={request.method} path={request.url.path}"
             )
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="CSRF 驗證失敗：token 不匹配",
+                content={"detail": "CSRF 驗證失敗：token 不匹配"},
             )
 
         return await call_next(request)
