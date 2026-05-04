@@ -855,6 +855,8 @@ confidence: high
             ("data_quality_snapshot", self._topic_data_quality_snapshot),
             # I5+ phase 1 (5/04 v3.0 覆盤派生): 第一個新增 topic
             ("top_vendors", self._topic_top_vendors),
+            # I5+ phase 2: 每週工作流量熱圖
+            ("weekly_work_heatmap", self._topic_weekly_work_heatmap),
         ]:
             try:
                 results[name] = await fn()
@@ -975,6 +977,83 @@ confidence: high
         page_path.write_text(content, encoding="utf-8")
         self.wiki._append_log("compile", f"topic | {slug} ({len(rows)} vendors)")
         return {"compiled": True, "count": len(rows)}
+
+    async def _topic_weekly_work_heatmap(self) -> Dict[str, Any]:
+        """I5+ phase 2：每週工作流量熱圖（過去 4 週 work_records by week × category）。
+
+        承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #13。
+        """
+        from app.extended.models.taoyuan import TaoyuanWorkRecord
+        from sqlalchemy import select as _select, func as _func
+        from datetime import date as _date, timedelta as _td
+
+        cutoff = _date.today() - _td(days=28)
+        try:
+            rows = (await self.db.execute(
+                _select(
+                    TaoyuanWorkRecord.work_category,
+                    _func.date_trunc("week", TaoyuanWorkRecord.created_at).label("week"),
+                    _func.count().label("c"),
+                )
+                .where(TaoyuanWorkRecord.created_at >= cutoff)
+                .where(TaoyuanWorkRecord.work_category.isnot(None))
+                .group_by(TaoyuanWorkRecord.work_category, "week")
+                .order_by("week")
+            )).all()
+        except Exception as e:
+            return {"compiled": False, "error": f"query failed: {e}"}
+
+        if not rows:
+            return {"compiled": False, "reason": "no work_records last 28d"}
+
+        # 重組成 week × category 矩陣
+        weeks: Dict[str, Dict[str, int]] = {}
+        all_cats: set = set()
+        for cat, week, count in rows:
+            wk = week.strftime("%m/%d") if week else "?"
+            weeks.setdefault(wk, {})[cat] = count
+            all_cats.add(cat)
+
+        sorted_weeks = sorted(weeks.keys())
+        sorted_cats = sorted(all_cats)
+
+        # markdown table
+        header = "| 週起始 | " + " | ".join(sorted_cats) + " | 週合計 |"
+        sep = "|" + "---|" * (len(sorted_cats) + 2)
+        lines = [
+            f"**統計來源**: taoyuan_work_records 過去 28 天 by category",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+            header,
+            sep,
+        ]
+        for wk in sorted_weeks:
+            row_data = weeks[wk]
+            counts = [str(row_data.get(c, 0)) for c in sorted_cats]
+            total = sum(row_data.values())
+            lines.append(f"| {wk} | " + " | ".join(counts) + f" | **{total}** |")
+
+        # category totals
+        cat_totals = {c: sum(w.get(c, 0) for w in weeks.values()) for c in sorted_cats}
+        totals_row = "| **總計** | " + " | ".join(
+            f"**{cat_totals[c]}**" for c in sorted_cats
+        ) + f" | **{sum(cat_totals.values())}** |"
+        lines.append(totals_row)
+
+        slug = "每週工作流量熱圖"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [taoyuan_work_records]\n"
+            f"tags: [統計, 派工, 工作流量, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log(
+            "compile", f"topic | {slug} ({len(sorted_weeks)}w × {len(sorted_cats)}cat)",
+        )
+        return {"compiled": True, "weeks": len(sorted_weeks), "categories": len(sorted_cats)}
 
     async def _topic_overdue_docs(self) -> Dict[str, Any]:
         """逾期公文 Top 20（依 calendar_event.end_date < today 且 status != completed）。"""
