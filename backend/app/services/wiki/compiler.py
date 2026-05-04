@@ -861,6 +861,8 @@ confidence: high
             ("adr_active_index", self._topic_adr_active_index),
             # I5+ phase 4: ERP 月度趨勢（報價+開票+請款）
             ("erp_monthly_trend", self._topic_erp_monthly_trend),
+            # I5+ phase 5: lessons registry 索引（純檔案掃描）
+            ("lessons_registry_index", self._topic_lessons_registry),
         ]:
             try:
                 results[name] = await fn()
@@ -1217,6 +1219,62 @@ confidence: high
             "compile", f"topic | {slug} ({len(rows)} months / NT$ {total_amount:,.0f})",
         )
         return {"compiled": True, "months": len(rows), "total_amount": total_amount}
+
+    async def _topic_lessons_registry(self) -> Dict[str, Any]:
+        """I5+ phase 5：LESSONS_REGISTRY 索引（22+ lessons L01~ 速查）。
+
+        承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #14。
+        """
+        import re
+        from pathlib import Path
+        registry_path = (
+            Path(__file__).resolve().parents[4]
+            / "docs" / "architecture" / "LESSONS_REGISTRY.md"
+        )
+        if not registry_path.exists():
+            return {"compiled": False, "reason": "LESSONS_REGISTRY.md not found"}
+
+        try:
+            text = registry_path.read_text(encoding="utf-8")
+        except Exception as e:
+            return {"compiled": False, "error": f"read failed: {e}"}
+
+        # 抓 ## L## — title 行
+        lessons: List[tuple] = []
+        for m in re.finditer(r"^##\s+(L\d+)\s+[—-]\s+(.+)$", text, re.MULTILINE):
+            lid = m.group(1)
+            title = m.group(2).strip()
+            lessons.append((lid, title))
+
+        if not lessons:
+            return {"compiled": False, "reason": "no L## headers found"}
+
+        lines = [
+            f"**統計來源**: docs/architecture/LESSONS_REGISTRY.md",
+            f"**編譯時間**: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"**Lessons 總數**: {len(lessons)}",
+            "",
+            "| ID | Lesson Title |",
+            "|----|--------------|",
+        ]
+        for lid, title in lessons:
+            # 標題長度限制 + 移除 markdown 強調
+            clean_title = re.sub(r"[*`]", "", title)[:80]
+            lines.append(f"| {lid} | {clean_title} |")
+
+        slug = "Lessons Registry 索引"
+        page_path = self.wiki.root / "topics" / f"{slug}.md"
+        content = (
+            f"---\ntitle: {slug}\ntype: topic\n"
+            f"created: {datetime.now().strftime('%Y-%m-%d')}\n"
+            f"sources: [docs/architecture/LESSONS_REGISTRY.md]\n"
+            f"tags: [架構, lessons, 治理, auto-compiled]\n"
+            f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
+            f"\n\n## 完整內容\n\n見 [LESSONS_REGISTRY.md](../../docs/architecture/LESSONS_REGISTRY.md)\n"
+        )
+        page_path.write_text(content, encoding="utf-8")
+        self.wiki._append_log("compile", f"topic | {slug} ({len(lessons)} lessons)")
+        return {"compiled": True, "count": len(lessons)}
 
     async def _topic_overdue_docs(self) -> Dict[str, Any]:
         """逾期公文 Top 20（依 calendar_event.end_date < today 且 status != completed）。"""
