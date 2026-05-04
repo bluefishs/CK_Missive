@@ -242,14 +242,15 @@ function createAxiosInstance(): AxiosInstance {
 
       // 處理 401 未授權
       if (error.response?.status === 401 && !AUTH_DISABLED) {
-        // 檢查是否有 refresh token 可用於刷新
-        // 支援 localStorage（向後相容）和 cookie（新機制，由 withCredentials 自動帶上）
+        // 檢查是否曾經登入過（user_info 才是真實認證證據）
+        // F20 (5/04 修復)：原本用 csrf_token cookie 存在 ≠ 已登入。
+        // 後端 commit 128392cb 讓 csrf-token endpoint 對任何訪客都設 cookie，
+        // 導致無痕訪客誤判為「已登入」→ 觸發 refresh → 401 → 死循環。
+        // 改用 user_info（僅 login 成功 setAuthData() 才會寫入 localStorage）。
         const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-        // cookie 中的 refresh_token 是 httpOnly，JS 無法讀取，
-        // 但 withCredentials 會自動附帶到 /api/auth/refresh 路徑
-        const hasRefreshCookie = !!getCookie('csrf_token');  // csrf_token 存在表示有認證 cookies
+        const hasUserInfo = !!localStorage.getItem('user_info');
 
-        if ((refreshToken || hasRefreshCookie) && !originalRequest._retry) {
+        if ((refreshToken || hasUserInfo) && !originalRequest._retry) {
           if (isRefreshing) {
             // 如果正在刷新，等待刷新完成後重試
             return new Promise((resolve) => {
