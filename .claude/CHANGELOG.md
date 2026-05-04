@@ -4,6 +4,72 @@
 
 ---
 
+## [v6.8] - 2026-05-04（v3.0 覆盤交付日 + 5/04 認證事故鏈完整修復）
+
+### 🎯 Release Theme
+
+5 小時 19 commits — v3.0 覆盤從規劃到實作完整交付，並修復同日爆發的
+auth/CSRF/SPA cache 三層事故鏈。
+
+### 💥 19 commits 累計
+
+#### v3.0 覆盤主軸（9 task）
+- `4f0311e4` docs: SYSTEM_INTEGRATION_REVIEW_v3.md（v6.2 → v6.7 + 事故）
+- `dd0ce4db` Q2 get_statistics tool summary 加 KG 權威數字（解 LLM 誤回 3 entities）
+- `612b7bef` Q3 synthesis SSOT 對齊 35s（cloud_llm + 5）
+- `52545ea9` F14 fitness step 15 整合鏈活體驗證 + F17 self_diagnosis 開頭刷 metrics
+- `8f3041ae` F15 fitness step 16 LINE notify 7d watchdog
+- `c1c88d88` M1 v7.0 4 指標 lite report（取代「成熟度 %」baseline）
+- `90e0f895` I5+ wiki topics 9→20 backlog（v6.9 接手者範本）
+- `2341707d` I5+ phase 1 第一個新 topic — top vendors（5→6 aggregate）
+- `6ca587ff` A2 ADR-0020 Hermes 角色終局決策提案 v3（5/20 會議用）
+- `1652c231` F19 synthesis fact_check — 偵測 LLM 編造數字（Q2 派生補強）
+
+#### 5/04 認證事故鏈（10 fix）
+公網 dashboard「無對應 google 帳號」事故 → 7 層 backend + 3 層 frontend：
+- `4ac57f55` AUTH_DISABLED 縱深防禦 — CF 公網強制真認證
+- `fd82a390` F16 CSRF middleware 改 return JSONResponse 不 raise
+- `128392cb` csrf-token endpoint 同時設 cookie（bootstrap）
+- `efa895d9` A+B 雙模式認證（內網 mock 快速 / 公網真實）
+- `048e9851` /api/auth/me 認 cookie + 縱深防禦
+- `6336a4cc` F18 RefreshTokenRequest.refresh_token Optional（解 422→422 死循環）
+- `0ec72f6a` F20 axios interceptor 用 user_info 判已登入（不再無限 refresh）
+- `2808c95f` F21 useNavigationData fetch 須先有 user_info（解 /entry 401 spam）
+- `612b7bef` F22 useTaoyuanContractProjects 加 user_info gate（同上）
+- `d3967de1` F23 index.html no-cache（永久解 SPA 舊 bundle 鬼魂）
+- `9d220728` F24 Header 訪客 fallback 加 console.warn debug
+
+### 📈 v3.0 baseline 量化
+
+F14 fitness step 15 直接驗證 v3.0 覆盤 3 個裂縫真實存在：
+- ❺ KG↔Memory Wiki entity-tag rate = 1% (target ≥50%)
+- ❼ 跨通道 channel diversity = 1 (line only, target ≥4)
+- ❽ SOUL Missive↔AaaP drift = 57 lines (target ≤5)
+
+M1 v7.0 baseline 量出（取代「成熟度 7/7 真活」誤導性指標）。
+
+### 🚦 Fitness 14 → 16 step
+
+新增：
+- step 15: integration_liveness_check.py（F14）
+- step 16: line_notify_heartbeat_check.py（F15）
+
+### 🔮 v6.9 待辦
+
+- I5+ phase 2~11（10 個 topic 待實作，已有 backlog 範本）
+- M1 完整實作（Prometheus gauge + Grafana panel + alert rule）
+- ADR-0020 Phase 1（待 5/20 會議決策）
+- F4 provider fidelity gap（接 soul-fidelity-eval.py）
+
+### 📚 對應文件
+
+- `docs/architecture/SYSTEM_INTEGRATION_REVIEW_v3.md` — v3.0 覆盤主文
+- `docs/architecture/WIKI_TOPICS_BACKLOG.md` — I5+ 11 topic 候選
+- `docs/adr/0020-hermes-role-decision-proposal-v3.md` — 5/20 會議用
+- `docs/runbooks/enable_line_perception_outputs.md` — 5/04 事故 runbook
+
+---
+
 ## [5.10.2] - 2026-04-28（範本治理體系完整收尾 — Cross-Repo Reference v6.0 100%）
 
 ### 🎯 Release Theme
