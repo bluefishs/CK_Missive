@@ -260,6 +260,116 @@
 | **Prevention** | (a) 提案拆分時必先回答 3 個問題：① 內部方法是否屬不同 bounded subdomain？② 拆完後跨檔呼叫多還是單檔內呼叫多？③ 是否有外部消費者目前需要的 pattern？三題若無一個 yes → 不拆 (b) 對比範例：v5.10.2 #1 拆 `ai_stats.py` 692L (混 7 領域 → 拆) vs 本 lesson 不拆 morning_report 1,074L (單一領域) — 領域邊界才是判準 (c) 「行數是結果，不是目標」每次拆分後 commit message 要說明「拆出哪 N 個 bounded subdomain」 |
 | **Refs** | v5.10.2 #6 評估 / `morning_report_service.py` (kept 1,074L) / `agent_orchestrator.py` (kept 642L) / 對比 `ai_stats.py` (拆 692L → 7 檔) / `feedback_ddd_over_line_count.md` |
 
+## L26 — Half-Wired Anti-Pattern Stacking（多層 bug 疊加遮蔽）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 用戶報告「一般使用者看到不該看的選單」，連續 3 次「修了 → 仍可看 → 再修」；單一現象背後 4 層獨立 bug 疊加（P-57 backend schema / P-58 frontend dev mode / P-59 NavTree UX / P-60 DB 資料漂移）。任一層沒修都看到「以為修了仍復現」假象。 |
+| **Cause** | 多層獨立 bug 同時存在時，外層 bug 會 mask 內層 bug。修第一層後外觀沒變不代表沒修，而是被第二層遮住。維護者容易誤判為「上一個 fix 沒生效」而回滾，反而退步。 |
+| **Fix** | v6.8+：建立「**穿透式驗證**」debug 邏輯。每修完一層，以 query「這層的修法在 unit test 通過了嗎」確認 → 若通過但用戶仍復現 → **下一層必有 bug**，繼續挖。將 `failure-sidebar-perm-4layer-stack.md` 立成範本案例。 |
+| **Prevention** | (a) 大 incident debug 必有 task list 標記每層修法獨立 (b) 每修完一層立即 unit test + 文字描述「這層改了什麼會 affect 用戶看到什麼」(c) 用戶仍復現時不要回滾，假設「下一層仍有 bug」繼續挖 (d) 任一層修法都附 regression test 防回退 |
+| **Refs** | `wiki/memory/failures/failure-sidebar-perm-4layer-stack.md` / commits P-57~P-60 / 同類 ADR-0025 13-day dormant |
+
+## L27 — Dev Mode Override Trap（VITE_AUTH_DISABLED 強制覆蓋真實用戶）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | dev 內網 `VITE_AUTH_DISABLED=true` 為求方便，但 `usePermissions.fetchUserPermissions()` 看到此 flag 後直接覆蓋真實 user_info 為 mock superuser → 即使 user 已登入，他們的 role / permissions 也被無視 → dev 永遠以 superuser 視角操作系統，無法測試其他 role |
+| **Cause** | 早期 dev mode 設計目標是「跳過登入流程」但實作為「跳過所有權限檢查」。兩個目標被合併在同一個 flag — 結果 dev mode 不只跳過 login，連身份本身也被改寫。 |
+| **Fix** | P-58（5/07）：新 helper `shouldUseDevMockUser()` — 只在「`VITE_AUTH_DISABLED=true` 且 localStorage 沒真實 user_info」時才回 true。修 7 處 `isAuthDisabled()` 短路 + `useNavigationData` 對應切換 + 4 regression test 鎖定 4 種 case（公網/dev 無登入/dev 有登入/localStorage throw）。 |
+| **Prevention** | (a) 所有 frontend dev override 都採「opt-in fallback」原則：只在沒有真實 state 時介入 (b) 「跳過登入」與「跳過權限」必須是兩個獨立 flag (c) 長期願景：移除 dev short-circuit，改為 dev 內網提供 5 個固定 quick-login 按鈕（superuser / admin / staff / user / unverified）走真實 permission flow |
+| **Refs** | `failure-sidebar-perm-4layer-stack.md` §層 2 / commit P-58 / `shouldUseDevMockUser.test.ts` |
+
+## L29 — Domain score 寫入鏈再次中斷（dict key bug + 涵蓋率不足）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 用戶反映「坤哥自我成長又中斷」。L21 已修 redis import + key typo，但 v6.9 evolution_health 報告 counter=224 累積 OK / 14d 13 次觸發 ✓，**但 domain_scores Redis 全 (no data)** → domain-aware evolution trigger（5 連續低分）永遠不觸發 → 即使某 domain 持續弱仍不會被識別。 |
+| **Cause** | **雙重 silent gap 疊加**：(1) `agent_self_evaluator.evaluate_and_store` L257-258 用 `tool.get("name")` 但 `agent_tool_loop.py:312/381` 實際 append 的 dict key 是 `"tool"` → 永遠拿空字串 → domain 永遠 None (2) `TOOL_DOMAIN_MAP` 只有 19 entries（涵蓋率 < 25% 的 98 個 tool）→ 即使 key 對也大量 tool 無法歸類 (3) `except Exception: pass` silent skip 違反 ADR-0028 → 失敗 0 可見性 |
+| **Fix** | **v6.9 三件組**：(a) `tool.get("tool") or tool.get("name") or ""`（雙 key 容錯，"tool" 優先）(b) 擴 `TOOL_DOMAIN_MAP` 19 → 47 entries 補高頻業務 tool + 引入 `_DOMAIN_PREFIX_RULES` prefix fallback（如 `search_dispatch_*` → dispatch）(c) `silent pass` → `logger.error(..., exc_info=True)` + 新建 `resolve_tool_domain` 統一 resolver。**實證**：8 regression tests 鎖定 `tool` key 契約 + prefix fallback + silent except 防回退 + domain_scores 真活寫入。 |
+| **Prevention** | (a) 跨模組 dict key 必有 contract test 鎖定（避免一邊改 key 另一邊不知）— 本案 `test_tool_loop_appends_with_tool_key` 偵測 source code (b) Static map（如 TOOL_DOMAIN_MAP）必有最低涵蓋率 test — `test_tool_domain_map_has_minimum_coverage` 鎖定 ≥ 40 entries (c) **Domain scores 累積 health check**：擬建 fitness step 22 — 7 天滑動窗 0 domain_scores 寫入 → 警報（這是 L29 真活第一發）(d) silent except 全面 lint（grep `except Exception:\s*pass` 在 services/ai/）月度跑 |
+| **Refs** | v6.9 commit pending / `agent_self_evaluator.py:259-285` / `agent_capability_tracker.py:31-90 + resolve_tool_domain` / 同類 L21（兩次 silent failure 疊加）+ L01（dead integration）+ L25（鏈路驗證需穿透式）/ **這是「dict key contract drift × static map 涵蓋率不足 × silent except」三重疊加教材** |
+
+## L28 — JSON-as-TEXT Schema Drift（DB Text 存 JSON 但忘 parse）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | `site_navigation_items.permission_required = TEXT` 存 JSON 字串如 `'[]'`、`'["x:y"]'`，但 `_item_to_dict` / `nav_repo.get_children_recursive` 直接回傳字串。前端 `'[]'.length === 2 ≠ 0` → filter 失效以詭異方式破壞權限過濾。 |
+| **Cause** | DB 用 TEXT 存 JSON 是常見折衷（避免 JSONB 跨 DB 相容性問題），但 endpoint 沒對應 parse helper → ORM column 型別與 API 對外型別不一致。新加的 `/admin/role-permissions/nav-tree` endpoint **正確** parse，但舊 `/secure-site-management/navigation/action` 漏 parse — schema drift 在 endpoint 層產生。 |
+| **Fix** | P-57（5/07）：endpoint + repo 兩端對齊新增 `_parse_permission_required` helper（None / "" / "[]" / valid JSON / list / 損壞 → 安全 fallback []）。19 unit test 含 alignment test（兩 helper 對相同輸入產出相同結果）。前端 `useNavigationData` fallback 也改為「**只**放行真正空陣列」防禦式雙保險。 |
+| **Prevention** | (a) 所有 `Column(Text, comment="JSON")` 在 dict 化前都過 helper parse + 加 unit test 鎖定型別轉換 (b) 任何 TEXT-as-JSON 欄位寫進 ER diagram comment 並警告「endpoint 必 parse」 (c) Schema drift 偵測：fitness step 加「同一 column 在不同 endpoint 是否型別一致」 (d) 長期願景：能用 JSONB 就不用 Text |
+| **Refs** | `failure-sidebar-perm-4layer-stack.md` §層 1 / commit P-57 / `test_nav_permission_required_parse.py` (19 tests) / 對比正確 implementation：`role_permissions_admin.py` nav-tree endpoint |
+
+## L30 — Pipeline Integration as Priority（環節不連通就是浪費）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | v6.10 retro 揭發：crystals 開了沒人看每日產出 / fitness 跑了沒推 owner / capability_audit 寫了沒接 cron / metrics 暴露了沒人開 dashboard。10 條優化環節有 5 條 RED — 50% dis-integrated。 |
+| **Cause** | 散修文化 — 每次 /loop 修個別零件，沒人負責「上游餵入 + 下游推出」完整性。建好的環節不等於連通的環節。**根因 = 缺中央 Orchestrator + push channel + 視覺化 dashboard**。 |
+| **Fix** | 建 `docs/architecture/OPTIMIZATION_PIPELINE.md` 把 10 條環節畫成連通圖（每節標上下游 + dead segment）+ `backend/app/services/optimization_pipeline_orchestrator.py` 每日 cron 03:00 跑 5 step（fitness / capability_audit / memory_loop / shadow_baseline / precommit_hook）合成 digest + 寫 `wiki/memory/pipeline-reports/YYYY-MM-DD.json`。下一階段接 LINE/Telegram push owner + `/kunge/ops` 加 tab pipeline-health。 |
+| **Prevention** | (a) 任何新 capability 上線前必標明「上游 trigger + 下游 consumer」 — 否則自動視為 dis-integrated 候選 (b) 月度 retro 強制跑 orchestrator + 檢視 daily digest 7d 趨勢 (c) 任何「結果」都不可只停在 stdout / file / DB — 必有 push channel 或 dashboard panel (d) 範本擴增 `install-template-to.sh --include=pipeline,capability` 讓子專案一鍵部署。 |
+| **Refs** | v6.10 retro / `OPTIMIZATION_PIPELINE.md` / `optimization_pipeline_orchestrator.py` / `capability_usage_audit.py` / diary 2026-05-16 owner addendum / 同類 L01 dead integration + L22 跨 repo 引用治理 |
+
+## L31 — ROI = entities × usage_rate（建表不等於用表）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | v6.10 retro 揭發：22,000 KG entities + 117,980 mentions 建好，但 agent 90% query 只用 `search_entities` 一個工具。`search_across_graphs` / `navigate_graph` / `search_tender` / `wiki_*` 全 7d 0% — 4 個 graph tool 完全沒被觸發過，14 個 KG entity_type 0% mention 命中。 |
+| **Cause** | 「建表」與「用表」是兩件事，但日常維護只關注建表（每 sprint 都在加新 entity / endpoint / tool），沒人量測 usage_rate。傳統 ADR-0029 lifecycle 只管 ADR 數量、ADR-0028 silent failure 只管 error 路徑，**沒有任何規範管「建好沒人用」的死投資**。 |
+| **Fix** | (a) 建 `scripts/checks/capability_usage_audit.py`（fitness step 23）— 偵測 tools / KG entity_types / memory loops / ADRs 4 類資產的 7d / 30d usage = 0 (b) 建 `docs/architecture/CAPABILITY_GOVERNANCE.md` — 三層健康度模型（Existence × Usage × Outcome）+ 8 狀態分類 + A/B/C 決策矩陣（Activate / Block-deprecate / Catch-rescue）(c) 對 12 dead capability 立刻分類處置（本 session 啟動 3 改善：cross-graph router rule / CRYSTAL_AUTO_APPLY=live / 條件式 KG 注入）。 |
+| **Prevention** | (a) 任何新 capability 必有 Prometheus counter 確保 usage 可量測（`MODULARIZATION_STANDARDS_v1` §2 強制規範）(b) 月度 ROI 復盤強制執行 — 對 dormant 30d+ capability 必走 A/B/C 決策 (c) 任何「真活宣告」7 天後自動跑 capability audit 驗證 (d) ROI 量化指標：healthy ratio > 80% / dormant > 30d 數 < 20 / 上月決策落實率 > 70%。 |
+| **Refs** | v6.10 retro / `CAPABILITY_GOVERNANCE.md` / `capability_usage_audit.py` / `MODULARIZATION_STANDARDS_v1.md` §2 / diary 2026-05-16 owner addendum / 同類 L20 dead doc 預防 + L01 dead integration |
+
+## L32 — Frontend UI Component 不適合 packaging（LR-015 終局教訓 / 2026-05-18）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | ck-navigation v1.0 ship 14 frontend components (Header/Sidebar/SidebarContent) + 8 hooks → consumer install 後 19 TS errors → 5 層 transitive deps 全部要拷貝 → useMenuItems hardcoded 30+ Missive ROUTES |
+| **Cause** | Frontend UI 強耦合 design system / route schema / permission model — 表面是 UI shell 但實際拉整個 repo 結構假設。step 30 audit 看 keyword 不看 import 鏈，portability score 1.000 ≠ self-contained。 |
+| **Fix** | v2.0 backend-only：刪 frontend layout 全部，只保留 backend 6 檔 + 1 TS type definition (NavigationItem)。lvrland 真採用 → npx tsc exit 0 ✓ |
+| **Prevention** | (a) PACKAGING_PATTERN Rule 9：Frontend UI Component 慎重模組化 (b) fitness step 34 transitive_deps_audit AST-based import 鏈偵測 (c) Frontend artifact 限 type definitions / pure utility hooks (d) 業務 UI shell 由 consumer 自寫 |
+| **Refs** | ADR-0036 §Lessons / PACKAGING_PATTERN.md Rule 7/8/9 / step 34 transitive_deps_audit.py / lvrland Webmap 真採用 evidence (2026-05-18) |
+
+## L33 — Transitive Deps 缺失必致 Half-Wired（LR-015/016 配套）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | install.sh 拷 N 個檔，但每個檔 `import` 的真實依賴未在 manifest 列出 → consumer build/runtime fail |
+| **Cause** | manifest.yml 設計時只列「主要安裝檔」，未追蹤每檔的 transitive deps (env.ts / authService / logger / hooks / common components / utility) — install.sh 機械拷貝主檔，consumer 揭發 5 層 deps 缺失 |
+| **Fix** | (a) manifest schema v1.1 加 `transitive_dependencies` 欄位（framework_deps / schema_deps / runtime_deps）(b) install.sh 加 6-stage 守門：baseline → deps check → dry-run → install → verify build → smoke test (c) step 34 transitive_deps_audit AST 解析 import 鏈交叉驗證 manifest |
+| **Prevention** | (a) 任何新 ck-* package manifest 強制 list transitive_deps (b) step 34 在 fitness gate 阻擋 unlisted_dep > 0 (c) install.sh `--strict` 模式跑 consumer 端 tsc + py_compile 驗證才報 install 成功 (d) 真採用嚴格定義 4 件齊備（install + 編譯 + 啟動 + hook 通過）|
+| **Refs** | LR-015 / LR-016 lvrland session feedback / ADR-0036 §Lessons / manifest.yml v2.0 ck-navigation / step 34 transitive_deps_audit.py |
+
+## L34 — 業務 specific 不可進 shared package（lvrland LR-020 對應 / 2026-05-18）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | ck-navigation v1.0 ship 業務 ROUTES (DOCUMENTS / AGENCIES / DISPATCH) hardcoded 在 useMenuItems.tsx → consumer 完全無對應路由 → install 後立即 19 TS errors |
+| **Cause** | 模組化過程未區分「框架可移植」vs「業務專屬」— useMenuItems 表面是 hook 但實際是業務 navigation tree builder，30+ 個 ROUTES 寫死。lvrland LR-020 揭發：shared package 內絕不可有業務 specific 內容（route / enum / API path / business magic number） |
+| **Fix** | (a) ck-navigation v2.0 完全移除 useMenuItems.tsx (b) PACKAGING_PATTERN Rule 8 No Business Constants Hardcoded (c) 業務 specific items 改 consumer 端 init script seed 入 DB / config |
+| **Prevention** | (a) shared-modules/ 內絕不 import `*ROUTES*` / `*API_ENDPOINTS*` / 業務 enum (b) step 30 keyword audit + step 34 transitive deps audit 雙重 gate (c) 新 package 必過 portability score ≥ 1.000（無 critical / high）才能 release (d) PR review 強制 grep 業務 keyword in shared-modules/ |
+| **Refs** | lvrland LR-020 / PACKAGING_PATTERN.md Rule 8 / step 30 module_portability_audit / ck-navigation v2.0 changelog |
+
+## L35 — 採納前必過 baseline TS check（lvrland LR-019 對應 / 2026-05-18）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | ck-navigation v1.0 install 標榜「14/14 100% PORTABLE 0 conflicts」→ consumer 真 install 後 19 TS errors → revert 才回 0 errors。dry-run conflicts 0 ≠ runtime 可運作 |
+| **Cause** | 「真採用」評估只看 file write + conflict count，**未跑 consumer 端 build/runtime 驗證**。lvrland LR-019 揭發：採納前必須先 npx tsc / py_compile 驗證 baseline，否則 install 是半接通 |
+| **Fix** | (a) ADR-0036 §Lessons 立「真採用嚴格定義」4 件齊備（install + 編譯 + 啟動 + hook 通過）(b) install.sh 加 verify build stage（6-stage 守門）(c) lvrland 揭發 Webmap TS baseline = 0 — 純基線 forward (d) ck-navigation v2.0 在 lvrland 達 TS exit 0 (件 2 通過) |
+| **Prevention** | (a) install.sh `--strict` 模式跑 consumer 端 tsc + py_compile + smoke test 才報 install 成功 (b) consumers.yml `real_adoption_criteria.criteria_met` 必 4/4 才可標記 verified (c) 任何 partial < 4/4 一律標 INSTALLED_PARTIAL_N_OF_4 不可誤稱 VERIFIED |
+| **Refs** | lvrland LR-019 / ADR-0036 §Lessons / consumers.yml v6.10 P1 / install.sh 6-stage 守門（待 v1.1 升級）|
+
+## L36 — Repo Structure Assumption（install.sh 寫死目標路徑 / 2026-05-18）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | ck-navigation v2.0 install.sh 寫死 `backend/app/api/endpoints/`，但 lvrland 用 `backend/app/api/v1/endpoints/` → 檔放錯位置 → 件 3 runtime smoke 失敗（Missive source 內 OK 但 consumer 結構差異）|
+| **Cause** | Package source repo（Missive）的 backend structure 不等於所有 consumer 結構。lvrland 用 `v1/endpoints/` 規約 (API versioning)，pile/AaaP/hermes 可能各自不同。install.sh 不能寫死單一 target path |
+| **Fix** | (a) install.sh 加結構偵測（Option A）：先掃 consumer 是否有 `backend/app/api/v1/endpoints/` 否則 fallback `backend/app/api/endpoints/` (b) manifest.yml 加 `target_patterns` 可配置欄位 (c) 補登 L36 入 LESSONS_REGISTRY (d) 加 PACKAGING_PATTERN Rule 10 「Target Path 必須可配置」 |
+| **Prevention** | (a) install.sh 強制偵測 consumer 結構（不再寫死路徑）(b) 新 ck-* package 必加 target_patterns 多模式 (c) step 35 manifest_drift 加偵測 target_pattern 欄位是否存在 (d) consumer 採納前 owner 確認結構符合任一 target_pattern |
+| **Refs** | lvrland P220 件 3 失敗 evidence (2026-05-18) / ck-navigation v2.0 install.sh / PACKAGING_PATTERN.md Rule 10（待補） |
+
 ## L22 — 範本資產缺跨 repo 引用治理規範
 
 | 欄位 | 內容 |
@@ -269,6 +379,36 @@
 | **Fix** | v5.10.1：建 `CROSS_REPO_REFERENCE_GUIDE.md` 補完規範 — 5 大類別 FQID + 3 引用模式 + SemVer + 月度健檢 SOP + 27 範本資產目錄 + 4 個 consumer anti-pattern |
 | **Prevention** | (a) 新增範本資產時必加 FQID 至 §6 目錄 (b) 升 minor/major 必更新 CHANGELOG `Note for consumers` 段 (c) `notify-consumers.py` (v6.0 規劃) |
 | **Refs** | commit `b3112a9d` / `CROSS_REPO_REFERENCE_GUIDE_v1.0` / 同類 L20 dead doc 預防 |
+
+## L37 — 覆盤報告自身也是「真活宣告 vs 真接通」候選（2026-05-19）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 寫策略級覆盤時，自然會在 §結論 / §演進方向 提出新標準 / 新 ADR / 新原則；但覆盤本身是 day-1 產出，未經 dogfood 即標榜「策略級體檢」。如 RETRO_20260519 §5 提 3 個 ADR 候選 vs §7.4「禁做新建抽象層 / 守護腳本 / 標準文件」自相矛盾，是 LR-015 同型反模式（建好門面 + 自評通過 + 無 dogfood）。|
+| **Cause** | 覆盤代理 / 寫手對自身產出無 ROI 量測機制，傾向「結論越多越專業」。Effort 估計常 3-4 倍樂觀（如 §6 列 5h 但實際 10-13h）。風險分級易用 hyperbole（如 R1「隨時觸發」缺實際 user base 量測）。ROI 量化常混淆「使用率」與「ROI」（前者是分母，後者是分子÷分母）。|
+| **Fix** | v6.10 P1：(a) 覆盤報告必附 `§自我檢視` 段落，列出至少 5 個自己看到的弱點（如 RETRO_20260519 §9 列 7 缺陷）(b) Effort 估計 × 2-3x 緩衝後再對外宣告 (c) 「真活定義」不可依賴掛了的監督機制（如 capability_usage_audit JSON parse fail 期間不可用作真活判定）(d) §禁做 原則必檢查與 §策略提議 自洽 |
+| **Prevention** | (a) 覆盤報告必有「P0 半天可做」清單 + Effort 估計 × 2-3x 緩衝 + 與 §禁做 原則自洽性校驗 (b) §風險 R1-R6 等級宣告必附「實際引爆率量測待補」(c) ROI 量化嚴格區分「使用率」「成本投入」「outcome 量」三維 (d) 報告產出後 7 天 owner check-in：本報告自己有沒有變 dead doc |
+| **Refs** | `docs/architecture/RETRO_20260519_strategic_health_check.md` §9（自我檢視 7 缺陷）/ ADR-0036 §Lessons LR-015 / 同類 L30/L31 dead investment / 覆盤工具自身也犯反模式 = 元教訓 |
+
+## L39 — QueryKey Drift（React Query invalidate silent dead）（2026-05-20）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 用戶報「派工 158 公文對照僅 1 筆又出現 2 筆紀錄（類似問題已多次發生）」。DB + Redis cache 都實際 1 筆，但 UI 顯示 2 筆 — frontend React Query cache stale。深掘揭發：真實 list query 用 `queryKeys.taoyuanDispatch.orders(params)` = `['taoyuan-dispatch-orders', params]`，但所有 mutation invalidate 寫 `['dispatch-orders']` —— **兩個 key 完全不重疊**！5/18 第一次案例已加 invalidate 但 silent dead（永不生效），用戶 5/20 第二次踩 = 慢性 bug 真因。|
+| **Cause** | **與 L29 dict-key drift 同型反模式**：A 邏輯寫 key X、B 邏輯讀 key Y、X≠Y 但兩端都以為對齊 → silent failure 累積。React Query `invalidateQueries({ queryKey: ['dispatch-orders'] })` 對 `useQuery({ queryKey: ['taoyuan-dispatch-orders', ...] })` 不起作用（prefix 不同）。命名漂移源：早期可能用 `['dispatch-orders']`，後改 `queryKeys.taoyuanDispatch.orders()` SSOT 但 invalidate 路徑沒同步更新。5/18 第一次 fix 又再次用舊散戶 key 寫死，沒走 SSOT。|
+| **Fix** | v6.10.1 (5/20): (a) `useDispatchCacheInvalidator.ts`：DISPATCH_ORDERS_KEY 改用 `['taoyuan-dispatch-orders']` + 保留 legacy `['dispatch-orders']` 防其他散戶 query (b) `useDocuments.ts:176`：invalidate 改用 `queryKeys.taoyuanDispatch.all` SSOT + 仍保留 legacy key (c) 清 Redis backend cache `cache:dispatch:list:*` (d) 用戶 Ctrl+Shift+R 後 UI 應變 1 筆。|
+| **Prevention** | (a) 任何 `invalidateQueries({ queryKey: [...] })` 必引用 `queryKeys.<module>.<entity>` SSOT，**禁止散戶手寫字串陣列** (b) 加 fitness step `queryKey_drift_audit.py`：grep 全 codebase invalidate keys vs useQuery keys 做交集 — 任何 invalidate key 未對應任一 query key 即報 (c) `useCacheInvalidator` 類 helper 集中所有 invalidate 入口，禁止 component 內直接呼叫 `invalidateQueries` (d) 任何 chronic bug「類似問題已多次發生」**第一個假設就是 silent dead invalidate / drift / wiring**，不要假設 backend bug |
+| **Refs** | 用戶 5/20 報案（image dispatch=158）/ `frontend/src/hooks/taoyuan/useDispatchCacheInvalidator.ts:36` / `frontend/src/hooks/business/useTaoyuanDispatch.ts:48` / `frontend/src/config/queryConfig.ts` queryKeys.taoyuanDispatch.orders / 同類 L29 dict-key contract drift + L21 redis key 名稱漂移 + L28 JSON-as-TEXT schema drift（drift 反模式三件套）|
+
+## L38 — 平時保險（cron / 異地備份）也是 LR-015 反模式高發區（2026-05-19）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 用戶 5/19 指出「Docker Desktop 升級會清 volume．．．不可發生之錯誤」。盤點發現 CK_Missive 三重風險：(1) Windows Task Scheduler 無 `CK_Missive_Daily_Backup` 任務（5/16 後完全沒跑），但 setup_scheduled_task.ps1 寫了；(2) `backend/config/remote_backup.json` 14 天 `sync_enabled: false`，異地備份 0 次；(3) docker-compose.infra.yml 全用 named volume — Docker Desktop reset / WSL distro unregister 會**全清**。5/12 `ck_missive_backup_20260512_020000.sql` size=0（pg_dump 失敗仍 touch 檔）— 是 ADR-0028 silent failure 的備份版。|
+| **Cause** | 過去討論 LR-015 都聚焦「**新建抽象層 + 自評通過**」（如 ck-navigation v1.0 標榜 portability 1.000 後爆 19 TS errors），但平時保險也是同型反模式：(a) 「排程應該在」≠「排程真在」(b) 「sync_enabled 該 true」≠「實際是 true」(c) 「named volume 可用」≠「升級後仍可用」(d) 「backup 跑完」≠「backup 檔有效」。共同病灶：機制建好後**從未驗證 wiring 真活**。|
+| **Fix** | v6.10 P1（2026-05-19，1.5h 內）：(a) `scripts/backup/pre_upgrade_backup.sh`（96 行）4 層緊急備份（PG custom dump + PG SQL.gz + Redis rdb + 2 個 volume tar）+ NAS 異地同步 (b) `scripts/backup/restore_from_volume_tar.sh`（102 行）bit-perfect 還原 (c) `docs/runbooks/docker-desktop-upgrade-sop.md`（9 段）升級前 / 中 / 後 SOP (d) 立即跑 emergency backup 269MB 本機 + 272MB NAS Z 異地 — pg_dump 79MB / SQL.gz 76MB / Redis rdb 380KB / PG volume tar 193MB / Redis volume tar 149KB |
+| **Prevention** | (a) 所有「保險機制」必每月跑一次 **real restore drill**（非假設）才算真活；本月 5/19 危機即 first drill (b) backup script 必加 `[[ -s "$file" ]]` 0B 檢查 + 失敗 Telegram alert（防 5/12 同類）(c) 用 `Get-ScheduledTask` / cron 真活 probe 補進 `optimization_pipeline_orchestrator` 環節（pipeline-reports JSON 每日記錄 last_run_time）(d) named volume → host bind mount 結構性升級（停機 5min，根除 Docker Desktop reset 風險）(e) `remote_backup.json sync_enabled` 改 true 後加 `sync_status alert`（連續 24h idle → red）|
+| **Refs** | `scripts/backup/pre_upgrade_backup.sh` / `scripts/backup/restore_from_volume_tar.sh` / `docs/runbooks/docker-desktop-upgrade-sop.md` / `RETRO_20260519` §10 / 同類 L01 dead integration + L30 pipeline integration + L37 覆盤自身反模式 |
 
 ---
 

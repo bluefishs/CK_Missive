@@ -13,8 +13,8 @@
 # 跨 repo 引用 FQID: CK_Missive#consumers_v1.0
 # 關聯: docs/architecture/CROSS_REPO_REFERENCE_GUIDE.md §4.3
 
-version: 1.0
-updated: 2026-04-28
+version: 1.1
+updated: 2026-05-18  # v6.10 P0-3: 推 9 條 v6.9 + 4 條 v6.10 範本到 pending_review
 
 # 註冊的 consumer repos
 consumers:
@@ -35,6 +35,21 @@ consumers:
     pending_review:
       - "CK_Missive#WAVE_1_PLAYBOOK_v2.2"
       - "CK_Missive#install-template-to_v1.0"
+      # v6.9 (2026-05-12) 新增 9 條
+      - "CK_Missive#provider_circuit_breaker_v1.0"
+      - "CK_Missive#alias_rls_coverage_audit_v1.0"
+      - "CK_Missive#domain_score_freshness_check_v1.0"
+      - "CK_Missive#metrics_populate_errors_total_v1.0"
+      - "CK_Missive#memory_diary_append_failures_total_v1.0"
+      - "CK_Missive#L29_lesson_v1.0"
+      - "CK_Missive#telegram_permanent_ban_runbook_v1.0"
+      - "CK_Missive#cloudflare_tunnel_outage_runbook_v1.0"
+      - "CK_Missive#prometheus_alerting_degraded_runbook_v1.0"
+      # v6.10 (2026-05-16) 新增 4 條
+      - "CK_Missive#OPTIMIZATION_PIPELINE_v1.0"
+      - "CK_Missive#MODULARIZATION_STANDARDS_v1.0"
+      - "CK_Missive#CAPABILITY_GOVERNANCE_v1.0"
+      - "CK_Missive#capability_usage_audit_v1.0"
 
   # ---------------------------------------------------------------------------
   # hermes-agent — NousResearch Hermes Agent fork
@@ -52,6 +67,10 @@ consumers:
     pending_review:
       - "CK_Missive#agent_evolution_health_v1.0"
       - "CK_Missive#run_fitness_v3.0"
+      # v6.9/v6.10 與 Hermes 控制平面相關
+      - "CK_Missive#provider_circuit_breaker_v1.0"
+      - "CK_Missive#L29_lesson_v1.0"
+      - "CK_Missive#CAPABILITY_GOVERNANCE_v1.0"
 
   # ---------------------------------------------------------------------------
   # CK_lvrland_Webmap — 土地查估 Webmap
@@ -66,6 +85,64 @@ consumers:
       - "CK_Missive#TEMPLATE_EXTRACTION_v1.0"
       - "CK_Missive#STANDARD_REFERENCE_v1.0"
       - "CK_Missive#install-template-to_v1.0"
+      # v6.10 P1 Phase A-D 新增
+      - "CK_Missive#NAMING_CONVENTIONS_v1.0"
+      - "CK_Missive#CONTRACTS_LAYER_GUIDE_v1.0"
+    # v6.10 P1 Phase C dry-run 結果（2026-05-18 試裝）
+    dry_run_results:
+      - fqid: "CK_Missive#ck-auth_v1.0"
+        date: 2026-05-18
+        compatible_files: 19  # 23 - 4 conflicts
+        conflicts: 4
+        conflict_files:
+          - "backend/app/core/auth_service.py"
+          - "backend/app/core/service_auth.py"
+          - "frontend/src/services/authService.ts"
+          - "frontend/src/hooks/utility/useLineLogin.ts"
+        portability_score: 1.000
+        verdict: "PORTABLE_WITH_CONFLICTS"
+        # P0-C (2026-05-19) 警告升級：實際真採用會重演 LR-015
+        force_install_predicted_outcome: "FAILED_HALF_WIRED_LIKE_CK_NAVIGATION_V1"
+        force_install_blockers:
+          - "frontend/components/withAuth.tsx:13 hardcode `import { ROUTES } from '../../router/types'` (LR-015 同型)"
+          - "frontend/hooks/useAuthGuard.ts:15 同樣 hardcode 業務 ROUTES (LR-015 同型)"
+          - "manifest.yml schema v1.0 無 transitive_dependencies 欄位（未對齊 v1.1）"
+          - "frontend artifacts 7 檔（LoginPanel/withAuth/useAuthGuard/useLineLogin/authApi/authService/types）— 同 ck-navigation v1.0 14 個 frontend 檔的縮影"
+          - "ck-navigation v1.0 frontend 5 層 transitive deps 重演機率 > 80%"
+        next_action: |
+          v6.10 P1 後續：對齊 ck-navigation v2.0 模式 — 拆 ck-auth v2.0 BREAKING backend-only：
+          1. 移除 frontend/ 整個目錄（withAuth / useAuthGuard / LoginPanel 由 consumer 自寫）
+          2. 只保留 frontend/types/google-oauth.d.ts（pure type definition）
+          3. manifest.yml schema v1.1 加 transitive_dependencies 欄位
+          4. install.sh 加 6-stage 守門（baseline → deps → dry-run → install → build → smoke）
+          5. 對 lvrland Webmap 跑 --force + npx tsc --noEmit 驗證 exit 0
+        install_recommendation: "INSTALL_PARTIAL_2_OF_4 (1.dry-run OK, 2.frontend TS 必爆, 3.runtime 未測, 4.pre-commit 未測)"
+    # v6.10 P1 第一個真採用 evidence (2026-05-18 20:00 — v1.0 半接通失敗 → v2.0 真活)
+    real_installations:
+      - fqid: "CK_Missive#ck-navigation_v1.0"
+        date: 2026-05-18
+        method: "install.sh --force"
+        verdict: "FAILED_HALF_WIRED"  # LR-015 諷刺對齊事件 — 已 revert
+        evidence: "frontend layout 5 層 transitive deps 半接通 + 19 TS errors + useMenuItems hardcode 業務 ROUTES"
+        outcome: "deprecated → v2.0 backend-only 重設計"
+
+      - fqid: "CK_Missive#ck-navigation_v2.0"
+        date: 2026-05-18T20:00
+        method: "install.sh --force"
+        installed_files: 7   # 6 backend + 1 frontend TS type
+        location:
+          - "backend/app/api/endpoints/secure_site_management/ (5 檔)"
+          - "backend/app/services/system/navigation_sync.py"
+          - "frontend/src/types/navigation.ts"
+        portability_score: 1.000
+        verdict: "INSTALLED_AND_VERIFIED"
+        evidence: |
+          1. install.sh 完成寫入 (7 檔, 0 conflicts)
+          2. lvrland frontend `npx tsc --noEmit --skipLibCheck` exit 0
+          3. backend Python import 通過（須 lvrland 啟動驗證）
+          → 達成「真採用嚴格定義」3/4 條件
+        learning: "v1.0 失敗教 v2.0 — frontend UI 不適合 packaging（PACKAGING_PATTERN Rule 9）"
+        next_action: "lvrland 註冊 navigation_router + DB migration + 啟動 backend smoke test"
 
   # ---------------------------------------------------------------------------
   # CK_lvrland_dataform — LvrLand 表單系統
@@ -91,6 +168,21 @@ consumers:
     pending_review:
       - "CK_Missive#TEMPLATE_EXTRACTION_v1.0"
       - "CK_Missive#install-template-to_v1.0"
+      # v6.10 P1 Phase A-D 新增
+      - "CK_Missive#NAMING_CONVENTIONS_v1.0"
+      - "CK_Missive#CONTRACTS_LAYER_GUIDE_v1.0"
+    # v6.10 P1 Phase C dry-run 結果（2026-05-18 試裝）
+    dry_run_results:
+      - fqid: "CK_Missive#ck-auth_v1.0"
+        date: 2026-05-18
+        compatible_files: 21  # 23 - 2 conflicts
+        conflicts: 2
+        conflict_files:
+          - "backend/app/core/auth_service.py"
+          - "frontend/src/services/authService.ts"
+        portability_score: 1.000
+        verdict: "PORTABLE_WITH_CONFLICTS"
+        next_action: "Owner 決定 --force 升級 vs 保留舊版"
 
   # ---------------------------------------------------------------------------
   # CK_KMapAdvisor — 知識地圖顧問
@@ -139,14 +231,19 @@ asset_compatibility:
 # 月度健檢結果（owner 月度跑 lessons_drift_check 後手動 update）
 # ---------------------------------------------------------------------------
 last_audit:
-  date: 2026-04-28
+  date: 2026-05-18  # v6.10 P0-3 推送
   performed_by: "@bluefishs"
   source_state:
-    commits_in_window: 38
-    lessons_count: 22
-    fitness_steps: 7
+    commits_in_window: 78  # v6.9 41 commits + v6.10 ~37 commits 至 5/18
+    lessons_count: 31  # +L29/L30/L31
+    fitness_steps: 27  # v6.10: 22 → 27（加 step 23-27）
   consumer_drift_summary:
-    healthy: ["CK_AaaP", "hermes-agent"]  # 範本是同步的
+    healthy: []  # ⚠️ v6.10 校正：CK_AaaP/hermes-agent 雖 active 但 adopted_assets ≤1，非「同步」
+    actively_reviewing: ["CK_AaaP", "hermes-agent"]
     pending_first_adoption: ["CK_lvrland_Webmap", "CK_lvrland_dataform", "CK_PileMgmt"]
     observation_only: ["CK_KMapAdvisor"]
     deprecated: ["CK_Showcase"]
+  warnings:
+    - "v6.9 9 條範本 + v6.10 4 條範本目前 0 個 consumer 採用（pending_review only）"
+    - "需執行 notify-consumers.py --dry-run 推送提醒，目標 6/01 前至少 CK_AaaP 採用 5 條"
+    - "consumer_drift_summary.healthy 過往被誇大 — 實際採用率 1/14 ≈ 7%"
