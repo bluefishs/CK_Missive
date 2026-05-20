@@ -1,0 +1,23 @@
+{
+  "_comment": "P0-E (2026-05-19) alias_rls_coverage_audit baseline lock — 修一個減一個，禁淨增加",
+  "_origin": "RETRO_20260519_strategic_health_check.md §6 + ADR-0025 半接通防範 SOP",
+  "_first_baseline_date": "2026-05-19",
+  "_first_baseline_total_risks": 29,
+  "_rationale": "v6.10 P0-2 (5/18) 擴大偵測後揭發 29 個 unaudited user filter，本 baseline 鎖死避免 silent 累積；任何新 PR 使 risks > 29 即 fail",
+  "baselines": {
+    "endpoint": 4,
+    "repository": 8,
+    "service": 16
+  },
+  "total_baseline": 28,
+  "target_v7_0": 5,
+  "_target_rationale": "v7.0 目標：總 risks ≤ 5（業務面 0 friction + RLSPort 真接通 90% bounded contexts）",
+  "_last_update": "2026-05-20",
+  "_history": [
+    {
+      "date": "2026-05-20",
+      "risks": 28,
+      "change": "-1 notification_repository P0 接通 RLSPort"
+    }
+  ]
+}

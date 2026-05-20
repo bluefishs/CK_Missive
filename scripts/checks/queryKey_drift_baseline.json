@@ -1,0 +1,16 @@
+{
+  "_comment": "L39 (2026-05-20) queryKey drift baseline — 修一個減一個，禁淨增加",
+  "_origin": "RETRO_20260519_strategic_health_check.md §12 + L39 lesson",
+  "_first_baseline_date": "2026-05-20",
+  "_rationale": "v6.10.1 揭發 12 silent dead → v6.10.2 #4 + audit regex fix + dispatch-orders/navigation cleanup → dead = 0 達成 v7.0 目標",
+  "total_baseline": 0,
+  "dead_tokens_at_baseline": [],
+  "_history": [
+    {"date": "2026-05-20", "dead": 10, "change": "v6.10.1 baseline first lock — admin-users / adminUsers 4 處已修"},
+    {"date": "2026-05-20", "dead": 8, "change": "v6.10.2 #4 — document-dispatch-links + document-project-links 轉 useQuery"},
+    {"date": "2026-05-20", "dead": 2, "change": "v6.10.2 audit regex fix — 支援 useQuery<TypeParam>() 泛型；揭發 6 個原誤判 (mfa-status/profile/wiki-*/case-finance-expenses)"},
+    {"date": "2026-05-20", "dead": 0, "change": "v6.10.2 L39 全清 — 4 處 ['dispatch-orders'] legacy 移除（SSOT 已涵蓋）+ 1 處 ['navigation'] drift 修為 'site-navigation'"}
+  ],
+  "target_v7_0": 0,
+  "_target_rationale": "v7.0 目標達成：dead = 0；下一步 (v6.11) — pre-commit lint 強制 invalidate 必引用 queryKeys.* SSOT，禁止字面陣列"
+}
