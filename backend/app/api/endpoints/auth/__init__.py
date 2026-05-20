@@ -25,6 +25,7 @@ from .login_history import router as login_history_router
 from .email_verify import router as email_verify_router
 from .mfa import router as mfa_router
 from .line_login import router as line_login_router
+from .sso_bridge import router as sso_bridge_router  # v6.11 ADR-0001 CK_Website#0001
 
 # 重要：re-export get_current_user 供外部模組匯入
 from .common import get_current_user, get_client_info, is_internal_ip, get_superuser_mock
@@ -39,6 +40,7 @@ router.include_router(login_history_router)
 router.include_router(email_verify_router)
 router.include_router(mfa_router)
 router.include_router(line_login_router)
+router.include_router(sso_bridge_router)  # POST /api/auth/sso-bridge
 
 __all__ = [
     "router",

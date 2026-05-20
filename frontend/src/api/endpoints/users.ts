@@ -55,6 +55,8 @@ export const AUTH_ENDPOINTS = {
   LOGOUT: '/auth/logout',
   /** 刷新 Token POST /auth/refresh */
   REFRESH: '/auth/refresh',
+  /** SSO Bridge POST /auth/sso-bridge — ADR-0001 CK_Website#0001 */
+  SSO_BRIDGE: '/auth/sso-bridge',
   /** 當前使用者 POST /auth/me */
   ME: '/auth/me',
   /** 認證狀態檢查 POST /auth/check */
@@ -131,6 +133,18 @@ export const ADMIN_USER_MANAGEMENT_ENDPOINTS = {
   ROLE_PERMISSIONS_UPDATE: (role: string) => `/admin/user-management/roles/${role}/permissions/update`,
   /** 列出所有角色 POST /admin/user-management/roles/list */
   ROLES_LIST: '/admin/user-management/roles/list',
+  /** ADR-0034 動態角色權限：列所有 role POST */
+  ROLE_PERMISSIONS_LIST: '/admin/role-permissions/list',
+  /** ADR-0034 動態角色權限：取單一 role POST */
+  ROLE_PERMISSIONS_GET: '/admin/role-permissions/get',
+  /** ADR-0034 動態角色權限：更新 role POST */
+  ROLE_PERMISSIONS_UPDATE_DYNAMIC: '/admin/role-permissions/update',
+  /** ADR-0034 動態角色權限：可分派 permission 全集 POST */
+  ROLE_PERMISSIONS_AVAILABLE: '/admin/role-permissions/available',
+  /** ADR-0034 動態角色權限：同步指定 role 的所有 user.permissions POST */
+  ROLE_PERMISSIONS_SYNC_USERS: '/admin/role-permissions/sync-users',
+  /** ADR-0034 動態角色權限：取 nav 階層樹 + 對應 perm 反查 POST */
+  ROLE_PERMISSIONS_NAV_TREE: '/admin/role-permissions/nav-tree',
   /** 管理員解鎖帳號 POST /admin/user-management/users/:id/unlock */
   USERS_UNLOCK: (id: number) => `/admin/user-management/users/${id}/unlock`,
   /** 管理員綁定 LINE POST /admin/user-management/users/:id/line-bind */

@@ -110,6 +110,35 @@ const AUTH_DISABLED = import.meta.env['VITE_AUTH_DISABLED'] === 'true';
 const requestThrottler = new RequestThrottler();
 
 // ============================================================================
+// SSO Bridge — ADR-0001 / CK_Website#0001
+// 401 後嘗試用 www.cksurvey.tw 的 ck_employee cookie 建立 Missive session
+// 成功 → reload 頁面套用新 session；失敗 → 走原本登入流程
+// ============================================================================
+
+let ssoBridgeAttempted = false;  // 同次 session 內最多試一次，避免 retry loop
+
+async function attemptSSOBridge(): Promise<boolean> {
+  if (ssoBridgeAttempted) return false;
+  ssoBridgeAttempted = true;
+  try {
+    const res = await axios.post(
+      `${API_BASE_URL}${AUTH_ENDPOINTS.SSO_BRIDGE}`,
+      {},
+      { withCredentials: true, timeout: 8000 },
+    );
+    if (res.status === 200) {
+      logger.log('[SSO-BRIDGE] succeeded; reloading');
+      window.location.reload();
+      return true;
+    }
+    return false;
+  } catch (e) {
+    logger.log('[SSO-BRIDGE] not available or failed; falling through to login', e);
+    return false;
+  }
+}
+
+// ============================================================================
 // 建立 Axios 實例
 // ============================================================================
 
@@ -294,7 +323,7 @@ function createAxiosInstance(): AxiosInstance {
             }
             return instance(originalRequest);
           } catch (refreshError) {
-            // 刷新失敗，清除認證資訊並跳轉登入
+            // 刷新失敗，清除認證資訊
             isRefreshing = false;
             localStorage.removeItem(ACCESS_TOKEN_KEY);
             localStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -303,19 +332,27 @@ function createAxiosInstance(): AxiosInstance {
             document.cookie = 'csrf_token=; Path=/; Max-Age=0';
 
             if (!window.location.pathname.includes('/login')) {
-              window.location.href = '/login';
+              // ADR-0001：跳登入前先試 SSO bridge（成功會 reload，失敗才走 login）
+              const ssoOk = await attemptSSOBridge();
+              if (!ssoOk) {
+                window.location.href = '/login';
+              }
             }
             throw ApiException.fromAxiosError(error);
           }
         } else {
-          // 沒有 refresh token，直接清除並跳轉
+          // 沒有 refresh token，清除並嘗試 SSO bridge
           localStorage.removeItem(ACCESS_TOKEN_KEY);
           localStorage.removeItem(REFRESH_TOKEN_KEY);
           localStorage.removeItem('user_info');
           document.cookie = 'csrf_token=; Path=/; Max-Age=0';
 
           if (!window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
+            // ADR-0001：跳登入前先試 SSO bridge
+            const ssoOk = await attemptSSOBridge();
+            if (!ssoOk) {
+              window.location.href = '/login';
+            }
           }
         }
       }

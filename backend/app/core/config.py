@@ -91,6 +91,23 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # CK SSO Bridge 設定（ADR-0001 / CK_Website#0001 — www.cksurvey.tw 員工 SSO）
+    # =========================================================================
+    CK_SSO_ENABLED: bool = Field(
+        default=False,
+        description="是否啟用 SSO bridge endpoint (/api/auth/sso-bridge)。"
+                    "啟用後員工可從 www.cksurvey.tw 登入後跨域 SSO 進 Missive，"
+                    "不取代任何既有認證（內網 IP / Google / LINE 完全保留）。"
+                    "灰度上線：先 false 部署 → 自己用一天 → 才開啟。"
+    )
+    CK_SSO_JWT_SECRET: Optional[str] = Field(
+        default=None,
+        description="與 Cloudflare Pages JWT_SECRET 完全相同的 HMAC 密鑰，"
+                    "用於驗證 ck_employee cookie 簽章。HS256, issuer=cksurvey.tw。"
+                    "缺失時 SSO bridge 自動回 503（fail-safe）。"
+    )
+
+    # =========================================================================
     # Google OAuth & Calendar 設定
     # =========================================================================
     GOOGLE_CLIENT_ID: Optional[str] = None
