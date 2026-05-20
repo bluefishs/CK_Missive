@@ -7,13 +7,50 @@
 所有 API 端點都應使用這些通用 Schema 作為回應格式。
 """
 
-from typing import TypeVar, Generic, Optional, List, Any, Dict
-from datetime import datetime
+from typing import TypeVar, Generic, Optional, List, Any, Dict, Union
+from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 
 # 泛型類型變數
 T = TypeVar('T')
+
+
+# ============================================================================
+# 共用 Validator — SSOT（v6.10.1 / 2026-05-20）
+# ============================================================================
+
+def validate_date_ordering(
+    start: Optional[Union[date, datetime]],
+    end: Optional[Union[date, datetime]],
+    actual_end: Optional[Union[date, datetime]] = None,
+) -> None:
+    """共用日期順序驗證 — schema SSOT。
+
+    觸發事件：document_calendar_events 表 984 筆中 10 筆 end_date < start_date 顛倒
+    （事件 1081: 2026-05-22 18:00 → 2026-05-13 12:00），導致 UI 顯示異常。
+
+    用於所有 start_date + end_date 雙欄位 schema：
+      - PMCase{Create,Update}（pm/case.py 既有）
+      - DocumentCalendarEvent{Create,Update,IntegratedCreate}（已補）
+      - 漸進補完候選：document / einvoice_sync / pm/staff / project / project_staff / project_vendor
+
+    Args:
+        start: 開始日期/時間
+        end: 結束日期/時間
+        actual_end: 實際結束日期（PMCase 場景，可選）
+
+    Raises:
+        ValueError: end 早於 start 時拋
+    """
+    if start and end and end < start:
+        raise ValueError(
+            f"結束日期 ({end}) 不得早於開始日期 ({start})"
+        )
+    if actual_end and start and actual_end < start:
+        raise ValueError(
+            f"實際結束日期 ({actual_end}) 不得早於開始日期 ({start})"
+        )
 
 
 # ============================================================================

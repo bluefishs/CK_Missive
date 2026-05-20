@@ -273,6 +273,30 @@ class AIConnector(AIConnectorManagementMixin):
             except Exception:
                 pass
 
+        # R6 (v6.9 / 2026-05-09): circuit breaker integration helpers
+        # 模組已驗證（15/15 unit tests），這裡接入 ai_connector fallback chain。
+        # 連續 N 次失敗 → 5min skip 該 provider，省下重試浪費（每次 5–30s）。
+        def _cb_is_open(provider: str) -> bool:
+            try:
+                from app.core.provider_circuit_breaker import get_circuit_breaker
+                return get_circuit_breaker().is_open(provider)
+            except Exception:
+                return False  # CB 失效時退回原 fallback 邏輯
+
+        def _cb_record_success(provider: str) -> None:
+            try:
+                from app.core.provider_circuit_breaker import get_circuit_breaker
+                get_circuit_breaker().record_success(provider)
+            except Exception:
+                pass
+
+        def _cb_record_failure(provider: str) -> None:
+            try:
+                from app.core.provider_circuit_breaker import get_circuit_breaker
+                get_circuit_breaker().record_failure(provider)
+            except Exception:
+                pass
+
         # Ollama-First 路徑（NER、批次、非即時任務 — 本地無限量）
         if prefer_local:
             try:
@@ -324,7 +348,12 @@ class AIConnector(AIConnectorManagementMixin):
                 pass
 
         # 嘗試 Groq API（雲端、免費）— 含重試機制 + 429 立即 fallback
-        if self.groq_api_key and not _skip_groq_for_context:
+        # R6 (v6.9): circuit breaker — Groq 連續失敗時 skip 走 NVIDIA，省 retry 浪費
+        _groq_circuit_open = _cb_is_open("groq")
+        if _groq_circuit_open:
+            logger.info("Groq circuit OPEN → skip 直接走 NVIDIA（省 retry 浪費）")
+            _record_fallback("groq", "nvidia", "circuit_open")
+        if self.groq_api_key and not _skip_groq_for_context and not _groq_circuit_open:
             last_error: Optional[Exception] = None
             for attempt in range(MAX_RETRIES + 1):
                 try:
@@ -342,6 +371,7 @@ class AIConnector(AIConnectorManagementMixin):
                         response_format=response_format,
                     )
                     self._last_provider = "groq"
+                    _cb_record_success("groq")  # R6: 成功 → 重置失敗計數
                     return await _track_and_return(result, "groq", groq_model)
                 except httpx.TimeoutException as e:
                     last_error = e
@@ -376,9 +406,15 @@ class AIConnector(AIConnectorManagementMixin):
                     break
             if last_error:
                 logger.warning("Groq API 最終失敗: %s", last_error)
+                _cb_record_failure("groq")  # R6: retry 全敗 → 失敗計數 +1，N 次後 OPEN
 
         # 嘗試 NVIDIA Cloud API（高品質 49B 模型）
-        if self.nvidia_api_key:
+        # R6: NVIDIA circuit OPEN 時 skip 直接走 Ollama
+        _nvidia_circuit_open = _cb_is_open("nvidia")
+        if _nvidia_circuit_open:
+            logger.info("NVIDIA circuit OPEN → skip 直接走 Ollama")
+            _record_fallback("nvidia", "ollama", "circuit_open")
+        if self.nvidia_api_key and not _nvidia_circuit_open:
             try:
                 logger.info("嘗試 NVIDIA Cloud API (model=%s)...", NVIDIA_DEFAULT_MODEL)
                 result = await self._nvidia_completion(
@@ -386,9 +422,11 @@ class AIConnector(AIConnectorManagementMixin):
                     response_format=response_format,
                 )
                 self._last_provider = "nvidia"
+                _cb_record_success("nvidia")  # R6
                 return await _track_and_return(result, "nvidia", NVIDIA_DEFAULT_MODEL)
             except Exception as e:
                 logger.warning("NVIDIA Cloud API 失敗: %s", e)
+                _cb_record_failure("nvidia")  # R6
 
         # 嘗試 Ollama（本地）
         try:
@@ -399,9 +437,11 @@ class AIConnector(AIConnectorManagementMixin):
                 images=images,
             )
             self._last_provider = "ollama"
+            _cb_record_success("ollama")  # R6
             return await _track_and_return(result, "ollama", ollama_model)
         except Exception as e:
             logger.warning("Ollama 失敗: %s", e)
+            _cb_record_failure("ollama")  # R6
 
         # 最終備援
         logger.error("所有 AI 服務均不可用，使用預設回應")
@@ -894,7 +934,27 @@ class AIConnector(AIConnectorManagementMixin):
         return False
 
     def _generate_fallback_response(self, question: str) -> str:
-        """生成智慧備用回應（公文相關）"""
+        """生成智慧備用回應（公文相關）
+
+        P0-D (2026-05-19): 加 metric counter 記錄 all-providers-OPEN 終態。
+        這條路徑代表 Groq/NVIDIA/Ollama 三 provider 全失敗，用戶會看到
+        罐頭回應而非真實 AI 輸出 — 必須立即觸發 InferenceCannedFallback alert。
+        修 R4 silent gap（5/15 揭發後 4 天無 counter）。
+        """
+        # Fire-and-forget metric write — 失敗不阻擋備援路徑
+        try:
+            from app.core.inference_provider_metrics import (
+                get_inference_provider_metrics,
+            )
+
+            get_inference_provider_metrics().record_fallback(
+                from_provider=getattr(self, "_last_provider", None) or "unknown",
+                to_provider="canned",
+                reason="all_providers_open",
+            )
+        except Exception as e:
+            logger.warning("canned fallback counter write skipped: %s", e)
+
         fallback_responses = {
             "公文": "這是一份公文，建議您確認收發類別與處理狀態後進行適當歸檔。",
             "函": "此為「函」類公文，通常用於機關間業務聯繫或答復事項。",

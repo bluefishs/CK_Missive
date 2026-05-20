@@ -58,11 +58,25 @@ async def batch_create_calendar_events(
 
     Args:
         db: 資料庫連線
-        created_by: 建立者 ID
+        created_by: 建立者 ID — v6.10.1 (2026-05-20): 必填，None 將 raise ValueError
 
     Returns:
         批次處理結果
+
+    Raises:
+        ValueError: created_by is None
+            起因：5/20 揭發歷史 batch 跑時未傳 created_by → 884/984 (90%) NULL owner
+                  大規模 dormant（calendar list filter NULL ≠ any user → 不可見）。
+                  業務面已用 RLS NULL fallback 暫時解（公開事件視為對所有人可見），
+                  但源頭治本：禁止 batch 再產出 NULL owner 事件。
     """
+    # v6.10.1 源頭治本：禁 NULL created_by 累積（同 E 修法）
+    if created_by is None:
+        raise ValueError(
+            "batch_create_calendar_events: created_by 必填 — "
+            "歷史 NULL 已造成 90% 大規模 dormant。請傳 system user ID 或 admin ID。"
+        )
+
     logger.info("開始批次建立行事曆事件...")
 
     builder = CalendarEventAutoBuilder(db)

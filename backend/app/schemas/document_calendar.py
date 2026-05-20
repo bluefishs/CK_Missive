@@ -9,8 +9,11 @@ Pydantic schemas for Document Calendar Integration
   - v1.1.0: 修正 priority 欄位類型為 str 以與資料庫 VARCHAR 一致
 """
 from typing import Optional, List, Dict, Any, Annotated
-from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
+from pydantic import BaseModel, Field, BeforeValidator, ConfigDict, model_validator
 from datetime import datetime
+
+# v6.10.1: 改用 common.py SSOT helper (DRY，避免重複定義同型 validator)
+from app.schemas.common import validate_date_ordering
 
 
 # ============================================================================
@@ -95,6 +98,12 @@ class DocumentCalendarEventCreate(BaseModel):
     reminder_enabled: Optional[bool] = True
     reminder_minutes: Optional[int] = 60
 
+    @model_validator(mode="after")
+    def _check_date_order(self):
+        validate_date_ordering(self.start_date, self.end_date)
+        return self
+
+
 class IntegratedEventCreate(BaseModel):
     """整合式事件建立 (事件+提醒+同步一站完成)
 
@@ -113,6 +122,12 @@ class IntegratedEventCreate(BaseModel):
     reminders: List[ReminderConfig] = Field(default_factory=list, description="提醒設定列表")
     sync_to_google: bool = Field(False, description="是否同步至 Google Calendar")
 
+    @model_validator(mode="after")
+    def _check_date_order(self):
+        validate_date_ordering(self.start_date, self.end_date)
+        return self
+
+
 class DocumentCalendarEventUpdate(BaseModel):
     """Schema for updating a document calendar event (POST 機制)"""
     event_id: int = Field(..., description="事件 ID")
@@ -129,6 +144,12 @@ class DocumentCalendarEventUpdate(BaseModel):
     assigned_user_id: Optional[int] = None
     reminder_enabled: Optional[bool] = None
     reminder_minutes: Optional[int] = None
+
+    @model_validator(mode="after")
+    def _check_date_order(self):
+        # v6.10.1: Update 也防呆 — Optional 兩端皆 None 時 helper 直接 return
+        validate_date_ordering(self.start_date, self.end_date)
+        return self
 
 class BatchUpdateStatusRequest(BaseModel):
     """批次更新事件狀態"""

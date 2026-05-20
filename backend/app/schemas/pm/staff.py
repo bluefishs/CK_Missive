@@ -1,7 +1,10 @@
 """PM 案件人員 Schemas"""
 from typing import Optional
 from datetime import date, datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
+
+# v6.10.1 (2026-05-20): 日期防呆 SSOT helper
+from app.schemas.common import validate_date_ordering
 
 
 class PMCaseStaffCreate(BaseModel):
@@ -15,6 +18,11 @@ class PMCaseStaffCreate(BaseModel):
     end_date: Optional[date] = None
     notes: Optional[str] = Field(None, max_length=300)
 
+    @model_validator(mode="after")
+    def _check_date_order(self):
+        validate_date_ordering(self.start_date, self.end_date)
+        return self
+
 
 class PMCaseStaffUpdate(BaseModel):
     """更新案件人員"""
@@ -25,6 +33,11 @@ class PMCaseStaffUpdate(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     notes: Optional[str] = Field(None, max_length=300)
+
+    @model_validator(mode="after")
+    def _check_date_order(self):
+        validate_date_ordering(self.start_date, self.end_date)
+        return self
 
 
 class PMCaseStaffResponse(BaseModel):

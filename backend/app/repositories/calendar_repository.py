@@ -25,10 +25,52 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
     行事曆事件資料存取層
 
     繼承 BaseRepository 並提供行事曆事件特定的查詢方法
+
+    P0-A (2026-05-19): RLSPort 真接通 — 4 處裸 `created_by == user_id` 改用
+    `_alias_user_filter()` helper 統一展開 alias group。修 ADR-0025 第三次 dormant
+    引爆風險（同人多帳號查行事曆會整批消失）。本檔是 RLSPort 系統的**第一個真
+    caller**，證明 ADR-0036 Bounded Context Contract Layer 不是空殼。
     """
 
     def __init__(self, db: AsyncSession):
         super().__init__(db, DocumentCalendarEvent)
+        # P0-A: lazy import 避循環依賴（contracts/ -> services/user/ -> repositories/）
+        self._rls = None
+
+    async def _alias_user_filter(self, user_id: int):
+        """P0-A + v6.10.1: 返回 or_(assigned IN alias, created_by IN alias, owner-less) 條件。
+
+        替代 4 處重複的 `or_(assigned_user_id == user_id, created_by == user_id)`，
+        後者只比對單一 user_id，會漏 alias group（同人多帳號分支建的事件看不到）。
+
+        v6.10.1 急救（2026-05-20）：加 NULL owner fallback —
+          觸發案例：公文 2479 事件 1081 用戶看不到 → 揭發 883/984 (90%) 事件 owner=NULL
+          大規模 dormant（auto-builder / migration 漏寫 created_by）。
+          業務語意：owner-less 事件 = 公開事件（所有 alias group 可見）。
+          真根因待修（事件創建寫入路徑漏設 created_by），本 fallback 為短期應變。
+
+        Args:
+            user_id: 當前用戶 ID
+
+        Returns:
+            SQLAlchemy or_() condition，已套 alias group expansion + NULL fallback
+
+        Note:
+            首個 RLSPort 真 caller（v6.10 P1 ADR-0036 落地驗證）。
+        """
+        if self._rls is None:
+            from app.services.contracts.adapters.rls_default import DefaultRLSAdapter
+            self._rls = DefaultRLSAdapter(self.db)
+        alias_group = await self._rls.expand_alias(user_id)
+        return or_(
+            DocumentCalendarEvent.assigned_user_id.in_(alias_group),
+            DocumentCalendarEvent.created_by.in_(alias_group),
+            # v6.10.1: NULL owner = 公開事件，所有 user 可見（解 90% 大規模 dormant）
+            and_(
+                DocumentCalendarEvent.assigned_user_id.is_(None),
+                DocumentCalendarEvent.created_by.is_(None),
+            ),
+        )
 
     # =========================================================================
     # 查詢方法
@@ -91,25 +133,31 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
         取得使用者的事件
 
         Args:
-            user_id: 使用者 ID
+            user_id: 使用者 ID（會自動展開 alias group — ADR-0025）
             start_date: 開始日期
             end_date: 結束日期
             include_created: 是否包含使用者建立的事件
 
         Returns:
             事件列表
-        """
-        conditions = []
 
+        v6.10 P1-A (2026-05-18)：ADR-0025 alias 展開 — 多帳號合併後
+        同一識別體名下的所有事件都應可見（避免 dispatch=158 同類「漂移」）
+        """
+        # ADR-0025 + RETRO_20260515 破口 2 修法：展開 alias group
+        from app.services.user.alias import expand_user_alias
+        user_ids = await expand_user_alias(self.db, user_id)
+
+        conditions = []
         if include_created:
             conditions.append(
                 or_(
-                    DocumentCalendarEvent.assigned_user_id == user_id,
-                    DocumentCalendarEvent.created_by == user_id,
+                    DocumentCalendarEvent.assigned_user_id.in_(user_ids),
+                    DocumentCalendarEvent.created_by.in_(user_ids),
                 )
             )
         else:
-            conditions.append(DocumentCalendarEvent.assigned_user_id == user_id)
+            conditions.append(DocumentCalendarEvent.assigned_user_id.in_(user_ids))
 
         if start_date:
             conditions.append(DocumentCalendarEvent.start_date >= start_date)
@@ -162,10 +210,13 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
 
         conditions = []
         if user_id:
+            # ADR-0025 + RETRO_20260515 破口 2：alias 展開（v6.10 P1-A）
+            from app.services.user.alias import expand_user_alias
+            user_ids = await expand_user_alias(self.db, user_id)
             conditions.append(
                 or_(
-                    DocumentCalendarEvent.assigned_user_id == user_id,
-                    DocumentCalendarEvent.created_by == user_id,
+                    DocumentCalendarEvent.assigned_user_id.in_(user_ids),
+                    DocumentCalendarEvent.created_by.in_(user_ids),
                 )
             )
         if document_id:
@@ -340,12 +391,9 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
             conditions.append(DocumentCalendarEvent.id != exclude_id)
 
         if user_id:
-            conditions.append(
-                or_(
-                    DocumentCalendarEvent.assigned_user_id == user_id,
-                    DocumentCalendarEvent.created_by == user_id,
-                )
-            )
+            # P0-A (2026-05-19): 改用 _alias_user_filter 自動展開 alias group
+            # 修 ADR-0025 dormant — 裸 == user_id 不會展開同人多帳號分支
+            conditions.append(await self._alias_user_filter(user_id))
 
         query = (
             select(DocumentCalendarEvent)
@@ -460,12 +508,9 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
         ).group_by(DocumentCalendarEvent.status)
 
         if user_id:
-            query = query.where(
-                or_(
-                    DocumentCalendarEvent.assigned_user_id == user_id,
-                    DocumentCalendarEvent.created_by == user_id,
-                )
-            )
+            # P0-A (2026-05-19): 改用 _alias_user_filter 自動展開 alias group
+            # 修 ADR-0025 dormant — 裸 == user_id 不會展開同人多帳號分支
+            query = query.where(await self._alias_user_filter(user_id))
 
         result = await self.db.execute(query)
         return {row[0] or 'unknown': row[1] for row in result.fetchall()}
@@ -493,12 +538,9 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
         ]
 
         if user_id:
-            conditions.append(
-                or_(
-                    DocumentCalendarEvent.assigned_user_id == user_id,
-                    DocumentCalendarEvent.created_by == user_id,
-                )
-            )
+            # P0-A (2026-05-19): 改用 _alias_user_filter 自動展開 alias group
+            # 修 ADR-0025 dormant — 裸 == user_id 不會展開同人多帳號分支
+            conditions.append(await self._alias_user_filter(user_id))
 
         query = select(func.count(DocumentCalendarEvent.id)).where(and_(*conditions))
         result = await self.db.execute(query)
@@ -522,12 +564,9 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
         ]
 
         if user_id:
-            conditions.append(
-                or_(
-                    DocumentCalendarEvent.assigned_user_id == user_id,
-                    DocumentCalendarEvent.created_by == user_id,
-                )
-            )
+            # P0-A (2026-05-19): 改用 _alias_user_filter 自動展開 alias group
+            # 修 ADR-0025 dormant — 裸 == user_id 不會展開同人多帳號分支
+            conditions.append(await self._alias_user_filter(user_id))
 
         query = select(func.count(DocumentCalendarEvent.id)).where(and_(*conditions))
         result = await self.db.execute(query)

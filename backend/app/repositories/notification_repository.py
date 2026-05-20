@@ -24,10 +24,42 @@ class NotificationRepository(BaseRepository[SystemNotification]):
     系統通知資料存取層
 
     繼承 BaseRepository 並提供系統通知特定的查詢方法
+
+    v6.10.1 (2026-05-19): RLSPort 真接通第 2 caller — 8 處裸
+    `or_(user_id == user_id, recipient_id == user_id)` 改用
+    `_alias_user_filter()` helper 統一展開 alias group。修 ADR-0025 dormant
+    引爆風險（同人多帳號分支收不到通知）。複製 calendar_repository P0-A 模式。
+    對應 RETRO_20260519 §12.5 建議 A「Single Caller Per Port 週度節奏」第 1 週目標。
     """
 
     def __init__(self, db: AsyncSession):
         super().__init__(db, SystemNotification)
+        # P0-A pattern: lazy import 避循環依賴
+        self._rls = None
+
+    async def _alias_user_filter(self, user_id: int):
+        """v6.10.1: 返回 or_(user_id IN alias, recipient_id IN alias) 條件。
+
+        替代 8 處重複的 `or_(user_id == user_id, recipient_id == user_id)`，
+        後者只比對單一 user_id，會漏 alias group（同人多帳號分支收不到通知）。
+
+        Args:
+            user_id: 當前用戶 ID
+
+        Returns:
+            SQLAlchemy or_() condition，已套 alias group expansion
+
+        Note:
+            RLSPort 第 2 真 caller（v6.10.1 W1 建議 A 落地）。
+        """
+        if self._rls is None:
+            from app.services.contracts.adapters.rls_default import DefaultRLSAdapter
+            self._rls = DefaultRLSAdapter(self.db)
+        alias_group = await self._rls.expand_alias(user_id)
+        return or_(
+            SystemNotification.user_id.in_(alias_group),
+            SystemNotification.recipient_id.in_(alias_group),
+        )
 
     # =========================================================================
     # 查詢方法
@@ -53,10 +85,7 @@ class NotificationRepository(BaseRepository[SystemNotification]):
             (通知列表, 總筆數)
         """
         conditions = [
-            or_(
-                SystemNotification.user_id == user_id,
-                SystemNotification.recipient_id == user_id,
-            )
+            await self._alias_user_filter(user_id)
         ]
 
         if is_read is not None:
@@ -125,10 +154,7 @@ class NotificationRepository(BaseRepository[SystemNotification]):
             (通知列表, 總筆數)
         """
         conditions = [
-            or_(
-                SystemNotification.user_id == user_id,
-                SystemNotification.recipient_id == user_id,
-            )
+            await self._alias_user_filter(user_id)
         ]
 
         if is_read is not None:
@@ -175,10 +201,7 @@ class NotificationRepository(BaseRepository[SystemNotification]):
             select(SystemNotification)
             .where(
                 and_(
-                    or_(
-                        SystemNotification.user_id == user_id,
-                        SystemNotification.recipient_id == user_id,
-                    ),
+                    await self._alias_user_filter(user_id),
                     SystemNotification.notification_type == notification_type,
                 )
             )
@@ -243,10 +266,7 @@ class NotificationRepository(BaseRepository[SystemNotification]):
             update(SystemNotification)
             .where(
                 and_(
-                    or_(
-                        SystemNotification.user_id == user_id,
-                        SystemNotification.recipient_id == user_id,
-                    ),
+                    await self._alias_user_filter(user_id),
                     SystemNotification.is_read == False,
                 )
             )
@@ -268,10 +288,7 @@ class NotificationRepository(BaseRepository[SystemNotification]):
         """
         query = select(func.count(SystemNotification.id)).where(
             and_(
-                or_(
-                    SystemNotification.user_id == user_id,
-                    SystemNotification.recipient_id == user_id,
-                ),
+                await self._alias_user_filter(user_id),
                 SystemNotification.is_read == False,
             )
         )
@@ -358,10 +375,7 @@ class NotificationRepository(BaseRepository[SystemNotification]):
 
         if user_id:
             conditions.append(
-                or_(
-                    SystemNotification.user_id == user_id,
-                    SystemNotification.recipient_id == user_id,
-                )
+                await self._alias_user_filter(user_id)
             )
 
         stmt = delete(SystemNotification).where(and_(*conditions))
@@ -397,10 +411,7 @@ class NotificationRepository(BaseRepository[SystemNotification]):
                 func.count(SystemNotification.id),
             )
             .where(
-                or_(
-                    SystemNotification.user_id == user_id,
-                    SystemNotification.recipient_id == user_id,
-                )
+                await self._alias_user_filter(user_id)
             )
             .group_by(SystemNotification.notification_type)
         )
@@ -411,10 +422,7 @@ class NotificationRepository(BaseRepository[SystemNotification]):
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         today_query = select(func.count(SystemNotification.id)).where(
             and_(
-                or_(
-                    SystemNotification.user_id == user_id,
-                    SystemNotification.recipient_id == user_id,
-                ),
+                await self._alias_user_filter(user_id),
                 SystemNotification.created_at >= today_start,
             )
         )

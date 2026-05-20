@@ -100,9 +100,29 @@ groups:
             2) 長查詢卡住 connection（檢查 db_slow_query_total）
             3) ADR-0021 race condition 回歸
 
+      - alert: ProviderCircuitOpen
+        # R6 (v6.9 / 2026-05-09): provider_circuit_breaker enhancement
+        # 任一 provider 進入 OPEN 狀態（連續 5 次失敗於 60s 內）持續 ≥ 3min
+        # → 該 provider 暫時被 skip，依賴 fallback chain 提供服務
+        # State encoding: 0=closed, 1=half_open, 2=open
+        expr: |
+          provider_circuit_state == 2
+        for: 3m
+        labels:
+          severity: warning
+          component: inference
+        annotations:
+          summary: "Provider {{ $labels.provider }} circuit OPEN — 自動 skip 中"
+          description: |
+            {{ $labels.provider }} 連續失敗達 threshold，circuit breaker 開啟，
+            未來請求自動 skip 走 fallback chain（節省每次 retry 的 ~5–30s 浪費）。
+            預期 5min cooldown 後自動 HALF_OPEN 試一次。
+            檢查根因：tail -f logs/backend-error.log | grep "{{ $labels.provider }}.*失敗"
+            手動 reset：python -c "from app.core.provider_circuit_breaker import get_circuit_breaker; get_circuit_breaker().reset('{{ $labels.provider }}')"
+
       - alert: InferenceFallbackBurst
         expr: |
-          sum by (from_provider, to_provider) (rate(inference_fallbacks_total[5m])) > 0.1
+          sum by (from_provider, to_provider) (rate(inference_fallback_total[5m])) > 0.1
         for: 5m
         labels:
           severity: warning
@@ -112,6 +132,47 @@ groups:
           description: |
             過去 5 分鐘 fallback 速率 {{ $value }}/s。
             主 provider 可能異常或 rate-limited；確認是否需切換主 provider。
+            # P0-D (5/19): 修 metric name drift `inference_fallbacks_total` → `inference_fallback_total`
+            # (counter 真名單數，alert 原寫複數 — silent dead alert 同 L29 dict-key drift 反模式)
+
+      # P0-D (2026-05-19): all-providers-OPEN canned fallback 終態
+      # 當 Groq/NVIDIA/Ollama 三 provider 全失敗時，會走 _generate_fallback_response
+      # 回傳 6 關鍵字罐頭回應 — 用戶體驗 = AI 不可用，必須立即告警。
+      # 補 R4 silent gap（5/15 揭發後 4 天未動）+ ADR-0030 GO/NO-GO 信號穿透盲區。
+      - alert: InferenceCannedFallback
+        expr: |
+          sum(rate(inference_fallback_total{to_provider="canned"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: inference
+        annotations:
+          summary: "AI 全 provider 斷線 — 走罐頭回應（用戶體驗已劣化）"
+          description: |
+            過去 5 分鐘有 {{ $value }}/s 次 all-providers-OPEN 終態觸發 _generate_fallback_response。
+            用戶會看到「AI 服務暫時不可用」預設訊息。
+            檢查：Groq 配額 + NVIDIA NIM + Ollama GPU semaphore + provider_circuit_breaker 狀態。
+            手動 reset 全 CB：python -c "from app.core.provider_circuit_breaker import get_circuit_breaker; cb=get_circuit_breaker(); [cb.reset(p) for p in ['groq','nvidia','ollama']]"
+
+      - alert: MetricsPopulateErrors
+        # R3 (v6.9 / 2026-05-08)：解 v3.0 洞察 11
+        # /metrics endpoint per-scrape populate 失敗會被記到此 counter。
+        # source 標籤：sys (F27 五系統指標) / shadow_baseline (F26 GO/NO-GO baseline)
+        # 任一 source 5min rate > 0.01/s（每分鐘 ≥ 0.6 次失敗）即報警，
+        # 防止「commit 顯示綠、metrics 看似 scrape 成功、實際 populate silent skip」反模式。
+        expr: |
+          sum by (source) (rate(metrics_populate_errors_total[5m])) > 0.01
+        for: 3m
+        labels:
+          severity: critical
+          component: observability
+        annotations:
+          summary: "/metrics populate 失敗（source={{ $labels.source }}, rate={{ $value }}/s）"
+          description: |
+            5/04 F26+F27 雙重 silent fail 事故防範。
+            shadow_baseline source 失敗直接影響 ADR-0030 Hermes GO/NO-GO 5/20 投票。
+            sys source 失敗代表系統 5 metric (app_info/up/db_healthy/mem/cpu) 看不到。
+            檢查：tail -f logs/backend-error.log | grep "metric populate failed"
 
   # ==========================================================================
   # Capacity — 資源耗盡預警
@@ -272,3 +333,75 @@ groups:
             可能 fallback chain 切換導致用戶體驗大幅波動。
             診斷：python scripts/checks/soul-fidelity-eval.py
             log: wiki/memory/evolutions/fidelity_log.jsonl
+
+  # ==========================================================================
+  # ADR-0022 Memory Wiki Freshness（半接通防範）
+  # 來源：ADR_HALF_WIRED_AUDIT_20260506 — ADR-0022 列為 L4
+  # 寫入鏈路 dormant 風險 — diary 多天 0 寫入難察覺
+  # ==========================================================================
+  - name: memory_wiki_freshness
+    interval: 1h
+    rules:
+      - alert: MemoryDiaryStale
+        expr: |
+          (time() - max_over_time(memory_diary_appends_total[7d:1h])) > 86400 * 2
+          OR memory_diary_appends_total == 0
+        for: 6h
+        labels:
+          severity: warning
+          component: memory_wiki
+        annotations:
+          summary: "Memory diary 連續 ≥ 2 天無寫入"
+          description: |
+            ADR-0022 自進化系統的 diary 寫入鏈可能斷裂。
+            檢查 backend log: pattern_extractor / agent_post_processing diary 寫入錯誤。
+            修法：python scripts/checks/memory_diary_freshness_check.py
+            參考：wiki/memory/failures/failure-adr-0025-rls-half-wired.md（同類事故 dormant pattern）
+
+      - alert: MemoryPatternStale
+        expr: |
+          (time() - max_over_time(memory_patterns_appends_total[14d:1h])) > 86400 * 7
+        for: 12h
+        labels:
+          severity: warning
+          component: memory_wiki
+        annotations:
+          summary: "Memory patterns 連續 ≥ 7 天無新增"
+          description: |
+            pattern_extractor cron（每日 04:00）可能斷或 trace 太少觸不到 promote 閾值。
+            檢查 scheduler logs + agent_query_traces 7d count。
+
+      - alert: MemoryCritiqueStale
+        expr: |
+          (time() - max_over_time(memory_critiques_appends_total[14d:1h])) > 86400 * 7
+        for: 12h
+        labels:
+          severity: info
+          component: memory_wiki
+        annotations:
+          summary: "Memory critique 連續 ≥ 7 天無新增"
+          description: |
+            agent_critic 二審流程可能未啟動或 critic 沒觸發任何 critique。
+            這是 v6.4 I3 commit caf814de 後的關鍵閉環，silent stale = 學習鏈斷。
+
+      - alert: DiaryAppendFailures
+        # R7 (v6.9 / 2026-05-08)：解 v3.0 洞察 11 silent skip 反模式
+        # diary_service.append_entry 原 fire-and-forget，失敗只 log warning
+        # 改：失敗類型獨立計數（file_io / wiki_lookup / metric_inc / unknown）
+        # 5min rate > 0.05/s（每分鐘 ≥ 3 次失敗）即報警
+        expr: |
+          sum by (error_type) (rate(memory_diary_append_failures_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: memory_wiki
+        annotations:
+          summary: "Diary append 失敗（{{ $labels.error_type }} rate={{ $value }}/s）"
+          description: |
+            ADR-0022 自進化系統的 diary 寫入鏈失敗率異常。
+            error_type:
+              - file_io: 檔案系統 transient 錯誤（已 retry 1 次仍失敗）
+              - wiki_lookup: wiki search 服務異常（不阻寫入但記錄）
+              - metric_inc: prometheus counter 註冊損壞
+              - unknown: 其他（檢查 backend log exc_info）
+            修法：tail -f logs/backend-error.log | grep "Diary append failed"
