@@ -121,7 +121,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         {
           reminder_type: newReminderType,
           reminder_minutes: newReminderMinutes,
-          reminder_time: reminderTime.toISOString(),
+          reminder_time: reminderTime.format('YYYY-MM-DDTHH:mm:ss'), // v6.10.1: 時區漂移修法（同 useEventForm）
           action: 'add'
         }
       );

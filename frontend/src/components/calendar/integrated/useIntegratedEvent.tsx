@@ -213,11 +213,12 @@ export function useIntegratedEvent(
       const values = await form.validateFields();
       setLoading(true);
 
+      // v6.10.1 (2026-05-20): 時區漂移修法 — 用 format 保留本地時間（同 useEventForm）
       const submitData = {
         title: values.title,
         description: values.description || null,
-        start_date: values.start_date.toISOString(),
-        end_date: values.end_date?.toISOString() || values.start_date.toISOString(),
+        start_date: values.start_date.format('YYYY-MM-DDTHH:mm:ss'),
+        end_date: values.end_date?.format('YYYY-MM-DDTHH:mm:ss') || values.start_date.format('YYYY-MM-DDTHH:mm:ss'),
         all_day: values.all_day || false,
         event_type: values.event_type,
         priority: values.priority,

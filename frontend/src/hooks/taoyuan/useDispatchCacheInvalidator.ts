@@ -32,17 +32,57 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../config/queryConfig';
 
 const MORNING_STATUS_KEY = ['dispatch-morning-status'] as const;
+const KANBAN_DISPATCHES_KEY = ['kanban-dispatches'] as const;
+// 2026-05-20 chronic fix — queryKey drift L39（dispatch=158 第二次發作根因）：
+// 真實 useTaoyuanDispatchOrders 用 queryKeys.taoyuanDispatch.orders() = ['taoyuan-dispatch-orders', params]，
+// 過去 invalidate 寫 ['dispatch-orders'] 不重疊 → 永遠不生效（同 L29 dict-key drift 反模式）。
+// 同時保留舊 key 防其他散戶 query 使用。
+const DISPATCH_ORDERS_KEY = ['taoyuan-dispatch-orders'] as const;
+const DISPATCH_ORDERS_LEGACY_KEY = ['dispatch-orders'] as const;
+const DISPATCH_ORDER_DETAIL_KEY = ['dispatch-order-detail'] as const;
+
+/**
+ * 派工列表/看板/詳情 — 跨頁面共用「列表族」key（不在 queryKeys.taoyuanDispatch.all 樹下）
+ *
+ * 2026-05-18 fix（dispatch=158 案例 v1）：DB 已 unlink 公文但前端列表仍顯示舊文號的根因是
+ *   `useDispatchDocLinking` 只 invalidate 詳情 ['dispatch-order-detail']，但列表 query
+ *   ['dispatch-morning-status'] + ['kanban-dispatches'] + ['dispatch-orders'] 從未被清。
+ *
+ * 2026-05-20 fix（dispatch=158 案例 v2 / chronic 根因）：上述 5/18 修法的 ['dispatch-orders']
+ *   key 與真實 query key ['taoyuan-dispatch-orders'] **完全不重疊**！invalidate 永遠 silent
+ *   不生效（L39 同 L29 dict-key drift 反模式）。本檔已改用 ['taoyuan-dispatch-orders']。
+ *
+ * 統一在此一處，所有 mutation 必要時呼叫 invalidateAllDispatchLists() 避免遺漏。
+ */
+const DISPATCH_LIST_FAMILY_KEYS = [
+  MORNING_STATUS_KEY,
+  KANBAN_DISPATCHES_KEY,
+  DISPATCH_ORDERS_KEY,                // 真實 list query key (5/20 修)
+  DISPATCH_ORDERS_LEGACY_KEY,         // 舊 key（防其他散戶 query 還用著）
+  ['dispatch-orders-for-link'] as const,
+  ['kanban-workflow'] as const,
+] as const;
 
 export function useDispatchCacheInvalidator() {
   const queryClient = useQueryClient();
 
+  // 內部 helper — 全列表族一次清
+  const _invalidateAllListFamily = () => {
+    for (const key of DISPATCH_LIST_FAMILY_KEYS) {
+      queryClient.invalidateQueries({ queryKey: key });
+    }
+  };
+
   /**
-   * 派工本體寫操作後 — 派工 list/detail 全鏈 + 晨報視圖
-   * 適用：派工單 CRUD / display_status 更新
+   * 派工本體寫操作後 — 派工 list/detail 全鏈 + 晨報視圖 + 列表族
+   * 適用：派工單 CRUD / display_status 更新 / 自動匹配公文 / link/unlink 公文
+   *
+   * v5.18 擴充：加入 KANBAN_DISPATCHES + DISPATCH_ORDERS + DETAIL（解 158 案例）
    */
   const invalidateDispatchAggregate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-    queryClient.invalidateQueries({ queryKey: MORNING_STATUS_KEY });
+    queryClient.invalidateQueries({ queryKey: DISPATCH_ORDER_DETAIL_KEY });
+    _invalidateAllListFamily();
   };
 
   /**
@@ -51,29 +91,46 @@ export function useDispatchCacheInvalidator() {
    */
   const invalidateWorkRecord = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-    queryClient.invalidateQueries({ queryKey: MORNING_STATUS_KEY });
+    _invalidateAllListFamily();
   };
 
   /**
-   * 工程關聯變動 — dispatch + projects + 文件關聯 + 晨報視圖
+   * 工程關聯變動 — dispatch + projects + 文件關聯 + 晨報視圖 + 列表族
    * 適用：linkProject / unlinkProject / createProject (隱含 link)
    */
   const invalidateProjectLinks = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
     queryClient.invalidateQueries({ queryKey: ['document-project-links'] });
-    queryClient.invalidateQueries({ queryKey: MORNING_STATUS_KEY });
+    _invalidateAllListFamily();
   };
 
   /**
-   * 看板狀態切換 — kanban-workflow 自身 + 晨報視圖
+   * 公文關聯變動 — dispatch detail + 公文列表 + 派工列表族
+   * 適用：link/unlink/auto-match 公文（含後端 cascade — 刪公文時前端應呼叫此方法）
+   *
+   * 2026-05-18 新增：解 dispatch=158「DB 已 unlink 但前端仍顯示」根因
+   */
+  const invalidateDocumentLinks = (dispatchId?: number) => {
+    queryClient.invalidateQueries({ queryKey: DISPATCH_ORDER_DETAIL_KEY });
+    if (dispatchId !== undefined) {
+      queryClient.invalidateQueries({ queryKey: ['dispatch-documents', dispatchId] });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['dispatch-documents'] });
+    }
+    queryClient.invalidateQueries({ queryKey: ['document-dispatch-links'] });
+    _invalidateAllListFamily();
+  };
+
+  /**
+   * 看板狀態切換 — kanban-workflow + 列表族
    * 適用：KanbanBoardTab statusMutation
    */
   const invalidateKanbanStatus = (projectId?: number) => {
     if (projectId !== undefined) {
       queryClient.invalidateQueries({ queryKey: ['kanban-workflow', projectId] });
     }
-    queryClient.invalidateQueries({ queryKey: MORNING_STATUS_KEY });
+    _invalidateAllListFamily();
   };
 
   /**
@@ -83,11 +140,19 @@ export function useDispatchCacheInvalidator() {
     queryClient.invalidateQueries({ queryKey: MORNING_STATUS_KEY });
   };
 
+  /**
+   * 全列表族 — 給跨 module mutation（如刪公文後 cascade 影響派工）
+   * 2026-05-18 新增
+   */
+  const invalidateAllDispatchLists = _invalidateAllListFamily;
+
   return {
     invalidateDispatchAggregate,
     invalidateWorkRecord,
     invalidateProjectLinks,
+    invalidateDocumentLinks,
     invalidateKanbanStatus,
     invalidateMorningStatusOnly,
+    invalidateAllDispatchLists,
   };
 }

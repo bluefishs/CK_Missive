@@ -104,7 +104,10 @@ export const NavigationTreePanel: FC = () => {
     navigationService.clearNavigationCache();
     // Invalidate both local and Layout navigation queries
     queryClient.invalidateQueries({ queryKey: ['site-navigation'] });
-    queryClient.invalidateQueries({ queryKey: ['navigation'] });
+    // v6.10.2 L39 fix: 移除 ['navigation'] drift（同檔真實 useQuery 用 'site-navigation'）
+    // P-50 (5/07)：site-management nav 變動時連帶 invalidate
+    // /admin/permissions/* 的 nav-tree query，讓編輯介面立即看到新 nav
+    queryClient.invalidateQueries({ queryKey: ['admin', 'role-permissions'] });
     window.dispatchEvent(new CustomEvent('navigation-updated'));
   }, [queryClient]);
 

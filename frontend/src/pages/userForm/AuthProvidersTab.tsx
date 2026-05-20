@@ -36,7 +36,7 @@ const AuthProvidersTab: React.FC<Props> = ({ userId, user }) => {
       setLineIdInput('');
       setLineNameInput('');
       queryClient.invalidateQueries({ queryKey: ['user', userId] });
-      queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }); // v6.10.1 L39 修：['adminUsers'] silent dead
     },
     onError: (error: Error) => message.error(error.message || 'LINE 綁定失敗'),
   });
@@ -46,7 +46,7 @@ const AuthProvidersTab: React.FC<Props> = ({ userId, user }) => {
     onSuccess: () => {
       message.success('LINE 綁定已解除');
       queryClient.invalidateQueries({ queryKey: ['user', userId] });
-      queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }); // v6.10.1 L39 修：['adminUsers'] silent dead
     },
     onError: (error: Error) => message.error(error.message || '解除綁定失敗'),
   });

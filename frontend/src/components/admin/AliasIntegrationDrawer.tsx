@@ -116,7 +116,8 @@ export const AliasIntegrationDrawer: React.FC<Props> = ({ open, onClose }) => {
       message.success('分身已合併');
       queryClient.invalidateQueries({ queryKey: ['user-alias-candidates'] });
       queryClient.invalidateQueries({ queryKey: ['user-merge-history'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      // v6.10.1 L39 修：原 ['admin-users'] 與 adminUserKeys.list = ['admin','users',...] 不重疊 (silent dead)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
     onError: (e: Error) => message.error(`合併失敗: ${e.message}`),
   });

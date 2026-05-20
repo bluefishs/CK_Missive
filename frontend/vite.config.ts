@@ -125,10 +125,15 @@ export default defineConfig(({ mode }) => {
           main: resolve(__dirname, 'index.html'),
         },
         output: {
-          // 強制緩存破壞
-          entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
-          chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
-          assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`,
+          // v6.10.2 (2026-05-20): 移除 Date.now() 改用 Vite 預設 content hash
+          // 起因：5/20 用戶報 chunk 404 + CSS MIME 錯（cached 舊 index.html 引用
+          // 已不存在的時間戳 hash）。Date.now() 強制每次 build 換 hash 雖防 CDN cache
+          // 但副作用：deploy 後舊用戶 100% 必爆 chunk 404 直到 hard refresh。
+          // 改 content hash：內容不變則 hash 不變，避免無謂 cache miss + 用戶體驗連續。
+          // 配套：index.html 仍 no-cache（F23 5/04 修法保留）確保拿到最新 chunk 引用。
+          entryFileNames: `assets/[name]-[hash].js`,
+          chunkFileNames: `assets/[name]-[hash].js`,
+          assetFileNames: `assets/[name]-[hash].[ext]`,
           // 手動分割打包，優化載入效能
           manualChunks: {
             // React 核心庫

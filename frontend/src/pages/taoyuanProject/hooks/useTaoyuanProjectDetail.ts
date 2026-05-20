@@ -175,7 +175,7 @@ export function useTaoyuanProjectDetail() {
       message.success('派工關聯成功');
       setSelectedDispatchId(undefined);
       refetchDispatchLinks();
-      queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all }); // v6.10.2 L39 fix: 原 ['dispatch-orders'] silent dead
     },
     onError: () => message.error('關聯失敗'),
   });
@@ -197,7 +197,7 @@ export function useTaoyuanProjectDetail() {
     onSuccess: () => {
       message.success('已移除派工關聯');
       refetchDispatchLinks();
-      queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all }); // v6.10.2 L39 fix: 原 ['dispatch-orders'] silent dead
     },
     onError: (error: Error) => message.error(error.message || '移除關聯失敗'),
   });

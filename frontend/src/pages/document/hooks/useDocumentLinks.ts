@@ -7,7 +7,7 @@
  * @date 2026-03-10
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react'; // v6.10.2 #4: 移除 useState（dispatchLinks/projectLinks 改 useQuery）
 import { App } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -73,13 +73,34 @@ export function useDocumentLinks({
   const { message } = App.useApp();
   const queryClient = useQueryClient();
 
-  // Dispatch links state
-  const [dispatchLinks, setDispatchLinks] = useState<DocumentDispatchLink[]>([]);
-  const [dispatchLinksLoading, setDispatchLinksLoading] = useState(false);
+  // v6.10.2 #4 (2026-05-20) — dispatchLinks / projectLinks 從 useState 轉 useQuery
+  // 修 L39 同型 chronic bug：原 imperative load + setState 模式造成
+  //   invalidate ['document-dispatch-links'] + ['document-project-links'] silent dead
+  //   （沒對應 useQuery → invalidate 永遠不生效 → cache 永不刷新）。
+  // 改 useQuery 後 invalidate 真活，從 queryKey_drift_baseline.json 移出 2 dead token。
+  const docIdNum = documentId ? parseInt(documentId, 10) : undefined;
 
-  // Project links state
-  const [projectLinks, setProjectLinks] = useState<DocumentProjectLink[]>([]);
-  const [projectLinksLoading, setProjectLinksLoading] = useState(false);
+  const dispatchLinksQuery = useQuery({
+    queryKey: ['document-dispatch-links', docIdNum],
+    queryFn: () => documentLinksApi.getDispatchLinks(docIdNum!),
+    enabled: !!docIdNum,
+  });
+  const dispatchLinks: DocumentDispatchLink[] = useMemo(
+    () => dispatchLinksQuery.data?.dispatch_orders ?? [],
+    [dispatchLinksQuery.data?.dispatch_orders],
+  );
+  const dispatchLinksLoading = dispatchLinksQuery.isLoading || dispatchLinksQuery.isFetching;
+
+  const projectLinksQuery = useQuery({
+    queryKey: ['document-project-links', docIdNum],
+    queryFn: () => documentProjectLinksApi.getProjectLinks(docIdNum!),
+    enabled: !!docIdNum,
+  });
+  const projectLinks: DocumentProjectLink[] = useMemo(
+    () => projectLinksQuery.data?.projects ?? [],
+    [projectLinksQuery.data?.projects],
+  );
+  const projectLinksLoading = projectLinksQuery.isLoading || projectLinksQuery.isFetching;
 
   // === Query data for dispatch forms ===
   // 使用公文所屬專案 ID，而非硬編碼（支援多年度合約）
@@ -131,21 +152,17 @@ export function useDocumentLinks({
 
   // === Dispatch link operations ===
 
+  // v6.10.2 #4: loadDispatchLinks 改為 refetch wrap，保留外部 imperative API 相容
   const loadDispatchLinks = useCallback(async () => {
     if (!documentId) return;
-    setDispatchLinksLoading(true);
+    logger.info('[loadDispatchLinks] refetch via useQuery');
     try {
-      const docId = parseInt(documentId, 10);
-      logger.info('[loadDispatchLinks] 開始載入', { docId });
-      const result = await documentLinksApi.getDispatchLinks(docId);
-      setDispatchLinks(result.dispatch_orders || []);
+      await dispatchLinksQuery.refetch();
     } catch (error) {
-      logger.error('[loadDispatchLinks] 載入派工關聯失敗:', error);
+      logger.error('[loadDispatchLinks] refetch 失敗:', error);
       message.error('載入派工關聯失敗，請重新整理頁面');
-    } finally {
-      setDispatchLinksLoading(false);
     }
-  }, [documentId, message]);
+  }, [documentId, message, dispatchLinksQuery]);
 
   const handleCreateDispatch = useCallback(async (formValues: Record<string, unknown>) => {
     try {
@@ -176,23 +193,22 @@ export function useDocumentLinks({
 
       if (newDispatch && newDispatch.id) {
         message.success('派工新增成功');
-        queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+        // v6.10.2 #4: invalidate 已真活（document-dispatch-links 對應 useQuery）
+        queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all }); // SSOT
         queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allDispatches });
         queryClient.invalidateQueries({ queryKey: ['document-dispatch-links'] });
-        queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+        // v6.10.2 L39 cleanup: 移除 legacy ['dispatch-orders']（silent dead，SSOT 已涵蓋）
 
+        // 確保新 dispatch 已在 link 中（後端可能 cascade delay）
         const result = await documentLinksApi.getDispatchLinks(docId);
-        const links = result.dispatch_orders || [];
-        const hasNewDispatch = links.some(
+        const hasNewDispatch = (result.dispatch_orders || []).some(
           (d: DocumentDispatchLink) => d.dispatch_order_id === newDispatch.id
         );
-
-        if (hasNewDispatch) {
-          setDispatchLinks(links);
-        } else {
+        if (!hasNewDispatch) {
           await new Promise(resolve => setTimeout(resolve, 500));
           await loadDispatchLinks();
         }
+        // 真活 useQuery 會自動因 invalidate 重 fetch — 無須手動 setDispatchLinks
       }
     } catch (error: unknown) {
       logger.error('[handleCreateDispatch] 錯誤:', error);
@@ -222,20 +238,16 @@ export function useDocumentLinks({
 
   // === Project link operations ===
 
+  // v6.10.2 #4: loadProjectLinks 改 refetch wrap（同 dispatch 修法）
   const loadProjectLinks = useCallback(async () => {
     if (!documentId) return;
-    setProjectLinksLoading(true);
     try {
-      const docId = parseInt(documentId, 10);
-      const result = await documentProjectLinksApi.getProjectLinks(docId);
-      setProjectLinks(result.projects || []);
+      await projectLinksQuery.refetch();
     } catch (error) {
       logger.error('載入工程關聯失敗:', error);
       message.error('載入工程關聯失敗，請重新整理頁面');
-    } finally {
-      setProjectLinksLoading(false);
     }
-  }, [documentId, message]);
+  }, [documentId, message, projectLinksQuery]);
 
   const handleLinkProject = useCallback(async (projectId: number) => {
     const docId = parseInt(documentId || '0', 10);

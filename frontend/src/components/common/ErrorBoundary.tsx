@@ -66,6 +66,30 @@ export class ErrorBoundary extends Component<Props, State> {
       errorInfo
     });
 
+    // v6.10.2 (2026-05-20): 偵測 chunk 404 / ChunkLoadError 自動 hard reload
+    // 起因：deploy 後新 build hash 變更，舊 index.html 引用 stale chunk → 404 →
+    // ErrorBoundary 抓到後用戶被卡在錯誤頁，需手動 Ctrl+Shift+R。
+    // 自動 reload 1 次（sessionStorage 防無限迴圈）— P-42 + F23 配套。
+    const msg = error.message || '';
+    const isChunkError =
+      msg.includes('Failed to fetch dynamically imported module') ||
+      msg.includes('ChunkLoadError') ||
+      msg.includes('Loading chunk') ||
+      /\.(js|css)$/.test(msg);
+    if (isChunkError) {
+      const reloadKey = 'errorboundary_chunk_reload_ts';
+      const lastReload = Number(sessionStorage.getItem(reloadKey) || 0);
+      const now = Date.now();
+      // 60 秒內僅自動 reload 一次防無限迴圈
+      if (now - lastReload > 60_000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        logger.warn('ErrorBoundary 偵測 chunk 404，自動 hard reload（cache 漂移修法）');
+        // hard reload 繞過 cache，拿最新 index.html + 新 hash
+        window.location.reload();
+        return;
+      }
+    }
+
     // 調用父組件的錯誤處理函數
     if (this.props.onError) {
       this.props.onError(error, errorInfo);

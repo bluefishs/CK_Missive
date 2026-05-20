@@ -223,11 +223,15 @@ export function useEventForm(
       const values = await form.validateFields();
       setLoading(true);
 
+      // v6.10.1 (2026-05-20): 時區漂移修法 — 不用 toISOString（會轉 UTC 減 8h），
+      // 改 dayjs.format 保留本地時間。DB 是 timestamp WITHOUT time zone，
+      // 一致使用本地時間語意（用戶輸入 5/22 18:00 = 存 5/22 18:00 = 顯示 5/22 18:00）。
+      // 觸發案例：事件 1081 顯示提前 1 日（用戶輸入 5/22 變顯示 5/21）。
       const submitData = {
         title: values.title,
         description: values.description || null,
-        start_date: values.start_date.toISOString(),
-        end_date: values.end_date?.toISOString() || null,
+        start_date: values.start_date.format('YYYY-MM-DDTHH:mm:ss'),
+        end_date: values.end_date?.format('YYYY-MM-DDTHH:mm:ss') || null,
         all_day: values.all_day || false,
         event_type: values.event_type,
         priority: values.priority,

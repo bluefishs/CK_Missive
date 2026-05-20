@@ -104,9 +104,10 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
       : newStartDate;
 
     try {
+      // v6.10.1 (2026-05-20): 不用 toISOString（會轉 UTC 減 8h），改 format 保留本地時間
       await onEventUpdate(eventId, {
-        start_date: newStartDate.toISOString(),
-        end_date: newEndDate.toISOString()
+        start_date: newStartDate.format('YYYY-MM-DDTHH:mm:ss'),
+        end_date: newEndDate.format('YYYY-MM-DDTHH:mm:ss')
       });
       onRefresh?.();
     } catch (error) {
