@@ -206,9 +206,13 @@ services:
       - tools
 
 # --- 📦 持久化儲存 ---
+# 2026-05-21 事故修正：production compose 原指向 ck_missive_postgres_data（空殼，17 tables/502 docs）
+# 真實資料一直在 ck_missive_postgres_dev_data（75 tables/1788 docs，最後更新 2026-05-20 15:18）
+# 詳見 backup/incident_20260521_volume_mount_drift/ 與 lesson L43
 volumes:
   postgres_data:
-    name: ck_missive_postgres_data
+    name: ck_missive_postgres_dev_data
+    external: true
   redis_data:
     name: ck_missive_redis_data
 

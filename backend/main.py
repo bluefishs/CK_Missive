@@ -23,7 +23,7 @@ import logging
 import sys
 import time
 from datetime import datetime
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, Response
 
 # from fastapi.middleware.cors import CORSMiddleware  # 禁用原始 CORS 中介軟體
 from fastapi.middleware.gzip import GZipMiddleware
@@ -835,19 +835,79 @@ app.include_router(api_router, prefix="/api")
 
 
 # --- 系統端點（必須在 SPA catch-all 前註冊，否則會被 spa_fallback 搶走）---
+# 業務資料檢查 cache（防 /health 每秒 COUNT(*) 打 DB）
+_business_data_cache: dict = {"checked_at": 0.0, "result": None}
+
+
+async def _check_business_data_present(db: AsyncSession) -> dict:
+    """檢查核心業務表是否有預期最低資料量。
+
+    2026-05-21 事故防禦（L43 volume mount drift）：
+    若 docker volume 掛到空殼 / fresh DB / 大規模刪除，container 仍會 "healthy"
+    （DB connected, alembic head 推進不需資料），導致業務 API 全 500 但監控無感。
+    本檢查讓 /health 在這種情境立刻回 503，cloudflared healthcheck 失敗 → 流量
+    不會打進壞掉的 instance。
+
+    可透過 env 調整：
+    - HEALTH_BUSINESS_CHECK_ENABLED (default true)
+    - HEALTH_MIN_DOCUMENTS (default 100)
+    - HEALTH_MIN_KG_ENTITIES (default 1000)
+    - HEALTH_BUSINESS_CACHE_TTL_S (default 30)
+    """
+    enabled = _os.getenv("HEALTH_BUSINESS_CHECK_ENABLED", "true").lower() == "true"
+    if not enabled:
+        return {"ok": True, "skipped": True}
+
+    cache_ttl = int(_os.getenv("HEALTH_BUSINESS_CACHE_TTL_S", "30"))
+    now = time.time()
+    cached = _business_data_cache.get("result")
+    if cached is not None and (now - _business_data_cache["checked_at"]) < cache_ttl:
+        return cached
+
+    min_docs = int(_os.getenv("HEALTH_MIN_DOCUMENTS", "100"))
+    min_kg = int(_os.getenv("HEALTH_MIN_KG_ENTITIES", "1000"))
+
+    try:
+        docs = await db.scalar(text("SELECT COUNT(*) FROM documents"))
+        kg = await db.scalar(text("SELECT COUNT(*) FROM canonical_entities"))
+    except Exception as e:
+        result = {
+            "ok": False,
+            "reason": f"core_tables_query_failed: {type(e).__name__}",
+            "error_detail": str(e)[:200],
+        }
+        _business_data_cache.update({"checked_at": now, "result": result})
+        return result
+
+    ok = (docs or 0) >= min_docs and (kg or 0) >= min_kg
+    result = {
+        "ok": ok,
+        "documents": docs,
+        "canonical_entities": kg,
+        "thresholds": {"documents": min_docs, "canonical_entities": min_kg},
+    }
+    if not ok:
+        result["reason"] = "row_count_below_threshold"
+    _business_data_cache.update({"checked_at": now, "result": result})
+    return result
+
+
 @app.get("/health", tags=["System"])
-async def health_check(request: Request, db: AsyncSession = Depends(get_async_db)):
-    """基本健康檢查端點，回傳系統狀態 + 資料庫連線 + 版本。"""
+async def health_check(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """基本健康檢查端點，回傳系統狀態 + 資料庫連線 + 版本 + 業務資料量。"""
     from app.core.cors import allowed_origins, local_ips
 
     db_status = "disconnected"
     db_latency_ms = None
     try:
-        import time
         start = time.time()
-        result = await db.execute(text("SELECT 1"))
+        result_q = await db.execute(text("SELECT 1"))
         db_latency_ms = round((time.time() - start) * 1000, 2)
-        if result.scalar() == 1:
+        if result_q.scalar() == 1:
             db_status = "connected"
     except Exception as e:
         logger.error(f"Health check DB error: {e}")
@@ -868,12 +928,18 @@ async def health_check(request: Request, db: AsyncSession = Depends(get_async_db
         logger.warning("Health check pool status error: %s", e)
         pool_status = {"error": str(e)}
 
-    is_healthy = db_status == "connected"
+    # 業務資料量檢查（L43 防禦）
+    business_data = {"ok": True, "skipped": True}
+    if db_status == "connected":
+        business_data = await _check_business_data_present(db)
+
+    is_healthy = db_status == "connected" and business_data.get("ok", False)
     result = {
         "status": "healthy" if is_healthy else "unhealthy",
         "version": app.version,
         "environment": "development" if settings.DEVELOPMENT_MODE else "production",
         "database": {"status": db_status, "latency_ms": db_latency_ms},
+        "business_data": business_data,
         "timestamp": datetime.now().isoformat(),
     }
     # Pool / CORS 詳情僅內部請求暴露（公網不應洩漏基礎設施資訊）
@@ -882,6 +948,14 @@ async def health_check(request: Request, db: AsyncSession = Depends(get_async_db
     if is_internal:
         result["pool"] = pool_status
         result["cors"] = {"origins_count": len(allowed_origins), "local_ips_detected": len(local_ips)}
+
+    if not is_healthy:
+        response.status_code = 503
+        if not business_data.get("ok", False) and db_status == "connected":
+            logger.error(
+                "Health check failed: business data missing or below threshold",
+                extra={"business_data": business_data},
+            )
     return result
 
 
