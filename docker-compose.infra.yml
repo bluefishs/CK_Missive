@@ -171,17 +171,32 @@ services:
   # 路由到 host 上的 PM2 backend (host.docker.internal:8001)
   # 啟動：docker compose -f docker-compose.infra.yml up -d cloudflared
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    # v6.10.3 (2026-05-21)：固定版本 + 升級 2026.3.0 → 2026.5.0
+    # 解 QUIC datagram/stream timeout chronic（5/19+5/20 多次 reconnect）
+    # latest tag 不可靠 — CF 偶爾不更新 latest（之前停在 2026.3.0）
+    image: cloudflare/cloudflared:2026.5.0
     container_name: ${COMPOSE_PROJECT_NAME}_cloudflared
     command: tunnel run
     environment:
       - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+      # P4 配套：cloudflared metrics 暴露於 :2000/metrics 供 Prometheus scrape
+      - TUNNEL_METRICS=0.0.0.0:2000
+    ports:
+      # P4：曝 metrics 給 Prometheus（不對外，僅 docker network 內）
+      - "127.0.0.1:9114:2000"
     networks:
       - app_network
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "localhost:host-gateway"
     restart: unless-stopped
+    # P1 配套：加 healthcheck — connection 失聯時可自動偵測
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     profiles:
       - tunnel
 
