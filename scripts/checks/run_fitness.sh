@@ -526,6 +526,18 @@ fi
 echo ""
 
 # ----------------------------------------------------------------------------
+# step 37: cross-repo docker network audit (ADR CK_AaaP#0043, 2026-05-21)
+# 揭發跨 repo network 命名 + 4 層分網路達標度
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[37/37] cross-repo docker network audit (ADR-0043)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/network_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/network_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}================================${NC}"
