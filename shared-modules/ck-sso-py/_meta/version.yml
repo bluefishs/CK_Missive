@@ -1,0 +1,24 @@
+# ck-sso-py version metadata
+package: ck-sso-py
+version: 1.0.0
+release_date: 2026-05-21
+source_repo: CK_Missive
+fqid: CK_Missive#ck-sso-py_v1.0
+status: production-ready
+real_installations:
+  - repo: CK_Missive
+    install_date: 2026-05-20
+    e2e_validated: true
+    e2e_validated_date: 2026-05-21
+    e2e_evidence: "backend log 10:19:40 POST /api/auth/sso-bridge 200 + full chain 200"
+    notes: "L41 6 天 dormant 後 owner real E2E PASS"
+
+changelog:
+  - version: 1.0.0
+    date: 2026-05-21
+    changes:
+      - "初版抽出 from CK_Missive backend/app/core/ck_sso.py v1.1"
+      - "含 L41 教訓: verify 4 種 exception 各自 logger.warning"
+      - "sso_bridge.py.template sed-replaceable __SYSTEM_NAME__"
+      - "install.sh 含 4 acceptance check 框架"
+      - "test_ck_sso_verify.py 4+ tests cover JWT exception"

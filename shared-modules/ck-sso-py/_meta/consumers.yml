@@ -1,0 +1,48 @@
+# ck-sso-py consumers tracking
+# 跨 repo 真採用追蹤（依 CK_Missive#CROSS_REPO_REFERENCE_GUIDE 規範）
+
+package: ck-sso-py
+fqid: CK_Missive#ck-sso-py_v1.0
+
+consumers:
+  - repo: CK_Missive
+    fqid_consumer: CK_Missive#sso-bridge_v1.0
+    status: production
+    install_date: 2026-05-20
+    e2e_validated: true
+    e2e_evidence: "5/21 10:19:40 full chain 200 OK"
+    install_method: "direct integration（pre ck-sso-py package 抽出）"
+    notes: "ck-sso-py v1.0 即從此 missive 實作抽出"
+
+  - repo: CK_lvrland_Webmap
+    fqid_consumer: TBD
+    status: pending
+    install_date: null
+    e2e_validated: false
+    planned_for: v6.11
+    notes: "依 SSO-IMPLEMENTATION-STATUS.md §跨 repo 套用 SOP 套用"
+
+  - repo: CK_PileMgmt
+    fqid_consumer: TBD
+    status: pending
+    install_date: null
+    e2e_validated: false
+    planned_for: v6.11
+    notes: "等 lvrland 範本驗活後套用（複製 lvrland 流程）"
+
+  - repo: CK_AaaP
+    fqid_consumer: TBD
+    status: future
+    notes: "AaaP platform/services/ 內服務若需 SSO 可整合"
+
+  - repo: hermes-agent
+    fqid_consumer: TBD
+    status: future
+    notes: "Hermes 跨子系統 API call 若需員工身份可整合"
+
+# L41 制度化規則
+acceptance_policy:
+  - "install.sh auto-check 2/4 PASS 才允許 commit"
+  - "Check 3 + Check 4 owner 手動跑（記錄 e2e_validated_date + e2e_evidence）"
+  - "e2e_validated=true 才允許從 status=pending → production"
+  - "禁止「dry-run 通過 = 真活宣告」反模式（L37/L41/LR-015）"

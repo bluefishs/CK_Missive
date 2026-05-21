@@ -1,0 +1,78 @@
+# ck-sso-py manifest — v1.0 (2026-05-21)
+#
+# Cross-repo SSO bridge for *.cksurvey.tw subdomains.
+# Backend-only package; complements CK SSO (CF Pages + KV).
+# 用於 install.sh 自動安裝 + L41 acceptance check 制度化。
+
+package: ck-sso-py
+version: 1.0.0
+source_repo: CK_Missive
+fqid: CK_Missive#ck-sso-py_v1.0
+target_consumers:
+  - CK_lvrland_Webmap
+  - CK_PileMgmt
+  - CK_AaaP                # 未來平台級服務也可用
+  - hermes-agent           # Hermes 跨子系統呼叫
+supersedes:
+  - CK_Missive#ck-auth_v1.0  # ck-auth frontend 部分 LR-015 風險，建議改用 CK SSO
+
+description: |
+  Cross-repo Single Sign-On bridge for *.cksurvey.tw subdomains.
+  Verifies ck_employee JWT cookie (signed by www.cksurvey.tw / CF Pages),
+  creates per-subsystem session via consumer's AuthService.
+
+  Pure-Python backend (no frontend). Frontend SSO bridge logic in
+  CK_Missive frontend/src/services/authService.ts v3.0 + interceptors.ts
+  作為「consumer 端參考實作」（複製即用）。
+
+  L41 (2026-05-21) sealed: install.sh 必跑 4 acceptance check 才算真活。
+
+key_design_decisions:
+  - "verify.py pure-function 100% portable（無 missive-specific import）"
+  - "bridge_endpoint.py.template 用 sed-replaceable __SYSTEM_NAME__ 變數"
+  - "consumer 須自備 AuthService / User model / get_async_db / AuditService"
+  - "依 L41 教訓: install.sh 必跑 4 acceptance check + owner E2E real test"
+
+files:
+  backend:
+    core:
+      source: "backend/core/"
+      target: "backend/app/core/"
+      files:
+        - ck_sso.py            # v1.1: verify_ck_sso_jwt + has_system_permission
+    api_endpoints:
+      source: "backend/api_endpoints/"
+      target: "backend/app/api/endpoints/auth/"
+      files:
+        - sso_bridge.py.template  # 安裝時 sed 替換 __SYSTEM_NAME__
+    tests:
+      source: "backend/tests/"
+      target: "backend/tests/unit/"
+      files:
+        - test_ck_sso_verify.py   # 4 種 JWT exception 各 cover
+
+env_requirements:
+  required:
+    - CK_SSO_ENABLED=true
+    - CK_SSO_JWT_SECRET=<與 CF Pages JWT_SECRET 同值 一字不差>
+  notes: |
+    L41 6 天 dormant 主因 — backend secret 與 CF Pages secret 不同步。
+    install.sh acceptance check 1 必比對兩端 hex。
+
+dependencies:
+  python:
+    - pyjwt>=2.0.0
+    - fastapi>=0.100.0
+    - sqlalchemy[asyncio]>=2.0.0
+
+consumer_provides:
+  # consumer repo 必須提供以下介面，sso_bridge.py.template 依賴：
+  - app.core.auth_service.AuthService (with generate_login_response, get_user_by_email, set_auth_cookies)
+  - app.core.config.settings (with CK_SSO_ENABLED, CK_SSO_JWT_SECRET)
+  - app.core.rate_limiter.limiter (slowapi)
+  - app.db.database.get_async_db
+  - app.extended.models.User (with email, is_active fields)
+  - app.services.audit.AuditService (with log_auth_event)
+  - app.api.endpoints.auth.common.get_client_info
+
+portability_score: 1.0  # core/ck_sso.py 純函數；template 用 sed replace
