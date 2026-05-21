@@ -96,13 +96,17 @@ const CalendarPage: React.FC = () => {
   // ============================================================================
 
   // 取得指定日期的事件
+  // v6.10.2（2026-05-20）：依用戶決策行事曆僅在截止日 (end_datetime) 當天顯示事件，
+  // 不再每天渲染整段 start→end 期間（修事件 1095/1094 跨 39 天視覺髒亂）。
+  // start_datetime 落為 DB 內部欄位，前端不再以其判定顯示日。
   const getEventsForDate = useCallback(
     (date: Dayjs): CalendarEvent[] => {
       const dateStr = date.format('YYYY-MM-DD');
       return (Array.isArray(calendarEvents) ? calendarEvents : []).filter(
-        (event) =>
-          dayjs(event.start_datetime).format('YYYY-MM-DD') === dateStr ||
-          dayjs(event.end_datetime).format('YYYY-MM-DD') === dateStr
+        (event) => {
+          const anchor = event.end_datetime || event.start_datetime;
+          return anchor ? dayjs(anchor).format('YYYY-MM-DD') === dateStr : false;
+        }
       );
     },
     [calendarEvents]
@@ -351,12 +355,16 @@ const CalendarPage: React.FC = () => {
         {/* 行事曆區域 - 響應式寬度 */}
         <Col xs={24} md={24} lg={18} xl={18}>
           <EnhancedCalendarView
-            events={calendarEvents.map((event) => ({
+            events={calendarEvents.map((event) => {
+              // v6.10.2：行事曆僅顯示截止日（非事件期程）。start_date 統一映射為 end_datetime，
+              // 避免內部元件依 start→end 區間每天渲染。DB 原始資料保留不動。
+              const anchor = event.end_datetime || event.start_datetime;
+              return {
               id: event.id,
               title: event.title,
               description: event.description,
-              start_date: event.start_datetime,
-              end_date: event.end_datetime,
+              start_date: anchor,
+              end_date: anchor,
               event_type: (event.event_type || 'reminder') as
                 | 'deadline'
                 | 'meeting'
@@ -370,7 +378,8 @@ const CalendarPage: React.FC = () => {
               google_sync_status: event.google_sync_status,
               reminder_enabled: true,
               reminders: [],
-            }))}
+              };
+            })}
             loading={loading}
             onEventUpdate={handleEventUpdate}
             onEventDelete={handleEventDelete}

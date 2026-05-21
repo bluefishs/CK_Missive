@@ -106,11 +106,12 @@ export function useCalendarEventForm() {
   // Initialize form (edit mode)
   useEffect(() => {
     if (event && !isNew) {
+      // v6.10.2：form 只暴露 end_date（截止日期）；
+      // start_date 由後端持有，前端不顯示也不編輯。
       form.setFieldsValue({
         title: event.title,
         description: event.description,
-        start_date: dayjs(event.start_datetime),
-        end_date: event.end_datetime ? dayjs(event.end_datetime) : undefined,
+        end_date: dayjs(event.end_datetime || event.start_datetime),
         all_day: event.all_day ?? false,
         event_type: event.event_type || 'reminder',
         priority: typeof event.priority === 'string'
@@ -199,11 +200,14 @@ export function useCalendarEventForm() {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+      // v6.10.2：前端只蒐集 end_date（截止日期），start_date 自動 = end_date。
+      // 解 reminder + all_day 跨多天 → 整段每天都顯示的視覺髒亂（事件 1095/1094 等）。
+      const endIso = values.end_date.toISOString();
       const submitData = {
         title: values.title,
         description: values.description || null,
-        start_date: values.start_date.toISOString(),
-        end_date: values.end_date?.toISOString() || null,
+        start_date: endIso,
+        end_date: endIso,
         all_day: values.all_day || false,
         event_type: values.event_type,
         priority: values.priority,

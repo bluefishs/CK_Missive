@@ -140,27 +140,16 @@ const CalendarEventFormPage: React.FC = () => {
             </Col>
           </Row>
 
+          {/* v6.10.2（2026-05-20）：依用戶決策只保留截止日期，避免 reminder + all_day 跨多天造成
+              「整段期間每天都顯示」的視覺髒亂（事件 id 1095/1094/865 觸發）。
+              start_date 由 handleSave 自動設為 end_date（DB 保留兩欄供向後相容）。 */}
           <Row gutter={16}>
             <Col xs={24} sm={12}>
-              <Form.Item name="start_date" label="開始時間" rules={[{ required: true, message: '請選擇開始時間' }]}>
-                <DatePicker
-                  showTime={!allDay}
-                  format={allDay ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm'}
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
               <Form.Item
-                name="end_date" label="結束時間"
-                rules={[{
-                  validator: (_, value) => {
-                    if (!value) return Promise.resolve();
-                    const startDate = form.getFieldValue('start_date');
-                    if (startDate && value.isBefore(startDate)) return Promise.reject('結束時間不能早於開始時間');
-                    return Promise.resolve();
-                  },
-                }]}
+                name="end_date"
+                label="截止日期"
+                rules={[{ required: true, message: '請選擇截止日期' }]}
+                tooltip="行事曆僅在截止日當天顯示此事件"
               >
                 <DatePicker
                   showTime={!allDay}
