@@ -113,13 +113,50 @@ const requestThrottler = new RequestThrottler();
 // SSO Bridge — ADR-0001 / CK_Website#0001
 // 401 後嘗試用 www.cksurvey.tw 的 ck_employee cookie 建立 Missive session
 // 成功 → reload 頁面套用新 session；失敗 → 走原本登入流程
+// 共用 sessionStorage flag 與 authService.ssoBridge()，避免兩處重複觸發
 // ============================================================================
 
-let ssoBridgeAttempted = false;  // 同次 session 內最多試一次，避免 retry loop
+const SSO_BRIDGE_FLAG = 'ck_sso_bridge_attempted';
+const SSO_BRIDGE_LAST_ATTEMPT = 'ck_sso_bridge_last_attempt';
+const SSO_BRIDGE_FAIL_COUNT = 'ck_sso_bridge_fail_count';
 
+/**
+ * v3.0 (2026-05-21)：修 v2.0「401 不設 flag → 無限刷」死循環 + 429 rate-limit。
+ *
+ * 三層防禦（對齊 authService.ssoBridge v3.0）：
+ *   (A) Cooldown 30 秒（解死循環）
+ *   (B) 連續失敗 3 次永久鎖
+ *   (C) 200/403/404 終態 lock 整個 session
+ */
 async function attemptSSOBridge(): Promise<boolean> {
-  if (ssoBridgeAttempted) return false;
-  ssoBridgeAttempted = true;
+  const COOLDOWN_MS = 30_000;
+  const MAX_FAIL = 3;
+
+  try {
+    if (sessionStorage.getItem(SSO_BRIDGE_FLAG) === '1') return false;
+    const now = Date.now();
+    const lastAttempt = parseInt(sessionStorage.getItem(SSO_BRIDGE_LAST_ATTEMPT) || '0', 10);
+    if (lastAttempt > 0 && (now - lastAttempt) < COOLDOWN_MS) return false;
+    sessionStorage.setItem(SSO_BRIDGE_LAST_ATTEMPT, String(now));
+  } catch {
+    // sessionStorage 不可用就略過 guard
+  }
+
+  const lockTerminal = () => {
+    try {
+      sessionStorage.setItem(SSO_BRIDGE_FLAG, '1');
+      sessionStorage.removeItem(SSO_BRIDGE_FAIL_COUNT);
+    } catch { /* ignore */ }
+  };
+  const incrementFail = () => {
+    try {
+      const cur = parseInt(sessionStorage.getItem(SSO_BRIDGE_FAIL_COUNT) || '0', 10);
+      const next = cur + 1;
+      sessionStorage.setItem(SSO_BRIDGE_FAIL_COUNT, String(next));
+      if (next >= MAX_FAIL) sessionStorage.setItem(SSO_BRIDGE_FLAG, '1');
+    } catch { /* ignore */ }
+  };
+
   try {
     const res = await axios.post(
       `${API_BASE_URL}${AUTH_ENDPOINTS.SSO_BRIDGE}`,
@@ -128,11 +165,19 @@ async function attemptSSOBridge(): Promise<boolean> {
     );
     if (res.status === 200) {
       logger.log('[SSO-BRIDGE] succeeded; reloading');
+      lockTerminal();
       window.location.reload();
       return true;
     }
+    incrementFail();
     return false;
-  } catch (e) {
+  } catch (e: unknown) {
+    const status = (e as { response?: { status?: number } })?.response?.status;
+    if (status === 403 || status === 404) {
+      lockTerminal();
+    } else {
+      incrementFail();  // 401/429/503/network → 計數
+    }
     logger.log('[SSO-BRIDGE] not available or failed; falling through to login', e);
     return false;
   }

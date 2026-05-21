@@ -119,6 +119,11 @@ const EntryPage: React.FC = () => {
       const result = await authService.googleLogin(response.credential);
       message.success('登入成功！');
       void result;
+      // 與 handlePasswordLogin / handleDevModeEntry 一致：
+      // 必須 dispatch 通知 useNavigationData 重新讀 localStorage.user_info，
+      // 否則 SPA navigate 不會觸發 Layout re-mount，currentUser 永遠保持 null
+      // → Header 持續顯示「訪客」（v6.8 5/04 認證鏈漏修一環）
+      window.dispatchEvent(new CustomEvent('user-logged-in'));
       navigate(ROUTES.DASHBOARD);
     } catch (error: unknown) {
       logger.error('Google login failed:', error);
@@ -144,6 +149,9 @@ const EntryPage: React.FC = () => {
           callback: handleGoogleCallback,
           auto_select: false,
           cancel_on_tap_outside: true,
+          // v6.10.4 (2026-05-21)：opt-in Chrome FedCM 強制（預估 2026 Q3-Q4 後 mandatory）
+          // 抑制 GSI_LOGGER warning + 提前適應；副作用：prompt UI 改用 Chrome 系統級 dialog
+          use_fedcm_for_prompt: true,
         });
         setGoogleReady(true);
       }
@@ -179,14 +187,31 @@ const EntryPage: React.FC = () => {
       navigate(ROUTES.DASHBOARD);
       return;
     }
-    if (SHOW_GOOGLE_LOGIN) {
-      initializeGoogleSignIn();
-    } else {
-      setGoogleReady(true);
-    }
-    logger.debug('🔐 EntryPage 環境配置:', {
-      ENV_TYPE, SHOW_QUICK_ENTRY, SHOW_PASSWORD_LOGIN, SHOW_GOOGLE_LOGIN,
-    });
+
+    // ADR-0001 SSO Bridge：先試用 www.cksurvey.tw 的 ck_employee cookie 自動登入
+    // 成功 → 直接進 dashboard；失敗 → 顯示原本登入 UI
+    let mounted = true;
+    void (async () => {
+      const ssoResult = await authService.ssoBridge();
+      if (!mounted) return;
+      if (ssoResult) {
+        logger.info('[SSO-BRIDGE] auto-login succeeded via www.cksurvey.tw cookie');
+        window.dispatchEvent(new CustomEvent('user-logged-in'));
+        navigate(ROUTES.DASHBOARD);
+        return;
+      }
+      // 走原本登入 UI 初始化
+      if (SHOW_GOOGLE_LOGIN) {
+        initializeGoogleSignIn();
+      } else {
+        setGoogleReady(true);
+      }
+      logger.debug('🔐 EntryPage 環境配置:', {
+        ENV_TYPE, SHOW_QUICK_ENTRY, SHOW_PASSWORD_LOGIN, SHOW_GOOGLE_LOGIN,
+      });
+    })();
+
+    return () => { mounted = false; };
   }, [navigate, initializeGoogleSignIn]);
 
   const handleDevModeEntry = async () => {
@@ -214,16 +239,21 @@ const EntryPage: React.FC = () => {
       message.warning('此環境不支援 Google 登入');
       return;
     }
-    if (window.google) {
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed()) {
-          window.google?.accounts.id.renderButton(
-            document.getElementById('google-signin-btn'),
-            { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill' },
-          );
-        }
+    if (!window.google) return;
+
+    // v6.10.4 (2026-05-21) FedCM 完整遷移：
+    //   1. always render button 作為永久 fallback（FedCM 下舊 isNotDisplayed/isSkippedMoment
+    //      會 always return false，不能再依賴 polling）
+    //   2. prompt() 仍主動觸發 Chrome FedCM 系統級 dialog 嘗試自動登入
+    //   3. callback 內不再 branch 任何 deprecated status method
+    const btnContainer = document.getElementById('google-signin-btn');
+    if (btnContainer && !btnContainer.hasChildNodes()) {
+      window.google.accounts.id.renderButton(btnContainer, {
+        theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill',
       });
     }
+    // 主動嘗試 FedCM prompt（成功即自動登入；失敗用戶仍能點上面的 button）
+    window.google.accounts.id.prompt();
   };
 
   const envLabel = getEnvLabel();

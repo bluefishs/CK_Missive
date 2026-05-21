@@ -53,8 +53,15 @@ def verify_ck_sso_jwt(token: str, secret: str) -> Optional[CKSSOEmployee]:
     Returns:
         CKSSOEmployee 物件 — 驗證成功
         None — 簽章錯誤 / 過期 / iss 不符 / 格式不對 / 必要欄位缺失
+
+    v1.1 (2026-05-21)：log debug→warning（ADR-0028 silent failure 反模式修法 / L37）。
+        舊版任何驗證失敗都 debug 級吞掉，backend 預設 INFO 不顯示 → 不知 401 真因。
     """
     if not token or not secret:
+        logger.warning(
+            "[CK_SSO] verify aborted: token_empty=%s secret_empty=%s",
+            not token, not secret,
+        )
         return None
 
     try:
@@ -65,14 +72,40 @@ def verify_ck_sso_jwt(token: str, secret: str) -> Optional[CKSSOEmployee]:
             issuer=CK_SSO_ISSUER,
             options={"require": ["sub", "name", "role", "systems", "exp", "iss"]},
         )
+    except pyjwt.ExpiredSignatureError as e:
+        logger.warning("[CK_SSO] JWT EXPIRED: %s (需重新從 www.cksurvey.tw 登入)", e)
+        return None
+    except pyjwt.InvalidSignatureError as e:
+        logger.warning(
+            "[CK_SSO] JWT SIGNATURE INVALID: %s "
+            "(可能：backend CK_SSO_JWT_SECRET 與 CF Pages JWT_SECRET 不一致)",
+            e,
+        )
+        return None
+    except pyjwt.InvalidIssuerError as e:
+        logger.warning(
+            "[CK_SSO] JWT ISSUER INVALID: %s (期待 iss=%s)",
+            e, CK_SSO_ISSUER,
+        )
+        return None
+    except pyjwt.MissingRequiredClaimError as e:
+        logger.warning("[CK_SSO] JWT MISSING CLAIM: %s", e)
+        return None
     except PyJWTError as e:
-        logger.debug("[CK_SSO] JWT verify failed: %s", e)
+        logger.warning(
+            "[CK_SSO] JWT verify failed (other): %s: %s",
+            type(e).__name__, e,
+        )
         return None
 
     try:
         email = str(payload["sub"]).lower().strip()
         systems_raw = payload.get("systems") or []
         if not isinstance(systems_raw, list):
+            logger.warning(
+                "[CK_SSO] payload.systems must be list, got %s",
+                type(systems_raw).__name__,
+            )
             return None
         systems = tuple(str(s) for s in systems_raw)
 
@@ -84,7 +117,10 @@ def verify_ck_sso_jwt(token: str, secret: str) -> Optional[CKSSOEmployee]:
             exp=int(payload["exp"]),
         )
     except (KeyError, TypeError, ValueError) as e:
-        logger.debug("[CK_SSO] payload shape unexpected: %s", e)
+        logger.warning(
+            "[CK_SSO] payload shape unexpected: %s: %s (keys=%s)",
+            type(e).__name__, e, list(payload.keys()) if isinstance(payload, dict) else 'N/A',
+        )
         return None
 
 

@@ -38,7 +38,18 @@ interface GoogleIdConfiguration {
   allowed_parent_origin?: string | string[];
   intermediate_iframe_close_callback?: () => void;
   itp_support?: boolean;
+  // v6.10.4 (2026-05-21) FedCM 遷移：opt-in Chrome FedCM（強制 mandatory 預估 2026 Q3-Q4）
+  // 文件：https://developers.google.com/identity/gsi/web/guides/fedcm-migration
+  use_fedcm_for_prompt?: boolean;
 }
+
+/**
+ * @deprecated FedCM 強制後（2026 Q3-Q4）以下 prompt UI status methods 會 always-return-false：
+ *   isDisplayMoment, isDisplayed, isNotDisplayed, isSkippedMoment, isDismissedMoment,
+ *   getNotDisplayedReason, getSkippedReason, getDismissedReason, getMomentType
+ * FedCM 模式下不需 polling notification，UI 由 Chrome 系統級 dialog handle。
+ * 應 always renderButton 作為 fallback，prompt() 僅作主動觸發補強。
+ */
 
 interface GoogleAccountsId {
   initialize: (config: GoogleIdConfiguration) => void;
