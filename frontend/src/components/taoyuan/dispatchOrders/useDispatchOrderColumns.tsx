@@ -223,11 +223,10 @@ export function useDispatchOrderColumns({
       width: 80,
       align: 'center',
       filters: [
-        { text: '第1批', value: 1 },
-        { text: '第2批', value: 2 },
-        { text: '第3批', value: 3 },
-        { text: '第4批', value: 4 },
-        { text: '第5批', value: 5 },
+        ...Array.from({ length: 10 }, (_, i) => ({
+          text: `第${i + 1}批`,
+          value: i + 1,
+        })),
         { text: '未分批', value: 'none' },
       ],
       onFilter: (value, record) =>

@@ -58,13 +58,10 @@ export const BatchSetModal: React.FC<BatchSetModalProps> = ({
         <Select
           placeholder="選擇結案批次（留空=清除）"
           allowClear
-          options={[
-            { value: 1, label: '第1批結案' },
-            { value: 2, label: '第2批結案' },
-            { value: 3, label: '第3批結案' },
-            { value: 4, label: '第4批結案' },
-            { value: 5, label: '第5批結案' },
-          ]}
+          options={Array.from({ length: 10 }, (_, i) => ({
+            value: i + 1,
+            label: `第${i + 1}批結案`,
+          }))}
         />
       </Form.Item>
       <div style={{ color: '#666', fontSize: 12 }}>
