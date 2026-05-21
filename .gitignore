@@ -139,8 +139,7 @@ frontend/src/types/generated/api.d.ts
 backend/sheet*.txt
 openapi_temp*.json
 
-# Bug tracking files (Excel)
-\#BUG/
+# 註：原 #BUG/ 已於 5/18 重命名為 docs/templates/import-templates/（業務 xlsx 範本，入版控）
 
 # Deployment packages
 *.tar.gz
@@ -163,8 +162,8 @@ backend/.ruff_cache/
 # Pip install artifacts
 backend/=*
 
-# Claude planning files
-claude_plant/
+# Claude planning files (5/18 移至 docs/archived/2026-05/claude_plant/)
+# claude_plant/  # 已 archive
 
 # Knowledge map (generated, import to Heptabase)
 docs/knowledge-map/
@@ -178,8 +177,7 @@ knowledge_graph.json
 dispatch*.json
 !frontend/src/**/*.json
 
-# Bug test data (Excel files)
-\#BUG/
+# 註：#BUG/ 已 archive（5/18），規則保留註解避免誤判
 
 # Runtime lock files
 backend/.startup.lock
@@ -187,3 +185,7 @@ backend/.startup.lock
 
 # Hermes Phase 0 — soul fidelity eval outputs (產出檔，每次執行覆寫)
 scripts/checks/.soul-eval-*.json
+
+# 2026-05-21 L43 incident: 雙 volume dump (本地 + NAS 異地保存，不入 git)
+backup/incident_*/*.dump
+backup/incident_*/*.sql.gz
