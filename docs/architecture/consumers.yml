@@ -55,7 +55,7 @@ consumers:
   # hermes-agent — NousResearch Hermes Agent fork
   # ---------------------------------------------------------------------------
   - id: hermes-agent
-    repo_path: D:/CKProject/hermes-agent
+    repo_path: D:/CKProject/CK_Hermes
     role: control core (L0 assistant)
     status: active
     contact: "@bluefishs"
