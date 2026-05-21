@@ -1,0 +1,68 @@
+# ck-sso-js manifest — v1.0 (2026-05-21)
+#
+# Cross-repo frontend SSO Bridge client for *.cksurvey.tw subdomains.
+# 與 ck-sso-py 配對；前者驗證 cookie，後者觸發驗證。
+
+package: ck-sso-js
+version: 1.0.0
+source_repo: CK_Missive
+fqid: CK_Missive#ck-sso-js_v1.0
+companion: CK_Missive#ck-sso-py_v1.0
+target_consumers:
+  - CK_lvrland_Webmap         # frontend Vite React
+  - CK_PileMgmt               # frontend Vite React
+  - CK_DigitalTwin (未來)     # frontend stack 待定
+  - 未來新增子網域
+
+supersedes:
+  - CK_Missive#ck-auth_v1.0 (frontend 部分；LR-015 reasoning)
+
+description: |
+  Pure-TypeScript SSO bridge client。從 CK_Missive frontend 抽出：
+    - api/interceptors.ts attemptSSOBridge() v3.0
+    - services/authService.ts ssoBridge() v3.0
+    - pages/EntryPage.tsx useEffect 觸發邏輯
+
+  Framework-agnostic：核心 fetch+sessionStorage，無 React/Vue/Svelte 綁定。
+  附 React hook (useSSOBridge) 給最大宗 consumer 直接用。
+
+  L41+L42 lesson sealed：install.sh 含 5 acceptance check（v1.0 加 Check 5
+  ground-truth log assertion，避免「中午宣稱裝完但 runtime 從沒被觸發過」反模式）。
+
+key_design_decisions:
+  - 不依賴 axios — 用 native fetch，consumer 可自帶 fetchImpl
+  - sessionStorage 三層防禦：cooldown 30s × max-fail 3 × terminal lock
+  - 200/403/404 終態 lock；401/429/503/network → 計數
+  - HttpOnly cookie 自動帶（credentials:'include'），JS 看不到 token
+
+api_surface:
+  - attemptSSOBridge(config)        # vanilla, returns Promise<SSOBridgeResult>
+  - resetSSOBridgeState(prefix?)    # 清 lock/cooldown/fail，給 retry 用
+  - getSSOBridgeState(prefix?)      # 讀目前狀態給 UI 顯示
+  - useSSOBridge(config)            # React hook，內部自動呼 attempt
+
+dependencies_runtime:
+  - native fetch (Node 18+ / 所有現代瀏覽器)
+  - sessionStorage (browser 環境)
+
+dependencies_optional:
+  - react >=17 (僅用 useSSOBridge 時)
+
+acceptance_checks:
+  - check_1_apiBaseURL_consumer_sets:    # consumer 須在 import 時傳 apiBaseURL
+  - check_2_endpoint_responds_to_POST:   # /auth/sso-bridge 預期 401（無 cookie）
+  - check_3_sessionStorage_works:        # consumer 環境 sessionStorage 可用
+  - check_4_owner_E2E_real_test:         # ⚠️ L41 教訓 — 不可省略
+  - check_5_backend_log_ground_truth:    # ⚠️ L41-RECURRENCE 防護
+    description: |
+      grep consumer backend log 必有 '[SSO-BRIDGE] received cookies=' 字串
+      若 0 hits → 前端從沒呼叫到後端，是 dormant 安裝（中午 lvrland/pile 反模式）
+
+l41_lesson_recurrence:
+  observation: |
+    2026-05-21 中午 ck-sso-py 「裝完」lvrland + pile，但 backend log 完全
+    沒有 [SSO-BRIDGE] 字串 — 因為前端沒呼叫。「裝完 ≠ 真活」反模式復發。
+  remediation:
+    - install.sh 加 Check 5 ground-truth log assertion（裝完 owner E2E 後跑）
+    - 此 manifest 與 ck-sso-py manifest 互引（companion 欄位）強制成對思考
+    - frontend integration 工項列為 install.sh exit 前提示
