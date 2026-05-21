@@ -23,7 +23,7 @@ import logging
 import sys
 import time
 from datetime import datetime
-from fastapi import FastAPI, Depends, Request, Response
+from fastapi import FastAPI, Depends, Request, HTTPException, Response
 
 # from fastapi.middleware.cors import CORSMiddleware  # 禁用原始 CORS 中介軟體
 from fastapi.middleware.gzip import GZipMiddleware
@@ -81,6 +81,20 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """應用程式生命週期事件處理器"""
     log_info(f"Application starting... v{app.version}")
+
+    # Sprint A A-3 (2026-05-18): 公網部署 + DEVELOPMENT_MODE=True 立即中止
+    _public_signals = (
+        _os.getenv("ENVIRONMENT", "").lower() in ("production", "prod"),
+        _os.getenv("CF_TUNNEL_ENABLED", "").lower() == "true",
+        any("cksurvey.tw" in h for h in settings.ALLOWED_HOSTS),
+    )
+    if settings.DEVELOPMENT_MODE and any(_public_signals):
+        logger.critical(
+            "SECURITY HALT: DEVELOPMENT_MODE=True detected on public deployment "
+            "(ENVIRONMENT/CF_TUNNEL_ENABLED/cksurvey.tw ALLOWED_HOSTS). "
+            "This would expose KG over public internet. Fix .env and restart."
+        )
+        sys.exit(1)
 
     # 🔥 DB 連線池預熱 — 消除首次查詢的 ~170ms cold penalty
     try:
@@ -854,18 +868,18 @@ async def _check_business_data_present(db: AsyncSession) -> dict:
     - HEALTH_MIN_KG_ENTITIES (default 1000)
     - HEALTH_BUSINESS_CACHE_TTL_S (default 30)
     """
-    enabled = _os.getenv("HEALTH_BUSINESS_CHECK_ENABLED", "true").lower() == "true"
+    enabled = os.getenv("HEALTH_BUSINESS_CHECK_ENABLED", "true").lower() == "true"
     if not enabled:
         return {"ok": True, "skipped": True}
 
-    cache_ttl = int(_os.getenv("HEALTH_BUSINESS_CACHE_TTL_S", "30"))
+    cache_ttl = int(os.getenv("HEALTH_BUSINESS_CACHE_TTL_S", "30"))
     now = time.time()
     cached = _business_data_cache.get("result")
     if cached is not None and (now - _business_data_cache["checked_at"]) < cache_ttl:
         return cached
 
-    min_docs = int(_os.getenv("HEALTH_MIN_DOCUMENTS", "100"))
-    min_kg = int(_os.getenv("HEALTH_MIN_KG_ENTITIES", "1000"))
+    min_docs = int(os.getenv("HEALTH_MIN_DOCUMENTS", "100"))
+    min_kg = int(os.getenv("HEALTH_MIN_KG_ENTITIES", "1000"))
 
     try:
         docs = await db.scalar(text("SELECT COUNT(*) FROM documents"))
@@ -1009,7 +1023,27 @@ if _FRONTEND_INDEX.exists():
         # 直接服務存在的檔案（favicon、manifest、robots 等）
         candidate = _FRONTEND_DIST / spa_path
         if candidate.is_file():
+            # F23 強化（5/06）：candidate 為 .html 必須套 no-cache，否則
+            # 直接訪問 /index.html 會被瀏覽器/CDN 長 cache，繞過 / 入口的
+            # no-cache 防線 → 用戶看到舊 bundle hash → 各種 chunk 404 / 認證 race
+            if spa_path.endswith('.html'):
+                return FileResponse(candidate, headers=_INDEX_NO_CACHE_HEADERS)
             return FileResponse(candidate)
+
+        # P-42 (5/07 事故修復)：對 /assets/* 不存在路徑明確 404，**不要** fallback
+        # 回 index.html — 否則用戶 cache 舊 HTML 指向已刪除 hash 的 .js/.css 時，
+        # 會收到 index.html 內容但 Content-Type 不對（mime 報 application/json 之類），
+        # 觸發瀏覽器嚴格 MIME check 拒絕載入，且 ChunkLoadError 永遠不觸發。
+        # 明確 404 → vite SPA chunk load failure 觸發 → 引導用戶重整。
+        if spa_path.startswith('assets/'):
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Asset not found: {spa_path}. "
+                    "Old bundle hash referenced — please hard refresh (Ctrl+Shift+R)."
+                ),
+            )
+
         return FileResponse(_FRONTEND_INDEX, headers=_INDEX_NO_CACHE_HEADERS)
 else:
     logger.warning(

@@ -7,8 +7,8 @@
 #   1. 複製 .env.production.example 為 .env.production
 #   2. 執行部署前檢查: scripts/deploy/pre-deploy.sh (或 .ps1)
 #   3. 建置並啟動: docker compose -f docker-compose.production.yml up -d --build
-#   4. 全新部署需初始化資料庫:
-#      docker compose exec backend python scripts/deploy/init-database.py
+#   4. 全新部署需初始化資料庫 (v2.0, 2026-05-21：scripts 移至 app/scripts/ 內 image)：
+#      docker compose exec backend python -m app.scripts.init_database
 #      docker compose exec backend alembic stamp heads
 #
 # 常用命令:
@@ -161,6 +161,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # additional_contexts (Compose v2.6+): inject CKProject root's shared-modules
+      # so vite alias '@ck-shared/ui-components' (resolves to ../../shared-modules/ui-components)
+      # has its target reachable inside the builder stage.
+      additional_contexts:
+        shared-modules: ../shared-modules
       args:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL}
         - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
