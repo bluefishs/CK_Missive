@@ -39,7 +39,11 @@ const KANBAN_DISPATCHES_KEY = ['kanban-dispatches'] as const;
 // 同時保留舊 key 防其他散戶 query 使用。
 const DISPATCH_ORDERS_KEY = ['taoyuan-dispatch-orders'] as const;
 const DISPATCH_ORDERS_LEGACY_KEY = ['dispatch-orders'] as const;
-const DISPATCH_ORDER_DETAIL_KEY = ['dispatch-order-detail'] as const;
+const DISPATCH_ORDER_DETAIL_LEGACY_KEY = ['dispatch-order-detail'] as const;
+// 2026-05-21 chronic fix — L39 第 14 處（dispatch=146 batch_no 修改後詳情/列表不一致）：
+// 真實 useTaoyuanDispatchOrder 用 queryKeys.taoyuanDispatch.order(id) = ['taoyuan-dispatch-order', id]，
+// 上方 ['dispatch-order-detail'] 與 ['taoyuan-dispatch-order'] prefix 完全不重疊 → 詳情族永不被 invalidate。
+const DISPATCH_ORDER_DETAIL_KEY = ['taoyuan-dispatch-order'] as const;
 
 /**
  * 派工列表/看板/詳情 — 跨頁面共用「列表族」key（不在 queryKeys.taoyuanDispatch.all 樹下）
@@ -59,6 +63,8 @@ const DISPATCH_LIST_FAMILY_KEYS = [
   KANBAN_DISPATCHES_KEY,
   DISPATCH_ORDERS_KEY,                // 真實 list query key (5/20 修)
   DISPATCH_ORDERS_LEGACY_KEY,         // 舊 key（防其他散戶 query 還用著）
+  DISPATCH_ORDER_DETAIL_KEY,          // 真實 detail query key (5/21 L39 第 14 處修)
+  DISPATCH_ORDER_DETAIL_LEGACY_KEY,   // 舊 detail key (防 historical 散戶)
   ['dispatch-orders-for-link'] as const,
   ['kanban-workflow'] as const,
 ] as const;
@@ -81,7 +87,8 @@ export function useDispatchCacheInvalidator() {
    */
   const invalidateDispatchAggregate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-    queryClient.invalidateQueries({ queryKey: DISPATCH_ORDER_DETAIL_KEY });
+    queryClient.invalidateQueries({ queryKey: DISPATCH_ORDER_DETAIL_KEY });          // 真實 detail family (5/21 修)
+    queryClient.invalidateQueries({ queryKey: DISPATCH_ORDER_DETAIL_LEGACY_KEY });   // 舊 key 保險
     _invalidateAllListFamily();
   };
 

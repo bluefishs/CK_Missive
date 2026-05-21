@@ -36,7 +36,7 @@ import {
   RightOutlined,
   PartitionOutlined,
 } from '@ant-design/icons';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 
 import { ResponsiveTable } from '../common';
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
@@ -46,6 +46,7 @@ import { useResponsive, useTaoyuanDispatchOrders } from '../../hooks';
 import { useDispatchOrderColumns } from './dispatchOrders/useDispatchOrderColumns';
 import { useDispatchOrderExport } from './dispatchOrders/useDispatchOrderExport';
 import { BatchSetModal, ImportDispatchModal } from './DispatchOrdersModals';
+import { useDispatchCacheInvalidator } from '../../hooks/taoyuan/useDispatchCacheInvalidator';
 
 const { Text } = Typography;
 const { Search } = Input;
@@ -61,7 +62,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
 }) => {
   const navigate = useNavigate();
   const { message } = App.useApp();
-  const queryClient = useQueryClient();
+  // v6.10.5 (2026-05-21) 移除 queryClient: 已由 useDispatchCacheInvalidator 統一封裝
   const [searchText, setSearchText] = useState('');
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -120,6 +121,12 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     message,
   });
 
+  // v6.10.5 (2026-05-21) L39 queryKey drift 第 13 處修法（同 dispatch=158 chronic 反模式）：
+  //   原 manual `refetch()` 只刷自己 instance / `invalidateQueries(['kanban-dispatches'])`
+  //   不重疊真實 queryKey ['taoyuan-dispatch-orders']，導致 batch_no 變更後列表/看板/morning-status
+  //   全 silent 不更新。改用 useDispatchCacheInvalidator 統一封裝（已涵蓋全列表族 6 keys）。
+  const cache = useDispatchCacheInvalidator();
+
   // 批量設定結案批次
   const batchSetMutation = useMutation({
     mutationFn: (params: { dispatch_ids: number[]; batch_no: number | null; batch_label?: string }) =>
@@ -129,8 +136,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
       setSelectedRowKeys([]);
       setBatchModalVisible(false);
       batchForm.resetFields();
-      refetch();
-      queryClient.invalidateQueries({ queryKey: ['kanban-dispatches'] });
+      cache.invalidateDispatchAggregate();  // L39 fix: 全列表族 + detail + morning-status + kanban
     },
     onError: () => {
       message.error('批次設定失敗');
