@@ -474,6 +474,15 @@ def run_daily_pipeline() -> Dict[str, Any]:
     except Exception as exc:
         logger.error("Failed to write pipeline report file: %s", exc)
 
+    # P0-2 (2026-05-20)：自動推送 LINE digest（受 PIPELINE_PUSH_ENABLED env gate）
+    # 解 R3 監督機制失明 — orchestrator 跑完無人收到通知
+    if os.getenv("PIPELINE_PUSH_ENABLED", "false").lower() in ("true", "1"):
+        try:
+            push_digest_to_line_sync(report)
+        except Exception as exc:
+            # 推送失敗不影響 report 回傳（防止監督機制自己崩潰）
+            logger.error("Auto-push pipeline digest failed: %s", exc, exc_info=True)
+
     return report
 
 
@@ -492,6 +501,108 @@ def format_digest_markdown(report: Dict[str, Any]) -> str:
     lines.append("")
     lines.append("(完整 report: `wiki/memory/pipeline-reports/`)")
     return "\n".join(lines)
+
+
+def _format_line_digest(report: Dict[str, Any]) -> str:
+    """精簡 LINE digest（4000 字內），優先顯示 RED/YELLOW step。
+
+    LINE 不支援 markdown，純文字。
+    """
+    red = [s for s in report["steps"] if s["status"] in ("red", "error")]
+    yellow = [s for s in report["steps"] if s["status"] == "yellow"]
+
+    lines = [
+        f"📊 Pipeline {datetime.now().strftime('%Y-%m-%d')}",
+        f"Overall: {report['overall_status'].upper()}",
+        "",
+    ]
+    if red:
+        lines.append(f"🔴 RED ({len(red)}):")
+        for s in red:
+            lines.append(f"  • {s['name']}: {s['summary'][:120]}")
+        lines.append("")
+    if yellow:
+        lines.append(f"🟡 YELLOW ({len(yellow)}):")
+        for s in yellow[:5]:  # 至多 5 條避免 LINE 4000 字限制
+            lines.append(f"  • {s['name']}: {s['summary'][:120]}")
+        lines.append("")
+    if not red and not yellow:
+        lines.append("✅ All steps GREEN")
+        lines.append("")
+    lines.append("詳見 wiki/memory/pipeline-reports/")
+    return "\n".join(lines)
+
+
+async def push_digest_to_line(report: Dict[str, Any]) -> bool:
+    """P0-2 (2026-05-20)：daily pipeline digest 推送至 LINE admin 通道。
+
+    解 RETRO_20260519 §3 R3「監督機制自身失明」— orchestrator 跑完無人收到通知。
+    既有 admin push 通道（autobiography.push_to_line 同模式）+ admin_push_metrics counter。
+
+    Args:
+        report: run_daily_pipeline() 回傳的 report dict
+
+    Returns:
+        True if 真正送出 (LINE API 200) else False (env disabled / 缺 user_id / push fail)
+
+    ENV gate:
+        - PIPELINE_PUSH_ENABLED=true → 啟用本 push
+        - LINE_GROWTH_NOTIFY_ENABLED=false → 全域關閉
+        - LINE_ADMIN_USER_ID 必須設
+    """
+    if os.getenv("PIPELINE_PUSH_ENABLED", "false").lower() not in ("true", "1"):
+        return False
+    if os.getenv("LINE_GROWTH_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
+        return False
+
+    line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+    if not line_user_id:
+        logger.warning(
+            "Pipeline LINE push skipped: LINE_ADMIN_USER_ID env not set",
+        )
+        return False
+
+    try:
+        from app.services.integration.line_bot import LineBotService
+        line_bot = LineBotService()
+        if not line_bot.enabled:
+            logger.warning(
+                "Pipeline LINE push skipped: LineBotService disabled "
+                "(check LINE_CHANNEL_ACCESS_TOKEN)",
+            )
+            return False
+
+        msg = _format_line_digest(report)
+        ok = await line_bot.push_message(line_user_id, msg[:4000])
+        if ok:
+            logger.info(
+                "Pipeline LINE digest pushed: overall=%s",
+                report.get("overall_status"),
+            )
+        else:
+            logger.warning(
+                "Pipeline LINE digest push returned False (LINE API may be down)",
+            )
+        return ok
+    except Exception as exc:
+        # ADR-0028 錯誤合約化：監督機制自己也不能 silent fail
+        logger.error(
+            "Pipeline LINE digest push error: %s", exc, exc_info=True,
+        )
+        return False
+
+
+def push_digest_to_line_sync(report: Dict[str, Any]) -> bool:
+    """同步 wrapper — cron / __main__ 用。"""
+    try:
+        return asyncio.run(push_digest_to_line(report))
+    except RuntimeError:
+        # 已在 event loop 內（如從 FastAPI 呼叫）→ 直接 await 不是這 sync wrapper 的責任
+        logger.warning(
+            "push_digest_to_line_sync called from inside event loop; "
+            "caller should await push_digest_to_line directly",
+        )
+        return False
 
 
 # ─── CLI ───────────────────────────────────────────────────────────
@@ -520,6 +631,13 @@ if __name__ == "__main__":
         # 顯示詳細 step summary
         for line in report["summary_lines"]:
             print(line)
+
+    # P0-2 (2026-05-20)：CLI --push 強制觸發 LINE push（不論 env gate）
+    if args.push:
+        # 暫時設 env gate 為 true 讓 push 函數通過
+        os.environ.setdefault("PIPELINE_PUSH_ENABLED", "true")
+        pushed = push_digest_to_line_sync(report)
+        print(f"\n[PUSH] LINE digest pushed: {pushed}")
 
     # exit code 對應 overall status
     code_map = {"green": 0, "yellow": 0, "red": 1, "error": 2}

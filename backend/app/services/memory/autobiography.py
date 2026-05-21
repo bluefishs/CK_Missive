@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
+from app.core.paths import PROJECT_ROOT  # v6.10 P1-E SSOT
 EVOLUTIONS_DIR = PROJECT_ROOT / "wiki" / "memory" / "evolutions"
 PATTERNS_DIR = PROJECT_ROOT / "wiki" / "memory" / "patterns"
 FAILURES_DIR = PROJECT_ROOT / "wiki" / "memory" / "failures"
@@ -176,6 +176,13 @@ class AutobiographyGenerator:
         # ── Phase 7 整合：抓本週最常命中的 wiki 實體（給週自傳敘事血肉）──
         # 取本週 3 句最長 question（通常代表最有份量的案子），用 wiki search
         # 找最相關頁，避免 LLM 敘事只剩乾巴巴的數字。
+        #
+        # P0-4 修法（2026-05-20，RETRO_20260519 §12.3 環節 4）：
+        # 原 except Exception → logger.debug 吞所有錯誤；改為：
+        # - TimeoutError → warning（預期可容忍）
+        # - 其他 → error + exc_info + counter（根因追蹤）
+        # - 加 schema 驗證偵測 wiki.search_wiki dict key drift（L29 同型反模式預防）
+        # - 加空 hits warning（wiki service OK 但無結果）
         try:
             top_questions_rows = (await self.db.execute(
                 sa_text(
@@ -189,11 +196,19 @@ class AutobiographyGenerator:
             from app.services.wiki.service import get_wiki_service
             wiki = get_wiki_service()
             seen_paths: set = set()
+            expected_keys = {"path", "title"}  # P0-4：schema drift 偵測
             for (q,) in top_questions_rows:
                 if not q:
                     continue
                 hits = await wiki.search_wiki(q, limit=2)
                 for h in hits:
+                    # P0-4：schema validation 防 wiki service 返回 key 漂移
+                    missing = expected_keys - set(h.keys())
+                    if missing:
+                        logger.warning(
+                            "WikiService.search_wiki schema mismatch: "
+                            "missing %s, got keys=%s", missing, list(h.keys()),
+                        )
                     path = h.get("path") or h.get("filename")
                     if path and path not in seen_paths:
                         seen_paths.add(path)
@@ -205,8 +220,37 @@ class AutobiographyGenerator:
                         break
                 if len(signals.top_wiki_pages) >= 3:
                     break
+            # P0-4：空結果可見化（wiki service OK 但本週查詢無命中）
+            if not signals.top_wiki_pages and top_questions_rows:
+                logger.warning(
+                    "Autobiography: top_wiki_pages empty after lookup "
+                    "(wiki service OK but no hits for %d queries)",
+                    len(top_questions_rows),
+                )
+        except asyncio.TimeoutError as e:
+            logger.warning(
+                "Autobiography wiki lookup timeout (Phase 7): %s", e,
+            )
+            try:
+                from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+                get_memory_wiki_metrics().diary_append_failures.labels(
+                    error_type="wiki_lookup",
+                ).inc()
+            except Exception:
+                pass
         except Exception as e:
-            logger.debug("top_wiki_pages lookup failed: %s", e)
+            # ADR-0028 錯誤合約化：原 silent debug 改為 error + exc_info
+            logger.error(
+                "Autobiography wiki lookup failed (unexpected): %s",
+                e, exc_info=True,
+            )
+            try:
+                from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+                get_memory_wiki_metrics().diary_append_failures.labels(
+                    error_type="wiki_lookup",
+                ).inc()
+            except Exception:
+                pass
 
         return signals
 
