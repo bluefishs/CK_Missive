@@ -529,11 +529,26 @@ echo ""
 # step 37: cross-repo docker network audit (ADR CK_AaaP#0043, 2026-05-21)
 # 揭發跨 repo network 命名 + 4 層分網路達標度
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[37/37] cross-repo docker network audit (ADR-0043)${NC}"
+echo -e "${CYAN}[37/38] cross-repo docker network audit (ADR-0043)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/network_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/network_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 38: docker compose volume consistency audit (L43, 2026-05-21)
+# 揭發同邏輯 volume（postgres/redis）跨 compose 檔指向不同實體名的 drift
+# 起因：5/21 production compose 指向 ck_missive_postgres_data（空殼）
+# vs dev/infra compose 指向 ck_missive_postgres_dev_data（真實主庫）
+# 切換 compose 時 silent 掛錯 volume → 業務 API 全 500 dormant ~10h
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[38/38] docker compose volume consistency (L43)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/docker_compose_volume_consistency.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/docker_compose_volume_consistency.py || true
 fi
 echo ""
 
