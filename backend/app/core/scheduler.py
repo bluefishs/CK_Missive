@@ -257,8 +257,9 @@ async def code_graph_incremental_job():
         async with async_session_maker() as db:
             from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
             service = CodeGraphIngestionService(db)
-            backend_dir = Path(__file__).parent.parent  # backend/app
-            frontend_dir = Path(__file__).parent.parent.parent.parent / "frontend" / "src"
+            from app.core.paths import BACKEND_DIR, FRONTEND_DIR  # v6.10 P1-E SSOT
+            backend_dir = BACKEND_DIR / "app"
+            frontend_dir = FRONTEND_DIR / "src"
 
             stats = await service.ingest(
                 backend_app_dir=backend_dir,
@@ -495,7 +496,7 @@ async def memory_metrics_refresh_job():
 
     try:
         # PROJECT_ROOT/wiki/memory 路徑（同 endpoints/ai/memory.py 用法）
-        project_root = Path(__file__).resolve().parents[3]
+        from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
         wiki_memory = project_root / "wiki" / "memory"
         if not wiki_memory.exists():
             logger.warning("wiki/memory 目錄不存在，skip metrics refresh")
@@ -875,6 +876,54 @@ async def wiki_compile_job():
         logger.error("Wiki compile failed: %s", e, exc_info=True)
 
 
+@tracked_job("optimization_pipeline")
+async def cron_optimization_pipeline_job():
+    """v6.10 P0-1 (2026-05-18): Optimization Pipeline 每日巡檢
+
+    跑 `optimization_pipeline_orchestrator.run_daily_pipeline()` 5 step：
+      1. fitness (run_fitness.sh, 27 step)
+      2. capability_audit
+      3. memory_loop_health
+      4. shadow_baseline_summary
+      5. precommit_hook_probe
+
+    產出 JSON report + Markdown digest，YELLOW/RED 時推 LINE。
+    防 v6.10 candidate「orchestrator skeleton 0 importer 孤兒」反模式。
+    """
+    try:
+        # 非阻塞執行（pipeline 內含 subprocess 呼叫，可能 30s+）
+        from app.services.optimization_pipeline_orchestrator import (
+            run_daily_pipeline,
+            format_digest_markdown,
+        )
+        report = await _asyncio.to_thread(run_daily_pipeline)
+        overall = report.get("overall_status", "unknown")
+        logger.info(
+            "Optimization Pipeline 完成: overall=%s, %d steps",
+            overall,
+            len(report.get("steps", [])),
+        )
+
+        # YELLOW / RED / ERROR → 推 admin（避免 GREEN 雜訊）
+        # v6.11 fix: 走 IntegrationFacade（multi-channel fallback）取代失蹤的 line_bot.push_admin_alert
+        # → 同時把 IntegrationFacade 從 zero-caller 升為 1+ caller（RETRO_20260519 §2.1 目標）
+        if overall in ("yellow", "red", "error"):
+            try:
+                from app.services.contracts.facades.integration import IntegrationFacade
+                digest = format_digest_markdown(report)
+                await IntegrationFacade().push_admin_alert(
+                    title=f"[Pipeline {overall.upper()}] 每日巡檢",
+                    body=digest[:2000],  # LINE 訊息限制
+                )
+            except Exception as push_exc:
+                logger.warning(
+                    "Optimization Pipeline digest push 失敗（pipeline 已產出 report）: %s",
+                    push_exc,
+                )
+    except Exception as e:
+        logger.error("Optimization Pipeline crashed: %s", e, exc_info=True)
+
+
 @tracked_job("wiki_lint")
 async def wiki_lint_job():
     """Wiki 健康檢查 — 偵測孤立頁面、斷裂連結
@@ -910,7 +959,7 @@ async def wiki_lint_job():
         drift_delta = int(os.getenv("WIKI_DRIFT_DELTA", "5"))
 
         # 讀前次狀態
-        project_root = Path(__file__).resolve().parents[3]
+        from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
         state_path = project_root / "wiki" / ".lint_state.json"
         prev_orphan = 0
         prev_broken = 0
@@ -995,7 +1044,7 @@ async def health_snapshot_log_job():
     純 append，不觸發其他排程，失敗不影響其他 job。
     """
 
-    project_root = _Path(__file__).resolve().parents[3]
+    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     script = project_root / "scripts" / "health" / "log-health-snapshot.cjs"
     if not script.exists():
         logger.warning("health_snapshot: script not found at %s", script)
@@ -1018,7 +1067,7 @@ async def shadow_baseline_export_job():
     """
     from datetime import date as _date
 
-    project_root = _Path(__file__).resolve().parents[3]
+    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     script = project_root / "scripts" / "checks" / "shadow-baseline-report.cjs"
     if not script.exists():
         logger.warning("shadow_baseline: script not found at %s", script)
@@ -1045,7 +1094,7 @@ async def synthetic_baseline_inject_job():
     執行 scripts/checks/synthetic-baseline-inject.py 注入合成測試資料，
     用於 shadow baseline 持續累積與 GO/NO-GO 品質監控。
     """
-    project_root = _Path(__file__).resolve().parents[3]
+    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     script = project_root / "scripts" / "checks" / "synthetic-baseline-inject.py"
     if not script.exists():
         logger.warning("synthetic_baseline_inject: script not found at %s", script)
@@ -1077,7 +1126,7 @@ async def cloudflare_tunnel_verify_job():
         logger.debug("cf_tunnel_verify: 非公網部署，跳過")
         return
 
-    project_root = _Path(__file__).resolve().parents[3]
+    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     script = project_root / "scripts" / "ops" / "verify-cloudflare-tunnel.ps1"
     if not script.exists():
         logger.warning("cf_tunnel_verify: script not found at %s", script)
@@ -1658,11 +1707,9 @@ async def soul_mirror_sync_job():
     - SYSTEM_INTEGRATION_REVIEW_v2.md 軸線 C
     - scripts/sync/sync_soul_to_hermes.sh
     """
-    from pathlib import Path
-
-    project_root = Path(__file__).resolve().parents[3]
-    script_path = project_root / "scripts" / "sync" / "sync_soul_to_hermes.sh"
-    target_path = project_root.parent / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
+    from app.core.paths import PROJECT_ROOT as project_root, SCRIPTS_DIR, CKPROJECT_ROOT  # v6.10 P1-E SSOT
+    script_path = SCRIPTS_DIR / "sync" / "sync_soul_to_hermes.sh"
+    target_path = CKPROJECT_ROOT / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
 
     if not script_path.exists():
         logger.warning("SOUL sync script missing, skip: %s", script_path)
@@ -1820,9 +1867,9 @@ def setup_scheduler(
     # 添加 DB Schema 快照更新 — 每日 03:30 反射 PostgreSQL schema
     scheduler.add_job(
         db_schema_refresh_job,
-        trigger=CronTrigger(hour=3, minute=30),
+        trigger=CronTrigger(hour=3, minute=35),  # 2026-05-18 P1: 與 erp_graph_ingest 03:30 錯開 5min
         id='db_graph_refresh',
-        name='DB Schema 快照更新',
+        name='DB Schema 快照更新 (03:35)',
         replace_existing=True,
         max_instances=1,
         coalesce=True
@@ -1953,9 +2000,9 @@ def setup_scheduler(
     # 2026-04-19 Memory Wiki Phase 2: 每日 04:00 萃取 patterns/failures
     scheduler.add_job(
         memory_pattern_extract_job,
-        trigger=CronTrigger(hour=4, minute=0),
+        trigger=CronTrigger(hour=4, minute=5),  # 2026-05-18 P1: 與 kb_coverage_check 04:00 錯開 5min
         id='memory_pattern_extract',
-        name='Memory Wiki Pattern Extractor (每日 04:00)',
+        name='Memory Wiki Pattern Extractor (每日 04:05)',
         replace_existing=True,
         max_instances=1,
         coalesce=True
@@ -1965,9 +2012,9 @@ def setup_scheduler(
     # v5.13 Gap 1: 每日 06:00 agent self-diagnosis（主動讀自己 metrics）
     scheduler.add_job(
         agent_self_diagnosis_job,
-        trigger=CronTrigger(hour=6, minute=0),
+        trigger=CronTrigger(hour=6, minute=10),  # 2026-05-18 P1: 與 tender_refresh_pending 06:00 錯開 10min
         id='agent_self_diagnosis',
-        name='Agent Self-Diagnosis (每日 06:00 — 主動性 Gap 1)',
+        name='Agent Self-Diagnosis (每日 06:10 — 主動性 Gap 1)',
         replace_existing=True,
         max_instances=1,
         coalesce=True
@@ -2005,9 +2052,9 @@ def setup_scheduler(
     # 2026-04-19 Memory Wiki Phase 3: 每日 04:30 crystal scan（在 pattern extract 之後）
     scheduler.add_job(
         memory_crystallization_scan_job,
-        trigger=CronTrigger(hour=4, minute=30),
+        trigger=CronTrigger(hour=4, minute=35),  # 2026-05-18 P1: 與 kg_embedding_backfill 04:30 錯開 5min
         id='memory_crystallization_scan',
-        name='Memory Wiki Crystallization Scan (每日 04:30)',
+        name='Memory Wiki Crystallization Scan (每日 04:35)',
         replace_existing=True,
         max_instances=1,
         coalesce=True
@@ -2042,9 +2089,9 @@ def setup_scheduler(
     # 解 SEVERE drift（Missive SOUL ↔ AaaP/Hermes SOUL 不同步問題）
     scheduler.add_job(
         soul_mirror_sync_job,
-        trigger=CronTrigger(hour=4, minute=45),
+        trigger=CronTrigger(hour=4, minute=50),  # 2026-05-18 P1: 與 embedding_warmup 04:45 錯開 5min
         id='soul_mirror_sync',
-        name='SOUL.md 跨 repo 自動同步 (每日 04:45)',
+        name='SOUL.md 跨 repo 自動同步 (每日 04:50)',
         replace_existing=True,
         max_instances=1,
         coalesce=True,
@@ -2148,6 +2195,22 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加合成基線注入: 每日 09:00/14:00/20:00")
+
+    # v6.10 P0-1 (2026-05-18): Optimization Pipeline Orchestrator
+    # 每日 03:00 跑 5 step：fitness / capability_audit / memory_loop / shadow_baseline / precommit_probe
+    # 合成 digest 寫入 logs/optimization-pipeline/ + 推 LINE
+    # 防 v6.10 candidate「自動化流水線 skeleton 0 importer 孤兒」反模式
+    scheduler.add_job(
+        cron_optimization_pipeline_job,
+        trigger=CronTrigger(hour=3, minute=0),
+        id='optimization_pipeline_daily',
+        name='Optimization Pipeline 每日巡檢 (03:00, 5 step)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=600,
+    )
+    logger.info("已添加 Optimization Pipeline: 每日 03:00")
 
     # 月度架構覆盤 — 每月 1 日 06:00
     scheduler.add_job(
