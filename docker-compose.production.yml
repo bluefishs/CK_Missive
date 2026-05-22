@@ -187,8 +187,10 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    # L45 fix: align with Dockerfile HEALTHCHECK (nginx listens :3000 not :80)
+    # nginx.conf has /nginx-health fast 200 endpoint; use 127.0.0.1 to avoid IPv6 ::1 issue
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3000/nginx-health"]
       interval: 30s
       timeout: 10s
       retries: 3
