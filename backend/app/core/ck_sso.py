@@ -70,7 +70,8 @@ def verify_ck_sso_jwt(token: str, secret: str) -> Optional[CKSSOEmployee]:
             secret,
             algorithms=[CK_SSO_ALGORITHM],
             issuer=CK_SSO_ISSUER,
-            options={"require": ["sub", "name", "role", "systems", "exp", "iss"]},
+            # v1.2 (ADR-0002): role 不再強制 require — 2026-08-31 後 JWT 不簽 role
+            options={"require": ["sub", "name", "systems", "exp", "iss"]},
         )
     except pyjwt.ExpiredSignatureError as e:
         logger.warning("[CK_SSO] JWT EXPIRED: %s (需重新從 www.cksurvey.tw 登入)", e)
@@ -112,7 +113,8 @@ def verify_ck_sso_jwt(token: str, secret: str) -> Optional[CKSSOEmployee]:
         return CKSSOEmployee(
             email=email,
             name=str(payload["name"]),
-            role=str(payload["role"]),
+            # v1.2 (ADR-0002): platform_role 優先；role 為舊欄位 fallback
+            role=str(payload.get("platform_role") or payload.get("role") or "employee"),
             systems=systems,
             exp=int(payload["exp"]),
         )
