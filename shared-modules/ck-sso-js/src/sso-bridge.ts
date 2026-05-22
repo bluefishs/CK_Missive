@@ -53,8 +53,14 @@ export interface SSOBridgeConfig {
   storagePrefix?: string;
   /** logger，預設 console；傳 null 完全靜默 */
   logger?: Pick<Console, 'log' | 'warn'> | null;
-  /** 成功後 callback；預設 reload 頁面套用新 session */
+  /** 成功後 callback；不傳則用 successRedirect 預設行為 */
   onSuccess?: (data: unknown) => void;
+  /**
+   * onSuccess 未指定時的預設跳轉路徑，預設 '/dashboard'。
+   * v1.1：用 location.replace（非 reload / href）— L44 Part 2 修法：
+   * 避免 protected route guard 在 zustand persist rehydrate 完成前攔截 → 假面失敗。
+   */
+  successRedirect?: string;
   /** 自訂 fetch（給測試或 axios adapter 用）*/
   fetchImpl?: typeof fetch;
 }
@@ -111,6 +117,7 @@ export async function attemptSSOBridge(
     storagePrefix = 'ck_sso_bridge',
     logger = console,
     onSuccess,
+    successRedirect = '/dashboard',
     fetchImpl = fetch,
   } = config;
 
@@ -164,7 +171,11 @@ export async function attemptSSOBridge(
       if (onSuccess) {
         try { onSuccess(data); } catch (e) { log.warn('[SSO-BRIDGE] onSuccess threw', e); }
       } else if (typeof window !== 'undefined') {
-        window.location.reload();
+        // v1.1 (L44 Part 2): replace('/dashboard') 取代 reload()
+        // 原因：reload 觸發 route guard 在 zustand persist rehydrate 完成前同步檢查 →
+        // 看到 isAuthenticated=false → 立刻 Navigate /login → 假面失敗。
+        // replace + 明確目標路徑 → full document load 同步初始化 localStorage 完成才 mount React。
+        window.location.replace(successRedirect);
       }
       return { ok: true, status: 200, data, reason: 'success' };
     }
