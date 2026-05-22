@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -93,6 +94,7 @@ class VolumeRef:
 class AuditResult:
     refs: list[VolumeRef] = field(default_factory=list)
     backup_refs: list[VolumeRef] = field(default_factory=list)
+    orphans: list[str] = field(default_factory=list)  # host volumes not in any compose
     violations: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     status: str = "unknown"
@@ -172,6 +174,49 @@ def _scan_backup_scripts(repo: Path) -> list[VolumeRef]:
     return refs
 
 
+def _scan_host_orphans(repo: Path, declared_names: set[str]) -> tuple[list[str], str | None]:
+    """掃 docker 主機上實際存在的 volumes，找出無 compose 宣告的 orphan。
+
+    判定範圍：volume name 以 `<repo>_` 或 `ck_<repo>_` 開頭（case-insensitive），
+    或 label `com.docker.compose.project` 等於 repo 目錄名（小寫）。
+
+    Returns:
+        (orphan_names, skip_reason) — skip_reason 非 None 時表示無法跑 docker。
+
+    本函數刻意「軟失敗」：docker 不在 / 拒絕連線時回空清單 + reason，
+    不 raise — 因為 CI 環境通常無 docker daemon。
+    """
+    repo_name_lower = repo.name.lower()
+    try:
+        proc = subprocess.run(
+            ["docker", "volume", "ls", "--format", "{{.Name}}"],
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+        if proc.returncode != 0:
+            return [], f"docker exit {proc.returncode}: {proc.stderr.strip()[:200]}"
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+        return [], f"docker unavailable: {type(e).__name__}: {e}"
+
+    declared_lower = {n.lower() for n in declared_names}
+    orphans: list[str] = []
+    # 同 repo 範圍判定：name prefix match（含大小寫變體 — L43 揭發 ghost 用了大寫前綴）
+    prefix_variants = [
+        f"{repo_name_lower}_",
+        f"ck_{repo_name_lower.removeprefix('ck_')}_",  # 兼容 'CK_Missive' → 'ck_missive_'
+    ]
+    for vol_name in proc.stdout.splitlines():
+        vol_name = vol_name.strip()
+        if not vol_name:
+            continue
+        vol_lower = vol_name.lower()
+        if not any(vol_lower.startswith(p) for p in prefix_variants):
+            continue
+        if vol_lower in declared_lower:
+            continue
+        orphans.append(vol_name)
+    return sorted(orphans), None
+
+
 def _detect_drift(result: AuditResult) -> None:
     # 同邏輯 key 收集所有實體 name + 來源
     by_key: dict[str, dict[str, list[Path]]] = defaultdict(lambda: defaultdict(list))
@@ -206,7 +251,7 @@ def _detect_drift(result: AuditResult) -> None:
             )
 
 
-def audit(repo: Path) -> AuditResult:
+def audit(repo: Path, check_orphans: bool = True) -> AuditResult:
     result = AuditResult()
     env = _load_env(repo)
     compose_files = _find_compose_files(repo)
@@ -218,6 +263,17 @@ def audit(repo: Path) -> AuditResult:
         result.refs.extend(_parse_compose_volumes(cf, env))
     result.backup_refs = _scan_backup_scripts(repo)
     _detect_drift(result)
+    if check_orphans:
+        declared = {r.physical_name for r in result.refs}
+        orphans, skip_reason = _scan_host_orphans(repo, declared)
+        result.orphans = orphans
+        if skip_reason:
+            result.warnings.append(f"⚠️  Orphan scan skipped: {skip_reason}")
+        else:
+            for orphan in orphans:
+                result.warnings.append(
+                    f"⚠️  Orphan volume on host: '{orphan}' (not declared in any compose)"
+                )
     if result.violations:
         result.status = "red"
     elif result.warnings:
@@ -229,18 +285,22 @@ def audit(repo: Path) -> AuditResult:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--strict", action="store_true", help="Exit 2 on drift")
+    parser.add_argument("--strict", action="store_true",
+                        help="Exit 2 on any orphan (default: orphans are yellow warnings only)")
+    parser.add_argument("--no-orphan-scan", action="store_true",
+                        help="Skip host volume orphan detection (skip docker volume ls)")
     parser.add_argument("--repo", help="Repo path (default: parent of scripts/)")
     args = parser.parse_args()
 
     repo = Path(args.repo).resolve() if args.repo else REPO_ROOT
 
     print(f"🔍 docker_compose_volume_consistency (L43 防禦) — repo: {repo.name}\n")
-    result = audit(repo)
+    result = audit(repo, check_orphans=not args.no_orphan_scan)
     emoji = {"red": "🔴", "yellow": "🟡", "green": "🟢"}.get(result.status, "❓")
     print(f"{emoji} Status: {result.status.upper()}")
     print(f"  compose volume refs:    {len(result.refs)}")
     print(f"  backup script refs:     {len(result.backup_refs)}")
+    print(f"  host orphan volumes:    {len(result.orphans)}")
     print(f"  violations (drift):     {len(result.violations)}")
     print(f"  warnings:               {len(result.warnings)}\n")
 
@@ -252,8 +312,14 @@ def main() -> int:
     if result.violations:
         print("\n💡 Lesson: L43 — Volume mount drift silent fail")
         print("   修法：所有 compose 內同邏輯 volume 必須指向同一 docker volume name")
+    if result.orphans:
+        print("\n💡 Orphan cleanup suggestion:")
+        print("   1. 確認 orphan 內無重要資料：docker run --rm -v <name>:/d:ro alpine ls /d")
+        print("   2. tar 留底（仿 backup/ghost_volume_cleanup_*）+ docker volume rm <name>")
+        print("   3. 若是過渡期保留請註明在 docs/architecture/ARCHITECTURE_DEBT.md")
 
-    if args.strict and result.status == "red":
+    # --strict: any orphan or drift fails. Default: only drift fails.
+    if args.strict and (result.violations or result.orphans):
         return 2
     if result.status == "red":
         return 2
