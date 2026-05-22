@@ -4,6 +4,536 @@
 
 ---
 
+## [v6.10.3] - 2026-05-21（L43 Volume Mount Drift 災難級事故 4h 完整恢復 + 5 層防禦）
+
+### 🎯 主題
+
+**「同日揭發 L41 + L43 兩個同型事故」結構性訊號** — 上午 L41 JWT secret drift（6 天 dormant）下午 L43 volume mount drift（10h dormant）皆為「跨檔資源 SSOT × 5 重 silent fallback」共病。
+
+### 6 個 commit 提交（origin/main ahead 48）
+
+| Hash | 主題 | 規模 |
+|---|---|---|
+| `e1d7d3e7` | `feat(db)`: alembic 20260521a001 — users.department/position idempotent | 1 檔 +50 |
+| `ad4451b8` | `feat(checks)`: docker_compose_volume_consistency.py fitness step 38 (L43) | 2 檔 +282/-1 |
+| `acbd3e49` | `docs(backup)`: L43 incident README + gitignore for dumps | 2 檔 +57/-6 |
+| `097cdf68` | `feat(health)`: /health business_data_present + compose volume fix (L43) | 2 檔 +86/-8 |
+| `97ab4baf` | `chore(deploy)`: public-deployment safety halt + shared-modules context | 2 檔 +46/-7 |
+| `f60ac726` | `fix(compose)`: redis volume name align (L43 drift RED → GREEN) | 4 檔 +16/-8 |
+
+**累計：13 檔 +537/-30**
+
+### 🔴 災難級事故揭發 + 修法
+
+**L43 Volume Mount Drift**（最遲現代化中的失誤事故）：
+1. **觸發**：owner 14:22 Google login 後業務 API 連環 500（calendar / dispatch / digital-twin）
+2. **誤判 → 揭發**：初判 3 欄 schema drift（event_reminders.recipient_email / document_calendar_events.status / documents.ner_pending）→ 盤點才知**整個 DB 不對**（17 tables vs 75 預期）
+3. **根因**：production compose 指向 `ck_missive_postgres_data`（空殼 17 tables/502 docs，5/21 SSO debug 殘留），真實資料在 `ck_missive_postgres_dev_data`（75 tables/1788 docs/24061 KG，5/20 v6.10.2 收尾資料）
+4. **Volume 容量對比**：63.6 MB（空殼）vs **392.8 MB**（真實）— 6× 差距
+5. **修法 Plan A 10 步**（14:30~14:35）：雙 dump + MD5 + compose patch + alembic upgrade head + healthchecks
+
+### 5 重 silent fallback（與 L41 同構）
+
+| # | layer | 為何 silent |
+|---|---|---|
+| 1 | postgres 空 volume init | 跑 init.sql → 建少數 base table → 沒報錯 |
+| 2 | alembic upgrade head | schema 從 0 推到 head 完全正常 |
+| 3 | `/health` 只驗 connection | `database.status=connected, latency=2.06ms` |
+| 4 | Prometheus 無 row count alert | `documents_total` 暴跌沒對應規則 |
+| 5 | session-start hook 顯示 healthy | `Up 2 hours (healthy)` 騙過所有人 |
+
+### 📋 新增資產
+
+| 類別 | 資產 |
+|---|---|
+| Migration | `backend/alembic/versions/20260521a001_add_users_department_position.py`（idempotent ADD COLUMN IF NOT EXISTS） |
+| Fitness Step | `scripts/checks/docker_compose_volume_consistency.py`（step 38 — 同邏輯 volume 跨 compose 檔 drift 偵測，支援 ${COMPOSE_PROJECT_NAME} 展開） |
+| Backend Defense | `backend/main.py` 加 `_check_business_data_present()` + `/health` 503 防禦（env 可調 HEALTH_MIN_DOCUMENTS / HEALTH_MIN_KG_ENTITIES） |
+| Compose Patch | `docker-compose.production.yml` volume name → `ck_missive_postgres_dev_data` + `external: true` |
+| Cross-File SSOT | 6 個檔（3 compose + 2 backup script + production）redis volume name 統一為 `ck_missive_redis_data` |
+| Backup | `backup/incident_20260521_volume_mount_drift/` 雙 dump（77M real + 122K wrong shell）+ MD5 驗證 + NAS 異地 |
+| Lesson | `memory/lesson_l43_volume_mount_drift_silent_fail.md`（與 L41 同列「跨檔 SSOT 治理失效」教材） |
+| Session Memory | `memory/session_20260521_l43_volume_drift_recovery.md` |
+
+### 🎯 公網 L43 防禦真活
+
+| 路徑 | env | business_data | HTTP |
+|---|---|---|---|
+| `localhost:8001/health`（docker container） | production | ok=true, 1789 docs, 24061 KG | 200 |
+| `missive.cksurvey.tw/health`（PM2 backend, via cloudflared） | production | ok=true, 1789 docs, 24061 KG | 200 |
+| threshold=99999 強迫失敗測試 | unhealthy | ok=false, reason=row_count_below_threshold | **503** |
+
+### 🚨 架構級議題揭發（v6.11 Sprint 1 候選）
+
+split-commit 過程意外發現：
+- 公網 `missive.cksurvey.tw` 透過 cloudflared `host.docker.internal:8001` 命中 **PM2 native uvicorn (PID 37564)**，不是 docker container
+- 兩 backend 同時 listen 0.0.0.0:8001（Windows SO_REUSEADDR）
+- 整天 hot-patch docker container 對公網無效，需 `pm2 restart ck-backend` 才生效
+- **對策建議**：廢 PM2 改純 docker，或廢 docker backend 改純 PM2（二選一）
+
+### ⚠️ Redis 同型 chronic drift（fitness step 38 首跑揭發 + 已修）
+
+production 用 `ck_missive_redis_data` (live 13 keys, 103K) vs dev/infra 用 `ck_missive_redis_dev_data` (504K orphan)；fitness step 38 從 RED 修到 GREEN。
+
+### 💡 新增 1 條 lesson
+
+- **L43 Volume Mount Drift Silent Fail**：與 L41 同構，差別在 L41 是 JWT secret，L43 是 docker volume。兩者根本病為「跨檔資源 SSOT 缺失」。詳見 [[lesson_l43_volume_mount_drift_silent_fail]]。
+
+### 🎓 反思
+
+**同週 L41 + L43 兩個同型事故** = 結構性債的明確指標。修一個 ADR-0043 不夠，需要**整族 audit**（ADR-0044 volume + 未來 secret audit）。v6.11 Sprint 1 必須從消防員模式切換到「結構性治理」模式，否則同型事故會繼續出現。
+
+詳見：
+- `wiki/memory/diary/2026-05-21.md`（owner session addendum）
+- `memory/session_20260521_l43_volume_drift_recovery.md`
+- `memory/lesson_l43_volume_mount_drift_silent_fail.md`
+
+---
+
+## [v6.10.2] - 2026-05-20（L39 全清 + Calendar dormant 急救 + 慢性 Bug 大掃除）
+
+### 🎯 主題
+
+**「真活宣告 vs 真接通」全面驗證** — 用戶 5/20 報 dispatch=158 chronic bug 觸發 L39 queryKey drift 揭發 12 silent dead invalidate，連帶揭發 Calendar 90% 大規模 dormant + 2 個過往覆盤誤判（L29 / autobiography）。
+
+### 4 個 commit 提交（origin/main ahead 42）
+
+| Hash | 主題 | 規模 |
+|---|---|---|
+| `adcafeb4` | `fix(backend)`: calendar RLS NULL fallback + 日期防呆 SSOT + L29 觀測補完 | 11 檔 +1046/-73 |
+| `d8882f73` | `fix(frontend)`: l39 querykey drift cleared + timezone drift + chunk auto-reload | 14 檔 +256/-56 |
+| `e1827e42` | `feat(fitness)`: add step 35 querykey drift + step 36 autobiography freshness | 6 檔 +981/-16 |
+| `455971ea` | `docs`: retro_20260519 §12 + l37/l38/l39 lessons + docker backup sop + ck-auth mitigation | 7 檔 +1649/-7 |
+
+**累計：45 檔 +4299/-156**
+
+### 🔴 慢性 Bug 12 項揭發 + 修法
+
+1. dispatch=158「公文 2 筆」chronic（5/18 + 5/20 復發）→ **L39 queryKey drift**
+2. 公文 2479 行事曆看不到 → Calendar 90% NULL owner dormant
+3. 行事曆顯示提前 1 日 → toISOString 時區漂移
+4. 事件 1081 + 9 同型 → date 顛倒 schema 無防呆
+5. 公網 missive.cksurvey.tw 403 → CF Access policy（owner 端修）
+6. Frontend chunk 404 + CSS MIME 錯 → Vite Date.now hash + browser cache
+7. L29 真活揭發誤判 → 用錯 redis key pattern
+8. autobiography「半年 0 檔」誤判 → cwd 錯誤
+9. Audit script 漏掃 useQuery<TypeParam>() → 6 個 token 誤標 dead
+10. Task Scheduler 不在（5/16 後 cron 漏跑）→ Docker volume 風險揭發
+11. ck-auth v1.0 frontend force install 預測必爆 → install.sh --no-frontend mitigation
+12. E. NULL owner 創建源頭 → batch_create_calendar_events required guard
+
+### 📋 新增資產
+
+**Lessons（3 條）**：
+- L37 覆盤報告自身也是 LR-015 候選（Pattern Z meta-反模式）
+- L38 平時保險（cron / 異地備份）也是 LR-015 反模式高發區
+- L39 QueryKey Drift（同 L28 schema drift + L29 contract drift 三件套）
+
+**Fitness step（2 個）**：
+- step 35 `queryKey_drift_audit.py` — baseline=0 守護 v7.0 目標
+- step 36 `autobiography_freshness_check.py` — 防 cron silent miss 5 個月
+
+**Schema validator SSOT**：
+- `backend/app/schemas/common.py:validate_date_ordering` helper
+- 5 schemas 採用（calendar Create/Update/IntegratedCreate + einvoice + pm/staff）
+
+**Baseline 鎖（2 個）**：
+- `alias_rls_baseline.json` 29 → 28（notification RLSPort 修法後）
+- `queryKey_drift_baseline.json` 12 → 0（達 v7.0 目標）
+
+**Docker 緊急備份 SOP**：
+- `scripts/backup/pre_upgrade_backup.sh` 4 層保險（PG dump + sql.gz + redis rdb + 2 volume tar）+ NAS 異地
+- `scripts/backup/restore_from_volume_tar.sh` bit-perfect 還原
+- `docs/runbooks/docker-desktop-upgrade-sop.md` 9 段升級 SOP
+- 5/19 跑 269MB 本機 + 272MB NAS（首批 emergency backup）
+- 5/20 重啟前再跑 352MB（含當日 redis evolution 寫入）
+
+**策略體檢報告**：
+- `docs/architecture/RETRO_20260519_strategic_health_check.md` v1.0~v1.2
+- v1.0 4 平行代理深掘 / v1.1 §9 自我檢視 7 缺陷 + §10 Docker 危機 / v1.2 §12 Post-P0 整體覆盤
+
+**Pre-commit hook 加 L39 enforce**（防回退）
+
+### 🧠 Pattern Z 加強（L37 meta-lesson）
+
+5/20 兩個大反轉：
+1. **L29 真活**：5/19 用 `HGETALL agent:domain_scores` 看 0 → 誤判 silent dead；實際 key 是 `agent:domain_scores:{domain}` 多 list，5/8 domain 真活累積分數
+2. **autobiography 真活**：5/19 cwd 錯誤導致 `ls evolutions/` 0 hit → 誤判半年 0 檔；實際 W17-W20 共 4 檔
+
+→ 覆盤代理用 grep 報「0 hit」前必驗證搜尋目標真實儲存結構。
+
+### 🎯 v7.0 目標進度
+
+| 指標 | 5/19 baseline | 5/20 終盤 |
+|---|---|---|
+| L39 dead invalidate | 12 | **0** ✅ 達標 |
+| alias_rls risks | 29 | **28**（calendar+notification 修法） |
+| Calendar owner-less 可見率 | 0% | **100%**（RLS NULL fallback） |
+| Schema validator 覆蓋 | 1/8 | **5/8**（calendar + einvoice + pm/case + pm/staff + project_staff 既有） |
+| Fitness step 數 | 34 | **36** |
+| Lessons 條數 | L01-L36 | **L01-L39** |
+
+### ⚠️ 仍 369 unstaged（v6.10 P1 既有工作，本 session 未動）
+
+需另開 session 評估 commit。
+
+---
+
+## [v6.10 候選] - 2026-05-16~18（整合治理三層交付）
+
+### 🎯 主題
+
+從「散修補丁」升級到「整體治理」— 解決 v6.9 後揭發的「沒人發現的死投資」問題。
+核心命題：**建好的環節不等於連通的環節**；任何環節 dead segment 都會讓上游投資打水漂。
+
+### 三層交付架構
+
+```
+Layer 1: 13 散修補丁全綠（32 unit test PASS）
+   ↓
+Layer 2: 4 份標準文件（從 backlog 升級到 system standard）
+   ↓
+Layer 3: 自動化流水線 skeleton（orchestrator + audit + 5 新 fitness step）
+```
+
+### Layer 1 — 散修補丁
+
+| # | 動作 | 證據 |
+|---|---|---|
+| C1 | pre-commit 加 3 ADR-0028 守護（修「假基線 13 天」） | `.git/hooks/pre-commit` §5.4 |
+| S1 | 刪 3 個 0-importer stub（wiki/tender_search/tender_analytics） | `backend/app/services/` |
+| F1 | 移除 3 條死 nav（ADR-0031 殭屍菜單） | `init_navigation_data.py` |
+| D1 | DB metrics wiring 驗證（false alarm 修正） | `backend/main.py:97-105` |
+| C8 | 校正 ADR 數字 17→16 / 10→14 | CLAUDE.md / skills-inventory / README |
+| C2 | ToolCall Pydantic schema + tool_name_of helper（L29 永久封死） | `schemas/tool_call.py` + 20 unit test |
+| A | 驗證 agent /api/ai/agent/query 真活 | latency 5945ms |
+| C | domain_score Redis 真活確認 | 5 domain 全綠 |
+| D | shadow_baseline p95=65s 根因鎖定 | Ollama Gemma 4 短 query thrashing |
+| G | GitNexus 部署 | 58k nodes / 92k edges / 991 clusters |
+| 改善 1 | agent_router 加 cross-graph fast-path | Layer 1.6 7-domain trigger |
+| 改善 2 | .env CRYSTAL_AUTO_APPLY_MODE=live | 救 9 patterns / 0 crystals 閉環 |
+| 改善 3 | agent_synthesis 條件式 KG 注入閘門 | `_should_inject_graph_context` + 12 test |
+
+### Layer 2 — 4 份標準文件
+
+| 文件 | 角色 |
+|---|---|
+| **ADR-0035** GitNexus Bridge | Phase 2a dev-only 規範（License 紅線管控） |
+| **OPTIMIZATION_PIPELINE.md** | 10 條優化環節連通圖 + 各節 dead segment 標示 |
+| **MODULARIZATION_STANDARDS_v1.md** | 13 章節落地前 checklist（§1-§13） |
+| **CAPABILITY_GOVERNANCE.md** | 三層健康度模型（E×U×O）+ A/B/C 決策矩陣 + 月度 ROI 復盤 |
+
+### Layer 3 — 自動化流水線
+
+- `scripts/checks/capability_usage_audit.py` fitness step 23（含 --quick mode for Windows）
+- `backend/app/services/optimization_pipeline_orchestrator.py`（每日 cron 03:00 跑 5 step）
+- `scripts/checks/run_fitness.sh` 步數 22→27（step 23-27 + [N/27] header 統一）
+- `scripts/install-template-to.sh` 擴 3 新類（standards / pipeline / capability）跨 repo 一鍵部署
+
+### 真實 dead 發現（穿透式驗證揭發）
+
+- **90 tools dead**（98 中 7d 0% — 37 manual 真死 / 53 skill-derived by-design）
+- **14 KG entity types dead**（13 code domain by-design / 1 真死 knowledge/dispatch）
+- **3 memory loops dead**：crystals 0 / autobiography 0 / proposals 3 pending 25 天
+- **shadow p95=64.6s**（v6.8 baseline 58s 退化）
+- **dead_ui_detector 147 候選**（前端有但 endpoint 無 / 反之）
+- **service entropy 22.2% > 20% 閾值**
+- **58 stub imports 違反 DDD 邊界**（v5.10.x wave 遷移殘留）
+
+### 新 lessons（入 LESSONS_REGISTRY）
+
+- **L30**: Pipeline Integration as Priority（環節不連通就是浪費）
+- **L31**: ROI = entities × usage_rate（建表不等於用表）
+
+### 待 owner 動作（commit 後 7 天驗證）
+
+- backend restart ✅（2026-05-18 完成）→ 7d 驗證 cross-graph router / crystal auto-apply / 條件式注入
+- orchestrator 接 cron `0 3 * * *` daily push
+- LINE/Telegram push channel 接 orchestrator digest
+- autobiography silent fail 根因排查
+- 3 pending proposals 批/拒
+
+### Files Changed
+
+**新建**：
+- `backend/app/schemas/tool_call.py`
+- `backend/app/services/optimization_pipeline_orchestrator.py`
+- `backend/app/services/ai/graph/gitnexus_bridge.py`
+- `scripts/checks/capability_usage_audit.py`
+- `docs/adr/0035-gitnexus-bridge-agent-tool.md`
+- `docs/architecture/OPTIMIZATION_PIPELINE.md`
+- `docs/architecture/MODULARIZATION_STANDARDS_v1.md`
+- `docs/architecture/CAPABILITY_GOVERNANCE.md`
+- `backend/tests/unit/test_schemas/test_tool_call.py`（20 test）
+- `backend/tests/unit/test_services/test_agent_synthesis_inject_gate.py`（12 test）
+
+**修改**：
+- `CLAUDE.md` / `.claude/CHANGELOG.md` / `.claude/rules/skills-inventory.md` / `.claude/rules/architecture*.md`
+- `docs/architecture/LESSONS_REGISTRY.md`（+ L30 / L31）
+- `docs/adr/README.md`（ADR 數字校正）
+- `scripts/checks/run_fitness.sh`（step 22→27 + [N/27] 統一）
+- `scripts/checks/alias_rls_coverage_audit.py` + `domain_score_freshness_check.py`（cp950 修法）
+- `scripts/install-template-to.sh`（+ standards / pipeline / capability 三新類）
+- `backend/main.py`（無變動但確認 D1 wiring 真活）
+- `backend/app/services/ai/agent/agent_router.py`（+ Layer 1.6 cross-graph rule）
+- `backend/app/services/ai/agent/agent_synthesis.py`（+ `_should_inject_graph_context` 閘門）
+- `backend/app/services/ai/agent/agent_chitchat.py`（擴 EXACT/PREFIXES 救短模糊 query）
+- `backend/app/services/ai/agent/agent_self_evaluator.py`（改用 `tool_name_of` helper）
+- `backend/app/scripts/init_navigation_data.py`（移除 3 死 nav dict）
+- `.git/hooks/pre-commit`（+ §5.4 ADR-0028 3 守護）
+- `.env`（+ CRYSTAL_AUTO_APPLY_MODE=live + GITNEXUS_BRIDGE_ENABLED=false）
+
+**刪除**：
+- `backend/app/services/wiki_service.py`
+- `backend/app/services/tender_search_service.py`
+- `backend/app/services/tender_analytics_service.py`
+
+---
+
+## [v6.9] - 2026-05-08 → 05-12（整合優化 5 輪 + L29「坤哥成長中斷」修復）
+
+### 🎯 主題
+
+5 輪 dynamic /loop 整合優化執行，**11+ 真修復 + 3 false alarm 校準** + L29 lesson 落地（L21 後第二次「坤哥自我成長 silent 中斷」事故）。所有修法走 **L26 穿透式驗證**：實際跑診斷 / 實際 curl query / 實際讀 redis 確認真活，不只 grep。
+
+### 各輪聚焦
+
+| 輪次 | 主軸 | 落地 |
+|---|---|---|
+| 輪 1（5/08）| P0 三項 + R7 + R9 部分 | R1 SSE timeout / R3 metrics silent fail / R7 diary watchdog / R9 SSOT 補 2 處 |
+| 輪 2（5/08 → 09）| R9b 收尾 + R13 runbook + R6/R11 基礎 | R9b ERPGraphPage 5 處 + 3 runbook + circuit breaker module + hallucination hard penalty |
+| 輪 3（5/09 dynamic loop）| R6 整合 + R8 batch + R4a audit | R6 接入 ai_connector 5 fallback 點 + R8 10 schema + audit step 21 揭發 2 dormant bug |
+| 輪 4（5/09）| **緊急 L29 修復** | self_evaluator dict key bug + TOOL_DOMAIN_MAP 19→48 + prefix resolver + step 22 watchdog |
+| 輪 5（5/12）| R4 audit 揭發 dormant 修 + synthetic baseline | R4-1 document_calendar/stats + R4-2 tender bookmarks 3 處 + synthetic query 補 wiki domain |
+
+### Agent 報告 false alarm 校準（3 項）
+
+| Agent 報告 | 真相 |
+|---|---|
+| R2 admin endpoint 缺權限 | graph_admin / debug 全 9 endpoint 已有 `require_admin()` |
+| R5 fitness `\|\| true` 吞錯 | non-strict 設計合理（dev 寬容），`--strict` 仍 exit 1 |
+| R6 provider fallback 缺 | `ai_connector.py` 1060 行已有完整 3-tier Groq+NVIDIA+Ollama fallback + 429 fast-path |
+
+### L29 lesson — 坤哥自我成長中斷（第二次）
+
+| 欄位 | 內容 |
+|---|---|
+| Trigger | counter=224 / 14d 13 trigger ✓ 但 domain_scores Redis 全空 |
+| Cause | **三重疊加**：(a) self_evaluator `tool.get("name")` 但實際 key 是 `"tool"`（agent_tool_loop:312/381） (b) TOOL_DOMAIN_MAP 19 entries / 98 tools 涵蓋率 < 25% (c) silent except 吞掉違反 ADR-0028 |
+| Fix | `tool.get("tool") or tool.get("name")` 雙容錯 + 擴 map 19→48 + `_DOMAIN_PREFIX_RULES` 20 條 prefix fallback + silent except → logger.error |
+| 實證 | restart + 1 query 後：domain_scores 0/8 → **5/8 PASS**（doc=49 / dispatch=13 / graph=33 / pm=2 / analysis=36）|
+
+### 真修法清單（11 項）
+
+**P0（5/20 ADR-0030 投票直接受影響）**：
+- **R1** `sse_utils.create_sse_response` 加 `asyncio.timeout` 強制 stream_e2e 60s hard cutoff，超時送 STREAM_TIMEOUT event
+- **R3** `prometheus_middleware` 兩處 silent pass → `logger.error` + 新 `metrics_populate_errors_total` counter（label: sys/shadow_baseline）+ `MetricsPopulateErrors` alert rule。**實證**：首次重啟即揭發 1 次 shadow_baseline silent fail
+- **L29 三件組** 上面已述
+
+**P1 修法**：
+- **R7** `diary_service.append_entry` 加 retry 1 次 + 失敗 4 類別計數 + `_inc_failure` 直走 REGISTRY（繞 chicken-and-egg）
+- **R9 + R9b** 7 處硬編碼 → SSOT（DIGITAL_TWIN_ENDPOINTS.INTROSPECTION_PROFILE / TAOYUAN_DISPATCH_ENDPOINTS.PROGRESS_REPORT / 3 新 GRAPH_* SSOT）
+- **R6** `provider_circuit_breaker.py` 新 module + 整合進 ai_connector 5 fallback 點（Groq/NVIDIA OPEN → skip + 成功失敗計數）
+- **R11** self_evaluator entity_alignment < 0.5 → overall × 0.5 hard penalty + 3 case calibration test 框架
+- **R8** 17/34 schema 遷移：user_alias 3 + security 4 + tender 10
+- **R4-1** `document_calendar/stats.py` 改 `expand_user_alias` + `.in_(alias_ids)` 對齊 events.py
+- **R4-2** `tender_module/subscriptions.py` 3 處 bookmark 改 alias group
+- **R13** 3 份 runbook：`telegram_permanent_ban.md` / `cloudflare_tunnel_outage.md` / `prometheus_alerting_degraded.md`
+
+### 觀測棧增量
+
+| Counter / Gauge | 用途 | Alert rule |
+|---|---|---|
+| `metrics_populate_errors_total{source}` | F26+F27 silent skip 偵測 | `MetricsPopulateErrors` 5min rate > 0.01/s |
+| `memory_diary_append_failures_total{error_type}` | L21 fire-and-forget 偵測 | `DiaryAppendFailures` 5min rate > 0.05/s |
+| `provider_circuit_state{provider}` | 連續失敗 N 次自動 skip | `ProviderCircuitOpen` state == 2 持續 3min |
+
+### Fitness step 20 → 22
+
+| Step | 名稱 | 用途 |
+|---|---|---|
+| 21 | `alias_rls_coverage_audit.py` | 靜態掃 endpoints 找 user filter 但無 RLS / admin 標記 |
+| 22 | `domain_score_freshness_check.py` | L29 watchdog — 7 天 0 domain_score 寫入即警報 |
+
+### LESSONS_REGISTRY 加 L29
+
+雙重 silent gap 疊加教材（dict key contract drift × 涵蓋率不足 × silent except）+ prevention 含「跨模組 dict key contract test」+「static map 最低涵蓋率 test」+「silent except 全面 lint」三條規則。
+
+### 測試統計
+
+- **75+ regression tests** 全綠（含 L29 8 + R6 unit 15 + R6 integration 5 + R11 8 + R1 6 + R3 9 + R7 5 + 既有 ~30）
+- **alias_rls_coverage_audit step 21 從 2 risks → 0 risks** ✅
+- **domain_score_freshness_check step 22**：5/8 PASS（erp/tender/wiki 等自然累積）
+- Frontend TypeScript: 0 errors
+- Backend health: 200 / Restart 正常
+
+### 新檔（10+）
+
+**Backend modules**：
+- `app/core/provider_circuit_breaker.py` (R6 module)
+- `app/schemas/user_alias.py` + `app/schemas/security_admin.py` + `app/schemas/tender_admin.py` (R8 17 schema)
+
+**Tests（5 檔）**：
+- `tests/unit/test_sse_utils_timeout.py` (R1, 6 tests)
+- `tests/unit/test_provider_circuit_breaker.py` (R6 unit, 15 tests)
+- `tests/unit/test_diary_service_r7.py` (R7, 5 tests)
+- `tests/unit/test_self_evaluator_hallucination.py` (R11, 8 tests)
+- `tests/unit/test_l29_domain_score_tracking.py` (L29, 8 tests)
+- `tests/integration/test_ai_connector_circuit_breaker.py` (R6 integration, 5 tests)
+
+**Scripts**：
+- `scripts/checks/alias_rls_coverage_audit.py` (fitness step 21)
+- `scripts/checks/domain_score_freshness_check.py` (fitness step 22)
+
+**Runbooks**：
+- `docs/runbooks/telegram_permanent_ban.md` / `cloudflare_tunnel_outage.md` / `prometheus_alerting_degraded.md`
+
+### 變更（10+ 檔）
+
+**Backend**：
+- `app/api/sse_utils.py` v1.0 → v1.1（R1 timeout 參數）
+- `app/core/prometheus_middleware.py`（R3 counter + 兩處 silent pass 修）
+- `app/core/memory_wiki_metrics.py`（R7 diary_append_failures counter）
+- `app/core/ai_connector.py`（R6 整合 5 fallback 點）
+- `app/services/memory/diary_service.py`（R7 retry + 4 類失敗計數）
+- `app/services/ai/agent/agent_self_evaluator.py`（R11 hallucination penalty + L29 dict key 修）
+- `app/services/ai/agent/agent_capability_tracker.py`（L29 TOOL_DOMAIN_MAP 19→48 + resolve_tool_domain）
+- `app/api/endpoints/document_calendar/stats.py`（R4-1 alias_ids）
+- `app/api/endpoints/tender_module/subscriptions.py`（R4-2 bookmarks 3 處 alias_ids）
+- `app/api/endpoints/security.py` + `user_alias_admin.py` + 3 個 tender_module/*.py（R8 schema 遷移）
+
+**Frontend**：
+- `frontend/src/providers/QueryProvider.tsx` + `pages/digitalTwin/DispatchProgressTab.tsx` + `pages/ERPGraphPage.tsx`（R9/R9b 7 處 SSOT）
+- `frontend/src/api/endpoints/ai.ts` + `taoyuan.ts`（加 5 個新 SSOT）
+
+**Configs**：
+- `configs/prometheus/alerts.yml` 加 3 條 alert rule（MetricsPopulateErrors / DiaryAppendFailures / ProviderCircuitOpen）
+- `scripts/checks/run_fitness.sh` 加 step 21+22
+
+**Docs**：
+- `docs/architecture/LESSONS_REGISTRY.md` 加 L29 條目
+- `scripts/checks/synthetic-baseline-inject.py` 改寫 9 erp/tender query + 加 4 wiki query
+
+---
+
+## [Unreleased] - 2026-05-07（ADR-0034 收斂 + 4 層 sidebar 權限事故鏈完整修復）
+
+### 🎯 主題
+
+上半天：ADR-0034 動態 Role Permissions UI 收斂（NavTree 父子級聯 + RolePermissionDiff +
+單元測試 20/20）。
+
+下半天 — **連環事故鏈 P-57 → P-58 → P-59 → P-60**：
+用戶報告「一般使用者仍看到全部選單」，4 層 dormant 半接通逐一拆穿：
+
+| # | 層級 | 根因 | 修法 |
+|---|---|---|---|
+| **P-57** | Backend schema | `permission_required` JSON 字串未 parse 直送前端 | `_parse_permission_required` helper（endpoint + repo 兩端對齊） |
+| **P-58** | Frontend dev mode | `VITE_AUTH_DISABLED=true` 強制覆蓋真實 user 為 dev superuser | `shouldUseDevMockUser()` 新 helper — 只在無真實 user_info 才 mock |
+| **P-59** | Frontend UX | NavTree onCheck cascade 取消連坐 | v1.3 `checkStrictly={true}` + per-node toggle |
+| **P-60** | DB 資料漂移 | user 7 user.permissions 19+ vs role 'user' 5 perms 脫鉤 | `UPDATE users SET permissions = role_permissions[role]`（3 user + 6 staff） |
+
+### Tasks 50-60 全部 completed
+
+| # | 內容 | 結果 |
+|---|---|---|
+| 50 | site-management mutation invalidate `['admin','role-permissions']` nav-tree | ✅ |
+| 51 | NavTreePermissionEditor v1.2 父子級聯（後 v1.3 重寫為 per-node） | ✅ |
+| 52 | RolePermissionDiff — 兩 role 差異 Modal | ✅ |
+| 53 | TS 0 / Fitness 20/20 / 6 endpoints / 5 role 結構正確 | ✅ |
+| 54 | NavTreePermissionEditor 純函式 + per-node 測試（17/17） | ✅ |
+| 55 | rolePermissionsApi 單元測試（9/9） | ✅ |
+| 56 | wiki diary + CHANGELOG 上半天紀錄 | ✅ |
+| 57 | Backend permission_required JSON parse helper + 19 regression tests | ✅ |
+| 58 | shouldUseDevMockUser + usePermissions/useNavigationData 切換 + 4 tests | ✅ |
+| 59 | NavTree v1.3 checkStrictly + per-node toggle + 6 tests | ✅ |
+| 60 | DB user/staff role 同步 sync_users（手動 SQL） | ✅ |
+
+### 新增
+
+**Frontend（4 檔）**：
+- `frontend/src/components/admin/RolePermissionDiff.tsx` (249L)
+- `frontend/src/components/admin/__tests__/NavTreePermissionEditor.test.ts` (197L) — 17 tests
+- `frontend/src/api/__tests__/rolePermissionsApi.test.ts` (158L) — 9 tests
+- `frontend/src/config/__tests__/shouldUseDevMockUser.test.ts` — 4 tests
+
+**Backend（1 檔）**：
+- `backend/tests/unit/test_nav_permission_required_parse.py` — 19 tests
+
+### 變更（10+ 檔）
+
+**Backend**：
+- `app/api/endpoints/secure_site_management/navigation.py` — `_parse_permission_required` helper + `_item_to_dict` 套用
+- `app/repositories/navigation_repository.py` — 同 helper（保持 root vs children 一致）
+
+**Frontend**：
+- `src/config/env.ts` — `shouldUseDevMockUser()` 新 helper
+- `src/hooks/utility/usePermissions.ts` — 7 處 short-circuit 切換
+- `src/components/layout/hooks/useNavigationData.tsx` — loadUserInfo + menuItems 對齊 + fallback 防禦
+- `src/components/admin/NavTreePermissionEditor.tsx` v1.1 → v1.3 — checkStrictly + per-node handleCheck
+- `src/components/admin/RolePermissionDetailPage.tsx` — onDraftChange 接口
+- `src/pages/PermissionManagementPage.tsx` — RolePermissionDiff 入口
+- `src/hooks/utility/__tests__/usePermissions.test.ts` — 2 過時測試對齊 P-26/P-29
+
+**DB 操作**：
+```sql
+UPDATE users SET permissions = (SELECT permissions::text FROM role_permissions WHERE role='user')
+WHERE role='user' AND id IN (7, 18, 22);
+-- 3 user + 6 staff 同步
+```
+
+### 候選 lessons（待 LESSONS_REGISTRY 評估）
+
+1. **L23 — Half-Wired Anti-Pattern Stacking**：單一現象可能是多層獨立 bug 疊加；
+   修第一層後外觀沒變不代表沒修，必須穿透下一層繼續驗證。
+2. **L24 — Dev Mode Override Trap**：`VITE_AUTH_DISABLED=true` 強制覆蓋真實用戶
+   = 永遠看到 superuser 視角無法測 role。所有 frontend dev override 都該 opt-in fallback。
+3. **L25 — JSON-as-TEXT Schema Drift**：DB Text 存 JSON 但 endpoint 未 parse 直送
+   會以詭異方式破壞 client filter（`'[]'.length=2`）。所有 `Column(Text, JSON)` 都該過 helper。
+
+### 測試統計
+
+- Backend: 19 new regression tests（all PASS）
+- Frontend: 24 → 79 tests（4 file，all PASS）
+- TypeScript: 0 errors
+- Backend health 200 / Frontend HTTPS 200
+
+---
+
+## [Unreleased — superseded by above] - 2026-05-07 上半天
+
+### Tasks 50-56 全部 completed
+
+| # | 內容 | 結果 |
+|---|---|---|
+| 50 | site-management mutation invalidate `['admin','role-permissions']` nav-tree | ✅ |
+| 51 | NavTreePermissionEditor v1.2 父子級聯（`onTogglePermissions` → `onDraftChange`）| ✅ |
+| 52 | RolePermissionDiff — 兩 role 差異 Modal（共有/僅 A/僅 B + prefix 分組）| ✅ |
+| 53 | TS 0 / Fitness 20/20 / 6 endpoints / 5 role 結構正確 | ✅ |
+| 54 | NavTreePermissionEditor cascade 單元測試（11/11 PASS）| ✅ |
+| 55 | rolePermissionsApi 單元測試（9/9 PASS）| ✅ |
+| 56 | wiki diary + CHANGELOG 紀錄 | ✅ |
+
+### 新增
+
+- `frontend/src/components/admin/RolePermissionDiff.tsx` (249L) — 兩 role 並列差異 Modal
+- `frontend/src/components/admin/__tests__/NavTreePermissionEditor.test.ts` (113L) — 11 tests
+- `frontend/src/api/__tests__/rolePermissionsApi.test.ts` (158L) — 9 tests
+
+### 變更
+
+- `NavTreePermissionEditor.tsx` v1.1 → v1.2 — 抽出 `computeCascadedDraft` / `collectAllNavPerms` 純函式
+- `RolePermissionDetailPage.tsx` — 接 `onDraftChange`
+- `PermissionManagementPage.tsx` — 加「角色差異比較」入口（`<DiffOutlined/>` 按鈕）
+
+### 候選 lessons
+
+1. **antd Tree onCheck cascade**：用 `info.checkedNodes` 完整 list + 純函式計算新 draft，
+   保留 nav 外 perm（純後端 endpoint perm）才不會被誤刪。
+2. **抽純函式即可單元測試**：避免渲染整棵 antd Tree，11 tests 跑 5ms 完成。
+
+---
+
 ## [v6.8] - 2026-05-04（v3.0 覆盤交付日 + 5/04 認證事故鏈完整修復）
 
 ### 🎯 Release Theme

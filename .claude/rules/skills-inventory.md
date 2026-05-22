@@ -1,7 +1,49 @@
 # Skills / Commands / Agents 清單
 
-> **最後同步**：2026-05-04（v6.8，v3.0 覆盤實作 + 認證事故鏈完整修復）
-> **v6.8 重大變更**：
+> **最後同步**：2026-05-21（v6.10.3，L43 volume mount drift 災難級恢復 + fitness step 38）
+> **v6.10.3 重大變更**：
+> - **L43 Volume Mount Drift 災難級事故 4h 完整恢復**（5/21 下午 / 6 commits）：
+>   - production compose 指向空殼 `ck_missive_postgres_data`（17 tables/502 docs），真實在 `ck_missive_postgres_dev_data`（75 tables/1788 docs/24061 KG）
+>   - dormant ~10h 直到 owner 登入觸發業務 API 全 500
+>   - Plan A 10 步完整恢復 + 雙 dump 備份 + MD5 + NAS 異地
+> - **新增 fitness step 38** `docker_compose_volume_consistency.py` — 同邏輯 volume 跨 compose 檔 drift 偵測（含 `${COMPOSE_PROJECT_NAME}` 展開），首跑揭發 redis 同型 chronic drift 已修
+> - **新增 `/health` business_data_present 503 防禦**：row count < threshold → cloudflared healthcheck fail → 流量不打進壞 instance（公網 PM2 + docker 雙 backend 都生效）
+> - **L43 lesson** 入 LESSONS_REGISTRY，與 L41 同列「跨檔資源 SSOT 治理失效」教材
+> - **alembic migration `20260521a001`**：補 users.department + position 欄位（idempotent ADD COLUMN IF NOT EXISTS）
+> - **架構級議題揭發**：公網 cloudflared 命中 PM2 native uvicorn 不是 docker container — v6.11 Sprint 1 二選一統一 SSOT
+> - **Fitness 32 → 38 step**（5/21 上午 +step 37 network_audit + 下午 +step 38 volume_consistency；加上既有的 step 33-36 構成 38 step）
+> - 詳見：[[session_20260521_l43_volume_drift_recovery]] / [[lesson_l43_volume_mount_drift_silent_fail]]
+>
+> **v6.10 候選重大變更**：
+> - **三層交付**：13 散修補丁全綠 + 4 份標準文件 + 自動化流水線 skeleton（avoid dis-integrated）
+> - **4 份標準文件**：
+>   - ADR-0035 GitNexus Bridge — Phase 2a dev-only（License 紅線管控）
+>   - OPTIMIZATION_PIPELINE.md — 10 條優化環節連通圖
+>   - MODULARIZATION_STANDARDS_v1.md — 13 章節落地前 checklist
+>   - CAPABILITY_GOVERNANCE.md — 三層健康度模型（E×U×O）+ A/B/C 決策矩陣
+> - **Fitness 22 → 27 step**（加 step 23-27: capability_audit / adr_lifecycle / dead_ui / lessons_drift / service_line_count）+ [N/27] header 統一
+> - **2 新 lessons** 入 LESSONS_REGISTRY：
+>   - L30: Pipeline Integration as Priority（環節不連通就是浪費）
+>   - L31: ROI = entities × usage_rate（建表不等於用表）
+> - **GitNexus 部署**：58k nodes / 92k edges / 991 clusters / 300 flows（dev-only）
+> - **真實 dead 發現**：90 manual+skill tools / 14 KG entity types / 3 memory loops dead / shadow p95=64.6s
+> - **跨 repo 範本擴增**：install-template-to.sh 加 3 新類（standards / pipeline / capability）
+> - **32 unit tests 全綠**（20 ToolCall schema + 12 inject gate）
+> - **ADR 治理**（ADR-0029）：v6.10 後 Active 16 / Archived 14 / Removed 1（adr_lifecycle_check 2026-05-18 實跑）
+>
+> **v6.9 變更**（保留歷史）：
+> - **11 真修法 + 3 false alarm 校準**（L26 穿透式驗證落地）
+> - **L29 lesson 加入**：「坤哥自我成長中斷」第二次（L21 後）— dict key bug × 涵蓋率 < 25% × silent except 三重疊加。修法 + restart 後 domain_scores 0/8 → 5/8 PASS
+> - **觀測棧增量**：3 新 counter（metrics_populate_errors / memory_diary_append_failures / provider_circuit_state）+ 3 條 alert rule。**R3 首次重啟即揭發 1 次 shadow_baseline silent fail**
+> - **R6 Provider Circuit Breaker**：新 module（15 unit + 5 integration tests）+ 整合進 ai_connector
+> - **R11 Hallucination Hard Penalty**：entity_alignment < 0.5 → overall × 0.5
+> - **R4 ADR-0025 dormant bug 歸零**：alias_rls_audit step 21 從 2 risks → 0 risks
+> - **R8 schema SSOT 遷移 17/34**（user_alias + security + tender）
+> - **Fitness 20 → 22 step**（+ step 21 alias_rls_audit + step 22 domain_score_freshness）
+> - **3 份 runbook**（Telegram 永封 / CF Tunnel / Prometheus 降級）
+> - **75+ regression tests 全綠** | TSC 0 | alias_rls_audit 0 risks ⚠️ **5/18 校正：detection coverage 0%（規則太窄）；實 apply_*_rls 覆蓋率 2/34**
+>
+> **v6.8 變更**（保留歷史）：
 > - **v3.0 覆盤主軸 9 task** 全 done（W0/Q1/Q2/Q3/F14/F15/M1/I5+/A2 — 36 commits）
 > - **5/04 認證事故鏈 10 fix**（auth_disabled / CSRF / refresh / interceptor / SPA cache）
 > - **fitness 7 → 16 step**（+F14 integration_liveness +F15 LINE notify watchdog +9 既有）
@@ -18,6 +60,21 @@
 > - **CROSS_REPO_REFERENCE_GUIDE v1.0**：FQID 5 大類別 + 7 consumer registry + PR template
 > - 坤哥為唯一意識體入口（ADR-0023 + ADR-0031）
 > - ADR 治理（ADR-0029）：v6.8 後 Active 17 / Archived 10 / Removed 1
+>   **5/18 校正**：實跑 `adr_lifecycle_check.py` Active **16** / Archived **14** / Removed 1（≤15 健康區間邊緣）
+
+## v6.9 範本治理體系新增資產（給 lvrland/PileMgmt 等子專案引用）
+
+| FQID | 類型 | 用途 |
+|---|---|---|
+| `CK_Missive#provider_circuit_breaker_v1.0` | Module L2 | LLM provider 連續失敗自動 skip（5 連敗 → 5min OPEN）|
+| `CK_Missive#alias_rls_coverage_audit_v1.0` | Detector L4 | 靜態掃 endpoints 找 ADR-0025 半接通候選 |
+| `CK_Missive#domain_score_freshness_check_v1.0` | Detector L4 | L29 watchdog — domain_scores Redis 寫入鏈活體 |
+| `CK_Missive#metrics_populate_errors_total_v1.0` | Metric L2 | /metrics endpoint per-scrape silent skip 偵測 |
+| `CK_Missive#memory_diary_append_failures_total_v1.0` | Metric L2 | diary fire-and-forget 失敗 4 類別計數 |
+| `CK_Missive#L29_lesson_v1.0` | Doc L2 | dict key contract drift × 涵蓋率 × silent except 三重疊加教材 |
+| `CK_Missive#telegram_permanent_ban_runbook_v1.0` | Runbook L2 | ADR-0027 後續永封應急（4 plan） |
+| `CK_Missive#cloudflare_tunnel_outage_runbook_v1.0` | Runbook L2 | Tunnel 故障 5 plan + Bypass policy 順位陷阱 |
+| `CK_Missive#prometheus_alerting_degraded_runbook_v1.0` | Runbook L2 | alerting 失明應急 + §6 緊急降級 |
 
 ## v5.10.x 範本治理體系新增資產（給 lvrland/PileMgmt 等子專案引用）
 
