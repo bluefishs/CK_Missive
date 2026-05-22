@@ -147,8 +147,7 @@ export default defineConfig(({ mode }) => {
             'dayjs': ['dayjs'],
             // 狀態管理與資料請求
             'state': ['zustand', '@tanstack/react-query'],
-            // Excel 處理
-            'xlsx': ['xlsx'],
+            // Excel 處理：xlsx chunk removed 2026-05-22 — 套件未安裝且無 import，dead config
             // 3D 圖譜引擎（lazy-loaded）
             'three': ['three', 'three-spritetext'],
             'react-force-graph-3d': ['react-force-graph-3d'],

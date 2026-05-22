@@ -411,14 +411,21 @@ class AuthService {
    * 儲存認證資料
    *
    * v2.0.0 變更:
-   * - access_token 不再存入 localStorage（由後端 Set-Cookie 設定 httpOnly cookie）
+   * - access_token 仍存入 localStorage（向後相容過渡期，給 request interceptor 加 Authorization header）
+   *   2026-05-22 L44 修法：原本只存 cookie，但 interceptors.ts:252 仍從 localStorage 讀 access_token
+   *   加到 Authorization header；不存就會「cookie 還沒寫進 browser 前的請求」全 401，
+   *   觸發 refresh→fail→clearAuth→redirect '/login' chain，cross-domain SSO 卡 /entry
    * - user_info 仍保留在 localStorage（非敏感資料，供前端 UI 使用）
    * - refresh_token 仍保留在 localStorage（向後相容過渡期）
    */
   private saveAuthData(tokenResponse: TokenResponse): void {
-    // access_token 由後端 httpOnly cookie 管理，不再存入 localStorage
     // 保留 user_info（非敏感資料）
     localStorage.setItem(USER_INFO_KEY, JSON.stringify(tokenResponse.user_info));
+
+    // 向後相容過渡期：access_token 也存 localStorage（防 cookie 競態下 Authorization header 缺失）
+    if (tokenResponse.access_token) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, tokenResponse.access_token);
+    }
 
     // 向後相容過渡期：仍保留 refresh_token
     if (tokenResponse.refresh_token) {
