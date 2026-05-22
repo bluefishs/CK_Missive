@@ -1,15 +1,13 @@
 /**
- * ck-sso-js unit tests (no test framework — plain assert + node test).
+ * ck-sso-js v2.0 unit tests (no test framework — plain assert + node test).
  *
- * Coverage：13 cases — sessionStorage 三層防禦、5 種 reason 路徑、
- * fetch impl 注入、storagePrefix 隔離、onSuccess callback。
+ * v2.0 (ADR-0004 L45) 修法：移除終態鎖 + 連續失敗計數鎖，只留 cooldown。
  *
  * 跑法：node tests/sso-bridge.test.mjs
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
-// 模擬 sessionStorage（Node 環境沒有）
 class MemStorage {
   store = new Map();
   getItem(k) { return this.store.has(k) ? this.store.get(k) : null; }
@@ -18,12 +16,10 @@ class MemStorage {
   clear() { this.store.clear(); }
 }
 globalThis.sessionStorage = new MemStorage();
-globalThis.window = { location: { reload: () => { globalThis.__reloadCalled = true; } } };
+globalThis.window = { location: { replace: () => { globalThis.__replaceCalled = true; } } };
 
-// 動態 import 以確保 sessionStorage mock 先 set
 const { attemptSSOBridge, resetSSOBridgeState, getSSOBridgeState } =
   await import('../src/sso-bridge.ts').catch(async () => {
-    // fallback：直接 import .ts via tsx 或預先編 .mjs
     return await import('../dist/sso-bridge.js');
   });
 
@@ -43,12 +39,12 @@ const SILENT = { log: () => {}, warn: () => {} };
 
 function freshSession() {
   sessionStorage.clear();
-  globalThis.__reloadCalled = false;
+  globalThis.__replaceCalled = false;
 }
 
-// ─── Tests ────────────────────────────────────────────────────────
+// ─── Tests v2.0 ──────────────────────────────────────────────────
 
-test('200 success → ok + reason:success + lock + onSuccess called', async () => {
+test('200 success → ok + reason:success + onSuccess called (v2.0: 不再 lock)', async () => {
   freshSession();
   let onSuccessCalled = false;
   const r = await attemptSSOBridge({
@@ -60,10 +56,12 @@ test('200 success → ok + reason:success + lock + onSuccess called', async () =
   assert.equal(r.ok, true);
   assert.equal(r.reason, 'success');
   assert.equal(onSuccessCalled, true);
-  assert.equal(getSSOBridgeState().locked, true);
+  // v2.0：成功後不再設 lock — 下次 mount 仍可嘗試（受 cooldown 保護）
+  const s = getSSOBridgeState();
+  assert.ok(s.lastAttemptAt > 0);
 });
 
-test('401 → transient, fail count +1, NO lock yet', async () => {
+test('401 → transient, NO lock (v2.0: 無 failCount 累積)', async () => {
   freshSession();
   const r = await attemptSSOBridge({
     apiBaseURL: 'https://x.test',
@@ -73,11 +71,12 @@ test('401 → transient, fail count +1, NO lock yet', async () => {
   assert.equal(r.ok, false);
   assert.equal(r.reason, 'transient');
   assert.equal(r.status, 401);
-  assert.equal(getSSOBridgeState().locked, false);
-  assert.equal(getSSOBridgeState().failCount, 1);
+  // v2.0：sessionStorage 不再有 fail_count / attempted key
+  assert.equal(sessionStorage.getItem('ck_sso_bridge_fail_count'), null);
+  assert.equal(sessionStorage.getItem('ck_sso_bridge_attempted'), null);
 });
 
-test('403 → terminal + lock', async () => {
+test('403 → terminal, NO lock (v2.0)', async () => {
   freshSession();
   const r = await attemptSSOBridge({
     apiBaseURL: 'https://x.test',
@@ -85,10 +84,10 @@ test('403 → terminal + lock', async () => {
     logger: SILENT,
   });
   assert.equal(r.reason, 'terminal');
-  assert.equal(getSSOBridgeState().locked, true);
+  assert.equal(sessionStorage.getItem('ck_sso_bridge_attempted'), null);
 });
 
-test('404 → terminal + lock', async () => {
+test('404 → terminal, NO lock (v2.0)', async () => {
   freshSession();
   const r = await attemptSSOBridge({
     apiBaseURL: 'https://x.test',
@@ -96,10 +95,10 @@ test('404 → terminal + lock', async () => {
     logger: SILENT,
   });
   assert.equal(r.reason, 'terminal');
-  assert.equal(getSSOBridgeState().locked, true);
+  assert.equal(sessionStorage.getItem('ck_sso_bridge_attempted'), null);
 });
 
-test('network error → network + fail count', async () => {
+test('network error → network, NO fail count (v2.0)', async () => {
   freshSession();
   const r = await attemptSSOBridge({
     apiBaseURL: 'https://x.test',
@@ -107,20 +106,7 @@ test('network error → network + fail count', async () => {
     logger: SILENT,
   });
   assert.equal(r.reason, 'network');
-  assert.equal(getSSOBridgeState().failCount, 1);
-});
-
-test('locked → reason:locked, no fetch call', async () => {
-  freshSession();
-  sessionStorage.setItem('ck_sso_bridge_attempted', '1');
-  let fetched = false;
-  const r = await attemptSSOBridge({
-    apiBaseURL: 'https://x.test',
-    fetchImpl: async () => { fetched = true; return { status: 200, json: async () => ({}) }; },
-    logger: SILENT,
-  });
-  assert.equal(r.reason, 'locked');
-  assert.equal(fetched, false);
+  assert.equal(sessionStorage.getItem('ck_sso_bridge_fail_count'), null);
 });
 
 test('cooldown → reason:cooldown, no fetch call', async () => {
@@ -150,38 +136,47 @@ test('cooldown 過期 → 允許新 attempt', async () => {
   assert.equal(r.status, 401);
 });
 
-test('maxFail 3: 連續 3 個 401 → 第 3 個觸發 lock', async () => {
+test('v2.0 治本：連續 5 個 401 仍允許下次嘗試（無永久鎖）', async () => {
   freshSession();
-  for (let i = 0; i < 3; i++) {
-    // 每次都把 lastAttempt 推回過去解 cooldown
-    sessionStorage.setItem('ck_sso_bridge_last_attempt', '0');
+  for (let i = 0; i < 5; i++) {
+    sessionStorage.setItem('ck_sso_bridge_last_attempt', '0');  // 解 cooldown
     await attemptSSOBridge({
       apiBaseURL: 'https://x.test',
       fetchImpl: mockFetch(401),
-      maxFail: 3,
       cooldownMs: 0,
       logger: SILENT,
     });
   }
-  assert.equal(getSSOBridgeState().locked, true);
-  assert.equal(getSSOBridgeState().failCount, 3);
+  // 5 次 401 後仍可嘗試（cooldown=0 + 無 lock）
+  sessionStorage.setItem('ck_sso_bridge_last_attempt', '0');
+  const r = await attemptSSOBridge({
+    apiBaseURL: 'https://x.test',
+    fetchImpl: mockFetch(200, { user_info: { email: 'a@b' } }),
+    cooldownMs: 0,
+    logger: SILENT,
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.reason, 'success');
 });
 
-test('resetSSOBridgeState 清乾淨', async () => {
+test('resetSSOBridgeState 清 cooldown + 舊版殘留 key', async () => {
   freshSession();
+  // 模擬 v1.x 殘留 key
   sessionStorage.setItem('ck_sso_bridge_attempted', '1');
   sessionStorage.setItem('ck_sso_bridge_fail_count', '5');
   sessionStorage.setItem('ck_sso_bridge_last_attempt', '12345');
   resetSSOBridgeState();
+  assert.equal(sessionStorage.getItem('ck_sso_bridge_attempted'), null);
+  assert.equal(sessionStorage.getItem('ck_sso_bridge_fail_count'), null);
+  assert.equal(sessionStorage.getItem('ck_sso_bridge_last_attempt'), null);
   const s = getSSOBridgeState();
-  assert.equal(s.locked, false);
-  assert.equal(s.failCount, 0);
   assert.equal(s.lastAttemptAt, null);
+  assert.equal(s.cooldownRemainingMs, 0);
 });
 
 test('storagePrefix 隔離 (多 SSO 並存)', async () => {
   freshSession();
-  sessionStorage.setItem('ck_sso_bridge_attempted', '1');
+  sessionStorage.setItem('ck_sso_bridge_last_attempt', String(Date.now()));  // default 在 cooldown
   // 不同 prefix 不互相影響
   const r = await attemptSSOBridge({
     apiBaseURL: 'https://x.test',
@@ -189,13 +184,12 @@ test('storagePrefix 隔離 (多 SSO 並存)', async () => {
     fetchImpl: mockFetch(401),
     logger: SILENT,
   });
-  assert.equal(r.reason, 'transient');
+  assert.equal(r.reason, 'transient');  // 不被 default prefix cooldown 影響
 });
 
-test('timeoutMs 觸發 AbortController', async () => {
+test('timeoutMs 觸發 AbortController → network', async () => {
   freshSession();
   const slowFetch = async (_, opts) => {
-    // 模擬慢回應；若 abort signal 觸發則 throw AbortError
     return await new Promise((resolve, reject) => {
       const t = setTimeout(() => resolve({ status: 200, json: async () => ({}) }), 500);
       opts?.signal?.addEventListener('abort', () => {
@@ -225,4 +219,15 @@ test('apiBaseURL trailing slash 正常 join', async () => {
   assert.equal(urlCalled, 'https://x.test/api/auth/sso-bridge');
 });
 
-console.log('All ck-sso-js tests passed.');
+test('onSuccess 未指定 → window.location.replace 觸發', async () => {
+  freshSession();
+  await attemptSSOBridge({
+    apiBaseURL: 'https://x.test',
+    fetchImpl: mockFetch(200, { user_info: { email: 'a@b' } }),
+    successRedirect: '/dashboard',
+    logger: SILENT,
+  });
+  assert.equal(globalThis.__replaceCalled, true);
+});
+
+console.log('All ck-sso-js v2.0 tests passed.');

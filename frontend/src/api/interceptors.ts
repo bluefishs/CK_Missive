@@ -110,52 +110,34 @@ const AUTH_DISABLED = import.meta.env['VITE_AUTH_DISABLED'] === 'true';
 const requestThrottler = new RequestThrottler();
 
 // ============================================================================
-// SSO Bridge — ADR-0001 / CK_Website#0001
+// SSO Bridge — ADR-0001 / CK_Website#0001 / ADR-0004 L45 (B 案治本)
 // 401 後嘗試用 www.cksurvey.tw 的 ck_employee cookie 建立 Missive session
-// 成功 → reload 頁面套用新 session；失敗 → 走原本登入流程
-// 共用 sessionStorage flag 與 authService.ssoBridge()，避免兩處重複觸發
+// 成功 → replace('/dashboard') 套用新 session；失敗 → 走原本登入流程
+//
+// v4.0 (2026-05-22, ADR-0004 L45)：移除「session-permanent lock」反模式。
+//   v3.0 sessionStorage flag (ck_sso_bridge_attempted=1) 在 5/19~5/22 反覆 debug
+//   累積，造成 user 報「必須先在 missive 自己登入並保持頁面開啟」假象 — 實際是
+//   ssoBridge 從未真嘗試，直接 return false。
+//   v4.0 只留 cooldown 30s（防 React Strict Mode double mount + 死循環 429）。
+//   失敗 → 用戶看 login UI → 用戶 reload / 重點卡 → 30s 後可重試。
 // ============================================================================
 
-const SSO_BRIDGE_FLAG = 'ck_sso_bridge_attempted';
 const SSO_BRIDGE_LAST_ATTEMPT = 'ck_sso_bridge_last_attempt';
-const SSO_BRIDGE_FAIL_COUNT = 'ck_sso_bridge_fail_count';
 
-/**
- * v3.0 (2026-05-21)：修 v2.0「401 不設 flag → 無限刷」死循環 + 429 rate-limit。
- *
- * 三層防禦（對齊 authService.ssoBridge v3.0）：
- *   (A) Cooldown 30 秒（解死循環）
- *   (B) 連續失敗 3 次永久鎖
- *   (C) 200/403/404 終態 lock 整個 session
- */
 async function attemptSSOBridge(): Promise<boolean> {
   const COOLDOWN_MS = 30_000;
-  const MAX_FAIL = 3;
 
   try {
-    if (sessionStorage.getItem(SSO_BRIDGE_FLAG) === '1') return false;
     const now = Date.now();
     const lastAttempt = parseInt(sessionStorage.getItem(SSO_BRIDGE_LAST_ATTEMPT) || '0', 10);
     if (lastAttempt > 0 && (now - lastAttempt) < COOLDOWN_MS) return false;
     sessionStorage.setItem(SSO_BRIDGE_LAST_ATTEMPT, String(now));
+    // 順便清舊版殘留 key（向前相容遷移）
+    sessionStorage.removeItem('ck_sso_bridge_attempted');
+    sessionStorage.removeItem('ck_sso_bridge_fail_count');
   } catch {
     // sessionStorage 不可用就略過 guard
   }
-
-  const lockTerminal = () => {
-    try {
-      sessionStorage.setItem(SSO_BRIDGE_FLAG, '1');
-      sessionStorage.removeItem(SSO_BRIDGE_FAIL_COUNT);
-    } catch { /* ignore */ }
-  };
-  const incrementFail = () => {
-    try {
-      const cur = parseInt(sessionStorage.getItem(SSO_BRIDGE_FAIL_COUNT) || '0', 10);
-      const next = cur + 1;
-      sessionStorage.setItem(SSO_BRIDGE_FAIL_COUNT, String(next));
-      if (next >= MAX_FAIL) sessionStorage.setItem(SSO_BRIDGE_FLAG, '1');
-    } catch { /* ignore */ }
-  };
 
   try {
     const res = await axios.post(
@@ -164,20 +146,14 @@ async function attemptSSOBridge(): Promise<boolean> {
       { withCredentials: true, timeout: 8000 },
     );
     if (res.status === 200) {
-      logger.log('[SSO-BRIDGE] succeeded; reloading');
-      lockTerminal();
-      window.location.reload();
+      logger.log('[SSO-BRIDGE] succeeded; navigating to /dashboard');
+      // L44 P2 修法：location.replace 取代 reload — 避免 protected route guard
+      // 在 zustand persist rehydrate 完成前同步檢查踢回 /login
+      window.location.replace('/dashboard');
       return true;
     }
-    incrementFail();
     return false;
   } catch (e: unknown) {
-    const status = (e as { response?: { status?: number } })?.response?.status;
-    if (status === 403 || status === 404) {
-      lockTerminal();
-    } else {
-      incrementFail();  // 401/429/503/network → 計數
-    }
     logger.log('[SSO-BRIDGE] not available or failed; falling through to login', e);
     return false;
   }

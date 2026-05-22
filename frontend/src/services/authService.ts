@@ -218,58 +218,33 @@ class AuthService {
   /**
    * SSO Bridge — 用 www.cksurvey.tw 的 ck_employee cookie 建立 Missive session
    *
-   * v3.0 (2026-05-21)：修 v2.0「401 不設 flag → 無限刷」死循環 + 429 rate-limit。
-   *   v2.0 過度寬鬆 — 401 連續發生時 EntryPage useEffect 每次 mount 都會重觸發
-   *   → ssoBridge POST → 401 → return null → EntryPage 走原本登入流程
-   *   → 但 React Strict Mode / 跳轉回來會再次 mount → 死循環 → 後端 429
+   * v4.0 (2026-05-22, ADR-0004 L45)：移除「session-permanent lock」反模式。
+   *   v3.0 用 sessionStorage flag (ck_sso_bridge_attempted=1) 設「終態鎖」，
+   *   但 5/19~5/22 反覆 debug 累積 flag → 用戶報「必須先在 missive 自己登入並
+   *   保持頁面開啟才能進 missive」假象（實際是 ssoBridge 直接 return null 從未試）。
    *
-   * v3.0 三層防禦：
-   *   (A) **Cooldown 30 秒**：上次嘗試 < 30s 直接 skip（解死循環首要）
-   *   (B) **連續失敗 3 次永久鎖**：避免 cookie 永遠拿不到也一直 fail
-   *   (C) **終態仍設 lock flag**：200/403/404 終態長期 lock（同 v2.0）
-   *
-   * 終態（200/403/404）→ lock 整個 session；
-   * 暫態（401/503/網路）→ cooldown 30s + 失敗計數 +1，達 3 永久鎖。
+   * v4.0 單層防禦：cooldown 30s（防 React Strict Mode double mount + 死循環 429）。
+   *   失敗 → 用戶看 login UI → 用戶 reload / 重新點卡 → 30s 後可重試。
+   *   無永久鎖。後端 throttle / 429 自有保護，前端不需「永久不重試」。
    */
   async ssoBridge(): Promise<TokenResponse | null> {
-    const FLAG = 'ck_sso_bridge_attempted';
     const LAST_ATTEMPT_KEY = 'ck_sso_bridge_last_attempt';
-    const FAIL_COUNT_KEY = 'ck_sso_bridge_fail_count';
-    const COOLDOWN_MS = 30_000;  // 30 秒內不重試
-    const MAX_FAIL = 3;          // 連續失敗 3 次永久鎖
+    const COOLDOWN_MS = 30_000;  // 30 秒內不重試（防死循環）
 
     try {
-      // 終態 lock
-      if (sessionStorage.getItem(FLAG) === '1') {
-        return null;
-      }
-      // Cooldown 檢查（解死循環）
+      // Cooldown 檢查（解死循環，唯一保留的防禦層）
       const now = Date.now();
       const lastAttempt = parseInt(sessionStorage.getItem(LAST_ATTEMPT_KEY) || '0', 10);
       if (lastAttempt > 0 && (now - lastAttempt) < COOLDOWN_MS) {
         return null;
       }
       sessionStorage.setItem(LAST_ATTEMPT_KEY, String(now));
+      // 順便清舊版殘留 key（向前相容遷移）
+      sessionStorage.removeItem('ck_sso_bridge_attempted');
+      sessionStorage.removeItem('ck_sso_bridge_fail_count');
     } catch {
       // sessionStorage 不可用（罕見），繼續試一次也 OK
     }
-
-    const lockTerminal = () => {
-      try {
-        sessionStorage.setItem(FLAG, '1');
-        sessionStorage.removeItem(FAIL_COUNT_KEY);  // 終態時清計數
-      } catch { /* ignore */ }
-    };
-    const incrementFail = () => {
-      try {
-        const cur = parseInt(sessionStorage.getItem(FAIL_COUNT_KEY) || '0', 10);
-        const next = cur + 1;
-        sessionStorage.setItem(FAIL_COUNT_KEY, String(next));
-        if (next >= MAX_FAIL) {
-          sessionStorage.setItem(FLAG, '1');  // 連續 N 次永久鎖
-        }
-      } catch { /* ignore */ }
-    };
 
     try {
       const response: AxiosResponse<TokenResponse> = await this.axios.post(
@@ -278,31 +253,24 @@ class AuthService {
       );
       if (response.status === 200 && response.data?.user_info) {
         this.saveAuthData(response.data);
-        lockTerminal();  // 成功 → lock + 清失敗計數
         return response.data;
       }
-      // 200 但無 user_info → 異常，當失敗
-      incrementFail();
       return null;
-    } catch (error: unknown) {
-      const status = (error as { response?: { status?: number } })?.response?.status;
-      if (status === 403 || status === 404) {
-        lockTerminal();  // 終態：權限/帳號問題 lock
-      } else {
-        incrementFail();  // 401/429/503/網路 → 失敗計數
-      }
+    } catch (_error: unknown) {
+      // 401/403/404/429/5xx/網路 全部 fall-through 走原本登入 UI（無鎖）
       return null;
     }
   }
 
   /**
-   * 重置 SSO bridge 所有狀態 — 給 logout / 用戶主動「重新嘗試」按鈕用。
-   * v3.0 (2026-05-21): 同時清 flag/cooldown/fail-count 三組 key。
+   * 重置 SSO bridge cooldown — 給 logout / 用戶主動「重新嘗試」按鈕用。
+   * v4.0：永久鎖已移除，本函式只清 cooldown + 順便清舊版殘留 key。
    */
   resetSSOBridgeFlag(): void {
     try {
-      sessionStorage.removeItem('ck_sso_bridge_attempted');
       sessionStorage.removeItem('ck_sso_bridge_last_attempt');
+      // 清舊版殘留 key（向前相容遷移）
+      sessionStorage.removeItem('ck_sso_bridge_attempted');
       sessionStorage.removeItem('ck_sso_bridge_fail_count');
     } catch { /* ignore */ }
   }

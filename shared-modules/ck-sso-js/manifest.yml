@@ -1,12 +1,17 @@
-# ck-sso-js manifest — v1.0 (2026-05-21)
+# ck-sso-js manifest — v2.0 (2026-05-22)
 #
 # Cross-repo frontend SSO Bridge client for *.cksurvey.tw subdomains.
 # 與 ck-sso-py 配對；前者驗證 cookie，後者觸發驗證。
+#
+# v2.0 breaking (ADR-0004 L45)：移除「session-permanent lock」反模式 —
+#   移除 sessionStorage flag (ck_sso_bridge_attempted) 與 fail_count 累積。
+#   只保留 cooldown 30s（同 mount 30s 內不重打 backend）。
+#   resetSSOBridgeState / getSSOBridgeState API 簽名變動（無 locked / failCount 欄位）。
 
 package: ck-sso-js
-version: 1.0.0
+version: 2.0.0
 source_repo: CK_Missive
-fqid: CK_Missive#ck-sso-js_v1.0
+fqid: CK_Missive#ck-sso-js_v2.0
 companion: CK_Missive#ck-sso-py_v1.0
 target_consumers:
   - CK_lvrland_Webmap         # frontend Vite React
@@ -31,8 +36,8 @@ description: |
 
 key_design_decisions:
   - 不依賴 axios — 用 native fetch，consumer 可自帶 fetchImpl
-  - sessionStorage 三層防禦：cooldown 30s × max-fail 3 × terminal lock
-  - 200/403/404 終態 lock；401/429/503/network → 計數
+  - v2.0 單層防禦：cooldown 30s（移除 max-fail + terminal lock — ADR-0004 L45）
+  - 失敗 → 用戶看 login UI；重 mount / 30s 後可重試
   - HttpOnly cookie 自動帶（credentials:'include'），JS 看不到 token
 
 api_surface:
