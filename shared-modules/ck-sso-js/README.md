@@ -64,6 +64,50 @@ const { state, result, retry } = useSSOBridge({ apiBaseURL: '/api', onSuccess: (
 
 ---
 
+## onSuccess 整合最佳實踐（L44 Part 2 衍生）
+
+**❌ 不要用 default `window.location.reload()`**（會踩 zustand rehydrate vs route guard race）：
+
+```ts
+useSSOBridge({
+  apiBaseURL: '/api',
+  // 預設 onSuccess = location.reload — protected route 會在 store rehydrate 前踢回 /login
+});
+```
+
+**✅ 正確做法**（lvrland 77a555d10 / pile 6b479fd36 經驗）：
+
+```ts
+const navigate = useNavigate();
+const { state } = useSSOBridge({
+  apiBaseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  endpoint: '/auth/sso-bridge',
+  onSuccess: (data) => {
+    // 1. 同步 consumer 的 auth store（zustand / redux / context）
+    //    必須帶完整 user_info + csrfToken — 漏 csrf 會讓下次 mutation 失敗
+    const userInfo = (data as { user_info?: unknown })?.user_info;
+    const csrfToken = (data as { csrf_token?: string })?.csrf_token;
+    if (userInfo && typeof userInfo === 'object') {
+      useAuthStore.getState().login(userInfo as User, csrfToken || null);
+    }
+
+    // 2. ⚠️ 用 location.replace('/dashboard') 而非 reload 或 href='/'
+    //    a) replace 不污染 history（用戶按上一頁不會回 /login）
+    //    b) 目標明確指 dashboard，跳過 protected route 對 / 的 fallback chain
+    //    c) full document load → zustand persist 同步初始化完成才 mount React
+    //       → route guard 第一次 check 時已 rehydrate
+    window.location.replace('/dashboard');
+  },
+});
+```
+
+**深層原因**：Zustand persist middleware 從 localStorage 載入是異步 — `useStore` 第一次同步讀取得到 initial state (false)。Route guard / ProtectedRoute mount 時若同步檢查 isAuthenticated → 立刻 Navigate /login。
+`location.replace` 觸發 full document load，瀏覽器同步初始化 localStorage 完成才開始 mount React，無此 race。
+
+詳細見 [`adrs/0004-sso-anti-patterns-and-lessons.md` L44 Part 2](../../../CK_Website/adrs/0004-sso-anti-patterns-and-lessons.md)。
+
+---
+
 ## 三層防禦邏輯（從 missive frontend v3.0 沿用）
 
 1. **Cooldown 30s**：解決「401 不設 flag → 無限刷」(v2.0 死循環)
