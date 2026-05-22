@@ -38,10 +38,11 @@ if [[ -f .env ]]; then
     source .env
     set +a
 fi
-PG_CONTAINER="${PG_CONTAINER:-ck_missive_postgres_dev}"
-REDIS_CONTAINER="${REDIS_CONTAINER:-ck_missive_redis_dev}"
+PG_CONTAINER="${PG_CONTAINER:-ck_missive_postgres}"
+REDIS_CONTAINER="${REDIS_CONTAINER:-ck_missive_redis}"
 PG_VOLUME="${PG_VOLUME:-ck_missive_postgres_dev_data}"
-REDIS_VOLUME="${REDIS_VOLUME:-ck_missive_redis_dev_data}"
+# 2026-05-21 L43 收斂：對齊 compose 的 redis volume name（dev_data orphan 後）
+REDIS_VOLUME="${REDIS_VOLUME:-ck_missive_redis_data}"
 
 # 解析 TS（latest 自動取最新）
 if [[ "$TS_ARG" == "latest" ]]; then

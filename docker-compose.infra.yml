@@ -204,8 +204,11 @@ services:
 volumes:
   postgres_dev_data:
     name: ${COMPOSE_PROJECT_NAME}_postgres_dev_data
+  # 2026-05-21 L43 收斂：對齊 production compose 的 redis volume name（cross-file SSOT）
+  # 原 ${COMPOSE_PROJECT_NAME}_redis_dev_data 已 orphan，可日後 docker volume rm 清
   redis_dev_data:
-    name: ${COMPOSE_PROJECT_NAME}_redis_dev_data
+    name: ck_missive_redis_data
+    external: true
   ollama_dev_data:
     name: ${COMPOSE_PROJECT_NAME}_ollama_dev_data
   vllm_dev_cache:
