@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
-DIARY_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "diary"
+from app.core.paths import WIKI_MEMORY_DIARY_DIR as DIARY_DIR  # v6.10 P1-E SSOT
 
 
 class SelfDiagnosis:
@@ -46,10 +46,8 @@ class SelfDiagnosis:
         """
         # F17：強制刷新 Prometheus gauge，使 memory_metrics scrape 即時準確
         try:
-            from pathlib import Path
             from app.core.memory_wiki_metrics import get_memory_wiki_metrics
-            project_root = Path(__file__).resolve().parents[3]
-            wiki_memory = project_root / "wiki" / "memory"
+            from app.core.paths import WIKI_MEMORY_DIR as wiki_memory  # v6.10 P1-E SSOT
             if wiki_memory.exists():
                 get_memory_wiki_metrics().refresh_from_disk(wiki_memory)
         except Exception as e:
@@ -125,7 +123,7 @@ class SelfDiagnosis:
 
         # 4. SOUL.md「我的成長」是否真有 entry（鏈路 4 守護）
         try:
-            soul_path = Path(__file__).resolve().parents[4] / "wiki" / "SOUL.md"
+            from app.core.paths import WIKI_SOUL_PATH as soul_path  # v6.10 P1-E SSOT
             if soul_path.exists():
                 text = soul_path.read_text(encoding="utf-8")
                 # 偵測非 placeholder
@@ -168,11 +166,17 @@ class SelfDiagnosis:
         """
         status: Dict[str, str] = {}
 
-        # Gap 1 主動性：self_diagnosis cron 在跑（本身執行就證明）
-        status["gap_1_proactivity"] = "alive"
+        # Gap 1 主動性：anchor 到 evolution counter 真活訊號（L37 修法 2026-05-22）
+        # 之前 hardcoded "alive" 導致 owner 看到「7/7 真活」但 counter=0 矛盾
+        evo_alive = base.get("evolution_counter_alive", False)
+        evo_val = base.get("evolution_counter_value", 0)
+        status["gap_1_proactivity"] = "alive" if (evo_alive and evo_val > 0) else "partial"
 
-        # Gap 2 跨會話記憶：v5.14 query history 跨 session 已接通（learnings + history 雙維度）
-        status["gap_2_cross_session"] = "alive"
+        # Gap 2 跨會話記憶：anchor 到 memory diary days 真活訊號（L37 修法 2026-05-22）
+        # diary days = 0 → memory metrics scrape silent stall → cross-session 假面 alive
+        diary_days = base.get("memory_diary_days", 0)
+        mem_alive = base.get("memory_metrics_alive", False)
+        status["gap_2_cross_session"] = "alive" if (mem_alive and diary_days > 0) else "partial"
 
         # Gap 3 反思迴路：entity_alignment signal 真改變行為（v5.12 B）
         status["gap_3_reflection"] = "alive"
@@ -322,7 +326,7 @@ class SelfDiagnosis:
         """
         try:
             from pathlib import Path
-            soul_path = Path(__file__).resolve().parents[4] / "wiki" / "SOUL.md"
+            from app.core.paths import WIKI_SOUL_PATH as soul_path  # v6.10 P1-E SSOT
             if not soul_path.exists():
                 return False
 
