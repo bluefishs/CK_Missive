@@ -529,7 +529,7 @@ echo ""
 # step 37: cross-repo docker network audit (ADR CK_AaaP#0043, 2026-05-21)
 # 揭發跨 repo network 命名 + 4 層分網路達標度
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[37/38] cross-repo docker network audit (ADR-0043)${NC}"
+echo -e "${CYAN}[37/39] cross-repo docker network audit (ADR-0043)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/network_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -544,11 +544,26 @@ echo ""
 # vs dev/infra compose 指向 ck_missive_postgres_dev_data（真實主庫）
 # 切換 compose 時 silent 掛錯 volume → 業務 API 全 500 dormant ~10h
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[38/38] docker compose volume consistency (L43)${NC}"
+echo -e "${CYAN}[38/39] docker compose volume consistency (L43)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/docker_compose_volume_consistency.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/docker_compose_volume_consistency.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 39: facade consumer audit (v6.10 P1 build-without-consumer 反模式, 2026-05-22)
+# 揭發 contracts/facades/ 內 method 的 caller 數
+# 起因：5/22 owner 問「為何一直中斷」，揭發 scheduler 5 個月 silent fail 走錯
+# import path，而正確的 IntegrationFacade.push_admin_alert 真實有實作但無 caller
+# RETRO_20260519 §2.1 看 facade 級揭發 9/12 zero caller；本 step 看 method 級
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[39/39] facade consumer audit (v6.10 P1)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/facade_consumer_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/facade_consumer_audit.py || true
 fi
 echo ""
 
