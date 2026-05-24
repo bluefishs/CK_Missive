@@ -1,18 +1,44 @@
-# ck-sso-py manifest — v1.0 (2026-05-21)
+# ck-sso-py manifest — v2.0 (2026-05-24)
 #
 # Cross-repo SSO bridge for *.cksurvey.tw subdomains.
 # Backend-only package; complements CK SSO (CF Pages + KV).
-# 用於 install.sh 自動安裝 + L41 acceptance check 制度化。
+#
+# v2.0 落地 (ADR-0008 W3, CK_Website#0008)：
+#   - 新增 verify_ck_sso_jwt_rs256(token, jwks_url) - RS256 path + jwks cache
+#   - 新增 verify_ck_sso_jwt_auto(cookies, secret, jwks_url) - 推薦新 API（智能 dispatcher）
+#   - 保留 verify_ck_sso_jwt(token, secret) HS256 向後相容（W8 退場前）
+#   - CKSSOEmployee dataclass 加 jti 欄位（ADR-0007 session blacklist）
+#   - 結構性根除 L41 secret drift 譜系（待 4 子系統升 auto API 即無需同步 HS secret）
 
 package: ck-sso-py
-version: 1.0.0
+version: 2.0.0
 source_repo: CK_Missive
-fqid: CK_Missive#ck-sso-py_v1.0
+fqid: CK_Missive#ck-sso-py_v2.0
 target_consumers:
   - CK_lvrland_Webmap
   - CK_PileMgmt
+  - CK_DigitalTunnel
   - CK_AaaP                # 未來平台級服務也可用
   - hermes-agent           # Hermes 跨子系統呼叫
+
+# v2.0 補：cross-repo usage tracking (per ADR-0042 §5 不再 single canonical)
+cross_repo_usage:
+  - repo: CK_Missive
+    consumer_path: backend/app/core/ck_sso.py
+    version_pinned: 2.0.0  # source repo 本身，同步升級
+    api_used: [verify_ck_sso_jwt, verify_ck_sso_jwt_auto]
+  - repo: CK_lvrland_Webmap
+    consumer_path: backend/src/core/ck_sso.py (或 vendored copy)
+    version_pinned: 1.2.0  # 待 W5-W6 升 2.0
+    api_used: [verify_ck_sso_jwt]
+  - repo: CK_PileMgmt
+    consumer_path: backend/src/core/ck_sso.py
+    version_pinned: 1.2.0  # 待 W5-W6
+    api_used: [verify_ck_sso_jwt]
+  - repo: CK_DigitalTunnel
+    consumer_path: api/src/middleware/ck_sso.py
+    version_pinned: 1.2.0  # 待 W5-W6
+    api_used: [verify_ck_sso_jwt]
 supersedes:
   - CK_Missive#ck-auth_v1.0  # ck-auth frontend 部分 LR-015 風險，建議改用 CK SSO
 
