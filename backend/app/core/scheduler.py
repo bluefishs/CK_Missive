@@ -904,22 +904,27 @@ async def cron_optimization_pipeline_job():
             len(report.get("steps", [])),
         )
 
-        # YELLOW / RED / ERROR → 推 admin（避免 GREEN 雜訊）
-        # v6.11 fix: 走 IntegrationFacade（multi-channel fallback）取代失蹤的 line_bot.push_admin_alert
-        # → 同時把 IntegrationFacade 從 zero-caller 升為 1+ caller（RETRO_20260519 §2.1 目標）
-        if overall in ("yellow", "red", "error"):
-            try:
-                from app.services.contracts.facades.integration import IntegrationFacade
-                digest = format_digest_markdown(report)
-                await IntegrationFacade().push_admin_alert(
-                    title=f"[Pipeline {overall.upper()}] 每日巡檢",
-                    body=digest[:2000],  # LINE 訊息限制
-                )
-            except Exception as push_exc:
-                logger.warning(
-                    "Optimization Pipeline digest push 失敗（pipeline 已產出 report）: %s",
-                    push_exc,
-                )
+        # 每日推 admin（含 GREEN）— 形成 forcing function 避免 silent dormant
+        # 2026-05-22 教訓：5 個月 silent fail 沒人察覺，正是因為「GREEN 不推」=「無告警 = 不知壞」
+        # GREEN 推單行摘要（低雜訊），YELLOW/RED 推完整 digest
+        # 7 天觀察期後若 owner 嫌雜，可改回 if overall in ("yellow","red","error")
+        try:
+            from app.services.contracts.facades.integration import IntegrationFacade
+            digest = format_digest_markdown(report)
+            n_steps = len(report.get("steps", []))
+            if overall == "green":
+                body = f"全綠 ✓ {n_steps} steps 通過。明日同時推。"
+            else:
+                body = digest[:2000]
+            await IntegrationFacade().push_admin_alert(
+                title=f"[Pipeline {overall.upper()}] 每日巡檢 ({n_steps} steps)",
+                body=body,
+            )
+        except Exception as push_exc:
+            logger.warning(
+                "Optimization Pipeline digest push 失敗（pipeline 已產出 report）: %s",
+                push_exc,
+            )
     except Exception as e:
         logger.error("Optimization Pipeline crashed: %s", e, exc_info=True)
 
