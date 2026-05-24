@@ -83,6 +83,9 @@ services:
       start_period: 30s
 
   # --- ⚡ Redis 快取 ---
+    labels:
+      com.ck.service: ck_missive_db
+      com.ck.version: 1.0.0
   redis:
     image: redis:7-alpine
     container_name: ck_missive_redis
@@ -108,6 +111,9 @@ services:
       retries: 3
 
   # --- 🐍 FastAPI 後端 ---
+    labels:
+      com.ck.service: ck_missive_redis
+      com.ck.version: 1.0.0
   backend:
     build:
       context: ./backend
@@ -157,6 +163,9 @@ services:
       start_period: 60s
 
   # --- ⚛️ React 前端 (Nginx) ---
+    labels:
+      com.ck.service: ck_missive_backend
+      com.ck.version: 1.0.0
   frontend:
     build:
       context: ./frontend
@@ -196,6 +205,9 @@ services:
       retries: 3
 
   # --- 🔧 Adminer (資料庫管理，可選) ---
+    labels:
+      com.ck.service: ck_missive_frontend
+      com.ck.version: 1.0.0
   adminer:
     image: adminer:4.8.1
     container_name: ck_missive_adminer
@@ -216,6 +228,9 @@ services:
 # 2026-05-21 事故修正：production compose 原指向 ck_missive_postgres_data（空殼，17 tables/502 docs）
 # 真實資料一直在 ck_missive_postgres_dev_data（75 tables/1788 docs，最後更新 2026-05-20 15:18）
 # 詳見 backup/incident_20260521_volume_mount_drift/ 與 lesson L43
+    labels:
+      com.ck.service: ck_missive_adminer
+      com.ck.version: 1.0.0
 volumes:
   postgres_data:
     name: ck_missive_postgres_dev_data
