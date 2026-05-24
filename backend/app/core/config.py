@@ -43,8 +43,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "乾坤測繪公文管理系統"
     DEBUG: bool = False
     DEVELOPMENT_MODE: bool = Field(
-        default=True,
-        description="開發模式標記，生產環境應設為 False"
+        default=False,
+        description="開發模式標記；生產預設 False（2026-05-18 Sprint A A-3 反轉預設，避免 .env 失誤把 dev mode 帶上公網 missive.cksurvey.tw）。本地開發於 .env 顯式設 True。"
     )
 
     # 安全金鑰 - 生產環境必須設定
@@ -103,8 +103,16 @@ class Settings(BaseSettings):
     CK_SSO_JWT_SECRET: Optional[str] = Field(
         default=None,
         description="與 Cloudflare Pages JWT_SECRET 完全相同的 HMAC 密鑰，"
-                    "用於驗證 ck_employee cookie 簽章。HS256, issuer=cksurvey.tw。"
+                    "用於驗證 ck_employee cookie 簽章 (HS256, issuer=cksurvey.tw)。"
+                    "ADR-0008 W4+：W8 退場前仍為 fallback；W8 後可移除。"
                     "缺失時 SSO bridge 自動回 503（fail-safe）。"
+    )
+    CK_SSO_JWKS_URL: str = Field(
+        default="https://www.cksurvey.tw/.well-known/jwks.json",
+        description="ADR-0008 W4+：RS256 公鑰 JWKS endpoint。"
+                    "ck-sso-py v2.0 verify_ck_sso_jwt_auto 優先用 RS256 驗 ck_employee_rs cookie，"
+                    "fetch 結果 in-memory cache 1hr。"
+                    "Staging / test 可 override 為 https://staging.cksurvey.tw/.well-known/jwks.json。"
     )
 
     # =========================================================================

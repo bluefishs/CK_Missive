@@ -32,7 +32,7 @@ from starlette.responses import JSONResponse
 
 from app.api.endpoints.auth.common import get_client_info
 from app.core.auth_service import AuthService
-from app.core.ck_sso import verify_ck_sso_jwt, has_system_permission
+from app.core.ck_sso import verify_ck_sso_jwt, verify_ck_sso_jwt_auto, has_system_permission
 from app.core.config import settings
 from app.core.rate_limiter import limiter
 from app.db.database import get_async_db
@@ -50,7 +50,7 @@ SYSTEM_NAME = "missive"
     "/sso-bridge",
     summary="SSO Bridge — 用 www.cksurvey.tw 的 ck_employee cookie 建立 Missive session",
 )
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 async def sso_bridge(
     request: Request,
     db: AsyncSession = Depends(get_async_db),
@@ -82,16 +82,34 @@ async def sso_bridge(
 
     ip_address, user_agent = get_client_info(request)
 
-    # 2. 取 cookie
-    token = request.cookies.get("ck_employee")
-    if not token:
+    # 2. 取 cookies（含 debug log 協助定位 cookie domain 問題）
+    # ADR-0008 W4：兩個 cookie 都接 — verify_ck_sso_jwt_auto 自動 dispatch
+    #   優先 ck_employee_rs (RS256, jwks 公鑰驗) — secret drift 風險 0
+    #   fallback ck_employee (HS256, CK_SSO_JWT_SECRET) — W8 退場前向後相容
+    token_hs = request.cookies.get("ck_employee")
+    token_rs = request.cookies.get("ck_employee_rs")
+    cookie_names = sorted(request.cookies.keys())
+    logger.info(
+        "[SSO-BRIDGE] received cookies=%s, ck_employee=%s, ck_employee_rs=%s, origin=%s",
+        cookie_names,
+        "present" if token_hs else "MISSING",
+        "present" if token_rs else "MISSING",
+        request.headers.get("origin") or request.headers.get("referer", "n/a"),
+    )
+    if not token_hs and not token_rs:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="缺少 SSO cookie，請先到 https://www.cksurvey.tw/login 登入",
         )
 
-    # 3. 驗 JWT
-    employee = verify_ck_sso_jwt(token, secret)
+    # 3. 驗 JWT — auto dispatcher（RS256 優先 / HS256 fallback）
+    # jwks_url 可選環境變數 override（測試 / staging 用）
+    jwks_url = getattr(settings, "CK_SSO_JWKS_URL", "https://www.cksurvey.tw/.well-known/jwks.json")
+    employee = verify_ck_sso_jwt_auto(
+        cookies=dict(request.cookies),
+        secret=secret,
+        jwks_url=jwks_url,
+    )
     if employee is None:
         await AuditService.log_auth_event(
             event_type="SSO_BRIDGE_INVALID",
