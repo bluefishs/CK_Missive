@@ -92,6 +92,26 @@
             "type": "command",
             "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/performance-check.ps1",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/remind-alembic-migration.ps1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/remind-adr-create.ps1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/remind-type-sync.ps1",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/remind-route-sync.ps1",
+            "timeout": 5
           }
         ]
       }
