@@ -573,11 +573,25 @@ echo ""
 # Dockerfile :3000 nginx 真實 listen port，FailingStreak=36 dormant 18 分鐘
 # 屬於 L43「跨檔資源 SSOT 治理失效」家族第 4 案例（L41 jwt / L43 volume / L44 sso / L45 hc）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[40/40] compose vs Dockerfile HEALTHCHECK SSOT (L45)${NC}"
+echo -e "${CYAN}[40/41] compose vs Dockerfile HEALTHCHECK SSOT (L45)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/compose_dockerfile_healthcheck_ssot.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/compose_dockerfile_healthcheck_ssot.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 41: cross-repo secret SSOT audit (L41 配套, 2026-05-25)
+# 觸發：L41 6 天 dormant — ck-sso-py signer 用 secret A，missive verifier 用 secret B
+# 偵測 CROSS_REPO_SHARED_KEYS（CK_SSO_JWT_SECRET / CK_SSO_ENABLED）跨 repo drift
+# 安全：只比對 sha256 hash 前 8 字元，不印實值
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[41/41] cross-repo secret SSOT audit (L41)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_secret_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_secret_audit.py || true
 fi
 echo ""
 
