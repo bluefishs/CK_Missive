@@ -56,14 +56,76 @@ def get_default_user_role() -> str:
     return settings.DEFAULT_USER_ROLE or "user"
 
 
-def get_default_permissions() -> str:
-    """取得新帳號預設權限"""
-    default_permissions = [
+def get_default_permissions(role: str = None) -> str:
+    """取得指定角色的預設權限（hardcoded fallback）。
+
+    DEPRECATED — ADR-0034 後改為從 DB role_permissions 表讀取。
+    本函數保留為 fallback：當 DB 不可達或 role 不存在時使用。
+
+    優先順序（caller 需自行決定）：
+    1. await RolePermissionsRepository.get_permissions(role) — 動態 SSOT
+    2. get_default_permissions(role) — 本函數 fallback
+
+    新建用戶請改用 `get_default_permissions_from_db(db, role)`（async）。
+    """
+    base_permissions = [
         "documents:read",
         "projects:read",
         "agencies:read",
         "vendors:read",
         "calendar:read",
-        "reports:view"
     ]
-    return json.dumps(default_permissions)
+
+    if role == "superuser":
+        # superuser 用 wildcard，hasPermission 在前端短路
+        return json.dumps(["*"])
+
+    if role == "admin":
+        admin_permissions = base_permissions + [
+            "calendar:edit",
+            "documents:create", "documents:edit", "documents:delete",
+            "projects:create", "projects:edit", "projects:delete",
+            "agencies:create", "agencies:edit", "agencies:delete",
+            "vendors:create", "vendors:edit", "vendors:delete",
+            "reports:view", "reports:export",
+            "system_docs:read", "system_docs:create",
+            "system_docs:edit", "system_docs:delete",
+            "admin:users", "admin:settings",
+            "admin:site_management", "admin:database",
+        ]
+        return json.dumps(admin_permissions)
+
+    if role == "staff":
+        return json.dumps(base_permissions + ["documents:create", "documents:edit"])
+
+    return json.dumps(base_permissions)
+
+
+async def get_default_permissions_from_db(db, role: str = None) -> str:
+    """ADR-0034 — 從 DB role_permissions 表讀取（SSOT）。
+
+    若 DB 查不到該 role → fallback 到 hardcoded `get_default_permissions(role)`。
+
+    Args:
+        db: AsyncSession
+        role: 用戶角色
+
+    Returns:
+        JSON 序列化的 permission 字串
+    """
+    try:
+        from app.repositories.role_permissions_repository import RolePermissionsRepository
+        repo = RolePermissionsRepository(db)
+        perms = await repo.get_permissions(role)
+        if perms:
+            return json.dumps(perms)
+        logger.warning(
+            "[ROLE-PERM] DB role_permissions 未找到 role=%s，fallback 到 hardcoded",
+            role,
+        )
+    except Exception as e:
+        logger.error(
+            "[ROLE-PERM] DB lookup failed for role=%s: %s — fallback to hardcoded",
+            role, e,
+        )
+    return get_default_permissions(role)

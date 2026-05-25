@@ -179,7 +179,9 @@ async def google_oauth_login(
 
                 user.role = AuthService.get_default_user_role()
                 user.is_active = AuthService.should_auto_activate()
-                user.permissions = AuthService.get_default_permissions()
+                # ADR-0034: 從 DB role_permissions 表讀（SSOT），fallback hardcoded
+                from app.core.domain_whitelist import get_default_permissions_from_db
+                user.permissions = await get_default_permissions_from_db(db, user.role)
 
                 await db.commit()
                 await db.refresh(user)

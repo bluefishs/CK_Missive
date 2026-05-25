@@ -12,46 +12,24 @@ v5.8.0 坤哥意識體 Phase Identity。
 """
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin
 from app.db.database import get_async_db
 from app.extended.models import User
+from app.schemas.user_alias import (
+    EmptyRequest,
+    MergeAliasRequest,
+    MergeAliasResponse,
+)
 from app.services.user_alias_service import (
     detect_potential_aliases,
     merge_alias,
 )
 
 router = APIRouter()
-
-
-class MergeAliasRequest(BaseModel):
-    canonical_id: int = Field(..., description="canonical user id（NULL canonical_user_id 者）")
-    alias_id: int = Field(..., description="要被指派為 alias 的 user id")
-    harmonize_role: bool = Field(
-        default=False,
-        description="規則 B：預設 false 不統一 role；true 才把 alias.role 改為 canonical.role",
-    )
-    notes: Optional[str] = Field(default=None, max_length=500)
-
-
-class MergeAliasResponse(BaseModel):
-    canonical_id: int
-    alias_id: int
-    alias_role_before: Optional[str] = None
-    alias_role_after: Optional[str] = None
-    canonical_role: Optional[str] = None
-    harmonized: bool
-
-
-class EmptyRequest(BaseModel):
-    """POST-only 端點的空 body。"""
-    pass
 
 
 @router.post("/alias-candidates", summary="偵測潛在分身（同名多筆 user）")

@@ -86,8 +86,9 @@ class AuthService:
         return _get_default_user_role()
 
     @staticmethod
-    def get_default_permissions() -> str:
-        return _get_default_permissions()
+    def get_default_permissions(role: str = None) -> str:
+        """取得指定角色的預設權限（P-27, 2026-05-06）。"""
+        return _get_default_permissions(role)
 
     # ============ 密碼相關 (保留但標記棄用) ============
 
@@ -184,10 +185,13 @@ class AuthService:
         """驗證 Google OAuth ID Token"""
         try:
             # 驗證 Google ID Token
+            # clock_skew_in_seconds=30：容忍 ±30 秒主機時鐘漂移，避免 NTP 未同步時拋
+            # `Token used too early`（Google 預設 0 秒零容差）。
             idinfo = id_token.verify_oauth2_token(
-                credential, 
-                requests.Request(), 
-                settings.GOOGLE_CLIENT_ID
+                credential,
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+                clock_skew_in_seconds=30,
             )
             
             # 檢查 token 發行者
