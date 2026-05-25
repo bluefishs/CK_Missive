@@ -46,10 +46,19 @@ frontend/.vite/
 backend/logs/
 logs/
 
-# Backups
+# Backups (binary dumps + redis snapshots not for git)
 backups/database/*.sql
 backups/database/*.sql.gz
+backups/database/*.dump
+backups/*.dump
+backups/redis/
 !backups/database/.gitkeep
+
+# Docker volume mount 副本 (wiki/ is SSOT, backend/wiki/ is docker mount mirror)
+backend/wiki/
+
+# Root SOUL.md duplicate (wiki/SOUL.md is SSOT)
+/SOUL.md
 
 # Temporary files
 *.tmp
