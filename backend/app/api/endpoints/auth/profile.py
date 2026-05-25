@@ -93,6 +93,19 @@ async def get_current_user_info(
     return UserProfile.model_validate(user)
 
 
+# 2026-05-25 補：ADR-0046 Public Auth Endpoint Contract — /profile 與 /me 對齊
+@router.post("/profile", response_model=UserProfile, summary="取得當前使用者 profile（ADR-0046 對齊）")
+@limiter.limit("30/minute")
+async def get_current_user_profile_v2(
+    request: Request,
+    response: Response,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """ADR-0046 endpoint contract — /profile 為 /me 同義 endpoint"""
+    return await get_current_user_info(request, response, credentials, db)
+
+
 @router.post("/profile/update", response_model=UserProfile, summary="更新個人資料")
 @limiter.limit("10/minute")
 async def update_profile(
