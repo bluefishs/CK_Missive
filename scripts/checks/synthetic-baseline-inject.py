@@ -49,16 +49,22 @@ QUERY_POOL: List[Dict[str, str]] = [
     {"q": "哪些派工單已逾期？", "domain": "dispatch"},
     {"q": "查估專區目前有幾件進行中？", "domain": "dispatch"},
     {"q": "承辦人劉虹吟負責的案件有哪些？", "domain": "dispatch"},
-    # ERP 財務
-    {"q": "本月費用報銷總額多少？", "domain": "erp"},
-    {"q": "哪些案件有未審批的費用？", "domain": "erp"},
-    {"q": "統一帳本餘額查��", "domain": "erp"},
-    {"q": "應付帳款到期提醒", "domain": "erp"},
-    # 標案
-    {"q": "搜尋桃園市測量相關標案", "domain": "tender"},
-    {"q": "最近有什麼新決標？", "domain": "tender"},
-    {"q": "查詢底價分析", "domain": "tender"},
-    {"q": "推薦適合我們的標案", "domain": "tender"},
+    # ERP 財務（v6.9 R4-3 改寫：明確觸發 ERP tool 詞彙，避免 agent 用 search_documents 替代）
+    {"q": "列出所有資產（list_assets）並顯示資產統計", "domain": "erp"},
+    {"q": "查詢廠商應付帳款（get_vendor_detail），到期日近者優先", "domain": "erp"},
+    {"q": "提取本月費用報銷明細（get_expense_overview）", "domain": "erp"},
+    {"q": "顯示財務彙總（get_financial_summary）含科目分類", "domain": "erp"},
+    {"q": "未付請款清單（get_unpaid_billings）", "domain": "erp"},
+    # 標案（v6.9 R4-3 改寫：明確指定 tender 動作）
+    {"q": "在標案系統搜尋桃園市測量相關標案（tender search）", "domain": "tender"},
+    {"q": "查詢標案決標資訊（tender award lookup）", "domain": "tender"},
+    {"q": "標案訂閱推薦清單 tender recommendation", "domain": "tender"},
+    {"q": "從標案建立 PM Case（auto_tender_to_case）", "domain": "tender"},
+    # Wiki 知識庫（v6.9 R4-3 新增：原 QUERY_POOL 缺 wiki domain）
+    {"q": "wiki_search：搜尋派工流程的 wiki 頁面", "domain": "wiki"},
+    {"q": "從知識庫讀取 ADR 文件（wiki_read）", "domain": "wiki"},
+    {"q": "wiki_ingest 重新匯入今日 diary 到 wiki", "domain": "wiki"},
+    {"q": "在 wiki 知識庫搜尋「派工流程」相關內容", "domain": "wiki"},
     # 跨領域 / Agent 能力
     {"q": "今天的晨報內容", "domain": "cross"},
     {"q": "你有什麼功能？", "domain": "cross"},
