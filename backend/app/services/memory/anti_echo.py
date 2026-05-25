@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
-DIARY_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "diary"
+from app.core.paths import WIKI_MEMORY_DIARY_DIR as DIARY_DIR  # v6.10 P1-E SSOT
 
 # 觸發門檻（可透過環境變數覆寫）
 DEFAULT_SCAN_DAYS = 7

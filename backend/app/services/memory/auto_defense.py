@@ -20,7 +20,7 @@ from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
-FAILURES_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "failures"
+from app.core.paths import WIKI_MEMORY_FAILURES_DIR as FAILURES_DIR  # v6.10 P1-E SSOT
 
 _CACHE: Optional[dict] = None
 _CACHE_TTL_SECONDS = 300  # 5 min
@@ -113,11 +113,9 @@ async def get_defensive_rules_block(max_items: int = 5) -> str:
     return "# 失敗教訓（過去 7 天的反思）\n\n" + "\n\n".join(rules)
 
 
-# v6.5 C2：SOUL 跨 repo 一致性防線
-SOUL_SOURCE_PATH = Path(__file__).resolve().parents[4] / "wiki" / "SOUL.md"
-SOUL_MIRROR_PATH = (
-    Path(__file__).resolve().parents[5] / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
-)
+# v6.5 C2：SOUL 跨 repo 一致性防線 — v6.10 P1-E SSOT
+from app.core.paths import WIKI_SOUL_PATH as SOUL_SOURCE_PATH, CKPROJECT_ROOT
+SOUL_MIRROR_PATH = CKPROJECT_ROOT / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
 _SOUL_DRIFT_CACHE: Optional[dict] = None
 _SOUL_DRIFT_CACHE_TTL = 300  # 5 min
 

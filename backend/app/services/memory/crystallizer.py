@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
-PATTERNS_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "patterns"
-PROPOSALS_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "proposals"
+from app.core.paths import WIKI_MEMORY_PATTERNS_DIR as PATTERNS_DIR  # v6.10 P1-E SSOT
+from app.core.paths import WIKI_MEMORY_PROPOSALS_DIR as PROPOSALS_DIR  # v6.10 P1-E SSOT
 
 # 結晶門檻（比 pattern extractor 更嚴）
 MIN_HIT_FOR_CRYSTAL = 5

@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
-PATTERNS_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "patterns"
-FAILURES_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "failures"
+from app.core.paths import WIKI_MEMORY_PATTERNS_DIR as PATTERNS_DIR  # v6.10 P1-E SSOT
+from app.core.paths import WIKI_MEMORY_FAILURES_DIR as FAILURES_DIR  # v6.10 P1-E SSOT
 
 # 閾值
 SUCCESS_RATE_THRESHOLD = 0.8

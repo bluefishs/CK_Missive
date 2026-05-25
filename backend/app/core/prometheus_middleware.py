@@ -15,6 +15,7 @@ Usage:
     app.add_middleware(PrometheusMiddleware, exclude_paths=["/health", "/metrics"])
     app.add_route("/metrics", get_metrics_endpoint())
 """
+import logging
 import time
 from typing import List, Optional
 
@@ -31,10 +32,22 @@ from prometheus_client import (
     CONTENT_TYPE_LATEST,
 )
 
+logger = logging.getLogger(__name__)
+
 # 指標名稱常數 (供測試 registry lookup)
 REQUEST_COUNT_METRIC = "http_requests_total"
 REQUEST_DURATION_METRIC = "http_request_duration_seconds"
 ACTIVE_REQUESTS_METRIC = "http_requests_active"
+
+# R3 (5/08)：metric populate 失敗計數器，解 v3.0 洞察 11
+# 「commit 顯示綠、metrics 看似 scrape 成功、實際 populate 全 silent skip」
+# 任一 source 連續失敗 → Alert (configs/prometheus/alerts.yml silent_failure 群組)
+_METRICS_POPULATE_ERRORS = Counter(
+    "metrics_populate_errors_total",
+    "Total errors during /metrics endpoint per-scrape populate",
+    ["source"],  # sys / shadow_baseline
+    registry=REGISTRY,
+)
 
 
 class PrometheusMiddleware:
@@ -169,15 +182,20 @@ def get_metrics_endpoint(registry: Optional[CollectorRegistry] = None):
                 p = psutil.Process(_os.getpid())
                 _sys_gauges["mem"].set(p.memory_info().rss)
                 _sys_gauges["cpu"].set(p.cpu_percent(interval=0))
-        except Exception:
-            pass  # best-effort
+        except Exception as e:
+            # R3 (5/08)：取代 silent pass — populate 失敗轉計數器，避免 dormant
+            _METRICS_POPULATE_ERRORS.labels(source="sys").inc()
+            logger.error("system metric populate failed: %s", e, exc_info=True)
 
         # F26 shadow baseline (per-scrape lazy populate)
         try:
             from app.core.shadow_baseline_metrics import populate_shadow_metrics
             populate_shadow_metrics(reg)
-        except Exception:
-            pass
+        except Exception as e:
+            # R3 (5/08)：取代 silent pass — Hermes GO/NO-GO baseline 看不到資料
+            # 直接影響 ADR-0030 5/20 投票，必須非靜默
+            _METRICS_POPULATE_ERRORS.labels(source="shadow_baseline").inc()
+            logger.error("shadow_baseline metric populate failed: %s", e, exc_info=True)
 
         data = generate_latest(reg)
         return Response(content=data, media_type=CONTENT_TYPE_LATEST)

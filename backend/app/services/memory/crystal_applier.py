@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
+from app.core.paths import PROJECT_ROOT  # v6.10 P1-E SSOT
 PROPOSALS_DIR = PROJECT_ROOT / "wiki" / "memory" / "proposals"
 CRYSTALS_DIR = PROJECT_ROOT / "wiki" / "memory" / "crystals"
 SNAPSHOTS_DIR = PROJECT_ROOT / "wiki" / "memory" / "evolutions" / "yaml-snapshots"

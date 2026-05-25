@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
-DIARY_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "diary"
+from app.core.paths import WIKI_MEMORY_DIARY_DIR as DIARY_DIR  # v6.10 P1-E SSOT
 DIARY_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -110,6 +110,11 @@ tags: [memory, diary]
         v6.5 I2：每筆 entry 加 entities 行（NER 抽 question + answer），
         補 KG ↔ Memory Wiki ❺ 弱連結。reuse critic 的 NER pattern（人名暱稱
         /案件編號/派工單號）。grep `entities.*老蕭` 即可統計提及次數。
+
+        R7 (v6.9 / 2026-05-08)：解 v3.0 洞察 11 silent skip 反模式
+        - file_io 失敗 retry 1 次（檔案系統 transient 錯誤）
+        - 各種失敗源（file_io / wiki_lookup / metric_inc）獨立計數，配 alert rule
+        - 不再 fire-and-forget 全 silent — 失敗 reason 進 Prometheus 配 LINE watchdog
         """
         try:
             path = await self.ensure_today_header()
@@ -123,7 +128,14 @@ tags: [memory, diary]
             tools_str = ", ".join(tools_used) if tools_used else "(none)"
 
             # Phase 7 整合：本筆 Q 在 wiki 的命中頁（前 2 名），用雙向連結
-            wiki_links = await self._lookup_wiki_entities(question)
+            # R7：wiki_lookup 失敗獨立計數，但不阻斷主寫入路徑
+            wiki_links: List[str] = []
+            try:
+                wiki_links = await self._lookup_wiki_entities(question)
+            except Exception as e:
+                logger.warning("Diary wiki_lookup failed (non-blocking): %s", e)
+                self._inc_failure("wiki_lookup")
+
             wiki_line = ""
             if wiki_links:
                 wiki_line = "\n**wiki**: " + " · ".join(
@@ -148,19 +160,68 @@ tags: [memory, diary]
 **tools**: `{tools_str}` | **latency**: {latency_ms or '?'}ms | **session**: `{(session_id or '-')[:20]}`{wiki_line}{entities_line}
 
 """
-            async with self._write_lock:
-                with path.open("a", encoding="utf-8") as f:
-                    f.write(entry)
+            # R7：file IO 失敗 retry 1 次
+            await self._write_with_retry(path, entry)
 
-            # Prometheus: diary append counter（best-effort，失敗不 raise）
+            # Prometheus: diary append success counter（失敗也計數，避免 silent）
             try:
                 from app.core.memory_wiki_metrics import get_memory_wiki_metrics
                 get_memory_wiki_metrics().diary_appends.inc()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Diary metric inc failed (non-blocking): %s", e)
+                self._inc_failure("metric_inc")
 
         except Exception as e:
-            logger.warning("Diary append failed: %s", e)
+            # R7：取代 fire-and-forget silent — 失敗來源計數，配 watchdog alert
+            logger.error("Diary append failed: %s", e, exc_info=True)
+            self._inc_failure("file_io" if isinstance(e, (OSError, IOError)) else "unknown")
+
+    async def _write_with_retry(self, path: Path, entry: str, *, retries: int = 1) -> None:
+        """寫入失敗 retry 1 次（解檔案系統 transient 錯誤）。
+
+        R7 (v6.9)：原 fire-and-forget 對 transient 失敗無防禦，
+        加 1 次 retry + 0.1s 短等可解大部分 EAGAIN/EBUSY 案例。
+        最終仍失敗時 raise，由 caller append_entry 的 except 捕獲計數。
+        """
+        last_err: Optional[Exception] = None
+        for attempt in range(retries + 1):
+            try:
+                async with self._write_lock:
+                    with path.open("a", encoding="utf-8") as f:
+                        f.write(entry)
+                return
+            except (OSError, IOError) as e:
+                last_err = e
+                if attempt < retries:
+                    logger.warning(
+                        "Diary write attempt %d/%d failed: %s — retrying",
+                        attempt + 1, retries + 1, e,
+                    )
+                    await asyncio.sleep(0.1)
+        if last_err is not None:
+            raise last_err
+
+    @staticmethod
+    def _inc_failure(error_type: str) -> None:
+        """記錄失敗到 Prometheus counter（best-effort，counter 本身失敗不 raise）。
+
+        R7 (v6.9)：error_type ∈ {file_io / wiki_lookup / metric_inc / unknown}
+        對應 alerts.yml DiaryAppendFailures rule。
+
+        關鍵設計：直接從 global REGISTRY 取 counter，不經過 get_memory_wiki_metrics()。
+        理由：metric_inc 失敗 case 中 get_memory_wiki_metrics 本身已壞，
+        若 _inc_failure 也走它就 chicken-and-egg → 計數器永遠無法記錄該失敗。
+        """
+        try:
+            from prometheus_client import REGISTRY
+            counter = REGISTRY._names_to_collectors.get(
+                "memory_diary_append_failures_total"
+            )
+            if counter is not None:
+                counter.labels(error_type=error_type).inc()
+        except Exception:
+            # counter 註冊失敗（極罕見）也不能再 raise，否則陷入無限失敗循環
+            pass
 
     @staticmethod
     async def _lookup_wiki_entities(question: str) -> List[str]:

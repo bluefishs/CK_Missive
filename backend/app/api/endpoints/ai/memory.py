@@ -39,8 +39,7 @@ router = APIRouter(dependencies=[Depends(require_auth())])
 
 # ────────── Paths（複用既有 constants）──────────
 
-PROJECT_ROOT = Path(__file__).resolve().parents[5]
-WIKI_MEMORY = PROJECT_ROOT / "wiki" / "memory"
+from app.core.paths import PROJECT_ROOT, WIKI_MEMORY_DIR as WIKI_MEMORY  # v6.10 P1-E SSOT
 DIARY_DIR = WIKI_MEMORY / "diary"
 PATTERNS_DIR = WIKI_MEMORY / "patterns"
 FAILURES_DIR = WIKI_MEMORY / "failures"

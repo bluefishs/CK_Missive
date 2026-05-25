@@ -35,7 +35,8 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-_DB_PATH = Path(__file__).resolve().parents[4] / "logs" / "shadow_trace.db"
+from app.core.paths import BACKEND_DIR  # v6.10 P1-E SSOT
+_DB_PATH = BACKEND_DIR / "logs" / "shadow_trace.db"
 _LOCK = threading.Lock()
 _ENABLED: Optional[bool] = None  # lazy — 首次呼叫時從 env 讀取
 _SAMPLE_RATIO: Optional[float] = None

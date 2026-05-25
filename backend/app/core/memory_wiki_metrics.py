@@ -36,6 +36,9 @@ MEM_AUTOBIOS = "memory_autobiographies_total"
 
 # ───── Counters ─────
 MEM_DIARY_APPENDS = "memory_diary_appends_total"
+# R7 (5/08 v6.9): diary 寫入失敗計數，解 v3.0 洞察 11 silent skip 反模式
+# error_type: file_io / wiki_lookup / metric_inc / unknown
+MEM_DIARY_APPEND_FAILURES = "memory_diary_append_failures_total"
 MEM_PATTERN_EXTRACT_RUNS = "memory_pattern_extract_runs_total"
 MEM_CRYSTAL_APPLIED = "memory_crystal_applied_total"
 # F19 (5/04): synthesis fact_check 偵測到 LLM 編造數字計數（啟動就註冊）
@@ -81,6 +84,14 @@ class MemoryWikiMetrics:
         # Counters
         self.diary_appends = Counter(
             MEM_DIARY_APPENDS, "Diary entry appends", registry=reg,
+        )
+        # R7 (5/08): 失敗計數 — 啟動就註冊（避免「首次失敗前完全不暴露」silent gap，同 F19 模式）
+        self.diary_append_failures = Counter(
+            MEM_DIARY_APPEND_FAILURES,
+            "Diary append failures by error type "
+            "(file_io / wiki_lookup / metric_inc / unknown)",
+            ["error_type"],
+            registry=reg,
         )
         self.pattern_extract_runs = Counter(
             MEM_PATTERN_EXTRACT_RUNS,

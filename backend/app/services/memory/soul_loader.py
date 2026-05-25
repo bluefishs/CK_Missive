@@ -36,9 +36,8 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# wiki/SOUL.md 位置（相對專案根）
-SOUL_PATH = Path(__file__).resolve().parents[4] / "wiki" / "SOUL.md"
-PROPOSALS_DIR = Path(__file__).resolve().parents[4] / "wiki" / "memory" / "proposals"
+# wiki/SOUL.md 位置（相對專案根）— v6.10 P1-E SSOT
+from app.core.paths import WIKI_SOUL_PATH as SOUL_PATH, WIKI_MEMORY_PROPOSALS_DIR as PROPOSALS_DIR
 
 
 @dataclass

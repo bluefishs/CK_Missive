@@ -37,7 +37,8 @@ logger = logging.getLogger(__name__)
 # F26 (5/04 修復): parents[3] 指向 CK_Missive/，但實際 db 在 backend/logs/
 # 所以要 parents[2] (= backend/) 才對。原 silent skip 造成 shadow_baseline_*
 # metrics 從未在 /metrics 暴露（owner ADR-0030 GO/NO-GO baseline 看不到資料）。
-_DB_PATH = Path(__file__).resolve().parents[2] / "logs" / "shadow_trace.db"
+from app.core.paths import BACKEND_DIR  # v6.10 P1-E SSOT
+_DB_PATH = BACKEND_DIR / "logs" / "shadow_trace.db"
 _LOOKBACK_HOURS = 24
 
 
