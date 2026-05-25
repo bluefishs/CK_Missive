@@ -559,11 +559,25 @@ echo ""
 # import path，而正確的 IntegrationFacade.push_admin_alert 真實有實作但無 caller
 # RETRO_20260519 §2.1 看 facade 級揭發 9/12 zero caller；本 step 看 method 級
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[39/39] facade consumer audit (v6.10 P1)${NC}"
+echo -e "${CYAN}[39/40] facade consumer audit (v6.10 P1)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/facade_consumer_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/facade_consumer_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 40: compose vs Dockerfile HEALTHCHECK SSOT (L45 family, 2026-05-25)
+# 觸發：5/22 frontend container unhealthy — compose healthcheck :80 override
+# Dockerfile :3000 nginx 真實 listen port，FailingStreak=36 dormant 18 分鐘
+# 屬於 L43「跨檔資源 SSOT 治理失效」家族第 4 案例（L41 jwt / L43 volume / L44 sso / L45 hc）
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[40/40] compose vs Dockerfile HEALTHCHECK SSOT (L45)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/compose_dockerfile_healthcheck_ssot.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/compose_dockerfile_healthcheck_ssot.py || true
 fi
 echo ""
 

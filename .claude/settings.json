@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/schemas/settings.json",
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "project": {
     "name": "CK_Missive",
     "description": "乾坤測繪公文管理系統"
@@ -92,31 +92,6 @@
             "type": "command",
             "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/performance-check.ps1",
             "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "檢查修改的檔案是否為 ORM 模型 (路徑包含 backend/app/extended/models)。若是，提醒使用者需要建立 Alembic 遷移：cd backend && alembic revision --autogenerate -m '描述變更'",
-            "timeout": 10
-          },
-          {
-            "type": "prompt",
-            "prompt": "檢查修改的檔案是否為架構性變更（路徑包含 backend/app/extended/models、backend/app/core/dependencies.py、backend/app/services/ai/ 新檔案、frontend/src/router/、docker-compose、或 .env 新增變數）。若是，提醒：「這是架構性變更，建議使用 /adr new \"描述\" 建立架構決策記錄。」",
-            "timeout": 10
-          },
-          {
-            "type": "prompt",
-            "prompt": "檢查修改的檔案是否為後端 Schema (路徑包含 backend/app/schemas/)。若是，提醒使用者執行 `cd frontend && npm run type:sync:full` 檢查前後端型別同步。",
-            "timeout": 10
-          },
-          {
-            "type": "prompt",
-            "prompt": "檢查修改的檔案是否為路由相關（frontend/src/router/types.ts 或 AppRouter.tsx）。若是，提醒需同步 4 處：1) router/types.ts 2) AppRouter.tsx 3) init_navigation_data.py 4) navigation_validator.py 自動同步（已有）。post-commit hook 會自動同步 DB 導覽。",
-            "timeout": 10
           }
         ]
       }
