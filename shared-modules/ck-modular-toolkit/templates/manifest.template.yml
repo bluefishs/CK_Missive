@@ -1,0 +1,144 @@
+# {package_name} manifest — v{semver}
+#
+# Manifest Schema v1.1 (2026-05-18, lvrland 回饋對齊 + LR-015/L33 必填)
+#
+# 必填欄位：manifest_schema_version / package / version / source_repo / fqid /
+#         description / files / transitive_dependencies / real_adoption_criteria
+#
+# Generated from: ck-modular-toolkit/templates/manifest.template.yml v1.1
+
+manifest_schema_version: 1.1   # 含 transitive_dependencies 欄位（L33 必填）
+
+package: {package_name}        # ck-{name} / ckgis-{name} / ckaap-{name} / ckhm-{name}
+version: 1.0.0                  # SemVer
+source_repo: {source_repo}      # CK_Missive / CK_lvrland_Webmap / CK_AaaP / hermes-agent
+fqid: "{source_repo}#{package_name}_v1.0"
+
+target_consumers:               # 預期 consumer repos
+  - CK_AaaP
+  - CK_lvrland_Webmap
+  - CK_PileMgmt
+  # ...
+
+description: |
+  Brief description of what this package provides.
+  Avoid business-specific examples (see PACKAGING_PATTERN Rule 8).
+
+# 主要安裝檔
+files:
+  backend:
+    api_endpoints:
+      source: "backend/api_endpoints/"
+      target: "backend/app/api/endpoints/{path}/"
+      files: []
+    services:
+      source: "backend/services/"
+      target: "backend/app/services/{path}/"
+      files: []
+    core:
+      source: "backend/core/"
+      target: "backend/app/core/"
+      files: []
+  frontend:
+    components:
+      source: "frontend/components/"
+      target: "frontend/src/components/{path}/"
+      files: []
+    services:
+      source: "frontend/services/"
+      target: "frontend/src/services/"
+      files: []
+    hooks:
+      source: "frontend/hooks/"
+      target: "frontend/src/hooks/"
+      files: []
+    types:
+      source: "frontend/types/"
+      target: "frontend/src/types/"
+      files: []
+
+# transitive_dependencies (L33 必填 — 防 LR-015 反模式)
+# 每個 ck-* package 必須申報 import 鏈中的「合理但跨界」依賴
+transitive_dependencies:
+  backend:
+    framework_deps:             # 框架/repo 結構假設（每個 CK_ repo 都有）
+      - "app.db.database"
+      - "app.core.config"
+      - "app.core.dependencies"
+    schema_deps:                # DB schema 依賴（須 alembic migration）
+      - table: "users"
+        provided_by: "ck-auth"
+    cross_package_deps:         # 依賴其他 ck-* package
+      - "CK_Missive#ck-auth_v1.0"
+  frontend:
+    # 注意：若有 frontend runtime deps，須詳列；否則設 contract_only: true
+    contract_only: false
+    runtime_deps_in_consumer: []  # consumer 須自有的 utility（避免拷貝 logger / authService）
+
+# 環境變數
+env_vars:
+  required:
+    - {NAMESPACE}_REQUIRED_KEY
+  optional:
+    - {NAMESPACE}_OPTIONAL_KEY
+  legacy_fallback:  # v6.x 兼容期允許讀舊名
+    - LEGACY_KEY
+
+# 依賴的外部套件
+python_dependencies:
+  - "fastapi>=0.100"
+
+npm_dependencies:
+  - "react>=18"
+
+# DB schema 需求
+db_schema_requirements:
+  - table: {table_name}
+    columns:
+      - id (Integer, PK)
+      # ...
+    seed_template: "see consumer's init_*.py"
+
+# 升級指南
+upgrade_path:
+  from_v0_x:
+    - "First release"
+  to_v1_x:
+    - "Backward-compatible"
+
+# 安裝後驗收清單
+post_install_checklist:
+  - "[Step 1] Register router in main.py"
+  - "[Step 2] Run alembic migration"
+  - "[Step 3] Configure env vars"
+  - "[Step 4] Frontend usage example"
+  - "[Step 5] Run consumer smoke test"
+
+# 4 件齊備真採用驗證（ADR-0036 §Lessons 嚴格定義）
+real_adoption_criteria:
+  required:
+    - "install.sh 完成寫入 (file write OK)"
+    - "consumer TS/Python 編譯通過 (npx tsc / py_compile)"
+    - "consumer 啟動測試 (uvicorn import + GET /health)"
+    - "pre-commit hook 不阻擋 (git commit dry-run)"
+  verified_consumers:
+    - id: REPO_NAME
+      date: YYYY-MM-DD
+      criteria_met: 0/4
+      details:
+        install: pending
+        tsc: pending
+        runtime_smoke: pending
+        precommit: pending
+      verdict: "PENDING"
+
+depends_on:
+  - "ck-auth v1.0"
+  - "ck-modular-toolkit v1.1+"
+
+changelog:
+  - version: 1.0.0
+    date: YYYY-MM-DD
+    changes:
+      - "Initial extraction from {source_repo}"
+      - "Portability score: 1.000 (verified by module_portability_audit)"

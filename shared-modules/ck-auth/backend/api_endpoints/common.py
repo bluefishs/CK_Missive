@@ -1,0 +1,243 @@
+"""
+認證模組共用依賴
+
+提供 get_current_user、get_client_info、is_internal_ip、get_superuser_mock
+供各子模組及外部匯入使用。
+"""
+
+import logging
+import json
+from datetime import datetime
+from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
+
+from app.db.database import get_async_db
+from app.core.auth_service import AuthService, security
+from app.core.config import settings
+from app.extended.models import User
+
+logger = logging.getLogger(__name__)
+
+
+def get_client_info(request: Request) -> tuple[Optional[str], Optional[str]]:
+    """取得客戶端資訊 — 支援 proxy 環境取得真實 IP"""
+    ip_address = _get_real_ip(request)
+    user_agent = request.headers.get("user-agent")
+    return ip_address, user_agent
+
+
+def _get_real_ip(request: Request) -> Optional[str]:
+    """
+    從 proxy headers 取得真實客戶端 IP。
+
+    優先順序：
+    1. X-Forwarded-For (最左邊的 = 原始客戶端)
+    2. X-Real-IP (Nginx 設定)
+    3. request.client.host (直連 fallback)
+    """
+    # X-Forwarded-For: client, proxy1, proxy2
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        real_ip = xff.split(",")[0].strip()
+        if real_ip:
+            return real_ip
+
+    # X-Real-IP (Nginx)
+    xri = request.headers.get("x-real-ip")
+    if xri:
+        return xri.strip()
+
+    # 直連
+    return request.client.host if request.client else None
+
+
+def is_internal_ip(ip_address: Optional[str]) -> bool:
+    """
+    檢測是否為內網 IP
+    內網 IP 範圍：
+    - 10.x.x.x (Class A private)
+    - 172.16-31.x.x (Class B private)
+    - 192.168.x.x (Class C private)
+    - localhost (127.0.0.1)
+    """
+    if not ip_address:
+        return False
+
+    import re as regex_module
+
+    internal_patterns = [
+        r"^10\.",
+        r"^172\.(1[6-9]|2[0-9]|3[0-1])\.",
+        r"^192\.168\.",
+        r"^127\.",
+    ]
+
+    return any(regex_module.match(pattern, ip_address) for pattern in internal_patterns)
+
+
+def _get_dev_permissions() -> list[str]:
+    """取得開發模式權限清單"""
+    return [
+        "documents:read",
+        "documents:create",
+        "documents:edit",
+        "documents:delete",
+        "projects:read",
+        "projects:create",
+        "projects:edit",
+        "projects:delete",
+        "agencies:read",
+        "agencies:create",
+        "agencies:edit",
+        "agencies:delete",
+        "vendors:read",
+        "vendors:create",
+        "vendors:edit",
+        "vendors:delete",
+        "calendar:read",
+        "calendar:edit",
+        "reports:view",
+        "reports:export",
+        "system_docs:read",
+        "system_docs:create",
+        "system_docs:edit",
+        "system_docs:delete",
+        "admin:users",
+        "admin:settings",
+        "admin:site_management",
+        "admin:database",
+    ]
+
+
+def get_superuser_mock() -> User:
+    """返回模擬的超級管理員使用者"""
+    return User(
+        id=1,
+        email="superuser@dev.example",
+        username="superuser",
+        full_name="(Internal) SuperUser",
+        is_active=True,
+        is_admin=True,
+        is_superuser=True,
+        permissions=json.dumps(_get_dev_permissions()),
+        role="superuser",
+        auth_provider="internal",
+        login_count=0,
+        email_verified=True,
+        created_at=datetime.utcnow(),
+    )
+
+
+async def get_current_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: AsyncSession = Depends(get_async_db),
+) -> User:
+    """
+    取得當前認證使用者 - 依賴注入函數
+
+    Token 取得優先順序（向後相容）：
+    1. Authorization header (Bearer token) - 傳統方式
+    2. access_token cookie (httpOnly) - 新的安全方式
+
+    權限控制說明：
+    - 使用 settings.AUTH_DISABLED 環境變數控制開發模式
+    - 生產環境必須設為 False
+    - 開發模式下會返回模擬的超級管理員
+    """
+    # 縱深防禦（2026-05-04 事故）：即使 AUTH_DISABLED=true，
+    # 經 Cloudflare Tunnel 進來的公網請求仍強制走真實認證。
+    # 防止將來誤把 AUTH_DISABLED+DEVELOPMENT_MODE 同時打開時，公網變裸奔。
+    is_public_request = bool(
+        request.headers.get("cf-connecting-ip") or request.headers.get("cf-ray")
+    )
+    if settings.AUTH_DISABLED and is_public_request:
+        logger.error(
+            "[AUTH] AUTH_DISABLED=true 但收到 CF 公網請求 — 拒絕 mock，強制真認證 "
+            "(cf-ray=%s)", request.headers.get("cf-ray", "?"),
+        )
+        # fall through to real auth path below
+    elif settings.AUTH_DISABLED:
+        logger.warning("[AUTH] 開發模式 - 認證已停用，回傳模擬管理員使用者")
+        dev_permissions = [
+            "documents:read",
+            "documents:create",
+            "documents:edit",
+            "documents:delete",
+            "projects:read",
+            "projects:create",
+            "projects:edit",
+            "projects:delete",
+            "agencies:read",
+            "agencies:create",
+            "agencies:edit",
+            "agencies:delete",
+            "vendors:read",
+            "vendors:create",
+            "vendors:edit",
+            "vendors:delete",
+            "calendar:read",
+            "calendar:edit",
+            "reports:view",
+            "reports:export",
+            "system_docs:read",
+            "system_docs:create",
+            "system_docs:edit",
+            "system_docs:delete",
+            "admin:users",
+            "admin:settings",
+            "admin:site_management",
+        ]
+
+        return User(
+            id=1,
+            email="dev@example.com",
+            username="dev-admin",
+            full_name="開發者管理員",
+            is_active=True,
+            is_admin=True,
+            is_superuser=True,
+            permissions=json.dumps(dev_permissions),
+            role="superuser",
+            auth_provider="email",
+            login_count=0,
+            email_verified=True,
+            created_at=datetime.utcnow(),
+        )
+
+    try:
+        # 優先使用 Authorization header（向後相容）
+        token = None
+        if credentials is not None:
+            token = credentials.credentials
+
+        # 若無 Authorization header，嘗試從 cookie 取得
+        if not token:
+            token = request.cookies.get("access_token")
+
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未提供認證憑證",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        user = await AuthService.get_current_user_from_token(db, token)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="無效的認證憑證",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"get_current_user 發生錯誤: {e}")
+        raise

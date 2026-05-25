@@ -1,0 +1,85 @@
+# ck-navigation manifest — v1.0 (2026-05-18)
+
+package: ck-navigation
+version: 1.0.0
+source_repo: CK_Missive
+fqid: CK_Missive#ck-navigation_v1.0
+target_consumers:
+  - CK_AaaP
+  - CK_lvrland_Webmap
+  - CK_lvrland_dataform
+  - CK_PileMgmt
+  - CK_KMapAdvisor
+
+description: |
+  Dynamic navigation menu module — backend secure site management API +
+  frontend sidebar/header components with role-based menu rendering.
+  100% business-decoupled (portability 1.000).
+
+files:
+  backend:
+    api_endpoints:
+      source: "backend/api_endpoints/"
+      target: "backend/app/api/endpoints/secure_site_management/"
+      files: [__init__.py, common.py, config.py, navigation.py, security.py]
+    services:
+      source: "backend/services/"
+      target: "backend/app/services/system/"
+      files: [navigation_sync.py]
+  frontend:
+    layout:
+      source: "frontend/components/layout/"
+      target: "frontend/src/components/layout/"
+      files: [Header.tsx, Sidebar.tsx, SidebarContent.tsx, index.ts]
+    hooks:
+      source: "frontend/components/layout/hooks/"
+      target: "frontend/src/components/layout/hooks/"
+      files: [index.ts, types.ts, useMenuItems.tsx, useNavigationData.tsx]
+
+env_vars:
+  optional:
+    - CKNAV_API_BASE_URL  # 若有外部 navigation provider（少見）
+
+python_dependencies:
+  - "fastapi>=0.100"
+  - "sqlalchemy>=2.0"
+  - "pydantic>=2.0"
+
+npm_dependencies:
+  - "react>=18"
+  - "antd>=5"
+  - "react-router-dom>=6"
+
+db_schema_requirements:
+  - table: navigation_items
+    columns:
+      - id (Integer, PK)
+      - name (String)
+      - path (String)
+      - icon (String, nullable)
+      - parent_id (Integer, FK)
+      - order_index (Integer)
+      - role_required (String, nullable)
+      - is_active (Boolean, default true)
+      - hidden (Boolean, default false)
+      # See backend/app/scripts/init_navigation_data.py for seed example
+
+post_install_checklist:
+  - "Register navigation router in main.py (prefix /api/secure-site-management)"
+  - "Run alembic migration for navigation_items table"
+  - "Customize DEFAULT_NAVIGATION_ITEMS in consumer's seed script"
+  - "Frontend: import Sidebar from 'components/layout/Sidebar'"
+  - "Configure permissions via ck-rbac (recommended pairing)"
+
+depends_on:
+  - "ck-auth v1.0"   # 提供 current_user / 認證
+  - "ck-rbac v1.0+"  # 提供 role-based 選單過濾（recommended）
+
+changelog:
+  - version: 1.0.0
+    date: 2026-05-18
+    changes:
+      - "Initial extraction from CK_Missive v6.10"
+      - "Portability score: 1.000"
+      - "13 files (6 backend + 8 frontend)"
+      - "100% decoupled — 0 business keyword hits"

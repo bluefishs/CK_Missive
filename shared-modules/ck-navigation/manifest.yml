@@ -1,0 +1,141 @@
+# ck-navigation manifest — v2.0 (2026-05-18, LR-015 + lvrland 回饋對齊)
+#
+# v2.0 變更（vs v1.0）：
+# - 移除 frontend layout components (Header/Sidebar/SidebarContent/hooks) — LR-015 諷刺對齊事件後決議「frontend UI 不適合 packaging」(PACKAGING_PATTERN Rule 9)
+# - 只保留 backend 6 檔 + frontend TS type definition
+# - 加入 transitive_dependencies 欄位（lvrland 端必做 #1）
+# - 加入 manifest_schema_version 對齊 toolkit v1.1
+
+manifest_schema_version: 1.1   # v1.1 schema with transitive_dependencies
+
+package: ck-navigation
+version: 2.0.0
+source_repo: CK_Missive
+fqid: CK_Missive#ck-navigation_v2.0
+target_consumers:
+  - CK_AaaP
+  - CK_lvrland_Webmap   # ✓ 真採用 partial 2/4 (2026-05-18 20:00, TS exit 0)
+  - CK_lvrland_dataform
+  - CK_PileMgmt
+  - CK_KMapAdvisor
+
+description: |
+  Navigation API + service (backend-only). Frontend consumers fetch nav tree
+  via API (POST /api/secure-site-management/navigation/action) and render
+  with their own Sidebar/Header components.
+
+  v1.0 試圖 ship frontend layout components 失敗（LR-015 諷刺對齊事件）—
+  → v2.0 改 backend-only + 1 TS type contract，達 lvrland 真採用 TS exit 0。
+
+# 主要安裝檔
+files:
+  backend:
+    api_endpoints:
+      source: "backend/api_endpoints/"
+      target: "backend/app/api/endpoints/secure_site_management/"
+      files: [__init__.py, common.py, config.py, navigation.py, security.py]
+    services:
+      source: "backend/services/"
+      target: "backend/app/services/system/"
+      files: [navigation_sync.py]
+  frontend:
+    types:
+      source: "frontend/types/"
+      target: "frontend/src/types/"
+      files: [navigation.ts]
+
+# transitive_dependencies (lvrland 端 #1 要求新增)
+# v2.0 因為移除 frontend UI components，transitive deps 顯著降低
+transitive_dependencies:
+  backend:
+    # 後端依賴的 app.* 模組（合理 — 每個 CK_ repo 都有同樣結構）
+    framework_deps:
+      - "app.db.database"          # DB session
+      - "app.extended.models"       # ORM models (User / NavigationItem schema)
+      - "app.core.config"           # settings
+      - "app.core.dependencies"     # FastAPI Depends
+    schema_deps:
+      - table: "navigation_items"   # 須 alembic migration
+      - table: "users"              # 須 ck-auth 已 install
+  frontend:
+    # v2.0 設計：只暴露 TS type，consumer 自寫 hook/component
+    contract_only: true
+    runtime_deps_in_consumer: []   # 0 frontend runtime deps from this package!
+
+env_vars:
+  optional:
+    - CKNAV_API_BASE_URL  # 若有外部 navigation provider（少見）
+
+python_dependencies:
+  - "fastapi>=0.100"
+  - "sqlalchemy>=2.0"
+  - "pydantic>=2.0"
+
+npm_dependencies: []   # v2.0 backend-only，無 frontend runtime
+
+db_schema_requirements:
+  - table: navigation_items
+    columns:
+      - id (Integer, PK)
+      - name (String)
+      - path (String)
+      - icon (String, nullable)
+      - parent_id (Integer, FK)
+      - order_index (Integer)
+      - role_required (String, nullable)
+      - is_active (Boolean, default true)
+      - hidden (Boolean, default false)
+    seed_template: "see backend/app/scripts/init_navigation_data.py in source repo"
+
+# 升級指南
+upgrade_path:
+  from_v1_0:
+    - "v1.0 frontend layout components 已移除 — consumer 須自寫 Sidebar/Header"
+    - "保留 backend 6 檔（路徑不變）"
+    - "frontend/src/types/navigation.ts 是唯一 frontend artifact"
+    - "範例：consumer 用 NavigationItem type 寫自己的 useMenuItems hook"
+
+post_install_checklist:
+  - "[Step 1] 註冊 router: app.include_router(navigation_router, prefix='/api/secure-site-management')"
+  - "[Step 2] DB migration: alembic revision --autogenerate -m 'add navigation_items'; alembic upgrade head"
+  - "[Step 3] Seed default items: customize init_navigation_data.py"
+  - "[Step 4] Frontend: import NavigationItem from 'types/navigation'; 自寫 hook fetch API"
+  - "[Step 5] 跑 consumer 啟動 smoke test 驗證真採用 4 件齊備"
+
+# 4 件齊備真採用驗證（lvrland 端 #4 對齊）
+real_adoption_criteria:
+  required:
+    - "install.sh 完成寫入 (file write OK)"
+    - "consumer TS/Python 編譯通過 (npx tsc / py_compile)"
+    - "consumer 啟動測試 (uvicorn import + GET /health)"
+    - "pre-commit hook 不阻擋 (git commit dry-run)"
+  verified_consumers:
+    - id: CK_lvrland_Webmap
+      date: 2026-05-18T20:00
+      criteria_met: 2/4
+      details:
+        install: ✓
+        tsc: ✓ (exit 0)
+        runtime_smoke: pending
+        precommit: pending
+      verdict: "INSTALLED_PARTIAL_2_OF_4"
+
+depends_on:
+  - "ck-auth v1.0"   # 提供 current_user + RBAC
+  - "ck-modular-toolkit v1.1+"  # provides install patterns
+
+changelog:
+  - version: 2.0.0
+    date: 2026-05-18
+    changes:
+      - "BREAKING: Remove frontend layout components (LR-015 fix)"
+      - "Keep backend 6 files + 1 TS type definition (NavigationItem)"
+      - "Achieve lvrland real adoption partial 2/4 (TS exit 0)"
+      - "Add transitive_dependencies field per lvrland feedback"
+      - "Add manifest_schema_version: 1.1 alignment"
+  - version: 1.0.0
+    date: 2026-05-18
+    changes:
+      - "DEPRECATED: half-wired install (LR-015 ironic alignment)"
+      - "frontend layout components contained Missive ROUTES hardcoded"
+      - "5-layer transitive deps caused 19 TS errors in consumer"

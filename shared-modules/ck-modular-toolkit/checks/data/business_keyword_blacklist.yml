@@ -1,0 +1,63 @@
+# 業務耦合 keyword 黑名單 — v6.10 P1 (2026-05-18)
+#
+# 用於 step 30 module_portability_audit.py
+# 偵測 module 是否含 CK_Missive 業務專屬詞彙，判定能否跨 repo 採用。
+#
+# 維護準則：
+# - critical: 直接命中 → CRITICAL（package 不可移植）
+# - high: 命中 → HIGH（需重命名後才可移植）
+# - medium: 命中 → MEDIUM（可能是通用詞，需 owner 評估）
+# - domain_specific: 命中 → INFO（特定 domain 才出現，跨 repo 採用要注意）
+#
+# 新增 keyword 流程：
+# 1. 對既有 backend/app/ 樣本（N >= 100 檔）跑 regex
+# 2. 人工抽驗 match 樣本：是否真的都該被過濾？
+# 3. False-positive rate <= 1% 才能 commit
+# 詳見：.claude/rules/adr-anti-half-wired-sop.md §「過濾性程式碼設計守則」
+
+critical:
+  - "missive"
+  - "公文"
+  - "乾坤"
+  - "cksurvey"
+  - "桃園"
+  - "查估"
+  - "ck_documents"   # DB name
+  - "kunge"          # 坤哥意識體
+  - "派工"
+
+high:
+  - "ck-missive"
+  - "ezbid"
+  - "PCC今"          # PCC 政府採購（區別 PCC 通用詞）
+  - "dispatch_order" # 派工單
+  - "tender_record"
+  # 註：case_code / contract_project 移到 domain_specific（v6.10 P1 修正 — facade 必暴露於 signature）
+
+medium:
+  - "TAOYUAN_"
+  - "MISSIVE_"
+  - "official_document"
+  - "doc_number"
+
+domain_specific:
+  # 在 CK_Missive 出現是合理的，但跨 repo 採用前須評估
+  - "agency"     # 委託機關
+  - "vendor"     # 廠商
+  - "expense"    # 費用
+  - "morning_report"
+  - "wiki_memory"
+  - "SOUL.md"    # 坤哥 SOUL（與 hermes 共享）
+  # v6.10 P1 補：業務 column 名（facade 必暴露 signature，info-only）
+  - "case_code"
+  - "contract_project"
+  - "project_code"
+
+framework_neutral:
+  # 明確「允許出現」白名單（避免誤判）
+  - "fastapi"
+  - "sqlalchemy"
+  - "pydantic"
+  - "asyncpg"
+  - "redis"
+  - "pgvector"

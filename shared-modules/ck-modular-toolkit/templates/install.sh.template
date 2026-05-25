@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# shared-modules/ck-navigation/install.sh
+#
+# 一鍵安裝 ck-navigation 到 consumer repo
+#
+# Usage:
+#   bash /path/to/CK_Missive/shared-modules/ck-navigation/install.sh [TARGET_REPO] [--dry-run] [--force]
+#
+# 功能：
+# - Backend: secure_site_management 5 endpoints + navigation_sync service
+# - Frontend: layout (Header / Sidebar / SidebarContent) + hooks (useMenuItems / useNavigationData)
+
+set -e
+
+VERSION="1.0.0"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+DRY_RUN=0
+FORCE=0
+TARGET=""
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=1 ;;
+        --force)   FORCE=1 ;;
+        --help|-h) grep "^#" "${BASH_SOURCE[0]}" | head -25; exit 0 ;;
+        *) [[ -z "${TARGET}" ]] && TARGET="$arg" ;;
+    esac
+done
+TARGET="${TARGET:-$(pwd)}"
+
+echo "============================================================"
+echo " ck-navigation v${VERSION} installer"
+echo "============================================================"
+echo " Source : ${SCRIPT_DIR}"
+echo " Target : ${TARGET}"
+echo " Dry-run: $([ ${DRY_RUN} -eq 1 ] && echo YES || echo NO)"
+echo " Force  : $([ ${FORCE} -eq 1 ] && echo YES || echo NO)"
+echo ""
+
+if [[ ! -d "${TARGET}" ]]; then
+    echo "[ERROR] Target directory not found: ${TARGET}" >&2; exit 1
+fi
+
+# Safe copy helper
+_safe_copy() {
+    local src="$1"; local dst="$2"
+    if [[ -f "$dst" && ${FORCE} -eq 0 ]]; then
+        echo "    [CONFLICT]  $(basename ${src}) <- existing at ${dst}"
+        return 1
+    fi
+    if [[ ${DRY_RUN} -eq 1 ]]; then
+        echo "    [WOULD-CP]  $(basename ${src}) -> ${dst}"
+        return 0
+    fi
+    cp -p "$src" "$dst"
+}
+
+# 1. Portability audit (forced)
+echo "[1/5] Portability audit..."
+AUDIT_SCRIPT="${SCRIPT_DIR}/../../scripts/checks/module_portability_audit.py"
+if [[ -f "${AUDIT_SCRIPT}" ]]; then
+    if ! PYTHONIOENCODING=utf-8 python "${AUDIT_SCRIPT}" "${SCRIPT_DIR}" --strict; then
+        echo "[ERROR] Audit failed — refuse to install" >&2; exit 2
+    fi
+fi
+
+# 2. Backend installation
+echo ""
+echo "[2/5] Installing backend..."
+CONFLICT_COUNT=0
+INSTALL_COUNT=0
+
+if [[ -d "${SCRIPT_DIR}/backend/api_endpoints" ]]; then
+    [[ ${DRY_RUN} -eq 0 ]] && mkdir -p "${TARGET}/backend/app/api/endpoints/secure_site_management"
+    for f in "${SCRIPT_DIR}/backend/api_endpoints/"*.py; do
+        [[ -f "$f" ]] || continue
+        dst="${TARGET}/backend/app/api/endpoints/secure_site_management/$(basename "$f")"
+        _safe_copy "$f" "$dst" && INSTALL_COUNT=$((INSTALL_COUNT+1)) || CONFLICT_COUNT=$((CONFLICT_COUNT+1))
+    done
+fi
+
+if [[ -d "${SCRIPT_DIR}/backend/services" ]]; then
+    [[ ${DRY_RUN} -eq 0 ]] && mkdir -p "${TARGET}/backend/app/services/system"
+    for f in "${SCRIPT_DIR}/backend/services/"*.py; do
+        [[ -f "$f" ]] || continue
+        dst="${TARGET}/backend/app/services/system/$(basename "$f")"
+        _safe_copy "$f" "$dst" && INSTALL_COUNT=$((INSTALL_COUNT+1)) || CONFLICT_COUNT=$((CONFLICT_COUNT+1))
+    done
+fi
+
+# 3. Frontend installation
+echo ""
+echo "[3/5] Installing frontend..."
+if [[ -d "${SCRIPT_DIR}/frontend/components/layout" ]]; then
+    [[ ${DRY_RUN} -eq 0 ]] && mkdir -p "${TARGET}/frontend/src/components/layout/hooks"
+    while IFS= read -r f; do
+        [[ -f "$f" ]] || continue
+        dst="${TARGET}/frontend/src/components/layout/$(basename "$f")"
+        _safe_copy "$f" "$dst" && INSTALL_COUNT=$((INSTALL_COUNT+1)) || CONFLICT_COUNT=$((CONFLICT_COUNT+1))
+    done < <(find "${SCRIPT_DIR}/frontend/components/layout" -maxdepth 1 -type f \( -name "*.ts" -o -name "*.tsx" \) 2>/dev/null)
+    while IFS= read -r f; do
+        [[ -f "$f" ]] || continue
+        dst="${TARGET}/frontend/src/components/layout/hooks/$(basename "$f")"
+        _safe_copy "$f" "$dst" && INSTALL_COUNT=$((INSTALL_COUNT+1)) || CONFLICT_COUNT=$((CONFLICT_COUNT+1))
+    done < <(find "${SCRIPT_DIR}/frontend/components/layout/hooks" -maxdepth 1 -type f \( -name "*.ts" -o -name "*.tsx" \) 2>/dev/null)
+fi
+
+echo ""
+echo "    Summary: ${INSTALL_COUNT} would-install, ${CONFLICT_COUNT} conflicts"
+
+# 4. Env template (navigation 用 env 較少)
+echo ""
+echo "[4/5] Env template..."
+if [[ ${DRY_RUN} -eq 0 ]]; then
+    cat > "${TARGET}/.env.ck-navigation.template" << 'EOF'
+# ck-navigation v1.0 (optional — navigation 主要用 DB 配置不需 env)
+
+# 若有外部 navigation API（少見）
+# CKNAV_API_BASE_URL=
+EOF
+    echo "    [OK] .env.ck-navigation.template"
+else
+    echo "    [DRY-RUN] would create .env.ck-navigation.template"
+fi
+
+# 5. Summary
+echo ""
+echo "[5/5] Done. Next steps:"
+echo " 1. Register navigation router in main.py:"
+echo "      from app.api.endpoints.secure_site_management import navigation_router"
+echo "      app.include_router(navigation_router, prefix='/api/secure-site-management')"
+echo " 2. Run alembic migration for navigation_items table (see manifest.yml)"
+echo " 3. Frontend: import Sidebar from 'components/layout/Sidebar'"
+echo " 4. Configure DEFAULT_NAVIGATION_ITEMS in consumer's seed script"
+echo "============================================================"

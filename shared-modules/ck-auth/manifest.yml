@@ -1,0 +1,153 @@
+# ck-auth manifest — v1.0 (2026-05-18)
+#
+# 列出 ck-auth package 內所有檔的目標安裝路徑與依賴。
+# 用於 install.sh 自動安裝 + portability_audit 驗證。
+
+package: ck-auth
+version: 1.0.0
+source_repo: CK_Missive
+fqid: CK_Missive#ck-auth_v1.0
+target_consumers:
+  - CK_AaaP
+  - hermes-agent
+  - CK_lvrland_Webmap
+  - CK_lvrland_dataform
+  - CK_PileMgmt
+  - CK_KMapAdvisor
+
+description: |
+  Authentication module covering Google OAuth, LINE Login, MFA, CSRF,
+  domain whitelist, session management, and password reset.
+  100% business-decoupled (portability score 1.0).
+
+# 16 檔目標安裝路徑
+files:
+  backend:
+    api_endpoints:
+      source: "backend/api_endpoints/"
+      target: "backend/app/api/endpoints/auth/"
+      files:
+        - __init__.py
+        - common.py
+        - email_verify.py
+        - line_login.py
+        - login_history.py
+        - mfa.py
+        - oauth.py
+        - password_reset.py
+        - profile.py
+        - session.py
+    core:
+      source: "backend/core/"
+      target: "backend/app/core/"
+      files:
+        - auth_service.py
+        - csrf.py
+        - domain_whitelist.py
+        - service_auth.py
+        - security_headers.py
+
+  frontend:
+    components:
+      source: "frontend/components/"
+      target: "frontend/src/components/auth/"
+      files:
+        - LoginPanel.tsx
+        - withAuth.tsx
+    services:
+      source: "frontend/services/"
+      target_authService: "frontend/src/services/authService.ts"
+      target_authApi: "frontend/src/api/authApi.ts"
+    hooks:
+      source: "frontend/hooks/"
+      target: "frontend/src/hooks/utility/"
+      files:
+        - useAuthGuard.ts
+        - useLineLogin.ts
+    types:
+      source: "frontend/types/"
+      target: "frontend/src/types/"
+      files:
+        - google-oauth.d.ts
+
+# 環境變數規約
+env_vars:
+  required:
+    - CKAUTH_GOOGLE_CLIENT_ID
+    - CKAUTH_GOOGLE_CLIENT_SECRET
+    - CKAUTH_JWT_SECRET_KEY
+  optional:
+    - CKAUTH_GOOGLE_REDIRECT_URI
+    - CKAUTH_LINE_CHANNEL_ID
+    - CKAUTH_LINE_CHANNEL_SECRET
+    - CKAUTH_LINE_CALLBACK_URL
+    - CKAUTH_JWT_ALGORITHM   # default HS256
+    - CKAUTH_ACCESS_TOKEN_EXPIRE_MINUTES  # default 60
+    - CKAUTH_SESSION_TTL_SECONDS  # default 3600
+  legacy_fallback:
+    # v6.x 兼容期允許讀舊變數
+    - GOOGLE_CLIENT_ID         # -> CKAUTH_GOOGLE_CLIENT_ID
+    - GOOGLE_CLIENT_SECRET
+    - LINE_CHANNEL_ID
+    - LINE_CHANNEL_SECRET
+    - JWT_SECRET_KEY
+    - ALGORITHM
+    - ACCESS_TOKEN_EXPIRE_MINUTES
+
+# 依賴的 Python 套件 (consumer 需自行 pip install)
+python_dependencies:
+  - "fastapi>=0.100"
+  - "sqlalchemy>=2.0"
+  - "pydantic>=2.0"
+  - "python-jose[cryptography]>=3.3"
+  - "passlib[bcrypt]>=1.7"
+  - "httpx>=0.24"
+
+# 依賴的 npm 套件 (consumer frontend 需自行 npm install)
+npm_dependencies:
+  - "react>=18"
+  - "antd>=5"
+  - "axios>=1"
+  - "react-router-dom>=6"
+
+# DB schema 需求 (consumer 自行 alembic migration)
+db_schema_requirements:
+  - table: users
+    columns:
+      - id (Integer, PK)
+      - email (String 100, unique, not null)
+      - google_id (String 100, nullable)
+      - line_user_id (String 64, unique, nullable)
+      - role (String 20, default 'user')
+      - email_verified (Boolean, default false)
+      - canonical_user_id (Integer, FK to users.id)
+      # ... 詳見 backend/models/base_user.py (TODO Phase 2)
+
+# 安裝後驗收清單
+post_install_checklist:
+  - "Configure .env.ck-auth.template into your .env"
+  - "Create User model inheriting from BaseUser"
+  - "Run alembic revision --autogenerate -m 'add auth tables'"
+  - "Register auth_router in main.py:
+      from app.api.endpoints.auth import auth_router
+      app.include_router(auth_router, prefix='/api/auth')"
+  - "Add CSRF + security_headers middleware"
+  - "Frontend: import LoginPanel from 'components/auth/LoginPanel'"
+
+# 升級指南
+upgrade_path:
+  from_v0_x:
+    - "No prior version - this is the first packaged release"
+  to_v1_x:
+    - "Backward-compatible. Re-run install.sh to overwrite files."
+    - "Migrate env vars to CKAUTH_* namespace (v6.11 will deprecate fallback)"
+
+# 變更紀錄
+changelog:
+  - version: 1.0.0
+    date: 2026-05-18
+    changes:
+      - "Initial extraction from CK_Missive v6.10"
+      - "Portability score: 1.000 (verified via step 30)"
+      - "Includes: Google OAuth, LINE Login, MFA, CSRF, domain whitelist"
+      - "16 files (10 backend + 6 frontend)"
