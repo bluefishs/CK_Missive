@@ -1,0 +1,479 @@
+{
+  "started_at": "2026-05-22T19:00:00.162720+00:00",
+  "completed_at": "2026-05-22T19:00:38.262531+00:00",
+  "overall_status": "red",
+  "steps": [
+    {
+      "name": "fitness",
+      "status": "red",
+      "summary": "23 pass / 10 warn / 8 fail",
+      "details": {
+        "pass": 23,
+        "warn": 10,
+        "fail": 8,
+        "exit_code": 0
+      },
+      "duration_ms": 35409.4
+    },
+    {
+      "name": "capability_audit",
+      "status": "red",
+      "summary": "dead: tools=88 kg=0 loops=3 adrs=0 total=91",
+      "details": {
+        "lookback_days": 30,
+        "shadow_trace_queries": 824,
+        "tools": {
+          "total_registered": 98,
+          "dead": [
+            {
+              "tool": "analyze_diagram",
+              "uses": 0
+            },
+            {
+              "tool": "analyze_document_intent",
+              "uses": 0
+            },
+            {
+              "tool": "ask_external_system",
+              "uses": 0
+            },
+            {
+              "tool": "auto_tender_to_case",
+              "uses": 0
+            },
+            {
+              "tool": "check_budget_alert",
+              "uses": 0
+            },
+            {
+              "tool": "detect_dispatch_anomaly",
+              "uses": 0
+            },
+            {
+              "tool": "detect_project_risk",
+              "uses": 0
+            },
+            {
+              "tool": "explore_entity_path",
+              "uses": 0
+            },
+            {
+              "tool": "find_similar",
+              "uses": 0
+            },
+            {
+              "tool": "get_asset_detail",
+              "uses": 0
+            },
+            {
+              "tool": "get_asset_stats",
+              "uses": 0
+            },
+            {
+              "tool": "get_contract_summary",
+              "uses": 0
+            },
+            {
+              "tool": "get_dispatch_progress",
+              "uses": 0
+            },
+            {
+              "tool": "get_dispatch_timeline",
+              "uses": 0
+            },
+            {
+              "tool": "get_expense_detail",
+              "uses": 0
+            },
+            {
+              "tool": "get_financial_summary",
+              "uses": 0
+            },
+            {
+              "tool": "get_overdue_milestones",
+              "uses": 0
+            },
+            {
+              "tool": "get_project_detail",
+              "uses": 0
+            },
+            {
+              "tool": "get_project_progress",
+              "uses": 0
+            },
+            {
+              "tool": "get_system_health",
+              "uses": 0
+            },
+            {
+              "tool": "get_unpaid_billings",
+              "uses": 0
+            },
+            {
+              "tool": "get_vendor_detail",
+              "uses": 0
+            },
+            {
+              "tool": "list_assets",
+              "uses": 0
+            },
+            {
+              "tool": "list_pending_expenses",
+              "uses": 0
+            },
+            {
+              "tool": "navigate_graph",
+              "uses": 0
+            },
+            {
+              "tool": "parse_document",
+              "uses": 0
+            },
+            {
+              "tool": "search_erp_entities",
+              "uses": 0
+            },
+            {
+              "tool": "search_knowledge_base",
+              "uses": 0
+            },
+            {
+              "tool": "search_tender",
+              "uses": 0
+            },
+            {
+              "tool": "search_vendors",
+              "uses": 0
+            },
+            {
+              "tool": "skill_accessibility",
+              "uses": 0
+            },
+            {
+              "tool": "skill_ai_development",
+              "uses": 0
+            },
+            {
+              "tool": "skill_alembic_migrations",
+              "uses": 0
+            },
+            {
+              "tool": "skill_api_development",
+              "uses": 0
+            },
+            {
+              "tool": "skill_api_serialization",
+              "uses": 0
+            },
+            {
+              "tool": "skill_brainstorming",
+              "uses": 0
+            },
+            {
+              "tool": "skill_caching_patterns",
+              "uses": 0
+            },
+            {
+              "tool": "skill_calendar_integration",
+              "uses": 0
+            },
+            {
+              "tool": "skill_code_standards",
+              "uses": 0
+            },
+            {
+              "tool": "skill_component_refactoring_checklist",
+              "uses": 0
+            },
+            {
+              "tool": "skill_crud_migration",
+              "uses": 0
+            },
+            {
+              "tool": "skill_dangerous_operations_policy",
+              "uses": 0
+            },
+            {
+              "tool": "skill_data_governance_framework_skill",
+              "uses": 0
+            },
+            {
+              "tool": "skill_database_performance",
+              "uses": 0
+            },
+            {
+              "tool": "skill_database_schema",
+              "uses": 0
+            },
+            {
+              "tool": "skill_development_environment",
+              "uses": 0
+            },
+            {
+              "tool": "skill_dispatch_import",
+              "uses": 0
+            },
+            {
+              "tool": "skill_dispatching_parallel_agents",
+              "uses": 0
+            },
+            {
+              "tool": "skill_document_management",
+              "uses": 0
+            },
+            {
+              "tool": "skill_erp_finance",
+              "uses": 0
+            },
+            {
+              "tool": "skill_error_handling",
+              "uses": 0
+            },
+            {
+              "tool": "skill_executing_plans",
+              "uses": 0
+            },
+            {
+              "tool": "skill_finishing_a_development_branch",
+              "uses": 0
+            },
+            {
+              "tool": "skill_frontend_architecture",
+              "uses": 0
+            },
+            {
+              "tool": "skill_hooks_development",
+              "uses": 0
+            },
+            {
+              "tool": "skill_knowledge_management",
+              "uses": 0
+            },
+            {
+              "tool": "skill_mandatory_checklist",
+              "uses": 0
+            },
+            {
+              "tool": "skill_multi_channel",
+              "uses": 0
+            },
+            {
+              "tool": "skill_python_common_pitfalls",
+              "uses": 0
+            },
+            {
+              "tool": "skill_quick_fix",
+              "uses": 0
+            },
+            {
+              "tool": "skill_receiving_code_review",
+              "uses": 0
+            },
+            {
+              "tool": "skill_refactoring_migration_procedures",
+              "uses": 0
+            },
+            {
+              "tool": "skill_requesting_code_review",
+              "uses": 0
+            },
+            {
+              "tool": "skill_security_audit_skill",
+              "uses": 0
+            },
+            {
+              "tool": "skill_security_hardening",
+              "uses": 0
+            },
+            {
+              "tool": "skill_service_refactoring",
+              "uses": 0
+            },
+            {
+              "tool": "skill_showcase_components_skill",
+              "uses": 0
+            },
+            {
+              "tool": "skill_skill_creator",
+              "uses": 0
+            },
+            {
+              "tool": "skill_subagent_driven_development",
+              "uses": 0
+            },
+            {
+              "tool": "skill_systematic_debugging",
+              "uses": 0
+            },
+            {
+              "tool": "skill_tender_search",
+              "uses": 0
+            },
+            {
+              "tool": "skill_test_driven_development",
+              "uses": 0
+            },
+            {
+              "tool": "skill_test_generator",
+              "uses": 0
+            },
+            {
+              "tool": "skill_testing_guide",
+              "uses": 0
+            },
+            {
+              "tool": "skill_type_management",
+              "uses": 0
+            },
+            {
+              "tool": "skill_unicode_handling",
+              "uses": 0
+            },
+            {
+              "tool": "skill_using_git_worktrees",
+              "uses": 0
+            },
+            {
+              "tool": "skill_using_superpowers",
+              "uses": 0
+            },
+            {
+              "tool": "skill_verification_before_completion",
+              "uses": 0
+            },
+            {
+              "tool": "skill_wiki_authoring",
+              "uses": 0
+            },
+            {
+              "tool": "skill_workflow_management",
+              "uses": 0
+            },
+            {
+              "tool": "skill_writing_plans",
+              "uses": 0
+            },
+            {
+              "tool": "skill_writing_skills",
+              "uses": 0
+            },
+            {
+              "tool": "suggest_expense_category",
+              "uses": 0
+            },
+            {
+              "tool": "summarize_entity",
+              "uses": 0
+            },
+            {
+              "tool": "wiki_ingest",
+              "uses": 0
+            },
+            {
+              "tool": "wiki_read",
+              "uses": 0
+            },
+            {
+              "tool": "wiki_search",
+              "uses": 0
+            }
+          ],
+          "weak": [
+            {
+              "tool": "get_expense_overview",
+              "uses": 1
+            }
+          ],
+          "healthy_count": 9,
+          "dead_pct": 89.8
+        },
+        "kg_entity_types": {
+          "scanned": 0,
+          "dead_types": [],
+          "dead_count": 0
+        },
+        "memory_loop": {
+          "counts": {
+            "diary": 33,
+            "patterns": 9,
+            "failures": 16,
+            "proposals": 3,
+            "crystals": 0,
+            "evolutions": 5,
+            "autobiography": 0
+          },
+          "dead_loops": [
+            "crystals (0 files but 3+ patterns accumulated)",
+            "autobiography (0 files but 7+ diary days)",
+            "proposals (3 pending, gate blocked)"
+          ]
+        },
+        "adr": {
+          "active": 0,
+          "orphans": [],
+          "orphan_count": 0
+        }
+      },
+      "duration_ms": 2677.1
+    },
+    {
+      "name": "memory_loop",
+      "status": "red",
+      "summary": "counts={'diary': 33, 'patterns': 9, 'failures': 16, 'proposals': 3, 'crystals': 0, 'evolutions': 5, 'autobiography': 0}",
+      "details": {
+        "counts": {
+          "diary": 33,
+          "patterns": 9,
+          "failures": 16,
+          "proposals": 3,
+          "crystals": 0,
+          "evolutions": 5,
+          "autobiography": 0
+        },
+        "dead_loops": [
+          "crystals (閉環終點空)",
+          "autobiography (應週期生成卻無檔)",
+          "proposals (3 pending gate 卡)"
+        ]
+      },
+      "duration_ms": 0.9
+    },
+    {
+      "name": "shadow_baseline",
+      "status": "yellow",
+      "summary": "24h n=10 avg=18.9s p95=41.0s success=100.00% over30=4/over60=0",
+      "details": {
+        "n": 10,
+        "avg_ms": 18944,
+        "p95_ms": 41000,
+        "max_ms": 41000,
+        "success_ratio": 1.0,
+        "over_30s": 4,
+        "over_60s": 0
+      },
+      "duration_ms": 3.5
+    },
+    {
+      "name": "precommit_hook",
+      "status": "green",
+      "summary": "guards present: 4/4",
+      "details": {
+        "guards": {
+          "async_session_race_guard": true,
+          "sse_headers_guard": true,
+          "schema_lazy_load_guard": true,
+          "pattern_yaml_type_guard": true
+        },
+        "missing": []
+      },
+      "duration_ms": 8.8
+    }
+  ],
+  "summary_lines": [
+    "  [RED   ] fitness                23 pass / 10 warn / 8 fail",
+    "  [RED   ] capability_audit       dead: tools=88 kg=0 loops=3 adrs=0 total=91",
+    "  [RED   ] memory_loop            counts={'diary': 33, 'patterns': 9, 'failures': 16, 'proposals': 3, 'crystals': 0, 'evolutions': 5, 'autobiography': 0}",
+    "  [YELLOW] shadow_baseline        24h n=10 avg=18.9s p95=41.0s success=100.00% over30=4/over60=0",
+    "  [GREEN ] precommit_hook         guards present: 4/4"
+  ]
+}

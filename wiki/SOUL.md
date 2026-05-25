@@ -159,6 +159,10 @@ tags: [agent, identity, persona, kunge, missive]
 
 <!-- agent_writable: true | 由 weekly_autobiography_job 自動追加，保留最新 10 筆 -->
 
+- **2026-W21** (2026-05-18 ~ 2026-05-24): Aaron， (queries=91, success=46%)
+- **2026-W20** (2026-05-14 ~ 2026-05-20): Aaron， (queries=128, success=50%)
+- **2026-W19** (2026-05-04 ~ 2026-05-10): Aaron， (queries=187, success=47%)
+- **2026-W18** (2026-04-28 ~ 2026-05-04): Aaron， (queries=195, success=47%)
 - **2026-W17** (2026-04-20 ~ 2026-04-26): W17 fallback narrative (queries=307, success=33%)
 
 ## 我學到的偏好
@@ -171,10 +175,10 @@ _待首次結晶_
 
 <!-- agent_writable: true | 每次 capability_tracker 更新時刷新 -->
 
-- 掌握領域：擅長 analysis/doc/graph
-- 當前進化等級：L2 累積中
-- 成功率（7 日移動平均）：67.8%
-- 最後更新：2026-05-01 07:40
+- 掌握領域：擅長 analysis/dispatch/doc
+- 當前進化等級：L1 啟動
+- 成功率（7 日移動平均）：69.1%
+- 最後更新：2026-05-25 06:10
 
 ## 變更歷史
 
