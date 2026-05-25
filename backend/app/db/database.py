@@ -106,7 +106,12 @@ async def get_async_db() -> AsyncSession:
     except Exception as e:
         await session.rollback()
         error_msg = str(e).lower()
-        if "connection_lost" in error_msg:
+        # 2026-05-24 fix: 預期的 4xx HTTPException 不是 server error 不該 log error+traceback
+        # （L41 family 變種 — 認證/權限正常拒絕被誤判為錯誤，污染告警面）
+        from fastapi import HTTPException
+        if isinstance(e, HTTPException) and 400 <= e.status_code < 500:
+            logger.warning(f"Expected {e.status_code} (rolled back, not a server error): {e.detail}")
+        elif "connection_lost" in error_msg:
             logger.warning(f"Database connection lost, session rolled back: {e}")
         elif "statement_timeout" in error_msg or "canceling statement" in error_msg:
             logger.warning(f"Query exceeded statement_timeout ({settings.STATEMENT_TIMEOUT}ms): {e}")
