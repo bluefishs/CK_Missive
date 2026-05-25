@@ -144,12 +144,16 @@ export class RequestThrottler {
 export const RETRY_CONFIG = {
   /** 最大重試次數 */
   MAX_RETRIES: 3,
-  /** 初始延遲 (ms) */
+  /** 初始延遲 (ms) — P-42 (5/07)：1000 維持，後續用 BACKOFF=3 拉長總窗 */
   BASE_DELAY_MS: 1000,
-  /** 延遲倍數（指數退避） */
-  BACKOFF_MULTIPLIER: 2,
-  /** 最大延遲 (ms) */
-  MAX_DELAY_MS: 5000,
+  /**
+   * 延遲倍數（指數退避）
+   * P-42 (5/07)：原 2 (1+2+4=7s) 改 3 (1+3+9=13s)，
+   * 涵蓋 backend pm2 restart ~12s 啟動時間，避免重啟期事故重演
+   */
+  BACKOFF_MULTIPLIER: 3,
+  /** 最大延遲 (ms) — 提到 10s（涵蓋單次最長等候） */
+  MAX_DELAY_MS: 10000,
 };
 
 /**

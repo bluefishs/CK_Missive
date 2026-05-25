@@ -125,6 +125,8 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   // 統計資料
   /** 桃園查估派工統計 POST /taoyuan-dispatch/statistics */
   STATISTICS: '/taoyuan-dispatch/statistics',
+  /** 派工進度總覽（數位分身用）POST /taoyuan-dispatch/progress-report (R9 補 SSOT) */
+  PROGRESS_REPORT: '/taoyuan-dispatch/progress-report',
 
   // 派工單附件
   /** 上傳派工單附件 POST /taoyuan-dispatch/dispatch/:id/attachments/upload */

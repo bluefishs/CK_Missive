@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import authService, { UserInfo } from '../../../services/authService';
 import { usePermissions } from '../../../hooks';
-import { isAuthDisabled, isInternalIP } from '../../../config/env';
+import { isAuthDisabled, isInternalIP, shouldUseDevMockUser } from '../../../config/env';
 import { navigationService } from '../../../services/navigationService';
 import { secureApiService } from '../../../services/secureApiService';
 import { logger } from '../../../utils/logger';
@@ -43,7 +43,8 @@ export const useNavigationData = (): UseNavigationDataReturn => {
   // 載入用戶資訊
   const loadUserInfo = useCallback(() => {
     const userInfo = authService.getUserInfo();
-    const authDisabled = isAuthDisabled();
+    // P-58：先看真實 user_info；只有沒登入時 dev mock 才介入
+    const useDevMock = shouldUseDevMockUser();
 
     if (userInfo) {
       setCurrentUser(userInfo);
@@ -51,7 +52,7 @@ export const useNavigationData = (): UseNavigationDataReturn => {
       return;
     }
 
-    if (authDisabled) {
+    if (useDevMock) {
       setCurrentUser({
         id: 0,
         username: 'developer',
@@ -127,8 +128,9 @@ export const useNavigationData = (): UseNavigationDataReturn => {
   const menuItems = useMemo(() => {
     if (navigationError) {
       const staticItems = getStaticMenuItems();
-      const authDisabled = isAuthDisabled();
-      return authDisabled
+      // P-58：dev mock 才顯示全部；真用戶（即使在 dev 內網）走 perm filter
+      const useDevMock = shouldUseDevMockUser();
+      return useDevMock
         ? staticItems
         : filterMenuItemsByPermissionLegacy(staticItems);
     }
@@ -137,11 +139,11 @@ export const useNavigationData = (): UseNavigationDataReturn => {
       return [];
     }
 
-    const authDisabled = isAuthDisabled();
+    const useDevMock = shouldUseDevMockUser();
     let filteredItems: NavigationItem[];
 
-    if (authDisabled) {
-      logger.debug('Development mode: Showing all navigation items');
+    if (useDevMock) {
+      logger.debug('Development mock mode: Showing all navigation items (no real user_info)');
       filteredItems = navigationItems;
     } else {
       filteredItems = userPermissions
@@ -149,9 +151,11 @@ export const useNavigationData = (): UseNavigationDataReturn => {
         : [];
 
       if (filteredItems.length === 0 && navigationItems.length > 0) {
+        // P-57：fallback 只看「真正空的權限陣列」；非陣列（如後端回 JSON 字串）視為「需要權限」不放行，
+        // 避免後端 schema bug 導致全部 nav 對無權限用戶可見。
         filteredItems = navigationItems.filter(item => {
           const permRequired = item.permission_required;
-          return !permRequired || !Array.isArray(permRequired) || permRequired.length === 0;
+          return !permRequired || (Array.isArray(permRequired) && permRequired.length === 0);
         });
       }
     }
@@ -167,6 +171,35 @@ export const useNavigationData = (): UseNavigationDataReturn => {
   useEffect(() => {
     loadUserInfo();
   }, [loadUserInfo]);
+
+  // F25 (5/06 強化)：跨分頁 + 同分頁 fallback —
+  // 若有任何路徑寫了 user_info（saveAuthData 後但 user-logged-in event 漏 dispatch），
+  // 一旦 storage event 觸發或下次 visibility change，立即重讀 localStorage。
+  // 防護「Header 訪客」反覆出現的 race condition（5/04 認證鏈漏修一環的延伸防線）。
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'user_info' && e.newValue) {
+        logger.debug('storage event: user_info updated → reloadUserInfo');
+        loadUserInfo();
+      }
+    };
+    const handleVisibilityChange = () => {
+      // 從背景切回前景時校正 — 若 localStorage 有 user_info 但 currentUser 仍 null
+      if (document.visibilityState === 'visible' && !currentUser) {
+        const stored = localStorage.getItem('user_info');
+        if (stored) {
+          logger.debug('visibility change: user_info exists but state null → reloadUserInfo');
+          loadUserInfo();
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadUserInfo, currentUser]);
 
   // 監聽導覽更新事件 — 透過 invalidateQueries 觸發 React Query 重新請求
   useEffect(() => {

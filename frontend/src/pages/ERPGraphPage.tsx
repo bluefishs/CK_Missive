@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { AI_ENDPOINTS } from '../api/endpoints';
 import { createTabItem } from '../components/common/DetailPage/utils';
 import { useAuthGuard } from '../hooks/utility/useAuthGuard';
 import { ForceGraphLazy } from '../components/graph/ForceGraphLazy';
@@ -45,8 +46,9 @@ const StatsOverview: React.FC = () => {
   const { data, isLoading } = useQuery<{ data: ErpGraphStats }>({
     queryKey: ['erp-graph-stats'],
     queryFn: async () => {
-      // Count by scanning ERP entities
-      const erpRes = await apiClient.post('/api/ai/graph/entity/search', {
+      // R9b (5/09): SSOT 取代硬編碼。原 /api/ai/... 會因 baseURL 已含 /api
+      // 而被 axios 拼成 /api/api/ai/... 失敗。修為 AI_ENDPOINTS.GRAPH_ENTITY_SEARCH
+      const erpRes = await apiClient.post(AI_ENDPOINTS.GRAPH_ENTITY_SEARCH, {
         query: '', entity_types: ['erp_quotation', 'erp_vendor', 'erp_expense', 'erp_asset'],
         limit: 200,
       }).catch(() => ({ entities: [] })) as { entities: Array<{ entity_type: string }> };
@@ -98,7 +100,8 @@ const EntitySearchTab: React.FC = () => {
 
   const { data, isLoading } = useQuery<{ results: ErpGraphEntity[]; count: number }>({
     queryKey: ['erp-graph-search', searchQuery],
-    queryFn: () => apiClient.post<{ results?: Array<{ name: string; entity_type: string; description: string }>; total?: number }>('/api/ai/graph/unified-search', {
+    // R9b (5/09): SSOT 取代硬編碼
+    queryFn: () => apiClient.post<{ results?: Array<{ name: string; entity_type: string; description: string }>; total?: number }>(AI_ENDPOINTS.GRAPH_UNIFIED_SEARCH, {
       query: searchQuery || '案', include_kg: false, include_code: false,
       include_db: false, include_erp: true, include_tender: false, limit_per_graph: 20,
     }).then((res) => ({
@@ -154,7 +157,8 @@ const EntitySearchTab: React.FC = () => {
 
 const IngestAdminTab: React.FC = () => {
   const ingestMutation = useMutation({
-    mutationFn: () => apiClient.post<{ message: string; entities: number; relations: number; cross_graph_bridges: number; duration_ms: number }>('/api/ai/graph/admin/erp-ingest', {}),
+    // R9b (5/09): SSOT 取代硬編碼
+    mutationFn: () => apiClient.post<{ message: string; entities: number; relations: number; cross_graph_bridges: number; duration_ms: number }>(AI_ENDPOINTS.GRAPH_ERP_INGEST, {}),
     onSuccess: (data) => {
       message.success(data.message || 'ERP 入圖完成');
     },
@@ -233,7 +237,8 @@ const CaseFlowTab: React.FC = () => {
 
   const { data, isLoading, isError } = useQuery<{ data: CaseFlowData }>({
     queryKey: ['case-flow', searchCode],
-    queryFn: () => apiClient.post<{ data: CaseFlowData }>('/api/ai/graph/case-flow', { case_code: searchCode }),
+    // R9b (5/09): SSOT 取代硬編碼
+    queryFn: () => apiClient.post<{ data: CaseFlowData }>(AI_ENDPOINTS.GRAPH_CASE_FLOW, { case_code: searchCode }),
     enabled: !!searchCode,
     staleTime: 60_000,
   });
@@ -330,7 +335,8 @@ const GraphNetworkTab: React.FC = () => {
 
   const { data, isLoading } = useQuery<{ data: { nodes: GNode[]; links: GLink[] } }>({
     queryKey: ['erp-graph-network'],
-    queryFn: () => apiClient.post<{ data: { nodes: GNode[]; links: GLink[] } }>('/api/ai/graph/erp-network', {}),
+    // R9b (5/09): SSOT 取代硬編碼
+    queryFn: () => apiClient.post<{ data: { nodes: GNode[]; links: GLink[] } }>(AI_ENDPOINTS.GRAPH_ERP_NETWORK, {}),
     staleTime: 5 * 60_000,
   });
 

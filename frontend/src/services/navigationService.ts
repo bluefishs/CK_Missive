@@ -171,35 +171,28 @@ class NavigationService {
         is_enabled: true,
         sort_order: 1
       },
+      // v6.10 LR-015 修法（2026-05-18）：移除 business-specific hardcoded items
+      // Consumer 須在後端 seed business 專屬 navigation_items；此 fallback 僅保留通用 dashboard
+      // 範例請參考各 repo 的 backend/app/scripts/init_navigation_data.py
       {
-        key: 'documents-menu',
-        title: '公文管理',
+        key: 'modules-menu',
+        title: 'Modules',
         path: '',
-        icon: 'file-text',
-        permission_required: ['documents:read'],
+        icon: 'appstore',
+        permission_required: [],
         is_visible: true,
         is_enabled: true,
         sort_order: 2,
         children: [
           {
-            key: 'document-list',
-            title: '公文列表',
-            path: '/documents',
-            icon: 'file',
-            permission_required: ['documents:read'],
+            key: 'module-list',
+            title: 'Module List',
+            path: '/modules',
+            icon: 'unordered-list',
+            permission_required: [],
             is_visible: true,
             is_enabled: true,
             sort_order: 1
-          },
-          {
-            key: 'document-create',
-            title: '新增公文',
-            path: '/documents/create',
-            icon: 'plus',
-            permission_required: ['documents:create'],
-            is_visible: true,
-            is_enabled: true,
-            sort_order: 2
           },
           {
             key: 'document-numbers',

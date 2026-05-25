@@ -12,6 +12,7 @@ import { App } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../../config/queryConfig';
 import { dispatchOrdersApi } from '../../../../api/taoyuanDispatchApi';
+import { useDispatchCacheInvalidator } from '../../../../hooks/taoyuan/useDispatchCacheInvalidator';
 import type { DispatchDocumentLink, LinkType } from '../../../../types/api';
 import { detectLinkType } from '../../../../components/taoyuan/workflow/useDispatchWorkData';
 
@@ -39,6 +40,7 @@ export function useDispatchDocLinking({
   onRefetchDispatch,
 }: UseDispatchDocLinkingOptions) {
   const queryClient = useQueryClient();
+  const dispatchCache = useDispatchCacheInvalidator();
   const { message } = App.useApp();
 
   const [docSearchKeyword, setDocSearchKeyword] = useState('');
@@ -87,8 +89,10 @@ export function useDispatchDocLinking({
       setSelectedDocId(undefined);
       setDocSearchKeyword('');
       onRefetchDispatch?.();
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+      // 2026-05-18 SSOT 重構：改用 useDispatchCacheInvalidator helper
+      // 取代 6 行散落 invalidate（P-21 + 158 案例兩次修補的合併版）
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
+      dispatchCache.invalidateDocumentLinks(dispatchOrderId);
     },
     onError: () => message.error('關聯失敗'),
   });
@@ -99,8 +103,10 @@ export function useDispatchDocLinking({
     onSuccess: () => {
       message.success('已移除公文關聯');
       onRefetchDispatch?.();
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+      // 2026-05-18 SSOT 重構：改用 useDispatchCacheInvalidator helper
+      // 取代 6 行散落 invalidate（P-21 + 158 案例兩次修補的合併版）
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
+      dispatchCache.invalidateDocumentLinks(dispatchOrderId);
     },
     onError: () => message.error('移除關聯失敗'),
   });

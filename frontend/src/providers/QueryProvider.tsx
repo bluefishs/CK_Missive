@@ -64,11 +64,18 @@ const PrefetchOnAuth: React.FC<{ children: React.ReactNode }> = ({ children }) =
   useEffect(() => {
     const handleLogin = () => {
       // Prefetch agent self-profile (used by AgentDashboard sidebar)
+      // R9 (v6.9 / 2026-05-08)：用 DIGITAL_TWIN_ENDPOINTS.INTROSPECTION_PROFILE SSOT 取代硬編碼
       qc.prefetchQuery({
         queryKey: ['agent-self-profile'],
         queryFn: () =>
-          import('../api/client').then(m =>
-            m.apiClient.post('/ai/digital-twin/introspection/profile', {}),
+          Promise.all([
+            import('../api/client'),
+            import('../api/endpoints'),
+          ]).then(([clientMod, endpointsMod]) =>
+            clientMod.apiClient.post(
+              endpointsMod.DIGITAL_TWIN_ENDPOINTS.INTROSPECTION_PROFILE,
+              {},
+            ),
           ),
         staleTime: 5 * 60 * 1000,
       });

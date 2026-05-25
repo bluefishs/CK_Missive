@@ -24,6 +24,9 @@ const { mockIsAuthDisabled, mockGetUserInfo, mockGetCurrentUser, mockCacheGet, m
 
 vi.mock('../../../config/env', () => ({
   isAuthDisabled: mockIsAuthDisabled,
+  // P-58：usePermissions 已切換為 shouldUseDevMockUser；保留 isAuthDisabled mock
+  // 共用同一行為（測試假設「無真實 user_info → 等同 dev mock」）
+  shouldUseDevMockUser: mockIsAuthDisabled,
 }));
 
 vi.mock('../../../services/authService', () => ({
@@ -395,16 +398,24 @@ describe('usePermissions', () => {
       expect(result.current.hasPermission('nonexistent:perm')).toBe(true);
     });
 
-    it('is_admin 為 true 時，應擁有所有權限', async () => {
+    it('admin 角色不再短路（P-29）— 只有 user.permissions 內的 perm 才為 true', async () => {
+      // P-29 (2026-05-06)：admin ≠ superuser，admin 走真正的 permission filter，
+      // 不再因 is_admin=true 自動擁有所有 perm（避免硬編碼白名單與 DB nav 脫鉤）。
       const userInfo = makeUserInfo({ id: 5, role: 'admin', is_admin: true });
       mockGetUserInfo.mockReturnValue(userInfo);
-      mockGetCurrentUser.mockResolvedValue(userInfo);
+      mockGetCurrentUser.mockResolvedValue({
+        ...userInfo,
+        permissions: ['admin:settings', 'documents:read'],
+      });
 
       const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      expect(result.current.hasPermission('anything')).toBe(true);
+      // admin 自己的 perm → true
+      expect(result.current.hasPermission('admin:settings')).toBe(true);
+      // 沒在 user.permissions 的 perm → false（不再短路）
+      expect(result.current.hasPermission('anything')).toBe(false);
     });
 
     it('空字串權限應回傳 true（空陣列 every 為 true）', async () => {
@@ -755,7 +766,9 @@ describe('usePermissions', () => {
       expect(filtered[0]!.key).toBe('dashboard');
     });
 
-    it('未知角色應回傳空陣列', async () => {
+    it('未知角色 fallback 為「all」走 permission filter（P-26）', async () => {
+      // P-26 (2026-05-06)：移除前端硬編碼角色白名單後，未定義角色不再回傳空陣列，
+      // 而是走 permission filter；用戶看不到沒權限的項目。
       const userInfo = makeUserInfo({ id: 11, role: 'unknown_role', is_admin: false });
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
@@ -764,9 +777,13 @@ describe('usePermissions', () => {
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      const items = [makeNavItem({ key: 'dashboard' })];
+      const items = [
+        makeNavItem({ key: 'dashboard' }),  // permission_required: [] → 公開
+        makeNavItem({ key: 'document-list', permission_required: ['documents:read'] }),
+      ];
       const filtered = result.current.filterNavigationByRole(items);
-      expect(filtered).toEqual([]);
+      // 公開 nav 仍可見，需權限的不可見
+      expect(filtered.map((it) => it.key)).toEqual(['dashboard']);
     });
 
     it('user 角色應看到允許的導覽項目', async () => {

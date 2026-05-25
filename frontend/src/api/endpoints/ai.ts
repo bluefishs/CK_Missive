@@ -125,6 +125,13 @@ export const AI_ENDPOINTS = {
   GRAPH_CROSS_DOMAIN_LINK: '/ai/graph/cross-domain-link',
   /** Embedding 批次回填 POST /ai/graph/embedding-backfill (Admin) */
   GRAPH_EMBEDDING_BACKFILL: '/ai/graph/embedding-backfill',
+  // --- ERP 圖譜端點（R9b 補 SSOT，2026-05-09）---
+  /** ERP 入圖觸發 POST /ai/graph/admin/erp-ingest (Admin) */
+  GRAPH_ERP_INGEST: '/ai/graph/admin/erp-ingest',
+  /** Case 全流程追蹤 POST /ai/graph/case-flow */
+  GRAPH_CASE_FLOW: '/ai/graph/case-flow',
+  /** ERP 關係網路 POST /ai/graph/erp-network */
+  GRAPH_ERP_NETWORK: '/ai/graph/erp-network',
   // --- RAG 問答 ---
   /** RAG 問答 POST /ai/rag/query */
   RAG_QUERY: '/ai/rag/query',
@@ -218,6 +225,8 @@ export const DIGITAL_TWIN_ENDPOINTS = {
   DELEGATE_AUTO: '/ai/digital-twin/delegate/auto',
   /** 智能洞察 POST /ai/digital-twin/insights */
   INSIGHTS: '/ai/digital-twin/insights',
+  /** 自我內省（人格/能力/技能畫像）POST /ai/digital-twin/introspection/profile (R9 補 SSOT) */
+  INTROSPECTION_PROFILE: '/ai/digital-twin/introspection/profile',
 } as const;
 
 /** Memory Wiki API 端點（Phase 5 Slice 1） */

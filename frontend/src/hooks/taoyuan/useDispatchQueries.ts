@@ -21,6 +21,11 @@ export function useDispatchQueries(id: string | undefined) {
     queryKey: ['dispatch-order-detail', id],
     queryFn: () => dispatchOrdersApi.getDetail(parseInt(id || '0', 10)),
     enabled: !!id,
+    // P-21 (2026-05-06)：dispatch 物件含 linked_documents / linked_projects 等動態 FK，
+    // 跨頁面操作（link/unlink/auto-match/payment）會改變這些 FK，
+    // 需積極 refetch 避免「5 筆關聯但只顯示 1 筆」類型的 cache stale 事故
+    staleTime: 10_000,
+    refetchOnMount: 'always',
   });
 
   const vendorProjectId = dispatch?.contract_project_id || TAOYUAN_CONTRACT.PROJECT_ID;

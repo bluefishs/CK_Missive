@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { TAOYUAN_DISPATCH_ENDPOINTS } from '../../api/endpoints';
 import { enhanceColumns } from '../../utils/tableEnhancer';
 
 const { Text } = Typography;
@@ -41,8 +42,9 @@ interface ProgressReport {
   handler_summary: Record<string, Record<string, number>>;
 }
 
+// R9 (v6.9 / 2026-05-08)：用 TAOYUAN_DISPATCH_ENDPOINTS.PROGRESS_REPORT SSOT 取代硬編碼
 const fetchProgressReport = () =>
-  apiClient.post<ProgressReport>('/taoyuan-dispatch/progress-report', {});
+  apiClient.post<ProgressReport>(TAOYUAN_DISPATCH_ENDPOINTS.PROGRESS_REPORT, {});
 
 // ── 統計卡 ──
 

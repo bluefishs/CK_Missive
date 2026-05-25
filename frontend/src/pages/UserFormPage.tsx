@@ -324,12 +324,18 @@ export const UserFormPage: React.FC = () => {
                 rules={[{ required: true, message: '請選擇角色' }]}
               >
                 <Select placeholder="請選擇角色">
-                  {Object.entries(USER_ROLES).map(([key, role]) => (
-                    <Option key={key} value={key}>
-                      {role.name_zh}
-                      {!role.can_login && ' (無法登入)'}
-                    </Option>
-                  ))}
+                  {/* 位階排序：超級管理員 > 管理員 > 業務同仁 > 一般使用者 > 未驗證者 */}
+                  {Object.entries(USER_ROLES)
+                    .sort(([a], [b]) => {
+                      const order: Record<string, number> = { superuser: 0, admin: 1, staff: 2, user: 3, unverified: 4 };
+                      return (order[a] ?? 99) - (order[b] ?? 99);
+                    })
+                    .map(([key, role]) => (
+                      <Option key={key} value={key}>
+                        {role.name_zh}
+                        {!role.can_login && ' (無法登入)'}
+                      </Option>
+                    ))}
                 </Select>
               </Form.Item>
             </Col>

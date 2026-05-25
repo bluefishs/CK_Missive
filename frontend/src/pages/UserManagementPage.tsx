@@ -124,9 +124,12 @@ const UserManagementPage: React.FC = () => {
             <Select placeholder={isMobile ? '角色' : '角色篩選'} allowClear value={roleFilter || undefined}
               onChange={setRoleFilter} style={{ width: '100%' }} size={isMobile ? 'small' : 'middle'}
             >
-              <Option value="user">一般使用者</Option>
-              <Option value="admin">管理員</Option>
+              {/* 位階排序：超級管理員 > 管理員 > 業務同仁 > 一般使用者 > 未驗證者 */}
               <Option value="superuser">超級管理員</Option>
+              <Option value="admin">管理員</Option>
+              <Option value="staff">業務同仁</Option>
+              <Option value="user">一般使用者</Option>
+              <Option value="unverified">未驗證者</Option>
             </Select>
           </Col>
           {!isMobile && (

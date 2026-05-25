@@ -201,24 +201,64 @@ export const PERMISSION_CATEGORIES: Record<string, PermissionCategory> = {
   },
   reports: {
     key: 'reports',
-    name_zh: '報表管理',
-    name_en: 'Report Management',
+    name_zh: '報表分析',
+    name_en: 'Report Analytics',
     permissions: [
       {
         key: 'reports:view',
-        name_zh: '檢視報表',
-        name_en: 'View Reports',
+        name_zh: '報表選單可見（總開關）',
+        name_en: 'Reports Menu Visible',
         category: 'reports',
-        description_zh: '可以查看系統報表',
-        description_en: 'Can view system reports'
+        description_zh: '可看到「報表分析」選單入口；個別報表類別由下列細分權限控制',
+        description_en: 'Show "Reports" menu entry; specific reports gated by sub-permissions'
+      },
+      {
+        key: 'reports:stats:view',
+        name_zh: '統計報表',
+        name_en: 'View Statistics Reports',
+        category: 'reports',
+        description_zh: '可檢視系統統計儀表板（公文/專案/處理時效等）',
+        description_en: 'Can view system stats dashboard'
+      },
+      {
+        key: 'reports:tender:view',
+        name_zh: '政府標案',
+        name_en: 'View Tender Reports',
+        category: 'reports',
+        description_zh: '可檢視政府採購標案資料、儀表板、戰情室、圖譜',
+        description_en: 'Can view government tender data, dashboards, intelligence rooms, graphs'
+      },
+      {
+        key: 'reports:finance:view',
+        name_zh: '專案財務',
+        name_en: 'View Project Finance',
+        category: 'reports',
+        description_zh: '可檢視承攬案件報價/開票/請款等專案財務資料',
+        description_en: 'Can view project financial data (quotations, invoices, billings)'
+      },
+      {
+        key: 'reports:erp:view',
+        name_zh: 'ERP 財務',
+        name_en: 'View ERP Finance',
+        category: 'reports',
+        description_zh: '可檢視 ERP 財務儀表板、費用報銷、統一帳本等',
+        description_en: 'Can view ERP finance dashboard, expenses, ledger'
+      },
+      {
+        key: 'reports:assets:view',
+        name_zh: '資產管理',
+        name_en: 'View Asset Management',
+        category: 'reports',
+        description_zh: '可檢視公司資產清單、折舊、領用紀錄',
+        description_en: 'Can view asset list, depreciation, usage logs'
       },
       {
         key: 'reports:export',
-        name_zh: '匯出報表',
-        name_en: 'Export Reports',
+        name_zh: '匯出報表（橫切）',
+        name_en: 'Export Reports (Cross-cutting)',
         category: 'reports',
-        description_zh: '可以匯出報表資料',
-        description_en: 'Can export report data'
+        description_zh: '可下載 Excel/PDF/CSV 含原始數據；橫切於所有 reports:*:view 權限',
+        description_en: 'Can download Excel/PDF/CSV with raw data; cross-cuts all view permissions'
       }
     ]
   },
@@ -364,7 +404,7 @@ export const USER_ROLES = {
     key: 'user',
     name_zh: '一般使用者',
     name_en: 'Regular User',
-    description_zh: '已驗證的一般使用者，具備基本檢視權限',
+    description_zh: '已驗證的一般使用者，僅檢視權限（不可建立/修改）',
     description_en: 'Verified regular user with basic view permissions',
     default_permissions: [
       'documents:read',
@@ -372,6 +412,21 @@ export const USER_ROLES = {
       'agencies:read',
       'vendors:read',
       'calendar:read'
+    ],
+    can_login: true
+  },
+  staff: {
+    key: 'staff',
+    name_zh: '業務同仁',
+    name_en: 'Staff',
+    description_zh: '業務人員（如 PM / 估價師），可建立與編輯公文與專案資料',
+    description_en: 'Staff member (PM / appraiser), can create and edit documents/projects',
+    default_permissions: [
+      'documents:read', 'documents:create', 'documents:edit',
+      'projects:read',
+      'agencies:read',
+      'vendors:read',
+      'calendar:read', 'calendar:edit'
     ],
     can_login: true
   },

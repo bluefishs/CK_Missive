@@ -47,7 +47,11 @@ export const useTaoyuanDispatchOrders = (params: UseTaoyuanDispatchParams): UseT
   } = useQuery({
     queryKey: queryKeys.taoyuanDispatch.orders(params),
     queryFn: () => dispatchOrdersApi.getList(params),
-    staleTime: 120_000,
+    // P-21 (2026-05-06)：原 staleTime 120s 導致建立 dispatch 後切回列表頁
+    // 看不到新建紀錄（用戶報「115年_派工單號000 在 tab=1 看不到但 tab=3 有」）。
+    // 改為 30s + refetchOnMount: 'always' 確保切回 tab 必重 fetch。
+    staleTime: 30_000,
+    refetchOnMount: 'always',
   });
 
   return {

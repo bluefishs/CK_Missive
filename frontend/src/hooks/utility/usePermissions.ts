@@ -9,7 +9,7 @@ import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authService } from '../../services/authService';
 import { USER_ROLES } from '../../constants/permissions';
-import { isAuthDisabled } from '../../config/env';
+import { shouldUseDevMockUser } from '../../config/env';
 import { logger } from '../../utils/logger';
 
 export interface NavigationItem {
@@ -34,7 +34,7 @@ export interface UserPermissions {
  * 從 API 取得並計算使用者權限資料
  */
 async function fetchUserPermissions(): Promise<UserPermissions | null> {
-  const authDisabled = isAuthDisabled();
+  const authDisabled = shouldUseDevMockUser();
 
   // 僅在明確停用認證時使用預設管理員
   let userInfo = authService.getUserInfo();
@@ -92,11 +92,14 @@ async function fetchUserPermissions(): Promise<UserPermissions | null> {
   // 使用既有角色權限配置
   let finalPermissions: string[] = [];
 
-  if (userInfo.id === 0 || userInfo.role === 'superuser' || userInfo.is_admin) {
-    // 開發者帳號或超級管理員給予所有權限
+  // P-29 (2026-05-06)：admin 不再等同 superuser
+  //   - superuser / dev (id=0) → 所有 permission（最高層級）
+  //   - admin → 用 API/cache 回傳的 user.permissions（受 /admin/permissions/admin 限制）
+  //   - 其他 → 用 user.permissions
+  if (userInfo.id === 0 || userInfo.role === 'superuser') {
     finalPermissions = USER_ROLES.superuser.default_permissions;
   } else {
-    // 使用 API 或快取的權限資料
+    // admin 不再 fallback 到 superuser 全集；走自己 user.permissions
     finalPermissions = permissions || [];
   }
 
@@ -130,15 +133,15 @@ export const usePermissions = () => {
   // 檢查是否擁有特定權限
   const hasPermission = useCallback((permission: string | string[]): boolean => {
     // 開發模式 (AUTH_DISABLED=true) 時，所有功能開放
-    const authDisabled = isAuthDisabled();
+    const authDisabled = shouldUseDevMockUser();
     if (authDisabled) {
       return true;
     }
 
     if (!userPermissions) return false;
 
-    // 超級管理員和管理員擁有所有權限
-    if (userPermissions.role === 'superuser' || userPermissions.is_admin) {
+    // P-29：僅 superuser 短路；admin 走正常 permission filter
+    if (userPermissions.role === 'superuser') {
       return true;
     }
 
@@ -153,15 +156,15 @@ export const usePermissions = () => {
   // 檢查是否擁有任一權限
   const hasAnyPermission = useCallback((permissions: string[]): boolean => {
     // 開發模式 (AUTH_DISABLED=true) 時，所有功能開放
-    const authDisabled = isAuthDisabled();
+    const authDisabled = shouldUseDevMockUser();
     if (authDisabled) {
       return true;
     }
 
     if (!userPermissions) return false;
 
-    // 超級管理員和管理員擁有所有權限
-    if (userPermissions.role === 'superuser' || userPermissions.is_admin) {
+    // P-29：僅 superuser 短路；admin 走正常 permission filter
+    if (userPermissions.role === 'superuser') {
       return true;
     }
 
@@ -174,7 +177,7 @@ export const usePermissions = () => {
   // 過濾可見的導覽項目
   const filterNavigationItems = useCallback((items: NavigationItem[]): NavigationItem[] => {
     // 開發模式 (AUTH_DISABLED=true) 時，顯示所有導覽項目
-    const authDisabled = isAuthDisabled();
+    const authDisabled = shouldUseDevMockUser();
     if (authDisabled) {
       return items.map(item => ({
         ...item,
@@ -184,66 +187,64 @@ export const usePermissions = () => {
 
     if (!userPermissions) return [];
 
-    return items.filter(item => {
-      // 檢查項目是否啟用和可見
-      if (!item.is_enabled || !item.is_visible) return false;
-
-      // 如果沒有權限要求，所有人都可以看到
-      if (!item.permission_required || item.permission_required.length === 0) {
+    return items
+      .filter(item => {
+        if (!item.is_enabled || !item.is_visible) return false;
+        if (!item.permission_required || item.permission_required.length === 0) {
+          return true;
+        }
+        return hasPermission(item.permission_required);
+      })
+      .map(item => ({
+        ...item,
+        children: item.children ? filterNavigationItems(item.children) : undefined,
+      }))
+      // P-38（路 A 細分授權）：父選單若 originally 有 children 但全被過濾掉（用戶
+      // 對所有子權限都沒有），父選單自動隱藏避免「點不開的空目錄」。
+      // 「報表分析」父 nav 用 reports:view 總開關；若 admin 給總開關但沒給任何子，
+      // 結果會看到空的「報表分析」目錄 — 加此邏輯避免。
+      .filter(item => {
+        const originalHadChildren = !!(items.find(x => x.key === item.key)?.children?.length);
+        if (originalHadChildren && (!item.children || item.children.length === 0)) {
+          return false;
+        }
         return true;
-      }
-
-      // 檢查權限
-      return hasPermission(item.permission_required);
-    }).map(item => ({
-      ...item,
-      children: item.children ? filterNavigationItems(item.children) : undefined
-    }));
+      });
   }, [userPermissions, hasPermission]);
 
   // 根據角色過濾導覽項目
   const filterNavigationByRole = useCallback((items: NavigationItem[]): NavigationItem[] => {
     // 開發模式 (AUTH_DISABLED=true) 時，顯示所有導覽項目
-    const authDisabled = isAuthDisabled();
+    const authDisabled = shouldUseDevMockUser();
     if (authDisabled) {
       return filterNavigationItems(items);
     }
 
     if (!userPermissions) return [];
 
+    // P-26 (2026-05-06) admin/staff/user 全改為動態 'all'：
+    //   過去 admin 用前端硬編碼 42-key 白名單，但 DB site_navigation_items 用不同
+    //   命名（documents-menu vs documents / erp-menu vs ERP），交集只 24 keys。
+    //   結果：李昭德 admin role 側邊欄只看 3 項（與 DB enabled 72 項嚴重脫鉤）。
+    //
+    //   修法：移除前端硬編碼白名單。所有 role 都看「DB enabled+visible 的 nav」，
+    //   再由 filterNavigationItems 用 permission_required vs user.permissions 過濾。
+    //   這樣 /admin/site-management 加新 nav item 後，admin/staff 立即動態看到
+    //   （只要其 permission_required 對齊用戶的 permissions）。
+    //
+    //   superuser 仍 'all' 略過 permission filter；其他 role 經兩層過濾。
     const roleNavigationMap: Record<string, string[] | 'all'> = {
-      'superuser': 'all', // 顯示所有項目
-      'admin': [
-        'dashboard', 'documents-menu', 'document-list', 'document-create',
-        'projects-menu', 'projects', 'contract-cases', 'agencies', 'vendors',
-        'calendar-menu', 'calendar', 'reports',
-        'taoyuan-dispatch-menu', 'taoyuan-dispatch-list',
-        'erp-menu', 'erp-quotations', 'erp-invoices', 'erp-billings',
-        'erp-vendor-payables', 'erp-expenses', 'erp-ledger',
-        'erp-financial-dashboard', 'erp-einvoice-sync',
-        'ai-menu', 'ai-assistant', 'ai-management', 'knowledge-graph',
-        'code-graph', 'knowledge-base',
-        'system-docs-menu', 'api-docs', 'api-mapping', 'unified-form-demo',
-        'system-management', 'admin-dashboard', 'user-management',
-        'permission-management', 'site-management', 'database-management',
-        'login-history', 'backup-management',
-        'profile'
-      ],
-      'user': [
-        'dashboard', 'documents-menu', 'document-list',
-        'projects-menu', 'projects', 'agencies', 'vendors',
-        'calendar-menu', 'calendar', 'reports',
-        'taoyuan-dispatch-menu', 'taoyuan-dispatch-list',
-        'erp-menu', 'erp-expenses', 'erp-ledger',
-        'ai-menu', 'ai-assistant',
-        'profile'
-      ],
+      'superuser': 'all', // 略過 permission filter
+      'admin': 'all',     // 由 permission filter 對齊（不再硬編碼白名單）
+      'user': 'all',      // 由 permission filter 對齊
+      'staff': 'all',     // 由 permission filter 對齊
       'unverified': [
         'dashboard'
       ]
     };
 
-    const allowedItems = roleNavigationMap[userPermissions.role];
+    // 防呆：未定義角色 → 視同 user
+    const allowedItems = roleNavigationMap[userPermissions.role] ?? 'all';
 
     if (allowedItems === 'all') {
       return filterNavigationItems(items);
@@ -258,10 +259,11 @@ export const usePermissions = () => {
     return filterNavigationItems(roleFiltered);
   }, [userPermissions, filterNavigationItems]);
 
-  // 檢查是否為管理員
+  // 檢查是否為管理員（admin 或 superuser）— 用於存取 /admin/* 等管理區
+  // 注意：是否擁有特定 admin permission（如 admin:site_management）由 hasPermission 決定
   const isAdmin = useCallback((): boolean => {
     // 開發模式 (AUTH_DISABLED=true) 時，視為管理員
-    const authDisabled = isAuthDisabled();
+    const authDisabled = shouldUseDevMockUser();
     if (authDisabled) {
       return true;
     }
@@ -271,7 +273,7 @@ export const usePermissions = () => {
   // 檢查是否為超級管理員
   const isSuperuser = useCallback((): boolean => {
     // 開發模式 (AUTH_DISABLED=true) 時，視為超級管理員
-    const authDisabled = isAuthDisabled();
+    const authDisabled = shouldUseDevMockUser();
     if (authDisabled) {
       return true;
     }

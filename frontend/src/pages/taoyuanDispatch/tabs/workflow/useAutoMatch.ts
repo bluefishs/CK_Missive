@@ -13,6 +13,7 @@ import { App } from 'antd';
 
 import { queryKeys } from '../../../../config/queryConfig';
 import { dispatchOrdersApi } from '../../../../api/taoyuanDispatchApi';
+import { useDispatchCacheInvalidator } from '../../../../hooks/taoyuan/useDispatchCacheInvalidator';
 import type { DocumentHistoryItem } from '../../../../types/taoyuan';
 import type { LinkType } from '../../../../types/api';
 
@@ -30,6 +31,7 @@ export function useAutoMatch({
   onRefetchDispatch,
 }: UseAutoMatchOptions) {
   const queryClient = useQueryClient();
+  const dispatchCache = useDispatchCacheInvalidator();
   const { message } = App.useApp();
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -86,8 +88,9 @@ export function useAutoMatch({
       setResults({ agency: [], company: [] });
       setSelectedIds(new Set());
       onRefetchDispatch?.();
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+      // 2026-05-18 SSOT 重構：批次關聯後同步清詳情 + 列表族 + 公文連結
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
+      dispatchCache.invalidateDocumentLinks(dispatchOrderId);
     },
     onError: () => message.error('批次關聯失敗'),
   });

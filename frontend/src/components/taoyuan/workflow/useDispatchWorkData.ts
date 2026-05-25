@@ -76,8 +76,12 @@ export interface UnassignedDocsData {
 // Hook
 // ============================================================================
 
-// 通用行政文件關鍵字（契約/保險等不需關聯到特定作業紀錄）
-const GENERIC_ADMIN_KEYWORDS = /契約書|保險|教育訓練|系統建置|議約|採購|印鑑|投標|工作計畫|道路專案系統/;
+// 通用行政文件關鍵字（純行政性單據才過濾，不需關聯到特定作業紀錄）
+//
+// P-21 (2026-05-06) 縮小範圍：原 pattern 過寬，誤殺「系統建置作業工作計畫」、
+// 「道路專案系統建置」等業務性公文（dispatch=157 5 筆 link 全被殺光）。
+// 僅保留真正純行政、與業務查估/丈量無關的單據。
+const GENERIC_ADMIN_KEYWORDS = /契約書印鑑|履約保證|意外保險|投標保證|押標金|印鑑卡/;
 
 interface UseDispatchWorkDataParams {
   dispatchOrderId: number;

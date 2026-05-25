@@ -102,6 +102,26 @@ export const isAuthDisabled = (): boolean => {
   return AUTH_DISABLED_ENV;
 };
 
+/**
+ * P-58 (2026-05-07)：判斷「是否套用 dev superuser mock」。
+ *
+ * 改寫：只有「VITE_AUTH_DISABLED=true 且 localStorage 沒有真實 user_info」時才套 mock。
+ * 一旦真用戶登入（即使是 dev 機台），他的 role / permissions 就要被尊重。
+ *
+ * Bug：先前 isAuthDisabled() 短路所有 hasPermission / filter / isAdmin，導致內網
+ * 用戶以「一般使用者」帳號登入後仍看到全部選單（dev mode 強制 superuser 覆蓋）。
+ */
+export const shouldUseDevMockUser = (): boolean => {
+  if (!AUTH_DISABLED_ENV) return false;
+  if (typeof window === 'undefined') return AUTH_DISABLED_ENV;
+  try {
+    const stored = window.localStorage.getItem('user_info');
+    return !stored;
+  } catch {
+    return AUTH_DISABLED_ENV;
+  }
+};
+
 // 向後相容
 export const AUTH_DISABLED = AUTH_DISABLED_ENV;
 export const isInternalIP = isInternalNetwork;
@@ -141,5 +161,6 @@ export default {
   isInternalIP,
   isInternalIPAddress,
   isAuthDisabled,
+  shouldUseDevMockUser,
   detectEnvironment,
 };
