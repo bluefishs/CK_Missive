@@ -140,6 +140,9 @@ services:
       - LOG_LEVEL=INFO
       - TZ=Asia/Taipei
       - ENVIRONMENT=production
+      # 2026-05-24 fix: 修正 docker 內 PROJECT_ROOT 偏層問題（docker /app vs host backend/）
+      # 沒這個 → memory_metrics_refresh_job 找 /wiki/memory 找不到 → silent skip → gauge 永遠 0
+      - CK_WIKI_DIR=/app/wiki
     ports:
       - "8001:8001"
     volumes:
@@ -148,6 +151,12 @@ services:
       - ./backend/backups:/backups
       - ./backend/backup-logs:/logs
       - ./backend/GoogleCalendarAPIKEY.json:/app/GoogleCalendarAPIKEY.json:ro
+      # 2026-05-24 fix: mount wiki/ 讓 memory_metrics_refresh_job 能讀 diary/proposals/crystals
+      # 沒這個 mount → scheduler 每 15min warn「wiki/memory 目錄不存在，skip metrics refresh」
+      # → memory_diary_days_total Prometheus gauge 永遠 0 → self_diagnosis 看到 hollow
+      # PROJECT_ROOT 在 paths.py 設為 /app 上一層，但 docker container 內 /app 是 backend/
+      # 所以 wiki 必須 mount 到 /app/wiki（與 host wiki/ 對齊）
+      - ./wiki:/app/wiki
     networks:
       ck_network: {}
     depends_on:

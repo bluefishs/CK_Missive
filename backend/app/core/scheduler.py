@@ -496,10 +496,13 @@ async def memory_metrics_refresh_job():
 
     try:
         # PROJECT_ROOT/wiki/memory 路徑（同 endpoints/ai/memory.py 用法）
+        # 2026-05-24 fix: docker container 內 PROJECT_ROOT 計算偏 1 層（=/ 非 /app）
+        # 因 docker layout flatten backend/ → /app，與 host layout 不同。
+        # 加 CK_WIKI_DIR env override：docker compose 設 /app/wiki，host 走 fallback。
         from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
-        wiki_memory = project_root / "wiki" / "memory"
+        wiki_memory = _Path(os.getenv("CK_WIKI_DIR", str(project_root / "wiki"))) / "memory"
         if not wiki_memory.exists():
-            logger.warning("wiki/memory 目錄不存在，skip metrics refresh")
+            logger.warning("wiki/memory 目錄不存在，skip metrics refresh (path=%s)", wiki_memory)
             return
 
         metrics = get_memory_wiki_metrics()
