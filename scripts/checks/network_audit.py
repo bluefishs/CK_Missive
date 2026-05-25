@@ -138,6 +138,12 @@ def audit_repo(repo_path: Path) -> AuditResult:
 
 def main() -> int:
     import argparse
+    # Force UTF-8 stdout for Windows cp950 console (L45 family fix)
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", help="Specific repo path")
     parser.add_argument("--strict", action="store_true", help="Exit 2 on violations")
