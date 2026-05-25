@@ -483,3 +483,86 @@ class TestCrossSessionHintsInject:
 
         sys_prompt = captured["messages"][0]["content"]
         assert "連續性原則" not in sys_prompt
+
+
+# ============================================================================
+# P0-2 (v3.0 覆盤洞察 12)：synthesis stream fallback timeout 鎖定
+# ============================================================================
+# 場景：chat_completion 拋非 TimeoutError 例外（5xx / 連線中斷）→ 走 stream fallback
+# 修前 bug：stream_completion 無 outer timeout，可拖到 sync_query 90s 邊界
+# 修後規範：fallback stream 必須受 synthesis_timeout (35s) 約束
+# 對應 commit：P0-2 fix
+# ============================================================================
+
+class TestSynthesisStreamFallbackTimeout:
+    """確保 chat_completion fallback 至 stream_completion 時，整體仍受 35s 約束。"""
+
+    @pytest.fixture
+    def synthesizer(self):
+        config = MagicMock()
+        config.rag_max_context_chars = 5000
+        config.rag_max_history_turns = 5
+        config.rag_temperature = 0.3
+        config.rag_max_tokens = 1024
+        config.cloud_timeout = 30
+        return AgentSynthesizer(ai_connector=MagicMock(), config=config)
+
+    @pytest.mark.asyncio
+    async def test_stream_fallback_respects_synthesis_timeout(self, synthesizer, monkeypatch):
+        """chat_completion 失敗 → stream fallback 觸發，超時應 yield skeleton message 而非無限拖延。"""
+        import asyncio as _asyncio
+
+        async def failing_chat(messages, **kw):
+            raise RuntimeError("upstream 5xx")
+
+        async def slow_stream(messages, **kw):
+            # 模擬無時限 stream（修前 bug：會拖到 sync_query 90s）
+            for _ in range(1000):
+                await _asyncio.sleep(10)
+                yield "永遠不會被看到"
+
+        synthesizer.ai.chat_completion = failing_chat  # type: ignore[assignment]
+        synthesizer.ai.stream_completion = slow_stream  # type: ignore[assignment]
+
+        async def noop_quality(q, ans, tools):
+            return ans
+        synthesizer._quality_review = noop_quality  # type: ignore[assignment]
+
+        async def empty_inject(*args, **kw):
+            return ""
+        synthesizer._inject_kg_context = empty_inject  # type: ignore[assignment]
+        synthesizer._inject_wiki_context = empty_inject  # type: ignore[assignment]
+
+        # 把 synthesis_timeout 縮成 1s 加速測試（不改實際合約）
+        from app.core import timeouts as _timeouts_mod
+        original_synthesis = _timeouts_mod.TIMEOUTS.synthesis
+        monkeypatch.setattr(
+            _timeouts_mod.TimeoutContract,
+            "synthesis",
+            property(lambda self: 1),
+            raising=False,
+        )
+
+        try:
+            tokens = []
+            start = _asyncio.get_event_loop().time()
+            async for tok in synthesizer.synthesize_answer(
+                question="test",
+                tool_results=[],
+                history=[],
+                context="test",
+            ):
+                tokens.append(tok)
+                # 防呆：若 fallback 真無 timeout，至多等 5s 就斷（避免 CI 卡住）
+                if _asyncio.get_event_loop().time() - start > 5:
+                    break
+
+            elapsed = _asyncio.get_event_loop().time() - start
+            # 必須在 ~1s timeout + 少許 overhead 內結束（絕對 < 5s）
+            assert elapsed < 5, f"stream fallback 未受 timeout 約束（elapsed={elapsed:.2f}s）"
+            # 應 yield skeleton fallback 而非「永遠不會被看到」
+            assert any("AI 回答生成超時" in t for t in tokens), \
+                f"stream fallback timeout 未 yield skeleton message: {tokens}"
+        finally:
+            # 確保 monkeypatch 不影響其他測試
+            del original_synthesis

@@ -42,18 +42,16 @@ def _get_backend_app_dir() -> Path:
 
 def _get_frontend_src_dir() -> Path:
     """Resolve frontend/src/ directory."""
-    project_root = Path(__file__).parent.parent.parent.parent
-    return project_root / "frontend" / "src"
+    from app.core.paths import FRONTEND_DIR  # v6.10 P1-E SSOT
+    return FRONTEND_DIR / "src"
 
 
 def _get_sync_db_url() -> str:
     """Build synchronous DB URL from env."""
     from dotenv import load_dotenv
-    # Load project root .env
-    project_root = Path(__file__).parent.parent.parent.parent
-    env_path = project_root / ".env"
-    if env_path.exists():
-        load_dotenv(env_path)
+    from app.core.paths import ENV_FILE  # v6.10 P1-E SSOT
+    if ENV_FILE.exists():
+        load_dotenv(ENV_FILE)
 
     db_host = os.getenv("POSTGRES_HOST", "localhost")
     db_port = os.getenv("POSTGRES_PORT", "5432")

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 初始化導覽列數據腳本
 為系統建立預設的導覽列結構和配置
@@ -17,11 +16,11 @@
   python init_navigation_data.py --force-update  # 強制更新所有項目的路徑
 """
 
-import asyncio
-import sys
-import os
 import argparse
+import asyncio
 import logging
+import os
+import sys
 from datetime import datetime
 
 # 添加 backend 目錄到 Python 路徑
@@ -29,11 +28,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 logger = logging.getLogger(__name__)
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import AsyncSessionLocal
-from app.extended.models import SiteNavigationItem, SiteConfiguration
+from app.extended.models import SiteConfiguration, SiteNavigationItem
 
 # =============================================================================
 # 導覽項目定義
@@ -43,7 +42,6 @@ DEFAULT_NAVIGATION_ITEMS = [
     # =========================================================================
     # 頂層項目
     # =========================================================================
-
     # 儀表板 (對應 ROUTES.DASHBOARD)
     {
         "title": "儀表板",
@@ -53,9 +51,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "sort_order": 1,
         "level": 1,
         "description": "首頁,儀表板,總覽",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # 公文管理 (群組)
     {
         "title": "公文管理",
@@ -65,9 +62,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "sort_order": 2,
         "level": 1,
         "description": "公文,文件,管理",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # 專案管理 (群組，對應前端「案件資料」)
     {
         "title": "專案管理",
@@ -77,9 +73,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "sort_order": 3,
         "level": 1,
         "description": "專案,案件,管理",
-        "permission_required": "[\"documents:read\"]"
+        "permission_required": '["documents:read"]',
     },
-
     # 行事曆管理 (對應 ROUTES.CALENDAR)
     {
         "title": "行事曆管理",
@@ -89,9 +84,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "sort_order": 4,
         "level": 1,
         "description": "行事曆,排程",
-        "permission_required": "[\"calendar:read\"]"
+        "permission_required": '["calendar:read"]',
     },
-
     # 報表分析 (群組)
     {
         "title": "報表分析",
@@ -101,9 +95,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "sort_order": 5,
         "level": 1,
         "description": "報表,分析,統計",
-        "permission_required": "[\"reports:view\"]"
+        "permission_required": '["reports:view"]',
     },
-
     # 系統管理 (群組)
     {
         "title": "系統管理",
@@ -113,9 +106,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "sort_order": 6,
         "level": 1,
         "description": "系統,管理,設定",
-        "permission_required": "[\"admin:users\"]"
+        "permission_required": '["admin:users"]',
     },
-
     # 個人設定 (對應 ROUTES.PROFILE)
     {
         "title": "個人設定",
@@ -125,9 +117,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "sort_order": 7,
         "level": 1,
         "description": "個人,設定,偏好",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # AI 智慧功能 (群組)
     {
         "title": "AI 智慧功能",
@@ -137,9 +128,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "sort_order": 8,
         "level": 1,
         "description": "AI,智慧,知識圖譜,助理",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # 桃園查估專區 (群組)
     {
         "title": "桃園查估專區",
@@ -149,13 +139,11 @@ DEFAULT_NAVIGATION_ITEMS = [
         "sort_order": 9,
         "level": 1,
         "description": "桃園,查估,專區",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # =========================================================================
     # 公文管理 子項目
     # =========================================================================
-
     # 文件瀏覽 (對應 ROUTES.DOCUMENTS)
     {
         "title": "文件瀏覽",
@@ -166,9 +154,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "documents",
         "description": "瀏覽,查看",
-        "permission_required": "[\"documents:read\"]"
+        "permission_required": '["documents:read"]',
     },
-
     # 文號管理 (對應 ROUTES.DOCUMENT_NUMBERS)
     {
         "title": "文號管理",
@@ -179,13 +166,11 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "documents",
         "description": "文號,編號,發文",
-        "permission_required": "[\"documents:write\"]"
+        "permission_required": '["documents:write"]',
     },
-
     # =========================================================================
     # 專案管理 子項目
     # =========================================================================
-
     # 承攬計畫 (對應 ROUTES.CONTRACT_CASES)
     {
         "title": "承攬計畫",
@@ -196,9 +181,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "專案,計畫,承攬",
-        "permission_required": "[\"projects:read\"]"
+        "permission_required": '["projects:read"]',
     },
-
     # 機關管理 (對應 ROUTES.AGENCIES)
     {
         "title": "機關管理",
@@ -209,9 +193,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "機關,單位",
-        "permission_required": "[\"agencies:read\"]"
+        "permission_required": '["agencies:read"]',
     },
-
     # 協力廠商管理 (對應 ROUTES.VENDORS)
     {
         "title": "協力廠商",
@@ -222,9 +205,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "協力廠商,下包商",
-        "permission_required": "[\"vendors:read\"]"
+        "permission_required": '["vendors:read"]',
     },
-
     # 委託單位管理 (對應 ROUTES.CLIENTS)
     {
         "title": "委託單位",
@@ -235,9 +217,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "委託單位,業主",
-        "permission_required": "[\"vendors:read\"]"
+        "permission_required": '["vendors:read"]',
     },
-
     # 承辦同仁 (對應 ROUTES.STAFF)
     {
         "title": "承辦同仁",
@@ -248,9 +229,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "承辦,同仁,人員",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # PM 案件管理 (對應 ROUTES.PM_CASES)
     {
         "title": "PM 案件管理",
@@ -261,9 +241,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "PM,案件,專案管理,測量,規劃,監造",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # ERP 財務管理中心 (對應 ROUTES.ERP_HUB)
     {
         "title": "財務管理中心",
@@ -274,9 +253,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "ERP,財務,報價,發票,請款,成本,帳款,資產",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # ERP 財務記錄 (統一入口：發票報銷 + 手動記帳)
     {
         "title": "財務記錄",
@@ -287,9 +265,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "費用,報銷,發票,核銷,QR,掃描,記帳",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # ERP 統一帳本 (已合併至財務記錄，保留路由向後相容)
     # {
     #     "title": "統一帳本",
@@ -297,7 +274,6 @@ DEFAULT_NAVIGATION_ITEMS = [
     #     "path": "/erp/ledger",
     #     ...
     # },
-
     # ERP 財務儀表板 (對應 ROUTES.ERP_FINANCIAL_DASHBOARD)
     {
         "title": "財務儀表板",
@@ -308,9 +284,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "財務,儀表板,預算,警報,總覽",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # ERP 電子發票同步 (對應 ROUTES.ERP_EINVOICE_SYNC)
     {
         "title": "電子發票同步",
@@ -321,9 +296,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "電子發票,同步,財政部,核銷,收據",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # ERP 資產管理 (對應 ROUTES.ERP_ASSETS)
     {
         "title": "資產管理",
@@ -334,9 +308,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "資產管理,設備,車輛,儀器,盤點",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # ERP 營運帳目 (對應 ROUTES.ERP_OPERATIONAL)
     {
         "title": "營運帳目",
@@ -347,9 +320,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "營運帳目,非案件,辦公室,車輛,設備,人事,維修",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # ERP 發票總覽 (對應 ROUTES.ERP_INVOICE_SUMMARY)
     {
         "title": "發票總覽",
@@ -360,9 +332,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "發票,銷項,進項,跨案件",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # ERP 廠商帳款 (對應 ROUTES.ERP_VENDOR_ACCOUNTS)
     {
         "title": "協力廠商帳款",
@@ -373,9 +344,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "協力廠商,應付帳款,跨案件,廠商對帳",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # ERP 委託單位帳款 (對應 ROUTES.ERP_CLIENT_ACCOUNTS)
     {
         "title": "委託單位帳款",
@@ -386,9 +356,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "委託單位,應收帳款,跨案件,業主對帳",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # =========================================================================
     # 標案檢索
     # =========================================================================
@@ -401,7 +370,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "政府標案,招標,採購網,投標,搜尋",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
     {
         "title": "標案圖譜",
@@ -412,7 +381,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "標案,知識圖譜,機關,廠商,關係網絡",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
     {
         "title": "廠商分析",
@@ -423,7 +392,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "廠商,投標分析,得標歷史,統計",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
     {
         "title": "標案儀表板",
@@ -434,7 +403,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "標案統計,類別分布,趨勢,儀表板",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
     {
         "title": "機關生態",
@@ -445,13 +414,11 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "機關,歷年標案,得標廠商分布,生態",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # =========================================================================
     # 行事曆管理 子項目
     # =========================================================================
-
     # 專案行事曆 (對應 ROUTES.PURE_CALENDAR)
     {
         "title": "專案行事曆",
@@ -462,13 +429,11 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "calendar",
         "description": "行事曆",
-        "permission_required": "[\"calendar:read\"]"
+        "permission_required": '["calendar:read"]',
     },
-
     # =========================================================================
     # 報表分析 子項目
     # =========================================================================
-
     # 統計報表 (對應 ROUTES.REPORTS)
     {
         "title": "統計報表",
@@ -479,9 +444,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "reports",
         "description": "統計,圖表",
-        "permission_required": "[\"reports:view\"]"
+        "permission_required": '["reports:view"]',
     },
-
     # API 文件 (對應 ROUTES.API_DOCS)
     {
         "title": "API文件",
@@ -492,9 +456,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "reports",
         "description": "API,文件",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # API 對應表 (對應 ROUTES.API_MAPPING)
     {
         "title": "API對應表",
@@ -505,9 +468,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "reports",
         "description": "API,對應",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
-
     # 統一表單示例 (對應 ROUTES.UNIFIED_FORM_DEMO)
     {
         "title": "統一表單示例",
@@ -518,13 +480,11 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "reports",
         "description": "統一表單,示例,Demo",
-        "permission_required": "[\"admin:settings\"]"
+        "permission_required": '["admin:settings"]',
     },
-
     # =========================================================================
     # 系統管理 子項目
     # =========================================================================
-
     # 使用者管理 (對應 ROUTES.USER_MANAGEMENT)
     {
         "title": "使用者管理",
@@ -535,9 +495,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "使用者,帳號",
-        "permission_required": "[\"admin:users\"]"
+        "permission_required": '["admin:users"]',
     },
-
     # 權限管理 (對應 ROUTES.PERMISSION_MANAGEMENT)
     {
         "title": "權限管理",
@@ -548,9 +507,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "權限,角色",
-        "permission_required": "[\"admin:users\"]"
+        "permission_required": '["admin:users"]',
     },
-
     # 資料庫管理 (對應 ROUTES.DATABASE)
     {
         "title": "資料庫管理",
@@ -561,9 +519,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "資料庫,維護",
-        "permission_required": "[\"admin:settings\"]"
+        "permission_required": '["admin:settings"]',
     },
-
     # 網站管理 (對應 ROUTES.SITE_MANAGEMENT)
     {
         "title": "網站管理",
@@ -574,9 +531,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "網站,設定",
-        "permission_required": "[\"admin:site_management\"]"
+        "permission_required": '["admin:site_management"]',
     },
-
     # 備份管理 (對應 ROUTES.BACKUP_MANAGEMENT)
     {
         "title": "備份管理",
@@ -587,9 +543,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "備份,還原,同步",
-        "permission_required": "[\"admin:settings\"]"
+        "permission_required": '["admin:settings"]',
     },
-
     # 管理員面板 (對應 ROUTES.ADMIN_DASHBOARD)
     {
         "title": "管理員面板",
@@ -600,9 +555,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "管理,面板",
-        "permission_required": "[\"admin:users\"]"
+        "permission_required": '["admin:users"]',
     },
-
     # 系統監控 (對應 ROUTES.SYSTEM)
     {
         "title": "系統監控",
@@ -613,9 +567,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "監控,狀態",
-        "permission_required": "[\"admin:settings\"]"
+        "permission_required": '["admin:settings"]',
     },
-
     # 部署管理 (對應 ROUTES.DEPLOYMENT_MANAGEMENT)
     {
         "title": "部署管理",
@@ -626,9 +579,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "部署,CI/CD,版本",
-        "permission_required": "[\"admin:settings\"]"
+        "permission_required": '["admin:settings"]',
     },
-
     # Google 認證診斷 (對應 ROUTES.GOOGLE_AUTH_DIAGNOSTIC)
     {
         "title": "Google認證診斷",
@@ -639,9 +591,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "Google,認證",
-        "permission_required": "[\"admin:settings\"]"
+        "permission_required": '["admin:settings"]',
     },
-
     # 登入紀錄 (對應 ROUTES.ADMIN_LOGIN_HISTORY)
     {
         "title": "登入紀錄",
@@ -652,102 +603,172 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "system-management",
         "description": "登入,紀錄,審計,資安",
-        "permission_required": "[\"admin:users\"]"
+        "permission_required": '["admin:users"]',
     },
-
+    # 資安管理中心 (對應 ROUTES.SECURITY_CENTER)
+    {
+        "title": "資安管理中心",
+        "key": "security-center",
+        "path": "/admin/security-center",
+        "icon": "SafetyCertificateOutlined",
+        "sort_order": 11,
+        "level": 2,
+        "parent_key": "system-management",
+        "description": "OWASP,Top10,掃描,漏洞,問題追蹤",
+        "permission_required": '["admin:users"]',
+    },
     # AI 同義詞管理、AI Prompt 管理已整合至 AI 助理管理 (/admin/ai-assistant) Tab 分頁
-
     # =========================================================================
     # AI 智慧功能 子項目
     # =========================================================================
-
     # =========================================================================
     # Knowledge Map 群組子項目 (圖譜類)
     # DB parent: "Knowledge Map" (id=47, under system)
     # =========================================================================
-
     # 圖譜與 Wiki 中樞 (ADR-0031 Phase 7 — 統一入口)
-    {"title": "圖譜與 Wiki 中樞", "key": "graph-hub", "path": "/ai/graphs",
-     "icon": "FileSearchOutlined", "sort_order": -1, "level": 2,
-     "parent_key": "Knowledge Map", "description": "ADR-0031,圖譜,Wiki,統一入口,中樞,KG,Code,DB,ERP,Tender,Memory Wiki", "permission_required": "[]"},
-
+    {
+        "title": "圖譜與 Wiki 中樞",
+        "key": "graph-hub",
+        "path": "/ai/graphs",
+        "icon": "FileSearchOutlined",
+        "sort_order": -1,
+        "level": 2,
+        "parent_key": "Knowledge Map",
+        "description": "ADR-0031,圖譜,Wiki,統一入口,中樞,KG,Code,DB,ERP,Tender,Memory Wiki",
+        "permission_required": "[]",
+    },
     # 公文圖譜
-    {"title": "公文圖譜", "key": "knowledge-graph", "path": "/ai/knowledge-graph",
-     "icon": "ApartmentOutlined", "sort_order": 0, "level": 2,
-     "parent_key": "Knowledge Map", "description": "公文圖譜,知識圖譜,實體,關聯,視覺化", "permission_required": "[]"},
-
+    {
+        "title": "公文圖譜",
+        "key": "knowledge-graph",
+        "path": "/ai/knowledge-graph",
+        "icon": "ApartmentOutlined",
+        "sort_order": 0,
+        "level": 2,
+        "parent_key": "Knowledge Map",
+        "description": "公文圖譜,知識圖譜,實體,關聯,視覺化",
+        "permission_required": "[]",
+    },
     # 標案圖譜 (已在 DB, sort=1)
-
     # 代碼圖譜
-    {"title": "代碼圖譜", "key": "code-graph", "path": "/ai/code-graph",
-     "icon": "CodeOutlined", "sort_order": 2, "level": 2,
-     "parent_key": "Knowledge Map", "description": "代碼,程式碼,模組,Code Wiki,圖譜", "permission_required": "[]"},
-
+    {
+        "title": "代碼圖譜",
+        "key": "code-graph",
+        "path": "/ai/code-graph",
+        "icon": "CodeOutlined",
+        "sort_order": 2,
+        "level": 2,
+        "parent_key": "Knowledge Map",
+        "description": "代碼,程式碼,模組,Code Wiki,圖譜",
+        "permission_required": "[]",
+    },
     # ERP 財務圖譜
-    {"title": "ERP 財務圖譜", "key": "erp-graph", "path": "/ai/erp-graph",
-     "icon": "DollarOutlined", "sort_order": 2, "level": 2,
-     "parent_key": "Knowledge Map", "description": "ERP,財務,圖譜,報價,費用,資產,廠商", "permission_required": "[]"},
-
+    {
+        "title": "ERP 財務圖譜",
+        "key": "erp-graph",
+        "path": "/ai/erp-graph",
+        "icon": "DollarOutlined",
+        "sort_order": 2,
+        "level": 2,
+        "parent_key": "Knowledge Map",
+        "description": "ERP,財務,圖譜,報價,費用,資產,廠商",
+        "permission_required": "[]",
+    },
     # 資料庫圖譜
-    {"title": "資料庫圖譜", "key": "db-graph", "path": "/ai/db-graph",
-     "icon": "DatabaseOutlined", "sort_order": 3, "level": 2,
-     "parent_key": "Knowledge Map", "description": "資料庫,ER,資料表,關聯,欄位,FK", "permission_required": "[]"},
-
+    {
+        "title": "資料庫圖譜",
+        "key": "db-graph",
+        "path": "/ai/db-graph",
+        "icon": "DatabaseOutlined",
+        "sort_order": 3,
+        "level": 2,
+        "parent_key": "Knowledge Map",
+        "description": "資料庫,ER,資料表,關聯,欄位,FK",
+        "permission_required": "[]",
+    },
     # Skills 能力圖譜
-    {"title": "Skills 能力圖譜", "key": "skills-map", "path": "/ai/skills-map",
-     "icon": "NodeIndexOutlined", "sort_order": 4, "level": 2,
-     "parent_key": "Knowledge Map", "description": "Skills,能力,圖譜,Agent,工具,技能", "permission_required": "[]"},
-
+    {
+        "title": "Skills 能力圖譜",
+        "key": "skills-map",
+        "path": "/ai/skills-map",
+        "icon": "NodeIndexOutlined",
+        "sort_order": 4,
+        "level": 2,
+        "parent_key": "Knowledge Map",
+        "description": "Skills,能力,圖譜,Agent,工具,技能",
+        "permission_required": "[]",
+    },
     # 知識庫瀏覽器
-    {"title": "知識庫瀏覽器", "key": "knowledge-base", "path": "/admin/knowledge-base",
-     "icon": "BookOutlined", "sort_order": 6, "level": 2,
-     "parent_key": "Knowledge Map", "description": "知識庫,瀏覽器,ADR,架構圖", "permission_required": "[\"admin:settings\"]"},
-
+    {
+        "title": "知識庫瀏覽器",
+        "key": "knowledge-base",
+        "path": "/admin/knowledge-base",
+        "icon": "BookOutlined",
+        "sort_order": 6,
+        "level": 2,
+        "parent_key": "Knowledge Map",
+        "description": "知識庫,瀏覽器,ADR,架構圖",
+        "permission_required": '["admin:settings"]',
+    },
     # LLM Wiki
-    {"title": "LLM Wiki", "key": "llm-wiki", "path": "/ai/wiki",
-     "icon": "BookOutlined", "sort_order": 7, "level": 2,
-     "parent_key": "Knowledge Map", "description": "LLM Wiki,知識編譯,公文wiki,圖譜", "permission_required": "[]"},
-
+    {
+        "title": "LLM Wiki",
+        "key": "llm-wiki",
+        "path": "/ai/wiki",
+        "icon": "BookOutlined",
+        "sort_order": 7,
+        "level": 2,
+        "parent_key": "Knowledge Map",
+        "description": "LLM Wiki,知識編譯,公文wiki,圖譜",
+        "permission_required": "[]",
+    },
     # Memory Wiki（助理自我記憶系統）
-    {"title": "記憶中樞", "key": "memory-dashboard", "path": "/ai/memory",
-     "icon": "HistoryOutlined", "sort_order": 8, "level": 2,
-     "parent_key": "Knowledge Map", "description": "助理記憶,日記,成功模式,結晶提案,週自傳", "permission_required": "[]"},
-
+    {
+        "title": "記憶中樞",
+        "key": "memory-dashboard",
+        "path": "/ai/memory",
+        "icon": "HistoryOutlined",
+        "sort_order": 8,
+        "level": 2,
+        "parent_key": "Knowledge Map",
+        "description": "助理記憶,日記,成功模式,結晶提案,週自傳",
+        "permission_required": "[]",
+    },
     # =========================================================================
     # AI Agents 群組子項目 (Agent/分身類)
     # DB parent: "AI Agents" (id=72, under system)
     # =========================================================================
-
-    # v5.8.1：坤哥為唯一智能體入口，原「智能體中心」「AI 助理管理」整合為 /kunge/ops
-    # 舊項目隱藏（保留 DB 紀錄避免 key 衝突，但導覽不顯示）
-    {"title": "智能體中心", "key": "agent-dashboard", "path": "/agent/dashboard",
-     "icon": "RobotOutlined", "sort_order": 1, "level": 2, "hidden": True,
-     "parent_key": "AI Agents", "description": "已整合至坤哥（/kunge/ops）", "permission_required": "[]"},
-
-    # 數位分身 → 已整合至坤哥，隱藏導覽 (hidden=True)
-    {"title": "數位分身", "key": "digital-twin", "path": "/ai/digital-twin",
-     "icon": "CloudServerOutlined", "sort_order": 2, "level": 2, "hidden": True,
-     "parent_key": "AI Agents", "description": "已整合至坤哥（/kunge/ops）", "permission_required": "[]"},
-
+    # ADR-0031 + 2026-05-15 retro F1：
+    # 「智能體中心 /agent/dashboard」「數位分身 /ai/digital-twin」「AI 助理管理 /admin/ai-assistant」
+    # 三條已遷移至 /kunge/ops（坤哥唯一意識體入口），前端僅保留 6 個月 Navigate redirect 相容期。
+    # 從 seed 移除以避免新環境 reset 後又 insert 殭屍菜單；舊環境 DB 已有的 hidden 紀錄保留無害。
     # 技能族譜（原「技能演化樹」— ADR-0031 Phase 5 命名正名）
-    {"title": "技能族譜", "key": "skill-evolution", "path": "/ai/skill-evolution",
-     "icon": "RiseOutlined", "sort_order": 3, "level": 2,
-     "parent_key": "AI Agents", "description": "技能,族譜,演化樹,版本,融合,藍圖,skill lineage", "permission_required": "[]"},
-
-    # AI 助理管理 → 已整合至坤哥運維 tab，隱藏導覽
-    {"title": "AI 助理管理", "key": "ai-assistant-management", "path": "/admin/ai-assistant",
-     "icon": "ExperimentOutlined", "sort_order": 4, "level": 2, "hidden": True,
-     "parent_key": "AI Agents", "description": "已整合至坤哥（/kunge/ops）", "permission_required": "[\"admin:settings\"]"},
-
+    {
+        "title": "技能族譜",
+        "key": "skill-evolution",
+        "path": "/ai/skill-evolution",
+        "icon": "RiseOutlined",
+        "sort_order": 3,
+        "level": 2,
+        "parent_key": "AI Agents",
+        "description": "技能,族譜,演化樹,版本,融合,藍圖,skill lineage",
+        "permission_required": "[]",
+    },
     # 坤哥 — Missive 意識體（存在論敘事頁）
-    {"title": "坤哥", "key": "kunge", "path": "/kunge",
-     "icon": "BulbOutlined", "sort_order": 5, "level": 2,
-     "parent_key": "AI Agents", "description": "坤哥,Missive 意識體,存在論,三信念,反迴聲室,倫理紅線,記憶圖譜,進化史,技能星雲,對話精選", "permission_required": "[]"},
-
+    {
+        "title": "坤哥",
+        "key": "kunge",
+        "path": "/kunge",
+        "icon": "BulbOutlined",
+        "sort_order": 5,
+        "level": 2,
+        "parent_key": "AI Agents",
+        "description": "坤哥,Missive 意識體,存在論,三信念,反迴聲室,倫理紅線,記憶圖譜,進化史,技能星雲,對話精選",
+        "permission_required": "[]",
+    },
     # =========================================================================
     # 桃園查估專區 子項目
     # =========================================================================
-
     # 派工管理 (對應 ROUTES.TAOYUAN_DISPATCH)
     {
         "title": "派工管理",
@@ -758,7 +779,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "taoyuan-zone",
         "description": "派工,管理,桃園",
-        "permission_required": "[]"
+        "permission_required": "[]",
     },
 ]
 
@@ -767,67 +788,18 @@ DEFAULT_NAVIGATION_ITEMS = [
 # 注意：欄位名稱必須與 SiteConfiguration 模型匹配 (key, value)
 # =============================================================================
 DEFAULT_SITE_CONFIGS = [
-    {
-        "key": "site_title",
-        "value": "乾坤測繪公文管理系統",
-        "description": "網站標題",
-        "category": "general"
-    },
-    {
-        "key": "site_logo",
-        "value": "/assets/logo.png",
-        "description": "網站 Logo 路徑",
-        "category": "general"
-    },
-    {
-        "key": "company_name",
-        "value": "乾坤測繪工程有限公司",
-        "description": "公司名稱",
-        "category": "general"
-    },
-    {
-        "key": "sidebar_collapsed",
-        "value": "false",
-        "description": "側邊欄預設是否摺疊",
-        "category": "ui"
-    },
-    {
-        "key": "theme_color",
-        "value": "#1890ff",
-        "description": "主題色彩",
-        "category": "ui"
-    },
-    {
-        "key": "page_size_options",
-        "value": "[10, 20, 50, 100]",
-        "description": "分頁大小選項",
-        "category": "ui"
-    },
-    {
-        "key": "default_page_size",
-        "value": "20",
-        "description": "預設分頁大小",
-        "category": "ui"
-    },
-    {
-        "key": "enable_notifications",
-        "value": "true",
-        "description": "是否啟用通知功能",
-        "category": "features"
-    },
-    {
-        "key": "auto_save_interval",
-        "value": "30",
-        "description": "自動儲存間隔（秒）",
-        "category": "features"
-    },
-    {
-        "key": "system_version",
-        "value": "2.0.0",
-        "description": "系統版本號",
-        "category": "system"
-    }
+    {"key": "site_title", "value": "乾坤測繪公文管理系統", "description": "網站標題", "category": "general"},
+    {"key": "site_logo", "value": "/assets/logo.png", "description": "網站 Logo 路徑", "category": "general"},
+    {"key": "company_name", "value": "乾坤測繪工程有限公司", "description": "公司名稱", "category": "general"},
+    {"key": "sidebar_collapsed", "value": "false", "description": "側邊欄預設是否摺疊", "category": "ui"},
+    {"key": "theme_color", "value": "#1890ff", "description": "主題色彩", "category": "ui"},
+    {"key": "page_size_options", "value": "[10, 20, 50, 100]", "description": "分頁大小選項", "category": "ui"},
+    {"key": "default_page_size", "value": "20", "description": "預設分頁大小", "category": "ui"},
+    {"key": "enable_notifications", "value": "true", "description": "是否啟用通知功能", "category": "features"},
+    {"key": "auto_save_interval", "value": "30", "description": "自動儲存間隔（秒）", "category": "features"},
+    {"key": "system_version", "value": "2.0.0", "description": "系統版本號", "category": "system"},
 ]
+
 
 async def check_item_exists(db: AsyncSession, key: str, title: str = None) -> bool:
     """
@@ -851,6 +823,7 @@ async def check_item_exists(db: AsyncSession, key: str, title: str = None) -> bo
             return True
 
     return False
+
 
 async def check_config_exists(db: AsyncSession, config_key: str) -> bool:
     """檢查配置項目是否已存在"""
@@ -936,7 +909,7 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
                 description=item_data.get("description", ""),
                 permission_required=item_data.get("permission_required", "[]"),
                 is_visible=not item_data.get("hidden", False),
-                is_enabled=True
+                is_enabled=True,
             )
 
             db.add(navigation_item)
@@ -956,7 +929,7 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
         else:
             # key 不在 DB 中（可能以 title 匹配），查找已存在的項目
             existing = parent_items.get(key)
-            if existing and hasattr(existing, 'id'):
+            if existing and hasattr(existing, "id"):
                 # 已在第一階段取得，保留
                 pass
             else:
@@ -992,7 +965,7 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
                 description=item_data.get("description", ""),
                 permission_required=item_data.get("permission_required", "[]"),
                 is_visible=not item_data.get("hidden", False),
-                is_enabled=True
+                is_enabled=True,
             )
 
             db.add(navigation_item)
@@ -1004,6 +977,7 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
         logger.info(f"導覽列項目更新完成！共更新 {update_count} 個項目的路徑。")
     else:
         logger.info("導覽列項目創建完成！")
+
 
 async def create_site_configs(db: AsyncSession):
     """創建網站配置"""
@@ -1019,7 +993,7 @@ async def create_site_configs(db: AsyncSession):
             key=config_data["key"],
             value=config_data["value"],
             description=config_data["description"],
-            category=config_data["category"]
+            category=config_data["category"],
         )
 
         db.add(site_config)
@@ -1027,6 +1001,7 @@ async def create_site_configs(db: AsyncSession):
 
     await db.commit()
     logger.info("網站配置創建完成！")
+
 
 async def init_navigation_data(force_update: bool = False):
     """
@@ -1067,13 +1042,9 @@ def parse_args():
 範例:
   python init_navigation_data.py                # 僅新增不存在的項目
   python init_navigation_data.py --force-update # 強制更新所有項目的路徑
-        """
+        """,
     )
-    parser.add_argument(
-        "--force-update",
-        action="store_true",
-        help="強制更新已存在項目的路徑（同步前端路由定義）"
-    )
+    parser.add_argument("--force-update", action="store_true", help="強制更新已存在項目的路徑（同步前端路由定義）")
     return parser.parse_args()
 
 
