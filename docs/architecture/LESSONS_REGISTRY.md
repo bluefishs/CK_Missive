@@ -410,6 +410,16 @@
 | **Prevention** | (a) 所有「保險機制」必每月跑一次 **real restore drill**（非假設）才算真活；本月 5/19 危機即 first drill (b) backup script 必加 `[[ -s "$file" ]]` 0B 檢查 + 失敗 Telegram alert（防 5/12 同類）(c) 用 `Get-ScheduledTask` / cron 真活 probe 補進 `optimization_pipeline_orchestrator` 環節（pipeline-reports JSON 每日記錄 last_run_time）(d) named volume → host bind mount 結構性升級（停機 5min，根除 Docker Desktop reset 風險）(e) `remote_backup.json sync_enabled` 改 true 後加 `sync_status alert`（連續 24h idle → red）|
 | **Refs** | `scripts/backup/pre_upgrade_backup.sh` / `scripts/backup/restore_from_volume_tar.sh` / `docs/runbooks/docker-desktop-upgrade-sop.md` / `RETRO_20260519` §10 / 同類 L01 dead integration + L30 pipeline integration + L37 覆盤自身反模式 |
 
+## L41 — JWT Secret Drift Silent Fail（4 重疊加 / 2026-05-21）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 員工 SSO Phase 1.5 整合 missive 時 `verify_ck_sso_jwt` 持續回 401，owner 花 6 小時逐項排除才找到「`.env` CK_SSO_JWT_SECRET hex 與 CF Pages JWT_SECRET 打錯一字元」。四重反模式疊加：(1) secret drift（手動 copy 失誤）(2) silent fail（`logger.debug` 在 prod INFO level 永不輸出）(3) 異常吞噬（單一 `except JWTError` 不分 SIGNATURE/EXPIRED/ISSUER/MISSING_CLAIM 四種子型）(4) 缺真 E2E（CI 用 mock JWT 全綠，從未跑「真 CF Pages 簽 → 真 backend 驗」端到端）|
+| **Cause** | 每個反模式單獨都不致命，**疊加構成驗證永遠失敗、永遠靜默的死區**。與 L37 同型「平時看不到反模式」家族 — verify 失敗本是高頻事件，但被降級為 debug 後等於沒發生。與 L29 dict-key drift 同型 cross-side mismatch，但 L41 是「兩 hex string 跨環境同步」非「dict key 同 codebase 漂移」。|
+| **Fix** | (a) 全 4 種 JWT exception 分別 `logger.warning` + 區分子型訊息 (b) `verify` 失敗 log 含 expected_issuer / hex_length（不漏 secret 本體）(c) `ck-sso-py/install.sh` v1.0 內建 4 acceptance check 強制 (Check 1 grep `.env`、Check 2 grep `logger.warning`、Check 3 bridge endpoint health、Check 4 owner 真 E2E) (d) Check 1+2 自動，3+4 必手動 — 自動 fail 拒絕 install，提示 owner 不可省 Check 4 |
+| **Prevention** | (a) 任何「跨環境 secret 同步」流程加 hex 比對 self-test（不洩漏內容但比較 hash 前 8 chars） (b) 任何「驗證型」endpoint 預設 `logger.warning` 失敗、單元測試 cover 4+ 種失敗子型 (c) 跨 repo 共用模組必走 `install.sh` 含「真接通」自動 check + owner manual gate (d) 「採用」定義升級：程式進 repo + import 不報錯 + owner E2E pass = 真採用 |
+| **Refs** | `D:/CKProject/CK_Missive/shared-modules/ck-sso-py/install.sh` v1.0 (4 acceptance check) / `D:/CKProject/CK_Website/docs/SSO-IMPLEMENTATION-STATUS.md` v1.2 / 真採用範本 `CK_lvrland_Webmap/backend/app/core/ck_sso.py` + `CK_PileMgmt/backend/app/core/ck_sso.py` / 獨立 lesson 檔 `wiki/memory/lessons/L41_jwt_secret_drift_silent_fail.md` / 同類 L37 silent-debug + L29 contract drift + L21 silent-fail 累積元教訓 |
+
 ---
 
 ## 維護準則

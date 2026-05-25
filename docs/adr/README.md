@@ -49,6 +49,10 @@ python scripts/checks/adr_lifecycle_check.py
 | [0029](0029-adr-lifecycle-policy.md) | ADR Lifecycle Policy | accepted | 2026-04-22 |
 | [0030](0030-hermes-go-no-go-revision.md) | Hermes GO/NO-GO 決策重訂 | accepted | 2026-04-22 |
 | [0031](0031-frontend-page-consolidation.md) | Frontend Page Consolidation v6.0 | accepted | 2026-04-22 |
+| [0032](0032-tender-multi-source-identifier-unification.md) | 標案多源識別統一 | accepted | 2026-04-24 |
+| [0033](0033-disable-password-authentication.md) | 關閉帳密登入 | accepted | 2026-04-24 |
+| [0034](0034-dynamic-role-permissions.md) | 動態角色權限 | accepted | 2026-05-07 |
+| [0035](0035-gitnexus-bridge-agent-tool.md) | GitNexus Bridge — Agent Code Intelligence | proposed | 2026-05-16 |
 
 ---
 

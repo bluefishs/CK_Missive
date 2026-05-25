@@ -7230,6 +7230,89 @@
       ],
       "unique_constraints": {}
     },
+    "role_permissions": {
+      "columns": [
+        {
+          "name": "role",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "permissions",
+          "type": "JSONB",
+          "nullable": false,
+          "default": "'[]'::jsonb",
+          "udt_name": "jsonb"
+        },
+        {
+          "name": "can_login",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "default": "true",
+          "udt_name": "bool"
+        },
+        {
+          "name": "name_zh",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "description_zh",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        }
+      ],
+      "primary_key": [
+        "role"
+      ],
+      "foreign_keys": [
+        {
+          "column": "updated_by",
+          "ref_table": "users",
+          "ref_column": "id"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "role_permissions_pkey",
+          "definition": "CREATE UNIQUE INDEX role_permissions_pkey ON public.role_permissions USING btree (role)"
+        },
+        {
+          "name": "ix_role_permissions_permissions_gin",
+          "definition": "CREATE INDEX ix_role_permissions_permissions_gin ON public.role_permissions USING gin (permissions)"
+        }
+      ],
+      "unique_constraints": {}
+    },
     "security_issues": {
       "columns": [
         {

@@ -66,6 +66,7 @@ erDiagram
     users ||--o{ project_user_assignments : "user_id"
     contract_projects ||--o{ project_vendor_association : "project_id"
     partner_vendors ||--o{ project_vendor_association : "vendor_id"
+    users ||--o{ role_permissions : "updated_by"
     site_navigation_items ||--o{ site_navigation_items : "parent_id"
     users ||--o{ staff_certifications : "user_id"
     users ||--o{ system_notifications : "recipient_id"
@@ -900,6 +901,16 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
+    role_permissions {
+        varchar role "PK"
+        jsonb permissions "NOT NULL"
+        bool can_login "NOT NULL"
+        varchar name_zh
+        text description_zh
+        timestamp created_at "NOT NULL"
+        timestamp updated_at "NOT NULL"
+        int updated_by "FK"
+    }
     security_issues {
         int id "PK"
         varchar project_name "NOT NULL"
@@ -1294,7 +1305,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 73 |
-| 總欄位數 | 1043 |
-| 外鍵關聯 | 97 |
+| 總表數 | 74 |
+| 總欄位數 | 1051 |
+| 外鍵關聯 | 98 |
 | 自訂列舉型別 | 0 |

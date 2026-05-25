@@ -4,6 +4,7 @@ version: 2.0.0
 description: CK_Missive 後端全功能橋接 — 公文、承攬案件、知識圖譜、RAG 語意搜尋、統計、行事曆。透過 Missive public API 取得領域資料，Hermes 為唯一前端入口。
 author: CK_Missive Team
 license: MIT
+toolsets: [missive]
 metadata:
   hermes:
     tags: [CK, Missive, Documents, Projects, KnowledgeGraph, RAG, ERP]

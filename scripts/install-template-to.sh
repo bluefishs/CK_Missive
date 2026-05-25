@@ -9,7 +9,7 @@
 #
 # 範例:
 #     bash scripts/install-template-to.sh ../CK_lvrland_Webmap
-#     bash scripts/install-template-to.sh ../hermes-agent --dry-run
+#     bash scripts/install-template-to.sh ../CK_Hermes --dry-run
 #     bash scripts/install-template-to.sh ../CK_PileMgmt --include=fitness,guards
 #
 # 預設安裝全部 4 類資產。
@@ -27,7 +27,7 @@ set -euo pipefail
 # === 參數解析 ===
 TARGET=""
 DRY_RUN=0
-INCLUDE="fitness,guards,adr,obs,playbook"
+INCLUDE="fitness,guards,adr,obs,playbook,standards,pipeline,capability"
 
 for arg in "$@"; do
     case $arg in
@@ -146,12 +146,36 @@ fi
 # === 5. Architecture Playbooks ===
 if [[ "$INCLUDE" == *"playbook"* ]]; then
     echo ""
-    echo "[5/5] Architecture Playbooks"
+    echo "[5/8] Architecture Playbooks"
     copy_file "$SOURCE/docs/architecture/STANDARD_REFERENCE.md"             "$TARGET/docs/architecture/STANDARD_REFERENCE.md"
     copy_file "$SOURCE/docs/architecture/TEMPLATE_EXTRACTION.md"            "$TARGET/docs/architecture/TEMPLATE_EXTRACTION.md"
     copy_file "$SOURCE/docs/architecture/WAVE_1_SERVICES_MIGRATION_PLAYBOOK.md" "$TARGET/docs/architecture/WAVE_1_SERVICES_MIGRATION_PLAYBOOK.md"
     copy_file "$SOURCE/docs/architecture/WAVE_1_RETROSPECTIVE.md"           "$TARGET/docs/architecture/WAVE_1_RETROSPECTIVE.md"
     copy_file "$SOURCE/backend/app/core/timeouts.py"                        "$TARGET/backend/app/core/timeouts.py"
+fi
+
+# === 6. Standards (v6.10 新增 — 落地門檻 + 持續監控) ===
+if [[ "$INCLUDE" == *"standards"* ]]; then
+    echo ""
+    echo "[6/8] Standards"
+    copy_file "$SOURCE/docs/architecture/MODULARIZATION_STANDARDS_v1.md"  "$TARGET/docs/architecture/MODULARIZATION_STANDARDS_v1.md"
+    copy_file "$SOURCE/docs/architecture/CAPABILITY_GOVERNANCE.md"        "$TARGET/docs/architecture/CAPABILITY_GOVERNANCE.md"
+    copy_file "$SOURCE/.claude/rules/adr-anti-half-wired-sop.md"          "$TARGET/.claude/rules/adr-anti-half-wired-sop.md"
+fi
+
+# === 7. Pipeline (v6.10 新增 — 每日自動巡檢流水線) ===
+if [[ "$INCLUDE" == *"pipeline"* ]]; then
+    echo ""
+    echo "[7/8] Optimization Pipeline"
+    copy_file "$SOURCE/docs/architecture/OPTIMIZATION_PIPELINE.md"                       "$TARGET/docs/architecture/OPTIMIZATION_PIPELINE.md"
+    copy_file "$SOURCE/backend/app/services/optimization_pipeline_orchestrator.py"      "$TARGET/backend/app/services/optimization_pipeline_orchestrator.py"
+fi
+
+# === 8. Capability Governance Tools (v6.10 新增 — dead capability 自動偵測) ===
+if [[ "$INCLUDE" == *"capability"* ]]; then
+    echo ""
+    echo "[8/8] Capability Governance Tools"
+    copy_file "$SOURCE/scripts/checks/capability_usage_audit.py"  "$TARGET/scripts/checks/capability_usage_audit.py"
 fi
 
 # === 結尾提醒 ===
