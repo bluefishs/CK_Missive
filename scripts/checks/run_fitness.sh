@@ -587,11 +587,24 @@ echo ""
 # 偵測 CROSS_REPO_SHARED_KEYS（CK_SSO_JWT_SECRET / CK_SSO_ENABLED）跨 repo drift
 # 安全：只比對 sha256 hash 前 8 字元，不印實值
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[41/41] cross-repo secret SSOT audit (L41)${NC}"
+echo -e "${CYAN}[41/42] cross-repo secret SSOT audit (L41)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_secret_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_secret_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 42: cross-repo SSO auth state audit (L44 配套, 2026-05-25)
+# 觸發：L44 ck-sso-js v1.0 session-permanent lock 跨 subdomain 失敗
+# 偵測 ck-sso-js sso-bridge.ts md5 跨 repo drift + LoginPage onSuccess anti-pattern
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[42/42] cross-repo SSO auth state audit (L44)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_auth_state_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_auth_state_audit.py || true
 fi
 echo ""
 
