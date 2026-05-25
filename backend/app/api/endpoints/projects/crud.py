@@ -41,6 +41,7 @@ from app.core.exceptions import (
     ConflictException,
     ForbiddenException,
 )
+from app.core.rls_filter import RLSFilter
 from app.extended.models import User
 
 router = APIRouter()
@@ -174,7 +175,7 @@ async def get_project_detail(
         raise NotFoundException(resource="承攬案件", resource_id=project_id)
 
     # 檢查非管理員是否有權限查看此專案
-    if not current_user.is_admin and not current_user.is_superuser:
+    if not RLSFilter.is_user_admin(current_user):
         # 檢查使用者是否與此專案有關聯
         has_access = await project_service.check_user_project_access(
             current_user.id, project_id
@@ -204,7 +205,7 @@ async def update_project(
     注意：一般使用者只能更新自己關聯的專案
     """
     # 檢查非管理員是否有權限編輯此專案
-    if not current_user.is_admin and not current_user.is_superuser:
+    if not RLSFilter.is_user_admin(current_user):
         has_access = await project_service.check_user_project_access(
             current_user.id, project_id
         )

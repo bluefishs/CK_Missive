@@ -432,11 +432,12 @@ async def run_post_synthesis(
 
     # 2026-04-19 Memory Wiki Phase 1: 非阻塞 Diary append（自我觀層 L3 入口）
     # 每次成功 query 結束 → 寫一筆到 wiki/memory/diary/{today}.md
+    # v6.10 P1: 走 MemoryFacade 而非直 import memory.diary_service (step 32)
     try:
-        from app.services.memory.diary_service import get_diary_service
+        from app.services.contracts.facades.memory import MemoryFacade
         latency_ms_int = int((time.time() - ctx.t0) * 1000)
         asyncio.create_task(
-            get_diary_service().append_entry(
+            MemoryFacade().append_diary_entry(
                 question=ctx.question,
                 answer=ctx.answer_text,
                 tools_used=list(set(ctx.tools_used)) if ctx.tools_used else [],

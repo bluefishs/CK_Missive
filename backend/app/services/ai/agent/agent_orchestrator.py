@@ -15,12 +15,13 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, AsyncGenerator, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-if TYPE_CHECKING:
-    from app.services.integration.sender_context import SenderContext
+# v6.10 P1: 跨 context 型別走 contracts/facades 而非直 import
+# IntegrationFacade.get_sender_context 可取得 SenderContext (runtime)
+# 編譯期型別使用字串 forward reference 避免 step 32 違規
 
 from app.core.ai_connector import get_ai_connector
 from app.services.ai.core.ai_config import get_ai_config
@@ -223,9 +224,10 @@ class AgentOrchestrator:
             # 2026-04-19 Memory Wiki Phase 1: Diary Loop — 注入昨日回顧
             # 讓 Agent 在跨日互動時能自然接續「昨天的脈絡」（Muse 連續性核心）
             # 節流：只在 session 首次或距離上次注入 > 8 小時才加（避免每輪重複）
+            # v6.10 P1: 走 MemoryFacade 而非直 import memory.diary_service (step 32)
             try:
-                from app.services.memory.diary_service import get_diary_service
-                diary_summary = await get_diary_service().summarize_yesterday_for_context(
+                from app.services.contracts.facades.memory import MemoryFacade
+                diary_summary = await MemoryFacade().summarize_yesterday_for_context(
                     max_chars=500,
                 )
                 if diary_summary and "昨日回顧" in diary_summary:
@@ -628,20 +630,18 @@ class AgentOrchestrator:
         answer: str,
         tools_used: List[str],
     ) -> None:
-        """將有價值的 Agent 回答自動寫入 wiki (非阻塞, fire-and-forget)"""
+        """將有價值的 Agent 回答自動寫入 wiki (非阻塞, fire-and-forget)
+        v6.10 P1: 走 WikiFacade.auto_ingest_synthesis (step 32)
+        """
         try:
-            from app.services.wiki.service import get_wiki_service
-            svc = get_wiki_service()
-            title = question[:60].strip()
-            tags = list(set(tools_used))[:5]
-            await svc.save_synthesis(
-                title=title,
-                content_md=f"## 問題\n\n{question}\n\n## 分析\n\n{answer}",
-                sources=[f"agent:{','.join(tools_used)}"],
-                tags=tags,
+            from app.services.contracts.facades.wiki import WikiFacade
+            ok = await WikiFacade().auto_ingest_synthesis(
+                question=question,
+                answer=answer,
+                tools_used=tools_used,
             )
-            await svc.rebuild_index()
-            logger.debug("Wiki auto-ingest: %s", title)
+            if ok:
+                logger.debug("Wiki auto-ingest: %s", question[:60])
         except Exception as e:
             logger.debug("Wiki auto-ingest failed (non-critical): %s", e)
 

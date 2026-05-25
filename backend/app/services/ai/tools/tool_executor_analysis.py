@@ -55,7 +55,8 @@ class AnalysisToolExecutor:
         """載入 er-model.json 到類別層級快取"""
         import json as json_mod
         from pathlib import Path
-        er_path = Path(__file__).resolve().parents[5] / "docs" / "er-model.json"
+        from app.core.paths import DOCS_DIR  # v6.10 P1-E SSOT
+        er_path = DOCS_DIR / "er-model.json"
         if er_path.exists():
             try:
                 cls._er_model_cache = json_mod.loads(er_path.read_text(encoding="utf-8"))
@@ -468,7 +469,7 @@ class AnalysisToolExecutor:
         if not query:
             return {"error": "缺少 query 參數", "count": 0}
 
-        docs_dir = Path(__file__).resolve().parents[5] / "docs"
+        from app.core.paths import DOCS_DIR as docs_dir  # v6.10 P1-E SSOT
         search_dirs = ["knowledge-map", "adr", "diagrams", "reports", "specifications"]
         query_lower = query.lower()
         results: List[Dict[str, Any]] = []

@@ -15,8 +15,8 @@ from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
-# PROJECT_ROOT: backend/app/services/ai/misc/ → parents[5] = CK_Missive/
-PROJECT_ROOT = Path(__file__).resolve().parents[5]
+# v6.10 P1-E SSOT — parents[5] 在 ai/misc/ 子包正確（檢驗過）
+from app.core.paths import PROJECT_ROOT  # noqa: E402
 
 # 排除的檔案名稱（非 skill 內容）
 _EXCLUDED_FILES = {"README.md", "SKILLS_INVENTORY.md", "SKILL-TEMPLATE.md"}

@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from app.api.endpoints import (
     document_numbers, document_numbers_crud, auth, agencies, vendors,
     document_calendar, users, user_management, user_permissions, role_permissions,
-    user_alias_admin,
+    user_alias_admin, role_permissions_admin,
     admin, site_management, telegram_webhook,
     system_monitoring, public, csv_import, reminders, files,
     secure_site_management,
@@ -52,6 +52,8 @@ api_router.include_router(user_management.router, prefix="/admin/user-management
 api_router.include_router(user_alias_admin.router, prefix="/admin/users", tags=["分身合併"])
 api_router.include_router(user_permissions.router, prefix="/admin/user-management", tags=["權限管理"])
 api_router.include_router(role_permissions.router, prefix="/admin/user-management", tags=["角色權限"])
+# ADR-0034 動態 role permissions 管理（與 site_navigation_items 動態對應）
+api_router.include_router(role_permissions_admin.router, prefix="/admin/role-permissions", tags=["動態角色權限"])
 api_router.include_router(admin.router, prefix="/admin", tags=["管理後台"])
 api_router.include_router(site_management.router, prefix="/site-management", tags=["網站管理"])
 api_router.include_router(secure_site_management.router, prefix="/secure-site-management", tags=["安全網站管理"])

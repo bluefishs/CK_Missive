@@ -152,6 +152,38 @@ class AgentRouter:
                 plan={"tool_calls": [{"name": "get_system_health", "params": {}}]},
             )
 
+        # ── Layer 1.6: Cross-Graph 跨域查詢 fast-path ──
+        # 2026-05-16 retro 改善 1：search_across_graphs 7d 0% 使用率 — KG 跨域查詢
+        # 完全 dead capability。加觸發規則：query 同時含「2+ 領域關鍵字」或顯式跨域語意。
+        _DOMAIN_SIGNALS = {
+            "dispatch": ("派工", "派工單", "工單", "測量", "測釘"),
+            "doc": ("公文", "函", "發文", "收文", "文號"),
+            "project": ("專案", "工程", "案件", "標案"),
+            "vendor": ("廠商", "委託", "協力", "承攬"),
+            "finance": ("費用", "報銷", "請款", "發票", "預算", "帳本"),
+            "agency": ("機關", "政府", "市政府", "鄉公所", "縣政府", "工務局"),
+            "tender": ("投標", "決標", "底價", "得標", "公告"),
+        }
+        _CROSS_LINK_KW = ("相關", "關聯", "跨", "之間", "與", "以及", "同時", "牽涉")
+        domain_hits = [d for d, kws in _DOMAIN_SIGNALS.items() if any(k in question for k in kws)]
+        has_link = any(kw in question for kw in _CROSS_LINK_KW)
+        if len(domain_hits) >= 2 or (len(domain_hits) >= 1 and has_link):
+            # 帶 2+ domain 或「1+ domain + 連結詞」→ 觸發跨域 KG 查詢
+            return RouteDecision(
+                route_type="pattern",
+                confidence=0.9,
+                latency_ms=(time.time() - t0) * 1000,
+                source=f"cross_graph_rule:{','.join(domain_hits)}",
+                plan={"tool_calls": [
+                    {"name": "search_across_graphs", "params": {
+                        "query": question[:80],
+                        "domains": domain_hits[:3],  # 限 top 3
+                        "limit": 10,
+                    }},
+                ]},
+                suggested_context="agent",
+            )
+
         # ── Layer 2: Pattern Match ──
         try:
             from app.services.ai.agent.agent_pattern_learner import get_pattern_learner

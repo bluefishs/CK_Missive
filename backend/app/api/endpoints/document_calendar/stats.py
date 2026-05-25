@@ -27,15 +27,29 @@ async def get_calendar_stats(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
-    """獲取行事曆統計資料"""
+    """獲取行事曆統計資料
+
+    R4-1 (v6.9 / 2026-05-12)：alias_rls_coverage_audit step 21 揭發此處
+    user_filter 用 `created_by == current_user.id` 沒展開 alias group →
+    多帳號用戶看不到自己其他帳號建立的 event 統計（ADR-0025 半接通）。
+    修法：對齊 events.py 既有 pattern — RLSFilter.is_user_admin bypass +
+    expand_user_alias + .in_(alias_ids)。
+    """
     try:
         now = datetime.now()
 
-        # 使用者權限過濾
-        user_filter = or_(
-            DocumentCalendarEvent.assigned_user_id == current_user.id,
-            DocumentCalendarEvent.created_by == current_user.id
-        )
+        # 使用者權限過濾（ADR-0025 alias group 展開）
+        from app.core.rls_filter import RLSFilter
+        from app.services.user.alias import expand_user_alias
+
+        if RLSFilter.is_user_admin(current_user):
+            user_filter = True  # admin 可見所有
+        else:
+            alias_ids = await expand_user_alias(db, current_user.id)
+            user_filter = or_(
+                DocumentCalendarEvent.assigned_user_id.in_(alias_ids),
+                DocumentCalendarEvent.created_by.in_(alias_ids),
+            )
 
         # 總事件數
         total_query = select(func.count(DocumentCalendarEvent.id)).where(user_filter)

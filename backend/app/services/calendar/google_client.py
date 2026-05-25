@@ -38,8 +38,9 @@ class GoogleCalendarClient:
 
             # 處理相對路徑：相對於 backend 目錄
             if not os.path.isabs(credentials_path):
-                # 取得 backend 目錄 (此檔案在 backend/app/services/)
-                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                # 此檔案位於 backend/app/services/calendar/google_client.py，需 4 層 dirname 到 backend/
+                # （Wave 5 從 backend/app/services/document_calendar_service.py 遷移後路徑加深一層）
+                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
                 credentials_path = os.path.join(backend_dir, credentials_path.lstrip('./'))
                 logger.info(f"Google Calendar: 解析後憑證路徑: {credentials_path}")
 

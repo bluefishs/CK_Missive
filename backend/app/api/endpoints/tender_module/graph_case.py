@@ -1,37 +1,19 @@
 """
 標案圖譜 + 建案 API — graph / create-case
 """
-from typing import Optional
-from pydantic import BaseModel, Field
-
 import logging
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.services.tender.search import TenderSearchService
 from app.schemas.common import SuccessResponse
+from app.schemas.tender_admin import (
+    TenderCreateCaseRequest,
+    TenderGraphRequest,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-# ============================================================================
-# Schemas
-# ============================================================================
-
-class TenderGraphRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=100)
-    max_tenders: int = Field(20, ge=1, le=50)
-
-
-class TenderCreateCaseRequest(BaseModel):
-    """從標案建立 PM Case"""
-    unit_id: str = Field(..., description="機關代碼")
-    job_number: str = Field(..., description="標案案號")
-    title: str = Field(..., description="標案名稱")
-    unit_name: str = Field("", description="招標機關名稱")
-    budget: Optional[str] = Field(None, description="預算金額")
-    category: Optional[str] = Field(None, description="分類")
 
 
 # ============================================================================

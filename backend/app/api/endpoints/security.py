@@ -13,54 +13,21 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 from sqlalchemy import func, select, case, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
 from app.extended.models.security import SecurityIssue, SecurityScan
+from app.schemas.security_admin import (
+    IssueCreate,
+    IssueUpdate,
+    ListQuery,
+    ScanCreate,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/security", tags=["資安管理"])
-
-
-# ── Schemas ──
-
-class IssueCreate(BaseModel):
-    project_name: str = "CK_Missive"
-    title: str
-    description: Optional[str] = None
-    severity: str = "medium"
-    owasp_category: Optional[str] = None
-    cwe_id: Optional[str] = None
-    cvss_score: Optional[float] = None
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
-    remediation: Optional[str] = None
-    assigned_to: Optional[str] = None
-
-
-class IssueUpdate(BaseModel):
-    status: Optional[str] = None
-    severity: Optional[str] = None
-    assigned_to: Optional[str] = None
-    remediation: Optional[str] = None
-    resolved_by: Optional[str] = None
-
-
-class ScanCreate(BaseModel):
-    project_name: str = "CK_Missive"
-    scan_type: str = "quick"
-    project_path: Optional[str] = None
-
-
-class ListQuery(BaseModel):
-    project_name: Optional[str] = None
-    status: Optional[str] = None
-    severity: Optional[str] = None
-    page: int = 1
-    limit: int = 20
 
 
 # ── OWASP 儀表板 ──

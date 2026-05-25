@@ -65,8 +65,8 @@ async def delete_document(
         if not document:
             raise NotFoundException(resource="公文", resource_id=document_id)
 
-        # 🔒 行級別權限檢查 (RLS) - 使用統一 RLSFilter
-        if not current_user.is_admin and not current_user.is_superuser:
+        # 🔒 行級別權限檢查 (RLS) - 使用統一 RLSFilter (含 role fallback)
+        if not RLSFilter.is_user_admin(current_user):
             if document.contract_project_id:
                 has_access = await RLSFilter.check_user_project_access(
                     db, current_user.id, document.contract_project_id

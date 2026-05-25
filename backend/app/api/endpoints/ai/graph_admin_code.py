@@ -191,7 +191,7 @@ async def import_json_graph(
     from pathlib import Path
     from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
 
-    project_root = Path(__file__).resolve().parents[5]
+    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     json_path = (project_root / request.file_path).resolve()
 
     # 路徑穿越防護：確保 resolved 路徑在專案根目錄內

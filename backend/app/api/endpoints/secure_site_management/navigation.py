@@ -25,6 +25,27 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _parse_permission_required(raw) -> list:
+    """把 DB 內 JSON 字串/None 解析為前端期望的 string[]。
+
+    P-57（5/07 修復 bug）：底層欄位是 TEXT，DB 存 JSON 字串如 `'[]'` 或 `'["documents:read"]'`。
+    若直接回傳字串，前端 `filterNavigationItems` 用 `length === 0` 判空會誤判（'[]' 的 length=2），
+    導致所有需權限項目都被當作「有權限」誤透出。
+    """
+    import json
+    if raw is None or raw == "":
+        return []
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, list) else []
+        except (ValueError, TypeError):
+            return []
+    return []
+
+
 def _item_to_dict(item: SiteNavigationItem) -> dict:
     """將導覽項目 ORM 物件轉換為字典"""
     return {
@@ -40,7 +61,7 @@ def _item_to_dict(item: SiteNavigationItem) -> dict:
         "level": item.level,
         "description": item.description,
         "target": item.target,
-        "permission_required": item.permission_required,
+        "permission_required": _parse_permission_required(item.permission_required),
         "created_at": item.created_at.isoformat(),
         "updated_at": item.updated_at.isoformat(),
     }

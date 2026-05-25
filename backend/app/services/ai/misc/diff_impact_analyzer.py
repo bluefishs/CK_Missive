@@ -27,7 +27,8 @@ class DiffImpactAnalyzer:
     async def analyze_diff(self, base_ref: str = "HEAD~1") -> dict:
         """分析 git diff 受影響的元件"""
         # 1. Get changed files from git
-        project_root = str(Path(__file__).resolve().parents[5])
+        from app.core.paths import PROJECT_ROOT  # v6.10 P1-E SSOT
+        project_root = str(PROJECT_ROOT)
         try:
             result = subprocess.run(
                 ["git", "diff", "--name-only", base_ref, "HEAD"],

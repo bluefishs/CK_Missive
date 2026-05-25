@@ -36,7 +36,7 @@ async def sync_event_to_google(
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到指定的事件")
 
-    await check_event_permission(event, current_user, "同步")
+    await check_event_permission(event, current_user, "同步", db=db)
 
     if not calendar_service.is_ready():
         return {

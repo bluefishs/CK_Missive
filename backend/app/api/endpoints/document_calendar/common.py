@@ -6,11 +6,14 @@
 @version 1.0.0
 @date 2026-01-22
 """
+import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func, and_
+
+logger = logging.getLogger(__name__)
 
 from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
@@ -117,13 +120,30 @@ def event_to_dict(
 async def check_event_permission(
     event: DocumentCalendarEvent,
     current_user: User,
-    action: str = "access"
+    action: str = "access",
+    db: AsyncSession = None,
 ) -> None:
-    """檢查使用者對事件的權限"""
-    if current_user.is_admin:
+    """檢查使用者對事件的權限。
+
+    v2 (2026-05-06, ADR-0025 配套)：
+        - 用 RLSFilter.is_user_admin（含 role fallback）取代裸 is_admin
+        - created_by / assigned_user_id 展開到 alias group（同人多帳號相互可見）
+    """
+    from app.core.rls_filter import RLSFilter
+
+    if RLSFilter.is_user_admin(current_user):
         return
 
-    if event.created_by != current_user.id and event.assigned_user_id != current_user.id:
+    # alias group 展開：李昭德 hotmail/gmail 創建的事件，gmail 登入也能看
+    user_ids = {current_user.id}
+    if db is not None:
+        try:
+            from app.services.user.alias import expand_user_alias
+            user_ids = await expand_user_alias(db, current_user.id)
+        except Exception as e:
+            logger.warning("alias expand failed in check_event_permission: %s", e)
+
+    if event.created_by not in user_ids and event.assigned_user_id not in user_ids:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"您沒有權限{action}此事件"
@@ -131,15 +151,23 @@ async def check_event_permission(
 
 
 async def get_user_project_doc_ids(db: AsyncSession, user_id: int) -> List[int]:
-    """取得使用者參與專案的公文 ID 列表（ORM 安全查詢）"""
-    from app.extended.models import project_user_assignment
+    """取得使用者（含 alias group）參與專案的公文 ID 列表（ORM 安全查詢）。
 
-    # Step 1: 取得使用者參與的專案 ID
+    v2 (2026-05-06, ADR-0025 配套)：
+        user_id 展開到 alias group — 未合併或已合併的同人多帳號相互可見。
+    """
+    from app.extended.models import project_user_assignment
+    from app.core.rls_filter import RLSFilter
+
+    # alias group 展開（與 RLSFilter.get_user_accessible_project_ids 同邏輯）
+    alias_ids_subq = RLSFilter.get_alias_group_subquery(user_id)
+
+    # Step 1: 取得 alias group 任一帳號參與的專案 ID
     project_ids_result = await db.execute(
         select(project_user_assignment.c.project_id)
         .where(
             and_(
-                project_user_assignment.c.user_id == user_id,
+                project_user_assignment.c.user_id.in_(alias_ids_subq),
                 func.coalesce(project_user_assignment.c.status, 'active') == 'active'
             )
         )

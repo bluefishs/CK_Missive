@@ -53,14 +53,20 @@ async def list_calendar_events(
             end_dt = datetime.fromisoformat(request.end_date)
 
         # 構建權限過濾條件
-        if current_user.is_admin:
+        # ADR-0025 配套：admin 判定用 RLSFilter（含 role fallback）+
+        # assigned/created_by 展開到 alias group（同人多帳號相互可見）
+        from app.core.rls_filter import RLSFilter
+        from app.services.user.alias import expand_user_alias
+
+        if RLSFilter.is_user_admin(current_user):
             permission_filter = True
         else:
+            alias_ids = await expand_user_alias(db, current_user.id)
             project_doc_ids = await get_user_project_doc_ids(db, current_user.id)
 
             permission_filter = or_(
-                DocumentCalendarEvent.assigned_user_id == current_user.id,
-                DocumentCalendarEvent.created_by == current_user.id
+                DocumentCalendarEvent.assigned_user_id.in_(alias_ids),
+                DocumentCalendarEvent.created_by.in_(alias_ids)
             )
 
             if project_doc_ids:
@@ -185,7 +191,7 @@ async def get_calendar_event(
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到指定的事件")
 
-    await check_event_permission(event, current_user, "查看")
+    await check_event_permission(event, current_user, "查看", db=db)
 
     # 取得關聯公文資訊
     doc_number = None
@@ -218,7 +224,7 @@ async def update_calendar_event(
         # 記錄原始事件資料
         logger.info(f"[events/update] 原始 start_date: {event_to_update.start_date}")
 
-        await check_event_permission(event_to_update, current_user, "修改")
+        await check_event_permission(event_to_update, current_user, "修改", db=db)
 
         updated_event = await calendar_service.update_event(db, event_id=event_id, event_update=event_update)
         if not updated_event:
@@ -265,9 +271,14 @@ async def delete_calendar_event(
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到指定的事件")
 
-    # 權限檢查：只有建立者或管理員可以刪除
-    if event.created_by != current_user.id and not current_user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="您沒有權限刪除此事件")
+    # 權限檢查：建立者（含 alias group）或管理員可刪除
+    # ADR-0025 配套：用 RLSFilter.is_user_admin（含 role fallback）+ alias group 展開
+    from app.core.rls_filter import RLSFilter
+    from app.services.user.alias import expand_user_alias
+    if not RLSFilter.is_user_admin(current_user):
+        alias_ids = await expand_user_alias(db, current_user.id)
+        if event.created_by not in alias_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="您沒有權限刪除此事件")
 
     if not request.confirm:
         return {

@@ -1006,7 +1006,7 @@ class ProjectRepository(BaseRepository[ContractProject]):
         sort_order: str = 'desc'
     ) -> Tuple[List[ContractProject], int]:
         """
-        進階篩選專案
+        進階篩選專案（v2.0 改用 ProjectQueryBuilder，邏輯集中、可測、可重用）
 
         Args:
             year: 年度
@@ -1022,69 +1022,39 @@ class ProjectRepository(BaseRepository[ContractProject]):
 
         Returns:
             (專案列表, 總數) 元組
+
+        v2.0 (2026-05-06, P1-3):
+            原 90 行內聯 SQL 改用 ProjectQueryBuilder Fluent API。
+            邏輯集中於 query_builders/project_query_builder.py，後續可被
+            其他 repository 方法複用（如 get_filtered_list / get_list_projected）。
         """
-        query = select(ContractProject)
+        from app.repositories.query_builders.project_query_builder import ProjectQueryBuilder
 
-        # N+1 優化：預載入公文與委託機關關聯，避免迴圈存取時逐筆查詢
-        query = query.options(
-            selectinload(ContractProject.documents),
-            selectinload(ContractProject.client_agency_ref),
-        )
+        builder = ProjectQueryBuilder(self.db).eager_load_documents_and_agency()
 
-        conditions = []
-
-        # 使用者權限過濾
-        if user_id:
-            query = query.join(
-                project_user_assignment,
-                ContractProject.id == project_user_assignment.c.project_id
-            ).where(project_user_assignment.c.user_id == user_id)
-
-        # 套用篩選條件
         if year:
-            conditions.append(ContractProject.year == year)
+            builder.with_year(year)
         if category:
-            conditions.append(ContractProject.category == category)
+            builder.with_category(category)
         if status:
-            conditions.append(ContractProject.status == status)
+            builder.with_status(status)
         if client_agency_id:
-            conditions.append(ContractProject.client_agency_id == client_agency_id)
-
-        # 搜尋條件
+            builder.with_client_agency_id(client_agency_id)
+        if user_id:
+            builder.with_user_access(user_id, is_admin=False)
         if search:
-            search_pattern = f"%{search}%"
-            search_conditions = [
-                getattr(ContractProject, field).ilike(search_pattern)
-                for field in self.SEARCH_FIELDS
-                if hasattr(ContractProject, field)
-            ]
-            if search_conditions:
-                conditions.append(or_(*search_conditions))
+            builder.with_search(search, fields=self.SEARCH_FIELDS)
 
-        if conditions:
-            query = query.where(and_(*conditions))
+        builder.distinct()
 
-        # 確保不重複（因為可能有 join）
-        query = query.distinct()
+        # 排序：sort_by 動態欄位，預設 created_at
+        builder.order_by(sort_by, descending=(sort_order.lower() != 'asc'))
 
-        # 計算總數
-        count_query = select(func.count()).select_from(query.subquery())
-        total = (await self.db.execute(count_query)).scalar() or 0
+        # 分頁（builder.paginate 用 page/page_size，這裡用 skip/limit 直接設）
+        builder._offset = skip
+        builder._limit = limit
 
-        # 排序
-        sort_column = getattr(ContractProject, sort_by, ContractProject.created_at)
-        if sort_order.lower() == 'asc':
-            query = query.order_by(asc(sort_column))
-        else:
-            query = query.order_by(desc(sort_column))
-
-        # 分頁
-        query = query.offset(skip).limit(limit)
-
-        result = await self.db.execute(query)
-        projects = list(result.scalars().all())
-
-        return projects, total
+        return await builder.execute_with_count()
 
     # =========================================================================
     # 投影查詢方法 (Projection Query) - v1.1.0

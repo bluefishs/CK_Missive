@@ -100,6 +100,45 @@ class ProjectQueryBuilder:
         self._conditions.append(self.model.year.in_(years))
         return self
 
+    def with_category(self, category: str) -> 'ProjectQueryBuilder':
+        """篩選案件類別"""
+        self._conditions.append(self.model.category == category)
+        return self
+
+    def with_client_agency_id(self, client_agency_id: int) -> 'ProjectQueryBuilder':
+        """篩選委託機關 ID"""
+        self._conditions.append(self.model.client_agency_id == client_agency_id)
+        return self
+
+    def with_search(self, keyword: str, fields: Optional[List[str]] = None) -> 'ProjectQueryBuilder':
+        """跨多欄位 ILIKE 搜尋（預設 project_name / project_code / client_agency / notes）"""
+        if not keyword:
+            return self
+        search_fields = fields or ['project_name', 'project_code', 'client_agency', 'notes']
+        search_pattern = f"%{keyword}%"
+        clauses = [
+            getattr(self.model, f).ilike(search_pattern)
+            for f in search_fields
+            if hasattr(self.model, f)
+        ]
+        if clauses:
+            self._conditions.append(or_(*clauses))
+        return self
+
+    def eager_load_documents_and_agency(self) -> 'ProjectQueryBuilder':
+        """N+1 優化：預載入 documents + client_agency_ref（filter_projects 預設模式）"""
+        from sqlalchemy.orm import selectinload
+        self._query = self._query.options(
+            selectinload(self.model.documents),
+            selectinload(self.model.client_agency_ref),
+        )
+        return self
+
+    def distinct(self) -> 'ProjectQueryBuilder':
+        """避免 join 後出現重複（with_user_access 等場景使用）"""
+        self._query = self._query.distinct()
+        return self
+
     # =========================================================================
     # 日期篩選
     # =========================================================================

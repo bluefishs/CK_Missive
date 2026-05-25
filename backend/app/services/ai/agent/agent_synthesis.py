@@ -55,15 +55,27 @@ class AgentSynthesizer:
 
         synthesis_context = self.build_synthesis_context(tool_results)
 
-        # Graph-RAG: 注入 2-hop KG context (增強答案品質)
-        kg_context = await self._inject_kg_context(tool_results)
-        if kg_context:
-            synthesis_context = f"## 知識圖譜關聯\n{kg_context}\n\n{synthesis_context}"
+        # 2026-05-16 retro 改善 3：條件式 KG / Wiki context 注入。
+        # 救 p95=65s 退化（v6.8 baseline 58s）。
+        # 既有實作每 query 強制 2-hop KG traversal + wiki search → 短/簡單 query 是純浪費。
+        # 規則：滿足任一即 skip：
+        #   1. question 過短（< 6 字）— 多半閒聊或極簡 stat
+        #   2. context == "chitchat" — 閒聊不需要 KG
+        #   3. tool_results 全是純 stat tool（get_statistics / get_system_health）— 不需 KG
+        should_inject_graph_context = self._should_inject_graph_context(
+            question, context, tool_results,
+        )
 
-        # Wiki-RAG: 注入 LLM Wiki narrative (2026-04-19 KG+Wiki 雙源融合)
-        wiki_context = await self._inject_wiki_context(question)
-        if wiki_context:
-            synthesis_context = f"## Wiki 相關頁面\n{wiki_context}\n\n{synthesis_context}"
+        if should_inject_graph_context:
+            # Graph-RAG: 注入 2-hop KG context (增強答案品質)
+            kg_context = await self._inject_kg_context(tool_results)
+            if kg_context:
+                synthesis_context = f"## 知識圖譜關聯\n{kg_context}\n\n{synthesis_context}"
+
+            # Wiki-RAG: 注入 LLM Wiki narrative (2026-04-19 KG+Wiki 雙源融合)
+            wiki_context = await self._inject_wiki_context(question)
+            if wiki_context:
+                synthesis_context = f"## Wiki 相關頁面\n{wiki_context}\n\n{synthesis_context}"
 
         await AIPromptManager.ensure_db_prompts_loaded()
 
@@ -202,15 +214,20 @@ class AgentSynthesizer:
             yield "AI 回答生成超時，請參考上方查詢結果與來源文件。"
         except Exception as e:
             logger.warning("Synthesis chat_completion failed, trying stream: %s", e)
+            # P0-2 (v3.0 覆盤洞察 12): stream fallback 必須有 outer timeout，
+            # 否則 chat_completion 拋非 TimeoutError 的 exception（5xx / 連線斷）時，
+            # stream_completion 無時限拖到 sync_query 90s 邊界 → 用戶體感超慢。
+            # 用 asyncio.timeout context（Python 3.11+），所有 token yield 累計受 35s 約束。
             try:
-                async for token in self.ai.stream_completion(
-                    messages=messages,
-                    temperature=self.config.rag_temperature,
-                    max_tokens=self.config.rag_max_tokens,
-                ):
-                    yield token
+                async with asyncio.timeout(synthesis_timeout):
+                    async for token in self.ai.stream_completion(
+                        messages=messages,
+                        temperature=self.config.rag_temperature,
+                        max_tokens=self.config.rag_max_tokens,
+                    ):
+                        yield token
             except asyncio.TimeoutError:
-                logger.warning("Synthesis stream fallback also timed out")
+                logger.warning("Synthesis stream fallback also timed out after %ds", synthesis_timeout)
                 yield "AI 回答生成超時，請參考上方查詢結果與來源文件。"
 
     async def _quality_review(
@@ -356,6 +373,62 @@ class AgentSynthesizer:
                     pass
         except Exception as e:
             logger.debug("fact_check failed: %s", e)
+
+    # ────────── 條件式 KG/Wiki context 注入決策（2026-05-16 retro 改善 3）──────────
+
+    # 純統計類工具 — 答案只是數字，不需 KG/Wiki context
+    _STAT_ONLY_TOOLS = frozenset({
+        "get_statistics",
+        "get_system_health",
+        "get_dispatch_progress",
+        "get_financial_summary",
+        "get_contract_summary",
+        "get_overdue_milestones",
+        "get_unpaid_billings",
+        "check_budget_alert",
+    })
+
+    _MIN_QUESTION_LEN_FOR_INJECTION = 6
+
+    def _should_inject_graph_context(
+        self,
+        question: str,
+        context: Optional[str],
+        tool_results: List[Dict[str, Any]],
+    ) -> bool:
+        """決定是否注入 KG / Wiki context。
+
+        2026-05-16 retro 改善 3：每 query 強制 2-hop KG traversal + wiki search →
+        短/簡單 query 是純浪費（p95=65s 退化的元兇之一）。
+
+        Skip 條件（滿足任一即 False）：
+
+        1. ``question`` 過短（trim 後 < 6 字）— 多半閒聊或極簡 stat
+        2. ``context == "chitchat"`` — 閒聊不需要 KG context
+        3. ``tool_results`` 為空 — 沒實體可 traverse
+        4. ``tool_results`` 全是 ``_STAT_ONLY_TOOLS`` — 純統計類答案
+
+        否則 inject（保留既有行為）。
+        """
+        q = (question or "").strip()
+        if len(q) < self._MIN_QUESTION_LEN_FOR_INJECTION:
+            return False
+        if context == "chitchat":
+            return False
+        if not tool_results:
+            return False
+
+        def _tool_name(tr: Dict[str, Any]) -> str:
+            return str(tr.get("tool") or tr.get("name") or "")
+
+        used_tools = {_tool_name(tr) for tr in tool_results if isinstance(tr, dict)}
+        used_tools.discard("")
+        if used_tools and used_tools.issubset(self._STAT_ONLY_TOOLS):
+            return False
+
+        return True
+
+    # ─────────────────────────────────────────────────────────────────────
 
     async def _inject_kg_context(self, tool_results: List[Dict[str, Any]]) -> str:
         """

@@ -24,14 +24,20 @@ class BackupUtilsMixin:
     """備份工具 Mixin - Docker 偵測、路徑、環境設定、日誌"""
 
     def _init_utils(self) -> None:
-        """初始化工具層（由 BackupService.__init__ 呼叫）"""
+        """初始化工具層（由 BackupService.__init__ 呼叫）
+
+        v6.10 P1-E (2026-05-18) SSOT：改用 app.core.paths 集中常數
+        取代散落 Path(__file__).parents[N] 計算（規約 E）
+        """
         # 自動偵測執行環境並設定正確的路徑
         if Path("/app").exists() and Path("/app/main.py").exists():
             self.project_root: Path = Path("/app")
         elif Path("/app").exists() and Path("/app/backend").exists():
             self.project_root = Path("/app")
         else:
-            self.project_root = Path(__file__).resolve().parent.parent.parent.parent
+            # 用 SSOT 取代散戶 parents[N] 計算
+            from app.core.paths import PROJECT_ROOT
+            self.project_root = PROJECT_ROOT
 
         # 備份目錄
         self.backup_dir = self.project_root / "backups" / "database"

@@ -219,22 +219,24 @@ class AgentPlanner:
                 return None
 
         # 2026-04-19 Memory Wiki Phase 2: 失敗教訓注入
+        # v6.10 P1: 走 MemoryFacade 而非直 import memory.auto_defense (step 32)
         defense_block = ""
         try:
-            from app.services.memory.auto_defense import get_defensive_rules_block
-            result = await _bounded("defense", get_defensive_rules_block(max_items=5), _section_budgets["defense"])
+            from app.services.contracts.facades.memory import MemoryFacade
+            result = await _bounded("defense", MemoryFacade().get_defensive_rules_block(max_items=5), _section_budgets["defense"])
             if result:
                 defense_block = result
         except Exception as e:
             logger.debug("Auto defense injection skipped: %s", e)
 
         # v5.12 Phase C：反迴聲室質疑注入（鏈路 5 真活）
+        # v6.10 P1: 走 MemoryFacade 而非直 import memory.anti_echo (step 32)
         anti_echo_block = ""
         try:
-            from app.services.memory.anti_echo import get_recent_reflections_block
+            from app.services.contracts.facades.memory import MemoryFacade
             result = await _bounded(
                 "anti_echo",
-                get_recent_reflections_block(days=7, max_items=3),
+                MemoryFacade().get_recent_reflections_block(days=7, max_items=3),
                 _section_budgets.get("anti_echo", 0.3),
             )
             if result:

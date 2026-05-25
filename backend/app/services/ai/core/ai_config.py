@@ -15,8 +15,9 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Resolve config directory relative to backend/config/
-_CONFIG_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent / "config"
+# v6.10 P1-E SSOT — backend/config（注意不是 root /configs）
+from app.core.paths import BACKEND_DIR
+_CONFIG_DIR = BACKEND_DIR / "config"
 
 
 @dataclass

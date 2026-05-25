@@ -28,27 +28,112 @@ from app.extended.models.agent_trace import AgentQueryTrace
 logger = logging.getLogger(__name__)
 
 # ─── 工具 → 領域映射 ──────────────────────────────────────
+# v6.9 (2026-05-09) L29 修：擴 19 → 47 entries 補高頻業務 tool。
+# 原 19 entries 涵蓋率 < 25%（98 個 tool 中），導致 domain_scores Redis 全空，
+# domain-aware evolution trigger（5 連續低分）永不觸發。
 TOOL_DOMAIN_MAP: Dict[str, str] = {
+    # ─ doc 公文 ─
     "search_documents": "doc",
     "get_document_detail": "doc",
     "search_similar_documents": "doc",
     "search_correspondence": "doc",
+    "find_correspondence": "doc",
+    # ─ dispatch 派工 ─
     "search_dispatch_orders": "dispatch",
     "get_dispatch_detail": "dispatch",
+    "get_dispatch_progress": "dispatch",
+    "get_dispatch_timeline": "dispatch",
+    "detect_dispatch_anomaly": "dispatch",
+    # ─ graph 知識圖譜 ─
     "search_entities": "graph",
     "navigate_graph": "graph",
     "get_entity_graph": "graph",
+    "get_entity_detail": "graph",
+    "explore_entity_path": "graph",
+    "summarize_entity": "graph",
+    "find_similar": "graph",
+    # ─ analysis 分析 ─
     "get_statistics": "analysis",
     "get_system_health": "analysis",
     "generate_diagram": "analysis",
+    "draw_diagram": "analysis",
+    "analyze_diagram": "analysis",
+    "analyze_document_intent": "analysis",
+    # ─ pm 案件管理 ─
     "search_projects": "pm",
     "get_project_detail": "pm",
+    "get_project_progress": "pm",
     "get_milestones": "pm",
+    "get_overdue_milestones": "pm",
+    "detect_project_risk": "pm",
+    # ─ erp 財務 ─
     "search_vendors": "erp",
     "get_vendor_detail": "erp",
     "get_contracts": "erp",
+    "get_contract_summary": "erp",
     "get_billings": "erp",
+    "get_unpaid_billings": "erp",
+    "get_financial_summary": "erp",
+    "get_asset_detail": "erp",
+    "get_asset_stats": "erp",
+    "list_assets": "erp",
+    "get_expense_detail": "erp",
+    "get_expense_overview": "erp",
+    "list_pending_expenses": "erp",
+    "suggest_expense_category": "erp",
+    "check_budget_alert": "erp",
+    # ─ tender 標案 ─
+    "auto_tender_to_case": "tender",
+    # ─ wiki 知識庫 ─
+    "wiki_search": "wiki",
+    "wiki_read": "wiki",
+    "wiki_ingest": "wiki",
 }
+
+# Prefix-based fallback rules — 用於動態 skill_* / 未註冊 tool
+# L29 v6.9：補強 exact-match 之外的容錯，至少能歸類到大類。
+_DOMAIN_PREFIX_RULES = [
+    ("search_dispatch", "dispatch"),
+    ("get_dispatch", "dispatch"),
+    ("search_document", "doc"),
+    ("get_document", "doc"),
+    ("search_project", "pm"),
+    ("get_project", "pm"),
+    ("get_milestone", "pm"),
+    ("search_vendor", "erp"),
+    ("get_vendor", "erp"),
+    ("get_billing", "erp"),
+    ("get_invoice", "erp"),
+    ("get_expense", "erp"),
+    ("get_asset", "erp"),
+    ("list_asset", "erp"),
+    ("list_expense", "erp"),
+    ("get_entity", "graph"),
+    ("search_entit", "graph"),
+    ("navigate_graph", "graph"),
+    ("wiki_", "wiki"),
+    ("tender_", "tender"),
+]
+
+
+def resolve_tool_domain(tool_name: str) -> Optional[str]:
+    """Resolve a tool name to its domain — exact match first, prefix fallback.
+
+    L29 v6.9：取代直接 TOOL_DOMAIN_MAP.get() — 支援 prefix 規則涵蓋未註冊 tool。
+    skill_* 系列保持回傳 None（純 skill 工具不參與 domain-aware evolution）。
+    """
+    if not tool_name:
+        return None
+    # exact match
+    domain = TOOL_DOMAIN_MAP.get(tool_name)
+    if domain:
+        return domain
+    # prefix fallback
+    name_lower = tool_name.lower()
+    for prefix, dom in _DOMAIN_PREFIX_RULES:
+        if name_lower.startswith(prefix):
+            return dom
+    return None
 
 # 強弱項門檻
 # EVO-4: 從 agent-policy.yaml 讀取，fallback 預設值
@@ -78,7 +163,7 @@ def _infer_domains_from_tools(tools_used: Any) -> List[str]:
     domains = set()
     for tool_name in tools_used:
         if isinstance(tool_name, str):
-            domain = TOOL_DOMAIN_MAP.get(tool_name)
+            domain = resolve_tool_domain(tool_name)
             if domain:
                 domains.add(domain)
     return list(domains)

@@ -21,8 +21,8 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Wiki 根目錄
-WIKI_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "wiki"
+# Wiki 根目錄 — v6.10 P1-E SSOT
+from app.core.paths import WIKI_DIR as WIKI_ROOT
 
 
 def _slugify(text: str) -> str:

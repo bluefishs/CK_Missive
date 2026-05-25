@@ -170,9 +170,9 @@ async def check_document_access(
     current_user: User
 ) -> bool:
     """
-    檢查使用者是否有權限存取指定公文 - 使用統一 RLSFilter
+    檢查使用者是否有權限存取指定公文 - 使用統一 RLSFilter (含 role fallback)
     """
-    if current_user.is_admin or current_user.is_superuser:
+    if RLSFilter.is_user_admin(current_user):
         return True
 
     doc_result = await db.execute(

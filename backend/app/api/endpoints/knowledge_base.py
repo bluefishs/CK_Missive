@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Project root: backend/ is at depth 1 from project root
-DOCS_DIR = Path(__file__).resolve().parents[4] / "docs"
+# v6.10 P1-E SSOT
+from app.core.paths import DOCS_DIR
 ALLOWED_SUBDIRS = {"knowledge-map", "adr", "diagrams"}
 
 

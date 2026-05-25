@@ -127,6 +127,9 @@ from .erp import (
     ERPVendorPayable,
 )
 
+# 15.5 動態 Role Permissions（ADR-0034, 2026-05-06）
+from .role_permissions import RolePermissions  # noqa: F401
+
 # 16. 知識庫分段模組
 from .knowledge_base import (
     KBChunk,

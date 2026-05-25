@@ -7,6 +7,7 @@ NavigationRepository - 導覽列資料存取層
 建立日期: 2026-02-06
 """
 
+import json
 import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -18,6 +19,26 @@ from app.repositories.base_repository import BaseRepository
 from app.extended.models import SiteNavigationItem
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_permission_required(raw) -> list:
+    """把 DB JSON 字串解析為 list[str]（P-57 配套）。
+
+    SiteNavigationItem.permission_required 在 DB 是 TEXT (JSON 編碼)，
+    回傳前端時必須先 parse，避免 frontend filterNavigationItems 用
+    length === 0 判空時誤判（'[]'.length=2 ≠ 0）。
+    """
+    if raw is None or raw == "":
+        return []
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, list) else []
+        except (ValueError, TypeError):
+            return []
+    return []
 
 
 class NavigationRepository(BaseRepository[SiteNavigationItem]):
@@ -101,7 +122,7 @@ class NavigationRepository(BaseRepository[SiteNavigationItem]):
                 "level": level,
                 "description": child.description,
                 "target": child.target,
-                "permission_required": child.permission_required,
+                "permission_required": _parse_permission_required(child.permission_required),
                 "created_at": child.created_at.isoformat(),
                 "updated_at": child.updated_at.isoformat(),
                 "children": await self.get_children_recursive(child.id, level + 1),

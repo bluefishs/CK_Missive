@@ -1,9 +1,6 @@
 """
 標案搜尋 API — search / detail / detail-full / search-company / recommend / realtime
 """
-from typing import Optional, List
-from pydantic import BaseModel, Field
-
 import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -11,37 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.tender.search import TenderSearchService
 from app.schemas.common import SuccessResponse
+from app.schemas.tender_admin import (
+    TenderCompanySearchRequest,
+    TenderDetailRequest,
+    TenderRecommendRequest,
+    TenderSearchRequest,
+)
 from app.db.database import get_async_db as get_db
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-# ============================================================================
-# Schemas
-# ============================================================================
-
-class TenderSearchRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=100, description="搜尋關鍵字")
-    page: int = Field(1, ge=1, le=100)
-    category: Optional[str] = Field(None, description="分類: 工程/勞務/財物")
-    search_type: Optional[str] = Field("title", description="搜尋模式: title/org/company")
-
-
-class TenderDetailRequest(BaseModel):
-    unit_id: str = Field(..., description="機關代碼 或 ezbid_id")
-    job_number: Optional[str] = Field(None, description="標案案號（ezbid 時可為空）")
-
-
-class TenderCompanySearchRequest(BaseModel):
-    company_name: str = Field(..., min_length=1, max_length=100)
-    page: int = Field(1, ge=1, le=100)
-
-
-class TenderRecommendRequest(BaseModel):
-    keywords: Optional[List[str]] = Field(None, description="自訂關鍵字 (空=使用預設)")
-    page: int = Field(1, ge=1)
 
 
 # ============================================================================

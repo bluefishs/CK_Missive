@@ -1,15 +1,19 @@
 """
 標案訂閱 + 書籤 + 廠商關注 API
 """
-from typing import Optional
-from pydantic import BaseModel, Field
-
 import logging
 from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.common import SuccessResponse
+from app.schemas.tender_admin import (
+    BookmarkCreateRequest,
+    BookmarkUpdateRequest,
+    SubscriptionCreateRequest,
+    SubscriptionUpdateRequest,
+)
 from app.db.database import get_async_db as get_db
 from app.core.dependencies import require_auth
 from app.extended.models import User
@@ -17,42 +21,6 @@ from app.extended.models import User
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-# ============================================================================
-# Schemas
-# ============================================================================
-
-class SubscriptionCreateRequest(BaseModel):
-    keyword: str = Field(..., min_length=1, max_length=100)
-    category: Optional[str] = None
-    notify_line: bool = True
-    notify_system: bool = True
-
-
-class SubscriptionUpdateRequest(BaseModel):
-    id: int
-    keyword: Optional[str] = None
-    category: Optional[str] = None
-    is_active: Optional[bool] = None
-    notify_line: Optional[bool] = None
-    notify_system: Optional[bool] = None
-
-
-class BookmarkCreateRequest(BaseModel):
-    unit_id: str
-    job_number: str
-    title: str
-    unit_name: Optional[str] = None
-    budget: Optional[str] = None
-    deadline: Optional[str] = None
-    notes: Optional[str] = None
-
-
-class BookmarkUpdateRequest(BaseModel):
-    status: Optional[str] = None
-    case_code: Optional[str] = None
-    notes: Optional[str] = None
 
 
 # ============================================================================
@@ -179,11 +147,19 @@ async def list_bookmarks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_auth()),
 ):
-    """列出當前用戶的書籤（per-user，2026-04-24 起）"""
+    """列出當前用戶的書籤（per-user + alias group 展開）
+
+    R4-2 (v6.9 / 2026-05-12)：alias_rls_audit step 21 揭發此處 user_id ==
+    沒展開 alias group → 多帳號用戶看不到 alias 帳號的 bookmark。
+    修法：用 expand_user_alias 展開到 alias group。
+    """
     from app.extended.models.tender import TenderBookmark
+    from app.services.user.alias import expand_user_alias
+
+    alias_ids = await expand_user_alias(db, current_user.id)
     result = await db.execute(
         select(TenderBookmark)
-        .where(TenderBookmark.user_id == current_user.id)
+        .where(TenderBookmark.user_id.in_(alias_ids))
         .order_by(TenderBookmark.created_at.desc())
     )
     items = result.scalars().all()
@@ -223,13 +199,19 @@ async def update_bookmark(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_auth()),
 ):
-    """更新書籤狀態（限當前用戶自己的書籤）"""
+    """更新書籤狀態（限當前用戶或其 alias 的書籤）
+
+    R4-2: alias group 內任一帳號的 bookmark 都應該能更新（同人）。
+    """
     from app.extended.models.tender import TenderBookmark
+    from app.services.user.alias import expand_user_alias
+
+    alias_ids = await expand_user_alias(db, current_user.id)
     bookmark_id = req.get("id")
     bookmark = (await db.execute(
         select(TenderBookmark).where(
             TenderBookmark.id == bookmark_id,
-            TenderBookmark.user_id == current_user.id,
+            TenderBookmark.user_id.in_(alias_ids),
         )
     )).scalar_one_or_none()
     if not bookmark:
@@ -263,11 +245,17 @@ async def delete_bookmark(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_auth()),
 ):
-    """刪除書籤（限當前用戶自己的書籤）"""
+    """刪除書籤（限當前用戶或其 alias 的書籤）
+
+    R4-2: alias group 內任一帳號的 bookmark 都應該能刪除（同人）。
+    """
     from app.extended.models.tender import TenderBookmark
+    from app.services.user.alias import expand_user_alias
+
+    alias_ids = await expand_user_alias(db, current_user.id)
     await db.execute(delete(TenderBookmark).where(
         TenderBookmark.id == req.get("id"),
-        TenderBookmark.user_id == current_user.id,
+        TenderBookmark.user_id.in_(alias_ids),
     ))
     await db.commit()
     return SuccessResponse(data={"deleted": True})

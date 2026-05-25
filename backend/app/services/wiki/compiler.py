@@ -1084,7 +1084,7 @@ confidence: high
         """
         import re
         from pathlib import Path
-        adr_dir = Path(__file__).resolve().parents[4] / "docs" / "adr"
+        from app.core.paths import DOCS_ADR_DIR as adr_dir  # v6.10 P1-E SSOT
         if not adr_dir.exists():
             return {"compiled": False, "reason": "docs/adr/ not found"}
 
@@ -1244,10 +1244,8 @@ confidence: high
         """
         import re
         from pathlib import Path
-        registry_path = (
-            Path(__file__).resolve().parents[4]
-            / "docs" / "architecture" / "LESSONS_REGISTRY.md"
-        )
+        from app.core.paths import DOCS_ARCH_DIR  # v6.10 P1-E SSOT
+        registry_path = DOCS_ARCH_DIR / "LESSONS_REGISTRY.md"
         if not registry_path.exists():
             return {"compiled": False, "reason": "LESSONS_REGISTRY.md not found"}
 
@@ -1301,7 +1299,7 @@ confidence: high
         import re
         import json as _json
         from pathlib import Path
-        cfg_root = Path(__file__).resolve().parents[4] / "configs"
+        from app.core.paths import CONFIGS_DIR as cfg_root  # v6.10 P1-E SSOT
         dash_dir = cfg_root / "grafana" / "dashboards"
         alerts_path = cfg_root / "prometheus" / "alerts.yml"
 
@@ -1389,7 +1387,7 @@ confidence: high
         """
         import re
         from pathlib import Path
-        soul_path = Path(__file__).resolve().parents[4] / "wiki" / "SOUL.md"
+        from app.core.paths import WIKI_SOUL_PATH as soul_path  # v6.10 P1-E SSOT
         if not soul_path.exists():
             return {"compiled": False, "reason": "wiki/SOUL.md not found"}
 
@@ -1452,7 +1450,7 @@ confidence: high
         承接 docs/architecture/WIKI_TOPICS_BACKLOG.md #17+#18 合併。
         """
         from pathlib import Path
-        repo_root = Path(__file__).resolve().parents[4]
+        from app.core.paths import PROJECT_ROOT as repo_root  # v6.10 P1-E SSOT
         integration_dir = repo_root / "backend" / "app" / "services" / "integration"
         hermes_skills_dir = repo_root / "docs" / "hermes-skills"
 

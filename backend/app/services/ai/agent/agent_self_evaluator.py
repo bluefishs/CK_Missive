@@ -167,6 +167,21 @@ class AgentSelfEvaluator:
             + weights["tool_efficiency"] * score.tool_efficiency
         )
 
+        # R11 (v6.9 / 2026-05-09): Hallucination hard penalty
+        # L24 揭示 53 patterns 全 success_rate ≥ 0.95，entity_alignment 原為 signal-only
+        # 不影響 overall → success_rate 被高估。
+        # 修法：entity_alignment < 0.5（query 有具名 entity 但 answer 完全沒提）視為
+        # hallucination 強警示，overall 直接乘 0.5（最多打到 needs_improvement 區）。
+        # 無具名 entity 的 query (alignment=1.0) 不受影響。
+        if score.entity_alignment < 0.5:
+            original_overall = score.overall
+            score.overall = score.overall * 0.5
+            logger.warning(
+                "Hallucination penalty: entity_alignment=%.2f triggered "
+                "overall %.2f → %.2f (R11 v6.9, L24 lesson)",
+                score.entity_alignment, original_overall, score.overall,
+            )
+
         # 層級化嚴重度分類 (Phase 8)
         score.severity = classify_severity(score.overall)
 
@@ -250,13 +265,23 @@ class AgentSelfEvaluator:
                 logger.debug("CRITICAL feedback write failed: %s", e)
 
         # Domain-aware signal tracking (for targeted evolution)
+        # L29 (v6.9 / 2026-05-09)：修「domain_scores 全空 → domain-aware evolution trigger
+        # 永不觸發」silent gap。雙修：
+        #   1. tool dict key 是 "tool" 不是 "name"（agent_tool_loop.py:312/381）
+        #   2. resolve_tool_domain 取代 TOOL_DOMAIN_MAP.get — 支援 prefix fallback
+        # silent except 改 logger.error（ADR-0028 合規）。
+        # 2026-05-16 retro C2：inline 雙 key fallback 抽出至 app.schemas.tool_call.tool_name_of
+        #   單一 source of truth，避免「散落各處的 dict key 漂移」第三次中斷。
         if redis and tool_results:
             try:
-                from app.services.ai.agent.agent_capability_tracker import TOOL_DOMAIN_MAP
+                from app.services.ai.agent.agent_capability_tracker import resolve_tool_domain
+                from app.schemas.tool_call import tool_name_of
                 domains = set()
                 for tool in tool_results:
-                    tool_name = tool if isinstance(tool, str) else tool.get("name", "")
-                    domain = TOOL_DOMAIN_MAP.get(tool_name)
+                    tool_name = tool_name_of(tool)
+                    if not tool_name:
+                        continue
+                    domain = resolve_tool_domain(tool_name)
                     if domain:
                         domains.add(domain)
 
@@ -265,8 +290,12 @@ class AgentSelfEvaluator:
                     await redis.lpush(domain_key, str(round(score.overall, 3)))
                     await redis.ltrim(domain_key, 0, 49)  # Keep last 50
                     await redis.expire(domain_key, 7 * 86400)  # 7 days
-            except Exception:
-                pass  # Non-critical
+            except Exception as e:
+                # ADR-0028 合規：取代原 silent pass
+                logger.error(
+                    "Domain score tracking failed (evolution trigger 部分受影響): %s",
+                    e, exc_info=True,
+                )
 
         return score
 

@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
-CRITIQUES_DIR = Path(__file__).resolve().parents[5] / "wiki" / "memory" / "critiques"
+from app.core.paths import WIKI_MEMORY_DIR  # v6.10 P1-E SSOT
+CRITIQUES_DIR = WIKI_MEMORY_DIR / "critiques"
 
 # v6.4 I3：critique entity tag — reuse self_evaluator 的 NER pattern
 # （承辦人 / 老X / 案件編號 / 派工單號），讓「哪些 entity 最常觸發
