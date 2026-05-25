@@ -1,9 +1,17 @@
 # CK_Missive 4 層分網路重構規劃（step 37 RED → GREEN）
 
+> ## ⚠️ Status: DEFERRED to v6.12
+>
+> **2026-05-25 ROI 分析結論**：本完整 4 層方案 **延後到 v6.12** 執行。
+> 詳見 [`network-refactor-roi-analysis.md`](./network-refactor-roi-analysis.md)。
+>
+> **過渡方案**：v6.11 W3-W4 採折衷 2 層版本（只切 backend_net / data_net），1.5-2h effort，達 50% 效益。
+> **本文件保留**：作為 v6.12 完整執行時的詳細 SOP。
+
 > **版本**：v1.0 / 2026-05-25
 > **觸發**：step 37 cross-repo docker network audit RED — `ck_missive_network` 不符 ADR-0043 標準
 > **目標**：分網路為 4 層（backend/data/frontend/worker）+ 接 ck_platform_obs_net
-> **路線**：v6.11 Sprint 1 W1（2026-05-26~06-02 任一天執行）
+> **路線**：~~v6.11 Sprint 1 W1~~ **延後 v6.12**（觀測棧 L0 就緒後）
 > **預估 Effort**：4-5h（不含 owner 跨設備外部驗收）
 > **依賴**：必須在 PM2 廢除執行**之前**完成（避免雙 backend 同 port 期間動 network 增加 race 風險）
 
