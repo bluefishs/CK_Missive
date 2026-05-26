@@ -600,11 +600,25 @@ echo ""
 # 觸發：L44 ck-sso-js v1.0 session-permanent lock 跨 subdomain 失敗
 # 偵測 ck-sso-js sso-bridge.ts md5 跨 repo drift + LoginPage onSuccess anti-pattern
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[42/42] cross-repo SSO auth state audit (L44)${NC}"
+echo -e "${CYAN}[42/43] cross-repo SSO auth state audit (L44)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_auth_state_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_auth_state_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 43: DB schema drift audit (next_session_resume #1, 2026-05-26)
+# 觸發：L43 災難根因之一是 alembic 不需資料就推進；衍生「新加 model 忘 migration」風險
+# 雙重偵測：mtime heuristic (model newer than migration) + alembic check (live container)
+# 嚴重度區分：added column/table = RED；added index/modified/removed = YELLOW
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[43/43] DB schema drift audit (next_session_resume #1)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/db_schema_drift_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/db_schema_drift_audit.py || true
 fi
 echo ""
 
