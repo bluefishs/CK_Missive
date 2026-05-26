@@ -614,11 +614,25 @@ echo ""
 # 雙重偵測：mtime heuristic (model newer than migration) + alembic check (live container)
 # 嚴重度區分：added column/table = RED；added index/modified/removed = YELLOW
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[43/43] DB schema drift audit (next_session_resume #1)${NC}"
+echo -e "${CYAN}[43/44] DB schema drift audit (next_session_resume #1)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/db_schema_drift_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/db_schema_drift_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 44: container lifecycle audit (next_session_resume #4, 2026-05-26)
+# 觸發：2026-04-21 cloudflared latest tag silent 升版觸發 chronic QUIC timeout
+# 偵測 docker ps + compose 內 :latest tag (public image) + 跨 repo 版本 drift
+# 本地 build image (ck_* prefix 或無 namespace) 跳過 (latest 是合理模式)
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[44/44] container lifecycle audit (next_session_resume #4)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/container_lifecycle_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/container_lifecycle_audit.py || true
 fi
 echo ""
 
