@@ -239,14 +239,33 @@ Docker Desktop GUI → Settings → General
 </Task>
 ```
 
-**匯入**：
+**匯入（v6.11+ 推薦：self-elevating script）**：
+
+L49 family 揭發 owner 5/27 19:00「elevated PS 失敗 silent」陷阱 — 以為 import 成功但實際 task 沒寫進去（schtasks ACCESS DENIED 被 swallow）。改用 self-elevating script：
+
 ```powershell
-schtasks /Create /TN "CK_Missive_AutoStart" /XML "D:\CKProject\CK_Missive\scripts\deploy\task-scheduler-autostart.xml" /F
+# 在普通 PowerShell 跑，script 自動 spawn elevated child + 等候完成
+.\scripts\deploy\install-task-scheduler.ps1
+
+# 或強制覆蓋既有 task
+.\scripts\deploy\install-task-scheduler.ps1 -Force
+```
+
+腳本特性：
+- 自動 self-elevation（owner 點一次 UAC 確認）
+- 既有 task 防重複（提示用 -Force）
+- import 後自動 verify 並印 task details
+- import 失敗有具體 exit code + 不會 silent fail
+
+**舊版手動匯入（仍可用，需 elevated PowerShell）**：
+```powershell
+# 必須以系統管理員身分執行 PowerShell
+schtasks /Create /TN "\CK_Missive\AutoStart" /XML "D:\CKProject\CK_Missive\scripts\deploy\task-scheduler-autostart.xml" /F
 ```
 
 **測試（不重開機）**：
 ```powershell
-schtasks /Run /TN "CK_Missive_AutoStart"
+schtasks /Run /TN "\CK_Missive\AutoStart"
 Start-Sleep -Seconds 60
 docker ps --filter "name=ck_missive_backend"
 ```
@@ -274,7 +293,17 @@ Test 2: 單 container 重啟（必須過）
 Test 3: Docker Desktop 異常恢復（建議過）
   - 手動關閉 Docker Desktop
   - 預期：Task Scheduler 偵測 / Watchdog Layer 4 重拉
+
+Test 4: ⚠️ 業務 endpoint in-container smoke（v6.11 強制，L49 教訓）
+  - docker exec ck_missive_backend python /tmp/smoke.py
+  - 從 DB 撈 admin user 簽 JWT → 自動打 10 endpoint
+  - 預期：10/10 PASS（auth/me + 7 backup/* + 2 files/*）
+  - 取代人工 F5 admin/backup
+  - 預先 docker cp scripts/checks/admin_backup_smoke_test.py 進 container
 ```
+
+> **L49 教訓**：環境切換 SOP 只驗證「process up + 4 層自動重啟」**不夠**。必須加 Test 4
+> 業務 endpoint smoke，否則容易出現 5/27 same-day 連環 4 個業務頁面 silent regression。
 
 ---
 

@@ -2,10 +2,37 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
-> **版本**: v6.10.3 完成（2026-05-21）/ L43 volume mount drift 災難級事故 4h 完整恢復 + 5 層防禦落地
-> **最後更新**: 2026-05-21 17:55
+> **版本**: v6.11 完成（2026-05-27）/ OA-3 PM2 廢除 + L49 family 5 案修法 + fitness 52 step + admin smoke test
+> **最後更新**: 2026-05-28
 >
 > **近期重大里程碑**：
+> - **v6.11 OA-3 PM2 廢除 + L49 Container Host Dependency Family**（2026-05-27 → 28 / 8 commits / 自動化驗收 10/10 PASS）：
+>   - **觸發鏈**：OA-3 PM2 廢除階段 2-3（5/27 19:04 移除 ck-backend/ck-frontend）後 3h 內 owner 連環報 4 個業務頁面故障
+>   - **L49 family 5 案揭發**（PM2 native → docker container 環境切換破口）：
+>     - **L49.1** `admin/backup` 顯示「Docker 環境不可用」：container 內無 docker CLI（PM2 時 host 內建）
+>       → backend Dockerfile 加 postgresql-client，pg_dump 改走 docker network `postgres:5432` 直連（commit `28df958d`）
+>     - **L49.2** `files/storage-info` HTTP 500：`rglob('*')` 遇 Windows mount 長中文檔名 OSError 中斷
+>       → `_scan_files` while+try/except 容錯，回傳 `scan_errors` 計數（commit `27efffc7`）
+>     - **L49.3** `files/{id}/download` HTTP 404：DB 內 `file_path = '2026\05\doc_xxx\...'` Windows backslash 進 Linux container `os.path.exists` 必 false
+>       → `files/common.py:resolve_attachment_path()` SSOT helper，所有 download/management/pm/taoyuan/documents 散戶就地收口（commit `27efffc7` / `673c9644`）
+>     - **L49.4** `admin/backup` 顯示 0 紀錄「歷史皆消失」誤判：compose mount target（`./backend/backups:/backups`）與 service 內部 `self.project_root / "backups"` 路徑不對齊
+>       → 改 `./backups:/app/backups` + `./logs/backup:/app/logs/backup` 對齊 service Path() 計算（commit `d6e97294`）
+>     - **L49.5** `backup/list` ReadTimeout 31.5s frontend 顯示「資料載入失敗」：8 個 attachment dir × ~4s rglob 全掃
+>       → attachment metadata 改讀 `manifest_*.json`（O(1)，~10ms），list_backups **31.5s → 0.06s 提升 525x**（commit `8a75a22d`）
+>   - **治理立法**：
+>     - **Fitness step 52** `container_host_dependency_audit.py`：偵測 docker CLI subprocess（RED）+ rglob 無容錯 / file_path 未 normalize（YELLOW）—— 首跑揭發 21 YELLOW，sweep 後 **0 YELLOW GREEN ✓**
+>     - **自動化驗收範本** `scripts/checks/admin_backup_smoke_test.py`：從 DB 撈 admin user，user_sessions 找/插 active jti，settings.SECRET_KEY 簽合法 JWT，逐打 10 endpoint 對照 expected status + validator（取代人工 F5）
+>     - **L49 lesson** + `LESSONS_REGISTRY.md` 完整保存（family meta-pattern）
+>     - **OA-3 SOP 補丁**：環境切換必加 in-container business endpoint smoke（非單純 process up / 4 層自動重啟）
+>     - **Layer 4 self-elevating installer** `scripts/deploy/install-task-scheduler.ps1`：取代 owner 5/27 19:00「elevated PS 失敗 silent」陷阱
+>   - **自動化驗收結果（10/10 PASS）**：
+>     - `auth/me` 200 / `backup/environment-status` 200 pg_dump_available=true
+>     - `backup/list` 200 in 0.06s / `backup/scheduler/status` running=true / 下次 2026-05-28 02:00
+>     - `files/1263/download` 200 真實下載 163,734 bytes ✓
+>   - **跨 repo 範本擴散**：Showcase / PileMgmt / lvrland 可仿照（待 ck-modular-toolkit sync step 52）
+>   - 詳見：[[L49_container_host_dependency_family]] / `docs/architecture/LESSONS_REGISTRY.md#L49`
+>
+> **歷史里程碑**：
 > - **v6.10.3 L43 Volume Mount Drift 災難級事故恢復**（2026-05-21 下午 4h / 4 commits）：
 >   - **觸發事件**：owner Google login 後業務 API 連環 500（calendar / dispatch / digital-twin）
 >     → 起初誤判 3 欄 schema drift，盤點時揭發**整個 DB 不對**（17 tables vs 75 tables 預期）
