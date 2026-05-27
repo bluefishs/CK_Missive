@@ -11,6 +11,9 @@
 """
 import os
 from fastapi import APIRouter, Request
+
+# L49 (2026-05-28): 跨平台分隔符 SSOT
+from app.api.endpoints.files.common import resolve_attachment_path
 from starlette.responses import Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -87,9 +90,11 @@ async def delete_document(
 
         for attachment in attachments:
             if attachment.file_path:
-                file_paths_to_delete.append(attachment.file_path)
+                # L49: 跨平台分隔符正規化 — DB 內舊資料是 Windows `\`，Linux container 必失敗
+                resolved = resolve_attachment_path(attachment.file_path)
+                file_paths_to_delete.append(resolved)
                 # 記錄父資料夾路徑（doc_{id} 層級）
-                parent_folder = os.path.dirname(attachment.file_path)
+                parent_folder = os.path.dirname(resolved)
                 if parent_folder:
                     folders_to_check.add(parent_folder)
 

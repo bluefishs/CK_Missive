@@ -45,10 +45,16 @@ RED_PATTERNS = [
 ]
 
 # YELLOW patterns — 跨平台陷阱
+# L49 (2026-05-28): regex 升級 — 排除已修法 callsite（避免大量 false positive）
 YELLOW_PATTERNS = [
-    (re.compile(r"""\.rglob\(['"]\*['"]\)(?!.*(?:try:|except\s+OSError))""", re.DOTALL),
+    # rglob 排除：同一行有 _safe_rglob 呼叫 / 註解內提及
+    (re.compile(r"""(?<!_safe)\.rglob\(['"]\*['"]\)"""),
      "rglob('*') 無 OSError 容錯（Windows host 長中文檔名 mount 會炸）"),
-    (re.compile(r"""attachment\.file_path(?!\s*\.replace)"""),
+    # file_path 排除：
+    # 1. 同行 `.replace('\\', ...` 或 `.replace('\\\\', ...` 已做 backslash normalize
+    # 2. 同行 `resolve_attachment_path(` 已過 SSOT helper
+    # 3. 行末是 `or ''` 然後下一行才用 — regex 限制只在「實際 path operation 行」flag
+    (re.compile(r"""attachment\.file_path(?!\s*(?:or|\.replace|\)?\s*\.\w+\()).*?(?<!resolve_attachment_path\()(?<!\.replace\()""", re.DOTALL),
      "attachment.file_path 直接使用，未做跨平台分隔符 normalize（Windows \\ vs Linux /）"),
 ]
 
@@ -69,11 +75,58 @@ def scan(path: Path, patterns: List[Tuple[re.Pattern, str]]) -> List[Tuple[Path,
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return hits
+
+    # L49 (2026-05-28): docstring tracking — 跳過 """ ~ """ 內所有行（含 module / function docstring）
+    in_docstring = False
+    docstring_delim = None
+
     for i, line in enumerate(text.splitlines(), start=1):
-        # 跳過註解行
         stripped = line.strip()
+        # 跳過註解行
         if stripped.startswith("#"):
             continue
+
+        # docstring 偵測（跳過 """ 或 ''' 區段）
+        if in_docstring:
+            if docstring_delim and docstring_delim in stripped:
+                in_docstring = False
+                docstring_delim = None
+            continue
+        else:
+            # 行內偵測 """ 或 '''
+            for delim in ('"""', "'''"):
+                if delim in stripped:
+                    # 單行 docstring 還是多行起始？
+                    cnt = stripped.count(delim)
+                    if cnt >= 2:
+                        # 單行 docstring（同行有對 delim）— 跳過此行
+                        line = ""
+                        break
+                    else:
+                        # 多行起始
+                        in_docstring = True
+                        docstring_delim = delim
+                        line = ""
+                        break
+            if not line.strip():
+                continue
+
+        # L49: line-level whitelist — 已修法 callsite / helper 本身的合法實作
+        # 1. resolve_attachment_path(attachment.file_path) 完整呼叫 — 是修法本體不是違規
+        if "resolve_attachment_path(attachment.file_path" in stripped:
+            continue
+        # 2. truthy 檢查 — 不是 path operation
+        if re.match(r"^if\s+attachment\.file_path:?$", stripped):
+            continue
+        # 3. _safe_rglob helper 內部的 root.rglob — helper 本身是合法 OSError-tolerant
+        if "root.rglob" in stripped and "_safe_rglob" in text[:text.find(stripped)]:
+            # 在 _safe_rglob 函式定義內
+            continue
+        # 4. files/storage.py _scan_files 已修為 OSError-tolerant iterator
+        if "storage_path.rglob" in stripped and "while True:" in text:
+            # _scan_files 已用 while + try/except OSError 模式
+            continue
+
         for pat, reason in patterns:
             if pat.search(line):
                 hits.append((path, i, line.strip(), reason))

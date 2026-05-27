@@ -70,7 +70,9 @@ class AttachmentContentIndexer:
         if ext not in INDEXABLE_EXTENSIONS:
             return {"success": False, "error": f"unsupported_extension: {ext}", "skipped": True}
 
-        file_path = attachment.file_path
+        # L49 (2026-05-28): 跨平台分隔符 SSOT — DB 內 Windows `\` 進 Linux container 必 false
+        from app.api.endpoints.files.common import resolve_attachment_path
+        file_path = resolve_attachment_path(attachment.file_path or "")
         if not file_path or not os.path.isfile(file_path):
             return {"success": False, "error": "file_not_found", "path": file_path}
 

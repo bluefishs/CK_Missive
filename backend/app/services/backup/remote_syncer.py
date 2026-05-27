@@ -14,6 +14,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+# L49 (2026-05-28): 共用 OSError-tolerant rglob helper
+from app.services.backup.attachment_backup import _safe_rglob
+
 logger = logging.getLogger(__name__)
 
 
@@ -115,8 +118,11 @@ class RemoteSyncerMixin:
                 remote_latest = remote_att_dir / "attachments_latest"
                 remote_latest.mkdir(parents=True, exist_ok=True)
 
-                for src_file in latest_backup.rglob("*"):
-                    if not src_file.is_file():
+                for src_file in _safe_rglob(latest_backup):  # L49: OSError-tolerant
+                    try:
+                        if not src_file.is_file():
+                            continue
+                    except OSError:
                         continue
                     rel_path = src_file.relative_to(latest_backup)
                     dest_file = remote_latest / rel_path
@@ -145,9 +151,12 @@ class RemoteSyncerMixin:
                             )
                             failed_files.append(str(rel_path))
 
-                # 清理遠端已刪除的檔案
-                for dest_file in remote_latest.rglob("*"):
-                    if not dest_file.is_file():
+                # 清理遠端已刪除的檔案 — L49: OSError-tolerant
+                for dest_file in _safe_rglob(remote_latest):
+                    try:
+                        if not dest_file.is_file():
+                            continue
+                    except OSError:
                         continue
                     rel_path = dest_file.relative_to(remote_latest)
                     src_file = latest_backup / rel_path
@@ -171,11 +180,15 @@ class RemoteSyncerMixin:
                             try:
                                 shutil.copytree(backup_dir, dest_dir)
                                 synced_files += 1
-                                total_size += sum(
-                                    f.stat().st_size
-                                    for f in backup_dir.rglob("*")
-                                    if f.is_file()
-                                )
+                                # L49: OSError-tolerant size sum
+                                _sz = 0
+                                for f in _safe_rglob(backup_dir):
+                                    try:
+                                        if f.is_file():
+                                            _sz += f.stat().st_size
+                                    except OSError:
+                                        continue
+                                total_size += _sz
                             except OSError as e:
                                 logger.warning(f"同步舊版附件備份失敗: {backup_dir.name}: {e}")
                                 failed_files.append(f"DIR:{backup_dir.name}")

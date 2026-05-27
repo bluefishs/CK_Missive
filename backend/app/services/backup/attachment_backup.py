@@ -11,9 +11,33 @@ import logging
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Iterator
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_rglob(root: Path) -> Iterator[Path]:
+    """L49 (2026-05-28): OSError-tolerant rglob generator。
+
+    Windows host volume mount 進 Linux container 對長中文檔名 (e.g. doc_885 內
+    357f752c_電115年02月25日_...) 偶現 Errno 5 I/O error — entry 看得到但 stat 失敗。
+    rglob iterator 自己 next() 也會拋 OSError，無容錯時整個迴圈直接中斷。
+
+    此 helper：每次 next() 包 try/except，跳過壞 entry，不中斷主流程。
+    """
+    try:
+        iterator = root.rglob("*")
+    except OSError as e:
+        logger.warning(f"_safe_rglob 啟動失敗 {root}: {e}")
+        return
+    while True:
+        try:
+            yield next(iterator)
+        except StopIteration:
+            return
+        except OSError as e:
+            logger.warning(f"_safe_rglob 跳過無法讀取的 entry: {e}")
+            continue
 
 
 class AttachmentBackupMixin:
@@ -31,8 +55,8 @@ class AttachmentBackupMixin:
         if not self.uploads_dir.exists():
             return {"success": True, "message": "No uploads directory"}
 
-        files = list(self.uploads_dir.rglob("*"))
-        file_count = len([f for f in files if f.is_file()])
+        # L49: OSError-tolerant rglob（host mount 長中文檔名安全）
+        file_count = sum(1 for f in _safe_rglob(self.uploads_dir) if f.is_file())
 
         if file_count == 0:
             return {"success": True, "message": "No files to backup", "file_count": 0}
@@ -51,9 +75,12 @@ class AttachmentBackupMixin:
             total_copied_size = 0
             file_manifest = []
 
-            # 增量複製：只複製新增或修改的檔案
-            for src_file in self.uploads_dir.rglob("*"):
-                if not src_file.is_file():
+            # 增量複製：只複製新增或修改的檔案（L49: OSError-tolerant）
+            for src_file in _safe_rglob(self.uploads_dir):
+                try:
+                    if not src_file.is_file():
+                        continue
+                except OSError:
                     continue
 
                 # 計算相對路徑
@@ -93,10 +120,13 @@ class AttachmentBackupMixin:
                     }
                 )
 
-            # 清理已刪除的檔案（在備份但不在來源）
+            # 清理已刪除的檔案（在備份但不在來源）— L49: OSError-tolerant
             removed_count = 0
-            for dest_file in latest_backup_path.rglob("*"):
-                if not dest_file.is_file():
+            for dest_file in _safe_rglob(latest_backup_path):
+                try:
+                    if not dest_file.is_file():
+                        continue
+                except OSError:
                     continue
                 rel_path = dest_file.relative_to(latest_backup_path)
                 src_file = self.uploads_dir / rel_path
@@ -109,12 +139,14 @@ class AttachmentBackupMixin:
                     except OSError:
                         pass  # 目錄非空，忽略
 
-            # 計算最終備份大小
-            total_size = sum(
-                f.stat().st_size
-                for f in latest_backup_path.rglob("*")
-                if f.is_file()
-            )
+            # 計算最終備份大小 — L49: OSError-tolerant stat
+            total_size = 0
+            for f in _safe_rglob(latest_backup_path):
+                try:
+                    if f.is_file():
+                        total_size += f.stat().st_size
+                except OSError:
+                    continue
 
             # 儲存 manifest（用於審計追蹤）
             manifest_data = {
