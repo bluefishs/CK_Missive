@@ -643,11 +643,29 @@ echo ""
 #   - active 公網真活
 #   - forbidden_typos 不在 production code 出現
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[45/45] subdomain registry audit (next_session_resume #3)${NC}"
+echo -e "${CYAN}[45/46] subdomain registry audit (next_session_resume #3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/subdomain_registry_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/subdomain_registry_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 46: SSO autoload completeness audit (next_session_resume #7, 2026-05-27)
+# 觸發：shared-modules/ck-sso-js v1.1 useSSOBridge 已備但 consumer 接通完整度未驗
+# 對每個 consumer repo（lvrland / pile）驗證 4 個 check:
+#   1. frontend/src/lib/ck-sso-js/ 副本存在
+#   2. LoginPage 用 useSSOBridge 或 attemptSSOBridge
+#   3. .env.example 宣告 VITE_API_BASE_URL
+#   4. .env.example 宣告 CK_SSO_ENABLED 或 VITE_CK_SSO_ENABLED
+# Check 1-2 RED, Check 3-4 YELLOW
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[46/46] SSO autoload completeness audit (next_session_resume #7)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/sso_autoload_completeness_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/sso_autoload_completeness_audit.py || true
 fi
 echo ""
 
