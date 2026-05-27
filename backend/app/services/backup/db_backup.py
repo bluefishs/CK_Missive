@@ -2,15 +2,20 @@
 資料庫備份/還原模組
 提供 PostgreSQL pg_dump/pg_restore 備份與還原功能
 
-@version 1.0.0
-@date 2026-02-21
+L49 (2026-05-27): 從 docker CLI subprocess 改 pg_dump 直連
+- 觸發：OA-3 PM2 廢除後 backend 入 docker container → docker CLI 不可用
+- 修法：backend image 加裝 postgresql-client，pg_dump 走 docker network 直連 postgres:5432
+- backwards-compat：API 回應欄位 docker_available / docker_path 保留（鏡像 pg_dump 值）
+
+@version 2.0.0
+@date 2026-05-27
 """
 
 import asyncio
 import logging
 import os
 import subprocess
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -18,51 +23,54 @@ logger = logging.getLogger(__name__)
 class DatabaseBackupMixin:
     """資料庫備份 Mixin - pg_dump/restore 相關方法"""
 
+    def _build_pg_env(self) -> Dict[str, str]:
+        """建構帶 PGPASSWORD 的環境變數 dict"""
+        env = os.environ.copy()
+        env["PGPASSWORD"] = self.db_password
+        return env
+
     async def _backup_database(self, timestamp: str) -> Dict[str, Any]:
-        """備份資料庫"""
-        # 預先檢查 Docker 可用性
-        if not self._docker_available:
+        """備份資料庫 — pg_dump 直連 PostgreSQL（取代 docker exec）"""
+        # 預先檢查 pg_dump 可用性
+        if not self._pg_dump_available:
             return {
                 "success": False,
-                "error": f"Docker CLI 不可用 (路徑: {self._docker_path})，請確認 Docker Desktop 已啟動",
+                "error": (
+                    f"pg_dump 不可用 (路徑: {self._pg_dump_path})，"
+                    "請確認 backend image 已安裝 postgresql-client"
+                ),
             }
 
-        container = self._get_running_container()
         backup_file = self.backup_dir / f"ck_missive_backup_{timestamp}.sql"
 
         try:
-            # 使用 pg_dump 備份
-            env = os.environ.copy()
-            env["PGPASSWORD"] = self.db_password
-
             result = subprocess.run(
                 [
-                    self._docker_path,
-                    "exec",
-                    container,
-                    "pg_dump",
-                    "-U",
-                    self.db_user,
-                    "-d",
-                    self.db_name,
+                    self._pg_dump_path,
+                    "-h", self.db_host,
+                    "-p", str(self.db_port),
+                    "-U", self.db_user,
+                    "-d", self.db_name,
                     "--no-owner",
                     "--no-acl",
                 ],
                 capture_output=True,
                 text=True,
                 timeout=300,
-                env=env,
+                env=self._build_pg_env(),
                 encoding="utf-8",
                 errors="replace",
             )
 
             if result.returncode == 0:
-                # 檢查 stdout 是否有效（Windows 下 docker exec 偶爾返回 None）
                 dump_data = result.stdout or ""
                 if not dump_data.strip():
                     return {
                         "success": False,
-                        "error": f"pg_dump 返回空資料 (returncode=0, stderr={result.stderr or 'N/A'})",
+                        "error": (
+                            f"pg_dump 返回空資料 (returncode=0, "
+                            f"stderr={result.stderr or 'N/A'})"
+                        ),
                     }
 
                 # 寫入備份檔案
@@ -102,16 +110,18 @@ class DatabaseBackupMixin:
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "Backup timeout (300s)"}
         except FileNotFoundError:
-            # Docker CLI 路徑失效，更新狀態
-            self._docker_available = False
+            # pg_dump 不在 PATH，標記為不可用
+            self._pg_dump_available = False
+            self._docker_available = False  # compat 鏡像
             return {
                 "success": False,
                 "error": (
-                    f"Docker CLI 找不到 (路徑: {self._docker_path})，"
-                    "請確認 Docker Desktop 已安裝並啟動"
+                    f"pg_dump 找不到 (路徑: {self._pg_dump_path})，"
+                    "請確認 backend image 已安裝 postgresql-client"
                 ),
             }
         except Exception as e:
+            logger.error("pg_dump backup failed", exc_info=True, extra={"db_host": self.db_host})
             return {"success": False, "error": str(e)}
 
     async def _backup_database_with_retry(
@@ -127,8 +137,8 @@ class DatabaseBackupMixin:
                 return result
             last_error = result.get("error", "Unknown error")
 
-            # Docker 不可用時不重試（系統級問題）
-            if not self._docker_available:
+            # pg_dump 不可用時不重試（系統級問題，retry 無意義）
+            if not self._pg_dump_available:
                 return result
 
             if attempt < max_retries:
@@ -144,40 +154,34 @@ class DatabaseBackupMixin:
         }
 
     async def restore_database(self, backup_name: str) -> Dict[str, Any]:
-        """還原資料庫"""
+        """還原資料庫 — psql 直連（取代 docker exec）"""
         backup_file = self.backup_dir / backup_name
 
         if not backup_file.exists():
             return {"success": False, "error": "Backup file not found"}
 
-        container = self._get_running_container()
+        # psql 通常與 pg_dump 同套件，回退到 PATH 搜尋
+        import shutil
+        psql_path = shutil.which("psql") or "psql"
 
         try:
             # 讀取備份內容
             with open(backup_file, "r", encoding="utf-8") as f:
                 sql_content = f.read()
 
-            # 使用 psql 還原
-            env = os.environ.copy()
-            env["PGPASSWORD"] = self.db_password
-
             result = subprocess.run(
                 [
-                    self._docker_path,
-                    "exec",
-                    "-i",
-                    container,
-                    "psql",
-                    "-U",
-                    self.db_user,
-                    "-d",
-                    self.db_name,
+                    psql_path,
+                    "-h", self.db_host,
+                    "-p", str(self.db_port),
+                    "-U", self.db_user,
+                    "-d", self.db_name,
                 ],
                 input=sql_content,
                 capture_output=True,
                 text=True,
                 timeout=600,
-                env=env,
+                env=self._build_pg_env(),
                 encoding="utf-8",
                 errors="replace",
             )
@@ -195,7 +199,16 @@ class DatabaseBackupMixin:
 
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "Restore timeout"}
+        except FileNotFoundError:
+            return {
+                "success": False,
+                "error": (
+                    f"psql 找不到 (路徑: {psql_path})，"
+                    "請確認 backend image 已安裝 postgresql-client"
+                ),
+            }
         except Exception as e:
+            logger.error("psql restore failed", exc_info=True, extra={"db_host": self.db_host})
             return {"success": False, "error": str(e)}
 
     async def get_backup_config(self) -> Dict[str, Any]:
@@ -207,7 +220,10 @@ class DatabaseBackupMixin:
             "log_directory": str(self.log_dir),
             "backup_script": str(self.backup_script),
             "script_exists": self.backup_script.exists(),
-            "container_name": self._get_running_container() or self.container_name,
+            # L49: 不再需要 container 名稱，但保留欄位（語意：目標 DB host）
+            "container_name": self.container_name,
+            "database_host": self.db_host,
+            "database_port": self.db_port,
             "database_name": self.db_name,
             "database_user": self.db_user,
         }

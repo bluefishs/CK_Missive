@@ -35,8 +35,12 @@ WORKDIR /app
 # Create a non-root user
 RUN adduser --system --group appuser
 
-# Install curl for healthcheck (as root)
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# Install runtime tools (as root):
+# - curl: healthcheck
+# - postgresql-client: pg_dump/psql for backup service (L49 fix 2026-05-27 — replaces docker CLI subprocess)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder stage
 COPY --from=builder /opt/venv /opt/venv

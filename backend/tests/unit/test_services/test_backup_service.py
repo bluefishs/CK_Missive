@@ -42,8 +42,8 @@ def mock_settings():
 @pytest.fixture
 def service(mock_settings, tmp_path):
     """建立 BackupService 實例，使用 tmp_path 避免操作真實檔案系統"""
-    with patch("app.services.backup.utils.BackupUtilsMixin._find_docker_path", return_value="docker"), \
-         patch("app.services.backup.utils.BackupUtilsMixin._check_docker_available", return_value=True), \
+    with patch("app.services.backup.utils.BackupUtilsMixin._find_pg_dump_path", return_value="pg_dump"), \
+         patch("app.services.backup.utils.BackupUtilsMixin._check_pg_dump_available", return_value=True), \
          patch("app.services.backup.utils.BackupUtilsMixin._load_remote_config", return_value={}), \
          patch("app.services.backup.utils.BackupUtilsMixin._load_backup_logs", return_value=[]), \
          patch("app.services.backup.utils.BackupUtilsMixin._ensure_directories"):
@@ -61,8 +61,13 @@ def service(mock_settings, tmp_path):
         svc.db_user = "test_user"
         svc.db_password = "test_pass"
         svc.db_name = "test_db"
+        svc.db_host = "postgres"  # L49
+        svc.db_port = 5432  # L49
         svc.container_name = "test_postgres"
-        svc._docker_path = "docker"
+        # L49: 新欄位 + 向後相容 alias
+        svc._pg_dump_path = "pg_dump"
+        svc._pg_dump_available = True
+        svc._docker_path = "pg_dump"
         svc._docker_available = True
         svc.remote_config_file = tmp_path / "config" / "remote_backup.json"
         svc._remote_config = {}
@@ -81,13 +86,13 @@ def service(mock_settings, tmp_path):
 # Docker 偵測測試
 # ============================================================
 
-class TestFindDockerPath:
-    """_find_docker_path 方法測試"""
+class TestFindPgDumpPath:
+    """_find_pg_dump_path 方法測試（L49 後 — 取代 _find_docker_path）"""
 
-    def test_find_docker_via_which(self, mock_settings):
-        """測試透過 shutil.which 找到 Docker"""
-        with patch("shutil.which", return_value="/usr/bin/docker"), \
-             patch("app.services.backup.utils.BackupUtilsMixin._check_docker_available", return_value=True), \
+    def test_find_via_which(self, mock_settings):
+        """測試透過 shutil.which 找到 pg_dump"""
+        with patch("shutil.which", return_value="/usr/bin/pg_dump"), \
+             patch("app.services.backup.utils.BackupUtilsMixin._check_pg_dump_available", return_value=True), \
              patch("app.services.backup.utils.BackupUtilsMixin._load_remote_config", return_value={}), \
              patch("app.services.backup.utils.BackupUtilsMixin._load_backup_logs", return_value=[]), \
              patch("app.services.backup.utils.BackupUtilsMixin._ensure_directories"), \
@@ -95,51 +100,51 @@ class TestFindDockerPath:
 
             from app.services.backup import BackupService
             svc = BackupService.__new__(BackupService)
-            result = svc._find_docker_path()
+            result = svc._find_pg_dump_path()
 
-            assert result == "/usr/bin/docker"
+            assert result == "/usr/bin/pg_dump"
 
-    def test_find_docker_fallback(self, mock_settings):
-        """測試 shutil.which 找不到時回退到 "docker" """
+    def test_find_fallback(self, mock_settings):
+        """測試 shutil.which 找不到時回退到 "pg_dump" """
         with patch("shutil.which", return_value=None), \
              patch("pathlib.Path.exists", return_value=False):
 
             from app.services.backup import BackupService
             svc = BackupService.__new__(BackupService)
-            result = svc._find_docker_path()
+            result = svc._find_pg_dump_path()
 
-            assert result == "docker"
+            assert result == "pg_dump"
 
 
-class TestCheckDockerAvailable:
-    """_check_docker_available 方法測試
+class TestCheckPgDumpAvailable:
+    """_check_pg_dump_available 方法測試（L49 後 — 取代 _check_docker_available）
 
-    注意: service fixture 內部 patch 了 _check_docker_available，
+    注意: service fixture 內部 patch 了 _check_pg_dump_available，
     因此這裡直接建立新實例來測試真實方法邏輯。
     """
 
-    def test_docker_available(self, mock_settings):
-        """測試 Docker 可用"""
+    def test_pg_dump_available(self, mock_settings):
+        """測試 pg_dump 可用"""
         from app.services.backup import BackupService
 
         svc = BackupService.__new__(BackupService)
-        svc._docker_path = "docker"
+        svc._pg_dump_path = "pg_dump"
 
         with patch.object(backup_utils, "subprocess") as mock_sub:
             mock_sub.run.return_value = MagicMock(returncode=0)
-            result = svc._check_docker_available()
+            result = svc._check_pg_dump_available()
             assert result is True
 
-    def test_docker_not_available(self, mock_settings):
-        """測試 Docker 不可用"""
+    def test_pg_dump_not_available(self, mock_settings):
+        """測試 pg_dump 不可用"""
         from app.services.backup import BackupService
 
         svc = BackupService.__new__(BackupService)
-        svc._docker_path = "docker"
+        svc._pg_dump_path = "pg_dump"
 
         with patch.object(backup_utils, "subprocess") as mock_sub:
             mock_sub.run.side_effect = FileNotFoundError
-            result = svc._check_docker_available()
+            result = svc._check_pg_dump_available()
             assert result is False
 
 
@@ -193,8 +198,9 @@ class TestCreateBackup:
 
     @pytest.mark.asyncio
     async def test_create_backup_docker_unavailable(self, service):
-        """測試 Docker 不可用時備份失敗"""
-        service._docker_available = False
+        """測試 pg_dump 不可用時備份失敗（L49 後語意：不再是 Docker，是 pg_dump）"""
+        service._pg_dump_available = False
+        service._docker_available = False  # compat 鏡像
 
         result = await service.create_backup(
             include_database=True,

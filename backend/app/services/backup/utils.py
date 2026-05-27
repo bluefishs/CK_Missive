@@ -57,19 +57,27 @@ class BackupUtilsMixin:
         self.db_user = settings.POSTGRES_USER
         self.db_password = settings.POSTGRES_PASSWORD
         self.db_name = settings.POSTGRES_DB
+        self.db_host = settings.POSTGRES_HOST
+        self.db_port = settings.POSTGRES_PORT
+        # 保留 container_name 供 frontend 顯示用（語意：「目標 PostgreSQL 服務名」）
         self.container_name = "ck_missive_postgres_dev"
 
         # 從環境變數讀取設定 (覆蓋 settings 的值)
         self._load_env_config()
 
-        # Docker CLI 路徑偵測
-        self._docker_path: str = self._find_docker_path()
-        self._docker_available: bool = self._check_docker_available()
-        if self._docker_available:
-            logger.info(f"Docker CLI 可用: {self._docker_path}")
+        # L49 (2026-05-27): backup 從 docker CLI subprocess 改 pg_dump 直連
+        # backend 入 container 後不能呼叫 host 的 docker；pg_dump 內建於 backend image
+        # docker network 內走 postgres:5432，host 走 localhost:5434（settings.POSTGRES_HOST/PORT）
+        self._pg_dump_path: str = self._find_pg_dump_path()
+        self._pg_dump_available: bool = self._check_pg_dump_available()
+        # 向後相容別名（frontend UI 仍讀 docker_available / docker_path）
+        self._docker_path: str = self._pg_dump_path
+        self._docker_available: bool = self._pg_dump_available
+        if self._pg_dump_available:
+            logger.info(f"pg_dump 可用: {self._pg_dump_path}")
         else:
             logger.warning(
-                f"Docker CLI 不可用 (路徑: {self._docker_path})，資料庫備份功能將無法使用"
+                f"pg_dump 不可用 (路徑: {self._pg_dump_path})，資料庫備份功能將無法使用"
             )
 
         # 異地備份設定
@@ -109,41 +117,45 @@ class BackupUtilsMixin:
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
     # =========================================================================
-    # Docker 偵測
+    # pg_dump 偵測（L49 取代 docker CLI 偵測）
     # =========================================================================
 
-    def _find_docker_path(self) -> str:
-        """查找 Docker CLI 的完整路徑"""
+    def _find_pg_dump_path(self) -> str:
+        """查找 pg_dump CLI 的完整路徑（postgresql-client 套件）"""
         # 優先使用 shutil.which（搜尋系統 PATH）
-        docker_path = shutil.which("docker")
-        if docker_path:
-            return docker_path
+        path = shutil.which("pg_dump")
+        if path:
+            return path
 
-        # Windows 常見安裝路徑回退
-        common_paths = [
-            r"C:\Program Files\Docker\Docker\resources\bin\docker.exe",
-            r"C:\ProgramData\DockerDesktop\version-bin\docker.exe",
-        ]
-        for path in common_paths:
-            if Path(path).exists():
-                logger.info(f"在常見路徑找到 Docker CLI: {path}")
-                return path
+        # Linux 常見路徑（container 內 postgresql-client deb 套件）
+        for p in [
+            "/usr/bin/pg_dump",
+            "/usr/local/bin/pg_dump",
+            "/usr/lib/postgresql/15/bin/pg_dump",
+            "/usr/lib/postgresql/16/bin/pg_dump",
+        ]:
+            if Path(p).exists():
+                return p
 
-        # Linux/macOS 常見路徑
-        for path in ["/usr/bin/docker", "/usr/local/bin/docker"]:
-            if Path(path).exists():
-                return path
+        # Windows 常見路徑（PM2/host 模式回退）
+        for p in [
+            r"C:\Program Files\PostgreSQL\15\bin\pg_dump.exe",
+            r"C:\Program Files\PostgreSQL\16\bin\pg_dump.exe",
+        ]:
+            if Path(p).exists():
+                logger.info(f"在 Windows 常見路徑找到 pg_dump: {p}")
+                return p
 
-        return "docker"  # 回退到系統 PATH 查找
+        return "pg_dump"  # 回退到系統 PATH 查找
 
-    def _check_docker_available(self) -> bool:
-        """檢查 Docker 是否可用"""
+    def _check_pg_dump_available(self) -> bool:
+        """檢查 pg_dump 是否可用"""
         try:
             result = subprocess.run(
-                [self._docker_path, "info"],
+                [self._pg_dump_path, "--version"],
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=5,
                 encoding="utf-8",
                 errors="replace",
             )
@@ -151,42 +163,20 @@ class BackupUtilsMixin:
         except Exception:
             return False
 
-    def _get_running_container(self) -> Optional[str]:
-        """取得正在執行的 PostgreSQL 容器名稱（精確比對，防跨專案汙染）"""
-        try:
-            result = subprocess.run(
-                [
-                    self._docker_path,
-                    "ps",
-                    "--filter",
-                    f"name={self.container_name}",
-                    "--format",
-                    "{{.Names}}",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=10,
-                encoding="utf-8",
-                errors="replace",
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                # Docker --filter "name=" 是子字串匹配，需精確比對
-                allowed_suffixes = ["", "_dev", "_1"]
-                for name in result.stdout.strip().split("\n"):
-                    clean_name = name.strip()
-                    if any(
-                        clean_name == self.container_name + suffix
-                        for suffix in allowed_suffixes
-                    ):
-                        return clean_name
-        except Exception:
-            pass
-        return self.container_name
+    # 向後相容別名（既有 callsite 仍以 _docker_* 命名呼叫）
+    def _find_docker_path(self) -> str:  # noqa: D401 — backwards-compat alias
+        """L49 alias — 統一改為 _find_pg_dump_path。"""
+        return self._find_pg_dump_path()
+
+    def _check_docker_available(self) -> bool:  # noqa: D401 — backwards-compat alias
+        """L49 alias — 統一改為 _check_pg_dump_available。"""
+        return self._check_pg_dump_available()
 
     def get_environment_status(self) -> Dict[str, Any]:
         """取得備份環境狀態（供前端顯示）"""
-        # 重新檢查 Docker 可用性
-        self._docker_available = self._check_docker_available()
+        # 重新檢查 pg_dump 可用性
+        self._pg_dump_available = self._check_pg_dump_available()
+        self._docker_available = self._pg_dump_available  # compat 鏡像
 
         # 取得最後成功備份時間
         last_success_time = None
@@ -200,8 +190,14 @@ class BackupUtilsMixin:
                     consecutive_failures += 1
 
         return {
-            "docker_available": self._docker_available,
-            "docker_path": self._docker_path,
+            # 新欄位（語意正確）
+            "pg_dump_available": self._pg_dump_available,
+            "pg_dump_path": self._pg_dump_path,
+            "db_host": self.db_host,
+            "db_port": self.db_port,
+            # 向後相容欄位（舊 frontend 仍讀 docker_available / docker_path）
+            "docker_available": self._pg_dump_available,
+            "docker_path": self._pg_dump_path,
             "last_success_time": last_success_time,
             "consecutive_failures": consecutive_failures,
             "backup_dir_exists": self.backup_dir.exists(),
