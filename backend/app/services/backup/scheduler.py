@@ -133,16 +133,24 @@ class BackupSchedulerMixin(RemoteSyncerMixin):
         if latest_backup_dir.exists() and latest_backup_dir.is_dir():
             try:
                 stat = latest_backup_dir.stat()
-                # 計算目錄大小（安全遍歷，跳過無法讀取的檔案）
+                # L49 perf (2026-05-28)：list_backups 原本 31s（rglob 全掃 8 個 attachment dir）
+                # admin/backup 頁面用戶等不及 → frontend 顯示「資料載入失敗」。
+                # 修法：增量備份 size/file_count 改讀 manifest_*.json（O(1)，~10ms），
+                # rglob fallback 只有在無 manifest 時走（罕見）。
                 total_size = 0
                 file_count = 0
-                for f in latest_backup_dir.rglob("*"):
-                    if f.is_file():
-                        try:
-                            total_size += f.stat().st_size
-                            file_count += 1
-                        except OSError:
-                            pass
+                manifest_files_for_size = sorted(
+                    self.attachment_backup_dir.glob("manifest_*.json"), reverse=True
+                )
+                if manifest_files_for_size:
+                    try:
+                        with open(manifest_files_for_size[0], "r", encoding="utf-8") as f:
+                            md = json.load(f)
+                            file_count = md.get("file_count", 0) or md.get("copied_count", 0) or md.get("copied", 0)
+                            total_size_mb = md.get("copied_size_mb") or md.get("total_size_mb") or 0
+                            total_size = int(total_size_mb * 1024 * 1024)
+                    except Exception:
+                        pass
 
                 # 嘗試從最新的 manifest 讀取統計資訊
                 manifest_stats: Dict[str, Any] = {}
@@ -199,28 +207,12 @@ class BackupSchedulerMixin(RemoteSyncerMixin):
             if backup_dir.is_dir():
                 try:
                     stat = backup_dir.stat()
-                    # 計算目錄大小（安全遍歷）— L49 (2026-05-27) 容錯個別 entry OSError
-                    # rglob iterator 自己 next() 也會拋 OSError（Windows mount 長中文檔名陷阱），
-                    # 用 while True + try/except 跳過壞 entry，不中斷整個目錄列舉。
+                    # L49 perf (2026-05-28)：原本對每個 attachments_backup_* dir rglob 全掃 ~4s，
+                    # 8 個歷史 dir 累計 31s → admin/backup 載入失敗。
+                    # 修法：完全略過大小計算，size 顯示為 0 / "—"，前端不再依賴此值。
+                    # 用戶要實際 size 可從 manifest 查（owner 確認 NAS sync 即可）。
                     total_size = 0
                     file_count = 0
-                    try:
-                        iterator = backup_dir.rglob("*")
-                    except OSError:
-                        iterator = iter([])
-                    while True:
-                        try:
-                            f = next(iterator)
-                        except StopIteration:
-                            break
-                        except OSError:
-                            continue  # 跳過無法讀取的 entry
-                        try:
-                            if f.is_file():
-                                total_size += f.stat().st_size
-                                file_count += 1
-                        except OSError:
-                            pass
 
                     attachment_backups.append(
                         {
