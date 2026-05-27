@@ -33,6 +33,13 @@ import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
+
+# Windows cp950 防護（per audit 4 特徵 #1, session_20260526_27）
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 from pathlib import Path
 
 import yaml

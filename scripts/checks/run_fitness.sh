@@ -689,11 +689,26 @@ echo ""
 # 抓 /health endpoint pool stats {size, checked_in, checked_out, overflow, max_overflow}
 # RED util > 90% / YELLOW util > 50% or overflow active / GREEN < 50%
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[48/48] DB pool exhaustion audit (v6.12 P3)${NC}"
+echo -e "${CYAN}[48/49] DB pool exhaustion audit (v6.12 P3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/db_pool_exhaustion_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/db_pool_exhaustion_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 49: Synthetic baseline freshness audit (v6.12 P3, 2026-05-27)
+# 觸發：5/22-5/27 6+ 天 synthetic_baseline_inject cron rc=1 silent dead
+# 真因鏈：docker container MCP_SERVICE_TOKEN env missing → endpoint 403 in 8ms
+# 同 L48 family — silent dormant + missing audit enforcement
+# 掃 backend-error.log 抓 Total/Success/Error 比例，全失敗 → RED
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[49/49] Synthetic baseline freshness audit (v6.12 P3)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/synthetic_baseline_freshness_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/synthetic_baseline_freshness_audit.py || true
 fi
 echo ""
 
