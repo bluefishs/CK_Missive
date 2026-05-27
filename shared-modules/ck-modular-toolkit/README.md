@@ -43,7 +43,15 @@ ck-modular-toolkit/
 │   ├── startup_dependency_race_audit.py         depends_on 缺 condition: service_healthy
 │   ├── db_pool_exhaustion_audit.py              SQLAlchemy pool utilization / overflow
 │   ├── synthetic_baseline_freshness_audit.py    L48: scheduler chronic silent dead 偵測
-│   └── frontend_bundle_size_drift_audit.py      CI 停用後 bundle 膨脹 silent 漂移
+│   ├── frontend_bundle_size_drift_audit.py      CI 停用後 bundle 膨脹 silent 漂移
+│   │
+│   │ # === L49 container host dependency family (2026-05-27~28, v6.11) ===
+│   ├── container_host_dependency_audit.py       L49: rglob / file_path / docker CLI 跨環境破口
+│   ├── tender_subscription_watchdog_audit.py    L48 family: scheduler silent dormant 偵測
+│   └── admin_backup_smoke_test.py               L49: in-container business endpoint smoke
+├── lessons/                                跨 repo lessons learned
+│   ├── L41_jwt_secret_drift_silent_fail.md      JWT secret 跨 repo drift
+│   └── L49_container_host_dependency_family.md  PM2→docker 5 重 silent regression
 ├── standards/                             規範文件
 │   ├── NAMING_CONVENTIONS.md              命名 SSOT
 │   ├── CONTRACTS_LAYER_GUIDE.md           Bounded Context Layer
