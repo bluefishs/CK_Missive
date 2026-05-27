@@ -143,6 +143,16 @@ services:
       # 2026-05-24 fix: 修正 docker 內 PROJECT_ROOT 偏層問題（docker /app vs host backend/）
       # 沒這個 → memory_metrics_refresh_job 找 /wiki/memory 找不到 → silent skip → gauge 永遠 0
       - CK_WIKI_DIR=/app/wiki
+      # L48 (2026-05-27): SSO env 必須 declare 進 container，否則 sso_bridge.py 看 CK_SSO_ENABLED=False
+      # → 503 "SSO bridge 未啟用"（前 backend container 跑著的 env 來自 image build cache，
+      #   recreate 後 image cache 失效就沒 env，這是 L48 修拓樸的 prerequisite 配套）
+      - CK_SSO_ENABLED=${CK_SSO_ENABLED:-true}
+      - CK_SSO_JWT_SECRET=${CK_SSO_JWT_SECRET}
+      - CK_SSO_JWKS_URL=${CK_SSO_JWKS_URL:-https://www.cksurvey.tw/.well-known/jwks.json}
+      # L48 (2026-05-27): production yml 硬編 false 不從 .env 取（.env 設 true 給本機 dev）
+      # backend main.py:97 SECURITY HALT: DEVELOPMENT_MODE=true + cksurvey.tw hosts → sys.exit(1)
+      - DEVELOPMENT_MODE=false
+      - AUTH_DISABLED=false
     ports:
       - "8001:8001"
     volumes:
