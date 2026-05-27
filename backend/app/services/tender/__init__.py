@@ -18,3 +18,9 @@ from .search import TenderSearchService  # noqa: F401
 from .analytics import TenderAnalyticsService  # noqa: F401
 from .ezbid_scraper import EzbidScraper  # noqa: F401
 from .pcc_today_scraper import PccTodayScraper  # noqa: F401
+# Step 5A (2026-05-28): scraper base + registry — 統一 abstract base
+from .scraper_base import (  # noqa: F401
+    TenderScraperBase,
+    ScraperRegistry,
+    register_scraper,
+)

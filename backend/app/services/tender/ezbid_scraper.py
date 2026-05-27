@@ -19,6 +19,8 @@ from typing import Optional, List, Dict, Any
 import httpx
 from bs4 import BeautifulSoup
 
+from .scraper_base import register_scraper
+
 logger = logging.getLogger(__name__)
 
 EZBID_BASE = "https://cf.ezbid.tw"
@@ -37,8 +39,18 @@ EZBID_CATEGORIES = {
 }
 
 
+@register_scraper("ezbid")
 class EzbidScraper:
-    """ezbid.tw 標案爬蟲"""
+    """ezbid.tw 標案爬蟲。
+
+    Step 5A (2026-05-28): @register_scraper 註冊進 ScraperRegistry，
+    subscription_scheduler / freshness_audit / Grafana 可自動 enumerate。
+    Inherit base 是漸進式 — 既有測試保留，只加 registry。
+    """
+    # ScraperRegistry 需要的 attributes（與 base class 對齊）
+    source_name = "ezbid"
+    cache_prefix = "ezbid"
+    cache_ttl = 600
 
     def __init__(self, redis_client=None):
         self._redis = redis_client

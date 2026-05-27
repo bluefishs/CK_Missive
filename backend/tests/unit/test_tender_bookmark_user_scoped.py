@@ -48,7 +48,17 @@ def test_create_bookmark_source_uses_user_id():
 
 
 def test_list_bookmark_source_filters_user_id():
+    """v6.9 R4-2 (ADR-0025) 後升級：list_bookmarks 改用 expand_user_alias 展開 alias group。
+
+    舊測試期望 `TenderBookmark.user_id == current_user.id` 單一身份過濾，但 alias 多帳號
+    用戶會看不到自己其他 alias 的書籤。修法後改用 `TenderBookmark.user_id.in_(alias_ids)`。
+
+    新斷言：仍然按 user_id 過濾（防全域裸露），但接受 alias-aware 展開模式。
+    """
     src = inspect.getsource(subscriptions.list_bookmarks)
-    assert "TenderBookmark.user_id == current_user.id" in src, (
-        "list_bookmarks must filter by user_id"
+    # 要不就是 legacy single-user 過濾，要不就是 alias-aware 多 ID 過濾 — 任一即可
+    legacy_pattern = "TenderBookmark.user_id == current_user.id" in src
+    alias_pattern = "TenderBookmark.user_id.in_(alias_ids)" in src and "expand_user_alias" in src
+    assert legacy_pattern or alias_pattern, (
+        "list_bookmarks must filter by user_id (legacy single == OR alias-aware .in_())"
     )

@@ -25,6 +25,8 @@ from typing import Optional, List, Dict, Any
 import httpx
 from bs4 import BeautifulSoup
 
+from .scraper_base import register_scraper
+
 logger = logging.getLogger(__name__)
 
 PCC_BASE = "https://web.pcc.gov.tw"
@@ -34,8 +36,16 @@ MAX_RETRIES = 2
 BACKOFF_BASE = 2.0
 
 
+@register_scraper("pcc")
 class PccTodayScraper:
-    """PCC 今日標案爬蟲 — 權威來源"""
+    """PCC 今日標案爬蟲 — 權威來源。
+
+    Step 5A (2026-05-28): @register_scraper 註冊進 ScraperRegistry。
+    """
+    # ScraperRegistry 需要的 attributes
+    source_name = "pcc"
+    cache_prefix = "pcc:today"
+    cache_ttl = 900
 
     def __init__(self, redis_client=None):
         self._redis = redis_client
