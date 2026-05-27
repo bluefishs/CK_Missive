@@ -79,6 +79,7 @@ function createAgentAPIs(
         {
           question: params.question,
           session_id: params.sessionId,
+          channel: 'web',  // v7 channel_diversity 統計：標記真實 web user traffic
           ...(params.context ? { context: params.context } : {}),
         },
         {
