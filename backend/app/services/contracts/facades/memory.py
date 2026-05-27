@@ -118,7 +118,14 @@ class MemoryFacade:
             return await get_diary_service().summarize_yesterday_for_context(
                 max_chars=max_chars,
             )
-        except (ImportError, AttributeError, Exception):
+        except (ImportError, AttributeError):
+            return ""
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "MemoryFacade.summarize_yesterday_for_context failed: %s",
+                e, exc_info=True,
+            )
             return ""
 
     async def get_defensive_rules_block(
@@ -132,7 +139,14 @@ class MemoryFacade:
         try:
             from app.services.memory.auto_defense import get_defensive_rules_block
             return await get_defensive_rules_block(max_items=max_items)
-        except (ImportError, AttributeError, Exception):
+        except (ImportError, AttributeError):
+            return ""
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "MemoryFacade.get_defensive_rules_block failed: %s",
+                e, exc_info=True,
+            )
             return ""
 
     async def get_recent_reflections_block(
@@ -147,7 +161,14 @@ class MemoryFacade:
         try:
             from app.services.memory.anti_echo import get_recent_reflections_block
             return await get_recent_reflections_block(days=days, max_items=max_items)
-        except (ImportError, AttributeError, Exception):
+        except (ImportError, AttributeError):
+            return ""
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "MemoryFacade.get_recent_reflections_block failed: %s",
+                e, exc_info=True,
+            )
             return ""
 
     async def append_diary_entry(
@@ -179,7 +200,27 @@ class MemoryFacade:
                 route_type=route_type,
             )
             return True
-        except (ImportError, AttributeError, Exception):
+        except (ImportError, AttributeError) as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                "MemoryFacade.append_diary_entry: diary_service unavailable: %s", e,
+            )
+            return False
+        except Exception as e:
+            # L29 教訓 + ADR-0028 錯誤合約：不可 silent swallow
+            import logging
+            logging.getLogger(__name__).error(
+                "MemoryFacade.append_diary_entry failed: %s",
+                e, exc_info=True,
+                extra={"session_id": session_id, "channel": channel, "success": success},
+            )
+            try:
+                from app.core.memory_wiki_metrics import get_memory_wiki_metrics
+                get_memory_wiki_metrics().diary_append_failures.labels(
+                    error_type="facade_unknown",
+                ).inc()
+            except Exception:
+                pass
             return False
 
     async def build_role_system_prompt(
@@ -199,7 +240,14 @@ class MemoryFacade:
                 role_context=role_context,
                 role_specific_block=role_specific_block,
             )
-        except (ImportError, AttributeError, Exception):
+        except (ImportError, AttributeError):
+            return None
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "MemoryFacade.build_role_system_prompt failed: %s",
+                e, exc_info=True,
+            )
             return None
 
 

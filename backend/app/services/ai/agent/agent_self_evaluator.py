@@ -238,7 +238,11 @@ class AgentSelfEvaluator:
                 )
                 await redis.ltrim(self.EVAL_HISTORY_KEY, 0, 999)
             except Exception as e:
-                logger.debug("Eval store failed (non-critical): %s", e)
+                # L29 治理：升 warning（redis push 失敗會丟學習信號）
+                logger.warning(
+                    "Eval store to redis failed (non-blocking but signals lost): %s",
+                    e, exc_info=True,
+                )
 
         # CRITICAL 即時回饋：不等 EvolutionScheduler，直接寫入短效快取
         if score.severity == "critical" and redis:
@@ -262,7 +266,12 @@ class AgentSelfEvaluator:
                     len(score.signals), score.overall,
                 )
             except Exception as e:
-                logger.debug("CRITICAL feedback write failed: %s", e)
+                # L29 治理：CRITICAL 路徑不可 silent debug — 升 error + exc_info
+                logger.error(
+                    "CRITICAL feedback write failed (severity=critical signals lost): %s",
+                    e, exc_info=True,
+                    extra={"signals_count": len(score.signals), "score": score.overall},
+                )
 
         # Domain-aware signal tracking (for targeted evolution)
         # L29 (v6.9 / 2026-05-09)：修「domain_scores 全空 → domain-aware evolution trigger

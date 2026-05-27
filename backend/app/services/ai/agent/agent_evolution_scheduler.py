@@ -242,7 +242,11 @@ class AgentEvolutionScheduler:
                 )
 
         except Exception as e:
-            logger.debug("Evolution effectiveness check failed: %s", e)
+            # L29 治理：effectiveness check 失敗 = 進化 R-1 階段失能
+            logger.warning(
+                "Evolution effectiveness check failed (R-1 gate skipped): %s",
+                e, exc_info=True,
+            )
 
         return result
 
@@ -275,7 +279,11 @@ class AgentEvolutionScheduler:
             if snapshot_tag:
                 logger.info("Pre-evolution snapshot: %s", snapshot_tag)
         except Exception as snap_err:
-            logger.debug("Snapshot before evolution skipped: %s", snap_err)
+            # L29 治理：snapshot 失敗 = rollback 安全網斷，升 warning
+            logger.warning(
+                "Snapshot before evolution skipped (rollback safety lost): %s",
+                snap_err, exc_info=True,
+            )
 
         report: Dict[str, Any] = {
             "timestamp": time.time(),
@@ -394,8 +402,12 @@ class AgentEvolutionScheduler:
                 }, ensure_ascii=False)
                 await self.redis.lpush("agent:evolution:journal", journal_entry)
                 await self.redis.ltrim("agent:evolution:journal", 0, 99)  # Keep last 100
-            except Exception:
-                pass
+            except Exception as e:
+                # L29 治理：journal silent pass → warning（進化軌跡 silent 丟失）
+                logger.warning(
+                    "Evolution journal write skipped (audit trail lost): %s",
+                    e, exc_info=True,
+                )
 
             # Persist evolution history to DB (non-blocking)
             try:
@@ -408,7 +420,11 @@ class AgentEvolutionScheduler:
                     query_counter_key=QUERY_COUNTER_KEY,
                 )
             except Exception as persist_err:
-                logger.debug("Evolution history persistence skipped: %s", persist_err)
+                # L29 治理：DB persist 失敗 = 學習資料丟失，升 warning
+                logger.warning(
+                    "Evolution history persistence skipped (learning data lost): %s",
+                    persist_err, exc_info=True,
+                )
 
             # Phase 2D: LLM 生成進化摘要（非阻塞）
             if actions_taken or report.get("signals_consumed", 0) > 0:
@@ -493,7 +509,11 @@ class AgentEvolutionScheduler:
                     "Auto-rollback: removed %d recently promoted patterns", demoted
                 )
         except Exception as e:
-            logger.debug("Auto-rollback failed: %s", e)
+            # L29 治理：Auto-rollback 失敗會讓壞 pattern 殘留 — 升 error
+            logger.error(
+                "Auto-rollback failed (bad patterns may remain promoted): %s",
+                e, exc_info=True,
+            )
         return demoted
 
     async def _consume_signals(self) -> List[Dict[str, Any]]:

@@ -95,7 +95,11 @@ async def _scan_deadline_alerts(db: AsyncSession) -> List[Dict[str, Any]]:
         return alerts
 
     except Exception as e:
-        logger.debug("Deadline alert scan failed: %s", e)
+        # L29 治理：proactive alert 失敗 = agent 主動性失能，升 warning
+        logger.warning(
+            "Deadline alert scan failed (proactive layer degraded): %s",
+            e, exc_info=True,
+        )
         return []
 
 
@@ -129,5 +133,9 @@ async def _count_unread_notifications(db: AsyncSession) -> int:
         )
         return result.scalar() or 0
     except Exception as e:
-        logger.debug("Unread notification count failed: %s", e)
+        # L29 治理：unread count 失敗會讓 proactive 漏報，升 warning
+        logger.warning(
+            "Unread notification count failed (proactive count = 0 fallback): %s",
+            e, exc_info=True,
+        )
         return 0

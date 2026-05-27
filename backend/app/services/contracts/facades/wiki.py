@@ -105,7 +105,14 @@ class WikiFacade:
         try:
             from app.services.wiki.service import get_wiki_service
             return await get_wiki_service().search_wiki(query, limit=limit)
-        except (ImportError, AttributeError, Exception):
+        except (ImportError, AttributeError):
+            return []
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "WikiFacade.search_wiki failed: %s", e, exc_info=True,
+                extra={"query": query, "limit": limit},
+            )
             return []
 
     async def read_page(
@@ -119,7 +126,14 @@ class WikiFacade:
         try:
             from app.services.wiki.service import get_wiki_service
             return await get_wiki_service().read_page(page_path)
-        except (ImportError, AttributeError, Exception):
+        except (ImportError, AttributeError):
+            return None
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "WikiFacade.read_page failed: %s", e, exc_info=True,
+                extra={"page_path": page_path},
+            )
             return None
 
     async def get_stats(self) -> dict:
@@ -131,7 +145,13 @@ class WikiFacade:
             from app.services.wiki.service import get_wiki_service
             stats = get_wiki_service().get_stats()
             return stats or {"total": 0}
-        except (ImportError, AttributeError, Exception):
+        except (ImportError, AttributeError):
+            return {"total": 0}
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "WikiFacade.get_stats failed: %s", e, exc_info=True,
+            )
             return {"total": 0}
 
     async def ingest(
@@ -166,7 +186,14 @@ class WikiFacade:
             return await svc.save_synthesis(
                 title=title, content_md=content, sources=srcs, tags=tg,
             )
-        except (ImportError, AttributeError, Exception) as e:
+        except (ImportError, AttributeError) as e:
+            return {"error": str(e), "ok": False}
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "WikiFacade.ingest failed: %s", e, exc_info=True,
+                extra={"page_type": page_type, "title": title[:60]},
+            )
             return {"error": str(e), "ok": False}
 
     async def auto_ingest_synthesis(
@@ -193,7 +220,14 @@ class WikiFacade:
             )
             await svc.rebuild_index()
             return True
-        except (ImportError, AttributeError, Exception):
+        except (ImportError, AttributeError):
+            return False
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "WikiFacade.auto_ingest_synthesis failed: %s", e, exc_info=True,
+                extra={"question_prefix": question[:60], "tools_count": len(tools_used)},
+            )
             return False
 
 

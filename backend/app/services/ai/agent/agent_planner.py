@@ -215,7 +215,12 @@ class AgentPlanner:
                 )
                 return None
             except Exception as e:
-                logger.debug("planner.%s failed: %s", name, e)
+                # L29 治理：planner enrichment section 失敗影響 prompt 品質，
+                # 升 warning（4 sections 共用此路徑 — debug 級在 INFO+ 設定下完全 invisible）
+                logger.warning(
+                    "planner.%s failed (non-blocking, prompt quality degraded): %s",
+                    name, e, exc_info=True,
+                )
                 return None
 
         # 2026-04-19 Memory Wiki Phase 2: 失敗教訓注入

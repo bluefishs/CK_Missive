@@ -449,7 +449,11 @@ async def run_post_synthesis(
             )
         )
     except Exception as _e:
-        logger.debug("Diary append scheduling failed: %s", _e)
+        # L29 治理：原 debug 級在生產 INFO+ 設定下 invisible，升 warning
+        logger.warning(
+            "Diary append asyncio scheduling failed (non-blocking): %s",
+            _e, exc_info=True,
+        )
 
     # 非阻塞：自我評估 + 進化觸發
     asyncio.create_task(

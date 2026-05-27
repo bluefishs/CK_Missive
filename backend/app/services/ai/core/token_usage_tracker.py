@@ -108,7 +108,13 @@ class TokenUsageTracker:
 
                 await pipe.execute()
         except Exception as e:
-            logger.debug("Token usage Redis write failed: %s", e)
+            # L29 治理：redis 永久 disable（self._redis = None）即使恢復也不重試，
+            # debug 級在 INFO+ 設定下完全 invisible — 升 warning
+            logger.warning(
+                "Token usage Redis write failed (Redis disabled for this process; "
+                "fallback to local in-memory): %s",
+                e, exc_info=True,
+            )
             self._redis = None
 
         # 本地 fallback
