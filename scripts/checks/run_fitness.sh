@@ -661,11 +661,25 @@ echo ""
 #   4. .env.example 宣告 CK_SSO_ENABLED 或 VITE_CK_SSO_ENABLED
 # Check 1-2 RED, Check 3-4 YELLOW
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[46/46] SSO autoload completeness audit (next_session_resume #7)${NC}"
+echo -e "${CYAN}[46/47] SSO autoload completeness audit (next_session_resume #7)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/sso_autoload_completeness_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/sso_autoload_completeness_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 47: startup dependency race audit (v6.12 P3, 2026-05-27)
+# 觸發：naïve `depends_on: - postgres` 只等 start 不等 healthy → race condition
+# 偵測 list 形式 depends_on / 缺 condition / service_started（非 service_healthy）
+# 所有 critical depends_on 應該用 dict + condition: service_healthy
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[47/47] startup dependency race audit (v6.12 P3)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/startup_dependency_race_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/startup_dependency_race_audit.py || true
 fi
 echo ""
 
