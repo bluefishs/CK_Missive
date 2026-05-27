@@ -295,13 +295,14 @@ def save_outputs(
 | 外鍵關聯 | {sum(len(t["foreign_keys"]) for t in schema["tables"].values())} |
 | 自訂列舉型別 | {len(schema["enums"])} |
 """
-    mermaid_path.write_text(mermaid_content, encoding="utf-8")
+    mermaid_path.write_text(mermaid_content, encoding="utf-8", newline="\n")
 
     # JSON metadata (for GitNexus / Agent)
     json_path = docs_dir / "er-model.json"
     json_path.write_text(
         json.dumps(schema, indent=2, ensure_ascii=False, default=str),
         encoding="utf-8",
+        newline="\n",
     )
 
     return mermaid_path, json_path

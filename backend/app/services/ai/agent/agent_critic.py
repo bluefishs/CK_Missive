@@ -184,7 +184,7 @@ class AgentCritic:
             )
             for c in critique["critiques"]:
                 content += f"- {c}\n"
-            path.write_text(content, encoding="utf-8")
+            path.write_text(content, encoding="utf-8", newline="\n")
             logger.debug("Critique persisted: %s entities=%d", filename, len(entities))
         except Exception as e:
             # v6.2 Phase B3 (ADR-0028 合規)：silent fail debug → error + exc_info
