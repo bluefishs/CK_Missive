@@ -34,6 +34,13 @@ from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
 
+# Windows cp950 防護（per audit 4 特徵 #1, session_20260526_27）
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 WIKI_MEMORY = PROJECT_ROOT / "wiki" / "memory"
 
@@ -46,10 +53,16 @@ def _read(p: Path) -> str:
 
 
 def metric_1_channel_diversity() -> dict:
-    """指標 1：跨通道 pattern 多樣性（7 天 diary by channel）。"""
+    """指標 1：跨通道 pattern 多樣性（7 天 diary by channel）。
+
+    Diary entry header format (per diary_service.append_entry):
+        ## HH:MM:SS — emoji [route_type] channel
+    where channel is one of: line / telegram / web / discord / mcp / hermes / -
+    """
     d = WIKI_MEMORY / "diary"
     cutoff = date.today() - timedelta(days=7)
     by_channel: Counter = Counter()
+    channels = ("line", "telegram", "web", "discord", "mcp", "hermes")
     if d.exists():
         for f in d.glob("20*.md"):
             try:
@@ -58,8 +71,10 @@ def metric_1_channel_diversity() -> dict:
             except ValueError:
                 continue
             text = _read(f)
-            for ch in ("line", "telegram", "web", "discord", "mcp", "hermes"):
-                count = len(re.findall(rf"session.*{ch}:", text))
+            for ch in channels:
+                # match `## HH:MM:SS — ✅ [route_type] {channel}` at end of header
+                pattern = rf"^## \d{{2}}:\d{{2}}:\d{{2}} —.*\[[^\]]+\] {ch}\s*$"
+                count = len(re.findall(pattern, text, re.MULTILINE))
                 by_channel[ch] += count
     return {
         "metric": "channel_diversity",
@@ -128,7 +143,18 @@ def metric_2_reference_density() -> dict:
 
 
 def metric_3_soul_drift() -> dict:
-    """指標 3：SOUL drift hash distance（Missive vs AaaP 行數差）。"""
+    """指標 3：SOUL drift hash distance（Missive vs AaaP 行數差）。
+
+    ⚠️ 2026-05-27 校正：此 metric 原設計假設兩檔互為 mirror，但 ADR-0044 後
+    AaaP SOUL.md 已升為「Hermes Meta — 共同大腦」（meta-governance），
+    Missive SOUL.md 仍是「坤哥 — Missive 意識體人格」。兩檔本質為不同 entity，
+    行數差 60+ 是 by design 不是 drift。
+
+    若要維持此 metric 有意義，應改測：
+      (a) Missive SOUL.md 與其 sync_targets 宣告路徑（若仍要 mirror）
+      (b) 改名 soul_consistency_with_intent，比對 frontmatter source_of_truth flag
+      (c) 廢止此 metric，改以「sync log freshness」替代
+    """
     soul_a = PROJECT_ROOT / "wiki" / "SOUL.md"
     soul_b = PROJECT_ROOT.parent / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
 
