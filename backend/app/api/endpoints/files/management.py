@@ -22,7 +22,7 @@ from app.core.dependencies import require_auth
 from app.core.exceptions import ForbiddenException
 from app.repositories.attachment_repository import AttachmentRepository
 
-from .common import check_document_access, calculate_checksum
+from .common import check_document_access, calculate_checksum, resolve_attachment_path
 
 router = APIRouter()
 
@@ -61,9 +61,11 @@ async def delete_file(
 
     deleted_filename = attachment.file_name or attachment.original_name or 'unknown'
 
-    if attachment.file_path and os.path.exists(attachment.file_path):
+    # L49 (2026-05-27): 用 SSOT helper 解析（自動處理 Windows \\ → Linux / 分隔符）
+    actual_path = resolve_attachment_path(attachment.file_path or '')
+    if actual_path and os.path.exists(actual_path):
         try:
-            os.remove(attachment.file_path)
+            os.remove(actual_path)
         except Exception as e:
             logger.warning(f"刪除實體檔案失敗: {e}")
 
@@ -138,7 +140,9 @@ async def verify_file_integrity(
             detail="檔案不存在",
         )
 
-    if not attachment.file_path or not os.path.exists(attachment.file_path):
+    # L49: 用 SSOT helper 解析（自動處理 Windows \\ → Linux / 分隔符）
+    actual_path = resolve_attachment_path(attachment.file_path or '')
+    if not actual_path or not os.path.exists(actual_path):
         return {
             "success": False,
             "file_id": file_id,
@@ -147,7 +151,7 @@ async def verify_file_integrity(
         }
 
     try:
-        async with aiofiles.open(attachment.file_path, 'rb') as f:
+        async with aiofiles.open(actual_path, 'rb') as f:
             content = await f.read()
         current_checksum = calculate_checksum(content)
     except Exception as e:

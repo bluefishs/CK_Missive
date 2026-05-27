@@ -99,6 +99,22 @@ def normalize_path(path: str) -> str:
     return os.path.normpath(path)
 
 
+def resolve_attachment_path(stored_path: str) -> str:
+    """解析 DB 內 attachment.file_path → 當前 OS 的實體路徑。
+
+    L49 (2026-05-27): 跨平台分隔符正規化 — PM2/Windows 時代上傳的舊資料
+    DB 內存 `2026\\05\\doc_2507\\xxxx.pdf`（Windows backslash），
+    進 Linux container 後 os.path.exists 必 404，必須先 `\\` → `/`。
+    """
+    if not stored_path:
+        return ''
+    # Windows 反斜線統一換成當前 OS 分隔符（Linux container 是 `/`）
+    normalized = stored_path.replace('\\', os.sep)
+    if normalized.startswith(UPLOAD_BASE_DIR):
+        return normalized  # 已含完整路徑
+    return os.path.join(UPLOAD_BASE_DIR, normalized)
+
+
 # 正規化並確保根目錄存在
 UPLOAD_BASE_DIR = normalize_path(UPLOAD_BASE_DIR)
 STORAGE_TYPE = get_storage_type(UPLOAD_BASE_DIR)

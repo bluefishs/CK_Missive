@@ -154,11 +154,13 @@ async def download_quotation_attachment(
     if not attachment:
         raise HTTPException(status_code=404, detail="附件不存在")
 
-    if not os.path.exists(attachment.file_path):
+    # L49 (2026-05-27): 跨平台分隔符正規化 — DB 內舊資料是 Windows `\`，Linux container 必 404
+    file_path = (attachment.file_path or '').replace('\\', os.sep)
+    if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="檔案已遺失")
 
     return FileResponse(
-        path=attachment.file_path,
+        path=file_path,
         filename=attachment.original_name or attachment.file_name,
         media_type=attachment.mime_type or "application/octet-stream",
     )
@@ -178,12 +180,13 @@ async def delete_quotation_attachment(
     if not attachment:
         raise HTTPException(status_code=404, detail="附件不存在")
 
-    # 刪除實體檔案
-    if os.path.exists(attachment.file_path):
+    # 刪除實體檔案 — L49 分隔符正規化
+    _del_path = (attachment.file_path or '').replace('\\', os.sep)
+    if os.path.exists(_del_path):
         try:
-            os.remove(attachment.file_path)
+            os.remove(_del_path)
         except OSError as e:
-            logger.warning(f"刪除檔案失敗: {attachment.file_path}: {e}")
+            logger.warning(f"刪除檔案失敗: {_del_path}: {e}")
 
     await db.execute(
         delete(PMCaseAttachment).where(PMCaseAttachment.id == attachment_id)

@@ -16,7 +16,7 @@ from app.extended.models import DocumentAttachment, User
 from app.core.dependencies import require_auth
 from app.core.exceptions import ForbiddenException
 
-from .common import check_document_access, UPLOAD_BASE_DIR
+from .common import check_document_access, UPLOAD_BASE_DIR, resolve_attachment_path
 
 router = APIRouter()
 
@@ -51,12 +51,9 @@ async def download_file(
         if not has_access:
             raise ForbiddenException("您沒有權限下載此檔案")
 
-    # 解析實際檔案路徑 — DB 可能存 relative_path 或含 UPLOAD_BASE_DIR 前綴
+    # L49 (2026-05-27): 用 SSOT helper 解析（自動處理 Windows \\ → Linux / 跨平台分隔符）
     stored_path = attachment.file_path or ''
-    if stored_path.startswith(UPLOAD_BASE_DIR):
-        actual_path = stored_path  # 舊資料：已含完整路徑
-    else:
-        actual_path = os.path.join(UPLOAD_BASE_DIR, stored_path)  # 新資料：相對路徑
+    actual_path = resolve_attachment_path(stored_path)
 
     # Path traversal protection
     actual = os.path.realpath(actual_path)

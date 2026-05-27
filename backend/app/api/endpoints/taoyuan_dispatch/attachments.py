@@ -223,7 +223,9 @@ async def download_dispatch_attachment(
         raise HTTPException(status_code=404, detail=f"附件 {attachment_id} 不存在")
 
     # 組合完整路徑
-    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, attachment.file_path)
+    # L49 (2026-05-27): 跨平台分隔符正規化 — DB 內舊資料是 Windows `\`，Linux container 必 404
+    _normalized = (attachment.file_path or '').replace('\\', os.sep)
+    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, _normalized)
 
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="檔案不存在於儲存系統")
@@ -251,7 +253,9 @@ async def delete_dispatch_attachment(
         raise HTTPException(status_code=404, detail=f"附件 {attachment_id} 不存在")
 
     # 刪除實體檔案
-    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, attachment.file_path)
+    # L49 (2026-05-27): 跨平台分隔符正規化 — DB 內舊資料是 Windows `\`，Linux container 必 404
+    _normalized = (attachment.file_path or '').replace('\\', os.sep)
+    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, _normalized)
     if os.path.exists(full_path):
         try:
             os.remove(full_path)
@@ -285,7 +289,9 @@ async def verify_dispatch_attachment(
         raise HTTPException(status_code=404, detail=f"附件 {attachment_id} 不存在")
 
     # 組合完整路徑
-    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, attachment.file_path)
+    # L49 (2026-05-27): 跨平台分隔符正規化 — DB 內舊資料是 Windows `\`，Linux container 必 404
+    _normalized = (attachment.file_path or '').replace('\\', os.sep)
+    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, _normalized)
 
     if not os.path.exists(full_path):
         return DispatchAttachmentVerifyResult(

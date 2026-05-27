@@ -35,15 +35,39 @@ async def get_storage_info(
     storage_path = Path(UPLOAD_BASE_DIR)
 
     def _scan_files():
-        size, count = 0, 0
-        if storage_path.exists():
-            for f in storage_path.rglob('*'):
+        """掃描 uploads 目錄計算總大小 + 檔案數。
+        L49 (2026-05-27): 容錯個別檔案 OSError（Windows host volume mount 對長中文
+        檔名偶現 Errno 5 I/O error，entry 看得到但 stat 失敗）— 跳過該檔不中斷掃描。
+        """
+        size, count, errors = 0, 0, 0
+        if not storage_path.exists():
+            return size, count, errors
+        try:
+            iterator = storage_path.rglob('*')
+        except OSError as e:
+            logger.warning(f"_scan_files rglob 啟動失敗: {e}")
+            return size, count, errors
+        while True:
+            try:
+                f = next(iterator)
+            except StopIteration:
+                break
+            except OSError as e:
+                # 單一目錄條目讀失敗（Windows 長中文檔名 mount issue）
+                logger.warning(f"_scan_files 跳過無法讀取的 entry: {e}")
+                errors += 1
+                continue
+            try:
                 if f.is_file():
                     size += f.stat().st_size
                     count += 1
-        return size, count
+            except OSError as e:
+                logger.warning(f"_scan_files 跳過 stat 失敗的檔案 {f.name}: {e}")
+                errors += 1
+                continue
+        return size, count, errors
 
-    total_size, file_count = await asyncio.to_thread(_scan_files)
+    total_size, file_count, scan_errors = await asyncio.to_thread(_scan_files)
 
     try:
         disk_usage = await asyncio.to_thread(shutil.disk_usage, UPLOAD_BASE_DIR)
@@ -68,6 +92,7 @@ async def get_storage_info(
         "is_local_ip": is_local_ip(network_ip) if network_ip else None,
         "total_files": file_count,
         "total_size_mb": round(total_size / (1024**2), 2),
+        "scan_errors": scan_errors,  # L49: 揭露 OSError 跳過的 entry 數，給前端顯示警告
         "allowed_extensions": sorted(list(ALLOWED_EXTENSIONS)),
         "max_file_size_mb": MAX_FILE_SIZE / (1024**2),
         "disk_info": disk_info
