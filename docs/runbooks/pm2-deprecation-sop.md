@@ -187,8 +187,11 @@ Docker Desktop GUI → Settings → General
 
 建立 Task `CK_Missive_AutoStart`：
 
+> ✅ **XML 檔案已落地**：`scripts/deploy/task-scheduler-autostart.xml`
+> 不需手動建檔；直接到 §匯入 步驟即可。內容如下供 review：
+
 ```xml
-<!-- 儲存為 D:\CKProject\CK_Missive\scripts\deploy\task-scheduler-autostart.xml -->
+<!-- 已存在於 D:\CKProject\CK_Missive\scripts\deploy\task-scheduler-autostart.xml -->
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
