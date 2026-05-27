@@ -157,6 +157,12 @@ services:
       # PROJECT_ROOT 在 paths.py 設為 /app 上一層，但 docker container 內 /app 是 backend/
       # 所以 wiki 必須 mount 到 /app/wiki（與 host wiki/ 對齊）
       - ./wiki:/app/wiki
+      # L48 (2026-05-27): mount host frontend dist 給 container 內 backend SPA fallback
+      # backend main.py:983 _FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+      # = /frontend/dist in container (WORKDIR=/app, parent.parent=/)
+      # 修法前此 path 不存在 → SPA fallback disabled → cloudflared route to backend 看到 API JSON not HTML
+      # 修法後 backend 同時 serve SPA + API，解 5/21 以來 missive 卡 login 真因
+      - ./frontend/dist:/frontend/dist:ro
     networks:
       ck_network: {}
     depends_on:
