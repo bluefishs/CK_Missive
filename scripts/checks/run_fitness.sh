@@ -704,11 +704,25 @@ echo ""
 # 同 L48 family — silent dormant + missing audit enforcement
 # 掃 backend-error.log 抓 Total/Success/Error 比例，全失敗 → RED
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[49/49] Synthetic baseline freshness audit (v6.12 P3)${NC}"
+echo -e "${CYAN}[49/50] Synthetic baseline freshness audit (v6.12 P3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/synthetic_baseline_freshness_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/synthetic_baseline_freshness_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 50: Frontend bundle size drift audit (v6.12 P3, 2026-05-27)
+# 觸發：GitHub Actions 停用後 CI bundle-size-check 不再跑 → bundle 可 silent 膨脹
+# 對齊 frontend/scripts/bundle-size-check.js 閾值（10.5MB raw / 3.5MB gzip / 1.5MB single）
+# 首跑揭發：total raw 10.68 MB > 10.5 MB threshold → RED
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[50/50] Frontend bundle size drift audit (v6.12 P3)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/frontend_bundle_size_drift_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/frontend_bundle_size_drift_audit.py || true
 fi
 echo ""
 
