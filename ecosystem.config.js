@@ -15,108 +15,19 @@
  *   查看日誌: pm2 logs
  *   監控面板: pm2 monit
  *
- * 後端啟動流程 (start-backend.ps1 v2.0.0)：
- *   Step 0:   端口 8001 衝突偵測
- *   Step 0.5: 基礎設施依賴檢查 (PostgreSQL + Redis)
- *   Step 1:   pip install -r requirements.txt
- *   Step 2:   alembic upgrade head
- *   Step 3:   uvicorn main:app --host 0.0.0.0 --port 8001
+ * ⚠️ 2026-05-27 — ck-backend / ck-frontend 已從 PM2 廢除（per OA-3 / L43 路由迷宮根治）
+ *    詳見：docs/runbooks/pm2-deprecation-sop.md / pm2-deprecation-execution-20260527.md
+ *    現由 docker compose 接管：
+ *      docker compose -f docker-compose.production.yml up -d backend frontend
+ *    公網 missive.cksurvey.tw 透過 cloudflared 直命中 docker container production image。
  */
 
 module.exports = {
   apps: [
-    // ===== 後端 FastAPI 服務 =====
-    // 使用 Python 啟動包裝器（v1.54.0）：
-    //   自動執行端口偵測 → 基礎設施檢查 → pip install → alembic upgrade → uvicorn
-    //   使用 os.execvp 替換進程，PM2 可正確追蹤 PID
-    //   避免 PowerShell cp950 編碼問題
-    {
-      name: 'ck-backend',
-      cwd: './backend',
-      script: 'python',
-      args: 'startup.py',
-      interpreter: 'none',
-
-      // 環境變數 — 開發模式（預設）
-      env: {
-        PYTHONUNBUFFERED: '1',
-        PYTHONIOENCODING: 'utf-8',
-        PYTHONUTF8: '1',
-        SHADOW_ENABLED: '1',
-        SHADOW_SAMPLE_RATIO: '0.3',
-        SHADOW_RETENTION_DAYS: '30',
-      },
-
-      // 環境變數 — 公網生產模式 (pm2 start --env production)
-      env_production: {
-        PYTHONUNBUFFERED: '1',
-        PYTHONIOENCODING: 'utf-8',
-        PYTHONUTF8: '1',
-        DEVELOPMENT_MODE: 'false',
-        AUTH_DISABLED: 'false',
-        DEBUG: 'false',
-        LOG_LEVEL: 'WARNING',
-        SHADOW_ENABLED: '1',
-        SHADOW_SAMPLE_RATIO: '0.3',
-        SHADOW_RETENTION_DAYS: '30',
-      },
-
-      // 進程管理
-      instances: 1,
-      autorestart: true,
-      watch: false,  // 開發時可設為 true 啟用熱重載
-      max_memory_restart: '2G',
-
-      // 日誌配置 (cwd 已是 ./backend，路徑相對於 backend/)
-      error_file: './logs/backend-error.log',
-      out_file: './logs/backend-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
-      max_size: '10M',  // 超過 10MB 自動輪替（需 pm2-logrotate 或 PM2 >= 5.x）
-
-      // 重啟策略
-      exp_backoff_restart_delay: 1000, // 指數退避：1s→2s→4s...→15s，防止快速重啟競態
-      max_restarts: 10,
-      min_uptime: '30s',
-      treekill: true,        // 殺掉整個進程樹（含 uvicorn 子進程）
-      kill_timeout: 10000,   // 等 10 秒讓進程優雅關閉
-      wait_ready: false,     // startup.py 自行管理就緒狀態
-    },
-
-    // ===== 前端 Vite 開發服務 =====
-    // 注意：前端啟動後，若後端尚未就緒，client.ts 會自動重試（指數退避 1s/2s/4s）
-    // fork 模式：Vite 開發伺服器為單進程，cluster 模式無益且影響 HMR 即時更新
-    {
-      name: 'ck-frontend',
-      cwd: './frontend',
-      script: 'node_modules/vite/bin/vite.js',
-      args: '--host 0.0.0.0',
-      interpreter: 'node',
-      exec_mode: 'fork',
-
-      // 環境變數
-      env: {
-        NODE_ENV: 'development',
-      },
-
-      // 進程管理
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: '512M',
-
-      // 日誌配置
-      error_file: './logs/frontend-error.log',
-      out_file: './logs/frontend-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
-      max_size: '10M',  // 超過 10MB 自動輪替
-
-      // 重啟策略
-      restart_delay: 3000,
-      max_restarts: 10,
-      min_uptime: '10s',
-    },
+    // ===== ck-backend / ck-frontend 已廢除（2026-05-27 OA-3） =====
+    // 業務後端 + 前端改由 docker compose 統一管理（restart: always 自動恢復）
+    // Rollback 路徑：pm2 resurrect（會還原 ~/.pm2/dump.pm2 的舊狀態）
+    //              + ecosystem.config.js git revert <commit>
 
     // ---- Cloudflare Tunnel（ADR-0015，取代 NemoClaw Nginx）----
     // 啟用方式（兩種擇一）：
