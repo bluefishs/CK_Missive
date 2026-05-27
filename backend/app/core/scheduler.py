@@ -667,6 +667,50 @@ async def morning_report_job():
                 logger.debug("consecutive_failure_days check failed: %s", e)
 
 
+@tracked_job("pcc_today_scrape")
+async def pcc_today_scrape_job():
+    """PCC 今日標案爬取 — 每 2 小時抓 web.pcc.gov.tw/prkms/today（權威來源）
+
+    2026-05-27 修法：補回 P0-1 缺失 — PCC scraper 自 2026-04-08 起 50 天
+    silent dormant（scheduler 缺 cron）。權威來源依賴 ezbid 單軌支撐至今。
+    每 2 小時與 ezbid 每小時錯開，避免雙爬 PCC 站。
+    """
+    from app.db.database import async_session_maker
+
+    logger.info("開始 PCC 今日標案爬取")
+    try:
+        from app.services.tender.pcc_today_scraper import PccTodayScraper
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        scraper = PccTodayScraper(redis_client=redis)
+        result = await scraper.fetch_today_tenders()
+        records = result.get("records", [])
+        by_type = result.get("by_type", {})
+        logger.info(
+            f"PCC 全量爬取: {len(records)} 筆 / by_type={by_type}"
+        )
+
+        if records:
+            try:
+                async with async_session_maker() as db:
+                    from app.services.tender.cache import (
+                        save_search_results, _ingest_tender_entities,
+                    )
+                    saved = await save_search_results(db, records, source="pcc")
+                    ingested = await _ingest_tender_entities(db, records)
+                    logger.info(
+                        f"PCC → DB: {saved} 筆新增, KG: {ingested} 實體入圖"
+                    )
+            except Exception as e:
+                # L29 治理：升 warning，DB 寫入失敗不影響 next scrape
+                logger.warning(
+                    f"PCC DB 寫入失敗 (非致命): {e}",
+                    exc_info=True,
+                )
+    except Exception as e:
+        logger.error(f"PCC 今日標案爬取失敗: {e}", exc_info=True)
+
+
 @tracked_job("ezbid_cache_refresh")
 async def ezbid_cache_refresh_job():
     """ezbid 全量快取刷新 — 每小時抓取今日全量 + 寫入 DB + 預熱 dashboard"""
@@ -1944,6 +1988,19 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 ezbid 快取刷新: 每小時執行")
+
+    # PCC 今日標案爬取 — 每 2 小時（2026-05-27 P0-1 修法 / 解 50 天 silent dormant）
+    # 與 ezbid 每小時錯開，避免雙爬同時打 PCC 站
+    scheduler.add_job(
+        pcc_today_scrape_job,
+        trigger=IntervalTrigger(hours=2),
+        id='pcc_today_scrape',
+        name='PCC 今日標案爬取 (每 2 小時)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 PCC 今日標案爬取: 每 2 小時執行 (P0-1 修法)")
 
     # 標案狀態更新 — 每日 06:00 (重查等標期標案的決標結果)
     scheduler.add_job(
