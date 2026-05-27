@@ -6,7 +6,8 @@ ezbid 爬蟲單元測試
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from app.services.ezbid_scraper import EzbidScraper
+# v6.12 P3 (2026-05-27): 改用新 DDD path (services.tender.*)
+from app.services.tender.ezbid_scraper import EzbidScraper, BLOCK_THRESHOLD
 
 
 SAMPLE_HTML = """
@@ -150,3 +151,109 @@ class TestFetchLatest:
 
         assert result["total"] == 0
         assert result["records"] == []
+
+
+# ============================================================================
+# 封鎖偵測 + health status（P1-3 補強，2026-05-27）
+# ============================================================================
+
+class TestEzbidBlockDetection:
+    """L29 family 治理：封鎖偵測與 BLOCK_THRESHOLD 早報警邏輯"""
+
+    def test_health_starts_healthy(self):
+        scraper = EzbidScraper()
+        status = scraper.get_health_status()
+        assert status["healthy"] is True
+        assert status["consecutive_failures"] == 0
+
+    def test_health_unhealthy_at_threshold(self):
+        scraper = EzbidScraper()
+        scraper._consecutive_failures = BLOCK_THRESHOLD
+        status = scraper.get_health_status()
+        assert status["healthy"] is False
+        assert status["consecutive_failures"] == BLOCK_THRESHOLD
+
+    @pytest.mark.asyncio
+    async def test_fetch_page_short_circuits_after_threshold(self):
+        """連續失敗達 threshold → _fetch_page 立即 return []，不打網路"""
+        scraper = EzbidScraper()
+        scraper._consecutive_failures = BLOCK_THRESHOLD
+        # 不需 mock httpx — 路徑根本不會走到那
+        result = await scraper._fetch_page(None, "ALL", 1, 100)
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_page_increments_failures_on_403(self):
+        """HTTP 403 → consecutive_failures + 1，return []"""
+        scraper = EzbidScraper()
+        assert scraper._consecutive_failures == 0
+
+        with patch("app.services.tender.ezbid_scraper.httpx.AsyncClient") as mock_client:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 403
+            mock_resp.text = ""
+            mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
+            mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.return_value.get = AsyncMock(return_value=mock_resp)
+
+            result = await scraper._fetch_page(None, "ALL", 1, 100)
+
+        assert result == []
+        assert scraper._consecutive_failures == 1
+
+    @pytest.mark.asyncio
+    async def test_fetch_page_detects_captcha_keyword(self):
+        """response body 含 'captcha' → consecutive_failures + 1"""
+        scraper = EzbidScraper()
+
+        with patch("app.services.tender.ezbid_scraper.httpx.AsyncClient") as mock_client:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.text = "Please solve captcha to continue"
+            mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
+            mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.return_value.get = AsyncMock(return_value=mock_resp)
+
+            result = await scraper._fetch_page(None, "ALL", 1, 100)
+
+        assert result == []
+        assert scraper._consecutive_failures == 1
+
+    @pytest.mark.asyncio
+    async def test_fetch_page_resets_failures_on_success(self):
+        """200 + 正常 HTML → consecutive_failures 歸 0"""
+        scraper = EzbidScraper()
+        scraper._consecutive_failures = 2
+
+        with patch("app.services.tender.ezbid_scraper.httpx.AsyncClient") as mock_client:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.text = SAMPLE_HTML
+            mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
+            mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.return_value.get = AsyncMock(return_value=mock_resp)
+
+            result = await scraper._fetch_page(None, "ALL", 1, 100)
+
+        assert len(result) == 2
+        assert scraper._consecutive_failures == 0
+
+
+# ============================================================================
+# 快取行為（redis_client=None fallback）
+# ============================================================================
+
+class TestEzbidCacheNoRedis:
+    """無 Redis 時不應 crash — fail-safe path"""
+
+    @pytest.mark.asyncio
+    async def test_get_cache_returns_none_when_no_redis(self):
+        scraper = EzbidScraper(redis_client=None)
+        result = await scraper._get_cache("test_key")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_set_cache_silent_when_no_redis(self):
+        # 不應拋例外
+        scraper = EzbidScraper(redis_client=None)
+        await scraper._set_cache("test_key", {"foo": "bar"}, ttl=60)
