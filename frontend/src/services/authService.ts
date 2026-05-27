@@ -229,7 +229,7 @@ class AuthService {
    */
   async ssoBridge(): Promise<TokenResponse | null> {
     const LAST_ATTEMPT_KEY = 'ck_sso_bridge_last_attempt';
-    const COOLDOWN_MS = 30_000;  // 30 秒內不重試（防死循環）
+    const COOLDOWN_MS = 5_000;  // L48 (2026-05-27)：30s → 5s — 防死循環仍夠，不擋首次測試
 
     try {
       // Cooldown 檢查（解死循環，唯一保留的防禦層）

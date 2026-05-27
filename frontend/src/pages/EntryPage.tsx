@@ -183,13 +183,11 @@ const EntryPage: React.FC = () => {
   }, [handleGoogleCallback]);
 
   useEffect(() => {
-    if (authService.isAuthenticated()) {
-      navigate(ROUTES.DASHBOARD);
-      return;
-    }
-
-    // ADR-0001 SSO Bridge：先試用 www.cksurvey.tw 的 ck_employee cookie 自動登入
-    // 成功 → 直接進 dashboard；失敗 → 顯示原本登入 UI
+    // L48 (2026-05-27)：useEffect 順序顛倒 — 先試 SSO bridge，後看自家 isAuthenticated()
+    // 真因：owner 之前在 missive 自己 Google login 過，localStorage.user_info + csrf_token cookie 殘留
+    //       → isAuthenticated() 返 true → 跳過 ssoBridge → navigate dashboard → token 過期 → /auth/check 401 → 踢回 login
+    // 修法：SSO ck_employee cookie 存在時優先用 SSO（ssoBridge 200 → 取代 missive 自家 token）
+    //       SSO 不存在或失敗才看 isAuthenticated()
     let mounted = true;
     void (async () => {
       const ssoResult = await authService.ssoBridge();
@@ -205,6 +203,13 @@ const EntryPage: React.FC = () => {
         window.location.replace('/dashboard');
         return;
       }
+
+      // SSO 失敗 / 無 SSO cookie → fallback 看 missive 自家 auth state
+      if (authService.isAuthenticated()) {
+        navigate(ROUTES.DASHBOARD);
+        return;
+      }
+
       // 走原本登入 UI 初始化
       if (SHOW_GOOGLE_LOGIN) {
         initializeGoogleSignIn();
