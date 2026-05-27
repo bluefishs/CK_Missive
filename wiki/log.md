@@ -3523,3 +3523,11 @@
 - ⚠️ orphans drift: 24→37 (+13)
 ## [2026-05-24] health-snapshot | commits_24h=5 | wiki_pages=347 | health=unreachable
 
+
+## [2026-05-26] lint | pages=258 orphans=37 broken=7
+## [2026-05-25] health-snapshot | commits_24h=25 | wiki_pages=349 | health=unreachable
+
+
+## [2026-05-27] lint | pages=258 orphans=37 broken=7
+## [2026-05-26] health-snapshot | commits_24h=2 | wiki_pages=351 | health=unreachable
+
