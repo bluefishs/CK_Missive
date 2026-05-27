@@ -36,7 +36,11 @@ ck-modular-toolkit/
 │   ├── subdomain_registry_audit.py              L47: subdomain typo (需 subdomain-registry.yaml)
 │   ├── container_lifecycle_audit.py             L46: :latest tag + 跨 repo image 版本 drift
 │   ├── db_schema_drift_audit.py                 #1: model vs alembic migration drift
-│   └── sso_autoload_completeness_audit.py       #7: consumer repo SSO 接通完整度
+│   ├── sso_autoload_completeness_audit.py       #7: consumer repo SSO 接通完整度
+│   │
+│   │ # === v6.12 P3 forward-looking audits (2026-05-27) ===
+│   ├── startup_dependency_race_audit.py         depends_on 缺 condition: service_healthy
+│   └── db_pool_exhaustion_audit.py              SQLAlchemy pool utilization / overflow
 ├── standards/                             規範文件
 │   ├── NAMING_CONVENTIONS.md              命名 SSOT
 │   ├── CONTRACTS_LAYER_GUIDE.md           Bounded Context Layer
