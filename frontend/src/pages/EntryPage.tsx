@@ -13,8 +13,8 @@
  * │ ngrok/public │ ❌       │ ✅       │ ✅         │
  * └──────────────┴──────────┴──────────┴────────────┘
  *
- * @version 3.0.0
- * @date 2026-04-18 — 從 506L 拆分為 3 子檔（StarrySky / LoginPanel / 本檔），邏輯保持不動
+ * @version 3.0.1
+ * @date 2026-05-27 — 修正自動 SSO Bridge 成功後 SPA navigate() 的 cookie 競態，改用 window.location.replace 強制整頁刷新
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -197,7 +197,12 @@ const EntryPage: React.FC = () => {
       if (ssoResult) {
         logger.info('[SSO-BRIDGE] auto-login succeeded via www.cksurvey.tw cookie');
         window.dispatchEvent(new CustomEvent('user-logged-in'));
-        navigate(ROUTES.DASHBOARD);
+        // 🔒 v3.0.1 (2026-05-27) 安全修法：
+        // 避免使用 React Router 的 SPA navigate()，因為 cookie 寫入是異步的，
+        // 且 SPA 導向不會觸發頁面刷新，容易造成 Zustand store 異步 rehydrate 的 race condition，
+        // 從而觸發 useAuthGuard 啟動驗證失敗（/auth/check 返回 401）而被踢回登入頁。
+        // 改用 window.location.replace() 強制頁面重載，保證 cookie 同步註冊。
+        window.location.replace('/dashboard');
         return;
       }
       // 走原本登入 UI 初始化
