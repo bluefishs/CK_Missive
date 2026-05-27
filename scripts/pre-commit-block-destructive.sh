@@ -54,7 +54,7 @@ while IFS= read -r f; do
     *.md|*.lock|*.lockb|*.svg|*.png|*.jpg|*.jpeg|*.gif|*.ico|*.woff|*.woff2|*.ttf|*.eot)
       continue
       ;;
-    *adrs/*|*ADR*|scripts/pre-commit-block-destructive.sh|scripts/install-pre-commit-hook.sh|scripts/audit-destructive-ops.cjs|docs/destructive-ops-audit.md|docs/.destructive-ops-audit-snapshot.json|docs/NEXT-SESSION-OWNER-ACTIONS.md|docs/SSO-METRICS-SPEC.md|docs/DR-DRILL-PLAYBOOK.md|docs/SSO-IMPLEMENTATION-STATUS.md|docs/RESTART-RECOVERY-SOP.md)
+    *adrs/*|*ADR*|scripts/pre-commit-block-destructive.sh|scripts/install-pre-commit-hook.sh|scripts/install-pre-commit-hook.ps1|scripts/audit-destructive-ops.cjs|docs/destructive-ops-audit.md|docs/.destructive-ops-audit-snapshot.json|docs/NEXT-SESSION-OWNER-ACTIONS.md|docs/SSO-METRICS-SPEC.md|docs/DR-DRILL-PLAYBOOK.md|docs/SSO-IMPLEMENTATION-STATUS.md|docs/RESTART-RECOVERY-SOP.md)
       continue
       ;;
   esac
