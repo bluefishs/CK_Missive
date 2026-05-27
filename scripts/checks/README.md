@@ -161,3 +161,63 @@ bash scripts/checks/run_fitness.sh
 ---
 
 > 引用此檔請用 FQID `CK_Missive#scripts-checks-README-v1.0`
+
+---
+
+## v6.11 補篇：48 step 完整索引（2026-05-27 更新）
+
+`run_fitness.sh` 目前含 **48 step**，按 family 分類：
+
+### Step 37-48 — L41-L48 跨檔 SSOT family（重點）
+
+> 共通模式：「同一資源多檔分別宣告，沒 audit enforce 一致」→ silent dormant
+
+| Step | Audit | Lesson | dormant |
+|---|---|---|---|
+| 37 | `network_audit.py` | ADR-0043 跨 repo network | (preventive) |
+| 38 | `docker_compose_volume_consistency.py` | **L43** volume drift | **10h** |
+| 39 | `facade_consumer_audit.py` | v6.10 P1 | (preventive) |
+| 40 | `compose_dockerfile_healthcheck_ssot.py` | **L45** healthcheck override | **18 min** |
+| 41 | `cross_repo_secret_audit.py` | **L41** jwt secret drift | **6 days** |
+| 42 | `cross_repo_auth_state_audit.py` | **L44** sso state lock | < 1 day |
+| 43 | `db_schema_drift_audit.py` | #1 model vs migration | (preventive) |
+| 44 | `container_lifecycle_audit.py` | **L46** :latest tag | 2026-04-21 chronic |
+| 45 | `subdomain_registry_audit.py` | **L47** subdomain typo | (preventive) |
+| 46 | `sso_autoload_completeness_audit.py` | **L48** frontend autoload | (preventive) |
+| 47 | `startup_dependency_race_audit.py` | v6.12 P3 race | (preventive) |
+| 48 | `db_pool_exhaustion_audit.py` | v6.12 P3 pool | (preventive) |
+
+### Meta-pattern 規範
+
+5 規則 — 詳見 [`.claude/rules/cross-file-ssot-governance.md`](../../.claude/rules/cross-file-ssot-governance.md)：
+
+1. 每個跨檔資源指定 SSOT 位置
+2. 每個資源類型有 fitness audit script
+3. Runtime healthcheck 驗證業務量
+4. Dual-write atomic 或 dual-validation
+5. 跨 repo 必走 ADR + Registry + Audit 三件套
+
+### 跨 repo 範本擴散
+
+9 個 audit 已同步到 `shared-modules/ck-modular-toolkit/checks/`：
+- 7 L41-L48 family（37-46）
+- 2 v6.12 P3（47-48）
+- 既有 portability / naming
+
+其他 repo 引用：`bash shared-modules/ck-modular-toolkit/install.sh --target=<repo>`
+
+### 嚴重度 + Exit Code
+
+| Indicator | Meaning | Exit | `--strict` |
+|---|---|---|---|
+| 🟢 GREEN | 對齊 SSOT | 0 | 0 |
+| 🟡 YELLOW | informational drift | 1 | 2 |
+| 🔴 RED | critical risk | 2 | 2 |
+| ⚪ 跳過 | 環境不可達 | 0 | 0 |
+
+### 維護新增 audit 流程
+
+1. 寫 `<topic>_audit.py`（cp950 fix + 嚴重度分級 + 修法建議 5 步）
+2. 接進 `run_fitness.sh` 並更新 `[N/49]` 計數
+3. 同步到 `shared-modules/ck-modular-toolkit/checks/`
+4. 更新 toolkit README + 本檔對應 §
