@@ -157,27 +157,27 @@ describe('SecureApiService', () => {
       );
     });
 
-    it('已有快取 token 時不應該重新取得', async () => {
+    it('L49: 並發 secureRequest 共用 single-flight inflight promise（防 race condition）', async () => {
       const service = await createFreshService();
 
-      // 預先取得 token
-      mockApiClientPost.mockResolvedValueOnce({
-        success: true,
-        csrf_token: 'cached-token',
-      });
-      await service.getCsrfToken();
-      mockApiClientPost.mockClear();
-
-      // 後續請求應直接使用快取的 token
-      mockApiClientPost.mockResolvedValueOnce({
-        success: true,
-        data: { items: [] },
+      // 設定 mock：一次 csrf-token 回應 + 兩個 navigation 請求回應
+      let csrfCallCount = 0;
+      mockApiClientPost.mockImplementation(async (url: string) => {
+        if (url.endsWith('/csrf-token')) {
+          csrfCallCount += 1;
+          return { success: true, csrf_token: `tok-${csrfCallCount}` };
+        }
+        return { success: true, data: { items: [] } };
       });
 
-      await service.getNavigationItems();
+      // 同時觸發 2 個並發 secureRequest（L49 single-flight 應只發 1 次 csrf-token）
+      await Promise.all([
+        service.getNavigationItems(),
+        service.getNavigationItems(),
+      ]);
 
-      // 只有一次呼叫 (實際請求)，沒有再次請求 CSRF token
-      expect(mockApiClientPost).toHaveBeenCalledTimes(1);
+      // 預期：csrf-token endpoint 只被打 1 次（single-flight 鎖 inflight promise）
+      expect(csrfCallCount).toBe(1);
     });
   });
 
@@ -202,32 +202,25 @@ describe('SecureApiService', () => {
       });
     });
 
-    it('回應帶有新 csrf_token 時應更新快取', async () => {
+    it('L49: 每次 secureRequest 都拉新 CSRF token（後端 single-use 設計，不再 cache）', async () => {
       const service = await createFreshService();
 
-      // 初始 token
-      mockApiClientPost.mockResolvedValueOnce({
-        success: true,
-        csrf_token: 'initial-token',
-      });
-      // 第一次請求回傳更新後的 token
-      mockApiClientPost.mockResolvedValueOnce({
-        success: true,
-        data: 'result-1',
-        csrf_token: 'rotated-token',
-      });
-      await service.post('/ep', 'act');
-      mockApiClientPost.mockClear();
+      // 兩個獨立 sequential 請求 → 應各自獨立 fetch token
+      mockApiClientPost
+        .mockResolvedValueOnce({ success: true, csrf_token: 'tok-A' })
+        .mockResolvedValueOnce({ success: true, data: 'result-1' })
+        .mockResolvedValueOnce({ success: true, csrf_token: 'tok-B' })
+        .mockResolvedValueOnce({ success: true, data: 'result-2' });
 
-      // 第二次請求應使用 rotated-token
-      mockApiClientPost.mockResolvedValueOnce({
-        success: true,
-        data: 'result-2',
-      });
+      await service.post('/ep', 'act');
       await service.post('/ep', 'act2');
 
-      const [, body] = mockApiClientPost.mock.calls[0];
-      expect(body.csrf_token).toBe('rotated-token');
+      // 4 次呼叫：getCsrf(A) + post + getCsrf(B) + post
+      expect(mockApiClientPost).toHaveBeenCalledTimes(4);
+      // 第一次 secureRequest body 用 tok-A
+      expect(mockApiClientPost.mock.calls[1][1].csrf_token).toBe('tok-A');
+      // 第二次 secureRequest body 用 tok-B（不 cache 上次回應的 token）
+      expect(mockApiClientPost.mock.calls[3][1].csrf_token).toBe('tok-B');
     });
 
     it('回應 success=false 時應拋出含 message 的錯誤', async () => {

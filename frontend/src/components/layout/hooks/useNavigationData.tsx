@@ -41,7 +41,7 @@ export const useNavigationData = (): UseNavigationDataReturn => {
   } = usePermissions();
 
   // 載入用戶資訊
-  const loadUserInfo = useCallback(() => {
+  const loadUserInfo = useCallback(async () => {
     const userInfo = authService.getUserInfo();
     // P-58：先看真實 user_info；只有沒登入時 dev mock 才介入
     const useDevMock = shouldUseDevMockUser();
@@ -68,6 +68,26 @@ export const useNavigationData = (): UseNavigationDataReturn => {
       });
       logger.debug('Using default developer info (AUTH_DISABLED=true)');
       return;
+    }
+
+    // L49 (2026-05-27): self-heal — localStorage.user_info 缺失但 JWT 有效時，
+    // 從 /auth/me 重新拉用戶資料補進 localStorage，避免顯示「訪客」假象。
+    // 觸發場景：PM2 廢除後切 docker container，舊瀏覽器仍持 JWT cookie/bearer
+    // 但 localStorage 在某個流程被清空（logout 流 / 跨 subdomain 切換 / 清快取）。
+    const hasJwt = !!localStorage.getItem('access_token') || !!localStorage.getItem('refresh_token');
+    if (hasJwt) {
+      try {
+        logger.debug('user_info missing but JWT present → rehydrate via /auth/me');
+        const fetched = await authService.getCurrentUser();
+        if (fetched) {
+          localStorage.setItem('user_info', JSON.stringify(fetched));
+          setCurrentUser(fetched);
+          return;
+        }
+      } catch (err) {
+        // /auth/me 失敗（JWT 過期或網路問題）→ 真的視為未登入
+        logger.warn('/auth/me rehydrate failed, fall through to guest', err);
+      }
     }
 
     setCurrentUser(null);
