@@ -1,0 +1,89 @@
+# Cross-Repo Subdomain Registry (SSOT)
+# next_session_resume 8 大根因 #3 — subdomain typo
+#
+# 此檔列出所有 *.cksurvey.tw 公網 subdomain 的權威定義。
+# fitness step 45 (subdomain_registry_audit.py) 對照本檔驗證:
+#   1. 列出的 active subdomain 公網真活 (HTTP 200/2xx/3xx)
+#   2. 程式碼內引用的 subdomain 都在本檔
+#   3. 拒絕容易混淆的 typo (pile vs pilemgmt 等)
+#
+# 維護：新增/移除 subdomain 必須同步本檔 + ADR + 通知所有 repo
+# 維護者：CK_Missive owner（owner 也是 SSOT signer）
+
+version: 1.0
+last_updated: 2026-05-26
+
+# 主要 subdomain — 公網真活
+subdomains:
+  www:
+    fqdn: www.cksurvey.tw
+    target_repo: CK_Website
+    purpose: 入口頁 + 統一 SSO 起點
+    status: active
+    expected_http: 200
+    notes: SSO bridge starts here
+
+  missive:
+    fqdn: missive.cksurvey.tw
+    target_repo: CK_Missive
+    purpose: 公文管理系統
+    status: active
+    expected_http: 200
+    notes: ADR-0046 /profile contract
+
+  lvrland:
+    fqdn: lvrland.cksurvey.tw
+    target_repo: CK_lvrland_Webmap
+    purpose: 土地查估系統
+    status: active
+    expected_http: 200
+
+  pilemgmt:
+    fqdn: pilemgmt.cksurvey.tw
+    target_repo: CK_PileMgmt
+    purpose: 基樁管理系統
+    status: active
+    expected_http: 200
+    aliases_warn:  # 容易打錯的 typo (audit 偵測會警告)
+      - pile  # 常見打字錯誤：pile.cksurvey.tw
+
+# 預留 subdomain — 計劃中但未啟用
+reserved:
+  hermes:
+    fqdn: hermes.cksurvey.tw
+    target_repo: hermes-agent
+    purpose: Hermes Agent gateway (Phase 1 後啟用)
+    status: planned
+    expected_http: [530, 200]   # 530 = CF tunnel inactive (acceptable until launch)
+
+  kg:
+    fqdn: kg.cksurvey.tw
+    target_repo: CK_AaaP
+    purpose: 聯邦知識圖譜 Hub (選用)
+    status: planned
+
+# Bare domain (301 redirect)
+redirects:
+  bare:
+    fqdn: cksurvey.tw
+    expected_http: 301
+    redirect_target: https://www.cksurvey.tw/
+
+# 禁用名（不該被 code 引用 — 容易撞 typo / 已廢止 / 預留未用）
+forbidden_typos:
+  - pile           # 應用 pilemgmt
+  - missive-old    # 不存在
+  - openclaw       # 已廢止 (ADR-0014)
+  - nemoclaw       # 已廢止 (ADR-0015)
+
+# 跨 repo 一致性規則
+rules:
+  - rule_id: SD-01
+    description: 所有 frontend code 引用 subdomain 必須來自本 registry 或 .env
+    severity: RED
+  - rule_id: SD-02
+    description: 新增 subdomain 必須 ADR + Registry + 通知 3 件套
+    severity: YELLOW
+  - rule_id: SD-03
+    description: forbidden_typos 不得在任何 production code 出現
+    severity: RED

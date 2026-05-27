@@ -628,11 +628,26 @@ echo ""
 # 偵測 docker ps + compose 內 :latest tag (public image) + 跨 repo 版本 drift
 # 本地 build image (ck_* prefix 或無 namespace) 跳過 (latest 是合理模式)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[44/44] container lifecycle audit (next_session_resume #4)${NC}"
+echo -e "${CYAN}[44/45] container lifecycle audit (next_session_resume #4)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/container_lifecycle_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/container_lifecycle_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 45: subdomain registry audit (next_session_resume #3, 2026-05-26)
+# 觸發: 跨 repo subdomain typo（如 pile vs pilemgmt）→ CORS preflight 失敗 / silent 404
+# 對照 configs/subdomain-registry.yaml SSOT 驗證:
+#   - active 公網真活
+#   - forbidden_typos 不在 production code 出現
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[45/45] subdomain registry audit (next_session_resume #3)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/subdomain_registry_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/subdomain_registry_audit.py || true
 fi
 echo ""
 
