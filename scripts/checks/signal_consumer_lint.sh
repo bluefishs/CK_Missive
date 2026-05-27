@@ -41,9 +41,32 @@ SIGNAL_KEYS=(
 violations=0
 suspicious=0
 
+# 2026-05-27: 修 false positive — 同時計算 string literal + 對應 const name 使用
+# 對應 const name 規律: SIGNAL_QUEUE_KEY / QUERY_COUNTER_KEY / LAST_EVOLUTION_KEY ... etc
+# 邏輯: refs_string + (refs_const - 1) — 扣掉 const 定義那行避免雙算
+
 for key in "${SIGNAL_KEYS[@]}"; do
-    # 找該 key 在所有 .py 中的出現次數（含 const 定義 + 字面字串）
-    refs=$(grep -rn "${key}" backend/app --include="*.py" 2>/dev/null | grep -v __pycache__ | wc -l)
+    # 1. string literal 出現次數
+    refs_string=$(grep -rn "${key}" backend/app --include="*.py" 2>/dev/null | grep -v __pycache__ | wc -l)
+
+    # 2. 找該 key 對應的 const name（從 "= \"key\"" 反推）
+    const_line=$(grep -rn "= \"${key}\"" backend/app --include="*.py" 2>/dev/null | grep -v __pycache__ | head -1)
+    const_name=""
+    if [ -n "$const_line" ]; then
+        # extract LHS const name (between : and =)
+        const_name=$(echo "$const_line" | sed -E 's|.*:[0-9]+:[[:space:]]*([A-Z_][A-Z0-9_]*)[[:space:]]*=.*|\1|')
+    fi
+
+    # 3. const name 使用次數（扣定義行）
+    refs_const=0
+    if [ -n "$const_name" ] && [ "$const_name" != "$const_line" ]; then
+        refs_const=$(grep -rn "\b${const_name}\b" backend/app --include="*.py" 2>/dev/null | grep -v __pycache__ | wc -l)
+        # 扣掉本 audit 跑 grep 時撞到的定義行
+        refs_const=$((refs_const > 0 ? refs_const - 1 : 0))
+    fi
+
+    refs=$((refs_string + refs_const))
+
     if [ "$refs" -eq 0 ]; then
         echo "[VIOLATION] $key: 0 references — 完全孤兒"
         violations=$((violations + 1))
@@ -51,7 +74,11 @@ for key in "${SIGNAL_KEYS[@]}"; do
         echo "[SUSPICIOUS] $key: $refs reference — 只 1 處（可能只 const 定義沒用）"
         suspicious=$((suspicious + 1))
     else
-        echo "[OK] $key: $refs references"
+        if [ -n "$const_name" ]; then
+            echo "[OK] $key: $refs references (string=$refs_string + const=$const_name uses $refs_const)"
+        else
+            echo "[OK] $key: $refs references"
+        fi
     fi
 done
 
