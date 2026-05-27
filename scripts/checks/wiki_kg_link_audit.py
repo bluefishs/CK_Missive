@@ -30,6 +30,13 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 
+# Windows cp950 防護（per audit 4 特徵 #1, session_20260526_27）
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 
 WIKI_ROOT = Path("wiki")
 SCAN_SUBDIRS = ["entities", "topics", "synthesis", "sources"]

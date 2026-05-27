@@ -32,6 +32,13 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
+# Windows cp950 防護（per audit 4 特徵 #1, session_20260526_27）
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ENDPOINTS_DIR = PROJECT_ROOT / "backend" / "app" / "api" / "endpoints"
 # v6.10 P0-2: 同步掃 repository 與 service 層（解 detection 層級錯位）

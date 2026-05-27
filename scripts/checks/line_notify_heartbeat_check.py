@@ -22,6 +22,13 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+# Windows cp950 防護（per audit 4 特徵 #1, session_20260526_27）
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # F15 修正：PM2 ck-backend stdout log 在 ~/.pm2/logs/，不是 backend/logs/
 # 另也掃 backend/logs/ 為次要來源

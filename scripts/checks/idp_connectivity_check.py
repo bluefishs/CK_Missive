@@ -28,6 +28,13 @@ import urllib.request
 import urllib.error
 import ssl
 
+# Windows cp950 防護（per audit 4 特徵 #1, session_20260526_27）
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 
 GOOGLE_DISCOVERY = "https://accounts.google.com/.well-known/openid-configuration"
 LINE_DISCOVERY = "https://access.line.me/.well-known/openid-configuration"
