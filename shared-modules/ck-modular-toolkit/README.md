@@ -37,10 +37,13 @@ ck-modular-toolkit/
 │   ├── container_lifecycle_audit.py             L46: :latest tag + 跨 repo image 版本 drift
 │   ├── db_schema_drift_audit.py                 #1: model vs alembic migration drift
 │   ├── sso_autoload_completeness_audit.py       #7: consumer repo SSO 接通完整度
+│   ├── docker_compose_volume_consistency.py     L43: 同邏輯 volume 跨 compose 檔 drift
 │   │
 │   │ # === v6.12 P3 forward-looking audits (2026-05-27) ===
 │   ├── startup_dependency_race_audit.py         depends_on 缺 condition: service_healthy
-│   └── db_pool_exhaustion_audit.py              SQLAlchemy pool utilization / overflow
+│   ├── db_pool_exhaustion_audit.py              SQLAlchemy pool utilization / overflow
+│   ├── synthetic_baseline_freshness_audit.py    L48: scheduler chronic silent dead 偵測
+│   └── frontend_bundle_size_drift_audit.py      CI 停用後 bundle 膨脹 silent 漂移
 ├── standards/                             規範文件
 │   ├── NAMING_CONVENTIONS.md              命名 SSOT
 │   ├── CONTRACTS_LAYER_GUIDE.md           Bounded Context Layer
