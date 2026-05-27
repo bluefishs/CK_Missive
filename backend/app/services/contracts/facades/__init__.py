@@ -42,6 +42,8 @@ from app.services.contracts.facades.notification import NotificationFacade
 from app.services.contracts.facades.agency import AgencyFacade
 from app.services.contracts.facades.vendor import VendorFacade
 from app.services.contracts.facades.audit import AuditFacade
+# Step 5B (2026-05-28): TenderFacade 加入 v6.10 P1 12 facades 體系（變 13 facades）
+from app.services.contracts.facades.tender import TenderFacade
 
 __all__ = [
     "CalendarFacade",
@@ -56,4 +58,5 @@ __all__ = [
     "AgencyFacade",
     "VendorFacade",
     "AuditFacade",
+    "TenderFacade",  # v6.11 Step 5B
 ]
