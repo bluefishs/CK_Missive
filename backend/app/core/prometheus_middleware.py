@@ -197,6 +197,15 @@ def get_metrics_endpoint(registry: Optional[CollectorRegistry] = None):
             _METRICS_POPULATE_ERRORS.labels(source="shadow_baseline").inc()
             logger.error("shadow_baseline metric populate failed: %s", e, exc_info=True)
 
+        # Step 5C (2026-05-28): Tender metrics lazy init — 確保 module 載入觸發
+        # Counter 註冊到 REGISTRY，否則 /metrics 看不到 tender_subscription_check_total
+        try:
+            from app.services.tender.metrics import get_tender_metrics
+            get_tender_metrics()  # 觸發單例 init + Counter/Gauge 註冊
+        except Exception as e:
+            _METRICS_POPULATE_ERRORS.labels(source="tender").inc()
+            logger.error("tender metrics populate failed: %s", e, exc_info=True)
+
         data = generate_latest(reg)
         return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 

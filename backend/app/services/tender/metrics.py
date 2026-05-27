@@ -69,6 +69,14 @@ class TenderMetrics:
             ["status"],  # status: success / no_subs / error
             registry=reg,
         )
+        # 預宣告 labels — 讓 /metrics 即使在從未 inc 的情況下也輸出 sample line（值=0）
+        # 這樣 step 53 watchdog 能正確判斷「counter 存在但 0 次 invocation」vs 「metric 完全不存在」
+        for status in ("invoked", "success", "no_subs", "error"):
+            self.subscription_check.labels(status=status).inc(0)
+        for source in ("ezbid", "pcc"):
+            for result in ("success", "failure"):
+                self.fetch_total.labels(source=source, result=result).inc(0)
+            self.consecutive.labels(source=source).set(0)
 
 
 # Step 5A: Module-level exports — scraper_base 引用方便

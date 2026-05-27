@@ -198,3 +198,4 @@ scripts/checks/.soul-eval-*.json
 # 2026-05-21 L43 incident: 雙 volume dump (本地 + NAS 異地保存，不入 git)
 backup/incident_*/*.dump
 backup/incident_*/*.sql.gz
+.checks-state/
