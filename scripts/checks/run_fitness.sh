@@ -675,11 +675,25 @@ echo ""
 # 偵測 list 形式 depends_on / 缺 condition / service_started（非 service_healthy）
 # 所有 critical depends_on 應該用 dict + condition: service_healthy
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[47/47] startup dependency race audit (v6.12 P3)${NC}"
+echo -e "${CYAN}[47/48] startup dependency race audit (v6.12 P3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/startup_dependency_race_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/startup_dependency_race_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 48: DB pool exhaustion audit (v6.12 P3, 2026-05-27)
+# 觸發：SQLAlchemy pool exhausted 時 connection 進 wait queue silent，業務 endpoint 慢但 healthcheck 仍 200
+# 抓 /health endpoint pool stats {size, checked_in, checked_out, overflow, max_overflow}
+# RED util > 90% / YELLOW util > 50% or overflow active / GREEN < 50%
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[48/48] DB pool exhaustion audit (v6.12 P3)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/db_pool_exhaustion_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/db_pool_exhaustion_audit.py || true
 fi
 echo ""
 
