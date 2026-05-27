@@ -27,7 +27,16 @@ ck-modular-toolkit/
 ├── checks/                                跨 repo 共用 audit 工具
 │   ├── module_portability_audit.py        portability score 計算
 │   ├── naming_convention_audit.py         命名規約偵測
-│   └── business_keyword_blacklist.yml     業務 keyword 黑名單
+│   ├── business_keyword_blacklist.yml     業務 keyword 黑名單
+│   │
+│   │ # === L41-L48 跨檔 SSOT family 防禦循環 (2026-05-25~27 擴散) ===
+│   ├── compose_dockerfile_healthcheck_ssot.py   L45: compose vs Dockerfile HEALTHCHECK
+│   ├── cross_repo_secret_audit.py               L41: JWT secret 跨 repo drift
+│   ├── cross_repo_auth_state_audit.py           L44: ck-sso-js drift + onSuccess anti-pattern
+│   ├── subdomain_registry_audit.py              L47: subdomain typo (需 subdomain-registry.yaml)
+│   ├── container_lifecycle_audit.py             L46: :latest tag + 跨 repo image 版本 drift
+│   ├── db_schema_drift_audit.py                 #1: model vs alembic migration drift
+│   └── sso_autoload_completeness_audit.py       #7: consumer repo SSO 接通完整度
 ├── standards/                             規範文件
 │   ├── NAMING_CONVENTIONS.md              命名 SSOT
 │   ├── CONTRACTS_LAYER_GUIDE.md           Bounded Context Layer
