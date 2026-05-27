@@ -25,7 +25,8 @@ EZBID_BASE = "https://cf.ezbid.tw"
 REQUEST_TIMEOUT = 15.0
 MAX_RETRIES = 3
 BACKOFF_BASE = 2.0
-BLOCK_THRESHOLD = 5
+# P1-4 (2026-05-27)：5 → 3 — 縮短 silent window 從 ~5h → ~3h，配合 Prometheus alert
+BLOCK_THRESHOLD = 3
 
 # ezbid 分類對照
 EZBID_CATEGORIES = {
@@ -222,13 +223,13 @@ class EzbidScraper:
                     # 封鎖偵測: 403 或回應含 captcha/block 關鍵字
                     if resp.status_code == 403:
                         logger.warning("ezbid 可能已封鎖 IP (HTTP 403)")
-                        self._consecutive_failures += 1
+                        self._record_failure("http_403")
                         return []
 
                     body_lower = resp.text[:2000].lower()
                     if "captcha" in body_lower or "block" in body_lower:
                         logger.warning("ezbid 可能已封鎖 IP (captcha/block detected)")
-                        self._consecutive_failures += 1
+                        self._record_failure("captcha")
                         return []
 
                     # 可重試的 HTTP 狀態碼
@@ -243,11 +244,11 @@ class EzbidScraper:
 
                     if resp.status_code != 200:
                         logger.warning(f"ezbid HTTP {resp.status_code}")
-                        self._consecutive_failures += 1
+                        self._record_failure(f"http_{resp.status_code}")
                         return []
 
                     # 成功
-                    self._consecutive_failures = 0
+                    self._record_success()
                     return self._parse_html(resp.text)
 
             except Exception as e:
@@ -261,13 +262,38 @@ class EzbidScraper:
                     await asyncio.sleep(wait)
 
         # 所有重試用盡
-        self._consecutive_failures += 1
+        self._record_failure("network_error")
         logger.error(f"ezbid fetch failed after {MAX_RETRIES} retries: {last_error}")
         if self._consecutive_failures >= BLOCK_THRESHOLD:
             logger.error(
                 f"ezbid 爬蟲連續失敗 {self._consecutive_failures} 次，可能需要人工介入"
             )
         return []
+
+    # ────────── P1-4 (2026-05-27) Prometheus 計數輔助 ──────────
+
+    def _record_failure(self, reason: str) -> None:
+        """單一失敗記錄入口 — 同步 self._consecutive_failures + Prometheus counter"""
+        self._consecutive_failures += 1
+        try:
+            from .metrics import get_tender_metrics
+            m = get_tender_metrics()
+            m.failures.labels(source="ezbid", reason=reason).inc()
+            m.consecutive.labels(source="ezbid").set(self._consecutive_failures)
+        except Exception:
+            # metric 失敗不阻 scraper 主路徑
+            pass
+
+    def _record_success(self) -> None:
+        """單一成功記錄入口 — 重置 consecutive + 觸發 Prometheus runs ok"""
+        self._consecutive_failures = 0
+        try:
+            from .metrics import get_tender_metrics
+            m = get_tender_metrics()
+            m.runs.labels(source="ezbid", status="ok").inc()
+            m.consecutive.labels(source="ezbid").set(0)
+        except Exception:
+            pass
 
     def _parse_html(self, html: str) -> List[Dict[str, Any]]:
         """解析 ezbid HTML，提取標案列表"""
