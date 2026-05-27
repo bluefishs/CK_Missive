@@ -422,6 +422,18 @@
 
 ---
 
+## L49 — Container Host Dependency Family (PM2 → Docker 遷移 5 重 silent regression / 2026-05-27)
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | OA-3 PM2 廢除 19:00 部署 docker container 後，3 小時內 owner 連續報 4 個業務頁面壞掉：(1) admin/backup「Docker 環境不可用」(2) files/storage-info 500 (3) files/1263/download 404 (4) admin/backup「資料載入失敗」+ Header 顯示「訪客」。每個都看似獨立 bug，實則 5 個同 family 反模式：(a) backup service `shutil.which('docker')` / `subprocess docker exec` host-bound deps，container 內無 docker CLI (b) `rglob('*')` 遇 Windows host 長中文檔名 mount，OSError Errno 5 無容錯整個迴圈中斷 (c) DB 內 `attachment.file_path = '2026\\05\\doc_xxx\\xxx.pdf'`（PM2/Windows backslash），Linux container `os.path.exists` 必 false (d) docker-compose mount target（`./backend/backups:/backups`）與 service 內部 `self.project_root / "backups"` 路徑不對齊，container 看不到 host project_root 真實位置（`./backups/`）的 41 條 backup_operations.json + 6 個歷史 SQL (e) `list_backups()` 對 8 個 attachment_backup dir 各跑 rglob 全掃 ~4s = 31.5s ReadTimeout，frontend 顯示「載入失敗」|
+| **Cause** | 「環境切換」(PM2 native → docker container) 的隱式依賴破口 — 每條 deps 在原環境隱式可用、新環境隱式失效，**OA-3 廢除 SOP 只驗證了「process up + restart 4 層」沒驗證「業務 endpoint in-container 真活」**。L41-L48 family 已立法跨檔/跨 repo SSOT 治理，但**沒涵蓋「compose mount target ↔ service `Path()` 計算」這條垂直依賴鏈**。L49.3 perf 議題尤其惡毒：endpoint return 200 但 31s 慢到 frontend 默認超時當失敗，「狀態看起來活但用戶感受死」(L37 平時保險反模式延伸到 user-facing endpoint)。|
+| **Fix** | (a) backend Dockerfile 加 `postgresql-client`，backup service 改 `pg_dump -h postgres -p 5432` 直連（取代 docker CLI subprocess）(b) files/storage.py `_scan_files` while + try/except OSError 跳過壞 entry，回傳 `scan_errors` 計數 (c) files/common.py 新 `resolve_attachment_path()` SSOT helper 處理 `\` → os.sep + UPLOAD_BASE_DIR join，所有 download/management/pm/taoyuan 散戶就地用 helper (d) docker-compose mount 改 `./backups:/app/backups` + `./logs/backup:/app/logs/backup`（對齊 service 內部 path 計算） (e) scheduler.list_backups attachment metadata 改讀 `manifest_*.json`（O(1)，~10ms）取代 rglob 全掃（O(N files)）|
+| **Prevention** | (a) 環境切換 SOP 必加「business endpoint in-container smoke test」階段 — 不能只驗 process up / 4 層自動重啟 / fitness step（這些都是「狀態」非「業務感受」） (b) fitness step 52 `container_host_dependency_audit.py` 月跑偵測 RED（docker CLI subprocess）+ YELLOW（rglob 無 OSError 容錯 / file_path 未 normalize） (c) `scripts/checks/admin_backup_smoke_test.py` 自動化驗收範本 — 從 DB 撈 admin user，user_sessions 找/插 active jti，用 settings.SECRET_KEY 簽 JWT，逐一打關鍵 business endpoint 對照 expected status + validator (d) 任何「對 host 檔案系統做 rglob」的 code 都假設**可能遇 OSError**，預設容錯而非快速失敗 (e) 任何「DB 內存路徑字串」都假設**可能跨平台 backslash/slash 混雜**，讀取前統一過 normalize helper |
+| **Refs** | commits `28df958d` / `27efffc7` / `2ef95477` / `8cdc03d2` / `d6e97294` / `8a75a22d` / `scripts/checks/container_host_dependency_audit.py` (step 52) / `scripts/checks/admin_backup_smoke_test.py` (自動化驗收) / `backend/app/api/endpoints/files/common.py:resolve_attachment_path()` SSOT helper / 同類 L41 跨環境 secret drift + L43 volume mount drift + L37 平時保險反模式 + L48 cron silent dormant 五案完整 family |
+
+---
+
 ## 維護準則
 
 1. **新 lesson 必加**：每次修 incident / 踩雷 / paradigm shift 必新增 L## entry
