@@ -27,12 +27,26 @@ async def check_all_subscriptions(db: AsyncSession) -> dict:
     Returns:
         {checked: int, notified: int, details: [...]}
     """
+    # Step 5C (2026-05-28): subscription scheduler watchdog metric — L48 同型防護
+    # 每次 check_all_subscriptions 被呼叫即 inc，>24h 無 inc 即 silent dormant 警訊
+    try:
+        from app.services.tender.metrics import get_tender_metrics
+        get_tender_metrics().subscription_check.labels(status="invoked").inc()
+    except Exception:
+        pass  # metric module 未載入時不阻塞主邏輯
+
     result = await db.execute(
         select(TenderSubscription).where(TenderSubscription.is_active == True)  # noqa: E712
     )
     subs = result.scalars().all()
 
     if not subs:
+        # Step 5C: no_subs 也記，區分 silent dormant vs 真的沒訂閱
+        try:
+            from app.services.tender.metrics import get_tender_metrics
+            get_tender_metrics().subscription_check.labels(status="no_subs").inc()
+        except Exception:
+            pass
         return {"checked": 0, "notified": 0, "details": []}
 
     service = TenderSearchService()
@@ -130,6 +144,13 @@ async def check_all_subscriptions(db: AsyncSession) -> dict:
             })
 
     await db.commit()
+
+    # Step 5C: 成功完成
+    try:
+        from app.services.tender.metrics import get_tender_metrics
+        get_tender_metrics().subscription_check.labels(status="success").inc()
+    except Exception:
+        pass
 
     logger.info(f"標案訂閱檢查完成: {checked} checked, {notified} notified")
     return {"checked": checked, "notified": notified, "details": details}

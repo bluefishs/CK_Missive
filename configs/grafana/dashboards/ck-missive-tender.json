@@ -1,0 +1,162 @@
+{
+  "dashboard": {
+    "title": "CK Missive — Tender Module (Step 5D, 2026-05-28)",
+    "uid": "ck-missive-tender",
+    "tags": ["ck-missive", "tender", "v6.11"],
+    "timezone": "Asia/Taipei",
+    "refresh": "1m",
+    "schemaVersion": 39,
+    "panels": [
+      {
+        "id": 1,
+        "title": "Scraper Fetch Rate (5m, by source × result)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(tender_scraper_fetch_total[5m])",
+            "legendFormat": "{{source}} / {{result}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "color": { "mode": "palette-classic" }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Consecutive Failures (gauge, alert if approaching BLOCK_THRESHOLD)",
+        "type": "gauge",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "tender_scraper_consecutive_failures",
+            "legendFormat": "{{source}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 2 },
+                { "color": "red", "value": 3 }
+              ]
+            },
+            "min": 0,
+            "max": 5
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Subscription Scheduler Invocations (Step 5C watchdog)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "description": "L48 family — 24h 內無 invocation 即 silent dormant 警訊",
+        "targets": [
+          {
+            "expr": "rate(tender_subscription_check_total[1h])",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Subscription Total Invocations (since startup)",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "tender_subscription_check_total",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Scraper Failures by Reason (5m)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+        "description": "P1-4 治理 — labels source × reason (http_403 / captcha / timeout / parse_error)",
+        "targets": [
+          {
+            "expr": "rate(tender_scraper_failures_total[5m])",
+            "legendFormat": "{{source}} / {{reason}}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Scraper Run Status Distribution",
+        "type": "piechart",
+        "gridPos": { "x": 12, "y": 16, "w": 6, "h": 8 },
+        "targets": [
+          {
+            "expr": "tender_scraper_runs_total",
+            "legendFormat": "{{source}} / {{status}}"
+          }
+        ],
+        "options": {
+          "pieType": "donut",
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Total Tender Records by Source",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 16, "w": 6, "h": 8 },
+        "description": "整體資料量 — ezbid 27k / pcc 2.7k (5/28 baseline)",
+        "targets": [
+          {
+            "datasource": { "type": "postgres", "uid": "postgres-ck-missive" },
+            "rawSql": "SELECT source AS metric, COUNT(*)::int AS value FROM tender_records GROUP BY source ORDER BY value DESC",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Daily Ingestion Rate (last 14 days)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 },
+        "description": "每日 ingestion 趨勢 — L48 PCC 50 天 silent dormant 教訓，偵測再次發生",
+        "targets": [
+          {
+            "datasource": { "type": "postgres", "uid": "postgres-ck-missive" },
+            "rawSql": "SELECT DATE_TRUNC('day', announce_date)::date AS time, source, COUNT(*)::int AS value FROM tender_records WHERE announce_date >= NOW() - INTERVAL '14 days' GROUP BY time, source ORDER BY time",
+            "format": "time_series"
+          }
+        ]
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "Prometheus",
+          "enable": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "expr": "changes(process_start_time_seconds[1m]) > 0"
+        }
+      ]
+    }
+  }
+}
