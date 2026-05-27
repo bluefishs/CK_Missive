@@ -443,16 +443,34 @@ class AuthService {
    * 取得使用者資訊
    */
   getUserInfo(): UserInfo | null {
-    const userInfoStr = localStorage.getItem(USER_INFO_KEY);
-    if (userInfoStr) {
-      try {
-        return JSON.parse(userInfoStr) as UserInfo;
-      } catch (error) {
-        logger.error('Failed to parse user info:', error);
-        return null;
-      }
+    let userInfoStr = localStorage.getItem(USER_INFO_KEY);
+    if (!userInfoStr) return null;
+
+    // L48.1 (2026-05-27): L42 family defense - strip UTF-8 BOM (U+FEFF)
+    // Root cause: some setItem call wrote BOM-prefixed value (likely backend response with BOM
+    //   passed through JSON.stringify into localStorage)
+    // Symptom: JSON.parse silently throws -> catch returns null -> Header shows guest
+    if (userInfoStr.charCodeAt(0) === 0xFEFF) {
+      console.warn('[L48.1] user_info has BOM prefix, stripped - trace setItem source');
+      userInfoStr = userInfoStr.slice(1);
+      // 修正後重寫回 localStorage 避免每次都要 strip
+      localStorage.setItem(USER_INFO_KEY, userInfoStr);
     }
-    return null;
+
+    try {
+      return JSON.parse(userInfoStr) as UserInfo;
+    } catch (error) {
+      // L48.1：明確 log 至 console 讓 F12 看到（取代 silent logger.error）
+      console.error(
+        '[L48.1] user_info JSON.parse FAIL',
+        '\n  error:', (error as Error).message,
+        '\n  first 20 chars:', userInfoStr.slice(0, 20),
+        '\n  char codes:', Array.from(userInfoStr.slice(0, 5)).map(c => c.charCodeAt(0).toString(16)).join(','),
+        '\n  length:', userInfoStr.length,
+      );
+      logger.error('Failed to parse user info:', error);
+      return null;
+    }
   }
 
   /**
