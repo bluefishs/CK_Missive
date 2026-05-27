@@ -162,8 +162,16 @@ services:
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
-      - ./backend/backups:/backups
-      - ./backend/backup-logs:/logs
+      # L49 (2026-05-27): 修正 backup mount 路徑分離（admin/backup 看不到歷史 41 entries + 6 個 SQL）
+      # 歷史備份檔/log 從 PM2 native 模式以來都寫在 project_root（不是 backend/）：
+      #   - host ./backups/database/*.sql （6 個歷史 + PREUPGRADE dump）
+      #   - host ./logs/backup/backup_operations.json （41 entries 從 2026-01-29 起）
+      # backup_utils._init_utils 邏輯：self.project_root = Path("/app") (container 內偵測 /app/main.py)
+      # → backup_dir = /app/backups/database / log_dir = /app/logs/backup
+      # 修法：mount project_root 的 backups + logs/backup 到 container /app 對應位置
+      # （取代舊的 ./backend/backups:/backups + ./backend/backup-logs:/logs，那兩條路徑都對不到歷史資料）
+      - ./backups:/app/backups
+      - ./logs/backup:/app/logs/backup
       - ./backend/GoogleCalendarAPIKEY.json:/app/GoogleCalendarAPIKEY.json:ro
       # 2026-05-24 fix: mount wiki/ 讓 memory_metrics_refresh_job 能讀 diary/proposals/crystals
       # 沒這個 mount → scheduler 每 15min warn「wiki/memory 目錄不存在，skip metrics refresh」

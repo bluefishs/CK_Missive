@@ -199,16 +199,28 @@ class BackupSchedulerMixin(RemoteSyncerMixin):
             if backup_dir.is_dir():
                 try:
                     stat = backup_dir.stat()
-                    # 計算目錄大小（安全遍歷）
+                    # 計算目錄大小（安全遍歷）— L49 (2026-05-27) 容錯個別 entry OSError
+                    # rglob iterator 自己 next() 也會拋 OSError（Windows mount 長中文檔名陷阱），
+                    # 用 while True + try/except 跳過壞 entry，不中斷整個目錄列舉。
                     total_size = 0
                     file_count = 0
-                    for f in backup_dir.rglob("*"):
-                        if f.is_file():
-                            try:
+                    try:
+                        iterator = backup_dir.rglob("*")
+                    except OSError:
+                        iterator = iter([])
+                    while True:
+                        try:
+                            f = next(iterator)
+                        except StopIteration:
+                            break
+                        except OSError:
+                            continue  # 跳過無法讀取的 entry
+                        try:
+                            if f.is_file():
                                 total_size += f.stat().st_size
                                 file_count += 1
-                            except OSError:
-                                pass
+                        except OSError:
+                            pass
 
                     attachment_backups.append(
                         {
