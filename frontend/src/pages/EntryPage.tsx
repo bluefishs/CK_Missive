@@ -188,9 +188,15 @@ const EntryPage: React.FC = () => {
     //       → isAuthenticated() 返 true → 跳過 ssoBridge → navigate dashboard → token 過期 → /auth/check 401 → 踢回 login
     // 修法：SSO ck_employee cookie 存在時優先用 SSO（ssoBridge 200 → 取代 missive 自家 token）
     //       SSO 不存在或失敗才看 isAuthenticated()
+    //
+    // L49.14 (2026-05-28) 內網優化：IS_INTERNAL 或 IS_LOCALHOST 無 SSO 流程，直接跳過 ssoBridge
+    //   避免 owner 內網 192.168.50.210:8001/entry 卡 ssoBridge round-trip
+    //   (內網沒 ck_employee cookie，呼叫必返 401，純浪費)
     let mounted = true;
     void (async () => {
-      const ssoResult = await authService.ssoBridge();
+      // 內網/本機跳過 SSO bridge，直接看 missive 自家 auth state
+      const skipSsoBridge = IS_LOCALHOST || IS_INTERNAL;
+      const ssoResult = skipSsoBridge ? null : await authService.ssoBridge();
       if (!mounted) return;
       if (ssoResult) {
         logger.info('[SSO-BRIDGE] auto-login succeeded via www.cksurvey.tw cookie');
