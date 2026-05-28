@@ -75,12 +75,16 @@ class TenderSearchService:
             return cached
 
         # DB-first: 先查本地 tender_records (毫秒級)
+        # L49.13 (2026-05-28): 放寬 short-circuit 條件 — 原本要 >=3 筆才 return，
+        # 不熱門關鍵字（如「劉銘傳」DB 只 1-2 筆）跳外部 PCC API 5-15s 拖慢。
+        # 改為 DB 有任何資料即 return（外部 API 由 scheduler 每日 3 次同步背景補）。
+        # 修前：owner 「今日最新」24s / 修後：預期 < 200ms（DB GIN trigram index）。
         try:
             from app.db.database import async_session_maker
             from .cache import search_from_db
             async with async_session_maker() as db:
                 db_results = await search_from_db(db, query, limit=50)
-                if db_results and len(db_results) >= 3:
+                if db_results:  # 放寬：原 >=3，改為 >=1
                     from .data_transformer import dedup_records
                     db_result = {
                         "query": query, "page": 1,
