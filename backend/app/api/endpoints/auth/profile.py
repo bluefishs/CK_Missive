@@ -77,9 +77,13 @@ async def get_current_user_info(
     # L49.17 (2026-05-28) 內網信任網路 token-less fallback（與 common.get_current_user 對齊）：
     # 內網 production（AUTH_DISABLED=false）+ 無 token + 非 CF Tunnel → mock superuser
     # 配合 EntryPage L49.15.1 「快速進入」避免 dashboard 401 死循環
-    if not token and not is_public_request and is_internal_ip(ip_address):
+    #
+    # 安全強化（L49.17.1）：fallback 的 IP 偵測**只看 request.client.host（TCP peer）**，
+    # 不信任 X-Forwarded-For — 防 XFF spoofing 繞 fallback。
+    peer_ip = request.client.host if request.client else None
+    if not token and not is_public_request and is_internal_ip(peer_ip):
         logger.info(
-            "[AUTH] /me Internal trusted-network fallback - IP: %s", ip_address,
+            "[AUTH] /me Internal trusted-network fallback - peer_ip: %s", peer_ip,
         )
         return UserProfile.model_validate(get_superuser_mock())
 

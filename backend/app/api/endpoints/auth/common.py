@@ -222,13 +222,20 @@ async def get_current_user(
         # L49.17 (2026-05-28) 內網信任網路 token-less fallback：
         # 內網（RFC 1918）來源 + 非 CF Tunnel + 無 token → 回 superuser_mock
         # 配合 EntryPage L49.15.1 「快速進入」mock user_info，避免 dashboard 上其他 API 401
-        # 安全性：CF 公網經 cf-connecting-ip / cf-ray 判定 is_public_request=true，必跳過此分支
-        # 真實用戶持有 token 時 token!=None，走真認證不命中此分支
+        #
+        # 安全性（縱深防禦）：
+        # 1. CF 公網經 cf-connecting-ip / cf-ray 判定 is_public_request=true，必跳過
+        # 2. 真實用戶持有 token 時 token!=None，走真認證不命中
+        # 3. IP 偵測**只看 request.client.host（TCP peer）**，不信任 X-Forwarded-For —
+        #    避免攻擊者偽造 XFF: 192.168.x.x 從外部繞 fallback。
+        #    當前部署：CF Tunnel→cloudflared→backend 之間 client.host 為 docker network
+        #    內部 IP（RFC 1918），所以仍會命中此分支；但 CF 必設 cf-* header，
+        #    is_public_request 先擋下，故公網不會 bypass。
         if not token and not is_public_request:
-            ip_address = _get_real_ip(request)
-            if is_internal_ip(ip_address):
+            peer_ip = request.client.host if request.client else None
+            if is_internal_ip(peer_ip):
                 logger.info(
-                    "[AUTH] Internal trusted-network fallback - IP: %s", ip_address,
+                    "[AUTH] Internal trusted-network fallback - peer_ip: %s", peer_ip,
                 )
                 return get_superuser_mock()
 
