@@ -1284,6 +1284,28 @@ async def tender_pcc_enrichment_job():
         logger.error(f"ezbid → PCC enrichment 失敗: {e}", exc_info=True)
 
 
+@tracked_job("tender_dashboard_warm")
+async def tender_dashboard_warm_job():
+    """標案儀表板 cache 預熱 — 每 5 min 主動寫 Redis cache，避用戶 first hit 等 scraper
+
+    背景：dashboard() cache miss latency ~525ms（需並行 ezbid + PCC + g0v scrape）
+    對策：scheduler 每 5min 主動 hit svc.dashboard()，配合 TTL 600s = 用戶永遠 cache hit ~12ms
+
+    L51 (2026-05-28)：配合 analytics.py TTL 3900→600 修法，落地零 cold miss 設計
+    """
+    logger.info("開始執行標案儀表板 cache 預熱")
+    try:
+        from app.services.tender.analytics import TenderAnalyticsService
+        svc = TenderAnalyticsService()
+        result = await svc.dashboard()
+        logger.info(
+            "標案儀表板 cache 預熱完成: total_found=%d",
+            result.get("total_found", 0),
+        )
+    except Exception as e:
+        logger.error("標案儀表板 cache 預熱失敗: %s", e, exc_info=True)
+
+
 @tracked_job("embedding_warmup")
 async def embedding_warmup_job():
     """Embedding 預熱 — 為 top-500 高頻實體預先載入向量至記憶體快取"""
@@ -2081,6 +2103,22 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加標案狀態更新: 每日 06:00 執行")
+
+    # L51 (2026-05-28) 標案儀表板 cache 預熱 — 每 5 min 主動寫 Redis cache
+    # 配合 analytics.py TTL 3900→600 修法，用戶 100% cache hit (~12ms vs cold 10s+)
+    # next_run_time=+15s：backend 啟動後立即 warm，避用戶 first-hit 等 scraper
+    from datetime import datetime as _dt2, timedelta as _td2
+    scheduler.add_job(
+        tender_dashboard_warm_job,
+        trigger=IntervalTrigger(minutes=5),
+        id='tender_dashboard_warm',
+        name='標案儀表板 cache 預熱 (每 5 min)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        next_run_time=_dt2.now() + _td2(seconds=15),  # 啟動 15s 後立即 warm
+    )
+    logger.info("已添加標案儀表板 cache 預熱: 每 5 min + startup +15s 首次 (L51)")
 
     # Embedding 預熱 — 每日 04:45 為高頻實體預載向量 (在 KG 回填 04:30 之後)
     scheduler.add_job(
