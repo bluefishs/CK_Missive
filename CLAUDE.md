@@ -6,8 +6,8 @@
 > **最後更新**: 2026-05-28
 >
 > **近期重大里程碑**：
-> - **v6.11 OA-3 PM2 廢除 + L49 Container Host Dependency Family**（2026-05-27 → 28 / 8 commits / 自動化驗收 10/10 PASS）：
->   - **觸發鏈**：OA-3 PM2 廢除階段 2-3（5/27 19:04 移除 ck-backend/ck-frontend）後 3h 內 owner 連環報 4 個業務頁面故障
+> - **v6.11 OA-3 PM2 廢除 + L49 Container Host Dependency Family**（2026-05-27 → 28 / 19 commits / 4 層自動重啟 + 自動化驗收 10/10 PASS）：
+>   - **觸發鏈**：OA-3 PM2 廢除階段 2-3（5/27 19:04 移除 ck-backend/ck-frontend）後 3h 內 owner 連環報 4 個業務頁面故障 + 5/28 揭發 7 更深層議題
 >   - **L49 family 5 案揭發**（PM2 native → docker container 環境切換破口）：
 >     - **L49.1** `admin/backup` 顯示「Docker 環境不可用」：container 內無 docker CLI（PM2 時 host 內建）
 >       → backend Dockerfile 加 postgresql-client，pg_dump 改走 docker network `postgres:5432` 直連（commit `28df958d`）
@@ -19,8 +19,18 @@
 >       → 改 `./backups:/app/backups` + `./logs/backup:/app/logs/backup` 對齊 service Path() 計算（commit `d6e97294`）
 >     - **L49.5** `backup/list` ReadTimeout 31.5s frontend 顯示「資料載入失敗」：8 個 attachment dir × ~4s rglob 全掃
 >       → attachment metadata 改讀 `manifest_*.json`（O(1)，~10ms），list_backups **31.5s → 0.06s 提升 525x**（commit `8a75a22d`）
+>   - **5/28 延伸 7 案**（owner Layer 4 + UX 驗收揭發）：
+>     - **L49.4** docker-compose mount `/app/config/` 沒掛 → 異地備份路徑變更 silent fail（commit `65a594c5`）
+>     - **L49.5** backup mount path align + idempotent delete + UI guard（commit `65a594c5`）
+>     - **L49.6** frontend `useState(null)` Header「訪客」race + backup timeout 30s 不夠 + delete 409 籠統訊息（commit `92631fc8`）
+>     - **L49.7** Task Scheduler XML UTF-16 declaration 但實際 ASCII silent reject（commit `43612e7f`）
+>     - **L49.8** 20 個 .ps1 無 UTF-8 BOM PS 5.1 cp950 解析爆 (chronic silent，commit `18905807`)
+>     - **L49.9-.11** Self-elevating installer fallback + Register-ScheduledTask cmdlet 雙層防禦
 >   - **治理立法**：
 >     - **Fitness step 52** `container_host_dependency_audit.py`：偵測 docker CLI subprocess（RED）+ rglob 無容錯 / file_path 未 normalize（YELLOW）—— 首跑揭發 21 YELLOW，sweep 後 **0 YELLOW GREEN ✓**
+>     - **Fitness step 53** `tender_subscription_watchdog_audit.py`：L48 同型擴展 — 24h 無 subscription scheduler invocation → RED
+>     - **Fitness step 54** `powershell_bom_audit.py`：L49.8 chronic silent 防回退 — 含中文 .ps1 必須 UTF-8 BOM (5/28 sweep 21/21 GREEN)
+>     - **Reboot SOP**: `docs/runbooks/reboot-acceptance-checklist.md` — 重啟前 pre-flight 4 步 + 重啟後 Test 1 5 步驗收（business endpoint smoke 取代「fitness GREEN = 真活」假象）
 >     - **自動化驗收範本** `scripts/checks/admin_backup_smoke_test.py`：從 DB 撈 admin user，user_sessions 找/插 active jti，settings.SECRET_KEY 簽合法 JWT，逐打 10 endpoint 對照 expected status + validator（取代人工 F5）
 >     - **L49 lesson** + `LESSONS_REGISTRY.md` 完整保存（family meta-pattern）
 >     - **OA-3 SOP 補丁**：環境切換必加 in-container business endpoint smoke（非單純 process up / 4 層自動重啟）

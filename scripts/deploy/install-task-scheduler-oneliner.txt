@@ -1,0 +1,29 @@
+═══════════════════════════════════════════════════════════════════
+ CK_Missive Layer 4 一行命令安裝（owner elevated PowerShell 直跑）
+═══════════════════════════════════════════════════════════════════
+
+步驟 1：右鍵「開始」→ 選「Terminal (系統管理員)」 或 「Windows PowerShell (系統管理員)」
+       → 點 UAC「是」（看到藍色標題列 + 「Administrator: ...」即 OK）
+
+步驟 2：複製下面整段（全部 4 行 + 最後一行）貼上 Enter：
+
+$trigger = New-ScheduledTaskTrigger -AtStartup; $trigger.Delay = "PT30S"
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument '-ExecutionPolicy Bypass -NoProfile -Command "Start-Sleep 60; Set-Location ''D:\CKProject\CK_Missive''; docker compose -f docker-compose.production.yml up -d 2>&1 | Tee-Object ''D:\CKProject\CK_Missive\backups\autostart.log''"' -WorkingDirectory "D:\CKProject\CK_Missive"
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RunOnlyIfNetworkAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
+Register-ScheduledTask -TaskPath "\CK_Missive\" -TaskName "AutoStart" -Trigger $trigger -Action $action -Principal $principal -Settings $settings -Description "CK_Missive auto-start on boot (v6.11 PM2 deprecation Layer 4)" -Force
+
+步驟 3：預期看到輸出：
+
+TaskPath                                       TaskName        State
+--------                                       --------        -----
+\CK_Missive\                                   AutoStart       Ready
+
+
+═══════════════════════════════════════════════════════════════════
+ 驗證（一般 PowerShell 也能跑）
+═══════════════════════════════════════════════════════════════════
+
+schtasks /Query /TN "\CK_Missive\AutoStart" /V /FO LIST | Select-String "TaskName|Status|Next Run|Trigger"
+
+預期 Status: Ready / 觸發條件: 開機時，延遲 30 秒
