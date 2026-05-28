@@ -1240,6 +1240,50 @@ async def tender_subscription_check_job():
         logger.error(f"標案訂閱檢查失敗: {e}", exc_info=True)
 
 
+@tracked_job("tender_business_recommend")
+async def tender_business_recommend_job():
+    """標案業務推薦 LINE 推送 (ADR-0046 Phase 4)
+
+    每日 09:00 跑 — 推「過去 1 日新增 + 預算 ≥ 100萬 + 合作機關」標案。
+    """
+    from app.db.database import async_session_maker
+
+    logger.info("開始執行標案業務推薦推送")
+    try:
+        async with async_session_maker() as db:
+            from app.services.tender.business_recommendation import push_daily_recommendations
+            result = await push_daily_recommendations(db, days_back=1)
+            logger.info(
+                f"標案業務推薦完成: found={result['found']} pushed={result['pushed']} "
+                f"dup={result['skipped_duplicate']} err={result['errors']}"
+            )
+    except Exception as e:
+        logger.error(f"標案業務推薦失敗: {e}", exc_info=True)
+
+
+@tracked_job("tender_pcc_enrichment")
+async def tender_pcc_enrichment_job():
+    """ezbid → PCC enrichment 每日 03:30 執行 (ADR-0046 Phase 3)
+
+    對未 matched 的 ezbid records 跑 fuzzy match + HIGH only auto-link。
+    使用 exact title match strict guard 避免 false positive。
+    """
+    from app.db.database import async_session_maker
+
+    logger.info("開始執行 ezbid → PCC enrichment")
+    try:
+        async with async_session_maker() as db:
+            from app.services.tender.enrichment import enrich_all_unmatched
+            stats = await enrich_all_unmatched(db, dry_run=False, high_only=True)
+            logger.info(
+                f"ezbid PCC enrichment 完成: applied={stats['applied']} "
+                f"high={stats['matched_high']} medium={stats['matched_medium']} "
+                f"errors={stats['errors']}"
+            )
+    except Exception as e:
+        logger.error(f"ezbid → PCC enrichment 失敗: {e}", exc_info=True)
+
+
 @tracked_job("embedding_warmup")
 async def embedding_warmup_job():
     """Embedding 預熱 — 為 top-500 高頻實體預先載入向量至記憶體快取"""
@@ -1976,6 +2020,30 @@ def setup_scheduler(
             coalesce=True
         )
     logger.info("已添加標案訂閱檢查: 每日 08:00/12:00/18:00 執行")
+
+    # ADR-0046 Phase 4: 標案業務推薦 LINE 通知 — 每日 09:00 (避 03:30 / 08:00 高峰)
+    scheduler.add_job(
+        tender_business_recommend_job,
+        trigger=CronTrigger(hour=9, minute=0),
+        id='tender_business_recommend',
+        name='標案業務推薦 LINE 推送',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加標案業務推薦 LINE: 每日 09:00 執行")
+
+    # ADR-0046 Phase 3: ezbid → PCC enrichment — 每日 03:30 (避 03:00 Pipeline)
+    scheduler.add_job(
+        tender_pcc_enrichment_job,
+        trigger=CronTrigger(hour=3, minute=30),
+        id='tender_pcc_enrichment',
+        name='ezbid → PCC enrichment（HIGH only auto-link）',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 ezbid → PCC enrichment: 每日 03:30 執行")
 
     # ezbid 即時快取刷新 — 每小時
     scheduler.add_job(
