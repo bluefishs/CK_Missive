@@ -160,6 +160,15 @@ class TenderSearchService:
                 """), {"uid": unit_id, "jn": job_number})
                 row = r.one_or_none()
                 if row:
+                    # L49.12.1 (2026-05-28): 補 frontend 期望的 latest.detail + events
+                    # 結構，讓 isPccDetail+pccDetail.latest.detail 渲染條件成立。
+                    # 否則 frontend 走到 `: <Empty />` 顯示「無此資料」 —
+                    # 雖然 DB 有 record 但用戶感受是「壞了」。
+                    pcc_url = (
+                        "https://web.pcc.gov.tw/tps/atm/atmAwardAction.do"
+                        f"?method=goSearch&unitId={unit_id}&jobNumber={job_number}"
+                    )
+                    announce_str = str(row[4]) if row[4] else ""
                     db_quick_result = {
                         "unit_id": unit_id,
                         "job_number": job_number,
@@ -167,9 +176,31 @@ class TenderSearchService:
                         "unit_name": row[1] or "",
                         "budget": row[2],
                         "award_amount": row[3],
-                        "announce_date": str(row[4]) if row[4] else "",
+                        "announce_date": announce_str,
                         "status": row[5] or "",
                         "source": row[6] or "db_cache",
+                        # frontend 期望結構（避免渲染為 Empty）
+                        "latest": {
+                            "detail": {
+                                "agency_name": row[1] or "",
+                                "agency_unit": "",
+                                "contact_person": "",
+                                "contact_phone": "",
+                                "contact_email": "",
+                                "agency_address": "",
+                                "announce_date": announce_str,
+                                "deadline": "",
+                                "open_date": "",
+                                "budget": str(row[2]) if row[2] else "",
+                                "method": "",
+                                "award_method": "",
+                                "status": row[5] or "",
+                                "procurement_type": "",
+                                "pcc_url": pcc_url,
+                            }
+                        },
+                        "events": [],  # 空陣列讓 tab「尚無投標/得標紀錄」正常
+                        "merged_detail": {},
                     }
                     await self._set_cache(cache_key, db_quick_result, ttl=300)
         except Exception:
