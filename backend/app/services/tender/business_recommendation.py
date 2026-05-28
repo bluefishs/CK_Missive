@@ -166,6 +166,58 @@ def _format_recommendation_line(rec: Dict[str, Any]) -> str:
     )
 
 
+async def _write_history(
+    db: AsyncSession,
+    rec: Dict[str, Any],
+    status: str,
+    error_msg: Optional[str] = None,
+    channel: str = "line",
+) -> None:
+    """L51 (2026-05-28) ADR-0046 Phase 4 觀測閉環：寫推送歷史
+
+    取代 Redis 25h 去重 key 過期就消失問題。failure-safe（寫失敗不擋主流程）。
+    """
+    try:
+        # 找對應 tender_records.id（給 FK）
+        tid_row = await db.execute(
+            text(
+                "SELECT id FROM tender_records "
+                "WHERE unit_id = :uid AND COALESCE(job_number, '') = :jn LIMIT 1"
+            ),
+            {"uid": rec["unit_id"], "jn": rec.get("job_number") or ""},
+        )
+        tid = tid_row.scalar()
+
+        await db.execute(
+            text(
+                "INSERT INTO tender_recommendation_history "
+                "(tender_record_id, unit_id, job_number, title, unit_name, budget, "
+                " agency_match_count, status, error_msg, channel) VALUES "
+                "(:tid, :uid, :jn, :title, :uname, :budget, :amc, :status, :err, :ch)"
+            ),
+            {
+                "tid": tid,
+                "uid": rec["unit_id"],
+                "jn": rec.get("job_number"),
+                "title": rec["title"],
+                "uname": rec.get("unit_name"),
+                "budget": rec.get("budget"),
+                "amc": rec.get("agency_match_count", 0),
+                "status": status,
+                "err": error_msg,
+                "ch": channel,
+            },
+        )
+        await db.commit()
+    except Exception as e:
+        # 寫歷史失敗不擋主流程（ADR-0028 silent failure 例外場景，已有上游 logger）
+        logger.warning(f"recommend history write failed (non-fatal): {e}")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+
+
 async def push_daily_recommendations(
     db: AsyncSession,
     days_back: int = DEFAULT_DAYS_BACK,
@@ -176,19 +228,35 @@ async def push_daily_recommendations(
 
     流程:
       1. find_business_recommendations
-      2. 對每筆檢查 Redis 去重
+      2. 對每筆檢查 Redis 去重（短期快速）
       3. 透過 IntegrationFacade.push_admin_alert 推 LINE
       4. 記錄 Redis 避免明日重推
+      5. 寫 tender_recommendation_history 表（L51 觀測閉環長期歷史）
 
     Returns:
         {found, pushed, skipped_duplicate, errors}
     """
+    import time
     stats = {"found": 0, "pushed": 0, "skipped_duplicate": 0, "errors": 0}
+
+    # L51: Prometheus metric
+    try:
+        from app.services.tender.metrics import get_tender_metrics
+        metrics = get_tender_metrics()
+    except Exception:
+        metrics = None
 
     recommendations = await find_business_recommendations(
         db, days_back=days_back, budget_min=budget_min
     )
     stats["found"] = len(recommendations)
+
+    if metrics:
+        try:
+            metrics.recommend_total.labels(result="found").inc(stats["found"])
+            metrics.recommend_last_run.set(time.time())
+        except Exception:
+            pass
 
     if not recommendations:
         logger.info("Tender business recommend: 0 candidates today")
@@ -212,6 +280,13 @@ async def push_daily_recommendations(
     for rec in recommendations:
         if await _is_already_pushed(redis_client, rec["unit_id"], rec["job_number"]):
             stats["skipped_duplicate"] += 1
+            if metrics:
+                try:
+                    metrics.recommend_total.labels(result="skipped_duplicate").inc()
+                except Exception:
+                    pass
+            # L51: 仍寫歷史（觀測完整性，看哪些 dup 案件持續觸發）
+            await _write_history(db, rec, status="skipped_duplicate")
             continue
 
         body = _format_recommendation_line(rec)
@@ -219,6 +294,7 @@ async def push_daily_recommendations(
         if dry_run:
             logger.info(f"[DRY-RUN] would push: {body[:80]}...")
             stats["pushed"] += 1
+            await _write_history(db, rec, status="pushed", channel="dry_run")
             continue
 
         try:
@@ -229,22 +305,31 @@ async def push_daily_recommendations(
             )
             if ok:
                 stats["pushed"] += 1
+                if metrics:
+                    try:
+                        metrics.recommend_total.labels(result="pushed").inc()
+                    except Exception:
+                        pass
                 await _mark_pushed(redis_client, rec["unit_id"], rec["job_number"])
+                await _write_history(db, rec, status="pushed")
             else:
                 stats["errors"] += 1
+                if metrics:
+                    try:
+                        metrics.recommend_total.labels(result="error").inc()
+                    except Exception:
+                        pass
+                await _write_history(db, rec, status="error",
+                                     error_msg="facade.push_admin_alert returned False")
         except Exception as e:
             logger.error(f"push recommendation failed for {rec['job_number']}: {e}")
             stats["errors"] += 1
-
-    # 記錄 Prometheus
-    try:
-        from app.services.tender.metrics import get_tender_metrics
-        metrics = get_tender_metrics()
-        # subscription_check 重用作 business recommend counter（同性質）
-        if hasattr(metrics, "subscription_check"):
-            metrics.subscription_check.labels(status="recommend_pushed").inc(stats["pushed"])
-    except Exception:
-        pass
+            if metrics:
+                try:
+                    metrics.recommend_total.labels(result="error").inc()
+                except Exception:
+                    pass
+            await _write_history(db, rec, status="error", error_msg=str(e)[:500])
 
     logger.info(
         f"Tender business recommend done: found={stats['found']} "

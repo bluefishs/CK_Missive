@@ -51,3 +51,36 @@ class TenderCompanyLink(Base):
     __table_args__ = (
         Index("ix_tender_company_name_role", "company_name", "role"),
     )
+
+
+class TenderRecommendationHistory(Base):
+    """標案 LINE 業務推薦歷史 — L51 (2026-05-28) ADR-0046 Phase 4 觀測閉環
+
+    取代 Redis 25h 去重 key 一過期就消失問題。
+    用途：
+    1. 歷史可追溯（誰被推、何時推、結果）
+    2. 轉換率分析（推完後是否變 bookmark）
+    3. fitness audit「daily cron 真活」驗證
+    """
+    __tablename__ = "tender_recommendation_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tender_record_id = Column(Integer, ForeignKey("tender_records.id", ondelete="SET NULL"),
+                              nullable=True, index=True)
+    unit_id = Column(String(50), nullable=False, comment="機關代碼")
+    job_number = Column(String(100), nullable=True, comment="標案案號")
+    title = Column(String(500), nullable=False)
+    unit_name = Column(String(200), nullable=True, comment="招標機關")
+    budget = Column(Numeric(15, 2), nullable=True)
+    agency_match_count = Column(Integer, default=0, comment="合作機關過往案件數")
+    pushed_at = Column(DateTime, server_default=func.now(), index=True)
+    status = Column(String(20), nullable=False, comment="pushed / skipped_duplicate / error")
+    error_msg = Column(Text, nullable=True)
+    channel = Column(String(20), default="line", comment="line / telegram / discord")
+    # 後續轉換率追蹤（bookmark 觸發時回填）
+    bookmarked_at = Column(DateTime, nullable=True, comment="若 admin 後續 bookmark 此案的時間")
+
+    __table_args__ = (
+        Index("ix_tender_recommend_unit_jn", "unit_id", "job_number"),
+        Index("ix_tender_recommend_status_pushed", "status", "pushed_at"),
+    )
