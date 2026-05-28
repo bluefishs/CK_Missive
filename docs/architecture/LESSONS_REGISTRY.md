@@ -422,6 +422,18 @@
 
 ---
 
+## L50 — Multi-source identifier ≠ entity link（2026-05-28）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | tender 模組 ezbid (27k) + PCC (2.7k) 兩 source 雙紀錄，但 DB 內 0 link → L49.12 系列「無此資料」根因。ADR-0032 (2026-04-24) 雖採 URL namespace + discriminated union，但資料層 entity link 缺失。|
+| **Cause** | 加 source 容易（schema flex），但**建立 source 對應需明確機制**。「ezbid 早期公告 → PCC 完整公告」生命週期沒接通，每次用戶看 PCC 詳情 → 外部 API fail → DB quick result → 缺 events/latest → frontend「無此資料」。|
+| **Fix** | (a) Phase 1 ADR-0046 + L50 lesson 紀錄決策 (b) Phase 2 audit script (`tender_ezbid_pcc_match_audit.py`) — LATERAL JOIN + GIN trigram 跑全量 1m9s，1,526 actionable matches (5.6% ROI) (c) Phase 3 簡化版 schema 變更（pcc_match_* 4 欄位）+ HIGH only auto-link (d) Phase 4 LINE 業務推薦不依賴 enrichment (e) trigram false positive guard：需 title_sim AND agency exact AND date ≤3d 三重才 auto-link |
+| **Prevention** | (a) 加新 source 時就 design source 對應機制（不是事後 patch）(b) fuzzy match 必須有 audit ROI 試算（< 5% 延後 / 5-20% 簡化 / ≥20% 全套） (c) MEDIUM confidence 不要自動 link → review queue (d) audit script 用 LATERAL JOIN + GIN index 避 CROSS JOIN N×M timeout (e) batched 處理（500/batch）避 statement_timeout |
+| **Refs** | ADR-0046 (decision) / `scripts/checks/tender_ezbid_pcc_match_audit.py` (audit) / `wiki/memory/lessons/L50_multi_source_identifier_link.md` / 配套 ADR-0032 multi-source identifier / 同類 L41 cross-repo secret + L49 container host dependency |
+
+---
+
 ## L49 — Container Host Dependency Family (PM2 → Docker 遷移 5 重 silent regression / 2026-05-27)
 
 | 欄位 | 內容 |
