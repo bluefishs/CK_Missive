@@ -1,4 +1,4 @@
-# PostgreSQL Database Restore Script for CK_Missive
+﻿# PostgreSQL Database Restore Script for CK_Missive
 # Usage: .\db_restore.ps1 -List | -Latest | -BackupFile <path>
 
 param(

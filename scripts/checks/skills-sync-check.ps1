@@ -1,4 +1,4 @@
-# Skills Sync Check Script
+﻿# Skills Sync Check Script
 # Version: 1.0.0
 # Date: 2026-01-28
 

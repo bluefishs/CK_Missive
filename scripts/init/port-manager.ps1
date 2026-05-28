@@ -1,4 +1,4 @@
-# CK_Missive 端口管理腳本
+﻿# CK_Missive 端口管理腳本
 # 統一管理所有服務端口，避免衝突
 
 param(

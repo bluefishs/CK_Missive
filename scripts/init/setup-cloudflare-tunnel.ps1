@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Cloudflare Tunnel 安裝與配置腳本
 

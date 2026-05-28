@@ -1,4 +1,4 @@
-# Safe Restart Script — pm2 restart ck-backend with LINE pre-notify
+﻿# Safe Restart Script — pm2 restart ck-backend with LINE pre-notify
 #
 # 使用：
 #   .\scripts\dev\safe-restart.ps1                  # 預設提前 5 秒

@@ -1,4 +1,4 @@
-# Cloudflare Tunnel 驗證腳本（ADR-0015 / ADR-0016）
+﻿# Cloudflare Tunnel 驗證腳本（ADR-0015 / ADR-0016）
 #
 # 用途：一鍵檢查 missive.cksurvey.tw 整條公網鏈路
 # 使用：pwsh -File scripts/ops/verify-cloudflare-tunnel.ps1

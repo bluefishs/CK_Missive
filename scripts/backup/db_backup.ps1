@@ -1,4 +1,4 @@
-# PostgreSQL Daily Backup Script for CK_Missive
+﻿# PostgreSQL Daily Backup Script for CK_Missive
 # Usage: powershell -ExecutionPolicy Bypass -File db_backup.ps1
 # Features: Database backup + Attachments backup
 

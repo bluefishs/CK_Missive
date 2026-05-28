@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Cloudflare Tunnel / ngrok 啟動腳本
 
