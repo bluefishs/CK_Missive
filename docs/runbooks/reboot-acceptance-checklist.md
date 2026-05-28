@@ -126,9 +126,9 @@ docker exec ck_missive_backend python /tmp/smoke.py
 ## v6.11 收尾里程碑
 
 ```
-19 commits 5/27→28，已 push origin
+25 commits 5/27→28，已 push origin
 
-L49 family 完整收尾（11 案）:
+L49 family 完整收尾（14 案）:
   L49.1 backup docker CLI → pg_dump 直連
   L49.2 storage-info OSError 容錯
   L49.3 files/{id}/download 跨平台分隔符
@@ -140,15 +140,26 @@ L49 family 完整收尾（11 案）:
   L49.9 config mount + idempotent delete
   L49.10 frontend backup timeout + 409 handling
   L49.11 header race (useState lazy init)
+  L49.12 get_tender_detail 雙 bug + DB-only PCC
+  L49.13 tender/search 24s → 0.3s (60x) + GIN
+  L49.14 /entry 內網 skip SSO bridge
 
-新 fitness step: 52 / 53 / 54
-新 ADR: 0045 (L49 family environment switch SSOT)
-新 lessons: L49 入 LESSONS_REGISTRY
+ADR-0046 標案 ezbid ↔ PCC enrichment（Phase 1-5 全套完成）:
+  Phase 1+2: ROI 試算 1,526 actionable (5.6%)
+  Phase 3: 233 ezbid linked PCC (exact match, 0 false positive)
+  Phase 4: LINE 業務推薦 cron 每日 09:00
+  Phase 5: enrichment cron 03:30 + step 55
+
+新 fitness step: 52 / 53 / 54 / 55
+新 ADR: 0045 (L49 environment switch SSOT) + 0046 (tender enrichment)
+新 lessons: L49 + L50 入 LESSONS_REGISTRY
 跨 repo 範本: ck-modular-toolkit 16 audits + 2 lessons
 
 業務數據 全 healthy:
-  docs=1799 / kg=24420 / 6 db backup / 8 attachment backup
+  docs=1,799 / kg=24,420 / 6 db backup / 8 attachment backup
   backup scheduler running / 下次 02:00
+  ezbid 27,286 / PCC 2,741 / 233 enrich-linked
+  tender/search 0.3s (was 24s)
   smoke test 10/10 PASS
 ```
 

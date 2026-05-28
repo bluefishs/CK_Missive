@@ -42,7 +42,12 @@ const IS_LOCALHOST = ENV_TYPE === 'localhost';
 const IS_INTERNAL = ENV_TYPE === 'internal';
 const IS_NGROK_OR_PUBLIC = ENV_TYPE === 'ngrok' || ENV_TYPE === 'public';
 
-const SHOW_QUICK_ENTRY = IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL;
+// L49.15 (2026-05-28): 「快速進入」按鈕只在 AUTH_DISABLED=true（mock user 可用）
+// 時 enable。內網 production (IS_INTERNAL && !IS_AUTH_DISABLED) 仍需真 auth，
+// /auth/me 必 401 → 「快速進入失敗」message。
+// 修前：SHOW_QUICK_ENTRY = IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL
+// 修後：只 IS_AUTH_DISABLED 顯示（內網 prod 用 Google login 走真認證）
+const SHOW_QUICK_ENTRY = IS_AUTH_DISABLED;
 // v5.9.4 (2026-04-24) 資安考量：關閉帳密登入機制
 // ─────────────────────────────────────────────────────────────────
 // 理由：避免暴力破解、credential stuffing、憑證洩漏風險

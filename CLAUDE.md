@@ -2,11 +2,22 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
-> **版本**: v6.11 完成（2026-05-27）/ OA-3 PM2 廢除 + L49 family 5 案修法 + fitness 52 step + admin smoke test
+> **版本**: v6.11 完成（2026-05-28）/ OA-3 PM2 廢除 + L49 family 14 案 + ADR-0046 標案 enrichment + fitness 55 step
 > **最後更新**: 2026-05-28
 >
 > **近期重大里程碑**：
-> - **v6.11 OA-3 PM2 廢除 + L49 Container Host Dependency Family**（2026-05-27 → 28 / 19 commits / 4 層自動重啟 + 自動化驗收 10/10 PASS）：
+> - **v6.11 完整收尾**（2026-05-27 → 28 / **25 commits 已 push origin** / L49 family 14 案 + ADR-0046 標案模組）：
+>   - **5/28 後段（commits 19→25）追加修法**：
+>     - **L49.12** `get_tender_detail` 雙重 bug — service search_from_db trigram 模糊查不到 + DB 有資料未 return 落到外部 PCC API fail → None（commit `79cc1d4e`）
+>     - **L49.12.1** db-only quick result 補 frontend 期望結構（latest.detail + events + pcc_url）讓「無此資料」改顯示完整總覽 + 收藏 + 一鍵建案（commit `8795d5f2`）
+>     - **L49.13** tender/search 24s → 0.3s（60x） — 加 GIN trigram index + DB-first short-circuit `>=3` → `>=1` 放寬（commit `4fa5897e`）
+>     - **L49.14** EntryPage `/entry` 內網 skip SSO bridge — 內網無 ck_employee cookie 浪費 backend round-trip（commit `3f41a4ce`）
+>     - **ADR-0046 標案 ezbid ↔ PCC enrichment**（commits `951f8d91` + `5a82621b`）:
+>       - Phase 1+2: ROI 試算（27,286 ezbid × 2,741 PCC fuzzy match, 1,526 actionable 5.6%）
+>       - Phase 3: 5-fold strict guard (exact match only)，233 ezbid auto-linked to PCC (0 false positive)
+>       - Phase 4: LINE 業務推薦 cron 每日 09:00（近 N 日 + 預算 ≥ 100萬 + 合作機關）
+>       - Phase 5: 03:30 enrichment cron + fitness step 55 freshness audit
+> - **v6.11 早期里程碑**（2026-05-27 → 28 早段 / 19 commits / 4 層自動重啟 + 自動化驗收 10/10 PASS）：
 >   - **觸發鏈**：OA-3 PM2 廢除階段 2-3（5/27 19:04 移除 ck-backend/ck-frontend）後 3h 內 owner 連環報 4 個業務頁面故障 + 5/28 揭發 7 更深層議題
 >   - **L49 family 5 案揭發**（PM2 native → docker container 環境切換破口）：
 >     - **L49.1** `admin/backup` 顯示「Docker 環境不可用」：container 內無 docker CLI（PM2 時 host 內建）
