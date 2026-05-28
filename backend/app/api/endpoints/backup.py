@@ -114,8 +114,19 @@ async def delete_backup(
         backup_type=body.backup_type
     )
 
+    # L49.5 (2026-05-28): idempotent delete — owner 連續快點觸發 6 連 404 + 429
+    # 第一次成功刪掉 (0.54s)，後續 5 次找不到全 404 (0.02s) → rate limit hit
+    # 對 idempotent semantic 改為：
+    #   - 真實找到 + 刪除成功 → 200 success
+    #   - 找不到 (已被前一次刪除 / 從未存在) → 200 already_gone
+    #   - 其他錯誤 (e.g. attachments_latest 禁刪) → 409 Conflict
     if not result.get("success"):
-        raise HTTPException(status_code=404, detail=result.get("error", "刪除失敗"))
+        err = result.get("error", "刪除失敗")
+        if "not found" in err.lower() or "Backup not found" in err:
+            # 已不存在 → idempotent 視為成功（避免 frontend 連按觸發 rate limit）
+            return {"success": True, "message": "Backup already deleted", "already_gone": True}
+        # 業務規則違反（attachments_latest 禁刪等）→ 409
+        raise HTTPException(status_code=409, detail=err)
 
     return result
 

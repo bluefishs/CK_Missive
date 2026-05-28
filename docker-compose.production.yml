@@ -172,6 +172,11 @@ services:
       # （取代舊的 ./backend/backups:/backups + ./backend/backup-logs:/logs，那兩條路徑都對不到歷史資料）
       - ./backups:/app/backups
       - ./logs/backup:/app/logs/backup
+      # L49.5 (2026-05-28): mount backend/config 讓 remote_backup.json 等
+      # 設定檔變更可持久化（不再寫到 container layer restart 蝕掉）
+      # owner 透過 admin/backup UI 改異地備份路徑 → 寫 /app/config/remote_backup.json
+      # → 對應 host backend/config/remote_backup.json → restart 後保留
+      - ./backend/config:/app/config
       - ./backend/GoogleCalendarAPIKEY.json:/app/GoogleCalendarAPIKEY.json:ro
       # 2026-05-24 fix: mount wiki/ 讓 memory_metrics_refresh_job 能讀 diary/proposals/crystals
       # 沒這個 mount → scheduler 每 15min warn「wiki/memory 目錄不存在，skip metrics refresh」

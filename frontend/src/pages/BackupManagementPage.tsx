@@ -229,6 +229,10 @@ export const BackupManagementPage: React.FC = () => {
   const handleDeleteBackup = (item: BackupItem) => {
     const backupName = item.filename || item.dirname;
     if (!backupName) return;
+    // L49.5 (2026-05-28): 防 owner 連續快點觸發 6 連 404 + 429 rate limit
+    if (deleteBackupMutation.isPending) {
+      return;
+    }
     deleteBackupMutation.mutate({ backup_name: backupName, backup_type: item.type });
   };
 
