@@ -138,35 +138,52 @@ class TenderSearchService:
         if cached:
             return cached
 
-        # DB 快取優先：從 tender_records 查詢（毫秒級）
+        # DB 快取優先：精確查 tender_records（毫秒級）
+        # L49.12 (2026-05-28) 修兩個 bug：
+        # 1. 原 search_from_db 是 trigram 模糊查詢，對 "unit_id job_number" 串接
+        #    無命中（unit_id base64 + job_number 16 字元短 query 過 threshold）
+        #    → 改精確 SQL: WHERE unit_id = :uid AND job_number = :jn
+        # 2. 原 DB 有資料但 set_cache 後沒 return，落到外部 API fallback 失敗 → None
+        #    → DB 有資料即 return；外部 API 只在 DB 無時 fallback
+        db_quick_result = None
         try:
             from app.db.database import async_session_maker
-            from .cache import search_from_db
+            from sqlalchemy import text as sa_text
             async with async_session_maker() as db:
-                db_results = await search_from_db(db, f"{unit_id} {job_number}", limit=1)
-                if db_results:
-                    db_record = db_results[0]
-                    # DB 有基本資料，先回傳（詳細資料背景補充）
-                    quick_result = {
+                r = await db.execute(sa_text("""
+                    SELECT title, unit_name, budget, award_amount,
+                           announce_date, status, source, raw_data
+                    FROM tender_records
+                    WHERE unit_id = :uid AND job_number = :jn
+                    ORDER BY announce_date DESC NULLS LAST
+                    LIMIT 1
+                """), {"uid": unit_id, "jn": job_number})
+                row = r.one_or_none()
+                if row:
+                    db_quick_result = {
                         "unit_id": unit_id,
                         "job_number": job_number,
-                        "title": db_record.get("title", ""),
-                        "unit_name": db_record.get("unit_name", ""),
-                        "budget": db_record.get("budget"),
-                        "award_amount": db_record.get("award_amount"),
-                        "announce_date": db_record.get("announce_date"),
-                        "status": db_record.get("status", ""),
-                        "source": "db_cache",
+                        "title": row[0] or "",
+                        "unit_name": row[1] or "",
+                        "budget": row[2],
+                        "award_amount": row[3],
+                        "announce_date": str(row[4]) if row[4] else "",
+                        "status": row[5] or "",
+                        "source": row[6] or "db_cache",
                     }
-                    await self._set_cache(cache_key, quick_result, ttl=300)  # 5 min for DB cache
+                    await self._set_cache(cache_key, db_quick_result, ttl=300)
         except Exception:
             pass  # DB 不可用時 fallback 到外部 API
 
+        # 嘗試外部 API 取得「完整」詳情（含歷次公告 / 決標明細等）
         url = f"{PCC_API_BASE}/tender"
         params = {"unit_id": unit_id, "job_number": job_number}
 
         data = await self._fetch(url, params)
         if not data or not data.get("records"):
+            # L49.12: 外部 API 失敗 → 若 DB 有快資料就用（業務優先於完整性）
+            if db_quick_result:
+                return db_quick_result
             return None
 
         result = self._normalize_detail(data)
