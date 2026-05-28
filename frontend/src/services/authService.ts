@@ -229,9 +229,17 @@ class AuthService {
    */
   async ssoBridge(): Promise<TokenResponse | null> {
     const LAST_ATTEMPT_KEY = 'ck_sso_bridge_last_attempt';
+    const LOGGED_OUT_KEY = 'ck_sso_explicitly_logged_out';
     const COOLDOWN_MS = 5_000;  // L48 (2026-05-27)：30s → 5s — 防死循環仍夠，不擋首次測試
 
     try {
+      // L49.16 (2026-05-28): 「明確登出」flag — owner 登出後 ck_employee SSO cookie
+      // 仍存在 → 原 ssoBridge 自動 re-login → 「登出無效」迴圈。
+      // logout 設此 flag，ssoBridge 看到即跳過。直到用戶重新點 Google login 才清。
+      if (sessionStorage.getItem(LOGGED_OUT_KEY) === '1') {
+        return null;
+      }
+
       // Cooldown 檢查（解死循環，唯一保留的防禦層）
       const now = Date.now();
       const lastAttempt = parseInt(sessionStorage.getItem(LAST_ATTEMPT_KEY) || '0', 10);
@@ -269,6 +277,8 @@ class AuthService {
   resetSSOBridgeFlag(): void {
     try {
       sessionStorage.removeItem('ck_sso_bridge_last_attempt');
+      // L49.16: 用戶主動重新登入 → 清「明確登出」flag → 允許 ssoBridge 再試
+      sessionStorage.removeItem('ck_sso_explicitly_logged_out');
       // 清舊版殘留 key（向前相容遷移）
       sessionStorage.removeItem('ck_sso_bridge_attempted');
       sessionStorage.removeItem('ck_sso_bridge_fail_count');
@@ -340,6 +350,13 @@ class AuthService {
       }
     } finally {
       this.clearAuth();
+      // L49.16 (2026-05-28): 設「明確登出」flag，防 ssoBridge 自動 re-login
+      // owner 5/28 報「公網 dashboard 登出後一直重複登入」根因 — ck_employee
+      // SSO cookie 仍存在 → EntryPage useEffect ssoBridge 自動 200 → re-login
+      // 此 flag 持續到用戶重新點 Google login 觸發 resetSSOBridgeFlag
+      try {
+        sessionStorage.setItem('ck_sso_explicitly_logged_out', '1');
+      } catch { /* ignore */ }
     }
   }
 

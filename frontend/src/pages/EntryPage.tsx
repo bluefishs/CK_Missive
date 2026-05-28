@@ -42,12 +42,12 @@ const IS_LOCALHOST = ENV_TYPE === 'localhost';
 const IS_INTERNAL = ENV_TYPE === 'internal';
 const IS_NGROK_OR_PUBLIC = ENV_TYPE === 'ngrok' || ENV_TYPE === 'public';
 
-// L49.15 (2026-05-28): 「快速進入」按鈕只在 AUTH_DISABLED=true（mock user 可用）
-// 時 enable。內網 production (IS_INTERNAL && !IS_AUTH_DISABLED) 仍需真 auth，
-// /auth/me 必 401 → 「快速進入失敗」message。
-// 修前：SHOW_QUICK_ENTRY = IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL
-// 修後：只 IS_AUTH_DISABLED 顯示（內網 prod 用 Google login 走真認證）
-const SHOW_QUICK_ENTRY = IS_AUTH_DISABLED;
+// L49.15.1 (2026-05-28) 修正：還原內網「快速進入」（owner 報「內網無法 Google login」）
+// 內網是信任網路（10.x / 172.16-31.x / 192.168.x），不強制 Google login
+// 修前(L49.15): SHOW_QUICK_ENTRY = IS_AUTH_DISABLED（斷了內網入口）
+// 修後(L49.15.1): IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL (還原原邏輯)
+//   配套 handleDevModeEntry 修法：內網不走 /auth/me（會 401），改用 mock user
+const SHOW_QUICK_ENTRY = IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL;
 // v5.9.4 (2026-04-24) 資安考量：關閉帳密登入機制
 // ─────────────────────────────────────────────────────────────────
 // 理由：避免暴力破解、credential stuffing、憑證洩漏風險
@@ -242,6 +242,31 @@ const EntryPage: React.FC = () => {
 
     setLoading(true);
     try {
+      // L49.15.1 (2026-05-28): 內網 production 無 auth → 跳過 /auth/me (401)
+      // 改用 mock user info 直接寫 localStorage + navigate
+      // 條件：IS_INTERNAL（信任網路）AND AUTH_DISABLED=false（production）
+      // AUTH_DISABLED=true（dev）走原本 /auth/me（backend 會 return mock）
+      if (IS_INTERNAL && !IS_AUTH_DISABLED) {
+        const mockUserInfo = {
+          id: 1,
+          username: 'internal-user',
+          full_name: '內網使用者',
+          email: 'internal@ck-missive.local',
+          role: 'admin' as const,
+          is_admin: true,
+          is_active: true,
+          permissions: '[]',
+          created_at: new Date().toISOString(),
+          login_count: 0,
+          email_verified: true,
+        };
+        authService.setUserInfo(mockUserInfo);
+        window.dispatchEvent(new CustomEvent('user-logged-in'));
+        message.success(`歡迎進入內網, ${mockUserInfo.full_name}!`);
+        navigate(ROUTES.DASHBOARD);
+        return;
+      }
+
       const userInfo = await authService.getCurrentUser();
       authService.setUserInfo(userInfo);
       window.dispatchEvent(new CustomEvent('user-logged-in'));
