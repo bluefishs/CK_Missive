@@ -116,31 +116,51 @@ export const BackupManagementPage: React.FC = () => {
   }, [queryClient, message]);
 
   const createBackupMutation = useMutation({
-    mutationFn: () => apiClient.post(API_ENDPOINTS.BACKUP.CREATE, {
-      include_database: true,
-      include_attachments: true,
-      retention_days: 7
-    }),
+    // L49.6 (2026-05-28): backup create 真實 36-46s（pg_dump 整 DB + attachment scan），
+    // 默認 30s timeout 不夠 → 看似失敗實則 backend 成功。設 5 min 個別 timeout。
+    mutationFn: () => apiClient.post(
+      API_ENDPOINTS.BACKUP.CREATE,
+      { include_database: true, include_attachments: true, retention_days: 7 },
+      { timeout: 300000 } // 5 minutes
+    ),
     onSuccess: () => {
       message.success('備份建立成功');
       queryClient.invalidateQueries({ queryKey: ['backup', 'list'] });
       queryClient.invalidateQueries({ queryKey: ['backup', 'logs'] });
     },
-    onError: () => {
-      message.error('備份建立失敗');
+    onError: (error: unknown) => {
+      const err = error as { statusCode?: number; message?: string };
+      if (err?.message?.includes('超時')) {
+        message.warning('備份進行中（backend 仍在處理），請稍候重 Reload 確認');
+      } else {
+        message.error('備份建立失敗：' + (err?.message || '未知錯誤'));
+      }
     },
   });
 
   const deleteBackupMutation = useMutation({
     mutationFn: (params: { backup_name: string; backup_type: string }) =>
       apiClient.post(API_ENDPOINTS.BACKUP.DELETE, params),
-    onSuccess: () => {
-      message.success('備份已刪除');
+    onSuccess: (data: unknown) => {
+      // L49.6: backend idempotent — already_gone=true 仍視為成功
+      const result = data as { already_gone?: boolean; message?: string };
+      if (result?.already_gone) {
+        message.info('備份已不存在（已被前次刪除）');
+      } else {
+        message.success('備份已刪除');
+      }
       queryClient.invalidateQueries({ queryKey: ['backup', 'list'] });
       queryClient.invalidateQueries({ queryKey: ['backup', 'logs'] });
     },
-    onError: () => {
-      message.error('刪除備份失敗');
+    onError: (error: unknown) => {
+      // L49.6: 409 Conflict = 業務規則違反（attachments_latest 禁刪等）→ 顯示 backend 訊息
+      const err = error as { statusCode?: number; message?: string; data?: { detail?: string } };
+      const detail = err?.data?.detail || err?.message;
+      if (err?.statusCode === 409) {
+        message.warning(detail || '無法刪除此備份（業務規則限制）');
+      } else {
+        message.error('刪除備份失敗：' + (detail || '未知錯誤'));
+      }
     },
   });
 

@@ -28,7 +28,17 @@ interface UseNavigationDataReturn {
 const NAVIGATION_QUERY_KEY = ['navigation', 'items'] as const;
 
 export const useNavigationData = (): UseNavigationDataReturn => {
-  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
+  // L49.6 (2026-05-28): lazy init from localStorage 避免 Header「訪客」race —
+  // 原本 useState(null) → 首次 render currentUser=null → Header WARN 訪客 →
+  // useEffect 後才 setCurrentUser → 但若 owner 多頁面切換 Header 一直 remount
+  // 又看一次 null。改 lazy init 直接從 localStorage 取，首次 render 就有值。
+  const [currentUser, setCurrentUser] = useState<UserInfo | null>(() => {
+    try {
+      return authService.getUserInfo();
+    } catch {
+      return null;
+    }
+  });
   const queryClient = useQueryClient();
 
   const {
