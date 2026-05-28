@@ -74,6 +74,15 @@ async def get_current_user_info(
     if not token:
         token = request.cookies.get("access_token")
 
+    # L49.17 (2026-05-28) 內網信任網路 token-less fallback（與 common.get_current_user 對齊）：
+    # 內網 production（AUTH_DISABLED=false）+ 無 token + 非 CF Tunnel → mock superuser
+    # 配合 EntryPage L49.15.1 「快速進入」避免 dashboard 401 死循環
+    if not token and not is_public_request and is_internal_ip(ip_address):
+        logger.info(
+            "[AUTH] /me Internal trusted-network fallback - IP: %s", ip_address,
+        )
+        return UserProfile.model_validate(get_superuser_mock())
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

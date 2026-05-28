@@ -219,6 +219,19 @@ async def get_current_user(
         if not token:
             token = request.cookies.get("access_token")
 
+        # L49.17 (2026-05-28) 內網信任網路 token-less fallback：
+        # 內網（RFC 1918）來源 + 非 CF Tunnel + 無 token → 回 superuser_mock
+        # 配合 EntryPage L49.15.1 「快速進入」mock user_info，避免 dashboard 上其他 API 401
+        # 安全性：CF 公網經 cf-connecting-ip / cf-ray 判定 is_public_request=true，必跳過此分支
+        # 真實用戶持有 token 時 token!=None，走真認證不命中此分支
+        if not token and not is_public_request:
+            ip_address = _get_real_ip(request)
+            if is_internal_ip(ip_address):
+                logger.info(
+                    "[AUTH] Internal trusted-network fallback - IP: %s", ip_address,
+                )
+                return get_superuser_mock()
+
         if not token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
