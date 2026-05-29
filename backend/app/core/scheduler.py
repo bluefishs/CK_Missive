@@ -1306,6 +1306,40 @@ async def tender_dashboard_warm_job():
         logger.error("標案儀表板 cache 預熱失敗: %s", e, exc_info=True)
 
 
+@tracked_job("line_weekly_pulse")
+async def line_weekly_pulse_job():
+    """LINE 通報活體確認 — 每週日 10:00 推「pulse」訊息 (L51 防 silent fail 反覆)
+
+    L51 教訓：PM2 → docker 切換期間 LINE 全鏈 silent disabled 40h 才被揭發。
+    Weekly pulse 保證 owner 每週收到一次「LINE 服務真活」訊息；
+    若連續 1 週無此訊息 → owner 可主動察覺異常。
+
+    搭配：
+    - main.py startup probe（每次啟動驗 critical env）
+    - messaging_push_total counter（每次 attempt 計數，alertmanager 失敗率 >50%/1h 觸發）
+    - fitness step 57（每月跑 container env vs host env 對齊）
+    """
+    logger.info("開始執行 LINE weekly pulse")
+    try:
+        from datetime import datetime
+        from app.services.contracts.facades import IntegrationFacade
+        facade = IntegrationFacade()
+        msg = (
+            "📡 LINE 通報活體確認 (weekly pulse)\n"
+            f"時間: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+            "\n"
+            "如果你連續一週沒收到此訊息，表示 LINE 通報鏈可能 silent fail\n"
+            "請查: docker logs | grep STARTUP-PROBE | grep messaging\n"
+            "或直接跑: python scripts/checks/container_env_alignment_audit.py\n"
+            "\n"
+            "L51 (2026-05-29) lesson: PM2 → docker 切換引爆 40h silent disabled"
+        )
+        ok = await facade.push_admin_alert(title="", body=msg, channel="line")
+        logger.info(f"LINE weekly pulse: {'sent' if ok else 'FAILED'}")
+    except Exception as e:
+        logger.error("LINE weekly pulse 失敗: %s", e, exc_info=True)
+
+
 @tracked_job("embedding_warmup")
 async def embedding_warmup_job():
     """Embedding 預熱 — 為 top-500 高頻實體預先載入向量至記憶體快取"""
@@ -2119,6 +2153,19 @@ def setup_scheduler(
         next_run_time=_dt2.now() + _td2(seconds=15),  # 啟動 15s 後立即 warm
     )
     logger.info("已添加標案儀表板 cache 預熱: 每 5 min + startup +15s 首次 (L51)")
+
+    # L51 (2026-05-29) LINE weekly pulse — 每週日 10:00 推活體確認
+    # 防 PM2→docker 切換型 silent disabled 再潛伏 40h
+    scheduler.add_job(
+        line_weekly_pulse_job,
+        trigger=CronTrigger(day_of_week='sun', hour=10, minute=0),
+        id='line_weekly_pulse',
+        name='LINE 通報活體確認 (每週日 10:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 LINE weekly pulse: 每週日 10:00 執行 (L51)")
 
     # Embedding 預熱 — 每日 04:45 為高頻實體預載向量 (在 KG 回填 04:30 之後)
     scheduler.add_job(

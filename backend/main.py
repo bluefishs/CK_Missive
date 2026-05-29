@@ -96,6 +96,35 @@ async def lifespan(app: FastAPI):
         )
         sys.exit(1)
 
+    # L51 (2026-05-29) LINE notify chain startup probe — 防 PM2 廢除型 silent disabled 反覆
+    # 同型事故 (L48 SSO + L51 LINE) 都是治理動作切換 runtime 後 env 缺失但 silent skip。
+    # production 啟動時驗 LINE chain critical config，缺即 critical log（不 raise，避 hard-fail prod）
+    if _os.getenv("ENVIRONMENT", "").lower() in ("production", "prod"):
+        try:
+            line_bot_enabled = _os.getenv("LINE_BOT_ENABLED", "false").lower() == "true"
+            line_admin = bool(_os.getenv("LINE_ADMIN_USER_ID"))
+            line_token = bool(_os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
+            line_secret = bool(_os.getenv("LINE_CHANNEL_SECRET"))
+            if not (line_bot_enabled and line_admin and line_token and line_secret):
+                logger.critical(
+                    "[STARTUP-PROBE] LINE notify chain NOT ready in production: "
+                    "BOT_ENABLED=%s ADMIN_USER_ID=%s ACCESS_TOKEN=%s SECRET=%s "
+                    "→ all LINE pushes will silent fail (L51 lesson)",
+                    line_bot_enabled, line_admin, line_token, line_secret,
+                )
+            else:
+                log_info("✅ LINE notify chain ready (4/4 critical env present)")
+        except Exception as _e:
+            logger.warning(f"[STARTUP-PROBE] LINE probe error (non-blocking): {_e}")
+
+    # L51 (2026-05-29) eager import messaging_default — 註冊 messaging_push_total Counter 進 REGISTRY
+    # 否則 /metrics 在第一次 push 前看不到 counter (Counter 是 module-level 註冊)
+    try:
+        import app.services.contracts.adapters.messaging_default  # noqa: F401
+        log_info("✅ Messaging Prometheus counter registered (15 labels pre-declared)")
+    except Exception as _e:
+        logger.warning(f"⚠️ messaging counter eager import failed (non-blocking): {_e}")
+
     # 🔥 DB 連線池預熱 — 消除首次查詢的 ~170ms cold penalty
     try:
         from app.db.database import async_session_maker
