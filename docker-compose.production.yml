@@ -169,6 +169,44 @@ services:
       - LINE_LOGIN_CHANNEL_ID=${LINE_LOGIN_CHANNEL_ID:-}
       - LINE_LOGIN_CHANNEL_SECRET=${LINE_LOGIN_CHANNEL_SECRET:-}
       - LINE_LOGIN_REDIRECT_URI=${LINE_LOGIN_REDIRECT_URI:-}
+      # L51.2 (2026-05-29) OA-3 PM2 廢除影響範圍補全：29 個 env vars (host .env vs compose diff)
+      # 同型事故防範 — code 讀 + host .env 有 + compose 沒注入 = silent fail 風險
+      # --- AI 推理 fallback (GROQ/NVIDIA/OLLAMA/VLLM) ---
+      - AI_ENABLED=${AI_ENABLED:-true}
+      - AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GROQ_DAILY_REQ_LIMIT=${GROQ_DAILY_REQ_LIMIT:-}
+      - GROQ_SKIP_PROMPT_CHARS=${GROQ_SKIP_PROMPT_CHARS:-}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+      - NVIDIA_MONTHLY_CRED_LIMIT=${NVIDIA_MONTHLY_CRED_LIMIT:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-}
+      - VLLM_API_KEY=${VLLM_API_KEY:-}
+      - VLLM_BASE_URL=${VLLM_BASE_URL:-}
+      - VLLM_ENABLED=${VLLM_ENABLED:-false}
+      - VLLM_MODEL=${VLLM_MODEL:-}
+      # --- LLM quota / cost 警報 ---
+      - LLM_QUOTA_WARN_PCT=${LLM_QUOTA_WARN_PCT:-}
+      - TOKEN_DAILY_COST_USD_LIMIT=${TOKEN_DAILY_COST_USD_LIMIT:-}
+      # --- Telegram 多通道 fallback (ADR-0027 後永封但服務仍 init) ---
+      - TELEGRAM_BOT_ENABLED=${TELEGRAM_BOT_ENABLED:-false}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID:-}
+      - TELEGRAM_ADMIN_PUSH_ENABLED=${TELEGRAM_ADMIN_PUSH_ENABLED:-false}
+      - TELEGRAM_WEBHOOK_BASE_URL=${TELEGRAM_WEBHOOK_BASE_URL:-}
+      - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
+      # --- Discord 多通道 fallback ---
+      - DISCORD_BOT_ENABLED=${DISCORD_BOT_ENABLED:-false}
+      # --- Shadow Logger (Hermes baseline) ---
+      - SHADOW_ENABLED=${SHADOW_ENABLED:-false}
+      - SHADOW_RETENTION_DAYS=${SHADOW_RETENTION_DAYS:-}
+      - SHADOW_SAMPLE_RATIO=${SHADOW_SAMPLE_RATIO:-}
+      # --- Morning report 故事化包裝 ---
+      - MORNING_REPORT_NARRATIVE_ENABLED=${MORNING_REPORT_NARRATIVE_ENABLED:-true}
+      - MORNING_REPORT_NARRATIVE_TIMEOUT=${MORNING_REPORT_NARRATIVE_TIMEOUT:-}
+      # --- MCP service token (OA-1 待辦補完) + Tunnel 守衛 ---
+      - MCP_SERVICE_TOKEN=${MCP_SERVICE_TOKEN:-}
+      - TUNNEL_GUARD_ENABLED=${TUNNEL_GUARD_ENABLED:-false}
     ports:
       - "8001:8001"
     volumes:
