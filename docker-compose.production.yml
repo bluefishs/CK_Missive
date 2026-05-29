@@ -157,6 +157,18 @@ services:
       # backend main.py:97 SECURITY HALT: DEVELOPMENT_MODE=true + cksurvey.tw hosts → sys.exit(1)
       - DEVELOPMENT_MODE=false
       - AUTH_DISABLED=false
+      # L51 (2026-05-29) ADR-0046 Phase 4 配套：LINE_* env 注入 container
+      # 揭發事故：business_recommendation cron 5/29 09:00 跑 6 筆全 silent push False
+      # 真因：host .env 有 LINE_ADMIN_USER_ID/CHANNEL_TOKEN 但 compose 未注入 container
+      # 由 L51 task B tender_recommendation_history.error_msg 揭發（觀測閉環價值體現）
+      - LINE_BOT_ENABLED=${LINE_BOT_ENABLED:-false}
+      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET:-}
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN:-}
+      - LINE_ADMIN_USER_ID=${LINE_ADMIN_USER_ID:-}
+      - LINE_SUBSCRIBE_TOKEN=${LINE_SUBSCRIBE_TOKEN:-}
+      - LINE_LOGIN_CHANNEL_ID=${LINE_LOGIN_CHANNEL_ID:-}
+      - LINE_LOGIN_CHANNEL_SECRET=${LINE_LOGIN_CHANNEL_SECRET:-}
+      - LINE_LOGIN_REDIRECT_URI=${LINE_LOGIN_REDIRECT_URI:-}
     ports:
       - "8001:8001"
     volumes:
