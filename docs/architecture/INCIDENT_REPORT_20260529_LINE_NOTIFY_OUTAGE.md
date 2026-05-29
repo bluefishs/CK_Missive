@@ -2,10 +2,11 @@
 
 > **狀態**: closed (root cause fixed)
 > **嚴重度**: P1 — silent failure, 業務推薦完全不通
-> **影響時長**: 2h 23min (5/29 09:00 cron 失敗 → 11:23 修復)
-> **潛在更長**: 整個 admin push 鏈 LINE channel 自 2026-02-02 docker-compose 建立後即缺 env，
->             只是 5/28 business_recommend cron 落地後才有「應該推但失敗」的可量化基準
-> **關聯**: ADR-0046 Phase 4 / L51 task B / cross-file-ssot-governance.md
+> **真實影響時長**: **40h 23min** (5/27 19:00 PM2 廢除引爆 → 5/29 11:23 修復)
+> **首次校正**: 原報告寫「3 個月 27 天」(自 docker-compose 建立)，**錯誤**。
+>             Owner 5/29 12:30 提供 5/25 / 5/27 / W21 LINE 訊息範例證明 PM2 模式下真活，
+>             正確引爆點是 PM2→docker 流量切換 (commit `ed81bf87` / `1ea91196`)。
+> **關聯**: ADR-0046 Phase 4 / L51 task B / cross-file-ssot-governance.md / **OA-3 PM2 廢除**
 
 ---
 
@@ -17,7 +18,7 @@ failure: backend container **完全沒有任何 LINE_* env**，所有 admin push
 
 **Owner 5/29 12:15 後續追問「派工 LINE 通知也中斷？」**揭發影響範圍 **遠超出 business_recommendation**：
 
-| LINE Push 鏈 | 修法前 | 修法後驗活 |
+| LINE Push 鏈 | docker 模式下狀態 (5/27 19:00 ~ 5/29 11:23) | 修法後驗活 |
 |---|---|---|
 | `LineBotService.enabled` | False（env 缺）| **True** |
 | `push_admin_alert` (any admin push) | return False | **True**（驗活訊息已送達） |
@@ -26,23 +27,105 @@ failure: backend container **完全沒有任何 LINE_* env**，所有 admin push
 | `scan_and_push` (夜間吹哨警報) | enabled=False return | recovers |
 | `business_recommendation` (每日 09:00) | found=6 pushed=0 err=6 | dry-run 6/6 OK |
 
-**影響時長**：**至少 3 個月 27 天**（自 2026-02-02 docker-compose 建立以來，所有 LINE 鏈在
-container 內 enabled=False，從未真實推送過任何訊息）。business_recommendation 只是其中
-**最後一個** 落地、剛好觀測閉環抓到的鏈。
+### 真實影響時長 — **40 小時 23 分**（不是 3 個月 27 天）
+
+Owner 提供 4 種 LINE 訊息範例（5/25 / 5/27 / W21 / W21）反證 PM2 模式下 LINE 鏈真活：
+
+```
+PM2 模式 (2026-02-02 ~ 2026-05-27 19:00)
+  → 流量 cloudflared → host:8001 命中 PM2 native uvicorn
+  → 從 host .env 直接讀 LINE_* 真活推送 ✓
+
+5/27 19:04 commit ed81bf87: refactor(pm2): remove ck-backend + ck-frontend
+5/27 19:09 commit 1ea91196: OA-3 階段 2-3 完成 (L43 路由迷宮解開)
+
+docker 模式 (2026-05-27 19:00 ~ 2026-05-29 11:23 = 40h 23min)
+  → 流量 cloudflared → docker container
+  → container 內 docker-compose env 缺 LINE_* → enabled=False
+  → 全鏈 silent disabled ✗
+
+5/29 11:23 commit 706b2e22: docker-compose 補 8 個 LINE_* env
+  → 真活恢復 ✓
+```
+
+**根因**：OA-3 PM2 廢除（v6.11 治理）切換流量入口時，未察覺 docker-compose 缺 LINE_*
+env，導致整個 LINE 通知生態從 host env 真活 → container env silent disabled。**這是
+治理動作引發的回退**，非新功能 bug。
 
 ---
 
-## 2. 時間軸
+## 2. 時間軸（2026-05-29 12:30 校正版）
 
 | 時間 | 事件 | 來源 |
 |---|---|---|
-| 2026-02-02 20:15 | docker-compose.production.yml 建立 (commit `1348a913`)，**LINE_* env 從未注入** | git log |
+| 2026-02-02 20:15 | docker-compose.production.yml 建立 (commit `1348a913`)，LINE_* env 從未注入。**但流量仍走 PM2，無影響** | git log |
 | 2026-05-04 06:17 | `.env` 補齊 LINE_ADMIN_USER_ID 等 8 個 vars (commit `b2aca2ae`)，解 5/04 體感推送事故 | git log |
-| 2026-05-28 11:14 | business_recommendation cron 加入 (commit `5a82621b`)，加 cron 每日 09:00 跑 | git log |
-| 2026-05-29 09:00 | cron 首次跑，6 筆候選找到，全 push_admin_alert returned False | backend log |
+| 2026-05-25 | LINE 推送「每日巡檢 Pipeline RED 報告」(owner 提供範例) — **PM2 模式真活** | owner 證據 |
+| 2026-05-27 早上 | LINE 推送「05/27 晨報」派工預警 3 筆 + 會議 4 場 (owner 提供範例) — **PM2 模式真活** | owner 證據 |
+| 2026-05-27 19:04 | commit `ed81bf87`: refactor(pm2): remove ck-backend + ck-frontend | git log |
+| 2026-05-27 19:09 | commit `1ea91196`: OA-3 階段 2-3 完成，**流量切到 docker container** | git log |
+| 2026-05-27 22:00 | (應推) daily_self_reflection_line_push — silent skip | 推算 |
+| 2026-05-28 00:30 | (應推) push_dispatch_progress 派工進度 Flex — silent skip | 推算 |
+| 2026-05-28 08:00 | (應推) morning_report 每日晨報 LINE — silent skip | 推算 |
+| 2026-05-28 11:14 | business_recommendation cron 加入 (commit `5a82621b`) | git log |
+| 2026-05-28 22:00 | (應推) daily_self_reflection_line_push — silent skip | 推算 |
+| 2026-05-29 00:30 | (應推) push_dispatch_progress — silent skip | 推算 |
+| 2026-05-29 08:00 | (應推) morning_report — silent skip | 推算 |
+| 2026-05-29 09:00 | business_recommendation cron 首次跑，6 筆全 push_admin_alert returned False | backend log |
 | 2026-05-29 ~10:00 | L51 task B 落地（觀測閉環 + history table） | commit `32712f46` |
 | 2026-05-29 ~11:00 | 端對端複查發現 `tender_recommendation_history` 6 筆 status=error | 複查 SQL |
-| 2026-05-29 11:23 | docker-compose 補 8 個 LINE_* env → backend recreate → 真實 push True | commit `706b2e22` |
+| 2026-05-29 11:23 | docker-compose 補 8 個 LINE_* env → 真活恢復 | commit `706b2e22` |
+| 2026-05-29 12:15 | Owner 追問「派工 LINE 通知也中斷？」→ 5 鏈擴大盤點 + 派工 Flex sent=1/1 | 對話 |
+| 2026-05-29 12:30 | **Owner 提供 4 種 LINE 訊息範例反證 PM2 模式真活 → 校正時長為 40h 23min** | owner 證據 |
+
+### 期間漏推清單 (5/27 19:00 ~ 5/29 11:23，共 12 條訊息)
+
+| # | 時間 | 訊息類型 |
+|---|---|---|
+| 1 | 5/27 22:00 | 每日反思 (daily_self_reflection) |
+| 2 | 5/28 00:30 | 派工進度 Flex (push_dispatch_progress) |
+| 3 | 5/28 08:00 | 每日晨報 (morning_report) |
+| 4 | 5/28 22:00 | 每日反思 |
+| 5 | 5/29 00:30 | 派工進度 Flex |
+| 6 | 5/29 08:00 | 每日晨報 |
+| 7-12 | 5/29 09:00 | 業務推薦 × 6 筆 (揭發者) |
+
+---
+
+## 2.5 真正引爆點：OA-3 PM2 廢除（治理動作引發的回退）
+
+校正版時間軸揭示**真根因不是「docker-compose 沒注入 env」這個 3 個月舊問題**，而是
+**OA-3 PM2 廢除這個治理動作切換流量時未察覺 env 依賴**：
+
+```
+[Before PM2 廢除]
+  cloudflared → host:8001 (PM2 native uvicorn)
+              → 直接讀 host /home/.../.env LINE_* ✓ 真活
+
+[After PM2 廢除 commit ed81bf87 / 1ea91196]
+  cloudflared → ck_missive_backend (docker container)
+              → 讀 container env LINE_* 全空 → enabled=False ✗ silent disabled
+```
+
+### 為何 OA-3 廢除時沒察覺
+
+1. **OA-3 廢除 pre-flight checklist** (commit `5e4f7650` / `553d159d`) 沒檢查 LINE_* env 對齊
+2. **同治理動作 L48** (5/27) 補了 CK_SSO_* env，因為 SSO 失敗會 hard-fail（用戶報「無法登入」），
+   立即被發現
+3. **LINE 失敗是 silent skip**（return False，沒 error 也沒 alarm），所以同時期 PM2 廢除引入
+   的回退沒被同時揭發
+4. 無對應的 fitness audit 自動掃描「治理切換後 env 對齊」（fitness step 57 是事後補的）
+
+### 治理動作回退模式
+
+這次事件**不是新功能 bug**，是「治理動作（PM2 廢除）切換 runtime context 但未同步配置」
+反模式。同型事故（L48 SSO env 配套）已在同 PM2 廢除期間發生過一次（已修），但 LINE_*
+這 8 個 env 漏掉了。
+
+**寫進 cross-file-ssot-governance.md** 應有「治理動作 checklist」一節：
+- runtime context 切換時，列出**所有從 host env 讀的服務**
+- 對比 target runtime（container/PM2/其他）是否能獲得同樣 env
+- 若不能，新增 env 注入或 secret mount
 
 ---
 
@@ -316,3 +399,22 @@ Owner 提問「派工 LINE 通知也中斷？」促使全面排查。**5 條 LIN
    - 派工 LINE Flex / 早報 LINE / 夜間吹哨 LINE 全部中斷 (擴大盤點)
    - L48 同型事故仍在反覆 (寫進 audit 發現)
    單一 design choice 連帶解了 4 個潛伏問題。
+
+6. **錯誤分析比 silent fail 本身更危險**
+   2026-05-29 12:00 我寫「3 個月 27 天 silent disabled」是**未經驗證的擴大推論**。
+   Owner 12:30 提供 5/25 / 5/27 / W21 LINE 訊息範例**反證 PM2 模式真活**，
+   迫使重新校正為「40h 23min」。錯誤分析會誤導後續決策（例如：
+   若 owner 相信 3 個月時長，可能會懷疑 morning_report 整體設計
+   有問題；實際只需修 PM2→docker 切換配套）。
+
+   **教訓**：時長/影響範圍宣稱前**必須**列證據鏈，不要從「.env 沒注入」直線推到
+   「從建立以來都壞」。應該問「過去真的有推過嗎？如何證明？」（5/25 訊息證據）。
+
+7. **治理動作（PM2 廢除）回退是隱性風險源**
+   v6.11 OA-3 PM2 廢除（治理收斂動作）的副作用引爆本次事件。
+   未來治理動作（v6.12 規劃）應有「runtime context 切換 checklist」前置：
+   - 列出所有從 host env 讀的服務
+   - 對比 target runtime 是否能讀同樣 env
+   - 主動推 startup self-test 訊息（活體確認）
+
+   未做這個 checklist，就會反覆發生「修了 A 但無心壞了 B」。
