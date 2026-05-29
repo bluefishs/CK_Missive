@@ -3,27 +3,38 @@ Tender 業務推薦 LINE 通知 (ADR-0046 Phase 4)
 
 對「近 N 日新增 + 預算大 + 機關曾合作」的標案自動 LINE 推送 admin。
 
-═══════════════ 篩選原則（5 條 AND 條件）═══════════════
+═══════════════ 篩選原則 v2 (L51.4 業務整合版) ═══════════════
+
+【基本面 3 條 AND】(無條件必須)
 1. **時間窗口**: announce_date >= CURRENT_DATE - days_back（預設 1 日）
-   → 只推「今日新增」標案，避反覆推同一筆
-
 2. **資料來源**: source='pcc' OR pcc_match_unit_id IS NOT NULL
-   → PCC 直接公告 或 ezbid HIGH-matched 到 PCC（ADR-0046 enrichment）
-   → 排除孤兒 ezbid（無法對應 PCC 詳情）
+3. **預算門檻**: budget >= budget_min（預設 100 萬）
 
-3. **預算門檻**: budget IS NOT NULL AND budget >= budget_min（預設 100 萬）
-   → 過濾小額採購，聚焦業務有意義案件
-   → 重要: PCC source 4076 筆 budget 100% NULL → 此分支實際不命中
-            業務推薦真實只命中 394 HIGH-matched ezbid 持有 budget 案件
-   → 見 docs/architecture/TENDER_PCC_COVERAGE_AUDIT_20260529.md
+【業務相關性 3 重信號 OR】(至少 1 命中即列入)
+A. **訂閱關鍵字** (主要 — 與 /tender/search 訂閱機制整合)
+   - title 或 unit_name 命中任一 tender_subscriptions.keyword
+   - 現行訂閱: 用地取得 / 圖解數化地籍 / 測量 / 樁 / 隧道 / UAV (6 個)
+   - 命中即 matched_keywords[] 標註，訊息中顯示原因
 
-4. **合作機關**: unit_name IN (SELECT agency_name FROM government_agencies)
-   → 只推過去 documents 互動過的機關（避雜訊）
-   → agency_match_count = 該機關過往 documents 數量（合作次數標記）
+B. **合作機關** (次要 — government_agencies 過去 documents 互動)
+   - unit_name 在 government_agencies 表
+   - agency_match_count = 過往 documents 數
 
-5. **排序**: ORDER BY budget DESC, announce_date DESC
-   → 預算大優先（業務 ROI 高）+ 新公告優先
-   → LIMIT MAX_RECOMMEND_PER_RUN=20（避刷屏）
+C. **歷史承攬機關** (次要 — contract_projects 過去成功承接)
+   - unit_name 在 contract_projects.client_agency
+   - 現有 43 個歷史承攬機關
+
+【排序】
+- 主排序: 多信號命中數 DESC (3 重 → 2 重 → 1 重)
+- 次排序: budget DESC, announce_date DESC
+- LIMIT: MAX_RECOMMEND_PER_RUN=20
+
+═══════════════ 重要設計選擇 ═══════════════
+- **OR 邏輯而非 AND**：避免錯失（任一信號命中即列入）
+- **訂閱關鍵字優先**：用戶在 /tender/search 設定的最直接表達業務興趣
+- **訊息透明化**：顯示「為何推這筆」(matched_keywords / cooperated / contracted)
+- **PCC budget 100% NULL 警示**：實際命中 394 HIGH-matched ezbid（持 budget）
+  見 docs/architecture/TENDER_PCC_COVERAGE_AUDIT_20260529.md
 
 ═══════════════ 去重機制 ═══════════════
 - Redis: 同案號每日只推 1 次（TTL 25h）
@@ -85,44 +96,87 @@ async def find_business_recommendations(
             announce_date, agency_match_count
         }]
     """
+    # L51.4 (2026-05-29) Owner 反饋：5 條 AND 與訂閱/業務關聯性極低
+    # 重寫整合版 — 加 3 重業務相關性信號（任一命中即列入）：
+    #   信號 A: title/unit_name 命中訂閱關鍵字 (tender_subscriptions 6 筆)
+    #   信號 B: unit_name 為合作機關 (government_agencies — 過去 documents 互動)
+    #   信號 C: unit_name 為歷史承攬機關 (contract_projects 43 個過去承接機關)
+    # 任一信號 OR 邏輯，避免錯失。多信號命中者排序優先。
     sql = text("""
-        WITH cooperated_agencies AS (
-            -- 從 government_agencies 取合作機關（過去 documents 互動過）
+        WITH
+        sub_keywords AS (
+            -- 訂閱關鍵字（用戶在 /tender/search 設定的關注詞彙）
+            SELECT keyword FROM tender_subscriptions WHERE is_active = true
+        ),
+        cooperated_agencies AS (
+            -- 合作機關（過去 documents 互動）
             SELECT DISTINCT agency_name FROM government_agencies
+            WHERE agency_name IS NOT NULL
+        ),
+        contracted_agencies AS (
+            -- 歷史承攬機關（過去成功承接過案件）
+            SELECT DISTINCT client_agency AS agency_name
+            FROM contract_projects
+            WHERE client_agency IS NOT NULL
         ),
         recent_tenders AS (
             SELECT
-                -- L51.3 (2026-05-29) 對 ezbid HIGH-matched 用 PCC 對應碼，
-                -- ezbid 自己的 unit_id 是純數字（如 2249296），打不開 PCC 採購網。
-                -- COALESCE → 優先用 pcc_match_*，無對應則 fallback ezbid 原 id
+                -- L51.3 對 ezbid HIGH-matched 用 PCC 對應碼（COALESCE）
                 COALESCE(tr.pcc_match_unit_id, tr.unit_id) AS unit_id,
                 COALESCE(tr.pcc_match_job_number, tr.job_number) AS job_number,
-                tr.title, tr.unit_name,
-                tr.budget, tr.announce_date, tr.source, tr.pcc_match_unit_id,
-                tr.pcc_match_job_number, tr.pcc_match_confidence
+                tr.id AS tender_record_id, tr.title, tr.unit_name,
+                tr.budget, tr.announce_date, tr.source
             FROM tender_records tr
             WHERE
-                -- 近期新增
+                -- 條件 1: 近期新增
                 tr.announce_date >= (CURRENT_DATE - :days_back * INTERVAL '1 day')::date
-                -- 預算門檻
+                -- 條件 2: 預算門檻
                 AND tr.budget IS NOT NULL
                 AND tr.budget >= :budget_min
-                -- 只推 PCC（或 HIGH-matched ezbid 走 PCC 對應）
+                -- 條件 3: PCC 或 HIGH-matched ezbid 走 PCC 對應
                 AND (tr.source = 'pcc' OR tr.pcc_match_unit_id IS NOT NULL)
         )
         SELECT
             rt.unit_id, rt.job_number, rt.title, rt.unit_name,
             rt.budget, rt.announce_date, rt.source,
-            -- 合作次數（同名機關過往 documents 數）
+            -- L51.4 業務相關性三重信號
+            (
+                SELECT array_agg(sk.keyword)
+                FROM sub_keywords sk
+                WHERE rt.title ILIKE '%' || sk.keyword || '%'
+                   OR rt.unit_name ILIKE '%' || sk.keyword || '%'
+            ) AS matched_keywords,
+            (rt.unit_name IN (SELECT agency_name FROM cooperated_agencies)) AS is_cooperated,
+            (rt.unit_name IN (SELECT agency_name FROM contracted_agencies)) AS is_contracted,
+            -- 合作次數
             (
                 SELECT COUNT(*) FROM government_agencies ga
                 WHERE ga.agency_name = rt.unit_name
             ) AS agency_match_count
         FROM recent_tenders rt
         WHERE
-            -- 機關曾合作
-            rt.unit_name IN (SELECT agency_name FROM cooperated_agencies)
-        ORDER BY rt.budget DESC, rt.announce_date DESC
+            -- L51.4 業務相關性過濾：訂閱關鍵字 OR 合作機關 OR 歷史承攬機關
+            EXISTS (
+                SELECT 1 FROM sub_keywords sk
+                WHERE rt.title ILIKE '%' || sk.keyword || '%'
+                   OR rt.unit_name ILIKE '%' || sk.keyword || '%'
+            )
+            OR rt.unit_name IN (SELECT agency_name FROM cooperated_agencies)
+            OR rt.unit_name IN (SELECT agency_name FROM contracted_agencies)
+        ORDER BY
+            -- L51.4 加權排序：訂閱關鍵字 = 3 (用戶主動表達興趣，最強信號)
+            --                  歷史承攬 = 2 (過去成功承接，業務適配)
+            --                  合作機關 = 1 (互動過，次強)
+            (
+                (CASE WHEN EXISTS (
+                    SELECT 1 FROM sub_keywords sk
+                    WHERE rt.title ILIKE '%' || sk.keyword || '%'
+                       OR rt.unit_name ILIKE '%' || sk.keyword || '%'
+                ) THEN 3 ELSE 0 END) +
+                (CASE WHEN rt.unit_name IN (SELECT agency_name FROM contracted_agencies) THEN 2 ELSE 0 END) +
+                (CASE WHEN rt.unit_name IN (SELECT agency_name FROM cooperated_agencies) THEN 1 ELSE 0 END)
+            ) DESC,
+            rt.budget DESC, rt.announce_date DESC
         LIMIT :limit
     """)
 
@@ -147,6 +201,10 @@ async def find_business_recommendations(
             "announce_date": str(r.announce_date) if r.announce_date else "",
             "source": r.source,
             "agency_match_count": int(r.agency_match_count) if r.agency_match_count else 0,
+            # L51.4 業務相關性三重信號
+            "matched_keywords": list(r.matched_keywords) if r.matched_keywords else [],
+            "is_cooperated": bool(r.is_cooperated),
+            "is_contracted": bool(r.is_contracted),
         }
         for r in rows
     ]
@@ -177,10 +235,8 @@ async def _mark_pushed(redis_client, unit_id: str, job_number: str) -> None:
 def _format_recommendation_line(rec: Dict[str, Any]) -> str:
     """單一推薦 → LINE 訊息文字。
 
-    L51.3 (2026-05-29) Owner 反饋：標案應可連結 PCC 以利檢視
-    雙連結設計：
-      - missive 詳情頁：含 enrichment / 戰情室 / 廠商分析
-      - PCC 政府電子採購網：官方原始公告（決標查詢）
+    L51.3 (2026-05-29) 雙連結設計：missive 詳情 + PCC 採購網
+    L51.4 (2026-05-29) Owner 反饋業務關聯性低：顯示匹配信號（關鍵字 + 合作/承攬）
     """
     from urllib.parse import quote
 
@@ -190,6 +246,17 @@ def _format_recommendation_line(rec: Dict[str, Any]) -> str:
 
     unit_id_url = quote(str(rec["unit_id"]), safe='')
     job_url = quote(str(rec["job_number"]), safe='')
+
+    # L51.4 業務匹配信號（透明化推薦原因）
+    signals = []
+    matched_kw = rec.get("matched_keywords") or []
+    if matched_kw:
+        signals.append(f"🔍 訂閱命中: {', '.join(matched_kw)}")
+    if rec.get("is_contracted"):
+        signals.append("📜 歷史承攬過此機關")
+    if rec.get("is_cooperated"):
+        signals.append(f"🤝 documents 互動 {agency_cnt} 次")
+    signal_block = "\n".join(signals) if signals else "（無業務匹配信號 — 預算/時間 fallback）"
 
     # missive 詳情頁（內部頁，含 enrichment + 戰情室）
     missive_url = (
@@ -208,6 +275,9 @@ def _format_recommendation_line(rec: Dict[str, Any]) -> str:
         f"🏛 {rec['unit_name']} {coop_str}\n"
         f"💰 預算 {budget_str}\n"
         f"📅 公告 {rec['announce_date']}\n"
+        f"\n"
+        f"{signal_block}\n"
+        f"\n"
         f"🔗 missive 詳情:\n{missive_url}\n"
         f"🏛 PCC 採購網:\n{pcc_url}"
     )
