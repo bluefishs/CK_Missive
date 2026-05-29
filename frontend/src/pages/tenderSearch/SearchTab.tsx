@@ -83,12 +83,39 @@ const SearchTab: React.FC<SearchTabProps> = ({
     },
     {
       title: '標案名稱', dataIndex: 'title', ellipsis: true,
-      render: (title: string, record) => (
-        <div>
-          <a onClick={() => handleViewDetail(record)} style={{ fontWeight: 500 }}>{title}</a>
-          {record.matched_keyword && <Tag color="gold" style={{ marginLeft: 8, fontSize: 11 }}>{record.matched_keyword}</Tag>}
-        </div>
-      ),
+      render: (title: string, record) => {
+        // L51.6 (2026-05-29) 顯示三重業務匹配信號（解 owner 反映「關聯性不明」）
+        // match_signals 來自 /api/tender/recommend 統一 v2 SQL
+        const sig = (record as unknown as { match_signals?: {
+          matched_keywords?: string[];
+          is_contracted?: boolean;
+          is_cooperated?: boolean;
+          agency_match_count?: number;
+        } }).match_signals;
+        return (
+          <div>
+            <a onClick={() => handleViewDetail(record)} style={{ fontWeight: 500 }}>{title}</a>
+            {/* 訂閱關鍵字（主信號 / 用戶主動表達興趣） */}
+            {sig?.matched_keywords?.map((k: string) => (
+              <Tag key={k} color="gold" style={{ marginLeft: 4, fontSize: 11 }}>🔍 {k}</Tag>
+            ))}
+            {/* fallback: 舊版相容 */}
+            {(!sig?.matched_keywords?.length) && record.matched_keyword && (
+              <Tag color="gold" style={{ marginLeft: 4, fontSize: 11 }}>{record.matched_keyword}</Tag>
+            )}
+            {/* 歷史承攬（業務適配） */}
+            {sig?.is_contracted && (
+              <Tag color="purple" style={{ marginLeft: 4, fontSize: 11 }}>📜 歷史承攬</Tag>
+            )}
+            {/* 合作機關（documents 互動） */}
+            {sig?.is_cooperated && (
+              <Tag color="blue" style={{ marginLeft: 4, fontSize: 11 }}>
+                🤝 合作{sig.agency_match_count ? ` ${sig.agency_match_count}次` : ''}
+              </Tag>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: '類型', dataIndex: 'type', width: 160, ellipsis: true,

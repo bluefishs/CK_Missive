@@ -125,7 +125,8 @@ async def find_business_recommendations(
                 COALESCE(tr.pcc_match_unit_id, tr.unit_id) AS unit_id,
                 COALESCE(tr.pcc_match_job_number, tr.job_number) AS job_number,
                 tr.id AS tender_record_id, tr.title, tr.unit_name,
-                tr.budget, tr.announce_date, tr.source
+                tr.budget, tr.announce_date, tr.source,
+                tr.category, tr.tender_type
             FROM tender_records tr
             WHERE
                 -- 條件 1: 近期新增
@@ -155,14 +156,22 @@ async def find_business_recommendations(
             ) AS agency_match_count
         FROM recent_tenders rt
         WHERE
-            -- L51.4 業務相關性過濾：訂閱關鍵字 OR 合作機關 OR 歷史承攬機關
+            -- L51.4 業務相關性過濾：訂閱關鍵字 OR (合作/承攬 + 業務類別過濾)
+            -- L51.6 (2026-05-29) 修法：解 owner 反映「金酒 PE 膠膜 / 超導磁共振」雜訊
+            --   - 訂閱命中: 強信號 (用戶主動表達興趣)，任何 category 都放行
+            --   - 合作/承攬: 弱信號 + 必須非「財物」類 (避免財物採購雜訊)
+            --     category=NULL 預設視為「工程」(避免合理案件如「地政整合系統」被擋)
             EXISTS (
                 SELECT 1 FROM sub_keywords sk
                 WHERE rt.title ILIKE '%' || sk.keyword || '%'
                    OR rt.unit_name ILIKE '%' || sk.keyword || '%'
             )
-            OR rt.unit_name IN (SELECT agency_name FROM cooperated_agencies)
-            OR rt.unit_name IN (SELECT agency_name FROM contracted_agencies)
+            OR (
+                (rt.unit_name IN (SELECT agency_name FROM cooperated_agencies)
+                 OR rt.unit_name IN (SELECT agency_name FROM contracted_agencies))
+                -- category=NULL 視為「工程」（避「桃園地政整合系統」這類 category 缺失但合理案件被擋）
+                AND COALESCE(NULLIF(TRIM(rt.category), ''), '工程') NOT IN ('財物', '財物類')
+            )
         ORDER BY
             -- L51.4 加權排序：訂閱關鍵字 = 3 (用戶主動表達興趣，最強信號)
             --                  歷史承攬 = 2 (過去成功承接，業務適配)
