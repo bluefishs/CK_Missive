@@ -179,6 +179,51 @@ async def apply_match_to_record(
     return result.rowcount > 0
 
 
+async def _enqueue_medium_review(
+    db: AsyncSession,
+    ezbid_id: int,
+    pcc_unit_id: str,
+    pcc_job_number: str,
+    confidence: float,
+    title_sim: float,
+    agency_match: float,
+    date_proximity: float,
+    ezbid_title: str = "",
+    pcc_title: str = "",
+    ezbid_unit_name: str = "",
+    pcc_unit_name: str = "",
+) -> bool:
+    """L51 (2026-05-29) task E：MEDIUM 候選寫入 review queue 給 admin 手動確認
+
+    ON CONFLICT DO NOTHING — 同 ezbid×PCC 對應已在 queue 不重複加。
+    Returns: True if inserted, False if already existed.
+    """
+    try:
+        result = await db.execute(
+            text("""
+                INSERT INTO tender_match_review
+                    (ezbid_record_id, pcc_unit_id, pcc_job_number,
+                     confidence, title_sim, agency_match, date_proximity,
+                     ezbid_title, pcc_title, ezbid_unit_name, pcc_unit_name, status)
+                VALUES (:eid, :uid, :jn, :conf, :ts, :ag, :dp,
+                        :etitle, :ptitle, :eunit, :punit, 'pending')
+                ON CONFLICT (ezbid_record_id, pcc_unit_id, pcc_job_number) DO NOTHING
+            """),
+            {
+                "eid": ezbid_id, "uid": pcc_unit_id, "jn": pcc_job_number,
+                "conf": confidence, "ts": title_sim, "ag": agency_match, "dp": date_proximity,
+                "etitle": (ezbid_title or "")[:500],
+                "ptitle": (pcc_title or "")[:500],
+                "eunit": (ezbid_unit_name or "")[:200],
+                "punit": (pcc_unit_name or "")[:200],
+            },
+        )
+        return result.rowcount > 0
+    except Exception as e:
+        logger.warning(f"enqueue medium review failed (non-fatal) eid={ezbid_id}: {e}")
+        return False
+
+
 async def enrich_all_unmatched(
     db: AsyncSession,
     batch_size: int = 500,
@@ -192,14 +237,18 @@ async def enrich_all_unmatched(
         high_only: True = 只 auto-link HIGH (≥0.85 + 三重 guard) / False = HIGH+MEDIUM
         dry_run: True = 不寫 DB，只回傳統計
 
+    L51 task E：high_only=True 時，MEDIUM 候選會寫入 tender_match_review queue
+    供 admin 手動確認，不再 silent skip。
+
     Returns:
-        {scanned, matched_high, matched_medium, applied, skipped, errors}
+        {scanned, matched_high, matched_medium, applied, queued_medium, skipped, errors}
     """
     stats = {
         "scanned": 0,
         "matched_high": 0,
         "matched_medium": 0,
         "applied": 0,
+        "queued_medium": 0,  # L51: 進入 review queue 的 MEDIUM 數量
         "skipped": 0,
         "errors": 0,
     }
@@ -278,9 +327,20 @@ async def enrich_all_unmatched(
             else:
                 stats["matched_medium"] += 1
 
-            # 只 auto-link HIGH（high_only=True 時）
+            # L51 task E：high_only=True 時 MEDIUM 進 review queue (不 silent skip)
             if high_only and not is_high:
-                stats["skipped"] += 1
+                if not dry_run:
+                    queued = await _enqueue_medium_review(
+                        db, row.eid, row.pcc_unit_id, row.pcc_job_number,
+                        confidence, title_sim, agency, date_prox,
+                        ezbid_title=row.etitle or "",
+                        pcc_title=row.ptitle or "",
+                        ezbid_unit_name=row.eunit or "",
+                        pcc_unit_name=row.punit or "",
+                    )
+                    if queued:
+                        stats["queued_medium"] += 1
+                stats["skipped"] += 1  # skipped from auto-link (但已入 queue)
                 continue
 
             if not dry_run:

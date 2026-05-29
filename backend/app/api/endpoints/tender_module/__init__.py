@@ -16,9 +16,12 @@ from .search import router as search_router
 from .graph_case import router as graph_case_router
 from .subscriptions import router as subscriptions_router
 from .analytics import router as analytics_router
+from .enrichment_review import router as enrichment_review_router
 
 router = APIRouter(prefix="/tender", tags=["標案檢索"])
 router.include_router(search_router)
 router.include_router(graph_case_router)
 router.include_router(subscriptions_router, dependencies=[Depends(require_auth())])
 router.include_router(analytics_router, dependencies=[Depends(require_auth())])
+# L51 task E: MEDIUM review queue — admin only
+router.include_router(enrichment_review_router, dependencies=[Depends(require_auth())])
