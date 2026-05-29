@@ -1,25 +1,51 @@
 """
 Tender 業務推薦 LINE 通知 (ADR-0046 Phase 4)
 
-對「今日新增 + 預算大 + 機關曾合作」的標案自動 LINE 推送 admin。
+對「近 N 日新增 + 預算大 + 機關曾合作」的標案自動 LINE 推送 admin。
 
-設計原則:
-1. **不依賴 enrichment** — 直接從 tender_records 取今日新增 PCC 標案
-2. **合作機關判定**: documents.recipient_unit 或 government_agencies.agency_name 命中
-3. **預算門檻**: 預設 ≥ 100 萬（可調）
-4. **去重**: 同案號每日只推 1 次（用 Redis cache）
+═══════════════ 篩選原則（5 條 AND 條件）═══════════════
+1. **時間窗口**: announce_date >= CURRENT_DATE - days_back（預設 1 日）
+   → 只推「今日新增」標案，避反覆推同一筆
 
-LINE 訊息模板:
+2. **資料來源**: source='pcc' OR pcc_match_unit_id IS NOT NULL
+   → PCC 直接公告 或 ezbid HIGH-matched 到 PCC（ADR-0046 enrichment）
+   → 排除孤兒 ezbid（無法對應 PCC 詳情）
+
+3. **預算門檻**: budget IS NOT NULL AND budget >= budget_min（預設 100 萬）
+   → 過濾小額採購，聚焦業務有意義案件
+   → 重要: PCC source 4076 筆 budget 100% NULL → 此分支實際不命中
+            業務推薦真實只命中 394 HIGH-matched ezbid 持有 budget 案件
+   → 見 docs/architecture/TENDER_PCC_COVERAGE_AUDIT_20260529.md
+
+4. **合作機關**: unit_name IN (SELECT agency_name FROM government_agencies)
+   → 只推過去 documents 互動過的機關（避雜訊）
+   → agency_match_count = 該機關過往 documents 數量（合作次數標記）
+
+5. **排序**: ORDER BY budget DESC, announce_date DESC
+   → 預算大優先（業務 ROI 高）+ 新公告優先
+   → LIMIT MAX_RECOMMEND_PER_RUN=20（避刷屏）
+
+═══════════════ 去重機制 ═══════════════
+- Redis: 同案號每日只推 1 次（TTL 25h）
+- DB: tender_recommendation_history 全推送結果留底
+       (L51 task B 觀測閉環 — 含 error 案例追溯)
+
+═══════════════ Cron 排程 ═══════════════
+- 每日 09:00（避 03:30 enrichment 與 08:00 morning_report 高峰）
+- next_run_time 不立即觸發（避 backend 重啟即刷屏）
+
+═══════════════ LINE 訊息範本 (L51.3 後)═══════════════
   🎯 業務推薦標案
-  [案號] A.15.3.2 / 115-703
-  [標題] 道路鋪面工程
-  [機關] 苗栗縣公館鄉公所 (合作 3 案)
-  [預算] $1,500,000
-  [截止] 2026-06-05
-  https://missive.cksurvey.tw/tender/pcc/...
+  📋 [案號] 道路鋪面工程
+  🏛 苗栗縣公館鄉公所（合作 3 次）
+  💰 預算 $1,500,000
+  📅 公告 2026-05-29
+  🔗 missive 詳情: https://missive.cksurvey.tw/tender/pcc/...
+  🏛 PCC 採購網: https://web.pcc.gov.tw/tps/atm/atmAwardAction.do?...
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-05-28 (ADR-0046 Phase 4)
+Updated: 2026-05-29 L51.3 — 加 PCC 官方連結 + 完整篩選原則註解
 """
 from __future__ import annotations
 
@@ -66,7 +92,12 @@ async def find_business_recommendations(
         ),
         recent_tenders AS (
             SELECT
-                tr.unit_id, tr.job_number, tr.title, tr.unit_name,
+                -- L51.3 (2026-05-29) 對 ezbid HIGH-matched 用 PCC 對應碼，
+                -- ezbid 自己的 unit_id 是純數字（如 2249296），打不開 PCC 採購網。
+                -- COALESCE → 優先用 pcc_match_*，無對應則 fallback ezbid 原 id
+                COALESCE(tr.pcc_match_unit_id, tr.unit_id) AS unit_id,
+                COALESCE(tr.pcc_match_job_number, tr.job_number) AS job_number,
+                tr.title, tr.unit_name,
                 tr.budget, tr.announce_date, tr.source, tr.pcc_match_unit_id,
                 tr.pcc_match_job_number, tr.pcc_match_confidence
             FROM tender_records tr
@@ -144,16 +175,31 @@ async def _mark_pushed(redis_client, unit_id: str, job_number: str) -> None:
 
 
 def _format_recommendation_line(rec: Dict[str, Any]) -> str:
-    """單一推薦 → LINE 訊息文字。"""
+    """單一推薦 → LINE 訊息文字。
+
+    L51.3 (2026-05-29) Owner 反饋：標案應可連結 PCC 以利檢視
+    雙連結設計：
+      - missive 詳情頁：含 enrichment / 戰情室 / 廠商分析
+      - PCC 政府電子採購網：官方原始公告（決標查詢）
+    """
+    from urllib.parse import quote
+
     budget_str = f"${rec['budget']:,}" if rec["budget"] else "（預算未公開）"
     agency_cnt = rec.get("agency_match_count", 0)
     coop_str = f"（合作 {agency_cnt} 次）" if agency_cnt > 1 else "（合作機關）"
 
-    unit_id_url = rec["unit_id"]
-    job_url = rec["job_number"]
-    detail_url = (
+    unit_id_url = quote(str(rec["unit_id"]), safe='')
+    job_url = quote(str(rec["job_number"]), safe='')
+
+    # missive 詳情頁（內部頁，含 enrichment + 戰情室）
+    missive_url = (
         f"https://missive.cksurvey.tw/tender/pcc/"
         f"{unit_id_url}/{job_url}"
+    )
+    # PCC 政府電子採購網（官方原始公告，方便直接查官方頁面）
+    pcc_url = (
+        "https://web.pcc.gov.tw/tps/atm/atmAwardAction.do"
+        f"?method=goSearch&unitId={unit_id_url}&jobNumber={job_url}"
     )
 
     return (
@@ -162,7 +208,8 @@ def _format_recommendation_line(rec: Dict[str, Any]) -> str:
         f"🏛 {rec['unit_name']} {coop_str}\n"
         f"💰 預算 {budget_str}\n"
         f"📅 公告 {rec['announce_date']}\n"
-        f"🔗 {detail_url}"
+        f"🔗 missive 詳情:\n{missive_url}\n"
+        f"🏛 PCC 採購網:\n{pcc_url}"
     )
 
 
