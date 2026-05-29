@@ -368,84 +368,82 @@ async def recommend_tenders(
     service: TenderSearchService = Depends(get_tender_service),
     db: AsyncSession = Depends(get_db),
 ):
-    """智能推薦 — 訂閱關鍵字驅動 + ezbid 今日最新 (分區)"""
+    """智能推薦 v2 (L51.5 統一版, 2026-05-29)
+
+    Owner 反饋：/tender/search 推薦 14 筆與 LINE 推薦 3 筆無關聯，管理混淆。
+
+    修法：兩端統一使用 business_recommendation.find_business_recommendations
+          (3 條基本面 AND + 3 重業務信號 OR + 加權排序)
+
+    保留原 response 結構 (keywords/total/today_records/records) 不破壞 frontend，
+    新增 match_signals 標籤透明化推薦原因。
+    """
     from app.extended.models.tender import TenderSubscription
+    from app.services.tender.business_recommendation import find_business_recommendations
 
-    # 1. 取得訂閱關鍵字 (優先) 或使用預設
-    sub_keywords = req.keywords
-    if not sub_keywords:
-        subs = await db.execute(
-            select(TenderSubscription)
-            .where(TenderSubscription.is_active == True)  # noqa: E712
-            .order_by(TenderSubscription.last_count.desc())
-            .limit(5)
-        )
-        sub_list = subs.scalars().all()
-        sub_keywords = [s.keyword for s in sub_list] if sub_list else None
+    # 取訂閱關鍵字（給 frontend 顯示「依訂閱關鍵字推薦」label）
+    subs = await db.execute(
+        select(TenderSubscription).where(TenderSubscription.is_active == True)  # noqa: E712
+    )
+    keywords = [s.keyword for s in subs.scalars().all()]
 
-    # 2. 並行取得: g0v 推薦 + ezbid 關鍵字 + ezbid 最新
-    import asyncio
-    from app.services.tender.ezbid_scraper import EzbidScraper
-    scraper = EzbidScraper()
+    # L51.5 統一邏輯：用 LINE 業務推薦同一個 SQL
+    # days_back=7 (與 LINE 1 日不同 — UI 場景看更多)
+    # budget_min=1_000_000 (與 LINE 同)
+    # limit=50 (UI 場景上限，LINE 是 20)
+    recs = await find_business_recommendations(
+        db, days_back=7, budget_min=1_000_000, limit=50,
+    )
 
-    g0v_task = service.recommend_tenders(keywords=sub_keywords, page=req.page)
-    async def _empty(): return {"records": []}
-    ezbid_kw_task = scraper.fetch_for_keywords(sub_keywords[:3]) if sub_keywords else _empty()
-    # 使用統一服務層: get_today_all() 共享 Redis 快取 (was pages=1, per_page=15)
-    ezbid_latest_task = scraper.get_today_all()
-
-    results = await asyncio.gather(g0v_task, ezbid_kw_task, ezbid_latest_task, return_exceptions=True)
-    g0v_result = results[0] if not isinstance(results[0], Exception) else {"records": [], "keywords": []}
-    ezbid_kw_result = results[1] if not isinstance(results[1], Exception) else {"records": []}
-    ezbid_latest_result = results[2] if not isinstance(results[2], Exception) else {"records": []}
-
-    def to_record(r):
+    def adapt(r):
+        """v2 結果 → frontend TenderRecord shape + 透明化標籤"""
         return {
-            "date": r.get("date", ""),
-            "raw_date": int(r.get("date", "0").replace("-", "")) if r.get("date") else 0,
+            "date": r.get("announce_date", ""),
+            "raw_date": int(
+                str(r.get("announce_date", "0")).replace("-", "")
+            ) if r.get("announce_date") else 0,
             "title": r.get("title", ""),
-            "type": r.get("type", ""),
-            "category": r.get("category", ""),
-            "unit_id": r.get("ezbid_id", ""),
+            "type": "",  # v2 SQL 暫無此欄
+            "category": "",
+            "unit_id": r.get("unit_id", ""),
             "unit_name": r.get("unit_name", ""),
-            "job_number": "",
+            "job_number": r.get("job_number", "") or "",
             "company_names": [], "company_ids": [],
             "winner_names": [], "bidder_names": [],
-            "tender_api_url": r.get("ezbid_url", ""),
-            "source": "ezbid",
+            "tender_api_url": "",
+            "source": r.get("source", ""),
+            "budget": r.get("budget", 0),
+            # L51.5 frontend 既有欄位 (gold tag)
+            "matched_keyword": (
+                r["matched_keywords"][0] if r.get("matched_keywords") else None
+            ),
+            # L51.5 透明化標籤（前端可用於 tooltip / detail view）
+            "match_signals": {
+                "matched_keywords": r.get("matched_keywords", []),
+                "is_contracted": r.get("is_contracted", False),
+                "is_cooperated": r.get("is_cooperated", False),
+                "agency_match_count": r.get("agency_match_count", 0),
+                "match_score": (
+                    (3 if r.get("matched_keywords") else 0)
+                    + (2 if r.get("is_contracted") else 0)
+                    + (1 if r.get("is_cooperated") else 0)
+                ),
+            },
         }
 
-    # 合併業務推薦
-    business_records = list(g0v_result.get("records", []))
-    seen_titles = {r.get("title", "")[:20] for r in business_records}
-    for r in ezbid_kw_result.get("records", []):
-        key = r.get("title", "")[:20]
-        if key not in seen_titles:
-            seen_titles.add(key)
-            rec = to_record(r)
-            rec["matched_keyword"] = r.get("matched_keyword", "")
-            business_records.append(rec)
-    business_records.sort(key=lambda x: x.get("raw_date", 0), reverse=True)
+    all_records = [adapt(r) for r in recs]
 
-    # 今日最新
-    today_records = []
-    for r in ezbid_latest_result.get("records", []):
-        key = r.get("title", "")[:20]
-        if key not in seen_titles:
-            seen_titles.add(key)
-            today_records.append(to_record(r))
-
-    # 4. 篩選近 30 天
-    from datetime import datetime, timedelta
-    cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-    business_records = [r for r in business_records if (r.get("date") or "9999") >= cutoff]
-    today_records = [r for r in today_records if (r.get("date") or "9999") >= cutoff]
+    # 分區: today vs older (與原 endpoint 同設計)
+    from datetime import date as _date
+    today_str = _date.today().isoformat()
+    today_records = [r for r in all_records if r["date"] == today_str]
+    older_records = [r for r in all_records if r["date"] != today_str]
 
     return SuccessResponse(data={
-        "keywords": g0v_result.get("keywords", []),
-        "total": len(business_records) + len(today_records),
+        "keywords": keywords,
+        "total": len(all_records),
         "today_records": today_records,
-        "records": business_records,
+        "records": older_records,
     })
 
 
