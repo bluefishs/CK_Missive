@@ -71,6 +71,16 @@ export interface TenderDetailPcc {
   merged_detail?: Record<string, string>;
 }
 
+/** L51 (2026-05-28) ADR-0046 Phase 3：ezbid → PCC 對應資訊 */
+export interface PccMatchInfo {
+  unit_id: string;
+  job_number: string;
+  /** 0-1.0 信心分數 (0.5×title + 0.3×agency + 0.2×date)；HIGH-matched ≥ 0.85 */
+  confidence: number | null;
+  /** ISO timestamp */
+  matched_at: string | null;
+}
+
 /** ezbid.tw 詳情（單一 ezbid_id） */
 export interface TenderDetailEzbid {
   kind: 'ezbid';
@@ -84,6 +94,8 @@ export interface TenderDetailEzbid {
   status?: string;
   source: string;
   ezbid_url: string;
+  /** L51: 若 enrichment HIGH-matched 到 PCC，附對應 PCC 識別碼 */
+  pcc_match?: PccMatchInfo;
 }
 
 /** ADR-0032: Tender 多源 detail discriminated union */

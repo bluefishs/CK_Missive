@@ -271,6 +271,50 @@ const TenderDetailPage: React.FC = () => {
           description="尚未從政府採購網 (PCC) 取得完整公告細節，以下顯示 ezbid 資料庫摘要。點擊下方按鈕可前往 ezbid 查看原始頁面。"
           style={{ marginBottom: 16 }}
         />
+        {/* L51 (2026-05-28) ADR-0046 Phase 3 對應 PCC link 區塊 */}
+        {ezbidData?.pcc_match && (
+          <Alert
+            type="success"
+            showIcon
+            message={
+              <Space>
+                <Text strong>已對應政府採購網 (PCC) 完整紀錄</Text>
+                <Tag color="green">
+                  信心 {ezbidData.pcc_match.confidence !== null
+                    ? `${(ezbidData.pcc_match.confidence * 100).toFixed(0)}%`
+                    : '—'}
+                </Tag>
+              </Space>
+            }
+            description={
+              <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                <Text type="secondary">
+                  此 ezbid 標案經 enrichment HIGH-confidence 自動 link
+                  {ezbidData.pcc_match.matched_at
+                    ? `（於 ${ezbidData.pcc_match.matched_at.slice(0, 10)} 對應）`
+                    : ''}
+                </Text>
+                <Space>
+                  <Button
+                    type="primary"
+                    icon={<LinkOutlined />}
+                    onClick={() =>
+                      navigate(
+                        `/tender/pcc/${encodeURIComponent(ezbidData.pcc_match!.unit_id)}/${encodeURIComponent(ezbidData.pcc_match!.job_number)}`,
+                      )
+                    }
+                  >
+                    查看 PCC 完整詳情
+                  </Button>
+                  <Text type="secondary">
+                    {ezbidData.pcc_match.unit_id} / {ezbidData.pcc_match.job_number}
+                  </Text>
+                </Space>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          />
+        )}
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           {ezbidData?.budget && (
             <Col xs={12} sm={8} lg={6}>

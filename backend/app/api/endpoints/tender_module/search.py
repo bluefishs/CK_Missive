@@ -170,7 +170,9 @@ async def get_tender_detail(
             async with async_session_maker() as db:
                 r = await db.execute(sa_text("""
                     SELECT title, unit_name, budget, announce_date, status,
-                           unit_id, job_number, source, raw_data
+                           unit_id, job_number, source, raw_data,
+                           pcc_match_unit_id, pcc_match_job_number,
+                           pcc_match_confidence, pcc_match_at
                     FROM tender_records
                     WHERE ezbid_id = :eid
                     ORDER BY announce_date DESC LIMIT 1
@@ -200,6 +202,15 @@ async def get_tender_detail(
                         "source": "ezbid_db",
                         "ezbid_url": ezbid_url,
                     }
+                    # L51 (2026-05-28) ADR-0046 Phase 3 對應 PCC link 暴露給前端
+                    # 233/27286 (0.85%) HIGH-matched ezbid 才有，UI 渲染「對應 PCC」區塊 + 跳轉
+                    if row[9] and row[10]:
+                        result["pcc_match"] = {
+                            "unit_id": row[9],
+                            "job_number": row[10],
+                            "confidence": float(row[11]) if row[11] is not None else None,
+                            "matched_at": str(row[12]) if row[12] else None,
+                        }
                     # 如果有 PCC unit_id + job_number，嘗試補充 PCC 詳情
                     if row[5] and row[6] and not row[5].isdigit():
                         pcc_result = await service.get_tender_detail(row[5], row[6])
