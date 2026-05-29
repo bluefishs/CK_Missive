@@ -3,7 +3,7 @@
 > **狀態**: accepted
 > **日期**: 2026-05-28
 > **決策者**: @bluefishs（基於 Phase 2 audit ROI 5.6% 真實數據）
-> **接通完整度**: L1（決策紀錄，Phase 3+ 落地後升 L2）
+> **接通完整度**: L2（2026-05-29 升級，Phase 3+4+5 全落地 + 34 unit tests 鎖定 false positive guard 與 LINE 訊息格式 — L51 commit）
 > **關聯**: ADR-0012（tender 模組設計）/ ADR-0032（多源識別碼統一）/ ADR-0028（錯誤合約）
 
 ---
