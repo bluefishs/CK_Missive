@@ -45,6 +45,15 @@ async def cross_reference(db: AsyncSession = Depends(get_db)):
 # Endpoints
 # ============================================================================
 
+def _track_page_view(page: str) -> None:
+    """L51 task F: page view counter (L31 ROI 治理)。failure-safe — metric 失敗不擋業務。"""
+    try:
+        from app.services.tender.metrics import get_tender_metrics
+        get_tender_metrics().page_view.labels(page=page).inc()
+    except Exception:
+        pass
+
+
 @router.post("/analytics/dashboard")
 async def analytics_dashboard(request: Request):
     """招標採購儀表板 — 近期統計+類別分布+推薦標案"""
@@ -53,6 +62,7 @@ async def analytics_dashboard(request: Request):
     keywords = body.get("keywords")
     svc = TenderAnalyticsService()
     result = await svc.dashboard(keywords=keywords)
+    _track_page_view("dashboard")
     return SuccessResponse(data=result)
 
 
@@ -67,6 +77,7 @@ async def analytics_battle_room(request: Request):
         raise HTTPException(status_code=400, detail="unit_id 和 job_number 為必填")
     svc = TenderAnalyticsService()
     result = await svc.battle_room(unit_id=unit_id, job_number=job_number)
+    _track_page_view("battle_room")
     return SuccessResponse(data=result)
 
 
@@ -81,6 +92,7 @@ async def analytics_org_ecosystem(request: Request):
     try:
         svc = TenderAnalyticsService()
         result = await svc.org_ecosystem(org_name=org_name, pages=body.get("pages", 3))
+        _track_page_view("org_ecosystem")
         import json as _json
         return JSONResponse(content={"success": True, "data": result},
                             media_type="application/json; charset=utf-8")
@@ -100,6 +112,7 @@ async def analytics_company_profile(request: Request):
     try:
         svc = TenderAnalyticsService()
         result = await svc.company_profile(company_name=company_name, pages=body.get("pages", 3))
+        _track_page_view("company")
         return JSONResponse(content={"success": True, "data": result},
                             media_type="application/json; charset=utf-8")
     except Exception as e:
@@ -119,6 +132,7 @@ async def tender_price_analysis(request: Request):
     try:
         svc = TenderAnalyticsService()
         result = await svc.price_analysis(unit_id=unit_id, job_number=job_number)
+        _track_page_view("price_analysis")
         return JSONResponse(content={"success": True, "data": result},
                             media_type="application/json; charset=utf-8")
     except Exception as e:

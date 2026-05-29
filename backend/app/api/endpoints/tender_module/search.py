@@ -144,6 +144,13 @@ async def search_tenders(
     except Exception:
         pass
 
+    # L51 task F: page view counter
+    try:
+        from app.services.tender.metrics import get_tender_metrics
+        get_tender_metrics().page_view.labels(page="search").inc()
+    except Exception:
+        pass
+
     return SuccessResponse(data=result)
 
 
@@ -161,6 +168,12 @@ async def get_tender_detail(
     # ezbid-only: 純數字 + 無 job_number → 查 DB tender_records
     is_ezbid = req.unit_id.isdigit() and not req.job_number
     if is_ezbid:
+        # L51 task F: page view counter (ezbid path)
+        try:
+            from app.services.tender.metrics import get_tender_metrics
+            get_tender_metrics().page_view.labels(page="detail").inc()
+        except Exception:
+            pass
         # 2026-04-24 修復：原 SQL 引用不存在的 ezbid_url 欄位導致 silent fail（ADR-0028）
         import logging as _log
         _logger = _log.getLogger(__name__)
@@ -232,6 +245,12 @@ async def get_tender_detail(
         return SuccessResponse(data=None, message="查無此標案")
     # ADR-0032: PCC response 明確標記 kind
     result["kind"] = "pcc"
+    # L51 task F: page view counter
+    try:
+        from app.services.tender.metrics import get_tender_metrics
+        get_tender_metrics().page_view.labels(page="detail").inc()
+    except Exception:
+        pass
     return SuccessResponse(data=result)
 
 

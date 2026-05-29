@@ -33,6 +33,8 @@ TENDER_SUBSCRIPTION_CHECK = "tender_subscription_check_total"
 # L51 (2026-05-28): business recommendation LINE 通報觀測閉環
 TENDER_RECOMMEND_TOTAL = "tender_recommendations_total"
 TENDER_RECOMMEND_LAST_RUN = "tender_recommendations_last_run_timestamp"
+# L51 task F (2026-05-29): page view traffic 計數 (L31 ROI=entities×usage_rate 治理)
+TENDER_PAGE_VIEW_TOTAL = "tender_page_view_total"
 
 
 class TenderMetrics:
@@ -86,6 +88,14 @@ class TenderMetrics:
             "Unix timestamp of last business recommend job run",
             registry=reg,
         )
+        # L51 task F: 頁面 view counter — L31 ROI 治理（建表不等於用表）
+        # page label: dashboard / detail / company / org_ecosystem / search / battle / price
+        self.page_view = Counter(
+            TENDER_PAGE_VIEW_TOTAL,
+            "Tender page endpoint hit count by page (L31 ROI tracking)",
+            ["page"],
+            registry=reg,
+        )
         # 預宣告 labels — 讓 /metrics 即使在從未 inc 的情況下也輸出 sample line（值=0）
         # 這樣 step 53 watchdog 能正確判斷「counter 存在但 0 次 invocation」vs 「metric 完全不存在」
         for status in ("invoked", "success", "no_subs", "error"):
@@ -97,6 +107,10 @@ class TenderMetrics:
         # L51: recommend_total 預宣告 4 results
         for result in ("pushed", "skipped_duplicate", "error", "found"):
             self.recommend_total.labels(result=result).inc(0)
+        # L51 task F: page_view 預宣告 7 pages (dead UI 偵測：counter 7d 為 0 = dead)
+        for page in ("dashboard", "detail", "company", "org_ecosystem",
+                     "search", "battle_room", "price_analysis"):
+            self.page_view.labels(page=page).inc(0)
 
 
 # Step 5A: Module-level exports — scraper_base 引用方便
@@ -121,7 +135,8 @@ def get_tender_metrics() -> TenderMetrics:
             _instance = TenderMetrics.__new__(TenderMetrics)
             # 直接 sentinel 空殼，inc 操作將安全 no-op via getattr
             for name in ("failures", "runs", "consecutive", "fetch_total",
-                        "subscription_check", "recommend_total", "recommend_last_run"):
+                        "subscription_check", "recommend_total", "recommend_last_run",
+                        "page_view"):
                 setattr(_instance, name, _NoopMetric())
         # Step 5A: module-level export 給 scraper_base 引用方便
         tender_scraper_fetch_total = _instance.fetch_total
