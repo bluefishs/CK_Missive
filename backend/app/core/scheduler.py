@@ -1306,6 +1306,21 @@ async def tender_dashboard_warm_job():
         logger.error("標案儀表板 cache 預熱失敗: %s", e, exc_info=True)
 
 
+KUNGE_URL_BASE = "https://missive.cksurvey.tw/kunge"
+
+
+def _kunge_quick_actions(tab: str = "memory") -> str:
+    """L51.7 Sprint 2.P2.9：給 LINE 訊息加 /kunge quick action 引流 web 入口
+
+    Args:
+        tab: chat / identity / memory / evolution / nebula / dialogues / ops
+    """
+    return (
+        f"\n\n📲 Web 完整檢視:\n"
+        f"  {KUNGE_URL_BASE}/{tab}"
+    )
+
+
 @tracked_job("crystal_review_overdue")
 async def crystal_review_overdue_alarm_job():
     """L51.7 (2026-05-30) crystallization workflow watchdog
@@ -1367,18 +1382,95 @@ async def crystal_review_overdue_alarm_job():
             lines.append(f"  • {fname[:40]} ({age}d ago)")
         lines.extend([
             "",
-            "操作: 進 /kunge/memory 看或直接編輯",
-            "wiki/memory/proposals/*.md",
-            "",
+            "操作: 直接編輯 wiki/memory/proposals/*.md",
             "approve → 寫 SOUL/intent_rules",
             "delete → 拒絕",
         ])
-        body = "\n".join(lines)
+        body = "\n".join(lines) + _kunge_quick_actions("memory")
         from app.services.contracts.facades.integration import IntegrationFacade
         await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
         logger.info(f"crystal review alarm pushed: {len(overdue_list)} overdue")
     except Exception as e:
         logger.error("crystal_review_overdue alarm 失敗: %s", e, exc_info=True)
+
+
+@tracked_job("kunge_weekly_learning_summary")
+async def kunge_weekly_learning_summary_job():
+    """L51.7 Sprint 3.P3.13 (2026-05-30) — 每週日 11:00 推「坤哥這週學到什麼」摘要
+
+    來源 (各取 last 7d)：
+    - patterns: 新累積 / success_rate
+    - failures: 新增 lesson
+    - evolutions: 本週 autobiography 摘要
+    - proposals: pending review 數
+
+    目的：引發 owner 反饋寫入 patterns，啟動學習閉環（v7_critique_pct 從 0 推升）
+    """
+    import os
+    from datetime import datetime, timedelta
+    from pathlib import Path
+
+    logger.info("開始執行 Kunge weekly learning summary")
+    try:
+        wiki_memory = Path(os.getenv("CK_WIKI_DIR", "/app/wiki")) / "memory"
+        if not wiki_memory.exists():
+            logger.warning("kunge weekly: wiki/memory not found")
+            return
+
+        cutoff = datetime.now() - timedelta(days=7)
+        # 7d 統計
+        new_failures = []
+        for f in (wiki_memory / "failures").glob("*.md") if (wiki_memory / "failures").exists() else []:
+            if f.stat().st_mtime > cutoff.timestamp():
+                new_failures.append(f.stem[:50])
+        new_patterns = sum(
+            1 for f in (wiki_memory / "patterns").glob("*.md") if (wiki_memory / "patterns").exists()
+            and f.stat().st_mtime > cutoff.timestamp()
+        )
+        new_evolutions = []
+        if (wiki_memory / "evolutions").exists():
+            for f in sorted((wiki_memory / "evolutions").glob("*.md"))[-2:]:
+                if f.stat().st_mtime > cutoff.timestamp():
+                    new_evolutions.append(f.stem)
+        pending_proposals = sum(
+            1 for f in (wiki_memory / "proposals").glob("*.md") if (wiki_memory / "proposals").exists()
+            and "status: pending" in f.read_text(encoding="utf-8", errors="ignore")
+        )
+
+        # 組訊息
+        lines = [
+            f"🧠 坤哥這週學到什麼 ({datetime.now().strftime('%Y-W%V')})",
+            "",
+            f"📊 7 天彙整:",
+            f"  • 新 patterns: {new_patterns} 個",
+            f"  • 新 failures (lessons): {len(new_failures)}",
+            f"  • 新 evolutions: {len(new_evolutions)}",
+            f"  • Pending proposals: {pending_proposals}",
+        ]
+        if new_failures:
+            lines.extend(["", "🔴 本週新 lessons:"])
+            for fn in new_failures[:3]:
+                lines.append(f"  • {fn}")
+        if new_evolutions:
+            lines.extend(["", "📖 本週 evolutions:"])
+            for ev in new_evolutions:
+                lines.append(f"  • {ev}")
+        lines.extend([
+            "",
+            "💭 想反饋什麼？回覆此訊息或進 /kunge/dialogues",
+            "(L51.7 Sprint 3.P3.13 學習閉環啟動)",
+        ])
+        body = "\n".join(lines) + _kunge_quick_actions("evolution")
+
+        from app.services.contracts.facades.integration import IntegrationFacade
+        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+        logger.info(
+            f"Kunge weekly learning summary pushed: "
+            f"patterns+{new_patterns} failures+{len(new_failures)} "
+            f"evolutions+{len(new_evolutions)} pending={pending_proposals}"
+        )
+    except Exception as e:
+        logger.error("Kunge weekly learning summary 失敗: %s", e, exc_info=True)
 
 
 @tracked_job("line_weekly_pulse")
@@ -1709,6 +1801,7 @@ async def _push_soul_sync_reminder(week_id: str | None) -> None:
         f"\n"
         f"未同步 → v7_soul_drift 上升 → 跨通道人格不一致\n"
         f"(L51.7 Sprint 2.P2.10 配套)"
+        + _kunge_quick_actions("identity")
     )
     try:
         from app.services.contracts.facades.integration import IntegrationFacade
@@ -1767,8 +1860,82 @@ async def memory_anti_echo_scan_job():
                     logger.debug("AntiEcho Telegram notify failed: %s", e)
         else:
             logger.info("AntiEcho not triggered: %s", result.get("reason"))
+            # L51.7 Sprint 2.P2.12 (2026-05-30) 連續 N 週未觸發 → 主動 prompt owner critique
+            # 防 v7_reference_density_critique_pct=0 死局（坤哥從不質疑自己）
+            try:
+                await _check_critique_starvation()
+            except Exception as e:
+                logger.warning(f"critique starvation check 失敗 (非致命): {e}")
     except Exception as e:
         logger.error("Anti-Echo Scan 失敗: %s", e, exc_info=True)
+
+
+async def _check_critique_starvation() -> None:
+    """L51.7 Sprint 2.P2.12 — 連續 4 週 anti_echo 未觸發 → LINE prompt owner critique
+
+    v7_reference_density_critique_pct=0 是「坤哥從不被質疑」的訊號。
+    主動推 LINE 給 owner，請他選 1 個本週決策反向思考一下。
+    """
+    import os
+    from datetime import datetime, timedelta
+    from pathlib import Path
+
+    wiki_memory = Path(os.getenv("CK_WIKI_DIR", "/app/wiki")) / "memory"
+    critiques_dir = wiki_memory / "critiques"
+
+    # 計算最近 critique mtime
+    last_critique_days = 999
+    if critiques_dir.exists():
+        files = list(critiques_dir.glob("critique-*.md"))
+        if files:
+            latest = max(f.stat().st_mtime for f in files)
+            last_critique_days = (datetime.now() - datetime.fromtimestamp(latest)).days
+
+    # 連續 28d (4 週) 無 critique → 主動推
+    if last_critique_days < 28:
+        return
+
+    # 取本週 diary 一筆作為「可質疑候選」
+    diary_dir = wiki_memory / "diary"
+    today = datetime.now().strftime("%Y-%m-%d")
+    sample_topic = "本週任一決策"
+    if diary_dir.exists():
+        today_diary = diary_dir / f"{today}.md"
+        if today_diary.exists():
+            try:
+                text = today_diary.read_text(encoding="utf-8")
+                # 取第一個 ## 標題作為候選
+                import re as _re
+                m = _re.search(r"^## (\d{2}:\d{2}:\d{2}.*)$", text, _re.MULTILINE)
+                if m:
+                    sample_topic = m.group(1)[:60]
+            except Exception:
+                pass
+
+    body = (
+        "🪞 反迴聲室提示 (L51.7 Sprint 2.P2.12)\n"
+        "\n"
+        f"距上次 critique 已 {last_critique_days} 天\n"
+        f"v7_reference_density_critique_pct=0 警示\n"
+        "「坤哥從不被質疑」反模式\n"
+        "\n"
+        f"💭 候選質疑題目:\n"
+        f"  {sample_topic}\n"
+        "\n"
+        "建議：花 5 分鐘寫一篇 critique → \n"
+        "  wiki/memory/critiques/critique-YYYYMMDD-小標題.md\n"
+        "  內含: 「這個決策可能錯在...」+ entity_id 引用\n"
+        "\n"
+        "目標: 每 4 週至少 1 篇 critique\n"
+        "→ v7_reference_density_critique_pct 從 0 啟動"
+        + _kunge_quick_actions("dialogues")
+    )
+    try:
+        from app.services.contracts.facades.integration import IntegrationFacade
+        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+        logger.info(f"critique starvation prompt 推送 LINE (last={last_critique_days}d)")
+    except Exception as e:
+        logger.warning(f"critique starvation prompt push 失敗: {e}")
 
 
 @tracked_job("daily_self_reflection_line_push")
@@ -2334,6 +2501,19 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 Crystal Review Overdue Alarm: 每週日 09:30 執行 (L51.7)")
+
+    # L51.7 Sprint 3.P3.13 — 每週日 11:00「坤哥這週學到什麼」LINE 推
+    # 引發 owner 反饋寫入 patterns，啟動 v7_critique_pct 從 0 推升
+    scheduler.add_job(
+        kunge_weekly_learning_summary_job,
+        trigger=CronTrigger(day_of_week='sun', hour=11, minute=0),
+        id='kunge_weekly_learning_summary',
+        name='坤哥這週學到什麼 (每週日 11:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加坤哥週學習摘要: 每週日 11:00 執行 (L51.7 Sprint 3)")
 
     # Embedding 預熱 — 每日 04:45 為高頻實體預載向量 (在 KG 回填 04:30 之後)
     scheduler.add_job(

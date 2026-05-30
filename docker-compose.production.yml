@@ -240,6 +240,10 @@ services:
       # 修法前此 path 不存在 → SPA fallback disabled → cloudflared route to backend 看到 API JSON not HTML
       # 修法後 backend 同時 serve SPA + API，解 5/21 以來 missive 卡 login 真因
       - ./frontend/dist:/frontend/dist:ro
+      # L51.7 Sprint 2.P1.8 (2026-05-30): mount scripts/ 給 synthetic_baseline / shadow_export 等 cron 跑
+      # 揭發: PROJECT_ROOT=/ in container, synthetic_baseline_inject_job 找 /scripts/checks/synthetic-baseline-inject.py
+      # 不存在 → silent return → shadow_baseline 24h n=0 → fitness step 58 RED
+      - ./scripts:/scripts:ro
     networks:
       ck_network: {}
     depends_on:
