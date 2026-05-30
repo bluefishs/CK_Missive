@@ -1,10 +1,19 @@
 # ADR-0036: Bounded Context Contract Layer — 真模組化基石
 
-> **狀態**: accepted
-> **日期**: 2026-05-18
+> **狀態**: superseded by B 方案收口 (2026-05-30 / L53 / commit `d0d24639`)
+> **日期**: 2026-05-18 → 2026-05-30 (30 天 trial 完成)
 > **決策者**: @bluefishs（v6.10 P1 Phase B 主導）
-> **接通完整度**: L2（程式碼接通 + fitness step 28/29/30/31/32 自動驗證）
-> **關聯**: ADR-0020 AaaP Platform / ADR-0025 Identity Unification / ADR-0028 錯誤合約 / ADR-0034 dynamic role-permissions
+> **接通完整度**: L2（程式碼接通 + fitness step 61 自動驗證）
+> **關聯**: ADR-0020 AaaP Platform / ADR-0025 Identity Unification / ADR-0028 錯誤合約 / L31 ROI / L53 30 天裁判
+
+## 2026-05-30 後續結論（v6.12 B 方案收口）
+
+30 天 audit (fitness step 61) 結果：13 facade 中 10 個 zero caller、3 個 active。
+Owner 選 B 方案（廢 zero 留 active 補強）：
+- **廢**：10 facade + 2 port (audit/cache) + 2 default adapter + 1 test (-1509L)
+- **留**：3 facade (Integration/Memory/Wiki) + 2 port (Messaging/RLS) 60 天 trial
+- **重評日**：2026-07-30（任一 facade 未達 ≥5 caller → 升 C 全廢）
+- **詳見**：docs/architecture/FACADE_ABC_DECISION_20260530.md + L53 lesson
 
 ---
 
