@@ -174,8 +174,53 @@ fi
 # === 8. Capability Governance Tools (v6.10 新增 — dead capability 自動偵測) ===
 if [[ "$INCLUDE" == *"capability"* ]]; then
     echo ""
-    echo "[8/8] Capability Governance Tools"
+    echo "[8/12] Capability Governance Tools"
     copy_file "$SOURCE/scripts/checks/capability_usage_audit.py"  "$TARGET/scripts/checks/capability_usage_audit.py"
+fi
+
+# === 9. Governance Dashboard 三道防線 (v6.12 新增 — 解整合 SSOT 缺漏) ===
+if [[ "$INCLUDE" == *"dashboard"* ]] || [[ "$INCLUDE" == *"governance-dashboard"* ]]; then
+    echo ""
+    echo "[9/12] Governance Integrated Dashboard"
+    copy_file "$SOURCE/scripts/checks/generate_governance_dashboard.py"  "$TARGET/scripts/checks/generate_governance_dashboard.py"
+    copy_file "$SOURCE/scripts/checks/dashboard_freshness_check.py"      "$TARGET/scripts/checks/dashboard_freshness_check.py"
+    copy_file "$SOURCE/scripts/checks/governance_alignment_audit.py"     "$TARGET/scripts/checks/governance_alignment_audit.py"
+fi
+
+# === 10. Cross-file SSOT (v6.12 新增 — L41-L52 family 8 案立法) ===
+if [[ "$INCLUDE" == *"cross-file-ssot"* ]]; then
+    echo ""
+    echo "[10/12] Cross-file SSOT Governance"
+    copy_file "$SOURCE/.claude/rules/cross-file-ssot-governance.md"        "$TARGET/.claude/rules/cross-file-ssot-governance.md"
+    copy_file "$SOURCE/scripts/checks/paths_compose_mount_audit.py"        "$TARGET/scripts/checks/paths_compose_mount_audit.py"
+    copy_file "$SOURCE/scripts/checks/container_env_alignment_audit.py"    "$TARGET/scripts/checks/container_env_alignment_audit.py"
+    copy_file "$SOURCE/scripts/checks/container_image_freshness_check.py"  "$TARGET/scripts/checks/container_image_freshness_check.py"
+    copy_file "$SOURCE/scripts/checks/compose_dockerfile_healthcheck_ssot.py" "$TARGET/scripts/checks/compose_dockerfile_healthcheck_ssot.py"
+fi
+
+# === 11. L4x Family Lessons (v6.12 新增 — 8 條跨檔 SSOT family 教訓) ===
+if [[ "$INCLUDE" == *"lessons"* ]] || [[ "$INCLUDE" == *"l4x-lessons"* ]]; then
+    echo ""
+    echo "[11/12] L4x Family Lessons"
+    for L in L41 L43 L44 L45 L49 L50 L52 L53; do
+        for f in "$SOURCE"/wiki/memory/lessons/${L}_*.md; do
+            if [ -f "$f" ]; then
+                fname=$(basename "$f")
+                copy_file "$f" "$TARGET/wiki/memory/lessons/$fname"
+            fi
+        done
+    done
+fi
+
+# === 12. Fitness 3 層分層 forcing (v6.12 新增 — daily/weekly/monthly 結構) ===
+if [[ "$INCLUDE" == *"fitness-tier"* ]] || [[ "$INCLUDE" == *"layered"* ]]; then
+    echo ""
+    echo "[12/12] Fitness Layered Execution (Tier 1/2/3)"
+    copy_file "$SOURCE/scripts/checks/run_fitness_daily.sh"   "$TARGET/scripts/checks/run_fitness_daily.sh"
+    copy_file "$SOURCE/scripts/checks/run_fitness_weekly.sh"  "$TARGET/scripts/checks/run_fitness_weekly.sh"
+    copy_file "$SOURCE/scripts/checks/cron_silent_dormant_check.py"  "$TARGET/scripts/checks/cron_silent_dormant_check.py"
+    copy_file "$SOURCE/scripts/checks/daily_self_retrospective.py"   "$TARGET/scripts/checks/daily_self_retrospective.py"
+    copy_file "$SOURCE/docs/architecture/FITNESS_LAYERED_EXECUTION_SOP_20260530.md" "$TARGET/docs/architecture/FITNESS_LAYERED_EXECUTION_SOP_20260530.md"
 fi
 
 # === 結尾提醒 ===
