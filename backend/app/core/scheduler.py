@@ -3103,16 +3103,21 @@ def setup_scheduler(
     logger.info("已添加 CF Tunnel 驗證: 每日 06:15")
 
     # Hermes shadow baseline — 每日 20:00 匯出（ADR-0014 Phase 0）
-    scheduler.add_job(
-        shadow_baseline_export_job,
-        trigger=CronTrigger(hour=20, minute=0),
-        id='shadow_baseline_export',
-        name='Hermes shadow baseline 匯出 (每日 20:00)',
-        replace_existing=True,
-        max_instances=1,
-        coalesce=True
-    )
-    logger.info("已添加 Hermes baseline 匯出: 每日 20:00")
+    # v6.12 (2026-05-30) W1 真因 #2 修法: 移除 cron
+    # 原因: container 內無 node, .cjs script 跑 ENOENT silent error
+    # 替代: prometheus /metrics scrape 已 cover (shadow_baseline_* 5 gauge)
+    # 對齊 L59 「上游必先自治」原則 — CK_Missive 自我整合優化
+    # scheduler.add_job(
+    #     shadow_baseline_export_job,
+    #     trigger=CronTrigger(hour=20, minute=0),
+    #     id='shadow_baseline_export',
+    #     name='Hermes shadow baseline 匯出 (每日 20:00)',
+    #     replace_existing=True,
+    #     max_instances=1,
+    #     coalesce=True
+    # )
+    # logger.info("已添加 Hermes baseline 匯出: 每日 20:00")
+    logger.info("[v6.12 W1 #2] shadow_baseline_export cron 已移除 (prometheus scrape 已 cover)")
 
     # 合成基線注入 — 每日 3 次 (09:00/14:00/20:00)
     scheduler.add_job(
