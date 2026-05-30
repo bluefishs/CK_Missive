@@ -175,6 +175,11 @@ services:
       - LINE_LOGIN_REDIRECT_URI=${LINE_LOGIN_REDIRECT_URI:-}
       # L51.2 (2026-05-29) OA-3 PM2 廢除影響範圍補全：29 個 env vars (host .env vs compose diff)
       # 同型事故防範 — code 讀 + host .env 有 + compose 沒注入 = silent fail 風險
+      # --- Google OAuth (v6.12 2026-05-30 修 L51 family 同型 silent fail) ---
+      # 揭發: fitness step 1 container_env_alignment_audit RED 偵測
+      # host .env 有 GOOGLE_CLIENT_ID/SECRET 但 compose 未注入 → Google 登入 silent 503
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       # --- AI 推理 fallback (GROQ/NVIDIA/OLLAMA/VLLM) ---
       - AI_ENABLED=${AI_ENABLED:-true}
       - AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL:-}
