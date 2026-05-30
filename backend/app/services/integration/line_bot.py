@@ -48,7 +48,11 @@ class LineBotService:
         self._channel_secret = os.getenv("LINE_CHANNEL_SECRET", "")
         self._channel_access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "")
         self._enabled = os.getenv("LINE_BOT_ENABLED", "false").lower() == "true"
-        self._reply_timeout = 25  # LINE 30s 限制，留 5s 緩衝
+        # v6.12 (2026-05-31) LINE 超時緊急修法 — owner 報「查詢處理時間較長」
+        # 真因: agent_query p95=40s (Ollama planning) vs LINE timeout 25s
+        # 短期: 28s (LINE 30s 硬限留 2s 緩衝)
+        # 中期: orchestrator LINE channel 強制 groq fast-path 待 v6.13
+        self._reply_timeout = int(os.getenv("LINE_REPLY_TIMEOUT", "28"))
 
     @property
     def enabled(self) -> bool:
