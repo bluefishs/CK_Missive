@@ -26,7 +26,13 @@ class WikiFacade:
         coverage = await facade.get_coverage_stats()
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Optional[AsyncSession] = None):
+        """v6.12 B 方案 (2026-05-30): db 改 Optional
+
+        理由：search_wiki / read_page / get_stats 走 get_wiki_service() singleton 不需 db
+        只有 search_pages / get_page_by_kg_entity / compile_incremental 需 db
+        放寬讓 agent_synthesis 等 stateless caller 也能用 (caller +1 trial 推進)
+        """
         self._db = db
 
     # === Public API ===

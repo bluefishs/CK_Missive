@@ -66,19 +66,24 @@ class SchedulerAlertManager:
         error: str,
         failure_count: int,
     ) -> bool:
-        """發送失敗告警到 Telegram。回傳是否成功發送。"""
-        chat_id = os.environ.get("TELEGRAM_ADMIN_CHAT_ID")
-        if not chat_id:
-            return False
+        """發送失敗告警 (v6.12 B 方案 2026-05-30: 改走 IntegrationFacade 多通道 fallback)
 
-        msg = self.format_alert(job_id, error, failure_count)
+        前: Telegram only → TELEGRAM_ADMIN_CHAT_ID 沒設就 silent skip
+        後: IntegrationFacade.push_admin_alert → LINE / Telegram 任一可用就送
+        """
+        title = f"⚠️ 排程失敗 {job_id}"
+        body = self.format_alert(job_id, error, failure_count)
 
         try:
-            tg = get_telegram_bot_service()
-            await tg.push_message(int(chat_id), msg)
-            self.record_alert_sent(job_id)
-            logger.info("排程失敗告警已發送: job=%s, failures=%d", job_id, failure_count)
-            return True
+            # v6.12 B 方案: caller +1 facade trial 推進
+            from app.services.contracts.facades.integration import IntegrationFacade
+            ok = await IntegrationFacade().push_admin_alert(title=title, body=body)
+            if ok:
+                self.record_alert_sent(job_id)
+                logger.info("排程失敗告警已發送 (多通道): job=%s, failures=%d", job_id, failure_count)
+                return True
+            logger.warning("排程失敗告警 push_admin_alert 回 False (無可用通道)")
+            return False
         except Exception as e:
             logger.warning("排程失敗告警發送失敗: %s", e)
             return False

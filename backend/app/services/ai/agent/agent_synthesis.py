@@ -483,9 +483,11 @@ class AgentSynthesizer:
         - 每筆限 300 字，避免 prompt 過長
         """
         try:
-            from app.services.wiki.service import get_wiki_service
-            svc = get_wiki_service()
-            stats = svc.get_stats()
+            # v6.12 B 方案 (2026-05-30): caller +1 facade trial 推進
+            # 從 from app.services.wiki.service import get_wiki_service 改走 WikiFacade
+            from app.services.contracts.facades.wiki import WikiFacade
+            facade = WikiFacade()
+            stats = await facade.get_stats()
             if not stats or stats.get("total", 0) == 0:
                 return ""
 
@@ -494,14 +496,14 @@ class AgentSynthesizer:
             if not wiki_query:
                 return ""
 
-            results = await svc.search_wiki(wiki_query, limit=3)
+            results = await facade.search_wiki(wiki_query, limit=3)
             if not results:
                 return ""
 
             parts: List[str] = []
             for wr in results:
                 try:
-                    content = await svc.read_page(wr["path"])
+                    content = await facade.read_page(wr["path"])
                     if not content:
                         continue
                     # 去除 frontmatter + 只取前 300 字

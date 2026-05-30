@@ -440,23 +440,25 @@ class AgentToolExecutor:
     # ── LLM Wiki tools (v5.5.4) ──
 
     async def _wiki_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """搜尋 wiki 知識頁面"""
-        from app.services.wiki.service import get_wiki_service
+        """搜尋 wiki 知識頁面
+
+        v6.12 B 方案 (2026-05-30): caller +1 facade trial 推進
+        改走 WikiFacade 統一入口
+        """
+        from app.services.contracts.facades.wiki import WikiFacade
         query = params.get("query", "")
         if not query:
             return {"error": "未提供搜尋關鍵字", "count": 0}
-        svc = get_wiki_service()
-        results = await svc.search_wiki(query, limit=10)
+        results = await WikiFacade().search_wiki(query, limit=10)
         return {"results": results, "count": len(results), "source": "llm_wiki"}
 
     async def _wiki_read(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """讀取 wiki 頁面"""
-        from app.services.wiki.service import get_wiki_service
+        """讀取 wiki 頁面 (v6.12 B 方案改走 WikiFacade)"""
+        from app.services.contracts.facades.wiki import WikiFacade
         page_path = params.get("page_path", "")
         if not page_path:
             return {"error": "未提供頁面路徑", "count": 0}
-        svc = get_wiki_service()
-        content = await svc.read_page(page_path)
+        content = await WikiFacade().read_page(page_path)
         if content is None:
             return {"error": f"頁面不存在: {page_path}", "count": 0}
         return {"content": content, "path": page_path, "count": 1}
