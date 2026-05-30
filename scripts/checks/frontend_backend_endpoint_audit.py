@@ -44,27 +44,57 @@ def extract_frontend_endpoints() -> set[str]:
     return paths
 
 
+def extract_routes_prefix_map() -> dict[str, str]:
+    """v6.12 精細化 (2026-05-30): 從 routes.py 抓 module → prefix 映射
+
+    routes.py 內 include_router(<module>.router, prefix="/foo")
+    或 include_router(<custom_router>, prefix="/foo")
+    """
+    routes_file = ROOT / "backend" / "app" / "api" / "routes.py"
+    if not routes_file.exists():
+        return {}
+    text = routes_file.read_text(encoding="utf-8", errors="ignore")
+    # 抓 module.router 或 _router 形式
+    out = {}
+    for m in re.finditer(
+        r'include_router\(\s*([\w\.]+(?:_router|\.router))\s*,\s*prefix\s*=\s*["\']([^"\']+)["\']',
+        text,
+    ):
+        var = m.group(1).split(".")[0]  # 取 module 名
+        prefix = m.group(2)
+        out[var] = prefix
+    return out
+
+
 def extract_backend_endpoints() -> set[str]:
-    """從 backend/app/api/endpoints/ 掃 @router.{get|post|...} 路徑"""
+    """v6.12 精細化: 抓 @router.* 路徑 + 對齊 routes.py prefix 補完全限定路徑"""
+    prefix_map = extract_routes_prefix_map()
     paths = set()
     endpoints_dir = ROOT / "backend" / "app" / "api" / "endpoints"
     if not endpoints_dir.is_dir():
         return paths
-    # 抓 @router.get("/foo") / @router.post("/bar/{id}")
     pattern = re.compile(
         r"@router\.(get|post|put|delete|patch)\s*\(\s*['\"]([^'\"]+)['\"]"
     )
     for f in endpoints_dir.rglob("*.py"):
-        if "__pycache__" in f.parts:
+        if "__pycache__" in f.parts or f.name == "__init__.py":
             continue
         try:
             text = f.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
+        # 取 module name 配對 prefix_map
+        # e.g. backend/app/api/endpoints/admin/users.py → admin/users
+        # 但 routes.py 是 admin.users.router 形式或 users_router 形式
+        rel_module = f.stem  # 如 'documents' / 'users'
+        # 也可能在 endpoints/admin/ → 是 admin module
+        parent = f.parent.name
+        prefix = prefix_map.get(rel_module) or prefix_map.get(parent) or ""
         for m in pattern.finditer(text):
             p = m.group(2)
             p = re.sub(r"\{[^}]+\}", "{id}", p)
-            paths.add(p)
+            full = (prefix + p) if prefix else p
+            paths.add(full)
     return paths
 
 
