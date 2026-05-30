@@ -55,5 +55,20 @@ if ($pm2List -and $pm2List -ne "[]") {
     $context += "PM2: 未執行"
 }
 
+# v6.12 (2026-05-30) 整合 SSOT Dashboard 入口
+# 解 owner「每次詢問都有缺漏」meta 問題 — 把 dashboard 提示放 session 啟動
+$dashboardPath = Join-Path $projectDir "docs/architecture/GOVERNANCE_INTEGRATED_DASHBOARD.md"
+if (Test-Path $dashboardPath) {
+    $dashFile = Get-Item $dashboardPath
+    $ageHours = [math]::Round(((Get-Date) - $dashFile.LastWriteTime).TotalHours, 1)
+    $freshness = if ($ageHours -lt 24) { "GREEN" } elseif ($ageHours -lt 48) { "YELLOW" } else { "RED" }
+    $context += ""
+    $context += "=== 整合 SSOT Dashboard ==="
+    $context += "⭐ 首選入口: docs/architecture/GOVERNANCE_INTEGRATED_DASHBOARD.md"
+    $context += "  freshness: $freshness ($ageHours h 前更新)"
+    $context += "  內容: 4 類規範 + 15+ 真活 metric + 8 commits 軌跡 + 5 session 覆盤 + B 方案 trial + L4x family + v6.12 4 原則 + 漂移看板"
+    $context += "  說明: cron 每日 06:00 自動 regenerate；直接讀此檔取 single SSOT 快照避免散處 grep"
+}
+
 # 輸出上下文 (stdout → 自動加入 Claude 上下文)
 $context -join "`n"

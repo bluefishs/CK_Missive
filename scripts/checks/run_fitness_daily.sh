@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# Fitness Tier 1 Daily — 7 critical step (~1 min)
+# Fitness Tier 1 Daily — 8 critical step (~1 min)
 #
 # v6.12 治理進化 #2 落地 (2026-05-30)
 # 對應 docs/architecture/FITNESS_LAYERED_EXECUTION_SOP_20260530.md §3
@@ -35,7 +35,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${CYAN}=========================================${NC}"
-echo -e "${CYAN} Fitness Tier 1 Daily — 7 critical step ${NC}"
+echo -e "${CYAN} Fitness Tier 1 Daily — 8 critical step ${NC}"
 echo -e "${CYAN}=========================================${NC}"
 echo ""
 
@@ -47,7 +47,7 @@ run_step() {
     local step_name="$2"
     local cmd="$3"
 
-    echo -e "${CYAN}[$step_num/7] $step_name${NC}"
+    echo -e "${CYAN}[$step_num/8] $step_name${NC}"
     if $STRICT; then
         if eval "$cmd" --strict 2>&1; then
             true
@@ -74,7 +74,7 @@ if [[ -f scripts/checks/docker_compose_volume_consistency.py ]]; then
     run_step "3" "docker_compose volume consistency" \
         "PYTHONIOENCODING=utf-8 python scripts/checks/docker_compose_volume_consistency.py"
 else
-    echo -e "${CYAN}[3/7] docker_compose volume consistency${NC}"
+    echo -e "${CYAN}[3/8] docker_compose volume consistency${NC}"
     echo "  ${YELLOW}⚠${NC} script not found, skip"
     echo ""
 fi
@@ -84,7 +84,7 @@ if [[ -f scripts/checks/compose_dockerfile_healthcheck_ssot.py ]]; then
     run_step "4" "compose/dockerfile healthcheck SSOT" \
         "PYTHONIOENCODING=utf-8 python scripts/checks/compose_dockerfile_healthcheck_ssot.py"
 else
-    echo -e "${CYAN}[4/7] compose/dockerfile healthcheck SSOT${NC}"
+    echo -e "${CYAN}[4/8] compose/dockerfile healthcheck SSOT${NC}"
     echo "  ${YELLOW}⚠${NC} script not found, skip"
     echo ""
 fi
@@ -94,7 +94,7 @@ if [[ -f scripts/checks/startup_race_condition_audit.py ]]; then
     run_step "5" "startup race condition audit" \
         "PYTHONIOENCODING=utf-8 python scripts/checks/startup_race_condition_audit.py"
 else
-    echo -e "${CYAN}[5/7] startup race condition audit${NC}"
+    echo -e "${CYAN}[5/8] startup race condition audit${NC}"
     echo "  ${YELLOW}⚠${NC} script not found, skip"
     echo ""
 fi
@@ -103,9 +103,13 @@ fi
 run_step "6" "agent_query starvation check" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/agent_query_starvation_check.py"
 
-# Step 7/7: cron silent dormant (v6.12 #2 補完, 2026-05-30)
+# Step 7/8: cron silent dormant (v6.12 #2 補完, 2026-05-30)
 run_step "7" "cron silent dormant check" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/cron_silent_dormant_check.py"
+
+# Step 8/8: dashboard freshness (v6.12 整合 SSOT 配套, 2026-05-30)
+run_step "8" "dashboard freshness check" \
+    "PYTHONIOENCODING=utf-8 python scripts/checks/dashboard_freshness_check.py"
 
 # ============================================================
 # Summary
