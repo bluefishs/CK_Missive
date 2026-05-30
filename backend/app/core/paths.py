@@ -22,6 +22,11 @@ from pathlib import Path
 #   parents[3] = / (root) → PROJECT_ROOT 計算錯誤，導致 WIKI_DIR=/wiki 但實際 mount 在 /app/wiki
 #   揭發：5/28-5/30 optimization_pipeline silent 寫 /wiki Permission denied
 #   修法：環境變數 CK_PROJECT_ROOT override，container 內 docker-compose 注入 = /app
+#
+# ⚠️ L52 (2026-05-30) 警示：若改動 PROJECT_ROOT 邏輯（含 CK_PROJECT_ROOT env），
+#    必須同步檢查所有 docker-compose.*.yml mount target prefix 是否對齊。
+#    違反 → cron 找 PROJECT_ROOT/scripts 不存在 → silent dormant（同 L52 教訓）
+#    Audit: scripts/checks/paths_compose_mount_audit.py (fitness step 62)
 _env_root = os.getenv("CK_PROJECT_ROOT")
 if _env_root and Path(_env_root).exists():
     PROJECT_ROOT: Path = Path(_env_root).resolve()

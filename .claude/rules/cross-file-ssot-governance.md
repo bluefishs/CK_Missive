@@ -46,6 +46,7 @@
 | Network names | `docker-compose.production.yml` `networks:` | `ck_missive_backend_net` |
 | Image tags | `docker-compose.production.yml` `image:` | `cloudflare/cloudflared:2026.5.0`（pin 版本，不用 `latest`）|
 | **Container image content** | **git HEAD `backend/` 目錄**（L51.7.1 新增） | **`messaging_default.py` 內容必須 = host 同檔** |
+| **Container PROJECT_ROOT path** | **`backend/app/core/paths.py` + `CK_PROJECT_ROOT` env**（L52 新增）| **同步檢查所有 docker-compose.* mount target prefix** |
 
 **禁止**：
 - 同一 secret 寫在多個 .env / config 檔
@@ -71,6 +72,7 @@
 | Cross-repo secret 待補 | `cross_repo_secret_audit.py`（L41 配套）| step 41+（v6.11）|
 | Cross-domain auth state 待補 | `cross_repo_auth_state_audit.py`（L44 配套）| step 42+（v6.11）|
 | **Container image content** | **`container_image_freshness_check.py`**（L51.7.1）| **step 60** |
+| **paths.py vs compose mount** | **`paths_compose_mount_audit.py`**（L52 新增）| **step 62** |
 
 **強制**：新增任一跨檔資源類型，**必須**同時新增對應的 audit script + 接進 `run_fitness.sh`。
 
