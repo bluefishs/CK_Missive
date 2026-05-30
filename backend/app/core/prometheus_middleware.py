@@ -206,6 +206,15 @@ def get_metrics_endpoint(registry: Optional[CollectorRegistry] = None):
             _METRICS_POPULATE_ERRORS.labels(source="tender").inc()
             logger.error("tender metrics populate failed: %s", e, exc_info=True)
 
+        # v6.12 #2 補完 (2026-05-30): cron job age 即時刷新
+        # 確保 scheduler_job_last_run_age_seconds 不會 stuck — silent dormant 偵測
+        try:
+            from app.core.scheduler import SchedulerTracker
+            SchedulerTracker.refresh_age_gauges()
+        except Exception as e:
+            _METRICS_POPULATE_ERRORS.labels(source="scheduler_age").inc()
+            logger.error("scheduler age populate failed: %s", e, exc_info=True)
+
         data = generate_latest(reg)
         return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 

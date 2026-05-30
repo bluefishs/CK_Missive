@@ -28,6 +28,53 @@ from apscheduler.triggers.cron import CronTrigger
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Prometheus expose (v6.12 進化 #2 補完 2026-05-30): cron silent dormant 偵測
+# ---------------------------------------------------------------------------
+try:
+    from prometheus_client import Gauge, Counter, REGISTRY
+
+    def _get_or_create_gauge(name: str, doc: str, labels: list[str]) -> Gauge:
+        """避免 module 重複載入時 Duplicated time series 錯誤"""
+        try:
+            return Gauge(name, doc, labels)
+        except ValueError:
+            # 已存在 — 從 REGISTRY 撈
+            for collector in list(REGISTRY._collector_to_names.keys()):  # type: ignore[attr-defined]
+                if getattr(collector, "_name", None) == name:
+                    return collector  # type: ignore[return-value]
+            raise
+
+    def _get_or_create_counter(name: str, doc: str, labels: list[str]) -> Counter:
+        try:
+            return Counter(name, doc, labels)
+        except ValueError:
+            for collector in list(REGISTRY._collector_to_names.keys()):  # type: ignore[attr-defined]
+                if getattr(collector, "_name", None) == name:
+                    return collector  # type: ignore[return-value]
+            raise
+
+    SCHED_LAST_RUN_AGE_SECONDS = _get_or_create_gauge(
+        "scheduler_job_last_run_age_seconds",
+        "Seconds since each scheduled job last completed (cron silent dormant 偵測)",
+        ["job_id"],
+    )
+    SCHED_SUCCESS_TOTAL = _get_or_create_counter(
+        "scheduler_job_success_total",
+        "Cumulative success count per scheduled job",
+        ["job_id"],
+    )
+    SCHED_FAILURE_TOTAL = _get_or_create_counter(
+        "scheduler_job_failure_total",
+        "Cumulative failure count per scheduled job",
+        ["job_id"],
+    )
+    _PROM_ENABLED = True
+except Exception as _e:  # pragma: no cover
+    logger.warning("prometheus_client unavailable for scheduler: %s", _e)
+    _PROM_ENABLED = False
+
+
 async def _run_script_async(
     cmd: list[str],
     cwd: str,
@@ -87,28 +134,58 @@ class SchedulerTracker:
         rec = cls._records.get(job_id, {})
         start = rec.pop("_start_time", None)
         duration = round((time.time() - start) * 1000, 1) if start else None
+        now_ts = time.time()
         rec.update({
             "success_count": rec.get("success_count", 0) + 1,
             "last_status": "success",
             "last_run": datetime.now().isoformat(),
+            "last_run_ts": now_ts,
             "last_duration_ms": duration,
             "last_error": None,
         })
         cls._records[job_id] = rec
+        if _PROM_ENABLED:
+            try:
+                SCHED_LAST_RUN_AGE_SECONDS.labels(job_id=job_id).set(0)
+                SCHED_SUCCESS_TOTAL.labels(job_id=job_id).inc()
+            except Exception:
+                pass
 
     @classmethod
     def record_failure(cls, job_id: str, error: str):
         rec = cls._records.get(job_id, {})
         start = rec.pop("_start_time", None)
         duration = round((time.time() - start) * 1000, 1) if start else None
+        now_ts = time.time()
         rec.update({
             "failure_count": rec.get("failure_count", 0) + 1,
             "last_status": "failure",
             "last_run": datetime.now().isoformat(),
+            "last_run_ts": now_ts,
             "last_duration_ms": duration,
             "last_error": error[:200],
         })
         cls._records[job_id] = rec
+        if _PROM_ENABLED:
+            try:
+                SCHED_LAST_RUN_AGE_SECONDS.labels(job_id=job_id).set(0)
+                SCHED_FAILURE_TOTAL.labels(job_id=job_id).inc()
+            except Exception:
+                pass
+
+    @classmethod
+    def refresh_age_gauges(cls) -> None:
+        """每次 /metrics scrape 時更新 age (避免 stuck 0)"""
+        if not _PROM_ENABLED:
+            return
+        now_ts = time.time()
+        for jid, rec in cls._records.items():
+            last_ts = rec.get("last_run_ts")
+            if last_ts:
+                try:
+                    SCHED_LAST_RUN_AGE_SECONDS.labels(job_id=jid).set(now_ts - last_ts)
+                except Exception:
+                    pass
 
     @classmethod
     def get_all(cls) -> Dict[str, Dict[str, Any]]:
