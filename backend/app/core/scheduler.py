@@ -1321,6 +1321,95 @@ def _kunge_quick_actions(tab: str = "memory") -> str:
     )
 
 
+@tracked_job("fitness_weekly")
+async def fitness_weekly_job():
+    """v6.12 治理進化 #2 完整落地 — Tier 2 Weekly 12 trend step (~3 min)
+
+    每週日 02:30 跑 12 個趨勢追蹤 step。
+    連續 2 週同 step RED → 推 LINE 提示 owner。
+
+    對應 docs/architecture/FITNESS_LAYERED_EXECUTION_SOP_20260530.md Tier 2
+    """
+    import json
+    import os
+    from datetime import datetime
+    from pathlib import Path
+
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    script = project_root / "scripts" / "checks" / "run_fitness_weekly.sh"
+    if not script.exists():
+        logger.warning("fitness_weekly: script not found at %s", script)
+        return
+
+    logger.info("開始執行 Fitness Tier 2 Weekly")
+    rc, out, err = await _run_script_async(
+        ["bash", str(script), "--strict"],
+        cwd=str(project_root), timeout=600, job_name="fitness_weekly",
+    )
+
+    # 紀錄本週結果到 wiki/memory/fitness_weekly_history.json
+    state_file = project_root / "wiki" / "memory" / "fitness_weekly_history.json"
+    today = datetime.now().strftime("%Y-W%V")
+    history = {}
+    if state_file.exists():
+        try:
+            history = json.loads(state_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    history[today] = {
+        "rc": rc,
+        "status": "PASS" if rc == 0 else "RED",
+        "ts": datetime.now().isoformat(),
+    }
+    # 只保留最近 12 週
+    keys = sorted(history.keys())[-12:]
+    history = {k: history[k] for k in keys}
+
+    try:
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        state_file.write_text(
+            json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception as e:
+        logger.warning(f"weekly fitness history save failed: {e}")
+
+    if rc == 0:
+        logger.info("Fitness Tier 2 Weekly: all step passed")
+        return
+
+    # 偵測連續 2 週 RED → 推 LINE
+    weeks = sorted(history.keys())[-2:]
+    consecutive_red = (
+        len(weeks) >= 2
+        and all(history[w].get("status") == "RED" for w in weeks)
+    )
+
+    if not consecutive_red:
+        logger.info("Fitness Tier 2 Weekly RED (本週首次)，無 LINE，等下週確認")
+        return
+
+    # 連續 2 週 RED → 推 LINE
+    try:
+        tail_lines = (out or "").splitlines()[-30:]
+        digest = "\n".join(tail_lines)
+        body = (
+            f"🚨 Fitness Tier 2 Weekly — 連續 2 週 RED\n"
+            f"\n"
+            f"v6.12 治理進化 #2 forcing function:\n"
+            f"連續 RED 已 ≥2 週 → 建議排 sprint 修\n"
+            f"\n"
+            f"{digest[:1500]}\n"
+            f"\n"
+            f"完整: scripts/checks/run_fitness_weekly.sh"
+            + _kunge_quick_actions("ops")
+        )
+        from app.services.contracts.facades.integration import IntegrationFacade
+        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+    except Exception as push_e:
+        logger.warning("Fitness Tier 2 Weekly LINE push 失敗: %s", push_e)
+
+
 @tracked_job("daily_self_retrospective")
 async def daily_self_retrospective_job():
     """v6.12 #4 升級版 — 每日 06:30 自我覆盤 7 面向 + LINE 推 owner
@@ -2615,6 +2704,19 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 Fitness Tier 1 Daily: 每日 02:00 執行 (v6.12 #2)")
+
+    # v6.12 治理進化 #2 完整落地 (2026-05-30) Fitness Tier 2 Weekly — 週日 02:30
+    # 12 trend step + 連續 2 週 RED 推 LINE
+    scheduler.add_job(
+        fitness_weekly_job,
+        trigger=CronTrigger(day_of_week='sun', hour=2, minute=30),
+        id='fitness_weekly',
+        name='Fitness Tier 2 Weekly (週日 02:30, 12 step)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 Fitness Tier 2 Weekly: 週日 02:30 執行 (v6.12 #2 完整)")
 
     # v6.12 治理進化 #4 升級版 (2026-05-30) Daily Self-Retrospective — 每日 06:30
     # 7 面向覆盤: ADR/SOP/核心服務/L4x family/學習閉環/觀測閉環/已建構資產

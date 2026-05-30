@@ -247,9 +247,13 @@ def check_built_assets_alive() -> dict:
     """
     result = {"status": "INFO"}
 
-    # KG canonical_entities (24,535) - Prometheus 應有 kg_entities_total
-    kg_total = metric("ck_missive_kg_entities_total")
+    # KG canonical_entities — 真實 metric name 是 kg_entities_total (5/30 self-debug 修正)
+    kg_total = metric("kg_entities_total")
+    kg_embedded = metric("kg_entities_embedded_total")
     result["kg_entities_total"] = kg_total
+    result["kg_entities_embedded"] = kg_embedded
+    if kg_total > 0 and kg_embedded >= 0:
+        result["kg_embedding_coverage_pct"] = round(kg_embedded / kg_total * 100, 1)
 
     # LLM Wiki pages (wiki/*.md 排除 memory/)
     wiki_dir = PROJECT_ROOT / "wiki"
