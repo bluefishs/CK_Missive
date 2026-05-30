@@ -1321,6 +1321,64 @@ def _kunge_quick_actions(tab: str = "memory") -> str:
     )
 
 
+@tracked_job("fitness_daily")
+async def fitness_daily_job():
+    """v6.12 治理進化 #2 — Tier 1 Daily 6 critical fitness step (~1 min)
+
+    每日 02:00 跑 6 個 silent-failure 偵測 step，任一 RED → LINE 推 owner。
+
+    對應 docs/architecture/FITNESS_LAYERED_EXECUTION_SOP_20260530.md Tier 1
+
+    包含 step:
+    - 38 docker_compose_volume_consistency
+    - 40 compose/dockerfile healthcheck SSOT
+    - 47 startup race condition
+    - 57 container env alignment
+    - 58 agent_query starvation
+    - 60 container image freshness
+    """
+    import os
+    from pathlib import Path
+
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    script = project_root / "scripts" / "checks" / "run_fitness_daily.sh"
+    if not script.exists():
+        logger.warning("fitness_daily: script not found at %s", script)
+        return
+
+    logger.info("開始執行 Fitness Tier 1 Daily")
+    rc, out, err = await _run_script_async(
+        ["bash", str(script), "--strict"],
+        cwd=str(project_root), timeout=300, job_name="fitness_daily",
+    )
+
+    if rc == 0:
+        logger.info("Fitness Tier 1 Daily: all 6 step passed")
+        return
+
+    # RED — 推 LINE 給 owner
+    logger.warning("Fitness Tier 1 Daily RED rc=%d, pushing LINE", rc)
+    try:
+        # 取最後 30 行 stdout 作為失敗摘要
+        tail_lines = (out or "").splitlines()[-30:]
+        digest = "\n".join(tail_lines)
+        body = (
+            f"🚨 Fitness Tier 1 Daily RED\n"
+            f"\n"
+            f"v6.12 治理進化 #2 forcing function 觸發:\n"
+            f"\n"
+            f"{digest[:1500]}\n"
+            f"\n"
+            f"立即修法或排 sprint\n"
+            f"完整: scripts/checks/run_fitness_daily.sh"
+            + _kunge_quick_actions("ops")
+        )
+        from app.services.contracts.facades.integration import IntegrationFacade
+        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+    except Exception as push_e:
+        logger.warning("Fitness Tier 1 Daily LINE push 失敗: %s", push_e)
+
+
 @tracked_job("crystal_review_overdue")
 async def crystal_review_overdue_alarm_job():
     """L51.7 (2026-05-30) crystallization workflow watchdog
@@ -2488,6 +2546,20 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 LINE weekly pulse: 每週日 10:00 執行 (L51)")
+
+    # v6.12 治理進化 #2 (2026-05-30) Fitness Tier 1 Daily — 每日 02:00
+    # 對應 docs/architecture/FITNESS_LAYERED_EXECUTION_SOP_20260530.md
+    # 6 critical step：38/40/47/57/58/60，任一 RED 推 LINE
+    scheduler.add_job(
+        fitness_daily_job,
+        trigger=CronTrigger(hour=2, minute=0),
+        id='fitness_daily',
+        name='Fitness Tier 1 Daily (每日 02:00, 6 step)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 Fitness Tier 1 Daily: 每日 02:00 執行 (v6.12 #2)")
 
     # L51.7 (2026-05-30) Crystal review overdue alarm — 每週日 09:30
     # 防 proposals → crystals = 0 「學習閉環死」反模式
