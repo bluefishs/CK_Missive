@@ -127,6 +127,36 @@ def list_recent_sessions(n: int = 5) -> list[str]:
     return [s.name for s in sessions[:n]]
 
 
+def check_cross_repo_drift() -> list[tuple[str, int, int, str]]:
+    """v6.12 整合: 跨 repo 範本漂移摘要 (對齊 cross_repo_template_drift_audit step 65)"""
+    targets = ["CK_lvrland_Webmap", "CK_PileMgmt", "CK_Showcase", "CK_KMapAdvisor"]
+    assets = [
+        ".claude/rules/cross-file-ssot-governance.md",
+        "scripts/checks/paths_compose_mount_audit.py",
+        "scripts/checks/container_env_alignment_audit.py",
+        "scripts/checks/container_image_freshness_check.py",
+        "scripts/checks/run_fitness_daily.sh",
+        "scripts/checks/generate_governance_dashboard.py",
+    ]
+    out: list[tuple[str, int, int, str]] = []
+    for tgt in targets:
+        tgt_root = ROOT.parent / tgt
+        if not tgt_root.is_dir():
+            out.append((tgt, 0, len(assets), "⚪ N/A"))
+            continue
+        present = sum(1 for a in assets if (tgt_root / a).exists())
+        if present == 0:
+            verdict = "🔴 RED-zero"
+        elif present >= len(assets) - 1:
+            verdict = "🟢 GREEN"
+        elif present >= len(assets) // 2:
+            verdict = "🟡 YELLOW"
+        else:
+            verdict = "🔴 RED"
+        out.append((tgt, present, len(assets), verdict))
+    return out
+
+
 def check_b_plan_progress() -> dict:
     """B 方案 60 天 trial 進度"""
     facades_dir = ROOT / "backend" / "app" / "services" / "contracts" / "facades"
@@ -265,13 +295,33 @@ def render() -> str:
             a(f"- {i}")
     a("")
 
-    # ── 9 owner action 待辦 ──
-    a("## 9. Owner action 待辦 (不可委任)")
+    # ── 9 跨 repo 範本漂移 (v6.12 step 65 整合) ──
+    a("## 9. 跨 repo 範本漂移 (4 子專案 v6.12 治理採用度)")
+    a("")
+    a("| Repo | 跟進度 | Verdict | 修法建議 |")
+    a("|---|---|---|---|")
+    crd = check_cross_repo_drift()
+    for tgt, present, total, verdict in crd:
+        action = "—" if verdict in ("🟢 GREEN", "⚪ N/A") else "`install-template-to.sh`"
+        a(f"| {tgt} | {present}/{total} | {verdict} | {action} |")
+    a("")
+    red_count = sum(1 for _, _, _, v in crd if "RED" in v)
+    if red_count > 0:
+        a(f"⚠ **{red_count}/4 子專案 RED** — 範本對外採用度不足，owner approve 後執行:")
+        a("```bash")
+        a("bash scripts/install-template-to.sh ../<repo_name> \\")
+        a("  --include=cross-file-ssot,fitness-tier,governance-dashboard,l4x-lessons")
+        a("```")
+    a("")
+
+    # ── 10 owner action 待辦 ──
+    a("## 10. Owner action 待辦 (不可委任)")
     a("")
     a("- ADR-0020 + ADR-0035 proposed 收斂")
     a("- 4 pending crystal 審批 (`/admin/crystals`)")
     a("- Hermes GO/NO-GO baseline 重評")
-    a("- CK_KMapAdvisor CLAUDE.md STALE 32 天 (跨 repo)")
+    a(f"- 跨 repo install-template 對 {red_count} RED 子專案套用 (詳 §9)")
+    a("- CK_KMapAdvisor CLAUDE.md STALE 32 天")
     a("- Task Scheduler 重建 / sync_enabled=true")
     a("")
 
