@@ -37,8 +37,20 @@ logger = logging.getLogger(__name__)
 # F26 (5/04 修復): parents[3] 指向 CK_Missive/，但實際 db 在 backend/logs/
 # 所以要 parents[2] (= backend/) 才對。原 silent skip 造成 shadow_baseline_*
 # metrics 從未在 /metrics 暴露（owner ADR-0030 GO/NO-GO baseline 看不到資料）。
-from app.core.paths import BACKEND_DIR  # v6.10 P1-E SSOT
-_DB_PATH = BACKEND_DIR / "logs" / "shadow_trace.db"
+# v6.12 (2026-05-30) 修法 — L52 family 同型 path drift:
+# - container 內 BACKEND_DIR=/app/backend/ (從 paths.py 算)
+# - 但 docker-compose mount 是 ./backend/logs:/app/logs (不是 /app/backend/logs)
+# - 結果 shadow_logger 寫 /app/backend/logs/shadow_trace.db (container 內新檔 silent)
+# - metric populate 讀 /app/backend/logs/shadow_trace.db = 空檔 → rows=0
+# 修法: 對齊 mount target，用 /app/logs 直接
+from pathlib import Path as _Path
+import os as _os
+_LOGS_DIR = _Path(_os.getenv("CK_LOGS_DIR", "/app/logs"))
+if not _LOGS_DIR.exists():
+    # fallback to BACKEND_DIR/logs (host dev mode)
+    from app.core.paths import BACKEND_DIR
+    _LOGS_DIR = BACKEND_DIR / "logs"
+_DB_PATH = _LOGS_DIR / "shadow_trace.db"
 _LOOKBACK_HOURS = 24
 
 

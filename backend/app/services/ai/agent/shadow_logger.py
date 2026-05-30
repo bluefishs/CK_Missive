@@ -36,7 +36,14 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 from app.core.paths import BACKEND_DIR  # v6.10 P1-E SSOT
-_DB_PATH = BACKEND_DIR / "logs" / "shadow_trace.db"
+# v6.12 (2026-05-30) L52 family path drift 修:
+# container 內 BACKEND_DIR=/app/backend/ 但 mount 是 /app/logs/
+# 統一用 CK_LOGS_DIR env (預設 /app/logs container) fallback BACKEND_DIR/logs (host)
+from pathlib import Path as _Path
+_LOGS_DIR = _Path(os.getenv("CK_LOGS_DIR", "/app/logs"))
+if not _LOGS_DIR.exists():
+    _LOGS_DIR = BACKEND_DIR / "logs"
+_DB_PATH = _LOGS_DIR / "shadow_trace.db"
 _LOCK = threading.Lock()
 _ENABLED: Optional[bool] = None  # lazy — 首次呼叫時從 env 讀取
 _SAMPLE_RATIO: Optional[float] = None
