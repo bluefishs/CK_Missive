@@ -1,0 +1,64 @@
+{
+  "started_at": "2026-05-30T03:55:51.042754+00:00",
+  "completed_at": "2026-05-30T03:55:51.078334+00:00",
+  "overall_status": "error",
+  "steps": [
+    {
+      "name": "fitness",
+      "status": "error",
+      "summary": "run_fitness.sh not found",
+      "details": {},
+      "duration_ms": 0.1
+    },
+    {
+      "name": "capability_audit",
+      "status": "error",
+      "summary": "capability_usage_audit.py not found",
+      "details": {},
+      "duration_ms": 0.0
+    },
+    {
+      "name": "memory_loop",
+      "status": "red",
+      "summary": "counts={'diary': 38, 'patterns': 9, 'failures': 16, 'proposals': 4, 'crystals': 0, 'evolutions': 6, 'autobiography': 0}",
+      "details": {
+        "counts": {
+          "diary": 38,
+          "patterns": 9,
+          "failures": 16,
+          "proposals": 4,
+          "crystals": 0,
+          "evolutions": 6,
+          "autobiography": 0
+        },
+        "dead_loops": [
+          "crystals (閉環終點空)",
+          "autobiography (應週期生成卻無檔)",
+          "proposals (4 pending gate 卡)"
+        ]
+      },
+      "duration_ms": 35.3
+    },
+    {
+      "name": "shadow_baseline",
+      "status": "error",
+      "summary": "shadow_trace.db not found",
+      "details": {},
+      "duration_ms": 0.0
+    },
+    {
+      "name": "precommit_hook",
+      "status": "red",
+      "summary": ".git/hooks/pre-commit not installed",
+      "details": {},
+      "duration_ms": 0.0
+    }
+  ],
+  "summary_lines": [
+    "  [ERROR ] fitness                run_fitness.sh not found",
+    "  [ERROR ] capability_audit       capability_usage_audit.py not found",
+    "  [RED   ] memory_loop            counts={'diary': 38, 'patterns': 9, 'failures': 16, 'proposals': 4, 'crystals': 0, 'evolutions': 6, 'autobiography': 0}",
+    "  [ERROR ] shadow_baseline        shadow_trace.db not found",
+    "  [RED   ] precommit_hook         .git/hooks/pre-commit not installed"
+  ]
+}

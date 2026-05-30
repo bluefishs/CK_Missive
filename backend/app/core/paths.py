@@ -11,11 +11,22 @@
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 # 本檔位於 backend/app/core/paths.py
 # parents[0]=core / parents[1]=app / parents[2]=backend / parents[3]=PROJECT_ROOT
-PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
+#
+# v6.12 (2026-05-30) Pipeline silent dormant 修法：
+#   Docker container 內 main.py 在 /app/main.py，paths.py 在 /app/app/core/paths.py
+#   parents[3] = / (root) → PROJECT_ROOT 計算錯誤，導致 WIKI_DIR=/wiki 但實際 mount 在 /app/wiki
+#   揭發：5/28-5/30 optimization_pipeline silent 寫 /wiki Permission denied
+#   修法：環境變數 CK_PROJECT_ROOT override，container 內 docker-compose 注入 = /app
+_env_root = os.getenv("CK_PROJECT_ROOT")
+if _env_root and Path(_env_root).exists():
+    PROJECT_ROOT: Path = Path(_env_root).resolve()
+else:
+    PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
 
 # === 一級資料夾 ===
 BACKEND_DIR: Path = PROJECT_ROOT / "backend"
