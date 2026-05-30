@@ -48,17 +48,85 @@ def list_repositories() -> set[str]:
     for f in repo_dir.rglob("*_repository.py"):
         if "__pycache__" in f.parts or f.name == "base_repository.py":
             continue
-        # 從 filename 推 table prefix (如 document_repository.py → document)
         name = f.stem.replace("_repository", "")
         repos.add(name)
     return repos
 
 
-def classify_table(table: str, repos: set[str]) -> str:
-    """判斷 table 是否有 repository 對應 (含 plural/singular 匹配)"""
+def list_repo_to_tables() -> dict[str, set[str]]:
+    """v6.12 A+C 升級 (2026-05-31): 讀 repository file content 抓對應 table
+
+    smart match 策略：
+    1. 抓 from app.extended.models import XxxModel
+    2. 抓 self.model = XxxModel
+    3. 對應 Model class 找 __tablename__ → set of tables
+    4. 也 fallback filename match (向後相容)
+    """
+    repo_dir = ROOT / "backend" / "app" / "repositories"
+    models_dir = ROOT / "backend" / "app" / "extended" / "models"
+    if not repo_dir.is_dir() or not models_dir.is_dir():
+        return {}
+
+    # 先建 model_class → table_name 映射
+    model_to_table: dict[str, str] = {}
+    for f in models_dir.rglob("*.py"):
+        if "__pycache__" in f.parts:
+            continue
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        # 抓 class Foo(Base): / __tablename__
+        # 簡化: 抓 class Foo + 同 file 內 __tablename__
+        classes = re.findall(r"^class\s+(\w+)\s*\(", text, re.MULTILINE)
+        tablenames = re.findall(r'__tablename__\s*=\s*["\']([^"\']+)["\']', text)
+        # 配對 (簡化: 假設順序對齊)
+        for cls, tbl in zip(classes, tablenames):
+            model_to_table[cls] = tbl
+
+    # 對每個 repository 抓 import 的 model
+    repo_to_tables: dict[str, set[str]] = {}
+    for f in repo_dir.rglob("*_repository.py"):
+        if "__pycache__" in f.parts or f.name == "base_repository.py":
+            continue
+        repo_name = f.stem.replace("_repository", "")
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+
+        tables = set()
+        # 抓 from .models import XxxModel / from app.extended.models import XxxModel
+        for m in re.finditer(r"from\s+[\w\.]+models[\w\.]*\s+import\s+([^\n]+)", text):
+            imports = m.group(1)
+            for cls in re.findall(r"\b([A-Z]\w+)\b", imports):
+                if cls in model_to_table:
+                    tables.add(model_to_table[cls])
+        # 抓 self.model = XxxModel
+        for m in re.finditer(r"self\.model\s*=\s*(\w+)", text):
+            cls = m.group(1)
+            if cls in model_to_table:
+                tables.add(model_to_table[cls])
+
+        # Fallback: filename → table (向後相容)
+        if not tables:
+            # 試 plural variations
+            for variant in (repo_name + "s", repo_name, repo_name.replace("_", "")):
+                tables.add(variant)
+
+        repo_to_tables[repo_name] = tables
+    return repo_to_tables
+
+
+def classify_table(table: str, repos: set[str], repo_to_tables: dict[str, set[str]]) -> str:
+    """v6.12 升級: smart match — repo_to_tables 內找到即 covered"""
+    # 智能匹配: repo file content import 對應 model
+    for repo, tables in repo_to_tables.items():
+        if table in tables:
+            return "covered"
+    # Fallback: filename
     singular = table.rstrip("s") if table.endswith("s") else table
-    candidates = [table, singular, table.replace("_", "")]
-    for c in candidates:
+    for c in [table, singular, table.replace("_", "")]:
         if c in repos:
             return "covered"
     return "missing"
@@ -71,6 +139,7 @@ def main() -> int:
 
     tables = list_db_tables_from_models()
     repos = list_repositories()
+    repo_to_tables = list_repo_to_tables()  # v6.12 A 升級
     print(f"db_table count (from models __tablename__): {len(tables)}")
     print(f"repository count (from *_repository.py):    {len(repos)}")
     print(f"目標覆蓋率: 1:1.5 內 (即 repo ≥ table * 0.67)")
@@ -79,7 +148,7 @@ def main() -> int:
     covered = []
     missing = []
     for t in sorted(tables):
-        if classify_table(t, repos) == "covered":
+        if classify_table(t, repos, repo_to_tables) == "covered":
             covered.append(t)
         else:
             missing.append(t)

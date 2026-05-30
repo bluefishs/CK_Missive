@@ -48,6 +48,7 @@
 | **Container image content** | **git HEAD `backend/` 目錄**（L51.7.1 新增） | **`messaging_default.py` 內容必須 = host 同檔** |
 | **Container PROJECT_ROOT path** | **`backend/app/core/paths.py` + `CK_PROJECT_ROOT` env**（L52 新增）| **同步檢查所有 docker-compose.* mount target prefix** |
 | **Container sub-path (BACKEND_DIR/LOGS_DIR 等)** | **paths.py sub-path 變數 + docker-compose mount target 對齊**（L57 新增）| **shadow_logger 用 BACKEND_DIR/logs 但 mount 是 /app/logs → silent fail** |
+| **Repository ↔ db_table 命名對應**（v6.12 step 70 新增 5/31）| **每個 model 必有對應 `<table_singular>_repository.py`**（A+C 規範+智能 audit）| **document_attachments → attachment_repository（非 document_attachments_repository）違反 SSOT，step 70 揭發 58% 覆蓋率** |
 
 **禁止**：
 - 同一 secret 寫在多個 .env / config 檔
@@ -75,6 +76,7 @@
 | **Container image content** | **`container_image_freshness_check.py`**（L51.7.1）| **step 60** |
 | **paths.py vs compose mount** | **`paths_compose_mount_audit.py`**（L52 新增）| **step 62** |
 | **paths.py sub-path vs compose mount** | **`paths_subpath_mount_audit.py`**（L57 新增）| **step 69** |
+| **Repository ↔ db_table 命名對應** | **`repository_coverage_audit.py`**（v6.12 A+C 智能匹配，5/31）| **step 70** |
 
 **強制**：新增任一跨檔資源類型，**必須**同時新增對應的 audit script + 接進 `run_fitness.sh`。
 
