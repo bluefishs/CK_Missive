@@ -1618,6 +1618,10 @@ async def memory_weekly_autobiography_job():
     - 寫 wiki/memory/evolutions/YYYY-WNN.md
     - SOUL.md 成長段落自動追加（agent_writable section 特權）
     - Telegram 推播
+
+    L51.7 (2026-05-30) Sprint 2.P2.10：autobiography 寫 SOUL.md 後
+    立即寫 soul_drift_snapshot.json + 推 LINE 提示 owner 跑 cross-repo sync
+    防 SOUL drift 反覆發生（L51 sprint 1 已手動 sync 1 次）
     """
     from app.db.database import AsyncSessionLocal
     from app.services.memory.autobiography import AutobiographyGenerator
@@ -1634,8 +1638,84 @@ async def memory_weekly_autobiography_job():
                 result.get("telegram_pushed"), result.get("line_pushed"),
                 result.get("narrative_chars"),
             )
+
+            # L51.7 Sprint 2.P2.10：SOUL.md 更新後寫 drift snapshot + 提示 owner
+            if result.get("soul_updated"):
+                try:
+                    await _refresh_soul_drift_snapshot()
+                    await _push_soul_sync_reminder(result.get("week_id"))
+                except Exception as e:
+                    logger.warning(f"SOUL drift snapshot/reminder 失敗 (非致命): {e}")
     except Exception as e:
         logger.error("Weekly Autobiography 失敗: %s", e, exc_info=True)
+
+
+async def _refresh_soul_drift_snapshot() -> None:
+    """寫 wiki/memory/soul_drift_snapshot.json — v7_soul_drift metric 讀此檔
+
+    L51.7 Sprint 2.P2.10：container 內找不到 ../CK_AaaP/，autobiography 跑時
+    可能在 host 端，host 路徑能 reach CK_AaaP。寫 snapshot 給 backend metric 讀。
+    """
+    import json
+    import os
+    from pathlib import Path
+    wiki_dir = Path(os.getenv("CK_WIKI_DIR", "/app/wiki"))
+    soul_a = wiki_dir / "SOUL.md"
+    # 嘗試多個可能 path（container 內 vs host）
+    candidates = [
+        Path("/CK_AaaP/runbooks/hermes-stack/SOUL.md"),  # 跨 repo mount (若有)
+        wiki_dir.parent / ".." / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md",
+    ]
+    soul_b = None
+    for c in candidates:
+        try:
+            if c.exists():
+                soul_b = c
+                break
+        except Exception:
+            continue
+    snapshot = {
+        "missive_lines": len(soul_a.read_text(encoding="utf-8").splitlines()) if soul_a.exists() else 0,
+        "hermes_lines": len(soul_b.read_text(encoding="utf-8").splitlines()) if soul_b else 0,
+        "drift_lines": -1 if not soul_b else abs(
+            len(soul_a.read_text(encoding="utf-8").splitlines()) -
+            len(soul_b.read_text(encoding="utf-8").splitlines())
+        ),
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "source": "autobiography_post_write",
+    }
+    snapshot_path = wiki_dir / "memory" / "soul_drift_snapshot.json"
+    snapshot_path.write_text(
+        json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    logger.info(f"SOUL drift snapshot updated: drift={snapshot['drift_lines']}")
+
+
+async def _push_soul_sync_reminder(week_id: str | None) -> None:
+    """推 LINE 提示 owner 跨 repo SOUL sync
+
+    L51.7 Sprint 2.P2.10：autobiography 更新 SOUL 後，提示 owner 跑
+    sync_soul_to_hermes.sh + CK_AaaP commit 完成跨 repo 同步
+    """
+    body = (
+        f"🧠 SOUL.md 已更新 ({week_id or 'autobiography'})\n"
+        f"\n"
+        f"提示: 跨 repo 同步:\n"
+        f"  bash scripts/sync/sync_soul_to_hermes.sh --apply\n"
+        f"  cd ../CK_AaaP\n"
+        f"  git add runbooks/hermes-stack/SOUL.md\n"
+        f"  git commit -m 'sync: SOUL from Missive'\n"
+        f"  git push\n"
+        f"\n"
+        f"未同步 → v7_soul_drift 上升 → 跨通道人格不一致\n"
+        f"(L51.7 Sprint 2.P2.10 配套)"
+    )
+    try:
+        from app.services.contracts.facades.integration import IntegrationFacade
+        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+        logger.info("SOUL sync reminder 推送 LINE 成功")
+    except Exception as e:
+        logger.warning(f"SOUL sync reminder push 失敗: {e}")
 
 
 @tracked_job("memory_anti_echo_scan")

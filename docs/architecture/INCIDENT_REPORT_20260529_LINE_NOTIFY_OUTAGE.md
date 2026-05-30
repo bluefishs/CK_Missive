@@ -375,6 +375,49 @@ Owner 提問「派工 LINE 通知也中斷？」促使全面排查。**5 條 LIN
 
 ---
 
+## 10.6 L51 5 防護層 silent regression 揭發（2026-05-30 10:25 loop 複查）
+
+L51.7 Sprint 1 完成後 ScheduleWakeup 複查發現 `v7_channel_diversity` 仍為 0
+（期望 ≥1 因 LINE 真活）。深入追查揭發**新 silent regression**：
+
+```
+container 內 grep MESSAGING_PUSH_TOTAL → 0 matches!
+→ messaging_default.py 是舊版（L51 task e 5 防護層的 Counter 沒到 container）
+```
+
+**真因**：
+- 5/29 commit `5d03562f` 加 messaging_default.py Counter + main.py eager import
+- 部署用 `docker cp` 修法到 container（不 rebuild image）
+- 後續某次 `docker compose restart` 或 `up -d` 重起時，docker cp 修法**遺失**
+- 結果：image 內 messaging_default 仍是 5/28 以前的版本（無 Counter）
+
+**確認時序**：09:00 business_recommendation cron 跑了 6 筆 pushed=6（從
+`tender_recommendation_history` 表確認真活）但 `/metrics` 完全沒
+`messaging_push_total` — Counter 從未在主進程內被 import 過。
+
+**修法**：`docker compose build backend && up -d backend`（force rebuild image）
+- container 內 grep `MESSAGING_PUSH_TOTAL` 返 7 ✓
+- `/metrics` 15 labels 預宣告 ✓
+- 5 防護層真活恢復
+
+**連帶教訓 (#8)**：
+- **docker cp 修法不可持久** — 只能用於緊急驗證，必須跟 rebuild image
+- 每次新功能上 production 應有 SOP：
+  1. commit code
+  2. docker compose build {service}
+  3. docker compose up -d {service}（不只 restart）
+  4. 驗 container 內 file mtime + content
+- **fitness step 應加 image_freshness_check**：對比 image build 時間 vs 最後 commit
+  時間，>24h 即 warning（image 比 code 舊）
+
+**潛伏影響盤點（過去 ~36h）**：
+- 5/29 12:00 ~ 5/30 09:30 期間（rebuild 前），所有理論上應 inc 的 push 都
+  沒寫進 messaging_push_total Counter
+- LINE push 仍真活（owner 收到訊息），但「observability 觀測」silent disabled
+- 這正是「修法部署成功」假象 — 真正生效需要 image 包含
+
+---
+
 ## 11. 對 Owner 的關鍵啟示
 
 1. **觀測閉環不是「補洞」，是「揭發器」**
@@ -418,3 +461,19 @@ Owner 提問「派工 LINE 通知也中斷？」促使全面排查。**5 條 LIN
    - 主動推 startup self-test 訊息（活體確認）
 
    未做這個 checklist，就會反覆發生「修了 A 但無心壞了 B」。
+
+8. **docker cp 修法不可持久 — 部署 SOP 必須含 image rebuild**
+   L51 5 防護層 5/29 commit + docker cp 「驗證 OK」假象，實際 image 內
+   仍是舊版 messaging_default.py（無 Counter）。後續 docker compose 重起
+   時 docker cp 修法遺失，但因「部署成功」感覺良好沒去複查。
+
+   5/30 ScheduleWakeup 複查才發現 36h 期間 messaging_push_total **從未真實 inc 過**。
+   LINE 還在推（owner 收訊息），但「失敗率監控」觀測 silent disabled。
+
+   **教訓**：每次新功能部署應有 SOP checklist：
+   - [ ] commit code
+   - [ ] `docker compose build {service}`
+   - [ ] `docker compose up -d {service}`（不只 restart）
+   - [ ] 驗 container 內 file mtime 在合理範圍
+   - [ ] grep 關鍵新字串確認進 image
+   - [ ] fitness step 加 image_freshness_check：image 比 commit 舊 >24h 即 warning
