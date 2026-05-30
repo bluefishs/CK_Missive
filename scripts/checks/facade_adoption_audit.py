@@ -25,9 +25,12 @@ from pathlib import Path
 
 
 FACADES = [
-    "CalendarFacade", "ContractFacade", "DocumentFacade", "IntegrationFacade",
-    "NotificationFacade", "AgencyFacade", "VendorFacade", "AIFacade",
-    "MemoryFacade", "ERPFacade", "WikiFacade", "AuditFacade", "TenderFacade",
+    # v6.12 B 方案收口（2026-05-30）：13 → 3 facade
+    # 廢 10 zero（30 天 zero caller）+ 留 3 active 補強 60 天 trial
+    # 詳見 docs/architecture/FACADE_ABC_DECISION_20260530.md
+    "IntegrationFacade",  # 3 caller (scheduler / orchestrator / business_recommendation)
+    "MemoryFacade",       # 3 caller (agent orchestrator/planner/post_processing)
+    "WikiFacade",         # 1 caller (agent_orchestrator) — 60 天目標升 ≥3
 ]
 
 

@@ -1,24 +1,21 @@
-"""Bounded Context Contract Layer — v1.0 (2026-05-18)
+"""Bounded Context Contract Layer — v6.12 B 方案收口（2026-05-30）
 
-統一 N bounded contexts 對外暴露的 facade interface，禁止跨 context 直 import
-內部 module（強制走 facade）。
+v6.10 P1 原建 4 ports + 13 facades，30 天 audit 結果 2/4 port + 10/13 facade zero。
+ADR-0036 經實證 ROI 不及預期，按 L31「ROI = entities × usage_rate」廢棄 zero entities。
 
-目的：
-- 模組化：每個 context 可獨立打包成 wheel / docker image
-- 移轉部署：consumer repo 可單獨採用某 context 不需拷貝整個 source repo
-- 統一架構管理：跨 repo 用同一套 Port interface
+保留 (2 active port + 3 active facade)：
+- MessagingPort (DefaultMessagingAdapter, 3 caller via IntegrationFacade)
+- RLSPort       (DefaultRLSAdapter, 2 production caller calendar/notification repository)
+- IntegrationFacade / MemoryFacade / WikiFacade
 
-4 cross-cutting Ports（取代散落直 import）：
-  - MessagingPort   （channel adapters 統一：LINE / Telegram / Discord ...）
-  - AuditPort       （取代散落 audit mixin 直接 inherit）
-  - CachePort       （後端 cache cascade SSOT）
-  - RLSPort         （封 row-level security 與 alias group expansion）
+廢棄 (2026-05-30)：
+- AuditPort + DefaultAuditAdapter (0 caller — audit mixin 直用更簡單)
+- CachePort + DefaultCacheAdapter (0 caller — Redis 直用更穩)
+- 10 facade (詳 facades/__init__.py)
 
-採用指南：見 CONTRACTS_LAYER_GUIDE.md
+60 天 trial（2026-07-30 重評）→ 詳 docs/architecture/FACADE_ABC_DECISION_20260530.md
 """
 from app.services.contracts.ports.messaging import MessagingPort  # noqa: F401
-from app.services.contracts.ports.audit import AuditPort  # noqa: F401
-from app.services.contracts.ports.cache import CachePort  # noqa: F401
 from app.services.contracts.ports.rls import RLSPort  # noqa: F401
 
-__all__ = ["MessagingPort", "AuditPort", "CachePort", "RLSPort"]
+__all__ = ["MessagingPort", "RLSPort"]

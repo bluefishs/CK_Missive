@@ -1,62 +1,35 @@
-"""Bounded Context Facades - v6.10 P1 Phase B (2026-05-18)
+"""Bounded Context Facades — v6.12 B 方案收口（2026-05-30）
 
-12 bounded contexts 各自的對外唯一入口。
+v6.10 P1 原建 13 facades，30 天 audit 結果 10/13 zero caller。
+ADR-0036 經實證 ROI 不及預期，按 L31 「ROI = entities × usage_rate」
+廢棄 10 zero facade，留 3 active 補強到 ≥5 caller (60 天 trial)。
 
-依據：
-- docs/architecture/CONTRACTS_LAYER_GUIDE.md
-- docs/architecture/NAMING_CONVENTIONS.md (Facade 命名規約)
-- 5/18 整體架構律定 Phase B
+保留 (3 active)：
+- MemoryFacade      (3 caller — agent_orchestrator/planner/post_processing)
+- IntegrationFacade (3 caller — scheduler/orchestrator/tender business_recommendation)
+- WikiFacade        (1 caller — agent_orchestrator)
 
-進度：
-- CalendarFacade     (6 methods) — 解 document -> calendar 4
-- IntegrationFacade  (5 methods) — 解 integration <- N (12 imports)
-- WikiFacade         (5 methods) — 解 ai -> wiki 7
-- AIFacade           (todo) — 解 N -> ai (12 imports)
-- MemoryFacade       (todo) — 解 memory <- N (12 imports)
-- NotificationFacade (todo)
-- DocumentFacade     (todo)
-- ContractFacade     (todo)
-- ERPFacade          (todo)
-- AgencyFacade       (todo)
-- VendorFacade       (todo)
-- AuditFacade        (todo - 與 AuditPort 共用)
+廢棄 (10 zero，2026-05-30 移除)：
+- AgencyFacade / AIFacade / AuditFacade / CalendarFacade / ContractFacade
+- DocumentFacade / ERPFacade / NotificationFacade / TenderFacade / VendorFacade
+- 原因：30 天 zero caller，service layer 直 import 已能滿足
+- 對齊：feedback_stop_overengineering / L31 / docs/architecture/FACADE_ABC_DECISION_20260530.md
 
-採用模式：
-  # OK - cross-context call via facade
-  from app.services.contracts.facades import CalendarFacade
-  facade = CalendarFacade(db)
-  event = await facade.create_event_from_document(doc_id, due_date)
+60 天 trial（2026-07-30 重評）:
+- 3 留存 facade 任一未達 ≥5 caller → 升 C 全廢
+- 達標 → 維持並補強
 
-  # BAD - direct import internal module
-  from app.services.calendar.event_auto_builder import build_event
+採用模式（保留的 3 個）：
+  from app.services.contracts.facades import MemoryFacade
+  facade = MemoryFacade()
+  ...
 """
-from app.services.contracts.facades.calendar import CalendarFacade
 from app.services.contracts.facades.integration import IntegrationFacade
-from app.services.contracts.facades.wiki import WikiFacade
-from app.services.contracts.facades.ai import AIFacade
 from app.services.contracts.facades.memory import MemoryFacade
-from app.services.contracts.facades.erp import ERPFacade
-from app.services.contracts.facades.contract import ContractFacade
-from app.services.contracts.facades.document import DocumentFacade
-from app.services.contracts.facades.notification import NotificationFacade
-from app.services.contracts.facades.agency import AgencyFacade
-from app.services.contracts.facades.vendor import VendorFacade
-from app.services.contracts.facades.audit import AuditFacade
-# Step 5B (2026-05-28): TenderFacade 加入 v6.10 P1 12 facades 體系（變 13 facades）
-from app.services.contracts.facades.tender import TenderFacade
+from app.services.contracts.facades.wiki import WikiFacade
 
 __all__ = [
-    "CalendarFacade",
     "IntegrationFacade",
-    "WikiFacade",
-    "AIFacade",
     "MemoryFacade",
-    "ERPFacade",
-    "ContractFacade",
-    "DocumentFacade",
-    "NotificationFacade",
-    "AgencyFacade",
-    "VendorFacade",
-    "AuditFacade",
-    "TenderFacade",  # v6.11 Step 5B
+    "WikiFacade",
 ]
