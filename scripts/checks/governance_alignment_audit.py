@@ -53,12 +53,19 @@ def fetch_metrics() -> dict[str, float]:
 
 
 def list_adrs() -> list[tuple[str, str]]:
-    """回 [(adr_number, status), ...]"""
+    """回 [(adr_number, status), ...]
+    v6.12 修法 (2026-05-30): 同 adr_lifecycle_check.py regex (接受 blockquote >)
+    """
     out = []
     adr_dir = ROOT / "docs" / "adr"
     if not adr_dir.is_dir():
         return out
-    for f in sorted(adr_dir.glob("00*.md")):
+    STATUS_PATTERN = re.compile(
+        r"^(?:\s*[-*>])?\s*\*\*(?:狀態|Status|status)\*\*\s*[:：]\s*"
+        r"\*{0,2}`?([A-Za-z_]+)`?\*{0,2}",
+        re.MULTILINE,
+    )
+    for f in sorted(adr_dir.rglob("00*.md")):
         m = re.match(r"^(\d{4})-", f.name)
         if not m:
             continue
@@ -66,9 +73,9 @@ def list_adrs() -> list[tuple[str, str]]:
             text = f.read_text(encoding="utf-8", errors="ignore")[:2000]
         except Exception:
             continue
-        sm = re.search(r"^\s*[*-]?\s*\*\*狀態\*\*\s*[:：]\s*\*?([A-Za-z_]+)", text, re.MULTILINE)
+        sm = STATUS_PATTERN.search(text)
         status = sm.group(1).lower() if sm else "unknown"
-        if "archived" in str(f):
+        if "archived" in f.parts:
             status = "archived"
         out.append((m.group(1), status))
     return out
