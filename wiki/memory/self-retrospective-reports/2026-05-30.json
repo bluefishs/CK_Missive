@@ -1,4 +1,8 @@
 {
+  "metric_endpoint": {
+    "reachable": false,
+    "error": null
+  },
   "adr": {
     "status": "GREEN",
     "active_count": 5,
@@ -13,22 +17,23 @@
   "core_services": {
     "shadow_baseline_rows_24h": -1.0,
     "messaging_push_line_success": 0.0,
-    "v7_channel_diversity": 0.0,
+    "v7_channel_diversity": 1.0,
     "v7_soul_drift": 0.0,
-    "memory_diary_days": 38.0,
+    "memory_diary_days": 39.0,
     "memory_crystals": 0.0,
     "memory_proposals_pending": 4.0,
     "status": "INFO"
   },
   "l4x_family": {
     "status": "RED",
-    "l4x_count": 3,
-    "baseline": 0,
-    "delta_since_baseline": 3,
+    "l4x_count": 4,
+    "baseline": 3,
+    "delta_since_baseline": 1,
     "latest_5": [
       "L41_jwt_secret_drift_silent_fail.md",
       "L49_container_host_dependency_family.md",
-      "L50_multi_source_identifier_link.md"
+      "L50_multi_source_identifier_link.md",
+      "L52_paths_compose_mount_drift.md"
     ]
   },
   "learning_loop": {
@@ -42,19 +47,18 @@
   },
   "observability": {
     "pipeline_red_consecutive_days": 10.0,
-    "report_freshness_hours": 0.6,
-    "lessons_total": 19.0,
+    "report_freshness_hours": 2.0,
+    "lessons_total": 20.0,
     "messaging_push_24h": 0.0,
     "status": "INFO"
   },
   "built_assets": {
-    "status": "YELLOW",
-    "kg_entities_total": -1.0,
+    "status": "GREEN",
+    "kg_entities_total": 24535.0,
+    "kg_entities_embedded": 22370.0,
+    "kg_embedding_coverage_pct": 91.2,
     "wiki_pages_total": 262,
-    "wiki_freshness_hours": 78.5,
-    "skills_count": 108,
-    "issues": [
-      "KG metric 不可達"
-    ]
+    "wiki_freshness_hours": 79.8,
+    "skills_count": 108
   }
 }

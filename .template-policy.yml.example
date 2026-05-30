@@ -1,0 +1,50 @@
+# .template-policy.yml — install-template-to.sh opt-out 機制 (v6.12 L58 配套)
+#
+# 用法：
+#   1. cp .template-policy.yml.example .template-policy.yml
+#   2. 修改 template_excluded list
+#   3. bash <CK_Missive 路徑>/scripts/install-template-to.sh . --tier=universal
+#
+# install-template 跑時自動讀此檔，excluded 的檔案會 [POLICY-EXCLUDED] skip。
+#
+# 對齊原則：
+# - L58: 範本是參考，不是強制，過度套用就是污染
+# - L59: 上游必先自治
+# - L60: 平衡 = 結構正常化
+
+# ── 接受的 tier ──
+# universal:   推薦所有 CK 系列 (L1 普適)
+# recommended: 中型 repo opt-in (L2)
+# full:        僅 monorepo (L3 含 CK_Missive 特定)
+template_tier_accepted:
+  - universal
+
+# ── 範本來源 ──
+template_source: CK_Missive
+template_source_version: v6.12  # 對應 v6.12 8 句立法
+
+# ── 排除清單 ──
+# install-template 跑時自動 skip 這些檔案
+# 各子專案依業務需求自由刪除
+template_excluded:
+  # L3 specific 範本（不適用本 repo）
+  # - daily_self_retrospective.py     # 7 aspects 含 v6.12 4 原則
+  # - generate_governance_dashboard.py # 10 章節含 Facade B trial
+  # - L53_facade_*.md                  # Facade 抽象 (本 repo 無)
+  # - L58_governance_template_pollution.md
+  # - L59_governance_architecture_inversion.md
+  # - L60_balance_via_structural_normalization.md
+  # - FACADE_ABC_DECISION_*.md
+  # - HERMES_BASELINE_RESET_PLAN_*.md
+  # - KUNGE_UX_REDESIGN_PLAN_*.md
+
+# ── 反向回饋 ──
+# 若想提案某 L3 範本升 L1/L2 (CK_AaaP 評估後可能推廣)
+# 對 CK_Missive 提 GitHub issue 標籤 [template-promotion-proposal]
+feedback_channel: "https://github.com/bluefishs/CK_Missive/issues"
+
+# ── 文件入口 ──
+references:
+  - https://github.com/bluefishs/CK_Missive/blob/main/docs/architecture/REFERENCE_FOR_OTHER_SYSTEMS.md
+  - https://github.com/bluefishs/CK_Missive/blob/main/wiki/memory/lessons/universal/README.md
+  - https://github.com/bluefishs/CK_Missive/blob/main/docs/architecture/GOVERNANCE_BALANCE_STRATEGY_20260530.md

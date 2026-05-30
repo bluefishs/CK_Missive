@@ -34,7 +34,7 @@ TIER=""
 # L1 universal:   普適範本 (33%, paths/container/SSOT) — 推薦所有 CK 系列
 # L2 recommended: 中型 repo (10%, fitness daily/alignment) — opt-in
 # L3 full:        CK_Missive 特定 (57%, Facade B/Hermes/daily retro) — 僅 monorepo
-TIER_UNIVERSAL="cross-file-ssot"
+TIER_UNIVERSAL="cross-file-ssot,universal-lessons"
 TIER_RECOMMENDED="cross-file-ssot,guards"
 TIER_FULL="fitness,guards,adr,obs,playbook,standards,pipeline,capability,governance-dashboard,cross-file-ssot,l4x-lessons,fitness-tier"
 
@@ -233,18 +233,36 @@ if [[ "$INCLUDE" == *"cross-file-ssot"* ]]; then
     copy_file "$SOURCE/scripts/checks/compose_dockerfile_healthcheck_ssot.py" "$TARGET/scripts/checks/compose_dockerfile_healthcheck_ssot.py"
 fi
 
-# === 11. L4x Family Lessons (v6.12 新增 — 8 條跨檔 SSOT family 教訓) ===
-if [[ "$INCLUDE" == *"lessons"* ]] || [[ "$INCLUDE" == *"l4x-lessons"* ]]; then
+# === 11. L4x Family Lessons (v6.12 L58 配套 — 分流 universal vs missive-specific) ===
+if [[ "$INCLUDE" == *"l4x-lessons"* ]] || [[ "$INCLUDE" == *"universal-lessons"* ]]; then
     echo ""
-    echo "[11/12] L4x Family Lessons"
-    for L in L41 L43 L44 L45 L49 L50 L52 L53; do
-        for f in "$SOURCE"/wiki/memory/lessons/${L}_*.md; do
+    echo "[11/12] Universal Lessons (跨檔 SSOT family，所有 CK 系列推薦)"
+    for L in L41 L43 L44 L45 L49 L52 L57; do
+        for f in "$SOURCE"/wiki/memory/lessons/universal/${L}_*.md; do
             if [ -f "$f" ]; then
                 fname=$(basename "$f")
-                copy_file "$f" "$TARGET/wiki/memory/lessons/$fname"
+                copy_file "$f" "$TARGET/wiki/memory/lessons/universal/$fname"
             fi
         done
     done
+    copy_file "$SOURCE/wiki/memory/lessons/universal/README.md" \
+              "$TARGET/wiki/memory/lessons/universal/README.md"
+fi
+
+# Missive-specific lessons 僅在 --tier=full 套用 (L58 防污染)
+if [[ "$TIER" == "full" ]] && [[ "$INCLUDE" == *"l4x-lessons"* ]]; then
+    echo ""
+    echo "[11.5/12] Missive-Specific Lessons (含 CK_Missive 業務脈絡 — 對齊 L58 警告)"
+    for L in L50 L53 L54 L58 L59 L60; do
+        for f in "$SOURCE"/wiki/memory/lessons/missive-specific/${L}_*.md; do
+            if [ -f "$f" ]; then
+                fname=$(basename "$f")
+                copy_file "$f" "$TARGET/wiki/memory/lessons/missive-specific/$fname"
+            fi
+        done
+    done
+    copy_file "$SOURCE/wiki/memory/lessons/missive-specific/README.md" \
+              "$TARGET/wiki/memory/lessons/missive-specific/README.md"
 fi
 
 # === 12. Fitness 3 層分層 forcing (v6.12 新增 — daily/weekly/monthly 結構) ===
