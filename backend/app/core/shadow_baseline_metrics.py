@@ -88,18 +88,36 @@ def _compute_tool_usage(rows: List[Dict]) -> Dict[Tuple[str, str], int]:
     return counts
 
 
+def _get_or_create_gauge(registry: CollectorRegistry, name: str, doc: str, labels: list) -> Gauge:
+    """v6.12 修法 (2026-05-30): 避免 per-scrape 重複註冊 Duplicated timeseries 錯誤
+
+    populate_shadow_metrics 每次 /metrics scrape 被呼叫，
+    原 Gauge() 第二次起拋 ValueError → silent fail → shadow_baseline_rows_total 卡在 2
+    修法: 重用 existing gauge instance (從 registry._collector_to_names 撈)
+    """
+    try:
+        return Gauge(name, doc, labels, registry=registry)
+    except ValueError:
+        # 已存在 — 從 registry 撈
+        for collector in list(registry._collector_to_names.keys()):  # type: ignore[attr-defined]
+            if getattr(collector, "_name", None) == name:
+                return collector  # type: ignore[return-value]
+        raise
+
+
 def populate_shadow_metrics(registry: CollectorRegistry) -> None:
     """讀取 shadow_trace.db 後計算指標並註冊到 registry。
 
     注入式設計：呼叫端傳入 registry（與既有 /metrics 端點一致）。
+    v6.12 修法: per-scrape 重複註冊改用 _get_or_create_gauge 避 ValueError silent fail
     """
     rows = _load_recent_rows()
 
-    rows_total = Gauge(
+    rows_total = _get_or_create_gauge(
+        registry,
         "shadow_baseline_rows_total",
         "Total query_trace rows in lookback window",
         ["lookback_hours"],
-        registry=registry,
     )
     rows_total.labels(lookback_hours=str(_LOOKBACK_HOURS)).set(len(rows))
 
@@ -110,23 +128,23 @@ def populate_shadow_metrics(registry: CollectorRegistry) -> None:
     for r in rows:
         by_provider[r.get("provider") or "unknown"].append(r)
 
-    latency_p95 = Gauge(
+    latency_p95 = _get_or_create_gauge(
+        registry,
         "shadow_baseline_latency_p95_ms",
         "p95 latency in ms by provider (last 24h)",
         ["provider"],
-        registry=registry,
     )
-    success_ratio = Gauge(
+    success_ratio = _get_or_create_gauge(
+        registry,
         "shadow_baseline_success_ratio",
         "Success ratio (success=1 / total) by provider (last 24h)",
         ["provider"],
-        registry=registry,
     )
-    call_total = Gauge(
+    call_total = _get_or_create_gauge(
+        registry,
         "shadow_baseline_call_total",
         "Total calls by provider (last 24h)",
         ["provider"],
-        registry=registry,
     )
 
     for provider, prov_rows in by_provider.items():
@@ -140,11 +158,11 @@ def populate_shadow_metrics(registry: CollectorRegistry) -> None:
 
     tool_usage = _compute_tool_usage(rows)
     if tool_usage:
-        tool_gauge = Gauge(
+        tool_gauge = _get_or_create_gauge(
+            registry,
             "shadow_baseline_tool_use_count",
             "Tool invocation count by provider and tool (last 24h)",
             ["provider", "tool"],
-            registry=registry,
         )
         for (provider, tool), count in tool_usage.items():
             tool_gauge.labels(provider=provider, tool=tool).set(count)
