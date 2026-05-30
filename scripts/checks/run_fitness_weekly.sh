@@ -41,7 +41,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${CYAN}===========================================${NC}"
-echo -e "${CYAN} Fitness Tier 2 Weekly — 15 trend step    ${NC}"
+echo -e "${CYAN} Fitness Tier 2 Weekly — 16 trend step    ${NC}"
 echo -e "${CYAN}===========================================${NC}"
 echo ""
 
@@ -53,7 +53,7 @@ run_step() {
     local step_name="$2"
     local script="$3"
 
-    echo -e "${CYAN}[$step_num/15] $step_name${NC}"
+    echo -e "${CYAN}[$step_num/16] $step_name${NC}"
     if [[ ! -f "$script" ]]; then
         echo "  ${YELLOW}⚠${NC} script not found: $script"
         echo ""
@@ -89,6 +89,7 @@ run_step "12" "facade adoption audit"         "scripts/checks/facade_adoption_au
 run_step "13" "paths.py vs compose mount"     "scripts/checks/paths_compose_mount_audit.py"
 run_step "14" "governance alignment audit"    "scripts/checks/governance_alignment_audit.py"
 run_step "15" "cross-repo template drift"     "scripts/checks/cross_repo_template_drift_audit.py"
+run_step "16" "cross-repo uncommitted audit"  "scripts/checks/cross_repo_uncommitted_audit.py"
 
 # ============================================================
 # Summary
