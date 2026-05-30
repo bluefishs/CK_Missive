@@ -165,6 +165,18 @@ class MemoryWikiMetrics:
             "L4x family lessons 數 (跨檔 SSOT 治理失效反覆，元覆盤揭發 5+ 案 family)",
             registry=reg,
         )
+        # v6.12 #3 補完 (2026-05-30 下午): wiki 雙指標 export 至 Prometheus
+        # 避免「daily_self_retrospective 內知道但 /metrics 看不到」的觀測閉環斷裂
+        self.governance_wiki_pages_total = Gauge(
+            "governance_wiki_pages_total",
+            "wiki/**/*.md 頁面總數 (LLM Wiki 容量規模)",
+            registry=reg,
+        )
+        self.governance_wiki_freshness_hours = Gauge(
+            "governance_wiki_freshness_hours",
+            "wiki/**/*.md 最新 mtime 距今 hours (silent stale 偵測，target: ≤72h)",
+            registry=reg,
+        )
 
     def refresh_from_disk(self, wiki_memory_dir: Path) -> None:
         """讀 wiki/memory/* 當下檔數更新 gauges。"""
@@ -395,10 +407,26 @@ class MemoryWikiMetrics:
                      if re.match(r"L(4\d|5\d)_", f.name)]
         self.governance_lessons_l4x_family.set(len(l4x_files))
 
+        # ── Wiki 雙指標 (v6.12 #3 補完 2026-05-30 下午) ──
+        # wiki_memory_dir = wiki/memory → parent = wiki/
+        wiki_dir = wiki_memory_dir.parent
+        if wiki_dir.exists():
+            wiki_pages = list(wiki_dir.rglob("*.md"))
+            wiki_count = len(wiki_pages)
+            self.governance_wiki_pages_total.set(wiki_count)
+            if wiki_pages:
+                latest_wiki_mtime = max(p.stat().st_mtime for p in wiki_pages)
+                wiki_hours = (datetime.now().timestamp() - latest_wiki_mtime) / 3600
+                self.governance_wiki_freshness_hours.set(round(wiki_hours, 1))
+        else:
+            wiki_count = 0
+            wiki_hours = -1
+
         # debug log 確認真實 set 值
         logger.info(
             f"governance metrics set: lessons_total={len(all_files)}, "
-            f"l4x={len(l4x_files)}, reports_dir_exists={(wiki_memory_dir / 'pipeline-reports').exists()}"
+            f"l4x={len(l4x_files)}, wiki_pages={wiki_count}, "
+            f"reports_dir_exists={(wiki_memory_dir / 'pipeline-reports').exists()}"
         )
 
     def _refresh_provider_fidelity(self, wiki_memory_dir: Path) -> None:

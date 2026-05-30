@@ -44,18 +44,57 @@ REPORTS_DIR = WIKI_MEMORY / "self-retrospective-reports"
 BASELINE_FILE = WIKI_MEMORY / "self_retrospective_baseline.json"
 
 
+_METRICS_CACHE: dict = {"text": None, "ok": None, "err": None}
+
+
+def _fetch_metrics_text() -> tuple[str | None, str | None]:
+    """單次 fetch /metrics，retry 2 次（避 backend restart 瞬間誤判）。
+    回 (text, error_str) — 任一為 None。"""
+    import urllib.request
+    last_err = None
+    for attempt in (1, 2, 3):
+        try:
+            with urllib.request.urlopen(
+                "http://localhost:8001/metrics", timeout=10
+            ) as r:
+                return r.read().decode("utf-8", errors="ignore"), None
+        except Exception as e:
+            last_err = f"{type(e).__name__}: {e}"
+            if attempt < 3:
+                import time as _t
+                _t.sleep(2)
+    return None, last_err
+
+
 def metric(name: str) -> float:
-    """從 /metrics 抓單一 metric 值（簡單 parser）"""
-    try:
-        import urllib.request
-        with urllib.request.urlopen("http://localhost:8001/metrics", timeout=5) as r:
-            text = r.read().decode("utf-8", errors="ignore")
-        for line in text.splitlines():
-            if line.startswith(name + " "):
+    """從 /metrics 抓單一 metric 值（簡單 parser）。
+    v6.12 補完：cache 單次 fetch + retry，避 backend restart 瞬間 silent timeout。
+    """
+    if _METRICS_CACHE["text"] is None and _METRICS_CACHE["ok"] is None:
+        text, err = _fetch_metrics_text()
+        _METRICS_CACHE["text"] = text
+        _METRICS_CACHE["ok"] = text is not None
+        _METRICS_CACHE["err"] = err
+    text = _METRICS_CACHE["text"]
+    if not text:
+        return -1.0
+    for line in text.splitlines():
+        if line.startswith(name + " "):
+            try:
                 return float(line.split()[-1])
-    except Exception:
-        pass
+            except (ValueError, IndexError):
+                return -1.0
     return -1.0
+
+
+def metric_endpoint_health() -> dict:
+    """報告 /metrics endpoint 是否可達 — 避免誤把 endpoint down 當 self fitness 問題"""
+    if _METRICS_CACHE["ok"] is None:
+        _fetch_metrics_text()  # trigger 一次 cache
+    return {
+        "reachable": bool(_METRICS_CACHE["ok"]),
+        "error": _METRICS_CACHE["err"],
+    }
 
 
 # =============================================================
@@ -371,7 +410,15 @@ def main(update_baseline: bool = False) -> int:
     print(f"=== Daily Self-Retrospective ({date.today().isoformat()}) ===")
     print()
 
+    # v6.12 補完: 先驗 /metrics endpoint 可達，避誤判 backend down 為 self fitness 問題
+    endpoint = metric_endpoint_health()
+    if not endpoint["reachable"]:
+        print(f"⚠ /metrics endpoint 不可達: {endpoint['error']}")
+        print("  → KG / Memory / Governance metrics 將顯示 -1.0 (非真實 RED)")
+        print()
+
     report = {
+        "metric_endpoint": endpoint,
         "adr": check_adr_alignment(),
         "sop": check_sop_compliance(),
         "core_services": check_core_services_alive(),
