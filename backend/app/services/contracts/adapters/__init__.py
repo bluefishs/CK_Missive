@@ -1,19 +1,19 @@
-"""Port 預設實作（Hexagonal Architecture / Ports & Adapters）— v6.10 P1
+"""Port 預設實作 — v6.12 B 方案收口 (2026-05-30)
 
-匯總出口（4/4 完成 — 2026-05-18）：
-- DefaultRLSAdapter       (rls_default.py)
-- DefaultAuditAdapter     (audit_default.py)
-- DefaultMessagingAdapter (messaging_default.py)
-- DefaultCacheAdapter     (cache_default.py)
+v6.10 P1 原 4 adapter，v6.12 B 方案 audit/cache 0 caller 廢棄。
+
+保留 (2 active)：
+- DefaultRLSAdapter       (calendar/notification repository 2 production caller)
+- DefaultMessagingAdapter (IntegrationFacade 用)
+
+廢棄 (2026-05-30 移除)：
+- DefaultAuditAdapter (audit mixin 直用)
+- DefaultCacheAdapter (Redis 直用)
 """
 from app.services.contracts.adapters.rls_default import DefaultRLSAdapter
-from app.services.contracts.adapters.audit_default import DefaultAuditAdapter
 from app.services.contracts.adapters.messaging_default import DefaultMessagingAdapter
-from app.services.contracts.adapters.cache_default import DefaultCacheAdapter
 
 __all__ = [
     "DefaultRLSAdapter",
-    "DefaultAuditAdapter",
     "DefaultMessagingAdapter",
-    "DefaultCacheAdapter",
 ]
