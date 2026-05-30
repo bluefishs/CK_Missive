@@ -1542,6 +1542,35 @@ async def daily_self_retrospective_job():
         logger.warning("Daily Self-Retrospective LINE push 失敗: %s", e)
 
 
+@tracked_job("governance_dashboard_regen")
+async def governance_dashboard_regen_job():
+    """v6.12 解 owner「每次詢問都有缺漏」meta 問題
+
+    每日 06:00 regenerate docs/architecture/GOVERNANCE_INTEGRATED_DASHBOARD.md
+    整合 5 處 171+ 治理文件成 single SSOT view
+    Session 啟動讀此檔取完整快照，無需重新 grep
+    """
+    import os
+    from pathlib import Path
+
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    script = project_root / "scripts" / "checks" / "generate_governance_dashboard.py"
+    if not script.exists():
+        logger.warning("governance_dashboard_regen: script not found at %s", script)
+        return
+
+    rc, out, err = await _run_script_async(
+        ["python", str(script)],
+        cwd=str(project_root), timeout=120, job_name="governance_dashboard_regen",
+    )
+
+    if rc != 0:
+        logger.warning("governance_dashboard_regen rc=%d err=%s", rc, err[-200:] if err else "")
+        return
+
+    logger.info("governance_dashboard_regen: %s", out[-200:] if out else "ok")
+
+
 @tracked_job("fitness_daily")
 async def fitness_daily_job():
     """v6.12 治理進化 #2 — Tier 1 Daily 6 critical fitness step (~1 min)
@@ -2808,6 +2837,21 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 Daily Self-Retrospective: 每日 06:30 執行 (v6.12 #4)")
+
+    # v6.12 解 owner「每次詢問都有缺漏」meta 問題
+    # 每日 06:00 regenerate GOVERNANCE_INTEGRATED_DASHBOARD.md
+    # 整合 5 處 171+ 治理文件 (ADR/lesson/SOP/fitness/architecture) 成 single SSOT
+    # Session 啟動讀此檔取完整快照無需重新 grep
+    scheduler.add_job(
+        governance_dashboard_regen_job,
+        trigger=CronTrigger(hour=6, minute=0),
+        id='governance_dashboard_regen',
+        name='Governance Dashboard Regen (每日 06:00, 整合 5 處 SSOT)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 Governance Dashboard Regen: 每日 06:00 執行")
 
     # L51.7 (2026-05-30) Crystal review overdue alarm — 每週日 09:30
     # 防 proposals → crystals = 0 「學習閉環死」反模式
