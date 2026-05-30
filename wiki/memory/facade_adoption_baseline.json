@@ -1,0 +1,20 @@
+{
+  "date": "2026-05-30",
+  "counts": {
+    "CalendarFacade": 0,
+    "ContractFacade": 0,
+    "DocumentFacade": 0,
+    "IntegrationFacade": 2,
+    "NotificationFacade": 0,
+    "AgencyFacade": 0,
+    "VendorFacade": 0,
+    "AIFacade": 0,
+    "MemoryFacade": 3,
+    "ERPFacade": 0,
+    "WikiFacade": 1,
+    "AuditFacade": 0,
+    "TenderFacade": 0
+  },
+  "total": 6,
+  "avg": 0.46153846153846156
+}
