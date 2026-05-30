@@ -1321,6 +1321,61 @@ def _kunge_quick_actions(tab: str = "memory") -> str:
     )
 
 
+@tracked_job("daily_self_retrospective")
+async def daily_self_retrospective_job():
+    """v6.12 #4 升級版 — 每日 06:30 自我覆盤 7 面向 + LINE 推 owner
+
+    Owner 反饋:
+    > 是否能建構每日自我覆盤機制 以及核心服務議題
+    > 避免規範現況落差 實現自我進化檢核 非重複錯誤
+    > 已建構程式圖譜 llmwiki 等好像都無法自動化與覆盤
+
+    對齊元覆盤 §4 進化原則 #4 (從「季初強制」升級「daily 自我覆盤」)
+    """
+    import os
+    from pathlib import Path
+
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    script = project_root / "scripts" / "checks" / "daily_self_retrospective.py"
+    if not script.exists():
+        logger.warning("daily_self_retrospective: script not found at %s", script)
+        return
+
+    logger.info("開始執行 Daily Self-Retrospective")
+    rc, out, err = await _run_script_async(
+        ["python", str(script)],
+        cwd=str(project_root), timeout=300, job_name="daily_self_retrospective",
+    )
+
+    if rc != 0:
+        logger.warning("daily_self_retrospective rc=%d", rc)
+        return
+
+    # 取 stdout 中 markdown 報告，推 LINE
+    try:
+        # 從 stdout 取 # Daily 之後內容（過濾 echo 行）
+        report_md = ""
+        in_report = False
+        for line in (out or "").splitlines():
+            if line.startswith("# Daily Self-Retrospective"):
+                in_report = True
+            if in_report:
+                report_md += line + "\n"
+
+        if report_md:
+            body = (
+                "🪞 Daily Self-Retrospective\n"
+                f"\n"
+                f"{report_md[:1800]}"  # LINE 訊息限制
+                + _kunge_quick_actions("ops")
+            )
+            from app.services.contracts.facades.integration import IntegrationFacade
+            await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+            logger.info("Daily Self-Retrospective LINE 推送完成")
+    except Exception as e:
+        logger.warning("Daily Self-Retrospective LINE push 失敗: %s", e)
+
+
 @tracked_job("fitness_daily")
 async def fitness_daily_job():
     """v6.12 治理進化 #2 — Tier 1 Daily 6 critical fitness step (~1 min)
@@ -2560,6 +2615,20 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 Fitness Tier 1 Daily: 每日 02:00 執行 (v6.12 #2)")
+
+    # v6.12 治理進化 #4 升級版 (2026-05-30) Daily Self-Retrospective — 每日 06:30
+    # 7 面向覆盤: ADR/SOP/核心服務/L4x family/學習閉環/觀測閉環/已建構資產
+    # Owner 反饋: 「已建構程式圖譜 llmwiki 等好像都無法自動化與覆盤」
+    scheduler.add_job(
+        daily_self_retrospective_job,
+        trigger=CronTrigger(hour=6, minute=30),
+        id='daily_self_retrospective',
+        name='Daily Self-Retrospective (每日 06:30, 7 面向)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 Daily Self-Retrospective: 每日 06:30 執行 (v6.12 #4)")
 
     # L51.7 (2026-05-30) Crystal review overdue alarm — 每週日 09:30
     # 防 proposals → crystals = 0 「學習閉環死」反模式

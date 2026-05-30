@@ -1,0 +1,60 @@
+{
+  "adr": {
+    "status": "GREEN",
+    "active_count": 5,
+    "stale_90d": 0,
+    "target": "active ≤25, stale ≤5"
+  },
+  "sop": {
+    "status": "GREEN",
+    "fail_count": 0,
+    "audits_run": 2
+  },
+  "core_services": {
+    "shadow_baseline_rows_24h": -1.0,
+    "messaging_push_line_success": 0.0,
+    "v7_channel_diversity": 0.0,
+    "v7_soul_drift": 0.0,
+    "memory_diary_days": 38.0,
+    "memory_crystals": 0.0,
+    "memory_proposals_pending": 4.0,
+    "status": "INFO"
+  },
+  "l4x_family": {
+    "status": "RED",
+    "l4x_count": 3,
+    "baseline": 0,
+    "delta_since_baseline": 3,
+    "latest_5": [
+      "L41_jwt_secret_drift_silent_fail.md",
+      "L49_container_host_dependency_family.md",
+      "L50_multi_source_identifier_link.md"
+    ]
+  },
+  "learning_loop": {
+    "status": "RED",
+    "patterns": 9,
+    "proposals_pending": 4,
+    "crystals_applied": 0,
+    "evolutions": 5,
+    "flow_rate_pct": 0.0,
+    "target": "flow ≥30%"
+  },
+  "observability": {
+    "pipeline_red_consecutive_days": 10.0,
+    "report_freshness_hours": 0.6,
+    "lessons_total": 19.0,
+    "messaging_push_24h": 0.0,
+    "status": "INFO"
+  },
+  "built_assets": {
+    "status": "YELLOW",
+    "kg_entities_total": -1.0,
+    "wiki_pages_total": 262,
+    "wiki_freshness_hours": 78.5,
+    "skills_count": 108,
+    "issues": [
+      "KG metric 不可達"
+    ]
+  }
+}
