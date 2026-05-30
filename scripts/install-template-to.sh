@@ -28,17 +28,38 @@ set -euo pipefail
 TARGET=""
 DRY_RUN=0
 INCLUDE="fitness,guards,adr,obs,playbook,standards,pipeline,capability"
+TIER=""
+
+# v6.12 (2026-05-30) L58 立法配套 — --tier flag 分級套用
+# L1 universal:   普適範本 (33%, paths/container/SSOT) — 推薦所有 CK 系列
+# L2 recommended: 中型 repo (10%, fitness daily/alignment) — opt-in
+# L3 full:        CK_Missive 特定 (57%, Facade B/Hermes/daily retro) — 僅 monorepo
+TIER_UNIVERSAL="cross-file-ssot"
+TIER_RECOMMENDED="cross-file-ssot,guards"
+TIER_FULL="fitness,guards,adr,obs,playbook,standards,pipeline,capability,governance-dashboard,cross-file-ssot,l4x-lessons,fitness-tier"
 
 for arg in "$@"; do
     case $arg in
         --dry-run) DRY_RUN=1 ;;
         --include=*) INCLUDE="${arg#--include=}" ;;
+        --tier=universal) TIER="universal"; INCLUDE="$TIER_UNIVERSAL" ;;
+        --tier=recommended) TIER="recommended"; INCLUDE="$TIER_RECOMMENDED" ;;
+        --tier=full) TIER="full"; INCLUDE="$TIER_FULL" ;;
         --help|-h)
             sed -n '2,18p' "$0"; exit 0 ;;
         *)
             if [ -z "$TARGET" ]; then TARGET="$arg"; fi ;;
     esac
 done
+
+# 讀目標 repo .template-policy.yml opt-out (L58 配套)
+read_template_policy() {
+    local target_root="$1"
+    local policy_file="$target_root/.template-policy.yml"
+    if [ ! -f "$policy_file" ]; then return; fi
+    # 簡單 YAML 解析：抓 template_excluded list (兼容單行 - item)
+    grep -E "^\s*-\s+" "$policy_file" 2>/dev/null | sed 's/^\s*-\s*//' | tr '\n' ' '
+}
 
 if [ -z "$TARGET" ]; then
     echo "ERROR: 缺 target repo 路徑" >&2
@@ -54,11 +75,19 @@ fi
 TARGET="$(cd "$TARGET" && pwd)"
 SOURCE="$(cd "$(dirname "$0")/.." && pwd)"
 
+EXCLUDED=$(read_template_policy "$TARGET")
+
 echo "============================================================"
 echo "CK_Missive 範本套用工具"
 echo "  Source: $SOURCE"
 echo "  Target: $TARGET"
+if [ -n "$TIER" ]; then
+    echo "  Tier:    $TIER (v6.12 L58 配套)"
+fi
 echo "  Include: $INCLUDE"
+if [ -n "$EXCLUDED" ]; then
+    echo "  Excluded (.template-policy.yml): $EXCLUDED"
+fi
 echo "  Mode:    $([ $DRY_RUN -eq 1 ] && echo 'DRY RUN' || echo 'APPLY')"
 echo "============================================================"
 
@@ -71,6 +100,12 @@ copy_file() {
     fi
     if [ -f "$dst" ]; then
         echo "  [EXISTS] $dst"
+        return
+    fi
+    # v6.12 L58 配套: 檢查 .template-policy.yml excluded
+    local basename=$(basename "$src")
+    if [ -n "$EXCLUDED" ] && echo "$EXCLUDED" | grep -qF "$basename"; then
+        echo "  [POLICY-EXCLUDED] $basename (skipped by .template-policy.yml)"
         return
     fi
     if [ $DRY_RUN -eq 1 ]; then
