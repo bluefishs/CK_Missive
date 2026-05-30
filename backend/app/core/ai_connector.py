@@ -618,6 +618,11 @@ class AIConnector(AIConnectorManagementMixin):
                 "num_predict": max_tokens,
             },
             "stream": False,
+            # v6.12 (2026-05-30) P0 修法: keep_alive 24h 避免 cold start
+            # 原: 預設 5min unload → 下次 cold start 38-71s
+            # 改: 24h keep loaded → 維持暖機 < 10s
+            # 對齊 ADR-0030 GO 條件 5 (p95 < 8s) — Hermes baseline 真因 #5
+            "keep_alive": os.getenv("OLLAMA_KEEP_ALIVE", "24h"),
         }
 
         # Qwen3/DeepSeek-R1 等推理模型：禁用 thinking mode
@@ -876,6 +881,8 @@ class AIConnector(AIConnectorManagementMixin):
                 "num_predict": max_tokens,
             },
             "stream": True,
+            # v6.12 P0 修法: keep_alive 24h 避免 cold start (對齊 _ollama_completion_inner)
+            "keep_alive": os.getenv("OLLAMA_KEEP_ALIVE", "24h"),
         }
 
         # 推理模型：禁用 thinking mode
