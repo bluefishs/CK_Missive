@@ -192,8 +192,24 @@ class MemoryWikiMetrics:
         cutoff = date.today() - timedelta(days=7)
 
         # ── channel diversity (diary 7d) ──
+        # L51.7 (2026-05-30) 修法：從 messaging_push_total Counter 取真實 push 過的 channel
+        # 原邏輯掃 diary 內「session.*line:」pattern — LINE push 不寫 diary → 永遠 0
+        # 新邏輯：messaging_push_total{result="success", channel=X} > 0 即視為 channel 活躍
+        # 同時保留 diary session 訊號（web/mcp/hermes 等沒走 messaging_push 的通道）
         diary_dir = wiki_memory_dir / "diary"
         channels: set = set()
+        # Source 1: messaging Prometheus counter (LINE/Telegram/Discord)
+        try:
+            from app.services.contracts.adapters.messaging_default import MESSAGING_PUSH_TOTAL
+            if MESSAGING_PUSH_TOTAL is not None:
+                for sample in MESSAGING_PUSH_TOTAL.collect()[0].samples:
+                    if sample.name == "messaging_push_total" and \
+                       sample.labels.get("result") == "success" and \
+                       sample.value > 0:
+                        channels.add(sample.labels.get("channel", ""))
+        except Exception:
+            pass
+        # Source 2: diary session 訊號（補充 web/mcp/hermes 等通道）
         if diary_dir.exists():
             for f in diary_dir.glob("20*.md"):
                 try:
@@ -208,6 +224,8 @@ class MemoryWikiMetrics:
                 for ch in ("line", "telegram", "web", "discord", "mcp", "hermes"):
                     if re.search(rf"session.*{ch}:", text):
                         channels.add(ch)
+        # 過濾空字串
+        channels.discard("")
         self.v7_channel_diversity.set(len(channels))
 
         # ── reference density (diary entries with entity tag) ──
@@ -260,17 +278,35 @@ class MemoryWikiMetrics:
             self.v7_ref_density_critique.set(round(pct_crit, 1))
 
         # ── SOUL drift (Missive vs AaaP) ──
-        # wiki_memory_dir 是 wiki/memory/，往上走兩層到 project root
+        # L51.7 (2026-05-30) 修法：container 內找不到 CK_AaaP path → 改讀 host 寫的快照檔
+        # 原邏輯 backend container 沒掛 ../CK_AaaP/ → silent set 0 (但真實 drift_check 可能 SEVERE)
+        # 新邏輯：
+        #   1. 嘗試本地路徑（host 直接跑 backend 場景）
+        #   2. 嘗試讀 wiki/memory/soul_drift_snapshot.json (host 端 fitness 寫的)
+        #   3. 都找不到 → 設 -1 (sentinel, alertmanager rule 應排除 -1)
         project_root = wiki_memory_dir.parent.parent
         soul_a = project_root / "wiki" / "SOUL.md"
         soul_b = project_root.parent / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
+        drift_value = None
         if soul_a.exists() and soul_b.exists():
             try:
                 a_lines = len(soul_a.read_text(encoding="utf-8").splitlines())
                 b_lines = len(soul_b.read_text(encoding="utf-8").splitlines())
-                self.v7_soul_drift.set(abs(a_lines - b_lines))
+                drift_value = abs(a_lines - b_lines)
             except Exception:
                 pass
+        # Fallback: 讀 host 端 fitness 寫的 snapshot
+        if drift_value is None:
+            snapshot = wiki_memory_dir / "soul_drift_snapshot.json"
+            if snapshot.exists():
+                try:
+                    import json as _json
+                    data = _json.loads(snapshot.read_text(encoding="utf-8"))
+                    drift_value = int(data.get("drift_lines", -1))
+                except Exception:
+                    pass
+        # 設值（找不到 → -1 sentinel）
+        self.v7_soul_drift.set(drift_value if drift_value is not None else -1)
 
         # ── M4 provider fidelity gap (從 fidelity_log.jsonl 讀) ──
         try:

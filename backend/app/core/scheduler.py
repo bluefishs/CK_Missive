@@ -1306,6 +1306,81 @@ async def tender_dashboard_warm_job():
         logger.error("標案儀表板 cache 預熱失敗: %s", e, exc_info=True)
 
 
+@tracked_job("crystal_review_overdue")
+async def crystal_review_overdue_alarm_job():
+    """L51.7 (2026-05-30) crystallization workflow watchdog
+
+    每週日 09:30 掃 wiki/memory/proposals/，若有 status=pending 超過 N 天
+    主動推 LINE 提示 owner approve（避「proposals → 0 crystals」死局）。
+
+    L51.7 覆盤揭發: 4 proposals 累積 1+ 月無 owner action，crystallization=0
+    → 學習閉環死。weekly alarm 強迫 forcing function。
+    """
+    import os
+    from datetime import datetime, timedelta
+    from pathlib import Path
+
+    logger.info("開始執行 crystal_review_overdue alarm")
+    try:
+        proposals_dir = Path(os.getenv("CK_WIKI_DIR", "/app/wiki")) / "memory" / "proposals"
+        if not proposals_dir.exists():
+            logger.info("No proposals directory, skip")
+            return
+
+        overdue_days_threshold = 7  # >7d pending 即提示
+        now = datetime.now()
+        cutoff = now - timedelta(days=overdue_days_threshold)
+        overdue_list = []
+
+        for f in proposals_dir.glob("*.md"):
+            try:
+                text = f.read_text(encoding="utf-8")
+                # 取 frontmatter 內 proposed_at
+                import re as _re
+                m = _re.search(r"^proposed_at:\s*['\"]?(.+?)['\"]?\s*$", text, _re.MULTILINE)
+                status_m = _re.search(r"^status:\s*pending", text, _re.MULTILINE)
+                if not (m and status_m):
+                    continue
+                proposed_at_str = m.group(1).split("+")[0]  # 去 tz suffix
+                try:
+                    proposed_at = datetime.fromisoformat(proposed_at_str)
+                except Exception:
+                    continue
+                if proposed_at < cutoff:
+                    age_days = (now - proposed_at).days
+                    overdue_list.append((f.name, age_days))
+            except Exception:
+                continue
+
+        if not overdue_list:
+            logger.info(f"crystal review: 0 overdue (threshold={overdue_days_threshold}d)")
+            return
+
+        overdue_list.sort(key=lambda x: x[1], reverse=True)
+        lines = [
+            f"🔔 Crystallization 提示 ({len(overdue_list)} proposals overdue ≥{overdue_days_threshold}d)",
+            "",
+            f"等 owner 看 1 次即可啟動學習閉環:",
+            "",
+        ]
+        for fname, age in overdue_list[:5]:
+            lines.append(f"  • {fname[:40]} ({age}d ago)")
+        lines.extend([
+            "",
+            "操作: 進 /kunge/memory 看或直接編輯",
+            "wiki/memory/proposals/*.md",
+            "",
+            "approve → 寫 SOUL/intent_rules",
+            "delete → 拒絕",
+        ])
+        body = "\n".join(lines)
+        from app.services.contracts.facades.integration import IntegrationFacade
+        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+        logger.info(f"crystal review alarm pushed: {len(overdue_list)} overdue")
+    except Exception as e:
+        logger.error("crystal_review_overdue alarm 失敗: %s", e, exc_info=True)
+
+
 @tracked_job("line_weekly_pulse")
 async def line_weekly_pulse_job():
     """LINE 通報活體確認 — 每週日 10:00 推「pulse」訊息 (L51 防 silent fail 反覆)
@@ -2166,6 +2241,19 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 LINE weekly pulse: 每週日 10:00 執行 (L51)")
+
+    # L51.7 (2026-05-30) Crystal review overdue alarm — 每週日 09:30
+    # 防 proposals → crystals = 0 「學習閉環死」反模式
+    scheduler.add_job(
+        crystal_review_overdue_alarm_job,
+        trigger=CronTrigger(day_of_week='sun', hour=9, minute=30),
+        id='crystal_review_overdue',
+        name='Crystal Review Overdue Alarm (每週日 09:30)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 Crystal Review Overdue Alarm: 每週日 09:30 執行 (L51.7)")
 
     # Embedding 預熱 — 每日 04:45 為高頻實體預載向量 (在 KG 回填 04:30 之後)
     scheduler.add_job(
