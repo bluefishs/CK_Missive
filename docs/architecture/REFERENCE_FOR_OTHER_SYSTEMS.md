@@ -225,6 +225,41 @@ ADR-0036 範例：
 
 ---
 
+## 下游反治理範本（L61 補強）
+
+PileMgmt R18（commit `2a51d57b5`）是「下游反治理」第一個真活案例 — 給其他 CK 系列參考。
+
+### R18 設計核心
+
+```
+test(governance): R18 CK_Missive 跨 repo 污染守門 + fork-contract 邊界文件化
+
+兩層守門：
+  L1 檔名/目錄禁帶 (soul_loader/wiki_compiler/run_fitness/wiki/)
+  L2 內容指紋掃描 (canonical_entities/ck_missive/坤哥 等高特異性 token)
+
+避誤報：不掃裸字 missive (CLAUDE.md 合法跨 repo 引用)
+CI enforce: .githooks/pre-push 自動跑
+```
+
+### 5 原則決策框架
+
+子專案決定是否建反治理：
+
+1. **評估污染風險** — 上游強推 + 業務不同 → 該建
+2. **雙層守門** — 檔名 + 內容指紋
+3. **避誤報** — 僅高特異性 token，泛名不列黑名單
+4. **文件化** — fork-contract.md 標明邊界
+5. **CI enforce** — `.githooks/pre-push` 自動
+
+### 詳見
+
+- `wiki/memory/lessons/universal/L61_downstream_reverse_governance.md`
+- PileMgmt commit `2a51d57b5`
+- `.template-policy.yml.example`
+
+---
+
 ## 跨 repo drift 偵測（待做）
 
 下批新增 `scripts/checks/cross_repo_template_drift_audit.py`：

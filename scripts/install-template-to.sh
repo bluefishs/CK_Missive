@@ -78,7 +78,7 @@ SOURCE="$(cd "$(dirname "$0")/.." && pwd)"
 EXCLUDED=$(read_template_policy "$TARGET")
 
 echo "============================================================"
-echo "CK_Missive 範本套用工具"
+echo "CK_Missive 範本套用工具 (v6.12 L58/L60/L61 配套)"
 echo "  Source: $SOURCE"
 echo "  Target: $TARGET"
 if [ -n "$TIER" ]; then
@@ -90,6 +90,31 @@ if [ -n "$EXCLUDED" ]; then
 fi
 echo "  Mode:    $([ $DRY_RUN -eq 1 ] && echo 'DRY RUN' || echo 'APPLY')"
 echo "============================================================"
+
+# v6.12 L61 配套 (2026-05-31) — Apply mode 強制 dry-run 警示
+# 對齊 PileMgmt R18 「覆盤後建防線」教訓:
+# 「2026-05-30 清除 26 個誤入 PileMgmt 的 Missive 資產」
+# 修法: APPLY 前先 dry-run 預覽 + 30 秒倒數 (--force 可跳過)
+if [ $DRY_RUN -eq 0 ] && [ "${FORCE:-0}" != "1" ]; then
+    echo ""
+    echo "⚠️  L61 配套警示 (對齊 PileMgmt R18 教訓):"
+    echo "    1. 套用前請先跑 --dry-run 預覽影響範圍"
+    echo "    2. 確認 .template-policy.yml 已正確設定 opt-out"
+    echo "    3. 套用後請進 target repo 跑 git status 檢視"
+    echo "    4. 子專案 owner 有權拒絕 L3 specific 範本 (對齊 L58)"
+    echo "    5. 跳過警示請設 FORCE=1 環境變數"
+    echo ""
+    echo "    參考: docs/architecture/REFERENCE_FOR_OTHER_SYSTEMS.md"
+    echo "         wiki/memory/lessons/universal/L61_*.md (下游反治理)"
+    echo ""
+    echo "  繼續執行? (Ctrl+C 取消，10 秒後自動執行)"
+    for i in 10 9 8 7 6 5 4 3 2 1; do
+        printf "  %d... " "$i"
+        sleep 1
+    done
+    echo ""
+    echo "============================================================"
+fi
 
 # === 工具函數 ===
 copy_file() {
