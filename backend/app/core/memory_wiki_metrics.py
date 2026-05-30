@@ -142,6 +142,30 @@ class MemoryWikiMetrics:
             registry=reg,
         )
 
+        # v6.12 #3 治理本身 metric 化 (2026-05-30, 對齊元覆盤 §4 進化原則 #3)
+        # 4 個 governance_* gauge — 治理本身真活度監測
+        self.governance_pipeline_red_days = Gauge(
+            "governance_pipeline_red_consecutive_days",
+            "Optimization Pipeline 連續 RED 天數 (掃 wiki/memory/pipeline-reports/) "
+            "(target: ≤3)",
+            registry=reg,
+        )
+        self.governance_fitness_report_freshness = Gauge(
+            "governance_fitness_report_freshness_hours",
+            "Hours since last pipeline report write (silent dormant 偵測，target: ≤48h)",
+            registry=reg,
+        )
+        self.governance_lessons_total = Gauge(
+            "governance_lessons_total",
+            "wiki/memory/lessons/*.md 總數 (lesson 累積治理觀察)",
+            registry=reg,
+        )
+        self.governance_lessons_l4x_family = Gauge(
+            "governance_lessons_l4x_family_count",
+            "L4x family lessons 數 (跨檔 SSOT 治理失效反覆，元覆盤揭發 5+ 案 family)",
+            registry=reg,
+        )
+
     def refresh_from_disk(self, wiki_memory_dir: Path) -> None:
         """讀 wiki/memory/* 當下檔數更新 gauges。"""
         def _count(subdir: str, pattern: str = "*.md") -> int:
@@ -313,6 +337,69 @@ class MemoryWikiMetrics:
             self._refresh_provider_fidelity(wiki_memory_dir)
         except Exception:
             pass
+
+        # ── v6.12 #3 治理本身 metric (元覆盤 §4 進化原則 #3) ──
+        try:
+            self._refresh_governance_metrics(wiki_memory_dir)
+        except Exception as _e:
+            # L51 教訓: 不可 silent failure，必含 exc_info 才能找根因
+            logger.error(f"governance metrics refresh failed: {_e}", exc_info=True)
+
+    def _refresh_governance_metrics(self, wiki_memory_dir: Path) -> None:
+        """v6.12 #3 治理本身 metric 計算
+
+        4 個 governance_* gauge:
+        - pipeline_red_consecutive_days
+        - fitness_report_freshness_hours
+        - lessons_total
+        - lessons_l4x_family_count
+        """
+        import re  # local import (module 內也有但 silent NameError 揭發 method-local 必要)
+        from datetime import datetime
+        # ── Pipeline 連續 RED 天數 ──
+        reports_dir = wiki_memory_dir / "pipeline-reports"
+        if reports_dir.exists():
+            md_files = sorted(reports_dir.glob("20*.md"), reverse=True)
+            consecutive_red = 0
+            latest_mtime = None
+            for f in md_files:
+                if latest_mtime is None:
+                    latest_mtime = f.stat().st_mtime
+                try:
+                    text = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+                if re.search(r"Overall.*(RED|ERROR)", text, re.IGNORECASE):
+                    consecutive_red += 1
+                else:
+                    break
+            self.governance_pipeline_red_days.set(consecutive_red)
+            # freshness: 最新 report 距今 hours
+            if latest_mtime:
+                hours_since = (datetime.now().timestamp() - latest_mtime) / 3600
+                self.governance_fitness_report_freshness.set(round(hours_since, 1))
+
+        # ── Lessons 總數 (lessons + failures 雙源) ──
+        # lessons/ 是正式 lesson，failures/ 是 incident 累積，兩者都算 governance 知識
+        lessons_dir = wiki_memory_dir / "lessons"
+        failures_dir = wiki_memory_dir / "failures"
+        all_files: list = []
+        for d in (lessons_dir, failures_dir):
+            if d.exists():
+                all_files.extend(d.glob("*.md"))
+        self.governance_lessons_total.set(len(all_files))
+
+        # ── L4x family (跨檔 SSOT 治理失效反覆) ──
+        # 掃 lessons + failures 內 filename 含 L4x_ 或 L5\d_ pattern (L41-L51 family)
+        l4x_files = [f for f in all_files
+                     if re.match(r"L(4\d|5\d)_", f.name)]
+        self.governance_lessons_l4x_family.set(len(l4x_files))
+
+        # debug log 確認真實 set 值
+        logger.info(
+            f"governance metrics set: lessons_total={len(all_files)}, "
+            f"l4x={len(l4x_files)}, reports_dir_exists={(wiki_memory_dir / 'pipeline-reports').exists()}"
+        )
 
     def _refresh_provider_fidelity(self, wiki_memory_dir: Path) -> None:
         """M4 (5/04 補完)：讀 wiki/memory/evolutions/fidelity_log.jsonl
