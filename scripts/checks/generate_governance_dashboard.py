@@ -40,12 +40,15 @@ def fetch_metrics() -> dict[str, float]:
         if any(line.startswith(p) for p in (
             "governance_", "scheduler_job_success_total",
             "kg_entities_total", "wiki_pages_total",
-            "v7_", "shadow_baseline_rows_total",
+            "v7_", "shadow_baseline_",
             "memory_diary_days_total", "memory_crystals_total",
         )):
             try:
-                key = line.split("{")[0].split(" ")[0]
-                val = float(line.rsplit(" ", 1)[1])
+                # v6.12 修法 (2026-05-30): 完整 metric key 保留 labels
+                # 用空白分隔 metric_with_labels 與 value
+                parts = line.rsplit(" ", 1)
+                key = parts[0]  # 含 labels: shadow_baseline_latency_p95_ms{provider="gemma-local"}
+                val = float(parts[1])
                 if key not in out:
                     out[key] = val
             except (ValueError, IndexError):
@@ -293,6 +296,43 @@ def render() -> str:
     else:
         for i in issues:
             a(f"- {i}")
+    a("")
+
+    # ── 8.5 Hermes Baseline 5 條件即時 (v6.12 P3.15 整合) ──
+    a("## 8.5 Hermes Baseline GO/NO-GO 5 條件 (Sprint 3.P3.15)")
+    a("")
+    a("| # | 條件 | 門檻 | 現況 | 達標 |")
+    a("|---|---|---|---|---|")
+    # baseline_rows 用簡單 key（有 {lookback_hours=...} label）
+    baseline_rows = next(
+        (v for k, v in metrics.items() if k.startswith("shadow_baseline_rows_total")),
+        0,
+    )
+    # p95 跨 provider 取 max（含 labeled keys）
+    p95_ms = max(
+        (v for k, v in metrics.items() if k.startswith("shadow_baseline_latency_p95_ms")),
+        default=0,
+    )
+    # success_ratio 取所有 provider 平均
+    success_vals = [v for k, v in metrics.items() if k.startswith("shadow_baseline_success_ratio")]
+    success = sum(success_vals) / len(success_vals) if success_vals else 0
+    err_rate = (1 - success) * 100 if success > 0 else 100
+    a(f"| 1 | baseline rows | ≥ 30 | {baseline_rows:.0f} | {'✅' if baseline_rows >= 30 else '❌'} |")
+    a(f"| 2 | dogfooding 連 7d | ≥ 7 days | 未追 | ⏳ |")
+    a(f"| 3 | soul fidelity | ≥ 70% | 未跑 | ⏳ |")
+    a(f"| 4 | error rate | < 5% | {err_rate:.1f}% | {'✅' if err_rate < 5 else '❌'} |")
+    a(f"| 5 | p95 latency | < 8s | {p95_ms/1000:.1f}s | {'✅' if p95_ms < 8000 else '❌'} |")
+    met = sum([
+        baseline_rows >= 30,
+        False,  # dogfooding TODO
+        False,  # fidelity TODO
+        err_rate < 5,
+        p95_ms < 8000,
+    ])
+    verdict = "✅ GO" if met == 5 else ("🟡 NEAR-GO" if met >= 3 else "🔴 NO-GO")
+    a(f"| **Summary** | — | — | **{met}/5** | **{verdict}** |")
+    a("")
+    a("詳見 `docs/architecture/HERMES_BASELINE_RESET_PLAN_20260530.md`")
     a("")
 
     # ── 9 跨 repo 範本漂移 (v6.12 step 65 整合) ──
