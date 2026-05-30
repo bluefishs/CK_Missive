@@ -128,6 +128,77 @@ doc = await facade.get_by_id(123)
 
 ---
 
+## 6. Owner 選 A+B 路線（2026-05-30 確認）
+
+收口 A+B 解讀：**A 全 12 facades 漸進切換 + B 優先 AuditFacade 起步**
+
+### 6.1 實作揭發的根本議題：facade method 不對應 caller
+
+實作 AuditFacade 切換時揭發：
+
+```python
+# AuditFacade signature (current)
+async def record_create(self, actor_id, entity_id, payload, entity_type)
+async def record_update(self, actor_id, entity_id, before, after, entity_type)
+
+# 但 caller 真實用法
+AuditService.log_auth_event(event_type=..., ip=..., success=...)
+AuditService.log_document_change(...)
+```
+
+→ **9/12 facade 0 importer 真因不是「沒人切」，是「facade method 不對應業務 caller 真實需求」**
+
+facade 是 v6.10 P1 設計時憑想像寫的，沒對齊既有 service 真實 API。
+
+### 6.2 真實 sprint 排程（v6.12 收口 A+B 路線）
+
+| Sprint | 任務 | 工作量 | 前置 |
+|---|---|---|---|
+| **A.1 (~1d)** | **facade redesign** — 對齊 caller 真實 API | ~1d | 必要前置！ |
+|   | 每個 facade 對應 service method 補齊 | | |
+|   | 例: AuditFacade 加 `log_auth_event()` `log_document_change()` 等 | | |
+| **A.2 (~2d)** | AuditFacade 切換 15 callers | ~2d | A.1 完成 |
+|   | 從 auth/* 開始 (8 callers) | | |
+|   | 再 documents/* (5 callers) | | |
+|   | 再 ai/document_ai (2 callers) | | |
+| **A.3 (~1d)** | DocumentFacade + NotificationFacade 切換 | ~1d | A.1 |
+| **A.4 (~0.5d)** | 其他 9 facades 漸進 | ~0.5d | A.1 |
+
+**總工作量**：~4.5 天（A.1 前置 1d + 切換 3.5d）
+
+### 6.3 v6.12 Sprint 排程提案
+
+| 週次 | 內容 |
+|---|---|
+| v6.12 W1 | A.1 facade redesign (~1d) |
+| v6.12 W1-2 | A.2 AuditFacade 切換 (~2d) |
+| v6.12 W2 | A.3 Document + Notification (~1d) |
+| v6.12 W2 | A.4 其他 facades (~0.5d) |
+| v6.12 W3 | 跑 fitness step 61 → 期望 GREEN (≥3 importer avg) |
+
+### 6.4 替代方案：選項 C（放棄 facade）
+
+如果 v6.12 工作量太大，可選 C：
+- 刪除 12 facades + 文件
+- 認列為 v6.10 P1 over-engineering
+- 後續所有跨 context 用直 import
+- 工作量：~0.5d（刪 doc + facade module）
+
+**取捨**：facade 抽象層真活 vs 業務開發效率（少 1 層 import）
+
+### 6.5 本批本可做但停的原因
+
+owner 指示「收口 A+B」實際工作量 ~4.5 天，無法 1h 內完成。本批僅：
+- 揭發 facade redesign 必要性（A.1 前置）
+- 提出明確 v6.12 sprint 排程
+- 不強寫切換 code（避免 facade method 不對應而 break）
+
+下次 sprint 啟動需 owner 確認:
+- 接受 ~4.5 天投入做 A+B 全收口
+- 或改選 C 放棄 facade 抽象層
+
+---
+
 ## 6. Refs
 
 - v6.10 P1 Phase B commits
