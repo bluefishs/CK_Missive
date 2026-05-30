@@ -247,7 +247,9 @@ services:
       # L51.7 Sprint 2.P1.8 (2026-05-30): mount scripts/ 給 synthetic_baseline / shadow_export 等 cron 跑
       # 揭發: PROJECT_ROOT=/ in container, synthetic_baseline_inject_job 找 /scripts/checks/synthetic-baseline-inject.py
       # 不存在 → silent return → shadow_baseline 24h n=0 → fitness step 58 RED
-      - ./scripts:/scripts:ro
+      # v6.12 (2026-05-30 PM): CK_PROJECT_ROOT=/app override 後 PROJECT_ROOT/scripts = /app/scripts
+      # 必須改 mount target 對齊（先前 /scripts 已無人讀取 → 同型 L43 跨檔 SSOT 漂移）
+      - ./scripts:/app/scripts:ro
     networks:
       ck_network: {}
     depends_on:

@@ -192,8 +192,12 @@ def main():
     parser.add_argument("--token", default="", help="X-Service-Token (reads MCP_SERVICE_TOKEN from .env if empty)")
     args = parser.parse_args()
 
-    # Auto-read token from .env if not provided
+    # Auto-read token: 1) CLI arg → 2) env var → 3) .env file
+    # v6.12 (2026-05-30): container 內 cwd=/app 沒 .env，但 env var 已注入 → 優先讀 env
     token = args.token
+    if not token:
+        import os
+        token = os.environ.get("MCP_SERVICE_TOKEN", "")
     if not token:
         import pathlib
         env_path = pathlib.Path(__file__).resolve().parents[2] / ".env"
