@@ -85,11 +85,12 @@ from app.db.database import AsyncSessionLocal
 from sqlalchemy import text
 
 TABLES = [
-    ('erp_quotations', 'erp_quotation', 'case_code', 'project_name', 'quotation_amount'),
+    # v6.13 (2026-05-31) 欄位校正 — 對齊 information_schema 真實欄位 (含 erp_quotations)
+    ('erp_quotations', 'erp_quotation', 'case_code', 'case_name', 'total_price'),
     ('erp_invoices', 'erp_invoice', 'invoice_number', 'description', 'amount'),
-    ('erp_billings', 'erp_billing', 'billing_number', 'description', 'amount'),
-    ('erp_vendor_payables', 'erp_vendor_payable', 'payable_number', 'description', 'amount'),
-    ('expense_invoices', 'erp_expense', 'invoice_number', 'description', 'total_amount'),
+    ('erp_billings', 'erp_billing', 'billing_period', 'payment_status', 'billing_amount'),
+    ('erp_vendor_payables', 'erp_vendor_payable', 'vendor_name', 'description', 'payable_amount'),
+    ('expense_invoices', 'erp_expense', 'inv_num', 'case_code', 'amount'),
 ]
 DRY_RUN = {dry_run}
 

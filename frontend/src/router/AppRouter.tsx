@@ -72,6 +72,8 @@ const PermissionManagementPage = lazy(() => import('../pages/PermissionManagemen
 const RolePermissionDetailPage = lazy(() => import('../pages/RolePermissionDetailPage'));
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
+// v6.13 (2026-05-31) 排程紀錄追溯 + 覆盤報告
+const SchedulerEventsPage = lazy(() => import('../pages/SchedulerEventsPage'));
 const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagementPage'));
 // UnifiedAgentPage 現由 /kunge/ops 嵌入使用（v5.8.1 整合）；路由仍保留給 KungePage 內部使用
 const KnowledgeGraphPage = lazy(() => import('../pages/KnowledgeGraphPage'));
@@ -245,6 +247,8 @@ export const AppRouter: React.FC = () => {
 
           {/* 管理員面板 */}
           <Route path={ROUTES.ADMIN_DASHBOARD} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
+          {/* v6.13 (2026-05-31) 排程紀錄追溯 + 覆盤報告 */}
+          <Route path="/admin/scheduler-events" element={<ProtectedRoute requireAuth={true} roles={['admin']}><SchedulerEventsPage /></ProtectedRoute>} />
 
           {/* 權限管理 - 獨立頁面：管理系統權限定義與角色 */}
           <Route path={ROUTES.PERMISSION_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><PermissionManagementPage /></ProtectedRoute>} />
