@@ -408,9 +408,9 @@ def render() -> str:
     if events_log.exists():
         import json as _json
         try:
-            lines = events_log.read_text(encoding="utf-8").splitlines()
+            event_raw_lines = events_log.read_text(encoding="utf-8").splitlines()
             recent = []
-            for line in lines[-30:]:
+            for line in event_raw_lines[-30:]:
                 try:
                     recent.append(_json.loads(line))
                 except Exception:
