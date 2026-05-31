@@ -1,6 +1,7 @@
 {
-  "missive_lines": 188,
-  "hermes_lines": 188,
-  "drift_lines": 0,
-  "updated_at": "2026-05-30"
+  "missive_lines": 189,
+  "hermes_lines": 0,
+  "drift_lines": -1,
+  "updated_at": "2026-05-31 18:00",
+  "source": "autobiography_post_write"
 }

@@ -69,6 +69,9 @@ def _fetch_metrics_text() -> tuple[str | None, str | None]:
 def metric(name: str) -> float:
     """從 /metrics 抓單一 metric 值（簡單 parser）。
     v6.12 補完：cache 單次 fetch + retry，避 backend restart 瞬間 silent timeout。
+    v6.13 (2026-05-31) 修法：支援 base name 抓帶 label 版本
+    bug: shadow_baseline_rows_total 真實 expose 為 shadow_baseline_rows_total{lookback_hours="24"}
+    self-retro 顯示 -1.0 假象，揭發於 v6_13 整體覆盤 5/31
     """
     if _METRICS_CACHE["text"] is None and _METRICS_CACHE["ok"] is None:
         text, err = _fetch_metrics_text()
@@ -78,12 +81,23 @@ def metric(name: str) -> float:
     text = _METRICS_CACHE["text"]
     if not text:
         return -1.0
+    # 1) 完全 match (no label or full label match)
     for line in text.splitlines():
         if line.startswith(name + " "):
             try:
                 return float(line.split()[-1])
             except (ValueError, IndexError):
                 return -1.0
+    # 2) Fallback: base name + label (e.g. "shadow_baseline_rows_total" → match
+    # "shadow_baseline_rows_total{...}")。Skip if name 已含 "{"
+    if "{" not in name:
+        prefix = name + "{"
+        for line in text.splitlines():
+            if line.startswith(prefix):
+                try:
+                    return float(line.split()[-1])
+                except (ValueError, IndexError):
+                    continue  # 嘗試下一條 label 變體
     return -1.0
 
 
