@@ -2835,8 +2835,9 @@ def setup_scheduler(
         replace_existing=True,
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=7200,  # v6.13: missed 2h 內仍補跑 (防 backend restart 期間 silent)
     )
-    logger.info("已添加 Daily Self-Retrospective: 每日 06:30 執行 (v6.12 #4)")
+    logger.info("已添加 Daily Self-Retrospective: 每日 06:30 執行 (v6.12 #4, misfire_grace 2h)")
 
     # v6.12 解 owner「每次詢問都有缺漏」meta 問題
     # 每日 06:00 regenerate GOVERNANCE_INTEGRATED_DASHBOARD.md
@@ -2850,8 +2851,9 @@ def setup_scheduler(
         replace_existing=True,
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=7200,  # v6.13: missed 2h 內仍補跑 (防 backend restart 期間 silent)
     )
-    logger.info("已添加 Governance Dashboard Regen: 每日 06:00 執行")
+    logger.info("已添加 Governance Dashboard Regen: 每日 06:00 執行 (misfire_grace 2h)")
 
     # L51.7 (2026-05-30) Crystal review overdue alarm — 每週日 09:30
     # 防 proposals → crystals = 0 「學習閉環死」反模式

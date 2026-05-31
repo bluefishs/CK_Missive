@@ -1,6 +1,6 @@
 # Governance Integrated Dashboard — 規範 + 現況 + 覆盤 整合 SSOT
 
-> **Generated**: 2026-05-30 23:49:08
+> **Generated**: 2026-05-31 08:09:45
 > **Owner 問題**: 每次詢問都有缺漏，需整合 5 處治理文件 (ADR/lesson/SOP/fitness/architecture)
 > **解法**: 此 dashboard 由 cron 06:00 自動 regenerate，session 啟動讀此檔取完整快照
 > **生成器**: `scripts/checks/generate_governance_dashboard.py`
@@ -14,25 +14,27 @@
 | ADR | active=21 / archived=14 | `docs/adr/` |
 | Lessons | 0 | `wiki/memory/lessons/L*.md` |
 | SOPs | 13 | `.claude/rules/*.md` |
-| Fitness checks | 88 | `scripts/checks/*.py` |
-| Architecture docs | 65 | `docs/architecture/*.md` |
-| **Total** | **201** | 5 處散落 |
+| Fitness checks | 91 | `scripts/checks/*.py` |
+| Architecture docs | 71 | `docs/architecture/*.md` |
+| **Total** | **210** | 5 處散落 |
 
 ## 2. 現況真活 metric (從 /metrics 即時抓)
 
 ```
-  governance_fitness_report_freshness_hours                  11.8
+  governance_fitness_report_freshness_hours                   5.0
   governance_lessons_l4x_family_count                         0.0
   governance_lessons_total                                   16.0
-  governance_pipeline_red_consecutive_days                   10.0
-  governance_wiki_freshness_hours                             0.1
-  governance_wiki_pages_total                               369.0
-  kg_entities_total                                       24535.0
+  governance_pipeline_red_consecutive_days                   11.0
+  governance_wiki_freshness_hours                             1.0
+  governance_wiki_pages_total                               373.0
+  kg_entities_total                                       21378.0
   memory_crystals_total                                       0.0
-  memory_diary_days_total                                    39.0
-  scheduler_job_success_total{job_id="health_check_broadcast"}          7.0
-  scheduler_job_success_total{job_id="process_reminders"}          7.0
-  scheduler_job_success_total{job_id="tender_dashboard_warm"}          8.0
+  memory_diary_days_total                                    40.0
+  scheduler_job_success_total{job_id="health_check_broadcast"}          5.0
+  scheduler_job_success_total{job_id="morning_report"}          1.0
+  scheduler_job_success_total{job_id="process_reminders"}          5.0
+  scheduler_job_success_total{job_id="tender_dashboard_warm"}          6.0
+  scheduler_job_success_total{job_id="tender_subscription"}          1.0
   shadow_baseline_call_total{provider="gemma-hermes"}          3.0
   shadow_baseline_call_total{provider="gemma-local"}         10.0
   shadow_baseline_latency_p95_ms{provider="gemma-hermes"}      43746.0
@@ -48,20 +50,20 @@
   shadow_baseline_tool_use_count{provider="gemma-local",tool="search_entities"}          2.0
   v7_channel_diversity                                        1.0
   v7_reference_density_critique_pct                           0.0
-  v7_reference_density_diary_pct                             17.9
+  v7_reference_density_diary_pct                             17.2
   v7_soul_drift_lines                                         0.0
 ```
 
 ## 3. 最近 8 commits (進化執行軌跡)
 
-- `2564543e feat(governance): lesson 命名分流 universal/missive-specific + .template-policy.yml.example`
-- `d9a85d4c fix(ai): p0 p95 ollama keep_alive 24h 解 cold start (71s → 40s, -44%)`
-- `08b2d089 feat(governance): install-template --tier flag (l58 配套分級 + opt-out 機制)`
-- `73add1bf docs(retro): 5/30 核心議題覆盤統整 (owner 三段執行第 3 段)`
-- `d368720f docs(meta): l60 結構正常化 lesson + pilemgmt r18 反治理真活驗證`
-- `db405433 fix(scheduler): w1 #2 移除 shadow_baseline_export cron (對齊 l59 自我優先)`
-- `6edc1252 docs(meta): l59 治理架構倒置 + 平衡策略 (owner 兩日連續反思第 3 案)`
-- `48d63b3d docs(meta): l58 治理範本污染風險 — owner 反思最深刻 lesson (第 6 句立法)`
+- `d28aefd9 docs(retro): 5/30-31 兩日整合覆盤 + v6.13 自我覆盤進化目標 6 維度`
+- `187fed47 docs(retro): kg 歷程議題 + 整合應用架構藍圖 (5 階段+6 階段)`
+- `560848ad fix(line): line bot 超時 25→28s (owner 報「查詢處理時間較長」)`
+- `984fc780 feat(sync): erp ingest + dedup 強化 5 層備份 (對齊 owner 備份安全訴求)`
+- `1908b54e feat(governance): effectiveness report + knowledge dedup script (owner approved)`
+- `e463c087 feat(governance): step 71 cross-domain link + step 72 knowledge dedup audit`
+- `252fc935 feat(governance): a+c repository smart audit + 命名規約 + 圖譜生態系複查`
+- `befcc750 feat(audit): step 70 repository:db_table 覆蓋率 audit (kg 建議 #1)`
 
 ## 4. 最近 5 session 覆盤 (memory/)
 
@@ -93,7 +95,7 @@
 
 ## 8. 漂移看板 (audit 結果統一)
 
-- ⚠ Pipeline 連續 10 天 RED (> 3 天門檻)
+- ⚠ Pipeline 連續 11 天 RED (> 3 天門檻)
 
 ## 8.5 Hermes Baseline GO/NO-GO 5 條件 (Sprint 3.P3.15)
 
