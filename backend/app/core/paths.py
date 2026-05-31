@@ -34,8 +34,21 @@ else:
     PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
 
 # === 一級資料夾 ===
-BACKEND_DIR: Path = PROJECT_ROOT / "backend"
-FRONTEND_DIR: Path = PROJECT_ROOT / "frontend"
+# v6.13 (2026-05-31) L52 family 第 8 案修法：
+# bug: container 內 PROJECT_ROOT=/app 但 host 的 backend/* 內容已 flatten 到 /app/
+#      → /app/backend 不存在 / /app/frontend 不存在 (frontend dist 在 /frontend/dist)
+# 修法: 加 fallback — 若 PROJECT_ROOT/backend 不存在則 BACKEND_DIR=PROJECT_ROOT 自己
+#       對齊 docker container 結構 (WORKDIR=/app, host backend/* flatten 入)
+_default_backend = PROJECT_ROOT / "backend"
+BACKEND_DIR: Path = _default_backend if _default_backend.exists() else PROJECT_ROOT
+_default_frontend = PROJECT_ROOT / "frontend"
+if _default_frontend.exists():
+    FRONTEND_DIR: Path = _default_frontend
+elif Path("/frontend").exists():
+    # container 內 dist mount 在根目錄 /frontend/dist
+    FRONTEND_DIR: Path = Path("/frontend")
+else:
+    FRONTEND_DIR: Path = _default_frontend
 DOCS_DIR: Path = PROJECT_ROOT / "docs"
 SCRIPTS_DIR: Path = PROJECT_ROOT / "scripts"
 WIKI_DIR: Path = PROJECT_ROOT / "wiki"

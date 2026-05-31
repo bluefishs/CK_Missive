@@ -43,6 +43,9 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
         pass
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# v6.13 (2026-05-31) L52 family 第 8 案修法:
+# container 內 /app/frontend/src 不 mount (host-side only 設計)
+# 修法: 若不存在，graceful skip exit 0 (不算 fail)
 FRONTEND_SRC = PROJECT_ROOT / "frontend" / "src"
 BASELINE_FILE = PROJECT_ROOT / "scripts" / "checks" / "queryKey_drift_baseline.json"
 
@@ -64,7 +67,10 @@ def scan_frontend() -> Tuple[Dict[str, List[str]], Set[str], Set[str]]:
     uq_tokens: Set[str] = set()
 
     if not FRONTEND_SRC.exists():
-        print(f"[ERROR] frontend/src not found: {FRONTEND_SRC}", file=sys.stderr)
+        # v6.13 (2026-05-31): container 內 frontend/src 未 mount 是設計 (host-side only)
+        # 改 INFO 不算 fail，避免 fitness 假 ERROR
+        print(f"[INFO] frontend/src not present (container env, host-side audit only): {FRONTEND_SRC}",
+              file=sys.stderr)
         return inv_tokens, uq_tokens, set()
 
     for path in FRONTEND_SRC.rglob("*.ts"):

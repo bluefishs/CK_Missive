@@ -40,10 +40,15 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
         pass
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-ENDPOINTS_DIR = PROJECT_ROOT / "backend" / "app" / "api" / "endpoints"
-# v6.10 P0-2: 同步掃 repository 與 service 層（解 detection 層級錯位）
-REPOSITORIES_DIR = PROJECT_ROOT / "backend" / "app" / "repositories"
-SERVICES_DIR = PROJECT_ROOT / "backend" / "app" / "services"
+# v6.13 (2026-05-31) L52 family 第 8 案修法:
+# bug: container 內 PROJECT_ROOT=/app 但 backend/ 不存在 (host 內容 flatten 入 /app/)
+# 修法: 若 ROOT/backend 不存在，改 ROOT 自己 (對齊 docker 結構)
+_backend_base = PROJECT_ROOT / "backend"
+if not _backend_base.exists():
+    _backend_base = PROJECT_ROOT
+ENDPOINTS_DIR = _backend_base / "app" / "api" / "endpoints"
+REPOSITORIES_DIR = _backend_base / "app" / "repositories"
+SERVICES_DIR = _backend_base / "app" / "services"
 
 # user-scoped SQL filter patterns that imply RLS concern
 # v6.10 P0-2 (2026-05-18): 擴大偵測範圍以解 detection coverage = 0% false-GREEN
