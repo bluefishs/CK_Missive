@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-05-31T16:28:10",
+  "all_ok": false,
+  "broken_chains": [
+    "chain_4_hermes_container",
+    "chain_5_bridge_skill"
+  ],
+  "chains": {
+    "chain_1_missive_health": {
+      "ok": true,
+      "documents": 1809,
+      "entities": 23426
+    },
+    "chain_2_kunge_snapshot": {
+      "ok": true,
+      "lessons": 14,
+      "patterns": 10,
+      "proposals": 4,
+      "pending_proposals": 4
+    },
+    "chain_3_tools_manifest": {
+      "ok": true,
+      "total_tools": 9,
+      "has_kunge_snapshot": true
+    },
+    "chain_4_hermes_container": {
+      "ok": false,
+      "error": "[Errno 2] No such file or directory: 'docker'"
+    },
+    "chain_5_bridge_skill": {
+      "ok": false,
+      "error": "tools.py not found"
+    }
+  }
+}

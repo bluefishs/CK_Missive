@@ -1732,6 +1732,58 @@ async def crystal_review_overdue_alarm_job():
         logger.error("crystal_review_overdue alarm 失敗: %s", e, exc_info=True)
 
 
+@tracked_job("integration_e2e_validation")
+async def integration_e2e_validation_job():
+    """v6.13 (2026-05-31) — 每日 02:05 跑 5 鏈整合 E2E 驗證
+
+    對齊 owner「坤哥+Hermes+智能體 整合連通真活 突破性 非一次性」訴求
+
+    5 驗證鏈:
+    1. Missive /health (業務量)
+    2. Missive /api/ai/kunge/snapshot (坤哥 snapshot)
+    3. Missive /api/ai/agent/tools (manifest 含 kunge_snapshot)
+    4. Hermes gateway HTTP healthy (8642/9119)
+    5. ck-missive-bridge skill 對齊 (chain 3 已驗為主)
+
+    任一鏈斷 → LINE 推 owner + 寫 integration-health marker
+    """
+    import os
+    from pathlib import Path
+
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    script = project_root / "scripts" / "checks" / "integration_e2e_validation.py"
+    if not script.exists():
+        logger.warning("integration_e2e_validation: script not found at %s", script)
+        return
+
+    rc, out, err = await _run_script_async(
+        ["python", str(script)],
+        cwd=str(project_root), timeout=60, job_name="integration_e2e_validation",
+    )
+
+    # rc != 0 = 某鏈斷
+    if rc != 0:
+        try:
+            from app.services.contracts.facades import IntegrationFacade
+            broken_lines = [l for l in (out or "").split("\n") if "❌" in l]
+            body = (
+                "🔴 整合連通鏈斷 — v6.13 E2E\n\n"
+                f"{chr(10).join(broken_lines[:5]) if broken_lines else 'check log'}\n\n"
+                "對齊 owner 訴求:\n"
+                "「突破性成長 非一次性」\n\n"
+                "標誌: integration 持續驗證機制\n"
+                "揭發 silent dormant 第一時間\n\n"
+                "marker: wiki/memory/integration-health/"
+            )
+            await IntegrationFacade().push_admin_alert(
+                title="", body=body, channel="line",
+            )
+        except Exception as line_err:
+            logger.warning("integration_e2e LINE push failed: %s", line_err)
+
+    logger.info("integration_e2e_validation rc=%d: %s", rc, out[-300:] if out else "ok")
+
+
 @tracked_job("critique_health_audit")
 async def critique_health_audit_job():
     """v6.13 (2026-05-31) — 每週日 02:15 揭發 critique silent dormant
@@ -3003,6 +3055,21 @@ def setup_scheduler(
         misfire_grace_time=7200,
     )
     logger.info("已添加 Weekly Evolution Generator: 每週日 02:00 (v6.13 防 W22 重演)")
+
+    # v6.13 (2026-05-31) Integration E2E Validation — 每日 02:05
+    # 對齊 owner「坤哥+Hermes+智能體 整合連通真活 突破性 非一次性」訴求
+    # 5 鏈 E2E 驗證 / 任一鏈斷自動 LINE 推 + 寫 marker
+    scheduler.add_job(
+        integration_e2e_validation_job,
+        trigger=CronTrigger(hour=2, minute=5),
+        id='integration_e2e_validation',
+        name='Integration E2E Validation (每日 02:05, 5 鏈持續驗證)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=7200,
+    )
+    logger.info("已添加 Integration E2E Validation: 每日 02:05 (v6.13 5 鏈持續驗證真活)")
 
     # v6.13 (2026-05-31) Critique Health Audit — 每週日 02:15
     # 揭發 critique silent dormant (5/13 後 17 天 0 條的真因監督)

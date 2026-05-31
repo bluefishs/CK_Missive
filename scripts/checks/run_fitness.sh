@@ -849,7 +849,7 @@ echo ""
 # 任一 drift → RED（docker cp 修法未跟 rebuild image 反模式）
 # 防 L51 5 防護層 silent disabled 36h 再次發生
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[60/61] container image freshness check (L51 incident #8)${NC}"
+echo -e "${CYAN}[60/62] container image freshness check (L51 incident #8)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/container_image_freshness_check.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -862,8 +862,22 @@ echo ""
 # 監測 13 facades 業務 code importer 趨勢（baseline vs current）
 # informational only — facade 收口為 v6.12 規劃，不入 strict fail
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[61/61] facade adoption audit (P1.7 v6.12 路線)${NC}"
+echo -e "${CYAN}[61/62] facade adoption audit (P1.7 v6.12 路線)${NC}"
 PYTHONIOENCODING=utf-8 python scripts/checks/facade_adoption_audit.py || true
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 62: Integration E2E Validation (v6.13, 2026-05-31)
+# 對齊 owner「坤哥+Hermes+智能體整合連通真活 突破性 非一次性」訴求
+# 5 鏈 E2E 驗證: Missive health / kunge_snapshot / tools manifest / Hermes gateway / bridge skill
+# 任一鏈斷 → 寫 integration-health marker + 將觸發 LINE alert (透過 cron job)
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[62/62] integration e2e validation (v6.13 整合連通 持續驗證)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/integration_e2e_validation.py || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/integration_e2e_validation.py || true
+fi
 echo ""
 
 # ----------------------------------------------------------------------------

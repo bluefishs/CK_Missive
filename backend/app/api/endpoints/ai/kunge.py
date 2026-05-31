@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.paths import WIKI_MEMORY_DIR as WIKI_MEMORY
 from app.core.service_auth import require_scope
-from app.db.database import get_db
+from app.db.database import get_async_db as get_db
 
 
 logger = logging.getLogger(__name__)
