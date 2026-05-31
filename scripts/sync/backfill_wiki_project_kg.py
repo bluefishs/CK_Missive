@@ -29,8 +29,16 @@ except ImportError:
     sys.exit(1)
 
 
-DSN = "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents"
-WIKI_ENTITIES = Path("wiki/entities")
+# v6.13 (2026-05-31) 對齊 cross-file-ssot — 修 container/host DB host drift
+import os as _os
+_db_url = _os.getenv("DATABASE_URL", "")
+if _db_url:
+    DSN = _db_url.replace("postgresql+asyncpg://", "postgresql://")
+else:
+    DSN = "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents"
+
+_wiki_dir = _os.getenv("CK_WIKI_DIR", "")
+WIKI_ENTITIES = Path(_wiki_dir) / "entities" if _wiki_dir else Path("wiki/entities")
 
 
 def parse_wiki(path: Path) -> dict | None:
