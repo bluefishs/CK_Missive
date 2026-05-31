@@ -55,6 +55,9 @@ api_router.include_router(role_permissions.router, prefix="/admin/user-managemen
 # ADR-0034 動態 role permissions 管理（與 site_navigation_items 動態對應）
 api_router.include_router(role_permissions_admin.router, prefix="/admin/role-permissions", tags=["動態角色權限"])
 api_router.include_router(admin.router, prefix="/admin", tags=["管理後台"])
+# v6.13 (2026-05-31) 排程紀錄追溯 + 覆盤紀錄
+from app.api.endpoints.scheduler_events import router as scheduler_events_router
+api_router.include_router(scheduler_events_router, tags=["排程追溯+覆盤"])
 api_router.include_router(site_management.router, prefix="/site-management", tags=["網站管理"])
 api_router.include_router(secure_site_management.router, prefix="/secure-site-management", tags=["安全網站管理"])
 api_router.include_router(system_monitoring.router, prefix="/system", tags=["系統監控"])
