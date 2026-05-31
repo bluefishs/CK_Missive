@@ -97,13 +97,15 @@ class CrystalApplier:
                     ok=False, error="Proposal 已套用或無變化", snapshot_path=snapshot_path,
                 )
 
-            # Step 4: validate
-            v = validate_yaml(new_yaml)
-            if not v.ok:
-                logger.error("Yaml validation failed: %s", v.error)
-                return ApplyResult(
-                    ok=False, error=f"YAML 驗證失敗: {v.error}", snapshot_path=snapshot_path,
-                )
+            # Step 4: validate (yaml 才驗，markdown 不必)
+            # v6.13 (2026-05-31): SOUL.md soul_section apply 跳過 yaml validate
+            if target_path.suffix.lower() in (".yaml", ".yml"):
+                v = validate_yaml(new_yaml)
+                if not v.ok:
+                    logger.error("Yaml validation failed: %s", v.error)
+                    return ApplyResult(
+                        ok=False, error=f"YAML 驗證失敗: {v.error}", snapshot_path=snapshot_path,
+                    )
 
             # Step 5: write new
             target_path.write_text(new_yaml, encoding="utf-8")
@@ -161,7 +163,11 @@ class CrystalApplier:
 
     @staticmethod
     def _parse_proposal(path: Path) -> Tuple[Optional[Dict], Optional[Dict]]:
-        """解析 proposal frontmatter 與 payload yaml 區塊。"""
+        """解析 proposal frontmatter 與 payload yaml 區塊。
+
+        v6.13 (2026-05-31): 擴 meta keys (含 soul_section 所需 target_section)
+        + 抓 markdown body 為 markdown_payload 給 soul_section apply 用
+        """
         text = path.read_text(encoding="utf-8")
         fm_match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
         if not fm_match:
@@ -169,7 +175,9 @@ class CrystalApplier:
         fm = fm_match.group(1)
 
         meta: Dict = {}
-        for key in ("proposal_kind", "target_file", "source_pattern", "status"):
+        # v6.13: 加 target_section / proposed_at / reason / proposed_by 給 soul_section 用
+        for key in ("proposal_kind", "target_file", "target_section",
+                    "source_pattern", "status", "proposed_at", "proposed_by", "reason"):
             m = re.search(rf"^{key}:\s*(.+?)\s*$", fm, re.MULTILINE)
             if m:
                 meta[key] = m.group(1).strip()
@@ -185,22 +193,43 @@ class CrystalApplier:
                 logger.warning("Payload parse failed: %s", e)
                 payload = None
 
+        # v6.13: 對 soul_section 抓 "## 建議新內容" 區段 body 為 markdown payload
+        # （proposal 用 markdown 區塊不是 yaml）
+        if meta.get("proposal_kind") == "soul_section":
+            body_match = re.search(
+                r"##\s*建議新內容\s*\n+(.+?)(?:\n##\s|\n---\s*\n|\Z)",
+                text, re.DOTALL,
+            )
+            if body_match:
+                if payload is None:
+                    payload = {}
+                payload["markdown_body"] = body_match.group(1).strip()
+
         return meta, payload
 
     @staticmethod
     def _resolve_target(target_file: str) -> Optional[Path]:
-        """target_file 對照實體路徑。"""
+        """target_file 對照實體路徑。
+
+        v6.13 (2026-05-31): 加 wiki/SOUL.md mapping (soul_section apply)
+        """
         mapping = {
             "synonyms.yaml": SYNONYMS_YAML,
             "intent_rules.yaml": INTENT_RULES_YAML,
+            "wiki/SOUL.md": PROJECT_ROOT / "wiki" / "SOUL.md",
         }
         return mapping.get(target_file)
 
     @staticmethod
     def _snapshot(target_path: Path) -> Path:
-        """複製一份備份。"""
+        """複製一份備份。
+
+        v6.13 (2026-05-31): markdown 用 .md.bak / yaml 用 .yaml.bak
+        """
         timestamp = datetime.now(TZ_TAIPEI).strftime("%Y%m%d-%H%M%S")
-        backup = SNAPSHOTS_DIR / f"{target_path.stem}-{timestamp}.yaml.bak"
+        ext = target_path.suffix.lstrip(".")  # md or yaml
+        backup = SNAPSHOTS_DIR / f"{target_path.stem}-{timestamp}.{ext}.bak"
+        SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
         shutil.copy2(target_path, backup)
         return backup
 
@@ -230,6 +259,39 @@ class CrystalApplier:
                 return original
             new_text, _changed = add_intent_rule(original, rule_block)
             return new_text
+
+        elif kind == "soul_section":
+            # v6.13 (2026-05-31): SOUL.md section append handler
+            # 對齊 owner 安全: append 不覆寫既有內容 + section anchor 精確 + ## 我學到的偏好 之前停
+            target_section = meta.get("target_section", "").strip()
+            markdown_body = (payload or {}).get("markdown_body", "").strip()
+            if not target_section or not markdown_body:
+                logger.info("soul_section missing target_section or body, skipping")
+                return original
+
+            # 找 section 開頭 "## <target_section>" 到下一個 "## " 或 EOF
+            section_pattern = re.compile(
+                rf"(^##\s*{re.escape(target_section)}\s*\n)(.*?)(\n##\s|\Z)",
+                re.MULTILINE | re.DOTALL,
+            )
+            m = section_pattern.search(original)
+            if not m:
+                logger.warning(f"soul section '{target_section}' not found in SOUL.md")
+                return original
+
+            # append markdown_body 到 section 末尾 (在下個 ## 之前)
+            header = m.group(1)
+            body = m.group(2)
+            next_section = m.group(3)
+            # 避免重複: 若 markdown_body 已在 body 中 (尤其是 proposed_at 字串對齊) 則 no-op
+            body_marker = markdown_body[:80].strip()
+            if body_marker and body_marker in body:
+                logger.info("soul_section content already present, skipping")
+                return original
+
+            new_body = body.rstrip() + "\n\n" + markdown_body + "\n"
+            new_section = header + new_body + next_section
+            return original[:m.start()] + new_section + original[m.end():]
 
         else:
             logger.warning("Unknown proposal_kind: %s", kind)
