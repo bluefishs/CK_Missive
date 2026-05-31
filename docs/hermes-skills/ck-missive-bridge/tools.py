@@ -73,6 +73,10 @@ _TOOL_ENDPOINT_MAP = {
     "memory_crystals_list": "/api/ai/memory/crystals/list",
     "get_evolution_journal": "/api/ai/agent/evolution/journal",
     "query_graph_unified": "/api/v1/ai/graph/unified-search",
+    # v6.13 (2026-05-31) — 坤哥 + 智能體 整合連通真活
+    # 一站式 snapshot: diary/critique/pattern/proposal/crystal/lessons + DB agent_*
+    # owner 訴求: Hermes user 可查「坤哥本週狀態」不只業務 entity
+    "kunge_snapshot": "/api/ai/kunge/snapshot",
 }
 
 
@@ -298,6 +302,38 @@ _STATIC_TOOLS: List[Dict[str, Any]] = [
                     "type": "integer",
                     "description": "分頁起始（預設 0）",
                     "default": 0,
+                },
+            },
+            "required": [],
+        },
+    },
+    # v6.13 (2026-05-31) — 坤哥 + 智能體 整合連通真活
+    # owner 訴求: Hermes user 可一站式查「坤哥本週狀態」
+    # 整合 wiki/memory/diary + critique + pattern + proposal + crystal + lessons + DB agent_*
+    # 純 read 端點 - 對齊 owner 「備份安全」原則
+    {
+        "name": "kunge_snapshot",
+        "description": (
+            "坤哥意識體 + 智能體 一站式狀態 snapshot。"
+            "整合 7 層: diary(日誌)/critique(質性反省)/pattern(模式)/proposal(待 owner approve)/"
+            "crystal(已結晶信念)/lessons(經驗教訓)/evolution(週進化) + DB agent_learnings/evolution_history/query_traces。"
+            "可問: 坤哥本週學到什麼? 待 approve 的 proposal? critique 健康訊號? "
+            "回傳 health_signals 含 diary_streak / critique_silent_dormant / pattern→crystal ratio。"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "window_days": {
+                    "type": "integer",
+                    "description": "統計窗口天數（1-90，預設 7）",
+                    "default": 7,
+                    "minimum": 1,
+                    "maximum": 90,
+                },
+                "include_pending_proposals": {
+                    "type": "boolean",
+                    "description": "是否回傳 pending proposal 列表（預設 true）",
+                    "default": True,
                 },
             },
             "required": [],

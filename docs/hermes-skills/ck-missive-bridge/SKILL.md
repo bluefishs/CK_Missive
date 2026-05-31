@@ -1,7 +1,7 @@
 ---
 name: ck-missive-bridge
-version: 2.0.0
-description: CK_Missive 後端全功能橋接 — 公文、承攬案件、知識圖譜、RAG 語意搜尋、統計、行事曆。透過 Missive public API 取得領域資料，Hermes 為唯一前端入口。
+version: 2.1.0
+description: CK_Missive 後端全功能橋接 — 公文、承攬案件、知識圖譜、RAG 語意搜尋、統計、行事曆，v2.1 加 kunge_snapshot 整合坤哥意識體。透過 Missive public API 取得領域資料，Hermes 為唯一前端入口。
 author: CK_Missive Team
 license: MIT
 toolsets: [missive]
@@ -70,7 +70,12 @@ docker compose cp ck-missive-bridge/ hermes-gateway:/opt/data/skills/ck-missive-
 | `missive_get_memory_status` | `/api/ai/memory/jobs` | **v6.6 A2** 觀測坤哥記憶 cron 健康度（owner-only） |
 | `missive_get_evolution_journal` | `/api/ai/agent/evolution/journal` | **v6.6 A2** 觀測坤哥進化日誌（owner-only） |
 | `missive_query_graph_unified` | `/api/v1/ai/graph/unified-search` | **v6.6 A2** 統一圖譜搜尋（5 圖一查） |
+| `missive_kunge_snapshot` ⭐ | `/api/ai/kunge/snapshot` | **v6.13** 坤哥 + 智能體 整合連通真活 — 一站式 snapshot（diary/critique/pattern/proposal/crystal/lessons + DB agent_*）|
 
+> **v6.13 (2026-05-31) 整合連通真活**：`kunge_snapshot` 整合 7 層坤哥意識體 + DB
+> agent_*，讓 Hermes user 一站式查「坤哥本週狀態」「待 approve 的 proposal」
+> 「critique 健康訊號」。對齊 owner「日誌+周報=靈魂」訴求。
+>
 > v6.6 Phase C 補的 3 個 A2 read-only tool 讓 owner 透過 Hermes 跨通道
 > （Telegram / LINE / Discord）觀測坤哥內在狀態。寫入操作（如批准 proposal、
 > 修改 SOUL）仍鎖在 web 端，等 ADR-0020 Phase 1 啟動才擴。

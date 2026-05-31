@@ -42,6 +42,8 @@ TOOL_MANIFEST = {
         "system_statistics": "/api/ai/agent/query_sync",
         "federated_search": "/api/ai/federation/search",
         "federated_contribute": "/api/ai/federation/contribute",
+        # v6.13 (2026-05-31) 坤哥意識體 snapshot — Hermes 整合接點
+        "kunge_snapshot": "/api/ai/kunge/snapshot",
     },
     "auth": {
         "type": "bearer",
@@ -274,6 +276,38 @@ TOOL_MANIFEST = {
             "permission": "write",
             "estimatedLatency": "medium",
             "tags": ["federation", "contribute", "knowledge_graph"],
+        },
+        {
+            # v6.13 (2026-05-31) — 坤哥 + 智能體 整合連通真活
+            # owner 訴求: Hermes user 可查「坤哥本週狀態」不只業務 entity
+            "name": "kunge_snapshot",
+            "description": (
+                "坤哥意識體 + 智能體 一站式狀態 snapshot: "
+                "diary/critique/pattern/proposal/crystal/lessons 全層 + DB agent_* 統計。"
+                "可查「坤哥本週學到什麼」「待 owner approve 的 proposal」「critique 健康訊號」"
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "window_days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 90,
+                        "default": 7,
+                        "description": "統計窗口天數",
+                    },
+                    "include_pending_proposals": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "是否回傳 wiki/memory/proposals/ pending 列表",
+                    },
+                },
+                "additionalProperties": False,
+            },
+            "category": "query",
+            "permission": "read",
+            "estimatedLatency": "fast",
+            "tags": ["kunge", "memory", "hermes_integration", "v6.13"],
         },
     ],
 }

@@ -40,6 +40,7 @@ from .agent_evolution import router as agent_evolution_router
 from .tools_manifest import router as tools_manifest_router
 from .diagram_analysis import router as diagram_analysis_router
 from .memory import router as memory_router
+from .kunge import router as kunge_router  # v6.13 (2026-05-31) 坤哥 snapshot for Hermes integration
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -76,3 +77,4 @@ router.include_router(agent_evolution_router)
 router.include_router(tools_manifest_router)
 router.include_router(diagram_analysis_router)
 router.include_router(memory_router, tags=["AI Memory"])
+router.include_router(kunge_router, tags=["Kunge Snapshot"])  # v6.13 Hermes 整合接點
