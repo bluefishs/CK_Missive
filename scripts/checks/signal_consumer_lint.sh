@@ -18,6 +18,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT" || exit 2
 
+# v6.13 (2026-05-31) L52 family 第 9 案修法:
+# bug: container 內 PROJECT_ROOT=/app 但 host backend/* flatten 入 /app/
+#      → backend/app 不存在 (應該是 app/)
+# 修法: 若 backend/app 不存在 fallback app/
+if [ -d "backend/app" ]; then
+    SCAN_DIR="backend/app"
+elif [ -d "app" ]; then
+    SCAN_DIR="app"
+else
+    echo "[ERROR] 找不到 backend code dir (backend/app or app)" >&2
+    exit 2
+fi
+
 echo "=== Memory Signal Reference Count ==="
 echo "領域：signal flow governance — 偵測孤兒（0 引用）"
 echo "Note: const 變數定義也算引用；≥ 2 = producer + consumer 都有"
@@ -47,10 +60,10 @@ suspicious=0
 
 for key in "${SIGNAL_KEYS[@]}"; do
     # 1. string literal 出現次數
-    refs_string=$(grep -rn "${key}" backend/app --include="*.py" 2>/dev/null | grep -v __pycache__ | wc -l)
+    refs_string=$(grep -rn "${key}" "$SCAN_DIR" --include="*.py" 2>/dev/null | grep -v __pycache__ | wc -l)
 
     # 2. 找該 key 對應的 const name（從 "= \"key\"" 反推）
-    const_line=$(grep -rn "= \"${key}\"" backend/app --include="*.py" 2>/dev/null | grep -v __pycache__ | head -1)
+    const_line=$(grep -rn "= \"${key}\"" "$SCAN_DIR" --include="*.py" 2>/dev/null | grep -v __pycache__ | head -1)
     const_name=""
     if [ -n "$const_line" ]; then
         # extract LHS const name (between : and =)
@@ -60,7 +73,7 @@ for key in "${SIGNAL_KEYS[@]}"; do
     # 3. const name 使用次數（扣定義行）
     refs_const=0
     if [ -n "$const_name" ] && [ "$const_name" != "$const_line" ]; then
-        refs_const=$(grep -rn "\b${const_name}\b" backend/app --include="*.py" 2>/dev/null | grep -v __pycache__ | wc -l)
+        refs_const=$(grep -rn "\b${const_name}\b" "$SCAN_DIR" --include="*.py" 2>/dev/null | grep -v __pycache__ | wc -l)
         # 扣掉本 audit 跑 grep 時撞到的定義行
         refs_const=$((refs_const > 0 ? refs_const - 1 : 0))
     fi
