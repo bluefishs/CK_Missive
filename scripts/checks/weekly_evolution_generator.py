@@ -50,11 +50,17 @@ def get_week_range(week_str: str) -> tuple[datetime, datetime]:
 
 
 def count_files_in_range(dir_path: Path, start: datetime, end: datetime, pattern: str = "*.md") -> list[str]:
+    """v6.13 (2026-05-31) 修法：rglob 抓子目錄
+    bug: 之前用 glob 漏抓 wiki/lessons/{missive-specific, universal}/*.md
+    → 統計 lesson=0 假象，導致覆盤誤判
+    """
     if not dir_path.is_dir():
         return []
     out = []
     start_ts, end_ts = start.timestamp(), end.timestamp()
-    for f in dir_path.glob(pattern):
+    for f in dir_path.rglob(pattern):
+        if f.name.startswith("README") or f.name.startswith("."):
+            continue
         try:
             mt = f.stat().st_mtime
             if start_ts <= mt <= end_ts:
