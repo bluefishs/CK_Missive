@@ -35,7 +35,8 @@ logger = logging.getLogger("hermes.ck_missive")
 
 MISSIVE_BASE = os.environ.get("MISSIVE_BASE_URL", "http://host.docker.internal:8001")
 MISSIVE_TOKEN = os.environ.get("MISSIVE_API_TOKEN", "")
-TIMEOUT_S = float(os.environ.get("MISSIVE_TIMEOUT_S", "60"))
+# [2026-05-30] 預設 60→90：覆測實測重查詢（search_documents）達 43s，60s 偏緊。
+TIMEOUT_S = float(os.environ.get("MISSIVE_TIMEOUT_S", "90"))
 MAX_RETRIES = 1
 
 
@@ -47,8 +48,10 @@ _TOOL_ENDPOINT_MAP = {
     "document_search": "/api/ai/rag/query",
     "semantic_similar": "/api/ai/rag/query",
     # General agent query (公文 + 案件 + ERP + 標案)
-    "dispatch_search": "/api/ai/agent/query_sync",
-    "system_statistics": "/api/ai/agent/query_sync",
+    # [2026-05-30] query_sync → query：實測 /api/ai/agent/query_sync 回 405，
+    # 正確端點為 /api/ai/agent/query（require_scope read:agent，X-Service-Token 認證）。
+    "dispatch_search": "/api/ai/agent/query",
+    "system_statistics": "/api/ai/agent/query",
     # Knowledge Graph — direct endpoints
     "entity_search": "/api/v1/ai/graph/entity/search",
     "entity_detail": "/api/v1/ai/graph/entity/detail",
@@ -342,7 +345,7 @@ def _post_with_retry(url: str, headers: Dict, payload: Dict, retries: int = MAX_
 # ── Handler factory ───────────────────────────────────────
 
 def _make_handler(tool_name: str):
-    endpoint = _TOOL_ENDPOINT_MAP.get(tool_name, "/api/ai/agent/query_sync")
+    endpoint = _TOOL_ENDPOINT_MAP.get(tool_name, "/api/ai/agent/query")
 
     def handler(args: Dict[str, Any], **ctx) -> str:
         # Replace path params like {id}

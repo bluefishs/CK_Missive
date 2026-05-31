@@ -11,7 +11,7 @@
       },
       "channel": {
         "type": "string",
-        "enum": ["telegram", "discord", "cli", "web"],
+        "enum": ["telegram", "discord", "cli", "web", "hermes", "line"],
         "description": "Originating channel; used for trace & rate-limit bucketing."
       },
       "session_id": {
@@ -23,9 +23,10 @@
   },
   "http": {
     "method": "POST",
-    "url": "${MISSIVE_BASE_URL}/api/ai/agent/query_sync",
+    "url": "${MISSIVE_BASE_URL}/api/ai/agent/query",
     "headers": {
       "Authorization": "Bearer ${MISSIVE_API_TOKEN}",
+      "X-Service-Token": "${MISSIVE_API_TOKEN}",
       "Content-Type": "application/json",
       "X-Channel": "${channel:-cli}"
     },
@@ -35,7 +36,7 @@
       "session_id": "${session_id}",
       "fmt": "v1"
     },
-    "timeout_seconds": 60
+    "timeout_seconds": 90
   },
   "response": {
     "success_path": "answer",

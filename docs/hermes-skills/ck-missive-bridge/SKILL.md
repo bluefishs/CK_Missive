@@ -47,8 +47,8 @@ docker compose cp ck-missive-bridge/ hermes-gateway:/opt/data/skills/ck-missive-
 | 變數 | 必要 | 預設 | 說明 |
 |---|---|---|---|
 | `MISSIVE_BASE_URL` | ✅ | `http://host.docker.internal:8001` | Missive backend URL（Docker 內用 `host.docker.internal`；CF Tunnel 用 `https://missive.cksurvey.tw`） |
-| `MISSIVE_API_TOKEN` | ✅ | — | Bearer token（Missive 管理員發放，或 X-Service-Token） |
-| `MISSIVE_TIMEOUT_S` | ❌ | `60` | 單次請求逾時（秒） |
+| `MISSIVE_API_TOKEN` | ✅ | — | 同時用作 `Authorization: Bearer` 與 `X-Service-Token`。M2M（service-token）走 `/api/ai/agent/query`（後端 `require_scope`）；使用者 JWT 路徑（rag/graph 端點）需真實登入 token，靜態 token 會 401 |
+| `MISSIVE_TIMEOUT_S` | ❌ | `90` | 單次請求逾時（秒）。⚠️ agent_query 重查詢（search_documents）實測達 43s，勿低於 90 |
 
 ## 工具清單
 
@@ -59,12 +59,12 @@ docker compose cp ck-missive-bridge/ hermes-gateway:/opt/data/skills/ck-missive-
 
 | Hermes Tool 名稱 | Missive 端點 | 用途 |
 |---|---|---|
-| `missive_document_search` | `/api/ai/rag/query` | 公文 RAG 語意搜尋（pgvector 768D） |
-| `missive_dispatch_search` | `/api/ai/agent/query_sync` | 通用領域查詢（公文 + 案件 + ERP） |
-| `missive_entity_search` | `/api/ai/graph/entity` | KG 實體搜尋（normalized） |
-| `missive_entity_detail` | `/api/ai/graph/entity` | KG 實體詳情 + 別名 |
-| `missive_semantic_similar` | `/api/ai/rag/query` | 語意相似文件搜尋 |
-| `missive_system_statistics` | `/api/ai/agent/query_sync` | 系統概況統計 |
+| `missive_dispatch_search` ⭐ | `/api/ai/agent/query` | **主入口** — 通用領域查詢（公文 + 案件 + ERP + 統計），後端自動選工具。問什麼先用這個 |
+| `missive_document_search` | `/api/ai/rag/query` | 公文 RAG 語意搜尋（pgvector 768D）。⚠️ 走 `require_auth` 使用者 JWT，M2M(service-token) 情境會 401，請改用 `missive_dispatch_search` |
+| `missive_entity_search` | `/api/ai/graph/entity` | KG 實體搜尋（normalized）。⚠️ 同走使用者 JWT，M2M 改用 `missive_dispatch_search` |
+| `missive_entity_detail` | `/api/ai/graph/entity` | KG 實體詳情 + 別名（同上，使用者 JWT） |
+| `missive_semantic_similar` | `/api/ai/rag/query` | 語意相似文件搜尋（同上，使用者 JWT） |
+| `missive_system_statistics` | `/api/ai/agent/query` | 系統概況統計（service-token 路徑） |
 | `missive_federated_search` | `/api/ai/federation/search` | KG 跨域聯邦搜尋 |
 | `missive_federated_contribute` | `/api/ai/federation/contribute` | KG 跨域貢獻實體 |
 | `missive_get_memory_status` | `/api/ai/memory/jobs` | **v6.6 A2** 觀測坤哥記憶 cron 健康度（owner-only） |
@@ -142,5 +142,6 @@ Hermes → User: 透過知識圖譜查詢，CK2026003 關聯的實體有...
 
 | 版本 | 日期 | 變更 |
 |---|---|---|
+| 2.0.1 | 2026-05-30 | baseline GO/NO-GO 覆測修法：`/api/ai/agent/query_sync`→`/api/ai/agent/query`（query_sync 實測 405）；M2M action 改 `X-Service-Token`（原 Bearer 走使用者 JWT→401）；`MISSIVE_TIMEOUT_S` 60→90（重查詢 43s）；`dispatch_search` 標為主入口。詳見 [[project_hermes_baseline_go_nogo_20260530]] |
 | 2.0.0 | 2026-04-16 | 擴充 KG / RAG / federation tool；加入部署指引與 Docker 支援 |
 | 1.0.0 | 2026-04-15 | 初版：query_missive 單一入口 + manifest 動態註冊 |

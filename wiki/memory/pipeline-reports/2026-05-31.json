@@ -1,0 +1,105 @@
+{
+  "started_at": "2026-05-30T19:00:00.019917+00:00",
+  "completed_at": "2026-05-30T19:00:19.602081+00:00",
+  "overall_status": "error",
+  "steps": [
+    {
+      "name": "fitness",
+      "status": "red",
+      "summary": "24 pass / 9 warn / 4 fail",
+      "details": {
+        "pass": 24,
+        "warn": 9,
+        "fail": 4,
+        "exit_code": 0
+      },
+      "duration_ms": 19266.3
+    },
+    {
+      "name": "capability_audit",
+      "status": "yellow",
+      "summary": "dead: tools=0 kg=0 loops=3 adrs=0 total=3",
+      "details": {
+        "lookback_days": 30,
+        "shadow_trace_queries": 0,
+        "tools": {
+          "total_registered": 0,
+          "dead": [],
+          "weak": [],
+          "healthy_count": 0,
+          "dead_pct": 0.0
+        },
+        "kg_entity_types": {
+          "scanned": 0,
+          "dead_types": [],
+          "dead_count": 0
+        },
+        "memory_loop": {
+          "counts": {
+            "diary": 39,
+            "patterns": 9,
+            "failures": 16,
+            "proposals": 4,
+            "crystals": 0,
+            "evolutions": 6,
+            "autobiography": 0
+          },
+          "dead_loops": [
+            "crystals (0 files but 3+ patterns accumulated)",
+            "autobiography (0 files but 7+ diary days)",
+            "proposals (4 pending, gate blocked)"
+          ]
+        },
+        "adr": {
+          "active": 0,
+          "orphans": [],
+          "orphan_count": 0
+        }
+      },
+      "duration_ms": 255.3
+    },
+    {
+      "name": "memory_loop",
+      "status": "red",
+      "summary": "counts={'diary': 39, 'patterns': 9, 'failures': 16, 'proposals': 4, 'crystals': 0, 'evolutions': 6, 'autobiography': 0}",
+      "details": {
+        "counts": {
+          "diary": 39,
+          "patterns": 9,
+          "failures": 16,
+          "proposals": 4,
+          "crystals": 0,
+          "evolutions": 6,
+          "autobiography": 0
+        },
+        "dead_loops": [
+          "crystals (閉環終點空)",
+          "autobiography (應週期生成卻無檔)",
+          "proposals (4 pending gate 卡)"
+        ]
+      },
+      "duration_ms": 60.1
+    },
+    {
+      "name": "shadow_baseline",
+      "status": "error",
+      "summary": "shadow_trace.db not found",
+      "details": {},
+      "duration_ms": 0.0
+    },
+    {
+      "name": "precommit_hook",
+      "status": "red",
+      "summary": ".git/hooks/pre-commit not installed",
+      "details": {},
+      "duration_ms": 0.3
+    }
+  ],
+  "summary_lines": [
+    "  [RED   ] fitness                24 pass / 9 warn / 4 fail",
+    "  [YELLOW] capability_audit       dead: tools=0 kg=0 loops=3 adrs=0 total=3",
+    "  [RED   ] memory_loop            counts={'diary': 39, 'patterns': 9, 'failures': 16, 'proposals': 4, 'crystals': 0, 'evolutions': 6, 'autobiography': 0}",
+    "  [ERROR ] shadow_baseline        shadow_trace.db not found",
+    "  [RED   ] precommit_hook         .git/hooks/pre-commit not installed"
+  ]
+}
