@@ -38,7 +38,10 @@ except ImportError as e:
     print(f"missing dep: {e}", file=sys.stderr)
     sys.exit(1)
 
+# v6.13 (2026-05-31) 對齊 cross-file-ssot — strip sqlalchemy +asyncpg suffix
+# bug: container DATABASE_URL=postgresql+asyncpg://... asyncpg.connect 不接受
 DSN = os.getenv("DATABASE_URL", "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents")
+DSN = DSN.replace("postgresql+asyncpg://", "postgresql://")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6380/0")
 
 QUERY_COUNTER_KEY = "agent:evolution:query_count"  # 2026-04-29 修：原 'query_counter' 拼錯（scheduler 實際用 'query_count'）→ health script 永遠報 counter=0

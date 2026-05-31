@@ -111,21 +111,26 @@ echo ""
 # 6. Architecture docs presence
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[6/61] Architecture standard docs presence${NC}"
-REQUIRED_DOCS=(
-    "docs/architecture/STANDARD_REFERENCE.md"
-    "docs/architecture/SERVICE_CONTEXT_MAP.md"
-)
-MISSING=0
-for doc in "${REQUIRED_DOCS[@]}"; do
-    if [[ -f "$doc" ]]; then
-        echo -e "  ${GREEN}✓${NC} $doc"
-    else
-        echo -e "  ${RED}✗${NC} $doc MISSING"
-        MISSING=$((MISSING+1))
+# v6.13 (2026-05-31) L52 family: container 內 docs/ 未 mount 是設計 (host-side only)
+if [[ ! -d "docs/architecture" ]]; then
+    echo -e "  ${YELLOW}[INFO]${NC} docs/architecture not present (container env, host-side check only)"
+else
+    REQUIRED_DOCS=(
+        "docs/architecture/STANDARD_REFERENCE.md"
+        "docs/architecture/SERVICE_CONTEXT_MAP.md"
+    )
+    MISSING=0
+    for doc in "${REQUIRED_DOCS[@]}"; do
+        if [[ -f "$doc" ]]; then
+            echo -e "  ${GREEN}✓${NC} $doc"
+        else
+            echo -e "  ${RED}✗${NC} $doc MISSING"
+            MISSING=$((MISSING+1))
+        fi
+    done
+    if [[ $MISSING -gt 0 ]]; then
+        FAIL_COUNT=$((FAIL_COUNT+1))
     fi
-done
-if [[ $MISSING -gt 0 ]]; then
-    FAIL_COUNT=$((FAIL_COUNT+1))
 fi
 echo ""
 

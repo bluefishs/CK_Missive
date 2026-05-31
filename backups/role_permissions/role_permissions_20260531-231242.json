@@ -1,0 +1,50 @@
+{
+  "admin": [
+    "admin:database",
+    "agencies:create",
+    "agencies:delete",
+    "agencies:edit",
+    "agencies:read",
+    "calendar:edit",
+    "calendar:read",
+    "documents:create",
+    "documents:delete",
+    "documents:edit",
+    "documents:read",
+    "projects:create",
+    "projects:delete",
+    "projects:edit",
+    "projects:read",
+    "reports:assets:view",
+    "reports:export",
+    "reports:tender:view",
+    "system_docs:create",
+    "system_docs:delete",
+    "system_docs:edit",
+    "vendors:create",
+    "vendors:delete",
+    "vendors:edit",
+    "vendors:read"
+  ],
+  "staff": [
+    "documents:read",
+    "documents:create",
+    "documents:edit",
+    "projects:read",
+    "agencies:read",
+    "vendors:read",
+    "calendar:read",
+    "calendar:edit"
+  ],
+  "superuser": [
+    "*"
+  ],
+  "unverified": [],
+  "user": [
+    "documents:read",
+    "projects:read",
+    "agencies:read",
+    "vendors:read",
+    "calendar:read"
+  ]
+}

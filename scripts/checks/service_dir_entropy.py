@@ -27,7 +27,10 @@ import sys
 from pathlib import Path
 
 
+# v6.13 (2026-05-31) L52 family 第 10 案: container fallback
 SERVICES_ROOT = Path("backend/app/services")
+if not SERVICES_ROOT.exists() and Path("app/services").exists():
+    SERVICES_ROOT = Path("app/services")
 
 
 def count_services() -> tuple[int, int, list[str]]:

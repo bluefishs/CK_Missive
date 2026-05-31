@@ -32,13 +32,15 @@ logger = logging.getLogger(__name__)
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
-from app.core.paths import PROJECT_ROOT  # v6.10 P1-E SSOT
+from app.core.paths import PROJECT_ROOT, BACKEND_DIR  # v6.10 P1-E SSOT
 PROPOSALS_DIR = PROJECT_ROOT / "wiki" / "memory" / "proposals"
 CRYSTALS_DIR = PROJECT_ROOT / "wiki" / "memory" / "crystals"
 SNAPSHOTS_DIR = PROJECT_ROOT / "wiki" / "memory" / "evolutions" / "yaml-snapshots"
 
-SYNONYMS_YAML = PROJECT_ROOT / "backend" / "app" / "services" / "ai" / "synonyms.yaml"
-INTENT_RULES_YAML = PROJECT_ROOT / "backend" / "app" / "services" / "ai" / "intent_rules.yaml"
+# v6.13 (2026-05-31) L52 family 第 11 案: 用 BACKEND_DIR (動態 fallback)
+# 取代寫死 PROJECT_ROOT/backend (container 內不存在)
+SYNONYMS_YAML = BACKEND_DIR / "app" / "services" / "ai" / "synonyms.yaml"
+INTENT_RULES_YAML = BACKEND_DIR / "app" / "services" / "ai" / "intent_rules.yaml"
 
 
 @dataclass

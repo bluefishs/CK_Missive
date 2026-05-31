@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-05-31T23:15:50",
+  "all_ok": true,
+  "broken_chains": [],
+  "chains": {
+    "chain_1_missive_health": {
+      "ok": true,
+      "documents": 1809,
+      "entities": 23426
+    },
+    "chain_2_kunge_snapshot": {
+      "ok": true,
+      "lessons": 16,
+      "patterns": 10,
+      "proposals": 5,
+      "pending_proposals": 5
+    },
+    "chain_3_tools_manifest": {
+      "ok": true,
+      "total_tools": 9,
+      "has_kunge_snapshot": true
+    },
+    "chain_4_hermes_container": {
+      "ok": true,
+      "endpoint": "host.docker.internal:8642",
+      "status": 200
+    },
+    "chain_5_bridge_skill": {
+      "ok": true,
+      "skipped": true,
+      "note": "docs/ not mounted in container — bridge skill verified via chain 3 manifest"
+    }
+  }
+}

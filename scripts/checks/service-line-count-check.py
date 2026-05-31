@@ -59,6 +59,11 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(script_dir))
     services_dir = os.path.join(project_root, "backend", "app", "services")
+    # v6.13 (2026-05-31) L52 family 第 10 案: container 內 backend/app 不存在
+    if not os.path.isdir(services_dir):
+        fallback = os.path.join(project_root, "app", "services")
+        if os.path.isdir(fallback):
+            services_dir = fallback
 
     if not os.path.isdir(services_dir):
         print(f"ERROR: Services directory not found: {services_dir}")
