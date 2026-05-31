@@ -399,6 +399,47 @@ def render() -> str:
     a("**事件追溯**：每 scheduler tracker 含 `last_run` / `last_status` / `last_duration_ms` / `last_error`")
     a("")
 
+    # ── 9.6 Cron 執行歷史 (v6.13 owner: 紀錄變文件化與架構) ──
+    a("## 9.6 Cron 執行歷史摘要 (jsonl event log)")
+    a("")
+    a("**事件 log**：`backend/logs/cron_events.jsonl` (跨 backend restart 持久化)")
+    a("")
+    events_log = ROOT / "backend" / "logs" / "cron_events.jsonl"
+    if events_log.exists():
+        import json as _json
+        try:
+            lines = events_log.read_text(encoding="utf-8").splitlines()
+            recent = []
+            for line in lines[-30:]:
+                try:
+                    recent.append(_json.loads(line))
+                except Exception:
+                    pass
+            if recent:
+                a(f"**最近 {len(recent)} 個事件**：")
+                a("")
+                a("| 時間 | Job | 狀態 | 耗時 |")
+                a("|---|---|---|---|")
+                for ev in reversed(recent[-10:]):
+                    ts = ev.get("ts", "?")[-8:]
+                    job = ev.get("job_id", "?")[:30]
+                    status = ev.get("status", "?")
+                    duration = ev.get("duration_ms", 0)
+                    icon = "✅" if status == "success" else "❌"
+                    a(f"| {ts} | `{job}` | {icon} {status} | {duration:.0f}ms |")
+                a("")
+                # 統計
+                succ = sum(1 for e in recent if e.get("status") == "success")
+                fail = sum(1 for e in recent if e.get("status") == "failure")
+                a(f"**統計** (最近 {len(recent)} 個事件): {succ} 成功 / {fail} 失敗 / 失敗率 {fail/len(recent)*100:.1f}%")
+            else:
+                a("⚪ 無 cron event 紀錄（jsonl 為空或解析錯）")
+        except Exception as e:
+            a(f"⚠ event log 讀取錯: {e}")
+    else:
+        a("⚪ cron_events.jsonl 不存在（待 backend rebuild 後 SchedulerTracker._append_event 啟動）")
+    a("")
+
     # ── 10 owner action 待辦 ──
     a("## 10. Owner action 待辦 (不可委任)")
     a("")

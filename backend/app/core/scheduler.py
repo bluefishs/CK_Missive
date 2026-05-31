@@ -112,9 +112,37 @@ _scheduler: Optional[AsyncIOScheduler] = None
 # ---------------------------------------------------------------------------
 
 class SchedulerTracker:
-    """記錄每個排程任務的最後執行時間、持續時間、成功/失敗次數"""
+    """記錄每個排程任務的最後執行時間、持續時間、成功/失敗次數
+
+    v6.13 (2026-05-31) 對齊 owner「真活大於規劃 + 紀錄變文件化」訴求:
+    - in-memory tracker (既有)
+    - prometheus metric (既有 v6.12)
+    - **jsonl event log** (本批新增) — 寫 /app/logs/cron_events.jsonl
+      事件追溯依據 + 跨 backend restart 持久化
+    """
 
     _records: Dict[str, Dict[str, Any]] = {}
+    _EVENTS_LOG = _Path(os.getenv("CK_LOGS_DIR", "/app/logs")) / "cron_events.jsonl"
+
+    @classmethod
+    def _append_event(cls, job_id: str, status: str, duration_ms: Optional[float],
+                      error: Optional[str] = None) -> None:
+        """v6.13: 寫 jsonl event log — fire-and-forget 不阻斷主流程"""
+        import json as _json
+        try:
+            cls._EVENTS_LOG.parent.mkdir(parents=True, exist_ok=True)
+            event = {
+                "ts": datetime.now().isoformat(timespec="seconds"),
+                "job_id": job_id,
+                "status": status,
+                "duration_ms": duration_ms,
+            }
+            if error:
+                event["error"] = error[:200]
+            with cls._EVENTS_LOG.open("a", encoding="utf-8") as f:
+                f.write(_json.dumps(event, ensure_ascii=False) + "\n")
+        except Exception:
+            pass  # event log silent fail 不阻斷
 
     @classmethod
     def record_start(cls, job_id: str):
@@ -144,6 +172,7 @@ class SchedulerTracker:
             "last_error": None,
         })
         cls._records[job_id] = rec
+        cls._append_event(job_id, "success", duration)  # v6.13 jsonl log
         if _PROM_ENABLED:
             try:
                 SCHED_LAST_RUN_AGE_SECONDS.labels(job_id=job_id).set(0)
@@ -166,6 +195,7 @@ class SchedulerTracker:
             "last_error": error[:200],
         })
         cls._records[job_id] = rec
+        cls._append_event(job_id, "failure", duration, error)  # v6.13 jsonl log
         if _PROM_ENABLED:
             try:
                 SCHED_LAST_RUN_AGE_SECONDS.labels(job_id=job_id).set(0)
