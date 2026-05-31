@@ -51,8 +51,12 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-from app.core.paths import PROJECT_ROOT, WIKI_DIR, WIKI_MEMORY_DIR, BACKEND_DIR  # v6.10 P1-E SSOT
-SHADOW_DB = BACKEND_DIR / "logs" / "shadow_trace.db"
+from app.core.paths import PROJECT_ROOT, WIKI_DIR, WIKI_MEMORY_DIR, BACKEND_DIR, LOGS_DIR  # v6.10 P1-E SSOT
+# v6.13 (2026-05-31) L52 family 第 7 案修法：
+# bug: BACKEND_DIR / "logs" 在 container 內 = /app/backend/logs (不存在)
+# 真實 mount: ./backend/logs:/app/logs → 用 LOGS_DIR (= /app/logs)
+# 影響: pipeline shadow_baseline step ERROR shadow_trace.db not found
+SHADOW_DB = LOGS_DIR / "shadow_trace.db"
 REPORT_DIR = WIKI_MEMORY_DIR / "pipeline-reports"
 
 
@@ -369,10 +373,23 @@ def _shadow_baseline_summary() -> StepResult:
 
 
 def _precommit_hook_probe() -> StepResult:
-    """檢查 pre-commit 是否含 ADR-0028 3 守護腳本（本 session C1 修法）。"""
+    """檢查 pre-commit 是否含 ADR-0028 3 守護腳本（本 session C1 修法）。
+
+    v6.13 (2026-05-31) 修法: container 內 .git/ 不 mount 是設計 (git 不在 container 用)
+    → 改回 INFO/skip 不算 RED (host-side cron 才應跑此 probe)
+    """
     import time
     t0 = time.time()
-    hook = PROJECT_ROOT / ".git" / "hooks" / "pre-commit"
+    git_dir = PROJECT_ROOT / ".git"
+    hook = git_dir / "hooks" / "pre-commit"
+    if not git_dir.exists():
+        # container 環境 .git 不 mount，回 INFO skip (不是 RED)
+        return StepResult(
+            name="precommit_hook",
+            status="info",
+            summary="skipped: .git/ not present (container env, host-side check only)",
+            duration_ms=(time.time() - t0) * 1000,
+        )
     if not hook.exists():
         return StepResult(
             name="precommit_hook",
