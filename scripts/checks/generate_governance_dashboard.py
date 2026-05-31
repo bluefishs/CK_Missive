@@ -38,7 +38,7 @@ def fetch_metrics() -> dict[str, float]:
         if line.startswith("#") or not line.strip():
             continue
         if any(line.startswith(p) for p in (
-            "governance_", "scheduler_job_success_total",
+            "governance_", "scheduler_job_",  # v6.13: 抓全部 scheduler_job_* (含 age/success/failure)
             "kg_entities_total", "wiki_pages_total",
             "v7_", "shadow_baseline_",
             "memory_diary_days_total", "memory_crystals_total",
@@ -354,34 +354,49 @@ def render() -> str:
         a("```")
     a("")
 
-    # ── 9.5 Cron 排程統計 (v6.13 owner 訴求 — 管理端掌握) ──
-    a("## 9.5 Cron 排程統計 (v6.13 凌晨化 + misfire_grace 後)")
+    # ── 9.5 Cron 排程真活表 (v6.13 owner: 真活大於規劃) ──
+    a("## 9.5 Cron 排程真活全表 (事件追溯依據)")
     a("")
-    a("**凌晨低干擾時段排序**：")
-    a("| 時間 | Cron | misfire_grace | 用途 |")
-    a("|---|---|---|---|")
-    a("| 02:00 | fitness_daily | — | Tier 1 8 step |")
-    a("| 02:30 | governance_dashboard_regen | 2h | 整合 SSOT 重生 |")
-    a("| 02:30 (週日) | fitness_weekly | — | Tier 2 21 step |")
-    a("| 02:45 | daily_self_retrospective | 2h | 7 面向覆盤 |")
-    a("| 03:00 | optimization_pipeline | — | 5 step digest |")
-    a("| 03:35 | db_schema snapshot | — | schema audit |")
-    a("| 06:15 | cf_tunnel_verify | — | tunnel 健康 |")
-    a("| 07:30 | morning_report | — | LINE 推 owner |")
-    a("| 09:00 | synthetic_baseline_inject | — | KG 累積 |")
-    a("| 09:00 (週日) | crystal_review_overdue | — | 學習閉環 |")
-    a("| 14:00 | synthetic_baseline_inject | — | 持續累積 |")
-    a("| 20:00 | synthetic_baseline_inject | — | 收尾累積 |")
+    a("**所有 47 cron 真活狀態**（從 `/metrics scheduler_job_*` 即時抓）：")
     a("")
-    a("**真活 metric** (從 `/metrics scheduler_job_*` 抓)：")
     scheduler_age = {k: v for k, v in metrics.items() if k.startswith("scheduler_job_last_run_age_seconds")}
-    if scheduler_age:
-        a("```")
-        for k, v in sorted(scheduler_age.items())[:8]:
-            job_id = k.split('job_id="')[1].split('"')[0] if 'job_id=' in k else "?"
-            hours = v / 3600
-            a(f"  {job_id:30} age={hours:6.1f}h")
-        a("```")
+    scheduler_succ = {k: v for k, v in metrics.items() if k.startswith("scheduler_job_success_total")}
+    scheduler_fail = {k: v for k, v in metrics.items() if k.startswith("scheduler_job_failure_total")}
+    a(f"| Job ID | Age | Success | Failure | 狀態 |")
+    a(f"|---|---|---|---|---|")
+    seen_jobs = set()
+    rows = []
+    for k, v in scheduler_age.items():
+        job_id = k.split('job_id="')[1].split('"')[0] if 'job_id=' in k else "?"
+        if job_id in seen_jobs:
+            continue
+        seen_jobs.add(job_id)
+        hours = v / 3600
+        succ_key = f'scheduler_job_success_total{{job_id="{job_id}"}}'
+        fail_key = f'scheduler_job_failure_total{{job_id="{job_id}"}}'
+        succ = int(scheduler_succ.get(succ_key, 0))
+        fail = int(scheduler_fail.get(fail_key, 0))
+        if hours < 24 and succ > 0:
+            status = "🟢"
+        elif hours < 48:
+            status = "🟡"
+        else:
+            status = "🔴"
+        rows.append((hours, job_id, succ, fail, status))
+    # 排序：先 RED 後 YELLOW 後 GREEN
+    rows.sort(key=lambda r: (r[4] != "🔴", r[4] != "🟡", -r[0]))
+    for hours, job_id, succ, fail, status in rows:
+        a(f"| `{job_id}` | {hours:.1f}h | {succ} | {fail} | {status} |")
+    a("")
+    a(f"**統計**：{len(rows)} 真活 cron / {len([r for r in rows if r[4] == '🟢'])} GREEN / "
+      f"{len([r for r in rows if r[4] == '🟡'])} YELLOW / {len([r for r in rows if r[4] == '🔴'])} RED")
+    a("")
+    a("**凌晨低干擾排程設計（v6.13）**：")
+    a("- 02:00 fitness_daily / 02:30 dashboard_regen / 02:45 self_retrospective")
+    a("- 03:00 optimization_pipeline / 03:35 db_schema")
+    a("- 避開 06:00-22:00 用戶活躍時段 + 早報推播")
+    a("")
+    a("**事件追溯**：每 scheduler tracker 含 `last_run` / `last_status` / `last_duration_ms` / `last_error`")
     a("")
 
     # ── 10 owner action 待辦 ──
