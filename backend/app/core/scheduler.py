@@ -1732,6 +1732,41 @@ async def crystal_review_overdue_alarm_job():
         logger.error("crystal_review_overdue alarm 失敗: %s", e, exc_info=True)
 
 
+@tracked_job("proposal_aging_alert")
+async def proposal_aging_alert_job():
+    """v6.13 (2026-05-31) — 每週日 02:20 推 owner pending proposal aging
+
+    對齊 owner「學習閉環 + 日誌 + 坤哥真活」訴求
+
+    揭發背景:
+    - 5/31 self-retro RED 主因 = 學習閉環 flow=0% (crystals=0)
+    - 5 proposal pending 多達 40 天 (2 LOW intent + 3 MEDIUM soul)
+    - owner 健忘 / 決策成本高 = 結晶閉環斷層真因
+
+    本 job 主動揭發 + 降低 owner 決策成本:
+    - 列風險分級 (LOW/MEDIUM)
+    - 含完整 reason + age + target file
+    - 含 approve curl SOP
+    - 不繞 owner approve (依 crystal_applier 7 step 安全 SOP)
+    """
+    import os
+    from pathlib import Path
+
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    script = project_root / "scripts" / "checks" / "proposal_aging_alert.py"
+    if not script.exists():
+        logger.warning("proposal_aging_alert: script not found at %s", script)
+        return
+
+    rc, out, _ = await _run_script_async(
+        ["python", str(script), "--min-age-days", "7"],
+        cwd=str(project_root), timeout=30, job_name="proposal_aging_alert",
+    )
+    # rc=1 = 揭發 aging (主動推 owner)
+    # rc=0 = 無 aging (健康)
+    logger.info("proposal_aging_alert rc=%d", rc)
+
+
 @tracked_job("integration_e2e_validation")
 async def integration_e2e_validation_job():
     """v6.13 (2026-05-31) — 每日 02:05 跑 5 鏈整合 E2E 驗證
@@ -3055,6 +3090,22 @@ def setup_scheduler(
         misfire_grace_time=7200,
     )
     logger.info("已添加 Weekly Evolution Generator: 每週日 02:00 (v6.13 防 W22 重演)")
+
+    # v6.13 (2026-05-31) Proposal Aging Alert — 每週日 02:20
+    # 對齊 owner「學習閉環 + 日誌 + 坤哥真活」訴求
+    # 揭發 pending proposal > 7d → 主動 LINE 推 owner (降決策成本)
+    # 解 pipeline_red_consecutive_days=11 主因 (crystals=0 學習閉環斷)
+    scheduler.add_job(
+        proposal_aging_alert_job,
+        trigger=CronTrigger(day_of_week='sun', hour=2, minute=20),
+        id='proposal_aging_alert',
+        name='Proposal Aging Alert (每週日 02:20, 降 owner 決策成本)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=7200,
+    )
+    logger.info("已添加 Proposal Aging Alert: 每週日 02:20 (v6.13 學習閉環真活)")
 
     # v6.13 (2026-05-31) Integration E2E Validation — 每日 02:05
     # 對齊 owner「坤哥+Hermes+智能體 整合連通真活 突破性 非一次性」訴求
