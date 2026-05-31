@@ -1732,6 +1732,92 @@ async def crystal_review_overdue_alarm_job():
         logger.error("crystal_review_overdue alarm 失敗: %s", e, exc_info=True)
 
 
+@tracked_job("critique_health_audit")
+async def critique_health_audit_job():
+    """v6.13 (2026-05-31) — 每週日 02:15 揭發 critique silent dormant
+
+    對齊 owner「日誌與周報成為實質平臺靈魂」訴求。
+
+    揭發背景：
+    - 5/31 三層覆盤揭發 critiques/ 5/13 後 17 天 0 條
+    - critic 鏈真活 (agent_post_processing.py:181)，但 trigger 嚴格
+    - 監督 silent dormant，不改 critic 設計
+
+    若 7d 內 0 critique 且 query ≥ 5 → 寫 health-empty marker + LINE 推
+    """
+    import os
+    from pathlib import Path
+
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    script = project_root / "scripts" / "checks" / "critique_health_audit.py"
+    if not script.exists():
+        logger.warning("critique_health_audit: script not found at %s", script)
+        return
+
+    rc, out, err = await _run_script_async(
+        ["python", str(script)],
+        cwd=str(project_root), timeout=30, job_name="critique_health_audit",
+    )
+
+    # rc=1 = 揭發 silent dormant (非錯誤，是有效偵測)
+    if rc == 1 and "SILENT DORMANT" in out:
+        # 推 LINE 揭發 (沿用 IntegrationFacade，避免直接 import line_bot)
+        try:
+            from app.services.contracts.facades import IntegrationFacade
+            body = (
+                "⚠️ Critique Silent Dormant 揭發\n\n"
+                f"最近 7 天 0 critique 但有 query\n\n"
+                "可能訊號:\n"
+                "- agent 質性反省機制斷層\n"
+                "- 或 critic trigger threshold 太嚴\n\n"
+                "已寫 marker: wiki/memory/critiques/\n"
+                "  critique-health-empty-*.md\n\n"
+                "對齊 owner: 日誌+周報=靈魂訴求\n"
+                "本 marker 即一條質性反省"
+            )
+            await IntegrationFacade().push_admin_alert(
+                title="", body=body, channel="line"
+            )
+        except Exception as line_err:
+            logger.warning("critique_health LINE push failed: %s", line_err)
+
+    logger.info("critique_health_audit rc=%d: %s", rc, out[-200:] if out else "ok")
+
+
+@tracked_job("weekly_evolution_generator")
+async def weekly_evolution_generator_job():
+    """v6.13 (2026-05-31) — 每週日 02:00 產出 wiki/memory/evolutions/W{NN}.md
+
+    對齊 owner「日誌與周報成為實質平臺靈魂」訴求。
+
+    揭發背景：
+    - 5/31 KG×Hermes×坤哥 三層覆盤揭發 W22 缺檔
+    - 真因: 既有 kunge_weekly_learning_summary 只 LINE 推摘要不產檔
+    - 修法: 本 job 真實產出 W{NN}.md，防 W22 重演
+
+    不覆寫已存在 (W22 手寫保留為證據)。
+    """
+    import os
+    from pathlib import Path
+
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    script = project_root / "scripts" / "checks" / "weekly_evolution_generator.py"
+    if not script.exists():
+        logger.warning("weekly_evolution_generator: script not found at %s", script)
+        return
+
+    rc, out, err = await _run_script_async(
+        ["python", str(script)],
+        cwd=str(project_root), timeout=60, job_name="weekly_evolution_generator",
+    )
+
+    if rc != 0:
+        logger.warning("weekly_evolution_generator rc=%d err=%s", rc, err[-200:] if err else "")
+        return
+
+    logger.info("weekly_evolution_generator: %s", out[-200:] if out else "ok")
+
+
 @tracked_job("kunge_weekly_learning_summary")
 async def kunge_weekly_learning_summary_job():
     """L51.7 Sprint 3.P3.13 (2026-05-30) — 每週日 11:00 推「坤哥這週學到什麼」摘要
@@ -2901,6 +2987,37 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 Crystal Review Overdue Alarm: 每週日 09:30 執行 (L51.7)")
+
+    # v6.13 (2026-05-31) Weekly Evolution Generator — 每週日 02:00
+    # 對齊 owner「日誌與周報成為實質平臺靈魂」訴求
+    # 揭發背景: 5/31 三層覆盤揭發 W22 缺檔，既有 kunge_weekly_summary 只推不產
+    # 不覆寫已存在 (W22 手寫保留)
+    scheduler.add_job(
+        weekly_evolution_generator_job,
+        trigger=CronTrigger(day_of_week='sun', hour=2, minute=0),
+        id='weekly_evolution_generator',
+        name='Weekly Evolution Generator (每週日 02:00, 防 W22 重演)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=7200,
+    )
+    logger.info("已添加 Weekly Evolution Generator: 每週日 02:00 (v6.13 防 W22 重演)")
+
+    # v6.13 (2026-05-31) Critique Health Audit — 每週日 02:15
+    # 揭發 critique silent dormant (5/13 後 17 天 0 條的真因監督)
+    # 對齊 owner「日誌+周報=靈魂」訴求 — 揭發本身即一條質性反省
+    scheduler.add_job(
+        critique_health_audit_job,
+        trigger=CronTrigger(day_of_week='sun', hour=2, minute=15),
+        id='critique_health_audit',
+        name='Critique Health Audit (每週日 02:15, 揭發 silent dormant)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=7200,
+    )
+    logger.info("已添加 Critique Health Audit: 每週日 02:15 (v6.13 揭發 critique silent dormant)")
 
     # L51.7 Sprint 3.P3.13 — 每週日 11:00「坤哥這週學到什麼」LINE 推
     # 引發 owner 反饋寫入 patterns，啟動 v7_critique_pct 從 0 推升
