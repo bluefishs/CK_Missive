@@ -1,6 +1,6 @@
 # Governance Integrated Dashboard — 規範 + 現況 + 覆盤 整合 SSOT
 
-> **Generated**: 2026-05-31 08:09:45
+> **Generated**: 2026-05-31 09:03:23
 > **Owner 問題**: 每次詢問都有缺漏，需整合 5 處治理文件 (ADR/lesson/SOP/fitness/architecture)
 > **解法**: 此 dashboard 由 cron 06:00 自動 regenerate，session 啟動讀此檔取完整快照
 > **生成器**: `scripts/checks/generate_governance_dashboard.py`
@@ -15,47 +15,44 @@
 | Lessons | 0 | `wiki/memory/lessons/L*.md` |
 | SOPs | 13 | `.claude/rules/*.md` |
 | Fitness checks | 91 | `scripts/checks/*.py` |
-| Architecture docs | 71 | `docs/architecture/*.md` |
-| **Total** | **210** | 5 處散落 |
+| Architecture docs | 72 | `docs/architecture/*.md` |
+| **Total** | **211** | 5 處散落 |
 
 ## 2. 現況真活 metric (從 /metrics 即時抓)
 
 ```
-  governance_fitness_report_freshness_hours                   5.0
+  governance_fitness_report_freshness_hours                   6.0
   governance_lessons_l4x_family_count                         0.0
   governance_lessons_total                                   16.0
   governance_pipeline_red_consecutive_days                   11.0
-  governance_wiki_freshness_hours                             1.0
-  governance_wiki_pages_total                               373.0
+  governance_wiki_freshness_hours                             0.0
+  governance_wiki_pages_total                               374.0
   kg_entities_total                                       21378.0
   memory_crystals_total                                       0.0
   memory_diary_days_total                                    40.0
-  scheduler_job_success_total{job_id="health_check_broadcast"}          5.0
-  scheduler_job_success_total{job_id="morning_report"}          1.0
-  scheduler_job_success_total{job_id="process_reminders"}          5.0
-  scheduler_job_success_total{job_id="tender_dashboard_warm"}          6.0
-  scheduler_job_success_total{job_id="tender_subscription"}          1.0
+  scheduler_job_success_total{job_id="tender_dashboard_warm"}          1.0
   shadow_baseline_call_total{provider="gemma-hermes"}          3.0
-  shadow_baseline_call_total{provider="gemma-local"}         10.0
+  shadow_baseline_call_total{provider="gemma-local"}         13.0
   shadow_baseline_latency_p95_ms{provider="gemma-hermes"}      43746.0
   shadow_baseline_latency_p95_ms{provider="gemma-local"}      71226.0
-  shadow_baseline_rows_total{lookback_hours="24"}            13.0
+  shadow_baseline_rows_total{lookback_hours="24"}            16.0
   shadow_baseline_success_ratio{provider="gemma-hermes"}          1.0
   shadow_baseline_success_ratio{provider="gemma-local"}          1.0
   shadow_baseline_tool_use_count{provider="gemma-hermes",tool="get_statistics"}          3.0
   shadow_baseline_tool_use_count{provider="gemma-hermes",tool="search_documents"}          1.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_statistics"}          4.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_statistics"}          5.0
   shadow_baseline_tool_use_count{provider="gemma-local",tool="search_across_graphs"}          2.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_documents"}          6.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_documents"}          7.0
   shadow_baseline_tool_use_count{provider="gemma-local",tool="search_entities"}          2.0
   v7_channel_diversity                                        1.0
   v7_reference_density_critique_pct                           0.0
-  v7_reference_density_diary_pct                             17.2
+  v7_reference_density_diary_pct                             16.7
   v7_soul_drift_lines                                         0.0
 ```
 
 ## 3. 最近 8 commits (進化執行軌跡)
 
+- `94132f4e fix(scheduler): misfire_grace_time 7200s 防 cron silent dormant + 優先作業機制總表`
 - `d28aefd9 docs(retro): 5/30-31 兩日整合覆盤 + v6.13 自我覆盤進化目標 6 維度`
 - `187fed47 docs(retro): kg 歷程議題 + 整合應用架構藍圖 (5 階段+6 階段)`
 - `560848ad fix(line): line bot 超時 25→28s (owner 報「查詢處理時間較長」)`
@@ -63,7 +60,6 @@
 - `1908b54e feat(governance): effectiveness report + knowledge dedup script (owner approved)`
 - `e463c087 feat(governance): step 71 cross-domain link + step 72 knowledge dedup audit`
 - `252fc935 feat(governance): a+c repository smart audit + 命名規約 + 圖譜生態系複查`
-- `befcc750 feat(audit): step 70 repository:db_table 覆蓋率 audit (kg 建議 #1)`
 
 ## 4. 最近 5 session 覆盤 (memory/)
 
@@ -101,7 +97,7 @@
 
 | # | 條件 | 門檻 | 現況 | 達標 |
 |---|---|---|---|---|
-| 1 | baseline rows | ≥ 30 | 13 | ❌ |
+| 1 | baseline rows | ≥ 30 | 16 | ❌ |
 | 2 | dogfooding 連 7d | ≥ 7 days | 未追 | ⏳ |
 | 3 | soul fidelity | ≥ 70% | 未跑 | ⏳ |
 | 4 | error rate | < 5% | 0.0% | ✅ |
@@ -124,6 +120,26 @@
 bash scripts/install-template-to.sh ../<repo_name> \
   --include=cross-file-ssot,fitness-tier,governance-dashboard,l4x-lessons
 ```
+
+## 9.5 Cron 排程統計 (v6.13 凌晨化 + misfire_grace 後)
+
+**凌晨低干擾時段排序**：
+| 時間 | Cron | misfire_grace | 用途 |
+|---|---|---|---|
+| 02:00 | fitness_daily | — | Tier 1 8 step |
+| 02:30 | governance_dashboard_regen | 2h | 整合 SSOT 重生 |
+| 02:30 (週日) | fitness_weekly | — | Tier 2 21 step |
+| 02:45 | daily_self_retrospective | 2h | 7 面向覆盤 |
+| 03:00 | optimization_pipeline | — | 5 step digest |
+| 03:35 | db_schema snapshot | — | schema audit |
+| 06:15 | cf_tunnel_verify | — | tunnel 健康 |
+| 07:30 | morning_report | — | LINE 推 owner |
+| 09:00 | synthetic_baseline_inject | — | KG 累積 |
+| 09:00 (週日) | crystal_review_overdue | — | 學習閉環 |
+| 14:00 | synthetic_baseline_inject | — | 持續累積 |
+| 20:00 | synthetic_baseline_inject | — | 收尾累積 |
+
+**真活 metric** (從 `/metrics scheduler_job_*` 抓)：
 
 ## 10. Owner action 待辦 (不可委任)
 

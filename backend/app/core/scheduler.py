@@ -2829,15 +2829,17 @@ def setup_scheduler(
     # Owner 反饋: 「已建構程式圖譜 llmwiki 等好像都無法自動化與覆盤」
     scheduler.add_job(
         daily_self_retrospective_job,
-        trigger=CronTrigger(hour=6, minute=30),
+        trigger=CronTrigger(hour=2, minute=45),
         id='daily_self_retrospective',
-        name='Daily Self-Retrospective (每日 06:30, 7 面向)',
+        name='Daily Self-Retrospective (每日 02:45, 7 面向)',
         replace_existing=True,
         max_instances=1,
         coalesce=True,
-        misfire_grace_time=7200,  # v6.13: missed 2h 內仍補跑 (防 backend restart 期間 silent)
+        misfire_grace_time=7200,  # v6.13: missed 2h 內仍補跑
     )
-    logger.info("已添加 Daily Self-Retrospective: 每日 06:30 執行 (v6.12 #4, misfire_grace 2h)")
+    # v6.13 (2026-05-31): 06:30 → 02:45 避開 LINE 推播 / morning_report 07:30 / 用戶活動
+    # owner 訴求: 凌晨時段執行避免相關訊息推播或任務執行導致中斷
+    logger.info("已添加 Daily Self-Retrospective: 每日 02:45 執行 (v6.13 改凌晨避干擾)")
 
     # v6.12 解 owner「每次詢問都有缺漏」meta 問題
     # 每日 06:00 regenerate GOVERNANCE_INTEGRATED_DASHBOARD.md
@@ -2845,15 +2847,17 @@ def setup_scheduler(
     # Session 啟動讀此檔取完整快照無需重新 grep
     scheduler.add_job(
         governance_dashboard_regen_job,
-        trigger=CronTrigger(hour=6, minute=0),
+        trigger=CronTrigger(hour=2, minute=30),
         id='governance_dashboard_regen',
-        name='Governance Dashboard Regen (每日 06:00, 整合 5 處 SSOT)',
+        name='Governance Dashboard Regen (每日 02:30, 整合 5 處 SSOT)',
         replace_existing=True,
         max_instances=1,
         coalesce=True,
-        misfire_grace_time=7200,  # v6.13: missed 2h 內仍補跑 (防 backend restart 期間 silent)
+        misfire_grace_time=7200,
     )
-    logger.info("已添加 Governance Dashboard Regen: 每日 06:00 執行 (misfire_grace 2h)")
+    # v6.13 (2026-05-31): 06:00 → 02:30 凌晨執行避干擾
+    # 排序: 02:00 fitness daily → 02:30 dashboard → 02:45 self-retro
+    logger.info("已添加 Governance Dashboard Regen: 每日 02:30 執行 (v6.13 改凌晨)")
 
     # L51.7 (2026-05-30) Crystal review overdue alarm — 每週日 09:30
     # 防 proposals → crystals = 0 「學習閉環死」反模式

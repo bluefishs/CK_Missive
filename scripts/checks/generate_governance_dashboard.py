@@ -354,6 +354,36 @@ def render() -> str:
         a("```")
     a("")
 
+    # ── 9.5 Cron 排程統計 (v6.13 owner 訴求 — 管理端掌握) ──
+    a("## 9.5 Cron 排程統計 (v6.13 凌晨化 + misfire_grace 後)")
+    a("")
+    a("**凌晨低干擾時段排序**：")
+    a("| 時間 | Cron | misfire_grace | 用途 |")
+    a("|---|---|---|---|")
+    a("| 02:00 | fitness_daily | — | Tier 1 8 step |")
+    a("| 02:30 | governance_dashboard_regen | 2h | 整合 SSOT 重生 |")
+    a("| 02:30 (週日) | fitness_weekly | — | Tier 2 21 step |")
+    a("| 02:45 | daily_self_retrospective | 2h | 7 面向覆盤 |")
+    a("| 03:00 | optimization_pipeline | — | 5 step digest |")
+    a("| 03:35 | db_schema snapshot | — | schema audit |")
+    a("| 06:15 | cf_tunnel_verify | — | tunnel 健康 |")
+    a("| 07:30 | morning_report | — | LINE 推 owner |")
+    a("| 09:00 | synthetic_baseline_inject | — | KG 累積 |")
+    a("| 09:00 (週日) | crystal_review_overdue | — | 學習閉環 |")
+    a("| 14:00 | synthetic_baseline_inject | — | 持續累積 |")
+    a("| 20:00 | synthetic_baseline_inject | — | 收尾累積 |")
+    a("")
+    a("**真活 metric** (從 `/metrics scheduler_job_*` 抓)：")
+    scheduler_age = {k: v for k, v in metrics.items() if k.startswith("scheduler_job_last_run_age_seconds")}
+    if scheduler_age:
+        a("```")
+        for k, v in sorted(scheduler_age.items())[:8]:
+            job_id = k.split('job_id="')[1].split('"')[0] if 'job_id=' in k else "?"
+            hours = v / 3600
+            a(f"  {job_id:30} age={hours:6.1f}h")
+        a("```")
+    a("")
+
     # ── 10 owner action 待辦 ──
     a("## 10. Owner action 待辦 (不可委任)")
     a("")
