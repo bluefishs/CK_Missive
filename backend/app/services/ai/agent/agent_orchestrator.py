@@ -263,9 +263,15 @@ class AgentOrchestrator:
                         except (json.JSONDecodeError, IndexError):
                             pass
                     yield event
-                if session_id and conv_memory and chitchat_tokens:
+                # v6.13 (2026-06-01): chitchat 補 _answer_preview 給 trace
+                # bug: 短路路徑不跑 post_processing → trace.answer_preview 永 NULL
+                # owner 體感「LINE 不正常應答」誤判 = chitchat trace 寫入 silent 空
+                if chitchat_tokens:
                     answer_text = "".join(chitchat_tokens)
-                    await conv_memory.save(session_id, question, answer_text, history or [])
+                    trace._answer_preview = answer_text[:500]
+                    trace._answer_length = len(answer_text)
+                    if session_id and conv_memory:
+                        await conv_memory.save(session_id, question, answer_text, history or [])
                 await self._flush_trace_lightweight(trace)
                 return
 

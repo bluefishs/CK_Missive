@@ -1,0 +1,111 @@
+{
+  "started_at": "2026-05-31T19:00:00.021936+00:00",
+  "completed_at": "2026-05-31T19:00:32.616872+00:00",
+  "overall_status": "info",
+  "steps": [
+    {
+      "name": "fitness",
+      "status": "yellow",
+      "summary": "38 pass / 10 warn / 0 fail",
+      "details": {
+        "pass": 38,
+        "warn": 10,
+        "fail": 0,
+        "exit_code": 0
+      },
+      "duration_ms": 32325.5
+    },
+    {
+      "name": "capability_audit",
+      "status": "yellow",
+      "summary": "dead: tools=0 kg=0 loops=2 adrs=0 total=2",
+      "details": {
+        "lookback_days": 30,
+        "shadow_trace_queries": 0,
+        "tools": {
+          "total_registered": 0,
+          "dead": [],
+          "weak": [],
+          "healthy_count": 0,
+          "dead_pct": 0.0
+        },
+        "kg_entity_types": {
+          "scanned": 0,
+          "dead_types": [],
+          "dead_count": 0
+        },
+        "memory_loop": {
+          "counts": {
+            "diary": 41,
+            "patterns": 10,
+            "failures": 16,
+            "proposals": 5,
+            "crystals": 2,
+            "evolutions": 7,
+            "autobiography": 0
+          },
+          "dead_loops": [
+            "autobiography (0 files but 7+ diary days)",
+            "proposals (5 pending, gate blocked)"
+          ]
+        },
+        "adr": {
+          "active": 0,
+          "orphans": [],
+          "orphan_count": 0
+        }
+      },
+      "duration_ms": 224.5
+    },
+    {
+      "name": "memory_loop",
+      "status": "red",
+      "summary": "counts={'diary': 41, 'patterns': 10, 'failures': 16, 'proposals': 5, 'crystals': 2, 'evolutions': 7, 'autobiography': 0}",
+      "details": {
+        "counts": {
+          "diary": 41,
+          "patterns": 10,
+          "failures": 16,
+          "proposals": 5,
+          "crystals": 2,
+          "evolutions": 7,
+          "autobiography": 0
+        },
+        "dead_loops": [
+          "autobiography (應週期生成卻無檔)",
+          "proposals (5 pending gate 卡)"
+        ]
+      },
+      "duration_ms": 29.6
+    },
+    {
+      "name": "shadow_baseline",
+      "status": "red",
+      "summary": "24h n=25 avg=29.1s p95=71.2s success=100.00% over30=12/over60=3",
+      "details": {
+        "n": 25,
+        "avg_ms": 29076,
+        "p95_ms": 71226,
+        "max_ms": 75901,
+        "success_ratio": 1.0,
+        "over_30s": 12,
+        "over_60s": 3
+      },
+      "duration_ms": 15.2
+    },
+    {
+      "name": "precommit_hook",
+      "status": "info",
+      "summary": "skipped: .git/ not present (container env, host-side check only)",
+      "details": {},
+      "duration_ms": 0.0
+    }
+  ],
+  "summary_lines": [
+    "  [YELLOW] fitness                38 pass / 10 warn / 0 fail",
+    "  [YELLOW] capability_audit       dead: tools=0 kg=0 loops=2 adrs=0 total=2",
+    "  [RED   ] memory_loop            counts={'diary': 41, 'patterns': 10, 'failures': 16, 'proposals': 5, 'crystals': 2, 'evolutions': 7, 'autobiography': 0}",
+    "  [RED   ] shadow_baseline        24h n=25 avg=29.1s p95=71.2s success=100.00% over30=12/over60=3",
+    "  [INFO  ] precommit_hook         skipped: .git/ not present (container env, host-side check only)"
+  ]
+}
