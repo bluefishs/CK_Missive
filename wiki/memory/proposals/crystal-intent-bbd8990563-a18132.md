@@ -5,7 +5,10 @@ target_file: intent_rules.yaml
 source_pattern: bbd8990563
 proposed_by: agent
 proposed_at: 2026-04-21T10:03:39.821050+08:00
-status: pending
+status: superseded
+superseded_at: 2026-06-01T15:30:00+08:00
+superseded_by: owner-jujuiacc
+superseded_reason: "owner 裁定誠實 defer：(1) crystal_applier 安全閘擋空 pattern；(2) tool_preference 在 services/ai 無消費端，rule_engine 用 extract/confidence schema → 即使套用仍 inert；(3) crystallizer 只存 tool_sequence 未存來源 query 文字，無法生成有意義 regex。待 v6.14 升級 pattern_extractor 補捕 query 文字 + 建 tool_preference 消費端後，重新生成可真實 apply 的 proposal。不造假、不留 dead rule。"
 reason: "Pattern bbd8990563 已累積 9 次使用，成功率 100%，tool_sequence=['get_statistics', 'search_dispatch_orders']。建議結晶為 intent_rule 加速路由。"
 ---
 
