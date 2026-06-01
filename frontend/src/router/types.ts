@@ -78,6 +78,7 @@ export const ROUTES = {
   ADMIN_DASHBOARD: '/admin/dashboard',
   BACKUP_MANAGEMENT: '/admin/backup',
   DEPLOYMENT_MANAGEMENT: '/admin/deployment',
+  SCHEDULER_EVENTS: '/admin/scheduler-events',  // v6.13 排程紀錄追溯 + 覆盤報告
   CASE_NATURE_MANAGEMENT: '/admin/case-nature',
   /** @deprecated v6.0.0 — redirect to /kunge/ops（ADR-0031）；planned removal v6.1.0 */
   AI_ASSISTANT_MANAGEMENT: '/admin/ai-assistant',

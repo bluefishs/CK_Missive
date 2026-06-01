@@ -248,7 +248,7 @@ export const AppRouter: React.FC = () => {
           {/* 管理員面板 */}
           <Route path={ROUTES.ADMIN_DASHBOARD} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
           {/* v6.13 (2026-05-31) 排程紀錄追溯 + 覆盤報告 */}
-          <Route path="/admin/scheduler-events" element={<ProtectedRoute requireAuth={true} roles={['admin']}><SchedulerEventsPage /></ProtectedRoute>} />
+          <Route path={ROUTES.SCHEDULER_EVENTS} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SchedulerEventsPage /></ProtectedRoute>} />
 
           {/* 權限管理 - 獨立頁面：管理系統權限定義與角色 */}
           <Route path={ROUTES.PERMISSION_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><PermissionManagementPage /></ProtectedRoute>} />

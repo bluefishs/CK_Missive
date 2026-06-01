@@ -593,6 +593,18 @@ DEFAULT_NAVIGATION_ITEMS = [
         "description": "Google,認證",
         "permission_required": '["admin:settings"]',
     },
+    # 排程紀錄追溯 + 覆盤報告 (對應 ROUTES.SCHEDULER_EVENTS, v6.13)
+    {
+        "title": "排程追溯",
+        "key": "scheduler-events",
+        "path": "/admin/scheduler-events",
+        "icon": "FieldTimeOutlined",
+        "sort_order": 10,
+        "level": 2,
+        "parent_key": "system-management",
+        "description": "排程,cron,追溯,覆盤",
+        "permission_required": '["admin:settings"]',
+    },
     # 登入紀錄 (對應 ROUTES.ADMIN_LOGIN_HISTORY)
     {
         "title": "登入紀錄",
