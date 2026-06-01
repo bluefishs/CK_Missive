@@ -1442,7 +1442,9 @@ async def fitness_weekly_job():
     from datetime import datetime
     from pathlib import Path
 
-    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    # 2026-06-02 L52 family 修：CK_PROJECT_ROOT=/app，.parent 會變 / → script 找 /scripts (不存在，
+    # 實際 mount /app/scripts) → 8 cron job silent 早退。每日覆盤停 05-31+無 LINE 即此。移除 .parent。
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "run_fitness_weekly.sh"
     if not script.exists():
         logger.warning("fitness_weekly: script not found at %s", script)
@@ -1531,7 +1533,9 @@ async def daily_self_retrospective_job():
     import os
     from pathlib import Path
 
-    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    # 2026-06-02 L52 family 修：CK_PROJECT_ROOT=/app，.parent 會變 / → script 找 /scripts (不存在，
+    # 實際 mount /app/scripts) → 8 cron job silent 早退。每日覆盤停 05-31+無 LINE 即此。移除 .parent。
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "daily_self_retrospective.py"
     if not script.exists():
         logger.warning("daily_self_retrospective: script not found at %s", script)
@@ -1583,7 +1587,9 @@ async def governance_dashboard_regen_job():
     import os
     from pathlib import Path
 
-    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    # 2026-06-02 L52 family 修：CK_PROJECT_ROOT=/app，.parent 會變 / → script 找 /scripts (不存在，
+    # 實際 mount /app/scripts) → 8 cron job silent 早退。每日覆盤停 05-31+無 LINE 即此。移除 .parent。
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "generate_governance_dashboard.py"
     if not script.exists():
         logger.warning("governance_dashboard_regen: script not found at %s", script)
@@ -1620,7 +1626,9 @@ async def fitness_daily_job():
     import os
     from pathlib import Path
 
-    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    # 2026-06-02 L52 family 修：CK_PROJECT_ROOT=/app，.parent 會變 / → script 找 /scripts (不存在，
+    # 實際 mount /app/scripts) → 8 cron job silent 早退。每日覆盤停 05-31+無 LINE 即此。移除 .parent。
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "run_fitness_daily.sh"
     if not script.exists():
         logger.warning("fitness_daily: script not found at %s", script)
@@ -1752,7 +1760,9 @@ async def proposal_aging_alert_job():
     import os
     from pathlib import Path
 
-    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    # 2026-06-02 L52 family 修：CK_PROJECT_ROOT=/app，.parent 會變 / → script 找 /scripts (不存在，
+    # 實際 mount /app/scripts) → 8 cron job silent 早退。每日覆盤停 05-31+無 LINE 即此。移除 .parent。
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "proposal_aging_alert.py"
     if not script.exists():
         logger.warning("proposal_aging_alert: script not found at %s", script)
@@ -1785,7 +1795,9 @@ async def integration_e2e_validation_job():
     import os
     from pathlib import Path
 
-    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    # 2026-06-02 L52 family 修：CK_PROJECT_ROOT=/app，.parent 會變 / → script 找 /scripts (不存在，
+    # 實際 mount /app/scripts) → 8 cron job silent 早退。每日覆盤停 05-31+無 LINE 即此。移除 .parent。
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "integration_e2e_validation.py"
     if not script.exists():
         logger.warning("integration_e2e_validation: script not found at %s", script)
@@ -1835,7 +1847,9 @@ async def critique_health_audit_job():
     import os
     from pathlib import Path
 
-    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    # 2026-06-02 L52 family 修：CK_PROJECT_ROOT=/app，.parent 會變 / → script 找 /scripts (不存在，
+    # 實際 mount /app/scripts) → 8 cron job silent 早退。每日覆盤停 05-31+無 LINE 即此。移除 .parent。
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "critique_health_audit.py"
     if not script.exists():
         logger.warning("critique_health_audit: script not found at %s", script)
@@ -1887,7 +1901,9 @@ async def weekly_evolution_generator_job():
     import os
     from pathlib import Path
 
-    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app")).parent
+    # 2026-06-02 L52 family 修：CK_PROJECT_ROOT=/app，.parent 會變 / → script 找 /scripts (不存在，
+    # 實際 mount /app/scripts) → 8 cron job silent 早退。每日覆盤停 05-31+無 LINE 即此。移除 .parent。
+    project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "weekly_evolution_generator.py"
     if not script.exists():
         logger.warning("weekly_evolution_generator: script not found at %s", script)
