@@ -248,13 +248,28 @@ def _memory_loop_health() -> StepResult:
         d = base / sub
         counts[sub] = len(list(d.glob("*.md"))) if d.exists() else 0
 
+    # v6.13 (2026-06-01): proposals gate 只算 status: pending，
+    # 不能把 applied/superseded 也當「pending 卡」(否則 owner 已處置仍誤判 RED)。
+    # counts["proposals"] 保留總檔數供透明；gate 用 proposals_pending。
+    prop_dir = base / "proposals"
+    pending_props = 0
+    if prop_dir.exists():
+        for pf in prop_dir.glob("*.md"):
+            try:
+                head = pf.read_text(encoding="utf-8", errors="replace")[:400]
+                m = re.search(r"^status:\s*(\S+)", head, re.MULTILINE)
+                if m and m.group(1).strip() == "pending":
+                    pending_props += 1
+            except Exception:
+                continue
+    counts["proposals_pending"] = pending_props
+
     dead_loops = []
     if counts["crystals"] == 0 and counts["patterns"] >= 3:
         dead_loops.append("crystals (閉環終點空)")
     if counts["autobiography"] == 0 and counts["diary"] >= 7:
         dead_loops.append("autobiography (應週期生成卻無檔)")
 
-    pending_props = counts["proposals"]
     if pending_props >= 3:
         dead_loops.append(f"proposals ({pending_props} pending gate 卡)")
 

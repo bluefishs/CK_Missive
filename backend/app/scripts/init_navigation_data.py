@@ -886,6 +886,24 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
 
     update_count = 0
 
+    # v6.13 (2026-06-01) sidebar 污染防護 — lesson_init_navigation_live_db_pollution
+    # DEFAULT_NAVIGATION_ITEMS 與 live prod DB 結構已漂移；非 force 模式對「已建立的 DB」
+    # 注入新頂層項會建出空 path 孤兒選單（曾誤建 'ai-features' → 點擊報錯）。
+    # 防護：DB 已有頂層項且非 force_update → 拒絕創建任何新頂層項（empty DB seeding 不受影響）。
+    from sqlalchemy import func as _sa_func
+    _existing_top_count = (await db.scalar(
+        select(_sa_func.count()).select_from(SiteNavigationItem).where(
+            SiteNavigationItem.parent_id.is_(None)
+        )
+    )) or 0
+    _db_established = (_existing_top_count > 0) and (not force_update)
+    if _db_established:
+        logger.warning(
+            f"⚠️ DB 已建立 ({_existing_top_count} 頂層導覽項) 且非 --force-update："
+            f"跳過所有「新頂層項」創建以防 sidebar 污染。"
+            f"要加項目請用直接 SQL 或對齊 DEFAULT 後跑 --force-update。"
+        )
+
     # 第一階段：創建或更新所有父級項目
     parent_items = {}
     for item_data in DEFAULT_NAVIGATION_ITEMS:
@@ -909,6 +927,14 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
                     existing = result.scalar_one_or_none()
                 if existing:
                     parent_items[item_data["key"]] = existing
+                continue
+
+            # sidebar 污染防護：已建立的 DB 不接受 DEFAULT 注入新頂層項
+            if _db_established:
+                logger.warning(
+                    f"  ⏭ 跳過新頂層項 '{item_data['title']}' "
+                    f"(key={item_data['key']}) — DB 已建立防污染"
+                )
                 continue
 
             navigation_item = SiteNavigationItem(
