@@ -3456,6 +3456,30 @@ def start_scheduler():
         scheduler.start()
         logger.info("排程器已啟動")
 
+        # 2026-06-02 開機自檢（防 8 cron .parent 路徑 bug 同型 silent 死復發）：
+        # script-based cron job 的腳本必須存在，否則 job 每次 silent 早退。
+        # 開機 LOUD error（非 silent），讓 mount/path drift 立即暴露。
+        try:
+            import os as _os
+            from pathlib import Path as _Path
+            _checks_dir = _Path(_os.getenv("CK_PROJECT_ROOT", "/app")) / "scripts" / "checks"
+            _cron_scripts = [
+                "daily_self_retrospective.py", "generate_governance_dashboard.py",
+                "integration_e2e_validation.py", "proposal_aging_alert.py",
+                "critique_health_audit.py", "weekly_evolution_generator.py",
+            ]
+            _missing = [s for s in _cron_scripts if not (_checks_dir / s).exists()]
+            if _missing:
+                logger.error(
+                    "🔴 開機自檢：%d 個 cron script 找不到 (dir=%s) → 對應 job 將 silent 死："
+                    "%s。檢查 CK_PROJECT_ROOT / compose mount target。",
+                    len(_missing), _checks_dir, _missing,
+                )
+            else:
+                logger.info("✅ 開機自檢：%d cron script 全在 %s", len(_cron_scripts), _checks_dir)
+        except Exception as _e:
+            logger.warning("cron script 開機自檢跳過: %s", _e)
+
         # B-fix2: 自動從 ENV 建立 admin 訂閱（首次啟動時）
         import asyncio
         async def _seed():
