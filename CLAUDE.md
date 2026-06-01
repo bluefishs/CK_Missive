@@ -2,10 +2,24 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
-> **版本**: v6.11 完成（2026-05-28）/ OA-3 PM2 廢除 + L49 family 14 案 + ADR-0046 標案 enrichment + fitness 55 step
-> **最後更新**: 2026-05-28
+> **版本**: v6.13（2026-06-01）/ 坤哥×Hermes×智能體三層整合連通真活 + 靈魂進化首達 + 治理 6 cron 凌晨化 + KG 5/5 躍進 + fitness audit 擴至 step 72
+> **最後更新**: 2026-06-01
 >
 > **近期重大里程碑**：
+> - **v6.13 三層整合 + 靈魂進化 + 重啟準備**（2026-05-31 → 06-01 / **5/30-6/1 跨日 82 commits 全 push origin**）：
+>   - **坤哥×Hermes×智能體三層整合連通真活**：新增 `POST /api/ai/kunge/snapshot`（X-Service-Token 認證，counts/health_signals/db_stats）+ `scripts/checks/integration_e2e_validation.py` 5 鏈 E2E（missive_health / kunge_snapshot / tools_manifest / hermes_container / bridge_skill，**4+ 次連跑全綠**）+ tools_manifest 公開 kunge_snapshot（fitness step 62）
+>   - **靈魂進化首次真實達成**：`crystal_applier.py` 加 soul_section handler → crystals **0 → 2**（3 soul proposal applied）；學習閉環仍 5→2 pending（owner approve hard gate）
+>   - **治理 6 cron 凌晨化（02:00~02:45）+ misfire_grace_time 7200s**：weekly_evolution_generator（防 W22 重演）/ integration_e2e / critique_health_audit / proposal_aging_alert（突破 owner 健忘，主動 LINE 推 >=7d proposal）/ governance_dashboard_regen / daily_self_retrospective（7 面向）
+>   - **KG 5/5 大躍進**：knowledge dedup 24,535 → 21,378 純業務 + ERP/document/skill ingest → **23,426 entity / 33 type / 4 graph_domain**；wiki kg_entity_id backfill **40.1% → 89.7%**；KG 治理 audit step 70（repository:db_table 覆蓋率）+ 71（cross-domain link）+ 72（knowledge dedup audit）—— 為獨立 audit script（`run_fitness.sh` 主序列 61 步）
+>   - **scheduler 追溯體系**：`scheduler_events.py` API（events + stats + retrospective reports）+ cron events jsonl log + 前端 `SchedulerEventsPage`（`/admin/scheduler-events`，3 tabs）+ Dashboard §9.5/§9.6 cron 全表自動抓
+>   - **L52 family 第 8-11 案**（paths.py backend_dir/frontend_dir container drift + shadow_db/logs_dir + admin permissions +8）+ **L62/L63 universal lesson**（整合連通持續驗證 / 學習閉環 aging alert）
+>   - **LINE 應答 4 真因揭發**：routing 偏 search_documents + chitchat trace silent NULL 修 + line bot timeout 25→28s（owner 報「查詢處理時間較長」）
+>   - **重啟準備**：`docs/runbooks/reboot-pre-flight-20260601.md` — Pre-Flight 4 步（git/docker/md5/DB volume）全通過 + 重啟後 5 步驗收 SOP；容器版本確認（backend rebuilt / cloudflared pinned 2026.5.0 / postgres dev_data volume 避 L43）
+>   - **⚠️ 已知半接通（待 owner 決策）**：前端 container image 為 **5/27** build，`SchedulerEventsPage`（5/31 新增）**未部署到 running 前端**（需 `docker compose build frontend`）；該頁未進 `router/types.ts` ROUTES 與 `init_navigation_data.py` 側邊欄（導覽三方同步缺 2 處）
+>   - 詳見：`docs/architecture/V6_13_REAL_VERIFICATION_REPORT_20260531.md`（含實證 curl/log/grep）+ `V6_13_OVERALL_RETRO_AND_V6_14_PLAN_20260531.md`
+> - **v6.12 進化 4 原則 + Facade B 方案**（2026-05-30 / 21+ commits）：進化 4 原則（修法掃全範圍 audit / fitness 3 層 daily+weekly+monthly / 治理 metric 化 / 元覆盤 cron）+ Facade B 方案 13→3 收口（-1509L）+ 整合 SSOT Dashboard 4 道防線 + fitness 51→65 step + 8 句立法 + L57/L58/L59/L60 lesson；詳見 `docs/architecture/RETRO_20260530_31_TWO_DAY_CONSOLIDATION_AND_V613_BLUEPRINT.md`
+>
+> <details><summary>v6.11 及更早里程碑（展開）</summary>
 > - **v6.11 完整收尾**（2026-05-27 → 28 / **25 commits 已 push origin** / L49 family 14 案 + ADR-0046 標案模組）：
 >   - **5/28 後段（commits 19→25）追加修法**：
 >     - **L49.12** `get_tender_detail` 雙重 bug — service search_from_db trigram 模糊查不到 + DB 有資料未 return 落到外部 PCC API fail → None（commit `79cc1d4e`）
@@ -204,6 +218,8 @@
 >   - `v7_reference_density_critique_pct = 100%` ✓
 >   - `v7_soul_drift_lines = 57`（target ≤ 5）— Missive vs AaaP
 >   - `v7_provider_fidelity_gap_pct` = (待 owner 跑 soul-fidelity-eval.py)
+>
+> </details>
 
 ---
 
