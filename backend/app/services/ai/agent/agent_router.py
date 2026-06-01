@@ -54,6 +54,22 @@ class AgentRouter:
     3. fallthrough → LLM 規劃（現有流程）
     """
 
+    # v6.13 (2026-06-01) LN2 修法：gemma4 意圖 → 確定性真實工具映射。
+    # 取代 LLM suggested_tools（常幻覺中文描述詞如 '發票管理'/'付款追蹤' 不存在於
+    # registry → executor 0 tools → silent 空回應）。工具名已對 registry 45 工具驗證。
+    _INTENT_TOOL_MAP = {
+        "document": ["search_documents", "find_correspondence"],
+        "dispatch": ["search_dispatch_orders", "get_dispatch_progress"],
+        "project": ["search_projects", "get_project_progress"],
+        "vendor": ["get_vendor_detail", "search_erp_entities"],
+        "finance": ["get_unpaid_billings", "get_financial_summary", "get_expense_overview"],
+        "entity": ["search_entities", "get_entity_detail"],
+        "graph": ["search_across_graphs"],
+        "statistics": ["get_statistics"],
+        "tender": ["search_tender"],
+        "system": ["get_system_health"],
+    }
+
     def __init__(
         self,
         pattern_threshold: float = 0.8,
@@ -223,9 +239,10 @@ class AgentRouter:
         gemma4_result = await self._classify_intent_gemma4(question)
         if gemma4_result and gemma4_result.get("confidence", 0) >= 0.8:
             intent = gemma4_result.get("intent", "")
-            suggested_tools = gemma4_result.get("suggested_tools", [])
+            # LN2 修法：用確定性 intent→真實工具映射，不用 LLM 幻覺的 suggested_tools
+            suggested_tools = self._INTENT_TOOL_MAP.get(intent, [])
 
-            # 高信心意圖 → 使用 Gemma 4 建議的工具（若有）
+            # 高信心意圖 → 使用確定性映射的真實工具（若有）
             if suggested_tools:
                 tool_calls = [
                     {"name": t, "params": {}} for t in suggested_tools[:3]
