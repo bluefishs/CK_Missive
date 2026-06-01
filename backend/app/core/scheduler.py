@@ -2602,6 +2602,73 @@ async def cron_self_health_alert_job():
         )
 
 
+@tracked_job("cron_outcome_freshness")
+async def cron_outcome_freshness_job():
+    """2026-06-02 outcome-freshness watchdog（每日 07:00）。
+
+    解 owner 洞察「沒人回報就又中斷連線」+ watchdog 對 silent no-op 失明：
+    cron_self_health 只抓 failed>=1，但 silent 早退（假成功）逃過偵測。
+    本 watchdog 改驗『輸出檔是否今日新鮮』— 不管 job 怎麼假成功，
+    只要該機制沒產出今日檔 → LINE 報。比 failed 監控徹底（連 rc!=0 早退也抓）。
+
+    全綠 silent（不推雜訊）；任一 stale → LINE 推 owner + cron_events 記錄。
+    """
+    import os
+    import time
+    from pathlib import Path as _Path
+
+    if os.getenv("LINE_GROWTH_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
+        return
+    root = _Path(os.getenv("CK_PROJECT_ROOT", "/app"))
+    now = time.time()
+
+    # (機制名, 路徑, 是否目錄, 容許時數)
+    checks = [
+        ("每日覆盤", root / "wiki" / "memory" / "self-retrospective-reports", True, 28),
+        ("治理儀表板", root / "docs" / "architecture" / "GOVERNANCE_INTEGRATED_DASHBOARD.md", False, 28),
+        ("整合健康E2E", root / "wiki" / "memory" / "integration-health", True, 28),
+        ("日誌diary", root / "wiki" / "memory" / "diary", True, 30),
+        ("模式patterns", root / "wiki" / "memory" / "patterns", True, 30),
+    ]
+
+    stale = []
+    for name, path, is_dir, max_h in checks:
+        try:
+            if is_dir:
+                files = list(path.glob("*.md")) + list(path.glob("*.json"))
+                newest = max((f.stat().st_mtime for f in files), default=0)
+            else:
+                newest = path.stat().st_mtime if path.exists() else 0
+            age_h = (now - newest) / 3600 if newest else 9999
+            if age_h > max_h:
+                stale.append(f"  • {name}: {age_h:.0f}h 前 (門檻 {max_h}h)")
+        except Exception as e:
+            stale.append(f"  • {name}: 檢查異常 {e}")
+
+    if not stale:
+        logger.info("✅ outcome-freshness：5 機制輸出皆今日新鮮，skip LINE")
+        return
+
+    line_user_id = os.getenv("LINE_ADMIN_USER_ID")
+    if not line_user_id:
+        logger.error("🔴 outcome-freshness 偵測 %d 機制 stale 但 LINE_ADMIN_USER_ID 未設：%s",
+                     len(stale), stale)
+        return
+
+    body = (
+        "⚠️ 排程產出異常通知（outcome-freshness）\n\n"
+        f"以下機制未產出今日新鮮輸出（可能 silent 中斷）：\n"
+        + "\n".join(stale)
+        + "\n\n請查 /admin/scheduler-events 或 backend log"
+    )
+    try:
+        from app.services.contracts.facades.integration import IntegrationFacade
+        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+        logger.warning("🔴 outcome-freshness LINE 推送完成：%d 機制 stale", len(stale))
+    except Exception as e:
+        logger.error("outcome-freshness LINE push 失敗（已偵測 stale）: %s", e, exc_info=True)
+
+
 @tracked_job("memory_crystallization_scan")
 async def memory_crystallization_scan_job():
     """每日掃 patterns/ 產生 crystal proposals（不自動 apply，等人批准）。
@@ -3340,6 +3407,19 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 Cron Self-Health Alert: 每日 06:30 執行")
+
+    # 2026-06-02 outcome-freshness watchdog（每日 07:00，所有夜間 cron 後）
+    # 驗『各機制是否產出今日新鮮輸出』— 抓 silent no-op（failed 監控抓不到的假成功早退）
+    scheduler.add_job(
+        cron_outcome_freshness_job,
+        trigger=CronTrigger(hour=7, minute=0),
+        id='cron_outcome_freshness',
+        name='Outcome-freshness watchdog (每日 07:00)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加 Outcome-freshness watchdog: 每日 07:00 執行")
 
     # Wiki lint — 每日 05:30 掃描 (Phase 4 Lint)
     scheduler.add_job(
