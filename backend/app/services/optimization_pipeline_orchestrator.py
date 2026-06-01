@@ -264,6 +264,21 @@ def _memory_loop_health() -> StepResult:
                 continue
     counts["proposals_pending"] = pending_props
 
+    # v6.13 (2026-06-01): autobiography 實際寫在 evolutions/YYYY-WNN.md
+    # (memory_type: autobiography)，非 wiki/memory/autobiography/ → 修正計數
+    # 避免假 dormant (W17-W22 真活，已被 evolutions count 計入)。
+    evo_dir = base / "evolutions"
+    autobio_count = 0
+    if evo_dir.exists():
+        for ef in evo_dir.glob("*.md"):
+            try:
+                head = ef.read_text(encoding="utf-8", errors="replace")[:400]
+                if re.search(r"^memory_type:\s*autobiography", head, re.MULTILINE):
+                    autobio_count += 1
+            except Exception:
+                continue
+    counts["autobiography"] = max(counts["autobiography"], autobio_count)
+
     dead_loops = []
     if counts["crystals"] == 0 and counts["patterns"] >= 3:
         dead_loops.append("crystals (閉環終點空)")
