@@ -258,7 +258,9 @@ services:
       # v6.13 (2026-06-01): mount docs/ 給 ADR 議題追蹤頁 (knowledge_base /adr/list 讀 DOCS_DIR/adr)
       # 揭發: docs/ 未掛載 → container /app/docs/adr 不存在 → ADR 頁回 items=0 (23 ADR 看不到)
       # 同型 L52/L57 path/mount drift family（docs 與 wiki 同需 mount）
-      - ./docs:/app/docs:ro
+      # 2026-06-02: 改可寫（移除 :ro）— governance_dashboard cron 寫 docs/architecture/
+      # GOVERNANCE_INTEGRATED_DASHBOARD.md，:ro 會 OSError Read-only 致 dashboard 停更
+      - ./docs:/app/docs
     networks:
       ck_network: {}
     depends_on:
