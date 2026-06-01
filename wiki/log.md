@@ -3857,3 +3857,29 @@
 ## [2026-06-01] lint | pages=259 orphans=37 broken=7
 
 ## [2026-06-01] lint | pages=259 orphans=37 broken=7
+
+## [2026-06-01] v6.13 重大里程碑 — 重啟前完整快照
+
+**本日 36 commits / 跨日 (5/30-6/1) 82 commits 全 push origin**
+
+### 核心成果
+- ✅ L52 family 第 7~11 案修法（11 案 universal pattern）
+- ✅ wiki kg_entity_id 40.1% → **89.7%**（dispatch 127 + project 3 link）
+- ✅ fitness 4 fail → **0 (ALL PASS)**
+- ✅ Dangling permissions: admin 25 → **33** permissions（8 補齊）
+- ✅ **靈魂進化首次真實達成**：3 soul proposal → SOUL.md 演化（信念警示寫入）
+- ✅ crystals 0 → **2** / pending 5 → **2**
+- ✅ 6 cron 全真實註冊 + Integration E2E 7 次連跑 ALL PASS
+- ✅ chitchat trace `answer_preview` NULL bug 修
+- ✅ L62 + L63 universal lesson 立法
+
+### 揭發 RED（待 v6.14 / owner）
+- LINE routing 偏 search_documents/projects（owner 體感「派工」）
+- Groq 429 rate limit 6 次/30min
+- shadow_baseline p95=71.2s（LINE 慢真因）
+- 2 LOW crystal-intent 設計性 no-op（pattern 空）
+
+### 容器狀態
+- ck-missive-backend: healthy / RestartCount=0 / Image bd9887465a3a (5/31 build)
+- ck-missive-postgres: dev_data volume 對齊 / documents=1809 / KG=26152
+- 4 service all healthy / cloudflared pinned 2026.5.0
