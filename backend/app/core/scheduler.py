@@ -1206,8 +1206,8 @@ async def health_snapshot_log_job():
     from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     script = project_root / "scripts" / "health" / "log-health-snapshot.cjs"
     if not script.exists():
-        logger.warning("health_snapshot: script not found at %s", script)
-        return
+        logger.error("health_snapshot: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
     rc, out, err = await _run_script_async(
         ["node", str(script)], cwd=str(project_root), timeout=30, job_name="health_snapshot",
     )
@@ -1229,8 +1229,8 @@ async def shadow_baseline_export_job():
     from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     script = project_root / "scripts" / "checks" / "shadow-baseline-report.cjs"
     if not script.exists():
-        logger.warning("shadow_baseline: script not found at %s", script)
-        return
+        logger.error("shadow_baseline: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     out_dir = project_root / "logs" / "shadow-baseline"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1256,8 +1256,8 @@ async def synthetic_baseline_inject_job():
     from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     script = project_root / "scripts" / "checks" / "synthetic-baseline-inject.py"
     if not script.exists():
-        logger.warning("synthetic_baseline_inject: script not found at %s", script)
-        return
+        logger.error("synthetic_baseline_inject: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     rc, out, err = await _run_script_async(
         ["python", str(script), "--count", "10", "--timeout", "90"],
@@ -1288,8 +1288,8 @@ async def cloudflare_tunnel_verify_job():
     from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     script = project_root / "scripts" / "ops" / "verify-cloudflare-tunnel.ps1"
     if not script.exists():
-        logger.warning("cf_tunnel_verify: script not found at %s", script)
-        return
+        logger.error("cf_tunnel_verify: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     pwsh = shutil.which("pwsh") or shutil.which("powershell")
     if not pwsh:
@@ -1447,8 +1447,8 @@ async def fitness_weekly_job():
     project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "run_fitness_weekly.sh"
     if not script.exists():
-        logger.warning("fitness_weekly: script not found at %s", script)
-        return
+        logger.error("fitness_weekly: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     logger.info("開始執行 Fitness Tier 2 Weekly")
     rc, out, err = await _run_script_async(
@@ -1538,8 +1538,8 @@ async def daily_self_retrospective_job():
     project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "daily_self_retrospective.py"
     if not script.exists():
-        logger.warning("daily_self_retrospective: script not found at %s", script)
-        return
+        logger.error("daily_self_retrospective: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     logger.info("開始執行 Daily Self-Retrospective")
     rc, out, err = await _run_script_async(
@@ -1592,8 +1592,8 @@ async def governance_dashboard_regen_job():
     project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "generate_governance_dashboard.py"
     if not script.exists():
-        logger.warning("governance_dashboard_regen: script not found at %s", script)
-        return
+        logger.error("governance_dashboard_regen: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     rc, out, err = await _run_script_async(
         ["python", str(script)],
@@ -1631,8 +1631,8 @@ async def fitness_daily_job():
     project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "run_fitness_daily.sh"
     if not script.exists():
-        logger.warning("fitness_daily: script not found at %s", script)
-        return
+        logger.error("fitness_daily: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     logger.info("開始執行 Fitness Tier 1 Daily")
     rc, out, err = await _run_script_async(
@@ -1765,8 +1765,8 @@ async def proposal_aging_alert_job():
     project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "proposal_aging_alert.py"
     if not script.exists():
-        logger.warning("proposal_aging_alert: script not found at %s", script)
-        return
+        logger.error("proposal_aging_alert: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     rc, out, _ = await _run_script_async(
         ["python", str(script), "--min-age-days", "7"],
@@ -1800,8 +1800,8 @@ async def integration_e2e_validation_job():
     project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "integration_e2e_validation.py"
     if not script.exists():
-        logger.warning("integration_e2e_validation: script not found at %s", script)
-        return
+        logger.error("integration_e2e_validation: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     rc, out, err = await _run_script_async(
         ["python", str(script)],
@@ -1852,8 +1852,8 @@ async def critique_health_audit_job():
     project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "critique_health_audit.py"
     if not script.exists():
-        logger.warning("critique_health_audit: script not found at %s", script)
-        return
+        logger.error("critique_health_audit: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     rc, out, err = await _run_script_async(
         ["python", str(script)],
@@ -1906,8 +1906,8 @@ async def weekly_evolution_generator_job():
     project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     script = project_root / "scripts" / "checks" / "weekly_evolution_generator.py"
     if not script.exists():
-        logger.warning("weekly_evolution_generator: script not found at %s", script)
-        return
+        logger.error("weekly_evolution_generator: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
+        raise FileNotFoundError(f"cron script 缺失: {script}")
 
     rc, out, err = await _run_script_async(
         ["python", str(script)],
