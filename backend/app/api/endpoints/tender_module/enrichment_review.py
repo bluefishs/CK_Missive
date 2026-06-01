@@ -90,7 +90,7 @@ async def list_review_queue(
 async def approve_review(
     req: ReviewActionRequest,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_admin),
+    current_user=Depends(require_admin()),
 ):
     """approve 後寫 pcc_match_* 4 欄 + 標記 approved"""
     from app.services.tender.enrichment import apply_match_to_record
@@ -144,7 +144,7 @@ async def approve_review(
 async def reject_review(
     req: ReviewActionRequest,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_admin),
+    current_user=Depends(require_admin()),
 ):
     """reject 不 link，只標 rejected（後續同 ezbid×PCC pair 不會重複進 queue）"""
     r = await db.execute(

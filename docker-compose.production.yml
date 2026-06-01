@@ -255,6 +255,10 @@ services:
       # v6.12 (2026-05-30 PM): CK_PROJECT_ROOT=/app override 後 PROJECT_ROOT/scripts = /app/scripts
       # 必須改 mount target 對齊（先前 /scripts 已無人讀取 → 同型 L43 跨檔 SSOT 漂移）
       - ./scripts:/app/scripts:ro
+      # v6.13 (2026-06-01): mount docs/ 給 ADR 議題追蹤頁 (knowledge_base /adr/list 讀 DOCS_DIR/adr)
+      # 揭發: docs/ 未掛載 → container /app/docs/adr 不存在 → ADR 頁回 items=0 (23 ADR 看不到)
+      # 同型 L52/L57 path/mount drift family（docs 與 wiki 同需 mount）
+      - ./docs:/app/docs:ro
     networks:
       ck_network: {}
     depends_on:

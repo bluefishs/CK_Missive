@@ -70,7 +70,7 @@ def _validate_path(user_path: str) -> Path:
 
 @router.post("/tree", response_model=TreeResponse)
 async def get_knowledge_tree(
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
 ) -> TreeResponse:
     """取得知識地圖目錄結構。"""
     km_dir = DOCS_DIR / "knowledge-map"
@@ -124,7 +124,7 @@ async def get_knowledge_tree(
 @router.post("/file", response_model=FileContentResponse)
 async def get_file_content(
     req: FileRequest,
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
 ) -> FileContentResponse:
     """讀取知識庫檔案內容。"""
     resolved = _validate_path(req.path)
@@ -144,7 +144,7 @@ async def get_file_content(
 
 @router.post("/adr/list", response_model=AdrListResponse)
 async def list_adrs(
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
 ) -> AdrListResponse:
     """列出所有 ADR 文件。"""
     adr_dir = DOCS_DIR / "adr"
@@ -198,7 +198,7 @@ async def list_adrs(
 
 @router.post("/diagrams/list", response_model=DiagramListResponse)
 async def list_diagrams(
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
 ) -> DiagramListResponse:
     """列出所有架構圖文件。"""
     diagrams_dir = DOCS_DIR / "diagrams"
@@ -248,7 +248,7 @@ _SEARCH_DIRS = ["knowledge-map", "adr", "diagrams", "reports", "specifications"]
 @router.post("/search", response_model=KBSearchResponse)
 async def search_knowledge_base(
     req: KBSearchRequest,
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_async_db),
 ) -> KBSearchResponse:
     """混合搜尋知識庫內容：向量搜尋優先，文字搜尋兜底。"""
@@ -332,7 +332,7 @@ def _text_search_filesystem(req: KBSearchRequest) -> KBSearchResponse:
 
 @router.post("/embed", response_model=KBEmbedResponse)
 async def trigger_kb_embedding(
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_async_db),
 ) -> KBEmbedResponse:
     """觸發知識庫 Embedding 管線（掃描 docs/ → 分段 → 向量化）。"""
@@ -351,7 +351,7 @@ async def trigger_kb_embedding(
 @router.post("/code-wiki/module")
 async def get_module_wiki(
     request: Request,
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_async_db),
 ):
     """生成模組 Wiki (Gemma 4)"""
@@ -370,7 +370,7 @@ async def get_module_wiki(
 @router.post("/code-wiki/overview")
 async def get_code_wiki_overview(
     request: Request,
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_async_db),
 ):
     """程式碼 Wiki 總覽"""
@@ -389,7 +389,7 @@ async def get_code_wiki_overview(
 
 @router.post("/stats", response_model=KBStatsResponse)
 async def get_kb_stats(
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_async_db),
 ) -> KBStatsResponse:
     """取得知識庫 Embedding 統計資訊。"""
@@ -403,7 +403,7 @@ async def get_kb_stats(
 @router.post("/summarize-card")
 async def summarize_knowledge_card(
     request: Request,
-    _admin: dict = Depends(require_admin),
+    _admin: dict = Depends(require_admin()),
 ):
     """Gemma 4 生成知識卡片摘要"""
     body = await request.json()

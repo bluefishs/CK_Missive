@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.core.rate_limiter import limiter
@@ -40,6 +40,7 @@ def _wiki_memory_dir() -> Path:
 @limiter.limit("60/minute")
 async def get_scheduler_events(
     request: Request,
+    response: Response,  # slowapi headers_enabled 需此參數注入 rate-limit headers
     limit: int = Query(100, ge=1, le=1000),
     job_id: Optional[str] = Query(None, description="篩選特定 job"),
     status: Optional[str] = Query(None, description="success/failure"),
@@ -83,6 +84,7 @@ async def get_scheduler_events(
 @limiter.limit("60/minute")
 async def get_scheduler_events_stats(
     request: Request,
+    response: Response,  # slowapi headers_enabled 需此參數注入 rate-limit headers
     current_user: User = Depends(require_admin()),
 ) -> Dict[str, Any]:
     """Cron events 統計（依 job_id 分組 + 成功失敗率）"""
@@ -144,6 +146,7 @@ async def get_scheduler_events_stats(
 @limiter.limit("60/minute")
 async def list_retrospective_reports(
     request: Request,
+    response: Response,  # slowapi headers_enabled 需此參數注入 rate-limit headers
     limit: int = Query(30, ge=1, le=100),
     current_user: User = Depends(require_admin()),
 ) -> Dict[str, Any]:
@@ -180,6 +183,7 @@ async def list_retrospective_reports(
 @limiter.limit("60/minute")
 async def get_retrospective_report(
     request: Request,
+    response: Response,  # slowapi headers_enabled 需此參數注入 rate-limit headers
     date: str,
     current_user: User = Depends(require_admin()),
 ) -> Dict[str, Any]:

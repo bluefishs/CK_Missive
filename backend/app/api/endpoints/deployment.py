@@ -70,7 +70,7 @@ def get_github_headers() -> dict:
 async def get_system_status(
     request: Request,
     response: Response,
-    _: dict = Depends(require_admin)
+    _: dict = Depends(require_admin())
 ):
     """
     取得當前系統部署狀態，包括各服務健康狀態。
@@ -177,7 +177,7 @@ async def get_deployment_history(
     page: int = Query(1, ge=1, description="頁碼"),
     page_size: int = Query(10, ge=1, le=50, description="每頁數量"),
     status: Optional[str] = Query(None, description="篩選狀態"),
-    _: dict = Depends(require_admin)
+    _: dict = Depends(require_admin())
 ):
     """
     取得部署歷史記錄，從 GitHub Actions 工作流執行記錄中獲取。
@@ -272,7 +272,7 @@ async def trigger_deployment(
     request: Request,
     response: Response,
     body: TriggerDeploymentRequest,
-    _: dict = Depends(require_admin)
+    _: dict = Depends(require_admin())
 ):
     """
     觸發 GitHub Actions 部署工作流。
@@ -348,7 +348,7 @@ async def rollback_deployment(
     request: Request,
     response: Response,
     body: RollbackRequest,
-    _: dict = Depends(require_admin)
+    _: dict = Depends(require_admin())
 ):
     """
     回滾到上一個版本。
@@ -427,7 +427,7 @@ async def get_deployment_logs(
     run_id: int,
     request: Request,
     response: Response,
-    _: dict = Depends(require_admin)
+    _: dict = Depends(require_admin())
 ):
     """
     取得指定部署的日誌。
@@ -497,7 +497,7 @@ async def get_deployment_logs(
 async def get_deployment_config(
     request: Request,
     response: Response,
-    _: dict = Depends(require_admin)
+    _: dict = Depends(require_admin())
 ):
     """
     取得當前部署配置資訊。
