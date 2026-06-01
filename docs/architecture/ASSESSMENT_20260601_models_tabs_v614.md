@@ -14,12 +14,13 @@
 | **qwen2.5:7b** | 4.7GB | Missive 本地任務（classify/ner/planning）+ ollama fallback（`.env OLLAMA_MODEL`）| ✅ 真用 |
 | **qwen2.5:7b-ctx64k** | 4.7GB | Hermes gateway 主迴圈（64k context）| ✅ 真用 |
 | **nomic-embed-text** | 274MB | 嵌入 768D（對齊 pgvector）| ✅ 真用 |
-| **gemma4:e2b** | 7.2GB | inference-profiles 標「primary」**但 `.env OLLAMA_MODEL=qwen2.5:7b` 覆寫** → Missive 實跑 qwen | ⚠️ **疑死weight** |
-| **embeddinggemma** | 621MB | grep 全 code/config/.env **0 引用** | 🔴 **死weight** |
+| **gemma4:e2b** | 7.2GB | 🔴**【2026-06-02 重大訂正】不是死weight — 是發票解析核銷的視覺模型**：`erp/invoice_recognizer._vision_ocr_async` → `vision_completion(task_type="vision")` 需視覺模型，gemma4:e2b 是 ollama 庫**唯一視覺模型**（qwen 純文字不能處理圖片）。owner 提問揭發我誤刪（已重拉還原）| ✅ **必需（視覺）** |
+| **embeddinggemma** | 621MB | grep 全 code/config/.env/configs **0 引用**（廣域複查確認）| 🔴 **死weight** |
 
 **關鍵發現**：
 1. **「gemma4」是誤名**：`agent_query_sync.py` 6 處 `model="gemma4"` + route_type「gemma4」**實際跑 qwen2.5:7b**（env override）→ 觀測/trace 全部標錯模型名，混淆 baseline 分析。
-2. **gemma4:e2b 7.2GB 確定死weight**（已查證）：inference-profiles.yaml **無任何 code 讀取**（grep `inference-profiles` 在 backend/app 0 命中 = 純未讀文件）→ gemma4:e2b 只存在於「未讀 yaml +『被 env 覆寫的 fallback default』」兩處，**無任何 runtime 路徑會載入它**。
+2. **gemma4:e2b 是發票 OCR 視覺模型（必需，非死weight）**【2026-06-02 訂正】：我先前 grep `gemma4` 只看到 ai_connector + label，**漏看 vision 路徑**（`invoice_recognizer` 用 `vision_completion`→「via Gemma 4 vision」，model 在 vision_completion 內間接選，非字面 gemma4）。owner 提問「帳務是否透過 gemma4 發票解析」**及時揭發我誤刪**（已 `ollama pull` 重拉還原）。
+   - ⚠️ **連帶揭發潛伏 bug 並已修**：`task_type="vision"` 原不在 TASK_MODEL_MAP → 落 `OLLAMA_DEFAULT_MODEL`(qwen2.5:7b 純文字) → 圖片送非視覺模型 → **發票視覺 OCR silent 失敗退 QR**。已加 `"vision": "gemma4:e2b"` 映射（commit 本批），發票 OCR 視覺真導向 gemma4。
 3. **embeddinggemma 621MB 確定死**：無引用。
 4. **VRAM 壓力**：RTX 4060 8GB。gemma4(7.2GB) 與 qwen(4.7GB) 無法同時常駐；若 Hermes(qwen-ctx64k) + Missive(qwen 7b) 同時活躍 → load thrashing（兩個 4.7GB 變體）。
 
@@ -27,8 +28,9 @@
 
 | # | 建議 | 效益 | 風險 | 等級 |
 |---|---|---|---|---|
-| M1 | **刪 embeddinggemma**（`ollama rm embeddinggemma`）| 釋 621MB，0 風險（無引用）| 無 | 安全可做 |
-| M2 | **刪 gemma4:e2b**（已查證無 runtime 讀取路徑）| 釋 7.2GB + 解 VRAM 壓力 | 0（inference-profiles.yaml 無人讀）| 安全可做（owner 點頭即可）|
+| M1 | **刪 embeddinggemma**（已執行 `ollama rm`）| 釋 621MB，0 引用 | 無 | ✅ **已執行** |
+| ~~M2 刪 gemma4:e2b~~ | 🔴 **撤回 — gemma4:e2b 是發票 OCR 視覺模型，必須保留** | — | 誤刪會斷發票 OCR | ❌ **不可刪（已還原）** |
+| M2' | **vision 路由修法**：加 `task_type="vision"→gemma4:e2b` 進 TASK_MODEL_MAP | 發票視覺 OCR 真活（原 silent 退 QR）| 低 | ✅ **已執行** |
 | M3 | **統一本地模型**：Missive 也用 `qwen2.5:7b-ctx64k`（與 Hermes 同）| 1 模型常駐、免 thrash、長 context | 改 `.env OLLAMA_MODEL`，需測 classify/planning 效果 | owner 評估 |
 | M4 | **修「gemma4」誤名**：route_type/model label 改 `local` 或實際模型名 | 觀測 trace 模型名正確、baseline 分析準 | 純 label，低風險 | 安全可做 |
 | M5 | **inference-profiles.yaml 對齊 .env**：primary 改 qwen2.5:7b 反映現實 | SSOT 一致、消除「primary=gemma4 但實跑 qwen」漂移 | 文件對齊 | 安全可做 |

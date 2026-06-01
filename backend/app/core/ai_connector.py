@@ -69,6 +69,10 @@ TASK_MODEL_MAP = {
     # 2026-04-22：planning 專用（短輸出、強結構，本地 gemma4:e2b 夠用）
     # 避開 Groq 429 → NVIDIA 49B fallback 的 17-27s 慢路徑
     "planning": os.getenv("OLLAMA_PLANNING_MODEL", OLLAMA_DEFAULT_MODEL),
+    # 2026-06-02：vision 必須用視覺模型 gemma4:e2b（OLLAMA_MODEL=qwen2.5:7b 純文字不能處理圖片）。
+    # 真因：發票解析核銷 invoice_recognizer._vision_ocr_async → vision_completion(task_type="vision")
+    # 但 "vision" 原不在此 map → 落 OLLAMA_DEFAULT_MODEL(qwen) → 圖片送純文字模型 → silent 失敗退 QR。
+    "vision": os.getenv("OLLAMA_VISION_MODEL", "gemma4:e2b"),
     "embedding": os.getenv("EMBEDDING_MODEL", "nomic-embed-text"),
 }
 
