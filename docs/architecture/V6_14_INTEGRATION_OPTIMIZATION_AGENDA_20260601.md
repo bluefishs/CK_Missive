@@ -82,6 +82,20 @@ Missive agent 內部有 **23 個工具**（含 ERP/finance/contract/asset/billin
 
 ---
 
+## 3.5 已辦進度（2026-06-01 接續完成）
+
+| ID | 議題 | 狀態 |
+|---|---|---|
+| **LN2** | 「未付請款」silent return 深查 | ✅ **完成** — 真因：gemma4 prompt 沒給工具目錄 → LLM 回幻覺中文 suggested_tools（'發票管理' 不存在 registry）→ executor 0 tools → silent 空 |
+| **LN1 + H1 路由側** | intent→tool 確定性映射 | ✅ **完成**（commit `a33a0bbc`）— 加 `_INTENT_TOOL_MAP`（11 意圖→registry 45 工具中真實名）取代 LLM 建議。finance→get_unpaid_billings / tender→search_tender / project / vendor 全路由真實工具；pattern 路由不變 0 回歸 |
+| 排程追溯頁服務 | 前後端確認 | ✅ slowapi response 參數修（500→200） |
+| ADR 議題追蹤頁服務 | 前後端確認 | ✅ docs/ 掛載修（0→23 筆） |
+| require_admin 無括號 | 18 端點防禦性修 | ✅ `require_admin()` |
+
+**殘留**：H1 bridge 層（tools_manifest 9→暴露更多給 Hermes gateway 直呼）+ LN3 Groq quota（owner）+ L1 crystal-intent 真實化（pattern_extractor 補 query 文字）。
+
+---
+
 ## 4. 統一優化路線（v6.14 Sprint 建議優先序）
 
 > 三面向的「能力 ⇄ 路由」斷層是同一條線，建議**一個 Sprint 一起解**：
