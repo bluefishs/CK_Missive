@@ -8,6 +8,7 @@
  */
 
 import { apiClient, API_BASE_URL } from '../client';
+import { getCookie } from '../interceptors';
 import { AI_ENDPOINTS } from '../endpoints';
 import { logger } from '../../services/logger';
 import type {
@@ -53,11 +54,13 @@ export function streamSummary(
 
   (async () => {
     try {
+      // 2026-06-02: raw fetch 不過 apiClient interceptor → 手動帶 X-CSRF-Token（防公網 CSRFMiddleware 403）
+      const _csrf = getCookie('csrf_token');
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: _csrf
+          ? { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf }
+          : { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
         signal: controller.signal,
         credentials: 'include',

@@ -8,6 +8,16 @@
  */
 
 import { apiClient, API_BASE_URL } from '../client';
+import { getCookie } from '../interceptors';
+
+/** 2026-06-02: stream 用 raw fetch 不過 apiClient interceptor → 須手動帶 X-CSRF-Token
+ * （CSRFMiddleware 對 POST 比對 cookie csrf_token 與 header；缺則 403）。auth 走 httpOnly cookie。 */
+function csrfStreamHeaders(): Record<string, string> {
+  const t = getCookie('csrf_token');
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (t) h['X-CSRF-Token'] = t;
+  return h;
+}
 import { AI_ENDPOINTS } from '../endpoints';
 import { logger } from '../../services/logger';
 import type {
@@ -362,9 +372,7 @@ export function streamRAGQuery(
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: csrfStreamHeaders(),
         body: JSON.stringify(params),
         signal: controller.signal,
         credentials: 'include',
@@ -505,9 +513,7 @@ export function streamAgentQuery(
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: csrfStreamHeaders(),
         body: JSON.stringify(params),
         signal: controller.signal,
         credentials: 'include',
