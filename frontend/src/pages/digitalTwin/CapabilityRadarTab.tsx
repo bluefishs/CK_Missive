@@ -12,7 +12,8 @@ const { Text } = Typography;
 
 interface DashboardData {
   capability: {
-    domains?: Array<{ domain: string; score: number; query_count: number; level: string }>;
+    // 後端回 dict {domain: {score,count,level}}（非陣列）；前端正規化後使用
+    domains?: Record<string, { score?: number; count?: number; level?: string }> | Array<{ domain: string; score: number }>;
     strengths?: Array<{ domain: string; score: number }>;
     weaknesses?: Array<{ domain: string; score: number }>;
     overall_score?: number;
@@ -43,14 +44,20 @@ const CapabilityRadarTabInner: React.FC = () => {
   const daily = data?.daily;
 
   // 雷達圖資料 — memoize to avoid re-computation on every render (before early returns)
-  const radarData = useMemo(
-    () => (capability?.domains ?? []).map(d => ({
-      domain: DOMAIN_LABELS[d.domain] ?? d.domain,
-      score: Math.round(d.score * 100),
+  const radarData = useMemo(() => {
+    const d = capability?.domains;
+    // 後端 domains 可能是 dict {domain:{score,...}} 或 array；正規化為陣列防 .map 崩潰
+    const arr: Array<{ domain: string; score: number }> = Array.isArray(d)
+      ? d
+      : (d && typeof d === 'object'
+          ? Object.entries(d).map(([domain, m]) => ({ domain, score: m?.score ?? 0 }))
+          : []);
+    return arr.map(item => ({
+      domain: DOMAIN_LABELS[item.domain] ?? item.domain,
+      score: Math.round((item.score ?? 0) * 100),
       fullMark: 100,
-    })),
-    [capability?.domains],
-  );
+    }));
+  }, [capability?.domains]);
 
   if (isLoading) return <Spin tip="載入能力分析..." style={{ display: 'block', padding: 40, textAlign: 'center' }} />;
   if (isError) return <Alert type="warning" showIcon title="能力資料載入失敗" />;
