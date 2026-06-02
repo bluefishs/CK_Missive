@@ -144,12 +144,13 @@ export const ServiceMonitorTab: React.FC = () => {
       {config && (
         <Card title="AI 服務配置" size="small">
           <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered items={[
+            // 2026-06-02 修服務狀態崩潰: config 非 null 但深層 providers/rate_limit/cache 可能缺 → optional chaining
             { key: 'AI 功能', label: 'AI 功能', children: (<Badge status={config.enabled ? 'success' : 'error'} text={config.enabled ? '已啟用' : '已停用'} />) },
-            { key: 'Groq 模型', label: 'Groq 模型', children: config.providers.groq.model },
-            { key: 'Ollama 模型', label: 'Ollama 模型', children: config.providers.ollama.model },
-            { key: 'Ollama URL', label: 'Ollama URL', children: config.providers.ollama.url },
-            { key: 'Rate Limit', label: 'Rate Limit', children: `${config.rate_limit.max_requests} 次 / ${config.rate_limit.window_seconds} 秒` },
-            { key: '快取', label: '快取', children: `${config.cache.enabled ? '已啟用' : '停用'} (摘要 ${config.cache.ttl_summary}s / 分類 ${config.cache.ttl_classify}s)` },
+            { key: 'Groq 模型', label: 'Groq 模型', children: config.providers?.groq?.model ?? '—' },
+            { key: 'Ollama 模型', label: 'Ollama 模型', children: config.providers?.ollama?.model ?? '—' },
+            { key: 'Ollama URL', label: 'Ollama URL', children: config.providers?.ollama?.url ?? '—' },
+            { key: 'Rate Limit', label: 'Rate Limit', children: config.rate_limit ? `${config.rate_limit.max_requests} 次 / ${config.rate_limit.window_seconds} 秒` : '—' },
+            { key: '快取', label: '快取', children: config.cache ? `${config.cache.enabled ? '已啟用' : '停用'} (摘要 ${config.cache.ttl_summary}s / 分類 ${config.cache.ttl_classify}s)` : '—' },
           ]} />
         </Card>
       )}

@@ -30,8 +30,11 @@ interface AgentTrace {
 }
 
 interface TracesResponse {
-  items: AgentTrace[];
-  total: number;
+  // 2026-06-02 修空白: 後端回 traces/total_count（非 items/total）→ 對齊; 保留 items 向後相容
+  traces?: AgentTrace[];
+  items?: AgentTrace[];
+  total_count?: number;
+  total?: number;
 }
 
 const ROUTE_COLORS: Record<string, string> = {
@@ -50,7 +53,7 @@ export const TraceWaterfallTab: React.FC = () => {
   if (isLoading) return <Spin tip="載入查詢軌跡..." style={{ display: 'block', padding: 40, textAlign: 'center' }} />;
   if (isError) return <Alert type="warning" showIcon title="軌跡資料載入失敗" />;
 
-  const traces = data?.items ?? [];
+  const traces = data?.traces ?? data?.items ?? [];
 
   // 工具成功率統計
   const toolStats: Record<string, { total: number; success: number }> = {};
