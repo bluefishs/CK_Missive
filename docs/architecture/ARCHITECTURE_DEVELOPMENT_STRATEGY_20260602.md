@@ -50,11 +50,12 @@ diary(daily) → pattern_extract(04:00) → crystallize(04:35) → proposal
 > crystal-intent 批准後，**seed 進既有 PatternLearner**（`load_seeds_if_empty :482`），而非寫 intent_rules.yaml（schema 不符）。
 > → 走 PatternLearner 既有閉合路徑（router pattern 路由）、**免建新消費端**、owner-gated 仍可審計。
 
-**閉合 intent 終點實作步驟（P1，待 owner review 設計後增量）**：
-1. crystal_applier 加 `intent_rule` kind 的新 handler：approved 時呼叫 `PatternLearner.seed(tool_sequence, example_questions, confidence=high)`。
-2. crystallizer 生 proposal 時帶 `example_questions`（pattern 已存 `:200-203`）供 seed 用，不再依空 pattern。
-3. **風險**：seed 影響 router pattern 匹配 → 須 false-positive 測試（樣本 query 不誤觸）+ owner-gated 限流。
-4. **閉環自證**：memory_loop fitness（已誠實化）+ proposal_aging（已建）+ trace 觀測 seed 後 route_type=pattern 命中率。
+**閉合 intent 終點實作步驟**：
+- ✅ **Step A 完成**（2026-06-02 commit `00c87167`）：crystallizer 帶 example_questions + tool_sequence 進 proposal payload。**順帶修真 bug**：tool_sequence 非引號 YAML 陣列原 `json.loads` 失敗 silent → crystal-intent proposal 根本生不出來（潛伏斷點），改 split 解析。驗證：真實 pattern → 解析兩者 → proposal 生成帶兩者 / E2E PASS。
+- 🟡 **Step B 待焦點實作**（routing，較大重構）：crystal_applier `intent_rule` 路徑需**重構**——現況空 pattern 被安全閘擋（`:94` early return），seed 加在 write 後永不執行。須改：intent_rule kind 的**主動作 = seed PatternLearner**（`learner.learn(example_question, None, [{name:t} for t in tool_sequence], success=True)` 逐 example_question），yaml write 降為次要。
+  - **風險**：seed 影響 router pattern 匹配 → 須 false-positive 測試（樣本 query 不誤觸不相關工具）+ owner-gated（僅 apply 時）+ 用既有 learn() 正常 confidence（不強拉高）。
+  - **不在 session 尾端硬推**（owner「不反覆基礎錯誤與不穩定」）→ 留焦點 session。
+- **閉環自證**：memory_loop fitness（已誠實化）+ proposal_aging（已建）+ trace 觀測 seed 後 route_type=pattern 命中率。
 
 **目標態**：兩 loop 協同 — PatternLearner 自動快閉環、crystallization 慎重可審計閉環（經 seed 匯流），ratio ≥0.5、行為改變可 trace。
 
