@@ -11,6 +11,14 @@
 import { DIGITAL_TWIN_ENDPOINTS } from './endpoints';
 import { logger } from '../services/logger';
 import { apiClient } from './client';
+import { getCookie } from './interceptors';
+
+/** 2026-06-02: stream 用 raw fetch 不過 apiClient interceptor → 須手動帶 X-CSRF-Token
+ * （CSRFMiddleware 對 POST 比對 cookie csrf_token 與 header；缺則 403）。auth 走 httpOnly cookie。 */
+function csrfHeaders(base: Record<string, string>): Record<string, string> {
+  const t = getCookie('csrf_token');
+  return t ? { ...base, 'X-CSRF-Token': t } : base;
+}
 
 // ---------------------------------------------------------------------------
 // Types — SSOT 在 types/ai.ts，此處 re-export
@@ -82,7 +90,7 @@ async function _attemptStream(
 
     const res = await fetch(streamUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      headers: csrfHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream' }),
       credentials: 'include',
       body: JSON.stringify({
         question: request.question,
@@ -245,7 +253,7 @@ export async function delegateAuto(
   try {
     const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.DELEGATE_AUTO}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: csrfHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(request),
     });
@@ -329,6 +337,7 @@ import type { AgentTopologyResponse } from '../types/ai';
 export async function getAgentTopology(): Promise<AgentTopologyResponse> {
   const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.AGENT_TOPOLOGY}`, {
     method: 'POST',
+    headers: csrfHeaders({}),
     credentials: 'include',
   });
   if (!res.ok) {
@@ -347,7 +356,7 @@ import type { QaImpactResponse } from '../types/ai';
 export async function getQaImpact(baseBranch = 'main'): Promise<QaImpactResponse> {
   const res = await fetch(
     `/api${DIGITAL_TWIN_ENDPOINTS.QA_IMPACT}?base_branch=${encodeURIComponent(baseBranch)}`,
-    { method: 'POST', credentials: 'include' },
+    { method: 'POST', headers: csrfHeaders({}), credentials: 'include' },
   );
   if (!res.ok) {
     return { success: false, changed_files_count: 0, affected: [], recommendation: 'no_changes', message: `HTTP ${res.status}` };

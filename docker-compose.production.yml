@@ -189,6 +189,9 @@ services:
       - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
       - NVIDIA_MONTHLY_CRED_LIMIT=${NVIDIA_MONTHLY_CRED_LIMIT:-}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
+      # 2026-06-02: compose 原未傳 PGVECTOR_ENABLED → 容器拿不到 → config 預設 False
+      # → 語意搜尋報「pgvector 未啟用」。補傳 .env 值（DB pgvector extension 已裝）。
+      - PGVECTOR_ENABLED=${PGVECTOR_ENABLED:-false}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-}
       - VLLM_API_KEY=${VLLM_API_KEY:-}
       - VLLM_BASE_URL=${VLLM_BASE_URL:-}
