@@ -74,6 +74,13 @@
 
 **注意**：tab 重構是 UI/UX 變更，依 `feedback_no_modal_navigation_mode` + confirm-before-change，**待 owner 拍板後**才動（涉路由四方同步，避免重演 sidebar 事故）。
 
+### 2.4 ✅ 已落地（2026-06-02 commit `9d8f3a8f`，owner 綠燈後逐步辦理）
+- **Step 1**：移除 ops「對話」sub-tab（與主 /kunge/chat RAGChatPanel 純重複，owner 親自確認）+ 清未使用 import + 預設 tab 改自省
+- **Step 2**：主 /kunge **7 tab → 5 核心主軸**：對話 / 心智（我是誰+記憶圖譜+對話精選嵌套）/ 進化 / 圖譜（技能星雲）/ 運維
+- **向後相容**：`PATH_TO_TAB` 舊 path(identity/memory/dialogues→mind；nebula→graph) deep link 不破；types.ts 加 KUNGE_MIND/KUNGE_GRAPH + 舊標 deprecated
+- **四方同步驗證**：DB nav 單一 /kunge 入口（無子路徑）+ AppRouter `/kunge/:tab` 統一處理（無需改）/ tsc 0 / E2E ALL PASS / backend SPA 部署同步
+- **架構正常化**：`architecture-frontend.md` 同步 5 核心結構
+
 ---
 
 ## 三、v6.14 續推狀態

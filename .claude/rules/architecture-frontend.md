@@ -6,14 +6,15 @@
 
 ```
 /kunge  (KungePage) ← 唯一意識體入口
-  ├── chat       → RAGChatPanel embedded (context="web")
-  ├── identity   → IdentityTab（SOUL v2.0 三信念 + 反迴聲 + 倫理紅線）
-  ├── memory     → MemoryTab（MemoryStatsRow 共用元件 + 3 導引卡）
+  # 2026-06-02 整併聚焦服務鏈：7 tab → 5 核心主軸（對話→心智→進化→圖譜→運維）
+  ├── chat       → ChatTab（RAGChatPanel embedded，唯一對話入口）
+  ├── mind       → 心智（嵌套：我是誰 IdentityTab + 記憶圖譜 MemoryTab + 對話精選 DialoguesTab）
   ├── evolution  → EvolutionTab（「結晶進化」= pattern→crystal 學習閉環）
-  ├── nebula     → NebulaTab（轉發 memoryWiki/SkillNebulaTab）
-  ├── dialogues  → DialoguesTab（對話精選）
-  └── ops        → OpsTab → <OpsDashboard>（原 UnifiedAgentPage 降格）
-                    └── 7~12 子 tab（含「健康進化」= Agent journal）
+  ├── graph      → NebulaTab（圖譜 / 技能星雲）
+  └── ops        → OpsTab → <OpsDashboard>（原 UnifiedAgentPage；已移除重複「對話」tab）
+                    └── 自省/追蹤/派工/儀表板/健康進化/拓撲（+admin: 效能/數據分析/資料管線/服務狀態）
+
+  向後相容（PATH_TO_TAB）：舊 /kunge/{identity,memory,dialogues}→mind；/kunge/nebula→graph
 
 Redirect（6 個月相容期）：
   /agent/dashboard         → Navigate /kunge/ops
