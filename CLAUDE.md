@@ -2,10 +2,18 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
-> **版本**: v6.13（2026-06-01）/ 坤哥×Hermes×智能體三層整合連通真活 + 靈魂進化首達 + 治理 6 cron 凌晨化 + KG 5/5 躍進 + fitness audit 擴至 step 72
-> **最後更新**: 2026-06-01
+> **版本**: v6.13（2026-06-02）/ 真因鏈大掃除 23 commits — silent cron 四層防禦 + OLLAMA/PGVECTOR/token config drift 修 + kunge tab 7→5 整併 + 多 tab 崩潰/403/embedding 修
+> **最後更新**: 2026-06-02
 >
 > **近期重大里程碑**：
+> - **v6.13 (06-02) 真因鏈大掃除**（23 commits 全 push / 重啟 pre-flight 通過 `docs/runbooks/reboot-pre-flight-20260602.md`）：
+>   - **平臺自證 silent→LOUD 四層**：8 cron `.parent` 路徑 bug（每日覆盤+LINE 全 silent 死）+ 開機自檢 + silent return→raise + outcome-freshness watchdog（07:00）
+>   - **3 個 config drift 修真因鏈**：① `OLLAMA_BASE_URL=localhost`→`host.docker.internal`（修「無法生成查詢向量」0.0s + ollama fallback 層）② `PGVECTOR_ENABLED` compose 漏傳→補（修「pgvector 未啟用」）③ token SSOT auth_service 硬編碼 30→改讀 settings 60min（修閒置不到 30 分被登出）
+>   - **vision 修**：task_type=vision 映射 gemma4:e2b（修發票 OCR silent 退 QR）
+>   - **kunge UI 整併 + 崩潰/403 修**：tab 7→5 核心主軸（對話/心智/進化/圖譜/運維）+ 去 ops 對話重複 + 閒置倒數徽章 + 自省/追蹤/服務狀態 3 tab 崩潰修（domains dict / items→traces drift / config 深層 optional chaining）+ chat agent stream 403（raw fetch 補 X-CSRF-Token：adminManagement/coreFeatures/digitalTwin）+ GatewayHealthBadge 改 apiClient
+>   - **學習閉環三柱戰略**：`ARCHITECTURE_DEVELOPMENT_STRATEGY_20260602.md`（接通與真活脊柱）；柱一 Step A crystallizer tool_sequence 解析修 + Step B 撤回（PatternLearner 已自動閉環）/ 柱二 H1 撤回（盤點防做白工）
+>   - **共同模式（rigor 教訓）**：raw fetch 漏 header（CSRF/Auth）+ config 沒進容器（OLLAMA/PGVECTOR）+ data shape 當陣列 .map → 建議 fitness audit 防同型；3 起自傷錯誤（init_nav 污染/誤刪 gemma4/docs :ro）立 `feedback_rigor_no_self_inflicted_instability`
+>   - 詳見：`docs/runbooks/reboot-pre-flight-20260602.md`（pre-flight 全通過 + 重啟後 5 步驗收）
 > - **v6.13 三層整合 + 靈魂進化 + 重啟準備**（2026-05-31 → 06-01 / **5/30-6/1 跨日 82 commits 全 push origin**）：
 >   - **坤哥×Hermes×智能體三層整合連通真活**：新增 `POST /api/ai/kunge/snapshot`（X-Service-Token 認證，counts/health_signals/db_stats）+ `scripts/checks/integration_e2e_validation.py` 5 鏈 E2E（missive_health / kunge_snapshot / tools_manifest / hermes_container / bridge_skill，**4+ 次連跑全綠**）+ tools_manifest 公開 kunge_snapshot（fitness step 62）
 >   - **靈魂進化首次真實達成**：`crystal_applier.py` 加 soul_section handler → crystals **0 → 2**（3 soul proposal applied）；學習閉環仍 5→2 pending（owner approve hard gate）
