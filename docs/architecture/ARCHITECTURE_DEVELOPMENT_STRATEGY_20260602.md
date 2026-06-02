@@ -106,14 +106,16 @@ L3 routing：pattern → gemma4 intent(_INTENT_TOOL_MAP 確定性) → llm fallt
 
 ## 5. 發展優先序（建議，待 owner 定）
 
-| # | 動作 | 柱 | 風險 | 依賴 |
+| # | 動作 | 柱 | 風險 | 狀態 |
 |---|---|---|---|---|
-| P0 | outcome-freshness watchdog（cron 產出今日檔自證）| 三 | 低（純加） | — |
-| P0 | metric registry 曝露對齊（messaging_push 等）| 三 | 低 | — |
-| P1 | 閉合 intent 終點（pattern_extractor 補 query + crystallizer 生 regex）| 一 | 中（routing）| 走影響盤點協議 |
-| P1 | tools_manifest 自 tool_registry 動態生成 | 二 | 中 | 走影響盤點協議 |
-| P2 | federation 跨專案 KG hub 強化 | 二/三 | 中 | 跨 repo |
-| P2 | Hermes meta profile skill 註冊 | 二 | — | 上游 hermes-agent |
+| P0 | outcome-freshness watchdog（cron 產出今日檔自證）| 三 | 低（純加） | ✅ **完成**（2026-06-02 commit `b6ae4810`，每日 07:00，全綠 silent / stale→LINE，驗證雙向 + E2E PASS）|
+| P0 | ~~metric registry 曝露對齊~~ | 三 | — | ⚪ **校正撤回**：原「LINE metric 失明」證據有瑕疵（subprocess push 有獨立 counter，非 backend 程序）→ metric 很可能正常。**不憑瑕疵證據改 code**，待 in-backend push 確認 |
+| P1 | 閉合 intent 終點（pattern_extractor 補 query + crystallizer 生 regex）| 一 | 中（routing）| 待 — 走影響盤點協議 |
+| P1 | tools_manifest 自 tool_registry 動態生成 | 二 | 中 | 待 — 走影響盤點協議 |
+| P2 | federation 跨專案 KG hub 強化 | 二/三 | 中 | 待 — 跨 repo |
+| P2 | Hermes meta profile skill 註冊 | 二 | — | 待 — 上游 hermes-agent |
+
+> **本 session 防禦升級（柱三「失敗 LOUD」已落地三層）**：① 8 cron `.parent` 修（`5c59e7dc`）② 開機自檢（`1468da1a`）③ silent return→raise 12 處（`94c12538`）④ outcome-freshness watchdog（`b6ae4810`）。silent 中斷現在「開機現形 + 失敗 watchdog 報 + 產出 freshness 報」三重自證。
 
 > **紀律**：P1/P2 涉行為/路由/跨檔，動手前一律走 [[feedback_rigor_no_self_inflicted_instability]] 影響盤點。P0 純加可先做。
 
