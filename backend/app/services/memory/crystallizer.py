@@ -284,12 +284,34 @@ class Crystallizer:
             if cand_m:
                 meta["crystallization_candidate"] = cand_m.group(1) == "True"
 
-            seq_m = re.search(r"^tool_sequence:\s*(\[.*?\])", fm, re.MULTILINE)
+            # 2026-06-02 柱一閉合：pattern 檔 tool_sequence 是非引號 YAML 陣列
+            # [search_documents, search_entities]（非合法 JSON）→ 原 json.loads 失敗
+            # silent → tool_sequence 空 → crystal-intent proposal 生不出來（潛伏斷點）。
+            # 改 split 解析（容忍引號與否）。
+            seq_m = re.search(r"^tool_sequence:\s*\[(.*?)\]", fm, re.MULTILINE)
             if seq_m:
-                try:
-                    meta["tool_sequence"] = json.loads(seq_m.group(1))
-                except Exception:
-                    pass
+                inner = seq_m.group(1).strip()
+                if inner:
+                    meta["tool_sequence"] = [
+                        t.strip().strip('"').strip("'")
+                        for t in inner.split(",") if t.strip()
+                    ]
+
+            # 2026-06-02 柱一閉合 Step A：抽 example_questions（「## 典型問法」區段）
+            # 供 crystal_applier 批准後 seed 進 PatternLearner（閉合 intent 終點）。
+            # 排除「- (尚無示例)」佔位行。
+            body = text[fm_match.end():]
+            eq_m = re.search(r"##\s*典型問法\s*\n(.*?)(?:\n##|\Z)", body, re.DOTALL)
+            if eq_m:
+                questions = []
+                for ln in eq_m.group(1).splitlines():
+                    ln = ln.strip()
+                    if ln.startswith("- ") and "尚無示例" not in ln:
+                        q = ln[2:].strip()
+                        if q:
+                            questions.append(q)
+                if questions:
+                    meta["example_questions"] = questions
 
             return meta
         except Exception:
@@ -378,6 +400,8 @@ class Crystallizer:
                     "hit_count": meta.get("hit_count", 0),
                     "success_rate": meta.get("success_rate", 0),
                     "tool_sequence": tools,
+                    # 2026-06-02 柱一閉合 Step A：帶 example_questions 供 seed PatternLearner
+                    "example_questions": meta.get("example_questions", []),
                 },
             },
             reason=(
