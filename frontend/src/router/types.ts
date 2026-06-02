@@ -175,14 +175,17 @@ export const ROUTES = {
   TENDER_ORG_ECOSYSTEM: '/tender/org-ecosystem',
   TENDER_COMPANY_PROFILE: '/tender/company-profile',
   // 坤哥 — Missive 意識體（存在論敘事頁）
+  // 2026-06-02 整併為 5 核心主軸：對話 / 心智 / 進化 / 圖譜 / 運維
   KUNGE: '/kunge',
+  KUNGE_MIND: '/kunge/mind',        // 心智（我是誰+記憶圖譜+對話精選 嵌套）
+  KUNGE_EVOLUTION: '/kunge/evolution',
+  KUNGE_GRAPH: '/kunge/graph',      // 圖譜（技能星雲）
+  KUNGE_OPS: '/kunge/ops',          // 運維儀表板
+  // @deprecated 2026-06-02 整併入 KUNGE_MIND/KUNGE_GRAPH；舊 path 由 KungePage PATH_TO_TAB 向後相容
   KUNGE_IDENTITY: '/kunge/identity',
   KUNGE_MEMORY: '/kunge/memory',
-  KUNGE_EVOLUTION: '/kunge/evolution',
   KUNGE_NEBULA: '/kunge/nebula',
   KUNGE_DIALOGUES: '/kunge/dialogues',
-  // v5.8.1：/kunge/ops 管理 tab — 整合原 admin/ai-assistant + agent/dashboard + digital-twin
-  KUNGE_OPS: '/kunge/ops',
 } as const;
 
 // 路由元數據

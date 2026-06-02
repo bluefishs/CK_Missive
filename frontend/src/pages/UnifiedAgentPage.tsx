@@ -12,7 +12,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Row, Col, Typography, Tabs, Spin } from 'antd';
 import {
-  MessageOutlined, RadarChartOutlined,
+  RadarChartOutlined,
   ApartmentOutlined, ExperimentOutlined,
   CloudServerOutlined, UnorderedListOutlined,
   ScheduleOutlined, DashboardOutlined,
@@ -30,9 +30,7 @@ import { MorningReportCard } from './digitalTwin/MorningReportCard';
 import { TopologyTab } from './digitalTwin/TopologyTab';
 
 // Lazy-load heavy sub-tabs
-const RAGChatPanel = React.lazy(() =>
-  import('../components/ai/RAGChatPanel').then(m => ({ default: m.RAGChatPanel }))
-);
+// 2026-06-02 kunge tab 整併：RAGChatPanel 移除（ops「對話」與主 /kunge/chat 純重複）。
 const DualModeChatPanel = React.lazy(() =>
   import('../components/ai/DualModeChatPanel').then(m => ({ default: m.DualModeChatPanel }))
 );
@@ -83,7 +81,9 @@ export interface UnifiedAgentPageProps {
 
 const UnifiedAgentPage: React.FC<UnifiedAgentPageProps> = ({ mode }) => {
   const isAdmin = mode === 'admin';
-  const [activeTab, setActiveTab] = useState('chat');
+  // 2026-06-02 kunge tab 整併：移除 ops「對話」(與主 /kunge/chat 之 RAGChatPanel 純重複)。
+  // 預設改「自省」(reflection) — 運維模式首屏為能力分析而非重複對話。
+  const [activeTab, setActiveTab] = useState('reflection');
   const queryClient = useQueryClient();
 
   // Prefetch self-profile
@@ -111,9 +111,8 @@ const UnifiedAgentPage: React.FC<UnifiedAgentPageProps> = ({ mode }) => {
   const tabItems = useMemo(() => {
     const items = [
       // ── 核心 Tab（兩模式共用）──
-      createTabItem('chat', { icon: <MessageOutlined />, text: '對話' },
-        suspense(<RAGChatPanel embedded agentMode />, '載入對話...')
-      ),
+      // 2026-06-02 kunge tab 整併：移除「對話」(與主 /kunge/chat RAGChatPanel 純重複)。
+      // 對話統一由主 /kunge/chat 提供，運維模式聚焦診斷/監控。
       createTabItem('reflection', { icon: <RadarChartOutlined />, text: '自省' },
         suspense(<CapabilityRadarTab />, '載入能力分析...')
       ),

@@ -29,27 +29,42 @@ import { useAuthGuard } from '../hooks/utility/useAuthGuard';
 
 const { Title, Text } = Typography;
 
-type KungeTabKey = 'chat' | 'identity' | 'memory' | 'evolution' | 'nebula' | 'dialogues' | 'ops';
+// 2026-06-02 kunge tab 整併聚焦服務鏈：7 tab → 5 核心主軸
+// 對話 / 心智(我是誰+記憶+對話精選) / 進化 / 圖譜(技能星雲) / 運維
+type KungeTabKey = 'chat' | 'mind' | 'evolution' | 'graph' | 'ops';
 
 const TAB_TO_PATH: Record<KungeTabKey, string> = {
   chat: '/kunge/chat',
-  identity: '/kunge/identity',
-  memory: '/kunge/memory',
+  mind: '/kunge/mind',
   evolution: '/kunge/evolution',
-  nebula: '/kunge/nebula',
-  dialogues: '/kunge/dialogues',
+  graph: '/kunge/graph',
   ops: '/kunge/ops',
 };
 
+// 向後相容：舊 deep link path → 新合併 tab（書籤/外連不破）
 const PATH_TO_TAB: Record<string, KungeTabKey> = {
   chat: 'chat',
-  identity: 'identity',
-  memory: 'memory',
+  mind: 'mind',
+  identity: 'mind',     // 舊 /kunge/identity → 心智
+  memory: 'mind',       // 舊 /kunge/memory → 心智
+  dialogues: 'mind',    // 舊 /kunge/dialogues → 心智
   evolution: 'evolution',
-  nebula: 'nebula',
-  dialogues: 'dialogues',
+  graph: 'graph',
+  nebula: 'graph',      // 舊 /kunge/nebula → 圖譜
   ops: 'ops',
 };
+
+// 2026-06-02 心智主軸：我是誰 + 記憶圖譜 + 對話精選 嵌套（內在心智統一，元件不重寫）
+const MindTab: React.FC = () => (
+  <Tabs
+    defaultActiveKey="identity"
+    items={[
+      { key: 'identity', label: <span><BulbOutlined /> 我是誰</span>, children: <IdentityTab /> },
+      { key: 'memory', label: <span><DatabaseOutlined /> 記憶圖譜</span>, children: <MemoryTab /> },
+      { key: 'dialogues', label: <span><MessageOutlined /> 對話精選</span>, children: <DialoguesTab /> },
+    ]}
+  />
+);
 
 export const KungePage: React.FC = () => {
   const navigate = useNavigate();
@@ -58,16 +73,14 @@ export const KungePage: React.FC = () => {
   // v5.8.1：預設 chat tab — 用戶來訪時可直接對話，不用先讀敘事
   const activeKey: KungeTabKey = PATH_TO_TAB[tab ?? ''] ?? 'chat';
 
+  // 2026-06-02 聚焦服務鏈 5 主軸：對話 → 心智 → 進化 → 圖譜 → 運維
   const items = [
-    { key: 'chat', label: <span><CommentOutlined /> 直接對話</span>, children: <ChatTab /> },
-    { key: 'identity', label: <span><BulbOutlined /> 我是誰</span>, children: <IdentityTab /> },
-    { key: 'memory', label: <span><DatabaseOutlined /> 記憶圖譜</span>, children: <MemoryTab /> },
-    { key: 'evolution', label: <span><RiseOutlined /> 結晶進化</span>, children: <EvolutionTab /> },
-    { key: 'nebula', label: <span><DeploymentUnitOutlined /> 技能星雲</span>, children: <NebulaTab /> },
-    { key: 'dialogues', label: <span><MessageOutlined /> 對話精選</span>, children: <DialoguesTab /> },
-    // v5.8.1：運維儀表板（整合 admin/ai-assistant + agent/dashboard + digital-twin）
-    // admin 見 12-tab 完整管理模式，一般使用者見 7-tab 使用者模式
-    { key: 'ops', label: <span><ControlOutlined /> {isAdmin ? '運維儀表板' : '儀表板'}</span>, children: <OpsTab /> },
+    { key: 'chat', label: <span><CommentOutlined /> 對話</span>, children: <ChatTab /> },
+    { key: 'mind', label: <span><BulbOutlined /> 心智</span>, children: <MindTab /> },
+    { key: 'evolution', label: <span><RiseOutlined /> 進化</span>, children: <EvolutionTab /> },
+    { key: 'graph', label: <span><DeploymentUnitOutlined /> 圖譜</span>, children: <NebulaTab /> },
+    // 運維儀表板（整合 admin/ai-assistant + agent/dashboard + digital-twin）
+    { key: 'ops', label: <span><ControlOutlined /> {isAdmin ? '運維' : '儀表板'}</span>, children: <OpsTab /> },
   ];
 
   return (
