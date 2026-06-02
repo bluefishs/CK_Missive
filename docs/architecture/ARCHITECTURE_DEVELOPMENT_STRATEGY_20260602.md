@@ -50,12 +50,17 @@ diary(daily) → pattern_extract(04:00) → crystallize(04:35) → proposal
 > crystal-intent 批准後，**seed 進既有 PatternLearner**（`load_seeds_if_empty :482`），而非寫 intent_rules.yaml（schema 不符）。
 > → 走 PatternLearner 既有閉合路徑（router pattern 路由）、**免建新消費端**、owner-gated 仍可審計。
 
-**閉合 intent 終點實作步驟**：
-- ✅ **Step A 完成**（2026-06-02 commit `00c87167`）：crystallizer 帶 example_questions + tool_sequence 進 proposal payload。**順帶修真 bug**：tool_sequence 非引號 YAML 陣列原 `json.loads` 失敗 silent → crystal-intent proposal 根本生不出來（潛伏斷點），改 split 解析。驗證：真實 pattern → 解析兩者 → proposal 生成帶兩者 / E2E PASS。
-- 🟡 **Step B 待焦點實作**（routing，較大重構）：crystal_applier `intent_rule` 路徑需**重構**——現況空 pattern 被安全閘擋（`:94` early return），seed 加在 write 後永不執行。須改：intent_rule kind 的**主動作 = seed PatternLearner**（`learner.learn(example_question, None, [{name:t} for t in tool_sequence], success=True)` 逐 example_question），yaml write 降為次要。
-  - **風險**：seed 影響 router pattern 匹配 → 須 false-positive 測試（樣本 query 不誤觸不相關工具）+ owner-gated（僅 apply 時）+ 用既有 learn() 正常 confidence（不強拉高）。
-  - **不在 session 尾端硬推**（owner「不反覆基礎錯誤與不穩定」）→ 留焦點 session。
-- **閉環自證**：memory_loop fitness（已誠實化）+ proposal_aging（已建）+ trace 觀測 seed 後 route_type=pattern 命中率。
+**閉合 intent 終點實作步驟（2026-06-02 影響盤點決定性結論）**：
+- ✅ **Step A 完成**（commit `00c87167`）：crystallizer 帶 example_questions + tool_sequence。**順帶修真 bug**：tool_sequence 非引號 YAML 陣列 `json.loads` silent 失敗 → crystal-intent proposal 生不出來（潛伏斷點），改 split 解析。**Step A 仍有價值**（修通 crystallization proposal pipeline，服務「審計/慎重進化」目的）。
+- ❌ **Step B 撤回（影響盤點證實冗餘）**：深查發現 **`agent_post_processing.py:411-417` 每次成功查詢後 `learn()` → PatternLearner 自動學習 → router pattern 路由用**。**行為閉環早已透過 PatternLearner 自動閉合**（Redis 54 pattern，真實 hit_count 分佈）。crystal 的 tool_sequence **已在 PatternLearner**（實證：crystal bbd8990563 的 `[get_statistics, search_dispatch_orders]` 已有 hit=2 可匹配）。→ seed 會**重複已學習的 pattern**，零行為效益 + 複雜度 + false-positive 風險。**不建 Step B**。
+
+### 🔑 柱一認知重構（重要）
+原「半閉合（intent 終點開路）」**判斷有誤**。真實架構是**雙閉環協同**：
+- **PatternLearner 自動閉環**（快）：post_processing 自動 learn → router pattern 路由 → 行為適應。**已閉合、ALIVE**。
+- **crystallization 慎重閉環**（慢、可審計、owner-gated）：SOUL crystal 真改人格（閉合）；intent crystal「對行為冗餘」是**設計性的**——PatternLearner 已自動做了，crystal 的價值是**審計軌跡 + 慎重進化記錄**，非 routing。
+- → 柱一其實**架構良好**：快自動（PatternLearner）+ 慢慎重（crystallization）雙軌，無需「閉合 intent 終點」。
+
+**閉環自證**：memory_loop fitness + proposal_aging + PatternLearner 54 pattern 真實 hit_count 即活體證據。
 
 **目標態**：兩 loop 協同 — PatternLearner 自動快閉環、crystallization 慎重可審計閉環（經 seed 匯流），ratio ≥0.5、行為改變可 trace。
 
