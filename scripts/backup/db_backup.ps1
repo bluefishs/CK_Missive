@@ -7,7 +7,12 @@ param(
     [switch]$Verbose = $false,
     [switch]$DatabaseOnly = $false,
     [switch]$AttachmentsOnly = $false,
-    [string]$TargetPath = ""  # Optional: NAS/external drive path
+    [string]$TargetPath = "",  # Optional: 改變本地備份位置 (NAS/external drive)
+    # 2026-06-01 P0 增強：本地備份完成後額外鏡像同步到異地（不改變本地位置）。
+    # 解 in-app remote_syncer 走 Z:\ 在 Linux container 內不可達的問題——
+    # 本 OS-level script 在宿主執行，可直接存取 mapped drive / UNC 路徑。
+    # 未指定則讀 env CK_MISSIVE_NAS_PATH；皆無則略過異地（向後相容）。
+    [string]$NasPath = $env:CK_MISSIVE_NAS_PATH
 )
 
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -93,8 +98,23 @@ function Do-Backup {
 
         if ($LASTEXITCODE -eq 0) {
             $result | Out-File -FilePath $BackupFile -Encoding UTF8
-            $size = [math]::Round((Get-Item $BackupFile).Length / 1KB, 2)
-            Log "Backup completed: $BackupFile ($size KB)"
+
+            # 2026-06-01 P0 增強：dump 完整性驗證
+            # Missive 為 plain SQL dump（pg_dump 無 -F c）→ 檢查結尾完成標記，
+            # 不可用 pg_restore --list（那僅適用 custom/-F c 格式）。
+            $sizeBytes = (Get-Item $BackupFile).Length
+            if ($sizeBytes -lt 1024) {
+                Log "Integrity check FAILED: backup file abnormally small ($sizeBytes bytes)" "ERROR"
+                return $false
+            }
+            $tail = (Get-Content $BackupFile -Tail 5 -Encoding UTF8) -join "`n"
+            if ($tail -notmatch "PostgreSQL database dump complete") {
+                Log "Integrity check FAILED: missing pg_dump completion marker (truncated dump?)" "ERROR"
+                return $false
+            }
+
+            $size = [math]::Round($sizeBytes / 1KB, 2)
+            Log "Backup completed + integrity verified: $BackupFile ($size KB)"
             return $true
         } else {
             Log "pg_dump failed: $result" "ERROR"
@@ -187,6 +207,36 @@ function Get-BackupStats {
     return $stats
 }
 
+function Sync-ToRemote {
+    # 2026-06-01 P0 增強：本地備份鏡像同步到異地（robocopy /MIR）。
+    # 解原 in-app remote_syncer 走 Z:\ 在 Linux container 內不可達的問題。
+    # robocopy /MIR 使異地與本地保留策略一致（Clean-OldBackups 後執行）。
+    if (-not $NasPath) {
+        Log "NAS path not set (use -NasPath or env CK_MISSIVE_NAS_PATH), skip remote sync" "WARN"
+        return
+    }
+    if (-not (Test-Path $NasPath -ErrorAction SilentlyContinue)) {
+        Log "NAS path '$NasPath' not accessible (offline/unmounted), skip remote sync" "WARN"
+        return
+    }
+    Log "Syncing backups to remote NAS: $NasPath"
+    $pairs = @(
+        @{ Src = $BackupDir;           Sub = "database" },
+        @{ Src = $AttachmentBackupDir; Sub = "attachments" }
+    )
+    foreach ($p in $pairs) {
+        if (-not (Test-Path $p.Src)) { continue }
+        $dst = Join-Path $NasPath $p.Sub
+        if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Force -Path $dst | Out-Null }
+        & robocopy $p.Src $dst /MIR /R:2 /W:5 /NP /NDL "/LOG+:$LogFile" | Out-Null
+        if ($LASTEXITCODE -ge 8) {
+            Log "Remote sync '$($p.Sub)' partial failure (robocopy exit $LASTEXITCODE)" "WARN"
+        } else {
+            Log "Remote sync '$($p.Sub)' completed (robocopy exit $LASTEXITCODE)"
+        }
+    }
+}
+
 Write-Host "=== CK_Missive Full Backup ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -218,6 +268,11 @@ if ($dbSuccess -or $attSuccess) {
     Clean-OldBackups
 } else {
     Log "Skipping cleanup due to backup failures" "WARN"
+}
+
+# 2026-06-01 P0 增強：異地 NAS 同步（僅在至少一項備份成功時執行）
+if ($dbSuccess -or $attSuccess) {
+    Sync-ToRemote
 }
 
 # Show stats

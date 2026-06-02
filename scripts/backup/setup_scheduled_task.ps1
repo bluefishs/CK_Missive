@@ -4,6 +4,7 @@
 param(
     [string]$BackupTime = "02:00",
     [int]$RetentionDays = 7,
+    [string]$NasPath = "",  # 2026-06-01 P0：傳給 db_backup.ps1 作異地 NAS 同步目標（空則不啟用異地）
     [switch]$Remove = $false
 )
 
@@ -44,9 +45,15 @@ $hour = [int]$timeParts[0]
 $minute = [int]$timeParts[1]
 
 $trigger = New-ScheduledTaskTrigger -Daily -At "$($hour):$($minute)"
+# 2026-06-01 P0：若指定 NasPath 則傳遞給 db_backup.ps1 啟用異地同步
+$backupArgs = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$BackupScript`" -RetentionDays $RetentionDays"
+if ($NasPath) {
+    $backupArgs += " -NasPath `"$NasPath`""
+    Write-Host "Remote NAS sync: $NasPath" -ForegroundColor Cyan
+}
 $action = New-ScheduledTaskAction `
     -Execute "powershell.exe" `
-    -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$BackupScript`" -RetentionDays $RetentionDays" `
+    -Argument $backupArgs `
     -WorkingDirectory (Split-Path $BackupScript)
 
 $settings = New-ScheduledTaskSettingsSet `
