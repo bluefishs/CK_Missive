@@ -40,10 +40,23 @@ diary(daily) → pattern_extract(04:00) → crystallize(04:35) → proposal
 - crystals 現況 2（皆 SOUL 軌）；2 intent proposal 已 superseded（不造假）。
 - 基礎設施脆弱：閉環各環節 cron 曾因 `.parent` silent 死（本 session 修）。
 
-### 發展方向
-1. **閉合 intent 終點**（L1）：升 pattern_extractor 保存「觸發 query 文字」→ crystallizer 生成真 regex pattern + extract → rule_engine 既有路徑即生效（不需新消費端）。或在 planner 建 tool_preference bias 消費端。
-2. **閉環自證**：memory_loop fitness（已誠實化）+ proposal_aging（已建）持續監控閉環不斷。
-3. **目標態**：pattern→crystal→behavior 雙軌全閉合，ratio ≥0.5，行為改變可被 trace 觀測。
+### 發展方向（2026-06-02 影響盤點精煉，重大設計修正）
+
+**關鍵發現：系統有兩套 pattern loop**
+- **PatternLearner**（`agent_pattern_learner.py`，DB-backed）→ router `pattern` 路由（`agent_router.py:208 learner.match()`）→ **已閉合**（confidence 隨 query_count 成長 `:464`）。這是**已存在的自動閉環**。
+- **crystallization**（pattern_extractor → crystallizer → crystal，wiki/memory 檔）→ 慎重、owner-gated、可審計 → 但 intent 終點開路（crystallizer `:368 pattern=""` 留空 + planner 無 tool_preference 消費端）。
+
+**精煉設計（取代原「加 tool_preference 消費端」）**：
+> crystal-intent 批准後，**seed 進既有 PatternLearner**（`load_seeds_if_empty :482`），而非寫 intent_rules.yaml（schema 不符）。
+> → 走 PatternLearner 既有閉合路徑（router pattern 路由）、**免建新消費端**、owner-gated 仍可審計。
+
+**閉合 intent 終點實作步驟（P1，待 owner review 設計後增量）**：
+1. crystal_applier 加 `intent_rule` kind 的新 handler：approved 時呼叫 `PatternLearner.seed(tool_sequence, example_questions, confidence=high)`。
+2. crystallizer 生 proposal 時帶 `example_questions`（pattern 已存 `:200-203`）供 seed 用，不再依空 pattern。
+3. **風險**：seed 影響 router pattern 匹配 → 須 false-positive 測試（樣本 query 不誤觸）+ owner-gated 限流。
+4. **閉環自證**：memory_loop fitness（已誠實化）+ proposal_aging（已建）+ trace 觀測 seed 後 route_type=pattern 命中率。
+
+**目標態**：兩 loop 協同 — PatternLearner 自動快閉環、crystallization 慎重可審計閉環（經 seed 匯流），ratio ≥0.5、行為改變可 trace。
 
 ---
 
