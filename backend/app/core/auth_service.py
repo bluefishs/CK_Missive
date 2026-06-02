@@ -49,7 +49,11 @@ logger = logging.getLogger(__name__)
 
 # JWT 設定
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# 2026-06-02 修 SSOT drift：原硬編碼 30 忽略 .env/settings 的 ACCESS_TOKEN_EXPIRE_MINUTES=60
+# → access token 實際只 30min（從登入起、活動不 reset）→ 早於 idle 30min 預期被登出。
+# 改用 settings（60min）→ token 60min > idle 30min → 閒置 timer（活動 reset）成為綁定限制，
+# 與右上角倒數徽章（30min）一致；長 session 由 refresh（7 天）延續。
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 # HTTP Bearer 認證
