@@ -10,6 +10,7 @@
 
 import { DIGITAL_TWIN_ENDPOINTS } from './endpoints';
 import { logger } from '../services/logger';
+import { apiClient } from './client';
 
 // ---------------------------------------------------------------------------
 // Types — SSOT 在 types/ai.ts，此處 re-export
@@ -361,23 +362,22 @@ export async function checkGatewayHealth(): Promise<{
 }> {
   const start = Date.now();
   try {
-    const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.HEALTH}`, {
-      method: 'POST',
-      credentials: 'include',
-      signal: AbortSignal.timeout(10_000),
-    });
+    // 2026-06-02: 改用 apiClient（與全 app 一致的認證：Authorization header + httpOnly cookie）。
+    // 原 raw fetch 只帶 cookie 無 Authorization header → 公網 require_auth 401 → 誤判「離線」。
+    const data = await apiClient.post<{
+      local_agent?: boolean;
+      gateway_available?: boolean;
+      available?: boolean;
+      gateway_error?: string;
+    }>(DIGITAL_TWIN_ENDPOINTS.HEALTH, {});
     const latencyMs = Date.now() - start;
-    if (res.ok) {
-      const data = await res.json();
-      // v2.0: health 回傳 local_agent + gateway_available
-      const available = data.local_agent ?? data.gateway_available ?? data.available ?? false;
-      return {
-        available,
-        latencyMs,
-        message: available ? undefined : (data.gateway_error ?? 'Agent 不可用'),
-      };
-    }
-    return { available: false, latencyMs, message: `HTTP ${res.status}` };
+    // v2.0: health 回傳 local_agent + gateway_available
+    const available = data.local_agent ?? data.gateway_available ?? data.available ?? false;
+    return {
+      available,
+      latencyMs,
+      message: available ? undefined : (data.gateway_error ?? 'Agent 不可用'),
+    };
   } catch {
     return {
       available: false,
