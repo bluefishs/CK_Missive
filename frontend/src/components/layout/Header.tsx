@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserInfo } from '../../services/authService';
 import authService from '../../services/authService';
 import { NotificationCenter } from '../common';
+import { IdleCountdownBadge } from './IdleCountdownBadge';
 import { logger } from '../../services/logger';
 
 const { Header: AntHeader } = Layout;
@@ -176,6 +177,9 @@ const Header: React.FC<HeaderProps> = ({
             </span>
           </Space>
         </Dropdown>
+
+        {/* 2026-06-02 閒置登出倒數（使用者名稱後）— 無操作 30 分鐘自動登出，任何操作即重置 */}
+        <IdleCountdownBadge />
       </Space>
     </AntHeader>
   );

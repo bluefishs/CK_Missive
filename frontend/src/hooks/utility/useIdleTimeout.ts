@@ -15,8 +15,8 @@ import { isAuthDisabled } from '../../config/env';
 import { ROUTES } from '../../router/types';
 import { logger } from '../../utils/logger';
 
-/** 預設閒置超時：30 分鐘 */
-const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+/** 預設閒置超時：30 分鐘（SSOT — IdleCountdownBadge 共用，確保顯示與實際登出一致） */
+export const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 /** 活動事件節流間隔：1 分鐘 */
 const ACTIVITY_THROTTLE_MS = 60 * 1000;
