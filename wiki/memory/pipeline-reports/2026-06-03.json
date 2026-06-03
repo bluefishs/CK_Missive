@@ -1,19 +1,19 @@
 {
-  "started_at": "2026-06-01T15:25:14.692644+00:00",
-  "completed_at": "2026-06-01T15:25:42.638918+00:00",
+  "started_at": "2026-06-02T19:00:00.025786+00:00",
+  "completed_at": "2026-06-02T19:00:30.151686+00:00",
   "overall_status": "info",
   "steps": [
     {
       "name": "fitness",
       "status": "yellow",
-      "summary": "42 pass / 8 warn / 0 fail",
+      "summary": "38 pass / 10 warn / 0 fail",
       "details": {
-        "pass": 42,
-        "warn": 8,
+        "pass": 38,
+        "warn": 10,
         "fail": 0,
         "exit_code": 0
       },
-      "duration_ms": 27580.2
+      "duration_ms": 29760.0
     },
     {
       "name": "capability_audit",
@@ -36,17 +36,17 @@
         },
         "memory_loop": {
           "counts": {
-            "diary": 41,
+            "diary": 42,
             "patterns": 10,
             "failures": 16,
-            "proposals": 5,
+            "proposals": 6,
             "crystals": 2,
             "evolutions": 7,
             "autobiography": 0
           },
           "dead_loops": [
             "autobiography (0 files but 7+ diary days)",
-            "proposals (5 pending, gate blocked)"
+            "proposals (6 pending, gate blocked)"
           ]
         },
         "adr": {
@@ -55,41 +55,41 @@
           "orphan_count": 0
         }
       },
-      "duration_ms": 220.2
+      "duration_ms": 225.3
     },
     {
       "name": "memory_loop",
       "status": "green",
-      "summary": "counts={'diary': 41, 'patterns': 10, 'failures': 16, 'proposals': 5, 'crystals': 2, 'evolutions': 7, 'autobiography': 6, 'proposals_pending': 0}",
+      "summary": "counts={'diary': 42, 'patterns': 10, 'failures': 16, 'proposals': 6, 'crystals': 2, 'evolutions': 7, 'autobiography': 6, 'proposals_pending': 1}",
       "details": {
         "counts": {
-          "diary": 41,
+          "diary": 42,
           "patterns": 10,
           "failures": 16,
-          "proposals": 5,
+          "proposals": 6,
           "crystals": 2,
           "evolutions": 7,
           "autobiography": 6,
-          "proposals_pending": 0
+          "proposals_pending": 1
         },
         "dead_loops": []
       },
-      "duration_ms": 127.9
+      "duration_ms": 122.4
     },
     {
       "name": "shadow_baseline",
       "status": "red",
-      "summary": "24h n=28 avg=19.1s p95=68.7s success=100.00% over30=6/over60=2",
+      "summary": "24h n=38 avg=24.8s p95=64.1s success=100.00% over30=14/over60=2",
       "details": {
-        "n": 28,
-        "avg_ms": 19072,
-        "p95_ms": 68708,
-        "max_ms": 75901,
+        "n": 38,
+        "avg_ms": 24820,
+        "p95_ms": 64113,
+        "max_ms": 68708,
         "success_ratio": 1.0,
-        "over_30s": 6,
+        "over_30s": 14,
         "over_60s": 2
       },
-      "duration_ms": 17.9
+      "duration_ms": 18.0
     },
     {
       "name": "precommit_hook",
@@ -100,10 +100,10 @@
     }
   ],
   "summary_lines": [
-    "  [YELLOW] fitness                42 pass / 8 warn / 0 fail",
+    "  [YELLOW] fitness                38 pass / 10 warn / 0 fail",
     "  [YELLOW] capability_audit       dead: tools=0 kg=0 loops=2 adrs=0 total=2",
-    "  [GREEN ] memory_loop            counts={'diary': 41, 'patterns': 10, 'failures': 16, 'proposals': 5, 'crystals': 2, 'evolutions': 7, 'autobiography': 6, 'proposals_pending': 0}",
-    "  [RED   ] shadow_baseline        24h n=28 avg=19.1s p95=68.7s success=100.00% over30=6/over60=2",
+    "  [GREEN ] memory_loop            counts={'diary': 42, 'patterns': 10, 'failures': 16, 'proposals': 6, 'crystals': 2, 'evolutions': 7, 'autobiography': 6, 'proposals_pending': 1}",
+    "  [RED   ] shadow_baseline        24h n=38 avg=24.8s p95=64.1s success=100.00% over30=14/over60=2",
     "  [INFO  ] precommit_hook         skipped: .git/ not present (container env, host-side check only)"
   ]
 }

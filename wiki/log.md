@@ -3883,3 +3883,7 @@
 - ck-missive-backend: healthy / RestartCount=0 / Image bd9887465a3a (5/31 build)
 - ck-missive-postgres: dev_data volume 對齊 / documents=1809 / KG=26152
 - 4 service all healthy / cloudflared pinned 2026.5.0
+
+## [2026-06-02] lint | pages=259 orphans=37 broken=7
+
+## [2026-06-03] lint | pages=259 orphans=37 broken=7

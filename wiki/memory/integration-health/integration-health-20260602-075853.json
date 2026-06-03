@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-06-02T07:58:53",
+  "all_ok": true,
+  "broken_chains": [],
+  "chains": {
+    "chain_1_missive_health": {
+      "ok": true,
+      "documents": 1812,
+      "entities": 26229
+    },
+    "chain_2_kunge_snapshot": {
+      "ok": true,
+      "lessons": 16,
+      "patterns": 10,
+      "proposals": 6,
+      "pending_proposals": 1
+    },
+    "chain_3_tools_manifest": {
+      "ok": true,
+      "total_tools": 9,
+      "has_kunge_snapshot": true
+    },
+    "chain_4_hermes_container": {
+      "ok": true,
+      "endpoint": "host.docker.internal:8642",
+      "status": 200
+    },
+    "chain_5_bridge_skill": {
+      "ok": true,
+      "has_kunge_endpoint": true,
+      "tools_py_size": 19572,
+      "tools_py_path": "/app/docs/hermes-skills/ck-missive-bridge/tools.py"
+    }
+  }
+}
