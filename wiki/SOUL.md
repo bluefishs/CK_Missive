@@ -200,10 +200,10 @@ _待首次結晶_
 
 <!-- agent_writable: true | 每次 capability_tracker 更新時刷新 -->
 
-- 掌握領域：擅長 analysis/dispatch/doc
+- 掌握領域：擅長 analysis/dispatch/pm
 - 當前進化等級：L2 累積中
-- 成功率（7 日移動平均）：67.1%
-- 最後更新：2026-06-03 06:10
+- 成功率（7 日移動平均）：64.8%
+- 最後更新：2026-06-04 06:10
 
 ## 變更歷史
 
