@@ -29,6 +29,7 @@ import logging
 import os
 import re
 import uuid
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
@@ -364,6 +365,49 @@ class Crystallizer:
 
     # ────────── Proposal generation ──────────
 
+    # 通用停用詞 + 問句碎片（避免 regex 過寬或抓到無意義 ngram）
+    _PATTERN_STOPWORDS = frozenset({
+        "幾件", "幾筆", "多少", "查詢", "什麼", "哪些", "請問", "幫我", "我想",
+        "目前", "現在", "資料", "相關", "如何", "怎麼", "可以", "提供",
+        "告訴", "知道", "看看", "一下", "這個", "那個",
+    })
+
+    @classmethod
+    def _derive_pattern_from_questions(cls, questions: List[str]) -> str:
+        """從 example_questions 推導保守 regex pattern（供 owner 審核，非直接生效）。
+
+        L1 (2026-06-03)：原 payload `pattern` 寫死空字串 → proposal 無觸發條件，
+        owner 只能 defer（superseded 理由之一）。改從「典型問法」抽共現關鍵詞生成
+        候選 regex。依 `adr-anti-half-wired-sop.md` regex 守則：
+        - 用 2–3 字限定詞（滑動 ngram，非單字 OR）
+        - 過濾通用停用詞 / 問句碎片
+        - 需在 ≥2 問句共現（單一問句則放寬為 1）才採用
+        - 無共現詞 → 回空字串（不亂生 dead rule）
+
+        proposal 有 owner approve gate，候選 regex 不直接污染生產路由。
+        """
+        if not questions:
+            return ""
+        counter: Counter = Counter()
+        for q in questions:
+            grams = set()
+            for seg in re.findall(r"[一-鿿]+", q):
+                for n in (2, 3):
+                    for i in range(len(seg) - n + 1):
+                        grams.add(seg[i:i + n])
+            for g in grams:
+                counter[g] += 1
+        threshold = 2 if len(questions) >= 2 else 1
+        # 排除「完整等於或包含」任一停用詞的 gram（避免「問多少」「度如何」等碎片入 regex）
+        common = [
+            w for w, c in counter.most_common(15)
+            if c >= threshold
+            and not any(sw in w for sw in cls._PATTERN_STOPWORDS)
+        ][:5]
+        if not common:
+            return ""
+        return "|".join(re.escape(w) for w in common)
+
     def _propose_synonym_from_pattern(
         self, meta: Dict[str, Any],
     ) -> Optional[CrystalProposal]:
@@ -387,7 +431,11 @@ class Crystallizer:
             payload={
                 "rule": {
                     "name": f"crystal_auto_{meta['template_hash']}",
-                    "pattern": "",  # 待人工填入或 LLM 建議
+                    # L1 (2026-06-03)：從 example_questions 推導候選 regex（取代寫死空字串）。
+                    # 仍經 owner approve gate；無共現關鍵詞時回空（維持舊行為，不亂生）。
+                    "pattern": self._derive_pattern_from_questions(
+                        meta.get("example_questions", [])
+                    ),
                     "tool_preference": tools,
                     "priority": 50,
                     "note": (
