@@ -296,7 +296,7 @@ export async function approveTask(
 ): Promise<{ success: boolean; error?: string }> {
   const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.TASK_APPROVE(jobId)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: csrfHeaders({ 'Content-Type': 'application/json' }),
     credentials: 'include',
     body: JSON.stringify({ approved_by: approvedBy || '' }),
   });
@@ -313,7 +313,7 @@ export async function rejectTask(
 ): Promise<{ success: boolean; error?: string }> {
   const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.TASK_REJECT(jobId)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: csrfHeaders({ 'Content-Type': 'application/json' }),
     credentials: 'include',
     body: JSON.stringify({ rejected_by: rejectedBy || '', reason: reason || '' }),
   });

@@ -177,6 +177,7 @@ export const ROUTES = {
   // 坤哥 — Missive 意識體（存在論敘事頁）
   // 2026-06-02 整併為 5 核心主軸：對話 / 心智 / 進化 / 圖譜 / 運維
   KUNGE: '/kunge',
+  KUNGE_CHAT: '/kunge/chat',        // 對話（RAGChatPanel，唯一對話入口）
   KUNGE_MIND: '/kunge/mind',        // 心智（我是誰+記憶圖譜+對話精選 嵌套）
   KUNGE_EVOLUTION: '/kunge/evolution',
   KUNGE_GRAPH: '/kunge/graph',      // 圖譜（技能星雲）
