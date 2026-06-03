@@ -76,7 +76,32 @@ RULES: list[FilterRule] = [
             "對業務系統 documents 預期命中率 < 1%（純行政單據是少數）"
         ),
     ),
-    # TODO: 註冊更多 regex 規則
+    # agent_router Layer 1.7 finance/tender 確定性路由觸發詞（2026-06-03 LN1 治理配套）。
+    # 性質為白名單路由（誤命中代價低：僅多路由對應工具，工具回空 synthesis 仍處理），
+    # 非黑名單過濾；對 documents.subject 命中率作為「觸發詞是否過寬」監控 proxy。
+    # 對齊 adr-anti-half-wired-sop.md 守則 5（路由/過濾 regex 必對應 fitness audit）。
+    FilterRule(
+        name="FINANCE_ROUTING_KW (agent_router Layer 1.7)",
+        pattern=r"未付|應付|未收|應收|請款|帳款|財務彙總|費用報銷|報銷單|未請款",
+        target_table="documents",
+        target_column="subject",
+        expected_max_pct=8.0,
+        description=(
+            "finance 確定性路由觸發詞（_FINANCE_KW）。白名單路由，誤命中代價低。"
+            "對 documents.subject 命中率超 8% → 檢視是否誤涵蓋一般公文（觸發詞過寬）。"
+        ),
+    ),
+    FilterRule(
+        name="TENDER_ROUTING_KW (agent_router Layer 1.7)",
+        pattern=r"標案|投標|決標|得標|底價|招標|採購案",
+        target_table="documents",
+        target_column="subject",
+        expected_max_pct=8.0,
+        description=(
+            "tender 確定性路由觸發詞（_TENDER_KW）。白名單路由，誤命中代價低。"
+            "對 documents.subject 命中率超 8% → 檢視觸發詞是否過寬。"
+        ),
+    ),
 ]
 
 
