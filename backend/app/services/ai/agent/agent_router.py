@@ -200,6 +200,45 @@ class AgentRouter:
                 suggested_context="agent",
             )
 
+        # ── Layer 1.7: finance / tender 單領域確定性快路由（LN1, 2026-06-03）──
+        # 缺口修：finance/tender 原無 Layer 1.5 快規則 → 僅靠 Layer 2.5 gemma4 intent
+        # （confidence 不穩）→「未付請款」常誤落 search_documents（V6_14 議程 #1 真因）。
+        # 此處已過 Layer 1.6 cross-graph（2+ domain / 帶連結詞已被攔），剩單領域明確意圖。
+        # 工具名同 _INTENT_TOOL_MAP["finance"/"tender"]（SSOT）；意圖細分使每次只跑 1 工具
+        # （對 synthesis 35s budget 友善）。adr-anti-half-wired SOP 守則 4：限定詞雙字、禁單字
+        # OR；test_agent_router 加正/負向鎖 false-positive。
+        _FINANCE_KW = (
+            "未付", "應付", "未收", "應收", "請款", "帳款",
+            "財務彙總", "費用報銷", "報銷單", "未請款",
+        )
+        _TENDER_KW = ("標案", "投標", "決標", "得標", "底價", "招標", "採購案")
+        if any(kw in question for kw in _FINANCE_KW):
+            if "報銷" in question:
+                _fin = ["get_expense_overview"]
+            elif any(k in question for k in ("彙總", "概況", "財務狀況", "總覽")):
+                _fin = ["get_financial_summary"]
+            else:
+                _fin = ["get_unpaid_billings"]
+            return RouteDecision(
+                route_type="pattern",
+                confidence=0.9,
+                latency_ms=(time.time() - t0) * 1000,
+                source="finance_rule",
+                plan={"tool_calls": [{"name": t, "params": {}} for t in _fin]},
+                suggested_context="agent",
+            )
+        if any(kw in question for kw in _TENDER_KW):
+            return RouteDecision(
+                route_type="pattern",
+                confidence=0.9,
+                latency_ms=(time.time() - t0) * 1000,
+                source="tender_rule",
+                plan={"tool_calls": [
+                    {"name": t, "params": {}} for t in self._INTENT_TOOL_MAP["tender"]
+                ]},
+                suggested_context="agent",
+            )
+
         # ── Layer 2: Pattern Match ──
         try:
             from app.services.ai.agent.agent_pattern_learner import get_pattern_learner

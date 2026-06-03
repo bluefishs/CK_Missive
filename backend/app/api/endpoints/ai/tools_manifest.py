@@ -18,7 +18,7 @@ router = APIRouter(prefix="/agent", tags=["AI-工具清冊"])
 logger = logging.getLogger(__name__)
 
 TOOL_MANIFEST = {
-    "version": "1.2",
+    "version": "1.3",
     "serverName": "ck_missive",
     "compat": {
         "ck_aaap": "1.0",
@@ -44,6 +44,11 @@ TOOL_MANIFEST = {
         "federated_contribute": "/api/ai/federation/contribute",
         # v6.13 (2026-05-31) 坤哥意識體 snapshot — Hermes 整合接點
         "kunge_snapshot": "/api/ai/kunge/snapshot",
+        # v6.14 (2026-06-03) H1：補暴露 finance/tender/project 能力給 Hermes gateway
+        # （agent 內部 Layer 1.7 確定性 routing 接手，解「LINE 只答派工」）
+        "finance_query": "/api/ai/agent/query_sync",
+        "tender_search": "/api/ai/agent/query_sync",
+        "project_query": "/api/ai/agent/query_sync",
     },
     "auth": {
         "type": "bearer",
@@ -308,6 +313,66 @@ TOOL_MANIFEST = {
             "permission": "read",
             "estimatedLatency": "fast",
             "tags": ["kunge", "memory", "hermes_integration", "v6.13"],
+        },
+        {
+            # v6.14 (2026-06-03) H1：財務/請款/帳款能力暴露
+            "name": "finance_query",
+            "description": "財務/請款/帳款查詢：未付請款、應收應付帳款、財務彙總、費用報銷概況",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "自然語言財務查詢，如『目前未付請款有多少』",
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+            "category": "query",
+            "permission": "read",
+            "estimatedLatency": "medium",
+            "tags": ["finance", "erp", "billing", "expense"],
+        },
+        {
+            # v6.14 (2026-06-03) H1：標案能力暴露
+            "name": "tender_search",
+            "description": "標案查詢：政府採購標案、決標、底價、投標資訊（含 PCC/ezbid）",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "標案關鍵字或自然語言查詢",
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+            "category": "query",
+            "permission": "read",
+            "estimatedLatency": "medium",
+            "tags": ["tender", "procurement", "pcc"],
+        },
+        {
+            # v6.14 (2026-06-03) H1：承攬案件/專案能力暴露
+            "name": "project_query",
+            "description": "承攬案件/專案查詢：案件進度、人員配置、里程碑、合約資訊",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "專案關鍵字或自然語言查詢",
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+            "category": "query",
+            "permission": "read",
+            "estimatedLatency": "medium",
+            "tags": ["project", "contract", "milestone"],
         },
     ],
 }
