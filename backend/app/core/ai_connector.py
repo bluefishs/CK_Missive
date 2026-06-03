@@ -73,6 +73,12 @@ TASK_MODEL_MAP = {
     # 真因：發票解析核銷 invoice_recognizer._vision_ocr_async → vision_completion(task_type="vision")
     # 但 "vision" 原不在此 map → 落 OLLAMA_DEFAULT_MODEL(qwen) → 圖片送純文字模型 → silent 失敗退 QR。
     "vision": os.getenv("OLLAMA_VISION_MODEL", "gemma4:e2b"),
+    # 2026-06-03 (L64 後續 / synthesis 超時根因)：synthesis fallback 必須用快模型。
+    # agent_synthesis.py 指定 Groq llama-3.3-70b、synthesis_timeout=35s；當 Groq(429/TPM)
+    # +NVIDIA 雙失敗落 Ollama 時，"synthesis" 原不在此 map → 落 OLLAMA_DEFAULT_MODEL
+    # (prod OLLAMA_MODEL=qwen2.5:7b, p50 52.8s) → 35s 必超時回「AI 回答生成超時」。
+    # 改 gemma4:e2b(~7s < 35s) 讓 fallback 能完成（與 vision 修法同型）。
+    "synthesis": os.getenv("OLLAMA_SYNTHESIS_MODEL", "gemma4:e2b"),
     "embedding": os.getenv("EMBEDDING_MODEL", "nomic-embed-text"),
 }
 
@@ -83,9 +89,12 @@ _LOCAL_FIRST_TASKS = {"planning", "ner", "classify"}
 _THINKING_MODEL_PREFIXES = ("qwen3", "deepseek-r1", "gemma4")
 
 # 系統所需模型清單（啟動時自動檢查 + 拉取）
+# gemma4:e2b 同時是 vision OCR 與 synthesis fallback 的快模型 — 缺它會讓
+# 發票 OCR / synthesis fallback silent 404，故納入必備清單確保啟動自動拉取（L64 後續）。
 REQUIRED_MODELS: set = {
     OLLAMA_DEFAULT_MODEL,
     os.getenv("EMBEDDING_MODEL", "nomic-embed-text"),
+    os.getenv("OLLAMA_VISION_MODEL", "gemma4:e2b"),
 }
 
 
