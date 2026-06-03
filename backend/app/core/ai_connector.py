@@ -429,10 +429,21 @@ class AIConnector(AIConnectorManagementMixin):
             _record_fallback("nvidia", "ollama", "circuit_open")
         if self.nvidia_api_key and not _nvidia_circuit_open:
             try:
-                logger.info("嘗試 NVIDIA Cloud API (model=%s)...", NVIDIA_DEFAULT_MODEL)
+                # L64 複驗修法：synthesis 路徑 NVIDIA 快失敗。synthesis 外層只有 35s budget，
+                # 若 Groq 429 + NVIDIA 慢失敗(預設 30s)，落到本地 gemma4 時 budget 已耗盡 → 超時。
+                # 對 synthesis 縮短 NVIDIA timeout（預設 8s），保證本地 fallback 仍有時間完成。
+                # 不影響其他 task_type（維持 cloud_timeout 30s）。
+                _nv_timeout = (
+                    int(os.getenv("NVIDIA_SYNTHESIS_TIMEOUT", "8"))
+                    if task_type == "synthesis"
+                    else None
+                )
+                logger.info("嘗試 NVIDIA Cloud API (model=%s, timeout=%ss)...",
+                            NVIDIA_DEFAULT_MODEL, _nv_timeout or self.cloud_timeout)
                 result = await self._nvidia_completion(
                     messages, NVIDIA_DEFAULT_MODEL, temperature, max_tokens,
                     response_format=response_format,
+                    timeout_override=_nv_timeout,
                 )
                 self._last_provider = "nvidia"
                 _cb_record_success("nvidia")  # R6
@@ -511,14 +522,20 @@ class AIConnector(AIConnectorManagementMixin):
         max_tokens: int,
         response_format: Optional[Dict[str, str]] = None,
         api_url: Optional[str] = None,
+        timeout_override: Optional[int] = None,
     ) -> str:
-        """查詢 NVIDIA Cloud / vLLM API (OpenAI-compatible, 走 cloud semaphore pool)"""
+        """查詢 NVIDIA Cloud / vLLM API (OpenAI-compatible, 走 cloud semaphore pool)
+
+        timeout_override: 單次呼叫的 timeout（秒）。synthesis fallback 用此縮短
+        NVIDIA 慢失敗時間（L64 複驗：NVIDIA 30s 慢失敗會餓死 35s budget 內的本地 gemma4）。
+        """
         # vLLM 本地路徑也走 cloud pool — vLLM 雖本地但非 Ollama GPU 排程同一 queue，
         # 用 cloud pool 避免與 Ollama contention。正式 NVIDIA API 則走 cloud 是本意。
         from app.core.inference_semaphore import get_cloud_semaphore
         sem = get_cloud_semaphore()
 
         url = api_url or NVIDIA_API_URL
+        _timeout = timeout_override or self.cloud_timeout
         payload: Dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -528,7 +545,7 @@ class AIConnector(AIConnectorManagementMixin):
         if response_format:
             payload["response_format"] = response_format
 
-        async with sem.acquire(timeout=self.cloud_timeout + 10):
+        async with sem.acquire(timeout=_timeout + 10):
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     url,
@@ -537,7 +554,7 @@ class AIConnector(AIConnectorManagementMixin):
                         "Content-Type": "application/json",
                     },
                     json=payload,
-                    timeout=self.cloud_timeout,
+                    timeout=_timeout,
                 )
                 response.raise_for_status()
                 data = response.json()

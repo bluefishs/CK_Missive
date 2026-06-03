@@ -68,3 +68,36 @@ class TestSynthesisFallbackModel:
         assert _is_ollama_model is False  # Groq-style model 不是 ollama model
         assert ollama_model == TASK_MODEL_MAP["synthesis"]  # 走 task_type 映射
         assert "gemma4" in ollama_model  # 快模型，非慢 default
+
+
+class TestSynthesisNvidiaFastFail:
+    """L64 複驗修法：synthesis 路徑 NVIDIA 快失敗（防 30s 慢失敗餓死本地 gemma4）。"""
+
+    def test_nvidia_completion_accepts_timeout_override(self):
+        """_nvidia_completion 必須有 timeout_override 參數。"""
+        import inspect
+        from app.core.ai_connector import AIConnector
+
+        sig = inspect.signature(AIConnector._nvidia_completion)
+        assert "timeout_override" in sig.parameters, (
+            "_nvidia_completion 缺 timeout_override → synthesis 無法縮短 NVIDIA timeout（L64）"
+        )
+
+    def test_synthesis_path_shortens_nvidia_timeout(self):
+        """chat_completion 內必須對 task_type==synthesis 縮短 NVIDIA timeout。"""
+        import ast
+        import inspect
+        from app.core import ai_connector
+
+        src = inspect.getsource(ai_connector.AIConnector.chat_completion)
+        # 鎖定：synthesis 條件 + 短 timeout env + 傳入 _nvidia_completion
+        assert "NVIDIA_SYNTHESIS_TIMEOUT" in src
+        assert 'task_type == "synthesis"' in src
+        assert "timeout_override=" in src
+
+    def test_nvidia_timeout_default_is_short(self):
+        """synthesis NVIDIA timeout 預設須遠小於 35s synthesis budget。"""
+        import os
+        # 預設 8s，遠小於 35s，確保落 gemma4 時仍有 ~27s budget
+        default = int(os.getenv("NVIDIA_SYNTHESIS_TIMEOUT", "8"))
+        assert default <= 15, f"NVIDIA_SYNTHESIS_TIMEOUT={default} 太長，仍可能餓死本地 fallback"
