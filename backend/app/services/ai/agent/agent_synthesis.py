@@ -211,7 +211,7 @@ class AgentSynthesizer:
             yield cleaned
         except asyncio.TimeoutError:
             logger.warning("Synthesis timed out after %ds", synthesis_timeout)
-            yield "AI 回答生成超時，請參考上方查詢結果與來源文件。"
+            yield self._timeout_fallback(tool_results)
         except Exception as e:
             logger.warning("Synthesis chat_completion failed, trying stream: %s", e)
             # P0-2 (v3.0 覆盤洞察 12): stream fallback 必須有 outer timeout，
@@ -228,7 +228,36 @@ class AgentSynthesizer:
                         yield token
             except asyncio.TimeoutError:
                 logger.warning("Synthesis stream fallback also timed out after %ds", synthesis_timeout)
-                yield "AI 回答生成超時，請參考上方查詢結果與來源文件。"
+                yield self._timeout_fallback(tool_results)
+
+    def _timeout_fallback(self, tool_results: List[Dict[str, Any]]) -> str:
+        """synthesis 超時/失敗時的智能 fallback（2026-06-03 中期#3）。
+
+        取代原「AI 回答生成超時」空訊息：用 build_synthesis_context（已套 formatter，
+        含 finance/tender）把工具結果格式化為結構化摘要回給使用者。正常路徑不變，
+        僅超時分支改善體感（owner 最痛點：工具有跑但回空訊息）。
+        """
+        _ORIG = "AI 回答生成超時，請參考上方查詢結果與來源文件。"
+        # 無實際工具結果（空 / 全 error）→ 維持原超時訊息，不輸出無用摘要
+        has_data = any(
+            isinstance(tr, dict) and tr.get("result")
+            and not tr["result"].get("error")
+            for tr in (tool_results or [])
+        )
+        if not has_data:
+            return _ORIG
+        try:
+            ctx = self.build_synthesis_context(tool_results)
+        except Exception:
+            ctx = ""
+        if ctx and ctx.strip() and "未取得有效資料" not in ctx:
+            trimmed = ctx[:1500].rstrip()
+            suffix = "\n…（結果較長已截斷）" if len(ctx) > 1500 else ""
+            return (
+                "⏱️ AI 綜合生成較慢，以下為查詢結果摘要：\n\n"
+                f"{trimmed}{suffix}"
+            )
+        return _ORIG
 
     async def _quality_review(
         self,

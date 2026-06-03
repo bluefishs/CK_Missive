@@ -175,6 +175,57 @@ def format_get_project_progress(result: Dict[str, Any], remaining_chars: int) ->
     return "".join(parts)
 
 
+def _to_float(v: Any) -> float:
+    try:
+        return float(v or 0)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def format_get_unpaid_billings(result: Dict[str, Any], remaining_chars: int) -> str:
+    """未付請款 formatter（2026-06-03 中期#3：補 formatter 供 synthesis fallback 結構化）。"""
+    parts: list[str] = []
+    billings = result.get("billings", [])
+    count = result.get("count", len(billings))
+    total_outstanding = sum(_to_float(b.get("outstanding")) for b in billings)
+    overdue = sum(1 for b in billings if b.get("is_overdue"))
+    part = f"[未付請款] 共 {count} 筆"
+    if overdue:
+        part += f"（逾期 {overdue} 筆）"
+    part += f"，未收總額 NT${total_outstanding:,.0f}\n"
+    for b in billings[:8]:
+        part += (
+            f"  - {b.get('case_name') or b.get('case_code') or '?'}"
+            f" {b.get('billing_period') or ''}"
+            f" 未收 NT${_to_float(b.get('outstanding')):,.0f}"
+            f" [{b.get('payment_status', '')}]\n"
+        )
+    if len(part) <= remaining_chars:
+        parts.append(part)
+    return "".join(parts)
+
+
+def format_search_tender(result: Dict[str, Any], remaining_chars: int) -> str:
+    """標案搜尋 formatter（2026-06-03 中期#3）。"""
+    parts: list[str] = []
+    tenders = result.get("tenders", [])
+    count = result.get("count", len(tenders))
+    total = result.get("total", count)
+    part = f"[標案] 找到 {count} 筆"
+    if total and total != count:
+        part += f"（共 {total} 筆符合）"
+    part += "\n"
+    for t in tenders[:8]:
+        part += (
+            f"  - {t.get('title', '')}"
+            f"｜{t.get('unit_name', '')}"
+            f"｜{t.get('type', '')} {t.get('date', '')}\n"
+        )
+    if len(part) <= remaining_chars:
+        parts.append(part)
+    return "".join(parts)
+
+
 # Registry
 BUSINESS_FORMAT_HANDLERS = {
     "draw_diagram": format_draw_diagram,
@@ -184,4 +235,6 @@ BUSINESS_FORMAT_HANDLERS = {
     "get_expense_overview": format_get_expense_overview,
     "list_pending_expenses": format_get_expense_overview,
     "get_project_progress": format_get_project_progress,
+    "get_unpaid_billings": format_get_unpaid_billings,
+    "search_tender": format_search_tender,
 }
