@@ -877,11 +877,27 @@ echo ""
 # 5 鏈 E2E 驗證: Missive health / kunge_snapshot / tools manifest / Hermes gateway / bridge skill
 # 任一鏈斷 → 寫 integration-health marker + 將觸發 LINE alert (透過 cron job)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[62/62] integration e2e validation (v6.13 整合連通 持續驗證)${NC}"
+echo -e "${CYAN}[62/63] integration e2e validation (v6.13 整合連通 持續驗證)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/integration_e2e_validation.py || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/integration_e2e_validation.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 63: Transaction Pollution Audit (L64, 2026-06-03)
+# 觸發: LINE 推播鏈 silent fail（吞錯不 rollback 污染共用 session）—
+#       2026-01-09 BUGFIX_TRANSACTION_POLLUTION 復發。
+# 偵測: try 內對注入式共用 session (self.db/ctx.db) 做 DB 操作，但 except
+#       既未 rollback 也未 re-raise → 後續 query / 推播段會 silent 撞交易錯。
+# baseline 2026-06-03: 59 候選（advisory；逐步收斂，新增不得超過 baseline）
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[63/63] transaction pollution audit (L64 交易污染防復發)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/transaction_pollution_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/transaction_pollution_audit.py || true
 fi
 echo ""
 

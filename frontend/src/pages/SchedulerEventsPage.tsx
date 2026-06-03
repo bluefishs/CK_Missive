@@ -113,7 +113,7 @@ export const SchedulerEventsPage: React.FC = () => {
             key: 'events',
             label: <span><ClockCircleOutlined /> Cron Events 歷史</span>,
             children: (
-              <Card title={`最近 ${eventsQ.data?.events.length ?? 0} 事件 / 總計 ${eventsQ.data?.total ?? 0}`}>
+              <Card title={`最近 ${eventsQ.data?.events?.length ?? 0} 事件 / 總計 ${eventsQ.data?.total ?? 0}`}>
                 <Table
                   size="small"
                   loading={eventsQ.isLoading}

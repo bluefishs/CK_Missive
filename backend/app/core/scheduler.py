@@ -467,15 +467,13 @@ async def proactive_trigger_scan_job():
 
     try:
         async with async_session_maker() as db:
-            # 掃描基礎警報 (公文截止日/資料品質)
+            # 掃描所有警報 (公文截止日/資料品質 + ERP 預算/請款/發票/廠商付款)
+            # 修法（2026-06-03 LINE 推播鏈）：base_service.scan_all() 內部已呼叫
+            # ERPTriggerScanner.scan_all（proactive_triggers.py:66-69），原本此處再掃一次
+            # 造成 (a) ERP alert 重複兩份 (b) 第二次用同一 session 撞 InFailedSQLTransactionError
+            # → 整個夜間吹哨者在 LINE 推播前 raise，LINE 推播段從未執行。
             base_service = ProactiveTriggerService(db)
-            base_alerts = await base_service.scan_all()
-
-            # 掃描 ERP 警報 (預算/請款/發票/廠商付款)
-            erp_scanner = ERPTriggerScanner(db)
-            erp_alerts = await erp_scanner.scan_all()
-
-            all_alerts = base_alerts + erp_alerts
+            all_alerts = await base_service.scan_all()
 
             # 篩選 warning 以上持久化至 DB
             severity_order = {"critical": 3, "warning": 2, "info": 1}

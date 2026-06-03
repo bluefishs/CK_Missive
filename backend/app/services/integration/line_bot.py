@@ -331,6 +331,25 @@ class LineBotService:
 
         return await self._call_line_api("/message/push", payload)
 
+    async def broadcast_to_admins(self, text: str) -> int:
+        """推播給管理員（LINE_ADMIN_USER_ID）。
+
+        修法（2026-06-03 LINE 推播鏈）：subscription_scheduler 原呼叫此方法但未定義
+        → AttributeError，標案訂閱 LINE 推播 silent 全失敗。
+        以 LINE_ADMIN_USER_ID env 為 admin 收件人（與 line_push_scheduler._get_push_targets fallback 一致）。
+
+        Returns: 成功推播人數
+        """
+        if not self.enabled:
+            return 0
+        import os
+        admin_uid = os.getenv("LINE_ADMIN_USER_ID")
+        if not admin_uid:
+            logger.warning("broadcast_to_admins: LINE_ADMIN_USER_ID 未設定，跳過")
+            return 0
+        ok = await self.push_message(admin_uid, text)
+        return 1 if ok else 0
+
     async def reply_flex(self, reply_token: str, flex: dict, alt_text: str = "訊息") -> bool:
         """使用 Flex Message 回覆 (卡片式訊息)"""
         payload = {

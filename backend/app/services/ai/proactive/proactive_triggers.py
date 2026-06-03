@@ -308,7 +308,13 @@ class ProactiveTriggerService:
                     },
                 ))
         except Exception as e:
-            logger.debug("Recommendation check skipped: %s", e)
+            # 修法（2026-06-03 LINE 推播鏈）：吞錯但未 rollback 會污染共用 session，
+            # 導致後續 erp_scanner / LINE 推播段全撞 InFailedSQLTransactionError（silent）。
+            logger.warning("Recommendation check skipped: %s", e)
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
 
         return alerts
 
@@ -464,7 +470,13 @@ class ProactiveTriggerService:
                     metadata=parsed,
                 ))
         except Exception as e:
-            logger.debug("Predictive risk analysis failed: %s", e)
+            # 修法（2026-06-03 LINE 推播鏈）：同 check_recommendations，吞錯須 rollback
+            # 否則污染共用 session 使後續 query 與 LINE 推播全 silent 失敗。
+            logger.warning("Predictive risk analysis failed: %s", e)
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
 
         return alerts
 

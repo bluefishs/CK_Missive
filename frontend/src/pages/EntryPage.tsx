@@ -154,9 +154,12 @@ const EntryPage: React.FC = () => {
           callback: handleGoogleCallback,
           auto_select: false,
           cancel_on_tap_outside: true,
-          // v6.10.4 (2026-05-21)：opt-in Chrome FedCM 強制（預估 2026 Q3-Q4 後 mandatory）
-          // 抑制 GSI_LOGGER warning + 提前適應；副作用：prompt UI 改用 Chrome 系統級 dialog
-          use_fedcm_for_prompt: true,
+          // 2026-06-03 回退：5/21 為「抑制 GSI warning + 提前適應」開 FedCM(true)，
+          // 但 owner 累積關閉 FedCM 彈窗 → Chrome「previous user action」自動停用 FedCM
+          // → /entry 登入鏈斷（NetworkError: retrieving token）。後端僅支援 ID-token(credential)
+          // flow、無 OAuth code callback，故退回 popup/legacy ID-token（相容現有後端、免疫 FedCM 停用）。
+          // 完整 redirect code-flow 對齊主站列為後續專注工項（需前後端一起改）。
+          use_fedcm_for_prompt: false,
         });
         setGoogleReady(true);
       }

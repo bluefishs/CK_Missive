@@ -422,6 +422,18 @@
 
 ---
 
+## L64 — LINE 推播鏈交易污染復發（吞錯不 rollback + 缺方法 + 重複掃描 / 2026-06-03）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 夜間吹哨者 + 標案訂閱的 LINE 推播 silent 全失敗。`backend-error.log` 自 2026-05-25 起每日 08:00/18:00 各一筆 `'LineBotService' object has no attribute 'broadcast_to_admins'`（dormant ~9 天）。整條「proactive scan → LINE 推播」鏈 silent 死。 |
+| **Cause** | **三個 silent failure 疊加**：(1) `subscription_scheduler.py:124` 呼叫 `line_service.broadcast_to_admins(...)` 但 `LineBotService` 從未定義此方法 → AttributeError 被 `except: warning` 吞 (2) `proactive_triggers.py` `check_recommendations` / `predict_risks` except 吞錯**未 rollback** → 污染共用 `self.db`，後續 query 全撞 `InFailedSQLTransactionError` — **此為 2026-01-09 `BUGFIX_TRANSACTION_POLLUTION` 同型復發**（feedback_rigor「反覆基礎錯誤」）(3) `scheduler.py proactive_trigger_scan_job` 在 `base_service.scan_all()`（內部已掃 ERP，`proactive_triggers.py:66-69`）後又獨立 `ERPTriggerScanner(db).scan_all()` 重掃 → ERP alert 雙份 + 第二次用同 session 撞交易錯，整個 job 在 LINE 推播段前 raise。 |
+| **Fix** | (a) `line_bot.py` 補 `broadcast_to_admins()`（讀 `LINE_ADMIN_USER_ID`，與 `line_push_scheduler` fallback 一致）(b) `proactive_triggers.py` 兩處 except `logger.debug`→`warning` + `await self.db.rollback()` (c) `scheduler.py` 移除重複 ERP 掃描，只留 `base_service.scan_all()` (d) regression lock `tests/test_line_push_chain_regression.py`（8 tests：方法存在性 + 呼叫端契約 + rollback 行為 + scheduler 不重建 ERPScanner）(e) fitness step 63 `transaction_pollution_audit.py`（baseline 59 候選）。 |
+| **Prevention** | (a) 任何「吞錯」except 內若 try 對共用 `self.db` 做過 DB 操作 → **必 rollback 或 re-raise**（step 63 月跑防復發）(b) 跨 service 被呼叫的方法名納入 regression 契約測試（鎖 AttributeError）(c) 聚合型 `scan_all()` 自帶子掃描時，呼叫端**不得**再獨立重掃同一子 scanner（雙份 + 同 session 撞錯）(d) silent failure 修復一律附 `test_*_regression.py`（ADR-0028）。 |
+| **Refs** | `backend/tests/test_line_push_chain_regression.py` / `scripts/checks/transaction_pollution_audit.py`（step 63）/ 同型復發源 `docs/archived/legacy/reports_202601/BUGFIX_TRANSACTION_POLLUTION_20260109.md` / 同類 L29 silent-except 家族 + ADR-0021 asyncpg 單飛 + ADR-0028 錯誤合約 |
+
+---
+
 ## L50 — Multi-source identifier ≠ entity link（2026-05-28）
 
 | 欄位 | 內容 |
