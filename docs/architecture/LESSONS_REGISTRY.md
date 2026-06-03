@@ -434,6 +434,121 @@
 
 ---
 
+> **回填註記（2026-06-03）**：L51–L63 原僅存於 `wiki/memory/lessons/{universal,missive-specific}/` 個別檔，
+> 中央 registry 缺索引列 → SSOT 漂移。以下回填精簡索引列（完整內容見各 Refs 檔）。
+
+## L63 — 學習閉環需 aging alert 才能突破 owner 健忘（2026-05-31）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 5/31 self-retro RED：學習閉環 flow=0% / crystals=0 / 5 proposal pending（最老 40 天）。|
+| **Cause** | 自動化做到 trace→pattern→proposal，但 proposal→crystal 是 owner approve hard gate → owner 健忘/決策成本高 → 永遠 pending。|
+| **Fix** | proposal_aging_alert cron（>=7d 主動 LINE 推 owner）+ 凌晨化排程，突破健忘。|
+| **Prevention** | 任何「依賴人工 approve」的閉環必配 aging alert + 主動推播，否則 silent 卡死在 manual gate。|
+| **Refs** | `wiki/memory/lessons/universal/L63_learning_loop_requires_aging_alert.md` / 同類 L62 |
+
+## L62 — 整合連通 = 持續驗證機制，不是一次性 endpoint（2026-05-31）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | Owner「整合優化期待突破性成長 非一次性成功」；v6.6/6.7/6.12 多次加整合 endpoint 但「寫好放著」無持續驗證 → 任一鏈 silent dormant 無人發現。|
+| **Cause** | 把「整合」當一次性交付（寫 endpoint→skill→commit→完成），缺「驗證鏈本身也是 cron + fitness step」。|
+| **Fix** | 5 鏈 E2E 驗證 script + cron 每日跑 + 任一鏈斷自動 LINE + health marker + 驗證鏈本身納 fitness step（step 62）。|
+| **Prevention** | 整合連通的交付定義升級：endpoint + skill + **E2E 驗證 cron + 斷鏈告警 + 驗證鏈自身 fitness**。|
+| **Refs** | `wiki/memory/lessons/universal/L62_integration_continuous_validation_not_one_shot.md` / `scripts/checks/integration_e2e_validation.py`（step 62）|
+
+## L61 — 下游反治理（PileMgmt R18 案例 / L60 真活驗證範本）（2026-05-31）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | L60 立法後 PileMgmt 真活反治理 commit `2a51d57b5`（跨 repo 污染守門）案例研究。|
+| **Cause** | 上游強推範本 → 下游需「反治理」守門（防 CK_Missive 特定內容污染 sibling repo）。|
+| **Fix** | PileMgmt 新增 `test_no_missive_contamination.py` 兩層守門（檔名/目錄禁帶 + 內容指紋掃描）+ fork-contract.md 邊界文件化 + pre-push enforce。|
+| **Prevention** | 下游 repo 對上游範本有「反治理守門」權；污染守門用內容指紋（非裸字）避誤報合法跨 repo 引用。|
+| **Refs** | `wiki/memory/lessons/universal/L61_downstream_reverse_governance.md` / 同層 L58/L59/L60 |
+
+## L60 — 平衡 = 結構正常化（非中間值）（2026-05-30，meta-治理第 8 句立法）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | Owner 追問「如何取得治理平衡」；同日 PileMgmt 自然回滾 install-template 真活驗證。|
+| **Cause** | 把「平衡」誤解為中間值/折中，實際應是每層各司其職 + 明確邊界 + 動態調整。|
+| **Fix** | ROI 公式 5 維度延伸 + 範本分級 L1/L2/L3 + 下游反治理權（與 L58/L59 三位一體）。|
+| **Prevention** | 治理強度不取中間值；以「結構正常化」（角色邊界正確）為目標，動態調整而非固定比例。|
+| **Refs** | `wiki/memory/lessons/missive-specific/L60_balance_via_structural_normalization.md` |
+
+## L59 — 治理架構倒置（上游 meta 缺 audit / 業務 source 反向 audit 子專案）（2026-05-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | CK_AaaP 名義 meta-governance index，但治理成熟度落後它索引的 source（CK_Missive 88 audit vs AaaP 0 scripts/checks）。|
+| **Cause** | 「該是」CK_AaaP→各 repo，「實際」CK_Missive→4 子專案（反向）。上游只定 standard 不 enforce。|
+| **Fix** | 立法第 7 句：meta 上游須自帶 audit；治理方向校正（v6.12 路線）。|
+| **Prevention** | meta-governance repo 必須有 enforce 機制（非只定 convention）；否則治理方向倒置。|
+| **Refs** | `wiki/memory/lessons/missive-specific/L59_governance_architecture_inversion.md` |
+
+## L58 — 治理範本污染風險（強推 132 檔 57% 為本專案特定）（2026-05-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | Owner 反思「CK_Missive 平台治理範本變成其他專案污染源」；install-template 132 檔強推 4 子專案。|
+| **Cause** | 132 檔僅 33% 真普適（L1），57% 是 CK_Missive 特定（L3：Facade B / Hermes baseline / daily_self_retrospective）；強推 L3 = 語意/規範/觀測污染。|
+| **Fix** | 範本分級 L1（普適）/L2（可選）/L3（本專案專屬不外推）+ 立法第 6 句。|
+| **Prevention** | 跨 repo 範本必分級；只強推 L1 普適層，L3 專屬層禁外推。|
+| **Refs** | `wiki/memory/lessons/missive-specific/L58_governance_template_pollution.md` / 同類 L54 |
+
+## L57 — BACKEND_DIR/logs vs compose mount 子路徑漂移（L52 family 第七案）（2026-05-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | shadow_baseline_rows_total 卡 0-2，cron 跑不累積；深挖 4 層 silent 疊加。|
+| **Cause** | `shadow_logger` 用 `BACKEND_DIR/logs`（=/app/backend/logs）但 compose mount 是 `/app/logs` → 寫入路徑 drift，5/21→5/30 silent dormant 9 天。|
+| **Fix** | commit `5ca1d720` 對齊 mount target；揭發配套 `metrics_populate_errors_total` / `scheduler_job_last_run_age_seconds`。|
+| **Prevention** | paths.py **子路徑**（BACKEND_DIR/LOGS_DIR）也須與 compose mount 對齊（fitness step 69 `paths_subpath_mount_audit`）。|
+| **Refs** | `wiki/memory/lessons/universal/L57_backend_dir_logs_vs_mount_drift.md` / 母案 L52 |
+
+## L54 — 跨 repo 套用 ≠ 落實（install-template apply vs commit gap）（2026-05-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | install-template 對 4 子專案套用完 → drift audit GREEN，但各 repo 實際有 staging changes 待 commit（lvrland 38 / pile 26 / showcase 1）。|
+| **Cause** | audit 只看「檔案存在/內容一致」，未驗證「已 commit」→ 套用即綠但未落實。|
+| **Fix** | audit 加 git status 檢查；fitness step 區分 applied vs committed。|
+| **Prevention** | 跨 repo 採用度定義 = 套用 + **commit** + import 不報錯（非僅檔案落地）。|
+| **Refs** | `wiki/memory/lessons/missive-specific/L54_cross_repo_apply_vs_commit_gap.md` / 同類 L41「採用」定義 |
+
+## L53 — Facade over-engineering 30 天實證裁判（ADR-0036 ROI 失敗）（2026-05-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | fitness step 61 facade_adoption_audit 揭發 13 facade 中 10 個 zero caller（平均 0.46/facade）。|
+| **Cause** | v6.10 P1 設想「平均 ≥3 caller/facade」，30 天實測 0.46 → 抽象層建好沒人用 = over-engineering（L31 ROI=entities×usage_rate 第一個負面案例）。|
+| **Fix** | B 方案收口 13→3（-1509 行 / 補強 3 active + 廢 10 zero），3 active 留 60 天 trial（2026-07-30 重評）。|
+| **Prevention** | 抽象層必設 caller 門檻 + 定期 audit 裁判；ADR 假設→audit 裁判→lesson 傳承閉環（L31 第一個正面執行案例）。|
+| **Refs** | `wiki/memory/lessons/missive-specific/L53_facade_over_engineering_30day_pruning.md` / `feedback_stop_overengineering` / ADR-0036 |
+
+## L52 — paths.py PROJECT_ROOT vs compose mount target 漂移（L4x family 第六案）（2026-05-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | fitness step 58 agent_query_starvation RED 持續，發現 cron synthetic_baseline silent return（shadow_baseline 24h n=0）。|
+| **Cause** | 加 `CK_PROJECT_ROOT=/app` env override 後 paths.py 算出 `/app/scripts/checks/...`，但 `docker-compose.production.yml` mount target 還是舊值 → cron 找不到 script → silent return。|
+| **Fix** | 對齊 compose mount target + token fallback；fitness step 62 `paths_compose_mount_audit`。|
+| **Prevention** | paths.py PROJECT_ROOT 變更必同步檢查所有 compose mount target prefix（cross-file SSOT）。|
+| **Refs** | `wiki/memory/lessons/universal/L52_paths_compose_mount_drift.md` / 同 family L41/L43/L44/L45/L57 |
+
+## L51 — Container image freshness family（L51.5/L51.7 系列，2026-05-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 多個 sub-case：L51.5 `GOOGLE_CLIENT_ID/SECRET` 未注入容器（Google 登入 silent 503 風險，commit `ba59b020`）；L51.7 container image content vs git HEAD drift（incident #8）。|
+| **Cause** | 容器 image 內容/env 與 host git HEAD 漂移 — 改 host 檔但容器未 rebuild / compose 未注入 host .env 已存的值。|
+| **Fix** | fitness step 60 `container_image_freshness_check` + compose 補注入 env；L51 family 散見 v6.12 commits。|
+| **Prevention** | 容器內容 SSOT = git HEAD `backend/`；env SSOT = host `.env` 必經 compose 注入（cross-file-ssot-governance 規則 1）。|
+| **Refs** | run_fitness step 60 / MEMORY.md L51.5+ 條目 / 同 family L52/L57 |
+
+---
+
 ## L50 — Multi-source identifier ≠ entity link（2026-05-28）
 
 | 欄位 | 內容 |
