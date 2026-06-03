@@ -432,6 +432,16 @@
 | **Prevention** | (a) 任何「吞錯」except 內若 try 對共用 `self.db` 做過 DB 操作 → **必 rollback 或 re-raise**（step 63 月跑防復發）(b) 跨 service 被呼叫的方法名納入 regression 契約測試（鎖 AttributeError）(c) 聚合型 `scan_all()` 自帶子掃描時，呼叫端**不得**再獨立重掃同一子 scanner（雙份 + 同 session 撞錯）(d) silent failure 修復一律附 `test_*_regression.py`（ADR-0028）。 |
 | **Refs** | `backend/tests/test_line_push_chain_regression.py` / `scripts/checks/transaction_pollution_audit.py`（step 63）/ 同型復發源 `docs/archived/legacy/reports_202601/BUGFIX_TRANSACTION_POLLUTION_20260109.md` / 同類 L29 silent-except 家族 + ADR-0021 asyncpg 單飛 + ADR-0028 錯誤合約 |
 
+**L64 子案 B — synthesis fallback 模型 SSOT（同批 06-03，commit `28a29939` / `dc9b6f98` / `42bdf2ea`）**
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 經 LINE/web 查業務問題（如「桃園市工務局相關公文」）得「AI 回答生成超時，請參考上方查詢結果」——工具有跑（`get_statistics` 等）但生成層 fail。 |
+| **Cause** | synthesis 路徑外層僅 35s budget（`TIMEOUTS.synthesis`，`agent_synthesis.py:176`）。`chat_completion(task_type="synthesis")` fallback 鏈 Groq→NVIDIA→Ollama：Groq 429/TPM 頂（不重試）→ NVIDIA 預設 30s 慢失敗 → 落本地 Ollama 時 budget 已近耗盡；且 `"synthesis"`/`"vision"` 原不在 `TASK_MODEL_MAP` → 落 `OLLAMA_DEFAULT_MODEL`（prod=`qwen2.5:7b`，p50 52.8s）→ 35s 必超時。與 vision 發票 OCR silent 退 QR 同型（`task_type` 漏映射）。 |
+| **Fix** | (a) `ai_connector.py TASK_MODEL_MAP` 補 `"synthesis"→gemma4:e2b`、`"vision"→gemma4:e2b`（快模型，~7s < 35s）(b) synthesis 路徑 NVIDIA timeout 縮至 8s（`NVIDIA_SYNTHESIS_TIMEOUT`，`ai_connector.py:436`）保證本地 fallback 仍有時間 (c) regression lock `backend/tests/unit/test_synthesis_fallback_model.py`。 |
+| **殘留** | Groq 429 高頻 + GPU `semaphore=3` 併發 burst 下 gemma4 單筆 ~7s 但 burst 達 ~24–32s，仍可能擦 35s 邊（commit `42bdf2ea` 自述 elapsed=32s；當前 diary 19:15 仍見 latency 51s 超時）。**治本＝Groq TPM quota 升級（owner 層）或 synthesis 降低對 cloud 依賴**，非 Missive code 可獨力解。 |
+| **Prevention** | `TASK_MODEL_MAP`（任務→模型）為跨檔 SSOT：新增任一 `task_type` 且其 fallback 會落本地 Ollama 時，**必確認對應本地模型夠快（< 該 task 的 timeout budget）**，否則 cloud 失敗即 silent 超時。應納入 `cross-file-ssot-governance.md` 規則 1 表。 |
+
 ---
 
 > **回填註記（2026-06-03）**：L51–L63 原僅存於 `wiki/memory/lessons/{universal,missive-specific}/` 個別檔，

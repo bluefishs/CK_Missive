@@ -49,6 +49,7 @@
 | **Container PROJECT_ROOT path** | **`backend/app/core/paths.py` + `CK_PROJECT_ROOT` env**（L52 新增）| **同步檢查所有 docker-compose.* mount target prefix** |
 | **Container sub-path (BACKEND_DIR/LOGS_DIR 等)** | **paths.py sub-path 變數 + docker-compose mount target 對齊**（L57 新增）| **shadow_logger 用 BACKEND_DIR/logs 但 mount 是 /app/logs → silent fail** |
 | **Repository ↔ db_table 命名對應**（v6.12 step 70 新增 5/31）| **每個 model 必有對應 `<table_singular>_repository.py`**（A+C 規範+智能 audit）| **document_attachments → attachment_repository（非 document_attachments_repository）違反 SSOT，step 70 揭發 58% 覆蓋率** |
+| **任務→模型映射 TASK_MODEL_MAP**（L64 子案 B 新增 6/3）| **`ai_connector.py TASK_MODEL_MAP` 為唯一映射；OLLAMA_*_MODEL env 覆蓋** | **新增 task_type 若 fallback 會落本地 Ollama，本地模型須夠快（< 該 task timeout budget），否則 cloud 失敗即 silent 超時。`synthesis`/`vision` 漏映射 → 落 qwen2.5:7b(p50 52.8s) → 35s 必超時／圖片送純文字模型 silent 退 QR** |
 
 **禁止**：
 - 同一 secret 寫在多個 .env / config 檔

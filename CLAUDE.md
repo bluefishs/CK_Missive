@@ -3,9 +3,10 @@
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
 > **版本**: v6.13（2026-06-02）/ 真因鏈大掃除 23 commits — silent cron 四層防禦 + OLLAMA/PGVECTOR/token config drift 修 + kunge tab 7→5 整併 + 多 tab 崩潰/403/embedding 修
-> **最後更新**: 2026-06-02
+> **最後更新**: 2026-06-03
 >
 > **近期重大里程碑**：
+> - **v6.14 進行中 (06-03) delta — synthesis 超時根因鏈（L64）**：① `ai_connector.py TASK_MODEL_MAP` 補 `synthesis`/`vision`→`gemma4:e2b`（漏映射 → 原落 qwen2.5:7b p50 52.8s → synthesis 35s budget 必超時；與 vision 發票 OCR silent 退 QR 同型）+ synthesis 路徑 NVIDIA timeout 縮 30→8s（`NVIDIA_SYNTHESIS_TIMEOUT`）保證本地 fallback 有時間（commit `28a29939`/`dc9b6f98`/`42bdf2ea` + regression `test_synthesis_fallback_model.py`）。② **LINE 推播鏈交易污染復發修（L64 子案 A）**：`broadcast_to_admins` 缺方法 + except 吞錯不 rollback 污染 self.db + scheduler 重複掃 ERP（dormant ~9 天 silent）→ 補方法 + rollback + 移除重掃 + regression `test_line_push_chain_regression.py` + fitness step 63 `transaction_pollution_audit.py`（commit `8b5dd584`）。③ **殘留（owner 層，非 code 可解）**：Groq 429 高頻 + GPU semaphore=3 併發 burst 下 gemma4 達 ~24–32s 仍擦 35s 邊，治本＝Groq TPM quota 升級。④ intent→tool 確定性映射 `_INTENT_TOOL_MAP`（commit `a33a0bbc`，取代 LLM 幻覺建議工具）。詳見 `docs/architecture/LESSONS_REGISTRY.md#L64` + `docs/architecture/V6_14_INTEGRATION_OPTIMIZATION_AGENDA_20260601.md`
 > - **v6.13 (06-02) 真因鏈大掃除**（23 commits 全 push / 重啟 pre-flight 通過 `docs/runbooks/reboot-pre-flight-20260602.md`）：
 >   - **平臺自證 silent→LOUD 四層**：8 cron `.parent` 路徑 bug（每日覆盤+LINE 全 silent 死）+ 開機自檢 + silent return→raise + outcome-freshness watchdog（07:00）
 >   - **3 個 config drift 修真因鏈**：① `OLLAMA_BASE_URL=localhost`→`host.docker.internal`（修「無法生成查詢向量」0.0s + ollama fallback 層）② `PGVECTOR_ENABLED` compose 漏傳→補（修「pgvector 未啟用」）③ token SSOT auth_service 硬編碼 30→改讀 settings 60min（修閒置不到 30 分被登出）
