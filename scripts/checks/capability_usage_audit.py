@@ -199,6 +199,21 @@ def _memory_loop_health() -> Dict[str, int]:
     if legacy_dir.exists():
         autobio_count = max(autobio_count, len(list(legacy_dir.glob("*.md"))))
     counts["autobiography"] = autobio_count
+    # proposals_pending：只數 frontmatter status: pending（對齊 orchestrator v6.13 06-01）。
+    # counts["proposals"] 是目錄總檔數（含 applied/superseded/rejected），不可當「pending 卡」判據，
+    # 否則 owner 已處置的 proposal 仍誤報 dead loop（2026-06-04 修，同 autobiography false-positive family）。
+    pending = 0
+    prop_dir = base / "proposals"
+    if prop_dir.exists():
+        for p in prop_dir.glob("*.md"):
+            try:
+                head = p.read_text(encoding="utf-8")[:600]
+            except Exception:
+                continue
+            m = re.search(r"^status:\s*(\w+)", head, re.MULTILINE)
+            if m and m.group(1).strip() == "pending":
+                pending += 1
+    counts["proposals_pending"] = pending
     return counts
 
 
@@ -301,8 +316,8 @@ def _generate_report(days: int, quick: bool = False) -> Dict[str, Any]:
         memory_dead.append("crystals (0 files but 3+ patterns accumulated)")
     if memory_loop.get("autobiography", 0) == 0 and memory_loop.get("diary", 0) >= 7:
         memory_dead.append("autobiography (0 files but 7+ diary days)")
-    if memory_loop.get("proposals", 0) >= 3:
-        memory_dead.append(f"proposals ({memory_loop['proposals']} pending, gate blocked)")
+    if memory_loop.get("proposals_pending", 0) >= 3:
+        memory_dead.append(f"proposals ({memory_loop['proposals_pending']} pending, gate blocked)")
 
     if quick:
         adr_refs = []
