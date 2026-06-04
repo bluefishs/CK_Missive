@@ -173,16 +173,33 @@ def _memory_loop_health() -> Dict[str, int]:
     base = WIKI_DIR / "memory"
     if not base.exists():
         return {}
-    return {
+    counts = {
         "diary": len(list((base / "diary").glob("*.md"))) if (base / "diary").exists() else 0,
         "patterns": len(list((base / "patterns").glob("*.md"))) if (base / "patterns").exists() else 0,
         "failures": len(list((base / "failures").glob("*.md"))) if (base / "failures").exists() else 0,
         "proposals": len(list((base / "proposals").glob("*.md"))) if (base / "proposals").exists() else 0,
         "crystals": len(list((base / "crystals").glob("*.md"))) if (base / "crystals").exists() else 0,
         "evolutions": len(list((base / "evolutions").glob("*.md"))) if (base / "evolutions").exists() else 0,
-        "autobiography": len(list((base / "autobiography").glob("*.md")))
-            if (base / "autobiography").exists() else 0,
     }
+    # autobiography 實際寫在 evolutions/YYYY-WNN.md（frontmatter memory_type: autobiography），
+    # 非 wiki/memory/autobiography/ — 對齊 optimization_pipeline_orchestrator v6.13 計數邏輯。
+    # 修正前此處 glob 舊路徑恆得 0 → 誤報 dead loop（2026-06-04 修跨檔 SSOT drift；
+    # orchestrator 06-01 已修但本 audit 漏修＝修法不對稱 family）。
+    autobio_count = 0
+    evo_dir = base / "evolutions"
+    if evo_dir.exists():
+        for p in evo_dir.glob("*.md"):
+            try:
+                head = p.read_text(encoding="utf-8")[:400]
+            except Exception:
+                continue
+            if re.search(r"^memory_type:\s*autobiography", head, re.MULTILINE):
+                autobio_count += 1
+    legacy_dir = base / "autobiography"  # 後備：舊目錄若仍存在也計入
+    if legacy_dir.exists():
+        autobio_count = max(autobio_count, len(list(legacy_dir.glob("*.md"))))
+    counts["autobiography"] = autobio_count
+    return counts
 
 
 # ────────── ADR Reference Audit ──────────
