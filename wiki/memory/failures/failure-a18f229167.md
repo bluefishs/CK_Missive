@@ -3,12 +3,12 @@ type: agent_memory
 memory_type: failure
 signature: a18f229167
 tool_sequence: ["get_statistics", "search_across_graphs"]
-hit_count: 3
-failure_count: 3
+hit_count: 6
+failure_count: 6
 failure_rate: 1.000
 active: true
 first_seen: 2026-05-20
-last_seen: 2026-05-20
+last_seen: 2026-06-03
 tags: [memory, failure, defensive]
 ---
 
@@ -20,15 +20,15 @@ tags: [memory, failure, defensive]
 
 ## 失敗統計
 
-- **觸發次數**：3
-- **失敗次數**：3
+- **觸發次數**：6
+- **失敗次數**：6
 - **失敗率**：100.0%
 - **症狀**：成功率僅 0%，共 3 次失敗
 
 ## 典型問法
 
+- 桃園市工務局相關公文
 - 查詢標案決標資訊（tender award lookup）
-- 在 wiki 知識庫搜尋「派工流程」相關內容
 
 ## 🛡️ Defensive Rule（planner 將自動注入）
 

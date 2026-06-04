@@ -3,12 +3,12 @@ type: agent_memory
 memory_type: failure
 signature: 82fed427f7
 tool_sequence: ["find_correspondence", "get_statistics", "search_dispatch_orders", "search_projects"]
-hit_count: 2
-failure_count: 1
+hit_count: 4
+failure_count: 2
 failure_rate: 0.500
 active: true
 first_seen: 2026-04-22
-last_seen: 2026-04-22
+last_seen: 2026-06-03
 tags: [memory, failure, defensive]
 ---
 
@@ -20,14 +20,14 @@ tags: [memory, failure, defensive]
 
 ## 失敗統計
 
-- **觸發次數**：2
-- **失敗次數**：1
+- **觸發次數**：4
+- **失敗次數**：2
 - **失敗率**：50.0%
 - **症狀**：成功率僅 50%，共 1 次失敗
 
 ## 典型問法
 
-- 派工單 11301-001 的進度如何？
+- 派工單 115年_派工單號021 的進度如何？
 
 ## 🛡️ Defensive Rule（planner 將自動注入）
 
