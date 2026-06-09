@@ -1,7 +1,7 @@
 ---
 title: ADR 索引
 type: topic
-created: 2026-05-25
+created: 2026-06-08
 sources: [docs/adr]
 tags: [架構, ADR, 治理, auto-compiled]
 confidence: high
@@ -9,10 +9,10 @@ confidence: high
 
 # ADR 索引
 
-**統計來源**: docs/adr/ 全 21 篇 frontmatter 解析
-**編譯時間**: 2026-05-25 05:00
+**統計來源**: docs/adr/ 全 23 篇 frontmatter 解析
+**編譯時間**: 2026-06-08 05:00
 
-## Active (18)
+## Active (19)
 
 | # | Title | Status |
 |---|---|---|
@@ -32,8 +32,9 @@ confidence: high
 | 0032 | ADR-0032: Tender 多源識別碼統一策略 | Accepted |
 | 0033 | ADR-0033: 關閉帳號密碼登入機制 | Accepted |
 | 0034 | ADR-0034：動態 Role Permissions（DB 為 SSOT） | accepted |
-| 0036 | ADR-0036: Bounded Context Contract Layer — 真模組化基石 | accepted |
 | 0044 | ADR CK_Missive#0044: Docker Volume Name SSOT（compose `name:` | accepted |
+| 0045 | ADR-0045: L49 Container Host Dependency Family — 環境切換 SSOT 治 | accepted |
+| 0046 | ADR-0046: Tender ezbid ↔ PCC Enrichment Mechanism (簡化版方案 A) | accepted |
 
 ## Proposed (1)
 
@@ -41,9 +42,10 @@ confidence: high
 |---|---|---|
 | 0035 | ADR-0035: GitNexus Bridge — Agent Code Intelligence | proposed |
 
-## Other (2)
+## Other (3)
 
 | # | Title | Status |
 |---|---|---|
 | 0011 | ADR-0011: AI 配置 DB CRUD 系統移除 — 超前開發教訓 | removed |
 | 0020 | ADR-0020 Hermes 角色終局決策提案 v3 (5/20 會議用) | PROPOSAL（待 |
+| 0036 | ADR-0036: Bounded Context Contract Layer — 真模組化基石 | superseded |

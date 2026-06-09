@@ -3889,3 +3889,339 @@
 ## [2026-06-03] lint | pages=259 orphans=37 broken=7
 
 ## [2026-06-04] lint | pages=259 orphans=37 broken=7
+
+## [2026-06-05] lint | pages=259 orphans=37 broken=7
+
+## [2026-06-06] lint | pages=259 orphans=37 broken=7
+
+## [2026-06-07] lint | pages=259 orphans=37 broken=7
+
+## [2026-06-08] update | entity | 桃園市政府工務局 (org)
+
+## [2026-06-08] update | entity | 南投縣政府 (org)
+
+## [2026-06-08] update | entity | 交通部公路局中區養護工程分局信義工務段 (org)
+
+## [2026-06-08] update | entity | 交通部公路局中區養護工程分局 (org)
+
+## [2026-06-08] update | entity | 苗栗縣政府 (org)
+
+## [2026-06-08] update | entity | 嘉義縣竹崎地政事務所 (org)
+
+## [2026-06-08] update | entity | 南投縣埔里地政事務所 (org)
+
+## [2026-06-08] update | entity | 嘉義縣政府 (org)
+
+## [2026-06-08] update | entity | 行政院公共工程委員會 (org)
+
+## [2026-06-08] update | entity | 112至113年度桃園市轄內興辦公共設施工程用地取得所需土地市價及地上物查估、測量作業暨相關計畫書製作委託專業服務(開口契約) (project)
+
+## [2026-06-08] update | entity | 112年_派工單號001 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號002 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號003 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號004 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號005 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號006 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號007 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號008 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號009 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號010 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號011 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號012 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號013 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號014 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號015 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號016 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號017 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號018 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號019 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號020 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號021 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號022 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號023 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號024 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號025 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號026 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號027 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號028 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號029 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號030 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號031 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號032 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號033 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號034 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號035 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號036 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號037 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號038 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號039 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號040 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號041 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號042 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號043 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號044 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號045 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號046 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號047 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號048 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號049 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號050 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號051 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號052 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號053 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號054 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號055 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號056 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號057 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號058 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號059 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號060 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號061 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號062 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號063 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號064 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號065 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號066 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號067 (dispatch)
+
+## [2026-06-08] update | entity | 112至113年度桃園市轄內興辦公共設施工程用地取得所需土地市價及地上物查估、測量作業暨相關計畫書製作委託專業服務(後續擴充) (project)
+
+## [2026-06-08] update | entity | 112年_派工單號068 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號069 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號070 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號071 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號072 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號073 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號074 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號075 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號076 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號077 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號078 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號079 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號080 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號081 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號082 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號083 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號084 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號085 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號086 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號087 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號088 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號089 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號090 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號091 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號092 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號093 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號094 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號095 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號096 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號097 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號098 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號099 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號100 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號101 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號102 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號103 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號104 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號105 (dispatch)
+
+## [2026-06-08] update | entity | 112年_派工單號106 (dispatch)
+
+## [2026-06-08] update | entity | 埔里工務段、信義工務段優先關注邊坡光達應用暨進階檢測圖資建置計畫(第七期) (project)
+
+## [2026-06-08] update | entity | 115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約) (project)
+
+## [2026-06-08] update | entity | 115年_派工單號001 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號002 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號003 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號004 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號006 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號005 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號007 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號008 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號009 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號010 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號011 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號012 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號013 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號014 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號015 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號016 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號017 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號018 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號019 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號020 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號021 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號000 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號022 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號023 (dispatch)
+
+## [2026-06-08] update | entity | 115年_派工單號024 (dispatch)
+
+## [2026-06-08] update | entity | 115年度苗栗縣後龍鎮龍東段、龍南段及後龍段後龍、大庄小段地籍圖重測案 (project)
+
+## [2026-06-08] update | entity | 113年度南投縣都市計畫樁位測補釘案委託技術服務案(開口契約) (project)
+
+## [2026-06-08] update | entity | 114年度南投縣都市計畫樁位測補釘案委託技術服務案(開口契約) (project)
+
+## [2026-06-08] update | entity | 115年度仁愛鄉非都市計畫地區圖解數化地籍圖整合建置作業 (project)
+
+## [2026-06-08] update | entity | 115年度番路鄉、竹崎鄉非都市計畫地區圖解數化地籍圖整合建置作業 (project)
+
+## [2026-06-08] update | entity | 115年度南投縣都市計畫樁位測補釘案委託技術服務案(開口契約) (project)
+
+## [2026-06-08] compile | topic | 公文管理系統總覽
+
+## [2026-06-08] compile | topic | 高頻往來機關 Top 10 (10 agencies)
+
+## [2026-06-08] compile | topic | 逾期公文 Top 20 (20 overdue)
+
+## [2026-06-08] compile | topic | 月派工量趨勢 (5 months)
+
+## [2026-06-08] compile | topic | KG 高連線 Top 10 (10 entities)
+
+## [2026-06-08] compile | topic | 資料品質快照 (link=38.3%)
+
+## [2026-06-08] compile | topic | 每週工作流量熱圖 (3w × 4cat)
+
+## [2026-06-08] compile | topic | ADR 索引 (19 active / 23 total)
+
+## [2026-06-08] compile | topic | ERP 月度趨勢 (1 months / NT$ 107,762)
+
+## [2026-06-08] compile | topic | Lessons Registry 索引 (54 lessons)
+
+## [2026-06-08] compile | topic | SOUL 演化史 (0 events / 7 bullets)
+
+## [2026-06-08] compile | topic | 多通道整合目錄 (0 channels / 1 skills)
+
+## [2026-06-08] compile | topic | integration health 月報 (channel=1 diary=13% drift=-1)
+
+## [2026-06-08] lint | pages=259 orphans=37 broken=7
+
+## [2026-06-09] lint | pages=259 orphans=37 broken=7

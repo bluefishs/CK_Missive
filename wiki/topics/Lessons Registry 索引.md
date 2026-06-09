@@ -1,7 +1,7 @@
 ---
 title: Lessons Registry 索引
 type: topic
-created: 2026-05-25
+created: 2026-06-08
 sources: [docs/architecture/LESSONS_REGISTRY.md]
 tags: [架構, lessons, 治理, auto-compiled]
 confidence: high
@@ -10,8 +10,8 @@ confidence: high
 # Lessons Registry 索引
 
 **統計來源**: docs/architecture/LESSONS_REGISTRY.md
-**編譯時間**: 2026-05-25 05:00
-**Lessons 總數**: 40
+**編譯時間**: 2026-06-08 05:00
+**Lessons 總數**: 54
 
 | ID | Lesson Title |
 |----|--------------|
@@ -55,6 +55,20 @@ confidence: high
 | L39 | QueryKey Drift（React Query invalidate silent dead）（2026-05-20） |
 | L38 | 平時保險（cron / 異地備份）也是 LR-015 反模式高發區（2026-05-19） |
 | L41 | JWT Secret Drift Silent Fail（4 重疊加 / 2026-05-21） |
+| L64 | LINE 推播鏈交易污染復發（吞錯不 rollback + 缺方法 + 重複掃描 / 2026-06-03） |
+| L63 | 學習閉環需 aging alert 才能突破 owner 健忘（2026-05-31） |
+| L62 | 整合連通 = 持續驗證機制，不是一次性 endpoint（2026-05-31） |
+| L61 | 下游反治理（PileMgmt R18 案例 / L60 真活驗證範本）（2026-05-31） |
+| L60 | 平衡 = 結構正常化（非中間值）（2026-05-30，meta-治理第 8 句立法） |
+| L59 | 治理架構倒置（上游 meta 缺 audit / 業務 source 反向 audit 子專案）（2026-05-30） |
+| L58 | 治理範本污染風險（強推 132 檔 57% 為本專案特定）（2026-05-30） |
+| L57 | BACKEND_DIR/logs vs compose mount 子路徑漂移（L52 family 第七案）（2026-05-30） |
+| L54 | 跨 repo 套用 ≠ 落實（install-template apply vs commit gap）（2026-05-30） |
+| L53 | Facade over-engineering 30 天實證裁判（ADR-0036 ROI 失敗）（2026-05-30） |
+| L52 | paths.py PROJECT_ROOT vs compose mount target 漂移（L4x family 第六案）（2026-05-30） |
+| L51 | Container image freshness family（L51.5/L51.7 系列，2026-05-30） |
+| L50 | Multi-source identifier ≠ entity link（2026-05-28） |
+| L49 | Container Host Dependency Family (PM2 → Docker 遷移 5 重 silent regression / 2026-0 |
 
 
 ## 完整內容

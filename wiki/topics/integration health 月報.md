@@ -1,7 +1,7 @@
 ---
 title: integration health 月報
 type: topic
-created: 2026-06-01
+created: 2026-06-08
 sources: [prometheus v7 gauges]
 tags: [架構, integration, v7, fitness, monthly, auto-compiled]
 confidence: high
@@ -10,15 +10,15 @@ confidence: high
 # integration health 月報
 
 **統計來源**: prometheus v7 gauges (M1, 5/04 v3.0 覆盤)
-**編譯時間**: 2026-06-01 05:00
+**編譯時間**: 2026-06-08 05:00
 
 ## v3.0 8 接觸面當下健康度
 
 | 接觸面 | 當前 | 目標 | 狀態 |
 |--------|-----:|-----:|------|
 | ❼ 跨通道 pattern 多樣性 | 1 | ≥ 4 | ✗ WARN |
-| ❺ Diary↔KG entity tag % | 17.6% | ≥ 50% | ✗ WARN |
-| ❹ Critique↔KG 引用 % | 0.0% | ≥ 80% | ✗ WARN |
+| ❺ Diary↔KG entity tag % | 12.9% | ≥ 50% | ✗ WARN |
+| ❹ Critique↔KG 引用 % | 100.0% | ≥ 80% | ✓ OK |
 | ❽ SOUL drift lines | -1 | ≤ 5 | ✓ OK |
 
 ## 對應 v3.0 review 洞察
