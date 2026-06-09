@@ -11,6 +11,7 @@ Created: 2026-04-13
 """
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -25,6 +26,9 @@ logger = logging.getLogger(__name__)
 
 # 增量編譯 checkpoint
 _CHECKPOINT_FILE = WIKI_ROOT / ".compile_checkpoint.json"
+
+# frontmatter created 欄位（preserve 既有溯源日期用）
+_CREATED_RE = re.compile(r'^(created:\s*)(.+)$', re.MULTILINE)
 
 
 def _load_checkpoint() -> dict:
@@ -51,6 +55,27 @@ class WikiCompiler:
         self.wiki = get_wiki_service()
         self._kg_cache: Dict[str, Optional[int]] = {}
         self._pre_snapshot: Dict[str, int] = {}  # path → file_size
+
+    @staticmethod
+    def _write_page(path: Path, content: str) -> None:
+        """寫 wiki 頁面，preserve 既有 frontmatter `created`。
+
+        每次重編譯都把 `created` 寫成 datetime.now() 會污染溯源語意
+        （entity 首見日期被重設為當日）。此 helper 在覆寫前讀取既有檔的
+        `created`，若存在則沿用，僅首次建立時用今日。
+        """
+        if path.exists():
+            try:
+                old_head = path.read_text(encoding="utf-8")[:600]
+                m = _CREATED_RE.search(old_head)
+                if m:
+                    old_created = m.group(2).strip()
+                    content = _CREATED_RE.sub(
+                        lambda mm: f"{mm.group(1)}{old_created}", content, count=1
+                    )
+            except Exception:
+                pass  # preserve 失敗不阻斷寫入（退回新 created）
+        path.write_text(content, encoding="utf-8")
 
     def _snapshot_pages(self) -> Dict[str, int]:
         """快照所有 wiki 頁面 (path → 檔案大小)"""
@@ -755,7 +780,7 @@ confidence: high
 
 {description}
 """
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log("compile", f"topic | {slug}")
 
         # 自動建立索引頁 — 所有 entity 頁面至少有一個入站連結 (解決 orphan)
@@ -823,7 +848,7 @@ confidence: high
 
 {chr(10).join(lines)}
 """
-            idx_path.write_text(idx_content, encoding="utf-8")
+            self._write_page(idx_path, idx_content)
 
     def _build_overview(self, doc_count, project_count, agency_count, year_rows, cat_rows) -> str:
         """建構總覽 wiki 描述 (委派 WikiFormatter)"""
@@ -929,7 +954,7 @@ confidence: high
             f"sources: [official_documents]\ntags: [統計, 機關, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log("compile", f"topic | {slug} ({len(top)} agencies)")
         return {"compiled": True, "count": len(top)}
 
@@ -995,7 +1020,7 @@ confidence: high
             f"tags: [統計, 廠商, erp, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log("compile", f"topic | {slug} ({len(rows)} vendors)")
         return {"compiled": True, "count": len(rows)}
 
@@ -1070,7 +1095,7 @@ confidence: high
             f"tags: [統計, 派工, 工作流量, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log(
             "compile", f"topic | {slug} ({len(sorted_weeks)}w × {len(sorted_cats)}cat)",
         )
@@ -1164,7 +1189,7 @@ confidence: high
             f"tags: [架構, ADR, 治理, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log(
             "compile", f"topic | {slug} ({len(active)} active / {len(adrs)} total)",
         )
@@ -1231,7 +1256,7 @@ confidence: high
             f"tags: [統計, ERP, 財務, 趨勢, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log(
             "compile", f"topic | {slug} ({len(rows)} months / NT$ {total_amount:,.0f})",
         )
@@ -1287,7 +1312,7 @@ confidence: high
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
             f"\n\n## 完整內容\n\n見 [LESSONS_REGISTRY.md](../../docs/architecture/LESSONS_REGISTRY.md)\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log("compile", f"topic | {slug} ({len(lessons)} lessons)")
         return {"compiled": True, "count": len(lessons)}
 
@@ -1368,7 +1393,7 @@ confidence: high
             f"tags: [架構, observability, monitoring, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log(
             "compile",
             f"topic | {slug} ({len(dashboards)} dashboards / {total_alerts} alerts)",
@@ -1432,7 +1457,7 @@ confidence: high
             f"tags: [意識體, soul, 演化, kunge, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log(
             "compile",
             f"topic | {slug} ({h3_count} events / {bullet_count} bullets)",
@@ -1515,7 +1540,7 @@ confidence: high
             f"tags: [架構, integration, hermes, line, telegram, discord, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log(
             "compile", f"topic | {slug} ({len(channels)} channels / {len(skills)} skills)",
         )
@@ -1579,7 +1604,7 @@ confidence: high
             f"tags: [架構, integration, v7, fitness, monthly, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log(
             "compile",
             f"topic | {slug} (channel={v_channel:.0f} diary={v_diary:.0f}% drift={v_drift:.0f})",
@@ -1643,7 +1668,7 @@ confidence: high
             f"tags: [統計, 逾期, auto-compiled]\nconfidence: high\n---\n\n"
             f"# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log("compile", f"topic | {slug} ({len(rows)} overdue)")
         return {"compiled": True, "count": len(rows)}
 
@@ -1684,7 +1709,7 @@ confidence: high
             f"sources: [dispatch_orders]\ntags: [統計, 派工, auto-compiled]\n"
             f"confidence: high\n---\n\n# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log("compile", f"topic | {slug} ({len(rows)} months)")
         return {"compiled": True, "count": len(rows)}
 
@@ -1730,7 +1755,7 @@ confidence: high
             f"tags: [統計, 圖譜, auto-compiled]\nconfidence: high\n---\n\n"
             f"# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log("compile", f"topic | {slug} ({len(rows)} entities)")
         return {"compiled": True, "count": len(rows)}
 
@@ -1801,7 +1826,7 @@ confidence: high
             f"tags: [統計, 品質, auto-compiled]\nconfidence: high\n---\n\n"
             f"# {slug}\n\n" + "\n".join(lines) + "\n"
         )
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log(
             "compile", f"topic | {slug} (link={link_rate:.1%})"
         )
@@ -1889,7 +1914,7 @@ confidence: medium
 
 {chr(10).join(lines)}
 """
-        page_path.write_text(content, encoding="utf-8")
+        self._write_page(page_path, content)
         self.wiki._append_log("compile", f"topic | {slug} ({len(questions)} queries)")
 
         return {
