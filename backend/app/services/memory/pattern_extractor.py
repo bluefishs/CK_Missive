@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 
 import yaml
 import re
@@ -94,6 +95,7 @@ class ExtractResult:
     total_traces_scanned: int = 0
     saved_pattern_files: int = 0
     saved_failure_files: int = 0
+    expired_failure_files: int = 0
     duration_ms: int = 0
 
 
@@ -117,6 +119,24 @@ def _tools_to_domains(tool_seq: List[str]) -> List[str]:
         return sorted(domains)
     except Exception:
         return []
+
+
+# 閒聊/瑣碎問句 — 誤觸工具呼叫時不應形成 tool-sequence 學習信號（noise）。
+# 觸發事故：failure-158e35547b 典型問法「好的」→[search_documents, search_entities] 100% fail。
+# 屬路由層議題（chitchat 誤路由），非工具組合品質訊號 → pattern/failure 萃取前過濾。
+_CHITCHAT_RE = re.compile(
+    r"^(好的?|謝謝|感謝|嗨|你好|哈囉|安安|嗨嗨|是的?|對的?|沒事|沒問題|了解|瞭解|收到|"
+    r"讚|嗯+|喔+|哦+|ok|okay|okok|hi|hello|hey|yes|no|thx|thanks|test|測試|嗯哼)"
+    r"[\s!！。.~，,、]*$",
+    re.IGNORECASE,
+)
+
+
+def _is_chitchat_question(text: str) -> bool:
+    """判斷問句是否為閒聊/瑣碎（不形成 tool-sequence 學習信號）。"""
+    if not text or not text.strip():
+        return True
+    return bool(_CHITCHAT_RE.match(text.strip()))
 
 
 def _normalize_question_snippet(text: str, max_len: int = 60) -> str:
@@ -168,10 +188,16 @@ class PatternExtractor:
 
         # 聚合 by tool_sequence hash
         by_template: Dict[str, PatternRecord] = {}
+        skipped_chitchat = 0
         for (question, tools_used, citation_verified, answer_length, route_type, total_ms) in rows:
             tools = self._parse_tools(tools_used)
             if not tools:
                 continue  # 無工具呼叫不算 pattern
+
+            # 閒聊/瑣碎問句誤觸工具 → 屬路由層 noise，不形成 tool-sequence 學習信號
+            if _is_chitchat_question(question):
+                skipped_chitchat += 1
+                continue
 
             t_hash = _template_hash(tools)
             rec = by_template.get(t_hash)
@@ -217,12 +243,20 @@ class PatternExtractor:
             if self._write_failure(f, target_date):
                 result.saved_failure_files += 1
 
+        # stale failure 自動過期（last_seen > N 天 → active:false）— 消 active_failures 永久堆積
+        try:
+            result.expired_failure_files = self.expire_stale_failures(target_date)
+        except Exception as e:
+            logger.warning("expire_stale_failures failed (non-blocking): %s", e)
+
         result.duration_ms = int((_time.time() - t0) * 1000)
         logger.info(
-            "PatternExtractor: scanned=%d patterns=%d failures=%d (saved p=%d f=%d) in %dms",
+            "PatternExtractor: scanned=%d patterns=%d failures=%d "
+            "(saved p=%d f=%d, skipped_chitchat=%d, expired=%d) in %dms",
             result.total_traces_scanned,
             len(result.patterns), len(result.failures),
             result.saved_pattern_files, result.saved_failure_files,
+            skipped_chitchat, result.expired_failure_files,
             result.duration_ms,
         )
         self._inc_extract_run("ok")
@@ -433,6 +467,54 @@ _由 pattern_extractor 自動產生。此規則將在 agent_planner 規劃階段
         except Exception as e:
             logger.warning("Failure write failed (%s): %s", f.signature, e)
             return False
+
+    def expire_stale_failures(
+        self, target_date: date, max_age_days: Optional[int] = None
+    ) -> int:
+        """掃 failures/，將 last_seen > max_age_days 的 active:true 標記 active:false。
+
+        消「active_failures 永久堆積」反模式（L59）：失敗模式久未復發即視為已收斂，
+        不再注入 planner 防禦規則、不再計入 active_failures 指標。冪等、self-healing。
+        回傳本次過期筆數。
+        """
+        if max_age_days is None:
+            max_age_days = int(os.getenv("FAILURE_EXPIRE_DAYS", "21"))
+        cutoff = target_date - timedelta(days=max_age_days)
+        expired = 0
+        for path in FAILURES_DIR.glob("failure-*.md"):
+            try:
+                text = path.read_text(encoding="utf-8")
+                fm = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+                if not fm:
+                    continue
+                front = fm.group(1)
+                if not re.search(r"^active:\s*true\s*$", front, re.MULTILINE):
+                    continue  # 已 inactive 不重複計
+                ls = re.search(r"^last_seen:\s*(\S+)", front, re.MULTILINE)
+                if not ls:
+                    continue
+                try:
+                    last_seen = date.fromisoformat(ls.group(1).strip())
+                except ValueError:
+                    continue
+                if last_seen < cutoff:
+                    new_text = re.sub(
+                        r"^active:\s*true\s*$",
+                        f"active: false\nexpired_reason: stale >{max_age_days}d (last_seen {last_seen})",
+                        text,
+                        count=1,
+                        flags=re.MULTILINE,
+                    )
+                    path.write_text(new_text, encoding="utf-8")
+                    expired += 1
+            except Exception as e:
+                logger.warning("expire scan failed (%s): %s", path.name, e)
+        if expired:
+            logger.info(
+                "expire_stale_failures: %d 筆過期 (>%dd, cutoff=%s)",
+                expired, max_age_days, cutoff.isoformat(),
+            )
+        return expired
 
     def _read_existing_stats(self, path: Path) -> dict:
         """讀既有檔的 frontmatter 數字（供累積統計）。"""

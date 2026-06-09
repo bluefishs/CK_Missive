@@ -168,6 +168,22 @@ class AgentRouter:
                 plan={"tool_calls": [{"name": "get_system_health", "params": {}}]},
             )
 
+        # ── Layer 1.55: 「[實體]相關公文」文件搜尋慣用語守衛（防 1.6 誤觸）──
+        # 2026-06-09：failure-a18f229167「桃園市工務局相關公文」誤觸 search_across_graphs
+        # 6/6 fail。「相關+公文類名詞」是單一文件搜尋（related documents），非真跨域關聯。
+        # 必須在 Layer 1.6 之前攔截（否則 agency+doc+相關 三命中 → 誤判跨域）。
+        if _re.search(r'相關\s*(公文|函|發文|收文|文件|文號)', question):
+            return RouteDecision(
+                route_type="pattern",
+                confidence=0.85,
+                latency_ms=(time.time() - t0) * 1000,
+                source="doc_related_filter_rule",
+                plan={"tool_calls": [
+                    {"name": "search_documents", "params": {"keywords": [question[:30]], "limit": 10}},
+                ]},
+                suggested_context="doc",
+            )
+
         # ── Layer 1.6: Cross-Graph 跨域查詢 fast-path ──
         # 2026-05-16 retro 改善 1：search_across_graphs 7d 0% 使用率 — KG 跨域查詢
         # 完全 dead capability。加觸發規則：query 同時含「2+ 領域關鍵字」或顯式跨域語意。

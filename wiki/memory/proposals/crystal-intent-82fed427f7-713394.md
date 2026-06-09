@@ -5,7 +5,10 @@ target_file: intent_rules.yaml
 source_pattern: 82fed427f7
 proposed_by: agent
 proposed_at: 2026-06-02T04:35:00.092379+08:00
-status: pending
+status: superseded
+superseded_at: 2026-06-09T13:30:00+08:00
+superseded_by: owner-jujuiacc
+superseded_reason: "與 06-01 已 defer 的 sibling crystal-intent-82fed427f7-f59a44 同源同缺陷（payload pattern:\"\" 空 regex；tool_preference 無消費端；crystallizer 06-02 產生時尚未補來源 query 文字）。且 failure-82fed427f7 記 failure_rate=0.500（hit4/fail2），與本提案『成功率 100%』直接矛盾 → failure tracker 較誠實，pattern 非可靠。本份早於 06-04 crystallizer L1 修法（517cdd5f 從 example_questions 推導真 regex），屬修法前舊產物。退回，待新 crystallizer 產帶真 pattern 之提案再批。不留 dead rule。"
 reason: "Pattern 82fed427f7 已累積 6 次使用，成功率 100%，tool_sequence=['find_correspondence', 'get_statistics', 'search_dispatch_orders', 'search_projects']。建議結晶為 intent_rule 加速路由。"
 ---
 
