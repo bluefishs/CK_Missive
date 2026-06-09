@@ -36,3 +36,7 @@
 - 2026-05-06T09:34:09.254814+08:00: rollback crystal=crystal-20260506-093409 target=synonyms.yaml
 - 2026-05-06T09:34:09.280919+08:00: rollback crystal=crystal-20260506-093409 target=synonyms.yaml
 - 2026-05-06T09:34:09.306920+08:00: rollback crystal=crystal-20260506-093409 target=synonyms.yaml
+- 2026-06-09T14:38:03.150165+08:00: rollback crystal=crystal-20260609-143802 target=synonyms.yaml
+- 2026-06-09T14:38:03.884871+08:00: rollback crystal=crystal-20260609-143803 target=synonyms.yaml
+- 2026-06-09T14:38:03.932184+08:00: rollback crystal=crystal-20260609-143803 target=synonyms.yaml
+- 2026-06-09T14:38:03.980386+08:00: rollback crystal=crystal-20260609-143803 target=synonyms.yaml

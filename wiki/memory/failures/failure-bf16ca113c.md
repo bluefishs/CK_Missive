@@ -6,7 +6,8 @@ tool_sequence: ["get_entity_detail", "search_documents", "search_entities"]
 hit_count: 4
 failure_count: 2
 failure_rate: 0.500
-active: true
+active: false
+expired_reason: stale >21d (last_seen 2026-05-07)
 first_seen: 2026-05-01
 last_seen: 2026-05-07
 tags: [memory, failure, defensive]
