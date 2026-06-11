@@ -6,15 +6,11 @@
 根據公文類型、主旨關鍵字自動判定事件類型。
 """
 import logging
-import re
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
 
-# A (2026-06-11): 開會通知單主旨抽取「真實開會時間」。
-#   格式樣本：「112.11.16(四)下午2時」「112年9月21日(星期四)」「上午9時30分」。
-#   ROC 年(2-3碼)+月+日；時段 上午/下午/晚上 + 時 + 選擇性分。只有日期沒時間 → 不抽（維持單日全天）。
-_ROC_DATE_RE = re.compile(r'(\d{2,3})\s*[.\-/年]\s*(\d{1,2})\s*[.\-/月]\s*(\d{1,2})')
-_MEETING_TIME_RE = re.compile(r'(上午|下午|晚上)?\s*(\d{1,2})\s*[時點:]\s*(\d{1,2})?\s*分?')
+# ROC 日期/時間解析改引用 SSOT（services/common/roc_date）— 勿在此重寫 regex（架構標準化, L71）
+from app.services.common.roc_date import parse_roc_datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -328,34 +324,8 @@ class CalendarEventAutoBuilder:
         return None
 
     def _extract_meeting_datetime(self, document: OfficialDocument) -> Optional[datetime]:
-        """A: 從主旨抽取開會「真實時間」。抽不到（只有日期/無時間/格式異常）回 None → 維持單日全天。
-
-        - 日期：ROC 年(2-3碼)→西元 +1911；驗證合法月日。
-        - 時間：上午/下午/晚上 + 時(+分)；下午/晚上 <12 時 +12；上午 12 時 → 0。
-        - 時間需出現在日期之後（避免抓到無關數字）。
-        """
-        subj = document.subject or ''
-        dm = _ROC_DATE_RE.search(subj)
-        if not dm:
-            return None
-        roc_y, mo, d = int(dm.group(1)), int(dm.group(2)), int(dm.group(3))
-        year = roc_y + 1911 if roc_y < 1000 else roc_y
-        if not (1 <= mo <= 12 and 1 <= d <= 31):
-            return None
-        tm = _MEETING_TIME_RE.search(subj, dm.end())
-        if not tm:
-            return None  # 只有日期、無時間 → 不設定時，維持單日全天
-        ap, hh, mm = tm.group(1), int(tm.group(2)), int(tm.group(3) or 0)
-        if ap in ('下午', '晚上') and hh < 12:
-            hh += 12
-        elif ap == '上午' and hh == 12:
-            hh = 0
-        if not (0 <= hh <= 23 and 0 <= mm <= 59):
-            return None
-        try:
-            return datetime(year, mo, d, hh, mm)
-        except ValueError:
-            return None
+        """A: 從主旨抽取開會「真實時間」（委派 ROC SSOT）。抽不到回 None → 維持單日全天訖點。"""
+        return parse_roc_datetime(document.subject or '')
 
     def _build_title(self, document: OfficialDocument, event_type: str) -> str:
         """建立事件標題"""

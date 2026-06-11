@@ -852,6 +852,15 @@ PYTHONIOENCODING=utf-8 python scripts/checks/calendar_sync_reconciliation_audit.
 echo ""
 
 # ----------------------------------------------------------------------------
+# step 57e: Code Duplication & Competing-Standard Audit — 全專案重複樣態 (2026-06-11)
+# 擴大圖譜治理：AST 掃 backend/app 全部函式，偵測結構重複(copy-paste)+競爭標準(同用途多實作)。
+# 揭發背景：parse_date×10 / parse_roc×5 / 3 套日曆標題 builder 等多重標準。informational 逐步收斂。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[57e/61] code duplication & competing-standard audit (全專案重複樣態)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/code_duplication_audit.py || true
+echo ""
+
+# ----------------------------------------------------------------------------
 # step 58: Agent Query Starvation Check (L51.7 坤哥覆盤, 2026-05-30)
 # 監測 agent_query 鏈是否「引擎跑著但無人用」反模式
 # shadow_baseline 24h n=0 → RED (近期無活動)
