@@ -871,6 +871,16 @@ PYTHONIOENCODING=utf-8 python scripts/checks/scheduler_liveness_audit.py || true
 echo ""
 
 # ----------------------------------------------------------------------------
+# step 57g: Frontend API Wiring Audit — 導覽鏈 page→endpoint 接線 (2026-06-12)
+# owner：以 site management 為治理單元、聚焦頁面→端點 API 接線層（L67 雙前綴所在）。
+# RED=apiClient 硬編 /api 前綴(double-prefix 404, L67 同型) / YELLOW=硬編路徑非端點常數(SSOT 違反)。
+# 揭發背景：L67 SchedulerEventsPage double-prefix；nav→route 已 100% 接通故聚焦更深 API 層。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[57g/61] frontend api wiring audit (導覽鏈 page→endpoint, L67)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/frontend_api_wiring_audit.py || true
+echo ""
+
+# ----------------------------------------------------------------------------
 # step 58: Agent Query Starvation Check (L51.7 坤哥覆盤, 2026-05-30)
 # 監測 agent_query 鏈是否「引擎跑著但無人用」反模式
 # shadow_baseline 24h n=0 → RED (近期無活動)
