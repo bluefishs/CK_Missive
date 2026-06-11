@@ -139,6 +139,13 @@ export const REMINDER_MANAGEMENT_ENDPOINTS = {
   UPDATE: (id: number) => `/reminder-management/${id}/update`,
   /** 刪除提醒 POST /reminder-management/:id/delete */
   DELETE: (id: number) => `/reminder-management/${id}/delete`,
+  /** 事件提醒列表 POST /reminder-management/events/:id/reminders（57g）*/
+  EVENT_REMINDERS: (eventId: number) => `/reminder-management/events/${eventId}/reminders` as const,
+  /** 事件提醒範本更新 POST /reminder-management/events/:id/reminders/update-template（57g）*/
+  EVENT_REMINDERS_UPDATE_TEMPLATE: (eventId: number) =>
+    `/reminder-management/events/${eventId}/reminders/update-template` as const,
+  /** 測試提醒推送 POST /reminder-management/send-test-reminder（57g）*/
+  SEND_TEST_REMINDER: '/reminder-management/send-test-reminder',
 } as const;
 
 /** CSV 匯入 API 端點 */

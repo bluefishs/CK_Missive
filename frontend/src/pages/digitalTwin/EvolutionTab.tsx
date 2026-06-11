@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import { enhanceColumns } from '../../utils/tableEnhancer';
 import { EvolutionMetricsCard } from './EvolutionMetricsCard';
 
@@ -27,13 +28,13 @@ const { Text } = Typography;
 // ── API 呼叫 ──
 
 const fetchEvolutionStatus = () =>
-  apiClient.post<Record<string, unknown>>('/ai/agent/evolution/status', {});
+  apiClient.post<Record<string, unknown>>(API_ENDPOINTS.AI.AGENT_EVOLUTION_STATUS, {});
 
 const fetchEvolutionJournal = () =>
-  apiClient.post<{ entries: Array<Record<string, unknown>> }>('/ai/agent/evolution/journal', {});
+  apiClient.post<{ entries: Array<Record<string, unknown>> }>(API_ENDPOINTS.AI.AGENT_EVOLUTION_JOURNAL, {});
 
 const fetchToolHealth = () =>
-  apiClient.post<{ tools: ToolHealthItem[]; degraded_count: number }>('/ai/agent/tool-health', {});
+  apiClient.post<{ tools: ToolHealthItem[]; degraded_count: number }>(API_ENDPOINTS.AI.AGENT_TOOL_HEALTH, {});
 
 interface ToolHealthItem {
   name: string;

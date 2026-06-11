@@ -199,6 +199,18 @@ export const AI_ENDPOINTS = {
   MORNING_REPORT_STATUS: '/ai/stats/morning-report/status',
   /** 晨報歷史快照 POST /ai/stats/morning-report/history */
   MORNING_REPORT_HISTORY: '/ai/stats/morning-report/history',
+  /** Agent 工具健康 POST /ai/agent/tool-health（57g 去硬編）*/
+  AGENT_TOOL_HEALTH: '/ai/agent/tool-health',
+  /** Token 使用統計 POST /ai/stats/token-usage（57g）*/
+  STATS_TOKEN_USAGE: '/ai/stats/token-usage',
+  /** 視覺描述 POST /ai/vision/describe（57g）*/
+  VISION_DESCRIBE: '/ai/vision/describe',
+  /** Wiki 頁面內容 POST /wiki/page（57g）*/
+  WIKI_PAGE: '/wiki/page',
+  /** Agent 進化狀態 POST /ai/agent/evolution/status（57g）*/
+  AGENT_EVOLUTION_STATUS: '/ai/agent/evolution/status',
+  /** Agent 進化日誌 POST /ai/agent/evolution/journal（57g）*/
+  AGENT_EVOLUTION_JOURNAL: '/ai/agent/evolution/journal',
 } as const;
 
 /** 數位分身 API 端點 — 本地 Agent 推理 */

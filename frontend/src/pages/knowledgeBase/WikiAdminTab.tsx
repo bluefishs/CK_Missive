@@ -22,7 +22,7 @@ const SchedulerPanel: React.FC = () => {
       const resp = await apiClient.post<{
         success: boolean;
         scheduler: { jobs: SchedulerJob[] };
-      }>('/health/scheduler', {});
+      }>(API_ENDPOINTS.SCHEDULER_EVENTS.HEALTH, {});
       return resp.scheduler?.jobs || [];
     },
     staleTime: 30_000,
@@ -78,7 +78,7 @@ const TokenUsagePanel: React.FC = () => {
     queryKey: ['token-usage'],
     queryFn: async () => {
       const resp = await apiClient.post<{ success: boolean; data: { providers: TokenProvider[]; daily_total: { input: number; output: number; cost: number } } }>(
-        '/ai/stats/token-usage', {},
+        API_ENDPOINTS.AI.STATS_TOKEN_USAGE, {},
       );
       return resp.data;
     },

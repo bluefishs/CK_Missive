@@ -10,7 +10,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
-import { PROJECTS_ENDPOINTS, USERS_ENDPOINTS } from '../../api/endpoints';
+import { PROJECTS_ENDPOINTS, USERS_ENDPOINTS, PM_ENDPOINTS } from '../../api/endpoints';
 import { filesApi } from '../../api/filesApi';
 import type { Project, User } from '../../types/api';
 
@@ -83,7 +83,7 @@ export const useCaseNatureOptions = () => {
     queryKey: ['case-nature-options'],
     queryFn: async () => {
       const { apiClient } = await import('../../api/client');
-      return apiClient.post<{ value: string; label: string }[]>('/pm/case-nature/options', {});
+      return apiClient.post<{ value: string; label: string }[]>(PM_ENDPOINTS.CASE_NATURE_OPTIONS, {});
     },
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,

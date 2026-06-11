@@ -18,6 +18,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import type { CalendarEvent } from '../../types/api';
 
 const { Text } = Typography;
@@ -85,7 +86,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
     queryFn: async () => {
       if (!event) return [];
       const response = await apiClient.post<{ success: boolean; reminders?: EventReminder[] }>(
-        `/reminder-management/events/${event.id}/reminders`,
+        API_ENDPOINTS.REMINDER_MANAGEMENT.EVENT_REMINDERS(event.id),
         {}
       );
       if (response.success && response.reminders) {
@@ -117,7 +118,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
       const reminderTime = eventTime.subtract(newReminderMinutes, 'minute');
 
       const response = await apiClient.post<{ success: boolean }>(
-        `/reminder-management/events/${event.id}/reminders/update-template`,
+        API_ENDPOINTS.REMINDER_MANAGEMENT.EVENT_REMINDERS_UPDATE_TEMPLATE(event.id),
         {
           reminder_type: newReminderType,
           reminder_minutes: newReminderMinutes,
@@ -149,7 +150,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
     setActionLoading(true);
     try {
       const response = await apiClient.post<{ success: boolean }>(
-        `/reminder-management/events/${event.id}/reminders/update-template`,
+        API_ENDPOINTS.REMINDER_MANAGEMENT.EVENT_REMINDERS_UPDATE_TEMPLATE(event.id),
         {
           reminder_id: reminderId,
           action: 'delete'
@@ -179,7 +180,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
     setActionLoading(true);
     try {
       const response = await apiClient.post<{ success: boolean }>(
-        '/reminder-management/send-test-reminder',
+        API_ENDPOINTS.REMINDER_MANAGEMENT.SEND_TEST_REMINDER,
         {
           event_id: event.id,
           reminder_type: 'email'

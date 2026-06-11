@@ -23,6 +23,7 @@ import { usePMCase, useAuthGuard } from '../hooks';
 import { useClientOptions, useCaseNatureOptions } from '../hooks/business/useDropdownData';
 import { vendorsApi } from '../api/vendorsApi';
 import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 import { projectsApi } from '../api/projectsApi';
 import { pmCasesApi } from '../api/pm/casesApi';
 import { PM_CATEGORY_LABELS } from '../types/api';
@@ -184,7 +185,7 @@ export const PMCaseDetailPage: React.FC = () => {
             onConfirm={async () => {
               try {
                 const resp = await apiClient.post<{ success: boolean; data: { project_code: string } }>(
-                  '/pm/cases/promote', { case_code: pmCase!.case_code }
+                  API_ENDPOINTS.PM.CASES_PROMOTE, { case_code: pmCase!.case_code }
                 );
                 message.success(`成案成功，成案編號: ${resp.data.project_code}`);
                 queryClient.invalidateQueries({ queryKey: ['pm-cases'] });

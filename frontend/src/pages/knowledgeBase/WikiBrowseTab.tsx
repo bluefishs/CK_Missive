@@ -24,7 +24,7 @@ const WikiBrowseTab: React.FC = () => {
     queryFn: async () => {
       if (!expandedPage) return '';
       const resp = await apiClient.post<{ success: boolean; data: { content: string } }>(
-        '/wiki/page', null, { params: { page_path: expandedPage } },
+        API_ENDPOINTS.AI.WIKI_PAGE, null, { params: { page_path: expandedPage } },
       );
       // 去除 frontmatter
       const raw = resp.data?.content || '';

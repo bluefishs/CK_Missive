@@ -19,9 +19,10 @@ import re
 import sys
 from pathlib import Path
 
-# apiClient.get/post/... ( <generic>? ( 'literal-path'  — 抓字面字串路徑（單/雙/反引號）
+# apiClient.get/post/... <generic>? ( 'literal-path'  — 抓字面字串路徑（單/雙/反引號）
+# <[^(]*> 涵蓋 nested generics（如 post<Record<string,unknown>>）避免漏抓（2026-06-12 修盲點）
 _HARDCODE_RE = re.compile(
-    r"""apiClient\.(?:get|post|put|delete|patch)(?:<[^>]*>)?\(\s*[`'"](/[^`'"$]*)""")
+    r"""apiClient\.(?:get|post|put|delete|patch)\s*(?:<[^(]*>)?\s*\(\s*[`'"](/[^`'"$]*)""")
 # raw fetch 帶 method POST 但同段無 X-CSRF-Token（粗略）
 _RAW_FETCH_RE = re.compile(r"""fetch\(\s*[`'"][^`'"]*['"`]""")
 

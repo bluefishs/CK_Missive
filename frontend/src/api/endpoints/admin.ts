@@ -161,3 +161,17 @@ export const SECURE_SITE_MANAGEMENT_ENDPOINTS = {
   /** 配置操作 POST /secure-site-management/config/action */
   CONFIG_ACTION: '/secure-site-management/config/action',
 } as const;
+
+/** 排程追溯 / 自省報告（57g：SchedulerEventsPage 去硬編） */
+export const SCHEDULER_EVENTS_ENDPOINTS = {
+  /** cron 事件列表 GET /admin/scheduler/events?limit= */
+  EVENTS: (limit: number) => `/admin/scheduler/events?limit=${limit}` as const,
+  /** job 統計 GET /admin/scheduler/events/stats */
+  STATS: '/admin/scheduler/events/stats',
+  /** 自省報告列表 GET /admin/retrospective/reports?limit= */
+  RETRO_REPORTS: (limit: number) => `/admin/retrospective/reports?limit=${limit}` as const,
+  /** 單筆自省報告 GET /admin/retrospective/reports/:date */
+  RETRO_REPORT: (date: string) => `/admin/retrospective/reports/${date}` as const,
+  /** 排程健康 GET /health/scheduler */
+  HEALTH: '/health/scheduler',
+} as const;

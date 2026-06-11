@@ -132,7 +132,7 @@ export function useDocumentFormData(mode: DocumentCreateMode): UseDocumentFormDa
     setStaffLoading(true);
     try {
       const data = await apiClient.post<{ staff?: ProjectStaff[] }>(
-        `/project-staff/project/${projectId}/list`,
+        API_ENDPOINTS.PROJECT_STAFF.PROJECT_LIST(projectId),
         {}
       );
       const staffData = data.staff || [];

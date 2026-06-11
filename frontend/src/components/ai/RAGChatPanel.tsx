@@ -34,6 +34,7 @@ import {
 } from '@ant-design/icons';
 import { submitAIFeedback } from '../../api/ai/adminManagement';
 import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import { MessageBubble } from './MessageBubble';
 import { VoiceInputButton } from './VoiceInputButton';
 import { useGraphAgentBridgeOptional } from './knowledgeGraph/GraphAgentBridge';
@@ -88,7 +89,7 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
         success: boolean;
         description?: string;
         error?: string;
-      }>('/ai/vision/describe', fd, {
+      }>(API_ENDPOINTS.AI.VISION_DESCRIBE, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 60000,
       });

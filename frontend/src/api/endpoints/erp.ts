@@ -8,6 +8,8 @@ export const PM_ENDPOINTS = {
   CASES_LIST: '/pm/cases/list',
   /** 建立案件 POST /pm/cases/create */
   CASES_CREATE: '/pm/cases/create',
+  /** 案件成案（建專案）POST /pm/cases/promote（57g 去硬編）*/
+  CASES_PROMOTE: '/pm/cases/promote',
   /** 案件詳情 POST /pm/cases/detail */
   CASES_DETAIL: '/pm/cases/detail',
   /** 更新案件 POST /pm/cases/update-by-id */
