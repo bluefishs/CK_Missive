@@ -89,15 +89,27 @@ def count_adrs() -> dict[str, int]:
 
 
 def list_lessons() -> list[tuple[str, str]]:
-    """回 [(L編號, 標題)]"""
-    out = []
+    """回 [(L編號, 標題)]
+
+    SSOT = docs/architecture/LESSONS_REGISTRY.md（容器內可見），解析其 `## L<n> — <title>` 區段。
+    L67 同型修（2026-06-11）：原讀空目錄 wiki/memory/lessons/ → Lessons 永遠 0；
+    真實 lessons 集中在 LESSONS_REGISTRY.md（57+ 條）。保留舊目錄為 fallback。
+    """
+    out: list[tuple[str, str]] = []
+    registry = ROOT / "docs" / "architecture" / "LESSONS_REGISTRY.md"
+    if registry.is_file():
+        text = registry.read_text(encoding="utf-8", errors="replace")
+        for m in re.finditer(r"^##\s+(L\d+)\s*[—\-:]\s*(.+?)\s*$", text, re.MULTILINE):
+            out.append((m.group(1), m.group(2).strip()))
+        if out:
+            return out
+    # fallback：舊式單檔目錄（多數環境為空）
     d = ROOT / "wiki" / "memory" / "lessons"
-    if not d.is_dir():
-        return out
-    for f in sorted(d.glob("L*.md")):
-        m = re.match(r"^(L\d+)_(.+)\.md$", f.name)
-        if m:
-            out.append((m.group(1), m.group(2).replace("_", " ")))
+    if d.is_dir():
+        for f in sorted(d.glob("L*.md")):
+            mm = re.match(r"^(L\d+)_(.+)\.md$", f.name)
+            if mm:
+                out.append((mm.group(1), mm.group(2).replace("_", " ")))
     return out
 
 
@@ -216,9 +228,11 @@ def render() -> str:
     active_adr = adr_counts.get("active", 0)
     archived_adr = adr_counts.get("archived", 0)
     a(f"| ADR | active={active_adr} / archived={archived_adr} | `docs/adr/` |")
-    a(f"| Lessons | {len(lessons)} | `wiki/memory/lessons/L*.md` |")
+    a(f"| Lessons | {len(lessons)} | `docs/architecture/LESSONS_REGISTRY.md` |")
     rules_count = len(list((ROOT / ".claude" / "rules").glob("*.md")))
-    a(f"| SOPs | {rules_count} | `.claude/rules/*.md` |")
+    # SOPs 在 .claude/rules/（dev-time 目錄，未掛載入 backend 容器 → cron 產出時為 0）
+    sop_note = "" if rules_count else "（容器未掛載 .claude/，host 端執行才計數）"
+    a(f"| SOPs | {rules_count} | `.claude/rules/*.md`{sop_note} |")
     fitness_count = len(list((ROOT / "scripts" / "checks").glob("*.py")))
     a(f"| Fitness checks | {fitness_count} | `scripts/checks/*.py` |")
     arch_count = len(list((ROOT / "docs" / "architecture").glob("*.md")))
