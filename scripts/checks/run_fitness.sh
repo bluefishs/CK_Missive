@@ -842,6 +842,16 @@ PYTHONIOENCODING=utf-8 python scripts/checks/calendar_title_standard_audit.py ||
 echo ""
 
 # ----------------------------------------------------------------------------
+# step 57d: Calendar Sync Reconciliation Audit — runtime 狀態對賬 (L70, 2026-06-11)
+# 一般化「DB status=synced 但外部真實不符」runtime-drift（L70 核心病灶）。
+# 抽樣 synced 事件查證 Google 端真存在 → 防 calendar_id drift / 事件刪除 silent dormant 復發。
+# 需服務帳號（host 端會 SKIP，容器 cron 真跑）。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[57d/61] calendar sync reconciliation audit (runtime 對賬, L70)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/calendar_sync_reconciliation_audit.py || true
+echo ""
+
+# ----------------------------------------------------------------------------
 # step 58: Agent Query Starvation Check (L51.7 坤哥覆盤, 2026-05-30)
 # 監測 agent_query 鏈是否「引擎跑著但無人用」反模式
 # shadow_baseline 24h n=0 → RED (近期無活動)
