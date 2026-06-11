@@ -881,6 +881,15 @@ PYTHONIOENCODING=utf-8 python scripts/checks/frontend_api_wiring_audit.py || tru
 echo ""
 
 # ----------------------------------------------------------------------------
+# step 57h: Dialogue Learning Coverage Audit — 對話學習真實覆蓋率 (2026-06-12)
+# owner「重點要真活」：對話學習閉環機器真活，但 100% synthetic baseline 空轉、0 真實對話。
+# 區分 synthetic(query_id synthetic-*) vs real → real=0 RED。需容器內跑（DB）。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[57h/61] dialogue learning coverage audit (對話學習真實覆蓋率)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/dialogue_learning_coverage_audit.py || true
+echo ""
+
+# ----------------------------------------------------------------------------
 # step 58: Agent Query Starvation Check (L51.7 坤哥覆盤, 2026-05-30)
 # 監測 agent_query 鏈是否「引擎跑著但無人用」反模式
 # shadow_baseline 24h n=0 → RED (近期無活動)
