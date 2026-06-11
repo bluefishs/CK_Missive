@@ -422,6 +422,18 @@
 
 ---
 
+## L71 — 程式圖譜是「結構地圖」抓不到 config/語意/runtime 三類問題 → 用 AST 橋接治理（2026-06-11）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 質疑：「已建立程式圖譜，為何還是有多重標準與架構問題（config drift、3 套命名、synced 但 Google 空）？」 |
+| **Cause** | 程式圖譜（10,810 code entities）建模**程式結構**（function/class/module + call/import/AST 邊），但本次三類問題**與結構正交**：① **config/值一致性**（GOOGLE_CALENDAR_ID/REDIRECT_URI/MAX_OVERFLOW）是 `.env`↔`compose`↔`config 預設` 三種**不同檔型**間的同名 key 一致性，非 code 邊；② **語意/契約重複**（3 套標題 builder）圖譜有節點+call 邊但無「同概念應收斂」的語意邊；③ **runtime/資料狀態**（synced≠real、孤兒）圖譜建模程式碼非資料狀態，且「公文提醒:」由**已移除程式**產生→根本無節點。真正防線是 fitness functions，但用**寫死清單**漏 GOOGLE_CALENDAR_ID；圖譜與 fitness **未連動**。 |
+| **Fix** | **橋接圖譜→治理（三層補強）**：① **AST 衍生 config audit**（`config_settings_drift_audit.py` fitness 57b）：AST 掃描 backend/app **所有** `getattr(settings,'X')`/`settings.X` 讀取（取代寫死清單）× config 預設 × .env × compose 比對 → 立即補抓 GOOGLE_REDIRECT_URI(localhost 預設)+MAX_OVERFLOW(.env20≠30)，全補注入 RED→0。② **命名 SSOT 強制 audit**（`calendar_title_standard_audit.py` fitness 57c）：自動建立事件須符 2 套 SSOT 前綴，揪競爭/遺留格式。③ **狀態對賬**（規劃）：週期抽樣 DB status vs 外部真實（synced≠real 類）。 |
+| **Prevention** | (a) **圖譜≠治理**：結構圖譜須「餵養」fitness（AST→audit 清單），勿靠人工寫死。(b) 凡跨檔型一致性（env/yaml/python 同名 key）、競爭實作、寫一次不再驗的 status 欄 → 各需專屬 audit，圖譜不會自己抓。(c) 同型推廣全系統非僅日曆：finance/integration/tender 等所有 `getattr(settings)` 讀取已納入 57b 全域掃描。 |
+| **Refs** | `scripts/checks/config_settings_drift_audit.py` (AST 衍生) / `scripts/checks/calendar_title_standard_audit.py` / `run_fitness.sh` step 57b/57c / 同族 L70 calendar drift + L51 env 注入 + L31 ROI（建表≠用表，建圖譜≠治理） |
+
+---
+
 ## L70 — GOOGLE_CALENDAR_ID config-drift：1044 事件靜默推進「服務帳號私人日曆」無人可見（L51 同族 / 2026-06-11）
 
 | 欄位 | 內容 |

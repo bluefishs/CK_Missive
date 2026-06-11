@@ -833,6 +833,15 @@ PYTHONIOENCODING=utf-8 python scripts/checks/config_settings_drift_audit.py || t
 echo ""
 
 # ----------------------------------------------------------------------------
+# step 57c: Calendar Title Standard Audit — 命名 SSOT 強制 (2026-06-11, 防多重標準)
+# 只稽核自動建立(有 document_id)事件 → 必須符合 2 套 SSOT 前綴（公文 [類別] / 派工 【…】）。
+# 揭發背景：43 筆「公文提醒:」競爭/遺留格式（已正規化）。手動事件自由命名豁免。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[57c/61] calendar title standard audit (命名 SSOT, 防多重標準)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/calendar_title_standard_audit.py || true
+echo ""
+
+# ----------------------------------------------------------------------------
 # step 58: Agent Query Starvation Check (L51.7 坤哥覆盤, 2026-05-30)
 # 監測 agent_query 鏈是否「引擎跑著但無人用」反模式
 # shadow_baseline 24h n=0 → RED (近期無活動)
