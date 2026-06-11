@@ -120,18 +120,29 @@ class SecurityScanner:
             **counts,
         }
 
+    # L72 fix (2026-06-12): rglob 不可遞迴進掛載資料目錄（backups/uploads/logs 內 Windows mount
+    #   附件檔會 OSError [Errno 5] 中斷整個掃描 → security_scan 每次 crash silent dormant，L49.2 同族）。
+    #   改 os.walk 容錯遍歷（onerror 跳過）+ 只掃源碼 app/ + prune 資料目錄。
+    _SCAN_EXCLUDE_DIRS = {"backups", "uploads", "logs", "attachments", "__pycache__",
+                          "node_modules", ".git", "alembic", "scripts", "tests"}
+
     def _scan_code_patterns(self) -> List[ScanFinding]:
         """掃描程式碼中的安全模式"""
         findings = []
-        py_files = list(BACKEND_DIR.rglob("*.py"))
-        # 排除 migrations, tests, __pycache__
-        py_files = [
-            f for f in py_files
-            if "alembic" not in str(f) and "__pycache__" not in str(f)
-            and "test" not in f.name.lower()
-            and "security_scanner" not in f.name  # 排除自身（正則定義非實際呼叫）
-            and "scripts" not in str(f.relative_to(BACKEND_DIR)).split(os.sep)[:1]  # 排除一次性 scripts
-        ]
+        # 只掃源碼套件 app/（容器 /app/app；非掛載資料目錄）
+        source_root = BACKEND_DIR / "app"
+        if not source_root.exists():
+            source_root = BACKEND_DIR
+        py_files = []
+        for dirpath, dirnames, filenames in os.walk(source_root, onerror=lambda e: None):
+            # in-place prune 排除目錄（含掛載資料目錄，防 OSError 崩潰）
+            dirnames[:] = [d for d in dirnames if d not in self._SCAN_EXCLUDE_DIRS]
+            for fn in filenames:
+                if not fn.endswith(".py"):
+                    continue
+                if "test" in fn.lower() or "security_scanner" in fn:
+                    continue
+                py_files.append(Path(dirpath) / fn)
 
         all_patterns = self._SECRET_PATTERNS + self._SQL_INJECTION_PATTERNS + self._UNSAFE_FUNCTIONS
 

@@ -2862,7 +2862,8 @@ def setup_scheduler(
         name='清理過期事件',
         replace_existing=True,
         max_instances=1,
-        coalesce=True
+        coalesce=True,
+        misfire_grace_time=7200,  # L72: 凌晨壅塞防 misfire skip
     )
     logger.info(f"已添加清理任務: 每日 {cleanup_hour:02d}:{cleanup_minute:02d} 執行")
 
@@ -2902,7 +2903,8 @@ def setup_scheduler(
         name='自動安全掃描 (OWASP)',
         replace_existing=True,
         max_instances=1,
-        coalesce=True
+        coalesce=True,
+        misfire_grace_time=7200,  # L72: 02:00 壅塞防 misfire skip
     )
     logger.info("已添加安全掃描: 每日 02:00 執行")
 
@@ -3092,6 +3094,7 @@ def setup_scheduler(
         replace_existing=True,
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=7200,  # L72: 02:00 壅塞防 misfire skip（與其他治理 cron 對齊）
     )
     logger.info("已添加 Fitness Tier 1 Daily: 每日 02:00 執行 (v6.12 #2)")
 
