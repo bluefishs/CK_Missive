@@ -200,8 +200,15 @@ class GoogleCalendarClient:
         description: str = None,
         start_time: datetime = None,
         end_time: datetime = None,
+        all_day: bool = False,
     ) -> bool:
-        """更新 Google Calendar 事件"""
+        """更新 Google Calendar 事件
+
+        2026-06-11: 補 all_day 參數 — 原版固定走 timed 格式（_format_datetime_for_google），
+        全天事件更新會被改成定時、且 start==end 觸發 timeRangeEmpty。改為與 create_event 同邏輯：
+        全天 → date 排他（end 須 > start，單日補隔天）；定時 → end > start。
+        同時整片覆寫 start/end dict（清掉舊 date/dateTime），支援 timed↔all-day 互轉。
+        """
         if not self.is_ready or not google_event_id:
             return False
 
@@ -215,11 +222,23 @@ class GoogleCalendarClient:
             # 更新欄位
             if title:
                 event['summary'] = title
-            if description:
+            if description is not None:
                 event['description'] = description
-            if start_time:
+            if start_time and end_time:
+                if all_day:
+                    end_for_allday = end_time
+                    if end_time.date() <= start_time.date():
+                        end_for_allday = start_time + timedelta(days=1)
+                    event['start'] = {'date': start_time.strftime('%Y-%m-%d')}
+                    event['end'] = {'date': end_for_allday.strftime('%Y-%m-%d')}
+                else:
+                    if end_time <= start_time:
+                        end_time = start_time + timedelta(hours=1)
+                    event['start'] = self._format_datetime_for_google(start_time)
+                    event['end'] = self._format_datetime_for_google(end_time)
+            elif start_time:
                 event['start'] = self._format_datetime_for_google(start_time)
-            if end_time:
+            elif end_time:
                 event['end'] = self._format_datetime_for_google(end_time)
 
             # 更新事件

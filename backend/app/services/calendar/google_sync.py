@@ -71,13 +71,27 @@ class CalendarGoogleSync:
             reminder_minutes = self._calculate_reminder_minutes(event)
             priority = getattr(event, 'priority', 'normal')
 
+            # 2026-06-11 呈現策略（owner 決議）：日曆作 deadline 追蹤。
+            #   - 全天事件（all_day=True，deadline 類）→ 收斂為「訖點 end_date 當天單日」，
+            #     不顯示整段期程（含 end<start 的負跨度亦以 end_date 為準）。
+            #   - 有具體時間的會議（all_day=False）→ 保留原始時段。
+            is_all_day = getattr(event, 'all_day', False)
+            if is_all_day:
+                deadline = event.end_date or event.start_date
+                disp_start = deadline
+                disp_end = deadline  # create/update 的 all-day 正規化會補成 deadline 隔天（單日）
+            else:
+                disp_start = event.start_date
+                disp_end = event.end_date or (event.start_date + timedelta(hours=1))
+
             if event.google_event_id and not force:
                 success = self._google.update_event(
                     google_event_id=event.google_event_id,
                     title=event.title,
                     description=event.description,
-                    start_time=event.start_date,
-                    end_time=event.end_date
+                    start_time=disp_start,
+                    end_time=disp_end,
+                    all_day=is_all_day
                 )
                 if success:
                     event.google_sync_status = 'synced'
@@ -91,10 +105,10 @@ class CalendarGoogleSync:
             google_event_id = self._google.create_event(
                 title=event.title,
                 description=event.description or '',
-                start_time=event.start_date,
-                end_time=event.end_date or (event.start_date + timedelta(hours=1)),
+                start_time=disp_start,
+                end_time=disp_end,
                 location=getattr(event, 'location', None),
-                all_day=getattr(event, 'all_day', False),
+                all_day=is_all_day,
                 reminder_minutes=reminder_minutes,
                 priority=priority
             )
