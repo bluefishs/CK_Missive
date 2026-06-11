@@ -34,9 +34,15 @@ const GlobalApiErrorNotifier: React.FC = () => {
           duration: 5,
         });
       } else if (statusCode === 403) {
+        // L68 (2026-06-10): 403 須區分 CSRF vs 真權限。CSRFMiddleware 的 detail 含
+        //   「csrf_token」/「X-CSRF-Token」字樣（cookie 過期 / iOS Safari 清除）→ 非權限問題，
+        //   提示重新整理即可；否則誤標「權限不足」會誤導 owner 往權限方向排查（誤導成本高）。
+        const isCsrf = /csrf|x-csrf/i.test(message || '');
         notification.warning({
-          title: '權限不足',
-          description: message || '您沒有權限執行此操作',
+          title: isCsrf ? '安全憑證已過期' : '權限不足',
+          description: isCsrf
+            ? '請重新整理頁面以更新安全憑證後再試（若持續發生請重新登入）'
+            : message || '您沒有權限執行此操作',
           duration: 5,
         });
       } else if (statusCode >= 500) {

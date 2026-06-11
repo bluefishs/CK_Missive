@@ -238,11 +238,28 @@ function createAxiosInstance(): AxiosInstance {
 
   // 請求攔截器（CSRF Token）
   instance.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
+    async (config: InternalAxiosRequestConfig) => {
       const method = config.method?.toUpperCase() || '';
       // 非安全方法才需要附加 CSRF token
       if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
-        const csrfToken = getCookie('csrf_token');
+        let csrfToken = getCookie('csrf_token');
+        // L68 (2026-06-10) CSRF 自癒：csrf_token cookie 固定 1h 過期 / iOS Safari 清除後，
+        //   會出現「有 access_token cookie 但無 csrf cookie」→ 後端 CSRFMiddleware 403，
+        //   被 GlobalApiErrorNotifier 誤標「權限不足」(OWASP CSRF 觀察點)。
+        //   已登入(user_info)時主動補打已豁免的 csrf-token endpoint 重設 csrf cookie 再送。
+        //   用裸 axios 避免遞迴觸發本攔截器；same-origin 才能補，跨站攻擊無法觸發→不削弱防護。
+        if (!csrfToken && localStorage.getItem('user_info')) {
+          try {
+            await axios.post(
+              `${API_BASE_URL}/secure-site-management/csrf-token`,
+              {},
+              { withCredentials: true }
+            );
+            csrfToken = getCookie('csrf_token');
+          } catch {
+            /* 補取失敗 → 後端會擋，走既有錯誤流，不阻斷請求 */
+          }
+        }
         if (csrfToken && config.headers) {
           config.headers['X-CSRF-Token'] = csrfToken;
         }

@@ -37,6 +37,14 @@ CSRF_EXEMPT_PATHS: Set[str] = {
     "/api/auth/password-reset",
     "/api/auth/password-reset-confirm",
     "/api/auth/verify-email",
+    # L68 (2026-06-10): refresh 豁免 CSRF — 解死結。refresh_token cookie 為
+    #   httpOnly + samesite="strict"（auth_service set_auth_cookies），跨站請求不會帶上
+    #   → 已自帶 CSRF 防護（與 login/google bootstrap 同理，非放寬安全）。
+    #   死結：csrf_token cookie 固定 1h 過期後，refresh 仍要求 X-CSRF-Token 但此時
+    #   csrf cookie 已消失、前端讀不到 → refresh 403 → token 無法續 → csrf 無法重發
+    #   → 後續全站 mutating 403「權限不足」(GlobalApiErrorNotifier 誤標)。
+    #   OWASP CSRF Prevention：SameSite=Strict cookie 為認可的 token-less 防護手段。
+    "/api/auth/refresh",
     "/api/secure-site-management/csrf-token",  # CSRF token issue endpoint（雞生蛋）
     "/health",
     "/health/detailed",

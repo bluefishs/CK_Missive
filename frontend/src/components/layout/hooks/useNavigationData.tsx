@@ -84,10 +84,22 @@ export const useNavigationData = (): UseNavigationDataReturn => {
     // 從 /auth/me 重新拉用戶資料補進 localStorage，避免顯示「訪客」假象。
     // 觸發場景：PM2 廢除後切 docker container，舊瀏覽器仍持 JWT cookie/bearer
     // 但 localStorage 在某個流程被清空（logout 流 / 跨 subdomain 切換 / 清快取）。
-    const hasJwt = !!localStorage.getItem('access_token') || !!localStorage.getItem('refresh_token');
-    if (hasJwt) {
+    // L66 (2026-06-10): SSO bridge 場景 token 在 httpOnly cookie、localStorage 無 JWT，
+    //   原 gate（僅看 localStorage JWT）→ self-heal 不觸發 → EntryPage 整頁 replace 後
+    //   lazy-init 偶發漏讀 user_info 時，只能靠 owner 手動 reload 才恢復（顯示「訪客」）。
+    //   改納入 csrf_token cookie（登入後後端設的 non-httpOnly 訊號，SSO bridge 亦設）作為
+    //   「session 真活」判據 → 任何寫入/導向競態下只要後端 session 還在，即用 /auth/me 補水，
+    //   免手動 reload。未登入者無 csrf_token → 不觸發 /auth/me（保留 F21 不在登入頁死循環）。
+    const hasCsrfCookie = document.cookie
+      .split('; ')
+      .some((c) => c.startsWith('csrf_token='));
+    const hasSession =
+      !!localStorage.getItem('access_token') ||
+      !!localStorage.getItem('refresh_token') ||
+      hasCsrfCookie;
+    if (hasSession) {
       try {
-        logger.debug('user_info missing but JWT present → rehydrate via /auth/me');
+        logger.debug('user_info missing but session live (JWT/csrf) → rehydrate via /auth/me');
         const fetched = await authService.getCurrentUser();
         if (fetched) {
           localStorage.setItem('user_info', JSON.stringify(fetched));
