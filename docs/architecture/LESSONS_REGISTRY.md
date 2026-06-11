@@ -422,6 +422,30 @@
 
 ---
 
+## L70 — GOOGLE_CALENDAR_ID config-drift：1044 事件靜默推進「服務帳號私人日曆」無人可見（L51 同族 / 2026-06-11）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 報「公司 Google 日曆（cksurvey0605）根本看不到任何 Missive 同步事件」（指名霄裡公園 6/15）。但 DB `document_calendar_events` 顯示 1029 筆 `synced` + 有 google_event_id。服務帳號直查共享日曆 `6a3478...`：抽樣 6/6 全 **404 不存在**；該日曆 ACL owner 含 cksurvey0605 + 服務帳號（存取權正確）。 |
+| **Cause** | **config drift（L48/L51 同族）**：`.env` 有 `GOOGLE_CALENDAR_ID=6a3478...@group.calendar.google.com`，但 `docker-compose.production.yml` backend `environment:` **未注入此 key**（無 `env_file: .env`，逐項顯式注入卻漏了它）→ 容器退回 `config.py` 預設 `GOOGLE_CALENDAR_ID='primary'`。服務帳號的 `'primary'` = **服務帳號自己的私人日曆**（無任何人類帳號能看）→ 1044 事件全推進隱形日曆。「之前皆正常?」其實**從未對人類生效**。fitness step 1 `container_env_alignment_audit` 雖存在但 GOOGLE 群組只查 CLIENT_ID/SECRET、**漏 GOOGLE_CALENDAR_ID** → drift 漏網。 |
+| **Fix** | (1) compose backend `environment:` 補 `- GOOGLE_CALENDAR_ID=${GOOGLE_CALENDAR_ID:-primary}` → recreate（`--no-build` 保 baked code）。(2) `.env` 的 `GOOGLE_CREDENTIALS_PATH` 原為 Windows 絕對路徑且被 mojibake 註解吞掉（從未生效）→ 拆乾淨行 + 改相對 `./GoogleCalendarAPIKEY.json`。(3) **擴充 `container_env_alignment_audit` GOOGLE 群組納入 GOOGLE_CALENDAR_ID**（治本防回退，現 GREEN）。(4) 全量 reset 1043 synced/failed→pending、經 app 同步路徑重推到 6a3478（驗證 1044/1044 synced、抽樣 Google 端真存在）。 |
+| **Prevention** | (a) 凡 `config.py` 會讀、host `.env` 有設、但 compose 未注入的 key 一律 audit RED（已落地 step 1）。(b) **`is_ready=True` ≠ 同步真活**：healthcheck 只驗服務帳號載入，不驗「目標日曆對不對 / 事件 Google 端真存在」→ 建議加 calendar-sync 診斷（顯示生效 calendar_id + 日曆名 + 抽樣 reconciliation）。(c) **synced 狀態從不回頭驗證** → 整批 Google 端消失/錯地無人偵測；建議定期抽樣對賬。(d) 服務帳號 'primary' 是隱形陷阱：永遠顯式指定共享日曆 ID。 |
+| **Refs** | `docker-compose.production.yml` backend env (GOOGLE_CALENDAR_ID) / `backend/app/services/calendar/google_client.py` (calendar_id 預設 'primary') / `scripts/checks/container_env_alignment_audit.py` GOOGLE 群組 / 同族 L51 google_client_id 注入 + v6.13 OLLAMA_BASE_URL/PGVECTOR drift + L52/L57 paths drift / 服務帳號 `ck-missive-calendar@...iam.gserviceaccount.com` |
+
+---
+
+## L69 — secureApiService single-flight 讓並發共用「單次」CSRF token → nav 選單 403（修 L49 反效果 / 2026-06-11）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 報「登入後點導覽選單出錯、重整可運作」（不定期 / 特定頁面）。後端 log 16:24 `POST /secure-site-management/navigation/action - 403「Invalid or expired CSRF token」`。注意 console 的 `Unchecked runtime.lastError: Could not establish connection` 是**瀏覽器擴充噪音**（前端零 chrome.runtime/SW），非 app。 |
+| **Cause** | `navigation/action`（連 `'list'` 載側欄都走）用 `secure_site_management` 的 **Redis 單次 CSRF token**（`common.py` 1h TTL、用後即焚），與 L68 的 cookie 雙提交是不同機制。`secureApiService` L49 加了 **single-flight inflight promise** 想省 token 請求，但副作用：並發 caller（useNavigationData 載側欄 + navigationService/SiteManagement 載設定）共用「同一張」單次 token → 第一個用掉後第二個必 403。reload 重抓新 token 才好。L49 註解本身點出「並發共用 token 必有 1 個 403」卻用 single-flight 造成它要防的事。 |
+| **Fix** | 移除 `getCsrfToken` 的 single-flight dedupe → 每個 secureRequest 各拉一張獨立 single-use token（`secureApiService.ts`）。保留既有 403 retry 作安全網。 |
+| **Prevention** | (a) **single-use 資源不可用 single-flight 共用**：dedupe inflight 僅適用「可共享結果」的請求。(b) 凡「reload 就好」的 race，先查是否並發共用了一次性資源。(c) 403 應區分 CSRF（提示重新整理）vs 真權限（L68 Prevention c 已落地）。 |
+| **Refs** | `frontend/src/services/secureApiService.ts` getCsrfToken（移 single-flight）/ `backend/app/api/endpoints/secure_site_management/common.py` Redis 單次 token / `navigation.py:108` validate_csrf_token / 同類 L68 cookie CSRF + v6.13 raw fetch 漏 header |
+
+---
+
 ## L68 — CSRF refresh 死結：csrf cookie 過期→refresh 被 CSRF 擋→全站 403「權限不足」（OWASP / 2026-06-10）
 
 | 欄位 | 內容 |
