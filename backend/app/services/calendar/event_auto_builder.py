@@ -6,8 +6,15 @@
 根據公文類型、主旨關鍵字自動判定事件類型。
 """
 import logging
+import re
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
+
+# A (2026-06-11): 開會通知單主旨抽取「真實開會時間」。
+#   格式樣本：「112.11.16(四)下午2時」「112年9月21日(星期四)」「上午9時30分」。
+#   ROC 年(2-3碼)+月+日；時段 上午/下午/晚上 + 時 + 選擇性分。只有日期沒時間 → 不抽（維持單日全天）。
+_ROC_DATE_RE = re.compile(r'(\d{2,3})\s*[.\-/年]\s*(\d{1,2})\s*[.\-/月]\s*(\d{1,2})')
+_MEETING_TIME_RE = re.compile(r'(上午|下午|晚上)?\s*(\d{1,2})\s*[時點:]\s*(\d{1,2})?\s*分?')
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -119,22 +126,39 @@ class CalendarEventAutoBuilder:
         # 決定事件類型
         event_type = self._determine_event_type(document)
 
+        # A: meeting 類嘗試抽取「真實開會時間」
+        meeting_dt = self._extract_meeting_datetime(document) if event_type == 'meeting' else None
+
+        # C: 弱關鍵字 meeting 精確化 — 若判 meeting 但「非開會/會勘通知單(權威 doc_type)」
+        #    且「抽不到開會時間」→ 視為偶然提及會議（多為 收文/函 描述過往會議），
+        #    降級為類別預設，避免誤掛 [會議] + high 優先級灌爆。對齊 anti-over-match 守則。
+        if (event_type == 'meeting' and meeting_dt is None
+                and (document.doc_type not in self.DOC_TYPE_EVENT_MAP)):
+            event_type = self.CATEGORY_DEFAULT_MAP.get(document.category, 'reminder') \
+                if document.category else 'reminder'
+
         # 決定事件日期
         event_date = self._determine_event_date(document)
-        if not event_date:
+        if not event_date and meeting_dt is None:
             self._skipped_count += 1
             logger.debug(f"公文 {document.id} 無有效日期，跳過")
             return None
 
-        # 建立事件 — 單一時間點 (start_date = end_date)
-        # 使用中午 12:00 避免 UTC↔本地時區轉換導致日期偏移至前一日
+        # 建立事件
+        #  - meeting 抽到真實時間 → 定時事件（all_day=False，保留時段，預設 1hr）
+        #  - 其餘 → 單一時間點全天（12:00 防 UTC↔本地時區偏移）；日曆端再收斂為訖點單日
+        if meeting_dt is not None:
+            start_dt, end_dt, is_all_day = meeting_dt, meeting_dt + timedelta(hours=1), False
+        else:
+            start_dt, end_dt, is_all_day = event_date, event_date, True
+
         event = DocumentCalendarEvent(
             document_id=document.id,
             title=self._build_title(document, event_type),
             description=self._build_description(document),
-            start_date=event_date,
-            end_date=event_date,  # 單一時間點，不再 +1h
-            all_day=True,
+            start_date=start_dt,
+            end_date=end_dt,
+            all_day=is_all_day,
             event_type=event_type,
             priority=self.EVENT_TYPE_PRIORITY_MAP.get(event_type, 'normal'),
             created_by=created_by,
@@ -302,6 +326,36 @@ class CalendarEventAutoBuilder:
             return document.created_at
 
         return None
+
+    def _extract_meeting_datetime(self, document: OfficialDocument) -> Optional[datetime]:
+        """A: 從主旨抽取開會「真實時間」。抽不到（只有日期/無時間/格式異常）回 None → 維持單日全天。
+
+        - 日期：ROC 年(2-3碼)→西元 +1911；驗證合法月日。
+        - 時間：上午/下午/晚上 + 時(+分)；下午/晚上 <12 時 +12；上午 12 時 → 0。
+        - 時間需出現在日期之後（避免抓到無關數字）。
+        """
+        subj = document.subject or ''
+        dm = _ROC_DATE_RE.search(subj)
+        if not dm:
+            return None
+        roc_y, mo, d = int(dm.group(1)), int(dm.group(2)), int(dm.group(3))
+        year = roc_y + 1911 if roc_y < 1000 else roc_y
+        if not (1 <= mo <= 12 and 1 <= d <= 31):
+            return None
+        tm = _MEETING_TIME_RE.search(subj, dm.end())
+        if not tm:
+            return None  # 只有日期、無時間 → 不設定時，維持單日全天
+        ap, hh, mm = tm.group(1), int(tm.group(2)), int(tm.group(3) or 0)
+        if ap in ('下午', '晚上') and hh < 12:
+            hh += 12
+        elif ap == '上午' and hh == 12:
+            hh = 0
+        if not (0 <= hh <= 23 and 0 <= mm <= 59):
+            return None
+        try:
+            return datetime(year, mo, d, hh, mm)
+        except ValueError:
+            return None
 
     def _build_title(self, document: OfficialDocument, event_type: str) -> str:
         """建立事件標題"""
