@@ -422,6 +422,18 @@
 
 ---
 
+## L72 — 排程「註冊 ≠ 真在跑」：scheduler liveness 對賬揪 silent dormant cron（擴大治理至坤哥/Hermes/排程 / 2026-06-12）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner：擴大圖譜檢核至坤哥/Hermes agents/排程。排程是 silent dormant 重災區（L52 paths drift、silent cron 四層防禦）。「`add_job` 註冊了」不代表「真的每天在跑」。 |
+| **Cause** | 缺「註冊 × 實際執行」對賬。`scheduler_liveness_audit` 對賬 `@tracked_job('X')` id（cron_events 實際 emitter）× `cron_events.jsonl`：**4 job 註冊+tracked 卻從無事件**——`einvoice_sync`（`if os.getenv("MOF_APP_ID")` 條件式、未設＝刻意停用，非 bug）+ `cleanup_events`/`security_scan`/`fitness_daily`（無條件每日 02:00，**啟動 log 證實有加入排程**，但從不發 cron_events ＝ **觀測缺口**：func 雖 @tracked_job 卻未真發事件 → liveness 不可見）。另揭 id 命名不符 3 處（`code_graph_update`↔logged `code_graph_incremental` 等 → freshness 追蹤失準）。坤哥/Hermes 核心 cron（memory_pattern_extract/crystallization/agent_self_diagnosis/integration_e2e）皆 alive。 |
+| **Fix** | `scheduler_liveness_audit.py`（fitness 57f）：tracked_job id ∩ add_job id（排除註解）× cron_events 對賬 → DORMANT/FAILED/STALE/命名不符 分級。揭發即治理。**後續 backlog**：① 補 cleanup_events/security_scan/fitness_daily 的 cron_events 真發（驗證確實執行）② 統一 @tracked_job id = add_job id（消命名不符）。 |
+| **Prevention** | (a) 凡排程 job 必經 `@tracked_job` 且 id 與 add_job 一致 → liveness 可對賬。(b) 條件式註冊（env-gated）job 應於 audit 標註「conditional」非 dormant。(c) 「啟動 log 有加入」≠「真執行」≠「真完成工作」三層須分別驗證（healthcheck≠functional 同理）。 |
+| **Refs** | `scripts/checks/scheduler_liveness_audit.py` / `backend/app/core/scheduler.py` tracked_job 裝飾器 + SchedulerTracker → cron_events.jsonl / 同族 L52 cron paths drift + silent cron 四層防禦 + L70 runtime 對賬 |
+
+---
+
 ## L71 — 程式圖譜是「結構地圖」抓不到 config/語意/runtime 三類問題 → 用 AST 橋接治理（2026-06-11）
 
 | 欄位 | 內容 |

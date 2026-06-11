@@ -861,6 +861,16 @@ PYTHONIOENCODING=utf-8 python scripts/checks/code_duplication_audit.py || true
 echo ""
 
 # ----------------------------------------------------------------------------
+# step 57f: Scheduler Liveness Audit — 排程真活對賬 (2026-06-12, 擴大治理至坤哥/Hermes/排程)
+# 「註冊 ≠ 真在跑」。對賬 @tracked_job id × cron_events.jsonl 實際執行。
+# 揭發背景：cleanup_events/security_scan/fitness_daily 註冊+tracked 卻從不執行（真 silent dormant）。
+# 需容器內跑（讀 /app/logs/cron_events.jsonl）；host 端 SKIP。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[57f/61] scheduler liveness audit (排程真活, 坤哥/Hermes/cron)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/scheduler_liveness_audit.py || true
+echo ""
+
+# ----------------------------------------------------------------------------
 # step 58: Agent Query Starvation Check (L51.7 坤哥覆盤, 2026-05-30)
 # 監測 agent_query 鏈是否「引擎跑著但無人用」反模式
 # shadow_baseline 24h n=0 → RED (近期無活動)
