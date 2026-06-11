@@ -1,6 +1,6 @@
 ---
 name: Security Auditor Agent
-role: 專注於識別和修復專案安全漏洞的審計代理
+description: 專注於識別和修復專案安全漏洞的審計代理
 version: 1.0.0
 category: shared
 triggers:

@@ -1,6 +1,6 @@
 ---
 name: GitHub Workflow Agent
-role: 協助開發者遵循 Git 和 GitHub 最佳實踐的工作流程代理
+description: 協助開發者遵循 Git 和 GitHub 最佳實踐的工作流程代理
 version: 1.0.0
 category: shared
 triggers:

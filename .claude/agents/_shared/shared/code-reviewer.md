@@ -1,6 +1,6 @@
 ---
 name: Code Reviewer Agent
-role: 專注於程式碼品質、安全性和最佳實踐的審查代理
+description: 專注於程式碼品質、安全性和最佳實踐的審查代理
 version: 1.0.0
 category: shared
 triggers:

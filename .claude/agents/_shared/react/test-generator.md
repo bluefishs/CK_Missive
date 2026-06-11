@@ -1,6 +1,6 @@
 ---
 name: Test Generator Agent
-role: 為 React 組件自動生成測試用例的智能代理
+description: 為 React 組件自動生成測試用例的智能代理
 version: 1.0.0
 category: react
 triggers:

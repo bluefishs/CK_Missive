@@ -1,6 +1,6 @@
 ---
 name: Component Generator Agent
-role: 根據專案規範快速生成標準化 React 組件的智能代理
+description: 根據專案規範快速生成標準化 React 組件的智能代理
 version: 1.0.0
 category: react
 triggers:
