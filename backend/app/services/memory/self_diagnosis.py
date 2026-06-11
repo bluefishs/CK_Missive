@@ -100,10 +100,26 @@ class SelfDiagnosis:
                     result["alerts"].append(
                         f"待批 proposals {result['memory_proposals_pending']} 件 — owner 該批准了"
                     )
-            if not result["memory_metrics_alive"]:
-                result["alerts"].append("memory metrics 全 0 — hollow gauge 警報（L21）")
         except Exception as e:
             logger.warning("Memory metrics scrape failed: %s", e)
+
+        # robustness (2026-06-12)：Prometheus gauge restart 後歸零、memory_metrics_refresh
+        #   首刷(+12s/每15min)前 self_diagnosis(06:10) 會讀到 0 → 誤報 hollow（容器頻繁重啟加劇）。
+        #   置於 try-except 之後 → 無論 gauge=0 或 /metrics 端點掛皆 fallback 直數 diary 檔
+        #   （檔案系統真相，不受 gauge restart 影響）。
+        if result["memory_diary_days"] == 0:
+            try:
+                import os
+                from pathlib import Path
+                diary_dir = Path(os.getenv("CK_WIKI_DIR", "/app/wiki")) / "memory" / "diary"
+                n = len(list(diary_dir.glob("*.md"))) if diary_dir.is_dir() else 0
+                if n > 0:
+                    result["memory_diary_days"] = n
+                    result["memory_metrics_alive"] = True
+            except Exception as fe:
+                logger.warning("diary fallback count failed: %s", fe)
+        if not result["memory_metrics_alive"]:
+            result["alerts"].append("memory metrics 全 0 — hollow gauge 警報（L21）")
 
         # 3. Telegram 連續失敗（晨報觀測）
         try:
