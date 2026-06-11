@@ -180,6 +180,10 @@ services:
       # host .env 有 GOOGLE_CLIENT_ID/SECRET 但 compose 未注入 → Google 登入 silent 503
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      # 2026-06-11 修 calendar drift（L51/config-drift 同族）：compose 原未注入 GOOGLE_CALENDAR_ID
+      #   → 容器退回 config 預設 'primary' = 服務帳號私人日曆（無人可見）→ 1029 事件全推進隱形日曆。
+      #   補注入 host .env 的共享日曆 ID（cksurvey0605 owner 可見）。
+      - GOOGLE_CALENDAR_ID=${GOOGLE_CALENDAR_ID:-primary}
       # --- AI 推理 fallback (GROQ/NVIDIA/OLLAMA/VLLM) ---
       - AI_ENABLED=${AI_ENABLED:-true}
       - AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL:-}

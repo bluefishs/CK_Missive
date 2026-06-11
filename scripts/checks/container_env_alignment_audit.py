@@ -38,6 +38,9 @@ CRITICAL_GROUPS = {
     ],
     "GOOGLE": [
         "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
+        # 2026-06-11: GOOGLE_CALENDAR_ID 漏注入 → 容器退回 config 預設 'primary'
+        #   = 服務帳號私人日曆（無人可見）→ 1043 事件靜默推進隱形日曆。補入此 audit 防回退。
+        "GOOGLE_CALENDAR_ID",
     ],
     "AI_PROVIDERS": [
         "GROQ_API_KEY", "NVIDIA_API_KEY",

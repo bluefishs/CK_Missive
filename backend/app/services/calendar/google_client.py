@@ -6,7 +6,7 @@ Google Calendar API 客戶端 — 純 API 包裝，不依賴資料庫
 """
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from google.oauth2 import service_account
@@ -122,10 +122,18 @@ class GoogleCalendarClient:
                 'description': description,
             }
 
+            # 2026-06-11: 正規化 end > start，否則 Google 回 400 timeRangeEmpty
+            #   （全天事件 end.date 是「排他」的：單日事件 end 必須 = start 隔天；
+            #    定時事件 end 必須晚於 start）。修 15 筆 failed + 防同型再發。
             if all_day:
+                end_for_allday = end_time
+                if end_time.date() <= start_time.date():
+                    end_for_allday = start_time + timedelta(days=1)
                 event_body['start'] = {'date': start_time.strftime('%Y-%m-%d')}
-                event_body['end'] = {'date': end_time.strftime('%Y-%m-%d')}
+                event_body['end'] = {'date': end_for_allday.strftime('%Y-%m-%d')}
             else:
+                if end_time <= start_time:
+                    end_time = start_time + timedelta(hours=1)
                 event_body['start'] = self._format_datetime_for_google(start_time)
                 event_body['end'] = self._format_datetime_for_google(end_time)
 
