@@ -823,6 +823,16 @@ PYTHONIOENCODING=utf-8 python scripts/checks/container_env_alignment_audit.py ||
 echo ""
 
 # ----------------------------------------------------------------------------
+# step 57b: Config Settings Drift Audit — AST 衍生全域版 (L70, 2026-06-11)
+# 強化圖譜治理：AST 掃描 backend/app 所有 settings 讀取（取代寫死清單），
+# 逐一比對 config.py 預設 × .env × compose。RED = .env 值≠預設且 compose 未注入（真 drift）。
+# 揭發背景：GOOGLE_CALENDAR_ID / GOOGLE_REDIRECT_URI / MAX_OVERFLOW 同型 config-drift。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[57b/61] config settings drift audit (AST 衍生, L70)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/config_settings_drift_audit.py || true
+echo ""
+
+# ----------------------------------------------------------------------------
 # step 58: Agent Query Starvation Check (L51.7 坤哥覆盤, 2026-05-30)
 # 監測 agent_query 鏈是否「引擎跑著但無人用」反模式
 # shadow_baseline 24h n=0 → RED (近期無活動)

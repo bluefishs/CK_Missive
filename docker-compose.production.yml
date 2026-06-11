@@ -135,6 +135,12 @@ services:
       # 需顯式宣告 POSTGRES_HOST/PORT，container 內走 docker network 名 = postgres:5432
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
+      # 2026-06-11 標準化（config_settings_drift_audit 揭發）：DB 池/echo 由 .env 控制，
+      #   原 compose 未注入 → 容器用 config 預設（MAX_OVERFLOW .env=20 但 prod 用 30）。
+      - POOL_SIZE=${POOL_SIZE:-15}
+      - MAX_OVERFLOW=${MAX_OVERFLOW:-30}
+      - POOL_RECYCLE=${POOL_RECYCLE:-180}
+      - DATABASE_ECHO=${DATABASE_ECHO:-false}
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - ALGORITHM=HS256
@@ -184,6 +190,11 @@ services:
       #   → 容器退回 config 預設 'primary' = 服務帳號私人日曆（無人可見）→ 1029 事件全推進隱形日曆。
       #   補注入 host .env 的共享日曆 ID（cksurvey0605 owner 可見）。
       - GOOGLE_CALENDAR_ID=${GOOGLE_CALENDAR_ID:-primary}
+      # 2026-06-11 P0 同型 drift 盤點補注入（config_settings_drift_audit 揭發）：
+      #   GOOGLE_REDIRECT_URI config 預設=localhost:3000 但 prod .env=missive.cksurvey.tw → 必須注入
+      #   GOOGLE_CREDENTIALS_PATH 預設 ./GoogleCalendarAPIKEY.json（容器 /app/ 已 mount）對齊
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:3000/auth/callback}
+      - GOOGLE_CREDENTIALS_PATH=${GOOGLE_CREDENTIALS_PATH:-./GoogleCalendarAPIKEY.json}
       # --- AI 推理 fallback (GROQ/NVIDIA/OLLAMA/VLLM) ---
       - AI_ENABLED=${AI_ENABLED:-true}
       - AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL:-}
