@@ -35,51 +35,34 @@ interface SecureResponse<T = unknown> {
 // ============================================================================
 
 class SecureApiService {
-  // L49 (2026-05-27): single-flight 鎖 — 防多個並發 secureRequest 共用同一 token。
-  // 後端 CSRF token 是 single-use（驗證後立即從 Redis 刪除），
-  // 並發兩個 request 共用 token 必有 1 個 403。Race window 大約 35ms（觀察 5/27 log）。
-  // 修法：所有需要 token 的 caller 都 await 同一個 inflight promise，
-  // 並改為「每次 secureRequest 都拉新 token」，不再 cache class field。
-  private csrfFetchPromise: Promise<string> | null = null;
-
   /** 檢查是否停用認證（環境變數或內網 IP） */
   private get authDisabled(): boolean {
     return isAuthDisabled();
   }
 
   /**
-   * 獲取 CSRF 令牌（single-flight 模式 — 並發 caller 共用同一 inflight promise）
+   * 獲取 CSRF 令牌 — 每次都拉一張獨立 token。
+   *
+   * L69 (2026-06-11) 修正 L49 反效果：後端 CSRF token 為 single-use（驗證後即從 Redis 刪除）。
+   *   原 L49 用 single-flight inflight promise 想「省 token 請求」，但副作用是
+   *   並發 caller 共用「同一張」token → 第一個用掉後第二個必 403「Invalid or expired CSRF token」。
+   *   特定頁面同時載入（useNavigationData 載側欄 + navigationService / SiteManagement 載設定）
+   *   並發呼叫此端點時重現「點導覽選單出錯、重整可運作」（reload 重抓新 token）。
+   *   single-use token 本就不可共用 → 移除 dedupe，每個 secureRequest 各拉自己的 token。
    */
   async getCsrfToken(): Promise<string> {
-    if (this.csrfFetchPromise) {
-      return this.csrfFetchPromise;
+    const result = await apiClient.post<SecureResponse>(
+      SECURE_SITE_MANAGEMENT_ENDPOINTS.CSRF_TOKEN,
+      {}
+    );
+    if (result.success && result.csrf_token) {
+      return result.csrf_token;
     }
-    this.csrfFetchPromise = (async () => {
-      try {
-        const result = await apiClient.post<SecureResponse>(
-          SECURE_SITE_MANAGEMENT_ENDPOINTS.CSRF_TOKEN,
-          {}
-        );
-        if (result.success && result.csrf_token) {
-          return result.csrf_token;
-        }
-        throw new Error('Invalid CSRF token response');
-      } catch (error) {
-        logger.error('Error getting CSRF token:', error);
-        throw error;
-      } finally {
-        this.csrfFetchPromise = null;  // 讓下個 caller 可以再起 inflight
-      }
-    })();
-    return this.csrfFetchPromise;
+    throw new Error('Invalid CSRF token response');
   }
 
   /**
-   * 確保有效的 CSRF 令牌
-   *
-   * L49 (2026-05-27): 不再使用 class-cached token —
-   * 後端 token single-use，cache 必過期。每次都拉新的，
-   * 但靠 csrfFetchPromise single-flight 確保並發只拉一次。
+   * 確保有效的 CSRF 令牌（每次拉新；single-use 不可 cache）
    */
   private async ensureCsrfToken(): Promise<string> {
     return await this.getCsrfToken();
