@@ -422,6 +422,42 @@
 
 ---
 
+## L68 — CSRF refresh 死結：csrf cookie 過期→refresh 被 CSRF 擋→全站 403「權限不足」（OWASP / 2026-06-10）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 報手機登入網站「**權限不足**」（OWASP CSRF 關注弱點）。伺服器端模擬四情境 + 後端 log 證據：(A) 純匿名 users/list 容器內 localhost 200〔內網免認證副作用，PII 外露另記〕(B) access_token cookie + 無 csrf cookie → 403「缺少 csrf_token cookie」(C) 有 csrf cookie + 無 X-CSRF-Token header → 403「缺少 X-CSRF-Token header」(D) 兩者一致 → 認證層 401。DB 證 owner 兩帳號（jujuiacc superuser / luke admin）**皆 admin** → 403 與權限無關。`[CSRF]` warning log 實證 B+C 都發生於 `users/list` 與 **`/api/auth/refresh`**。 |
+| **Cause** | **死結**：`csrf_token` cookie 固定 `max_age=3600`（1h），`access_token` 可透過 `/auth/refresh` 續命，兩者生命週期不對齊。csrf cookie 過 1h 後，前端要 refresh 續命——但 (1) `/api/auth/refresh` **不在 `CSRF_EXEMPT_PATHS`** (2) 前端 refresh 用**裸 `axios.post`（`interceptors.ts:321`）繞過 request interceptor** 從不帶 X-CSRF-Token (3) 此刻 csrf cookie 已消失、interceptor `if(csrfToken)` gate 也讀不到 → refresh 被 `CSRFMiddleware` **403** → token 無法續 → `set_auth_cookies` 無法重發 csrf cookie → 後續全站 mutating 403 → `GlobalApiErrorNotifier` 把所有 403 **誤標「權限不足」**。手機 iOS Safari cookie 處理更易丟失而加劇。 |
+| **Fix** | **(後端)** `/api/auth/refresh` 加入 `CSRF_EXEMPT_PATHS`（`csrf.py`）— `refresh_token` cookie 為 `httpOnly + samesite="strict"`，跨站請求不會帶上 → **已自帶 CSRF 防護**（與 login/google bootstrap 同理、OWASP 認可的 token-less 防護，非放寬安全）。**(前端)** request interceptor 改 async 自癒（`interceptors.ts`）：mutating 請求遇 csrf cookie 缺失且已登入(user_info)時，先補打已豁免的 `/secure-site-management/csrf-token`（`security.py:32` `set_csrf_cookie` 設全域 csrf cookie）重取再送；用裸 axios 防遞迴、same-origin 才能補→不削弱防護。 |
+| **Prevention** | (a) 凡 **token-refresh / bootstrap endpoint 用 samesite=strict cookie 認證者必豁免 CSRF**，否則 csrf 過期即成死結。(b) csrf cookie 生命週期須 ≥ access_token 可續期上限，或 refresh 流程主動重發 csrf。(c) **`GlobalApiErrorNotifier` 應區分 403-CSRF（detail 含「CSRF」→ 提示重新整理）vs 403-權限**，避免「權限不足」誤導 owner 往權限方向排查（本案誤導成本高）。(d) CSRF 修法**必雙向驗證**：豁免項生效 + 其他項仍強制 403（防全面放寬）。(e) 跨 repo：lvrland/pile 若同採 cookie+header 雙重提交 CSRF，應檢查 refresh 是否同型死結。 |
+| **Refs** | `backend/app/core/csrf.py` CSRF_EXEMPT_PATHS（refresh 豁免）/ `frontend/src/api/interceptors.ts` request interceptor 自癒 / `backend/app/api/endpoints/secure_site_management/security.py:32` csrf-token endpoint / 模擬 4 情境 + `[CSRF]` warning log / OWASP CSRF Prevention Cheat Sheet（SameSite）/ 同類 v6.13 raw fetch 漏 CSRF header + L66 self-heal gate |
+
+---
+
+## L66 — 跨子域 SSO 消費端 self-heal gate 漏掉 cookie-session（顯示「訪客」race / 2026-06-10）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 報 `missive.cksurvey.tw` SSO 登入後停在「訪客」、`localStorage.user_info=NULL`，**reload 即恢復**。實查後端 log：owner Chrome 同源 POST `/api/auth/sso-bridge` 當日 **08:47/08:52/09:08 三次皆 200 登入成功**（cookie `ck_employee`/`ck_employee_rs` 帶到、RS256 JWKS 驗過、session 建立、回傳 user_info）。`POST 200×4 / 401×84` 之 401 **全為每 15 分鐘一次的 curl 探針**（`cookies=[]`，noise）。→ 後端 100% 健康，純前端顯示層。 |
+| **Cause** | EntryPage SSO 成功後用 `window.location.replace('/dashboard')` 整頁重載（已為 cookie 競態修過）；但 `useNavigationData` 的 **self-heal gate 只看 `localStorage.access_token / refresh_token`**。SSO bridge 的 token 主要在 **httpOnly cookie**，localStorage 不一定有 JWT → self-heal 不觸發。整頁重載瞬間若 lazy-init 偶發漏讀 `user_info`（setItem 緊接 navigation 的瀏覽器級競態）就無兜底 → 只能手動 reload。屬「後端真活 + 前端 state 未補水」。 |
+| **Fix** | `useNavigationData.tsx:87` self-heal gate 擴納 `csrf_token` cookie（登入後後端設的 **non-httpOnly** 訊號、SSO bridge 亦設、前端可讀）作為「session 真活」判據 → 任何寫入/導向競態下只要後端 session 還在即用 `/auth/me` 補水，免手動 reload。未登入者無 csrf_token → 不觸發 `/auth/me`（保留 F21 不在登入頁死循環）。後端 `sso_bridge.py` 不動（健康）。 |
+| **Prevention** | (a) **跨子域 SSO 消費端的「已登入」判據不可只看 localStorage JWT** — httpOnly cookie 場景必須有 non-httpOnly 訊號（csrf）或 cookie-session 作 self-heal 兜底。(b) 「顯示訪客」類 race 的 self-heal gate 要涵蓋**所有合法 session 來源**。(c) 跨 repo：`CK_lvrland_Webmap` / `CK_PileMgmt` 同為 ck-sso 消費端，應同步檢查各自前端 self-heal gate 是否同型漏洞。 |
+| **Refs** | `frontend/src/components/layout/hooks/useNavigationData.tsx:87` (gate 擴充) / `frontend/src/pages/EntryPage.tsx:217` (replace 重載) / `backend/app/api/endpoints/auth/sso_bridge.py` (RS256 優先/HS256 fallback，健康) / 同類 L44 SSO session lock + L41 JWT secret drift |
+
+---
+
+## L67 — 前端 baseURL 已含 `/api` 卻硬編 `/api` 前綴 → double-prefix 404（半接通 / 2026-06-10）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 報「**排程追溯仍無相關紀錄**」。實查：`cron_events.jsonl` 寫入正常（**9454 筆、最新數分鐘前**）；router 有掛載（`routes.py:59-60`，openapi 含 `scheduler/events` + `retrospective/reports`）；容器內實測 `events=200 / stats=200`。但前端表格空。 |
+| **Cause** | apiClient `baseURL = getDynamicApiBaseUrl()` **已含 `/api`**（`config/env.ts:20`，全專案 endpoints 常數慣例皆**不含** `/api`，如 `LOGIN:'/auth/login'`）。但 `SchedulerEventsPage.tsx` 4 處 `apiClient.get` **硬編 `/api/admin/...`** → 實際請求 `/api/api/admin/scheduler/events` → 404 → React Query `data` 空 → 表格 `?? []` 顯示「無紀錄」。屬「cron 真寫 + router 真掛 + 前端頁存在，斷在 URL 前綴」的**半接通**（ADR anti-half-wired 同型）。 |
+| **Fix** | 移除 4 處硬編 `/api` 前綴（`/api/admin/...` → `/admin/...`，`:55/64/73/90`），對齊全專案 endpoints 慣例。後端與 cron 不動（皆健康）。 |
+| **Prevention** | (a) 前端呼叫**一律用 `endpoints/*.ts` 常數**，禁硬編路徑字串；(b) 若必須硬編，**禁帶 baseURL 已含的 `/api` 前綴**；(c) 可加 fitness/lint：grep `apiClient\.(get\|post).*['\x60]/api/` 視為候選錯誤；(d) 新頁面 PR review 必查「200 但畫面空」→ 先驗 Network 實際 URL 是否 double-prefix。 |
+| **Refs** | `frontend/src/pages/SchedulerEventsPage.tsx:55/64/73/90` / `frontend/src/config/env.ts:20` / `frontend/src/api/interceptors.ts:61` getDynamicApiBaseUrl / 同類 `.claude/rules/adr-anti-half-wired-sop.md` 半接通防範 |
+
+---
+
 ## L64 — LINE 推播鏈交易污染復發（吞錯不 rollback + 缺方法 + 重複掃描 / 2026-06-03）
 
 | 欄位 | 內容 |
