@@ -422,6 +422,18 @@
 
 ---
 
+## L73 — In-container writer 盲視 host/cross-repo 資源 → silent 寫錯值（治理工具自身亦中招 / 2026-06-12）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 覆盤整體架構時連揪兩處同型：①治理 SSOT 儀表板 `GOVERNANCE_INTEGRATED_DASHBOARD.md` 的 §5 facade caller 全顯 `?`、§9.6 誤報 cron_events「不存在」（實有 11,312 筆）；② v7 metric `v7_soul_drift_lines` 長期回 `-1` sentinel。兩者都不是「沒寫」，是「寫的人看不到正確來源所以寫錯值」。 |
+| **Cause** | **共通根因＝產出物由 in-container 程序生成，但程序需讀的資源在 host/別 repo（容器盲區）→ 寫出 0/`?`/-1 而非真值**（L52/L57 路徑漂移家族延伸）。①儀表板生成器由 in-container scheduler(cwd=/app)每日重生，卻寫死 host 佈局（`backend/logs`、`backend/app`、`~/.claude`、git repo）→ §5 facades 目錄解析失敗顯 `?`、§9.6 `LOGS_DIR` 漂移誤判不存在、§3/§4 silent 空白。②`v7_soul_drift` 唯一寫 `soul_drift_snapshot.json` 的是 in-container autobiography job，容器看不到 `../CK_AaaP/.../SOUL.md` → `hermes_lines=0`/`drift_lines=-1`，且**無條件覆寫**了本該由 host fitness 寫的真值；而 metric 註解聲稱「讀 host 端 fitness 寫的 snapshot」，但 host 端 `soul_mirror_drift_check.py`（看得到兩檔）**從未寫過該 snapshot**＝docstring 與實作斷鏈。 |
+| **Fix** | ①生成器以 `_first_dir(backend/app, app)`／`_first_dir(backend/logs, logs)` 雙佈局解析 PKG_DIR/LOGS_DIR；§3/§4 容器情境改顯誠實標記（非 silent 空白）；新增 `governance_dashboard_completeness_audit.py`（daily fitness step 9/9）抓 `?`／「不存在」回退。②`soul_mirror_drift_check.py`（host fitness step 3，看得到兩個 SOUL.md）新增 `write_drift_snapshot()` 寫真值（drift 190−153=**37**）；in-container `_refresh_soul_drift_snapshot` 改為「看不到 CK_AaaP 時保留既有 snapshot 的 hermes_lines/drift_lines、只刷新 missive_lines」，不再 clobber host 真值。修後 metric 15 分鐘內由 -1→37（誠實揭露真實跨通道人格漂移，遠超目標 ≤5）。 |
+| **Prevention** | (a) 凡「報表/metric 產出物」由 cron 在容器內生成，須在**真實執行情境**驗「區段/欄位有真值」，非只看 cron GREEN（L62 整合＝持續驗證）。(b) 產出物依賴的資源若在 host/別 repo，writer 必須是看得到該資源的那一端（host fitness），in-container 程序看不到時應**保留**既有真值而非覆寫成 0/-1。(c) sentinel（-1/`?`/0）必須有 audit 監看「卡在 sentinel」本身＝故障，否則 silent 永久失真。(d) docstring 聲稱「讀 X 寫的檔」必須確認 X 真的在寫（同 L01 Dead Doc）。 |
+| **Refs** | `scripts/checks/generate_governance_dashboard.py`（PKG_DIR/LOGS_DIR）/ `scripts/checks/governance_dashboard_completeness_audit.py`（fitness daily 9/9）/ `scripts/checks/soul_mirror_drift_check.py`（write_drift_snapshot）/ `backend/app/core/scheduler.py` `_refresh_soul_drift_snapshot`（preserve）/ `backend/app/core/memory_wiki_metrics.py:316-345` / 同族 L52 paths drift + L57 BACKEND_DIR mount + L62 持續驗證 + L01 Dead Doc |
+
+---
+
 ## L72 — 排程「註冊 ≠ 真在跑」：scheduler liveness 對賬揪 silent dormant cron（擴大治理至坤哥/Hermes/排程 / 2026-06-12）
 
 | 欄位 | 內容 |

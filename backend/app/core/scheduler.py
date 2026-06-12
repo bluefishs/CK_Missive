@@ -2291,21 +2291,35 @@ async def _refresh_soul_drift_snapshot() -> None:
                 break
         except Exception:
             continue
-    snapshot = {
-        "missive_lines": len(soul_a.read_text(encoding="utf-8").splitlines()) if soul_a.exists() else 0,
-        "hermes_lines": len(soul_b.read_text(encoding="utf-8").splitlines()) if soul_b else 0,
-        "drift_lines": -1 if not soul_b else abs(
-            len(soul_a.read_text(encoding="utf-8").splitlines()) -
-            len(soul_b.read_text(encoding="utf-8").splitlines())
-        ),
-        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "source": "autobiography_post_write",
-    }
     snapshot_path = wiki_dir / "memory" / "soul_drift_snapshot.json"
+    missive_lines = len(soul_a.read_text(encoding="utf-8").splitlines()) if soul_a.exists() else 0
+    if soul_b:
+        hermes_lines = len(soul_b.read_text(encoding="utf-8").splitlines())
+        drift_lines = abs(missive_lines - hermes_lines)
+        source = "autobiography_post_write"
+    else:
+        # L73: container 看不到 ../CK_AaaP → 不可用 0/-1 clobber host fitness（soul_mirror_drift_check）
+        # 寫的真值；保留既有 snapshot 的 hermes_lines/drift_lines，只刷新 missive_lines。
+        hermes_lines, drift_lines = 0, -1
+        try:
+            if snapshot_path.exists():
+                prev = json.loads(snapshot_path.read_text(encoding="utf-8"))
+                hermes_lines = int(prev.get("hermes_lines", 0))
+                drift_lines = int(prev.get("drift_lines", -1))
+        except Exception:
+            pass
+        source = "autobiography_post_write(preserve_host_drift)"
+    snapshot = {
+        "missive_lines": missive_lines,
+        "hermes_lines": hermes_lines,
+        "drift_lines": drift_lines,
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "source": source,
+    }
     snapshot_path.write_text(
         json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    logger.info(f"SOUL drift snapshot updated: drift={snapshot['drift_lines']}")
+    logger.info(f"SOUL drift snapshot updated: drift={snapshot['drift_lines']} source={source}")
 
 
 async def _push_soul_sync_reminder(week_id: str | None) -> None:
