@@ -1,7 +1,14 @@
 {
   "missive_lines": 190,
   "hermes_lines": 153,
-  "drift_lines": 37,
-  "updated_at": "2026-06-12 15:40",
+  "line_delta": 37,
+  "core_invariant_gap": 3,
+  "missing_invariants": [
+    "三信念",
+    "倫理紅線",
+    "反迴聲"
+  ],
+  "drift_lines": 3,
+  "updated_at": "2026-06-12 18:36",
   "source": "soul_mirror_drift_check"
 }

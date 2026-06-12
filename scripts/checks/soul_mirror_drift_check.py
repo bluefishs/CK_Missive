@@ -45,29 +45,55 @@ def load(p: Path) -> str | None:
     return p.read_text(encoding="utf-8")
 
 
+# 跨層該一致的「核心人格不變量」— 兩層 persona 角色可不同，但這些底線必須一致。
+# 對齊本檔 §SEVERE 判定（line 97 同款關鍵字）+ CONSCIOUSNESS_INTEGRATION_ANALYSIS §10.4。
+CORE_INVARIANTS = ["身份", "三信念", "倫理紅線", "反迴聲"]
+
+
+def core_invariant_gap(m_secs: list[str], h_secs: list[str]) -> list[str]:
+    """回傳 Missive(SSOT) 有、但 Hermes 缺的核心不變量關鍵字清單（跨層該一致卻不一致）。"""
+    missing = []
+    for kw in CORE_INVARIANTS:
+        in_m = any(kw in s for s in m_secs)
+        in_h = any(kw in s for s in h_secs)
+        if in_m and not in_h:
+            missing.append(kw)
+    return missing
+
+
 def write_drift_snapshot(missive: str, hermes: str) -> None:
     """寫 wiki/memory/soul_drift_snapshot.json — 供 in-container v7_soul_drift metric 讀。
 
     L73 根因鏈（2026-06-12 覆盤）：metric 註解稱「讀 host 端 fitness 寫的 snapshot」，
     但唯一寫 snapshot 的是 in-container autobiography job，容器看不到 ../CK_AaaP →
-    hermes_lines=0 → drift=-1 sentinel，永遠回不了真值。本腳本（host 端 fitness step 3，
-    看得到兩個 SOUL.md）才有資格寫真值。
+    drift=-1 sentinel，永遠回不了真值。本腳本（host 端 fitness step 3，看得到兩個
+    SOUL.md）才有資格寫真值。
+
+    指標語意（2026-06-12 owner 確認重定義，CONSCIOUSNESS §10.5）：
+    `drift_lines` 不再是「整檔行數差」（兩層 persona 設計上本就不同 → 量錯東西），
+    改為 **核心不變量跨層缺口 = core_invariant_gap**（Missive 有、Hermes 缺的核心段數），
+    target 0。line_delta 仍保留供參考。
     """
     import json
     from datetime import datetime
-    m_lines = len(missive.splitlines())
-    h_lines = len(hermes.splitlines())
+    m_lines, h_lines = len(missive.splitlines()), len(hermes.splitlines())
+    missing = core_invariant_gap(extract_sections(missive), extract_sections(hermes))
+    gap = len(missing)
     snap = Path("wiki/memory/soul_drift_snapshot.json")
     try:
         snap.parent.mkdir(parents=True, exist_ok=True)
         snap.write_text(json.dumps({
             "missive_lines": m_lines,
             "hermes_lines": h_lines,
-            "drift_lines": abs(m_lines - h_lines),
+            "line_delta": abs(m_lines - h_lines),
+            "core_invariant_gap": gap,
+            "missing_invariants": missing,
+            "drift_lines": gap,  # metric 讀此欄 = core_invariant_gap（語意重定義，名稱保留免破壞 dashboard/alert）
             "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "source": "soul_mirror_drift_check",
         }, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"📸 snapshot 已更新: drift_lines={abs(m_lines - h_lines)} (host fitness 真值)\n")
+        tag = f"缺 {missing}" if missing else "核心不變量全跨層一致 ✅"
+        print(f"📸 snapshot 已更新: core_invariant_gap={gap}（{tag}）line_delta={abs(m_lines - h_lines)}\n")
     except Exception as e:
         print(f"⚠️  snapshot 寫入失敗: {e}\n")
 

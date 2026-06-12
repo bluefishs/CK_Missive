@@ -130,7 +130,10 @@ class MemoryWikiMetrics:
         )
         self.v7_soul_drift = Gauge(
             M1_SOUL_DRIFT_LINES,
-            "SOUL.md line count diff Missive vs AaaP mirror (target: ≤5)",
+            # 2026-06-12 語意重定義（CONSCIOUSNESS §10.5）：名稱保留免破壞 dashboard/alert，
+            # 值改為「核心人格不變量跨層缺口」= Missive SSOT 有、Hermes 缺的核心段數 (target 0)。
+            # 兩層 persona 角色本就不同（整檔行數差無意義），唯倫理紅線/三信念/身份/反迴聲須跨層一致。
+            "Core persona invariants present in Missive SOUL but missing in Hermes SOUL (target: 0; -1=unknown)",
             registry=reg,
         )
         # M4 (5/04 補完)：provider fidelity gap (max - min) percentage points
@@ -320,25 +323,36 @@ class MemoryWikiMetrics:
         #   1. 嘗試本地路徑（host 直接跑 backend 場景）
         #   2. 嘗試讀 wiki/memory/soul_drift_snapshot.json (host 端 fitness 寫的)
         #   3. 都找不到 → 設 -1 (sentinel, alertmanager rule 應排除 -1)
+        # 2026-06-12 語意重定義：核心人格不變量跨層缺口（非整檔行數差）。
+        # 兩層 persona 設計上不同（坤哥 vs Meta 導師），唯下列核心底線須跨層一致。
+        import re as _re
+        _CORE_INV = ["身份", "三信念", "倫理紅線", "反迴聲"]
+
+        def _core_gap(a_txt: str, b_txt: str) -> int:
+            a_secs = _re.findall(r"^##\s+(.+)$", a_txt, _re.M)
+            b_secs = _re.findall(r"^##\s+(.+)$", b_txt, _re.M)
+            return sum(1 for kw in _CORE_INV
+                       if any(kw in s for s in a_secs) and not any(kw in s for s in b_secs))
+
         project_root = wiki_memory_dir.parent.parent
         soul_a = project_root / "wiki" / "SOUL.md"
         soul_b = project_root.parent / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
         drift_value = None
         if soul_a.exists() and soul_b.exists():
             try:
-                a_lines = len(soul_a.read_text(encoding="utf-8").splitlines())
-                b_lines = len(soul_b.read_text(encoding="utf-8").splitlines())
-                drift_value = abs(a_lines - b_lines)
+                drift_value = _core_gap(
+                    soul_a.read_text(encoding="utf-8"), soul_b.read_text(encoding="utf-8"))
             except Exception:
                 pass
-        # Fallback: 讀 host 端 fitness 寫的 snapshot
+        # Fallback: 讀 host 端 fitness(soul_mirror_drift_check) 寫的 snapshot
         if drift_value is None:
             snapshot = wiki_memory_dir / "soul_drift_snapshot.json"
             if snapshot.exists():
                 try:
                     import json as _json
                     data = _json.loads(snapshot.read_text(encoding="utf-8"))
-                    drift_value = int(data.get("drift_lines", -1))
+                    # 優先 core_invariant_gap；相容舊 drift_lines 欄
+                    drift_value = int(data.get("core_invariant_gap", data.get("drift_lines", -1)))
                 except Exception:
                     pass
         # 設值（找不到 → -1 sentinel）

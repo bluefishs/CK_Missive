@@ -2293,33 +2293,45 @@ async def _refresh_soul_drift_snapshot() -> None:
             continue
     snapshot_path = wiki_dir / "memory" / "soul_drift_snapshot.json"
     missive_lines = len(soul_a.read_text(encoding="utf-8").splitlines()) if soul_a.exists() else 0
+    # drift 語意（2026-06-12 重定義）：核心人格不變量跨層缺口，非整檔行數差。
+    _CORE_INV = ["身份", "三信念", "倫理紅線", "反迴聲"]
+    snapshot = {
+        "missive_lines": missive_lines, "hermes_lines": 0, "line_delta": 0,
+        "core_invariant_gap": -1, "missing_invariants": [], "drift_lines": -1,
+    }
     if soul_b:
-        hermes_lines = len(soul_b.read_text(encoding="utf-8").splitlines())
-        drift_lines = abs(missive_lines - hermes_lines)
+        import re as _re
+        a_txt = soul_a.read_text(encoding="utf-8") if soul_a.exists() else ""
+        b_txt = soul_b.read_text(encoding="utf-8")
+        a_secs = _re.findall(r"^##\s+(.+)$", a_txt, _re.M)
+        b_secs = _re.findall(r"^##\s+(.+)$", b_txt, _re.M)
+        missing = [kw for kw in _CORE_INV
+                   if any(kw in s for s in a_secs) and not any(kw in s for s in b_secs)]
+        snapshot["hermes_lines"] = len(b_txt.splitlines())
+        snapshot["line_delta"] = abs(missive_lines - snapshot["hermes_lines"])
+        snapshot["core_invariant_gap"] = len(missing)
+        snapshot["missing_invariants"] = missing
+        snapshot["drift_lines"] = len(missing)
         source = "autobiography_post_write"
     else:
-        # L73: container 看不到 ../CK_AaaP → 不可用 0/-1 clobber host fitness（soul_mirror_drift_check）
-        # 寫的真值；保留既有 snapshot 的 hermes_lines/drift_lines，只刷新 missive_lines。
-        hermes_lines, drift_lines = 0, -1
+        # L73: container 看不到 ../CK_AaaP → 不可 clobber host fitness（soul_mirror_drift_check）真值；
+        # 保留既有 snapshot 的 hermes_lines/core_invariant_gap/missing，只刷新 missive_lines。
         try:
             if snapshot_path.exists():
                 prev = json.loads(snapshot_path.read_text(encoding="utf-8"))
-                hermes_lines = int(prev.get("hermes_lines", 0))
-                drift_lines = int(prev.get("drift_lines", -1))
+                for k in ("hermes_lines", "line_delta", "core_invariant_gap",
+                          "missing_invariants", "drift_lines"):
+                    if k in prev:
+                        snapshot[k] = prev[k]
         except Exception:
             pass
         source = "autobiography_post_write(preserve_host_drift)"
-    snapshot = {
-        "missive_lines": missive_lines,
-        "hermes_lines": hermes_lines,
-        "drift_lines": drift_lines,
-        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "source": source,
-    }
+    snapshot["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    snapshot["source"] = source
     snapshot_path.write_text(
         json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    logger.info(f"SOUL drift snapshot updated: drift={snapshot['drift_lines']} source={source}")
+    logger.info(f"SOUL drift snapshot updated: core_invariant_gap={snapshot['drift_lines']} source={source}")
 
 
 async def _push_soul_sync_reminder(week_id: str | None) -> None:

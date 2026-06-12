@@ -294,16 +294,19 @@ groups:
             修法：planner inject 階段加 entity tag annotation。
 
       - alert: V7SoulDriftHigh
-        expr: v7_soul_drift_lines > 10
+        # 2026-06-12 語意重定義：核心人格不變量跨層缺口（非整檔行數差）。
+        # >0 = 有核心底線（倫理紅線/三信念/身份/反迴聲）未跨層一致。-1 排除（unknown）。
+        expr: v7_soul_drift_lines > 0
         for: 1d
         labels:
           severity: warning
           component: cross_repo
         annotations:
-          summary: "SOUL drift {{ $value }} 行 > 10 (Missive vs AaaP)"
+          summary: "SOUL 核心不變量缺口 {{ $value }}（Missive 有、Hermes 缺）"
           description: |
-            v7.0 指標 3：SOUL.md 跨 repo 同步偏離。
-            可能 cron `soul_mirror_sync_job` 沒跑或 AaaP 端有人手改 mirror。
+            v7.0 指標 3（重定義）：跨層該一致的核心人格不變量（倫理紅線/三信念/身份/反迴聲）
+            在 Hermes SOUL 缺漏。LINE/TG 用戶的坤哥未必帶同一道德底線。
+            修法：把缺漏核心段補進 CK_Hermes SOUL（見 docs/architecture/HERMES_SOUL_CORE_INVARIANT_PLAN）。
             修法：bash scripts/sync/sync_soul_to_hermes.sh --apply
 
       - alert: V7CritiqueReferenceDensityLow
