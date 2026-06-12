@@ -17,6 +17,13 @@ import re
 import sys
 from pathlib import Path
 
+# Windows cp950 防護（L49.8 家族；v6.18 8-audit 硬化漏掉本圖譜 audit，2026-06-12 補）
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
