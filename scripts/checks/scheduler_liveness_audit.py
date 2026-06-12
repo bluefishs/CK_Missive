@@ -47,11 +47,17 @@ def registered_job_ids(scheduler_py: Path) -> set[str]:
         mt = re.search(r"tracked_job\(['\"]([a-z_0-9]+)['\"]", line)
         if mt:
             tracked.add(mt.group(1))
-        ma = re.search(r"id=['\"]([a-z_0-9]+)['\"]", line)
+        # 含 f-string 動態 id（id=f'tender_subscription_{hour}' → 取前綴 tender_subscription_）
+        ma = re.search(r"id=f?['\"]([a-z_0-9]+)", line)
         if ma:
             addjob.add(ma.group(1))
-    # 真排程且會發事件 = tracked ∩ add_job（兩者皆非註解）
-    return tracked & addjob
+    # 真排程且會發事件 = tracked id 有對應 add_job（精確，或 add_job id 以 tracked id 為前綴，
+    #   涵蓋多時段註冊如 tender_subscription_8/12/18 皆 log 'tender_subscription'）
+    reg: set[str] = set()
+    for t in tracked:
+        if t in addjob or any(a.startswith(t + "_") for a in addjob):
+            reg.add(t)
+    return reg
 
 
 def cron_last_runs(jsonl: Path) -> dict[str, tuple[str, str]]:
@@ -105,10 +111,12 @@ def main(dormant_days: int = 8, strict: bool = False, now_iso: str | None = None
 
     now = datetime.fromisoformat(now_iso) if now_iso else datetime.now()
 
-    dormant, failed, stale = [], [], []
+    # 條件式註冊 job（env-gated，未設即刻意停用，非 silent 死）→ 不算 DORMANT
+    conditional = {"einvoice_sync"}  # if os.getenv("MOF_APP_ID")
+    dormant, failed, stale, cond_off = [], [], [], []
     for jid in sorted(reg):
         if jid not in runs:
-            dormant.append(jid)
+            (cond_off if jid in conditional else dormant).append(jid)
             continue
         ts, st = runs[jid]
         age = _age_days(ts, now)
@@ -138,12 +146,14 @@ def main(dormant_days: int = 8, strict: bool = False, now_iso: str | None = None
         for j, age in stale:
             print(f"  ~ {j:32} {age} 天前")
         print()
+    if cond_off:
+        print(f"[INFO] 條件式停用（env 未設、刻意非故障）: {', '.join(cond_off)}\n")
     if mismatch:
         print(f"[INFO] logged 但未註冊 job_id（命名不符或動態）: {', '.join(mismatch)}\n")
 
     bad = len(dormant) + len(failed)
     print(f"Summary: {len(dormant)} DORMANT, {len(failed)} FAILED, {len(stale)} STALE, "
-          f"{len(mismatch)} 命名不符")
+          f"{len(cond_off)} 條件式停用, {len(mismatch)} 命名不符")
     if bad:
         print(f"\n[WARN] {bad} job 未真活 → 查 scheduler 註冊/執行鏈（silent cron dormant）")
         if strict:

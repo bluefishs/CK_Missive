@@ -2924,7 +2924,7 @@ def setup_scheduler(
     scheduler.add_job(
         code_graph_incremental_job,
         trigger=CronTrigger(hour=3, minute=0),
-        id='code_graph_update',
+        id='code_graph_incremental',  # L72: align add_job id = @tracked_job id（消 freshness 不符）
         name='Code Graph 增量更新 (AST)',
         replace_existing=True,
         max_instances=1,
@@ -3506,7 +3506,7 @@ def setup_scheduler(
     scheduler.add_job(
         cron_optimization_pipeline_job,
         trigger=CronTrigger(hour=3, minute=0),
-        id='optimization_pipeline_daily',
+        id='optimization_pipeline',  # L72: align add_job id = @tracked_job id（消 freshness 不符）
         name='Optimization Pipeline 每日巡檢 (03:00, 5 step)',
         replace_existing=True,
         max_instances=1,
