@@ -1,6 +1,6 @@
 # Governance Integrated Dashboard — 規範 + 現況 + 覆盤 整合 SSOT
 
-> **Generated**: 2026-06-11 02:30:00
+> **Generated**: 2026-06-12 02:30:00
 > **Owner 問題**: 每次詢問都有缺漏，需整合 5 處治理文件 (ADR/lesson/SOP/fitness/architecture)
 > **解法**: 此 dashboard 由 cron 06:00 自動 regenerate，session 啟動讀此檔取完整快照
 > **生成器**: `scripts/checks/generate_governance_dashboard.py`
@@ -12,59 +12,68 @@
 | 類別 | 數量 | 位置 |
 |---|---|---|
 | ADR | active=21 / archived=14 | `docs/adr/` |
-| Lessons | 0 | `wiki/memory/lessons/L*.md` |
-| SOPs | 0 | `.claude/rules/*.md` |
-| Fitness checks | 96 | `scripts/checks/*.py` |
+| Lessons | 61 | `docs/architecture/LESSONS_REGISTRY.md` |
+| SOPs | 0 | `.claude/rules/*.md`（容器未掛載 .claude/，host 端執行才計數） |
+| Fitness checks | 101 | `scripts/checks/*.py` |
 | Architecture docs | 81 | `docs/architecture/*.md` |
-| **Total** | **212** | 5 處散落 |
+| **Total** | **278** | 5 處散落 |
 
 ## 2. 現況真活 metric (從 /metrics 即時抓)
 
 ```
-  governance_fitness_report_freshness_hours                  23.4
+  governance_fitness_report_freshness_hours                  23.3
   governance_lessons_l4x_family_count                         0.0
   governance_lessons_total                                   16.0
   governance_pipeline_red_consecutive_days                    0.0
-  governance_wiki_freshness_hours                             6.3
-  governance_wiki_pages_total                               417.0
-  kg_entities_total                                       26701.0
+  governance_wiki_freshness_hours                             6.2
+  governance_wiki_pages_total                               420.0
+  kg_entities_total                                       26767.0
   memory_crystals_total                                       2.0
-  memory_diary_days_total                                    50.0
-  scheduler_job_last_run_age_seconds{job_id="ezbid_cache_refresh"}       2154.4
-  scheduler_job_last_run_age_seconds{job_id="health_check_broadcast"}         56.4
+  memory_diary_days_total                                    51.0
+  scheduler_job_last_run_age_seconds{job_id="cleanup_events"}       1753.8
+  scheduler_job_last_run_age_seconds{job_id="ezbid_cache_refresh"}       3440.4
+  scheduler_job_last_run_age_seconds{job_id="fitness_daily"}       1752.7
+  scheduler_job_last_run_age_seconds{job_id="health_check_broadcast"}        149.4
   scheduler_job_last_run_age_seconds{job_id="integration_e2e_validation"}       1487.7
-  scheduler_job_last_run_age_seconds{job_id="process_reminders"}         56.4
-  scheduler_job_last_run_age_seconds{job_id="tender_dashboard_warm"}         41.5
-  scheduler_job_success_created{job_id="ezbid_cache_refresh"} 1781114045.9
-  scheduler_job_success_created{job_id="health_check_broadcast"} 1781110743.9
-  scheduler_job_success_created{job_id="integration_e2e_validation"} 1781114712.7
-  scheduler_job_success_created{job_id="process_reminders"} 1781110743.9
-  scheduler_job_success_created{job_id="tender_dashboard_warm"} 1781110459.3
+  scheduler_job_last_run_age_seconds{job_id="process_reminders"}        149.4
+  scheduler_job_last_run_age_seconds{job_id="security_scan"}       1753.7
+  scheduler_job_last_run_age_seconds{job_id="tender_dashboard_warm"}        128.2
+  scheduler_job_success_created{job_id="cleanup_events"} 1781200846.5
+  scheduler_job_success_created{job_id="ezbid_cache_refresh"} 1781199159.9
+  scheduler_job_success_created{job_id="fitness_daily"} 1781200847.6
+  scheduler_job_success_created{job_id="health_check_broadcast"} 1781195850.8
+  scheduler_job_success_created{job_id="integration_e2e_validation"} 1781201112.6
+  scheduler_job_success_created{job_id="process_reminders"} 1781195850.8
+  scheduler_job_success_created{job_id="security_scan"} 1781200846.6
+  scheduler_job_success_created{job_id="tender_dashboard_warm"} 1781195565.8
+  scheduler_job_success_total{job_id="cleanup_events"}          1.0
   scheduler_job_success_total{job_id="ezbid_cache_refresh"}          1.0
-  scheduler_job_success_total{job_id="health_check_broadcast"}         19.0
+  scheduler_job_success_total{job_id="fitness_daily"}          1.0
+  scheduler_job_success_total{job_id="health_check_broadcast"}         23.0
   scheduler_job_success_total{job_id="integration_e2e_validation"}          1.0
-  scheduler_job_success_total{job_id="process_reminders"}         19.0
-  scheduler_job_success_total{job_id="tender_dashboard_warm"}         20.0
+  scheduler_job_success_total{job_id="process_reminders"}         23.0
+  scheduler_job_success_total{job_id="security_scan"}          1.0
+  scheduler_job_success_total{job_id="tender_dashboard_warm"}         24.0
   shadow_baseline_call_total{provider="gemma-local"}         60.0
-  shadow_baseline_call_total{provider="unknown"}              1.0
-  shadow_baseline_latency_p95_ms{provider="gemma-local"}      68916.0
-  shadow_baseline_latency_p95_ms{provider="unknown"}       6394.0
-  shadow_baseline_rows_total{lookback_hours="24"}            61.0
+  shadow_baseline_latency_p95_ms{provider="gemma-local"}      47909.0
+  shadow_baseline_rows_total{lookback_hours="24"}            60.0
   shadow_baseline_success_ratio{provider="gemma-local"}          1.0
-  shadow_baseline_success_ratio{provider="unknown"}           1.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="draw_diagram"}          1.0
   shadow_baseline_tool_use_count{provider="gemma-local",tool="find_correspondence"}          2.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_expense_overview"}          1.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_statistics"}         16.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_entity_detail"}          1.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_expense_overview"}          2.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_statistics"}         21.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_unpaid_billings"}          1.0
   shadow_baseline_tool_use_count{provider="gemma-local",tool="search_across_graphs"}          3.0
   shadow_baseline_tool_use_count{provider="gemma-local",tool="search_dispatch_orders"}          8.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_documents"}         14.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_entities"}          4.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_projects"}          6.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_tender"}          7.0
-  shadow_baseline_tool_use_count{provider="unknown",tool="get_statistics"}          1.0
-  v7_channel_diversity                                        0.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_documents"}         19.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_entities"}          5.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_projects"}          4.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_tender"}          3.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="summarize_entity"}          1.0
+  v7_channel_diversity                                        1.0
   v7_reference_density_critique_pct                           0.0
-  v7_reference_density_diary_pct                             21.0
+  v7_reference_density_diary_pct                             21.2
   v7_soul_drift_lines                                        -1.0
 ```
 
@@ -84,6 +93,67 @@
 
 ## 6. Lesson 索引 (L4x family 為主)
 
+- **L01** — SSOT 聲明 vs 實作斷鏈（Dead Doc 反模式）
+- **L02** — Yaml config 聲明卻 0 reader（Dead Config）
+- **L03** — Mock.patch 路徑遷移（Wave 1 sub-batch B）
+- **L04** — Multi-line patch sed 失效（Wave 4 tender）
+- **L05** — Class name collision（Wave 1 sub-batch C notification）
+- **L06** — 內部循環 import → relative import（Wave 1 sub-batch A document）
+- **L07** — Private function (`_` 開頭) re-export（Wave 2 ERP）
+- **L08** — Production caller 路徑同步（Wave 3 integration）
+- **L09** — Async mock 斷鏈（pre-existing test failures）
+- **L10** — Dead UI（後端實作但前端缺 UI）
+- **L11** — React Query staleTime + 0 invalidate = 60s 不刷新
+- **L12** — Stub 算散戶 → entropy 短期不會降
+- **L13** — sed 替換漏掃 cross-cutting test 檔（Wave 8）
+- **L14** — GitHub Actions 自動觸發產生雲端費用
+- **L15** — Telegram 個人號當主推播通道（ADR-0027）
+- **L16** — 一個 dataclass 塞 100+ 設定欄位
+- **L17** — DDD 遷移看職責邊界不看行數
+- **L18** — Wiki dispatch backfill 不需 fuzzy match
+- **L19** — KG embedding 維護需週期性 backfill
+- **L21** — Agent evolution scheduler 整合斷鏈（redis counter 卡 0）
+- **L24** — Self-evaluator 標準過鬆 / Pattern 門檻過緊（雙重失衡）
+- **L25** — 鏈路驗證 vs 鏈路盤點（grep 關鍵字陷阱）
+- **L20** — Lessons 散落 commit/ADR/PLAYBOOK → 需 SSOT
+- **L23** — 領域驅動拆分 vs 行數驅動拆分（拒拆判準）
+- **L26** — Half-Wired Anti-Pattern Stacking（多層 bug 疊加遮蔽）
+- **L27** — Dev Mode Override Trap（VITE_AUTH_DISABLED 強制覆蓋真實用戶）
+- **L29** — Domain score 寫入鏈再次中斷（dict key bug + 涵蓋率不足）
+- **L28** — JSON-as-TEXT Schema Drift（DB Text 存 JSON 但忘 parse）
+- **L30** — Pipeline Integration as Priority（環節不連通就是浪費）
+- **L31** — ROI = entities × usage_rate（建表不等於用表）
+- **L32** — Frontend UI Component 不適合 packaging（LR-015 終局教訓 / 2026-05-18）
+- **L33** — Transitive Deps 缺失必致 Half-Wired（LR-015/016 配套）
+- **L34** — 業務 specific 不可進 shared package（lvrland LR-020 對應 / 2026-05-18）
+- **L35** — 採納前必過 baseline TS check（lvrland LR-019 對應 / 2026-05-18）
+- **L36** — Repo Structure Assumption（install.sh 寫死目標路徑 / 2026-05-18）
+- **L22** — 範本資產缺跨 repo 引用治理規範
+- **L37** — 覆盤報告自身也是「真活宣告 vs 真接通」候選（2026-05-19）
+- **L39** — QueryKey Drift（React Query invalidate silent dead）（2026-05-20）
+- **L38** — 平時保險（cron / 異地備份）也是 LR-015 反模式高發區（2026-05-19）
+- **L41** — JWT Secret Drift Silent Fail（4 重疊加 / 2026-05-21）
+- **L72** — 排程「註冊 ≠ 真在跑」：scheduler liveness 對賬揪 silent dormant cron（擴大治理至坤哥/Hermes/排程 / 2026-06-12）
+- **L71** — 程式圖譜是「結構地圖」抓不到 config/語意/runtime 三類問題 → 用 AST 橋接治理（2026-06-11）
+- **L70** — GOOGLE_CALENDAR_ID config-drift：1044 事件靜默推進「服務帳號私人日曆」無人可見（L51 同族 / 2026-06-11）
+- **L69** — secureApiService single-flight 讓並發共用「單次」CSRF token → nav 選單 403（修 L49 反效果 / 2026-06-11）
+- **L68** — CSRF refresh 死結：csrf cookie 過期→refresh 被 CSRF 擋→全站 403「權限不足」（OWASP / 2026-06-10）
+- **L66** — 跨子域 SSO 消費端 self-heal gate 漏掉 cookie-session（顯示「訪客」race / 2026-06-10）
+- **L67** — 前端 baseURL 已含 `/api` 卻硬編 `/api` 前綴 → double-prefix 404（半接通 / 2026-06-10）
+- **L64** — LINE 推播鏈交易污染復發（吞錯不 rollback + 缺方法 + 重複掃描 / 2026-06-03）
+- **L63** — 學習閉環需 aging alert 才能突破 owner 健忘（2026-05-31）
+- **L62** — 整合連通 = 持續驗證機制，不是一次性 endpoint（2026-05-31）
+- **L61** — 下游反治理（PileMgmt R18 案例 / L60 真活驗證範本）（2026-05-31）
+- **L60** — 平衡 = 結構正常化（非中間值）（2026-05-30，meta-治理第 8 句立法）
+- **L59** — 治理架構倒置（上游 meta 缺 audit / 業務 source 反向 audit 子專案）（2026-05-30）
+- **L58** — 治理範本污染風險（強推 132 檔 57% 為本專案特定）（2026-05-30）
+- **L57** — BACKEND_DIR/logs vs compose mount 子路徑漂移（L52 family 第七案）（2026-05-30）
+- **L54** — 跨 repo 套用 ≠ 落實（install-template apply vs commit gap）（2026-05-30）
+- **L53** — Facade over-engineering 30 天實證裁判（ADR-0036 ROI 失敗）（2026-05-30）
+- **L52** — paths.py PROJECT_ROOT vs compose mount target 漂移（L4x family 第六案）（2026-05-30）
+- **L51** — Container image freshness family（L51.5/L51.7 系列，2026-05-30）
+- **L50** — Multi-source identifier ≠ entity link（2026-05-28）
+- **L49** — Container Host Dependency Family (PM2 → Docker 遷移 5 重 silent regression / 2026-05-27)
 
 ## 7. v6.12 進化 4 原則狀態
 
@@ -102,11 +172,11 @@
 
 | # | 條件 | 門檻 | 現況 | 達標 |
 |---|---|---|---|---|
-| 1 | baseline rows | ≥ 30 | 61 | ✅ |
+| 1 | baseline rows | ≥ 30 | 60 | ✅ |
 | 2 | dogfooding 連 7d | ≥ 7 days | 未追 | ⏳ |
 | 3 | soul fidelity | ≥ 70% | 未跑 | ⏳ |
-| 4 | error rate | < 5% | 0.8% | ✅ |
-| 5 | p95 latency | < 8s | 68.9s | ❌ |
+| 4 | error rate | < 5% | 0.0% | ✅ |
+| 5 | p95 latency | < 8s | 47.9s | ❌ |
 | **Summary** | — | — | **2/5** | **🔴 NO-GO** |
 
 詳見 `docs/architecture/HERMES_BASELINE_RESET_PLAN_20260530.md`
@@ -127,13 +197,16 @@
 
 | Job ID | Age | Success | Failure | 狀態 |
 |---|---|---|---|---|
-| `ezbid_cache_refresh` | 0.6h | 1 | 0 | 🟢 |
+| `ezbid_cache_refresh` | 1.0h | 1 | 0 | 🟢 |
+| `cleanup_events` | 0.5h | 1 | 0 | 🟢 |
+| `security_scan` | 0.5h | 1 | 0 | 🟢 |
+| `fitness_daily` | 0.5h | 1 | 0 | 🟢 |
 | `integration_e2e_validation` | 0.4h | 1 | 0 | 🟢 |
-| `process_reminders` | 0.0h | 19 | 0 | 🟢 |
-| `health_check_broadcast` | 0.0h | 19 | 0 | 🟢 |
-| `tender_dashboard_warm` | 0.0h | 20 | 0 | 🟢 |
+| `process_reminders` | 0.0h | 23 | 0 | 🟢 |
+| `health_check_broadcast` | 0.0h | 23 | 0 | 🟢 |
+| `tender_dashboard_warm` | 0.0h | 24 | 0 | 🟢 |
 
-**統計**：5 真活 cron / 5 GREEN / 0 YELLOW / 0 RED
+**統計**：8 真活 cron / 8 GREEN / 0 YELLOW / 0 RED
 
 **凌晨低干擾排程設計（v6.13）**：
 - 02:00 fitness_daily / 02:30 dashboard_regen / 02:45 self_retrospective
