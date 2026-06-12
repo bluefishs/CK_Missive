@@ -80,9 +80,14 @@ def main(min_nodes: int = MIN_NODES, top: int = 20) -> int:
                     by_purpose[p].add(str(rel.parent))
                     purpose_funcs[p].append(f"{rel}::{node.name}")
 
-    dup_clusters = sorted(
-        [(s, fs) for s, fs in by_sig.items() if len(fs) >= 2],
-        key=lambda x: -len(x[1]))
+    dup_clusters = [(s, fs) for s, fs in by_sig.items() if len(fs) >= 2]
+    # 精煉降 noise（2026-06-12）：跨檔結構重複=真 copy-paste（該抽共用）；
+    #   同檔=多為合法 sibling（get_sent/get_received 等對稱方法）→ 降為 info。
+    def _files(fs):
+        return {f.split("::")[0] for f in fs}
+    cross_file = sorted([(s, fs) for s, fs in dup_clusters if len(_files(fs)) >= 2],
+                        key=lambda x: -len(x[1]))
+    same_file = [(s, fs) for s, fs in dup_clusters if len(_files(fs)) == 1]
     compete = sorted(
         [(p, purpose_funcs[p]) for p, mods in by_purpose.items() if len(mods) >= 2],
         key=lambda x: -len(x[1]))
@@ -90,19 +95,17 @@ def main(min_nodes: int = MIN_NODES, top: int = 20) -> int:
     print("=== Code Duplication & Competing-Standard Audit（全專案重複樣態）===")
     print(f"  掃描 backend/app | body>={min_nodes} 節點函式參與雜湊\n")
 
-    print(f"[結構重複 copy-paste 群] {len(dup_clusters)} 群（同 body 結構 >=2 實作）：")
-    for sig, fs in dup_clusters[:top]:
-        print(f"  ✗ x{len(fs)}: {fs[0]}  ⟷  {fs[1]}" + (f"  (+{len(fs)-2})" if len(fs) > 2 else ""))
+    print(f"[★跨檔結構重複 真 copy-paste] {len(cross_file)} 群（跨 >=2 檔同 body 結構 → 該抽共用 SSOT）：")
+    for sig, fs in cross_file[:top]:
+        print(f"  ✗ x{len(fs)}: {fs[0]}  <-> {fs[1]}" + (f"  (+{len(fs)-2})" if len(fs) > 2 else ""))
     print()
+    print(f"[同檔結構重複] {len(same_file)} 群（同檔 sibling，多為合法對稱方法，info）\n")
+    print(f"[競爭標準群（啟發式）] {len(compete)} 群（同用途名跨 >=2 模組）"
+          "— 名稱相似非必重複（如 parse_date 西元/文號/年份正規化），需人工判斷\n")
 
-    print(f"[競爭標準群] {len(compete)} 群（同用途語義跨 >=2 模組）：")
-    for p, fs in compete[:top]:
-        mods = sorted({f.split('::')[0].rsplit('/', 1)[0] for f in fs})
-        print(f"  ~ {p:20} x{len(fs)} 實作 / {len(mods)} 模組: {', '.join(mods[:4])}")
-    print()
-
-    print(f"Summary: 結構重複群 {len(dup_clusters)} | 競爭標準群 {len(compete)}")
-    print("（informational — 逐步收斂；抽共用 / 立 SSOT。對齊 L71 圖譜治理）")
+    print(f"Summary: 跨檔真重複 {len(cross_file)}（優先收斂）| 同檔 sibling {len(same_file)}（info）"
+          f"| 競爭名群 {len(compete)}（啟發式需人工）")
+    print("（informational — 跨檔真重複優先抽共用 SSOT。對齊 L71/L31 圖譜治理）")
     return 0
 
 
