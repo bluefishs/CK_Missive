@@ -694,27 +694,8 @@ class ProjectRepository(BaseRepository[ContractProject]):
         return await self.get_distinct_values('status')
 
     async def _get_grouped_count(self, field_name: str) -> Dict[str, int]:
-        """
-        取得依欄位分組的計數
-
-        Args:
-            field_name: 欄位名稱
-
-        Returns:
-            {欄位值: 數量} 字典
-        """
-        field = getattr(ContractProject, field_name)
-        query = (
-            select(field, func.count(ContractProject.id))
-            .group_by(field)
-        )
-        result = await self.db.execute(query)
-
-        stats = {}
-        for value, count in result.fetchall():
-            key = value if value else '(未設定)'
-            stats[key] = count
-        return stats
+        """依欄位分組計數（57e：委派 BaseRepository.grouped_count SSOT）"""
+        return await self.grouped_count(field_name)
 
     async def _get_yearly_stats(self, year: int) -> Dict[str, Any]:
         """

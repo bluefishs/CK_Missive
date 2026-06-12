@@ -71,6 +71,18 @@ class BaseRepository(Generic[T]):
         self.model = model
         self.logger = logging.getLogger(self.__class__.__name__)
 
+    async def grouped_count(self, field_name: str) -> dict:
+        """依欄位分組計數 → {欄位值: 數量}，None/空 → '(未設定)'。
+
+        57e SSOT：收斂各 repo 重複的 `_get_grouped_count`（僅差 Model）。
+        子類可 `return await self.grouped_count(field_name)` 委派。
+        """
+        field = getattr(self.model, field_name)
+        query = select(field, func.count(self.model.id)).group_by(field)
+        result = await self.db.execute(query)
+        return {(value if value else '(未設定)'): count
+                for value, count in result.fetchall()}
+
     # =========================================================================
     # 基礎查詢方法 (Read)
     # =========================================================================
