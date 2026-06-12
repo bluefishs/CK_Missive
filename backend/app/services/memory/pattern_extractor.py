@@ -273,16 +273,9 @@ class PatternExtractor:
 
     @staticmethod
     def _parse_tools(tools_used: Any) -> List[str]:
-        if tools_used is None:
-            return []
-        if isinstance(tools_used, str):
-            try:
-                tools_used = json.loads(tools_used)
-            except Exception:
-                return []
-        if isinstance(tools_used, list):
-            return [t for t in tools_used if isinstance(t, str)]
-        return []
+        """解析 tools_used（57e：委派 memory/_utils.parse_tools SSOT）"""
+        from app.services.memory._utils import parse_tools
+        return parse_tools(tools_used)
 
     @staticmethod
     def _to_failure(rec: PatternRecord) -> FailureRecord:
