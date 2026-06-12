@@ -42,6 +42,37 @@ CK_Missive/
 └── ecosystem.config.js         # PM2 配置
 ```
 
+## 請求流與中間件執行順序（v6.18 覆盤補充 2026-06-12）
+
+公網請求流：`cloudflared tunnel`（`configs/cloudflare-tunnel.yml` → `http://localhost:8001`）→ FastAPI（`backend/main.py`）。
+
+中間件**註冊在 `main.py:633-666`**；FastAPI 後加=最外層，故**實際執行由外到內**：
+
+| 執行序 | 中間件 | 職責 |
+|---|---|---|
+| 1（最外） | `RequestIdMiddleware` | request id 追蹤 |
+| 2 | `PrometheusMiddleware` | 指標採集（排除 /health, /metrics）|
+| 3 | `TunnelGuardMiddleware` | 外網路由守衛（僅放行 `/api/{line,discord,public}/*` + `/api/health`）|
+| 4 | `CSRFMiddleware` | X-CSRF-Token 驗證（webhook 走 X-Service-Token 豁免）|
+| 5 | `SecurityHeadersMiddleware` | 安全標頭 |
+| 6 | `LoggingMiddleware` | structlog 結構化日誌 |
+| 7 | `GZipMiddleware` | 回應壓縮 |
+| 8（最內） | `CORSMiddleware` | CORS（最後註冊＝最內，符合 OWASP）|
+
+> 認證流細節見 `docs/AUTH_FLOW_DIAGRAM.md`；CSRF 死結教訓見 `LESSONS_REGISTRY.md#L68`/`#L69`。
+
+## LLM Provider 三層 Fallback（`backend/app/core/ai_connector.py`）
+
+| 序 | Provider | 觸發條件 | 用途 |
+|---|---|---|---|
+| P1-1 | **Groq** `llama-3.3-70b` | `GROQ_API_KEY` 存在 + prompt < `GROQ_SKIP_PROMPT_CHARS`(10k) | 免費快速主力（429 不重試，直接 fallback）|
+| P1-2 | **NVIDIA** nemotron-49b | Groq 429/逾時 + `NVIDIA_API_KEY` | 高品質雲端 |
+| P2 | **Ollama** 本地 | 雲端全失敗 | 離線備援 |
+| P3 | canned | 全部失敗 | 智慧預設回應 |
+
+**Task 特化模型映射**（`TASK_MODEL_MAP`，SSOT；L64 修法）：`planning`/`vision`/`synthesis` → `gemma4:e2b`。
+⚠️ 新增 task_type 若漏映射會落 `qwen2.5:7b`(p50 52.8s) → 35s synthesis budget 必超時（見 `cross-file-ssot-governance.md` TASK_MODEL_MAP 條目）。
+
 ## 錯誤合約化（ADR-0028）
 
 所有 `except` 區塊必須同時滿足三件事：
