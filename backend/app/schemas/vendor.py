@@ -10,32 +10,14 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from datetime import datetime
 
 from app.schemas.common import PaginatedResponse
-import re
 
 # 營業項目選項 (與前端 BUSINESS_TYPE_OPTIONS 一致)
 # 注意：建立/更新時建議使用這些值，但讀取舊資料時允許其他值
 ALLOWED_BUSINESS_TYPES = ['測量業務', '資訊系統', '系統業務', '查估業務', '不動產估價', '大地工程', '其他類別']
 
 
-def normalize_name(value: Optional[str]) -> Optional[str]:
-    """
-    標準化名稱字串
-    - 移除前後空白
-    - 移除中間多餘空白
-    - 統一全形/半形括號
-    - 移除全形空白
-    """
-    if not value:
-        return value
-    # 移除前後空白
-    result = value.strip()
-    # 移除全形空白
-    result = result.replace('\u3000', '')
-    # 統一全形括號為半形
-    result = result.replace('（', '(').replace('）', ')')
-    # 移除連續空白，保留單一空白
-    result = re.sub(r'\s+', ' ', result)
-    return result if result else None
+# normalize_name 已收斂至 schemas/_text_utils（57e SSOT）
+from app.schemas._text_utils import normalize_name
 
 
 class VendorBase(BaseModel):

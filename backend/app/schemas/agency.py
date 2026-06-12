@@ -7,28 +7,10 @@ from enum import Enum
 from typing import Optional, List, Dict
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from datetime import datetime
-import re
 
 
-def normalize_name(value: Optional[str]) -> Optional[str]:
-    """
-    標準化名稱字串
-    - 移除前後空白
-    - 移除中間多餘空白
-    - 統一全形/半形括號
-    - 移除全形空白
-    """
-    if not value:
-        return value
-    # 移除前後空白
-    result = value.strip()
-    # 移除全形空白
-    result = result.replace('\u3000', '')
-    # 統一全形括號為半形
-    result = result.replace('（', '(').replace('）', ')')
-    # 移除連續空白，保留單一空白
-    result = re.sub(r'\s+', ' ', result)
-    return result if result else None
+# normalize_name 已收斂至 schemas/_text_utils（57e SSOT）
+from app.schemas._text_utils import normalize_name
 
 
 class AgencyBase(BaseModel):
