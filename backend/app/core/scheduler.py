@@ -2928,7 +2928,8 @@ def setup_scheduler(
         name='Code Graph 增量更新 (AST)',
         replace_existing=True,
         max_instances=1,
-        coalesce=True
+        coalesce=True,
+        misfire_grace_time=7200,  # L72: 03:00 在 02:00-03:00 治理群壅塞時不被 skip（與 sibling 一致）
     )
     logger.info("已添加 Code Graph 增量更新: 每日 03:00 執行")
 
