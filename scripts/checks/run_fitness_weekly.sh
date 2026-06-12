@@ -41,7 +41,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${CYAN}===========================================${NC}"
-echo -e "${CYAN} Fitness Tier 2 Weekly — 21 trend step    ${NC}"
+echo -e "${CYAN} Fitness Tier 2 Weekly — 22 trend step    ${NC}"
 echo -e "${CYAN}===========================================${NC}"
 echo ""
 
@@ -53,7 +53,7 @@ run_step() {
     local step_name="$2"
     local script="$3"
 
-    echo -e "${CYAN}[$step_num/21] $step_name${NC}"
+    echo -e "${CYAN}[$step_num/22] $step_name${NC}"
     if [[ ! -f "$script" ]]; then
         echo "  ${YELLOW}⚠${NC} script not found: $script"
         echo ""
@@ -95,6 +95,7 @@ run_step "18" "paths sub-path mount audit"    "scripts/checks/paths_subpath_moun
 run_step "19" "repository coverage audit"     "scripts/checks/repository_coverage_audit.py"
 run_step "20" "cross-domain link audit"       "scripts/checks/cross_domain_link_audit.py"
 run_step "21" "knowledge dedup audit"         "scripts/checks/knowledge_dedup_audit.py"
+run_step "22" "graph domain tagging audit"    "scripts/checks/graph_domain_tagging_audit.py"
 
 # ============================================================
 # Summary
