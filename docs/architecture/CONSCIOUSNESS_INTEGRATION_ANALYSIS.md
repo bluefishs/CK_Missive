@@ -311,6 +311,72 @@ grep -c "kg_entity_id" wiki/**/*.md  # Wiki → KG 連結數
 
 ---
 
+---
+
+## 10. 兩層意識體架構釐清 + Hermes vs Missive agent 統一性策略（2026-06-12 覆盤）
+
+### 10.1 釐清：坤哥（wiki/SOUL.md）跑在 Missive 自己的技術，不是 Hermes
+
+覆盤時 owner 提問「wiki/SOUL 是否也建構在 Hermes 技術上」。讀碼鐵證＝**否**：
+
+| 查核 | 證據 | 結論 |
+|---|---|---|
+| 誰載入 wiki/SOUL.md | `agent_synthesis.py:88` → `build_system_prompt_with_soul()` → `agent_roles.py:339` → `get_soul_loader().load_soul()` | Missive 原生 agent 載入 |
+| Missive→Hermes outbound | grep 9119/8642/ck-hermes = **0** | Missive 不依賴 Hermes |
+| soul_loader 自述 | 「wiki/SOUL.md 是 Missive SSOT、CK_AaaP 那份為 Hermes gateway 用、無自動同步」 | 兩份各自獨立 |
+
+**兩層、不同角色（非同一人格的副本）**：
+```
+網頁 /kunge → Missive FastAPI → Missive 原生 agent(services/ai/agent) → 載 wiki/SOUL.md → Groq/NVIDIA/Ollama
+   ✅ 全程 Missive，完全沒碰 Hermes
+LINE/Telegram → Hermes gateway(CK_Hermes 容器) → 載 CK_Hermes SOUL.md（Meta「導師」人格，路由/仲裁）
+   → 業務問題往下呼叫 → Missive /api/ai/agent/query（這時才用 wiki/SOUL.md 坤哥答業務）
+   方向單向：Hermes → Missive（Missive 從不反向呼叫）
+```
+→ 坐實 ADR-CK-003 意識體聯邦：各平臺後端有自己的意識體，Hermes 是介面/控制面非業務。
+
+### 10.2 Hermes（CK_Hermes）vs Missive 原生 agent — 能力對比
+
+| 向度 | Hermes（NousResearch fork） | Missive 原生 agent |
+|---|---|---|
+| 定位 | 通用 LLM agent CLI + **32-platform gateway** | 垂直域**確定性** agent |
+| 多通道 | ✅ 32 adapter（LINE/TG/Discord/Slack/WhatsApp…）| ❌ 僅內部路由 |
+| Profile 隔離 | ✅ `~/.hermes/profiles/*` | ❌（未實作）|
+| Prompt caching | ✅ 內建 | ❌ 無 |
+| LLM provider | ✅ 13+ adapter | ⚠️ Groq/NVIDIA/Ollama 三層（ai_connector SSOT）|
+| **確定性路由** | ❌ 純 LLM tool-calling | ✅ **Layer 1–1.7**（業務查詢 6.4s 不進 LLM 迴圈）|
+| **KG+RAG 深度整合** | ⚠️ skill 層可選 | ✅ 3 層 RAG（KG 遍歷 + Wiki + synthesis）|
+| **學習閉環** | ❌ 無 | ✅ pattern→crystal + fitness audit + shadow log |
+| 每請求成本 | system prompt ~20k token 重建 → **p95 47.9s** | Groq p50 5.8s |
+| 升級來源 | NousResearch upstream（fork 跟版）| 自有 |
+
+### 10.3 統一性三選項與優缺
+
+| 選項 | 做法 | 優 | 缺 | 評 |
+|---|---|---|---|---|
+| **A 統一到 Missive** | 廢 Hermes，在 Missive 上自建多通道 | 保住確定性路由/KG/學習；單一控制 | 須重造 32-gateway+profile+caching；失 upstream；Missive 肥大；違聯邦（lvrland/pile 也要 gateway）| ❌ 重造輪子 |
+| **B 統一到 Hermes** | 把 Missive agent 搬成 Hermes skill | 單一 runtime；多通道/caching 免費 | **丟掉讓 Missive 快又準的核心**（7 層路由+KG+學習深綁 DB，難移）；業務退回 175s 慢迴圈（NO-GO 主因）；綁 fork churn | ❌ 丟王牌 |
+| **C 保持聯邦＋明確分層** | Hermes=薄 gateway/Meta；Missive=業務腦；Hermes 把業務**委派**給 Missive 快路徑（WS-D）| 各做最擅長；零重寫；聯邦可擴 lvrland/pile；業務快路徑 | 兩套 codebase；persona 雙層需治理；跨 repo 協調 | ✅ **推薦**（已是 ADR-CK-003 + WS-D 方向）|
+
+### 10.4 結論：不統一 runtime，統一「邊界契約 + 核心人格不變量」
+
+兩棧**互補**：Hermes 強在多通道 gateway / profile / caching / upstream；Missive 強在確定性路由 / KG-RAG / 學習閉環。**統一到任一邊都得重造對方的強項**。
+
+Hermes NO-GO（p95 47.9s）**不是統一的理由，是「把 Hermes 變更薄」的理由**——業務推理不該在 Hermes 慢 meta 迴圈重做，應委派 Missive 快路徑（WS-D 甲，已決議）。
+
+真正該「統一」的是兩件**非 runtime** 的事：
+1. **邊界契約**：formalize「Hermes 路由/介面、Missive 業務」分工（WS-D fastpath；CK_AaaP caller 側）。
+2. **核心人格不變量**：兩層 persona 角色本就該不同（坤哥第一人稱 vs Meta 導師），但**倫理紅線/三信念/身份**這類底線該跨層一致。覆盤發現 **Hermes SOUL 缺 倫理紅線/三信念/反迴聲室協議**（3 個核心不變量）→ LINE/TG 用戶的坤哥未必帶同一道德底線。
+
+### 10.5 衍生：v7_soul_drift 指標應重定義
+
+現 `v7_soul_drift = abs(整檔行數差)` 對「兩個設計上不同的 persona」是**量錯東西**（永遠顯示 drift=37）。
+應改為 **核心不變量一致性**：計算「Missive SOUL 有、Hermes SOUL 缺」的核心段數（身份/三信念/倫理紅線/反迴聲），target 0。
+此版會誠實顯示「3 個核心不變量未跨層一致」的真實可行動缺口（取代無意義的 37）。**待 owner 確認 federation 方向後實作**（屬 v7 治理指標語意變更）。
+
+---
+
 **變更歷史**
 - v1.0（2026-04-25）：首版盤點，識別 5 大整合面向 + 6 項優化（O1-O6）
 - v1.1（2026-04-25）：加 §9 落地紀錄；O2 pivot 為 SOUL drift；O2.1 加 wiki_kg audit
+- v1.2（2026-06-12）：加 §10 兩層意識體架構釐清 + Hermes vs Missive agent 統一性策略（推薦 C 聯邦分層）+ v7_soul_drift 指標重定義提案
