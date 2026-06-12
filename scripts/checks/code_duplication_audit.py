@@ -85,9 +85,15 @@ def main(min_nodes: int = MIN_NODES, top: int = 20) -> int:
     #   同檔=多為合法 sibling（get_sent/get_received 等對稱方法）→ 降為 info。
     def _files(fs):
         return {f.split("::")[0] for f in fs}
-    cross_file = sorted([(s, fs) for s, fs in dup_clusters if len(_files(fs)) >= 2],
-                        key=lambda x: -len(x[1]))
+    def _names(fs):
+        return {f.split("::")[1] for f in fs}
+    cross = [(s, fs) for s, fs in dup_clusters if len(_files(fs)) >= 2]
     same_file = [(s, fs) for s, fs in dup_clusters if len(_files(fs)) == 1]
+    # 精煉（2026-06-12）：跨檔且「同函式名」= 真 copy-paste（_get_redis/_get_grouped_count）；
+    #   跨檔異名同形（get_active_synonyms↔get_events_*）= 純查詢巧合同 AST，非 copy-paste → 降 info。
+    true_dup = sorted([(s, fs) for s, fs in cross if len(_names(fs)) == 1],
+                      key=lambda x: -len(x[1]))
+    coincidental = [(s, fs) for s, fs in cross if len(_names(fs)) > 1]
     compete = sorted(
         [(p, purpose_funcs[p]) for p, mods in by_purpose.items() if len(mods) >= 2],
         key=lambda x: -len(x[1]))
@@ -95,17 +101,19 @@ def main(min_nodes: int = MIN_NODES, top: int = 20) -> int:
     print("=== Code Duplication & Competing-Standard Audit（全專案重複樣態）===")
     print(f"  掃描 backend/app | body>={min_nodes} 節點函式參與雜湊\n")
 
-    print(f"[★跨檔結構重複 真 copy-paste] {len(cross_file)} 群（跨 >=2 檔同 body 結構 → 該抽共用 SSOT）：")
-    for sig, fs in cross_file[:top]:
-        print(f"  ✗ x{len(fs)}: {fs[0]}  <-> {fs[1]}" + (f"  (+{len(fs)-2})" if len(fs) > 2 else ""))
+    print(f"[★★跨檔同名真 copy-paste] {len(true_dup)} 群（跨檔+同函式名 → 該抽共用 SSOT，優先）：")
+    for sig, fs in true_dup[:top]:
+        name = fs[0].split("::")[1]
+        files = sorted(_files(fs))
+        print(f"  ✗ {name} x{len(fs)}: {', '.join(f.split('/')[-1] for f in files[:3])}")
     print()
-    print(f"[同檔結構重複] {len(same_file)} 群（同檔 sibling，多為合法對稱方法，info）\n")
-    print(f"[競爭標準群（啟發式）] {len(compete)} 群（同用途名跨 >=2 模組）"
-          "— 名稱相似非必重複（如 parse_date 西元/文號/年份正規化），需人工判斷\n")
+    print(f"[跨檔異名同形] {len(coincidental)} 群（純查詢巧合同 AST，非 copy-paste，info）")
+    print(f"[同檔結構重複] {len(same_file)} 群（同檔 sibling 合法對稱方法，info）")
+    print(f"[競爭名群（啟發式）] {len(compete)} 群（同名異義如 parse_date，需人工）\n")
 
-    print(f"Summary: 跨檔真重複 {len(cross_file)}（優先收斂）| 同檔 sibling {len(same_file)}（info）"
-          f"| 競爭名群 {len(compete)}（啟發式需人工）")
-    print("（informational — 跨檔真重複優先抽共用 SSOT。對齊 L71/L31 圖譜治理）")
+    print(f"Summary: 跨檔同名真重複 {len(true_dup)}（優先收斂）| 跨檔異名巧合 {len(coincidental)}"
+          f" | 同檔 sibling {len(same_file)} | 競爭名群 {len(compete)}")
+    print("（informational — 只「跨檔同名真重複」優先抽共用 SSOT。對齊 L71/L31）")
     return 0
 
 
