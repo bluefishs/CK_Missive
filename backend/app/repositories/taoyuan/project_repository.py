@@ -63,22 +63,7 @@ class TaoyuanProjectRepository(BaseRepository[TaoyuanProject]):
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_ids(self, ids: List[int]) -> List[TaoyuanProject]:
-        """
-        批次取得多筆專案
-
-        Args:
-            ids: 專案 ID 列表
-
-        Returns:
-            專案列表
-        """
-        if not ids:
-            return []
-        result = await self.db.execute(
-            select(TaoyuanProject).where(TaoyuanProject.id.in_(ids))
-        )
-        return list(result.scalars().all())
+    # get_by_ids 已收斂至 BaseRepository.get_by_ids（57e SSOT，繼承即用）
 
     async def filter_projects(
         self,

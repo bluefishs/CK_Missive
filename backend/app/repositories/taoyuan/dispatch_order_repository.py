@@ -735,16 +735,7 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         )
         return list(result.scalars().all())
 
-    async def get_by_ids(self, ids: List[int]) -> List[TaoyuanDispatchOrder]:
-        """依 ID 列表批次取得派工單"""
-        if not ids:
-            return []
-        result = await self.db.execute(
-            select(TaoyuanDispatchOrder).where(
-                TaoyuanDispatchOrder.id.in_(ids)
-            )
-        )
-        return list(result.scalars().all())
+    # get_by_ids 已收斂至 BaseRepository.get_by_ids（57e SSOT，繼承即用）
 
     async def get_filtered_for_export(
         self,

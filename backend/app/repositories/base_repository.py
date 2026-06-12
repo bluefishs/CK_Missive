@@ -83,6 +83,15 @@ class BaseRepository(Generic[T]):
         return {(value if value else '(未設定)'): count
                 for value, count in result.fetchall()}
 
+    async def get_by_ids(self, ids: List[int]) -> List[T]:
+        """依 ID 列表批次取得（57e SSOT：收斂各 repo 重複的 get_by_ids）。空清單回 []。"""
+        if not ids:
+            return []
+        result = await self.db.execute(
+            select(self.model).where(self.model.id.in_(ids))
+        )
+        return list(result.scalars().all())
+
     # =========================================================================
     # 基礎查詢方法 (Read)
     # =========================================================================
