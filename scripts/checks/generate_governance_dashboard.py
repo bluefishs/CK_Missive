@@ -26,6 +26,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs" / "architecture" / "GOVERNANCE_INTEGRATED_DASHBOARD.md"
 
+# L52/L57 family: 此腳本由「in-container scheduler (cwd=/app)」與「host 手動」兩種情境執行。
+# 容器內後端套件在 /app/app、logs 在 /app/logs；host 在 backend/app、backend/logs。
+# 寫死 host 佈局會讓 §5(facade caller)/§9.6(cron events) 在 cron 情境 silent 落空，
+# 形成「治理儀表板自身的整合缺口」（正是 dashboard 設計初衷要消滅的問題）。
+
+
+def _first_dir(*cands: "Path") -> "Path":
+    for c in cands:
+        if c.exists():
+            return c
+    return cands[0]
+
+
+PKG_DIR = _first_dir(ROOT / "backend" / "app", ROOT / "app")   # 後端 python 套件根
+LOGS_DIR = _first_dir(ROOT / "backend" / "logs", ROOT / "logs")  # cron_events.jsonl 所在
+IS_GIT_REPO = (ROOT / ".git").exists()  # 容器內非 git repo → §3 commits 無法填
+
 
 def fetch_metrics() -> dict[str, float]:
     out: dict[str, float] = {}
@@ -174,7 +191,7 @@ def check_cross_repo_drift() -> list[tuple[str, int, int, str]]:
 
 def check_b_plan_progress() -> dict:
     """B 方案 60 天 trial 進度"""
-    facades_dir = ROOT / "backend" / "app" / "services" / "contracts" / "facades"
+    facades_dir = PKG_DIR / "services" / "contracts" / "facades"
     if not facades_dir.is_dir():
         return {}
     existing = [f.stem for f in facades_dir.glob("*.py") if f.name != "__init__.py"]
@@ -188,7 +205,7 @@ def check_b_plan_progress() -> dict:
             r = subprocess.run(
                 ["grep", "-rln",
                  f"from app.services.contracts.facades.*import.*{fcap}",
-                 "backend/app/", "--include=*.py"],
+                 str(PKG_DIR), "--include=*.py"],
                 cwd=str(ROOT), capture_output=True, text=True, timeout=10,
             )
             files = [f for f in r.stdout.splitlines()
@@ -252,15 +269,23 @@ def render() -> str:
     # ── 3 最近 8 commits ──
     a("## 3. 最近 8 commits (進化執行軌跡)")
     a("")
-    for c in commits:
-        a(f"- `{c}`")
+    if commits:
+        for c in commits:
+            a(f"- `{c}`")
+    elif not IS_GIT_REPO:
+        a("> ⚪ 容器內執行（非 git repo）無法取 commit 歷史；於 host 端手動 regenerate 可填。")
+    else:
+        a("> ⚠️ git log 取回為空。")
     a("")
 
     # ── 4 最近 session 覆盤 ──
     a("## 4. 最近 5 session 覆盤 (memory/)")
     a("")
-    for s in sessions:
-        a(f"- {s}")
+    if sessions:
+        for s in sessions:
+            a(f"- {s}")
+    else:
+        a("> ⚪ 容器內無 ~/.claude memory 存取；於 host 端手動 regenerate 可填。")
     a("")
 
     # ── 5 B 方案 60 天 trial 進度 ──
@@ -418,7 +443,7 @@ def render() -> str:
     a("")
     a("**事件 log**：`backend/logs/cron_events.jsonl` (跨 backend restart 持久化)")
     a("")
-    events_log = ROOT / "backend" / "logs" / "cron_events.jsonl"
+    events_log = LOGS_DIR / "cron_events.jsonl"
     if events_log.exists():
         import json as _json
         try:
@@ -486,4 +511,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # L49.8 family: host cp950 stdout 無法編碼 ✓/中文 → 結尾 print 崩潰（檔已寫成功卻 rc!=0）
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    except Exception:
+        pass
     sys.exit(main())

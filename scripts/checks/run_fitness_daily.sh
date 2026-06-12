@@ -99,17 +99,22 @@ else
     echo ""
 fi
 
-# Step 6/6: agent_query starvation (step 58, L51.7)
+# Step 6/9: agent_query starvation (step 58, L51.7)
 run_step "6" "agent_query starvation check" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/agent_query_starvation_check.py"
 
-# Step 7/8: cron silent dormant (v6.12 #2 補完, 2026-05-30)
+# Step 7/9: cron silent dormant (v6.12 #2 補完, 2026-05-30)
 run_step "7" "cron silent dormant check" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/cron_silent_dormant_check.py"
 
-# Step 8/8: dashboard freshness (v6.12 整合 SSOT 配套, 2026-05-30)
+# Step 8/9: dashboard freshness (v6.12 整合 SSOT 配套, 2026-05-30)
 run_step "8" "dashboard freshness check" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/dashboard_freshness_check.py"
+
+# Step 9/9: dashboard completeness (2026-06-12 覆盤 — 防區段 silent 落空 / L52·L57·L62)
+# 抓「生成器在 in-container 情境寫死 host 佈局 → §5 facade `?` / §9.6 誤報不存在」回退
+run_step "9" "dashboard completeness audit" \
+    "PYTHONIOENCODING=utf-8 python scripts/checks/governance_dashboard_completeness_audit.py"
 
 # ============================================================
 # Summary
