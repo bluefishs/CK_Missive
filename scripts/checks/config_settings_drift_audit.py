@@ -20,6 +20,13 @@ Usage:
 """
 from __future__ import annotations
 
+# cp950 host 韌性（L49.8 同族）：印 CJK 到 Windows 終端會 UnicodeEncodeError
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 import argparse
 import ast
 import sys

@@ -12,6 +12,13 @@ Usage（容器內）：
 """
 from __future__ import annotations
 
+# cp950 host robustness (L49.8): printing CJK to Windows terminal raises UnicodeEncodeError
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 import argparse
 import os
 import sys

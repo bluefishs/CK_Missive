@@ -22,6 +22,12 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+# cp950 host 韌性（L49.8 同族）：直接印 CJK/✗/~ 到 Windows 終端會 UnicodeEncodeError
+try:  # pragma: no cover
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 MIN_NODES = 25          # body AST 節點數門檻（濾掉 trivial getter/wrapper）
 PRODUCER_VERBS = ("build", "format", "make", "generate", "create", "sync",
                   "parse", "extract", "render", "to", "compute", "calc")
@@ -82,14 +88,14 @@ def main(min_nodes: int = MIN_NODES, top: int = 20) -> int:
         key=lambda x: -len(x[1]))
 
     print("=== Code Duplication & Competing-Standard Audit（全專案重複樣態）===")
-    print(f"  掃描 backend/app | body≥{min_nodes} 節點函式參與雜湊\n")
+    print(f"  掃描 backend/app | body>={min_nodes} 節點函式參與雜湊\n")
 
-    print(f"[結構重複 copy-paste 群] {len(dup_clusters)} 群（同 body 結構 ≥2 實作）：")
+    print(f"[結構重複 copy-paste 群] {len(dup_clusters)} 群（同 body 結構 >=2 實作）：")
     for sig, fs in dup_clusters[:top]:
         print(f"  ✗ x{len(fs)}: {fs[0]}  ⟷  {fs[1]}" + (f"  (+{len(fs)-2})" if len(fs) > 2 else ""))
     print()
 
-    print(f"[競爭標準群] {len(compete)} 群（同用途語義跨 ≥2 模組）：")
+    print(f"[競爭標準群] {len(compete)} 群（同用途語義跨 >=2 模組）：")
     for p, fs in compete[:top]:
         mods = sorted({f.split('::')[0].rsplit('/', 1)[0] for f in fs})
         print(f"  ~ {p:20} x{len(fs)} 實作 / {len(mods)} 模組: {', '.join(mods[:4])}")

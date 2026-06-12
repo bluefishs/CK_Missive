@@ -14,6 +14,13 @@ Usage:
 """
 from __future__ import annotations
 
+# cp950 host robustness (L49.8): printing CJK to Windows terminal raises UnicodeEncodeError
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 import argparse
 import os
 import sys
@@ -79,7 +86,7 @@ def main(strict: bool = False) -> int:
             print(f"    - {s}")
 
     status = "GREEN" if pct <= NONCONFORM_THRESHOLD_PCT else "RED"
-    print(f"\nStatus: {status}（門檻 ≤{NONCONFORM_THRESHOLD_PCT}%）")
+    print(f"\nStatus: {status}（門檻 <={NONCONFORM_THRESHOLD_PCT}%）")
     cur.close()
     conn.close()
 
