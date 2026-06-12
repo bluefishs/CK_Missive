@@ -57,19 +57,10 @@ class ConversationSummarizer:
         self._redis = None
 
     async def _get_redis(self):
-        if self._redis is not None:
-            try:
-                await self._redis.ping()
-                return self._redis
-            except Exception:
-                self._redis = None
-        try:
-            from app.core.redis_client import get_redis
-
-            self._redis = await get_redis()
-            return self._redis
-        except Exception:
-            return None
+        """取得 Redis 連線（57e：委派 get_cached_redis SSOT）"""
+        from app.core.redis_client import get_cached_redis
+        self._redis = await get_cached_redis(self._redis)
+        return self._redis
 
     def should_summarize(self, history: List[Dict[str, str]]) -> bool:
         """判斷是否需要觸發摘要"""

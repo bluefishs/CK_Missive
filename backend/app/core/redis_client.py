@@ -60,6 +60,24 @@ async def get_redis() -> Optional[aioredis.Redis]:
     return _redis_client
 
 
+async def get_cached_redis(cached):
+    """取得 Redis 連線（57e SSOT）：實例若有先 ping 驗活，暫斷則重抓，避免永久降級。
+
+    收斂 ai/agent/* 與 ai/core/* 各自重複的 `_get_redis`（ping+retry+fallback 同碼）。
+    用法：`self._redis = await get_cached_redis(self._redis); return self._redis`。
+    """
+    if cached is not None:
+        try:
+            await cached.ping()
+            return cached
+        except Exception:
+            pass
+    try:
+        return await get_redis()
+    except Exception:
+        return None
+
+
 async def check_redis_health() -> dict:
     """
     檢查 Redis 健康狀態
