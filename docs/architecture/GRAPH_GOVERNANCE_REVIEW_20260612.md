@@ -92,9 +92,20 @@ KG audit **未孤兒、未 silent fail**：step 19/20/21（repository_coverage /
 ## 6. 整體結論
 
 - ✅ **健康**：tender 圖譜（100% emb/mention/92.9% 跨域連結）、repository 比例達標、KG audit 已整合進 weekly fitness。
-- 🔴 **真問題（去除假象後）**：①graph_domain 誤標 2,614（標準化）②wiki↔KG 連結回歸 38.3% ③邊極稀疏 ④code 圖譜用錯 ROI 指標。
 - 🟢 **假警報澄清**：knowledge embedding 真實 94.1%（非 70%）；code mention=0 是「指標用錯」非「圖譜死」。
-- **本輪已修**：2 圖譜 audit cp950 host 韌性。
-- **待 owner 拍板**：建議 A 的 2,614 筆 domain migration（破壞性 DB 變更，需備份＋確認）。
+
+### 本輪已執行（owner 確認後落地，2026-06-12）
+| 動作 | 結果 |
+|---|---|
+| 2 圖譜 audit cp950 host 韌性 | ✅ 補 guard |
+| **建議 A — graph_domain migration** | ✅ **UPDATE 2,614 筆**（knowledge→code；備份 `backend/backups/graph_domain_migration_20260612/`：affected_ids + 58MB 全表 dump）。0 重疊不產生重複；audit **gap=0 GREEN**。AFTER：code 9091→11,705 / knowledge 9727→**7,113**（embedding 指標歸正 **94.1%**）|
+| **建議 B — wiki↔KG backfill** | ✅ 補 127 dispatch → wiki/entities 連結 85→**212/222 = 95.5%**（38.3% RED → **GREEN**）|
+| 新 `graph_domain_tagging_audit` | ✅ 掛 weekly step 22 防回退 |
+
+### 殘留真問題（待後續）
+- 🟡 **邊極稀疏** 0.08 edge/node（跨域邊待補；tender_record↔wiki narrative「未實作」）
+- 🟡 **repository 指標歧義**（比例 1:1.45 ✅ vs name-coverage 65% 🔴 — 待定 SSOT）
+- 🟡 **code domain embedding 78.5%**（migration 移入未嵌入實體致降；依建議 C，code 不以 embedding 為 ROI，非問題，但須在指標說明標註避免誤判）
+- 🟡 **ingest 源頭**：建議 A migration 修存量，但 code-graph/knowledge ingest 源頭仍須統一 domain 標記防新增誤標（graph_domain_tagging_audit 已可週週把關）
 
 > 核心精神（呼應 L31/L71）：**圖譜是結構地圖，不同 domain 該用不同 ROI 指標**（knowledge/tender 用 RAG 連結率、code 用 fitness 消費覆蓋率）；用單一指標套全圖譜會製造假象（如 knowledge「70%」、code「mention 0」）。
