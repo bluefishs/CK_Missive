@@ -703,13 +703,27 @@ class AuthService {
     const userInfo = this.getUserInfo();
     if (!userInfo) return false;
 
+    // SSO bridge 後 window.location.replace('/dashboard') 整頁重載，首個 /auth/check
+    //   （POST，過 CSRFMiddleware 需 X-CSRF-Token）會撞 cookie-commit / csrf interceptor
+    //   初始化 race → 偶發 401 → 原本立即 clearAuth → 閃訪客跳回 /entry → 再 ssoBridge
+    //   迴圈（owner 2026-06-15 報「停在 entry/閃訪客後跳回」）。
+    // 修法：startup 驗證失敗時重試一次（短延遲讓 cookie/csrf 就緒）；僅當重試仍失敗
+    //   才視為真失效並 clearAuth。真未登入者兩次皆 401，不削弱安全。
     try {
       await this.checkAuthStatus();
       return true;
     } catch {
-      logger.warn('[Auth] 啟動驗證失敗，清除本地認證資料');
-      this.clearAuth();
-      return false;
+      logger.warn('[Auth] 啟動驗證首次失敗，重試一次（防 SSO 重載 cookie/csrf race）');
+      await new Promise((r) => setTimeout(r, 600));
+      try {
+        await this.checkAuthStatus();
+        logger.info('[Auth] 啟動驗證重試成功（瞬態 race 已恢復）');
+        return true;
+      } catch {
+        logger.warn('[Auth] 啟動驗證重試仍失敗，清除本地認證資料');
+        this.clearAuth();
+        return false;
+      }
     }
   }
 
