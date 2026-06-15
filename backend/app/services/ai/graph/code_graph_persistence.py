@@ -91,6 +91,7 @@ class CodeGraphPersistenceMixin:
             unique.append({
                 "canonical_name": ent.canonical_name,
                 "entity_type": ent.entity_type,
+                "graph_domain": "code",  # 治本：原漏設 → 走 server_default='knowledge' 致誤標（GRAPH_GOVERNANCE_REVIEW §5-A 根因）
                 "description": json.dumps(ent.description, ensure_ascii=False),
                 "alias_count": 0,
                 "mention_count": 0,
@@ -103,6 +104,7 @@ class CodeGraphPersistenceMixin:
             stmt = stmt.on_conflict_do_update(
                 constraint="uq_canonical_name_type",
                 set_={
+                    "graph_domain": "code",  # 自癒：每次 ingest 強制 code domain，存量誤標也一併修正、永不再漂移
                     "description": stmt.excluded.description,
                     "last_seen_at": func.now(),
                 },

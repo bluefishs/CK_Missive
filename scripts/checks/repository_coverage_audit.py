@@ -149,7 +149,9 @@ def main() -> int:
     repo_to_tables = list_repo_to_tables()  # v6.12 A 升級
     print(f"db_table count (from models __tablename__): {len(tables)}")
     print(f"repository count (from *_repository.py):    {len(repos)}")
-    print(f"目標覆蓋率: 1:1.5 內 (即 repo ≥ table * 0.67)")
+    # 指標歧義收斂 (GRAPH_GOVERNANCE_REVIEW §4)：兩個不同指標，verdict 以 SSOT=覆蓋率 為準。
+    print("【SSOT 判準=覆蓋率(name-coverage)】每張 table 是否有對應 repository (verdict 依此)")
+    print("【參考指標=比例(ratio)】repository:db_table 數量比，目標 1:1.5 內 (寬鬆，僅參考)")
     print()
 
     covered = []

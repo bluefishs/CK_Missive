@@ -42,6 +42,21 @@ def _now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+# frontmatter preserve 正則（重編譯時保留溯源 created 與 backfill 寫入的 kg_entity_id）
+# L66+ 同族修法（2026-06-15）：entity 頁面由 ingest_entity 每次重建 frontmatter，
+#   原無條件 created=now 且 kg_entity_id=None 即省略該行 → 每週 wiki_compile 沖刷掉
+#   backfill 補的 kg_entity_id（wiki↔KG 212→86 反覆回歸）+ 重設首見日期。
+#   仿 compiler._write_page，更新既有頁面時保留兩欄。
+_FM_CREATED_RE = re.compile(r'^created:\s*(.+)$', re.MULTILINE)
+_FM_KG_ID_RE = re.compile(r'^kg_entity_id:\s*(\d+)\s*$', re.MULTILINE)
+
+
+def _extract_frontmatter_field(head: str, regex: "re.Pattern[str]") -> Optional[str]:
+    """從既有頁面前 600 字（frontmatter 區）擷取欄位值，無則 None。"""
+    m = regex.search(head)
+    return m.group(1).strip() if m else None
+
+
 class WikiService:
     """LLM Wiki 管理服務"""
 
@@ -70,6 +85,21 @@ class WikiService:
         page_path = self.root / "entities" / f"{slug}.md"
         is_update = page_path.exists()
 
+        # preserve：更新既有頁面時保留溯源 created 與既有 kg_entity_id（見 _FM_*_RE 註解）
+        created_val = _now_str()
+        if is_update:
+            try:
+                old_head = page_path.read_text(encoding="utf-8")[:600]
+                old_created = _extract_frontmatter_field(old_head, _FM_CREATED_RE)
+                if old_created:
+                    created_val = old_created  # 保留首見日期
+                if kg_entity_id is None:
+                    old_kg = _extract_frontmatter_field(old_head, _FM_KG_ID_RE)
+                    if old_kg:
+                        kg_entity_id = int(old_kg)  # 不以 None 沖掉 backfill 既有連結
+            except Exception:
+                pass  # preserve 失敗不阻斷寫入（退回新 created / 無 kg_id）
+
         # 建構 wiki links
         links = ""
         if related_entities:
@@ -83,7 +113,7 @@ class WikiService:
 title: {name}{kg_line}
 type: entity
 entity_type: {entity_type}
-created: {_now_str()}
+created: {created_val}
 updated: {_now_str()}
 sources: {sources}
 tags: {tags}

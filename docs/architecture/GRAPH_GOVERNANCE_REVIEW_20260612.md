@@ -102,10 +102,11 @@ KG audit **未孤兒、未 silent fail**：step 19/20/21（repository_coverage /
 | **建議 B — wiki↔KG backfill** | ✅ 補 127 dispatch → wiki/entities 連結 85→**212/222 = 95.5%**（38.3% RED → **GREEN**）|
 | 新 `graph_domain_tagging_audit` | ✅ 掛 weekly step 22 防回退 |
 
-### 殘留真問題（待後續）
-- 🟡 **邊極稀疏** 0.08 edge/node（跨域邊待補；tender_record↔wiki narrative「未實作」）
-- 🟡 **repository 指標歧義**（比例 1:1.45 ✅ vs name-coverage 65% 🔴 — 待定 SSOT）
-- 🟡 **code domain embedding 78.5%**（migration 移入未嵌入實體致降；依建議 C，code 不以 embedding 為 ROI，非問題，但須在指標說明標註避免誤判）
-- 🟡 **ingest 源頭**：建議 A migration 修存量，但 code-graph/knowledge ingest 源頭仍須統一 domain 標記防新增誤標（graph_domain_tagging_audit 已可週週把關）
+### 殘留處理（2026-06-12 續辦）
+- ✅ **item 3 ingest 源頭治本（最重要）**：根因＝`code_graph_persistence._upsert_entities` 漏設 graph_domain → 走 model `server_default='knowledge'`；on_conflict 也沒更新。修：insert 帶 `graph_domain='code'` + **on_conflict set='code' 自癒**（每次 ingest 強制正確、存量誤標一併修、永不再漂移）。**驗證**：migration 後 30 分鐘 audit 又揪 13 新誤標＝洩漏 active 坐實；源頭修法部署後下次 code_graph cron 自動 heal 全部，無需再手動 migration。
+- ✅ **item 2 指標歧義收斂**：`repository_coverage_audit` header 澄清 **SSOT=覆蓋率(name-coverage 58% 🔴)**、比例(1:1.4)僅參考。verdict 本就依覆蓋率，只是 header 誤導已修。
+- ✅ **item 4 embedding 指標 domain-aware**：`kg_embedding_coverage_check` 對 code 構件類型標「⚙️ code(非 RAG 目標)」不誤標 RAG-blind（建議 C：code ROI=fitness 消費覆蓋率非 RAG）。整體覆蓋 89%。
+- 🟡 **item 1 邊密度（澄清後縮小）**：邊有 2 表——`entity_relations` 2,158(knowledge 0.30/node) + `entity_relationships` 1,075(code call/import 0.09/node)＝總 **3,233**。code 圖譜邊稀疏屬實，但依建議 C 非其 KPI。**待後續較大任務**：①改善 code AST 關係抽取密度 ②建 tender_record↔wiki narrative 跨域邊（cross_domain audit #2「未實作」）。非本輪快修。
+- 🟡 **code domain embedding 78.5%**：migration 副作用（移入未嵌入 code 實體），依建議 C 非問題，item 4 已在 audit 標註避免誤判。
 
 > 核心精神（呼應 L31/L71）：**圖譜是結構地圖，不同 domain 該用不同 ROI 指標**（knowledge/tender 用 RAG 連結率、code 用 fitness 消費覆蓋率）；用單一指標套全圖譜會製造假象（如 knowledge「70%」、code「mention 0」）。

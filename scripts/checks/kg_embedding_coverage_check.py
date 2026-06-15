@@ -70,12 +70,19 @@ async def main(threshold: int, ci: bool) -> int:
         print(f"{status} 整體覆蓋率: {grand_with:,}/{grand_total:,} ({grand_rate}%)")
         print(f"   閾值: {threshold}%（pgvector 768D RAG 需求）\n")
 
+        # code 構件（graph_domain='code'）非語意 RAG 目標 → 低 embedding 屬正常，不標 RAG-blind
+        # （GRAPH_GOVERNANCE_REVIEW §5-C：code 圖譜 ROI = fitness 消費覆蓋率，非 RAG 連結率）
+        CODE_TYPES = {"py_function", "py_module", "py_class", "ts_interface", "ts_module",
+                      "ts_hook", "ts_component", "ts_function", "ts_type",
+                      "api_endpoint", "db_table", "repository"}
         print(f"{'entity_type':28} {'with_emb':>10} {'total':>10} {'rate':>8}")
         print("-" * 65)
         for r in rows:
             rate = r["with_emb"] * 100 // max(r["total"], 1)
             flag = ""
-            if r["total"] >= 100 and rate < 20:
+            if r["entity_type"] in CODE_TYPES:
+                flag = " ⚙️ code (非 RAG 目標)"
+            elif r["total"] >= 100 and rate < 20:
                 flag = " 🔴 RAG-blind"
             elif r["total"] >= 50 and rate < 50:
                 flag = " 🟡 partial"
