@@ -13,7 +13,7 @@ import { ROUTES } from './types';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PageLoading } from '../components/common';
 import Layout from '../components/Layout';
-import authService from '../services/authService';
+import { useSessionStore } from '../store/sessionStore';
 
 // --- 整合說明 ---
 // ContractCasePage 是功能和 UI 完整的主體。
@@ -144,13 +144,15 @@ const TenderCompanyProfilePage = lazy(() => import('../pages/TenderCompanyProfil
 
 // 主路由器組件
 export const AppRouter: React.FC = () => {
+  // SSO 治本：根路徑導向依 sessionStore 權威狀態（SessionGate 已確保 resolve 完才渲染）
+  const isAuthenticated = useSessionStore((s) => s.status === 'authenticated');
   return (
     <Layout>
       <Suspense fallback={<PageLoading message="載入頁面中..." />}>
         <Routes>
           {/* 首頁：已登入 → 儀表板；未登入 → 星空入口 */}
           <Route path={ROUTES.HOME} element={
-            <Navigate to={authService.isAuthenticated() ? ROUTES.DASHBOARD : ROUTES.ENTRY} replace />
+            <Navigate to={isAuthenticated ? ROUTES.DASHBOARD : ROUTES.ENTRY} replace />
           } />
 
           {/* 公開入口 + 登入 */}

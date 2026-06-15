@@ -9,19 +9,23 @@
  * - v1.3.0: 新增 superuser 角色擁有所有角色權限的邏輯
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../../services/authService';
 import { ROUTES } from '../../router/types';
 import { isAuthDisabled, isInternalNetwork } from '../../config/env';
 import { logger } from '../../utils/logger';
+import { useSessionStore } from '../../store/sessionStore';
 
-/** 模組層級旗標：啟動驗證只執行一次 */
-let _startupValidated = false;
-
-/** 重置啟動驗證旗標（登出時呼叫） */
+/**
+ * 重置啟動驗證旗標（登出時呼叫）。
+ *
+ * 2026-06-15 SSO 治本後，啟動驗證已集中到 sessionStore.bootstrap（單一權威解析），
+ * 不再由各 useAuthGuard 實例各自跑 → 本函式保留為相容 API（authService.clearAuth /
+ * 既有測試引用），現為 no-op。
+ */
 export function resetStartupValidation() {
-  _startupValidated = false;
+  /* no-op：啟動驗證已移至 sessionStore.bootstrap */
 }
 
 /** 權限類型 */
@@ -116,6 +120,10 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
   // 檢查是否繞過認證
   const authBypassed = shouldBypassAuth();
 
+  // 2026-06-15 SSO 治本：is-authenticated 真相一律取自 sessionStore（單一權威解析），
+  // 不再由本 hook 各實例自行呼叫 authService.isAuthenticated()（多來源 → race 根因）。
+  const sessionStatus = useSessionStore((s) => s.status);
+
   // 取得認證狀態
   const authState = useMemo<AuthState>(() => {
     if (authBypassed) {
@@ -131,10 +139,11 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
       };
     }
 
-    // 正常模式：檢查實際認證狀態
+    // 正常模式：is-authenticated 取自 sessionStore（已解析的權威狀態）；
+    // user 細節（role/permissions）仍由 authService.getUserInfo() 提供（與 store 同源 localStorage）。
     const userInfo = authService.getUserInfo();
-    const isAuthenticated = authService.isAuthenticated();
-    const isAdmin = authService.isAdmin();
+    const isAuthenticated = sessionStatus === 'authenticated';
+    const isAdmin = isAuthenticated && authService.isAdmin();
 
     return {
       isAuthenticated,
@@ -144,7 +153,7 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
       role: userInfo?.role ?? null,
       permissions: (userInfo?.permissions as Permission[]) ?? [],
     };
-  }, [authBypassed]);
+  }, [authBypassed, sessionStatus]);
 
   // 檢查角色
   const hasRole = useMemo(() => {
@@ -180,23 +189,8 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
     return true;
   }, [authBypassed, requireAuth, authState, hasRole, hasAllPermissions]);
 
-  // 啟動時向後端驗證 token 有效性（全局僅一次）
-  const validatingRef = useRef(false);
-  useEffect(() => {
-    if (authBypassed || _startupValidated || validatingRef.current) return;
-    if (!authState.isAuthenticated) return;
-
-    validatingRef.current = true;
-    _startupValidated = true;
-
-    authService.validateTokenOnStartup().then((valid) => {
-      if (!valid) {
-        logger.warn('[AuthGuard] 啟動驗證失敗，跳轉至登入頁');
-        navigate(ROUTES.LOGIN, { replace: true });
-      }
-      validatingRef.current = false;
-    });
-  }, [authBypassed, authState.isAuthenticated, navigate]);
+  // 啟動驗證已集中至 sessionStore.bootstrap（SessionGate 在根部 resolve 完才渲染路由）。
+  // 此處不再各實例重複呼叫 validateTokenOnStartup → 消滅「瞬態未認證 → 跳轉」race。
 
   // 執行守衛邏輯
   useEffect(() => {

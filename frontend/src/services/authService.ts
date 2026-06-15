@@ -357,6 +357,10 @@ class AuthService {
       try {
         sessionStorage.setItem('ck_sso_explicitly_logged_out', '1');
       } catch { /* ignore */ }
+      // 2026-06-15 SSO 治本：通知 sessionStore 降為匿名（與 'user-logged-in' 對稱）
+      try {
+        window.dispatchEvent(new CustomEvent('user-logged-out'));
+      } catch { /* ignore */ }
     }
   }
 

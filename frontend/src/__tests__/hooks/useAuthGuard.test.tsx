@@ -72,6 +72,9 @@ import {
 import type { Permission } from '../../hooks/utility/useAuthGuard';
 import authService from '../../services/authService';
 import { isAuthDisabled, isInternalNetwork } from '../../config/env';
+// 2026-06-15 SSO 治本：is-authenticated 真相改由 sessionStore（SSOT）提供，
+// 測試以 setState 建立權威登入態（取代直接依賴 authService.isAuthenticated mock）。
+import { useSessionStore } from '../../store/sessionStore';
 
 // ============================================================================
 // useAuthGuard Hook 測試
@@ -97,6 +100,9 @@ describe('useAuthGuard', () => {
     } as ReturnType<typeof authService.getUserInfo>);
     vi.mocked(authService.isAuthenticated).mockReturnValue(true);
     vi.mocked(authService.isAdmin).mockReturnValue(false);
+
+    // 預設：sessionStore 已解析為已認證（SSOT）
+    useSessionStore.setState({ status: 'authenticated' });
   });
 
   afterEach(() => {
@@ -119,6 +125,7 @@ describe('useAuthGuard', () => {
   it('應該偵測未認證狀態', () => {
     vi.mocked(authService.getUserInfo).mockReturnValue(null);
     vi.mocked(authService.isAuthenticated).mockReturnValue(false);
+    useSessionStore.setState({ status: 'anonymous' });
 
     const { result } = renderHook(() => useAuthGuard());
 
@@ -174,6 +181,7 @@ describe('useAuthGuard', () => {
   it('requireAuth=true 且未認證時應該不允許存取', () => {
     vi.mocked(authService.getUserInfo).mockReturnValue(null);
     vi.mocked(authService.isAuthenticated).mockReturnValue(false);
+    useSessionStore.setState({ status: 'anonymous' });
 
     const { result } = renderHook(() =>
       useAuthGuard({ requireAuth: true })
@@ -185,6 +193,7 @@ describe('useAuthGuard', () => {
   it('requireAuth=true 且未認證時應該導向登入頁', () => {
     vi.mocked(authService.getUserInfo).mockReturnValue(null);
     vi.mocked(authService.isAuthenticated).mockReturnValue(false);
+    useSessionStore.setState({ status: 'anonymous' });
 
     renderHook(() => useAuthGuard({ requireAuth: true }));
 
@@ -356,6 +365,9 @@ describe('usePermission', () => {
     } as ReturnType<typeof authService.getUserInfo>);
     vi.mocked(authService.isAuthenticated).mockReturnValue(true);
     vi.mocked(authService.isAdmin).mockReturnValue(false);
+
+    // 預設：sessionStore 已解析為已認證（SSOT）
+    useSessionStore.setState({ status: 'authenticated' });
   });
 
   afterEach(() => {

@@ -27,6 +27,7 @@ import { useLineLogin } from '../hooks';
 import { logger } from '../utils/logger';
 import StarrySky from './entry/StarrySky';
 import LoginPanel from './entry/LoginPanel';
+import { useSessionStore } from '../store/sessionStore';
 import './EntryPage.css';
 
 // ── 環境偵測（常數） ──
@@ -208,13 +209,14 @@ const EntryPage: React.FC = () => {
       if (!mounted) return;
       if (ssoResult) {
         logger.info('[SSO-BRIDGE] auto-login succeeded via www.cksurvey.tw cookie');
+        // 2026-06-15 SSO 治本：淘汰 v3.0.1 的 window.location.replace 整頁重載
+        //   —— 整頁重載讓所有 auth-state reader 同時從零重新初始化，把 cookie/csrf/localStorage
+        //   不一致的窗口開到最大（owner 報「停在 entry/閃訪客跳回」根因）。
+        // 改為：顯式把 sessionStore 標記為已認證（ssoBridge 已 saveAuthData，cookie 同步已設）
+        //   → SPA navigate。守衛只讀 store 權威狀態、不再各自重新驗證 → 無 race、無重載。
+        useSessionStore.getState().markAuthenticated(ssoResult.user_info);
         window.dispatchEvent(new CustomEvent('user-logged-in'));
-        // 🔒 v3.0.1 (2026-05-27) 安全修法：
-        // 避免使用 React Router 的 SPA navigate()，因為 cookie 寫入是異步的，
-        // 且 SPA 導向不會觸發頁面刷新，容易造成 Zustand store 異步 rehydrate 的 race condition，
-        // 從而觸發 useAuthGuard 啟動驗證失敗（/auth/check 返回 401）而被踢回登入頁。
-        // 改用 window.location.replace() 強制頁面重載，保證 cookie 同步註冊。
-        window.location.replace('/dashboard');
+        navigate(ROUTES.DASHBOARD, { replace: true });
         return;
       }
 

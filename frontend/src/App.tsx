@@ -5,6 +5,7 @@ import { QueryProvider } from './providers';
 import { ErrorBoundary } from './components/common';
 import { AppRouter } from './router';
 import GlobalApiErrorNotifier from './components/common/GlobalApiErrorNotifier';
+import SessionGate from './components/common/SessionGate';
 import zhTW from 'antd/locale/zh_TW';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-tw';
@@ -57,7 +58,9 @@ function App() {
                 v7_relativeSplatPath: true,
               }}
             >
-              <AppRouter />
+              <SessionGate>
+                <AppRouter />
+              </SessionGate>
             </BrowserRouter>
           </AntdApp>
         </ConfigProvider>
