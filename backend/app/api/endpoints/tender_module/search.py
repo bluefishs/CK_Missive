@@ -440,13 +440,19 @@ async def recommend_tenders(
     #   2026-06-16 口徑（owner 定案）：「今日最新」＝今日**完整標案機會**（含報價單/企劃書，排決標，
     #     去重 job_number）。與 dashboard「今日標案」同源同口徑 → 共用 fetch_complete_tenders（SSOT，
     #     杜絕兩頁數字漂移）。完整去重 ≈891。
-    from app.services.tender.business_recommendation import fetch_complete_tenders
-    today_records = await fetch_complete_tenders(db, days_back=0, limit=1000)
+    from app.services.tender.business_recommendation import (
+        fetch_complete_tenders, count_complete_tenders,
+    )
+    # today_count＝真實去重「筆數」(不受清單上限截斷)，與 dashboard「今日標案」同源；
+    #   today_records 清單上限 2000 供表格瀏覽（卡片數字用 today_count，解 1000 截斷 ≠ 1237）。
+    today_count = await count_complete_tenders(db, days_back=0)
+    today_records = await fetch_complete_tenders(db, days_back=0, limit=2000)
 
     return SuccessResponse(data={
         "keywords": keywords,
         "total": len(business_records),
-        "today_records": today_records,   # 今日最新（活動量）
+        "today_count": today_count,       # 今日最新（活動量，真 count = dashboard 今日標案）
+        "today_records": today_records,   # 今日最新清單
         "records": business_records,      # 業務推薦（Option B 相關性）
     })
 

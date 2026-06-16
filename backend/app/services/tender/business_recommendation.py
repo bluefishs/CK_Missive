@@ -97,6 +97,22 @@ def _load_tender_synonym_groups() -> tuple:
         return tuple()
 
 
+@lru_cache(maxsize=1)
+def _load_tender_exclusions() -> tuple:
+    """讀 synonyms.yaml 的 tender_keyword_exclusions（負面關鍵字；改 yaml 後需重啟）。
+
+    L75.3：命中工項關鍵字但非公司職能的案件（儀器/試劑/醫療採購等）→ 排除。
+    """
+    try:
+        with open(_SYNONYMS_PATH, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        terms = data.get("tender_keyword_exclusions", []) or []
+        return tuple(str(t).strip() for t in terms if str(t).strip())
+    except Exception as e:
+        logger.warning(f"load tender exclusions failed (non-fatal): {e}")
+        return tuple()
+
+
 def _expand_keyword_terms(keywords: List[str]) -> List[str]:
     """訂閱關鍵字 → 含同義詞的搜尋詞列表（去重、保留原詞、大小寫不敏感比對）。
 
@@ -291,10 +307,11 @@ async def find_business_recommendations(
             rt.budget, rt.announce_date, rt.source,
             -- 業務相關性信號（關鍵字＝工項；機關＝精準局/所級）
             (
+                -- L75.2: 關鍵字＝工項，只比對 title（工項在標題；比對 unit_name 會讓
+                --   「國土測繪中心」等機關的非測量案〔如資安 MDR〕誤命中「測繪」）
                 SELECT array_agg(sk.keyword)
                 FROM sub_keywords sk
                 WHERE rt.title ILIKE '%' || sk.keyword || '%'
-                   OR rt.unit_name ILIKE '%' || sk.keyword || '%'
             ) AS matched_keywords,
             (rt.unit_name_norm IN (SELECT agency_name FROM cooperated_agencies)) AS is_cooperated,
             (rt.unit_name_norm IN (SELECT agency_name FROM contracted_agencies)) AS is_contracted,
@@ -308,10 +325,18 @@ async def find_business_recommendations(
             -- L75 Option B「關鍵字優先＋機關窄通道」：
             --   關鍵字命中（工項）→ 一律入選（強信號，任何 category）
             --   機關（精準局/所級）→ 僅「工程類」窄通道（NOT IN 財物/勞務；NULL 視為工程）
-            EXISTS (
-                SELECT 1 FROM sub_keywords sk
-                WHERE rt.title ILIKE '%' || sk.keyword || '%'
-                   OR rt.unit_name ILIKE '%' || sk.keyword || '%'
+            (
+                EXISTS (
+                    SELECT 1 FROM sub_keywords sk
+                    WHERE rt.title ILIKE '%' || sk.keyword || '%'   -- L75.2: 只比對 title（工項）
+                )
+                -- L75.3: 排除非職能誤判 — ①財物類（儀器/醫療/試劑採購，命中「測量」但非測量服務）
+                AND COALESCE(NULLIF(TRIM(rt.category), ''), '工程') NOT IN ('財物', '財物類')
+                -- ②負面關鍵字清單（synonyms.yaml tender_keyword_exclusions，owner 可增列）
+                AND NOT EXISTS (
+                    SELECT 1 FROM unnest(CAST(:exclude_terms AS text[])) ex
+                    WHERE rt.title ILIKE '%' || ex || '%'
+                )
             )
             OR (
                 (rt.unit_name_norm IN (SELECT agency_name FROM cooperated_agencies)
@@ -327,8 +352,7 @@ async def find_business_recommendations(
             (
                 (CASE WHEN EXISTS (
                     SELECT 1 FROM sub_keywords sk
-                    WHERE rt.title ILIKE '%' || sk.keyword || '%'
-                       OR rt.unit_name ILIKE '%' || sk.keyword || '%'
+                    WHERE rt.title ILIKE '%' || sk.keyword || '%'   -- L75.2: 只比對 title（工項）
                 ) THEN 10 ELSE 0 END) +
                 (CASE WHEN rt.unit_name_norm IN (SELECT agency_name FROM contracted_agencies) THEN 2 ELSE 0 END) +
                 (CASE WHEN rt.unit_name_norm IN (SELECT agency_name FROM cooperated_agencies) THEN 1 ELSE 0 END)
@@ -347,10 +371,12 @@ async def find_business_recommendations(
         logger.warning(f"load active subscription keywords failed (non-fatal): {e}")
         active_keywords = []
     search_terms = _expand_keyword_terms(active_keywords)
+    exclude_terms = list(_load_tender_exclusions())
 
     try:
         result = await db.execute(sql, {
             "terms": search_terms,
+            "exclude_terms": exclude_terms,
             "days_back": days_back,
             "budget_min": budget_min,
             "limit": limit,

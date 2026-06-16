@@ -110,6 +110,7 @@ export const isEzbidDetail = (d: TenderDetail | null | undefined): d is TenderDe
 export interface TenderRecommendResult {
   keywords: string[];
   total: number;
+  today_count?: number;          // 今日最新真 count（不受清單上限截斷；= dashboard 今日標案）
   today_records: TenderRecord[];
   records: TenderRecord[];
 }

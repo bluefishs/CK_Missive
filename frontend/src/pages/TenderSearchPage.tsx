@@ -179,7 +179,7 @@ const TenderSearchPage: React.FC = () => {
           {showRecommend && !params ? (
             <>
               <Col xs={12} sm={6} md={4}>
-                <ClickableStatCard title="今日最新" value={recommendResult?.today_records?.length ?? 0}
+                <ClickableStatCard title="今日最新" value={recommendResult?.today_count ?? recommendResult?.today_records?.length ?? 0}
                   icon={<CalendarOutlined />} color="#eb2f96"
                   active={recommendView === 'today'} onClick={() => { setRecommendView('today'); setActiveTab('search'); }} />
               </Col>
