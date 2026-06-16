@@ -9,9 +9,9 @@
 
 | # | 檢查 | 結果 |
 |---|---|---|
-| 1 | git 已 commit/push（無遺失風險） | ✅ `main` ahead origin **0**；4 commits 已 push：`dac85104`→`22f8a424`→`a66d410b`→`17373757` |
+| 1 | git 已 commit/push（無遺失風險） | ✅ `main` ahead origin **0**；今日 6 commits 已 push：`22f8a424`(wiki/graph_domain)→`a66d410b`(SSO retry)→`17373757`(SSO 治本)→`edc0f2b5`(docs)→`27d7ba8e`(wiki 歸檔)→`74340416`(桃園派工 tab+分母) |
 | 2 | 容器全 healthy | ✅ backend/frontend/postgres/redis/cloudflared + hermes×2/ollama 全 Up healthy |
-| 3 | backend image 為含修法版 | ✅ `ck-missive-backend:production` built 2026-06-15（含 graph_domain 自癒 + ingest_entity preserve） |
+| 3 | backend image 為含修法版 | ✅ `ck-missive-backend:production` built 2026-06-16（含 graph_domain 自癒 + ingest_entity preserve + morning-status 無期限派工納入） |
 | 4 | 前端 dist 為含 SSO 治本版（bind-mount） | ✅ `frontend/dist` 服務 bundle = 含 SessionGate/sessionStore（`./frontend/dist:ro`） |
 | 5 | **DB volume 正確（L43）** | ✅ postgres mount = `ck_missive_postgres_dev_data`（非空殼）；compose `postgres_data` → `name: ck_missive_postgres_dev_data` |
 | 6 | 業務量在位（重啟後 healthcheck 依此） | ✅ **1,852 docs / 26,935 KG entity** |
@@ -48,6 +48,12 @@ node scripts/checks/sso_entry_smoke.cjs   # exit 0 = PASS
 
 # 5) 圖譜治理 audit 不回退
 PYTHONIOENCODING=utf-8 python scripts/checks/graph_domain_tagging_audit.py   # 誤標 0 GREEN
+
+# 6) 桃園派工總覽分母一致（morning-status 納無期限派工）
+docker exec ck_missive_backend sh -c "curl -s 'localhost:8001/api/taoyuan-dispatch/dispatch/morning-status' \
+  -X POST -H 'Content-Type: application/json' -d '{\"contract_project_id\":21}' \
+  | python3 -c 'import sys,json;d=json.load(sys.stdin);print(\"total=\",d[\"total\"],\"sum=\",sum(d[\"summary\"].values()))'"
+  # 應 total == sum(summary)（project 21 = 30），分母與看板一致
 ```
 
 ### ⚠️ 重啟後唯一需 owner 親驗（不可代行）
