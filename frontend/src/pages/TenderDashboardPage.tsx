@@ -2,8 +2,8 @@
  * 招標採購儀表板
  *
  * 參照 acebidx.com 設計，提供多區塊分類統計：
- * - 統計卡片: 今日招標/決標、本週招標/決標、無法決標、公開徵求
- * - 列表: 本週招標/決標/得標廠商/無法決標
+ * - 統計卡片: 今日招標/決標、本週標案/決標、無法決標、公開徵求
+ * - 列表: 本週標案/決標/得標廠商/無法決標
  * - 圖表: 類別分布/類型分布
  *
  * @version 2.0.0
@@ -107,15 +107,15 @@ const TenderDashboardPage: React.FC = () => {
 
   // 列表資料映射 — 使用後端回傳的實際日期範圍
   const listDataMap: Record<string, { title: string; data: TenderItem[] }> = {
-    latest_bid: { title: `最新招標 (${dr.latest_bid || '–'})`, data: data?.latest_bid_list ?? [] },
+    latest_bid: { title: `今日標案 (${dr.latest_bid || '–'})`, data: data?.latest_bid_list ?? [] },
     latest_award: { title: `最新決標 (${dr.latest_award || '–'})`, data: data?.latest_award_list ?? [] },
-    week_bid: { title: `本週招標 (${dr.week_bid || '–'})`, data: data?.week_new_bid_list ?? [] },
+    week_bid: { title: `本週標案 (${dr.week_bid || '–'})`, data: data?.week_new_bid_list ?? [] },
     week_award: { title: `本週決標 (${dr.week_award || '–'})`, data: data?.week_new_award_list ?? [] },
     failed: { title: `無法決標 (${dr.failed || '近期'})`, data: data?.failed_award_list ?? [] },
     rfp: { title: `公開徵求 (${dr.rfp || '近期'})`, data: data?.rfp_list ?? [] },
   };
 
-  const currentList = listDataMap[activeList] ?? { title: '本週最新招標', data: [] };
+  const currentList = listDataMap[activeList] ?? { title: '本週今日標案', data: [] };
 
   if (isLoading) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />;
 
@@ -140,7 +140,7 @@ const TenderDashboardPage: React.FC = () => {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`最新招標 (${dr.latest_bid || '–'})`} value={stats?.latest_bid ?? 0}
+            title={`今日標案 (${dr.latest_bid || '–'})`} value={stats?.latest_bid ?? 0}
             icon={<CalendarOutlined />} color="#1890ff"
             active={activeList === 'latest_bid'}
             onClick={() => setActiveList('latest_bid')}
@@ -156,7 +156,7 @@ const TenderDashboardPage: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`本週招標 (${dr.week_bid || '–'})`} value={stats?.week_new_bid ?? 0}
+            title={`本週標案 (${dr.week_bid || '–'})`} value={stats?.week_new_bid ?? 0}
             icon={<FileSearchOutlined />} color="#722ed1"
             active={activeList === 'week_bid'}
             onClick={() => setActiveList('week_bid')}

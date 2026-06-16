@@ -437,50 +437,11 @@ async def recommend_tenders(
     # 今日最新 = 今日「招標案件」（活動量）。L75 卡片語意（owner 定案 Option A，2026-06-16）：
     #   「今日最新」反映系統活動，不套相關性/預算過濾（否則 PCC budget 多 NULL + Option B 過濾
     #    → 卡片恆 0 看似系統壞）。「業務推薦」維持相關性過濾。兩卡語意分離。
-    #   2026-06-16 口徑（owner 定案）：「今日最新」＝今日**完整標案機會**——含「公開取得報價單/
-    #     企劃書」，排除決標(結果類)，並**去重 job_number**（同案的更正/多列只算一筆）。
-    #     原 raw COUNT(*)=959 因未去重而虛高；純招標類則漏掉報價單。完整去重口徑 ≈891。
-    today_rows = await db.execute(text("""
-        WITH today_bids AS (
-            SELECT
-                COALESCE(pcc_match_unit_id, unit_id) AS unit_id,
-                COALESCE(pcc_match_job_number, job_number) AS job_number,
-                title, unit_name, budget, announce_date, source, category,
-                ROW_NUMBER() OVER (
-                    PARTITION BY COALESCE(NULLIF(job_number, ''), title)
-                    ORDER BY id DESC
-                ) AS rn
-            FROM tender_records
-            WHERE announce_date = CURRENT_DATE
-              -- 含報價單/企劃書等完整標案機會；排除「決標/無法決標」結果類
-              AND COALESCE(tender_type, '') NOT LIKE '%決標%'
-        )
-        SELECT unit_id, job_number, title, unit_name, budget, announce_date, source, category
-        FROM today_bids
-        WHERE rn = 1
-        ORDER BY (budget IS NOT NULL) DESC, budget DESC NULLS LAST
-        LIMIT 1000
-    """))
-
-    def adapt_today(row):
-        """今日新案 row → frontend TenderRecord shape（活動量，無推薦標籤）。"""
-        return {
-            "date": str(row.announce_date) if row.announce_date else "",
-            "raw_date": int(str(row.announce_date).replace("-", "")) if row.announce_date else 0,
-            "title": row.title or "",
-            "type": "", "category": row.category or "",
-            "unit_id": row.unit_id or "", "unit_name": row.unit_name or "",
-            "job_number": row.job_number or "",
-            "company_names": [], "company_ids": [], "winner_names": [], "bidder_names": [],
-            "tender_api_url": "", "source": row.source or "", "budget": row.budget or 0,
-            "matched_keyword": None,
-            "match_signals": {
-                "matched_keywords": [], "is_contracted": False,
-                "is_cooperated": False, "agency_match_count": 0, "match_score": 0,
-            },
-        }
-
-    today_records = [adapt_today(row) for row in today_rows]
+    #   2026-06-16 口徑（owner 定案）：「今日最新」＝今日**完整標案機會**（含報價單/企劃書，排決標，
+    #     去重 job_number）。與 dashboard「今日標案」同源同口徑 → 共用 fetch_complete_tenders（SSOT，
+    #     杜絕兩頁數字漂移）。完整去重 ≈891。
+    from app.services.tender.business_recommendation import fetch_complete_tenders
+    today_records = await fetch_complete_tenders(db, days_back=0, limit=1000)
 
     return SuccessResponse(data={
         "keywords": keywords,

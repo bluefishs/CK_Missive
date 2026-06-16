@@ -123,6 +123,93 @@ def _expand_keyword_terms(keywords: List[str]) -> List[str]:
     return terms
 
 
+# ── 「完整標案機會」共用查詢（SSOT）──────────────────────────────────────────
+#   2026-06-16：search「今日最新」與 dashboard「今日/本週標案」統一同源同口徑（owner 定案）。
+#   口徑：含報價單/企劃書等完整標案機會、排除決標(結果類)、去重 job_number（同案多列只算一筆）。
+#   過去 dashboard stats 來自「只抓今日的 live 爬蟲」→ 本週數字嚴重低估（544 vs 真實 ~8020）。
+def _adapt_tender_row(row: Any) -> Dict[str, Any]:
+    """DB 標案 row → frontend TenderRecord/TenderItem 共用 shape（活動量，無推薦標籤）。"""
+    return {
+        "date": str(row.announce_date) if row.announce_date else "",
+        "raw_date": int(str(row.announce_date).replace("-", "")) if row.announce_date else 0,
+        "title": row.title or "", "type": "", "category": row.category or "",
+        "unit_id": row.unit_id or "", "unit_name": row.unit_name or "",
+        "job_number": row.job_number or "",
+        "company_names": [], "company_ids": [], "winner_names": [], "bidder_names": [],
+        "tender_api_url": "", "source": row.source or "", "budget": row.budget or 0,
+        "matched_keyword": None,
+        "match_signals": {
+            "matched_keywords": [], "is_contracted": False,
+            "is_cooperated": False, "agency_match_count": 0, "match_score": 0,
+        },
+    }
+
+
+# 標案類別 → tender_type 篩選子句（kind 為內部 enum，非使用者輸入）
+#   opportunity = 完整標案機會（含報價單/企劃書，排除決標結果類）
+#   award       = 決標公告（排除「無法決標」）
+#   failed      = 無法決標公告
+_KIND_TYPE_CLAUSE = {
+    "opportunity": "AND COALESCE(tender_type, '') NOT LIKE '%決標%'",
+    "award": "AND tender_type LIKE '%決標%' AND tender_type NOT LIKE '%無法%'",
+    "failed": "AND tender_type LIKE '%無法決標%'",
+}
+
+
+def _tenders_cte(kind: str) -> str:
+    clause = _KIND_TYPE_CLAUSE.get(kind, _KIND_TYPE_CLAUSE["opportunity"])
+    return f"""
+    WITH bids AS (
+        SELECT
+            COALESCE(pcc_match_unit_id, unit_id) AS unit_id,
+            COALESCE(pcc_match_job_number, job_number) AS job_number,
+            title, unit_name, budget, announce_date, source, category, id,
+            ROW_NUMBER() OVER (
+                PARTITION BY COALESCE(NULLIF(job_number, ''), title)
+                ORDER BY id DESC
+            ) AS rn
+        FROM tender_records
+        WHERE announce_date >= (CURRENT_DATE - :days_back * INTERVAL '1 day')::date
+          {clause}
+    )
+    """
+
+
+async def count_complete_tenders(db: AsyncSession, days_back: int = 0, kind: str = "opportunity") -> int:
+    """今日(days_back=0)/近 N 日 指定類別去重「筆數」（精確，不截斷）。"""
+    sql = text(_tenders_cte(kind) + "SELECT count(*) FROM bids WHERE rn = 1")
+    try:
+        return int((await db.execute(sql, {"days_back": days_back})).scalar() or 0)
+    except Exception as e:
+        logger.error(f"count_complete_tenders(days_back={days_back}, kind={kind}) failed: {e}", exc_info=True)
+        return 0
+
+
+async def fetch_complete_tenders(
+    db: AsyncSession, days_back: int = 0, limit: int = 1000,
+    kind: str = "opportunity", order: str = "budget",
+) -> List[Dict[str, Any]]:
+    """今日(days_back=0)/近 N 日 指定類別去重「清單」。
+
+    order='budget'（預設，預算大優先，供標案機會列表）/ 'date'（最新優先，供決標取最新日）。
+    """
+    order_clause = (
+        "announce_date DESC, id DESC" if order == "date"
+        else "(budget IS NOT NULL) DESC, budget DESC NULLS LAST, announce_date DESC, id DESC"
+    )
+    sql = text(
+        _tenders_cte(kind)
+        + "SELECT unit_id, job_number, title, unit_name, budget, announce_date, source, category "
+        + "FROM bids WHERE rn = 1 ORDER BY " + order_clause + " LIMIT :limit"
+    )
+    try:
+        rows = (await db.execute(sql, {"days_back": days_back, "limit": limit})).fetchall()
+    except Exception as e:
+        logger.error(f"fetch_complete_tenders(days_back={days_back}, kind={kind}) failed: {e}", exc_info=True)
+        return []
+    return [_adapt_tender_row(r) for r in rows]
+
+
 async def find_business_recommendations(
     db: AsyncSession,
     days_back: int = DEFAULT_DAYS_BACK,
