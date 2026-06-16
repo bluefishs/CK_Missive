@@ -146,7 +146,10 @@ const TenderSearchPage: React.FC = () => {
     if (!typeFilter) return rawData;
     return rawData.filter(r => r.type.includes(typeFilter));
   }, [rawData, typeFilter]);
-  const displayTotal = showRecommend && !params ? recommendResult?.total : searchResult?.total_records;
+  // L75: 分頁總數跟著卡片視圖（今日最新=活動量 / 業務推薦=相關），避免「共 0 筆卻顯 N 列」
+  const displayTotal = showRecommend && !params
+    ? (recommendView === 'today' ? recommendResult?.today_records?.length : recommendResult?.records?.length)
+    : searchResult?.total_records;
   const isLoading = showRecommend && !params ? recommending : searching;
 
   // 收藏 row click handler

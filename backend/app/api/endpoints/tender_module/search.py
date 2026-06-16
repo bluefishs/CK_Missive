@@ -3,7 +3,7 @@
 """
 import logging
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.tender.search import TenderSearchService
@@ -431,19 +431,47 @@ async def recommend_tenders(
             },
         }
 
-    all_records = [adapt(r) for r in recs]
+    # 業務推薦 = Option B 相關性推薦（關鍵字＝工項含同義詞 / 精準局處工程）；可為 0＝本期無相關（誠實）
+    business_records = [adapt(r) for r in recs]
 
-    # 分區: today vs older (與原 endpoint 同設計)
-    from datetime import date as _date
-    today_str = _date.today().isoformat()
-    today_records = [r for r in all_records if r["date"] == today_str]
-    older_records = [r for r in all_records if r["date"] != today_str]
+    # 今日最新 = 今日「全部」新案（活動量）。L75 卡片語意（owner 定案 Option A，2026-06-16）：
+    #   「今日最新」反映系統活動，不套相關性/預算過濾（否則 PCC budget 多 NULL + Option B 過濾
+    #    → 卡片恆 0 看似系統壞）。「業務推薦」維持相關性過濾。兩卡語意分離。
+    today_rows = await db.execute(text("""
+        SELECT COALESCE(pcc_match_unit_id, unit_id) AS unit_id,
+               COALESCE(pcc_match_job_number, job_number) AS job_number,
+               title, unit_name, budget, announce_date, source, category
+        FROM tender_records
+        WHERE announce_date = CURRENT_DATE
+        ORDER BY (budget IS NOT NULL) DESC, budget DESC NULLS LAST, id DESC
+        LIMIT 1000
+    """))
+
+    def adapt_today(row):
+        """今日新案 row → frontend TenderRecord shape（活動量，無推薦標籤）。"""
+        return {
+            "date": str(row.announce_date) if row.announce_date else "",
+            "raw_date": int(str(row.announce_date).replace("-", "")) if row.announce_date else 0,
+            "title": row.title or "",
+            "type": "", "category": row.category or "",
+            "unit_id": row.unit_id or "", "unit_name": row.unit_name or "",
+            "job_number": row.job_number or "",
+            "company_names": [], "company_ids": [], "winner_names": [], "bidder_names": [],
+            "tender_api_url": "", "source": row.source or "", "budget": row.budget or 0,
+            "matched_keyword": None,
+            "match_signals": {
+                "matched_keywords": [], "is_contracted": False,
+                "is_cooperated": False, "agency_match_count": 0, "match_score": 0,
+            },
+        }
+
+    today_records = [adapt_today(row) for row in today_rows]
 
     return SuccessResponse(data={
         "keywords": keywords,
-        "total": len(all_records),
-        "today_records": today_records,
-        "records": older_records,
+        "total": len(business_records),
+        "today_records": today_records,   # 今日最新（活動量）
+        "records": business_records,      # 業務推薦（Option B 相關性）
     })
 
 
