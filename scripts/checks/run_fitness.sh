@@ -960,11 +960,27 @@ echo ""
 #       既未 rollback 也未 re-raise → 後續 query / 推播段會 silent 撞交易錯。
 # baseline 2026-06-03: 59 候選（advisory；逐步收斂，新增不得超過 baseline）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[63/63] transaction pollution audit (L64 交易污染防復發)${NC}"
+echo -e "${CYAN}[63/64] transaction pollution audit (L64 交易污染防復發)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/transaction_pollution_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/transaction_pollution_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 64: Auth-State SSOT Audit (SSO 第 N 次修後立法, 2026-06-16)
+# 觸發: SSO「停在 entry / 閃訪客跳回」反覆復發，根因＝前端無單一權威登入狀態
+#       （is-authenticated 散在 localStorage/authService/cookie，多元件各自推導+各自 redirect → race）。
+# 偵測: 非 auth 基礎設施的元件同時「推導登入(isAuthenticated/localStorage user_info)」+
+#       「自行導向認證頁(location.replace / navigate(ROUTES.LOGIN|ENTRY|DASHBOARD) / <Navigate>)」。
+# baseline 2026-06-16（SSO 治本+bootstrap 競態修後）: 0 violation（GREEN）。新增任一 → RED。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[64/64] auth-state ssot audit (登入狀態單一權威, 防 SSO race 復發)${NC}"
+if $STRICT; then
+    node scripts/checks/auth_state_ssot_audit.cjs --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    node scripts/checks/auth_state_ssot_audit.cjs || true
 fi
 echo ""
 
