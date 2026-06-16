@@ -71,13 +71,25 @@ export const useSessionStore = create<SessionState>((set) => ({
     set({ user: cached });
     try {
       const valid = await authService.validateTokenOnStartup();
+      // ── 競態防護（2026-06-16 真根因修：「第一次停在 entry、重刷才好」）──
+      //   驗證舊 token 期間（含 600ms retry，較慢），EntryPage ssoBridge / Google / login
+      //   可能已用 ck_employee cookie 建立**全新** session 並 markAuthenticated。
+      //   舊 token 的遲到驗證結果（多半失敗）絕不可 clobber 掉、更不可 clearAuth 掉這個剛
+      //   建立的權威 session（否則 dashboard 被踢回 entry、新 session 被毀，唯重刷才好）。
+      //   規則：markAuthenticated＝「明確成功事件」優先於「被動舊 token 檢查」。
+      if (useSessionStore.getState().status === 'authenticated') {
+        return; // 已被 ssoBridge/login 升級為權威已認證 → 尊重之，不降級、不清資料
+      }
       if (valid) {
         set({ status: 'authenticated', user: authService.getUserInfo() });
       } else {
+        authService.clearAuthData(); // 真失效（無競態升級）才清，回收殘留舊 token
         set({ status: 'anonymous', user: null });
       }
     } catch (err) {
+      if (useSessionStore.getState().status === 'authenticated') return;
       logger.warn('[session] bootstrap 驗證異常，視為匿名', err);
+      authService.clearAuthData();
       set({ status: 'anonymous', user: null });
     }
   },

@@ -711,8 +711,15 @@ class AuthService {
     //   （POST，過 CSRFMiddleware 需 X-CSRF-Token）會撞 cookie-commit / csrf interceptor
     //   初始化 race → 偶發 401 → 原本立即 clearAuth → 閃訪客跳回 /entry → 再 ssoBridge
     //   迴圈（owner 2026-06-15 報「停在 entry/閃訪客後跳回」）。
-    // 修法：startup 驗證失敗時重試一次（短延遲讓 cookie/csrf 就緒）；僅當重試仍失敗
-    //   才視為真失效並 clearAuth。真未登入者兩次皆 401，不削弱安全。
+    // 修法：startup 驗證失敗時重試一次（短延遲讓 cookie/csrf 就緒）。真未登入者兩次皆 401。
+    //
+    // 2026-06-16 真根因修（owner 復報「第一次停在 entry、重刷才好」）：
+    //   本方法**不再內部 clearAuth**。原因＝它只是「被動驗證舊 token」，但同一時間 EntryPage
+    //   ssoBridge 可能已用 ck_employee cookie 建立**全新 session**。若此處 clearAuth，會把剛
+    //   建立的新 session 連同 user_info 一起清掉（last-writer-wins 競態 + 破壞性副作用）→
+    //   dashboard 被踢回 entry；唯有重刷〔此時 user_info 已被清為 null → bootstrap 早退不
+    //   再 validate〕才會好。是否清除一律改由唯一呼叫者 sessionStore.bootstrap 依「驗證解析
+    //   當下的權威狀態」決定（已被 ssoBridge/login 升級為 authenticated 則尊重、不清）。
     try {
       await this.checkAuthStatus();
       return true;
@@ -724,8 +731,7 @@ class AuthService {
         logger.info('[Auth] 啟動驗證重試成功（瞬態 race 已恢復）');
         return true;
       } catch {
-        logger.warn('[Auth] 啟動驗證重試仍失敗，清除本地認證資料');
-        this.clearAuth();
+        logger.warn('[Auth] 啟動驗證重試仍失敗（由 sessionStore.bootstrap 依競態結果決定是否清除）');
         return false;
       }
     }
