@@ -124,8 +124,15 @@ async def dispatch_morning_status(
 
     today = _now_taipei().date()
 
-    # 可選 project 過濾
-    sql = svc._ACTIVE_DISPATCHES_SQL
+    # 派工總覽：不以 d.deadline 欄位過濾（2026-06-16 owner 報「158 對應日期已填卻仍闕漏紀錄」）。
+    #   deadline 欄位只是顯示字串；真實 closure_level 由 work_records / doc_links / upcoming_events
+    #   決定（work_record.deadline_date 即排程依據，不需 d.deadline 欄位）。原 `WHERE deadline IS
+    #   NOT NULL` 會誤排除「欄位空但有對應/排程」的派工 → 改為讓全部派工走相同 closure 計算。
+    #   scope 僅本端點（不動共用 _ACTIVE_DISPATCHES_SQL，晨報生成不受影響）。
+    sql = svc._ACTIVE_DISPATCHES_SQL.replace(
+        "WHERE d.deadline IS NOT NULL\n          AND d.deadline != ''",
+        "WHERE 1=1",
+    )
     bind_params: dict = {}
     if params.contract_project_id:
         sql += "\n          AND d.contract_project_id = :cpid"
@@ -221,49 +228,6 @@ async def dispatch_morning_status(
                 row[6], row[7], row[8], row[9], row[10]
             ),
             "next_event": str(next_event.date()) if hasattr(next_event, 'date') and next_event else str(next_event) if next_event else None,
-        })
-
-    # 無交付期限的派工單補入（2026-06-16 owner 報「總派工數 vs 已完成/交付分母差異」根因）：
-    # _ACTIVE_DISPATCHES_SQL 以 `WHERE d.deadline IS NOT NULL` 過濾，會**靜默排除**無期限派工，
-    # 但它們是真實派工（只是缺期限）→ 在派工總覽消失、分母 < 實際派工數、看板卻仍顯示它們 → 數字不一致。
-    # 修：以獨立查詢補入（不動共用晨報 SQL，避免副作用），歸「闕漏紀錄」（缺必要資料＝期限），
-    # 使 total/卡片加總/看板三者對齊 = 全部派工數。
-    nd_sql = """
-        SELECT d.id, d.dispatch_no, d.deadline, d.project_name,
-               d.case_handler, d.sub_case_name, d.survey_unit
-        FROM taoyuan_dispatch_orders d
-        WHERE (d.deadline IS NULL OR d.deadline = '')
-    """
-    nd_params: dict = {}
-    if params.contract_project_id:
-        nd_sql += "\n          AND d.contract_project_id = :cpid"
-        nd_params["cpid"] = params.contract_project_id
-    nd_rows = await db.execute(text(nd_sql), nd_params)
-    for row in nd_rows.all():
-        nd_id = row[0]
-        wt_str = work_types_map.get(nd_id, "")
-        pt = per_type_map.get(nd_id, [])
-        nd_total = sum(p["total"] for p in pt)
-        nd_completed = sum(p["completed"] for p in pt)
-        items.append({
-            "id": nd_id,
-            "dispatch_no": row[1],
-            "deadline": "",
-            "deadline_raw": row[2] or "",
-            "project_name": row[3] or "",
-            "handler": row[4] or "",
-            "sub_case": row[5] or "",
-            "survey_unit": row[6] or "",
-            "closure_level": "needs_action",
-            "display_status": "闕漏紀錄",
-            "work_category": "",
-            "work_category_label": "待補交付期限",
-            "work_types": [t.strip() for t in wt_str.split(",") if t.strip()] if wt_str else [],
-            "per_type_progress": pt,
-            "completed_count": nd_completed,
-            "total_records": nd_total,
-            "progress": "待補交付期限",
-            "next_event": None,
         })
 
     # 統計摘要 — 以 display_status 計
