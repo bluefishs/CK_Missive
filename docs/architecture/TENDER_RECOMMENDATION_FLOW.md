@@ -117,10 +117,11 @@ confidence = 0.5 × title_sim(pg_trgm)
 ### 相關性評估（L75：關鍵字＝工項為主、機關為輔窄通道）
 | 路徑 | 條件 | 入選 | 權重 |
 |---|---|---|---|
-| **關鍵字（工項）** | title/unit_name 命中訂閱關鍵字 | 一律入選（任何 category） | **10** |
+| **關鍵字（工項，含同義詞）** | title/unit_name 命中訂閱關鍵字**或其同義詞** | 一律入選（任何 category） | **10** |
 | **機關窄通道** | **精準局/所級**（排除裸府級）**AND 工程類**（NOT IN 財物/勞務） | 窄通道入選 | 承攬 **2** / 合作 **1** |
 
 - **現行訂閱關鍵字（7）**：`UAV / 圖根點 / 圖解數化地籍 / 測量 / 用地取得 / 都市計畫樁 / 隧道`
+- **同義詞展開（L75，2026-06-16）**：訂閱清單維持精簡（只放主詞），比對時自動展開整組同義詞 → 避免增列過多訂閱關鍵字/篩選類別。群組維護於 `synonyms.yaml` 的 `tender_keyword_synonyms`（如 `UAV → 無人機/空拍機/drone`），由 `_expand_keyword_terms()` 載入；**新增同義詞＝改 yaml，不動訂閱清單**。實證：近 60 日 32 筆「無人機/空拍」標案無 `UAV` 字樣，展開後可接到。
 - **精準機關**：`government_agencies` / `contract_projects.client_agency` 排除 `NOT LIKE '%政府'`（裸府級），並正規化 unicode 髒資料（部首字 `⼯` U+2F37 → `工`）
 - **排序**：加權分 DESC（關鍵字 10 恆居首）→ budget DESC → announce_date DESC → LIMIT 20
 

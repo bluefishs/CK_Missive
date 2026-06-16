@@ -44,13 +44,21 @@ cd frontend && npm run build
 ```bash
 # 1. 容器健康
 docker ps --filter name=ck_missive --format "{{.Names}} {{.Status}}"
-# 2. backend health（含業務量防禦）
+# 2. backend health（容器內，含業務量防禦）
 docker exec ck_missive_backend curl -s -o /dev/null -w "%{http_code}" localhost:8001/health
-# 3. 公網可達
-curl -s -o /dev/null -w "%{http_code}" https://missive.cksurvey.tw/health
-# 4. backend 改動 — 容器內 import 驗證（不需 http ready）
+# 3. ★L76 關卡：host→8001（= cloudflared 經 host.docker.internal:8001 的目標）
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health   # 必須 200
+# 4. 公網可達
+curl -s -o /dev/null -w "%{http_code}" https://missive.cksurvey.tw/api/health   # 必須 200
+# 5. backend 改動 — 容器內 import 驗證（不需 http ready）
 MSYS_NO_PATHCONV=1 docker exec ck_missive_backend python -c "from app.xxx import yyy; print('ok')"
 ```
+
+> 🔴 **L76 殭屍埠轉發（Windows Docker，必驗）**：backend `recreate/restart` 後，**容器內 health 200 ≠ 公網可達**。
+> Windows Docker Desktop 的埠轉發 proxy 在 recreate 後可能成殭屍 → **step 3 `host→localhost:8001` 連不上(000)** →
+> cloudflared `host.docker.internal:8001` 撞死 socket → 公網 **502 Bad Gateway**（使用者表現為「無法登入/載不出」）。
+> **修法**：`docker restart ck_missive_backend` 重建埠轉發 → 重驗 step 3/4 回 200。**每次後端部署都要做 step 3+4**，
+> 不可只看容器 health。詳見 `LESSONS_REGISTRY.md#L76`。根治候選：cloudflared origin 改同網直連 `backend:8001`。
 
 > ⚠️ **MSYS 路徑陷阱**（Git Bash on Windows）：`docker exec ... python /app/...` 的 `/app/`
 > 會被 MSYS 轉成 `C:/Program Files/Git/app/...`。一律加 `MSYS_NO_PATHCONV=1` 前綴。
