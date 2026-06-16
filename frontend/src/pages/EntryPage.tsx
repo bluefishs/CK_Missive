@@ -19,7 +19,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { App, Tag, Form } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import authService, { MFARequiredError } from '../services/authService';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID, LINE_LOGIN_CHANNEL_ID } from '../config/env';
@@ -88,6 +88,10 @@ const EntryPage: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [form] = Form.useForm();
   const navigate = useNavigate();
+  // 2026-06-16 SSO 真根因修：導向改宣告式（依 sessionStore 權威狀態），不依賴 ssoBridge
+  //   async callback 的 imperative navigate —— 後者被 useEffect re-run 的 `mounted=false`
+  //   守衛跳過 → 停在 entry、重整才好（owner 復報根因）。
+  const sessionStatus = useSessionStore((s) => s.status);
 
   const { lineLoading, handleLineLogin } = useLineLogin(null);
 
@@ -206,23 +210,21 @@ const EntryPage: React.FC = () => {
       // 內網/本機跳過 SSO bridge，直接看 missive 自家 auth state
       const skipSsoBridge = IS_LOCALHOST || IS_INTERNAL;
       const ssoResult = skipSsoBridge ? null : await authService.ssoBridge();
-      if (!mounted) return;
       if (ssoResult) {
         logger.info('[SSO-BRIDGE] auto-login succeeded via www.cksurvey.tw cookie');
-        // 2026-06-15 SSO 治本：淘汰 v3.0.1 的 window.location.replace 整頁重載
-        //   —— 整頁重載讓所有 auth-state reader 同時從零重新初始化，把 cookie/csrf/localStorage
-        //   不一致的窗口開到最大（owner 報「停在 entry/閃訪客跳回」根因）。
-        // 改為：顯式把 sessionStore 標記為已認證（ssoBridge 已 saveAuthData，cookie 同步已設）
-        //   → SPA navigate。守衛只讀 store 權威狀態、不再各自重新驗證 → 無 race、無重載。
+        // ssoBridge 已 saveAuthData（user_info + cookie 已寫）→ session 已建立，與 EntryPage
+        //   是否仍 mounted 無關。故 markAuthenticated 不受 mounted 守衛限制（2026-06-16 根因：
+        //   原 imperative navigate 在 effect re-run 後 mounted=false 被跳過 → 停在 entry）。
+        // 導向由上方宣告式 <Navigate>（依 sessionStore status）負責，無論本 callback 是否還活著。
         useSessionStore.getState().markAuthenticated(ssoResult.user_info);
         window.dispatchEvent(new CustomEvent('user-logged-in'));
-        navigate(ROUTES.DASHBOARD, { replace: true });
         return;
       }
+      if (!mounted) return;
 
       // SSO 失敗 / 無 SSO cookie → fallback 看 missive 自家 auth state
       if (authService.isAuthenticated()) {
-        navigate(ROUTES.DASHBOARD);
+        useSessionStore.getState().markAuthenticated(null);
         return;
       }
 
@@ -308,6 +310,14 @@ const EntryPage: React.FC = () => {
   };
 
   const envLabel = getEnvLabel();
+
+  // 宣告式導向（僅公網/ngrok 的 SSO 場景）：sessionStore 一旦為已認證（ssoBridge/Google/
+  //   bootstrap 皆會設），即離開 entry。取代 ssoBridge async callback 內的 imperative navigate
+  //   （會被 effect re-run 的 mounted 守衛跳過）→ 狀態一變即可靠導向，根治「停在 entry、重整才好」。
+  //   localhost/內網 dev 維持原本「點擊快速進入 → 直接 navigate」流程，不受此影響。
+  if (sessionStatus === 'authenticated' && IS_NGROK_OR_PUBLIC) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  }
 
   return (
     <div
