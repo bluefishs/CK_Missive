@@ -9,7 +9,7 @@ confidence: high
 
 # KG 高連線 Top 10
 
-**編譯時間**: 2026-06-08 05:00
+**編譯時間**: 2026-06-15 05:00
 **KG 來源**: canonical_entities + entity_edges
 
 | 排名 | 實體 | 類型 | 連線數 |

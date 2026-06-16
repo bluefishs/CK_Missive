@@ -1,0 +1,58 @@
+{
+  "metric_endpoint": {
+    "reachable": false,
+    "error": null
+  },
+  "adr": {
+    "status": "GREEN",
+    "active_count": 5,
+    "stale_90d": 0,
+    "target": "active ≤25, stale ≤5"
+  },
+  "sop": {
+    "status": "GREEN",
+    "fail_count": 0,
+    "audits_run": 2
+  },
+  "core_services": {
+    "shadow_baseline_rows_24h": 60.0,
+    "messaging_push_line_success": 1.0,
+    "v7_channel_diversity": 1.0,
+    "v7_soul_drift": 3.0,
+    "memory_diary_days": 52.0,
+    "memory_crystals": 2.0,
+    "memory_proposals_pending": 2.0,
+    "status": "INFO"
+  },
+  "l4x_family": {
+    "status": "GREEN",
+    "l4x_count": 0,
+    "baseline": 3,
+    "delta_since_baseline": -3,
+    "latest_5": []
+  },
+  "learning_loop": {
+    "status": "GREEN",
+    "patterns": 12,
+    "proposals_pending": 2,
+    "crystals_applied": 2,
+    "evolutions": 7,
+    "flow_rate_pct": 50.0,
+    "target": "flow ≥30%"
+  },
+  "observability": {
+    "pipeline_red_consecutive_days": 0.0,
+    "report_freshness_hours": 23.6,
+    "lessons_total": 16.0,
+    "messaging_push_24h": 1.0,
+    "status": "INFO"
+  },
+  "built_assets": {
+    "status": "GREEN",
+    "kg_entities_total": 26837.0,
+    "kg_entities_embedded": 23906.0,
+    "kg_embedding_coverage_pct": 89.1,
+    "wiki_pages_total": 263,
+    "wiki_freshness_hours": 3.4
+  }
+}

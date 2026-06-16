@@ -5,13 +5,13 @@ template_hash: 1c8217069c
 tool_sequence: [get_statistics, search_documents]
 domains: [analysis, doc]
 wiki_topics: [wiki/topics/公文管理系統總覽.md]
-hit_count: 20
-success_count: 20
+hit_count: 23
+success_count: 23
 failure_count: 0
 success_rate: 1.0
-avg_latency_ms: 27197
-first_seen: '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''2026-05-10'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-last_seen: '2026-06-11'
+avg_latency_ms: 4990
+first_seen: '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''2026-05-10'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+last_seen: '2026-06-15'
 crystallization_candidate: true
 tags: [memory, pattern, analysis, doc]
 ---
@@ -24,16 +24,16 @@ tags: [memory, pattern, analysis, doc]
 
 ## 統計
 
-- **觸發次數**：20（累計）
+- **觸發次數**：23（累計）
 - **成功率**：100.0%
-- **平均延遲**：27197ms
+- **平均延遲**：4990ms
 - **涉及領域**：analysis, doc
 - **相關 Wiki**：[[wiki/topics/公文管理系統總覽.md]]
 
 ## 典型問法
 
-- 幫我整理本週工作���要
 - 狀態
+- 列出所有資產（list_assets）並顯示資產統計
 
 ## 結晶候選
 
@@ -41,4 +41,4 @@ tags: [memory, pattern, analysis, doc]
 
 ---
 
-_由 pattern_extractor 自動產生，最後更新：2026-06-11_
+_由 pattern_extractor 自動產生，最後更新：2026-06-15_

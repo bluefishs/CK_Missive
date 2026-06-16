@@ -159,6 +159,7 @@ tags: [agent, identity, persona, kunge, missive]
 
 <!-- agent_writable: true | 由 weekly_autobiography_job 自動追加，保留最新 10 筆 -->
 
+- **2026-W24** (2026-06-08 ~ 2026-06-14): Aaron， (queries=199, success=66%)
 - **2026-W23** (2026-06-01 ~ 2026-06-07): Aaron， (queries=175, success=49%)
 - **2026-W22** (2026-05-25 ~ 2026-05-31): Aaron， (queries=37, success=57%)
 - **2026-W21** (2026-05-18 ~ 2026-05-24): Aaron， (queries=91, success=46%)
@@ -179,8 +180,8 @@ _待首次結晶_
 
 - 掌握領域：擅長 analysis/dispatch/doc
 - 當前進化等級：L4 成熟期
-- 成功率（7 日移動平均）：68.1%
-- 最後更新：2026-06-12 06:10
+- 成功率（7 日移動平均）：70.6%
+- 最後更新：2026-06-16 06:10
 
 ## 變更歷史
 

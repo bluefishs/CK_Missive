@@ -10,8 +10,8 @@ confidence: high
 # Lessons Registry 索引
 
 **統計來源**: docs/architecture/LESSONS_REGISTRY.md
-**編譯時間**: 2026-06-08 05:00
-**Lessons 總數**: 54
+**編譯時間**: 2026-06-15 05:00
+**Lessons 總數**: 62
 
 | ID | Lesson Title |
 |----|--------------|
@@ -55,6 +55,14 @@ confidence: high
 | L39 | QueryKey Drift（React Query invalidate silent dead）（2026-05-20） |
 | L38 | 平時保險（cron / 異地備份）也是 LR-015 反模式高發區（2026-05-19） |
 | L41 | JWT Secret Drift Silent Fail（4 重疊加 / 2026-05-21） |
+| L73 | In-container writer 盲視 host/cross-repo 資源 → silent 寫錯值（治理工具自身亦中招 / 2026-06-12） |
+| L72 | 排程「註冊 ≠ 真在跑」：scheduler liveness 對賬揪 silent dormant cron（擴大治理至坤哥/Hermes/排程 / 2026 |
+| L71 | 程式圖譜是「結構地圖」抓不到 config/語意/runtime 三類問題 → 用 AST 橋接治理（2026-06-11） |
+| L70 | GOOGLE_CALENDAR_ID config-drift：1044 事件靜默推進「服務帳號私人日曆」無人可見（L51 同族 / 2026-06-11） |
+| L69 | secureApiService single-flight 讓並發共用「單次」CSRF token → nav 選單 403（修 L49 反效果 / 2026 |
+| L68 | CSRF refresh 死結：csrf cookie 過期→refresh 被 CSRF 擋→全站 403「權限不足」（OWASP / 2026-06-10） |
+| L66 | 跨子域 SSO 消費端 self-heal gate 漏掉 cookie-session（顯示「訪客」race / 2026-06-10） |
+| L67 | 前端 baseURL 已含 /api 卻硬編 /api 前綴 → double-prefix 404（半接通 / 2026-06-10） |
 | L64 | LINE 推播鏈交易污染復發（吞錯不 rollback + 缺方法 + 重複掃描 / 2026-06-03） |
 | L63 | 學習閉環需 aging alert 才能突破 owner 健忘（2026-05-31） |
 | L62 | 整合連通 = 持續驗證機制，不是一次性 endpoint（2026-05-31） |
