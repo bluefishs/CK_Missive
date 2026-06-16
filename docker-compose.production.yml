@@ -281,6 +281,9 @@ services:
       - ./docs:/app/docs
     networks:
       ck_network: {}
+      # 跨域 KG Federation 骨幹（ADR-CK_AaaP#0043）— hub 接 AaaP-hosted ck_platform_kg_net，
+      # 供 DT/lvrland 經容器名 ck_missive_backend 解析 federated-contribute（L42 校正 2026-06-16）。
+      kg_federation_net: {}
     depends_on:
       postgres:
         condition: service_healthy
@@ -375,3 +378,8 @@ networks:
     name: ck_missive_network
     driver: bridge
   # nemoclaw_network: 已移除 (ADR-0015, 2026-04-16)
+  # 跨域 KG Federation 骨幹（ADR-CK_AaaP#0043）— 由 AaaP host，取代已廢止 nemoclaw_network。
+  # hub 接此網供 DT/lvrland 跨域 KG 同步（L42 真活校正 2026-06-16）。
+  kg_federation_net:
+    external: true
+    name: ck_platform_kg_net
