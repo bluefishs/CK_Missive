@@ -153,6 +153,7 @@ _KIND_TYPE_CLAUSE = {
     "opportunity": "AND COALESCE(tender_type, '') NOT LIKE '%決標%'",
     "award": "AND tender_type LIKE '%決標%' AND tender_type NOT LIKE '%無法%'",
     "failed": "AND tender_type LIKE '%無法決標%'",
+    "rfp": "AND tender_type LIKE '%公開取得%'",  # 公開取得報價單/企劃書
 }
 
 
@@ -279,10 +280,10 @@ async def find_business_recommendations(
             WHERE
                 -- 條件 1: 近期新增
                 tr.announce_date >= (CURRENT_DATE - :days_back * INTERVAL '1 day')::date
-                -- 條件 2: 預算門檻
-                AND tr.budget IS NOT NULL
-                AND tr.budget >= :budget_min
-                -- 條件 3: PCC 或 HIGH-matched ezbid 走 PCC 對應
+                -- 條件 2: PCC 或 HIGH-matched ezbid 走 PCC 對應
+                -- L75.1 (2026-06-16)：預算門檻**移至機關窄通道**，基本面不再過濾預算。
+                --   關鍵字命中之工項小案（如「圖根點」測量）常為 NULL/小額預算（PCC budget 多 NULL），
+                --   不應被「budget≥100萬」擋掉（owner 報訂閱圖根點 9 筆卻推薦 0）。
                 AND (tr.source = 'pcc' OR tr.pcc_match_unit_id IS NOT NULL)
         )
         SELECT
@@ -317,6 +318,8 @@ async def find_business_recommendations(
                  OR rt.unit_name_norm IN (SELECT agency_name FROM contracted_agencies))
                 -- L75: 機關窄通道僅放工程類（測量/技服歸勞務者靠關鍵字路徑接，杜絕保險/地磅噪音）
                 AND COALESCE(NULLIF(TRIM(rt.category), ''), '工程') NOT IN ('財物', '財物類', '勞務', '勞務類')
+                -- L75.1: 預算門檻只留給機關窄通道（過濾大案以外的機關噪音）；關鍵字路徑不受預算限制
+                AND rt.budget IS NOT NULL AND rt.budget >= :budget_min
             )
         ORDER BY
             -- L75 加權排序：訂閱關鍵字 = 10（工項，遠高於機關 → 關鍵字案恆排最前）

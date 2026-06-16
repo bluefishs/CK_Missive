@@ -14,7 +14,7 @@ import {
 } from 'antd';
 import {
   FundOutlined, ReloadOutlined, BankOutlined, TrophyOutlined,
-  FileSearchOutlined, WarningOutlined, CalendarOutlined, CheckCircleOutlined,
+  FileSearchOutlined, WarningOutlined, CalendarOutlined,
 } from '@ant-design/icons';
 import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
@@ -108,7 +108,6 @@ const TenderDashboardPage: React.FC = () => {
   // 列表資料映射 — 使用後端回傳的實際日期範圍
   const listDataMap: Record<string, { title: string; data: TenderItem[] }> = {
     latest_bid: { title: `今日標案 (${dr.latest_bid || '–'})`, data: data?.latest_bid_list ?? [] },
-    latest_award: { title: `最新決標 (${dr.latest_award || '–'})`, data: data?.latest_award_list ?? [] },
     week_bid: { title: `本週標案 (${dr.week_bid || '–'})`, data: data?.week_new_bid_list ?? [] },
     week_award: { title: `本週決標 (${dr.week_award || '–'})`, data: data?.week_new_award_list ?? [] },
     failed: { title: `無法決標 (${dr.failed || '近期'})`, data: data?.failed_award_list ?? [] },
@@ -144,14 +143,6 @@ const TenderDashboardPage: React.FC = () => {
             icon={<CalendarOutlined />} color="#1890ff"
             active={activeList === 'latest_bid'}
             onClick={() => setActiveList('latest_bid')}
-          />
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <ClickableStatCard
-            title={`最新決標 (${dr.latest_award || '–'})`} value={stats?.latest_award ?? 0}
-            icon={<CheckCircleOutlined />} color="#52c41a"
-            active={activeList === 'latest_award'}
-            onClick={() => setActiveList('latest_award')}
           />
         </Col>
         <Col xs={12} sm={8} md={4}>

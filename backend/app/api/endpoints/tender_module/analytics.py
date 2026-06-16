@@ -70,32 +70,43 @@ async def analytics_dashboard(request: Request, db: AsyncSession = Depends(get_d
     #   與 /tender/search「今日最新」一致（fetch_complete_tenders SSOT）。
     #   根治原 live 爬蟲 stats 的兩大問題：①只抓今日→「本週」嚴重低估(544 vs 真實 ~8020)
     #   ②未去重/口徑不一。決標/得標廠商/無法決標等分卡維持 live 爬蟲（依舊）。
+    # 統一口徑（owner 定案）：今日標案＝唯一「日」單元；其餘卡片皆「週(近7日)」去重統計，
+    #   並以 DB 同源（fetch/count_complete_tenders）覆寫 stats/清單/日期範圍，根治：
+    #   ①兩頁口徑不一 ②本週嚴重低估(爬蟲只今日) ③決標清單「停留 3 月」陳舊
+    #   ④日期範圍標籤錯亂(如最新決標 03-19) ⑤公開徵求區間。決標/得標廠商分卡語意保留。
+    from datetime import date as _date, timedelta as _td
     try:
         stats = result.setdefault("stats", {})
+        dr = result.setdefault("date_ranges", {})
+        _today = _date.today()
+        _wk_start = _today - _td(days=6)
+        today_lbl = _today.strftime("%m-%d")
+        week_lbl = f"{_wk_start.strftime('%m-%d')}~{_today.strftime('%m-%d')}"
 
-        # 今日/本週標案（完整去重，含報價單，與 /tender/search 同源）
-        today_count = await count_complete_tenders(db, days_back=0)
-        week_count = await count_complete_tenders(db, days_back=6)
-        stats["latest_bid"] = today_count
-        stats["week_new_bid"] = week_count
+        # 今日標案（唯一「日」單元；含報價單去重，與 /tender/search 同源）
+        stats["latest_bid"] = await count_complete_tenders(db, days_back=0)
         result["latest_bid_list"] = await fetch_complete_tenders(db, days_back=0, limit=500)
+        dr["latest_bid"] = today_lbl
+
+        # ── 以下皆「週(近7日)」去重 ──
+        stats["week_new_bid"] = await count_complete_tenders(db, days_back=6)          # 本週標案
         result["week_new_bid_list"] = await fetch_complete_tenders(db, days_back=6, limit=500)
-        result["today_total_count"] = today_count
-        result["week_total_count"] = week_count
+        dr["week_bid"] = week_lbl
 
-        # 決標（DB 新鮮資料，修 live 爬蟲「停留在 3 月」陳舊）：
-        #   最新決標＝DB 最近決標日當日筆數；本週決標＝近 7 日；無法決標＝近 30 日。
-        award_recent = await fetch_complete_tenders(db, days_back=30, limit=500, kind="award", order="date")
-        latest_award_date = award_recent[0]["date"] if award_recent else ""
-        latest_award_list = [r for r in award_recent if r["date"] == latest_award_date]
-        stats["latest_award"] = len(latest_award_list)
-        stats["week_new_award"] = await count_complete_tenders(db, days_back=6, kind="award")
-        result["latest_award_list"] = latest_award_list
+        stats["week_new_award"] = await count_complete_tenders(db, days_back=6, kind="award")  # 本週決標
         result["week_new_award_list"] = await fetch_complete_tenders(db, days_back=6, limit=500, kind="award", order="date")
+        dr["week_award"] = week_lbl
 
-        # 無法決標（近 30 日，DB 同源）
-        stats["failed_award"] = await count_complete_tenders(db, days_back=30, kind="failed")
-        result["failed_award_list"] = await fetch_complete_tenders(db, days_back=30, limit=500, kind="failed", order="date")
+        stats["failed_award"] = await count_complete_tenders(db, days_back=6, kind="failed")    # 無法決標(週)
+        result["failed_award_list"] = await fetch_complete_tenders(db, days_back=6, limit=500, kind="failed", order="date")
+        dr["failed"] = week_lbl
+
+        stats["rfp_count"] = await count_complete_tenders(db, days_back=6, kind="rfp")          # 公開徵求(週)
+        result["rfp_list"] = await fetch_complete_tenders(db, days_back=6, limit=500, kind="rfp")
+        dr["rfp"] = week_lbl
+
+        result["today_total_count"] = stats["latest_bid"]
+        result["week_total_count"] = stats["week_new_bid"]
     except Exception:
         # DB 覆寫失敗不擋主流程（退化為 live 爬蟲 stats）
         logger.warning("dashboard DB stats override failed (fallback to scrape)", exc_info=True)
