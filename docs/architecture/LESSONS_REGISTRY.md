@@ -422,6 +422,18 @@
 
 ---
 
+## L74 — 單一狀態欄被多個 async 來源 last-writer-wins 競寫 + 破壞性副作用＝經典 race（SSO「第一次停 entry、重刷才好」/ 2026-06-16）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 重開機後從 `www.cksurvey.tw` SSO 進 `missive.cksurvey.tw`，**第一次仍停在 /entry，重刷才登入**。此症狀已被「修」多次（L66 self-heal / `a66d410b` retry / `9e229a36` 宣告式導向），皆未根治。 |
+| **Cause** | SSO 治本後 `sessionStore.status` 是唯一真相，但它被**兩個獨立 async 解析器 last-writer-wins 競寫**：(1) `bootstrap()`——重開機後 localStorage.user_info 磁碟持久殘留（cached≠null）→ 走 `validateTokenOnStartup`，舊 token 失效時**內部 `clearAuth()` 清資料** + 回 false → `anonymous`；(2) EntryPage `ssoBridge()`——用 ck_employee cookie 建立**全新 session** → `markAuthenticated` → `authenticated` → `<Navigate>` dashboard。**競態時序**：ssoBridge 先贏設 authenticated → bootstrap 的 validate（含 600ms retry，較慢）**遲到失敗**，(a) `clearAuth` 清掉剛建立的新 session、(b) status 覆寫回 anonymous → ProtectedRoute 把 dashboard 踢回 entry。**「重刷才好」的精確解釋**＝前次 clearAuth 已清 user_info → 重刷 cached=null → bootstrap 走 early-return（不 validate、不 clobber）→ ssoBridge 乾淨贏。歷次修法都只動「導向機制」，沒人看見「雙寫競態 + 破壞性 clearAuth」這層。 |
+| **Fix** | SSOT 層（非再補 EntryPage）：① `authService.validateTokenOnStartup` 改**非破壞性**——不再內部 `clearAuth`（唯一 production caller 是 bootstrap，清除決策上收）。② `sessionStore.bootstrap` 加**競態防護**——`await validate` 後 `if getState().status==='authenticated' return`（已被 ssoBridge/login 升級則尊重、不降級不清）；只有真失效（無競態升級）才 `clearAuthData()`+anonymous。規則＝**markAuthenticated（明確成功事件）優先於被動舊 token 檢查**。驗證：sessionStore 競態 regression + useAuthGuard 19 綠 / tsc 0 / build 部署 / 匿名煙霧 resolved+entryRendered+0 fatal。 |
+| **Prevention** | (a) 任一「單一狀態欄」被 2+ 個 async 來源寫入時，須明確定義**優先序**（明確事件 > 被動檢查），不可任由 last-writer-wins。(b) **破壞性副作用（clearAuth/清資料/刪檔）必須收歸唯一決策點**，不可埋在被動驗證函式裡，否則競態下會誤毀另一來源剛建立的有效狀態。(c)「第一次失敗、重刷成功」是 race 的招牌徵狀——優先懷疑「持久化殘留 × 啟動時序」而非導向機制。(d) **結構性護欄**：`auth_state_ssot_audit.cjs`（fitness step 64）禁新元件自行『推導登入+導向認證頁』，防 SSOT 再被打散（治本之後立 audit 鎖定，對齊「防護腳本存在≠生效」須掛 fitness）。 |
+| **Refs** | `frontend/src/store/sessionStore.ts`（bootstrap 競態防護）/ `frontend/src/services/authService.ts:705`（validateTokenOnStartup 非破壞性）/ `frontend/src/store/__tests__/sessionStore.test.ts`（競態 regression）/ `scripts/checks/auth_state_ssot_audit.cjs`（step 64）/ commit `b2b6ae26`+`1dc75776` / 同族 SSO race 累積：L66 self-heal cookie + L68 CSRF 死結 + L69 single-flight CSRF + 6/15 治本（sessionStore）+ 6/16 ⑥ 宣告式導向 |
+
+---
+
 ## L73 — In-container writer 盲視 host/cross-repo 資源 → silent 寫錯值（治理工具自身亦中招 / 2026-06-12）
 
 | 欄位 | 內容 |
