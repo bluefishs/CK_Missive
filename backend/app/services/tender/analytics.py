@@ -288,11 +288,18 @@ class TenderAnalyticsService:
         # 寫入 Redis 快取 — 2026-05-28 (L51) TTL 由 3900s 縮回 600s (10 min)：
         # 配合下方新增的 5-min scheduler warm cache，永遠 cache hit；
         # 資料即時性從 1hr 提升至 10min（符合原註解設計 + scraper 1h 抓取週期）
-        if redis:
+        #
+        # L76 配套 (2026-06-16)：**空/0 結果不快取**。dashboard 統計來自 live 爬蟲，一次瞬時
+        #   爬蟲失敗回 0 若被快取 600s，會讓使用者看「統計 0」達 10 分鐘（owner 實報）。
+        #   僅在確有資料時快取；空結果讓下次請求重新爬取（自我恢復）。
+        has_data = bool(dashboard_result.get("total_found") or dashboard_result.get("ezbid_count"))
+        if redis and has_data:
             try:
                 await redis.set(cache_key, _json.dumps(dashboard_result, ensure_ascii=False, default=str), ex=600)
             except Exception:
                 pass
+        elif not has_data:
+            logger.warning("tender dashboard 本次 live 爬蟲回空(total_found=0)，跳過快取以便下次重試")
 
         return dashboard_result
 

@@ -63,8 +63,11 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import yaml
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -75,6 +78,49 @@ logger = logging.getLogger(__name__)
 DEFAULT_BUDGET_MIN = 1_000_000  # 100 萬
 DEFAULT_DAYS_BACK = 1  # 過去 N 日新增
 MAX_RECOMMEND_PER_RUN = 20  # 每次跑最多推 N 個（避刷屏）
+
+# 同義詞 SSOT（synonyms.yaml）— 與既有同義詞字典同檔，避免另建競品 store
+_SYNONYMS_PATH = Path(__file__).resolve().parent.parent / "ai" / "synonyms.yaml"
+
+
+@lru_cache(maxsize=1)
+def _load_tender_synonym_groups() -> tuple:
+    """讀 synonyms.yaml 的 tender_keyword_synonyms 群組（程序內快取；改 yaml 後需重啟）。"""
+    try:
+        with open(_SYNONYMS_PATH, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        groups = data.get("tender_keyword_synonyms", []) or []
+        return tuple(tuple(str(m).strip() for m in g if str(m).strip())
+                     for g in groups if isinstance(g, list) and g)
+    except Exception as e:  # 載入失敗不擋主流程（退化為「無同義詞展開」）
+        logger.warning(f"load tender synonyms failed (non-fatal): {e}")
+        return tuple()
+
+
+def _expand_keyword_terms(keywords: List[str]) -> List[str]:
+    """訂閱關鍵字 → 含同義詞的搜尋詞列表（去重、保留原詞、大小寫不敏感比對）。
+
+    L75/2026-06-16：訂閱清單維持精簡（只放主詞，如 UAV），比對時自動展開整組同義詞
+    （UAV → 無人機/空拍機/drone…），避免增列過多訂閱關鍵字。同義詞群組維護於 synonyms.yaml。
+    """
+    groups = _load_tender_synonym_groups()
+    terms: List[str] = []
+    seen = set()
+
+    def _add(t: str) -> None:
+        t = (t or "").strip()
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            terms.append(t)
+
+    for kw in keywords:
+        _add(kw)
+        kwl = (kw or "").strip().lower()
+        for g in groups:
+            if any(m.lower() == kwl for m in g):
+                for m in g:
+                    _add(m)
+    return terms
 
 
 async def find_business_recommendations(
@@ -115,8 +161,8 @@ async def find_business_recommendations(
     sql = text("""
         WITH
         sub_keywords AS (
-            -- 訂閱關鍵字（用戶在 /tender/search 設定的關注詞彙＝公司實做工項）
-            SELECT keyword FROM tender_subscriptions WHERE is_active = true
+            -- 訂閱關鍵字（含同義詞展開；主詞 + synonyms.yaml tender_keyword_synonyms，見 _expand_keyword_terms）
+            SELECT unnest(CAST(:terms AS text[])) AS keyword
         ),
         cooperated_agencies AS (
             -- 精準合作機關（局/所/處/段級；排除裸府級；正規化 ⼯→工）
@@ -201,8 +247,20 @@ async def find_business_recommendations(
         LIMIT :limit
     """)
 
+    # 取 active 訂閱關鍵字並展開同義詞（失敗則退化為無展開，不擋主流程）
+    try:
+        kw_rows = await db.execute(
+            text("SELECT keyword FROM tender_subscriptions WHERE is_active = true")
+        )
+        active_keywords = [r.keyword for r in kw_rows if r.keyword]
+    except Exception as e:
+        logger.warning(f"load active subscription keywords failed (non-fatal): {e}")
+        active_keywords = []
+    search_terms = _expand_keyword_terms(active_keywords)
+
     try:
         result = await db.execute(sql, {
+            "terms": search_terms,
             "days_back": days_back,
             "budget_min": budget_min,
             "limit": limit,
