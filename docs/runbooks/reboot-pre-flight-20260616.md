@@ -9,9 +9,10 @@
 
 | # | 檢查 | 結果 |
 |---|---|---|
-| 1 | git 已 commit/push（無遺失風險） | ✅ `main` ahead origin **0**；今日 6 commits 已 push：`22f8a424`(wiki/graph_domain)→`a66d410b`(SSO retry)→`17373757`(SSO 治本)→`edc0f2b5`(docs)→`27d7ba8e`(wiki 歸檔)→`74340416`(桃園派工 tab+分母) |
+| 1 | git 已 commit/push（無遺失風險） | ✅ `main` ahead origin **0**；今日 9 commits 已 push，尾段：…→`74340416`(派工 tab+分母)→`c9d0e712`(派工 closure 正解)→`617bf9ac`(docs)→`9e229a36`(**SSO 真根因修：宣告式導向**) |
 | 2 | 容器全 healthy | ✅ backend/frontend/postgres/redis/cloudflared + hermes×2/ollama 全 Up healthy |
-| 3 | backend image 為含修法版 | ✅ `ck-missive-backend:production` built 2026-06-16（含 graph_domain 自癒 + ingest_entity preserve + morning-status 無期限派工納入） |
+| 3 | backend image 為含修法版 | ✅ `ck-missive-backend:production` built 2026-06-16（含 graph_domain 自癒 + ingest_entity preserve + morning-status 派工走真實 closure 計算） |
+| 3b | frontend dist 為含修法版 | ✅ `frontend/dist` = `main-BffNJWdd.js`（SessionGate + EntryPage 宣告式導向 + 派工 tab 預設總覽） |
 | 4 | 前端 dist 為含 SSO 治本版（bind-mount） | ✅ `frontend/dist` 服務 bundle = 含 SessionGate/sessionStore（`./frontend/dist:ro`） |
 | 5 | **DB volume 正確（L43）** | ✅ postgres mount = `ck_missive_postgres_dev_data`（非空殼）；compose `postgres_data` → `name: ck_missive_postgres_dev_data` |
 | 6 | 業務量在位（重啟後 healthcheck 依此） | ✅ **1,852 docs / 26,935 KG entity** |
