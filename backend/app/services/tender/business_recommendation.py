@@ -3,38 +3,37 @@ Tender 業務推薦 LINE 通知 (ADR-0046 Phase 4)
 
 對「近 N 日新增 + 預算大 + 機關曾合作」的標案自動 LINE 推送 admin。
 
-═══════════════ 篩選原則 v2 (L51.4 業務整合版) ═══════════════
+═══════════════ 篩選原則 v3 (L75 Option B「關鍵字優先＋機關窄通道」) ═══════════════
 
 【基本面 3 條 AND】(無條件必須)
 1. **時間窗口**: announce_date >= CURRENT_DATE - days_back（預設 1 日）
 2. **資料來源**: source='pcc' OR pcc_match_unit_id IS NOT NULL
 3. **預算門檻**: budget >= budget_min（預設 100 萬）
 
-【業務相關性 3 重信號 OR】(至少 1 命中即列入)
-A. **訂閱關鍵字** (主要 — 與 /tender/search 訂閱機制整合)
-   - title 或 unit_name 命中任一 tender_subscriptions.keyword
-   - 現行訂閱: 用地取得 / 圖解數化地籍 / 測量 / 樁 / 隧道 / UAV (6 個)
-   - 命中即 matched_keywords[] 標註，訊息中顯示原因
+【業務相關性（關鍵字優先；機關為窄通道，非粗放入選）】
+A. **訂閱關鍵字＝工項**（主要入選路徑，權重 10 — 公司實做工項）
+   - title 或 unit_name 命中任一 tender_subscriptions.keyword → 一律入選（任何 category）
+   - 現行訂閱: UAV / 圖根點 / 圖解數化地籍 / 測量 / 用地取得 / 都市計畫樁 / 隧道 (7 個)
 
-B. **合作機關** (次要 — government_agencies 過去 documents 互動)
-   - unit_name 在 government_agencies 表
-   - agency_match_count = 過往 documents 數
-
-C. **歷史承攬機關** (次要 — contract_projects 過去成功承接)
-   - unit_name 在 contract_projects.client_agency
-   - 現有 43 個歷史承攬機關
+B/C. **精準機關窄通道**（次要加權，權重 承攬2 / 合作1）
+   - L75: 機關比對改「精準局/所級」— 排除裸府級（`桃園市政府工務局` ≠ `桃園市政府`），
+     並正規化 unicode 髒資料（部首字「⼯」U+2F37 → 「工」）
+   - 機關「獨立入選」額外要求 **工程類**（category NOT IN 財物/勞務）—
+     測量/技術服務（PCC 常歸勞務）改靠關鍵字路徑接，杜絕「學生保險(財物)/地磅(勞務)」噪音
 
 【排序】
-- 主排序: 多信號命中數 DESC (3 重 → 2 重 → 1 重)
+- 主排序: 加權分 DESC（關鍵字 10 → 恆排最前；承攬 2；合作 1）
 - 次排序: budget DESC, announce_date DESC
 - LIMIT: MAX_RECOMMEND_PER_RUN=20
 
 ═══════════════ 重要設計選擇 ═══════════════
-- **OR 邏輯而非 AND**：避免錯失（任一信號命中即列入）
-- **訂閱關鍵字優先**：用戶在 /tender/search 設定的最直接表達業務興趣
+- **關鍵字＝工項為主、機關為輔**：機關（即使精準到局）會發包大量公司不做的工項，
+  唯一可靠相關性訊號是工項（L75；取代 v2「機關可粗放獨立入選」造成的噪音）
 - **訊息透明化**：顯示「為何推這筆」(matched_keywords / cooperated / contracted)
 - **PCC budget 100% NULL 警示**：實際命中 394 HIGH-matched ezbid（持 budget）
   見 docs/architecture/TENDER_PCC_COVERAGE_AUDIT_20260529.md
+- **殘留限制**: 機關窄通道仍可能放行「精準局/所級的工程新案（非關鍵字）」少量；
+  若仍嫌寬可升 Option A（關鍵字為硬門檻），見 TENDER_RECOMMENDATION_FLOW.md
 
 ═══════════════ 去重機制 ═══════════════
 - Redis: 同案號每日只推 1 次（TTL 25h）
@@ -54,9 +53,11 @@ C. **歷史承攬機關** (次要 — contract_projects 過去成功承接)
   🔗 missive 詳情: https://missive.cksurvey.tw/tender/pcc/...
   🏛 PCC 採購網: https://web.pcc.gov.tw/tps/atm/atmAwardAction.do?...
 
-Version: 1.1.0
+Version: 2.0.0
 Created: 2026-05-28 (ADR-0046 Phase 4)
 Updated: 2026-05-29 L51.3 — 加 PCC 官方連結 + 完整篩選原則註解
+Updated: 2026-06-16 L75 v2.0.0 — Option B 關鍵字優先＋機關窄通道（關鍵字權重 10、機關精準局/所級
+         排除裸府級 + unicode 正規化、機關獨立入選限工程類）；解 owner「推 10 案皆無涉略」
 """
 from __future__ import annotations
 
@@ -102,22 +103,34 @@ async def find_business_recommendations(
     #   信號 B: unit_name 為合作機關 (government_agencies — 過去 documents 互動)
     #   信號 C: unit_name 為歷史承攬機關 (contract_projects 43 個過去承接機關)
     # 任一信號 OR 邏輯，避免錯失。多信號命中者排序優先。
+    # L75 (2026-06-16) Owner 反饋「推 10 案公司皆無涉略」→ 改 Option B「關鍵字優先＋機關窄通道」：
+    #   問題根因＝機關信號可「獨立入選」，而機關（即使精準到局）會發包大量公司不做的工項；
+    #   唯一可靠的相關性訊號＝工項＝關鍵字，機關只能加權/窄通道，不能粗放當入選門檻。
+    # 三項調整：
+    #   (1) 關鍵字命中→一律入選且權重 10（遠高於機關 2/1，確保關鍵字案恆排在最前）。
+    #   (2) 機關信號改「精準局/所級」：排除裸府級（agency NOT LIKE '%政府'，如「桃園市政府工務局」
+    #       ≠「桃園市政府」），並正規化 unicode 髒資料（部首字 U+2F37「⼯」→「工」，contract_projects 實有）。
+    #   (3) 機關獨立入選額外要求「工程類」(NOT IN 財物/勞務)；測量/技服(常歸勞務)靠關鍵字路徑接，
+    #       避免「學生保險(財物)/地磅勞務」這類機關噪音。
     sql = text("""
         WITH
         sub_keywords AS (
-            -- 訂閱關鍵字（用戶在 /tender/search 設定的關注詞彙）
+            -- 訂閱關鍵字（用戶在 /tender/search 設定的關注詞彙＝公司實做工項）
             SELECT keyword FROM tender_subscriptions WHERE is_active = true
         ),
         cooperated_agencies AS (
-            -- 合作機關（過去 documents 互動）
-            SELECT DISTINCT agency_name FROM government_agencies
+            -- 精準合作機關（局/所/處/段級；排除裸府級；正規化 ⼯→工）
+            SELECT DISTINCT replace(agency_name, '⼯', '工') AS agency_name
+            FROM government_agencies
             WHERE agency_name IS NOT NULL
+              AND agency_name NOT LIKE '%政府'   -- L75: 排除裸府級（工務局 ≠ 政府）
         ),
         contracted_agencies AS (
-            -- 歷史承攬機關（過去成功承接過案件）
-            SELECT DISTINCT client_agency AS agency_name
+            -- 精準歷史承攬機關（同上規則）
+            SELECT DISTINCT replace(client_agency, '⼯', '工') AS agency_name
             FROM contract_projects
             WHERE client_agency IS NOT NULL
+              AND client_agency NOT LIKE '%政府'
         ),
         recent_tenders AS (
             SELECT
@@ -125,6 +138,8 @@ async def find_business_recommendations(
                 COALESCE(tr.pcc_match_unit_id, tr.unit_id) AS unit_id,
                 COALESCE(tr.pcc_match_job_number, tr.job_number) AS job_number,
                 tr.id AS tender_record_id, tr.title, tr.unit_name,
+                -- L75: 正規化招標機關 unicode 髒資料，供精準比對
+                replace(tr.unit_name, '⼯', '工') AS unit_name_norm,
                 tr.budget, tr.announce_date, tr.source,
                 tr.category, tr.tender_type
             FROM tender_records tr
@@ -140,50 +155,47 @@ async def find_business_recommendations(
         SELECT
             rt.unit_id, rt.job_number, rt.title, rt.unit_name,
             rt.budget, rt.announce_date, rt.source,
-            -- L51.4 業務相關性三重信號
+            -- 業務相關性信號（關鍵字＝工項；機關＝精準局/所級）
             (
                 SELECT array_agg(sk.keyword)
                 FROM sub_keywords sk
                 WHERE rt.title ILIKE '%' || sk.keyword || '%'
                    OR rt.unit_name ILIKE '%' || sk.keyword || '%'
             ) AS matched_keywords,
-            (rt.unit_name IN (SELECT agency_name FROM cooperated_agencies)) AS is_cooperated,
-            (rt.unit_name IN (SELECT agency_name FROM contracted_agencies)) AS is_contracted,
-            -- 合作次數
+            (rt.unit_name_norm IN (SELECT agency_name FROM cooperated_agencies)) AS is_cooperated,
+            (rt.unit_name_norm IN (SELECT agency_name FROM contracted_agencies)) AS is_contracted,
+            -- 合作次數（以精準正規化名稱計）
             (
                 SELECT COUNT(*) FROM government_agencies ga
-                WHERE ga.agency_name = rt.unit_name
+                WHERE replace(ga.agency_name, '⼯', '工') = rt.unit_name_norm
             ) AS agency_match_count
         FROM recent_tenders rt
         WHERE
-            -- L51.4 業務相關性過濾：訂閱關鍵字 OR (合作/承攬 + 業務類別過濾)
-            -- L51.6 (2026-05-29) 修法：解 owner 反映「金酒 PE 膠膜 / 超導磁共振」雜訊
-            --   - 訂閱命中: 強信號 (用戶主動表達興趣)，任何 category 都放行
-            --   - 合作/承攬: 弱信號 + 必須非「財物」類 (避免財物採購雜訊)
-            --     category=NULL 預設視為「工程」(避免合理案件如「地政整合系統」被擋)
+            -- L75 Option B「關鍵字優先＋機關窄通道」：
+            --   關鍵字命中（工項）→ 一律入選（強信號，任何 category）
+            --   機關（精準局/所級）→ 僅「工程類」窄通道（NOT IN 財物/勞務；NULL 視為工程）
             EXISTS (
                 SELECT 1 FROM sub_keywords sk
                 WHERE rt.title ILIKE '%' || sk.keyword || '%'
                    OR rt.unit_name ILIKE '%' || sk.keyword || '%'
             )
             OR (
-                (rt.unit_name IN (SELECT agency_name FROM cooperated_agencies)
-                 OR rt.unit_name IN (SELECT agency_name FROM contracted_agencies))
-                -- category=NULL 視為「工程」（避「桃園地政整合系統」這類 category 缺失但合理案件被擋）
-                AND COALESCE(NULLIF(TRIM(rt.category), ''), '工程') NOT IN ('財物', '財物類')
+                (rt.unit_name_norm IN (SELECT agency_name FROM cooperated_agencies)
+                 OR rt.unit_name_norm IN (SELECT agency_name FROM contracted_agencies))
+                -- L75: 機關窄通道僅放工程類（測量/技服歸勞務者靠關鍵字路徑接，杜絕保險/地磅噪音）
+                AND COALESCE(NULLIF(TRIM(rt.category), ''), '工程') NOT IN ('財物', '財物類', '勞務', '勞務類')
             )
         ORDER BY
-            -- L51.4 加權排序：訂閱關鍵字 = 3 (用戶主動表達興趣，最強信號)
-            --                  歷史承攬 = 2 (過去成功承接，業務適配)
-            --                  合作機關 = 1 (互動過，次強)
+            -- L75 加權排序：訂閱關鍵字 = 10（工項，遠高於機關 → 關鍵字案恆排最前）
+            --              歷史承攬 = 2 / 合作機關 = 1（精準局/所級，僅次要加權）
             (
                 (CASE WHEN EXISTS (
                     SELECT 1 FROM sub_keywords sk
                     WHERE rt.title ILIKE '%' || sk.keyword || '%'
                        OR rt.unit_name ILIKE '%' || sk.keyword || '%'
-                ) THEN 3 ELSE 0 END) +
-                (CASE WHEN rt.unit_name IN (SELECT agency_name FROM contracted_agencies) THEN 2 ELSE 0 END) +
-                (CASE WHEN rt.unit_name IN (SELECT agency_name FROM cooperated_agencies) THEN 1 ELSE 0 END)
+                ) THEN 10 ELSE 0 END) +
+                (CASE WHEN rt.unit_name_norm IN (SELECT agency_name FROM contracted_agencies) THEN 2 ELSE 0 END) +
+                (CASE WHEN rt.unit_name_norm IN (SELECT agency_name FROM cooperated_agencies) THEN 1 ELSE 0 END)
             ) DESC,
             rt.budget DESC, rt.announce_date DESC
         LIMIT :limit
