@@ -47,8 +47,8 @@ const { Title, Text } = Typography;
  */
 export const TaoyuanDispatchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  // tab=5 (舊晨報追蹤) → tab=0 (已整合到總覽)
-  const rawTab = searchParams.get('tab') || '1';
+  // 預設進站落在「派工總覽」(tab=0)；tab=5 (舊晨報追蹤) → tab=0 (已整合到總覽)
+  const rawTab = searchParams.get('tab') || '0';
   const initialTab = rawTab === '5' ? '0' : rawTab;
   const initialProjectId = Number(searchParams.get('project')) || TAOYUAN_CONTRACT.PROJECT_ID;
   const [activeTab, setActiveTab] = useState(initialTab);
