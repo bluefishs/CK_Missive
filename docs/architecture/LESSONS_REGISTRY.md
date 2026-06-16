@@ -422,6 +422,18 @@
 
 ---
 
+## L76 — Windows Docker backend recreate/restart 易留殭屍埠轉發 socket → 公網 502（部署後必驗 host→8001 / 2026-06-16）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 為部署 tender 修法 `docker compose up -d --no-deps backend`（rebuild+recreate）後約 30 分鐘，owner 報「無法 Google 登入」；查證＝公網 `missive.cksurvey.tw` 全 **502 Bad Gateway**。 |
+| **Cause** | backend 容器**內部健康**（`localhost:8001/health`=200、docker 埠映射 `0.0.0.0:8001` 正常），但 **host→localhost:8001 = 連線失敗(000)** → cloudflared 經 `host.docker.internal:8001` 撞死 socket → `EOF / Unable to reach origin` → 502。根因＝**Windows Docker Desktop 的埠轉發 proxy（vpnkit/port-proxy）在容器 recreate/restart 後成殭屍**（docker 層顯示綁定正常，但 host 側轉發已死）——CLAUDE.md 既列「Windows 殭屍 socket」Docker 陷阱。屬 backend 程式碼 baked image（非 bind-mount）→ 任何後端修法部署都需 recreate → 在 Windows host 上即觸發此風險（rebuild churn 的隱性代價）。 |
+| **Fix** | `docker restart ck_missive_backend` 重建埠轉發 → host→8001 立即回 200、公網 `/`+`/api/health`+`/entry` 全 200、SSO 競態瀏覽器複驗 finalPath=/dashboard PASS。（cloudflared 端無需動；問題在 origin 側埠轉發。若 restart 無效需 `--force-recreate` 或重啟 Docker Desktop。） |
+| **Prevention** | (a) **後端任何 rebuild/recreate/restart 後，必跑公網可達性驗證**（`curl host localhost:8001/health` + `curl https://missive.cksurvey.tw/api/health` 應 200），不可只看容器 health（容器內健康 ≠ 公網可達，同 healthcheck≠functional 元教訓）。(b) 納入 `deployment-effect-ssot.md` 與重啟 runbook 的後端部署 SOP。(c) 「健康但公網 502」黃金訊號＝先測 `host→localhost:8001`：通則查 cloudflared，不通則 backend 埠轉發殭屍→restart。(d) 考慮把 cloudflared origin 由 `host.docker.internal:8001` 改為**同 docker network 直連 `backend:8001`**（繞過 Windows 埠轉發層，根治此族；需評估 cloudflared 與 backend 是否同網）。 |
+| **Refs** | commit（無 code，運維事件）/ `docs/runbooks/deployment-effect-ssot.md`（待補後端部署後公網驗證步驟）/ CLAUDE.md「Docker 陷阱：Windows 殭屍 socket」/ 同族 healthcheck≠functional（L43 §規則3、feedback_pre_demo_functional_verification）+ feedback_rigor_no_self_inflicted_instability（rebuild churn） |
+
+---
+
 ## L75 — 推薦相關性：機關關係 ≠ 工項相關；粗放機關信號 + 粗粒度（府級）比對＝噪音源（標案業務推薦 / 2026-06-16）
 
 | 欄位 | 內容 |
