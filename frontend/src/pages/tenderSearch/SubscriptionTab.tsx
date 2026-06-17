@@ -1,17 +1,112 @@
 /**
  * 訂閱 Tab - 關鍵字自動監控訂閱管理
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Input, Tag, Select, Button, Typography, Row, Col,
-  Empty, Card, Space, Popconfirm, Flex,
+  Empty, Card, Space, Popconfirm, Flex, Divider, Tooltip,
 } from 'antd';
 import {
-  PlusOutlined, DeleteOutlined, BellOutlined,
+  PlusOutlined, DeleteOutlined, BellOutlined, FilterOutlined, ApartmentOutlined, SaveOutlined,
 } from '@ant-design/icons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult } from '@tanstack/react-query';
+import { tenderApi } from '../../api/tenderApi';
 
 const { Text } = Typography;
+
+/**
+ * 推薦規則設定面板（L75.4）— owner 自維「同義詞」+「排除關鍵字」，即時生效、不需 rebuild。
+ * 解「每發現一個誤判（公廁抽水肥/血壓機/復建工程…）就要找工程師改碼」的反覆修正。
+ */
+const KeywordRulesPanel: React.FC<{
+  message: { success: (m: string) => void; error: (m: string) => void };
+}> = ({ message }) => {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ['tender', 'keyword-rules'],
+    queryFn: () => tenderApi.getKeywordRules(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const [exclusions, setExclusions] = useState<string[]>([]);
+  const [synonyms, setSynonyms] = useState<string[][]>([]);
+  const [newExc, setNewExc] = useState('');
+  const [newTerm, setNewTerm] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    if (data) { setExclusions(data.exclusions ?? []); setSynonyms(data.synonyms ?? []); }
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: () => tenderApi.saveKeywordRules({ synonyms, exclusions }),
+    onSuccess: () => {
+      message.success('規則已儲存，業務推薦即時生效');
+      qc.invalidateQueries({ queryKey: ['tender', 'recommend'] });
+      qc.invalidateQueries({ queryKey: ['tender', 'keyword-rules'] });
+    },
+    onError: () => message.error('儲存失敗'),
+  });
+
+  const addExc = () => {
+    const t = newExc.trim();
+    if (t && !exclusions.includes(t)) setExclusions([...exclusions, t]);
+    setNewExc('');
+  };
+  const addTermToGroup = (gi: number) => {
+    const t = (newTerm[gi] || '').trim();
+    if (!t) return;
+    setSynonyms(synonyms.map((g, i) => (i === gi && !g.includes(t) ? [...g, t] : g)));
+    setNewTerm({ ...newTerm, [gi]: '' });
+  };
+
+  return (
+    <Card size="small" style={{ marginBottom: 16, background: '#fafafa' }}
+      title={<Space><FilterOutlined />推薦規則設定（同義詞 / 排除關鍵字）</Space>}
+      extra={<Button type="primary" size="small" icon={<SaveOutlined />} loading={save.isPending}
+        onClick={() => save.mutate()}>儲存（即時生效）</Button>}
+    >
+      <Text strong>排除關鍵字</Text>
+      <Tooltip title="標題含這些詞的標案不進業務推薦（如：血壓機、復建工程、抽水肥、儀器…非公司職能）">
+        <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>非公司職能案件 → 自動排除</Text>
+      </Tooltip>
+      <div style={{ margin: '8px 0' }}>
+        {exclusions.map((e) => (
+          <Tag key={e} closable color="red" onClose={() => setExclusions(exclusions.filter((x) => x !== e))}
+            style={{ marginBottom: 4 }}>{e}</Tag>
+        ))}
+      </div>
+      <Space.Compact style={{ width: 320, maxWidth: '100%' }}>
+        <Input size="small" placeholder="新增排除詞（如：血壓機、復建工程）" value={newExc}
+          onChange={(e) => setNewExc(e.target.value)} onPressEnter={addExc} />
+        <Button size="small" icon={<PlusOutlined />} onClick={addExc}>加入</Button>
+      </Space.Compact>
+
+      <Divider style={{ margin: '12px 0' }} />
+      <Text strong><ApartmentOutlined /> 同義詞群組</Text>
+      <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>訂閱主詞自動展開整組（如 UAV → 無人機/空拍機）</Text>
+      <Flex vertical gap={4} style={{ marginTop: 8 }}>
+        {synonyms.map((g, gi) => (
+          <div key={gi}>
+            {g.map((t) => (
+              <Tag key={t} closable color="blue" style={{ marginBottom: 4 }}
+                onClose={() => setSynonyms(synonyms.map((gg, i) => (i === gi ? gg.filter((x) => x !== t) : gg)).filter((gg) => gg.length))}>
+                {t}
+              </Tag>
+            ))}
+            <Space.Compact style={{ width: 200 }}>
+              <Input size="small" placeholder="加同義詞" value={newTerm[gi] || ''}
+                onChange={(e) => setNewTerm({ ...newTerm, [gi]: e.target.value })}
+                onPressEnter={() => addTermToGroup(gi)} />
+              <Button size="small" icon={<PlusOutlined />} onClick={() => addTermToGroup(gi)} />
+            </Space.Compact>
+          </div>
+        ))}
+        <Button size="small" type="dashed" icon={<PlusOutlined />} style={{ width: 140 }}
+          onClick={() => setSynonyms([...synonyms, ['新群組']])}>新增同義群組</Button>
+      </Flex>
+    </Card>
+  );
+};
 
 const CATEGORY_OPTIONS = [
   { value: '', label: '全部類別' },
@@ -71,6 +166,7 @@ const SubscriptionTab: React.FC<SubscriptionTabProps> = ({
 
   return (
     <div>
+      <KeywordRulesPanel message={message} />
       <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
         <Col flex="auto">
           <Input placeholder="輸入訂閱關鍵字（如：測量、空拍、地籍）" value={subKeyword} onChange={e => setSubKeyword(e.target.value)}

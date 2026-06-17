@@ -151,4 +151,20 @@ export const tenderApi = {
     );
     return res.data!;
   },
+
+  // ========== 推薦關鍵字規則（同義詞 + 排除）owner UI 自維 ==========
+
+  async getKeywordRules(): Promise<{ synonyms: string[][]; exclusions: string[] }> {
+    const res = await apiClient.post<SuccessResponse<{ synonyms: string[][]; exclusions: string[] }>>(
+      TENDER_ENDPOINTS.KEYWORD_RULES_LIST, {},
+    );
+    return res.data ?? { synonyms: [], exclusions: [] };
+  },
+
+  async saveKeywordRules(payload: { synonyms: string[][]; exclusions: string[] }): Promise<{ synonyms: string[][]; exclusions: string[] }> {
+    const res = await apiClient.post<SuccessResponse<{ synonyms: string[][]; exclusions: string[] }>>(
+      TENDER_ENDPOINTS.KEYWORD_RULES_SAVE, payload,
+    );
+    return res.data!;
+  },
 };

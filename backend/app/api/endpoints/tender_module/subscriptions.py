@@ -327,3 +327,25 @@ async def remove_company_bookmark(request: Request, db: AsyncSession = Depends(g
         await db.execute(delete(CompanyBookmark).where(CompanyBookmark.company_name == name))
     await db.commit()
     return SuccessResponse(data={"removed": True})
+
+
+# ── 標案關鍵字規則（同義詞 + 排除）— owner 從「關鍵訂閱」UI 自維（L75.4，即時生效免 rebuild）──
+
+class KeywordRulesRequest(BaseModel):
+    synonyms: list = []      # 同義詞群組 [[主詞, 同義詞...], ...]
+    exclusions: list = []    # 負面關鍵字 [str, ...]
+
+
+@router.post("/keyword-rules/list")
+async def get_keyword_rules(user: User = Depends(require_auth)):
+    """取目前同義詞群組 + 排除關鍵字（給 UI 顯示）。"""
+    from app.services.tender.business_recommendation import load_keyword_rules
+    return SuccessResponse(data=load_keyword_rules())
+
+
+@router.post("/keyword-rules/save")
+async def save_keyword_rules(req: KeywordRulesRequest, user: User = Depends(require_auth)):
+    """儲存同義詞 + 排除關鍵字 → 設定檔（持久 + 即時生效，不需 rebuild）。"""
+    from app.services.tender.business_recommendation import save_keyword_rules as _save
+    rules = _save(req.synonyms, req.exclusions)
+    return SuccessResponse(data=rules)

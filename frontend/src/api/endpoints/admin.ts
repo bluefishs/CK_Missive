@@ -26,6 +26,10 @@ export const TENDER_ENDPOINTS = {
   SUBSCRIPTIONS_UPDATE: '/tender/subscriptions/update',
   /** 刪除訂閱 POST /tender/subscriptions/delete */
   SUBSCRIPTIONS_DELETE: '/tender/subscriptions/delete',
+  /** 推薦關鍵字規則(同義詞+排除) 讀取 POST /tender/keyword-rules/list */
+  KEYWORD_RULES_LIST: '/tender/keyword-rules/list',
+  /** 推薦關鍵字規則 儲存 POST /tender/keyword-rules/save */
+  KEYWORD_RULES_SAVE: '/tender/keyword-rules/save',
   /** 書籤列表 POST /tender/bookmarks/list */
   BOOKMARKS_LIST: '/tender/bookmarks/list',
   /** 收藏標案 POST /tender/bookmarks/create */

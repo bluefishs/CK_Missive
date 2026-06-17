@@ -61,9 +61,10 @@ Updated: 2026-06-16 L75 v2.0.0 — Option B 關鍵字優先＋機關窄通道（
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
 from datetime import datetime, timedelta
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -79,38 +80,63 @@ DEFAULT_BUDGET_MIN = 1_000_000  # 100 萬
 DEFAULT_DAYS_BACK = 1  # 過去 N 日新增
 MAX_RECOMMEND_PER_RUN = 20  # 每次跑最多推 N 個（避刷屏）
 
-# 同義詞 SSOT（synonyms.yaml）— 與既有同義詞字典同檔，避免另建競品 store
+# 標案關鍵字規則（同義詞 + 排除）— 可寫設定檔，供「關鍵訂閱」UI 即時自維（不需 rebuild）。
+#   seed 來源 synonyms.yaml（首次/缺檔用之）；UI 存檔後以設定檔為準、即時生效（每次讀取最新）。
+#   L75.4 (2026-06-17)：解「每補一詞就 rebuild」反覆修正 → owner 從 UI 自行增刪排除/同義詞。
 _SYNONYMS_PATH = Path(__file__).resolve().parent.parent / "ai" / "synonyms.yaml"
+_RULES_PATH = Path(os.environ.get("TENDER_RULES_PATH", "/app/config/tender_keyword_rules.json"))
 
 
-@lru_cache(maxsize=1)
-def _load_tender_synonym_groups() -> tuple:
-    """讀 synonyms.yaml 的 tender_keyword_synonyms 群組（程序內快取；改 yaml 後需重啟）。"""
+def _load_yaml_seed() -> Dict[str, Any]:
+    """synonyms.yaml 的 tender 區段作為 seed。"""
     try:
         with open(_SYNONYMS_PATH, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-        groups = data.get("tender_keyword_synonyms", []) or []
-        return tuple(tuple(str(m).strip() for m in g if str(m).strip())
-                     for g in groups if isinstance(g, list) and g)
-    except Exception as e:  # 載入失敗不擋主流程（退化為「無同義詞展開」）
-        logger.warning(f"load tender synonyms failed (non-fatal): {e}")
-        return tuple()
-
-
-@lru_cache(maxsize=1)
-def _load_tender_exclusions() -> tuple:
-    """讀 synonyms.yaml 的 tender_keyword_exclusions（負面關鍵字；改 yaml 後需重啟）。
-
-    L75.3：命中工項關鍵字但非公司職能的案件（儀器/試劑/醫療採購等）→ 排除。
-    """
-    try:
-        with open(_SYNONYMS_PATH, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        terms = data.get("tender_keyword_exclusions", []) or []
-        return tuple(str(t).strip() for t in terms if str(t).strip())
+        return {
+            "synonyms": [list(g) for g in (data.get("tender_keyword_synonyms") or [])
+                         if isinstance(g, list) and g],
+            "exclusions": [str(t).strip() for t in (data.get("tender_keyword_exclusions") or [])
+                           if str(t).strip()],
+        }
     except Exception as e:
-        logger.warning(f"load tender exclusions failed (non-fatal): {e}")
-        return tuple()
+        logger.warning(f"load tender yaml seed failed (non-fatal): {e}")
+        return {"synonyms": [], "exclusions": []}
+
+
+def load_keyword_rules() -> Dict[str, Any]:
+    """讀標案關鍵字規則（排除 + 同義詞）。設定檔優先、缺檔退 yaml seed；**即時讀取**（UI 編輯即生效）。"""
+    try:
+        if _RULES_PATH.exists():
+            with open(_RULES_PATH, "r", encoding="utf-8") as f:
+                d = json.load(f) or {}
+            return {
+                "synonyms": [list(g) for g in (d.get("synonyms") or []) if isinstance(g, list) and g],
+                "exclusions": [str(t).strip() for t in (d.get("exclusions") or []) if str(t).strip()],
+            }
+    except Exception as e:
+        logger.warning(f"load tender keyword rules failed, fallback to yaml: {e}")
+    return _load_yaml_seed()
+
+
+def save_keyword_rules(synonyms: List[List[str]], exclusions: List[str]) -> Dict[str, Any]:
+    """寫標案關鍵字規則（UI 用）→ 設定檔（mounted backend/config，持久 + 即時生效）。"""
+    rules = {
+        "synonyms": [[str(m).strip() for m in g if str(m).strip()] for g in (synonyms or []) if g],
+        "exclusions": sorted({str(t).strip() for t in (exclusions or []) if str(t).strip()}),
+    }
+    _RULES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(_RULES_PATH, "w", encoding="utf-8") as f:
+        json.dump(rules, f, ensure_ascii=False, indent=2)
+    return rules
+
+
+def _load_tender_synonym_groups() -> tuple:
+    return tuple(tuple(g) for g in load_keyword_rules()["synonyms"] if g)
+
+
+def _load_tender_exclusions() -> tuple:
+    """L75.3：命中工項關鍵字但非公司職能（儀器/醫療/排水溝/抽水肥等）→ 排除。owner 從 UI 自維。"""
+    return tuple(load_keyword_rules()["exclusions"])
 
 
 def _expand_keyword_terms(keywords: List[str]) -> List[str]:
@@ -345,6 +371,11 @@ async def find_business_recommendations(
                 AND COALESCE(NULLIF(TRIM(rt.category), ''), '工程') NOT IN ('財物', '財物類', '勞務', '勞務類')
                 -- L75.1: 預算門檻只留給機關窄通道（過濾大案以外的機關噪音）；關鍵字路徑不受預算限制
                 AND rt.budget IS NOT NULL AND rt.budget >= :budget_min
+                -- L75.4: 機關路徑也套負面關鍵字（擋復建/優化/整修工程等非測量土木噪音；owner UI 自維）
+                AND NOT EXISTS (
+                    SELECT 1 FROM unnest(CAST(:exclude_terms AS text[])) ex
+                    WHERE rt.title ILIKE '%' || ex || '%'
+                )
             )
         ORDER BY
             -- L75 加權排序：訂閱關鍵字 = 10（工項，遠高於機關 → 關鍵字案恆排最前）
