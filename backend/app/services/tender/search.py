@@ -168,11 +168,13 @@ class TenderSearchService:
                     # 結構，讓 isPccDetail+pccDetail.latest.detail 渲染條件成立。
                     # 否則 frontend 走到 `: <Empty />` 顯示「無此資料」 —
                     # 雖然 DB 有 record 但用戶感受是「壞了」。
-                    # 2026-06-17 P1：我們的 unit_id 即 PCC pkPmsMain → 官方詳情頁可直連（實測 200）。
+                    # 2026-06-17 P1：unit_id 即 PCC pkPmsMain → 官方詳情頁直連。
+                    #   ⚠️ pkPmsMain 的 base64 尾端 '=' 必須保留原樣（PCC 自身連結即用原始 '='；
+                    #   編成 %3D 會被 PCC 導向精簡 stub 頁）。故 safe='=' 只編 +//，保留 =。
                     from urllib.parse import quote as _q
                     pcc_url = (
                         "https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain="
-                        + _q(str(unit_id), safe="")
+                        + _q(str(unit_id), safe="=")
                     )
                     announce_str = str(row[4]) if row[4] else ""
                     db_quick_result = {

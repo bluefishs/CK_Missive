@@ -532,10 +532,11 @@ def _format_recommendation_line(rec: Dict[str, Any]) -> str:
         f"https://missive.cksurvey.tw/tender/pcc/"
         f"{unit_id_url}/{job_url}"
     )
-    # 2026-06-17 P1：unit_id 即 PCC pkPmsMain → 官方詳情頁直連（實測 200，取代失效 atmAwardAction）。
+    # 2026-06-17 P1：unit_id 即 PCC pkPmsMain → 官方詳情頁直連（取代失效 atmAwardAction）。
+    #   pkPmsMain 尾端 '=' 須保留原樣（PCC 自身用原始 '='；%3D 會落 stub 頁）→ safe='='。
     pcc_url = (
         "https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain="
-        + quote(str(rec["unit_id"]), safe="")
+        + quote(str(rec["unit_id"]), safe="=")
     )
 
     return (
