@@ -187,6 +187,30 @@ confidence = 0.5 × title_sim(pg_trgm)
 
 ---
 
+## 附錄 B — 標案資料現實與 Enrichment 可行性定論（2026-06-17，防日後重試被封路徑）
+
+> **結論：server 端 PCC 詳情 enrichment（採購性質/底價/決標/廠商）不可行，已徹底驗證。勿再投入爬蟲路徑。**
+
+**資料現實**：tender_records 僅有「今日招標公告基本欄位」（title/unit_name/job_number/deadline/source；多 NULL budget/category）。我方 `unit_id` 實為 PCC `pkPmsMain`（base64）。
+
+**官方直連（可用，已修）**：`https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=<unit_id>`，**base64 尾 `=` 須保留原樣**（編成 `%3D` 會落精簡 stub 頁）→ `quote(safe='=')`。使用者瀏覽器點擊可看完整官方頁（不受我方伺服 IP 反爬限制）。
+
+**Enrichment 死結（實證，勿重試）**：
+| 路徑 | 結果 |
+|---|---|
+| openfun API（不限流、回乾淨採購性質/預算/底價/廠商）| 需「點分 org_id」（如 A.13.6.20 / 3.5.48）|
+| 點分 org_id 來源 | **僅在 PCC 詳情頁**；今日清單頁/ezbid/openfun by-date 皆無 |
+| PCC 詳情頁逐案抓 | **端點層反爬限流**：少量請求後即回 13–49KB stub（無 org_id），curl/httpx/補 headers/換 UA/session+Referer/原始= 皆然 → `searchTenderDetail` 對我方伺服 IP 限流。**註：非全面 IP 封鎖**——今日清單頁(prkms/today) 仍 200/1439 筆正常、**爬蟲資料源與推薦/篩選完全不受影響**；限流為速率型、多半隨時間恢復；使用者瀏覽器(他 IP/真 session)不受限 |
+
+→ openfun 需 org_id、org_id 只在被限流的 PCC 詳情頁、無替代源 ⇒ **採購性質/底價 server 端無法穩定取得**。DB 已加 enrichment 欄位（org_id/procurement_nature/base_price/award_result/bidders/detail_enriched_at，遷移 20260617a001，無害備用）；`detail_enrichment.py` 保留 best-effort、**不掛自動 cron**。
+
+**因此的篩選策略（現實下最佳解）**：
+- **可靠引擎＝確定性自維**（關鍵字 + 排除清單 + 承攬史建議），owner 從「關鍵訂閱→推薦規則設定」UI 自加，**即時生效、零成本、可控**。特例（血壓計/復建工程…）由 owner 自加排除。
+- 詳情/底價/戰情 → 使用者點**官方直連**看 PCC 完整頁。
+- 若未來真要採購性質自動化：唯一路徑＝**付費/官方 PCC 開放資料授權或合法代理 API**（非爬蟲），屬採購決策。
+
+---
+
 ## 變更紀錄
 | 日期 | 版本 | 變更 |
 |---|---|---|
@@ -195,3 +219,4 @@ confidence = 0.5 × title_sim(pg_trgm)
 | 2026-06-16 | **v3（L75 Option B）** | 關鍵字優先（權重10）+ 機關精準局/所級窄通道（排裸府級 + unicode 正規化 + 限工程類）；解「推送皆無涉略」 |
 | 2026-06-16 | v3.1（L75 同義詞/卡片語意）| 訂閱關鍵字同義詞展開（synonyms.yaml）；今日最新=活動量 / 業務推薦=相關；今日標案口徑含報價單去重 |
 | 2026-06-17 | **v4（完整複查定案）** | 統計口徑 SSOT（全週單元除今日標案、DB 同源去重、移除重複最新決標卡、修決標停留舊月）；業務推薦 L75.1 關鍵字不受預算門檻（圖根點）+ L75.2 只比對 title + L75.3 排除機制（財物+負面關鍵字，非 AI）；今日最新真 count 與 dashboard 一致（解 list 截斷）|
+| 2026-06-17 | **v5（自維 UI + 官方直連 + enrichment 定論）** | 關鍵訂閱新增「推薦規則設定」UI（排除/同義詞/承攬史建議一鍵加入、即時生效免 rebuild，L75.4）；PCC 官方直連修（pkPmsMain，原始 `=`）；**enrichment 死結定論**（PCC 反爬封我方伺服 IP、org_id 無替代源 → 不投入爬蟲，見附錄 B）；DB 加 enrichment 欄位備用（遷移 20260617a001）|

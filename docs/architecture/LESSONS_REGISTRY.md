@@ -422,6 +422,18 @@
 
 ---
 
+## L77 — 標案 enrichment 死結：openfun 需 org_id、org_id 只在被反爬限流的 PCC 詳情頁（勿重試爬蟲路徑 / 2026-06-17）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 反映業務推薦特例無窮（隧道式電子血壓計命中「隧道」等），擬以 PCC 詳情 enrichment 取「採購性質/標的分類」做可靠職能篩選（財物=儀器可靠排除）。 |
+| **Cause** | 資料死結：①openfun API（不限流、回乾淨採購性質/預算/底價/廠商）只能用「點分 org_id」查；②點分 org_id **僅在 PCC 詳情頁** `searchTenderDetail?pkPmsMain=`，今日清單頁(prkms/today)/ezbid/openfun-by-date 皆無；③PCC 詳情頁對我方伺服 IP **端點層反爬限流**——早上前幾次回完整 123KB(含 org_id)，密集除錯後即回 13–49KB stub(無 org_id)，curl/httpx/補 headers/換 UA/session+Referer/原始= 皆無效。⇒ 採購性質 server 端無法穩定取得。我方 `unit_id` 實為 PCC `pkPmsMain`。 |
+| **Fix** | (1) **不投入 server 端 PCC 爬蟲 enrichment**（已徹底驗證死結，繼續＝沉沒成本）。(2) 官方直連修：`searchTenderDetail?pkPmsMain=<unit_id>`，base64 尾 `=` 須原樣(`quote(safe='=')`；`%3D` 落 stub)；使用者瀏覽器(他 IP)不受限。(3) 篩選以**確定性自維 UI**（關鍵字+排除+承攬史建議，即時生效）為可靠引擎，特例由 owner 自加排除。(4) DB enrichment 欄位(遷移 20260617a001)無害備用、服務 best-effort 不掛 cron。 |
+| **Prevention** | (a) 外部資料源 enrichment 先做 spike 驗「id 格式映射 + 反爬/限流」再規劃管線（本案 P0 spike 即揭露 id 不匹配，P2 揭露限流）。(b) **非全面 IP 封**：限流為端點層、速率型——`prkms/today` 爬蟲資料源正常(200/1439 筆)、推薦/篩選不受影響，勿誤判為系統壞。(c) 密集除錯外部站點要節流(我方密集打 searchTenderDetail 觸發升級限流)。(d) 採購性質自動化唯一正解＝付費/官方開放資料授權或合法代理 API，非爬蟲（採購決策）。 |
+| **Refs** | `docs/architecture/TENDER_RECOMMENDATION_FLOW.md` 附錄 B / `detail_enrichment.py`(best-effort,blocked) / 遷移 20260617a001 / commit `5ec45d7c` / 同族 healthcheck≠functional、外部依賴 spike 先行 |
+
+---
+
 ## L76 — Windows Docker backend recreate/restart 易留殭屍埠轉發 socket → 公網 502（部署後必驗 host→8001 / 2026-06-16）
 
 | 欄位 | 內容 |
