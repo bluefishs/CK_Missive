@@ -28,6 +28,11 @@ const KeywordRulesPanel: React.FC<{
     queryFn: () => tenderApi.getKeywordRules(),
     staleTime: 5 * 60 * 1000,
   });
+  const { data: suggestions } = useQuery({
+    queryKey: ['tender', 'kw-suggest'],
+    queryFn: () => tenderApi.suggestKeywordRules(),
+    staleTime: 10 * 60 * 1000,
+  });
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [synonyms, setSynonyms] = useState<string[][]>([]);
   const [newExc, setNewExc] = useState('');
@@ -104,6 +109,23 @@ const KeywordRulesPanel: React.FC<{
         <Button size="small" type="dashed" icon={<PlusOutlined />} style={{ width: 140 }}
           onClick={() => setSynonyms([...synonyms, ['新群組']])}>新增同義群組</Button>
       </Flex>
+
+      <Divider style={{ margin: '12px 0' }} />
+      <Text strong>💡 來自承攬史的建議工項</Text>
+      <Tooltip title="依公司實際承攬案(contract_projects)詞頻推導；點擊加入同義詞以擴充職能召回">
+        <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>點擊一鍵加入（括號=承攬案數）</Text>
+      </Tooltip>
+      <div style={{ marginTop: 8 }}>
+        {(() => {
+          const flat = synonyms.flat();
+          const pend = (suggestions ?? []).filter((s) => !flat.includes(s.term));
+          if (!pend.length) return <Text type="secondary" style={{ fontSize: 12 }}>（無新建議，承攬史工項已涵蓋）</Text>;
+          return pend.map((s) => (
+            <Tag key={s.term} color="gold" style={{ cursor: 'pointer', marginBottom: 4 }}
+              onClick={() => setSynonyms([...synonyms, [s.term]])}>+ {s.term} ({s.history_count})</Tag>
+          ));
+        })()}
+      </div>
     </Card>
   );
 };

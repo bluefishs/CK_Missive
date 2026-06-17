@@ -349,3 +349,10 @@ async def save_keyword_rules(req: KeywordRulesRequest, user: User = Depends(requ
     from app.services.tender.business_recommendation import save_keyword_rules as _save
     rules = _save(req.synonyms, req.exclusions)
     return SuccessResponse(data=rules)
+
+
+@router.post("/keyword-rules/suggest")
+async def suggest_keyword_rules(db: AsyncSession = Depends(get_db), user: User = Depends(require_auth)):
+    """確定性 L3：從承攬史推導「公司職能工項」建議詞（詞頻），供 UI 一鍵加入。"""
+    from app.services.tender.business_recommendation import suggest_keyword_terms
+    return SuccessResponse(data=await suggest_keyword_terms(db))

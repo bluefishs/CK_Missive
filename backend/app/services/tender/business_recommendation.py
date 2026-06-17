@@ -130,6 +130,49 @@ def save_keyword_rules(synonyms: List[List[str]], exclusions: List[str]) -> Dict
     return rules
 
 
+# 測繪/用地職能候選詞庫（確定性 L3：以詞頻×承攬史 推導建議，非向量；nomic-embed 對短中文標題
+#   區分力不足，PoC 證實向量篩選不可靠 → 改用「承攬史詞頻」可靠學習公司職能）。
+_DOMAIN_CANDIDATE_TERMS = [
+    "測量", "測繪", "丈量", "複丈", "地籍", "地形", "圖根", "控制測量", "水準測量",
+    "航空攝影測量", "航測", "空拍", "UAV", "無人機", "界址", "鑑界", "用地", "徵收",
+    "區段徵收", "市地重劃", "都市計畫", "都市計畫樁", "樁位", "釘樁", "土地分割", "土地合併",
+    "地價", "監測", "變形監測", "邊坡監測", "隧道", "三維掃描", "點雲", "GNSS", "GPS測量",
+]
+
+
+async def suggest_keyword_terms(db: AsyncSession, limit: int = 15) -> List[Dict[str, Any]]:
+    """確定性 L3：從承攬史(contract_projects)+收藏標案 以詞頻推導「公司職能工項」建議詞，
+    回傳尚未納入現有同義詞/訂閱的高頻候選，供 owner 一鍵加入（UI）。
+    """
+    from sqlalchemy import text as _t
+    # 已涵蓋詞（現有同義詞群組 + 訂閱關鍵字）→ 不重複建議
+    covered = set()
+    for g in load_keyword_rules()["synonyms"]:
+        for w in g:
+            covered.add(str(w).strip())
+    try:
+        subs = await db.execute(_t("SELECT keyword FROM tender_subscriptions WHERE is_active = true"))
+        covered |= {r[0].strip() for r in subs if r[0]}
+    except Exception:
+        pass
+
+    suggestions: List[Dict[str, Any]] = []
+    for term in _DOMAIN_CANDIDATE_TERMS:
+        if term in covered:
+            continue
+        try:
+            cnt = (await db.execute(
+                _t("SELECT count(*) FROM contract_projects WHERE project_name ILIKE :q"),
+                {"q": f"%{term}%"},
+            )).scalar() or 0
+        except Exception:
+            cnt = 0
+        if cnt > 0:
+            suggestions.append({"term": term, "history_count": int(cnt)})
+    suggestions.sort(key=lambda x: x["history_count"], reverse=True)
+    return suggestions[:limit]
+
+
 def _load_tender_synonym_groups() -> tuple:
     return tuple(tuple(g) for g in load_keyword_rules()["synonyms"] if g)
 
@@ -489,10 +532,11 @@ def _format_recommendation_line(rec: Dict[str, Any]) -> str:
         f"https://missive.cksurvey.tw/tender/pcc/"
         f"{unit_id_url}/{job_url}"
     )
-    # PCC 政府電子採購網（官方原始公告，方便直接查官方頁面）
+    # PCC 官方查詢：atmAwardAction deep-link 已 404、unit_id 為 base64 無 tender pk → 無法直連。
+    #   改 Google 精準搜尋（案號必中 PCC 官方頁），2026-06-17。
     pcc_url = (
-        "https://web.pcc.gov.tw/tps/atm/atmAwardAction.do"
-        f"?method=goSearch&unitId={unit_id_url}&jobNumber={job_url}"
+        "https://www.google.com/search?q="
+        + quote(f'"{rec["job_number"]}" 政府電子採購網')
     )
 
     return (

@@ -167,4 +167,12 @@ export const tenderApi = {
     );
     return res.data!;
   },
+
+  /** 承攬史工項建議（確定性 L3） */
+  async suggestKeywordRules(): Promise<Array<{ term: string; history_count: number }>> {
+    const res = await apiClient.post<SuccessResponse<Array<{ term: string; history_count: number }>>>(
+      TENDER_ENDPOINTS.KEYWORD_RULES_SUGGEST, {},
+    );
+    return res.data ?? [];
+  },
 };

@@ -168,9 +168,12 @@ class TenderSearchService:
                     # 結構，讓 isPccDetail+pccDetail.latest.detail 渲染條件成立。
                     # 否則 frontend 走到 `: <Empty />` 顯示「無此資料」 —
                     # 雖然 DB 有 record 但用戶感受是「壞了」。
+                    # 2026-06-17：PCC 已不支援 atmAwardAction deep-link（404）；且我們的 unit_id 為
+                    #   base64、無 PCC tender pk → 無法可靠直連。改 Google 精準搜尋（案號必中 PCC 頁）。
+                    from urllib.parse import quote as _q
                     pcc_url = (
-                        "https://web.pcc.gov.tw/tps/atm/atmAwardAction.do"
-                        f"?method=goSearch&unitId={unit_id}&jobNumber={job_number}"
+                        "https://www.google.com/search?q="
+                        + _q(f'"{job_number}" {row[0] or ""} 政府電子採購網')
                     )
                     announce_str = str(row[4]) if row[4] else ""
                     db_quick_result = {

@@ -30,6 +30,8 @@ export const TENDER_ENDPOINTS = {
   KEYWORD_RULES_LIST: '/tender/keyword-rules/list',
   /** 推薦關鍵字規則 儲存 POST /tender/keyword-rules/save */
   KEYWORD_RULES_SAVE: '/tender/keyword-rules/save',
+  /** 承攬史工項建議 POST /tender/keyword-rules/suggest */
+  KEYWORD_RULES_SUGGEST: '/tender/keyword-rules/suggest',
   /** 書籤列表 POST /tender/bookmarks/list */
   BOOKMARKS_LIST: '/tender/bookmarks/list',
   /** 收藏標案 POST /tender/bookmarks/create */
