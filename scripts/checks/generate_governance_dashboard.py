@@ -159,6 +159,41 @@ def list_recent_sessions(n: int = 5) -> list[str]:
     return [s.name for s in sessions[:n]]
 
 
+def _existing_section_body(section_header: str) -> list[str]:
+    """L73 非 clobber：cron 在容器內（無 git / 無 ~/.claude memory）regenerate 時，
+    保留前次 host 寫入的實值區段（§3 commits / §4 sessions），避免每日把實值
+    洗成「容器內無法取」placeholder（治理儀表板自身的 silent 回退）。
+
+    section_header 例：「## 3.」。回傳該 section 與下一個 `## ` 之間的內文行。
+    """
+    if not OUT.exists():
+        return []
+    try:
+        text = OUT.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return []
+    body: list[str] = []
+    capturing = False
+    for ln in text.splitlines():
+        if ln.startswith("## "):
+            if capturing:
+                break
+            capturing = ln.strip().startswith(section_header)
+            continue
+        if capturing:
+            body.append(ln)
+    while body and not body[0].strip():
+        body.pop(0)
+    while body and not body[-1].strip():
+        body.pop()
+    return body
+
+
+def _is_placeholder(body: list[str]) -> bool:
+    """前次區段是否本身就是 placeholder（無實值可保留）。"""
+    return (not body) or any(("⚪" in b) or ("⚠️ git log" in b) or ("⚠ git log" in b) for b in body)
+
+
 def check_cross_repo_drift() -> list[tuple[str, int, int, str]]:
     """v6.12 整合: 跨 repo 範本漂移摘要 (對齊 cross_repo_template_drift_audit step 65)"""
     targets = ["CK_lvrland_Webmap", "CK_PileMgmt", "CK_Showcase", "CK_KMapAdvisor"]
@@ -265,6 +300,10 @@ def render() -> str:
         a(f"  {k:50} {metrics[k]:>12.1f}")
     a("```")
     a("")
+    a("> ℹ️ **metric 範疇註記（消 SSOT 誤判）**：`wiki_pages_total` = 全 `wiki/**/*.md` 檔數（含 memory/diary/patterns）；")
+    a("> self-retrospective 報告的「wiki 頁數」= LLM wiki 頁（`wiki/` 前兩層）。兩者同名不同範疇，差異屬定義非漂移。")
+    a("> `v7_soul_drift_lines = -1` 為 sentinel（容器內 writer 盲視 host `CK_AaaP`，L73）；真值須 host fitness 寫入。")
+    a("")
 
     # ── 3 最近 8 commits ──
     a("## 3. 最近 8 commits (進化執行軌跡)")
@@ -272,10 +311,17 @@ def render() -> str:
     if commits:
         for c in commits:
             a(f"- `{c}`")
-    elif not IS_GIT_REPO:
-        a("> ⚪ 容器內執行（非 git repo）無法取 commit 歷史；於 host 端手動 regenerate 可填。")
     else:
-        a("> ⚠️ git log 取回為空。")
+        prev = _existing_section_body("## 3.")
+        if not _is_placeholder(prev):
+            for ln in prev:
+                a(ln)
+            a("")
+            a("> ℹ️ 容器內無 git；以上為前次 host regenerate 保留值（L73 非 clobber，避免 silent 回退空白）。")
+        elif not IS_GIT_REPO:
+            a("> ⚪ 容器內執行（非 git repo）無法取 commit 歷史；於 host 端手動 regenerate 可填。")
+        else:
+            a("> ⚠️ git log 取回為空。")
     a("")
 
     # ── 4 最近 session 覆盤 ──
@@ -285,7 +331,14 @@ def render() -> str:
         for s in sessions:
             a(f"- {s}")
     else:
-        a("> ⚪ 容器內無 ~/.claude memory 存取；於 host 端手動 regenerate 可填。")
+        prev = _existing_section_body("## 4.")
+        if not _is_placeholder(prev):
+            for ln in prev:
+                a(ln)
+            a("")
+            a("> ℹ️ 容器內無 ~/.claude memory；以上為前次 host regenerate 保留值（L73 非 clobber）。")
+        else:
+            a("> ⚪ 容器內無 ~/.claude memory 存取；於 host 端手動 regenerate 可填。")
     a("")
 
     # ── 5 B 方案 60 天 trial 進度 ──
@@ -370,6 +423,10 @@ def render() -> str:
     ])
     verdict = "✅ GO" if met == 5 else ("🟡 NEAR-GO" if met >= 3 else "🔴 NO-GO")
     a(f"| **Summary** | — | — | **{met}/5** | **{verdict}** |")
+    a("")
+    a("> ℹ️ **#4 error rate / #5 p95 為已接受的結構性限制（accepted constraint）**：瓶頸坐實在本地模型強度")
+    a("> （免費策略下 TPM 牆），非 prompt/管路可解；monorepo 已定調維持免費、勿再投 prompt 層 recall 強化。")
+    a("> 維持免費策略期間此兩項不列為待辦，避免每次覆盤重觸發雜訊。升付費 tier 或換更強模型才重評。")
     a("")
     a("詳見 `docs/architecture/HERMES_BASELINE_RESET_PLAN_20260530.md`")
     a("")
