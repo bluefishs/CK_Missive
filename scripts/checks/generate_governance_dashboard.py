@@ -453,7 +453,11 @@ def render() -> str:
     # ── 9.5 Cron 排程真活表 (v6.13 owner: 真活大於規劃) ──
     a("## 9.5 Cron 排程真活全表 (事件追溯依據)")
     a("")
-    a("**所有 47 cron 真活狀態**（從 `/metrics scheduler_job_*` 即時抓）：")
+    a("**近期活躍 cron**（從 `/metrics scheduler_job_*` 即時抓 = 重啟後已 fire 的 job）：")
+    a("")
+    a("> ⚠️ 此表只含「後端重啟後已執行過」的 job（metric 重啟歸零）；週級/月級 job 在重啟後")
+    a("> 到下次 fire 前不會出現於此，**非代表中斷**。完整註冊×執行對賬（用持久 cron_events.jsonl，")
+    a("> 涵蓋週自傳等低頻 job）以 `scheduler_liveness_audit.py` 為權威，silent dormant 由其偵測。")
     a("")
     scheduler_age = {k: v for k, v in metrics.items() if k.startswith("scheduler_job_last_run_age_seconds")}
     scheduler_succ = {k: v for k, v in metrics.items() if k.startswith("scheduler_job_success_total")}
@@ -484,8 +488,9 @@ def render() -> str:
     for hours, job_id, succ, fail, status in rows:
         a(f"| `{job_id}` | {hours:.1f}h | {succ} | {fail} | {status} |")
     a("")
-    a(f"**統計**：{len(rows)} 真活 cron / {len([r for r in rows if r[4] == '🟢'])} GREEN / "
-      f"{len([r for r in rows if r[4] == '🟡'])} YELLOW / {len([r for r in rows if r[4] == '🔴'])} RED")
+    a(f"**統計**：{len(rows)} 個近期活躍 cron / {len([r for r in rows if r[4] == '🟢'])} GREEN / "
+      f"{len([r for r in rows if r[4] == '🟡'])} YELLOW / {len([r for r in rows if r[4] == '🔴'])} RED"
+      f"（完整對賬見 scheduler_liveness_audit）")
     a("")
     a("**凌晨低干擾排程設計（v6.13）**：")
     a("- 02:00 fitness_daily / 02:30 dashboard_regen / 02:45 self_retrospective")
