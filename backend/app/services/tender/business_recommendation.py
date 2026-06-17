@@ -532,11 +532,10 @@ def _format_recommendation_line(rec: Dict[str, Any]) -> str:
         f"https://missive.cksurvey.tw/tender/pcc/"
         f"{unit_id_url}/{job_url}"
     )
-    # PCC 官方查詢：atmAwardAction deep-link 已 404、unit_id 為 base64 無 tender pk → 無法直連。
-    #   改 Google 精準搜尋（案號必中 PCC 官方頁），2026-06-17。
+    # 2026-06-17 P1：unit_id 即 PCC pkPmsMain → 官方詳情頁直連（實測 200，取代失效 atmAwardAction）。
     pcc_url = (
-        "https://www.google.com/search?q="
-        + quote(f'"{rec["job_number"]}" 政府電子採購網')
+        "https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain="
+        + quote(str(rec["unit_id"]), safe="")
     )
 
     return (
