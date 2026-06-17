@@ -1046,7 +1046,8 @@ async def cron_optimization_pipeline_job():
         # 非阻塞執行（pipeline 內含 subprocess 呼叫，可能 30s+）
         from app.services.optimization_pipeline_orchestrator import (
             run_daily_pipeline,
-            format_digest_markdown,
+            format_line_digest,
+            display_overall_zh,
         )
         report = await _asyncio.to_thread(run_daily_pipeline)
         overall = report.get("overall_status", "unknown")
@@ -1062,16 +1063,17 @@ async def cron_optimization_pipeline_job():
         # 7 天觀察期後若 owner 嫌雜，可改回 if overall in ("yellow","red","error")
         try:
             from app.services.contracts.facades.integration import IntegrationFacade
-            digest = format_digest_markdown(report)
+            # v6.21 (2026-06-18) owner 回饋：管理端訊息中文化 + 具體化。
+            # title 改中文 + display-overall（已知限制不誤報 🔴）；body 用 LINE 友善的
+            # 分區白話 digest（取代英文 markdown 表格與 raw dict）。
             n_steps = len(report.get("steps", []))
+            disp = display_overall_zh(report)
+            title = f"系統每日巡檢｜{disp}"
             if overall == "green":
-                body = f"全綠 ✓ {n_steps} steps 通過。明日同時推。"
+                body = f"五項巡檢全綠通過（{n_steps} 項）。明日同時推送。"
             else:
-                body = digest[:2000]
-            await IntegrationFacade().push_admin_alert(
-                title=f"[Pipeline {overall.upper()}] 每日巡檢 ({n_steps} steps)",
-                body=body,
-            )
+                body = format_line_digest(report)[:2000]
+            await IntegrationFacade().push_admin_alert(title=title, body=body)
         except Exception as push_exc:
             logger.warning(
                 "Optimization Pipeline digest push 失敗（pipeline 已產出 report）: %s",

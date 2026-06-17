@@ -491,10 +491,14 @@ def run_daily_pipeline() -> Dict[str, Any]:
             ))
 
     # 整體狀態 = 最差子 step
-    status_priority = {"green": 0, "yellow": 1, "red": 2, "error": 3}
+    # v6.21 (2026-06-18) 修：原 status_priority 缺 "info"，配 .get(s, 4) 預設值
+    # → precommit_hook 的 info(容器略過) 被算成優先級 4，反而蓋過 red(2)
+    # → 管理端看到誤導性「Overall: INFO」(底下其實有 RED)。
+    # 修法：info 列為最低優先（非阻斷），unknown 預設 0(非 4)，overall 如實反映最差 actionable。
+    status_priority = {"info": -1, "green": 0, "yellow": 1, "red": 2, "error": 3}
     overall = max(
         (s.status for s in steps),
-        key=lambda s: status_priority.get(s, 4),
+        key=lambda s: status_priority.get(s, 0),
     )
 
     report = {
@@ -533,51 +537,169 @@ def run_daily_pipeline() -> Dict[str, Any]:
     return report
 
 
+# ─── 中文化標籤 + 白話解讀（v6.21 2026-06-18：使管理端更明確掌握資訊）──────
+# owner 回饋：LINE 推播「[Pipeline INFO] 每日巡檢 (5 steps)」英文標籤 + raw dict
+# 對管理端不友善。以下把步驟名/狀態/摘要轉成中文白話。
+
+STEP_LABELS_ZH = {
+    "fitness": "架構健檢",
+    "capability_audit": "能力使用稽核",
+    "memory_loop": "記憶學習閉環",
+    "shadow_baseline": "AI 回應品質基線",
+    "precommit_hook": "提交守門",
+}
+
+STATUS_LABELS_ZH = {
+    "green": "✅ 正常",
+    "yellow": "🟡 注意",
+    "red": "🔴 異常",
+    "error": "⛔ 錯誤",
+    "info": "ℹ️ 略過",
+}
+
+OVERALL_LABELS_ZH = {
+    "green": "✅ 全部正常",
+    "yellow": "🟡 注意（無紅燈阻斷）",
+    "red": "🔴 有異常項待確認",
+    "error": "⛔ 巡檢執行錯誤",
+    "info": "ℹ️ 資訊",
+}
+
+
+def _is_accepted_red(step: Dict[str, Any]) -> bool:
+    """判斷 shadow_baseline 的紅燈是否為「已知限制」（非 actionable）。
+
+    p95 延遲超標但成功率仍 OK = 本地模型強度上限（免費策略下的 TPM 牆），
+    monorepo 已定調維持免費、不投 prompt 層 → 屬已接受限制，不應驚動管理端。
+    """
+    if step.get("name") != "shadow_baseline" or step.get("status") != "red":
+        return False
+    d = step.get("details") or {}
+    p95 = d.get("p95_ms") or 0
+    succ = d.get("success_ratio")
+    return p95 > 60000 and (succ is None or succ >= 0.85)
+
+
+def _display_overall_zh(report: Dict[str, Any]) -> str:
+    """人類可讀的整體狀態：紅燈若全為「已知限制」則不以 🔴 驚動管理端。
+
+    機器用的 report["overall_status"] 仍保留真實最差值（供 alerting / exit code），
+    此函式只決定「人看的那行」如何呈現，避免每日因已知延遲上限被訓練成忽略紅燈。
+    """
+    steps = report.get("steps", [])
+    actionable = [s for s in steps
+                  if s["status"] in ("red", "error") and not _is_accepted_red(s)]
+    accepted = [s for s in steps if _is_accepted_red(s)]
+    yellow = [s for s in steps if s["status"] == "yellow"]
+    if any(s["status"] == "error" for s in actionable):
+        return OVERALL_LABELS_ZH["error"]
+    if actionable:
+        return OVERALL_LABELS_ZH["red"]
+    if yellow and accepted:
+        return "🟡 注意（含已知限制，無紅燈待處理）"
+    if yellow:
+        return OVERALL_LABELS_ZH["yellow"]
+    if accepted:
+        return "🟢 正常（僅含已知限制，無需處理）"
+    return OVERALL_LABELS_ZH["green"]
+
+
+def _interpret_zh(step: Dict[str, Any]) -> str:
+    """把 step 英文 summary 轉成管理端看得懂的中文白話。"""
+    name = step.get("name")
+    d = step.get("details") or {}
+    if name == "fitness":
+        return (f"{d.get('pass', '?')} 項通過、{d.get('warn', '?')} 項待注意、"
+                f"{d.get('fail', '?')} 項失敗")
+    if name == "capability_audit":
+        if step.get("status") == "green":
+            return "無閒置能力（工具／知識圖譜／學習迴圈／ADR 皆有在用）"
+        return f"偵測到閒置能力待清理（{step.get('summary', '')}）"
+    if name == "memory_loop":
+        c = d.get("counts", {})
+        return (f"日記 {c.get('diary', '?')} 篇、學習模式 {c.get('patterns', '?')} 個、"
+                f"待批提案 {c.get('proposals_pending', '?')} 件、已結晶 {c.get('crystals', '?')} 個")
+    if name == "shadow_baseline":
+        n = d.get("n", "?")
+        avg = (d.get("avg_ms") or 0) / 1000
+        p95 = (d.get("p95_ms") or 0) / 1000
+        succ = d.get("success_ratio")
+        base = f"近 24 小時 {n} 筆、平均 {avg:.1f} 秒、p95 {p95:.1f} 秒"
+        if succ is not None:
+            base += f"、成功率 {succ:.0%}"
+        if _is_accepted_red(step):
+            base += "（延遲偏高＝本地模型強度上限，免費策略下屬已知限制、無需處理）"
+        return base
+    if name == "precommit_hook":
+        if step.get("status") == "info":
+            return "容器環境略過（提交守門於主機端 git 執行）"
+        return step.get("summary", "")
+    return step.get("summary", "")
+
+
 def format_digest_markdown(report: Dict[str, Any]) -> str:
-    """格式化 daily digest 給 push channel（LINE/Telegram）。"""
-    overall = report["overall_status"]
+    """格式化 daily digest 為中文表格（寫入 .md + 終端輸出）。"""
+    date = datetime.now().strftime("%Y-%m-%d")
     lines = [
-        f"# Optimization Pipeline Daily — {datetime.now().strftime('%Y-%m-%d')}",
-        f"",
-        f"**Overall**: {overall.upper()}",
-        f"",
-        "## Steps",
+        f"# 系統每日巡檢報告 — {date}",
+        "",
+        f"**整體狀態**：{_display_overall_zh(report)}",
+        "",
+        "| 巡檢項目 | 狀態 | 說明 |",
+        "|---|---|---|",
     ]
-    for line in report["summary_lines"]:
-        lines.append(line)
+    for s in report["steps"]:
+        label = STEP_LABELS_ZH.get(s["name"], s["name"])
+        st = STATUS_LABELS_ZH.get(s["status"], s["status"])
+        lines.append(f"| {label} | {st} | {_interpret_zh(s)} |")
     lines.append("")
-    lines.append("(完整 report: `wiki/memory/pipeline-reports/`)")
+    lines.append("> 巡檢由每日 cron 自動執行；完整明細：`wiki/memory/pipeline-reports/`")
     return "\n".join(lines)
 
 
 def _format_line_digest(report: Dict[str, Any]) -> str:
-    """精簡 LINE digest（4000 字內），優先顯示 RED/YELLOW step。
+    """精簡 LINE digest（4000 字內），中文、按嚴重度分區，管理端一眼掌握。
 
+    分區：🔴 需處理（actionable red/error）→ 🟡 注意 → ℹ️ 已知限制（accepted red）。
     LINE 不支援 markdown，純文字。
     """
-    red = [s for s in report["steps"] if s["status"] in ("red", "error")]
-    yellow = [s for s in report["steps"] if s["status"] == "yellow"]
+    steps = report["steps"]
+    actionable = [s for s in steps
+                  if s["status"] in ("red", "error") and not _is_accepted_red(s)]
+    yellow = [s for s in steps if s["status"] == "yellow"]
+    accepted = [s for s in steps if _is_accepted_red(s)]
 
+    date = datetime.now().strftime("%Y-%m-%d")
     lines = [
-        f"📊 Pipeline {datetime.now().strftime('%Y-%m-%d')}",
-        f"Overall: {report['overall_status'].upper()}",
+        f"📊 系統每日巡檢 — {date}",
+        f"整體：{_display_overall_zh(report)}",
         "",
     ]
-    if red:
-        lines.append(f"🔴 RED ({len(red)}):")
-        for s in red:
-            lines.append(f"  • {s['name']}: {s['summary'][:120]}")
+    if actionable:
+        lines.append(f"🔴 需處理（{len(actionable)} 項）：")
+        for s in actionable:
+            lines.append(f"  • {STEP_LABELS_ZH.get(s['name'], s['name'])}：{_interpret_zh(s)[:140]}")
         lines.append("")
     if yellow:
-        lines.append(f"🟡 YELLOW ({len(yellow)}):")
-        for s in yellow[:5]:  # 至多 5 條避免 LINE 4000 字限制
-            lines.append(f"  • {s['name']}: {s['summary'][:120]}")
+        lines.append(f"🟡 注意（{len(yellow)} 項）：")
+        for s in yellow[:5]:  # 至多 5 條避免超過 LINE 4000 字
+            lines.append(f"  • {STEP_LABELS_ZH.get(s['name'], s['name'])}：{_interpret_zh(s)[:140]}")
         lines.append("")
-    if not red and not yellow:
-        lines.append("✅ All steps GREEN")
+    if accepted:
+        lines.append(f"ℹ️ 已知限制（{len(accepted)} 項，無需處理）：")
+        for s in accepted:
+            lines.append(f"  • {STEP_LABELS_ZH.get(s['name'], s['name'])}：{_interpret_zh(s)[:160]}")
         lines.append("")
-    lines.append("詳見 wiki/memory/pipeline-reports/")
+    if not actionable and not yellow and not accepted:
+        lines.append("✅ 五項巡檢全部正常")
+        lines.append("")
+    lines.append("📂 完整明細：wiki/memory/pipeline-reports/")
     return "\n".join(lines)
+
+
+# 公開別名供 scheduler 等呼叫端使用（避免跨模組 import 私有 _ 名）
+format_line_digest = _format_line_digest
+display_overall_zh = _display_overall_zh
 
 
 async def push_digest_to_line(report: Dict[str, Any]) -> bool:
@@ -675,7 +797,7 @@ if __name__ == "__main__":
     else:
         print(format_digest_markdown(report))
         print()
-        # 顯示詳細 step summary
+        # raw step summary（除錯用，英文機器格式；管理端看上方中文表格）
         for line in report["summary_lines"]:
             print(line)
 

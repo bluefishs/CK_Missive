@@ -25,7 +25,7 @@ from app.services.optimization_pipeline_orchestrator import (
 
 @pytest.fixture
 def fake_report_red():
-    """模擬 RED report — 至少 1 個 step 為 red/error。"""
+    """模擬 actionable RED report — shadow_baseline 因成功率過低而紅（需處理）。"""
     return {
         "started_at": "2026-05-20T00:00:00+00:00",
         "completed_at": "2026-05-20T00:05:00+00:00",
@@ -34,15 +34,17 @@ def fake_report_red():
             {
                 "name": "fitness",
                 "status": "green",
-                "summary": "26/32 PASS",
-                "details": {},
+                "summary": "26 pass / 0 warn / 0 fail",
+                "details": {"pass": 26, "warn": 0, "fail": 0},
                 "duration_ms": 1234.5,
             },
             {
                 "name": "shadow_baseline",
                 "status": "red",
-                "summary": "p95 90.0s > target 60s",
-                "details": {},
+                "summary": "p95 90.0s success=50%",
+                # 成功率 50% → 非 accepted（actionable red）
+                "details": {"n": 60, "avg_ms": 25300, "p95_ms": 90000,
+                            "success_ratio": 0.5},
                 "duration_ms": 567.8,
             },
             {
@@ -54,9 +56,40 @@ def fake_report_red():
             },
         ],
         "summary_lines": [
-            "  [GREEN ] fitness                26/32 PASS",
-            "  [RED   ] shadow_baseline        p95 90.0s > target 60s",
+            "  [GREEN ] fitness                26 pass / 0 warn / 0 fail",
+            "  [RED   ] shadow_baseline        p95 90.0s success=50%",
             "  [YELLOW] capability_audit       107 dead findings",
+        ],
+    }
+
+
+@pytest.fixture
+def fake_report_accepted_red():
+    """模擬「已知限制」report — shadow_baseline 僅延遲超標、成功率仍 OK。"""
+    return {
+        "started_at": "2026-06-18T00:00:00+00:00",
+        "completed_at": "2026-06-18T00:05:00+00:00",
+        "overall_status": "red",
+        "steps": [
+            {
+                "name": "shadow_baseline",
+                "status": "red",
+                "summary": "p95 90.0s success=95%",
+                "details": {"n": 60, "avg_ms": 25300, "p95_ms": 90000,
+                            "success_ratio": 0.95},
+                "duration_ms": 567.8,
+            },
+            {
+                "name": "precommit_hook",
+                "status": "info",
+                "summary": "skipped: .git/ not present",
+                "details": {},
+                "duration_ms": 1.0,
+            },
+        ],
+        "summary_lines": [
+            "  [RED   ] shadow_baseline        p95 90.0s success=95%",
+            "  [INFO  ] precommit_hook         skipped",
         ],
     }
 
@@ -80,33 +113,45 @@ def fake_report_all_green():
 
 
 def test_format_line_digest_highlights_red_steps(fake_report_red):
-    """RED step 必須在 digest 最上方顯示（owner 一眼看到紅燈）。"""
+    """actionable RED step 必須在「需處理」區最上方顯示（管理端一眼看到）。"""
     digest = _format_line_digest(fake_report_red)
 
-    # 標題含日期
-    assert "📊 Pipeline" in digest
-    # overall RED 大寫
-    assert "Overall: RED" in digest
-    # RED 區塊存在且含 step 名稱與摘要
-    assert "🔴 RED (1)" in digest
-    assert "shadow_baseline" in digest
-    assert "p95 90.0s" in digest
-    # YELLOW 區塊也應存在
-    assert "🟡 YELLOW (1)" in digest
-    assert "capability_audit" in digest
+    # 中文標題
+    assert "📊 系統每日巡檢" in digest
+    # overall 中文
+    assert "整體：🔴 有異常項待確認" in digest
+    # 需處理區塊存在且含中文步驟名 + 白話
+    assert "🔴 需處理（1 項）" in digest
+    assert "AI 回應品質基線" in digest
+    assert "成功率 50%" in digest
+    # 注意區塊
+    assert "🟡 注意（1 項）" in digest
+    assert "能力使用稽核" in digest
     # 4000 字限制
     assert len(digest) < 4000
 
 
+def test_format_line_digest_accepted_constraint_separated(fake_report_accepted_red):
+    """shadow_baseline 僅延遲紅（成功率 OK）→ 歸「已知限制」而非「需處理」。"""
+    digest = _format_line_digest(fake_report_accepted_red)
+
+    assert "ℹ️ 已知限制（1 項，無需處理）" in digest
+    assert "AI 回應品質基線" in digest
+    assert "已知限制" in digest
+    # 不應出現在「需處理」區
+    assert "🔴 需處理" not in digest
+
+
 def test_format_line_digest_all_green_shows_check_mark(fake_report_all_green):
-    """全 GREEN 時應顯示 ✅ All steps GREEN（owner 體感正反饋）。"""
+    """全 GREEN 時應顯示中文正反饋。"""
     digest = _format_line_digest(fake_report_all_green)
 
-    assert "Overall: GREEN" in digest
-    assert "✅ All steps GREEN" in digest
-    # 不應出現 RED/YELLOW 標題
-    assert "🔴 RED" not in digest
-    assert "🟡 YELLOW" not in digest
+    assert "整體：✅ 全部正常" in digest
+    assert "✅ 五項巡檢全部正常" in digest
+    # 不應出現需處理/注意/已知限制 標題
+    assert "🔴 需處理" not in digest
+    assert "🟡 注意" not in digest
+    assert "已知限制" not in digest
 
 
 # ─── push_digest_to_line env gate ───────────────────────────────
@@ -181,10 +226,10 @@ async def test_push_calls_line_bot_when_env_ok(fake_report_red, monkeypatch):
     args = mock_bot.push_message.await_args
     assert args.args[0] == "Uadmin42"
     sent_msg = args.args[1]
-    # 訊息應含 RED 段落 + step 名稱
-    assert "🔴 RED" in sent_msg
-    assert "shadow_baseline" in sent_msg
-    assert "Overall: RED" in sent_msg
+    # 訊息應含中文「需處理」段落 + 中文步驟名
+    assert "🔴 需處理" in sent_msg
+    assert "AI 回應品質基線" in sent_msg
+    assert "整體：🔴 有異常項待確認" in sent_msg
 
 
 @pytest.mark.asyncio
