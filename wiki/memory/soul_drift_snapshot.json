@@ -1,7 +1,10 @@
 {
-  "missive_lines": 191,
+  "missive_lines": 192,
   "hermes_lines": 0,
+  "line_delta": 0,
+  "core_invariant_gap": -1,
+  "missing_invariants": [],
   "drift_lines": -1,
-  "updated_at": "2026-06-14 18:00",
-  "source": "autobiography_post_write"
+  "updated_at": "2026-06-21 18:00",
+  "source": "autobiography_post_write(preserve_host_drift)"
 }
