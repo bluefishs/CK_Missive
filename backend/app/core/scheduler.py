@@ -1061,6 +1061,18 @@ async def cron_optimization_pipeline_job():
         # 2026-05-22 教訓：5 個月 silent fail 沒人察覺，正是因為「GREEN 不推」=「無告警 = 不知壞」
         # GREEN 推單行摘要（低雜訊），YELLOW/RED 推完整 digest
         # 7 天觀察期後若 owner 嫌雜，可改回 if overall in ("yellow","red","error")
+        #
+        # 2026-06-23 owner 決策：LINE 免費月配額 200 則優先給「晨報 + 坤哥相關紀錄」，
+        # 系統每日巡檢訊息暫緩推送（report 仍寫入 wiki/memory/pipeline-reports/ + 治理
+        # 儀表板，owner 可從首選入口 GOVERNANCE_INTEGRATED_DASHBOARD.md 查看）。
+        # 要恢復巡檢 LINE 推送：設 PIPELINE_LINE_PUSH_ENABLED=true。
+        if os.getenv("PIPELINE_LINE_PUSH_ENABLED", "false").lower() != "true":
+            logger.info(
+                "系統每日巡檢 digest 推送已暫緩（PIPELINE_LINE_PUSH_ENABLED=false，"
+                "節省 LINE 月配額）— report 已產出，可從治理儀表板查看 overall=%s",
+                overall,
+            )
+            return
         try:
             from app.services.contracts.facades.integration import IntegrationFacade
             # v6.21 (2026-06-18) owner 回饋：管理端訊息中文化 + 具體化。
@@ -1352,8 +1364,20 @@ async def tender_business_recommend_job():
     """標案業務推薦 LINE 推送 (ADR-0046 Phase 4)
 
     每日 09:00 跑 — 推「過去 1 日新增 + 預算 ≥ 100萬 + 合作機關」標案。
+
+    2026-06-23 owner 決策：LINE 免費月配額 200 則須優先分配給「晨報為主 + 坤哥相關
+    紀錄」，標案推送暫緩以節省額度。預設 TENDER_LINE_PUSH_ENABLED=false（不推）；
+    enrichment/scraper/dashboard 預熱等資料 job 不受影響，/tender UI 仍即時更新。
+    要恢復標案 LINE 推送：設 TENDER_LINE_PUSH_ENABLED=true。
     """
     from app.db.database import async_session_maker
+
+    if os.getenv("TENDER_LINE_PUSH_ENABLED", "false").lower() != "true":
+        logger.info(
+            "標案業務推薦 LINE 推送已暫緩（TENDER_LINE_PUSH_ENABLED=false，"
+            "節省 LINE 月配額供晨報/坤哥使用）"
+        )
+        return
 
     logger.info("開始執行標案業務推薦推送")
     try:

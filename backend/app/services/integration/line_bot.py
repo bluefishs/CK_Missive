@@ -40,6 +40,18 @@ logger = logging.getLogger(__name__)
 # LINE API base URL
 LINE_API_BASE = "https://api.line.me/v2/bot"
 
+# 月配額短路（2026-06-23）— LINE 免費方案月推播上限 200 則，用罄後回
+# 429 {"message":"You have reached your monthly limit."}。偵測到後記下當月份，
+# 本月剩餘時間直接跳過 LINE push：避免每排程時刻硬試產生 log noise + 灌爆
+# admin_push consecutive 失敗計數。月份變更自動解除（in-memory；backend 重啟後
+# 最多再試一次重新偵測，可接受）。
+_line_monthly_limit_month: Optional[str] = None
+
+
+def _current_month() -> str:
+    from datetime import datetime
+    return datetime.now().strftime("%Y-%m")
+
 
 class LineBotService:
     """LINE Bot 整合服務"""
@@ -389,7 +401,14 @@ class LineBotService:
 
     async def _call_line_api(self, path: str, payload: dict) -> bool:
         """呼叫 LINE Messaging API（ADR-0027：push 類路徑接 admin_push_metrics）"""
+        global _line_monthly_limit_month
         is_push = path.startswith("/message/push")
+        # 月配額短路：本月已偵測到 monthly limit → 直接跳過 push（不再打 API、不記失敗）
+        if is_push and _line_monthly_limit_month == _current_month():
+            logger.info(
+                "LINE push 略過：本月推播月配額已用罄（將於下月初自動恢復）"
+            )
+            return False
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
@@ -407,6 +426,17 @@ class LineBotService:
                         resp.status_code,
                         resp.text[:200],
                     )
+                    # 月配額用罄 → 設短路旗標，本月不再硬試（免 noise + 免灌爆計數）
+                    if (
+                        is_push
+                        and resp.status_code == 429
+                        and "monthly limit" in resp.text.lower()
+                    ):
+                        _line_monthly_limit_month = _current_month()
+                        logger.warning(
+                            "LINE 月推播配額用罄（429 monthly limit）→ 本月暫停 LINE "
+                            "push，下月初自動恢復。建議改用 Telegram failover 通道。"
+                        )
                     if is_push:
                         try:
                             from app.core.admin_push_metrics import get_admin_push_metrics
