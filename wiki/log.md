@@ -4925,3 +4925,9 @@
 ## [2026-06-22] compile | topic | integration health 月報 (channel=1 diary=11% drift=-1)
 
 ## [2026-06-22] lint | pages=266 orphans=37 broken=5
+
+## [2026-06-23] lint | pages=266 orphans=37 broken=5
+
+## [2026-06-24] lint | pages=266 orphans=37 broken=5
+
+## [2026-06-25] lint | pages=266 orphans=37 broken=5
