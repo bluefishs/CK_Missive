@@ -172,8 +172,8 @@ export function useEventForm(
       form.setFieldsValue({
         title: event.title,
         description: event.description,
-        start_date: dayjs(event.start_date),
-        end_date: event.end_date ? dayjs(event.end_date) : undefined,
+        // 2026-06-30 統一：僅截止日期/時間（end_date），無開始；舊資料 fallback 取 start_date
+        end_date: dayjs(event.end_date || event.start_date),
         all_day: event.all_day,
         event_type: event.event_type,
         priority: typeof event.priority === 'string' ? parseInt(event.priority) : event.priority,
@@ -195,7 +195,7 @@ export function useEventForm(
         event_type: 'reminder',
         priority: 3,
         all_day: false,
-        start_date: dayjs(),
+        end_date: dayjs(),
       });
       setAllDay(false);
       setDocumentOptions([]);
@@ -227,11 +227,13 @@ export function useEventForm(
       // 改 dayjs.format 保留本地時間。DB 是 timestamp WITHOUT time zone，
       // 一致使用本地時間語意（用戶輸入 5/22 18:00 = 存 5/22 18:00 = 顯示 5/22 18:00）。
       // 觸發案例：事件 1081 顯示提前 1 日（用戶輸入 5/22 變顯示 5/21）。
+      // 2026-06-30 統一：僅截止日期/時間（end_date）；start_date 自動 = end_date（DB 保留兩欄相容）
+      const endIso = values.end_date.format('YYYY-MM-DDTHH:mm:ss');
       const submitData = {
         title: values.title,
         description: values.description || null,
-        start_date: values.start_date.format('YYYY-MM-DDTHH:mm:ss'),
-        end_date: values.end_date?.format('YYYY-MM-DDTHH:mm:ss') || null,
+        start_date: endIso,
+        end_date: endIso,
         all_day: values.all_day || false,
         event_type: values.event_type,
         priority: values.priority,

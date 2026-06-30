@@ -153,7 +153,7 @@ export function useIntegratedEvent(
       form.setFieldsValue({
         title: `公文提醒: ${document.subject || document.doc_number || '未命名'}`,
         description: buildDescription(document),
-        start_date: eventDate,
+        // 2026-06-30 統一：僅截止日期/時間（end_date）；start_date 於送出時自動 = end_date
         end_date: eventDate,
         all_day: true,
         event_type: eventType,
@@ -174,7 +174,7 @@ export function useIntegratedEvent(
         event_type: 'reminder',
         priority: 3,
         all_day: true,
-        start_date: dayjs(),
+        end_date: dayjs(),
       });
       setAllDay(true);
       setReminders([{ minutes_before: 60, notification_type: 'system' }]);
@@ -214,11 +214,13 @@ export function useIntegratedEvent(
       setLoading(true);
 
       // v6.10.1 (2026-05-20): 時區漂移修法 — 用 format 保留本地時間（同 useEventForm）
+      // 2026-06-30 統一：僅截止日期/時間（end_date）；start_date 自動 = end_date
+      const endIso = values.end_date.format('YYYY-MM-DDTHH:mm:ss');
       const submitData = {
         title: values.title,
         description: values.description || null,
-        start_date: values.start_date.format('YYYY-MM-DDTHH:mm:ss'),
-        end_date: values.end_date?.format('YYYY-MM-DDTHH:mm:ss') || values.start_date.format('YYYY-MM-DDTHH:mm:ss'),
+        start_date: endIso,
+        end_date: endIso,
         all_day: values.all_day || false,
         event_type: values.event_type,
         priority: values.priority,

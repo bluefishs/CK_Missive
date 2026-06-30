@@ -134,22 +134,15 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             </Col>
           </Row>
 
+          {/* 2026-06-30 統一：僅截止日期/時間（無開始）；start_date 於送出時自動 = end_date */}
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                name="start_date"
-                label="開始時間"
-                rules={[{ required: true, message: '請選擇開始時間' }]}
+                name="end_date"
+                label="截止日期/時間"
+                rules={[{ required: true, message: '請選擇截止日期/時間' }]}
+                tooltip="行事曆僅在截止日當天顯示此事件"
               >
-                <DatePicker
-                  showTime={!allDay}
-                  format={allDay ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm'}
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="end_date" label="結束時間">
                 <DatePicker
                   showTime={!allDay}
                   format={allDay ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm'}

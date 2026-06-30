@@ -147,8 +147,8 @@ const CalendarEventFormPage: React.FC = () => {
             <Col xs={24} sm={12}>
               <Form.Item
                 name="end_date"
-                label="截止日期"
-                rules={[{ required: true, message: '請選擇截止日期' }]}
+                label="截止日期/時間"
+                rules={[{ required: true, message: '請選擇截止日期/時間' }]}
                 tooltip="行事曆僅在截止日當天顯示此事件"
               >
                 <DatePicker
