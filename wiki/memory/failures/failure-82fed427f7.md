@@ -6,7 +6,8 @@ tool_sequence: ["find_correspondence", "get_statistics", "search_dispatch_orders
 hit_count: 4
 failure_count: 2
 failure_rate: 0.500
-active: true
+active: false
+expired_reason: stale >21d (last_seen 2026-06-03)
 first_seen: 2026-04-22
 last_seen: 2026-06-03
 tags: [memory, failure, defensive]

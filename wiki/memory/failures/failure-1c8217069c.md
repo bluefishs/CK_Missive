@@ -6,7 +6,8 @@ tool_sequence: ["get_statistics", "search_documents"]
 hit_count: 11
 failure_count: 7
 failure_rate: 0.636
-active: true
+active: false
+expired_reason: stale >21d (last_seen 2026-06-03)
 first_seen: 2026-05-05
 last_seen: 2026-06-03
 tags: [memory, failure, defensive]
