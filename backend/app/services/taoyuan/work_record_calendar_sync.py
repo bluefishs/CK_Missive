@@ -134,6 +134,7 @@ async def sync_work_record_to_calendar(
         if own_event:
             own_event.title = new_title
             own_event.start_date = start_dt
+            own_event.end_date = start_dt  # 單一時間點：end 必須隨 start 同步，否則 start>end 顛倒
             own_event.all_day = True
             own_event.event_type = 'work_record_deadline'
             own_event.status = 'pending' if own_event.status == 'cancelled' else own_event.status
@@ -159,6 +160,7 @@ async def sync_work_record_to_calendar(
                     doc_event.start_date.date(), work_record.deadline_date,
                 )
                 doc_event.start_date = start_dt
+                doc_event.end_date = start_dt  # 單一時間點：end 必須隨 start 同步，否則 start>end 顛倒
                 doc_event.all_day = True
                 doc_event.google_sync_status = 'pending'
                 # 記錄 work_record 綁定（允許未來反查）

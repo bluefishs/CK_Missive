@@ -245,6 +245,8 @@ class DocumentCalendarSync:
 
                     if success:
                         existing_event.title = f"公文截止：{document_title}"
+                        # start 必須隨 end 同步更新，否則更新後 start(舊) 與 end(新) 不一致
+                        existing_event.start_date = deadline - timedelta(hours=1)
                         existing_event.end_date = deadline
                         existing_event.google_sync_status = SYNC_STATUS_SYNCED
                         existing_event.updated_at = datetime.utcnow()

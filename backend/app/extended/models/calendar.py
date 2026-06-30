@@ -5,6 +5,7 @@
 - EventReminder: 事件提醒
 """
 from ._base import *
+from sqlalchemy import event as _sa_event
 
 
 class DocumentCalendarEvent(Base):
@@ -40,6 +41,24 @@ class DocumentCalendarEvent(Base):
     assigned_user = relationship("User", foreign_keys=[assigned_user_id], lazy="joined")
     creator = relationship("User", foreign_keys=[created_by], lazy="joined")
     reminders = relationship("EventReminder", back_populates="event", cascade="all, delete-orphan", lazy="selectin")
+
+
+def _normalize_calendar_event_dates(mapper, connection, target):
+    """SSOT 防呆：任何寫入路徑若產生 end_date < start_date（日期顛倒）自動收斂。
+
+    背景：多條 ORM 直寫路徑（work_record_calendar_sync / document_sync 更新分支）曾
+    只改 start_date 或只改 end_date，導致 start>end 顛倒 → 完成判定看 end_date(過去)
+    誤標完成、/calendar 月檢視重疊查詢兩月皆不匹配而隱形。Pydantic validate_date_ordering
+    只攔 API schema，攔不到 ORM 直寫，故在 model flush 層補這道網（before_insert/update）。
+    收斂策略：以 start_date 為準（單一時間點事件 end 應 = start；顛倒視為 end 漏更新）。
+    """
+    if target.start_date is not None and target.end_date is not None:
+        if target.end_date < target.start_date:
+            target.end_date = target.start_date
+
+
+_sa_event.listen(DocumentCalendarEvent, "before_insert", _normalize_calendar_event_dates)
+_sa_event.listen(DocumentCalendarEvent, "before_update", _normalize_calendar_event_dates)
 
 
 class EventReminder(Base):
