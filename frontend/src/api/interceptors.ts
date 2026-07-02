@@ -361,35 +361,46 @@ function createAxiosInstance(): AxiosInstance {
             }
             return instance(originalRequest);
           } catch (refreshError) {
-            // 刷新失敗，清除認證資訊
+            // 刷新失敗
             isRefreshing = false;
-            localStorage.removeItem(ACCESS_TOKEN_KEY);
-            localStorage.removeItem(REFRESH_TOKEN_KEY);
-            localStorage.removeItem('user_info');
-            // 清除前端可寫入的 cookie
-            document.cookie = 'csrf_token=; Path=/; Max-Age=0';
-
-            if (!window.location.pathname.includes('/login')) {
-              // ADR-0001：跳登入前先試 SSO bridge（成功會 reload，失敗才走 login）
-              const ssoOk = await attemptSSOBridge();
-              if (!ssoOk) {
-                window.location.href = '/login';
+            // 2026-07-02 SSO「閃一下又跳回登入」根治：sessionStore 已認證（剛 SSO/登入成功）時，
+            //   單一端點 401（尤高頻輪詢 system-notifications/unread-count）+ refresh 失敗，
+            //   不清 session、不跳 /login —— 僅讓該請求失敗。真失效於下次 reload bootstrap 驗證時降級。
+            //   （原行為：任一 401+refresh 失敗即清 user_info + attemptSSOBridge cooldown → 硬跳 /login）
+            const { useSessionStore } = await import('../store/sessionStore');
+            const believedAuthed = useSessionStore.getState().status === 'authenticated';
+            if (!believedAuthed) {
+              localStorage.removeItem(ACCESS_TOKEN_KEY);
+              localStorage.removeItem(REFRESH_TOKEN_KEY);
+              localStorage.removeItem('user_info');
+              document.cookie = 'csrf_token=; Path=/; Max-Age=0';
+              if (!window.location.pathname.includes('/login')) {
+                // ADR-0001：跳登入前先試 SSO bridge（成功會 reload，失敗才走 login）
+                const ssoOk = await attemptSSOBridge();
+                if (!ssoOk) {
+                  window.location.href = '/login';
+                }
               }
             }
             throw ApiException.fromAxiosError(error);
           }
         } else {
-          // 沒有 refresh token，清除並嘗試 SSO bridge
-          localStorage.removeItem(ACCESS_TOKEN_KEY);
-          localStorage.removeItem(REFRESH_TOKEN_KEY);
-          localStorage.removeItem('user_info');
-          document.cookie = 'csrf_token=; Path=/; Max-Age=0';
+          // 2026-07-02 SSO「閃一下又跳回登入」根治（同上）：已認證時不清 session、不跳 /login
+          const { useSessionStore } = await import('../store/sessionStore');
+          const believedAuthed = useSessionStore.getState().status === 'authenticated';
+          if (!believedAuthed) {
+            // 沒有 refresh token，清除並嘗試 SSO bridge
+            localStorage.removeItem(ACCESS_TOKEN_KEY);
+            localStorage.removeItem(REFRESH_TOKEN_KEY);
+            localStorage.removeItem('user_info');
+            document.cookie = 'csrf_token=; Path=/; Max-Age=0';
 
-          if (!window.location.pathname.includes('/login')) {
-            // ADR-0001：跳登入前先試 SSO bridge
-            const ssoOk = await attemptSSOBridge();
-            if (!ssoOk) {
-              window.location.href = '/login';
+            if (!window.location.pathname.includes('/login')) {
+              // ADR-0001：跳登入前先試 SSO bridge
+              const ssoOk = await attemptSSOBridge();
+              if (!ssoOk) {
+                window.location.href = '/login';
+              }
             }
           }
         }
