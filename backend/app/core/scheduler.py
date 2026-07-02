@@ -503,25 +503,32 @@ async def proactive_trigger_scan_job():
                 f"已通知={persisted}"
             )
 
-            # LINE 推播 (嘗試性，失敗不影響主流程)
-            try:
-                from app.services.integration.line_push_scheduler import LinePushScheduler
-                push_scheduler = LinePushScheduler(db)
-                push_result = await push_scheduler.scan_and_push(min_severity="warning")
-                if push_result.get("sent", 0) > 0:
-                    logger.info(f"LINE 推播完成: {push_result}")
-            except Exception as line_err:
-                logger.debug(f"LINE 推播跳過: {line_err}")
+            # LINE 推播減量合併（2026-07-02）：吹哨者 alerts + 派工進度預設不單推 LINE，
+            # 避免 LINE 免費月配額 200 則於下旬用罄（吹哨者原佔 2 則/日/管理員為最大消耗源）。
+            # 內容仍寫入 DB alerts / 前端可見；晨報 morning_report 08:00 為唯一每日 LINE 推播。
+            # 要恢復吹哨者 LINE 推播：設 PROACTIVE_LINE_PUSH_ENABLED=true。
+            if os.getenv("PROACTIVE_LINE_PUSH_ENABLED", "false").lower() == "true":
+                # LINE 推播 (嘗試性，失敗不影響主流程)
+                try:
+                    from app.services.integration.line_push_scheduler import LinePushScheduler
+                    push_scheduler = LinePushScheduler(db)
+                    push_result = await push_scheduler.scan_and_push(min_severity="warning")
+                    if push_result.get("sent", 0) > 0:
+                        logger.info(f"LINE 推播完成: {push_result}")
+                except Exception as line_err:
+                    logger.debug(f"LINE 推播跳過: {line_err}")
 
-            # 派工進度彙整推送 (LINE Flex + Discord Embed)
-            try:
-                from app.services.integration.line_push_scheduler import LinePushScheduler
-                progress_scheduler = LinePushScheduler(db)
-                progress_result = await progress_scheduler.push_dispatch_progress()
-                if progress_result.get("sent", 0) > 0:
-                    logger.info(f"派工進度 LINE 推送完成: {progress_result}")
-            except Exception as progress_err:
-                logger.debug(f"派工進度推送跳過: {progress_err}")
+                # 派工進度彙整推送 (LINE Flex + Discord Embed)
+                try:
+                    from app.services.integration.line_push_scheduler import LinePushScheduler
+                    progress_scheduler = LinePushScheduler(db)
+                    progress_result = await progress_scheduler.push_dispatch_progress()
+                    if progress_result.get("sent", 0) > 0:
+                        logger.info(f"派工進度 LINE 推送完成: {progress_result}")
+                except Exception as progress_err:
+                    logger.debug(f"派工進度推送跳過: {progress_err}")
+            else:
+                logger.info("吹哨者/派工進度 LINE 推播已合併至晨報（PROACTIVE_LINE_PUSH_ENABLED=false）")
 
     except Exception as e:
         logger.error(f"夜間吹哨者失敗: {e}", exc_info=True)
