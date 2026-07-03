@@ -150,6 +150,11 @@ services:
       - LOG_LEVEL=INFO
       - TZ=Asia/Taipei
       - ENVIRONMENT=production
+      # 2026-07-03 owner 授權：學習閉環 auto-apply 由 dry-run → live。
+      #   雙安全閘（crystallizer.py）：confidence≥0.9 + target_file∈{intent_rules.yaml}。
+      #   → 僅高信心「路由規則」自動套用（CrystalApplier snapshot+validate+rollback）；
+      #   SOUL.md/synonyms.yaml 不在 allowlist → 身分層/同義詞仍需人審（維持手動）。
+      - CRYSTAL_AUTO_APPLY_MODE=live
       # 2026-05-24 fix: 修正 docker 內 PROJECT_ROOT 偏層問題（docker /app vs host backend/）
       # 沒這個 → memory_metrics_refresh_job 找 /wiki/memory 找不到 → silent skip → gauge 永遠 0
       - CK_WIKI_DIR=/app/wiki
