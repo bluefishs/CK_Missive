@@ -56,6 +56,43 @@ const REDIRECT_TO_AUTH = [
   /<Navigate\b[^>]*\bto=\{?\s*ROUTES\.(LOGIN|ENTRY|DASHBOARD)\b/,
 ];
 
+// ── Rule C/D（2026-07-03 擴充，SSO 反覆回歸元覆盤）──
+//   step 64 原本 allowlist 完全信任 auth 基礎設施（interceptors/authService），但 07-03 兩個
+//   反覆回歸 bug 正好都在這些檔內部（2 個 axios 實例的 401 handler + 2 條 sso-bridge 路徑）。
+//   → 不再無條件信任基礎設施內部，直掃兩類破口。
+//   詳見 docs/architecture/SSO_RECURRING_REGRESSION_RETROSPECTIVE.md（不變式 I2/I3）。
+
+// Rule C（I2）：401 情境下的破壞性動作
+const HAS_401 = /(status\s*===?\s*401|\.status\s*===\s*401|response\?\.status\s*===\s*401)/;
+const DESTRUCTIVE_401 = [
+  /clearAuth\s*\(/,
+  /removeItem\(\s*['"]user_info['"]/,
+  /location\.href\s*=\s*['"]\/login/,
+  /location\.replace\s*\(\s*['"]\/login/,
+];
+// 破壞性動作合法前提：同檔引用「權威 session 狀態守衛」
+const SESSION_GUARD_REF = [
+  /getSessionStatus/,
+  /useSessionStore/,
+  /(status)\s*(===|!==)\s*['"](anonymous|authenticated|resolving)['"]/,
+];
+
+// Rule D（I3）：SSO bridge「POST 後整頁 reload」的路徑必須持久化 user_info
+//   只鎖真正危險樣態＝post bridge + location.replace/reload/href（會整頁重載）但沒寫 user_info
+//   （＝修法前 attemptSSOBridge 破口）。純端點常數定義檔（無 post/無 reload）不觸發。
+const REFS_SSO_BRIDGE = /(SSO_BRIDGE|auth\/sso-bridge|ssoBridge\s*\()/;
+const POSTS = /\.post\s*\(/;
+const FULL_RELOAD = /(location\.(replace|reload)\s*\(|location\.href\s*=)/;
+const PERSISTS_USER_INFO = [
+  /setItem\(\s*['"]user_info['"]/,
+  /saveAuthData\s*\(/,
+  /setUserInfo\s*\(/,
+];
+
+function anyMatch(lines, patterns) {
+  return lines.some((ln) => patterns.some((p) => p.test(ln)));
+}
+
 function walk(dir, out) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, ent.name);
@@ -92,32 +129,72 @@ function main() {
     process.exit(0);
   }
   const files = walk(SRC, []);
-  const violations = [];
+  const violations = [];       // Rule A+B（元件自行推導+導向）
+  const infraViolations = [];  // Rule C+D（基礎設施內部破口）
 
   for (const full of files) {
     const r = rel(full);
-    if (isAllowed(r)) continue;
     const lines = fs.readFileSync(full, 'utf8').split(/\r?\n/);
-    const derive = firstMatchLine(lines, AUTH_DERIVE);
-    const redirect = firstMatchLine(lines, REDIRECT_TO_AUTH);
-    if (derive && redirect) {
-      violations.push({ file: r, derive, redirect });
+
+    // Rule A+B：僅對非基礎設施元件
+    if (!isAllowed(r)) {
+      const derive = firstMatchLine(lines, AUTH_DERIVE);
+      const redirect = firstMatchLine(lines, REDIRECT_TO_AUTH);
+      if (derive && redirect) violations.push({ file: r, derive, redirect });
+    }
+
+    // Rule C（I2）：任何檔在 401 情境做破壞性清除/導向，同檔必須引用 session 狀態守衛
+    if (HAS_401.test(lines.join('\n'))) {
+      const destructive = firstMatchLine(lines, DESTRUCTIVE_401);
+      if (destructive && !anyMatch(lines, SESSION_GUARD_REF)) {
+        infraViolations.push({
+          file: r, rule: 'C', line: destructive,
+          why: '401 破壞性清除/導向但無權威狀態守衛（I2）— 瞬態 race 會清掉剛建立的 session',
+          fix: '破壞性動作前加 getSessionStatus()===\'anonymous\' 守衛；resolving/authenticated 只 reject。',
+        });
+      }
+    }
+
+    // Rule D（I3）：SSO bridge「POST 後整頁 reload」但未持久化 user_info
+    {
+      const body = lines.join('\n');
+      const isBridgeReloadPath = REFS_SSO_BRIDGE.test(body) && POSTS.test(body) && FULL_RELOAD.test(body);
+      if (isBridgeReloadPath && !anyMatch(lines, PERSISTS_USER_INFO)) {
+        const ln = firstMatchLine(lines, [FULL_RELOAD]);
+        infraViolations.push({
+          file: r, rule: 'D', line: ln || { n: 0, text: '(sso-bridge reload)' },
+          why: 'SSO bridge POST 後整頁 reload 卻未持久化 user_info（I3）— reload 後 bootstrap 讀 user_info=NULL → anonymous → 停登入頁',
+          fix: '200 後 setItem(\'user_info\', res.data.user_info)（+token）再 reload；或呼叫 saveAuthData/setUserInfo。',
+        });
+      }
     }
   }
 
   console.log(`[auth-ssot] 掃描 ${files.length} 檔，allowlist ${ALLOWLIST.length + ALLOW_DIR_PREFIX.length} 項`);
-  if (violations.length === 0) {
-    console.log('[auth-ssot] GREEN — 無元件自行推導登入 + 自行導向認證頁（SSOT 完整）');
+  const total = violations.length + infraViolations.length;
+  if (total === 0) {
+    console.log('[auth-ssot] GREEN — 無元件自行推導+導向（A/B），基礎設施 401 守衛與 user_info 持久化完整（C/D）');
     process.exit(0);
   }
 
-  console.log(`[auth-ssot] RED — ${violations.length} 檔同時「推導登入」+「自行導向認證頁」，違反 sessionStore SSOT：`);
-  for (const v of violations) {
-    console.log(`  • ${v.file}`);
-    console.log(`      推導登入  L${v.derive.n}: ${v.derive.text}`);
-    console.log(`      自行導向  L${v.redirect.n}: ${v.redirect.text}`);
+  if (violations.length) {
+    console.log(`[auth-ssot] RED(A/B) — ${violations.length} 檔同時「推導登入」+「自行導向認證頁」，違反 sessionStore SSOT：`);
+    for (const v of violations) {
+      console.log(`  • ${v.file}`);
+      console.log(`      推導登入  L${v.derive.n}: ${v.derive.text}`);
+      console.log(`      自行導向  L${v.redirect.n}: ${v.redirect.text}`);
+    }
+    console.log('  修法：改讀 useSessionStore(s=>s.status) 或 useAuthGuard，勿自行 isAuthenticated()+redirect。');
   }
-  console.log('  修法：改讀 useSessionStore(s=>s.status) 或 useAuthGuard，勿自行 isAuthenticated()+redirect。');
+  if (infraViolations.length) {
+    console.log(`[auth-ssot] RED(C/D) — ${infraViolations.length} 處 auth 基礎設施內部破口（SSO 反覆回歸元覆盤）：`);
+    for (const v of infraViolations) {
+      console.log(`  • [Rule ${v.rule}] ${v.file} L${v.line.n}: ${v.line.text}`);
+      console.log(`      ${v.why}`);
+      console.log(`      修法：${v.fix}`);
+    }
+    console.log('  參見 docs/architecture/SSO_RECURRING_REGRESSION_RETROSPECTIVE.md（不變式 I2/I3）。');
+  }
   process.exit(STRICT ? 1 : 0);
 }
 
