@@ -25,9 +25,17 @@ export const RemoteBackupTab: React.FC<RemoteBackupTabProps> = ({
   return (
     <Space vertical style={{ width: '100%' }} size="large">
       <Alert
-        title="異地備份設定"
-        description="設定異地備份路徑，系統會自動將備份同步到指定位置。"
-        type="info"
+        title="異地備份由 Windows 排程執行（運作中）"
+        description={
+          <>
+            實際異地備份由 <b>Windows 排程 CK-Missive-Offsite-Backup</b> 每日 <b>03:00</b> 執行：
+            將當日 DB dump 複製到 NAS <code>\\CKNAS\CK_Project\#Project_data\missive_databsae</code>（保留 30 份）。
+            「目前狀態 → 最後同步時間」即反映此排程結果。<br />
+            下方「啟用自動同步」開關為<b>容器端</b>同步；因後端容器（Linux）無法存取 Windows NAS 網路磁碟，
+            <b>刻意維持關閉</b>——關閉不代表異地備份停止，NAS 仍由排程每日更新。
+          </>
+        }
+        type="success"
         showIcon
       />
 
@@ -80,8 +88,9 @@ export const RemoteBackupTab: React.FC<RemoteBackupTabProps> = ({
 
           <Form.Item
             name="sync_enabled"
-            label="啟用自動同步"
+            label="啟用自動同步（容器端）"
             valuePropName="checked"
+            extra="容器端同步；因後端容器無法存取 Windows NAS，維持關閉。異地備份改由上方 Windows 排程執行。"
           >
             <Switch />
           </Form.Item>

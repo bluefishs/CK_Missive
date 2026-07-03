@@ -35,6 +35,23 @@ fdb55dc2 chore(memory): 覆盤 cron 同步
 4. **行事曆**：`SELECT count(*) FROM document_calendar_events WHERE end_date < start_date;` → **0**（model 防呆生效）。
 5. **異地備份排程**：`Get-ScheduledTaskInfo CK-Missive-Offsite-Backup` → State Ready；03:00 後查 `logs/backup/offsite-sync-nas.log` 末行「異地同步完成」。
 
+## 重啟後驗收結果（2026-07-03 11:03，容器 Up ~15min，全通過）
+
+| 步 | 檢查 | 結果 |
+|---|---|---|
+| 1 | 容器復原 | 5 missive + 3 hermes + ck-ollama **全 healthy**（Docker 自動拉回，未 --force-recreate；NVIDIA hook 正常無需 wsl --shutdown）✅ |
+| 2 | 業務量 | docs **1895** ≥ 1894 / KG **34123** ≥ 34123 / biz_ok true ✅（持續成長） |
+| 3 | 公網（L76） | `https://missive.cksurvey.tw/api/health` **200**（0.25s）；未見殭屍埠 ✅ |
+| 4 | 行事曆顛倒 | `end_date < start_date` = **0**（model 防呆生效）✅；另 2 筆 completed+未到期經查為 deadline=今日18:00 **提早完成之正常業務**（start=end 無顛倒），非回歸 |
+| 5 | 異地備份排程 | `CK-Missive-Offsite-Backup` State=**Ready**、LastResult=**0**、NextRun 07-04 03:00 ✅ |
+
+**加驗（本輪修法 live 確認）**：
+- **SSO 修 live 到公網**：公網 `/` 實際 serve `main-DUoFppDD.js`（backend bind-mount `frontend/dist`，含 `52053913`）✅。注意 `ck_missive_frontend` nginx 容器內為 05-27 舊 baked `main-9ZTaIa6f.js`，**不在公網路徑上**（已知殘留、無害）。
+- **LINE 減量 gate**：`PROACTIVE_LINE_PUSH_ENABLED` 空值（→ 預設 false，吹哨者/派工進度不單推）✅。
+- **5 鏈 E2E**：ALL PASS（chain1 1895/34123 · chain2 lessons16/patterns12/proposals8 · chain3 12 tools · chain4 hermes 200 · chain5 bridge skill）✅。
+- **cron**：07-03 全 job success（含 fitness_daily / morning_report / governance_dashboard_regen / integration_e2e）✅。
+- **git**：8 commits 已全推 origin/main、working tree clean、與 origin 同步 ✅。
+
 ## 待 owner 真人複驗（headless 無法代行）
 - **SSO**：www.cksurvey.tw 登入 → 進 missive.cksurvey.tw **不再「閃一下又跳回登入」**（`52053913`）。若仍失敗，回報 Network 面板哪個請求 401。
 - 行事曆事件編輯：三機制統一為單一「截止日期/時間」、event 1197 可正常編。

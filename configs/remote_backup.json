@@ -1,7 +1,8 @@
 {
-  "remote_path": "Z:\\03.專案管控專區\\00.公司公文紀錄\\#systembackup",
-  "sync_enabled": true,
+  "_note": "非權威副本。權威來源＝backend/config/remote_backup.json（容器 mount /app/config，由 Windows 排程 offsite-sync-nas.ps1 維護）。paths.py 的 REMOTE_BACKUP_CONFIG 目前無 runtime 使用；保持與權威一致以免 SSOT 漂移（見 .claude/rules/cross-file-ssot-governance.md）。異地備份實由 Windows 排程 CK-Missive-Offsite-Backup 每日 03:00 執行，容器端 sync_enabled 刻意為 false。",
+  "remote_path": "\\\\CKNAS\\CK_Project\\#Project_data\\missive_databsae",
+  "sync_enabled": false,
   "sync_interval_hours": 24,
-  "last_sync_time": "2026-05-18T09:55:56.067480",
+  "last_sync_time": null,
   "sync_status": "idle"
 }
