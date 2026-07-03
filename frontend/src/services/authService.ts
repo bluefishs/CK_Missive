@@ -150,9 +150,31 @@ class AuthService {
           const authDisabled = isAuthDisabled();
 
           if (!authDisabled) {
-            // 只有在非開發模式下才清除認證資訊和重導向
-            this.clearAuth();
-            window.location.href = '/login';
+            // 2026-07-03 SSO「停在登入頁無法驗證登入」根治（52053913 漏網的第二個 axios 實例）：
+            //   本實例（authService 專用）過去對任一 401 無條件 clearAuth() + 硬跳 /login。
+            //   唯一 401 來源＝bootstrap 期間 validateTokenOnStartup→checkAuthStatus(POST /auth/check)，
+            //   而 SSO 整頁重載後首個 /auth/check 會撞 cookie/csrf 初始化 race → 瞬態 401。
+            //   舊行為在此瞬態即 clearAuth（清 user_info）+ location.href='/login' →
+            //   validateTokenOnStartup 內建的 600ms retry 永遠來不及跑、user_info 已被清 →
+            //   重載後 bootstrap 見無 user_info → anonymous → owner 停在登入頁（本次復報症狀）。
+            //   修法＝與 interceptors.ts / sessionStore 同一治本原則：破壞性清除+導向只在
+            //   「權威狀態已判定為 anonymous」時執行；resolving/authenticated 一律讓 caller
+            //   （validateTokenOnStartup retry + bootstrap 依權威狀態）決定，本攔截器僅 reject。
+            //   circular import 防護：sessionStore 依賴 authService，故用動態 import（同 :440 慣例）。
+            let believedAnonymous = false;
+            try {
+              const { getSessionStatus } = await import('../store/sessionStore');
+              believedAnonymous = getSessionStatus() === 'anonymous';
+            } catch {
+              // sessionStore 不可用（極罕見）→ 保守維持舊行為（視為需清除）
+              believedAnonymous = true;
+            }
+            if (believedAnonymous) {
+              this.clearAuth();
+              window.location.href = '/login';
+            } else {
+              logger.warn('[Auth] 401 但 session 尚未判定為 anonymous（resolving/authenticated）→ 不清除、不跳轉，交由 bootstrap 權威決定');
+            }
           } else {
             logger.debug('Development mode: Ignoring 401 error for auth bypass');
           }

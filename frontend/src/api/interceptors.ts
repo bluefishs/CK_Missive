@@ -145,8 +145,19 @@ async function attemptSSOBridge(): Promise<boolean> {
       {},
       { withCredentials: true, timeout: 8000 },
     );
-    if (res.status === 200) {
-      logger.log('[SSO-BRIDGE] succeeded; navigating to /dashboard');
+    if (res.status === 200 && res.data?.user_info) {
+      // 2026-07-03 SSO「停在登入頁 / Header 訪客 / user_info=NULL」根治：
+      //   本函式過去只 POST sso-bridge（後端設 httpOnly cookie）就 location.replace('/dashboard')，
+      //   **從不把回傳的 user_info 寫進 localStorage** → 整頁重載後 sessionStore.bootstrap 讀
+      //   getUserInfo()=NULL → 直接判 anonymous（連 /auth/check 都不驗）→ 導向 /entry、Header 顯訪客，
+      //   即使後端 cookie 有效（故 /auth/me 仍 200，製造「登入成功卻回不去」假象）。
+      //   authService.ssoBridge() 有 saveAuthData（寫 user_info）、本 raw 路徑漏了 → 補齊持久化。
+      try {
+        localStorage.setItem('user_info', JSON.stringify(res.data.user_info));
+        if (res.data.access_token) localStorage.setItem('access_token', res.data.access_token);
+        if (res.data.refresh_token) localStorage.setItem('refresh_token', res.data.refresh_token);
+      } catch { /* localStorage 不可用（極罕見）→ 仍 reload，bootstrap 會再走一次 SSO */ }
+      logger.log('[SSO-BRIDGE] succeeded (user_info 已持久化); navigating to /dashboard');
       // L44 P2 修法：location.replace 取代 reload — 避免 protected route guard
       // 在 zustand persist rehydrate 完成前同步檢查踢回 /login
       window.location.replace('/dashboard');
@@ -368,7 +379,9 @@ function createAxiosInstance(): AxiosInstance {
             //   不清 session、不跳 /login —— 僅讓該請求失敗。真失效於下次 reload bootstrap 驗證時降級。
             //   （原行為：任一 401+refresh 失敗即清 user_info + attemptSSOBridge cooldown → 硬跳 /login）
             const { useSessionStore } = await import('../store/sessionStore');
-            const believedAuthed = useSessionStore.getState().status === 'authenticated';
+            // 2026-07-03：'authenticated' → '!== anonymous'（含 resolving），與 authService
+            //   實例守衛一致 → bootstrap 進行中（resolving）的瞬態 401 也不觸發破壞性清除+導向。
+            const believedAuthed = useSessionStore.getState().status !== 'anonymous';
             if (!believedAuthed) {
               localStorage.removeItem(ACCESS_TOKEN_KEY);
               localStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -387,7 +400,8 @@ function createAxiosInstance(): AxiosInstance {
         } else {
           // 2026-07-02 SSO「閃一下又跳回登入」根治（同上）：已認證時不清 session、不跳 /login
           const { useSessionStore } = await import('../store/sessionStore');
-          const believedAuthed = useSessionStore.getState().status === 'authenticated';
+          // 2026-07-03：同上，resolving 也視為受保護（不清除、不導向）
+          const believedAuthed = useSessionStore.getState().status !== 'anonymous';
           if (!believedAuthed) {
             // 沒有 refresh token，清除並嘗試 SSO bridge
             localStorage.removeItem(ACCESS_TOKEN_KEY);
