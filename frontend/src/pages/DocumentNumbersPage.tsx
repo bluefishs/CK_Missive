@@ -39,7 +39,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, defaultQueryOptions } from '../config/queryConfig';
 import { DocumentList } from '../components/document/DocumentList';
 // 複製功能已停用 (2026-01-12)
-// import { DocumentOperations } from '../components/document/DocumentOperations';
 import { useDocuments, useDocumentStatistics } from '../hooks';
 import {
   documentsApi,
@@ -73,14 +72,6 @@ export const DocumentNumbersPage: React.FC = () => {
     queryFn: () => documentsApi.getNextSendNumber(),
     ...defaultQueryOptions.statistics,
   });
-
-  // 公文操作狀態
-  const [_documentOperation, setDocumentOperation] = useState<{
-    type: 'view' | 'edit' | 'create' | 'copy' | null;
-    document: Document | null;
-    visible: boolean;
-  }>({ type: null, document: null, visible: false });
-  void _documentOperation; // suppress noUnusedLocals — value used in commented JSX below
 
   // 刪除確認 Modal
   const [deleteModal, setDeleteModal] = useState<{
@@ -183,10 +174,6 @@ export const DocumentNumbersPage: React.FC = () => {
   const handleCreateDocument = () => {
     // 導航到新增發文頁面
     navigate(ROUTES.SEND_DOCUMENT_CREATE);
-  };
-
-  const handleCopyDocument = (document: Document) => {
-    setDocumentOperation({ type: 'copy', document, visible: true });
   };
 
   const handleDeleteDocument = (document: Document) => {
@@ -355,7 +342,6 @@ export const DocumentNumbersPage: React.FC = () => {
           onEdit={handleEditDocument}
           onDelete={handleDeleteDocument}
           onView={handleViewDocument}
-          onCopy={handleCopyDocument}
           onExport={handleExport}
           isExporting={isExporting}
         />
@@ -374,14 +360,6 @@ export const DocumentNumbersPage: React.FC = () => {
         <p>確定要刪除公文「{deleteModal.document?.doc_number}」嗎？此操作無法復原。</p>
       </Modal>
 
-      {/* 公文操作 Modal (檢視/編輯/新增/複製) - 複製功能已停用 (2026-01-12) */}
-      {/* <DocumentOperations
-        document={documentOperation.document}
-        operation={documentOperation.type}
-        visible={documentOperation.visible}
-        onClose={() => setDocumentOperation({ type: null, document: null, visible: false })}
-        onSave={handleSaveDocument}
-      /> */}
     </ResponsiveContent>
   );
 };
