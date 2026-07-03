@@ -1,7 +1,7 @@
-{
-  "remote_path": "Z:\\03.專案管控專區\\00.公司公文紀錄\\#systembackup",
-  "sync_enabled": false,
-  "sync_interval_hours": 24,
-  "last_sync_time": "2026-04-09T18:32:06.824533",
-  "sync_status": "idle"
+﻿{
+    "remote_path":  "\\\\CKNAS\\CK_Project\\#Project_data\\missive_databsae",
+    "sync_enabled":  false,
+    "sync_interval_hours":  24,
+    "last_sync_time":  "2026-07-03T08:47:49.308490",
+    "sync_status":  "idle"
 }

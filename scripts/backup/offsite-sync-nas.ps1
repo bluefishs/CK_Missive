@@ -4,15 +4,17 @@
 
 .DESCRIPTION
   背景：05-27 廢 PM2 native backend 改純 Docker 後，Linux 容器無法存取 Windows Z:/NAS，
-  容器內異地同步中斷。本腳本以 Windows 原生行程（PM2 cron，執行身分 User1）複製容器已寫好的
-  DB dump 到 NAS UNC，重用「5 月曾成功」的同一存取路徑，避免在容器/.env 存 SMB 帳密與 CIFS 掛載風險。
+  容器內異地同步中斷。本腳本以 Windows 原生行程（Windows 排程 CK-Missive-Offsite-Backup，
+  執行身分 User1）複製容器已寫好的 DB dump 到 NAS UNC，重用「5 月曾成功」的同一存取路徑，
+  避免在容器/.env 存 SMB 帳密與 CIFS 掛載風險。
 
   來源 = 容器 db_backup 排程每日 02:00 寫到 backups/database/*.sql（host 已 mount /app/backups）。
   目的 = \\CKNAS\CK_Project\#Project_data\missive_databsae（= Z:\#Project_data\missive_databsae）。
   robocopy 只複製新增/變更（/XO），不用 /MIR（避免刪 NAS 既有較舊備份）；另在 dest 保留最近 N 份。
 
 .NOTES
-  觸發：PM2 cron 每日 03:00（02:00 產完 dump 後）。手動測試：
+  觸發：Windows 排程 CK-Missive-Offsite-Backup 每日 03:00（02:00 產完 dump 後）。
+  （PM2 跑 .ps1 不可靠已棄；排程 User1/Interactive/Limited，登入態即可存取 NAS）。手動測試：
     powershell -File scripts\backup\offsite-sync-nas.ps1 -DryRun   # 只列不複製
     powershell -File scripts\backup\offsite-sync-nas.ps1           # 實際同步
 #>
