@@ -15,8 +15,11 @@ import { isAuthDisabled } from '../../config/env';
 import { ROUTES } from '../../router/types';
 import { logger } from '../../utils/logger';
 
-/** 預設閒置超時：30 分鐘（SSOT — IdleCountdownBadge 共用，確保顯示與實際登出一致） */
-export const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+/** 預設閒置超時：60 分鐘（SSOT — IdleCountdownBadge 共用，確保顯示與實際登出一致）
+ *  2026-07-03 owner 要求 30 → 60 分鐘。註：後端 access_token 絕對壽命為
+ *  ACCESS_TOKEN_EXPIRE_MINUTES（現 60 分）；欲讓「閒置滿 1 小時」真正可用（活躍使用者跨過 1 小時
+ *  不因 token 到期而斷），後端 token TTL 宜同步 ≥ 此值（見覆盤建議，需 owner 決定 + backend 重啟）。 */
+export const DEFAULT_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 
 /** 活動事件節流間隔：1 分鐘 */
 const ACTIVITY_THROTTLE_MS = 60 * 1000;
