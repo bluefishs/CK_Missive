@@ -166,7 +166,21 @@ async def company_profile(search: TenderSearchService, company_name: str, pages:
         all_records.extend(records)
 
     if not all_records:
-        return {"company_name": company_name, "total": 0}
+        # 方案 A（2026-07-04 owner 授權）：company_profile 靠 winner 資料，而本地 DB 無廠商得標維度
+        #   （award/bidders 全空，L77）→ 無法 DB 後備，改回明確 degraded 訊息（區分「限流」與「真無資料」），
+        #   前端可顯示「稍後重試」而非誤判查無此廠商。degraded 短快取 5min 以便盡快重試 live。
+        degraded = {
+            "company_name": company_name,
+            "total": 0,
+            "degraded": True,
+            "degraded_reason": "外部得標資料源暫時限流，暫無法取得此廠商得標資料，稍後自動重試。",
+        }
+        if redis:
+            try:
+                await redis.set(cache_key, _json.dumps(degraded, ensure_ascii=False, default=str), ex=300)
+            except Exception:
+                pass
+        return degraded
 
     # 去重：同一標案 (unit_id+job_number) 多次公告只保留最新一筆
     seen: dict = {}

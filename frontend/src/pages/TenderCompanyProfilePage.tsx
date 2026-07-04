@@ -5,7 +5,7 @@
  */
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  Card, Row, Col, Statistic, Table, Tag, Typography, Spin, Input, Button, Empty, Space, Progress,
+  Card, Row, Col, Statistic, Table, Tag, Typography, Spin, Input, Button, Empty, Space, Progress, Alert,
 } from 'antd';
 import { TeamOutlined, SearchOutlined, TrophyOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -28,6 +28,8 @@ const { Title, Text } = Typography;
 interface CompanyData {
   company_name: string;
   total: number;
+  degraded?: boolean;
+  degraded_reason?: string;
   won_count: number;
   win_rate: number;
   year_trend: Array<{ year: string; count: number }>;
@@ -258,7 +260,17 @@ const TenderCompanyProfilePage: React.FC = () => {
         </>
       )}
 
-      {data && data.total === 0 && <Empty description={`找不到「${companyName}」的投標紀錄`} />}
+      {data && data.total === 0 && (
+        data.degraded
+          ? <Alert
+              type="warning"
+              showIcon
+              message="外部得標資料源暫時限流"
+              description={data.degraded_reason || '暫無法取得此廠商得標資料，稍後自動重試。'}
+              style={{ marginTop: 16 }}
+            />
+          : <Empty description={`找不到「${companyName}」的投標紀錄`} />
+      )}
     </ResponsiveContent>
   );
 };

@@ -88,6 +88,62 @@ async def battle_room(search: TenderSearchService, unit_id: str, job_number: str
     }
 
 
+async def _db_org_fallback(org_name: str) -> dict:
+    """方案 A 韌性後備：live openfun 空/限流時，改回本地 tender_records 標案清單。
+
+    DB 有機關/標題/類別/日期（68k 筆招標公告），但無廠商得標維度（award/bidders 全空，L77 死結）
+    → 回相同 result 形狀（前端可渲染）但 top_vendors 空、awarded_count=0、degraded=True。
+    """
+    import json as _json  # noqa: F401 (與呼叫端一致，避免 name error)
+    from sqlalchemy import text
+    from app.db.database import async_session_maker
+
+    pat = f"%{org_name}%"
+    year_counter: Counter = Counter()
+    category_counter: Counter = Counter()
+    recent: list = []
+    total = 0
+    try:
+        async with async_session_maker() as db:
+            total = (await db.execute(
+                text("SELECT count(*) FROM tender_records WHERE unit_name ILIKE :pat"),
+                {"pat": pat},
+            )).scalar() or 0
+            rows = (await db.execute(
+                text(
+                    "SELECT title, unit_name, unit_id, job_number, category, tender_type, "
+                    "to_char(announce_date,'YYYY-MM-DD') AS date "
+                    "FROM tender_records WHERE unit_name ILIKE :pat "
+                    "ORDER BY announce_date DESC NULLS LAST LIMIT 300"
+                ),
+                {"pat": pat},
+            )).mappings().all()
+        for r in rows:
+            y = (r["date"] or "")[:4] or "未知"
+            year_counter[y] += 1
+            category_counter[r["category"] or "未分類"] += 1
+        recent = [{
+            "title": r["title"] or "", "date": r["date"] or "",
+            "type": r["tender_type"] or "", "category": r["category"] or "",
+            "unit_name": r["unit_name"] or "", "unit_id": r["unit_id"] or "",
+            "job_number": r["job_number"] or "", "winner_names": [],
+        } for r in rows[:20]]
+    except Exception as e:
+        logger.warning(f"org_ecosystem DB fallback failed org={org_name}: {e}")
+
+    return {
+        "org_name": org_name,
+        "total": total,
+        "awarded_count": 0,
+        "year_trend": [{"year": k, "count": v} for k, v in sorted(year_counter.items())[-15:]],
+        "top_vendors": [],
+        "category_distribution": [{"name": k, "value": v} for k, v in category_counter.most_common(10)],
+        "recent_tenders": recent,
+        "degraded": True,
+        "degraded_reason": "外部得標資料源暫時限流，以下為本地標案清單（暫無廠商/得標分析），稍後自動重試。",
+    }
+
+
 async def org_ecosystem(search: TenderSearchService, org_name: str, pages: int = 10) -> dict:
     """機關生態分析 — 年度 Top 10 廠商 + 競爭強度 + 得標金額 (Redis 快取 30min)"""
     import asyncio
@@ -139,7 +195,15 @@ async def org_ecosystem(search: TenderSearchService, org_name: str, pages: int =
                 all_records.append(r)
 
     if not all_records:
-        return {"org_name": org_name, "total": 0}
+        # 方案 A（2026-07-04 owner 授權）韌性強化：live openfun 空/限流 → 回本地 DB 標案清單
+        #   （degraded），而非整頁 total:0。成功路徑不變；degraded 結果快取較短(5min)以便盡快重試 live。
+        fallback = await _db_org_fallback(org_name)
+        if redis:
+            try:
+                await redis.set(cache_key, _json.dumps(fallback, ensure_ascii=False, default=str), ex=300)
+            except Exception:
+                pass
+        return fallback
 
     # 基本統計
     year_counter: Counter = Counter()

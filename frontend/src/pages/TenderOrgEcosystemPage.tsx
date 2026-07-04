@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import {
-  Card, Row, Col, Statistic, Typography, Spin, Input, Button, Empty, Space,
+  Card, Row, Col, Statistic, Typography, Spin, Input, Button, Empty, Space, Alert,
 } from 'antd';
 import { BankOutlined, SearchOutlined } from '@ant-design/icons';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -26,6 +26,8 @@ const { Title } = Typography;
 interface OrgData {
   org_name: string;
   total: number;
+  degraded?: boolean;
+  degraded_reason?: string;
   year_trend: Array<{ year: string; count: number }>;
   category_distribution: Array<{ name: string; value: number }>;
   top_winners: Array<{ name: string; count: number }>;
@@ -79,6 +81,16 @@ const TenderOrgEcosystemPage: React.FC = () => {
       </Card>
 
       {isLoading && <Spin style={{ display: 'block', margin: '60px auto' }} size="large" />}
+
+      {data?.degraded && (
+        <Alert
+          type="warning"
+          showIcon
+          message="外部得標資料源暫時限流"
+          description={data.degraded_reason || '以下為本地標案清單，廠商/得標分析暫不可用，稍後自動重試。'}
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       {data && data.total > 0 && (
         <>
