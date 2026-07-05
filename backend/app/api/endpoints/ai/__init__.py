@@ -40,6 +40,7 @@ from .agent_evolution import router as agent_evolution_router
 from .tools_manifest import router as tools_manifest_router
 from .diagram_analysis import router as diagram_analysis_router
 from .memory import router as memory_router
+from .memory_digest import router as memory_digest_router  # v6.23 (2026-07-06) S3 段A 坤哥成長摘要 for Meta 聯邦
 from .kunge import router as kunge_router  # v6.13 (2026-05-31) 坤哥 snapshot for Hermes integration
 
 router = APIRouter(prefix="/ai", tags=["AI"])
@@ -77,4 +78,5 @@ router.include_router(agent_evolution_router)
 router.include_router(tools_manifest_router)
 router.include_router(diagram_analysis_router)
 router.include_router(memory_router, tags=["AI Memory"])
+router.include_router(memory_digest_router, tags=["AI Memory Digest"])  # v6.23 S3 段A Meta 聯邦接點
 router.include_router(kunge_router, tags=["Kunge Snapshot"])  # v6.13 Hermes 整合接點
