@@ -393,6 +393,12 @@ function createAxiosInstance(): AxiosInstance {
                 if (!ssoOk) {
                   window.location.href = '/login';
                 }
+                // 2026-07-06「第一次登入點選單閃錯誤訊息、自動刷新後正常」根治：
+                //   走到這裡整頁跳轉已註定（bridge 成功 location.replace('/dashboard')；
+                //   失敗/cooldown → href='/login'）。原本仍 throw → 元件在 reload 落地前
+                //   收到 reject 而閃錯（token 過期復原窗口 ~2s 內的所有頁面請求）。
+                //   頁面即將卸載 → 掛起原請求（never-resolve）安全且無感。
+                return new Promise(() => { /* 整頁跳轉中，掛起原請求 */ });
               }
             }
             throw ApiException.fromAxiosError(error);
@@ -415,6 +421,8 @@ function createAxiosInstance(): AxiosInstance {
               if (!ssoOk) {
                 window.location.href = '/login';
               }
+              // 2026-07-06：同上分支——整頁跳轉已註定，掛起原請求防復原窗口閃錯
+              return new Promise(() => { /* 整頁跳轉中，掛起原請求 */ });
             }
           }
         }
