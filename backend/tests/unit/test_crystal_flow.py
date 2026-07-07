@@ -202,6 +202,30 @@ async def test_crystallizer_dedup_pending(temp_phase3):
     assert len(p2) == 0
 
 
+@pytest.mark.asyncio
+async def test_crystallizer_skips_already_applied(temp_phase3):
+    """同 pattern 已有 applied proposal（已結晶）→ 不再重複提案。
+
+    2026-07-07 live 復發（L重複提案迴圈）：owner 00:36 批准 82fed427f7 提案（applier
+    蓋 status: applied），04:35 crystallizer 掃描只查 pending → 對同 pattern 再提
+    新提案（784432）→ pending 永遠回填、06-09 退回 713394 亦同型。修＝掃描加
+    「已 applied」檢查。
+    """
+    from app.services.memory.crystallizer import Crystallizer
+
+    _make_pattern_file(temp_phase3["patterns"], "appliedx", hit=10, success=10)
+    p1 = await Crystallizer().scan_and_propose()
+    assert len(p1) == 1
+
+    # 模擬 owner 批准：applier 會把 status: pending → applied 蓋回提案檔
+    f = next(temp_phase3["proposals"].glob("crystal-*.md"))
+    f.write_text(f.read_text(encoding="utf-8").replace(
+        "status: pending", "status: applied"), encoding="utf-8")
+
+    p2 = await Crystallizer().scan_and_propose()
+    assert len(p2) == 0, "已結晶 pattern 不應重複提案"
+
+
 # ────────── CrystalApplier ──────────
 
 @pytest.mark.asyncio

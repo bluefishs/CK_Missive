@@ -95,6 +95,9 @@ class Crystallizer:
                 # 檢查是否已有 proposal
                 if self._has_pending_proposal(meta["template_hash"]):
                     continue
+                # 檢查是否已結晶（applied＝終態，2026-07-07 重複提案迴圈修）
+                if self._already_applied(meta["template_hash"]):
+                    continue
 
                 # 產 proposal（v5.8.0 解鎖多工具 pattern）：
                 # _propose_synonym_from_pattern 產出 intent_rule kind，
@@ -333,6 +336,24 @@ class Crystallizer:
             try:
                 text = path.read_text(encoding="utf-8")
                 if template_hash in text and "status: pending" in text:
+                    return True
+            except Exception:
+                pass
+        return False
+
+    @staticmethod
+    def _already_applied(template_hash: str) -> bool:
+        """查此 pattern 是否已結晶（applied proposal 存在）。
+
+        2026-07-07 重複提案迴圈修：原掃描只查 pending，owner 批准（applier 蓋
+        status: applied）後下次 04:35 掃描見無 pending → 對同 pattern 再提新提案
+        （784432 復發、06-09 713394 同型）→ pending 永遠回填。已結晶＝終態，
+        不再重複提案；owner 若移除 rule 想重啟結晶，刪除該 applied 提案檔即可。
+        """
+        for path in PROPOSALS_DIR.glob("crystal-*.md"):
+            try:
+                text = path.read_text(encoding="utf-8")
+                if template_hash in text and "status: applied" in text:
                     return True
             except Exception:
                 pass
