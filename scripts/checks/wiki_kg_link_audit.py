@@ -41,12 +41,19 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
 WIKI_ROOT = Path("wiki")
 SCAN_SUBDIRS = ["entities", "topics", "synthesis", "sources"]
 
+# 2026-07-08 誠實化：topics/synthesis 下「無 entity_type frontmatter」的頁面
+# 是彙總/綜合頁（ADR 索引、月報、SOUL 演化史等），天生不對應單一 KG entity。
+# 過去被歸 unknown 並標「🟡 needs backfill」＝誤報（37 頁把整體連結率壓在
+# 閾值邊緣）。此類改歸 aggregate、排除於連結率分母（單列不標 backfill）。
+AGGREGATE_SUBDIRS = {"topics", "synthesis"}
+
 
 def audit() -> dict:
     """掃 wiki frontmatter 統計 kg_entity_id 連結率"""
     by_type: dict[str, dict] = defaultdict(lambda: {"total": 0, "linked": 0, "unlinked_examples": []})
     grand_total = 0
     grand_linked = 0
+    aggregate_count = 0
 
     for sub in SCAN_SUBDIRS:
         d = WIKI_ROOT / sub
@@ -59,10 +66,17 @@ def audit() -> dict:
                 src = md.read_text(encoding="utf-8")[:2000]
             except Exception:
                 continue
-            grand_total += 1
             kg_match = re.search(r"^kg_entity_id:\s*(\S+)", src, re.M)
             et_match = re.search(r"^entity_type:\s*(\S+)", src, re.M)
-            entity_type = et_match.group(1) if et_match else "unknown"
+            if et_match:
+                entity_type = et_match.group(1)
+            elif sub in AGGREGATE_SUBDIRS:
+                # 彙總頁：不入連結率分母（無 KG 對應目標，backfill 無意義）
+                aggregate_count += 1
+                continue
+            else:
+                entity_type = "unknown"
+            grand_total += 1
             by_type[entity_type]["total"] += 1
             if kg_match and kg_match.group(1) not in ("null", "None", "", "~"):
                 grand_linked += 1
@@ -74,6 +88,7 @@ def audit() -> dict:
     return {
         "grand_total": grand_total,
         "grand_linked": grand_linked,
+        "aggregate_count": aggregate_count,
         "by_type": dict(by_type),
     }
 
@@ -94,6 +109,9 @@ def main() -> int:
     status = "✓" if rate >= args.threshold else "✗"
     print(f"{status} 整體連結率: {linked}/{total} ({rate}%)")
     print(f"   閾值: {args.threshold}%（CONSCIOUSNESS §4.2 目標）")
+    agg = result.get("aggregate_count", 0)
+    if agg:
+        print(f"   （另有 {agg} 個 topics/synthesis 彙總頁，無 KG 對應目標、不入分母）")
     print()
 
     print(f"{'entity_type':25} {'linked':>10} {'total':>10} {'rate':>8}")
