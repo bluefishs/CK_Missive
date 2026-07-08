@@ -6,6 +6,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { documentsApi, DocumentListParams, DocumentCreate, DocumentUpdate } from '../../api/documentsApi';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
+import { useDispatchCacheInvalidator } from '../taoyuan/useDispatchCacheInvalidator';
 
 // ============================================================================
 // 查詢 Hooks
@@ -162,22 +163,20 @@ export const useUpdateDocument = () => {
  */
 export const useDeleteDocument = () => {
   const queryClient = useQueryClient();
+  const dispatchCache = useDispatchCacheInvalidator();
 
   return useMutation({
     mutationFn: (documentId: number) => documentsApi.deleteDocument(documentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
-      // 2026-05-18 fix（158 案例同類根因）：
-      // 後端 cascade 刪 taoyuan_dispatch_document_link → 派工列表的 linked_documents
-      // 變空。但前端列表 query 不在 documents.all 樹下，必須額外清。
-      // 2026-05-20 修：原寫 ['dispatch-orders'] 是 silent dead invalidate（真實 key 是
-      //   queryKeys.taoyuanDispatch.all = ['taoyuan-dispatch-orders']），L39 queryKey drift。
-      //   改用 taoyuanDispatch.all SSOT 避免再次漂移。
-      queryClient.invalidateQueries({ queryKey: ['dispatch-morning-status'] });
-      queryClient.invalidateQueries({ queryKey: ['kanban-dispatches'] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all }); // ['taoyuan-dispatch-orders']
-      // v6.10.2 L39 cleanup: 移除 legacy ['dispatch-orders']（silent dead，SSOT 已涵蓋）
-      queryClient.invalidateQueries({ queryKey: ['dispatch-order-detail'] });
+      // 2026-05-18 fix（158 案例同類根因）：後端 cascade 刪
+      // taoyuan_dispatch_document_link → 派工列表的 linked_documents 變空，
+      // 但前端派工族 query 不在 documents.all 樹下，必須額外清。
+      // 2026-07-08 fix（fitness step 8 dispatch cache contract）：改走
+      // useDispatchCacheInvalidator SSOT（涵蓋 morning-status/kanban/列表/詳情
+      // 全族），取代散落直接 invalidate（L39 queryKey drift 防復發）。
+      dispatchCache.invalidateDispatchAggregate();
+      // 公文側關聯 query（非派工族，hook 不涵蓋）
       queryClient.invalidateQueries({ queryKey: ['dispatch-documents'] });
       queryClient.invalidateQueries({ queryKey: ['document-dispatch-links'] });
     },
