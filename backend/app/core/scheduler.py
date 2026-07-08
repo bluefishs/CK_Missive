@@ -557,7 +557,11 @@ async def kg_embedding_backfill_job():
                 CrossDomainContributionService,
             )
             svc = CrossDomainContributionService(db)
-            result = await svc.backfill_embeddings(batch_size=200)
+            # 2026-07-08 fitness step 5 揭發：lvrland 聯邦 transaction 日增
+            # 常態 ~400+尖峰 2000，batch 200/日 跟不上 → 累積 10,500 筆
+            # RAG-blind（已手動清空）。調 2000 涵蓋常態+尖峰（04:30 離峰，
+            # nomic-embed ~36/s → 2000 筆 <1 min，負載無虞）。
+            result = await svc.backfill_embeddings(batch_size=2000)
             await db.commit()
             processed = result.get("processed", 0)
             skipped = result.get("skipped", 0)
