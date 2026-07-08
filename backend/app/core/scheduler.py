@@ -528,6 +528,16 @@ async def proactive_trigger_scan_job():
                 except Exception as progress_err:
                     logger.debug(f"派工進度推送跳過: {progress_err}")
             else:
+                # 2026-07-07 主題合併落地：不單推 → queue 進 digest buffer，
+                # 隔日 08:00 晨報「昨日主題摘要」段一次帶出（常規 1 則/日/管理員）。
+                if actionable:
+                    from app.services.integration.line_digest_buffer import queue_digest
+                    top = "、".join(a.title[:30] for a in actionable[:3])
+                    await queue_digest(
+                        "🚨 吹哨者",
+                        f"actionable 告警 {len(actionable)} 筆（掃描 {len(all_alerts)}）："
+                        f"{top}{'…' if len(actionable) > 3 else ''}",
+                    )
                 logger.info("吹哨者/派工進度 LINE 推播已合併至晨報（PROACTIVE_LINE_PUSH_ENABLED=false）")
 
     except Exception as e:
@@ -703,6 +713,20 @@ async def morning_report_job():
     admin_svc = MorningReportService(None)  # pure formatter, db not needed
     admin_summary = await admin_svc.generate_summary_from_data(data)
 
+    # Step 2.5: 主題合併（2026-07-07）— 取走各主題 job 暫存的摘要（吹哨者/自省/
+    # cron 健康/排程產出/標案訂閱），組「昨日主題摘要」尾段附於推播訊息。
+    # snapshot 保持純晨報（尾段僅存在於投遞訊息）；drain 失敗回空不影響晨報。
+    digest_tail = ""
+    try:
+        from app.services.integration.line_digest_buffer import (
+            build_digest_tail, drain_digest,
+        )
+        digest_tail = build_digest_tail(await drain_digest())
+        if digest_tail:
+            logger.info("Morning digest tail attached (%d chars)", len(digest_tail))
+    except Exception as e:
+        logger.warning("Morning digest tail 組裝失敗（晨報照常推）: %s", e)
+
     # Step 3: Persist snapshot (B4)
     async with async_session_maker() as db:
         await save_snapshot(
@@ -722,6 +746,8 @@ async def morning_report_job():
             personalized = await admin_svc.generate_summary_from_data(
                 data, sections=sub["sections"]
             )
+            if digest_tail:
+                personalized = personalized + digest_tail
             ok, err = await _push_channel(
                 sub["channel"], sub["channel_recipient"], personalized
             )
@@ -745,7 +771,10 @@ async def morning_report_job():
         for channel, recipient in env_targets:
             if not recipient:
                 continue
-            ok, err = await _push_channel(channel, recipient, admin_summary)
+            ok, err = await _push_channel(
+                channel, recipient,
+                admin_summary + digest_tail if digest_tail else admin_summary,
+            )
             async with async_session_maker() as db:
                 await log_delivery(
                     db, report_date=report_date, channel=channel,
@@ -2566,21 +2595,29 @@ async def daily_self_reflection_line_push_job():
         lines.append("⚠ 今日無 anti_echo 觸發，但有失敗 query — 明日可關注。")
 
     text_msg = "\n".join(lines)
-    try:
-        from app.services.integration.line_bot import LineBotService
-        line_bot = LineBotService()
-        if not line_bot.enabled:
-            return
-        ok = await line_bot.push_message(line_user_id, text_msg)
-        if ok:
-            logger.info(
-                "Daily self-reflection pushed to LINE: anti_echo=%d failure=%d",
-                summary["anti_echo_count"], summary["failure_count"],
+    # 2026-07-07 主題合併落地：22:00 不再單推 LINE（原 1 則/日），改 queue 進
+    # digest buffer，隔日 08:00 晨報「昨日主題摘要」段帶出。內容本已寫 diary/wiki。
+    # 要恢復單推：設 SELF_REFLECTION_LINE_PUSH_ENABLED=true。
+    if os.getenv("SELF_REFLECTION_LINE_PUSH_ENABLED", "false").lower() == "true":
+        try:
+            from app.services.integration.line_bot import LineBotService
+            line_bot = LineBotService()
+            if not line_bot.enabled:
+                return
+            ok = await line_bot.push_message(line_user_id, text_msg)
+            if ok:
+                logger.info(
+                    "Daily self-reflection pushed to LINE: anti_echo=%d failure=%d",
+                    summary["anti_echo_count"], summary["failure_count"],
+                )
+        except Exception as e:
+            logger.error(
+                "Daily self-reflection LINE push failed: %s", e, exc_info=True,
             )
-    except Exception as e:
-        logger.error(
-            "Daily self-reflection LINE push failed: %s", e, exc_info=True,
-        )
+    else:
+        from app.services.integration.line_digest_buffer import queue_digest
+        await queue_digest("🌙 坤哥自省", text_msg)
+        logger.info("Daily self-reflection queued to morning digest（不單推）")
 
 
 @tracked_job("cron_self_health_alert")
@@ -2642,21 +2679,14 @@ async def cron_self_health_alert_job():
         lines.append("⏳ 多數 cron 從未執行（可能剛重啟，等候首次觸發）")
 
     text_msg = "\n".join(lines)
-    try:
-        from app.services.integration.line_bot import LineBotService
-        line_bot = LineBotService()
-        if not line_bot.enabled:
-            return
-        ok = await line_bot.push_message(line_user_id, text_msg)
-        if ok:
-            logger.info(
-                "Cron self-health alert pushed: failed=%d never_run=%d",
-                failed, never_run,
-            )
-    except Exception as e:
-        logger.error(
-            "Cron self-health LINE push failed: %s", e, exc_info=True,
-        )
+    # 2026-07-07 主題合併落地：06:30 告警不單推（08:00 晨報僅差 90 分鐘），
+    # queue 進 digest buffer 由晨報帶出。內容本已在 /admin/scheduler-events 可查。
+    from app.services.integration.line_digest_buffer import queue_digest
+    await queue_digest("🩺 Cron 健康", text_msg)
+    logger.info(
+        "Cron self-health alert queued to morning digest: failed=%d never_run=%d",
+        failed, never_run,
+    )
 
 
 @tracked_job("cron_outcome_freshness")
@@ -2718,12 +2748,11 @@ async def cron_outcome_freshness_job():
         + "\n".join(stale)
         + "\n\n請查 /admin/scheduler-events 或 backend log"
     )
-    try:
-        from app.services.contracts.facades.integration import IntegrationFacade
-        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
-        logger.warning("🔴 outcome-freshness LINE 推送完成：%d 機制 stale", len(stale))
-    except Exception as e:
-        logger.error("outcome-freshness LINE push 失敗（已偵測 stale）: %s", e, exc_info=True)
+    # 2026-07-07 主題合併落地：07:00 告警不單推（08:00 晨報僅差 60 分鐘），
+    # queue 進 digest buffer 由晨報帶出。log 仍 LOUD（warning 級）供即時排查。
+    from app.services.integration.line_digest_buffer import queue_digest
+    await queue_digest("⚠️ 排程產出", body)
+    logger.warning("🔴 outcome-freshness queued to morning digest：%d 機制 stale", len(stale))
 
 
 @tracked_job("memory_crystallization_scan")

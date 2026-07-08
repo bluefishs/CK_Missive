@@ -117,13 +117,27 @@ async def check_all_subscriptions(db: AsyncSession) -> dict:
                 push_text += "\n".join(f"• {t}" for t in titles)
 
                 if sub.notify_line:
-                    try:
-                        from app.services.integration.line_bot import get_line_bot_service
-                        line_service = get_line_bot_service()
-                        if line_service:
-                            await line_service.broadcast_to_admins(push_text)
-                    except Exception as e:
-                        logger.warning(f"標案 LINE 推播失敗: {e}")
+                    # 2026-07-07 主題合併：訂閱命中每日最多 3 次×N 關鍵字×管理員數
+                    # 單推＝隱形吃額大戶 → 預設 queue 進 digest buffer，08:00 晨報
+                    # 「昨日主題摘要」帶出。要恢復即時單推：TENDER_SUB_LINE_REALTIME=true。
+                    import os as _os
+                    if _os.getenv("TENDER_SUB_LINE_REALTIME", "false").lower() == "true":
+                        try:
+                            from app.services.integration.line_bot import get_line_bot_service
+                            line_service = get_line_bot_service()
+                            if line_service:
+                                await line_service.broadcast_to_admins(push_text)
+                        except Exception as e:
+                            logger.warning(f"標案 LINE 推播失敗: {e}")
+                    else:
+                        try:
+                            from app.services.integration.line_digest_buffer import queue_digest
+                            await queue_digest(
+                                "📋 標案訂閱",
+                                f"「{sub.keyword}」新增 {diff} 筆：" + "；".join(titles),
+                            )
+                        except Exception as e:
+                            logger.warning(f"標案訂閱 digest queue 失敗: {e}")
 
                 # Discord 推播
                 try:

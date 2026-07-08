@@ -53,6 +53,42 @@ def _current_month() -> str:
     return datetime.now().strftime("%Y-%m")
 
 
+async def _within_monthly_budget() -> bool:
+    """月度軟上限（2026-07-07 主題合併配套）— 主動預算守欄，不等 429 才停。
+
+    每次 push 前 Redis INCR `line:push:count:<YYYY-MM>`（TTL 40 天自清）；
+    超過 LINE_MONTHLY_SOFT_CAP（預設 185，為 200 硬限留 429/重試餘裕）→ 拒推
+    + LOUD log。Redis 不可用 → fail-open 放行（既有 429 短路為兜底，
+    守欄失效不應反過來斷通知）。
+    """
+    import os as _os
+    cap = int(_os.getenv("LINE_MONTHLY_SOFT_CAP", "185"))
+    if cap <= 0:  # 0/負值 = 停用守欄
+        return True
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if not redis:
+            return True
+        key = f"line:push:count:{_current_month()}"
+        count = await redis.incr(key)
+        if count == 1:
+            await redis.expire(key, 40 * 24 * 3600)
+        if count > cap:
+            logger.error(
+                "LINE 月度軟上限已達（%d/%d，硬限 200）→ 拒推本則。"
+                "本月剩餘推播已凍結防爆額；重要通知請看系統內/Telegram。",
+                count, cap,
+            )
+            return False
+        if count == cap - 15:  # 接近上限預警一次
+            logger.warning("LINE 月推播已達 %d/%d（軟上限），接近凍結點", count, cap)
+        return True
+    except Exception as e:
+        logger.warning("LINE 月度守欄檢查失敗（fail-open 放行）: %s", e)
+        return True
+
+
 class LineBotService:
     """LINE Bot 整合服務"""
 
@@ -408,6 +444,9 @@ class LineBotService:
             logger.info(
                 "LINE push 略過：本月推播月配額已用罄（將於下月初自動恢復）"
             )
+            return False
+        # 主動月度軟上限（2026-07-07）：不等 429 才停，185 則即凍結（見 _within_monthly_budget）
+        if is_push and not await _within_monthly_budget():
             return False
         try:
             async with httpx.AsyncClient(timeout=10) as client:
