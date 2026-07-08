@@ -10,8 +10,8 @@ confidence: high
 # Lessons Registry 索引
 
 **統計來源**: docs/architecture/LESSONS_REGISTRY.md
-**編譯時間**: 2026-06-29 05:00
-**Lessons 總數**: 66
+**編譯時間**: 2026-07-06 05:00
+**Lessons 總數**: 67
 
 | ID | Lesson Title |
 |----|--------------|
@@ -59,6 +59,7 @@ confidence: high
 | L76 | Windows Docker backend recreate/restart 易留殭屍埠轉發 socket → 公網 502（部署後必驗 host→8001  |
 | L75 | 推薦相關性：機關關係 ≠ 工項相關；粗放機關信號 + 粗粒度（府級）比對＝噪音源（標案業務推薦 / 2026-06-16） |
 | L74 | 單一狀態欄被多個 async 來源 last-writer-wins 競寫 + 破壞性副作用＝經典 race（SSO「第一次停 entry、重刷才好」/ 202 |
+| L78 | 「今日 OK、明日又壞」＝復原路徑有多入口且散落破壞性副作用，happy-path 驗證必漏（SSO 反覆回歸元覆盤 / 2026-07-03） |
 | L73 | In-container writer 盲視 host/cross-repo 資源 → silent 寫錯值（治理工具自身亦中招 / 2026-06-12） |
 | L72 | 排程「註冊 ≠ 真在跑」：scheduler liveness 對賬揪 silent dormant cron（擴大治理至坤哥/Hermes/排程 / 2026 |
 | L71 | 程式圖譜是「結構地圖」抓不到 config/語意/runtime 三類問題 → 用 AST 橋接治理（2026-06-11） |
