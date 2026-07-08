@@ -471,6 +471,18 @@
 
 ---
 
+## L79 — Session 收尾不完整＝功能「存在於硬碟但不存在於系統」：寫好＋測試綠 ≠ commit ≠ 部署（2026-07-08）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 07-08 整體覆盤首查 `git status`，發現 07-07 session 的 LINE 推播主題合併（`line_digest_buffer.py` 新模組 + scheduler 4 job 改造 + 月度軟上限，測試 8/8 綠）**既未 commit 也未 rebuild 部署**——容器內完全沒有這些碼，功能零生效，且工作成果有丟失風險。 |
+| **Cause** | Session 在「寫完＋測試綠」後中斷，未走**收尾三步：commit → 部署 → 驗證**。「測試通過」給了完成錯覺，但 host 碼 ≠ 容器碼（L51.7.1 同族）＋未版控＝雙重半接通（L30 環節不連通）。既有 step 60（image freshness）只對賬**已 commit** 的碼，抓不到「未 commit 的新工作」這條縫。 |
+| **Fix** | 覆盤當日收口：審查（LINE 族回歸 28/28 綠）→ commit `05bdeddf` → rebuild `--no-deps` → L76 驗證（host/公網 200 + 容器內新碼 md5 確證）→ 容器內對真 Redis 做 queue/組稿/自清理 roundtrip 真活確認。 |
+| **Prevention** | (a) **新 fitness step 65** `uncommitted_work_audit.py`：非 runtime 產物 modified/untracked 逾 12h → RED；modified backend/app py 檔 host↔容器 md5 對賬未部署 → RED（host 側跑，補 step 60 抓不到的縫）。(b) 每 session 收尾前跑一次 `git status`——非 wiki 異動即半接通信號。(c) 覆盤 SOP 首項＝查工作樹，先收口前次遺留再開新工作。 |
+| **Refs** | `scripts/checks/uncommitted_work_audit.py`（step 65）/ commit `05bdeddf` / `backend/app/services/integration/line_digest_buffer.py` / 同族：L30 環節不連通 + L51.7.1 container image freshness + L76 部署後驗證 |
+
+---
+
 ## L78 — 「今日 OK、明日又壞」＝復原路徑有多入口且散落破壞性副作用，happy-path 驗證必漏（SSO 反覆回歸元覆盤 / 2026-07-03）
 
 | 欄位 | 內容 |

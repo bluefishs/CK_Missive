@@ -960,7 +960,7 @@ echo ""
 #       既未 rollback 也未 re-raise → 後續 query / 推播段會 silent 撞交易錯。
 # baseline 2026-06-03: 59 候選（advisory；逐步收斂，新增不得超過 baseline）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[63/64] transaction pollution audit (L64 交易污染防復發)${NC}"
+echo -e "${CYAN}[63/65] transaction pollution audit (L64 交易污染防復發)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/transaction_pollution_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -976,11 +976,27 @@ echo ""
 #       「自行導向認證頁(location.replace / navigate(ROUTES.LOGIN|ENTRY|DASHBOARD) / <Navigate>)」。
 # baseline 2026-06-16（SSO 治本+bootstrap 競態修後）: 0 violation（GREEN）。新增任一 → RED。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[64/64] auth-state ssot audit (登入狀態單一權威, 防 SSO race 復發)${NC}"
+echo -e "${CYAN}[64/65] auth-state ssot audit (登入狀態單一權威, 防 SSO race 復發)${NC}"
 if $STRICT; then
     node scripts/checks/auth_state_ssot_audit.cjs --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     node scripts/checks/auth_state_ssot_audit.cjs || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 65: Session 收尾完整性審計（2026-07-08 覆盤立法）
+# 觸發: 07-07 LINE 主題合併寫好＋測試綠但未 commit 未部署 → 功能「存在於
+#       硬碟但不存在於系統」（L30 環節不連通 × L51.7.1 host碼≠容器碼 同族）。
+# 偵測: ①非 runtime 產物 modified/untracked 逾 12h 未提交 → RED
+#       ②modified backend/app py 檔 host↔容器 md5 對賬，未部署 → RED
+# host 側執行（容器內無 git）；亦適合 session 收尾前手動跑。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[65/65] uncommitted work audit (session 收尾完整性, 防寫好未接通)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/uncommitted_work_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/uncommitted_work_audit.py || true
 fi
 echo ""
 
