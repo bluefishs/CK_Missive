@@ -115,7 +115,7 @@ class CrossDomainMatchEngine:
 
         try:
             from app.services.ai.core.embedding_manager import EmbeddingManager
-            if not await EmbeddingManager.is_available():
+            if not EmbeddingManager.is_available():  # L79: is_available 同步，勿 await
                 return None
 
             query_emb = await EmbeddingManager.get_embedding(name, connector=None)

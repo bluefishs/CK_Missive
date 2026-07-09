@@ -557,17 +557,27 @@ async def kg_embedding_backfill_job():
                 CrossDomainContributionService,
             )
             svc = CrossDomainContributionService(db)
-            # 2026-07-08 fitness step 5 揭發：lvrland 聯邦 transaction 日增
-            # 常態 ~400+尖峰 2000，batch 200/日 跟不上 → 累積 10,500 筆
-            # RAG-blind（已手動清空）。調 2000 涵蓋常態+尖峰（04:30 離峰，
-            # nomic-embed ~36/s → 2000 筆 <1 min，負載無虞）。
+            # batch 2000：涵蓋 lvrland 聯邦 transaction 日增常態~400+尖峰2000。
+            # 04:30 離峰 nomic-embed ~36/s → 2000 筆 <1 min，負載無虞。
+            # ⚠️ 2026-07-09 訂正：07-08 曾誤判「batch 200 太小」為 RAG-blind 根因，
+            # 實際根因是 backfill_embeddings 的 await bug（見該檔）致 cron 長期
+            # processed=0、從未真正 backfill；batch 大小在 bug 修復前完全無作用。
             result = await svc.backfill_embeddings(batch_size=2000)
             await db.commit()
             processed = result.get("processed", 0)
             skipped = result.get("skipped", 0)
-            logger.info(
-                f"KG Embedding 回填完成: processed={processed}, skipped={skipped}"
-            )
+            reason = result.get("reason")
+            # 2026-07-09 L79：reason 存在＝早退（未真正 backfill）→ LOUD warning，
+            # 防「processed=0 看似無事、實為 silent die」再度潛伏數月。
+            if reason:
+                logger.warning(
+                    "KG Embedding 回填早退（未執行）: reason=%s（processed=%d）",
+                    reason, processed,
+                )
+            else:
+                logger.info(
+                    f"KG Embedding 回填完成: processed={processed}, skipped={skipped}"
+                )
 
             # v5.10.2 #7：順手 refresh KG metrics（避免 dead integration / L01）
             try:

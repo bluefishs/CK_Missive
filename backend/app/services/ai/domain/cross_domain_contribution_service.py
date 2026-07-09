@@ -247,7 +247,7 @@ class CrossDomainContributionService:
 
         try:
             from app.services.ai.core.embedding_manager import EmbeddingManager
-            if not await EmbeddingManager.is_available():
+            if not EmbeddingManager.is_available():  # L79: is_available 同步，勿 await
                 return
         except Exception:
             return
@@ -307,10 +307,14 @@ class CrossDomainContributionService:
 
         try:
             from app.services.ai.core.embedding_manager import EmbeddingManager
-            if not await EmbeddingManager.is_available():
+            # 2026-07-09 L79 修：is_available() 是同步 classmethod（回 bool），
+            # 誤加 await → TypeError 被下方 except 吞成「embedding init error」，
+            # processed=0，每日 cron 從部署以來從未真正執行（silent dormant 數月）。
+            # 覆蓋率一直靠手動 backfill_kg_embeddings_all.py 維持。移除 await。
+            if not EmbeddingManager.is_available():
                 return {"processed": 0, "embedded": 0, "skipped": 0, "reason": "embedding unavailable"}
-        except Exception:
-            return {"processed": 0, "embedded": 0, "skipped": 0, "reason": "embedding init error"}
+        except Exception as e:
+            return {"processed": 0, "embedded": 0, "skipped": 0, "reason": f"embedding init error: {e}"}
 
         from app.services.ai.graph.graph_helpers import _CODE_ENTITY_TYPES
 

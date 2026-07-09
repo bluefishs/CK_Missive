@@ -324,3 +324,16 @@ class TestIsAvailable:
 
             mock_settings.PGVECTOR_ENABLED = False
             assert EmbeddingManager.is_available() is False
+
+    def test_is_available_is_sync_not_coroutine(self):
+        """L79 回歸：is_available 必須保持同步（回 bool，非 coroutine）。
+
+        2026-07-09 根因：cross_domain_contribution_service.backfill_embeddings
+        誤寫 `await EmbeddingManager.is_available()` → TypeError 被 except 吞成
+        processed=0，每日 KG embedding cron 從部署起 silent dormant 數月。
+        鎖住同步契約：若日後改為 async，須同步更新所有 caller（加/移 await）。
+        """
+        assert not asyncio.iscoroutinefunction(EmbeddingManager.is_available)
+        result = EmbeddingManager.is_available()
+        assert not asyncio.iscoroutine(result)
+        assert isinstance(result, bool)
