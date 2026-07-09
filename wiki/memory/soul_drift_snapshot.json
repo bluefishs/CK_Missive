@@ -1,10 +1,14 @@
 {
   "missive_lines": 193,
-  "hermes_lines": 0,
-  "line_delta": 0,
-  "core_invariant_gap": -1,
-  "missing_invariants": [],
-  "drift_lines": -1,
-  "updated_at": "2026-07-05 18:00",
-  "source": "autobiography_post_write(preserve_host_drift)"
+  "hermes_lines": 153,
+  "line_delta": 40,
+  "core_invariant_gap": 3,
+  "missing_invariants": [
+    "三信念",
+    "倫理紅線",
+    "反迴聲"
+  ],
+  "drift_lines": 3,
+  "updated_at": "2026-07-08 17:13",
+  "source": "soul_mirror_drift_check"
 }
