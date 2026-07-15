@@ -126,8 +126,14 @@ class SchedulerTracker:
 
     @classmethod
     def _append_event(cls, job_id: str, status: str, duration_ms: Optional[float],
-                      error: Optional[str] = None) -> None:
-        """v6.13: 寫 jsonl event log — fire-and-forget 不阻斷主流程"""
+                      error: Optional[str] = None,
+                      detail: Optional[Dict[str, Any]] = None) -> None:
+        """v6.13: 寫 jsonl event log — fire-and-forget 不阻斷主流程
+
+        2026-07-15: 加 detail — 讓 job 附業務產出（如 embedded 計數/reason），
+        破解「status=success/duration 綠燈但實際沒做事」silent success 盲點
+        （kg_embedding_backfill 04:30 冷啟動空轉現形）。
+        """
         import json as _json
         try:
             cls._EVENTS_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -139,6 +145,12 @@ class SchedulerTracker:
             }
             if error:
                 event["error"] = error[:200]
+            if detail:
+                # 只納入 JSON-safe 純量鍵值，避免把 ORM/大物件寫進 log
+                event["detail"] = {
+                    k: v for k, v in detail.items()
+                    if isinstance(v, (str, int, float, bool)) or v is None
+                }
             with cls._EVENTS_LOG.open("a", encoding="utf-8") as f:
                 f.write(_json.dumps(event, ensure_ascii=False) + "\n")
         except Exception:
@@ -158,7 +170,7 @@ class SchedulerTracker:
         cls._records[job_id]["_start_time"] = time.time()
 
     @classmethod
-    def record_success(cls, job_id: str):
+    def record_success(cls, job_id: str, detail: Optional[Dict[str, Any]] = None):
         rec = cls._records.get(job_id, {})
         start = rec.pop("_start_time", None)
         duration = round((time.time() - start) * 1000, 1) if start else None
@@ -170,9 +182,10 @@ class SchedulerTracker:
             "last_run_ts": now_ts,
             "last_duration_ms": duration,
             "last_error": None,
+            "last_detail": detail if detail else None,
         })
         cls._records[job_id] = rec
-        cls._append_event(job_id, "success", duration)  # v6.13 jsonl log
+        cls._append_event(job_id, "success", duration, detail=detail)  # v6.13 jsonl log
         if _PROM_ENABLED:
             try:
                 SCHED_LAST_RUN_AGE_SECONDS.labels(job_id=job_id).set(0)
@@ -246,7 +259,10 @@ def tracked_job(job_id: str):
             SchedulerTracker.record_start(job_id)
             try:
                 result = await func(*args, **kwargs)
-                SchedulerTracker.record_success(job_id)
+                # 2026-07-15: job 若回 dict → 當作業務產出 detail 寫入 cron_events
+                # （embedded/reason 等），讓 silent success 現形。非 dict → 行為不變。
+                detail = result if isinstance(result, dict) else None
+                SchedulerTracker.record_success(job_id, detail=detail)
                 return result
             except Exception as e:
                 SchedulerTracker.record_failure(job_id, str(e))
@@ -565,18 +581,26 @@ async def kg_embedding_backfill_job():
             result = await svc.backfill_embeddings(batch_size=2000)
             await db.commit()
             processed = result.get("processed", 0)
+            embedded = result.get("embedded", 0)
             skipped = result.get("skipped", 0)
             reason = result.get("reason")
-            # 2026-07-09 L79：reason 存在＝早退（未真正 backfill）→ LOUD warning，
-            # 防「processed=0 看似無事、實為 silent die」再度潛伏數月。
+            # 2026-07-09 L79：reason 存在＝早退（未真正 backfill）→ LOUD warning。
+            # 2026-07-15：新增「processed>0 但 embedded=0」告警——04:30 冷啟動
+            #   ollama nomic-embed 未溫熱時 batch 全空、cron 卻 status=success 的病灶
+            #   （backfill_embeddings 已加暖機閘門，此處為第二道可見性防線）。
             if reason:
                 logger.warning(
                     "KG Embedding 回填早退（未執行）: reason=%s（processed=%d）",
                     reason, processed,
                 )
+            elif processed > 0 and embedded == 0:
+                logger.warning(
+                    "KG Embedding 回填空轉：processed=%d 但 embedded=0（疑 ollama nomic 冷啟動）",
+                    processed,
+                )
             else:
                 logger.info(
-                    f"KG Embedding 回填完成: processed={processed}, skipped={skipped}"
+                    f"KG Embedding 回填完成: processed={processed}, embedded={embedded}, skipped={skipped}"
                 )
 
             # v5.10.2 #7：順手 refresh KG metrics（避免 dead integration / L01）
@@ -590,8 +614,18 @@ async def kg_embedding_backfill_job():
                 )
             except Exception as m_err:
                 logger.error("KG metrics refresh failed: %s", m_err, exc_info=True)
+
+            # 2026-07-15：回傳業務產出 → tracked_job 寫入 cron_events.detail
+            # （embedded/reason 可見化，破解 silent success）。
+            return {
+                "processed": processed,
+                "embedded": embedded,
+                "skipped": skipped,
+                "reason": reason,
+            }
     except Exception as e:
         logger.error(f"KG Embedding 回填失敗: {e}", exc_info=True)
+        return {"processed": 0, "embedded": 0, "skipped": 0, "reason": f"job error: {e}"}
 
 
 async def kg_metrics_refresh_job():

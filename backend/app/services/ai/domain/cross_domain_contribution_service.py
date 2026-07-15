@@ -318,6 +318,27 @@ class CrossDomainContributionService:
         except Exception as e:
             return {"processed": 0, "embedded": 0, "skipped": 0, "reason": f"embedding init error: {e}"}
 
+        # 2026-07-15 暖機閘門（治「04:30 排程冷啟動空轉」第三層根因）：
+        #   is_available() 只回 PGVECTOR_ENABLED，不驗 ollama nomic-embed 是否就緒。
+        #   離峰夜間 nomic 被逐出 VRAM，04:30 首個 batch 對冷 ollama 回全空 → embedded=0、
+        #   cron 卻 status=success（silent success）。此處先以單筆探測＋重試確認後端就緒，
+        #   未就緒即回明確 reason（不硬跑 2000 batch 全空）。白天溫熱時探測一次即過、成本可忽略。
+        import asyncio as _asyncio
+        connector = get_ai_connector()
+        warm_ok = False
+        for _attempt in range(3):
+            try:
+                probe = await EmbeddingManager.get_embeddings_batch(["暖機探測"], connector=connector)
+                if probe and probe[0]:
+                    warm_ok = True
+                    break
+            except Exception as _pe:  # noqa: F841
+                pass
+            await _asyncio.sleep(5)  # 給 ollama 冷載模型時間（~11s 分段等待）
+        if not warm_ok:
+            logger.warning("KG-3 Backfill 暖機失敗：ollama nomic-embed 未就緒（冷啟動？）")
+            return {"processed": 0, "embedded": 0, "skipped": 0, "reason": "embedding backend not ready"}
+
         from app.services.ai.graph.graph_helpers import _CODE_ENTITY_TYPES
 
         result = await self.db.execute(
@@ -335,7 +356,7 @@ class CrossDomainContributionService:
             return {"processed": 0, "embedded": 0, "skipped": 0}
 
         names = [e.canonical_name for e in entities]
-        embeddings = await EmbeddingManager.get_embeddings_batch(names, connector=get_ai_connector())
+        embeddings = await EmbeddingManager.get_embeddings_batch(names, connector=connector)
 
         embedded = 0
         for entity, emb in zip(entities, embeddings):
