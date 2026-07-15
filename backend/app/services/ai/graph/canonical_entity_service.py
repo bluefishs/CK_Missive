@@ -233,9 +233,10 @@ class CanonicalEntityService:
             embeddings_map: Dict[str, list] = {}
             try:
                 from app.services.ai.core.embedding_manager import EmbeddingManager
+                from app.core.ai_connector import get_ai_connector
                 if EmbeddingManager.is_available():  # L79: is_available 同步，勿 await
                     names_list = [name for name, _ in semantic_candidates]
-                    emb_results = await EmbeddingManager.get_embeddings_batch(names_list, connector=None)
+                    emb_results = await EmbeddingManager.get_embeddings_batch(names_list, connector=get_ai_connector())
                     for name, emb in zip(names_list, emb_results):
                         if emb:
                             embeddings_map[name] = emb

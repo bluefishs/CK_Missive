@@ -52,11 +52,12 @@ class CanonicalEntityResolver:
         try:
             from app.services.ai.core.embedding_manager import EmbeddingManager
             from app.services.ai.core.ai_config import AIConfig
+            from app.core.ai_connector import get_ai_connector
 
             if not EmbeddingManager.is_available():  # L79: is_available 同步，勿 await
                 return None
 
-            query_emb = await EmbeddingManager.get_embedding(name, connector=None)
+            query_emb = await EmbeddingManager.get_embedding(name, connector=get_ai_connector())
             if not query_emb:
                 return None
 

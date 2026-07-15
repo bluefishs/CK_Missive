@@ -337,3 +337,41 @@ class TestIsAvailable:
         result = EmbeddingManager.is_available()
         assert not asyncio.iscoroutine(result)
         assert isinstance(result, bool)
+
+
+class TestKGEmbeddingConnectorWiring:
+    """L79 第二層回歸：KG 實體解析／回填路徑必須傳入真實 connector。
+
+    2026-07-10 根因：await 修好後露出 `get_embeddings_batch(..., connector=None)`
+    → EmbeddingManager 內 `await None.generate_embedding()` AttributeError 被吞成
+    embedded=0，每日 KG embedding cron `processed>0 但 embedded=0` 持續空轉，
+    覆蓋率靠手動 backfill 維持。修法＝5 處 `connector=None` → `get_ai_connector()`。
+    此 source guard 鎖住契約，防回退（正解範例 embedding_manager.py:310-311）。
+    """
+
+    KG_EMBED_FILES = [
+        "app/services/ai/domain/cross_domain_contribution_service.py",
+        "app/services/ai/domain/cross_domain_matcher.py",
+        "app/services/ai/graph/canonical_entity_resolver.py",
+        "app/services/ai/graph/canonical_entity_service.py",
+    ]
+
+    def _read(self, rel_path):
+        import os
+        # backend/ 為 rootdir；本測試檔在 backend/tests/unit/test_services/
+        backend_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        )
+        with open(os.path.join(backend_root, rel_path), encoding="utf-8") as f:
+            return f.read()
+
+    def test_no_connector_none_in_kg_embedding_paths(self):
+        """KG embedding 路徑不得再出現 connector=None（否則 embedded 恆為 0）。"""
+        offenders = [p for p in self.KG_EMBED_FILES if "connector=None" in self._read(p)]
+        assert not offenders, f"connector=None 回退（會使 embedded=0 silent 空轉）: {offenders}"
+
+    def test_kg_embedding_paths_wire_real_connector(self):
+        """每個 KG embedding 檔都須經 get_ai_connector() 取得真實 connector。"""
+        for p in self.KG_EMBED_FILES:
+            src = self._read(p)
+            assert "get_ai_connector()" in src, f"{p} 未傳入真實 connector（get_ai_connector 缺失）"

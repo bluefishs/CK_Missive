@@ -247,6 +247,7 @@ class CrossDomainContributionService:
 
         try:
             from app.services.ai.core.embedding_manager import EmbeddingManager
+            from app.core.ai_connector import get_ai_connector
             if not EmbeddingManager.is_available():  # L79: is_available 同步，勿 await
                 return
         except Exception:
@@ -274,7 +275,7 @@ class CrossDomainContributionService:
 
         # 批次生成 embedding
         embeddings = await EmbeddingManager.get_embeddings_batch(
-            new_names, connector=None,
+            new_names, connector=get_ai_connector(),
         )
         embedded_count = 0
         for entity, emb in zip(new_entities, embeddings):
@@ -307,6 +308,7 @@ class CrossDomainContributionService:
 
         try:
             from app.services.ai.core.embedding_manager import EmbeddingManager
+            from app.core.ai_connector import get_ai_connector
             # 2026-07-09 L79 修：is_available() 是同步 classmethod（回 bool），
             # 誤加 await → TypeError 被下方 except 吞成「embedding init error」，
             # processed=0，每日 cron 從部署以來從未真正執行（silent dormant 數月）。
@@ -333,7 +335,7 @@ class CrossDomainContributionService:
             return {"processed": 0, "embedded": 0, "skipped": 0}
 
         names = [e.canonical_name for e in entities]
-        embeddings = await EmbeddingManager.get_embeddings_batch(names, connector=None)
+        embeddings = await EmbeddingManager.get_embeddings_batch(names, connector=get_ai_connector())
 
         embedded = 0
         for entity, emb in zip(entities, embeddings):
