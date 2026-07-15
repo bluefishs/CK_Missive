@@ -50,7 +50,14 @@
 5. **KG embedding cron 治本驗證**：次日 04:30 後查 log——應見 `回填完成 processed>0 embedded>0`（非 207ms 空轉）。
 6. **晨報主題合併**：次日 08:00 後查 backend log `Morning digest tail attached` + `Morning report pushed`（LINE 收單一則含「昨日主題摘要」尾段）。
 
+## Git 狀態（重啟前，已全數 push origin）
+```
+9cc2e58f chore(checks): 新增 KG 實體合併率監測查詢
+a6e07b94 docs(runbook): 07-10 重啟後覆盤＋pre-flight（含治本結果）
+7101ee3c fix(ai): 根治 KG embedding connector=None 空轉（L79 第二層）
+```
+`main...origin/main` 無 ahead、無未提交程式碼變更（工作樹僅 wiki runtime 產物）✅
+
 ## 待 owner（非重啟阻斷）
-- **KG embedding 治本行為觀察**：connector 治本啟用了 resolver/matcher 語意匹配/去重，觀察 canonical entity 合併率/覆蓋率數日是否異常。
-- **push origin**：本輪 2 commit（`7101ee3c` fix、`43c79e2b`→本次 amend）本地已提交，待 owner 決定 push。
+- **⭐ KG embedding 治本行為觀察**：connector 治本啟用 resolver/matcher 語意匹配/去重，需觀察 canonical entity 合併率是否 over-merge。監測查詢 `scripts/checks/kg_merge_rate_monitor.sql`（`docker exec -i ck_missive_postgres psql -U ck_user -d ck_documents < ...`）；基線 2026-07-15：entities 48551 / new_semantic_aliases_24h **0** / alias_per_entity 0.4445 / 覆蓋率 95.8%。**治本後 3-5 工作日每日跑 Query A 對照**，首查點＝下一個有 ingest 活動工作日（純 backfill 不觸發語意路徑）。詳見 memory `kg_merge_rate_observation`。
 - v6.24 遺留：facade 60 天 trial 2026-07-30 重評。
