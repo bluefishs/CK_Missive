@@ -960,7 +960,7 @@ echo ""
 #       既未 rollback 也未 re-raise → 後續 query / 推播段會 silent 撞交易錯。
 # baseline 2026-06-03: 59 候選（advisory；逐步收斂，新增不得超過 baseline）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[63/66] transaction pollution audit (L64 交易污染防復發)${NC}"
+echo -e "${CYAN}[63/67] transaction pollution audit (L64 交易污染防復發)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/transaction_pollution_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -976,7 +976,7 @@ echo ""
 #       「自行導向認證頁(location.replace / navigate(ROUTES.LOGIN|ENTRY|DASHBOARD) / <Navigate>)」。
 # baseline 2026-06-16（SSO 治本+bootstrap 競態修後）: 0 violation（GREEN）。新增任一 → RED。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[64/66] auth-state ssot audit (登入狀態單一權威, 防 SSO race 復發)${NC}"
+echo -e "${CYAN}[64/67] auth-state ssot audit (登入狀態單一權威, 防 SSO race 復發)${NC}"
 if $STRICT; then
     node scripts/checks/auth_state_ssot_audit.cjs --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -992,7 +992,7 @@ echo ""
 #       ②modified backend/app py 檔 host↔容器 md5 對賬，未部署 → RED
 # host 側執行（容器內無 git）；亦適合 session 收尾前手動跑。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[65/66] uncommitted work audit (session 收尾完整性, 防寫好未接通)${NC}"
+echo -e "${CYAN}[65/67] uncommitted work audit (session 收尾完整性, 防寫好未接通)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/uncommitted_work_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -1008,12 +1008,25 @@ echo ""
 #       H3 後端 services stub 標記檔——皆對照 baseline，成長即 RED。
 # 登記表: docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[66/66] heterogeneous work audit (異質同工防增量, 防反覆回歸根源復發)${NC}"
+echo -e "${CYAN}[66/67] heterogeneous work audit (異質同工防增量, 防反覆回歸根源復發)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/heterogeneous_work_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/heterogeneous_work_audit.py || true
 fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 67: 程式圖譜語意異質同工偵測（2026-07-17 立法）
+# 觸發: owner 質疑「建程式圖譜難道不能自我優化/追蹤異質同工」→ 活化既有
+#       KG code embedding，用 pgvector 語意相似度【自動發現】跨模組同工候選。
+# 性質: discovery（report-only）——surface 鏡像模組對候選供人/LLM triage，
+#       非全自動（真重複 vs 合理拆分需判斷）。是「自動撈→triage→登記表」機制。
+# 登記表: docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md §程式圖譜自我優化
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[67/67] code semantic duplication (程式圖譜自動發現異質同工候選)${NC}"
+# discovery 型：預設不阻斷（候選需 triage）；strict 且超 baseline 才 fail
+PYTHONIOENCODING=utf-8 python scripts/checks/code_semantic_duplication_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------

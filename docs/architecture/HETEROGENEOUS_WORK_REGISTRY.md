@@ -54,6 +54,37 @@
 
 ---
 
+## 程式圖譜自我優化（2026-07-17 立法 — 回應「圖譜為何不能自我追蹤異質同工」）
+
+**背景**：owner 質疑「花那麼多時間建程式圖譜，難道不能自我優化與追蹤異質同工？」
+
+**誠實診斷——為何過去沒自動發現**：
+1. 程式圖譜一直當「結構地圖」用（L71），沒人對其 embedding 下**語意查詢**
+2. fitness/audit 是 pattern/whitelist 型（L71「寫死清單漏網」），無法發現**未知**重複
+3. 學習閉環（crystallizer）只優化對話路由，**無架構通道**
+4. embedding 早就在（code entity 100% 覆蓋），差的只是「把語意去重查詢接成機制」
+
+**已落地機制**：`scripts/checks/code_semantic_duplication_audit.py`（fitness **step 67**）
+- 用 pgvector 餘弦相似度，自動找「跨模組、語意近乎相同」的函式對 → 聚合為鏡像模組對
+- 一次查詢即 surface 真候選（證明圖譜**能**自我發現異質同工）
+- 性質＝discovery：**自動撈 → 人/LLM triage → 登記表**（非全自動重構）
+
+**能力邊界（誠實）**：圖譜能 surface 候選，但「真重複 vs 合理領域拆分」需判斷。
+
+### 首跑候選（2026-07-17，待 owner triage）
+| 鏡像模組對 | 共享近重複 | 初判 | 待辦 |
+|---|---|---|---|
+| `erp.expenses` ⇄ `erp.expenses_io` | 9 | 疑似刻意拆分（CRUD vs IO），但同名函式重疊需查 | triage |
+| `role_permissions` ⇄ `role_permissions_admin` | 7 | 需查是否真重複 | triage |
+| `tender` ⇄ `tender_module.analytics` | 6 | **假陽性＝stale orphan**（tender.py 已是 12L wrapper，圖譜殘留舊函式） | 見下 prune |
+| `tender` ⇄ `tender_module.subscriptions` | 5 | 同上 stale orphan | 見下 prune |
+| `erp.expenses` ⇄ `erp.operational` | 4 | 需查（expense CRUD 泛化） | triage |
+
+### 🔴 meta 發現：程式圖譜累積 stale orphan（阻礙自我優化的真因）
+`tender.py` 現為 12L wrapper（v5.5.2 已拆到 tender_module/），但程式圖譜（07-15 才更新）**仍存 `tender::analytics_dashboard` 等舊函式 entity** → **增量 ingest 只新增/更新、不修剪已刪除符號** → 累積 orphan → 污染語意去重（tender 候選即假陽性）。
+- **這是圖譜無法被信任來自我優化的根因之一**：查詢會混入過時結構的雜訊。
+- **建議（未做，需 owner 決策）**：`code_graph_incremental` cron 加**修剪步**（ingest 後標記本輪未見的 code entity 為 stale/刪除）。屬 pipeline 變更、中風險（誤剪風險），須獨立 session + 驗證。
+
 ## 收斂進度日誌
 
 | 日期 | 項 | 動作 | 結果 |
@@ -63,5 +94,6 @@
 | 2026-07-16 | H4 | 核實 wiki backfill 非 embedding（誤列）→ 移出異質同工、降為一次性遷移工具 | ✅ 校正 |
 | 2026-07-16 | 防增量 | 新增 `heterogeneous_work_audit.py`（fitness step 66）watch H1/H2/H3 baseline，成長即 RED；strict exit 0 | ✅ 交付 |
 | 2026-07-16 | H1 | 影響評估揭發「獨立實例部分刻意」（防登入迴圈）→ 修正 SSOT 目標為「單一攔截器邏輯」而非合併實例；**不在覆盤 session 倉促動 SSO**（守 feedback_rigor） | ⏸ 待獨立設計 session |
+| 2026-07-17 | 自我優化 | 回應「圖譜為何不能自我追蹤」→ 建 `code_semantic_duplication_audit.py`（step 67）；實測一次查詢 surface 5 候選（證圖譜**能**自我發現）；揭發 meta 真因＝圖譜累積 stale orphan（無 prune） | ✅ 機制交付 + 5 候選待 triage + prune 建議 |
 
 （後續收斂逐項追加）
