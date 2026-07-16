@@ -960,7 +960,7 @@ echo ""
 #       既未 rollback 也未 re-raise → 後續 query / 推播段會 silent 撞交易錯。
 # baseline 2026-06-03: 59 候選（advisory；逐步收斂，新增不得超過 baseline）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[63/65] transaction pollution audit (L64 交易污染防復發)${NC}"
+echo -e "${CYAN}[63/66] transaction pollution audit (L64 交易污染防復發)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/transaction_pollution_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -976,7 +976,7 @@ echo ""
 #       「自行導向認證頁(location.replace / navigate(ROUTES.LOGIN|ENTRY|DASHBOARD) / <Navigate>)」。
 # baseline 2026-06-16（SSO 治本+bootstrap 競態修後）: 0 violation（GREEN）。新增任一 → RED。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[64/65] auth-state ssot audit (登入狀態單一權威, 防 SSO race 復發)${NC}"
+echo -e "${CYAN}[64/66] auth-state ssot audit (登入狀態單一權威, 防 SSO race 復發)${NC}"
 if $STRICT; then
     node scripts/checks/auth_state_ssot_audit.cjs --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -992,11 +992,27 @@ echo ""
 #       ②modified backend/app py 檔 host↔容器 md5 對賬，未部署 → RED
 # host 側執行（容器內無 git）；亦適合 session 收尾前手動跑。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[65/65] uncommitted work audit (session 收尾完整性, 防寫好未接通)${NC}"
+echo -e "${CYAN}[65/66] uncommitted work audit (session 收尾完整性, 防寫好未接通)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/uncommitted_work_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
     PYTHONIOENCODING=utf-8 python scripts/checks/uncommitted_work_audit.py || true
+fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 66: 異質同工防增量審計（2026-07-16 覆盤立法）
+# 觸發: 兩大反覆回歸家族（SSO L74/L78、KG L79）根源皆為異質同工（不同實作
+#       各自做同一件事）。收斂後須防其重新長出來。
+# 偵測: H1 前端 axios.create 實例數 / H2 scripts 直呼 /api/embed 繞過 SSOT /
+#       H3 後端 services stub 標記檔——皆對照 baseline，成長即 RED。
+# 登記表: docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[66/66] heterogeneous work audit (異質同工防增量, 防反覆回歸根源復發)${NC}"
+if $STRICT; then
+    PYTHONIOENCODING=utf-8 python scripts/checks/heterogeneous_work_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    PYTHONIOENCODING=utf-8 python scripts/checks/heterogeneous_work_audit.py || true
 fi
 echo ""
 

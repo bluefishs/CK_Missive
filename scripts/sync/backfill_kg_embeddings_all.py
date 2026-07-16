@@ -3,6 +3,14 @@
 """
 全 KG canonical_entities pgvector embedding backfill
 
+⚠️ 異質同工登記 H2（docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md）
+   本腳本為【host 緊急/手動工具】，直呼 httpx → ollama /api/embed，**繞過** EmbeddingManager/ai_connector（SSOT）。
+   → 冷啟動暖機閘門、模型選擇、重試邏輯皆不共用，**可能與 SSOT 漂移**。
+   正常補 embedding 的 SSOT 路徑（含 07-15 暖機閘門）＝容器內：
+     docker exec ck_missive_backend python -c "from app.services.ai.domain.cross_domain_contribution_service import ...; backfill_embeddings(batch)"
+   或每日 04:30 cron `kg_embedding_backfill`。
+   本腳本僅在「SSOT 路徑不可用、需 host 端直補存量」時使用（如 07-10/07-15 大量止血）。
+
 延續 backfill_dispatch_embeddings.py 試點（127 筆 4 秒成功）：
 - Ollama nomic-embed-text 768D, 30/s rate, zero cost
 - 全 KG 21,575 entities 估算 ~12 min

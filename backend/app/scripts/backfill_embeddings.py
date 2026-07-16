@@ -6,7 +6,7 @@ Created: 2026-02-08
 
 功能:
 - 查詢所有 embedding IS NULL 的公文
-- 使用 Ollama nomic-embed-text 生成 384 維向量
+- 使用 Ollama nomic-embed-text 生成 768 維向量（經 ai_connector.generate_embedding，非直呼 httpx）
 - 批次 commit（每 50 筆）
 - 進度顯示
 - 支援 --dry-run 和 --limit 參數

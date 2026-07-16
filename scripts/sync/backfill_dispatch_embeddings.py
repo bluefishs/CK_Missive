@@ -3,12 +3,18 @@
 """
 Dispatch KG entities pgvector embedding backfill（試點 — 127 筆）
 
+⚠️ 異質同工登記 H2（docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md）
+   本腳本為【host 緊急/手動工具】，直呼 httpx → ollama /api/embed（見下方 OLLAMA_URL），
+   **繞過** EmbeddingManager/ai_connector（SSOT）→ 冷啟動暖機/模型/重試邏輯不共用、可能漂移。
+   正常補 embedding 的 SSOT 路徑＝容器內 cross_domain_contribution_service.backfill_embeddings
+   或每日 04:30 cron `kg_embedding_backfill`。本腳本僅供 host 端存量止血。
+
 延續方案 X Phase 1+2，補完 embedding 維度（768D nomic-embed-text）。
 
 設計：
 - 對 entity_type='dispatch' 且 embedding IS NULL 跑 ollama nomic-embed-text
 - 文本 = canonical_name + " " + description
-- 透過 ai_connector.generate_embedding (zero cost, local Ollama)
+- 直呼 httpx /api/embed（**非** ai_connector；見上方 H2 警告）(zero cost, local Ollama)
 - 批次更新（每 10 筆 commit 一次以利中斷恢復）
 
 用法：
