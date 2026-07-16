@@ -82,8 +82,20 @@
 
 ### 🔴 meta 發現：程式圖譜累積 stale orphan（阻礙自我優化的真因）
 `tender.py` 現為 12L wrapper（v5.5.2 已拆到 tender_module/），但程式圖譜（07-15 才更新）**仍存 `tender::analytics_dashboard` 等舊函式 entity** → **增量 ingest 只新增/更新、不修剪已刪除符號** → 累積 orphan → 污染語意去重（tender 候選即假陽性）。
-- **這是圖譜無法被信任來自我優化的根因之一**：查詢會混入過時結構的雜訊。
-- **建議（未做，需 owner 決策）**：`code_graph_incremental` cron 加**修剪步**（ingest 後標記本輪未見的 code entity 為 stale/刪除）。屬 pipeline 變更、中風險（誤剪風險），須獨立 session + 驗證。
+
+**已建 DRY-RUN 偵測器**：`scripts/checks/code_graph_orphan_audit.py`（fitness **step 68**，只報不刪）
+- ground truth 對照：entity 宣稱的 symbol 是否還定義在其 file_path 檔中（**非**靠 last_seen_at）
+- ⚠️ **為何不能靠 last_seen_at**：incremental ingest 只更新重解析的檔，未變更檔的**存活** entity 也是舊 last_seen_at（最新僅到 07-10，但 cron 07-15/16 有跑）→ 照 last_seen_at 剪會**誤刪存活**
+- **首跑（2026-07-17）：2032 orphan（Python，17%）**——1062 file-missing（檔搬移）+ 970 symbol-absent
+- **主因＝Wave 1-8 DDD 遷移搬檔舊路徑未修剪**：`base_ai_service`→`ai/core/`、`ts_extractor`→`ai/graph/`、`morning_report_service`→`ai/domain/`、`tender_search_service`→`tender/`（symbol 仍在、只是新路徑，舊 entity 成 orphan＝與新路徑 entity 並存的異質同工源頭）
+- ⚠️ **偵測踩坑（元教訓）**：初版對 method（`Class.method`）誤判 → 5055 假陽性；修為取最後點分量後 2032（正確）
+
+**安全 prune 設計（下一步，需 owner 授權）**：
+1. **soft-delete 優先**：set `valid_to=now()`（非硬刪），保留可回溯；驗證無誤數週後再硬刪
+2. **雙重確認再剪**：orphan 且「該 symbol 不在專案任何檔」才剪（防搬移誤剪——搬移者 symbol 仍在別處，應**重指路徑**而非刪）
+3. **grace period**：連 2 次偵測皆 orphan 才動（防單次 ingest 異常）
+4. **根治**：`code_graph_ingest` 加 full-sweep mark-and-sweep（全掃後標本輪未見者），使 last_seen_at 可信 → 未來 prune 可自動化
+- 屬 pipeline + 資料變更、中風險，**須獨立 session + soft-delete + 完整驗證**（[[feedback_rigor_no_self_inflicted_instability]]）
 
 ## 收斂進度日誌
 
@@ -95,5 +107,6 @@
 | 2026-07-16 | 防增量 | 新增 `heterogeneous_work_audit.py`（fitness step 66）watch H1/H2/H3 baseline，成長即 RED；strict exit 0 | ✅ 交付 |
 | 2026-07-16 | H1 | 影響評估揭發「獨立實例部分刻意」（防登入迴圈）→ 修正 SSOT 目標為「單一攔截器邏輯」而非合併實例；**不在覆盤 session 倉促動 SSO**（守 feedback_rigor） | ⏸ 待獨立設計 session |
 | 2026-07-17 | 自我優化 | 回應「圖譜為何不能自我追蹤」→ 建 `code_semantic_duplication_audit.py`（step 67）；實測一次查詢 surface 5 候選（證圖譜**能**自我發現）；揭發 meta 真因＝圖譜累積 stale orphan（無 prune） | ✅ 機制交付 + 5 候選待 triage + prune 建議 |
+| 2026-07-17 | prune 前置 | 建 `code_graph_orphan_audit.py`（step 68，DRY-RUN 只報不刪）；ground truth 對照 source；首跑 2032 orphan（主因 Wave 1-8 搬檔）；元教訓修 method 假陽性 5055→2032；出安全 prune 設計 | ✅ 偵測器交付（不刪）；prune 待 owner 授權（獨立 session） |
 
 （後續收斂逐項追加）
