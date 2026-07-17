@@ -146,6 +146,18 @@
 | 重複判定 | LLM triage（已驗可運作）+ 人工 | 🟡 半自動（**刻意 gate**：C2/C3 證自動合併會破壞合理拆分） |
 | 重複收斂 | 移除死碼/重指 | 🔴 人審 gate（auth 等破壞性須授權） |
 | 學習 | LEGIT_SPLIT_WHITELIST 每次 triage 永久記錄 → detector 漸靜、漸準 | ✅ 自動累積 |
-**結論**：orphan 面＝**真自我修復閉環**（每週自動清、已上線）；重複面＝**自我檢核 + 判定可自動（LLM 已證）+ 收斂人審**（安全設計，非缺陷——語意相似≠重複，C2/C3 為證）。**下一步全自動化路徑**＝仿 crystallizer（pattern→proposal→approve→apply）把 LLM-triage 接成 job：新候選→LLM 判定→自動白名單合理拆分 / 真重複開 proposal 待 owner approve。
+**結論**：orphan 面＝**真自我修復閉環**（每週自動清、已上線）；重複面＝**自我檢核 + 判定可自動（LLM 已證）+ 收斂人審**（安全設計，非缺陷——語意相似≠重複，C2/C3 為證）。
+
+### ✅ LLM-triage 自動判定 job 已上線（2026-07-17，Part B）
+`scheduler.py` `code_dup_triage_job`（**每月 1 號 04:00**，@tracked_job）——閉合迴圈：
+1. pgvector 撈鏡像模組對候選（sim>0.95、共享≥4）→ 排除 LEGIT 白名單
+2. 每個新候選呼叫 app LLM（planning/gemma4）判定 TRUE_DUPLICATE vs LEGIT_SPLIT + 信心 + 理由
+3. verdict 寫 `backend/logs/code_dup_triage.jsonl`（持久）；TRUE_DUPLICATE 額外 LOUD log 提報 owner（收斂動作人審 gate）
+- **端到端實證**：手動觸發 → 撈 1 候選（expenses 白名單正確排除）→ LLM 判 role_permissions=TRUE_DUPLICATE conf=0.9 → log + warning；detail `{candidates:1, true_duplicates:1}`。
+- rebuild L76 通過、job 註冊確認。
+
+### 🎯 完整閉環端到端自我修正（實證）
+C1 收斂全流程證明迴圈閉合：**偵測**（step 67 撈 role_permissions）→ **LLM 判定**（TRUE_DUPLICATE）→ **收斂**（owner 授權移除 3 死端點）→ **reconcile**（清 6 個 stale KG entity）→ **偵測器轉 GREEN**（自我修正、不再誤標）。orphan audit 0、語意 audit GREEN。
+→ **「真自我檢核與成長」落地**：自動偵測 + 自動判定 + 自動清理（orphan/reconcile）+ 收斂人審 gate（安全）+ 白名單學習（漸靜漸準）。
 
 （後續收斂逐項追加）

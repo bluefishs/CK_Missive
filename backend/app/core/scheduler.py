@@ -452,6 +452,93 @@ async def code_graph_reconcile_job():
         return {"error": str(e)}
 
 
+@tracked_job("code_dup_triage")
+async def code_dup_triage_job():
+    """程式圖譜語意異質同工「自動判定」job（每月）— 閉合自我優化迴圈。
+
+    回應 owner「圖譜能否真自我檢核與成長」：把「發現→判定→提報」自動化。
+    流程（仿 crystallizer 的自動偵測+自動判定+owner gate）：
+    1. pgvector 撈跨模組語意近重複的鏡像模組對（sim>0.95、共享>=4）
+    2. 排除已知合理拆分（LEGIT_SPLIT_WHITELIST）
+    3. 對每個新候選呼叫 LLM 判定 TRUE_DUPLICATE vs LEGIT_SPLIT + 信心 + 理由
+    4. verdict 寫 /app/logs/code_dup_triage.jsonl（持久、host 可見）；
+       TRUE_DUPLICATE 額外 LOUD log 供 owner 收斂（收斂動作仍人審 gate）
+    詳見 docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md §程式圖譜自我優化。
+    """
+    from app.db.database import async_session_maker
+    from app.core.ai_connector import get_ai_connector
+    from sqlalchemy import text
+    import json as _json
+
+    # 已 triage 判定為合理拆分的 module-pair（與 code_semantic_duplication_audit 同步）
+    LEGIT = {
+        ("app.api.endpoints.ai.graph_admin", "app.api.endpoints.ai.graph_admin_code"),
+        ("app.api.endpoints.erp.expenses", "app.api.endpoints.erp.expenses_io"),
+        ("app.api.endpoints.erp.expenses", "app.api.endpoints.erp.operational"),
+    }
+    MIN_SHARED = 4
+
+    logger.info("開始執行 程式圖譜語意異質同工自動判定")
+    try:
+        async with async_session_maker() as db:
+            rows = await db.execute(text("""
+                WITH ce AS (
+                    SELECT id, split_part(canonical_name,'::',1) AS mod,
+                           split_part(canonical_name,'::',2) AS sym, embedding
+                    FROM canonical_entities
+                    WHERE graph_domain='code'
+                      AND entity_type IN ('api_endpoint','service')
+                      AND embedding IS NOT NULL
+                )
+                SELECT a.mod mod_a, b.mod mod_b, a.sym sym_a, b.sym sym_b,
+                       (1-(a.embedding <=> b.embedding)) sim
+                FROM ce a JOIN ce b ON a.id < b.id AND a.mod <> b.mod
+                  AND (1-(a.embedding <=> b.embedding)) > 0.95
+            """))
+            pairs = {}
+            for r in rows:
+                key = tuple(sorted((r.mod_a, r.mod_b)))
+                d = pairs.setdefault(key, {"shared": 0, "examples": []})
+                d["shared"] += 1
+                if len(d["examples"]) < 3:
+                    d["examples"].append(f"{r.sym_a}~{r.sym_b}({r.sim:.2f})")
+            candidates = [(k, v) for k, v in pairs.items() if v["shared"] >= MIN_SHARED and k not in LEGIT]
+
+            conn = get_ai_connector()
+            verdicts, true_dups = [], 0
+            for (a, b), v in candidates:
+                prompt = (
+                    f"判定兩模組是「真異質同工(該收斂)」還是「合理領域拆分(保留)」。\n"
+                    f"模組A: {a}\n模組B: {b}\n共享語意近重複函式 {v['shared']} 個，例：{'; '.join(v['examples'])}\n"
+                    f'只回 JSON: {{"verdict":"TRUE_DUPLICATE 或 LEGIT_SPLIT","confidence":0-1,"reason":"一句話"}}'
+                )
+                try:
+                    ans = await conn.chat_completion(
+                        messages=[{"role": "user", "content": prompt}],
+                        task_type="planning", temperature=0.1, max_tokens=200)
+                    rec = {"pair": [a, b], "shared": v["shared"], "llm": ans.strip()}
+                    if "TRUE_DUPLICATE" in ans:
+                        true_dups += 1
+                        logger.warning(f"[CODE_DUP] 疑真異質同工待 owner 收斂: {a} ⇄ {b}（{v['shared']} 共享）→ {ans.strip()[:120]}")
+                    verdicts.append(rec)
+                except Exception as le:
+                    verdicts.append({"pair": [a, b], "error": str(le)})
+
+            # 寫持久 log
+            try:
+                with open("/app/logs/code_dup_triage.jsonl", "a", encoding="utf-8") as f:
+                    for rec in verdicts:
+                        f.write(_json.dumps(rec, ensure_ascii=False) + "\n")
+            except Exception as we:
+                logger.error(f"[CODE_DUP] 寫 triage log 失敗: {we}")
+
+            logger.info(f"程式圖譜語意判定完成：候選 {len(candidates)}、疑真重複 {true_dups}（詳見 logs/code_dup_triage.jsonl）")
+            return {"candidates": len(candidates), "true_duplicates": true_dups}
+    except Exception as e:
+        logger.error(f"程式圖譜語意異質同工自動判定失敗: {e}", exc_info=True)
+        return {"error": str(e)}
+
+
 @tracked_job("db_graph_refresh")
 async def db_schema_refresh_job():
     """DB Schema 快照更新 — 反射 PostgreSQL information_schema 並重建快取"""
@@ -3133,6 +3220,19 @@ def setup_scheduler(
         misfire_grace_time=7200,
     )
     logger.info("已添加 Code Graph 全掃 reconcile: 每週日 03:15 執行")
+
+    # 添加程式圖譜語意異質同工自動判定 — 每月 1 號 04:00（發現→LLM判定→提報 owner）
+    scheduler.add_job(
+        code_dup_triage_job,
+        trigger=CronTrigger(day=1, hour=4, minute=0),
+        id='code_dup_triage',
+        name='程式圖譜語意異質同工自動判定 (LLM triage)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=7200,
+    )
+    logger.info("已添加 程式圖譜語意異質同工自動判定: 每月 1 號 04:00 執行")
 
     # 添加 DB Schema 快照更新 — 每日 03:30 反射 PostgreSQL schema
     scheduler.add_job(
