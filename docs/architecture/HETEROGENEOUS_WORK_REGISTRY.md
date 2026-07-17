@@ -165,13 +165,13 @@ C1 收斂全流程證明迴圈閉合：**偵測**（step 67 撈 role_permissions
 ## admin/site-management 選單異質同工檢視（2026-07-17，Explore + 人工核實）
 | # | 發現 | 核實 | 處置 |
 |---|---|---|---|
-| C2 | 「可用權限」雙來源：role_permissions.py 硬編 `/permissions/available`（餵使用者管理）vs role_permissions_admin `/available`（DB SSOT，餵權限管理）+ 前端 `constants/permissions.ts` 第三份 | 真異質同工（三份權限清單、與 C1 同檔家族） | ⏸ **owner 待決**：ADR-0034 動態端點應為唯一 SSOT？UserForm 改用動態版？（auth，需確認三份是否已漂移） |
-| C3 | users.py（/users，Staff 網域）vs user_management.py（/admin/user-management，Admin 網域）雙套 user CRUD | 刻意網域分離但 CRUD 重複兩份、能力不對稱（purge vs status） | ⏸ owner 待決：是否收斂為單一 service 共用（需驗寫入語意等價） |
+| C2 | 「可用權限」三份漂移（role_permissions.py 硬編 / role_permissions_admin DB SSOT / 前端 constants）+ 前端檢查 operational:write/approve 卻未宣告 | 真異質同工，實測 DB 缺 operational:*、非超集 | ✅ **已遷移（`084c0834`）**：_BUSINESS_PERMISSIONS 補 operational:*→all 33→36 超集；role_permissions.py 委派 DB SSOT；前端 constants 補 operational→三方一致 |
+| C3 | users.py（/users，Staff）vs user_management.py（/admin/user-management，Admin）雙套 user CRUD | **核實：不是重複——已共用 UserRepository（資料層統一）；端點層是不同網域的不同建立語意**（Staff role=專案PM 無 permissions 預設 vs Admin role=user 有 permissions/auth_provider 預設） | ✅ **驗證＝合理網域分離、不強收斂**（強收斂會破壞網域專屬 user 建立語意＝有害過度工程，元教訓） |
 | C4 | site_management.py deprecated 逾期 | 已核實 helper 自足、前端 0 呼叫 | ✅ 已刪（`4fff666d`） |
-| C5/G3 | 「系統監控」(/system) 與「管理員面板」選單都導向 AdminDashboardPage（/system→Navigate dashboard） | 導覽層異質同工 + 語意不符（選單標榜監控卻進面板） | ⏸ owner 待決：合併選單 or 補 SystemMonitoringPage |
+| C5/G3+G1 | 「系統監控」(/system) redirect 到 dashboard；system_monitoring 後端 9 端點僅 1 有前端入口 | 導覽語意不符 + 後端能力無入口 | ✅ **已補（`f863ee6f`）**：新 SystemMonitoringPage（系統指標/健康/錯誤/日誌 4 tab）消費 5 端點；/system 改指新頁 |
 | D1/D2 | SYSTEM STATUS/METRICS 死常數指向不存在路徑 | 確認死碼 | ✅ 已移除（`4fff666d`） |
 | D3/D4/D5 | database/health、backup/config、backup/status 前端半接通（常數有、頁面改用他常數） | 後端活、前端僅測試引用 | 🟢 低優先（後端活無害，可擇期清常數） |
-| G1 | 系統監控後端 9 端點僅 1（review-dashboard）被前端消費，8 個無入口 | 後端有功能前端無入口 | ⏸ **owner 產品決策**：補監控 UI or 移除 8 後端端點 |
+| G1 | 系統監控後端 9 端點僅 1（review-dashboard）被前端消費，8 個無入口 | 後端有功能前端無入口 | ✅ **已補頁**（併 C5/G3，`f863ee6f`）：SystemMonitoringPage 接 5 端點 |
 | G2 | security/scans/create 後端孤兒（前端無常數） | 後端有前端無 | 🟢 低優先 |
 | G4 | Google 認證診斷純前端頁無後端 | by-design 客戶端工具 | ✅ 非缺陷 |
 | G5 | ROUTE_META 缺 7 admin 路由元資料 | cosmetic（breadcrumb/title） | 🟢 低優先 |
