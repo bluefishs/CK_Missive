@@ -55,6 +55,12 @@ LEGIT_SPLIT_WHITELIST = {
     # (排序後的 module-pair tuple): 理由
     ("app.api.endpoints.ai.graph_admin", "app.api.endpoints.ai.graph_admin_code"):
         "ADR-0031 GraphHub：KG 域 vs code 域，端點路徑不同、刻意拆分",
+    ("app.api.endpoints.erp.expenses", "app.api.endpoints.erp.expenses_io"):
+        "2026-07-17 triage：CRUD（list/create/approve）vs IO（qr/ocr/import/receipt）刻意拆分，"
+        "函式名完全不同、無實際重複；語意偵測因同屬費用域而誤標（語意相似≠重複）",
+    ("app.api.endpoints.erp.expenses", "app.api.endpoints.erp.operational"):
+        "2026-07-17 triage：不同 model（ExpenseInvoice vs OperationalAccount），僅 CRUD 形狀相似；"
+        "operational 的 /expenses/list 是跨視圖便利端點，非核心實體重複",
 }
 
 # 共享近重複函式數 >= 此值才算候選（單一對是巧合）

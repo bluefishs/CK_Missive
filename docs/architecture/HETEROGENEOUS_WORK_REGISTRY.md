@@ -125,4 +125,27 @@
 
 **已知限制（誠實）**：ts_* 前端 entity 的 reconcile 需 frontend 源可見環境（backend 容器無）→ 前端 orphan 待另建 host-run 或前端可見的 reconcile（本輪未做，前端 orphan 目前不阻礙語意去重主用途）。
 
+| 2026-07-17 | 語意候選 triage | 剪乾淨後剩 3 候選逐一核實：①`role_permissions`⇄`role_permissions_admin`＝**真異質同工**（見下）②`expenses`⇄`expenses_io`＝合理拆分（CRUD vs IO，函式名全不同）③`expenses`⇄`operational`＝合理拆分（不同 model）→ ②③加白名單 | ✅ 候選降至 1 真 |
+| 2026-07-17 | LLM 閉環驗證 | 實際呼叫 app LLM（gemma4/planning）triage role_permissions → 回 `TRUE_DUPLICATE conf=0.9`，與人工核實一致 → **證「發現→LLM 判定→決策」閉環可運作** | ✅ 自我檢核閉環證實 |
+
+## 真候選 C1：role_permissions ⇄ role_permissions_admin（待 owner 定奪收斂）
+**核實（前後端服務正確性）**：
+- `role_permissions_admin.py`（`/admin/role-permissions/*`）＝**活躍**：list/get/update/available 4 端點皆被 `rolePermissionsApi.ts` 呼叫。
+- `role_permissions.py`（`/admin/user-management/*`）＝**大部分死碼**：`roles/{role}/permissions/detail`、`.../update`、`roles/list` **三端點前端 0 + 後端 0 + 測試 0 呼叫**；僅 `permissions/available` 仍被 `adminUsersApi.ts` 用。
+- 人工 + LLM 雙重判定＝真重複（兩套平行 role 權限管理 API）。
+**收斂方案（⚠️ 屬 auth 破壞性變更，依 feedback_rigor 待 owner 明確授權）**：
+- 保守：移除 3 個 verified-dead 端點（+對應前端死常數 ROLE_PERMISSIONS_DETAIL/UPDATE/ROLES_LIST +測試）→ 降 auth 攻擊面、消異質同工；`permissions/available` 保留（live）。影響：backend rebuild + frontend build + 1 測試更新。
+- 徹底：再把 adminUsersApi 的 `permissions/available` 遷到 admin 端點，整檔退役 `role_permissions.py`（行為變化，風險較高）。
+
+## 程式圖譜自我優化的「真自我成長」現況（回應 owner 提問）
+**閉環三步的自動化程度（誠實）**：
+| 步 | 機制 | 自動化 |
+|---|---|---|
+| 發現 | fitness step 67/68（語意去重 + orphan） | ✅ 全自動（每次 fitness） |
+| **orphan 修復** | `code_graph_reconcile_job` 每週日 03:15 | ✅ **全自動自我修復**（無需人） |
+| 重複判定 | LLM triage（已驗可運作）+ 人工 | 🟡 半自動（**刻意 gate**：C2/C3 證自動合併會破壞合理拆分） |
+| 重複收斂 | 移除死碼/重指 | 🔴 人審 gate（auth 等破壞性須授權） |
+| 學習 | LEGIT_SPLIT_WHITELIST 每次 triage 永久記錄 → detector 漸靜、漸準 | ✅ 自動累積 |
+**結論**：orphan 面＝**真自我修復閉環**（每週自動清、已上線）；重複面＝**自我檢核 + 判定可自動（LLM 已證）+ 收斂人審**（安全設計，非缺陷——語意相似≠重複，C2/C3 為證）。**下一步全自動化路徑**＝仿 crystallizer（pattern→proposal→approve→apply）把 LLM-triage 接成 job：新候選→LLM 判定→自動白名單合理拆分 / 真重複開 proposal 待 owner approve。
+
 （後續收斂逐項追加）
