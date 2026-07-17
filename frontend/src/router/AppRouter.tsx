@@ -62,6 +62,7 @@ const StaffCreatePage = lazy(() => import('../pages/StaffCreatePage').then(modul
 const StaffDetailPage = lazy(() => import('../pages/StaffDetailPage').then(module => ({ default: module.StaffDetailPage })));
 const CertificationFormPage = lazy(() => import('../pages/CertificationFormPage').then(module => ({ default: module.CertificationFormPage })));
 const SiteManagementPage = lazy(() => import('../pages/SiteManagementPage').then(module => ({ default: module.default })));
+const SystemMonitoringPage = lazy(() => import('../pages/SystemMonitoringPage')); // G1 補接（2026-07-17）
 const BackupManagementPage = lazy(() => import('../pages/BackupManagementPage').then(module => ({ default: module.BackupManagementPage })));
 const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const CalendarEventFormPage = lazy(() => import('../pages/CalendarEventFormPage'));
@@ -244,8 +245,9 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.GOOGLE_AUTH_DIAGNOSTIC} element={<ProtectedRoute requireAuth={true} roles={['admin']}><GoogleAuthDiagnosticPage /></ProtectedRoute>} />
 
           {/* 系統管理 */}
-          {/* /system 已移除，重定向至管理後台 */}
-          <Route path={ROUTES.SYSTEM} element={<Navigate to={ROUTES.ADMIN_DASHBOARD} replace />} />
+          {/* /system 系統監控頁（G1 補接 2026-07-17：原 redirect 到 dashboard＝C5/G3 語意不符，
+              改指 SystemMonitoringPage 消費 system_monitoring 後端端點） */}
+          <Route path={ROUTES.SYSTEM} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SystemMonitoringPage /></ProtectedRoute>} />
 
           {/* 管理員面板 */}
           <Route path={ROUTES.ADMIN_DASHBOARD} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
