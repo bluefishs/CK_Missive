@@ -361,9 +361,11 @@ Snapshot 備份至：`{snapshot_path}`
     async def _invalidate_caches() -> None:
         """清除 AI config 快取讓 yaml 重讀。"""
         try:
-            from app.services.ai.core.ai_config import AIConfig
+            from app.services.ai.core.ai_config import get_ai_config
             # AIConfig 採 class-level state；清 synonyms/rules 欄位
-            config = AIConfig.get_instance() if hasattr(AIConfig, "get_instance") else None
+            # 2026-07-17: 原 AIConfig.get_instance()（不存在→hasattr False→config=None→
+            #   快取清除靜默失效）改 get_ai_config()（模組級 singleton，SSOT）。L79 silent 家族。
+            config = get_ai_config()
             if config:
                 for attr in ("_synonyms", "_intent_rules", "_synonyms_loaded"):
                     if hasattr(config, attr):
