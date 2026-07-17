@@ -11,8 +11,9 @@
 import logging
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import require_admin
+from app.core.dependencies import require_admin, get_async_db
 from app.extended.models import User
 
 logger = logging.getLogger(__name__)
@@ -21,21 +22,20 @@ router = APIRouter()
 
 @router.post("/permissions/available", summary="取得可用權限列表")
 async def get_available_permissions(
-    admin_user: User = Depends(require_admin())
+    admin_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """取得系統中所有可用的權限列表 (管理員功能) - POST-only"""
+    """取得系統中所有可用的權限列表 (管理員功能) - POST-only
+
+    2026-07-17 C2 SSOT 遷移：`permissions` 清單改**委派 DB 動態源**
+    （RolePermissionsService，ADR-0034 唯一 SSOT＝nav_items ∪ _BUSINESS_PERMISSIONS ∪ assigned），
+    消除原硬編清單三方漂移（operational:* 已補進 SSOT；documents:export/notifications:read
+    為 0-usage 死權限、隨遷移移除）。`roles` 保留為角色預設顯示。
+    """
+    from app.services.system.role_permissions_service import RolePermissionsService
+    _data = await RolePermissionsService(db).get_available_permissions()
     return {
-        "permissions": [
-            "documents:read", "documents:create", "documents:edit",
-            "documents:delete", "documents:export",
-            "projects:read", "projects:create", "projects:edit", "projects:delete",
-            "agencies:read", "agencies:create", "agencies:edit", "agencies:delete",
-            "vendors:read", "vendors:create", "vendors:edit", "vendors:delete",
-            "admin:users", "admin:settings", "admin:database", "admin:site_management",
-            "reports:view", "reports:export",
-            "calendar:read", "calendar:edit", "notifications:read",
-            "operational:read", "operational:write", "operational:approve",
-        ],
+        "permissions": sorted(_data.get("all", [])),
         "roles": [
             {"name": "unverified", "display_name": "未驗證者", "default_permissions": []},
             {

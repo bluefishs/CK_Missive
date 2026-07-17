@@ -331,6 +331,39 @@ export const PERMISSION_CATEGORIES: Record<string, PermissionCategory> = {
         description_en: 'Can manage site content'
       }
     ]
+  },
+  // 2026-07-17 C2 SSOT 對齊：前端 hasPermission 有檢查 operational:write/approve 但原
+  //   constants 未宣告（三方漂移）。補齊與後端 _BUSINESS_PERMISSIONS 一致。
+  operational: {
+    key: 'operational',
+    name_zh: '營運帳目',
+    name_en: 'Operational Accounts',
+    permissions: [
+      {
+        key: 'operational:read',
+        name_zh: '檢視營運帳目',
+        name_en: 'View Operational',
+        category: 'operational',
+        description_zh: '可以查看營運帳目',
+        description_en: 'Can view operational accounts'
+      },
+      {
+        key: 'operational:write',
+        name_zh: '編輯營運帳目',
+        name_en: 'Edit Operational',
+        category: 'operational',
+        description_zh: '可以建立/修改營運帳目',
+        description_en: 'Can create/modify operational accounts'
+      },
+      {
+        key: 'operational:approve',
+        name_zh: '審批營運帳目',
+        name_en: 'Approve Operational',
+        category: 'operational',
+        description_zh: '可以審批營運帳目',
+        description_en: 'Can approve operational accounts'
+      }
+    ]
   }
 };
 

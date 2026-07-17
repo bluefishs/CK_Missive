@@ -31,6 +31,8 @@ _BUSINESS_PERMISSIONS = {
     "reports:export",        # 匯出（橫切）
     # system docs
     "system_docs:read", "system_docs:create", "system_docs:edit", "system_docs:delete",
+    # operational（營運帳目；前端 hasPermission 有檢查 write/approve，2026-07-17 C2 補進 SSOT）
+    "operational:read", "operational:write", "operational:approve",
     # admin
     "admin:users", "admin:settings", "admin:site_management", "admin:database",
 }
