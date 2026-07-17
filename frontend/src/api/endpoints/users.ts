@@ -127,12 +127,9 @@ export const ADMIN_USER_MANAGEMENT_ENDPOINTS = {
   PERMISSIONS_AVAILABLE: '/admin/user-management/permissions/available',
   /** 檢查權限 POST /admin/user-management/permissions/check */
   PERMISSIONS_CHECK: '/admin/user-management/permissions/check',
-  /** 角色權限詳情 POST /admin/user-management/roles/:role/permissions/detail */
-  ROLE_PERMISSIONS_DETAIL: (role: string) => `/admin/user-management/roles/${role}/permissions/detail`,
-  /** 更新角色權限 POST /admin/user-management/roles/:role/permissions/update */
-  ROLE_PERMISSIONS_UPDATE: (role: string) => `/admin/user-management/roles/${role}/permissions/update`,
-  /** 列出所有角色 POST /admin/user-management/roles/list */
-  ROLES_LIST: '/admin/user-management/roles/list',
+  // 2026-07-17 異質同工收斂（C1）：移除 3 個 verified-dead 常數
+  //   (ROLE_PERMISSIONS_DETAIL/ROLE_PERMISSIONS_UPDATE/ROLES_LIST) — 後端死端點已刪，
+  //   功能由下方 ADR-0034 /admin/role-permissions/* 動態角色權限取代。
   /** ADR-0034 動態角色權限：列所有 role POST */
   ROLE_PERMISSIONS_LIST: '/admin/role-permissions/list',
   /** ADR-0034 動態角色權限：取單一 role POST */
