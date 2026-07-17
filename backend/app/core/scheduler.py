@@ -400,6 +400,58 @@ async def code_graph_incremental_job():
         logger.error(f"Code Graph 增量更新失敗: {e}", exc_info=True)
 
 
+@tracked_job("code_graph_reconcile")
+async def code_graph_reconcile_job():
+    """Code Graph 全掃 reconcile（mark-and-sweep）— 每週清 stale orphan，防圖譜污染。
+
+    根治「incremental ingest 只增不刪 → 累積 Wave 搬檔舊路徑 orphan」（2026-07-17 立法）。
+    流程：記 sweep_start → 全掃 ingest（stamp 現存 symbol last_seen_at、保留 embedding）
+         → sweep 掉 last_seen_at < sweep_start 的【Python】entity（＝本輪未見＝stale）。
+    安全：①僅 Python 型（backend 容器無 frontend 源，ts_* 不 stamp 不能 sweep）
+         ②安全閘 stamp < 3500 則 ABORT（防全掃部分失敗誤刪存活）。
+    詳見 docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md、scripts/sync/code_graph_reconcile.py。
+    """
+    from app.db.database import async_session_maker
+    from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
+    from app.core.paths import BACKEND_DIR, FRONTEND_DIR
+    from sqlalchemy import text
+
+    PY_TYPES = "('py_function','py_class','py_module','api_endpoint','service','repository','schema')"
+    MIN_STAMPED = 3500
+
+    logger.info("開始執行 Code Graph 全掃 reconcile")
+    try:
+        async with async_session_maker() as db:
+            sweep_start = await db.scalar(text("SELECT now()::timestamp without time zone"))
+            before = await db.scalar(text("SELECT COUNT(*) FROM canonical_entities WHERE graph_domain='code'"))
+            service = CodeGraphIngestionService(db)
+            frontend_dir = FRONTEND_DIR / "src"
+            await service.ingest(
+                backend_app_dir=BACKEND_DIR / "app",
+                incremental=False,
+                frontend_src_dir=frontend_dir if frontend_dir.exists() else None,
+            )
+            await db.commit()
+            stamped = await db.scalar(text(
+                f"SELECT COUNT(*) FROM canonical_entities WHERE graph_domain='code' "
+                f"AND entity_type IN {PY_TYPES} AND last_seen_at >= :ts"), {"ts": sweep_start})
+            if stamped < MIN_STAMPED:
+                logger.error(
+                    f"Code Graph reconcile ABORT：Python stamp {stamped} < {MIN_STAMPED}"
+                    f"（全掃疑部分失敗）→ 不 sweep，避免誤刪存活")
+                return {"aborted": True, "stamped": stamped, "swept": 0}
+            result = await db.execute(text(
+                f"DELETE FROM canonical_entities WHERE graph_domain='code' AND entity_type IN {PY_TYPES} "
+                f"AND (last_seen_at < :ts OR last_seen_at IS NULL)"), {"ts": sweep_start})
+            await db.commit()
+            after = await db.scalar(text("SELECT COUNT(*) FROM canonical_entities WHERE graph_domain='code'"))
+            logger.info(f"Code Graph reconcile 完成：{before}→{after}（stamp {stamped} live、sweep {result.rowcount} stale）")
+            return {"before": before, "after": after, "stamped": stamped, "swept": result.rowcount}
+    except Exception as e:
+        logger.error(f"Code Graph 全掃 reconcile 失敗: {e}", exc_info=True)
+        return {"error": str(e)}
+
+
 @tracked_job("db_graph_refresh")
 async def db_schema_refresh_job():
     """DB Schema 快照更新 — 反射 PostgreSQL information_schema 並重建快取"""
@@ -3068,6 +3120,19 @@ def setup_scheduler(
         misfire_grace_time=7200,  # L72: 03:00 在 02:00-03:00 治理群壅塞時不被 skip（與 sibling 一致）
     )
     logger.info("已添加 Code Graph 增量更新: 每日 03:00 執行")
+
+    # 添加 Code Graph 全掃 reconcile — 每週日 03:15 mark-and-sweep 清 stale orphan（防圖譜污染）
+    scheduler.add_job(
+        code_graph_reconcile_job,
+        trigger=CronTrigger(day_of_week='sun', hour=3, minute=15),
+        id='code_graph_reconcile',
+        name='Code Graph 全掃 reconcile (mark-and-sweep)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=7200,
+    )
+    logger.info("已添加 Code Graph 全掃 reconcile: 每週日 03:15 執行")
 
     # 添加 DB Schema 快照更新 — 每日 03:30 反射 PostgreSQL schema
     scheduler.add_job(

@@ -109,8 +109,20 @@
 | 2026-07-17 | 自我優化 | 回應「圖譜為何不能自我追蹤」→ 建 `code_semantic_duplication_audit.py`（step 67）；實測一次查詢 surface 5 候選（證圖譜**能**自我發現）；揭發 meta 真因＝圖譜累積 stale orphan（無 prune） | ✅ 機制交付 + 5 候選待 triage + prune 建議 |
 | 2026-07-17 | prune 前置 | 建 `code_graph_orphan_audit.py`（step 68，DRY-RUN 只報不刪）；ground truth 對照 source；首跑 2032 orphan（主因 Wave 1-8 搬檔）；元教訓修 method 假陽性 5055→2032；出安全 prune 設計 | ✅ 偵測器交付（不刪）；prune 待 owner 授權（獨立 session） |
 | 2026-07-17 | prune 執行（owner 選 A） | `code_graph_orphan_prune.py` 剪**最保守子集 62 筆**（真刪除＝symbol 全專案不存在，如 NemoClawAgent 改名、morning_report 重構方法）；6/6 抽驗確認真消失；CSV 備份 + 今晨全庫雙保險；cascade 全 0（孤立 orphan）；**11779→11717**、orphan **2032→1970**、系統 200/business ok | ✅ 保守批完成 |
-| 2026-07-17 | prune 剩餘 | 1970 為**搬移型**（symbol 在新路徑，如 tender::analytics→tender_module/）——非刪除、需**重指路徑或根治全掃**；tender 語意候選仍在（屬此批） | ⏸ 根治優先（見下） |
+| 2026-07-17 | prune 剩餘 | 1970 為**搬移型**（symbol 在新路徑，如 tender::analytics→tender_module/）——非刪除、需**重指路徑或根治全掃**；tender 語意候選仍在（屬此批） | ✅ 根治全掃處理（見下） |
+| 2026-07-17 | 根治全掃（owner 選 A） | `code_graph_reconcile.py` mark-and-sweep：安全閘救場（揭發 ts_* 容器無源→改僅 Python）；**12253→10012 sweep 2241**；orphan **1970→0**、語意 **5→2**（tender 假陽性消）；+`scheduler.py` 遞迴 job 每週日 03:15、rebuild L76 通過 | ✅ 圖譜乾淨 + 自動維護上線 |
 
-**剩 1970 搬移型 orphan 的正解＝根治全掃（非逐一重指）**：`code_graph_ingest` 加 full-sweep mark-and-sweep（全掃現有 source→本輪未見的舊路徑 entity 標記/刪除），一次清空搬移殘留 + 未來自動保持乾淨。屬 pipeline 變更、中風險，須獨立 session。此為讓程式圖譜「自我優化」完全站穩的最後一哩。
+**✅ 根治全掃已執行（2026-07-17，owner 選 A）**：`scripts/sync/code_graph_reconcile.py`（容器內跑）
+- 機制＝mark-and-sweep：記 sweep_start → 全掃 ingest（`incremental=False`，stamp 現存 symbol last_seen_at、**保留 embedding**）→ sweep 掉 last_seen_at < sweep_start 的 Python entity。
+- **安全閘救場**：首版全掃只 stamp 7655（< 9000）ABORT——揭發 **backend 容器無 frontend/src → ts_* 前端 entity（2294）無法 stamp、會被誤判 stale**。修為**僅 Python 型 sweep**（容器有 backend 源）。
+- 全掃已建正確新路徑 entity（tender_module.analytics::analytics_dashboard 等 stamp 今日），舊路徑成 stale（last_seen_at=3-4 月 Wave 期）→ 刪之安全。
+- **結果：12253→10012（sweep 2241 Python stale）**；ts_ 2294 完好、系統 200、embedding 95.3%（新路徑待 cron backfill）。
+- **驗證：orphan audit 1970→0、語意去重 5→2 候選**（tender stale 假陽性全消，剩 role_permissions/expenses 真候選待 triage）。備份 CSV `backups/code_graph_prune/reconcile_stale_20260717.csv` + 今晨全庫雙保險。
+
+**✅ 遞迴自動維護（root fix，已上線）**：`scheduler.py` 加 `code_graph_reconcile_job`（**每週日 03:15**，@tracked_job 觀測 swept 數）
+- 含同一安全閘（Python stamp < 3500 ABORT）；rebuild L76 通過（host+公網 200）、啟動 log 確認 job 註冊。
+- → **圖譜未來自動保持乾淨**，orphan 不再累積。**程式圖譜「自我優化」閉環站穩。**
+
+**已知限制（誠實）**：ts_* 前端 entity 的 reconcile 需 frontend 源可見環境（backend 容器無）→ 前端 orphan 待另建 host-run 或前端可見的 reconcile（本輪未做，前端 orphan 目前不阻礙語意去重主用途）。
 
 （後續收斂逐項追加）
