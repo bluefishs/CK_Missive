@@ -160,4 +160,22 @@
 C1 收斂全流程證明迴圈閉合：**偵測**（step 67 撈 role_permissions）→ **LLM 判定**（TRUE_DUPLICATE）→ **收斂**（owner 授權移除 3 死端點）→ **reconcile**（清 6 個 stale KG entity）→ **偵測器轉 GREEN**（自我修正、不再誤標）。orphan audit 0、語意 audit GREEN。
 → **「真自我檢核與成長」落地**：自動偵測 + 自動判定 + 自動清理（orphan/reconcile）+ 收斂人審 gate（安全）+ 白名單學習（漸靜漸準）。
 
+| 2026-07-17 | admin 選單檢視 | Explore agent 掃 12 admin 選單前後端 + 人工核實：**D1/D2 死常數收斂**（SYSTEM STATUS/METRICS 指向不存在路徑）+ **C4 刪逾期 deprecated site_management.py**（`4fff666d`，rebuild L76）；其餘見下 owner 待決 | ✅ 2 安全項收斂 |
+
+## admin/site-management 選單異質同工檢視（2026-07-17，Explore + 人工核實）
+| # | 發現 | 核實 | 處置 |
+|---|---|---|---|
+| C2 | 「可用權限」雙來源：role_permissions.py 硬編 `/permissions/available`（餵使用者管理）vs role_permissions_admin `/available`（DB SSOT，餵權限管理）+ 前端 `constants/permissions.ts` 第三份 | 真異質同工（三份權限清單、與 C1 同檔家族） | ⏸ **owner 待決**：ADR-0034 動態端點應為唯一 SSOT？UserForm 改用動態版？（auth，需確認三份是否已漂移） |
+| C3 | users.py（/users，Staff 網域）vs user_management.py（/admin/user-management，Admin 網域）雙套 user CRUD | 刻意網域分離但 CRUD 重複兩份、能力不對稱（purge vs status） | ⏸ owner 待決：是否收斂為單一 service 共用（需驗寫入語意等價） |
+| C4 | site_management.py deprecated 逾期 | 已核實 helper 自足、前端 0 呼叫 | ✅ 已刪（`4fff666d`） |
+| C5/G3 | 「系統監控」(/system) 與「管理員面板」選單都導向 AdminDashboardPage（/system→Navigate dashboard） | 導覽層異質同工 + 語意不符（選單標榜監控卻進面板） | ⏸ owner 待決：合併選單 or 補 SystemMonitoringPage |
+| D1/D2 | SYSTEM STATUS/METRICS 死常數指向不存在路徑 | 確認死碼 | ✅ 已移除（`4fff666d`） |
+| D3/D4/D5 | database/health、backup/config、backup/status 前端半接通（常數有、頁面改用他常數） | 後端活、前端僅測試引用 | 🟢 低優先（後端活無害，可擇期清常數） |
+| G1 | 系統監控後端 9 端點僅 1（review-dashboard）被前端消費，8 個無入口 | 後端有功能前端無入口 | ⏸ **owner 產品決策**：補監控 UI or 移除 8 後端端點 |
+| G2 | security/scans/create 後端孤兒（前端無常數） | 後端有前端無 | 🟢 低優先 |
+| G4 | Google 認證診斷純前端頁無後端 | by-design 客戶端工具 | ✅ 非缺陷 |
+| G5 | ROUTE_META 缺 7 admin 路由元資料 | cosmetic（breadcrumb/title） | 🟢 低優先 |
+
+**元教訓再證**：Explore agent 產出經人工核實——D1/D2/C4 確為真（已收斂）；C2/C3/G1 需 owner 決策（auth SSOT / 網域收斂 / 產品方向），不擅自動。
+
 （後續收斂逐項追加）
