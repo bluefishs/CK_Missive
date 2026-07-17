@@ -603,8 +603,7 @@ describe('PUBLIC_ENDPOINTS', () => {
 
 describe('SYSTEM_ENDPOINTS', () => {
   it('應該包含系統監控端點', () => {
-    expect(SYSTEM_ENDPOINTS.STATUS).toBe('/system/status');
-    expect(SYSTEM_ENDPOINTS.METRICS).toBe('/system/metrics');
+    // STATUS/METRICS 已移除（D1/D2 死常數，指向不存在後端路徑）
     expect(SYSTEM_ENDPOINTS.HEALTH_SUMMARY).toBe('/health/summary');
   });
 });

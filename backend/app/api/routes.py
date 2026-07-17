@@ -9,7 +9,7 @@ from app.api.endpoints import (
     document_numbers, document_numbers_crud, auth, agencies, vendors,
     document_calendar, users, user_management, user_permissions, role_permissions,
     user_alias_admin, role_permissions_admin,
-    admin, site_management, telegram_webhook,
+    admin, telegram_webhook,
     system_monitoring, public, csv_import, reminders, files,
     secure_site_management,
     dashboard, project_notifications, debug, project_vendors, project_staff,
@@ -58,7 +58,8 @@ api_router.include_router(admin.router, prefix="/admin", tags=["管理後台"])
 # v6.13 (2026-05-31) 排程紀錄追溯 + 覆盤紀錄
 from app.api.endpoints.scheduler_events import router as scheduler_events_router
 api_router.include_router(scheduler_events_router, tags=["排程追溯+覆盤"])
-api_router.include_router(site_management.router, prefix="/site-management", tags=["網站管理"])
+# 2026-07-17 異質同工檢視 C4：移除逾期 deprecated site_management（get_navigation_tree，
+#   「預計 2026-07 移除」；已由 secure_site_management /secure-site-management/* 取代、前端 0 呼叫）
 api_router.include_router(secure_site_management.router, prefix="/secure-site-management", tags=["安全網站管理"])
 api_router.include_router(system_monitoring.router, prefix="/system", tags=["系統監控"])
 api_router.include_router(reminders.router, prefix="/reminder-management", tags=["提醒管理"])

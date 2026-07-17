@@ -168,10 +168,9 @@ export const PUBLIC_ENDPOINTS = {
 
 /** 系統監控 API 端點 */
 export const SYSTEM_ENDPOINTS = {
-  /** 系統狀態 POST /system/status */
-  STATUS: '/system/status',
-  /** 系統指標 POST /system/metrics */
-  METRICS: '/system/metrics',
+  // 2026-07-17 異質同工檢視 D1/D2：移除 STATUS/METRICS 死常數
+  //   （指向不存在後端路徑 /system/status、/system/metrics；後端實為 /system/system-metrics；
+  //    production 0 呼叫）。系統監控後端 9 端點前端無入口＝G1 整合缺口（待產品決策）。
   /** 系統健康摘要 GET /health/summary */
   HEALTH_SUMMARY: '/health/summary',
   /** 系統覆盤儀表板 POST /system/review-dashboard */
