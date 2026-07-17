@@ -244,8 +244,8 @@ class CanonicalEntityService:
                 logger.debug("批次 embedding 取得失敗: %s", e)
 
             if embeddings_map:
-                from app.services.ai.core.ai_config import AIConfig
-                config = AIConfig.get_instance()
+                from app.services.ai.core.ai_config import get_ai_config
+                config = get_ai_config()
                 max_distance = config.kg_semantic_distance
 
                 # pgvector 逐一查詢（每個 embedding+type 不同，無法合併；AsyncSession 不支援並行）

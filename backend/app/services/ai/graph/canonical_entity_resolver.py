@@ -51,7 +51,7 @@ class CanonicalEntityResolver:
 
         try:
             from app.services.ai.core.embedding_manager import EmbeddingManager
-            from app.services.ai.core.ai_config import AIConfig
+            from app.services.ai.core.ai_config import get_ai_config
             from app.core.ai_connector import get_ai_connector
 
             if not EmbeddingManager.is_available():  # L79: is_available 同步，勿 await
@@ -61,7 +61,7 @@ class CanonicalEntityResolver:
             if not query_emb:
                 return None
 
-            config = AIConfig.get_instance()
+            config = get_ai_config()
             max_distance = config.kg_semantic_distance
 
             # HNSW ef_search 調優 — entity resolution 用精確模式
