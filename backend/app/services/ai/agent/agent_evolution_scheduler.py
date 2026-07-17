@@ -71,8 +71,8 @@ class AgentEvolutionScheduler:
         self.redis = redis
         # EVO-4: 從 agent-policy.yaml 讀取閾值，fallback 硬編碼預設值
         try:
-            from app.services.ai.core.ai_config import AIConfig
-            cfg = AIConfig.get_instance()
+            from app.services.ai.core.ai_config import get_ai_config
+            cfg = get_ai_config()
             self.EVOLVE_EVERY_N_QUERIES = getattr(cfg, 'evolution_trigger_every_n_queries', 50)
             self.EVOLVE_INTERVAL_SECONDS = getattr(cfg, 'evolution_trigger_interval_hours', 24) * 3600
             self.SEED_PROMOTE_MIN_HITS = getattr(cfg, 'evolution_promote_min_hits', 15)

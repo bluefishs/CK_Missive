@@ -138,8 +138,8 @@ def resolve_tool_domain(tool_name: str) -> Optional[str]:
 # 強弱項門檻
 # EVO-4: 從 agent-policy.yaml 讀取，fallback 預設值
 try:
-    from app.services.ai.core.ai_config import AIConfig
-    _cfg = AIConfig.get_instance()
+    from app.services.ai.core.ai_config import get_ai_config
+    _cfg = get_ai_config()
     STRENGTH_THRESHOLD = getattr(_cfg, 'capability_strong_threshold', 0.7)
     WEAKNESS_THRESHOLD = getattr(_cfg, 'capability_weak_threshold', 0.5)
 except Exception:
