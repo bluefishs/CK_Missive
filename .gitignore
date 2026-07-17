@@ -202,3 +202,4 @@ backup/incident_*/*.sql.gz
 
 scripts/checks/sso_race_repro.png
 scripts/checks/sso_entry_smoke.png
+backups/code_graph_prune/

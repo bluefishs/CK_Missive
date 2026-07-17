@@ -108,5 +108,9 @@
 | 2026-07-16 | H1 | 影響評估揭發「獨立實例部分刻意」（防登入迴圈）→ 修正 SSOT 目標為「單一攔截器邏輯」而非合併實例；**不在覆盤 session 倉促動 SSO**（守 feedback_rigor） | ⏸ 待獨立設計 session |
 | 2026-07-17 | 自我優化 | 回應「圖譜為何不能自我追蹤」→ 建 `code_semantic_duplication_audit.py`（step 67）；實測一次查詢 surface 5 候選（證圖譜**能**自我發現）；揭發 meta 真因＝圖譜累積 stale orphan（無 prune） | ✅ 機制交付 + 5 候選待 triage + prune 建議 |
 | 2026-07-17 | prune 前置 | 建 `code_graph_orphan_audit.py`（step 68，DRY-RUN 只報不刪）；ground truth 對照 source；首跑 2032 orphan（主因 Wave 1-8 搬檔）；元教訓修 method 假陽性 5055→2032；出安全 prune 設計 | ✅ 偵測器交付（不刪）；prune 待 owner 授權（獨立 session） |
+| 2026-07-17 | prune 執行（owner 選 A） | `code_graph_orphan_prune.py` 剪**最保守子集 62 筆**（真刪除＝symbol 全專案不存在，如 NemoClawAgent 改名、morning_report 重構方法）；6/6 抽驗確認真消失；CSV 備份 + 今晨全庫雙保險；cascade 全 0（孤立 orphan）；**11779→11717**、orphan **2032→1970**、系統 200/business ok | ✅ 保守批完成 |
+| 2026-07-17 | prune 剩餘 | 1970 為**搬移型**（symbol 在新路徑，如 tender::analytics→tender_module/）——非刪除、需**重指路徑或根治全掃**；tender 語意候選仍在（屬此批） | ⏸ 根治優先（見下） |
+
+**剩 1970 搬移型 orphan 的正解＝根治全掃（非逐一重指）**：`code_graph_ingest` 加 full-sweep mark-and-sweep（全掃現有 source→本輪未見的舊路徑 entity 標記/刪除），一次清空搬移殘留 + 未來自動保持乾淨。屬 pipeline 變更、中風險，須獨立 session。此為讓程式圖譜「自我優化」完全站穩的最後一哩。
 
 （後續收斂逐項追加）
