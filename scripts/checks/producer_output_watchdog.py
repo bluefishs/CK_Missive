@@ -68,6 +68,12 @@ PRODUCER_OUTCOME_REGISTRY = [
     {"name": "優化管線報告", "signal": "file_fresh", "path": "wiki/memory/pipeline-reports", "max_h": 30},
     # 週報型（autobiography/weekly_evolution 寫入 evolutions/，週級 cadence → 容許 ~9 日）
     {"name": "週自傳/進化史", "signal": "file_fresh", "path": "wiki/memory/evolutions", "max_h": 216},
+    # 2026-07-18 契約 rollout：18 blind spot 逐一分類——註冊清晰 producer
+    {"name": "標案業務推薦", "signal": "db_table_today", "table": "tender_recommendation_history",
+     "date_col": "pushed_at", "weekend_legit": True},  # 每日09:00，週末無標案合理空
+    {"name": "wiki 編譯", "signal": "file_fresh", "path": "wiki/topics", "max_h": 216},  # 週級
+    # shadow 輸出＝shadow_trace.db（非空的 shadow-baseline/ 目錄；核實：db 今日活、目錄 legacy 空）
+    {"name": "shadow baseline", "signal": "file_fresh", "path": "backend/logs/shadow_trace.db", "max_h": 30},
 ]
 
 
@@ -77,15 +83,26 @@ MONITORED_JOBS = {
     "pcc_today_scrape", "ezbid_cache_refresh", "kg_embedding_backfill", "morning_report",
     "daily_self_retrospective", "governance_dashboard_regen", "memory_pattern_extract",
     "optimization_pipeline", "weekly_evolution_generator", "memory_weekly_autobiography",
+    # 2026-07-18 契約 rollout 新註冊
+    "tender_business_recommend", "wiki_compile", "shadow_baseline_export",
 }
-# 非 producer allowlist（稽核/檢查/watchdog/清理/暖機——無業務產出需監控）
+# 非 producer allowlist（稽核/檢查/watchdog/清理/暖機/外部推送/covered-elsewhere——無本地可驗產出）
 NON_PRODUCER_JOBS = {
+    # 稽核/檢查/watchdog/清理/暖機
     "agent_self_diagnosis", "cf_tunnel_verify", "cleanup_events", "critique_health_audit",
     "cron_outcome_freshness", "cron_self_health_alert", "crystal_review_overdue",
     "embedding_warmup", "fitness_daily", "fitness_weekly", "health_check_broadcast",
     "kb_coverage_check", "llm_quota_check", "memory_anti_echo_scan", "monthly_arch_review",
     "process_reminders", "proposal_aging_alert", "security_scan", "tender_dashboard_warm",
-    "wiki_lint", "code_dup_triage", "code_graph_reconcile", "soul_mirror_sync",
+    "wiki_lint", "code_dup_triage", "soul_mirror_sync",
+    # 2026-07-18 契約 rollout：圖譜 ingest（健康由 orphan/reconcile step 68 覆蓋）
+    "code_graph_incremental", "code_graph_reconcile", "erp_graph_ingest", "db_graph_refresh",
+    # 外部 LINE 推送（產出為外部 LINE，非本地可驗；配額由 line push 邏輯管）
+    "daily_self_reflection_line_push", "line_weekly_pulse", "proactive_trigger_scan", "tender_subscription",
+    # covered-elsewhere / 非業務產出 / 測試 / L77 死結
+    "health_snapshot_log", "memory_crystallization_scan", "synthetic_baseline_inject",
+    "tender_pcc_enrichment", "tender_refresh_pending", "ledger_reconciliation",
+    "kunge_weekly_learning_summary", "einvoice_sync",
 }
 
 
