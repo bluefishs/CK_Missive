@@ -64,6 +64,10 @@ PRODUCER_OUTCOME_REGISTRY = [
     {"name": "整合健康E2E", "signal": "file_fresh", "path": "wiki/memory/integration-health", "max_h": 28},
     {"name": "晨報", "signal": "file_fresh", "path": "wiki/memory/diary", "max_h": 30},
     {"name": "patterns", "signal": "file_fresh", "path": "wiki/memory/patterns", "max_h": 30},
+    # 2026-07-18 擴大：更多 producer（前進方向＝運維自主擴大投資）
+    {"name": "優化管線報告", "signal": "file_fresh", "path": "wiki/memory/pipeline-reports", "max_h": 30},
+    # 週報型（autobiography/weekly_evolution 寫入 evolutions/，週級 cadence → 容許 ~9 日）
+    {"name": "週自傳/進化史", "signal": "file_fresh", "path": "wiki/memory/evolutions", "max_h": 216},
 ]
 
 
