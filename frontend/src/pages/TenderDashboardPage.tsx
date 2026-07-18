@@ -43,6 +43,7 @@ interface DashboardData {
   today_date: string;
   ezbid_count: number;
   date_ranges: Record<string, string>;
+  today_note?: string;  // 2026-07-18：今日標案 0 時的原因說明（週末合理空 vs 待爬取）
   stats: {
     latest_bid: number; latest_award: number;
     week_new_bid: number; week_new_award: number;
@@ -139,7 +140,12 @@ const TenderDashboardPage: React.FC = () => {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} md={4}>
           <ClickableStatCard
-            title={`今日標案 (${dr.latest_bid || '–'})`} value={stats?.latest_bid ?? 0}
+            title={
+              (stats?.latest_bid ?? 0) === 0 && data?.today_note
+                ? `今日標案 · ${data.today_note}`
+                : `今日標案 (${dr.latest_bid || '–'})`
+            }
+            value={stats?.latest_bid ?? 0}
             icon={<CalendarOutlined />} color="#1890ff"
             active={activeList === 'latest_bid'}
             onClick={() => setActiveList('latest_bid')}

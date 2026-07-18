@@ -87,6 +87,12 @@ async def analytics_dashboard(request: Request, db: AsyncSession = Depends(get_d
         stats["latest_bid"] = await count_complete_tenders(db, days_back=0)
         result["latest_bid_list"] = await fetch_complete_tenders(db, days_back=0, limit=500)
         dr["latest_bid"] = today_lbl
+        # 2026-07-18 治本「今日標案卡數據消失」：0 時區分原因，避免週末合理空被誤判為壞掉。
+        if stats["latest_bid"] == 0:
+            result["today_note"] = (
+                "週末政府不發標案，今日無新標＝正常" if _today.weekday() >= 5
+                else "今日尚無新標案（平日待爬取或來源更新中）"
+            )
 
         # ── 以下皆「週(近7日)」去重 ──
         stats["week_new_bid"] = await count_complete_tenders(db, days_back=6)          # 本週標案
