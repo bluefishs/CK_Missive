@@ -71,6 +71,45 @@ PRODUCER_OUTCOME_REGISTRY = [
 ]
 
 
+# ── 契約覆蓋強制（PRODUCER_SELF_CHECK_CONTRACT.md）──
+# 已監控 producer（registry 有信號的 job_id）
+MONITORED_JOBS = {
+    "pcc_today_scrape", "ezbid_cache_refresh", "kg_embedding_backfill", "morning_report",
+    "daily_self_retrospective", "governance_dashboard_regen", "memory_pattern_extract",
+    "optimization_pipeline", "weekly_evolution_generator", "memory_weekly_autobiography",
+}
+# 非 producer allowlist（稽核/檢查/watchdog/清理/暖機——無業務產出需監控）
+NON_PRODUCER_JOBS = {
+    "agent_self_diagnosis", "cf_tunnel_verify", "cleanup_events", "critique_health_audit",
+    "cron_outcome_freshness", "cron_self_health_alert", "crystal_review_overdue",
+    "embedding_warmup", "fitness_daily", "fitness_weekly", "health_check_broadcast",
+    "kb_coverage_check", "llm_quota_check", "memory_anti_echo_scan", "monthly_arch_review",
+    "process_reminders", "proposal_aging_alert", "security_scan", "tender_dashboard_warm",
+    "wiki_lint", "code_dup_triage", "code_graph_reconcile", "soul_mirror_sync",
+}
+
+
+def audit_producer_coverage() -> list[str]:
+    """讀 scheduler.py 全 @tracked_job，交叉比對 registry + allowlist → 列未納管 producer（blind spot）。"""
+    sched = ROOT / "backend" / "app" / "core" / "scheduler.py"
+    if not sched.exists():
+        return []
+    import re
+    jobs = set(re.findall(r'@tracked_job\("([a-z_]+)"\)', sched.read_text(encoding="utf-8", errors="ignore")))
+    unclassified = sorted(jobs - MONITORED_JOBS - NON_PRODUCER_JOBS)
+    print("\n" + "-" * 70)
+    print(f"契約覆蓋強制：{len(jobs)} tracked jobs = 已監控 {len(jobs & MONITORED_JOBS)} "
+          f"+ 非producer {len(jobs & NON_PRODUCER_JOBS)} + 未納管 {len(unclassified)}")
+    if unclassified:
+        print("⚠️ 未納管 producer（blind spot，須補註冊信號或加 NON_PRODUCER allowlist）：")
+        for j in unclassified:
+            print(f"     - {j}")
+        print("  → 依 PRODUCER_SELF_CHECK_CONTRACT.md 規則 1/3 分類，防新沉默失敗滋生")
+    else:
+        print("✅ 所有 producer 皆已納管（無 blind spot）")
+    return unclassified
+
+
 def check_db_table_today(spec: dict) -> tuple[str, str]:
     try:
         import asyncpg, asyncio
@@ -158,10 +197,17 @@ def main() -> int:
         if tag == "RED":
             anomalies.append((spec["name"], msg))
 
+    # 契約覆蓋強制（防新沉默失敗滋生）
+    unclassified = audit_producer_coverage()
+
     print("\n" + "=" * 70)
-    if not anomalies:
-        print(f"GREEN: {len(PRODUCER_OUTCOME_REGISTRY)} producer 產出皆正常（無沉默成功）")
+    if not anomalies and not unclassified:
+        print(f"GREEN: {len(PRODUCER_OUTCOME_REGISTRY)} producer 產出正常 + 覆蓋無 blind spot")
         return 0
+    if not anomalies:
+        print(f"GREEN(產出): {len(PRODUCER_OUTCOME_REGISTRY)} producer 皆正常；"
+              f"⚠️ 但 {len(unclassified)} 未納管 producer 待分類（見上，非產出異常）")
+        return 1 if args.strict else 0
     print(f"RED: {len(anomalies)} producer 疑沉默成功/產出異常：")
     for name, m in anomalies:
         print(f"  - {name}: {m}")
