@@ -2912,71 +2912,83 @@ async def cron_outcome_freshness_job():
     root = _Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     now = time.time()
 
-    # (機制名, 路徑, 是否目錄, 容許時數)
-    checks = [
-        ("每日覆盤", root / "wiki" / "memory" / "self-retrospective-reports", True, 28),
-        ("治理儀表板", root / "docs" / "architecture" / "GOVERNANCE_INTEGRATED_DASHBOARD.md", False, 28),
-        ("整合健康E2E", root / "wiki" / "memory" / "integration-health", True, 28),
-        ("日誌diary", root / "wiki" / "memory" / "diary", True, 30),
-        ("模式patterns", root / "wiki" / "memory" / "patterns", True, 30),
-    ]
+    # 2026-07-18：改讀共享 producer registry JSON（backend/config，與 host watchdog 同源＝DRY 無漂移）。
+    #   3 信號型：file_fresh（檔新鮮）/ cron_detail（job self-report detail）/ db_table_today（表今日增長，DB 獨立驗）。
+    #   新增 producer 只加一筆 JSON → host + cron 兩處自動涵蓋（契約 PRODUCER_SELF_CHECK_CONTRACT.md）。
+    import json as _json
+    from datetime import date as _date
+    _is_weekend = _date.today().weekday() >= 5
+    _PROBLEM = {"fetch_failed", "weekday_zero_suspicious", "exception", "connector_none", "no_token", "error"}
 
-    stale = []
-    for name, path, is_dir, max_h in checks:
-        try:
-            if is_dir:
-                files = list(path.glob("*.md")) + list(path.glob("*.json"))
-                newest = max((f.stat().st_mtime for f in files), default=0)
-            else:
-                newest = path.stat().st_mtime if path.exists() else 0
-            age_h = (now - newest) / 3600 if newest else 9999
-            if age_h > max_h:
-                stale.append(f"  • {name}: {age_h:.0f}h 前 (門檻 {max_h}h)")
-        except Exception as e:
-            stale.append(f"  • {name}: 檢查異常 {e}")
-
-    # 2026-07-18 擴充（沉默成功家族治本）：補 data-producer 產出檢核。
-    #   原 watchdog 只驗「file 產出新鮮度」（wiki/doc 5 機制），不涵蓋 DB 產出 producer
-    #   （tender scrape records / KG embedding embedded）。這些 job 報 success 但產出=0
-    #   時（如 pcc 爬蟲失敗、KG 冷啟動空轉）file-freshness 抓不到 → 反覆問題根源。
-    #   讀 cron_events.jsonl 各 producer self-report 的 detail.reason，問題原因或非合理零 → 併入 stale。
-    #   producer 各自 self-report reason（scheduler 各 job 回傳 detail），隨更多 job 採此模式擴大覆蓋（自我進化）。
+    registry = []
     try:
-        import json as _json
-        ev_path = root / "logs" / "cron_events.jsonl"
-        # job_id → (產出欄位, 合理零原因集)
-        _PRODUCERS = {
-            "pcc_today_scrape": ("records", {"weekend_no_publish", "ok"}),
-            "kg_embedding_backfill": ("embedded", {None, "coverage_full"}),
-        }
-        _PROBLEM = {"fetch_failed", "weekday_zero_suspicious", "exception", "connector_none", "no_token", "error"}
-        if ev_path.exists():
-            _latest = {}
-            for _line in ev_path.read_text(encoding="utf-8", errors="ignore").splitlines()[-3000:]:
+        _cfg = root / "config" / "producer_outcome_registry.json"
+        if _cfg.exists():
+            registry = _json.loads(_cfg.read_text(encoding="utf-8")).get("producers", [])
+    except Exception as _e:
+        logger.warning(f"producer registry 載入失敗（非致命）: {_e}")
+
+    # 讀 cron_events 供 cron_detail 檢
+    _latest = {}
+    try:
+        _ev = root / "logs" / "cron_events.jsonl"
+        if _ev.exists():
+            for _line in _ev.read_text(encoding="utf-8", errors="ignore").splitlines()[-3000:]:
                 _line = _line.strip()
                 if not _line:
                     continue
                 try:
                     _e = _json.loads(_line)
+                    if _e.get("job_id"):
+                        _latest[_e["job_id"]] = _e
                 except Exception:
                     continue
-                if _e.get("job_id") in _PRODUCERS:
-                    _latest[_e["job_id"]] = _e
-            for _jid, (_okey, _okzero) in _PRODUCERS.items():
-                _e = _latest.get(_jid)
-                if not _e:
-                    continue
-                _d = _e.get("detail") or {}
-                _reason = _d.get("reason")
-                if _reason in _PROBLEM:
-                    stale.append(f"  • {_jid}: 產出異常 reason={_reason}（沉默成功偵測）")
-                elif _d.get(_okey) == 0 and _reason not in _okzero:
-                    stale.append(f"  • {_jid}: {_okey}=0 非合理零 reason={_reason}（沉默成功偵測）")
-    except Exception as _e:
-        logger.warning(f"data-producer 產出檢核異常（非致命）: {_e}")
+    except Exception:
+        pass
+
+    stale = []
+    for spec in registry:
+        _name = spec.get("name", "?")
+        _sig = spec.get("signal")
+        try:
+            if _sig == "file_fresh":
+                # host↔container 路徑：registry 用 repo-root 相對；容器 root=/app=backend，
+                # 故 backend/ 前綴須剝除（L52 家族）。wiki/docs 兩邊皆 /app 下 mount 不受影響。
+                _rp = spec["path"]
+                if _rp.startswith("backend/"):
+                    _rp = _rp[len("backend/"):]
+                _p = root / _rp
+                if _p.is_dir():
+                    _files = list(_p.glob("*.md")) + list(_p.glob("*.json"))
+                    _newest = max((f.stat().st_mtime for f in _files), default=0)
+                else:
+                    _newest = _p.stat().st_mtime if _p.exists() else 0
+                _age = (now - _newest) / 3600 if _newest else 9999
+                if _age > spec["max_h"]:
+                    stale.append(f"  • {_name}: {_age:.0f}h 前 (門檻 {spec['max_h']}h)")
+            elif _sig == "cron_detail":
+                _e = _latest.get(spec["job"])
+                if _e:
+                    _d = _e.get("detail") or {}
+                    _r = _d.get("reason")
+                    _okz = set(spec.get("ok_zero_reasons", []))
+                    if _r in _PROBLEM:
+                        stale.append(f"  • {_name}: 產出異常 reason={_r}（沉默成功）")
+                    elif _d.get(spec["key"]) == 0 and _r not in _okz:
+                        stale.append(f"  • {_name}: {spec['key']}=0 非合理零 reason={_r}（沉默成功）")
+            elif _sig == "db_table_today":
+                from app.db.database import async_session_maker as _asm
+                from sqlalchemy import text as _text
+                async with _asm() as _db:
+                    _n = await _db.scalar(_text(
+                        f"SELECT COUNT(*) FROM {spec['table']} WHERE {spec['date_col']}::date = CURRENT_DATE"))
+                if not _n and not (spec.get("weekend_legit") and _is_weekend):
+                    stale.append(f"  • {_name}: {spec['table']} 今日 0（非合理空＝疑沉默失敗）")
+        except Exception as _ex:
+            stale.append(f"  • {_name}: 檢查異常 {_ex}")
 
     if not stale:
-        logger.info("✅ outcome-freshness：file 5 機制 + data producer 產出皆正常，skip LINE")
+        logger.info("✅ outcome-freshness：registry 全 producer 產出正常（file/cron_detail/db_table），skip LINE")
         return
 
     line_user_id = os.getenv("LINE_ADMIN_USER_ID")

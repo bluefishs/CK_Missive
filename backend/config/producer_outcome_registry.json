@@ -1,0 +1,18 @@
+{
+  "_doc": "Producer 產出自我檢核 SSOT（單一 registry，host watchdog + in-container cron 共讀，避免兩份漂移）。契約見 docs/architecture/PRODUCER_SELF_CHECK_CONTRACT.md。signal: db_table_today | cron_detail | file_fresh。新增 producer 加一筆。",
+  "producers": [
+    {"name": "tender scrape (pcc+ezbid)", "signal": "db_table_today", "table": "tender_records", "date_col": "created_at", "weekend_legit": true},
+    {"name": "kg_embedding_backfill", "signal": "cron_detail", "job": "kg_embedding_backfill", "key": "embedded", "ok_zero_reasons": [null, "coverage_full"]},
+    {"name": "pcc_today_scrape", "signal": "cron_detail", "job": "pcc_today_scrape", "key": "records", "ok_zero_reasons": ["weekend_no_publish", "ok"]},
+    {"name": "標案業務推薦", "signal": "db_table_today", "table": "tender_recommendation_history", "date_col": "pushed_at", "weekend_legit": true},
+    {"name": "每日覆盤", "signal": "file_fresh", "path": "wiki/memory/self-retrospective-reports", "max_h": 28},
+    {"name": "治理儀表板", "signal": "file_fresh", "path": "docs/architecture/GOVERNANCE_INTEGRATED_DASHBOARD.md", "max_h": 28},
+    {"name": "整合健康E2E", "signal": "file_fresh", "path": "wiki/memory/integration-health", "max_h": 28},
+    {"name": "晨報", "signal": "file_fresh", "path": "wiki/memory/diary", "max_h": 30},
+    {"name": "patterns", "signal": "file_fresh", "path": "wiki/memory/patterns", "max_h": 30},
+    {"name": "優化管線報告", "signal": "file_fresh", "path": "wiki/memory/pipeline-reports", "max_h": 30},
+    {"name": "週自傳/進化史", "signal": "file_fresh", "path": "wiki/memory/evolutions", "max_h": 216},
+    {"name": "wiki 編譯", "signal": "file_fresh", "path": "wiki/topics", "max_h": 216},
+    {"name": "shadow baseline", "signal": "file_fresh", "path": "backend/logs/shadow_trace.db", "max_h": 30}
+  ]
+}

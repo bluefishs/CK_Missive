@@ -43,9 +43,26 @@ IS_WEEKEND = date.today().weekday() >= 5
 # job self-report 到 detail.reason 的問題原因（出現即異常）
 PROBLEM_REASONS = {"fetch_failed", "weekday_zero_suspicious", "exception", "connector_none", "no_token", "error"}
 
-# ★ Producer Outcome Registry（標準化自我檢核 SSOT）——新增 producer 只加一筆
-#   signal: db_table_today | cron_detail | file_fresh
-PRODUCER_OUTCOME_REGISTRY = [
+# ★ Producer Outcome Registry（標準化自我檢核 SSOT）
+#   2026-07-18 外部化為共享 JSON（backend/config/producer_outcome_registry.json），
+#   host watchdog + in-container cron_outcome_freshness 共讀，避免兩份 registry 漂移（DRY）。
+def _load_registry() -> list[dict]:
+    cfg = ROOT / "backend" / "config" / "producer_outcome_registry.json"
+    if cfg.exists():
+        try:
+            data = json.loads(cfg.read_text(encoding="utf-8"))
+            regs = data.get("producers", [])
+            for r in regs:  # JSON list → set；JSON null → None（已是）
+                if "ok_zero_reasons" in r:
+                    r["ok_zero_reasons"] = set(r["ok_zero_reasons"])
+            if regs:
+                return regs
+        except Exception as e:
+            print(f"[WARN] registry JSON 載入失敗，用內建 fallback：{e}")
+    return _FALLBACK_REGISTRY
+
+
+_FALLBACK_REGISTRY = [
     # === tender 資料 producer（獨立驗證表增長，最 robust；週末政府不發標＝合理空）===
     {"name": "tender scrape (pcc+ezbid)", "signal": "db_table_today",
      "table": "tender_records", "date_col": "created_at", "weekend_legit": True},
@@ -75,6 +92,9 @@ PRODUCER_OUTCOME_REGISTRY = [
     # shadow 輸出＝shadow_trace.db（非空的 shadow-baseline/ 目錄；核實：db 今日活、目錄 legacy 空）
     {"name": "shadow baseline", "signal": "file_fresh", "path": "backend/logs/shadow_trace.db", "max_h": 30},
 ]
+
+# 載入共享 JSON registry（不存在則用上方 fallback）
+PRODUCER_OUTCOME_REGISTRY = _load_registry()
 
 
 # ── 契約覆蓋強制（PRODUCER_SELF_CHECK_CONTRACT.md）──
