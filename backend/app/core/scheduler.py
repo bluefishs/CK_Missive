@@ -1003,8 +1003,14 @@ async def pcc_today_scrape_job():
     silent dormant（scheduler 缺 cron）。權威來源依賴 ezbid 單軌支撐至今。
     每 2 小時與 ezbid 每小時錯開，避免雙爬 PCC 站。
     """
+    # 2026-07-18 治本（沉默成功家族）：記錄產出數 + 區分「週末合理空」vs「爬蟲失敗空」。
+    #   原問題＝「今日標案卡數據消失」反覆修：真相是週末政府不發標案＝合理 0，但 job
+    #   報 success 146ms 無 detail、卡片無法辨「週末 0」vs「失敗 0」→ 每個週末像壞掉。
+    #   @tracked_job 記回傳 dict 為 detail → 沉默成功現形（同 KG embedding 修法）。
     from app.db.database import async_session_maker
+    from datetime import date as _date
 
+    is_weekend = _date.today().weekday() >= 5  # 5=Sat, 6=Sun（政府非發標日）
     logger.info("開始 PCC 今日標案爬取")
     try:
         from app.services.tender.pcc_today_scraper import PccTodayScraper
@@ -1014,9 +1020,8 @@ async def pcc_today_scrape_job():
         result = await scraper.fetch_today_tenders()
         records = result.get("records", [])
         by_type = result.get("by_type", {})
-        logger.info(
-            f"PCC 全量爬取: {len(records)} 筆 / by_type={by_type}"
-        )
+        fetch_error = result.get("error")  # _fetch_page 失敗＝"PCC 網站無回應"
+        saved = 0
 
         if records:
             try:
@@ -1026,17 +1031,28 @@ async def pcc_today_scrape_job():
                     )
                     saved = await save_search_results(db, records, source="pcc")
                     ingested = await _ingest_tender_entities(db, records)
-                    logger.info(
-                        f"PCC → DB: {saved} 筆新增, KG: {ingested} 實體入圖"
-                    )
+                    logger.info(f"PCC → DB: {saved} 筆新增, KG: {ingested} 實體入圖")
             except Exception as e:
-                # L29 治理：升 warning，DB 寫入失敗不影響 next scrape
-                logger.warning(
-                    f"PCC DB 寫入失敗 (非致命): {e}",
-                    exc_info=True,
-                )
+                logger.warning(f"PCC DB 寫入失敗 (非致命): {e}", exc_info=True)
+
+        # 產出診斷（區分合理空 vs 失敗）
+        if fetch_error:
+            reason = "fetch_failed"  # 來源無回應/封鎖 → 真問題
+            logger.warning(f"[PCC_SCRAPE] 抓取失敗（{fetch_error}）→ 0 筆，非週末合理空，需查來源")
+        elif len(records) == 0 and is_weekend:
+            reason = "weekend_no_publish"  # 週末政府不發標 → 合理空
+            logger.info("[PCC_SCRAPE] 今日（週末）無新標案＝合理空，非失敗")
+        elif len(records) == 0:
+            reason = "weekday_zero_suspicious"  # 平日卻 0 → 疑 parse 失敗/來源改版
+            logger.warning("[PCC_SCRAPE] 平日抓取 0 筆但來源有回應＝可疑（parse 失敗或來源改版？），需查")
+        else:
+            reason = "ok"
+            logger.info(f"PCC 全量爬取: {len(records)} 筆 / saved={saved} / by_type={by_type}")
+
+        return {"records": len(records), "saved": saved, "reason": reason, "is_weekend": is_weekend}
     except Exception as e:
         logger.error(f"PCC 今日標案爬取失敗: {e}", exc_info=True)
+        return {"records": 0, "reason": "exception", "error": str(e)}
 
 
 @tracked_job("ezbid_cache_refresh")
@@ -2919,8 +2935,48 @@ async def cron_outcome_freshness_job():
         except Exception as e:
             stale.append(f"  • {name}: 檢查異常 {e}")
 
+    # 2026-07-18 擴充（沉默成功家族治本）：補 data-producer 產出檢核。
+    #   原 watchdog 只驗「file 產出新鮮度」（wiki/doc 5 機制），不涵蓋 DB 產出 producer
+    #   （tender scrape records / KG embedding embedded）。這些 job 報 success 但產出=0
+    #   時（如 pcc 爬蟲失敗、KG 冷啟動空轉）file-freshness 抓不到 → 反覆問題根源。
+    #   讀 cron_events.jsonl 各 producer self-report 的 detail.reason，問題原因或非合理零 → 併入 stale。
+    #   producer 各自 self-report reason（scheduler 各 job 回傳 detail），隨更多 job 採此模式擴大覆蓋（自我進化）。
+    try:
+        import json as _json
+        ev_path = root / "logs" / "cron_events.jsonl"
+        # job_id → (產出欄位, 合理零原因集)
+        _PRODUCERS = {
+            "pcc_today_scrape": ("records", {"weekend_no_publish", "ok"}),
+            "kg_embedding_backfill": ("embedded", {None, "coverage_full"}),
+        }
+        _PROBLEM = {"fetch_failed", "weekday_zero_suspicious", "exception", "connector_none", "no_token", "error"}
+        if ev_path.exists():
+            _latest = {}
+            for _line in ev_path.read_text(encoding="utf-8", errors="ignore").splitlines()[-3000:]:
+                _line = _line.strip()
+                if not _line:
+                    continue
+                try:
+                    _e = _json.loads(_line)
+                except Exception:
+                    continue
+                if _e.get("job_id") in _PRODUCERS:
+                    _latest[_e["job_id"]] = _e
+            for _jid, (_okey, _okzero) in _PRODUCERS.items():
+                _e = _latest.get(_jid)
+                if not _e:
+                    continue
+                _d = _e.get("detail") or {}
+                _reason = _d.get("reason")
+                if _reason in _PROBLEM:
+                    stale.append(f"  • {_jid}: 產出異常 reason={_reason}（沉默成功偵測）")
+                elif _d.get(_okey) == 0 and _reason not in _okzero:
+                    stale.append(f"  • {_jid}: {_okey}=0 非合理零 reason={_reason}（沉默成功偵測）")
+    except Exception as _e:
+        logger.warning(f"data-producer 產出檢核異常（非致命）: {_e}")
+
     if not stale:
-        logger.info("✅ outcome-freshness：5 機制輸出皆今日新鮮，skip LINE")
+        logger.info("✅ outcome-freshness：file 5 機制 + data producer 產出皆正常，skip LINE")
         return
 
     line_user_id = os.getenv("LINE_ADMIN_USER_ID")

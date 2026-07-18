@@ -1008,7 +1008,7 @@ echo ""
 #       H3 後端 services stub 標記檔——皆對照 baseline，成長即 RED。
 # 登記表: docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[66/68] heterogeneous work audit (異質同工防增量, 防反覆回歸根源復發)${NC}"
+echo -e "${CYAN}[66/69] heterogeneous work audit (異質同工防增量, 防反覆回歸根源復發)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/heterogeneous_work_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -1024,7 +1024,7 @@ echo ""
 #       非全自動（真重複 vs 合理拆分需判斷）。是「自動撈→triage→登記表」機制。
 # 登記表: docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md §程式圖譜自我優化
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[67/68] code semantic duplication (程式圖譜自動發現異質同工候選)${NC}"
+echo -e "${CYAN}[67/69] code semantic duplication (程式圖譜自動發現異質同工候選)${NC}"
 # discovery 型：預設不阻斷（候選需 triage）；strict 且超 baseline 才 fail
 PYTHONIOENCODING=utf-8 python scripts/checks/code_semantic_duplication_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
@@ -1035,8 +1035,19 @@ echo ""
 #       → 污染查詢、阻礙自我優化。ground truth 對照 source（symbol 是否還在其檔）。
 # 性質: DRY-RUN report-only——只報 orphan 範圍供 owner 決策 prune；本步不刪任何資料。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[68/68] code graph orphan audit (圖譜 stale orphan 偵測, DRY-RUN 只報不刪)${NC}"
+echo -e "${CYAN}[68/69] code graph orphan audit (圖譜 stale orphan 偵測, DRY-RUN 只報不刪)${NC}"
 PYTHONIOENCODING=utf-8 python scripts/checks/code_graph_orphan_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+echo ""
+
+# ----------------------------------------------------------------------------
+# step 69: Producer 產出自我檢核 watchdog（2026-07-18 立法，沉默成功家族治本）
+# 觸發: owner「圖譜/SSOT 多次提出但問題仍反覆」→ 診斷共同根＝沉默成功（job 報
+#       success 但產出 0/沒做事，失敗隱形）。結構圖譜（code/ER/wiki）抓不到行為產出。
+# 性質: 行為層 SSOT——讀 cron_events detail，抓 producer「報 success 但 0 產出且非
+#       合理原因」（AI 自我檢核，不等人看症狀）。cron 版整合於 cron_outcome_freshness。
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[69/69] producer output watchdog (沉默成功偵測, 行為層自我檢核)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/producer_output_watchdog.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
