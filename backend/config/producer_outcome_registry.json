@@ -1,6 +1,7 @@
 {
-  "_doc": "Producer 產出自我檢核 SSOT（單一 registry，host watchdog + in-container cron 共讀，避免兩份漂移）。契約見 docs/architecture/PRODUCER_SELF_CHECK_CONTRACT.md。signal: db_table_today | cron_detail | file_fresh。新增 producer 加一筆。",
+  "_doc": "Producer 產出自我檢核 SSOT（單一 registry，host watchdog + in-container cron 共讀，避免兩份漂移）。契約見 docs/architecture/PRODUCER_SELF_CHECK_CONTRACT.md。signal: db_table_today | cron_detail | file_fresh | db_row_count（min 閾值，抓非零但塌陷）。新增 producer 加一筆。",
   "producers": [
+    {"name": "程式圖譜關係", "signal": "db_row_count", "table": "entity_relationships", "where": "relation_label='code_graph'", "min": 5000},
     {"name": "tender scrape (pcc+ezbid)", "signal": "db_table_today", "table": "tender_records", "date_col": "created_at", "weekend_legit": true},
     {"name": "kg_embedding_backfill", "signal": "cron_detail", "job": "kg_embedding_backfill", "key": "embedded", "ok_zero_reasons": [null, "coverage_full"]},
     {"name": "pcc_today_scrape", "signal": "cron_detail", "job": "pcc_today_scrape", "key": "records", "ok_zero_reasons": ["weekend_no_publish", "ok"]},

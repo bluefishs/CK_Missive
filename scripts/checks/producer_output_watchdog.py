@@ -91,6 +91,9 @@ _FALLBACK_REGISTRY = [
     {"name": "wiki 編譯", "signal": "file_fresh", "path": "wiki/topics", "max_h": 216},  # 週級
     # shadow 輸出＝shadow_trace.db（非空的 shadow-baseline/ 目錄；核實：db 今日活、目錄 legacy 空）
     {"name": "shadow baseline", "signal": "file_fresh", "path": "backend/logs/shadow_trace.db", "max_h": 30},
+    # 2026-07-20 程式圖譜關係健康（抓每日 ingest 洗關係塌陷；健康 ~9670、塌陷 85）
+    {"name": "程式圖譜關係", "signal": "db_row_count", "table": "entity_relationships",
+     "where": "relation_label='code_graph'", "min": 5000},
 ]
 
 # 載入共享 JSON registry（不存在則用上方 fallback）
@@ -105,6 +108,8 @@ MONITORED_JOBS = {
     "optimization_pipeline", "weekly_evolution_generator", "memory_weekly_autobiography",
     # 2026-07-18 契約 rollout 新註冊
     "tender_business_recommend", "wiki_compile", "shadow_baseline_export",
+    # 2026-07-20 程式圖譜每日全量重建（db_row_count 關係健康監測）
+    "code_graph_incremental",
 }
 # 非 producer allowlist（稽核/檢查/watchdog/清理/暖機/外部推送/covered-elsewhere——無本地可驗產出）
 NON_PRODUCER_JOBS = {
@@ -172,6 +177,36 @@ def check_db_table_today(spec: dict) -> tuple[str, str]:
     return "RED", f"{spec['table']} 今日 0（非合理空＝疑 producer 沉默失敗）"
 
 
+def check_db_row_count(spec: dict) -> tuple[str, str]:
+    """抓「非零但塌陷」——現有信號的非零檢查抓不到（如關係圖 85 非零但殘缺）。
+
+    2026-07-20 立法：程式圖譜關係曾被每日 incremental job 靜默洗成僅 FK（9669→85），
+    85 非零→ db_table_today/cron_detail 皆綠＝漏抓。db_row_count 驗 min 閾值防此類降級。
+    """
+    try:
+        import asyncpg, asyncio
+    except ImportError:
+        return "SKIP", "無 asyncpg"
+
+    where = spec.get("where", "1=1")
+
+    async def q():
+        conn = await asyncpg.connect(DSN)
+        try:
+            return await conn.fetchval(
+                f"SELECT COUNT(*) FROM {spec['table']} WHERE {where}")
+        finally:
+            await conn.close()
+
+    try:
+        n = asyncio.run(q())
+    except Exception as e:
+        return "SKIP", f"DB 查詢失敗：{str(e)[:60]}"
+    if n is not None and n >= spec["min"]:
+        return "GREEN", f"{spec['table']}[{where}] = {n}（≥ {spec['min']}）"
+    return "RED", f"{spec['table']}[{where}] = {n} < {spec['min']}（疑塌陷/被洗）"
+
+
 def check_cron_detail(spec: dict) -> tuple[str, str]:
     if not EVENTS.exists():
         return "SKIP", "無 cron_events"
@@ -223,7 +258,8 @@ def main() -> int:
     print("=" * 70)
     print(f"Producer 產出自我檢核 watchdog（沉默成功偵測 · 標準化架構）{'· 週末' if IS_WEEKEND else ''}")
     print("=" * 70)
-    checkers = {"db_table_today": check_db_table_today, "cron_detail": check_cron_detail, "file_fresh": check_file_fresh}
+    checkers = {"db_table_today": check_db_table_today, "cron_detail": check_cron_detail,
+                "file_fresh": check_file_fresh, "db_row_count": check_db_row_count}
     anomalies = []
     for spec in PRODUCER_OUTCOME_REGISTRY:
         fn = checkers.get(spec["signal"])
