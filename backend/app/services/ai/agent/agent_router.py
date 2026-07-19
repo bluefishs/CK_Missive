@@ -44,6 +44,58 @@ class RouteDecision:
     gemma4_intent: Optional[Dict[str, Any]] = None  # Gemma 4 意圖分類結果
 
 
+# ── #1 tool_combo 確定性路由（2026-07-19 TDD）──
+# graduated tool_combo（業務查詢→工具，avg_hit 18）接進確定性路由：高相似度匹配乾淨
+# 模式 → 直呼工具（繞弱模型）。保守閾值防誤路由（核心價值＝不路由錯 > 多路由）。
+# 純函式（可測、無 DB/embedding 依賴，char-bigram overlap coefficient，快）。
+def extract_tool_and_query(source_question: str):
+    """從 tool_combo source_question 抽工具（內嵌全形括號（tool））+ 剝除後的人類查詢。
+
+    e.g. '查詢廠商應付帳款（get_vendor_detail），到期日近者優先'
+         → ('get_vendor_detail', '查詢廠商應付帳款，到期日近者優先')
+    無有效工具 → (None, source_question)。
+    """
+    import re as _re
+    if not source_question:
+        return None, source_question
+    m = _re.search(r"[（(]([a-z_][a-z0-9_]*)[）)]", source_question)
+    if not m:
+        return None, source_question
+    tool = m.group(1)
+    query = _re.sub(r"[（(][a-z_][a-z0-9_]*[）)]", "", source_question).strip()
+    return tool, query
+
+
+def _char_bigrams(s: str) -> set:
+    import re as _re
+    s = _re.sub(r"\s+", "", s or "")
+    return {s[i:i + 2] for i in range(len(s) - 1)}
+
+
+def match_learned_route(question: str, learned_routes, threshold: float = 0.7):
+    """把 question 對 learned_routes（[{tool, query, hit}]）做 char-bigram overlap
+    coefficient 匹配；最高且 >= threshold（保守）者回 {tool, query, score}，否則 None。
+
+    overlap coefficient = |共享 bigram| / min(len)，處理「查廠商應付帳款」匹配較長
+    模式「查詢廠商應付帳款，到期日近者優先」。太短查詢（bigram<2）不路由。
+    """
+    q_bi = _char_bigrams(question)
+    if len(q_bi) < 2 or not learned_routes:
+        return None
+    best = None
+    for r in learned_routes:
+        p_bi = _char_bigrams(r.get("query", ""))
+        if len(p_bi) < 2:
+            continue
+        shared = len(q_bi & p_bi)
+        if not shared:
+            continue
+        overlap = shared / min(len(q_bi), len(p_bi))
+        if overlap >= threshold and (best is None or overlap > best["score"]):
+            best = {"tool": r.get("tool"), "query": r.get("query"), "score": overlap}
+    return best
+
+
 class AgentRouter:
     """
     輕量路由層 — 規劃前攔截器。
@@ -75,6 +127,41 @@ class AgentRouter:
         pattern_threshold: float = 0.8,
     ):
         self._pattern_threshold = pattern_threshold
+        self._lr_cache = None   # 學習路由快取（Layer 1.8）
+        self._lr_ts = 0.0
+
+    async def _get_learned_routes(self):
+        """載入乾淨 graduated tool_combo 為確定性路由（flag-gated，10min 快取）。
+
+        只取有效工具（內嵌括號）+ 高 hit（≥10）的乾淨模式（skill_value_audit：27 中僅 5 乾淨）。
+        flag LEARNED_TOOL_ROUTE_ENABLED 未開 → 回 []（零行為變化）。
+        """
+        import os
+        if os.getenv("LEARNED_TOOL_ROUTE_ENABLED", "false").lower() not in ("true", "1"):
+            return []
+        now = time.time()
+        if self._lr_cache is not None and (now - self._lr_ts) < 600:
+            return self._lr_cache
+        try:
+            from app.db.database import async_session_maker
+            from sqlalchemy import text as _text
+            routes = []
+            async with async_session_maker() as db:
+                rows = await db.execute(_text(
+                    "SELECT source_question FROM agent_learnings "
+                    "WHERE learning_type='tool_combo' AND graduation_status='graduated' "
+                    "AND is_active=true AND hit_count>=10 "
+                    "AND source_question ~ '[（(][a-z_]+[）)]'"))
+                for (sq,) in rows:
+                    tool, query = extract_tool_and_query(sq)
+                    if tool and query and len(query) >= 3:
+                        routes.append({"tool": tool, "query": query})
+            self._lr_cache = routes
+            self._lr_ts = now
+            return routes
+        except Exception as e:
+            logger.debug("learned routes load failed (非致命): %s", e)
+            return []
 
     async def route(
         self,
@@ -254,6 +341,25 @@ class AgentRouter:
                 ]},
                 suggested_context="agent",
             )
+
+        # ── Layer 1.8: 學習型確定性路由（graduated tool_combo，flag-gated，2026-07-19 TDD #1）──
+        # graduated tool_combo（業務查詢→工具，avg_hit 18）接進確定性路由，補硬編規則未覆蓋者
+        # （vendor/asset 等）。高相似度匹配乾淨模式 → 直呼工具（繞弱模型）。已過上方所有硬編
+        # 規則（finance/tender 等優先）。flag LEARNED_TOOL_ROUTE_ENABLED 預設 OFF（安全，零行為
+        # 變化）。保守閾值防誤路由。純函式 match_learned_route（TDD 8 passed）。
+        learned = await self._get_learned_routes()
+        if learned:
+            _m = match_learned_route(question, learned)
+            if _m and _m.get("tool"):
+                logger.info("Router: learned_route → %s (sim=%.2f)", _m["tool"], _m["score"])
+                return RouteDecision(
+                    route_type="pattern",
+                    confidence=0.85,
+                    latency_ms=(time.time() - t0) * 1000,
+                    source=f"learned_route:{_m['tool']}(sim={_m['score']:.2f})",
+                    plan={"tool_calls": [{"name": _m["tool"], "params": {}}]},
+                    suggested_context="agent",
+                )
 
         # ── Layer 2: Pattern Match ──
         try:
