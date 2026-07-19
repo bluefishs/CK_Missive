@@ -72,9 +72,13 @@ async def filter_learnings_by_similarity(
                 continue
             sim = cosine_similarity(query_emb, emb)
             if sim >= similarity_threshold:
-                scored.append((sim, l))
+                # 2026-07-18 技能系統評估：tool_combo 是操作型真價值（avg_hit 18 vs
+                #   self_reflection 1、貢獻 22% hits）→ 小幅 boost 注入優先權，讓證明有用的
+                #   query→tool 模式在相近相似度下優先於內省噪音（仍 threshold-gated、可逆）。
+                boost = 0.05 if l.get("learning_type") == "tool_combo" else 0.0
+                scored.append((sim + boost, l))
 
-        # 依相似度降序排列，取 top-N
+        # 依相似度（含 tool_combo boost）降序排列，取 top-N
         scored.sort(key=lambda x: x[0], reverse=True)
         result = [item[1] for item in scored[:inject_limit]]
 

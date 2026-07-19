@@ -21,7 +21,10 @@ async def get_skill_evolution_tree(
     current_user: User = Depends(require_auth()),
 ):
     """
-    取得技能演化樹資料
+    取得技能能力地圖資料（⚠️ 2026-07-18 誠實化：這是**靜態能力地圖 v1.0**，
+    非「越用越聰明」的演化——108 skill 實體為一次性種子、hardcode 階層。
+    真正的技能學習在 agent_learnings 的 tool_combo（業務查詢→工具映射，見
+    skill_value_audit.py + AI_ROLE_REPOSITIONING.md §技能樹評估）。
 
     返回系統所有技能節點、演化路徑、融合關係，
     供前端渲染互動式技能演化視覺化。
