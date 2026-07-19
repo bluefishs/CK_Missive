@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional, Set
 from app.services.ai.graph.code_graph_types import CodeEntity, CodeRelation
 from app.services.ai.graph.code_graph_ast_analyzer import (
     PythonASTExtractor,
-    SchemaReflector,
+    build_table_entities_from_schema,
 )
 from app.services.ai.graph.code_graph_analysis import compute_dependency_metrics
 from app.services.ai.graph.ts_extractor import TypeScriptExtractor
@@ -115,14 +115,20 @@ class CodeGraphIngestService(CodeGraphPersistenceMixin):
             if idx % 100 == 0:
                 logger.info("Extracted %d/%d files", idx, len(files))
 
-        # 3. Extract DB schema (optional)
+        # 3. Extract DB schema (optional) — 單一反射源 SSOT（異質同工整合 2026-07-20）
+        #    改由 SchemaReflectorService 建 db_table 實體，消除舊 reflect_tables 自建
+        #    Inspector 的重複反射；FK 關係交由步驟 5b _ingest_fk_relations 單一源
+        #    （同一 SchemaReflectorService，cached）。db_url 保留供介面相容（不再直用）。
         if db_url:
             try:
-                reflector = SchemaReflector()
-                schema_ents, schema_rels = reflector.reflect_tables(db_url)
+                from app.services.ai.graph.schema_reflector import SchemaReflectorService
+                schema = await SchemaReflectorService.get_full_schema_async()
+                schema_ents = build_table_entities_from_schema(schema)
                 all_entities.extend(schema_ents)
-                all_relations.extend(schema_rels)
-                logger.info("Reflected %d DB tables", len(schema_ents))
+                logger.info(
+                    "Reflected %d DB tables (unified SchemaReflectorService)",
+                    len(schema_ents),
+                )
             except Exception as e:
                 logger.warning("Schema reflection failed: %s", e)
                 stats["errors"] += 1

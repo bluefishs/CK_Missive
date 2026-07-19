@@ -425,10 +425,15 @@ class PythonASTExtractor(EndpointExtractorMixin):
 # ---------------------------------------------------------------------------
 
 class SchemaReflector:
-    """Extract database table entities via SQLAlchemy inspection."""
+    """[DEPRECATED 2026-07-20] 自建 sync Inspector 反射 DB → db_table 實體。
+
+    異質同工整合後已無呼叫端：db_table 實體改由 build_table_entities_from_schema()
+    從 SchemaReflectorService（單一反射源 SSOT）建構，FK 交由 _ingest_fk_relations。
+    保留一版供相容/回滾，下一版移除。新程式勿用。
+    """
 
     def reflect_tables(self, db_url: str) -> Tuple[List[CodeEntity], List[CodeRelation]]:
-        """Synchronous reflection using Inspector."""
+        """[DEPRECATED] Synchronous reflection using Inspector. 改用 build_table_entities_from_schema。"""
         from sqlalchemy import create_engine, inspect as sa_inspect
 
         engine = create_engine(db_url)
@@ -495,3 +500,60 @@ class SchemaReflector:
             return entities, relations
         finally:
             engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# 單一 schema 反射 SSOT（程式圖譜↔資料庫圖譜異質同工整合，2026-07-20）
+# ---------------------------------------------------------------------------
+def build_table_entities_from_schema(schema: Dict[str, Any]) -> List["CodeEntity"]:
+    """從 SchemaReflectorService 的 schema dict 建 db_table 實體（純函式）。
+
+    異質同工整合：舊 SchemaReflector.reflect_tables 自建 sync Inspector 反射 DB，
+    與 SchemaReflectorService（_ingest_fk_relations 用）重複讀同一 PostgreSQL。
+    改由本函式從 SchemaReflectorService.get_full_schema_async() 的輸出建實體，
+    消除重複 Inspector＝單一反射源。description 形狀與舊 reflect_tables 一致（保真）。
+
+    FK 關係不在此產出——交由 code_graph_persistence._ingest_fk_relations 單一源
+    （避免 FK 雙重計算，DB 現況 relation_type='references' 即出自該處）。
+
+    Args:
+        schema: {"tables": [{"name", "columns":[{name,type,primary_key}],
+                 "primary_key_columns", "foreign_keys":[{constrained_columns,
+                 referred_table}], "indexes", "unique_constraints"}]}
+    Returns:
+        List[CodeEntity]（entity_type='db_table'）。
+    """
+    entities: List["CodeEntity"] = []
+    for table in schema.get("tables", []):
+        table_name = table.get("name", "")
+        if not table_name:
+            continue
+        columns = table.get("columns", [])
+        col_names = [c.get("name", "") for c in columns]
+        pk_cols = list(table.get("primary_key_columns", []))
+        fks = table.get("foreign_keys", [])
+        fk_targets = sorted({
+            fk.get("referred_table", "") for fk in fks if fk.get("referred_table")
+        })
+        entities.append(CodeEntity(
+            canonical_name=table_name,
+            entity_type="db_table",
+            description={
+                "columns": col_names,
+                "column_types": {c.get("name", ""): str(c.get("type", "")) for c in columns},
+                "primary_key": pk_cols,
+                "has_primary_key": len(pk_cols) > 0,
+                "foreign_keys": [
+                    {
+                        "columns": fk.get("constrained_columns", []),
+                        "referred_table": fk.get("referred_table", ""),
+                    }
+                    for fk in fks
+                ],
+                "foreign_key_targets": fk_targets,
+                "index_count": len(table.get("indexes", [])),
+                "unique_constraints_count": len(table.get("unique_constraints", [])),
+                "row_count_estimate": "unknown",
+            },
+        ))
+    return entities

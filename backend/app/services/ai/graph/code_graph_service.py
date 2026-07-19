@@ -29,7 +29,7 @@ from app.services.ai.graph.code_graph_types import (  # noqa: F401
 from app.services.ai.graph.code_graph_ast_analyzer import (  # noqa: F401
     EXCLUDE_DIRS,
     PythonASTExtractor,
-    SchemaReflector,
+    build_table_entities_from_schema,
 )
 from app.services.ai.graph.code_graph_analysis import (
     detect_import_cycles,
@@ -97,7 +97,7 @@ class CodeGraphIngestionService:
         """Dry run: extract and count without writing to DB."""
         from app.services.ai.graph.code_graph_ast_analyzer import (
             PythonASTExtractor,
-            SchemaReflector,
+            build_table_entities_from_schema,
         )
         from app.services.ai.graph.ts_extractor import TypeScriptExtractor
 
@@ -119,10 +119,11 @@ class CodeGraphIngestionService:
 
         if db_url:
             try:
-                reflector = SchemaReflector()
-                schema_ents, schema_rels = reflector.reflect_tables(db_url)
-                all_entities.extend(schema_ents)
-                all_relations.extend(schema_rels)
+                # 單一反射源 SSOT（異質同工整合 2026-07-20）：同 ingest 路徑，
+                # db_table 實體改由 SchemaReflectorService 建，消除重複 Inspector。
+                from app.services.ai.graph.schema_reflector import SchemaReflectorService
+                schema = await SchemaReflectorService.get_full_schema_async()
+                all_entities.extend(build_table_entities_from_schema(schema))
             except Exception:
                 errors += 1
 
