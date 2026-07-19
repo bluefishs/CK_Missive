@@ -332,3 +332,165 @@ class ExpenseInvoiceService(AuditableServiceMixin):
             pass
 
         raise ValueError(f"案號 {case_code} 不存在，請確認後再提交。")
+
+    # =========================================================================
+    # 財務彙總聚合（2026-07-20 DDD 標準化：由 endpoints/erp/expenses.py 端點內
+    #   直 SQL 搬遷至此，行為保真〔同 query〕。含 ExpenseInvoice 核銷範疇，與
+    #   FinancialSummaryService〔billing/payable 焦點〕範疇不同，非重複＝各自方法。
+    # =========================================================================
+    async def get_financial_overview(self) -> dict:
+        """全案件財務總覽：billing(應收)+vendor_payable(應付)+expense(核銷) 按案件彙總。"""
+        from sqlalchemy import select, func, case as sa_case
+        from app.extended.models.erp import ERPQuotation, ERPBilling, ERPVendorPayable
+        from app.extended.models.invoice import ExpenseInvoice
+
+        billing_stmt = (
+            select(
+                ERPQuotation.case_code, ERPQuotation.case_name, ERPQuotation.project_code,
+                func.count(ERPBilling.id).label("billing_count"),
+                func.sum(ERPBilling.billing_amount).label("billing_total"),
+                func.sum(sa_case(
+                    (ERPBilling.payment_status == "paid", ERPBilling.billing_amount), else_=0
+                )).label("billing_received"),
+            )
+            .join(ERPBilling, ERPBilling.erp_quotation_id == ERPQuotation.id)
+            .group_by(ERPQuotation.case_code, ERPQuotation.case_name, ERPQuotation.project_code)
+        )
+        billing_rows = {r.case_code: r for r in (await self.db.execute(billing_stmt)).all()}
+
+        payable_stmt = (
+            select(
+                ERPQuotation.case_code,
+                func.count(ERPVendorPayable.id).label("payable_count"),
+                func.sum(ERPVendorPayable.payable_amount).label("payable_total"),
+                func.sum(sa_case(
+                    (ERPVendorPayable.payment_status == "paid", ERPVendorPayable.payable_amount), else_=0
+                )).label("payable_paid"),
+            )
+            .join(ERPVendorPayable, ERPVendorPayable.erp_quotation_id == ERPQuotation.id)
+            .group_by(ERPQuotation.case_code)
+        )
+        payable_rows = {r.case_code: r for r in (await self.db.execute(payable_stmt)).all()}
+
+        expense_stmt = (
+            select(
+                ExpenseInvoice.case_code,
+                func.count(ExpenseInvoice.id).label("expense_count"),
+                func.sum(ExpenseInvoice.amount).label("expense_total"),
+                func.sum(sa_case(
+                    (ExpenseInvoice.status == "verified", ExpenseInvoice.amount), else_=0
+                )).label("expense_verified"),
+                func.sum(sa_case(
+                    (ExpenseInvoice.status.in_(["pending", "manager_approved", "finance_approved"]),
+                     ExpenseInvoice.amount), else_=0
+                )).label("expense_pending"),
+            )
+            .where(ExpenseInvoice.case_code.isnot(None))
+            .group_by(ExpenseInvoice.case_code)
+        )
+        expense_rows = {r.case_code: r for r in (await self.db.execute(expense_stmt)).all()}
+
+        all_codes = set(billing_rows) | set(payable_rows) | set(expense_rows)
+        cases = []
+        totals = {"billing": 0, "billing_received": 0, "payable": 0, "payable_paid": 0,
+                  "expense": 0, "expense_verified": 0, "expense_pending": 0}
+        for code in sorted(all_codes):
+            b, p, e = billing_rows.get(code), payable_rows.get(code), expense_rows.get(code)
+            row = {
+                "case_code": code,
+                "case_name": b.case_name if b else None,
+                "project_code": b.project_code if b else None,
+                "billing_count": b.billing_count if b else 0,
+                "billing_total": float(b.billing_total or 0) if b else 0,
+                "billing_received": float(b.billing_received or 0) if b else 0,
+                "payable_count": p.payable_count if p else 0,
+                "payable_total": float(p.payable_total or 0) if p else 0,
+                "payable_paid": float(p.payable_paid or 0) if p else 0,
+                "expense_count": e.expense_count if e else 0,
+                "expense_total": float(e.expense_total or 0) if e else 0,
+                "expense_verified": float(e.expense_verified or 0) if e else 0,
+                "expense_pending": float(e.expense_pending or 0) if e else 0,
+            }
+            cases.append(row)
+            totals["billing"] += row["billing_total"]
+            totals["billing_received"] += row["billing_received"]
+            totals["payable"] += row["payable_total"]
+            totals["payable_paid"] += row["payable_paid"]
+            totals["expense"] += row["expense_total"]
+            totals["expense_verified"] += row["expense_verified"]
+            totals["expense_pending"] += row["expense_pending"]
+
+        unlinked = await self.db.execute(
+            select(
+                func.count(ExpenseInvoice.id).label("count"),
+                func.sum(ExpenseInvoice.amount).label("total"),
+            ).where(ExpenseInvoice.case_code.is_(None))
+        )
+        unlinked_row = unlinked.first()
+        return {
+            "cases": cases, "totals": totals,
+            "unlinked_expenses": {
+                "count": unlinked_row.count if unlinked_row else 0,
+                "total": float(unlinked_row.total or 0) if unlinked_row else 0,
+            },
+        }
+
+    async def get_case_finance(self, case_code: str) -> dict:
+        """案件整合財務紀錄：expense_invoices + erp_billings + erp_invoices。"""
+        from sqlalchemy import select
+        from app.extended.models.invoice import ExpenseInvoice
+        from app.extended.models.erp import ERPQuotation, ERPBilling, ERPInvoice
+
+        exp_result = await self.db.execute(
+            select(ExpenseInvoice).where(ExpenseInvoice.case_code == case_code)
+            .order_by(ExpenseInvoice.date.desc()).limit(100)
+        )
+        expenses = [
+            {"type": "expense", "id": e.id, "date": str(e.date) if e.date else None,
+             "amount": float(e.amount or 0), "description": e.inv_num,
+             "category": e.category, "status": e.status, "source": e.source}
+            for e in exp_result.scalars().all()
+        ]
+
+        q_result = await self.db.execute(
+            select(ERPQuotation.id).where(ERPQuotation.case_code == case_code)
+        )
+        q_ids = [r[0] for r in q_result.all()]
+
+        billings, invoices = [], []
+        if q_ids:
+            b_result = await self.db.execute(
+                select(ERPBilling).where(ERPBilling.erp_quotation_id.in_(q_ids))
+                .order_by(ERPBilling.billing_date.desc())
+            )
+            billings = [
+                {"type": "billing", "id": b.id, "date": str(b.billing_date) if b.billing_date else None,
+                 "amount": float(b.billing_amount or 0), "description": b.billing_period or "請款",
+                 "category": "請款", "status": b.payment_status, "source": "erp_billing"}
+                for b in b_result.scalars().all()
+            ]
+            i_result = await self.db.execute(
+                select(ERPInvoice).where(ERPInvoice.erp_quotation_id.in_(q_ids))
+                .order_by(ERPInvoice.invoice_date.desc())
+            )
+            invoices = [
+                {"type": "invoice", "id": inv.id, "date": str(inv.invoice_date) if inv.invoice_date else None,
+                 "amount": float(inv.amount or 0), "description": inv.invoice_number or "發票",
+                 "category": "開票", "status": "issued", "source": "erp_invoice"}
+                for inv in i_result.scalars().all()
+            ]
+
+        all_records = expenses + billings + invoices
+        all_records.sort(key=lambda x: x.get("date") or "", reverse=True)
+        return {
+            "case_code": case_code,
+            "records": all_records,
+            "summary": {
+                "expense_count": len(expenses),
+                "expense_total": sum(e["amount"] for e in expenses),
+                "billing_count": len(billings),
+                "billing_total": sum(b["amount"] for b in billings),
+                "invoice_count": len(invoices),
+                "invoice_total": sum(i["amount"] for i in invoices),
+            },
+        }
