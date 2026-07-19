@@ -155,6 +155,10 @@ services:
       #   → 僅高信心「路由規則」自動套用（CrystalApplier snapshot+validate+rollback）；
       #   SOUL.md/synonyms.yaml 不在 allowlist → 身分層/同義詞仍需人審（維持手動）。
       - CRYSTAL_AUTO_APPLY_MODE=live
+      # 2026-07-19 啟用 tool_combo 確定性路由（Layer 1.8）：graduated tool_combo 業務查詢→工具
+      #   高相似度匹配→直呼工具繞弱模型（補硬編規則未覆蓋，如 list_assets/vendor）。
+      #   保守閾值 0.7、硬編規則優先、TDD 8+regression 20 passed、空值即時回滾。
+      - LEARNED_TOOL_ROUTE_ENABLED=true
       # 2026-05-24 fix: 修正 docker 內 PROJECT_ROOT 偏層問題（docker /app vs host backend/）
       # 沒這個 → memory_metrics_refresh_job 找 /wiki/memory 找不到 → silent skip → gauge 永遠 0
       - CK_WIKI_DIR=/app/wiki
