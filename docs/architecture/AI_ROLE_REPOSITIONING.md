@@ -62,6 +62,24 @@ KG 維護、wiki 編譯、跨檔 SSOT 稽核——結構性工作，弱模型足
 
 ---
 
+## 技能樹/演化系統評估（2026-07-18，對齊重定位）
+
+誠實評估揭發技能系統價值高度集中（`skill_value_audit.py`）：
+
+| 部分 | 資料 | 真實價值 |
+|---|---|---|
+| 靜態技能樹（`build_skill_tree` 108 skill 實體） | 05-31 單日建、v1.0 hardcode | 🔴 裝飾展示非演化 |
+| self_reflection 學習 | 1694（98%）、avg_hit **1.0** | 🟡 累積噪音、弱模型內省天花板 |
+| **tool_combo 學習** | 27（1.5%）、全 graduated、avg_hit **18**、貢獻 22% hits | 🟢 **真操作價值**（業務查詢→工具映射，重用） |
+
+**關鍵**：tool_combo（「越用越會選工具」）＝操作型真價值、對齊業務直呼；但目前只**注入 prompt 當弱模型提示**（`agent_learning_injector`），**未接進確定性 Layer 1.5 路由**（`agent_router._INTENT_TOOL_MAP` 仍硬編）。
+
+**發展方向**：
+1. **放大 tool_combo**：27 個 graduated+hit≥5 高信心模式**接進確定性 Layer 1.5 路由**——高相似度匹配時繞弱模型直呼工具（現在只當提示）。⚠️ 核心路由變更、高 blast radius，須獨立 TDD session + 保守閾值 + flag 可回滾。
+2. **淡化 self_reflection**：1694 內省噪音（avg_hit 1），停止期待其產生對話智慧；設上限/歸檔。
+3. **靜態技能樹改稱「能力地圖」**：v1.0 靜態、不演化，誠實化命名，不當「越用越聰明」證據。
+4. **KPI 誠實化**：`skill_value_audit.py` 看 tool_combo graduated × hit（操作價值），非總學習數。
+
 ## 前進方向
 
 **AI = 運維自主引擎 + 業務直呼閘道**（非對話大腦）。
