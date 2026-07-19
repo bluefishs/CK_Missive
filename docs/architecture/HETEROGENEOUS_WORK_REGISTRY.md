@@ -178,4 +178,16 @@ C1 收斂全流程證明迴圈閉合：**偵測**（step 67 撈 role_permissions
 
 **元教訓再證**：Explore agent 產出經人工核實——D1/D2/C4 確為真（已收斂）；C2/C3/G1 需 owner 決策（auth SSOT / 網域收斂 / 產品方向），不擅自動。
 
+## 程式圖譜↔資料庫圖譜 schema 反射異質同工（2026-07-20，`0386f7c1`）
+
+owner 提問「程式圖譜對應資料庫圖譜應可進一步整合強化 是否也有類似異質同工架構與設計」→ **確證有**。
+
+| 項 | 發現 | 核實 | 處置 |
+|---|---|---|---|
+| DB schema 反射 | code_graph ingest 每次反射 DB schema **兩次**：①`code_graph_ast_analyzer.SchemaReflector` 自建 sync Inspector（產 db_table 實體）②`schema_reflector.SchemaReflectorService`（`_ingest_fk_relations` 用，cached）| 兩套 SQLAlchemy Inspector 讀同一 PostgreSQL、FK 亦雙重計算（reflect_tables 產 `references_table` 但 DB 只留 `_ingest_fk` 的 `references`＝前者實質浪費）| ✅ **已整合單一反射源 SSOT**：新純建構器 `build_table_entities_from_schema(schema)` 從 SchemaReflectorService dict 建 db_table 實體（description 保真）；兩 ingest 路徑改走它；FK 交由 `_ingest_fk_relations` 單一源；舊 reflect_tables 標 DEPRECATED |
+
+**驗證**：TDD 4+回歸 8（12/12）；新舊建構器對同一 live DB 皆 77 tables/零差異/documents description 完全一致；live full ingest tables=77/fk=85/errors=0/4.26s、DB db_table 63→78·FK 74→85（統一源反射更完整）；rebuild L76 過。
+
+**SchemaReflectorService 成單一 DB-schema SSOT**（consumer：graph_entity/graph_unified/system_monitoring/db_graph_refresh cron/code graph db_table 實體）。
+
 （後續收斂逐項追加）
