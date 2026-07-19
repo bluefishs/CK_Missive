@@ -1,18 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-系統監控和錯誤LOG管理API端點
-所有端點需要管理員認證。
+系統監控和錯誤 LOG 管理 API 端點（薄委派層）。所有端點需要管理員認證。
+
+2026-07-20 DDD 標準化：日誌檔狀態/系統指標/覆盤儀表板彙總邏輯抽至
+SystemMonitoringService；詳細健康檢查委派 canonical SystemHealthService。
+端點只負責 HTTP（參數/認證/錯誤碼）。
 """
 import logging
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logging_manager import log_manager, LogLevel, ErrorCategory, log_info, log_error
+from app.core.logging_manager import ErrorCategory, log_info
 from app.core.dependencies import require_admin
 from app.extended.models import User
 from app.db.database import get_async_db
+from app.services.system.system_monitoring_service import SystemMonitoringService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -21,27 +26,23 @@ router = APIRouter()
 @router.post("/health-detailed", summary="詳細系統健康檢查")
 async def get_detailed_health_check(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_admin())
+    current_user: User = Depends(require_admin()),
 ):
-    """
-    獲取系統的詳細健康狀況，包括錯誤統計
-    """
+    """獲取系統詳細健康狀況（含錯誤統計）。"""
     log_info("Detailed health check requested", ErrorCategory.SYSTEM)
-
     try:
         # 2026-07-20 異質同工收斂：委派 canonical SystemHealthService（health.py 同源），
-        #   消除本端點自組的重複 psutil/SQL 實作、順修 uptime placeholder。
-        #   保留 error_summary（本端點獨有價值）。前端 SystemMonitoringPage 僅依賴頂層 status。
+        #   消除本端點自組的重複 psutil/SQL、順修 uptime placeholder。前端僅依賴頂層 status。
         from app.services.system.health_service import SystemHealthService
 
         svc = SystemHealthService(db)
-        db_check = await svc.check_database()          # {status, response_time_ms, message}
-        resources = SystemHealthService.check_system_resources()  # {status, memory, disk}
-        uptime = SystemHealthService.get_uptime()       # 真實 uptime（取代 placeholder）
-        error_summary = log_manager.get_error_summary()
+        db_check = await svc.check_database()
+        resources = SystemHealthService.check_system_resources()
+        uptime = SystemHealthService.get_uptime()
+        error_summary = SystemMonitoringService.error_summary()
 
         db_ok = db_check.get("status") == "healthy"
-        health_data = {
+        return {
             "status": "healthy" if db_ok else "degraded",
             "timestamp": datetime.now().isoformat(),
             "database": db_check,
@@ -49,9 +50,6 @@ async def get_detailed_health_check(
             "logs": error_summary,
             "uptime": uptime,
         }
-
-        return health_data
-        
     except Exception as e:
         from app.core.logging_manager import log_error
         log_error(f"Health check failed: {e}", ErrorCategory.SYSTEM)
@@ -61,11 +59,8 @@ async def get_detailed_health_check(
 
 @router.post("/error-summary", summary="錯誤統計摘要")
 async def get_error_summary(current_user: User = Depends(require_admin())):
-    """
-    獲取系統錯誤統計摘要
-    """
     log_info("Error summary requested", ErrorCategory.SYSTEM)
-    return log_manager.get_error_summary()
+    return SystemMonitoringService.error_summary()
 
 
 @router.post("/recent-errors", summary="最近錯誤列表")
@@ -73,94 +68,24 @@ async def get_recent_errors(
     limit: int = Query(50, ge=1, le=200),
     category: Optional[str] = Query(None, description="錯誤類別篩選"),
     level: Optional[str] = Query(None, description="錯誤級別篩選"),
-    current_user: User = Depends(require_admin())
+    current_user: User = Depends(require_admin()),
 ):
-    """
-    獲取最近的錯誤記錄，支持篩選
-    """
-    log_info(f"Recent errors requested: limit={limit}, category={category}, level={level}", 
+    log_info(f"Recent errors requested: limit={limit}, category={category}, level={level}",
              ErrorCategory.SYSTEM)
-    
-    recent_errors = log_manager.error_stats["recent_errors"]
-    
-    # 應用篩選
-    filtered_errors = recent_errors
-    if category:
-        filtered_errors = [e for e in filtered_errors if e.get("category") == category]
-    if level:
-        filtered_errors = [e for e in filtered_errors if e.get("level") == level]
-    
-    # 限制數量
-    filtered_errors = filtered_errors[-limit:]
-    
-    return {
-        "errors": filtered_errors,
-        "total": len(filtered_errors),
-        "filters": {
-            "category": category,
-            "level": level,
-            "limit": limit
-        }
-    }
+    return SystemMonitoringService.recent_errors(limit, category, level)
 
 
 @router.post("/clear-error-stats", summary="清除錯誤統計")
 async def clear_error_stats(current_user: User = Depends(require_admin())):
-    """
-    清除錯誤統計數據（僅統計，不刪除日誌文件）
-    """
+    """清除錯誤統計數據（僅統計，不刪除日誌文件）。"""
     log_info("Error stats clear requested", ErrorCategory.SYSTEM)
-    
-    log_manager.error_stats = {
-        "total_errors": 0,
-        "by_category": {cat.value: 0 for cat in ErrorCategory},
-        "by_level": {level.value: 0 for level in LogLevel},
-        "recent_errors": []
-    }
-    
-    return {"message": "Error statistics cleared", "timestamp": datetime.now().isoformat()}
+    return SystemMonitoringService.clear_error_stats()
 
 
 @router.post("/log-files", summary="日誌文件狀態")
 async def get_log_files_status(current_user: User = Depends(require_admin())):
-    """
-    獲取日誌文件的狀態信息
-    """
-    import os
     log_info("Log files status requested", ErrorCategory.SYSTEM)
-    
-    log_files = {
-        "system.log": "logs/system.log",
-        "errors.log": "logs/errors.log", 
-        "api.log": "logs/api.log",
-        "database.log": "logs/database.log"
-    }
-    
-    file_stats = {}
-    for name, path in log_files.items():
-        try:
-            if os.path.exists(path):
-                stat = os.stat(path)
-                file_stats[name] = {
-                    "exists": True,
-                    "size_bytes": stat.st_size,
-                    "size_mb": round(stat.st_size / 1024 / 1024, 2),
-                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "path": path
-                }
-            else:
-                file_stats[name] = {
-                    "exists": False,
-                    "path": path
-                }
-        except Exception as e:
-            logger.error(f"無法獲取日誌檔案狀態 {name}: {e}", exc_info=True)
-            file_stats[name] = {
-                "error": "無法存取檔案",
-                "path": path
-            }
-    
-    return file_stats
+    return SystemMonitoringService.log_files_status()
 
 
 @router.post("/test-logging", summary="測試日誌記錄")
@@ -168,31 +93,11 @@ async def test_logging(
     level: str = "INFO",
     category: str = "SYSTEM",
     message: str = "Test log message",
-    current_user: User = Depends(require_admin())
+    current_user: User = Depends(require_admin()),
 ):
-    """
-    測試日誌記錄功能
-    """
-    from app.core.logging_manager import LogEntry
-    
+    """測試日誌記錄功能。"""
     try:
-        log_level = LogLevel(level.upper())
-        log_category = ErrorCategory(category.upper())
-        
-        entry = LogEntry(
-            level=log_level,
-            category=log_category,
-            message=message,
-            details={"test": True, "timestamp": datetime.now().isoformat()}
-        )
-        
-        log_manager.log(entry)
-        
-        return {
-            "message": "Test log recorded successfully",
-            "entry": entry.to_dict()
-        }
-        
+        return SystemMonitoringService.record_test_log(level, category, message)
     except ValueError as e:
         logger.error(f"日誌測試 - 無效的級別或分類: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="日誌級別或分類無效")
@@ -205,84 +110,30 @@ async def test_logging(
 async def get_error_logs(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    current_user: User = Depends(require_admin())
+    current_user: User = Depends(require_admin()),
 ):
-    """
-    取得錯誤日誌記錄
-    """
+    """取得錯誤日誌記錄（簡化 stub）。"""
     log_info("Error logs requested", ErrorCategory.SYSTEM)
-    
-    # 簡化版本以測試端點
     return {
-        "logs": [
-            {
-                "timestamp": "2025-09-12T11:44:00.000Z",
-                "level": "ERROR",
-                "message": "Test error log entry",
-                "source": "logs/errors.log"
-            }
-        ],
-        "total": 1,
-        "limit": limit,
-        "offset": offset
+        "logs": [{
+            "timestamp": "2025-09-12T11:44:00.000Z",
+            "level": "ERROR",
+            "message": "Test error log entry",
+            "source": "logs/errors.log",
+        }],
+        "total": 1, "limit": limit, "offset": offset,
     }
 
 
 @router.post("/system-metrics", summary="系統性能指標")
 async def get_system_metrics(current_user: User = Depends(require_admin())):
-    """
-    獲取系統性能指標
-    """
     log_info("System metrics requested", ErrorCategory.SYSTEM)
-    
     try:
-        import psutil
-        import gc
-        
-        # CPU和記憶體使用情況（優化版本 - 移除阻塞性的CPU檢測）
-        cpu_percent = psutil.cpu_percent(interval=0)  # 非阻塞版本，使用上次的數據
-        memory = psutil.virtual_memory()
-        
-        # Python記憶體使用情況
-        gc.collect()  # 強制垃圾回收
-        
-        metrics = {
-            "timestamp": datetime.now().isoformat(),
-            "cpu": {
-                "percent": cpu_percent,
-                "count": psutil.cpu_count()
-            },
-            "memory": {
-                "total_gb": round(memory.total / 1024**3, 2),
-                "available_gb": round(memory.available / 1024**3, 2),
-                "percent_used": memory.percent
-            },
-            "python": {
-                "garbage_collected": gc.collect(),
-                "object_count": len(gc.get_objects())
-            }
-        }
-        
-        # 磁碟使用情況（如果可用）
-        try:
-            disk = psutil.disk_usage('/')
-            metrics["disk"] = {
-                "total_gb": round(disk.total / 1024**3, 2),
-                "used_gb": round(disk.used / 1024**3, 2),
-                "free_gb": round(disk.free / 1024**3, 2),
-                "percent_used": round((disk.used / disk.total) * 100, 2)
-            }
-        except Exception:
-            metrics["disk"] = {"status": "unavailable"}
-        
-        return metrics
-        
+        return SystemMonitoringService.system_metrics()
     except ImportError:
-        return {
-            "error": "psutil not available",
-            "message": "Install psutil for detailed system metrics"
-        }
+        return {"error": "psutil not available", "message": "Install psutil for detailed system metrics"}
     except Exception as e:
+        from app.core.logging_manager import log_error
         log_error(f"Failed to get system metrics: {e}", ErrorCategory.SYSTEM)
         logger.error(f"獲取系統指標失敗: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="獲取系統指標失敗，請稍後再試")
@@ -291,114 +142,7 @@ async def get_system_metrics(current_user: User = Depends(require_admin())):
 @router.post("/review-dashboard", summary="系統覆盤儀表板")
 async def get_review_dashboard(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_admin())
+    current_user: User = Depends(require_admin()),
 ):
-    """
-    彙總所有子系統狀態 — Knowledge Graph / Code Graph / DB Graph /
-    Skills Map / Knowledge Base / Skill Evolution / 排程器
-    """
-    from app.core.scheduler import get_scheduler_status
-
-    result = {
-        "timestamp": datetime.now().isoformat(),
-        "subsystems": {},
-        "scheduler": get_scheduler_status(),
-    }
-
-    # --- Knowledge Graph ---
-    try:
-        from sqlalchemy import text, func
-        from app.extended.models.knowledge_graph import (
-            CanonicalEntity, EntityRelationship,
-        )
-        from app.extended.models.entity import DocumentEntity
-
-        entities_count = (await db.execute(
-            text("SELECT count(*) FROM canonical_entities")
-        )).scalar() or 0
-        relations_count = (await db.execute(
-            text("SELECT count(*) FROM entity_relationships")
-        )).scalar() or 0
-        aliases_count = (await db.execute(
-            text("SELECT count(*) FROM entity_aliases")
-        )).scalar() or 0
-        pending = (await db.execute(
-            text("SELECT count(*) FROM documents WHERE ner_pending = true")
-        )).scalar() or 0
-
-        result["subsystems"]["knowledge_graph"] = {
-            "status": "healthy" if pending == 0 else "pending",
-            "entities": entities_count,
-            "relationships": relations_count,
-            "aliases": aliases_count,
-            "pending_documents": pending,
-            "coverage": "100%" if pending == 0 else f"{round((1 - pending / max(entities_count, 1)) * 100)}%",
-        }
-    except Exception as e:
-        await db.rollback()
-        result["subsystems"]["knowledge_graph"] = {"status": "error", "error": str(e)}
-
-    # --- Code Graph ---
-    try:
-        code_entities = (await db.execute(
-            text("SELECT count(*) FROM canonical_entities WHERE entity_type = 'code_module'")
-        )).scalar() or 0
-        code_relations = (await db.execute(
-            text(
-                "SELECT count(*) FROM entity_relationships "
-                "WHERE relation_type IN ('imports', 'calls', 'inherits', 'depends_on')"
-            )
-        )).scalar() or 0
-        result["subsystems"]["code_graph"] = {
-            "status": "healthy" if code_entities > 0 else "empty",
-            "modules": code_entities,
-            "dependencies": code_relations,
-        }
-    except Exception as e:
-        await db.rollback()
-        result["subsystems"]["code_graph"] = {"status": "error", "error": str(e)}
-
-    # --- DB Graph ---
-    try:
-        from app.services.ai.graph.schema_reflector import SchemaReflectorService
-        schema = await SchemaReflectorService.get_full_schema_async()
-        tables = schema.get("tables", [])
-        result["subsystems"]["db_graph"] = {
-            "status": "healthy",
-            "tables": len(tables),
-            "cached": SchemaReflectorService._cache is not None,
-        }
-    except Exception as e:
-        await db.rollback()
-        result["subsystems"]["db_graph"] = {"status": "error", "error": str(e)}
-
-    # --- Knowledge Base (Embedding) ---
-    try:
-        from app.services.ai.core.embedding_manager import EmbeddingManager
-        stats = await EmbeddingManager.get_coverage_stats(db)
-        total = stats.get("total_chunks", 0)
-        embedded = stats.get("embedded_chunks", 0)
-        coverage = stats.get("coverage_percent", 0)
-        result["subsystems"]["knowledge_base"] = {
-            "status": "healthy" if coverage >= 95 else "degraded",
-            "chunks": total,
-            "embedded": embedded,
-            "coverage": f"{coverage:.1f}%",
-        }
-    except Exception as e:
-        await db.rollback()
-        result["subsystems"]["knowledge_base"] = {"status": "error", "error": str(e)}
-
-    # --- Skill Evolution ---
-    try:
-        from app.services.ai.agent.agent_evolution_scheduler import AgentEvolutionScheduler
-        evo = AgentEvolutionScheduler()
-        should = await evo.should_evolve()
-        result["subsystems"]["skill_evolution"] = {
-            "status": "active",
-            "should_evolve": should,
-        }
-    except Exception as e:
-        result["subsystems"]["skill_evolution"] = {"status": "error", "error": str(e)}
-
-    return result
+    """彙總子系統狀態 — KG / Code Graph / DB Graph / KB / Skill Evolution / 排程器。"""
+    return await SystemMonitoringService().review_dashboard(db)
