@@ -12,8 +12,11 @@
 
 RED-GREEN-REFACTOR。相關 HETEROGENEOUS_WORK_REGISTRY.md / code_graph_self_optimization。
 """
+import ast
+
 from app.services.ai.graph.code_graph_ast_analyzer import (
     build_table_entities_from_schema,
+    extract_tablename,
 )
 
 
@@ -81,3 +84,28 @@ class TestBuildTableEntitiesFromSchema:
         # 回傳純實體 list（非 tuple），無 relations
         assert isinstance(result, list)
         assert all(hasattr(e, "entity_type") for e in result)
+
+
+class TestExtractTablename:
+    """ORM model → db_table 確定性橋（整合強化）。"""
+
+    def _cls(self, src: str) -> ast.ClassDef:
+        return next(n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.ClassDef))
+
+    def test_extracts_tablename_from_orm_model(self):
+        node = self._cls('class Document(Base):\n    __tablename__ = "documents"\n    id = 1\n')
+        assert extract_tablename(node) == "documents"
+
+    def test_single_quote_tablename(self):
+        node = self._cls("class A(Base):\n    __tablename__ = 'document_attachments'\n")
+        assert extract_tablename(node) == "document_attachments"
+
+    def test_pydantic_schema_returns_none(self):
+        """Pydantic schema 無 __tablename__ → None（自我 gate、不誤橋）。"""
+        node = self._cls('class DocCreate(BaseModel):\n    title: str\n')
+        assert extract_tablename(node) is None
+
+    def test_non_string_tablename_returns_none(self):
+        """__tablename__ 非字面字串（動態）→ 保守回 None（不猜）。"""
+        node = self._cls('class A(Base):\n    __tablename__ = get_name()\n')
+        assert extract_tablename(node) is None

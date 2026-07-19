@@ -46,7 +46,7 @@ CODE_ENTITY_CATEGORIES: Dict[str, Set[str]] = {
 CODE_RELATION_CATEGORIES: Dict[str, Set[str]] = {
     "structural": {"defines_class", "defines_function", "has_method", "defines_component", "defines_hook", "defines_type", "defines_enum"},
     "dependency": {"imports", "inherits", "calls", "depends_on"},
-    "data_flow": {"references_table", "validates_with", "references"},
+    "data_flow": {"references_table", "validates_with", "references", "maps_to"},
     "infrastructure": {"uses_service", "uses_repository", "serves_route", "provides_middleware"},
     "cross_domain": {"serves_domain"},
 }
@@ -77,6 +77,8 @@ CODE_RELATION_TYPES: Set[str] = {
     # DB FK relations (E-2) and cross-domain causal links (E-4)
     "references",
     "serves_domain",
+    # ORM model → db_table 確定性橋（整合強化 2026-07-20）
+    "maps_to",
 }
 
 CODE_GRAPH_LABEL: str = "code_graph"  # relation_label provenance tag

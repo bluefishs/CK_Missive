@@ -84,6 +84,14 @@ class CodeGraphIngestService(CodeGraphPersistenceMixin):
         # 1b. Load existing mtime map for incremental mode
         mtime_map: Dict[str, float] = {}
         if incremental:
+            # ⚠️ 2026-07-20 已知陷阱：incremental 模式下 _recreate_relations 仍全刪 code_graph
+            #    關係、只重插本次變更檔的關係 → 未變更檔關係被洗掉（9669→85）。scheduled job
+            #    已全部改 incremental=False 全量重建（見 scheduler code_graph_incremental_job）。
+            #    僅在你確知「只更新實體、不在意關係完整」時才用 incremental=True。
+            logger.warning(
+                "⚠️ Code Graph incremental=True：關係圖將被重建為僅本次變更檔的子集"
+                "（未變更檔關係會流失）。生產排程應用 incremental=False 全量。"
+            )
             mtime_map = await self._load_mtime_map(CanonicalEntity)
             logger.info("Incremental mode: loaded %d existing module mtimes", len(mtime_map))
 

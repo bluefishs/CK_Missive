@@ -370,11 +370,19 @@ async def erp_graph_ingest_job():
 
 @tracked_job("code_graph_incremental")
 async def code_graph_incremental_job():
-    """Code Graph 增量更新 — 掃描 Python/TypeScript AST 變更並更新圖譜實體"""
-    from app.db.database import async_session_maker
-    from pathlib import Path
+    """Code Graph 每日全量重建 — 掃描 Python AST + DB schema 重建圖譜實體與關係。
 
-    logger.info("開始執行 Code Graph 增量更新")
+    2026-07-20 治本（重大靜默 bug）：原 incremental=True 每次跑 `_recreate_relations`
+    無條件全刪 code_graph 關係、只重插「本次變更檔」的關係 → 未變更檔跳過 → 關係圖
+    每日塌成僅 FK（9669→85）；僅週日 reconcile 才還原 → 一週 6 天圖譜殘缺＝圖譜低價值隱因。
+    改 incremental=False（全量、6s 可接受）＋傳 db_url（建 db_table + model→db_table maps_to
+    橋 + FK）→ 圖譜每日完整。週日 reconcile 續作 orphan mark-and-sweep（互補）。
+    （容器無 frontend/src → 前端 ts_ 關係本就不落地，非本次變更。）
+    """
+    from app.db.database import async_session_maker
+    from app.core.config import settings
+
+    logger.info("開始執行 Code Graph 每日全量重建")
 
     try:
         async with async_session_maker() as db:
@@ -386,18 +394,21 @@ async def code_graph_incremental_job():
 
             stats = await service.ingest(
                 backend_app_dir=backend_dir,
-                incremental=True,
+                db_url=settings.DATABASE_URL,  # 啟用 db_table + maps_to 橋 + FK（SchemaReflectorService SSOT）
+                incremental=False,             # 治本：全量重建，防每日洗關係圖
                 frontend_src_dir=frontend_dir if frontend_dir.exists() else None,
             )
             await db.commit()
             logger.info(
-                f"Code Graph 增量更新完成: "
+                f"Code Graph 每日全量重建完成: "
                 f"modules={stats.get('modules', 0)}, "
                 f"classes={stats.get('classes', 0)}, "
-                f"functions={stats.get('functions', 0)}"
+                f"functions={stats.get('functions', 0)}, "
+                f"tables={stats.get('tables', 0)}, "
+                f"relations={stats.get('relations', 0)}"
             )
     except Exception as e:
-        logger.error(f"Code Graph 增量更新失敗: {e}", exc_info=True)
+        logger.error(f"Code Graph 每日全量重建失敗: {e}", exc_info=True)
 
 
 @tracked_job("code_graph_reconcile")
@@ -414,6 +425,7 @@ async def code_graph_reconcile_job():
     from app.db.database import async_session_maker
     from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
     from app.core.paths import BACKEND_DIR, FRONTEND_DIR
+    from app.core.config import settings
     from sqlalchemy import text
 
     PY_TYPES = "('py_function','py_class','py_module','api_endpoint','service','repository','schema')"
@@ -428,6 +440,7 @@ async def code_graph_reconcile_job():
             frontend_dir = FRONTEND_DIR / "src"
             await service.ingest(
                 backend_app_dir=BACKEND_DIR / "app",
+                db_url=settings.DATABASE_URL,  # 建 db_table + maps_to 橋 + FK（2026-07-20）
                 incremental=False,
                 frontend_src_dir=frontend_dir if frontend_dir.exists() else None,
             )

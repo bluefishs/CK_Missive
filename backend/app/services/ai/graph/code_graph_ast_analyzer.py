@@ -185,6 +185,16 @@ class PythonASTExtractor(EndpointExtractorMixin):
             relation_type="defines_class",
         ))
 
+        # ORM model → db_table 確定性橋（整合強化 2026-07-20）：__tablename__ 連 code↔DB。
+        # 使圖譜可答「哪些程式碼碰 X 表」；target db_table 實體由 SchemaReflectorService 建。
+        tablename = extract_tablename(node)
+        if tablename:
+            relations.append(CodeRelation(
+                source_name=cls_name, source_type="py_class",
+                target_name=tablename, target_type="db_table",
+                relation_type="maps_to",
+            ))
+
         # Detect infrastructure entity types (service, repository, middleware)
         infra_type = self._classify_class(node.name, bases)
         if infra_type:
@@ -557,3 +567,25 @@ def build_table_entities_from_schema(schema: Dict[str, Any]) -> List["CodeEntity
             },
         ))
     return entities
+
+
+def extract_tablename(node: "ast.ClassDef") -> Optional[str]:
+    """從 ORM model ClassDef 取 __tablename__ 常數字串（確定性 code↔DB 橋）。
+
+    整合強化（2026-07-20）：程式圖譜的 db_table 與 code 實體原為兩座孤島
+    （0 code→table 連結）。SQLAlchemy model 的 `__tablename__ = "documents"`
+    是確定性可 AST 取的字面賦值 → 據此建 py_class→db_table `maps_to` edge，
+    橋接兩圖使「哪些程式碼碰 X 表」可經圖譜回答（非 LLM 幻覺）。
+
+    僅 ORM model 有 __tablename__（Pydantic schema 無）＝自我 gate、無誤判。
+    回傳表名字串或 None。
+    """
+    for item in node.body:
+        if not isinstance(item, ast.Assign):
+            continue
+        for tgt in item.targets:
+            if isinstance(tgt, ast.Name) and tgt.id == "__tablename__":
+                val = item.value
+                if isinstance(val, ast.Constant) and isinstance(val.value, str):
+                    return val.value
+    return None
