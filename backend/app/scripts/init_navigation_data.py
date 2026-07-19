@@ -459,6 +459,8 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]",
     },
     # API 對應表 (對應 ROUTES.API_MAPPING)
+    # 2026-07-20 平臺資訊群組整合優化：靜態開發參考頁（REFERENCE ONLY），與 API文件
+    #   (live Swagger UI) 冗餘 → hidden（頁面保留供開發，不列正式導覽）。
     {
         "title": "API對應表",
         "key": "api-mapping",
@@ -469,8 +471,10 @@ DEFAULT_NAVIGATION_ITEMS = [
         "parent_key": "reports",
         "description": "API,對應",
         "permission_required": "[]",
+        "hidden": True,
     },
     # 統一表單示例 (對應 ROUTES.UNIFIED_FORM_DEMO)
+    # 2026-07-20 平臺資訊群組整合優化：元件示範 demo，非平臺工具 → hidden（保留供開發）。
     {
         "title": "統一表單示例",
         "key": "unified-form-demo",
@@ -481,6 +485,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "parent_key": "reports",
         "description": "統一表單,示例,Demo",
         "permission_required": '["admin:settings"]',
+        "hidden": True,
     },
     # =========================================================================
     # 系統管理 子項目
