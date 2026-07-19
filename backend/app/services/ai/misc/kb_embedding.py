@@ -151,6 +151,21 @@ class KBEmbeddingService:
         if not all_chunks:
             return {"files_scanned": 0, "chunks_created": 0, "embeddings_generated": 0}
 
+        # 2026-07-20 安全守衛：embedding 不可用時勿執行破壞性全重建。
+        #   scan_and_embed 為 delete-then-reinsert 全重建，若此刻 embedding provider
+        #   不可用（如 nomic-embed 冷啟動、connector=None），既有已 embed 的 chunks 會被
+        #   以空向量覆蓋＝既有 embedding 流失（同 KG 冷啟動 silent 家族）。→ 直接跳過、
+        #   保留既有 chunks 與向量，待 provider 恢復後下次自癒重建。
+        if not embedding_available:
+            logger.warning(
+                "KB scan_and_embed 跳過破壞性重建：EmbeddingManager 不可用"
+                "（避免用空向量覆蓋既有 chunks，保留現有向量待恢復）"
+            )
+            return {
+                "files_scanned": 0, "chunks_created": 0, "embeddings_generated": 0,
+                "skipped": True, "reason": "embedding_unavailable",
+            }
+
         # Delete existing chunks (full rebuild)
         await self.db.execute(delete(KBChunk))
         await self.db.flush()

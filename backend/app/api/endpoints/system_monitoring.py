@@ -27,36 +27,29 @@ async def get_detailed_health_check(
     獲取系統的詳細健康狀況，包括錯誤統計
     """
     log_info("Detailed health check requested", ErrorCategory.SYSTEM)
-    
+
     try:
-        # 基本健康檢查
-        from sqlalchemy import text
-        db_result = await db.execute(text("SELECT 1"))
-        db_status = "connected" if db_result.scalar() == 1 else "disconnected"
-        
-        # 獲取錯誤統計
+        # 2026-07-20 異質同工收斂：委派 canonical SystemHealthService（health.py 同源），
+        #   消除本端點自組的重複 psutil/SQL 實作、順修 uptime placeholder。
+        #   保留 error_summary（本端點獨有價值）。前端 SystemMonitoringPage 僅依賴頂層 status。
+        from app.services.system.health_service import SystemHealthService
+
+        svc = SystemHealthService(db)
+        db_check = await svc.check_database()          # {status, response_time_ms, message}
+        resources = SystemHealthService.check_system_resources()  # {status, memory, disk}
+        uptime = SystemHealthService.get_uptime()       # 真實 uptime（取代 placeholder）
         error_summary = log_manager.get_error_summary()
-        
-        # 系統資源信息（優化版本 - 移除阻塞性的CPU檢測）
-        import psutil
-        system_info = {
-            "cpu_percent": psutil.cpu_percent(interval=0),  # 非阻塞版本，使用上次的數據
-            "memory_percent": psutil.virtual_memory().percent,
-            "disk_percent": psutil.disk_usage('/').percent if hasattr(psutil, 'disk_usage') else 0
-        }
-        
+
+        db_ok = db_check.get("status") == "healthy"
         health_data = {
-            "status": "healthy" if db_status == "connected" else "degraded",
+            "status": "healthy" if db_ok else "degraded",
             "timestamp": datetime.now().isoformat(),
-            "database": {
-                "status": db_status,
-                "connection_pool": "active"
-            },
-            "system": system_info,
+            "database": db_check,
+            "system": resources,
             "logs": error_summary,
-            "uptime": "calculated_uptime_placeholder"
+            "uptime": uptime,
         }
-        
+
         return health_data
         
     except Exception as e:

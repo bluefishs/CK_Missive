@@ -572,10 +572,16 @@ async def db_schema_refresh_job():
 
 @tracked_job("kb_coverage_check")
 async def kb_coverage_check_job():
-    """KB Embedding 覆蓋率檢查 — 確認所有文件分段都已產生向量"""
+    """OfficialDocument Embedding 覆蓋率檢查（監測，非自癒）。
+
+    ⚠️ 2026-07-20 校正命名混淆：本 job 名為「kb」但 get_coverage_stats 實測的是
+    **OfficialDocument**（業務公文 RAG embedding）覆蓋率，非 KB docs（kb_chunks）。
+    kb_chunks 由手動 /embed 維護（現 100%）；OfficialDocument embedding 由文件入庫/
+    backfill 流程維護。此處僅監測 + 低覆蓋告警，不在此自癒（避免錯接重建目標）。
+    """
     from app.db.database import async_session_maker
 
-    logger.info("開始執行 KB Embedding 覆蓋率檢查")
+    logger.info("開始執行 OfficialDocument Embedding 覆蓋率檢查")
 
     try:
         async with async_session_maker() as db:
@@ -585,16 +591,18 @@ async def kb_coverage_check_job():
             embedded = stats.get("embedded_chunks", 0)
             coverage = stats.get("coverage_percent", 0)
             logger.info(
-                f"KB 覆蓋率檢查完成: "
+                f"OfficialDocument 覆蓋率檢查完成: "
                 f"total={total}, embedded={embedded}, coverage={coverage:.1f}%"
             )
             if coverage < 95.0 and total > 0:
                 logger.warning(
-                    f"KB Embedding 覆蓋率低於 95%: {coverage:.1f}% "
-                    f"({total - embedded} chunks 未 embed)"
+                    f"OfficialDocument Embedding 覆蓋率低於 95%: {coverage:.1f}% "
+                    f"({total - embedded} 未 embed)"
                 )
+            return {"coverage": coverage, "total": total, "embedded": embedded}
     except Exception as e:
-        logger.error(f"KB 覆蓋率檢查失敗: {e}", exc_info=True)
+        logger.error(f"覆蓋率檢查失敗: {e}", exc_info=True)
+        return {"error": str(e)}
 
 
 @tracked_job("security_scan")
