@@ -164,6 +164,16 @@ async def _persist_promoted_pattern(
     if isinstance(tools_raw, bytes):
         tools_raw = tools_raw.decode()
 
+    # 2026-07-18 tool_combo 品質閘（技能系統評估）：濾噪音——空工具或無意義短查詢
+    #   （如「幫我→空」「測試→空」）不 graduate。否則污染 #2 注入 boost + 阻礙 #1 確定性路由
+    #   （27 中僅 5 乾淨可路由，噪音會誤路由）。skill_value_audit.py / AI_ROLE_REPOSITIONING.md。
+    if not tools_raw or not str(tools_raw).strip() or len(str(template).strip()) < 4:
+        logger.debug(
+            "tool_combo 品質閘：跳過噪音 template=%r tools=%r（空工具/短查詢）",
+            template, tools_raw,
+        )
+        return
+
     content = f"[promoted] {template} → {tools_raw}"
     content_hash = hashlib.md5(content.encode()).hexdigest()
 

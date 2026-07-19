@@ -75,7 +75,10 @@ KG 維護、wiki 編譯、跨檔 SSOT 稽核——結構性工作，弱模型足
 **關鍵**：tool_combo（「越用越會選工具」）＝操作型真價值、對齊業務直呼；但目前只**注入 prompt 當弱模型提示**（`agent_learning_injector`），**未接進確定性 Layer 1.5 路由**（`agent_router._INTENT_TOOL_MAP` 仍硬編）。
 
 **發展方向**：
-1. **放大 tool_combo**：27 個 graduated+hit≥5 高信心模式**接進確定性 Layer 1.5 路由**——高相似度匹配時繞弱模型直呼工具（現在只當提示）。⚠️ 核心路由變更、高 blast radius，須獨立 TDD session + 保守閾值 + flag 可回滾。
+1. **放大 tool_combo（細化 2026-07-18）**：⚠️ 核實 27 graduated tool_combo **品質混雜**——只 **5 個乾淨可路由**（有效工具名+hit≥10：get_vendor_detail 34/list_assets 21/get_expense_overview 17/get_unpaid_billings 15/auto_tender_to_case 15），其餘 22 是噪音（「幫我→空」「測試→空」）。**確定性路由只能用這 5 個乾淨模式**（否則噪音會誤路由）。
+   - **前置（資料品質）**：tool_combo 生成端（`agent_evolution_actions.py`）應驗證「有效工具+有意義查詢」才 graduate，濾掉空工具噪音。
+   - **接入（#1）**：5 個乾淨模式 → 確定性 Layer 1.5（高相似度>0.90+工具存在驗證+flag 預設 OFF+regression）→ 繞弱模型直呼。核心路由變更、高 blast radius，須獨立 TDD session。
+   - **現況**：#2 injection boost 已讓這些更易被弱模型拿到（低風險增益）；#1 是進一步的確定性繞弱模型增強。
 2. **淡化 self_reflection**：1694 內省噪音（avg_hit 1），停止期待其產生對話智慧；設上限/歸檔。
 3. **靜態技能樹改稱「能力地圖」**：v1.0 靜態、不演化，誠實化命名，不當「越用越聰明」證據。
 4. **KPI 誠實化**：`skill_value_audit.py` 看 tool_combo graduated × hit（操作價值），非總學習數。
