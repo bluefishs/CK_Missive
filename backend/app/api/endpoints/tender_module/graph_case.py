@@ -77,13 +77,16 @@ async def create_case_from_tender(
     from datetime import date
 
     async with AsyncSessionLocal() as db:
-        # 防呆：檢查是否已建過此標案
+        # 防呆：檢查是否已建過此標案（job_number 為空則跳過此比對，避免 ilike("%%")
+        # 誤命中任意案件；.first() 防同 job_number 多案時 scalar_one_or_none 崩潰）
         from sqlalchemy import select as sa_select
-        existing = (await db.execute(
-            sa_select(PMCase).where(
-                PMCase.notes.ilike(f"%{req.job_number}%")
-            )
-        )).scalar_one_or_none()
+        existing = None
+        if req.job_number and req.job_number.strip():
+            existing = (await db.execute(
+                sa_select(PMCase).where(
+                    PMCase.notes.ilike(f"%{req.job_number}%")
+                )
+            )).scalars().first()
         if existing:
             raise HTTPException(
                 status_code=409,

@@ -257,7 +257,12 @@ const TenderDetailPage: React.FC = () => {
                 budget: latest?.budget || undefined,
               });
               message.success(result.message);
-            } catch { message.error('建案失敗'); }
+            } catch (e) {
+              // 顯示後端實際訊息（如 409「此標案已建案: CK2026_PM_01_005」），
+              // 而非通用「建案失敗」→ 使用者知道是已建案非未知失敗。
+              const msg = (e as { message?: string })?.message;
+              message.error(msg || '建案失敗');
+            }
           }}>一鍵建案</Button>
         </Space>
       </div>
