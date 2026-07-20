@@ -1,7 +1,15 @@
 """
 桃園查估派工 - 統計資料 Schemas
 """
+from typing import Optional
+
 from pydantic import BaseModel, Field, ConfigDict
+
+
+class ProgressReportRequest(BaseModel):
+    """進度彙整請求（2026-07-20：由端點內移入 schemas SSOT）。"""
+    year: Optional[int] = Field(None, description="民國年度（如 115），預設當前年度")
+    contract_project_id: Optional[int] = Field(None, description="限定特定承攬案件")
 
 
 class ProjectStatistics(BaseModel):

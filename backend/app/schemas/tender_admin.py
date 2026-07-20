@@ -75,6 +75,11 @@ class SubscriptionUpdateRequest(BaseModel):
     notify_system: Optional[bool] = None
 
 
+class IdRequest(BaseModel):
+    """通用 id 請求（2026-07-20：取代 subscriptions.py 端點內臨時 IdReq 反模式）。"""
+    id: int
+
+
 class BookmarkCreateRequest(BaseModel):
     unit_id: str
     job_number: str

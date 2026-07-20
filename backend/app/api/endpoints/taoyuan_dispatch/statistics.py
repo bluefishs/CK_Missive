@@ -21,14 +21,9 @@ from app.core.dependencies import require_auth
 from app.extended.models import User
 from app.services.taoyuan import TaoyuanStatisticsService
 from app.services.ai.domain.dispatch_progress_synthesizer import DispatchProgressSynthesizer
+from app.schemas.taoyuan.statistics import ProgressReportRequest  # 2026-07-20 SSOT
 
 router = APIRouter()
-
-
-class ProgressReportRequest(BaseModel):
-    """進度彙整請求"""
-    year: Optional[int] = Field(None, description="民國年度（如 115），預設當前年度")
-    contract_project_id: Optional[int] = Field(None, description="限定特定承攬案件")
 
 
 def get_statistics_service(db: AsyncSession = Depends(get_async_db)) -> TaoyuanStatisticsService:

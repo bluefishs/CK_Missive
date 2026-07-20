@@ -11,6 +11,7 @@ from app.schemas.common import SuccessResponse
 from app.schemas.tender_admin import (
     BookmarkCreateRequest,
     BookmarkUpdateRequest,
+    IdRequest,
     SubscriptionCreateRequest,
     SubscriptionUpdateRequest,
 )
@@ -125,15 +126,12 @@ async def update_subscription(
 
 @router.post("/subscriptions/delete")
 async def delete_subscription(
-    req: BaseModel, db: AsyncSession = Depends(get_db),
+    req: IdRequest, db: AsyncSession = Depends(get_db),
 ):
     """刪除訂閱"""
     from app.extended.models.tender import TenderSubscription
 
-    class IdReq(BaseModel):
-        id: int
-    parsed = IdReq.model_validate(req.model_dump() if hasattr(req, 'model_dump') else {})
-    await db.execute(delete(TenderSubscription).where(TenderSubscription.id == parsed.id))
+    await db.execute(delete(TenderSubscription).where(TenderSubscription.id == req.id))
     await db.commit()
     return SuccessResponse(data={"deleted": True})
 
