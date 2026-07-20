@@ -14,14 +14,14 @@ from .common import (
     DispatchStatistics,
     PaymentStatistics,
 )
-from typing import Optional
-from pydantic import BaseModel, Field
-
 from app.core.dependencies import require_auth
 from app.extended.models import User
 from app.services.taoyuan import TaoyuanStatisticsService
 from app.services.ai.domain.dispatch_progress_synthesizer import DispatchProgressSynthesizer
-from app.schemas.taoyuan.statistics import ProgressReportRequest  # 2026-07-20 SSOT
+from app.schemas.taoyuan.statistics import (  # 2026-07-20 SSOT
+    MorningStatusRequest,
+    ProgressReportRequest,
+)
 
 router = APIRouter()
 
@@ -92,11 +92,6 @@ async def dispatch_progress_report(
         contract_project_id=params.contract_project_id,
     )
     return synthesizer.to_dict(report)
-
-
-class MorningStatusRequest(BaseModel):
-    """晨報追蹤請求"""
-    contract_project_id: Optional[int] = Field(None, description="限定承攬案件（None=全量）")
 
 
 @router.post("/dispatch/morning-status", summary="晨報追蹤 — 派工狀態")

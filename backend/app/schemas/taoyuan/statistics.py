@@ -12,6 +12,11 @@ class ProgressReportRequest(BaseModel):
     contract_project_id: Optional[int] = Field(None, description="限定特定承攬案件")
 
 
+class MorningStatusRequest(BaseModel):
+    """晨報追蹤請求（2026-07-20：由端點內移入 schemas SSOT）。"""
+    contract_project_id: Optional[int] = Field(None, description="限定承攬案件（None=全量）")
+
+
 class ProjectStatistics(BaseModel):
     """工程統計資料"""
     total_count: int = Field(..., description="總工程數")
