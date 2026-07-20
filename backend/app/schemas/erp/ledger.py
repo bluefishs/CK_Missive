@@ -19,6 +19,9 @@ class LedgerCreate(LedgerBase):
 
 class LedgerResponse(LedgerBase):
     id: int
+    # 2026-07-20 覆寫：response 讀既有資料，不套 create 的 gt=0 業務約束
+    #   （既有 0 元分錄會使 LedgerResponse 驗證失敗 → /erp/ledger/list 整列 400）。
+    amount: Decimal = Field(..., ge=0, max_digits=15, decimal_places=2, description="金額")
     ledger_code: Optional[str] = None
     user_id: Optional[int]
     source_type: str

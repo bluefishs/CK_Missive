@@ -60,13 +60,14 @@ const ERPInvoiceSummaryPage: React.FC = () => {
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const total = data?.total ?? 0;
 
-  // 統計
+  // 統計（2026-07-20：amount 由 API 回傳為字串〔Decimal 序列化〕，須 Number() 轉數字
+  //   否則 `0 + "222048.00"` 觸發字串串接 → 銷項總額變「0222048.0015750.00…」、淨額 NaN）
   const salesTotal = useMemo(
-    () => items.filter(i => i.invoice_type === 'sales').reduce((s, i) => s + (i.amount || 0), 0),
+    () => items.filter(i => i.invoice_type === 'sales').reduce((s, i) => s + Number(i.amount || 0), 0),
     [items],
   );
   const purchaseTotal = useMemo(
-    () => items.filter(i => i.invoice_type === 'purchase').reduce((s, i) => s + (i.amount || 0), 0),
+    () => items.filter(i => i.invoice_type === 'purchase').reduce((s, i) => s + Number(i.amount || 0), 0),
     [items],
   );
   const netAmount = salesTotal - purchaseTotal;
