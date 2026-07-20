@@ -122,8 +122,9 @@ const ERPLedgerPage: React.FC = () => {
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
-  const incomeSum = items.filter(i => i.entry_type === 'income').reduce((s, i) => s + (i.amount || 0), 0);
-  const expenseSum = items.filter(i => i.entry_type === 'expense').reduce((s, i) => s + (i.amount || 0), 0);
+  // 2026-07-20：amount 由 API 回字串（Decimal），須 Number() 轉數字防字串串接
+  const incomeSum = items.filter(i => i.entry_type === 'income').reduce((s, i) => s + Number(i.amount || 0), 0);
+  const expenseSum = items.filter(i => i.entry_type === 'expense').reduce((s, i) => s + Number(i.amount || 0), 0);
   const breakdownItems = breakdownData?.data ?? [];
 
   return (

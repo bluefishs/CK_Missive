@@ -215,7 +215,7 @@ const ERPEInvoiceSyncPage: React.FC = () => {
           <Col xs={12} sm={6}>
             <Statistic
               title="待核銷金額"
-              value={pendingItems.reduce((s, i) => s + (i.amount || 0), 0)}
+              value={pendingItems.reduce((s, i) => s + Number(i.amount || 0), 0)}
               precision={0}
             />
           </Col>
