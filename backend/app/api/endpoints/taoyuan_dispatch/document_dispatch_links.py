@@ -29,66 +29,18 @@ async def get_document_dispatch_links(
     """
     以公文為主體，查詢該公文關聯的所有派工單
     用於「函文紀錄」Tab 顯示已關聯的派工
+
+    2026-07-20 HH-1 收斂：委派 TaoyuanLinkService（消除端點內直 SQL + N+1）。
+    機關/乾坤函文號改用確定性 canonical 衍生（FK 主要公文優先、null 則最早 link），
+    治本原端點 `LIMIT 1 無 ORDER BY` 對 117 筆多 link 派工單顯示隨機文號的 bug。
     """
-    result = await db.execute(
-        select(TaoyuanDispatchDocumentLink)
-        .options(selectinload(TaoyuanDispatchDocumentLink.dispatch_order))
-        .where(TaoyuanDispatchDocumentLink.document_id == document_id)
-    )
-    links = result.scalars().all()
-
-    # 批次預載所有相關派工單的公文關聯（避免 N+1 查詢）
-    order_ids = [link.dispatch_order.id for link in links if link.dispatch_order]
-    order_doc_map: dict[int, dict[str, str | None]] = {}
-    if order_ids:
-        all_doc_links_result = await db.execute(
-            select(TaoyuanDispatchDocumentLink)
-            .options(selectinload(TaoyuanDispatchDocumentLink.document))
-            .where(TaoyuanDispatchDocumentLink.dispatch_order_id.in_(order_ids))
-        )
-        all_doc_links = all_doc_links_result.scalars().all()
-
-        for doc_link in all_doc_links:
-            if not doc_link.document:
-                continue
-            oid = doc_link.dispatch_order_id
-            if oid not in order_doc_map:
-                order_doc_map[oid] = {'agency': None, 'company': None}
-            if doc_link.link_type == 'agency_incoming' and not order_doc_map[oid]['agency']:
-                order_doc_map[oid]['agency'] = doc_link.document.doc_number
-            elif doc_link.link_type == 'company_outgoing' and not order_doc_map[oid]['company']:
-                order_doc_map[oid]['company'] = doc_link.document.doc_number
-
-    dispatch_orders = []
-    for link in links:
-        if link.dispatch_order:
-            order = link.dispatch_order
-            doc_nums = order_doc_map.get(order.id, {})
-
-            dispatch_orders.append({
-                'link_id': link.id,
-                'link_type': link.link_type,
-                'dispatch_order_id': order.id,
-                'dispatch_no': order.dispatch_no,
-                'project_name': order.project_name,
-                'work_type': order.work_type,
-                'sub_case_name': order.sub_case_name,
-                'deadline': order.deadline,
-                'case_handler': order.case_handler,
-                'survey_unit': order.survey_unit,
-                'contact_note': order.contact_note,
-                'cloud_folder': order.cloud_folder,
-                'project_folder': order.project_folder,
-                'agency_doc_number': doc_nums.get('agency'),
-                'company_doc_number': doc_nums.get('company'),
-                'created_at': order.created_at.isoformat() if order.created_at else None,
-            })
-
+    from app.services.taoyuan.link import TaoyuanLinkService
+    orders = await TaoyuanLinkService(db).get_document_dispatch_links(document_id)
     return {
         "success": True,
         "document_id": document_id,
-        "dispatch_orders": dispatch_orders,
-        "total": len(dispatch_orders)
+        "dispatch_orders": orders,
+        "total": len(orders),
     }
 
 

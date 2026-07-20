@@ -116,6 +116,36 @@ class TaoyuanLinkService:
     # 公文-派工關聯 (以公文為主體)
     # =========================================================================
 
+    async def _primary_or_earliest_doc_number(
+        self, order_id: int, primary_doc_id: Optional[int], link_type: str
+    ) -> Optional[str]:
+        """派工單機關/乾坤函文號 SSOT 衍生（2026-07-20 HH-1 收斂）。
+
+        語意（dispatch_import_service `if i==0: agency_doc_id=doc_id` 為據）：
+        agency_doc_id/company_doc_id ＝派工單「主要/首份」機關/乾坤公文（確定）。
+        → 優先取此 FK；若 null（未設主要公文）則 fallback 取該派工單**最早**（created_at
+        升序，確定性）該類型 link 的文號。取代舊端點 `LIMIT 1 無 ORDER BY`＝非確定性 bug
+        （117 筆多 link 派工單會隨機顯示不同文號）。
+        """
+        if primary_doc_id:
+            doc = await self._document_repo.get_by_id(primary_doc_id)
+            if doc:
+                return doc.doc_number
+        # fallback：最早該類型 link 的文號（確定性排序）
+        from sqlalchemy import select
+        from app.extended.models.taoyuan import TaoyuanDispatchDocumentLink
+        from app.extended.models.document import OfficialDocument
+        row = await self.db.execute(
+            select(OfficialDocument.doc_number)
+            .join(TaoyuanDispatchDocumentLink,
+                  TaoyuanDispatchDocumentLink.document_id == OfficialDocument.id)
+            .where(TaoyuanDispatchDocumentLink.dispatch_order_id == order_id,
+                   TaoyuanDispatchDocumentLink.link_type == link_type)
+            .order_by(TaoyuanDispatchDocumentLink.created_at.asc())
+            .limit(1)
+        )
+        return row.scalar_one_or_none()
+
     async def get_document_dispatch_links(
         self, document_id: int
     ) -> List[Dict[str, Any]]:
@@ -126,15 +156,11 @@ class TaoyuanLinkService:
         for link in links:
             if link.dispatch_order:
                 order = link.dispatch_order
-                # 取得關聯的機關/乾坤函文文號
-                agency_doc_number = None
-                company_doc_number = None
-                if order.agency_doc_id:
-                    agency_doc = await self._document_repo.get_by_id(order.agency_doc_id)
-                    agency_doc_number = agency_doc.doc_number if agency_doc else None
-                if order.company_doc_id:
-                    company_doc = await self._document_repo.get_by_id(order.company_doc_id)
-                    company_doc_number = company_doc.doc_number if company_doc else None
+                # 機關/乾坤函文號：FK 主要公文優先、null 則最早 link（確定性，HH-1 收斂）
+                agency_doc_number = await self._primary_or_earliest_doc_number(
+                    order.id, order.agency_doc_id, "agency_incoming")
+                company_doc_number = await self._primary_or_earliest_doc_number(
+                    order.id, order.company_doc_id, "company_outgoing")
 
                 dispatch_orders.append({
                     'link_id': link.id,
