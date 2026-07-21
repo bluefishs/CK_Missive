@@ -69,8 +69,26 @@ python -m build --wheel        # 產出 dist/ck_auth-X.Y.Z-py3-none-any.whl
 
 ---
 
-## E. 已驗證 / 待辦
+## E. Host dev/test 環境對等（重要）
 
-- ✅ Phase 0 spike：ck-auth 0.1.0 skeleton（`ping()`）過 Docker、CK_Missive 容器 import 成立。
-- ⏳ Phase 1：ck-auth 併入 rotation/session/refresh-SSO-fallback + AsyncAuthAdapter/SyncAuthAdapter；Missive(async)+lvrland(sync) 改 import。
-- ⏳ Phase 2：version_skew gate + conformance test。
+import 式套件需在**每個跑該碼的環境**安裝——容器（vendored wheel）+ **host dev/test**：
+```bash
+pip install -e shared-modules/ck-auth-py   # host 上 editable 安裝，讓 pytest/py 執行能 import ck_auth
+```
+未裝則 host 跑測試會 `ModuleNotFoundError: No module named 'ck_auth'`（shim 已 import ck_auth.sso）。
+新成員 onboarding / CI runner 皆須此步。
+
+## F. DigitalTunnel 例外（驗證優先於收斂）
+
+DT 的 `api/src/auth/ck_sso.py` 用 **`jose`**（非 PyJWT），**刻意分歧**（避免 DT 額外引入
+PyJWT 與既有 jose 衝突，見該檔 header）。→ **不強制收斂**進 ck_auth.sso（PyJWT-based）。
+若未來要統一：需 ck_auth.sso 抽象化 JWT 後端（支援兩庫），或 DT 改用 PyJWT。目前 DT 維持自有。
+
+## G. 已驗證 / 待辦
+
+- ✅ Phase 0 spike：vendored-wheel import 式過 Docker（ck-auth 0.1.0）。
+- ✅ Phase 1（Missive）：ck_sso（JWT/JWKS 驗證，329 行）遷入 ck_auth.sso 0.2.0；Missive `app/core/ck_sso.py` 降 shim；auth 測試綠、live 401/health 200。
+- ⏳ Phase 1 rollout（lvrland/pile）：ck_sso 與 Missive **md5 相同** 可同型改 shim；**各需自身 Dockerfile 加 vendored wheel + rebuild**（lvrland 有 Dockerfile/.dev/.prod、pile context=repo root，須逐一審慎，非急推）。
+- ⏳ Phase 1 深化：rotation/session/refresh-SSO-fallback + AsyncAuthAdapter/SyncAuthAdapter 併入（解 async/sync 缺口 D）。
+- ⏳ Phase 2：version_skew gate + conformance test（待 ≥2 consumer）。
+- ⏳ Phase 3：前端 `@ck-shared/tokens`。
