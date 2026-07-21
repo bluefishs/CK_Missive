@@ -80,6 +80,7 @@
 | **paths.py sub-path vs compose mount** | **`paths_subpath_mount_audit.py`**（L57 新增）| **step 69** |
 | **Repository ↔ db_table 命名對應** | **`repository_coverage_audit.py`**（v6.12 A+C 智能匹配，5/31）| **step 70** |
 | **SSO session TTL 跨 repo（I10）** | **`sso_ttl_ssot_audit.py`**（L80 新增，7/21；跨讀 CK_Website callback.ts + Missive config）| **step 71（待接 run_fitness）** |
+| **Tier 1 共享套件版本偏移（L80 模組化 Phase 2）** | **`tier1_shared_package_audit.py`**（7/22；跨 repo ck-auth vendored wheel 版本對齊 + ck_sso 消費模式 shim/copy）| **step 70（已接 run_fitness）** |
 
 **強制**：新增任一跨檔資源類型，**必須**同時新增對應的 audit script + 接進 `run_fitness.sh`。
 

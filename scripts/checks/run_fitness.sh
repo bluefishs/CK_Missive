@@ -1046,8 +1046,15 @@ echo ""
 # 性質: 行為層 SSOT——讀 cron_events detail，抓 producer「報 success 但 0 產出且非
 #       合理原因」（AI 自我檢核，不等人看症狀）。cron 版整合於 cron_outcome_freshness。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[69/69] producer output watchdog (沉默成功偵測, 行為層自我檢核)${NC}"
+echo -e "${CYAN}[69/70] producer output watchdog (沉默成功偵測, 行為層自我檢核)${NC}"
 PYTHONIOENCODING=utf-8 python scripts/checks/producer_output_watchdog.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+echo ""
+
+# ----------------------------------------------------------------------------
+# Tier 1 共享套件版本偏移 gate（Phase 2 / L80）— 模組化「執行強制」，防「一次修全同步」破功
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[70/70] tier1 shared package version skew (ck-auth 跨 consumer 版本對齊 / L80)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/tier1_shared_package_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
