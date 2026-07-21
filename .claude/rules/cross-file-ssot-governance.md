@@ -50,6 +50,7 @@
 | **Container sub-path (BACKEND_DIR/LOGS_DIR 等)** | **paths.py sub-path 變數 + docker-compose mount target 對齊**（L57 新增）| **shadow_logger 用 BACKEND_DIR/logs 但 mount 是 /app/logs → silent fail** |
 | **Repository ↔ db_table 命名對應**（v6.12 step 70 新增 5/31）| **每個 model 必有對應 `<table_singular>_repository.py`**（A+C 規範+智能 audit）| **document_attachments → attachment_repository（非 document_attachments_repository）違反 SSOT，step 70 揭發 58% 覆蓋率** |
 | **任務→模型映射 TASK_MODEL_MAP**（L64 子案 B 新增 6/3）| **`ai_connector.py TASK_MODEL_MAP` 為唯一映射；OLLAMA_*_MODEL env 覆蓋** | **新增 task_type 若 fallback 會落本地 Ollama，本地模型須夠快（< 該 task timeout budget），否則 cloud 失敗即 silent 超時。`synthesis`/`vision` 漏映射 → 落 qwen2.5:7b(p50 52.8s) → 35s 必超時／圖片送純文字模型 silent 退 QR** |
+| **SSO session 存活期 TTL**（I10/L80 新增 7/21，跨 repo）| **策略值單一：IdP `ck_employee` cookie TTL >= 消費端 SSO session TTL**；三處＝IdP `CK_Website/functions/auth/callback.ts`（signJWT+Max-Age）／消費端 `SSO_ACCESS_TOKEN_EXPIRE_MINUTES`（各子系統 config）／前端 idle timeout（活動制，獨立不比較） | **消費端 session TTL 若 > IdP cookie TTL → session 過期時 IdP cookie 已先失效、P1 refresh 無痛續命失憑證 → 使用者被迫重登。現況 drift：IdP 4h < Missive 8h（建議 IdP callback.ts 對齊 8h，影響全 SSO 平臺、需 CF Pages 部署）** |
 
 **禁止**：
 - 同一 secret 寫在多個 .env / config 檔
@@ -78,6 +79,7 @@
 | **paths.py vs compose mount** | **`paths_compose_mount_audit.py`**（L52 新增）| **step 62** |
 | **paths.py sub-path vs compose mount** | **`paths_subpath_mount_audit.py`**（L57 新增）| **step 69** |
 | **Repository ↔ db_table 命名對應** | **`repository_coverage_audit.py`**（v6.12 A+C 智能匹配，5/31）| **step 70** |
+| **SSO session TTL 跨 repo（I10）** | **`sso_ttl_ssot_audit.py`**（L80 新增，7/21；跨讀 CK_Website callback.ts + Missive config）| **step 71（待接 run_fitness）** |
 
 **強制**：新增任一跨檔資源類型，**必須**同時新增對應的 audit script + 接進 `run_fitness.sh`。
 

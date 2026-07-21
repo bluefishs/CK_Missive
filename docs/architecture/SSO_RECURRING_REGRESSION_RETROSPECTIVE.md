@@ -133,22 +133,27 @@ SSO 反覆回歸 = **兩層結構性缺口的交集**，任何只修單層的 co
 - refresh replay **5s 併發寬限**（`REFRESH_REPLAY_GRACE_SECONDS`）→ 不再誤殺全 session（I9 部分）。
 - regression 6/6 + 既有 auth 51 全綠；兩參數 config 可逆。
 
-### 🔷 P1 後端根治「無痛續命」（推薦，最小前端動）— 落實 I7/I8/I11
-1. **`/api/auth/refresh` 對 SSO 回退重鑄**：refresh_token 失效但**帶有效 `ck_employee` SSO cookie** 時，伺服端等同 sso-bridge 重鑄 token 回 200 → **沿用既有 interceptor「refresh 成功→重試原請求」線路**，無 reload、無資料丟失。
-2. **stateful 檢查對剛 rotation 的 jti 加 grace**（I8）：`get_current_user_from_token` 對「revoked_at 在 N 秒內」的 jti 仍放行，讓在途請求不被 rotation 秒殺。
-3. **session.expires_at 對齊續命窗口**（I11）：SSO session 存活期 = 可 re-bridge 窗口，不再綁 access TTL。
+### ✅ P1 後端根治「無痛續命」（2026-07-21 交付 `refresh SSO fallback`）— 落實 I7
+1. **`/api/auth/refresh` 對 SSO 回退重鑄** ✅：refresh_token 失效但**帶有效 `ck_employee` SSO cookie** 時，`try_mint_session_from_sso_cookie` 伺服端等同 sso-bridge 重鑄 token 回 200 → **沿用既有 interceptor「refresh 成功→重試原請求」線路**，無 reload、無資料丟失。（`sso_bridge.py` helper + `session.py` refresh；regression 6/6）
+2. **session.expires_at 對齊 SSO TTL**（I11）✅：P0 已讓 SSO session 存活期 = access TTL(8h)；SSO 過期後 refresh 恆走 SSO fallback 重鑄。
+3. **stateful 檢查對剛 rotation 的 jti 加 grace**（I8）— **審慎 defer**：會修改每請求最熱路徑且讓 logout 撤銷延遲 N 秒（弱化登出安全）；而 P1 + 前端既有 `isRefreshing` 佇列已覆蓋主案（instance A 併發請求序列化後用新 token 重試）。殘留（instance B/raw fetch stale-jti）改由 P3 統一實例處理。若未來實測仍有殘留 401 再評估以「rotation-revoke 專屬標記」實作（不弱化 logout）。
 
-### 🔷 P2 跨 repo TTL SSOT（I10）
-- 對齊 IdP `ck_employee`（現 4h）、Missive SSO session（現 8h）、idle timeout（現 60min 活動制）為一致策略值，寫入 `cross-file-ssot-governance.md` + 新增 audit（同 volume/network SSOT 三件套）。**選一個值**：建議 IdP cookie 與消費端 session 同為 8h（IdP 端 `callback.ts` Max-Age 4h→對齊），idle 維持活動制。
+### ✅ P2 跨 repo TTL SSOT（I10）— 2026-07-21 治理登記 + audit 交付
+- 新增 `scripts/checks/sso_ttl_ssot_audit.py`：跨讀 IdP `callback.ts` Max-Age + Missive `SSO_ACCESS_TOKEN_EXPIRE_MINUTES`，drift → YELLOW（現況正確標出 IdP 4h < Missive 8h）。
+- `cross-file-ssot-governance.md` 新增「SSO session TTL 跨 repo」資源 + audit 登記（規則三件套）。
+- **待 owner 決策（跨平臺影響，未擅改）**：IdP `CK_Website/functions/auth/callback.ts` 的 `signJWT`(HS/RS) + cookie `Max-Age` 4h→8h 對齊消費端；此改影響**全 SSO 平臺**（missive/lvrland/pile），需 CF Pages 部署。
 
-### 🔷 P3 前端單點收斂（完成 I1/I4/I6）
-- 移除 `authService.isAuthenticated()` 第二套真相，全部改讀 `sessionStore.status`。
-- 破壞性清除 3 份 + redirect 多份 → 收歸**單一 `teardown()`**（I4）。
-- 實例 B（authService）與 raw fetch → 共用主攔截器或統一 401 handler（I6）。
-- interceptor `believedAuthed` refresh 失敗分支 → **in-place re-bridge（不 reload）+ 重試原請求**（I7 前端側），mutation 不再白填。
+### ⏸ P3 前端單點收斂（I1/I4/I6）— 備妥，**建議 owner 驗證後增量施作，非本輪 blind deploy**
+> **P1 已使前端無需改動即修復白填**（refresh 現對 SSO 回 200 → 既有重試線路透明復原）。故 P3 為**風險降低**而非修 bug，且屬 L78 反覆回歸雷區、headless 無法 e2e 驗。建議按 §7 兩層驗證協定、owner 真人複驗下**增量**施作：
+- 破壞性清除 2 份 inline（`interceptors.ts:386-388/:413-415`）+ `authService.clearAuth` → 收歸單一 `teardown()`（I4）。
+- 移除 `authService.isAuthenticated()` 第二套真相（`useIdleTimeout`/`useAuthGuard.checkAuth`/`EntryPage`）改讀 `sessionStore.status`（I1）。
+- 實例 B / raw fetch（digitalTwin/ai/xlsx）統一經主攔截器或共用 401 handler（I6）。
+- 每步後跑 `tsc` + `auth_state_ssot_audit`（step 64）+ sessionStore/useAuthGuard 測試 + **owner 瀏覽器驗 §7 衰變狀態**才 build 部署。
 
-### 🔷 P4 跨專案落地（見 §9）
-- pile 補 I2+I3（最高風險）、lvrland 補 client.ts Rule C；audit step 64 + Rule C/D 移植兩專案。
+### ⏸ P4 跨專案落地（見 §9）— 明確方案備妥，各 repo 需自身部署+驗證
+- **pile**（最高同型風險）：`client.ts` 401 分支 5 處 `logout()` 補 `status==='anonymous'` 守衛（I2/Rule C）；`client.ts:258-262` bridge `location.replace` 前先持久化 user_info（I3/Rule D）；建議改用 vendored ck-sso-js。
+- **lvrland**：`client.ts` 401 circuit-breaker 收攏到 anonymous 守衛（Rule C）；bridge/I3 已合規。
+- 兩專案移植 `auth_state_ssot_audit.cjs`（step 64 + Rule C/D）納各自 fitness。
 
 ---
 
