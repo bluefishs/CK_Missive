@@ -27,6 +27,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --use-deprecated=legacy-resolver -r requirements.linux.txt && \
     pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.6.0 torchvision==0.21.0
 
+# Tier 1 共享套件（vendored wheels）— 模組化 import 式單一源，取代 copy vendoring。
+# 見 docs/architecture/MODULARIZATION_CROSS_PROJECT_STRATEGY.md。wheel 隨 repo 版控、
+# 版本釘選；改共享套件＝rebuild wheel + bump 版本，一次修全 consumer 同步。
+COPY vendor/ ./vendor/
+RUN pip install --no-cache-dir ./vendor/*.whl
+
 # Stage 2: Runner
 FROM python:3.11-slim
 
