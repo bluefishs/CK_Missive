@@ -203,3 +203,9 @@ backup/incident_*/*.sql.gz
 scripts/checks/sso_race_repro.png
 scripts/checks/sso_entry_smoke.png
 backups/code_graph_prune/
+
+# Codex CLI 本地配置（AGENTS.md 為 CLAUDE.md 鏡像；避免第二份會漂移的配置入版控，2026-07-21）
+# CLAUDE.md 為唯一 SSOT；如需 Codex 平價再改為手動同步入版控
+AGENTS.md
+.codex/
+.agents/

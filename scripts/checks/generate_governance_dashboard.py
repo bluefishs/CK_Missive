@@ -182,6 +182,10 @@ def _existing_section_body(section_header: str) -> list[str]:
             continue
         if capturing:
             body.append(ln)
+    # 剝除前次 append 的 clobber 保留註記，避免每日容器 regenerate 累加重複行
+    # （host 端上次 regenerate 後，容器 cron 每日跑一次即多一行 → 一個月累積數十行）
+    _note_markers = ("L73 非 clobber", "容器內無 git", "容器內無 ~/.claude memory")
+    body = [ln for ln in body if not any(mk in ln for mk in _note_markers)]
     while body and not body[0].strip():
         body.pop(0)
     while body and not body[-1].strip():
