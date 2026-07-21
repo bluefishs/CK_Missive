@@ -46,6 +46,42 @@ router = APIRouter()
 SYSTEM_NAME = "missive"
 
 
+async def try_mint_session_from_sso_cookie(request: Request, db: AsyncSession):
+    """非 raising 的 SSO session 重鑄（I7 無痛續命）。
+
+    帶有效 ck_employee / ck_employee_rs SSO cookie 時，等同 sso-bridge 重鑄一個
+    SSO session（8h TTL）並回傳 TokenResponse；任一前置條件不足則回 None（不 raise），
+    供 `/api/auth/refresh` 在 refresh_token 失效時**就地續命**：refresh 回 200 → 前端
+    既有「refresh 成功→重試原請求」線路即可透明復原，無整頁 reload、無存檔白填（L80）。
+
+    與 sso_bridge endpoint 的差異：本函式為 fallback、不 raise、不做 audit（refresh
+    高頻，成功另有 LOGIN_SUCCESS 記錄；失敗靜默回 None 由呼叫端決定）。守衛順序與
+    endpoint 一致（flag→secret→cookie→verify→missive 權限→user 存在→active）。
+    """
+    if not getattr(settings, "CK_SSO_ENABLED", False):
+        return None
+    secret = getattr(settings, "CK_SSO_JWT_SECRET", None)
+    if not secret:
+        return None
+    if not request.cookies.get("ck_employee") and not request.cookies.get("ck_employee_rs"):
+        return None
+    jwks_url = getattr(settings, "CK_SSO_JWKS_URL", "https://www.cksurvey.tw/.well-known/jwks.json")
+    employee = verify_ck_sso_jwt_auto(cookies=dict(request.cookies), secret=secret, jwks_url=jwks_url)
+    if employee is None or not has_system_permission(employee, SYSTEM_NAME):
+        return None
+    user: Optional[User] = await AuthService.get_user_by_email(db, employee.email)
+    if user is None or not user.is_active:
+        return None
+    ip_address, user_agent = get_client_info(request)
+    token_response = await AuthService.generate_login_response(
+        db, user, ip_address, user_agent,
+        is_refresh=True,
+        access_token_ttl_minutes=settings.SSO_ACCESS_TOKEN_EXPIRE_MINUTES,
+    )
+    logger.info("[REFRESH-SSO-FALLBACK] refresh_token 失效但 SSO cookie 有效，就地重鑄成功: %s", user.email)
+    return token_response
+
+
 @router.post(
     "/sso-bridge",
     summary="SSO Bridge — 用 www.cksurvey.tw 的 ck_employee cookie 建立 Missive session",

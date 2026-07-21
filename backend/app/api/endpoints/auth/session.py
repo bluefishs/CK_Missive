@@ -26,6 +26,7 @@ from app.extended.models import User
 from app.services.audit import AuditService
 
 from .common import get_client_info, get_current_user
+from .sso_bridge import try_mint_session_from_sso_cookie
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -54,27 +55,25 @@ async def refresh_token(
     else:
         token_value = request.cookies.get("refresh_token")
 
-    if not token_value:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="未提供刷新令牌",
-            headers={"WWW-Authenticate": "Bearer"},
+    user = await AuthService.verify_refresh_token(db, token_value) if token_value else None
+
+    if user:
+        ip_address, user_agent = get_client_info(request)
+        token_response = await AuthService.generate_login_response(
+            db, user, ip_address, user_agent, is_refresh=True
         )
-
-    user = await AuthService.verify_refresh_token(db, token_value)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="無效或過期的刷新令牌",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    ip_address, user_agent = get_client_info(request)
-
-    token_response = await AuthService.generate_login_response(
-        db, user, ip_address, user_agent, is_refresh=True
-    )
+    else:
+        # I7 無痛續命（L80）：refresh_token 缺失/失效，但帶有效 ck_employee SSO cookie →
+        # 就地重鑄 SSO session（等同 sso-bridge，8h）。前端既有「refresh 成功→重試原請求」
+        # 線路即可透明復原，無整頁 reload、無存檔白填。SSO 過期後 refresh 恆走此路（其
+        # refresh_token 隨 8h session 一同失效）。非 SSO 或無有效 cookie → 維持原 401。
+        token_response = await try_mint_session_from_sso_cookie(request, db)
+        if token_response is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未提供刷新令牌" if not token_value else "無效或過期的刷新令牌",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     # 建立 JSONResponse 以便同時設定 cookies
     response = JSONResponse(
