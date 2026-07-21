@@ -471,6 +471,18 @@
 
 ---
 
+## L80 — SSO 反覆回歸的底層＝「後端 token 生命週期層」：SSO 沒有可用的透明 refresh 路徑（前端不變式救不了 / 2026-07-21）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 編輯派工作業紀錄途中存檔 401「無效的認證憑證」白填；再問「多次修復仍有問題」。此前 7 週 10 次 SSO commit（L44/L66/L74/L78）全在**前端狀態機層**打轉仍反覆回歸。 |
+| **Cause** | **反覆回歸是「兩層缺口的交集」，歷次只修 Layer 1**。Layer 2（後端 token 生命週期）從未被記錄：SSO **根本沒有無痛續命路徑**——四重疊加：①access token 與 `session.expires_at` 都綁同一 TTL（原 60min）→ 7 天 refresh cookie 被短 session 廢掉、過 TTL 後 refresh 對誰都必 401；②業務請求 stateful（每請求查 `user_sessions`）→ rotation 撤舊 session 瞬間、舊 token 即使 JWT 未過期也立刻失效；③rotation × 併發 × **雙 axios 實例各一把 isRefreshing 鎖** → 舊 token 二次用觸發 replay → 撤全 session → 401 風暴；④唯一復原 sso-bridge 是 `location.replace` 整頁跳轉丟失編輯，前端 `believedAuthed` 分支又直接 throw 不重試。另有跨 repo TTL 無 SSOT（IdP cookie 4h / Missive SSO 8h / idle 60min 三值不一致）。 |
+| **Fix** | P0 止血（`0062769f`）：SSO access/session TTL 60min→8h（`SSO_ACCESS_TOKEN_EXPIRE_MINUTES`，僅 sso-bridge、local login 不弱化）+ refresh replay 5s 併發寬限（`REFRESH_REPLAY_GRACE_SECONDS`，不再誤殺全 session）；regression 6/6 + 既有 auth 51 綠、config 可逆。根治 P1-P4 路線見 retrospective §6。 |
+| **Prevention** | (a) 後端五不變式 **I7–I11**（無痛續命 / 剛 rotation 的 jti 有 grace / rotation 併發寬限 / 跨 repo session TTL 單一 SSOT / session 存活期不被更短相依值廢掉），入 `SSO_RECURRING_REGRESSION_RETROSPECTIVE.md` v2。(b) 驗證協定新增 Layer 2 衰變狀態「編輯途中 token 過期存檔仍成功 / 併發不觸發全 session 撤銷」。(c) 建議 audit Rule E（跨檔三 TTL 一致）+ Rule F（raw fetch 無 session 守衛）。 |
+| **Refs** | `docs/architecture/SSO_RECURRING_REGRESSION_RETROSPECTIVE.md` v2（兩層模型 + I1–I11）/ commit `0062769f` / `backend/tests/unit/test_sso_token_ttl_and_replay_grace_regression.py` / 疊加於 L74+L78（前端層）、L41（JWT 驗證）、L68（CSRF↔refresh） |
+
+---
+
 ## L79 — Session 收尾不完整＝功能「存在於硬碟但不存在於系統」：寫好＋測試綠 ≠ commit ≠ 部署（2026-07-08）
 
 | 欄位 | 內容 |
