@@ -211,6 +211,27 @@ SSO 反覆回歸 = **兩層結構性缺口的交集**，任何只修單層的 co
 
 ---
 
+## 11. 模組化缺口與標準化路線（回應「為何無法同步修正」，2026-07-21）
+
+owner 觀察「相同機制無法模組化 → 無法同步修正與標準化」＝準確。P1 修法要**手動搬 4 個 repo**，暴露三層缺口：
+
+| 缺口 | 現況 | 後果 |
+|---|---|---|
+| **① copy 式 vendoring 非 import** | `ck-sso-py` 用 `install.sh` 把 `sso_bridge.py.template`（`__SYSTEM_NAME__` 佔位）**複製**進各 repo（有 `toolkit_sync_audit`/`manifest_drift_audit` 偵測漂移） | 改範本**不自動傳播**，每 repo 要重跑 install 才同步 |
+| **② refresh 端點未範本化** | 範本**只含 sso_bridge**；refresh + 接線散在各 repo 自己 auth.py | helper 可進範本，但「從 refresh 呼叫」的接線因各 repo 結構不同（async/sync、回應 shape、cookie helper）無法範本化 |
+| **③ AuthService 完全 per-repo** | rotation/session/token 綁死各 repo User model + DB session（async vs sync） | 連「共享」sso_bridge 都得分 async/sync 兩範本 |
+
+**已做（本輪）**：把 `try_mint_session_from_sso_cookie` 加進**兩範本＝單一源**（ck-sso-py v1.1）；4 repo 各自 vendored + 接線 + live 驗證。這讓**修法本體標準化**，但**接線仍 per-repo**。
+
+**標準化路線（漸進，非一次到位）**：
+1. **短期**：範本 = 修法單一源（已達）；install.sh + drift audit（step 33/34）enforce 各 repo 不漂移；「refresh 接線」列為 manifest 必辦 consumer 步驟。
+2. **中期**：把「refresh 接線」抽成範本片段（consumer 貼上），或 `refresh.py.template` 變體；新增 `sso_ttl_ssot_audit`（step 71）跨 repo 對齊 TTL。
+3. **長期（真治本）**：把 ck-sso-py + ck-auth 轉為**可 `pip install` 的套件（import 非 copy）**，各 repo import 同一版本 → 一次修法版本 bump 即全傳播。**前提＝解 ③**：AuthService 抽象出 `User`/`Session` port（async+sync adapter），這是最難但唯一能「一次修、全同步」的路。memory 記 ck-auth v2.0 portability 87%（lvrland 83%/pile 91%）已是此方向的起點，**未完成採用是「無法同步」的真根因**。
+
+> **一句話**：模組化做在「copy/template」層（務實避免跨 repo runtime 耦合），代價就是失去自動同步；要真正「一次修、全標準化」，必須把最深的 AuthService（session/token/rotation）抽成 import 式套件 + port/adapter 解 async/sync 耦合——這是 ck-auth 未竟的最後一哩。
+
+---
+
 ## 10. 一句話總結（v2）
 
 > **SSO 反覆回歸 ＝ 兩層結構性缺口的交集：Layer 1「乾淨登入 vs 帶殘留復原」是兩套路徑、後者多入口且散落破壞性副作用；Layer 2「SSO 對後端根本沒有無痛續命路徑」（stateful session + rotation 併發互殺 + 唯一復原是整頁 reload + 跨 repo TTL 無 SSOT）。歷次只修 Layer 1 的某一條復原分支、又只在無痕驗 happy path，於是明日換個衰變狀態就走到另一條沒修的路。治本 ＝ 兩層共同設計：前端六不變式（I1–I6）＋ 後端五不變式（I7–I11：無痛續命 / rotation 併發寬限 / 跨 repo session TTL 單一 SSOT）＋ 直掃基礎設施內部的 audit ＋ 覆蓋兩層衰變狀態的真人驗證協定。**
