@@ -323,10 +323,16 @@ async def validation_exception_handler(
     details = []
     for error in exc.errors():
         field = ".".join(str(loc) for loc in error["loc"] if loc != "body")
+        # 2026-07-22 修：malformed body（非 JSON）時 pydantic error["input"] 可能是 raw
+        # bytes，直接放進 detail 會讓 JSONResponse 序列化爆 500（TypeError: bytes not
+        # JSON serializable）→ 應回 422。bytes/bytearray 先解碼為 str。
+        _input = error.get("input")
+        if isinstance(_input, (bytes, bytearray)):
+            _input = _input.decode("utf-8", "replace")
         details.append({
             "field": field,
             "message": error["msg"],
-            "value": error.get("input")
+            "value": _input
         })
 
     logger.warning(
