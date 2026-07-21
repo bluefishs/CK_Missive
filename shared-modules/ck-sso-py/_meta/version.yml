@@ -1,9 +1,9 @@
 # ck-sso-py version metadata
 package: ck-sso-py
-version: 1.0.0
-release_date: 2026-05-21
+version: 1.1.0
+release_date: 2026-07-21
 source_repo: CK_Missive
-fqid: CK_Missive#ck-sso-py_v1.0
+fqid: CK_Missive#ck-sso-py_v1.1
 status: production-ready
 real_installations:
   - repo: CK_Missive
@@ -14,6 +14,14 @@ real_installations:
     notes: "L41 6 天 dormant 後 owner real E2E PASS"
 
 changelog:
+  - version: 1.1.0
+    date: 2026-07-21
+    changes:
+      - "兩範本(async+sync sso_bridge)新增 try_mint_session_from_sso_cookie helper（I7 無痛續命 / L80）"
+      - "解 SSO token 過期→refresh 必 401→存檔白填：refresh_token 失效但帶有效 ck_employee cookie 時就地重鑄"
+      - "⚠️ Consumer 必辦接線（範本無法涵蓋）：各 repo refresh 端點 verify_refresh_token 回 None 時改呼叫 helper"
+      - "已 vendored+驗證：CK_Missive(async, b4722a21)、CK_lvrland(sync, refresh 無cookie 401 非 500)"
+      - "待 vendored：CK_DigitalTunnel、CK_PileMgmt"
   - version: 1.0.0
     date: 2026-05-21
     changes:
