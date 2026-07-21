@@ -81,6 +81,13 @@ class Settings(BaseSettings):
     # =========================================================================
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # 2026-07-21 止血：SSO 登入（公網主要用戶）的 access token / session 存活期單獨拉長，
+    # 降低編輯途中 token 過期→refresh 失敗→存檔白填的頻率（L74/L78 家族）。
+    # 僅套用於 sso-bridge 鑄的 token；local login 維持 ACCESS_TOKEN_EXPIRE_MINUTES 不弱化。
+    SSO_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8h（可經 env 覆蓋回滾）
+    # refresh token rotation 併發寬限期：近 N 秒內剛被 rotation 撤銷的 token 二次使用
+    # 判為「併發 refresh 誤觸」而非 replay 攻擊 → 不撤銷該用戶全部 session（防 401 風暴）。
+    REFRESH_REPLAY_GRACE_SECONDS: int = 5
 
     # =========================================================================
     # 開發模式選項

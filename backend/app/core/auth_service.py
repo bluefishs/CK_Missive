@@ -389,10 +389,16 @@ class AuthService:
         token_jti: str,
         refresh_token: str,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
+        expires_minutes: Optional[int] = None,
     ) -> UserSession:
-        """建立使用者會話"""
-        expires_at = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        """建立使用者會話
+
+        expires_minutes: session（backing refresh_token 驗證）存活期；None → 預設 60min。
+        SSO 登入傳入較長值（8h），讓 refresh 於該期間仍可驗證、避免 7 天 cookie 被 60min session 廢掉。
+        """
+        ttl_minutes = expires_minutes if expires_minutes is not None else ACCESS_TOKEN_EXPIRE_MINUTES
+        expires_at = datetime.utcnow() + timedelta(minutes=ttl_minutes)
         
         session = UserSession(
             user_id=user.id,
@@ -466,7 +472,19 @@ class AuthService:
             )
             replay_session = replay_result.scalar_one_or_none()
             if replay_session:
-                # 已撤銷的 token 被重複使用 → 可能被竊取
+                # 2026-07-21 併發寬限期：近 REFRESH_REPLAY_GRACE_SECONDS 秒內剛被 rotation
+                # 撤銷的 token 又被送來 → 判為「併發 refresh 誤觸」（雙 axios 實例/多請求同時撞
+                # 401 各自 refresh），非 token 竊取。只讓此請求失敗、不撤該用戶全部 session，
+                # 避免 401 風暴把正在工作的 owner 整個踢掉（L74/L78 家族）。
+                grace = timedelta(seconds=settings.REFRESH_REPLAY_GRACE_SECONDS)
+                revoked_at = replay_session.revoked_at
+                if revoked_at is not None and (datetime.utcnow() - revoked_at) <= grace:
+                    logger.warning(
+                        f"[AUTH] Refresh token 併發重用（寬限期內 {settings.REFRESH_REPLAY_GRACE_SECONDS}s，"
+                        f"判為併發非攻擊）: user_id={replay_session.user_id}, jti={replay_session.token_jti}"
+                    )
+                    return None
+                # 逾寬限期的已撤銷 token 被重複使用 → 可能被竊取
                 logger.critical(
                     f"[AUTH] Refresh token replay detected! "
                     f"user_id={replay_session.user_id}, jti={replay_session.token_jti}"
@@ -719,17 +737,21 @@ class AuthService:
         user: User,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
-        is_refresh: bool = False
+        is_refresh: bool = False,
+        access_token_ttl_minutes: Optional[int] = None,
     ) -> TokenResponse:
         """
         生成登入回應包含令牌和使用者資訊
 
         Args:
             is_refresh: True 表示由 refresh token 觸發，不更新 login_count
+            access_token_ttl_minutes: 覆寫 access token / session 存活期（分鐘）；
+                None → 預設 ACCESS_TOKEN_EXPIRE_MINUTES(60min)。SSO 登入傳 8h 止血。
         """
+        ttl_minutes = access_token_ttl_minutes if access_token_ttl_minutes is not None else ACCESS_TOKEN_EXPIRE_MINUTES
         # 生成令牌
         jti = AuthService.generate_token_jti()
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(minutes=ttl_minutes)
 
         access_token = AuthService.create_access_token(
             data={"sub": str(user.id), "email": user.email},
@@ -739,9 +761,10 @@ class AuthService:
 
         refresh_token = AuthService.create_refresh_token()
 
-        # 建立會話
+        # 建立會話（session 存活期對齊 token TTL，避免長 token 被短 session 廢掉）
         await AuthService.create_user_session(
-            db, user, jti, refresh_token, ip_address, user_agent
+            db, user, jti, refresh_token, ip_address, user_agent,
+            expires_minutes=ttl_minutes,
         )
 
         # 僅在正式登入時更新登入次數（refresh 不算新登入）
@@ -754,7 +777,7 @@ class AuthService:
         return TokenResponse(
             access_token=access_token,
             token_type="bearer",
-            expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            expires_in=ttl_minutes * 60,
             refresh_token=refresh_token,
             user_info=UserResponse.model_validate(user)
         )

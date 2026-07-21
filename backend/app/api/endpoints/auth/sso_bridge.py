@@ -183,8 +183,11 @@ async def sso_bridge(
     await db.refresh(user)
 
     # 8. 建立 Missive session + 發 access/refresh token（重用既有邏輯）
+    #    2026-07-21 止血：SSO 用戶 access token / session TTL 拉長為 SSO_ACCESS_TOKEN_EXPIRE_MINUTES(8h)，
+    #    降低編輯途中過期→refresh 失敗→存檔白填（L74/L78）。local login 不受影響。
     token_response = await AuthService.generate_login_response(
-        db, user, ip_address, user_agent
+        db, user, ip_address, user_agent,
+        access_token_ttl_minutes=settings.SSO_ACCESS_TOKEN_EXPIRE_MINUTES,
     )
 
     await AuditService.log_auth_event(
