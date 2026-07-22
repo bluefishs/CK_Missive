@@ -53,7 +53,11 @@ def main() -> int:
     idp_status = "SKIP（CK_Website 不在 ../CK_Website）"
     cb = CK_WEBSITE / "functions/auth/callback.ts"
     if cb.exists():
-        idp_sec = _grep_int(cb, r"ck_employee=\$\{jwtHS\}[^`]*Max-Age=(\d+)")
+        # 讀 file 內 SSOT 常數 CK_SSO_TTL_SECONDS（driven both signJWT TTL + cookie Max-Age）；
+        # 向後相容：舊版直接寫 Max-Age=<數字> 的也讀。
+        idp_sec = _grep_int(cb, r"CK_SSO_TTL_SECONDS\s*=\s*(\d+)")
+        if idp_sec is None:
+            idp_sec = _grep_int(cb, r"ck_employee=\$\{jwtHS\}[^`]*Max-Age=(\d+)")
         idp_status = f"{idp_sec}s" if idp_sec else "讀取失敗"
 
     def fmt(s):
