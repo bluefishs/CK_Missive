@@ -1,6 +1,8 @@
 
 import { BrowserRouter } from 'react-router-dom';
 import { ConfigProvider, App as AntdApp } from 'antd';
+import type { ThemeConfig } from 'antd';
+import { antdTheme } from '@ck-shared/tokens';
 import { QueryProvider } from './providers';
 import { ErrorBoundary } from './components/common';
 import { AppRouter } from './router';
@@ -19,28 +21,8 @@ dayjs.updateLocale('zh-tw', {
   weekStart: 1, // 週一為起始日 (0=週日, 1=週一)
 });
 
-// Ant Design 主題配置
-const theme = {
-  token: {
-    colorPrimary: '#1976d2',
-    colorSuccess: '#52c41a',
-    colorWarning: '#faad14',
-    colorError: '#ff4d4f',
-    colorInfo: '#1890ff',
-    borderRadius: 6,
-    fontSize: 14,
-  },
-  components: {
-    Layout: {
-      siderBg: '#001529',
-      triggerBg: '#001529',
-    },
-    Menu: {
-      darkItemBg: '#001529',
-      darkSubMenuItemBg: '#000c17',
-    },
-  },
-};
+// Ant Design 主題配置 — 改引 @ck-shared/tokens 單一源（Phase 3 / L80；值不變＝視覺不變）
+const theme: ThemeConfig = antdTheme;
 
 function App() {
   return (
