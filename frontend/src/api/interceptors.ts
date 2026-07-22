@@ -191,6 +191,15 @@ function createAxiosInstance(): AxiosInstance {
   const ACCESS_TOKEN_KEY = 'access_token';
   const REFRESH_TOKEN_KEY = 'refresh_token';
 
+  // I4（L80 / L78 六不變式）：破壞性清除收歸單一 teardown。原本 401 兩分支各有一份
+  // 相同 removeItem，dedup 為此 helper（純重構、行為不變）。呼叫端須自行確認 anonymous。
+  const clearAuthArtifacts = () => {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem('user_info');
+    document.cookie = 'csrf_token=; Path=/; Max-Age=0';
+  };
+
   // 標記是否正在刷新 token
   let isRefreshing = false;
   let refreshSubscribers: Array<(token: string) => void> = [];
@@ -383,10 +392,7 @@ function createAxiosInstance(): AxiosInstance {
             //   實例守衛一致 → bootstrap 進行中（resolving）的瞬態 401 也不觸發破壞性清除+導向。
             const believedAuthed = useSessionStore.getState().status !== 'anonymous';
             if (!believedAuthed) {
-              localStorage.removeItem(ACCESS_TOKEN_KEY);
-              localStorage.removeItem(REFRESH_TOKEN_KEY);
-              localStorage.removeItem('user_info');
-              document.cookie = 'csrf_token=; Path=/; Max-Age=0';
+              clearAuthArtifacts();  // I4：單一 teardown
               if (!window.location.pathname.includes('/login')) {
                 // ADR-0001：跳登入前先試 SSO bridge（成功會 reload，失敗才走 login）
                 const ssoOk = await attemptSSOBridge();
@@ -410,10 +416,7 @@ function createAxiosInstance(): AxiosInstance {
           const believedAuthed = useSessionStore.getState().status !== 'anonymous';
           if (!believedAuthed) {
             // 沒有 refresh token，清除並嘗試 SSO bridge
-            localStorage.removeItem(ACCESS_TOKEN_KEY);
-            localStorage.removeItem(REFRESH_TOKEN_KEY);
-            localStorage.removeItem('user_info');
-            document.cookie = 'csrf_token=; Path=/; Max-Age=0';
+            clearAuthArtifacts();  // I4：單一 teardown
 
             if (!window.location.pathname.includes('/login')) {
               // ADR-0001：跳登入前先試 SSO bridge
