@@ -77,6 +77,19 @@
 
 ---
 
+## 2.5 Phase 1 執行實況（2026-07-22，owner 選「連狀態機一起收斂」後啟動）
+
+**已完成（安全）**：
+- 建 `@ck-shared/sso` 種子套件（bridge 單一源，copy 自 lvrland canonical + react peerDep + host tsc 型別自帶）
+- 狀態機契約設計（agent 深度分析）：`createAuthStore(config)` + 3 adapter（Storage/Csrf/UserNormalizer）+ tokenMode 分支；**保真鐵律＝繼承 hardened 版**（lvrland I2 + Missive race-guard），不繼承 pile/DT 未修 bug；DT 最硬最後收斂
+
+**🔴 揭發真正阻斷（cutover 前置，isolated build 實測，未 deploy 零連鎖）**：
+- lvrland frontend Docker `context: ./frontend`，shared-modules 在外 → `@ck-shared/sso` **Rollup 無法 resolve**（`✗ failed to resolve import "@ck-shared/sso"`）。tokens（純 TS）能過、sso（新套件+react）不能。
+- **前置任務＝前端 Docker 共享套件 build tooling**（三選一：build context 改 repo root / pre-build staging + vite alias / 發佈真 npm package）——**影響 4 repo compose+Dockerfile，屬基礎設施變更**，須 focused session deliberate 執行，勿尾端 trial-and-error（＝反覆修測+連鎖風險）。
+- lvrland 已完整還原乾淨（tsc EXIT=0、running 系統全程未受影響）。
+
+**修正結論**：SSO 根治的**真正第一阻斷不是程式碼**（bridge 已 identical、狀態機已設計），**而是 monorepo 前端共享套件的 Docker build tooling**。此前置解決後，bridge→狀態機 cutover 才可逐 repo 安全進行。→ 確認為 focused-session 基礎設施專案。詳見 `shared-modules/sso-js/README.md`。
+
 ## 3. 一句話總結
 
 > **本次已把 SSO 最底層（JWT verify）Tier1 化；最高 ROI 的下一步是把 SSO 認證中間層（前端 `ck-sso-js`→`@ck-shared/sso`、後端 sso_bridge+csrf→`ck_auth`、四種 auth 狀態機→單一契約）一併收斂——這直接根治 L74/L78/L80 反覆 SSO bug。其餘 base_repository/errorBus/WebSocket 是零風險速贏。全程用 import＋版本閘＋conformance，並殺死沒人用的死模組。**
