@@ -27,8 +27,10 @@
 |---|---|---|---|---|
 | `cksurvey.tw` | 平台 Landing | CF Pages 靜態 | 公開 | 選用 |
 | `missive.cksurvey.tw` | 公文系統（UI + /api/*） | `localhost:8001` | SSO 團隊 / webhook IP | **Phase 1** |
-| `lvrland.cksurvey.tw` | 土地查估 | `localhost:8002` | SSO 團隊 | Phase 2+ |
-| `pile.cksurvey.tw` | 基樁管理 | `localhost:8003` | SSO 團隊 | Phase 2+ |
+| `lvrland.cksurvey.tw` | 土地查估 | `localhost:8002` | SSO 團隊 | 🟢 已上線（2026-07-22 複驗） |
+| `pilemgmt.cksurvey.tw` ⚠️ | 基樁管理 | `localhost:3005` | SSO 團隊 | 🟢 已上線（2026-07-22 複驗）|
+
+> ⚠️ **實際部署修正（2026-07-22）**：基樁管理實際 hostname 為 **`pilemgmt.cksurvey.tw`**（token tunnel `a63cf7de-...` ingress → `host.docker.internal:3005`），本 ADR 原規劃的短分域 **`pile.cksurvey.tw` 未部署、DNS 不存在**。健檢/文件請用 `pilemgmt.cksurvey.tw`。若欲改用短分域需在 CF Zero Trust 新增 public hostname + DNS。
 | `hermes.cksurvey.tw` | Hermes Agent gateway | `localhost:8900` | 公開 (token 保護) | Phase 1 |
 | `kg.cksurvey.tw` | 聯邦知識圖譜 Hub | Missive `/api/ai/federation/*` | Token 保護 | 選用 |
 | `status.cksurvey.tw` | 公開狀態頁 | CF Pages 靜態 | 公開 | 選用 |

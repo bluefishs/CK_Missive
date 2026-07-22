@@ -274,11 +274,12 @@ CK_NemoClaw         → ADR-0015 Cloudflare Tunnel 取代（2026-05-12 歸檔）
 ### 平台級 Subdomain 策略 (ADR-0016)
 
 ```
-missive.cksurvey.tw   →  公文系統 (UI + API)，已上線
-hermes.cksurvey.tw    →  Hermes Agent gateway (Phase 1 後啟用)
-lvrland.cksurvey.tw   →  土地查估 (Phase 2+)
-pile.cksurvey.tw      →  基樁管理 (Phase 2+)
-kg.cksurvey.tw        →  聯邦知識圖譜 Hub (選用)
+missive.cksurvey.tw     →  公文系統 (UI + API)，已上線
+hermes.cksurvey.tw      →  Hermes Agent gateway (Phase 1 後啟用)
+lvrland.cksurvey.tw     →  土地查估，🟢 已上線（SSO 整合）
+pilemgmt.cksurvey.tw    →  基樁管理，🟢 已上線（SSO 整合）⚠️ 實際 hostname；規劃曾標 pile.cksurvey.tw 但未部署
+digitaltwin.cksurvey.tw →  數位孿生/隧道，🟢 已上線（SSO 整合）
+kg.cksurvey.tw          →  聯邦知識圖譜 Hub (選用)
 ```
 
 > **架構原則**: Cloudflare Tunnel 統一公網入口；Cloudflare Access SSO 跨專案；
