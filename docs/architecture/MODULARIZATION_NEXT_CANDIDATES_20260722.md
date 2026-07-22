@@ -90,6 +90,20 @@
 
 **修正結論**：SSO 根治的**真正第一阻斷不是程式碼**（bridge 已 identical、狀態機已設計），**而是 monorepo 前端共享套件的 Docker build tooling**。此前置解決後，bridge→狀態機 cutover 才可逐 repo 安全進行。→ 確認為 focused-session 基礎設施專案。詳見 `shared-modules/sso-js/README.md`。
 
+## 2.6 Phase 1 續（2026-07-22 稍後）— 阻斷已解、lvrland bridge 完成
+
+**✅ 前端 build-tooling 阻斷已解決（vendored-in-context 模式，比照後端 vendored-wheel）**：
+- shared-modules/sso-js＝canonical，`sync.sh` 同步進 repo `frontend/.shared-sso`（in-context）、Dockerfile 於 npm install 前 `COPY .shared-sso`；`sync.sh --check` 守護 drift。
+- **關鍵**：vendored 進 `frontend/` 子目錄 → 其 react import 往上解析到 `frontend/node_modules`（不像 `../../shared-modules` 在外），順帶解 host tsc react 問題。
+- **lvrland isolated build ✓（18950 modules）→ 部署 → 公網 200 → 瀏覽器 LoginPage `useSSOBridge` 正確 fallback（console 無錯）→ 真 rename 100%（byte-identical 確證）**。commit lvrland `1f4b3323e`。
+
+**🔍 執行揭發精確事實（修正 agent 的「4 repo bridge copy」）**：
+- **只有 lvrland 真正 import 使用 `ck-sso-js` lib** → 已收斂。
+- **pile 用自己 inline `attemptSSOBridge`（api/client.ts）**、且刻意移除 useSSOBridge（security-aware manual-trigger 設計）；**DT 用自己 `ckSsoHandler`（bearer/XOR）** → 兩者的 `src/lib/ck-sso-js/` 是**死碼**、live bridge 是 **divergent 行為敏感實作**。
+- Missive 用 `authService.ssoBridge()`（原始源，3 touchpoint）。
+
+**∴ 修正結論**：bridge「單一源」對 lvrland 已達成（+ 證實 build-tooling 機制）；pile/DT/Missive 的 live bridge 收斂**與狀態機同屬行為敏感 Tier2 staged 工作**（不可簡單 import repoint，須逐一保真遷移）。下一步最高 ROI＝把 pile inline / DT ckSsoHandler / Missive authService.ssoBridge 逐一遷 `@ck-shared/sso`（用 lvrland 已驗證的 vendored 機制），每 repo isolated build + 公網 200 + 瀏覽器驗證。
+
 ## 3. 一句話總結
 
 > **本次已把 SSO 最底層（JWT verify）Tier1 化；最高 ROI 的下一步是把 SSO 認證中間層（前端 `ck-sso-js`→`@ck-shared/sso`、後端 sso_bridge+csrf→`ck_auth`、四種 auth 狀態機→單一契約）一併收斂——這直接根治 L74/L78/L80 反覆 SSO bug。其餘 base_repository/errorBus/WebSocket 是零風險速贏。全程用 import＋版本閘＋conformance，並殺死沒人用的死模組。**
