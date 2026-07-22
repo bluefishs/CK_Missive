@@ -1,37 +1,12 @@
+/**
+ * Missive 前端主題 — 改引 @ck-shared/tokens 單一源（2026-07-22 Phase 3 / L80）。
+ *
+ * 原硬編 AntD ThemeConfig 已遷入 Tier 1 共享套件 @ck-shared/tokens（色/間距/圓角單一源，
+ * 值不變＝視覺不變）。改設計＝改 shared-modules/tokens/index.ts 一處、全平臺同步。
+ */
 import { ThemeConfig } from 'antd';
+import { antdTheme } from '@ck-shared/tokens';
 
-export const theme: ThemeConfig = {
-  token: {
-    colorPrimary: '#1890ff',
-    colorSuccess: '#52c41a',
-    colorWarning: '#faad14',
-    colorError: '#f5222d',
-    colorInfo: '#1890ff',
-    borderRadius: 6,
-    colorBgContainer: '#ffffff',
-  },
-  components: {
-    Layout: {
-      headerBg: '#001529',
-      bodyBg: '#f5f5f5',
-      triggerBg: '#002140',
-    },
-    Menu: {
-      colorItemBg: '#001529',
-      colorItemText: '#ffffff',
-      colorItemTextSelected: '#1890ff',
-      colorItemBgSelected: '#002140',
-    },
-    Button: {
-      borderRadius: 6,
-    },
-    Card: {
-      borderRadius: 8,
-    },
-    Table: {
-      borderRadius: 8,
-    },
-  },
-};
+export const theme: ThemeConfig = antdTheme;
 
 export default theme;
