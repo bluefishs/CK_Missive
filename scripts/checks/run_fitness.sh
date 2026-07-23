@@ -1053,8 +1053,21 @@ echo ""
 # ----------------------------------------------------------------------------
 # Tier 1 共享套件版本偏移 gate（Phase 2 / L80）— 模組化「執行強制」，防「一次修全同步」破功
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[70/70] tier1 shared package version skew (ck-auth 跨 consumer 版本對齊 / L80)${NC}"
+echo -e "${CYAN}[70/71] tier1 shared package version skew (ck-auth 跨 consumer 版本對齊 / L80)${NC}"
 PYTHONIOENCODING=utf-8 python scripts/checks/tier1_shared_package_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+echo ""
+
+# ----------------------------------------------------------------------------
+# @ck-shared/sso 前端 vendored 單一源 drift gate（2026-07-23 / L80）— 防手改 .shared-<pkg> 偏移 canonical
+# graceful：sibling shared-modules 不在本 checkout（如 CI Missive-only）則跳過，僅本機 monorepo 稽核
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[71/71] sso shared drift (@ck-shared/sso vendored copies vs canonical / L80)${NC}"
+_SSO_SYNC="../shared-modules/sso-js/sync.sh"
+if [[ -f "$_SSO_SYNC" ]]; then
+    bash "$_SSO_SYNC" --check || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+else
+    echo "  (shared-modules/sso-js 不在本 checkout — 跳過，僅本機 monorepo 稽核)"
+fi
 echo ""
 
 # ----------------------------------------------------------------------------
