@@ -112,6 +112,22 @@
 - **pile**（`9bae9a6bd`）：**行為改善**（原 destructive checkAuth → I2 修「第一次失敗重刷才好」）；**順修 latent 破損**（pile theme `@ck-shared/tokens` 在 context 外無法 build、6/17 起從未部署 → 比照 vendored-in-context 修好+交付 radius6）；tsc0→isolated build✓14744→公網200→瀏覽器 dashboard+console 乾淨；ratchet 測試同步（fetch budget 10→8、zustand 偵測認 createAuthStore）。
 - **關鍵基礎設施**：`@ck-shared/tokens` 亦有 context 外問題（pile 揭發），已用同 vendored-in-context 修；lvrland tokens 恰因 antdTheme 被 tree-shake 而僥倖 build 過（實為死引用）。
 
+## 2.8 auth 狀態機收斂完成（2026-07-23）— Missive tri-state 收斂 + DT 結論
+
+**✅ Missive sessionStore 收斂完成（tri-state，live 驗證）**（`missive c8fc6e66` + canonical `f98a87d`）：
+- 建 tri-state `createSessionStore(config)` canonical（保真基準＝Missive 原版，含 L74/L78 markAuthenticated 競態防護）；per-repo 差異注入（getUserInfo/validateTokenOnStartup/clearAuthData/computeBypass/logger）。
+- Missive host build（vite，file: 直用、不受 Docker context 限制）：host tsc0 → **build-to-test✓9221（不觸 live dist）** → build live✓9220 → 公網200 → 瀏覽器 entry+SessionGate bootstrap 解析+console 乾淨。
+- drift GREEN（lvrland/pile .shared-sso 同步含 createSessionStore、對 2-state 消費者 tree-shake 無害）。
+
+**✅ DT 結論：正確地維持獨立 bearer paradigm（非「未完成」）**：
+- DT 用 `TokenManager`（bearer/XOR localStorage）+ `ckSsoHandler`、**無 zustand store** → 與 cookie-based createAuthStore/createSessionStore 根本不同 paradigm。
+- 強行收斂需 bearer-adapter 設計 + 風險（DT 曾 outage、有「sub=email 無限登入迴圈」史）+ 屬過度標準化（L58「只共享真一致且穩定者」）。→ **DT 維持獨立＝正確架構（異質 auth model），非缺口**。
+
+**收斂總結**：3/4 repo（凡 zustand-store paradigm 者）全收斂＝lvrland(bridge+authStore 2-state) + pile(authStore 2-state) + Missive(sessionStore tri-state)，皆 live 驗證；DT 為正確的 bearer paradigm 例外。canonical 並存 createAuthStore(2-state) + createSessionStore(tri-state)，tri-state 為未來升級目標（lvrland/pile 可升）。
+
+---
+（以下為收斂前的 paradigm 差異記錄，供覆盤）
+
 **⏳ Missive + DT 為不同 paradigm、不適用當前 2-state canonical**：
 - **Missive** 用 `sessionStore` **tri-state**（resolving|authenticated|anonymous，L74/L78 最 hardened）→ 遷 2-state canonical 會**降級**（失去 resolving race-guard）。
 - **DT** 用 `TokenManager`（bearer/XOR）+ `ckSsoHandler`，**無 zustand authStore** → 無對應可遷。
