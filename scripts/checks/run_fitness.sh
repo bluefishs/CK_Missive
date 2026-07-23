@@ -1061,12 +1061,12 @@ echo ""
 # @ck-shared/sso 前端 vendored 單一源 drift gate（2026-07-23 / L80）— 防手改 .shared-<pkg> 偏移 canonical
 # graceful：sibling shared-modules 不在本 checkout（如 CI Missive-only）則跳過，僅本機 monorepo 稽核
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[71/71] sso shared drift (@ck-shared/sso vendored copies vs canonical / L80)${NC}"
-_SSO_SYNC="../shared-modules/sso-js/sync.sh"
-if [[ -f "$_SSO_SYNC" ]]; then
-    bash "$_SSO_SYNC" --check || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+echo -e "${CYAN}[71/71] shared vendored drift (@ck-shared/* vendored copies vs canonical / L80)${NC}"
+_SYNC="../shared-modules/sync-vendored.sh"
+if [[ -f "$_SYNC" ]]; then
+    bash "$_SYNC" --check || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 else
-    echo "  (shared-modules/sso-js 不在本 checkout — 跳過，僅本機 monorepo 稽核)"
+    echo "  (shared-modules 不在本 checkout — 跳過，僅本機 monorepo 稽核)"
 fi
 echo ""
 
