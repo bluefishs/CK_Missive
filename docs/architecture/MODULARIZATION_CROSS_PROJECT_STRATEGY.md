@@ -121,6 +121,25 @@
 - **禁複製實作當共享**：共享契約/薄庫，不共享整檔業務實作。
 - **禁單向強推**：下游採用要有 conformance test 證值 + 遷移路徑，不是丟一包 132 檔（L61 下游反治理）。
 
+### 7.1 變更傳播語意（「A 改 B 會同步嗎？」FAQ，2026-07-24）
+
+**兩種消費模式**（因 build 方式）：
+- **Direct `file:`**（Missive，host build）：package.json `file:../../shared-modules/<pkg>` 直接 import canonical → rebuild 即**自動取得**。
+- **Vendored-in-context**（lvrland/pile，Docker build context 不含 shared-modules）：canonical→`sync-vendored.sh`→repo `.shared-<pkg>`→import → 需 **sync + rebuild** 才取得。
+
+**「A 專案特殊修改，B 會同步嗎？」取決於改哪裡**：
+| 改動位置 | 語意 | B 同步 | drift 稽核 |
+|---|---|---|---|
+| **canonical**（`shared-modules/<pkg>/src`）| 共享修改 | ✅（sync + rebuild 後）| 通過 |
+| A 的 `.shared-<pkg>` 手改 | 偷改共享（錯誤）| ❌ | 🔴 step 71 抓到 → 逼改回 canonical |
+| A 的 local 業務碼 | 真 A-specific | ❌（本就獨立）| 不涉及 |
+
+**鐵律**：**共享改 canonical 一次全同步；A 客製不放共享**——要客製共享功能就 **config 注入**（`createAuthStore(config)` / `createSessionStore(config)`），不 fork 共享碼。傳播「受控非自動」（改 canonical→sync→各 repo rebuild+驗證），是 PRO（不 silent 改壞某系統）也是 CON（需紀律，但 step 71 兜底）。
+
+**優**：單一源改一次全同步 / drift enforcement 防 silent 分歧 / 零成本無 registry / 受控傳播 / 繞 Docker context。
+**缺**：非自動（需手動 sync+rebuild N repo）/ vendored copy 在各 repo git / 兩消費模式不統一。
+**長期選項**：要真自動+無 vendored → 升 npm registry 套件（SemVer，有 hosting/publish 成本）；現零成本 vendored 對本 monorepo 足夠。統一消費模式可選讓 lvrland/pile 也 host build（消 vendoring + 得 direct 自動同步）。
+
 ---
 
 ## 8. 待 owner 決策（策略分岔）
