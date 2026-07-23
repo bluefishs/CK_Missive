@@ -104,6 +104,19 @@
 
 **∴ 修正結論**：bridge「單一源」對 lvrland 已達成（+ 證實 build-tooling 機制）；pile/DT/Missive 的 live bridge 收斂**與狀態機同屬行為敏感 Tier2 staged 工作**（不可簡單 import repoint，須逐一保真遷移）。下一步最高 ROI＝把 pile inline / DT ckSsoHandler / Missive authService.ssoBridge 逐一遷 `@ck-shared/sso`（用 lvrland 已驗證的 vendored 機制），每 repo isolated build + 公網 200 + 瀏覽器驗證。
 
+## 2.7 auth 狀態機收斂（2026-07-23）— lvrland + pile 完成、Missive/DT paradigm 差異
+
+**✅ 2-state authStore 收斂完成（lvrland + pile，皆 live 驗證）**：
+- canonical `createAuthStore(config)` 於 @ck-shared/sso（保真基準＝lvrland，含 **I2 非破壞性 checkAuth**）；per-repo 差異 config 注入（persistKey/checkAuthUrl/logger/onLoginSuccess）。
+- **lvrland**（`3238b1630`）：behavior-preserving；tsc0→isolated build✓18951→公網200→瀏覽器 login+guard+console 乾淨。
+- **pile**（`9bae9a6bd`）：**行為改善**（原 destructive checkAuth → I2 修「第一次失敗重刷才好」）；**順修 latent 破損**（pile theme `@ck-shared/tokens` 在 context 外無法 build、6/17 起從未部署 → 比照 vendored-in-context 修好+交付 radius6）；tsc0→isolated build✓14744→公網200→瀏覽器 dashboard+console 乾淨；ratchet 測試同步（fetch budget 10→8、zustand 偵測認 createAuthStore）。
+- **關鍵基礎設施**：`@ck-shared/tokens` 亦有 context 外問題（pile 揭發），已用同 vendored-in-context 修；lvrland tokens 恰因 antdTheme 被 tree-shake 而僥倖 build 過（實為死引用）。
+
+**⏳ Missive + DT 為不同 paradigm、不適用當前 2-state canonical**：
+- **Missive** 用 `sessionStore` **tri-state**（resolving|authenticated|anonymous，L74/L78 最 hardened）→ 遷 2-state canonical 會**降級**（失去 resolving race-guard）。
+- **DT** 用 `TokenManager`（bearer/XOR）+ `ckSsoHandler`，**無 zustand authStore** → 無對應可遷。
+- **∴ 收 Missive/DT 需把 canonical 升級為 tri-state + 3 adapter（Storage/Csrf/UserNormalizer）+ tokenMode**（agent 完整設計，見 README）＝更大 Tier2，須逐一保真、DT 最後。當前 2-state 收斂對 lvrland/pile 已達成且 live，Missive/DT 維持各自 hardened 版待升級式收斂。
+
 ## 3. 一句話總結
 
 > **本次已把 SSO 最底層（JWT verify）Tier1 化；最高 ROI 的下一步是把 SSO 認證中間層（前端 `ck-sso-js`→`@ck-shared/sso`、後端 sso_bridge+csrf→`ck_auth`、四種 auth 狀態機→單一契約）一併收斂——這直接根治 L74/L78/L80 反覆 SSO bug。其餘 base_repository/errorBus/WebSocket 是零風險速贏。全程用 import＋版本閘＋conformance，並殺死沒人用的死模組。**
