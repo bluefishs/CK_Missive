@@ -98,6 +98,20 @@
 - **conformance test 取代 file-diff**：consumer 證「行為符合契約」，容許實作差異、只鎖契約 → 比 drift audit 精準且不脆。
 - **可逆**：path dep 出問題可暫時 vendored 回退（過渡期並存）。
 
+### 6.1 前端 Docker build 的 vendored-in-context 標準（2026-07-23 實證修正，@ck-shared/sso 已驗）
+
+⚠️ **實證修正 §6 第一點**：純 `file:../../shared-modules/x` 在**前端 Docker build 內無法解析**——各 repo frontend build `context: ./frontend`，shared-modules 在 context 外、node_modules 被 .dockerignore 排除 → `Rollup failed to resolve import`。host build（如 Missive 的 npm run build）不受此限，但 Docker build（lvrland/pile/DT）受限。
+
+**標準機制（比照後端 vendored-wheel）**：
+1. canonical 置 `shared-modules/<pkg>/src`（單一源、納版控）；
+2. `sync.sh` 同步進各 repo `frontend/.shared-<pkg>`（**in-context 子目錄**）；
+3. Dockerfile **npm install 前** `COPY .shared-<pkg> ./.shared-<pkg>/`；package.json `"@ck-shared/x": "file:./.shared-<pkg>"`；
+4. **關鍵**：vendored 進 frontend 子目錄，其 peer（react/zustand）往上解析到 `frontend/node_modules`（順帶解 host tsc）；
+5. **drift enforcement**：`sync.sh --check` 比對各 repo vendored copy == canonical（禁手改）；接 CI/fitness。
+6. Dockerfile 加 `rm -f package-lock.json`（含 file: 依賴時避容器 npm 'extraneous' 協調錯）。
+
+**驗證協定（每 repo）**：host tsc 0 → isolated Docker build ✓ → 部署 → 公網 200 → 瀏覽器實測（登入/dashboard/console）→ 任何異常即 revert。**已驗**：lvrland（bridge+authStore）、pile（authStore+I2 修復+順修 tokens latent 破損）。
+
 ---
 
 ## 7. 反面守則（避免重蹈覆轍）
