@@ -156,6 +156,30 @@ lvrland+pile vendored-in-context、Missive direct file:（host build）。drift 
 → 這些是 legitimate repo-specific 演化，強收斂＝過度標準化；需求驅動或先參數化再議。變更傳播語意見
 `MODULARIZATION_CROSS_PROJECT_STRATEGY.md §7.1`。
 
+## 2.10 WebSocket 收斂（2026-07-24）+ 剩餘 backend 評估
+
+**✅ @ck-shared/ws**（shared `172adc0` / lvrland `94fbbfbce` / pile `6088ec32f`）：Hook 重構為
+`createUseWebSocket(config)` factory（lvrland superset，**verbatim 保真**——重連退避/心跳/StrictMode
+guard/refreshAuth 機制不變），4 差異 config 化（logger/subscriptionMessageTypes/isDisabled/buildWsUrl），
+message switch 改 config-driven generic dispatch。Context 共享 primitives（Provider 留各 repo local，
+auth-gate vs always-connect genuine 差異）。lvrland/pile shim（561→22 / 546→23 行）。tsc0→isolated
+build✓→公網200→**WS endpoint CONNECTED + console 乾淨**驗證。ratchet 測試同步（Context 偵測認 @ck-shared/ws）。
+
+**前端共享套件現況（5）**：tokens / sso（bridge+authStore+sessionStore）/ api-errors / query-config / ws
+——lvrland+pile vendored-in-context、Missive direct(sso)。drift GREEN、五系統 200、fitness step 71 enforcement。
+
+**⏳ 剩餘（依風險）**：
+| 項 | 風險 | 說明 |
+|---|---|---|
+| env.ts | 中 | lvrland/pile 散落（非單檔），需先各自集中化再共享 |
+| 後端 csrf | 中 | lvrland↔pile 近乎相同（1 行 redis import 差），但需 backend rebuild + redis client 注入 |
+| **後端 sso_bridge** | **高** | **async(Missive)/sync(lvrland/pile) 分裂 + User model 耦合（缺口 D Tier2）；4 backend rebuild 含主產品；本 session DT outage 證後端 auth 收斂風險真實** |
+| DT bearer | 中高 | TokenManager bearer/XOR 獨立 paradigm，需 bearer adapter |
+
+**評估**：前端 clean 收斂全數完成並 live 驗證。後端 auth 收斂（尤 sso_bridge async/sync Tier2）為
+最深最高風險——涉主產品 auth × 4 系統 rebuild，依 feedback_rigor #1（DT outage 已證風險）須**極高紀律
+逐一 staged 執行**（每 repo isolated 測 + 登入實測 + revert-on-fail），非尾端快速可安全完成。
+
 ## 3. 一句話總結
 
 > **本次已把 SSO 最底層（JWT verify）Tier1 化；最高 ROI 的下一步是把 SSO 認證中間層（前端 `ck-sso-js`→`@ck-shared/sso`、後端 sso_bridge+csrf→`ck_auth`、四種 auth 狀態機→單一契約）一併收斂——這直接根治 L74/L78/L80 反覆 SSO bug。其餘 base_repository/errorBus/WebSocket 是零風險速贏。全程用 import＋版本閘＋conformance，並殺死沒人用的死模組。**
