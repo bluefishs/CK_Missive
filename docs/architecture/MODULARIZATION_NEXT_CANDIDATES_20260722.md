@@ -133,6 +133,29 @@
 - **DT** 用 `TokenManager`（bearer/XOR）+ `ckSsoHandler`，**無 zustand authStore** → 無對應可遷。
 - **∴ 收 Missive/DT 需把 canonical 升級為 tri-state + 3 adapter（Storage/Csrf/UserNormalizer）+ tokenMode**（agent 完整設計，見 README）＝更大 Tier2，須逐一保真、DT 最後。當前 2-state 收斂對 lvrland/pile 已達成且 live，Missive/DT 維持各自 hardened 版待升級式收斂。
 
+## 2.9 非 SSO 前端共享收斂（2026-07-23~24）— apiErrorHandler + queryClient
+
+owner 指示「請統一，不然一直不同問題衍生修正導致分歧」→ 續收斂已分歧的前端共享 domain 工具：
+
+**✅ @ck-shared/api-errors**（lvrland `49f94372d` / pile `da390a12d`）：統一 lvrland/pile 已分歧的
+apiErrorHandler（lvrland 有 `AxiosErrorShape` type guard、pile 用 `as any`→統一後 **pile 得修**）+ errorBus。
+root export apiErrorHandler、errorBus 走 sub-path（避兩者同名不同型 ApiError 碰撞）。
+
+**✅ @ck-shared/query-config**（lvrland `7989635a2` / pile `ff841cf5b`）：`createQueryClient()` 統一
+React Query 預設（原 staleTime/gcTime drift）；**順修 pile 全部 `cacheTime`（TanStack v4 API，在 v5
+被忽略致快取時長失效）→ `gcTime`**。repo-specific query keys/helpers 留 local（config-injection 原則）。
+
+**✅ 通用 sync 機制**：`shared-modules/sync-vendored.sh`（一個 sync 管所有前端 vendored 套件 × repo，
+config-driven SPECS）取代 per-package sync；fitness step 71 稽核全套件 drift。
+
+**@ck-shared 前端套件現況**：sso（bridge+authStore+sessionStore）/ api-errors / query-config——
+lvrland+pile vendored-in-context、Missive direct file:（host build）。drift GREEN、五系統 200。
+
+**未收斂（正確保留 repo-specific，L58）**：WebSocket Context（~50% diff + lvrland 特有 authStore/apiClient
+耦合＝真 repo-specific 整合）、env.ts（各 repo 散落需先集中化）、API client（axios/fetch 路線分裂）。
+→ 這些是 legitimate repo-specific 演化，強收斂＝過度標準化；需求驅動或先參數化再議。變更傳播語意見
+`MODULARIZATION_CROSS_PROJECT_STRATEGY.md §7.1`。
+
 ## 3. 一句話總結
 
 > **本次已把 SSO 最底層（JWT verify）Tier1 化；最高 ROI 的下一步是把 SSO 認證中間層（前端 `ck-sso-js`→`@ck-shared/sso`、後端 sso_bridge+csrf→`ck_auth`、四種 auth 狀態機→單一契約）一併收斂——這直接根治 L74/L78/L80 反覆 SSO bug。其餘 base_repository/errorBus/WebSocket 是零風險速贏。全程用 import＋版本閘＋conformance，並殺死沒人用的死模組。**
