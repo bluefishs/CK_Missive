@@ -1053,7 +1053,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # Tier 1 共享套件版本偏移 gate（Phase 2 / L80）— 模組化「執行強制」，防「一次修全同步」破功
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[70/71] tier1 shared package version skew (ck-auth 跨 consumer 版本對齊 / L80)${NC}"
+echo -e "${CYAN}[70/72] tier1 shared package version skew (ck-auth 跨 consumer 版本對齊 / L80)${NC}"
 PYTHONIOENCODING=utf-8 python scripts/checks/tier1_shared_package_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
@@ -1061,13 +1061,22 @@ echo ""
 # @ck-shared/sso 前端 vendored 單一源 drift gate（2026-07-23 / L80）— 防手改 .shared-<pkg> 偏移 canonical
 # graceful：sibling shared-modules 不在本 checkout（如 CI Missive-only）則跳過，僅本機 monorepo 稽核
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[71/71] shared vendored drift (@ck-shared/* vendored copies vs canonical / L80)${NC}"
+echo -e "${CYAN}[71/72] shared vendored drift (@ck-shared/* vendored copies vs canonical / L80)${NC}"
 _SYNC="../shared-modules/sync-vendored.sh"
 if [[ -f "$_SYNC" ]]; then
     bash "$_SYNC" --check || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 else
     echo "  (shared-modules 不在本 checkout — 跳過，僅本機 monorepo 稽核)"
 fi
+echo ""
+
+# ----------------------------------------------------------------------------
+# SSO Bridge 安全契約守門（2026-07-25 / L80 / Tier2）— 跨 repo sso_bridge 維持共享安全契約
+# 不強制實作相同（刻意 policy 分歧登記於 SSO_BRIDGE_DIVERGENCE_MATRIX.md），只守 C1/C2/C3/C4
+# graceful：sibling repo 不在本 checkout 則各自 skip
+# ----------------------------------------------------------------------------
+echo -e "${CYAN}[72/72] sso_bridge conformance (跨 repo 安全契約：用 ck_auth verify / 守衛順序 / L80)${NC}"
+PYTHONIOENCODING=utf-8 python scripts/checks/sso_bridge_conformance_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
