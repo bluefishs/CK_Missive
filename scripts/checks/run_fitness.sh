@@ -38,7 +38,7 @@ FAIL_COUNT=0
 # ----------------------------------------------------------------------------
 # 1. Services 頂層散戶比例
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[1/61] Services directory entropy${NC}"
+echo -e "${CYAN}[1/73] Services directory entropy${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/service_dir_entropy.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -49,7 +49,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 2. Dead config reader（掃多個高信號檔）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[2/61] Dead config reader scan (multi-target v3)${NC}"
+echo -e "${CYAN}[2/73] Dead config reader scan (multi-target v3)${NC}"
 
 # v3 (2026-04-25): 擴為多 target 掃描
 # 原 v1/v2 只掃 ai_config.py → 錯過 record_duration / get_cloud_semaphore 等 dead
@@ -77,7 +77,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 3. SOUL.md 跨 repo drift（坤哥意識體跨通道一致性）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[3/61] SOUL.md mirror drift check${NC}"
+echo -e "${CYAN}[3/73] SOUL.md mirror drift check${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/soul_mirror_drift_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -88,7 +88,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 4. Wiki ↔ KG 雙向引用率
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[4/61] Wiki ↔ KG link audit${NC}"
+echo -e "${CYAN}[4/73] Wiki ↔ KG link audit${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/wiki_kg_link_audit.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -99,7 +99,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 5. KG pgvector embedding 覆蓋率
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[5/61] KG pgvector embedding coverage${NC}"
+echo -e "${CYAN}[5/73] KG pgvector embedding coverage${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/kg_embedding_coverage_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -110,7 +110,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 6. Architecture docs presence
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[6/61] Architecture standard docs presence${NC}"
+echo -e "${CYAN}[6/73] Architecture standard docs presence${NC}"
 # v6.13 (2026-05-31) L52 family: container 內 docs/ 未 mount 是設計 (host-side only)
 if [[ ! -d "docs/architecture" ]]; then
     echo -e "  ${YELLOW}[INFO]${NC} docs/architecture not present (container env, host-side check only)"
@@ -137,7 +137,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 7. Agent evolution health（坤哥進化引擎是否在跑 — L21 prevention）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[7/61] Agent evolution health${NC}"
+echo -e "${CYAN}[7/73] Agent evolution health${NC}"
 # exit codes: 0 healthy / 1 warning (trigger 久未觸發但 redis OK) / 2 error (redis 不可達)
 # non-strict 模式 — exit 1/2 都僅警告（dev 環境可能沒 redis），strict 才算 fail
 PYTHONIOENCODING=utf-8 python scripts/checks/agent_evolution_health.py 2>&1 || EVOLUTION_EXIT=$?
@@ -150,7 +150,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 8. Dispatch cache contract（派工 invalidate 必須透過 hook，cache 一致性）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[8/61] Dispatch cache contract${NC}"
+echo -e "${CYAN}[8/73] Dispatch cache contract${NC}"
 if $STRICT; then
     bash scripts/checks/dispatch_cache_contract.sh || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -161,7 +161,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 9. Stub import lint（DDD 邊界落實，2026-Q3 stub 移除前置）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[9/61] Stub import lint (DDD boundary)${NC}"
+echo -e "${CYAN}[9/73] Stub import lint (DDD boundary)${NC}"
 # warning-only mode：v5.10.2 已清 26 處最大宗，剩 ~58 處列入 Q3 移除前 follow-up
 # strict 模式才報 fail（鼓勵新增程式碼用新路徑，不增加 stub debt）
 if $STRICT; then
@@ -174,7 +174,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 10. Memory metrics alive check（坤哥意識體觀測，防 hollow gauge L21）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[10/61] Memory Wiki metrics alive${NC}"
+echo -e "${CYAN}[10/73] Memory Wiki metrics alive${NC}"
 # 需要 ck-backend 啟動才能 scrape /metrics — dev 模式可能後端沒起來，warning-only
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/memory_metrics_alive_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
@@ -186,7 +186,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 11. SOUL evolution alive check（v5.11 Phase 2，鏈路 4 silent gap 防護）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[11/61] SOUL evolution alive${NC}"
+echo -e "${CYAN}[11/73] SOUL evolution alive${NC}"
 # 防 KUNGE_LEARNING_VERIFICATION 鏈路 4 silent gap 重演（autobiography 寫但
 # SOUL 沒同步）— evolutions/ 有檔但 SOUL「我的成長」仍 placeholder 即報警
 if $STRICT; then
@@ -199,7 +199,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 12. Memory signal consumer lint（v5.12 Phase D，孤兒 signal 治理）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[12/61] Memory signal consumer lint${NC}"
+echo -e "${CYAN}[12/73] Memory signal consumer lint${NC}"
 # 偵測 redis-based signal 是否完全孤兒（0 caller）
 # 防止 v5.10.2 #4 silent failure 同類問題重演
 if $STRICT; then
@@ -212,7 +212,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 13. Cron 健康度（v6.2 Phase C2，防 cron silent fail 雪崩）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[13/61] Cron health check${NC}"
+echo -e "${CYAN}[13/73] Cron health check${NC}"
 # 連續失敗 ≥ 2 / 上次成功 > 預期 × 2 / never_run 但 next_run 已過 → fail
 # warning-only mode：dev 環境後端可能未啟動，endpoint 不可達不算 fail
 if $STRICT; then
@@ -225,7 +225,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 14. Wiki Unicode 重名偵測（v6.2 Phase C3，wiki_compiler 寫檔正規化）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[14/61] Wiki Unicode dup check${NC}"
+echo -e "${CYAN}[14/73] Wiki Unicode dup check${NC}"
 # wiki_compiler 寫過 NFC + CJK Compatibility 兩種正規化的同名檔
 # warning-only：dup 不阻擋 ship，但提醒 wiki_compiler 該補 NFC normalize
 if $STRICT; then
@@ -238,7 +238,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 15. Integration liveness check（F14 / v3.0 洞察 11 — 8 接觸面活體驗證）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[15/61] Integration liveness check${NC}"
+echo -e "${CYAN}[15/73] Integration liveness check${NC}"
 # 對 v3.0 SYSTEM_INTEGRATION_REVIEW 8 接觸面 evidence query
 # warning-only：dev 環境 mirror/diary 可能 sparse
 if $STRICT; then
@@ -251,7 +251,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 16. LINE notify 7d heartbeat（F15 / v3.0 洞察 15 — 體感推送 watchdog）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[16/61] LINE notify 7d heartbeat${NC}"
+echo -e "${CYAN}[16/73] LINE notify 7d heartbeat${NC}"
 # silent skip 對主流程對，但對體感層 silent = 死亡。
 # 連續 7 天 0 推送 → 警報（5/04 5 天無人察覺事故預防）
 # warning-only：dev 環境 cron 可能未跑 / .env 未設皆視為 OK
@@ -265,7 +265,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 17. Alias RLS E2E check（TaskB / ADR-0025 半接通事故預防）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[17/61] Alias RLS bidirectional check${NC}"
+echo -e "${CYAN}[17/73] Alias RLS bidirectional check${NC}"
 # 對 user_merge_log 每筆紀錄驗證雙向 RLS 展開正確
 # 永久防範：merge 寫了但 RLS 沒展開（13 天 dormant 事故）
 # warning-only：DB 不可達 / 無 merge 紀錄皆 OK；CI 模式才 exit 1
@@ -279,7 +279,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 18. Memory Wiki freshness（ADR-0022 半接通防範）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[18/61] Memory Wiki freshness check${NC}"
+echo -e "${CYAN}[18/73] Memory Wiki freshness check${NC}"
 # diary/patterns/critiques/evolutions 寫入鏈活體驗證
 # warning-only：dev 環境寬容；CI 模式且 diary critical 才 exit 1
 if $STRICT; then
@@ -292,7 +292,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 19. Generic filter audit（regex 黑名單 false-positive rate）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[19/61] Generic filter audit${NC}"
+echo -e "${CYAN}[19/73] Generic filter audit${NC}"
 # 對所有黑名單型 regex 過濾做 false-positive rate 量測
 # 防範：5/06 GENERIC_ADMIN_KEYWORDS 過寬誤殺業務公文
 # warning-only：超出預期上限 2x 才 fail
@@ -306,7 +306,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 20. Role permissions consistency（ADR-0034 配套）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[20/61] Role permissions consistency${NC}"
+echo -e "${CYAN}[20/73] Role permissions consistency${NC}"
 # 4 維度 audit：dangling / orphan / admin coverage / 敏感 nav 缺權限
 # 防範：role_permissions ↔ site_navigation_items 雙軌不同步
 if $STRICT; then
@@ -319,7 +319,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 21. Alias RLS Coverage Audit（R4a / v6.9 — ADR-0025 靜態防範）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[21/61] Alias RLS coverage audit${NC}"
+echo -e "${CYAN}[21/73] Alias RLS coverage audit${NC}"
 # 靜態掃 endpoints/ 找疑似有 user-scoped SQL filter 但無 RLS / admin 標記的檔案
 # 與 step 17 alias_rls_e2e_check 互補（step 17 = runtime / step 21 = compile-time）
 # 防 ADR-0025 半接通類事故重演 — owner 應每月檢視 risk 清單
@@ -333,7 +333,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 22. Domain Score Freshness Watchdog（L29 / v6.9 — 坤哥成長中斷防範）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[22/61] Domain score freshness${NC}"
+echo -e "${CYAN}[22/73] Domain score freshness${NC}"
 # 防 L29「domain_scores Redis 全空 silent skip」重演
 # 至少 3 個 domain 有資料才算健康；全空 → self_evaluator domain tracking 又斷了
 # warning-only：dev 環境 Redis 可能未啟；CI 模式才 exit 1
@@ -347,7 +347,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 23. Capability Usage Audit（v6.10 retro — dead investment 自動偵測）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[23/61] Capability usage audit${NC}"
+echo -e "${CYAN}[23/73] Capability usage audit${NC}"
 # 偵測 7d/30d usage = 0 的 capability（tools/KG/memory loop/ADR）
 # 強制 A/B/C 決策矩陣 — 避免「12 dead investment 累積無人察覺」重演
 # --quick 跳過 ADR grep（Windows 慢，月度大盤點才用完整模式）
@@ -361,7 +361,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 24. ADR Lifecycle Check（ADR-0029 自動數量治理）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[24/61] ADR lifecycle check${NC}"
+echo -e "${CYAN}[24/73] ADR lifecycle check${NC}"
 # Active ≤ 20 健康 / > 20 觸發強制盤點
 # 補位本 session C8（CLAUDE.md/skills 數字漂移）的自動偵測
 if $STRICT; then
@@ -374,7 +374,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 25. Dead UI Detector（前端死 route / dead component 偵測）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[25/61] Dead UI detector${NC}"
+echo -e "${CYAN}[25/73] Dead UI detector${NC}"
 # 偵測後端有 endpoint 但前端無 UI 觸發點 / 前端 component 0-importer
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/dead_ui_detector.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
@@ -386,7 +386,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 26. Lessons Drift Check（LESSONS_REGISTRY 自我保護）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[26/61] Lessons drift check${NC}"
+echo -e "${CYAN}[26/73] Lessons drift check${NC}"
 # 22 lessons L01~L29 是否仍被引用 / 是否有新 lesson 未入 registry
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/lessons_drift_check.py --ci || FAIL_COUNT=$((FAIL_COUNT+1))
@@ -398,7 +398,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 27. Service Line Count Check（後端服務行數監控）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[27/61] Service line count check${NC}"
+echo -e "${CYAN}[27/73] Service line count check${NC}"
 # 服務行數 > 600 警告（觀察而非拆分依據 — 見 feedback_ddd_over_line_count）
 # 配合 MODULARIZATION_STANDARDS §1.1 黃金原則
 if $STRICT; then
@@ -411,7 +411,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 28. Paths Sloppy Calc Guard (v6.10 P1-E：5/18 backup path bug 預防)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[28/61] Paths sloppy calc guard${NC}"
+echo -e "${CYAN}[28/73] Paths sloppy calc guard${NC}"
 # 偵測 Path(__file__).resolve().parents[N] / parent.parent.parent 散用
 # 強制走 app.core.paths SSOT（規約 E）
 if $STRICT; then
@@ -424,7 +424,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 29. Contracts Only Import Guard (v6.10 P1 建議 1：12 bounded context 隔離)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[29/61] Contracts only import guard${NC}"
+echo -e "${CYAN}[29/73] Contracts only import guard${NC}"
 # 偵測跨 bounded context 直 import 內部 module（強制走 contracts/）
 # 依據 CONTRACTS_LAYER_GUIDE.md + MODULARIZATION_STANDARDS §1.3
 # v6.10 初次跑 baseline ~84，目標 v7.0 前清到 0
@@ -438,7 +438,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 30. Module Portability Audit (v6.10 P1：跨 repo 採用前審計)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[30/61] Module portability audit (contracts/)${NC}"
+echo -e "${CYAN}[30/73] Module portability audit (contracts/)${NC}"
 # 依 data/business_keyword_blacklist.yml 偵測業務耦合 keyword
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/module_portability_audit.py backend/app/services/contracts/ --strict || FAIL_COUNT=$((FAIL_COUNT+1))
@@ -450,7 +450,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 31. Naming Convention Audit (v6.10 P1 Phase A：8 大命名規約)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[31/61] Naming convention audit${NC}"
+echo -e "${CYAN}[31/73] Naming convention audit${NC}"
 # 依 docs/architecture/NAMING_CONVENTIONS.md 偵測命名違規
 # v6.10 過渡期：env_namespace + abc_port_suffix 為 warning；v6.11 升 error
 if $STRICT; then
@@ -463,7 +463,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 32. Facade Only Check (v6.10 P1 Phase B：12 facades 落地後新增監控)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[32/61] Facade only check${NC}"
+echo -e "${CYAN}[32/73] Facade only check${NC}"
 # step 29 進階版：要求新 PR 不得超出 baseline 84
 # 提供 facade 修法指引（每個違規對應 *Facade）
 if $STRICT; then
@@ -477,7 +477,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 33. Toolkit Sync Audit (v6.10 P1：master scripts/ vs ck-modular-toolkit 同步)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[33/61] Toolkit sync audit${NC}"
+echo -e "${CYAN}[33/73] Toolkit sync audit${NC}"
 # 偵測 ck-modular-toolkit 是否與 master scripts/ 同步
 # 防 toolkit 落後 master 反模式（選項 D 統一同步策略）
 if $STRICT; then
@@ -490,7 +490,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 34. Transitive Deps Audit (v6.10 P1 LR-015 配套：防 package 半接通)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[34/61] Transitive deps audit${NC}"
+echo -e "${CYAN}[34/73] Transitive deps audit${NC}"
 # 偵測 shared-modules/{pkg}/ 內 import 是否 self-contained
 # 對應 PACKAGING_PATTERN Rule 7 (Self-Contained Imports)
 # 起因：5/18 ck-navigation v1.0 半接通事件 (LR-015 諷刺對齊)
@@ -504,7 +504,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 35. React Query queryKey Drift Audit (v6.10.1 L39：防 silent dead invalidate)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[35/61] queryKey drift audit${NC}"
+echo -e "${CYAN}[35/73] queryKey drift audit${NC}"
 # 偵測 invalidateQueries 寫的 key 是否對應任何 useQuery / SSOT key
 # 起因：5/20 dispatch=158「公文 2 筆」chronic bug 揭發 12 個 silent dead invalidate
 # L39 dict-key drift 反模式（同 L28 schema drift + L29 contract drift）
@@ -519,7 +519,7 @@ echo ""
 # ----------------------------------------------------------------------------
 # 36. Autobiography Scheduler Freshness Check (v6.10.2 B 配套)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[36/61] autobiography freshness check${NC}"
+echo -e "${CYAN}[36/73] autobiography freshness check${NC}"
 # 偵測 wiki/memory/evolutions/2026-Wnn.md 最新檔距當前週 > 2 週即警示
 # 起因：5/20 揭發過去 5 個月 memory_weekly_autobiography_job silent miss
 # （cron 排程在，週日 18:00 沒真實跑；手動跑邏輯正常）
@@ -534,7 +534,7 @@ echo ""
 # step 37: cross-repo docker network audit (ADR CK_AaaP#0043, 2026-05-21)
 # 揭發跨 repo network 命名 + 4 層分網路達標度
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[37/61] cross-repo docker network audit (ADR-0043)${NC}"
+echo -e "${CYAN}[37/73] cross-repo docker network audit (ADR-0043)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/network_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -549,7 +549,7 @@ echo ""
 # vs dev/infra compose 指向 ck_missive_postgres_dev_data（真實主庫）
 # 切換 compose 時 silent 掛錯 volume → 業務 API 全 500 dormant ~10h
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[38/61] docker compose volume consistency (L43)${NC}"
+echo -e "${CYAN}[38/73] docker compose volume consistency (L43)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/docker_compose_volume_consistency.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -564,7 +564,7 @@ echo ""
 # import path，而正確的 IntegrationFacade.push_admin_alert 真實有實作但無 caller
 # RETRO_20260519 §2.1 看 facade 級揭發 9/12 zero caller；本 step 看 method 級
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[39/61] facade consumer audit (v6.10 P1)${NC}"
+echo -e "${CYAN}[39/73] facade consumer audit (v6.10 P1)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/facade_consumer_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -578,7 +578,7 @@ echo ""
 # Dockerfile :3000 nginx 真實 listen port，FailingStreak=36 dormant 18 分鐘
 # 屬於 L43「跨檔資源 SSOT 治理失效」家族第 4 案例（L41 jwt / L43 volume / L44 sso / L45 hc）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[40/61] compose vs Dockerfile HEALTHCHECK SSOT (L45)${NC}"
+echo -e "${CYAN}[40/73] compose vs Dockerfile HEALTHCHECK SSOT (L45)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/compose_dockerfile_healthcheck_ssot.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -592,7 +592,7 @@ echo ""
 # 偵測 CROSS_REPO_SHARED_KEYS（CK_SSO_JWT_SECRET / CK_SSO_ENABLED）跨 repo drift
 # 安全：只比對 sha256 hash 前 8 字元，不印實值
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[41/61] cross-repo secret SSOT audit (L41)${NC}"
+echo -e "${CYAN}[41/73] cross-repo secret SSOT audit (L41)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_secret_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -605,7 +605,7 @@ echo ""
 # 觸發：L44 ck-sso-js v1.0 session-permanent lock 跨 subdomain 失敗
 # 偵測 ck-sso-js sso-bridge.ts md5 跨 repo drift + LoginPage onSuccess anti-pattern
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[42/61] cross-repo SSO auth state audit (L44)${NC}"
+echo -e "${CYAN}[42/73] cross-repo SSO auth state audit (L44)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/cross_repo_auth_state_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -619,7 +619,7 @@ echo ""
 # 雙重偵測：mtime heuristic (model newer than migration) + alembic check (live container)
 # 嚴重度區分：added column/table = RED；added index/modified/removed = YELLOW
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[43/61] DB schema drift audit (next_session_resume #1)${NC}"
+echo -e "${CYAN}[43/73] DB schema drift audit (next_session_resume #1)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/db_schema_drift_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -633,7 +633,7 @@ echo ""
 # 偵測 docker ps + compose 內 :latest tag (public image) + 跨 repo 版本 drift
 # 本地 build image (ck_* prefix 或無 namespace) 跳過 (latest 是合理模式)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[44/61] container lifecycle audit (next_session_resume #4)${NC}"
+echo -e "${CYAN}[44/73] container lifecycle audit (next_session_resume #4)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/container_lifecycle_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -648,7 +648,7 @@ echo ""
 #   - active 公網真活
 #   - forbidden_typos 不在 production code 出現
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[45/61] subdomain registry audit (next_session_resume #3)${NC}"
+echo -e "${CYAN}[45/73] subdomain registry audit (next_session_resume #3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/subdomain_registry_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -666,7 +666,7 @@ echo ""
 #   4. .env.example 宣告 CK_SSO_ENABLED 或 VITE_CK_SSO_ENABLED
 # Check 1-2 RED, Check 3-4 YELLOW
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[46/61] SSO autoload completeness audit (next_session_resume #7)${NC}"
+echo -e "${CYAN}[46/73] SSO autoload completeness audit (next_session_resume #7)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/sso_autoload_completeness_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -680,7 +680,7 @@ echo ""
 # 偵測 list 形式 depends_on / 缺 condition / service_started（非 service_healthy）
 # 所有 critical depends_on 應該用 dict + condition: service_healthy
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[47/61] startup dependency race audit (v6.12 P3)${NC}"
+echo -e "${CYAN}[47/73] startup dependency race audit (v6.12 P3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/startup_dependency_race_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -694,7 +694,7 @@ echo ""
 # 抓 /health endpoint pool stats {size, checked_in, checked_out, overflow, max_overflow}
 # RED util > 90% / YELLOW util > 50% or overflow active / GREEN < 50%
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[48/61] DB pool exhaustion audit (v6.12 P3)${NC}"
+echo -e "${CYAN}[48/73] DB pool exhaustion audit (v6.12 P3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/db_pool_exhaustion_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -709,7 +709,7 @@ echo ""
 # 同 L48 family — silent dormant + missing audit enforcement
 # 掃 backend-error.log 抓 Total/Success/Error 比例，全失敗 → RED
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[49/61] Synthetic baseline freshness audit (v6.12 P3)${NC}"
+echo -e "${CYAN}[49/73] Synthetic baseline freshness audit (v6.12 P3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/synthetic_baseline_freshness_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -723,7 +723,7 @@ echo ""
 # 對齊 frontend/scripts/bundle-size-check.js 閾值（10.5MB raw / 3.5MB gzip / 1.5MB single）
 # 首跑揭發：total raw 10.68 MB > 10.5 MB threshold → RED
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[50/61] Frontend bundle size drift audit (v6.12 P3)${NC}"
+echo -e "${CYAN}[50/73] Frontend bundle size drift audit (v6.12 P3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/frontend_bundle_size_drift_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -737,7 +737,7 @@ echo ""
 # 同 L48 family — silent dormant + missing audit enforcement
 # 查 tender_records per source MAX(announce_date)，>7 天 → RED
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[51/61] Tender source freshness audit (v6.12 P3)${NC}"
+echo -e "${CYAN}[51/73] Tender source freshness audit (v6.12 P3)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/tender_freshness_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -752,7 +752,7 @@ echo ""
 #       rglob('*') 無 OSError 容錯 / attachment.file_path 未 normalize (YELLOW)
 # L41-L49 family meta-pattern：跨平台/環境隱式依賴 → 立法 + audit 三件套
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[52/61] container host dependency audit (L49)${NC}"
+echo -e "${CYAN}[52/73] container host dependency audit (L49)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/container_host_dependency_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -765,7 +765,7 @@ echo ""
 # 觸發：subscription_scheduler.check_all_subscriptions 若未排程將 silent dormant
 # 同 L48 PCC scraper 50 天 silent — counter 連 24h 無 invocation → RED
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[53/61] tender subscription scheduler watchdog (L48)${NC}"
+echo -e "${CYAN}[53/73] tender subscription scheduler watchdog (L48)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/tender_subscription_watchdog_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -778,7 +778,7 @@ echo ""
 # 觸發：install-task-scheduler.ps1 parser error line 104 真因
 # Windows PS 5.1 預設 cp950 讀 ps1，中文無 BOM → mis-decode → try/catch 結構崩
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[54/61] powershell utf-8 bom audit (L49 #11)${NC}"
+echo -e "${CYAN}[54/73] powershell utf-8 bom audit (L49 #11)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/powershell_bom_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -791,7 +791,7 @@ echo ""
 # 觸發：ezbid → PCC enrichment 每日 03:30 cron 是否真活
 # 監測 pcc_match_at 最近時間，>30h 無 enrich → RED (同 L48 family silent dormant)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[55/61] tender enrichment freshness (ADR-0046)${NC}"
+echo -e "${CYAN}[55/73] tender enrichment freshness (ADR-0046)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/tender_enrichment_freshness_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -804,7 +804,7 @@ echo ""
 # 監測 MEDIUM review queue backlog 是否被 admin 消化
 # pending > 5000 → RED / > 2000 或 oldest > 30d → YELLOW
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[56/61] tender review queue health (ADR-0046 task E)${NC}"
+echo -e "${CYAN}[56/73] tender review queue health (ADR-0046 task E)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python backend/scripts/checks/tender_review_queue_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -818,7 +818,7 @@ echo ""
 # .env 有值但 compose 未注入 → RED (silent fail 風險)
 # informational — 預設不入 STRICT fail（部分 RED 為 false positive，需人工判斷）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[57/61] container env alignment audit (L51 LINE incident)${NC}"
+echo -e "${CYAN}[57/73] container env alignment audit (L51 LINE incident)${NC}"
 PYTHONIOENCODING=utf-8 python scripts/checks/container_env_alignment_audit.py || true
 echo ""
 
@@ -894,7 +894,7 @@ echo ""
 # 監測 agent_query 鏈是否「引擎跑著但無人用」反模式
 # shadow_baseline 24h n=0 → RED (近期無活動)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[58/61] agent query starvation check (L51.7 kunge review)${NC}"
+echo -e "${CYAN}[58/73] agent query starvation check (L51.7 kunge review)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/agent_query_starvation_check.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -907,7 +907,7 @@ echo ""
 # 監測 wiki/memory/diary entry 含 entity 引用比例
 # 推升 v7_reference_density_diary_pct 從 16.7% → ≥30%
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[59/61] diary density audit (L51.7 Sprint 2.P2.11)${NC}"
+echo -e "${CYAN}[59/73] diary density audit (L51.7 Sprint 2.P2.11)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/diary_density_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -921,7 +921,7 @@ echo ""
 # 任一 drift → RED（docker cp 修法未跟 rebuild image 反模式）
 # 防 L51 5 防護層 silent disabled 36h 再次發生
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[60/62] container image freshness check (L51 incident #8)${NC}"
+echo -e "${CYAN}[60/73] container image freshness check (L51 incident #8)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/container_image_freshness_check.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -934,7 +934,7 @@ echo ""
 # 監測 13 facades 業務 code importer 趨勢（baseline vs current）
 # informational only — facade 收口為 v6.12 規劃，不入 strict fail
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[61/62] facade adoption audit (P1.7 v6.12 路線)${NC}"
+echo -e "${CYAN}[61/73] facade adoption audit (P1.7 v6.12 路線)${NC}"
 PYTHONIOENCODING=utf-8 python scripts/checks/facade_adoption_audit.py || true
 echo ""
 
@@ -944,7 +944,7 @@ echo ""
 # 5 鏈 E2E 驗證: Missive health / kunge_snapshot / tools manifest / Hermes gateway / bridge skill
 # 任一鏈斷 → 寫 integration-health marker + 將觸發 LINE alert (透過 cron job)
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[62/63] integration e2e validation (v6.13 整合連通 持續驗證)${NC}"
+echo -e "${CYAN}[62/73] integration e2e validation (v6.13 整合連通 持續驗證)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/integration_e2e_validation.py || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -960,7 +960,7 @@ echo ""
 #       既未 rollback 也未 re-raise → 後續 query / 推播段會 silent 撞交易錯。
 # baseline 2026-06-03: 59 候選（advisory；逐步收斂，新增不得超過 baseline）
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[63/68] transaction pollution audit (L64 交易污染防復發)${NC}"
+echo -e "${CYAN}[63/73] transaction pollution audit (L64 交易污染防復發)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/transaction_pollution_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -976,7 +976,7 @@ echo ""
 #       「自行導向認證頁(location.replace / navigate(ROUTES.LOGIN|ENTRY|DASHBOARD) / <Navigate>)」。
 # baseline 2026-06-16（SSO 治本+bootstrap 競態修後）: 0 violation（GREEN）。新增任一 → RED。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[64/68] auth-state ssot audit (登入狀態單一權威, 防 SSO race 復發)${NC}"
+echo -e "${CYAN}[64/73] auth-state ssot audit (登入狀態單一權威, 防 SSO race 復發)${NC}"
 if $STRICT; then
     node scripts/checks/auth_state_ssot_audit.cjs --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -992,7 +992,7 @@ echo ""
 #       ②modified backend/app py 檔 host↔容器 md5 對賬，未部署 → RED
 # host 側執行（容器內無 git）；亦適合 session 收尾前手動跑。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[65/68] uncommitted work audit (session 收尾完整性, 防寫好未接通)${NC}"
+echo -e "${CYAN}[65/73] uncommitted work audit (session 收尾完整性, 防寫好未接通)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/uncommitted_work_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -1008,7 +1008,7 @@ echo ""
 #       H3 後端 services stub 標記檔——皆對照 baseline，成長即 RED。
 # 登記表: docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[66/69] heterogeneous work audit (異質同工防增量, 防反覆回歸根源復發)${NC}"
+echo -e "${CYAN}[66/73] heterogeneous work audit (異質同工防增量, 防反覆回歸根源復發)${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/heterogeneous_work_audit.py --strict || FAIL_COUNT=$((FAIL_COUNT+1))
 else
@@ -1024,7 +1024,7 @@ echo ""
 #       非全自動（真重複 vs 合理拆分需判斷）。是「自動撈→triage→登記表」機制。
 # 登記表: docs/architecture/HETEROGENEOUS_WORK_REGISTRY.md §程式圖譜自我優化
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[67/69] code semantic duplication (程式圖譜自動發現異質同工候選)${NC}"
+echo -e "${CYAN}[67/73] code semantic duplication (程式圖譜自動發現異質同工候選)${NC}"
 # discovery 型：預設不阻斷（候選需 triage）；strict 且超 baseline 才 fail
 PYTHONIOENCODING=utf-8 python scripts/checks/code_semantic_duplication_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
@@ -1035,7 +1035,7 @@ echo ""
 #       → 污染查詢、阻礙自我優化。ground truth 對照 source（symbol 是否還在其檔）。
 # 性質: DRY-RUN report-only——只報 orphan 範圍供 owner 決策 prune；本步不刪任何資料。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[68/69] code graph orphan audit (圖譜 stale orphan 偵測, DRY-RUN 只報不刪)${NC}"
+echo -e "${CYAN}[68/73] code graph orphan audit (圖譜 stale orphan 偵測, DRY-RUN 只報不刪)${NC}"
 PYTHONIOENCODING=utf-8 python scripts/checks/code_graph_orphan_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
@@ -1046,7 +1046,7 @@ echo ""
 # 性質: 行為層 SSOT——讀 cron_events detail，抓 producer「報 success 但 0 產出且非
 #       合理原因」（AI 自我檢核，不等人看症狀）。cron 版整合於 cron_outcome_freshness。
 # ----------------------------------------------------------------------------
-echo -e "${CYAN}[69/70] producer output watchdog (沉默成功偵測, 行為層自我檢核)${NC}"
+echo -e "${CYAN}[69/73] producer output watchdog (沉默成功偵測, 行為層自我檢核)${NC}"
 PYTHONIOENCODING=utf-8 python scripts/checks/producer_output_watchdog.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
