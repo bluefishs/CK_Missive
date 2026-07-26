@@ -53,7 +53,7 @@ def _normalize(src: str) -> list[str]:
 
 def main(strict: bool = False) -> int:
     print("=== CSRF Service Drift Audit (pile ↔ lvrland 單一源 / L80) ===")
-    print("  已知刻意差異：redis import 路徑（同一 UnifiedRedisClient）；其餘須逐行相同")
+    print("  已知刻意差異：redis import 路徑（Tier3 registry §1.7）；其餘須逐行相同")
     print("─" * 60)
 
     if not PILE.exists() or not LVRLAND.exists():

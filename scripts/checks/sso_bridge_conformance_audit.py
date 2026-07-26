@@ -101,7 +101,7 @@ def audit_file(name: str, path: Path) -> list[str]:
 def main(strict: bool = False) -> int:
     print("=== SSO Bridge Conformance Audit ===")
     print(f"  安全契約守門（不強制實作相同，只守共享契約）")
-    print(f"  分歧登記：docs/architecture/SSO_BRIDGE_DIVERGENCE_MATRIX.md")
+    print(f"  刻意分歧登記：SSO_BRIDGE_DIVERGENCE_MATRIX.md + TIER3_INTENTIONAL_DIVERGENCE_REGISTRY.md")
     print("─" * 60)
 
     total_red = 0
