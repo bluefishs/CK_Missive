@@ -213,6 +213,23 @@ function createAxiosInstance(): AxiosInstance {
     refreshSubscribers = [];
   };
 
+  // 2026-07-25 FE-1（AUTH_LIFECYCLE_ROBUSTNESS_DESIGN §5.1 / I2）：CSRF token 補打**單飛**。
+  //   原本每個併發 mutation 各自 POST csrf-token（L68 自癒），token 過期後一次頁面
+  //   載入多請求會「7ms 內連鑄多 token」→ double-submit header≠cookie → 403 race
+  //   （2026-07-27 live 事證）。比照上方 401 refresh 單飛：一次 in-flight fetch，
+  //   併發 caller 共用同一 Promise、統一在其後讀 cookie → header 必等於 cookie。
+  let csrfFetchInFlight: Promise<void> | null = null;
+  const fetchCsrfTokenSingleFlight = (): Promise<void> => {
+    if (!csrfFetchInFlight) {
+      csrfFetchInFlight = axios
+        .post(`${API_BASE_URL}/secure-site-management/csrf-token`, {}, { withCredentials: true })
+        .then(() => undefined)
+        .catch(() => undefined)  // 補取失敗 → 後端會擋、走既有錯誤流，不阻斷請求
+        .finally(() => { csrfFetchInFlight = null; });
+    }
+    return csrfFetchInFlight;
+  };
+
   // 請求節流攔截器（防止無限迴圈造成請求風暴）
   instance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
@@ -269,16 +286,9 @@ function createAxiosInstance(): AxiosInstance {
         //   已登入(user_info)時主動補打已豁免的 csrf-token endpoint 重設 csrf cookie 再送。
         //   用裸 axios 避免遞迴觸發本攔截器；same-origin 才能補，跨站攻擊無法觸發→不削弱防護。
         if (!csrfToken && localStorage.getItem('user_info')) {
-          try {
-            await axios.post(
-              `${API_BASE_URL}/secure-site-management/csrf-token`,
-              {},
-              { withCredentials: true }
-            );
-            csrfToken = getCookie('csrf_token');
-          } catch {
-            /* 補取失敗 → 後端會擋，走既有錯誤流，不阻斷請求 */
-          }
+          // FE-1（2026-07-25）：改用單飛補打，避免併發連鑄 token race（見上方 helper）
+          await fetchCsrfTokenSingleFlight();
+          csrfToken = getCookie('csrf_token');
         }
         if (csrfToken && config.headers) {
           config.headers['X-CSRF-Token'] = csrfToken;
@@ -306,6 +316,7 @@ function createAxiosInstance(): AxiosInstance {
       const originalRequest = error.config as InternalAxiosRequestConfig & {
         _retry?: boolean;
         _retryCount?: number;
+        _csrfRetry?: boolean;
       };
 
       // 網路錯誤自動重試（後端重啟期間的 ERR_CONNECTION_REFUSED）
@@ -325,6 +336,31 @@ function createAxiosInstance(): AxiosInstance {
         }
         // 重試耗盡，繼續走正常錯誤處理
         logger.error(`[Retry] 重試耗盡 (${RETRY_CONFIG.MAX_RETRIES}次)，後端可能未啟動: ${originalRequest.url}`);
+      }
+
+      // FE-2（2026-07-25 AUTH_LIFECYCLE_ROBUSTNESS_DESIGN §5.1 / I3）：CSRF 403 視為**可恢復**。
+      //   token 過期恢復窗口內 csrf cookie 亦過期/被 rotation → double-submit 不匹配 403。
+      //   後端恢復是正確的（refresh 會重發 csrf），壞在前端直接把此 403 彈「安全憑證已過期」。
+      //   比照 401：單飛重取 csrf + 單次重試；僅重試仍 403 才落到下方全域錯誤發射。
+      if (
+        error.response?.status === 403 &&
+        originalRequest &&
+        !originalRequest._csrfRetry &&
+        !AUTH_DISABLED &&
+        !!localStorage.getItem('user_info')
+      ) {
+        const detail =
+          (error.response?.data as { detail?: string } | undefined)?.detail || error.message || '';
+        if (/csrf|x-csrf/i.test(detail)) {
+          originalRequest._csrfRetry = true;
+          document.cookie = 'csrf_token=; Path=/; Max-Age=0';  // 清舊值 → 強制取新
+          await fetchCsrfTokenSingleFlight();
+          const freshCsrf = getCookie('csrf_token');
+          if (freshCsrf && originalRequest.headers) {
+            originalRequest.headers['X-CSRF-Token'] = freshCsrf;
+          }
+          return instance(originalRequest);
+        }
       }
 
       // 處理 401 未授權
