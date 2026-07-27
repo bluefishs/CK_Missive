@@ -43,8 +43,8 @@
 | CSRF 模型 | double-submit cookie（無狀態，max_age 3600） | **Redis stateful**（TTL 1800/30min） | **Redis stateful**（TTL 1800/30min） | bearer/XOR（無 cookie-CSRF） |
 | 後端 refresh 重發 CSRF（I4） | ✅（`set_auth_cookies`→`generate_csrf_token`） | 待確認 | 待確認 | N/A |
 | FE 401 refresh 單飛（I2） | ✅（`isRefreshing`+subscribers） | **⚠️ 無（=0）** | ✅（有） | 待確認 |
-| FE CSRF 自癒單飛（I2） | **⚠️ 無**（每請求各自補打→race） | 待確認 | 待確認 | N/A |
-| FE CSRF-403 可恢復重試（I3） | **⚠️ 無**（直接彈 GlobalApiErrorNotifier） | 待確認 | 待確認 | N/A |
+| FE CSRF 自癒單飛（I2） | **✅ 已修**（`5bff56d5` FE-1） | 待確認 | 待確認 | N/A |
+| FE CSRF-403 可恢復重試（I3） | **✅ 已修**（`5bff56d5` FE-2） | 待確認 | 待確認 | N/A |
 | SSO refresh fallback（I5） | ✅（`try_mint_session_from_sso_cookie`） | 待確認 | 待確認 | 待確認 |
 
 > **關鍵觀察**：portfolio 的 FE 恢復成熟度**各不相同**（lvrland 連 401 單飛都缺、Missive 有 401 單飛但 CSRF 沒單飛）——這是「反覆回歸」的結構性來源：每次只補一個系統一個洞。**本設計要一次立通用不變式，各系統對齊之。**
@@ -80,10 +80,10 @@
 
 ---
 
-## 6. Rollout 計畫（實作階段，待 owner 審核本文後啟）
+## 6. Rollout 計畫
 
-1. **Missive 先做（proving ground）**：FE-1 + FE-2 + regression（併發 mutation / token 過期恢復 / 兩登入路徑）+ `npm run build`。
-2. **owner 瀏覽器實測**（headless 無法代行）：直登 Missive 閒置逾 1h 回來操作 dispatch 頁 + SSO 登入 → 確認不再彈錯、背景無縫恢復。
+1. **✅ Missive 先做（proving ground）— 2026-07-25 完成部署（commit `5bff56d5`）**：FE-1（csrf 單飛）+ FE-2（csrf-403 可恢復重試）+ regression 4/4 + tsc 0 + build + dist served + 公網 200。後端未動（refresh 已重發 csrf、SSO fallback 已在）。
+2. **⏳ owner 瀏覽器實測（headless 無法代行）＝ propagate 前硬 gate**：直登 Missive 閒置逾 1h 回來操作 dispatch 頁 + SSO 登入 → 確認不再彈「安全憑證已過期」、背景無縫恢復。**通過後才進 step 3/4。**
 3. **通過後 propagate**：lvrland → pile（Redis 模型，需後端 I4 + FE 補齊），DT 最後（低優先）。每系統 isolated + 登入實測 + revert-on-fail。
 4. **TTL 統一 60min（恢復證實後才做）**：lvrland/pile 直登 30→60；Missive SSO 480→60（**必須在該系統無縫恢復已證實後**，否則 SSO 回歸 L74/L78）。config env + backend 重啟 + L76 公網 200 複驗。
 5. **立通用護欄**：fitness audit 檢查各系統 FE 具備「401 單飛 + CSRF 單飛 + CSRF-403 可恢復重試」+ access TTL=60min 對齊（防未來某系統又缺一角 / TTL 又漂移）。
