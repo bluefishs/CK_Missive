@@ -35,15 +35,61 @@ function Log($m) {
     Add-Content -Path $logFile -Value $line -Encoding UTF8
 }
 
+$cfgPath = "D:\CKProject\CK_Missive\backend\config\remote_backup.json"
+
+<#
+  2026-07-29：把「NAS 實際狀態」寫進 config，讓 /admin/backup 能直接回答
+  「異地備份到底正不正常」，而不是只看容器端那個刻意關閉的開關。
+  失敗路徑也必須寫（原本 error 直接 exit → UI 仍顯示上次成功時間＝沉默失敗）。
+#>
+function Write-SyncStatus {
+    param([string]$Result, [string]$Message = "")
+    if ($DryRun) { return }
+    try {
+        $j = Get-Content $cfgPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $j.remote_path    = $Dest
+        $j.last_sync_time = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.ffffff")
+        $j.sync_status    = if ($Result -eq "success") { "idle" } else { "error" }
+        # 新增狀態欄位（容器端 schema 已對應）
+        $j | Add-Member -NotePropertyName last_sync_result  -NotePropertyValue $Result  -Force
+        $j | Add-Member -NotePropertyName last_sync_source  -NotePropertyValue "windows_scheduled_task:CK-Missive-Offsite-Backup" -Force
+        $j | Add-Member -NotePropertyName last_sync_message -NotePropertyValue $Message -Force
+        # NAS 實際內容（ground truth）
+        $cnt = 0; $latestName = $null; $latestMB = $null; $latestTime = $null
+        try {
+            $remote = Get-ChildItem -LiteralPath $Dest -Filter "*.sql" -File -ErrorAction Stop |
+                      Sort-Object LastWriteTime -Descending
+            $cnt = $remote.Count
+            if ($cnt -gt 0) {
+                $latestName = $remote[0].Name
+                $latestMB   = [math]::Round($remote[0].Length / 1MB, 1)
+                $latestTime = $remote[0].LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss")
+            }
+        } catch { }
+        $j | Add-Member -NotePropertyName remote_file_count    -NotePropertyValue $cnt        -Force
+        $j | Add-Member -NotePropertyName latest_remote_file   -NotePropertyValue $latestName -Force
+        $j | Add-Member -NotePropertyName latest_remote_size_mb -NotePropertyValue $latestMB  -Force
+        $j | Add-Member -NotePropertyName latest_remote_time   -NotePropertyValue $latestTime -Force
+        ($j | ConvertTo-Json) | Set-Content -Path $cfgPath -Encoding UTF8
+        Log "已寫入同步狀態: result=$Result nas_files=$cnt latest=$latestName"
+    } catch { Log "WARN 更新 config 失敗: $_" }
+}
+
 Log "=== 異地同步開始 (DryRun=$DryRun) ==="
 
 # 1. 前置檢查
-if (-not (Test-Path $Source)) { Log "ERROR 來源不存在: $Source"; exit 1 }
+if (-not (Test-Path $Source)) {
+    Log "ERROR 來源不存在: $Source"; Write-SyncStatus -Result "error" -Message "來源不存在: $Source"; exit 1
+}
 if (-not (Test-Path $Dest)) {
     Log "目的地不存在，嘗試建立: $Dest"
     if (-not $DryRun) {
         try { New-Item -ItemType Directory -Path $Dest -Force -ErrorAction Stop | Out-Null }
-        catch { Log "ERROR 無法建立/存取目的地（NAS 認證或連線問題）: $_"; exit 1 }
+        catch {
+            Log "ERROR 無法建立/存取目的地（NAS 認證或連線問題）: $_"
+            Write-SyncStatus -Result "error" -Message "NAS 不可存取: $Dest"
+            exit 1
+        }
     }
 }
 
@@ -54,7 +100,11 @@ Log "robocopy $($rcArgs -join ' ')"
 & robocopy @rcArgs | ForEach-Object { if ($_ -match '\S') { Log "  $_" } }
 $code = $LASTEXITCODE
 Log "robocopy exit=$code (0-7=成功, >=8=失敗)"
-if ($code -ge 8) { Log "ERROR robocopy 失敗 exit=$code"; exit 1 }
+if ($code -ge 8) {
+    Log "ERROR robocopy 失敗 exit=$code"
+    Write-SyncStatus -Result "error" -Message "robocopy 失敗 exit=$code"
+    exit 1
+}
 
 # 3. 保留最近 N 份（僅刪 dest 超量的舊 .sql）
 if (-not $DryRun) {
@@ -70,18 +120,8 @@ if (-not $DryRun) {
     } catch { Log "WARN 保留輪替失敗: $_" }
 }
 
-# 4. 更新 remote_backup.json last_sync（供 admin/backup UI 顯示 / 容器 mount 可見）
-if (-not $DryRun) {
-    $cfg = "D:\CKProject\CK_Missive\backend\config\remote_backup.json"
-    try {
-        $j = Get-Content $cfg -Raw -Encoding UTF8 | ConvertFrom-Json
-        $j.remote_path = $Dest
-        $j.last_sync_time = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.ffffff")
-        $j.sync_status = "idle"
-        ($j | ConvertTo-Json) | Set-Content -Path $cfg -Encoding UTF8
-        Log "已更新 remote_backup.json last_sync"
-    } catch { Log "WARN 更新 config 失敗: $_" }
-}
+# 4. 寫入同步狀態 + NAS 實際內容（供 admin/backup UI 顯示 / 容器 mount 可見）
+Write-SyncStatus -Result "success"
 
 Log "=== 異地同步完成 ==="
 exit 0

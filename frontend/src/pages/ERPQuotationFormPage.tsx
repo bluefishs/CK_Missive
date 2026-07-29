@@ -5,7 +5,7 @@ import React from 'react';
 import { Card, Form, Input, InputNumber, Select, Button, Typography, message, Space } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useERPQuotation, useCreateERPQuotation, useUpdateERPQuotation } from '../hooks';
 import { ERP_QUOTATION_STATUS_LABELS, ERP_CATEGORY_CODES } from '../types/erp';
 import type { ERPQuotationCreate } from '../types/erp';
@@ -29,6 +29,21 @@ export const ERPQuotationFormPage: React.FC = () => {
   const { data: existingQuotation, isLoading } = useERPQuotation(isEdit ? Number(id) : null);
   const createMutation = useCreateERPQuotation();
   const updateMutation = useUpdateERPQuotation();
+
+  /**
+   * 2026-07-29：由承攬案件「財務紀錄 → 建立報價並綁定此案」帶入的預填參數。
+   * 存檔後 project_code 即成為兩模組的關聯鍵（cross_module_lookup 有 fallback）。
+   */
+  const [searchParams] = useSearchParams();
+  React.useEffect(() => {
+    if (isEdit) return;
+    const prefill: Record<string, string> = {};
+    const pc = searchParams.get('project_code');
+    const cn = searchParams.get('case_name');
+    if (pc) prefill.project_code = pc;
+    if (cn) prefill.case_name = cn;
+    if (Object.keys(prefill).length) form.setFieldsValue(prefill);
+  }, [searchParams, isEdit, form]);
 
   React.useEffect(() => {
     if (existingQuotation && isEdit) {

@@ -60,12 +60,27 @@ class RemoteBackupConfigRequest(BaseModel):
 
 
 class RemoteBackupConfigResponse(BaseModel):
-    """異地備份設定回應"""
+    """異地備份設定回應
+
+    2026-07-29：新增「NAS 實際狀態」欄位。原本畫面只有容器端的 `sync_enabled`
+    （因 Linux 容器無法存取 Windows NAS 而刻意關閉）與一個可能過期的
+    `last_sync_time` → owner 無法從畫面判斷異地備份到底有沒有在跑。
+    下列欄位由 Windows 排程腳本 `scripts/backup/offsite-sync-nas.ps1` 寫入，
+    是 NAS 上的 ground truth。
+    """
     remote_path: Optional[str] = Field(None, description="異地備份路徑")
-    sync_enabled: bool = Field(False, description="是否啟用同步")
+    sync_enabled: bool = Field(False, description="容器端自動同步是否啟用（非現行機制）")
     sync_interval_hours: int = Field(24, description="同步間隔(小時)")
     last_sync_time: Optional[str] = Field(None, description="最後同步時間")
     sync_status: str = Field("idle", description="同步狀態")
+    # --- NAS ground truth（Windows 排程寫入）---
+    last_sync_result: Optional[str] = Field(None, description="最後一次同步結果 success/error")
+    last_sync_source: Optional[str] = Field(None, description="執行者（哪個機制真的在跑）")
+    last_sync_message: Optional[str] = Field(None, description="失敗原因（成功時為空）")
+    remote_file_count: Optional[int] = Field(None, description="NAS 上現存 dump 份數")
+    latest_remote_file: Optional[str] = Field(None, description="NAS 最新 dump 檔名")
+    latest_remote_size_mb: Optional[float] = Field(None, description="NAS 最新 dump 大小(MB)")
+    latest_remote_time: Optional[str] = Field(None, description="NAS 最新 dump 時間")
 
 
 # =============================================================================

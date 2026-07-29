@@ -216,10 +216,19 @@ export interface RestoreBackupRequest {
 /** 異地備份設定 */
 export interface RemoteBackupConfig {
   remote_path?: string;
+  /** 容器端自動同步（非現行機制；Linux 容器無法存取 Windows NAS，刻意關閉） */
   sync_enabled: boolean;
   sync_interval_hours: number;
   last_sync_time?: string;
   sync_status: string;
+  // --- NAS ground truth，由 Windows 排程 offsite-sync-nas.ps1 寫入（2026-07-29）---
+  last_sync_result?: 'success' | 'error' | string;
+  last_sync_source?: string;
+  last_sync_message?: string;
+  remote_file_count?: number;
+  latest_remote_file?: string;
+  latest_remote_size_mb?: number;
+  latest_remote_time?: string;
 }
 
 /** 異地備份設定請求 */

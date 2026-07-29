@@ -219,18 +219,53 @@ class BackupUtilsMixin:
         }
         try:
             if self.remote_config_file.exists():
-                with open(self.remote_config_file, "r", encoding="utf-8") as f:
+                # ⚠️ utf-8-sig（不是 utf-8）：本檔的寫入者之一是 Windows PowerShell
+                # 排程腳本 offsite-sync-nas.ps1，PS 5.1 的 `Set-Content -Encoding UTF8`
+                # 會寫入 **UTF-8 BOM**，而 json.load 用 utf-8 讀 BOM 會直接拋
+                # "Unexpected UTF-8 BOM" → 整份設定 silent 退回預設值
+                # （路徑空白、sync_enabled=false、last_sync_time=None）
+                # → /admin/backup 顯示「尚未同步」，看起來像異地備份壞掉，實際 NAS 每日都有新檔。
+                # 2026-07-29 根治；utf-8-sig 對無 BOM 檔案同樣可正確解析，安全。
+                with open(self.remote_config_file, "r", encoding="utf-8-sig") as f:
                     return {**default_config, **json.load(f)}
         except Exception as e:
-            logger.warning(f"載入異地備份設定失敗: {e}")
+            logger.error(
+                f"載入異地備份設定失敗（UI 將顯示預設值＝看起來像沒備份）: {e}",
+                exc_info=True,
+            )
         return default_config
 
+    def reload_remote_config(self) -> Dict[str, Any]:
+        """重新自磁碟載入異地備份設定（2026-07-29 修）。
+
+        ⚠️ 本檔的**寫入者是容器外的 Windows 排程**（`scripts/backup/offsite-sync-nas.ps1`
+        每日 03:00 更新 `last_sync_time` 等欄位），檔案經 bind-mount 進容器。
+        原本設定只在 service 建構時讀一次 → 後端只要幾天沒重啟，
+        `/admin/backup` 顯示的「最後同步時間」就停在啟動當下的舊值，
+        看起來像「異地備份沒在跑」（實際 NAS 每日都有新檔）＝ 假故障。
+        故每次讀取都重新載入（檔案僅數百 bytes，成本可忽略）。
+        """
+        self._remote_config = self._load_remote_config()
+        return self._remote_config
+
     def _save_remote_config(self) -> None:
-        """儲存異地備份設定"""
+        """儲存異地備份設定。
+
+        先合併磁碟上的最新值，避免把排程（容器外 writer）剛寫入的
+        `last_sync_time` / NAS 狀態欄位，用容器啟動時的舊快照覆蓋掉。
+        """
         try:
             self.remote_config_file.parent.mkdir(parents=True, exist_ok=True)
+            on_disk = self._load_remote_config()
+            # 容器只擁有這三個「設定型」欄位；其餘狀態欄位以磁碟（排程寫入）為準
+            owned = {
+                k: self._remote_config.get(k)
+                for k in ("remote_path", "sync_enabled", "sync_interval_hours")
+            }
+            merged = {**on_disk, **owned}
             with open(self.remote_config_file, "w", encoding="utf-8") as f:
-                json.dump(self._remote_config, f, ensure_ascii=False, indent=2)
+                json.dump(merged, f, ensure_ascii=False, indent=2)
+            self._remote_config = merged
         except Exception as e:
             logger.error(f"儲存異地備份設定失敗: {e}")
 

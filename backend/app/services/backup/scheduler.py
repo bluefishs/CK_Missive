@@ -284,8 +284,8 @@ class BackupSchedulerMixin(RemoteSyncerMixin):
     # =========================================================================
 
     async def get_remote_config(self) -> Dict[str, Any]:
-        """取得異地備份設定"""
-        return self._remote_config.copy()
+        """取得異地備份設定（每次重讀磁碟，見 reload_remote_config 說明）"""
+        return self.reload_remote_config().copy()
 
     async def update_remote_config(
         self,

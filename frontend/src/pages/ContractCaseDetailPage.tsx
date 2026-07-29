@@ -202,6 +202,7 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
         <FinanceTab
           caseCode={data.case_code ?? null}
           projectCode={data.project_code ?? null}
+          projectName={data.project_name ?? null}
         />
       ) : null
     ),

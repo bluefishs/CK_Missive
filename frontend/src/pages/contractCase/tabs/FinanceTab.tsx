@@ -16,9 +16,10 @@ const { Text } = Typography;
 interface Props {
   caseCode: string | null;
   projectCode?: string | null;
+  projectName?: string | null;
 }
 
-const FinanceTab: React.FC<Props> = ({ caseCode, projectCode }) => {
+const FinanceTab: React.FC<Props> = ({ caseCode, projectCode, projectName }) => {
   const navigate = useNavigate();
   const lookupKey = caseCode || projectCode || null;
   const { data: crossData, isLoading } = useCrossModuleLookup(lookupKey);
@@ -28,6 +29,17 @@ const FinanceTab: React.FC<Props> = ({ caseCode, projectCode }) => {
 
   // 無 ERP 報價 — 引導建立
   if (!erp) {
+    /**
+     * 2026-07-29：直接建立/歷史匯入的承攬案件沒有 case_code，過去只能被導去
+     * 邀標報價「重新開一個案」→ 會與既有承攬案件重複。改為帶著本案的
+     * project_code + 案名跳到報價建立頁預填，存檔後即自動關聯回本案
+     * （後端 cross_module_lookup 已支援 project_code fallback）。
+     */
+    const createParams = new URLSearchParams();
+    if (projectCode) createParams.set('project_code', projectCode);
+    if (projectName) createParams.set('case_name', projectName);
+    const createUrl = `${ROUTES.ERP_QUOTATION_CREATE}?${createParams.toString()}`;
+
     return (
       <Empty
         image={<DollarOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />}
@@ -35,13 +47,24 @@ const FinanceTab: React.FC<Props> = ({ caseCode, projectCode }) => {
           <>
             <Text>此案件尚無 ERP 報價紀錄</Text>
             <br />
-            <Text type="secondary">請先在邀標/報價模組建立報價，成案後會自動關聯</Text>
+            <Text type="secondary">
+              {projectCode
+                ? '可直接建立報價並綁定本案（會自動帶入成案編號與案名）'
+                : '請先在邀標/報價模組建立報價，成案後會自動關聯'}
+            </Text>
           </>
         }
       >
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(ROUTES.PM_CASES)}>
-          前往邀標報價
-        </Button>
+        <Space>
+          {projectCode && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(createUrl)}>
+              建立報價並綁定此案
+            </Button>
+          )}
+          <Button icon={<PlusOutlined />} onClick={() => navigate(ROUTES.PM_CASES)}>
+            前往邀標報價
+          </Button>
+        </Space>
       </Empty>
     );
   }
