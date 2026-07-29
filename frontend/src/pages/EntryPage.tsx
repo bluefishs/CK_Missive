@@ -19,11 +19,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { App, Tag, Form } from 'antd';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import authService, { MFARequiredError } from '../services/authService';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID, LINE_LOGIN_CHANNEL_ID } from '../config/env';
 import { useLineLogin } from '../hooks';
+import { resolveReturnUrl } from '../utils/returnUrl';
 import { logger } from '../utils/logger';
 import StarrySky from './entry/StarrySky';
 import LoginPanel from './entry/LoginPanel';
@@ -88,12 +89,16 @@ const EntryPage: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [form] = Form.useForm();
   const navigate = useNavigate();
+  // 2026-07-29：登入/SSO 完成後回跳原本要去的頁面（手機掃核銷 QR 等深連結）。
+  //   原本 5 處一律 navigate(DASHBOARD) → returnUrl 被丟棄，深連結在公網全部失效。
+  const [searchParams] = useSearchParams();
+  const postLoginTarget = resolveReturnUrl(searchParams, ROUTES.DASHBOARD);
   // 2026-06-16 SSO 真根因修：導向改宣告式（依 sessionStore 權威狀態），不依賴 ssoBridge
   //   async callback 的 imperative navigate —— 後者被 useEffect re-run 的 `mounted=false`
   //   守衛跳過 → 停在 entry、重整才好（owner 復報根因）。
   const sessionStatus = useSessionStore((s) => s.status);
 
-  const { lineLoading, handleLineLogin } = useLineLogin(null);
+  const { lineLoading, handleLineLogin } = useLineLogin(searchParams.get('returnUrl'));
 
   // ── Handlers ──
 
@@ -106,7 +111,7 @@ const EntryPage: React.FC = () => {
       window.dispatchEvent(new CustomEvent('user-logged-in'));
       // 所有登入使用者一律進 /dashboard（admin 要管理請從側邊欄導覽）
       void response;
-      navigate(ROUTES.DASHBOARD);
+      navigate(postLoginTarget);
     } catch (error: unknown) {
       if (error instanceof MFARequiredError) {
         message.info('請完成雙因素認證');
@@ -134,14 +139,14 @@ const EntryPage: React.FC = () => {
       // 否則 SPA navigate 不會觸發 Layout re-mount，currentUser 永遠保持 null
       // → Header 持續顯示「訪客」（v6.8 5/04 認證鏈漏修一環）
       window.dispatchEvent(new CustomEvent('user-logged-in'));
-      navigate(ROUTES.DASHBOARD);
+      navigate(postLoginTarget);
     } catch (error: unknown) {
       logger.error('Google login failed:', error);
       message.error(error instanceof Error ? error.message : 'Google 登入失敗');
     } finally {
       setLoading(false);
     }
-  }, [message, navigate]);
+  }, [message, navigate, postLoginTarget]);
 
   const initializeGoogleSignIn = useCallback(() => {
     // 5 秒超時 — Google API 不可達（防火牆/GFW）時自動降級
@@ -270,7 +275,7 @@ const EntryPage: React.FC = () => {
         authService.setUserInfo(mockUserInfo);
         window.dispatchEvent(new CustomEvent('user-logged-in'));
         message.success(`歡迎進入內網, ${mockUserInfo.full_name}!`);
-        navigate(ROUTES.DASHBOARD);
+        navigate(postLoginTarget);
         return;
       }
 
@@ -278,7 +283,7 @@ const EntryPage: React.FC = () => {
       authService.setUserInfo(userInfo);
       window.dispatchEvent(new CustomEvent('user-logged-in'));
       message.success(`歡迎, ${userInfo.full_name || userInfo.username}!`);
-      navigate(ROUTES.DASHBOARD);
+      navigate(postLoginTarget);
     } catch (error: unknown) {
       logger.error('Quick entry failed:', error);
       message.error('快速進入失敗，請確認後端服務是否啟動');
@@ -316,7 +321,7 @@ const EntryPage: React.FC = () => {
   //   （會被 effect re-run 的 mounted 守衛跳過）→ 狀態一變即可靠導向，根治「停在 entry、重整才好」。
   //   localhost/內網 dev 維持原本「點擊快速進入 → 直接 navigate」流程，不受此影響。
   if (sessionStatus === 'authenticated' && IS_NGROK_OR_PUBLIC) {
-    return <Navigate to={ROUTES.DASHBOARD} replace />;
+    return <Navigate to={postLoginTarget} replace />;
   }
 
   return (

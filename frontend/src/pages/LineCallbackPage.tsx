@@ -14,6 +14,8 @@ import { ROUTES } from '../router/types';
 import authService, { MFARequiredError } from '../services/authService';
 import { LINE_LOGIN_REDIRECT_URI } from '../config/env';
 import { logger } from '../utils/logger';
+// 2026-07-29：改用共用 SSOT（原本此檔有一份區域性複製）
+import { isValidReturnUrl } from '../utils/returnUrl';
 
 const { Text } = Typography;
 
@@ -23,15 +25,6 @@ const cleanupSessionStorage = () => {
   sessionStorage.removeItem('line_login_return_url');
 };
 
-/** 驗證 returnUrl 為相對路徑 (防止 open redirect) */
-const isValidReturnUrl = (url: string): boolean => {
-  try {
-    const decoded = decodeURIComponent(url);
-    return decoded.startsWith('/') && !decoded.startsWith('//');
-  } catch {
-    return false;
-  }
-};
 
 const LineCallbackPage: React.FC = () => {
   const { message } = App.useApp();
