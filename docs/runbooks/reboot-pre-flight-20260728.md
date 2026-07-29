@@ -47,7 +47,26 @@
 
 ---
 
-## ⚠️ Watch item：digitaltunnel 公網 000（非重啟阻斷）
+## ✅ 重啟後驗收結果（2026-07-29 補記）
+
+本機 07-28 15:32 重啟，Docker 自動拉回，**SOP 五步驗收 4/5 通過、1 項待 owner**：
+
+| 步 | 項目 | 結果 |
+|---|---|---|
+| 1 | Docker 自動拉回 | ✅ **55 容器全 Up、0 非健康**（ck-ollama healthy，NVIDIA hook 未重演） |
+| 2 | 五系統公網 | ✅ 全 **200** — **`digitaltunnel` 000 已自癒**（見下 watch item 結案） |
+| 3 | shared drift | ✅ `sync-vendored.sh --check` = **GREEN** |
+| 4 | ⭐ Missive auth 實測 | ⏳ **待 owner**（headless 無法代行，仍為 propagate 唯一 gate） |
+| 5 | 接續 propagation | ⏸ 依 gate；**但已完成前置讀碼複核**（見 `AUTH_LIFECYCLE_ROBUSTNESS_DESIGN.md` §3/§5.2/§8 07-29 修正版：真缺口只剩 I3、後端不需改、修法形狀異於 Missive） |
+
+另補：業務量 1963 docs / 49143 KG（未減）、cron 近 400 事件 0 fail、tsc 0 / py_compile 0、異地備份 07-28 03:00 正常。
+
+### ✅ Watch item 結案：digitaltunnel 000 → 200
+重啟後 cloudflared 重連即恢復 **200**，證實原判斷（**公網邊緣/CF tunnel 路由、非 app/DB 故障**）正確 → **不需任何工程**，亦不需 owner 去查 CF dashboard。此為「單次暫態不升級工程」紀律再次生效。
+
+---
+
+## ⚠️（原文保留）Watch item：digitaltunnel 公網 000（非重啟阻斷）
 - `digitaltunnel.cksurvey.tw` 公網 **000 無回應**，但**所有 DT 容器 Up+healthy**（api Up 6d、cloudflared Up 12d）→ app 活著，是**公網邊緣/CF tunnel 路由**問題（非本輪改動、非 DB/app 故障）。
 - **重啟可能自癒**（cloudflared 重連）；若重啟後仍 000，owner 查 DT 的 cloudflared tunnel ingress 設定 / CF dashboard。
 - 不阻斷其他系統重啟。

@@ -33,21 +33,23 @@
 
 ---
 
-## 3. 各系統現況矩陣（2026-07-25 讀碼核實；⚠️=違反不變式）
+## 3. 各系統現況矩陣（2026-07-25 初版；**2026-07-29 讀碼複核修正**；⚠️=違反不變式）
 
 | 面向 | Missive | lvrland | pile | DigitalTunnel |
 |---|---|---|---|---|
 | access TTL（prod 直登）現況 | 60min | **30min** | **30min** | 24h |
-| access TTL（SSO）現況 | 480min(8h) | 待確認 | 待確認 | — |
+| access TTL（SSO）現況 | 480min(8h) | **同直登 30min**（無獨立 SSO TTL 設定） | **同直登 30min**（同左） | — |
 | **access TTL 目標（owner 決策）** | **60min** | **60min** | **60min** | 保留 24h(bearer) |
-| CSRF 模型 | double-submit cookie（無狀態，max_age 3600） | **Redis stateful**（TTL 1800/30min） | **Redis stateful**（TTL 1800/30min） | bearer/XOR（無 cookie-CSRF） |
-| 後端 refresh 重發 CSRF（I4） | ✅（`set_auth_cookies`→`generate_csrf_token`） | 待確認 | 待確認 | N/A |
-| FE 401 refresh 單飛（I2） | ✅（`isRefreshing`+subscribers） | **⚠️ 無（=0）** | ✅（有） | 待確認 |
-| FE CSRF 自癒單飛（I2） | **✅ 已修**（`5bff56d5` FE-1） | 待確認 | 待確認 | N/A |
-| FE CSRF-403 可恢復重試（I3） | **✅ 已修**（`5bff56d5` FE-2） | 待確認 | 待確認 | N/A |
-| SSO refresh fallback（I5） | ✅（`try_mint_session_from_sso_cookie`） | 待確認 | 待確認 | 待確認 |
+| CSRF 模型 | double-submit **cookie**（無狀態，max_age 3600；FE 讀 cookie） | **Redis stateful** + **FE 存記憶體**（authStore，`csrfToken` **不持久化**；僅由 auth 回應 header 補水） | 同 lvrland | bearer/XOR（無 cookie-CSRF） |
+| 後端 refresh 重發 CSRF（I4） | ✅（`set_auth_cookies`→`generate_csrf_token`） | ✅（`auth.py:174` 共用 helper，login/refresh/sso 皆走） | ✅（`auth.py:178`/`:758`） | N/A |
+| FE 401 refresh 單飛（I2） | ✅（`isRefreshing`+subscribers） | ✅ **有**（`inFlightRefresh` module-level 共用 promise，P161 2026-04-18）<br>⚠️**原矩陣記「無」係誤判**（grep `isRefreshing` 未命中其命名，L25 關鍵字陷阱） | ✅（`isRefreshing`+queue） | 待查（低優先） |
+| FE CSRF 自癒單飛（I2） | **✅ 已修**（`5bff56d5` FE-1） | **N/A — 無獨立 csrf 端點可補打**（僅能靠 refresh 回應 header 補水）→ 修法異於 Missive，見 §5.2 | 同 lvrland | N/A |
+| FE CSRF-403 可恢復重試（I3） | **✅ 已修**（`5bff56d5` FE-2） | **❌ 無**（403 直接 `apiErrorBus.emit('權限不足，請重新登入')`） | **❌ 無**（403 僅顯示後端 detail，不重試） | N/A |
+| SSO refresh fallback（I5） | ✅（`try_mint_session_from_sso_cookie`） | 待查 | ✅（401 時嘗試 bridge，`client.ts:101` 註明「對齊 Missive」） | 待查（低優先） |
 
-> **關鍵觀察**：portfolio 的 FE 恢復成熟度**各不相同**（lvrland 連 401 單飛都缺、Missive 有 401 單飛但 CSRF 沒單飛）——這是「反覆回歸」的結構性來源：每次只補一個系統一個洞。**本設計要一次立通用不變式，各系統對齊之。**
+> **關鍵觀察（07-29 修正版）**：三系統**後端 I4 皆已正確**（refresh 都重發 CSRF）、**401 單飛三系統皆有**。真正共通缺口只有一個——**I3「CSRF-403 視為可恢復」全 portfolio 只有 Missive 修了**。
+> 另 lvrland/pile 因 `csrfToken` **不持久化**，頁面重載後記憶體空 → 首個 mutating 請求不帶 header → 403 且無恢復，是同一缺口的第二觸發路徑。
+> ⇒ **propagate 工作量比原估小**（不需補 401 單飛），但**修法形狀與 Missive 不同**（無 csrf 端點可單飛補打）。
 
 ---
 
@@ -70,10 +72,17 @@
 - **FE-2（I3）**：CSRF-403 視為**可恢復**——回應攔截器攔 403 且 detail 含 csrf → 單飛重取 csrf + 單次重試 `originalRequest`；僅重試仍 403 才進 GlobalApiErrorNotifier。
 - 後端：**無需改**（refresh 已重發 csrf、SSO fallback 已在）。
 
-### 5.2 lvrland / pile（Redis stateful，TTL 30min）— 兩層都要
-- **FE**：補齊 401 單飛（lvrland 缺）+ CSRF 自癒單飛 + CSRF-403 可恢復重試（同 5.1 模式）。
-- **後端（I4）**：確認 refresh 是否重發 Redis CSRF token；stateful 模型下，access refresh 時必須同步 `CSRFService.refresh_csrf_token(user_id)`，否則 Redis CSRF 30min 到期→即使有 cookie 也 validate=False。
-- **TTL 統一 60min（owner 決策）**：lvrland/pile 直登 30→60（config `ACCESS_TOKEN_EXPIRE_MINUTES`，需 backend 重啟）。
+### 5.2 lvrland / pile（Redis stateful + FE 記憶體 csrf）— **07-29 複核後修正：純前端、範圍比原估小**
+> 原版誤判「lvrland 缺 401 單飛」「需補 CSRF 自癒單飛」「後端 I4 待確認」——**三點皆已核實不成立**（見 §3 修正矩陣）。
+
+- **後端：無需改**。`auth.py` 共用 auth-response helper 已在 login/refresh/sso 全路徑重發 CSRF（I4 ✅）。
+- **FE（唯一缺口 I3）**：回應攔截器攔 **403 且屬 CSRF 類**（依後端 detail 判別）→ **不直接彈錯**，改：
+  1. 觸發**已存在的單飛 refresh**（`inFlightRefresh` / `isRefreshing`）取得新 CSRF（由回應 header 自動寫回 authStore）；
+  2. 單次重試原請求；
+  3. 僅重試仍 403 才進 `apiErrorBus` / 顯示 detail。
+  → 形狀是「**403 → 借用既有 refresh 通道補水 → 重試**」，**非** Missive 的「單飛補打 csrf 端點」（兩系統無此端點）。
+- **順帶治第二觸發路徑**：`csrfToken` 不持久化 → 重載後首個 mutating 請求無 header 即 403；上述 I3 修法**同時覆蓋此情境**（403→refresh 補水→重試），故**不需**改為持久化 csrf（持久化會削弱 stateful 模型的安全性，不採）。
+- **TTL 統一 60min（owner 決策）**：lvrland `ACCESS_TOKEN_EXPIRE_MINUTES` 30→60（注意其寫法為 `30 if prod else 480`）、pile 30→60；需 backend 重啟 + L76 公網 200 複驗。
 
 ### 5.3 DigitalTunnel（bearer/XOR，24h）
 - 無 cookie-CSRF、24h TTL → 本問題基本不適用；僅需確認 bearer 過期恢復路徑符合 I1/I5。**最低優先。**
@@ -98,10 +107,17 @@
 
 ---
 
-## 8. 待確認清單（實作前補齊，本文標「待確認」處）
-- lvrland/pile：SSO access TTL？refresh 是否重發 Redis CSRF？FE CSRF-403 是否重試？SSO fallback 是否在？
-- DT：bearer 過期恢復路徑現況。
-- 各系統 SSO TTL 與 IdP `ck_employee` cookie TTL 對齊（I10/L80，跨讀 CK_Website `callback.ts`）。
+## 8. 待確認清單（**2026-07-29 讀碼複核：多數已結案**）
+
+| 項目 | 狀態 | 結論 |
+|---|---|---|
+| lvrland/pile SSO access TTL | ✅ 已確認 | 無獨立 SSO TTL 設定 → 與直登同值 **30min** |
+| lvrland/pile refresh 是否重發 CSRF（I4） | ✅ 已確認 | **兩者皆有**（共用 auth-response helper），後端不需改 |
+| lvrland/pile FE CSRF-403 是否重試（I3） | ✅ 已確認 | **兩者皆無** ← 唯一真缺口，修法見 §5.2 |
+| lvrland FE 401 單飛（I2） | ✅ 已確認 | **有**（`inFlightRefresh`）；原矩陣「無」為誤判，已更正 |
+| lvrland SSO fallback（I5） | ⏳ 未查 | pile 已確認有（對齊 Missive）；lvrland 待實作時一併讀 |
+| DT bearer 過期恢復路徑 | ⏳ 未查 | 24h TTL + 無 cookie-CSRF，本問題基本不適用，維持最低優先 |
+| SSO TTL 與 IdP `ck_employee` TTL 對齊（I10/L80） | ⏳ owner 決策 | IdP 4h vs Missive SSO 8h 仍 drift；TTL 統一 60min 時一併處理（IdP `callback.ts` 屬 CK_Website，需 CF Pages 部署） |
 
 ---
 

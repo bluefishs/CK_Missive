@@ -198,6 +198,19 @@ def _is_placeholder(body: list[str]) -> bool:
     return (not body) or any(("⚪" in b) or ("⚠️ git log" in b) or ("⚠ git log" in b) for b in body)
 
 
+def _prev_sop_count() -> int:
+    """L73 非 clobber（第三案，2026-07-29）：SOPs 在 `.claude/rules/`（dev-time 目錄、
+    未掛載入 backend 容器）→ cron 在容器內 regenerate 時數到 0，把 host 端實值 13 洗掉
+    並連帶讓 §1 Total 縮水（治理儀表板自身的數值回退，與 §3/§4 同型）。
+    此處回讀前次 §1 表格的 SOPs 值保留之。
+    """
+    for ln in _existing_section_body("## 1."):
+        m = re.match(r"^\|\s*SOPs\s*\|\s*(\d+)\s*\|", ln.strip())
+        if m:
+            return int(m.group(1))
+    return 0
+
+
 def check_cross_repo_drift() -> list[tuple[str, int, int, str]]:
     """v6.12 整合: 跨 repo 範本漂移摘要 (對齊 cross_repo_template_drift_audit step 65)"""
     targets = ["CK_lvrland_Webmap", "CK_PileMgmt", "CK_Showcase", "CK_KMapAdvisor"]
@@ -287,7 +300,14 @@ def render() -> str:
     a(f"| Lessons | {len(lessons)} | `docs/architecture/LESSONS_REGISTRY.md` |")
     rules_count = len(list((ROOT / ".claude" / "rules").glob("*.md")))
     # SOPs 在 .claude/rules/（dev-time 目錄，未掛載入 backend 容器 → cron 產出時為 0）
-    sop_note = "" if rules_count else "（容器未掛載 .claude/，host 端執行才計數）"
+    # L73 非 clobber：數到 0 時回讀前次 host 實值，避免每日把 13 洗成 0（連帶 Total 縮水）
+    sop_note = ""
+    if not rules_count:
+        rules_count = _prev_sop_count()
+        sop_note = (
+            "（容器未掛載 `.claude/`；此為前次 host regenerate 保留值，L73 非 clobber）"
+            if rules_count else "（容器未掛載 `.claude/`，host 端執行才計數）"
+        )
     a(f"| SOPs | {rules_count} | `.claude/rules/*.md`{sop_note} |")
     fitness_count = len(list((ROOT / "scripts" / "checks").glob("*.py")))
     a(f"| Fitness checks | {fitness_count} | `scripts/checks/*.py` |")
