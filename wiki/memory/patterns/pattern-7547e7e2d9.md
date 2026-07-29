@@ -5,13 +5,13 @@ template_hash: 7547e7e2d9
 tool_sequence: [get_unpaid_billings]
 domains: [erp]
 wiki_topics: [wiki/topics/案件索引.md]
-hit_count: 21
-success_count: 21
+hit_count: 33
+success_count: 33
 failure_count: 0
 success_rate: 1.0
-avg_latency_ms: 30271
-first_seen: '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''2026-06-08'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-last_seen: '2026-07-07'
+avg_latency_ms: 15054
+first_seen: 2026-06-08
+last_seen: '2026-07-20'
 crystallization_candidate: true
 tags: [memory, pattern, erp]
 ---
@@ -24,9 +24,9 @@ tags: [memory, pattern, erp]
 
 ## 統計
 
-- **觸發次數**：21（累計）
+- **觸發次數**：33（累計）
 - **成功率**：100.0%
-- **平均延遲**：30271ms
+- **平均延遲**：15054ms
 - **涉及領域**：erp
 - **相關 Wiki**：[[wiki/topics/案件索引.md]]
 
@@ -41,4 +41,4 @@ tags: [memory, pattern, erp]
 
 ---
 
-_由 pattern_extractor 自動產生，最後更新：2026-07-07_
+_由 pattern_extractor 自動產生，最後更新：2026-07-20_

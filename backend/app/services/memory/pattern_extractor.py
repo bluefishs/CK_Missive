@@ -509,8 +509,46 @@ _由 pattern_extractor 自動產生。此規則將在 agent_planner 規劃階段
             )
         return expired
 
+    # 日期類欄位的合理長度上限（`2026-05-10` 或 ISO datetime 皆遠小於此）。
+    # 超過即視為毀損（見下方 _read_existing_stats 說明），丟棄而非回寫。
+    _MAX_DATE_SCALAR_LEN = 64
+
+    @classmethod
+    def _clean_date_scalar(cls, raw: str) -> str:
+        """去除 YAML 引號並防毀損值回流。
+
+        2026-07-29 根治「frontmatter 引號逃逸失控」：
+        writer 用 `yaml.safe_dump`（2026-04-24 ADR-0028 修法）會把日期字串輸出為
+        **帶引號**的 `first_seen: '2026-05-10'`；但本 reader 原以 regex `(\\S+)` 取值，
+        **把引號一起吃進字串**。下一輪 dump 時 YAML 單引號逃逸規則把每個 `'` 變成 `''`
+        → 引號數每日約略翻倍（n → 2n+2）。實測 `pattern-1c8217069c.md` 已達
+        **134,218,488 bytes（2^27，128MiB）**，且 push 被 GitHub 100MB 限制擋下才暴露。
+        （`last_seen` 每輪都用當日值覆寫、不回讀，故未受害 → 佐證根因就在「回讀」這條路徑。）
+
+        屬 **reader/writer 契約不對稱** 家族（同 L28 JSON-as-TEXT）：writer 換成 YAML
+        序列化時，reader 仍停留在手寫 regex，修了一半。
+        """
+        val = (raw or "").strip()
+        # ⚠️ 長度檢查必須在剝除**之前**：毀損檔的引號可達 1.3e8 字元，
+        # 逐層 slice 會退化成 O(n²)（等同 hang）。超長即判毀損、直接丟棄。
+        if len(val) > cls._MAX_DATE_SCALAR_LEN:
+            logger.error(
+                "pattern frontmatter date scalar corrupted (len=%d) — 丟棄不回寫，"
+                "疑似引號逃逸失控（見 _clean_date_scalar）",
+                len(val),
+            )
+            return ""
+        # 反覆剝除外層引號（正常值最多 1-2 層）
+        while len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+            val = val[1:-1].strip()
+        return val.strip("'\"").strip()
+
     def _read_existing_stats(self, path: Path) -> dict:
-        """讀既有檔的 frontmatter 數字（供累積統計）。"""
+        """讀既有檔的 frontmatter 數字（供累積統計）。
+
+        ⚠️ 本函式的回傳值會被**原樣寫回** frontmatter（見 `first_seen`），
+        因此任何取值都必須是「反序列化後的乾淨值」，不得夾帶 YAML 語法字元。
+        """
         if not path.exists():
             return {}
         try:
@@ -524,12 +562,12 @@ _由 pattern_extractor 自動產生。此規則將在 agent_planner 規劃階段
                 m = re.search(rf"^{key}:\s*(\d+)", fm, re.MULTILINE)
                 if m:
                     stats[key] = int(m.group(1))
-            fs_match = re.search(r"^first_seen:\s*(\S+)", fm, re.MULTILINE)
-            if fs_match:
-                stats["first_seen"] = fs_match.group(1).strip()
-            ls_match = re.search(r"^last_seen:\s*(\S+)", fm, re.MULTILINE)
-            if ls_match:
-                stats["last_seen"] = ls_match.group(1).strip()
+            for key in ("first_seen", "last_seen"):
+                m = re.search(rf"^{key}:[ \t]*(.*)$", fm, re.MULTILINE)
+                if m:
+                    cleaned = self._clean_date_scalar(m.group(1))
+                    if cleaned:
+                        stats[key] = cleaned
             return stats
         except Exception:
             return {}

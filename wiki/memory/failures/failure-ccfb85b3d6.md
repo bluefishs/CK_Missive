@@ -3,13 +3,12 @@ type: agent_memory
 memory_type: failure
 signature: ccfb85b3d6
 tool_sequence: ["search_dispatch_orders", "search_projects"]
-hit_count: 5
-failure_count: 4
-failure_rate: 0.800
-active: false
-expired_reason: stale >21d (last_seen 2026-04-30)
+hit_count: 7
+failure_count: 5
+failure_rate: 0.714
+active: true
 first_seen: 2026-04-26
-last_seen: 2026-04-30
+last_seen: 2026-07-24
 tags: [memory, failure, defensive]
 ---
 
@@ -21,10 +20,10 @@ tags: [memory, failure, defensive]
 
 ## 失敗統計
 
-- **觸發次數**：5
-- **失敗次數**：4
-- **失敗率**：80.0%
-- **症狀**：成功率僅 33%，共 2 次失敗
+- **觸發次數**：7
+- **失敗次數**：5
+- **失敗率**：71.4%
+- **症狀**：成功率僅 50%，共 1 次失敗
 
 ## 典型問法
 
@@ -34,7 +33,7 @@ tags: [memory, failure, defensive]
 
 **觸發**：規劃包含 `search_dispatch_orders` + `search_projects` 的組合
 
-**歷史問題**：成功率僅 33%，共 2 次失敗
+**歷史問題**：成功率僅 50%，共 1 次失敗
 
 **建議**：
 - 優先考慮單獨使用其中一個工具而非全部組合
