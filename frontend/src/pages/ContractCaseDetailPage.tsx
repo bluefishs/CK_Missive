@@ -20,6 +20,7 @@ import {
 import { useParams } from 'react-router-dom';
 
 import { DetailPageLayout, createTabItem } from '../components/common/DetailPage';
+import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
 import { useContractCaseData } from './contractCase/useContractCaseData';
 import { useContractCaseHandlers } from './contractCase/useContractCaseHandlers';
 import { useCrossModuleLookup } from '../hooks/business/usePMCases';
@@ -210,6 +211,12 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
 
   const headerExtra = (
     <Space>
+      {/* 2026-07-29：工地人員常從承攬案件頁找案子，故此處也提供核銷 QR
+          （比照 PMCaseDetailPage / ERPQuotationDetailPage；沿用同一元件，零新邏輯）。
+          僅在有 case_code 時顯示——無 case_code 掃了也無法關聯，見「財務紀錄」分頁的補建指引。 */}
+      {data?.case_code && (
+        <ExpenseQRButton caseCode={data.case_code} caseName={data.project_name} />
+      )}
       {handlers.handleEdit && (
         <Button icon={<EditOutlined />} onClick={handlers.handleEdit}>
           編輯

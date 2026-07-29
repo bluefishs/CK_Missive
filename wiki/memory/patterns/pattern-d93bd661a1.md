@@ -5,13 +5,13 @@ template_hash: d93bd661a1
 tool_sequence: [search_documents]
 domains: [doc]
 wiki_topics: [wiki/topics/公文管理系統總覽.md]
-hit_count: 78
-success_count: 77
-failure_count: 1
-success_rate: 0.987
-avg_latency_ms: 21602
-first_seen: 2026-05-05
-last_seen: '2026-07-27'
+hit_count: 84
+success_count: 82
+failure_count: 2
+success_rate: 0.976
+avg_latency_ms: 29048
+first_seen: '2026-05-05'
+last_seen: '2026-07-29'
 crystallization_candidate: true
 tags: [memory, pattern, doc]
 ---
@@ -24,9 +24,9 @@ tags: [memory, pattern, doc]
 
 ## 統計
 
-- **觸發次數**：78（累計）
-- **成功率**：98.7%
-- **平均延遲**：21602ms
+- **觸發次數**：84（累計）
+- **成功率**：97.6%
+- **平均延遲**：29048ms
 - **涉及領域**：doc
 - **相關 Wiki**：[[wiki/topics/公文管理系統總覽.md]]
 
@@ -34,6 +34,7 @@ tags: [memory, pattern, doc]
 
 - 今天到期的公文
 - wiki_search：搜尋派工流程的 wiki 頁面
+- 桃園市政府的來文有幾封？
 
 ## 結晶候選
 
@@ -41,4 +42,4 @@ tags: [memory, pattern, doc]
 
 ---
 
-_由 pattern_extractor 自動產生，最後更新：2026-07-27_
+_由 pattern_extractor 自動產生，最後更新：2026-07-29_

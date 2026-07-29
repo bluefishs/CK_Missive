@@ -56,16 +56,28 @@ const ExpenseQRCode: React.FC<ExpenseQRCodeProps> = ({
     if (!canvas) return;
     const win = window.open('', '_blank');
     if (!win) return;
+    // 2026-07-29：列印版供工地張貼／貼資料夾封面 —— 案號放大為主視覺
+    // （工地人員是「先認案號」再掃碼，原本案號只出現在小字 URL 裡不易辨識）。
+    // QR 同步放大到 260px，貼在牆上距離較遠也掃得到。
+    const printSize = Math.max(size, 260);
     win.document.write(`
       <html><head><title>核銷 QR — ${caseCode}</title>
-      <style>body{text-align:center;font-family:sans-serif;padding:40px}
-      h2{margin:0 0 8px}p{color:#666;margin:0 0 20px}img{margin:20px 0}
-      .footer{margin-top:20px;font-size:12px;color:#999}</style></head>
+      <style>
+        body{text-align:center;font-family:sans-serif;padding:32px}
+        .code{font-size:40px;font-weight:700;letter-spacing:1px;margin:0 0 6px;font-family:monospace}
+        .name{font-size:18px;color:#333;margin:0 0 4px}
+        .hint{color:#666;margin:12px 0 0;font-size:15px}
+        img{margin:16px 0}
+        .url{font-size:10px;color:#bbb;word-break:break-all;margin:4px 0 0}
+        .footer{margin-top:16px;font-size:12px;color:#999}
+        @media print { body{padding:16px} }
+      </style></head>
       <body>
-        <h2>${caseName || caseCode}</h2>
-        <p>掃描下方 QR Code 開啟核銷頁面</p>
-        <img src="${canvas.toDataURL('image/png')}" width="${size}" />
-        <p style="font-size:11px;color:#aaa;word-break:break-all">${url}</p>
+        <p class="code">${caseCode}</p>
+        ${caseName ? `<p class="name">${caseName}</p>` : ''}
+        <img src="${canvas.toDataURL('image/png')}" width="${printSize}" />
+        <p class="hint">手機掃描開啟核銷頁面（會自動帶入本案）</p>
+        <p class="url">${url}</p>
         <div class="footer">CK Missive 公文管理系統</div>
         <script>setTimeout(()=>window.print(),300)</script>
       </body></html>
