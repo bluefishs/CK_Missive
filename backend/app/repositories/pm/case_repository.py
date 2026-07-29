@@ -38,10 +38,20 @@ class PMCaseRepository(BaseRepository[PMCase]):
         return (result.scalar() or 0) > 0
 
     async def get_lookup_by_case_code(self, case_code: str) -> Optional[Dict[str, Any]]:
-        """跨模組查詢用 — 回傳案號的摘要資訊"""
+        """跨模組查詢用 — 依 case_code 回傳案號的摘要資訊"""
+        return await self._get_lookup(PMCase.case_code == case_code)
+
+    async def get_lookup_by_project_code(
+        self, project_code: str
+    ) -> Optional[Dict[str, Any]]:
+        """跨模組查詢用 — 依 project_code（成案編號）回退查詢（2026-07-29 補，見 ERP 版說明）"""
+        return await self._get_lookup(PMCase.project_code == project_code)
+
+    async def _get_lookup(self, where_clause) -> Optional[Dict[str, Any]]:
+        """跨模組摘要查詢單一實作（case/project 兩路共用，避免欄位漂移）。"""
         query = select(
             PMCase.id, PMCase.case_name, PMCase.status, PMCase.progress
-        ).where(PMCase.case_code == case_code)
+        ).where(where_clause)
         row = (await self.db.execute(query)).first()
         if not row:
             return None

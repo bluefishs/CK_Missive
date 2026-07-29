@@ -20,6 +20,14 @@ import { usersApi } from '../../api/usersApi';
 
 export interface ContractCaseFormValues {
   project_name: string;
+  /**
+   * 建案案號（跨模組橋樑）— 2026-07-29 補
+   *
+   * 背景：case_code 原本只在「邀標/報價 → 建案 → 成案」自動流程中寫入；
+   * 直接建立或歷史匯入的承攬案件無此值 → 詳情頁「財務紀錄」tab 找不到 ERP 報價
+   * （87 筆中 16 筆為空，其中 4 筆執行中）。後端 schema 一直支援，缺的只是 UI 入口。
+   */
+  case_code?: string;
   year?: number;
   client_agency?: string;
   client_type?: 'agency' | 'vendor' | 'other';
@@ -82,6 +90,9 @@ export function useContractCaseForm() {
       const data = await projectsApi.getProject(parseInt(id!, 10));
       form.setFieldsValue({
         project_name: data.project_name,
+        // ⚠️ 必須回填：submitData 一律帶 case_code，若此處漏填，
+        //    任何一次編輯都會把既有 case_code 清成 null（71 筆已關聯案件會斷橋）。
+        case_code: data.case_code,
         year: data.year,
         client_agency: data.client_agency,
         client_type: data.client_type ?? 'agency',
@@ -114,6 +125,9 @@ export function useContractCaseForm() {
       const endDate = contractPeriod?.[1];
       const submitData = {
         project_name: values.project_name,
+        // 空字串 → null（後端 model_dump(exclude_unset=True)：帶 key 才會更新，
+        // 故明確送 null 代表「清除」，送值代表「設定/維持」）
+        case_code: values.case_code?.trim() || null,
         year: values.year,
         client_agency: values.client_agency,
         client_type: values.client_type,

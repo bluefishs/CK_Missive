@@ -51,14 +51,30 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         return (result.scalar() or 0) > 0
 
     async def get_lookup_by_case_code(self, case_code: str) -> Optional[Dict[str, Any]]:
-        """跨模組查詢用 — 回傳案號的摘要資訊 (含毛利計算)"""
+        """跨模組查詢用 — 依 case_code 回傳案號的摘要資訊 (含毛利計算)"""
+        return await self._get_lookup(ERPQuotation.case_code == case_code)
+
+    async def get_lookup_by_project_code(
+        self, project_code: str
+    ) -> Optional[Dict[str, Any]]:
+        """跨模組查詢用 — 依 project_code（成案編號）查同一份報價。
+
+        2026-07-29 補：承攬案件詳情頁「財務紀錄」已傳 `case_code || project_code`
+        （意圖 fallback），但查詢層原本只比對 `case_code` 欄位 → fallback 從未成立。
+        實測 71 筆報價中 **49 筆兩碼不同值**，故對「無 case_code 但有 project_code」
+        的案件必然查不到（半接通）。
+        """
+        return await self._get_lookup(ERPQuotation.project_code == project_code)
+
+    async def _get_lookup(self, where_clause) -> Optional[Dict[str, Any]]:
+        """跨模組摘要查詢單一實作（毛利計算只有一份，避免 case/project 兩路漂移）。"""
         query = select(
             ERPQuotation.id, ERPQuotation.case_name, ERPQuotation.status,
             ERPQuotation.total_price,
             ERPQuotation.outsourcing_fee, ERPQuotation.personnel_fee,
             ERPQuotation.overhead_fee, ERPQuotation.other_cost,
             ERPQuotation.tax_amount,
-        ).where(ERPQuotation.case_code == case_code)
+        ).where(where_clause)
         row = (await self.db.execute(query)).first()
         if not row:
             return None

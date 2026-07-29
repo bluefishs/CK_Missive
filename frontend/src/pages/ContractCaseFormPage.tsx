@@ -224,6 +224,16 @@ export const ContractCaseFormPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
+              <Form.Item
+                label="建案案號 (case_code)"
+                name="case_code"
+                tooltip="跨模組橋樑：填入對應的 ERP 報價案號後，本案「財務紀錄」分頁即可讀到報價/請款/開票資料。走「邀標→建案→成案」流程的案件會自動帶入；直接建立或歷史匯入的案件可在此補填。"
+                extra="留空表示尚未關聯 ERP 報價"
+              >
+                <Input placeholder="例如 CK2025_FN_01_001" allowClear />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
               <Form.Item label="專案路徑" name="project_path">
                 <Input placeholder="請輸入專案資料夾路徑 (可選)" />
               </Form.Item>

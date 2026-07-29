@@ -351,15 +351,29 @@ class CaseCodeService:
             "erp_linked": erp_linked,
         }
 
-    async def cross_module_lookup(self, case_code: str) -> dict:
-        """跨模組查詢案號 — 回傳該案號在 PM/ERP 各自的記錄"""
-        result: dict = {"case_code": case_code, "pm": None, "erp": None}
+    async def cross_module_lookup(self, code: str) -> dict:
+        """跨模組查詢案號 — 回傳該案號在 PM/ERP 各自的記錄。
 
-        # PM
-        result["pm"] = await self.pm_repo.get_lookup_by_case_code(case_code)
+        兩段式查找（2026-07-29 補 project_code fallback，比照同檔
+        `find_linked_documents` 既有模式）：
+        1. 以 `case_code` 精確匹配（建案案號，正規流程）
+        2. 找不到才回退 `project_code`（成案編號）
 
-        # ERP
-        result["erp"] = await self.erp_repo.get_lookup_by_case_code(case_code)
+        起因：承攬案件詳情頁「財務紀錄」傳入 `case_code || project_code`，
+        但本方法原僅比對 case_code → 對「直接建立／歷史匯入、無 case_code」的案件
+        永遠回 None（半接通）。實測 71 筆報價中 49 筆兩碼不同值，fallback 有實質必要。
+        """
+        result: dict = {"case_code": code, "pm": None, "erp": None}
+
+        # PM：case_code 優先，回退 project_code
+        result["pm"] = await self.pm_repo.get_lookup_by_case_code(code)
+        if not result["pm"]:
+            result["pm"] = await self.pm_repo.get_lookup_by_project_code(code)
+
+        # ERP：同上
+        result["erp"] = await self.erp_repo.get_lookup_by_case_code(code)
+        if not result["erp"]:
+            result["erp"] = await self.erp_repo.get_lookup_by_project_code(code)
 
         return result
 

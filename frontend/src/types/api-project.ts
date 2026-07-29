@@ -70,6 +70,8 @@ export interface Project {
 export interface ProjectCreate {
   project_name: string;
   project_code?: string;
+  /** 建案案號（跨模組橋樑 → ERP 報價 / PM 案件）；null = 清除。後端 ProjectCreate/Update 皆支援 */
+  case_code?: string | null;
   year?: number;
   client_agency?: string;
   category?: string;

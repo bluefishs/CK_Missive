@@ -64,6 +64,8 @@ export interface ERPQuotation {
 /** ERP 報價建立 */
 export interface ERPQuotationCreate {
   case_code?: string;
+  /** 成案專案編號（對應 contract_projects.project_code）；後端 schema 已支援 */
+  project_code?: string;
   case_name?: string;
   year?: number;
   total_price?: number | string;

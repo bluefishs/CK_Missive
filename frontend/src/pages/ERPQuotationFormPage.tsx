@@ -67,6 +67,8 @@ export const ERPQuotationFormPage: React.FC = () => {
   const handleSubmit = async (values: Record<string, unknown>) => {
     const data: ERPQuotationCreate = {
       case_code: values.case_code as string | undefined,
+      // 2026-07-29：成案編號 — 讓「先成案、後補報價」也能綁定既有承攬案件
+      project_code: (values.project_code as string | undefined)?.trim() || undefined,
       case_name: values.case_name as string | undefined,
       year: values.year as number | undefined,
       total_price: values.total_price != null ? String(values.total_price) : undefined,
@@ -122,6 +124,15 @@ export const ERPQuotationFormPage: React.FC = () => {
                   </Button>
                 )}
               </Space.Compact>
+            </Form.Item>
+            <Form.Item
+              name="project_code"
+              label="成案編號"
+              style={{ flex: 1 }}
+              tooltip="對應承攬案件的 project_code。填入後，該承攬案件詳情頁的「財務紀錄」分頁即可讀到本報價（適用於先成案、後補報價的案件）。"
+              extra="可留空"
+            >
+              <Input placeholder="例: CK2026_01_01_006" allowClear />
             </Form.Item>
             <Form.Item name="case_name" label="案名" style={{ flex: 2 }}>
               <Input placeholder="案名" />
