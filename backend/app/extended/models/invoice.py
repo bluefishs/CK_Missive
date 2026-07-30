@@ -74,8 +74,17 @@ class ExpenseInvoice(Base):
     # Relationships
     user = relationship("User", back_populates="expense_invoices")
     vendor = relationship("PartnerVendor", foreign_keys=[vendor_id])
+    # lazy="selectin"（2026-07-30 根治）：ExpenseInvoiceResponse 含 `items`，
+    # 任何回傳 ORM 物件給 pydantic 序列化的路徑，只要 items 未載入就會在 async 情境
+    # 觸發 lazy IO → MissingGreenlet → pydantic ValidationError（**ValueError 子類**）
+    # → 被各端點的 `except ValueError` 誤標成業務錯誤（create→409「重複」、
+    #   approve→400），且資料其實已寫入，症狀極具誤導性。
+    # 逐一在 create/update/approve/reject/batch/attach_receipt… 補 eager load 治不乾淨
+    # （漏一處就復發，已實際漏掉 approve）→ 改在關係定義處一次解決。
+    # 成本：每次查 ExpenseInvoice 多一次 SELECT ... IN（明細筆數少，可忽略），
+    # 且多數呼叫點本來就要 items（list/detail 早已手動 selectinload）。
     items = relationship("ExpenseInvoiceItem", back_populates="invoice",
-                         cascade="all, delete-orphan")
+                         cascade="all, delete-orphan", lazy="selectin")
     ledger_entries = relationship(
         "FinanceLedger",
         primaryjoin="and_(ExpenseInvoice.id == foreign(FinanceLedger.source_id), "

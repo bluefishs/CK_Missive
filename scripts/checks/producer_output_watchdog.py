@@ -110,6 +110,8 @@ MONITORED_JOBS = {
     "tender_business_recommend", "wiki_compile", "shadow_baseline_export",
     # 2026-07-20 程式圖譜每日全量重建（db_row_count 關係健康監測）
     "code_graph_incremental",
+    # 2026-07-30 規則 4：驗證型 job 也要有可驗產出（此 job 曾三層空跑仍記 success）
+    "cf_tunnel_verify",
 }
 # 非 producer allowlist（稽核/檢查/watchdog/清理/暖機/外部推送/covered-elsewhere——無本地可驗產出）
 NON_PRODUCER_JOBS = {

@@ -1614,14 +1614,39 @@ async def cloudflare_tunnel_verify_job():
             )
 
     report = "\n".join(lines)
+    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
+
+    # ⭐ 產出可驗結果檔（2026-07-30）：驗證型 job 也必須留下「真的驗過」的證據，
+    # 否則 cron 記 success 與「什麼都沒驗」在外部完全無法區分（本 job 即前科）。
+    # 由 producer_output_watchdog 的 file_fresh 信號監測新鮮度。
+    try:
+        import json as _json
+        out_dir = project_root / "wiki" / "memory" / "integration-health"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "cf-tunnel-verify.json").write_text(
+            _json.dumps(
+                {
+                    "checked_at": datetime.now().isoformat(timespec="seconds"),
+                    "public_url": public_url,
+                    "passed": len(checks) - failed,
+                    "total": len(checks),
+                    "overall": "PASS" if failed == 0 else "FAIL",
+                    "report": lines,
+                },
+                ensure_ascii=False, indent=1,
+            ),
+            encoding="utf-8",
+        )
+    except Exception as e:  # 寫檔失敗不可吞（否則 watchdog 也看不到）
+        logger.error("cf_tunnel_verify: 結果檔寫入失敗: %s", e, exc_info=True)
+
     if failed == 0:
         logger.info("cf_tunnel_verify: PASS %d/%d\n%s", len(checks), len(checks), report)
-        return
+        return {"checks_passed": len(checks), "reason": "ok"}
 
     logger.error(
         "cf_tunnel_verify: FAIL %d/%d\n%s", failed, len(checks), report
     )
-    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
     log_path = project_root / "wiki" / "log.md"
     if log_path.exists():
         ts = datetime.now().strftime("%Y-%m-%d %H:%M")
