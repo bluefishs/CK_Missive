@@ -50,13 +50,26 @@ def try_vision_ocr(file_path: str) -> Optional[dict]:
         "如果某欄位無法辨識就設為 null。只回 JSON，不要其他文字。"
     )
 
+    # ⚠️ 必須用「視覺」模型，不能用 config.ollama_model（實為 qwen2.5:7b 純文字）。
+    # 2026-06-02 L64 已修過同一個 bug，但只修了 async 路徑
+    # （_vision_ocr_async → vision_completion(task_type="vision")）；
+    # smart-scan 實際走的是本 sync 路徑，它繞過 ai_connector 直接打 ollama，
+    # 於是「圖片送純文字模型 → silent 失敗」在此原封不動存活至 2026-07-30。
+    # 改讀 TASK_MODEL_MAP（SSOT）避免再各寫一份而漂移。
+    # 置於 try 之外：except 分支要記錄 model 名稱，避免 NameError。
+    try:
+        from app.core.ai_connector import TASK_MODEL_MAP
+        vision_model = TASK_MODEL_MAP.get("vision", "gemma4:e2b")
+    except Exception:
+        vision_model = "gemma4:e2b"
+
     try:
         from app.services.ai.core.ai_config import get_ai_config
         config = get_ai_config()
         resp = httpx.post(
             f"{config.ollama_base_url}/api/chat",
             json={
-                "model": config.ollama_model,
+                "model": vision_model,
                 "messages": [{"role": "user", "content": prompt, "images": [img_b64]}],
                 "stream": False,
                 "think": False,
@@ -94,5 +107,7 @@ def try_vision_ocr(file_path: str) -> Optional[dict]:
             "confidence": 0.7,  # Vision OCR 信心度固定 0.7
         }
     except Exception as e:
-        logger.debug(f"Vision OCR 失敗: {e}")
+        # 去 silent（ADR-0028）：原為 logger.debug，導致「三條辨識路徑全滅」時
+        # 使用者只看到「未辨識出發票資訊」，log 裡卻查不到任何線索。
+        logger.warning("Vision OCR 失敗（model=%s）: %s", vision_model, e, exc_info=True)
         return None

@@ -44,8 +44,21 @@ RUN adduser --system --group appuser
 # Install runtime tools (as root):
 # - curl: healthcheck
 # - postgresql-client: pg_dump/psql for backup service (L49 fix 2026-05-27 — replaces docker CLI subprocess)
+# - libzbar0: pyzbar 的原生 zbar 函式庫 —— 發票 QR 解碼（L49 家族，2026-07-30 修）
+# - libgl1 / libglib2.0-0: opencv (cv2) 執行期依賴（缺 libGL.so.1 會 import 失敗）
+# - tesseract-ocr + chi-tra/eng: 紙本收據 OCR fallback（無 QR 時）
+#
+# ⚠️ 為何需要（L49「容器缺 host 原生依賴」第 N 案）：
+#   2026-05-27 廢 PM2 native backend 改純 Docker 後，這些原本由 Windows host 提供的
+#   原生函式庫沒有進 image → 容器內 pyzbar「Unable to find zbar shared library」、
+#   cv2「libGL.so.1 not found」、tesseract 執行檔不存在
+#   → 智慧掃描三條路徑（QR / OCR / 視覺）全部不可用，但端點仍回 200 + success:false
+#   → 使用者只看到「未辨識出發票資訊，請手動填寫」＝沉默失敗。
+#   實證：唯一成功的 smart_qr 紀錄是 2026-04-09（PM2 時代），改 Docker 後再無成功。
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl postgresql-client \
+    libzbar0 libgl1 libglib2.0-0 \
+    tesseract-ocr tesseract-ocr-chi-tra tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder stage
