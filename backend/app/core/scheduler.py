@@ -1543,48 +1543,94 @@ async def synthetic_baseline_inject_job():
 
 @tracked_job("cf_tunnel_verify")
 async def cloudflare_tunnel_verify_job():
-    """每日 Cloudflare Tunnel 健康驗證（ADR-0015/0016）
+    """每日 Cloudflare Tunnel 健康驗證（ADR-0015/0016）— Python 原生實作
 
-    呼叫 scripts/ops/verify-cloudflare-tunnel.ps1，檢查：
-    - Tunnel online / TLS 憑證 / POST-only 政策 / service token 驗證
-    失敗時寫入 wiki/log.md 並 logger.error（後續可接 LINE/Discord 通知）。
+    檢查 7 項：本機 health / 公網 health / TLS / Manifest POST-only /
+    Manifest 拒 GET / ACP 無 token 應拒 / Feedback 無 token 應拒。
+    失敗時寫入 wiki/log.md 並 logger.error。
     只在有 MISSIVE_PUBLIC_URL (且含 cksurvey.tw) 時執行。
-    """
-    import shutil
 
-    public_url = os.getenv("MISSIVE_PUBLIC_URL", "")
+    ⚠️ 2026-07-30 改為 Python httpx 原生（原本呼叫
+    `scripts/ops/verify-cloudflare-tunnel.ps1`）：
+    5/27 廢 PM2 改純 Docker 後，Linux 容器內**沒有 pwsh/powershell**，
+    原碼在 `shutil.which` 找不到時 `logger.warning + return` →
+    **cron 記 success 但什麼都沒驗**，公網監控實質失效數月（沉默成功家族）。
+    .ps1 保留供 host 手動執行（輸出較豐富、含診斷提示）。
+    """
+    import httpx
+
+    public_url = os.getenv("MISSIVE_PUBLIC_URL", "").rstrip("/")
     if "cksurvey.tw" not in public_url:
+        # 本機/開發部署跳過屬正常；但**生產環境**沒有這個值＝config drift（L70 同型），
+        # 不可 debug-skip：那正是「cron 記 success 卻什麼都沒驗」的第二個成因。
+        if os.getenv("ENVIRONMENT", "").lower() in ("production", "prod"):
+            logger.error(
+                "cf_tunnel_verify: 生產環境未設 MISSIVE_PUBLIC_URL（實得 %r）— "
+                "raise 供 cron watchdog 抓（防 silent no-op）",
+                public_url,
+            )
+            raise RuntimeError("cf_tunnel_verify: 生產環境缺 MISSIVE_PUBLIC_URL 設定")
         logger.debug("cf_tunnel_verify: 非公網部署，跳過")
         return
 
-    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
-    script = project_root / "scripts" / "ops" / "verify-cloudflare-tunnel.ps1"
-    if not script.exists():
-        logger.error("cf_tunnel_verify: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
-        raise FileNotFoundError(f"cron script 缺失: {script}")
+    local_url = os.getenv("MISSIVE_LOCAL_URL", "http://localhost:8001").rstrip("/")
 
-    pwsh = shutil.which("pwsh") or shutil.which("powershell")
-    if not pwsh:
-        logger.warning("cf_tunnel_verify: pwsh/powershell 不存在，跳過")
+    # (名稱, method, url, body, 期望狀態碼集合)
+    checks = [
+        ("1. 本機 health", "GET", f"{local_url}/api/health", None, {200}),
+        ("2. CF Tunnel health", "GET", f"{public_url}/api/health", None, {200}),
+        ("3. TLS 憑證", "GET", f"{public_url}/api/health", None, {200}),
+        ("4. Manifest (POST)", "POST", f"{public_url}/api/ai/agent/tools", {}, {200}),
+        # 405（方法不符）或 404（API 命名空間不 fallback SPA）皆代表「GET 未被服務」＝政策生效。
+        # 2026-07-30 前此檢查恆 FAIL：spa_fallback 未排除 /api/* → 回 200 index.html。
+        ("5. Manifest 拒 GET", "GET", f"{public_url}/api/ai/agent/tools", None, {404, 405}),
+        (
+            "6. ACP 無 token", "POST", f"{public_url}/api/hermes/acp",
+            {"session_id": "verify", "messages": [{"role": "user", "content": "ping"}]},
+            {401, 403},
+        ),
+        (
+            "7. Feedback 無 token", "POST", f"{public_url}/api/hermes/feedback",
+            {"session_id": "v", "skill_name": "x", "outcome": "success", "latency_ms": 1},
+            {401, 403},
+        ),
+    ]
+
+    lines: list[str] = []
+    failed = 0
+    async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+        for name, method, url, body, expected in checks:
+            try:
+                resp = await client.request(method, url, json=body) if body is not None \
+                    else await client.request(method, url)
+                status: object = resp.status_code
+                ok = resp.status_code in expected
+            except Exception as e:  # 連線層失敗（DNS/TLS/tunnel down）
+                status, ok = f"ERR({type(e).__name__})", False
+            if not ok:
+                failed += 1
+            lines.append(
+                f"  {'✓' if ok else '✗'} {name:<24} {status}  (expected {sorted(expected)})"
+            )
+
+    report = "\n".join(lines)
+    if failed == 0:
+        logger.info("cf_tunnel_verify: PASS %d/%d\n%s", len(checks), len(checks), report)
         return
 
-    rc, out, err = await _run_script_async(
-        [pwsh, "-NoProfile", "-File", str(script), "-PublicUrl", public_url],
-        cwd=str(project_root), timeout=120, job_name="cf_tunnel_verify",
+    logger.error(
+        "cf_tunnel_verify: FAIL %d/%d\n%s", failed, len(checks), report
     )
-    if rc == 0:
-        logger.info("cf_tunnel_verify: PASS")
-    else:
-        logger.error("cf_tunnel_verify: FAIL rc=%d\n%s", rc, out[-800:] if out else err)
-        log_path = project_root / "wiki" / "log.md"
-        if log_path.exists():
-            ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-            log_path.write_text(
-                log_path.read_text(encoding="utf-8")
-                + f"\n## {ts} — CF Tunnel verify FAIL (rc={rc})\n"
-                + f"```\n{out[-600:] if out else err}\n```\n",
-                encoding="utf-8",
-            )
+    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
+    log_path = project_root / "wiki" / "log.md"
+    if log_path.exists():
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+        log_path.write_text(
+            log_path.read_text(encoding="utf-8")
+            + f"\n## {ts} — CF Tunnel verify FAIL ({failed}/{len(checks)})\n"
+            + f"```\n{report}\n```\n",
+            encoding="utf-8",
+        )
 
 
 @tracked_job("tender_refresh_pending")

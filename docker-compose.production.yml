@@ -204,6 +204,10 @@ services:
       #   GOOGLE_CREDENTIALS_PATH 預設 ./GoogleCalendarAPIKEY.json（容器 /app/ 已 mount）對齊
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:3000/auth/callback}
       - GOOGLE_CREDENTIALS_PATH=${GOOGLE_CREDENTIALS_PATH:-./GoogleCalendarAPIKEY.json}
+      # 2026-07-30 L70 同型 config drift 修：cf_tunnel_verify cron 讀 MISSIVE_PUBLIC_URL，
+      #   但此變數 **.env 與 compose 皆未定義** → 容器內恆為空 → job 第一行就 return，
+      #   自寫下起從未驗過任何一次公網鏈路（外加容器無 pwsh 的第二層，見 scheduler.py）。
+      - MISSIVE_PUBLIC_URL=${MISSIVE_PUBLIC_URL:-https://missive.cksurvey.tw}
       # --- AI 推理 fallback (GROQ/NVIDIA/OLLAMA/VLLM) ---
       - AI_ENABLED=${AI_ENABLED:-true}
       - AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL:-}

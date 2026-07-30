@@ -1049,6 +1049,19 @@ if _FRONTEND_INDEX.exists():
         排除：/api/*, /docs, /redoc, /openapi.json, /assets/*, /uploads/*, /static/*
         註：系統端點 /health*, /metrics 必須在此 catch-all 註冊之「前」定義才能生效。
         """
+        # 2026-07-30：docstring 早就寫「排除 /api/*」，但**實作從未有這段排除** →
+        # 任何未匹配的 /api/* GET（含方法不符、路徑拼錯）都落到最後一行回 index.html：
+        #   `GET /api/ai/agent/tools` → 200 text/html（而非 405/404）
+        # 後果：① POST-only 資安政策無法驗證（cf_tunnel_verify 檢查 5 永遠 FAIL）
+        #       ② 前端/外部呼叫者拿到 HTML 當 JSON 解析，錯誤訊息完全誤導
+        #       ③ 路由拼錯看起來像「端點存在」，遮蔽 L67 那類 double-prefix 缺陷
+        # 屬 L01「SSOT 聲明 vs 實作斷鏈」。API 命名空間一律不 fallback 到 SPA。
+        if spa_path == "api" or spa_path.startswith("api/"):
+            raise HTTPException(
+                status_code=404,
+                detail=f"API endpoint not found: /{spa_path}（此路徑不提供 GET，或端點不存在）",
+            )
+
         # 直接服務存在的檔案（favicon、manifest、robots 等）
         candidate = _FRONTEND_DIST / spa_path
         if candidate.is_file():

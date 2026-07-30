@@ -6731,3 +6731,14 @@
 ## [2026-07-29] lint | pages=272 orphans=37 broken=5
 
 ## [2026-07-30] lint | pages=272 orphans=37 broken=5
+
+## 2026-07-30 10:02 — CF Tunnel verify FAIL (1/7)
+```
+  ✓ 1. 本機 health             200  (expected [200])
+  ✓ 2. CF Tunnel health      200  (expected [200])
+  ✓ 3. TLS 憑證                200  (expected [200])
+  ✓ 4. Manifest (POST)       200  (expected [200])
+  ✗ 5. Manifest 拒 GET        200  (expected [405])
+  ✓ 6. ACP 無 token           401  (expected [401, 403])
+  ✓ 7. Feedback 無 token      401  (expected [401, 403])
+```
