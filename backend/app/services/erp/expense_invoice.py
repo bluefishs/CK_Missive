@@ -104,7 +104,15 @@ class ExpenseInvoiceService(AuditableServiceMixin):
                 invoice.items.append(item)
 
         await self.db.commit()
-        await self.db.refresh(invoice)
+        # ⚠️ 必須連 items 一起 refresh（2026-07-30 根治）：
+        # ExpenseInvoiceResponse 含 `items: List[...]`，而 items 是 lazy relationship。
+        # 端點在序列化時才觸發 lazy load → async 情境下 MissingGreenlet →
+        # pydantic 包成 ValidationError（**ValueError 子類**）→ 落入端點的
+        # `except ValueError` → 回 **409 Conflict**。
+        # 結果：資料其實已 commit 成功，使用者卻看到錯誤；重試又撞真的重複檢查 → 再 409，
+        # 症狀一致到讓人誤判為「重複發票」。屬 ADR-0027 schema lazy-load 反模式
+        # （既有 schema_lazy_load_guard 未攔到此處）。
+        await self.db.refresh(invoice, attribute_names=["items"])
         await self.audit_create(invoice.id, data.model_dump() if hasattr(data, 'model_dump') else {})
         return invoice
 

@@ -98,12 +98,32 @@ async def create_expense(
     current_user: User = Depends(optional_auth()),
 ):
     """建立報銷發票"""
+    user_id = current_user.id if current_user else None
+    # 只有「業務規則衝突」（重複憑證 / case_code 不存在）才是 409。
+    # 2026-07-30：原本 model_validate 也在 try 內，而 pydantic ValidationError 是
+    # **ValueError 子類** → 序列化失敗被誤報成「409 憑證重複」，且此時資料已 commit
+    # → 使用者以為存檔失敗、重試又撞真重複，症狀一致到掩蓋真因。
+    # 故序列化移出 try，另行處理並 LOUD（ADR-0028 去 silent/去誤標）。
     try:
-        user_id = current_user.id if current_user else None
         result = await service.create(data, user_id=user_id)
-        return SuccessResponse(data=ExpenseInvoiceResponse.model_validate(result), message="報銷發票建立成功")
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
+
+    try:
+        payload = ExpenseInvoiceResponse.model_validate(result)
+    except Exception as e:
+        logger.error(
+            "報銷發票已建立（id=%s）但回應序列化失敗 — 資料已存檔，勿重試建立: %s",
+            getattr(result, "id", None), e, exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"紀錄已建立（編號 {getattr(result, 'inv_num', '')}），"
+                "但回應資料組裝失敗；請重新整理列表確認，勿重複送出。"
+            ),
+        )
+    return SuccessResponse(data=payload, message="報銷發票建立成功")
 
 
 @router.post("/detail")

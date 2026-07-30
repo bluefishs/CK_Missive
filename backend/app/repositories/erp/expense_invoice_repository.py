@@ -84,6 +84,12 @@ class ExpenseInvoiceRepository(BaseRepository[ExpenseInvoice]):
                 setattr(invoice, key, value)
         await self.db.flush()
         await self.db.refresh(invoice)
+        # 2026-07-30 掃全同型（create 路徑同因已修）：
+        # refresh() 會把已載入的 relationship 一併 expire；呼叫端（update / attach_receipt）
+        # 之後用 ExpenseInvoiceResponse.model_validate() 序列化時才觸發 items lazy load
+        # → async 情境 MissingGreenlet → pydantic ValidationError（ValueError 子類）
+        # → 被誤判為業務衝突。故此處明確載回 items。
+        await self.db.refresh(invoice, attribute_names=["items"])
         return invoice
 
     async def get_by_id_for_update(self, invoice_id: int) -> Optional[ExpenseInvoice]:
