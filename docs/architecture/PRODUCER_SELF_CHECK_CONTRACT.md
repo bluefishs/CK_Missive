@@ -54,6 +54,47 @@ job 報 success 但實際沒產出，失敗隱形直到人看到症狀。**根�
 若新 job 確定無業務產出（純檢查/清理），加入 audit 的 `NON_PRODUCER_JOBS` allowlist。
 **不可兩者皆不做**——unclassified job 會被 `producer_output_watchdog --coverage` 抓為 blind spot。
 
+### 規則 4（2026-07-30 新增）：**驗證型 job 也必須留下可驗產出；外部依賴缺失一律 raise**
+
+原契約把「稽核/檢查/watchdog」歸為非 Producer、直接 allowlist 豁免。
+**2026-07-30 證明這個豁免有洞**：`cf_tunnel_verify` 連續數月「記 success 但一項都沒驗」——
+
+1. 容器內無 `pwsh`（5/27 廢 PM2 改純 Docker 後）→ `shutil.which` 找不到即 `logger.warning + return`；
+2. `MISSIVE_PUBLIC_URL` **.env 與 compose 皆未定義** → 容器內恆為空 → job 第一行就 return。
+
+兩層都讓 `@tracked_job` 記成功，而它在 allowlist 內、watchdog 也不看它 → **完全無人察覺**。
+
+故驗證型 job 另立兩條硬性要求：
+
+- **(4a) 產出可驗結果**：每次執行必須寫下「驗了什麼、結果為何」（檔案或 detail），
+  並用 `file_fresh` / `cron_detail` 註冊進 registry。
+  「cron 記 success」與「什麼都沒驗」在外部必須可區分。
+  範例：`cf_tunnel_verify` 每次寫 `wiki/memory/integration-health/cf-tunnel-verify.json`（7 項結果）。
+- **(4b) 外部依賴缺失一律 `raise`，不得 `return`**：缺 binary／缺必要 config（生產環境）
+  都要讓 job 記 failure，watchdog 才抓得到。
+  由 **fitness step 76 `cron_external_binary_guard.py`** 靜態強制（AST 掃 `@tracked_job`，
+  「探測外部執行檔後 return 而不 raise」即 RED；負向測試已驗非永久綠）。
+
+> ⚠️ allowlist 的正確語意是「**無本地可驗產出**」，不是「不重要」。
+> 驗證型 job 有產出（驗證結果本身），不該再被豁免。
+
+---
+
+## 案例庫：一天之內四例同型（2026-07-30）
+
+同一天 owner 回報的四個「功能壞掉」，根因形狀**完全相同——元件回報成功，實際沒做或做錯，
+錯誤被上層吞掉或誤標**。四例都曾被誤判過，故列為契約教材：
+
+| 案例 | 表象 | 真相 | 誤判過的版本 |
+|---|---|---|---|
+| 異地備份「沒在跑」 | UI 顯示「尚未同步」 | NAS 每日都有新檔；後端讀 config **UTF-8 BOM 解析失敗** silent 退預設值 | 曾判「UI 誤解」，只加說明 Alert（07-03） |
+| 發票辨識全失敗 | 「未辨識出發票資訊」 | 容器缺 zbar/tesseract/libGL（5/27 Docker 化遺失）→ QR/OCR/視覺**三路全滅**，端點仍回 200 | 曾以為「一直都 OK」 |
+| 核銷無法存檔 | create 回 409「憑證重複」 | **資料已寫入**；`items` lazy-load → MissingGreenlet → ValidationError（ValueError 子類）被 `except ValueError` 誤標 409 | 曾判「重複發票」 |
+| CF Tunnel 監控 | cron 記 success | 三層空跑，一項都沒驗 | 從未被質疑（正因為記 success） |
+
+**共通教訓**：**「成功訊號」本身不可信，必須看產出物。**
+`LastTaskResult=0`／`HTTP 200`／`cron success` 都不等於做對事。
+
 ---
 
 ## 強制機制
