@@ -366,7 +366,7 @@ def render() -> str:
     a("")
 
     # ── 5 B 方案 60 天 trial 進度 ──
-    a("## 5. Facade B 方案 60 天 trial 進度 (重評日 2026-07-30)")
+    a("## 5. Facade B 方案 60 天 trial（**已到期 2026-07-30，待 owner 結案**）")
     a("")
     a("| Facade | 現 caller | 60 天目標 | 達標 |")
     a("|---|---|---|---|")
@@ -374,6 +374,10 @@ def render() -> str:
         cur = b_progress.get(f_name, "?")
         ok = "✅" if isinstance(cur, int) and cur >= target else "🟡" if isinstance(cur, int) and cur >= 3 else "🔴"
         a(f"| {f_name} | {cur} | ≥{target} | {ok} |")
+    a("")
+    a("> 到期判定與建議（全保留 + 停止設成長目標 + 往後新增 facade 須先有 ≥3 既存 caller）：")
+    a("> `docs/architecture/RETRO_20260730_POST_SWEEP_REVIEW.md` §4。")
+    a("> 註：此處 caller 數以 import 行 grep 計，可能低估（實測 Integration=4）。")
     a("")
 
     # ── 6 lesson 索引 ──

@@ -71,6 +71,14 @@
 
 ## ⚠️ Watch items（非重啟阻斷）
 
+> **2026-07-30 晚間覆盤更新**：以下 3 項**已全部診斷到可執行**（含精確修法與風險），
+> 另新增第 4 項（owner 貼 LINE 告警追出的告警噪音迴圈）。
+> 一律以 `docs/architecture/RETRO_20260730_POST_SWEEP_REVIEW.md` §3 為準，本節僅保留原始描述。
+> - #1 標案推薦 RED → **經查為誤報**（政策關閉，非失敗）：RETRO §3.1
+> - #2 測試 27 紅 → RETRO §3.3（列為 P1）
+> - #3 收據路徑前綴 → **1 行修法已定位、現況無髒資料**：RETRO §3.2
+> - #4 **新增**：吹哨者每日 66 筆告警、未讀累積 4708、690 筆陳年 pending 事件 → RETRO §3.4
+
 1. **`標案業務推薦` producer RED**：`tender_recommendation_history` 今日 0 筆，
    且該 job `detail=null` **無法區分「合理空」與「真失敗」** → 契約規則 2 未落實之例。
    建議：讓該 job 回傳 `{count, reason}`（重啟後處理）。
