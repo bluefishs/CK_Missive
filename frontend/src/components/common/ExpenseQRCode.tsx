@@ -115,12 +115,20 @@ const ExpenseQRCode: React.FC<ExpenseQRCodeProps> = ({
 };
 
 /** 按鈕觸發 Popover 顯示 QR Code */
-export const ExpenseQRButton: React.FC<{ caseCode: string; caseName?: string }> = ({ caseCode, caseName }) => {
+export const ExpenseQRButton: React.FC<{
+  caseCode: string;
+  caseName?: string;
+  /** 自訂按鈕文字（2026-07-30：核銷建立頁用「用手機拍照上傳」語意更貼近該情境） */
+  label?: string;
+  /** 自訂 tooltip */
+  tooltip?: string;
+  type?: 'default' | 'primary' | 'dashed' | 'link' | 'text';
+}> = ({ caseCode, caseName, label = '核銷 QR', tooltip = '產生核銷 QR Code', type = 'default' }) => {
   const [open, setOpen] = React.useState(false);
   return (
     <>
-      <Tooltip title="產生核銷 QR Code">
-        <Button icon={<QrcodeOutlined />} onClick={() => setOpen(true)}>核銷 QR</Button>
+      <Tooltip title={tooltip}>
+        <Button type={type} icon={<QrcodeOutlined />} onClick={() => setOpen(true)}>{label}</Button>
       </Tooltip>
       {open && (
         <div style={{

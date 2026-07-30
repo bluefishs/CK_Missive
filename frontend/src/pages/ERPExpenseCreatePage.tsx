@@ -11,11 +11,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Button, Card, Form, Input, InputNumber, Select, DatePicker,
-  Row, Col, Typography, App, Segmented, Alert, Divider, Space, Tag, Steps,
+  Row, Col, Typography, App, Segmented, Alert, Divider, Space, Tag, Steps, Tooltip,
 } from 'antd';
 import {
   ArrowLeftOutlined, SaveOutlined,
-  ScanOutlined, CloudDownloadOutlined, EditOutlined,
+  ScanOutlined, CloudDownloadOutlined, EditOutlined, QrcodeOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -30,6 +30,7 @@ import { expensesApi } from '../api/erp';
 import apiClient from '../api/client';
 import type { SmartScanResult } from '../api/erp/expensesApi';
 import ExpenseScanPanel from './erpExpense/ExpenseScanPanel';
+import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
 import { compressImage } from './erpExpense/imageUtils';
 
 type InputMethod = '智慧掃描' | '手動填寫' | '財政部發票';
@@ -46,6 +47,7 @@ const ERPExpenseCreatePage: React.FC = () => {
   const { isMobile } = useResponsive();
 
   // Multi-currency auto-calculation
+  const watchCaseCode = Form.useWatch('case_code', form);
   const watchCurrency = Form.useWatch('currency', form);
   const watchOriginalAmount = Form.useWatch('original_amount', form);
   const watchExchangeRate = Form.useWatch('exchange_rate', form);
@@ -196,6 +198,12 @@ const ERPExpenseCreatePage: React.FC = () => {
     />
   );
 
+  // 桌機 → 手機交接用：以「目前實際選定的案件」為準（手動選案也適用），退回 URL 參數
+  const handoffCaseCode = (watchCaseCode as string | undefined) || urlCaseCode || null;
+  const handoffCaseName = caseOptions.find(
+    (c: { value: string; label: string }) => c.value === handoffCaseCode,
+  )?.label;
+
   const scanPanel = (
     <ExpenseScanPanel
       method={method} scanning={scanning} scanResult={scanResult} previewUrl={previewUrl}
@@ -343,7 +351,31 @@ const ERPExpenseCreatePage: React.FC = () => {
           <>
             <Card size="small">{methodSelector}</Card>
             <Row gutter={16}>
-              <Col md={10}><Card title={method} style={{ minHeight: 300 }}>{scanPanel}</Card></Col>
+              <Col md={10}>
+                <Card
+                  title={method}
+                  style={{ minHeight: 300 }}
+                  /* 2026-07-30（owner）：桌機沒有相機，發票要用手機拍。
+                     此處提供「電腦 → 手機」交接 QR：掃了就在手機開同一案的核銷頁
+                     （URL 帶 case_code），直接用手機相機拍照上傳。
+                     原本 QR 只在案件詳情頁 → 人已經在建立頁時得退回去找，流程斷。 */
+                  extra={handoffCaseCode ? (
+                    <ExpenseQRButton
+                      caseCode={handoffCaseCode}
+                      caseName={handoffCaseName}
+                      label="用手機拍照上傳"
+                      tooltip="用手機掃描此 QR，即可在手機開啟同一案件的核銷頁並用相機拍發票"
+                      type="primary"
+                    />
+                  ) : (
+                    <Tooltip title="請先選擇關聯案件，才能產生手機專用連結">
+                      <Button icon={<QrcodeOutlined />} disabled>用手機拍照上傳</Button>
+                    </Tooltip>
+                  )}
+                >
+                  {scanPanel}
+                </Card>
+              </Col>
               <Col md={14}><Card title="核銷資訊">{expenseForm}</Card></Col>
             </Row>
           </>
