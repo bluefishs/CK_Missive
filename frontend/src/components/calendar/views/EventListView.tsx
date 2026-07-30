@@ -77,7 +77,8 @@ export const EventListView: React.FC<EventListViewProps> = ({
                 <Badge
                   status={
                     event.status === 'completed' ? 'success' :
-                    event.status === 'cancelled' ? 'error' : 'processing'
+                    event.status === 'cancelled' ? 'error' :
+                    event.status === 'ignored' ? 'default' : 'processing'
                   }
                   text=""
                 />

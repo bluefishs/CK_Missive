@@ -6742,3 +6742,5 @@
   ✓ 6. ACP 無 token           401  (expected [401, 403])
   ✓ 7. Feedback 無 token      401  (expected [401, 403])
 ```
+
+## [2026-07-31] lint | pages=272 orphans=37 broken=5

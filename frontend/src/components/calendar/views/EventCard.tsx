@@ -51,7 +51,8 @@ const EventCardInner: React.FC<EventCardProps> = ({
         <Badge
           status={
             event.status === 'completed' ? 'success' :
-            event.status === 'cancelled' ? 'error' : 'processing'
+            event.status === 'cancelled' ? 'error' :
+            event.status === 'ignored' ? 'default' : 'processing'
           }
           text={
             <span style={{ fontSize: '10px', color: colorValue }}>

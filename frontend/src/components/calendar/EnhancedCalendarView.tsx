@@ -46,7 +46,7 @@ interface EnhancedCalendarViewProps {
   loading?: boolean;
   onEventUpdate?: (eventId: number, updates: Partial<CalendarEvent>) => Promise<void>;
   onEventDelete?: (eventId: number) => Promise<void>;
-  onBatchUpdateStatus?: (updates: Array<{ eventId: number; status: 'pending' | 'completed' | 'cancelled' }>) => Promise<{ successCount: number; failCount: number }>;
+  onBatchUpdateStatus?: (updates: Array<{ eventId: number; status: 'pending' | 'completed' | 'cancelled' | 'ignored' }>) => Promise<{ successCount: number; failCount: number }>;
   onBatchDelete?: (eventIds: number[]) => Promise<{ successCount: number; failCount: number }>;
   onReminderUpdate?: (eventId: number, reminders: EventReminder[]) => Promise<void>;
   onDateSelect?: (date: Dayjs) => void;

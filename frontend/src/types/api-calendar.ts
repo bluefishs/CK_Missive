@@ -34,7 +34,7 @@ export interface CalendarEvent {
   google_event_id?: string;
   google_sync_status?: 'pending' | 'synced' | 'failed';
   // 提醒功能
-  status?: 'pending' | 'completed' | 'cancelled';
+  status?: 'pending' | 'completed' | 'cancelled' | 'ignored';
   reminder_enabled?: boolean;
   reminders?: CalendarEventReminder[];
   // 關聯公文
@@ -54,7 +54,7 @@ export interface CalendarEventUI {
   contract_project_name?: string;  // 承攬案件名稱
   event_type?: string;
   priority?: number | string;
-  status?: 'pending' | 'completed' | 'cancelled';  // 事件狀態
+  status?: 'pending' | 'completed' | 'cancelled' | 'ignored';  // 事件狀態
   location?: string;
   google_event_id?: string;
   google_sync_status?: 'pending' | 'synced' | 'failed';
@@ -124,7 +124,7 @@ export interface RawCalendarEventResponse {
   contract_project_name?: string;
   event_type?: string;
   priority?: number | string;
-  status?: 'pending' | 'completed' | 'cancelled';
+  status?: 'pending' | 'completed' | 'cancelled' | 'ignored';
   location?: string;
   google_event_id?: string;
   google_sync_status?: 'pending' | 'synced' | 'failed';

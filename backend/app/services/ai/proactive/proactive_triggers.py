@@ -21,6 +21,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
+# 逾期分級門檻（2026-07-30 立法）
+#
+# 背景：吹哨者每日產生 66 筆 actionable 告警，近 7 日恆為 65-68 —— 因為 overdue 查詢
+# `ORDER BY end_date LIMIT 20` 永遠撈到「最老」的那批（逾期 568-574 天的 2025 年初事件），
+# 導致 (a) 每天重複同一批 (b) **真正近期逾期的事件被老案擠出 LIMIT 20，永遠看不到**。
+# 累積 proactive_alert 4094 筆 / 未讀 4708 → 通知中心實質已死（L31 建表≠用表重演）。
+#
+# 修法：逾期 > 此門檻者不再逐筆列為 actionable，改彙總為單一 info 提示（info 不持久化、
+# 不進 LINE digest），把 LIMIT 名額讓給近期真的該處理的項目。
+# 陳年項目的正解是批次清理（標 ignored），不是每天推播。
+STALE_OVERDUE_DAYS = 90
+
+# 不再產生告警的事件狀態（ignored = 2026-07-30 新增「歷史案件註記忽略」）
+_CLOSED_EVENT_STATUSES = ("completed", "cancelled", "ignored")
+
 
 @dataclass
 class TriggerAlert:
@@ -109,7 +124,9 @@ class ProactiveTriggerService:
         deadline_threshold = today + timedelta(days=days_ahead)
         alerts: List[TriggerAlert] = []
 
-        # 已逾期的未完成事件
+        stale_cutoff = today - timedelta(days=STALE_OVERDUE_DAYS)
+
+        # 已逾期的未完成事件（只取 STALE_OVERDUE_DAYS 內者為 actionable）
         overdue_result = await self.db.execute(
             select(
                 DocumentCalendarEvent.id,
@@ -119,8 +136,9 @@ class ProactiveTriggerService:
             )
             .where(
                 DocumentCalendarEvent.end_date < today,
+                DocumentCalendarEvent.end_date >= stale_cutoff,
                 DocumentCalendarEvent.end_date.isnot(None),
-                DocumentCalendarEvent.status != "completed",
+                DocumentCalendarEvent.status.notin_(_CLOSED_EVENT_STATUSES),
             )
             .order_by(DocumentCalendarEvent.end_date)
             .limit(20)
@@ -138,6 +156,28 @@ class ProactiveTriggerService:
                 metadata={"days_overdue": days_over, "deadline": str(row.end_date)},
             ))
 
+        # 陳年逾期（> STALE_OVERDUE_DAYS）：彙總為單一 info，不逐筆刷版面
+        stale_count = await self.db.scalar(
+            select(func.count(DocumentCalendarEvent.id)).where(
+                DocumentCalendarEvent.end_date < stale_cutoff,
+                DocumentCalendarEvent.end_date.isnot(None),
+                DocumentCalendarEvent.status.notin_(_CLOSED_EVENT_STATUSES),
+            )
+        )
+        if stale_count:
+            alerts.append(TriggerAlert(
+                alert_type="stale_backlog",
+                severity="info",  # info 不持久化、不進 LINE digest
+                title=f"陳年逾期事件 {stale_count} 筆待清理",
+                message=(
+                    f"有 {stale_count} 筆事件逾期超過 {STALE_OVERDUE_DAYS} 天仍未結案，"
+                    f"建議於行事曆批次標記為「已忽略」，而非每日推播。"
+                ),
+                entity_type="document",
+                entity_id=None,
+                metadata={"stale_count": stale_count, "threshold_days": STALE_OVERDUE_DAYS},
+            ))
+
         # 即將到期事件
         upcoming_result = await self.db.execute(
             select(
@@ -150,7 +190,7 @@ class ProactiveTriggerService:
                 DocumentCalendarEvent.end_date >= today,
                 DocumentCalendarEvent.end_date <= deadline_threshold,
                 DocumentCalendarEvent.end_date.isnot(None),
-                DocumentCalendarEvent.status != "completed",
+                DocumentCalendarEvent.status.notin_(_CLOSED_EVENT_STATUSES),
             )
             .order_by(DocumentCalendarEvent.end_date)
             .limit(20)
@@ -191,6 +231,9 @@ class ProactiveTriggerService:
             )
             .where(
                 ContractProject.end_date < today,
+                # 逾期分級（同 STALE_OVERDUE_DAYS 立法）：陳年案件不逐日推播，
+                # 應由業務端調整案件狀態，而非佔用每日 actionable 名額。
+                ContractProject.end_date >= today - timedelta(days=STALE_OVERDUE_DAYS),
                 ContractProject.end_date.isnot(None),
                 ContractProject.status == "執行中",
             )

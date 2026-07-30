@@ -2,13 +2,13 @@
     "remote_path":  "\\\\CKNAS\\CK_Project\\#Project_data\\missive_databsae",
     "sync_enabled":  false,
     "sync_interval_hours":  24,
-    "last_sync_time":  "2026-07-30T03:00:08.986867",
+    "last_sync_time":  "2026-07-31T03:00:09.409655",
     "sync_status":  "idle",
     "last_sync_result":  "success",
     "last_sync_source":  "windows_scheduled_task:CK-Missive-Offsite-Backup",
     "last_sync_message":  "",
     "remote_file_count":  30,
-    "latest_remote_file":  "ck_missive_backup_20260730_015959.sql",
-    "latest_remote_size_mb":  497.2,
-    "latest_remote_time":  "2026-07-30T02:00:14"
+    "latest_remote_file":  "ck_missive_backup_20260731_015959.sql",
+    "latest_remote_size_mb":  499.3,
+    "latest_remote_time":  "2026-07-31T02:00:11"
 }

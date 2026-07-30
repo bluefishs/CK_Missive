@@ -205,7 +205,11 @@ async def smart_scan_invoice(
             )
             invoice = await service.create(
                 create_data, user_id=user_id,
-                receipt_image_path=f"uploads/receipts/{filename}",
+                # SSOT：入庫值一律相對於 uploads/（同 upload-receipt 與 LINE 上傳三個
+                # writer）。此處 2026-07-30 前寫成 "uploads/receipts/..."，讀取端
+                # (`/receipt-image`) 對相對路徑會再補一次 uploads/ → "uploads/uploads/..."
+                # → 檔案明明在、卻一律 404。四個 writer 中只有這裡不一致。
+                receipt_image_path=f"receipts/{filename}",
             )
             result_data["created"] = True
             result_data["invoice_id"] = invoice.id if hasattr(invoice, 'id') else invoice.get('id')

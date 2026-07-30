@@ -61,9 +61,11 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             <Tag color={PRIORITY_CONFIG[event.priority]?.color ?? 'default'}>
               {PRIORITY_CONFIG[event.priority]?.name ?? '未知'}
             </Tag>
-            <Tag color={event.status === 'completed' ? 'success' : 'processing'}>
+            <Tag color={event.status === 'completed' ? 'success' :
+                        event.status === 'ignored' ? 'default' : 'processing'}>
               {event.status === 'completed' ? '已完成' :
-               event.status === 'cancelled' ? '已取消' : '待處理'}
+               event.status === 'cancelled' ? '已取消' :
+               event.status === 'ignored' ? '已忽略' : '待處理'}
             </Tag>
           </Space>
         </div>

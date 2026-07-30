@@ -37,10 +37,15 @@
   },
   {
    "name": "標案業務推薦",
-   "signal": "db_table_today",
-   "table": "tender_recommendation_history",
-   "date_col": "pushed_at",
-   "weekend_legit": true
+   "signal": "cron_detail",
+   "job": "tender_business_recommend",
+   "key": "pushed",
+   "ok_zero_reasons": [
+    "line_push_disabled",
+    "no_match",
+    "ok"
+   ],
+   "_why": "2026-07-30：原用 db_table_today 監控 tender_recommendation_history，但該表自 2026-06-23 owner 關閉 TENDER_LINE_PUSH_ENABLED 後即停寫（MAX(pushed_at)=2026-06-23 09:00，總 88 筆）→ 每日 07:00 對 owner 誤報。改 cron_detail 才能區分『政策關閉』與『真失敗』。"
   },
   {
    "name": "每日覆盤",

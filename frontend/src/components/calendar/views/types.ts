@@ -16,7 +16,7 @@ export interface CalendarEvent {
   all_day?: boolean;
   event_type: 'deadline' | 'meeting' | 'review' | 'reminder' | 'reference';
   priority: number;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'completed' | 'cancelled' | 'ignored';
   document_id?: number;
   assigned_user_id?: number;
   google_event_id?: string;

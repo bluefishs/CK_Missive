@@ -232,7 +232,7 @@ export const calendarApi = {
    */
   async batchUpdateStatus(
     eventIds: number[],
-    status: 'pending' | 'completed' | 'cancelled'
+    status: 'pending' | 'completed' | 'cancelled' | 'ignored'
   ): Promise<{ success: boolean; updated: number; total: number }> {
     return apiClient.post<{ success: boolean; updated: number; total: number }>(
       API_ENDPOINTS.CALENDAR.EVENTS_BATCH_UPDATE_STATUS,

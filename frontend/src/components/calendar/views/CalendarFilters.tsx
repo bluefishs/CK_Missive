@@ -80,7 +80,9 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
                 options={[
                   { label: '待處理', value: 'pending' },
                   { label: '已完成', value: 'completed' },
-                  { label: '已取消', value: 'cancelled' }
+                  { label: '已取消', value: 'cancelled' },
+                  // 2026-07-30：陳年逾期事件批次標記，不再產生每日告警
+                  { label: '已忽略', value: 'ignored' }
                 ]}
               />
             </Form.Item>

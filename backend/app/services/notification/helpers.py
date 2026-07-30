@@ -20,7 +20,10 @@
     )
 """
 import logging
+from datetime import datetime
 from typing import Any, Dict, Optional
+
+from sqlalchemy import select
 
 from app.extended.models import SystemNotification
 
@@ -54,7 +57,8 @@ async def _safe_create_notification(
     source_id: Optional[int] = None,
     changes: Optional[Dict[str, Any]] = None,
     user_id: Optional[int] = None,
-    user_name: Optional[str] = None
+    user_name: Optional[str] = None,
+    dedupe_key: Optional[str] = None,
 ) -> bool:
     """
     使用獨立 session 建立通知
@@ -63,6 +67,15 @@ async def _safe_create_notification(
     1. 不影響主交易
     2. 失敗時自動回滾
     3. 不會污染連接池
+
+    `dedupe_key`（2026-07-30 新增，預設關閉＝既有 caller 行為不變）：
+        若提供且已存在**未讀**且相同 key 的通知，則**更新既有那筆**（標題/內容/時間）
+        而非新增一筆。
+
+        立法背景：吹哨者每日重掃同一批陳年逾期事件，每天新建 ~66 筆通知，累積 4094 筆、
+        未讀 4708 → 通知中心被自身噪音淹沒。**注意不可用 title 當 key** —— 標題含
+        「已逾期 573 天 / 574 天」每日遞增，天天都是新字串，去重必失效；key 必須取
+        「同一件事」的穩定識別（alert_type + entity_type + entity_id）。
     """
     Severity = _get_severity()
     try:
@@ -77,6 +90,30 @@ async def _safe_create_notification(
                     "changes": changes,
                     "user_name": user_name
                 }
+                if dedupe_key:
+                    data_payload["dedupe_key"] = dedupe_key
+
+                    existing = await db.scalar(
+                        select(SystemNotification)
+                        .where(
+                            SystemNotification.is_read.is_(False),
+                            SystemNotification.notification_type == notification_type,
+                            SystemNotification.data["dedupe_key"].astext == dedupe_key,
+                        )
+                        .order_by(SystemNotification.id.desc())
+                        .limit(1)
+                    )
+                    if existing is not None:
+                        existing.title = title
+                        existing.message = message
+                        existing.data = data_payload
+                        existing.created_at = datetime.now()
+                        await db.commit()
+                        logger.debug(
+                            "[NOTIFICATION] 去重命中，更新既有通知 id=%s key=%s",
+                            existing.id, dedupe_key,
+                        )
+                        return True
 
                 notification = SystemNotification(
                     user_id=user_id,

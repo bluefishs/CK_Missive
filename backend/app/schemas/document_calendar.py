@@ -138,7 +138,7 @@ class DocumentCalendarEventUpdate(BaseModel):
     all_day: Optional[bool] = None
     event_type: Optional[str] = None
     priority: Priority = None  # 使用 Priority 類型
-    status: Optional[str] = Field(None, description="事件狀態: pending/completed/cancelled")
+    status: Optional[str] = Field(None, description="事件狀態: pending/completed/cancelled/ignored")
     location: Optional[str] = None
     document_id: Optional[int] = None  # 新增：關聯公文 ID
     assigned_user_id: Optional[int] = None
@@ -154,7 +154,7 @@ class DocumentCalendarEventUpdate(BaseModel):
 class BatchUpdateStatusRequest(BaseModel):
     """批次更新事件狀態"""
     event_ids: List[int] = Field(..., description="事件 ID 列表", min_length=1)
-    status: str = Field(..., description="目標狀態: pending/completed/cancelled")
+    status: str = Field(..., description="目標狀態: pending/completed/cancelled/ignored")
 
 class BatchDeleteRequest(BaseModel):
     """批次刪除事件"""
@@ -170,7 +170,7 @@ class DocumentCalendarEventResponse(BaseModel):
     all_day: bool
     event_type: str
     priority: str  # 資料庫欄位為 VARCHAR
-    status: str = "pending"  # 事件狀態: pending/completed/cancelled
+    status: str = "pending"  # 事件狀態: pending/completed/cancelled/ignored
     location: Optional[str] = None
     document_id: Optional[int] = None
     doc_number: Optional[str] = None

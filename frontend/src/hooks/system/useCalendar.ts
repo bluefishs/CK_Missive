@@ -161,7 +161,7 @@ export const useCalendarPage = () => {
 
   // 批次更新事件狀態（單次 API 呼叫，避免 rate limit + N 次 invalidate）
   const batchUpdateEventStatus = useCallback(async (
-    eventUpdates: Array<{ eventId: number; status: 'pending' | 'completed' | 'cancelled' }>
+    eventUpdates: Array<{ eventId: number; status: 'pending' | 'completed' | 'cancelled' | 'ignored' }>
   ): Promise<{ successCount: number; failCount: number }> => {
     // 按 status 分組（通常只有一種）
     const statusGroups = new Map<string, number[]>();
@@ -178,7 +178,7 @@ export const useCalendarPage = () => {
       try {
         const result = await calendarApi.batchUpdateStatus(
           ids,
-          status as 'pending' | 'completed' | 'cancelled'
+          status as 'pending' | 'completed' | 'cancelled' | 'ignored'
         );
         successCount += result.updated;
         failCount += result.total - result.updated;

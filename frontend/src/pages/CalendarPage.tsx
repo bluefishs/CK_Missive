@@ -372,7 +372,7 @@ const CalendarPage: React.FC = () => {
                 | 'reminder'
                 | 'reference',
               priority: typeof event.priority === 'number' ? event.priority : 3,
-              status: (event.status || 'pending') as 'pending' | 'completed' | 'cancelled',
+              status: (event.status || 'pending') as 'pending' | 'completed' | 'cancelled' | 'ignored',
               document_id: event.document_id,
               google_event_id: event.google_event_id,
               google_sync_status: event.google_sync_status,

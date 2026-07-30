@@ -660,6 +660,14 @@ async def proactive_trigger_scan_job():
 
             persisted = 0
             for alert in actionable:
+                # 去重 key 必須取「同一件事」的穩定識別 —— 不可用 title，
+                # 因為「已逾期 573 天 → 574 天」每天都是新字串，去重會完全失效
+                # （2026-07-30：正是這點讓每日 66 筆重複累積成 4094 筆 / 未讀 4708）。
+                dedupe_key = (
+                    f"{alert.alert_type}:{alert.entity_type}:{alert.entity_id}"
+                    if alert.entity_id is not None
+                    else f"{alert.alert_type}:{alert.entity_type}:{alert.title}"
+                )
                 ok = await _safe_create_notification(
                     notification_type="proactive_alert",
                     severity=alert.severity,
@@ -668,6 +676,7 @@ async def proactive_trigger_scan_job():
                     source_table=alert.entity_type,
                     source_id=alert.entity_id,
                     changes=alert.metadata,
+                    dedupe_key=dedupe_key,
                 )
                 if ok:
                     persisted += 1
@@ -1703,12 +1712,15 @@ async def tender_business_recommend_job():
     """
     from app.db.database import async_session_maker
 
+    # 契約規則 2（2026-07-30 落實）：回傳 detail 讓 watchdog 能區分「政策關閉」與「真失敗」。
+    # 原本此 job 不回傳任何東西，registry 又用 db_table_today 監控 tender_recommendation_history
+    # （該表自 2026-06-23 關閉推送後即停寫）→ 每日 07:00 對 owner 誤報「排程產出異常」。
     if os.getenv("TENDER_LINE_PUSH_ENABLED", "false").lower() != "true":
         logger.info(
             "標案業務推薦 LINE 推送已暫緩（TENDER_LINE_PUSH_ENABLED=false，"
             "節省 LINE 月配額供晨報/坤哥使用）"
         )
-        return
+        return {"pushed": 0, "reason": "line_push_disabled"}
 
     logger.info("開始執行標案業務推薦推送")
     try:
@@ -1719,8 +1731,16 @@ async def tender_business_recommend_job():
                 f"標案業務推薦完成: found={result['found']} pushed={result['pushed']} "
                 f"dup={result['skipped_duplicate']} err={result['errors']}"
             )
+            return {
+                "pushed": result["pushed"],
+                "found": result["found"],
+                "reason": "ok" if result["found"] else "no_match",
+            }
     except Exception as e:
+        # 契約規則 4b 精神：原本只 log 不 raise → @tracked_job 仍記 success，
+        # 代表 gate 打開後真的失敗也只會靜默（沉默成功家族）。
         logger.error(f"標案業務推薦失敗: {e}", exc_info=True)
+        raise
 
 
 @tracked_job("tender_pcc_enrichment")
