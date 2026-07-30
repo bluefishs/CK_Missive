@@ -54,11 +54,14 @@ vi.mock('@ck-shared/ui-components', () => ({
   ResponsiveContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
+// 2026-07-30：4 個孤兒 Modal 已移除（見 pages/erpExpense/index.ts 收斂說明）。
+// mock 改為實際會被清單/建立頁 import 的成員，否則 barrel mock 會讓真元件變 undefined。
 vi.mock('../../pages/erpExpense', () => ({
-  ExpenseCreateModal: () => null,
-  QRScanModal: () => null,
-  OCRModal: () => null,
-  MofInvoiceModal: () => null,
+  SmartScanModal: () => null,
+  ExpenseImportModal: () => null,
+  ExpenseScanPanel: () => null,
+  InvoiceSubTable: () => null,
+  compressImage: (f: File) => Promise.resolve(f),
 }));
 
 vi.mock('../../components/common/DetailPage/DetailPageLayout', () => ({

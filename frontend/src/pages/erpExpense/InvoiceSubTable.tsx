@@ -17,6 +17,7 @@ import {
 } from '../../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../../router/types';
+import { extractApiMessage } from '../../utils/apiMessage';
 
 export interface ExpenseGroup {
   group_key: string;
@@ -54,14 +55,16 @@ const InvoiceSubTable: React.FC<Props> = ({ record, navigate, canApprove }) => {
     e.stopPropagation();
     approveMutation.mutate(id, {
       onSuccess: () => message.success('審核通過'),
-      onError: () => message.error('審核失敗'),
+      // 2026-07-30：原本吞成通用「審核失敗」，使用者看不到真因
+      //（如「此發票狀態為 verified，不可進行審核操作」＝其實前一次已成功）。
+      onError: (e: unknown) => message.error(extractApiMessage(e, '審核失敗')),
     });
   };
 
   const handleReject = (id: number) => {
     rejectMutation.mutate({ id, reason: '' }, {
       onSuccess: () => message.success('已駁回'),
-      onError: () => message.error('駁回失敗'),
+      onError: (e: unknown) => message.error(extractApiMessage(e, '駁回失敗')),
     });
   };
 

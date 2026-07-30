@@ -102,6 +102,18 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
     },
   ];
 
+  // 2026-07-30（owner「費用核銷 已核准 但無法檢視該紀錄」）：
+  // 此表原本只呈現數字、沒有任何鑽取入口 → 看得到卻點不進去。
+  // 費用報銷類可直接開原始核銷紀錄；請款/開票暫無獨立詳情頁故不提供（避免死連結）。
+  const onRow = (row: FinanceRecord) => ({
+    onClick: () => {
+      if (row.type === 'expense') {
+        navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(row.id)));
+      }
+    },
+    style: { cursor: row.type === 'expense' ? 'pointer' : 'default' },
+  });
+
   if (!isLoading && records.length === 0) {
     return (
       <Empty description="尚無財務紀錄">
@@ -140,6 +152,7 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
         loading={isLoading}
         size="small"
         pagination={false}
+        onRow={onRow}
       />
     </>
   );

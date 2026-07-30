@@ -22,6 +22,14 @@ RECEIPT_UPLOAD_DIR = Path(os.getenv("RECEIPT_UPLOAD_DIR", "uploads/receipts"))
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
 MAX_RECEIPT_SIZE = 10 * 1024 * 1024  # 10MB
 
+# 辨識方式 → ExpenseInvoiceCreate.source（Literal，見 schemas/erp/expense.py）
+# recognition.method 的可能值：qr / ocr / qr+ocr / none
+_SMART_SOURCE_MAP = {
+    "qr": "smart_qr",
+    "ocr": "smart_ocr",
+    "qr+ocr": "smart_qr",  # QR 主檔為主、OCR 僅補欄位
+}
+
 router = APIRouter()
 
 
@@ -188,7 +196,12 @@ async def smart_scan_invoice(
                 seller_ban=recognition.seller_ban,
                 case_code=case_code,
                 category=category,
-                source=f"smart_{recognition.method}",
+                # recognition.method ∈ {qr, ocr, qr+ocr, none}，但 source 是 Literal
+                # 只收 smart_qr / smart_ocr → 「qr+ocr」（QR 主檔 + OCR 補欄位）會組出
+                # 不合法的 "smart_qr+ocr" → ValidationError → auto_create 直接 500。
+                # 此路徑在 2026-07-30 補齊 tesseract 前不可能命中（OCR 一直是壞的），
+                # 屬修好上游後才浮現的潛伏缺陷。qr+ocr 以 QR 為主 → 歸 smart_qr。
+                source=_SMART_SOURCE_MAP.get(recognition.method, "smart_ocr"),
             )
             invoice = await service.create(
                 create_data, user_id=user_id,

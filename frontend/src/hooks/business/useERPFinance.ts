@@ -205,13 +205,20 @@ export const useUpdateExpense = () => {
 /** 審核通過 (approve → 自動寫入帳本) */
 export const useApproveExpense = () => {
   const queryClient = useQueryClient();
+  const resync = () => {
+    queryClient.invalidateQueries({ queryKey: erpFinanceKeys.expenses.all });
+    queryClient.invalidateQueries({ queryKey: erpFinanceKeys.ledger.all });
+    queryClient.invalidateQueries({ queryKey: erpFinanceKeys.financialSummary.all });
+    queryClient.invalidateQueries({ queryKey: ['case-finance'] });
+  };
   return useMutation({
     mutationFn: (id: number) => expensesApi.approve(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.expenses.all });
-      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.ledger.all });
-      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.financialSummary.all });
-    },
+    onSuccess: resync,
+    // 2026-07-30（owner「此發票狀態為 verified，不可進行審核操作…設計請複查」）：
+    // 失敗時也必須 resync。該錯誤幾乎都源於「畫面狀態落後於真實狀態」——
+    // 前一次審核其實成功了（或他人已審），但畫面沒更新、按鈕還在 → 再按一次才報錯。
+    // 失敗後重抓可讓列狀態與按鈕即時回到正確狀態，避免使用者反覆點擊。
+    onError: resync,
   });
 };
 
@@ -220,8 +227,14 @@ export const useRejectExpense = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: ExpenseInvoiceRejectRequest) => expensesApi.reject(data),
+    // 同 useApproveExpense：成功/失敗都 resync，避免畫面狀態落後於真實狀態
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: erpFinanceKeys.expenses.all });
+      queryClient.invalidateQueries({ queryKey: ['case-finance'] });
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.expenses.all });
+      queryClient.invalidateQueries({ queryKey: ['case-finance'] });
     },
   });
 };

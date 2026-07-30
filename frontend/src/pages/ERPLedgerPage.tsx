@@ -10,7 +10,7 @@ import {
 } from 'antd';
 import {
   PlusOutlined, ReloadOutlined, DeleteOutlined,
-  ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, FileTextOutlined,
+  ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, FileTextOutlined, FileSearchOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -110,13 +110,27 @@ const ERPLedgerPage: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 80,
-      render: (_: unknown, record: FinanceLedger) =>
-        canWrite && record.source_type === 'manual' ? (
-          <Popconfirm title="確定刪除？" onConfirm={() => handleDelete(record.id)}>
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        ) : null,
+      width: 140,
+      render: (_: unknown, record: FinanceLedger) => (
+        <Space size={0}>
+          {/* 2026-07-30（owner）：帳本看得到分錄卻「無對應內容可檢視」——
+              source_type/source_id 資料一直都在，只是前端沒接鑽取入口。
+              有來源單據者提供「檢視來源」直接開原始核銷紀錄。 */}
+          {record.source_type === 'expense_invoice' && record.source_id ? (
+            <Button
+              type="link" size="small" icon={<FileSearchOutlined />}
+              onClick={() => navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(record.source_id)))}
+            >
+              檢視來源
+            </Button>
+          ) : null}
+          {canWrite && record.source_type === 'manual' ? (
+            <Popconfirm title="確定刪除？" onConfirm={() => handleDelete(record.id)}>
+              <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          ) : null}
+        </Space>
+      ),
     },
   ];
 

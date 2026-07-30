@@ -15,12 +15,12 @@ import {
 } from 'antd';
 import {
   PlusOutlined, BookOutlined,
-  UploadOutlined, FileTextOutlined,
+  UploadOutlined, FileTextOutlined, ScanOutlined,
 } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   useExpenses, useAuthGuard,
   useCaseCodeMap, useLedger,
@@ -35,7 +35,8 @@ import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
 import { ERP_ENDPOINTS } from '../api/endpoints';
 import apiClient from '../api/client';
-import { ExpenseImportModal } from './erpExpense';
+import { ExpenseImportModal, SmartScanModal } from './erpExpense';
+import { erpFinanceKeys } from '../hooks/business/useERPFinance';
 import InvoiceSubTable from './erpExpense/InvoiceSubTable';
 import type { ExpenseGroup } from './erpExpense/InvoiceSubTable';
 
@@ -96,7 +97,9 @@ const ERPExpenseListPage: React.FC = () => {
   const ledgerItems = ledgerData?.items ?? [];
 
   // Import modal
+  const queryClient = useQueryClient();
   const [importOpen, setImportOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
 
   // Pending count — use a lightweight expenses query
   const { data: pendingSummary } = useExpenses({ status: 'pending', skip: 0, limit: 1 });
@@ -203,6 +206,10 @@ const ERPExpenseListPage: React.FC = () => {
               >
                 新增核銷
               </Button>
+              {/* 2026-07-30：批次連續掃描 —— 建立頁是「單張→填表→送出」，
+                  沒有「拍一張→自動建檔→接著下一張」的批次流程（月結/工地一次多張最需要）。
+                  SmartScanModal 原本已寫好卻從未掛載（出生即孤兒），此處整合納入。 */}
+              <Button icon={<ScanOutlined />} onClick={() => setScanOpen(true)}>批次掃描</Button>
               <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>核銷匯入</Button>
             </Space>
           </Col>
@@ -310,6 +317,15 @@ const ERPExpenseListPage: React.FC = () => {
       </Card>
 
       <ExpenseImportModal open={importOpen} onClose={() => setImportOpen(false)} onSuccess={() => void 0} />
+      <SmartScanModal
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onSuccess={() => {
+          // 批次建檔後刷新清單與統計（掃描是直接 auto_create，不走 useCreateExpense mutation）
+          queryClient.invalidateQueries({ queryKey: erpFinanceKeys.expenses.all });
+          queryClient.invalidateQueries({ queryKey: ['expense-grouped-summary'] });
+        }}
+      />
     </ResponsiveContent>
   );
 };
