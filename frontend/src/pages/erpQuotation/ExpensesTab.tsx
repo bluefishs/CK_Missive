@@ -11,7 +11,7 @@ import {
 import { EnhancedTable } from '../../components/common/EnhancedTable';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined,
-  CheckCircleOutlined, CloseCircleOutlined,
+  CheckCircleOutlined, CloseCircleOutlined, EyeOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -120,12 +120,21 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
       },
     },
     {
-      title: '操作', key: 'actions', width: 180,
+      title: '操作', key: 'actions', width: 220,
       render: (_: unknown, record: FinanceRecord) => {
         const canEdit = ['pending', 'rejected'].includes(record.status);
         const canApprove = !['verified', 'rejected'].includes(record.status);
         return (
           <Space size="small">
+            {/* 2026-07-31（owner 回報「依然無法點擊檢視」）：
+                「檢視」必須**無條件**提供 —— 原本只有 canEdit（pending/rejected）才給「編輯」，
+                已核准（verified）的紀錄整列沒有任何可點的東西 → 看得到卻進不去。
+                07-30 修的是 pmCase/ExpensesTab（同名不同檔），此檔漏修＝改錯檔家族再現。 */}
+            <Button type="link" size="small" icon={<EyeOutlined />}
+              onClick={() => navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(record.id)))}
+            >
+              檢視
+            </Button>
             {canEdit && (
               <Button type="link" size="small" icon={<EditOutlined />}
                 onClick={() => navigate(`${ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(record.id))}`)}
@@ -196,6 +205,17 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
         </Empty>
       ) : (
         <EnhancedTable<FinanceRecord>
+          onRow={(row: FinanceRecord) => ({
+            // 點整列即進核銷詳情（與 pmCase/ExpensesTab 一致）；
+            // 操作欄的按鈕自行 stopPropagation 由 antd Button 預設行為處理不到，
+            // 故以 target 判斷：點在按鈕/彈窗上時不觸發列導向。
+            onClick: (e: React.MouseEvent) => {
+              const el = e.target as HTMLElement;
+              if (el.closest('button') || el.closest('.ant-popover')) return;
+              navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(row.id)));
+            },
+            style: { cursor: 'pointer' },
+          })}
           columns={columns}
           dataSource={expenseRecords}
           rowKey={(r) => `expense-${r.id}`}
