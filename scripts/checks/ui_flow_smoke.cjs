@@ -49,8 +49,13 @@ if (!fs.existsSync(CONFIG_PATH)) {
   process.exit(2);
 }
 const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+// ROOT 以「設定檔位置」為準，不可由 __dirname 上推 —— vendored 安裝
+// （.shared-selfaudit/）比原生多一層目錄，上推會指到錯的地方
+const ROOT = path.dirname(CONFIG_PATH);
 const BASE = process.env.SMOKE_BASE || CONFIG.base_url;
-const SHOT_DIR = path.resolve(__dirname, 'ui_flow_smoke_shots');
+// 截圖寫進 repo 的 docs/health 而非引擎目錄 —— 寫在 vendored 目錄內會讓
+// sync-vendored --check 永遠 DRIFT（2026-08-01 pilot 實際踩到）
+const SHOT_DIR = path.resolve(ROOT, 'docs', 'health', 'ui_flow_smoke_shots');
 const HEADED = process.argv.includes('--headed');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').split('=')[1];
 
@@ -240,7 +245,7 @@ async function main() {
   // 「跑了全過」與「根本沒跑」。由既有 producer watchdog 以 file_fresh 監控此檔，
   // 停跑即由每日 cron_outcome_freshness 告警（不另建一套通知）。
   try {
-    const RESULT_JSON = path.resolve(__dirname, '..', '..', CONFIG.output.flow_result);
+    const RESULT_JSON = path.resolve(ROOT, CONFIG.output.flow_result);
     fs.mkdirSync(path.dirname(RESULT_JSON), { recursive: true });
     fs.writeFileSync(RESULT_JSON, JSON.stringify({
       checked_at: new Date().toISOString(),

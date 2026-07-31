@@ -54,7 +54,9 @@ const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
 const ROOT = path.dirname(CONFIG_PATH);
 const SWEEP = CONFIG.page_sweep || {};
 const BASE = process.env.SMOKE_BASE || CONFIG.base_url;
-const SHOT_DIR = path.resolve(__dirname, 'ui_page_sweep_shots');
+// 截圖寫進 repo 的 docs/health 而非引擎目錄 —— 寫在 vendored 目錄內會讓
+// sync-vendored --check 永遠 DRIFT（2026-08-01 pilot 實際踩到）
+const SHOT_DIR = path.resolve(ROOT, 'docs', 'health', 'ui_page_sweep_shots');
 const LIMIT = Number((process.argv.find((a) => a.startsWith('--limit=')) || '').split('=')[1] || 0);
 
 // 不掃：認證流程頁（需外部 OAuth）、開發/示範頁、錯誤頁本身
@@ -221,7 +223,7 @@ async function main() {
   // 「跑了全過」與「根本沒跑」。由既有 producer watchdog 以 file_fresh 監控此檔，
   // 停跑即由每日 cron_outcome_freshness 告警（不另建一套通知）。
   try {
-    const RESULT_JSON = path.resolve(__dirname, '..', '..', CONFIG.output.sweep_result);
+    const RESULT_JSON = path.resolve(ROOT, CONFIG.output.sweep_result);
     fs.mkdirSync(path.dirname(RESULT_JSON), { recursive: true });
     fs.writeFileSync(RESULT_JSON, JSON.stringify({
       checked_at: new Date().toISOString(),

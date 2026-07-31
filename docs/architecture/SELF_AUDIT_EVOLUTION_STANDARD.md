@@ -161,6 +161,55 @@
 
 ---
 
+## 5.5 跨專案移植：pilot 實測結果（2026-08-01，CK_lvrland_Webmap）
+
+**結論：引擎可攜成立，但「照抄設定」必失敗。** lvrland 移植共踩 10 個坑，
+全數已回饋 canonical。分兩類——
+
+### A. 引擎缺陷（已修，未來 repo 不會再遇到）
+
+| # | 症狀 | 根因 |
+|---|---|---|
+| 1 | 找不到 config | ROOT 由 `__dirname` 上推——vendored 安裝比原生多一層目錄 → 改以 **config 檔位置**為基準 |
+| 2 | 結果檔寫到 `scripts/docs/health/` | 同上，`writeFileSync` 也在上推 |
+| 3 | `--check` 永遠 DRIFT | 截圖寫進 vendored 目錄內 → 改寫進該 repo `docs/health/` |
+| 4 | 掃到 0 條路由卻印 PASS | **假綠**：設定錯 = 全部健康 → 改 exit 2 |
+| 5 | 路由擷取失敗 | 各 repo pattern 群組數不同（`ROUTES` 常數 2 群組 vs `<Route path>` 1 群組）→ 取第一個以 `/` 開頭者 |
+| 6 | 登入態注入無效 | 前端 session 儲存慣例不同（`user_info` raw vs zustand persist `auth-storage`）→ config 化 |
+
+### B. per-repo 必須自己解（移植時預期會遇到）
+
+| # | 事項 | 說明 |
+|---|---|---|
+| 7 | 容器內結構 | Missive `/app`＝backend；lvrland `/app/backend` → adapter 多候選路徑探測 |
+| 8 | adapter 以 stdin 執行 | `__file__ == "<stdin>"`（**不是 NameError**）→ `parents[2]` 拋 IndexError |
+| 9 | Windows 編碼／路徑 | config 含中文 → 明確 `encoding="utf-8"`（L49.8）；Git Bash `/d/...` → `cygpath` |
+| 10 | **認證細節** | 見下 |
+
+### 最貴的一個：認證不可從「機制刻意分歧」推論
+
+lvrland 花三次 401 才通。每一次都是「以為懂了」：
+
+1. 以為無狀態 → 實際 `sub` 要真實 `users.id`
+2. 補了真實 id → 實際 `jti` 必填
+3. 以為 jti 只是黑名單 → 實際還要 **`user_sessions` 有對應 active 列**
+
+**規則：adapter 必須逐層以真實呼叫驗證（打一個需認證端點看 200），
+不得從任何文件或印象推論具體機制。** 我們自己維護的跨 repo 分歧
+registry 只記「哪裡刻意不同」，不保證細節——它不是實作規格書。
+
+### Pilot 的實際收益（證明這不是自嗨）
+
+lvrland 首次執行就抓到：
+- `/admin/security-center` → `POST /admin/security/**security**/owasp-summary` 404
+  （路徑重複段，靜態檢查全綠、只有瀏覽器抓得到）
+- `/admin/code-architecture` 整頁空白
+- 另 6 頁 422／空白待確認
+- **附帶發現**：該 repo 6 支檢核腳本從來沒有任何東西會去跑
+  → 建 `run_checks.sh`，首跑即發現 `templates_ssot_check` 早就是 RED
+
+---
+
 ## 6. 檢查清單（新功能上線前）
 
 - [ ] 它壞掉時，第幾階會發現？若答案是「使用者」，補上該階

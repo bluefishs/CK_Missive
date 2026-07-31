@@ -209,3 +209,7 @@ backups/code_graph_prune/
 AGENTS.md
 .codex/
 .agents/
+
+# 自我檢核截圖（每次執行覆寫，不入版控）
+docs/health/ui_flow_smoke_shots/
+docs/health/ui_page_sweep_shots/
