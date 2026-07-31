@@ -147,6 +147,22 @@ class CaseCodeService:
             except (IndexError, ValueError):
                 pass
 
+        # 查承攬案件（2026-07-31 補）
+        # 原本只掃 PM + ERP，但 `contract_projects.case_code` 是 **UNIQUE**，
+        # 且自 2026-07-31 方案 B 起承攬案件也會自行產號 →
+        # 只要有一筆 case_code 只存在於 contract_projects（例如自我修復批次補的），
+        # 下一次產號就會重覆而撞 ix_contract_projects_case_code。
+        # 實際踩到：自我修復 job 首跑時同批第二筆即 UniqueViolationError。
+        cp_max = await self.db.scalar(text(
+            "SELECT MAX(case_code) FROM contract_projects WHERE case_code LIKE :p"
+        ), {"p": f"{prefix}%"})
+        if cp_max:
+            try:
+                serial = int(str(cp_max).split("_")[-1])
+                max_serial = max(max_serial, serial)
+            except (IndexError, ValueError):
+                pass
+
         return max_serial + 1
 
     async def validate_case_code(self, case_code: str) -> bool:

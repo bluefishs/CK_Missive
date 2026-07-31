@@ -121,6 +121,17 @@
    "path": "wiki/memory/integration-health/ui-sweep.json",
    "max_h": 30,
    "_why": "2026-07-31：既有治理只看原始碼與 API 狀態碼，抓不到「這一頁打開來是壞的」。首跑即發現 /ai/erp-graph 前後端契約不一致（422 被 catch 吞成 0 筆，從未有人發現）。"
+  },
+  {
+   "name": "案件財務橋樑自我修復",
+   "signal": "cron_detail",
+   "job": "case_finance_bridge_selfheal",
+   "key": "healed",
+   "ok_zero_reasons": [
+    "nothing_to_heal",
+    "ok"
+   ],
+   "_why": "2026-07-31：自我修復 job。healed=0 且 reason=nothing_to_heal 是健康狀態（沒東西要修）；若 reason=partial_failure 則需人介入。"
   }
  ]
 }

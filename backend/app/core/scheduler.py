@@ -1894,6 +1894,72 @@ async def fitness_weekly_job():
         logger.warning("Fitness Tier 2 Weekly LINE push 失敗: %s", push_e)
 
 
+@tracked_job("case_finance_bridge_selfheal")
+async def case_finance_bridge_selfheal_job():
+    """每日自動補齊承攬案件的財務橋樑（自我修復，2026-07-31）
+
+    owner：「活化系統自我覆盤檢核與修復機制」。
+
+    背景：`case_code` 是承攬案件通往財務/核銷的唯一橋樑（報價、費用核銷、
+    核銷 QR 都靠它）。方案 B 已讓**新建**案件在建立當下就補上，但：
+      * 既有資料仍可能有缺（2026-07-31 手動補了 187/188/190/191）
+      * 未來若有新的寫入路徑繞過 ProjectService.create，又會再長出來
+
+    偵測到就修，而不是等 fitness 標黃、等人來看 —— 這是「檢核」與「修復」的差別。
+
+    安全性：
+      * 只補**缺少**的（有值不動），冪等
+      * 走 ProjectService 既有方法，與手動建立走同一條路
+      * 金額一律留空（屬業務決策），只帶 contract_amount 當預算上限
+      * 逐案 try：單一案件失敗不影響其他案件
+      * 回傳 detail 供 watchdog 區分「合理 0」與「真失敗」（契約規則 2）
+    """
+    from sqlalchemy import select
+    from app.db.database import async_session_maker
+    from app.extended.models.core import ContractProject
+    from app.services.contract.case_code import CaseCodeService
+    from app.services.contract.core import ProjectService
+
+    healed, failed = [], []
+    async with async_session_maker() as db:
+        rows = (await db.execute(
+            select(ContractProject).where(ContractProject.case_code.is_(None))
+        )).scalars().all()
+
+        if not rows:
+            logger.info("case_finance_bridge_selfheal: 無缺 case_code 的承攬案件")
+            return {"healed": 0, "reason": "nothing_to_heal"}
+
+        svc = ProjectService(db)
+        for p in rows:
+            # 每案獨立 savepoint：一案撞唯一鍵不得讓整批 session 進入失敗狀態
+            #（首跑實測：第二筆 UniqueViolationError 後，同 session 後續操作全部連帶失敗）
+            try:
+                code = await CaseCodeService(db).generate_case_code(
+                    "pm", p.year or 2026, p.category or "01",
+                )
+                p.case_code = code
+                await db.flush()
+                await svc._ensure_finance_container(p)
+                await db.commit()
+                healed.append(f"{p.project_code}->{code}")
+            except Exception as e:  # noqa: BLE001
+                await db.rollback()
+                failed.append(f"{p.project_code}: {str(e)[:80]}")
+                logger.warning("case_finance_bridge_selfheal 單案失敗 %s: %s", p.project_code, e)
+
+    logger.info(
+        "case_finance_bridge_selfheal: 修復 %d 案、失敗 %d 案 %s",
+        len(healed), len(failed), healed[:5],
+    )
+    return {
+        "healed": len(healed),
+        "failed": len(failed),
+        "reason": "ok" if not failed else "partial_failure",
+        "detail": healed[:10],
+    }
+
+
 @tracked_job("daily_self_retrospective")
 async def daily_self_retrospective_job():
     """v6.12 #4 升級版 — 每日 06:30 自我覆盤 7 面向 + LINE 推 owner
@@ -3609,6 +3675,21 @@ def setup_scheduler(
     # v6.13 (2026-05-31): 06:30 → 02:45 避開 LINE 推播 / morning_report 07:30 / 用戶活動
     # owner 訴求: 凌晨時段執行避免相關訊息推播或任務執行導致中斷
     logger.info("已添加 Daily Self-Retrospective: 每日 02:45 執行 (v6.13 改凌晨避干擾)")
+
+    # 自我修復（2026-07-31）— owner：「活化系統自我覆盤檢核與修復機制」
+    # 檢核與修復的差別：fitness step 74 只會把缺 case_code 的案件標黃等人處理，
+    # 此 job 直接補上。排 02:50（緊接自省之後、早於 03:00 pipeline）。
+    scheduler.add_job(
+        case_finance_bridge_selfheal_job,
+        trigger=CronTrigger(hour=2, minute=50),
+        id='case_finance_bridge_selfheal',
+        name='案件財務橋樑自我修復 (每日 02:50)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=7200,
+    )
+    logger.info("已添加案件財務橋樑自我修復: 每日 02:50 執行")
 
     # v6.12 解 owner「每次詢問都有缺漏」meta 問題
     # 每日 06:00 regenerate GOVERNANCE_INTEGRATED_DASHBOARD.md
