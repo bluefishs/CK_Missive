@@ -83,3 +83,36 @@ describe('財務清單必須可鑽取', () => {
     ).toBe(true);
   });
 });
+
+describe('財務型別 SSOT', () => {
+  // 2026-07-31：兩個 ExpensesTab 原本各自宣告 FinanceRecord / CaseFinanceData，
+  // 後端 case-finance 端點又回未綁 response_model 的裸 dict
+  // → 後端改欄位，兩處都要手動跟，漏改是靜默錯位（欄位變 undefined、畫面只少一格）。
+  // 現已收斂：後端 CaseFinanceResponse（綁 response_model）＋前端 types/erp.ts。
+
+  it('pages/ 內不得本地宣告 FinanceRecord / CaseFinanceData', () => {
+    const offenders: string[] = [];
+    for (const p of walk(join(SRC, 'pages'))) {
+      const src = readFileSync(p, 'utf-8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      if (/interface\s+(FinanceRecord|CaseFinanceData)/.test(src)) {
+        offenders.push(p);
+      }
+    }
+    expect(
+      offenders,
+      '財務紀錄型別必須從 types/erp import（對應後端 CaseFinanceResponse），不得各頁自宣告',
+    ).toEqual([]);
+  });
+
+  it('財務清單元件皆從 types/erp 取得型別', () => {
+    for (const { path } of financeListComponents()) {
+      const src = readFileSync(path, 'utf-8');
+      expect(
+        /from '.*types\/erp'/.test(src),
+        `${path} 未從 types/erp import 財務型別`,
+      ).toBe(true);
+    }
+  });
+});

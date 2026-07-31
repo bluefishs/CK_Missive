@@ -22,29 +22,13 @@ import {
 } from '../../hooks';
 import { ROUTES } from '../../router/types';
 import type { ColumnsType } from 'antd/es/table';
+// 2026-07-31 SSOT：型別由 types/erp 統一，對應後端 CaseFinanceResponse
+// （原本兩個 ExpensesTab 各自宣告一份，後端改欄位不會有人發現）
+import type { CaseFinanceRecord as FinanceRecord, CaseFinanceData } from '../../types/erp';
 
 const { Text } = Typography;
 
-interface FinanceRecord {
-  type: 'expense' | 'billing' | 'invoice';
-  id: number;
-  date: string | null;
-  amount: number;
-  description: string;
-  category: string;
-  status: string;
-  source: string;
-}
 
-interface CaseFinanceData {
-  case_code: string;
-  records: FinanceRecord[];
-  summary: {
-    expense_count: number; expense_total: number;
-    billing_count: number; billing_total: number;
-    invoice_count: number; invoice_total: number;
-  };
-}
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   pending: { label: '待審核', color: 'orange' },

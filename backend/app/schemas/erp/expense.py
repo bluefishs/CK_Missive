@@ -186,3 +186,39 @@ class ExpenseInvoiceQuery(BaseModel):
     user_id: Optional[int] = None
     skip: int = 0
     limit: int = Field(default=20, le=100)
+
+
+# ---------------------------------------------------------------------------
+# 案件整合財務紀錄（case-finance）— 2026-07-31 補契約
+# ---------------------------------------------------------------------------
+# 立法背景：此端點原本回未綁 response_model 的裸 dict，前端在
+# `pages/pmCase/ExpensesTab.tsx` 與 `pages/erpQuotation/ExpensesTab.tsx`
+# **各自宣告了一份同名 interface**。後端欄位一改，兩處都要手動跟，
+# 漏改會靜默錯位（欄位變 undefined，畫面只是少一格，不會報錯）。
+# 這正是當日「同一件事兩份實作」家族的資料契約版本。
+
+class CaseFinanceRecord(BaseModel):
+    """案件財務紀錄單列（費用核銷 / 請款 / 開票 三種來源統一形狀）"""
+    type: Literal["expense", "billing", "invoice"] = Field(..., description="紀錄種類")
+    id: int
+    date: Optional[str] = Field(None, description="日期 (YYYY-MM-DD)")
+    amount: float
+    description: Optional[str] = Field(None, description="發票號碼 / 請款期別 / 發票號")
+    category: Optional[str] = None
+    status: Optional[str] = None
+    source: Optional[str] = Field(None, description="來源表識別")
+
+
+class CaseFinanceSummary(BaseModel):
+    expense_count: int = 0
+    expense_total: float = 0
+    billing_count: int = 0
+    billing_total: float = 0
+    invoice_count: int = 0
+    invoice_total: float = 0
+
+
+class CaseFinanceResponse(BaseModel):
+    case_code: str
+    records: List[CaseFinanceRecord] = Field(default_factory=list)
+    summary: CaseFinanceSummary

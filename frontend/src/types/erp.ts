@@ -1108,3 +1108,38 @@ export interface OperationalExpenseCreate {
   asset_id?: number;
   notes?: string;
 }
+
+// ---------------------------------------------------------------------------
+// 案件整合財務紀錄（case-finance）— 2026-07-31 收斂為 SSOT
+// ---------------------------------------------------------------------------
+// 此型別原本在 pages/pmCase/ExpensesTab.tsx 與 pages/erpQuotation/ExpensesTab.tsx
+// **各自宣告一份**。後端欄位一改，兩處都得手動跟，漏改是靜默錯位
+//（欄位變 undefined，畫面只少一格、不會報錯）。
+// 後端契約：backend/app/schemas/erp/expense.py CaseFinanceResponse（已綁 response_model）。
+
+/** 案件財務紀錄單列（費用核銷 / 請款 / 開票 三種來源統一形狀） */
+export interface CaseFinanceRecord {
+  type: 'expense' | 'billing' | 'invoice';
+  id: number;
+  date: string | null;
+  amount: number;
+  description: string;
+  category: string;
+  status: string;
+  source: string;
+}
+
+export interface CaseFinanceSummary {
+  expense_count: number;
+  expense_total: number;
+  billing_count: number;
+  billing_total: number;
+  invoice_count: number;
+  invoice_total: number;
+}
+
+export interface CaseFinanceData {
+  case_code: string;
+  records: CaseFinanceRecord[];
+  summary: CaseFinanceSummary;
+}

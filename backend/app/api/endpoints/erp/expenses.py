@@ -10,6 +10,7 @@ from app.core.dependencies import get_service, optional_auth, require_auth, requ
 from app.extended.models import User
 from app.services.expense_invoice_service import ExpenseInvoiceService
 from app.schemas.erp.expense import (
+    CaseFinanceResponse,
     ExpenseInvoiceCreate,
     ExpenseInvoiceQuery,
     ExpenseInvoiceResponse,
@@ -73,7 +74,7 @@ async def financial_overview(
     return SuccessResponse(data=await service.get_financial_overview())
 
 
-@router.post("/case-finance")
+@router.post("/case-finance", response_model=SuccessResponse[CaseFinanceResponse])
 async def case_finance_summary(
     request: Request,
     service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
@@ -88,7 +89,11 @@ async def case_finance_summary(
     case_code = body.get("case_code")
     if not case_code:
         raise HTTPException(status_code=400, detail="case_code 為必填")
-    return SuccessResponse(data=await service.get_case_finance(case_code))
+    # 2026-07-31：綁 response_model 讓契約有單一來源 —— 前端兩個 ExpensesTab
+    # 原本各自宣告一份同名 interface，後端改欄位不會有人發現。
+    return SuccessResponse[CaseFinanceResponse](
+        data=CaseFinanceResponse.model_validate(await service.get_case_finance(case_code))
+    )
 
 
 @router.post("/create")
