@@ -100,19 +100,34 @@ class TestOutboundNotificationGuard:
         i = src.index("_block_outbound_notifications")
         assert "autouse=True" in src[max(0, i - 200):i]
 
-    def test_guard_patches_network_boundary_not_public_methods(self):
-        """攔在網路邊界，否則會打斷本來就安全的服務層測試（初版踩過）"""
-        src = (BACKEND / "tests" / "conftest.py").read_text(encoding="utf-8")
-        i = src.index("targets = [")
-        block = src[i:i + 500]
-        assert "_call_line_api" in block
-        assert "_call_telegram_api" in block
-        assert "LineBotService.push_message" not in block, "攔太高會替換掉受測方法本身"
+    def test_guard_blanks_credentials_rather_than_patching_methods(self):
+        """抽憑證，不替換方法 —— 替換方法會打斷『正在測那個方法』的測試
+
+        同日兩次踩到：v1 換掉 push_message、v2 換掉 _call_line_api，
+        都打斷了原本就安全的測試。v3 改為抽掉 token。
+        """
+        import re as _re
+        raw = (BACKEND / "tests" / "conftest.py").read_text(encoding="utf-8")
+        # 必須先剝註解：conftest 的沿革註解裡就寫著 push_message / _call_line_api
+        #（同日第三次踩到「比對命中自己的說明文字」）
+        src = _re.sub(r'"""[\s\S]*?"""', "", raw)
+        src = _re.sub(r"(?m)^\s*#.*$", "", src)
+        i = src.index("blanked = {")
+        block = src[i:i + 600]
+        assert "LINE_CHANNEL_ACCESS_TOKEN" in block
+        assert "TELEGRAM_BOT_TOKEN" in block
+        assert "patch(\"app.services.integration" not in src, "不得替換 LINE/Telegram 服務方法"
+
+    def test_outbound_credentials_are_absent_at_runtime(self):
+        """實際驗證：測試執行期沒有任何對外憑證（而非只看原始碼）"""
+        import os
+        for k in ("LINE_CHANNEL_ACCESS_TOKEN", "TELEGRAM_BOT_TOKEN"):
+            assert not os.getenv(k), f"{k} 在測試環境仍有值 → 可能真的送出訊息"
 
     @pytest.mark.asyncio
-    async def test_line_network_call_is_blocked_at_runtime(self):
-        """實際驗證：服務層呼叫不會真的送出（而非只看原始碼）"""
+    async def test_line_service_is_disabled_by_default_in_tests(self):
+        """預設建立的 LineBotService 應為 disabled → push 直接回 False"""
         from app.services.integration.line_bot import LineBotService
-        svc = LineBotService.__new__(LineBotService)
-        result = await LineBotService._call_line_api(svc, "/message/push", {"to": "x"})
-        assert result is False, "安全網未生效，測試可能真的對外送出訊息"
+        svc = LineBotService()
+        assert svc.enabled is False
+        assert await svc.push_message("U_test", "should not send") is False

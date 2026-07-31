@@ -59,26 +59,37 @@ def _block_outbound_notifications(request):
         yield
         return
 
-    # 攔截點必須落在「真正對外的那一層」，不是服務的公開方法。
-    # 2026-07-31 初版把 `LineBotService.push_message` / `TelegramBotService.push_message`
-    # 整個換掉 → 打斷了兩個**本來就安全**的測試（它們自己 mock 了 `_call_line_api`
-    # / `send_message`，我卻把受測方法本身替換了）。
-    # 正確做法：patch 網路邊界（LINE `_call_line_api`、Telegram `_call_telegram_api`）
-    # 與跨通道扇出（IntegrationFacade），服務層行為測試因而不受影響。
-    targets = [
-        "app.services.contracts.facades.integration.IntegrationFacade.push_admin_alert",
-        "app.services.integration.line_bot.LineBotService._call_line_api",
-        "app.services.integration.telegram_bot.TelegramBotService._call_telegram_api",
-    ]
-    patchers = []
-    for t in targets:
-        try:
-            p = patch(t, new=AsyncMock(return_value=False))
-            p.start()
-            patchers.append(p)
-        except (AttributeError, ModuleNotFoundError, ImportError):
-            # 目標不存在（模組重構）就跳過；安全網不應成為新的脆弱點
-            continue
+    # 攔法演進（同日兩次修正，記錄以免第三次踩）：
+    #   v1 patch `LineBotService.push_message` → 把**受測方法本身**換掉，
+    #      打斷兩個原本就安全的服務層測試。
+    #   v2 改 patch `_call_line_api` / `_call_telegram_api` → 仍然攔太深：
+    #      `test_line_monthly_quota_shortcircuit` 正是在測 `_call_line_api`，
+    #      而它自己已 patch 了 httpx，本來就安全。
+    #   v3（現行）**不替換任何方法，改為抽掉對外憑證**：
+    #      服務啟動時讀 env 取 token，沒有 token 就不可能送出。
+    #      需要驗證推播行為的測試都會自備 token（如 `_make_service()` 內
+    #      patch.dict LINE_CHANNEL_ACCESS_TOKEN），因此完全不受影響。
+    #      唯一仍以 patch 攔住的是 `IntegrationFacade.push_admin_alert`
+    #      —— 它是跨通道扇出、也正是 07-31 事故真正外送的那一層。
+    blanked = {
+        "LINE_CHANNEL_ACCESS_TOKEN": "", "LINE_CHANNEL_SECRET": "",
+        "LINE_BOT_ENABLED": "false", "LINE_ADMIN_USER_IDS": "",
+        "TELEGRAM_BOT_TOKEN": "", "TELEGRAM_ADMIN_CHAT_ID": "",
+        "TELEGRAM_ADMIN_PUSH_ENABLED": "false",
+        "PROACTIVE_LINE_PUSH_ENABLED": "false",
+    }
+    env_patcher = patch.dict(os.environ, blanked)
+    env_patcher.start()
+    patchers = [env_patcher]
+    try:
+        p = patch(
+            "app.services.contracts.facades.integration.IntegrationFacade.push_admin_alert",
+            new=AsyncMock(return_value=False),
+        )
+        p.start()
+        patchers.append(p)
+    except (AttributeError, ModuleNotFoundError, ImportError):
+        pass
     try:
         yield
     finally:

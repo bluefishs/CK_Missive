@@ -76,11 +76,6 @@ vi.mock('../../config/queryConfig', () => ({
   queryKeys: { projects: { all: ['projects'] } },
 }));
 
-vi.mock('../../pages/contractCase/DetailPageHeader', () => ({
-  DetailPageHeader: ({ title }: { title?: string }) => (
-    <div data-testid="mock-detail-header">{title || 'DetailHeader'}</div>
-  ),
-}));
 
 vi.mock('../../pages/contractCase/tabs', () => ({
   CaseInfoTab: () => <div>CaseInfoTab</div>,
