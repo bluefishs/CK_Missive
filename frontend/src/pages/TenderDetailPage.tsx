@@ -22,11 +22,11 @@ import {
   StarOutlined, StarFilled, UnorderedListOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { BattleTab, PriceTab } from './tenderDetail';
+import { useCreateCaseFlow } from './tenderDetail/useCreateCaseFlow';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
 import { useTenderDetail, useTenderDetailFull, useTenderBookmarks, useCreateBookmark, useUpdateBookmark, useDeleteBookmark } from '../hooks/business/useTender';
-import { tenderApi } from '../api/tenderApi';
 import { isEzbidDetail, isPccDetail } from '../types/tender';
 import { App } from 'antd';
 
@@ -87,6 +87,7 @@ const TenderDetailPage: React.FC = () => {
 
   // ADR-0032: 以 type guard 明確分派 PCC / ezbid 資料來源
   const pccDetail = isPccDetail(detail) ? detail : null;
+  const { startCreateCase } = useCreateCaseFlow();
   const ezbidData = isEzbidDetail(detail) ? detail : null;
 
   // PCC 決標公告 and 招標公告 have different fields — 以 merged_detail 互補
@@ -243,27 +244,16 @@ const TenderDetailPage: React.FC = () => {
               } catch { message.error('收藏失敗（可能已收藏）'); }
             }}>收藏此標案</Button>
           )}
-          <Button onClick={async () => {
-            const uid = decodeURIComponent(unitId || '');
-            const jn = decodeURIComponent(jobNumber || '');
-            const t = detail?.title || '';
-            if (!uid || !jn || !t) { message.warning('標案資訊不完整'); return; }
-            try {
-              const result = await tenderApi.createCase({
-                unit_id: uid,
-                job_number: jn,
-                title: t,
-                unit_name: detail?.unit_name || '',
-                budget: latest?.budget || undefined,
-              });
-              message.success(result.message);
-            } catch (e) {
-              // 顯示後端實際訊息（如 409「此標案已建案: CK2026_PM_01_005」），
-              // 而非通用「建案失敗」→ 使用者知道是已建案非未知失敗。
-              const msg = (e as { message?: string })?.message;
-              message.error(msg || '建案失敗');
-            }
-          }}>一鍵建案</Button>
+          {/* 2026-07-31：改走共用 useCreateCaseFlow —— 建案前先查是否已有同一案，
+              有候選則讓使用者選「關聯既有 / 仍要新建」（L2 防重複）。
+              ezbid 分支使用同一流程，避免兩處各自實作而漂移。 */}
+          <Button onClick={() => startCreateCase({
+            unit_id: decodeURIComponent(unitId || ''),
+            job_number: decodeURIComponent(jobNumber || ''),
+            title: detail?.title || '',
+            unit_name: detail?.unit_name || '',
+            budget: latest?.budget || undefined,
+          })}>一鍵建案</Button>
         </Space>
       </div>
     ) : isEzbidDbOnly ? (
@@ -347,8 +337,19 @@ const TenderDetailPage: React.FC = () => {
           </Descriptions>
         </Card>
         <Space>
+          {/* 2026-07-31 L1 入口斷修復：ezbid 來源（全庫 42.7%）原本**根本沒有建案按鈕**，
+              owner 回報「無法建案」是字面成立。ezbid 無 job_number，
+              後端已改為以 ezbid:{unit_id} 作識別碼。 */}
+          <Button type="primary" onClick={() => startCreateCase({
+            unit_id: ezbidData?.ezbid_id || ezbidData?.unit_id || '',
+            job_number: ezbidData?.job_number || undefined,
+            title: ezbidData?.title || '',
+            unit_name: ezbidData?.unit_name || '',
+            budget: ezbidData?.budget != null ? String(ezbidData.budget) : undefined,
+            tender_id: ezbidData?.tender_id,
+          })}>一鍵建案</Button>
           {ezbidData?.ezbid_url && (
-            <Button type="primary" icon={<LinkOutlined />} href={ezbidData.ezbid_url} target="_blank">
+            <Button icon={<LinkOutlined />} href={ezbidData.ezbid_url} target="_blank">
               在 ezbid 查看此標案
             </Button>
           )}

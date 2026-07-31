@@ -74,17 +74,25 @@ def test_alert_manager_cooldown_expires(alert_manager):
 
 
 @pytest.mark.asyncio
-async def test_send_failure_alert_calls_telegram():
-    """send_failure_alert 應呼叫 Telegram push_message"""
+async def test_send_failure_alert_uses_integration_facade():
+    """send_failure_alert 應走 IntegrationFacade.push_admin_alert（多通道）
+
+    2026-07-31 更正：本測試原名 *_calls_telegram，patch 的是
+    `app.core.scheduler_alert.get_telegram_bot_service`。但實作早在 v6.12 就改走
+    `IntegrationFacade.push_admin_alert`，該 patch **攔不到任何東西** →
+    測試一路打到真實通道，owner 的 LINE 真的收到「⚠️ 排程失敗 test_job」兩則。
+
+    過期的 mock 比沒有 mock 更危險：它讓測試看起來是隔離的。
+    conftest 已加 autouse 安全網封鎖對外推播；此處改 patch 正確的目標。
+    """
     from app.core.scheduler_alert import SchedulerAlertManager
 
     manager = SchedulerAlertManager(failure_threshold=1, cooldown_seconds=0)
 
-    mock_tg = AsyncMock()
-    mock_tg.push_message = AsyncMock(return_value=True)
-
-    with patch("app.core.scheduler_alert.get_telegram_bot_service", return_value=mock_tg), \
-         patch.dict("os.environ", {"TELEGRAM_ADMIN_CHAT_ID": "12345"}):
+    with patch(
+        "app.services.contracts.facades.integration.IntegrationFacade.push_admin_alert",
+        new=AsyncMock(return_value=True),
+    ) as mock_push:
         sent = await manager.send_failure_alert(
             job_id="test_job",
             error="Something broke",
@@ -92,22 +100,23 @@ async def test_send_failure_alert_calls_telegram():
         )
 
     assert sent is True
-    mock_tg.push_message.assert_called_once()
-    call_args = mock_tg.push_message.call_args
-    assert call_args[0][0] == 12345  # chat_id
-    assert "test_job" in call_args[0][1]  # message
+    mock_push.assert_awaited_once()
+    kwargs = mock_push.await_args.kwargs
+    assert "test_job" in kwargs["title"]
+    assert "Something broke" in kwargs["body"]
 
 
 @pytest.mark.asyncio
-async def test_send_failure_alert_no_chat_id():
-    """未設定 TELEGRAM_ADMIN_CHAT_ID 時靜默跳過"""
+async def test_send_failure_alert_returns_false_when_no_channel():
+    """無可用通道時回 False（不得拋例外中斷排程）"""
     from app.core.scheduler_alert import SchedulerAlertManager
 
     manager = SchedulerAlertManager(failure_threshold=1, cooldown_seconds=0)
 
-    with patch.dict("os.environ", {}, clear=False):
-        import os
-        os.environ.pop("TELEGRAM_ADMIN_CHAT_ID", None)
+    with patch(
+        "app.services.contracts.facades.integration.IntegrationFacade.push_admin_alert",
+        new=AsyncMock(return_value=False),
+    ):
         sent = await manager.send_failure_alert(
             job_id="test_job",
             error="Something broke",

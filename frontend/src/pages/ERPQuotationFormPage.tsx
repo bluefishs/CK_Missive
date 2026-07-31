@@ -37,11 +37,18 @@ export const ERPQuotationFormPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   React.useEffect(() => {
     if (isEdit) return;
-    const prefill: Record<string, string> = {};
+    const prefill: Record<string, string | number> = {};
     const pc = searchParams.get('project_code');
     const cn = searchParams.get('case_name');
     if (pc) prefill.project_code = pc;
     if (cn) prefill.case_name = cn;
+    // 2026-07-31 L4 財務接續：若該案有來源標案，把標案預算帶進「預算上限」。
+    // 原本從標案來的預算/機關/案名全部要人工重打 —— 資料明明就在系統裡。
+    const bl = searchParams.get('budget_limit');
+    if (bl) {
+      const n = Number(String(bl).replace(/[^\d.]/g, ''));
+      if (Number.isFinite(n) && n > 0) prefill.budget_limit = n;
+    }
     if (Object.keys(prefill).length) form.setFieldsValue(prefill);
   }, [searchParams, isEdit, form]);
 

@@ -20,6 +20,7 @@ import {
 import { useParams } from 'react-router-dom';
 
 import { DetailPageLayout, createTabItem } from '../components/common/DetailPage';
+import { SourceTenderLink } from '../components/common/SourceTenderLink';
 import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
 import { useContractCaseData } from './contractCase/useContractCaseData';
 import { useContractCaseHandlers } from './contractCase/useContractCaseHandlers';
@@ -204,6 +205,7 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
           caseCode={data.case_code ?? null}
           projectCode={data.project_code ?? null}
           projectName={data.project_name ?? null}
+          sourceTenderId={data.source_tender_id ?? null}
         />
       ) : null
     ),
@@ -211,6 +213,8 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
 
   const headerExtra = (
     <Space>
+      {/* 2026-07-31 L3 回指：顯示本案來自哪個標案（原本雙向都看不到對方） */}
+      <SourceTenderLink sourceTenderId={data?.source_tender_id} />
       {/* 2026-07-29：工地人員常從承攬案件頁找案子，故此處也提供核銷 QR
           （比照 PMCaseDetailPage / ERPQuotationDetailPage；沿用同一元件，零新邏輯）。
           僅在有 case_code 時顯示——無 case_code 掃了也無法關聯，見「財務紀錄」分頁的補建指引。 */}

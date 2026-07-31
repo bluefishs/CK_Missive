@@ -65,14 +65,17 @@ class TestCheckDocumentDeadlines:
         upcoming_result.all.return_value = []
 
         db.execute.side_effect = [overdue_result, upcoming_result]
+        # 2026-07-31：新增「陳年逾期彙總」info alert，需給定真實計數
+        # （AsyncMock 的回傳恆為 truthy，會讓彙總 alert 無條件出現）
+        db.scalar.return_value = 0
 
         svc = ProactiveTriggerService(db)
         alerts = await svc.check_document_deadlines()
 
-        assert len(alerts) == 1
-        assert alerts[0].alert_type == "deadline_overdue"
-        assert alerts[0].severity == "critical"
-        assert "3" in alerts[0].title
+        overdue = [a for a in alerts if a.alert_type == "deadline_overdue"]
+        assert len(overdue) == 1
+        assert overdue[0].severity == "critical"
+        assert "3" in overdue[0].title
 
     @pytest.mark.asyncio
     async def test_upcoming_events(self):
@@ -92,14 +95,15 @@ class TestCheckDocumentDeadlines:
         upcoming_result.all.return_value = [mock_row]
 
         db.execute.side_effect = [overdue_result, upcoming_result]
+        db.scalar.return_value = 0
 
         svc = ProactiveTriggerService(db)
         alerts = await svc.check_document_deadlines()
 
-        assert len(alerts) == 1
-        assert alerts[0].alert_type == "deadline_warning"
-        assert alerts[0].severity == "warning"  # <= 3 days
-        assert alerts[0].metadata["days_remaining"] == 2
+        upcoming = [a for a in alerts if a.alert_type == "deadline_warning"]
+        assert len(upcoming) == 1
+        assert upcoming[0].severity == "warning"  # <= 3 days
+        assert upcoming[0].metadata["days_remaining"] == 2
 
     @pytest.mark.asyncio
     async def test_no_deadlines(self):
@@ -111,6 +115,7 @@ class TestCheckDocumentDeadlines:
         upcoming_result.all.return_value = []
 
         db.execute.side_effect = [overdue_result, upcoming_result]
+        db.scalar.return_value = 0
 
         svc = ProactiveTriggerService(db)
         alerts = await svc.check_document_deadlines()

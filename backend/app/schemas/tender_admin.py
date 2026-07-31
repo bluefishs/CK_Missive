@@ -46,13 +46,34 @@ class TenderGraphRequest(BaseModel):
 
 
 class TenderCreateCaseRequest(BaseModel):
-    """從標案建立 PM Case"""
-    unit_id: str = Field(..., description="機關代碼")
-    job_number: str = Field(..., description="標案案號")
+    """從標案建立 PM Case
+
+    2026-07-31（L1 入口斷）：`job_number` 由必填改為選填 ——
+    ezbid 來源 37,980 筆（全庫 42.7%）`job_number` 全為 NULL，
+    原本必填等於把整個 ezbid 來源擋在鏈路之外。
+    無 job_number 時以 `ezbid:{unit_id}` 作為識別碼（見 create-case）。
+    """
+    unit_id: str = Field(..., description="機關代碼（ezbid 來源為 ezbid_id）")
+    job_number: Optional[str] = Field(None, description="標案案號（ezbid 來源無此值）")
     title: str = Field(..., description="標案名稱")
     unit_name: str = Field("", description="招標機關名稱")
     budget: Optional[str] = Field(None, description="預算金額")
     category: Optional[str] = Field(None, description="分類")
+    tender_id: Optional[int] = Field(None, description="tender_records.id（供 L3 回指）")
+
+
+class TenderRelatedCasesRequest(BaseModel):
+    """建案前查詢可能相關的既有案件（L2 防重複）"""
+    title: str = Field(..., description="標案名稱")
+    unit_name: str = Field("", description="招標機關名稱")
+    tender_id: Optional[int] = Field(None, description="tender_records.id")
+
+
+class TenderLinkCaseRequest(BaseModel):
+    """把標案關聯到既有案件（L2「關聯既有」而非重複新建）"""
+    tender_id: int = Field(..., description="tender_records.id")
+    target_type: str = Field(..., description="pm_case | contract_project")
+    target_id: int = Field(..., description="目標案件 ID")
 
 
 # ============================================================================

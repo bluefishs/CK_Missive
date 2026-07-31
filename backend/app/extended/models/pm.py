@@ -25,6 +25,9 @@ class PMCase(Base):
                           comment="成案專案編號 (成案後產生，對應 contract_projects.project_code)")
     case_name = Column(String(500), nullable=False, index=True,
                        comment="案名")
+    # 2026-07-31 L3 回指：本案由哪個標案而來（tender_records.id；無 FK，見 migration 說明）
+    source_tender_id = Column(Integer, nullable=True, index=True,
+                              comment="來源標案 ID (tender_records.id)")
     year = Column(Integer, index=True, comment="年度 (民國)")
     category = Column(String(50), comment="計畫類別: 01委辦招標, 02承攬報價")
     case_nature = Column(String(50), nullable=True, comment="作業性質: 01地面測量~11其他類別")

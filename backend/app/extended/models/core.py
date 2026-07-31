@@ -41,6 +41,9 @@ class ContractProject(Base):
     project_code = Column(String(100), unique=True, comment="專案編號 (成案後產生)")
     case_code = Column(String(50), nullable=True, unique=True, index=True,
                        comment="建案案號 (來自 pm_cases.case_code，跨模組橋樑)")
+    # 2026-07-31 L3 回指：本案由哪個標案而來（tender_records.id；無 FK，見 migration 說明）
+    source_tender_id = Column(Integer, nullable=True, index=True,
+                              comment="來源標案 ID (tender_records.id)")
     category = Column(String(50), comment="案件類別")
     case_nature = Column(String(50), comment="案件性質")
     status = Column(String(50), default="執行中", comment="執行狀態")

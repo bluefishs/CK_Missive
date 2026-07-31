@@ -185,7 +185,8 @@ async def get_tender_detail(
                     SELECT title, unit_name, budget, announce_date, status,
                            unit_id, job_number, source, raw_data,
                            pcc_match_unit_id, pcc_match_job_number,
-                           pcc_match_confidence, pcc_match_at
+                           pcc_match_confidence, pcc_match_at,
+                           id
                     FROM tender_records
                     WHERE ezbid_id = :eid
                     ORDER BY announce_date DESC LIMIT 1
@@ -214,6 +215,9 @@ async def get_tender_detail(
                         "status": row[4] or "",
                         "source": "ezbid_db",
                         "ezbid_url": ezbid_url,
+                        # 2026-07-31 L3 回指：前端建案/關聯時要帶 tender_records.id，
+                        # 否則案件無從記錄「我從哪個標案來」。
+                        "tender_id": row[13],
                     }
                     # L51 (2026-05-28) ADR-0046 Phase 3 對應 PCC link 暴露給前端
                     # 233/27286 (0.85%) HIGH-matched ezbid 才有，UI 渲染「對應 PCC」區塊 + 跳轉

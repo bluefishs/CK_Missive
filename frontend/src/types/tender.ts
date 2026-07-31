@@ -85,6 +85,8 @@ export interface PccMatchInfo {
 export interface TenderDetailEzbid {
   kind: 'ezbid';
   ezbid_id: string;
+  /** tender_records.id — 2026-07-31 L3 回指：建案/關聯時帶回後端記錄來源標案 */
+  tender_id?: number;
   unit_id?: string;
   job_number?: string;
   title: string;

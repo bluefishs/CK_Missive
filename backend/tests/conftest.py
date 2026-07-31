@@ -34,6 +34,53 @@ from main import app
 
 
 # ============================================================
+# 對外通知封鎖（安全網，2026-07-31）
+# ============================================================
+
+@pytest.fixture(autouse=True)
+def _block_outbound_notifications(request):
+    """禁止測試對真實 LINE / Telegram 推播。
+
+    事故（2026-07-31）：跑 `tests/unit/test_scheduler_failure_alert.py` 時，
+    owner 的 LINE **真的收到兩則**「⚠️ 排程失敗 test_job / 錯誤: Something broke」。
+
+    根因是**過期的 mock**：該測試 patch 的是 `get_telegram_bot_service`，
+    但 `send_failure_alert` 早在 v6.12 就改走 `IntegrationFacade.push_admin_alert`
+    → patch 攔不到任何東西 → 真的送出去。
+    （測試看起來是隔離的、其實不是 —— 與當日其他「訊號不等於事實」同型。）
+
+    危害不只是噪音：LINE 免費月配額 200 則本來就吃緊，跑一次測試就可能吃掉數則。
+
+    本 fixture 為 **autouse 安全網**：預設攔截所有對外推播路徑。
+    確實需要驗證推播內容的測試，請自行 patch 更內層的物件，或標記
+    `@pytest.mark.allow_outbound` 明確豁免（豁免必須是刻意的、看得見的）。
+    """
+    if request.node.get_closest_marker("allow_outbound"):
+        yield
+        return
+
+    targets = [
+        "app.services.contracts.facades.integration.IntegrationFacade.push_admin_alert",
+        "app.services.integration.line_bot.LineBotService.push_message",
+        "app.services.integration.telegram_bot.TelegramBotService.push_message",
+    ]
+    patchers = []
+    for t in targets:
+        try:
+            p = patch(t, new=AsyncMock(return_value=False))
+            p.start()
+            patchers.append(p)
+        except (AttributeError, ModuleNotFoundError, ImportError):
+            # 目標不存在（模組重構）就跳過；安全網不應成為新的脆弱點
+            continue
+    try:
+        yield
+    finally:
+        for p in patchers:
+            p.stop()
+
+
+# ============================================================
 # 事件迴圈 Fixtures
 # ============================================================
 
@@ -481,4 +528,8 @@ def pytest_configure(config):
     )
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
+    config.addinivalue_line(
+        "markers",
+        "allow_outbound: 明確允許此測試對外推播（預設一律封鎖，見 _block_outbound_notifications）"
     )

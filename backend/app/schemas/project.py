@@ -127,6 +127,9 @@ class ProjectResponse(ProjectBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    # 2026-07-31 L3 回指：本案由哪個標案而來（tender_records.id）。
+    # 原本標案與案件雙向都看不到對方，人工建立的對應關係下次進來就消失。
+    source_tender_id: Optional[int] = Field(None, description="來源標案 ID")
 
     model_config = ConfigDict(from_attributes=True) # 使用 model_config
 

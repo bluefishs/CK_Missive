@@ -30,6 +30,8 @@ export interface Project {
   id: number;
   project_name: string;
   project_code?: string;
+  /** 來源標案 ID（2026-07-31 L3 回指） */
+  source_tender_id?: number | null;
   case_code?: string;
   year?: number;
   client_agency?: string;

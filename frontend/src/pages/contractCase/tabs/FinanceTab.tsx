@@ -8,7 +8,9 @@ import React from 'react';
 import { Card, Empty, Button, Typography, Row, Col, Statistic, Space } from 'antd';
 import { DollarOutlined, ArrowRightOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useCrossModuleLookup } from '../../../hooks/business/usePMCases';
+import { tenderApi } from '../../../api/tenderApi';
 import { ROUTES } from '../../../router/types';
 
 const { Text } = Typography;
@@ -17,13 +19,22 @@ interface Props {
   caseCode: string | null;
   projectCode?: string | null;
   projectName?: string | null;
+  /** 來源標案 ID（2026-07-31 L4：用來把標案預算帶進報價表單） */
+  sourceTenderId?: number | null;
 }
 
-const FinanceTab: React.FC<Props> = ({ caseCode, projectCode, projectName }) => {
+const FinanceTab: React.FC<Props> = ({ caseCode, projectCode, projectName, sourceTenderId }) => {
   const navigate = useNavigate();
   const lookupKey = caseCode || projectCode || null;
   const { data: crossData, isLoading } = useCrossModuleLookup(lookupKey);
+  const { data: sourceTender } = useQuery({
+    queryKey: ['tender-by-id', sourceTenderId],
+    queryFn: () => tenderApi.getById(sourceTenderId as number),
+    enabled: !!sourceTenderId,
+    staleTime: 5 * 60 * 1000,
+  });
   const erp = crossData?.erp;
+  const sourceTenderBudget = sourceTender?.budget ?? null;
 
   if (isLoading) return null;
 
@@ -38,6 +49,9 @@ const FinanceTab: React.FC<Props> = ({ caseCode, projectCode, projectName }) => 
     const createParams = new URLSearchParams();
     if (projectCode) createParams.set('project_code', projectCode);
     if (projectName) createParams.set('case_name', projectName);
+    // 2026-07-31 L4 財務接續：把來源標案的預算帶進報價表單的「預算上限」，
+    // 否則使用者得回標案頁抄一次金額（資料明明就在系統裡）。
+    if (sourceTenderBudget) createParams.set('budget_limit', sourceTenderBudget);
     const createUrl = `${ROUTES.ERP_QUOTATION_CREATE}?${createParams.toString()}`;
 
     return (

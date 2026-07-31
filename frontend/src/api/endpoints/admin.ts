@@ -18,6 +18,12 @@ export const TENDER_ENDPOINTS = {
   GRAPH: '/tender/graph',
   /** 從標案建案 POST /tender/create-case */
   CREATE_CASE: '/tender/create-case',
+  /** 建案前找出可能重複的既有案件 POST /tender/related-cases */
+  RELATED_CASES: '/tender/related-cases',
+  /** 把標案關聯到既有案件 POST /tender/link-case */
+  LINK_CASE: '/tender/link-case',
+  /** 以 tender_records.id 取標案最小資訊 POST /tender/by-id */
+  BY_ID: '/tender/by-id',
   /** 訂閱列表 POST /tender/subscriptions/list */
   SUBSCRIPTIONS_LIST: '/tender/subscriptions/list',
   /** 建立訂閱 POST /tender/subscriptions/create */

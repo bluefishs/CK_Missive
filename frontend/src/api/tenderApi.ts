@@ -142,9 +142,55 @@ export const tenderApi = {
   // ========== 建案 ==========
 
   /** 從標案建立 PM Case */
+  /**
+   * 建案前查詢「可能已是同一案」的既有案件（L2 防重複）。
+   * 後端不自動判定，只回候選；由使用者選「關聯既有」或「仍要新建」。
+   */
+  async relatedCases(params: { title: string; unit_name?: string; tender_id?: number }): Promise<{
+    candidates: Array<{
+      type: 'pm_case' | 'contract_project'; id: number; code: string; name: string;
+      status: string; similarity: number; exact: boolean;
+      already_linked_tender_id: number | null;
+    }>;
+    linked: { type: string; id: number; code: string; name: string; status: string } | null;
+    threshold: number;
+  }> {
+    const res = await apiClient.post<SuccessResponse<{
+      candidates: Array<{
+        type: 'pm_case' | 'contract_project'; id: number; code: string; name: string;
+        status: string; similarity: number; exact: boolean;
+        already_linked_tender_id: number | null;
+      }>;
+      linked: { type: string; id: number; code: string; name: string; status: string } | null;
+      threshold: number;
+    }>>(TENDER_ENDPOINTS.RELATED_CASES, params);
+    return res.data!;
+  },
+
+  /** 以 tender_records.id 取標案最小資訊（案件頁顯示來源標案 + 報價預填預算） */
+  async getById(tenderId: number): Promise<{
+    id: number; title: string; unit_name: string; budget: string | null;
+    source: string; ezbid_id: string | null; unit_id: string | null; job_number: string | null;
+  }> {
+    const res = await apiClient.post<SuccessResponse<{
+      id: number; title: string; unit_name: string; budget: string | null;
+      source: string; ezbid_id: string | null; unit_id: string | null; job_number: string | null;
+    }>>(TENDER_ENDPOINTS.BY_ID, { tender_id: tenderId });
+    return res.data!;
+  },
+
+  /** 把標案關聯到既有案件（不新建） */
+  async linkCase(params: { tender_id: number; target_type: 'pm_case' | 'contract_project'; target_id: number }):
+    Promise<{ type: string; id: number; code: string; name: string }> {
+    const res = await apiClient.post<SuccessResponse<{ type: string; id: number; code: string; name: string }>>(
+      TENDER_ENDPOINTS.LINK_CASE, params,
+    );
+    return res.data!;
+  },
+
   async createCase(params: {
-    unit_id: string; job_number: string; title: string;
-    unit_name?: string; budget?: string; category?: string;
+    unit_id: string; job_number?: string; title: string;
+    unit_name?: string; budget?: string; category?: string; tender_id?: number;
   }): Promise<{ case_code: string; pm_case_id: number; quotation_id: number; message: string }> {
     const res = await apiClient.post<SuccessResponse<{ case_code: string; pm_case_id: number; quotation_id: number; message: string }>>(
       TENDER_ENDPOINTS.CREATE_CASE, params,
