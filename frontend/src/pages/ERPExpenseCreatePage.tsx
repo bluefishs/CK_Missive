@@ -69,6 +69,10 @@ const ERPExpenseCreatePage: React.FC = () => {
   const [attrType, setAttrType] = useState<'project' | 'operational' | 'none'>(urlCaseCode ? 'project' : 'none');
   const [voucherType, setVoucherType] = useState<VoucherType>('invoice');
   const [mobileStep, setMobileStep] = useState(0);
+  // 批次連續建立（2026-07-31）：以 ref 記住本次送出要不要留在頁面，
+  // 避免用 state 造成 submit 與狀態更新的時序競態。
+  const continueRef = React.useRef(false);
+  const [createdCount, setCreatedCount] = useState(0);
 
   // 最近使用的案件 (localStorage 記錄，工地人員通常反覆報同一案件)
   const RECENT_KEY = 'ck_expense_recent_cases';
@@ -168,7 +172,7 @@ const ERPExpenseCreatePage: React.FC = () => {
         }
       }
 
-      message.success('核銷紀錄已建立');
+      message.success(`核銷紀錄已建立${continueRef.current ? '，可接著掃下一張' : ''}`);
       // 記住最近使用的案件 (行動端快速選擇)
       const usedCase = values.case_code as string | undefined;
       if (usedCase) {
@@ -177,6 +181,24 @@ const ERPExpenseCreatePage: React.FC = () => {
           const updated = [usedCase, ...prev.filter(c => c !== usedCase)].slice(0, 5);
           localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
         } catch { /* ignore */ }
+      }
+      // 2026-07-31（owner：行動裝置批次掃描會被中斷導回清單，無法接續作業）：
+      // 原本每建立一筆就 navigate 到清單頁 → 手機上要一張一張重新進來。
+      // 改為「建立並繼續」時留在本頁、重置表單回到掃描步驟，並保留案件歸屬。
+      if (continueRef.current) {
+        const keepCase = values.case_code as string | undefined;
+        form.resetFields();
+        form.setFieldsValue({
+          currency: 'TWD', source: 'manual',
+          case_code: keepCase,
+        });
+        setScanResult(null);
+        setPreviewUrl(null);
+        setScanImageFile(null);
+        setCreatedCount((n) => n + 1);
+        if (isMobile) setMobileStep(0);
+        continueRef.current = false;
+        return;
       }
       navigate(ROUTES.ERP_EXPENSES);
     } catch (err: unknown) {
@@ -213,8 +235,42 @@ const ERPExpenseCreatePage: React.FC = () => {
     />
   );
 
+  /**
+   * 行動版重點摘要（2026-07-31，owner：「對應行端如何呈現重點資訊與填報」）
+   * 手機螢幕窄，表單一路捲下去容易漏看金額。掃描完成後先用大字把
+   * 「發票號碼 / 金額 / 日期」攤在最上面供核對，其餘欄位仍在下方可改。
+   * QR 金額有矛盾時（如 DC-09761665）這裡會直接標紅，避免存錯。
+   */
+  const mobileScanSummary = isMobile && scanResult ? (
+    <Card size="small" style={{ marginBottom: 12 }} styles={{ body: { padding: 12 } }}>
+      <Row gutter={8} align="middle">
+        <Col span={14}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>發票號碼</Typography.Text>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{scanResult.inv_num || '—'}</div>
+        </Col>
+        <Col span={10} style={{ textAlign: 'right' }}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>金額</Typography.Text>
+          <div style={{
+            fontSize: 22, fontWeight: 700,
+            color: scanResult.warnings?.length ? '#fa8c16' : '#1890ff',
+          }}>
+            NT$ {scanResult.amount != null ? scanResult.amount.toLocaleString() : '—'}
+          </div>
+        </Col>
+      </Row>
+      {scanResult.warnings?.length > 0 && (
+        <Alert
+          type="warning" showIcon style={{ marginTop: 8 }}
+          message="金額與紙本可能不同，請核對後修改"
+          description={<div style={{ fontSize: 12 }}>{scanResult.warnings[0]}</div>}
+        />
+      )}
+    </Card>
+  ) : null;
+
   const expenseForm = (
     <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ currency: 'TWD', source: 'manual', case_code: urlCaseCode || undefined }}>
+      {mobileScanSummary}
       <Form.Item name="source" hidden><Input /></Form.Item>
       <Form.Item label="憑證類型">
         <Select value={voucherType} onChange={(v) => { setVoucherType(v); if (v !== 'invoice') form.setFieldValue('inv_num', ''); }} options={VOUCHER_TYPE_OPTIONS} />
@@ -320,7 +376,16 @@ const ERPExpenseCreatePage: React.FC = () => {
       {isMobile && <Form.Item name="currency" hidden initialValue="TWD"><Input /></Form.Item>}
 
       <div style={{ display: 'flex', gap: 8, flexDirection: isMobile ? 'column' : 'row' }}>
-        <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={createMutation.isPending} size="large" block={isMobile}>建立核銷</Button>
+        <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={createMutation.isPending} size="large" block={isMobile}
+          onClick={() => { continueRef.current = false; }}>
+          建立核銷{createdCount > 0 ? `（本次已建 ${createdCount} 筆）` : ''}
+        </Button>
+        {/* 批次連續：建立後不離開本頁，直接回到掃描步驟接續下一張 */}
+        <Button htmlType="submit" icon={<ScanOutlined />} size="large" block={isMobile}
+          loading={createMutation.isPending}
+          onClick={() => { continueRef.current = true; }}>
+          建立並繼續掃下一張
+        </Button>
         {isMobile && mobileStep === 1 && <Button block onClick={() => setMobileStep(0)}>返回掃描</Button>}
         {!isMobile && <Button onClick={() => navigate(ROUTES.ERP_EXPENSES)}>取消</Button>}
       </div>

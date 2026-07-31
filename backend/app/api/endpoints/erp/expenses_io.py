@@ -202,15 +202,17 @@ async def smart_scan_invoice(
                 # 此路徑在 2026-07-30 補齊 tesseract 前不可能命中（OCR 一直是壞的），
                 # 屬修好上游後才浮現的潛伏缺陷。qr+ocr 以 QR 為主 → 歸 smart_qr。
                 source=_SMART_SOURCE_MAP.get(recognition.method, "smart_ocr"),
-            )
-            invoice = await service.create(
-                create_data, user_id=user_id,
-                # SSOT：入庫值一律相對於 uploads/（同 upload-receipt 與 LINE 上傳三個
-                # writer）。此處 2026-07-30 前寫成 "uploads/receipts/..."，讀取端
-                # (`/receipt-image`) 對相對路徑會再補一次 uploads/ → "uploads/uploads/..."
-                # → 檔案明明在、卻一律 404。四個 writer 中只有這裡不一致。
+                # 收據路徑必須放在 schema 裡 —— `ExpenseInvoiceService.create()` 只從
+                # `data.receipt_image_path` 取值，**沒有同名參數**。
+                # 2026-07-31 事故：此處原以 kwarg 傳入 → `TypeError` → 整個 auto_create
+                # 走 500 → 手機批次掃描每張都失敗並被導回清單頁，且收據影像永遠是 NULL。
+                # （07-30 只把字串值從 "uploads/receipts/..." 改成 "receipts/..."，
+                #   卻沒驗證這個呼叫本身根本會拋例外 —— 修了值、沒看產出物。）
+                #
+                # SSOT：入庫值一律相對於 uploads/（同 upload-receipt 與 LINE 上傳）。
                 receipt_image_path=f"receipts/{filename}",
             )
+            invoice = await service.create(create_data, user_id=user_id)
             result_data["created"] = True
             result_data["invoice_id"] = invoice.id if hasattr(invoice, 'id') else invoice.get('id')
             result_data["message"] = f"發票 {recognition.inv_num} 已自動建立"

@@ -98,6 +98,22 @@ const ExpenseScanPanel: React.FC<ScanPanelProps> = ({
                 {scanResult.inv_num && <Descriptions.Item label="發票號碼">{scanResult.inv_num}</Descriptions.Item>}
                 {scanResult.amount != null && <Descriptions.Item label="金額">NT$ {scanResult.amount.toLocaleString()}</Descriptions.Item>}
               </Descriptions>
+              {/* 2026-07-31：QR 內含金額自相矛盾時必須讓人看見。
+                  真實案例 DC-09761665：QR 總額 957、紙本總計 940（差額為加油金折抵，
+                  商家 POS 在折抵前就算了 QR 總額）→ 不警示就會直接存成錯誤金額。 */}
+              {scanResult.warnings?.length > 0 && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginTop: 12 }}
+                  message="金額需要人工核對"
+                  description={
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {scanResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                    </ul>
+                  }
+                />
+              )}
               {scanResult.items && scanResult.items.length > 0 && (
                 <>
                   <Divider style={{ margin: '8px 0' }}>品項 ({scanResult.items.length})</Divider>

@@ -11,7 +11,7 @@ Version: 1.0.0 (拆分自 invoice_recognizer v2.0.0)
 import base64
 import logging
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import List
 
 from .invoice_recognizer import RecognitionResult, InvoiceItem
@@ -81,6 +81,43 @@ def parse_head_qr(raw: str, result: RecognitionResult):
     # 賣方統編
     seller = raw[45:53]
     result.seller_ban = seller
+
+    _flag_amount_inconsistency(result)
+
+
+# 營業稅率（加值型）
+_VAT_RATE = Decimal("0.05")
+# 容差：四捨五入誤差 1 元，或總額的 1%（取大者）
+_TOLERANCE_ABS = Decimal("1")
+_TOLERANCE_PCT = Decimal("0.01")
+
+
+def _flag_amount_inconsistency(result) -> None:
+    """QR 內含金額自相矛盾時標記（**只警示、不自動修改**）
+
+    真實案例（2026-07-31，發票 DC-09761665 福懋加油站）：
+      QR：銷售額 895、總額 957 → 我們算出稅額 62
+      紙面：銷售額 895、稅額 45、總計 **940**
+      差額 17 恰為收據上的「加油金折抵」——**商家 POS 在折抵前就算了 QR 的總額**。
+    也就是 QR 資料本身與紙面不符，解析器並沒有讀錯。
+
+    為何不自動改成 sales×1.05：
+      混含免稅／零稅率品項的發票，總額本來就不等於 銷售額×1.05，
+      自動「修正」會把正確資料改壞。**偵測得出來的事，交給人確認**。
+    """
+    sales, total = result.sales_amount, result.total_amount
+    if sales is None or total is None or sales <= 0:
+        return
+
+    expected = (sales * (1 + _VAT_RATE)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    diff = abs(total - expected)
+    tolerance = max(_TOLERANCE_ABS, total * _TOLERANCE_PCT)
+    if diff > tolerance:
+        result.warnings.append(
+            f"QR 金額自相矛盾：銷售額 {sales} × 1.05 應為 {expected}，"
+            f"但 QR 總額為 {total}（差 {diff}）。可能含免稅品項或商家折抵未反映，"
+            f"請核對紙本『總計』後修正金額與稅額。"
+        )
 
 
 def parse_detail_qr(raw: str) -> List[InvoiceItem]:

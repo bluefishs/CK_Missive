@@ -174,11 +174,13 @@ async def try_create_expense_from_recognition(
                 seller_ban=recognition.seller_ban or "",
                 category="其他",
                 source=f"line_{recognition.method}",
+                # 同 expenses_io：路徑必須放進 schema，service.create 無此參數
+                # （2026-07-31 修，原以 kwarg 傳入會 TypeError）
+                receipt_image_path=relative_path,
             )
 
             try:
-                expense = await svc.create(create_data, user_id=user.id,
-                                           receipt_image_path=relative_path)
+                expense = await svc.create(create_data, user_id=user.id)
                 await db.commit()
                 eid = expense.id if hasattr(expense, 'id') else expense.get('id', '?')
                 items_msg = ""
