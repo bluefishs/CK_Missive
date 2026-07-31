@@ -12,23 +12,22 @@
  */
 import React, { useMemo } from 'react';
 import {
-  Descriptions, Tag, Timeline, Card, Typography, Button, Space, Select, Popconfirm,
+  Descriptions, Tag, Timeline, Card, Typography, Button, Space,
   Row, Col, Statistic, Empty, Alert,
 } from 'antd';
 import {
   BankOutlined, PhoneOutlined, MailOutlined, DollarOutlined,
   CalendarOutlined, LinkOutlined, EnvironmentOutlined,
   ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  StarOutlined, StarFilled, UnorderedListOutlined, DeleteOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import { BattleTab, PriceTab } from './tenderDetail';
-import { useCreateCaseFlow } from './tenderDetail/useCreateCaseFlow';
+import { TenderActionBar } from './tenderDetail/TenderActionBar';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
 import { useTenderDetail, useTenderDetailFull, useTenderBookmarks, useCreateBookmark, useUpdateBookmark, useDeleteBookmark } from '../hooks/business/useTender';
 import { isEzbidDetail, isPccDetail } from '../types/tender';
-import { App } from 'antd';
 
 const { Text, Paragraph } = Typography;
 
@@ -63,7 +62,6 @@ const TenderDetailPage: React.FC = () => {
   const { unitId, jobNumber, ezbidId } = useParams<{
     unitId?: string; jobNumber?: string; ezbidId?: string;
   }>();
-  const { message } = App.useApp();
   const navigate = useNavigate();
   const uid = ezbidId
     ? decodeURIComponent(ezbidId)
@@ -87,7 +85,6 @@ const TenderDetailPage: React.FC = () => {
 
   // ADR-0032: 以 type guard 明確分派 PCC / ezbid 資料來源
   const pccDetail = isPccDetail(detail) ? detail : null;
-  const { startCreateCase } = useCreateCaseFlow();
   const ezbidData = isEzbidDetail(detail) ? detail : null;
 
   // PCC 決標公告 and 招標公告 have different fields — 以 merged_detail 互補
@@ -194,67 +191,31 @@ const TenderDetailPage: React.FC = () => {
           </Descriptions>
         </Card>
 
-        {/* 操作按鈕 */}
-        <Space>
-          {latest.pcc_url && (
-            <Button type="primary" icon={<LinkOutlined />} href={latest.pcc_url} target="_blank">
-              政府採購網原始頁面
-            </Button>
-          )}
-          {currentBookmark ? (
-            <Space.Compact>
-              <Button icon={<StarFilled style={{ color: '#faad14' }} />} type="text">
-                已收藏
-              </Button>
-              <Select
-                size="small"
-                value={currentBookmark.status}
-                style={{ width: 100 }}
-                onChange={async (status) => {
-                  try {
-                    await updateBmMutation.mutateAsync({ id: currentBookmark.id, status });
-                    message.success(`狀態更新: ${status}`);
-                  } catch { message.error('更新失敗'); }
-                }}
-                options={[
-                  { value: 'tracking', label: '追蹤中' },
-                  { value: 'applied', label: '已投標' },
-                  { value: 'won', label: '得標' },
-                  { value: 'lost', label: '未得標' },
-                ]}
-              />
-              <Popconfirm title="取消收藏？" onConfirm={async () => {
-                try { await deleteBmMutation.mutateAsync(currentBookmark.id); message.success('已取消收藏'); } catch { message.error('失敗'); }
-              }}>
-                <Button icon={<DeleteOutlined />} size="small" danger type="text" />
-              </Popconfirm>
-            </Space.Compact>
-          ) : (
-            <Button icon={<StarOutlined />} onClick={async () => {
-              try {
-                await bookmarkMutation.mutateAsync({
-                  unit_id: decodeURIComponent(unitId || ''),
-                  job_number: decodeURIComponent(jobNumber || ''),
-                  title: detail?.title || '',
-                  unit_name: detail?.unit_name || '',
-                  budget: latest?.budget,
-                  deadline: latest?.deadline,
-                });
-                message.success('已收藏');
-              } catch { message.error('收藏失敗（可能已收藏）'); }
-            }}>收藏此標案</Button>
-          )}
-          {/* 2026-07-31：改走共用 useCreateCaseFlow —— 建案前先查是否已有同一案，
-              有候選則讓使用者選「關聯既有 / 仍要新建」（L2 防重複）。
-              ezbid 分支使用同一流程，避免兩處各自實作而漂移。 */}
-          <Button onClick={() => startCreateCase({
+        {/* 操作按鈕 — 2026-07-31 起與 ezbid 分支共用 TenderActionBar，
+            避免兩處各寫一套而在順序/主次/功能上漂移（owner 以截圖指出的設計不一致）。 */}
+        <TenderActionBar
+          caseInput={{
             unit_id: decodeURIComponent(unitId || ''),
             job_number: decodeURIComponent(jobNumber || ''),
             title: detail?.title || '',
             unit_name: detail?.unit_name || '',
             budget: latest?.budget || undefined,
-          })}>一鍵建案</Button>
-        </Space>
+          }}
+          externalUrl={latest.pcc_url}
+          externalLabel="政府採購網原始頁面"
+          currentBookmark={currentBookmark}
+          bookmarkPayload={{
+            unit_id: decodeURIComponent(unitId || ''),
+            job_number: decodeURIComponent(jobNumber || ''),
+            title: detail?.title || '',
+            unit_name: detail?.unit_name || '',
+            budget: latest?.budget,
+            deadline: latest?.deadline,
+          }}
+          onCreateBookmark={(p) => bookmarkMutation.mutateAsync(p)}
+          onUpdateBookmark={(p) => updateBmMutation.mutateAsync(p)}
+          onDeleteBookmark={(id) => deleteBmMutation.mutateAsync(id)}
+        />
       </div>
     ) : isEzbidDbOnly ? (
       /* 2026-04-24: ezbid-only 簡版檢視 — 無 PCC 細節（latest/events）但有基本欄位 */
@@ -336,24 +297,29 @@ const TenderDetailPage: React.FC = () => {
             <Descriptions.Item label="ezbid ID"><Text copyable>{ezbidData?.unit_id}</Text></Descriptions.Item>
           </Descriptions>
         </Card>
-        <Space>
-          {/* 2026-07-31 L1 入口斷修復：ezbid 來源（全庫 42.7%）原本**根本沒有建案按鈕**，
-              owner 回報「無法建案」是字面成立。ezbid 無 job_number，
-              後端已改為以 ezbid:{unit_id} 作識別碼。 */}
-          <Button type="primary" onClick={() => startCreateCase({
+        <TenderActionBar
+          caseInput={{
             unit_id: ezbidData?.ezbid_id || ezbidData?.unit_id || '',
             job_number: ezbidData?.job_number || undefined,
             title: ezbidData?.title || '',
             unit_name: ezbidData?.unit_name || '',
             budget: ezbidData?.budget != null ? String(ezbidData.budget) : undefined,
             tender_id: ezbidData?.tender_id,
-          })}>一鍵建案</Button>
-          {ezbidData?.ezbid_url && (
-            <Button icon={<LinkOutlined />} href={ezbidData.ezbid_url} target="_blank">
-              在 ezbid 查看此標案
-            </Button>
-          )}
-        </Space>
+          }}
+          externalUrl={ezbidData?.ezbid_url}
+          externalLabel="在 ezbid 查看此標案"
+          currentBookmark={currentBookmark}
+          bookmarkPayload={{
+            unit_id: ezbidData?.ezbid_id || '',
+            job_number: ezbidData?.job_number || `ezbid:${ezbidData?.ezbid_id || ''}`,
+            title: ezbidData?.title || '',
+            unit_name: ezbidData?.unit_name || '',
+            budget: ezbidData?.budget != null ? String(ezbidData.budget) : undefined,
+          }}
+          onCreateBookmark={(p) => bookmarkMutation.mutateAsync(p)}
+          onUpdateBookmark={(p) => updateBmMutation.mutateAsync(p)}
+          onDeleteBookmark={(id) => deleteBmMutation.mutateAsync(id)}
+        />
       </div>
     ) : <Empty />
   );
