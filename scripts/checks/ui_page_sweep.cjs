@@ -174,6 +174,22 @@ async function main() {
   console.log('-'.repeat(70));
   console.log(`PASS ${okCount} / FAIL ${bad.length} / SKIP ${skipped.length} / 限流 ${throttled.length}`);
   if (bad.length) console.log(`截圖：${SHOT_DIR}`);
+  // 契約規則 4：驗證型 job 也必須留下可驗產出 —— 沒有產出就無法區分
+  // 「跑了全過」與「根本沒跑」。由既有 producer watchdog 以 file_fresh 監控此檔，
+  // 停跑即由每日 cron_outcome_freshness 告警（不另建一套通知）。
+  try {
+    const RESULT_JSON = path.resolve(__dirname, '..', '..', 'wiki', 'memory',
+      'integration-health', 'ui-sweep.json');
+    fs.mkdirSync(path.dirname(RESULT_JSON), { recursive: true });
+    fs.writeFileSync(RESULT_JSON, JSON.stringify({
+      checked_at: new Date().toISOString(),
+      base: BASE,
+      pass: okCount, fail: bad.length, skip: skipped.length,
+      throttled: throttled.length,
+      failures: bad.map((b) => ({ route: b.route, problems: b.problems })),
+    }, null, 1), 'utf-8');
+  } catch (e) { console.error('寫入檢核結果失敗:', String(e)); }
+
   process.exit(bad.length ? 1 : skipped.length ? 2 : 0);
 }
 

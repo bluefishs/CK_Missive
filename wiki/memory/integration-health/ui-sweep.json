@@ -1,0 +1,16 @@
+{
+ "checked_at": "2026-07-31T14:03:53.528Z",
+ "base": "https://missive.cksurvey.tw",
+ "pass": 85,
+ "fail": 1,
+ "skip": 1,
+ "throttled": 0,
+ "failures": [
+  {
+   "route": "/admin/deployment",
+   "problems": [
+    "console error：Failed to load resource: the server responded with a status of 503 ()"
+   ]
+  }
+ ]
+}
