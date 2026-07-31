@@ -1,16 +1,15 @@
 {
- "checked_at": "2026-07-31T14:03:53.528Z",
+ "checked_at": "2026-07-31T14:52:29.393Z",
  "base": "https://missive.cksurvey.tw",
- "pass": 85,
- "fail": 1,
+ "pass": 86,
+ "fail": 0,
  "skip": 1,
  "throttled": 0,
- "failures": [
+ "known_limitations": [
   {
    "route": "/admin/deployment",
-   "problems": [
-    "console error：Failed to load resource: the server responded with a status of 503 ()"
-   ]
+   "reason": "未配置 GITHUB_TOKEN（部署歷史功能未啟用）— 補 token 即可解除"
   }
- ]
+ ],
+ "failures": []
 }

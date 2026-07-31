@@ -26,6 +26,35 @@ const cleanupSessionStorage = () => {
 };
 
 
+
+/**
+ * 回報前端層登入失敗（2026-07-31）
+ *
+ * 為何需要：前端的 state 驗證在打後端之前就擋下，**伺服端零紀錄** ——
+ * owner 回報「一選 LINE 登入就錯誤」時，後端近 3 小時查無任何請求，
+ * 只能靠口述推測。事後查出是從 LINE App 內開啟（in-app 瀏覽器與桌機
+ * 不同 context，sessionStorage 的 state 帶不過去）。
+ * 有這筆回報，下次同類問題就有紀錄可查，不必再麻煩使用者描述。
+ *
+ * fail-open：回報失敗不得影響錯誤畫面呈現。
+ */
+async function reportLoginFailure(reason: string, hasSavedState: boolean) {
+  try {
+    const ua = navigator.userAgent || '';
+    await fetch('/api/auth/line/login-failure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reason,
+        has_saved_state: hasSavedState,
+        // LINE App 內建瀏覽器的 UA 會含 Line/；用它區分情境
+        in_app: /\bLine\//i.test(ua),
+        ua: ua.slice(0, 120),
+      }),
+    });
+  } catch { /* fail-open：診斷回報不得影響使用者看到的錯誤 */ }
+}
+
 const LineCallbackPage: React.FC = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
@@ -46,6 +75,7 @@ const LineCallbackPage: React.FC = () => {
     // LINE 授權錯誤
     if (errorParam) {
       logger.error('[LINE] OAuth error:', errorParam, errorDescription);
+      void reportLoginFailure('oauth_error', false);
       cleanupSessionStorage();
       setError(errorDescription || 'LINE 授權失敗');
       return;
@@ -62,8 +92,13 @@ const LineCallbackPage: React.FC = () => {
     const savedState = sessionStorage.getItem('line_login_state');
     if (!savedState || state !== savedState) {
       logger.error('[LINE] State mismatch:', { saved: savedState, received: state });
+      void reportLoginFailure('state_mismatch', Boolean(savedState));
       cleanupSessionStorage();
-      setError('安全驗證失敗 (state mismatch)，請重新登入');
+      setError(
+        /\bLine\//i.test(navigator.userAgent)
+          ? '安全驗證失敗：請改用手機或電腦的瀏覽器開啟系統後再登入（LINE 內建瀏覽器無法帶入驗證資訊）'
+          : '安全驗證失敗 (state mismatch)，請重新登入',
+      );
       return;
     }
 

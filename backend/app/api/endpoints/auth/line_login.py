@@ -280,6 +280,37 @@ async def line_login_callback(
         )
 
 
+@router.post("/login-failure", summary="回報 LINE 登入前端失敗（診斷用）")
+async def report_line_login_failure(payload: dict):
+    """前端在送出 code 之前就失敗時，回報一筆供伺服端留痕
+
+    立法背景（2026-07-31）：owner 回報「選 LINE 登入就出現登入錯誤」，
+    但後端**近 3 小時完全沒有任何 LINE callback 請求** —— 因為前端的
+    state 驗證在打後端之前就擋下了，伺服端零紀錄，只能靠 owner 口述。
+
+    事後查證：失敗那次是**從 LINE App 內開啟**（URL 帶 liffClientId），
+    in-app 瀏覽器與桌機是不同 context，sessionStorage 存的 state 帶不過去；
+    桌機 Chrome 直接點則正常（22:45 實測 200 登入成功）。
+    這是使用情境差異、不是程式缺陷，但**沒有紀錄就無從判斷**。
+
+    本端點只寫 log、不建 session、不回傳任何身分資訊；
+    無認證（失敗當下本來就還沒有身分），但只接受已知的 reason 值以免被當作任意 log 注入。
+    """
+    ALLOWED = {"state_mismatch", "oauth_error", "missing_code", "exchange_failed"}
+    reason = str(payload.get("reason", ""))[:40]
+    if reason not in ALLOWED:
+        raise HTTPException(status_code=400, detail="unknown reason")
+
+    logger.warning(
+        "[LINE] 前端登入失敗回報: reason=%s in_app=%s has_saved_state=%s ua=%s",
+        reason,
+        bool(payload.get("in_app")),
+        bool(payload.get("has_saved_state")),
+        str(payload.get("ua", ""))[:120],
+    )
+    return {"success": True}
+
+
 @router.post("/bind", summary="綁定 LINE 帳號")
 @limiter.limit("5/minute")
 async def bind_line_account(
