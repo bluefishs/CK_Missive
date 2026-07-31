@@ -40,7 +40,6 @@ const EXE = [
   CACHE + '/chromium-1161/chrome-win/chrome.exe',
 ].find((p) => fs.existsSync(p));
 
-const ROOT = path.resolve(__dirname, '..', '..');
 // Phase 1 引擎化：per-repo 差異全在 selfaudit.config.json（見 ui_flow_smoke 說明）
 const CONFIG_PATH = process.env.SELFAUDIT_CONFIG
   || path.resolve(__dirname, '..', '..', 'selfaudit.config.json');
@@ -49,6 +48,10 @@ if (!fs.existsSync(CONFIG_PATH)) {
   process.exit(2);
 }
 const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+// repo 根目錄：不可由 __dirname 往上推 —— vendored 安裝時引擎位於
+// <repo>/scripts/checks/.shared-selfaudit/ 比原生位置多一層（2026-08-01 移植 lvrland 時踩到）。
+// 以 config 檔所在位置為準才是可攜的。
+const ROOT = path.dirname(CONFIG_PATH);
 const SWEEP = CONFIG.page_sweep || {};
 const BASE = process.env.SMOKE_BASE || CONFIG.base_url;
 const SHOT_DIR = path.resolve(__dirname, 'ui_page_sweep_shots');
@@ -74,10 +77,14 @@ const isNoise = (t) => NOISE_RE.some((re) => re.test(t));
 function staticRoutes() {
   const src = fs.readFileSync(path.join(ROOT, SWEEP.routes_source), 'utf-8');
   const out = [];
-  const re = /^\s{2}([A-Z0-9_]+):\s*'(\/[^']*)'/gm;
+  const re = new RegExp(SWEEP.routes_pattern, 'gm');
   let m;
   while ((m = re.exec(src))) {
-    const url = m[2];
+    // 路徑可能落在第 1 或第 2 個捕獲群組 —— 各 repo 的 pattern 形狀不同
+    // （CK_Missive 的 ROUTES 常數需先捕獲 KEY 再捕獲路徑＝2 群組；
+    //   lvrland 的 <Route path="..."> 只有 1 群組）。取第一個以 / 開頭者。
+    const url = [m[1], m[2]].find((g) => typeof g === 'string' && g.startsWith('/'));
+    if (!url) continue;
     if (!url.includes(':') && !EXCLUDE.has(url)) out.push(url);
   }
   return [...new Set(out)];
@@ -88,6 +95,15 @@ async function main() {
   fs.mkdirSync(SHOT_DIR, { recursive: true });
 
   let routes = staticRoutes();
+  if (routes.length === 0) {
+    // 掃到 0 條路由必定是設定錯（routes_source / routes_pattern），不是「全都好」。
+    // 2026-08-01 移植 lvrland 時實際發生：pattern 群組位置不同 → 0 條卻印 PASS 0 = 假綠。
+    console.error(
+      `✗ 從 ${SWEEP.routes_source} 以 pattern ${SWEEP.routes_pattern} 取得 0 條路由 —— ` +
+      '請檢查 selfaudit.config.json 的 page_sweep 設定（0 條不等於全部健康）',
+    );
+    process.exit(2);
+  }
   if (LIMIT) routes = routes.slice(0, LIMIT);
 
   const cookieHeader = process.env.COOKIE || '';

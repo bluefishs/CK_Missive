@@ -148,11 +148,21 @@ async function main() {
     });
 
     if (check.auth && process.env.USER_INFO) {
-      // SPA 的 sessionStore bootstrap 會先讀 localStorage.user_info 才決定要不要
-      // 打 /auth/check —— 只塞 cookie 會被判為 anonymous 而導回入口頁。
-      await context.addInitScript((ui) => {
-        try { window.localStorage.setItem('user_info', ui); } catch { /* ignore */ }
-      }, process.env.USER_INFO);
+      // SPA 通常先讀 localStorage 判斷登入狀態，只塞 cookie 會被判 anonymous 而導回入口頁。
+      // **但各 repo 的 key 與形狀不同**（2026-08-01 移植 lvrland 時發現）：
+      //   CK_Missive        → key 'user_info'，值就是 user 物件
+      //   CK_lvrland_Webmap → key 'auth-storage'（zustand persist），
+      //                        形狀為 {state:{user,isAuthenticated},version:0}
+      // 故也 config 化，引擎不需要知道任何 repo 的儲存慣例。
+      const st = CONFIG.auth?.session_storage || { key: 'user_info', shape: 'raw' };
+      await context.addInitScript(({ ui, storage }) => {
+        try {
+          const value = storage.shape === 'zustand-persist'
+            ? JSON.stringify({ state: { user: JSON.parse(ui), isAuthenticated: true }, version: 0 })
+            : ui;
+          window.localStorage.setItem(storage.key, value);
+        } catch { /* ignore */ }
+      }, { ui: process.env.USER_INFO, storage: st });
     }
     if (check.auth && cookieHeader) {
       const cookies = cookieHeader.split(';').map((kv) => {
