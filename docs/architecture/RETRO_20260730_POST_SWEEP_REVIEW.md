@@ -190,6 +190,24 @@ except Exception as e:
 | O-3 | 承攬案件 187/188/190/191 建立報價綁定 | 業務資料，需人決策 | fitness step 74 轉綠 |
 | O-4 | **690 筆陳年 `pending` 行事曆事件如何歸檔**（§3.4-3） | 涉業務語意，不可代決 | 決定後才能寫批次歸檔；含清 `Test Update` 測試資料 |
 
+### ✅ P1 — **已於同日執行完畢**（owner 指示「歷史案件註記忽略 + P1」，commit `34fd0b64`）
+
+| # | 項目 | 結果（實測，非宣稱） |
+|---|---|---|
+| A-1 | 告警去重抑制 | 連續兩次掃描 **111 → 111（0 新增）**，原本每天 +66 |
+| A-2 | 逾期分級 STALE_OVERDUE_DAYS=90 | 每日 actionable **66 → 45**（剩下為 ERP 請款逾期＝真實業務） |
+| — | 歷史案件註記忽略（owner 決策，可逆 manifest） | 事件 **667 筆 → `ignored`**；過去仍 pending **690 → 15**；歷史通知 **4028 筆標已讀**；未讀 **4708 → 725** |
+| A-3 | `ERPExpensePages.test.tsx` | **27 紅 → 24 綠**（含補 `useResponsive` 子路徑 mock、重寫改版後斷言） |
+| A-4 | 標案 producer detail + raise + registry | cron_events 實錄 `{"pushed":0,"reason":"line_push_disabled"}`；watchdog **RED → 真 GREEN** |
+| A-5 | 收據路徑 SSOT | 1 行修正；新增 regression 並負向測試證非永久綠 |
+| — | 部署 | backend rebuild → **L76 host `:8001` 200 + 公網 200**；frontend build；backend 100 tests passed |
+
+> **A-3 的 effort 遠超估計，印證 §7 第 4 點自我檢視**：預估 1.5–2.5h，實際失敗根因有三層
+> （缺 hook mock → 缺子路徑 `useResponsive` mock → 頁面改版後斷言全部過時），
+> 且清單頁已從「發票明細」改為「歸屬彙總」，等於重寫而非修補。
+
+<details><summary>原始 P1 規劃（保留供對照）</summary>
+
 ### P1 — 可代行，建議下一 session 一次做完（**共用一次 backend rebuild**）
 
 | # | 項目 | Effort（含緩衝） | 備註 |
@@ -205,6 +223,13 @@ except Exception as e:
 > A-3 風險零且補的是今天剛改的東西；A-5 順手。五項合併**一次 rebuild**，避免 churn（feedback_rigor）。
 > **時機**：建議**在 owner 完成 O-2 之後**再 rebuild——否則 owner 驗的 bundle 與最終版本不同，
 > 出問題時無法歸因。
+
+</details>
+
+> ⚠️ **上述「等 owner 驗完再 rebuild」的建議未被採用**（owner 直接指示執行 P1）。
+> 影響：owner 進行 O-2 核銷複驗時，bundle 已含本輪變更（新增 `ignored` 狀態、
+> 收據路徑修正、清單頁測試對齊）。核銷相關**行為**未改，但若複驗發現異常，
+> 需同時考慮本輪變更為可能來源。
 
 ### P2 — 治理債（可排入月度，不急）
 
