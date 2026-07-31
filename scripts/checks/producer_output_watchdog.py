@@ -101,18 +101,47 @@ PRODUCER_OUTCOME_REGISTRY = _load_registry()
 
 
 # ── 契約覆蓋強制（PRODUCER_SELF_CHECK_CONTRACT.md）──
-# 已監控 producer（registry 有信號的 job_id）
-MONITORED_JOBS = {
-    "pcc_today_scrape", "ezbid_cache_refresh", "kg_embedding_backfill", "morning_report",
-    "daily_self_retrospective", "governance_dashboard_regen", "memory_pattern_extract",
-    "optimization_pipeline", "weekly_evolution_generator", "memory_weekly_autobiography",
-    # 2026-07-18 契約 rollout 新註冊
-    "tender_business_recommend", "wiki_compile", "shadow_baseline_export",
-    # 2026-07-20 程式圖譜每日全量重建（db_row_count 關係健康監測）
-    "code_graph_incremental",
-    # 2026-07-30 規則 4：驗證型 job 也要有可驗產出（此 job 曾三層空跑仍記 success）
-    "cf_tunnel_verify",
+# 已監控 producer：**從 registry 衍生，不再手抄一份**。
+#
+# 2026-07-31：原本這裡是寫死清單，與 registry 各一份 → 新註冊的
+# `case_finance_bridge_selfheal` 明明在 registry 裡（跑出來是 GREEN），
+# 覆蓋檢查卻仍把它列為「未納管 blind spot」——**審計自己就是異質同工**
+#（同一事實兩處維護，改一處另一處不知道）。改為單一來源衍生。
+#
+# registry 的 job 識別有兩種寫法：cron_detail 用 "job"，其餘用 "name"（中文）。
+# 前者可直接對上 @tracked_job id；後者無法，故另以 _JOB_ALIASES 補上映射。
+_JOB_ALIASES = {
+    # registry 名稱（中文） → scheduler 的 @tracked_job id
+    "tender scrape (pcc+ezbid)": "pcc_today_scrape",
+    "每日覆盤": "daily_self_retrospective",
+    "治理儀表板": "governance_dashboard_regen",
+    "整合健康E2E": "integration_e2e",
+    "晨報": "morning_report",
+    "patterns": "memory_pattern_extract",
+    "優化管線報告": "optimization_pipeline",
+    "週自傳/進化史": "weekly_evolution_generator",
+    "wiki 編譯": "wiki_compile",
+    "shadow baseline": "shadow_baseline_export",
+    "程式圖譜關係": "code_graph_incremental",
+    "CF Tunnel 每日驗證": "cf_tunnel_verify",
+    "標案業務推薦": "tender_business_recommend",
+    # UI 檢核由 Windows 排程執行，非 @tracked_job，不需映射
 }
+
+
+def _monitored_jobs() -> set[str]:
+    jobs = set()
+    for prod in PRODUCER_OUTCOME_REGISTRY:
+        if prod.get("job"):
+            jobs.add(prod["job"])
+        alias = _JOB_ALIASES.get(prod.get("name", ""))
+        if alias:
+            jobs.add(alias)
+    # 歷史相容：這些 job 的監控信號在別處（見 registry），保留以免誤報
+    jobs |= {"ezbid_cache_refresh", "kg_embedding_backfill", "memory_weekly_autobiography"}
+    return jobs
+
+
 # 非 producer allowlist（稽核/檢查/watchdog/清理/暖機/外部推送/covered-elsewhere——無本地可驗產出）
 NON_PRODUCER_JOBS = {
     # 稽核/檢查/watchdog/清理/暖機
@@ -140,9 +169,9 @@ def audit_producer_coverage() -> list[str]:
         return []
     import re
     jobs = set(re.findall(r'@tracked_job\("([a-z_]+)"\)', sched.read_text(encoding="utf-8", errors="ignore")))
-    unclassified = sorted(jobs - MONITORED_JOBS - NON_PRODUCER_JOBS)
+    unclassified = sorted(jobs - _monitored_jobs() - NON_PRODUCER_JOBS)
     print("\n" + "-" * 70)
-    print(f"契約覆蓋強制：{len(jobs)} tracked jobs = 已監控 {len(jobs & MONITORED_JOBS)} "
+    print(f"契約覆蓋強制：{len(jobs)} tracked jobs = 已監控 {len(jobs & _monitored_jobs())} "
           f"+ 非producer {len(jobs & NON_PRODUCER_JOBS)} + 未納管 {len(unclassified)}")
     if unclassified:
         print("⚠️ 未納管 producer（blind spot，須補註冊信號或加 NON_PRODUCER allowlist）：")

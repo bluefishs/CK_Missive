@@ -136,6 +136,28 @@ const CHECKS = [
     },
   },
   {
+    id: 'kunge',
+    name: '坤哥意識體服務鏈（對話/心智/進化/圖譜/運維五主軸）',
+    auth: true,
+    url: '/kunge',
+    async run(page) {
+      await page.waitForTimeout(3000);
+      // ADR-0031：坤哥為唯一意識體入口，5 核心主軸缺一即代表服務鏈斷了一段
+      const TABS = ['對話', '心智', '進化', '圖譜', '運維'];
+      const missing = [];
+      for (const t of TABS) {
+        if (!(await page.getByText(t, { exact: false }).count())) missing.push(t);
+      }
+      if (missing.length) return { fail: `缺少主軸：${missing.join('、')}` };
+      // 進化分頁 = 學習閉環（pattern→proposal→crystal）的可見出口
+      await page.getByText('進化', { exact: false }).first().click({ timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(2500);
+      const dead = await page.getByText('載入失敗', { exact: false }).count();
+      if (dead) return { fail: '進化分頁載入失敗（學習閉環資料鏈斷）' };
+      return { ok: '五主軸皆在、進化分頁可載入' };
+    },
+  },
+  {
     id: 'mobile-create',
     name: '行動版核銷建立頁（重點摘要 + 批次連續）',
     auth: true,
