@@ -250,12 +250,46 @@ class ProjectService(AuditableServiceMixin):
                     f"專案編號 {project_data['project_code']} 已存在"
                 )
 
+        # ── 方案 B（2026-07-31）：成案即創財務號 ──────────────────────────
+        # 背景：`case_code` 是承攬案件通往財務/核銷的唯一橋樑（報價、費用核銷、
+        # 核銷 QR 都靠它）。但直接建立的承攬案件不會走「建案→成案」，於是 case_code
+        # 恆為 NULL → 財務紀錄永遠空、核銷 QR 也不顯示。
+        # 過去的處理是每次事後補 fallback（07-29 補 project_code fallback、
+        # 07-31 手動補 187），成因始終沒解決。
+        #
+        # 寫入路徑僅兩條（2026-07-31 清點）：本方法（手動建立）與
+        # `CaseCodeService.promote_to_project`（成案，已自帶 case_code），
+        # 無批次匯入路徑 → 不會造成大量產號。
+        if not project_data.get("case_code"):
+            try:
+                from app.services.contract.case_code import CaseCodeService
+                project_data["case_code"] = await CaseCodeService(self.db).generate_case_code(
+                    "pm",  # case_code 語意即「建案案號」，故用 PM 產號器保持體系一致
+                    project_data.get("year") or 2026,
+                    project_data.get("category") or "01",
+                )
+            except Exception as e:
+                # 產號失敗不得阻斷建案本身（案件比橋樑重要）；缺號會被 fitness step 74 抓到
+                logger.warning("承攬案件自動產生 case_code 失敗（案件仍建立）: %s", e)
+
         db_project = await self.repository.create(project_data)
 
         logger.info(
             f"建立{self.entity_name}: ID={db_project.id}, "
-            f"Code={db_project.project_code}"
+            f"Code={db_project.project_code}, CaseCode={db_project.case_code}"
         )
+
+        # 建立空白報價作為財務容器 —— 有了它，使用者一進「財務紀錄」就能直接填，
+        # 不必先自己想起要去開一張報價。金額刻意留空（屬業務決策），只帶預算上限。
+        # fail-soft：報價建不起來不影響案件本身。
+        if db_project.case_code:
+            try:
+                await self._ensure_finance_container(db_project)
+            except Exception as e:
+                logger.warning(
+                    "承攬案件 %s 自動建立財務容器失敗（案件仍建立）: %s",
+                    db_project.project_code, e,
+                )
 
         # 回溯連結：將已存在的同名 CanonicalEntity 連結到新建專案
         try:
@@ -273,6 +307,45 @@ class ProjectService(AuditableServiceMixin):
         await self.audit_create(db_project.id, project_data)
 
         return db_project
+
+    async def _ensure_finance_container(self, project: ContractProject) -> None:
+        """為承攬案件建立空白報價（財務容器），已存在則不動作。
+
+        方案 B 的第二段。冪等：同 case_code 或 project_code 已有報價就跳過，
+        因此重跑、補跑既有案件都安全。
+        """
+        from decimal import Decimal
+        from sqlalchemy import select
+        from app.extended.models.erp import ERPQuotation
+        from app.schemas.erp.quotation import ERPQuotationCreate
+        from app.services.erp.quotation_service import ERPQuotationService
+
+        existing = (await self.db.execute(
+            select(ERPQuotation.id).where(
+                (ERPQuotation.case_code == project.case_code)
+                | (ERPQuotation.project_code == project.project_code)
+            ).limit(1)
+        )).scalar_one_or_none()
+        if existing:
+            return
+
+        budget = None
+        if project.contract_amount:
+            budget = Decimal(str(project.contract_amount))
+
+        await ERPQuotationService(self.db).create(ERPQuotationCreate(
+            case_code=project.case_code,
+            project_code=project.project_code,
+            case_name=project.project_name,
+            year=project.year,
+            budget_limit=budget,
+            status="draft",
+            notes=f"隨承攬案件 {project.project_code} 自動建立的財務容器（金額待填）。",
+        ))
+        logger.info(
+            "承攬案件 %s 已建立財務容器 case_code=%s",
+            project.project_code, project.case_code,
+        )
 
     async def update(
         self,
