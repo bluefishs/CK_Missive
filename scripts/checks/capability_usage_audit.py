@@ -138,7 +138,7 @@ def _load_kg_mention_coverage() -> List[Dict[str, Any]]:
     try:
         result = subprocess.run(
             [
-                "docker", "exec", "ck_missive_postgres_dev",
+                "docker", "exec", "ck_missive_postgres",
                 "psql", "-U", "ck_user", "-d", "ck_documents", "-tA", "-F|", "-c", sql,
             ],
             capture_output=True, text=True, timeout=15,

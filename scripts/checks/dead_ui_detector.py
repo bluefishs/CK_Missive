@@ -37,6 +37,14 @@ import re
 import sys
 from pathlib import Path
 
+try:  # cp950 host 韌性（L49.8）：中文/emoji 輸出不得讓審計整支掛掉
+    import sys as _s
+    _s.stdout.reconfigure(encoding="utf-8")
+    _s.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+
 ROUTES_FILE = Path("backend/app/api/routes.py")
 ENDPOINTS_DIR = Path("backend/app/api/endpoints")
 FRONTEND_ENDPOINTS_DIR = Path("frontend/src/api/endpoints")
