@@ -7,6 +7,7 @@
 2. QR 金額與紙本不符（DC-09761665：QR 957 / 紙本 940）
 """
 import inspect
+import pytest
 import re
 from decimal import Decimal
 from pathlib import Path
@@ -84,3 +85,34 @@ class TestQrAmountConsistency:
         """只警示、不自動修改 —— 免稅/零稅率發票本來就會偏離 1.05"""
         r = self._parse("0000037f", "000003bd")
         assert r.amount == Decimal("957"), "不得自動改寫金額，應交由人核對"
+
+
+class TestOutboundNotificationGuard:
+    """守護「安全網」本身 —— 它保護的是 owner 的 LINE 月配額（200 則）
+
+    2026-07-31：跑測試把兩則真實告警推到 owner 手機。加了 autouse 安全網後，
+    這個守護確保它不會在未來被無聲移除或 patch 錯層。
+    """
+
+    def test_guard_fixture_exists_and_is_autouse(self):
+        src = (BACKEND / "tests" / "conftest.py").read_text(encoding="utf-8")
+        assert "_block_outbound_notifications" in src
+        i = src.index("_block_outbound_notifications")
+        assert "autouse=True" in src[max(0, i - 200):i]
+
+    def test_guard_patches_network_boundary_not_public_methods(self):
+        """攔在網路邊界，否則會打斷本來就安全的服務層測試（初版踩過）"""
+        src = (BACKEND / "tests" / "conftest.py").read_text(encoding="utf-8")
+        i = src.index("targets = [")
+        block = src[i:i + 500]
+        assert "_call_line_api" in block
+        assert "_call_telegram_api" in block
+        assert "LineBotService.push_message" not in block, "攔太高會替換掉受測方法本身"
+
+    @pytest.mark.asyncio
+    async def test_line_network_call_is_blocked_at_runtime(self):
+        """實際驗證：服務層呼叫不會真的送出（而非只看原始碼）"""
+        from app.services.integration.line_bot import LineBotService
+        svc = LineBotService.__new__(LineBotService)
+        result = await LineBotService._call_line_api(svc, "/message/push", {"to": "x"})
+        assert result is False, "安全網未生效，測試可能真的對外送出訊息"

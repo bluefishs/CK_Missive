@@ -59,10 +59,16 @@ def _block_outbound_notifications(request):
         yield
         return
 
+    # 攔截點必須落在「真正對外的那一層」，不是服務的公開方法。
+    # 2026-07-31 初版把 `LineBotService.push_message` / `TelegramBotService.push_message`
+    # 整個換掉 → 打斷了兩個**本來就安全**的測試（它們自己 mock 了 `_call_line_api`
+    # / `send_message`，我卻把受測方法本身替換了）。
+    # 正確做法：patch 網路邊界（LINE `_call_line_api`、Telegram `_call_telegram_api`）
+    # 與跨通道扇出（IntegrationFacade），服務層行為測試因而不受影響。
     targets = [
         "app.services.contracts.facades.integration.IntegrationFacade.push_admin_alert",
-        "app.services.integration.line_bot.LineBotService.push_message",
-        "app.services.integration.telegram_bot.TelegramBotService.push_message",
+        "app.services.integration.line_bot.LineBotService._call_line_api",
+        "app.services.integration.telegram_bot.TelegramBotService._call_telegram_api",
     ]
     patchers = []
     for t in targets:
