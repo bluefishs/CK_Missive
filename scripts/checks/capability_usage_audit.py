@@ -119,6 +119,18 @@ def _load_registered_tools() -> List[str]:
 # ────────── KG Mention Coverage ──────────
 
 
+# mention 覆蓋率不適用的 graph_domain（2026-08-01 驗鑑別力後補）
+#
+# 實測：tender/knowledge 類命中率 100%（tender_record 5973/5973、org 5523/5523），
+# 而 code/* 全部 0% —— 但**程式碼實體本來就不會有文件 mention**
+#（它們來自 AST 匯入，不是從公文抽出來的），把它們算「dead」是分類錯誤。
+# 原本 98 個 dead findings 裡有一大半是這種假陽性，稀釋了真訊號。
+#
+# 依 SELF_AUDIT_EVOLUTION_STANDARD §3：工具有鑑別力（0% vs 100% 分得很開），
+# 但**判準套錯了類別**。修判準而非棄工具。
+MENTION_EXEMPT_DOMAINS = ("code/",)
+
+
 def _load_kg_mention_coverage() -> List[Dict[str, Any]]:
     """從 PostgreSQL 取各 entity_type 的 mention 命中率（透過 docker exec）。
 
@@ -308,6 +320,7 @@ def _generate_report(days: int, quick: bool = False) -> Dict[str, Any]:
     kg_dead_types = [
         c for c in kg_coverage
         if c["hit_pct"] < 5.0 and c["total"] >= 100
+        and not c["type"].startswith(MENTION_EXEMPT_DOMAINS)
     ]
 
     memory_loop = _memory_loop_health()
@@ -433,9 +446,19 @@ def main() -> int:
         action="store_true",
         help="Quick mode: skip ADR reverse-reference grep (Windows recursive grep 慢)",
     )
+    parser.add_argument(
+        "--full", action="store_true",
+        help="強制完整模式（含 ADR 反向 grep；Windows 上可能數分鐘）",
+    )
     args = parser.parse_args()
 
-    report = _generate_report(args.days, quick=args.quick)
+    # 2026-08-01：ADR 反向 grep 在 Windows 上遞迴掃描極慢（實測 240s 未完），
+    # 導致這支審計「存在但沒人跑得完」＝ 實質失效。Windows 預設走 quick，
+    # 需完整 ADR 分析時明確加 --full。
+    quick = args.quick or (sys.platform.startswith("win") and not args.full)
+    if quick and not args.quick:
+        print("[INFO] Windows 預設 quick 模式（跳過慢速 ADR 反向 grep）；需完整分析請加 --full")
+    report = _generate_report(args.days, quick=quick)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
