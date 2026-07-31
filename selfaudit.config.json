@@ -1,0 +1,133 @@
+{
+  "$schema": "./scripts/checks/selfaudit.schema.json",
+  "_doc": "自我檢核設定（Phase 1 引擎化，2026-08-01）。引擎與配置分離：ui_flow_smoke / ui_page_sweep / ui_smoke_auth 零硬編碼，per-repo 差異全在此檔。跨專案移植時只需改這一份，不改引擎（引擎漂移由 sync-vendored drift gate 擋）。標準見 docs/architecture/SELF_AUDIT_EVOLUTION_STANDARD.md",
+
+  "project": "CK_Missive",
+  "base_url": "https://missive.cksurvey.tw",
+
+  "auth": {
+    "_doc": "檢核用臨時 session 的取得方式。各 repo 認證機制不同，故抽成 adapter。",
+    "adapter": "docker_jwt",
+    "container": "ck_missive_backend",
+    "script_path": "/app/scripts/checks/ui_smoke_auth.py",
+    "internal_url": "http://localhost:8001",
+    "csrf_endpoint": "/api/secure-site-management/csrf-token",
+    "session_minutes": 20,
+    "jti_prefix": "ui-smoke-"
+  },
+
+  "page_sweep": {
+    "_doc": "廣度掃描：讀路由定義檔，全站靜態路由走一遍。",
+    "routes_source": "frontend/src/router/types.ts",
+    "routes_pattern": "^\\s{2}([A-Z0-9_]+):\\s*'(/[^']*)'",
+    "exclude": [
+      "/", "/entry", "/login", "/register", "/forgot-password", "/reset-password",
+      "/verify-email", "/mfa/verify", "/auth/line/callback", "/auth/line/bind-callback",
+      "/404", "/api/docs", "/api-mapping", "/unified-form-demo", "/google-auth-diagnostic"
+    ],
+    "error_texts": ["載入失敗", "發生錯誤", "系統錯誤", "Something went wrong", "無法載入"],
+    "throttle_ms": 900,
+    "known_limitations": [
+      {
+        "route": "/admin/deployment",
+        "match": "status of 503",
+        "reason": "未配置 GITHUB_TOKEN（部署歷史功能未啟用）— 補 token 即可解除"
+      }
+    ]
+  },
+
+  "flows": [
+    {
+      "id": "line",
+      "name": "LINE 登入（owner 回報：一選就出現登入錯誤）",
+      "auth": false,
+      "url": "/entry",
+      "steps": [
+        { "action": "waitFor", "selector": "button:has-text(\"LINE\")", "timeout": 15000 },
+        { "action": "click", "selector": "button:has-text(\"LINE\"), [class*=\"line\"]:has-text(\"LINE\")" },
+        { "action": "wait", "ms": 2500 },
+        { "action": "assertNoDialog", "failMsg": "前端擋下並跳出提示" },
+        { "action": "assertUrlMatches", "pattern": "access\\.line\\.me|line\\.me/oauth", "okMsg": "已正確導向 LINE 授權頁", "failMsg": "點擊後未導向 LINE" }
+      ]
+    },
+    {
+      "id": "quotation-expense",
+      "name": "報價「費用核銷」列可點入（owner 回報兩次）",
+      "auth": true,
+      "url": "/erp/quotations/167",
+      "steps": [
+        { "action": "clickText", "text": "費用核銷" },
+        { "action": "wait", "ms": 2000 },
+        { "action": "assertCount", "selector": "button:has-text(\"檢視\")", "min": 1, "failMsg": "沒有任何「檢視」按鈕（已核准紀錄將無法點入）" }
+      ]
+    },
+    {
+      "id": "ezbid-create-case",
+      "name": "ezbid 標案有「一鍵建案」（owner 回報：無法建案）",
+      "auth": true,
+      "url": "/tender/ezbid/2227632",
+      "steps": [
+        { "action": "wait", "ms": 2500 },
+        { "action": "assertCount", "selector": "button:has-text(\"一鍵建案\")", "min": 1, "failMsg": "ezbid 標案頁沒有「一鍵建案」按鈕" },
+        { "action": "assertCount", "selector": "button:has-text(\"收藏\")", "min": 1, "failMsg": "有建案鈕但缺收藏（與 PCC 頁設計不一致）" }
+      ]
+    },
+    {
+      "id": "contract-finance",
+      "name": "承攬案件財務紀錄有資料（owner 回報：無法填報）",
+      "auth": true,
+      "url": "/contract-cases/187",
+      "steps": [
+        { "action": "clickText", "text": "財務紀錄" },
+        { "action": "wait", "ms": 2000 },
+        { "action": "assertTextAbsent", "text": "尚無 ERP 報價紀錄", "failMsg": "財務紀錄仍是空的（case_code / 報價未接通）" }
+      ]
+    },
+    {
+      "id": "receipt-image",
+      "name": "核銷收據影像載得出來（owner 回報：看不到）",
+      "auth": true,
+      "url": "/erp/expenses/6",
+      "steps": [
+        { "action": "wait", "ms": 2500 },
+        { "action": "clickText", "text": "收據影像" },
+        { "action": "wait", "ms": 2500 },
+        { "action": "assertTextAbsent", "text": "無收據影像", "failMsg": "詳情頁顯示「無收據影像」" },
+        { "action": "assertCount", "selector": "img[src^=\"blob:\"], img[alt*=\"收據\"]", "min": 1, "failMsg": "找不到收據影像元素" }
+      ]
+    },
+    {
+      "id": "kunge",
+      "name": "坤哥意識體服務鏈（對話/心智/進化/圖譜/運維五主軸）",
+      "auth": true,
+      "url": "/kunge",
+      "steps": [
+        { "action": "wait", "ms": 3000 },
+        { "action": "assertTextsPresent", "texts": ["對話", "心智", "進化", "圖譜", "運維"], "failMsg": "缺少主軸" },
+        { "action": "clickText", "text": "進化" },
+        { "action": "wait", "ms": 2500 },
+        { "action": "assertTextAbsent", "text": "載入失敗", "failMsg": "進化分頁載入失敗（學習閉環資料鏈斷）" }
+      ]
+    },
+    {
+      "id": "mobile-create",
+      "name": "行動版核銷建立頁（重點摘要 + 批次連續）",
+      "auth": true,
+      "url": "/erp/expenses/create?case_code=CK2026_FN_01_001",
+      "viewport": { "width": 390, "height": 844 },
+      "steps": [
+        { "action": "wait", "ms": 2500 },
+        { "action": "clickText", "text": "手動" },
+        { "action": "wait", "ms": 1200 },
+        { "action": "click", "selector": "button:has-text(\"開始填寫\")" },
+        { "action": "wait", "ms": 2000 },
+        { "action": "assertCount", "selector": "button:has-text(\"建立並繼續\")", "min": 1, "failMsg": "沒有「建立並繼續掃下一張」（手機批次會被中斷）" }
+      ]
+    }
+  ],
+
+  "output": {
+    "flow_result": "wiki/memory/integration-health/ui-flow.json",
+    "sweep_result": "wiki/memory/integration-health/ui-sweep.json"
+  }
+}

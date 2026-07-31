@@ -1,8 +1,14 @@
 {
- "checked_at": "2026-07-31T15:18:04.268Z",
+ "checked_at": "2026-07-31T17:04:09.640Z",
  "base": "https://missive.cksurvey.tw",
- "pass": 1,
- "fail": 0,
+ "pass": 6,
+ "fail": 1,
  "skip": 0,
- "failures": []
+ "failures": [
+  {
+   "id": "quotation-expense",
+   "name": "報價「費用核銷」列可點入（owner 回報兩次）",
+   "reason": "例外：TimeoutError: page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://missive.cksurvey.tw/erp/quotations/167\", waiting until \"domcontentlo"
+  }
+ ]
 }

@@ -41,30 +41,29 @@ const EXE = [
 ].find((p) => fs.existsSync(p));
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const BASE = process.env.SMOKE_BASE || 'https://missive.cksurvey.tw';
+// Phase 1 引擎化：per-repo 差異全在 selfaudit.config.json（見 ui_flow_smoke 說明）
+const CONFIG_PATH = process.env.SELFAUDIT_CONFIG
+  || path.resolve(__dirname, '..', '..', 'selfaudit.config.json');
+if (!fs.existsSync(CONFIG_PATH)) {
+  console.error(`找不到設定檔：${CONFIG_PATH}`);
+  process.exit(2);
+}
+const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+const SWEEP = CONFIG.page_sweep || {};
+const BASE = process.env.SMOKE_BASE || CONFIG.base_url;
 const SHOT_DIR = path.resolve(__dirname, 'ui_page_sweep_shots');
 const LIMIT = Number((process.argv.find((a) => a.startsWith('--limit=')) || '').split('=')[1] || 0);
 
 // 不掃：認證流程頁（需外部 OAuth）、開發/示範頁、錯誤頁本身
-const EXCLUDE = new Set([
-  '/', '/entry', '/login', '/register', '/forgot-password', '/reset-password',
-  '/verify-email', '/mfa/verify', '/auth/line/callback', '/auth/line/bind-callback',
-  '/404', '/api/docs', '/api-mapping', '/unified-form-demo', '/google-auth-diagnostic',
-]);
+const EXCLUDE = new Set(SWEEP.exclude || []);
 
-const ERROR_TEXTS = ['載入失敗', '發生錯誤', '系統錯誤', 'Something went wrong', '無法載入'];
+const ERROR_TEXTS = SWEEP.error_texts || [];
 
 // 已知環境限制：**不是程式缺陷**，但也不能整頁豁免（否則該頁真的壞掉會被蓋掉）。
 // 作法：只有當該頁的問題**完全符合**登記的訊號時才降級為「已知限制」；
 // 出現任何其他問題仍照常 FAIL。
-const KNOWN_LIMITATIONS = [
-  {
-    route: '/admin/deployment',
-    // POST /api/deploy/history → 503「未配置 GitHub Token」
-    match: /status of 503/,
-    reason: '未配置 GITHUB_TOKEN（部署歷史功能未啟用）— 補 token 即可解除',
-  },
-];
+const KNOWN_LIMITATIONS = (SWEEP.known_limitations || [])
+  .map((k) => ({ ...k, match: new RegExp(k.match) }));
 const NOISE_RE = [
   /favicon/i, /fedcm/i, /accounts\.google\.com/i, /gsi\/|identity\//i,
   /net::ERR_/i, /status of (401|403|404)/i, /ERR_BLOCKED_BY_CLIENT/i,
@@ -73,7 +72,7 @@ const NOISE_RE = [
 const isNoise = (t) => NOISE_RE.some((re) => re.test(t));
 
 function staticRoutes() {
-  const src = fs.readFileSync(path.join(ROOT, 'frontend/src/router/types.ts'), 'utf-8');
+  const src = fs.readFileSync(path.join(ROOT, SWEEP.routes_source), 'utf-8');
   const out = [];
   const re = /^\s{2}([A-Z0-9_]+):\s*'(\/[^']*)'/gm;
   let m;
@@ -161,7 +160,7 @@ async function main() {
       limitations.push({ route, reason: known.reason });
       okCount++;
       await page.close();
-      await new Promise((r) => setTimeout(r, 900));
+      await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));
       continue;
     }
 
@@ -173,7 +172,7 @@ async function main() {
       okCount++;
     }
     await page.close();
-    await new Promise((r) => setTimeout(r, 900));  // 節流：避免掃描自己觸發 429
+    await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));  // 節流：避免掃描自己觸發 429
   }
 
   await browser.close();
@@ -206,8 +205,7 @@ async function main() {
   // 「跑了全過」與「根本沒跑」。由既有 producer watchdog 以 file_fresh 監控此檔，
   // 停跑即由每日 cron_outcome_freshness 告警（不另建一套通知）。
   try {
-    const RESULT_JSON = path.resolve(__dirname, '..', '..', 'wiki', 'memory',
-      'integration-health', 'ui-sweep.json');
+    const RESULT_JSON = path.resolve(__dirname, '..', '..', CONFIG.output.sweep_result);
     fs.mkdirSync(path.dirname(RESULT_JSON), { recursive: true });
     fs.writeFileSync(RESULT_JSON, JSON.stringify({
       checked_at: new Date().toISOString(),

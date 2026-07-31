@@ -23,6 +23,21 @@ fi
 COOKIE_VAL="$(grep '^COOKIE=' "$AUTH_OUT" 2>/dev/null | sed 's/^COOKIE=//' | tr -d '\r\n')"
 USER_INFO_VAL="$(grep '^USER_INFO=' "$AUTH_OUT" 2>/dev/null | sed 's/^USER_INFO=//' | tr -d '\r\n')"
 
-echo "[2/2] 執行瀏覽器檢核..."
-COOKIE="$COOKIE_VAL" USER_INFO="$USER_INFO_VAL" \
-  node "$ROOT/scripts/checks/ui_flow_smoke.cjs" "$@"
+# 深度（flow）vs 廣度（sweep）二選一
+# 註：先前用 python str.replace 加這段時靜默失敗（不匹配不會報錯），
+#     導致 --sweep 被當成 flow 的參數傳下去而無效 —— 改為行為單位編輯。
+ARGS=()
+MODE="flow"
+for a in "$@"; do
+  if [ "$a" = "--sweep" ]; then MODE="sweep"; else ARGS+=("$a"); fi
+done
+
+if [ "$MODE" = "sweep" ]; then
+  echo "[2/2] 全站頁面健康掃描（廣度）..."
+  SCRIPT="ui_page_sweep.cjs"
+else
+  echo "[2/2] 流程檢核（深度）..."
+  SCRIPT="ui_flow_smoke.cjs"
+fi
+
+COOKIE="$COOKIE_VAL" USER_INFO="$USER_INFO_VAL"   node "$ROOT/scripts/checks/$SCRIPT" "${ARGS[@]}"

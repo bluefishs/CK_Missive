@@ -39,7 +39,17 @@ const EXE_CANDIDATES = [
 ];
 const EXE = EXE_CANDIDATES.find((p) => fs.existsSync(p));
 
-const BASE = process.env.SMOKE_BASE || 'https://missive.cksurvey.tw';
+// Phase 1 引擎化（2026-08-01）：零硬編碼，per-repo 差異全在 selfaudit.config.json。
+// 跨專案移植時只改設定、不改引擎（引擎漂移由 sync-vendored drift gate 擋）。
+const CONFIG_PATH = process.env.SELFAUDIT_CONFIG
+  || path.resolve(__dirname, '..', '..', 'selfaudit.config.json');
+if (!fs.existsSync(CONFIG_PATH)) {
+  console.error(`找不到設定檔：${CONFIG_PATH}
+（跨專案移植需先建立 selfaudit.config.json）`);
+  process.exit(2);
+}
+const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+const BASE = process.env.SMOKE_BASE || CONFIG.base_url;
 const SHOT_DIR = path.resolve(__dirname, 'ui_flow_smoke_shots');
 const HEADED = process.argv.includes('--headed');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').split('=')[1];
@@ -54,129 +64,70 @@ const isNoise = (t) => NOISE_RE.some((re) => re.test(t));
 // ---------------------------------------------------------------------------
 // 檢查定義 —— 每一條都對應 owner 曾經手動回報過的問題
 // ---------------------------------------------------------------------------
-const CHECKS = [
-  {
-    id: 'line',
-    name: 'LINE 登入（owner 回報：一選就出現登入錯誤）',
-    auth: false,
-    url: '/entry',
-    async run(page, ctx) {
-      const btn = page.locator('button:has-text("LINE"), [class*="line"]:has-text("LINE")').first();
-      // 等按鈕真的出現再判定 —— 初版沒等，SPA 慢一點就誤報「找不到按鈕」
-      await btn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
-      if (!(await btn.count())) return { fail: '入口頁找不到 LINE 登入按鈕' };
-      await btn.click({ timeout: 5000 }).catch(() => {});
-      await page.waitForTimeout(2500);
-      if (ctx.dialogs.length) {
-        return { fail: `前端擋下並跳出提示：「${ctx.dialogs.join(' / ')}」` };
+/**
+ * Step 直譯器 —— 把 config 的宣告式步驟翻成 playwright 操作。
+ *
+ * 為何用宣告式而非直接寫 JS：移植到別的 repo 時，該 repo 的檢查清單應該是
+ * **資料**而非程式碼，否則每個 repo 都要改引擎 → 回到 copy-式漂移的老路。
+ * 支援的 action 刻意保持少而穩（新增前先問是否真的需要）。
+ */
+async function runSteps(page, ctx, steps) {
+  for (const st of steps) {
+    switch (st.action) {
+      case 'wait':
+        await page.waitForTimeout(st.ms || 1000);
+        break;
+      case 'waitFor':
+        await page.locator(st.selector).first()
+          .waitFor({ state: 'visible', timeout: st.timeout || 10000 }).catch(() => {});
+        break;
+      case 'click':
+        await page.locator(st.selector).first()
+          .click({ timeout: st.timeout || 8000 }).catch(() => {});
+        break;
+      case 'clickText':
+        await page.getByText(st.text, { exact: false }).first()
+          .click({ timeout: st.timeout || 8000 }).catch(() => {});
+        break;
+      case 'assertCount': {
+        const n = await page.locator(st.selector).count();
+        if (n < (st.min ?? 1)) return { fail: `${st.failMsg}（找到 ${n}）` };
+        break;
       }
-      const url = page.url();
-      if (/access\.line\.me|line\.me\/oauth/i.test(url)) return { ok: '已正確導向 LINE 授權頁' };
-      if (url.includes('/entry')) return { fail: `點擊後仍停在入口頁（未導向 LINE）：${url}` };
-      return { ok: `導向 ${url}` };
-    },
-  },
-  {
-    id: 'quotation-expense',
-    name: '報價「費用核銷」列可點入（owner 回報兩次）',
-    auth: true,
-    url: '/erp/quotations/167',
-    async run(page) {
-      await page.getByText('費用核銷', { exact: false }).first().click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(2000);
-      const view = page.locator('button:has-text("檢視")');
-      if (!(await view.count())) return { fail: '費用核銷分頁沒有任何「檢視」按鈕（已核准紀錄將無法點入）' };
-      return { ok: `找到 ${await view.count()} 個「檢視」入口` };
-    },
-  },
-  {
-    id: 'ezbid-create-case',
-    name: 'ezbid 標案有「一鍵建案」（owner 回報：無法建案）',
-    auth: true,
-    url: '/tender/ezbid/2227632',
-    async run(page) {
-      await page.waitForTimeout(2500);
-      const btn = page.locator('button:has-text("一鍵建案")');
-      if (!(await btn.count())) return { fail: 'ezbid 標案頁沒有「一鍵建案」按鈕' };
-      const fav = page.locator('button:has-text("收藏")');
-      if (!(await fav.count())) return { fail: '有建案鈕但缺收藏（與 PCC 頁設計不一致）' };
-      return { ok: '建案 + 收藏 皆在（兩來源設計一致）' };
-    },
-  },
-  {
-    id: 'contract-finance',
-    name: '承攬案件財務紀錄有資料（owner 回報：無法填報）',
-    auth: true,
-    url: '/contract-cases/187',
-    async run(page) {
-      await page.getByText('財務紀錄', { exact: false }).first().click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(2000);
-      const empty = await page.getByText('尚無 ERP 報價紀錄').count();
-      if (empty) return { fail: '財務紀錄仍是空的（case_code / 報價未接通）' };
-      return { ok: '財務紀錄顯示報價摘要' };
-    },
-  },
-  {
-    id: 'receipt-image',
-    name: '核銷收據影像載得出來（owner 回報：看不到）',
-    auth: true,
-    url: '/erp/expenses/6',
-    async run(page) {
-      await page.waitForTimeout(2500);
-      // 影像位於「收據影像」分頁，不切分頁就看不到
-      //（初版沒切 → 誤判成「頁面壞了」，實際 API 回 200/178KB）
-      await page.getByText('收據影像', { exact: false }).first()
-        .click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(2500);
-      const noImg = await page.getByText('無收據影像').count();
-      if (noImg) return { fail: '詳情頁顯示「無收據影像」' };
-      const img = page.locator('img[src^="blob:"], img[alt*="收據"]');
-      if (!(await img.count())) return { fail: '找不到收據影像元素' };
-      return { ok: '收據影像已載入' };
-    },
-  },
-  {
-    id: 'kunge',
-    name: '坤哥意識體服務鏈（對話/心智/進化/圖譜/運維五主軸）',
-    auth: true,
-    url: '/kunge',
-    async run(page) {
-      await page.waitForTimeout(3000);
-      // ADR-0031：坤哥為唯一意識體入口，5 核心主軸缺一即代表服務鏈斷了一段
-      const TABS = ['對話', '心智', '進化', '圖譜', '運維'];
-      const missing = [];
-      for (const t of TABS) {
-        if (!(await page.getByText(t, { exact: false }).count())) missing.push(t);
+      case 'assertTextAbsent':
+        if (await page.getByText(st.text, { exact: false }).count()) return { fail: st.failMsg };
+        break;
+      case 'assertTextsPresent': {
+        const missing = [];
+        for (const t of st.texts) {
+          if (!(await page.getByText(t, { exact: false }).count())) missing.push(t);
+        }
+        if (missing.length) return { fail: `${st.failMsg}：${missing.join('、')}` };
+        break;
       }
-      if (missing.length) return { fail: `缺少主軸：${missing.join('、')}` };
-      // 進化分頁 = 學習閉環（pattern→proposal→crystal）的可見出口
-      await page.getByText('進化', { exact: false }).first().click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(2500);
-      const dead = await page.getByText('載入失敗', { exact: false }).count();
-      if (dead) return { fail: '進化分頁載入失敗（學習閉環資料鏈斷）' };
-      return { ok: '五主軸皆在、進化分頁可載入' };
-    },
-  },
-  {
-    id: 'mobile-create',
-    name: '行動版核銷建立頁（重點摘要 + 批次連續）',
-    auth: true,
-    url: '/erp/expenses/create?case_code=CK2026_FN_01_001',
-    viewport: { width: 390, height: 844 },
-    async run(page) {
-      await page.waitForTimeout(2500);
-      // 手機版是兩步流程（輸入方式 → 填寫送出），表單在第 2 步；
-      // 選「手動」可直接進表單（初版沒進第 2 步 → 誤報找不到按鈕）
-      await page.getByText('手動', { exact: false }).first().click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(1200);
-      await page.locator('button:has-text("開始填寫")').first().click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(2000);
-      const cont = page.locator('button:has-text("建立並繼續")');
-      if (!(await cont.count())) return { fail: '沒有「建立並繼續掃下一張」（手機批次會被中斷）' };
-      return { ok: '批次連續入口存在' };
-    },
-  },
-];
+      case 'assertNoDialog':
+        if (ctx.dialogs.length) return { fail: `${st.failMsg}：「${ctx.dialogs.join(' / ')}」` };
+        break;
+      case 'assertUrlMatches': {
+        const u = page.url();
+        if (new RegExp(st.pattern, 'i').test(u)) return { ok: st.okMsg || `導向 ${u}` };
+        return { fail: `${st.failMsg}：${u}` };
+      }
+      default:
+        return { fail: `未知的 step action：${st.action}` };
+    }
+  }
+  return { ok: 'ok' };
+}
+
+const CHECKS = (CONFIG.flows || []).map((f) => ({
+  id: f.id,
+  name: f.name,
+  auth: !!f.auth,
+  url: f.url,
+  viewport: f.viewport,
+  run: (page, ctx) => runSteps(page, ctx, f.steps || []),
+}));
 
 // ---------------------------------------------------------------------------
 async function main() {
@@ -279,8 +230,7 @@ async function main() {
   // 「跑了全過」與「根本沒跑」。由既有 producer watchdog 以 file_fresh 監控此檔，
   // 停跑即由每日 cron_outcome_freshness 告警（不另建一套通知）。
   try {
-    const RESULT_JSON = path.resolve(__dirname, '..', '..', 'wiki', 'memory',
-      'integration-health', 'ui-flow.json');
+    const RESULT_JSON = path.resolve(__dirname, '..', '..', CONFIG.output.flow_result);
     fs.mkdirSync(path.dirname(RESULT_JSON), { recursive: true });
     fs.writeFileSync(RESULT_JSON, JSON.stringify({
       checked_at: new Date().toISOString(),
