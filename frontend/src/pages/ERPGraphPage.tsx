@@ -46,18 +46,22 @@ const StatsOverview: React.FC = () => {
   const { data, isLoading } = useQuery<{ data: ErpGraphStats }>({
     queryKey: ['erp-graph-stats'],
     queryFn: async () => {
-      // R9b (5/09): SSOT 取代硬編碼。原 /api/ai/... 會因 baseURL 已含 /api
-      // 而被 axios 拼成 /api/api/ai/... 失敗。修為 AI_ENDPOINTS.GRAPH_ENTITY_SEARCH
-      const erpRes = await apiClient.post(AI_ENDPOINTS.GRAPH_ENTITY_SEARCH, {
-        query: '', entity_types: ['erp_quotation', 'erp_vendor', 'erp_expense', 'erp_asset'],
-        limit: 200,
-      }).catch(() => ({ entities: [] })) as { entities: Array<{ entity_type: string }> };
-      const entities = erpRes?.entities || [];
+      // 2026-07-31（全站頁面掃描抓到）：原本呼叫 GRAPH_ENTITY_SEARCH 送
+      //   query: ''（後端要求 min_length=1）、entity_types 陣列（後端欄位是
+      //   entity_type 單數）、limit: 200（後端上限 100）
+      // → **必然 422**，且被 .catch(() => ({entities: []})) 吞成「0 筆」，
+      //   所以這張統計卡從來沒有顯示過真實數字，也沒有人發現（沉默失敗）。
+      // 改用本來就存在的 GRAPH_STATS，它直接回 entity_type_distribution。
+      const stats = await apiClient.post(AI_ENDPOINTS.GRAPH_STATS, {}) as {
+        total_entities?: number;
+        entity_type_distribution?: Record<string, number>;
+      };
+      const ERP_TYPES = ['erp_quotation', 'erp_vendor', 'erp_expense', 'erp_asset'];
+      const dist = stats?.entity_type_distribution || {};
       const byType: Record<string, number> = {};
-      entities.forEach((e: { entity_type: string }) => {
-        byType[e.entity_type] = (byType[e.entity_type] || 0) + 1;
-      });
-      return { data: { total_entities: entities.length, by_type: byType } };
+      ERP_TYPES.forEach((t) => { if (dist[t]) byType[t] = dist[t]; });
+      const total = Object.values(byType).reduce((a, b) => a + b, 0);
+      return { data: { total_entities: total, by_type: byType } };
     },
     staleTime: 5 * 60_000,
   });

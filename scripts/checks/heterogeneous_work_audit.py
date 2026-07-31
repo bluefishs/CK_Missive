@@ -37,8 +37,25 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # ---- Baselines（收斂後應下降；此為「不得超過」上限）----
 BASE_AXIOS_INSTANCES = 2          # H1: 目標收斂到 1
+BASE_DUP_BASENAMES = 5            # H4: 同名元件跨目錄組數上限（現況 5，逐步收斂）
 BASE_STUB_FILES = 5               # H3: 顯式 stub 標記檔（re-export/向後相容/已遷移）；目標 Q3 遞減到 0
                                   #     註：舊記憶「81」為廣義 grep 高估（含註解僅提及「遷移」者）
+# H4: 同名元件跨目錄 —— 已人工核實為「合理」者（2026-07-31 逐一開檔確認）
+#     判定原則：re-export shim / 語意刻意不同 / 測試鏡像目錄
+DUP_BASENAME_LEGIT = {
+    # 頂層檔為子目錄的 re-export shim（模組化良好，非重複）
+    "ReportsPage.tsx",
+    "TaoyuanProjectDetailPage.tsx",
+    "UnifiedFormDemoPage.tsx",
+    # CLAUDE.md / ADR-0031 已載明語意不同：健康進化 vs 結晶進化
+    "EvolutionTab.tsx",
+    # 測試鏡像目錄（__tests__ 與元件旁各一份）
+    "AgentStepsDisplay.test.tsx", "GraphNodeSettings.test.tsx",
+    "GraphToolbar.test.tsx", "MessageBubble.test.tsx",
+    "SelectedNodeInfoCard.test.tsx", "MermaidBlock.test.tsx",
+    "index.tsx",
+}
+
 EMBED_BYPASS_WHITELIST = {        # H2: 已登記的 host 緊急腳本
     "backfill_dispatch_embeddings.py",
     "backfill_kg_embeddings_all.py",
@@ -106,6 +123,33 @@ def audit_stub_files() -> int:
     return count
 
 
+def audit_duplicate_basenames() -> list[tuple[str, list[str]]]:
+    """H4: 同一元件檔名出現在不同目錄（2026-07-31 立法）
+
+    為何要這條：既有 H1-H3 只監控三個歷史個案（axios / embed / stub），
+    不是「同一功能有兩份實作」的通則。2026-07-31 當日三起缺陷
+    （ExpensesTab 兩份能力不一致、一鍵建案兩分支各寫一套、
+    PCC/ezbid 設計不一致）全部在雷達之外，審計照樣報 GREEN。
+
+    為何用確定性檔名比對而非語意相似度：
+    同日實測把語意（嵌入）審計指向前端 → 719 個候選且明顯噪音
+    （ContractCaseDetailPage ⇄ StatusTags 相似度 0.905），
+    因為 React 元件/hook 的命名嵌入天然相近，無鑑別力。
+    檔名重複是零誤判設計的訊號：每一筆都是真的同名，由人判定是否合理。
+    """
+    fe = ROOT / "frontend" / "src"
+    if not fe.exists():
+        return []
+    seen: dict[str, list[str]] = {}
+    for p in fe.rglob("*.tsx"):
+        seen.setdefault(p.name, []).append(str(p.relative_to(ROOT)).replace("\\", "/"))
+    dups = []
+    for name, paths in sorted(seen.items()):
+        if len(paths) > 1 and name not in DUP_BASENAME_LEGIT:
+            dups.append((name, sorted(paths)))
+    return dups
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true")
@@ -113,7 +157,7 @@ def main() -> int:
 
     fails = []
     print("=" * 60)
-    print("異質同工防增量審計（H1 axios / H2 embed-bypass / H3 stub）")
+    print("異質同工防增量審計（H1 axios / H2 embed-bypass / H3 stub / H4 同名元件）")
     print("=" * 60)
 
     # H1
@@ -141,6 +185,20 @@ def main() -> int:
     print(f"\n[H3] 後端 services stub 轉發檔：{n_stub} (baseline<= {BASE_STUB_FILES}, Q3 應遞減) [{tag}]")
     if n_stub > BASE_STUB_FILES:
         fails.append(f"H3 stub {n_stub} > baseline {BASE_STUB_FILES}（新異質同工路徑）")
+
+    # H4
+    dups = audit_duplicate_basenames()
+    tag = "RED" if len(dups) > BASE_DUP_BASENAMES else "GREEN"
+    print(f"\n[H4] 同名元件跨目錄：{len(dups)} 組 (baseline<= {BASE_DUP_BASENAMES}) [{tag}]")
+    for name, paths in dups:
+        print(f"     - {name}")
+        for pp in paths:
+            print(f"         {pp}")
+    if len(dups) > BASE_DUP_BASENAMES:
+        fails.append(
+            f"H4 同名元件 {len(dups)} 組 > baseline {BASE_DUP_BASENAMES}"
+            "（新的『同一功能兩份實作』；核實後若屬合理請加入 DUP_BASENAME_LEGIT）"
+        )
 
     print("\n" + "=" * 60)
     if not fails:
