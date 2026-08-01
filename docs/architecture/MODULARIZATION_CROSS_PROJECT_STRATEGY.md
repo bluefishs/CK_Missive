@@ -123,7 +123,17 @@
 
 ### 7.1 變更傳播語意（「A 改 B 會同步嗎？」FAQ，2026-07-24）
 
-**兩種消費模式**（因 build 方式）：
+**三種消費模式**（2026-08-01 補第三種）：
+- **腳本型 vendored**（`selfaudit` 引擎）：canonical→`sync-vendored.sh`→
+  `<repo>/scripts/checks/.shared-<pkg>/`→**直接執行**（非 import）。
+  與前端 vendored 的差別只在落點與用法，drift 語意相同。
+  ⚠️ **canonical 的原生 repo 也必須列入同步清單**——初版讓 CK_Missive 以手動
+  `cp` 消費（＝缺口 A 的 copy 式），改了忘了 copy 就 silent 分歧且無 gate 發現。
+  「它是源頭」不構成豁免理由。
+  ⚠️ **含 repo 專屬資訊的入口腳本不得當共享檔**（容器名、adapter 路徑）→ 走
+  `templates/*.template` 複製一次自行改。放進禁手改的共享目錄等於逼人違規。
+
+**前兩種消費模式**（因前端 build 方式）：
 - **Direct `file:`**（Missive，host build）：package.json `file:../../shared-modules/<pkg>` 直接 import canonical → rebuild 即**自動取得**。
 - **Vendored-in-context**（lvrland/pile，Docker build context 不含 shared-modules）：canonical→`sync-vendored.sh`→repo `.shared-<pkg>`→import → 需 **sync + rebuild** 才取得。
 

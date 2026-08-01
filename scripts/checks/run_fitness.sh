@@ -1122,7 +1122,7 @@ echo ""
 # 此步驟只驗**它有沒有在跑、上次結果如何** —— 檢核器自己停跑也要被抓到。
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[77/78] UI 自我檢核產出新鮮度 (flow + page sweep)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/ui_smoke_freshness.py $($STRICT && echo --ci) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/.shared-selfaudit/ui_smoke_freshness.py $($STRICT && echo --ci) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------

@@ -29,29 +29,15 @@
 const fs = require('fs');
 const path = require('path');
 
-const PW_DIR = 'C:/Users/User1/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright';
-const { chromium } = require(PW_DIR);
+const boot = require('./_bootstrap.cjs');
 
-const CACHE = 'C:/Users/User1/AppData/Local/ms-playwright';
-const EXE = [
-  CACHE + '/chromium_headless_shell-1223/chrome-headless-shell-win64/chrome-headless-shell.exe',
-  CACHE + '/chromium_headless_shell-1217/chrome-headless-shell-win64/chrome-headless-shell.exe',
-  CACHE + '/chromium_headless_shell-1208/chrome-headless-shell-win64/chrome-headless-shell.exe',
-  CACHE + '/chromium-1161/chrome-win/chrome.exe',
-].find((p) => fs.existsSync(p));
-
-// Phase 1 引擎化：per-repo 差異全在 selfaudit.config.json（見 ui_flow_smoke 說明）
-const CONFIG_PATH = process.env.SELFAUDIT_CONFIG
-  || path.resolve(__dirname, '..', '..', 'selfaudit.config.json');
-if (!fs.existsSync(CONFIG_PATH)) {
-  console.error(`找不到設定檔：${CONFIG_PATH}`);
-  process.exit(2);
-}
-const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-// repo 根目錄：不可由 __dirname 往上推 —— vendored 安裝時引擎位於
+// 設定載入 + 結構驗證（缺欄位一律 exit 2「未驗完」，絕不印綠燈）。
+// ROOT 以設定檔位置為準，不可由 __dirname 上推 —— vendored 安裝時引擎位於
 // <repo>/scripts/checks/.shared-selfaudit/ 比原生位置多一層（2026-08-01 移植 lvrland 時踩到）。
-// 以 config 檔所在位置為準才是可攜的。
-const ROOT = path.dirname(CONFIG_PATH);
+const { CONFIG, ROOT } = boot.loadConfig('sweep', __dirname);
+const PW = boot.resolvePlaywright(ROOT);
+const chromium = PW && PW.chromium;
+const EXE = PW && PW.exe;
 const SWEEP = CONFIG.page_sweep || {};
 const BASE = process.env.SMOKE_BASE || CONFIG.base_url;
 // 截圖寫進 repo 的 docs/health 而非引擎目錄 —— 寫在 vendored 目錄內會讓
@@ -93,7 +79,7 @@ function staticRoutes() {
 }
 
 async function main() {
-  if (!EXE) { console.error('找不到 Chromium'); process.exit(2); }
+  if (!EXE) boot.fail(boot.playwrightMissingMessage());
   fs.mkdirSync(SHOT_DIR, { recursive: true });
 
   let routes = staticRoutes();
@@ -108,25 +94,10 @@ async function main() {
   }
   if (LIMIT) routes = routes.slice(0, LIMIT);
 
-  const cookieHeader = process.env.COOKIE || '';
-  const userInfo = process.env.USER_INFO || '';
   const browser = await chromium.launch({ executablePath: EXE, headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-
-  if (userInfo) {
-    await context.addInitScript((ui) => {
-      try { window.localStorage.setItem('user_info', ui); } catch { /* ignore */ }
-    }, userInfo);
-  }
-  if (cookieHeader) {
-    await context.addCookies(cookieHeader.split(';').map((kv) => {
-      const i = kv.indexOf('=');
-      return {
-        name: kv.slice(0, i).trim(), value: kv.slice(i + 1).trim(),
-        domain: new URL(BASE).hostname, path: '/',
-      };
-    }).filter((c) => c.name));
-  }
+  // 登入態注入走共用函式（初版此處寫死 'user_info'、與深度引擎的 config 化不一致）
+  await boot.applyAuth(context, CONFIG, BASE);
 
   const bad = [];
   const skipped = [];

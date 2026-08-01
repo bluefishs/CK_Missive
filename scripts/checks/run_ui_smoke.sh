@@ -34,10 +34,10 @@ done
 
 if [ "$MODE" = "sweep" ]; then
   echo "[2/2] 全站頁面健康掃描（廣度）..."
-  SCRIPT="ui_page_sweep.cjs"
+  SCRIPT=".shared-selfaudit/ui_page_sweep.cjs"
 else
   echo "[2/2] 流程檢核（深度）..."
-  SCRIPT="ui_flow_smoke.cjs"
+  SCRIPT=".shared-selfaudit/ui_flow_smoke.cjs"
 fi
 
 COOKIE="$COOKIE_VAL" USER_INFO="$USER_INFO_VAL"   node "$ROOT/scripts/checks/$SCRIPT" "${ARGS[@]}"

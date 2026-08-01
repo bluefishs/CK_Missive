@@ -210,6 +210,48 @@ lvrland 首次執行就抓到：
 
 ---
 
+## 5.6 成熟度覆盤：對照 SSO／前端共享套件的四條反面守則（2026-08-01）
+
+移植機制是否夠成熟，不該用「跑得動」判斷，而該用**既有的跨專案標準化教訓**
+（`MODULARIZATION_CROSS_PROJECT_STRATEGY.md` §7）逐條檢驗。實際檢驗結果——
+**四條中有兩條，selfaudit 一開始就違反了**，靠這次覆盤才抓到：
+
+| 守則 | selfaudit 初版 | 結果 |
+|---|---|---|
+| 禁 over-standardize（L58） | ❌ **把 CK_Missive 專屬的入口腳本當 canonical 同步出去**——lvrland 因此拿到寫死 `ck_missive_backend` 的檔案，而且它躺在「禁手改」的 `.shared-selfaudit/` 裡 | 已改為 `templates/run_selfaudit.sh.template`（複製一次、自行改，不同步） |
+| 禁 advisory-only | ❌ **canonical 的原生 repo 自己不在 drift gate 內**——CK_Missive 以手動 `cp` 消費，忘了 copy 就 silent 分歧、下游永遠拿不到修正 | CK_Missive 也改為 vendored 消費並納入 `sync-vendored.sh --check` |
+| 禁複製實作當共享 | ✅ 引擎是薄庫，per-repo 的認證與檢查清單全在 config／adapter | — |
+| 禁單向強推 | ✅ 先在 lvrland 證值（抓到 8 個未知缺陷）才談推廣 | — |
+
+### 這一輪覆盤額外抓到的 6 個缺陷（全部是「移植才會爆」）
+
+1. **漏寫 `flows` → 印「GREEN 全部 0 項通過」**（假綠）。廣度引擎修過同型問題，
+   深度引擎沒修——因為兩支各有一份開頭邏輯。**同一件事兩份來源＝異質同工**，
+   已抽 `_bootstrap.cjs` 單一源。
+2. 設定漏欄位／regex 非法／`routes_source` 指向不存在的檔案 → 原本只在執行中途
+   拋 node 堆疊。改為**上線前結構驗證**，一律 exit 2「未驗完」。
+3. **playwright 路徑寫死 `C:/Users/User1/...`** → 換機器／換使用者／CI 上
+   `MODULE_NOT_FOUND` 崩在 require 行。改為 env → repo node_modules → 全域 →
+   快取掃描，找不到時印**可操作的三種解法**。**崩潰不等於清楚**。
+4. 廣度引擎寫死 `localStorage['user_info']`，深度引擎讀 config → 同型不一致，已合流。
+5. config 位置以固定層數上推 → CK_Missive 改 vendored 消費（多一層）立刻指錯。
+   改為**往上尋找**（最多 6 層）。
+6. **輸出路徑 config 化時，我改了 Missive 的落點，卻沒同步新鮮度檢核與
+   producer registry** → 檢核器對著舊路徑喊「從未執行」。修法有二：輸出復原到
+   該 repo 既有慣例（保住已接好的告警），且**新鮮度檢核改讀同一份 config**。
+
+> **教訓**：把東西抽成共享的當下，最容易斷的不是功能，是**它與既有治理的接線**。
+> 抽取後必須回頭確認「誰在監看它的產出」還指得對。
+
+### 結論（誠實版）
+
+**引擎本身已可移植**（lvrland 實證 62 條路由、8 個真缺陷）。
+**但「成熟」的門檻不是能跑，是設定寫錯時不會給你綠燈**——這點在本次覆盤前
+**不成立**（漏 `flows` 就是綠的）。現已補上結構驗證 + 7 項負向測試各自以正確
+原因失敗。第三個 repo 導入前建議先跑一次負向測試，確認 gate 真的擋得住。
+
+---
+
 ## 6. 檢查清單（新功能上線前）
 
 - [ ] 它壞掉時，第幾階會發現？若答案是「使用者」，補上該階

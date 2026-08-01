@@ -18,6 +18,7 @@ UI 檢核（ui_flow_smoke / ui_page_sweep）由 Windows 排程每日執行，
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import sys
 from datetime import datetime, timezone
@@ -28,12 +29,35 @@ try:
 except Exception:
     pass
 
-ROOT = Path(__file__).resolve().parents[2]
 MAX_AGE_HOURS = 30  # 每日排程 + 6h 寬限
 
+
+def _find_config() -> Path:
+    """往上找 selfaudit.config.json —— 引擎位置可能是原生或 vendored（深度不同），
+    不可寫死上推層數（2026-08-01 CK_Missive 改 vendored 消費時立刻指錯）。"""
+    env = os.environ.get("SELFAUDIT_CONFIG")
+    if env and Path(env).exists():
+        return Path(env)
+    here = Path(__file__).resolve().parent
+    for _ in range(6):
+        cand = here / "selfaudit.config.json"
+        if cand.exists():
+            return cand
+        if here.parent == here:
+            break
+        here = here.parent
+    raise SystemExit("找不到 selfaudit.config.json（頁面層檢核未設定）")
+
+
+# 監看路徑必須**與引擎的輸出設定同源**——初版兩邊各寫一份，
+# 改了 config 的 output 之後這裡仍看舊路徑 → 檢核器自己回報「從未執行」。
+# 這正是本專案一再治理的「同一事實兩份來源」（異質同工）。
+_CFG_PATH = _find_config()
+_CFG = json.loads(_CFG_PATH.read_text(encoding="utf-8"))
+ROOT = _CFG_PATH.parent
 TARGETS = [
-    ("流程檢核", "wiki/memory/integration-health/ui-flow.json"),
-    ("全站掃描", "wiki/memory/integration-health/ui-sweep.json"),
+    ("流程檢核", _CFG["output"]["flow_result"]),
+    ("全站掃描", _CFG["output"]["sweep_result"]),
 ]
 
 
@@ -93,9 +117,14 @@ def main() -> int:
     for x in problems:
         print(f"  - {x}")
     print()
-    print("修法：bash scripts/checks/run_ui_smoke.sh        （流程檢核）")
-    print("      bash scripts/checks/run_ui_smoke.sh --sweep（全站掃描）")
-    print("      排程未安裝：powershell -File scripts/deploy/install-ui-smoke-task.ps1")
+    # 入口腳本名各 repo 不同（Missive=run_ui_smoke.sh、lvrland=run_selfaudit.sh）
+    # → 從 config 取，不寫死；寫死的話提示會叫人去跑不存在的檔案。
+    entry = _CFG.get("entry_script", "scripts/checks/run_selfaudit.sh")
+    print(f"修法：bash {entry}        （流程檢核）")
+    print(f"      bash {entry} --sweep（全站掃描）")
+    installer = _CFG.get("schedule_installer")
+    if installer:
+        print(f"      排程未安裝：powershell -File {installer}")
     return 1 if args.ci else 0
 
 

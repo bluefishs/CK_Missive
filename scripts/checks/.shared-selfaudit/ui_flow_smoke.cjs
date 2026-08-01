@@ -27,31 +27,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const PW_DIR = 'C:/Users/User1/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright';
-const { chromium } = require(PW_DIR);
+const boot = require('./_bootstrap.cjs');
 
-const CACHE = 'C:/Users/User1/AppData/Local/ms-playwright';
-const EXE_CANDIDATES = [
-  CACHE + '/chromium_headless_shell-1223/chrome-headless-shell-win64/chrome-headless-shell.exe',
-  CACHE + '/chromium_headless_shell-1217/chrome-headless-shell-win64/chrome-headless-shell.exe',
-  CACHE + '/chromium_headless_shell-1208/chrome-headless-shell-win64/chrome-headless-shell.exe',
-  CACHE + '/chromium-1161/chrome-win/chrome.exe',
-];
-const EXE = EXE_CANDIDATES.find((p) => fs.existsSync(p));
-
-// Phase 1 引擎化（2026-08-01）：零硬編碼，per-repo 差異全在 selfaudit.config.json。
-// 跨專案移植時只改設定、不改引擎（引擎漂移由 sync-vendored drift gate 擋）。
-const CONFIG_PATH = process.env.SELFAUDIT_CONFIG
-  || path.resolve(__dirname, '..', '..', 'selfaudit.config.json');
-if (!fs.existsSync(CONFIG_PATH)) {
-  console.error(`找不到設定檔：${CONFIG_PATH}
-（跨專案移植需先建立 selfaudit.config.json）`);
-  process.exit(2);
-}
-const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-// ROOT 以「設定檔位置」為準，不可由 __dirname 上推 —— vendored 安裝
-// （.shared-selfaudit/）比原生多一層目錄，上推會指到錯的地方
-const ROOT = path.dirname(CONFIG_PATH);
+// 設定載入 + 結構驗證（缺欄位／flows 為空一律 exit 2「未驗完」，絕不印綠燈）。
+// ROOT 以設定檔位置為準，不可由 __dirname 上推（vendored 安裝多一層目錄）。
+const { CONFIG, ROOT } = boot.loadConfig('flow', __dirname);
+const PW = boot.resolvePlaywright(ROOT);
+const chromium = PW && PW.chromium;
+const EXE = PW && PW.exe;
 const BASE = process.env.SMOKE_BASE || CONFIG.base_url;
 // 截圖寫進 repo 的 docs/health 而非引擎目錄 —— 寫在 vendored 目錄內會讓
 // sync-vendored --check 永遠 DRIFT（2026-08-01 pilot 實際踩到）
@@ -136,10 +119,7 @@ const CHECKS = (CONFIG.flows || []).map((f) => ({
 
 // ---------------------------------------------------------------------------
 async function main() {
-  if (!EXE) {
-    console.error('找不到可用的 Chromium 執行檔，請確認 ms-playwright 快取');
-    process.exit(2);
-  }
+  if (!EXE) boot.fail(boot.playwrightMissingMessage());
   fs.mkdirSync(SHOT_DIR, { recursive: true });
 
   const cookieHeader = process.env.COOKIE || '';
@@ -152,35 +132,7 @@ async function main() {
       viewport: check.viewport || { width: 1440, height: 900 },
     });
 
-    if (check.auth && process.env.USER_INFO) {
-      // SPA 通常先讀 localStorage 判斷登入狀態，只塞 cookie 會被判 anonymous 而導回入口頁。
-      // **但各 repo 的 key 與形狀不同**（2026-08-01 移植 lvrland 時發現）：
-      //   CK_Missive        → key 'user_info'，值就是 user 物件
-      //   CK_lvrland_Webmap → key 'auth-storage'（zustand persist），
-      //                        形狀為 {state:{user,isAuthenticated},version:0}
-      // 故也 config 化，引擎不需要知道任何 repo 的儲存慣例。
-      const st = CONFIG.auth?.session_storage || { key: 'user_info', shape: 'raw' };
-      await context.addInitScript(({ ui, storage }) => {
-        try {
-          const value = storage.shape === 'zustand-persist'
-            ? JSON.stringify({ state: { user: JSON.parse(ui), isAuthenticated: true }, version: 0 })
-            : ui;
-          window.localStorage.setItem(storage.key, value);
-        } catch { /* ignore */ }
-      }, { ui: process.env.USER_INFO, storage: st });
-    }
-    if (check.auth && cookieHeader) {
-      const cookies = cookieHeader.split(';').map((kv) => {
-        const i = kv.indexOf('=');
-        return {
-          name: kv.slice(0, i).trim(),
-          value: kv.slice(i + 1).trim(),
-          domain: new URL(BASE).hostname,
-          path: '/',
-        };
-      }).filter((c) => c.name);
-      await context.addCookies(cookies);
-    }
+    if (check.auth) await boot.applyAuth(context, CONFIG, BASE);
 
     const page = await context.newPage();
     const ctx = { dialogs: [], errors: [] };
