@@ -135,8 +135,12 @@ async function main() {
       if (dialogs.length) problems.push(`跳出提示：${dialogs[0].slice(0, 60)}`);
       // 429 是掃描節奏造成的自我限流，不是頁面缺陷 —— 單獨記錄不列 FAIL
       //（初版沒分開 → 4 頁被誤報成壞掉，實際只是掃太快）
-      const rateLimited = errors.filter((e) => /status of 429/.test(e));
-      const realErrors = errors.filter((e) => !/status of 429/.test(e));
+      // 429 有兩種來源訊息：瀏覽器原生 'status of 429'，與 app 自己記的
+      // （如 '[ApiClient] API Error: 429'）。初版只認前者 → lvrland 的
+      // /admin/user-management 被誤報成頁面壞掉，實際只是掃描把自己限流了。
+      const RATE_LIMITED_RE = /status of 429|Error:\s*429|\b429\b/;
+      const rateLimited = errors.filter((e) => RATE_LIMITED_RE.test(e));
+      const realErrors = errors.filter((e) => !RATE_LIMITED_RE.test(e));
       if (rateLimited.length) throttled.push(route);
       if (realErrors.length) problems.push(`console error：${realErrors[0].slice(0, 90)}`);
     } catch (e) {

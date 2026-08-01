@@ -261,5 +261,7 @@
     "sweep_result": "wiki/memory/integration-health/ui-sweep.json"
   },
   "entry_script": "scripts/checks/run_ui_smoke.sh",
-  "schedule_installer": "scripts/deploy/install-ui-smoke-task.ps1"
+  "schedule_installer": "scripts/checks/.shared-selfaudit/install-selfaudit-task.ps1",
+  "schedule_flow_time": "04:15",
+  "schedule_sweep_time": "04:30"
 }

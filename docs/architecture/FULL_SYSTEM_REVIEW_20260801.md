@@ -113,7 +113,7 @@
 | UI 全站掃描（廣度） | `ui_page_sweep.cjs` | 87 條靜態路由 |
 | 檢核用臨時 session | `ui_smoke_auth.py` | 自簽 20 分鐘，不碰他人登入 |
 | 一鍵入口 | `run_ui_smoke.sh` | `--sweep` 切換廣度 |
-| 每日排程 | `install-ui-smoke-task.ps1` + `run-ui-smoke.cmd` | 04:15 / 04:30 |
+| 每日排程 | 共享 `install-selfaudit-task.ps1` + `run-selfaudit.cmd`（config 驅動，兩 repo 共用）| 04:15 / 04:30 |
 | 檢核新鮮度 | `ui_smoke_freshness.py`（step 77） | 檢核器自己停跑也會被抓 |
 | 導覽 live 稽核 | `navigation_live_integrity_audit.py`（step 78） | 死連結 / 重複路徑 |
 | 同名元件偵測 | `heterogeneous_work_audit.py` H4 | 零誤判設計 |

@@ -41,7 +41,7 @@ Windows 排程 04:15 / 04:30
 且這符合契約規則 4「驗證型 job 也必須留下可驗產出」——
 **檢核器自己停跑，會被既有機制抓到**（cf_tunnel_verify 空跑數月的教訓）。
 
-安裝：`powershell -File scripts/deploy/install-ui-smoke-task.ps1`
+安裝：`powershell -File scripts/checks/.shared-selfaudit/install-selfaudit-task.ps1`
 
 ---
 
