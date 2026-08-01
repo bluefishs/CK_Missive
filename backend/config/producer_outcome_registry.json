@@ -109,6 +109,13 @@
    "_why": "2026-07-30：此 job 曾三層空跑（容器無 pwsh + MISSIVE_PUBLIC_URL 未定義）卻記 success，公網監控失效數月。驗證型 job 也須留下可驗產出。"
   },
   {
+   "name": "能力使用度快照（第6階價值層）",
+   "signal": "file_fresh",
+   "path": "wiki/memory/integration-health/capability-usage.json",
+   "max_h": 30,
+   "_why": "2026-08-01：第 6 階價值層唯一的資料來源。只監看『有沒有持續產出』——本身刻意不告警（價值層是決策輸入，不是每日打擾；接成日推一週內就會變成第 4709 筆沒人看的通知）。判定時點 2026-08-31。"
+  },
+  {
    "name": "UI 流程自我檢核",
    "signal": "file_fresh",
    "path": "wiki/memory/integration-health/ui-flow.json",

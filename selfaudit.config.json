@@ -263,5 +263,13 @@
   "entry_script": "scripts/checks/run_ui_smoke.sh",
   "schedule_installer": "scripts/checks/.shared-selfaudit/install-selfaudit-task.ps1",
   "schedule_flow_time": "04:15",
-  "schedule_sweep_time": "04:30"
+  "schedule_sweep_time": "04:30",
+  "extra_tasks": [
+    {
+      "suffix": "CapabilityUsage",
+      "entry": "scripts/checks/run_capability_snapshot.sh",
+      "time": "04:50",
+      "args": ""
+    }
+  ]
 }

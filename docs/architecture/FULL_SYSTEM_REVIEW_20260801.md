@@ -94,13 +94,13 @@
 
 | # | 議題 | 數據 | 建議 |
 |---|---|---|---|
-| **A1** | **價值層無自動機制** | 告警噪音靠 owner 貼訊息才發現 | 見標準 §5；把「產出被使用程度」變 metric |
+| **A1** | **價值層無自動機制** | 🟡 進行中：已建 `capability_usage_snapshot.py`（Prometheus 真實流量），**判定時點 2026-08-31**；查證中意外發現 **Missive 自 04-19 起就不在任何 Prometheus 抓取目標**（已補回）| 8/31 依數據做 A/B/C |
 | **A2** | 後端 52 個既有測試失敗 | 涵蓋 case_code/pm_case/wiki/multichannel 等 | 需獨立 session；目前無保護力 |
-| **A3** | `dead_ui_detector` 143 候選 | 閾值 10、後端 326 端點 / 前端 1418 字面 | 偵測器噪音大，**需先驗鑑別力**再採信（標準 §3） |
+| **A3** | `dead_ui_detector` 143 候選 | 閾值 10、後端 326 端點 / 前端 1418 字面 | 等 8/31 流量數據，改用**雙證據**（靜態候選 ∩ 零流量）降噪 |
 | **A4** | service entropy 21.1% | 閾值 20%，wiki_* 等散戶 | 低風險技術債 |
 | **A5** | ADR active 20 | 目標 ≤15；ADR-0020 仍 PROPOSAL 逾期 2 月 | 一次性 triage |
 | **A6** | H4 同名元件 4 組 | MermaidBlock（props 不同）/ CategoryPieChart（**3 份**）/ ExpensesTab / StaffTab | 收斂前需驗行為等價 |
-| **A7** | `capability_usage_audit` 輸出為空 | 工具本身失效 | 屬 A1 的關鍵輸入，應先修 |
+| ~~**A7**~~ | ~~`capability_usage_audit` 輸出為空~~ | ✅ 已修：現輸出 87 findings | — |
 | **A8** | `/admin/deployment` 503 | 未配置 GITHUB_TOKEN | owner 決定補 token 或維持 |
 
 ---

@@ -52,6 +52,20 @@ $tasks = @(
     @{ Name = "$project-SelfAudit-Sweep"; Time = $sweepTime; Args = '--sweep' }
 )
 
+# 額外排程（config `extra_tasks`）—— 各 repo 常有「同樣需要每日在 host 跑、
+# 產出交給既有監看」的檢核（靜態檢核、能力使用度快照…）。
+# 若不支援這個，每個 repo 就會各自手刻 schtasks 指令＝同一件事 N 份實作。
+# 格式：[{ "suffix": "Static", "entry": "scripts/checks/run_checks.sh", "time": "04:45", "args": "" }]
+foreach ($e in @($cfg.extra_tasks)) {
+    if (-not $e) { continue }
+    $tasks += @{
+        Name  = "$project-SelfAudit-$($e.suffix)"
+        Time  = $(if ($e.time) { $e.time } else { '04:45' })
+        Args  = $(if ($e.args) { $e.args } else { '' })
+        Entry = $e.entry
+    }
+}
+
 if ($Uninstall) {
     foreach ($t in $tasks) {
         schtasks /delete /TN $t.Name /F 2>$null | Out-Null
@@ -63,7 +77,9 @@ if ($Uninstall) {
 foreach ($t in $tasks) {
     # 指向 wrapper 並把入口腳本當參數傳入，避開 schtasks 對
     #「含空白路徑＋引號參數」的解析陷阱
-    $tr = "$wrapper $entry $($t.Args)".TrimEnd()
+    # extra_tasks 可指定自己的入口腳本；未指定則沿用 config 的 entry_script
+    $taskEntry = $(if ($t.Entry) { $t.Entry } else { $entry })
+    $tr = "$wrapper $taskEntry $($t.Args)".TrimEnd()
     schtasks /create /TN $t.Name /TR $tr /SC DAILY /ST $t.Time /F | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "註冊失敗: $($t.Name)"
