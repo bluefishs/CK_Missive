@@ -5,13 +5,13 @@ template_hash: d93bd661a1
 tool_sequence: [search_documents]
 domains: [doc]
 wiki_topics: [wiki/topics/公文管理系統總覽.md]
-hit_count: 87
-success_count: 85
+hit_count: 91
+success_count: 89
 failure_count: 2
-success_rate: 0.977
-avg_latency_ms: 33137
+success_rate: 0.978
+avg_latency_ms: 49366
 first_seen: '2026-05-05'
-last_seen: '2026-07-31'
+last_seen: '2026-08-01'
 crystallization_candidate: true
 tags: [memory, pattern, doc]
 ---
@@ -24,16 +24,17 @@ tags: [memory, pattern, doc]
 
 ## 統計
 
-- **觸發次數**：87（累計）
-- **成功率**：97.7%
-- **平均延遲**：33138ms
+- **觸發次數**：91（累計）
+- **成功率**：97.8%
+- **平均延遲**：49366ms
 - **涉及領域**：doc
 - **相關 Wiki**：[[wiki/topics/公文管理系統總覽.md]]
 
 ## 典型問法
 
-- 今天到期的公文
 - wiki_search：搜尋派工流程的 wiki 頁面
+- 最近有哪些收文？
+- 今天到期的公文
 
 ## 結晶候選
 
@@ -41,4 +42,4 @@ tags: [memory, pattern, doc]
 
 ---
 
-_由 pattern_extractor 自動產生，最後更新：2026-07-31_
+_由 pattern_extractor 自動產生，最後更新：2026-08-01_
