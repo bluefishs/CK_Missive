@@ -122,8 +122,12 @@ function loadConfig(mode, dirnameFallback) {
     fail(`設定檔不是合法 JSON：${configPath}\n${e.message}`);
   }
 
-  // ROOT 以設定檔位置為準 —— 不可由 __dirname 上推（vendored 安裝多一層目錄）
-  const root = path.dirname(configPath);
+  // ROOT 預設為設定檔所在位置（不可由 __dirname 上推，vendored 安裝多一層目錄）。
+  // 但可用 repo_root 覆寫 —— 這讓設定檔**放在目標專案外面**也能跑，
+  // 亦即「集中執行、目標專案零足跡」模式（見 README §使用型態）。
+  const root = cfg.repo_root
+    ? path.resolve(path.dirname(configPath), cfg.repo_root)
+    : path.dirname(configPath);
   const problems = [];
 
   if (!cfg.base_url) problems.push('缺 base_url');
