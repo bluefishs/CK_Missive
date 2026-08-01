@@ -65,10 +65,24 @@ foreach ($t in $tasks) {
     #「含空白路徑＋引號參數」的解析陷阱
     $tr = "$wrapper $entry $($t.Args)".TrimEnd()
     schtasks /create /TN $t.Name /TR $tr /SC DAILY /ST $t.Time /F | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "已註冊排程: $($t.Name) 每日 $($t.Time)"
-    } else {
+    if ($LASTEXITCODE -ne 0) {
         Write-Warning "註冊失敗: $($t.Name)"
+        continue
+    }
+
+    # schtasks 建立的排程預設 StartWhenAvailable=false —— 機器在排定時間關機
+    # 就**整個跳過、不補跑**，而且不會有任何訊號。這是沉默漏跑，
+    # 檢核器本身消失了卻沒人知道（2026-08-01 實測發現）。
+    # Set-ScheduledTask 對「當前使用者」層級的排程免提權。
+    try {
+        $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
+            -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+            -ExecutionTimeLimit (New-TimeSpan -Hours 2)
+        Set-ScheduledTask -TaskName $t.Name -Settings $settings -ErrorAction Stop | Out-Null
+        Write-Host "已註冊排程: $($t.Name) 每日 $($t.Time)（錯過會補跑）"
+    } catch {
+        Write-Warning "已註冊但無法設定 StartWhenAvailable: $($t.Name) — $($_.Exception.Message)"
+        Write-Warning "  → 機器在排定時間關機時會整個跳過，請手動於工作排程器勾選「僅要有可能就儘快啟動」"
     }
 }
 
