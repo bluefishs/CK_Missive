@@ -95,7 +95,7 @@
 | # | 議題 | 數據 | 建議 |
 |---|---|---|---|
 | **A1** | **價值層無自動機制** | 🟡 進行中：已建 `capability_usage_snapshot.py`（Prometheus 真實流量），**判定時點 2026-08-31**；查證中意外發現 **Missive 自 04-19 起就不在任何 Prometheus 抓取目標**（已補回）| 8/31 依數據做 A/B/C |
-| **A2** | 後端 52 個既有測試失敗 | 涵蓋 case_code/pm_case/wiki/multichannel 等 | 需獨立 session；目前無保護力 |
+| **A2** | ⚠️ **原記載有誤**：不是「52 個測試失敗」，而是**整套測試不能安全執行** | ① 2 支測試在 **collection 階段**就中斷全套（host↔容器路徑假設，L52 家族，**已修**）② `conftest.py` 的 `db_engine` 用 `settings.DATABASE_URL`＝**生產庫**且 `scope="function"`，4203 個測試跑到一半即耗盡 PostgreSQL 連線 | **需測試 DB 隔離**（獨立 session）；在那之前**不應對生產環境跑全量測試** |
 | **A3** | `dead_ui_detector` 143 候選 | 閾值 10、後端 326 端點 / 前端 1418 字面 | 等 8/31 流量數據，改用**雙證據**（靜態候選 ∩ 零流量）降噪 |
 | **A4** | service entropy 21.1% | 閾值 20%，wiki_* 等散戶 | 低風險技術債 |
 | **A5** | ADR active 20 | 目標 ≤15；ADR-0020 仍 PROPOSAL 逾期 2 月 | 一次性 triage |
