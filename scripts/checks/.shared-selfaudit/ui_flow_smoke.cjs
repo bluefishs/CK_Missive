@@ -38,7 +38,12 @@ const EXE = PW && PW.exe;
 const BASE = process.env.SMOKE_BASE || CONFIG.base_url;
 // 截圖寫進 repo 的 docs/health 而非引擎目錄 —— 寫在 vendored 目錄內會讓
 // sync-vendored --check 永遠 DRIFT（2026-08-01 pilot 實際踩到）
-const SHOT_DIR = path.resolve(ROOT, 'docs', 'health', 'ui_flow_smoke_shots');
+// 截圖落點：預設寫進該 repo 的 docs/health；**型態 A（零足跡）必須能外置**，
+// 否則「目標專案 0 個檔案」不成立（2026-08-02 查證發現此破口）。
+// 以 output.shots_dir 覆寫；絕對路徑時 path.resolve 會忽略 ROOT。
+const SHOT_DIR = CONFIG.output && CONFIG.output.shots_dir
+  ? path.resolve(ROOT, CONFIG.output.shots_dir)
+  : path.resolve(ROOT, 'docs', 'health', 'ui_flow_smoke_shots');
 const HEADED = process.argv.includes('--headed');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').split('=')[1];
 

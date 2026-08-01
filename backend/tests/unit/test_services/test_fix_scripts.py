@@ -12,6 +12,18 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
+# `scripts/fixes/` 是 dev-time 修復腳本，**未包進 production image**
+# （容器內 /app/scripts/fixes 不存在）。原本直接 import → collection 階段
+# ModuleNotFoundError → **整個測試套件中斷**，於是「52 個測試失敗」這個數字
+# 長期沒人能複現，因為根本跑不到（2026-08-02 查證）。
+#
+# 這裡明確 skip 並寫清楚原因，而不是 try/except 吞掉：
+# 吞掉會讓「這批測試從未執行」變成隱形（lvrland LR-041 同型）。
+pytest.importorskip(
+    "scripts.fixes.clean_garbage_entities",
+    reason="scripts/fixes 為 dev-time 腳本，未包進 production image；請在 host 執行本檔",
+)
+
 # ============================================================================
 # clean_garbage_entities 測試
 # ============================================================================

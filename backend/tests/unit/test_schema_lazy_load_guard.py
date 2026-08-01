@@ -4,8 +4,24 @@
 import sys
 from pathlib import Path
 
-# 加入 scripts 路徑
-SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts" / "checks"
+# 加入 scripts 路徑。
+# **不可寫死上推層數**（L52 家族）：host 是 <repo>/backend/tests/unit/…（repo 根在 parents[3]），
+# 容器內 /app 就是 backend、路徑少一層 → parents[3] 指到 `/`，import 直接失敗，
+# 而且失敗發生在 collection 階段 → **整個測試套件中斷**，看起來像「測試沒跑」。
+# 2026-08-02 實測：容器內全量測試因此在收集階段就 Interrupted。
+_HERE = Path(__file__).resolve()
+_CANDIDATES = [p / "scripts" / "checks" for p in _HERE.parents[:5]]
+SCRIPTS_DIR = next(
+    (d for d in _CANDIDATES if (d / "schema_lazy_load_guard.py").exists()),
+    None,
+)
+if SCRIPTS_DIR is None:
+    import pytest
+
+    pytest.skip(
+        "找不到 scripts/checks/schema_lazy_load_guard.py（已試 5 層上推）",
+        allow_module_level=True,
+    )
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from schema_lazy_load_guard import check_file  # type: ignore

@@ -42,7 +42,12 @@ const SWEEP = CONFIG.page_sweep || {};
 const BASE = process.env.SMOKE_BASE || CONFIG.base_url;
 // 截圖寫進 repo 的 docs/health 而非引擎目錄 —— 寫在 vendored 目錄內會讓
 // sync-vendored --check 永遠 DRIFT（2026-08-01 pilot 實際踩到）
-const SHOT_DIR = path.resolve(ROOT, 'docs', 'health', 'ui_page_sweep_shots');
+// 截圖落點：預設寫進該 repo 的 docs/health；**型態 A（零足跡）必須能外置**，
+// 否則「目標專案 0 個檔案」不成立（2026-08-02 查證發現此破口）。
+// 以 output.shots_dir 覆寫；絕對路徑時 path.resolve 會忽略 ROOT。
+const SHOT_DIR = CONFIG.output && CONFIG.output.shots_dir
+  ? path.resolve(ROOT, CONFIG.output.shots_dir)
+  : path.resolve(ROOT, 'docs', 'health', 'ui_page_sweep_shots');
 const LIMIT = Number((process.argv.find((a) => a.startsWith('--limit=')) || '').split('=')[1] || 0);
 
 // 不掃：認證流程頁（需外部 OAuth）、開發/示範頁、錯誤頁本身
@@ -98,6 +103,8 @@ async function main() {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   // 登入態注入走共用函式（初版此處寫死 'user_info'、與深度引擎的 config 化不一致）
   await boot.applyAuth(context, CONFIG, BASE);
+  // 有沒有登入態決定「空白頁」該判缺陷還是判未驗（見下方 textLen 判斷）
+  const hasAuth = Boolean(process.env.COOKIE || process.env.USER_INFO);
 
   const bad = [];
   const skipped = [];
@@ -124,7 +131,20 @@ async function main() {
         continue;
       }
       const textLen = (await page.locator('#root').innerText().catch(() => '')).trim().length;
-      if (textLen < 40) problems.push(`畫面幾乎空白（內容 ${textLen} 字）`);
+      if (textLen < 40) {
+        // **未提供登入態時的空白頁不可判為缺陷**：有些 SPA 對未登入的受保護路由
+        // 不導向登入頁，而是渲染空殼 → 每一頁都「空白」。
+        // 2026-08-02 實測：對 CK_PileMgmt 跑免登入掃描，41 條路由產生
+        // **35 個「整頁空白」全數為假陽性**（實際只是沒登入）。
+        // 這種輸出比沒有工具更糟——它讓人以為量過了（標準 §3）。
+        if (!hasAuth) {
+          skipped.push(`${route} → 空白（未提供登入態，無法判定）`);
+          await page.close();
+          await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));
+          continue;
+        }
+        problems.push(`畫面幾乎空白（內容 ${textLen} 字）`);
+      }
 
       for (const t of ERROR_TEXTS) {
         if (await page.getByText(t, { exact: false }).count()) {
@@ -145,6 +165,25 @@ async function main() {
       if (realErrors.length) problems.push(`console error：${realErrors[0].slice(0, 90)}`);
     } catch (e) {
       problems.push(`例外：${String(e).slice(0, 90)}`);
+    }
+
+    // 未提供登入態時，401/403 造成的問題一律判「未驗」而非缺陷。
+    // 2026-08-02 實測：對 CK_PileMgmt 免登入掃描，10 個 FAIL 中有 8 個是
+    // `/admin/*` 因 403 顯示「載入失敗」——未登入看不到管理頁本來就是對的。
+    // 不濾掉的話，型態 A 對「全站需登入」的應用只會產出噪音。
+    // **但 404 / 5xx 不在此列**——那不是權限問題（pile 另兩筆正是這類，屬真線索）。
+    if (!hasAuth && problems.length) {
+      const authSignal = /\b(401|403)\b/;
+      const nonAuth = errors.filter((e) => !authSignal.test(e) && !isNoise(e));
+      const onlyAuthProblems = problems.every(
+        (p) => ERROR_TEXTS.some((t) => p.includes(t)) || authSignal.test(p),
+      );
+      if (onlyAuthProblems && nonAuth.length === 0 && errors.some((e) => authSignal.test(e))) {
+        skipped.push(`${route} → 需登入（401/403），未驗`);
+        await page.close();
+        await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));
+        continue;
+      }
     }
 
     // 已知環境限制降級（每一個問題都被登記的訊號涵蓋，才算已知）
