@@ -62,7 +62,8 @@
         "/documents",
         "/contract-cases",
         "/taoyuan/dispatch",
-        "/calendar"
+        "/calendar",
+        "/kunge/ops"
       ]
     },
     "known_limitations": [
