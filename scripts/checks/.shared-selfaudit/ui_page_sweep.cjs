@@ -219,7 +219,12 @@ async function main() {
   const mobileRows = [];
   if (MP.enabled && Array.isArray(MP.routes) && MP.routes.length) {
     const vp = MP.viewport || { width: 390, height: 844 };
-    const mctx = await browser.newContext({ viewport: vp, isMobile: true, hasTouch: true });
+    // 刻意不設 isMobile —— Playwright 的行動模擬會 shrink-to-fit：頁面內容較寬時
+    // 它把 layout viewport 放大到內容寬度（實測設 390 卻回報 477），
+    // 於是「溢出」永遠算成 0＝假綠。用純 viewport 才有可控基準。
+    // 2026-08-02 對照：同一頁 isMobile=true → innerWidth 477 / doc 477（看似沒事）；
+    //                  純 viewport → innerWidth 390 / doc 476（真的溢出 86px）。
+    const mctx = await browser.newContext({ viewport: vp, hasTouch: true });
     await boot.applyAuth(mctx, CONFIG, BASE);
     for (const route of MP.routes) {
       const page = await mctx.newPage();
@@ -227,14 +232,19 @@ async function main() {
         await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForTimeout(2200);
         if (/\/entry|\/login/.test(page.url())) { await page.close(); continue; }
-        const m = await page.evaluate(() => {
+        const m = await page.evaluate((vw) => {
           const tables = [...document.querySelectorAll('.ant-table-content, .ant-table-body')]
             .map((t) => t.scrollWidth - t.clientWidth).filter((x) => x > 4);
           return {
-            pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+            // 用**設定的**視窗寬做基準，不能用 window.innerWidth：
+            // 當頁面被寬元素撐開時，行動瀏覽器會放大 layout viewport（實測 /taoyuan/dispatch
+            // 設 390 卻回報 985），此時 scrollWidth - innerWidth 會是 0 ＝ 假綠。
+            pageOverflow: document.documentElement.scrollWidth - vw,
+            // innerWidth 本身就是訊號：它 > 設定值代表整頁被撐開（破版），與表格無關
+            layoutViewport: window.innerWidth,
             tableOverflow: tables.length ? Math.max(...tables) : 0,
           };
-        });
+        }, vp.width);
         mobileRows.push({ route, ...m });
       } catch (e) { mobileRows.push({ route, error: String(e).slice(0, 80) }); }
       await page.close();
@@ -279,7 +289,13 @@ async function main() {
     } else {
       console.log(`   已測 ${ranked.length} 頁，皆低於 ${warn}px 門檻`);
     }
-    const pageOver = ranked.filter((r) => r.pageOverflow > 8);
+    const vw = (MP.viewport || {}).width || 390;
+    const blown = ranked.filter((r) => (r.layoutViewport || vw) > vw + 8);
+    if (blown.length) {
+      console.log(`   ⚠ 整頁被撐開（layout viewport > ${vw}px，屬版面破格，與表格無關）${blown.length} 頁：`);
+      blown.slice(0, 5).forEach((r) => console.log(`      ${r.route} — 撐到 ${r.layoutViewport}px`));
+    }
+    const pageOver = ranked.filter((r) => r.pageOverflow > 8 && !blown.includes(r));
     if (pageOver.length) {
       console.log(`   ⚠ 整頁橫向溢出（版面破格，非表格內捲）${pageOver.length} 頁：`);
       pageOver.slice(0, 5).forEach((r) => console.log(`      ${r.route} — ${r.pageOverflow}px`));
