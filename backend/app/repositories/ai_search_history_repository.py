@@ -307,6 +307,7 @@ class AISearchHistoryRepository(BaseRepository[AISearchHistory]):
                     func.count(AISearchHistory.id).label("count"),
                     func.avg(AISearchHistory.results_count).label("avg_results"),
                 )
+                # rls-noqa: 個人搜尋歷史；alias 展開只會讓自動完成建議更全，不涉任何資料可見性 → 影響過低不展開
                 .where(AISearchHistory.user_id == user_id)
             )
             if prefix:

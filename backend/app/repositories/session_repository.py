@@ -59,6 +59,7 @@ class SessionRepository(BaseRepository[UserSession]):
             select(UserSession)
             .where(
                 and_(
+                    # rls-noqa: session 屬單一登入身分，**刻意不跨 alias 共享**（跨身分列出/撤銷 session 會是安全問題）
                     UserSession.user_id == user_id,
                     UserSession.is_active == True,
                     UserSession.expires_at > datetime.utcnow(),
@@ -166,6 +167,7 @@ class SessionRepository(BaseRepository[UserSession]):
         """
         now = datetime.utcnow()
         conditions = [
+            # rls-noqa: 撤銷 session 不得跨 alias（見 L62 說明）
             UserSession.user_id == user_id,
             UserSession.is_active == True,
         ]
@@ -241,6 +243,7 @@ class SessionRepository(BaseRepository[UserSession]):
             select(UserSession)
             .where(
                 and_(
+                    # rls-noqa: 同 L62：session 不跨 alias
                     UserSession.user_id == user_id,
                     UserSession.is_active == True,
                 )
@@ -270,6 +273,7 @@ class SessionRepository(BaseRepository[UserSession]):
             .where(
                 and_(
                     UserSession.id == session_id,
+                    # rls-noqa: 取特定 session 並驗證歸屬，session 不跨 alias
                     UserSession.user_id == user_id,
                     UserSession.is_active == True,
                 )
@@ -295,6 +299,7 @@ class SessionRepository(BaseRepository[UserSession]):
         """
         now = datetime.utcnow()
         conditions = [
+            # rls-noqa: 撤銷該身分其他 session，不得跨 alias
             UserSession.user_id == user_id,
             UserSession.is_active == True,
         ]
@@ -330,6 +335,7 @@ class SessionRepository(BaseRepository[UserSession]):
             update(UserSession)
             .where(
                 and_(
+                    # rls-noqa: 撤銷該身分全部 session，不得跨 alias
                     UserSession.user_id == user_id,
                     UserSession.is_active == True,
                 )
@@ -347,6 +353,7 @@ class SessionRepository(BaseRepository[UserSession]):
         """取得用戶活躍 session 數量"""
         query = select(func.count(UserSession.id)).where(
             and_(
+                # rls-noqa: 計算該身分的 session 數，不跨 alias
                 UserSession.user_id == user_id,
                 UserSession.is_active == True,
                 UserSession.expires_at > datetime.utcnow(),

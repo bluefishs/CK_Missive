@@ -40,6 +40,7 @@ class ProjectStaffRepository:
         result = await self.db.execute(
             select(project_user_assignment).where(
                 (project_user_assignment.c.project_id == project_id) &
+                # rls-noqa: user_id 是要檢查的『被指派對象』，不是查詢者身分
                 (project_user_assignment.c.user_id == user_id)
             )
         )
@@ -158,6 +159,7 @@ class ProjectStaffRepository:
         if project_id is not None:
             conditions.append(project_user_assignment.c.project_id == project_id)
         if user_id is not None:
+            # rls-noqa: 查指定人員的指派清單（管理用），user_id 為操作對象
             conditions.append(project_user_assignment.c.user_id == user_id)
         if status is not None:
             conditions.append(project_user_assignment.c.status == status)
@@ -187,6 +189,7 @@ class ProjectStaffRepository:
             return
         stmt = update(project_user_assignment).where(
             (project_user_assignment.c.project_id == project_id) &
+            # rls-noqa: 更新指定人員的指派，user_id 為操作對象
             (project_user_assignment.c.user_id == user_id)
         ).values(**update_data)
         await self.db.execute(stmt)
@@ -200,6 +203,7 @@ class ProjectStaffRepository:
 
         stmt = delete(project_user_assignment).where(
             (project_user_assignment.c.project_id == project_id) &
+            # rls-noqa: 刪除指定人員的指派，user_id 為操作對象（同 check/update）
             (project_user_assignment.c.user_id == user_id)
         )
         await self.db.execute(stmt)

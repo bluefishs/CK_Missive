@@ -47,6 +47,7 @@ class ExpenseInvoiceRepository(BaseRepository[ExpenseInvoice]):
         if params.status:
             stmt = stmt.where(self.model.status == params.status)
         if params.user_id:
+            # rls-noqa: params.user_id 是呼叫端主動指定的『篩選誰』條件（if 才套用），不是強制 RLS
             stmt = stmt.where(self.model.user_id == params.user_id)
         if params.date_from:
             stmt = stmt.where(self.model.date >= params.date_from)

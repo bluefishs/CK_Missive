@@ -67,6 +67,7 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
         if params.category:
             stmt = stmt.where(self.model.category == params.category)
         if params.user_id:
+            # rls-noqa: 同 expense_invoice：可選篩選條件而非強制 RLS
             stmt = stmt.where(self.model.user_id == params.user_id)
         if params.date_from:
             stmt = stmt.where(self.model.transaction_date >= params.date_from)

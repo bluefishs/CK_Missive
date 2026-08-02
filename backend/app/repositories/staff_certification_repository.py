@@ -77,6 +77,7 @@ class StaffCertificationRepository(BaseRepository[StaffCertification]):
         """
         query = (
             select(StaffCertification)
+            # rls-noqa: 查『指定同仁』的證照（HR/管理語意），user_id 來自路徑參數非登入者
             .where(StaffCertification.user_id == user_id)
             .order_by(desc(StaffCertification.created_at))
             .offset(skip)
@@ -114,6 +115,7 @@ class StaffCertificationRepository(BaseRepository[StaffCertification]):
         ]
 
         if user_id is not None:
+            # rls-noqa: 同 L80：指定對象查詢
             conditions.append(StaffCertification.user_id == user_id)
 
         query = (
@@ -152,8 +154,10 @@ class StaffCertificationRepository(BaseRepository[StaffCertification]):
             (證照列表, 總數) 元組
         """
         query = select(StaffCertification).where(
+            # rls-noqa: 同 L80：指定對象查詢
             StaffCertification.user_id == user_id
         )
+        # rls-noqa: 同 filter_certifications 上一處：指定對象查詢
         conditions = [StaffCertification.user_id == user_id]
 
         # 類型篩選
@@ -209,6 +213,7 @@ class StaffCertificationRepository(BaseRepository[StaffCertification]):
                 StaffCertification.cert_type,
                 func.count(StaffCertification.id).label('count')
             )
+            # rls-noqa: 統計指定同仁的證照（HR 語意），user_id 為操作對象
             .where(StaffCertification.user_id == user_id)
             .group_by(StaffCertification.cert_type)
         )
@@ -221,6 +226,7 @@ class StaffCertificationRepository(BaseRepository[StaffCertification]):
                 StaffCertification.status,
                 func.count(StaffCertification.id).label('count')
             )
+            # rls-noqa: 同 get_statistics 上一處：指定對象
             .where(StaffCertification.user_id == user_id)
             .group_by(StaffCertification.status)
         )

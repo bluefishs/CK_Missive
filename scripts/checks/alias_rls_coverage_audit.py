@@ -64,14 +64,71 @@ _USER_FILTER_PATTERNS = [
     (r"\.user_id\s*==\s*(?:uid|user_id|current_uid|requester_id)\b", "ORM user_id == uid/var"),
     (r"\.created_by\s*==\s*(?:uid|user_id|current_uid|requester_id)\b", "ORM created_by == uid/var"),
     (r"\.assignee_id\s*==\s*(?:uid|user_id|current_uid|requester_id)\b", "ORM assignee_id == uid/var"),
-    # 函數參數 user_id: int / user_id: UUID — 高度暗示有 user filter
-    (r"def\s+\w+\([^)]*\buser_id\s*:\s*(?:int|UUID|str)", "func param user_id"),
+    # 註：原本這裡有一條「函數參數 user_id: int → 算風險」的啟發式規則，
+    # 2026-08-02 移除。實測 24 個 risk 中它貢獻了最多誤判：
+    #   * `handle_text_message(..., user_id: str)` —— LINE/Telegram/Discord 的平台 ID，根本不是本系統 user
+    #   * `get_cert_upload_path(user_id: int, ...)` —— 純組字串路徑，沒有任何查詢
+    #   * `update_project_staff_assignment(project_id, user_id)` —— user_id 是**被指派對象**，不是查詢者
+    # 真正做 RLS 過濾的函式，其函式體內必然還有 `.where(user_id == ...)`，
+    # 會被下面的規則抓到 —— 移除這條不會漏，只會少掉噪音。
     # Raw SQL where user_id =
     (r"WHERE\s+\w*user_id\s*=\s*:(?:current_user|user_id|uid)", "raw SQL user_id ="),
     # SQLAlchemy filter() / filter_by() 形式
     (r"\.filter_by\([^)]*user_id\s*=", "filter_by user_id"),
     (r"\.where\([^)]*user_id\s*==\s*", "select.where user_id =="),
 ]
+
+# ---------------------------------------------------------------------------
+# 誤判排除（2026-08-02）
+#
+# 這支 audit 因引用檔名寫錯（run_fitness_weekly 指向不存在的 alias_rls_audit.py）
+# 而**從未真正執行過**。修好後首次執行報出 24 個 risk，逐一核實發現多數是噪音。
+# 依「清單不穩就不該交付」的判準，先把可判定的誤判型態排除，讓剩下的清單可信。
+#
+# 兩類確定的誤判：
+#  1. **外部平台識別碼**：`User.line_user_id == line_user_id` 是「用 LINE ID 找出是誰」，
+#     屬於身分識別，不是資料列過濾 —— alias 展開對它沒有意義。
+#  2. **JOIN 條件**：`AISearchHistory.user_id == User.id` 是接兩張表，不是限制可見範圍。
+#     （原規則的 `== (current_user|user)\.` 把 `== User.id` 也匹配進去了。）
+# ---------------------------------------------------------------------------
+_EXTERNAL_ID_RE = re.compile(
+    r"\b(?:line|telegram|discord|google|slack|external)_user_id\b|\bline_id\b", re.IGNORECASE
+)
+# `== User.id` / `== users.c.id`：ORM JOIN 條件
+_JOIN_COND_RE = re.compile(r"==\s*(?:User|users)\s*\.\s*(?:id|c\.id)\b")
+
+
+def _is_false_positive(matched: str, snippet: str) -> bool:
+    """判定此命中是否為已知誤判型態（外部平台 ID / JOIN 條件）。"""
+    if _EXTERNAL_ID_RE.search(matched) or _EXTERNAL_ID_RE.search(snippet):
+        return True
+    if _JOIN_COND_RE.search(matched) or _JOIN_COND_RE.search(snippet):
+        return True
+    return False
+
+
+# 人工核實後的豁免標記。
+# 原本 §修法建議 第 3 點就寫著「加 noqa 註解 + 註明」，但**從來沒有實作解析**
+# ——建議了一個不存在的機制（L01 斷鏈家族）。2026-08-02 補上。
+# 用法：在命中行或其上一行寫 `# rls-noqa: <為什麼這不是 RLS>`
+_NOQA_RE = re.compile(r"#\s*rls-noqa\s*:\s*(.+)", re.IGNORECASE)
+
+
+def _has_noqa(text: str, match_start: int, match_end: int | None = None) -> bool:
+    """match 涵蓋範圍內（含起始行的上一行）任一行有 rls-noqa 即視為已核實豁免。
+
+    必須看整個 match 範圍而非只看起始行：`\\.where\\([^)]*user_id\\s*==` 這類 pattern
+    會跨行匹配，起點落在 `.where(` 那一行，真正的 user_id 比對在數行之後——
+    只檢查起始行會讓寫在比對處的 noqa 失效（2026-08-02 實際踩到）。
+    """
+    all_lines = text.splitlines()
+    start_line = text[:match_start].count("\n")
+    end_line = text[: (match_end if match_end is not None else match_start)].count("\n")
+    for i in range(max(0, start_line - 1), min(len(all_lines), end_line + 1)):
+        if _NOQA_RE.search(all_lines[i]):
+            return True
+    return False
+
 
 # Tokens indicating proper RLS handling
 # P0-A (2026-05-19): 加入 v6.10 P1 contracts 模組 token，認 RLSPort/DefaultRLSAdapter
@@ -123,11 +180,14 @@ def _scan_file(path: Path) -> Dict:
     matches: List[Dict] = []
     for pattern, label in _USER_FILTER_PATTERNS:
         for m in re.finditer(pattern, text, re.IGNORECASE):
+            snippet = text[max(0, m.start() - 40): m.end() + 40].replace("\n", "\\n")
+            if _is_false_positive(m.group(0), snippet) or _has_noqa(text, m.start(), m.end()):
+                continue
             line_no = text[: m.start()].count("\n") + 1
             matches.append({
                 "pattern": label,
                 "line": line_no,
-                "snippet": text[max(0, m.start() - 30): m.end() + 30].replace("\n", "\\n"),
+                "snippet": snippet,
             })
 
     if not matches:
@@ -183,11 +243,16 @@ def _walk_repositories_and_services() -> List[Dict]:
             matches: List[Dict] = []
             for pattern, label in _USER_FILTER_PATTERNS:
                 for m in re.finditer(pattern, text, re.IGNORECASE):
+                    # 與 endpoint 掃描共用同一組誤判判定 —— 這裡原本漏掉，
+                    # 導致 endpoint 層已排除、repository/service 層仍報噪音（同型修法要掃全）
+                    snippet = text[max(0, m.start() - 40): m.end() + 40].replace("\n", "\\n")
+                    if _is_false_positive(m.group(0), snippet) or _has_noqa(text, m.start(), m.end()):
+                        continue
                     line_no = text[: m.start()].count("\n") + 1
                     matches.append({
                         "pattern": label,
                         "line": line_no,
-                        "snippet": text[max(0, m.start() - 20): m.end() + 30].replace("\n", "\\n"),
+                        "snippet": snippet,
                     })
             if not matches:
                 continue  # 沒 user filter 跳過

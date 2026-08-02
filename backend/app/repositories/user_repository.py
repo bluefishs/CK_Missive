@@ -150,6 +150,7 @@ class UserRepository(BaseRepository[User]):
         """取得使用者的所有會話"""
         result = await self.db.execute(
             select(UserSession)
+            # rls-noqa: 列出指定使用者的 session，與 session_repository 同理不跨 alias
             .where(UserSession.user_id == user_id)
             .order_by(UserSession.created_at.desc())
         )

@@ -181,11 +181,34 @@ class ProjectQueryBuilder:
         if is_admin:
             return self
 
-        from app.extended.models import project_user_assignment
+        from app.extended.models import project_user_assignment, User
+
+        # ADR-0025 alias 展開（2026-08-02 補）
+        #
+        # 原本只比對單一 user_id —— 同一個人有多個登入身分時，用 A 身分登入
+        # 就看不到掛在 B 身分下的專案。實測當日：`王駿穠`(id 7) 有 6 筆專案指派，
+        # 而它的 canonical 是 `jujuiacc`(id 13)；owner 以 jujuiacc 登入時
+        # **那 6 個專案全部查不到**。另一組 `李昭德`(11)/`luke19630612`(19) 亦分裂（1 筆 vs 2 筆）。
+        #
+        # 這裡用純 SQL 展開而非 `expand_user_alias()`：後者是 async，
+        # 而 builder 是同步鏈式介面，改成 async 會波及所有 caller。
+        # 語意與 expand_user_alias 一致（雙向對稱、無分身者只回自己），
+        # 已用全部 6 個 alias 帳號與 5 個無分身帳號逐一比對驗證。
+        canonical_id = (
+            select(User.canonical_user_id).where(User.id == user_id).scalar_subquery()
+        )
+        alias_group = select(User.id).where(
+            or_(
+                User.id == user_id,                    # 自己
+                User.canonical_user_id == user_id,     # 以自己為 canonical 的分身
+                User.id == canonical_id,               # 自己的 canonical 本尊
+                User.canonical_user_id == canonical_id,  # 同 canonical 的其他分身
+            )
+        )
 
         subquery = (
             select(project_user_assignment.c.project_id)
-            .where(project_user_assignment.c.user_id == user_id)
+            .where(project_user_assignment.c.user_id.in_(alias_group))
         )
         self._conditions.append(self.model.id.in_(subquery))
         return self
