@@ -291,6 +291,11 @@ async function main() {
       console.log(`   表格橫向外溢 ≥${warn}px 共 ${over.length} 頁（手機需左右滑動才看得完整列）：`);
       over.slice(0, 8).forEach((r) => console.log(`      ${r.route} — 外溢 ${r.tableOverflow}px`));
       if (over.length > 8) console.log(`      …另 ${over.length - 8} 頁`);
+    } else if (ranked.length === 0) {
+      // 0 頁不是「全部通過」——是根本沒量到。實際發生過一次（登入態失效時
+      // 每一頁都被導回登入頁而跳過），當時卻印「皆低於門檻」＝假綠。
+      console.log(`   ⚠ 未量到任何頁面（設定了 ${(MP.routes || []).length} 條）`
+        + ' —— 可能登入態失效或全被導回登入頁，**不可視為通過**');
     } else {
       console.log(`   已測 ${ranked.length} 頁，皆低於 ${warn}px 門檻`);
     }

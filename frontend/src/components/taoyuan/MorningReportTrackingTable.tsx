@@ -165,7 +165,7 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
     return Array.from(set).sort().map(c => ({ text: c, value: c }));
   }, [items]);
 
-  const columns: ColumnsType<MorningStatusItem> = [
+  const allColumns: ColumnsType<MorningStatusItem> = [
     {
       title: '派工單號',
       dataIndex: 'dispatch_no',
@@ -273,6 +273,20 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
         text ? <Tag icon={<CalendarOutlined />} color="blue">{text}</Tag> : <Text type="secondary">-</Text>,
     },
   ];
+
+  // 2026-08-03：窄螢幕除了拿掉 scroll.x，還必須拿掉**欄位自己的固定 width** ——
+  // 13 欄的 width 加總是 1620px，fixed layout 會照用，表格照樣撐爆 390px 視窗。
+  // 另收斂次要欄位：手機上先看得到「是誰的、什麼狀態、進度多少」比看全欄重要。
+  const HIDE_ON_MOBILE = new Set(['查估單位', '作業類別', '履約期限']);
+  const columns = isMobile
+    ? allColumns
+        .filter((c) => !HIDE_ON_MOBILE.has(String((c as { title?: unknown }).title ?? '')))
+        .map((c) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { width: _unusedWidth, ...rest } = c as Record<string, unknown>;
+          return { ...rest, ellipsis: (c as { ellipsis?: unknown }).ellipsis ?? true };
+        }) as ColumnsType<MorningStatusItem>
+    : allColumns;
 
   return (
     <Card
