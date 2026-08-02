@@ -123,8 +123,10 @@ const Header: React.FC<HeaderProps> = ({
         </Title>
       </div>
 
-      {/* 右側：坤哥入口 + 通知中心 + 使用者選單 */}
-      <Space size="large">
+      {/* 右側：坤哥入口 + 通知中心 + 使用者選單
+          2026-08-02：窄螢幕改小間距。這一列是**全站共用**，在 390px 下右緣落在 476px，
+          等於每一頁都被撐開 86px —— 行動觀測量到的 12 頁整頁溢出全部源自這裡。 */}
+      <Space size={isMobile ? 'small' : 'large'}>
         <Tooltip title="坤哥 · Missive 意識體：記憶、學習、質疑、進化">
           <Tag
             color="gold"
@@ -157,7 +159,8 @@ const Header: React.FC<HeaderProps> = ({
               icon={<UserOutlined />}
               style={{ backgroundColor: '#1976d2' }}
             />
-            <span style={{ color: '#666' }}>
+            {/* 手機不顯示名字：Avatar 仍可點開選單，選單第一項就是「角色：…」 */}
+            <span style={{ color: '#666', display: isMobile ? 'none' : undefined }}>
               {currentUser?.full_name || currentUser?.username || (
                 // F24 (5/04 debug)：訪客 fallback 加 console.warn 協助診斷
                 // 出現此 fallback = useNavigationData 拿到 currentUser=null
@@ -178,8 +181,9 @@ const Header: React.FC<HeaderProps> = ({
           </Space>
         </Dropdown>
 
-        {/* 2026-06-02 閒置登出倒數（使用者名稱後）— 無操作 30 分鐘自動登出，任何操作即重置 */}
-        <IdleCountdownBadge />
+        {/* 2026-06-02 閒置登出倒數（使用者名稱後）— 無操作 30 分鐘自動登出，任何操作即重置
+            2026-08-02：窄螢幕不顯示（它是最寬的一項），登出行為本身不受影響 */}
+        {!isMobile && <IdleCountdownBadge />}
       </Space>
     </AntHeader>
   );

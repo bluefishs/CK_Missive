@@ -195,12 +195,14 @@ const ERPAssetListPage: React.FC = () => {
     <ResponsiveContent maxWidth="full" padding="medium">
       {/* 統計卡片 */}
       <Card style={{ marginBottom: 16 }}>
-        <Row justify="space-between" align="middle">
+        {/* 2026-08-02：標題與操作列在窄螢幕改為上下排並允許換行，
+            否則按鈕列右緣落在 528px，整頁被撐開 138px */}
+        <Row justify="space-between" align="middle" gutter={[0, 8]} wrap>
           <Col>
             <Title level={3} style={{ margin: 0 }}>資產管理</Title>
           </Col>
           <Col>
-            <Space>
+            <Space wrap>
               {selectedRowKeys.length > 0 && (
                 <Button
                   icon={<AuditOutlined />}
