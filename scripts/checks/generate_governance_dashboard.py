@@ -324,6 +324,27 @@ def render() -> str:
         a(f"  {k:50} {metrics[k]:>12.1f}")
     a("```")
     a("")
+
+    # L73 同型缺口（2026-08-03 補）：§3/§4 抓不到時會保留前次值並標註，§2 沒有 ——
+    # 少一段就靜靜少了，看的人無法分辨「這個 metric 不存在」與「這次沒抓到」。
+    # 08-03 實例：backend 重啟後 §2 少了 32 行 `scheduler_job_last_run_age_seconds`
+    # （那類 gauge 要 job 跑過才存在），dashboard 完全沒有跡象顯示它們消失了。
+    #
+    # 這裡刻意**不保留前次數值**（那會謊報現況），只點名本次沒抓到什麼。
+    prev_keys = {
+        ln.strip().split()[0]
+        for ln in _existing_section_body("## 2.")
+        if ln.startswith("  ") and ln.strip() and not ln.strip().startswith(("`", ">", "#"))
+    }
+    missing = sorted(prev_keys - set(metrics.keys()))
+    if missing:
+        shown = ", ".join(f"`{m}`" for m in missing[:6])
+        more = f"（另 {len(missing) - 6} 項）" if len(missing) > 6 else ""
+        a(f"> ⚠️ **本次未抓到 {len(missing)} 項前次存在的 metric**：{shown}{more}")
+        a("> 常見原因：backend 近期重啟，該類 gauge 需對應 job 跑過一次才會出現"
+          "（例如 `scheduler_job_last_run_age_seconds`）。")
+        a("> 標出來是為了讓「沒抓到」與「值為 0／不存在」看得出差別，此處刻意不填前次數值以免謊報現況。")
+        a("")
     a("> ℹ️ **metric 範疇註記（消 SSOT 誤判）**：`wiki_pages_total` = 全 `wiki/**/*.md` 檔數（含 memory/diary/patterns）；")
     a("> self-retrospective 報告的「wiki 頁數」= LLM wiki 頁（`wiki/` 前兩層）。兩者同名不同範疇，差異屬定義非漂移。")
     a("> `v7_soul_drift_lines = -1` 為 sentinel（容器內 writer 盲視 host `CK_AaaP`，L73）；真值須 host fitness 寫入。")
