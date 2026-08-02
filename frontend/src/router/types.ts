@@ -126,6 +126,11 @@ export const ROUTES = {
   ERP_QUOTATION_DETAIL: '/erp/quotations/:id',
   ERP_QUOTATION_CREATE: '/erp/quotations/create',
   ERP_QUOTATION_EDIT: '/erp/quotations/:id/edit',
+  // 請款填報改為獨立頁（2026-08-02 pilot）：沿用公文的「填報＝獨立路由」模式，
+  // 手機有完整空間、可分享連結、返回不失去 context。
+  // 「開立發票」「確認收款」兩個 3 欄位快速動作仍留在 Tab 內的 Modal（欄位少、緊耦合）。
+  ERP_BILLING_CREATE: '/erp/quotations/:quotationId/billings/create',
+  ERP_BILLING_EDIT: '/erp/quotations/:quotationId/billings/:billingId/edit',
   // 費用報銷
   ERP_EXPENSES: '/erp/expenses',
   ERP_EXPENSE_CREATE: '/erp/expenses/create',

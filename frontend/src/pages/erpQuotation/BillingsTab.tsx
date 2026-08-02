@@ -4,16 +4,16 @@
  * 報價單詳情頁的請款子表，支援 CRUD 操作。
  * 狀態/查詢/handlers 已提取至 useBillingHandlers hook。
  *
- * ACCEPTED EXCEPTION: Modal CRUD pattern retained (3 modals: billing/invoice/payment).
- * Reason: Tab-inline editing within ERP Quotation detail page.
- * - Billing modal (5 fields): core CRUD for billing periods
- * - Invoice modal (3 fields): quick invoice creation from billing
- * - Payment modal (3 fields): payment confirmation workflow
- * All tightly coupled to erpQuotationId context with expandable row detail.
- * Quality: Handlers extracted to useBillingHandlers, form validation, loading states,
- * Popconfirm delete, destroyOnHidden for form cleanup.
+ * ACCEPTED EXCEPTION: Modal 僅保留 2 個快速動作（invoice / payment），各 3 欄位。
+ * 2026-08-02 修訂：原本連「新增/編輯請款」(5 欄位) 也走 Modal，已改為獨立路由頁
+ * `ERPBillingFormPage`（沿用公文的填報模式）。04-06 的豁免理由（欄位少＋緊耦合）
+ * 對 5 欄位的主要填報不再成立 —— 那是**桌面**成立、行動情境未被納入考慮：
+ * 獨立頁換到的是手機完整縱向空間、可分享網址、返回鍵正確、重整不丟資料。
  *
- * @version 1.1.1
+ * 仍為 Modal 的兩個動作是刻意保留：欄位少、緊接某一列的動作而來，
+ * 導頁反而讓人失去所在位置。
+ *
+ * @version 1.2.0
  */
 
 import React from 'react';
@@ -34,11 +34,14 @@ import {
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, DollarOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { useNavigate } from 'react-router-dom';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
 import dayjs from 'dayjs';
 
 import type { ERPBilling, ERPBillingStatus } from '../../types/erp';
 import { ERP_BILLING_STATUS_LABELS } from '../../types/erp';
+import { ROUTES } from '../../router/types';
+import { useResponsive } from '../../hooks';
 
 import { useBillingHandlers } from './useBillingHandlers';
 
@@ -66,25 +69,19 @@ export interface BillingsTabProps {
 // =============================================================================
 
 const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
+  const navigate = useNavigate();
+  const { isMobile } = useResponsive();
   const {
-    form,
     invoiceForm,
     paymentForm,
-    modalOpen,
-    editingRecord,
     invoiceModalOpen,
     paymentModalOpen,
     billings,
     billingsWithDetails,
     isLoading,
-    createPending,
     updatePending,
     createInvoicePending,
-    handleAdd,
-    handleEdit,
     handleDelete,
-    handleSubmit,
-    handleCancel,
     handleOpenInvoiceModal,
     handleCancelInvoiceModal,
     handleConfirmPayment,
@@ -93,8 +90,17 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
     handleCreateInvoice,
   } = useBillingHandlers(erpQuotationId);
 
+  const goCreate = () =>
+    navigate(ROUTES.ERP_BILLING_CREATE.replace(':quotationId', String(erpQuotationId)));
+  const goEdit = (billingId: number) =>
+    navigate(
+      ROUTES.ERP_BILLING_EDIT
+        .replace(':quotationId', String(erpQuotationId))
+        .replace(':billingId', String(billingId)),
+    );
+
   // Columns
-  const columns: ColumnsType<ERPBilling> = [
+  const allColumns: ColumnsType<ERPBilling> = [
     {
       title: '請款期別',
       dataIndex: 'billing_period',
@@ -174,7 +180,7 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
             type="link"
             size="small"
             icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
+            onClick={() => goEdit(record.id)}
           />
           <Popconfirm
             title="確定要刪除此請款紀錄？"
@@ -196,10 +202,18 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
 
   const dataSource = Array.isArray(billings) ? billings : [];
 
+  // 手機收斂欄位：只留「期別／金額／狀態／操作」，其餘仍可由展開列查看。
+  // 量測依據（2026-08-02 mobile_probe）：報價頁表格在 390px 下橫向外溢 708px，
+  // 桌面 1440px 為 0 —— 是窄螢幕獨有的問題，不是表格本身欄位太多。
+  const HIDE_ON_MOBILE = ['billing_date', 'payment_date', 'payment_amount'];
+  const columns = isMobile
+    ? allColumns.filter((c) => !HIDE_ON_MOBILE.includes(String(c.key)))
+    : allColumns;
+
   return (
     <>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={goCreate} block={isMobile}>
           新增請款
         </Button>
       </div>
@@ -255,59 +269,7 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
         }}
       />
 
-      <Modal
-        title={editingRecord ? '編輯請款' : '新增請款'}
-        open={modalOpen}
-        onOk={handleSubmit}
-        onCancel={handleCancel}
-        confirmLoading={createPending || updatePending}
-        destroyOnHidden
-        width={560}
-      >
-        <Form form={form} layout="vertical" preserve={false}>
-          <Form.Item name="billing_period" label="請款期別">
-            <Input placeholder="例：第 1 期" />
-          </Form.Item>
-
-          <Form.Item
-            name="billing_date"
-            label="請款日期"
-            rules={[{ required: true, message: '請選擇請款日期' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item
-            name="billing_amount"
-            label="請款金額"
-            rules={[{ required: true, message: '請輸入請款金額' }]}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              precision={0}
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => Number((value ?? '').replace(/,/g, '')) as 0}
-            />
-          </Form.Item>
-
-          <Form.Item name="payment_status" label="收款狀態" initialValue="pending">
-            <Select>
-              {(Object.entries(ERP_BILLING_STATUS_LABELS) as [ERPBillingStatus, string][]).map(
-                ([key, label]) => (
-                  <Select.Option key={key} value={key}>
-                    {label}
-                  </Select.Option>
-                ),
-              )}
-            </Select>
-          </Form.Item>
-
-          <Form.Item name="notes" label="備註">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
-      </Modal>
+      {/* 新增/編輯請款已改為獨立頁 ERPBillingFormPage（見檔首說明） */}
 
       <Modal
         title="開立發票"

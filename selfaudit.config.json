@@ -237,6 +237,27 @@
       ]
     },
     {
+      "id": "billing-form-page",
+      "name": "請款填報獨立頁（2026-08-02 去 Modal pilot，含手機視窗）",
+      "auth": true,
+      "url": "/erp/quotations/167/billings/create",
+      "viewport": { "width": 390, "height": 844 },
+      "steps": [
+        { "action": "wait", "ms": 2500 },
+        {
+          "action": "assertTextsPresent",
+          "texts": ["新增請款", "請款日期", "請款金額"],
+          "failMsg": "請款填報頁沒有渲染出表單（路由或 lazy import 斷了）"
+        },
+        {
+          "action": "assertCount",
+          "selector": "button:has-text(\"返回\")",
+          "min": 1,
+          "failMsg": "缺返回鍵——獨立頁若無返回，使用者會被困在填報頁"
+        }
+      ]
+    },
+    {
       "id": "mobile-create",
       "name": "行動版核銷建立頁（重點摘要 + 批次連續）",
       "auth": true,
