@@ -232,6 +232,11 @@ async function main() {
         await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForTimeout(2200);
         if (/\/entry|\/login/.test(page.url())) { await page.close(); continue; }
+        // 註（2026-08-02）：這裡量到的是「進頁約 2.2 秒時」的狀態，**刻意不等到完全穩定**。
+        // 實測 /taoyuan/dispatch：2.2 秒時仍渲染桌面版表格（外溢 632px），
+        // 到 3 秒才切成手機版清單（表格 0）。兩個數字都對，但意義不同——
+        // 使用者在手機上開這頁，前幾秒確實會先看到會橫向溢出的桌面版表格再跳版。
+        // 調高等待會讓這個「佈局跳動」從報告裡消失，那是把問題藏起來而不是解決。
         const m = await page.evaluate((vw) => {
           const tables = [...document.querySelectorAll('.ant-table-content, .ant-table-body')]
             .map((t) => t.scrollWidth - t.clientWidth).filter((x) => x > 4);
