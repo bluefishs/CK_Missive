@@ -63,9 +63,11 @@ async def check_freshness() -> dict:
     last = row["last_enrich_at"]
     hours_since = None
     if last:
-        # 欄位可能是 timestamptz（aware）也可能是 timestamp（naive），
-        # 拿錯基準會直接 TypeError，故依實際值決定 now。
-        now = datetime.now(last.tzinfo) if last.tzinfo else datetime.utcnow()
+        # 欄位可能是 timestamptz（aware）也可能是 timestamp（naive）。
+        # naive 時必須用 datetime.now()（本地）而非 utcnow()：本 DB 的 timestamp
+        # 存的是本地時間，配 utcnow() 會少 8 小時 → 算出**負的** hours_since
+        # （2026-08-02 實測 -6.8h，判定雖仍 GREEN 但數字是錯的）。
+        now = datetime.now(last.tzinfo) if last.tzinfo else datetime.now()
         hours_since = (now - last).total_seconds() / 3600
 
     # asyncpg 的 Record 用鍵存取（不支援屬性存取）
