@@ -41,7 +41,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${CYAN}===========================================${NC}"
-echo -e "${CYAN} Fitness Tier 2 Weekly — 23 trend step    ${NC}"
+echo -e "${CYAN} Fitness Tier 2 Weekly — 24 trend step    ${NC}"
 echo -e "${CYAN}===========================================${NC}"
 echo ""
 
@@ -65,7 +65,7 @@ run_step() {
     local step_name="$2"
     local script="$3"
 
-    echo -e "${CYAN}[$step_num/23] $step_name${NC}"
+    echo -e "${CYAN}[$step_num/24] $step_name${NC}"
     if [[ ! -f "$script" ]]; then
         # 腳本不見了要算失敗 —— 原本只印一行 warning 就 return，
         # 等於「檢查消失」與「檢查通過」同樣是綠（alias_rls_audit 正是這個狀況）。
@@ -119,6 +119,12 @@ run_step "21" "knowledge dedup audit"         "scripts/checks/knowledge_dedup_au
 run_step "22" "graph domain tagging audit"    "scripts/checks/graph_domain_tagging_audit.py"
 # 2026-08-02：docs/architecture 累積 102 份文件卻無任何檢核在問「還算數嗎」
 run_step "23" "doc reference integrity"       "scripts/checks/doc_reference_integrity_audit.py"
+
+# 2026-08-03：測試套件本身的健康從來沒有任何一階在看 —— 整套長期不能執行，
+# 是 owner 記在待辦裡而不是系統發現的；同期 ezbid parser 重寫後兩天無回歸保護。
+# 比對的是「測試 id 集合 vs 基線」，不是要求全綠（現有 41 項測試債會讓它天天紅，
+# 那就變成沒人看的告警）。跑全套約 9 分鐘。
+run_step "24" "測試套件健康（vs 基線）"     "scripts/checks/test_suite_health.py"
 
 # ============================================================
 # Summary

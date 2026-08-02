@@ -14,6 +14,28 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 REPO_PATCH = "app.repositories.agent_learning_repository.AgentLearningRepository"
 
+# `inject_cross_session_learnings` 除了 repository 之外，還會 merge 一份
+# **Redis 共享學習池**（R-3）。原本的測試只 mock 了 repository，於是單獨執行時
+# 會連上真的 Redis，把生產的學習記錄（「(使用 47 次)」之類）混進結果 ——
+# 斷言「不該出現 (使用」自然就掛了。
+#
+# 整個 class 一起跑卻會過，因為前面的測試恰好讓那條路徑取不到東西；
+# 這就是為什麼它在全套裡忽紅忽綠：**測試以為自己隔離了，其實沒有**
+# （與 conftest 那個對外通知安全網同型）。
+SHARED_POOL_PATCH = (
+    "app.services.ai.agent.agent_learning_injector._merge_shared_pool_learnings"
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_shared_redis_pool():
+    """切斷 Redis 共享池，讓注入結果只由測試提供的 mock 決定。"""
+    async def _passthrough(learnings):
+        return learnings
+
+    with patch(SHARED_POOL_PATCH, side_effect=_passthrough):
+        yield
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
