@@ -241,7 +241,7 @@
     },
     {
       "id": "account-record-entry",
-      "name": "報價單「應收帳款」的新增按鈕真的導到填報頁（防「頁面可用但沒入口」）",
+      "name": "應收填報：從報價單點入 → 導向獨立頁 → 表單渲染（入口與頁面一次驗完）",
       "auth": true,
       "url": "/erp/quotations/167",
       "steps": [
@@ -269,29 +269,13 @@
         },
         {
           "action": "wait",
-          "ms": 2200
+          "ms": 2600
         },
         {
           "action": "assertUrlMatches",
           "pattern": "accounts/receivable/create",
           "okMsg": "已導向獨立填報頁",
           "failMsg": "點了新增卻沒有導向填報頁"
-        }
-      ]
-    },
-    {
-      "id": "account-record-form-page",
-      "name": "應收填報獨立頁（去 Modal，含手機視窗）",
-      "auth": true,
-      "url": "/erp/quotations/167/accounts/receivable/create",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "steps": [
-        {
-          "action": "wait",
-          "ms": 2500
         },
         {
           "action": "assertTextsPresent",
@@ -300,7 +284,7 @@
             "請款日期",
             "請款金額"
           ],
-          "failMsg": "應收填報頁沒有渲染出表單（路由或 lazy import 斷了）"
+          "failMsg": "導向了但表單沒渲染出來"
         },
         {
           "action": "assertCount",
@@ -345,6 +329,42 @@
           "selector": "button:has-text(\"建立並繼續\")",
           "min": 1,
           "failMsg": "沒有「建立並繼續掃下一張」（手機批次會被中斷）"
+        }
+      ]
+    },
+    {
+      "id": "ops-morning-report",
+      "name": "運維「營運 › 晨報與推播」tab（獨立後的核心資訊）",
+      "auth": true,
+      "url": "/kunge/ops",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3200
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "營運",
+            "系統",
+            "AI 診斷"
+          ],
+          "failMsg": "ops 外層三組沒有渲染（分組結構斷了）"
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "晨報與推播",
+            "今日晨報",
+            "LINE 月推播配額",
+            "近 7 日派送狀態"
+          ],
+          "failMsg": "晨報與推播 tab 的核心區塊沒渲染出來"
+        },
+        {
+          "action": "assertTextAbsent",
+          "text": "配額查不到",
+          "failMsg": "LINE 配額查詢失敗（Redis 或後端欄位問題）"
         }
       ]
     }

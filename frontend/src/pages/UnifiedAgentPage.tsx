@@ -18,6 +18,7 @@ import {
   ScheduleOutlined, DashboardOutlined,
   BarChartOutlined, DatabaseOutlined, HeartOutlined,
   ThunderboltOutlined, SwapOutlined,
+  ControlOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -26,7 +27,6 @@ import { createTabItem } from '../components/common/DetailPage/utils';
 import type { AgentSelfProfile, DashboardSnapshot } from './digitalTwin/ProfileCard';
 import { defaultProfile } from './digitalTwin/ProfileCard';
 import { GatewayHealthBadge } from './digitalTwin/GatewayHealthBadge';
-import { MorningReportCard } from './digitalTwin/MorningReportCard';
 import { TopologyTab } from './digitalTwin/TopologyTab';
 
 // Lazy-load heavy sub-tabs
@@ -45,6 +45,9 @@ const TraceWaterfallTab = React.lazy(() =>
 );
 const DashboardTab = React.lazy(() =>
   import('./digitalTwin/DashboardTab').then(m => ({ default: m.DashboardTab }))
+);
+const MorningReportOpsTab = React.lazy(() =>
+  import('./digitalTwin/MorningReportOpsTab').then(m => ({ default: m.MorningReportOpsTab }))
 );
 const DispatchProgressTab = React.lazy(() =>
   import('./digitalTwin/DispatchProgressTab').then(m => ({ default: m.DispatchProgressTab }))
@@ -82,8 +85,12 @@ export interface UnifiedAgentPageProps {
 const UnifiedAgentPage: React.FC<UnifiedAgentPageProps> = ({ mode }) => {
   const isAdmin = mode === 'admin';
   // 2026-06-02 kunge tab 整併：移除 ops「對話」(與主 /kunge/chat 之 RAGChatPanel 純重複)。
-  // 預設改「自省」(reflection) — 運維模式首屏為能力分析而非重複對話。
-  const [activeTab, setActiveTab] = useState('reflection');
+  // 2026-08-02 分組（owner：資訊過多、營運核心雜亂）：11 個扁平 tab 收斂為
+  // 外層三組「營運／系統／AI 診斷」，預設停在營運，首屏即是每天要看的東西。
+  const [activeGroup, setActiveGroup] = useState('ops-core');
+  const [activeTab, setActiveTab] = useState('morning-report');
+  const [systemTab, setSystemTab] = useState('dashboard');
+  const [aiTab, setAiTab] = useState('reflection');
   const queryClient = useQueryClient();
 
   // Prefetch self-profile
@@ -108,25 +115,48 @@ const UnifiedAgentPage: React.FC<UnifiedAgentPageProps> = ({ mode }) => {
     staleTime: 5 * 60_000,
   });
 
-  const tabItems = useMemo(() => {
-    const items = [
-      // ── 核心 Tab（兩模式共用）──
-      // 2026-06-02 kunge tab 整併：移除「對話」(與主 /kunge/chat RAGChatPanel 純重複)。
-      // 對話統一由主 /kunge/chat 提供，運維模式聚焦診斷/監控。
+  // ── 第一層：三組（營運 / 系統 / AI 診斷）──
+  // 分組準則＝「這個資訊是誰每天要看的」：
+  //   營運    ＝ 每天都要看的業務狀態（晨報推播、派工進度）
+  //   系統    ＝ 出事時才查的機器狀態（儀表板、服務、管線、數據）
+  //   AI 診斷 ＝ 只有在懷疑 agent 行為時才看（自省、追蹤、健康進化、拓撲、效能、DualMode）
+  const groupItems = useMemo(() => {
+    const opsCore = [
+      createTabItem('morning-report', { icon: <FileTextOutlined />, text: '晨報與推播' },
+        suspense(<MorningReportOpsTab />, '載入晨報與推播...')
+      ),
+      createTabItem('dispatch', { icon: <ScheduleOutlined />, text: '派工進度' },
+        suspense(<DispatchProgressTab />, '載入派工進度...')
+      ),
+    ];
+
+    const system = [
+      createTabItem('dashboard', { icon: <DashboardOutlined />, text: '儀表板' },
+        suspense(<DashboardTab />, '載入儀表板...')
+      ),
+    ];
+    if (isAdmin) {
+      system.push(
+        createTabItem('status', { icon: <HeartOutlined />, text: '服務狀態' },
+          suspense(<ServiceStatusTab />)
+        ),
+        createTabItem('pipeline', { icon: <DatabaseOutlined />, text: '資料管線' },
+          suspense(<DataPipelineTab />)
+        ),
+        createTabItem('analytics', { icon: <BarChartOutlined />, text: '數據分析' },
+          suspense(<DataAnalyticsTab />)
+        ),
+      );
+    }
+
+    // ADR-0031 Phase 5：`進化` → `健康進化`（Agent 健康視角，對比坤哥「結晶進化」）
+    const ai = [
       createTabItem('reflection', { icon: <RadarChartOutlined />, text: '自省' },
         suspense(<CapabilityRadarTab />, '載入能力分析...')
       ),
       createTabItem('trace', { icon: <UnorderedListOutlined />, text: '追蹤' },
         suspense(<TraceWaterfallTab />, '載入追蹤...')
       ),
-      createTabItem('dispatch', { icon: <ScheduleOutlined />, text: '派工' },
-        suspense(<DispatchProgressTab />, '載入派工進度...')
-      ),
-      createTabItem('dashboard', { icon: <DashboardOutlined />, text: '儀表板' },
-        suspense(<DashboardTab />, '載入儀表板...')
-      ),
-      // ── 進階 Tab（兩模式共用但使用者模式可選顯示）──
-      // ADR-0031 Phase 5：rename `進化` → `健康進化`（Agent 健康視角，對比坤哥「結晶進化」）
       createTabItem('evolution', { icon: <ExperimentOutlined />, text: '健康進化' },
         suspense(<EvolutionTab />, '載入 Agent 健康進化...')
       ),
@@ -134,21 +164,10 @@ const UnifiedAgentPage: React.FC<UnifiedAgentPageProps> = ({ mode }) => {
         <TopologyTab />
       ),
     ];
-
-    // ── 管理專用 Tab ──
     if (isAdmin) {
-      items.push(
+      ai.push(
         createTabItem('agent-perf', { icon: <ThunderboltOutlined />, text: 'Agent 效能' },
           suspense(<AgentPerformanceTab />)
-        ),
-        createTabItem('analytics', { icon: <BarChartOutlined />, text: '數據分析' },
-          suspense(<DataAnalyticsTab />)
-        ),
-        createTabItem('pipeline', { icon: <DatabaseOutlined />, text: '資料管線' },
-          suspense(<DataPipelineTab />)
-        ),
-        createTabItem('status', { icon: <HeartOutlined />, text: '服務狀態' },
-          suspense(<ServiceStatusTab />)
         ),
         createTabItem('dual-mode', { icon: <SwapOutlined />, text: 'DualMode 比較' },
           suspense(<DualModeChatPanel />, '載入雙模式...')
@@ -156,8 +175,24 @@ const UnifiedAgentPage: React.FC<UnifiedAgentPageProps> = ({ mode }) => {
       );
     }
 
-    return items;
-  }, [isAdmin]);
+    return [
+      {
+        key: 'ops-core',
+        label: <span><ControlOutlined /> 營運</span>,
+        children: <Tabs activeKey={activeTab} onChange={setActiveTab} items={opsCore} />,
+      },
+      {
+        key: 'system',
+        label: <span><CloudServerOutlined /> 系統</span>,
+        children: <Tabs activeKey={systemTab} onChange={setSystemTab} items={system} />,
+      },
+      {
+        key: 'ai',
+        label: <span><RadarChartOutlined /> AI 診斷</span>,
+        children: <Tabs activeKey={aiTab} onChange={setAiTab} items={ai} />,
+      },
+    ];
+  }, [isAdmin, activeTab, systemTab, aiTab]);
 
   return (
     <div style={{ padding: '0 0 24px' }}>
@@ -188,10 +223,16 @@ const UnifiedAgentPage: React.FC<UnifiedAgentPageProps> = ({ mode }) => {
               dashboardLoading={dashboardLoading}
             />
           </React.Suspense>
-          {isAdmin && <MorningReportCard />}
+          {/* 2026-08-02：原本的晨報小卡已移除 —— 同一份資訊不放兩處，
+              完整版（含派送狀態、月配額、快照趨勢）在「營運 › 晨報與推播」。 */}
         </Col>
         <Col xs={24} lg={18}>
-          <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+          <Tabs
+            type="card"
+            activeKey={activeGroup}
+            onChange={setActiveGroup}
+            items={groupItems}
+          />
         </Col>
       </Row>
     </div>

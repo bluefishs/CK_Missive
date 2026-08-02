@@ -169,6 +169,41 @@ async def morning_report_history(
         )
 
 
+async def _line_monthly_quota() -> dict:
+    """LINE 本月推播用量（2026-08-02）。
+
+    數字來源與守欄本身**同一個 Redis key**（`line:push:count:<YYYY-MM>`，
+    由 line_bot._within_monthly_budget 每次 push 前 INCR），不另外自己數一份——
+    否則畫面上的數字會跟實際擋人的那個數字各自演化。
+
+    Redis 不可用時回 available=False 而非 0：**0 會被誤讀成「本月還沒推過」**，
+    但實際是「查不到」。這兩件事對判讀的意義完全相反。
+    """
+    import os as _os
+    from datetime import datetime
+
+    month = datetime.now().strftime("%Y-%m")
+    cap = int(_os.getenv("LINE_MONTHLY_SOFT_CAP", "185"))
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if not redis:
+            return {"available": False, "reason": "redis_unavailable", "month": month, "cap": cap}
+        raw = await redis.get(f"line:push:count:{month}")
+        used = int(raw) if raw is not None else 0
+        return {
+            "available": True,
+            "month": month,
+            "used": used,
+            "cap": cap,          # 軟上限（預留 429／重試餘裕）
+            "hard_limit": 200,   # LINE 免費方案硬限
+            "remaining": max(0, cap - used),
+        }
+    except Exception as e:
+        logger.warning("LINE 月配額查詢失敗: %s", e)
+        return {"available": False, "reason": "query_failed", "month": month, "cap": cap}
+
+
 @router.post("/stats/morning-report/status")
 async def morning_report_status(
     db: AsyncSession = Depends(get_async_db),
@@ -194,6 +229,9 @@ async def morning_report_status(
                     "line_consecutive_failures": line_streak,
                     "should_alert": tg_streak >= 2 or line_streak >= 2,
                 },
+                # 2026-08-02：LINE 月配額併入本端點，不另開端點——前端要的是
+                # 「這個月還能推幾則」，與派送狀態是同一個判讀情境。
+                "line_quota": await _line_monthly_quota(),
             },
             media_type="application/json; charset=utf-8",
         )
