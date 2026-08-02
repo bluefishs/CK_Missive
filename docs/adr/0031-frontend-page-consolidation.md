@@ -30,6 +30,12 @@ v5.7~v5.8 快速迭代累積出**多個職責重疊的頁面**：
 
 `UnifiedAgentPage` 降格為 `components/kunge/OpsDashboard.tsx` 子元件（不再是獨立 page）。
 
+> ⚠️ **2026-08-02 實況更正**：下方「OpsDashboard 為 primary、UnifiedAgentPage 僅為 stub」
+> 的敘述**與實作方向相反**。實際上實作留在 `pages/UnifiedAgentPage.tsx`，
+> `components/kunge/OpsDashboard.tsx` 才是 re-export。
+> 保持現狀不搬動（搬檔會動到 `/agent/dashboard` 與 `/admin/ai-assistant` 兩條既有 redirect），
+> 只把敘述改成與實作一致——這正是本 ADR 自己要防的「文件與實作脫節」。
+
 ### 2. 圖譜整合策略（方案 B：保留獨立頁 + 共用元件）
 
 **不合併成 Hub + tab**（每個圖譜互動模型差異太大），但：
@@ -68,7 +74,7 @@ v6.1.0 release 前清除書籤 6 個月 buffer。
 |---|---|---|
 | `components/memory/MemoryStatsRow` | kunge/MemoryTab + MemoryDashboardPage 各 60+L 重複 | P1（本 ADR 落地） |
 | `components/graph/ForceGraphLazy` | 8+ 處 `react-force-graph-2d` lazy import | P1（本 ADR 落地） |
-| `components/kunge/OpsDashboard` | 原 UnifiedAgentPage | P1（本 ADR 落地） |
+| `components/kunge/OpsDashboard` | re-export（實作在 pages/UnifiedAgentPage） | P1（本 ADR 落地；2026-08-02 更正方向） |
 | `components/graph/GraphCanvas v2` | 5 圖譜頁共用 force-graph 元件 | **P2（v6.1.0）**— 分 4 子 PR |
 | `components/evolution/JournalTimeline` | digitalTwin/EvolutionTab 內部 journal | P3 |
 
@@ -119,7 +125,7 @@ grep -rn "AI_ASSISTANT_MANAGEMENT\|CODE_WIKI\|AGENT_DASHBOARD\b" frontend/src --
 
 # Phase 2 驗證
 grep -rn "UnifiedAgentPage\|OpsDashboard" frontend/src --include="*.tsx"
-# 期望：OpsDashboard 為 primary；UnifiedAgentPage 僅為 re-export stub
+# 實況（2026-08-02 更正）：UnifiedAgentPage 為 primary；OpsDashboard 為 re-export
 
 # Phase 4 驗證
 grep -rn "react-force-graph-2d" frontend/src --include="*.tsx" --include="*.ts"
@@ -146,3 +152,29 @@ curl -I http://localhost:3000/ai/skill-lineage
 - ADR-0023：坤哥意識體（本 ADR 實現入口統一細則）
 - ADR-0028：錯誤合約化（Phase 4 ForceGraphLazy 應用 timeout 合約）
 - ADR-0029：ADR Lifecycle（本 ADR 為 active status，v6.1 可考慮 archive）
+
+---
+
+## 2026-08-02 補充：/ops 內容分組（owner：資訊過多、營運核心雜亂）
+
+管理者原本看到 11 個扁平並列的 tab，三種性質混在一起。收斂為外層三組，
+分組準則是**「這個資訊是誰每天要看的」**：
+
+| 組 | 內容 | 使用時機 |
+|---|---|---|
+| 營運 | 晨報與推播（預設）、派工進度 | 每天 |
+| 系統 | 儀表板（admin +服務狀態/資料管線/數據分析） | 出事才查 |
+| AI 診斷 | 自省/追蹤/健康進化/拓撲（admin +Agent 效能/DualMode） | 懷疑 agent 行為才看 |
+
+同時新增「晨報與推播」tab，接上**既有但先前零消費**的
+`morning-report/status`（近 7 日派送 log + 連續失敗天數）與 `/history`（近 14 日快照）。
+
+### 關於「kunge 與 ops/AI 診斷是否重複」的判定（2026-08-02）
+
+用**實際資料源**比對而非名稱：kunge 進化＝`memory/patterns·crystals·proposals`（學習閉環）、
+ops 健康進化＝`agent/evolution/*`（品質監控）、kunge 心智＝`wiki+kg`、ops 自省＝`digital-twin/dashboard`
+——**四組都是不同端點，不是重複實作**，本 ADR 的三路分工在技術上成立。
+
+真正的問題是「同一主題四個入口而**結論缺席**」：沒有一處回答「所以他到底有沒有變強」。
+修法是在 `/kunge/evolution` 上方補一排結論（學習閉環／回答品質／記憶存量），
+**不新增 tab**、不搬既有內容，深入分析仍在各自頁面。

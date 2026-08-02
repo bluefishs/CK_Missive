@@ -10,9 +10,17 @@
   ├── chat       → ChatTab（RAGChatPanel embedded，唯一對話入口）
   ├── mind       → 心智（嵌套：我是誰 IdentityTab + 記憶圖譜 MemoryTab + 對話精選 DialoguesTab）
   ├── evolution  → EvolutionTab（「結晶進化」= pattern→crystal 學習閉環）
+  │                 └── 2026-08-02 上方加「成長總覽」一排結論（學習閉環／回答品質／記憶存量）
+  │                     ——原本這件事散在四處而沒有結論，詳見下方 §Evolution 三路
   ├── graph      → NebulaTab（圖譜 / 技能星雲）
-  └── ops        → OpsTab → <OpsDashboard>（原 UnifiedAgentPage；已移除重複「對話」tab）
-                    └── 自省/追蹤/派工/儀表板/健康進化/拓撲（+admin: 效能/數據分析/資料管線/服務狀態）
+  └── ops        → OpsTab → <OpsDashboard>
+                    # ⚠️ OpsDashboard 是 re-export，實作在 pages/UnifiedAgentPage.tsx
+                    #    （ADR-0031 原文寫反了，2026-08-02 更正）
+                    └── 2026-08-02 由 11 個扁平 tab 收斂為**三組**（owner：資訊過多、營運核心雜亂）
+                        ├── 營運    → 晨報與推播（預設）、派工進度
+                        ├── 系統    → 儀表板（+admin: 服務狀態/資料管線/數據分析）
+                        └── AI 診斷 → 自省/追蹤/健康進化/拓撲（+admin: Agent 效能/DualMode）
+                        分組準則＝「這個資訊是誰每天要看的」
 
   向後相容（PATH_TO_TAB）：舊 /kunge/{identity,memory,dialogues}→mind；/kunge/nebula→graph
 
@@ -31,7 +39,9 @@ Redirect（6 個月相容期）：
 
 | 元件 | 路徑 | 用途 |
 |---|---|---|
-| `OpsDashboard` | `components/kunge/OpsDashboard.tsx` | 原 UnifiedAgentPage 降格（ADR-0023 實作細則） |
+| `OpsDashboard` | `components/kunge/OpsDashboard.tsx` | **re-export**；實作在 `pages/UnifiedAgentPage.tsx`（ADR-0031 原文方向寫反，2026-08-02 更正） |
+| `MorningReportOpsTab` | `pages/digitalTwin/MorningReportOpsTab.tsx` | 晨報與推播（營運核心）：預覽/推送＋近 7 日派送狀態＋LINE 月配額＋近 14 日快照 |
+| `ErpFormPageShell` | `components/erp/ErpFormPageShell.tsx` | ERP/PM 填報頁共用**版面**（返回/標題/送出/RWD）；刻意不抽成萬用表單引擎 |
 | `MemoryStatsRow` | `components/memory/MemoryStatsRow.tsx` | 6-Card 記憶統計（kunge/MemoryTab + MemoryDashboardPage 共用，省 126L） |
 | `ForceGraphLazy` | `components/graph/ForceGraphLazy.tsx` | react-force-graph-2d 統一 lazy wrapper（generic） |
 
@@ -68,7 +78,7 @@ Redirect（6 個月相容期）：
 
 | 路徑 | 舊名 | 新意涵 | 資料源 |
 |---|---|---|---|
-| `/kunge/evolution` | 進化史 | **結晶進化** — pattern→crystal 學習閉環 | `/ai/memory/{patterns,proposals,crystals}` |
+| `/kunge/evolution` | 進化史 | **結晶進化** — pattern→crystal 學習閉環；2026-08-02 上方加「成長總覽」聚合三路結論 | `/ai/memory/{patterns,proposals,crystals}` + `agent/evolution/status` + memory stats |
 | `/kunge/ops` (evolution tab) | 進化 | **健康進化** — Agent 品質監控 | `/ai/agent/evolution/{status,journal,tool-health}` |
 | `/ai/skill-evolution` | 技能演化樹 | **技能族譜** — DB skill lineage 樹 | `AI_ENDPOINTS.GRAPH_SKILL_EVOLUTION` |
 
@@ -101,11 +111,13 @@ frontend/src/pages/
 │   └── hooks/
 │       └── useDocumentProjectStaff.ts  # 公文專案人員管理 Hook (113L)
 ├── erpQuotation/               # ERP 報價詳情子元件
-│   ├── AccountRecordTab.tsx    # 統一帳款紀錄 (應收/應付共用, 294L)
-│   ├── BillingsTab.tsx         # 請款管理頁籤 (367L)
-│   ├── InvoicesTab.tsx         # 開票管理頁籤 (352L)
-│   ├── VendorPayablesTab.tsx   # 廠商應付頁籤 (310L)
+│   ├── AccountRecordTab.tsx    # 統一帳款紀錄 (應收/應付共用) — 新增/編輯已改導向獨立頁
+│   ├── ExpensesTab.tsx         # 費用核銷頁籤
 │   └── ProfitTrendTab.tsx      # 損益趨勢頁籤 (130L)
+│   # 2026-08-02 移除 BillingsTab / InvoicesTab / VendorPayablesTab：
+│   # 自建立起就沒有任何頁面使用（只在 index.ts re-export），實際渲染的是 AccountRecordTab
+├── ERPAccountRecordFormPage.tsx  # 應收/應付填報頁（雙向，2026-08-02 去彈跳視窗）
+├── PMMilestoneFormPage.tsx       # 里程碑填報頁（2026-08-02 去彈跳視窗）
 ├── pmCase/                     # PM 案件詳情子元件
 │   ├── MilestonesGanttTab.tsx  # 里程碑/甘特圖頁籤 (含 XLS 匯出入)
 │   ├── ExpensesTab.tsx         # 費用核銷頁籤 (統計+列表)
@@ -131,6 +143,7 @@ frontend/src/pages/
 ├── digitalTwin/                # 數位分身子元件 (v5.2.2+)
 │   ├── CapabilityRadarTab.tsx, DashboardTab.tsx, DispatchProgressTab.tsx
 │   ├── EvolutionTab.tsx, EvolutionMetricsCard.tsx (v5.5.0)
+│   ├── MorningReportOpsTab.tsx (2026-08-02 晨報與推播，取代左側小卡)
 │   ├── ProfileCard.tsx, TraceWaterfallTab.tsx
 ├── skillEvolution/             # 技能進化頁面子元件 (v5.2.0+)
 │   ├── EvolutionGraph.tsx, LegendPanel.tsx, SkillListPanel.tsx, StatsPanel.tsx
