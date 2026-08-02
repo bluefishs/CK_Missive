@@ -1026,7 +1026,7 @@ echo ""
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[67/78] code semantic duplication (程式圖譜自動發現異質同工候選)${NC}"
 # discovery 型：預設不阻斷（候選需 triage）；strict 且超 baseline 才 fail
-PYTHONIOENCODING=utf-8 python scripts/checks/code_semantic_duplication_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/code_semantic_duplication_audit.py $($STRICT && echo --strict) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -1036,7 +1036,7 @@ echo ""
 # 性質: DRY-RUN report-only——只報 orphan 範圍供 owner 決策 prune；本步不刪任何資料。
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[68/78] code graph orphan audit (圖譜 stale orphan 偵測, DRY-RUN 只報不刪)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/code_graph_orphan_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/code_graph_orphan_audit.py $($STRICT && echo --strict) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -1047,14 +1047,14 @@ echo ""
 #       合理原因」（AI 自我檢核，不等人看症狀）。cron 版整合於 cron_outcome_freshness。
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[69/78] producer output watchdog (沉默成功偵測, 行為層自我檢核)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/producer_output_watchdog.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/producer_output_watchdog.py $($STRICT && echo --strict) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
 # Tier 1 共享套件版本偏移 gate（Phase 2 / L80）— 模組化「執行強制」，防「一次修全同步」破功
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[70/78] tier1 shared package version skew (ck-auth 跨 consumer 版本對齊 / L80)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/tier1_shared_package_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/tier1_shared_package_audit.py $($STRICT && echo --strict) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -1064,7 +1064,7 @@ echo ""
 echo -e "${CYAN}[71/78] shared vendored drift (@ck-shared/* vendored copies vs canonical / L80)${NC}"
 _SYNC="../shared-modules/sync-vendored.sh"
 if [[ -f "$_SYNC" ]]; then
-    bash "$_SYNC" --check || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+    bash "$_SYNC" --check || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 else
     echo "  (shared-modules 不在本 checkout — 跳過，僅本機 monorepo 稽核)"
 fi
@@ -1076,7 +1076,7 @@ echo ""
 # graceful：sibling repo 不在本 checkout 則各自 skip
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[72/78] sso_bridge conformance (跨 repo 安全契約：用 ck_auth verify / 守衛順序 / L80)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/sso_bridge_conformance_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/sso_bridge_conformance_audit.py $($STRICT && echo --strict) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -1085,7 +1085,7 @@ echo ""
 # ck_auth 的主產品 blast radius（step 70 版本偏移）。graceful：sibling 不在則 skip
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[73/78] csrf_service drift (pile↔lvrland 單一源守門 / L80)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/csrf_service_drift_audit.py $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/csrf_service_drift_audit.py $($STRICT && echo --strict) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -1094,7 +1094,7 @@ echo ""
 # 的案件永遠沒有，其財務分頁恆空且無告警 → 只看「進行中」案件避免歷史案噪音。
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[74/78] contract case_code coverage (進行中案件是否可做財務作業)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/contract_case_code_coverage_audit.py $($STRICT && echo --ci) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/contract_case_code_coverage_audit.py $($STRICT && echo --ci) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -1103,7 +1103,7 @@ echo ""
 # 在公網失效。負向測試已驗（修法前會標紅），非永久綠。
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[75/78] auth deeplink returnUrl (認證入口頁不得寫死登入後導向)${NC}"
-node scripts/checks/auth_deeplink_returnurl_audit.cjs $($STRICT && echo --strict) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+node scripts/checks/auth_deeplink_returnurl_audit.cjs $($STRICT && echo --strict) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -1112,7 +1112,7 @@ echo ""
 # 負向測試已驗（舊版模式會標紅），非永久綠。
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[76/78] cron external binary guard (依賴缺失須 raise 不得沉默跳過)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/cron_external_binary_guard.py $($STRICT && echo --ci) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/cron_external_binary_guard.py $($STRICT && echo --ci) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -1122,7 +1122,7 @@ echo ""
 # 此步驟只驗**它有沒有在跑、上次結果如何** —— 檢核器自己停跑也要被抓到。
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[77/78] UI 自我檢核產出新鮮度 (flow + page sweep)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/.shared-selfaudit/ui_smoke_freshness.py $($STRICT && echo --ci) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/.shared-selfaudit/ui_smoke_freshness.py $($STRICT && echo --ci) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -1132,7 +1132,7 @@ echo ""
 # 靜態檢查全綠、使用者點了卻是 404。
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[78/78] 導覽列 live 完整性 (死連結 / 重複路徑)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/navigation_live_integrity_audit.py $($STRICT && echo --ci) || { $STRICT && FAIL_COUNT=$((FAIL_COUNT+1)); true; }
+PYTHONIOENCODING=utf-8 python scripts/checks/navigation_live_integrity_audit.py $($STRICT && echo --ci) || { FAIL_COUNT=$((FAIL_COUNT+1)); true; }
 echo ""
 
 # ----------------------------------------------------------------------------

@@ -42,6 +42,26 @@
       "無法載入"
     ],
     "throttle_ms": 900,
+    "mobile_probe": {
+      "_doc": "行動版面觀測（2026-08-02）。既有廣度掃描固定 1440×900，手機上版面壞掉沒有任何機制會發現——而核銷的主要入口正是手機掃 QR。刻意**只觀測不告警**：表格設 scroll={{x}} 橫向捲動是刻意設計，一律判 FAIL 會產出整片噪音。採用的量已做鑑別力對照（手機 vs 桌面同頁比對）：/erp/quotations 708 vs 0、/documents 158 vs 0 → 手機獨有。另量過的『小於 32px 觸控目標數』手機 157/桌面 156＝無鑑別力，已捨棄不交付。",
+      "enabled": true,
+      "viewport": { "width": 390, "height": 844 },
+      "overflow_warn_px": 400,
+      "routes": [
+        "/erp/expenses",
+        "/erp/quotations",
+        "/erp/ledger",
+        "/erp/assets",
+        "/erp/operational",
+        "/erp/financial-dashboard",
+        "/erp/vendor-accounts",
+        "/erp/client-accounts",
+        "/documents",
+        "/contract-cases",
+        "/taoyuan/dispatch",
+        "/calendar"
+      ]
+    },
     "known_limitations": [
       {
         "route": "/admin/deployment",

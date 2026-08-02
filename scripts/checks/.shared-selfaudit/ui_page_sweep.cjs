@@ -207,6 +207,42 @@ async function main() {
     await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));  // 節流：避免掃描自己觸發 429
   }
 
+  // ---- 行動裝置版面觀測（RWD）--------------------------------------------
+  // 為何是「觀測」而不是 FAIL：資料密集表格設 scroll={{x}} 橫向捲動是**刻意設計**，
+  // 一律判缺陷會產出整片噪音（同 pile 型態 A 的教訓：清單不穩就不該交付）。
+  // 這裡只交付一個**經對照驗證過有鑑別力**的量：同一頁在手機寬與桌面寬的表格外溢差。
+  //   2026-08-02 驗證：/erp/quotations 手機 708px vs 桌面 0px、/documents 158 vs 0
+  //   → 手機獨有，非恆為真。另量過「小於 32px 的觸控目標數」＝手機 157 / 桌面 156
+  //   **無鑑別力（按鈕大小不隨視窗變）故不採用**，不放進交付。
+  // 不影響 exit code：這是決策輸入，不是告警。
+  const MP = SWEEP.mobile_probe || {};
+  const mobileRows = [];
+  if (MP.enabled && Array.isArray(MP.routes) && MP.routes.length) {
+    const vp = MP.viewport || { width: 390, height: 844 };
+    const mctx = await browser.newContext({ viewport: vp, isMobile: true, hasTouch: true });
+    await boot.applyAuth(mctx, CONFIG, BASE);
+    for (const route of MP.routes) {
+      const page = await mctx.newPage();
+      try {
+        await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(2200);
+        if (/\/entry|\/login/.test(page.url())) { await page.close(); continue; }
+        const m = await page.evaluate(() => {
+          const tables = [...document.querySelectorAll('.ant-table-content, .ant-table-body')]
+            .map((t) => t.scrollWidth - t.clientWidth).filter((x) => x > 4);
+          return {
+            pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+            tableOverflow: tables.length ? Math.max(...tables) : 0,
+          };
+        });
+        mobileRows.push({ route, ...m });
+      } catch (e) { mobileRows.push({ route, error: String(e).slice(0, 80) }); }
+      await page.close();
+      await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));
+    }
+    await mctx.close();
+  }
+
   await browser.close();
 
   console.log('='.repeat(70));
@@ -230,6 +266,25 @@ async function main() {
     console.log(`
 🟡 觸發 API 限流 ${throttled.length} 頁（掃描節奏所致，非頁面缺陷）`);
   }
+  if (mobileRows.length) {
+    const warn = MP.overflow_warn_px || 400;
+    const ranked = mobileRows.filter((r) => !r.error)
+      .sort((a, b) => b.tableOverflow - a.tableOverflow);
+    console.log(`\n📱 行動版面觀測（${(MP.viewport || {}).width || 390}px 寬，觀測不告警）：`);
+    const over = ranked.filter((r) => r.tableOverflow >= warn);
+    if (over.length) {
+      console.log(`   表格橫向外溢 ≥${warn}px 共 ${over.length} 頁（手機需左右滑動才看得完整列）：`);
+      over.slice(0, 8).forEach((r) => console.log(`      ${r.route} — 外溢 ${r.tableOverflow}px`));
+      if (over.length > 8) console.log(`      …另 ${over.length - 8} 頁`);
+    } else {
+      console.log(`   已測 ${ranked.length} 頁，皆低於 ${warn}px 門檻`);
+    }
+    const pageOver = ranked.filter((r) => r.pageOverflow > 8);
+    if (pageOver.length) {
+      console.log(`   ⚠ 整頁橫向溢出（版面破格，非表格內捲）${pageOver.length} 頁：`);
+      pageOver.slice(0, 5).forEach((r) => console.log(`      ${r.route} — ${r.pageOverflow}px`));
+    }
+  }
   console.log('-'.repeat(70));
   console.log(`PASS ${okCount} / FAIL ${bad.length} / SKIP ${skipped.length} / 限流 ${throttled.length}`);
   if (bad.length) console.log(`截圖：${SHOT_DIR}`);
@@ -246,6 +301,10 @@ async function main() {
       throttled: throttled.length,
       known_limitations: limitations.map((l) => ({ route: l.route, reason: l.reason })),
       failures: bad.map((b) => ({ route: b.route, problems: b.problems })),
+      // 觀測資料（不影響 pass/fail 判定）
+      mobile_probe: mobileRows.length
+        ? { viewport: MP.viewport || { width: 390, height: 844 }, rows: mobileRows }
+        : null,
     }, null, 1), 'utf-8');
   } catch (e) { console.error('寫入檢核結果失敗:', String(e)); }
 

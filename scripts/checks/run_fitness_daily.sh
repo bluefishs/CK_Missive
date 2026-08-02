@@ -41,6 +41,8 @@ echo ""
 
 FAIL_COUNT=0
 FAIL_STEPS=()
+WARN_COUNT=0
+WARN_STEPS=()
 
 run_step() {
     local step_num="$1"
@@ -48,15 +50,24 @@ run_step() {
     local cmd="$3"
 
     echo -e "${CYAN}[$step_num/8] $step_name${NC}"
+    # 計數與「是否 exit 1」分離（2026-08-02 同型修法，三支 fitness 腳本皆中此缺陷）。
+    # 原本非 --strict 走 `|| true` → FAIL_COUNT 恆 0 → 結尾恆印「all passed」。
+    # warning mode 的語意是不阻斷，不是不報告。
+    #
+    # exit code 為三態（audit 腳本共同約定）：0=GREEN / 1=YELLOW / 2+=RED。
+    # 分開計數而非一律算 RED —— 把 YELLOW 報成 RED 會讓人習慣忽略紅字，
+    # 等於把訊號變回噪音（當日實例：volume consistency 真 drift=0、只有 5 個
+    # 無害 orphan volume，本質 YELLOW，一律算 RED 就會每天紅一次）。
+    local rc=0
     if $STRICT; then
-        if eval "$cmd" --strict 2>&1; then
-            true
-        else
-            FAIL_COUNT=$((FAIL_COUNT+1))
-            FAIL_STEPS+=("$step_num $step_name")
-        fi
+        eval "$cmd" --strict 2>&1 || rc=$?
     else
-        eval "$cmd" 2>&1 || true
+        eval "$cmd" 2>&1 || rc=$?
+    fi
+    if [[ $rc -eq 1 ]]; then
+        WARN_COUNT=$((WARN_COUNT+1)); WARN_STEPS+=("$step_num $step_name")
+    elif [[ $rc -ne 0 ]]; then
+        FAIL_COUNT=$((FAIL_COUNT+1)); FAIL_STEPS+=("$step_num $step_name")
     fi
     echo ""
 }
@@ -120,14 +131,21 @@ run_step "9" "dashboard completeness audit" \
 # Summary
 # ============================================================
 echo -e "${CYAN}=========================================${NC}"
-if [[ $FAIL_COUNT -eq 0 ]]; then
+if [[ $FAIL_COUNT -eq 0 && $WARN_COUNT -eq 0 ]]; then
     echo -e "${GREEN} ✅ Tier 1 daily all passed${NC}"
 else
-    echo -e "${YELLOW} ⚠ Tier 1 daily: $FAIL_COUNT step(s) RED${NC}"
-    for s in "${FAIL_STEPS[@]}"; do
-        echo -e "   ${RED}✗${NC} $s"
+    [[ $FAIL_COUNT -gt 0 ]] && echo -e "${RED} ✗ Tier 1 daily: $FAIL_COUNT step(s) RED${NC}"
+    for s in "${FAIL_STEPS[@]:-}"; do
+        [[ -n "$s" ]] && echo -e "   ${RED}✗${NC} $s"
     done
-    if $STRICT; then
+    # YELLOW 單獨列：需要看一眼，但不是「壞了」（如無害的 orphan volume）
+    [[ $WARN_COUNT -gt 0 ]] && echo -e "${YELLOW} ⚠ YELLOW $WARN_COUNT step(s)（非故障，待確認）${NC}"
+    for s in "${WARN_STEPS[@]:-}"; do
+        [[ -n "$s" ]] && echo -e "   ${YELLOW}⚠${NC} $s"
+    done
+    # exit 1 的門檻**只由 RED 決定**，不含 YELLOW —— 否則 cron 會因為
+    # 無害的 orphan volume 每天報一次，幾週後這個告警就沒人看了（L31 家族）。
+    if $STRICT && [[ $FAIL_COUNT -gt 0 ]]; then
         echo -e "${RED} STRICT mode → exit 1 (cron 將觸發 LINE 推送)${NC}"
         exit 1
     fi

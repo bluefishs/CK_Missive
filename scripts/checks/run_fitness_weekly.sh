@@ -60,15 +60,20 @@ run_step() {
         return
     fi
 
+    # 計數與「是否 exit 1」必須分離。
+    # 2026-08-02 修：原本非 --strict 分支是 `|| true`，FAIL_COUNT 恆為 0
+    # → 結尾**永遠印「✅ all passed」，不管實際紅幾步**。當日實跑：中間明明
+    # tender_freshness（48 天陳舊）與 cross-repo template drift 兩步 RED，結論卻是全綠。
+    # 子腳本不帶 --strict 時本來就會回非 0（實測 2 / 1），資訊一直都在，是被 `|| true` 丟掉。
+    # warning mode 的語意是「不阻斷」，不是「不報告」。
     if $STRICT; then
-        if PYTHONIOENCODING=utf-8 python "$script" --strict 2>&1; then
-            true
-        else
-            FAIL_COUNT=$((FAIL_COUNT+1))
-            FAIL_STEPS+=("$step_num $step_name")
-        fi
+        PYTHONIOENCODING=utf-8 python "$script" --strict 2>&1 || {
+            FAIL_COUNT=$((FAIL_COUNT+1)); FAIL_STEPS+=("$step_num $step_name")
+        }
     else
-        PYTHONIOENCODING=utf-8 python "$script" 2>&1 || true
+        PYTHONIOENCODING=utf-8 python "$script" 2>&1 || {
+            FAIL_COUNT=$((FAIL_COUNT+1)); FAIL_STEPS+=("$step_num $step_name")
+        }
     fi
     echo ""
 }
