@@ -660,3 +660,66 @@ async def crystal_auto_apply_mode_set(
             ),
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# SOUL.md 供應（2026-08-02）
+#
+# 起因：前端 `IdentityTab` 把三信念／倫理紅線／反迴聲室協議**硬編成一份靜態複本**，
+# 且 evidence 欄位寫死了會過時的數字（「Prometheus 16 指標」「85 tests」——現況已不同）。
+# wiki/SOUL.md 才是 SSOT，複本必然隨時間脫節。
+#
+# 解析交給既有的 SoulLoader（含 mtime 快取），這裡只負責「依標題切出前端要的段落」，
+# 讓前端純渲染不解析——否則解析規則又會變成前後端各一份。
+# ---------------------------------------------------------------------------
+_SOUL_SECTION_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+
+
+def _split_soul_sections(full_text: str) -> dict[str, str]:
+    """把 SOUL.md 依 `## 標題` 切成 {標題: 內文}。標題保留原文（含括號註解）。"""
+    matches = list(_SOUL_SECTION_RE.finditer(full_text))
+    out: dict[str, str] = {}
+    for i, m in enumerate(matches):
+        start = m.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(full_text)
+        out[m.group(1).strip()] = full_text[start:end].strip()
+    return out
+
+
+@router.post("/memory/soul")
+async def memory_soul():
+    """回傳 SOUL.md 的核心人格段落（供 kunge「我是誰」渲染）。
+
+    刻意回傳 markdown 原文而非再結構化成欄位：SOUL.md 的段落結構會演進
+    （新增一條信念、改寫紅線），若在這裡固定成欄位，每次改 SOUL 都要改後端。
+    """
+    try:
+        from app.services.memory.soul_loader import get_soul_loader
+
+        soul = await get_soul_loader().load_soul()
+        sections = _split_soul_sections(soul.full_text or "")
+
+        # 只挑「人格核心」四段；找不到就略過該段，不塞假內容
+        wanted = ["身份宣言", "三信念", "反迴聲室協議", "倫理紅線"]
+        picked = []
+        for key in wanted:
+            for title, body in sections.items():
+                if title.startswith(key):
+                    picked.append({"title": title, "body": body})
+                    break
+
+        return {
+            "success": True,
+            "data": {
+                "version": soul.version,
+                "last_modified_by": soul.last_modified_by,
+                "last_modified_at": soul.last_modified_at,
+                "sections": picked,
+                "section_count": len(picked),
+            },
+        }
+    except Exception as e:
+        logger.error("SOUL.md 供應失敗: %s", e, exc_info=True)
+        # 回 success=False 而非空 sections：空 sections 會被前端渲染成
+        # 「這個人沒有信念」，與「讀不到檔案」是兩件完全不同的事
+        return {"success": False, "error": "SOUL.md 讀取失敗", "data": None}

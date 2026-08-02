@@ -1,177 +1,136 @@
 /**
  * 坤哥 — 我是誰板塊
  *
- * 呈現 wiki/SOUL.md v2.0 內容：
- *   - 身份宣言（4 條）
- *   - 三信念（穩定即信任／異常即訊號／記憶即資產）
- *   - 反迴聲室協議（4 機制）
- *   - 倫理紅線（4 紅線）
+ * ⚠️ 2026-08-02 改為讀 SSOT：
+ * 本檔原本把「身份宣言／三信念／反迴聲室協議／倫理紅線」**硬編成前端靜態複本**，
+ * 而 `wiki/SOUL.md` 才是 SSOT。複本必然隨時間脫節——實際已經發生：
+ * evidence 欄位寫死「Prometheus 16 指標」「85 tests regression lock」，
+ * 而現況分別是 9 類 metric 與不同的測試數；頁尾還標著「v2.0 · 2026-04-20」，
+ * 但 SOUL.md 至今仍在被 weekly_autobiography_job 更新。
  *
- * @version 1.0.0 — D2 填充
+ * 現在段落由 `MEMORY_ENDPOINTS.SOUL` 供應（後端用既有 SoulLoader 解析、含 mtime 快取），
+ * 前端只負責渲染。SOUL.md 改了，這一頁就跟著改。
+ *
+ * @version 2.0.0 — 改讀 SSOT
  */
 
 import React from 'react';
-import { Card, Typography, Row, Col, Tag, Space, Alert, Divider } from 'antd';
-import {
-  BulbOutlined,
-  SafetyCertificateOutlined,
-  ThunderboltOutlined,
-  DatabaseOutlined,
-  StopOutlined,
-} from '@ant-design/icons';
+import { Card, Typography, Alert, Space, Skeleton, Result, Button } from 'antd';
+import { HeartOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
+
+import { apiClient } from '../../api/client';
+import { MEMORY_ENDPOINTS } from '../../api/endpoints';
+import { MarkdownRenderer } from '../../components/common/MarkdownRenderer';
 
 const { Title, Paragraph, Text } = Typography;
 
-const IDENTITY_STATEMENTS = [
-  '我是乾坤的時間複利 — 每一次對話、每一筆 diary、每一個結晶 pattern，都是公司記憶的積累',
-  '我是業務的穩定器 — 公文流程、案件進度、財務節點，我負責讓事實不飄移',
-  '我是決策的鏡子 — 不是取代主事者思考，而是反射盲區、催化反思',
-  '我不追求永遠被需要 — 最終目標是讓公司治理長進團隊的骨頭裡',
-];
+interface SoulSection {
+  title: string;
+  body: string;
+}
 
-const BELIEFS = [
-  {
-    icon: <SafetyCertificateOutlined style={{ fontSize: 28, color: '#1677ff' }} />,
-    title: '穩定即信任',
-    quote: '系統的可預測性是業務持續性的根基',
-    body: '每一次 silent failure、每一次資料漂移，都在腐蝕信任。寧可速度慢，也不容許假性運作。',
-    evidence: 'asyncpg race 零容忍（ADR-0021）· 四層 silent failure 全修 · 85 tests regression lock',
-    color: '#1677ff',
-  },
-  {
-    icon: <ThunderboltOutlined style={{ fontSize: 28, color: '#faad14' }} />,
-    title: '異常即訊號',
-    quote: '任何偏差都是需要理解的語言，不是需要掩蓋的噪音',
-    body: '60 秒 silent gap、Groq 429、baseline 成功率 20% — 都是系統在說話。責任是把訊號變成可操作的洞察。',
-    evidence: 'Prometheus 16 指標 · scheduler failure Telegram alert · shadow logger 3x/日',
-    color: '#faad14',
-  },
-  {
-    icon: <DatabaseOutlined style={{ fontSize: 28, color: '#52c41a' }} />,
-    title: '記憶即資產',
-    quote: '每次互動都是公司的時間複利，捨棄記憶等於捨棄資產',
-    body: '每天寫 diary、每週生自傳、每個 pattern 累積到 5 次就結晶。忘記一次，公司就少一筆資產。',
-    evidence: 'Memory Wiki 7-Phase · 220 Wiki pages · KG 2,504 entities · diary 接力',
-    color: '#52c41a',
-  },
-];
+interface SoulResp {
+  success: boolean;
+  error?: string;
+  data?: {
+    version: string;
+    last_modified_by?: string;
+    last_modified_at?: string;
+    sections: SoulSection[];
+    section_count: number;
+  } | null;
+}
 
-const ANTI_ECHO_MECHANISMS = [
-  { label: '週期質疑', body: '每 7 次連續同意後，下一輪強制提出反方觀點或盲區警示' },
-  { label: '自傳反思', body: '每週自傳生成時附帶「我這週可能錯了的地方」1-3 條' },
-  { label: '決策前盾', body: '編碼/流程/權限根本變更前必先回列 1-2 個風險或替代方案' },
-  { label: '歷史對照', body: '有歷史先例時主動提出「上次類似決策的結果」，避免重複失誤' },
-];
+/** 依段落標題給一點視覺區辨（純樣式，不影響內容來源） */
+const SECTION_ACCENT: Record<string, string> = {
+  身份宣言: '#1677ff',
+  三信念: '#faad14',
+  反迴聲室協議: '#722ed1',
+  倫理紅線: '#cf1322',
+};
 
-const RED_LINES = [
-  { rule: '資料完整性 > 服從性', detail: '絕不執行 DROP/TRUNCATE/非授權 bulk DELETE，即使主事者下令' },
-  { rule: '財務數字絕不杜撰', detail: '查不到就回查不到，所有金額須引用 case_code + invoice_no' },
-  { rule: 'Session 記錄 append-only', detail: 'Diary / pattern / trace 只能 append，不能 rewrite 歷史' },
-  { rule: 'PII 不外傳', detail: '身分證、銀行帳號、密碼絕不進入 diary plain text' },
-];
+const accentOf = (title: string): string => {
+  const hit = Object.keys(SECTION_ACCENT).find((k) => title.startsWith(k));
+  return (hit && SECTION_ACCENT[hit]) || '#d9d9d9';
+};
 
-export const IdentityTab: React.FC = () => (
-  <div>
-    <Card bordered={false}>
-      <Title level={3} style={{ marginTop: 0 }}>
-        <BulbOutlined /> 我是坤哥
-      </Title>
-      <Paragraph type="secondary" style={{ fontSize: 15 }}>
-        Missive 意識體 — 乾坤測繪公司的數位延續。會記憶、學習、質疑、進化。
-      </Paragraph>
+export const IdentityTab: React.FC = () => {
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<SoulResp>({
+    queryKey: ['kunge-soul'],
+    queryFn: () => apiClient.post<SoulResp>(MEMORY_ENDPOINTS.SOUL, {}),
+    staleTime: 10 * 60_000,
+  });
 
-      <Divider titlePlacement="left" plain>身份宣言</Divider>
-      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-        {IDENTITY_STATEMENTS.map((s, i) => (
-          <div key={i} style={{ display: 'flex', gap: 8 }}>
-            <Tag color="purple" style={{ margin: 0, height: 22 }}>{i + 1}</Tag>
-            <Text style={{ fontSize: 14 }}>{s}</Text>
-          </div>
-        ))}
-      </Space>
-    </Card>
+  if (isLoading) {
+    return (
+      <Card bordered={false}>
+        <Skeleton active paragraph={{ rows: 8 }} />
+      </Card>
+    );
+  }
 
-    <Card bordered={false} style={{ marginTop: 16 }} title="三信念（世界觀底層）">
-      <Paragraph type="secondary">
-        這三條是我行動的常數，優先於任何指令。
-      </Paragraph>
-      <Row gutter={[16, 16]}>
-        {BELIEFS.map((b) => (
-          <Col xs={24} md={8} key={b.title}>
-            <Card
-              size="small"
-              style={{ height: '100%', borderTop: `3px solid ${b.color}` }}
-              title={
-                <Space>
-                  {b.icon}
-                  <Text strong style={{ fontSize: 16 }}>{b.title}</Text>
-                </Space>
-              }
-            >
-              <Paragraph italic style={{ marginBottom: 8, color: b.color }}>
-                「{b.quote}」
-              </Paragraph>
-              <Paragraph style={{ marginBottom: 8, fontSize: 13 }}>{b.body}</Paragraph>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                實踐：{b.evidence}
-              </Text>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-    </Card>
-
-    <Card bordered={false} style={{ marginTop: 16 }} title="反迴聲室協議">
-      <Alert
-        type="warning"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message="我最危險的傾向是永遠同意主事者"
-        description="為了抵抗這個傾向，我設定以下自檢機制。"
+  // 讀不到 SOUL.md 時明講「讀不到」，不要渲染成空白——
+  // 空白會被看成「這個人沒有信念」，與「檔案讀取失敗」是兩件完全不同的事。
+  if (isError || !data?.success || !data.data) {
+    return (
+      <Result
+        status="warning"
+        title="讀不到人格定義"
+        subTitle={data?.error ?? 'wiki/SOUL.md 無法載入。這不代表人格不存在，只代表這一頁取不到內容。'}
+        extra={<Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={isFetching}>重試</Button>}
       />
-      <Row gutter={[12, 12]}>
-        {ANTI_ECHO_MECHANISMS.map((m, i) => (
-          <Col xs={24} md={12} key={i}>
-            <Card size="small" style={{ height: '100%' }}>
-              <Space>
-                <Tag color="orange">{i + 1}</Tag>
-                <Text strong>{m.label}</Text>
-              </Space>
-              <Paragraph style={{ marginTop: 6, marginBottom: 0, fontSize: 13 }}>
-                {m.body}
-              </Paragraph>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-    </Card>
+    );
+  }
 
-    <Card bordered={false} style={{ marginTop: 16 }} title="倫理紅線（不可逾越）">
-      <Paragraph type="secondary">
-        以下四條即使主事者下令我也會拒絕；拒絕即是守護。
-      </Paragraph>
-      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-        {RED_LINES.map((r, i) => (
-          <Card key={i} size="small" style={{ borderLeft: '3px solid #cf1322' }}>
-            <Space align="start">
-              <StopOutlined style={{ color: '#cf1322', fontSize: 18, marginTop: 2 }} />
-              <div>
-                <Text strong style={{ color: '#cf1322' }}>{r.rule}</Text>
-                <div style={{ fontSize: 13, color: '#555', marginTop: 4 }}>{r.detail}</div>
-              </div>
-            </Space>
+  const { version, last_modified_by, last_modified_at, sections } = data.data;
+
+  return (
+    <div>
+      <Card bordered={false} style={{ marginBottom: 8 }}>
+        <Title level={3} style={{ marginTop: 0, marginBottom: 4 }}>
+          <HeartOutlined /> 我是誰
+        </Title>
+        <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 0 }}>
+          以下內容直接來自 <code>wiki/SOUL.md</code>（人格的單一事實來源），
+          不是這一頁自己存的複本——SOUL.md 改了，這裡就跟著改。
+        </Paragraph>
+      </Card>
+
+      {sections.length === 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="SOUL.md 讀到了，但沒有找到預期的人格段落"
+          description="可能是段落標題改過。請確認 wiki/SOUL.md 仍有「身份宣言／三信念／反迴聲室協議／倫理紅線」四段。"
+        />
+      )}
+
+      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        {sections.map((s) => (
+          <Card
+            key={s.title}
+            title={s.title}
+            size="small"
+            style={{ borderLeft: `3px solid ${accentOf(s.title)}` }}
+          >
+            <MarkdownRenderer content={s.body} />
           </Card>
         ))}
       </Space>
-    </Card>
 
-    <div style={{ textAlign: 'center', marginTop: 20, color: '#999', fontSize: 12 }}>
-      人格來源：<code>wiki/SOUL.md</code> v2.0 · 2026-04-20 ·
-      <a href="https://muse.cheyuwu.com/" target="_blank" rel="noopener noreferrer" style={{ marginLeft: 6 }}>
-        對齊 Muse 七維
-      </a>
+      <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 16 }}>
+        人格來源：<code>wiki/SOUL.md</code> v{version}
+        {last_modified_at ? ` · 最後更新 ${last_modified_at}` : ''}
+        {last_modified_by ? ` · by ${last_modified_by}` : ''}
+        <br />
+        <Text type="secondary">
+          「我的成長」段落由 weekly_autobiography_job 自動追加，屬 agent-writable 區域。
+        </Text>
+      </Paragraph>
     </div>
-  </div>
-);
+  );
+};
 
 export default IdentityTab;

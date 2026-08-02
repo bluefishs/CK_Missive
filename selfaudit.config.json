@@ -368,6 +368,61 @@
           "failMsg": "LINE 配額查詢失敗（Redis 或後端欄位問題）"
         }
       ]
+    },
+    {
+      "id": "kunge-identity-ssot",
+      "name": "坤哥「我是誰」讀 SOUL.md SSOT（非前端靜態複本）",
+      "auth": true,
+      "url": "/kunge/mind",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "我是誰",
+            "身份宣言",
+            "三信念",
+            "倫理紅線"
+          ],
+          "failMsg": "人格段落沒有渲染（SOUL 端點或解析斷了）"
+        },
+        {
+          "action": "assertTextAbsent",
+          "text": "讀不到人格定義",
+          "failMsg": "SOUL.md 讀取失敗"
+        }
+      ]
+    },
+    {
+      "id": "kunge-growth-summary",
+      "name": "坤哥「進化」頁的成長總覽（學習閉環／品質／記憶存量三個結論）",
+      "auth": true,
+      "url": "/kunge/evolution",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "學習閉環",
+            "回答品質",
+            "記憶存量"
+          ],
+          "failMsg": "成長總覽三個結論區塊沒渲染"
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "進化史"
+          ],
+          "failMsg": "原有的進化史內容不見了（總覽不該取代既有內容）"
+        }
+      ]
     }
   ],
   "output": {

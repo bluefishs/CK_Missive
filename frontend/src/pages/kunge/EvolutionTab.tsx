@@ -32,6 +32,7 @@ import {
   Empty,
   List,
   Tooltip,
+  Statistic,
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -42,7 +43,10 @@ import {
   ArrowRightOutlined,
   FireOutlined,
 } from '@ant-design/icons';
-import { usePatternsList, useProposalsList, useCrystalsList } from '../../hooks/useMemoryData';
+import { usePatternsList, useProposalsList, useCrystalsList, useMemoryStats } from '../../hooks/useMemoryData';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import type { PatternSummary, ProposalSummary, CrystalSummary } from '../../types/memory';
 
 const { Title, Paragraph, Text } = Typography;
@@ -162,6 +166,16 @@ export const EvolutionTab: React.FC = () => {
   const { data: patterns, isLoading: lp } = usePatternsList({ limit: 20 });
   const { data: proposals, isLoading: lpr } = useProposalsList({ limit: 20 });
   const { data: crystals, isLoading: lc } = useCrystalsList({ limit: 20 });
+  // 2026-08-02 成長總覽：把原本散在四處的結論聚到這一頁上方。
+  // 品質與記憶存量都用**既有端點**，不新增後端；ops 的「健康進化／自省」維持不動，
+  // 這裡只呈現結論並提供「詳情」連結，避免變成第五個入口。
+  const { data: memStats } = useMemoryStats();
+  const { data: agentHealth } = useQuery<{ success?: boolean; data?: Record<string, unknown> }>({
+    queryKey: ['agent-evolution-status'],
+    queryFn: () => apiClient.post(API_ENDPOINTS.AI.AGENT_EVOLUTION_STATUS, {}),
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
 
   const proposalList: ProposalSummary[] = proposals ?? [];
   const patternList: PatternSummary[] = patterns ?? [];
@@ -174,8 +188,57 @@ export const EvolutionTab: React.FC = () => {
     (p) => p.meta?.crystallization_candidate && !p.meta?.crystallized,
   );
 
+  // 成長總覽的三個數字：學習閉環／品質／記憶存量。
+  // 取不到就顯示「—」而不是 0——0 會被讀成「真的沒有」，與「查不到」意義相反。
+  const health = (agentHealth?.data ?? {}) as Record<string, unknown>;
+  const successRate = typeof health.success_rate === 'number'
+    ? `${Math.round((health.success_rate as number) * 100)}%`
+    : (typeof health.overall_success_rate === 'number'
+        ? `${Math.round((health.overall_success_rate as number) * 100)}%` : '—');
+  const stats = (memStats ?? {}) as Record<string, unknown>;
+  const num = (v: unknown): string =>
+    typeof v === 'number' ? v.toLocaleString() : '—';
+
   return (
     <div>
+      {/* ── 成長總覽（2026-08-02）──
+          owner：「聚焦坤哥各項核心議題與自我成長」。原本學習閉環在這頁、品質在 ops/健康進化、
+          記憶存量在 ops/自省，三處各自獨立，沒有一處回答「所以他到底有沒有變強」。
+          這一排就是那個答案；深入分析仍在各自原頁面，只加「詳情」連結不搬移。 */}
+      <Card size="small" style={{ marginBottom: 12 }}>
+        <Row gutter={[16, 8]}>
+          <Col xs={24} sm={8}>
+            <Statistic
+              title="學習閉環"
+              value={patternList.length}
+              suffix={`pattern · ${crystalCount} 結晶`}
+              valueStyle={{ fontSize: 20 }}
+            />
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {pendingProposals.length} 筆提案待審
+            </Text>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Statistic title="回答品質" value={successRate} valueStyle={{ fontSize: 20 }} />
+            <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }}
+              onClick={() => navigate('/kunge/ops')}>
+              詳情：運維 › AI 診斷 › 健康進化
+            </Button>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Statistic
+              title="記憶存量"
+              value={num(stats.kg_entities ?? stats.entities ?? stats.total_entities)}
+              suffix="實體"
+              valueStyle={{ fontSize: 20 }}
+            />
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              wiki {num(stats.wiki_pages ?? stats.pages)} 頁 · diary {num(stats.diary_days ?? stats.days)} 天
+            </Text>
+          </Col>
+        </Row>
+      </Card>
+
       <Card bordered={false}>
         <Title level={3} style={{ marginTop: 0 }}>
           <RiseOutlined /> 進化史

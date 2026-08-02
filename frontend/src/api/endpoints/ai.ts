@@ -244,6 +244,8 @@ export const DIGITAL_TWIN_ENDPOINTS = {
 /** Memory Wiki API 端點（Phase 5 Slice 1） */
 export const MEMORY_ENDPOINTS = {
   /** 查指定日期 diary POST /ai/memory/diary/date */
+  /** SOUL.md 人格核心段落（2026-08-02）—— 前端不再自存一份靜態複本 */
+  SOUL: '/ai/memory/soul',
   DIARY_DATE: '/ai/memory/diary/date',
   /** 查最近 N 天 diary POST /ai/memory/diary/recent */
   DIARY_RECENT: '/ai/memory/diary/recent',
