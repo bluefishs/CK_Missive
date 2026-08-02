@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Tuple
 from datetime import date
@@ -7,6 +9,11 @@ from app.extended.models.invoice import ExpenseInvoice
 from app.schemas.erp.ledger import LedgerCreate, LedgerQuery
 from app.repositories.erp.ledger_repository import LedgerRepository
 from app.services.audit_mixin import AuditableServiceMixin
+
+# 2026-08-03：`delete_by_source` 用了 logger 但全檔從未 import ——
+# 只在「真的刪到帳本記錄」時才走到那行，所以平時看不出來，
+# 一旦刪除有帳本的請款單／廠商應付就 NameError、整個刪除失敗。
+logger = logging.getLogger(__name__)
 
 class FinanceLedgerService(AuditableServiceMixin):
     """統一帳本業務服務層"""
