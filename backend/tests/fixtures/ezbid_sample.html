@@ -1,39 +1,103 @@
-<!-- ezbid.tw 標案列表片段 snapshot (recorded 2026-04-16)
-     用於 contract test — 上游 DOM 結構若變更，解析結果即失敗。
-     實際 ezbid 頁面結構包含 a href="/tender/{id}" + text 以特定順序分段。 -->
-<html>
-<body>
-<div class="tender-list">
-  <a href="/tender/9001234">
-    <span>公告</span>
-    <span>剩7 天</span>
-    <span>桃園市大溪區邊坡整治工程</span>
-    <span>工程類</span>
-    <span>115/04/16</span>
-    <span>桃園市政府工務局</span>
-    <span>$</span>
-    <span>12,000,000</span>
-  </a>
-  <a href="/tender/9001235">
-    <span>決標</span>
-    <span>已截止</span>
-    <span>中壢區公所屋頂防水工程採購案</span>
-    <span>工程類</span>
-    <span>115/04/10</span>
-    <span>中壢區公所</span>
-    <span>$</span>
-    <span>3,500,000</span>
-  </a>
-  <a href="/tender/9001236">
-    <span>公告</span>
-    <span>剩3 天</span>
-    <span>智慧交通號誌系統維護勞務</span>
-    <span>勞務類</span>
-    <span>115/04/12</span>
-    <span>交通部公路局</span>
-    <span>$</span>
-    <span>8,200,000</span>
-  </a>
-</div>
-</body>
-</html>
+<!-- ezbid.tw 標案列表 snapshot（recorded 2026-08-03，站台 2026-08 改版後）
+     用於 contract test — 上游 DOM 結構若變更，解析結果即失敗。這是刻意的。
+
+     2026-08-02 站台從 cf.ezbid.tw 301 永久搬到 ezbid.tw 並改版：
+       舊：整列資訊塞在 <a href="/tender/{id}"> 的文字裡
+       新：<tr> 為單位，<a href="/detail/{unit_id}/{job_number}"> 只剩標題
+     舊 fixture 沒跟著更新，使 parser 重寫後零回歸保護 —— 本檔即為補上那道保護。
+-->
+<html><body><table>
+<tr>
+                            <th class="col-fix-status ps-4">狀態/方式</th>
+                            <th class="col-fix-date">公告/截止</th>
+                            <th class="col-fix-loc">地點</th>
+                            <th class="col-fix-org">招標機關</th>
+                            <th class="col-fix-title">標案名稱 / 押標金</th>
+                            <th class="col-fix-cat text-center">分類</th>
+                            <th class="col-fix-budget text-end pe-4">預算金額</th>
+                        </tr>
+<tr onclick="window.location.href='/detail/3.13.52/1154F078'"
+                            style="cursor:pointer;">
+                            <td class="ps-4">
+                                <div class="d-flex flex-column align-items-start gap-1">
+    <span class="badge-type type-other">公告</span>
+                                </div>
+                            </td>
+                            <td class="no-wrap">
+                                <div class="text-secondary small font-monospace">115/08/03</div>
+                                <div class="mt-1">
+        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle"
+            style="font-size:0.75rem;">剩 11 天</span>
+        </div>
+                            </td>
+                            <td><span
+                                    class="badge bg-light text-secondary border fw-normal d-inline-block text-truncate"
+                                    style="max-width: 100px; vertical-align: bottom;"
+                                    title="臺中市(非原住民地區)">臺中市(非原住民地區)</span></td>
+                            <td>
+                                <a href="/agency/3.13.52"
+                                    class="text-truncate text-secondary field-link d-inline-block"
+                                    style="max-width: 160px;" title="台灣自來水股份有限公司"
+                                    onclick="event.stopPropagation();">
+                                    台灣自來水股份有限公司
+                                </a>
+                            </td>
+                            <td>
+                                <a href="/detail/3.13.52/1154F078" class="truncate-title tender-title-link"
+                                    onclick="event.stopPropagation();" title="檢修漏管理資訊系統改版整合案">檢修漏管理資訊系統改版整合案</a>
+                            </td>
+                            <td class="text-center">
+                                <a href="/?cat=SERV"
+                                    class="tag-category text-decoration-none"
+                                    onclick="event.stopPropagation();">勞務類</a>
+                            </td>
+                            <td class="pe-4">
+                                <div class="cell-budget">
+                                    <span class="currency-symbol">$</span>
+    9,474,490
+                                </div>
+                            </td>
+                        </tr>
+<tr onclick="window.location.href='/detail/3.76.55.20/FI1150728OB'"
+                            style="cursor:pointer;">
+                            <td class="ps-4">
+                                <div class="d-flex flex-column align-items-start gap-1">
+    <span class="badge-type type-other">公告</span>
+                                </div>
+                            </td>
+                            <td class="no-wrap">
+                                <div class="text-secondary small font-monospace">115/08/03</div>
+                                <div class="mt-1">
+        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle"
+            style="font-size:0.75rem;">剩 9 天</span>
+        </div>
+                            </td>
+                            <td><span
+                                    class="badge bg-light text-secondary border fw-normal d-inline-block text-truncate"
+                                    style="max-width: 100px; vertical-align: bottom;"
+                                    title="花蓮縣(原住民地區)">花蓮縣(原住民地區)</span></td>
+                            <td>
+                                <a href="/agency/3.76.55.20"
+                                    class="text-truncate text-secondary field-link d-inline-block"
+                                    style="max-width: 160px;" title="花蓮縣消防局"
+                                    onclick="event.stopPropagation();">
+                                    花蓮縣消防局
+                                </a>
+                            </td>
+                            <td>
+                                <a href="/detail/3.76.55.20/FI1150728OB" class="truncate-title tender-title-link"
+                                    onclick="event.stopPropagation();" title="花蓮縣消防局115年辦理鄉(鎮、市、區)公所防災協作中心暨災害防救演習規劃與評估(HSEEP)演練計畫委託專業服務案">花蓮縣消防局115年辦理鄉(鎮、市、區)公所防災協作中心暨災害防救演習規劃與評估(HSEEP)演練計畫委託專業服務案</a>
+                            </td>
+                            <td class="text-center">
+                                <a href="/?cat=SERV"
+                                    class="tag-category text-decoration-none"
+                                    onclick="event.stopPropagation();">勞務類</a>
+                            </td>
+                            <td class="pe-4">
+                                <div class="cell-budget">
+                                    <span class="currency-symbol">$</span>
+    3,900,000
+                                </div>
+                            </td>
+                        </tr>
+</table></body></html>

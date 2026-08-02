@@ -14,6 +14,7 @@
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -55,34 +56,43 @@ class TestEzbidParseContract:
         records = scraper._parse_html(sample_html)
         assert all(r["source"] == "ezbid" for r in records)
 
+    # 2026-08-03：以下三項原本硬編了特定 snapshot 的值（cf.ezbid.tw 網域、
+    # 2026-04-16、12,000,000、工程類），使得每次重錄 fixture 都要連帶改斷言，
+    # 也讓「站台改版」與「換了一批標案」看起來一樣紅。
+    # contract test 要驗的是**結構契約**，改為驗格式。
+
     def test_ezbid_url_pattern(self, scraper, sample_html):
-        """URL 規則固定 https://cf.ezbid.tw/tender/{id}。"""
+        """URL 規則：https://ezbid.tw/detail/{unit_id}/{job_number}。"""
         records = scraper._parse_html(sample_html)
         for r in records:
-            assert r["ezbid_url"].startswith("https://cf.ezbid.tw/tender/")
+            assert re.fullmatch(
+                r"https://ezbid\.tw/detail/[^/]+/[^/]+", r["ezbid_url"]
+            ), f"URL 形態不符: {r['ezbid_url']}"
             assert r["ezbid_url"].endswith(r["ezbid_id"])
 
     def test_roc_date_converted(self, scraper, sample_html):
-        """ROC 115/04/16 → 2026-04-16。"""
+        """ROC (115/08/03) 應轉為西元 ISO 日期。"""
         records = scraper._parse_html(sample_html)
         dates = [r["date"] for r in records if r["date"]]
-        assert "2026-04-16" in dates or "2026-04-10" in dates
+        assert dates, "至少一筆應有日期（全空代表日期欄定位失效）"
+        for d in dates:
+            assert re.fullmatch(r"20\d{2}-\d{2}-\d{2}", d), f"非 ISO 日期: {d}"
 
     def test_budget_parsed_as_int(self, scraper, sample_html):
         """預算欄位去逗號後為 int（或 None 若缺資料）。"""
         records = scraper._parse_html(sample_html)
         budgets = [r["budget"] for r in records]
-        assert 12_000_000 in budgets
-        assert 3_500_000 in budgets
         assert all(b is None or isinstance(b, int) for b in budgets)
+        assert any(isinstance(b, int) and b > 0 for b in budgets), \
+            "全部預算皆缺，代表 '$' 之後的取值失效"
 
     def test_category_label_strips_lei(self, scraper, sample_html):
-        """category 標籤去除「類」字元（工程類 → 工程）。"""
+        """category 標籤去除「類」字元（勞務類 → 勞務）。"""
         records = scraper._parse_html(sample_html)
-        cats = {r["category"] for r in records}
-        assert "工程" in cats
-        assert "勞務" in cats
-        assert "工程類" not in cats, "原始『類』後綴應被 strip"
+        cats = {r["category"] for r in records if r["category"]}
+        assert cats, "全部分類皆空，代表分類欄定位失效"
+        assert not any(c.endswith("類") for c in cats), \
+            f"原始『類』後綴應被 strip: {cats}"
 
     def test_status_公告_maps_to_type(self, scraper, sample_html):
         """status=公告 → type=公開招標公告；其他 status 原樣保留。"""

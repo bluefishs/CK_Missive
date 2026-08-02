@@ -34,6 +34,18 @@ BACKOFF_BASE = 2.0
 # P1-4 (2026-05-27)：5 → 3 — 縮短 silent window 從 ~5h → ~3h，配合 Prometheus alert
 BLOCK_THRESHOLD = 3
 
+# 封鎖頁面的明確特徵。**不要放單字 "block"** —— 它會命中 Bootstrap 的
+# `d-inline-block` 等 CSS class，把正常頁面判成封鎖（2026-08-03 修）。
+BLOCK_SIGNATURES = (
+    "captcha",
+    "cf-challenge",
+    "checking your browser",
+    "access denied",
+    "ip has been blocked",
+    "您的 ip 已被",
+    "請求過於頻繁",
+)
+
 # ezbid 分類對照
 EZBID_CATEGORIES = {
     "ALL": "全部",
@@ -245,9 +257,15 @@ class EzbidScraper:
                         self._record_failure("http_403")
                         return []
 
+                    # 2026-08-03：原本判斷是 `"block" in body_lower`，會被 Bootstrap 的
+                    # `d-inline-block` / `d-md-block` 等 CSS class 命中 → 正常頁面被當成
+                    # 封鎖、直接放棄整批抓取。之所以沒天天爆，只因為它只看前 2000 字元，
+                    # 而那段剛好落在 <head>；CSS class 往前挪一點就會誤觸發 ——
+                    # 也就是「目前正常」純屬運氣。改為比對明確的封鎖語句。
                     body_lower = resp.text[:2000].lower()
-                    if "captcha" in body_lower or "block" in body_lower:
-                        logger.warning("ezbid 可能已封鎖 IP (captcha/block detected)")
+                    hit = next((s for s in BLOCK_SIGNATURES if s in body_lower), None)
+                    if hit:
+                        logger.warning(f"ezbid 可能已封鎖 IP（偵測到 '{hit}'）")
                         self._record_failure("captcha")
                         return []
 

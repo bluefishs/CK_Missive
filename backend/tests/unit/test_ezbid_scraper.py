@@ -3,6 +3,8 @@ ezbid 爬蟲單元測試
 
 測試 HTML 解析邏輯 (mock HTTP)
 """
+from pathlib import Path
+
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -10,30 +12,13 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from app.services.tender.ezbid_scraper import EzbidScraper, BLOCK_THRESHOLD
 
 
-SAMPLE_HTML = """
-<html><body>
-<a href="/tender/12345?source=" class="card-link">
-  <div>公告</div>
-  <div>剩 7 天</div>
-  <div>115年度測量計畫委託服務</div>
-  <div>勞務類</div>
-  <div>115/04/07</div>
-  <div>交通部公路局</div>
-  <div>$</div>
-  <div>3,960,601</div>
-</a>
-<a href="/tender/12346?source=" class="card-link">
-  <div>已截止</div>
-  <div>已截止</div>
-  <div>114年度地籍測量案</div>
-  <div>工程類</div>
-  <div>114/12/15</div>
-  <div>內政部</div>
-  <div>$</div>
-  <div>5,000,000</div>
-</a>
-</body></html>
-"""
+# 2026-08-03：原本這裡內嵌一份手寫 SAMPLE_HTML，與 contract test 讀的
+# `fixtures/ezbid_sample.html` 是**兩份各自漂移的 fixture**。站台 08-02 改版後
+# 兩份都過時，parser 重寫因此完全沒有回歸保護（10 個測試同時紅才被發現）。
+# 現在統一讀同一份真實 snapshot，上游改版時只需重錄一次。
+SAMPLE_HTML = (
+    Path(__file__).parent.parent / "fixtures" / "ezbid_sample.html"
+).read_text(encoding="utf-8")
 
 
 class TestEzbidParser:
@@ -48,23 +33,45 @@ class TestEzbidParser:
         scraper = EzbidScraper()
         records = scraper._parse_html(SAMPLE_HTML)
         r = records[0]
-        assert r["ezbid_id"] == "12345"
-        assert r["title"] == "115年度測量計畫委託服務"
+        # 改版後 ezbid_id 是 PCC 複合鍵 unit_id/job_number，可直接對應 PCC（ADR-0046）
+        assert r["ezbid_id"] == "3.13.52/1154F078"
+        assert r["unit_id"] == "3.13.52"
+        assert r["job_number"] == "1154F078"
+        assert r["title"] == "檢修漏管理資訊系統改版整合案"
         assert r["category"] == "勞務"
-        assert r["date"] == "2026-04-07"
-        assert r["unit_name"] == "交通部公路局"
-        assert r["budget"] == 3960601
-        assert r["days_left"] == 7
+        assert r["date"] == "2026-08-03"
+        assert r["unit_name"] == "台灣自來水股份有限公司"
+        assert r["budget"] == 9474490
+        assert r["days_left"] == 11
         assert r["status"] == "公告"
 
-    def test_parse_html_closed_record(self):
+    def test_parse_html_second_record_fields(self):
+        """第二筆用不同的 unit_id 形態（4 段）驗證特徵定位不靠固定索引。"""
         scraper = EzbidScraper()
         records = scraper._parse_html(SAMPLE_HTML)
         r = records[1]
-        assert r["ezbid_id"] == "12346"
-        assert r["date"] == "2025-12-15"
-        assert r["days_left"] == 0
-        assert r["budget"] == 5000000
+        assert r["ezbid_id"] == "3.76.55.20/FI1150728OB"
+        assert r["date"] == "2026-08-03"
+        assert r["days_left"] == 9
+        assert r["budget"] == 3900000
+
+    def test_parse_html_ignores_header_row(self):
+        """表頭 <tr> 沒有 /detail/ 連結，不得被當成一筆標案。"""
+        scraper = EzbidScraper()
+        records = scraper._parse_html(SAMPLE_HTML)
+        assert all(r["title"] not in ("標案名稱 / 押標金", "招標機關") for r in records)
+
+    def test_parse_html_rejects_legacy_format(self):
+        """舊版 `/tender/{id}` 格式應解析為 0 筆。
+
+        站台 2026-08 已 301 永久搬家並改版，舊格式不會再出現；
+        若哪天又解析得出來，代表有人把舊解析路徑加回來了。
+        """
+        legacy = (
+            '<html><body><a href="/tender/12345" class="card-link">'
+            "<div>公告</div><div>剩 7 天</div><div>某測量案</div></a></body></html>"
+        )
+        assert EzbidScraper()._parse_html(legacy) == []
 
     def test_parse_html_empty(self):
         scraper = EzbidScraper()
@@ -210,6 +217,50 @@ class TestEzbidBlockDetection:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
             mock_resp.text = "Please solve captcha to continue"
+            mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
+            mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.return_value.get = AsyncMock(return_value=mock_resp)
+
+            result = await scraper._fetch_page(None, "ALL", 1, 100)
+
+        assert result == []
+        assert scraper._consecutive_failures == 1
+
+    @pytest.mark.asyncio
+    async def test_bootstrap_css_class_is_not_treated_as_block(self):
+        """正常頁面含 `d-inline-block` 等 CSS class，不得被判成封鎖。
+
+        2026-08-03 迴歸：原偵測是 `"block" in body_lower`，會被 Bootstrap 的
+        `d-inline-block` / `d-md-block` 命中 → 正常頁面直接 return [] 放棄整批。
+        之所以沒天天爆，只因為它僅檢查前 2000 字元、CSS 剛好落在後面 —— 純屬運氣。
+        """
+        scraper = EzbidScraper()
+
+        with patch("app.services.tender.ezbid_scraper.httpx.AsyncClient") as mock_client:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.text = (
+                '<html><head><style>.d-inline-block{display:block}</style></head>'
+                "<body>" + SAMPLE_HTML + "</body></html>"
+            )
+            mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
+            mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.return_value.get = AsyncMock(return_value=mock_resp)
+
+            result = await scraper._fetch_page(None, "ALL", 1, 100)
+
+        assert scraper._consecutive_failures == 0, "正常頁面不該累計封鎖失敗"
+        assert len(result) >= 1, "正常頁面應解析出標案"
+
+    @pytest.mark.asyncio
+    async def test_real_block_page_still_detected(self):
+        """真的封鎖頁仍要被抓到（確認上面的修法沒把偵測整個關掉）。"""
+        scraper = EzbidScraper()
+
+        with patch("app.services.tender.ezbid_scraper.httpx.AsyncClient") as mock_client:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.text = "<html><body>Access Denied — your IP has been blocked</body></html>"
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
             mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_client.return_value.get = AsyncMock(return_value=mock_resp)
