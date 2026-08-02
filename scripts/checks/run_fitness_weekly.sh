@@ -47,21 +47,18 @@ echo ""
 
 FAIL_COUNT=0
 FAIL_STEPS=()
+WARN_COUNT=0
+WARN_STEPS=()
 
-# 偵測子腳本支援哪個嚴格旗標。
+# 註（2026-08-03）：**刻意不傳 --strict 給子腳本**。
+# 各 audit 的 --strict 語意是「任何 warning 也 exit 2」，會把 YELLOW 升級成 RED——
+# 例如 tender_freshness 的「3 天 stale」其中 2 天是週末（政府不發標），
+# 傳 --strict 就變成每個週末都告警。不傳旗標時各腳本回原生三態
+# （0=GREEN / 1=YELLOW / 2+=RED），由本腳本自己決定哪一級才 exit 1。
 #
-# 2026-08-02 立法起因：本腳本一律傳 `--strict`，但**23 步裡只有 5 支認得它**
-# （5 支用 `--ci`、12 支兩種都沒有）→ argparse 直接 error exit 2 → 17 步必然「失敗」。
-# 後果：`fitness_weekly` 連續 9 週 RED（W23~W31 從未綠過），**紅的是參數不是系統**。
-# 每次執行只花 13.8 秒（每步秒退）就是這個症狀，但沒有人看那個數字。
-# 不傳旗標也不影響判定——各 audit 不帶旗標時本來就回三態 exit code。
-detect_flag() {
-    local h
-    h=$(PYTHONIOENCODING=utf-8 python "$1" --help 2>&1 || true)
-    if echo "$h" | grep -q -- "--strict"; then echo "--strict"
-    elif echo "$h" | grep -q -- "--ci"; then echo "--ci"
-    else echo ""; fi
-}
+# 前一版曾用 detect_flag() 依 --help 偵測該傳哪個旗標，那是為了解決
+# 「23 步只有 5 支認得 --strict、其餘 argparse 直接報錯」的問題（連 9 週假紅）。
+# 現在改為一律不傳，那個問題自然消失，偵測函式也就不需要了。
 
 run_step() {
     local step_num="$1"
@@ -84,12 +81,14 @@ run_step() {
     # tender_freshness（48 天陳舊）與 cross-repo template drift 兩步 RED，結論卻是全綠。
     # 子腳本不帶 --strict 時本來就會回非 0（實測 2 / 1），資訊一直都在，是被 `|| true` 丟掉。
     # warning mode 的語意是「不阻斷」，不是「不報告」。
-    local flag=""
-    $STRICT && flag="$(detect_flag "$script")"
-    # shellcheck disable=SC2086 —— flag 為空時不可傳空字串參數
-    PYTHONIOENCODING=utf-8 python "$script" $flag 2>&1 || {
+    # 三態：0=GREEN / 1=YELLOW / 2+=RED（見上方「刻意不傳 --strict」說明）
+    local rc=0
+    PYTHONIOENCODING=utf-8 python "$script" 2>&1 || rc=$?
+    if [[ $rc -eq 1 ]]; then
+        WARN_COUNT=$((WARN_COUNT+1)); WARN_STEPS+=("$step_num $step_name")
+    elif [[ $rc -ne 0 ]]; then
         FAIL_COUNT=$((FAIL_COUNT+1)); FAIL_STEPS+=("$step_num $step_name")
-    }
+    fi
     echo ""
 }
 
@@ -125,14 +124,19 @@ run_step "23" "doc reference integrity"       "scripts/checks/doc_reference_inte
 # Summary
 # ============================================================
 echo -e "${CYAN}===========================================${NC}"
-if [[ $FAIL_COUNT -eq 0 ]]; then
+if [[ $FAIL_COUNT -eq 0 && $WARN_COUNT -eq 0 ]]; then
     echo -e "${GREEN} ✅ Tier 2 weekly all passed${NC}"
 else
-    echo -e "${YELLOW} ⚠ Tier 2 weekly: $FAIL_COUNT step(s) RED${NC}"
-    for s in "${FAIL_STEPS[@]}"; do
-        echo -e "   ${RED}✗${NC} $s"
+    [[ $FAIL_COUNT -gt 0 ]] && echo -e "${RED} ✗ Tier 2 weekly: $FAIL_COUNT step(s) RED${NC}"
+    for s in "${FAIL_STEPS[@]:-}"; do
+        [[ -n "$s" ]] && echo -e "   ${RED}✗${NC} $s"
     done
-    if $STRICT; then
+    [[ $WARN_COUNT -gt 0 ]] && echo -e "${YELLOW} ⚠ YELLOW $WARN_COUNT step(s)（非故障，待確認）${NC}"
+    for s in "${WARN_STEPS[@]:-}"; do
+        [[ -n "$s" ]] && echo -e "   ${YELLOW}⚠${NC} $s"
+    done
+    # exit 1 只由 RED 觸發，不含 YELLOW —— 否則 cron 會因為「週末沒發標」每週報一次
+    if $STRICT && [[ $FAIL_COUNT -gt 0 ]]; then
         echo -e "${RED} STRICT mode → exit 1 (連續 2 週同 step RED 將推 LINE)${NC}"
         exit 1
     fi
