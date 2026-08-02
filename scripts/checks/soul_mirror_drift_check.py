@@ -9,7 +9,23 @@ CONSCIOUSNESS_INTEGRATION_ANALYSIS.md 額外發現的整合斷鏈：
 - 結果：Web UI 用戶（Missive 8KB SOUL）vs Telegram/LINE 用戶（Hermes 5KB SOUL）
   看到的是不同人格的「坤哥」
 
-本 detector 偵測 drift 並輸出 diff，供 Owner 手動跑同步腳本。
+⚠️ 2026-08-02 重要修正：上面那段前提（2026-04-25 寫的）**已經不成立**，理由有二。
+
+1. **架構定調改了**：ADR-CK-003 意識體聯邦（2026-06-03）明確區分
+   「坤哥＝Missive 平臺的意識體」與「meta profile＝AaaP 的整體大腦」。
+   兩者是**不同的意識體**，不是同一個人格的兩份鏡像 —— 內容不同是設計，不是 drift。
+2. **比對對象是不生效的檔案**：Hermes `active_profile=meta`，真正載入的是
+   `/opt/data/profiles/meta/SOUL.md`（8806 bytes）；本檢查比對的
+   `runbooks/hermes-stack/SOUL.md` 對應的是 root `/opt/data/SOUL.md`（5621 bytes，**不生效**）。
+   這正是 2026-06-02 記載過的「一直在改錯檔」。
+
+因此本檢查**不再建議跑同步腳本**：那會 (a) 寫到不生效的檔案，
+(b) 若有人照著同步到 meta，會覆蓋掉 6/16 加入的業務查詢強制規則（baseline GO 的關鍵）。
+另有實證支持不要動：6/16 實測 SOUL 強化（D-α/D-β）為**負向**——qwen 仍捏造且觸發
+慢檢索 113-280s，已還原並立法「瓶頸在模型強度不在 prompt，勿再投 prompt 層」。
+
+保留本檢查的理由：仍可看出 Hermes 端部署包的人格檔是否整個空掉/損毀。
+判定改以「Hermes 端還有沒有可用人格」為準，而非「是否與 Missive 一致」。
 
 用法：
     python scripts/checks/soul_mirror_drift_check.py
@@ -144,15 +160,18 @@ def main() -> int:
     print(f"   共同:             {common_count}")
     print()
 
-    severity = "🟢 minor"
+    # 判定基準（2026-08-02 改）：不再以「與 Missive 一致」為準 —— 依 ADR-CK-003
+    # 兩者是不同意識體，內容不同是設計。真正該警告的是 Hermes 端人格檔整個壞掉。
+    HERMES_MIN_SECTIONS = 3
+    severity = "🟢 ok（兩者為不同意識體，內容不同屬預期）"
+    hermes_broken = len(h_secs) < HERMES_MIN_SECTIONS
+    if hermes_broken:
+        severity = "🔴 SEVERE — Hermes 端人格檔疑似空掉或損毀"
+
     if missive_only:
-        severity = "🔴 SEVERE"
-        print(f"🔴 Missive 獨有 sections（Hermes 缺，**跨通道人格不一致**）：")
+        print("ℹ️ Missive 獨有 sections（屬意識體差異，非 drift）：")
         for s in missive_only:
-            tag = ""
-            if any(k in s for k in ["三信念", "倫理紅線", "反迴聲", "身份"]):
-                tag = " ⚠️ 核心人格元素"
-            print(f"   - {s}{tag}")
+            print(f"   - {s}")
 
     if hermes_only:
         print(f"\n🟡 Hermes 獨有（少見，可能是 AaaP 端手動加的）：")
@@ -161,14 +180,17 @@ def main() -> int:
 
     print(f"\n嚴重度: {severity}")
 
-    if missive_only:
-        print("\n📌 修復建議：")
-        print("   1. 確認 wiki/SOUL.md 為 SSOT（Missive 端最新）")
-        print("   2. 手動跑同步：bash scripts/sync/sync_soul_to_hermes.sh")
-        print("   3. CK_AaaP 端 commit 鏡像更新")
-        print("   4. 跨 repo commit message: 'sync: SOUL.md from Missive (drift YYYY-MM-DD)'")
+    if hermes_broken:
+        print("\n📌 處理方式（Hermes 端人格檔疑似損毀時才需要）：")
+        print("   1. 先確認 Hermes 實際載入哪一份：`docker exec ck-hermes-gateway cat /opt/data/active_profile`")
+        print("   2. active_profile=meta 時，生效檔是 profiles/<profile>/SOUL.md，**不是 root SOUL.md**")
+        print("   3. 這屬 CK_AaaP / CK_Hermes 的維運範圍，不要從 Missive 端覆蓋過去")
+    else:
+        print("\nℹ️ 兩份 SOUL 內容不同屬預期（ADR-CK-003：坤哥與 meta 是不同意識體）。")
+        print("   **不要**跑 scripts/sync/sync_soul_to_hermes.sh —— 它寫到的是不生效的 root 檔，")
+        print("   且若有人照著同步進 meta，會蓋掉 6/16 加的業務查詢強制規則。")
 
-    if args.ci and missive_only:
+    if args.ci and hermes_broken:
         return 1
     return 0
 

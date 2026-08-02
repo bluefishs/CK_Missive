@@ -89,6 +89,31 @@
 
 ---
 
+### 9. SOUL.md：坤哥（Missive）vs meta（Hermes/AaaP）＝不同意識體，非鏡像
+
+| 端 | 檔案 | 身分 |
+|---|---|---|
+| Missive | `wiki/SOUL.md`（5246 chars） | **坤哥** —— Missive 平臺的意識體 |
+| Hermes 生效檔 | 容器 `/opt/data/profiles/meta/SOUL.md`（8806 chars） | **meta** —— AaaP 的整體大腦 |
+| Hermes 部署包 | `CK_AaaP/runbooks/hermes-stack/SOUL.md`（5513 chars） | 對應 root `/opt/data/SOUL.md`，**不生效** |
+
+**為何刻意**：ADR-CK-003 意識體聯邦（2026-06-03）明確區分「各平臺後端各有會成長的意識體」
+與「meta profile ＝ AaaP 整體大腦」。**兩者本來就不該相同**。
+
+**兩個必須知道的陷阱**（2026-08-02 查證）：
+1. `soul_mirror_drift_check` 的前提寫於 2026-04-25（早於 ADR-CK-003），假設兩者應為鏡像，
+   長期報 🔴 SEVERE。已改判定基準為「Hermes 端人格檔是否還可用」，不再以一致性為準。
+2. `scripts/sync/sync_soul_to_hermes.sh` 的目標是**不生效的 root 檔**
+   （`active_profile=meta`）。**不要跑它**：寫過去無效；若有人照著同步進 meta，
+   會蓋掉 6/16 加入的業務查詢強制規則（baseline GO 的關鍵）。
+
+**另有實證支持不要動 Hermes 人格**：6/16 實測 SOUL 強化（D-α wiki-first 回憶／D-β 反捏造）
+為**負向** —— qwen 仍捏造，且觸發慢檢索 113-280s，已還原並立法
+「瓶頸在模型強度不在 prompt，勿再投 prompt 層」。這與 `AI_ROLE_REPOSITIONING`
+「對話智慧夠用即可、停止加碼」的方向一致。
+
+---
+
 ## 2. ⚠️ 真 drift（**不是** Tier 3，待收斂 — 別誤放進上表）
 
 分清這些，才是砍噪音的另一半：以下是**真的該處理**，勿因本 registry 而誤判為「刻意」。
