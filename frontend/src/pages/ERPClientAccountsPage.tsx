@@ -22,7 +22,7 @@ import { ROUTES } from '../router/types';
 import { useClientAccountSummary } from '../hooks';
 import type { ClientAccountSummaryItem } from '../types/erp';
 import { EnhancedTable } from '../components/common/EnhancedTable';
-import type { ColumnsType } from 'antd/es/table';
+import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 
 const { Title } = Typography;
 
@@ -72,7 +72,7 @@ const ERPClientAccountsPage: React.FC = () => {
     return items;
   }, [items, statFilter]);
 
-  const columns: ColumnsType<ClientAccountSummaryItem> = [
+  const columns: ResponsiveColumn<ClientAccountSummaryItem>[] = [
     {
       title: '委託單位',
       dataIndex: 'vendor_name',
@@ -81,13 +81,13 @@ const ERPClientAccountsPage: React.FC = () => {
     },
     {
       title: '代碼',
-      dataIndex: 'vendor_code',
+      hideOnMobile: true, dataIndex: 'vendor_code',
       key: 'vendor_code',
       width: 140,
     },
     {
       title: '合作案件數',
-      dataIndex: 'case_count',
+      hideOnMobile: true, dataIndex: 'case_count',
       key: 'case_count',
       width: 110,
       align: 'center',
@@ -104,7 +104,7 @@ const ERPClientAccountsPage: React.FC = () => {
     },
     {
       title: '已請款',
-      dataIndex: 'total_billed',
+      hideOnMobile: true, dataIndex: 'total_billed',
       key: 'total_billed',
       width: 130,
       align: 'right',
@@ -113,7 +113,7 @@ const ERPClientAccountsPage: React.FC = () => {
     },
     {
       title: '已收款',
-      dataIndex: 'total_received',
+      hideOnMobile: true, dataIndex: 'total_received',
       key: 'total_received',
       width: 130,
       align: 'right',

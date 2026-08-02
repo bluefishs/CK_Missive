@@ -27,7 +27,7 @@ import {
 } from '../types/erp';
 import type { OperationalAccount } from '../types/erp';
 import { EnhancedTable } from '../components/common/EnhancedTable';
-import type { ColumnsType } from 'antd/es/table';
+import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 
 const { Title } = Typography;
 
@@ -79,10 +79,10 @@ const ERPOperationalListPage: React.FC = () => {
       ? Math.round((stats.total_spent / stats.total_budget) * 100)
       : 0;
 
-  const columns: ColumnsType<OperationalAccount> = [
+  const columns: ResponsiveColumn<OperationalAccount>[] = [
     {
       title: '帳目編號',
-      dataIndex: 'account_code',
+      hideOnMobile: true, dataIndex: 'account_code',
       key: 'account_code',
       width: 140,
     },
@@ -104,7 +104,7 @@ const ERPOperationalListPage: React.FC = () => {
     },
     {
       title: '年度',
-      dataIndex: 'fiscal_year',
+      hideOnMobile: true, dataIndex: 'fiscal_year',
       key: 'fiscal_year',
       width: 80,
       align: 'center',
@@ -119,7 +119,7 @@ const ERPOperationalListPage: React.FC = () => {
     },
     {
       title: '已支出',
-      dataIndex: 'total_spent',
+      hideOnMobile: true, dataIndex: 'total_spent',
       key: 'total_spent',
       width: 130,
       align: 'right',

@@ -45,7 +45,10 @@
     "mobile_probe": {
       "_doc": "行動版面觀測（2026-08-02）。既有廣度掃描固定 1440×900，手機上版面壞掉沒有任何機制會發現——而核銷的主要入口正是手機掃 QR。刻意**只觀測不告警**：表格設 scroll={{x}} 橫向捲動是刻意設計，一律判 FAIL 會產出整片噪音。採用的量已做鑑別力對照（手機 vs 桌面同頁比對）：/erp/quotations 708 vs 0、/documents 158 vs 0 → 手機獨有。另量過的『小於 32px 觸控目標數』手機 157/桌面 156＝無鑑別力，已捨棄不交付。",
       "enabled": true,
-      "viewport": { "width": 390, "height": 844 },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "overflow_warn_px": 400,
       "routes": [
         "/erp/expenses",
@@ -237,17 +240,67 @@
       ]
     },
     {
-      "id": "billing-form-page",
-      "name": "請款填報獨立頁（2026-08-02 去 Modal pilot，含手機視窗）",
+      "id": "account-record-entry",
+      "name": "報價單「應收帳款」的新增按鈕真的導到填報頁（防「頁面可用但沒入口」）",
       "auth": true,
-      "url": "/erp/quotations/167/billings/create",
-      "viewport": { "width": 390, "height": 844 },
+      "url": "/erp/quotations/167",
       "steps": [
-        { "action": "wait", "ms": 2500 },
+        {
+          "action": "wait",
+          "ms": 2600
+        },
+        {
+          "action": "clickText",
+          "text": "應收帳款"
+        },
+        {
+          "action": "wait",
+          "ms": 1800
+        },
+        {
+          "action": "assertCount",
+          "selector": "button:has-text(\"新增應收\")",
+          "min": 1,
+          "failMsg": "應收帳款分頁沒有「新增應收」按鈕（入口斷了）"
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text(\"新增應收\")"
+        },
+        {
+          "action": "wait",
+          "ms": 2200
+        },
+        {
+          "action": "assertUrlMatches",
+          "pattern": "accounts/receivable/create",
+          "okMsg": "已導向獨立填報頁",
+          "failMsg": "點了新增卻沒有導向填報頁"
+        }
+      ]
+    },
+    {
+      "id": "account-record-form-page",
+      "name": "應收填報獨立頁（去 Modal，含手機視窗）",
+      "auth": true,
+      "url": "/erp/quotations/167/accounts/receivable/create",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 2500
+        },
         {
           "action": "assertTextsPresent",
-          "texts": ["新增請款", "請款日期", "請款金額"],
-          "failMsg": "請款填報頁沒有渲染出表單（路由或 lazy import 斷了）"
+          "texts": [
+            "新增應收",
+            "請款日期",
+            "請款金額"
+          ],
+          "failMsg": "應收填報頁沒有渲染出表單（路由或 lazy import 斷了）"
         },
         {
           "action": "assertCount",

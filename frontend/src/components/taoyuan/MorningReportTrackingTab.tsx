@@ -8,6 +8,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Table, Tag, Card, Statistic, Row, Col, Select, Space, Typography, Tooltip, Input } from 'antd';
+import { useResponsive } from '../../hooks';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -63,6 +64,7 @@ const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode; orde
 };
 
 export const MorningReportTrackingTab: React.FC = () => {
+  const { isMobile } = useResponsive();
   const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined);
   const [searchText, setSearchText] = useState('');
@@ -302,7 +304,8 @@ export const MorningReportTrackingTab: React.FC = () => {
           loading={isLoading}
           size="small"
           pagination={{ pageSize: 25, showSizeChanger: true, showTotal: (t) => `共 ${t} 筆` }}
-          scroll={{ x: 950 }}
+          scroll={isMobile ? undefined : { x: 950 }}
+        tableLayout={isMobile ? 'fixed' : undefined}
         />
       </Card>
     </div>

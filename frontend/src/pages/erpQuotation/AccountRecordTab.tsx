@@ -4,27 +4,28 @@
  * 統一欄位: 期別、對象、請款日期、請款金額、發票號碼、
  *          發票金額、收付款狀態、收付款日期、收付款金額
  *
- * ACCEPTED EXCEPTION: Modal CRUD pattern retained.
- * Reason: Tab-inline editing within ERP Quotation detail page (7-8 fields, varies by direction).
- * Bidirectional component (receivable/payable) tightly coupled to erpQuotationId context.
- * Navigating away would lose the detail page tab state and statistics context.
- * Quality: Form validation (required rules), loading states (confirmLoading), Popconfirm delete.
+ * 2026-08-02：新增／編輯改為獨立路由頁 `ERPAccountRecordFormPage`（owner：ERP 填報
+ * 參考公文設計、減少彈跳視窗）。原 04-05 的豁免理由（欄位少＋緊耦合＋導頁會失去
+ * tab 狀態）在**桌面**成立，但未把行動情境納入考慮；返回時已帶 `?tab=` 保留分頁。
+ * 刪除仍用 Popconfirm（就地確認，不需要一整頁）。
  *
- * @version 1.0.1
- * @date 2026-04-05
+ * @version 2.0.0
+ * @date 2026-08-02
  */
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import {
-  Button, Space, Tag, Modal, Form, Input, InputNumber,
-  DatePicker, Select, Popconfirm, App, Card, Statistic, Row, Col,
+  Button, Space, Tag, Popconfirm, App, Card, Statistic, Row, Col,
 } from 'antd';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
+
+import type { ResponsiveColumn } from '../../components/common/EnhancedTable';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
+import { ROUTES } from '../../router/types';
+import { useResponsive } from '../../hooks';
 
 /** 帳款方向 */
 type AccountDirection = 'receivable' | 'payable';
@@ -97,17 +98,14 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
 }) => {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
-  const [form] = Form.useForm();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const navigate = useNavigate();
+  const { isMobile } = useResponsive();
 
   const isReceivable = direction === 'receivable';
   const dirLabel = isReceivable ? '應收' : '應付';
   const counterpartyLabel = isReceivable ? '委託單位' : '協力廠商';
   const paymentLabel = isReceivable ? '收款' : '付款';
   const listEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_LIST : ERP_ENDPOINTS.VENDOR_PAYABLES_LIST;
-  const createEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_CREATE : ERP_ENDPOINTS.VENDOR_PAYABLES_CREATE;
-  const updateEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_UPDATE : ERP_ENDPOINTS.VENDOR_PAYABLES_UPDATE;
   const deleteEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_DELETE : ERP_ENDPOINTS.VENDOR_PAYABLES_DELETE;
   const queryKey = isReceivable ? ['erp-billings', erpQuotationId] : ['erp-vendor-payables', erpQuotationId];
 
@@ -126,19 +124,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   const totalPaid = records.reduce((s, r) => s + (r.payment_amount || 0), 0);
   const outstanding = totalRequest - totalPaid;
 
-  // CRUD
-  const createMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => apiClient.post(createEndpoint, data),
-    onSuccess: () => { message.success('新增成功'); invalidate(); close(); },
-    onError: () => message.error('新增失敗'),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => apiClient.post(updateEndpoint, data),
-    onSuccess: () => { message.success('更新成功'); invalidate(); close(); },
-    onError: () => message.error('更新失敗'),
-  });
-
+  // 刪除仍就地處理（Popconfirm）；新增／編輯已改為導向獨立填報頁
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiClient.post(deleteEndpoint, { id }),
     onSuccess: () => { message.success('已刪除'); invalidate(); },
@@ -151,86 +137,37 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
     queryClient.invalidateQueries({ queryKey: ['erp-quotations', 'detail'] });
   };
 
-  const close = () => { setModalOpen(false); setEditingId(null); form.resetFields(); };
+  const goCreate = () =>
+    navigate(
+      ROUTES.ERP_ACCOUNT_RECORD_CREATE
+        .replace(':quotationId', String(erpQuotationId))
+        .replace(':direction', direction),
+    );
 
-  const handleAdd = () => { setEditingId(null); form.resetFields(); setModalOpen(true); };
-
-  const handleEdit = (record: AccountRecord) => {
-    setEditingId(record.id);
-    if (isReceivable) {
-      form.setFieldsValue({
-        billing_period: record.period,
-        billing_date: record.request_date ? dayjs(record.request_date) : null,
-        billing_amount: record.request_amount,
-        payment_status: record.payment_status,
-        payment_date: record.payment_date ? dayjs(record.payment_date) : null,
-        payment_amount: record.payment_amount,
-        notes: record.notes,
-      });
-    } else {
-      form.setFieldsValue({
-        vendor_name: record.counterparty,
-        payable_amount: record.request_amount,
-        invoice_number: record.invoice_number,
-        due_date: record.request_date ? dayjs(record.request_date) : null,
-        payment_status: record.payment_status,
-        paid_date: record.payment_date ? dayjs(record.payment_date) : null,
-        paid_amount: record.payment_amount,
-        notes: record.notes,
-      });
-    }
-    setModalOpen(true);
-  };
-
-  const handleSubmit = useCallback(async () => {
-    const values = await form.validateFields();
-
-    if (isReceivable) {
-      const payload = {
-        erp_quotation_id: erpQuotationId,
-        billing_period: values.billing_period,
-        billing_date: values.billing_date?.format('YYYY-MM-DD'),
-        billing_amount: values.billing_amount,
-        payment_status: values.payment_status || 'pending',
-        payment_date: values.payment_date?.format('YYYY-MM-DD'),
-        payment_amount: values.payment_amount,
-        notes: values.notes,
-      };
-      if (editingId) updateMutation.mutate({ id: editingId, data: payload });
-      else createMutation.mutate(payload);
-    } else {
-      const payload = {
-        erp_quotation_id: erpQuotationId,
-        vendor_name: values.vendor_name,
-        payable_amount: values.payable_amount,
-        invoice_number: values.invoice_number,
-        due_date: values.due_date?.format('YYYY-MM-DD'),
-        payment_status: values.payment_status || 'unpaid',
-        paid_date: values.paid_date?.format('YYYY-MM-DD'),
-        paid_amount: values.paid_amount,
-        notes: values.notes,
-      };
-      if (editingId) updateMutation.mutate({ id: editingId, data: payload });
-      else createMutation.mutate(payload);
-    }
-  }, [form, editingId, erpQuotationId, isReceivable, createMutation, updateMutation]);
+  const goEdit = (recordId: number) =>
+    navigate(
+      ROUTES.ERP_ACCOUNT_RECORD_EDIT
+        .replace(':quotationId', String(erpQuotationId))
+        .replace(':direction', direction)
+        .replace(':recordId', String(recordId)),
+    );
 
   // 統一欄位
-  const columns: ColumnsType<AccountRecord> = [
+  const columns: ResponsiveColumn<AccountRecord>[] = [
     { title: '期別', dataIndex: 'period', width: 80, render: (v) => v || '-' },
     { title: counterpartyLabel, dataIndex: 'counterparty', width: 140, ellipsis: true },
-    { title: '請款日期', dataIndex: 'request_date', width: 110 },
+    { title: '請款日期', dataIndex: 'request_date', width: 110, hideOnMobile: true },
     { title: '請款金額', dataIndex: 'request_amount', width: 110, align: 'right', render: (v: number) => v?.toLocaleString() },
-    { title: '發票號碼', dataIndex: 'invoice_number', width: 120, render: (v) => v || '-' },
+    { title: '發票號碼', dataIndex: 'invoice_number', width: 120, hideOnMobile: true, render: (v) => v || '-' },
     { title: `${paymentLabel}狀態`, dataIndex: 'payment_status', width: 90, align: 'center',
       render: (s: string) => <Tag color={STATUS_COLORS[s] || 'default'}>{STATUS_LABELS[s] || s}</Tag> },
-    { title: `${paymentLabel}日期`, dataIndex: 'payment_date', width: 110 },
+    { title: `${paymentLabel}日期`, dataIndex: 'payment_date', width: 110, hideOnMobile: true },
     { title: `${paymentLabel}金額`, dataIndex: 'payment_amount', width: 110, align: 'right', render: (v) => v?.toLocaleString() || '-' },
     {
       title: '操作', width: 100, align: 'center',
       render: (_, record) => (
         <Space size="small">
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => goEdit(record.id)} />
           <Popconfirm title="確認刪除？" onConfirm={() => deleteMutation.mutate(record.id)}>
             <Button type="link" size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
@@ -238,6 +175,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
       ),
     },
   ];
+
 
   return (
     <div>
@@ -249,7 +187,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
       </Row>
 
       <div style={{ marginBottom: 12 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>新增{dirLabel}</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={goCreate} block={isMobile}>新增{dirLabel}</Button>
       </div>
 
       <EnhancedTable<AccountRecord>
@@ -261,42 +199,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
         pagination={{ pageSize: 10, showTotal: (t) => `共 ${t} 筆` }}
       />
 
-      {/* 統一表單 */}
-      <Modal title={editingId ? `編輯${dirLabel}` : `新增${dirLabel}`} open={modalOpen}
-        onOk={handleSubmit} onCancel={close} width={560}
-        confirmLoading={createMutation.isPending || updateMutation.isPending}>
-        <Form form={form} layout="vertical" size="small">
-          {isReceivable ? (
-            <>
-              <Form.Item name="billing_period" label="期別"><Input placeholder="如 第1期" /></Form.Item>
-              <Form.Item name="billing_date" label="請款日期" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item>
-              <Form.Item name="billing_amount" label="請款金額" rules={[{ required: true }]}>
-                <InputNumber style={{ width: '100%' }} min={0} formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
-              </Form.Item>
-            </>
-          ) : (
-            <>
-              <Form.Item name="vendor_name" label="協力廠商" rules={[{ required: true }]}><Input placeholder="廠商名稱" /></Form.Item>
-              <Form.Item name="payable_amount" label="應付金額" rules={[{ required: true }]}>
-                <InputNumber style={{ width: '100%' }} min={0} formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
-              </Form.Item>
-              <Form.Item name="invoice_number" label="廠商發票號碼"><Input placeholder="選填" /></Form.Item>
-              <Form.Item name="due_date" label="應付日期"><DatePicker style={{ width: '100%' }} /></Form.Item>
-            </>
-          )}
-          <Form.Item name="payment_status" label={`${paymentLabel}狀態`} initialValue={isReceivable ? 'pending' : 'unpaid'}>
-            <Select options={isReceivable
-              ? [{ value: 'pending', label: '待收款' }, { value: 'partial', label: '部分收款' }, { value: 'paid', label: '已收款' }, { value: 'overdue', label: '逾期' }]
-              : [{ value: 'unpaid', label: '未付款' }, { value: 'partial', label: '部分付款' }, { value: 'paid', label: '已付款' }]
-            } />
-          </Form.Item>
-          <Form.Item name={isReceivable ? 'payment_date' : 'paid_date'} label={`${paymentLabel}日期`}><DatePicker style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name={isReceivable ? 'payment_amount' : 'paid_amount'} label={`${paymentLabel}金額`}>
-            <InputNumber style={{ width: '100%' }} min={0} formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
-          </Form.Item>
-          <Form.Item name="notes" label="備註"><Input.TextArea rows={2} /></Form.Item>
-        </Form>
-      </Modal>
+      {/* 新增／編輯已改為獨立頁 ERPAccountRecordFormPage（見檔首說明） */}
     </div>
   );
 };

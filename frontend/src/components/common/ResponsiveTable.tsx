@@ -46,7 +46,7 @@ function ResponsiveTableInner<T extends object>(
 ) {
   const { isMobile, responsive } = useResponsive();
 
-  const filteredColumns: ColumnsType<T> = isMobile && mobileHiddenColumns.length > 0
+  let filteredColumns: ColumnsType<T> = isMobile && mobileHiddenColumns.length > 0
     ? (columns as ColumnType<T>[]).filter(
         (col) => {
           const dataIndex = getColumnDataIndex(col);
@@ -56,14 +56,27 @@ function ResponsiveTableInner<T extends object>(
       )
     : columns;
 
-  const scrollX = responsive({ xs: 500, sm: 700, md: 900, lg: 1200 });
+  // 窄螢幕拿掉固定 width，讓表格適應容器（與 EnhancedTable 同一套行為）。
+  // 2026-08-02：本元件原本在 xs 仍給 scroll.x=500，等於**強制**表格比 390px 視窗寬，
+  // 實測 /contract-cases 外溢 633px、/taoyuan/dispatch 734px —— 設定本身就在製造橫向捲動。
+  if (isMobile) {
+    filteredColumns = (filteredColumns as ColumnType<T>[]).map((c) => {
+      const { width: _unusedWidth, ...rest } = c;  // eslint-disable-line @typescript-eslint/no-unused-vars
+      return { ...rest, ellipsis: c.ellipsis ?? { showTitle: true } };
+    });
+  }
+
+  const scrollX = responsive({ sm: 700, md: 900, lg: 1200 });
 
   return (
     <Table<T>
       columns={filteredColumns}
-      scroll={{ x: scroll?.x ?? scrollX, ...scroll }}
+      // 窄螢幕刻意忽略呼叫端傳入的 scroll.x —— 那是為桌面挑的固定寬度
+      // （實測 DispatchOrdersTab 傳 x:1530、ProjectsTab 傳 x:1100，在 390px 下等於強制橫向捲）
+      scroll={isMobile ? { ...scroll, x: undefined } : { x: scroll?.x ?? scrollX, ...scroll }}
       size={size ?? (isMobile ? 'small' : 'middle')}
       {...props}
+      tableLayout={isMobile ? 'fixed' : props.tableLayout}
     />
   );
 }

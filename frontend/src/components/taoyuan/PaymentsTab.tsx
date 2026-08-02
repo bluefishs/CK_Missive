@@ -359,7 +359,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
         dataSource={items}
         rowKey="dispatch_order_id"
         loading={isLoading}
-        scroll={{ x: 2200 }}
+        scroll={isMobile ? undefined : { x: 2200 }}
+        tableLayout={isMobile ? 'fixed' : undefined}
         pagination={{
           showSizeChanger: true,
           showTotal: (total) => `共 ${total} 筆`,

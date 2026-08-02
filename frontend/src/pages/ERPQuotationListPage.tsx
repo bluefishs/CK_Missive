@@ -10,7 +10,7 @@ import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
 import { useERPQuotations, useERPProfitSummary, useDeleteERPQuotation, useAuthGuard } from '../hooks';
 import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
-import type { ColumnsType } from 'antd/es/table';
+import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
 
@@ -38,7 +38,7 @@ export const ERPQuotationListPage: React.FC = () => {
 
   // 前端過濾：僅顯示已承攬
 
-  const columns: ColumnsType<ERPQuotation> = [
+  const columns: ResponsiveColumn<ERPQuotation>[] = [
     { title: '案號', key: 'project_code', width: 160, render: (_: unknown, r: ERPQuotation) => r.project_code || r.case_code },
     {
       title: '案名',
@@ -47,7 +47,7 @@ export const ERPQuotationListPage: React.FC = () => {
       ellipsis: true,
       render: (text: string | null) => <strong>{text ?? '-'}</strong>,
     },
-    { title: '年度', dataIndex: 'year', key: 'year', width: 80, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
+    { title: '年度', hideOnMobile: true, dataIndex: 'year', key: 'year', width: 80, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
     {
       title: '總價',
       dataIndex: 'total_price',
@@ -58,7 +58,7 @@ export const ERPQuotationListPage: React.FC = () => {
     },
     {
       title: '毛利',
-      dataIndex: 'gross_profit',
+      hideOnMobile: true, dataIndex: 'gross_profit',
       key: 'gross_profit',
       width: 120,
       align: 'right',
@@ -69,7 +69,7 @@ export const ERPQuotationListPage: React.FC = () => {
     },
     {
       title: '毛利率',
-      dataIndex: 'gross_margin',
+      hideOnMobile: true, dataIndex: 'gross_margin',
       key: 'gross_margin',
       width: 90,
       align: 'right',

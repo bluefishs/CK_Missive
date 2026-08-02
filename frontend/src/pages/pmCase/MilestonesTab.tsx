@@ -3,27 +3,22 @@
  *
  * 提供里程碑的 CRUD 功能（子表格模式）
  *
- * ACCEPTED EXCEPTION: Modal CRUD pattern retained.
- * Reason: Tab-inline editing within PM Case detail page (7 fields).
- * Milestones are tightly coupled to the parent pmCaseId context; navigating away
- * would lose the detail page scroll position and tab state.
- * Quality: Form validation (required rules), loading states (confirmLoading), Popconfirm delete.
+ * 2026-08-02：新增／編輯改為獨立路由頁 `PMMilestoneFormPage`（去彈跳視窗）。
+ * 原豁免理由「導頁會失去詳情頁捲動位置與 tab 狀態」在桌面成立，但未考慮行動情境；
+ * 返回時已帶 ?tab=milestones 保留分頁。刪除仍就地用 Popconfirm。
  */
-import { useState, useCallback } from 'react';
-import { Button, Modal, Form, Input, Select, DatePicker, Tag, Popconfirm, Space, message } from 'antd';
+import { useCallback } from 'react';
+import { Button, Tag, Popconfirm, Space, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { Upload } from 'antd';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
-import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
+import type { ResponsiveColumn } from '../../components/common/EnhancedTable';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../router/types';
+import { useResponsive } from '../../hooks';
 import type { PMMilestone, PMMilestoneType, PMMilestoneStatus } from '../../types/pm';
-import { PM_MILESTONE_TYPE_LABELS } from '../../types/pm';
-import {
-  usePMMilestones,
-  useCreatePMMilestone,
-  useUpdatePMMilestone,
-  useDeletePMMilestone,
-} from '../../hooks/business/usePMCases';
+import { PM_MILESTONE_TYPE_LABELS, PM_MILESTONE_STATUS_LABELS } from '../../types/pm';
+import { usePMMilestones, useDeletePMMilestone } from '../../hooks/business/usePMCases';
 
 interface MilestonesTabProps {
   pmCaseId: number;
@@ -37,55 +32,30 @@ const MILESTONE_STATUS_COLOR: Record<PMMilestoneStatus, string> = {
   skipped: 'warning',
 };
 
-const MILESTONE_STATUS_LABELS: Record<PMMilestoneStatus, string> = {
-  pending: '待辦',
-  in_progress: '進行中',
-  completed: '已完成',
-  overdue: '逾期',
-  skipped: '略過',
-};
 
-interface FormValues {
-  milestone_name: string;
-  milestone_type?: PMMilestoneType;
-  planned_date?: dayjs.Dayjs;
-  actual_date?: dayjs.Dayjs;
-  status?: PMMilestoneStatus;
-  sort_order?: number;
-  notes?: string;
-}
 
 export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<PMMilestone | null>(null);
-  const [form] = Form.useForm<FormValues>();
+  const navigate = useNavigate();
+  const { isMobile } = useResponsive();
 
   const { data: milestones, isLoading } = usePMMilestones(pmCaseId);
-  const createMutation = useCreatePMMilestone();
-  const updateMutation = useUpdatePMMilestone();
   const deleteMutation = useDeletePMMilestone();
 
-  const handleAdd = useCallback(() => {
-    setEditingRecord(null);
-    form.resetFields();
-    setModalOpen(true);
-  }, [form]);
+  // 新增／編輯改為獨立頁 PMMilestoneFormPage（2026-08-02，去彈跳視窗）；
+  // 刪除仍就地處理（Popconfirm 確認即可，不值得為它導頁）。
+  const goCreate = useCallback(
+    () => navigate(ROUTES.PM_MILESTONE_CREATE.replace(':caseId', String(pmCaseId))),
+    [navigate, pmCaseId],
+  );
 
-  const handleEdit = useCallback(
-    (record: PMMilestone) => {
-      setEditingRecord(record);
-      form.setFieldsValue({
-        milestone_name: record.milestone_name,
-        milestone_type: (record.milestone_type ?? undefined) as PMMilestoneType | undefined,
-        planned_date: record.planned_date ? dayjs(record.planned_date) : undefined,
-        actual_date: record.actual_date ? dayjs(record.actual_date) : undefined,
-        status: record.status as PMMilestoneStatus,
-        sort_order: record.sort_order,
-        notes: record.notes ?? undefined,
-      });
-      setModalOpen(true);
-    },
-    [form],
+  const goEdit = useCallback(
+    (milestoneId: number) =>
+      navigate(
+        ROUTES.PM_MILESTONE_EDIT
+          .replace(':caseId', String(pmCaseId))
+          .replace(':milestoneId', String(milestoneId)),
+      ),
+    [navigate, pmCaseId],
   );
 
   const handleDelete = useCallback(
@@ -98,42 +68,8 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
     [deleteMutation, pmCaseId],
   );
 
-  const handleSubmit = useCallback(async () => {
-    const values = await form.validateFields();
-    const payload = {
-      milestone_name: values.milestone_name,
-      milestone_type: values.milestone_type,
-      planned_date: values.planned_date?.format('YYYY-MM-DD'),
-      actual_date: values.actual_date?.format('YYYY-MM-DD'),
-      status: values.status,
-      sort_order: values.sort_order,
-      notes: values.notes,
-    };
 
-    if (editingRecord) {
-      updateMutation.mutate(
-        { id: editingRecord.id, pmCaseId, data: payload },
-        {
-          onSuccess: () => {
-            message.success('里程碑已更新');
-            setModalOpen(false);
-          },
-        },
-      );
-    } else {
-      createMutation.mutate(
-        { ...payload, pm_case_id: pmCaseId, milestone_name: payload.milestone_name },
-        {
-          onSuccess: () => {
-            message.success('里程碑已建立');
-            setModalOpen(false);
-          },
-        },
-      );
-    }
-  }, [form, editingRecord, pmCaseId, createMutation, updateMutation]);
-
-  const columns: ColumnsType<PMMilestone> = [
+  const columns: ResponsiveColumn<PMMilestone>[] = [
     {
       title: '里程碑名稱',
       dataIndex: 'milestone_name',
@@ -150,6 +86,7 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
     {
       title: '預計日期',
       dataIndex: 'planned_date',
+      hideOnMobile: true,
       key: 'planned_date',
       width: 120,
       render: (val: string | null) => val ?? '-',
@@ -157,6 +94,7 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
     {
       title: '實際日期',
       dataIndex: 'actual_date',
+      hideOnMobile: true,
       key: 'actual_date',
       width: 120,
       render: (val: string | null) => val ?? '-',
@@ -167,12 +105,13 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
       key: 'status',
       width: 100,
       render: (val: PMMilestoneStatus) => (
-        <Tag color={MILESTONE_STATUS_COLOR[val]}>{MILESTONE_STATUS_LABELS[val]}</Tag>
+        <Tag color={MILESTONE_STATUS_COLOR[val]}>{PM_MILESTONE_STATUS_LABELS[val]}</Tag>
       ),
     },
     {
       title: '排序',
       dataIndex: 'sort_order',
+      hideOnMobile: true,
       key: 'sort_order',
       width: 70,
       align: 'center',
@@ -183,7 +122,7 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
       width: 120,
       render: (_: unknown, record: PMMilestone) => (
         <Space size="small">
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => goEdit(record.id)}>
             編輯
           </Button>
           <Popconfirm
@@ -201,21 +140,13 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
     },
   ];
 
-  const milestoneTypeOptions = Object.entries(PM_MILESTONE_TYPE_LABELS).map(([value, label]) => ({
-    value,
-    label,
-  }));
 
-  const statusOptions = Object.entries(MILESTONE_STATUS_LABELS).map(([value, label]) => ({
-    value,
-    label,
-  }));
 
   return (
     <>
       <div style={{ marginBottom: 16 }}>
         <Space>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={goCreate} block={isMobile}>
             新增里程碑
           </Button>
           <Button icon={<DownloadOutlined />} onClick={async () => {
@@ -264,48 +195,7 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
         size="small"
       />
 
-      <Modal
-        title={editingRecord ? '編輯里程碑' : '新增里程碑'}
-        open={modalOpen}
-        onOk={handleSubmit}
-        onCancel={() => setModalOpen(false)}
-        confirmLoading={createMutation.isPending || updateMutation.isPending}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="milestone_name"
-            label="里程碑名稱"
-            rules={[{ required: true, message: '請輸入里程碑名稱' }]}
-          >
-            <Input placeholder="請輸入名稱" />
-          </Form.Item>
-
-          <Form.Item name="milestone_type" label="類型">
-            <Select placeholder="請選擇類型" allowClear options={milestoneTypeOptions} />
-          </Form.Item>
-
-          <Form.Item name="planned_date" label="預計日期">
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item name="actual_date" label="實際日期">
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item name="status" label="狀態">
-            <Select placeholder="請選擇狀態" allowClear options={statusOptions} />
-          </Form.Item>
-
-          <Form.Item name="sort_order" label="排序">
-            <Input type="number" placeholder="排序值" />
-          </Form.Item>
-
-          <Form.Item name="notes" label="備註">
-            <Input.TextArea rows={3} placeholder="備註" />
-          </Form.Item>
-        </Form>
-      </Modal>
+      {/* 新增／編輯已改為獨立頁 PMMilestoneFormPage */}
     </>
   );
 }

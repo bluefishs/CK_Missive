@@ -125,7 +125,8 @@ const ERPAssetFormPage = lazy(() => import('../pages/ERPAssetFormPage'));
 const ERPOperationalListPage = lazy(() => import('../pages/ERPOperationalListPage'));
 const ERPOperationalDetailPage = lazy(() => import('../pages/ERPOperationalDetailPage'));
 const ERPOperationalFormPage = lazy(() => import('../pages/ERPOperationalFormPage'));
-const ERPBillingFormPage = lazy(() => import('../pages/ERPBillingFormPage'));
+const ERPAccountRecordFormPage = lazy(() => import('../pages/ERPAccountRecordFormPage'));
+const PMMilestoneFormPage = lazy(() => import('../pages/PMMilestoneFormPage'));
 
 // 數位分身 → redirect to /agent/dashboard
 // 智能體中心 → UnifiedAgentPage (defined above)
@@ -349,8 +350,10 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ERP_ASSETS} element={<ProtectedRoute><ERPAssetListPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL_CREATE} element={<ProtectedRoute><ERPOperationalFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL_EDIT} element={<ProtectedRoute><ERPOperationalFormPage /></ProtectedRoute>} />
-          <Route path={ROUTES.ERP_BILLING_CREATE} element={<ProtectedRoute><ERPBillingFormPage /></ProtectedRoute>} />
-          <Route path={ROUTES.ERP_BILLING_EDIT} element={<ProtectedRoute><ERPBillingFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_ACCOUNT_RECORD_CREATE} element={<ProtectedRoute><ERPAccountRecordFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_ACCOUNT_RECORD_EDIT} element={<ProtectedRoute><ERPAccountRecordFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.PM_MILESTONE_CREATE} element={<ProtectedRoute><PMMilestoneFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.PM_MILESTONE_EDIT} element={<ProtectedRoute><PMMilestoneFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL_DETAIL} element={<ProtectedRoute><ERPOperationalDetailPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL} element={<ProtectedRoute><ERPOperationalListPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_HUB} element={<ProtectedRoute><ERPHubPage /></ProtectedRoute>} />

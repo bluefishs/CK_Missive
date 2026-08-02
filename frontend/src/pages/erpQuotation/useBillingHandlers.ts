@@ -3,13 +3,7 @@
  *
  * 從 BillingsTab 提取的狀態、查詢、mutation 與 handler 邏輯。
  *
- * 2026-08-02：請款「新增/編輯」已移出至獨立頁 `ERPBillingFormPage`，
- * 本 hook 隨之移除 billing form／modalOpen／editingRecord／handleAdd／handleEdit／
- * handleSubmit／handleCancel／createMutation —— 唯一 caller（BillingsTab）已不再使用它們，
- * 留著會變成「看起來還能用、其實沒有接線」的死碼。
- * 現存職責：列表查詢 + 刪除 + 兩個快速動作（開立發票／確認收款）。
- *
- * @version 2.0.0
+ * @version 1.0.0
  */
 
 import { useState, useCallback } from 'react';
@@ -17,8 +11,15 @@ import { Form, App } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
+import type {
+  ERPBilling,
+  ERPBillingCreate,
+  ERPBillingUpdate,
+} from '../../types/erp';
+
 import {
   useERPBillings,
+  useCreateERPBilling,
   useUpdateERPBilling,
   useDeleteERPBilling,
   useCreateInvoiceFromBilling,
@@ -39,10 +40,13 @@ export function useBillingHandlers(erpQuotationId: number) {
   const { message } = App.useApp();
 
   // Forms
+  const [form] = Form.useForm();
   const [invoiceForm] = Form.useForm();
   const [paymentForm] = Form.useForm();
 
   // State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<ERPBilling | null>(null);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [invoiceBillingId, setInvoiceBillingId] = useState<number | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -66,11 +70,28 @@ export function useBillingHandlers(erpQuotationId: number) {
   });
 
   // Mutations
+  const createMutation = useCreateERPBilling();
   const updateMutation = useUpdateERPBilling(erpQuotationId);
   const deleteMutation = useDeleteERPBilling(erpQuotationId);
   const createInvoiceMutation = useCreateInvoiceFromBilling();
 
   // Handlers
+  const handleAdd = useCallback(() => {
+    setEditingRecord(null);
+    form.resetFields();
+    setModalOpen(true);
+  }, [form]);
+
+  const handleEdit = useCallback((record: ERPBilling) => {
+    setEditingRecord(record);
+    form.setFieldsValue({
+      ...record,
+      billing_date: record.billing_date ? dayjs(record.billing_date) : null,
+      billing_amount: record.billing_amount ? Number(record.billing_amount) : null,
+    });
+    setModalOpen(true);
+  }, [form]);
+
   const handleDelete = useCallback(async (id: number) => {
     try {
       await deleteMutation.mutateAsync(id);
@@ -79,6 +100,41 @@ export function useBillingHandlers(erpQuotationId: number) {
       message.error('刪除失敗');
     }
   }, [deleteMutation, message]);
+
+  const handleSubmit = useCallback(async () => {
+    try {
+      const values = await form.validateFields();
+      const payload = {
+        ...values,
+        billing_date: values.billing_date?.format('YYYY-MM-DD'),
+        billing_amount: String(values.billing_amount),
+      };
+
+      if (editingRecord) {
+        const updateData: ERPBillingUpdate = { ...payload };
+        await updateMutation.mutateAsync({ id: editingRecord.id, data: updateData });
+        message.success('請款紀錄已更新');
+      } else {
+        const createData: ERPBillingCreate = {
+          ...payload,
+          erp_quotation_id: erpQuotationId,
+        };
+        await createMutation.mutateAsync(createData);
+        message.success('請款紀錄已新增');
+      }
+      setModalOpen(false);
+      form.resetFields();
+      setEditingRecord(null);
+    } catch {
+      // form validation failed or API error
+    }
+  }, [form, editingRecord, erpQuotationId, createMutation, updateMutation, message]);
+
+  const handleCancel = useCallback(() => {
+    setModalOpen(false);
+    form.resetFields();
+    setEditingRecord(null);
+  }, [form]);
 
   const handleOpenInvoiceModal = useCallback((billingId: number) => {
     setInvoiceBillingId(billingId);
@@ -149,10 +205,14 @@ export function useBillingHandlers(erpQuotationId: number) {
   }, [invoiceForm, invoiceBillingId, createInvoiceMutation, message]);
 
   return {
-    // forms（billing 主表單已移至 ERPBillingFormPage）
+    // forms
+    form,
     invoiceForm,
     paymentForm,
     // state
+    modalOpen,
+    setModalOpen,
+    editingRecord,
     invoiceModalOpen,
     invoiceBillingId,
     paymentModalOpen,
@@ -162,10 +222,15 @@ export function useBillingHandlers(erpQuotationId: number) {
     billingsWithDetails,
     isLoading,
     // mutations loading
+    createPending: createMutation.isPending,
     updatePending: updateMutation.isPending,
     createInvoicePending: createInvoiceMutation.isPending,
     // handlers
+    handleAdd,
+    handleEdit,
     handleDelete,
+    handleSubmit,
+    handleCancel,
     handleOpenInvoiceModal,
     handleCancelInvoiceModal,
     handleConfirmPayment,

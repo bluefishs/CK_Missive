@@ -213,6 +213,19 @@ export const PM_MILESTONE_TYPE_LABELS: Record<PMMilestoneType, string> = {
   other: '其他',
 };
 
+/**
+ * 里程碑狀態標籤。
+ * 2026-08-02 由 MilestonesTab 內的區域常數提升至型別 SSOT —— 填報頁抽成獨立路由後
+ * 有第二個消費端，留在元件內就會變成兩份各自演化的定義（異質同工）。
+ */
+export const PM_MILESTONE_STATUS_LABELS: Record<PMMilestoneStatus, string> = {
+  pending: '待辦',
+  in_progress: '進行中',
+  completed: '已完成',
+  overdue: '逾期',
+  skipped: '略過',
+};
+
 export const PM_STAFF_ROLE_LABELS: Record<PMStaffRole, string> = {
   project_manager: '專案經理',
   engineer: '工程師',

@@ -1,4 +1,10 @@
 /**
+ * @deprecated 2026-08-02 —— 本元件**沒有任何頁面在使用**（只在 index.ts re-export）。
+ * 報價單詳情頁實際渲染的是雙向的 `AccountRecordTab`（應收／應付共用），
+ * 填報已改為獨立路由頁 `ERPAccountRecordFormPage`。
+ * 保留檔案未刪除：待 owner 確認無其他用途後再移除（dead_ui_detector 會持續列出）。
+ */
+/**
  * ERP 發票管理 Tab
  *
  * 報價單詳情頁的發票子表，支援 CRUD 操作。

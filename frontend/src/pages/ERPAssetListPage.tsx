@@ -20,7 +20,7 @@ import { ROUTES } from '../router/types';
 import { useAssetList, useAssetStats, useExportAssets, useImportAssets, useBatchInventory, useExportInventory, useDownloadAssetTemplate } from '../hooks';
 import type { Asset } from '../types/erp';
 import { EnhancedTable } from '../components/common/EnhancedTable';
-import type { ColumnsType } from 'antd/es/table';
+import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 
 const { Title } = Typography;
 
@@ -112,10 +112,10 @@ const ERPAssetListPage: React.FC = () => {
     });
   };
 
-  const columns: ColumnsType<Asset> = [
+  const columns: ResponsiveColumn<Asset>[] = [
     {
       title: '資產編號',
-      dataIndex: 'asset_code',
+      hideOnMobile: true, dataIndex: 'asset_code',
       key: 'asset_code',
       width: 130,
     },
@@ -137,6 +137,7 @@ const ERPAssetListPage: React.FC = () => {
     },
     {
       title: '品牌/型號',
+      hideOnMobile: true,
       key: 'brand_model',
       width: 160,
       render: (_: unknown, record: Asset) => {
@@ -146,7 +147,7 @@ const ERPAssetListPage: React.FC = () => {
     },
     {
       title: '購入金額',
-      dataIndex: 'purchase_amount',
+      hideOnMobile: true, dataIndex: 'purchase_amount',
       key: 'purchase_amount',
       width: 120,
       align: 'right',
@@ -164,7 +165,7 @@ const ERPAssetListPage: React.FC = () => {
     },
     {
       title: '存放位置',
-      dataIndex: 'location',
+      hideOnMobile: true, dataIndex: 'location',
       key: 'location',
       width: 140,
       ellipsis: true,
@@ -172,7 +173,7 @@ const ERPAssetListPage: React.FC = () => {
     },
     {
       title: '保管人',
-      dataIndex: 'custodian',
+      hideOnMobile: true, dataIndex: 'custodian',
       key: 'custodian',
       width: 100,
       render: (val?: string) => val ?? '-',

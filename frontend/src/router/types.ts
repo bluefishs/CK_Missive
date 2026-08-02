@@ -118,6 +118,9 @@ export const ROUTES = {
   PM_CASE_DETAIL: '/pm/cases/:id',
   PM_CASE_CREATE: '/pm/cases/create',
   PM_CASE_EDIT: '/pm/cases/:id/edit',
+  // 里程碑填報改為獨立頁（2026-08-02）——返回時帶 ?tab=milestones 保留分頁
+  PM_MILESTONE_CREATE: '/pm/cases/:caseId/milestones/create',
+  PM_MILESTONE_EDIT: '/pm/cases/:caseId/milestones/:milestoneId/edit',
   // 技能演化樹
   SKILL_EVOLUTION: '/ai/skill-evolution',
   // 財務管理 (ERP)
@@ -126,11 +129,13 @@ export const ROUTES = {
   ERP_QUOTATION_DETAIL: '/erp/quotations/:id',
   ERP_QUOTATION_CREATE: '/erp/quotations/create',
   ERP_QUOTATION_EDIT: '/erp/quotations/:id/edit',
-  // 請款填報改為獨立頁（2026-08-02 pilot）：沿用公文的「填報＝獨立路由」模式，
+  // 應收／應付填報改為獨立頁（2026-08-02）：沿用公文的「填報＝獨立路由」模式，
   // 手機有完整空間、可分享連結、返回不失去 context。
-  // 「開立發票」「確認收款」兩個 3 欄位快速動作仍留在 Tab 內的 Modal（欄位少、緊耦合）。
-  ERP_BILLING_CREATE: '/erp/quotations/:quotationId/billings/create',
-  ERP_BILLING_EDIT: '/erp/quotations/:quotationId/billings/:billingId/edit',
+  // direction ∈ receivable | payable —— 對應報價單詳情頁的「應收帳款／應付帳款」兩個 tab。
+  // 註：原先建的 ERP_BILLING_* 已移除，因為它服務的 BillingsTab 沒有任何頁面在使用
+  //     （只在 index.ts re-export），真正渲染的是雙向的 AccountRecordTab。
+  ERP_ACCOUNT_RECORD_CREATE: '/erp/quotations/:quotationId/accounts/:direction/create',
+  ERP_ACCOUNT_RECORD_EDIT: '/erp/quotations/:quotationId/accounts/:direction/:recordId/edit',
   // 費用報銷
   ERP_EXPENSES: '/erp/expenses',
   ERP_EXPENSE_CREATE: '/erp/expenses/create',

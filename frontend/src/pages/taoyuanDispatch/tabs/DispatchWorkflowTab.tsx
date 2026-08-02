@@ -24,6 +24,7 @@ import {
 } from 'antd';
 import { ThunderboltOutlined } from '@ant-design/icons';
 import { queryKeys } from '../../../config/queryConfig';
+import { useResponsive } from '../../../hooks';
 
 import type { WorkRecord } from '../../../types/taoyuan';
 import type { DispatchDocumentLink } from '../../../types/api';
@@ -91,6 +92,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   workType,
 }) => {
   const navigate = useNavigate();
+  const { isMobile } = useResponsive();
   const { message } = App.useApp();
 
   const [viewMode, setViewMode] = useState<ViewMode>('chain');
@@ -307,7 +309,8 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
           loading={isLoading}
           size="small"
           pagination={false}
-          scroll={{ x: 1100 }}
+          scroll={isMobile ? undefined : { x: 1100 }}
+          tableLayout={isMobile ? 'fixed' : undefined}
           locale={{
             emptyText: (
               <Empty
