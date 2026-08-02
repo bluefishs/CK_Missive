@@ -76,6 +76,16 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = Field(default=5434, description="PostgreSQL 埠號")
     DATABASE_ECHO: bool = False
 
+    # 測試專用連線字串。空值時由 conftest 依 DATABASE_URL 推導（同主機、庫名加 _test），
+    # 但**推導出來的庫名若與生產相同即拒絕執行**——見 tests/conftest.py 的護欄。
+    # 分開一個設定而不是讓測試直接讀 DATABASE_URL，是因為 2026-08-02 查證發現
+    # 測試一直打生產庫：unit test 多半有 mock 所以無害，但 integration test
+    # 會真的 INSERT/commit 進 ck_documents，只靠 try/finally 清理。
+    TEST_DATABASE_URL: str = Field(
+        default="",
+        description="測試資料庫連線字串。留空則由 DATABASE_URL 推導為 <db>_test"
+    )
+
     # =========================================================================
     # JWT 設定
     # =========================================================================

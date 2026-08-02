@@ -21,10 +21,9 @@ from sqlalchemy import text
 from app.repositories.role_permissions_repository import RolePermissionsRepository
 from app.services.system.role_permissions_service import RolePermissionsService
 
-pytestmark = pytest.mark.skip(
-    reason="ADR-0034 — conftest db_engine fixture 同步 driver 衝突，"
-           "core 行為已 curl 驗證，待 conftest 修為 async DSN"
-)
+# 2026-08-03 解除整檔 skip：原因（conftest db_engine 傳同步 driver 給
+# create_async_engine）已修 —— conftest 現在解析出獨立測試庫並轉為 asyncpg DSN。
+# 這幾個測試會 INSERT/DELETE，落在 ck_documents_test 而非生產庫。
 
 
 @pytest.mark.asyncio
@@ -65,11 +64,20 @@ async def test_repository_update_rejects_superuser(db_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_repository_update_admin_dedupes_and_sorts(db_session: AsyncSession):
-    """update_permissions 應去重 + 排序（提高 diff 可讀性）。"""
+    """update_permissions 應去重 + 排序（提高 diff 可讀性）。
+
+    2026-08-03：本測試原本改完 admin 的 permissions 就不還原，
+    使同檔後續讀 admin 的測試看到 `['alpha:read','mid:edit','zoo:read']`
+    而非真實種子（33 項）—— 測試互相污染。整檔長期被 skip，所以沒人踩到。
+    """
     repo = RolePermissionsRepository(db_session)
+    original = await repo.get_permissions("admin")
     new_perms = ["zoo:read", "alpha:read", "alpha:read", "mid:edit"]
-    updated = await repo.update_permissions("admin", new_perms, actor_id=1)
-    assert updated.permissions == ["alpha:read", "mid:edit", "zoo:read"]
+    try:
+        updated = await repo.update_permissions("admin", new_perms, actor_id=1)
+        assert updated.permissions == ["alpha:read", "mid:edit", "zoo:read"]
+    finally:
+        await repo.update_permissions("admin", original, actor_id=1)
 
 
 @pytest.mark.asyncio

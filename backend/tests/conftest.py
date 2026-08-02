@@ -16,10 +16,12 @@ v2.0.0 - 2026-01-26
 import asyncio
 from typing import AsyncGenerator, Generator, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlsplit, urlunsplit
 
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.pool import NullPool
 from httpx import AsyncClient, ASGITransport
 
 import sys
@@ -117,16 +119,89 @@ def event_loop() -> Generator:
 # 資料庫 Fixtures
 # ============================================================
 
+def _dbname(url: str) -> str:
+    """取連線字串裡的資料庫名（不含 query）。"""
+    return urlsplit(url).path.lstrip("/").split("?")[0]
+
+
+def _resolve_test_db_url() -> str:
+    """決定測試資料庫連線字串，並確保它不是生產庫。
+
+    2026-08-03 查證（更正先前記載）：
+      - `db_engine` 原本傳 `settings.DATABASE_URL`（psycopg2 sync driver）給
+        `create_async_engine` → **engine 根本建不起來**，所有 db_session 測試
+        一直是 error 而非失敗，也因此並沒有真的寫到生產庫。
+      - 真正會打生產庫的是 `client` fixture：它跑真 app，端點經 `get_async_db`
+        走 `app.db.database.engine`（正確的 asyncpg URL）→ 連的是 ck_documents。
+
+    所以本函式解出的 URL 有兩個用途：db_engine 自己用，以及 override app 的
+    `get_async_db`，讓走 HTTP 的測試也落在測試庫。
+
+    護欄比「有沒有設定」更重要：**設定寫錯時必須拒絕執行，而不是預設回生產庫**。
+    """
+    prod = settings.DATABASE_URL
+    raw = (settings.TEST_DATABASE_URL or "").strip()
+    if not raw:
+        parts = urlsplit(prod)
+        raw = urlunsplit(parts._replace(path=parts.path.rstrip("/") + "_test"))
+
+    if not _dbname(raw):
+        pytest.exit("無法解析測試資料庫名稱，拒絕執行測試。", returncode=3)
+    if _dbname(raw) == _dbname(prod):
+        pytest.exit(
+            f"TEST_DATABASE_URL 與 DATABASE_URL 指向同一個資料庫"
+            f"（{_dbname(prod)}），拒絕對生產資料庫執行測試。",
+            returncode=3,
+        )
+    return raw.replace("postgresql://", "postgresql+asyncpg://")
+
+
+TEST_DB_URL = _resolve_test_db_url()
+
+
 @pytest_asyncio.fixture(scope="function")
 async def db_engine():
-    """建立測試用資料庫引擎"""
-    engine = create_async_engine(
-        settings.DATABASE_URL,
-        echo=False,
-        pool_pre_ping=True
-    )
+    """測試用資料庫引擎（指向 <db>_test，非生產庫）。
+
+    連線耗盡的成因是「每個測試各建一個 engine，每個 engine 自帶連線池」——
+    池裡的連線在測試結束後仍被持有，測試一多就把 PostgreSQL 連線吃光。
+
+    先試過改 session scope 讓 engine 只建一次，**失敗**：engine 綁在建立時的
+    event loop，而 pytest-asyncio 預設每個測試一個 loop，第二個測試起就是
+    `RuntimeError: Event loop is closed`。改 loop_scope 得動全套 4203 個測試的
+    執行模型，風險不成比例。
+
+    改用 NullPool：維持 function scope（不跨 loop），但連線用完即關、不進池，
+    所以也不會累積。代價是每次查詢重新連線，對測試而言可接受。
+    """
+    engine = create_async_engine(TEST_DB_URL, echo=False, poolclass=NullPool)
     yield engine
     await engine.dispose()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _route_app_db_to_test_db(db_engine):
+    """讓走 HTTP 的測試也落在測試庫。
+
+    `client` fixture 跑的是真的 app，端點透過 `get_async_db` 取 session ——
+    不覆寫的話那條路徑連的是 **生產庫**（`app.db.database.engine` 是模組級全域）。
+    這才是「測試打生產」的實際路徑，`db_session` 反而因為 driver 不對而從未連上。
+
+    autouse 的成本很低：engine 是 lazy 的，純 unit test 不會因此產生連線。
+    """
+    from app.db.database import get_async_db
+
+    maker = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async def _override() -> AsyncGenerator[AsyncSession, None]:
+        async with maker() as session:
+            yield session
+
+    app.dependency_overrides[get_async_db] = _override
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_async_db, None)
 
 
 @pytest_asyncio.fixture(scope="function")
