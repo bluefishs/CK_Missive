@@ -112,7 +112,9 @@ PRODUCER_OUTCOME_REGISTRY = _load_registry()
 # 前者可直接對上 @tracked_job id；後者無法，故另以 _JOB_ALIASES 補上映射。
 _JOB_ALIASES = {
     # registry 名稱（中文） → scheduler 的 @tracked_job id
-    "tender scrape (pcc+ezbid)": "pcc_today_scrape",
+    # 2026-08-02 拆開：兩個 scraper 各自對應自己的 job，不再共用一個信號
+    "tender scrape (pcc)": "pcc_today_scrape",
+    "tender scrape (ezbid)": "ezbid_cache_refresh",
     "每日覆盤": "daily_self_retrospective",
     "治理儀表板": "governance_dashboard_regen",
     "整合健康E2E": "integration_e2e",
@@ -138,7 +140,10 @@ def _monitored_jobs() -> set[str]:
         if alias:
             jobs.add(alias)
     # 歷史相容：這些 job 的監控信號在別處（見 registry），保留以免誤報
-    jobs |= {"ezbid_cache_refresh", "kg_embedding_backfill", "memory_weekly_autobiography"}
+    # 2026-08-02 移除 ezbid_cache_refresh —— 它原本被硬編為「已監控」，理由是
+    # 「信號在別處」，但別處那個信號是 pcc+ezbid 合併的，pcc 綠就整體綠。
+    # 結果是**兩層各自以為對方在看**，ezbid 死 48 天無人知。現已在 registry 有獨立信號。
+    jobs |= {"kg_embedding_backfill", "memory_weekly_autobiography"}
     return jobs
 
 
@@ -189,11 +194,18 @@ def check_db_table_today(spec: dict) -> tuple[str, str]:
     except ImportError:
         return "SKIP", "無 asyncpg"
 
+    # where：讓同一張表能依來源分開監控。
+    # 2026-08-02 立法起因：tender_records 原本 pcc+ezbid **合併成一個 producer**，
+    # 只要 pcc 有寫入就整體 GREEN → **ezbid 自 06-15 死了 48 天完全隱形**。
+    # 一張表餵多個 producer 時，合併監控等於用健康的那個把死掉的那個蓋住。
+    where = spec.get("where")
+    cond = f"{spec['date_col']}::date = CURRENT_DATE" + (f" AND ({where})" if where else "")
+    label = spec["table"] + (f"[{where}]" if where else "")
+
     async def q():
         conn = await asyncpg.connect(DSN)
         try:
-            return await conn.fetchval(
-                f"SELECT COUNT(*) FROM {spec['table']} WHERE {spec['date_col']}::date = CURRENT_DATE")
+            return await conn.fetchval(f"SELECT COUNT(*) FROM {spec['table']} WHERE {cond}")
         finally:
             await conn.close()
 
@@ -202,10 +214,10 @@ def check_db_table_today(spec: dict) -> tuple[str, str]:
     except Exception as e:
         return "SKIP", f"DB 查詢失敗：{str(e)[:60]}"
     if n and n > 0:
-        return "GREEN", f"{spec['table']} 今日 +{n}"
+        return "GREEN", f"{label} 今日 +{n}"
     if spec.get("weekend_legit") and IS_WEEKEND:
-        return "GREEN", f"{spec['table']} 今日 0（週末合理空）"
-    return "RED", f"{spec['table']} 今日 0（非合理空＝疑 producer 沉默失敗）"
+        return "GREEN", f"{label} 今日 0（週末合理空）"
+    return "RED", f"{label} 今日 0（非合理空＝疑 producer 沉默失敗）"
 
 
 def check_db_row_count(spec: dict) -> tuple[str, str]:

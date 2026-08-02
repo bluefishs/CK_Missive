@@ -41,21 +41,39 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${CYAN}===========================================${NC}"
-echo -e "${CYAN} Fitness Tier 2 Weekly — 22 trend step    ${NC}"
+echo -e "${CYAN} Fitness Tier 2 Weekly — 23 trend step    ${NC}"
 echo -e "${CYAN}===========================================${NC}"
 echo ""
 
 FAIL_COUNT=0
 FAIL_STEPS=()
 
+# 偵測子腳本支援哪個嚴格旗標。
+#
+# 2026-08-02 立法起因：本腳本一律傳 `--strict`，但**23 步裡只有 5 支認得它**
+# （5 支用 `--ci`、12 支兩種都沒有）→ argparse 直接 error exit 2 → 17 步必然「失敗」。
+# 後果：`fitness_weekly` 連續 9 週 RED（W23~W31 從未綠過），**紅的是參數不是系統**。
+# 每次執行只花 13.8 秒（每步秒退）就是這個症狀，但沒有人看那個數字。
+# 不傳旗標也不影響判定——各 audit 不帶旗標時本來就回三態 exit code。
+detect_flag() {
+    local h
+    h=$(PYTHONIOENCODING=utf-8 python "$1" --help 2>&1 || true)
+    if echo "$h" | grep -q -- "--strict"; then echo "--strict"
+    elif echo "$h" | grep -q -- "--ci"; then echo "--ci"
+    else echo ""; fi
+}
+
 run_step() {
     local step_num="$1"
     local step_name="$2"
     local script="$3"
 
-    echo -e "${CYAN}[$step_num/22] $step_name${NC}"
+    echo -e "${CYAN}[$step_num/23] $step_name${NC}"
     if [[ ! -f "$script" ]]; then
-        echo "  ${YELLOW}⚠${NC} script not found: $script"
+        # 腳本不見了要算失敗 —— 原本只印一行 warning 就 return，
+        # 等於「檢查消失」與「檢查通過」同樣是綠（alias_rls_audit 正是這個狀況）。
+        echo -e "  ${RED}✗${NC} script not found: $script"
+        FAIL_COUNT=$((FAIL_COUNT+1)); FAIL_STEPS+=("$step_num $step_name (腳本不存在)")
         echo ""
         return
     fi
@@ -66,15 +84,12 @@ run_step() {
     # tender_freshness（48 天陳舊）與 cross-repo template drift 兩步 RED，結論卻是全綠。
     # 子腳本不帶 --strict 時本來就會回非 0（實測 2 / 1），資訊一直都在，是被 `|| true` 丟掉。
     # warning mode 的語意是「不阻斷」，不是「不報告」。
-    if $STRICT; then
-        PYTHONIOENCODING=utf-8 python "$script" --strict 2>&1 || {
-            FAIL_COUNT=$((FAIL_COUNT+1)); FAIL_STEPS+=("$step_num $step_name")
-        }
-    else
-        PYTHONIOENCODING=utf-8 python "$script" 2>&1 || {
-            FAIL_COUNT=$((FAIL_COUNT+1)); FAIL_STEPS+=("$step_num $step_name")
-        }
-    fi
+    local flag=""
+    $STRICT && flag="$(detect_flag "$script")"
+    # shellcheck disable=SC2086 —— flag 為空時不可傳空字串參數
+    PYTHONIOENCODING=utf-8 python "$script" $flag 2>&1 || {
+        FAIL_COUNT=$((FAIL_COUNT+1)); FAIL_STEPS+=("$step_num $step_name")
+    }
     echo ""
 }
 
@@ -85,7 +100,9 @@ run_step "3" "KG pgvector embedding 覆蓋率"   "scripts/checks/kg_embedding_co
 run_step "4" "Agent evolution health"         "scripts/checks/agent_evolution_health.py"
 run_step "5" "Memory Wiki metrics alive"      "scripts/checks/memory_metrics_alive_check.py"
 run_step "6" "SOUL evolution alive"           "scripts/checks/soul_evolution_alive_check.py"
-run_step "7" "alias_rls_audit"                "scripts/checks/alias_rls_audit.py"
+# 2026-08-02 修檔名：原引用 alias_rls_audit.py（不存在），實際是 step 21 的 coverage 版。
+# 原本「腳本不存在」只印 warning 不計失敗 → 這一步等於從未執行過而沒人知道。
+run_step "7" "alias_rls coverage audit"       "scripts/checks/alias_rls_coverage_audit.py"
 run_step "8" "tender_freshness"               "scripts/checks/tender_freshness_audit.py"
 run_step "9" "tender_subscription_watchdog"   "scripts/checks/tender_subscription_watchdog_audit.py"
 run_step "10" "tender_enrichment_freshness"   "scripts/checks/tender_enrichment_freshness_audit.py"
@@ -101,6 +118,8 @@ run_step "19" "repository coverage audit"     "scripts/checks/repository_coverag
 run_step "20" "cross-domain link audit"       "scripts/checks/cross_domain_link_audit.py"
 run_step "21" "knowledge dedup audit"         "scripts/checks/knowledge_dedup_audit.py"
 run_step "22" "graph domain tagging audit"    "scripts/checks/graph_domain_tagging_audit.py"
+# 2026-08-02：docs/architecture 累積 102 份文件卻無任何檢核在問「還算數嗎」
+run_step "23" "doc reference integrity"       "scripts/checks/doc_reference_integrity_audit.py"
 
 # ============================================================
 # Summary

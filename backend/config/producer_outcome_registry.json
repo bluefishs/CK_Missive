@@ -1,144 +1,155 @@
 {
- "_doc": "Producer 產出自我檢核 SSOT（單一 registry，host watchdog + in-container cron 共讀，避免兩份漂移）。契約見 docs/architecture/PRODUCER_SELF_CHECK_CONTRACT.md。signal: db_table_today | cron_detail | file_fresh | db_row_count（min 閾值，抓非零但塌陷）。新增 producer 加一筆。",
- "producers": [
-  {
-   "name": "程式圖譜關係",
-   "signal": "db_row_count",
-   "table": "entity_relationships",
-   "where": "relation_label='code_graph'",
-   "min": 5000
-  },
-  {
-   "name": "tender scrape (pcc+ezbid)",
-   "signal": "db_table_today",
-   "table": "tender_records",
-   "date_col": "created_at",
-   "weekend_legit": true
-  },
-  {
-   "name": "kg_embedding_backfill",
-   "signal": "cron_detail",
-   "job": "kg_embedding_backfill",
-   "key": "embedded",
-   "ok_zero_reasons": [
-    null,
-    "coverage_full"
-   ]
-  },
-  {
-   "name": "pcc_today_scrape",
-   "signal": "cron_detail",
-   "job": "pcc_today_scrape",
-   "key": "records",
-   "ok_zero_reasons": [
-    "weekend_no_publish",
-    "ok"
-   ]
-  },
-  {
-   "name": "標案業務推薦",
-   "signal": "cron_detail",
-   "job": "tender_business_recommend",
-   "key": "pushed",
-   "ok_zero_reasons": [
-    "line_push_disabled",
-    "no_match",
-    "ok"
-   ],
-   "_why": "2026-07-30：原用 db_table_today 監控 tender_recommendation_history，但該表自 2026-06-23 owner 關閉 TENDER_LINE_PUSH_ENABLED 後即停寫（MAX(pushed_at)=2026-06-23 09:00，總 88 筆）→ 每日 07:00 對 owner 誤報。改 cron_detail 才能區分『政策關閉』與『真失敗』。"
-  },
-  {
-   "name": "每日覆盤",
-   "signal": "file_fresh",
-   "path": "wiki/memory/self-retrospective-reports",
-   "max_h": 28
-  },
-  {
-   "name": "治理儀表板",
-   "signal": "file_fresh",
-   "path": "docs/architecture/GOVERNANCE_INTEGRATED_DASHBOARD.md",
-   "max_h": 28
-  },
-  {
-   "name": "整合健康E2E",
-   "signal": "file_fresh",
-   "path": "wiki/memory/integration-health",
-   "max_h": 28
-  },
-  {
-   "name": "晨報",
-   "signal": "file_fresh",
-   "path": "wiki/memory/diary",
-   "max_h": 30
-  },
-  {
-   "name": "patterns",
-   "signal": "file_fresh",
-   "path": "wiki/memory/patterns",
-   "max_h": 30
-  },
-  {
-   "name": "優化管線報告",
-   "signal": "file_fresh",
-   "path": "wiki/memory/pipeline-reports",
-   "max_h": 30
-  },
-  {
-   "name": "週自傳/進化史",
-   "signal": "file_fresh",
-   "path": "wiki/memory/evolutions",
-   "max_h": 216
-  },
-  {
-   "name": "wiki 編譯",
-   "signal": "file_fresh",
-   "path": "wiki/topics",
-   "max_h": 216
-  },
-  {
-   "name": "shadow baseline",
-   "signal": "file_fresh",
-   "path": "backend/logs/shadow_trace.db",
-   "max_h": 30
-  },
-  {
-   "name": "CF Tunnel 每日驗證",
-   "signal": "file_fresh",
-   "path": "wiki/memory/integration-health/cf-tunnel-verify.json",
-   "max_h": 28,
-   "_why": "2026-07-30：此 job 曾三層空跑（容器無 pwsh + MISSIVE_PUBLIC_URL 未定義）卻記 success，公網監控失效數月。驗證型 job 也須留下可驗產出。"
-  },
-  {
-   "name": "能力使用度快照（第6階價值層）",
-   "signal": "file_fresh",
-   "path": "wiki/memory/integration-health/capability-usage.json",
-   "max_h": 30,
-   "_why": "2026-08-01：第 6 階價值層唯一的資料來源。只監看『有沒有持續產出』——本身刻意不告警（價值層是決策輸入，不是每日打擾；接成日推一週內就會變成第 4709 筆沒人看的通知）。判定時點 2026-08-31。"
-  },
-  {
-   "name": "UI 流程自我檢核",
-   "signal": "file_fresh",
-   "path": "wiki/memory/integration-health/ui-flow.json",
-   "max_h": 30,
-   "_why": "2026-07-31：owner 連日手動點頁面才發現缺陷（核銷點不進去/ezbid 無建案鈕/收據看不到）。此檢核把那些流程自動化；本身停跑也必須被察覺，故納入 producer 契約（規則 4：驗證型 job 也要留下可驗產出）。"
-  },
-  {
-   "name": "全站頁面健康掃描",
-   "signal": "file_fresh",
-   "path": "wiki/memory/integration-health/ui-sweep.json",
-   "max_h": 30,
-   "_why": "2026-07-31：既有治理只看原始碼與 API 狀態碼，抓不到「這一頁打開來是壞的」。首跑即發現 /ai/erp-graph 前後端契約不一致（422 被 catch 吞成 0 筆，從未有人發現）。"
-  },
-  {
-   "name": "案件財務橋樑自我修復",
-   "signal": "cron_detail",
-   "job": "case_finance_bridge_selfheal",
-   "key": "healed",
-   "ok_zero_reasons": [
-    "nothing_to_heal",
-    "ok"
-   ],
-   "_why": "2026-07-31：自我修復 job。healed=0 且 reason=nothing_to_heal 是健康狀態（沒東西要修）；若 reason=partial_failure 則需人介入。"
-  }
- ]
+  "_doc": "Producer 產出自我檢核 SSOT（單一 registry，host watchdog + in-container cron 共讀，避免兩份漂移）。契約見 docs/architecture/PRODUCER_SELF_CHECK_CONTRACT.md。signal: db_table_today | cron_detail | file_fresh | db_row_count（min 閾值，抓非零但塌陷）。新增 producer 加一筆。",
+  "producers": [
+    {
+      "name": "程式圖譜關係",
+      "signal": "db_row_count",
+      "table": "entity_relationships",
+      "where": "relation_label='code_graph'",
+      "min": 5000
+    },
+    {
+      "name": "tender scrape (pcc)",
+      "signal": "db_table_today",
+      "table": "tender_records",
+      "date_col": "created_at",
+      "where": "source = 'pcc'",
+      "weekend_legit": true,
+      "_note": "2026-08-02 由 pcc+ezbid 合併監控拆開：合併時只要 pcc 有寫入就整體 GREEN，ezbid 死 48 天完全隱形"
+    },
+    {
+      "name": "tender scrape (ezbid)",
+      "signal": "db_table_today",
+      "table": "tender_records",
+      "date_col": "created_at",
+      "where": "source = 'ezbid'",
+      "weekend_legit": true,
+      "_note": "2026-08-02 站台由 cf.ezbid.tw 301 搬到 ezbid.tw 且改版，scraper 已重寫適配"
+    },
+    {
+      "name": "kg_embedding_backfill",
+      "signal": "cron_detail",
+      "job": "kg_embedding_backfill",
+      "key": "embedded",
+      "ok_zero_reasons": [
+        null,
+        "coverage_full"
+      ]
+    },
+    {
+      "name": "pcc_today_scrape",
+      "signal": "cron_detail",
+      "job": "pcc_today_scrape",
+      "key": "records",
+      "ok_zero_reasons": [
+        "weekend_no_publish",
+        "ok"
+      ]
+    },
+    {
+      "name": "標案業務推薦",
+      "signal": "cron_detail",
+      "job": "tender_business_recommend",
+      "key": "pushed",
+      "ok_zero_reasons": [
+        "line_push_disabled",
+        "no_match",
+        "ok"
+      ],
+      "_why": "2026-07-30：原用 db_table_today 監控 tender_recommendation_history，但該表自 2026-06-23 owner 關閉 TENDER_LINE_PUSH_ENABLED 後即停寫（MAX(pushed_at)=2026-06-23 09:00，總 88 筆）→ 每日 07:00 對 owner 誤報。改 cron_detail 才能區分『政策關閉』與『真失敗』。"
+    },
+    {
+      "name": "每日覆盤",
+      "signal": "file_fresh",
+      "path": "wiki/memory/self-retrospective-reports",
+      "max_h": 28
+    },
+    {
+      "name": "治理儀表板",
+      "signal": "file_fresh",
+      "path": "docs/architecture/GOVERNANCE_INTEGRATED_DASHBOARD.md",
+      "max_h": 28
+    },
+    {
+      "name": "整合健康E2E",
+      "signal": "file_fresh",
+      "path": "wiki/memory/integration-health",
+      "max_h": 28
+    },
+    {
+      "name": "晨報",
+      "signal": "file_fresh",
+      "path": "wiki/memory/diary",
+      "max_h": 30
+    },
+    {
+      "name": "patterns",
+      "signal": "file_fresh",
+      "path": "wiki/memory/patterns",
+      "max_h": 30
+    },
+    {
+      "name": "優化管線報告",
+      "signal": "file_fresh",
+      "path": "wiki/memory/pipeline-reports",
+      "max_h": 30
+    },
+    {
+      "name": "週自傳/進化史",
+      "signal": "file_fresh",
+      "path": "wiki/memory/evolutions",
+      "max_h": 216
+    },
+    {
+      "name": "wiki 編譯",
+      "signal": "file_fresh",
+      "path": "wiki/topics",
+      "max_h": 216
+    },
+    {
+      "name": "shadow baseline",
+      "signal": "file_fresh",
+      "path": "backend/logs/shadow_trace.db",
+      "max_h": 30
+    },
+    {
+      "name": "CF Tunnel 每日驗證",
+      "signal": "file_fresh",
+      "path": "wiki/memory/integration-health/cf-tunnel-verify.json",
+      "max_h": 28,
+      "_why": "2026-07-30：此 job 曾三層空跑（容器無 pwsh + MISSIVE_PUBLIC_URL 未定義）卻記 success，公網監控失效數月。驗證型 job 也須留下可驗產出。"
+    },
+    {
+      "name": "能力使用度快照（第6階價值層）",
+      "signal": "file_fresh",
+      "path": "wiki/memory/integration-health/capability-usage.json",
+      "max_h": 30,
+      "_why": "2026-08-01：第 6 階價值層唯一的資料來源。只監看『有沒有持續產出』——本身刻意不告警（價值層是決策輸入，不是每日打擾；接成日推一週內就會變成第 4709 筆沒人看的通知）。判定時點 2026-08-31。"
+    },
+    {
+      "name": "UI 流程自我檢核",
+      "signal": "file_fresh",
+      "path": "wiki/memory/integration-health/ui-flow.json",
+      "max_h": 30,
+      "_why": "2026-07-31：owner 連日手動點頁面才發現缺陷（核銷點不進去/ezbid 無建案鈕/收據看不到）。此檢核把那些流程自動化；本身停跑也必須被察覺，故納入 producer 契約（規則 4：驗證型 job 也要留下可驗產出）。"
+    },
+    {
+      "name": "全站頁面健康掃描",
+      "signal": "file_fresh",
+      "path": "wiki/memory/integration-health/ui-sweep.json",
+      "max_h": 30,
+      "_why": "2026-07-31：既有治理只看原始碼與 API 狀態碼，抓不到「這一頁打開來是壞的」。首跑即發現 /ai/erp-graph 前後端契約不一致（422 被 catch 吞成 0 筆，從未有人發現）。"
+    },
+    {
+      "name": "案件財務橋樑自我修復",
+      "signal": "cron_detail",
+      "job": "case_finance_bridge_selfheal",
+      "key": "healed",
+      "ok_zero_reasons": [
+        "nothing_to_heal",
+        "ok"
+      ],
+      "_why": "2026-07-31：自我修復 job。healed=0 且 reason=nothing_to_heal 是健康狀態（沒東西要修）；若 reason=partial_failure 則需人介入。"
+    }
+  ]
 }

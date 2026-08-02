@@ -23,7 +23,11 @@ from .scraper_base import register_scraper
 
 logger = logging.getLogger(__name__)
 
-EZBID_BASE = "https://cf.ezbid.tw"
+# 2026-08-02：`cf.ezbid.tw` 已 301 永久搬到 `ezbid.tw`，且站台改版
+# （列表連結由 /tender/{id} 變成 /detail/{unit_id}/{job_number}，欄位移出 <a> 到 <tr>）。
+# 舊 code 不跟隨 301 → 每小時抓 0 筆、只記 warning 但 job 仍報 success
+# → **ezbid 自 2026-06-15 起 48 天無新資料，兩層監控都沒發現**（見 _parse_html 說明）。
+EZBID_BASE = "https://ezbid.tw"
 REQUEST_TIMEOUT = 15.0
 MAX_RETRIES = 3
 BACKOFF_BASE = 2.0
@@ -229,7 +233,10 @@ class EzbidScraper:
         last_error: Optional[Exception] = None
         for attempt in range(MAX_RETRIES):
             try:
-                async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                # follow_redirects：對端換網域時不要靜默抓 0 筆（2026-08-02 實際踩到）
+                async with httpx.AsyncClient(
+                    timeout=REQUEST_TIMEOUT, follow_redirects=True
+                ) as client:
                     resp = await client.get(EZBID_BASE, params=params)
 
                     # 封鎖偵測: 403 或回應含 captcha/block 關鍵字
@@ -308,63 +315,74 @@ class EzbidScraper:
             pass
 
     def _parse_html(self, html: str) -> List[Dict[str, Any]]:
-        """解析 ezbid HTML，提取標案列表"""
+        """解析 ezbid HTML，提取標案列表。
+
+        2026-08-02 重寫（站台改版）：
+        - 舊版：整列資訊塞在 `<a href="/tender/{id}">` 的文字裡，用位置索引切 8 段。
+        - 新版：`<a href="/detail/{unit_id}/{job_number}">` 只剩標題，其餘欄位在同一 `<tr>`。
+          新版反而更好——它直接給 PCC 的 unit_id/job_number，可直接與 PCC 對應（ADR-0046）。
+
+        欄位改用**特徵定位**而非固定索引：實測列可能有押標金也可能沒有，
+        寫死索引會在部分列上整排錯位（舊版就是這樣寫的）。
+        """
         soup = BeautifulSoup(html, "html.parser")
-        records = []
+        records: List[Dict[str, Any]] = []
 
-        links = soup.find_all("a", href=lambda h: h and "/tender/" in h)
-
-        for link in links:
+        for row in soup.find_all("tr"):
             try:
-                href = link.get("href", "")
-                tid_match = re.search(r"/tender/(\d+)", href)
-                if not tid_match:
+                link = row.find("a", href=lambda h: h and "/detail/" in h)
+                if not link:
+                    continue
+                m = re.search(r"/detail/([^/]+)/([^/?#\"]+)", link.get("href", ""))
+                if not m:
                     continue
 
-                ezbid_id = tid_match.group(1)
+                unit_id, job_number = m.group(1), m.group(2)
+                title = link.get_text(strip=True)
+                if not title:
+                    continue
+
                 parts = [
                     p.strip()
-                    for p in link.get_text(separator="|||", strip=True).split("|||")
+                    for p in row.get_text(separator="|||", strip=True).split("|||")
                     if p.strip()
                 ]
 
-                if len(parts) < 5:
-                    continue
+                # 特徵定位（缺欄位時只影響該欄，不會整排位移）
+                status = parts[0] if parts else ""
+                roc_date = next((p for p in parts if re.match(r"^\d{2,3}/\d{2}/\d{2}$", p)), "")
+                deadline_text = next((p for p in parts if "天" in p or "截止" in p), "")
+                category = next((p for p in parts if p.endswith("類")), "")
 
-                # 結構: [狀態, 截止天數, 標案名稱, 分類, 日期(ROC), 機關, $, 預算]
-                status = parts[0] if len(parts) > 0 else ""
-                deadline_text = parts[1] if len(parts) > 1 else ""
-                title = parts[2] if len(parts) > 2 else ""
-                category = parts[3] if len(parts) > 3 else ""
-                roc_date = parts[4] if len(parts) > 4 else ""
-                unit_name = parts[5] if len(parts) > 5 else ""
-                budget_str = parts[7] if len(parts) > 7 else ""
+                # 機關：標題的前一段（該列由「機關上層 → 機關 → 標題」排列）
+                unit_name = ""
+                if title in parts:
+                    idx = parts.index(title)
+                    if idx > 0:
+                        unit_name = parts[idx - 1]
 
-                # ROC 日期轉西元
-                date_str = self._roc_to_date(roc_date)
-
-                # 預算
-                budget = self._parse_budget(budget_str)
-
-                # 截止天數
-                days_left = self._parse_deadline(deadline_text)
-
-                # 分類對照
-                tender_type = "公開招標公告" if status == "公告" else status
-                cat_label = category.replace("類", "")
+                # 預算：'$' 之後那一段（舊版靠 parts[7]，改版後必錯）
+                budget_str = ""
+                if "$" in parts:
+                    bidx = parts.index("$")
+                    if bidx + 1 < len(parts):
+                        budget_str = parts[bidx + 1]
 
                 records.append({
-                    "ezbid_id": ezbid_id,
+                    # 複合鍵當 ezbid_id（欄位為 varchar(50)，PCC key 遠短於此）
+                    "ezbid_id": f"{unit_id}/{job_number}"[:50],
+                    "unit_id": unit_id,
+                    "job_number": job_number,
                     "title": title,
-                    "date": date_str,
+                    "date": self._roc_to_date(roc_date),
                     "unit_name": unit_name,
-                    "category": cat_label,
-                    "type": tender_type,
+                    "category": category.replace("類", ""),
+                    "type": "公開招標公告" if status == "公告" else status,
                     "status": status,
-                    "budget": budget,
-                    "days_left": days_left,
+                    "budget": self._parse_budget(budget_str),
+                    "days_left": self._parse_deadline(deadline_text),
                     "deadline_text": deadline_text,
-                    "ezbid_url": f"{EZBID_BASE}/tender/{ezbid_id}",
+                    "ezbid_url": f"{EZBID_BASE}/detail/{unit_id}/{job_number}",
                     "source": "ezbid",
                 })
 

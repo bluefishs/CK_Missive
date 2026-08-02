@@ -31,40 +31,51 @@ try:
 except Exception:
     pass
 
-sys.path.insert(0, "/app")
+# 2026-08-02：本檔原本 `sys.path.insert(0, "/app")` + import app.db —— 那是**容器內**路徑，
+# 但 fitness weekly 是在 **host** 執行 → 這一步每次都 ModuleNotFoundError（L52 家族）。
+# 改用與其他 host 端 audit 相同的 asyncpg 直連，不再依賴 backend 套件。
+DSN = "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents"
+
+_SQL = """
+    SELECT
+        COUNT(*) FILTER (WHERE pcc_match_unit_id IS NOT NULL) AS total_matched,
+        COUNT(*) FILTER (WHERE pcc_match_at >= NOW() - INTERVAL '24 hours') AS matched_24h,
+        COUNT(*) FILTER (WHERE pcc_match_at >= NOW() - INTERVAL '7 days') AS matched_7d,
+        MAX(pcc_match_at) AS last_enrich_at
+    FROM tender_records
+    WHERE source = 'ezbid'
+"""
 
 
 async def check_freshness() -> dict:
-    from app.db.database import AsyncSessionLocal
-    from sqlalchemy import text as sa_text
+    import asyncpg
 
-    async with AsyncSessionLocal() as db:
-        r = await db.execute(sa_text("""
-            SELECT
-                COUNT(*) FILTER (WHERE pcc_match_unit_id IS NOT NULL) AS total_matched,
-                COUNT(*) FILTER (
-                    WHERE pcc_match_at >= NOW() - INTERVAL '24 hours'
-                ) AS matched_24h,
-                COUNT(*) FILTER (
-                    WHERE pcc_match_at >= NOW() - INTERVAL '7 days'
-                ) AS matched_7d,
-                MAX(pcc_match_at) AS last_enrich_at
-            FROM tender_records
-            WHERE source = 'ezbid'
-        """))
-        row = r.one()
-        last = row.last_enrich_at
-        hours_since = None
-        if last:
-            hours_since = (datetime.utcnow() - last).total_seconds() / 3600
+    conn = await asyncpg.connect(DSN)
+    try:
+        row = await conn.fetchrow(_SQL)
+    finally:
+        await conn.close()
 
-        return {
-            "total_matched": row.total_matched,
-            "matched_24h": row.matched_24h,
-            "matched_7d": row.matched_7d,
-            "last_enrich_at": str(last) if last else "NEVER",
-            "hours_since_last": round(hours_since, 1) if hours_since is not None else None,
-        }
+    if row is None:
+        return {"total_matched": 0, "matched_24h": 0, "matched_7d": 0,
+                "last_enrich_at": "NEVER", "hours_since_last": None}
+
+    last = row["last_enrich_at"]
+    hours_since = None
+    if last:
+        # 欄位可能是 timestamptz（aware）也可能是 timestamp（naive），
+        # 拿錯基準會直接 TypeError，故依實際值決定 now。
+        now = datetime.now(last.tzinfo) if last.tzinfo else datetime.utcnow()
+        hours_since = (now - last).total_seconds() / 3600
+
+    # asyncpg 的 Record 用鍵存取（不支援屬性存取）
+    return {
+        "total_matched": row["total_matched"],
+        "matched_24h": row["matched_24h"],
+        "matched_7d": row["matched_7d"],
+        "last_enrich_at": str(last) if last else "NEVER",
+        "hours_since_last": round(hours_since, 1) if hours_since is not None else None,
+    }
 
 
 def main() -> int:
