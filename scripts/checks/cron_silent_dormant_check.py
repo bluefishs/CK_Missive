@@ -14,6 +14,15 @@ from __future__ import annotations
 import sys
 import urllib.request
 
+# host 端 Windows 主控台預設 cp950，印任何非 CJK 符號（⚪ ✓ …）就 UnicodeEncodeError
+# → 整支檢核崩潰，fitness 只看得到非 0 exit code、以為是「偵測到 dormant」。
+# 2026-08-02：本支是 L49.8 家族第 3 例（前兩支已修，此支漏網）。
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:  # 非 Windows 或已是 utf-8
+    pass
+
 
 # 每個 cron 的 max age 容忍 (sec) — interval × 2 估
 # (interval 推自 scheduler.py 的 add_job trigger)
@@ -23,12 +32,18 @@ JOB_MAX_AGE = {
     "cleanup_events": 86400 * 2,     # 1d × 2
     # cron-based
     "einvoice_sync": 7200,           # 1h × 2
-    "erp_graph_ingest": 7200,
-    "code_graph_incremental": 1800,  # 15min × 2
-    "db_graph_refresh": 1800,
-    "kb_coverage_check": 7200,
+    # 以下 5 支 2026-08-02 對齊 scheduler.py 實際 trigger 修正。
+    # 原值是小時級（1800 = 15min×2 / 7200 = 1h×2），但它們全都是
+    # CronTrigger(hour=…) 每日一次 → 跑完幾小時後必然超標，**每天都報 dormant**。
+    # 起因：v6.26（07-20）把 code_graph 從 15min 增量改為每日 03:00 全量重建，
+    # 排程改了、這張表沒改（閾值與 scheduler.py 各寫一份＝跨檔 SSOT 問題）。
+    # 這 5 支實測今日皆 success（03:00/03:35/03:30/04:00/00:30），是假陽性不是故障。
+    "code_graph_incremental": 86400 * 2,  # scheduler.py CronTrigger(hour=3, minute=0)
+    "db_graph_refresh": 86400 * 2,        # CronTrigger(hour=3, minute=35)
+    "erp_graph_ingest": 86400 * 2,        # CronTrigger(hour=3, minute=30)
+    "kb_coverage_check": 86400 * 2,       # CronTrigger(hour=4, minute=0)
+    "proactive_trigger_scan": 86400 * 2,  # CronTrigger(hour=0, minute=30)
     "security_scan": 86400 * 2,
-    "proactive_trigger_scan": 7200,
     "tender_dashboard_warm": 1800,
     "shadow_baseline": 86400,
     "wiki_compile": 86400 * 8,       # 週一 → 8d
