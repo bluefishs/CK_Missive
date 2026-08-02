@@ -112,7 +112,9 @@ async def test_diary_wiki_lookup_returns_list_on_failure(monkeypatch):
     def fake_get():
         return DummyWiki
 
-    import app.services.wiki_service as ws
+    # 2026-08-03：Wave 6 DDD 遷移後 `app.services.wiki_service` stub 已移除，
+    # 受測碼實際 import 的是 `app.services.wiki.service`（monkeypatch 必須打在同一個模組物件上）
+    import app.services.wiki.service as ws
     monkeypatch.setattr(ws, "get_wiki_service", fake_get)
     result = await DiaryService._lookup_wiki_entities("隨便問")
     assert result == []  # 防禦，而非 raise

@@ -122,6 +122,6 @@ class TestDomainAwareWeights:
 class TestSmoke:
     async def test_scaffold_importable(self):
         """至少確保本檔能被 pytest collect，不爆 import error。"""
-        from backend.app.services.ai.agent import agent_orchestrator  # noqa
-        from backend.app.services.ai.agent import agent_evolution_scheduler  # noqa
+        from app.services.ai.agent import agent_orchestrator  # noqa
+        from app.services.ai.agent import agent_evolution_scheduler  # noqa
         assert True

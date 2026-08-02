@@ -21,12 +21,19 @@ def client():
 
 
 def test_manifest_version_bumped():
-    """manifest v1.2 起須含 compat/endpoints/auth/hermes 區塊（ADR-0014）。"""
-    assert TOOL_MANIFEST["version"] == "1.2"
+    """manifest v1.2 起須含 compat/endpoints/auth/hermes 區塊（ADR-0014）。
+
+    2026-08-03：原本鎖死 `== "1.2"`，manifest 升到 1.3 後這條就紅了 ——
+    但契約要求的是「這四個區塊存在」，不是「版本停在 1.2」。
+    改為驗**版本不得低於 1.2**，正常升版不會紅，區塊被拿掉才會紅。
+    """
+    version = TOOL_MANIFEST["version"]
+    assert tuple(int(x) for x in version.split(".")) >= (1, 2), \
+        f"manifest 版本不得低於 1.2（現為 {version}）"
     assert "compat" in TOOL_MANIFEST
     assert "endpoints" in TOOL_MANIFEST
     assert "auth" in TOOL_MANIFEST
-    assert "hermes" in TOOL_MANIFEST, "v1.2: hermes block must advertise ACP/feedback paths"
+    assert "hermes" in TOOL_MANIFEST, "v1.2 起 hermes block 須宣告 ACP/feedback 路徑"
 
 
 def test_hermes_block_advertises_acp_and_feedback():
@@ -93,7 +100,8 @@ def test_manifest_endpoint_returns_200(client):
     resp = client.post("/api/ai/agent/tools")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["version"] == "1.2"
+    # 端點回的版本必須與 manifest 常數一致（同上：驗一致性，不鎖死特定版本號）
+    assert body["version"] == TOOL_MANIFEST["version"]
     assert body["serverName"] == "ck_missive"
 
 
