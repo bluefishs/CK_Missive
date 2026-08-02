@@ -9,6 +9,14 @@
 > > 「我做了 R1→R7，每輪都是『發現 → 對策』，但對策都散落在 commit messages，
 > > 沒有一個單點查詢的 lessons SSOT。下次 Claude session 接手，得從 git log 重建脈絡。」
 
+> **⚠️ 編號缺口（2026-08-03 查證）**：本檔自稱「單點 SSOT」但 **L42–L48 從缺**
+> （L41 之後直接跳 L49），而其他檔仍在引用那幾號 —— 例如 L49 family 的 Refs 就寫著
+> 「同類 L41 跨環境 secret drift + L43 volume mount drift」。
+> **那一段的內容沒有遺失**，在 `.claude/rules/cross-file-ssot-governance.md` 的
+> L41–L45 family 表（含修法 commit / audit step / 對應 ADR）。
+> 記憶索引原本指向 `L43_*.md`、`L44_*.md` 等**從不存在的檔案**，已於同日改為文字引用。
+> 補寫 L42–L48 進本檔屬歷史重建，需 owner 決定是否要做。
+
 每條 Lesson 含 5 欄位：
 - **Trigger**：什麼情境會踩到（What to look for）
 - **Cause**：根因（Why it happened）
