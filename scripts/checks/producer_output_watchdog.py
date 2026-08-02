@@ -188,6 +188,23 @@ def audit_producer_coverage() -> list[str]:
     return unclassified
 
 
+def _job_ran_today(job: str | None) -> bool:
+    """該 job 今天是否已執行過（讀 cron_events.jsonl）。
+
+    2026-08-03 立法：`db_table_today` 問「今天有沒有新增」，
+    但在 **cron 尚未執行的時段（例如凌晨）必然是 0** ——
+    當日 00:33 實跑，pcc/ezbid 兩者都被判 RED，實際只是還沒到執行時間。
+    「還沒做」與「做了但沒產出」是完全不同的事，不能都算沉默失敗。
+    """
+    if not job or not EVENTS.exists():
+        return False
+    today = date.today().isoformat()
+    for line in EVENTS.read_text(encoding="utf-8", errors="ignore").splitlines()[-3000:]:
+        if today in line and f'"{job}"' in line:
+            return True
+    return False
+
+
 def check_db_table_today(spec: dict) -> tuple[str, str]:
     try:
         import asyncpg, asyncio
@@ -217,7 +234,11 @@ def check_db_table_today(spec: dict) -> tuple[str, str]:
         return "GREEN", f"{label} 今日 +{n}"
     if spec.get("weekend_legit") and IS_WEEKEND:
         return "GREEN", f"{label} 今日 0（週末合理空）"
-    return "RED", f"{label} 今日 0（非合理空＝疑 producer 沉默失敗）"
+    # 當日 cron 還沒跑過 → 「還沒做」不是「做了沒產出」（見 _job_ran_today 說明）
+    job = spec.get("job") or _JOB_ALIASES.get(spec.get("name", ""))
+    if not _job_ran_today(job):
+        return "SKIP", f"{label} 今日 0（{job or '該 job'} 今日尚未執行，未到判定時機）"
+    return "RED", f"{label} 今日 0（今日已執行卻無產出＝疑 producer 沉默失敗）"
 
 
 def check_db_row_count(spec: dict) -> tuple[str, str]:
@@ -304,6 +325,7 @@ def main() -> int:
     checkers = {"db_table_today": check_db_table_today, "cron_detail": check_cron_detail,
                 "file_fresh": check_file_fresh, "db_row_count": check_db_row_count}
     anomalies = []
+    skipped: list[tuple[str, str]] = []
     for spec in PRODUCER_OUTCOME_REGISTRY:
         fn = checkers.get(spec["signal"])
         if not fn:
@@ -312,13 +334,26 @@ def main() -> int:
         print(f"  [{tag:5}] {spec['name']:24} ({spec['signal']}) — {msg}")
         if tag == "RED":
             anomalies.append((spec["name"], msg))
+        elif tag == "SKIP":
+            skipped.append((spec["name"], msg))
 
     # 契約覆蓋強制（防新沉默失敗滋生）
     unclassified = audit_producer_coverage()
 
+    # SKIP ≠ PASS：未驗完必須與通過分開講，否則「20 producer 產出正常」
+    # 會把「其中 2 個根本沒驗」一起講成正常（2026-08-03 實際踩到）。
+    if skipped:
+        print("")
+        print(f"⚪ 未驗完 {len(skipped)} 項（不計入正常）：")
+        for name, m in skipped:
+            print(f"     {name}: {m}")
+
     print("\n" + "=" * 70)
+    verified = len(PRODUCER_OUTCOME_REGISTRY) - len(skipped)
     if not anomalies and not unclassified:
-        print(f"GREEN: {len(PRODUCER_OUTCOME_REGISTRY)} producer 產出正常 + 覆蓋無 blind spot")
+        print(f"GREEN: {verified} producer 產出正常"
+              + (f"（另 {len(skipped)} 項未驗完）" if skipped else "")
+              + " + 覆蓋無 blind spot")
         return 0
     if not anomalies:
         print(f"GREEN(產出): {len(PRODUCER_OUTCOME_REGISTRY)} producer 皆正常；"
