@@ -1376,6 +1376,25 @@ async def wiki_compile_job():
             # 分批（每次最多 20 頁）避免週級 job 卡在上百次 LLM 呼叫。
             mod_stat = await compiler.compile_module_wiki(top_n=120, max_new=20)
 
+            # 補齊進度要能被發現卡住 —— 否則「每週補一點」可能悄悄停在中途，
+            # 而 job 依然週週回 success（正是這幾天一路在治的形態）。
+            # 還有待補、這輪卻一頁都沒產出 = 卡住，queue 進晨報讓人看得到。
+            if mod_stat.get("remaining", 0) > 0 and mod_stat.get("compiled", 0) == 0:
+                try:
+                    from app.services.integration.line_digest_buffer import queue_digest
+                    await queue_digest(
+                        "📘 模組 Wiki",
+                        f"補齊疑似卡住：本輪 0 頁產出，仍有 {mod_stat['remaining']} 個待補"
+                        f"（失敗 {mod_stat.get('failed', 0)}）",
+                    )
+                except Exception as e:
+                    logger.warning("模組 wiki 卡住通知 queue 失敗: %s", e)
+            elif mod_stat.get("remaining", 0) > 0:
+                logger.info(
+                    "模組 wiki 補齊進行中：本輪 +%d，尚餘 %d",
+                    mod_stat.get("compiled", 0), mod_stat["remaining"],
+                )
+
             from app.services.wiki.service import get_wiki_service
             index_counts = await get_wiki_service().rebuild_index()
 
@@ -2625,14 +2644,17 @@ async def health_check_broadcast_job():
         if is_healthy:
             # 健康 — 若上次剛告警（streak >= threshold），推一次「恢復」通知後歸零
             if _HEALTH_FAIL_STREAK >= _HEALTH_ALERT_THRESHOLD:
+                # 2026-08-03：原推 Telegram（token 401、開關 false，兩層都送不出去）。
+                # 改走 line_digest_buffer 統一由 07:30 晨報帶出 ——
+                # owner 要求 LINE 訊息統整分群、上班前一次看完，不要分散推播。
                 try:
-                    from app.services.integration.telegram_bot import get_telegram_bot_service
-                    await get_telegram_bot_service().push_message(
-                        int(admin_chat_id),
-                        f"✅ 公文系統已恢復\n\n時間: {data.get('timestamp', 'N/A')}",
+                    from app.services.integration.line_digest_buffer import queue_digest
+                    await queue_digest(
+                        "🩺 系統健康",
+                        f"✅ 已恢復（時間 {data.get('timestamp', 'N/A')}）",
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("健康恢復通知 queue 失敗: %s", e)
             _HEALTH_FAIL_STREAK = 0
             return
 
@@ -2653,9 +2675,14 @@ async def health_check_broadcast_job():
             f"資料庫: {db_status}\n"
             f"時間: {data.get('timestamp', 'N/A')}"
         )
-        from app.services.integration.telegram_bot import get_telegram_bot_service
-        await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
-        logger.warning("健康檢查連續異常已推播至 Telegram: %s", data.get("status"))
+        # 統一走 digest，由 07:30 晨報帶出（owner：LINE 訊息統整分群，勿分散）。
+        # 取捨記在這裡：系統異常最多延遲到隔日 07:30 才通知。
+        # 這個延遲在架構上原本就存在很大一部分 —— scheduler 與被監控的 API 同進程，
+        # 進程整個掛掉時即時推也一樣發不出去。若日後要即時逃生門，
+        # 建議條件是「streak 遠高於告警閾值」（代表持續數小時異常）才破例即時推。
+        from app.services.integration.line_digest_buffer import queue_digest
+        await queue_digest("🩺 系統健康", msg)
+        logger.warning("健康檢查連續異常已 queue 至晨報: %s", data.get("status"))
 
     except Exception as e:
         # API 完全無回應 — 同樣採用 streak 機制
@@ -2666,12 +2693,12 @@ async def health_check_broadcast_job():
         )
         if _HEALTH_FAIL_STREAK < _HEALTH_ALERT_THRESHOLD:
             return
-        msg = f"🚨 公文系統 API 無回應（連續 {_HEALTH_FAIL_STREAK} 次）\n\n錯誤: {str(e)[:200]}"
+        msg = f"🚨 API 無回應（連續 {_HEALTH_FAIL_STREAK} 次）\n錯誤: {str(e)[:200]}"
         try:
-            from app.services.integration.telegram_bot import get_telegram_bot_service
-            await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
-        except Exception:
-            pass  # Telegram 也失敗，只記 log
+            from app.services.integration.line_digest_buffer import queue_digest
+            await queue_digest("🩺 系統健康", msg)
+        except Exception as ex:
+            logger.warning("API 無回應通知 queue 失敗（仍在 log）: %s", ex)
 
 
 # LLM quota 預警 — 已告警旗標（防重複通知，每日 00:00 自動 reset）
@@ -2751,9 +2778,10 @@ async def llm_quota_check_job():
             _LLM_QUOTA_ALERT_FLAGS["cost"] = today
 
         if alerts:
-            msg = "⚡ LLM Quota 預警\n\n" + "\n\n".join(alerts) + f"\n\n時間: {today}"
-            from app.services.integration.telegram_bot import get_telegram_bot_service
-            await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
+            msg = "\n".join(alerts) + f"\n（{today}）"
+            # 2026-08-03：原推 Telegram（已失效）→ 改走 digest，統一由 07:30 晨報帶出
+            from app.services.integration.line_digest_buffer import queue_digest
+            await queue_digest("⚡ LLM 配額預警", msg)
             logger.warning(
                 "LLM quota 預警推送: groq=%.0f%% nvidia=%.0f%% cost=%.0f%%",
                 groq_pct, nvidia_pct, cost_pct,
@@ -2935,28 +2963,23 @@ async def memory_anti_echo_scan_job():
                 result.get("reason"),
                 len(result.get("reflections", [])),
             )
-            # Telegram 通知（若觸發）
-            import os
-            admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-            if admin_chat_id:
-                try:
-                    from app.services.integration.telegram_bot import get_telegram_bot_service
-                    msg = (
-                        "🔔 反迴聲室觸發\n\n"
-                        f"原因：{result.get('reason')}\n\n"
-                        "候選質疑：\n"
-                        + "\n".join(
-                            f"{i+1}. {r}" for i, r in enumerate(
-                                result.get("reflections", [])[:3]
-                            )
+            # 2026-08-03：原推 Telegram（token 401 + 開關 false，送不出去），
+            # 且以 TELEGRAM_ADMIN_CHAT_ID 是否存在當推播開關 —— 改走 digest，
+            # 由 07:30 晨報依主題分群一次帶出。
+            try:
+                from app.services.integration.line_digest_buffer import queue_digest
+                msg = (
+                    f"原因：{result.get('reason')}\n候選質疑：\n"
+                    + "\n".join(
+                        f"{i+1}. {r}" for i, r in enumerate(
+                            result.get("reflections", [])[:3]
                         )
-                        + "\n\n（已寫入今日 diary）"
                     )
-                    await get_telegram_bot_service().push_message(
-                        int(admin_chat_id), msg,
-                    )
-                except Exception as e:
-                    logger.debug("AntiEcho Telegram notify failed: %s", e)
+                    + "\n（已寫入今日 diary）"
+                )
+                await queue_digest("🔔 反迴聲室", msg)
+            except Exception as e:
+                logger.debug("AntiEcho digest queue failed: %s", e)
         else:
             logger.info("AntiEcho not triggered: %s", result.get("reason"))
             # L51.7 Sprint 2.P2.12 (2026-05-30) 連續 N 週未觸發 → 主動 prompt owner critique
@@ -3308,21 +3331,18 @@ async def memory_crystallization_scan_job():
         crys = Crystallizer()
         proposals = await crys.scan_and_propose()
         logger.info("Memory Crystallization Scan 完成: %d proposals", len(proposals))
-        # Telegram 通知（若有新 proposal）
+        # 2026-08-03：原推 Telegram（已失效）→ 改走 digest，07:30 晨報統一帶出
         if proposals:
-            import os
-            admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-            if admin_chat_id:
-                try:
-                    from app.services.integration.telegram_bot import get_telegram_bot_service
-                    msg = (
-                        f"🔮 新 Crystal 提案（{len(proposals)} 筆）\n\n"
-                        + "\n".join(f"• {p.proposal_id}: {p.reason[:80]}" for p in proposals[:5])
-                        + "\n\n批准請至 /ai/memory Dashboard（Phase 5）或使用 API。"
-                    )
-                    await get_telegram_bot_service().push_message(int(admin_chat_id), msg)
-                except Exception as e:
-                    logger.debug("Crystal proposal Telegram notify failed: %s", e)
+            try:
+                from app.services.integration.line_digest_buffer import queue_digest
+                msg = (
+                    f"新提案 {len(proposals)} 筆\n"
+                    + "\n".join(f"• {p.proposal_id}: {p.reason[:80]}" for p in proposals[:5])
+                    + "\n批准請至 /ai/memory Dashboard 或 API。"
+                )
+                await queue_digest("🔮 Crystal 提案", msg)
+            except Exception as e:
+                logger.debug("Crystal proposal digest queue failed: %s", e)
     except Exception as e:
         logger.error("Memory Crystallization 失敗: %s", e, exc_info=True)
 
@@ -3621,10 +3641,14 @@ def setup_scheduler(
     )
     logger.info("已添加 KG Embedding 自動回填: 每日 04:30 執行")
 
-    # 每日晨報生成 + 推送 — 每日 08:00 (Telegram/LINE)
+    # 每日晨報生成 + 推送 — 每日 07:30
+    # 2026-08-03：原為 08:00 整點發送。owner 要求「上班 8 點前完成訊息發送，
+    # 以利檢視與安排」，故提前至 07:30 —— 實測執行時長最近 20.5s、歷史最長 77.8s，
+    # 30 分鐘餘裕充足。晨報同時是所有 LINE 訊息的統一出口
+    #（各主題 job queue 進 line_digest_buffer，由此一次帶出並依主題分群）。
     scheduler.add_job(
         morning_report_job,
-        trigger=CronTrigger(hour=8, minute=0),
+        trigger=CronTrigger(hour=7, minute=30),
         id='morning_report',
         name='每日晨報生成 + 推送 (Telegram/LINE)',
         replace_existing=True,
