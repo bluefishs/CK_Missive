@@ -153,11 +153,16 @@ NON_PRODUCER_JOBS = {
     "agent_self_diagnosis", "cf_tunnel_verify", "cleanup_events", "critique_health_audit",
     "cron_outcome_freshness", "cron_self_health_alert", "crystal_review_overdue",
     "embedding_warmup", "fitness_daily", "fitness_weekly", "health_check_broadcast",
-    "kb_coverage_check", "llm_quota_check", "memory_anti_echo_scan", "monthly_arch_review",
-    "process_reminders", "proposal_aging_alert", "security_scan", "tender_dashboard_warm",
-    "wiki_lint", "code_dup_triage", "soul_mirror_sync",
+    "llm_quota_check", "memory_anti_echo_scan", "process_reminders", "proposal_aging_alert", "security_scan", "tender_dashboard_warm",
+    "wiki_lint", "soul_mirror_sync",
+    # 2026-08-03 逐一核實後維持豁免（理由要留在這裡，不是留在 commit message）：
+    #   cf_tunnel_verify   — detail 是 {checks_passed, reason}，純驗證結果、
+    #                        無業務產出；其失敗已由 fitness cf_tunnel_verify 覆蓋
+    #   code_dup_triage    — detail 是 {candidates, true_duplicates}，
+    #                        候選為 0 是常態（沒有新重複才是好事），監控會恆為噪音
+    "code_dup_triage",
     # 2026-07-18 契約 rollout：圖譜 ingest（健康由 orphan/reconcile step 68 覆蓋）
-    "code_graph_incremental", "code_graph_reconcile", "erp_graph_ingest", "db_graph_refresh",
+    "code_graph_incremental", "erp_graph_ingest", "db_graph_refresh",
     # 外部 LINE 推送（產出為外部 LINE，非本地可驗；配額由 line push 邏輯管）
     "daily_self_reflection_line_push", "line_weekly_pulse", "proactive_trigger_scan", "tender_subscription",
     # covered-elsewhere / 非業務產出 / 測試 / L77 死結
@@ -165,6 +170,60 @@ NON_PRODUCER_JOBS = {
     "tender_pcc_enrichment", "tender_refresh_pending", "ledger_reconciliation",
     "kunge_weekly_learning_summary", "einvoice_sync",
 }
+
+
+# 有 detail 但經人工核實後仍維持豁免者，記下核實日期。
+# **不是永久豁免**：超過 EXEMPTION_REVIEW_DAYS 就會再次被列出要求重新核實 ——
+# 這整項檢查的存在理由就是「豁免不該寫了就永遠算數」，這裡自然也適用。
+REVIEWED_EXEMPTIONS: dict[str, date] = {
+    # detail 是 {checks_passed, reason}，純驗證結果、無業務產出；
+    # 失敗已由 fitness 的 cf_tunnel_verify 步驟覆蓋
+    "cf_tunnel_verify": date(2026, 8, 3),
+    # detail 是 {candidates, true_duplicates}；候選為 0 是常態
+    #（沒有新重複才是好事），納管會恆為噪音
+    "code_dup_triage": date(2026, 8, 3),
+}
+EXEMPTION_REVIEW_DAYS = 90
+
+
+def audit_stale_exemptions() -> list[tuple[str, int]]:
+    """檢查豁免清單裡是否有 job 其實留下了可驗產出（＝豁免可能已過期）。
+
+    ## 為什麼需要這一項（2026-08-03）
+
+    本檔一直印「✅ 所有 producer 皆已納管（無 blind spot）」，但那個綠燈是
+    **靠 38 個手寫豁免撐出來的**：
+
+        53 tracked jobs = 已監控 21 + 非producer 38 + 未納管 0
+
+    而豁免一旦寫進 `NON_PRODUCER_JOBS` 就再也沒有東西複查它還對不對。
+    `monthly_arch_review` 正是如此 —— 被歸在「稽核/清理」認定不產出東西，
+    於是它的報告送不出去、不落地、detail 全是 None，**三次執行沒人知道**，
+    而這支 watchdog 一路報綠。
+
+    降級信號不需要語意判斷：**job 回了 `detail` 就代表它有可驗產出**
+    （07-30 契約規則 4：驗證型 job 也必須留下可驗產出），那它就該被監控。
+
+    刻意**不自動移除豁免** —— 那會改變告警行為、也可能誤傷。
+    這裡只讓「豁免不再是寫了就永遠算數」。
+    """
+    if not EVENTS.exists():
+        return []
+    counts: dict[str, int] = {}
+    for line in EVENTS.read_text(encoding="utf-8", errors="ignore").splitlines():
+        try:
+            ev = json.loads(line)
+        except Exception:
+            continue
+        job = ev.get("job_id") or ev.get("job")
+        if job in NON_PRODUCER_JOBS and ev.get("detail"):
+            # 已核實過的不重複吵，但**核實有效期只有 90 天** ——
+            # 否則就是把「豁免永久有效」換個地方再犯一次。
+            reviewed = REVIEWED_EXEMPTIONS.get(job)
+            if reviewed and (date.today() - reviewed).days < EXEMPTION_REVIEW_DAYS:
+                continue
+            counts[job] = counts.get(job, 0) + 1
+    return sorted(counts.items(), key=lambda kv: -kv[1])
 
 
 def audit_producer_coverage() -> list[str]:
@@ -339,6 +398,16 @@ def main() -> int:
 
     # 契約覆蓋強制（防新沉默失敗滋生）
     unclassified = audit_producer_coverage()
+
+    stale_exempt = audit_stale_exemptions()
+    if stale_exempt:
+        print("")
+        print(f"⚠️ 豁免可能已過期：{len(stale_exempt)} 個 NON_PRODUCER job 其實留下了 detail")
+        for job, n in stale_exempt:
+            print(f"     - {job}（{n} 次有 detail）")
+        print("  → 有可驗產出就該被監控。請改註冊為 producer，")
+        print("     或在 registry 寫明「為何有 detail 仍不需監控」——")
+        print("     理由要留在 registry，不是留在某次 commit message 裡。")
 
     # SKIP ≠ PASS：未驗完必須與通過分開講，否則「20 producer 產出正常」
     # 會把「其中 2 個根本沒驗」一起講成正常（2026-08-03 實際踩到）。

@@ -161,6 +161,25 @@
         "report written, push unavailable"
       ],
       "_why": "2026-08-03：這支 job 一直在跑（3 次 success）但 detail 全是 None、報告只進 log、唯一推播管道 Telegram 實測 401 且開關 false —— 產出沒有任何接收者，所以每次架構檢視都得人工發起。delta_count=0 是合理值（該月與上月無變化），故列入 ok_zero_reasons；要抓的是 detail 整個消失＝job 又退回沉默成功。"
+    },
+    {
+      "name": "公文 embedding 覆蓋率",
+      "signal": "cron_detail",
+      "job": "kb_coverage_check",
+      "key": "total",
+      "ok_zero_reasons": [],
+      "_why": "2026-08-03：原被列為 NON_PRODUCER（歸類為檢查類），掩蓋了它連續 16 次回報 total=0 —— 實際是 1971 份公文 100% 覆蓋，只是讀錯 key。total=0 一律異常（公文表不可能為空），故不設 ok_zero_reasons。"
+    },
+    {
+      "name": "程式圖譜 reconcile",
+      "signal": "cron_detail",
+      "job": "code_graph_reconcile",
+      "key": "stamped",
+      "ok_zero_reasons": [
+        "ok",
+        null
+      ],
+      "_why": "2026-08-03：detail 有實際產出（before/after/stamped/swept），屬可驗產出而非純檢查，從 NON_PRODUCER 移出。stamped=0 可能是本輪無需重標，故列為合理零。"
     }
   ]
 }

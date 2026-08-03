@@ -587,14 +587,28 @@ async def kb_coverage_check_job():
         async with async_session_maker() as db:
             from app.services.ai.core.embedding_manager import EmbeddingManager
             stats = await EmbeddingManager.get_coverage_stats(db)
-            total = stats.get("total_chunks", 0)
-            embedded = stats.get("embedded_chunks", 0)
-            coverage = stats.get("coverage_percent", 0)
+            # 2026-08-03：原本讀 total_chunks / embedded_chunks / coverage_percent，
+            # 但 `get_coverage_stats` 回的是 total / with_embedding / coverage ——
+            # **三個 key 全部對不上**，`.get(..., 0)` 一律回 0。
+            # 於是這支檢查連續 16 次回報「總數 0、覆蓋率 0%」，
+            # 而實際是 1971 份公文全部有 embedding（100%）。
+            # 與同日發現的 NER 關係抽取（relation vs relation_type）同型：
+            # 欄位名漂移 + 靜默預設值 = 檢查看起來有跑、數字卻是假的。
+            total = stats.get("total", 0)
+            embedded = stats.get("with_embedding", 0)
+            coverage = stats.get("coverage", 0)
             logger.info(
                 f"OfficialDocument 覆蓋率檢查完成: "
                 f"total={total}, embedded={embedded}, coverage={coverage:.1f}%"
             )
-            if coverage < 95.0 and total > 0:
+            if total == 0:
+                # 原條件是 `coverage < 95 and total > 0` —— total=0 時連告警都不觸發，
+                # 使「查不到任何資料」與「一切正常」在輸出上無法區分（雙重靜默）。
+                logger.warning(
+                    "OfficialDocument 覆蓋率檢查取得 total=0；"
+                    "公文表不應為空，請確認查詢對象是否正確"
+                )
+            elif coverage < 95.0:
                 logger.warning(
                     f"OfficialDocument Embedding 覆蓋率低於 95%: {coverage:.1f}% "
                     f"({total - embedded} 未 embed)"
