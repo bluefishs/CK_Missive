@@ -43,6 +43,13 @@ def _now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+# wiki 的內容子目錄 —— **單一來源**。
+# 2026-08-03：這份清單原本在本檔寫死了 7 處、compiler 再寫 1 處，
+# 新增一個子目錄就得記得改 8 個地方；漏改任一處，新頁面就會
+# 「產生了但不進索引／不被 lint／搜不到」—— 正是這幾天一直在治的形態。
+WIKI_SUBDIRS = ["entities", "topics", "sources", "synthesis", "modules"]
+
+
 # frontmatter preserve 正則（重編譯時保留溯源 created 與 backfill 寫入的 kg_entity_id）
 # L66+ 同族修法（2026-06-15）：entity 頁面由 ingest_entity 每次重建 frontmatter，
 #   原無條件 created=now 且 kg_entity_id=None 即省略該行 → 每週 wiki_compile 沖刷掉
@@ -235,7 +242,7 @@ tags: {tags or []}
         query_lower = query.lower()
         keywords = [w for w in query_lower.split() if len(w) > 1]
 
-        for subdir in ["entities", "topics", "sources", "synthesis"]:
+        for subdir in WIKI_SUBDIRS:
             dir_path = self.root / subdir
             if not dir_path.exists():
                 continue
@@ -286,7 +293,7 @@ tags: {tags or []}
         page_count = {"entities": 0, "topics": 0, "sources": 0, "synthesis": 0}
 
         # 收集所有頁面
-        for subdir in ["entities", "topics", "sources", "synthesis"]:
+        for subdir in WIKI_SUBDIRS:
             dir_path = self.root / subdir
             if not dir_path.exists():
                 continue
@@ -309,7 +316,7 @@ tags: {tags or []}
         # 從索引可達的頁面不是孤兒；真正的孤兒是索引也沒列到的那些。
         sources: List[tuple[str, Path]] = [
             (f"{sub}/{f.name}", f)
-            for sub in ["entities", "topics", "sources", "synthesis"]
+            for sub in WIKI_SUBDIRS
             if (self.root / sub).exists()
             for f in (self.root / sub).glob("*.md")
         ]
@@ -374,7 +381,7 @@ tags: {tags or []}
         page_meta: Dict[str, Dict[str, Any]] = {}
 
         # Phase 1: 收集所有頁面 metadata
-        for subdir in ["entities", "topics", "sources", "synthesis"]:
+        for subdir in WIKI_SUBDIRS:
             dir_path = self.root / subdir
             if not dir_path.exists():
                 continue
@@ -444,7 +451,7 @@ tags: {tags or []}
                 "total_edges": len(edges),
                 "by_type": {
                     t: sum(1 for n in nodes if n["type"] == t)
-                    for t in ["entities", "topics", "sources", "synthesis"]
+                    for t in WIKI_SUBDIRS
                 },
             },
         }
@@ -456,7 +463,7 @@ tags: {tags or []}
     async def rebuild_index(self) -> Dict[str, int]:
         """重建 index.md"""
         sections = {}
-        for subdir in ["entities", "topics", "sources", "synthesis"]:
+        for subdir in WIKI_SUBDIRS:
             dir_path = self.root / subdir
             if not dir_path.exists():
                 continue
@@ -476,6 +483,11 @@ tags: {tags or []}
             "topics": "Topics (主題)",
             "sources": "Sources (來源摘要)",
             "synthesis": "Synthesis (綜合分析)",
+            # 2026-08-03：加 modules 時差點漏這裡 —— sections 用 WIKI_SUBDIRS 收集
+            # （log 已顯示 modules: 12），輸出卻迭代這份 labels，於是「收集了但沒輸出」，
+            # 新頁在 index 裡看不到、lint 因此判它們全是孤兒。
+            # 子目錄清單收斂成常數了，**顯示標籤仍是另一份**，同型缺口沒掃全。
+            "modules": "Modules (程式模組)",
         }
 
         lines = ["# CK_Missive Wiki Index\n"]
@@ -507,7 +519,7 @@ tags: {tags or []}
     def get_stats(self) -> Dict[str, int]:
         """快速統計"""
         counts = {}
-        for subdir in ["entities", "topics", "sources", "synthesis"]:
+        for subdir in WIKI_SUBDIRS:
             dir_path = self.root / subdir
             if dir_path.exists():
                 counts[subdir] = len(list(dir_path.glob("*.md")))

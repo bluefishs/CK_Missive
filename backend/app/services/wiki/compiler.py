@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import select, func, desc, and_, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .service import get_wiki_service, WikiService, WIKI_ROOT, _slugify
+from .service import get_wiki_service, WikiService, WIKI_ROOT, _slugify, WIKI_SUBDIRS
 from .formatter import WikiFormatter
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class WikiCompiler:
     def _snapshot_pages(self) -> Dict[str, int]:
         """快照所有 wiki 頁面 (path → 檔案大小)"""
         snap: Dict[str, int] = {}
-        for subdir in ["entities", "topics", "sources", "synthesis"]:
+        for subdir in WIKI_SUBDIRS:
             d = self.wiki.root / subdir
             if not d.exists():
                 continue
@@ -147,6 +147,111 @@ class WikiCompiler:
             return None
         except Exception:
             return None
+
+    _MODULE_META_RE = re.compile(r"^module_lines:\s*(\d+)\s*$", re.MULTILINE)
+    _MODULE_REL_RE = re.compile(r"^module_relations:\s*(\d+)\s*$", re.MULTILINE)
+
+    async def compile_module_wiki(
+        self, top_n: int = 120, max_new: int = 20
+    ) -> Dict[str, Any]:
+        """把 code-wiki 生成的模組說明落地成 wiki 頁面。
+
+        ## 為什麼需要這一段
+
+        `CodeWikiGenerator.generate_module_wiki` 早就能產出模組說明 markdown
+        （原規劃的「模組 Wiki 自動生成」），但**產出沒有出口**：不落地、沒有索引、
+        前端零消費（只出現在自動產生的 api.d.ts 型別定義裡）。
+        LLM Wiki 這一側則有完整的落地／索引／lint／搜尋管線 —— 接上去即可，
+        不必另造一套。
+
+        ## 取捨
+
+        - **不做全量**：840 個 py_module 裡多數（例如 107 行的 model）產出僅
+          180 字元、沒有閱讀價值。依關係數取 Top N，覆蓋實際會被讀的部分。
+        - **分批**：每次最多生成 `max_new` 頁。一次跑滿 120 次 LLM 呼叫會讓
+          週級 job 卡很久；分批則每週補一些、最終收斂。
+        - **增量**：frontmatter 記 `module_lines` / `module_relations`，
+          兩者都沒變就跳過 —— 模組沒改動就不必重新花一次 LLM。
+        """
+        from app.services.ai.misc.code_wiki_generator import CodeWikiGenerator
+        from app.extended.models.knowledge_graph import CanonicalEntity
+
+        gen = CodeWikiGenerator(self.db)
+        overview = await gen.generate_overview(limit=top_n)
+        modules = overview.get("modules", [])
+
+        out_dir = WIKI_ROOT / "modules"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        compiled = skipped = failed = 0
+        for m in modules:
+            if compiled >= max_new:
+                break
+            name = m.get("name")
+            if not name:
+                continue
+            path = out_dir / f"{_slugify(name)}.md"
+            lines_now = int(m.get("lines") or 0)
+            rels_now = int(m.get("rel_count") or m.get("relations") or 0)
+
+            if path.exists():
+                head = path.read_text(encoding="utf-8", errors="replace")[:600]
+                lm = self._MODULE_META_RE.search(head)
+                rm = self._MODULE_REL_RE.search(head)
+                if lm and rm and int(lm.group(1)) == lines_now and int(rm.group(1)) == rels_now:
+                    skipped += 1
+                    continue  # 模組沒變，不必重新花一次 LLM
+
+            try:
+                detail = await gen.generate_module_wiki(name)
+            except Exception as e:
+                logger.warning("模組 wiki 生成失敗 %s: %s", name, e)
+                failed += 1
+                continue
+            body = (detail or {}).get("wiki_markdown")
+            if not body:
+                failed += 1
+                continue
+
+            # 與業務 wiki 一致：frontmatter 帶 kg_entity_id，
+            # 讓程式模組頁與業務實體頁落在同一張 KG 上，而不是各自為政。
+            kg_id = await self.db.scalar(
+                select(CanonicalEntity.id).where(
+                    CanonicalEntity.canonical_name == name,
+                    CanonicalEntity.entity_type == "py_module",
+                )
+            )
+            fm = [
+                "---",
+                f"title: {name}",
+                *([f"kg_entity_id: {kg_id}"] if kg_id else []),
+                "type: module",
+                f"module_lines: {lines_now}",
+                f"module_relations: {rels_now}",
+                f"file_path: {detail.get('file_path') or ''}",
+                f"created: {today}",
+                f"updated: {today}",
+                "tags: [程式模組, auto-compiled]",
+                "confidence: medium",
+                "---",
+                "",
+            ]
+            self._write_page(path, "\n".join(fm) + body + "\n")
+            compiled += 1
+
+        remaining = max(0, len(modules) - compiled - skipped)
+        logger.info(
+            "模組 wiki 編譯: 新增/更新 %d, 未變跳過 %d, 失敗 %d, 待補 %d",
+            compiled, skipped, failed, remaining,
+        )
+        return {
+            "compiled": compiled,
+            "skipped": skipped,
+            "failed": failed,
+            "remaining": remaining,
+            "candidates": len(modules),
+        }
 
     async def compile_incremental(self, min_doc_count: int = 5) -> Dict[str, Any]:
         """增量編譯：只處理上次編譯後有新/更新公文的機關和案件。

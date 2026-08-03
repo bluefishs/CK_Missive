@@ -23,6 +23,30 @@ logger = logging.getLogger(__name__)
 _WIKI_CACHE_TTL = 600
 
 
+def _strip_code_fence(text: Any) -> str:
+    """剝掉 LLM 回覆外層的 ``` 圍欄。
+
+    2026-08-03：把模組說明落地成 wiki 頁時發現 **10 頁裡有 3 頁**整份被
+    ```markdown ... ``` 包住 —— 渲染出來會是一整塊程式碼而不是文件。
+    模型只是「有時候」加圍欄，所以不會每頁都壞，抽一兩頁看還可能剛好避開。
+
+    在源頭剝除而不是在寫檔時剝：API 直接回乾淨 markdown 才是正確契約，
+    否則每個消費端都要各自處理一次。
+    """
+    if not isinstance(text, str):
+        return text or ""
+    s = text.strip()
+    if not s.startswith("```"):
+        return s
+    # 圍欄常常**沒有閉合**（實測 3 頁都只有開頭 ```markdown、結尾是一句結語）。
+    # 第一版要求首尾都有圍欄才剝，於是完全沒生效 —— 開頭有就該剝，
+    # 結尾有閉合才一併去掉。
+    lines = s.split("\n")[1:]
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
 def _parse_description(raw: Any) -> dict:
     """Safely parse entity description (may be JSON str or dict)."""
     if isinstance(raw, dict):
@@ -181,7 +205,7 @@ class CodeWikiGenerator:
                 max_tokens=512,
                 task_type="summary",
             )
-            return wiki_md
+            return _strip_code_fence(wiki_md)
         except Exception as e:
             logger.warning("Wiki generation failed for %s: %s", module_name, e)
             return f"# {module_name}\n\n*Wiki 自動生成失敗*"

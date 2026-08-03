@@ -1369,6 +1369,13 @@ async def wiki_compile_job():
             # `rebuild_index()` 只在 API 端點被人工呼叫，於是 `wiki/index.md`
             # 停在 **2026-04-19**，之後產生的 topics / synthesis 全部沒有入口。
             # 編完就順手重建，兩件事本來就該綁在一起。
+            # 2026-08-03：把 code-wiki 的模組說明也帶進來。
+            # `CodeWikiGenerator` 早就能產出模組 markdown（原規劃的「模組 Wiki
+            # 自動生成」），但一直沒有出口——不落地、無索引、前端零消費。
+            # LLM Wiki 這側有完整的落地/索引/lint/搜尋管線，接上即可。
+            # 分批（每次最多 20 頁）避免週級 job 卡在上百次 LLM 呼叫。
+            mod_stat = await compiler.compile_module_wiki(top_n=120, max_new=20)
+
             from app.services.wiki.service import get_wiki_service
             index_counts = await get_wiki_service().rebuild_index()
 
@@ -1376,6 +1383,8 @@ async def wiki_compile_job():
             "mode": mode,
             "agencies": result["agencies"]["compiled"],
             "projects": result["projects"]["compiled"],
+            "modules": mod_stat.get("compiled", 0),
+            "modules_remaining": mod_stat.get("remaining", 0),
             "index": index_counts,
             "reason": "ok",
         }
