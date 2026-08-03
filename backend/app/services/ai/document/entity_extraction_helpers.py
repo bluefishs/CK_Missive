@@ -379,21 +379,43 @@ def _validate_entities(entities: List) -> List[Dict]:
 
 
 def _validate_relations(relations: List) -> List[Dict]:
-    """驗證並過濾關係列表"""
+    """驗證並過濾關係列表。
+
+    2026-08-03：這裡原本只讀 `relation`，但 system prompt 有**兩段格式規範**，
+    後段（標題寫著 CRITICAL OUTPUT FORMAT）給的欄位名是 `relation_type` ——
+    LLM 照後者回，於是每一條關係都在這裡被判成空、靜默 `continue` 掉。
+
+    後果：`document_entities` 一路正常寫入（今日仍在增長），
+    而 `entity_relations` **自 2026-06-16 起沒有任何新資料**，
+    NER job 卻始終回 success。實測 LLM 回的正是
+    `{"source":..., "target":..., "relation_type":"manages", "label":"承辦"}`。
+
+    改為兩個欄位都接受（LLM 輸出本來就會漂移，validator 該容錯），
+    並把被丟棄的筆數記出來 —— 靜默丟棄正是這個缺陷藏 48 天的原因。
+    """
     valid = []
+    dropped: Dict[str, int] = {}
+
+    def _drop(reason: str) -> None:
+        dropped[reason] = dropped.get(reason, 0) + 1
+
     for r in relations:
         if not isinstance(r, dict):
+            _drop("not_dict")
             continue
         src = _normalize_text_nfkc(r.get("source", ""))
         tgt = _normalize_text_nfkc(r.get("target", ""))
-        rel = r.get("relation", "").strip()
+        rel = (r.get("relation") or r.get("relation_type") or "").strip()
         if not src or not tgt or not rel:
+            _drop("missing_field")
             continue
         if _is_garbled_text(src) or _is_garbled_text(tgt):
             logger.warning(f"關係實體疑似亂碼，已過濾: '{src}' → '{tgt}'")
+            _drop("garbled")
             continue
         conf = float(r.get("confidence", 0.8))
         if conf < MIN_CONFIDENCE:
+            _drop("low_confidence")
             continue
         valid.append({
             "source": src,
@@ -404,6 +426,16 @@ def _validate_relations(relations: List) -> List[Dict]:
             "label": r.get("label", rel),
             "confidence": conf,
         })
+
+    # 全數被丟棄時要吵 —— 那通常代表 LLM 輸出格式變了，而不是「這份公文沒有關係」。
+    # 只有這一層能分辨兩者，上層看到的都是 relations_count=0。
+    if dropped:
+        total_in = len(relations)
+        msg = f"關係過濾: 收到 {total_in} 筆、保留 {len(valid)} 筆、丟棄 {dict(dropped)}"
+        if valid:
+            logger.info(msg)
+        else:
+            logger.warning(msg + "（全數丟棄，請確認 LLM 輸出欄位是否又改了）")
     return valid
 
 

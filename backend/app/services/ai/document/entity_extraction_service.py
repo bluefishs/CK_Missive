@@ -60,7 +60,7 @@ Rules: extract only explicitly mentioned entities, use full official names, conf
 - Output ONLY valid JSON, no markdown, no explanation.
 - Do NOT wrap in ```json``` code blocks.
 - Expected format:
-{"entities": [{"name": "...", "type": "org|person|project|location|date", "confidence": 0.9}], "relations": [{"source": "...", "target": "...", "relation_type": "...", "confidence": 0.8}]}
+{"entities": [{"name": "...", "type": "org|person|project|location|date", "confidence": 0.9}], "relations": [{"source": "...", "source_type": "org", "target": "...", "target_type": "project", "relation": "manages", "label": "承辦", "confidence": 0.8}]}
 IMPORTANT: Your entire response must be parseable by json.loads(). No other text."""
 
 
