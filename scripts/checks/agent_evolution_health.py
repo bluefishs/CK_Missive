@@ -23,7 +23,21 @@ Exit codes:
 Version: 1.0.0 (2026-04-28)
 Refs: L20 (LESSONS_REGISTRY)
 """
+
+
 from __future__ import annotations
+
+# cp950 韌性（L49.8 家族）：本檔的 ❌ / ✅ 只出現在**錯誤處理路徑**，
+# 於是平時不會踩到，一旦 Redis/DB 真的出問題就在印錯誤時再爆一次
+# UnicodeEncodeError —— 真正的錯誤訊息反而被蓋掉。
+# 2026-08-03 實測：weekly step 4 因 DB 連線暫斷而走進 except，
+# 接著就死在 `'cp950' codec can't encode '❌'`。
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+    _sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import argparse
 import asyncio
