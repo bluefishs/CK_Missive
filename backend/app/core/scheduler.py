@@ -1350,8 +1350,24 @@ async def wiki_compile_job():
                 result["agencies"]["compiled"],
                 result["projects"]["compiled"],
             )
+
+            # 2026-08-03：每週編譯出新頁，卻**沒有重建索引** ——
+            # `rebuild_index()` 只在 API 端點被人工呼叫，於是 `wiki/index.md`
+            # 停在 **2026-04-19**，之後產生的 topics / synthesis 全部沒有入口。
+            # 編完就順手重建，兩件事本來就該綁在一起。
+            from app.services.wiki.service import get_wiki_service
+            index_counts = await get_wiki_service().rebuild_index()
+
+        return {
+            "mode": mode,
+            "agencies": result["agencies"]["compiled"],
+            "projects": result["projects"]["compiled"],
+            "index": index_counts,
+            "reason": "ok",
+        }
     except Exception as e:
         logger.error("Wiki compile failed: %s", e, exc_info=True)
+        raise
 
 
 @tracked_job("optimization_pipeline")

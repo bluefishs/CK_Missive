@@ -298,26 +298,43 @@ tags: {tags or []}
 
         # 檢查連結
         inbound: Dict[str, int] = {p: 0 for p in all_pages}
-        for subdir in ["entities", "topics", "sources", "synthesis"]:
-            dir_path = self.root / subdir
-            if not dir_path.exists():
+
+        # 2026-08-03：連結來源原本只掃四個子目錄，**不含 index.md** ——
+        # 但 index.md 正是整個 wiki 的入口頁。結果是 topics / synthesis
+        # 這些「本來就只從索引進去」的頁面，一律被判成孤兒（實測 37 筆全在這兩類）。
+        # 從索引可達的頁面不是孤兒；真正的孤兒是索引也沒列到的那些。
+        sources: List[tuple[str, Path]] = [
+            (f"{sub}/{f.name}", f)
+            for sub in ["entities", "topics", "sources", "synthesis"]
+            if (self.root / sub).exists()
+            for f in (self.root / sub).glob("*.md")
+        ]
+        if self.index_path.exists():
+            sources.append(("index.md", self.index_path))
+
+        for rel_name, f in sources:
+            try:
+                text = f.read_text(encoding="utf-8")
+            except Exception:
                 continue
-            for f in dir_path.glob("*.md"):
-                try:
-                    text = f.read_text(encoding="utf-8")
-                except Exception:
+            # 兩種連結格式都算：[[wiki link]] 與 index.md 用的 [title](subdir/page.md)
+            links = re.findall(r'\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]', text)
+            # 檔名本身含括號（如「…(第1作業區).md」）在 wiki 很常見，
+            # 所以不能用 [^)] 當終止條件 —— 那會在檔名的第一個 ) 就截斷，
+            # 導致這類頁面永遠被判成孤兒（實測剩下的 9 個 orphan 全是這種）。
+            links += re.findall(r'\]\((?!https?:)(.+?\.md)\)', text)
+            for link in links:
+                link_path = link if link.endswith(".md") else f"{link}.md"
+                if link_path in all_page_set:
+                    inbound[link_path] = inbound.get(link_path, 0) + 1
+                elif link_path.startswith("../") or link_path.startswith("/"):
+                    # 指向 wiki 之外的相對路徑（如 ../../docs/architecture/*.md）
+                    # 不是 wiki 頁，不該算 wiki 的壞連結（其存在性由
+                    # doc_reference_integrity_audit 負責）
                     continue
-                # 找 [[wiki links]]
-                links = re.findall(r'\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]', text)
-                for link in links:
-                    link_path = link if link.endswith(".md") else f"{link}.md"
-                    if link_path in all_page_set:
-                        inbound[link_path] = inbound.get(link_path, 0) + 1
-                    else:
-                        broken_links.append({
-                            "from": f"{subdir}/{f.name}",
-                            "to": link_path,
-                        })
+                elif rel_name != "index.md":
+                    # index.md 是自動重建的產物，它指向剛被刪除的頁面不算「壞連結」
+                    broken_links.append({"from": rel_name, "to": link_path})
 
         # 孤立頁面 (0 入站連結, 排除 index/log)
         orphans = [p for p, count in inbound.items() if count == 0]
