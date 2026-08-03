@@ -49,21 +49,35 @@ class DocumentEntity(Base):
 
 
 class EntityRelation(Base):
-    """實體間關聯（⚠️ 已停止寫入，2026-06-16 起）。
+    """實體間關聯 —— **文件級（原始抽取層）**。
 
-    **系統有兩張關係表，這張是舊的那張。**
+    ⚠️ 2026-08-03 更正：本 docstring 一度寫成「已停止寫入／請改用
+    EntityRelationship」，**那是錯的**。當時只看到「最後寫入 2026-06-16」就下結論，
+    實際是上游 NER 的關係抽取壞了（`relation` vs `relation_type` 欄位名對不上），
+    不是這張表被廢棄。修好後隨即恢復寫入。
 
-      entity_relations（本表）  2162 筆   最後寫入 2026-06-16   name 字串關聯
-      entity_relationships      10231 筆  每日 03:00 更新       entity_id 外鍵
+    ## 兩張關係表是兩層管線，不是重複
 
-    真正在成長的圖是 `EntityRelationship`（`knowledge_graph.py`）——
-    程式結構關係（imports / calls / serves_route / has_method / maps_to）全在那裡。
+    | | `entity_relations`（本表） | `entity_relationships` |
+    |---|---|---|
+    | 層級 | **文件級**：某份公文「提到」的關係 | **canonical 級**：圖譜中確立的關係 |
+    | 端點 | source/target 是**字串名** | source/target 是 **entity_id 外鍵** |
+    | 附帶 | `document_id` + `confidence` | `weight` / `document_count` / `valid_from` |
+    | 寫入 | NER `extract_entities_for_document` | `graph_ingestion_pipeline` 聚合本表，
+    |      |                                    | 另加程式碼/DB/ERP 結構 ingest |
 
-    2026-08-03 查證時發現 `kg_stats_metrics` 的 KG 邊數指標讀的是本表，
-    於是那個 Prometheus 指標 48 天固定不動、卻因為「有數字」而看起來正常（已修）。
+    資料流：公文文本 →（NER）→ **本表** →（GraphIngestionPipeline 正規化、
+    合併同義實體、累計 weight）→ `EntityRelationship`。
 
-    **新的關聯請一律寫進 `EntityRelationship`。** 本表尚有 4 個消費端未收斂，
-    刪除需逐一確認，故暫時保留；不要再往這裡新增寫入路徑。
+    所以「公文抽出的業務關係」本來就該寫這裡；程式結構關係（imports/calls/
+    serves_route/has_method/maps_to）則只存在於 canonical 表，不經過本層。
+
+    ## 已知缺口（2026-08-03）
+
+    `ExtractionScheduler` 對**已有 document_entities 的公文一律跳過**，
+    而跳過就不會走到聚合管線。NER 覆蓋率 99.1%，所以欄位名 bug 修復後，
+    **存量公文的關係不會自動補回來** —— 需要一次 force 重抽的 backfill。
+    canonical 層的業務語意關係最後更新停在 2026-06-02 即為此故。
     """
     __tablename__ = "entity_relations"
 

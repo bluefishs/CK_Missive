@@ -82,10 +82,11 @@ class KGStatsMetrics:
         total = int(row.total or 0)
         embedded = int(row.embedded or 0)
 
-        # 2026-08-03：原本讀 `entity_relations` —— **那張表 2026-06-16 起就停寫了**，
-        # 於是這個 Prometheus 指標 48 天固定在 2162，看起來「有數字所以正常」。
-        # 真正活著的圖是 `entity_relationships`（每日 03:00 更新，含 imports/calls/
-        # serves_route/has_method/maps_to 等程式結構關係）。
+        # 2026-08-03：原本讀 `entity_relations`，那是**文件級原始抽取層**
+        # （某份公文提到的關係，端點是字串名）。KG 邊數該看的是 canonical 層
+        # `entity_relationships` —— 圖譜中確立的關係，端點是 entity_id 外鍵，
+        # 由 graph_ingestion_pipeline 聚合文件層 + 程式碼/DB/ERP 結構 ingest 而成。
+        # 兩者是兩層管線不是重複，詳見 `models/entity.py` 的 EntityRelation docstring。
         # ⚠️ 修正後指標會從 2162 跳到 ~10231，那是**基準修正不是圖譜暴增**。
         edge_row = await db.execute(_sql("SELECT COUNT(*) FROM entity_relationships"))
         edges = int(edge_row.scalar() or 0)
