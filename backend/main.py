@@ -651,8 +651,13 @@ from app.core.csrf import CSRFMiddleware
 app.add_middleware(CSRFMiddleware)
 
 # --- 🛡️ Tunnel 路由守衛 (v5.2.2) ---
-from app.core.tunnel_guard import TunnelGuardMiddleware
+from app.core.tunnel_guard import TunnelGuardMiddleware, ApiDocsGuardMiddleware
 app.add_middleware(TunnelGuardMiddleware)
+
+# --- 🛡️ API 文件僅限內網（2026-08-03）---
+# /openapi.json 與 /api/docs 會吐出全部端點的 schema 且不需憑證，實測公網直接 200。
+# 獨立於 TUNNEL_GUARD_ENABLED（那個明確設為 false，不在此變動）。
+app.add_middleware(ApiDocsGuardMiddleware)
 
 # --- 📊 Prometheus 指標中間件 (v5.5.8) ---
 app.add_middleware(

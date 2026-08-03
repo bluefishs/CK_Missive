@@ -90,6 +90,38 @@ def _path_allowed(path: str) -> bool:
     return False
 
 
+# API 文件路徑：吐出全部端點的 schema，只該給內網。
+API_DOC_PATHS = ("/openapi.json", "/api/docs", "/api/redoc", "/docs/oauth2-redirect")
+
+
+class ApiDocsGuardMiddleware(BaseHTTPMiddleware):
+    """API 文件僅限內網（2026-08-03）。
+
+    這幾條路徑會回傳**全部 724 個端點的完整 schema**，而且不需任何憑證。
+    實測公網 `https://missive.cksurvey.tw/openapi.json` 直接 200。
+
+    為什麼不是 `FastAPI(docs_url=None)`：同一個容器同時服務內網與經 CF Tunnel
+    進來的公網流量，關掉參數就是**兩邊一起沒有**，內網也查不到 API 文件了。
+    要的是依請求來源區分，所以做成守衛。
+
+    為什麼不是打開 `TUNNEL_GUARD_ENABLED`：那是明確設成 false 的既有決策
+    （打開會連人員流量一起擋），不在這裡順手改動它。本守衛獨立生效、
+    只管這四條路徑，與那個開關無關。
+
+    復用同檔的 `_is_tunnel_request` / `_is_internal_ip` —— 來源判斷只該有一份。
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if any(path == p or path.startswith(p + "/") for p in API_DOC_PATHS):
+            client_ip = request.client.host if request.client else ""
+            if _is_tunnel_request(request) or not _is_internal_ip(client_ip):
+                logger.info("API 文件請求被拒（非內網來源）: %s from %s", path, client_ip)
+                # 回 404 而非 403：對外不必透露這個路徑存在
+                return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        return await call_next(request)
+
+
 class TunnelGuardMiddleware(BaseHTTPMiddleware):
     """
     外網路由守衛中間件
