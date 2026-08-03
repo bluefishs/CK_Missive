@@ -451,7 +451,7 @@ git checkout backend/app/services/
 
 - [ ] `pytest tests/ -q` 全綠
 - [ ] `bash scripts/checks/run_fitness.sh` 全綠
-- [ ] `python -m py_compile backend/app/main.py` 通過
+- [ ] `python -m py_compile backend/main.py` 通過
 - [ ] **舊 import 仍 work**（隨機抽 1~2 個其他檔案的 import 跑）
   ```bash
   cd backend && python -c "from app.services.document_service import DocumentService; print('OK')"

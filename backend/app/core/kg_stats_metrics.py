@@ -82,7 +82,12 @@ class KGStatsMetrics:
         total = int(row.total or 0)
         embedded = int(row.embedded or 0)
 
-        edge_row = await db.execute(_sql("SELECT COUNT(*) FROM entity_relations"))
+        # 2026-08-03：原本讀 `entity_relations` —— **那張表 2026-06-16 起就停寫了**，
+        # 於是這個 Prometheus 指標 48 天固定在 2162，看起來「有數字所以正常」。
+        # 真正活著的圖是 `entity_relationships`（每日 03:00 更新，含 imports/calls/
+        # serves_route/has_method/maps_to 等程式結構關係）。
+        # ⚠️ 修正後指標會從 2162 跳到 ~10231，那是**基準修正不是圖譜暴增**。
+        edge_row = await db.execute(_sql("SELECT COUNT(*) FROM entity_relationships"))
         edges = int(edge_row.scalar() or 0)
 
         # wiki_pages 從 wiki/ 子目錄計檔案數（非 DB 物件，留 caller 算或 0）

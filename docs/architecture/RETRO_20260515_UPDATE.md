@@ -2,7 +2,7 @@
 
 > **承接**：`RETRO_20260515_BACKLOG.md`（早盤產出，含三大破口 + P0-P3 待辦）
 > **本文目的**：對早盤 P0 6 項做 grep 實證 + 補早盤未覆蓋的兩塊盲區（效能/韌性、跨 repo/業務橋接）
-> **元觀察**：早盤代理 grep `backend/app/main.py`（路徑不存在）誤判 D1，與「ADR-0028 假基線」是同一個 [[arch_pattern_script_existence_not_enforcement]] 反模式 — 證據蒐集本身也會犯同類錯誤
+> **元觀察**：早盤代理 grep `backend/main.py`（路徑不存在）誤判 D1，與「ADR-0028 假基線」是同一個 [[arch_pattern_script_existence_not_enforcement]] 反模式 — 證據蒐集本身也會犯同類錯誤
 
 ---
 
@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **C1** | 3 守護未進 pre-commit | `grep -E "async_session\|sse_headers\|schema_lazy" .git/hooks/pre-commit` → 0 hit | **TRUE — 持效** |
 | **C2** | L29 dict-key drift 跨 4 模組 (`agent_orchestrator/conductor/tool_loop/plan_enricher`) | 前 3 個 0 hit；只 `agent_plan_enricher.py:60,80,97` 三連命中 | **降級 4→1 模組**（仍須修） |
-| **D1** | DB metrics wiring 失接（grep 只命中 docstring） | 早盤代理用錯路徑 `backend/app/main.py`（不存在）；真路徑 `backend/main.py:97-98,104-105` 真有 `setup_pool_metrics(engine)` + `setup_query_listener(engine)` | **誤判 — CLOSE** |
+| **D1** | DB metrics wiring 失接（grep 只命中 docstring） | 早盤代理用錯路徑 `backend/main.py`（不存在）；真路徑 `backend/main.py:97-98,104-105` 真有 `setup_pool_metrics(engine)` + `setup_query_listener(engine)` | **誤判 — CLOSE** |
 | **F1** | 3 死 nav 條目 | `init_navigation_data.py:723/728/738` 仍存在 | **TRUE** |
 | **S1** | 3 個 0-importer stub 未刪 | 三檔仍在 | **TRUE** |
 | **C8** | 文件寫 17 active / 10 archived 與實際漂移 | `adr_lifecycle_check.py` 顯示 active **16** / archived **14** / removed 1；CLAUDE.md + skills-inventory 仍寫 17/10 | **TRUE** |
@@ -160,7 +160,7 @@
 
 ### Pattern Z — 「覆盤代理也會犯反模式」
 
-下午驗證才發現 5-15 早盤代理 grep `backend/app/main.py`（路徑不存在）但**沒有 raise 任何警告**，導致 D1 結論為「DB metrics wiring 失接」誤判。這個錯誤的形態與「ADR-0028 3 守護假基線」「alias_rls 0 risks false-negative」屬於**同一個元反模式**：
+下午驗證才發現 5-15 早盤代理 grep `backend/main.py`（路徑不存在）但**沒有 raise 任何警告**，導致 D1 結論為「DB metrics wiring 失接」誤判。這個錯誤的形態與「ADR-0028 3 守護假基線」「alias_rls 0 risks false-negative」屬於**同一個元反模式**：
 
 > 工具回傳「沒命中」時，**到底是真的沒問題、還是工具自己掃錯地方？**
 

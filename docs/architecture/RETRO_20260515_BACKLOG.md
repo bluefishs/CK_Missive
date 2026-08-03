@@ -27,7 +27,7 @@ DB 層更嚴重：**只有 `services/contract/core.py` 與 `services/document/co
 |---|---|---|---|
 | **C1** | 把 3 守護加進 `.git/hooks/pre-commit`（5 行 bash，照 `pattern_yaml_type_guard.py` 模式） | `.git/hooks/pre-commit` | 30 min |
 | **C2** | 建 `ToolCall` Pydantic schema 並全鏈強制 — 取代 raw dict，4 處 `tc.get("name")` 換 `tc.tool_name`；contract drift 變 type error | `backend/app/schemas/tool_call.py` + 4 agent 模組 | 1 h |
-| **D1** | 驗證 `setup_pool_metrics(engine)` / `setup_query_listener(engine)` 是否實際在 startup 執行（grep 只命中 docstring）；若失接，DB observability 為假象 | `backend/app/main.py` + `backend/app/db/database.py` | 30 min |
+| **D1** | 驗證 `setup_pool_metrics(engine)` / `setup_query_listener(engine)` 是否實際在 startup 執行（grep 只命中 docstring）；若失接，DB observability 為假象 | `backend/main.py` + `backend/app/db/database.py` | 30 min |
 | **F1** | 移除 `init_navigation_data.py` 3 條死 nav 條目（`/agent/dashboard`、`/ai/digital-twin`、`/admin/ai-assistant`）— 新環境 reset 會 seed 殭屍菜單 | `backend/app/scripts/init_navigation_data.py` | 30 min |
 | **S1** | 立即刪 3 個 0-importer stub | `backend/app/services/{wiki,tender_search,tender_analytics}_service.py` | 10 min |
 | **C8** | 校正 CLAUDE.md / skills-inventory.md「Active 17」→ 16；「Archived 10」→ 14 | `CLAUDE.md` + `.claude/rules/skills-inventory.md` | 10 min |

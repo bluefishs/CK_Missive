@@ -150,6 +150,17 @@
         "ok"
       ],
       "_why": "2026-07-31：自我修復 job。healed=0 且 reason=nothing_to_heal 是健康狀態（沒東西要修）；若 reason=partial_failure 則需人介入。"
+    },
+    {
+      "name": "月度架構覆盤",
+      "signal": "cron_detail",
+      "job": "monthly_arch_review",
+      "key": "delta_count",
+      "ok_zero_reasons": [
+        "ok",
+        "report written, push unavailable"
+      ],
+      "_why": "2026-08-03：這支 job 一直在跑（3 次 success）但 detail 全是 None、報告只進 log、唯一推播管道 Telegram 實測 401 且開關 false —— 產出沒有任何接收者，所以每次架構檢視都得人工發起。delta_count=0 是合理值（該月與上月無變化），故列入 ok_zero_reasons；要抓的是 detail 整個消失＝job 又退回沉默成功。"
     }
   ]
 }

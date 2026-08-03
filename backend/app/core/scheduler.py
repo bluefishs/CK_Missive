@@ -1216,10 +1216,15 @@ async def monthly_architecture_review_job():
         overdue = []
         for f in sorted(glob.glob(os.path.join(adr_dir, "*.md"))):
             try:
+                fname = os.path.basename(f)
+                # 2026-08-03：原本只看檔案內容有沒有 "proposed"，於是 README.md 與
+                # TEMPLATE.md（兩者都在說明 proposed 這個狀態）被算成待決 ADR，
+                # 讓 adr_proposed 從 2 虛報成 4。ADR 檔名一律是 NNNN-*.md。
+                if not _re.match(r"^\d{4}-", fname):
+                    continue
                 with open(f, encoding="utf-8") as fp:
                     head = fp.read(800)
                 if "proposed" in head.lower():
-                    fname = os.path.basename(f)
                     proposed.append(fname)
                     # 檢查日期 — 超過 14 天標記 overdue
                     date_m = _re.search(r'\*\*日期\*\*:\s*(\d{4}-\d{2}-\d{2})', head)
@@ -1263,18 +1268,70 @@ async def monthly_architecture_review_job():
         report = "\n".join(report_lines)
         logger.info(report)
 
-        # Telegram 推播
+        # ── 2026-08-03：把輸出端接回來 ────────────────────────────────
+        # 這支 job 一直在跑（cron_events 有 3 次 success），但**產出沒有任何接收者**：
+        #   報告只 logger.info → 沖進 log；唯一推播管道是 Telegram，而該 token
+        #   實測 401、且 TELEGRAM_ADMIN_PUSH_ENABLED=false —— 兩層都送不出去；
+        #   不落地成檔 → 無法跨月對照；未註冊 producer → watchdog 看不到它。
+        # 結果就是每次架構檢視都得由人手動發起。缺的不是機制，是輸出端。
+        from app.core.paths import WIKI_DIR
+        review_dir = WIKI_DIR / "memory" / "arch-review"
+        review_dir.mkdir(parents=True, exist_ok=True)
+        stamp = _dt.now().strftime("%Y-%m")
+        target = review_dir / f"{stamp}.md"
+
+        # 與上一份比對，只報「變了什麼」。每月推一份長得一樣的報告
+        # 只會訓練人忽略它 —— 那就回到原點了。
+        prev = sorted(p for p in review_dir.glob("*.md") if p.name != target.name)
+        delta_lines: list[str] = []
+        if prev:
+            prev_body = prev[-1].read_text(encoding="utf-8", errors="replace")
+            # 寫入時每行前面加了 "- "，讀回來比對必須先剝掉 —— 不剝的話 prev_set
+            # 永遠是空的，於是「本月與上月完全相同」也會被報成三項全變。
+            # （2026-08-03 用「無變化」情境的負向測試當場抓到；沒驗這一步的話，
+            #   每月都報「全部都變了」＝ 又回到沒人看的噪音。）
+            def _norm_line(s: str) -> str:
+                return s.strip().lstrip("-").strip()
+            prev_set = {_norm_line(l) for l in prev_body.splitlines()
+                        if _norm_line(l).startswith(("ADR:", "Wiki:", "KG:"))}
+            cur_set = {l.strip() for l in report_lines if l.startswith(("ADR:", "Wiki:", "KG:"))}
+            changed = sorted(cur_set - prev_set)
+            delta_lines = changed or ["（與上次相比無變化）"]
+        else:
+            delta_lines = ["（首次產出，無對照基準）"]
+
+        target.write_text(
+            f"# 月度架構覆盤 {stamp}\n\n"
+            f"> 產出時間：{_dt.now().isoformat(timespec='seconds')}\n\n"
+            f"## 本次盤點\n\n" + "\n".join(f"- {l}" for l in report_lines[1:]) +
+            f"\n\n## 與上次的差異\n\n" + "\n".join(f"- {l}" for l in delta_lines) + "\n",
+            encoding="utf-8",
+        )
+
+        # 走既有的跨通道扇出（LINE 為主），不新建通知路徑。
+        # Telegram 那條保留在 facade 內部，但不再是唯一出口。
+        pushed = False
         try:
-            from app.services.integration.telegram_bot import get_telegram_bot_service
-            tg = get_telegram_bot_service()
-            if tg.enabled:
-                admin_chat = int(os.getenv("TELEGRAM_ADMIN_CHAT_ID", "0"))
-                if admin_chat:
-                    await tg.push_message(admin_chat, report)
-        except Exception:
-            pass
+            from app.services.contracts.facades.integration import IntegrationFacade
+            summary = "；".join(delta_lines[:3])
+            pushed = bool(await IntegrationFacade().push_admin_alert(
+                title="月度架構覆盤", body=summary, channel="line",
+            ))
+        except Exception as e:
+            logger.warning("月度架構覆盤推播失敗（報告已落地，不影響產出）: %s", e)
+
+        return {
+            "report_file": str(target),
+            "adr_proposed": len(proposed),
+            "adr_overdue": len(overdue),
+            "delta_count": 0 if delta_lines == ["（與上次相比無變化）"] else len(delta_lines),
+            "pushed": pushed,
+            "reason": "ok" if pushed else "report written, push unavailable",
+        }
     except Exception as e:
         logger.error("Monthly arch review failed: %s", e, exc_info=True)
+        # 失敗要 raise —— 只 log 的話 cron_events 仍記 success（07-30 契約規則 4）
+        raise
 
 
 @tracked_job("wiki_compile")

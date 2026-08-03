@@ -49,7 +49,22 @@ class DocumentEntity(Base):
 
 
 class EntityRelation(Base):
-    """實體間關聯"""
+    """實體間關聯（⚠️ 已停止寫入，2026-06-16 起）。
+
+    **系統有兩張關係表，這張是舊的那張。**
+
+      entity_relations（本表）  2162 筆   最後寫入 2026-06-16   name 字串關聯
+      entity_relationships      10231 筆  每日 03:00 更新       entity_id 外鍵
+
+    真正在成長的圖是 `EntityRelationship`（`knowledge_graph.py`）——
+    程式結構關係（imports / calls / serves_route / has_method / maps_to）全在那裡。
+
+    2026-08-03 查證時發現 `kg_stats_metrics` 的 KG 邊數指標讀的是本表，
+    於是那個 Prometheus 指標 48 天固定不動、卻因為「有數字」而看起來正常（已修）。
+
+    **新的關聯請一律寫進 `EntityRelationship`。** 本表尚有 4 個消費端未收斂，
+    刪除需逐一確認，故暫時保留；不要再往這裡新增寫入路徑。
+    """
     __tablename__ = "entity_relations"
 
     id = Column(Integer, primary_key=True, index=True)
