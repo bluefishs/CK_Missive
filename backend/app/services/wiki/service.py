@@ -15,6 +15,7 @@ Created: 2026-04-09
 import logging
 import os
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -294,10 +295,13 @@ tags: {tags or []}
                 all_pages.append(rel)
                 page_count[subdir] = page_count.get(subdir, 0) + 1
 
-        all_page_set = set(all_pages)
+        # 兩邊都 NFC —— 只正規化其中一邊等於沒做（見下方連結比對處的說明）
+        all_page_set = {unicodedata.normalize("NFC", p) for p in all_pages}
 
         # 檢查連結
-        inbound: Dict[str, int] = {p: 0 for p in all_pages}
+        # 用已正規化的 all_page_set 當 key —— 若這裡用未正規化的 all_pages，
+        # 正規化後的連結會以新 key 累加，原 key 永遠是 0，憑空多一個孤兒。
+        inbound: Dict[str, int] = {p: 0 for p in all_page_set}
 
         # 2026-08-03：連結來源原本只掃四個子目錄，**不含 index.md** ——
         # 但 index.md 正是整個 wiki 的入口頁。結果是 topics / synthesis
@@ -325,6 +329,12 @@ tags: {tags or []}
             links += re.findall(r'\]\((?!https?:)(.+?\.md)\)', text)
             for link in links:
                 link_path = link if link.endswith(".md") else f"{link}.md"
+                # NFC 正規化後再比對：wiki 裡存在 v6.7 E3 修正前產生的舊連結，
+                # 用的是 CJK 相容字（如「里」U+F9E9），而檔名是統一漢字（U+91CC）。
+                # 兩者字形完全相同、連 repr 都看不出差別，字串比對卻不相等 ——
+                # 於是 `entities/南投縣埔里地政事務所.md` 明明存在卻被報成壞連結。
+                # `_slugify` 在寫檔名時已做 NFC，但舊頁面裡的連結是既成事實。
+                link_path = unicodedata.normalize("NFC", link_path)
                 if link_path in all_page_set:
                     inbound[link_path] = inbound.get(link_path, 0) + 1
                 elif link_path.startswith("../") or link_path.startswith("/"):

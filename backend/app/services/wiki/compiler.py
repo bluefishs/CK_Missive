@@ -943,8 +943,19 @@ confidence: high
             "| 排名 | 機關 | 公文累計 |",
             "|------|------|----------|",
         ]
+        # 2026-08-03：產生連結前先確認目標頁存在。
+        # 這張表的機關名直接取自公文的 sender/receiver，其中包含
+        # 我方公司、帶統編前綴的變體、以及上層機關（如「桃園市政府」而非
+        # 實際往來的「桃園市政府工務局」）—— 這些都沒有 entity 頁，
+        # 於是每次編譯都產出 4 條指向不存在頁面的連結，wiki lint 一直報 broken。
+        # 沒有頁面就純文字顯示：表格照樣完整，只是不假裝點得進去。
+        entities_dir = self.wiki.root / "entities"
         for i, (name, c) in enumerate(top, 1):
-            lines.append(f"| {i} | [[entities/{_slugify(name)}|{name[:40]}]] | {c} |")
+            page = f"{_slugify(name)}.md"
+            label = name[:40]
+            cell = (f"[[entities/{_slugify(name)}|{label}]]"
+                    if (entities_dir / page).exists() else label)
+            lines.append(f"| {i} | {cell} | {c} |")
 
         slug = "高頻往來機關 Top 10"
         page_path = self.wiki.root / "topics" / f"{slug}.md"
