@@ -4,4 +4,3 @@
 
 export { pmCasesApi } from './casesApi';
 export { pmMilestonesApi } from './milestonesApi';
-export { pmStaffApi } from './staffApi';

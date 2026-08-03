@@ -30,14 +30,6 @@ export const PM_ENDPOINTS = {
   MILESTONES_EXPORT: '/pm/milestones/export-xlsx',
   /** 匯入里程碑 XLSX POST /pm/milestones/import-xlsx */
   MILESTONES_IMPORT: '/pm/milestones/import-xlsx',
-  /** 人員列表 POST /pm/staff/list */
-  STAFF_LIST: '/pm/staff/list',
-  /** 建立人員 POST /pm/staff/create */
-  STAFF_CREATE: '/pm/staff/create',
-  /** 更新人員 POST /pm/staff/update */
-  STAFF_UPDATE: '/pm/staff/update',
-  /** 刪除人員 POST /pm/staff/delete */
-  STAFF_DELETE: '/pm/staff/delete',
   /** 產生案號 POST /pm/cases/generate-code */
   GENERATE_CODE: '/pm/cases/generate-code',
   /** 重新計算進度 POST /pm/cases/recalculate-progress */

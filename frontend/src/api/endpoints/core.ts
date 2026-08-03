@@ -7,8 +7,6 @@
 export const DASHBOARD_ENDPOINTS = {
   /** 取得統計資料 POST /dashboard/stats */
   STATS: '/dashboard/stats',
-  /** 取得摘要 POST /dashboard/summary */
-  SUMMARY: '/dashboard/summary',
 } as const;
 
 /** 公文管理 API 端點 (增強版) */
@@ -105,10 +103,6 @@ export const SYSTEM_NOTIFICATIONS_ENDPOINTS = {
 
 /** 專案通知 API 端點 */
 export const PROJECT_NOTIFICATIONS_ENDPOINTS = {
-  /** 通知列表 POST /project-notifications/list */
-  LIST: '/project-notifications/list',
-  /** 建立通知 POST /project-notifications */
-  CREATE: '/project-notifications',
 } as const;
 
 /** 檔案管理 API 端點 */
@@ -131,10 +125,6 @@ export const FILES_ENDPOINTS = {
 
 /** 提醒管理 API 端點 */
 export const REMINDER_MANAGEMENT_ENDPOINTS = {
-  /** 提醒列表 POST /reminder-management/list */
-  LIST: '/reminder-management/list',
-  /** 建立提醒 POST /reminder-management */
-  CREATE: '/reminder-management',
   /** 更新提醒 POST /reminder-management/:id/update */
   UPDATE: (id: number) => `/reminder-management/${id}/update`,
   /** 刪除提醒 POST /reminder-management/:id/delete */
@@ -152,18 +142,12 @@ export const REMINDER_MANAGEMENT_ENDPOINTS = {
 export const CSV_IMPORT_ENDPOINTS = {
   /** 上傳並匯入 POST /csv-import/upload-and-import */
   UPLOAD_AND_IMPORT: '/csv-import/upload-and-import',
-  /** 驗證檔案 POST /csv-import/validate */
-  VALIDATE: '/csv-import/validate',
-  /** 匯入歷史 POST /csv-import/history */
-  HISTORY: '/csv-import/history',
 } as const;
 
 /** 公開 API 端點 */
 export const PUBLIC_ENDPOINTS = {
   /** 行事曆狀態 GET /public/calendar-status */
   CALENDAR_STATUS: '/public/calendar-status',
-  /** 系統健康 GET /public/health */
-  HEALTH: '/public/health',
 } as const;
 
 /** 系統監控 API 端點 */

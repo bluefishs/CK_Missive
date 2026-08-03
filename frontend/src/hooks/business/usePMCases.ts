@@ -2,7 +2,7 @@
  * PM 案件管理 React Query Hooks
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { pmCasesApi, pmMilestonesApi, pmStaffApi } from '../../api/pm';
+import { pmCasesApi, pmMilestonesApi } from '../../api/pm';
 import { defaultQueryOptions } from '../../config/queryConfig';
 import type {
   PMCaseCreate,
@@ -10,8 +10,6 @@ import type {
   PMCaseListParams,
   PMMilestoneCreate,
   PMMilestoneUpdate,
-  PMCaseStaffCreate,
-  PMCaseStaffUpdate,
 } from '../../types/pm';
 
 // Query keys
@@ -189,53 +187,8 @@ export const useDeletePMMilestone = () => {
   });
 };
 
-// ============================================================================
-// 案件人員 Hooks
-// ============================================================================
-
-/** 取得案件人員列表 */
-export const usePMCaseStaff = (pmCaseId: number) => {
-  return useQuery({
-    queryKey: pmKeys.staff(pmCaseId),
-    queryFn: () => pmStaffApi.list(pmCaseId),
-    ...defaultQueryOptions.list,
-    enabled: !!pmCaseId,
-  });
-};
-
-/** 建立案件人員 */
-export const useCreatePMCaseStaff = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: PMCaseStaffCreate) => pmStaffApi.create(data),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: pmKeys.staff(variables.pm_case_id) });
-      queryClient.invalidateQueries({ queryKey: pmKeys.detail(variables.pm_case_id) });
-    },
-  });
-};
-
-/** 更新案件人員 */
-export const useUpdatePMCaseStaff = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (variables: { id: number; pmCaseId: number; data: PMCaseStaffUpdate }) =>
-      pmStaffApi.update(variables.id, variables.data),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: pmKeys.staff(variables.pmCaseId) });
-    },
-  });
-};
-
-/** 刪除案件人員 */
-export const useDeletePMCaseStaff = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (variables: { id: number; pmCaseId: number }) =>
-      pmStaffApi.delete(variables.id),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: pmKeys.staff(variables.pmCaseId) });
-      queryClient.invalidateQueries({ queryKey: pmKeys.detail(variables.pmCaseId) });
-    },
-  });
-};
+// 案件人員 Hooks 已於 2026-08-03 移除。
+// 後端 `pm/staff.py` 自 v5.2.0 起就是**空 router**（註解寫明已遷移到
+// `/project-staff/case/{case_code}/list`），前端這條鏈是遷移時沒清掉的殘留：
+// staffApi 打的 `/pm/staff/*` 早已 404，而 4 個 hook 從來沒有任何頁面使用。
+// 專案人員功能實際由 PROJECT_STAFF_ENDPOINTS 提供（4 個頁面在用）。

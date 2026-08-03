@@ -277,10 +277,12 @@ describe('API 服務檔案應使用端點常數', () => {
 // 核心功能模組端點
 // ============================================================================
 
+// 2026-08-03：移除 8 條斷言 —— 它們保護的常數指向**不存在的後端路由**
+// （前端會 404）。測試是綠的、保護的是空殼，這正是 api_contract_alignment_audit
+// 要抓的東西：常數與後端實際路由的對照，過去沒有任何一支在做。
 describe('DASHBOARD_ENDPOINTS', () => {
   it('應該包含儀表板統計與摘要端點', () => {
     expect(DASHBOARD_ENDPOINTS.STATS).toBe('/dashboard/stats');
-    expect(DASHBOARD_ENDPOINTS.SUMMARY).toBe('/dashboard/summary');
   });
 });
 
@@ -413,8 +415,6 @@ describe('SYSTEM_NOTIFICATIONS_ENDPOINTS', () => {
 
 describe('PROJECT_NOTIFICATIONS_ENDPOINTS', () => {
   it('應該包含專案通知端點', () => {
-    expect(PROJECT_NOTIFICATIONS_ENDPOINTS.LIST).toBe('/project-notifications/list');
-    expect(PROJECT_NOTIFICATIONS_ENDPOINTS.CREATE).toBe('/project-notifications');
   });
 });
 
@@ -579,8 +579,6 @@ describe('PROJECT_AGENCY_CONTACTS_ENDPOINTS', () => {
 
 describe('REMINDER_MANAGEMENT_ENDPOINTS', () => {
   it('應該包含提醒管理端點', () => {
-    expect(REMINDER_MANAGEMENT_ENDPOINTS.LIST).toBe('/reminder-management/list');
-    expect(REMINDER_MANAGEMENT_ENDPOINTS.CREATE).toBe('/reminder-management');
     expect(REMINDER_MANAGEMENT_ENDPOINTS.UPDATE(1)).toBe('/reminder-management/1/update');
     expect(REMINDER_MANAGEMENT_ENDPOINTS.DELETE(2)).toBe('/reminder-management/2/delete');
   });
@@ -589,15 +587,12 @@ describe('REMINDER_MANAGEMENT_ENDPOINTS', () => {
 describe('CSV_IMPORT_ENDPOINTS', () => {
   it('應該包含 CSV 匯入端點', () => {
     expect(CSV_IMPORT_ENDPOINTS.UPLOAD_AND_IMPORT).toBe('/csv-import/upload-and-import');
-    expect(CSV_IMPORT_ENDPOINTS.VALIDATE).toBe('/csv-import/validate');
-    expect(CSV_IMPORT_ENDPOINTS.HISTORY).toBe('/csv-import/history');
   });
 });
 
 describe('PUBLIC_ENDPOINTS', () => {
   it('應該包含公開端點', () => {
     expect(PUBLIC_ENDPOINTS.CALENDAR_STATUS).toBe('/public/calendar-status');
-    expect(PUBLIC_ENDPOINTS.HEALTH).toBe('/public/health');
   });
 });
 

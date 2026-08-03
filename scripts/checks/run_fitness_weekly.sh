@@ -41,7 +41,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${CYAN}===========================================${NC}"
-echo -e "${CYAN} Fitness Tier 2 Weekly — 24 trend step    ${NC}"
+echo -e "${CYAN} Fitness Tier 2 Weekly — 25 trend step    ${NC}"
 echo -e "${CYAN}===========================================${NC}"
 echo ""
 
@@ -65,7 +65,7 @@ run_step() {
     local step_name="$2"
     local script="$3"
 
-    echo -e "${CYAN}[$step_num/24] $step_name${NC}"
+    echo -e "${CYAN}[$step_num/25] $step_name${NC}"
     if [[ ! -f "$script" ]]; then
         # 腳本不見了要算失敗 —— 原本只印一行 warning 就 return，
         # 等於「檢查消失」與「檢查通過」同樣是綠（alias_rls_audit 正是這個狀況）。
@@ -125,6 +125,11 @@ run_step "23" "doc reference integrity"       "scripts/checks/doc_reference_inte
 # 比對的是「測試 id 集合 vs 基線」，不是要求全綠（現有 41 項測試債會讓它天天紅，
 # 那就變成沒人看的告警）。跑全套約 9 分鐘。
 run_step "24" "測試套件健康（vs 基線）"     "scripts/checks/test_suite_health.py"
+
+# 2026-08-03：系統有五份「有哪些 API」的清單、三種不同的 key，其中三份用 URL
+# 可以互相對照卻沒有任何一支在對照。首跑即揪出 12 條前端常數指向不存在的後端
+# （其中 2 條還被測試斷言保護著）。
+run_step "25" "程式×頁面×服務 對應完整性"  "scripts/checks/api_contract_alignment_audit.py"
 
 # ============================================================
 # Summary
