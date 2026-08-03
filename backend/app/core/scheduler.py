@@ -1553,23 +1553,32 @@ async def wiki_lint_job():
                     + "".join(f"- ⚠️ {a}\n" for a in alerts),
                     encoding="utf-8",
                 )
-            # Telegram（低頻，不再每天重複推播）
+            # 2026-08-03：原本推 Telegram —— 而該 token 實測 401、
+            # `TELEGRAM_ADMIN_PUSH_ENABLED` 也是 false，**兩層都送不出去**，
+            # 於是 wiki 的漂移警示只留在 log 裡，沒有任何人會看到。
+            # 改走既有的 line_digest_buffer：不單推、queue 進 buffer 由 08:00
+            # 晨報一次帶出（v6.24 建立的機制），零配額增加。
             try:
-                from app.services.integration.telegram_bot import get_telegram_bot_service
-                tg = get_telegram_bot_service()
-                if tg.enabled:
-                    msg = (
-                        f"⚠️ Wiki Lint Drift\n"
-                        f"pages={total_pages}, orphans={orphan_count}, broken={broken_count}\n"
-                        + "\n".join(f"• {a}" for a in alerts)
-                    )
-                    admin_chat = int(os.getenv("TELEGRAM_ADMIN_CHAT_ID", "0"))
-                    if admin_chat:
-                        await tg.push_message(admin_chat, msg)
-            except Exception:
-                pass
+                from app.services.integration.line_digest_buffer import queue_digest
+                await queue_digest(
+                    "📚 Wiki 漂移",
+                    f"pages={total_pages}, orphans={orphan_count}, broken={broken_count}\n"
+                    + "\n".join(f"• {a}" for a in alerts),
+                )
+            except Exception as e:
+                logger.warning("wiki lint digest queue 失敗（警示仍在 log/wiki 審計）: %s", e)
+
+        return {
+            "pages": total_pages,
+            "orphans": orphan_count,
+            "broken": broken_count,
+            "health": result["health"],
+            "alerts": len(alerts),
+            "reason": "ok",
+        }
     except Exception as e:
         logger.error("Wiki lint failed: %s", e, exc_info=True)
+        raise
 
 
 @tracked_job("health_snapshot_log")

@@ -154,7 +154,7 @@ NON_PRODUCER_JOBS = {
     "cron_outcome_freshness", "cron_self_health_alert", "crystal_review_overdue",
     "embedding_warmup", "fitness_daily", "fitness_weekly", "health_check_broadcast",
     "llm_quota_check", "memory_anti_echo_scan", "process_reminders", "proposal_aging_alert", "security_scan", "tender_dashboard_warm",
-    "wiki_lint", "soul_mirror_sync",
+    "soul_mirror_sync",
     # 2026-08-03 逐一核實後維持豁免（理由要留在這裡，不是留在 commit message）：
     #   cf_tunnel_verify   — detail 是 {checks_passed, reason}，純驗證結果、
     #                        無業務產出；其失敗已由 fitness cf_tunnel_verify 覆蓋

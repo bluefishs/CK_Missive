@@ -180,6 +180,14 @@
         null
       ],
       "_why": "2026-08-03：detail 有實際產出（before/after/stamped/swept），屬可驗產出而非純檢查，從 NON_PRODUCER 移出。stamped=0 可能是本輪無需重標，故列為合理零。"
+    },
+    {
+      "name": "Wiki 健康檢查",
+      "signal": "cron_detail",
+      "job": "wiki_lint",
+      "key": "pages",
+      "ok_zero_reasons": [],
+      "_why": "2026-08-03：原在 NON_PRODUCER 豁免清單，其 alerts 只 logger.warning、推播走已失效的 Telegram —— wiki 漂移沒有任何人會看到。改走 line_digest_buffer 並回 detail 後納管。key 用 pages：wiki 不可能 0 頁，為 0 即代表掃描路徑失效。"
     }
   ]
 }
