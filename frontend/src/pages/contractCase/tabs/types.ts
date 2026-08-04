@@ -161,31 +161,15 @@ export interface AgencyContactTabProps {
 /** 承辦同仁 Tab Props */
 export interface StaffTabProps {
   staffList: Staff[];
-  editingStaffId: number | null;
-  setEditingStaffId: (id: number | null) => void;
-  onRoleChange: (staffId: number, newRole: string) => Promise<void>;
-  onDelete: (staffId: number) => Promise<void>;
-  modalVisible: boolean;
-  setModalVisible: (visible: boolean) => void;
-  form: FormInstance<StaffFormValues>;
-  onAddStaff: (values: StaffFormValues) => Promise<void>;
-  userOptions: { id: number; name: string; email: string }[];
-  loadUserOptions: () => Promise<void>;
+  /** 2026-08-04：Modal 與就地編輯改為獨立填報頁 → 只需要資料與案件 id。 */
+  projectId: number;
 }
 
 /** 協力廠商 Tab Props */
 export interface VendorsTabProps {
   vendorList: VendorAssociation[];
-  editingVendorId: number | null;
-  setEditingVendorId: (id: number | null) => void;
-  onRoleChange: (vendorId: number, newRole: string) => Promise<void>;
-  onDelete: (vendorId: number) => Promise<void>;
-  modalVisible: boolean;
-  setModalVisible: (visible: boolean) => void;
-  form: FormInstance<VendorFormValues>;
-  onAddVendor: (values: VendorFormValues) => Promise<void>;
-  vendorOptions: { id: number; name: string; code: string }[];
-  loadVendorOptions: () => Promise<void>;
+  /** 2026-08-04：Modal 與就地編輯改為獨立填報頁 → 只需要資料與案件 id。 */
+  projectId: number;
 }
 
 /** 附件紀錄 Tab Props */

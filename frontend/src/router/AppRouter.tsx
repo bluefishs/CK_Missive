@@ -128,6 +128,8 @@ const ERPOperationalFormPage = lazy(() => import('../pages/ERPOperationalFormPag
 const ERPAccountRecordFormPage = lazy(() => import('../pages/ERPAccountRecordFormPage'));
 const PMMilestoneFormPage = lazy(() => import('../pages/PMMilestoneFormPage'));
 const ContractCaseAgencyContactFormPage = lazy(() => import('../pages/ContractCaseAgencyContactFormPage'));
+const ContractCaseStaffFormPage = lazy(() => import('../pages/ContractCaseStaffFormPage'));
+const ContractCaseVendorFormPage = lazy(() => import('../pages/ContractCaseVendorFormPage'));
 
 // 數位分身 → redirect to /agent/dashboard
 // 智能體中心 → UnifiedAgentPage (defined above)
@@ -357,6 +359,10 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.PM_MILESTONE_EDIT} element={<ProtectedRoute><PMMilestoneFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.CONTRACT_CASE_AGENCY_CONTACT_CREATE} element={<ProtectedRoute><ContractCaseAgencyContactFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.CONTRACT_CASE_AGENCY_CONTACT_EDIT} element={<ProtectedRoute><ContractCaseAgencyContactFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CONTRACT_CASE_STAFF_CREATE} element={<ProtectedRoute><ContractCaseStaffFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CONTRACT_CASE_STAFF_EDIT} element={<ProtectedRoute><ContractCaseStaffFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CONTRACT_CASE_VENDOR_CREATE} element={<ProtectedRoute><ContractCaseVendorFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CONTRACT_CASE_VENDOR_EDIT} element={<ProtectedRoute><ContractCaseVendorFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL_DETAIL} element={<ProtectedRoute><ERPOperationalDetailPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL} element={<ProtectedRoute><ERPOperationalListPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_HUB} element={<ProtectedRoute><ERPHubPage /></ProtectedRoute>} />

@@ -6,24 +6,13 @@
  */
 
 import React from 'react';
-import {
-  Card, Button, Space, Tag, Avatar, Modal, Form, Select, Popconfirm, Tooltip, Empty,
-} from 'antd';
+import { Card, Button, Space, Tag, Avatar, Empty } from 'antd';
 import { EnhancedTable, type ResponsiveColumn } from '../../../components/common/EnhancedTable';
-import {
-  TeamOutlined,
-  PlusOutlined,
-  UserOutlined,
-  PhoneOutlined,
-  MailOutlined,
-  EditOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons';
-import { useResponsive } from '../../../hooks';
+import { TeamOutlined, PlusOutlined, UserOutlined, PhoneOutlined, MailOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../router/types';
 import type { StaffTabProps, Staff } from './types';
 import { STAFF_ROLE_OPTIONS } from './constants';
-
-const { Option } = Select;
 
 // 輔助函數
 const getStaffRoleColor = (role: string) => {
@@ -33,18 +22,9 @@ const getStaffRoleColor = (role: string) => {
 
 export const StaffTab: React.FC<StaffTabProps> = ({
   staffList,
-  editingStaffId,
-  setEditingStaffId,
-  onRoleChange,
-  onDelete,
-  modalVisible,
-  setModalVisible,
-  form,
-  onAddStaff,
-  userOptions,
-  loadUserOptions,
+  projectId,
 }) => {
-  const { isMobile } = useResponsive();
+  const navigate = useNavigate();
   const columns: ResponsiveColumn<Staff>[] = [
     {
       title: '姓名',
@@ -62,32 +42,8 @@ export const StaffTab: React.FC<StaffTabProps> = ({
       dataIndex: 'role',
       key: 'role',
       width: 140,
-      render: (role, record) =>
-        editingStaffId === record.id ? (
-          <Select
-            size="small"
-            defaultValue={role}
-            style={{ width: 130 }}
-            onChange={(value) => onRoleChange(record.id, value)}
-            autoFocus
-            open={true}
-            onOpenChange={(open) => {
-              if (!open) setEditingStaffId(null);
-            }}
-          >
-            {STAFF_ROLE_OPTIONS.map(opt => (
-              <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-            ))}
-          </Select>
-        ) : (
-          <Tag
-            color={getStaffRoleColor(role)}
-            style={{ cursor: 'pointer' }}
-            onClick={() => setEditingStaffId(record.id)}
-          >
-            {role} <EditOutlined style={{ fontSize: 10, marginLeft: 4 }} />
-          </Tag>
-        ),
+      // 2026-08-04：就地編輯一併移除 —— 詳情頁 tab 只呈現，角色變更在填報頁。
+      render: (role: string) => <Tag color={getStaffRoleColor(role)}>{role}</Tag>,
     },
     {
       title: '部門', hideOnMobile: true,
@@ -119,23 +75,6 @@ export const StaffTab: React.FC<StaffTabProps> = ({
         </Tag>
       ),
     },
-    {
-      title: '操作',
-      key: 'action',
-      width: 100,
-      render: (_, record) => (
-        <Popconfirm
-          title="確定要移除此同仁？"
-          okText="確定"
-          cancelText="取消"
-          onConfirm={() => onDelete(record.id)}
-        >
-          <Tooltip title="移除">
-            <Button size="small" danger icon={<DeleteOutlined />} aria-label="移除" />
-          </Tooltip>
-        </Popconfirm>
-      ),
-    },
   ];
 
   return (
@@ -149,7 +88,10 @@ export const StaffTab: React.FC<StaffTabProps> = ({
           </Space>
         }
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
+          <Button
+            type="primary" icon={<PlusOutlined />}
+            onClick={() => navigate(ROUTES.CONTRACT_CASE_STAFF_CREATE.replace(':caseId', String(projectId)))}
+          >
             新增同仁
           </Button>
         }
@@ -161,52 +103,21 @@ export const StaffTab: React.FC<StaffTabProps> = ({
             rowKey="id"
             pagination={false}
             size="middle"
-            scroll={{ x: 800 }}
+            onRow={(row: Staff) => ({
+              // 操作欄與 Modal 移除後，這是進到編輯/移除的唯一入口
+              onClick: () => navigate(
+                ROUTES.CONTRACT_CASE_STAFF_EDIT
+                  .replace(':caseId', String(projectId))
+                  .replace(':userId', String(row.user_id)),
+              ),
+              style: { cursor: 'pointer' },
+            })}
           />
         ) : (
           <Empty description="尚無承辦同仁" />
         )}
       </Card>
 
-      {/* 新增同仁 Modal */}
-      <Modal
-        title="新增承辦同仁"
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-        width={500}
-        destroyOnHidden
-        afterOpenChange={(open) => {
-          if (open) loadUserOptions();
-        }}
-      >
-        <Form form={form} layout="vertical" onFinish={onAddStaff} size={isMobile ? 'large' : 'middle'}>
-          <Form.Item name="user_id" label="選擇同仁" rules={[{ required: true, message: '請選擇同仁' }]}>
-            <Select
-              placeholder="請選擇同仁"
-              showSearch
-              optionFilterProp="label"
-              options={userOptions.map(u => ({
-                value: u.id,
-                label: `${u.name} (${u.email})`,
-              }))}
-            />
-          </Form.Item>
-          <Form.Item name="role" label="角色/職責" rules={[{ required: true, message: '請選擇角色/職責' }]}>
-            <Select placeholder="請選擇角色/職責">
-              {STAFF_ROLE_OPTIONS.map(opt => (
-                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => setModalVisible(false)}>取消</Button>
-              <Button type="primary" htmlType="submit">新增</Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
     </>
   );
 };

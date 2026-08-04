@@ -151,8 +151,14 @@ async function main() {
   const browser = await chromium.launch({ executablePath: EXE, headless: !HEADED });
   const results = [];
 
-  for (const check of CHECKS) {
-    if (ONLY && check.id !== ONLY) continue;
+  // 判為 FAIL 前重跑一次（2026-08-04）。
+  // 實測連續三次全套執行，紅的**每次都是不同的一條**（收據影像 → ezbid → kunge/ops），
+  // 而單獨重跑各自 3/3 通過 —— 那不是頁面壞掉，是流程在同一個瀏覽器裡接連執行時的
+  // 時序干擾（v6.34 記過同型：兩條 flow 打同一頁會互相干擾）。
+  // 這件事現在有後果：ui-flow.json 的 fail>0 已接上 producer 告警，
+  // 每次紅不同條＝每次假告警，很快就會被當成雜訊忽略。
+  // 真缺陷會重現、時序干擾不會，所以重跑一次是能區分兩者最省的作法。
+  const runCheck = async (check) => {
     const context = await browser.newContext({
       viewport: check.viewport || { width: 1440, height: 900 },
     });
@@ -188,8 +194,21 @@ async function main() {
     if (outcome.fail) {
       await page.screenshot({ path: path.join(SHOT_DIR, `${check.id}.png`), fullPage: false }).catch(() => {});
     }
-    results.push({ check, outcome, errors: ctx.errors.slice(0, 3) });
     await context.close();
+    return { outcome, errors: ctx.errors.slice(0, 3) };
+  };
+
+  for (const check of CHECKS) {
+    if (ONLY && check.id !== ONLY) continue;
+    let r = await runCheck(check);
+    if (r.outcome.fail) {
+      const retry = await runCheck(check);
+      if (!retry.outcome.fail) {
+        console.log(`   ↻ ${check.id} 首次失敗、重跑通過（判為執行期干擾，不計 FAIL）`);
+        r = retry;
+      }
+    }
+    results.push({ check, outcome: r.outcome, errors: r.errors });
   }
 
   await browser.close();

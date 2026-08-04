@@ -5,27 +5,17 @@
  * @date 2026-01-23
  */
 
-import React, { useState } from 'react';
-import {
-  Card, Button, Space, Tag, Typography, Row, Col, Statistic, Modal, Form, Select, InputNumber, DatePicker, Popconfirm, Tooltip, Empty, Input, Divider, App,
-} from 'antd';
+import React from 'react';
+import { Card, Button, Space, Tag, Typography, Row, Col, Statistic, Empty } from 'antd';
+import { ShopOutlined, PlusOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../router/types';
 import { EnhancedTable, type ResponsiveColumn } from '../../../components/common/EnhancedTable';
-import {
-  ShopOutlined,
-  PlusOutlined,
-  UserOutlined,
-  PhoneOutlined,
-  EditOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons';
-import { useResponsive } from '../../../hooks';
+
 import type { VendorsTabProps, VendorAssociation } from './types';
 import { VENDOR_ROLE_OPTIONS } from './constants';
-import { parseCurrencyInput } from '../../../utils/format';
 
 const { Text } = Typography;
-const { Option } = Select;
-
 // 輔助函數
 const getVendorRoleColor = (role: string) => {
   const option = VENDOR_ROLE_OPTIONS.find(opt => opt.value === role);
@@ -48,37 +38,9 @@ const formatAmount = (amount?: number) => {
 
 export const VendorsTab: React.FC<VendorsTabProps> = ({
   vendorList,
-  editingVendorId,
-  setEditingVendorId,
-  onRoleChange,
-  onDelete,
-  modalVisible,
-  setModalVisible,
-  form,
-  onAddVendor,
-  vendorOptions,
-  loadVendorOptions,
+  projectId,
 }) => {
-  const { isMobile } = useResponsive();
-  const { message } = App.useApp();
-  const [newVendorName, setNewVendorName] = useState('');
-
-  const handleAddNewVendor = async () => {
-    if (!newVendorName.trim()) return;
-    try {
-      const { vendorsApi } = await import('../../../api/vendorsApi');
-      const created = await vendorsApi.createVendor({
-        vendor_name: newVendorName.trim(),
-        vendor_type: 'subcontractor',
-      });
-      message.success(`廠商「${newVendorName}」已建立`);
-      setNewVendorName('');
-      loadVendorOptions();
-      form.setFieldsValue({ vendor_id: created.id });
-    } catch {
-      message.error('建立失敗');
-    }
-  };
+  const navigate = useNavigate();
 
   const columns: ResponsiveColumn<VendorAssociation>[] = [
     {
@@ -96,32 +58,8 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
       dataIndex: 'role',
       key: 'role',
       width: 140,
-      render: (role, record) =>
-        editingVendorId === record.vendor_id ? (
-          <Select
-            size="small"
-            defaultValue={role}
-            style={{ width: 120 }}
-            onChange={(value) => onRoleChange(record.vendor_id, value)}
-            autoFocus
-            open={true}
-            onOpenChange={(open) => {
-              if (!open) setEditingVendorId(null);
-            }}
-          >
-            {VENDOR_ROLE_OPTIONS.map(opt => (
-              <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-            ))}
-          </Select>
-        ) : (
-          <Tag
-            color={getVendorRoleColor(role)}
-            style={{ cursor: 'pointer' }}
-            onClick={() => setEditingVendorId(record.vendor_id)}
-          >
-            {role} <EditOutlined style={{ fontSize: 10, marginLeft: 4 }} />
-          </Tag>
-        ),
+      // 2026-08-04：就地編輯一併移除 —— 詳情頁 tab 只呈現，類別變更在填報頁。
+      render: (role: string) => <Tag color={getVendorRoleColor(role)}>{role}</Tag>,
     },
     {
       title: '聯絡人',
@@ -159,23 +97,6 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
         </Tag>
       ),
     },
-    {
-      title: '操作',
-      key: 'action',
-      width: 100,
-      render: (_, record) => (
-        <Popconfirm
-          title="確定要移除此廠商？"
-          okText="確定"
-          cancelText="取消"
-          onConfirm={() => onDelete(record.vendor_id)}
-        >
-          <Tooltip title="移除">
-            <Button size="small" danger icon={<DeleteOutlined />} aria-label="移除" />
-          </Tooltip>
-        </Popconfirm>
-      ),
-    },
   ];
 
   return (
@@ -189,7 +110,10 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
           </Space>
         }
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
+          <Button
+            type="primary" icon={<PlusOutlined />}
+            onClick={() => navigate(ROUTES.CONTRACT_CASE_VENDOR_CREATE.replace(':caseId', String(projectId)))}
+          >
             新增廠商
           </Button>
         }
@@ -224,90 +148,21 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
             rowKey="id"
             pagination={false}
             size="middle"
-            scroll={{ x: 900 }}
+            onRow={(row: VendorAssociation) => ({
+              // 操作欄與 Modal 移除後，這是進到編輯/移除的唯一入口
+              onClick: () => navigate(
+                ROUTES.CONTRACT_CASE_VENDOR_EDIT
+                  .replace(':caseId', String(projectId))
+                  .replace(':vendorId', String(row.vendor_id)),
+              ),
+              style: { cursor: 'pointer' },
+            })}
           />
         ) : (
           <Empty description="尚無協力廠商" />
         )}
       </Card>
 
-      {/* 新增廠商 Modal */}
-      <Modal
-        title="新增協力廠商"
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-        width={600}
-        destroyOnHidden
-        afterOpenChange={(open) => {
-          if (open) loadVendorOptions();
-        }}
-      >
-        <Form form={form} layout="vertical" onFinish={onAddVendor} size={isMobile ? 'large' : 'middle'}>
-          <Form.Item name="vendor_id" label="選擇廠商" rules={[{ required: true, message: '請選擇廠商' }]}>
-            <Select
-              placeholder="選擇或新增廠商"
-              showSearch
-              optionFilterProp="label"
-              options={vendorOptions.map(v => ({
-                value: v.id,
-                label: `${v.name}${v.code ? ` (${v.code})` : ''}`,
-              }))}
-              dropdownRender={(menu) => (
-                <>
-                  {menu}
-                  <Divider style={{ margin: '8px 0' }} />
-                  <Space style={{ padding: '0 8px 4px' }}>
-                    <Input
-                      placeholder="輸入新廠商名稱"
-                      value={newVendorName}
-                      onChange={(e) => setNewVendorName(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      size="small"
-                    />
-                    <Button type="link" icon={<PlusOutlined />} onClick={handleAddNewVendor} size="small">
-                      新增
-                    </Button>
-                  </Space>
-                </>
-              )}
-            />
-          </Form.Item>
-          <Form.Item name="role" label="業務類別" rules={[{ required: true, message: '請選擇業務類別' }]}>
-            <Select placeholder="請選擇業務類別">
-              {VENDOR_ROLE_OPTIONS.map(opt => (
-                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="contract_amount" label="合約金額">
-            <InputNumber
-              style={{ width: '100%' }}
-              placeholder="請輸入合約金額"
-              formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={parseCurrencyInput}
-            />
-          </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="start_date" label="合作開始日期">
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="end_date" label="合作結束日期">
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => setModalVisible(false)}>取消</Button>
-              <Button type="primary" htmlType="submit">新增</Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
     </>
   );
 };

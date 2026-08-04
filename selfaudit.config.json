@@ -137,6 +137,11 @@
           "selector": ".ant-table-tbody tr.ant-table-row"
         },
         {
+          "action": "waitFor",
+          "selector": ".ant-form-item, .ant-descriptions",
+          "timeout": 15000
+        },
+        {
           "action": "wait",
           "ms": 2500
         },
@@ -213,8 +218,9 @@
           "text": "收據影像"
         },
         {
-          "action": "wait",
-          "ms": 2500
+          "action": "waitFor",
+          "selector": "img[src^=\"blob:\"], img[alt*=\"收據\"]",
+          "timeout": 15000
         },
         {
           "action": "assertTextAbsent",
@@ -518,6 +524,11 @@
           "selector": ".ant-tabs-tabpane-active .ant-table-tbody tr.ant-table-row"
         },
         {
+          "action": "waitFor",
+          "selector": ".ant-form-item, .ant-descriptions",
+          "timeout": 15000
+        },
+        {
           "action": "wait",
           "ms": 3000
         },
@@ -545,6 +556,69 @@
           "action": "assertTextAbsent",
           "text": "找不到這筆",
           "failMsg": "填報頁顯示找不到資料（單筆查詢壞了）"
+        }
+      ]
+    },
+    {
+      "id": "staff-form-page",
+      "name": "承辦同仁：點列進填報頁（取代 Modal 與就地編輯），移除鈕在標題列",
+      "auth": true,
+      "url": "/contract-cases/187?tab=staff",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "clickText",
+          "text": "承辦同仁"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assertCount",
+          "selector": "th:has-text(\"操作\")",
+          "max": 0,
+          "failMsg": "承辦同仁分頁又出現「操作」欄"
+        },
+        {
+          "action": "click",
+          "selector": ".ant-tabs-tabpane-active .ant-table-tbody tr.ant-table-row"
+        },
+        {
+          "action": "waitFor",
+          "selector": ".ant-form-item, .ant-descriptions",
+          "timeout": 15000
+        },
+        {
+          "action": "wait",
+          "ms": 5500
+        },
+        {
+          "action": "assertUrlMatches",
+          "pattern": "/staff/\\d+/edit",
+          "failMsg": "點列沒有進到承辦同仁填報頁"
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "編輯承辦同仁",
+            "角色/職責"
+          ],
+          "failMsg": "填報頁沒渲染（曾兩度因猜錯 API 回傳形狀而顯示找不到）"
+        },
+        {
+          "action": "assertTextAbsent",
+          "text": "找不到這位",
+          "failMsg": "填報頁顯示找不到資料（清單回傳欄位是 staff，不是 data/items）"
+        },
+        {
+          "action": "assertCount",
+          "selector": "button:has-text(\"移除\")",
+          "min": 1,
+          "failMsg": "填報頁標題列沒有移除鈕"
         }
       ]
     }

@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-04T12:34:47.341Z",
+ "checked_at": "2026-08-04T14:44:35.615Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 86,
  "fail": 0,
@@ -59,13 +59,13 @@
    },
    {
     "route": "/erp/vendor-accounts",
-    "pageOverflow": 7,
+    "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/client-accounts",
-    "pageOverflow": 7,
+    "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
@@ -77,7 +77,7 @@
    },
    {
     "route": "/contract-cases",
-    "pageOverflow": 7,
+    "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
@@ -107,7 +107,7 @@
    },
    {
     "route": "/erp/quotations/168",
-    "pageOverflow": 3,
+    "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },

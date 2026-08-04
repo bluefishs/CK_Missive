@@ -42,8 +42,6 @@ import {
 
 import type {
   CaseInfoFormValues,
-  StaffFormValues,
-  VendorFormValues,
 } from './contractCase/tabs';
 
 // ============================================================================
@@ -61,13 +59,7 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
 }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [isEditingCaseInfo, setIsEditingCaseInfo] = useState(false);
-  const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
-  const [editingVendorId, setEditingVendorId] = useState<number | null>(null);
-  const [staffModalVisible, setStaffModalVisible] = useState(false);
-  const [vendorModalVisible, setVendorModalVisible] = useState(false);
 
-  const [staffForm] = Form.useForm<StaffFormValues>();
-  const [vendorForm] = Form.useForm<VendorFormValues>();
   const [caseInfoForm] = Form.useForm<CaseInfoFormValues>();
 
   const projectId = propProjectId;
@@ -82,8 +74,6 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
     groupedAttachments,
     attachmentsLoading,
     loading,
-    userOptions,
-    vendorOptions,
     reloadData,
     queryClient,
   } = useContractCaseData(projectId);
@@ -94,24 +84,11 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
   const { data: crossData } = useCrossModuleLookup(lookupKey);
   const pmCaseId = crossData?.pm?.id ?? null;
 
-  const loadUserOptions = async () => {};
-  const loadVendorOptions = async () => {
-    queryClient.invalidateQueries({ queryKey: ['contract-case-vendor-options'] });
-  };
-
   const handlers = useContractCaseHandlers({
     projectId: propProjectId,
     queryClient,
-    reloadData,
-    staffList,
     backRoute,
-    staffForm,
-    vendorForm,
     setIsEditingCaseInfo,
-    setStaffModalVisible,
-    setVendorModalVisible,
-    setEditingStaffId,
-    setEditingVendorId,
   });
 
   const calculateProgress = () => {
@@ -147,22 +124,10 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
       <AgencyContactTab agencyContacts={agencyContacts} projectId={projectId} />
     ),
     createTabItem('staff', { icon: <TeamOutlined />, text: '承辦同仁', count: staffList.length },
-      <StaffTab
-        staffList={staffList} editingStaffId={editingStaffId} setEditingStaffId={setEditingStaffId}
-        onRoleChange={handlers.handleStaffRoleChange} onDelete={handlers.handleDeleteStaff}
-        modalVisible={staffModalVisible} setModalVisible={setStaffModalVisible}
-        form={staffForm} onAddStaff={handlers.handleAddStaff}
-        userOptions={userOptions} loadUserOptions={loadUserOptions}
-      />
+      <StaffTab staffList={staffList} projectId={projectId} />
     ),
     createTabItem('vendors', { icon: <ShopOutlined />, text: '協力廠商', count: vendorList.length },
-      <VendorsTab
-        vendorList={vendorList} editingVendorId={editingVendorId} setEditingVendorId={setEditingVendorId}
-        onRoleChange={handlers.handleVendorRoleChange} onDelete={handlers.handleDeleteVendor}
-        modalVisible={vendorModalVisible} setModalVisible={setVendorModalVisible}
-        form={vendorForm} onAddVendor={handlers.handleAddVendor}
-        vendorOptions={vendorOptions} loadVendorOptions={loadVendorOptions}
-      />
+      <VendorsTab vendorList={vendorList} projectId={projectId} />
     ),
     createTabItem('attachments', { icon: <PaperClipOutlined />, text: '附件紀錄', count: attachments.length },
       <AttachmentsTab

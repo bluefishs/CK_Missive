@@ -7,7 +7,7 @@
  * @date 2026-03-29
  */
 
-import { App, FormInstance } from 'antd';
+import { App } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useState, useCallback } from 'react';
@@ -15,42 +15,24 @@ import { ROUTES } from '../../router/types';
 import { queryKeys } from '../../config/queryConfig';
 import { projectsApi } from '../../api/projectsApi';
 import { filesApi } from '../../api/filesApi';
-import { projectStaffApi } from '../../api/projectStaffApi';
-import { projectVendorsApi } from '../../api/projectVendorsApi';
 import { logger } from '../../utils/logger';
 import type { QueryClient } from '@tanstack/react-query';
 import type {
-  CaseInfoFormValues,
-  StaffFormValues,
-  VendorFormValues,
-  LocalGroupedAttachment,
-  ApiErrorResponse,
-  PydanticValidationError,
-} from './tabs';
+  CaseInfoFormValues,  LocalGroupedAttachment,
+  ApiErrorResponse,} from './tabs';
 
 interface UseContractCaseHandlersOptions {
   projectId: number;
   queryClient: QueryClient;
-  reloadData: () => void;
-  staffList: { id: number; user_id: number }[];
   backRoute?: string;
   // Form instances
-  staffForm: FormInstance;
-  vendorForm: FormInstance;
   // Modal state setters
   setIsEditingCaseInfo: (v: boolean) => void;
-  setStaffModalVisible: (v: boolean) => void;
-  setVendorModalVisible: (v: boolean) => void;
-  setEditingStaffId: (v: number | null) => void;
-  setEditingVendorId: (v: number | null) => void;
 }
 
 export function useContractCaseHandlers(opts: UseContractCaseHandlersOptions) {
   const {
-    projectId, queryClient, reloadData, staffList, backRoute,
-    staffForm, vendorForm,
-    setIsEditingCaseInfo, setStaffModalVisible, setVendorModalVisible,
-    setEditingStaffId, setEditingVendorId,
+    projectId, queryClient, backRoute, setIsEditingCaseInfo,
   } = opts;
 
   const navigate = useNavigate();
@@ -109,83 +91,6 @@ export function useContractCaseHandlers(opts: UseContractCaseHandlersOptions) {
     }
   }, [projectId, queryClient, message, setIsEditingCaseInfo]);
 
-  const handleAddStaff = useCallback(async (values: StaffFormValues) => {
-    try {
-      await projectStaffApi.addStaff({
-        project_id: projectId, user_id: values.user_id, role: values.role,
-        is_primary: values.role === '計畫主持', start_date: dayjs().format('YYYY-MM-DD'), status: 'active',
-      });
-      staffForm.resetFields();
-      setStaffModalVisible(false);
-      message.success('新增承辦同仁成功');
-      reloadData();
-    } catch (error) {
-      const axiosError = error as { response?: { data?: ApiErrorResponse } };
-      const detail = axiosError.response?.data?.detail;
-      let errorMsg = '新增承辦同仁失敗';
-      if (typeof detail === 'string') errorMsg = detail;
-      else if (Array.isArray(detail) && detail.length > 0) {
-        errorMsg = detail.map((d: PydanticValidationError) => d.msg || d.message || JSON.stringify(d)).join(', ');
-      }
-      message.error(errorMsg);
-    }
-  }, [projectId, staffForm, setStaffModalVisible, message, reloadData]);
-
-  const handleStaffRoleChange = useCallback(async (staffId: number, newRole: string) => {
-    const staff = staffList.find(s => s.id === staffId);
-    if (!staff) return;
-    try {
-      await projectStaffApi.updateStaff(projectId, staff.user_id, { role: newRole, is_primary: newRole === '計畫主持' });
-      queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
-      setEditingStaffId(null);
-      message.success('角色已更新');
-    } catch { message.error('更新角色失敗'); setEditingStaffId(null); }
-  }, [projectId, staffList, queryClient, message, setEditingStaffId]);
-
-  const handleDeleteStaff = useCallback(async (staffId: number) => {
-    const staff = staffList.find(s => s.id === staffId);
-    if (!staff) return;
-    try {
-      await projectStaffApi.deleteStaff(projectId, staff.user_id);
-      queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
-      message.success('已移除同仁');
-    } catch { message.error('移除同仁失敗'); }
-  }, [projectId, staffList, queryClient, message]);
-
-  const handleAddVendor = useCallback(async (values: VendorFormValues) => {
-    try {
-      const vendorData: {
-        project_id: number; vendor_id: number; role: string; status: string;
-        contract_amount?: number; start_date?: string; end_date?: string;
-      } = { project_id: projectId, vendor_id: values.vendor_id, role: values.role, status: 'active' };
-      if (values.contract_amount) vendorData.contract_amount = values.contract_amount;
-      if (values.start_date) vendorData.start_date = dayjs(values.start_date as unknown as string).format('YYYY-MM-DD');
-      if (values.end_date) vendorData.end_date = dayjs(values.end_date as unknown as string).format('YYYY-MM-DD');
-      await projectVendorsApi.addVendor(vendorData);
-      vendorForm.resetFields();
-      setVendorModalVisible(false);
-      message.success('新增協力廠商成功');
-      reloadData();
-    } catch { message.error('新增協力廠商失敗'); }
-  }, [projectId, vendorForm, setVendorModalVisible, message, reloadData]);
-
-  const handleVendorRoleChange = useCallback(async (vendorId: number, newRole: string) => {
-    try {
-      await projectVendorsApi.updateVendor(projectId, vendorId, { role: newRole });
-      queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
-      setEditingVendorId(null);
-      message.success('角色已更新');
-    } catch { message.error('更新角色失敗'); setEditingVendorId(null); }
-  }, [projectId, queryClient, message, setEditingVendorId]);
-
-  const handleDeleteVendor = useCallback(async (vendorId: number) => {
-    try {
-      await projectVendorsApi.deleteVendor(projectId, vendorId);
-      queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
-      message.success('已移除廠商');
-    } catch { message.error('移除廠商失敗'); }
-  }, [projectId, queryClient, message]);
-
   const handleDownloadAttachment = useCallback(async (attachmentId: number, filename: string) => {
     try { await filesApi.downloadAttachment(attachmentId, filename); }
     catch { message.error('下載附件失敗'); }
@@ -215,12 +120,6 @@ export function useContractCaseHandlers(opts: UseContractCaseHandlersOptions) {
     handleEdit,
     handleDelete,
     handleSaveCaseInfo,
-    handleAddStaff,
-    handleStaffRoleChange,
-    handleDeleteStaff,
-    handleAddVendor,
-    handleVendorRoleChange,
-    handleDeleteVendor,
     handleDownloadAttachment,
     handlePreviewAttachment,
     handleDownloadAllAttachments,
