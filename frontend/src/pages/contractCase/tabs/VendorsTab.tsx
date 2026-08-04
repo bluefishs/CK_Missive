@@ -18,6 +18,7 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
+import { useResponsive } from '../../../hooks';
 import type { VendorsTabProps, VendorAssociation } from './types';
 import { VENDOR_ROLE_OPTIONS } from './constants';
 import { parseCurrencyInput } from '../../../utils/format';
@@ -58,6 +59,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
   vendorOptions,
   loadVendorOptions,
 }) => {
+  const { isMobile } = useResponsive();
   const { message } = App.useApp();
   const [newVendorName, setNewVendorName] = useState('');
 
@@ -241,7 +243,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
           if (open) loadVendorOptions();
         }}
       >
-        <Form form={form} layout="vertical" onFinish={onAddVendor}>
+        <Form form={form} layout="vertical" onFinish={onAddVendor} size={isMobile ? 'large' : 'middle'}>
           <Form.Item name="vendor_id" label="選擇廠商" rules={[{ required: true, message: '請選擇廠商' }]}>
             <Select
               placeholder="選擇或新增廠商"

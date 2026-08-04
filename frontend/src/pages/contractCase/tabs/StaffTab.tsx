@@ -19,6 +19,7 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
+import { useResponsive } from '../../../hooks';
 import type { StaffTabProps, Staff } from './types';
 import { STAFF_ROLE_OPTIONS } from './constants';
 
@@ -43,6 +44,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
   userOptions,
   loadUserOptions,
 }) => {
+  const { isMobile } = useResponsive();
   const columns: ResponsiveColumn<Staff>[] = [
     {
       title: '姓名',
@@ -178,7 +180,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
           if (open) loadUserOptions();
         }}
       >
-        <Form form={form} layout="vertical" onFinish={onAddStaff}>
+        <Form form={form} layout="vertical" onFinish={onAddStaff} size={isMobile ? 'large' : 'middle'}>
           <Form.Item name="user_id" label="選擇同仁" rules={[{ required: true, message: '請選擇同仁' }]}>
             <Select
               placeholder="請選擇同仁"
