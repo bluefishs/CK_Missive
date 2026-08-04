@@ -107,6 +107,34 @@
 
 ---
 
+## 2.5 文件裡的數字要納管（2026-08-04，借自 CK_FacilityDev）
+
+治理文件散落大量「宣稱的數字」，而**寫下來的那一刻就開始漂移**。
+既有的 `doc_reference_integrity_audit` 只驗「引用的路徑還在不在」，不驗數字。
+
+08-04 實例：頂層 `CLAUDE.md` 宣稱「182 ADRs / 7 repo」實際 185/8，
+是被跨 repo pre-push 閘門**偶然**擋下才發現 —— 而那道閘門一擋住，
+整個 portfolio 的 push 就停了數週。沒有人在主動問這件事。
+
+**作法（標記制）**：行首加 `<!--baseline:<key>-->` 的行才納管，
+其數字必須等於該 key 的實際值。沒標的行（歷史紀錄、覆盤段落）一律不碰 ——
+逼人改歷史只會讓大家不敢寫數字。
+
+CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
+① 用 HTML 註解當標記，**不要用中文字**（行文提到就誤觸）；
+② **只認行首**，否則「說明本機制的那份文件」會被自己抓到。
+
+目前納管的 key（`scripts/checks/doc_baseline_claim_audit.py`）：
+
+<!--baseline:producers-->producer registry 現有 28 筆
+<!--baseline:ui_flows-->UI 流程檢核現有 14 條
+<!--baseline:fitness_steps-->主 fitness runner 現有 78 步
+
+> 新增 key 時，解析器必須讀**實際來源**（registry / config / 目錄），
+> 不得再讀另一份文件 —— 那只是把漂移換個地方放。
+
+---
+
 ## 3. 檢核結果的可信度規則（今日最貴的教訓）
 
 > **任何比對／相似度／統計工具，採信其輸出之前，必須先用「已知為真」與「已知為假」

@@ -65,7 +65,7 @@ run_step() {
     local step_name="$2"
     local script="$3"
 
-    echo -e "${CYAN}[$step_num/25] $step_name${NC}"
+    echo -e "${CYAN}[$step_num/26] $step_name${NC}"
     if [[ ! -f "$script" ]]; then
         # 腳本不見了要算失敗 —— 原本只印一行 warning 就 return，
         # 等於「檢查消失」與「檢查通過」同樣是綠（alias_rls_audit 正是這個狀況）。
@@ -119,6 +119,7 @@ run_step "21" "knowledge dedup audit"         "scripts/checks/knowledge_dedup_au
 run_step "22" "graph domain tagging audit"    "scripts/checks/graph_domain_tagging_audit.py"
 # 2026-08-02：docs/architecture 累積 102 份文件卻無任何檢核在問「還算數嗎」
 run_step "23" "doc reference integrity"       "scripts/checks/doc_reference_integrity_audit.py"
+run_step "26" "文件宣稱數字納管"             "scripts/checks/doc_baseline_claim_audit.py"
 
 # 2026-08-03：測試套件本身的健康從來沒有任何一階在看 —— 整套長期不能執行，
 # 是 owner 記在待辦裡而不是系統發現的；同期 ezbid parser 重寫後兩天無回歸保護。

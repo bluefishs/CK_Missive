@@ -77,21 +77,6 @@ export interface Staff {
 // 表單值型別定義
 // ============================================================================
 
-/** 新增同仁表單值 */
-export interface StaffFormValues {
-  user_id: number;
-  role: string;
-}
-
-/** 新增廠商表單值 */
-export interface VendorFormValues {
-  vendor_id: number;
-  role: string;
-  contract_amount?: number;
-  start_date?: dayjs.Dayjs;
-  end_date?: dayjs.Dayjs;
-}
-
 /** 案件資訊表單值 */
 export interface CaseInfoFormValues {
   project_name: string;
@@ -110,18 +95,6 @@ export interface CaseInfoFormValues {
   project_path?: string;
   notes?: string;
   has_dispatch_management?: boolean;
-}
-
-/** 機關承辦表單值 */
-export interface AgencyContactFormValues {
-  contact_name: string;
-  position?: string;
-  department?: string;
-  phone?: string;
-  mobile?: string;
-  email?: string;
-  is_primary?: boolean;
-  notes?: string;
 }
 
 /** Pydantic 驗證錯誤項目 */

@@ -3284,16 +3284,59 @@ async def cron_outcome_freshness_job():
             elif _sig == "db_table_today":
                 from app.db.database import async_session_maker as _asm
                 from sqlalchemy import text as _text
+                _where = spec.get("where")
+                _sql = (f"SELECT COUNT(*) FROM {spec['table']} "
+                        f"WHERE {spec['date_col']}::date = CURRENT_DATE"
+                        + (f" AND {_where}" if _where else ""))
                 async with _asm() as _db:
-                    _n = await _db.scalar(_text(
-                        f"SELECT COUNT(*) FROM {spec['table']} WHERE {spec['date_col']}::date = CURRENT_DATE"))
+                    _n = await _db.scalar(_text(_sql))
                 if not _n and not (spec.get("weekend_legit") and _is_weekend):
                     stale.append(f"  • {_name}: {spec['table']} 今日 0（非合理空＝疑沉默失敗）")
+            elif _sig == "db_row_count":
+                from app.db.database import async_session_maker as _asm
+                from sqlalchemy import text as _text
+                _w = spec.get("where")
+                async with _asm() as _db:
+                    _n = await _db.scalar(_text(
+                        f"SELECT COUNT(*) FROM {spec['table']}" + (f" WHERE {_w}" if _w else "")))
+                if (_n or 0) < spec.get("min", 0):
+                    stale.append(f"  • {_name}: {spec['table']} 僅 {_n} < 下限 {spec['min']}（疑資料塌陷）")
+            elif _sig == "json_result":
+                # 讀輸出 JSON 的**結果欄位**（跑了但結果是紅的）。
+                _rp = spec["path"]
+                if _rp.startswith("backend/"):
+                    _rp = _rp[len("backend/"):]
+                _cands = sorted(root.glob(_rp), key=lambda f: f.stat().st_mtime, reverse=True)                     if "*" in _rp else [root / _rp]
+                _f = _cands[0] if _cands and _cands[0].exists() else None
+                if not _f:
+                    stale.append(f"  • {_name}: {_rp} 不存在（檢核器沒產出）")
+                else:
+                    _d = _json.loads(_f.read_text(encoding="utf-8"))
+                    _cnt = lambda v: len(v) if isinstance(v, (list, dict)) else int(v or 0)
+                    _bad = []
+                    if spec.get("fail_key") and _cnt(_d.get(spec["fail_key"])) > 0:
+                        _bad.append(f"{spec['fail_key']}={_cnt(_d.get(spec['fail_key']))}")
+                    if spec.get("min_key") and _cnt(_d.get(spec["min_key"])) < spec.get("min_value", 0):
+                        _bad.append(f"{spec['min_key']}={_cnt(_d.get(spec['min_key']))}<{spec.get('min_value')}")
+                    if spec.get("ok_key") and not _d.get(spec["ok_key"]):
+                        _bad.append(f"{spec['ok_key']}={_d.get(spec['ok_key'])}")
+                    for _k, _want in (spec.get("expect") or {}).items():
+                        if _d.get(_k) != _want:
+                            _bad.append(f"{_k}={_d.get(_k)}≠{_want}")
+                    if _bad:
+                        stale.append(f"  • {_name}: {'、'.join(_bad)}（檢核跑了但結果是紅的）")
+            else:
+                # 2026-08-04：**認不得的 signal 一律出聲**。
+                # 這一段原本只認 file_fresh/cron_detail/db_table_today，而 registry 早已有
+                # db_row_count（07-20 加）與 json_result（08-04 加）——不認得就靜靜跳過，
+                # 等於那些 producer 在每日自動告警裡**根本不存在**，卻在手動跑 host
+                # watchdog 時是綠的。兩個實作各認一部分＝典型的半接通。
+                stale.append(f"  • {_name}: 未支援的 signal「{_sig}」——本 job 與 host watchdog 不同步")
         except Exception as _ex:
             stale.append(f"  • {_name}: 檢查異常 {_ex}")
 
     if not stale:
-        logger.info("✅ outcome-freshness：registry 全 producer 產出正常（file/cron_detail/db_table），skip LINE")
+        logger.info("✅ outcome-freshness：registry 全 producer 產出正常（file/cron_detail/db_table/db_row_count/json_result），skip LINE")
         return
 
     line_user_id = os.getenv("LINE_ADMIN_USER_ID")
