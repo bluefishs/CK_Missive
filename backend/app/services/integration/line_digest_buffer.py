@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List
 from zoneinfo import ZoneInfo
@@ -29,6 +30,25 @@ TZ = ZoneInfo("Asia/Taipei")
 
 # Redis 不可用時的同進程 fallback（best-effort）
 _memory_buffer: List[dict] = []
+
+# 測試隔離開關（2026-08-04）
+# ---------------------------------------------------------------------------
+# 08-03 把 5 個 job 從 Telegram 改走 digest 後，conftest 的「對外通知封鎖」安全網
+# 就漏了：它擋的是**送出去**（抽掉 LINE/Telegram token），而 digest 是**寫進去、
+# 明早才送**——寫的還是正式環境那把 Redis key。實測跑一次 unit test 就把 6 則假
+# 告警（"job_a"、"DB connection lost"、假日期）塞進 owner 隔天的晨報；而 weekly
+# 的 test_suite_health 每週都會跑全套 ⇒ **檢核機制本身會污染正式輸出**。
+# 沿用安全網 v3 的思路：不替換任何方法，改為**拿掉它抵達正式狀態的能力**。
+_ISOLATION_ENV = "LINE_DIGEST_BUFFER_ISOLATED"
+
+
+def _is_isolated() -> bool:
+    return os.getenv(_ISOLATION_ENV, "").strip().lower() in {"1", "true", "yes"}
+
+
+def reset_memory_buffer() -> None:
+    """測試用：清空同進程 fallback，避免跨測試互相污染。"""
+    _memory_buffer.clear()
 
 # 併入晨報時的總長上限（LINE 單則 5000 字；晨報本體 + 摘要留餘裕）
 DIGEST_TAIL_MAX_CHARS = 1800
@@ -43,6 +63,9 @@ async def queue_digest(topic: str, text: str) -> bool:
     }
     if not item["text"]:
         return False
+    if _is_isolated():
+        _memory_buffer.append(item)
+        return True
     try:
         from app.core.redis_client import get_redis
         redis = await get_redis()
@@ -61,6 +84,10 @@ async def queue_digest(topic: str, text: str) -> bool:
 async def drain_digest() -> List[dict]:
     """晨報 job 呼叫：取走並清空所有暫存主題條目（Redis + memory，舊→新排序）。"""
     items: List[dict] = []
+    if _is_isolated():
+        items.extend(_memory_buffer)
+        _memory_buffer.clear()
+        return items
     try:
         from app.core.redis_client import get_redis
         redis = await get_redis()

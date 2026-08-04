@@ -479,6 +479,30 @@
 
 ---
 
+## L81 — 換了出口就要換整條鏈：把通知從 A 管道改到 B 管道時，閘門、測試安全網、測試斷言都會留在 A（2026-08-04）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 08-04 覆盤跑 weekly，step 24 報「新增 6 項失敗」。追下去不是 flaky —— 是 08-03 把 5 個 job 由 Telegram 改走 LINE digest 後留下的一整串殘留；其中最嚴重的一項是**測試會把假告警寫進正式的晨報緩衝區**（實測 buffer 內 9 則全是 `job_a`／`DB connection lost`／假日期等測試資料，隔天 07:30 會推給 owner）。 |
+| **Cause** | 「改出口」被當成一個點的修改，實際上牽動四個地方，08-03 只改了第一個：①**呼叫點**（已改）②**閘門**——`llm_quota_check` / `health_check_broadcast` 仍以 `TELEGRAM_ADMIN_CHAT_ID` early-return，等於讓一個已宣告死亡的設定決定 LINE 告警發不發，只因它剛好還有值所以看不出來；③**測試安全網**——conftest 擋的是「送出去」（抽掉 LINE/Telegram token），digest 是「寫進正式 Redis、明早才送」，網從外面繞過去了；④**測試斷言**——仍 patch 舊管道，正向測試變成失敗、**負向測試變成永遠會過**（`assert len(push_calls)==0` 對一個永遠不會被 append 的 list）。另外 08-03 宣告「Telegram 死管道全收斂」實為**只掃了 scheduler.py**，service 層還有 3 處（自我診斷告警／自動結晶通知／週自傳「備援」）通往死管道。 |
+| **Fix** | ①`line_digest_buffer` 加 `LINE_DIGEST_BUFFER_ISOLATED` 隔離旗標（沿用安全網 v3 思路：不替換方法，**拿掉它抵達正式狀態的能力**）+ conftest 預設開啟並在每測試後清 in-memory；②移除兩處死 Telegram 閘門，補回歸鎖 `test_alert_not_gated_by_dead_telegram_env`；③8 支過期測試改斷言 digest，3 支無鑑別力的負向測試改 patch 真出口；④service 層 3 處收斂（自我診斷／結晶通知改走 digest，週自傳的永遠回 False 的 Telegram「備援」直接移除——**一個不會生效的備援比沒有備援更危險**）；⑤正反雙向驗證隔離旗標（開→Redis 不變、關→Redis +1），並精準移除 buffer 內 10 則測試污染（不 drain，保留真實條目）。 |
+| **Prevention** | (a) 改任何通知出口時，把「閘門／安全網／正反向測試」當成同一次修改的一部分，不是後續清理。(b) **負向斷言必須驗鑑別力**——`assert 沒發生` 若掛在一個不可能發生的物件上，它會永遠綠。(c) 收斂「死管道」時搜尋範圍是**行為**不是檔案：`grep` 完 scheduler 還要問「還有誰在呼叫這個管道」。(d) 測試安全網的提問要改成「**這條路徑會不會抵達正式狀態**」，而不是「會不會送出去」。 |
+| **Refs** | `backend/app/services/integration/line_digest_buffer.py`（隔離旗標）/ `backend/tests/conftest.py` v4 安全網 / `backend/tests/unit/test_llm_quota_check.py`、`test_cron_self_health_alert.py` / 同族：v6.37 flaky 測試混入正式 Redis 學習池、v6.41 `WIKI_SUBDIRS` 漏 `rebuild_index`（都掃了檔案沒掃行為） |
+
+---
+
+## L82 — 「還沒到門檻」與「永遠到不了門檻」長得一模一樣：資料深度被保留期釘住，而腳本每次都禮貌地說資料不足（2026-08-04）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 08-02 記「價值層資料深度 15.6/30 天」，08-03 量到 **15.37** —— 數字往回走。查 Prometheus `storageRetention` 為預設 **15d**，而 `capability_usage_snapshot` 的判定門檻是 30 天：深度不是在累積，是被保留期裁齊的。也就是 8/31 的第 6 階價值層判定**結構上永遠不會成立**。 |
+| **Cause** | 兩個獨立設定（觀測棧保留期、判定門檻）分屬不同 repo，沒有任何一處把它們放在一起看。腳本設計上「資料不足即 exit 2 拒絕給結論」是對的紀律，但它讓**永久性阻斷偽裝成暫時性等待** —— 每次執行都給出一個合理、溫和、不需要行動的訊息。 |
+| **Fix** | owner 決議降門檻（`MIN_DATA_DAYS` 30→14）而非動到五系統共用的觀測棧；同時把**代價寫進產出**：14 天深度 + 7 天視窗只涵蓋約兩個週循環、看不到月週期，月結／月報／年度作業必然 0 流量，**不得**據此判死，只能作人工複核線索（`known_blind_spot` 欄位）。實測 `data_sufficient` 由 false 轉 true，79 個零流量 API 進入 8/31 判定候選。 |
+| **Prevention** | 凡是「等資料累積到 N 就判定」的機制，上線時必須同時記錄**資料來源的上限**（保留期／取樣率／視窗），並在門檻 > 上限時直接報錯而不是報「資料不足」。判準：**一個永遠不會變綠的等待，和一個正在進行的等待，訊息必須長得不一樣。** |
+| **Refs** | `scripts/checks/capability_usage_snapshot.py`（MIN_DATA_DAYS 註解記載完整推理）/ `CK_AaaP/platform/observability/docker-compose.yml`（prometheus 未設 retention）/ 同族：fitness `|| true` 恆印全綠、`fitness_weekly` 連 9 週 RED 無人知 |
+
+---
+
 ## L80 — SSO 反覆回歸的底層＝「後端 token 生命週期層」：SSO 沒有可用的透明 refresh 路徑（前端不變式救不了 / 2026-07-21）
 
 | 欄位 | 內容 |

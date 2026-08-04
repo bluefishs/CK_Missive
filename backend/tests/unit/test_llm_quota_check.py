@@ -2,11 +2,11 @@
 """
 LLM quota 預警 scheduler job 測試（scheduler.py:llm_quota_check_job）。
 
-驗證：
-1. Groq 達 80% 閾值時推 Telegram 告警
-2. NVIDIA 達 80% 閾值時推 Telegram 告警
+驗證（出口自 2026-08-03 起為 LINE digest，非 Telegram）：
+1. Groq 達 80% 閾值時 queue 告警
+2. NVIDIA 達 80% 閾值時 queue 告警
 3. 同一 provider 當日內只告警一次（去重 via _LLM_QUOTA_ALERT_FLAGS）
-4. 無 TELEGRAM_ADMIN_CHAT_ID 時跳過
+4. 不再被已死的 TELEGRAM_ADMIN_CHAT_ID 閘住
 5. 未達閾值時不告警
 """
 from __future__ import annotations
@@ -65,8 +65,8 @@ async def test_no_alert_when_below_threshold(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=1500),  # 30% of 5000
     ), patch(
-        "app.services.integration.telegram_bot.get_telegram_bot_service",
-        return_value=MagicMock(push_message=push),
+        "app.services.integration.line_digest_buffer.queue_digest",
+        new=push,
     ):
         from app.core.scheduler import llm_quota_check_job
         await llm_quota_check_job()
@@ -76,7 +76,7 @@ async def test_no_alert_when_below_threshold(mock_tracker, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_alert_when_groq_over_threshold(mock_tracker, monkeypatch):
-    """Groq 80% 達閾值 → 推 Telegram 告警。"""
+    """Groq 80% 達閾值 → queue 進晨報 digest。"""
     monkeypatch.setenv("TELEGRAM_ADMIN_CHAT_ID", "123")
     monkeypatch.setenv("GROQ_DAILY_REQ_LIMIT", "1000")
     monkeypatch.setenv("NVIDIA_MONTHLY_CRED_LIMIT", "5000")
@@ -92,8 +92,8 @@ async def test_alert_when_groq_over_threshold(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=100),  # NVIDIA under threshold
     ), patch(
-        "app.services.integration.telegram_bot.get_telegram_bot_service",
-        return_value=MagicMock(push_message=push),
+        "app.services.integration.line_digest_buffer.queue_digest",
+        new=push,
     ):
         from app.core.scheduler import llm_quota_check_job
         await llm_quota_check_job()
@@ -122,8 +122,8 @@ async def test_alert_when_nvidia_over_threshold(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=4000),  # 80% of 5000
     ), patch(
-        "app.services.integration.telegram_bot.get_telegram_bot_service",
-        return_value=MagicMock(push_message=push),
+        "app.services.integration.line_digest_buffer.queue_digest",
+        new=push,
     ):
         from app.core.scheduler import llm_quota_check_job
         await llm_quota_check_job()
@@ -150,8 +150,8 @@ async def test_dedup_same_day(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=0),
     ), patch(
-        "app.services.integration.telegram_bot.get_telegram_bot_service",
-        return_value=MagicMock(push_message=push),
+        "app.services.integration.line_digest_buffer.queue_digest",
+        new=push,
     ):
         from app.core.scheduler import llm_quota_check_job
         await llm_quota_check_job()
@@ -162,19 +162,35 @@ async def test_dedup_same_day(mock_tracker, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_skip_when_no_admin_chat_id(monkeypatch):
-    """TELEGRAM_ADMIN_CHAT_ID 未設時 early return。"""
+async def test_alert_not_gated_by_dead_telegram_env(mock_tracker, monkeypatch):
+    """回歸鎖（2026-08-04）：告警出口是 LINE digest，就不得再被 Telegram 設定決定。
+
+    原本這支測的是「`TELEGRAM_ADMIN_CHAT_ID` 未設 → early return」。08-03 把出口
+    改成 digest 後那道閘門就成了陷阱：一個已宣告死亡的設定仍在決定 LINE 告警發
+    不發，只因為它剛好還有值所以看不出來。清掉死設定的那天，配額預警會靜默消失。
+    """
     monkeypatch.delenv("TELEGRAM_ADMIN_CHAT_ID", raising=False)
+    monkeypatch.setenv("GROQ_DAILY_REQ_LIMIT", "1000")
+    monkeypatch.setenv("LLM_QUOTA_WARN_PCT", "80")
+
+    mock_tracker.get_usage_report = AsyncMock(return_value=_report(groq_count=900))
     push = AsyncMock()
 
     with patch(
-        "app.services.integration.telegram_bot.get_telegram_bot_service",
-        return_value=MagicMock(push_message=push),
+        "app.services.ai.core.token_usage_tracker.get_token_tracker",
+        return_value=mock_tracker,
+    ), patch(
+        "app.core.scheduler._sum_monthly_count",
+        AsyncMock(return_value=0),
+    ), patch(
+        "app.services.integration.line_digest_buffer.queue_digest",
+        new=push,
     ):
         from app.core.scheduler import llm_quota_check_job
         await llm_quota_check_job()
 
-    push.assert_not_awaited()
+    push.assert_awaited_once()
+    assert "Groq" in push.await_args.args[1]
 
 
 @pytest.mark.asyncio
@@ -199,8 +215,8 @@ async def test_alert_when_cost_over_threshold(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=100),
     ), patch(
-        "app.services.integration.telegram_bot.get_telegram_bot_service",
-        return_value=MagicMock(push_message=push),
+        "app.services.integration.line_digest_buffer.queue_digest",
+        new=push,
     ):
         from app.core.scheduler import llm_quota_check_job
         await llm_quota_check_job()
@@ -232,8 +248,8 @@ async def test_alert_combines_all_dimensions(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=4500),  # NVIDIA 90%
     ), patch(
-        "app.services.integration.telegram_bot.get_telegram_bot_service",
-        return_value=MagicMock(push_message=push),
+        "app.services.integration.line_digest_buffer.queue_digest",
+        new=push,
     ):
         from app.core.scheduler import llm_quota_check_job
         await llm_quota_check_job()
@@ -277,8 +293,8 @@ async def test_alert_when_groq_over_100(mock_tracker, monkeypatch):
         "app.core.scheduler._sum_monthly_count",
         AsyncMock(return_value=0),
     ), patch(
-        "app.services.integration.telegram_bot.get_telegram_bot_service",
-        return_value=MagicMock(push_message=push),
+        "app.services.integration.line_digest_buffer.queue_digest",
+        new=push,
     ):
         from app.core.scheduler import llm_quota_check_job
         await llm_quota_check_job()

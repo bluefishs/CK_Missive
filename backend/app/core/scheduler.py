@@ -2624,14 +2624,14 @@ _HEALTH_ALERT_THRESHOLD = 2  # 連續 2 次（10 分鐘）失敗才告警
 
 @tracked_job("health_check_broadcast")
 async def health_check_broadcast_job():
-    """系統健康檢查 — 每 5 分鐘輪詢，連續 2 次異常才推播 Telegram（去抖動）"""
-    global _HEALTH_FAIL_STREAK
-    import os
-    import httpx
+    """系統健康檢查 — 每 5 分鐘輪詢，連續 2 次異常才告警（去抖動）。
 
-    admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-    if not admin_chat_id:
-        return  # 未設定管理 chat_id，跳過
+    出口自 2026-08-03 起為 LINE digest（Telegram 管道已死）；08-04 一併移除
+    `TELEGRAM_ADMIN_CHAT_ID` 這道殘留閘門 —— 出口換了閘門沒換，等於讓一個已宣告
+    死亡的設定繼續決定健康告警發不發。
+    """
+    global _HEALTH_FAIL_STREAK
+    import httpx
 
     health_url = "http://127.0.0.1:8001/health"
     try:
@@ -2723,10 +2723,10 @@ async def llm_quota_check_job():
       LLM_QUOTA_WARN_PCT          告警閾值百分比（預設 80）
     """
     import os
-    admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-    if not admin_chat_id:
-        return
-
+    # 2026-08-04：移除 `TELEGRAM_ADMIN_CHAT_ID` 這道殘留閘門。
+    # 08-03 已把告警改走 LINE digest，但出口換了、閘門沒換 —— 一個「已宣告死亡」
+    # 的 Telegram env 仍在決定 LINE 告警發不發。目前它剛好有值所以看不出問題，
+    # 一旦有人清掉死設定，配額預警會**靜默消失**且沒有任何訊號。
     groq_daily_limit = int(os.getenv("GROQ_DAILY_REQ_LIMIT", "1000"))
     nvidia_monthly_limit = int(os.getenv("NVIDIA_MONTHLY_CRED_LIMIT", "5000"))
     cost_daily_limit = float(os.getenv("TOKEN_DAILY_COST_USD_LIMIT", "1.00"))
@@ -2825,10 +2825,9 @@ async def memory_weekly_autobiography_job():
             gen = AutobiographyGenerator(db)
             result = await gen.run()
             logger.info(
-                "Weekly Autobiography 完成: %s, queries=%d, soul=%s, tg=%s, line=%s, chars=%d",
+                "Weekly Autobiography 完成: %s, queries=%d, soul=%s, line=%s, chars=%d",
                 result.get("week_id"), result.get("total_queries"),
-                result.get("soul_updated"),
-                result.get("telegram_pushed"), result.get("line_pushed"),
+                result.get("soul_updated"), result.get("line_pushed"),
                 result.get("narrative_chars"),
             )
 

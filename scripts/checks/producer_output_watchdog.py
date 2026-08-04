@@ -373,6 +373,80 @@ def check_file_fresh(spec: dict) -> tuple[str, str]:
     return "RED", f"{age_h:.0f}h 前 > 門檻 {spec['max_h']}h（產出 stale）"
 
 
+def check_json_result(spec: dict) -> tuple[str, str]:
+    """讀輸出 JSON 裡的**結果欄位**，不只看檔案有沒有更新。
+
+    2026-08-04 立案：第 5 階（頁面層）的兩支檢核只登記了 `file_fresh` —— 它證明的
+    是「檢核器有跑」，不是「頁面是健康的」。實測 `ui-sweep.json` 若 `fail` 由 0 變
+    成 25，watchdog 仍然全綠，因為沒有任何人讀那個欄位。這正是本專案反覆立法要
+    治的形態：**機制存在 ≠ 閉環成立 —— 它產出的東西，誰收到了？**
+
+    支援的判準（可組合，全部選用）：
+      path      檔案路徑；含 `*` 時取**最新**一個相符檔（產出帶時戳者用）
+      fail_key  數值或 list，必須為 0 / 空
+      min_key   數值，必須 >= min_value（**必要**：只驗 fail=0 會讓「掃到 0 條」也判綠，
+                設定寫錯與大面積失效長得一模一樣）
+      ok_key    必須為 truthy（布林型產出，如 all_ok）
+      expect    {欄位: 期望值} 完全相等（字串型結論，如 overall="PASS"）
+      skip_key  只印不判（理由已記在 known_limitations 的跳過屬已知，不製造噪音）
+    """
+    import json as _json
+    raw_path = spec["path"]
+    if "*" in raw_path:
+        matches = sorted(ROOT.glob(raw_path), key=lambda f: f.stat().st_mtime, reverse=True)
+        if not matches:
+            return "RED", f"{raw_path} 無相符產出（檢核器沒跑或路徑改了）"
+        p = matches[0]
+    else:
+        p = ROOT / raw_path
+        if not p.exists():
+            return "RED", f"{raw_path} 不存在（檢核器沒產出）"
+    try:
+        d = _json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        return "RED", f"{p.name} 無法解析: {e}"
+
+    def _count(v):
+        return len(v) if isinstance(v, (list, dict)) else int(v or 0)
+
+    parts, reds = [], []
+
+    fail_key = spec.get("fail_key")
+    if fail_key:
+        n = _count(d.get(fail_key))
+        parts.append(f"{fail_key}={n}")
+        if n > 0:
+            reds.append("有失敗項")
+
+    min_key = spec.get("min_key")
+    if min_key:
+        n, lo = _count(d.get(min_key)), spec.get("min_value", 0)
+        parts.append(f"{min_key}={n}(≥{lo})")
+        if n < lo:
+            reds.append("通過數低於下限（設定錯或大面積失效都長這樣）")
+
+    ok_key = spec.get("ok_key")
+    if ok_key:
+        v = d.get(ok_key)
+        parts.append(f"{ok_key}={v}")
+        if not v:
+            reds.append(f"{ok_key} 非真")
+
+    for k, want in (spec.get("expect") or {}).items():
+        got = d.get(k)
+        parts.append(f"{k}={got}")
+        if got != want:
+            reds.append(f"{k} 應為 {want}")
+
+    if spec.get("skip_key") is not None:
+        parts.append(f"{spec['skip_key']}={d.get(spec['skip_key'])}")
+
+    detail = " ".join(parts)
+    if reds:
+        return "RED", f"{detail} — {'；'.join(reds)}，看 {p.name}"
+    return "GREEN", detail
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true")
@@ -382,7 +456,8 @@ def main() -> int:
     print(f"Producer 產出自我檢核 watchdog（沉默成功偵測 · 標準化架構）{'· 週末' if IS_WEEKEND else ''}")
     print("=" * 70)
     checkers = {"db_table_today": check_db_table_today, "cron_detail": check_cron_detail,
-                "file_fresh": check_file_fresh, "db_row_count": check_db_row_count}
+                "file_fresh": check_file_fresh, "db_row_count": check_db_row_count,
+                "json_result": check_json_result}
     anomalies = []
     skipped: list[tuple[str, str]] = []
     for spec in PRODUCER_OUTCOME_REGISTRY:

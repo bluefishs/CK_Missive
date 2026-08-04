@@ -8,7 +8,7 @@
 2. generate_narrative - LLM 第一人稱寫 200-400 字
 3. validate_narrative - 品質閘
 4. persist_autobiography - 寫 wiki/memory/evolutions/YYYY-WNN.md
-5. push_to_telegram - Telegram 通知
+5. push_to_line - LINE 週成長卡片（唯一出口；Telegram 備援 2026-08-04 移除）
 6. update_soul_growth - SOUL.md 成長段落自動追加（agent_writable）
 
 延續今天早上晨報 narrative 的設計血脈。
@@ -499,26 +499,10 @@ tags: [memory, autobiography, evolution]
                 e, exc_info=True,
             )
 
-    # ────────── Telegram ──────────
-
-    async def push_to_telegram(self, signals: WeekSignals, narrative: str) -> bool:
-        admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-        if not admin_chat_id:
-            return False
-        try:
-            from app.services.integration.telegram_bot import get_telegram_bot_service
-            msg = (
-                f"📖 *Agent 週自傳 {signals.week_id}*\n\n"
-                f"{narrative}\n\n"
-                f"───\n"
-                f"本週 {signals.total_queries} 筆查詢 | 成功率 {signals.success_rate:.0%} | "
-                f"結晶 {signals.crystals_count} 個"
-            )
-            await get_telegram_bot_service().push_message(int(admin_chat_id), msg[:4000])
-            return True
-        except Exception as e:
-            logger.warning("Autobiography Telegram push failed: %s", e)
-            return False
+    # ────────── 推播 ──────────
+    # 2026-08-04：移除 push_to_telegram。它自 Telegram 個人號封禁後就一直回 False，
+    # 卻仍被記載為「備援通道」——一個永遠不會生效的備援比沒有備援更危險，因為
+    # 它讓人以為主通道掛了還有人會收到。週自傳的實際出口只有下面這條 LINE。
 
     async def push_to_line(self, signals: WeekSignals, narrative: str) -> bool:
         """v6.3 體感型輸出：每週日 18:00 推週成長卡片到 LINE owner。
@@ -577,8 +561,7 @@ tags: [memory, autobiography, evolution]
         # v5.17 Gap 5: 4 信念演化 propose（累積 4 週觀察才觸發，archetypal safety）
         belief_proposal_id = await self._propose_belief_evolution_if_signal(signals)
 
-        # v6.3：雙通道推送（LINE 為主，Telegram 為備援）— ADR-0027
-        tg_pushed = await self.push_to_telegram(signals, narrative)
+        # 唯一出口＝LINE（Telegram 備援已於 2026-08-04 移除，見上方註解）
         line_pushed = await self.push_to_line(signals, narrative)
 
         return {
@@ -586,7 +569,6 @@ tags: [memory, autobiography, evolution]
             "path": str(path),
             "soul_updated": soul_updated,
             "belief_proposal_id": belief_proposal_id,
-            "telegram_pushed": tg_pushed,
             "line_pushed": line_pushed,
             "total_queries": signals.total_queries,
             "narrative_chars": len(narrative),

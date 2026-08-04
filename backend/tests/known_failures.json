@@ -16,8 +16,6 @@
     "tests/unit/test_auth_service.py::TestAutoActivation::test_should_auto_activate_true",
     "tests/unit/test_auth_service.py::TestDefaultRole::test_get_default_user_role",
     "tests/unit/test_auth_service.py::TestDomainWhitelist::test_check_email_domain_not_in_whitelist",
-    "tests/unit/test_cron_self_health_alert.py::test_alert_pushes_when_failed_jobs_exist",
-    "tests/unit/test_cron_self_health_alert.py::test_alert_pushes_when_majority_never_run",
     "tests/unit/test_morning_report_meetings.py::TestSummaryIncludesMeetingSections::test_meetings_and_site_visits_in_summary",
     "tests/unit/test_pattern_extractor.py::test_crystallization_candidate_flag",
     "tests/unit/test_pattern_extractor.py::test_get_defensive_rules_block_empty",

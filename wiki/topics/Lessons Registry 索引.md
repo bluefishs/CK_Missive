@@ -10,7 +10,7 @@ confidence: high
 # Lessons Registry 索引
 
 **統計來源**: docs/architecture/LESSONS_REGISTRY.md
-**編譯時間**: 2026-07-27 05:00
+**編譯時間**: 2026-08-03 09:57
 **Lessons 總數**: 69
 
 | ID | Lesson Title |

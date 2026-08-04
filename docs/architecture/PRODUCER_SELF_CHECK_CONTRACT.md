@@ -36,6 +36,17 @@ job 報 success 但實際沒產出，失敗隱形直到人看到症狀。**根�
 | `cron_detail` | job 回傳 `{output_count, reason}` 者 | kg_embedding embedded>0 |
 | `file_fresh` | 產出檔案的 producer | 晨報/覆盤/週報檔新鮮？ |
 | `db_row_count` | 維護**持久資料集**的 producer（抓「非零但塌陷」——非零檢查會漏） | 程式圖譜關係 ≥5000（健康~9670/塌陷85）？ |
+| `json_result` | 產出**結果 JSON** 的檢核型 producer（讀結果欄位，抓「有跑但結果是紅的」） | ui-sweep.json `fail=0` 且 `pass≥60`？ |
+
+> `json_result` 立法背景（2026-08-04）：第 5 階頁面檢核（`ui_flow_smoke` / `ui_page_sweep`）
+> 只登記了 `file_fresh` —— 它證明的是「**檢核器有跑**」，不是「**頁面是健康的**」。
+> 實測 `ui-sweep.json` 的 `fail` 由 0 變成 25，watchdog 仍會全綠，因為沒有任何人讀那個欄位；
+> 「檢核跑了 → 結果沒人收」正是本專案反覆治理的形態（機制存在 ≠ 閉環成立）。
+> spec：`{"signal":"json_result","path":"...","fail_key":"fail","min_key":"pass","min_value":N,"skip_key":"skip"}`。
+> **`min_key` 是必要的**：只驗 `fail=0` 會讓「掃到 0 條路由」也判綠 —— 設定寫錯與大面積失效長得一模一樣。
+> `skip_key` 只印不判（已在 `known_limitations` 記錄理由的跳過屬已知，不製造噪音）。
+>
+> 推論規則：**凡是產出結果檔的 producer，`file_fresh` 一律不得單獨使用**，必須搭配結果型信號。
 
 > `db_row_count` 立法背景（2026-07-20）：程式圖譜關係曾被每日 ingest job 靜默洗成僅 FK（9669→85），85 非零 → 前三種信號皆綠＝漏抓。當 producer 維護「應維持一定規模的資料集」（非每日增量）時用 `min` 閾值驗，抓塌陷/被洗類降級。spec：`{"signal":"db_row_count","table":"X","where":"...","min":N}`。
 

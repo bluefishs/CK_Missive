@@ -10,7 +10,7 @@ confidence: high
 # SOUL 演化史
 
 **統計來源**: wiki/SOUL.md「我的成長」段落
-**編譯時間**: 2026-07-27 05:00
+**編譯時間**: 2026-08-03 09:57
 **SOUL.md 總行數**: 193
 **H3 演化事件數**: 0
 **Bullet entries**: 10
@@ -19,6 +19,7 @@ confidence: high
 
 <!-- agent_writable: true | 由 weekly_autobiography_job 自動追加，保留最新 10 筆 -->
 
+- **2026-W31** (2026-07-27 ~ 2026-08-02): Aaron， (queries=188, success=79%)
 - **2026-W30** (2026-07-20 ~ 2026-07-26): Aaron， (queries=199, success=79%)
 - **2026-W29** (2026-07-13 ~ 2026-07-19): Aaron， (queries=199, success=84%)
 - **2026-W28** (2026-07-06 ~ 2026-07-12): Aaron， (queries=186, success=80%)
@@ -28,4 +29,3 @@ confidence: high
 - **2026-W24** (2026-06-08 ~ 2026-06-14): Aaron， (queries=199, success=66%)
 - **2026-W23** (2026-06-01 ~ 2026-06-07): Aaron， (queries=175, success=49%)
 - **2026-W22** (2026-05-25 ~ 2026-05-31): Aaron， (queries=37, success=57%)
-- **2026-W21** (2026-05-18 ~ 2026-05-24): Aaron， (queries=91, success=46%)

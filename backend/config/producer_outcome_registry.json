@@ -1,5 +1,5 @@
 {
-  "_doc": "Producer 產出自我檢核 SSOT（單一 registry，host watchdog + in-container cron 共讀，避免兩份漂移）。契約見 docs/architecture/PRODUCER_SELF_CHECK_CONTRACT.md。signal: db_table_today | cron_detail | file_fresh | db_row_count（min 閾值，抓非零但塌陷）。新增 producer 加一筆。",
+  "_doc": "Producer 產出自我檢核 SSOT（單一 registry，host watchdog + in-container cron 共讀，避免兩份漂移）。契約見 docs/architecture/PRODUCER_SELF_CHECK_CONTRACT.md。signal: db_table_today | cron_detail | file_fresh | db_row_count（min 閾值，抓非零但塌陷） | json_result（讀輸出 JSON 的結果欄位，抓「跑了但結果是紅的」）。新增 producer 加一筆。",
   "producers": [
     {
       "name": "程式圖譜關係",
@@ -188,6 +188,45 @@
       "key": "pages",
       "ok_zero_reasons": [],
       "_why": "2026-08-03：原在 NON_PRODUCER 豁免清單，其 alerts 只 logger.warning、推播走已失效的 Telegram —— wiki 漂移沒有任何人會看到。改走 line_digest_buffer 並回 detail 後納管。key 用 pages：wiki 不可能 0 頁，為 0 即代表掃描路徑失效。"
+    },
+    {
+      "name": "UI 流程檢核結果",
+      "signal": "json_result",
+      "path": "wiki/memory/integration-health/ui-flow.json",
+      "fail_key": "fail",
+      "min_key": "pass",
+      "min_value": 8,
+      "skip_key": "skip",
+      "_why": "2026-08-04：原本只登記 file_fresh —— 那證明的是「檢核器有跑」，不是「頁面是健康的」。實測若 fail 由 0 變 25，watchdog 仍然全綠，因為沒有任何人讀那個欄位。min_pass 同時擋住「掃到 0 條也叫綠」（設定錯與大面積失效長得一樣）。"
+    },
+    {
+      "name": "全站頁面掃描結果",
+      "signal": "json_result",
+      "path": "wiki/memory/integration-health/ui-sweep.json",
+      "fail_key": "fail",
+      "min_key": "pass",
+      "min_value": 60,
+      "skip_key": "skip",
+      "_why": "2026-08-04：原本只登記 file_fresh —— 那證明的是「檢核器有跑」，不是「頁面是健康的」。實測若 fail 由 0 變 25，watchdog 仍然全綠，因為沒有任何人讀那個欄位。min_pass 同時擋住「掃到 0 條也叫綠」（設定錯與大面積失效長得一樣）。"
+    },
+    {
+      "name": "CF Tunnel 驗證結果",
+      "signal": "json_result",
+      "path": "wiki/memory/integration-health/cf-tunnel-verify.json",
+      "expect": {
+        "overall": "PASS"
+      },
+      "min_key": "passed",
+      "min_value": 7,
+      "_why": "2026-08-04：同型補齊 —— 產出結果檔的 producer 只登記 file_fresh 等於只問「有沒有跑」。依契約新規：凡產出結果檔者，file_fresh 一律不得單獨使用。"
+    },
+    {
+      "name": "整合健康E2E結果",
+      "signal": "json_result",
+      "path": "wiki/memory/integration-health/integration-health-*.json",
+      "ok_key": "all_ok",
+      "fail_key": "broken_chains",
+      "_why": "2026-08-04：同型補齊 —— 產出結果檔的 producer 只登記 file_fresh 等於只問「有沒有跑」。依契約新規：凡產出結果檔者，file_fresh 一律不得單獨使用。 路徑帶時戳→取最新一份。"
     }
   ]
 }

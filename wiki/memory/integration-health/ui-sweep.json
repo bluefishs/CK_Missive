@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-01T20:35:17.931Z",
+ "checked_at": "2026-08-03T20:36:04.536Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 86,
  "fail": 0,
@@ -11,5 +11,91 @@
    "reason": "未配置 GITHUB_TOKEN（部署歷史功能未啟用）— 補 token 即可解除"
   }
  ],
- "failures": []
+ "failures": [],
+ "mobile_probe": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "rows": [
+   {
+    "route": "/erp/expenses",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/quotations",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/ledger",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/assets",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/operational",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/financial-dashboard",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/vendor-accounts",
+    "pageOverflow": 7,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/client-accounts",
+    "pageOverflow": 7,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/documents",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/contract-cases",
+    "pageOverflow": 7,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/taoyuan/dispatch",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/calendar",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/kunge/ops",
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   }
+  ]
+ }
 }

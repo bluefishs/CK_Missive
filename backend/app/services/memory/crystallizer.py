@@ -233,22 +233,22 @@ class Crystallizer:
     async def _notify_auto_apply(
         proposal: CrystalProposal, confidence: float, crystal_id: Optional[str],
     ) -> None:
-        """Best-effort 推通知（Telegram/LINE 任一即可）。失敗只 log。"""
+        """Best-effort 通知：queue 進晨報 digest。失敗只 log。
+
+        2026-08-04：原走 Telegram 死管道（401 + 推播開關 false）→ 自動套用結晶
+        這種**會改到 SOUL/規則檔的動作**通知不到任何人，rollback 期限 7 天也就
+        沒人知道。改走既有 digest（零額外配額）。
+        """
         try:
             msg = (
-                f"🔮 自動結晶通知\n"
                 f"proposal={proposal.proposal_id[:30]}\n"
                 f"crystal={crystal_id}\n"
                 f"confidence={confidence:.2f}\n"
                 f"target={proposal.target_file}\n"
                 f"如需 rollback 請於 7 天內：crystal_applier rollback {crystal_id}"
             )
-            tg_chat = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-            if tg_chat:
-                from app.services.integration.telegram_bot import get_telegram_bot_service
-                tg = get_telegram_bot_service()
-                if tg.enabled:
-                    await tg.send_message(int(tg_chat), msg)
+            from app.services.integration.line_digest_buffer import queue_digest
+            await queue_digest("🔮 自動結晶", msg)
         except Exception as e:
             logger.debug("Auto-apply notify failed (non-critical): %s", e)
 

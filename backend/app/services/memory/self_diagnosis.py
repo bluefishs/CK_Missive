@@ -298,33 +298,27 @@ class SelfDiagnosis:
             return None
 
     async def push_alert_if_needed(self, result: Dict[str, Any]) -> bool:
-        """若有 alert，push Telegram。"""
+        """若有 alert，queue 進晨報 digest。
+
+        2026-08-04：原走 Telegram（token 實測 401 + `TELEGRAM_ADMIN_PUSH_ENABLED=false`
+        兩層都送不出去）＝坤哥的自我診斷告警**沒有任何接收者**。08-03 收斂 Telegram
+        死管道時只掃了 `scheduler.py`，service 層這 3 處漏掉（同 v6.41 `WIKI_SUBDIRS`
+        漏 `rebuild_index` 的形態：掃了檔案，沒掃行為）。
+        """
         if not result.get("alerts"):
             return False
 
         try:
-            tg_chat = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-            if not tg_chat:
-                return False
-
-            from app.services.integration.telegram_bot import get_telegram_bot_service
-            tg = get_telegram_bot_service()
-            if not tg.enabled:
-                return False
-
             today = datetime.now(TZ_TAIPEI).date()
-            msg_lines = [
-                f"🩺 坤哥自我診斷 {today.isoformat()}",
-                "",
-                "發現異常：",
-            ]
+            msg_lines = [f"{today.isoformat()} 發現異常："]
             for alert in result["alerts"]:
                 msg_lines.append(f"⚠️ {alert}")
             msg = "\n".join(msg_lines)
 
-            ok = await tg.send_message(int(tg_chat), msg, parse_mode="")
+            from app.services.integration.line_digest_buffer import queue_digest
+            ok = await queue_digest("🩺 坤哥自我診斷", msg)
             if ok:
-                logger.info("Self-diagnosis alert pushed to Telegram")
+                logger.info("Self-diagnosis alert queued to morning digest")
             return ok
         except Exception as e:
             logger.warning("Self-diagnosis push failed: %s", e)
