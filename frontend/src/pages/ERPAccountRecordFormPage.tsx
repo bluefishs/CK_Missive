@@ -19,7 +19,8 @@
  */
 
 import React, { useEffect, useMemo } from 'react';
-import { Form, Input, InputNumber, DatePicker, Select, App } from 'antd';
+import { Form, Input, InputNumber, DatePicker, Select, App, Button, Popconfirm } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -50,6 +51,7 @@ const ERPAccountRecordFormPage: React.FC = () => {
   const paymentLabel = isReceivable ? '收款' : '付款';
   const listEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_LIST : ERP_ENDPOINTS.VENDOR_PAYABLES_LIST;
   const createEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_CREATE : ERP_ENDPOINTS.VENDOR_PAYABLES_CREATE;
+  const deleteEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_DELETE : ERP_ENDPOINTS.VENDOR_PAYABLES_DELETE;
   const updateEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_UPDATE : ERP_ENDPOINTS.VENDOR_PAYABLES_UPDATE;
   const queryKey = useMemo(
     () => (isReceivable ? ['erp-billings', qid] : ['erp-vendor-payables', qid]),
@@ -119,6 +121,13 @@ const ERPAccountRecordFormPage: React.FC = () => {
     onError: () => message.error(isEdit ? '更新失敗' : '新增失敗'),
   });
 
+  // 端點與原本表格操作欄用的是同一支（deleteEndpoint），避免「換了入口也換了行為」。
+  const deleteMutation = useMutation({
+    mutationFn: () => apiClient.post(deleteEndpoint, { id: rid }),
+    onSuccess: () => { message.success('已刪除'); invalidate(); backToQuotation(); },
+    onError: () => message.error('刪除失敗'),
+  });
+
   const handleSubmit = async () => {
     let values;
     try {
@@ -162,6 +171,17 @@ const ERPAccountRecordFormPage: React.FC = () => {
       submitText={isEdit ? '儲存變更' : `新增${dirLabel}`}
       loading={isEdit && isLoading}
       notFoundMessage={isEdit && !isLoading && !record ? `找不到這筆${dirLabel}紀錄（可能已被刪除）。` : undefined}
+      /* 刪除原本在報價頁的表格操作欄。該欄依「詳情頁 tab 只呈現不操作」移除後，
+         刪除若不搬到這裡就沒有任何入口了。 */
+      headerExtra={isEdit ? (
+        <Popconfirm
+          title={`確定刪除這筆${dirLabel}紀錄？`}
+          okText="刪除" cancelText="取消"
+          onConfirm={() => deleteMutation.mutate()}
+        >
+          <Button danger icon={<DeleteOutlined />} loading={deleteMutation.isPending}>刪除</Button>
+        </Popconfirm>
+      ) : undefined}
     >
       <Form
         form={form}

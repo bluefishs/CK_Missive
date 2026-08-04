@@ -36,6 +36,10 @@ export interface ErpFormPageShellProps {
   notFoundMessage?: string;
   /** 返回鍵文字（桌面版），手機一律顯示「返回」 */
   backText?: string;
+  /** 標題列右側的額外操作（如編輯模式下的「刪除」）。
+      2026-08-04：來源詳情頁的表格操作欄移除後，刪除這類動作需要有地方安放，
+      比照 DetailPageLayout 的 header 放法 —— 操作在標題列，不在列表列。 */
+  headerExtra?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -49,6 +53,7 @@ export const ErpFormPageShell: React.FC<ErpFormPageShellProps> = ({
   loading = false,
   notFoundMessage,
   backText = '返回',
+  headerExtra,
   children,
 }) => {
   const { isMobile } = useResponsive();
@@ -89,7 +94,8 @@ export const ErpFormPageShell: React.FC<ErpFormPageShellProps> = ({
         >
           {isMobile ? '返回' : backText}
         </Button>
-        <Title level={isMobile ? 5 : 4} style={{ margin: 0 }}>{title}</Title>
+        <Title level={isMobile ? 5 : 4} style={{ margin: 0, flex: 1 }}>{title}</Title>
+        {headerExtra}
       </div>
 
       <Card size={isMobile ? 'small' : 'default'} styles={{ body: { padding: isMobile ? 12 : 24 } }}>

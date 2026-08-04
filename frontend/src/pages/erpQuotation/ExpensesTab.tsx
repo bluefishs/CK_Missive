@@ -1,25 +1,26 @@
 /**
- * ERP Quotation「費用核銷」Tab — 完整 CRUD
+ * ERP Quotation「費用核銷」Tab — 只呈現，不操作
  *
- * 用 case_code 查詢 expense_invoices，含新增/編輯/刪除/審核操作。
+ * 用 case_code 查詢 expense_invoices。
+ *
+ * 2026-08-04（owner：詳情頁應參照 /documents/:id 的整體設計）：
+ * 移除原本的「操作」欄（每列 檢視/編輯/審核/駁回/刪除，一畫面 19 顆按鈕）。
+ * 參照頁的 tab 內容只有資料，所有狀態變更都在 header —— 這裡改為
+ * **點列進 /erp/expenses/:id**，操作在那一頁的 header 完成。
+ * 搬移前已把該頁缺少的「刪除」補上，並把「編輯」條件由 pending 放寬為
+ * pending/rejected，與原欄位一致，確保沒有任何入口消失。
  */
 import React from 'react';
 import {
   Tag, Empty, Button, Typography, Row, Col,
-  Statistic, Card, Space, Popconfirm, App,
+  Statistic, Card,
 } from 'antd';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
-import {
-  PlusOutlined, EditOutlined, DeleteOutlined,
-  CheckCircleOutlined, CloseCircleOutlined, EyeOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
-import {
-  useApproveExpense, useRejectExpense, useDeleteExpense,
-} from '../../hooks';
 import { ROUTES } from '../../router/types';
 import type { ColumnsType } from 'antd/es/table';
 // 2026-07-31 SSOT：型別由 types/erp 統一，對應後端 CaseFinanceResponse
@@ -44,10 +45,6 @@ interface Props {
 
 const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
   const navigate = useNavigate();
-  const { message } = App.useApp();
-  const approveMutation = useApproveExpense();
-  const rejectMutation = useRejectExpense();
-  const deleteMutation = useDeleteExpense();
 
   const { data, isLoading } = useQuery<CaseFinanceData>({
     queryKey: ['case-finance-expenses', caseCode],
@@ -64,30 +61,6 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
   const expenseRecords = (data?.records ?? []).filter(r => r.type === 'expense');
   const summary = data?.summary;
 
-  const handleApprove = (id: number) => {
-    approveMutation.mutate(id, {
-      onSuccess: () => message.success('審核通過'),
-      onError: () => message.error('審核失敗'),
-    });
-  };
-
-  const handleReject = (id: number) => {
-    rejectMutation.mutate({ id, reason: '' }, {
-      onSuccess: () => message.success('已駁回'),
-      onError: () => message.error('駁回失敗'),
-    });
-  };
-
-  const handleDelete = (id: number) => {
-    deleteMutation.mutate(id, {
-      onSuccess: () => message.success('已刪除'),
-      onError: (err: unknown) => {
-        const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        message.error(detail || '刪除失敗');
-      },
-    });
-  };
-
   const columns: ColumnsType<FinanceRecord> = [
     { title: '發票號碼', dataIndex: 'description', key: 'inv', width: 140 },
     { title: '日期', dataIndex: 'date', key: 'date', width: 110 },
@@ -101,52 +74,6 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
       render: (v: string) => {
         const cfg = STATUS_MAP[v] ?? { label: v, color: 'default' };
         return <Tag color={cfg.color}>{cfg.label}</Tag>;
-      },
-    },
-    {
-      title: '操作', key: 'actions', width: 220,
-      render: (_: unknown, record: FinanceRecord) => {
-        const canEdit = ['pending', 'rejected'].includes(record.status);
-        const canApprove = !['verified', 'rejected'].includes(record.status);
-        return (
-          <Space size="small">
-            {/* 2026-07-31（owner 回報「依然無法點擊檢視」）：
-                「檢視」必須**無條件**提供 —— 原本只有 canEdit（pending/rejected）才給「編輯」，
-                已核准（verified）的紀錄整列沒有任何可點的東西 → 看得到卻進不去。
-                07-30 修的是 pmCase/ExpensesTab（同名不同檔），此檔漏修＝改錯檔家族再現。 */}
-            <Button type="link" size="small" icon={<EyeOutlined />}
-              onClick={() => navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(record.id)))}
-            >
-              檢視
-            </Button>
-            {canEdit && (
-              <Button type="link" size="small" icon={<EditOutlined />}
-                onClick={() => navigate(`${ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(record.id))}`)}
-              >
-                編輯
-              </Button>
-            )}
-            {canApprove && (
-              <Button type="link" size="small" icon={<CheckCircleOutlined />}
-                style={{ color: '#52c41a' }}
-                onClick={() => handleApprove(record.id)}
-                loading={approveMutation.isPending}
-              >
-                審核
-              </Button>
-            )}
-            {canApprove && (
-              <Popconfirm title="確定駁回？" onConfirm={() => handleReject(record.id)} okText="駁回" cancelText="取消">
-                <Button type="link" size="small" icon={<CloseCircleOutlined />} danger>駁回</Button>
-              </Popconfirm>
-            )}
-            {canEdit && (
-              <Popconfirm title="確定刪除此筆費用？" onConfirm={() => handleDelete(record.id)} okText="刪除" cancelText="取消">
-                <Button type="link" size="small" icon={<DeleteOutlined />} danger>刪除</Button>
-              </Popconfirm>
-            )}
-          </Space>
-        );
       },
     },
   ];
@@ -190,9 +117,8 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
       ) : (
         <EnhancedTable<FinanceRecord>
           onRow={(row: FinanceRecord) => ({
-            // 點整列即進核銷詳情（與 pmCase/ExpensesTab 一致）；
-            // 操作欄的按鈕自行 stopPropagation 由 antd Button 預設行為處理不到，
-            // 故以 target 判斷：點在按鈕/彈窗上時不觸發列導向。
+            // 點整列即進核銷詳情。操作欄已移除，理論上列上不再有按鈕，
+            // 但保留 target 判斷作為防護（日後若有人加回列內元件不會立刻壞掉）。
             onClick: (e: React.MouseEvent) => {
               const el = e.target as HTMLElement;
               if (el.closest('button') || el.closest('.ant-popover')) return;

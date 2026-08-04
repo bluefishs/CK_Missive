@@ -46,6 +46,16 @@ const SHOT_DIR = CONFIG.output && CONFIG.output.shots_dir
   : path.resolve(ROOT, 'docs', 'health', 'ui_flow_smoke_shots');
 const HEADED = process.argv.includes('--headed');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').split('=')[1];
+// 2026-08-04：`--only=` 打錯名字時原本會篩出 0 條，然後照樣印「GREEN 全部 0 項通過」。
+// 這是「掃到 0 條卻報全綠」的同一種假綠（標準 §5.5 A-4 已就 routes 修過一次，
+// 這裡是 flows 版本，漏修）。篩不到任何一條 = 參數錯，不是全部通過。
+function assertOnlyMatches(checks) {
+  if (!ONLY) return;
+  if (checks.some((c) => c.id === ONLY)) return;
+  console.error(`✗ --only=${ONLY} 沒有對應的流程（可用：${checks.map((c) => c.id).join(', ')}）`);
+  console.error('  篩不到任何流程代表參數寫錯，不等於全部通過。');
+  process.exit(2);
+}
 
 // console error 雜訊過濾（比照 sso_entry_smoke）
 const NOISE_RE = [
@@ -84,7 +94,16 @@ async function runSteps(page, ctx, steps) {
         break;
       case 'assertCount': {
         const n = await page.locator(st.selector).count();
-        if (n < (st.min ?? 1)) return { fail: `${st.failMsg}（找到 ${n}）` };
+        // 2026-08-04 補 max：原本只支援 min，且 min 預設 1 ——
+        // 想斷言「這個東西不該存在」時寫 max:0 會被忽略、退回 min:1，
+        // 於是**元素不存在反而判失敗**（判定整個反過來）。
+        // 有了 max 才能表達「不得出現」這類規範。
+        if (st.min !== undefined || st.max === undefined) {
+          if (n < (st.min ?? 1)) return { fail: `${st.failMsg}（找到 ${n}）` };
+        }
+        if (st.max !== undefined && n > st.max) {
+          return { fail: `${st.failMsg}（找到 ${n}，上限 ${st.max}）` };
+        }
         break;
       }
       case 'assertTextAbsent':
@@ -128,6 +147,7 @@ async function main() {
   fs.mkdirSync(SHOT_DIR, { recursive: true });
 
   const cookieHeader = process.env.COOKIE || '';
+  assertOnlyMatches(CHECKS);
   const browser = await chromium.launch({ executablePath: EXE, headless: !HEADED });
   const results = [];
 

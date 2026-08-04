@@ -15,10 +15,10 @@ import { EnhancedTable } from '../components/common/EnhancedTable';
 import {
   CheckCircleOutlined, CloseCircleOutlined, EditOutlined, SaveOutlined, CloseOutlined,
   UploadOutlined, FileImageOutlined, InfoCircleOutlined, UnorderedListOutlined, CloudSyncOutlined,
-  DatabaseOutlined, CameraOutlined,
+  DatabaseOutlined, CameraOutlined, DeleteOutlined,
 } from '@ant-design/icons';
-import { useParams } from 'react-router-dom';
-import { useExpenseDetail, useApproveExpense, useRejectExpense, useUpdateExpense, useUploadExpenseReceipt, useAuthGuard, useAutoLinkEinvoice, useAssetsByInvoice } from '../hooks';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useExpenseDetail, useApproveExpense, useRejectExpense, useUpdateExpense, useUploadExpenseReceipt, useAuthGuard, useAutoLinkEinvoice, useAssetsByInvoice, useDeleteExpense } from '../hooks';
 import { expensesApi } from '../api/erp';
 import type { ExpenseInvoiceItem } from '../types/erp';
 import { EXPENSE_STATUS_LABELS, EXPENSE_STATUS_COLORS, EXPENSE_SOURCE_LABELS, EXPENSE_CATEGORY_OPTIONS, CURRENCY_SYMBOLS, APPROVAL_THRESHOLD } from '../types/erp';
@@ -30,6 +30,7 @@ import { createTabItem } from '../components/common/DetailPage/utils';
 
 const ERPExpenseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { hasPermission } = useAuthGuard();
   const { message } = App.useApp();
   const canApprove = hasPermission('projects:write');
@@ -39,6 +40,7 @@ const ERPExpenseDetailPage: React.FC = () => {
   const updateMutation = useUpdateExpense();
   const uploadReceiptMutation = useUploadExpenseReceipt();
   const autoLinkMutation = useAutoLinkEinvoice();
+  const deleteMutation = useDeleteExpense();
   const { data: linkedAssets } = useAssetsByInvoice(data?.data?.id ?? null);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -69,7 +71,10 @@ const ERPExpenseDetailPage: React.FC = () => {
   }
 
   const status = (invoice?.status ?? 'pending') as keyof typeof EXPENSE_STATUS_LABELS;
-  const canEdit = invoice?.status === 'pending';
+  // 2026-08-04：由 'pending' 放寬為 pending/rejected，與原本報價頁表格的操作欄一致。
+  // 那個欄位被移除後，這裡若維持較窄的條件，**已駁回的紀錄就再也沒有修改入口**
+  // ——駁回的用意正是請人改完再送。
+  const canEdit = !!invoice && ['pending', 'rejected'].includes(invoice.status);
   const canAdvance = canApprove && invoice && !['verified', 'rejected'].includes(invoice.status);
   const approveLabel: Record<string, string> = {
     pending: '主管核准', manager_approved: (invoice?.amount ?? 0) > APPROVAL_THRESHOLD ? '財務核准' : '最終核准',
@@ -88,6 +93,16 @@ const ERPExpenseDetailPage: React.FC = () => {
   const handleReject = async () => {
     if (!invoice) return;
     try { await rejectMutation.mutateAsync({ id: invoice.id }); message.success('已駁回'); } catch { message.error('駁回失敗'); }
+  };
+  const handleDelete = async () => {
+    if (!invoice) return;
+    try {
+      await deleteMutation.mutateAsync(invoice.id);
+      message.success('已刪除');
+      navigate(ROUTES.ERP_EXPENSES);
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : '刪除失敗');
+    }
   };
   const handleSave = async () => {
     if (!invoice) return;
@@ -134,6 +149,13 @@ const ERPExpenseDetailPage: React.FC = () => {
               <Button danger icon={<CloseCircleOutlined />} loading={rejectMutation.isPending}>駁回</Button>
             </Popconfirm>
           </>
+        )}
+        {/* 刪除原本只在報價頁的表格操作欄裡。操作欄移除後若不補在這裡，
+            這筆紀錄就沒有任何刪除入口了（條件與原欄位相同：pending/rejected）。 */}
+        {canEdit && (
+          <Popconfirm title="確定刪除此筆費用？" okText="刪除" cancelText="取消" onConfirm={handleDelete}>
+            <Button danger icon={<DeleteOutlined />} loading={deleteMutation.isPending}>刪除</Button>
+          </Popconfirm>
         )}
       </>
     ),

@@ -72,6 +72,10 @@ const ERPExpenseCreatePage: React.FC = () => {
   const [attrType, setAttrType] = useState<'project' | 'operational' | 'none'>(urlCaseCode ? 'project' : 'none');
   const [voucherType, setVoucherType] = useState<VoucherType>('invoice');
   const [mobileStep, setMobileStep] = useState(0);
+  // 手機端把「憑證類型」與「備註」收進更多（預設收合、一鍵展開，兩者都仍可填）。
+  // 不是刪欄位 —— 核銷資料僅 9 筆，不足以用分佈當隱藏依據；這是版面取捨：
+  // 憑證類型絕大多數情況維持預設值、備註可事後在詳情頁補，兩者都不必佔開頭的位置。
+  const [showMoreFields, setShowMoreFields] = useState(false);
   // 批次連續建立（2026-07-31）：以 ref 記住本次送出要不要留在頁面，
   // 避免用 state 造成 submit 與狀態更新的時序競態。
   const continueRef = React.useRef(false);
@@ -275,9 +279,11 @@ const ERPExpenseCreatePage: React.FC = () => {
     <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ currency: 'TWD', source: 'manual', case_code: urlCaseCode || undefined }}>
       {mobileScanSummary}
       <Form.Item name="source" hidden><Input /></Form.Item>
-      <Form.Item label="憑證類型">
-        <Select value={voucherType} size={ctrlSize} onChange={(v) => { setVoucherType(v); if (v !== 'invoice') form.setFieldValue('inv_num', ''); }} options={VOUCHER_TYPE_OPTIONS} />
-      </Form.Item>
+      {(!isMobile || showMoreFields) && (
+        <Form.Item label="憑證類型">
+          <Select value={voucherType} size={ctrlSize} onChange={(v) => { setVoucherType(v); if (v !== 'invoice') form.setFieldValue('inv_num', ''); }} options={VOUCHER_TYPE_OPTIONS} />
+        </Form.Item>
+      )}
       <Row gutter={12}>
         <Col xs={24} sm={12}>
           <Form.Item name="inv_num" label={voucherType === 'invoice' ? '發票號碼' : '憑證編號'}
@@ -397,7 +403,15 @@ const ERPExpenseCreatePage: React.FC = () => {
           </Col>
         </Row>
       )}
-      <Form.Item name="notes" label="備註"><Input.TextArea rows={isMobile ? 1 : 2} maxLength={500} size={ctrlSize} /></Form.Item>
+      {(!isMobile || showMoreFields) && (
+        <Form.Item name="notes" label="備註"><Input.TextArea rows={isMobile ? 1 : 2} maxLength={500} size={ctrlSize} /></Form.Item>
+      )}
+      {isMobile && !showMoreFields && (
+        <Button type="link" size="small" style={{ paddingLeft: 0, marginBottom: 8 }}
+          onClick={() => setShowMoreFields(true)}>
+          更多欄位（憑證類型、備註）
+        </Button>
+      )}
       {isMobile && <Form.Item name="currency" hidden initialValue="TWD"><Input /></Form.Item>}
 
       <div style={{ display: 'flex', gap: 8, flexDirection: isMobile ? 'column' : 'row' }}>

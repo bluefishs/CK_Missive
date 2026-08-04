@@ -108,9 +108,9 @@
     },
     {
       "id": "quotation-expense",
-      "name": "報價「費用核銷」列可點入（owner 回報兩次）",
+      "name": "報價「費用核銷」列可點入詳情，且 tab 內不得有狀態變更操作",
       "auth": true,
-      "url": "/erp/quotations/167",
+      "url": "/erp/quotations/168",
       "steps": [
         {
           "action": "clickText",
@@ -118,13 +118,31 @@
         },
         {
           "action": "wait",
-          "ms": 2000
+          "ms": 2500
+        },
+        {
+          "action": "assertTextAbsent",
+          "text": "駁回",
+          "failMsg": "費用核銷 tab 又出現列內狀態變更操作（規範：操作應在 /erp/expenses/:id 的 header）"
+        },
+        {
+          "action": "click",
+          "selector": ".ant-table-tbody tr.ant-table-row"
+        },
+        {
+          "action": "wait",
+          "ms": 2500
+        },
+        {
+          "action": "assertUrlMatches",
+          "pattern": "/erp/expenses/\\d+",
+          "failMsg": "點列沒有進到核銷詳情頁（操作欄移除後這是唯一入口）"
         },
         {
           "action": "assertCount",
-          "selector": "button:has-text(\"檢視\")",
+          "selector": "button:has-text(\"駁回\"), button:has-text(\"核准\")",
           "min": 1,
-          "failMsg": "沒有任何「檢視」按鈕（已核准紀錄將無法點入）"
+          "failMsg": "核銷詳情頁 header 沒有審核操作（操作沒有真的搬過來）"
         }
       ]
     },
@@ -421,6 +439,46 @@
             "進化史"
           ],
           "failMsg": "原有的進化史內容不見了（總覽不該取代既有內容）"
+        }
+      ]
+    },
+    {
+      "id": "detail-page-no-action-column",
+      "name": "詳情頁 tab 不得有「操作」欄（規範參照 /documents/:id）",
+      "auth": true,
+      "url": "/erp/quotations/168",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "clickText",
+          "text": "應收帳款"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assertCount",
+          "selector": "th:has-text(\"操作\")",
+          "max": 0,
+          "failMsg": "應收帳款 tab 出現「操作」欄（應改為點列進填報頁）"
+        },
+        {
+          "action": "clickText",
+          "text": "費用核銷"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assertCount",
+          "selector": "th:has-text(\"操作\")",
+          "max": 0,
+          "failMsg": "費用核銷 tab 出現「操作」欄（應改為點列進 /erp/expenses/:id）"
         }
       ]
     }

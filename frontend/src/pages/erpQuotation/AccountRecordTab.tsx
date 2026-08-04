@@ -7,21 +7,22 @@
  * 2026-08-02：新增／編輯改為獨立路由頁 `ERPAccountRecordFormPage`（owner：ERP 填報
  * 參考公文設計、減少彈跳視窗）。原 04-05 的豁免理由（欄位少＋緊耦合＋導頁會失去
  * tab 狀態）在**桌面**成立，但未把行動情境納入考慮；返回時已帶 `?tab=` 保留分頁。
- * 刪除仍用 Popconfirm（就地確認，不需要一整頁）。
+ * 2026-08-04：操作欄移除（詳情頁 tab 只呈現不操作，比照 /documents/:id）——
+ * 點列進填報頁，編輯與刪除都在那一頁的標題列。
  *
  * @version 2.0.0
  * @date 2026-08-02
  */
 import React from 'react';
 import {
-  Button, Space, Tag, Popconfirm, App, Card, Statistic, Row, Col,
+  Button, Tag, Card, Statistic, Row, Col,
 } from 'antd';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
 
 import type { ResponsiveColumn } from '../../components/common/EnhancedTable';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
 import { ROUTES } from '../../router/types';
@@ -96,8 +97,6 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   erpQuotationId,
   direction,
 }) => {
-  const { message } = App.useApp();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
 
@@ -106,7 +105,6 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   const counterpartyLabel = isReceivable ? '委託單位' : '協力廠商';
   const paymentLabel = isReceivable ? '收款' : '付款';
   const listEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_LIST : ERP_ENDPOINTS.VENDOR_PAYABLES_LIST;
-  const deleteEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_DELETE : ERP_ENDPOINTS.VENDOR_PAYABLES_DELETE;
   const queryKey = isReceivable ? ['erp-billings', erpQuotationId] : ['erp-vendor-payables', erpQuotationId];
 
   // 查詢
@@ -124,18 +122,6 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   const totalPaid = records.reduce((s, r) => s + (r.payment_amount || 0), 0);
   const outstanding = totalRequest - totalPaid;
 
-  // 刪除仍就地處理（Popconfirm）；新增／編輯已改為導向獨立填報頁
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiClient.post(deleteEndpoint, { id }),
-    onSuccess: () => { message.success('已刪除'); invalidate(); },
-  });
-
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey });
-    queryClient.invalidateQueries({ queryKey: ['erp-quotations'] });
-    // Also invalidate the specific quotation detail (cost structure depends on billing/payable data)
-    queryClient.invalidateQueries({ queryKey: ['erp-quotations', 'detail'] });
-  };
 
   const goCreate = () =>
     navigate(
@@ -163,17 +149,6 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
       render: (s: string) => <Tag color={STATUS_COLORS[s] || 'default'}>{STATUS_LABELS[s] || s}</Tag> },
     { title: `${paymentLabel}日期`, dataIndex: 'payment_date', width: 110, hideOnMobile: true },
     { title: `${paymentLabel}金額`, dataIndex: 'payment_amount', width: 110, align: 'right', render: (v) => v?.toLocaleString() || '-' },
-    {
-      title: '操作', width: 100, align: 'center',
-      render: (_, record) => (
-        <Space size="small">
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => goEdit(record.id)} />
-          <Popconfirm title="確認刪除？" onConfirm={() => deleteMutation.mutate(record.id)}>
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
-    },
   ];
 
 
@@ -194,6 +169,11 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
         columns={columns}
         dataSource={records}
         rowKey="id"
+        onRow={(row: AccountRecord) => ({
+          // 2026-08-04：操作欄移除後改為點列進填報頁（編輯／刪除都在那一頁的標題列）。
+          onClick: () => goEdit(row.id),
+          style: { cursor: 'pointer' },
+        })}
         loading={isLoading}
         size="small"
         pagination={{ pageSize: 10, showTotal: (t) => `共 ${t} 筆` }}
