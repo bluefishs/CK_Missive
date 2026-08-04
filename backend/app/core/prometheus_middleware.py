@@ -34,6 +34,47 @@ from prometheus_client import (
 
 logger = logging.getLogger(__name__)
 
+# 未匹配任何路由時的統一標籤（掃描器/打錯的路徑不得各佔一條 series）
+UNMATCHED_PATH_LABEL = "<unmatched>"
+
+
+def _route_template(scope: Scope, raw_path: str) -> str:
+    """把 `/api/documents-enhanced/2645/detail` 還原成 `/api/documents-enhanced/{doc_id}/detail`。
+
+    2026-08-04 立案。原本 `path` 標籤直接用 `scope["path"]`＝**原始 URL**，造成兩個問題：
+
+    1. **基數無上限**：每一份公文、每一張派工單各佔一條 time series，
+       隨業務量單調成長（實測 16467 series，Prometheus 記憶體上限 512M）。
+    2. **價值層判定失效**：零流量清單裡塞的是 `/documents-enhanced/2645/detail` 這種
+       **實例路徑** —— 它是 0 只代表「這 7 天沒人開 2645 這份公文」，
+       完全無法回答「公文詳情這個能力還有沒有人用」。08-04 首次拿出 79 個候選時，
+       裡面近半是這種實例路徑，**清單本身不可採信**（標準 §3：先驗鑑別力）。
+
+    Starlette 0.52 不提供 `scope["route"]`，但 Router 匹配後會把 `path_params`
+    寫進 scope。以**整段比對**還原樣板（避免參數值剛好等於某個靜態片段的子字串）。
+    """
+    params = scope.get("path_params") or {}
+    if not params:
+        # 沒有 path_params 有兩種情況：無參數的路由（正常），或根本沒匹配到（404）。
+        # 後者若照原樣記錄，掃描器打一次就多一條 series。
+        return raw_path if scope.get("endpoint") is not None else UNMATCHED_PATH_LABEL
+    # `:path` 型參數（如 SPA catch-all 的 `{spa_path:path}`）的值會**跨多個片段**，
+    # 整段比對接不住 —— 實測 `/api/documents-enhanced/880/detail` 的 404 是被 catch-all
+    # 接走的，若不處理就會照原樣記錄，等於基數問題原封不動。這類值長且獨特，
+    # 用一次性字串取代是安全的；其餘仍走整段比對。
+    multi = {str(v): k for k, v in params.items() if "/" in str(v)}
+    single = {str(v): k for k, v in params.items() if "/" not in str(v)}
+    templated = raw_path
+    for value, name in multi.items():
+        templated = templated.replace(value, "{%s}" % name, 1)
+    if not single:
+        return templated
+    return "/".join(
+        "{%s}" % single[seg] if seg in single else seg
+        for seg in templated.split("/")
+    )
+
+
 # 指標名稱常數 (供測試 registry lookup)
 REQUEST_COUNT_METRIC = "http_requests_total"
 REQUEST_DURATION_METRIC = "http_request_duration_seconds"
@@ -93,6 +134,8 @@ class PrometheusMiddleware:
 
         method = scope.get("method", "UNKNOWN")
         status_code = "500"  # default in case of unhandled error
+        # 路由樣板要在 downstream 跑完之後才拿得到（Starlette 在 Router 匹配時才把
+        # endpoint/path_params 寫進 scope），所以標籤在 finally 區塊才組。
 
         self.active_requests.inc()
         start = time.perf_counter()
@@ -108,11 +151,12 @@ class PrometheusMiddleware:
         finally:
             duration = time.perf_counter() - start
             self.active_requests.dec()
+            path_label = _route_template(scope, path)
             self.request_count.labels(
-                method=method, path=path, status_code=status_code,
+                method=method, path=path_label, status_code=status_code,
             ).inc()
             self.request_duration.labels(
-                method=method, path=path, status_code=status_code,
+                method=method, path=path_label, status_code=status_code,
             ).observe(duration)
 
 

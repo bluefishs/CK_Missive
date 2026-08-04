@@ -76,6 +76,9 @@ WINDOW_DAYS = 7
 MIN_DATA_DAYS = 14
 DECISION_DATE = "2026-08-31"
 
+# `path` 標籤改記路由樣板（而非原始 URL）的日期。見下方 schema_settled 說明。
+PATH_LABEL_TEMPLATED_SINCE = datetime(2026, 8, 4, tzinfo=timezone.utc)
+
 ROOT = Path(__file__).resolve().parents[1]
 OUT_PATH = ROOT.parent / "wiki" / "memory" / "integration-health" / "capability-usage.json"
 
@@ -225,7 +228,16 @@ def main() -> int:
     page_routes_zero = sorted(e for e in unexempt if not e.startswith("/api/"))
 
     # depth < 0 代表取不到深度（未知），與「資料不足」都不得視為足夠
-    sufficient = depth >= MIN_DATA_DAYS
+    #
+    # 2026-08-04 追加第二道門檻：**量測基準變更日**。
+    # 首次拿出 79 個候選時，裡面近半是 `/documents-enhanced/2645/detail` 這種**實例路徑**
+    # ——因為 `path` 標籤記的是原始 URL 而不是路由樣板。這種項目為 0 只代表
+    # 「這 7 天沒人開 2645 這份公文」，回答不了「這個能力還有沒有人用」，
+    # 清單整份不可採信（標準 §3：先驗鑑別力）。middleware 已於當日改記路由樣板，
+    # 但 [7d] 視窗要完全落在改版後才乾淨，否則新舊兩種標籤會混在同一份清單裡。
+    days_since_schema = (datetime.now(timezone.utc) - PATH_LABEL_TEMPLATED_SINCE).days
+    schema_settled = days_since_schema >= WINDOW_DAYS
+    sufficient = depth >= MIN_DATA_DAYS and schema_settled
     snapshot = {
         "captured_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "prometheus": PROM_URL,
@@ -235,6 +247,9 @@ def main() -> int:
         "data_depth_days": round(depth, 2),
         "data_sufficient": sufficient,
         "min_data_days": MIN_DATA_DAYS,
+        "path_label_templated_since": PATH_LABEL_TEMPLATED_SINCE.date().isoformat(),
+        "days_since_path_label_change": days_since_schema,
+        "schema_settled": schema_settled,
         "decision_date": DECISION_DATE,
         "counts": {
             "endpoints_seen": len(seen),
@@ -251,6 +266,9 @@ def main() -> int:
         "caveat": (
             "本快照僅為資料收集。data_sufficient=false 時不得據此判定任何能力為 dead；"
             f"判定時點為 {DECISION_DATE}。"
+            f"⚠️ path 標籤自 {PATH_LABEL_TEMPLATED_SINCE.date()} 起改記路由樣板（原為原始 URL，"
+            f"使清單充滿 /documents-enhanced/2645/detail 這種實例路徑而不可採信）；"
+            f"[{WINDOW_DAYS}d] 視窗需完全落在改版後才乾淨。"
             f"⚠️ 觀測深度上限受 Prometheus 保留期（15d）約束，門檻 2026-08-04 由 30 降為 "
             f"{MIN_DATA_DAYS} 天：{WINDOW_DAYS} 日視窗只涵蓋約兩個週循環、看不到月週期，"
             "月結/月報/年度作業必然為 0 流量，**不得**據此判為死功能，只能作人工複核線索。"
@@ -280,7 +298,17 @@ def main() -> int:
 
     if not sufficient:
         if not quiet:
-            print(f"\n⚪ 資料不足（{depth:.1f}/{MIN_DATA_DAYS} 天）—— 僅供觀察，本次不下任何結論。")
+            # 兩道門檻的原因必須分開講 —— 混成一句「資料不足」會讓人以為只要再等
+            # 深度就會夠，而實際卡住的可能是量測基準剛換（等的天數不一樣）。
+            print("\n⚪ 尚不可判定 —— 僅供觀察，本次不下任何結論。")
+            if depth < MIN_DATA_DAYS:
+                print(f"   • 資料深度 {depth:.1f}/{MIN_DATA_DAYS} 天（受 Prometheus 保留期上限約束）")
+            if not schema_settled:
+                ready = PATH_LABEL_TEMPLATED_SINCE.date().toordinal() + WINDOW_DAYS
+                print(f"   • path 標籤 {PATH_LABEL_TEMPLATED_SINCE.date()} 改記路由樣板，"
+                      f"已過 {days_since_schema}/{WINDOW_DAYS} 天")
+                print(f"     （在此之前清單會混入改版前的實例路徑，不可採信；"
+                      f"預計 {datetime.fromordinal(ready).date()} 起乾淨）")
             print(f"   判定時點：{DECISION_DATE}")
         return 2
 

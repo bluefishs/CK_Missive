@@ -1,68 +1,71 @@
 {
-  "captured_at": "2026-08-04T03:02:44+00:00",
+  "captured_at": "2026-08-04T05:56:11+00:00",
   "prometheus": "http://127.0.0.1:19090",
   "job": "ck-missive",
   "path_label": "path",
   "window_days": 7,
-  "data_depth_days": 15.63,
-  "data_sufficient": true,
+  "data_depth_days": 15.75,
+  "data_sufficient": false,
   "min_data_days": 14,
+  "path_label_templated_since": "2026-08-04",
+  "days_since_path_label_change": 0,
+  "schema_settled": false,
   "decision_date": "2026-08-31",
   "counts": {
-    "endpoints_seen": 1545,
-    "active": 595,
+    "endpoints_seen": 1555,
+    "active": 600,
     "zero_traffic_exempt": 2,
-    "zero_traffic_api_candidates": 79,
-    "zero_traffic_page_routes": 869
+    "zero_traffic_api_candidates": 82,
+    "zero_traffic_page_routes": 871
   },
   "top_active": [
     [
       "/api/health",
-      14192.713803557335
+      14875.545673550301
     ],
     [
       "/api/system-notifications/unread-count",
-      1128.0743330900243
+      1133.0717086310494
     ],
     [
       "/api/ai/config",
-      1067.065091008275
+      1068.0970115360162
     ],
     [
       "/api/secure-site-management/csrf-token",
-      1026.062607269024
+      1028.0934120854158
     ],
     [
       "/api/auth/me",
-      926.0565130590767
+      926.084158865764
     ],
     [
       "/api/taoyuan-dispatch/dispatch/contract-projects",
-      923.0563299714123
+      924.0839770971555
     ],
     [
       "/api/auth/check",
-      918.0918070997226
+      919.091739030714
     ],
     [
       "/api/secure-site-management/navigation/action",
-      917.0563988407046
+      918.0838071257853
     ],
     [
       "/api/auth/sso-bridge",
-      387.01989140561454
+      398.02773519163765
     ],
     [
       "/login",
-      283.0180709812392
+      283.0273245148209
     ],
     [
       "/api/projects/list",
-      101.0064435702231
+      101.00973587815692
     ],
     [
       "/api/documents-enhanced/list",
-      79.00518392845866
+      80.00799440391725
     ],
     [
       "/api/ai/agent/query",
@@ -70,7 +73,7 @@
     ],
     [
       "/api/users/list",
-      65.0061136192626
+      66.00620475698035
     ],
     [
       "/api/erp/quotations/case-code-map",
@@ -111,6 +114,7 @@
     "/api/documents-enhanced/2684/update",
     "/api/documents-enhanced/880/detail",
     "/api/documents-enhanced/create",
+    "/api/documents-enhanced/{document_id}/update",
     "/api/erp/expenses/approve",
     "/api/files/1531/download",
     "/api/files/1542/download",
@@ -123,6 +127,7 @@
     "/api/project-notifications",
     "/api/project-staff/project/24/list",
     "/api/project-vendors/project/13/list",
+    "/api/project-vendors/project/{project_id}/list",
     "/api/redoc",
     "/api/system-notifications/list",
     "/api/system/review-dashboard",
@@ -144,6 +149,7 @@
     "/api/taoyuan-dispatch/dispatch/181/detail",
     "/api/taoyuan-dispatch/dispatch/187/attachments/list",
     "/api/taoyuan-dispatch/dispatch/187/detail",
+    "/api/taoyuan-dispatch/dispatch/{dispatch_id}/detail",
     "/api/taoyuan-dispatch/document/2645/dispatch-links",
     "/api/taoyuan-dispatch/document/2645/project-links",
     "/api/taoyuan-dispatch/document/2672/dispatch-links",
@@ -1027,7 +1033,9 @@
     "/robots.txt",
     "/taoyuan/dispatch/1",
     "/taoyuan/dispatch/157",
-    "/this-route-does-not-exist-negative-test"
+    "/this-route-does-not-exist-negative-test",
+    "/wp-admin/nope.php",
+    "/{spa_path}"
   ],
   "exempt": [
     {
@@ -1039,6 +1047,6 @@
       "reason": "OpenAPI 文件"
     }
   ],
-  "caveat": "本快照僅為資料收集。data_sufficient=false 時不得據此判定任何能力為 dead；判定時點為 2026-08-31。⚠️ 觀測深度上限受 Prometheus 保留期（15d）約束，門檻 2026-08-04 由 30 降為 14 天：7 日視窗只涵蓋約兩個週循環、看不到月週期，月結/月報/年度作業必然為 0 流量，**不得**據此判為死功能，只能作人工複核線索。",
+  "caveat": "本快照僅為資料收集。data_sufficient=false 時不得據此判定任何能力為 dead；判定時點為 2026-08-31。⚠️ path 標籤自 2026-08-04 起改記路由樣板（原為原始 URL，使清單充滿 /documents-enhanced/2645/detail 這種實例路徑而不可採信）；[7d] 視窗需完全落在改版後才乾淨。⚠️ 觀測深度上限受 Prometheus 保留期（15d）約束，門檻 2026-08-04 由 30 降為 14 天：7 日視窗只涵蓋約兩個週循環、看不到月週期，月結/月報/年度作業必然為 0 流量，**不得**據此判為死功能，只能作人工複核線索。",
   "known_blind_spot": "monthly_and_seasonal_cycles"
 }

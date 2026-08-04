@@ -27,7 +27,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 
-WIKI_MEMORY = Path(os.getenv("CK_WIKI_DIR", "/app/wiki")) / "memory"
+# 2026-08-04：預設值原本寫死容器路徑 `/app/wiki`。在 host 上 Windows 會把它解析成
+# **磁碟根目錄下的 app/wiki 目錄**（磁碟相對路徑）—— 於是 host 執行時產出
+# 靜靜寫進一個沒人讀的雜散目錄，而消費端（producer registry）讀的是 repo 內的路徑。
+# 已累積 7 月以來的殘留。改用 **repo 相對路徑**：容器內腳本在 `/app/scripts/checks/`
+# → parents[2] = `/app`，host 上 → repo 根，兩邊都對（L52 家族）。
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+WIKI_MEMORY = Path(os.getenv("CK_WIKI_DIR") or (_REPO_ROOT / "wiki")) / "memory"
 EVOLUTIONS_DIR = WIKI_MEMORY / "evolutions"
 
 

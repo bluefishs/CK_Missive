@@ -34,7 +34,13 @@ from pathlib import Path
 from typing import Any, Dict
 
 
-WIKI_MEMORY = Path(os.getenv("CK_WIKI_DIR", "/app/wiki")) / "memory"
+# 2026-08-04：預設值原本寫死容器路徑 `/app/wiki`。在 host 上 Windows 會把它解析成
+# **磁碟根目錄下的 app/wiki 目錄**（磁碟相對路徑）—— 於是 host 執行時產出
+# 靜靜寫進一個沒人讀的雜散目錄，而消費端（producer registry）讀的是 repo 內的路徑。
+# 已累積 7 月以來的殘留。改用 **repo 相對路徑**：容器內腳本在 `/app/scripts/checks/`
+# → parents[2] = `/app`，host 上 → repo 根，兩邊都對（L52 家族）。
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+WIKI_MEMORY = Path(os.getenv("CK_WIKI_DIR") or (_REPO_ROOT / "wiki")) / "memory"
 HEALTH_DIR = WIKI_MEMORY / "integration-health"
 
 
@@ -193,7 +199,34 @@ def write_health_report(results: Dict[str, Dict[str, Any]]) -> Path:
         "chains": results,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    _prune_old_reports()
     return path
+
+
+# 保留天數：夠回答「最近有沒有斷過鏈」，又不讓目錄無上限成長。
+# 2026-08-04：這個目錄自 05-31 起累積 167 個檔、從未清理過 —— 產出有保留策略
+# 才算完整，否則就是另一種「產出沒有下游」（只是換成佔空間的形式）。
+REPORT_RETENTION_DAYS = 30
+
+
+def _prune_old_reports() -> int:
+    """刪掉超過保留期的歷史報告，回傳刪除數。
+
+    刻意**只清自己產生的檔名樣式**（`integration-health-*.json`）——
+    同一目錄下還有 `ui-sweep.json` / `capability-usage.json` 等別人的產出，
+    用萬用字元清整個目錄會誤刪（刪除型操作不得靠「大概不會有別的檔」）。
+    """
+    import time
+    cutoff = time.time() - REPORT_RETENTION_DAYS * 86400
+    removed = 0
+    for f in HEALTH_DIR.glob("integration-health-*.json"):
+        try:
+            if f.stat().st_mtime < cutoff:
+                f.unlink()
+                removed += 1
+        except OSError:
+            continue  # 檔案被別的程序持有就跳過，下一輪再清
+    return removed
 
 
 async def main() -> int:
