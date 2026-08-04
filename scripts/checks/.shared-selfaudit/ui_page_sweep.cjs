@@ -124,6 +124,14 @@ async function main() {
     try {
       await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
       await page.waitForTimeout(2200);
+      // 等網路靜下來再往下判定（2026-08-04）。
+      // 少了這一步，仍在飛的請求會在 `page.close()` 時被中止，閘道記為
+      // `Incoming request ended abruptly: context canceled`、瀏覽器 console 則看到 502
+      // → **掃描自己製造 FAIL**（實測 /pm/cases/create 被判失敗，同一路由直打連 3 次皆 200；
+      // 來源是 QueryProvider 的全域 prefetch 還沒回來就換頁）。
+      // 這層現在更要緊：fail>0 已接上 producer 告警，假 FAIL 會變成假告警。
+      // 逾時就算了（catch）——網路一直不靜是頁面自己的事，交給下面的檢查判。
+      await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
 
       if (/\/entry|\/login/.test(page.url())) {
         skipped.push(`${route} → 被導回登入頁`);

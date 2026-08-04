@@ -190,7 +190,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </AntLayout>
 
       {/* AI 助理浮動按鈕（公文圖譜頁有內嵌面板，不顯示浮動按鈕） */}
-      <AIAssistantButton visible={!location.pathname.startsWith('/ai/knowledge-graph')} />
+      {/* 手機端的填報頁不顯示浮動助理鈕。
+          它是 `position: fixed; right:24; bottom:24`，在 390px 寬的畫面上會壓在
+          **當下捲動位置的表單控制項**上 —— 實測核銷建立頁：停在頂端時蓋住「費用分類」
+          （必填 Select 的下拉箭頭），捲到底時蓋住「返回掃描」。桌面版不受影響
+          （版面寬、控制項不到最右緣）。填報中途要問助理的情境罕見，離開表單即恢復。 */}
+      <AIAssistantButton
+        visible={
+          !location.pathname.startsWith('/ai/knowledge-graph')
+          && !(isMobile && /\/(create|edit)(\/|$)/.test(location.pathname))
+        }
+      />
     </>
   );
 };

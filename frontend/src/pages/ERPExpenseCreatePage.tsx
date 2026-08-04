@@ -45,6 +45,9 @@ const ERPExpenseCreatePage: React.FC = () => {
   const { data: mofData } = useEInvoicePendingList({ skip: 0, limit: 50 });
   const mofInvoices = (mofData as { items?: Array<{ id: number; inv_num: string; date: string; amount: number; seller_ban?: string; status: string }> })?.items ?? [];
   const { isMobile } = useResponsive();
+  // 手機端控制項放大到 40px：實測這頁的輸入框/下拉高度只有 22–32px（AntD 預設 size），
+  // 用滑鼠沒問題，用拇指就很容易點歪。桌面維持原尺寸不動。
+  const ctrlSize = isMobile ? 'large' as const : 'middle' as const;
 
   // Multi-currency auto-calculation
   const watchCaseCode = Form.useWatch('case_code', form);
@@ -273,26 +276,48 @@ const ERPExpenseCreatePage: React.FC = () => {
       {mobileScanSummary}
       <Form.Item name="source" hidden><Input /></Form.Item>
       <Form.Item label="憑證類型">
-        <Select value={voucherType} onChange={(v) => { setVoucherType(v); if (v !== 'invoice') form.setFieldValue('inv_num', ''); }} options={VOUCHER_TYPE_OPTIONS} />
+        <Select value={voucherType} size={ctrlSize} onChange={(v) => { setVoucherType(v); if (v !== 'invoice') form.setFieldValue('inv_num', ''); }} options={VOUCHER_TYPE_OPTIONS} />
       </Form.Item>
       <Row gutter={12}>
         <Col xs={24} sm={12}>
           <Form.Item name="inv_num" label={voucherType === 'invoice' ? '發票號碼' : '憑證編號'}
             rules={[{ required: voucherType === 'invoice', message: '請輸入發票號碼' }, ...(voucherType === 'invoice' ? [{ pattern: /^[A-Z]{2}\d{8}$/, message: '格式: AB12345678' }] : [])]}
-            extra={voucherType !== 'invoice' ? '選填，留空自動產生' : undefined}>
-            <Input placeholder={voucherType === 'invoice' ? 'AB12345678' : '選填'} maxLength={voucherType === 'invoice' ? 10 : 50} />
+            extra={voucherType !== 'invoice' ? '選填，留空自動產生' : undefined}
+            /* 用 normalize 而非 onChange+setFieldValue：後者改得了值卻不會重跑驗證，
+               實測會留下「值已是 AB12345678、欄位仍紅字報格式錯誤」的過期錯誤。
+               normalize 在值進入 form store 前就轉換，驗證看到的就是轉換後的值。 */
+            normalize={(v) => (voucherType === 'invoice' && typeof v === 'string' ? v.toUpperCase() : v)}>
+            {/* 發票號碼規則是 ^[A-Z]{2}\d{8}$ —— 手機打前兩碼字母得先按 shift，
+                打成小寫還會被驗證擋下。改為輸入時自動轉大寫（桌面同樣受惠）。 */}
+            <Input
+              placeholder={voucherType === 'invoice' ? 'AB12345678' : '選填'}
+              maxLength={voucherType === 'invoice' ? 10 : 50}
+              size={ctrlSize}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+            />
           </Form.Item>
         </Col>
         <Col xs={24} sm={12}>
           <Form.Item name="date" label="開立日期" rules={[{ required: true }]}>
-            <DatePicker style={{ width: '100%' }} />
+            {/* 刻意**不預設今天**：這是財務憑證的日期，猜錯而使用者沒發現就是髒資料。
+                改為給一鍵捷徑 —— 省掉點日曆的功夫，但仍是使用者明確選的。 */}
+            <DatePicker
+              style={{ width: '100%' }} size={ctrlSize} inputReadOnly={isMobile}
+              presets={[
+                { label: '今天', value: dayjs() },
+                { label: '昨天', value: dayjs().add(-1, 'd') },
+              ]}
+            />
           </Form.Item>
         </Col>
       </Row>
       <Row gutter={12}>
         <Col xs={24} sm={12}>
           <Form.Item name="amount" label="含稅總額" rules={[{ required: true }]}>
-            <InputNumber style={{ width: '100%' }} min={0} prefix="NT$"
+            {/* inputMode 缺席時手機跳的是全鍵盤而不是數字鍵盤（實測 inputmode 為空）。 */}
+            <InputNumber style={{ width: '100%' }} min={0} prefix="NT$" size={ctrlSize} inputMode="decimal"
               formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(v) => Number(v!.replace(/,/g, '')) as unknown as 0} />
           </Form.Item>
@@ -318,13 +343,13 @@ const ERPExpenseCreatePage: React.FC = () => {
 
       <Divider style={{ margin: '8px 0 16px' }}>核銷歸屬</Divider>
       <Form.Item label="歸屬類型">
-        <Segmented block size={isMobile ? 'middle' : 'large'} value={attrType}
+        <Segmented block size="large" value={attrType}
           onChange={(v) => { setAttrType(v as typeof attrType); if (v === 'none') form.setFieldValue('case_code', undefined); }}
           options={[{ value: 'project', label: '專案費用' }, { value: 'operational', label: '營運費用' }, { value: 'none', label: '未歸屬' }]} />
       </Form.Item>
       {attrType === 'project' && (
         <Form.Item name="case_code" label="關聯案件" extra={isMobile ? undefined : '已成案顯示成案編號，最近使用的排前面'}>
-          <Select showSearch allowClear optionFilterProp="label"
+          <Select showSearch allowClear optionFilterProp="label" size={ctrlSize}
             placeholder={isMobile ? '搜尋案件名稱或編號' : '選擇案件'}
             options={caseOptions}
             listHeight={isMobile ? 200 : 256}
@@ -344,7 +369,7 @@ const ERPExpenseCreatePage: React.FC = () => {
       <Row gutter={12}>
         <Col xs={24} sm={12}>
           <Form.Item name="category" label="費用分類" rules={[{ required: true, message: '請選擇分類' }]}>
-            <Select placeholder="選擇分類" options={EXPENSE_CATEGORY_OPTIONS} />
+            <Select placeholder="選擇分類" size={ctrlSize} options={EXPENSE_CATEGORY_OPTIONS} />
           </Form.Item>
         </Col>
         {!isMobile && <Col sm={6}><Form.Item name="currency" label="幣別"><Select options={CURRENCY_OPTIONS} /></Form.Item></Col>}
@@ -372,7 +397,7 @@ const ERPExpenseCreatePage: React.FC = () => {
           </Col>
         </Row>
       )}
-      <Form.Item name="notes" label="備註"><Input.TextArea rows={isMobile ? 1 : 2} maxLength={500} /></Form.Item>
+      <Form.Item name="notes" label="備註"><Input.TextArea rows={isMobile ? 1 : 2} maxLength={500} size={ctrlSize} /></Form.Item>
       {isMobile && <Form.Item name="currency" hidden initialValue="TWD"><Input /></Form.Item>}
 
       <div style={{ display: 'flex', gap: 8, flexDirection: isMobile ? 'column' : 'row' }}>
@@ -386,7 +411,11 @@ const ERPExpenseCreatePage: React.FC = () => {
           onClick={() => { continueRef.current = true; }}>
           建立並繼續掃下一張
         </Button>
-        {isMobile && mobileStep === 1 && <Button block onClick={() => setMobileStep(0)}>返回掃描</Button>}
+        {/* 「返回掃描」原為第三個全寬大按鈕（約 48px）。它是三個動作裡最次要的，
+            且捲到底時正好被浮動助理鈕蓋住 → 降級為文字連結，版面少一整列。 */}
+        {isMobile && mobileStep === 1 && (
+          <Button type="link" onClick={() => setMobileStep(0)} style={{ alignSelf: 'center' }}>返回掃描</Button>
+        )}
         {!isMobile && <Button onClick={() => navigate(ROUTES.ERP_EXPENSES)}>取消</Button>}
       </div>
     </Form>
