@@ -7,27 +7,9 @@
 
 import React, { useState } from 'react';
 import {
-  Card,
-  Table,
-  Button,
-  Space,
-  Tag,
-  Typography,
-  Row,
-  Col,
-  Statistic,
-  Modal,
-  Form,
-  Select,
-  InputNumber,
-  DatePicker,
-  Popconfirm,
-  Tooltip,
-  Empty,
-  Input,
-  Divider,
-  App,
+  Card, Button, Space, Tag, Typography, Row, Col, Statistic, Modal, Form, Select, InputNumber, DatePicker, Popconfirm, Tooltip, Empty, Input, Divider, App,
 } from 'antd';
+import { EnhancedTable, type ResponsiveColumn } from '../../../components/common/EnhancedTable';
 import {
   ShopOutlined,
   PlusOutlined,
@@ -36,7 +18,6 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import type { VendorsTabProps, VendorAssociation } from './types';
 import { VENDOR_ROLE_OPTIONS } from './constants';
 import { parseCurrencyInput } from '../../../utils/format';
@@ -97,7 +78,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
     }
   };
 
-  const columns: ColumnsType<VendorAssociation> = [
+  const columns: ResponsiveColumn<VendorAssociation>[] = [
     {
       title: '廠商資訊',
       key: 'vendor_info',
@@ -109,7 +90,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
       ),
     },
     {
-      title: '業務類別',
+      title: '業務類別', hideOnMobile: true,
       dataIndex: 'role',
       key: 'role',
       width: 140,
@@ -157,7 +138,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
       render: (amount) => <Text>NT$ {formatAmount(amount)}</Text>,
     },
     {
-      title: '合作期間',
+      title: '合作期間', hideOnMobile: true,
       key: 'period',
       render: (_, record) => (
         <Space vertical size="small">
@@ -167,7 +148,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
       ),
     },
     {
-      title: '狀態',
+      title: '狀態', hideOnMobile: true,
       dataIndex: 'status',
       key: 'status',
       render: (status) => (
@@ -235,7 +216,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
         </Row>
 
         {vendorList.length > 0 ? (
-          <Table
+          <EnhancedTable
             columns={columns}
             dataSource={vendorList}
             rowKey="id"

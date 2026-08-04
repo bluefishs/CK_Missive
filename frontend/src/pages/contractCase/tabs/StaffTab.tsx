@@ -7,19 +7,9 @@
 
 import React from 'react';
 import {
-  Card,
-  Table,
-  Button,
-  Space,
-  Tag,
-  Avatar,
-  Modal,
-  Form,
-  Select,
-  Popconfirm,
-  Tooltip,
-  Empty,
+  Card, Button, Space, Tag, Avatar, Modal, Form, Select, Popconfirm, Tooltip, Empty,
 } from 'antd';
+import { EnhancedTable, type ResponsiveColumn } from '../../../components/common/EnhancedTable';
 import {
   TeamOutlined,
   PlusOutlined,
@@ -29,7 +19,6 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import type { StaffTabProps, Staff } from './types';
 import { STAFF_ROLE_OPTIONS } from './constants';
 
@@ -54,7 +43,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
   userOptions,
   loadUserOptions,
 }) => {
-  const columns: ColumnsType<Staff> = [
+  const columns: ResponsiveColumn<Staff>[] = [
     {
       title: '姓名',
       dataIndex: 'name',
@@ -99,12 +88,12 @@ export const StaffTab: React.FC<StaffTabProps> = ({
         ),
     },
     {
-      title: '部門',
+      title: '部門', hideOnMobile: true,
       dataIndex: 'department',
       key: 'department',
     },
     {
-      title: '聯絡方式',
+      title: '聯絡方式', hideOnMobile: true,
       key: 'contact',
       render: (_, record) => (
         <Space vertical size="small">
@@ -114,12 +103,12 @@ export const StaffTab: React.FC<StaffTabProps> = ({
       ),
     },
     {
-      title: '加入日期',
+      title: '加入日期', hideOnMobile: true,
       dataIndex: 'join_date',
       key: 'join_date',
     },
     {
-      title: '狀態',
+      title: '狀態', hideOnMobile: true,
       dataIndex: 'status',
       key: 'status',
       render: (status) => (
@@ -164,7 +153,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
         }
       >
         {staffList.length > 0 ? (
-          <Table
+          <EnhancedTable
             columns={columns}
             dataSource={staffList}
             rowKey="id"

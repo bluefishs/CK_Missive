@@ -78,7 +78,12 @@ export function EnhancedTable<T extends R = any>(props: TableProps<T>) {
       });
     }
     const responsive = autoResponsiveColumns(visible);
-    return enhanceColumns(responsive, dataSource as T[]);
+    // 窄螢幕不自動加排序/篩選（2026-08-04）。
+    // 實測 /contract-cases/:id 承辦同仁分頁：隱藏次要欄位後表格雖然不外溢了，
+    // 但每欄的排序箭頭＋篩選漏斗在 390px 下把欄寬吃掉 → 標題變成「角..」「聯絡...」、
+    // 姓名被截成兩個字 —— **從「要橫向捲」換成「看不懂」，不算修好**。
+    // 這些是滑鼠導向的輔助功能，在手機上的成本遠高於價值；需要排序時可轉桌面。
+    return isMobile ? responsive : enhanceColumns(responsive, dataSource as T[]);
   }, [columns, dataSource, isMobile]);
 
   const defaultPagination = pagination === false ? false : {
@@ -99,6 +104,11 @@ export function EnhancedTable<T extends R = any>(props: TableProps<T>) {
       scroll={isMobile ? { ...scroll, x: undefined } : { x: 'max-content', ...scroll }}
       {...rest}
       tableLayout={isMobile ? 'fixed' : rest.tableLayout}
+      // 窄螢幕一律 small（2026-08-04）：AntD middle 的儲存格左右內距各 16px，
+      // 4 欄就吃掉 128px —— 在 390px 下實測讓「姓名」被截成兩個字。
+      // small 是 8px，同樣 4 欄多出 64px 給內容。放在 rest 之後才蓋得掉呼叫端傳的 size
+      //（同 tableLayout 的教訓：寫在展開之前等於沒寫）。
+      size={isMobile ? 'small' : rest.size}
     />
   );
 }

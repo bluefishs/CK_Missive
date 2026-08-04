@@ -7,20 +7,13 @@
 
 import React from 'react';
 import {
-  Card,
-  Table,
-  Button,
-  Space,
-  Tag,
-  Typography,
-  Tooltip,
-  Empty,
+  Card, Button, Space, Tag, Typography, Tooltip, Empty,
 } from 'antd';
+import { EnhancedTable, type ResponsiveColumn } from '../../../components/common/EnhancedTable';
 import {
   FileTextOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import type { RelatedDocumentsTabProps, RelatedDocument } from './types';
@@ -34,7 +27,7 @@ export const RelatedDocumentsTab: React.FC<RelatedDocumentsTabProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const columns: ColumnsType<RelatedDocument> = [
+  const columns: ResponsiveColumn<RelatedDocument>[] = [
     {
       title: '公文字號',
       dataIndex: 'doc_number',
@@ -52,7 +45,7 @@ export const RelatedDocumentsTab: React.FC<RelatedDocumentsTabProps> = ({
       ),
     },
     {
-      title: '發文形式',
+      title: '發文形式', hideOnMobile: true,
       dataIndex: 'delivery_method',
       key: 'delivery_method',
       width: 95,
@@ -67,7 +60,7 @@ export const RelatedDocumentsTab: React.FC<RelatedDocumentsTabProps> = ({
       },
     },
     {
-      title: '收發單位',
+      title: '收發單位', hideOnMobile: true,
       key: 'correspondent',
       width: 160,
       ellipsis: true,
@@ -90,7 +83,7 @@ export const RelatedDocumentsTab: React.FC<RelatedDocumentsTabProps> = ({
       },
     },
     {
-      title: '公文日期',
+      title: '公文日期', hideOnMobile: true,
       dataIndex: 'doc_date',
       key: 'doc_date',
       width: 100,
@@ -132,7 +125,7 @@ export const RelatedDocumentsTab: React.FC<RelatedDocumentsTabProps> = ({
       }
     >
       {relatedDocs.length > 0 ? (
-        <Table
+        <EnhancedTable
           columns={columns}
           dataSource={relatedDocs}
           rowKey="id"

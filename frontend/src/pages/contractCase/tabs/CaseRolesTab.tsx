@@ -7,21 +7,15 @@
 
 import React from 'react';
 import {
-  Card,
-  Table,
-  Tag,
-  Avatar,
-  Space,
-  Flex,
-  Empty,
+  Card, Tag, Avatar, Space, Flex, Empty,
 } from 'antd';
+import { EnhancedTable, type ResponsiveColumn } from '../../../components/common/EnhancedTable';
 import {
   TeamOutlined,
   UserOutlined,
   PhoneOutlined,
   MailOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import type { Staff } from './types';
 import type { ProjectAgencyContact } from '../../../api/projectAgencyContacts';
 import { STAFF_ROLE_OPTIONS } from './constants';
@@ -74,7 +68,7 @@ export const CaseRolesTab: React.FC<CaseRolesTabProps> = ({
     })),
   ];
 
-  const columns: ColumnsType<CaseRoleRow> = [
+  const columns: ResponsiveColumn<CaseRoleRow>[] = [
     {
       title: '姓名',
       dataIndex: 'name',
@@ -95,7 +89,7 @@ export const CaseRolesTab: React.FC<CaseRolesTabProps> = ({
       ),
     },
     {
-      title: '來源',
+      title: '來源', hideOnMobile: true,
       dataIndex: 'source',
       key: 'source',
       width: 100,
@@ -122,7 +116,7 @@ export const CaseRolesTab: React.FC<CaseRolesTabProps> = ({
       ),
     },
     {
-      title: '部門/單位',
+      title: '部門/單位', hideOnMobile: true,
       dataIndex: 'department',
       key: 'department',
       render: (text?: string) => text || '-',
@@ -155,7 +149,7 @@ export const CaseRolesTab: React.FC<CaseRolesTabProps> = ({
       }
     >
       {rows.length > 0 ? (
-        <Table
+        <EnhancedTable
           columns={columns}
           dataSource={rows}
           rowKey="key"

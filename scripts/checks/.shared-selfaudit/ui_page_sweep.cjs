@@ -225,7 +225,14 @@ async function main() {
   // 不影響 exit code：這是決策輸入，不是告警。
   const MP = SWEEP.mobile_probe || {};
   const mobileRows = [];
-  if (MP.enabled && Array.isArray(MP.routes) && MP.routes.length) {
+  // 2026-08-04：加上 detail_routes。
+  // 廣度掃描只吃**靜態**路由（帶 `:id` 的一律排除），行動觀測沿用同一份清單，
+  // 於是**所有詳情頁從來沒有在手機寬度下被量過** —— 而詳情頁正是行動裝置最常
+  // 用來檢視的地方。實測補上後立刻揭露 /contract-cases/:id 的每個分頁表格
+  // 外溢 434~534px（390px 螢幕看不到一半，每列都要左右拉）。
+  // 這類路由需要真實 id，無法從 routes 常數推導，故由設定明列。
+  const mobileTargets = [...(MP.routes || []), ...(MP.detail_routes || [])];
+  if (MP.enabled && mobileTargets.length) {
     const vp = MP.viewport || { width: 390, height: 844 };
     // 刻意不設 isMobile —— Playwright 的行動模擬會 shrink-to-fit：頁面內容較寬時
     // 它把 layout viewport 放大到內容寬度（實測設 390 卻回報 477），
@@ -234,7 +241,7 @@ async function main() {
     //                  純 viewport → innerWidth 390 / doc 476（真的溢出 86px）。
     const mctx = await browser.newContext({ viewport: vp, hasTouch: true });
     await boot.applyAuth(mctx, CONFIG, BASE);
-    for (const route of MP.routes) {
+    for (const route of mobileTargets) {
       const page = await mctx.newPage();
       try {
         await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -302,7 +309,7 @@ async function main() {
     } else if (ranked.length === 0) {
       // 0 頁不是「全部通過」——是根本沒量到。實際發生過一次（登入態失效時
       // 每一頁都被導回登入頁而跳過），當時卻印「皆低於門檻」＝假綠。
-      console.log(`   ⚠ 未量到任何頁面（設定了 ${(MP.routes || []).length} 條）`
+      console.log(`   ⚠ 未量到任何頁面（設定了 ${mobileTargets.length} 條）`
         + ' —— 可能登入態失效或全被導回登入頁，**不可視為通過**');
     } else {
       console.log(`   已測 ${ranked.length} 頁，皆低於 ${warn}px 門檻`);

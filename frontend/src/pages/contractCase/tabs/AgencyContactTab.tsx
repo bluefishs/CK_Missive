@@ -7,21 +7,9 @@
 
 import React from 'react';
 import {
-  Card,
-  Table,
-  Button,
-  Space,
-  Tag,
-  Avatar,
-  Modal,
-  Form,
-  Input,
-  Select,
-  Row,
-  Col,
-  Popconfirm,
-  Empty,
+  Card, Button, Space, Tag, Avatar, Modal, Form, Input, Select, Row, Col, Popconfirm, Empty,
 } from 'antd';
+import { EnhancedTable, type ResponsiveColumn } from '../../../components/common/EnhancedTable';
 import {
   BankOutlined,
   PlusOutlined,
@@ -31,7 +19,6 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import type { AgencyContactTabProps } from './types';
 import type { ProjectAgencyContact } from '../../../api/projectAgencyContacts';
 
@@ -53,7 +40,7 @@ export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
     setModalVisible(true);
   };
 
-  const columns: ColumnsType<ProjectAgencyContact> = [
+  const columns: ResponsiveColumn<ProjectAgencyContact>[] = [
     {
       title: '姓名',
       dataIndex: 'contact_name',
@@ -67,13 +54,13 @@ export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
       ),
     },
     {
-      title: '職稱',
+      title: '職稱', hideOnMobile: true,
       dataIndex: 'position',
       key: 'position',
       render: (text: string) => text || '-',
     },
     {
-      title: '單位/科室',
+      title: '單位/科室', hideOnMobile: true,
       dataIndex: 'department',
       key: 'department',
       render: (text: string) => text || '-',
@@ -90,7 +77,7 @@ export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
       ),
     },
     {
-      title: 'Email',
+      title: 'Email', hideOnMobile: true,
       dataIndex: 'email',
       key: 'email',
       render: (email: string) => email ? <a href={`mailto:${email}`}><MailOutlined /> {email}</a> : '-',
@@ -141,7 +128,7 @@ export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
       }
     >
       {agencyContacts.length > 0 ? (
-        <Table
+        <EnhancedTable
           columns={columns}
           dataSource={agencyContacts}
           rowKey="id"

@@ -7,22 +7,15 @@
 
 import React from 'react';
 import {
-  Card,
-  Table,
-  Button,
-  Space,
-  Tag,
-  Typography,
-  Tooltip,
-  Empty,
+  Card, Button, Space, Tag, Typography, Tooltip, Empty,
 } from 'antd';
+import { EnhancedTable, type ResponsiveColumn } from '../../../components/common/EnhancedTable';
 import {
   PaperClipOutlined,
   DownloadOutlined,
   EyeOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import type { AttachmentsTabProps, Attachment, LocalGroupedAttachment } from './types';
@@ -64,7 +57,7 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
   const navigate = useNavigate();
 
   // 分組附件表格欄位（父層：公文）
-  const groupedColumns: ColumnsType<LocalGroupedAttachment> = [
+  const groupedColumns: ResponsiveColumn<LocalGroupedAttachment>[] = [
     {
       title: '公文字號',
       dataIndex: 'document_number',
@@ -91,14 +84,14 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
       render: (count: number) => <Tag color="blue">{count} 個</Tag>,
     },
     {
-      title: '總大小',
+      title: '總大小', hideOnMobile: true,
       dataIndex: 'total_size',
       key: 'total_size',
       width: 100,
       render: (size: number) => formatFileSize(size),
     },
     {
-      title: '最後更新',
+      title: '最後更新', hideOnMobile: true,
       dataIndex: 'last_updated',
       key: 'last_updated',
       width: 110,
@@ -126,7 +119,7 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
   ];
 
   // 展開列：單一附件明細
-  const expandedColumns: ColumnsType<Attachment> = [
+  const expandedColumns: ResponsiveColumn<Attachment>[] = [
     {
       title: '檔案名稱',
       dataIndex: 'filename',
@@ -148,7 +141,7 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
       render: (size) => formatFileSize(size),
     },
     {
-      title: '上傳時間',
+      title: '上傳時間', hideOnMobile: true,
       dataIndex: 'uploaded_at',
       key: 'uploaded_at',
       width: 110,
@@ -207,7 +200,7 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
       loading={loading}
     >
       {groupedAttachments.length > 0 ? (
-        <Table
+        <EnhancedTable
           columns={groupedColumns}
           dataSource={groupedAttachments}
           rowKey="document_id"
@@ -215,7 +208,7 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
           size="middle"
           expandable={{
             expandedRowRender: (record) => (
-              <Table
+              <EnhancedTable
                 columns={expandedColumns}
                 dataSource={record.attachments}
                 rowKey="id"

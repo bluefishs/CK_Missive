@@ -43,7 +43,7 @@
     ],
     "throttle_ms": 900,
     "mobile_probe": {
-      "_doc": "行動版面觀測（2026-08-02）。既有廣度掃描固定 1440×900，手機上版面壞掉沒有任何機制會發現——而核銷的主要入口正是手機掃 QR。刻意**只觀測不告警**：表格設 scroll={{x}} 橫向捲動是刻意設計，一律判 FAIL 會產出整片噪音。採用的量已做鑑別力對照（手機 vs 桌面同頁比對）：/erp/quotations 708 vs 0、/documents 158 vs 0 → 手機獨有。另量過的『小於 32px 觸控目標數』手機 157/桌面 156＝無鑑別力，已捨棄不交付。",
+      "_doc": "行動版面觀測（2026-08-02）。既有廣度掃描固定 1440×900，手機上版面壞掉沒有任何機制會發現——而核銷的主要入口正是手機掃 QR。刻意**只觀測不告警**：表格設 scroll={{x}} 橫向捲動是刻意設計，一律判 FAIL 會產出整片噪音。採用的量已做鑑別力對照（手機 vs 桌面同頁比對）：/erp/quotations 708 vs 0、/documents 158 vs 0 → 手機獨有。另量過的『小於 32px 觸控目標數』手機 157/桌面 156＝無鑑別力，已捨棄不交付。 2026-08-04：新增 detail_routes —— 原本只吃靜態路由，帶 :id 的詳情頁**結構上被排除、從未量過**，而詳情頁正是行動裝置最常檢視的地方；實測 /contract-cases/:id 每個分頁表格外溢 434~534px（390px 螢幕看不到一半）。",
       "enabled": true,
       "viewport": {
         "width": 390,
@@ -64,6 +64,13 @@
         "/taoyuan/dispatch",
         "/calendar",
         "/kunge/ops"
+      ],
+      "detail_routes": [
+        "/documents/2689",
+        "/erp/quotations/168",
+        "/erp/expenses/10",
+        "/pm/cases/244",
+        "/contract-cases/187"
       ]
     },
     "known_limitations": [

@@ -8,8 +8,8 @@
  * 返回時已帶 ?tab=milestones 保留分頁。刪除仍就地用 Popconfirm。
  */
 import { useCallback } from 'react';
-import { Button, Tag, Popconfirm, Space, message } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { Button, Tag, Space, message } from 'antd';
+import { PlusOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { Upload } from 'antd';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
 import type { ResponsiveColumn } from '../../components/common/EnhancedTable';
@@ -18,7 +18,7 @@ import { ROUTES } from '../../router/types';
 import { useResponsive } from '../../hooks';
 import type { PMMilestone, PMMilestoneType, PMMilestoneStatus } from '../../types/pm';
 import { PM_MILESTONE_TYPE_LABELS, PM_MILESTONE_STATUS_LABELS } from '../../types/pm';
-import { usePMMilestones, useDeletePMMilestone } from '../../hooks/business/usePMCases';
+import { usePMMilestones } from '../../hooks/business/usePMCases';
 
 interface MilestonesTabProps {
   pmCaseId: number;
@@ -39,10 +39,8 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
   const { isMobile } = useResponsive();
 
   const { data: milestones, isLoading } = usePMMilestones(pmCaseId);
-  const deleteMutation = useDeletePMMilestone();
 
   // 新增／編輯改為獨立頁 PMMilestoneFormPage（2026-08-02，去彈跳視窗）；
-  // 刪除仍就地處理（Popconfirm 確認即可，不值得為它導頁）。
   const goCreate = useCallback(
     () => navigate(ROUTES.PM_MILESTONE_CREATE.replace(':caseId', String(pmCaseId))),
     [navigate, pmCaseId],
@@ -56,16 +54,6 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
           .replace(':milestoneId', String(milestoneId)),
       ),
     [navigate, pmCaseId],
-  );
-
-  const handleDelete = useCallback(
-    (id: number) => {
-      deleteMutation.mutate(
-        { id, pmCaseId },
-        { onSuccess: () => message.success('里程碑已刪除') },
-      );
-    },
-    [deleteMutation, pmCaseId],
   );
 
 
@@ -115,28 +103,6 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
       key: 'sort_order',
       width: 70,
       align: 'center',
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 120,
-      render: (_: unknown, record: PMMilestone) => (
-        <Space size="small">
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => goEdit(record.id)}>
-            編輯
-          </Button>
-          <Popconfirm
-            title="確定刪除此里程碑？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="確定"
-            cancelText="取消"
-          >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              刪除
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
     },
   ];
 
@@ -193,6 +159,12 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
         loading={isLoading}
         pagination={false}
         size="small"
+        onRow={(row: PMMilestone) => ({
+          // 2026-08-04：操作欄移除（詳情頁 tab 只呈現，比照 /documents/:id）——
+          // 點列進填報頁，編輯與刪除都在那一頁的標題列。
+          onClick: () => goEdit(row.id),
+          style: { cursor: 'pointer' },
+        })}
       />
 
       {/* 新增／編輯已改為獨立頁 PMMilestoneFormPage */}

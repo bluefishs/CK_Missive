@@ -18,10 +18,13 @@ import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
 import { useResponsive } from '../hooks';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
+import { Button, Popconfirm } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 import {
   usePMMilestones,
   useCreatePMMilestone,
   useUpdatePMMilestone,
+  useDeletePMMilestone,
 } from '../hooks/business/usePMCases';
 import { PM_MILESTONE_TYPE_LABELS, PM_MILESTONE_STATUS_LABELS } from '../types/pm';
 
@@ -45,6 +48,7 @@ const PMMilestoneFormPage: React.FC = () => {
 
   const createMutation = useCreatePMMilestone();
   const updateMutation = useUpdatePMMilestone();
+  const deleteMutation = useDeletePMMilestone();
 
   useEffect(() => {
     if (!record) return;
@@ -107,6 +111,18 @@ const PMMilestoneFormPage: React.FC = () => {
       submitText={isEdit ? '儲存變更' : '新增里程碑'}
       loading={isEdit && isLoading}
       notFoundMessage={isEdit && !isLoading && !record ? '找不到這筆里程碑（可能已被刪除）。' : undefined}
+      /* 刪除原本在案件頁的表格操作欄。該欄依「詳情頁 tab 只呈現不操作」移除後，
+         刪除若不搬到這裡就沒有任何入口了。 */
+      headerExtra={isEdit ? (
+        <Popconfirm
+          title="確定刪除此里程碑？" okText="刪除" cancelText="取消"
+          onConfirm={() => deleteMutation.mutate({ id: mid!, pmCaseId }, {
+            onSuccess: () => { message.success('里程碑已刪除'); backToCase(); },
+          })}
+        >
+          <Button danger icon={<DeleteOutlined />} loading={deleteMutation.isPending}>刪除</Button>
+        </Popconfirm>
+      ) : undefined}
     >
       <Form form={form} layout="vertical" size={isMobile ? 'middle' : 'large'} preserve={false}>
         <Form.Item
