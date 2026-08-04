@@ -68,6 +68,18 @@ const NOISE_RE = [
 const isNoise = (t) => NOISE_RE.some((re) => re.test(t));
 
 function staticRoutes() {
+  // 2026-08-05：支援明確路由清單。
+  // 原本一律從程式碼解析（SPA 的 ROUTES 常數 / <Route path>），但**非 SPA 的專案
+  // 沒有那種檔案**（如 CK_Website 是靜態 HTML + Cloudflare Pages），
+  // 於是引擎在那些 repo 根本用不了。導入其他專案時這是第一道門檻。
+  // 明確清單也適合「只想走查關鍵頁」的情境。
+  if (Array.isArray(SWEEP.routes) && SWEEP.routes.length) {
+    return [...new Set(SWEEP.routes.filter((u) => !EXCLUDE.has(u)))];
+  }
+  if (!SWEEP.routes_source) {
+    console.error('✗ page_sweep 未提供 routes 也未提供 routes_source —— 無法取得要走查的頁面。');
+    process.exit(2);
+  }
   const src = fs.readFileSync(path.join(ROOT, SWEEP.routes_source), 'utf-8');
   const out = [];
   const re = new RegExp(SWEEP.routes_pattern, 'gm');
@@ -138,7 +150,12 @@ async function main() {
         await page.close();
         continue;
       }
-      const textLen = (await page.locator('#root').innerText().catch(() => '')).trim().length;
+      // 內容容器可設定（2026-08-05）。原本寫死 `#root` —— 那是 React SPA 的慣例，
+      // **靜態站根本沒有這個元素**，於是每一頁都量到 0 字元、全部judged「空白」。
+      // 導入 CK_Website 時首跑 8 頁全 SKIP，就是這個原因。
+      // （引擎當時報的是 SKIP 未驗完而不是 FAIL，行為是對的 —— 見下方免登入判斷。）
+      const textLen = (await page.locator(SWEEP.content_selector || '#root')
+        .innerText().catch(() => '')).trim().length;
       if (textLen < 40) {
         // **未提供登入態時的空白頁不可判為缺陷**：有些 SPA 對未登入的受保護路由
         // 不導向登入頁，而是渲染空殼 → 每一頁都「空白」。

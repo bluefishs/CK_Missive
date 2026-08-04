@@ -3373,6 +3373,27 @@ async def memory_crystallization_scan_job():
         crys = Crystallizer()
         proposals = await crys.scan_and_propose()
         logger.info("Memory Crystallization Scan 完成: %d proposals", len(proposals))
+        # 2026-08-05：補 detail（契約規則 2）。
+        # 這支 job 每天回 success 但 detail=null，而 proposals/crystals **自 07-07 起
+        # 28 天零產出**完全沒有人看得到 —— 「0 提案」與「根本沒掃到」在 log 裡長得一樣。
+        # 有了這些數字才能區分「沒有 pattern 達門檻」（合理空）、「達門檻但都已結晶／
+        # 剛被拒絕」（也是合理空，但意義不同）與「掃描本身失敗」。
+        # ⚠️ 初版寫 `crys.list_candidates()` —— **那個方法不存在**，會被 except 吞成 -1，
+        # 等於又造一個沉默失敗。改為直接用 Crystallizer 既有的判準逐檔算。
+        _total = _met = 0
+        try:
+            from app.services.memory.crystallizer import PATTERNS_DIR as _PD
+            if _PD.exists():
+                for _f in _PD.glob("pattern-*.md"):
+                    _m = crys._parse_pattern_meta(_f)
+                    if not _m:
+                        continue
+                    _total += 1
+                    if crys._meets_crystal_threshold(_m):
+                        _met += 1
+        except Exception as _e:
+            logger.warning("結晶候選統計失敗（不影響主流程）: %s", _e)
+            _total = _met = -1
         # 2026-08-03：原推 Telegram（已失效）→ 改走 digest，07:30 晨報統一帶出
         if proposals:
             try:
@@ -3385,8 +3406,19 @@ async def memory_crystallization_scan_job():
                 await queue_digest("🔮 Crystal 提案", msg)
             except Exception as e:
                 logger.debug("Crystal proposal digest queue failed: %s", e)
+        return {
+            "proposals": len(proposals),
+            "patterns_total": _total,
+            "patterns_met_threshold": _met,
+            "reason": "ok" if proposals else (
+                "stat_failed" if _met < 0 else
+                "no_pattern_met_threshold" if _met == 0 else
+                "all_met_already_proposed_or_applied"
+            ),
+        }
     except Exception as e:
         logger.error("Memory Crystallization 失敗: %s", e, exc_info=True)
+        return {"proposals": 0, "candidates": -1, "reason": f"error:{str(e)[:60]}"}
 
 
 @tracked_job("agent_self_diagnosis")
@@ -3437,8 +3469,18 @@ async def memory_pattern_extract_job():
                 len(result.failures), result.saved_failure_files,
                 result.duration_ms,
             )
+            return {
+                "patterns": len(result.patterns),
+                "saved": result.saved_pattern_files,
+                "scanned": result.total_traces_scanned,
+                # 沒有 trace 可掃（閒置日）是合理空，與「掃了但萃不出」不同
+                "reason": "ok" if result.saved_pattern_files else (
+                    "no_traces" if not result.total_traces_scanned else "no_pattern_met_threshold"
+                ),
+            }
     except Exception as e:
         logger.error("Memory Pattern Extraction 失敗: %s", e, exc_info=True)
+        return {"patterns": 0, "saved": 0, "scanned": 0, "reason": f"error:{str(e)[:60]}"}
 
 
 @tracked_job("soul_mirror_sync")

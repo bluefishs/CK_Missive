@@ -227,6 +227,28 @@
       "ok_key": "all_ok",
       "fail_key": "broken_chains",
       "_why": "2026-08-04：同型補齊 —— 產出結果檔的 producer 只登記 file_fresh 等於只問「有沒有跑」。依契約新規：凡產出結果檔者，file_fresh 一律不得單獨使用。 路徑帶時戳→取最新一份。"
+    },
+    {
+      "name": "結晶提案（學習閉環）",
+      "signal": "cron_detail",
+      "job": "memory_crystallization_scan",
+      "key": "proposals",
+      "ok_zero_reasons": [
+        "no_pattern_met_threshold",
+        "all_met_already_proposed_or_applied"
+      ],
+      "_why": "2026-08-05：進化成長（學習閉環）先前只納管 patterns 一環 —— proposals/crystals 自 07-07 起 28 天零產出完全沒有人看得到，而 job 每天回 success。納管的是**產出與原因**，不是「有沒有跑」。"
+    },
+    {
+      "name": "pattern 萃取（學習閉環）",
+      "signal": "cron_detail",
+      "job": "memory_pattern_extract",
+      "key": "saved",
+      "ok_zero_reasons": [
+        "no_traces",
+        "no_pattern_met_threshold"
+      ],
+      "_why": "2026-08-05：進化成長（學習閉環）先前只納管 patterns 一環 —— proposals/crystals 自 07-07 起 28 天零產出完全沒有人看得到，而 job 每天回 success。納管的是**產出與原因**，不是「有沒有跑」。"
     }
   ]
 }

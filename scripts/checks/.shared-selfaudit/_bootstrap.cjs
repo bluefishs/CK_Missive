@@ -139,12 +139,17 @@ function loadConfig(mode, dirnameFallback) {
     const sw = cfg.page_sweep;
     if (!sw) problems.push('缺 page_sweep');
     else {
-      if (!sw.routes_source) problems.push('缺 page_sweep.routes_source');
-      else if (!fs.existsSync(path.join(root, sw.routes_source))) {
+      // 2026-08-05：兩種取得路由的方式擇一即可 —— 明確清單（非 SPA 專案用）
+      // 或從程式碼解析（SPA 用）。原本硬性要求後者，導致靜態站根本無法導入。
+      const hasExplicit = Array.isArray(sw.routes) && sw.routes.length > 0;
+      if (!hasExplicit && !sw.routes_source) {
+        problems.push('page_sweep 需提供 routes（明確清單）或 routes_source（從程式碼解析）其一');
+      }
+      if (sw.routes_source && !fs.existsSync(path.join(root, sw.routes_source))) {
         problems.push(`page_sweep.routes_source 指向不存在的檔案：${sw.routes_source}`);
       }
-      if (!sw.routes_pattern) problems.push('缺 page_sweep.routes_pattern（路由擷取 regex）');
-      else {
+      if (!hasExplicit && !sw.routes_pattern) problems.push('缺 page_sweep.routes_pattern（路由擷取 regex）');
+      else if (sw.routes_pattern) {
         try { new RegExp(sw.routes_pattern); } catch (e) {
           problems.push(`page_sweep.routes_pattern 不是合法 regex：${e.message}`);
         }
