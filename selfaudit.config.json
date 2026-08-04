@@ -488,6 +488,65 @@
           "failMsg": "費用核銷 tab 出現「操作」欄（應改為點列進 /erp/expenses/:id）"
         }
       ]
+    },
+    {
+      "id": "agency-contact-form-page",
+      "name": "機關承辦：點列進填報頁（取代 Modal），資料帶入且刪除在標題列",
+      "auth": true,
+      "url": "/contract-cases/187?tab=agency-contacts",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "clickText",
+          "text": "機關承辦"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assertCount",
+          "selector": "th:has-text(\"操作\")",
+          "max": 0,
+          "failMsg": "機關承辦分頁又出現「操作」欄"
+        },
+        {
+          "action": "click",
+          "selector": ".ant-tabs-tabpane-active .ant-table-tbody tr.ant-table-row"
+        },
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "assertUrlMatches",
+          "pattern": "/agency-contacts/\\d+/edit",
+          "failMsg": "點列沒有進到機關承辦填報頁"
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "編輯機關承辦",
+            "姓名",
+            "電子郵件"
+          ],
+          "failMsg": "填報頁欄位沒渲染（曾因撈清單再 find 而永遠顯示「找不到這筆」）"
+        },
+        {
+          "action": "assertCount",
+          "selector": "button:has-text(\"刪除\")",
+          "min": 1,
+          "failMsg": "填報頁標題列沒有刪除（操作沒有真的搬過來）"
+        },
+        {
+          "action": "assertTextAbsent",
+          "text": "找不到這筆",
+          "failMsg": "填報頁顯示找不到資料（單筆查詢壞了）"
+        }
+      ]
     }
   ],
   "output": {

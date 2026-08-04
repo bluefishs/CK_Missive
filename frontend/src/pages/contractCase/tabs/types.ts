@@ -154,13 +154,8 @@ export interface CaseInfoTabProps {
 /** 機關承辦 Tab Props */
 export interface AgencyContactTabProps {
   agencyContacts: ProjectAgencyContact[];
-  modalVisible: boolean;
-  setModalVisible: (visible: boolean) => void;
-  editingId: number | null;
-  setEditingId: (id: number | null) => void;
-  form: FormInstance<AgencyContactFormValues>;
-  onSubmit: (values: AgencyContactFormValues) => Promise<void>;
-  onDelete: (id: number) => Promise<void>;
+  /** 2026-08-04：Modal 填報改為獨立頁 → 本分頁只需要資料與案件 id。 */
+  projectId: number;
 }
 
 /** 承辦同仁 Tab Props */

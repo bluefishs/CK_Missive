@@ -42,7 +42,6 @@ import {
 
 import type {
   CaseInfoFormValues,
-  AgencyContactFormValues,
   StaffFormValues,
   VendorFormValues,
 } from './contractCase/tabs';
@@ -66,13 +65,10 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
   const [editingVendorId, setEditingVendorId] = useState<number | null>(null);
   const [staffModalVisible, setStaffModalVisible] = useState(false);
   const [vendorModalVisible, setVendorModalVisible] = useState(false);
-  const [agencyContactModalVisible, setAgencyContactModalVisible] = useState(false);
-  const [editingAgencyContactId, setEditingAgencyContactId] = useState<number | null>(null);
 
   const [staffForm] = Form.useForm<StaffFormValues>();
   const [vendorForm] = Form.useForm<VendorFormValues>();
   const [caseInfoForm] = Form.useForm<CaseInfoFormValues>();
-  const [agencyContactForm] = Form.useForm<AgencyContactFormValues>();
 
   const projectId = propProjectId;
 
@@ -111,13 +107,9 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
     backRoute,
     staffForm,
     vendorForm,
-    agencyContactForm,
     setIsEditingCaseInfo,
     setStaffModalVisible,
     setVendorModalVisible,
-    setAgencyContactModalVisible,
-    setEditingAgencyContactId,
-    editingAgencyContactId,
     setEditingStaffId,
     setEditingVendorId,
   });
@@ -152,12 +144,7 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
       ) : null
     ),
     createTabItem('agency', { icon: <BankOutlined />, text: '機關承辦', count: agencyContacts.length },
-      <AgencyContactTab
-        agencyContacts={agencyContacts} modalVisible={agencyContactModalVisible}
-        setModalVisible={setAgencyContactModalVisible} editingId={editingAgencyContactId}
-        setEditingId={setEditingAgencyContactId} form={agencyContactForm}
-        onSubmit={handlers.handleAgencyContactSubmit} onDelete={handlers.handleDeleteAgencyContact}
-      />
+      <AgencyContactTab agencyContacts={agencyContacts} projectId={projectId} />
     ),
     createTabItem('staff', { icon: <TeamOutlined />, text: '承辦同仁', count: staffList.length },
       <StaffTab

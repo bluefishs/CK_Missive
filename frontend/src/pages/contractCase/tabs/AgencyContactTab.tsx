@@ -7,7 +7,7 @@
 
 import React from 'react';
 import {
-  Card, Button, Space, Tag, Avatar, Modal, Form, Input, Select, Row, Col, Popconfirm, Empty,
+  Card, Button, Space, Tag, Avatar, Empty,
 } from 'antd';
 import { EnhancedTable, type ResponsiveColumn } from '../../../components/common/EnhancedTable';
 import {
@@ -16,30 +16,17 @@ import {
   UserOutlined,
   PhoneOutlined,
   MailOutlined,
-  EditOutlined,
-  DeleteOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../router/types';
 import type { AgencyContactTabProps } from './types';
 import type { ProjectAgencyContact } from '../../../api/projectAgencyContacts';
 
-const { Option } = Select;
-
 export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
   agencyContacts,
-  modalVisible,
-  setModalVisible,
-  editingId,
-  setEditingId,
-  form,
-  onSubmit,
-  onDelete,
+  projectId,
 }) => {
-  const openEditModal = (contact: ProjectAgencyContact) => {
-    setEditingId(contact.id);
-    form.setFieldsValue(contact);
-    setModalVisible(true);
-  };
-
+  const navigate = useNavigate();
   const columns: ResponsiveColumn<ProjectAgencyContact>[] = [
     {
       title: '姓名',
@@ -82,26 +69,6 @@ export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
       key: 'email',
       render: (email: string) => email ? <a href={`mailto:${email}`}><MailOutlined /> {email}</a> : '-',
     },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 120,
-      render: (_: unknown, record: ProjectAgencyContact) => (
-        <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
-            編輯
-          </Button>
-          <Popconfirm
-            title="確定要刪除此承辦人嗎？"
-            onConfirm={() => onDelete(record.id)}
-            okText="確定"
-            cancelText="取消"
-          >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>刪除</Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
   ];
 
   return (
@@ -117,11 +84,9 @@ export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => {
-            setEditingId(null);
-            form.resetFields();
-            setModalVisible(true);
-          }}
+          onClick={() => navigate(
+            ROUTES.CONTRACT_CASE_AGENCY_CONTACT_CREATE.replace(':caseId', String(projectId)),
+          )}
         >
           新增承辦人
         </Button>
@@ -134,66 +99,21 @@ export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
           rowKey="id"
           pagination={false}
           size="middle"
-          scroll={{ x: 700 }}
+          onRow={(row: ProjectAgencyContact) => ({
+            // 2026-08-04：操作欄與 Modal 一併移除（詳情頁 tab 只呈現，比照 /documents/:id；
+            // 且專案規約本就是 CRUD 導頁不用 Modal）——編輯與刪除都在填報頁的標題列。
+            onClick: () => navigate(
+              ROUTES.CONTRACT_CASE_AGENCY_CONTACT_EDIT
+                .replace(':caseId', String(projectId))
+                .replace(':contactId', String(row.id)),
+            ),
+            style: { cursor: 'pointer' },
+          })}
         />
       ) : (
         <Empty description="尚無機關承辦資料" />
       )}
 
-      {/* 機關承辦 Modal */}
-      <Modal
-        title={editingId ? '編輯機關承辦' : '新增機關承辦'}
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          setEditingId(null);
-          form.resetFields();
-        }}
-        onOk={() => form.submit()}
-        width={600}
-      >
-        <Form form={form} layout="vertical" onFinish={onSubmit}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="contact_name" label="姓名" rules={[{ required: true, message: '請輸入姓名' }]}>
-                <Input placeholder="請輸入承辦人姓名" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="position" label="職稱">
-                <Input placeholder="請輸入職稱" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="department" label="單位/科室">
-            <Input placeholder="請輸入單位或科室名稱" />
-          </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="phone" label="電話">
-                <Input placeholder="請輸入電話" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="mobile" label="手機">
-                <Input placeholder="請輸入手機" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="email" label="電子郵件">
-            <Input placeholder="請輸入電子郵件" />
-          </Form.Item>
-          <Form.Item name="is_primary" valuePropName="checked">
-            <Select placeholder="是否為主要承辦人" allowClear>
-              <Option value={true}>是 (主要承辦人)</Option>
-              <Option value={false}>否</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="notes" label="備註">
-            <Input.TextArea rows={2} placeholder="請輸入備註" />
-          </Form.Item>
-        </Form>
-      </Modal>
     </Card>
   );
 };

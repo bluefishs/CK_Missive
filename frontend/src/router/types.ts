@@ -35,6 +35,8 @@ export const ROUTES = {
   CONTRACT_CASE_DETAIL: '/contract-cases/:id',
   CONTRACT_CASE_CREATE: '/contract-cases/create',
   CONTRACT_CASE_EDIT: '/contract-cases/:id/edit',
+  CONTRACT_CASE_AGENCY_CONTACT_CREATE: '/contract-cases/:caseId/agency-contacts/create',
+  CONTRACT_CASE_AGENCY_CONTACT_EDIT: '/contract-cases/:caseId/agency-contacts/:contactId/edit',
   DOCUMENT_NUMBERS: '/document-numbers',
   SEND_DOCUMENT_CREATE: '/document-numbers/create',
   AGENCIES: '/agencies',

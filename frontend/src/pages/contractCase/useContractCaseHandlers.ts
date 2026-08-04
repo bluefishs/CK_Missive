@@ -17,16 +17,10 @@ import { projectsApi } from '../../api/projectsApi';
 import { filesApi } from '../../api/filesApi';
 import { projectStaffApi } from '../../api/projectStaffApi';
 import { projectVendorsApi } from '../../api/projectVendorsApi';
-import {
-  createAgencyContact,
-  updateAgencyContact,
-  deleteAgencyContact,
-} from '../../api/projectAgencyContacts';
 import { logger } from '../../utils/logger';
 import type { QueryClient } from '@tanstack/react-query';
 import type {
   CaseInfoFormValues,
-  AgencyContactFormValues,
   StaffFormValues,
   VendorFormValues,
   LocalGroupedAttachment,
@@ -43,14 +37,10 @@ interface UseContractCaseHandlersOptions {
   // Form instances
   staffForm: FormInstance;
   vendorForm: FormInstance;
-  agencyContactForm: FormInstance;
   // Modal state setters
   setIsEditingCaseInfo: (v: boolean) => void;
   setStaffModalVisible: (v: boolean) => void;
   setVendorModalVisible: (v: boolean) => void;
-  setAgencyContactModalVisible: (v: boolean) => void;
-  setEditingAgencyContactId: (v: number | null) => void;
-  editingAgencyContactId: number | null;
   setEditingStaffId: (v: number | null) => void;
   setEditingVendorId: (v: number | null) => void;
 }
@@ -58,9 +48,8 @@ interface UseContractCaseHandlersOptions {
 export function useContractCaseHandlers(opts: UseContractCaseHandlersOptions) {
   const {
     projectId, queryClient, reloadData, staffList, backRoute,
-    staffForm, vendorForm, agencyContactForm,
+    staffForm, vendorForm,
     setIsEditingCaseInfo, setStaffModalVisible, setVendorModalVisible,
-    setAgencyContactModalVisible, setEditingAgencyContactId, editingAgencyContactId,
     setEditingStaffId, setEditingVendorId,
   } = opts;
 
@@ -119,29 +108,6 @@ export function useContractCaseHandlers(opts: UseContractCaseHandlersOptions) {
       message.error(axiosError.response?.data?.detail as string || '更新案件資訊失敗');
     }
   }, [projectId, queryClient, message, setIsEditingCaseInfo]);
-
-  const handleAgencyContactSubmit = useCallback(async (values: AgencyContactFormValues) => {
-    try {
-      if (editingAgencyContactId) {
-        await updateAgencyContact(editingAgencyContactId, values);
-        message.success('更新成功');
-      } else {
-        await createAgencyContact({ ...values, project_id: projectId });
-        message.success('新增成功');
-      }
-      setAgencyContactModalVisible(false);
-      setEditingAgencyContactId(null);
-      agencyContactForm.resetFields();
-      reloadData();
-    } catch {
-      message.error('儲存失敗');
-    }
-  }, [projectId, editingAgencyContactId, message, setAgencyContactModalVisible, setEditingAgencyContactId, agencyContactForm, reloadData]);
-
-  const handleDeleteAgencyContact = useCallback(async (contactId: number) => {
-    try { await deleteAgencyContact(contactId); message.success('刪除成功'); reloadData(); }
-    catch { message.error('刪除失敗'); }
-  }, [message, reloadData]);
 
   const handleAddStaff = useCallback(async (values: StaffFormValues) => {
     try {
@@ -249,8 +215,6 @@ export function useContractCaseHandlers(opts: UseContractCaseHandlersOptions) {
     handleEdit,
     handleDelete,
     handleSaveCaseInfo,
-    handleAgencyContactSubmit,
-    handleDeleteAgencyContact,
     handleAddStaff,
     handleStaffRoleChange,
     handleDeleteStaff,
