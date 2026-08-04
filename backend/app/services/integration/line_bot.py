@@ -53,6 +53,12 @@ def _current_month() -> str:
     return datetime.now().strftime("%Y-%m")
 
 
+def _is_notify_test_isolated() -> bool:
+    """通知層測試隔離旗標（conftest 預設開啟）。與 line_digest_buffer 共用同一把。"""
+    import os as _os
+    return _os.getenv("CK_NOTIFY_TEST_ISOLATION", "").strip().lower() in {"1", "true", "yes"}
+
+
 async def _within_monthly_budget() -> bool:
     """月度軟上限（2026-07-07 主題合併配套）— 主動預算守欄，不等 429 才停。
 
@@ -70,7 +76,14 @@ async def _within_monthly_budget() -> bool:
         redis = await get_redis()
         if not redis:
             return True
-        key = f"line:push:count:{_current_month()}"
+        # 2026-08-04：測試隔離時改用**拋棄式 key**。
+        # 實測跑一次全套測試會讓正式計數 +2（自備 token 的推播測試會走到這裡），
+        # 而 weekly 的 test_suite_health 每週跑全套 → 每月無故吃掉約 8 則額度，
+        # 且這個計數就是 185 軟上限的判斷依據。同 digest 緩衝那條：
+        # **測試不得改動正式狀態**。用另一把 key 而非跳過計數，是為了讓守欄邏輯
+        # 本身仍被完整測到（既有 4 支 soft-cap 測試注入 FakeRedis，不受 key 名影響）。
+        _prefix = "line:push:count:test:" if _is_notify_test_isolated() else "line:push:count:"
+        key = f"{_prefix}{_current_month()}"
         count = await redis.incr(key)
         if count == 1:
             await redis.expire(key, 40 * 24 * 3600)

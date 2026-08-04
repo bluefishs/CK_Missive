@@ -39,7 +39,7 @@ _memory_buffer: List[dict] = []
 # 告警（"job_a"、"DB connection lost"、假日期）塞進 owner 隔天的晨報；而 weekly
 # 的 test_suite_health 每週都會跑全套 ⇒ **檢核機制本身會污染正式輸出**。
 # 沿用安全網 v3 的思路：不替換任何方法，改為**拿掉它抵達正式狀態的能力**。
-_ISOLATION_ENV = "LINE_DIGEST_BUFFER_ISOLATED"
+_ISOLATION_ENV = "CK_NOTIFY_TEST_ISOLATION"
 
 
 def _is_isolated() -> bool:

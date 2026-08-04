@@ -78,14 +78,14 @@ def _block_outbound_notifications(request):
     #      是「寫進正式 Redis、明早晨報才送」。實測跑一次 unit test 就把 6 則假
     #      告警塞進 owner 隔天的晨報，且 weekly 的 test_suite_health 每週跑全套
     #      ⇒ 檢核機制自己會污染正式輸出。改法同樣是抽掉抵達正式狀態的能力
-    #      （`LINE_DIGEST_BUFFER_ISOLATED` → 只寫同進程 in-memory）。
+    #      （`CK_NOTIFY_TEST_ISOLATION`：digest 只寫同進程 in-memory、月配額計數改用拋棄式 key）。
     blanked = {
         "LINE_CHANNEL_ACCESS_TOKEN": "", "LINE_CHANNEL_SECRET": "",
         "LINE_BOT_ENABLED": "false", "LINE_ADMIN_USER_IDS": "",
         "TELEGRAM_BOT_TOKEN": "", "TELEGRAM_ADMIN_CHAT_ID": "",
         "TELEGRAM_ADMIN_PUSH_ENABLED": "false",
         "PROACTIVE_LINE_PUSH_ENABLED": "false",
-        "LINE_DIGEST_BUFFER_ISOLATED": "1",
+        "CK_NOTIFY_TEST_ISOLATION": "1",
     }
     env_patcher = patch.dict(os.environ, blanked)
     env_patcher.start()
