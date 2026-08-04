@@ -120,10 +120,32 @@
 4. 對齊 L31 但保留 reversible
 
 **60 天驗收條件**（2026-07-30 重評）：
-- MemoryFacade ≥ 5 caller ✓
-- IntegrationFacade ≥ 5 caller ✓
-- WikiFacade ≥ 3 caller ✓
+- MemoryFacade ≥ 5 caller
+- IntegrationFacade ≥ 5 caller
+- WikiFacade ≥ 3 caller
 - 任一未達 → 自動升 C 廢棄該 facade
+
+---
+
+## ✅ Trial 結案（2026-08-04，owner 決議：全部保留、改寫判準）
+
+**實測**：Integration 3（baseline 2）／Memory 3（baseline 3）／Wiki 3（baseline 1）
+＝ 60 天共 +3 caller。依原規則 Integration 與 Memory 都該升 C 廢棄。
+
+**為何不照原規則執行**：三個 facade 都**不是 0-caller 空殼**，各有 3 個真實 caller；
+拆除要改動 9 處呼叫點並 rebuild，**成本大於收益**。原規則寫於 05-30，隱含假設是
+「採用會持續成長」；實測兩個月只 +3，代表這個假設不成立 —— 該修的是判準，
+不是拿一個基於錯誤假設的門檻去砍掉會動的東西。
+
+**新判準**（取代上方 60 天條件）：
+- **≥3 caller 即保留**，且**不再把 caller 成長當作目標**。
+  facade 的價值是「呼叫端不必知道實作細節」，不是「有多少人用」；
+  把成長設成目標會誘發為了達標而硬接的 caller，那才是真的過度工程。
+- **防復發規則：往後新增 facade 必須先有 ≥3 個既存 caller 願意改接**，
+  不得先造抽象層再等人採用 —— 那正是 L53「facade 過度工程」的成因。
+- 退場條件改為：**caller 掉到 0 或 1 才重新評估**（真的沒人用才動手）。
+
+fitness step 61 的門檻（平均 ≥3）與新判準一致，無需改動。
 
 ---
 

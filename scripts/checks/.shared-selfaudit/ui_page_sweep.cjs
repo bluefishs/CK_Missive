@@ -324,6 +324,10 @@ async function main() {
       checked_at: new Date().toISOString(),
       base: BASE,
       pass: okCount, fail: bad.length, skip: skipped.length,
+      // 2026-08-04：原本只記數量。實測某次掃描出現 skip=1，退出碼因此固定為 2，
+      // 但**查不到是哪一條**——只能重跑一次才知道。跳過屬「未驗完」，
+      // 未驗完的清單本身就是要留下來給人看的資訊。
+      skipped_routes: skipped,
       throttled: throttled.length,
       known_limitations: limitations.map((l) => ({ route: l.route, reason: l.reason })),
       failures: bad.map((b) => ({ route: b.route, problems: b.problems })),

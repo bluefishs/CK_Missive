@@ -193,11 +193,25 @@
 > 答案若是「JSON 檔裡」，那就等於沒有。
 
 **附帶釐清（免得下次又追一次）**：Windows 排程 `CK_Missive-SelfAudit-Sweep`
-與 `CK_lvrland_Webmap-SelfAudit-Sweep` 的 `Last Result` **長期為 2**，這是**預期**的——
+與 `CK_lvrland_Webmap-SelfAudit-Sweep` 的 `Last Result` **長期為 2**。
 `ui_page_sweep.cjs` 的退出碼語意是 `有失敗=1 / 有跳過=2 / 全過=0`（§3 強制作法第 3 條
-「SKIP ≠ PASS」），而目前固定有一條跳過：`/admin/deployment` 未設 `GITHUB_TOKEN`
-（已記在輸出的 `known_limitations`）。要讓它歸零就得設定該 token；
+「SKIP ≠ PASS」），所以只要有任何一條跳過就會是 2。
 **權威訊號是 `json_result`，不是 Task Scheduler 的 Result 欄位。**
+
+> ⚠️ 更正（2026-08-04）：這裡原本寫「跳過的是 `/admin/deployment` 未設 `GITHUB_TOKEN`」
+> —— **不對**。`/admin/deployment` 屬 `known_limitations`，是**計入 pass** 的；
+> 真正被跳過的是 **`/admin/login-history` 被導回登入頁**。當時只看了 `known_limitations`
+> 欄位就下結論，沒去對 `skip` 的實際內容（同 §3 的老毛病：訊號有看，但看錯了那一個）。
+
+**`/admin/login-history` 的已知狀態（成因未定，勿當成已結案）**：
+- 頁面本身**正常** —— 以同一組檢核 session 單獨開啟可完整渲染（2113 字元、無導向、無 4xx），
+  照掃描的實際前置順序（`/admin/security-center` → 本頁）並在 1/2.2/3/4/6 秒五個時點量測，
+  **全部停在正確 URL**，排除「授權比掃描等待慢」。
+- 但在**完整 87 條掃描**中會確定性地被導回登入頁（連兩次同一條），
+  且它位在第 72 條、**其後 15 條全部通過** → 不是 session 過期。
+- 目前最合理的推測是累積性的認證/限流狀態（掃描全程對 auth 端點的呼叫次數遠高於單頁探測），
+  但**尚未證實，不列為結論**。
+- 已讓輸出記下 `skipped_routes`（原本只有數量）——否則每次都得重跑一輪才知道是哪一條。
 
 ---
 

@@ -1,9 +1,12 @@
 {
- "checked_at": "2026-08-03T20:36:04.536Z",
+ "checked_at": "2026-08-04T06:46:17.870Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 86,
  "fail": 0,
  "skip": 1,
+ "skipped_routes": [
+  "/admin/login-history → 被導回登入頁"
+ ],
  "throttled": 0,
  "known_limitations": [
   {

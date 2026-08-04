@@ -297,18 +297,37 @@
 ## Modules (程式模組)
 
 - [app.api.endpoints.ai.agent_capability](modules/app.api.endpoints.ai.agent_capability.md)
+- [app.api.endpoints.ai.agent_evolution](modules/app.api.endpoints.ai.agent_evolution.md)
+- [app.api.endpoints.ai.agent_query_sync](modules/app.api.endpoints.ai.agent_query_sync.md)
 - [app.api.endpoints.ai.digital_twin](modules/app.api.endpoints.ai.digital_twin.md)
+- [app.api.endpoints.ai.embedding_pipeline](modules/app.api.endpoints.ai.embedding_pipeline.md)
 - [app.api.endpoints.ai.memory](modules/app.api.endpoints.ai.memory.md)
+- [app.api.endpoints.auth.mfa](modules/app.api.endpoints.auth.mfa.md)
+- [app.api.endpoints.auth.oauth](modules/app.api.endpoints.auth.oauth.md)
+- [app.api.endpoints.backup](modules/app.api.endpoints.backup.md)
+- [app.api.endpoints.erp.assets](modules/app.api.endpoints.erp.assets.md)
+- [app.api.endpoints.erp.expenses](modules/app.api.endpoints.erp.expenses.md)
+- [app.api.endpoints.erp.financial_summary](modules/app.api.endpoints.erp.financial_summary.md)
 - [app.api.endpoints.health](modules/app.api.endpoints.health.md)
+- [app.api.endpoints.pm.cases](modules/app.api.endpoints.pm.cases.md)
+- [app.api.endpoints.system_monitoring](modules/app.api.endpoints.system_monitoring.md)
 - [app.api.endpoints.taoyuan_dispatch.dispatch](modules/app.api.endpoints.taoyuan_dispatch.dispatch.md)
+- [app.api.endpoints.tender_module.analytics](modules/app.api.endpoints.tender_module.analytics.md)
 - [app.api.endpoints.tender_module.search](modules/app.api.endpoints.tender_module.search.md)
 - [app.api.endpoints.tender_module.subscriptions](modules/app.api.endpoints.tender_module.subscriptions.md)
 - [app.core.scheduler](modules/app.core.scheduler.md)
+- [app.repositories](modules/app.repositories.md)
+- [app.schemas.agency](modules/app.schemas.agency.md)
+- [app.schemas.ai.stats](modules/app.schemas.ai.stats.md)
 - [app.schemas.auth](modules/app.schemas.auth.md)
 - [app.schemas.knowledge_graph](modules/app.schemas.knowledge_graph.md)
 - [app.schemas.taoyuan.dispatch](modules/app.schemas.taoyuan.dispatch.md)
 - [app.services.ai.agent.agent_orchestrator](modules/app.services.ai.agent.agent_orchestrator.md)
+- [app.services.ai.agent.agent_planner](modules/app.services.ai.agent.agent_planner.md)
+- [app.services.ai.agent.agent_post_processing](modules/app.services.ai.agent.agent_post_processing.md)
+- [app.services.ai.agent.agent_synthesis](modules/app.services.ai.agent.agent_synthesis.md)
+- [app.services.ai.search.document_natural_search](modules/app.services.ai.search.document_natural_search.md)
 
 ---
-**統計**: 243 entities | 17 topics | 0 sources | 20 synthesis | 12 modules
-**最後更新**: 2026-08-03
+**統計**: 243 entities | 17 topics | 0 sources | 20 synthesis | 31 modules
+**最後更新**: 2026-08-04

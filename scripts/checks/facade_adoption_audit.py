@@ -20,6 +20,15 @@ import argparse
 import json
 import subprocess
 import sys
+
+# L49.8：host 為 cp950，腳本輸出含 emoji/框線時會在 print 當場崩潰。
+# weekly runner 有帶 PYTHONIOENCODING=utf-8 所以在排程中看不出來 ——
+# **檢核腳本必須自己站得住**，不能靠呼叫端剛好設對環境變數。
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 from datetime import date
 from pathlib import Path
 
