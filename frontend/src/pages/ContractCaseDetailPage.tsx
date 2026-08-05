@@ -164,7 +164,11 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
   ];
 
   const headerExtra = (
-    <Space>
+    // 2026-08-05 視覺走查發現：手機版這排按鈕**左緣被裁掉**，第一顆
+    // 只看得到「源標案」而點不到。DetailPageHeader 外層已 `wrap={isMobile}`，
+    // 但這個內層 Space 沒有 wrap，於是整排不換行、向左溢出被切。
+    // 斷言看不到這個 —— 按鈕存在、數量正確，只是有一顆碰不到。
+    <Space wrap>
       {/* 2026-07-31 L3 回指：顯示本案來自哪個標案（原本雙向都看不到對方） */}
       <SourceTenderLink sourceTenderId={data?.source_tender_id} />
       {/* 2026-07-29：工地人員常從承攬案件頁找案子，故此處也提供核銷 QR

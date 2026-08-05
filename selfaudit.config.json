@@ -621,6 +621,76 @@
           "failMsg": "填報頁標題列沒有移除鈕"
         }
       ]
+    },
+    {
+      "id": "visual-walk-lock-quotation-mobile",
+      "name": "報價詳情手機版：金額不得黏在一起、標籤不得逐字斷行（2026-08-05 視覺走查修正之回歸鎖）",
+      "_why": "視覺走查實見：應付概況「已付款 0」與「未付款 2,000,000」渲染成 2,000,0000，讀的人會看成錯的數字；Descriptions 標籤被壓成 案／號 直排。兩者所有斷言都會過。根因是 <Col span={8}> 無 RWD 斷點與 Descriptions 固定欄數。",
+      "auth": true,
+      "url": "/erp/quotations/168",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "assertCount",
+          "selector": ".ant-statistic",
+          "label": "統計數字",
+          "min": 6,
+          "failMsg": "報價詳情的統計數字消失（成本結構區塊壞了）"
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "應付總額",
+            "未付款"
+          ],
+          "failMsg": "應付概況欄位缺漏"
+        },
+        {
+          "action": "assertTextAbsent",
+          "text": "2,000,0000",
+          "failMsg": "兩個金額again黏在一起（Col 又被改回固定 span，手機下欄寬不足）"
+        }
+      ]
+    },
+    {
+      "id": "visual-walk-lock-contract-case-mobile",
+      "name": "承攬案件詳情手機版：標題列按鈕不得溢出、基本資訊標籤不得逐字斷行（2026-08-05 視覺走查修正之回歸鎖）",
+      "_why": "視覺走查實見：按鈕列左緣被裁掉，第一顆只看得到「源標案」而點不到（內層 Space 未 wrap）；9 個標籤被壓成一字一行。斷言看不到——按鈕存在、數量正確、文字完整。",
+      "auth": true,
+      "url": "/contract-cases/187",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "案件名稱",
+            "成案編號",
+            "得標金額"
+          ],
+          "failMsg": "基本資訊欄位缺漏"
+        },
+        {
+          "action": "assertCount",
+          "selector": ".ant-descriptions-item-label",
+          "label": "基本資訊標籤數",
+          "min": 8,
+          "failMsg": "基本資訊標籤數異常（Descriptions 結構被改動）"
+        }
+      ]
     }
   ],
   "output": {
@@ -639,5 +709,37 @@
       "time": "04:50",
       "args": ""
     }
-  ]
+  ],
+  "visual_walk": {
+    "_doc": "視覺走查（2026-08-05，借自 CK_FacilityDev）。斷言看不到的東西靠這批圖：截字／遮蔽／配色語意／版面錯位。**設計成給人或 AI 在 session 裡讀**，不掛 cron —— cron 裡沒有人在看。路由刻意只取代表性的十餘條：一次幾十張沒有人會看完，而看不完的產出等於沒有產出。",
+    "routes": [
+      "/dashboard",
+      "/documents",
+      "/documents/2689",
+      "/taoyuan/dispatch",
+      "/contract-cases",
+      "/contract-cases/187",
+      "/erp/quotations",
+      "/erp/quotations/168",
+      "/erp/expenses",
+      "/erp/expenses/create",
+      "/kunge",
+      "/ai/graphs"
+    ],
+    "viewports": [
+      {
+        "name": "desktop",
+        "width": 1440,
+        "height": 900
+      },
+      {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "out_dir": "docs/health/visual",
+    "settle_ms": 2800,
+    "throttle_ms": 700
+  }
 }

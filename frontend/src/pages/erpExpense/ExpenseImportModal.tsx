@@ -213,7 +213,7 @@ const ExpenseImportModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
             )}
           </div>
 
-          <Descriptions bordered size="small" column={2}>
+          <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
             <Descriptions.Item label="總列數">
               {result.total_rows ?? result.total ?? 0}
             </Descriptions.Item>

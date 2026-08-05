@@ -219,7 +219,7 @@ const WikiAdminTab: React.FC = () => {
 
       {lint && (
         <Card title="Lint 詳情" size="small">
-          <Descriptions column={2} size="small">
+          <Descriptions column={{ xs: 1, sm: 2 }} size="small">
             <Descriptions.Item label="entities">{lint.page_count?.entities ?? 0}</Descriptions.Item>
             <Descriptions.Item label="topics">{lint.page_count?.topics ?? 0}</Descriptions.Item>
             <Descriptions.Item label="sources">{lint.page_count?.sources ?? 0}</Descriptions.Item>

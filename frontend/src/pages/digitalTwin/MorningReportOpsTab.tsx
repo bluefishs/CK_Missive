@@ -212,9 +212,9 @@ export const MorningReportOpsTab: React.FC = () => {
             {quota?.available ? (
               <>
                 <Row gutter={16}>
-                  <Col span={8}><Statistic title="本月已推" value={quota.used ?? 0} suffix="則" /></Col>
-                  <Col span={8}><Statistic title="剩餘" value={quota.remaining ?? 0} suffix="則" /></Col>
-                  <Col span={8}><Statistic title="軟上限" value={quota.cap} suffix={`/${quota.hard_limit ?? 200}`} /></Col>
+                  <Col xs={12} sm={8}><Statistic title="本月已推" value={quota.used ?? 0} suffix="則" /></Col>
+                  <Col xs={12} sm={8}><Statistic title="剩餘" value={quota.remaining ?? 0} suffix="則" /></Col>
+                  <Col xs={12} sm={8}><Statistic title="軟上限" value={quota.cap} suffix={`/${quota.hard_limit ?? 200}`} /></Col>
                 </Row>
                 <Progress
                   percent={Math.min(100, Math.round(((quota.used ?? 0) / (quota.cap || 1)) * 100))}

@@ -244,7 +244,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
             </Row>
           </Form>
         ) : (
-          <Descriptions column={2} bordered size="small" items={[
+          <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small" items={[
             { key: '案件名稱', label: '案件名稱', span: 2, children: (
               <Text strong>{data.project_name}</Text>
             ) },

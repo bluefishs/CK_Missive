@@ -121,7 +121,7 @@ const PaymentReadOnlySection: React.FC<PaymentReadOnlySectionProps> = ({
     .filter(Boolean);
 
   return (
-    <Descriptions size="small" column={3} bordered items={[
+    <Descriptions size="small" column={{ xs: 1, sm: 3 }} bordered items={[
       ...workTypeItems
         .filter(Boolean)
         .map((item) => ({
@@ -242,7 +242,7 @@ export const DispatchInfoReadOnly: React.FC<DispatchInfoReadOnlyProps> = ({
 
     {/* System info */}
     <Divider />
-    <Descriptions size="small" column={3} items={[
+    <Descriptions size="small" column={{ xs: 1, sm: 3 }} items={[
       { key: '機關函文號', label: '機關函文號', children: (() => {
         const agencyDocs = (dispatch.linked_documents || [])
           .filter((d: DispatchDocumentLink) => detectLinkType(d.doc_number) === 'agency_incoming')

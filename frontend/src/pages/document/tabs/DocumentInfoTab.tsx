@@ -101,7 +101,7 @@ export const DocumentInfoTab: React.FC<DocumentInfoTabProps> = ({
       {!isEditing && document && (
         <>
           <Divider />
-          <Descriptions size="small" column={3} items={[
+          <Descriptions size="small" column={{ xs: 1, sm: 3 }} items={[
             { key: '建立時間', label: '建立時間', children: document.created_at ? dayjs(document.created_at).format('YYYY-MM-DD HH:mm') : '-' },
             { key: '更新時間', label: '更新時間', children: document.updated_at ? dayjs(document.updated_at).format('YYYY-MM-DD HH:mm') : '-' },
             { key: '建立者', label: '建立者', children: document.creator || '系統' },

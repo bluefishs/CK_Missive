@@ -1,8 +1,73 @@
 {
- "checked_at": "2026-08-05T01:15:25.207Z",
+ "checked_at": "2026-08-05T05:33:37.171Z",
  "base": "https://missive.cksurvey.tw",
- "pass": 14,
+ "pass": 16,
  "fail": 0,
  "skip": 0,
- "failures": []
+ "failures": [],
+ "measured": [
+  {
+   "id": "ezbid-create-case",
+   "values": [
+    "button:has-text(\"一鍵建案\")=1",
+    "button:has-text(\"收藏\")=1"
+   ]
+  },
+  {
+   "id": "receipt-image",
+   "values": [
+    "img[src^=\"blob:\"], img[alt*=\"收據\"]=1"
+   ]
+  },
+  {
+   "id": "account-record-entry",
+   "values": [
+    "button:has-text(\"新增應收\")=1"
+   ]
+  },
+  {
+   "id": "mobile-create",
+   "values": [
+    "button:has-text(\"建立並繼續\")=1"
+   ]
+  },
+  {
+   "id": "detail-page-no-action-column",
+   "values": [
+    "th:has-text(\"操作\")=0",
+    "th:has-text(\"操作\")=0"
+   ]
+  },
+  {
+   "id": "agency-contact-form-page",
+   "values": [
+    "th:has-text(\"操作\")=0"
+   ]
+  },
+  {
+   "id": "staff-form-page",
+   "values": [
+    "th:has-text(\"操作\")=0"
+   ]
+  },
+  {
+   "id": "visual-walk-lock-quotation-mobile",
+   "values": [
+    "統計數字=15"
+   ]
+  },
+  {
+   "id": "visual-walk-lock-contract-case-mobile",
+   "values": [
+    "基本資訊標籤數=16"
+   ]
+  }
+ ],
+ "cannot_judge": [
+  "版面是否好看／間距是否舒適（斷言只看元素在不在、數量對不對）",
+  "文字是否被截斷（textContent 完整，但畫面上顯示成「王駿…」照樣 PASS）",
+  "顏色語意是否正確（紅字代表錯誤、綠字代表正常，斷言分不出）",
+  "元素是否被遮蔽或超出可視範圍（存在 ≠ 看得到）",
+  "操作手感：順暢度、等待感受、字級舒適度（只有真人能判）"
+ ]
 }

@@ -218,7 +218,7 @@ export const AliasIntegrationDrawer: React.FC<Props> = ({ open, onClose }) => {
                 <Space direction="vertical" size="small" style={{ width: '100%' }}>
                   {historyData.items.map((item) => (
                     <Card key={item.id} size="small">
-                      <Descriptions size="small" column={2}>
+                      <Descriptions size="small" column={{ xs: 1, sm: 2 }}>
                         <Descriptions.Item label="canonical">#{item.canonical_id}</Descriptions.Item>
                         <Descriptions.Item label="alias">#{item.alias_id}</Descriptions.Item>
                         <Descriptions.Item label="canonical role">{item.canonical_role}</Descriptions.Item>

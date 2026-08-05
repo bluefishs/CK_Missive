@@ -237,7 +237,7 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                 <Flex vertical gap={0}>
                   {agencyDocs.map((doc: DispatchDocumentLink) => (
                     <Card key={doc.document_id} size="small" style={{ marginBottom: 8 }}>
-                      <Descriptions size="small" column={2} items={[
+                      <Descriptions size="small" column={{ xs: 1, sm: 2 }} items={[
                         { key: '公文字號', label: '公文字號', children: (
                           <Space>
                             {doc.doc_date && (
@@ -304,7 +304,7 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                 <Flex vertical gap={0}>
                   {companyDocs.map((doc: DispatchDocumentLink) => (
                     <Card key={doc.document_id} size="small" style={{ marginBottom: 8 }}>
-                      <Descriptions size="small" column={2} items={[
+                      <Descriptions size="small" column={{ xs: 1, sm: 2 }} items={[
                         { key: '公文字號', label: '公文字號', children: (
                           <Space>
                             {doc.doc_date && (

@@ -310,7 +310,7 @@ const DatabaseGraphPage: React.FC = () => {
                 children: (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     {/* Basic Info */}
-                    <Descriptions size="small" column={2} bordered items={[
+                    <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered items={[
                       { key: '欄位數', label: '欄位數', children: selectedTable.columns.length },
                       { key: '主鍵', label: '主鍵', children: selectedTable.primary_key_columns.join(', ') || '-' },
                       { key: '外鍵數', label: '外鍵數', children: selectedTable.foreign_keys.length },

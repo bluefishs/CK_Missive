@@ -129,7 +129,7 @@ export const DispatchProjectsTab: React.FC<DispatchProjectsTabProps> = ({
         <Flex vertical gap={0}>
           {linkedProjects.map((proj: LinkedProject) => (
             <Card key={proj.link_id} size="small" style={{ marginBottom: 12 }}>
-              <Descriptions size="small" column={2} items={[
+              <Descriptions size="small" column={{ xs: 1, sm: 2 }} items={[
                 { key: '工程名稱', label: '工程名稱', span: 2, children: proj.project_name || '-' },
                 { key: '分案名稱', label: '分案名稱', children: proj.sub_case_name || '-' },
                 { key: '行政區', label: '行政區', children: proj.district || '-' },

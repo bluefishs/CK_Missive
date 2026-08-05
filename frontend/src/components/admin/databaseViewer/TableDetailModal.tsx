@@ -39,7 +39,7 @@ export const TableDetailModal: React.FC<TableDetailModalProps> = ({
 /** Modal 內部內容 */
 const TableDetailContent: React.FC<{ table: EnhancedTableInfo }> = ({ table }) => (
   <div>
-    <Descriptions title="基本資訊" bordered size="small" column={2} items={[
+    <Descriptions title="基本資訊" bordered size="small" column={{ xs: 1, sm: 2 }} items={[
       { key: '中文名稱', label: '中文名稱', children: table.chinese_name },
       { key: '英文名稱', label: '英文名稱', children: table.name },
       { key: '資料表類型', label: '資料表類型', children: (<Tag color={table.color}>{table.category}</Tag>) },

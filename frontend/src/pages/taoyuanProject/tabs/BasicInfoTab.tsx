@@ -129,7 +129,7 @@ const BasicInfoTabInner: React.FC<BasicInfoTabProps> = ({
     {!isEditing && project && (
       <>
         <Divider />
-        <Descriptions size="small" column={3} items={[
+        <Descriptions size="small" column={{ xs: 1, sm: 3 }} items={[
           { key: '項次', label: '項次', children: project.sequence_no || '-' },
           { key: '建立時間', label: '建立時間', children: project.created_at ? dayjs(project.created_at).format('YYYY-MM-DD HH:mm') : '-' },
           { key: '更新時間', label: '更新時間', children: project.updated_at ? dayjs(project.updated_at).format('YYYY-MM-DD HH:mm') : '-' },

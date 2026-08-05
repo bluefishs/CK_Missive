@@ -64,6 +64,25 @@ const NOISE_RE = [
 ];
 const isNoise = (t) => NOISE_RE.some((re) => re.test(t));
 
+
+// ---------------------------------------------------------------------------
+// 能力邊界宣告（2026-08-05，借自 CK_FacilityDev 走查表的做法）
+// ---------------------------------------------------------------------------
+//
+// 他們的走查表明寫「能判定的＝版面、配色語意、標籤文字、數字正確性；
+// **判不了的＝操作手感**——那仍需真人」。我們原本沒有這一段，
+// 於是「14/14 PASS」被默認成「畫面沒問題」，而這批斷言其實看不到很多東西。
+//
+// 實例（我們自己踩過）：2026-08-04 表格外溢修好了，但姓名被截成兩字 ——
+// 文字存在、元素數量正確，**每一條斷言都會過**，只是人看不懂。
+const CANNOT_JUDGE = [
+  '版面是否好看／間距是否舒適（斷言只看元素在不在、數量對不對）',
+  '文字是否被截斷（textContent 完整，但畫面上顯示成「王駿…」照樣 PASS）',
+  '顏色語意是否正確（紅字代表錯誤、綠字代表正常，斷言分不出）',
+  '元素是否被遮蔽或超出可視範圍（存在 ≠ 看得到）',
+  '操作手感：順暢度、等待感受、字級舒適度（只有真人能判）',
+];
+
 // ---------------------------------------------------------------------------
 // 檢查定義 —— 每一條都對應 owner 曾經手動回報過的問題
 // ---------------------------------------------------------------------------
@@ -94,6 +113,11 @@ async function runSteps(page, ctx, steps) {
         break;
       case 'assertCount': {
         const n = await page.locator(st.selector).count();
+        // 2026-08-05：把**實測值**記下來（借自 CK_FacilityDev 走查表）。
+        // 原本只有 FAIL 才看得到數字，PASS 一律是「ok」——
+        // 於是「本來 23 列變成 3 列但仍 >= min」這種退化完全看不出來。
+        // 數字會漂，PASS 不會。
+        ctx.measured.push(`${st.label || st.selector}=${n}`);
         // 2026-08-04 補 max：原本只支援 min，且 min 預設 1 ——
         // 想斷言「這個東西不該存在」時寫 max:0 會被忽略、退回 min:1，
         // 於是**元素不存在反而判失敗**（判定整個反過來）。
@@ -166,7 +190,7 @@ async function main() {
     if (check.auth) await boot.applyAuth(context, CONFIG, BASE);
 
     const page = await context.newPage();
-    const ctx = { dialogs: [], errors: [] };
+    const ctx = { measured: [], dialogs: [], errors: [] };
     // alert/confirm 必須攔下，否則自動化會整個卡住（前端多處用 alert 擋錯誤）
     page.on('dialog', async (d) => { ctx.dialogs.push(d.message()); await d.dismiss().catch(() => {}); });
     page.on('console', (m) => { if (m.type() === 'error' && !isNoise(m.text())) ctx.errors.push(m.text()); });
@@ -195,7 +219,7 @@ async function main() {
       await page.screenshot({ path: path.join(SHOT_DIR, `${check.id}.png`), fullPage: false }).catch(() => {});
     }
     await context.close();
-    return { outcome, errors: ctx.errors.slice(0, 3) };
+    return { outcome, errors: ctx.errors.slice(0, 3), measured: ctx.measured };
   };
 
   for (const check of CHECKS) {
@@ -208,7 +232,7 @@ async function main() {
         r = retry;
       }
     }
-    results.push({ check, outcome: r.outcome, errors: r.errors });
+    results.push({ check, outcome: r.outcome, errors: r.errors, measured: r.measured || [] });
   }
 
   await browser.close();
@@ -217,16 +241,22 @@ async function main() {
   console.log('UI 流程自我檢核 — 對應 owner 曾手動回報的頁面');
   console.log('='.repeat(66));
   let failed = 0;
-  for (const { check, outcome, errors } of results) {
+  for (const { check, outcome, errors, measured } of results) {
     const tag = outcome.fail ? '❌ FAIL' : outcome.skip ? '⚪ SKIP' : '✅ PASS';
     if (outcome.fail) failed++;
     console.log(`${tag}  ${check.name}`);
-    console.log(`        ${check.url} — ${outcome.fail || outcome.skip || outcome.ok}`);
+    console.log(`        ${check.url} — ${outcome.fail || outcome.skip || outcome.ok}`      + (measured && measured.length ? `　實測：${measured.join('、')}` : ''));
     if (errors.length) console.log(`        console error: ${errors.join(' | ').slice(0, 160)}`);
   }
   console.log('-'.repeat(66));
   // SKIP 不得算 GREEN —— 初版就是因為 5 項 SKIP 仍印「GREEN 全部通過」
   // 而差點自我欺騙（本檢核器自己犯了它要抓的那種假綠）。
+  console.log('');
+  console.log('⚠ 這批檢查判定不了的（斷言全過 ≠ 畫面沒問題）：');
+  for (const c of CANNOT_JUDGE) console.log(`    · ${c}`);
+  console.log('  → 這一類要靠視覺走查（run_visual_walk）或真人。');
+  console.log('');
+
   const skipped = results.filter((r) => r.outcome.skip).length;
   const passed = results.filter((r) => r.outcome.ok).length;
   if (failed) {
@@ -248,6 +278,12 @@ async function main() {
       base: BASE,
       pass: passed, fail: failed, skip: skipped,
       failures: results.filter((r) => r.outcome.fail).map((r) => ({ id: r.check.id, name: r.check.name, reason: r.outcome.fail })),
+      // 2026-08-05：記**實測值**而非只記 PASS（借自 CK_FacilityDev 走查表）。
+      // 「本來 23 列變成 3 列但仍 >= min」用 PASS 看不出來，用數字才看得出退化。
+      measured: results.filter((r) => (r.measured || []).length)
+        .map((r) => ({ id: r.check.id, values: r.measured })),
+      // 這批檢查**判定不了**的東西 —— 不宣告就等於默認「14/14 PASS」代表畫面沒問題。
+      cannot_judge: CANNOT_JUDGE,
     }, null, 1), 'utf-8');
   } catch (e) { console.error('寫入檢核結果失敗:', String(e)); }
 

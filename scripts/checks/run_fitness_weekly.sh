@@ -134,6 +134,10 @@ run_step "28" "Windows 排程存活"             "scripts/checks/windows_task_li
 # lvrland 與 digitaltwin 把完整 API schema 放在公網（1.5MB／196 端點），
 # 且沒有任何機制在問「我們對外開了什麼」—— 修一次不代表不會再開。
 run_step "29" "公網暴露稽核"                 "scripts/checks/public_exposure_audit.py"
+# 2026-08-05：視覺走查是唯一能抓「斷言全過但畫面是錯的」那一類的機制，
+# 但判讀需要人在場、不能掛 cron —— 不能自動執行的流程最容易悄悄停掉且無訊號。
+# 這一步只問「這件事還在做嗎」，逾期回 YELLOW 不回 RED。
+run_step "30" "視覺走查新鮮度"               "scripts/checks/visual_walk_freshness.py"
 
 # 2026-08-03：測試套件本身的健康從來沒有任何一階在看 —— 整套長期不能執行，
 # 是 owner 記在待辦裡而不是系統發現的；同期 ezbid parser 重寫後兩天無回歸保護。

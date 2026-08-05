@@ -195,7 +195,7 @@ export const HistoryTab: React.FC = () => {
         }}
         expandable={{
           expandedRowRender: (record) => (
-            <Descriptions size="small" column={2} bordered items={[
+            <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered items={[
               { key: '原始查詢', label: '原始查詢', span: 2, children: record.query },
               { key: '搜尋策略', label: '搜尋策略', children: record.search_strategy || '-' },
               { key: '同義詞擴展', label: '同義詞擴展', children: record.synonym_expanded ? '是' : '否' },

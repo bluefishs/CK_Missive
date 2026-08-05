@@ -160,7 +160,7 @@ export const DocumentAITab: React.FC<DocumentAITabProps> = ({ document }) => {
           {analysisLoading ? (
             <Spin size="small" />
           ) : analysis?.suggested_doc_type || analysis?.suggested_category ? (
-            <Descriptions size="small" bordered column={2} style={{ maxWidth: 500 }} items={[
+            <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} style={{ maxWidth: 500 }} items={[
               ...(analysis.suggested_doc_type ? [{
                 key: '文件類型',
                 label: '文件類型',
@@ -264,7 +264,7 @@ export const DocumentAITab: React.FC<DocumentAITabProps> = ({ document }) => {
       children: (
         <Space vertical size={8} style={{ width: '100%' }}>
           {hasAnalysis && (analysis.entities_count > 0 || analysis.relations_count > 0) ? (
-            <Descriptions size="small" bordered column={2} style={{ maxWidth: 400 }} items={[
+            <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} style={{ maxWidth: 400 }} items={[
               { key: '實體數', label: '實體數', children: analysis.entities_count },
               { key: '關係數', label: '關係數', children: analysis.relations_count },
             ]} />
@@ -279,7 +279,7 @@ export const DocumentAITab: React.FC<DocumentAITabProps> = ({ document }) => {
             {extractResult ? '已提取' : '提取實體與關係'}
           </Button>
           {extractResult && (
-            <Descriptions size="small" bordered column={2} style={{ maxWidth: 400 }} items={[
+            <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} style={{ maxWidth: 400 }} items={[
               { key: '狀態', label: '狀態', children: extractResult.skipped ? (
                 <Tag color="default">已跳過</Tag>
               ) : (

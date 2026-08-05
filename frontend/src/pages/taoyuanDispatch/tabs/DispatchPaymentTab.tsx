@@ -156,7 +156,7 @@ const PaymentReadOnlyView: React.FC<PaymentReadOnlyViewProps> = ({
     : ALL_WORK_TYPE_FIELDS;
 
   return (
-    <Descriptions bordered column={2} size="small" items={[
+    <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small" items={[
       ...activeFields.flatMap(({ code, label }) => {
         const dateKey = `work_${code}_date` as keyof ContractPayment;
         const amountKey = `work_${code}_amount` as keyof ContractPayment;

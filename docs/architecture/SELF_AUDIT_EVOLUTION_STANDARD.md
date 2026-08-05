@@ -127,9 +127,9 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 目前納管的 key（`scripts/checks/doc_baseline_claim_audit.py`）：
 
 <!--baseline:producers-->producer registry 現有 32 筆
-<!--baseline:ui_flows-->UI 流程檢核現有 14 條
+<!--baseline:ui_flows-->UI 流程檢核現有 16 條
 <!--baseline:fitness_steps-->主 fitness runner 現有 78 步
-<!--baseline:weekly_steps-->weekly runner 現有 29 步
+<!--baseline:weekly_steps-->weekly runner 現有 30 步
 <!--baseline:daily_steps-->daily runner 現有 9 步
 <!--baseline:selfaudit_repos-->已導入瀏覽器自我走查的專案數 4
 <!--baseline:producer_signals-->producer 信號型別 5 種
@@ -213,6 +213,41 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 → 規則：**SSOT 的內容不要在消費端存第二份**。解析交給既有 loader，端點只切段，
    前端純渲染。讀不到時要明講「讀不到」，不要渲染成空白——
    空白會被讀成「這個東西不存在」，與「取不到」意義相反。
+
+
+### 3.5 斷言全過 ≠ 畫面沒問題（2026-08-05，借自 CK_FacilityDev）
+
+CK_FacilityDev 的走查表明寫「**能判定的**＝版面、配色語意、標籤文字、數字正確性；
+**判不了的**＝操作手感——那仍需真人」。我們原本沒有這一段，
+於是「14/14 PASS」被默認成「畫面沒問題」。
+
+實測代價（2026-08-05 首輪視覺走查，兩頁就抓到）：
+
+| 缺陷 | 為何斷言抓不到 |
+|---|---|
+| 兩個金額渲染成 `2,000,0000`（0 與 2,000,000 黏在一起） | 兩個 `.ant-statistic` 都在、數值正確，只是**擠在一起後人會讀成錯的數字** |
+| 9 個標籤被壓成「案／件／名／稱」直排 | textContent 完整，`assertTextsPresent` 全過 |
+| 標題列按鈕左緣被裁，第一顆點不到 | 按鈕存在、數量正確，只是**碰不到** |
+
+三者都通過了當時全部 14 條斷言。
+
+**立法**：
+1. 兩支斷言引擎**必須宣告判定不了什麼**（`CANNOT_JUDGE`），輸出與結果 JSON 都要帶。
+2. 斷言要記**實測值**不只記 PASS（`assertCount` 的 `label`）——
+   「本來 23 列變成 3 列但仍 ≥ min」用 PASS 看不出來。
+3. 新增**視覺走查**（`run_visual_walk.sh`）作為第三種模式：
+   拍全頁截圖 × 桌面/手機兩種寬度，**判讀在 session 內由人或 AI 進行**。
+   刻意不掛 cron —— cron 裡沒有人在看圖。
+4. **每發現一個缺陷必須轉成 flow 斷言**（CK_FacilityDev 的 run_tests.py 有三處
+   明寫「走查修正之回歸鎖定」）。走查是**發現器**，回歸鎖才是機制；
+   不轉成斷言，這一輪就是一次性勞動。
+5. 走查本身要有新鮮度哨兵（weekly step 30，逾 45 天回 YELLOW）——
+   **不能自動執行的流程最容易悄悄停掉，而且停掉不會有訊號**。
+
+> 三種模式並存，互不取代：
+> 每日斷言走查（無人值守）＝已知會壞的東西壞了；
+> 視覺走查（週期性、session 內）＝沒人想到要斷言的東西；
+> 真人＝手感、字級舒適度。
 
 ### 3.4 檢核器有跑 ≠ 檢核結果是綠的（2026-08-04）
 

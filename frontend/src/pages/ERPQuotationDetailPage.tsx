@@ -104,19 +104,19 @@ export const ERPQuotationDetailPage: React.FC = () => {
           <Col xs={24} sm={12}>
             <Card size="small" title="應收概況 (委託單位)">
               <Row gutter={[16, 8]}>
-                <Col span={6}><Statistic title="應收總額" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
-                <Col span={6}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
-                <Col span={6}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
-                <Col span={6}><Statistic title="未收款" value={Number(quotation.total_price ?? 0) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_price ?? 0) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
+                <Col xs={12} sm={6}><Statistic title="應收總額" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+                <Col xs={12} sm={6}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
+                <Col xs={12} sm={6}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
+                <Col xs={12} sm={6}><Statistic title="未收款" value={Number(quotation.total_price ?? 0) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_price ?? 0) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
               </Row>
             </Card>
           </Col>
           <Col xs={24} sm={12}>
             <Card size="small" title="應付概況 (協力廠商)">
               <Row gutter={[16, 8]}>
-                <Col span={8}><Statistic title="應付總額" value={Number(quotation.total_payable)} precision={0} /></Col>
-                <Col span={8}><Statistic title="已付款" value={Number(quotation.total_paid)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
-                <Col span={8}><Statistic title="未付款" value={Number(quotation.total_payable) - Number(quotation.total_paid)} precision={0} styles={{ content: { color: Number(quotation.total_payable) > Number(quotation.total_paid) ? '#ff4d4f' : '#52c41a' } }} /></Col>
+                <Col xs={12} sm={8}><Statistic title="應付總額" value={Number(quotation.total_payable)} precision={0} /></Col>
+                <Col xs={12} sm={8}><Statistic title="已付款" value={Number(quotation.total_paid)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
+                <Col xs={12} sm={8}><Statistic title="未付款" value={Number(quotation.total_payable) - Number(quotation.total_paid)} precision={0} styles={{ content: { color: Number(quotation.total_payable) > Number(quotation.total_paid) ? '#ff4d4f' : '#52c41a' } }} /></Col>
               </Row>
             </Card>
           </Col>
@@ -133,10 +133,10 @@ export const ERPQuotationDetailPage: React.FC = () => {
         {/* 損益分析 */}
         <Card size="small" title="損益分析">
           <Row gutter={[16, 8]}>
-            <Col span={6}><Statistic title="營收 (含稅)" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
-            <Col span={6}><Statistic title="稅額" value={Number(quotation.tax_amount)} precision={0} /></Col>
-            <Col span={6}><Statistic title="營收 (未稅)" value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount)} precision={0} /></Col>
-            <Col span={6}><Statistic title="淨利" value={Number(quotation.net_profit)} precision={0} styles={{ content: { color: Number(quotation.net_profit) >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
+            <Col xs={12} sm={6}><Statistic title="營收 (含稅)" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+            <Col xs={12} sm={6}><Statistic title="稅額" value={Number(quotation.tax_amount)} precision={0} /></Col>
+            <Col xs={12} sm={6}><Statistic title="營收 (未稅)" value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount)} precision={0} /></Col>
+            <Col xs={12} sm={6}><Statistic title="淨利" value={Number(quotation.net_profit)} precision={0} styles={{ content: { color: Number(quotation.net_profit) >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
           </Row>
           <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small" style={{ marginTop: 16 }}>
             <Descriptions.Item label="外包費">{Number(quotation.outsourcing_fee).toLocaleString()}</Descriptions.Item>

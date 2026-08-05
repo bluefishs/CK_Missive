@@ -259,7 +259,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
       <Modal title={`專案廠商管理 - ${projectName}`} open={open} onCancel={onClose} footer={null} width={1200}>
         <Card style={{ marginBottom: 16 }}>
           <Row gutter={16}>
-            <Col span={8}><Statistic title="關聯廠商數" value={associations.length} /></Col>
+            <Col xs={12} sm={8}><Statistic title="關聯廠商數" value={associations.length} /></Col>
             <Col span={8}>
               <Statistic title="合約總金額"
                 value={associations.reduce((sum, a) => sum + (a.contract_amount || 0), 0)}
