@@ -86,7 +86,10 @@ class TaoyuanDispatchOrder(Base):
     survey_unit = Column(String(100), comment="查估單位")
     cloud_folder = Column(String(500), comment="雲端資料夾")
     project_folder = Column(String(500), comment="專案資料夾")
-    contact_note = Column(String(500), comment="聯絡備註")
+    # 2026-08-05：VARCHAR(500) → Text。這欄的實際用途是**持續累積的通聯紀錄**
+    # （「11:01 (乾坤測繪)李昭德先生 查估後回報…」一路往下加），
+    # owner 那筆已約 1,200 字，儲存時連續 5 次 HTTP 500。長度上限對這個用途本來就不對。
+    contact_note = Column(Text, comment="聯絡備註（通聯紀錄，長文）")
 
     # 匯入時的原始文號（供批次重新關聯用）
     agency_doc_number_raw = Column(String(500), nullable=True,

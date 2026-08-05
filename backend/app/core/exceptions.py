@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from datetime import datetime
+import re
 import logging
 
 from app.schemas.common import ErrorCode, ErrorDetail
@@ -371,6 +372,56 @@ async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse
     )
 
 
+async def db_constraint_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """把「資料太長／違反約束」這類**使用者可修正**的 DB 錯誤講清楚，而不是回 500。
+
+    2026-08-05 起因：owner 儲存派工單聯絡備註時連續 5 次 HTTP 500 ——
+    真正原因是 `contact_note` 為 VARCHAR(500) 而內容約 1,200 字，
+    但畫面上只有「伺服器內部錯誤」。**他按了五次，因為沒有任何訊息告訴他哪裡不對。**
+
+    「欄位超長」是使用者改得動的事，屬 400 不屬 500。這裡不只治那一個欄位 ——
+    任何欄位撞到長度上限都會得到可讀的訊息，而不是再一次沉默的 500。
+    """
+    from asyncpg.exceptions import StringDataRightTruncationError
+
+    orig = getattr(exc, "orig", None)
+    is_too_long = isinstance(orig, StringDataRightTruncationError) or (
+        "value too long" in str(orig or exc).lower()
+    )
+    if not is_too_long:
+        return await generic_exception_handler(request, exc)
+
+    # asyncpg 的訊息只有型別（character varying(500)），沒有欄位名；
+    # SQL 語句裡有欄位名，兩者合起來才對使用者有用。
+    detail = str(orig or exc)
+    field = ""
+    stmt = str(getattr(exc, "statement", "") or "")
+    m = re.search(r"SET\s+(\w+)=", stmt)
+    if m:
+        field = m.group(1)
+    limit = ""
+    m2 = re.search(r"varying\((\d+)\)", detail)
+    if m2:
+        limit = m2.group(1)
+
+    msg = "輸入內容超過欄位長度上限"
+    if field:
+        msg += f"：{field}"
+    if limit:
+        msg += f"（上限 {limit} 字）"
+    msg += "，請縮短後再儲存。"
+
+    logger.warning(
+        "DB 長度上限被觸發 [%s %s] field=%s limit=%s",
+        request.method, request.url.path, field or "?", limit or "?",
+    )
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=format_error_response(code=ErrorCode.VALIDATION_ERROR, message=msg),
+        headers=_get_cors_headers(request),
+    )
+
+
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
     通用異常處理器
@@ -410,5 +461,9 @@ def register_exception_handlers(app):
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(ValueError, value_error_handler)
+    # 2026-08-05：DB 長度／約束錯誤先於通用處理器 —— 這類是使用者改得動的事，
+    # 用無訊息的 500 呈現只會讓人反覆重試（owner 實際按了五次）。
+    from sqlalchemy.exc import DBAPIError
+    app.add_exception_handler(DBAPIError, db_constraint_exception_handler)
     # 啟用通用異常處理器以確保 CORS headers 正確返回（必須最後註冊）
     app.add_exception_handler(Exception, generic_exception_handler)
