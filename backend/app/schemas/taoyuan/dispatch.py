@@ -21,7 +21,14 @@ class DispatchOrderBase(BaseModel):
     survey_unit: Optional[str] = Field(None, max_length=100, description="查估單位")
     cloud_folder: Optional[str] = Field(None, max_length=500, description="雲端資料夾")
     project_folder: Optional[str] = Field(None, max_length=500, description="專案資料夾")
-    contact_note: Optional[str] = Field(None, max_length=500, description="聯絡備註")
+    # 2026-08-05：拿掉 max_length（DB 已由 VARCHAR(500) 改為 TEXT）。
+    #
+    # ⚠️ 這一條是瀏覽器實測才抓到的：只改 DB 與 ORM 時，UPDATE **會成功寫入**，
+    # 但接著 `DispatchOrderSchema.model_validate(order)` 用這裡的 max_length 驗證
+    # **回應**，於是「資料已存進去了卻回錯誤」—— 使用者以為沒存成功而反覆重按。
+    # 與 2026-07-30 核銷「無法存檔實為已存檔」同一族。
+    # 教訓：欄位長度限制有三個地方（DB / ORM / Pydantic），改一個不算改完。
+    contact_note: Optional[str] = Field(None, description="聯絡備註（通聯紀錄，長文無長度上限）")
     batch_no: Optional[int] = Field(None, description="結案批次序號")
     batch_label: Optional[str] = Field(None, max_length=50, description="結案批次標籤")
 

@@ -72,3 +72,29 @@ async def test_missing_field_name_still_returns_400():
     resp = await db_constraint_exception_handler(_request(), exc)
     assert resp.status_code == 400
     assert "超過欄位長度上限" in json.loads(resp.body)["error"]["message"]
+
+
+def test_contact_note_has_no_length_limit_in_schema():
+    """長度限制有三處（DB / ORM / Pydantic），改一處不算改完。
+
+    2026-08-05 實際踩到：DB 與 ORM 都放寬了，UPDATE **成功寫入**，
+    但回應序列化時 Pydantic 的 max_length=500 擋下 →
+    「資料已經存進去了卻回錯誤」，使用者以為沒存成功而反覆重按。
+    與 2026-07-30 核銷「無法存檔實為已存檔」同一族。
+    """
+    from app.extended.models.taoyuan import TaoyuanDispatchOrder
+    from app.schemas.taoyuan.dispatch import DispatchOrderBase
+    from sqlalchemy import Text
+
+    # Pydantic：不得有長度上限
+    field = DispatchOrderBase.model_fields["contact_note"]
+    limits = [
+        getattr(m, "max_length", None) for m in field.metadata
+        if getattr(m, "max_length", None) is not None
+    ]
+    assert not limits, f"contact_note 不該有長度上限，實際 max_length={limits}"
+
+    # ORM：必須是 Text（非 String(n)）
+    col = TaoyuanDispatchOrder.__table__.c.contact_note
+    assert isinstance(col.type, Text), f"contact_note 應為 Text，實際 {col.type}"
+    assert getattr(col.type, "length", None) is None
