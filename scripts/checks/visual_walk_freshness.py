@@ -32,9 +32,39 @@ except Exception:
 ROOT = Path(__file__).resolve().parents[2]
 VISUAL_DIR = ROOT / "docs" / "health" / "visual"
 
-# 建議與月度架構覆盤同步（每月一次），45 天給一點緩衝。
-# 刻意不設更短：視覺走查要人逐張看，催太密只會被敷衍。
-MAX_AGE_DAYS = 45
+# owner 2026-08-05 決定改 10 天（原設 45 天綁月度架構覆盤）。
+#
+# 但**單純縮短門檻會製造雜訊**：畫面只有在前端改動後才可能變，
+# 前端沒動的期間催走查，得到的是一個永遠該被忽略的提醒 ——
+# 而被當成雜訊的提醒，很快就連該響的時候也沒人理。
+#
+# 所以改成雙條件：**逾 10 天 且 自上次走查後前端有改動**才提醒。
+# 安靜期完全不催；改得兇的期間（本專案一個 session 就 build 四次）
+# 10 天內幾乎每次都會催，而那正是缺陷出現的時候。
+MAX_AGE_DAYS = 10
+FRONTEND_PATHS = ("frontend/src", "frontend/package.json")
+
+
+def _frontend_changed_since(when: datetime):
+    """自 `when` 起前端是否有改動。回 (True/False/None, 說明)。
+
+    None ＝ 查不到（例如不在 git repo）—— 據實回報，不要猜。
+    猜「沒變」會讓真的該催的時候不催，那比沒有這個機制更糟。
+    """
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["git", "log", "--oneline", f"--since={when:%Y-%m-%d}", "--", *FRONTEND_PATHS],
+            cwd=ROOT, capture_output=True, text=True, timeout=30,
+        )
+        if out.returncode != 0:
+            return None, (out.stderr or "git 失敗").strip()[:80]
+        lines = [x for x in (out.stdout or "").splitlines() if x.strip()]
+        if not lines:
+            return False, "前端 0 個 commit"
+        return True, f"{len(lines)} 個 commit，最近：{lines[0][:60]}"
+    except Exception as e:  # noqa: BLE001
+        return None, str(e)[:80]
 
 
 def main() -> int:
@@ -71,7 +101,22 @@ def main() -> int:
         print(f"\nStatus: [GREEN] 距上次 {age} 天（門檻 {MAX_AGE_DAYS} 天）")
         return 0
 
-    print(f"\nStatus: [YELLOW] 距上次視覺走查已 {age} 天（門檻 {MAX_AGE_DAYS} 天）")
+    # 逾期了，再問第二個條件：這段期間前端到底有沒有變？
+    changed, detail = _frontend_changed_since(when)
+
+    if changed is None:
+        # 查不到就據實說，不要猜 —— 猜「沒變」會讓真的該催的時候不催
+        print(f"\nStatus: [YELLOW] 距上次 {age} 天，且無法判斷前端是否改動（{detail}）")
+        print("  保守起見仍提醒：bash scripts/checks/run_visual_walk.sh")
+        return 1
+
+    if not changed:
+        print(f"\nStatus: [GREEN] 距上次 {age} 天，但自那時起前端未改動 —— 畫面不可能變")
+        print(f"  （{detail}）")
+        return 0
+
+    print(f"\nStatus: [YELLOW] 距上次視覺走查已 {age} 天，且前端有改動")
+    print(f"  {detail}")
     print("  執行：bash scripts/checks/run_visual_walk.sh，然後**逐張看**。")
     print("  提醒：每發現一個缺陷要轉成 ui_flow_smoke 斷言，否則下次還要再看一遍。")
     return 1

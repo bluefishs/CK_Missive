@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-04T20:36:31.682Z",
+ "checked_at": "2026-08-05T05:43:18.279Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 86,
  "fail": 0,
@@ -107,7 +107,7 @@
    },
    {
     "route": "/erp/quotations/168",
-    "pageOverflow": 3,
+    "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
