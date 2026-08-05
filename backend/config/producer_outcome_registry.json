@@ -1,6 +1,24 @@
 {
   "_doc": "Producer 產出自我檢核 SSOT（單一 registry，host watchdog + in-container cron 共讀，避免兩份漂移）。契約見 docs/architecture/PRODUCER_SELF_CHECK_CONTRACT.md。signal: db_table_today | cron_detail | file_fresh | db_row_count（min 閾值，抓非零但塌陷） | json_result（讀輸出 JSON 的結果欄位，抓「跑了但結果是紅的」）。新增 producer 加一筆。",
+  "schema_version": 1,
+  "_schema_note": "2026-08-05：判定邏輯已收斂為單一實作 scripts/checks/producer_registry.py，host watchdog 與容器內 cron 皆 import 它。欄位語意若改變請 +1 —— 兩端讀到不認識的版本會拒絕執行，而不是用舊語意解讀新資料然後印綠燈。",
   "producers": [
+    {
+      "name": "每日檢核（fitness daily）",
+      "signal": "cron_detail",
+      "job": "fitness_daily",
+      "key": "delivered",
+      "ok_zero_reasons": [],
+      "_why": "2026-08-05：檢核階梯最底層的那支自己不在監看範圍內 —— 原本一律 return None，cron_events 只看得到「有跑」看不到「跑出什麼」。key 用 delivered 而非 rc：RED 本身不是故障（那是檢核在做事），RED 卻沒人收到才是。"
+    },
+    {
+      "name": "每週檢核（fitness weekly）",
+      "signal": "cron_detail",
+      "job": "fitness_weekly",
+      "key": "delivered",
+      "ok_zero_reasons": [],
+      "_why": "2026-08-05：W23~W31 連續 9 週 RED 而 cron_events 只記 success，因為這支 job 從不回 detail；且告警走 push_admin_alert 直推又不檢查回傳值（送不出去只回 False）。現改走 digest 並以 delivered 表達「結論有沒有送達」。"
+    },
     {
       "name": "程式圖譜關係",
       "signal": "db_row_count",

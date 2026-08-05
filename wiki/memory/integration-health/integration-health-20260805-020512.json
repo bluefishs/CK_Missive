@@ -1,19 +1,19 @@
 {
-  "timestamp": "2026-07-06T03:00:52",
+  "timestamp": "2026-08-05T02:05:12",
   "all_ok": true,
   "broken_chains": [],
   "chains": {
     "chain_1_missive_health": {
       "ok": true,
-      "documents": 1898,
-      "entities": 35246
+      "documents": 1980,
+      "entities": 49566
     },
     "chain_2_kunge_snapshot": {
       "ok": true,
       "lessons": 16,
       "patterns": 12,
-      "proposals": 8,
-      "pending_proposals": 1
+      "proposals": 9,
+      "pending_proposals": 0
     },
     "chain_3_tools_manifest": {
       "ok": true,

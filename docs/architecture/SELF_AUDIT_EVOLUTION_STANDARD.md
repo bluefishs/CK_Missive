@@ -126,9 +126,19 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 
 目前納管的 key（`scripts/checks/doc_baseline_claim_audit.py`）：
 
-<!--baseline:producers-->producer registry 現有 30 筆
+<!--baseline:producers-->producer registry 現有 32 筆
 <!--baseline:ui_flows-->UI 流程檢核現有 14 條
 <!--baseline:fitness_steps-->主 fitness runner 現有 78 步
+<!--baseline:weekly_steps-->weekly runner 現有 28 步
+<!--baseline:daily_steps-->daily runner 現有 9 步
+<!--baseline:selfaudit_repos-->已導入瀏覽器自我走查的專案數 4
+<!--baseline:producer_signals-->producer 信號型別 5 種
+<!--baseline:tracked_jobs-->scheduler 內 @tracked_job 共 53 支
+
+> 這裡只納**可機器驗證**的數字。文件寫的「結論是否還成立」刻意不納管 ——
+> 那需要語意判斷，會產出無法採信的清單（同 2026-08-03 已立的判準）。
+> 但可驗證的數字沒有理由靠人記得更新：2026-08-05 本輪把 producer 由 30 改成 32，
+> 就是這支稽核自己抓到的。
 
 > 新增 key 時，解析器必須讀**實際來源**（registry / config / 目錄），
 > 不得再讀另一份文件 —— 那只是把漂移換個地方放。

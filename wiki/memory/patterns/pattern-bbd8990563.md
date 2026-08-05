@@ -5,14 +5,14 @@ template_hash: bbd8990563
 tool_sequence: [get_statistics, search_dispatch_orders]
 domains: [analysis, dispatch]
 wiki_topics: [wiki/topics/派工單索引.md]
-hit_count: 43
-success_count: 43
+hit_count: 3
+success_count: 3
 failure_count: 0
 success_rate: 1.0
 avg_latency_ms: 31264
 first_seen: '2026-04-20'
 last_seen: '2026-08-04'
-crystallization_candidate: true
+crystallization_candidate: false
 tags: [memory, pattern, analysis, dispatch]
 ---
 
@@ -24,7 +24,7 @@ tags: [memory, pattern, analysis, dispatch]
 
 ## 統計
 
-- **觸發次數**：43（累計）
+- **觸發次數**：3（累計）
 - **成功率**：100.0%
 - **平均延遲**：31264ms
 - **涉及領域**：analysis, dispatch
@@ -37,7 +37,7 @@ tags: [memory, pattern, analysis, dispatch]
 
 ## 結晶候選
 
-✅ 符合結晶門檻（hit >= 5, success >= 95%），等待 Phase 3 crystallizer 掃描。
+❌ 尚未達到結晶門檻。
 
 ---
 

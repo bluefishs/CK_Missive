@@ -40,8 +40,9 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+TOTAL_STEPS=$(grep -cE '^[[:space:]]*run_step "' "$0")
 echo -e "${CYAN}===========================================${NC}"
-echo -e "${CYAN} Fitness Tier 2 Weekly — 25 trend step    ${NC}"
+echo -e "${CYAN} Fitness Tier 2 Weekly — ${TOTAL_STEPS} trend step  ${NC}"
 echo -e "${CYAN}===========================================${NC}"
 echo ""
 
@@ -60,12 +61,16 @@ WARN_STEPS=()
 # 「23 步只有 5 支認得 --strict、其餘 argparse 直接報錯」的問題（連 9 週假紅）。
 # 現在改為一律不傳，那個問題自然消失，偵測函式也就不需要了。
 
+# 2026-08-05：總步數改為**自我推導**，不再寫死。
+# 原本表頭寫死總數，加了步驟卻沒改它 —— daily 實際 9 步印「/8」、
+# weekly 實際 28 步印「/27」。兩個數字描述同一件事就會漂，
+# 而這種漂移剛好出現在「用來檢查別人漂移」的腳本上。
 run_step() {
     local step_num="$1"
     local step_name="$2"
     local script="$3"
 
-    echo -e "${CYAN}[$step_num/27] $step_name${NC}"
+    echo -e "${CYAN}[$step_num/${TOTAL_STEPS}] $step_name${NC}"
     if [[ ! -f "$script" ]]; then
         # 腳本不見了要算失敗 —— 原本只印一行 warning 就 return，
         # 等於「檢查消失」與「檢查通過」同樣是綠（alias_rls_audit 正是這個狀況）。
@@ -121,6 +126,10 @@ run_step "22" "graph domain tagging audit"    "scripts/checks/graph_domain_taggi
 run_step "23" "doc reference integrity"       "scripts/checks/doc_reference_integrity_audit.py"
 run_step "26" "文件宣稱數字納管"             "scripts/checks/doc_baseline_claim_audit.py"
 run_step "27" "憑證存活稽核（提請複查）"       "scripts/checks/credential_liveness_audit.py"
+# 2026-08-05：15 支跑在 host 的 Windows 排程（三個 repo 的自我走查、能力快照、
+# 異地備份、Hermes tick）**沒有任何人在看**。既有 scheduler_liveness_audit 管的是
+# 容器內 APScheduler。「排程註冊了不等於排程會跑」已踩過三次，且手動呼叫都會過。
+run_step "28" "Windows 排程存活"             "scripts/checks/windows_task_liveness_audit.py"
 
 # 2026-08-03：測試套件本身的健康從來沒有任何一階在看 —— 整套長期不能執行，
 # 是 owner 記在待辦裡而不是系統發現的；同期 ezbid parser 重寫後兩天無回歸保護。

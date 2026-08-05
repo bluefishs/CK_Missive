@@ -1,0 +1,246 @@
+# -*- coding: utf-8 -*-
+"""Windows 排程存活稽核（2026-08-05）。
+
+## 為什麼需要這一支
+
+「排程註冊了」不等於「排程會跑」—— 這件事在 08-01/08-02 一天內踩了三次
+（celery beat 未重啟／task 未 import／schtasks 預設不補跑），而且**手動呼叫都會過**，
+唯一驗法是看執行端真的有沒有動。既有的 `scheduler_liveness_audit.py` 管的是
+容器內 APScheduler，**跑在 host 上的 15 支 Windows 排程沒有任何人在看**：
+自我走查（Missive/lvrland/CK_Website）、能力使用度快照、異地備份、Hermes tick
+全都靠它們，任一支悄悄停掉，畫面上不會有任何變化。
+
+刻意**不另建一份排程清單**（那就是這個專案一直在治的異質同工）——
+直接問作業系統有哪些 `CK` 開頭的排程，新增排程自動納入，不需要有人記得來登記。
+
+## 判準
+
+  State          必須 Ready/Running（Disabled＝有人關掉了而沒人知道）
+  LastTaskResult 必須 0，或在 ALLOWED_NONZERO 裡**寫明理由**
+  StartWhenAvailable 必須為真 —— 否則機器關機那次就整個跳過且無訊號（08-02 教訓）
+  LastRunTime    逾 MAX_AGE_DAYS 未跑＝可能已停擺（登入觸發型無法用時間判，故排除）
+
+執行：
+    python scripts/checks/windows_task_liveness_audit.py
+    python scripts/checks/windows_task_liveness_audit.py --strict   # 有 RED → exit 1
+
+退出碼：0 GREEN / 1 RED（--strict）/ 2 未驗完（查不到排程，不得當成正常）
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+TASK_PREFIX_RE = r"^CK[-_]"
+
+# 走查類任務的退出碼語意：0 全過 / 1 有失敗 / 2 有跳過。
+# 1 與 2 都代表**任務本身跑完了**，紅的是內容 —— 那由下面的 check_sweep_results()
+# 直接讀結果 JSON 判定，不靠退出碼。把兩件事混在一起判，會變成
+# 「任務掛了」與「頁面壞了」共用一個燈號，而它們的處置完全不同。
+SELFAUDIT_TASK_RE = r"^(CK[_-][A-Za-z0-9_]+)-SelfAudit-(Flow|Sweep)$"
+
+# 其餘任務的非 0 退出碼 —— **必須寫理由**，否則就是「紅燈看久了就習慣」的起點
+ALLOWED_NONZERO: dict[str, dict[int, str]] = {}
+
+# 逾期門檻：日排程與週排程共用一個保守值。
+# 刻意不做「每支排程各自的預期頻率」表 —— 那會變成第二份排程清單，
+# 而排程的真實頻率就寫在作業系統的 trigger 裡，兩份必然漂移。
+MAX_AGE_DAYS = 8
+
+
+def query_tasks() -> list[dict]:
+    """問作業系統要 CK 開頭的排程。查不到就是查不到，不編造空清單。"""
+    # 注意：Windows PowerShell 5.1 的 ConvertTo-Json **沒有 -AsArray**，
+    # 且單一元素會被序列化成物件而非陣列 → 用 @() 強制成陣列，Python 端也再防一次。
+    ps = (
+        "$ErrorActionPreference='Stop';"
+        "@(Get-ScheduledTask | Where-Object { $_.TaskName -match '" + TASK_PREFIX_RE + "' } |"
+        " ForEach-Object { $i = $_ | Get-ScheduledTaskInfo;"
+        "   [PSCustomObject]@{"
+        "     Name=$_.TaskName; State=[string]$_.State;"
+        "     Result=$i.LastTaskResult;"
+        "     LastRun=(if($i.LastRunTime){$i.LastRunTime.ToString('s')}else{''});"
+        "     StartWhenAvailable=[bool]$_.Settings.StartWhenAvailable;"
+        "     LogonTrigger=[bool](@($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }).Count)"
+        "   } }) | ConvertTo-Json -Depth 3"
+    )
+    # Windows PowerShell 5.1 沒有 if 運算式，改用 subexpression
+    ps = ps.replace(
+        "(if($i.LastRunTime){$i.LastRunTime.ToString('s')}else{''})",
+        "$(if ($i.LastRunTime) { $i.LastRunTime.ToString('s') } else { '' })",
+    )
+    out = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+        capture_output=True, text=True, timeout=120,
+    )
+    if out.returncode != 0 or not (out.stdout or "").strip():
+        raise RuntimeError((out.stderr or "PowerShell 無輸出").strip()[:300])
+    data = json.loads(out.stdout)
+    return data if isinstance(data, list) else [data]
+
+
+def check_sweep_results(tasks: list[dict], portfolio_root: Path) -> tuple[list[str], list[str]]:
+    """讀各 repo 走查結果 JSON 的**內容** —— 「跑了」與「結果是好的」是兩件事。
+
+    2026-08-05 立案：pile 導入當天，排程 LastTaskResult=1（有失敗）而任務本身完全正常。
+    若只看退出碼，得到的是「任務壞了」的誤判；若只看任務狀態，則 3 個真實故障頁面
+    完全沒有人看得到。CK_Missive 自己的結果已由 producer registry 的 json_result
+    納管，但 lvrland / CK_Website / pile 的結果**沒有任何人在讀** ——
+    刻意在同一支稽核裡處理，而不是為此再開一份跨 repo 清單。
+    """
+    reds: list[str] = []
+    notes: list[str] = []
+    for t in tasks:
+        m = re.match(SELFAUDIT_TASK_RE, t.get("Name", ""))
+        if not m:
+            continue
+        repo, kind = m.group(1), m.group(2).lower()
+        # 結果檔位置**讀各 repo 自己的 selfaudit.config.json**，不在這裡寫死。
+        # 初版寫死 docs/health/ 立刻誤報 CK_Missive「結果檔不存在」——
+        # 它的輸出在 wiki/memory/integration-health/。把路徑複製一份到這裡，
+        # 就是又造一份會漂移的事實，而本檔正是為了消滅那種東西。
+        cfg_path = portfolio_root / repo / "selfaudit.config.json"
+        if not cfg_path.exists():
+            reds.append(f"{repo}: 有走查排程卻沒有 selfaudit.config.json")
+            continue
+        try:
+            out = json.loads(cfg_path.read_text(encoding="utf-8"))["output"]
+            rel = out["flow_result" if kind == "flow" else "sweep_result"]
+        except Exception as e:
+            reds.append(f"{repo}: selfaudit.config.json 讀不到 output 路徑（{e}）")
+            continue
+        f = portfolio_root / repo / rel
+        if not f.exists():
+            reds.append(f"{repo} {kind}: 結果檔不存在（{f.name}）—— 排程跑了卻沒有產出")
+            continue
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except Exception as e:
+            reds.append(f"{repo} {kind}: 結果檔無法解析（{e}）")
+            continue
+        n_pass, n_fail = int(d.get("pass") or 0), int(d.get("fail") or 0)
+        # pass=0 且 fail=0 ＝ 什麼都沒掃到；設定寫錯與大面積失效長得一樣，不可判綠
+        if n_pass == 0 and n_fail == 0:
+            reds.append(f"{repo} {kind}: 掃到 0 項（0 項不等於全部健康）")
+        elif n_fail > 0:
+            reds.append(f"{repo} {kind}: fail={n_fail}（頁面層有真實故障，看 {f}）")
+        else:
+            notes.append(f"{repo} {kind}: pass={n_pass} fail=0")
+    return reds, notes
+
+
+def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
+    reds: list[str] = []
+    notes: list[str] = []
+    now = datetime.now()
+
+    for t in tasks:
+        name = t.get("Name", "?")
+        state = (t.get("State") or "").strip()
+        result = t.get("Result")
+        last_run = (t.get("LastRun") or "").strip()
+        swa = bool(t.get("StartWhenAvailable"))
+        logon = bool(t.get("LogonTrigger"))
+
+        if state not in ("Ready", "Running"):
+            reds.append(f"{name}: State={state}（非 Ready＝已被停用或損壞）")
+
+        selfaudit = re.match(SELFAUDIT_TASK_RE, name)
+        if result not in (0, None):
+            if selfaudit and result in (1, 2):
+                notes.append(
+                    f"{name}: LastTaskResult={result}"
+                    f"（{'有失敗' if result == 1 else '有跳過'}＝任務跑完了，內容另判）")
+            else:
+                reason = ALLOWED_NONZERO.get(name, {}).get(result)
+                if reason:
+                    notes.append(f"{name}: LastTaskResult={result} — 已知可接受（{reason}）")
+                else:
+                    reds.append(f"{name}: LastTaskResult={result}（未宣告的失敗碼）")
+
+        if not swa:
+            # 08-02 實際踩過：沒有這個設定，機器關機那次就整個跳過且毫無訊號
+            reds.append(f"{name}: StartWhenAvailable=False（機器關機時會整個跳過且無訊號）")
+
+        if logon:
+            notes.append(f"{name}: 登入/開機觸發，不以時間判逾期")
+        elif not last_run:
+            reds.append(f"{name}: 從未執行過（註冊了但沒跑過）")
+        else:
+            try:
+                age = now - datetime.fromisoformat(last_run)
+                if age > timedelta(days=MAX_AGE_DAYS):
+                    reds.append(f"{name}: 上次執行 {age.days} 天前（> {MAX_AGE_DAYS} 天）")
+            except ValueError:
+                reds.append(f"{name}: LastRun 無法解析（{last_run}）")
+
+    return reds, notes
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--strict", action="store_true")
+    ap.add_argument("--ci", action="store_true", help="等同 --strict")
+    args = ap.parse_args()
+    strict = args.strict or args.ci
+
+    print("=" * 70)
+    print("Windows 排程存活稽核（『註冊了』不等於『會跑』）")
+    print("=" * 70)
+
+    try:
+        tasks = query_tasks()
+    except Exception as e:
+        print(f"✗ 未驗完：無法查詢 Windows 排程 — {e}")
+        print("（查不到一律 exit 2，不會因為沒看到問題就印綠燈）")
+        return 2
+
+    if not tasks:
+        print("✗ 未驗完：0 支符合的排程 —— 15 支 CK 排程不可能全部消失，")
+        print("  比較可能是查詢條件壞了。0 項不等於全部健康。")
+        return 2
+
+    reds, notes = audit(tasks)
+    # 內容層：排程跑完了不代表結果是好的
+    c_reds, c_notes = check_sweep_results(tasks, Path(__file__).resolve().parents[3])
+    reds += c_reds
+    notes += c_notes
+
+    for t in sorted(tasks, key=lambda x: x.get("Name", "")):
+        name = t.get("Name", "?")
+        bad = any(name in r for r in reds)
+        print(f"  [{'RED  ' if bad else 'GREEN'}] {name:38} "
+              f"result={t.get('Result')} last={(t.get('LastRun') or '從未')[:16]}")
+
+    if notes:
+        print("\n說明：")
+        for n in notes:
+            print(f"  · {n}")
+
+    print("\n" + "=" * 70)
+    if not reds:
+        print(f"GREEN: {len(tasks)} 支 CK 排程皆存活")
+        return 0
+    print(f"RED: {len(reds)} 項異常")
+    for r in reds:
+        print(f"  - {r}")
+    # 三態約定（run_fitness_*.sh）：0=GREEN / 1=YELLOW / **2+=RED**。
+    # 初版非 strict 時回 0 —— 於是 weekly 裡這一步永遠是綠的，
+    # 首跑抓到的 pile 3 個真實故障完全不會出現在每週結論裡。
+    # 「有 RED 卻回 0」正是這支稽核自己要抓的那種假綠。
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -42,6 +42,25 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 WIKI_MEMORY = Path(os.getenv("CK_WIKI_DIR") or (_REPO_ROOT / "wiki")) / "memory"
 CRITIQUES_DIR = WIKI_MEMORY / "critiques"
 
+# 2026-08-05：marker 改寫進**子目錄**，不再與被偵測對象混放。
+#
+# 原本 marker 檔名是 `critique-health-empty-*.md`，與真 critique 落在同一個目錄，
+# 而三個消費端都用 `critique-*.md` 掃這個目錄 → **偵測器的產物被自己算成偵測對象**：
+#   1. 本檔 count_critiques()          → total 18 實際只有 14 篇真 critique
+#   2. scheduler._check_critique_starvation() → 取最新 mtime 判「逾 28 天無 critique」，
+#      而本稽核**每兩週**寫一個 marker → 最新 mtime 永遠 ≤14 天 →
+#      **28 天門檻在結構上永遠不可能達到，那道告警不管有沒有真的斷層都不會響**。
+#      （查證當下並沒有斷層：真 critique 最新 2026-08-02、近三個月穩定每 1-2 週一篇。
+#        所以這是**潛伏**缺陷 —— 安全網從未失效過，是因為從未被需要過。）
+#   3. kunge.py 前端顯示的 critique 數
+# （Prometheus 的 v7_reference_density_critique_pct 逃過一劫 —— 它的日期 regex
+#   `critique-(\d{8})` 剛好對不上 marker 檔名，屬僥倖而非設計。）
+#
+# 修法選擇：**移出目錄**而不是在三個消費端各加一條排除規則 ——
+# 後者是同一件事寫三遍，正是本專案一直在治的異質同工。三個消費端的 glob
+# 都是非遞迴的，marker 進子目錄即自動免疫。
+HEALTH_MARKER_DIR = CRITIQUES_DIR / "_health"
+
 
 def count_critiques(window_days: int) -> tuple[int, int]:
     """回傳 (window 內 critique 數, 總 critique 數)"""
@@ -79,11 +98,15 @@ async def count_query_traces(window_days: int) -> int:
 
 
 def write_health_marker(window_days: int, critiques_count: int, query_trace_count: int) -> Path:
-    """寫一條 health-empty.md 紀錄揭發 silent dormant"""
-    CRITIQUES_DIR.mkdir(parents=True, exist_ok=True)
+    """寫一條 health-empty.md 紀錄揭發 silent dormant
+
+    寫進 `critiques/_health/`（見 HEALTH_MARKER_DIR 註解）—— 不可寫回 critiques/，
+    否則偵測器會把自己的產物算成偵測對象，讓 starvation 告警永遠不觸發。
+    """
+    HEALTH_MARKER_DIR.mkdir(parents=True, exist_ok=True)
     now = datetime.now()
     filename = f"critique-health-empty-{now.strftime('%Y%m%d-%H%M%S')}.md"
-    path = CRITIQUES_DIR / filename
+    path = HEALTH_MARKER_DIR / filename
 
     content = f"""---
 type: critique_health_marker

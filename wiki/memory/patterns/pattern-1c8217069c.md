@@ -5,14 +5,14 @@ template_hash: 1c8217069c
 tool_sequence: [get_statistics, search_documents]
 domains: [analysis, doc]
 wiki_topics: [wiki/topics/公文管理系統總覽.md]
-hit_count: 95
-success_count: 95
+hit_count: 3
+success_count: 3
 failure_count: 0
 success_rate: 1.0
 avg_latency_ms: 46998
 first_seen: '2026-05-10'
 last_seen: '2026-08-04'
-crystallization_candidate: true
+crystallization_candidate: false
 tags: [memory, pattern, analysis, doc]
 ---
 
@@ -24,7 +24,7 @@ tags: [memory, pattern, analysis, doc]
 
 ## 統計
 
-- **觸發次數**：95（累計）
+- **觸發次數**：3（累計）
 - **成功率**：100.0%
 - **平均延遲**：46998ms
 - **涉及領域**：analysis, doc
@@ -38,7 +38,7 @@ tags: [memory, pattern, analysis, doc]
 
 ## 結晶候選
 
-✅ 符合結晶門檻（hit >= 5, success >= 95%），等待 Phase 3 crystallizer 掃描。
+❌ 尚未達到結晶門檻。
 
 ---
 

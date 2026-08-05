@@ -35,7 +35,8 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${CYAN}=========================================${NC}"
-echo -e "${CYAN} Fitness Tier 1 Daily — 8 critical step ${NC}"
+TOTAL_STEPS=$(grep -cE '^[[:space:]]*run_step "' "$0")
+echo -e "${CYAN} Fitness Tier 1 Daily — ${TOTAL_STEPS} critical step ${NC}"
 echo -e "${CYAN}=========================================${NC}"
 echo ""
 
@@ -44,12 +45,16 @@ FAIL_STEPS=()
 WARN_COUNT=0
 WARN_STEPS=()
 
+# 2026-08-05：總步數改為**自我推導**，不再寫死。
+# 原本表頭寫死總數，加了步驟卻沒改它 —— daily 實際 9 步印「/8」、
+# weekly 實際 28 步印「/27」。兩個數字描述同一件事就會漂，
+# 而這種漂移剛好出現在「用來檢查別人漂移」的腳本上。
 run_step() {
     local step_num="$1"
     local step_name="$2"
     local cmd="$3"
 
-    echo -e "${CYAN}[$step_num/8] $step_name${NC}"
+    echo -e "${CYAN}[$step_num/${TOTAL_STEPS}] $step_name${NC}"
     # 計數與「是否 exit 1」分離（2026-08-02 同型修法，三支 fitness 腳本皆中此缺陷）。
     # 原本非 --strict 走 `|| true` → FAIL_COUNT 恆 0 → 結尾恆印「all passed」。
     # warning mode 的語意是不阻斷，不是不報告。
@@ -85,7 +90,7 @@ if [[ -f scripts/checks/docker_compose_volume_consistency.py ]]; then
     run_step "3" "docker_compose volume consistency" \
         "PYTHONIOENCODING=utf-8 python scripts/checks/docker_compose_volume_consistency.py"
 else
-    echo -e "${CYAN}[3/8] docker_compose volume consistency${NC}"
+    echo -e "${CYAN}[3/${TOTAL_STEPS}] docker_compose volume consistency${NC}"
     echo "  ${YELLOW}⚠${NC} script not found, skip"
     echo ""
 fi
@@ -95,7 +100,7 @@ if [[ -f scripts/checks/compose_dockerfile_healthcheck_ssot.py ]]; then
     run_step "4" "compose/dockerfile healthcheck SSOT" \
         "PYTHONIOENCODING=utf-8 python scripts/checks/compose_dockerfile_healthcheck_ssot.py"
 else
-    echo -e "${CYAN}[4/8] compose/dockerfile healthcheck SSOT${NC}"
+    echo -e "${CYAN}[4/${TOTAL_STEPS}] compose/dockerfile healthcheck SSOT${NC}"
     echo "  ${YELLOW}⚠${NC} script not found, skip"
     echo ""
 fi
@@ -105,7 +110,7 @@ if [[ -f scripts/checks/startup_race_condition_audit.py ]]; then
     run_step "5" "startup race condition audit" \
         "PYTHONIOENCODING=utf-8 python scripts/checks/startup_race_condition_audit.py"
 else
-    echo -e "${CYAN}[5/8] startup race condition audit${NC}"
+    echo -e "${CYAN}[5/${TOTAL_STEPS}] startup race condition audit${NC}"
     echo "  ${YELLOW}⚠${NC} script not found, skip"
     echo ""
 fi

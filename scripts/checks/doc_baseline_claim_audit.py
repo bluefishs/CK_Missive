@@ -75,10 +75,75 @@ def _fitness_step_count() -> int:
     return max(int(x) for x in m)
 
 
+def _count_run_steps(script: str) -> int:
+    """數 run_step 呼叫數。
+
+    ⚠️ 必須容許**縮排** —— 初版用 `^run_step`，漏掉包在條件式裡的三步，
+    daily 因此被算成 6（實際 9）。而那個 6 又被寫進文件、被本稽核判為一致 ——
+    **錯的數字被檢查背書**，比沒有檢查更糟。
+    """
+    txt = (ROOT / "scripts" / "checks" / script).read_text(encoding="utf-8", errors="ignore")
+    return len(re.findall(r'^[ 	]*run_step\s+"', txt, re.MULTILINE))
+
+
+def _weekly_step_count() -> int:
+    """weekly runner 的步數 —— 數 run_step 呼叫數，不用最大編號。
+
+    編號是**不連續**的（23 之後直接跳 26）—— 用 max 會把「編號」當成「數量」，
+    正是這支稽核要抓的那種宣稱與實際不符。
+    """
+    return _count_run_steps("run_fitness_weekly.sh")
+
+
+def _daily_step_count() -> int:
+    return _count_run_steps("run_fitness_daily.sh")
+
+
+def _selfaudit_repo_count() -> int:
+    """已導入瀏覽器自我走查的 repo 數（含本 repo）。
+
+    這個數字一直用人工在文件裡寫「3/6」，而它會隨每次導入而變 ——
+    典型的「寫完就開始漂」的宣稱。
+
+    須以 `project` 去重：走查支援「集中執行、目標專案零足跡」模式
+    （設定檔放在目標 repo 外、用 repo_root 指回去），所以磁碟上會有兩份設定
+    指向同一個專案。直接數檔案會得到 4，實際只有 3 個專案 ——
+    這支稽核自己產出假數字就沒有立場管別人。
+    """
+    projects = set()
+    for cfg in ROOT.parent.glob("*/selfaudit.config.json"):
+        try:
+            projects.add(json.loads(cfg.read_text(encoding="utf-8")).get("project")
+                         or cfg.parent.name)
+        except Exception:
+            projects.add(cfg.parent.name)
+    return len(projects)
+
+
+def _producer_signal_count() -> int:
+    sys.path.insert(0, str(ROOT / "scripts" / "checks"))
+    from producer_registry import KNOWN_SIGNALS  # noqa: PLC0415
+    return len(KNOWN_SIGNALS)
+
+
+def _tracked_job_count() -> int:
+    txt = (ROOT / "backend" / "app" / "core" / "scheduler.py").read_text(
+        encoding="utf-8", errors="ignore")
+    return len(re.findall(r'@tracked_job\(', txt))
+
+
 RESOLVERS = {
     "producers": _producer_count,
     "ui_flows": _ui_flow_count,
     "fitness_steps": _fitness_step_count,
+    # 2026-08-05 擴大納管。判準不變：**只收可機器驗證的數字**。
+    # 刻意不納「這份文件的結論是否還成立」—— 那需要語意判斷，
+    # 會產出無法採信的清單（同 08-03 已立的判準）。
+    "weekly_steps": _weekly_step_count,
+    "daily_steps": _daily_step_count,
+    "selfaudit_repos": _selfaudit_repo_count,
+    "producer_signals": _producer_signal_count,
+    "tracked_jobs": _tracked_job_count,
 }
 
 

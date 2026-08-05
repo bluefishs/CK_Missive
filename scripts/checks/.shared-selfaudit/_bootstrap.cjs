@@ -206,8 +206,10 @@ function assertNonEmpty(n, what, hint) {
  *   CK_Missive        → key 'user_info'，值就是 user 物件
  *   CK_lvrland_Webmap → key 'auth-storage'（zustand persist），
  *                       形狀 {state:{user,isAuthenticated},version:0}
- * 故 config 化。**兩支引擎共用此函式** —— 初版只有深度引擎讀 config、
- * 廣度引擎寫死 'user_info'，是同一件事做兩遍的典型（異質同工）。
+ *   CK_PileMgmt       → key 'global-store'（zustand persist），但使用者欄位叫
+ *                       **userProfile** 不是 user（2026-08-05 移植時發現）
+ * 故 key／shape／欄位名皆 config 化。**兩支引擎共用此函式** —— 初版只有深度引擎
+ * 讀 config、廣度引擎寫死 'user_info'，是同一件事做兩遍的典型（異質同工）。
  */
 async function applyAuth(context, cfg, base) {
   const cookieHeader = process.env.COOKIE || '';
@@ -217,9 +219,15 @@ async function applyAuth(context, cfg, base) {
     const st = (cfg.auth && cfg.auth.session_storage) || { key: 'user_info', shape: 'raw' };
     await context.addInitScript(({ ui, storage }) => {
       try {
-        const value = storage.shape === 'zustand-persist'
-          ? JSON.stringify({ state: { user: JSON.parse(ui), isAuthenticated: true }, version: 0 })
-          : ui;
+        let value = ui;
+        if (storage.shape === 'zustand-persist') {
+          // 欄位名各 repo 不同（user / userProfile / …）→ 由 config 指定，預設 user。
+          // 寫成 partial state 即可：zustand persist 會與 initial state 合併，
+          // 沒帶到的欄位（地圖中心點之類）會回到預設值，不會讓 store 壞掉。
+          const state = { isAuthenticated: true };
+          state[storage.user_field || 'user'] = JSON.parse(ui);
+          value = JSON.stringify({ state, version: 0 });
+        }
         window.localStorage.setItem(storage.key, value);
       } catch { /* ignore */ }
     }, { ui: userInfo, storage: st });

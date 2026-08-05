@@ -1,0 +1,107 @@
+{
+  "started_at": "2026-08-04T19:00:02.173706+00:00",
+  "completed_at": "2026-08-04T19:00:58.936951+00:00",
+  "overall_status": "red",
+  "steps": [
+    {
+      "name": "fitness",
+      "status": "yellow",
+      "summary": "41 pass / 7 warn / 0 fail",
+      "details": {
+        "pass": 41,
+        "warn": 7,
+        "fail": 0,
+        "exit_code": 0
+      },
+      "duration_ms": 56398.7
+    },
+    {
+      "name": "capability_audit",
+      "status": "green",
+      "summary": "dead: tools=0 kg=0 loops=0 adrs=0 total=0",
+      "details": {
+        "lookback_days": 30,
+        "shadow_trace_queries": 0,
+        "tools": {
+          "total_registered": 0,
+          "dead": [],
+          "weak": [],
+          "healthy_count": 0,
+          "dead_pct": 0.0
+        },
+        "kg_entity_types": {
+          "scanned": 0,
+          "dead_types": [],
+          "dead_count": 0
+        },
+        "memory_loop": {
+          "counts": {
+            "diary": 105,
+            "patterns": 12,
+            "failures": 16,
+            "proposals": 9,
+            "crystals": 4,
+            "evolutions": 16,
+            "autobiography": 15,
+            "proposals_pending": 0
+          },
+          "dead_loops": []
+        },
+        "adr": {
+          "active": 0,
+          "orphans": [],
+          "orphan_count": 0
+        }
+      },
+      "duration_ms": 268.3
+    },
+    {
+      "name": "memory_loop",
+      "status": "green",
+      "summary": "counts={'diary': 105, 'patterns': 12, 'failures': 16, 'proposals': 9, 'crystals': 4, 'evolutions': 16, 'autobiography': 15, 'proposals_pending': 0}",
+      "details": {
+        "counts": {
+          "diary": 105,
+          "patterns": 12,
+          "failures": 16,
+          "proposals": 9,
+          "crystals": 4,
+          "evolutions": 16,
+          "autobiography": 15,
+          "proposals_pending": 0
+        },
+        "dead_loops": []
+      },
+      "duration_ms": 80.3
+    },
+    {
+      "name": "shadow_baseline",
+      "status": "red",
+      "summary": "24h n=59 avg=35.5s p95=83.8s success=98.31% over30=34/over60=8",
+      "details": {
+        "n": 59,
+        "avg_ms": 35518,
+        "p95_ms": 83765,
+        "max_ms": 90001,
+        "success_ratio": 0.983,
+        "over_30s": 34,
+        "over_60s": 8
+      },
+      "duration_ms": 15.9
+    },
+    {
+      "name": "precommit_hook",
+      "status": "info",
+      "summary": "skipped: .git/ not present (container env, host-side check only)",
+      "details": {},
+      "duration_ms": 0.0
+    }
+  ],
+  "summary_lines": [
+    "  [YELLOW] fitness                41 pass / 7 warn / 0 fail",
+    "  [GREEN ] capability_audit       dead: tools=0 kg=0 loops=0 adrs=0 total=0",
+    "  [GREEN ] memory_loop            counts={'diary': 105, 'patterns': 12, 'failures': 16, 'proposals': 9, 'crystals': 4, 'evolutions': 16, 'autobiography': 15, 'proposals_pending': 0}",
+    "  [RED   ] shadow_baseline        24h n=59 avg=35.5s p95=83.8s success=98.31% over30=34/over60=8",
+    "  [INFO  ] precommit_hook         skipped: .git/ not present (container env, host-side check only)"
+  ]
+}

@@ -40,64 +40,38 @@ EVENTS = ROOT / "backend" / "logs" / "cron_events.jsonl"
 DSN = "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents"
 IS_WEEKEND = date.today().weekday() >= 5
 
-# job self-report 到 detail.reason 的問題原因（出現即異常）
-PROBLEM_REASONS = {"fetch_failed", "weekday_zero_suspicious", "exception", "connector_none", "no_token", "error"}
+# job self-report 到 detail.reason 的問題原因 → 已移入 producer_registry.PROBLEM_REASONS
+# （原本 host 與容器各定義一份，改一邊另一邊不會知道）
 
 # ★ Producer Outcome Registry（標準化自我檢核 SSOT）
 #   2026-07-18 外部化為共享 JSON（backend/config/producer_outcome_registry.json），
 #   host watchdog + in-container cron_outcome_freshness 共讀，避免兩份 registry 漂移（DRY）。
-def _load_registry() -> list[dict]:
-    cfg = ROOT / "backend" / "config" / "producer_outcome_registry.json"
-    if cfg.exists():
-        try:
-            data = json.loads(cfg.read_text(encoding="utf-8"))
-            regs = data.get("producers", [])
-            for r in regs:  # JSON list → set；JSON null → None（已是）
-                if "ok_zero_reasons" in r:
-                    r["ok_zero_reasons"] = set(r["ok_zero_reasons"])
-            if regs:
-                return regs
-        except Exception as e:
-            print(f"[WARN] registry JSON 載入失敗，用內建 fallback：{e}")
-    return _FALLBACK_REGISTRY
+# 2026-08-05：載入與判定改用共用模組 scripts/checks/producer_registry.py。
+#
+# 原本這裡自己 load JSON，且在讀不到時**靜靜**退回一份內建 `_FALLBACK_REGISTRY`
+#（07-18 的舊副本，只有 15 筆，還含著 08-02 已證實會遮蔽 ezbid 死亡 48 天的
+# 「pcc+ezbid 合併監控」）。也就是說：registry 一旦消失或壞掉，這支專門偵測
+# 沉默失敗的工具會拿一份已知有缺陷的清單繼續印綠燈。那份 fallback 已刪除 ——
+# 第二份副本正是它自己的註解在警告的漂移。
+try:
+    from producer_registry import (
+        PROBLEM_REASONS, RegistryUnavailable, build_count_sql, judge, load_registry,
+    )
+except ImportError:  # 從別的工作目錄呼叫時
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from producer_registry import (
+        PROBLEM_REASONS, RegistryUnavailable, build_count_sql, judge, load_registry,
+    )
 
+try:
+    PRODUCER_OUTCOME_REGISTRY = load_registry(
+        ROOT / "backend" / "config" / "producer_outcome_registry.json"
+    )
+except RegistryUnavailable as _e:
+    print(f"✗ 未驗完：{_e}")
+    print("（registry 不可用時一律 exit 2，不會退回舊清單假裝檢查過）")
+    sys.exit(2)
 
-_FALLBACK_REGISTRY = [
-    # === tender 資料 producer（獨立驗證表增長，最 robust；週末政府不發標＝合理空）===
-    {"name": "tender scrape (pcc+ezbid)", "signal": "db_table_today",
-     "table": "tender_records", "date_col": "created_at", "weekend_legit": True},
-    # === KG embedding（job 自報 embedded；0 合理若覆蓋率已滿）===
-    {"name": "kg_embedding_backfill", "signal": "cron_detail", "job": "kg_embedding_backfill",
-     "key": "embedded", "ok_zero_reasons": {None, "coverage_full"}},
-    # === PCC 爬蟲 self-report（區分週末/失敗）===
-    {"name": "pcc_today_scrape", "signal": "cron_detail", "job": "pcc_today_scrape",
-     "key": "records", "ok_zero_reasons": {"weekend_no_publish", "ok"}},
-    # === 電子發票同步（獨立驗證表；無週末豁免，MOF 每日）===
-    # 註：einvoice 表名待確認後啟用；先登記結構
-    # {"name": "einvoice_sync", "signal": "db_table_today", "table": "expense_invoices", "date_col": "created_at"},
-    # === file producer（已由 scheduler cron_outcome_freshness 每日檢；此處對照登記）===
-    {"name": "每日覆盤", "signal": "file_fresh", "path": "wiki/memory/self-retrospective-reports", "max_h": 28},
-    {"name": "治理儀表板", "signal": "file_fresh", "path": "docs/architecture/GOVERNANCE_INTEGRATED_DASHBOARD.md", "max_h": 28},
-    {"name": "整合健康E2E", "signal": "file_fresh", "path": "wiki/memory/integration-health", "max_h": 28},
-    {"name": "晨報", "signal": "file_fresh", "path": "wiki/memory/diary", "max_h": 30},
-    {"name": "patterns", "signal": "file_fresh", "path": "wiki/memory/patterns", "max_h": 30},
-    # 2026-07-18 擴大：更多 producer（前進方向＝運維自主擴大投資）
-    {"name": "優化管線報告", "signal": "file_fresh", "path": "wiki/memory/pipeline-reports", "max_h": 30},
-    # 週報型（autobiography/weekly_evolution 寫入 evolutions/，週級 cadence → 容許 ~9 日）
-    {"name": "週自傳/進化史", "signal": "file_fresh", "path": "wiki/memory/evolutions", "max_h": 216},
-    # 2026-07-18 契約 rollout：18 blind spot 逐一分類——註冊清晰 producer
-    {"name": "標案業務推薦", "signal": "db_table_today", "table": "tender_recommendation_history",
-     "date_col": "pushed_at", "weekend_legit": True},  # 每日09:00，週末無標案合理空
-    {"name": "wiki 編譯", "signal": "file_fresh", "path": "wiki/topics", "max_h": 216},  # 週級
-    # shadow 輸出＝shadow_trace.db（非空的 shadow-baseline/ 目錄；核實：db 今日活、目錄 legacy 空）
-    {"name": "shadow baseline", "signal": "file_fresh", "path": "backend/logs/shadow_trace.db", "max_h": 30},
-    # 2026-07-20 程式圖譜關係健康（抓每日 ingest 洗關係塌陷；健康 ~9670、塌陷 85）
-    {"name": "程式圖譜關係", "signal": "db_row_count", "table": "entity_relationships",
-     "where": "relation_label='code_graph'", "min": 5000},
-]
-
-# 載入共享 JSON registry（不存在則用上方 fallback）
-PRODUCER_OUTCOME_REGISTRY = _load_registry()
 
 
 # ── 契約覆蓋強制（PRODUCER_SELF_CHECK_CONTRACT.md）──
@@ -117,7 +91,10 @@ _JOB_ALIASES = {
     "tender scrape (ezbid)": "ezbid_cache_refresh",
     "每日覆盤": "daily_self_retrospective",
     "治理儀表板": "governance_dashboard_regen",
-    "整合健康E2E": "integration_e2e",
+    # 2026-08-05 更正：實際 job id 是 integration_e2e_validation。
+    # 原本寫 integration_e2e —— 對應不到任何 job，等於這條別名一直是空的
+    # （而因為上面的 regex 也漏掉它，兩個錯誤互相掩護，看起來毫無異狀）。
+    "整合健康E2E": "integration_e2e_validation",
     "晨報": "morning_report",
     "patterns": "memory_pattern_extract",
     "優化管線報告": "optimization_pipeline",
@@ -152,7 +129,9 @@ NON_PRODUCER_JOBS = {
     # 稽核/檢查/watchdog/清理/暖機
     "agent_self_diagnosis", "cf_tunnel_verify", "cleanup_events", "critique_health_audit",
     "cron_outcome_freshness", "cron_self_health_alert", "crystal_review_overdue",
-    "embedding_warmup", "fitness_daily", "fitness_weekly", "health_check_broadcast",
+    # 2026-08-05：fitness_daily / fitness_weekly 已改為回 detail 並註冊為 producer
+    # （檢核階梯自己原本不在監看範圍內），故從豁免移除。
+    "embedding_warmup", "health_check_broadcast",
     "llm_quota_check", "memory_anti_echo_scan", "process_reminders", "proposal_aging_alert", "security_scan", "tender_dashboard_warm",
     "soul_mirror_sync",
     # 2026-08-03 逐一核實後維持豁免（理由要留在這裡，不是留在 commit message）：
@@ -166,7 +145,9 @@ NON_PRODUCER_JOBS = {
     # 外部 LINE 推送（產出為外部 LINE，非本地可驗；配額由 line push 邏輯管）
     "daily_self_reflection_line_push", "line_weekly_pulse", "proactive_trigger_scan", "tender_subscription",
     # covered-elsewhere / 非業務產出 / 測試 / L77 死結
-    "health_snapshot_log", "memory_crystallization_scan", "synthetic_baseline_inject",
+    # 2026-08-05 移除 memory_crystallization_scan：08-05 已補 detail 並註冊為 producer
+    # （「結晶提案（學習閉環）」），同時列在豁免與 registry 是自相矛盾
+    "health_snapshot_log", "synthetic_baseline_inject",
     "tender_pcc_enrichment", "tender_refresh_pending", "ledger_reconciliation",
     "kunge_weekly_learning_summary", "einvoice_sync",
 }
@@ -232,7 +213,12 @@ def audit_producer_coverage() -> list[str]:
     if not sched.exists():
         return []
     import re
-    jobs = set(re.findall(r'@tracked_job\("([a-z_]+)"\)', sched.read_text(encoding="utf-8", errors="ignore")))
+    # 2026-08-05：regex 補上數字。原本是 `[a-z_]+`，於是含數字的 job id
+    # （`integration_e2e_validation` 的 e2e）**從來不在這個稽核的視野裡** ——
+    # 既不會被算成已監控，也不會被列為 blind spot，就是不存在。
+    # 一支稽核把「認不得的東西」靜靜排除，就會一路印「0 blind spot」。
+    jobs = set(re.findall(r'@tracked_job\("([a-z0-9_]+)"\)',
+                          sched.read_text(encoding="utf-8", errors="ignore")))
     unclassified = sorted(jobs - _monitored_jobs() - NON_PRODUCER_JOBS)
     print("\n" + "-" * 70)
     print(f"契約覆蓋強制：{len(jobs)} tracked jobs = 已監控 {len(jobs & _monitored_jobs())} "
@@ -275,13 +261,12 @@ def check_db_table_today(spec: dict) -> tuple[str, str]:
     # 只要 pcc 有寫入就整體 GREEN → **ezbid 自 06-15 死了 48 天完全隱形**。
     # 一張表餵多個 producer 時，合併監控等於用健康的那個把死掉的那個蓋住。
     where = spec.get("where")
-    cond = f"{spec['date_col']}::date = CURRENT_DATE" + (f" AND ({where})" if where else "")
     label = spec["table"] + (f"[{where}]" if where else "")
 
     async def q():
         conn = await asyncpg.connect(DSN)
         try:
-            return await conn.fetchval(f"SELECT COUNT(*) FROM {spec['table']} WHERE {cond}")
+            return await conn.fetchval(build_count_sql(spec))
         finally:
             await conn.close()
 
@@ -289,15 +274,20 @@ def check_db_table_today(spec: dict) -> tuple[str, str]:
         n = asyncio.run(q())
     except Exception as e:
         return "SKIP", f"DB 查詢失敗：{str(e)[:60]}"
-    if n and n > 0:
+
+    # 「還沒做」不是「做了沒產出」——這是**環境層**判斷（今天到了沒），
+    # 留在呼叫端；紅綠裁決一律交給共用的 judge()。
+    if not n and not (spec.get("weekend_legit") and IS_WEEKEND):
+        job = spec.get("job") or _JOB_ALIASES.get(spec.get("name", ""))
+        if not _job_ran_today(job):
+            return "SKIP", f"{label} 今日 0（{job or '該 job'} 今日尚未執行，未到判定時機）"
+
+    problem = judge(spec, is_weekend=IS_WEEKEND, db_value=n)
+    if problem:
+        return "RED", f"{label} 今日 0（今日已執行卻無產出＝疑 producer 沉默失敗）"
+    if n:
         return "GREEN", f"{label} 今日 +{n}"
-    if spec.get("weekend_legit") and IS_WEEKEND:
-        return "GREEN", f"{label} 今日 0（週末合理空）"
-    # 當日 cron 還沒跑過 → 「還沒做」不是「做了沒產出」（見 _job_ran_today 說明）
-    job = spec.get("job") or _JOB_ALIASES.get(spec.get("name", ""))
-    if not _job_ran_today(job):
-        return "SKIP", f"{label} 今日 0（{job or '該 job'} 今日尚未執行，未到判定時機）"
-    return "RED", f"{label} 今日 0（今日已執行卻無產出＝疑 producer 沉默失敗）"
+    return "GREEN", f"{label} 今日 0（週末合理空）"
 
 
 def check_db_row_count(spec: dict) -> tuple[str, str]:
@@ -316,8 +306,7 @@ def check_db_row_count(spec: dict) -> tuple[str, str]:
     async def q():
         conn = await asyncpg.connect(DSN)
         try:
-            return await conn.fetchval(
-                f"SELECT COUNT(*) FROM {spec['table']} WHERE {where}")
+            return await conn.fetchval(build_count_sql(spec))
         finally:
             await conn.close()
 
@@ -325,9 +314,11 @@ def check_db_row_count(spec: dict) -> tuple[str, str]:
         n = asyncio.run(q())
     except Exception as e:
         return "SKIP", f"DB 查詢失敗：{str(e)[:60]}"
-    if n is not None and n >= spec["min"]:
-        return "GREEN", f"{spec['table']}[{where}] = {n}（≥ {spec['min']}）"
-    return "RED", f"{spec['table']}[{where}] = {n} < {spec['min']}（疑塌陷/被洗）"
+
+    problem = judge(spec, db_value=n)
+    if problem:
+        return "RED", f"{spec['table']}[{where}] = {n} < {spec['min']}（疑塌陷/被洗）"
+    return "GREEN", f"{spec['table']}[{where}] = {n}（≥ {spec['min']}）"
 
 
 def check_cron_detail(spec: dict) -> tuple[str, str]:
@@ -347,13 +338,10 @@ def check_cron_detail(spec: dict) -> tuple[str, str]:
     if not latest:
         return "SKIP", "無近期事件"
     d = latest.get("detail") or {}
-    reason = d.get("reason")
-    val = d.get(spec["key"])
-    if reason in PROBLEM_REASONS:
-        return "RED", f"reason={reason}（job 自報問題）"
-    if val == 0 and reason not in spec.get("ok_zero_reasons", set()):
-        return "RED", f"{spec['key']}=0 非合理零（reason={reason}）"
-    return "GREEN", f"{spec['key']}={val} reason={reason}"
+    problem = judge(spec, latest_event=latest)
+    if problem:
+        return "RED", problem.split(": ", 1)[-1]
+    return "GREEN", f"{spec['key']}={d.get(spec['key'])} reason={d.get('reason')}"
 
 
 def check_file_fresh(spec: dict) -> tuple[str, str]:
@@ -368,9 +356,10 @@ def check_file_fresh(spec: dict) -> tuple[str, str]:
     except Exception as e:
         return "SKIP", f"{e}"
     age_h = (time.time() - newest) / 3600 if newest else 9999
-    if age_h <= spec["max_h"]:
-        return "GREEN", f"{age_h:.0f}h 前（門檻 {spec['max_h']}h）"
-    return "RED", f"{age_h:.0f}h 前 > 門檻 {spec['max_h']}h（產出 stale）"
+    problem = judge(spec, newest_mtime=newest)
+    if problem:
+        return "RED", f"{age_h:.0f}h 前 > 門檻 {spec['max_h']}h（產出 stale）"
+    return "GREEN", f"{age_h:.0f}h 前（門檻 {spec['max_h']}h）"
 
 
 def check_json_result(spec: dict) -> tuple[str, str]:
@@ -409,41 +398,27 @@ def check_json_result(spec: dict) -> tuple[str, str]:
     def _count(v):
         return len(v) if isinstance(v, (list, dict)) else int(v or 0)
 
-    parts, reds = [], []
-
-    fail_key = spec.get("fail_key")
-    if fail_key:
-        n = _count(d.get(fail_key))
-        parts.append(f"{fail_key}={n}")
-        if n > 0:
-            reds.append("有失敗項")
-
-    min_key = spec.get("min_key")
-    if min_key:
-        n, lo = _count(d.get(min_key)), spec.get("min_value", 0)
-        parts.append(f"{min_key}={n}(≥{lo})")
-        if n < lo:
-            reds.append("通過數低於下限（設定錯或大面積失效都長這樣）")
-
-    ok_key = spec.get("ok_key")
-    if ok_key:
-        v = d.get(ok_key)
-        parts.append(f"{ok_key}={v}")
-        if not v:
-            reds.append(f"{ok_key} 非真")
-
-    for k, want in (spec.get("expect") or {}).items():
-        got = d.get(k)
-        parts.append(f"{k}={got}")
-        if got != want:
-            reds.append(f"{k} 應為 {want}")
-
+    # parts 只負責**呈現**（讓人看得到每個判準的實際值），
+    # 紅綠裁決一律交給共用的 judge() —— 先前這裡與容器端各判一次。
+    parts = []
+    if spec.get("fail_key"):
+        parts.append(f"{spec['fail_key']}={_count(d.get(spec['fail_key']))}")
+    if spec.get("min_key"):
+        parts.append(
+            f"{spec['min_key']}={_count(d.get(spec['min_key']))}"
+            f"(≥{spec.get('min_value', 0)})"
+        )
+    if spec.get("ok_key"):
+        parts.append(f"{spec['ok_key']}={d.get(spec['ok_key'])}")
+    for k in (spec.get("expect") or {}):
+        parts.append(f"{k}={d.get(k)}")
     if spec.get("skip_key") is not None:
         parts.append(f"{spec['skip_key']}={d.get(spec['skip_key'])}")
 
     detail = " ".join(parts)
-    if reds:
-        return "RED", f"{detail} — {'；'.join(reds)}，看 {p.name}"
+    problem = judge(spec, json_files=[p])
+    if problem:
+        return "RED", f"{detail} — {problem.split(': ', 1)[-1]}，看 {p.name}"
     return "GREEN", detail
 
 

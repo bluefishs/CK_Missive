@@ -1982,40 +1982,53 @@ async def fitness_weekly_job():
     except Exception as e:
         logger.warning(f"weekly fitness history save failed: {e}")
 
+    # 2026-08-05：一律回 detail（含連紅週數）—— 否則 cron_events 只有 success，
+    # 而 W23~W31 連續 9 週 RED 這件事在自動監看裡完全看不到。
+    red_streak = 0
+    for w in sorted(history.keys(), reverse=True):
+        if history[w].get("status") != "RED":
+            break
+        red_streak += 1
+
     if rc == 0:
         logger.info("Fitness Tier 2 Weekly: all step passed")
-        return
+        return {"rc": 0, "status": "PASS", "red_streak": 0, "delivered": 1}
 
-    # 偵測連續 2 週 RED → 推 LINE
-    weeks = sorted(history.keys())[-2:]
-    consecutive_red = (
-        len(weeks) >= 2
-        and all(history[w].get("status") == "RED" for w in weeks)
-    )
+    # 偵測連續 2 週 RED → 通知
+    consecutive_red = red_streak >= 2
 
     if not consecutive_red:
-        logger.info("Fitness Tier 2 Weekly RED (本週首次)，無 LINE，等下週確認")
-        return
+        # 首次 RED 刻意不通知（等下週確認，避免單次抖動就叫人）——
+        # 這是設計上的靜默，故 delivered=1：機制運作正常。
+        logger.info("Fitness Tier 2 Weekly RED (本週首次)，等下週確認")
+        return {"rc": rc, "status": "RED", "red_streak": red_streak, "delivered": 1}
 
-    # 連續 2 週 RED → 推 LINE
+    # 連續 2 週 RED → 進 digest
+    notified = False
     try:
         tail_lines = (out or "").splitlines()[-30:]
         digest = "\n".join(tail_lines)
         body = (
-            f"🚨 Fitness Tier 2 Weekly — 連續 2 週 RED\n"
-            f"\n"
-            f"v6.12 治理進化 #2 forcing function:\n"
-            f"連續 RED 已 ≥2 週 → 建議排 sprint 修\n"
+            f"連續 RED 已 {red_streak} 週 → 建議排 sprint 修\n"
             f"\n"
             f"{digest[:1500]}\n"
             f"\n"
             f"完整: scripts/checks/run_fitness_weekly.sh"
             + _kunge_quick_actions("ops")
         )
-        from app.services.contracts.facades.integration import IntegrationFacade
-        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+        # 2026-08-05：改走 digest（L81）。原本直推且不看回傳值 ——
+        # push_admin 全通道失敗時只回 False，呼叫端無從得知。
+        from app.services.integration.line_digest_buffer import queue_digest
+        await queue_digest("🚨 每週檢核連續 RED", body)
+        notified = True
     except Exception as push_e:
-        logger.warning("Fitness Tier 2 Weekly LINE push 失敗: %s", push_e)
+        logger.error("Fitness Tier 2 Weekly 告警入 digest 失敗: %s", push_e, exc_info=True)
+
+    return {
+        "rc": rc, "status": "RED", "red_streak": red_streak,
+        "delivered": 1 if notified else 0,
+        "reason": None if notified else "digest_queue_failed",
+    }
 
 
 @tracked_job("case_finance_bridge_selfheal")
@@ -2205,19 +2218,23 @@ async def fitness_daily_job():
         cwd=str(project_root), timeout=300, job_name="fitness_daily",
     )
 
+    # 2026-08-05：回 detail —— 原本一律 return None，於是 cron_events 只看得到
+    # 「有跑」而看不到「跑出什麼」，這支檢核階梯的最底層自己反而不在 producer
+    # registry 的監看範圍內（檢核者不被檢核）。
+    # delivered 的語意＝「跑完且結論有送達」。對 producer 契約而言，
+    # RED 本身不是故障（那是檢核在做事），**RED 卻沒人收到才是故障**。
     if rc == 0:
         logger.info("Fitness Tier 1 Daily: all 6 step passed")
-        return
+        return {"rc": 0, "status": "PASS", "delivered": 1}
 
-    # RED — 推 LINE 給 owner
-    logger.warning("Fitness Tier 1 Daily RED rc=%d, pushing LINE", rc)
+    # RED — 進 digest（不直推）
+    logger.warning("Fitness Tier 1 Daily RED rc=%d, queueing digest", rc)
+    notified = False
     try:
         # 取最後 30 行 stdout 作為失敗摘要
         tail_lines = (out or "").splitlines()[-30:]
         digest = "\n".join(tail_lines)
         body = (
-            f"🚨 Fitness Tier 1 Daily RED\n"
-            f"\n"
             f"v6.12 治理進化 #2 forcing function 觸發:\n"
             f"\n"
             f"{digest[:1500]}\n"
@@ -2226,10 +2243,20 @@ async def fitness_daily_job():
             f"完整: scripts/checks/run_fitness_daily.sh"
             + _kunge_quick_actions("ops")
         )
-        from app.services.contracts.facades.integration import IntegrationFacade
-        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
+        # 2026-08-05：改走 digest（L81）。原本直推 push_admin_alert，
+        # 且**不檢查回傳值** —— 該方法送不出去時只回 False 並 log error，
+        # 對呼叫端而言「送到」與「沒送到」長得一模一樣。
+        from app.services.integration.line_digest_buffer import queue_digest
+        await queue_digest("🚨 每日檢核 RED", body)
+        notified = True
     except Exception as push_e:
-        logger.warning("Fitness Tier 1 Daily LINE push 失敗: %s", push_e)
+        logger.error("Fitness Tier 1 Daily 告警入 digest 失敗: %s", push_e, exc_info=True)
+
+    return {
+        "rc": rc, "status": "RED",
+        "delivered": 1 if notified else 0,
+        "reason": None if notified else "digest_queue_failed",
+    }
 
 
 @tracked_job("crystal_review_overdue")
@@ -3005,6 +3032,13 @@ async def _check_critique_starvation() -> None:
     critiques_dir = wiki_memory / "critiques"
 
     # 計算最近 critique mtime
+    #
+    # ⚠️ glob 必須維持**非遞迴**：`critiques/_health/` 放的是 critique_health_audit
+    # 自己產的 marker。2026-08-05 前 marker 與真 critique 混放同一層，而該稽核每兩週
+    # 寫一個 → 最新 mtime 永遠 ≤14 天 → **28 天門檻在結構上永遠達不到**，
+    # 這道安全網不管有沒有真的斷層都不會響。改成 rglob 或把 marker 移回上層即復活死局。
+    # （查證當下沒有斷層：真 critique 最新 2026-08-02、每 1-2 週一篇 ——
+    #   所以這是潛伏缺陷，它從未失效過是因為從未被需要過。）
     last_critique_days = 999
     if critiques_dir.exists():
         files = list(critiques_dir.glob("critique-*.md"))
@@ -3051,12 +3085,16 @@ async def _check_critique_starvation() -> None:
         "→ v7_reference_density_critique_pct 從 0 啟動"
         + _kunge_quick_actions("dialogues")
     )
+    # 2026-08-05：改走 digest（L81「換了出口就要換整條鏈」）。
+    # 同一個 job 的 sibling 路徑（AntiEcho triggered）2026-08-03 已改 queue_digest，
+    # 這條 else 分支被漏掉、仍直推 LINE —— 同一個 job 兩個出口，正是 L81 的形狀。
+    # 統一由 07:30 晨報依主題帶出，不另佔配額、不在週一 06:00 單獨叫醒 owner。
     try:
-        from app.services.contracts.facades.integration import IntegrationFacade
-        await IntegrationFacade().push_admin_alert(title="", body=body, channel="line")
-        logger.info(f"critique starvation prompt 推送 LINE (last={last_critique_days}d)")
+        from app.services.integration.line_digest_buffer import queue_digest
+        await queue_digest("🪞 反迴聲室提示", body)
+        logger.info(f"critique starvation prompt 已入 digest (last={last_critique_days}d)")
     except Exception as e:
-        logger.warning(f"critique starvation prompt push 失敗: {e}")
+        logger.warning(f"critique starvation prompt 入 digest 失敗: {e}")
 
 
 @tracked_job("daily_self_reflection_line_push")
@@ -3217,21 +3255,42 @@ async def cron_outcome_freshness_job():
     root = _Path(os.getenv("CK_PROJECT_ROOT", "/app"))
     now = time.time()
 
-    # 2026-07-18：改讀共享 producer registry JSON（backend/config，與 host watchdog 同源＝DRY 無漂移）。
-    #   3 信號型：file_fresh（檔新鮮）/ cron_detail（job self-report detail）/ db_table_today（表今日增長，DB 獨立驗）。
+    # 2026-07-18：改讀共享 producer registry JSON（backend/config，與 host watchdog 同源）。
+    #   信號型別與判定規則見 scripts/checks/producer_registry.py（單一實作）。
     #   新增 producer 只加一筆 JSON → host + cron 兩處自動涵蓋（契約 PRODUCER_SELF_CHECK_CONTRACT.md）。
     import json as _json
+
+    # 2026-08-05：判定改用共用模組 scripts/checks/producer_registry.py。
+    #
+    # 先前這裡自己實作了一份判定，與 host watchdog 各一份 —— 08-04 就咬過：
+    # registry 早已有 db_row_count（07-20）與 json_result（08-04），這邊只認 3 種、
+    # **認不得就靜靜跳過**，於是那些 producer 在無人值守的每日告警裡等於不存在，
+    # 手動跑 host watchdog 卻全綠。當時補上型別是補丁；只要判定有兩份，
+    # 下一個新型別還會再犯一次。
+    #
+    # scripts/ 以 ro bind-mount 掛在 /app/scripts，容器可直接 import canonical 那份。
+    import sys as _sys
+    _checks_dir = str(root / "scripts" / "checks")
+    if _checks_dir not in _sys.path:
+        _sys.path.insert(0, _checks_dir)
+    try:
+        from producer_registry import (  # type: ignore
+            RegistryUnavailable, build_count_sql, judge, load_registry, resolve_path,
+        )
+    except ImportError as _e:
+        # 掛載缺失時**不得**靜靜跳過 —— 那會讓整個 producer 監看消失而畫面全綠
+        logger.error("producer_registry 無法載入（scripts 掛載缺失？）: %s", _e, exc_info=True)
+        raise
+
+    try:
+        registry = load_registry(root / "config" / "producer_outcome_registry.json")
+    except RegistryUnavailable as _e:
+        # 同理：registry 壞掉＝未驗完，必須讓 cron watchdog 抓到，不能當成全部正常
+        logger.error("producer registry 不可用，本輪未驗完: %s", _e)
+        raise
+
     from datetime import date as _date
     _is_weekend = _date.today().weekday() >= 5
-    _PROBLEM = {"fetch_failed", "weekday_zero_suspicious", "exception", "connector_none", "no_token", "error"}
-
-    registry = []
-    try:
-        _cfg = root / "config" / "producer_outcome_registry.json"
-        if _cfg.exists():
-            registry = _json.loads(_cfg.read_text(encoding="utf-8")).get("producers", [])
-    except Exception as _e:
-        logger.warning(f"producer registry 載入失敗（非致命）: {_e}")
 
     # 讀 cron_events 供 cron_detail 檢
     _latest = {}
@@ -3251,89 +3310,44 @@ async def cron_outcome_freshness_job():
     except Exception:
         pass
 
+    async def _db_count(spec: dict):
+        """db_* 兩種信號的取值；SQL 來自共用模組，兩端不會漂移。"""
+        from app.db.database import async_session_maker as _asm
+        from sqlalchemy import text as _text
+        async with _asm() as _db:
+            return await _db.scalar(_text(build_count_sql(spec)))
+
     stale = []
     for spec in registry:
-        _name = spec.get("name", "?")
         _sig = spec.get("signal")
         try:
+            _facts = {"is_weekend": _is_weekend}
             if _sig == "file_fresh":
-                # host↔container 路徑：registry 用 repo-root 相對；容器 root=/app=backend，
-                # 故 backend/ 前綴須剝除（L52 家族）。wiki/docs 兩邊皆 /app 下 mount 不受影響。
-                _rp = spec["path"]
-                if _rp.startswith("backend/"):
-                    _rp = _rp[len("backend/"):]
-                _p = root / _rp
+                # registry 用 repo-root 相對路徑；容器 root=/app=backend，故剝 backend/ 前綴
+                _p = resolve_path(root, spec["path"], strip_backend_prefix=True)
                 if _p.is_dir():
                     _files = list(_p.glob("*.md")) + list(_p.glob("*.json"))
-                    _newest = max((f.stat().st_mtime for f in _files), default=0)
+                    _facts["newest_mtime"] = max(
+                        (f.stat().st_mtime for f in _files), default=0)
                 else:
-                    _newest = _p.stat().st_mtime if _p.exists() else 0
-                _age = (now - _newest) / 3600 if _newest else 9999
-                if _age > spec["max_h"]:
-                    stale.append(f"  • {_name}: {_age:.0f}h 前 (門檻 {spec['max_h']}h)")
+                    _facts["newest_mtime"] = _p.stat().st_mtime if _p.exists() else 0
             elif _sig == "cron_detail":
-                _e = _latest.get(spec["job"])
-                if _e:
-                    _d = _e.get("detail") or {}
-                    _r = _d.get("reason")
-                    _okz = set(spec.get("ok_zero_reasons", []))
-                    if _r in _PROBLEM:
-                        stale.append(f"  • {_name}: 產出異常 reason={_r}（沉默成功）")
-                    elif _d.get(spec["key"]) == 0 and _r not in _okz:
-                        stale.append(f"  • {_name}: {spec['key']}=0 非合理零 reason={_r}（沉默成功）")
-            elif _sig == "db_table_today":
-                from app.db.database import async_session_maker as _asm
-                from sqlalchemy import text as _text
-                _where = spec.get("where")
-                _sql = (f"SELECT COUNT(*) FROM {spec['table']} "
-                        f"WHERE {spec['date_col']}::date = CURRENT_DATE"
-                        + (f" AND {_where}" if _where else ""))
-                async with _asm() as _db:
-                    _n = await _db.scalar(_text(_sql))
-                if not _n and not (spec.get("weekend_legit") and _is_weekend):
-                    stale.append(f"  • {_name}: {spec['table']} 今日 0（非合理空＝疑沉默失敗）")
-            elif _sig == "db_row_count":
-                from app.db.database import async_session_maker as _asm
-                from sqlalchemy import text as _text
-                _w = spec.get("where")
-                async with _asm() as _db:
-                    _n = await _db.scalar(_text(
-                        f"SELECT COUNT(*) FROM {spec['table']}" + (f" WHERE {_w}" if _w else "")))
-                if (_n or 0) < spec.get("min", 0):
-                    stale.append(f"  • {_name}: {spec['table']} 僅 {_n} < 下限 {spec['min']}（疑資料塌陷）")
+                _facts["latest_event"] = _latest.get(spec["job"])
+            elif _sig in ("db_table_today", "db_row_count"):
+                _facts["db_value"] = await _db_count(spec)
             elif _sig == "json_result":
-                # 讀輸出 JSON 的**結果欄位**（跑了但結果是紅的）。
                 _rp = spec["path"]
                 if _rp.startswith("backend/"):
                     _rp = _rp[len("backend/"):]
-                _cands = sorted(root.glob(_rp), key=lambda f: f.stat().st_mtime, reverse=True)                     if "*" in _rp else [root / _rp]
-                _f = _cands[0] if _cands and _cands[0].exists() else None
-                if not _f:
-                    stale.append(f"  • {_name}: {_rp} 不存在（檢核器沒產出）")
-                else:
-                    _d = _json.loads(_f.read_text(encoding="utf-8"))
-                    _cnt = lambda v: len(v) if isinstance(v, (list, dict)) else int(v or 0)
-                    _bad = []
-                    if spec.get("fail_key") and _cnt(_d.get(spec["fail_key"])) > 0:
-                        _bad.append(f"{spec['fail_key']}={_cnt(_d.get(spec['fail_key']))}")
-                    if spec.get("min_key") and _cnt(_d.get(spec["min_key"])) < spec.get("min_value", 0):
-                        _bad.append(f"{spec['min_key']}={_cnt(_d.get(spec['min_key']))}<{spec.get('min_value')}")
-                    if spec.get("ok_key") and not _d.get(spec["ok_key"]):
-                        _bad.append(f"{spec['ok_key']}={_d.get(spec['ok_key'])}")
-                    for _k, _want in (spec.get("expect") or {}).items():
-                        if _d.get(_k) != _want:
-                            _bad.append(f"{_k}={_d.get(_k)}≠{_want}")
-                    if _bad:
-                        stale.append(f"  • {_name}: {'、'.join(_bad)}（檢核跑了但結果是紅的）")
-            else:
-                # 2026-08-04：**認不得的 signal 一律出聲**。
-                # 這一段原本只認 file_fresh/cron_detail/db_table_today，而 registry 早已有
-                # db_row_count（07-20 加）與 json_result（08-04 加）——不認得就靜靜跳過，
-                # 等於那些 producer 在每日自動告警裡**根本不存在**，卻在手動跑 host
-                # watchdog 時是綠的。兩個實作各認一部分＝典型的半接通。
-                stale.append(f"  • {_name}: 未支援的 signal「{_sig}」——本 job 與 host watchdog 不同步")
+                _facts["json_files"] = (
+                    list(root.glob(_rp)) if "*" in _rp
+                    else ([root / _rp] if (root / _rp).exists() else [])
+                )
+            _problem = judge(spec, now=now, **_facts)
+            if _problem:
+                stale.append(f"  • {_problem}")
         except Exception as _ex:
-            stale.append(f"  • {_name}: 檢查異常 {_ex}")
+            stale.append(f"  • {spec.get('name', '?')}: 檢查異常 {_ex}")
 
     if not stale:
         logger.info("✅ outcome-freshness：registry 全 producer 產出正常（file/cron_detail/db_table/db_row_count/json_result），skip LINE")
