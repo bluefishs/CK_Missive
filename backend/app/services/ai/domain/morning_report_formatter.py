@@ -28,6 +28,41 @@ _SITE_VISIT_KEYWORDS = (
 )
 
 
+# 費用狀態的中文對照。晨報是給人看的 LINE 訊息，`manager_approved` 這種
+# 內部代碼直接印出來，讀的人得自己翻譯。
+_EXPENSE_STATUS_ZH = {
+    "pending": "待審",
+    "pending_receipt": "待補收據",
+    "manager_approved": "主管已核准・待財務",
+    "approved": "已核准",
+    "rejected": "已駁回",
+}
+
+
+def _format_expense_line(item: dict) -> str:
+    """待審費用一行。
+
+    2026-08-05 owner：「無法得知是既事由」—— 原本只印發票號、金額、狀態代碼、
+    上傳者，**看不出這筆是什麼支出**。而 `category`（差旅費…）與 `notes`
+    （如「派工單018地上物調查」）**查詢早就撈出來了，只是沒有顯示** ——
+    又一次「資料在，缺的是出口」。
+
+    欄位順序依「早上瞄一眼要先知道什麼」排：事由 → 金額 → 狀態 → 誰 → 憑證號。
+    發票號放最後但**保留**，因為那是回系統查這筆的鍵。
+    """
+    amount = int(item.get("amount") or 0)
+    category = (item.get("category") or "").strip() or "未分類"
+    status = _EXPENSE_STATUS_ZH.get(item.get("status"), item.get("status") or "")
+    who = (item.get("uploader") or "").strip()
+    parts = [f"  💰 {category} NT$ {amount:,}〔{status}〕{who or '未指定上傳者'}"]
+    reason = (item.get("reason") or "").strip()
+    if reason:
+        parts.append(f"｜{reason}")
+    if item.get("inv_num"):
+        parts.append(f"｜{item['inv_num']}")
+    return "".join(parts)
+
+
 def _now_taipei() -> datetime:
     return datetime.now(TZ_TAIPEI)
 
@@ -258,10 +293,7 @@ class MorningReportFormatter:
                 total = ex.get("total_amount", 0)
                 parts.append(f"ERP 待審費用 {ex['count']} 筆 (合計 NT$ {int(total):,})")
                 for item in ex.get("items", [])[:3]:
-                    sec.append(
-                        f"  💰 {item['inv_num']} NT$ {int(item['amount']):,} "
-                        f"〔{item['status']}〕{item['uploader']}"
-                    )
+                    sec.append(_format_expense_line(item))
             if sec:
                 sections_detail.append(sec)
 

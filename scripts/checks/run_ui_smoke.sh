@@ -40,4 +40,23 @@ else
   SCRIPT=".shared-selfaudit/ui_flow_smoke.cjs"
 fi
 
+# 2026-08-05：走查前後比對業務資料列數。
+#
+# 起因：走查在開發期間往派工單 1 建了 7 筆空白作業紀錄（全庫僅此 7 筆，
+# 全在 07-31/08-02 我反覆執行走查的時段），讓完成比例卡在 3/10 →
+# 晨報每天推一則「🚨 逾期 202 天」給 owner，而畫面上那張單是「全部完成」。
+# 檢核機制自己污染了生產資料，而且是三個月後由 owner 從晨報發現的。
+#
+# 這裡只偵測不阻擋 —— 價值在於同樣的事再發生時會當場出聲。
+SNAP="$(mktemp)"
+trap 'rm -f "$AUTH_OUT" "$SNAP"' EXIT
+python "$ROOT/scripts/checks/ui_smoke_data_guard.py" --snapshot > "$SNAP" 2>/dev/null || SNAP=""
+
 COOKIE="$COOKIE_VAL" USER_INFO="$USER_INFO_VAL"   node "$ROOT/scripts/checks/$SCRIPT" "${ARGS[@]}"
+RC=$?
+
+if [ -n "$SNAP" ]; then
+  echo ""
+  python "$ROOT/scripts/checks/ui_smoke_data_guard.py" --compare "$SNAP" || RC=2
+fi
+exit $RC

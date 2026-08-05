@@ -146,3 +146,19 @@ def test_where_clause_is_parenthesised():
     spec = {"signal": "db_table_today", "table": "t", "date_col": "c",
             "where": "a=1 OR b=2"}
     assert "AND (a=1 OR b=2)" in build_count_sql(spec)
+
+
+def test_test_producers_rejected_from_production_registry(tmp_path):
+    """`__` 前綴的假 producer 不得留在正式 registry。
+
+    2026-08-04 實際發生：負向測試把兩筆假 producer 加進正式 registry 並觸發 job，
+    告警寫進正式 digest buffer，隔天 07:30 推給了 owner。
+    驗證機制污染正式輸出 —— 與「測試把假告警寫進晨報緩衝區」同型。
+    """
+    payload = {"schema_version": SCHEMA_VERSION, "producers": [
+        {"name": "正常的", "signal": "file_fresh", "path": "wiki", "max_h": 30},
+        {"name": "__負向測試_不存在檔", "signal": "file_fresh", "path": "x", "max_h": 1},
+    ]}
+    with pytest.raises(RegistryUnavailable) as ei:
+        load_registry(_write(tmp_path, payload))
+    assert "__負向測試_不存在檔" in str(ei.value)

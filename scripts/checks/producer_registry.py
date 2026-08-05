@@ -79,6 +79,25 @@ def load_registry(config_path: Path) -> list[dict]:
     if not producers:
         raise RegistryUnavailable(f"registry 內 0 個 producer：{config_path}（0 項不等於全部健康）")
 
+    # 2026-08-05：拒絕測試用的假 producer 留在正式 registry。
+    #
+    # 08-04 做負向測試時，我把兩筆假 producer（`__負向測試_不存在檔`、
+    # `__負向測試_未知信號`）加進**正式** registry 檔並觸發 job 驗證它會出聲 ——
+    # 它確實出聲了，然後把告警寫進正式 digest buffer，隔天 07:30 推給了 owner。
+    # 驗證機制自己污染了正式輸出，與「測試把假告警寫進晨報緩衝區」同型。
+    #
+    # 結構性防法：`__` 前綴保留給測試，且**正式 registry 一律不得含有** ——
+    # 負向測試要用 tmp 檔跑 load_registry()，不要改這一份。
+    test_entries = sorted({
+        p.get("name", "") for p in producers if str(p.get("name", "")).startswith("__")
+    })
+    if test_entries:
+        raise RegistryUnavailable(
+            f"正式 registry 含測試用 producer：{test_entries}。"
+            f"（`__` 前綴保留給測試；負向測試請用 tmp registry 檔，不要改正式那份 ——"
+            f"2026-08-04 就是這樣把假告警送進了 owner 的晨報）"
+        )
+
     unknown = sorted({
         p.get("signal") for p in producers if p.get("signal") not in KNOWN_SIGNALS
     })

@@ -1,0 +1,8 @@
+id,dispatch_order_id,taoyuan_project_id,incoming_doc_id,outgoing_doc_id,milestone_type,description,submission_type,record_date,deadline_date,completed_date,status,sort_order,notes,created_at,updated_at,batch_no,batch_label,document_id,parent_record_id,work_category,work_type_id
+375,1,,,,other,,,2026-02-17,,,in_progress,18,,2026-07-31 16:06:41.010532,2026-07-31 16:06:41.010532,,,,,dispatch_notice,
+376,1,,,,other,,,2026-02-17,,,in_progress,19,,2026-07-31 16:19:41.633742,2026-07-31 16:19:41.633742,,,,,dispatch_notice,
+377,1,,,,other,,,2026-02-17,,,in_progress,20,,2026-07-31 16:34:48.681782,2026-07-31 16:34:48.681782,,,,,dispatch_notice,
+378,1,,,,other,,,2026-02-17,,,in_progress,21,,2026-07-31 18:54:44.832388,2026-07-31 18:54:44.832388,,,,,dispatch_notice,
+379,1,,,,other,,,2026-02-17,,,in_progress,22,,2026-07-31 19:27:31.319382,2026-07-31 19:27:31.319382,,,,,dispatch_notice,
+380,1,,,,other,,,2026-02-17,,,in_progress,23,,2026-07-31 19:53:39.359037,2026-07-31 19:53:39.359037,,,,,dispatch_notice,
+381,1,,,,other,,,2026-02-17,,,in_progress,24,,2026-08-02 00:29:57.274334,2026-08-02 00:29:57.274334,,,,,dispatch_notice,

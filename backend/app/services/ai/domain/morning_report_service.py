@@ -891,13 +891,25 @@ class MorningReportService:
             raise
 
     # B2: ERP 待審費用 — 非預設主題，由訂閱開關
+    @staticmethod
+    def _first_line_excerpt(text_value, limit: int) -> str:
+        """取首行摘要 —— notes 常含多行更正說明，整段塞進 LINE 會蓋掉其他項目。"""
+        if not text_value:
+            return ""
+        first = str(text_value).strip().splitlines()[0].strip()
+        return first if len(first) <= limit else first[: limit - 1] + "…"
+
     async def _get_erp_pending_expenses(self) -> dict:
         """ERP 費用報銷處於 pending 狀態 > 3 天者，彙總金額 + 前 10 筆明細。"""
         try:
             r = await self.db.execute(
                 text("""
+                -- 2026-08-05：補 notes（事由）與 username fallback。
+                -- 原本只取 full_name，該欄為空時晨報印「未知」；而 notes 存的
+                -- 正是 owner 要的「這筆是為了什麼」（如「派工單018地上物調查」）。
                 SELECT e.id, e.inv_num, e.amount, e.date, e.category, e.status,
-                       u.full_name
+                       COALESCE(NULLIF(u.full_name, ''), NULLIF(u.username, '')),
+                       e.notes
                 FROM expense_invoices e
                 LEFT JOIN users u ON u.id = e.user_id
                 WHERE e.status IN ('pending', 'pending_receipt', 'manager_approved')
@@ -917,7 +929,11 @@ class MorningReportService:
                     "date": str(row[3]) if row[3] else "",
                     "category": row[4] or "",
                     "status": row[5] or "",
-                    "uploader": row[6] or "未知",
+                    # 空字串而非「未知」—— 呈現層才決定怎麼講（見 _format_expense_line）。
+                    # 「未知」是個結論，不該由查詢層下。
+                    "uploader": row[6] or "",
+                    # notes 可能很長且含更正說明，晨報只取首行前 40 字
+                    "reason": self._first_line_excerpt(row[7], 40),
                 })
             # 再補上 total 實際全量（不受 LIMIT 影響）
             r2 = await self.db.execute(

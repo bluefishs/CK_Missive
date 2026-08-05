@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import bindparam, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -448,12 +448,22 @@ class ProactiveTriggerService:
                 for r in doc_trend.all()
             ]
 
-            # Get overdue items count
+            # 逾期件數。
+            #
+            # 2026-08-05 修：原查 `documents.status='pending' AND documents.deadline`，
+            # 而 documents 表**沒有這兩個欄位** —— 這段從來沒成功執行過，
+            # 例外往上冒讓整個趨勢分析被外層 except 吞掉。典型的沉默失敗：
+            # 沒有任何訊號，只是這個功能一直不存在。
+            # 公文的到期概念實際存在 document_calendar_events（同檔上方的
+            # deadline_overdue 檢查用的就是它）。
+            # 已結案狀態由 _CLOSED_EVENT_STATUSES 產生，不再寫死第二份 ——
+            # 上方兩處檢查用的是同一個常數，寫死會在有人新增狀態時悄悄分歧。
             overdue = await self.db.execute(
                 text(
-                    "SELECT COUNT(*) FROM documents "
-                    "WHERE status = 'pending' AND deadline < NOW()"
-                )
+                    "SELECT COUNT(*) FROM document_calendar_events "
+                    "WHERE end_date < NOW() AND status NOT IN :closed"
+                ).bindparams(bindparam("closed", expanding=True)),
+                {"closed": list(_CLOSED_EVENT_STATUSES)},
             )
             overdue_count = overdue.scalar() or 0
 

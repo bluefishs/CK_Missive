@@ -639,6 +639,50 @@ async def security_scan_job():
         logger.error("安全掃描失敗: %s", e, exc_info=True)
 
 
+def _summarize_alerts(actionable: list, scanned: int) -> str:
+    """把吹哨者告警**依類型分群**摘要，而不是列前三筆標題。
+
+    2026-08-05 owner 回報：晨報那行長這樣 ——
+        「actionable 告警 48 筆（掃描 50）：事件已逾期 1 天、事件已逾期 1 天、
+          事件已逾期 1 天…」
+    原本取 `a.title[:30]`，而這類告警的標題前 30 字是通用句型，
+    三筆截出來一模一樣 → **看起來像壞掉，實際是三件不同的事**。
+    48 筆裡真正該知道的是「哪一類、幾筆」，不是任意三筆的開頭。
+
+    分群後同時保留每群一個**可辨識的例子**（含 entity id），
+    否則又會變成只有數字、依然不知道去哪裡看。
+    """
+    from collections import Counter, defaultdict
+
+    counts: Counter = Counter()
+    sample: dict = defaultdict(str)
+    for a in actionable:
+        key = getattr(a, "alert_type", None) or "unknown"
+        counts[key] += 1
+        if not sample[key]:
+            ent = getattr(a, "entity_type", "") or ""
+            eid = getattr(a, "entity_id", None)
+            tag = f"{ent}#{eid}" if eid else ent
+            # 用 message 而非 title —— 這類告警的 title 是通用句型（「事件已逾期 N 天」），
+            # 真正指出「是哪一件」的內容在 message（「『…公文標題…』已逾期 N 天」）。
+            body = (getattr(a, "message", "") or getattr(a, "title", "") or "")[:44]
+            sample[key] = f"{body}{f'（{tag}）' if tag else ''}"
+
+    zh = {
+        "deadline_overdue": "已逾期",
+        "deadline_warning": "即將到期",
+        "stale_backlog": "長期停滯",
+        "data_quality": "資料品質",
+        "system_health": "系統健康",
+        "billing_payable_mismatch": "請款/應付差異",
+        "billing_overdue": "請款逾期",
+    }
+    lines = [f"actionable {len(actionable)} 筆（掃描 {scanned}）"]
+    for key, n in counts.most_common():
+        lines.append(f"  • {zh.get(key, key)} {n} 筆｜例：{sample[key]}")
+    return "\n".join(lines)
+
+
 @tracked_job("proactive_trigger_scan")
 async def proactive_trigger_scan_job():
     """
@@ -731,11 +775,8 @@ async def proactive_trigger_scan_job():
                 # 隔日 08:00 晨報「昨日主題摘要」段一次帶出（常規 1 則/日/管理員）。
                 if actionable:
                     from app.services.integration.line_digest_buffer import queue_digest
-                    top = "、".join(a.title[:30] for a in actionable[:3])
                     await queue_digest(
-                        "🚨 吹哨者",
-                        f"actionable 告警 {len(actionable)} 筆（掃描 {len(all_alerts)}）："
-                        f"{top}{'…' if len(actionable) > 3 else ''}",
+                        "🚨 吹哨者", _summarize_alerts(actionable, len(all_alerts)),
                     )
                 logger.info("吹哨者/派工進度 LINE 推播已合併至晨報（PROACTIVE_LINE_PUSH_ENABLED=false）")
 
