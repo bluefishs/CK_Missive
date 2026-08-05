@@ -130,6 +130,10 @@ run_step "27" "憑證存活稽核（提請複查）"       "scripts/checks/crede
 # 異地備份、Hermes tick）**沒有任何人在看**。既有 scheduler_liveness_audit 管的是
 # 容器內 APScheduler。「排程註冊了不等於排程會跑」已踩過三次，且手動呼叫都會過。
 run_step "28" "Windows 排程存活"             "scripts/checks/windows_task_liveness_audit.py"
+# 2026-08-05 owner：「有資安風險皆不應該公開」。掃全 portfolio 當下發現
+# lvrland 與 digitaltwin 把完整 API schema 放在公網（1.5MB／196 端點），
+# 且沒有任何機制在問「我們對外開了什麼」—— 修一次不代表不會再開。
+run_step "29" "公網暴露稽核"                 "scripts/checks/public_exposure_audit.py"
 
 # 2026-08-03：測試套件本身的健康從來沒有任何一階在看 —— 整套長期不能執行，
 # 是 owner 記在待辦裡而不是系統發現的；同期 ezbid parser 重寫後兩天無回歸保護。

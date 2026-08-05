@@ -129,7 +129,7 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 <!--baseline:producers-->producer registry 現有 32 筆
 <!--baseline:ui_flows-->UI 流程檢核現有 14 條
 <!--baseline:fitness_steps-->主 fitness runner 現有 78 步
-<!--baseline:weekly_steps-->weekly runner 現有 28 步
+<!--baseline:weekly_steps-->weekly runner 現有 29 步
 <!--baseline:daily_steps-->daily runner 現有 9 步
 <!--baseline:selfaudit_repos-->已導入瀏覽器自我走查的專案數 4
 <!--baseline:producer_signals-->producer 信號型別 5 種
