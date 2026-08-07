@@ -132,6 +132,13 @@ run_step "8" "dashboard freshness check" \
 run_step "9" "dashboard completeness audit" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/governance_dashboard_completeness_audit.py"
 
+# Step 10: shell script 行尾（2026-08-07）
+# 這一支正是為了守住「本 runner 自己能不能執行」—— CRLF 讓 daily/weekly 在容器內
+# syntax error、一行檢核都沒跑過（daily 每日 rc=2、weekly 連 9 週 RED），而在 host
+# 跑同一支永遠全綠。規則已補進 .gitattributes，但規則存在不等於生效，要有人持續問。
+run_step "10" "shell script 行尾（CRLF 會使容器內完全不執行）" \
+    "PYTHONIOENCODING=utf-8 python scripts/checks/shell_script_eol_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================
