@@ -44,7 +44,16 @@ def main() -> int:
     print("=== SSO session TTL 跨 repo SSOT 稽核 (I10/L80) ===")
 
     # 2. 消費端 Missive SSO session TTL（分鐘 → 秒）
-    missive_min = _grep_int(ROOT / "backend/app/core/config.py",
+    #
+    # 2026-08-07：原本只找 `backend/app/core/config.py`，那是 **host 的形狀**；
+    # 容器內 backend/ 就是根，檔案在 `app/core/config.py` → 讀取失敗（L52 家族）。
+    # weekly 實際是容器內的 APScheduler 在跑，所以這一項在排程情境從未成功過。
+    _cfg = next(
+        (p for p in (ROOT / "backend/app/core/config.py", ROOT / "app/core/config.py")
+         if p.exists()),
+        ROOT / "backend/app/core/config.py",
+    )
+    missive_min = _grep_int(_cfg,
                             r"SSO_ACCESS_TOKEN_EXPIRE_MINUTES\s*:\s*int\s*=\s*(\d+)")
     missive_sec = missive_min * 60 if missive_min is not None else None
 
@@ -85,7 +94,11 @@ def main() -> int:
         for i in issues:
             print(f"  - {i}")
         print("\nOVERALL = YELLOW")
-        return 1 if strict else 0
+        # 2026-08-07：原本 `return 1 if strict else 0`，而 run_fitness_weekly
+        # **一律不傳旗標** → 印著 YELLOW 卻被 runner 收成 GREEN（同 L83、同
+        # doc_baseline_claim_audit 那支）。退出碼必須與印出的狀態一致：
+        # 0=GREEN / 1=YELLOW / 2+=RED。
+        return 1
     print("\nOVERALL = GREEN（三處 TTL 對齊 / 無跨 repo drift）")
     return 0
 

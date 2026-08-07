@@ -42,6 +42,7 @@ owner 2026-08-07 回報派工單 2「時序亂了」。追下去發現 13 筆錯
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 
@@ -101,24 +102,64 @@ def self_test() -> int:
     return 0
 
 
-def query() -> list[list[str]]:
-    """外部依賴缺失一律非零 —— 「檢查跑不動」不得與「檢查通過」長得一樣。"""
+def _query_direct() -> list[list[str]] | None:
+    """容器內走這條：有 DATABASE_URL 與 psycopg2，直接連。連不上回 None 交由外層判定。"""
+    url = os.environ.get("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
+    if not url:
+        return None
+    try:
+        import psycopg2  # type: ignore
+    except Exception:
+        return None
+    conn = psycopg2.connect(url, connect_timeout=10)
+    try:
+        cur = conn.cursor()
+        cur.execute(FIND_SQL)
+        rows = [[("" if v is None else str(v)) for v in r] for r in cur.fetchall()]
+        cur.close()
+        return rows
+    finally:
+        conn.close()
+
+
+def _query_docker() -> list[list[str]] | None:
+    """host 走這條：.env 的 DATABASE_URL 指向容器網路（postgres:5432），host 連不到。"""
     try:
         out = subprocess.run(
             ["docker", "exec", CONTAINER, "psql", "-U", DB_USER, "-d", DB_NAME,
              "-tAF", "|", "-c", FIND_SQL],
             capture_output=True, text=True, encoding="utf-8", timeout=60,
         )
-    except FileNotFoundError:
-        print("✗ 找不到 docker —— 本檢核需要能連上資料庫，無法執行不等於通過")
-        raise SystemExit(2)
-    except subprocess.TimeoutExpired:
-        print("✗ 查詢逾時 —— 無法判定，不視為通過")
-        raise SystemExit(2)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
     if out.returncode != 0:
-        print(f"✗ 查詢失敗：{(out.stderr or '').strip()[:200]}")
-        raise SystemExit(2)
+        return None
     return [ln.split("|") for ln in out.stdout.splitlines() if ln.strip()]
+
+
+def query() -> list[list[str]]:
+    """兩條路徑，但**都不是靜默跳過** —— 兩條都不通就 exit 2。
+
+    2026-08-07：第一版只有 docker exec，而 weekly 實際是**容器內的 APScheduler**
+    在跑（`fitness_weekly_job` → subprocess 執行 run_fitness_weekly.sh），容器裡
+    沒有 docker CLI → 每週必然 exit 2 = 永久 RED，而我手動在 host 跑是全綠的。
+    這正是 L52/L49 家族：**手動跑得動 ≠ 排程情境跑得動**。
+
+    兩條路徑不是「兩份事實」—— SQL 只有一份（FIND_SQL），差別只在怎麼連到同一個
+    資料庫：容器內用 DATABASE_URL 直連，host 端因 .env 指向容器網路而必須借道
+    docker exec。
+    """
+    for fn in (_query_direct, _query_docker):
+        try:
+            rows = fn()
+        except Exception as e:  # noqa: BLE001
+            print(f"  （{fn.__name__} 失敗：{str(e)[:120]}）")
+            continue
+        if rows is not None:
+            return rows
+    print("✗ 兩種連線方式都不可用（容器內 DATABASE_URL / host 端 docker exec）")
+    print("  —— 本檢核需要能連上資料庫，無法執行不等於通過")
+    raise SystemExit(2)
 
 
 def main() -> int:

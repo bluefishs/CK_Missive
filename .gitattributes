@@ -2,6 +2,14 @@
 * text=auto
 
 # Source code — force LF
+#
+# 2026-08-07：`*.sh` 原本不在這份清單裡，而它是**唯一會因 CRLF 直接死掉**的類型
+# —— bash 讀到 `\r` 會報 `$'\r': command not found`，再到函式定義就 syntax error。
+# 後果：`run_fitness_daily.sh` / `run_fitness_weekly.sh` 被 build 進容器後
+# **在排程情境完全無法執行**（fitness_daily 每日 rc=2、fitness_weekly 連 9 週 RED），
+# 而我在 host（Git Bash 容忍 CRLF）跑同一支永遠是全綠 —— 典型「手動跑得動 ≠ 排程跑得動」。
+*.sh text eol=lf
+*.bash text eol=lf
 *.py text eol=lf
 *.ts text eol=lf
 *.tsx text eol=lf
