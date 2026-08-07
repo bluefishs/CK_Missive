@@ -29,8 +29,16 @@ CK_FacilityDev 已經踩過並記下兩個取捨，這裡直接沿用，不重�
 
 用法：
     python scripts/checks/doc_baseline_claim_audit.py
-    python scripts/checks/doc_baseline_claim_audit.py --ci   # 有漂移即 exit 1
-退出碼：0 無漂移 / 1 有漂移（--ci）/ 2 無法解析（未驗完）
+
+退出碼（三態，**必須與印出的 Status 一致**）：
+    0 = GREEN  所有納管宣稱與實際相符（或目前沒有任何行標記納管）
+    1 = YELLOW 有標記但無法判定（未驗完，不等於通過）
+    2 = RED    有數字漂移，或掃到 0 份文件（SCAN_GLOBS/ROOT 錯，不是「全部正確」）
+
+⚠️ 2026-08-07 之前這裡寫的是「1 有漂移（--ci）」，而漂移在原生模式下實際回 0 ——
+`run_fitness_weekly.sh` **一律不傳旗標**、依原生三態判斷，於是這一支印著 [RED]
+卻被 runner 收成 GREEN：**管理文件數字的檢核，自己是假綠**。已改為退出碼與印出
+狀態一致；`--ci` 因此不再影響任何行為，已移除（留著會讓人以為它有作用＝L01）。
 """
 from __future__ import annotations
 
@@ -148,9 +156,9 @@ RESOLVERS = {
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--ci", action="store_true")
-    args = ap.parse_args()
+    # 不接受任何旗標：唯一呼叫端（run_fitness_weekly.sh step 26）不傳，
+    # 而原本的 --ci 在退出碼改為三態後已不影響任何行為 —— 留著會讓人以為它有作用。
+    argparse.ArgumentParser().parse_args()
 
     print("=" * 66)
     print("文件宣稱數字納管（標記制 `<!--baseline:key-->`）")
@@ -202,7 +210,7 @@ def main() -> int:
         for d in drift:
             print(f"      {d}")
         print("\nStatus: [RED] 文件宣稱與實際不符")
-        # 2026-08-07：原本是 `return 1 if args.ci else 0`，而 run_fitness_weekly
+        # 2026-08-07：原本是 `return 1 if args.ci else 0`（--ci 已移除），而 run_fitness_weekly
         # **一律不傳旗標**（依原生三態判斷）→ 這一支印著 RED 卻回 0，於是
         # **管理文件數字的檢核，自己在 weekly 裡是假綠**。同 v6.33 的 `|| true` 家族。
         # 三態語意：0=GREEN / 1=YELLOW / 2+=RED，退出碼必須與印出的狀態一致。
