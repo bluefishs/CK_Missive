@@ -93,13 +93,7 @@ async def search_linkable_documents(
     #
     # 「搜尋不到」與「已經關聯了」對使用者是完全不同的兩件事，畫面卻長得一樣。
     # 故另外撈出「符合關鍵字但因已關聯而被排除」的清單一併回傳，讓前端講清楚。
-    already_linked: list[dict] = []
     if request.exclude_document_ids:
-        excluded_q = query.where(Document.id.in_(request.exclude_document_ids)).limit(5)
-        already_linked = [
-            {"id": d.id, "doc_number": d.doc_number, "subject": d.subject}
-            for d in (await db.execute(excluded_q)).scalars().all()
-        ]
         query = query.where(Document.id.notin_(request.exclude_document_ids))
 
     # 排序並分頁
@@ -110,6 +104,48 @@ async def search_linkable_documents(
 
     result = await db.execute(query)
     documents = result.scalars().all()
+
+    # ── 為什麼搜尋不到：把排除原因講出來（2026-08-07）──
+    #
+    # 這個搜尋有**三個**條件都會讓結果變成空，而畫面一律只顯示「無符合的公文」：
+    #   1. 已關聯到本派工單（exclude_document_ids）
+    #   2. 與「機關來函／乾坤發文」切換不符（link_type 前綴過濾）
+    #   3. 不屬於本專案（contract_project_id）
+    #
+    # owner 實際卡在這裡：桃工用字第1150029767號早在 07-28 就已關聯（原因 1），
+    # 而若切換停在「乾坤發文」，搜機關文號同樣一無所獲（原因 2）—— 兩種都沉默。
+    # 「找不到」與「找到了但不給你選」是完全不同的兩件事，使用者只能靠猜。
+    #
+    # 只在**沒有結果**時才做這個診斷查詢，正常情況零額外成本。
+    excluded: list[dict] = []
+    if not documents:
+        diag_q = (
+            select(Document)
+            .where(
+                or_(
+                    Document.doc_number.ilike(f"%{keyword}%"),
+                    Document.subject.ilike(f"%{keyword}%"),
+                )
+            )
+            .limit(5)
+        )
+        for d in (await db.execute(diag_q)).scalars().all():
+            if d.contract_project_id != effective_project_id:
+                reason = "other_project"
+            elif request.exclude_document_ids and d.id in request.exclude_document_ids:
+                reason = "already_linked"
+            else:
+                is_outgoing = bool(
+                    d.doc_number and d.doc_number.startswith(OUTGOING_DOC_PREFIX)
+                )
+                wanted_outgoing = request.link_type == "company_outgoing"
+                reason = "wrong_link_type" if is_outgoing != wanted_outgoing else "unknown"
+            excluded.append({
+                "id": d.id,
+                "doc_number": d.doc_number,
+                "subject": d.subject,
+                "reason": reason,
+            })
 
     # 轉換為回應格式
     items = [
@@ -130,9 +166,9 @@ async def search_linkable_documents(
         "items": items,
         "total": len(items),
         "has_more": len(items) == request.limit,
-        # 符合關鍵字、但因「已關聯到本派工單」而被排除者。
-        # 沒有這個欄位，前端只能顯示「查無資料」——而那是錯的訊息。
-        "already_linked": already_linked,
+        # 符合關鍵字卻沒被列出的公文，及其原因（already_linked / wrong_link_type /
+        # other_project）。沒有這個欄位，前端只能顯示「查無資料」——而那是錯的訊息。
+        "excluded": excluded,
     }
 
 

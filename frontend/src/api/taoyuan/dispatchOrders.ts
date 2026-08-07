@@ -165,9 +165,13 @@ export const dispatchOrdersApi = {
       receiver: string | null;
     }>;
     total: number;
-    /** 符合關鍵字、但因「已關聯到本派工單」而被排除者（2026-08-07）。
-     *  沒有這個欄位，搜尋不到與已經關聯了在畫面上長得一模一樣。 */
-    already_linked?: Array<{ id: number; doc_number: string | null; subject: string | null }>;
+    /** 符合關鍵字卻沒被列出的公文與原因（2026-08-07）。
+     *  這個搜尋有三個條件都會讓結果變空，而畫面一律只顯示「無符合的公文」——
+     *  「找不到」與「找到了但不給你選」是完全不同的兩件事。 */
+    excluded?: Array<{
+      id: number; doc_number: string | null; subject: string | null;
+      reason: 'already_linked' | 'wrong_link_type' | 'other_project' | 'unknown';
+    }>;
   }> {
     return apiClient.post(
       API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_SEARCH_LINKABLE_DOCUMENTS,

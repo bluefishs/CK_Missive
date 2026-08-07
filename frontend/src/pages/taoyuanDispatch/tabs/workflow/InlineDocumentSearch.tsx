@@ -45,11 +45,24 @@ interface LinkableDocumentOption {
   receiver: string | null;
 }
 
+// 空狀態的原因說明。每一句都要讓人知道**下一步該做什麼**，
+// 只說「被排除」等於沒說。
+const EXCLUDE_REASON_TEXT: Record<string, string> = {
+  already_linked: '這份公文已經關聯到本派工單了，請於上方作業歷程中查看或編輯：',
+  wrong_link_type: '這份公文存在，但與目前的「機關來函／乾坤發文」切換不符——請切換後再試：',
+  other_project: '這份公文不屬於本派工單所在的專案，因此不能關聯：',
+  unknown: '這份公文符合關鍵字但未列出：',
+};
+
 export interface InlineDocumentSearchProps {
   /** 搜尋到的可關聯公文列表 */
   availableDocs: LinkableDocumentOption[];
-  /** 命中關鍵字但因已關聯而被排除者（2026-08-07）——空狀態要講清楚，不能只說「無符合的公文」 */
-  alreadyLinkedMatches?: Array<{ id: number; doc_number: string | null; subject: string | null }>;
+  /** 命中關鍵字卻沒被列出的公文與原因（2026-08-07）——空狀態要講清楚，
+   *  不能只說「無符合的公文」：那句話在三種完全不同的情況下都會出現。 */
+  excludedMatches?: Array<{
+    id: number; doc_number: string | null; subject: string | null;
+    reason: 'already_linked' | 'wrong_link_type' | 'other_project' | 'unknown';
+  }>;
   /** 選中的公文 ID */
   selectedDocId: number | undefined;
   /** 選中的關聯類型 */
@@ -72,7 +85,7 @@ export interface InlineDocumentSearchProps {
 
 const InlineDocumentSearchInner: React.FC<InlineDocumentSearchProps> = ({
   availableDocs,
-  alreadyLinkedMatches,
+  excludedMatches,
   selectedDocId,
   selectedLinkType,
   docSearchKeyword,
@@ -122,26 +135,23 @@ const InlineDocumentSearchInner: React.FC<InlineDocumentSearchProps> = ({
             placement="topLeft"
             styles={{ popup: { root: { minWidth: 500, maxWidth: 700 } } }}
             notFoundContent={
-              // 2026-08-07：「搜尋不到」與「已經關聯了」對使用者是完全不同的兩件事，
-              // 畫面卻長得一樣。owner 實際回報搜尋不到桃工用字第1150029767號，
-              // 而那份公文早在 07-28 就已關聯、就顯示在上方的作業歷程裡。
-              // 這個搜尋的語意是「可以**再**關聯的公文」，已關聯者本來就不該出現，
-              // 但不講出來就變成沉默 —— 使用者只會以為系統壞了。
+              // 2026-08-07：「無符合的公文」這句話會在三種完全不同的情況下出現：
+              //   已經關聯了／切換選錯（來函 vs 發文）／不屬於本專案。
+              // owner 兩次卡在這裡，因為畫面從來不說是哪一種。
               docSearchKeyword ? (
-                alreadyLinkedMatches && alreadyLinkedMatches.length > 0 ? (
-                  <div style={{ padding: '8px 12px' }}>
-                    <Text type="warning">這份公文已經關聯到本派工單，不需再加一次：</Text>
-                    {alreadyLinkedMatches.map((d) => (
+                excludedMatches && excludedMatches.length > 0 ? (
+                  <div style={{ padding: '8px 12px', maxWidth: 520 }}>
+                    <Text type="warning">
+                      {EXCLUDE_REASON_TEXT[excludedMatches[0]?.reason ?? "unknown"]}
+                    </Text>
+                    {excludedMatches.map((d) => (
                       <div key={d.id} style={{ marginTop: 4 }}>
                         <Text strong>{d.doc_number || `#${d.id}`}</Text>
                         {d.subject ? (
-                          <Text type="secondary"> — {d.subject.slice(0, 40)}</Text>
+                          <Text type="secondary"> — {d.subject.slice(0, 36)}</Text>
                         ) : null}
                       </div>
                     ))}
-                    <div style={{ marginTop: 6 }}>
-                      <Text type="secondary">請於上方作業歷程中查看或編輯該筆紀錄。</Text>
-                    </div>
                   </div>
                 ) : (
                   <Empty description="無符合的公文" image={Empty.PRESENTED_IMAGE_SIMPLE} />
