@@ -323,6 +323,16 @@ class WorkRecordRepository(BaseRepository[TaoyuanWorkRecord]):
 
         for ancestor_id, ancestor_dispatch_id, depth in ancestors:
             if ancestor_id in visited:
+                # 2026-08-07：訊息原本只印 record_id={ancestor_id}，而在「更新」情境下
+                # 那個 id 是**使用者正在編輯的那一筆**，不是他挑的前序 ——
+                # owner 實測看到「鏈式紀錄存在循環: record_id=369」時正在編輯 369，
+                # 完全無從得知該怎麼辦。錯誤訊息要指向使用者能改的那個東西。
+                if exclude_id and ancestor_id == exclude_id:
+                    raise ValueError(
+                        f"不能把「前序紀錄」設為 #{parent_id}：它已經排在這一筆之後"
+                        f"（本紀錄是它的上游），這樣會形成循環。"
+                        f"請改選在本紀錄之前的紀錄。"
+                    )
                 raise ValueError(f"鏈式紀錄存在循環: record_id={ancestor_id}")
             visited.add(ancestor_id)
             if ancestor_dispatch_id != dispatch_order_id:

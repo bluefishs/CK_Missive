@@ -84,8 +84,30 @@ export function useWorkRecordFormLogic({
     const seqMap = new Map<number, number>();
     sorted.forEach((r, i) => seqMap.set(r.id, i + 1));
 
+    // 2026-08-07：排除**自己的下游**，不只排除自己。
+    //
+    // owner 實測：編輯 #8 時把前序選成 #9 或 #10，後端回 400
+    //「鏈式紀錄存在循環: record_id=369」——那個判斷是對的（不能把自己的子孫
+    // 設成前序），但**下拉一開始就不該提供這些選項**：使用者只能靠試錯才知道
+    // 哪些能選，而錯誤訊息還指向他正在編輯的那筆、不是他挑的那筆。
+    const descendants = new Set<number>();
+    if (workRecordId !== undefined) {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const r of existingRecords) {
+          if (r.parent_record_id === undefined || r.parent_record_id === null) continue;
+          if (descendants.has(r.id)) continue;
+          if (r.parent_record_id === workRecordId || descendants.has(r.parent_record_id)) {
+            descendants.add(r.id);
+            changed = true;
+          }
+        }
+      }
+    }
+
     return sorted
-      .filter((r) => r.id !== workRecordId)
+      .filter((r) => r.id !== workRecordId && !descendants.has(r.id))
       .map((r) => {
         const seq = seqMap.get(r.id) ?? r.sort_order;
         const catLabel = getCategoryLabel(r);
