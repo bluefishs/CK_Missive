@@ -426,7 +426,20 @@ function createAxiosInstance(): AxiosInstance {
             const { useSessionStore } = await import('../store/sessionStore');
             // 2026-07-03：'authenticated' → '!== anonymous'（含 resolving），與 authService
             //   實例守衛一致 → bootstrap 進行中（resolving）的瞬態 401 也不觸發破壞性清除+導向。
-            const believedAuthed = useSessionStore.getState().status !== 'anonymous';
+            // 2026-08-07：守衛不得壓過伺服器的**明確宣告**。
+            //
+            // 上面那道守衛對「暫時性 401」是對的，但它無法分辨暫時與永久 —— owner 實測
+            // SSO 憑證到期（8h）後，刪除動作直接消失、且會一直點一直失敗到手動重整為止。
+            // 後端在確定沒救時（refresh 失效且無 SSO cookie 可重鑄）回 X-Reauth-Required，
+            // 收到就照既有路徑收尾（teardown → 試 SSO bridge → /login），不是新開一條路。
+            // 遵循 L74 原則：明確事件優先於被動檢查。
+            const reauthRequired =
+              String(
+                (refreshError as { response?: { headers?: Record<string, unknown> } })
+                  ?.response?.headers?.['x-reauth-required'] ?? '',
+              ) === '1';
+            const believedAuthed =
+              !reauthRequired && useSessionStore.getState().status !== 'anonymous';
             if (!believedAuthed) {
               clearAuthArtifacts();  // I4：單一 teardown
               if (!window.location.pathname.includes('/login')) {

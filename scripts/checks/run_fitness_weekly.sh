@@ -139,6 +139,12 @@ run_step "29" "公網暴露稽核"                 "scripts/checks/public_exposu
 # 這一步只問「這件事還在做嗎」，逾期回 YELLOW 不回 RED。
 run_step "30" "視覺走查新鮮度"               "scripts/checks/visual_walk_freshness.py"
 
+# 2026-08-07：這支稽核 2026-07-21 就寫好了，卻**從沒接進任何 runner**（原記「step 71
+# 待接」），所以 IdP 的 cookie TTL 從 4h 改成 8h 也沒有任何人知道 —— 又一個「機制存在
+# 但沒有接收者」。它比對三處 SSO 存活期是否對齊；不對齊時使用者會在工作中被登出，
+# 而且是靜默失敗（owner 2026-08-07 因此丟失一次刪除動作）。
+run_step "31" "SSO 存活期跨 repo 對齊"       "scripts/checks/sso_ttl_ssot_audit.py"
+
 # 2026-08-03：測試套件本身的健康從來沒有任何一階在看 —— 整套長期不能執行，
 # 是 owner 記在待辦裡而不是系統發現的；同期 ezbid parser 重寫後兩天無回歸保護。
 # 比對的是「測試 id 集合 vs 基線」，不是要求全綠（現有 41 項測試債會讓它天天紅，

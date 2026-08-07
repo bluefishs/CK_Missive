@@ -302,13 +302,27 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     }
     code = code_mapping.get(exc.status_code, ErrorCode.INTERNAL_ERROR)
 
+    # 2026-08-07：原本 headers 直接寫成 CORS 一組，**把 exc.headers 整組丟掉**。
+    #
+    # 後果不只影響新加的訊號 —— 連 401 依規範該帶的 `WWW-Authenticate` 也從來沒送出去過，
+    # 而那行在 endpoint 裡明明寫著（`auth/session.py`）。任何端點想附帶認證/重試指示都
+    # 會在這裡靜默消失，且回應看起來完全正常：這是最典型的「寫了等於沒寫」。
+    #
+    # 發現經過：refresh 加上 X-Reauth-Required 後，實打 curl 卻看不到 —— 若只跑單元測試
+    # （斷言的是 exc.headers）會全綠而永遠察覺不到。
+    #
+    # CORS 先鋪底，再讓 endpoint 的意圖覆蓋上去（同名時以 endpoint 為準）。
+    headers = dict(_get_cors_headers(request))
+    if getattr(exc, "headers", None):
+        headers.update(exc.headers)
+
     return JSONResponse(
         status_code=exc.status_code,
         content=format_error_response(
             code=code,
             message=str(exc.detail)
         ),
-        headers=_get_cors_headers(request)
+        headers=headers,
     )
 
 

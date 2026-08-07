@@ -69,10 +69,32 @@ async def refresh_token(
         # refresh_token 隨 8h session 一同失效）。非 SSO 或無有效 cookie → 維持原 401。
         token_response = await try_mint_session_from_sso_cookie(request, db)
         if token_response is None:
+            # 走到這裡＝**已經確定沒救了**：refresh_token 失效，且沒有可用的 SSO cookie
+            # 可以重鑄。這與「暫時性 401」是完全不同的兩件事，但兩者長得一樣。
+            #
+            # 2026-08-07 owner 實測：08:49 SSO 登入 → ck_employee 8h → 16:49 到期；
+            # 16:39 的 refresh 仍成功並發出一張**到 17:39** 的 session（憑證只剩 10 分鐘
+            # 卻發了 60 分鐘的通行證）；17:39 到期後 refresh 走到這一行 → 401。
+            # 前端有一道守衛（L74/I-series）：相信自己已登入時，單次 401 不清 session、
+            # 不跳登入頁，只讓該請求失敗 —— 那是為了擋「閃回登入頁」的反覆回歸，對暫時性
+            # 401 正確。但這裡是**永久失效**，守衛於是把它變成無止盡的靜默失敗：owner 的
+            # 刪除動作直接消失（紀錄 391 仍在），且會一直點一直失敗到手動重整為止。
+            #
+            # 修法遵循 L74 的原則 —— **明確事件優先於被動檢查**：由伺服器明講「這條路
+            # 已經死了、必須重新登入」，前端才有依據推翻自己的樂觀假設。用 response
+            # header 而非改 detail 形狀，對既有呼叫端零影響。
+            headers = {"WWW-Authenticate": "Bearer"}
+            if token_value:
+                # 只有「**曾經**有憑證、現在確定死了」才宣告必須重登。
+                #
+                # 完全沒帶 refresh_token 的請求（匿名首載、bootstrap 進行中）刻意**不**加
+                # 這個 header —— 那正是「閃回登入頁」反覆回歸的觸發路徑，必須繼續留在
+                # 前端守衛的保守行為底下。收窄條件比訊號本身更重要。
+                headers["X-Reauth-Required"] = "1"
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="未提供刷新令牌" if not token_value else "無效或過期的刷新令牌",
-                headers={"WWW-Authenticate": "Bearer"},
+                detail="登入階段已到期，請重新登入" if token_value else "未提供刷新令牌",
+                headers=headers,
             )
 
     # 建立 JSONResponse 以便同時設定 cookies
