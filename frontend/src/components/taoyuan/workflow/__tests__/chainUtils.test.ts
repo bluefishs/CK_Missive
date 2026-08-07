@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildChains,
   flattenChains,
+  flattenByDate,
   isOutgoingDocNumber,
   getEffectiveDocId,
   getEffectiveDoc,
@@ -1345,5 +1346,42 @@ describe('computeCurrentStage', () => {
       makeRecord({ id: 1, status: 'pending', work_category: 'survey_notice' }),
     ];
     expect(computeCurrentStage(records)).toBe('會勘通知');
+  });
+});
+
+
+describe('flattenByDate — 時間軸必須依時間（2026-08-07 owner 回報「時序亂了」）', () => {
+  // 重現派工單 2 的形狀：一條長鏈橫跨 01-15 ~ 08-07，另一條鏈在中間 02-09 才開始。
+  // 深度優先會把長鏈整條走完才換下一條，於是畫面從 08-07 直接跳回 02-09。
+  const mk = (id: number, date: string, parent?: number, sort = id) =>
+    ({ id, record_date: date, parent_record_id: parent, sort_order: sort } as never);
+
+  const records = [
+    mk(1, '2026-01-15'),
+    mk(2, '2026-02-05', 1),
+    mk(3, '2026-02-09'),          // 另一條鏈，開始於長鏈的中段
+    mk(4, '2026-07-03', 2),
+    mk(5, '2026-08-07', 4),
+  ];
+
+  it('依時間排序，不因鏈結構而倒退', () => {
+    const dates = flattenByDate(buildChains(records)).map(
+      (n) => (n.record as unknown as { record_date: string }).record_date,
+    );
+    expect(dates).toEqual([
+      '2026-01-15', '2026-02-05', '2026-02-09', '2026-07-03', '2026-08-07',
+    ]);
+  });
+
+  it('深度優先確實會倒退 —— 證明上面那支測試有鑑別力', () => {
+    const dates = flattenChains(buildChains(records)).map(
+      (n) => (n.record as unknown as { record_date: string }).record_date,
+    );
+    // 長鏈整條走完（到 08-07）才輪到 02-09
+    expect(dates[dates.length - 1]).toBe('2026-02-09');
+  });
+
+  it('不遺漏任何一筆', () => {
+    expect(flattenByDate(buildChains(records))).toHaveLength(records.length);
   });
 });

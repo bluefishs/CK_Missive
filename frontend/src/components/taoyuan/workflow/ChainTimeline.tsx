@@ -30,7 +30,7 @@ import {
 import dayjs from 'dayjs';
 
 import type { WorkRecord } from '../../../types/taoyuan';
-import { buildChains, flattenChains, getEffectiveDoc, getDocDirection } from './chainUtils';
+import { buildChains, flattenByDate, getEffectiveDoc, getDocDirection } from './chainUtils';
 import type { ChainNode } from './chainUtils';
 import { getCategoryLabel, getCategoryColor } from './workCategoryConstants';
 import { getStatusLabel, getStatusColor } from './chainConstants';
@@ -56,6 +56,9 @@ export interface ChainTimelineProps {
 interface RecordCardProps {
   node: ChainNode;
   index: number;
+  /** 前序紀錄在畫面上的編號（依時間重編後）。用文字標示取代縮排 —— 
+   *  依時間排序後父子未必相鄰，縮排在非相鄰時會誤導。 */
+  parentSeq?: number;
   isLast: boolean;
   onDocClick?: (docId: number) => void;
   onEditRecord?: (record: WorkRecord) => void;
@@ -66,6 +69,7 @@ interface RecordCardProps {
 const RecordCardInner: React.FC<RecordCardProps> = ({
   node,
   index,
+  parentSeq,
   isLast,
   onDocClick,
   onEditRecord,
@@ -97,7 +101,7 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
   const supplementaryLabel = doc?.doc_date ? '公文日' : '收文';
 
   return (
-    <div style={{ position: 'relative', paddingLeft: depth > 0 ? 24 : 0 }}>
+    <div style={{ position: 'relative' }}>
       {/* 連接線 */}
       {depth > 0 && (
         <div
@@ -137,6 +141,13 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
             <Tag color={getStatusColor(record.status)} style={{ fontSize: 11, lineHeight: '18px', margin: 0 }}>
               {getStatusLabel(record.status)}
             </Tag>
+            {/* 2026-08-07：改依時間排序後父子未必相鄰，縮排會誤導，
+                改以文字標示承接關係 —— 鏈的資訊不因為改排序而消失。 */}
+            {parentSeq !== undefined && (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                承接自 #{parentSeq}
+              </Text>
+            )}
           </div>
           {canEdit && (
             <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
@@ -254,9 +265,17 @@ const ChainTimelineInner: React.FC<ChainTimelineProps> = ({
   onDeleteRecord,
   canEdit,
 }) => {
-  const flatNodes = useMemo(() => {
-    const chains = buildChains(records);
-    return flattenChains(chains);
+  // 2026-08-07：改為**依時間**排列（owner 回報「時序亂了」）。
+  // 原本是深度優先——整條鏈走完才換下一條，於是 01-15…08-07 之後
+  // 接著跳回 02-09。按鈕寫「時間軸」就該是時間順序。
+  //
+  // seqOf：畫面編號依時間重編，同時保留「承接自 #N」的對應關係，
+  // 讓鏈的資訊在不用縮排的情況下仍看得到。
+  const { flatNodes, seqOf } = useMemo(() => {
+    const nodes = flattenByDate(buildChains(records));
+    const map = new Map<number, number>();
+    nodes.forEach((n, i) => map.set(n.record.id, i + 1));
+    return { flatNodes: nodes, seqOf: map };
   }, [records]);
 
   if (flatNodes.length === 0) {
@@ -276,6 +295,11 @@ const ChainTimelineInner: React.FC<ChainTimelineProps> = ({
           key={node.record.id}
           node={node}
           index={i}
+          parentSeq={
+            node.record.parent_record_id
+              ? seqOf.get(node.record.parent_record_id)
+              : undefined
+          }
           isLast={i === flatNodes.length - 1}
           onDocClick={onDocClick}
           onEditRecord={onEditRecord}

@@ -83,7 +83,40 @@ export function buildChains(records: WorkRecord[]): ChainNode[] {
 }
 
 /**
+ * 依**時間**攤平（2026-08-07）。
+ *
+ * owner 回報「時序亂了」：畫面上 #1..#5 是 01-15 → 08-07，接著 #6 卻跳回 02-09。
+ *
+ * 原因是原本用**深度優先**攤平 —— 一整條鏈走完才換下一條。派工單 2 的第一條鏈
+ * 從 01-15 一路延伸到 08-07，所以下一條鏈（02-09 起）接上去就看起來倒退。
+ * 資料本身沒錯（9 筆的紀錄日全部等於公文日、且遞增），錯的是排列方式：
+ * **按鈕寫「時間軸」，攤平卻是照鏈走**，名稱承諾的東西沒有做到。
+ *
+ * 改為嚴格依日期排序。鏈的資訊不丟 —— depth 仍然保留，元件會在有前序的紀錄上
+ * 標示它承接自哪一筆；縮排本身在非相鄰時反而會誤導，故由元件決定如何呈現。
+ */
+export function flattenByDate(roots: ChainNode[]): ChainNode[] {
+  const all: ChainNode[] = [];
+  const walk = (n: ChainNode) => {
+    all.push(n);
+    n.children.forEach(walk);
+  };
+  roots.forEach(walk);
+
+  return all.sort((a, b) => {
+    const da = a.record.record_date || '';
+    const db = b.record.record_date || '';
+    if (da !== db) return da.localeCompare(db);
+    // 同日再用 sort_order 穩定排序，避免每次渲染順序跳動
+    return (a.record.sort_order ?? 0) - (b.record.sort_order ?? 0);
+  });
+}
+
+/**
  * 將鏈式樹結構攤平為有序陣列（深度優先）
+ *
+ * ⚠️ 這個順序**不是時間順序**（見 flattenByDate 的說明）。
+ * 需要照鏈呈現時才用它；「時間軸」檢視請用 flattenByDate。
  */
 export function flattenChains(roots: ChainNode[]): ChainNode[] {
   const result: ChainNode[] = [];
