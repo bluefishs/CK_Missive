@@ -52,6 +52,27 @@ async def main() -> None:
         if not admin:
             raise SystemExit("ERROR: DB 內沒有 admin 使用者")
 
+        # 2026-08-07：每跑一次走查就留下一列，且沒有任何人清 —— 實測自 07-31 起
+        # 累積 222 列**全部已過期卻仍標為 is_active**。數量本身無害，但它污染了
+        # user_sessions：任何看「目前有幾個有效 session」的人都會被誤導，而這是檢核
+        # 自己造出來的雜訊（同 08-04 負向測試汙染正式晨報、走查寫入空白業務紀錄）。
+        #
+        # 在簽發前順手清掉**自己簽的舊列**（前綴比對），不碰任何真實 session。
+        # 放在這裡而不是另做一支排程：清理的觸發時機就是產生的時機，不會漏掉。
+        #
+        # ⚠️ 用 created_at 而**不是** expires_at：這張表的兩個時間欄位基準不同 ——
+        # created_at 走 NOW()（DB 本地），expires_at 走 datetime.utcnow()（UTC）。
+        # 實測同一列 created_at=19:12 而 expires_at=11:32，於是 `expires_at < NOW()`
+        # 恆為真，會把**剛簽發、正在用**的 session 一起刪掉（並行跑兩支走查時就會互殺）。
+        # 第一版就是這樣寫的，靠實際比對欄位值才發現。
+        await db.execute(
+            text(
+                "DELETE FROM user_sessions "
+                "WHERE token_jti LIKE :p AND created_at < NOW() - INTERVAL '1 day'"
+            ),
+            {"p": f"{JTI_PREFIX}%"},
+        )
+
         jti = f"{JTI_PREFIX}{uuid.uuid4().hex[:12]}"
         expires = datetime.utcnow() + timedelta(minutes=SESSION_MINUTES)
         await db.execute(
