@@ -1970,10 +1970,15 @@ def _kunge_quick_actions(tab: str = "memory") -> str:
 
 @tracked_job("fitness_weekly")
 async def fitness_weekly_job():
-    """v6.12 治理進化 #2 完整落地 — Tier 2 Weekly 12 trend step (~3 min)
+    """Tier 2 Weekly 檢核的**接收者**（2026-08-07 起不再自己執行）。
 
-    每週日 02:30 跑 12 個趨勢追蹤 step。
-    連續 2 週同 step RED → 推 LINE 提示 owner。
+    真正的執行在 host（Windows 排程 CK_Missive-Fitness-Weekly →
+    scripts/checks/run_fitness_weekly_host.sh），因為 weekly 多數步驟需要 docker
+    CLI／powershell／sibling repo／host 目錄結構，容器裡本來就做不到。
+
+    本 job 每週日 02:30 讀 host 寫下的交接檔（wiki/memory/fitness_weekly_last_run.json，
+    wiki 為雙向 bind mount），負責：寫 history、算連紅週數、連 2 週 RED 發 LINE digest，
+    並在**交接檔缺失或過期時直接 RED** —— 「host 排程沒跑」不得靜靜地變成「檢核通過」。
 
     對應 docs/architecture/FITNESS_LAYERED_EXECUTION_SOP_20260530.md Tier 2
     """
@@ -1985,16 +1990,50 @@ async def fitness_weekly_job():
     # 2026-06-02 L52 family 修：CK_PROJECT_ROOT=/app，.parent 會變 / → script 找 /scripts (不存在，
     # 實際 mount /app/scripts) → 8 cron job silent 早退。每日覆盤停 05-31+無 LINE 即此。移除 .parent。
     project_root = Path(os.getenv("CK_PROJECT_ROOT", "/app"))
-    script = project_root / "scripts" / "checks" / "run_fitness_weekly.sh"
-    if not script.exists():
-        logger.error("fitness_weekly: script not found at %s — raise 供 cron watchdog 抓 (防 silent no-op)", script)
-        raise FileNotFoundError(f"cron script 缺失: {script}")
 
-    logger.info("開始執行 Fitness Tier 2 Weekly")
-    rc, out, err = await _run_script_async(
-        ["bash", str(script), "--strict"],
-        cwd=str(project_root), timeout=600, job_name="fitness_weekly",
-    )
+    # 2026-08-07：本 job 由「執行者」改為「接收者」。
+    #
+    # weekly 的多數步驟需要 host 才有的東西（docker CLI／powershell／sibling repo／
+    # host 目錄結構）—— 實測容器內 32 步有 6 步 RED，host 只有 1 步。而在此之前
+    # CRLF 更讓它連 bash 都過不了（2026-W23~W31 連 9 週 RED，一行檢核都沒跑過）。
+    #
+    # 現在真正的執行在 host（Windows 排程 CK_Missive-Fitness-Weekly →
+    # run_fitness_weekly_host.sh），結果經 wiki/（雙向 bind mount）交接過來。
+    # 本 job 保留既有的接收者角色：寫 history、算連紅週數、發 LINE digest。
+    #
+    # 交接檔帶時間戳 → **host 排程若停掉，這裡會因為結果過期而 RED**，
+    # 「檢核沒跑」不會靜靜地變成「檢核通過」。
+    handoff = project_root / "wiki" / "memory" / "fitness_weekly_last_run.json"
+    STALE_DAYS = 8  # 週排程 + 1 天餘裕（機器關機那天補跑也涵蓋）
+
+    out = ""
+    if not handoff.exists():
+        rc = 2
+        out = (
+            f"host 端 weekly 交接檔不存在：{handoff}\n"
+            "→ Windows 排程 CK_Missive-Fitness-Weekly 可能未註冊或從未成功執行。"
+        )
+        logger.error("fitness_weekly: %s", out.replace("\n", " "))
+    else:
+        try:
+            payload = json.loads(handoff.read_text(encoding="utf-8"))
+            ran_at = datetime.fromisoformat(str(payload["ts"]).replace("Z", "+00:00"))
+            age_days = (datetime.now(ran_at.tzinfo) - ran_at).total_seconds() / 86400
+            if age_days > STALE_DAYS:
+                rc = 2
+                out = (
+                    f"host 端 weekly 結果已過期 {age_days:.1f} 天（門檻 {STALE_DAYS}）\n"
+                    "→ 排程沒在跑，不是檢核通過。"
+                )
+                logger.error("fitness_weekly: %s", out.replace("\n", " "))
+            else:
+                rc = int(payload.get("rc", 2))
+                out = str(payload.get("tail", ""))
+                logger.info("fitness_weekly: 讀入 host 結果 rc=%s（%.1f 天前）", rc, age_days)
+        except Exception as e:  # noqa: BLE001
+            rc = 2
+            out = f"host 端 weekly 交接檔無法解析：{e}"
+            logger.error("fitness_weekly: %s", out, exc_info=True)
 
     # 紀錄本週結果到 wiki/memory/fitness_weekly_history.json
     state_file = project_root / "wiki" / "memory" / "fitness_weekly_history.json"

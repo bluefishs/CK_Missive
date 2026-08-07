@@ -178,8 +178,12 @@ else
         [[ -n "$s" ]] && echo -e "   ${YELLOW}⚠${NC} $s"
     done
     # exit 1 只由 RED 觸發，不含 YELLOW —— 否則 cron 會因為「週末沒發標」每週報一次
-    if $STRICT && [[ $FAIL_COUNT -gt 0 ]]; then
-        echo -e "${RED} STRICT mode → exit 1 (連續 2 週同 step RED 將推 LINE)${NC}"
+    # 2026-08-07：原本 exit 1 **只在 --strict 時**觸發 —— 於是不帶旗標的呼叫端
+    # 會拿到「印著 N step(s) RED、退出碼卻是 0」。我自己寫 host 執行器時就踩了：
+    # 報 2 步 RED、wrapper 記 rc=0，交接給容器端就會被寫成 PASS。
+    # 退出碼必須與印出的狀態一致（L83）；--strict 保留但不再是 exit 1 的前提。
+    if [[ $FAIL_COUNT -gt 0 ]]; then
+        echo -e "${RED} RED → exit 1 (連續 2 週同 step RED 將推 LINE)${NC}"
         exit 1
     fi
 fi

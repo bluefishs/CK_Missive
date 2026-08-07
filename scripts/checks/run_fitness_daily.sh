@@ -157,8 +157,12 @@ else
     done
     # exit 1 的門檻**只由 RED 決定**，不含 YELLOW —— 否則 cron 會因為
     # 無害的 orphan volume 每天報一次，幾週後這個告警就沒人看了（L31 家族）。
-    if $STRICT && [[ $FAIL_COUNT -gt 0 ]]; then
-        echo -e "${RED} STRICT mode → exit 1 (cron 將觸發 LINE 推送)${NC}"
+    # 2026-08-07：原本 exit 1 **只在 --strict 時**觸發 —— 於是不帶旗標的呼叫端
+    # 會拿到「印著 N step(s) RED、退出碼卻是 0」。我自己寫 host 執行器時就踩了：
+    # 報 2 步 RED、wrapper 記 rc=0，交接給容器端就會被寫成 PASS。
+    # 退出碼必須與印出的狀態一致（L83）；--strict 保留但不再是 exit 1 的前提。
+    if [[ $FAIL_COUNT -gt 0 ]]; then
+        echo -e "${RED} RED → exit 1 (cron 將觸發 LINE 推送)${NC}"
         exit 1
     fi
 fi
