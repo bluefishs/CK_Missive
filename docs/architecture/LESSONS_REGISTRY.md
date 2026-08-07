@@ -479,6 +479,18 @@
 
 ---
 
+## L83 — 「我送出了什麼」與「對方收到了什麼」是兩件事：中間層會靜靜改寫，而單元測試斷言的是前者（2026-08-07）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | owner 回報 SSO 憑證到期後刪除動作直接消失。修法是讓後端回 `X-Reauth-Required` 讓前端知道「這條路死了」——單元測試全綠，**實打 curl 卻看不到那個 header**。 |
+| **Cause** | 自訂 `http_exception_handler` 把 `headers=_get_cors_headers(request)` **整組覆蓋**，`exc.headers` 全部丟掉。連 401 依規範該帶的 `WWW-Authenticate` 也從來沒送出去過——那行在 endpoint 裡明明寫著＝**寫了等於沒寫**。同一天同一形狀又出現兩次：①視覺走查 `--routes` 用 `.split('=')[1]`，於是 `?tab=correspondence` 被截成 `?tab`，**靜靜拍下預設分頁的截圖**（我因此看著錯的畫面以為驗過那一頁）；②`doc_baseline_claim_audit` 印 `[RED]` 卻 `return 0`（原生模式），runner 收到的是 GREEN——**管理文件數字的檢核，自己在 weekly 裡是假綠**；同支的 YELLOW 分支反而回 2，嚴重度與退出碼對調。 |
+| **Fix** | ①handler 改 CORS 鋪底再 `headers.update(exc.headers)`（endpoint 意圖覆蓋其上）；②`--routes` 改 `slice(prefix.length)`，canonical 修完同步四個 repo；③漂移回 2、無法判定回 1，與印出的狀態一致。三者都**實打驗證兩個方向**：header 在／不在、截圖拍到正確分頁、寫錯數字轉紅還原轉綠。 |
+| **Prevention** | (a) 凡是「我丟給下游一個值」的修改，驗證必須在**下游的收端**做，不能只斷言自己丟了什麼——`assert exc.headers` 與 `curl -D -` 是兩回事。(b) CLI 參數解析禁用 `.split(sep)[1]`，值本身含分隔符時會靜默截斷。(c) 檢核腳本的**印出狀態與退出碼必須一致**，且要知道 runner 用哪一種（本專案 runner 一律不傳旗標、依原生三態）。(d) 三者的共同提問：**這個訊號在抵達真正的消費端之前，會經過誰？那個人有沒有可能把它改掉或丟掉？** |
+| **Refs** | `backend/app/core/exceptions.py`（headers 合併）/ `backend/app/api/endpoints/auth/session.py`（`X-Reauth-Required`，刻意只在「曾經有憑證」時宣告）/ `backend/tests/unit/test_reauth_required_header_regression.py` / `shared-modules/selfaudit/src/ui_visual_walk.cjs` / `scripts/checks/doc_baseline_claim_audit.py` / commit `af3a37c2`+`7bf45566` / 同族：L01（docstring 與實作斷鏈）、v6.33 `\|\| true` 假綠、L81（負向斷言無鑑別力） |
+
+---
+
 ## L81 — 換了出口就要換整條鏈：把通知從 A 管道改到 B 管道時，閘門、測試安全網、測試斷言都會留在 A（2026-08-04）
 
 | 欄位 | 內容 |

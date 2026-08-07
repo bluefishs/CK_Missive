@@ -127,9 +127,9 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 目前納管的 key（`scripts/checks/doc_baseline_claim_audit.py`）：
 
 <!--baseline:producers-->producer registry 現有 32 筆
-<!--baseline:ui_flows-->UI 流程檢核現有 16 條
+<!--baseline:ui_flows-->UI 流程檢核現有 17 條
 <!--baseline:fitness_steps-->主 fitness runner 現有 78 步
-<!--baseline:weekly_steps-->weekly runner 現有 30 步
+<!--baseline:weekly_steps-->weekly runner 現有 32 步
 <!--baseline:daily_steps-->daily runner 現有 9 步
 <!--baseline:selfaudit_repos-->已導入瀏覽器自我走查的專案數 4
 <!--baseline:producer_signals-->producer 信號型別 5 種
@@ -164,6 +164,14 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 | 8 | 頁面層 producer 信號 | 只驗檔案新鮮度＝「跑了」當成「好的」 | 08-04 覆盤追 Task Scheduler Result=2 時發現 |
 | 9 | 價值層「資料不足」 | 永久阻斷偽裝成暫時等待（保留期 15d < 門檻 30d） | 深度數字往回走（15.6→15.37） |
 | 10 | 負向斷言 `assert len(x)==0` | 掛在永遠不會被 append 的 list 上＝永遠綠 | 修測試時順手檢查 patch 目標 |
+| 11 | `doc_baseline_claim_audit` 自己 | 印 `Status: [RED]` 卻 `return 0`，runner 收到 GREEN＝**管數字的檢核自己假綠**；同支 YELLOW 分支反而回 2（嚴重度與退出碼對調） | 08-07 手動跑時看到紅字，順手確認退出碼才發現 |
+| 12 | 視覺走查 `--routes` | `.split('=')[1]` 把 `?tab=correspondence` 截成 `?tab`，**靜靜拍下預設分頁**——「拍到了但拍錯地方」比拍不到危險 | 打開截圖發現是別的分頁 |
+
+**#11 的通則（L83）**：檢核腳本的**印出狀態與退出碼必須一致**，且必須知道 runner
+用哪一種——本專案 `run_fitness_weekly.sh` **一律不傳旗標**、依原生三態
+（0=GREEN／1=YELLOW／2+=RED）。寫成 `return 1 if args.ci else 0` 的腳本，在 runner
+裡永遠是綠的。**新增檢核時，最後一步是實際看它的 `$?`，不是看它印什麼。**
+（注意 `cmd | tail` 之後的 `$?` 是 `tail` 的退出碼——我 08-07 就先被這個騙了一次。）
 
 ### 強制作法
 

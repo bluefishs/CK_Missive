@@ -202,10 +202,15 @@ def main() -> int:
         for d in drift:
             print(f"      {d}")
         print("\nStatus: [RED] 文件宣稱與實際不符")
-        return 1 if args.ci else 0
+        # 2026-08-07：原本是 `return 1 if args.ci else 0`，而 run_fitness_weekly
+        # **一律不傳旗標**（依原生三態判斷）→ 這一支印著 RED 卻回 0，於是
+        # **管理文件數字的檢核，自己在 weekly 裡是假綠**。同 v6.33 的 `|| true` 家族。
+        # 三態語意：0=GREEN / 1=YELLOW / 2+=RED，退出碼必須與印出的狀態一致。
+        return 2
     if unresolved:
         print("\nStatus: [YELLOW] 有標記無法判定（未驗完，不等於通過）")
-        return 2
+        # 原本回 2（＝RED），比真正的漂移還嚴重 —— 兩者的嚴重度與退出碼是對調的。
+        return 1
     if claims == 0:
         # 0 處納管不是「全部正確」，是還沒有人標 —— 明講，不印綠燈。
         print("\nStatus: [INFO] 目前沒有任何行標記納管；要納管請在行首加 `<!--baseline:key-->`")
