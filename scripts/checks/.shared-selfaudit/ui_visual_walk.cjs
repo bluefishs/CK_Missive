@@ -59,7 +59,13 @@ function todayStamp() {
 }
 
 function resolveRoutes() {
-  const arg = (process.argv.find((a) => a.startsWith('--routes=')) || '').split('=')[1];
+  // 2026-08-07：原本用 `.split('=')[1]`，於是**任何帶 query string 的路由都會在第二個
+  // `=` 被截斷** —— `/taoyuan/dispatch/2?tab=correspondence` 變成 `/taoyuan/dispatch/2?tab`，
+  // 然後靜靜拍下預設分頁的截圖。看圖的人會以為自己驗過那一頁了，其實根本沒去到。
+  // 這種「拍到了、但拍錯地方」比拍不到更危險。
+  const prefix = '--routes=';
+  const found = process.argv.find((a) => a.startsWith(prefix));
+  const arg = found ? found.slice(prefix.length) : '';
   if (arg) {
     // 允許不帶前導斜線（documents,kunge）—— Git Bash 會把 `/documents` 當成
     // POSIX 路徑轉成 `C:/Program Files/Git/documents`，而 MSYS_NO_PATHCONV=1

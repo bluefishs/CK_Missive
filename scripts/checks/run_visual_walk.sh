@@ -28,5 +28,15 @@ COOKIE_VAL="$(grep '^COOKIE=' "$AUTH_OUT" 2>/dev/null | sed 's/^COOKIE=//' | tr 
 USER_INFO_VAL="$(grep '^USER_INFO=' "$AUTH_OUT" 2>/dev/null | sed 's/^USER_INFO=//' | tr -d '\r\n')"
 
 echo "[2/2] 逐頁截圖（桌面 + 手機）..."
+
+# 2026-08-07：上面那行 MSYS_NO_PATHCONV=1 的建議本身會把這裡打壞 —— 它同時也讓
+# $ROOT（/d/CKProject/...）不再被轉成 Windows 路徑，node 於是解析成 D:\d\CKProject\...
+# 而報 MODULE_NOT_FOUND。**照著本檔文件寫的方式跑就會失敗**。
+# 只轉這一個路徑，不影響 --routes 參數（那正是要保持原樣的東西）。
+WALK_JS="$ROOT/scripts/checks/.shared-selfaudit/ui_visual_walk.cjs"
+if command -v cygpath >/dev/null 2>&1; then
+  WALK_JS="$(cygpath -w "$WALK_JS")"
+fi
+
 COOKIE="$COOKIE_VAL" USER_INFO="$USER_INFO_VAL" \
-  node "$ROOT/scripts/checks/.shared-selfaudit/ui_visual_walk.cjs" "$@"
+  node "$WALK_JS" "$@"
