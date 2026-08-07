@@ -130,11 +130,10 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
       const defaults: Record<string, unknown> = {
         status: 'in_progress',
       };
-      // 自動預選最後一筆紀錄為前序
-      if (existingRecords.length > 0) {
-        const lastRecord = existingRecords[existingRecords.length - 1];
-        if (lastRecord) defaults.parent_record_id = lastRecord.id;
-      }
+      // 2026-08-07：不再自動預選前序（與 WorkRecordFormPage 同型修法）。
+      // 自動把「最後一筆」當前序，會把語意無關的事件串成一條鏈——
+      // 而縮排的用途正是看出事件斷點，鏈錯了等於把兩件事畫成同一件。
+      // 關聯資料猜錯比不猜更糟。
       form.setFieldsValue(defaults);
     }
   }, [expanded, existingRecords, form]);
@@ -365,7 +364,7 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
           <Col span={14}>
             <Form.Item name="parent_record_id" label="前序紀錄" style={{ marginBottom: 8 }}>
               <Select
-                placeholder="自動預選最後一筆"
+                placeholder="不填＝這是新事件的開始"
                 options={parentRecordOptions}
                 allowClear
                 showSearch

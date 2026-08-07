@@ -183,10 +183,19 @@ export function useWorkRecordFormLogic({
         defaults.work_category = urlWorkCategory;
       }
 
-      if (!urlParentRecordId && existingRecords.length > 0) {
-        const lastRecord = existingRecords[existingRecords.length - 1];
-        if (lastRecord) defaults.parent_record_id = lastRecord.id;
-      }
+      // 2026-08-07：**不再自動預設前序紀錄**。
+      //
+      // 原本每次新增都把「最後一筆」填進前序，不管兩者語意上有沒有關係。
+      // 使用者若沒注意到欄位已預填就送出，紀錄就被串進一條不該存在的鏈。
+      // owner 實測結果：派工單 2 被串成
+      //   派工通知(01-15) → 作業成果(02-05) → 會議通知(07-03) → 會議紀錄(07-27) → 作業成果(08-07)
+      // ——作業成果不該是五個月後那場會議通知的前序，那是兩件不同的事。
+      //
+      // 後果不只難看：縮排的用途正是**看出事件斷點**，鏈錯了就等於把兩件事
+      // 畫成同一件；而且時間軸也會跟著看起來亂（長鏈橫跨數月，下一條鏈接上去像倒退）。
+      //
+      // 關聯資料猜錯比不猜更糟：錯的鏈會誤導閱讀，還要人工回頭修。
+      // 留空由使用者明確選擇；真的是承接前一筆時，下拉第一眼就看得到。
 
       form.setFieldsValue(defaults);
     }

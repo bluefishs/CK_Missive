@@ -234,7 +234,7 @@ const WorkRecordFormPage: React.FC = () => {
               <Col span={14}>
                 <Form.Item name="parent_record_id" label="前序紀錄">
                   <Select
-                    placeholder="自動預選最後一筆"
+                    placeholder="不填＝這是新事件的開始"
                     options={parentRecordOptions}
                     allowClear
                     showSearch
