@@ -165,6 +165,9 @@ export const dispatchOrdersApi = {
       receiver: string | null;
     }>;
     total: number;
+    /** 符合關鍵字、但因「已關聯到本派工單」而被排除者（2026-08-07）。
+     *  沒有這個欄位，搜尋不到與已經關聯了在畫面上長得一模一樣。 */
+    already_linked?: Array<{ id: number; doc_number: string | null; subject: string | null }>;
   }> {
     return apiClient.post(
       API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_SEARCH_LINKABLE_DOCUMENTS,

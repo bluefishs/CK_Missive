@@ -339,6 +339,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
       {canEdit && (
         <InlineDocumentSearch
           availableDocs={docLinking.availableDocs}
+          alreadyLinkedMatches={docLinking.alreadyLinkedMatches}
           selectedDocId={docLinking.selectedDocId}
           selectedLinkType={docLinking.selectedLinkType}
           docSearchKeyword={docLinking.docSearchKeyword}

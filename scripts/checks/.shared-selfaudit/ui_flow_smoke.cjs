@@ -111,6 +111,20 @@ async function runSteps(page, ctx, steps) {
         await page.getByText(st.text, { exact: false }).first()
           .click({ timeout: st.timeout || 8000 }).catch(() => {});
         break;
+      case 'type':
+        // 2026-08-07 新增：有些缺陷只有在**輸入之後**才看得到
+        //（例：搜尋框打字才會展開下拉，而下拉的內容與位置正是缺陷所在）。
+        // 這裡刻意**不吞** click 失敗：點不到就代表選擇器錯或元素不可互動，
+        // 吞掉之後會變成「往空氣打字」然後斷言失敗，而失敗訊息會指向錯的地方
+        //（2026-08-07 初版就這樣浪費了一輪）。
+        try {
+          await page.locator(st.selector).first().click({ timeout: st.timeout || 8000 });
+        } catch (e) {
+          return { fail: `type: 點不到 ${st.selector}（${String(e).slice(0, 90)}）` };
+        }
+        await page.keyboard.type(st.text, { delay: st.delay || 30 });
+        await page.waitForTimeout(st.settleMs || 1200);
+        break;
       case 'assertCount': {
         const n = await page.locator(st.selector).count();
         // 2026-08-05：把**實測值**記下來（借自 CK_FacilityDev 走查表）。

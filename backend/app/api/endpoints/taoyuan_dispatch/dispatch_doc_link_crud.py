@@ -85,7 +85,21 @@ async def search_linkable_documents(
         query = query.where(Document.doc_number.startswith(OUTGOING_DOC_PREFIX))
 
     # 排除已關聯的公文
+    #
+    # 2026-08-07：這個排除本身是對的（已關聯的不該再關聯一次），但**它會讓使用者
+    # 以為系統找不到那份公文**。owner 實際回報：在「其他關聯公文」區塊搜尋
+    # 桃工用字第1150029767號完全沒有結果，而那份公文早在 07-28 就已關聯到本派工單、
+    # 就顯示在上方 #4。三個篩選條件裡只有這一條擋掉它。
+    #
+    # 「搜尋不到」與「已經關聯了」對使用者是完全不同的兩件事，畫面卻長得一樣。
+    # 故另外撈出「符合關鍵字但因已關聯而被排除」的清單一併回傳，讓前端講清楚。
+    already_linked: list[dict] = []
     if request.exclude_document_ids:
+        excluded_q = query.where(Document.id.in_(request.exclude_document_ids)).limit(5)
+        already_linked = [
+            {"id": d.id, "doc_number": d.doc_number, "subject": d.subject}
+            for d in (await db.execute(excluded_q)).scalars().all()
+        ]
         query = query.where(Document.id.notin_(request.exclude_document_ids))
 
     # 排序並分頁
@@ -116,6 +130,9 @@ async def search_linkable_documents(
         "items": items,
         "total": len(items),
         "has_more": len(items) == request.limit,
+        # 符合關鍵字、但因「已關聯到本派工單」而被排除者。
+        # 沒有這個欄位，前端只能顯示「查無資料」——而那是錯的訊息。
+        "already_linked": already_linked,
     }
 
 

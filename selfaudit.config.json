@@ -691,6 +691,37 @@
           "failMsg": "基本資訊標籤數異常（Descriptions 結構被改動）"
         }
       ]
+    },
+    {
+      "id": "dispatch-doc-search-already-linked",
+      "name": "派工公文關聯搜尋：已關聯的公文要講清楚，不能只顯示查無資料（2026-08-07 owner 回報修正之回歸鎖）",
+      "_why": "owner 回報在「其他關聯公文」區塊搜尋桃工用字第1150029767號『無法呈顯』。兩個原因疊在一起：(1) 該搜尋語意是『可以再關聯的公文』，已關聯者被 exclude_document_ids 排除，但畫面只顯示『無符合的公文』——搜尋不到與已經關聯了長得一樣；(2) 下拉往下展開而搜尋框是整頁最後一個元素，選單整個渲染在可視範圍外，使用者連空狀態都看不到。斷言看不到 (2)：元素存在、數量正確，只是看不到。",
+      "auth": true,
+      "url": "/taoyuan/dispatch/2?tab=correspondence",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3500
+        },
+        {
+          "action": "type",
+          "selector": ".ant-select:has-text(\"搜尋公文字號\") input",
+          "text": "1150029767",
+          "settleMs": 2000
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "已經關聯到本派工單"
+          ],
+          "failMsg": "搜尋已關聯的公文時沒有說明原因（退回只顯示『無符合的公文』的沉默狀態）"
+        },
+        {
+          "action": "assertTextAbsent",
+          "text": "無符合的公文",
+          "failMsg": "已關聯的公文被誤報為『無符合的公文』"
+        }
+      ]
     }
   ],
   "output": {

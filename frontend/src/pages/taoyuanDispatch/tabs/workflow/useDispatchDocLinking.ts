@@ -61,7 +61,7 @@ export function useDispatchDocLinking({
       contractProjectId,
     ],
     queryFn: async () => {
-      if (!docSearchKeyword.trim()) return { items: [] };
+      if (!docSearchKeyword.trim()) return { items: [], already_linked: [] };
       return dispatchOrdersApi.searchLinkableDocuments(
         docSearchKeyword,
         20,
@@ -72,6 +72,13 @@ export function useDispatchDocLinking({
     },
     enabled: !!docSearchKeyword.trim(),
   });
+
+  // 2026-08-07：搜尋命中但因已關聯而被排除者。owner 實際回報「搜尋不到
+  // 桃工用字第1150029767號」，而那份公文早在 07-28 就已關聯、就顯示在上方。
+  const alreadyLinkedMatches = useMemo(
+    () => searchedDocsResult?.already_linked ?? [],
+    [searchedDocsResult],
+  );
 
   const availableDocs = useMemo(
     () => (searchedDocsResult?.items || []) as LinkableDocumentOption[],
@@ -160,6 +167,7 @@ export function useDispatchDocLinking({
     setSelectedLinkType,
     linkedDocIds,
     availableDocs,
+    alreadyLinkedMatches,
     searchingDocs,
     linkDocMutation,
     unlinkDocMutation,
