@@ -216,21 +216,30 @@ async function applyAuth(context, cfg, base) {
   const userInfo = process.env.USER_INFO || '';
 
   if (userInfo) {
-    const st = (cfg.auth && cfg.auth.session_storage) || { key: 'user_info', shape: 'raw' };
-    await context.addInitScript(({ ui, storage }) => {
-      try {
-        let value = ui;
-        if (storage.shape === 'zustand-persist') {
-          // 欄位名各 repo 不同（user / userProfile / …）→ 由 config 指定，預設 user。
-          // 寫成 partial state 即可：zustand persist 會與 initial state 合併，
-          // 沒帶到的欄位（地圖中心點之類）會回到預設值，不會讓 store 壞掉。
-          const state = { isAuthenticated: true };
-          state[storage.user_field || 'user'] = JSON.parse(ui);
-          value = JSON.stringify({ state, version: 0 });
-        }
-        window.localStorage.setItem(storage.key, value);
-      } catch { /* ignore */ }
-    }, { ui: userInfo, storage: st });
+    // 2026-08-08：`session_storage` 改為可接受**陣列**。
+    //
+    // pile 的線上 bundle 同時存在兩個 store（auth-storage 與 global-store），
+    // 不同元件讀不同的：只種一個，另一批頁面就會被守衛導回登入頁 —— 實測
+    // 只種 global-store 時 PASS 13、只種 auth-storage 時 PASS 20，兩者都不是全貌。
+    // 「這個 repo 的登入態放在哪」不保證只有一個答案，引擎不該預設只有一個。
+    const raw = (cfg.auth && cfg.auth.session_storage) || { key: 'user_info', shape: 'raw' };
+    const stores = Array.isArray(raw) ? raw : [raw];
+    await context.addInitScript(({ ui, storages }) => {
+      for (const storage of storages) {
+        try {
+          let value = ui;
+          if (storage.shape === 'zustand-persist') {
+            // 欄位名各 repo 不同（user / userProfile / …）→ 由 config 指定，預設 user。
+            // 寫成 partial state 即可：zustand persist 會與 initial state 合併，
+            // 沒帶到的欄位（地圖中心點之類）會回到預設值，不會讓 store 壞掉。
+            const state = { isAuthenticated: true };
+            state[storage.user_field || 'user'] = JSON.parse(ui);
+            value = JSON.stringify({ state, version: 0 });
+          }
+          window.localStorage.setItem(storage.key, value);
+        } catch { /* 單一 store 失敗不影響其他 */ }
+      }
+    }, { ui: userInfo, storages: stores });
   }
 
   if (cookieHeader) {

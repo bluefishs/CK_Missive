@@ -145,8 +145,40 @@ async function main() {
       // 逾時就算了（catch）——網路一直不靜是頁面自己的事，交給下面的檢查判。
       await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
 
+      // 2026-08-08：判「被導回登入頁」前**先給它時間把認證解析完**。
+      //
+      // 前端的登入態解析是非同步的（bootstrap → 驗 cookie → 還原 store），
+      // 期間 URL 會短暫停在 /login，networkidle 剛好落在那個窗口就會誤判。
+      // 實測 pile：臨時憑證打 /api/auth/check 本機與公網皆 200、截圖也顯示
+      // 頁面完整渲染且已登入，卻仍被記成「被導回登入頁」—— 判定太早，不是真的沒登入。
+      // 同 v6.44「判 FAIL 前重跑一次」：不穩定的檢核＝每次紅不同條＝假告警。
       if (/\/entry|\/login/.test(page.url())) {
-        skipped.push(`${route} → 被導回登入頁`);
+        await page.waitForTimeout(2000);
+        await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
+      }
+      // 2026-08-08：判定改為「**離開了目標路由**且落在登入/入口頁」，並把實際 URL 講出來。
+      //
+      // 原本只測 URL 是否含 /entry|/login —— 於是 `/admin/login-history` 這種
+      // **路由名稱本身含 login** 的頁面必然命中，永遠被記成「被導回登入頁」。
+      // 而訊息又不說它到底去了哪，於是無從發現這是假陽性。
+      // 檢核要說出它看到什麼，否則錯的結論會被當成事實沿用。
+      const nowUrl = page.url();
+      const nowPath = (() => { try { return new URL(nowUrl).pathname; } catch { return nowUrl; } })();
+      const leftRoute = nowPath !== route && !nowPath.startsWith(route);
+      if (leftRoute && /^\/(entry|login)(\/|$)/.test(nowPath)) {
+        // 一併回報「登入態有沒有真的被種進去」。
+        // 沒有這一項時，「被導回登入頁」有兩種完全不同的成因無法區分：
+        //   (a) 走查根本沒帶登入態（檢核自己的問題）
+        //   (b) 帶了但應用端拒絕（真的權限/認證缺陷）
+        // 兩者的處置相反，卻長得一模一樣。
+        const seeded = await page.evaluate((keys) => {
+          try {
+            return keys.filter((k) => window.localStorage.getItem(k)).join(',') || 'none';
+          } catch { return 'unreadable'; }
+        }, ((Array.isArray(CONFIG.auth && CONFIG.auth.session_storage)
+              ? CONFIG.auth.session_storage
+              : [CONFIG.auth && CONFIG.auth.session_storage]).filter(Boolean).map((x) => x.key)));
+        skipped.push(`${route} → 被導回 ${nowPath}（登入態: ${seeded}）`);
         await page.close();
         continue;
       }
