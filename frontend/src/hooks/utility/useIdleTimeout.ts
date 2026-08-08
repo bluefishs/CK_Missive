@@ -14,7 +14,7 @@ import authService from '../../services/authService';
 import { isAuthDisabled } from '../../config/env';
 import { ROUTES } from '../../router/types';
 import { logger } from '../../utils/logger';
-import { maybeRenewSsoSession } from '../../services/ssoRenewal';
+import { maybeRenewSsoSession } from '@ck-shared/sso';
 
 /** 預設閒置超時：60 分鐘（SSOT — IdleCountdownBadge 共用，確保顯示與實際登出一致）
  *  2026-07-03 owner 要求 30 → 60 分鐘。註：後端 access_token 絕對壽命為

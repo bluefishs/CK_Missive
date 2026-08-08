@@ -68,6 +68,33 @@ DOC_PATHS = [
     "/swagger.json",
 ]
 
+# ── dev server 外洩（2026-08-08 新增維度）──
+#
+# 2026-08-08 實測：digitaltwin.cksurvey.tw 公網一直由 Vite **dev server** 提供，
+# /src/App.tsx 回 200、**92,129 bytes 完整原始碼公開可讀**。正式 nginx 路徑早已定義
+# 卻從未啟動成功過，於是有人接了一條「跑得動」的替代路徑（L84）。
+#
+# 為何用「探公網產出」而不是「檢查 .env / PM2 狀態」：
+#   · .env 已 gitignore、PM2 狀態不在版控 —— 檢查設定等於檢查一個不會傳播的東西
+#   · 真正要守的是「公網不得洩漏原始碼」，那與用什麼手段達成無關
+#   · 這個判準對五個站台一體適用，任何一站不小心把 dev server 推上公網都會被抓到
+DEV_SERVER_PATHS = ["/src/App.tsx", "/src/main.tsx", "/@vite/client", "/@react-refresh"]
+
+# 必須看**內容**而非狀態碼：SPA fallback 會讓任何路徑都回 200 index.html。
+# 這些是編譯前原始碼／dev client 才有的特徵。
+_DEV_SOURCE = re.compile(
+    r"__vite__cjsImport|/@react-refresh|jsxDEV\(|import\s+.*\s+from\s+[\"']/src/|createHotContext",
+)
+
+
+def is_dev_server_leak(body: str) -> tuple[bool, str]:
+    """回傳 (是否洩漏, 原因)。空 body 或 SPA fallback 皆不算。"""
+    if not body:
+        return False, ""
+    m = _DEV_SOURCE.search(body)
+    return (True, f"dev server 原始碼特徵「{m.group(0)[:28]}」") if m else (False, "")
+
+
 # 真正的 schema / 互動文件特徵
 _SCHEMA_JSON = re.compile(r'"openapi"\s*:\s*"3')
 _DOC_HTML = re.compile(r"swagger-ui-bundle|redoc\.standalone\.js|<redoc", re.I)
@@ -106,7 +133,7 @@ def main() -> int:
     args = ap.parse_args()
 
     print("=" * 70)
-    print("公網暴露稽核 —— API 文件不得對外開放")
+    print("公網暴露稽核 —— API 文件與原始碼皆不得對外開放")
     print("=" * 70)
 
     exposed: list[str] = []
@@ -123,6 +150,15 @@ def main() -> int:
             bad, why = is_exposed(body)
             if bad:
                 exposed.append(f"{host}{path} — {why}")
+        for path in DEV_SERVER_PATHS:
+            status, body = fetch(f"https://{host}{path}")
+            if status:
+                reachable = True
+            if status != 200 or not body:
+                continue
+            bad, why = is_dev_server_leak(body)
+            if bad:
+                exposed.append(f"{host}{path} — {why}")
         if not reachable:
             unreachable.append(host)
         print(f"  {'✗' if any(host in e for e in exposed) else '✓'} {host}")
@@ -134,7 +170,7 @@ def main() -> int:
 
     print("\n" + "=" * 70)
     if exposed:
-        print(f"🔴 {len(exposed)} 處 API 文件對公網開放：")
+        print(f"🔴 {len(exposed)} 處對公網開放：")
         for e in exposed:
             print(f"  - {e}")
         print("\n一份完整 schema 等於把攻擊面地圖交出去。")
@@ -143,7 +179,7 @@ def main() -> int:
     if unreachable:
         print("🟡 未驗完：有站台連不上，不能判定為安全")
         return 2
-    print(f"GREEN: {len(HOSTS)} 個站台皆未對外暴露 API 文件")
+    print(f"GREEN: {len(HOSTS)} 個站台皆未對外暴露 API 文件或原始碼")
     return 0
 
 
