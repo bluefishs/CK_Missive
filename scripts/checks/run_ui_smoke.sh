@@ -52,7 +52,13 @@ SNAP="$(mktemp)"
 trap 'rm -f "$AUTH_OUT" "$SNAP"' EXIT
 python "$ROOT/scripts/checks/ui_smoke_data_guard.py" --snapshot > "$SNAP" 2>/dev/null || SNAP=""
 
-COOKIE="$COOKIE_VAL" USER_INFO="$USER_INFO_VAL"   node "$ROOT/scripts/checks/$SCRIPT" "${ARGS[@]}"
+# 2026-08-08：與 run_visual_walk.sh 同型 —— 使用者若加 MSYS_NO_PATHCONV=1（為了讓
+# --routes/--only 的參數不被 Git Bash 轉成 Windows 路徑），$ROOT 也會跟著不轉換，
+# node 於是解析成 D:\d\CKProject\... 而 MODULE_NOT_FOUND。只轉這一個路徑。
+# 上次只修了 run_visual_walk.sh、漏了這一支 —— 修法要掃全同型。
+ENTRY_JS="$ROOT/scripts/checks/$SCRIPT"
+if command -v cygpath >/dev/null 2>&1; then ENTRY_JS="$(cygpath -w "$ENTRY_JS")"; fi
+COOKIE="$COOKIE_VAL" USER_INFO="$USER_INFO_VAL"   node "$ENTRY_JS" "${ARGS[@]}"
 RC=$?
 
 if [ -n "$SNAP" ]; then

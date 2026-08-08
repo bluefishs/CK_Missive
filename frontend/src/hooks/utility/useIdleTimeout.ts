@@ -14,6 +14,7 @@ import authService from '../../services/authService';
 import { isAuthDisabled } from '../../config/env';
 import { ROUTES } from '../../router/types';
 import { logger } from '../../utils/logger';
+import { maybeRenewSsoSession } from '../../services/ssoRenewal';
 
 /** 預設閒置超時：60 分鐘（SSOT — IdleCountdownBadge 共用，確保顯示與實際登出一致）
  *  2026-07-03 owner 要求 30 → 60 分鐘。註：後端 access_token 絕對壽命為
@@ -58,6 +59,11 @@ export function useIdleTimeout(options: UseIdleTimeoutOptions = {}) {
     // 節流：避免頻繁重設 timer
     if (now - lastActivityRef.current < ACTIVITY_THROTTLE_MS) return;
     lastActivityRef.current = now;
+
+    // 2026-08-08：借用同一個活動訊號延長 SSO session（自身另有 30 分鐘節流）。
+    // 不另建一套事件監聽 —— 那會是同一件事兩套實作。
+    // 語意相符：這裡判定的正是「使用者還在用」，而 sliding renewal 要的就是這個。
+    maybeRenewSsoSession();
 
     if (timerRef.current) {
       clearTimeout(timerRef.current);
