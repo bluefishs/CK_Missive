@@ -479,6 +479,18 @@
 
 ---
 
+## L84 — 「設定寫得很嚴謹」與「它跑得起來」是兩件事：從未啟動成功過的服務，會逼出一條更差的替代路徑（2026-08-08）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | `digitaltwin.cksurvey.tw` 由 host 的 Vite **dev server** 對外提供，實測 `/src/App.tsx` 回 200、**92,129 bytes 完整原始碼公開可讀**。而該專案的正式路徑（builder → volume → nginx）其實早就定義好。 |
+| **Cause** | **nginx 從來沒有啟動成功過**（`frontend-dist` volume 是空的即為佐證），逐層追出**三個獨立阻斷**，任一個都足以 `[emerg]`：①acute3d NAS 掛載失敗（`key has been revoked`）—— **掛載失敗會讓整個 nginx 起不來**，不是只有該功能不可用；②`default.conf` 帶 UTF-8 BOM → `unknown directive "﻿#"`；③`cap_drop: ALL` 與自身 `nginx.conf` 不相容（`user nginx;` 需 SETUID/SETGID 降權、`proxy_cache_path` 需 CHOWN/DAC_OVERRIDE）。另有健檢**從來不可能通過**（用映像檔裡沒有的 `curl`；用 `localhost` 而 nginx 只 listen IPv4 → `::1` refused），容器長期標 unhealthy 而服務其實健康。**這些全部是「寫好了但沒人驗過它跑不跑得起來」**。而當正式路徑不可用，人就會找一條跑得動的替代路徑 —— 那條路徑（dev server）帶著遠更嚴重的問題。 |
+| **Fix** | 移除 BOM；補回 nginx 必需的最小權限集（CHOWN/SETUID/SETGID/DAC_OVERRIDE，維持 `cap_drop: ALL` 其餘強化）；健檢改 `wget -qO- http://127.0.0.1/health`；暫時停用 acute3d 掛載（**取捨依據**：它由這個 nginx 提供，nginx 沒跑時本來就不可用，停用不會失去任何目前可用的功能）。**不動 CF Dashboard**：改 `HOST_PORT_NGINX` 讓 nginx 接上 tunnel 現行指向的埠，變更可在本機完成並隨時回滾。 |
+| **Prevention** | (a) **強化設定（cap_drop / read_only / seccomp）必須有一次「真的把它啟動起來」的驗證**，否則寫得愈嚴謹愈容易變成從未生效的擺設。(b) 掛載失敗會使**整個容器**無法啟動 —— 選用性資料源（NAS/外部儲存）不該與主服務生死綁定。(c) **健檢指令要驗它在該映像檔內存在且會通過**（`curl` 不一定有；容器內 `localhost` 可能先解析 IPv6）——「健檢不可能通過」與「服務真的壞了」在監控上長得一樣。(d) 追問法：**若正式路徑不可用，現在是誰在提供服務？** 那個「暫時方案」往往才是真正的風險所在。 |
+| **Refs** | `CK_DigitalTunnel/docs/SERVING-TOPOLOGY-20260808.md`（含回滾與驗證步驟）/ `CK_DigitalTunnel` commit `04ed7f6`+`b31f4d2` / 同族：L45（compose healthcheck override）、L49（容器缺原生相依）、v6.33「設定寫錯時不會給你綠燈」 |
+
+---
+
 ## L83 — 「我送出了什麼」與「對方收到了什麼」是兩件事：中間層會靜靜改寫，而單元測試斷言的是前者（2026-08-07）
 
 | 欄位 | 內容 |
