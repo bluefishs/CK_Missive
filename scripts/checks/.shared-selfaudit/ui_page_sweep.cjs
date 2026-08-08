@@ -178,7 +178,15 @@ async function main() {
         }, ((Array.isArray(CONFIG.auth && CONFIG.auth.session_storage)
               ? CONFIG.auth.session_storage
               : [CONFIG.auth && CONFIG.auth.session_storage]).filter(Boolean).map((x) => x.key)));
-        skipped.push(`${route} → 被導回 ${nowPath}（登入態: ${seeded}）`);
+        // console 錯誤從導航前就在收，跳過時卻沒被用到 —— 而「應用端為什麼拒絕」
+        // 的答案往往就在那裡（401/403/某支 API 掛掉觸發登出）。一併帶出來。
+        // 連 cookie 也一起報：登入態有三個載體（localStorage / cookie / 後端 session），
+        // 少報一個就會像這次一樣，卡在「後端說有效、瀏覽器說沒有」而無從判斷。
+        const ck = await context.cookies().then(
+          (cs) => cs.map((c) => c.name).join(',') || 'none',
+        ).catch(() => 'unreadable');
+        const why = errors.length ? `｜console: ${errors.slice(0, 2).join(' / ').slice(0, 160)}` : '｜console 無錯誤';
+        skipped.push(`${route} → 被導回 ${nowPath}（登入態: ${seeded}｜cookie: ${ck}${why}）`);
         await page.close();
         continue;
       }
