@@ -167,6 +167,8 @@ if [[ "$INCLUDE" == *"fitness"* ]]; then
     copy_file "$SOURCE/scripts/checks/soul_mirror_drift_check.py"          "$TARGET/scripts/checks/soul_mirror_drift_check.py"
     copy_file "$SOURCE/scripts/checks/wiki_kg_link_audit.py"               "$TARGET/scripts/checks/wiki_kg_link_audit.py"
     copy_file "$SOURCE/scripts/checks/kg_embedding_coverage_check.py"      "$TARGET/scripts/checks/kg_embedding_coverage_check.py"
+    # 2026-08-08：DB 交易狀態健檢。容器辨識由 DB_CONTAINER_HINT 指定，同一份可跨 repo 用。
+    copy_file "$SOURCE/scripts/checks/db_transaction_health_check.py"      "$TARGET/scripts/checks/db_transaction_health_check.py"
     copy_file "$SOURCE/scripts/checks/adr_lifecycle_check.py"              "$TARGET/scripts/checks/adr_lifecycle_check.py"
     copy_file "$SOURCE/scripts/checks/agent_evolution_health.py"           "$TARGET/scripts/checks/agent_evolution_health.py"
     copy_file "$SOURCE/scripts/checks/lessons_drift_check.py"              "$TARGET/scripts/checks/lessons_drift_check.py"

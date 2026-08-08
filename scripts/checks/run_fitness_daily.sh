@@ -139,6 +139,13 @@ run_step "9" "dashboard completeness audit" \
 run_step "10" "shell script 行尾（CRLF 會使容器內完全不執行）" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/shell_script_eol_audit.py"
 
+# Step 11: DB 交易狀態（2026-08-08）
+# lvrland 後端 hang 住、API 對真實使用者完全不可用而公網首頁仍回 200，
+# 唯一指向真因的證據是 DB 的 idle in transaction (aborted) × 5 —— 當時沒有任何機制在看它。
+# 這種故障不會自己好，只會累積到把連線池吃光；抓到就是真的，不必猜。
+run_step "11" "DB 交易狀態（中止未 rollback）" \
+    "PYTHONIOENCODING=utf-8 python scripts/checks/db_transaction_health_check.py"
+
 # ============================================================
 # Summary
 # ============================================================
