@@ -115,6 +115,13 @@ async function main() {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   // 登入態注入走共用函式（初版此處寫死 'user_info'、與深度引擎的 config 化不一致）
   await boot.applyAuth(context, CONFIG, BASE);
+  // 2026-08-08：開場先報一次「登入態到底有沒有被加進去」。
+  // 先前診斷只在重導**當下**報 cookie，那時可能已被應用端清掉 ——
+  // 「從沒加成功」與「加了又被清掉」處置完全不同，卻長得一樣。
+  {
+    const c0 = await context.cookies().catch(() => []);
+    console.log(`  [auth] 起始 cookie: ${c0.map((c) => c.name).join(',') || 'none'}`);
+  }
   // 有沒有登入態決定「空白頁」該判缺陷還是判未驗（見下方 textLen 判斷）
   const hasAuth = Boolean(process.env.COOKIE || process.env.USER_INFO);
 

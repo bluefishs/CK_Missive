@@ -250,6 +250,18 @@ async function applyAuth(context, cfg, base) {
         value: kv.slice(i + 1).trim(),
         domain: new URL(base).hostname,
         path: '/',
+        // 2026-08-08：補上與真實登入 cookie 相同的屬性。
+        //
+        // Playwright 預設 httpOnly=false，而各後端的 auth cookie 都是
+        // `httponly=True, secure, samesite=lax`。差別不是形式問題 ——
+        // **非 HttpOnly 的 cookie 前端 JS 清得掉，真的清不掉**，於是走查的 session
+        // 會被應用端的清理邏輯抹掉，然後 refresh 拿到「缺少刷新令牌」→ 登出 → 導向
+        // /login。實測 pile：cookie 解析正確（2 個都在）、後端也認得，但重導當下
+        // 只剩 g_state，就是被清掉了。
+        // 走查要像真實 session 那樣運作，否則測到的不是使用者的體驗。
+        httpOnly: true,
+        secure: new URL(base).protocol === 'https:',
+        sameSite: 'Lax',
       };
     }).filter((c) => c.name);
     if (cookies.length) await context.addCookies(cookies);
