@@ -167,6 +167,14 @@ run_step "25" "程式×頁面×服務 對應完整性"  "scripts/checks/api_cont
 # 而 canonical 原生 repo 那份反而最舊。收斂後若無閘門，下次必然再長回來。
 run_step "33" "走查入口委派（防 copy 式復發）" "scripts/checks/selfaudit_entry_delegation_audit.py"
 
+# 2026-08-09（owner：「跨專案 repo 或 session 導致紀錄或待辦事項遺失，
+# 是否也應導入自我檢核修復與自我進化」）。同一輪就有六個實例，全是同一個形狀：
+# **在某個 repo/session 完成的事沒有傳播出去，而且沒有任何機制會發現** ——
+# lvrland 推送被別人未提交的變更擋住數週、DT 前端落後 21 個 commit 3.5 週、
+# 檢核腳本寫好卻沒有任何 runner 引用（lvrland 6 支、pile 至今 1 支）。
+# 這些都不是「程式壞了」，所以沒有任何既有檢核會紅。
+run_step "34" "跨 repo 工作連續性"          "scripts/checks/cross_repo_work_continuity_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================
