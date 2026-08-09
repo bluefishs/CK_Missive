@@ -23,7 +23,25 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
-for _cand in (Path("/app"), Path(__file__).resolve().parents[2] / "backend"):
+# 2026-08-09：候選路徑改為容錯求值。
+#
+# 原本直接寫 `Path(__file__).resolve().parents[2]`，而共用 runner 是把本檔
+# **經 stdin** 送進容器執行（`docker exec -i ... python - < 本檔`）——
+# 那時 `__file__` 是 `<stdin>`，`parents[2]` 直接 IndexError，
+# 而症狀是「憑證取不到 → 87 頁全 SKIP」，看起來像認證壞了。
+#
+# 用 stdin 是刻意的：各 repo 容器掛載結構不同（lvrland 的 /app 不是 backend/、
+# DT 的程式在 /app/src），寫容器內路徑會在每次移植時重踩（L52 家族）。
+# 所以該讓 adapter 不依賴 __file__，而不是讓 runner 為這一個 repo 開分支。
+def _candidates():
+    yield Path("/app")
+    try:
+        yield Path(__file__).resolve().parents[2] / "backend"
+    except (NameError, IndexError):
+        pass  # stdin 執行時沒有 __file__，容器內 /app 已足夠
+
+
+for _cand in _candidates():
     if (_cand / "app" / "db" / "database.py").exists():
         sys.path.insert(0, str(_cand))
         break

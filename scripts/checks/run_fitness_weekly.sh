@@ -162,6 +162,11 @@ run_step "24" "測試套件健康（vs 基線）"     "scripts/checks/test_suite
 # （其中 2 條還被測試斷言保護著）。
 run_step "25" "程式×頁面×服務 對應完整性"  "scripts/checks/api_contract_alignment_audit.py"
 
+# 2026-08-09：引擎有 drift 稽核，**入口腳本卻沒有任何 gate**。
+# 實測 lvrland 與 pile 的入口去註解後差異 0 行（兩份相同副本各自維護），
+# 而 canonical 原生 repo 那份反而最舊。收斂後若無閘門，下次必然再長回來。
+run_step "33" "走查入口委派（防 copy 式復發）" "scripts/checks/selfaudit_entry_delegation_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================
@@ -183,7 +188,12 @@ else
     # 報 2 步 RED、wrapper 記 rc=0，交接給容器端就會被寫成 PASS。
     # 退出碼必須與印出的狀態一致（L83）；--strict 保留但不再是 exit 1 的前提。
     if [[ $FAIL_COUNT -gt 0 ]]; then
-        echo -e "${RED} RED → exit 1 (連續 2 週同 step RED 將推 LINE)${NC}"
+        # 2026-08-09：訊息改為與實際行為一致。
+        # 原本寫「連續 2 週**同 step** RED 將推 LINE」，但歷史檔當時只記 rc／status、
+        # 根本沒有步驟名可比 —— 條件引用了不存在的資訊（同族：宣告了一個沒實作的機制）。
+        # 現在 red_steps 有記，而升級條件仍是「連紅 ≥2 週」（步驟換人也該報），
+        # 差別在 digest 會**先講與上週的差異**。
+        echo -e "${RED} RED → exit 1 (連紅 ≥2 週進 digest；訊息會標出本週新增的 RED)${NC}"
         exit 1
     fi
 fi

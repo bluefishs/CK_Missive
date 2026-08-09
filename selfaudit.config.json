@@ -11,7 +11,9 @@
     "internal_url": "http://localhost:8001",
     "csrf_endpoint": "/api/secure-site-management/csrf-token",
     "session_minutes": 20,
-    "jti_prefix": "ui-smoke-"
+    "jti_prefix": "ui-smoke-",
+    "adapter_host_script": "scripts/checks/ui_smoke_auth.py",
+    "_doc_adapter": "adapter 以 host 檔案經 stdin 送進容器執行（不用容器內路徑 —— 各 repo 掛載結構不同，移植時會逐一踩雷）。本 repo 的檔名沿用歷史的 ui_smoke_auth.py，其他 repo 是預設的 selfaudit_auth.py。"
   },
   "page_sweep": {
     "_doc": "廣度掃描：讀路由定義檔，全站靜態路由走一遍。",

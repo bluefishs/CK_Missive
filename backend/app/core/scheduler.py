@@ -2045,10 +2045,47 @@ async def fitness_weekly_job():
         except Exception:
             pass
 
+    # 2026-08-09：一併記下**是哪幾步紅**。
+    #
+    # 原本只記 rc/status，於是「連續 N 週 RED」這個訊號無法回答最重要的問題：
+    # 這一週跟上一週紅的是不是同一批？現況已連紅 10 週（多為 owner 待辦的
+    # 長期項目），若第 11 週冒出一個**新**的 RED，在只有 rc 的歷史裡
+    # 與那些舊的長得一模一樣 —— 正是 L88 說的「永遠是紅的＝訊號失去意義」。
+    #
+    # 解析 runner 摘要段的 `✗ <步驟名>` 行（格式見 run_fitness_weekly.sh）。
+    # 解析不到就記空 list，**不猜**：空 list 會讓下面的差異比對自動退回
+    # 「只報連紅週數」的舊行為，而不是報出錯誤的差異。
+    def _clean(line: str) -> str:
+        """去掉 ANSI 色碼與符號，只留步驟名。
+
+        用逐字元過濾而非 re —— 本模組沒有 import re，
+        為了一行解析而多一個 import 不划算（且我一開始就是這樣寫錯的：
+        直接用了不存在的 `re` 與 `_strip_ansi`，靠實際查證才發現）。
+        """
+        out_chars, in_esc = [], False
+        for ch in line:
+            if ch == "\x1b":
+                in_esc = True
+                continue
+            if in_esc:
+                if ch.isalpha():
+                    in_esc = False
+                continue
+            out_chars.append(ch)
+        return "".join(out_chars).strip()
+
+    red_steps = sorted({
+        s[1:].strip()
+        for s in (_clean(ln) for ln in (out or "").splitlines())
+        # 只取「✗ 開頭且不是那行總計」的行
+        if s.startswith("✗") and "step(s) RED" not in s and len(s) > 2
+    })
+
     history[today] = {
         "rc": rc,
         "status": "PASS" if rc == 0 else "RED",
         "ts": datetime.now().isoformat(),
+        "red_steps": red_steps,
     }
     # 只保留最近 12 週
     keys = sorted(history.keys())[-12:]
@@ -2088,8 +2125,30 @@ async def fitness_weekly_job():
     try:
         tail_lines = (out or "").splitlines()[-30:]
         digest = "\n".join(tail_lines)
+
+        # 2026-08-09：**先講與上週的差異**，再貼原始輸出。
+        #
+        # 連紅 10 週的情況下，「連續 RED 已 N 週」每週長得一模一樣，
+        # 讀的人很快就學會略過它 —— 而那正是新問題出現時最需要被看見的時刻。
+        # 可行動的訊號是「這週多了什麼」，不是「還是紅的」。
+        weeks = sorted(history.keys())
+        prev = history.get(weeks[-2], {}).get("red_steps") if len(weeks) >= 2 else None
+        if red_steps and prev is not None:
+            new = [s for s in red_steps if s not in prev]
+            gone = [s for s in prev if s not in red_steps]
+            if new:
+                delta = "🆕 本週新增 RED：" + "、".join(new)
+            elif gone:
+                delta = "本週未新增；已消失：" + "、".join(gone)
+            else:
+                delta = f"與上週完全相同（{len(red_steps)} 步），無新增"
+        else:
+            # 解析不到步驟名時退回舊行為，不編造差異
+            delta = f"RED {len(red_steps)} 步" if red_steps else "（未能解析步驟名）"
+
         body = (
-            f"連續 RED 已 {red_streak} 週 → 建議排 sprint 修\n"
+            f"{delta}\n"
+            f"連續 RED 已 {red_streak} 週\n"
             f"\n"
             f"{digest[:1500]}\n"
             f"\n"
@@ -2106,6 +2165,7 @@ async def fitness_weekly_job():
 
     return {
         "rc": rc, "status": "RED", "red_streak": red_streak,
+        "red_steps": red_steps,
         "delivered": 1 if notified else 0,
         "reason": None if notified else "digest_queue_failed",
     }

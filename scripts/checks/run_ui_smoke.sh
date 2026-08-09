@@ -1,68 +1,36 @@
 #!/usr/bin/env bash
-# UI 流程自我檢核 — 一鍵執行（2026-07-31）
+# 自我檢核入口（CK_Missive）
 #
-# 用途：把 owner 連日反覆手動點的那批頁面自動跑一遍，跑一次就知道哪一頁壞了。
-# 自行簽發臨時 admin session（20 分鐘、jti 前綴 ui-smoke-），不碰任何人的登入狀態。
+# 走查本身的實作在 `scripts/checks/.shared-selfaudit/run.sh`
+# （canonical: shared-modules/selfaudit/src/run.sh）—— **禁手改**，要改回上游改；
+# drift 由 `bash ../shared-modules/sync-vendored.sh --check` 擋。
 #
-#   bash scripts/checks/run_ui_smoke.sh              # 全部
-#   bash scripts/checks/run_ui_smoke.sh --only=line  # 單項
+# 2026-08-09 轉為薄包裝。轉換前這一份是**五個 repo 裡最舊的**：
+# 容器名與 adapter 路徑寫死、不讀 config，儘管 config 早就有 `auth.container`。
+# 「canonical 的原生 repo 自己最落後」在本專案已是第二次
+# （前次是它一度以手動 cp 消費引擎，見 sync-vendored.sh 的註解）。
+# **原生不等於豁免。**
 #
-# 退出碼：0 全過 / 1 有 FAIL / 2 未驗完（有 SKIP，不得視為通過）
+# 本檔保留的是 CK_Missive 特有的一件事：**業務資料護欄**。
+# 走查會真的點擊頁面，理論上可能誤觸寫入；前後各取一次業務表計數比對，
+# 有變動即 exit 2。這是本 repo 才需要的（它是唯一有大量業務寫入的系統），
+# 刻意不做成共用層的 config hook —— 那會把「跑任意指令」的能力放進共用層。
+#
+#   bash scripts/checks/run_ui_smoke.sh           # 深度（flows）
+#   bash scripts/checks/run_ui_smoke.sh --sweep   # 廣度（全站路由）
 set -u
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-AUTH_OUT="$(mktemp)"
-trap 'rm -f "$AUTH_OUT"' EXIT
 
-echo "[1/2] 簽發臨時檢核 session..."
-if ! MSYS_NO_PATHCONV=1 docker exec ck_missive_backend \
-     python //app/scripts/checks/ui_smoke_auth.py > "$AUTH_OUT" 2>/dev/null; then
-  echo "  ⚠️  簽發失敗（後端容器未啟動？）—— 僅能跑免登入項目"
-fi
-
-COOKIE_VAL="$(grep '^COOKIE=' "$AUTH_OUT" 2>/dev/null | sed 's/^COOKIE=//' | tr -d '\r\n')"
-USER_INFO_VAL="$(grep '^USER_INFO=' "$AUTH_OUT" 2>/dev/null | sed 's/^USER_INFO=//' | tr -d '\r\n')"
-
-# 深度（flow）vs 廣度（sweep）二選一
-# 註：先前用 python str.replace 加這段時靜默失敗（不匹配不會報錯），
-#     導致 --sweep 被當成 flow 的參數傳下去而無效 —— 改為行為單位編輯。
-ARGS=()
-MODE="flow"
-for a in "$@"; do
-  if [ "$a" = "--sweep" ]; then MODE="sweep"; else ARGS+=("$a"); fi
-done
-
-if [ "$MODE" = "sweep" ]; then
-  echo "[2/2] 全站頁面健康掃描（廣度）..."
-  SCRIPT=".shared-selfaudit/ui_page_sweep.cjs"
-else
-  echo "[2/2] 流程檢核（深度）..."
-  SCRIPT=".shared-selfaudit/ui_flow_smoke.cjs"
-fi
-
-# 2026-08-05：走查前後比對業務資料列數。
-#
-# 起因：走查在開發期間往派工單 1 建了 7 筆空白作業紀錄（全庫僅此 7 筆，
-# 全在 07-31/08-02 我反覆執行走查的時段），讓完成比例卡在 3/10 →
-# 晨報每天推一則「🚨 逾期 202 天」給 owner，而畫面上那張單是「全部完成」。
-# 檢核機制自己污染了生產資料，而且是三個月後由 owner 從晨報發現的。
-#
-# 這裡只偵測不阻擋 —— 價值在於同樣的事再發生時會當場出聲。
 SNAP="$(mktemp)"
-trap 'rm -f "$AUTH_OUT" "$SNAP"' EXIT
+trap 'rm -f "$SNAP"' EXIT
 python "$ROOT/scripts/checks/ui_smoke_data_guard.py" --snapshot > "$SNAP" 2>/dev/null || SNAP=""
 
-# 2026-08-08：與 run_visual_walk.sh 同型 —— 使用者若加 MSYS_NO_PATHCONV=1（為了讓
-# --routes/--only 的參數不被 Git Bash 轉成 Windows 路徑），$ROOT 也會跟著不轉換，
-# node 於是解析成 D:\d\CKProject\... 而 MODULE_NOT_FOUND。只轉這一個路徑。
-# 上次只修了 run_visual_walk.sh、漏了這一支 —— 修法要掃全同型。
-ENTRY_JS="$ROOT/scripts/checks/$SCRIPT"
-if command -v cygpath >/dev/null 2>&1; then ENTRY_JS="$(cygpath -w "$ENTRY_JS")"; fi
-COOKIE="$COOKIE_VAL" USER_INFO="$USER_INFO_VAL"   node "$ENTRY_JS" "${ARGS[@]}"
+bash "$ROOT/scripts/checks/.shared-selfaudit/run.sh" "$@"
 RC=$?
 
 if [ -n "$SNAP" ]; then
   echo ""
+  # 資料被動到就是 exit 2（未驗完/需人看），不因走查本身「跑完了」而放行
   python "$ROOT/scripts/checks/ui_smoke_data_guard.py" --compare "$SNAP" || RC=2
 fi
 exit $RC
