@@ -138,6 +138,16 @@ async function main() {
     page.on('dialog', async (d) => { dialogs.push(d.message()); await d.dismiss().catch(() => {}); });
     page.on('console', (m) => { if (m.type() === 'error' && !isNoise(m.text())) errors.push(m.text()); });
     page.on('pageerror', (e) => { if (!isNoise(String(e))) errors.push(String(e)); });
+    // 2026-08-09：瀏覽器的 `Failed to load resource: … status of 503` **不含 URL**，
+    // 於是只知道「有東西壞了」卻不知道是誰 —— 追 pile /gis/dual-view 的 503 時，
+    // 前端與後端 log 都沒有該筆（是外部服務），完全無從查起。
+    // 補記失敗回應的實際 URL 與狀態碼；同 L86：讓工具說出它看到什麼。
+    page.on('response', (r) => {
+      const st = r.status();
+      if (st >= 400 && !isNoise(r.url())) {
+        errors.push(`HTTP ${st} ${r.url().slice(0, 120)}`);
+      }
+    });
 
     const problems = [];
     try {
