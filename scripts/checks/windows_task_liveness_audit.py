@@ -64,6 +64,15 @@ ALLOWED_NONZERO: dict[str, dict[int, str]] = {
     "CK_Missive-Fitness-Weekly": {
         1: "有 RED step＝任務跑完了、紅的是內容；內容由 weekly 自己推 digest",
     },
+    # 2026-08-09：靜態檢核 runner 走 portfolio 三態（0=GREEN／1=YELLOW／2+=RED）。
+    # 1 代表「跑完了、有警示」——任務本身正常，內容另由下方的結果檔檢核判。
+    # 同樣**刻意不宣告 2**：那是真的有 RED step，該出聲。
+    "CK_PileMgmt-StaticChecks": {
+        1: "有 YELLOW 警示＝任務跑完了；內容看 docs/health/static-checks.json",
+    },
+    "CK_lvrland_Webmap-StaticChecks": {
+        1: "有 YELLOW 警示＝任務跑完了；內容看 docs/health/static-checks.json",
+    },
 }
 
 # 逾期門檻：日排程與週排程共用一個保守值。
@@ -218,6 +227,56 @@ def check_backup_results(tasks: list[dict], portfolio_root: Path) -> tuple[list[
     return reds, notes
 
 
+STATIC_TASK_RE = r"^(CK[_-][A-Za-z0-9_]+)-StaticChecks$"
+STATIC_RESULT_REL = "docs/health/static-checks.json"
+STATIC_STALE_HOURS = 36  # 每日排程 + 一次容錯
+
+
+def check_static_results(tasks: list[dict], portfolio_root: Path) -> tuple[list[str], list[str]]:
+    """讀各 repo 靜態檢核的**結果內容** —— 「排程跑完了」不等於「檢核是綠的」。
+
+    2026-08-09 立案：在此之前，靜態層（第 1 階）實質**只在 CK_Missive 存在** ——
+    lvrland 有 runner 但無排程（celery 只監看產出新鮮度、沒有生產端，
+    它當天顯示新鮮只因為有人手動跑過）、pile 的 6 支檢核完全沒有東西會跑。
+    補上排程後若只看退出碼，會重演「跑了但沒人看結果」。
+    """
+    reds: list[str] = []
+    notes: list[str] = []
+    for t in tasks:
+        m = re.match(STATIC_TASK_RE, t.get("Name", ""))
+        if not m:
+            continue
+        repo = m.group(1)
+        f = portfolio_root / repo / STATIC_RESULT_REL
+        if not f.exists():
+            reds.append(f"{repo}: 有靜態檢核排程卻沒有結果檔（{STATIC_RESULT_REL}）")
+            continue
+        try:
+            d = json.loads(f.read_text(encoding="utf-8-sig"))
+        except Exception as e:  # noqa: BLE001
+            reds.append(f"{repo}: 靜態檢核結果檔無法解析（{e}）")
+            continue
+        steps = int(d.get("steps") or 0)
+        # 「跑了 0 步」與「全部通過」在 state 上都可能是 GREEN —— 必須分開
+        if steps <= 0:
+            reds.append(f"{repo}: 靜態檢核跑了 0 步（0 步不等於全部健康）")
+            continue
+        state = str(d.get("state") or "")
+        ts = str(d.get("checked_at") or "").replace("Z", "")
+        try:
+            age_h = (datetime.utcnow() - datetime.fromisoformat(ts)).total_seconds() / 3600
+        except ValueError:
+            reds.append(f"{repo}: 靜態檢核時間無法解析（{ts}）")
+            continue
+        if age_h > STATIC_STALE_HOURS:
+            reds.append(f"{repo}: 靜態檢核已 {age_h:.0f} 小時未更新（門檻 {STATIC_STALE_HOURS}h）")
+        elif state == "RED":
+            reds.append(f"{repo}: 靜態檢核 RED（fail={d.get('fail')}，看 {f}）")
+        else:
+            notes.append(f"{repo} 靜態檢核: {state} {steps} 步（{age_h:.0f}h 前）")
+    return reds, notes
+
+
 def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
     reds: list[str] = []
     notes: list[str] = []
@@ -304,6 +363,10 @@ def main() -> int:
     b_reds, b_notes = check_backup_results(tasks, Path(__file__).resolve().parents[3])
     reds += b_reds
     notes += b_notes
+
+    s_reds, s_notes = check_static_results(tasks, Path(__file__).resolve().parents[3])
+    reds += s_reds
+    notes += s_notes
 
     for t in sorted(tasks, key=lambda x: x.get("Name", "")):
         name = t.get("Name", "?")
