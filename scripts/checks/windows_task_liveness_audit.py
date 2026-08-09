@@ -229,6 +229,17 @@ def check_backup_results(tasks: list[dict], portfolio_root: Path) -> tuple[list[
 
 STATIC_TASK_RE = r"^(CK[_-][A-Za-z0-9_]+)-StaticChecks$"
 STATIC_RESULT_REL = "docs/health/static-checks.json"
+
+# 走查排程的**前置檢核**結果 —— 與走查本身分開判。
+#
+# 2026-08-09 實測缺口：DT 的走查排程把資產完整性當前置跑，前置 RED 會讓
+# 排程退出 1；但 SelfAudit 任務的 1/2 被豁免為「跑完了、內容另判」，
+# 而「內容」只讀走查 JSON（fail=0）→ **排程稽核顯示 DT 全 GREEN，
+# 而資產稽核正在報 7 筆 crack 無產物、tiles 全空**。
+# 前置的產出必須有自己的接收者，否則就是「跑了但沒人看」。
+PRECHECK_RESULTS: dict[str, list[tuple[str, str]]] = {
+    "CK_DigitalTunnel": [("資產完整性", "docs/health/asset-integrity.json")],
+}
 STATIC_STALE_HOURS = 36  # 每日排程 + 一次容錯
 
 
@@ -274,6 +285,36 @@ def check_static_results(tasks: list[dict], portfolio_root: Path) -> tuple[list[
             reds.append(f"{repo}: 靜態檢核 RED（fail={d.get('fail')}，看 {f}）")
         else:
             notes.append(f"{repo} 靜態檢核: {state} {steps} 步（{age_h:.0f}h 前）")
+    return reds, notes
+
+
+def check_precheck_results(portfolio_root: Path) -> tuple[list[str], list[str]]:
+    """讀走查排程的前置檢核結果 —— 它們的 RED 會被排程退出碼的豁免吃掉。"""
+    reds: list[str] = []
+    notes: list[str] = []
+    for repo, items in PRECHECK_RESULTS.items():
+        for label, rel in items:
+            f = portfolio_root / repo / rel
+            if not f.exists():
+                reds.append(f"{repo} {label}: 結果檔不存在（{rel}）—— 前置沒跑或沒落地")
+                continue
+            try:
+                d = json.loads(f.read_text(encoding="utf-8-sig"))
+            except Exception as e:  # noqa: BLE001
+                reds.append(f"{repo} {label}: 結果檔無法解析（{e}）")
+                continue
+            ts = str(d.get("checked_at") or "").replace("Z", "")
+            try:
+                age_h = (datetime.utcnow() - datetime.fromisoformat(ts)).total_seconds() / 3600
+            except ValueError:
+                reds.append(f"{repo} {label}: 時間無法解析（{ts}）")
+                continue
+            if age_h > STATIC_STALE_HOURS:
+                reds.append(f"{repo} {label}: 已 {age_h:.0f} 小時未更新（門檻 {STATIC_STALE_HOURS}h）")
+            elif str(d.get("state")) == "RED":
+                reds.append(f"{repo} {label}: RED（看 {f}）")
+            else:
+                notes.append(f"{repo} {label}: {d.get('state')}（{age_h:.0f}h 前）")
     return reds, notes
 
 
@@ -367,6 +408,10 @@ def main() -> int:
     s_reds, s_notes = check_static_results(tasks, Path(__file__).resolve().parents[3])
     reds += s_reds
     notes += s_notes
+
+    p_reds, p_notes = check_precheck_results(Path(__file__).resolve().parents[3])
+    reds += p_reds
+    notes += p_notes
 
     for t in sorted(tasks, key=lambda x: x.get("Name", "")):
         name = t.get("Name", "?")
