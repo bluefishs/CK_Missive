@@ -60,12 +60,8 @@ const ERROR_TEXTS = SWEEP.error_texts || [];
 // 出現任何其他問題仍照常 FAIL。
 const KNOWN_LIMITATIONS = (SWEEP.known_limitations || [])
   .map((k) => ({ ...k, match: new RegExp(k.match) }));
-const NOISE_RE = [
-  /favicon/i, /fedcm/i, /accounts\.google\.com/i, /gsi\/|identity\//i,
-  /net::ERR_/i, /status of (401|403|404)/i, /ERR_BLOCKED_BY_CLIENT/i,
-  /ResizeObserver/i, /Download the React DevTools/i,
-];
-const isNoise = (t) => NOISE_RE.some((re) => re.test(t));
+// 雜訊清單收斂到 _bootstrap（原本兩支引擎各一份、且已漂移，見該處說明）
+const { isNoise } = boot;
 
 function staticRoutes() {
   // 2026-08-05：支援明確路由清單。
@@ -123,15 +119,32 @@ async function main() {
     console.log(`  [auth] 起始 cookie: ${c0.map((c) => c.name).join(',') || 'none'}`);
   }
   // 有沒有登入態決定「空白頁」該判缺陷還是判未驗（見下方 textLen 判斷）
-  const hasAuth = Boolean(process.env.COOKIE || process.env.USER_INFO);
+  // 2026-08-09 補 LOCAL_STORAGE：token 型 repo（CK_DigitalTunnel）的登入態
+  // 可能**只**放 localStorage。漏算的後果是「有登入卻被當成未登入」→
+  // 真正的空白頁會被判成 SKIP 而不是 FAIL，剛好把缺陷藏起來。
+  const hasAuth = Boolean(process.env.COOKIE || process.env.USER_INFO || process.env.LOCAL_STORAGE);
 
-  const bad = [];
-  const skipped = [];
-  const throttled = [];
-  const limitations = [];
-  let okCount = 0;
+  // 2026-08-09：改成「一趟掃描」可重複呼叫，為的是**判 FAIL 前重跑一次**。
+  //
+  // 深度引擎 2026-08-04 就有這個機制，廣度沒有 —— 而廣度才是連跑會互相干擾的那支
+  // （87 條路由共用同一個瀏覽器 context，前一頁還在飛的請求會影響下一頁）。
+  // 實證：lvrland 連跑三次得到三組**不同**的失敗清單
+  //   ① /gis/building-3d
+  //   ② /profile、/admin/login-history、/admin/database-schema
+  //   ③ /gis/building-3d、/admin/security-center
+  // 每次紅的都不一樣 ＝ 每次都是假告警，而 fail>0 已接上 producer 告警。
+  // 真缺陷會重現、時序干擾不會，重跑一次是能區分兩者最省的作法。
+  //
+  // 刻意不把整個迴圈本體抽成函式：那段有 170 行、含 dialog/console/response 三個
+  // 監聽器與多層判定，抽的過程比它要解的問題更容易出錯。包一層即可。
+  async function runPass(routeList) {
+    const bad = [];
+    const skipped = [];
+    const throttled = [];
+    const limitations = [];
+    let okCount = 0;
 
-  for (const route of routes) {
+  for (const route of routeList) {
     const page = await context.newPage();
     const errors = [];
     const dialogs = [];
@@ -144,7 +157,22 @@ async function main() {
     // 補記失敗回應的實際 URL 與狀態碼；同 L86：讓工具說出它看到什麼。
     page.on('response', (r) => {
       const st = r.status();
-      if (st >= 400 && !isNoise(r.url())) {
+      // 2026-08-09：**401/403 不報**，與 console 層的既有政策一致
+      // （NOISE_RE 有 /status of (401|403|404)/）。
+      //
+      // 初版一律報 4xx，當天就製造出一個假缺陷：Missive `/reports` 被報 403，
+      // 實測同一端點帶正確 CSRF 回 **200 且有真實資料** —— 走查全站共用一個瀏覽器
+      // context，單次性的 CSRF token 被前面的頁面用掉了，是走查自己的產物。
+      // 同一類事件被兩套標準處理（console 濾掉、response 報出來）本身就是缺陷。
+      //
+      // 但**不把 404 一起放掉**：少一個資源幾乎必然是真的壞了
+      // （DT 導入首跑就抓到 index.html 參照的 /vite.svg 從來不存在、每頁 404）。
+      // 401/403 有正當的良性解釋（權限探測、刻意不對外的端點），404 沒有。
+      //
+      // 代價寫明：pile「admin 頁面打自家 /openapi.json 被公網守衛擋成 403」
+      // 這類**刻意安全決策**不會再由本檢核報出 —— 那本來就該由
+      // public_exposure_audit 管（它問的是「該不該對外」，才是對的提問層級）。
+      if (st >= 400 && st !== 401 && st !== 403 && !isNoise(r.url())) {
         errors.push(`HTTP ${st} ${r.url().slice(0, 120)}`);
       }
     });
@@ -287,6 +315,30 @@ async function main() {
     }
     await page.close();
     await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));  // 節流：避免掃描自己觸發 429
+  }
+    return { bad, skipped, throttled, limitations, okCount };
+  }
+
+  const pass1 = await runPass(routes);
+  let { bad, skipped, throttled, limitations, okCount } = pass1;
+
+  if (bad.length) {
+    const retryRoutes = bad.map((b) => b.route);
+    console.log(`\n  ↻ 第一趟有 ${retryRoutes.length} 頁異常，重跑一次以排除時序干擾…`);
+    const pass2 = await runPass(retryRoutes);
+    const recovered = retryRoutes.filter((r) => !pass2.bad.some((b) => b.route === r));
+    if (recovered.length) {
+      // 一定要說出來。默默算成通過，就無從發現「這一頁其實很不穩」——
+      // 不穩本身是資訊，只是不該當成故障告警。
+      console.log(`  ↻ 重跑後不再失敗 ${recovered.length} 頁（判為時序干擾）：${recovered.join('、')}`);
+    }
+    bad = pass2.bad;
+    // pass2 只跑 pass1 的失敗項，故兩者的 okCount 沒有交集，直接相加即可。
+    // （pass2 內部已把「已知限制」計進自己的 okCount，這裡再加一次就會重複計數。）
+    okCount = pass1.okCount + pass2.okCount;
+    skipped = skipped.concat(pass2.skipped);
+    throttled = throttled.concat(pass2.throttled);
+    limitations = limitations.concat(pass2.limitations);
   }
 
   // ---- 行動裝置版面觀測（RWD）--------------------------------------------

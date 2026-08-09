@@ -131,7 +131,7 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 <!--baseline:fitness_steps-->主 fitness runner 現有 78 步
 <!--baseline:weekly_steps-->weekly runner 現有 32 步
 <!--baseline:daily_steps-->daily runner 現有 11 步
-<!--baseline:selfaudit_repos-->已導入瀏覽器自我走查的專案數 4
+<!--baseline:selfaudit_repos-->已導入瀏覽器自我走查的專案數 5
 <!--baseline:producer_signals-->producer 信號型別 5 種
 <!--baseline:tracked_jobs-->scheduler 內 @tracked_job 共 53 支
 
@@ -150,7 +150,9 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 > **任何比對／相似度／統計工具，採信其輸出之前，必須先用「已知為真」與「已知為假」
 > 各驗一次。驗不出鑑別力的工具，其輸出一律不得用於判斷。**
 
-截至 2026-08-04 已累積 **10 次**「訊號存在 ≠ 訊號有效」（前 7 次在兩日內）：
+截至 2026-08-09 已累積 **17 次**「訊號存在 ≠ 訊號有效」（前 7 次在兩日內）。
+注意第 15–17 條全是**我在同一輪裡自己新加的檢核**造成的 —— 新機制上線當下
+最該懷疑的就是它自己，因為它還沒有任何一次「已知結果」可以對照。
 
 | # | 工具 | 假訊號 | 怎麼發現的 |
 |---|---|---|---|
@@ -168,6 +170,10 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 | 13 | 走查「被導回登入頁」判定 | 只測 URL 含 `/entry|/login` → **`/admin/login-history` 這種路由名本身含 login 的頁面必然命中**，永遠假陽性 | 讓訊息輸出實際去向後一眼看出 |
 | 14 | 走查登入態 | cookie 從未被加進去（呼叫端把環境變數傳丟），但 localStorage 有種，於是看起來像「登入了又被踢出」 | 補開場診斷 `[auth] 起始 cookie:` 當場定位 |
 | 12 | 視覺走查 `--routes` | `.split('=')[1]` 把 `?tab=correspondence` 截成 `?tab`，**靜靜拍下預設分頁**——「拍到了但拍錯地方」比拍不到危險 | 打開截圖發現是別的分頁 |
+| 15 | 回應層 4xx 診斷（我自己新加的） | 一律報 4xx → Missive `/reports` 被報 403，實測同端點帶正確 CSRF 回 **200 且有真實資料**（走查全站共用一個 context，單次性 CSRF token 被前面的頁面用掉）。**同一類事件被兩套標準處理**：console 層濾掉 401/403、回應層報出來 | 不信任自己新加的訊號，直接打那支端點 |
+| 16 | 廣度走查（缺重跑） | lvrland 連跑三次得到**三組不同**的失敗清單；深度引擎 08-04 已有「判 FAIL 前重跑一次」，廣度沒有 —— 而廣度才是 87 條路由共用一個 context、最會互相干擾的那支 | 連跑三次比對，發現沒有一次一樣 |
+| 17 | 排程存活稽核 × weekly runner | 稽核把 weekly 的退出碼 1 判成「未宣告的失敗碼」→ 自己成為 weekly 的一個 RED step → weekly 因此退出 1 → 下次再判異常。**自我循環，weekly 永遠不可能綠** | 追 weekly 為何 RED，發現紅的來源就是「它自己是紅的」 |
+| — | （我自己差點誤報）`windows_task_liveness_audit` | 以為它「印 RED 卻 exit 0」＝第 11 條重演，實際是我用 `cmd \| tail; echo $?` 取到 **tail 的退出碼**。原始碼 `return 2` 一直是對的 | 先讀原始碼再下結論，沒有直接動手「修」 |
 
 **#11 的通則（L83）**：檢核腳本的**印出狀態與退出碼必須一致**，且必須知道 runner
 用哪一種——本專案 `run_fitness_weekly.sh` **一律不傳旗標**、依原生三態

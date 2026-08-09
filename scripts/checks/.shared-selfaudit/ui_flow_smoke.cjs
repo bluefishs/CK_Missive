@@ -58,11 +58,8 @@ function assertOnlyMatches(checks) {
 }
 
 // console error 雜訊過濾（比照 sso_entry_smoke）
-const NOISE_RE = [
-  /favicon/i, /fedcm/i, /accounts\.google\.com/i, /gsi\/|identity\//i,
-  /net::ERR_/i, /status of (401|403|404)/i, /ERR_BLOCKED_BY_CLIENT/i,
-];
-const isNoise = (t) => NOISE_RE.some((re) => re.test(t));
+// 雜訊清單收斂到 _bootstrap（原本兩支引擎各一份、且已漂移，見該處說明）
+const { isNoise } = boot;
 
 
 // ---------------------------------------------------------------------------

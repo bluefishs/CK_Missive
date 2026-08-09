@@ -479,6 +479,32 @@
 
 ---
 
+## L87 — 「多給一種憑證」不是保險，是多開一條會失敗的路；而剛上線的檢核最不該被信任（2026-08-09）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 導入第 5 個 repo（CK_DigitalTunnel）的瀏覽器走查。DT 是**第一個 token 型**：認證走 `Authorization: Bearer`，token 存 localStorage 且經 XOR+base64 混淆，與前四個 cookie/session 型 repo 的典範不同。 |
+| **What happened** | 三件事，全部是「新加的東西自己出問題」：<br>① **保險反而致命**：adapter 為求穩妥同時種了 cookie 與 localStorage（後端 `verify_jwt_token` 兩種都收）→ **27 頁全部 403**。三向對照才看出：cookie-only 403（走 cookie 路徑會觸發 CSRF 檢查而瀏覽器沒有 CSRF token）、Bearer 200。多給的那一種把請求推上一條**必然失敗**的路。<br>② **新診斷製造假缺陷**：08-08 為追 pile 503 加的「回應層 4xx 診斷」一律報 4xx，於是 Missive `/reports` 被報 403 —— 實測同端點帶正確 CSRF 回 **200 且有真實資料**（走查全站共用一個 browser context，單次性 CSRF token 被前面的頁面用掉）。根因是**同一類事件被兩套標準處理**：console 層的 NOISE_RE 明確排除 401/403，回應層用另一種訊息格式繞過了它。<br>③ **新格式打破既有降級規則**：Missive 早已登記 `/admin/deployment` 的 `match: "status of 503"`，但降級要求「**所有**問題都符合」，新增的 `HTTP 503 <url>` 格式不符 → 已登記的已知限制**失效**、變回 FAIL。 |
+| **Root cause** | 三者共通：**新增一條路徑時，只驗了它自己會不會動，沒問它與既有機制的接縫**。①多一條認證路徑 ②多一種錯誤訊息格式 ③而既有比對規則是按舊格式寫的。與 L81「換了出口就要換整條鏈」同構，差別在這次是**加**而不是換 —— 加同樣會斷鏈。 |
+| **Fix** | ① token 型 repo **只給 token**，adapter 明確不輸出 cookie 並寫明理由。② 回應層診斷排除 401/403（與 console 層一致），**保留 404 與 5xx** —— 判準是「401/403 有正當的良性解釋（權限探測、刻意不對外），404 沒有」；代價寫進註解：pile 那種刻意安全 403 改由 `public_exposure_audit` 管（它問「該不該對外」，才是對的提問層級）。③ 比對規則涵蓋兩種格式。另把兩支引擎**各自一份且已漂移**的 NOISE_RE 收斂進 `_bootstrap`。 |
+| **Prevention** | (a) **「為了保險兩種都給」是反模式**——每多一種憑證/路徑就多一條可能失敗的分支，且失敗時症狀相同無從區分（同 08-08 那次「把所有 cookie 一律設 httpOnly」）。(b) **新增訊號格式時，回頭檢查所有按舊格式寫的比對規則**（豁免、降級、告警過濾）——它們會靜靜失效，而症狀是「本來綠的變紅」或更糟的「本來會紅的變綠」。(c) **剛上線的檢核最不該被信任**：它還沒有任何一次「已知結果」可對照，本輪 §3 可信度表新增的 3 條（#15/#16/#17）全是我同一輪自己新加的機制造成的。 |
+| **Refs** | `CK_DigitalTunnel/scripts/checks/selfaudit_auth.py`（bearer 型 adapter + 混淆往返 self-test）/ `CK_DigitalTunnel/selfaudit.config.json` / `shared-modules/selfaudit/src/_bootstrap.cjs`（LOCAL_STORAGE + 共用 NOISE_RE）/ `shared-modules/selfaudit/src/ui_page_sweep.cjs`（4xx 判準 + 判 FAIL 前重跑）/ `SELF_AUDIT_EVOLUTION_STANDARD.md` §3 #15–#17 / 同族：L81（換出口斷鏈）、L86（讓工具說出它看到什麼） |
+
+---
+
+## L88 — 檢核把自己的退出碼判成異常：自我循環讓 weekly 永遠不可能綠（2026-08-09）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | `windows_task_liveness_audit`（weekly step 28）直接問作業系統有哪些 CK 排程，判 State／未宣告的失敗碼／`StartWhenAvailable`／逾期。 |
+| **What happened** | 它把 `CK_Missive-Fitness-Weekly` 的 `LastTaskResult=1` 判成「未宣告的失敗碼」＝RED。但 weekly runner 的三態約定是 **0=GREEN／1=有 RED step／2+=執行失敗**，1 是**正常且已宣告的語意**。於是形成閉環：稽核判它異常 → 自己成為 weekly 的一個 RED step → weekly 因此退出 1 → 下次稽核再判它異常。**weekly 在結構上永遠不可能綠。** |
+| **Root cause** | 稽核問的是「任務有沒有跑完」（存活層），卻拿**內容層**的退出碼當存活訊號。它對 `SelfAudit-*` 任務已經做對了這個區分（「有失敗＝任務跑完了，內容另判」），只是沒套用到 weekly runner 自己。而 `ALLOWED_NONZERO` 這個宣告機制**存在但從未被使用**（空 dict）。 |
+| **Fix** | 宣告 `CK_Missive-Fitness-Weekly: {1: "有 RED step＝跑完了、紅的是內容"}`。**刻意只宣告 1、不宣告 2** —— 2 代表 runner 自己執行失敗（argparse 錯、腳本不存在），那是真的要出聲的。內容另有接收者（weekly 自己推 digest）。RED 由 5 降為 2，剩下兩條都是真實且已知的頁面故障。 |
+| **Prevention** | (a) **「永遠是紅的」與「連 9 週 RED 無人知」下場相同**——訊號失去意義。看到某項長期紅，先問它有沒有可能在結構上不可能綠。(b) 存活層與內容層必須分開判：「跑完了但結果是紅的」和「根本沒跑」的處置完全不同。(c) 空的宣告機制（allowlist / registry）是個訊號：要嘛沒人用、要嘛用錯地方。 |
+| **Refs** | `scripts/checks/windows_task_liveness_audit.py`（`ALLOWED_NONZERO`）/ `wiki/memory/fitness_weekly_last_run.json` / 同族：fitness_self_false_green.md（weekly 連 9 週 RED 無人知）、L83（印出狀態與退出碼必須一致） |
+
+---
+
 ## L86 — 連續猜錯五次之後：讓工具「說出它看到什麼」，比再猜第六次有效（2026-08-08）
 
 | 欄位 | 內容 |

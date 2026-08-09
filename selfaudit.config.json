@@ -76,8 +76,8 @@
     "known_limitations": [
       {
         "route": "/admin/deployment",
-        "match": "status of 503",
-        "reason": "未配置 GITHUB_TOKEN（部署歷史功能未啟用）— 補 token 即可解除"
+        "match": "status of 503|HTTP 503",
+        "reason": "未配置 GITHUB_TOKEN（部署歷史功能未啟用）— 補 token 即可解除 —— 設 token 即可解。註：match 需同時涵蓋 console 訊息（status of 503）與回應層診斷（HTTP 503 <url>）兩種格式；2026-08-09 新增回應層診斷後，只寫前者會讓這條降級規則失效（降級要求「所有問題都符合」）。"
       }
     ]
   },

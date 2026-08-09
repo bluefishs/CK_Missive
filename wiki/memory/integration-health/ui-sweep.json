@@ -1,17 +1,15 @@
 {
- "checked_at": "2026-08-06T20:36:29.431Z",
+ "checked_at": "2026-08-09T03:32:51.996Z",
  "base": "https://missive.cksurvey.tw",
- "pass": 86,
+ "pass": 87,
  "fail": 0,
- "skip": 1,
- "skipped_routes": [
-  "/admin/login-history → 被導回登入頁"
- ],
+ "skip": 0,
+ "skipped_routes": [],
  "throttled": 0,
  "known_limitations": [
   {
    "route": "/admin/deployment",
-   "reason": "未配置 GITHUB_TOKEN（部署歷史功能未啟用）— 補 token 即可解除"
+   "reason": "未配置 GITHUB_TOKEN（部署歷史功能未啟用）— 補 token 即可解除 —— 設 token 即可解。註：match 需同時涵蓋 console 訊息（status of 503）與回應層診斷（HTTP 503 <url>）兩種格式；2026-08-09 新增回應層診斷後，只寫前者會讓這條降級規則失效（降級要求「所有問題都符合」）。"
   }
  ],
  "failures": [],

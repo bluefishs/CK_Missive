@@ -242,6 +242,30 @@ async function applyAuth(context, cfg, base) {
     }, { ui: userInfo, storages: stores });
   }
 
+  // 2026-08-09：`LOCAL_STORAGE` —— 由 adapter 指定的**字面** key→value。
+  //
+  // CK_DigitalTunnel 是第四種形狀：token 存 localStorage，而且值是
+  // XOR+base64 混淆過的（`obfuscateToken`，salt 'ck-dt-v1'）。
+  // 混淆規則是**那個 repo 的私有實作**，寫進共享引擎就等於讓每個新 repo
+  // 都能往這裡加一段自己的編碼 —— 引擎會慢慢變成四個 repo 的細節總和。
+  // 故引擎只提供「照著塞」的能力，怎麼算出那個值由該 repo 的 adapter 負責。
+  const literal = process.env.LOCAL_STORAGE || '';
+  if (literal) {
+    let pairs = null;
+    try {
+      pairs = JSON.parse(literal);
+    } catch (e) {
+      // 解析失敗一律出聲：靜靜跳過會讓「沒帶登入態」與「帶了但格式錯」
+      // 在畫面上長得一模一樣，而後者的症狀是整批頁面被導回登入頁。
+      fail(`✗ LOCAL_STORAGE 不是合法 JSON：${e.message}`);
+    }
+    await context.addInitScript((kv) => {
+      for (const [k, v] of Object.entries(kv)) {
+        try { window.localStorage.setItem(k, v); } catch { /* 單一項失敗不影響其他 */ }
+      }
+    }, pairs);
+  }
+
   if (cookieHeader) {
     const cookies = cookieHeader.split(';').map((kv) => {
       const i = kv.indexOf('=');
@@ -262,6 +286,34 @@ async function applyAuth(context, cfg, base) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 雜訊過濾（兩支引擎共用）
+// ---------------------------------------------------------------------------
+/**
+ * **不是**應用缺陷、但會出現在 console／網路層的東西。
+ *
+ * 2026-08-09 收斂到這裡：原本深度與廣度引擎**各有一份**，而且已經漂移了 ——
+ * 廣度那份多了 ResizeObserver / React DevTools 兩條，深度那份沒有。
+ * 同一件事兩份清單的後果不是「其中一份比較舊」，是**同一個雜訊在一支引擎被濾掉、
+ * 在另一支被報成缺陷**，於是兩支引擎對同一個站給出互相矛盾的結論。
+ *
+ * 加新規則前先問：這個訊號**永遠**與應用健康無關嗎？
+ * 只要有情況下它代表真缺陷，就不該進這份清單 —— 那該用 known_limitations
+ * （逐路由、且只降級完全符合的問題）。
+ */
+const NOISE_RE = [
+  /favicon/i, /fedcm/i, /accounts\.google\.com/i, /gsi\/|identity\//i,
+  /net::ERR_/i, /status of (401|403|404)/i, /ERR_BLOCKED_BY_CLIENT/i,
+  /ResizeObserver/i, /Download the React DevTools/i,
+  // Cloudflare Insights 分析 beacon：五個系統都在 CF 後面，這支第三方統計腳本
+  // 被 CSP 或瀏覽器擋掉與應用健康完全無關，但它會在每一頁各報一次 ——
+  // DT 導入首跑就因此 27 頁全紅、看起來像全站掛掉。
+  // 判準：一個外部分析腳本不該有能力把整站判成故障。
+  /cloudflareinsights\.com/i, /beacon\.min\.js/i,
+];
+const isNoise = (t) => NOISE_RE.some((re) => re.test(t));
+
 module.exports = {
   resolvePlaywright, playwrightMissingMessage, loadConfig, assertNonEmpty, fail, applyAuth,
+  NOISE_RE, isNoise,
 };

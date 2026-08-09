@@ -51,7 +51,20 @@ TASK_PREFIX_RE = r"^CK[-_]"
 SELFAUDIT_TASK_RE = r"^(CK[_-][A-Za-z0-9_]+)-SelfAudit-(Flow|Sweep)$"
 
 # 其餘任務的非 0 退出碼 —— **必須寫理由**，否則就是「紅燈看久了就習慣」的起點
-ALLOWED_NONZERO: dict[str, dict[int, str]] = {}
+ALLOWED_NONZERO: dict[str, dict[int, str]] = {
+    # 2026-08-09：weekly fitness runner 的三態約定是 0=GREEN / **1=有 RED step** / 2+=執行失敗。
+    #
+    # 不宣告它會形成一個**自我循環**：本稽核把 1 判成「未宣告的失敗碼」→ 自己變成
+    # weekly 的一個 RED step → weekly 因此退出 1 → 下次本稽核又判它異常。
+    # 於是 weekly 永遠不可能綠，而「永遠是紅的」與「連 9 週 RED 無人知」是同一個下場：
+    # 訊號失去意義。（那次 9 週 RED 正是這支稽核要防的事。）
+    #
+    # 只宣告 1，**刻意不宣告 2** —— 2 代表 runner 自己執行失敗（argparse 錯、腳本不存在），
+    # 那是真的要出聲的。宣告的是「跑完了、紅的是內容」，內容另有接收者（digest／LINE）。
+    "CK_Missive-Fitness-Weekly": {
+        1: "有 RED step＝任務跑完了、紅的是內容；內容由 weekly 自己推 digest",
+    },
+}
 
 # 逾期門檻：日排程與週排程共用一個保守值。
 # 刻意不做「每支排程各自的預期頻率」表 —— 那會變成第二份排程清單，
