@@ -133,3 +133,19 @@ owner 質疑：「為何那麼多覆盤經驗與優化程序還搞錯」。答�
 - 環境切換類 deployment：強制走 Test 4 業務 endpoint smoke
 - 每月 fitness 跑 step 52 / step 53 確認 GREEN
 - 跨 repo PM2 → docker 遷移：install ck-modular-toolkit 範本即得整套防禦
+
+
+## 接通完整度自評
+
+> 2026-08-09 補寫（同上，只勾查證過的）。
+
+- **級別**：L2
+- **驗證資產**：
+  - [x] Fitness step：`scripts/checks/container_host_dependency_audit.py`（run_fitness step 52）
+  - [ ] Unit test：不適用（本 ADR 是**偵測型**產物，靜態掃描本身即驗證）
+  - [ ] Prometheus metric：待補
+  - [ ] Alert rule：待補
+  - [x] Pre-commit guard：等效 —— 該 audit 進 fitness，且 L49 家族屬靜態可掃
+- **邊角組合實測紀錄**：v6.11 首跑揭發 21 YELLOW，sweep 後 0 YELLOW
+  （`wiki/memory/diary/2026-05-28.md`）
+- **7 天追蹤檢點日期**：已逾追蹤期（2026-05-28 上線），由上述 fitness step 持續守

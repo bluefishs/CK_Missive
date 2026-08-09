@@ -113,3 +113,21 @@ CREATE INDEX idx_tender_pcc_match
 - Phase 5 Scheduler（1h）
 
 總 5h 簡化版（vs 原 11h 全套）。
+
+
+## 接通完整度自評
+
+> 2026-08-09 補寫（同上，只勾查證過的）。
+
+- **級別**：L2
+- **驗證資產**：
+  - [x] Fitness step：`scripts/checks/tender_enrichment_freshness_audit.py`（weekly step 7）
+  - [ ] Unit test：待補
+  - [ ] Prometheus metric：待補
+  - [ ] Alert rule：待補
+  - [ ] Pre-commit guard：不適用（資料面）
+- **邊角組合實測紀錄**：Phase 3 五重 strict guard，233 筆 ezbid auto-linked、0 false positive
+- **⚠️ 已知限制**：enrichment 的上游取數路徑於 2026-06-17 判定為死結（L77）——
+  org_id 只存在於反爬限流的 PCC 詳情頁。**該 fitness step 監看的是新鮮度，
+  而新鮮度本身已因上游阻斷而長期偏舊**，非本 ADR 實作缺陷。
+- **7 天追蹤檢點日期**：已逾追蹤期（2026-05-28 上線）

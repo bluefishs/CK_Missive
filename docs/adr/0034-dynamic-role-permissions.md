@@ -129,3 +129,21 @@ SELECT role, jsonb_array_length(permissions) AS n FROM role_permissions ORDER BY
 - 整合：`tests/integration/test_role_permissions_admin_api.py`（4 endpoints + audit）
 - E2E：`tests/e2e/test_admin_permissions_dynamic.py`（PermissionManagementPage 編輯 → user.permissions 對齊）
 - Fitness：`scripts/checks/role_permissions_consistency_check.py`（規劃中）
+
+
+## 接通完整度自評
+
+> 2026-08-09 補寫。本 ADR 建立於 2026-05-25（正是 §4.3 規範生效日），
+> 依 `adr_level_audit`（weekly 40）判定需自評。
+> **驗證資產只勾查證過的** —— 未查證者標「待補」而非打勾，否則就是製造假的合規。
+
+- **級別**：L2（程式碼接通 + 有自動驗證）
+- **驗證資產**：
+  - [x] Integration test：`backend/tests/integration/test_role_permissions_admin.py`
+  - [x] Fitness step：`scripts/checks/role_permissions_consistency_check.py`（run_fitness step 20）
+  - [ ] Prometheus metric：待補（權限異動未產生指標）
+  - [ ] Alert rule：待補
+  - [ ] Pre-commit guard：不適用（權限資料在 DB，非靜態可掃）
+- **邊角組合實測紀錄**：v6.25 C2 權限 SSOT 遷移時實測
+  （`operational:*` 補進 DB SSOT，三方漂移消除）
+- **7 天追蹤檢點日期**：已逾追蹤期（2026-05 上線），由上述 fitness step 持續守

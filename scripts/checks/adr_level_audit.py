@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -59,6 +60,17 @@ STATUS_RE = re.compile(
 
 # 非 ADR 的檔案（範本／索引），不納入判定
 NON_ADR = {"README.md", "TEMPLATE.md", "REGISTRY.md", "index.md"}
+
+# 規範生效日：`MODULARIZATION_STANDARDS_v1.md` §4.3 於此日建立。
+#
+# 2026-08-09 owner 決定：**只管規範之後的 ADR**。
+# 理由與腳本強制表態閘門的 grandfathered 一致 ——
+# 那 14 份 accepted 全部建立於 2026-04，規範是 05-25 才立的；
+# 要求回溯補寫是拿新規範追溯既有產物，而且**一道一上線就全紅的閘門會被學會忽略**。
+# 它們的實際接通狀況多數已由現行 fitness / producer 覆蓋。
+#
+# 存量仍會被列出（債要看得見），但不判紅 —— 同 grandfathered 的處理。
+STANDARD_EFFECTIVE = "2026-05-25"
 
 
 def judge(missing: list[str]) -> int:
@@ -110,7 +122,7 @@ def main() -> int:
         print("✗ 掃到 0 份 ADR —— 路徑設定可能錯（0 份不等於全部合規）")
         return 2
 
-    accepted, missing, other = 0, [], 0
+    accepted, missing, other, legacy = 0, [], 0, []
     for p in files:
         txt = p.read_text(encoding="utf-8", errors="ignore")
         m = STATUS_RE.search(txt)
@@ -119,11 +131,32 @@ def main() -> int:
             other += 1
             continue
         accepted += 1
-        if not SELF_ASSESS_RE.search(txt):
+        if SELF_ASSESS_RE.search(txt):
+            continue
+        # 建立日以 git 首次加入為準（檔案 mtime 會被任何編輯重置，不可靠）
+        try:
+            r = subprocess.run(
+                ["git", "-C", str(ROOT), "log", "--diff-filter=A",
+                 "--format=%ad", "--date=short", "--", str(p.relative_to(ROOT))],
+                capture_output=True, text=True, timeout=30,
+            )
+            born = (r.stdout.strip().splitlines() or [""])[-1]
+        except Exception:
+            born = ""
+        if born and born < STANDARD_EFFECTIVE:
+            legacy.append(f"{p.name}（{born}）")
+        else:
             missing.append(p.name)
 
     print(f"  ADR {len(files)} 份｜accepted {accepted}｜其他狀態 {other}｜"
-          f"**accepted 缺自評 {len(missing)}**")
+          f"規範前存量 {len(legacy)}｜**規範後缺自評 {len(missing)}**")
+    if legacy:
+        # 存量要一直看得見，否則「暫時放過」會變成「永遠放過」
+        print(f"  🟡 規範（{STANDARD_EFFECTIVE}）之前建立且未補自評：{len(legacy)} 份 —— 這是債，不是通過")
+        for n in legacy[:6]:
+            print(f"      · {n}")
+        if len(legacy) > 6:
+            print(f"      …另 {len(legacy) - 6} 份")
 
     # 掃到 0 份 accepted，幾乎必然是 status 解析壞了（本檔首版就是這樣）——
     # 而「沒有對象」與「全部合規」在輸出上長得一模一樣。不給綠燈。
