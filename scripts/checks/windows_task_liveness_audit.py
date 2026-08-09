@@ -153,6 +153,71 @@ def check_sweep_results(tasks: list[dict], portfolio_root: Path) -> tuple[list[s
     return reds, notes
 
 
+# Windows 排程器的 `SCHED_S_*` 狀態碼（0x000413xx）—— **不是任務的結束碼**。
+# 把它們當失敗會製造週期性假告警：高頻排程被抽查到「正在執行中」是常態。
+# 刻意只列狀態碼，不含任何真正的錯誤碼（0x8004xxxx 那些仍該紅）。
+SCHED_STATUS_CODES: dict[int, str] = {
+    0x00041300: "SCHED_S_TASK_READY（就緒，尚未到觸發時間）",
+    0x00041301: "SCHED_S_TASK_RUNNING（正在執行中）",
+    0x00041303: "SCHED_S_TASK_HAS_NOT_RUN（註冊後尚未執行過）",
+    0x00041304: "SCHED_S_TASK_NO_MORE_RUNS（沒有後續排程）",
+    # 刻意**不列** 0x00041306 SCHED_S_TASK_TERMINATED：任務被逾時或人工中止
+    # 是該出聲的事（多半代表 ExecutionTimeLimit 設太短或卡住），讓它照常判紅。
+}
+
+BACKUP_TASK_RE = r"^(CK[_-][A-Za-z0-9_]+)-MinIO-Offsite$"
+BACKUP_STATUS_REL = "backups/minio-offsite-status.json"
+BACKUP_STALE_HOURS = 36  # 每日排程 + 一次容錯
+
+
+def check_backup_results(tasks: list[dict], portfolio_root: Path) -> tuple[list[str], list[str]]:
+    """讀異地備份的**狀態檔內容** —— 排程「跑完了」不等於「東西真的在 NAS 上」。
+
+    2026-08-09 立案。DT 的 MinIO 原本完全沒有備份，而 `scripts/backup.sh` 是把
+    DB dump **上傳到 MinIO** —— MinIO 是備份的目的地不是來源，於是資料與其備份
+    在同一顆磁碟上。補上異地備份後，若只看排程退出碼，會重演 2026-07-30 Missive
+    那次「異地備份看起來沒在跑」：腳本回 0、實際 NAS 上什麼都沒有。
+
+    故這裡讀的是腳本寫回的 **NAS 實況**（份數/大小），不是「腳本說自己成功了」。
+    狀態檔位置由任務名推導（同走查的作法），不另建一份跨 repo 清單。
+    """
+    reds: list[str] = []
+    notes: list[str] = []
+    for t in tasks:
+        m = re.match(BACKUP_TASK_RE, t.get("Name", ""))
+        if not m:
+            continue
+        repo = m.group(1)
+        f = portfolio_root / repo / BACKUP_STATUS_REL
+        if not f.exists():
+            reds.append(f"{repo}: 有異地備份排程卻沒有狀態檔（{BACKUP_STATUS_REL}）")
+            continue
+        try:
+            d = json.loads(f.read_text(encoding="utf-8-sig"))
+        except Exception as e:  # noqa: BLE001
+            reds.append(f"{repo}: 備份狀態檔無法解析（{e}）")
+            continue
+        if d.get("result") != "ok":
+            reds.append(f"{repo}: 異地備份 result={d.get('result')}（{str(d.get('detail'))[:80]}）")
+            continue
+        # 「成功但 0 檔」必須是紅的 —— 那是最像成功的失敗
+        n = int(d.get("nas_files") or 0)
+        if n <= 0:
+            reds.append(f"{repo}: 異地備份回報 ok 但 NAS 上 0 檔")
+            continue
+        ts = str(d.get("finished_at") or "")
+        try:
+            age_h = (datetime.now() - datetime.fromisoformat(ts)).total_seconds() / 3600
+        except ValueError:
+            reds.append(f"{repo}: 備份狀態檔時間無法解析（{ts}）")
+            continue
+        if age_h > BACKUP_STALE_HOURS:
+            reds.append(f"{repo}: 異地備份已 {age_h:.0f} 小時未更新（門檻 {BACKUP_STALE_HOURS}h）")
+        else:
+            notes.append(f"{repo} 異地備份: NAS {n} 檔 / {d.get('nas_size_mb')} MB（{age_h:.0f}h 前）")
+    return reds, notes
+
+
 def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
     reds: list[str] = []
     notes: list[str] = []
@@ -170,7 +235,13 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
             reds.append(f"{name}: State={state}（非 Ready＝已被停用或損壞）")
 
         selfaudit = re.match(SELFAUDIT_TASK_RE, name)
-        if result not in (0, None):
+        # 2026-08-09：Windows 排程的 LastTaskResult **不是只有結束碼** ——
+        # 0x000413xx 是排程器自己的狀態碼，不是任務的失敗。
+        # 實例：`CK-Hermes-Cron-Tick` 每 5 分鐘跑一次，抽查時剛好在執行中
+        # → 267009，被判「未宣告的失敗碼」＝週期性假告警。
+        if result in SCHED_STATUS_CODES:
+            notes.append(f"{name}: {SCHED_STATUS_CODES[result]}（排程器狀態碼，非失敗）")
+        elif result not in (0, None):
             if selfaudit and result in (1, 2):
                 notes.append(
                     f"{name}: LastTaskResult={result}"
@@ -229,6 +300,10 @@ def main() -> int:
     c_reds, c_notes = check_sweep_results(tasks, Path(__file__).resolve().parents[3])
     reds += c_reds
     notes += c_notes
+
+    b_reds, b_notes = check_backup_results(tasks, Path(__file__).resolve().parents[3])
+    reds += b_reds
+    notes += b_notes
 
     for t in sorted(tasks, key=lambda x: x.get("Name", "")):
         name = t.get("Name", "?")
