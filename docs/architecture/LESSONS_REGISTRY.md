@@ -479,6 +479,30 @@
 
 ---
 
+## L86 — 連續猜錯五次之後：讓工具「說出它看到什麼」，比再猜第六次有效（2026-08-08）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | pile 走查 12 條路由全報「被導回登入頁」，而同一條路由用視覺走查單獨開卻完整渲染、已登入為超級管理員。 |
+| **Cause** | 真因是**我自己**：修 cygpath 路徑問題時把註解插進了 `COOKIE="..." USER_INFO="..." \` 的續行中間——反斜線後面接註解，**環境變數指派完全沒有套用到 node**。cookie 因此從未被加進瀏覽器；localStorage 有種（那是另一條路徑），所以看起來「像是登入了但被踢出來」。**追這一個問題我連續猜錯五次**：種錯 store（改了→沒變）／重導時間窗口（只解釋 1 頁）／角色欄位缺失（真缺陷但非根因）／掃描自我限流（只解釋 FAIL 半邊）／cookie 屬性（**改成 httpOnly 反而把 Missive 走查從 17 PASS 弄成 1 PASS**，因為 csrf_token 必須可被 JS 讀取）。每一個都是真實缺陷，但都不是根因。 |
+| **Fix** | 停止猜測，改讓檢核**輸出它實際看到的狀態**，三個維度逐一補：①重導時的實際 URL（立刻揭露 `/admin/login-history` 這種**路由名本身含 login** 的假陽性）②localStorage 有哪些 key ③cookie 有哪些。最後補上**開場診斷** `[auth] 起始 cookie:` —— 一行就分辨出「從沒加成功」而非「加了又被清掉」，當場定位。結果：PASS 13 → **33**、SKIP 12 → **0**。 |
+| **Prevention** | (a) **同一個問題猜錯兩次以後，就不要再猜第三次**——改成讓工具說出它看到什麼。診斷輸出是一次性投資、長期資產；猜測是每次都要重付的成本。(b) 「A 說有效、B 說沒有」時（後端說憑證有效、瀏覽器說沒有），要補的是**中間那段的可觀測性**，不是對兩端再做假設。(c) 登入態有**三個載體**（localStorage / cookie / 後端 session），診斷少報一個就會卡在無法判斷。(d) **共享引擎的改動要在多個消費端驗**——只驗一個會像這次一樣修好 A 弄壞 B。 |
+| **Refs** | `shared-modules/selfaudit/src/_bootstrap.cjs`（開場 cookie 診斷）/ `src/ui_page_sweep.cjs`（重導判定 + 三維診斷）/ `CK_PileMgmt/scripts/checks/run_selfaudit.sh`（續行註解的真因）/ 同族：§3 可信度規則（先懷疑檢查、再懷疑系統） |
+
+---
+
+## L85 — 破壞性指令的作用範圍必須先確認；而且答案往往早就寫在文件裡（2026-08-08）
+
+| 欄位 | 內容 |
+|---|---|
+| **Trigger** | 修 pile 前端時撞到「port 13000 already allocated」。我用 `docker ps -aq --filter publish=13000` 找出佔用者並 `rm -f` —— **那個埠是 `ck-platform-grafana` 在用**，我把觀測棧的 Grafana 刪掉了。它與我正在處理的事情完全無關。 |
+| **Cause** | 兩層。①**過濾條件不等於目標**：`--filter publish=13000` 回傳的是「所有發佈該埠的容器」，我卻預設它只會是我要處理的那個。破壞性指令前沒有先看清單、沒有排除非目標。②**答案早就寫在 repo 裡**：pile 有前端部署專用 SOP 與腳本（`scripts/redeploy-frontend.sh`、`docker-compose.frontend-prod.yml`、port **3005**），註解白紙黑字寫著「**override 主 compose 的 13000 衝突（ck-platform-grafana 已占 13000）**」，日期 **2026-05-27**。我沒查就自己下 `docker compose build/up`，才製造出埠衝突、殘缺容器（無網路 → `host not found in upstream "backend"`）與這次誤刪。 |
+| **Fix** | Grafana 以既有資料 volume（`observability_platform_obs_grafana_data`）重建，`/api/health` 回 `database: ok`、儀表板與帳密沿用、埠 13000 恢復。pile 改用既有 SOP 腳本部署 —— 它自帶部署後新鮮度複驗（image git_commit ⊇ 最新 frontend commit）並通過。 |
+| **Prevention** | (a) **`rm -f` / `docker compose down` / 任何依「條件」選目標的破壞性指令，先印出清單並確認每一項都是目標**；跨 stack 的資源（埠、volume、network）尤其危險，因為條件會撈到別人的東西。(b) **動一個 repo 的部署前，先找它自己的部署 SOP/腳本**——這個專案幾乎每個 repo 都有，且通常記著你正要踩的那顆雷。查一次的成本遠低於踩一次。(c) 症狀是「埠被占」時，先問**誰在占、那是不是該讓的**，而不是直接讓它讓開。 |
+| **Refs** | `CK_PileMgmt/scripts/redeploy-frontend.sh`（正確做法）/ `CK_PileMgmt/docker-compose.frontend-prod.yml:47`（2026-05-27 就寫著這個衝突）/ `CK_AaaP/platform/observability/docker-compose.yml`（Grafana）/ 同族：feedback_rigor_no_self_inflicted_instability（禁自造不穩定） |
+
+---
+
 ## L84 — 「設定寫得很嚴謹」與「它跑得起來」是兩件事：從未啟動成功過的服務，會逼出一條更差的替代路徑（2026-08-08）
 
 | 欄位 | 內容 |
