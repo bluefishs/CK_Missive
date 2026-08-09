@@ -279,8 +279,19 @@ def main() -> int:
     if args.json:
         print(json.dumps(snapshot, ensure_ascii=False, indent=2))
     else:
+        # 2026-08-09：把**真正卡住的那一項**講出來。
+        # 原本一律印「判定需 ≥N 天 → 不足」，但 sufficient 是兩個條件的 and：
+        # 實測深度 15.1（已達 14）卻印「不足」，讀的人會以為還要等資料長出來，
+        # 實際卡的是 path label 改版後的 7 日穩定期（8/11 自然解除）。
+        # 說錯原因會讓人等錯東西 —— 同 L82 家族。
+        depth_ok = depth >= MIN_DATA_DAYS
         print(f"  Prometheus 資料深度：{depth:.1f} 天"
-              f"（判定需 ≥{MIN_DATA_DAYS} 天 → {'足夠' if sufficient else '不足'}）")
+              f"（需 ≥{MIN_DATA_DAYS} 天 → {'足夠' if depth_ok else '不足'}）")
+        print(f"  path label 穩定期：{days_since_schema}/{WINDOW_DAYS} 天"
+              f"（需 ≥{WINDOW_DAYS} 天 → {'足夠' if schema_settled else '尚未滿足'}）")
+        if not sufficient:
+            blocker = "資料深度" if not depth_ok else "path label 穩定期"
+            print(f"  → 目前卡在：**{blocker}**")
         print(f"  近 {WINDOW_DAYS} 日有流量：{len(active)} 個 endpoint")
         print(f"  零流量（已豁免）：{len(exempt)}")
         print(f"  零流量 API（待判定候選）：{len(candidates)}")
