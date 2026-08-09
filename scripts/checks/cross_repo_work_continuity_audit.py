@@ -152,6 +152,32 @@ def check_stale_wip(repo: Path, name: str) -> list[str]:
     return []
 
 
+# 明確表態的腳本：**不是豁免清單，是決策紀錄**。
+#
+# 借 CK_PileMgmt 的作法（`test_ops_scripts_auto_discovery_indexed`）——
+# 它的 docstring 寫得最好：「沒有『我忘了』這個 failure mode」。
+# 差別在 pile 是**寫入當下**強制表態（push 閘門），本檔是事後掃描；
+# 兩者互補，但表態的形式一致：**必須寫理由，不能只放一個名字**。
+#
+# 加進來之前先問：它是不是該接線？「一次性工具」與「壞掉所以被拿掉」
+# 在目錄裡長得一模一樣 —— 2026-08-09 實測這 6 支就有 3 支是後者。
+DECLARED_STANDALONE: dict[str, dict[str, str]] = {
+    "CK_Missive": {
+        "jwt_debug.py": "除錯工具（容器內簽/驗 JWT），非檢核",
+        "verify_ai_stubs.py": "DDD 遷移期的一次性驗證（AI re-export stub），遷移已完成",
+        "check_consistency.py": "早期前後端一致性腳本；已被 api_contract_alignment_audit（weekly 25）"
+                                "的三方對照涵蓋，保留供對照",
+        "frontend_backend_endpoint_audit.py": "**已被取代**（api_contract_alignment_audit 涵蓋更廣的三方對照），"
+                                              "且自身 cp950 崩潰無法在 host 執行 → 待 owner 決定刪除",
+        "cron_liveness_snapshot.py": "**已被取代**（scheduler_liveness_audit 已在 run_fitness）；"
+                                     "自身需容器內 app 模組，host 跑不了 → 待 owner 決定刪除",
+        "manifest_drift_audit.py": "檢查 CK_Missive/shared-modules/*/manifest.yml 的中繼資料完整性。"
+                                   "**唯一讀 manifest.yml 的就是它自己** —— 補齊那些欄位沒有消費者，"
+                                   "故不接線；若日後有人真的消費 manifest，再復活",
+    },
+}
+
+
 def check_orphan_checks(repo: Path, name: str) -> list[str]:
     """檢核腳本存在，卻沒有任何 runner／排程引用它。
 
@@ -190,9 +216,15 @@ def check_orphan_checks(repo: Path, name: str) -> list[str]:
             own = 0
         if blob.count(sc.name) - own <= 0:
             orphans.append(sc.name)
-    if orphans:
-        return [f"{name}: {len(orphans)} 支檢核腳本沒有任何 runner 引用"
-                f"（{'、'.join(orphans[:3])}{'…' if len(orphans) > 3 else ''}）"]
+    declared = DECLARED_STANDALONE.get(name, {})
+    undeclared = [o for o in orphans if o not in declared]
+    # 已表態的**不再報**，但也不是消失：理由寫在 DECLARED_STANDALONE 裡，
+    # 而那份是程式碼、會進 code review、改動看得見。
+    # 只報沒表態的 —— 「新出現的孤兒」才是需要有人做決定的東西。
+    if undeclared:
+        return [f"{name}: {len(undeclared)} 支檢核腳本沒有任何 runner 引用**且未表態**"
+                f"（{'、'.join(undeclared[:3])}{'…' if len(undeclared) > 3 else ''}）"
+                " —— 接線、刪除、或加進 DECLARED_STANDALONE 並寫明理由"]
     return []
 
 
