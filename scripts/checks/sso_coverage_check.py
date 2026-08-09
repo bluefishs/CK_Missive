@@ -103,7 +103,11 @@ async def _run() -> tuple[int, int]:
                            OR role IN ('admin', 'superuser'))
                     ORDER BY id
                 """))
-                print("[CRITICAL] admin 級無 SSO 帳號（IdP outage 時失去管理通道）:")
+                # 2026-08-09 措辭更正：原寫「IdP outage 時失去管理通道」會被讀成
+                # 「平常沒事、只有 outage 才有風險」。實測 POST /api/auth/login
+                # 回 HTTP 410「帳密登入機制已停用（ADR-0033）」——
+                # **未綁 SSO 者現在就沒有任何登入方式**，不是未來式。
+                print("[CRITICAL] admin 級無 SSO 帳號（**現在就已鎖死**，密碼登入已於 ADR-0033 停用）:")
                 for r in result.fetchall():
                     last = r.last_login.strftime("%Y-%m-%d") if r.last_login else "never"
                     print(
@@ -148,8 +152,11 @@ async def _run() -> tuple[int, int]:
                 )
             else:
                 print(
-                    f"[FAIL] {critical} 個 admin 鎖死風險 — IdP outage 時無管理通道。"
-                    " 建議：（1）補綁 Google/LINE 或（2）建 break-glass runbook。"
+                    f"[FAIL] {critical} 個 admin **現在就已鎖死**（不是 outage 時才有風險）。"
+                    " 2026-08-09 實測：POST /api/auth/login 回 HTTP 410"
+                    "「帳密登入機制已停用（ADR-0033）」→ 未綁 SSO 者沒有任何登入方式。"
+                    " 處置：（1）本人用 Google/LINE 登入一次即自動綁定，或"
+                    "（2）確認是廢棄帳號 → 標 is_active=FALSE（留著會讓這條告警永遠紅）。"
                 )
 
     finally:

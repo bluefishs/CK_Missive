@@ -76,12 +76,20 @@ def check_declarations(
     index_files: list[str],
     scopes: list[tuple[str, str]],
     peripheral: dict[str, str] | None = None,
+    grandfathered: set[str] | None = None,
 ) -> tuple[int, list[str]]:
     """回傳 (退出碼, 訊息)。0=全部表態 / 2=有未表態。
 
     抽成純函式才驗得了鑑別力 —— 各 repo 的包裝只負責提供設定。
     """
     peripheral = peripheral or {}
+    # **導入閘門前就存在**的檔案 —— 與 peripheral 語意不同，必須分開記：
+    #   peripheral    = 刻意不索引（決策已做，理由已寫）
+    #   grandfathered = 導入前的存量（決策**還沒做**，是待清的債）
+    # 混在一起的話，109 個未表態的存量會被永遠當成「通過」。
+    # 實測：CK_Missive 有 149 支檢核腳本、僅 40 支在索引裡 ——
+    # 若不分級，這道閘門一上線就會擋住所有推送，然後被 --no-verify 繞過。
+    grandfathered = grandfathered or set()
     msgs: list[str] = []
 
     blobs: list[str] = []
@@ -107,6 +115,7 @@ def check_declarations(
 
     undeclared: list[str] = []
     declared_peripheral = 0
+    legacy = 0
     for name, rel in discovered:
         if _indexed(name, rel, blobs):
             continue
@@ -118,10 +127,17 @@ def check_declarations(
             # 只放名字沒寫理由 —— 三個月後沒人知道當初為什麼，等於沒表態
             undeclared.append(f"{rel}（在 peripheral 但**沒寫理由**）")
             continue
+        if name in grandfathered or rel in grandfathered:
+            legacy += 1
+            continue
         undeclared.append(rel)
 
-    msgs.append(f"  掃描 {len(discovered)} 個檔案｜索引 {len(discovered) - len(undeclared) - declared_peripheral}"
-                f"｜明列周邊 {declared_peripheral}｜未表態 {len(undeclared)}")
+    indexed_n = len(discovered) - len(undeclared) - declared_peripheral - legacy
+    msgs.append(f"  掃描 {len(discovered)} 個｜索引 {indexed_n}｜明列周邊 {declared_peripheral}"
+                f"｜存量待清 {legacy}｜**未表態 {len(undeclared)}**")
+    if legacy:
+        # 存量要一直看得見，否則「暫時放過」會變成「永遠放過」
+        msgs.append(f"  🟡 存量 {legacy} 個尚未表態（導入時 grandfathered）—— 這是債，不是通過")
     if undeclared:
         msgs.append(f"✗ {len(undeclared)} 個檔案未表態（既不在索引，也不在 peripheral）：")
         msgs += [f"    · {u}" for u in undeclared[:10]]
@@ -157,6 +173,30 @@ def self_test() -> int:
         print(f"  {'✓' if ok else '✗'} {name:16s} 預期 exit={expect} 實際={code}")
         if not ok:
             bad.append(name)
+
+    # grandfathered 分級：存量放過，但**新增的仍要擋**
+    # （新功能沒有負向測試就是我一路在治的那個形態）
+    code, msgs = check_declarations(
+        root, ["CLAUDE.md"], scopes,
+        {"peripheral.py": "一次性"},
+        grandfathered={"orphan.py", "noreason.py"},
+    )
+    ok = code == 0 and any("存量待清 2" in m for m in msgs)
+    print(f"  {'✓' if ok else '✗'} {'存量放過且計數':16s} 預期 exit=0 且存量=2 實際={code}")
+    if not ok:
+        bad.append("grandfathered 放過")
+
+    (root / "scripts" / "checks" / "brand_new.py").write_text("x", encoding="utf-8")
+    code, _ = check_declarations(
+        root, ["CLAUDE.md"], scopes,
+        {"peripheral.py": "一次性"},
+        grandfathered={"orphan.py", "noreason.py"},
+    )
+    ok = code == 2
+    print(f"  {'✓' if ok else '✗'} {'存量後新增仍擋':16s} 預期 exit=2 實際={code}")
+    if not ok:
+        bad.append("新增未被擋")
+    (root / "scripts" / "checks" / "brand_new.py").unlink()
 
     # 負向：索引檔不存在
     code, _ = check_declarations(root, ["NOPE.md"], scopes, {})
