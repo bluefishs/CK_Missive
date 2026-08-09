@@ -192,6 +192,12 @@ run_step "38" "記憶寫入鏈活體（ADR-0022）"   "scripts/checks/memory_dia
 # 首跑即揭露 adr_level_audit.py 被規範宣告但**檔案根本不存在**。
 run_step "39" "規範宣告 vs 執行者"          "scripts/checks/spec_executor_audit.py"
 
+# 2026-08-09：MODULARIZATION_STANDARDS §4.3 寫著「加 fitness step：adr_level_audit.py（待建）」
+# —— 「待建」寫了就沒有下文，兩個月無人追。由 step 39 抓到「規範宣告了不存在的機制」後補建。
+# ⚠️ 首版 status regex 只認英文，實跑得到「accepted 0 份」→ GREEN＝假綠
+#（本 repo 寫的是 `> **狀態**: accepted`）。已補「0 份 accepted 不得判綠」守衛。
+run_step "40" "ADR 接通完整度自評"          "scripts/checks/adr_level_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================

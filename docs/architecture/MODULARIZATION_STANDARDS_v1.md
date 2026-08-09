@@ -212,7 +212,7 @@ where RLS actually applies.
 
 ### §4.3 自動分級偵測
 
-加 fitness step：`scripts/checks/adr_level_audit.py`（待建）
+加 fitness step：`scripts/checks/adr_level_audit.py`（**2026-08-09 已建**，weekly step 40）
 
 - 掃 `docs/adr/*.md` frontmatter，計算每 ADR 是否含上述自評區塊
 - 若 status=accepted 但無自評 → exit 1
