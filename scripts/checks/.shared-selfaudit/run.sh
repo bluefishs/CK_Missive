@@ -34,6 +34,7 @@
 #
 #   bash scripts/checks/.shared-selfaudit/run.sh            # 深度（flows）
 #   bash scripts/checks/.shared-selfaudit/run.sh --sweep    # 廣度（全站路由）
+#   bash scripts/checks/.shared-selfaudit/run.sh --visual   # 視覺走查（拍圖供判讀）
 set -u
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -75,7 +76,9 @@ ADAPTER="$ROOT/$ADAPTER_REL"
 MODE="flow"
 ARGS=()
 for a in "$@"; do
-  if [ "$a" = "--sweep" ]; then MODE="sweep"; else ARGS+=("$a"); fi
+  if [ "$a" = "--sweep" ]; then MODE="sweep"
+  elif [ "$a" = "--visual" ]; then MODE="visual"
+  else ARGS+=("$a"); fi
 done
 
 # ── 1. 簽發臨時憑證 ────────────────────────────────────────────────
@@ -109,6 +112,11 @@ fi
 if [ "$MODE" = "sweep" ]; then
   echo "[2/2] 全站頁面健康掃描（廣度）..."
   ENTRY_JS="$HERE/ui_page_sweep.cjs"
+elif [ "$MODE" = "visual" ]; then
+  # 視覺走查：只負責把圖拍齊，判讀由人或 session 內的 AI 進行。
+  # **刻意不進 cron** —— cron 裡沒有人在看圖。約定為每次覆盤輪跑一次。
+  echo "[2/2] 視覺走查（拍圖供判讀，不做自動判定）..."
+  ENTRY_JS="$HERE/ui_visual_walk.cjs"
 else
   echo "[2/2] 流程檢核（深度）..."
   ENTRY_JS="$HERE/ui_flow_smoke.cjs"
