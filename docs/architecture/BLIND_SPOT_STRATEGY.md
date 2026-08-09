@@ -123,7 +123,24 @@ Python AST 圖譜沒有那條邊 —— 所以「只被 shell runner 引用的�
 
 | 項目 | 狀態 |
 |---|---|
-| 事後掃描 | ✅ weekly 34；已抓出 pile／DT 孤兒與 lvrland 推送阻塞 |
-| 寫入當下 | ✅ 共享實作 `script_declaration_gate.py`（7 情境自我測試）｜⚠️ **尚未在任何 repo 上線** |
-| pile 的原型閘門 | ✅ 仍在運作（**刻意未動**，先驗證共享版再談收斂） |
-| CK_Missive 存量 | ⚠️ 149 支中 109 支未表態 —— 導入時須 grandfathered，並逐步清理 |
+| 事後掃描 | ✅ weekly 34；已抓出 pile／DT／lvrland 孤兒與 lvrland 推送阻塞 |
+| 寫入當下 | ✅ 共享實作 + **五個 repo 中四個已上線且零存量** |
+| pile 的原型閘門 | ✅ 仍在運作（刻意保留，與共享版互補：前者擋 push、後者進 runner）|
+| CK_Missive | ⚠️ **唯一未導入**：149 支中僅 40 支在索引，需 grandfathered，形態與其他四個不同 |
+
+### 5.1 導入結果（2026-08-09）
+
+| repo | 腳本數 | 導入時存量 | 執行者 |
+|---|---|---|---|
+| CK_DigitalTunnel | 7 | **0**（補完 3 支索引） | 走查前置 |
+| CK_PileMgmt | 11 | **0**（原型閘門長期生效的成果） | `run_checks.sh` |
+| CK_Website | 2 | **0**（索引檔是 `README.md`） | 走查前置 |
+| CK_lvrland_Webmap | 20 | **0**（一次寫完 19 支索引表） | `run_checks.sh` 第 1 步 |
+| CK_Missive | 149 | 109 未索引 | 未導入 |
+
+**四個 repo 全部零存量**是刻意的：用了 grandfathered 就驗不出「新增會被真的擋下來」，
+而那正是這道閘門唯一的價值。四個 repo 都實測過「新增暫存檔即 RED、移除即 GREEN」。
+
+**lvrland 是最有說服力的案例**：它 2026-08-01 才因「6 支腳本沒人跑」建了 runner，
+**八天後又長出三支新孤兒**。事後掃描抓得到，但擋不住新增 ——
+而每次「長出來又被抓到」之間，那些檢核都是啞的。
