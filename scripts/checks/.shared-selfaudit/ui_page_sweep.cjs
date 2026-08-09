@@ -137,7 +137,7 @@ async function main() {
   //
   // 刻意不把整個迴圈本體抽成函式：那段有 170 行、含 dialog/console/response 三個
   // 監聽器與多層判定，抽的過程比它要解的問題更容易出錯。包一層即可。
-  async function runPass(routeList) {
+  async function runPass(routeList, ctx) {
     const bad = [];
     const skipped = [];
     const throttled = [];
@@ -145,7 +145,7 @@ async function main() {
     let okCount = 0;
 
   for (const route of routeList) {
-    const page = await context.newPage();
+    const page = await ctx.newPage();
     const errors = [];
     const dialogs = [];
     page.on('dialog', async (d) => { dialogs.push(d.message()); await d.dismiss().catch(() => {}); });
@@ -319,18 +319,28 @@ async function main() {
     return { bad, skipped, throttled, limitations, okCount };
   }
 
-  const pass1 = await runPass(routes);
+  const pass1 = await runPass(routes, context);
   let { bad, skipped, throttled, limitations, okCount } = pass1;
 
   if (bad.length) {
     const retryRoutes = bad.map((b) => b.route);
-    console.log(`\n  ↻ 第一趟有 ${retryRoutes.length} 頁異常，重跑一次以排除時序干擾…`);
-    const pass2 = await runPass(retryRoutes);
+    console.log(`\n  ↻ 第一趟有 ${retryRoutes.length} 頁異常，以全新 context 重跑一次…`);
+    // 2026-08-09：重跑改用**全新 context**（原本沿用同一個）。
+    //
+    // 沿用同一個只能排除「時序」干擾，排不掉**累積的狀態**干擾 ——
+    // lvrland `/profile` 實測：整批掃描時兩趟都失敗（渲染成「無法取得使用者資訊」），
+    // 但**單獨跑就 PASS**、直接打 /auth/me 也回 200 有真實資料。
+    // 62 條路由共用一個 context，前面累積的狀態讓它拿不到使用者。
+    // 全新 context 讓重跑成為真正的「乾淨重測」：仍然失敗才是真缺陷。
+    const retryCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await boot.applyAuth(retryCtx, CONFIG, BASE);
+    const pass2 = await runPass(retryRoutes, retryCtx);
+    await retryCtx.close().catch(() => {});
     const recovered = retryRoutes.filter((r) => !pass2.bad.some((b) => b.route === r));
     if (recovered.length) {
       // 一定要說出來。默默算成通過，就無從發現「這一頁其實很不穩」——
       // 不穩本身是資訊，只是不該當成故障告警。
-      console.log(`  ↻ 重跑後不再失敗 ${recovered.length} 頁（判為時序干擾）：${recovered.join('、')}`);
+      console.log(`  ↻ 重跑後不再失敗 ${recovered.length} 頁（乾淨 context 下正常，判為掃描期干擾）：${recovered.join('、')}`);
     }
     bad = pass2.bad;
     // pass2 只跑 pass1 的失敗項，故兩者的 okCount 沒有交集，直接相加即可。
