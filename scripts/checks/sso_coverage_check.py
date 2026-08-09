@@ -168,10 +168,22 @@ def main() -> int:
     try:
         warning, critical = asyncio.run(_run())
     except Exception as e:
-        print(f"[WARN] SSO coverage check 無法執行: {type(e).__name__}: {e}")
-        return 0
+        # 2026-08-09：跑不起來不是「沒問題」。原本回 0，於是 DB 連不上、
+        # schema 改名之類的狀況會與「零風險」長得一模一樣。
+        print(f"[FAIL] SSO coverage check 無法執行: {type(e).__name__}: {e}")
+        return 2
 
-    if args.ci and critical > 0:
+    # 2026-08-09：退出碼與印出的狀態一致（L83）。
+    #
+    # 原本只在 `--ci` 時回 1 —— 而 `run_fitness_weekly.sh` **一律不傳旗標**
+    # （2026-08-03 立的規矩：傳 --strict 會把 YELLOW 升成 RED）。
+    # 於是這支印著「[FAIL] 2 個 admin 鎖死風險」卻回 0，
+    # 接進 runner 後會是永遠的綠燈 —— 而它本來就沒有被任何 runner 跑過，
+    # 這個缺陷因此從未顯現。
+    # 三態：0=GREEN / 1=YELLOW（非 admin 風險）/ 2=RED（admin 鎖死）
+    if critical > 0:
+        return 2
+    if warning > 0:
         return 1
     return 0
 

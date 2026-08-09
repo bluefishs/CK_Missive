@@ -66,6 +66,9 @@ pile 至今 1 支、我自己的 shared-modules commit 被 hook 擋下卻回報�
 > 每次有人提交就把「最舊」重置。故它直接跑 `git push --dry-run`：
 > 擋住就是擋住，不必等它變老。
 
+> **延伸閱讀**：一個問題**沒有被任何機制發現**時，從哪裡找原因 ——
+> 見 [`BLIND_SPOT_STRATEGY.md`](BLIND_SPOT_STRATEGY.md)（四種盲區型態與追問法）。
+
 ### 1.3 同一輪確認的既有缺口（尚未補）
 
 | 缺口 | 現況 | 影響 |
@@ -166,7 +169,7 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 <!--baseline:producers-->producer registry 現有 32 筆
 <!--baseline:ui_flows-->UI 流程檢核現有 17 條
 <!--baseline:fitness_steps-->主 fitness runner 現有 78 步
-<!--baseline:weekly_steps-->weekly runner 現有 34 步
+<!--baseline:weekly_steps-->weekly runner 現有 38 步
 <!--baseline:daily_steps-->daily runner 現有 11 步
 <!--baseline:selfaudit_repos-->已導入瀏覽器自我走查的專案數 5
 <!--baseline:producer_signals-->producer 信號型別 5 種

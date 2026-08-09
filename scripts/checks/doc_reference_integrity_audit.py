@@ -74,6 +74,49 @@ def scan() -> tuple[int, Counter, Counter]:
     return total, missing, per_doc
 
 
+
+# ── 反向：這份文件有沒有人引用 ────────────────────────────────────────
+# 2026-08-09（owner：「一堆要點無對應窗口等於啞巴」）。
+#
+# 本檔原本只驗**正向**（文件引用的路徑還在不在）。反向同樣重要：
+# 一份沒有任何人引用的文件，與一支沒有任何人跑的腳本是同一件事 ——
+# 內容也許正確，但它不在任何人的視野裡。
+#
+# 併進本檔而不另開第三支文件稽核：同一個主體（文件引用）的兩個方向。
+#
+# **日期型文件不算孤兒**：`RETRO_20260530_*`、`*_2026Q1` 這類是歷史紀錄，
+# 本來就不需要有人持續引用。強迫它們被索引只會逼人寫假引用。
+DATED_RE = re.compile(r"(20\d{6}|20\d{2}Q[1-4]|_v\d)")
+
+
+def scan_unreferenced() -> tuple[list[str], int]:
+    """回傳 (未被引用的非日期型文件, 日期型文件數)。"""
+    docs = []
+    for d in DOC_DIRS:
+        base = ROOT / d
+        if base.is_dir():
+            docs += sorted(base.glob("*.md"))
+    hay = []
+    for pat in ("CLAUDE.md", ".claude/**/*.md", "docs/**/*.md",
+                "scripts/**/*.py", "scripts/**/*.sh", "backend/app/**/*.py"):
+        for f in ROOT.glob(pat):
+            if f.is_file():
+                try:
+                    hay.append((f.resolve(), f.read_text(encoding="utf-8", errors="ignore")))
+                except OSError:
+                    pass
+    orphans, dated = [], 0
+    for d in docs:
+        rp = d.resolve()
+        if any(d.name in t for f, t in hay if f != rp):
+            continue
+        if DATED_RE.search(d.name):
+            dated += 1
+            continue
+        orphans.append(d.name)
+    return orphans, dated
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true")
@@ -99,6 +142,16 @@ def main() -> int:
             print(f"    {c:3}x  {p}")
         if len(missing) > 20:
             print(f"    …另 {len(missing) - 20} 條")
+
+    # 反向：沒有任何人引用的文件
+    orphans, dated = scan_unreferenced()
+    print(f"\n  未被任何檔案引用：{len(orphans)} 份（另有 {dated} 份日期型歷史紀錄，不計）")
+    if orphans:
+        for o in orphans[:12]:
+            print(f"    · {o}")
+        if len(orphans) > 12:
+            print(f"    …另 {len(orphans) - 12} 份")
+        print("  → 接進索引（CLAUDE.md／上位標準文件），或改名為日期型移入歷史")
 
     print()
     if pct >= FAIL_PCT:

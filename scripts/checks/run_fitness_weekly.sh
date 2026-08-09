@@ -175,6 +175,19 @@ run_step "33" "走查入口委派（防 copy 式復發）" "scripts/checks/selfa
 # 這些都不是「程式壞了」，所以沒有任何既有檢核會紅。
 run_step "34" "跨 repo 工作連續性"          "scripts/checks/cross_repo_work_continuity_audit.py"
 
+# 2026-08-09（owner：「針對既有規範統整複查確認」）。
+# `.claude/rules/adr-anti-half-wired-sop.md` §自查工具 明文要求「月度執行」這四支，
+# 但**沒有任何 runner 或排程在跑它們** —— 寫在規範裡的規定，沒有執行者。
+# 複查全部 37 份規範文件、33 支被宣告的腳本，發現 6 支有問題（1 支檔案根本不存在）。
+#
+# 實跑 sso_coverage_check 當場揭露：它印「[FAIL] 2 個 admin 鎖死風險」卻 exit 0
+# （只有 --ci 才回 1，而本 runner 一律不傳旗標）—— 接進來之前已修為三態。
+# 那個風險因此從未被任何人看見。
+run_step "35" "SSO 覆蓋率（ADR-0033）"      "scripts/checks/sso_coverage_check.py"
+run_step "36" "IdP 連通性（ADR-0033）"      "scripts/checks/idp_connectivity_check.py"
+run_step "37" "alias RLS 端到端（ADR-0025）" "scripts/checks/alias_rls_e2e_check.py"
+run_step "38" "記憶寫入鏈活體（ADR-0022）"   "scripts/checks/memory_diary_freshness_check.py"
+
 # ============================================================
 # Summary
 # ============================================================
