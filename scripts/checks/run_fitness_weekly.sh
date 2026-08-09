@@ -188,6 +188,10 @@ run_step "36" "IdP 連通性（ADR-0033）"      "scripts/checks/idp_connectivit
 run_step "37" "alias RLS 端到端（ADR-0025）" "scripts/checks/alias_rls_e2e_check.py"
 run_step "38" "記憶寫入鏈活體（ADR-0022）"   "scripts/checks/memory_diary_freshness_check.py"
 
+# 2026-08-09：把「規範說要做的事，有沒有人在做」這個複查常設化。
+# 首跑即揭露 adr_level_audit.py 被規範宣告但**檔案根本不存在**。
+run_step "39" "規範宣告 vs 執行者"          "scripts/checks/spec_executor_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================
