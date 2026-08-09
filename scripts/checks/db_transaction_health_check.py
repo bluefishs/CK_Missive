@@ -140,9 +140,21 @@ def self_test() -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument(
+        "--red-exit", type=int, default=2, choices=(1, 2),
+        help=(
+            "RED 時的退出碼。預設 2（portfolio 標準：0=GREEN/1=YELLOW/2+=RED）。"
+            "但 CK_lvrland_Webmap 的 run_checks.sh 用的是另一套：1=FAIL、**2=未驗完**。"
+            "2026-08-09 查證發現本檔以預設 2 進入該 runner 時，真的抓到中止交易會被"
+            "報成「SKIP（未驗完）」且 static-checks.json 的 fail=0 —— "
+            "亦即為了防止 08-08 那次停機而寫的檢核，在該 repo 是啞的。"
+            "約定衝突無法兩全，故由**呼叫端明示**，不讓它靜靜取預設值。"
+        ),
+    )
     args = ap.parse_args()
     if args.self_test:
         return self_test()
+    red_code = args.red_exit
 
     print("=== 資料庫連線狀態健檢（交易中止未 rollback）===")
     container = _db_container()
@@ -169,7 +181,7 @@ def main() -> int:
     if code >= 2:
         print("  處置：重啟後端可止血，但根因在「except 吞掉 DB 錯誤卻沒 rollback」，")
         print("  參考 transaction_pollution_audit.py 的候選清單逐一核實。")
-    return code
+    return red_code if code >= 2 else code
 
 
 if __name__ == "__main__":

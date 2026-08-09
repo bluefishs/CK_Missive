@@ -479,6 +479,19 @@
 
 ---
 
+## L89 — 跨 repo 共用腳本帶著自己的退出碼約定進到別人的 runner，會被靜靜降級成「未驗完」（2026-08-09）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 2026-08-08 lvrland 後端 hang 住、API 對真實使用者完全不可用而公網首頁仍 200，唯一線索是 DB 的 `idle in transaction (aborted)`。為防再犯，把 `db_transaction_health_check.py` 部署到四個 repo。 |
+| **What happened** | 該腳本依 portfolio 標準寫（**0=GREEN／1=YELLOW／2+=RED**），但 lvrland 的 `run_checks.sh` 用的是另一套：**1=FAIL／2=未驗完**，而且它的其他 13 支檢核都遵守後者。於是若中止交易再度發生，該檢核會 exit 2 → runner 印「**SKIP（未驗完）**」→ `UNVERIFIED=1` → `static-checks.json` 寫 **`fail: 0`** → `OVERALL=YELLOW`。**為了防止那次停機而寫的檢核，在那個 repo 是啞的。** |
+| **Root cause** | 兩套約定都自洽，但**共用腳本沒有在呼叫點宣告自己用哪一套**，靜靜取了預設值。這不是誰對誰錯——`2` 在一邊是「最嚴重」、在另一邊是「沒驗到」，語意剛好相反。而「沒驗到」與「嚴重故障」在輸出上長得完全不同，卻被對應到同一個數字。 |
+| **Fix** | 腳本加 `--red-exit {1,2}`（預設 2＝portfolio 標準），**由呼叫端明示**；lvrland 的 runner 傳 `--red-exit 1`，並把 `run_py` 改吃 `"$@"` 以容納參數。**實測驗證**：以可逆方式在 lvrland DB 注入真實的中止交易 → runner 印 `FAIL`、`OVERALL=RED`（先前會是 SKIP／YELLOW／fail=0）；注入解除後回 0。 |
+| **Prevention** | (a) **跨 repo 移植腳本時，先讀目標 repo 的 runner 怎麼解讀退出碼**——這比讀腳本本身更重要，因為腳本再對，解讀錯就等於沒有。(b) 有歧義的約定要讓**呼叫點明示**，不要靠預設值：預設值出錯時是安靜的。(c) 驗證共用檢核不能只跑 `--self-test`，要在**目標 repo 的 runner 裡**用真實故障注入一次。 |
+| **Refs** | `CK_lvrland_Webmap/scripts/checks/run_checks.sh`（`run_py` 吃 `"$@"` + `--red-exit 1`）/ `*/scripts/checks/db_transaction_health_check.py`（`--red-exit`）/ 同族：L83（印出狀態與退出碼必須一致）、L88（檢核把自己的退出碼判成異常） |
+
+---
+
 ## L87 — 「多給一種憑證」不是保險，是多開一條會失敗的路；而剛上線的檢核最不該被信任（2026-08-09）
 
 | 欄位 | 內容 |
