@@ -190,34 +190,54 @@ if (Test-Path $AttachSource) {
     $acArgs = @($AttachSource, $AttachDest, "/E", "/XO", "/R:2", "/W:5", "/NP", "/NDL", "/NJH", "/NFL")
     if ($DryRun) { $acArgs += "/L" }
     Log "robocopy(附件) $($acArgs -join ' ')"
-    $acOut = & robocopy @acArgs
+    & robocopy @acArgs | Out-Null
     $acCode = $LASTEXITCODE
-    $acOut | ForEach-Object { if ($_ -match 'Files :|Bytes :|FAILED') { Log "  $($_.Trim())" } }
     Log "robocopy(附件) exit=$acCode"
 
-    if ($acCode -ge 8) {
-        # 逐一撈出失敗檔，判斷是否為長檔名；是就打包該目錄
-        $failLines = & robocopy $AttachSource $AttachDest /E /XO /R:0 /W:0 /NP /NDL /NJH 2>&1 |
-                     Select-String -Pattern "ERROR \d+ .* Copying File (.+)$"
-        $dirs = @{}
-        foreach ($m in $failLines) {
+    # -----------------------------------------------------------------------
+    # 缺漏判定：**直接比對來源與目的地**，不解析 robocopy 的訊息。
+    #
+    # 2026-08-11 修正（我自己造成的假綠）：原本靠 regex 解析
+    # 「ERROR 123 ... Copying File <path>」來找出失敗檔。排程實際觸發時
+    # 那段完全沒作用 —— robocopy 在排程情境下輸出的是**中文**
+    # （「檔案 :」「位元組 :」而非「Files :」「Bytes :」），
+    # 再加上 `2>&1` 對原生命令的重定向行為差異，於是 attachFailed 恆為 0、
+    # 判定成了 success。**robocopy 明明回 exit=10，備份卻報綠燈。**
+    #
+    # 這違反了本專案自己的原則：要問產出物，不要問成功訊號。
+    # 現在問的是「NAS 上到底缺哪些檔」——語言無關、格式無關、重定向行為無關。
+    # -----------------------------------------------------------------------
+    $arcRoot = Join-Path $AttachDest "_longname_archive"
+    $remote = @{}
+    $prefix = $AttachDest.TrimEnd('\') + '\'
+    foreach ($p in (Get-ChildItem -LiteralPath $AttachDest -Recurse -File -ErrorAction SilentlyContinue)) {
+        if ($p.FullName.StartsWith($arcRoot, [StringComparison]::OrdinalIgnoreCase)) { continue }
+        $remote[$p.FullName.Substring($prefix.Length)] = $true
+    }
+    $srcPrefix = $AttachSource.TrimEnd('\') + '\'
+    $missingDirs = @{}
+    foreach ($f in (Get-ChildItem -LiteralPath $AttachSource -Recurse -File -ErrorAction SilentlyContinue)) {
+        $rel = $f.FullName.Substring($srcPrefix.Length)
+        if (-not $remote.ContainsKey($rel)) {
             $attachFailed++
-            $p = $m.Matches[0].Groups[1].Value.Trim()
-            $d = Split-Path $p -Parent
-            if ($d) { $dirs[$d] = $true }
+            $d = Split-Path $f.FullName -Parent
+            if ($d) { $missingDirs[$d] = $true }
         }
-        if (-not $DryRun -and $dirs.Count -gt 0) {
-            $arcRoot = Join-Path $AttachDest "_longname_archive"
-            New-Item -ItemType Directory -Path $arcRoot -Force | Out-Null
-            foreach ($d in $dirs.Keys) {
-                try {
-                    $leaf = Split-Path $d -Leaf
-                    $zip = Join-Path $arcRoot "$leaf`_longname.zip"
-                    Compress-Archive -Path (Join-Path $d "*") -DestinationPath $zip -Force -ErrorAction Stop
-                    $attachArchived++
-                    Log "  長檔名打包: $leaf → $(Split-Path $zip -Leaf)"
-                } catch { Log "  ERROR 打包失敗 $d : $_" }
-            }
+    }
+    if ($attachFailed -gt 0) { Log "  NAS 缺 $attachFailed 檔，分布於 $($missingDirs.Count) 個目錄" }
+
+    # 缺漏的原因幾乎都是檔名超過 Linux/Samba 的 255 bytes 上限
+    # （中文 3 bytes/字，公文標題約 85 字就撞到）→ 整個目錄打包上傳。
+    if (-not $DryRun -and $missingDirs.Count -gt 0) {
+        New-Item -ItemType Directory -Path $arcRoot -Force | Out-Null
+        foreach ($d in $missingDirs.Keys) {
+            try {
+                $leaf = Split-Path $d -Leaf
+                $zip = Join-Path $arcRoot "$leaf`_longname.zip"
+                Compress-Archive -Path (Join-Path $d "*") -DestinationPath $zip -Force -ErrorAction Stop
+                $attachArchived++
+                Log "  長檔名打包: $leaf → $(Split-Path $zip -Leaf)"
+            } catch { Log "  ERROR 打包失敗 $d : $_" }
         }
     }
 } else {
