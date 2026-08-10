@@ -21,6 +21,7 @@
 |---|---|---|
 | 1 | 六個 repo 未推送 commit | ✅ 0 |
 | 2 | 未提交的非自動產物 | ✅ 0（`shared-modules` 98 項為他人 WIP，日期 1–3 月，**不屬本輪**，不得代為提交）|
+| 2b | pre-flight 期間發現並收尾的殘留 | ✅ DT 有一筆**未提交的 react-router v6.30→v7.18.2 大版本升級**（node_modules 已裝、但容器跑舊 build）—— 這正是跨 session 最容易遺失的狀態。已驗證後提交：tsc 0／build 通過／dist 是 bind mount 故即時生效／**走查 27 PASS 0 FAIL**／公網 200 |
 | 3 | **DB volume（L43）** | ✅ `ck_missive_postgres_dev_data`，與 compose 宣告一致，**1993 docs**（空殼會是 502 以下）|
 | 4 | 容器重啟政策 | ✅ 56 容器全數 `unless-stopped` / `always` |
 | 5 | Windows 排程 | ✅ **23 支 CK 排程全數存活**（`windows_task_liveness_audit` GREEN）|
