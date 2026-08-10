@@ -9,13 +9,24 @@ import type { ERPQuotation } from './erp';
 // PM 案件核心型別 (原定義於 api.ts)
 // ============================================================================
 
-/** PM 案件狀態 */
-export type PMCaseStatus = 'planning' | 'contracted' | 'closed';
+/** PM 案件狀態
+ *
+ * ⚠️ `in_progress` 是**後端在成案成功後自己寫入的**，不是使用者選的：
+ * `CaseCodeService.promote_to_project` 在建立 ContractProject、寫入 project_code 之後
+ * 會把 PM 案件設為 `in_progress`（語意＝已成案、進入執行）。
+ *
+ * 2026-08-10 之前這個值不在本詞彙內，於是前端的預設值 fallback 把它顯示成「評估中」——
+ * owner 把承攬狀態改成「已承攬」、成案其實**成功了**（產號、ContractProject、ERP 報價都建了），
+ * 回到畫面卻看到「評估中」，看起來就像「改了沒反應」。
+ * 產出端與消費端對同一個欄位的詞彙不一致，兩邊都不會報錯。
+ */
+export type PMCaseStatus = 'planning' | 'contracted' | 'in_progress' | 'closed';
 
 /** PM 案件狀態標籤 */
 export const PM_CASE_STATUS_LABELS: Record<PMCaseStatus, string> = {
   planning: '評估中',
   contracted: '已承攬',
+  in_progress: '執行中',
   closed: '已結案',
 };
 
@@ -23,6 +34,7 @@ export const PM_CASE_STATUS_LABELS: Record<PMCaseStatus, string> = {
 export const PM_CASE_STATUS_COLORS: Record<PMCaseStatus, string> = {
   planning: 'default',
   contracted: 'blue',
+  in_progress: 'processing',
   closed: 'success',
 };
 

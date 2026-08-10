@@ -27,6 +27,8 @@ import { API_ENDPOINTS } from '../api/endpoints';
 import { projectsApi } from '../api/projectsApi';
 import { pmCasesApi } from '../api/pm/casesApi';
 import { PM_CATEGORY_LABELS } from '../types/api';
+import { PM_CASE_STATUS_LABELS, PM_CASE_STATUS_COLORS } from '../types/pm';
+import type { PMCaseStatus } from '../types/pm';
 import type { PMCaseUpdate } from '../types/api';
 import { ROUTES } from '../router/types';
 
@@ -41,11 +43,15 @@ const QuotationRecordsTab = lazy(() => import('./pmCase/QuotationRecordsTab'));
 const ExpensesTab = lazy(() => import('./pmCase/ExpensesTab'));
 
 // 承攬狀態：是否承作 → 是=已承攬, 否=未承攬, 其他=評估中
-const STATUS_OPTIONS = [
-  { value: 'planning', label: '評估中', color: 'default' },
-  { value: 'contracted', label: '已承攬', color: 'blue' },
-  { value: 'closed', label: '已結案', color: 'success' },
-];
+//
+// 2026-08-10：改為由 types/pm.ts 的詞彙推導，不再手寫第二份。
+// 原本這裡少了 `in_progress`（成案成功後由後端寫入），於是那個值被 fallback
+// 顯示成「評估中」—— 使用者改成「已承攬」、成案其實成功了，畫面卻像沒反應。
+const STATUS_OPTIONS = (Object.keys(PM_CASE_STATUS_LABELS) as PMCaseStatus[]).map((value) => ({
+  value,
+  label: PM_CASE_STATUS_LABELS[value],
+  color: PM_CASE_STATUS_COLORS[value],
+}));
 
 const CATEGORY_OPTIONS = Object.entries(PM_CATEGORY_LABELS).map(([k, v]) => ({ value: k, label: v }));
 
@@ -275,11 +281,9 @@ export const PMCaseDetailPage: React.FC = () => {
           <Form.Item name="contract_amount" label="報價金額"><InputNumber style={{ width: '100%' }} min={0} /></Form.Item>
           <Form.Item name="location" label="作業地點" style={{ gridColumn: 'span 2' }}><Input /></Form.Item>
           <Form.Item name="status" label="承攬狀態">
-            <Select options={[
-              { value: 'planning', label: '評估中' },
-              { value: 'contracted', label: '已承攬' },
-              { value: 'closed', label: '已結案' },
-            ]} />
+            {/* 與上方 STATUS_OPTIONS 共用同一份詞彙 —— 原本這裡是第三份手寫清單，
+                同樣少了 in_progress，於是成案後回來編輯會看到空白選項。 */}
+            <Select options={STATUS_OPTIONS.map(({ value, label }) => ({ value, label }))} />
           </Form.Item>
           <Form.Item label="成案編號"><Input value={pmCase.project_code ?? '未成案'} disabled /></Form.Item>
           <Form.Item name="notes" label="備註" style={{ gridColumn: 'span 2' }}><Input.TextArea rows={2} /></Form.Item>

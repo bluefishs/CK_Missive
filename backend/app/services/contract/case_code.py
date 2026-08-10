@@ -271,6 +271,35 @@ class CaseCodeService:
         if pm_case.status in blocked_statuses:
             raise ValueError(f"案號 {case_code} 狀態為 {pm_case.status}，僅已承攬案件可成案")
 
+        # 防重（2026-08-10）：上面那道只擋「同一個 PM 案件成案兩次」，
+        # 擋不住「同一件工作已經有人在承攬案件頁直接建過一筆」。
+        # 2026-08-10 實際發生：同一件工作 10:19 直接建立、10:43 成案，兩筆都成功。
+        # 判準與 ProjectService.create 相同（同名＋同年度＋同委託單位），
+        # 兩條路徑共用同一條規則，否則擋住一邊等於沒擋。
+        if pm_case.case_name:
+            from sqlalchemy import select, func
+            from app.extended.models import ContractProject
+            stmt = select(ContractProject).where(
+                func.trim(ContractProject.project_name) == pm_case.case_name.strip(),
+                ContractProject.year == pm_case.year,
+            )
+            # ⚠️ 兩張表的委託單位欄位名不同：
+            #   pm_cases.client_name  vs  contract_projects.client_agency
+            # 比對用名稱字串（PM 端存的 client_vendor_id 指向 partner_vendors，
+            # 與承攬端的 client_agency_id 指向 agencies，**不是同一個 id 空間**，
+            # 拿來直接比會永遠不命中）。
+            client_name = (getattr(pm_case, "client_name", None) or "").strip()
+            if client_name:
+                stmt = stmt.where(func.trim(ContractProject.client_agency) == client_name)
+            dup = (await self.db.execute(stmt.limit(1))).scalar_one_or_none()
+            if dup:
+                raise ValueError(
+                    f"同名承攬案件已存在：{dup.project_code}（{dup.project_name}）。"
+                    f"這件工作看起來已經建過案 —— 若要沿用，請直接把 PM 案件 {case_code} "
+                    f"的成案編號指向 {dup.project_code}；若確實是不同的兩案，"
+                    f"請把名稱或年度改成能分辨的內容再成案。"
+                )
+
         # 2. 產生 project_code (含作業性質)
         project_code = await self.generate_project_code(
             year=pm_case.year or 114,

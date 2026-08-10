@@ -232,6 +232,49 @@ class ProjectService(AuditableServiceMixin):
         """
         project_data = data.model_dump()
 
+        # ── 防重（2026-08-10）────────────────────────────────────────────
+        # 承攬案件有**兩條互不知情的建立路徑**：
+        #   1. 本方法（在承攬案件頁直接建立）
+        #   2. CaseCodeService.promote_to_project（PM 案件改「已承攬」時自動成案）
+        #
+        # 兩者各自都有防重，但防的是自己那條：#1 檢查 project_code 不重複
+        #（而 project_code 是自動產生的，永遠不會撞），#2 檢查該 PM 案件是否已成案。
+        # **沒有任何一方在問「這件工作是不是已經有承攬案件了」。**
+        #
+        # 2026-08-10 實際發生：同一件「和美鎮84年TWD67重測區圖根點補建」
+        # 10:19 由路徑 #1 建成 CK2026_01_01_010、10:43 由路徑 #2 建成 CK2026_01_01_011，
+        # 相差 24 分鐘，兩筆都沒有錯誤訊息。
+        #
+        # 判準用「同委託單位＋同名稱＋同年度」。刻意**不看 case_code**：
+        # 路徑 #1 的 case_code 是產號器現編的，跟路徑 #2 帶進來的本來就不同，
+        # 比對它永遠不會命中（這正是既有防重漏掉這個情境的原因）。
+        #
+        # 只擋、不自動合併 —— 合併涉及財務與公文歸屬，屬業務判斷。
+        name = (project_data.get("project_name") or "").strip()
+        if name:
+            from sqlalchemy import select, func
+            from app.extended.models import ContractProject
+            stmt = select(ContractProject).where(
+                func.trim(ContractProject.project_name) == name,
+                ContractProject.year == project_data.get("year"),
+            )
+            # 委託單位：優先用 id（精確），沒有 id 才比名稱字串。
+            # 兩者都沒有就只靠「同名＋同年度」—— 仍然比完全不擋好，
+            # 而同名同年度的兩案本來就該由人確認一次。
+            agency_id = project_data.get("client_agency_id")
+            agency_name = (project_data.get("client_agency") or "").strip()
+            if agency_id is not None:
+                stmt = stmt.where(ContractProject.client_agency_id == agency_id)
+            elif agency_name:
+                stmt = stmt.where(func.trim(ContractProject.client_agency) == agency_name)
+            dup = (await self.db.execute(stmt.limit(1))).scalar_one_or_none()
+            if dup:
+                raise ValueError(
+                    f"同名承攬案件已存在：{dup.project_code}（{dup.project_name}）。"
+                    f"若確定要另建一案，請把名稱或年度改成能分辨的內容；"
+                    f"若這是重複建案，請直接使用既有的 {dup.project_code}。"
+                )
+
         # 如果沒有提供 project_code，則自動產生
         if not project_data.get("project_code"):
             year = project_data.get("year") or 2025
