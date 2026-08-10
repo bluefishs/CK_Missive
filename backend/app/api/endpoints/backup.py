@@ -12,7 +12,7 @@ from starlette.responses import Response
 
 from app.core.rate_limiter import limiter
 from app.api.endpoints.auth import get_current_user
-from app.core.dependencies import require_admin
+from app.core.dependencies import is_admin_user, is_superuser_user, require_admin
 from app.services.backup import backup_service
 from app.services.backup.auto_scheduler import (
     get_backup_scheduler_status,
@@ -37,13 +37,18 @@ router = APIRouter()
 # ============================================================================
 
 def _is_admin(user) -> bool:
-    """檢查是否為管理員 (admin 或 superuser)"""
-    return user.is_admin or user.is_superuser
+    """檢查是否為管理員 —— 委派給唯一實作，本檔不自行判定。
+
+    2026-08-10：原本只看 `is_admin or is_superuser`，漏掉 role 欄位。
+    真的擋到人：員工 role='admin' 但 is_admin=false，選單看得到備份管理、
+    本檔 10 個端點卻全數 403。判定規則不該有第二份。
+    """
+    return is_admin_user(user)
 
 
 def _is_superuser(user) -> bool:
     """檢查是否為超級管理員"""
-    return user.is_superuser
+    return is_superuser_user(user)
 
 
 # ============================================================================

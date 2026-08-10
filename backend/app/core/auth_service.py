@@ -644,7 +644,9 @@ class AuthService:
     @staticmethod
     def check_permission(user: User, required_permission: str) -> bool:
         """檢查使用者權限"""
-        if user.is_superuser:
+        # superuser 直通 —— 併看 role（2026-08-10 收斂，判定不得有第二份）
+        from app.core.dependencies import is_superuser_user
+        if is_superuser_user(user):
             return True
         
         if not user.permissions:
@@ -658,8 +660,14 @@ class AuthService:
     
     @staticmethod
     def check_admin_permission(user: User) -> bool:
-        """檢查管理員權限"""
-        return user.is_admin or user.is_superuser
+        """檢查管理員權限 —— 委派給唯一實作。
+
+        2026-08-10：原本只看 `is_admin or is_superuser`，與 dependencies 的
+        「flag OR role」政策不一致。目前生產無呼叫者（只有測試在用），
+        但留著一份規則不同的判定，就是下一個誤用的來源。
+        """
+        from app.core.dependencies import is_admin_user
+        return is_admin_user(user)
     
     # ============ httpOnly Cookie 認證 (v2.1) ============
 

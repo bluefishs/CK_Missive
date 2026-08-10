@@ -30,6 +30,7 @@ from app.schemas.document_calendar import BatchUpdateStatusRequest, BatchDeleteR
 from app.extended.models import ContractProject
 from app.extended.models.associations import project_user_assignment
 from app.services.user_alias_service import expand_user_alias
+from app.core.dependencies import is_admin_user
 
 
 def _is_superuser(user: User) -> bool:
@@ -91,7 +92,7 @@ async def get_user_calendar_events(
 ):
     """獲取指定使用者的日曆事件（含承攬案件名稱）"""
     try:
-        if request.user_id != current_user.id and not current_user.is_admin:
+        if request.user_id != current_user.id and not is_admin_user(current_user):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="您只能查看自己的日曆事件"

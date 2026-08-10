@@ -17,6 +17,7 @@ from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
 from app.extended.models import User, EventReminder
 from app.services.calendar.reminder_service import ReminderService
+from app.core.dependencies import is_admin_user
 
 router = APIRouter()
 
@@ -46,7 +47,7 @@ async def send_test_reminder(
 ):
     """發送測試提醒（僅管理員）"""
     try:
-        if not current_user.is_admin:
+        if not is_admin_user(current_user):
             raise HTTPException(status_code=403, detail="權限不足")
 
         if notification_type not in ["email", "system"]:

@@ -208,6 +208,41 @@ def optional_auth() -> Callable:
     return _get_current_user_optional
 
 
+# 管理員判定的**唯一實作**（2026-08-10 收斂）。
+#
+# 這條規則原本散在四個地方且各不相同：
+#   · dependencies.require_admin  → flag OR role（正確，且註解寫明「防止雙軌不一致」）
+#   · auth/login_history.py       → flag OR role（正確）
+#   · api/endpoints/backup.py     → **只看 flag**（10 個端點）
+#   · auth_service.check_admin_permission → 只看 flag（零生產呼叫者）
+#
+# 後果是真的發生了：員工 `洪慶忠` 的 role='admin' 但 is_admin=false，
+# 於是他在選單看得到「備份管理」（前端 usePermissions 併看 role），
+# 點進去每一個動作都回 403 —— 看得到而用不了，最難自行診斷的一種。
+#
+# 為什麼是併看而不是二選一：兩個欄位都存在且都被寫入，任一為真就是管理員；
+# 只認其中一個，等於讓另一個欄位的資料靜靜失效。
+def is_admin_user(user) -> bool:
+    """是否為管理員 —— 布林旗標與 role 欄位任一成立即可。"""
+    if user is None:
+        return False
+    by_flag = bool(getattr(user, "is_admin", False)) or bool(getattr(user, "is_superuser", False))
+    by_role = getattr(user, "role", "") in ("admin", "superuser")
+    return by_flag or by_role
+
+
+def is_superuser_user(user) -> bool:
+    """是否為超級使用者 —— 同樣併看 role。
+
+    與 `is_admin_user` 分開，因為語意不同：superuser 是更窄的一群，
+    用在「擁有所有權限」的直通、與「不得刪除／停用」的保護。
+    這兩個方向都偏好併看 role —— 保護性檢查若漏看，就會**保護不到**。
+    """
+    if user is None:
+        return False
+    return bool(getattr(user, "is_superuser", False)) or getattr(user, "role", "") == "superuser"
+
+
 def require_admin():
     """
     需要管理員權限的依賴
@@ -223,10 +258,7 @@ def require_admin():
         current_user: User = Depends(get_current_user)
     ) -> User:
         from app.core.exceptions import ForbiddenException
-        # 統一檢查：is_admin 布林 OR role 欄位 (防止雙軌不一致)
-        is_admin_by_flag = current_user.is_admin or current_user.is_superuser
-        is_admin_by_role = current_user.role in ('admin', 'superuser')
-        if not is_admin_by_flag and not is_admin_by_role:
+        if not is_admin_user(current_user):
             raise ForbiddenException("需要管理員權限")
         return current_user
     return _require_admin
@@ -254,7 +286,7 @@ def require_permission(permission: str):
         from app.core.auth_service import AuthService
 
         # 超級管理員擁有所有權限
-        if current_user.is_superuser:
+        if is_superuser_user(current_user):
             return current_user
 
         # 檢查特定權限

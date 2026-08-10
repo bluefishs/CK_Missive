@@ -53,6 +53,8 @@
 
 | 腳本 | 用途 |
 |---|---|
+| `admin_check_ssot_audit.py` | 管理員判定不得有第二份規則（只看 is_admin 不看 role 會讓 role='admin' 的人看得到卻用不了） |
+| `service_port_exposure_audit.py` | 資料層服務埠不得對區域網路無保護開放（綁定位址＋是否需認證＋弱密碼特徵） |
 | `adr_level_audit.py` | `MODULARIZATION_STANDARDS_v1.md` §4.3 寫著 |
 | `agent_evolution_health.py` | Agent Evolution Health Diagnostic — 診斷坤哥進化引擎為何沒跑 |
 | `alias_rls_coverage_audit.py` | Alias RLS Coverage Audit |

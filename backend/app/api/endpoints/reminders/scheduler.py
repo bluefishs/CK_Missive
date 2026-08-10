@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 from app.api.endpoints.auth import get_current_user
 from app.extended.models import User
 from app.services.calendar.reminder_scheduler import ReminderSchedulerController
+from app.core.dependencies import is_admin_user
 
 router = APIRouter(prefix="/scheduler")
 
@@ -22,7 +23,7 @@ async def get_scheduler_status(
     current_user: User = Depends(get_current_user),
 ):
     """獲取提醒排程器狀態"""
-    if not current_user.is_admin:
+    if not is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="權限不足")
 
     return ReminderSchedulerController.get_scheduler_status()
@@ -33,7 +34,7 @@ async def start_scheduler(
     current_user: User = Depends(get_current_user),
 ):
     """啟動提醒排程器"""
-    if not current_user.is_admin:
+    if not is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="權限不足")
 
     try:
@@ -49,7 +50,7 @@ async def stop_scheduler(
     current_user: User = Depends(get_current_user),
 ):
     """停止提醒排程器"""
-    if not current_user.is_admin:
+    if not is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="權限不足")
 
     try:
@@ -65,7 +66,7 @@ async def restart_scheduler(
     current_user: User = Depends(get_current_user),
 ):
     """重啟提醒排程器"""
-    if not current_user.is_admin:
+    if not is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="權限不足")
 
     try:
@@ -81,7 +82,7 @@ async def trigger_manual_process(
     current_user: User = Depends(get_current_user),
 ):
     """手動觸發一次提醒處理"""
-    if not current_user.is_admin:
+    if not is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="權限不足")
 
     try:
@@ -98,7 +99,7 @@ async def update_check_interval(
     current_user: User = Depends(get_current_user),
 ):
     """更新排程器檢查間隔"""
-    if not current_user.is_admin:
+    if not is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="權限不足")
 
     try:

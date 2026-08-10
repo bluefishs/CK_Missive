@@ -19,6 +19,7 @@ from app.extended.models import User, EventReminder
 from app.schemas.reminder import BatchProcessResponse
 from app.api.endpoints.reminders.events import calendar_integrator
 from app.services.calendar.reminder_service import ReminderService
+from app.core.dependencies import is_admin_user
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ async def process_pending_reminders(
 ):
     """批量處理待發送的提醒"""
     try:
-        if not current_user.is_admin:
+        if not is_admin_user(current_user):
             raise HTTPException(status_code=403, detail="權限不足")
 
         stats = await calendar_integrator.process_pending_reminders(db)

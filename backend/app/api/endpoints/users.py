@@ -30,7 +30,7 @@ from app.core.exceptions import (
     ConflictException,
     ForbiddenException,
 )
-from app.core.dependencies import require_admin
+from app.core.dependencies import is_superuser_user, require_admin
 from app.core.auth_service import AuthService
 
 router = APIRouter()
@@ -276,7 +276,7 @@ async def delete_user(
         raise NotFoundException(resource="使用者", resource_id=user_id)
 
     # 防止刪除超級管理員
-    if user.is_superuser:
+    if is_superuser_user(user):
         raise ForbiddenException(message="無法刪除超級管理員")
 
     await user_repo.delete(user_id)
@@ -306,7 +306,7 @@ async def update_user_status(
         raise NotFoundException(resource="使用者", resource_id=user_id)
 
     # 防止停用超級管理員
-    if user.is_superuser and not status_data.is_active:
+    if is_superuser_user(user) and not status_data.is_active:
         raise ForbiddenException(message="無法停用超級管理員")
 
     user.is_active = status_data.is_active

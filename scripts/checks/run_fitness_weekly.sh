@@ -221,6 +221,16 @@ run_step "41" "價值層零流量判定（到期提醒）"  "scripts/checks/capa
 # 有正確範例卻沒有擴散，那就是 drift 不是刻意分歧。
 run_step "42" "服務埠暴露（資料層不得對 LAN 開放）" "scripts/checks/service_port_exposure_audit.py"
 
+# Step 43：管理員判定 SSOT（2026-08-10）。
+#
+# 起因是一位員工「明明是管理員卻用不了」：role='admin' 但 is_admin=false，
+# 而系統裡的判定散在四處、規則不同 —— 前端選單併看 role（看得到），
+# backup / reminders / calendar 的 13 個端點只看 flag（點進去 403）。
+# **看得到而用不了**是最難自行診斷的一種：使用者會以為是自己操作錯。
+#
+# 判定只該有一份。這支擋的是第五份出現。
+run_step "43" "管理員判定 SSOT（不得有第二份規則）" "scripts/checks/admin_check_ssot_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================

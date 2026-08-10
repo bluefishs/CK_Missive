@@ -21,6 +21,7 @@ from .common import (
     logger
 )
 from app.services.calendar.google_sync_scheduler import GoogleSyncSchedulerController
+from app.core.dependencies import is_admin_user
 
 router = APIRouter()
 
@@ -38,7 +39,7 @@ async def start_sync_scheduler(
     current_user: User = Depends(get_current_user)
 ):
     """啟動 Google Calendar 自動同步排程器（需管理員權限）"""
-    if not current_user.is_admin:
+    if not is_admin_user(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="只有管理員可以控制排程器"
@@ -51,7 +52,7 @@ async def stop_sync_scheduler(
     current_user: User = Depends(get_current_user)
 ):
     """停止 Google Calendar 自動同步排程器（需管理員權限）"""
-    if not current_user.is_admin:
+    if not is_admin_user(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="只有管理員可以控制排程器"
@@ -73,7 +74,7 @@ async def set_sync_interval(
     current_user: User = Depends(get_current_user)
 ):
     """設定自動同步間隔（需管理員權限）"""
-    if not current_user.is_admin:
+    if not is_admin_user(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="只有管理員可以修改同步設定"
