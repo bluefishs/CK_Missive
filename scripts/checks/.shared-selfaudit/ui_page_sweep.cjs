@@ -58,8 +58,28 @@ const ERROR_TEXTS = SWEEP.error_texts || [];
 // 已知環境限制：**不是程式缺陷**，但也不能整頁豁免（否則該頁真的壞掉會被蓋掉）。
 // 作法：只有當該頁的問題**完全符合**登記的訊號時才降級為「已知限制」；
 // 出現任何其他問題仍照常 FAIL。
-const KNOWN_LIMITATIONS = (SWEEP.known_limitations || [])
-  .map((k) => ({ ...k, match: new RegExp(k.match) }));
+// 2026-08-10：格式錯誤要**出聲**，不能靜默忽略。
+//
+// 降級比對的條件是 `k.route === route`，所以寫成純字串的項目 `k.route` 是 undefined，
+// 永遠不會命中 —— 它看起來像設定、實際完全不生效。實測 CK_PileMgmt 的兩項就是這樣：
+// 寫在 config 裡兩個月，而對應的頁面照樣每次都紅，沒有人知道為什麼。
+//
+// 同時擋另一個方向：`new RegExp(undefined)` 會得到 /(?:)/，那是 **match-all**。
+// 若哪天比對條件放寬到不看 route，一個缺 match 的項目就會把整份走查靜靜關掉。
+const KNOWN_LIMITATIONS = (SWEEP.known_limitations || []).map((k, i) => {
+  const ok = k && typeof k === 'object' && typeof k.route === 'string'
+    && typeof k.match === 'string' && typeof k.reason === 'string';
+  if (!ok) {
+    console.error(
+      `✗ selfaudit.config.json 的 page_sweep.known_limitations[${i}] 格式錯誤。\n`
+      + '  必須是 { "route": "/path", "match": "正則", "reason": "為什麼可以接受" }。\n'
+      + `  實際收到：${JSON.stringify(k)}\n`
+      + '  這種項目**完全不會生效**（比對要 route 相等），而看起來像已經處理過了。'
+    );
+    process.exit(2);
+  }
+  return { ...k, match: new RegExp(k.match) };
+});
 // 雜訊清單收斂到 _bootstrap（原本兩支引擎各一份、且已漂移，見該處說明）
 const { isNoise } = boot;
 
@@ -272,7 +292,11 @@ async function main() {
       const rateLimited = errors.filter((e) => RATE_LIMITED_RE.test(e));
       const realErrors = errors.filter((e) => !RATE_LIMITED_RE.test(e));
       if (rateLimited.length) throttled.push(route);
-      if (realErrors.length) problems.push(`console error：${realErrors[0].slice(0, 90)}`);
+      // 2026-08-10：90 → 200。原本的長度會把 URL 從中間切掉
+      // （實例：`.../SceneServer/layers/0/lay` —— 看得出有問題，卻不知道是哪個端點，
+      // 要查還得自己回去重跑一次走查）。訊息整齊但無法據以行動，等於沒報。
+      // 這與 L83 是同一件事：產出端截掉的資訊，消費端就永遠拿不到。
+      if (realErrors.length) problems.push(`console error：${realErrors[0].slice(0, 200)}`);
     } catch (e) {
       problems.push(`例外：${String(e).slice(0, 90)}`);
     }

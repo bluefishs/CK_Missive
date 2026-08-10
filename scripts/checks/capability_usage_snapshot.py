@@ -46,7 +46,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 try:
@@ -307,6 +307,20 @@ def main() -> int:
     if not quiet:
         print(f"\n  已寫入 {OUT_PATH.relative_to(ROOT.parent)}")
 
+    # 2026-08-10：退出碼語意修正 —— 原本「尚不可判定」與「Prometheus 掛了」
+    # **一律回 2（RED）**，於是這支永遠接不進任何 runner：接了就會週週紅到 8/31，
+    # 而每週紅一次的告警幾週後就沒人看（L31 家族）。所以它一直沒有執行者，
+    # 而沒有執行者就代表 **8/31 那天不會有任何人想起要下判定**。
+    #
+    # 三態拆開：
+    #   外部依賴壞（Prometheus 不可達／標籤不符／0 樣本）→ 2 RED（上方已 return，不變）
+    #   資料還在累積、且未到判定時點                   → 0 GREEN（正常等待，不是故障）
+    #   已到判定時點（無論資料夠不夠）                 → 1 YELLOW（提請決策）
+    #
+    # 關鍵在最後一條：**到期本身就是要有人看的事件**。沒有它，這份快照會一直
+    # 安靜地產出 JSON 而沒有任何人被叫醒 —— 那正是本專案反覆記的「訊號存在但沒有接收者」。
+    due = date.today().isoformat() >= DECISION_DATE
+
     if not sufficient:
         if not quiet:
             # 兩道門檻的原因必須分開講 —— 混成一句「資料不足」會讓人以為只要再等
@@ -321,11 +335,18 @@ def main() -> int:
                 print(f"     （在此之前清單會混入改版前的實例路徑，不可採信；"
                       f"預計 {datetime.fromordinal(ready).date()} 起乾淨）")
             print(f"   判定時點：{DECISION_DATE}")
-        return 2
+            if due:
+                print(f"\n🟡 但**判定時點 {DECISION_DATE} 已到**，資料卻仍不足 ——")
+                print("   該等的已經等完了。請人工決定：放寬門檻、換量測方式，或延後並寫明新日期。")
+        return 1 if due else 0
 
     if not quiet:
         print("\n✅ 資料足夠，可進入判定（仍須人工核實季節性功能）")
-    return 0
+        if due:
+            print(f"\n🟡 判定時點 {DECISION_DATE} 已到且資料足夠 —— **這是提請決策，不是故障**。")
+            print(f"   請逐一核實 {len(candidates)} 個零流量 API 候選後下結論，")
+            print(f"   並把 DECISION_DATE 改為下一個檢視點（否則此提醒會每週重複）。")
+    return 1 if due else 0
 
 
 if __name__ == "__main__":

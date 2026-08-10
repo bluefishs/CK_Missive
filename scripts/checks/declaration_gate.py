@@ -63,7 +63,16 @@ def main() -> int:
 
     code, msgs = check_declarations(
         repo_root=ROOT,
-        index_files=["CLAUDE.md", ".claude/rules/skills-inventory.md"],
+        # 2026-08-10：主索引改為 scripts/checks/README.md。
+        # 原本要求寫進 skills-inventory.md —— 那份是「Skills/Commands/Agents 清單」，
+        # 塞 164 支檢核腳本進去會把它變成一份沒有人讀得完的東西，
+        # 而讀不完的索引與沒有索引是同一件事。
+        # README 按「誰在跑它」分組，回答的正是這份閘門想守住的問題。
+        index_files=[
+            "scripts/checks/README.md",
+            "CLAUDE.md",
+            ".claude/rules/skills-inventory.md",
+        ],
         scopes=[("scripts/checks", "*.py"), ("scripts/checks", "*.sh")],
         peripheral=PERIPHERAL,
         grandfathered=baseline,
@@ -83,8 +92,12 @@ def main() -> int:
     print()
     print(f"Status: [{'RED' if code >= 2 else 'GREEN'}]")
     if code == 0:
-        print("  註：GREEN 只代表「沒有新增未表態」。存量仍是債，")
-        print(f"  清一支就從 {BASELINE.name} 移除一行。")
+        if baseline:
+            print("  註：GREEN 只代表「沒有新增未表態」。存量仍是債，")
+            print(f"  清一支就從 {BASELINE.name} 移除一行。")
+        else:
+            print("  註：存量已於 2026-08-10 全數清空 —— 現在 GREEN 就是真的全部表態。")
+            print("  新增腳本請寫進 scripts/checks/README.md 對應的「誰在跑它」分組。")
     return code
 
 

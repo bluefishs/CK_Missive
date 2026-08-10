@@ -198,6 +198,29 @@ run_step "39" "規範宣告 vs 執行者"          "scripts/checks/spec_executor
 #（本 repo 寫的是 `> **狀態**: accepted`）。已補「0 份 accepted 不得判綠」守衛。
 run_step "40" "ADR 接通完整度自評"          "scripts/checks/adr_level_audit.py"
 
+# Step 41：價值層（第 6 階）**到期提醒** —— 2026-08-10 接線。
+#
+# 快照本身早有執行者（Windows 排程 CK_Missive-SelfAudit-CapabilityUsage 04:50，
+# 經 run_capability_snapshot.sh），每天都在產出 JSON。缺的不是「有沒有跑」，
+# 而是**判定時點到了會不會有人被叫醒** —— DECISION_DATE 只寫在 JSON 裡，
+# 沒有任何機制在比對今天是否已經過了那一天。
+#
+# 同時修掉底層的退出碼混用：原本「資料還在累積」與「Prometheus 掛了」都回 2，
+# 於是包裝腳本只好一律吞成 0 —— 代價是**觀測棧真的掛了也沒人知道**。
+# 現改為三態（未到期 0／到期 1／依賴壞 2），才有辦法接進 runner。
+run_step "41" "價值層零流量判定（到期提醒）"  "scripts/checks/capability_usage_snapshot.py"
+
+# Step 42：服務埠暴露（2026-08-10）。
+#
+# 既有的 public_exposure_audit 問的是「五個公開網域的 HTTP 開了什麼」——
+# 問得很好，但資料庫埠**不在那個座標系裡**，所以它再怎麼跑都不會發現
+# postgres 綁在 0.0.0.0、LAN 上任一裝置都能連。這是我自己在
+# BLIND_SPOT_STRATEGY 寫的 A 型盲區（座標系外）的實例。
+#
+# 首跑即發現 5 個專案 12 個埠對 LAN 開放，而 lvrland 早就綁 127.0.0.1 ——
+# 有正確範例卻沒有擴散，那就是 drift 不是刻意分歧。
+run_step "42" "服務埠暴露（資料層不得對 LAN 開放）" "scripts/checks/service_port_exposure_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================
