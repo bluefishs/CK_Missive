@@ -48,9 +48,17 @@ export function filterAssignableUsers<T extends AssignableUserLike>(
 ): T[] {
   if (!Array.isArray(users)) return [];
   const keep = new Set(opts?.keep ?? []);
-  return users.filter(
-    (u) => keep.has(u.id) || u.canonical_user_id == null,
-  );
+  return users.filter((u) => {
+    if (keep.has(u.id)) return true;
+    // 停用帳號不可被指派 —— 離職同仁、以及系統種子帳號 `superuser`
+    // （admin@example.com，2025-12-28 起即停用）都屬此類。
+    //
+    // 2026-08-10 owner 回報「不該出現 superuser」。刻意**不特判帳號名稱**：
+    // 「這個帳號還在不在職」本來就由 is_active 表達，另立一份系統帳號名單
+    // 只會變成第二份需要維護的事實，而且下一個種子帳號還是會漏掉。
+    if (u.is_active === false) return false;
+    return u.canonical_user_id == null;
+  });
 }
 
 /**

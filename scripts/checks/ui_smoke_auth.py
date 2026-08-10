@@ -64,11 +64,31 @@ async def main() -> None:
     from app.extended.models import User
 
     async with AsyncSessionLocal() as db:
+        # 2026-08-10：必須是**可用**的帳號。
+        #
+        # 原本只看 is_admin，於是挑中 id=1 的系統種子帳號 `superuser`
+        # （admin@example.com）。該帳號一停用，後端的
+        # `get_current_user_from_token` 就查不到人（它的 WHERE 帶 is_active=true），
+        # **整套走查的認證全滅** —— 實測 PASS 1 / SKIP 16。
+        #
+        # 值得記的是：引擎報的是 INCOMPLETE（未驗完）而不是 PASS，
+        # 這是對的 —— 認證掛掉時假裝通過，比報錯更糟。
+        #
+        # 一併排除分身帳號：拿分身去跑走查，看到的資料範圍會與本尊不同。
         admin = (await db.execute(
-            select(User).where(User.is_admin.is_(True)).order_by(User.id)
+            select(User)
+            .where(
+                User.is_admin.is_(True),
+                User.is_active.is_(True),
+                User.canonical_user_id.is_(None),
+            )
+            .order_by(User.id)
         )).scalars().first()
         if not admin:
-            raise SystemExit("ERROR: DB 內沒有 admin 使用者")
+            raise SystemExit(
+                "ERROR: DB 內沒有**可用**的 admin 使用者"
+                "（需 is_admin 且 is_active 且非分身帳號）"
+            )
 
         # 2026-08-07：每跑一次走查就留下一列，且沒有任何人清 —— 實測自 07-31 起
         # 累積 222 列**全部已過期卻仍標為 is_active**。數量本身無害，但它污染了

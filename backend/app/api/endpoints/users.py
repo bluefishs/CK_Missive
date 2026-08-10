@@ -41,6 +41,23 @@ def get_password_hash(password: str) -> str:
     return AuthService.get_password_hash(password)
 
 
+async def _has_other_active_superuser(user_repo, exclude_id: int) -> bool:
+    """除了 exclude_id 之外，是否還有其他**可用**的超級管理員。
+
+    「可用」＝ is_active 且是超管（旗標或 role 任一，與 is_superuser_user 同判準）。
+    停用中的超管不算 —— 若把它算進來，就會出現「系統裡只剩一個停用的超管，
+    卻允許把唯一能用的那個也停掉」的情況。
+    """
+    from sqlalchemy import select, or_, func
+    from app.extended.models import User as UserModel
+    stmt = select(func.count()).select_from(UserModel).where(
+        UserModel.id != exclude_id,
+        UserModel.is_active.is_(True),
+        or_(UserModel.is_superuser.is_(True), UserModel.role == "superuser"),
+    )
+    return bool((await user_repo.db.execute(stmt)).scalar() or 0)
+
+
 def get_user_repository(db: AsyncSession = Depends(get_async_db)) -> UserRepository:
     """
     取得 UserRepository 實例（工廠模式）
@@ -277,9 +294,21 @@ async def delete_user(
     if not user:
         raise NotFoundException(resource="使用者", resource_id=user_id)
 
-    # 防止刪除超級管理員
+    # 超級管理員保護（2026-08-10 修正語意）
+    #
+    # 原本是**絕對禁止**：只要對象是超管就擋，不管操作者是誰、也不管系統裡
+    # 還有沒有其他超管。於是 owner（本身也是超管）無法維護那個 2025-12-28
+    # 就停用的種子帳號 admin@example.com —— 一個永遠刪不掉的帳號。
+    #
+    # 這道守衛的用意是「不要把所有人鎖在門外」，不是「超管永生」。
+    # 改為：只擋「刪掉最後一個可用的超管」與「刪掉自己」。
     if is_superuser_user(user):
-        raise ForbiddenException(message="無法刪除超級管理員")
+        if user.id == current_user.id:
+            raise ForbiddenException(message="不可刪除自己的帳號")
+        if not await _has_other_active_superuser(user_repo, exclude_id=user.id):
+            raise ForbiddenException(
+                message="這是系統中最後一個可用的超級管理員，刪除後將無人能管理系統"
+            )
 
     await user_repo.delete(user_id)
 
@@ -307,9 +336,14 @@ async def update_user_status(
     if not user:
         raise NotFoundException(resource="使用者", resource_id=user_id)
 
-    # 防止停用超級管理員
+    # 超級管理員保護 —— 同刪除，只擋「最後一個」與「自己」（見上方說明）
     if is_superuser_user(user) and not status_data.is_active:
-        raise ForbiddenException(message="無法停用超級管理員")
+        if user.id == current_user.id:
+            raise ForbiddenException(message="不可停用自己的帳號")
+        if not await _has_other_active_superuser(user_repo, exclude_id=user.id):
+            raise ForbiddenException(
+                message="這是系統中最後一個可用的超級管理員，停用後將無人能管理系統"
+            )
 
     user.is_active = status_data.is_active
     user.updated_at = datetime.now()
