@@ -10,7 +10,7 @@ confidence: high
 # ADR 索引
 
 **統計來源**: docs/adr/ 全 23 篇 frontmatter 解析
-**編譯時間**: 2026-08-03 09:57
+**編譯時間**: 2026-08-10 05:00
 
 ## Active (19)
 
