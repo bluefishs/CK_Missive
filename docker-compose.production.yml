@@ -38,7 +38,14 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
       TZ: Asia/Taipei
     ports:
-      - "5434:5432"
+      # 2026-08-10：綁 127.0.0.1，不對區域網路開放（原為 0.0.0.0）。
+      # 實測那天：以佈署預設密碼從 LAN 位址登入 postgres 成功、讀出業務資料；
+      # redis 更是完全無密碼，可讀寫 session／csrf／token 快取。
+      # 不在公網（Tunnel 只代理 HTTP）不等於安全 —— LAN 上任一台受感染的
+      # 裝置都在射程內。lvrland 早就綁 127.0.0.1，這是漂移不是取捨。
+      # backend / celery 走 docker 網路名稱連這兩個服務，不經主機埠；
+      # host 端檢核腳本連 localhost 亦不受影響。
+      - "127.0.0.1:5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./configs/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -99,7 +106,14 @@ services:
     environment:
       TZ: Asia/Taipei
     ports:
-      - "6380:6379"
+      # 2026-08-10：綁 127.0.0.1，不對區域網路開放（原為 0.0.0.0）。
+      # 實測那天：以佈署預設密碼從 LAN 位址登入 postgres 成功、讀出業務資料；
+      # redis 更是完全無密碼，可讀寫 session／csrf／token 快取。
+      # 不在公網（Tunnel 只代理 HTTP）不等於安全 —— LAN 上任一台受感染的
+      # 裝置都在射程內。lvrland 早就綁 127.0.0.1，這是漂移不是取捨。
+      # backend / celery 走 docker 網路名稱連這兩個服務，不經主機埠；
+      # host 端檢核腳本連 localhost 亦不受影響。
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
     networks:
