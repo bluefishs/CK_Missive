@@ -231,6 +231,17 @@ run_step "42" "服務埠暴露（資料層不得對 LAN 開放）" "scripts/chec
 # 判定只該有一份。這支擋的是第五份出現。
 run_step "43" "管理員判定 SSOT（不得有第二份規則）" "scripts/checks/admin_check_ssot_audit.py"
 
+# Step 44：PM2 程序存活（2026-08-10）。
+#
+# portfolio 有三個排程層，這是最後一個補上哨兵的：
+#   Windows 排程 → step 28｜容器內 APScheduler → producer watchdog｜PM2 → 本步
+# 原本 PM2 只有 CK_Website 的 check-cron-coverage 在看，而那支問的是
+# 「設定檔宣告的 cron 有沒有註冊」—— **註冊不等於在跑**，本專案已為這句話付過三次學費。
+#
+# 判讀 PM2 有兩個坑，判準都驗過：cron 型的 `stopped` 是兩次 fire 之間的正常狀態
+# （誤判會一次產出 9 個假紅），而 online 型的 `exit_code` 是上一次退出的殘值。
+run_step "44" "PM2 程序存活（註冊了不等於在跑）" "scripts/checks/pm2_process_liveness_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================
