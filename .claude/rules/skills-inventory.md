@@ -355,3 +355,18 @@
 | `backend/app/api/endpoints/ai/agent_capability.py` | 🆕 Agent 能力自覺 + 聯邦端點（renamed from agent_nemoclaw） |
 | `backend/app/services/ai/domain/morning_report_formatter.py` | 🆕 晨報格式化（純函數，拆分自 service） |
 | `@AGENT.md` | 開發代理指引 |
+
+## 自我檢核腳本索引（2026-08-09 起由 `declaration_gate.py` 強制表態）
+
+> 存量 111 支走 `scripts/checks/.declaration_baseline.txt` **逐步清**：
+> 每把一支寫進本表就從基線移除一行。閘門每次執行都印剩餘數量 ——
+> 數字不動就代表沒有人在清。**新增的腳本不在基線裡，會被真的擋下來。**
+
+| 腳本 | 做什麼 | 誰跑它 |
+|---|---|---|
+| `scripts/checks/adr_level_audit.py` | ADR 接通完整度自評（MODULARIZATION_STANDARDS §4.3）；2026-05-25 前建立者列為存量不判紅 | weekly 40 |
+| `scripts/checks/spec_executor_audit.py` | 規範宣告的腳本，有沒有人在做（含「檔案根本不存在」偵測） | weekly 39 |
+| `scripts/checks/cross_repo_work_continuity_audit.py` | 跨 repo／跨 session 工作連續性：未推送（含 push --dry-run 判被擋）、逾期未提交、孤兒腳本 | weekly 34 |
+| `scripts/checks/selfaudit_entry_delegation_audit.py` | 走查入口必須委派共用實作，防 copy 式復發 | weekly 33 |
+| `scripts/checks/declaration_gate.py` | 腳本強制表態閘門（存量走 .declaration_baseline.txt 逐步清） | 本表守門人 |
+| `scripts/checks/sso_coverage_check.py` | ADR-0033 配套：未綁 SSO 者現在就已鎖死（密碼登入回 410） | weekly 35 |

@@ -78,6 +78,12 @@ run_step() {
 }
 
 # Step 1/6: container env alignment (step 57)
+# 2026-08-09：腳本強制表態閘門放第一步。
+# 它每天印「存量待清 N」—— 這個數字不動就代表沒有人在清，
+# 比一個永遠綠的閘門誠實。新增腳本不在基線裡，會被真的擋下來。
+run_step "0" "腳本強制表態閘門" \
+    "scripts/checks/declaration_gate.py"
+
 run_step "1" "container env alignment audit" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/container_env_alignment_audit.py"
 
