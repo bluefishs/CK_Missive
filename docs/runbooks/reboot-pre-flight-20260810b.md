@@ -128,3 +128,43 @@ docker restart ck_missive_backend
 - **Redis 設密碼** —— 改綁定後已不對外，屬縱深防禦
 - **DB 密碼輪換** —— 需同步更新所有消費端，工程量最大；暴露面已關閉故可緩
 - **洪慶忠的 `role='admin'`** —— owner 已確認是預期值，程式行為已對齊，無待辦
+
+---
+
+## 七、收尾覆盤複驗（2026-08-10 17:40，零 app 變更）
+
+上面那些是「做完當下」量的；這一節是**幾小時後回頭再量一次**的結果，因為
+「改完是好的」與「它現在還是好的」不是同一件事。
+
+| 面向 | 複驗結果 |
+|---|---|
+| 五系統公網 | 首頁 + `/api/health` 兩層皆 200 |
+| 容器 | 56 支、0 非健康、0 exited |
+| 業務量 | documents **1995**、KG **49649**、承攬案件 88、在職帳號 10（總 16） |
+| daily fitness | **12/12 all passed** |
+| producer watchdog | **31 GREEN、0 blind spot**（另 1 項「月度架構覆盤」未驗完＝無近期事件） |
+| 走查（5 repo） | **全部 0 fail**：Missive 17+87／lvrland 2+61／pile 2+36／DT 2+27／CK_Website 2+8 |
+| Windows 排程 | **23 支全 GREEN**（含把「內容 FAIL」與「任務沒跑」分開判） |
+| 共用模組 drift | GREEN（5 repo `.shared-*` 全同步） |
+| 跨 repo 連續性 | GREEN（五 repo 皆與 origin 同步、無停在半途的工作） |
+| 靜態檢查 | tsc EXIT=0、`app/**` py_compile 0 fail |
+| 資料層埠 | GREEN（14 個敏感埠僅本機可連） |
+| 異地備份 | NAS 30 份、509MB、今日 03:00 由排程寫入 |
+
+### 本次複驗新發現（皆非阻斷）
+
+1. **`backups/manual/` 從來沒有 gitignore 規則** —— 已補（見 `.gitignore`）。
+   ⚠️ 08-05／08-07 兩份業務資料 CSV **已在版控中**，本輪未動：`git rm --cached`
+   只讓它從未來的 clone 消失、歷史仍在，真要清除得改寫歷史 → 屬 owner 決定。
+2. **`paths.py` docstring 非 raw string**，每次 import 噴 SyntaxWarning → 已改 `r"""`。
+   無害，但它會混在真正的錯誤訊息裡。
+3. **PM2 `tmp-docker-probe` 是殭屍條目** —— script 在 Claude session 的 scratchpad 底下，
+   已被 `pm2 save` 寫進開機自啟清單，**重開機後會起不來**。
+   清理需 `pm2 delete tmp-docker-probe && pm2 save`，會動到所有 repo 共用的開機清單 → 待 owner。
+   ⚠️ 同時釐清：PM2 16 支裡 **9 支是 cron 型，`stopped` 是兩次 fire 之間的正常狀態**，
+   不要看到一排 stopped 就判成故障。
+
+### 重啟後仍照原步驟
+
+第三、四節不變。額外看一眼 `pm2 list` 是否出現 `tmp-docker-probe` errored——
+若已依上面清掉就不會有。

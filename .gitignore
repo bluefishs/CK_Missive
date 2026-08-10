@@ -54,6 +54,13 @@ backups/*.dump
 backups/redis/
 !backups/database/.gitkeep
 
+# 刪除/清理前的業務資料備份 CSV。
+# 2026-08-10 覆盤發現：這個目錄從來沒有規則涵蓋，於是 08-05／08-07 兩份
+# 業務資料 CSV 已經進了版控，而 08-10 刪除重複承攬案件時匯出的兩份正等著被 commit。
+# 這類檔案的用途是「刪錯了可以還原」，只需要留在本機；進版控等於把業務資料
+# （案名／得標金額／委託單位）永久寫進 git 歷史，之後想拿掉就得改寫歷史。
+backups/manual/
+
 # Docker volume mount 副本 (wiki/ is SSOT, backend/wiki/ is docker mount mirror)
 backend/wiki/
 

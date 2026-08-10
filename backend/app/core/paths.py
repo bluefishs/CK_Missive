@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""集中專案路徑常數 — v6.10 P1-E SSOT（2026-05-18 律定）
+# 注意：本檔 docstring 內含正則片段 `parents\[`，必須用 raw string，
+# 否則 Python 每次 import 都會噴 SyntaxWarning: invalid escape sequence
+# —— 那類警告本身無害，但它會混在真正的錯誤訊息裡，久了就沒人看。
+r"""集中專案路徑常數 — v6.10 P1-E SSOT（2026-05-18 律定）
 
 起因：5/18 揭發 backup_scheduler path bug（Wave 8 遷子包後 Path.parents[N]
 未同步），導致 5/13-5/16 backup 寫到錯位置 + audit/log 跨層遷移風險。
