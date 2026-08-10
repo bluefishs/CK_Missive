@@ -236,5 +236,32 @@ Write-SyncStatus -Result "success" -Message $(
     if ($attachArchived -gt 0) { "附件 $attachFailed 檔為長檔名，已打包 $attachArchived 個目錄" } else { "" }
 )
 
+# ---------------------------------------------------------------------------
+# 6. 金鑰與憑證異地備份（2026-08-10）
+#
+#   刻意在同一支腳本裡串接、而不是在 Windows 排程加第二個 Action：
+#   多 Action 的 LastTaskResult 只反映**最後一個**的退出碼 ——
+#   前面失敗會被後面的成功蓋掉，而 windows_task_liveness_audit 讀的正是那個欄位。
+#   一條鏈、一個退出碼，才不會有「一半成功也叫成功」。
+# ---------------------------------------------------------------------------
+$secretsScript = Join-Path (Split-Path $PSCommandPath -Parent) "secrets-offsite-nas.ps1"
+$secretsCode = 0
+if (Test-Path $secretsScript) {
+    Log "--- 轉呼叫金鑰異地備份 ---"
+    $sArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $secretsScript)
+    if ($DryRun) { $sArgs += "-DryRun" }
+    & powershell @sArgs | ForEach-Object { if ($_ -match '\S') { Log "  $_" } }
+    $secretsCode = $LASTEXITCODE
+    Log "金鑰異地備份 exit=$secretsCode"
+} else {
+    Log "ERROR 金鑰備份腳本不存在: $secretsScript"
+    $secretsCode = 2
+}
+
+if ($secretsCode -ne 0) {
+    Log "=== 異地同步完成（金鑰備份失敗 exit=$secretsCode）==="
+    exit 1
+}
+
 Log "=== 異地同步完成 ==="
 exit 0

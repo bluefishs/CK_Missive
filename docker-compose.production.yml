@@ -26,6 +26,14 @@ services:
     image: pgvector/pgvector:0.8.0-pg15
     container_name: ck_missive_postgres
     restart: always
+    # 2026-08-10 還原測試發現：Docker 預設 /dev/shm 只有 64MB，
+    # 而 49,648 筆向量的 pgvector HNSW 索引建立需要 131MB →
+    #   could not resize shared memory segment ... No space left on device
+    # 後果不是還原失敗，而是**還原「成功」但少一個索引**：
+    # 資料全在、psql 退出碼 0、系統看起來正常，
+    # 只有語意搜尋會退化成 49,648 筆全表掃描，而沒有任何訊息會告訴你。
+    # 平時不影響（索引早就建好了），只在災難還原時咬人 —— 所以更該先設好。
+    shm_size: 1gb
     logging:
       driver: "json-file"
       options:

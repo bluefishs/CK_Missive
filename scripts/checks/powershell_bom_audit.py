@@ -76,9 +76,11 @@ def main() -> int:
         print("  PowerShell: [System.IO.File]::WriteAllText($path, $content,")
         print("              (New-Object System.Text.UTF8Encoding($true)))")
         print("  VSCode:    右下角 encoding → 'UTF-8 with BOM' → Save with Encoding")
-        if args.strict:
-            return 1
-        return 0
+        # 2026-08-10：原本非 --strict 時印 RED 卻 return 0 —— 呼叫端拿到的是綠燈。
+        # 這與 08-07 在 doc_baseline_claim_audit 抓到的是同一家族（L83：
+        # 「產出端說的話，與消費端實際收到的，是兩件事」），當時已立法依原生三態，
+        # 這支漏改。RED 一律 exit 1，不再由旗標決定嚴重度。
+        return 1
 
     print("\n🟢 GREEN — 所有含中文 .ps1 都有 UTF-8 BOM")
     return 0

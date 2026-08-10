@@ -242,6 +242,19 @@ run_step "43" "管理員判定 SSOT（不得有第二份規則）" "scripts/chec
 # （誤判會一次產出 9 個假紅），而 online 型的 `exit_code` 是上一次退出的殘值。
 run_step "44" "PM2 程序存活（註冊了不等於在跑）" "scripts/checks/pm2_process_liveness_audit.py"
 
+# Step 45：異地備份完整性（2026-08-10）。
+#
+# owner 問「確認 NAS 有完整備份」，查下去答案是沒有：附件一份都沒有、
+# 金鑰一份都沒有，而本機那份附件備份自 05-18 就停了 84 天。
+# 三個缺口沒有一個會報錯 —— remote_backup.json 寫著 success、排程 LastTaskResult=0、
+# NAS 檔案一天比一天多，全都是綠的。因為沒有人在問
+# 「備份的東西夠不夠還原出一套能跑的系統」。
+#
+# 放 weekly 而非 daily：這支要讀 NAS 的 UNC 路徑，而 daily 跑在容器內看不到。
+# 兩層分工 —— 當天的失敗由排程 LastTaskResult 接（weekly 28 在看），
+# 本步接的是慢性腐爛（dump 截斷、附件涵蓋率漂移、金鑰過期）。
+run_step "45" "異地備份完整性（四類缺一不可）" "scripts/checks/offsite_backup_completeness_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================

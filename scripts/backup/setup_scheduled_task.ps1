@@ -1,4 +1,4 @@
-# Windows Task Scheduler Setup for CK_Missive Daily Backup
+﻿# Windows Task Scheduler Setup for CK_Missive Daily Backup
 # Run as Administrator: powershell -ExecutionPolicy Bypass -File setup_scheduled_task.ps1
 
 param(
