@@ -12,6 +12,8 @@ import type { User, Vendor } from '../../types/api';
 import type { PaginatedResponse } from '../../api/types';
 import type { ProjectAgencyContact } from '../../api/projectAgencyContacts';
 
+import { filterAssignableUsers, userDisplayName } from '../../utils/assignableUsers';
+
 import type {
   ProjectData,
   RelatedDocument,
@@ -165,10 +167,11 @@ export function useContractCaseData(projectId: number | undefined) {
     queryKey: ['contract-case-user-options'],
     queryFn: async () => {
       const response = await usersApi.getUsers({ limit: 100 }) as PaginatedResponse<User>;
-      const users = response.items || [];
+      // 排除已合併的分身帳號（ADR-0025）—— 見 utils/assignableUsers
+      const users = filterAssignableUsers(response.items || []);
       return users.map((u) => ({
         id: u.id,
-        name: u.full_name || u.username,
+        name: userDisplayName(u),
         email: u.email,
       }));
     },

@@ -77,16 +77,30 @@ export const PMCaseDetailPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
+  // 表單只在「進入編輯模式」時灌入一次。
+  //
+  // 2026-08-10：原本的相依是 [pmCase, isEditing, form, clients] —— `clients` 是另一支
+  // useQuery 的結果，refetch（視窗重新聚焦、快取過期、invalidate）就會回傳**新的陣列參考**，
+  // 於是這個 effect 重跑、`setFieldsValue` 把使用者**正在編輯的整份表單重設回資料庫的值**。
+  //
+  // 症狀是「改了沒反應」：owner 把承攬狀態選成「已承攬」後按儲存，畫面顯示「儲存成功」
+  // 但值沒變。後端 log 證實請求有送出且含 status —— 送的就是被重設回去的舊值。
+  // 這不限於承攬狀態，**這一頁的每個欄位都可能被靜靜還原**，而且完全不報錯。
+  //
+  // 讀取模式渲染的是 Descriptions 不是 Form，所以「進入編輯時灌一次」已足夠；
+  // 換一筆案件（id 變）也要重灌，故保留 pmCase?.id。
   useEffect(() => {
-    if (pmCase) {
-      form.setFieldsValue({
-        ...pmCase,
-        contract_amount: pmCase.contract_amount ? Number(pmCase.contract_amount) : null,
-        start_date: pmCase.start_date ? dayjs(pmCase.start_date) : null,
-        end_date: pmCase.end_date ? dayjs(pmCase.end_date) : null,
-      });
-    }
-  }, [pmCase, isEditing, form, clients]);
+    if (!pmCase || !isEditing) return;
+    form.setFieldsValue({
+      ...pmCase,
+      contract_amount: pmCase.contract_amount ? Number(pmCase.contract_amount) : null,
+      start_date: pmCase.start_date ? dayjs(pmCase.start_date) : null,
+      end_date: pmCase.end_date ? dayjs(pmCase.end_date) : null,
+    });
+    // 刻意不把 pmCase 物件本身放進相依 —— 放了就會在背景 refetch 時
+    // 重設使用者正在編輯的內容，那正是本次要修的缺陷。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, pmCase?.id]);
 
   const handleSave = async () => {
     if (!pmCase) return;
@@ -282,9 +296,17 @@ export const PMCaseDetailPage: React.FC = () => {
         <Descriptions.Item label="報價金額">{pmCase.contract_amount ? `NT$${pmCase.contract_amount.toLocaleString()}` : '-'}</Descriptions.Item>
         <Descriptions.Item label="作業地點" span={2}>{pmCase.location ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="承攬狀態">
-          <Tag color={getTagColor(pmCase.status, STATUS_OPTIONS)}>
-            {STATUS_OPTIONS.find(o => o.value === pmCase.status)?.label ?? '評估中'}
-          </Tag>
+          {/* 2026-08-10：詞彙外的值**不再謊報成「評估中」**。
+              案件 244 的 status 是 `in_progress`（那是里程碑的狀態詞彙，不是案件的），
+              原本的 `?? '評估中'` 讓它顯示為評估中 —— 畫面說的與資料庫存的是兩件事，
+              而使用者看到「評估中」就不會知道這筆資料其實是壞的。 */}
+          {STATUS_OPTIONS.some(o => o.value === pmCase.status) ? (
+            <Tag color={getTagColor(pmCase.status, STATUS_OPTIONS)}>
+              {STATUS_OPTIONS.find(o => o.value === pmCase.status)!.label}
+            </Tag>
+          ) : (
+            <Tag color="error">未知狀態：{pmCase.status ?? '(空)'}</Tag>
+          )}
         </Descriptions.Item>
         <Descriptions.Item label="成案編號">{pmCase.project_code ?? <Typography.Text type="secondary">未成案</Typography.Text>}</Descriptions.Item>
         <Descriptions.Item label="備註" span={2}>{pmCase.notes ?? '-'}</Descriptions.Item>

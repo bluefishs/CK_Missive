@@ -110,7 +110,9 @@ async def get_users(
             last_login=user.last_login,
             created_at=user.created_at,
             department=user.department,
-            position=user.position
+            position=user.position,
+            # 讓消費端分得出分身帳號（ADR-0025）—— 見 schema 註解
+            canonical_user_id=getattr(user, "canonical_user_id", None),
         )
         for user in users
     ]

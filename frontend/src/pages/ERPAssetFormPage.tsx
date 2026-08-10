@@ -19,6 +19,7 @@ import { useUsersDropdown } from '../hooks/business/useDropdownData';
 import { ROUTES } from '../router/types';
 import { ERP_ENDPOINTS } from '../api/endpoints';
 import apiClient from '../api/client';
+import { filterAssignableUsers, userDisplayName } from '../utils/assignableUsers';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -66,9 +67,11 @@ const ERPAssetFormPage: React.FC = () => {
 
   // 保管人下拉選項 (存名字字串，相容現有資料)
   const custodianOptions = useMemo(
-    () => users.map(u => ({
-      value: u.full_name || u.username,
-      label: `${u.full_name || u.username}${u.email ? ` (${u.email})` : ''}`,
+    // 排除已合併的分身帳號（ADR-0025）—— 保管人存的是「名字字串」，
+    // 分身與本尊同名時會產生兩個一模一樣的選項，選哪個都無從分辨
+    () => filterAssignableUsers(users).map(u => ({
+      value: userDisplayName(u),
+      label: `${userDisplayName(u)}${u.email ? ` (${u.email})` : ''}`,
     })),
     [users],
   );

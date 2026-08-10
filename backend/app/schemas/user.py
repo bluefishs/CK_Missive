@@ -79,6 +79,13 @@ class UserResponse(BaseModel):
     department: Optional[str] = None
     position: Optional[str] = None
     email_verified: bool = False
+    # 分身帳號指向的本尊（ADR-0025 身分統一）。None = 本人就是本尊。
+    #
+    # 2026-08-10 補上：沒有這個欄位，消費端就分不出「同一個人的兩個帳號」——
+    # 承辦同仁下拉因此把張雅惠、李昭德各列兩次且**完全同名無法分辨**，
+    # 王駿穠則一個是本名、一個是 `王駿穠(fly)`（owner 回報「同仁變成代碼」）。
+    # RLS 早就會展開分身群組，所以權限一直是對的；問題只在「該挑哪一個」。
+    canonical_user_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 

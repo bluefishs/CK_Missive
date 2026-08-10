@@ -25,6 +25,7 @@ import { usersApi } from '../api/usersApi';
 import type { PaginatedResponse } from '../api/types';
 import type { User } from '../types/api';
 import { STAFF_ROLE_OPTIONS } from '../constants/staffOptions';
+import { filterAssignableUsers, userDisplayName } from '../utils/assignableUsers';
 
 const ContractCaseStaffFormPage: React.FC = () => {
   const { caseId, userId } = useParams<{ caseId: string; userId?: string }>();
@@ -72,9 +73,11 @@ const ContractCaseStaffFormPage: React.FC = () => {
   });
   const userOptions = React.useMemo(() => {
     const taken = new Set(staffList.map((s) => Number(s.user_id)));
-    return allUsers
+    // 排除已合併的分身帳號 —— 否則同一個人會出現兩次，
+    // 其中張雅惠與李昭德兩筆**完全同名**，使用者無從分辨（見 utils/assignableUsers）
+    return filterAssignableUsers(allUsers)
       .filter((u) => !taken.has(u.id))
-      .map((u) => ({ value: u.id, label: u.full_name || u.username || `#${u.id}` }));
+      .map((u) => ({ value: u.id, label: userDisplayName(u) }));
   }, [allUsers, staffList]);
 
   useEffect(() => {

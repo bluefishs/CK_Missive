@@ -17,6 +17,7 @@ import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import { useUsersDropdown } from '../../hooks';
 import { STAFF_ROLE_OPTIONS } from '../contractCase/tabs/constants';
+import { filterAssignableUsers, userDisplayName } from '../../utils/assignableUsers';
 
 interface StaffRecord {
   id: number;
@@ -134,11 +135,13 @@ export default function StaffTab({ caseCode }: StaffTabProps) {
 
   // 使用者下拉選項（排除已加入的人員）
   const existingUserIds = new Set(staff.map(s => s.user_id).filter(Boolean));
-  const userOptions = users
+  // 排除已合併的分身帳號（ADR-0025）—— 否則同一個人列兩次且部分完全同名，
+  // 使用者無從分辨該選哪個；見 utils/assignableUsers
+  const userOptions = filterAssignableUsers(users)
     .filter(u => !existingUserIds.has(u.id))
     .map(u => ({
       value: u.id,
-      label: `${u.full_name || u.username}${u.email ? ` (${u.email})` : ''}`,
+      label: `${userDisplayName(u)}${u.email ? ` (${u.email})` : ''}`,
     }));
 
   return (
