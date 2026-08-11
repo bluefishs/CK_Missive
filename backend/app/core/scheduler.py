@@ -1968,6 +1968,51 @@ def _kunge_quick_actions(tab: str = "memory") -> str:
     )
 
 
+def _parse_red_steps(out: str) -> list[str]:
+    """從 fitness runner 的輸出解析「哪幾步紅」。
+
+    daily 與 weekly 的摘要格式相同（`✗ <步驟名>` 逐行 + 一行 `N step(s) RED` 總計），
+    2026-08-11 從 weekly job 內抽成模組層級共用 —— 複製第二份就是製造會漂的兩份判定。
+
+    解析不到就回空 list，**不猜**：空 list 會讓呼叫端的差異比對自動退回
+    「只報連紅次數」的舊行為，而不是報出錯誤的差異。
+
+    去 ANSI 色碼用逐字元過濾而非 re —— 本模組沒有 import re，為了一行解析
+    多一個 import 不划算（而我最初就是直接用了不存在的 `re` 與 `_strip_ansi`，
+    靠實際查證才發現）。
+    """
+    def _clean(line: str) -> str:
+        out_chars, in_esc = [], False
+        for ch in line:
+            if ch == "\x1b":
+                in_esc = True
+                continue
+            if in_esc:
+                if ch.isalpha():
+                    in_esc = False
+                continue
+            out_chars.append(ch)
+        return "".join(out_chars).strip()
+
+    return sorted({
+        s[1:].strip()
+        for s in (_clean(ln) for ln in (out or "").splitlines())
+        # 只取「✗ 開頭且不是那行總計」的行
+        if s.startswith("✗") and "step(s) RED" not in s and len(s) > 2
+    })
+
+
+def _daily_red_should_notify(red_streak: int, new_steps: list[str]) -> bool:
+    """daily RED 要不要推播。抽成純函式才驗得了鑑別力 —— 否則「不推」和「壞掉」長得一樣。
+
+    · 首日 RED、或出現新的紅步驟 → 推（這是新資訊）
+    · 連續相同 → 不逐日重複，但每 7 天提醒一次，避免無限靜默
+    """
+    if red_streak <= 1 or new_steps:
+        return True
+    return red_streak % 7 == 0
+
+
 @tracked_job("fitness_weekly")
 async def fitness_weekly_job():
     """Tier 2 Weekly 檢核的**接收者**（2026-08-07 起不再自己執行）。
@@ -2052,34 +2097,9 @@ async def fitness_weekly_job():
     # 長期項目），若第 11 週冒出一個**新**的 RED，在只有 rc 的歷史裡
     # 與那些舊的長得一模一樣 —— 正是 L88 說的「永遠是紅的＝訊號失去意義」。
     #
-    # 解析 runner 摘要段的 `✗ <步驟名>` 行（格式見 run_fitness_weekly.sh）。
-    # 解析不到就記空 list，**不猜**：空 list 會讓下面的差異比對自動退回
-    # 「只報連紅週數」的舊行為，而不是報出錯誤的差異。
-    def _clean(line: str) -> str:
-        """去掉 ANSI 色碼與符號，只留步驟名。
-
-        用逐字元過濾而非 re —— 本模組沒有 import re，
-        為了一行解析而多一個 import 不划算（且我一開始就是這樣寫錯的：
-        直接用了不存在的 `re` 與 `_strip_ansi`，靠實際查證才發現）。
-        """
-        out_chars, in_esc = [], False
-        for ch in line:
-            if ch == "\x1b":
-                in_esc = True
-                continue
-            if in_esc:
-                if ch.isalpha():
-                    in_esc = False
-                continue
-            out_chars.append(ch)
-        return "".join(out_chars).strip()
-
-    red_steps = sorted({
-        s[1:].strip()
-        for s in (_clean(ln) for ln in (out or "").splitlines())
-        # 只取「✗ 開頭且不是那行總計」的行
-        if s.startswith("✗") and "step(s) RED" not in s and len(s) > 2
-    })
+    # 解析 runner 摘要段的 `✗ <步驟名>` 行 —— 實作見模組層級的 _parse_red_steps
+    # （daily 與 weekly 的摘要格式相同，故共用一份；2026-08-11 從此處抽出）。
+    red_steps = _parse_red_steps(out)
 
     history[today] = {
         "rc": rc,
@@ -2109,7 +2129,8 @@ async def fitness_weekly_job():
 
     if rc == 0:
         logger.info("Fitness Tier 2 Weekly: all step passed")
-        return {"rc": 0, "status": "PASS", "red_streak": 0, "delivered": 1}
+        return {"rc": 0, "status": "PASS", "red_streak": 0, "delivered": 1,
+                "history_ok": history_ok}
 
     # 偵測連續 2 週 RED → 通知
     consecutive_red = red_streak >= 2
@@ -2168,6 +2189,7 @@ async def fitness_weekly_job():
         "red_steps": red_steps,
         "delivered": 1 if notified else 0,
         "reason": None if notified else "digest_queue_failed",
+        "history_ok": history_ok,
     }
 
 
@@ -2363,22 +2385,103 @@ async def fitness_daily_job():
     # registry 的監看範圍內（檢核者不被檢核）。
     # delivered 的語意＝「跑完且結論有送達」。對 producer 契約而言，
     # RED 本身不是故障（那是檢核在做事），**RED 卻沒人收到才是故障**。
+    # 2026-08-11：daily 補上與 weekly 同構的「連續紅」機制。
+    #
+    # 為什麼要補：08-09～08-11 連續三天 RED，每天推的是**內容一模一樣**的
+    # 30 行 tail（兩支檢核在容器內不可能通過）。每天推同一則等於訓練人略過它，
+    # 而那正是新問題出現時最需要被看見的時刻 —— weekly 早有 red_streak 與
+    # delta 敘述，daily 沒有，於是最高頻的那一層反而最吵。
+    #
+    # 記 history 也讓「連續紅」本身在自動監看裡看得見（先前只有當日 rc）。
+    # 2026-08-11：`import json` 是必要的 —— 本函式的區域 import 原本只有 os/Path，
+    # 而我第一版直接用了 json，於是寫檔在 except 裡變成一行 warning，
+    # **回傳值卻完全正常**（red_streak=1、red_steps 有值），看起來像機制運作中。
+    # 那正是我今天一整天在治的形態，自己又犯一次；靠看完整 stdout 才發現。
+    import json  # noqa: PLC0415
+    red_steps = _parse_red_steps(out)
+    state_file = project_root / "wiki" / "memory" / "fitness_daily_history.json"
+    today = datetime.now().strftime("%Y-%m-%d")
+    history = {}
+    history_ok = True
+    if state_file.exists():
+        try:
+            history = json.loads(state_file.read_text(encoding="utf-8"))
+        except Exception as e:
+            # 讀不到不得靜默：history 一旦讀不到，red_streak 永遠算成 1
+            # → 永遠判「首次 RED」→ 每天都推，機制退化回原狀且沒有人會知道。
+            history_ok = False
+            logger.warning("daily fitness history 讀取失敗（連續紅將無法累計）: %s", e)
+    history[today] = {
+        "rc": rc,
+        "status": "PASS" if rc == 0 else "RED",
+        "ts": datetime.now().isoformat(),
+        "red_steps": red_steps,
+    }
+    # 只保留最近 30 天
+    history = {k: history[k] for k in sorted(history.keys())[-30:]}
+    try:
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        state_file.write_text(
+            json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception as e:
+        history_ok = False
+        logger.warning("daily fitness history save failed: %s", e)
+
+    days = sorted(history.keys())
+    red_streak = 0
+    for d in reversed(days):
+        if history[d].get("status") != "RED":
+            break
+        red_streak += 1
+
     if rc == 0:
         # 2026-08-11：原本寫死「all 6 step passed」，實際是 12 步 —— 又一份會漂的第二份事實
         # （08-05 已把兩支 runner 的表頭改成自我推導，這行漏了）。
         # 步數只由 runner 自己講，這裡不重複宣稱。
         logger.info("Fitness Tier 1 Daily: all step passed")
-        return {"rc": 0, "status": "PASS", "delivered": 1}
+        return {"rc": 0, "status": "PASS", "red_streak": 0, "delivered": 1,
+                "history_ok": history_ok}
 
-    # RED — 進 digest（不直推）
-    logger.warning("Fitness Tier 1 Daily RED rc=%d, queueing digest", rc)
+    # 與前一天比較：有沒有**新**的紅。無法解析步驟名時不編造差異。
+    prev = history.get(days[-2], {}).get("red_steps") if len(days) >= 2 else None
+    new_steps = [s for s in red_steps if s not in prev] if (red_steps and prev is not None) else []
+    gone_steps = [s for s in prev if s not in red_steps] if (red_steps and prev is not None) else []
+
+    # 推播決策 —— 只在「有新東西」或「該提醒了」時出聲：
+    #   · 首日 RED、或出現新的紅步驟 → 推（這是新資訊）
+    #   · 連續相同 → 不逐日重複，但每 7 天提醒一次，避免無限靜默
+    # 不推時 delivered 仍為 1：那是設計上的抑制，機制運作正常
+    #（同 weekly「首次 RED 刻意不通知」的既有語意）。
+    if not _daily_red_should_notify(red_streak, new_steps):
+        logger.info(
+            "Fitness Tier 1 Daily RED（連續 %d 天、與昨日相同 %s）—— 抑制重複推播",
+            red_streak, red_steps or "（未能解析步驟名）",
+        )
+        return {
+            "rc": rc, "status": "RED", "red_streak": red_streak,
+            "red_steps": red_steps, "delivered": 1, "suppressed": "same_as_yesterday",
+            "history_ok": history_ok,
+        }
+
+    logger.warning("Fitness Tier 1 Daily RED rc=%d（連續 %d 天），queueing digest", rc, red_streak)
     notified = False
     try:
-        # 取最後 30 行 stdout 作為失敗摘要
+        # 先講差異，再貼原始輸出 —— 可行動的訊號是「今天多了什麼」，不是「還是紅的」。
+        if new_steps:
+            delta = "🆕 今日新增 RED：" + "、".join(new_steps)
+        elif gone_steps:
+            delta = "今日未新增；已消失：" + "、".join(gone_steps)
+        elif red_streak <= 1:
+            delta = ("首次 RED：" + "、".join(red_steps)) if red_steps else "首次 RED"
+        else:
+            delta = f"連續 {red_streak} 天相同（{len(red_steps)} 步），此為每 7 天提醒"
+
         tail_lines = (out or "").splitlines()[-30:]
         digest = "\n".join(tail_lines)
         body = (
-            f"v6.12 治理進化 #2 forcing function 觸發:\n"
+            f"{delta}\n"
+            f"連續 RED 已 {red_streak} 天\n"
             f"\n"
             f"{digest[:1500]}\n"
             f"\n"
@@ -2396,9 +2499,11 @@ async def fitness_daily_job():
         logger.error("Fitness Tier 1 Daily 告警入 digest 失敗: %s", push_e, exc_info=True)
 
     return {
-        "rc": rc, "status": "RED",
+        "rc": rc, "status": "RED", "red_streak": red_streak,
+        "red_steps": red_steps,
         "delivered": 1 if notified else 0,
         "reason": None if notified else "digest_queue_failed",
+        "history_ok": history_ok,
     }
 
 
