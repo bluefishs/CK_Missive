@@ -124,9 +124,16 @@ def main(strict: bool = False, container: str = "ck_missive_backend") -> int:
         print("  原因可能: docker cp 修法未跟 rebuild image")
         print("  修法: docker compose -f docker-compose.production.yml build backend")
         print("        docker compose -f docker-compose.production.yml up -d backend")
-        if strict:
-            return 1
-    elif match_count >= len(CRITICAL_FILES) - 1:  # 容忍 1 個 missing
+        # 2026-08-11：原本 `if strict: return 1`，不帶旗標就 return 0 ——
+        # 於是它印著「drift detected」卻回綠燈（L83 家族第三支；08-10 才在
+        # powershell_bom_audit 修過同型）。呼叫端一律不傳旗標，所以實際上
+        # 這支從來沒有讓任何 runner 變色過。
+        #
+        # 判 YELLOW（1）而非 RED：程式改了還沒 rebuild 是**開發中的正常狀態**，
+        # 但如果到了週日 02:30 weekly 執行時還有 drift，那就是真的忘了部署
+        # （L79「寫好+測試綠 ≠ 在系統裡」），該有人看一眼。
+        return 1
+    if match_count >= len(CRITICAL_FILES) - 1:  # 容忍 1 個 missing
         print("✅ Image 與 source 對齊")
 
     return 0

@@ -255,6 +255,27 @@ run_step "44" "PM2 程序存活（註冊了不等於在跑）" "scripts/checks/p
 # 本步接的是慢性腐爛（dump 截斷、附件涵蓋率漂移、金鑰過期）。
 run_step "45" "異地備份完整性（四類缺一不可）" "scripts/checks/offsite_backup_completeness_audit.py"
 
+# ------------------------------------------------------------------
+# Step 46-50：從 daily 移過來的五支（2026-08-11）
+# ------------------------------------------------------------------
+# 這五支原本掛在 daily，而 daily 由**容器內** APScheduler 驅動 ——
+# 容器沒有 repo 根的 .env、沒有 docker-compose*.yml、沒有 docker CLI，
+# 於是五支的實際輸出是 `[SKIP] .env not found`／`docker not available`／
+# `No docker-compose*.yml found`，而 runner 把它們一律算成通過：
+# **「沒檢查」與「檢查通過」長得一模一樣**，「daily 12 步全過」實際只判定了 7 步。
+#
+# 移到這裡是因為 weekly 跑在 host（.env／docker／compose 都在）。
+# 五支都是 compose/env/image 這類**變更觸發型**風險，不是自然劣化，週級足夠；
+# 而且「每天 0 次有效檢查」→「每週 1 次有效檢查」是提升，不是下降。
+#
+# ⚠️ step 49 的檔名：daily 原本找 startup_race_condition_audit.py（不存在），
+# 實際是 startup_dependency_race_audit.py —— 那一步從建立起從未執行過。
+run_step "46" "container env alignment（容器 env vs host .env）" "scripts/checks/container_env_alignment_audit.py"
+run_step "47" "container image freshness（L51.7.1）"            "scripts/checks/container_image_freshness_check.py"
+run_step "48" "docker compose volume 一致性（L43 防禦）"          "scripts/checks/docker_compose_volume_consistency.py"
+run_step "49" "compose vs Dockerfile healthcheck SSOT（L45）"    "scripts/checks/compose_dockerfile_healthcheck_ssot.py"
+run_step "50" "startup dependency race（compose depends_on）"    "scripts/checks/startup_dependency_race_audit.py"
+
 # ============================================================
 # Summary
 # ============================================================

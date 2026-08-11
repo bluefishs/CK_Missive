@@ -23,9 +23,12 @@
 
 set -uo pipefail
 
-STRICT=false
+# --strict 接受但不再改變任何行為（2026-08-11）：
+# 退出碼已一律依 RED 決定、子腳本一律不傳旗標。
+# 保留參數只為相容既有呼叫端（scheduler 的 fitness_daily_job 帶著它）——
+# 但不留一個看起來有作用、其實沒有的變數，那會讓人以為 warning mode 存在。
 if [[ "${1:-}" == "--strict" ]]; then
-    STRICT=true
+    :
 fi
 
 CYAN='\033[0;36m'
@@ -44,6 +47,60 @@ FAIL_COUNT=0
 FAIL_STEPS=()
 WARN_COUNT=0
 WARN_STEPS=()
+SKIP_STEPS=()
+
+# ------------------------------------------------------------------
+# 這一組需要 host 環境，容器內執行是零效力（2026-08-11 查證）
+# ------------------------------------------------------------------
+# daily 由**容器內** APScheduler 驅動，而容器只掛 scripts/ backend/ wiki/ docs/
+# —— 沒有 repo 根的 .env、沒有 docker-compose*.yml、沒有 docker CLI。
+# 實測這五支在容器內的輸出：
+#
+#   container env alignment      → [SKIP] .env not found at /app/.env
+#   container image freshness    → [SKIP] docker not available
+#   volume consistency           → YELLOW: No docker-compose*.yml found
+#   healthcheck SSOT             → no docker-compose*.yml found
+#   startup dependency race      → no docker-compose*.yml found
+#
+# 而 runner 把這些一律算成通過 —— **「沒檢查」與「檢查通過」長得一模一樣**，
+# 於是「daily 12 步全過」實際只有 7 步真的判定過。
+#
+# 處置：改由 host 的 weekly 執行（那裡 .env／docker／compose 都在），
+# 容器內明確標為未判定並印出負責的執行者。五支都是 compose/env/image 這類
+# **變更觸發型**風險（不是自然劣化），週級足夠；而且從「每天 0 次有效檢查」
+# 變成「每週 1 次有效檢查」是提升，不是下降。
+HOST_ENV_AVAILABLE=false
+if [[ -f docker-compose.production.yml ]]; then
+    HOST_ENV_AVAILABLE=true
+fi
+
+skip_host_only() {
+    local step_num="$1"
+    local step_name="$2"
+    echo -e "${CYAN}[$step_num/${TOTAL_STEPS}] $step_name${NC}"
+    echo -e "  ${YELLOW}⊘${NC} 此環境無 docker-compose*.yml／.env／docker CLI —— 不判定"
+    echo "     負責執行者：host 排程 CK_Missive-Fitness-Weekly（同一支腳本在那裡有效）"
+    SKIP_STEPS+=("$step_num $step_name")
+    echo ""
+}
+
+# 腳本不存在**不得**靜靜跳過。
+# 2026-08-02 已在 weekly 修過同型（alias_rls_audit.py 檔名寫錯 → 那一步從未執行、
+# 卻一路綠燈）；daily 當時沒改，於是今天又抓到一個：step 5 找
+# startup_race_condition_audit.py，實際檔名是 startup_dependency_race_audit.py。
+require_script() {
+    local step_num="$1"
+    local step_name="$2"
+    local path="$3"
+    if [[ -f "$path" ]]; then
+        return 0
+    fi
+    echo -e "${CYAN}[$step_num/${TOTAL_STEPS}] $step_name${NC}"
+    echo -e "  ${RED}✗${NC} 腳本不存在：$path —— 檢查消失不得與檢查通過同色"
+    FAIL_COUNT=$((FAIL_COUNT+1)); FAIL_STEPS+=("$step_num $step_name（腳本不存在）")
+    echo ""
+    return 1
+}
 
 # 2026-08-05：總步數改為**自我推導**，不再寫死。
 # 原本表頭寫死總數，加了步驟卻沒改它 —— daily 實際 9 步印「/8」、
@@ -61,14 +118,24 @@ run_step() {
     #
     # exit code 為三態（audit 腳本共同約定）：0=GREEN / 1=YELLOW / 2+=RED。
     # 分開計數而非一律算 RED —— 把 YELLOW 報成 RED 會讓人習慣忽略紅字，
-    # 等於把訊號變回噪音（當日實例：volume consistency 真 drift=0、只有 5 個
-    # 無害 orphan volume，本質 YELLOW，一律算 RED 就會每天紅一次）。
+    # 等於把訊號變回噪音。
+    #
+    # ⚠️ 2026-08-11 更正上面那句原本引用的例子：它寫「volume consistency 真 drift=0、
+    # 只有 5 個無害 orphan volume」。查證後兩件都不成立 —— 那 5 個 orphan volume
+    # 早已不存在（現在只剩 3 個且全部有容器在用），而該步在容器內 YELLOW 的真正
+    # 原因是**找不到 docker-compose*.yml**，它從來沒有真的檢查過任何東西。
+    # 2026-08-11：**一律不傳 --strict**（沿用 weekly 08-07 的結論）。
+    #
+    # 原本 cron 帶 --strict 呼叫本 runner，run_step 再把 --strict 轉傳給每一支腳本，
+    # 而多數腳本的 argparse 不認識它 → `error: unrecognized arguments: --strict`
+    # → exit 2 → 假紅。實測今天修好前兩個真因後，暴露出的正是這一層：
+    # 手動跑（不帶旗標）全綠、cron 跑（帶旗標）step 10/11 紅，紅的原因是參數。
+    # weekly 在 08-02 用 detect_flag() 繞過、08-07 改為一律不傳並移除該函式，
+    # daily 當時沒改 —— 又一次「有正確範例卻沒擴散」。
+    #
+    # 退出碼一律依腳本原生三態（0/1/2+），嚴重度不由呼叫端的旗標決定。
     local rc=0
-    if $STRICT; then
-        eval "$cmd" --strict 2>&1 || rc=$?
-    else
-        eval "$cmd" 2>&1 || rc=$?
-    fi
+    eval "$cmd" 2>&1 || rc=$?
     if [[ $rc -eq 1 ]]; then
         WARN_COUNT=$((WARN_COUNT+1)); WARN_STEPS+=("$step_num $step_name")
     elif [[ $rc -ne 0 ]]; then
@@ -84,41 +151,48 @@ run_step() {
 run_step "0" "腳本強制表態閘門" \
     "scripts/checks/declaration_gate.py"
 
-run_step "1" "container env alignment audit" \
-    "PYTHONIOENCODING=utf-8 python scripts/checks/container_env_alignment_audit.py"
+if $HOST_ENV_AVAILABLE; then
+    run_step "1" "container env alignment audit" \
+        "PYTHONIOENCODING=utf-8 python scripts/checks/container_env_alignment_audit.py"
+else
+    skip_host_only "1" "container env alignment audit"
+fi
 
-# Step 2/6: container image freshness (step 60, L51.7.1)
-run_step "2" "container image freshness check" \
-    "PYTHONIOENCODING=utf-8 python scripts/checks/container_image_freshness_check.py"
+# Step 2: container image freshness (step 60, L51.7.1) — 需 host docker CLI
+if $HOST_ENV_AVAILABLE; then
+    run_step "2" "container image freshness check" \
+        "PYTHONIOENCODING=utf-8 python scripts/checks/container_image_freshness_check.py"
+else
+    skip_host_only "2" "container image freshness check"
+fi
 
-# Step 3/6: docker_compose volume consistency (step 38, L43)
-if [[ -f scripts/checks/docker_compose_volume_consistency.py ]]; then
+# Step 3: docker_compose volume consistency (step 38, L43) — 需 compose + docker volume ls
+if ! $HOST_ENV_AVAILABLE; then
+    skip_host_only "3" "docker_compose volume consistency"
+elif require_script "3" "docker_compose volume consistency" \
+        "scripts/checks/docker_compose_volume_consistency.py"; then
     run_step "3" "docker_compose volume consistency" \
         "PYTHONIOENCODING=utf-8 python scripts/checks/docker_compose_volume_consistency.py"
-else
-    echo -e "${CYAN}[3/${TOTAL_STEPS}] docker_compose volume consistency${NC}"
-    echo "  ${YELLOW}⚠${NC} script not found, skip"
-    echo ""
 fi
 
-# Step 4/6: compose/dockerfile healthcheck SSOT (step 40, L45)
-if [[ -f scripts/checks/compose_dockerfile_healthcheck_ssot.py ]]; then
+# Step 4: compose/dockerfile healthcheck SSOT (step 40, L45) — 需 compose + Dockerfile
+if ! $HOST_ENV_AVAILABLE; then
+    skip_host_only "4" "compose/dockerfile healthcheck SSOT"
+elif require_script "4" "compose/dockerfile healthcheck SSOT" \
+        "scripts/checks/compose_dockerfile_healthcheck_ssot.py"; then
     run_step "4" "compose/dockerfile healthcheck SSOT" \
         "PYTHONIOENCODING=utf-8 python scripts/checks/compose_dockerfile_healthcheck_ssot.py"
-else
-    echo -e "${CYAN}[4/${TOTAL_STEPS}] compose/dockerfile healthcheck SSOT${NC}"
-    echo "  ${YELLOW}⚠${NC} script not found, skip"
-    echo ""
 fi
 
-# Step 5/6: startup race condition audit (step 47)
-if [[ -f scripts/checks/startup_race_condition_audit.py ]]; then
-    run_step "5" "startup race condition audit" \
-        "PYTHONIOENCODING=utf-8 python scripts/checks/startup_race_condition_audit.py"
-else
-    echo -e "${CYAN}[5/${TOTAL_STEPS}] startup race condition audit${NC}"
-    echo "  ${YELLOW}⚠${NC} script not found, skip"
-    echo ""
+# Step 5: startup dependency race audit (step 47) — 需 compose
+# 2026-08-11：檔名更正。原本找 startup_race_condition_audit.py（不存在），
+# 實際是 startup_dependency_race_audit.py —— 這一步從建立起從未執行過。
+if ! $HOST_ENV_AVAILABLE; then
+    skip_host_only "5" "startup dependency race audit"
+elif require_script "5" "startup dependency race audit" \
+        "scripts/checks/startup_dependency_race_audit.py"; then
+    run_step "5" "startup dependency race audit" \
+        "PYTHONIOENCODING=utf-8 python scripts/checks/startup_dependency_race_audit.py"
 fi
 
 # Step 6/9: agent_query starvation (step 58, L51.7)
@@ -156,8 +230,21 @@ run_step "11" "DB 交易狀態（中止未 rollback）" \
 # Summary
 # ============================================================
 echo -e "${CYAN}=========================================${NC}"
+# 未判定的步驟要先講、而且一定要講 —— 否則「12 步全過」會被讀成「12 步都檢查過」。
+# 2026-08-11 之前正是如此：容器內 5 步零效力，摘要卻印「all passed」。
+if [[ ${#SKIP_STEPS[@]} -gt 0 ]]; then
+    echo -e "${YELLOW} ⊘ 未判定 ${#SKIP_STEPS[@]} 步（此環境不具備所需條件，由 host weekly 負責）${NC}"
+    for s in "${SKIP_STEPS[@]:-}"; do
+        [[ -n "$s" ]] && echo -e "   ${YELLOW}⊘${NC} $s"
+    done
+    echo -e "   本次實際判定 $((TOTAL_STEPS - ${#SKIP_STEPS[@]}))/${TOTAL_STEPS} 步"
+fi
 if [[ $FAIL_COUNT -eq 0 && $WARN_COUNT -eq 0 ]]; then
-    echo -e "${GREEN} ✅ Tier 1 daily all passed${NC}"
+    if [[ ${#SKIP_STEPS[@]} -gt 0 ]]; then
+        echo -e "${GREEN} ✅ Tier 1 daily：已判定的步驟全過${NC}"
+    else
+        echo -e "${GREEN} ✅ Tier 1 daily all passed${NC}"
+    fi
 else
     [[ $FAIL_COUNT -gt 0 ]] && echo -e "${RED} ✗ Tier 1 daily: $FAIL_COUNT step(s) RED${NC}"
     for s in "${FAIL_STEPS[@]:-}"; do
