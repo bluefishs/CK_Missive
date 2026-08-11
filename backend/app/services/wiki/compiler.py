@@ -1962,7 +1962,10 @@ confidence: high
         Karpathy insight: 「每次提問都成為知識的一部分」。
         將使用者關注焦點寫回 wiki，Agent 下次能優先命中。
         """
-        from app.extended.models.agent_trace import AgentTrace as AgentTraceModel
+        # 2026-08-11：原本寫 `AgentTrace`，而該模組裡從來只有 AgentQueryTrace。
+        # 這行錯了三個多月沒事，是因為只有「增量模式」會走到這裡（全量不呼叫），
+        # 而 08-10 是第一次走增量 —— 於是整支 wiki_compile 以 ImportError 失敗。
+        from app.extended.models.agent_trace import AgentQueryTrace as AgentTraceModel
         from datetime import timedelta
 
         cutoff = datetime.now() - timedelta(days=days)
