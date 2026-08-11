@@ -2364,7 +2364,10 @@ async def fitness_daily_job():
     # delivered 的語意＝「跑完且結論有送達」。對 producer 契約而言，
     # RED 本身不是故障（那是檢核在做事），**RED 卻沒人收到才是故障**。
     if rc == 0:
-        logger.info("Fitness Tier 1 Daily: all 6 step passed")
+        # 2026-08-11：原本寫死「all 6 step passed」，實際是 12 步 —— 又一份會漂的第二份事實
+        # （08-05 已把兩支 runner 的表頭改成自我推導，這行漏了）。
+        # 步數只由 runner 自己講，這裡不重複宣稱。
+        logger.info("Fitness Tier 1 Daily: all step passed")
         return {"rc": 0, "status": "PASS", "delivered": 1}
 
     # RED — 進 digest（不直推）
