@@ -42,7 +42,17 @@ try:
 except Exception:
     pass
 
-TASK_PREFIX_RE = r"^CK[-_]"
+# 納管哪些排程 —— 2026-08-11 由 `^CK[-_]` 放寬。
+#
+# 原本只認 CK 前綴，看起來合理（我們的東西都叫 CK_*），但它有個盲區：
+# **命名不合規的排程等於不存在**。實例：CK_lvrland_Webmap 的備份排程叫
+# `LandValuation_Daily_Backup`（由該 repo 的 Setup-AutoBackup.ps1 註冊），
+# 不符前綴 → 就算真的註冊了，這支稽核也永遠看不到它；
+# 而實際情況更糟 —— 它根本沒被註冊過，而異地備份因此停了 154 天沒有人知道。
+#
+# 用「白名單前綴 + 已知的專案關鍵字」而不是掃全部：Windows 內建排程有數百個，
+# 全掃會產出一份沒有人讀得完的清單，而讀不完的清單與沒有清單是同一件事。
+TASK_PREFIX_RE = r"^(CK[-_]|LandValuation|StorageTank|SaltWarehouse|Hermes)"
 
 # 走查類任務的退出碼語意：0 全過 / 1 有失敗 / 2 有跳過。
 # 1 與 2 都代表**任務本身跑完了**，紅的是內容 —— 那由下面的 check_sweep_results()
@@ -372,6 +382,43 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
     return reds, notes
 
 
+# 「應該存在」的關鍵排程 —— 2026-08-11 新增。
+#
+# 為什麼本支原本抓不到最嚴重的那件事：它問的是「已註冊的排程有沒有活著」，
+# 也就是只驗 A ⊆ B，沒問 B ⊆ A 破掉會怎樣（同 CK_AaaP 08-10 立的 L46）。
+# 而 CK_lvrland_Webmap 的異地備份**從來沒有被註冊過** ——
+# 沒有註冊就沒有紀錄、沒有失敗、沒有任何一支檢核會提到它，
+# 於是那 3.9GB 只存在 D 槽一顆磁碟上，停了 154 天無人知道。
+#
+# 缺席的排程症狀是一片安靜，所以必須有人明確宣告「這幾支非在不可」。
+# 清單刻意只放**備份類**：短、變動低、缺了的後果不可逆。
+EXPECTED_TASKS = {
+    "CK-Missive-Offsite-Backup":
+        "CK_Missive 異地備份（DB／附件／金鑰／里程碑四類）",
+    "CK_PileMgmt_DB_Backup":
+        "CK_PileMgmt 資料庫異地備份",
+    "CK_DigitalTunnel-MinIO-Offsite":
+        "CK_DigitalTunnel MinIO 異地備份（MinIO 本身是 DB 備份的目的地，它沒有第二份）",
+    "LandValuation_Daily_Backup":
+        "CK_lvrland_Webmap 異地備份 —— 腳本 2026-05-20 就寫好了（scripts/"
+        "sync_backups_to_nas.ps1 + Setup-AutoBackup.ps1），但從未註冊；"
+        "本機 170 檔 3.9GB 目前是唯一副本，而 lvrland 是公網上線的主系統",
+}
+
+
+def check_expected_tasks(tasks: list[dict]) -> tuple[list[str], list[str]]:
+    """該有的排程有沒有註冊。缺席即 RED —— 沒註冊的排程不會有任何失敗紀錄。"""
+    present = {t.get("Name", "") for t in tasks}
+    reds, notes = [], []
+    for name, why in EXPECTED_TASKS.items():
+        if name in present:
+            continue
+        reds.append(f"{name}: 應存在的排程未註冊 —— {why}")
+    if not reds:
+        notes.append(f"應存在的關鍵排程 {len(EXPECTED_TASKS)} 支全部在冊")
+    return reds, notes
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true")
@@ -396,6 +443,11 @@ def main() -> int:
         return 2
 
     reds, notes = audit(tasks)
+    # 缺席層：該有的排程有沒有註冊（沒註冊就不會有任何失敗紀錄）
+    e_reds, e_notes = check_expected_tasks(tasks)
+    reds += e_reds
+    notes += e_notes
+
     # 內容層：排程跑完了不代表結果是好的
     c_reds, c_notes = check_sweep_results(tasks, Path(__file__).resolve().parents[3])
     reds += c_reds
