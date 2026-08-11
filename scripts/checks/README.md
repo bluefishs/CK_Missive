@@ -1,6 +1,6 @@
 # scripts/checks/ — 檢核腳本索引
 
-> **重建**：2026-08-10（原版停在 39 支／「run_fitness 6 step」，實際已 164 支）
+> **重建**：2026-08-10（原版停在 39 支／「run_fitness 6 step」）
 > **這份索引是強制的**：`declaration_gate.py`（daily step 0）會比對本檔，
 > 新增腳本沒寫進來就擋下。
 >
@@ -23,7 +23,12 @@
 | 💓 健康監控（`scripts/health/`） | 1 |
 | 🪟 Windows 工作排程器 | 1 |
 | ⚪ 無排程（手動／一次性／已被取代） | 25 |
-| **合計** | **164** |
+
+<!--baseline:check_scripts-->合計 **156** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+
+> 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
+> 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
+> 不看總數，所以數字錯了它一聲都不會吭，而失真的索引會讓人以為還有沒清完的存量。
 
 退出碼三態（全 portfolio 一致）：**0=GREEN／1=YELLOW／2+=RED**。
 
@@ -33,6 +38,22 @@
 ---
 
 ## 🔴 每日（容器內 APScheduler `fitness_daily`）
+
+> ⚠️ **這一組跑在容器裡，不是 host。** 寫進這組之前先問：它依賴的東西容器內有嗎？
+>
+> 容器只掛 `scripts/`、`backend/`、`wiki/`、`docs/`、`backups/`、`logs/`——
+> **沒有 docker CLI、沒有 repo 根目錄的 `CLAUDE.md` 與 `.claude/`、沒有 PowerShell、沒有 sibling repo。**
+>
+> 2026-08-11 一次抓到三支踩到這條，且三支的失敗方式不同：
+>
+> | 腳本 | 依賴什麼 | 症狀 |
+> |---|---|---|
+> | `db_transaction_health_check` | docker CLI | 每天 RED，紅的原因不是資料庫有事 |
+> | `declaration_gate` | repo 根的 `CLAUDE.md` | 每天 RED，紅的原因不是有人沒表態 |
+> | `cron_silent_dormant_check` | `<repo>/backend/...` 路徑 | **靜默**回空 → 38 個 cron 全成 "no threshold" 卻印「✓ all monitored」 |
+>
+> 前兩支天天紅＝告警疲勞；第三支不出聲＝假綠。**後者危險得多。**
+> 判準：這一組的每一支，都必須在容器內實跑驗過，不能只在 host 跑得出綠燈。
 
 | 腳本 | 用途 |
 |---|---|

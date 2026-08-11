@@ -60,7 +60,9 @@ MARK_RE = re.compile(r"^<!--baseline:([a-z0-9_]+)-->")
 NUM_RE = re.compile(r"\d+")
 
 # 掃描範圍：治理文件與專案說明。刻意不掃 wiki/（那是產出，不是宣稱）。
-SCAN_GLOBS = ["CLAUDE.md", "README.md", "docs/architecture/*.md", "docs/runbooks/*.md"]
+SCAN_GLOBS = ["CLAUDE.md", "README.md", "docs/architecture/*.md", "docs/runbooks/*.md",
+              # 2026-08-11 加入：這份是強制表態閘門的索引來源，它自己的數字更該被管。
+              "scripts/checks/README.md"]
 
 
 def _producer_count() -> int:
@@ -128,6 +130,22 @@ def _selfaudit_repo_count() -> int:
     return len(projects)
 
 
+def _check_script_count() -> int:
+    """scripts/checks 頂層的檢核腳本數（*.py + *.sh）。
+
+    2026-08-11：`scripts/checks/README.md` 是**強制表態閘門的索引來源**，
+    它自己宣稱「合計 164」而實際是 156。閘門比對的是「檔名有沒有出現在文件裡」，
+    不看那個總數 —— 所以數字錯了它一聲都不會吭。
+    索引本身的數字失真，會讓人以為還有 8 支沒清完（或反之）。
+
+    只數頂層：子目錄是 `.shared-selfaudit/`（vendored 共用實作，由上游同步、
+    不受本 repo 表態閘門管轄），把它算進來就會和閘門的掃描範圍對不上。
+    """
+    d = ROOT / "scripts" / "checks"
+    return len([p for p in d.iterdir()
+                if p.is_file() and p.suffix in (".py", ".sh")])
+
+
 def _producer_signal_count() -> int:
     sys.path.insert(0, str(ROOT / "scripts" / "checks"))
     from producer_registry import KNOWN_SIGNALS  # noqa: PLC0415
@@ -152,6 +170,8 @@ RESOLVERS = {
     "selfaudit_repos": _selfaudit_repo_count,
     "producer_signals": _producer_signal_count,
     "tracked_jobs": _tracked_job_count,
+    # 2026-08-11：索引自己的數字也要被管 —— 它是表態閘門的比對來源。
+    "check_scripts": _check_script_count,
 }
 
 
