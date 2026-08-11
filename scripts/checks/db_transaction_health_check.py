@@ -38,6 +38,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 
@@ -81,11 +82,53 @@ def _db_container() -> str | None:
     return None
 
 
-def _psql(container: str, sql: str) -> list[list[str]]:
+def _local_psql_env() -> dict[str, str] | None:
+    """本行程能不能直接連上 DB？可以就回 psql 需要的環境變數。
+
+    2026-08-11：本支原本只有一條路 —— `docker exec <db 容器> psql`。
+    在 host 執行沒問題，但 CK_Missive 的 daily 是**容器內** APScheduler 在跑，
+    而應用容器裡沒有 docker CLI（L49.1 那一族），於是 `_db_container()` 永遠回 None，
+    這一步**每天必紅、每天推一則 LINE**，紅的原因卻不是資料庫有問題。
+
+    而它其實根本不需要 docker：要的是一條 DB 連線，應用容器本來就有
+    （PG* 環境變數齊全、映像檔內含 psql）。改為先試 docker、再試直連。
+    """
+    host = os.environ.get("POSTGRES_HOST") or os.environ.get("PGHOST")
+    user = os.environ.get("POSTGRES_USER") or os.environ.get("PGUSER")
+    db = os.environ.get("POSTGRES_DB") or os.environ.get("PGDATABASE")
+    if not (host and user and db):
+        return None
+    if not shutil.which("psql"):
+        return None
+    env = dict(os.environ)
+    env.update({
+        "PGHOST": host,
+        "PGPORT": os.environ.get("POSTGRES_PORT") or os.environ.get("PGPORT") or "5432",
+        "PGUSER": user,
+        "PGDATABASE": db,
+    })
+    pw = os.environ.get("POSTGRES_PASSWORD") or os.environ.get("PGPASSWORD")
+    if pw:
+        env["PGPASSWORD"] = pw
+    return env
+
+
+def _psql(container: str | None, sql: str, env: dict[str, str] | None = None) -> list[list[str]]:
     """外部依賴缺失一律非零 —— 「查不到」不得與「沒問題」長得一樣。"""
+    flat = sql.replace("\n", " ")
+    if container is None:
+        # 直連（容器內／host 已設好 PG* 時）
+        out = subprocess.run(
+            ["psql", "-tAF|", "-c", flat],
+            capture_output=True, text=True, encoding="utf-8", timeout=60, env=env,
+        )
+        if out.returncode != 0:
+            print(f"✗ psql 查詢失敗（直連）：{(out.stderr or '').strip()[:180]}")
+            raise SystemExit(2)
+        return [ln.split("|") for ln in out.stdout.splitlines() if ln.strip()]
     cmd = ["docker", "exec", container, "sh", "-c",
            'psql -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres} -tAF"|" -c "'
-           + sql.replace("\n", " ").replace('"', '\\"') + '"']
+           + flat.replace('"', '\\"') + '"']
     out = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=60)
     if out.returncode != 0:
         print(f"✗ psql 查詢失敗：{(out.stderr or '').strip()[:180]}")
@@ -157,13 +200,21 @@ def main() -> int:
     red_code = args.red_exit
 
     print("=== 資料庫連線狀態健檢（交易中止未 rollback）===")
+    # 先 docker（host 情境），再直連（容器內情境）；兩條都不通才是無法判定。
     container = _db_container()
-    if not container:
-        print("✗ 找不到 DB 容器 —— 無法判定，不視為通過")
-        return 2
-    rows_raw = _psql(container, SQL)
+    env = None
+    if container:
+        print(f"  連線方式：docker exec {container}")
+    else:
+        env = _local_psql_env()
+        if env is None:
+            print("✗ 既找不到 DB 容器、本行程也無法直連（缺 PG* 設定或 psql）"
+                  " —— 無法判定，不視為通過")
+            return 2
+        print(f"  連線方式：直連 {env['PGHOST']}:{env['PGPORT']}/{env['PGDATABASE']}")
+    rows_raw = _psql(container, SQL, env)
     rows = [(r[0], int(r[1]), int(r[2])) for r in rows_raw if len(r) >= 3]
-    limit_raw = _psql(container, SQL_LIMIT)
+    limit_raw = _psql(container, SQL_LIMIT, env)
     max_conn = int(limit_raw[0][0]) if limit_raw and limit_raw[0] else 0
 
     for state, n, age in sorted(rows, key=lambda x: -x[1]):

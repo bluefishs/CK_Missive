@@ -85,14 +85,43 @@ def _interval_seconds(kind: str, args: str) -> int | None:
     return None
 
 
+def _scheduler_path() -> Path | None:
+    """找 scheduler.py —— host 與容器的目錄結構不同，兩個都要試。
+
+    2026-08-11：原本只算 host 的相對位置（repo/backend/app/core/scheduler.py）。
+    容器內 backend 就是 /app，scripts 掛在 /app/scripts，於是算出
+    /app/backend/app/core/scheduler.py —— 不存在，然後 `return {}` **靜默**降級。
+
+    後果不是「少了幾個閾值」而是**整個推導為空**：36 個 cron 全部落到
+    "no threshold"，而本支照樣印「✓ all monitored cron within max age」＝
+    每天在排程情境下給一個假綠，一路綠到 08-11 才被發現。
+    這是 L52（host↔container 路徑）與「沉默降級＝假綠」的交集。
+    """
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parents[2] / "backend" / "app" / "core" / "scheduler.py",  # host: <repo>/backend/...
+        here.parents[2] / "app" / "core" / "scheduler.py",              # container: /app/app/...
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return None
+
+
 def derive_thresholds_from_scheduler() -> dict[str, int]:
-    """讀 scheduler.py 推導 {job_id: max_age_seconds}。讀不到就回空 dict（降級不阻斷）。"""
-    sched = Path(__file__).resolve().parents[1].parent / "backend" / "app" / "core" / "scheduler.py"
-    if not sched.exists():
+    """讀 scheduler.py 推導 {job_id: max_age_seconds}。
+
+    讀不到**必須出聲**：閾值為空時本支會把所有 cron 判成 "no threshold" 並印全綠，
+    那是「沒有人在監控」而不是「監控通過」——兩者不得長得一樣。
+    """
+    sched = _scheduler_path()
+    if sched is None:
+        print("✗ 找不到 scheduler.py —— 無法推導任何閾值，本次不具監控效力（不視為通過）")
         return {}
     try:
         src = sched.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
+    except Exception as e:
+        print(f"✗ 讀取 scheduler.py 失敗：{e} —— 無法推導閾值（不視為通過）")
         return {}
     out: dict[str, int] = {}
     for m in _ADD_JOB_RE.finditer(src):
@@ -129,7 +158,8 @@ def fetch_ages() -> dict[str, float]:
 
 
 def main() -> int:
-    strict = "--strict" in sys.argv
+    # 2026-08-11：不再看 --strict。呼叫端傳不傳旗標，都依原生三態回退出碼；
+    # 「有沒有人在監控」不該由呼叫端的旗標決定。
     print("=== Cron Silent Dormant Check ===")
 
     ages = fetch_ages()
@@ -142,8 +172,6 @@ def main() -> int:
     thresholds = derive_thresholds_from_scheduler()
     derived_n = len(thresholds)
     thresholds.update(JOB_MAX_AGE)
-    if not derived_n:
-        print("⚠ 無法從 scheduler.py 推導週期 —— 僅套用 override，覆蓋率會偏低")
     print(f"Found {len(ages)} cron job metric(s)｜閾值來源：推導 {derived_n} + override {len(JOB_MAX_AGE)}")
     print()
 
@@ -171,14 +199,30 @@ def main() -> int:
     print()
     print(f"Summary: {healthy} healthy / {len(red_jobs)} RED / {len(unknown_jobs)} unknown")
 
+    # 2026-08-11：以下三條退出碼語意一併校正（0=GREEN / 1=YELLOW / 2+=RED）。
+    #
+    # (a) 推導不出任何閾值 = 沒有人在監控，不是監控通過。
+    #     在此之前它只印一行 warning 就 return 0，於是容器內每天印
+    #     「✓ all monitored cron within max age」而實際監控覆蓋率是 1/37。
+    # (b) 大多數 cron 落在 unknown = 覆蓋率退化，要在變成 (a) 之前就出聲。
+    # (c) 找到 dormant 卻只在 --strict 時回非 0 —— 就是 L83「印 RED 卻 exit 0」
+    #     那一族（08-10 才在 powershell_bom_audit 修過同型）。RED 一律非零。
+    if not derived_n:
+        print("🔴 未能從 scheduler.py 推導出任何閾值 —— 本次檢核不具監控效力")
+        return 2
+
+    if unknown_jobs and len(unknown_jobs) > len(ages) / 2:
+        print(f"🟡 {len(unknown_jobs)}/{len(ages)} 個 cron 沒有閾值（覆蓋率 "
+              f"{(len(ages) - len(unknown_jobs)) / len(ages):.0%}）—— 推導可能已部分退化")
+        return 1
+
     if red_jobs:
-        print(f"⚠ {len(red_jobs)} cron(s) silent dormant:")
+        print(f"🔴 {len(red_jobs)} cron(s) silent dormant:")
         for j in red_jobs:
             print(f"    - {j}")
-        if strict:
-            return 1
-    else:
-        print("✓ all monitored cron within max age")
+        return 2
+
+    print("✓ all monitored cron within max age")
     return 0
 
 

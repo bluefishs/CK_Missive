@@ -40,6 +40,39 @@ PERIPHERAL: dict[str, str] = {
 }
 
 
+# 索引可能出現的位置（依優先序）。**不是**「這幾份都必須在」。
+#
+# 2026-08-11：本閘門是 daily step 0，而 daily 由**容器內** APScheduler 驅動，
+# 容器只掛 scripts/ 與 backend/ —— CLAUDE.md 與 .claude/ 根本不在裡面。
+# canonical 的判定是「任一索引檔不存在即無法判定(2)」，在單一環境下是對的，
+# 但在這裡等於**每天必紅、每天推一則 LINE**，而紅的原因不是有人沒表態，
+# 是這支檢核在排程實際執行的環境裡不可能通過。天天紅的告警等於沒有告警。
+#
+# 過濾放在薄包裝而不是改 canonical：那份是五個 repo 共用的，
+# 而「本 repo 的檢核跑在容器裡」是 CK_Missive 特有的形態 ——
+# 依 08-09 的分工，各 repo 特有的事留在自己的包裝。
+INDEX_CANDIDATES = [
+    "scripts/checks/README.md",   # 主索引（在 scripts/ 底下，容器內讀得到）
+    "CLAUDE.md",                  # host only
+    ".claude/rules/skills-inventory.md",  # host only
+]
+
+
+def resolve_index_files() -> list[str]:
+    """回傳此環境實際讀得到的索引檔；一份都沒有就是設定壞了，出聲而非放行。"""
+    present = [f for f in INDEX_CANDIDATES if (ROOT / f).exists()]
+    missing = [f for f in INDEX_CANDIDATES if f not in present]
+    if not present:
+        print("✗ 所有索引文件都讀不到 —— 無法判定，不視為通過："
+              + "、".join(INDEX_CANDIDATES))
+        raise SystemExit(2)
+    if missing:
+        # 缺席要看得見。靜靜少讀一份索引，等於默默放寬判準。
+        print(f"  ℹ 讀到 {len(present)}/{len(INDEX_CANDIDATES)} 份索引；"
+              f"此環境不含：{'、'.join(missing)}")
+    return present
+
+
 def load_baseline() -> set[str]:
     if not BASELINE.exists():
         # 基線檔不見了不是「零存量」，是設定壞了 —— 出聲而不是靜靜放行
@@ -68,11 +101,7 @@ def main() -> int:
         # 塞 164 支檢核腳本進去會把它變成一份沒有人讀得完的東西，
         # 而讀不完的索引與沒有索引是同一件事。
         # README 按「誰在跑它」分組，回答的正是這份閘門想守住的問題。
-        index_files=[
-            "scripts/checks/README.md",
-            "CLAUDE.md",
-            ".claude/rules/skills-inventory.md",
-        ],
+        index_files=resolve_index_files(),
         scopes=[("scripts/checks", "*.py"), ("scripts/checks", "*.sh")],
         peripheral=PERIPHERAL,
         grandfathered=baseline,
