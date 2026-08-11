@@ -7930,3 +7930,7 @@
 ## [2026-08-10] compile | topic | integration health 月報 (channel=1 diary=26% drift=3)
 
 ## [2026-08-10] lint | pages=313 orphans=0 broken=0
+
+## [2026-08-11] lint | pages=313 orphans=0 broken=0
+
+## [2026-08-11] compile | topic | 近期關注焦點 (100 queries)

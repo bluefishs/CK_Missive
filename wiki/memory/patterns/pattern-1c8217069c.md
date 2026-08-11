@@ -5,13 +5,13 @@ template_hash: 1c8217069c
 tool_sequence: [get_statistics, search_documents]
 domains: [analysis, doc]
 wiki_topics: [wiki/topics/公文管理系統總覽.md]
-hit_count: 12
-success_count: 12
+hit_count: 16
+success_count: 16
 failure_count: 0
 success_rate: 1.0
-avg_latency_ms: 30190
+avg_latency_ms: 21614
 first_seen: '2026-05-10'
-last_seen: '2026-08-08'
+last_seen: '2026-08-10'
 crystallization_candidate: true
 tags: [memory, pattern, analysis, doc]
 ---
@@ -24,9 +24,9 @@ tags: [memory, pattern, analysis, doc]
 
 ## 統計
 
-- **觸發次數**：12（累計）
+- **觸發次數**：16（累計）
 - **成功率**：100.0%
-- **平均延遲**：30190ms
+- **平均延遲**：21614ms
 - **涉及領域**：analysis, doc
 - **相關 Wiki**：[[wiki/topics/公文管理系統總覽.md]]
 
@@ -34,7 +34,6 @@ tags: [memory, pattern, analysis, doc]
 
 - 知識圖譜有多少實體？
 - 幫我整理本週工作���要
-- 狀態
 
 ## 結晶候選
 
@@ -42,4 +41,4 @@ tags: [memory, pattern, analysis, doc]
 
 ---
 
-_由 pattern_extractor 自動產生，最後更新：2026-08-08_
+_由 pattern_extractor 自動產生，最後更新：2026-08-10_
