@@ -19,7 +19,8 @@ Producer 產出自我檢核 watchdog（Silent-Success Detector）— 行為層 S
 host 側執行（DB localhost:5434 + backend/logs/cron_events.jsonl）。cp950 韌性。
 用法：
     python scripts/checks/producer_output_watchdog.py
-    python scripts/checks/producer_output_watchdog.py --strict   # 有異常 exit 1
+    python scripts/checks/producer_output_watchdog.py --strict   # 旗標保留相容，退出碼不再受它影響
+    # 退出碼：0=GREEN／1=YELLOW（有未納管 producer）／2=RED（產出異常）
 """
 from __future__ import annotations
 
@@ -474,15 +475,21 @@ def main() -> int:
               + (f"（另 {len(skipped)} 項未驗完）" if skipped else "")
               + " + 覆蓋無 blind spot")
         return 0
+    # 2026-08-12：退出碼不再看 --strict，改依原生三態（0=GREEN／1=YELLOW／2+=RED）。
+    # 這是 L83「印 RED 卻 exit 0」家族的第三例 —— 前兩例（08-07
+    # doc_baseline_claim_audit、08-10 powershell_bom_audit）修的時候都立過同一條規矩，
+    # 而這支漏改。它在 run_fitness.sh 裡剛好帶了 --strict 所以排程情境沒出事，
+    # 但任何不帶旗標的呼叫端（人工複查、別的 runner）拿到的是
+    # 「畫面印著 RED、退出碼卻說通過」—— 嚴重度不該由呼叫端的旗標決定。
     if not anomalies:
         print(f"GREEN(產出): {len(PRODUCER_OUTCOME_REGISTRY)} producer 皆正常；"
               f"⚠️ 但 {len(unclassified)} 未納管 producer 待分類（見上，非產出異常）")
-        return 1 if args.strict else 0
+        return 1
     print(f"RED: {len(anomalies)} producer 疑沉默成功/產出異常：")
     for name, m in anomalies:
         print(f"  - {name}: {m}")
     print("→ 系統自動抓「報成功但沒產出/失敗」，不等人看症狀（AI 自我檢核）")
-    return 1 if args.strict else 0
+    return 2
 
 
 if __name__ == "__main__":

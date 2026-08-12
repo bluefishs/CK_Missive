@@ -85,10 +85,14 @@ ALLOWED_NONZERO: dict[str, dict[int, str]] = {
     },
 }
 
-# 逾期門檻：日排程與週排程共用一個保守值。
+# 逾期門檻：日排程與週排程共用一個保守值 —— 只用來抓「整支停擺」。
 # 刻意不做「每支排程各自的預期頻率」表 —— 那會變成第二份排程清單，
 # 而排程的真實頻率就寫在作業系統的 trigger 裡，兩份必然漂移。
 MAX_AGE_DAYS = 8
+
+# 「錯過未補跑」的緩衝。2026-08-12 立案，見 check_tasks() 內說明。
+# 給 2 小時是因為排程本身可能延遲觸發、或正在執行中還沒更新 LastRunTime。
+MISSED_GRACE_HOURS = 2
 
 
 def query_tasks() -> list[dict]:
@@ -103,6 +107,11 @@ def query_tasks() -> list[dict]:
         "     Name=$_.TaskName; State=[string]$_.State;"
         "     Result=$i.LastTaskResult;"
         "     LastRun=(if($i.LastRunTime){$i.LastRunTime.ToString('s')}else{''});"
+        "     NextRun=(if($i.NextRunTime){$i.NextRunTime.ToString('s')}else{''});"
+        "     IntervalDays=(@($_.Triggers | ForEach-Object {"
+        "        if ($_.CimClass.CimClassName -match 'Daily') { [int]$_.DaysInterval }"
+        "        elseif ($_.CimClass.CimClassName -match 'Weekly') { 7 * [int]$_.WeeksInterval }"
+        "        else { 0 } } | Where-Object { $_ -gt 0 } | Sort-Object | Select-Object -First 1));"
         "     StartWhenAvailable=[bool]$_.Settings.StartWhenAvailable;"
         "     LogonTrigger=[bool](@($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }).Count)"
         "   } }) | ConvertTo-Json -Depth 3"
@@ -111,6 +120,10 @@ def query_tasks() -> list[dict]:
     ps = ps.replace(
         "(if($i.LastRunTime){$i.LastRunTime.ToString('s')}else{''})",
         "$(if ($i.LastRunTime) { $i.LastRunTime.ToString('s') } else { '' })",
+    )
+    ps = ps.replace(
+        "(if($i.NextRunTime){$i.NextRunTime.ToString('s')}else{''})",
+        "$(if ($i.NextRunTime) { $i.NextRunTime.ToString('s') } else { '' })",
     )
     out = subprocess.run(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
@@ -364,7 +377,13 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
                     reds.append(f"{name}: LastTaskResult={result}（未宣告的失敗碼）")
 
         if not swa:
-            # 08-02 實際踩過：沒有這個設定，機器關機那次就整個跳過且毫無訊號
+            # 08-02 實際踩過：沒有這個設定，機器關機那次就整個跳過且毫無訊號。
+            # ⚠️ 2026-08-12 更正：設成 True **不保證真的會補跑**。當日凌晨異常關機
+            # （02:52 斷、05:43 才恢復），下列排程全部 StartWhenAvailable=True，
+            # 到當日 10:30 仍一次都沒有補跑，NextRunTime 直接跳過當天排到隔天 ——
+            # 其中包含異地備份，等於那一夜的 DB dump 與金鑰只留在本機一顆磁碟上。
+            # 所以這個檢查只代表「沒有把補跑的可能性關掉」，真正該問的是下面那段：
+            # 上一個應執行的時點過了，它到底跑了沒有。
             reds.append(f"{name}: StartWhenAvailable=False（機器關機時會整個跳過且無訊號）")
 
         if logon:
@@ -378,6 +397,33 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
                     reds.append(f"{name}: 上次執行 {age.days} 天前（> {MAX_AGE_DAYS} 天）")
             except ValueError:
                 reds.append(f"{name}: LastRun 無法解析（{last_run}）")
+
+        # 錯過未補跑 —— 2026-08-12 新增。
+        #
+        # 為什麼原本抓不到：唯一的時間判定是「上次執行超過 8 天」，而每日排程漏跑
+        # 一天的 age 只有 ~48h，離門檻差得遠。當日異常關機讓 03:00–05:43 之間到期的
+        # 12 支排程整批沒跑，本支照樣印 GREEN —— 包含異地備份斷了一天。
+        # 8 天門檻要抓的是「整支停擺」，抓不到「這一次沒跑」，兩件事需要兩個判準。
+        #
+        # 判準不另建頻率表（那正是本檔一開始拒絕的第二份事實）：
+        # 上一個應執行時點 = 作業系統自己給的 NextRunTime − 該排程自己的 trigger 週期。
+        # LastRun 落在那之前，就是這一輪沒跑到。
+        next_run = (t.get("NextRun") or "").strip()
+        # PowerShell 5.1 的 ConvertTo-Json 對「管線只剩一個元素」仍可能序列化成陣列
+        # （同檔頭已記過 -AsArray 不存在那個坑）→ Python 端再正規化一次，不與它角力。
+        interval_days = t.get("IntervalDays") or 0
+        if isinstance(interval_days, list):
+            interval_days = interval_days[0] if interval_days else 0
+        if last_run and next_run and interval_days and not logon:
+            try:
+                prev_due = datetime.fromisoformat(next_run) - timedelta(days=int(interval_days))
+                if (datetime.fromisoformat(last_run) < prev_due
+                        and now > prev_due + timedelta(hours=MISSED_GRACE_HOURS)):
+                    reds.append(
+                        f"{name}: 應於 {prev_due:%m-%d %H:%M} 執行卻沒跑，也沒有補跑"
+                        f"（上次 {last_run[:16].replace('T', ' ')}）")
+            except ValueError:
+                notes.append(f"{name}: NextRun 無法解析（{next_run}），略過錯過判定")
 
     return reds, notes
 

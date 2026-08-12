@@ -11,9 +11,12 @@
 """
 from __future__ import annotations
 
+import json
+import os
 import re
 import sys
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 # host 端 Windows 主控台預設 cp950，印任何非 CJK 符號（⚪ ✓ …）就 UnicodeEncodeError
@@ -123,15 +126,141 @@ def derive_thresholds_from_scheduler() -> dict[str, int]:
     except Exception as e:
         print(f"✗ 讀取 scheduler.py 失敗：{e} —— 無法推導閾值（不視為通過）")
         return {}
+    # 2026-08-12：整段註解掉的 add_job 也會被比對到 —— `shadow_baseline_export`
+    # 的排程 v6.12 就刻意移除了，只留註解，卻仍被推導成一個「應該存在的排程」，
+    # 而它永遠不可能有訊號。幽靈閾值會讓覆蓋率的分母虛胖，也會在下面的
+    # 「有閾值卻沒訊號」清單裡製造一筆永遠修不掉的雜訊。
+    src = "\n".join(
+        line for line in src.splitlines() if not line.lstrip().startswith("#")
+    )
+    conditional = _conditionally_registered_ids(src)
+    if conditional:
+        print(f"  · 條件註冊、未必存在的排程不列入閾值：{', '.join(sorted(conditional))}")
     out: dict[str, int] = {}
     for m in _ADD_JOB_RE.finditer(src):
         secs = _interval_seconds(m.group(1), m.group("args"))
         if not secs:
             continue
         jid = m.group("jid").rstrip("_")  # f-string 前綴會留下尾端底線
+        if jid in conditional:
+            continue
         # 同名 job 註冊多次（多時段）→ 取最短週期，否則會低估頻率而漏抓
         out[jid] = min(out.get(jid, secs * 2), secs * 2)
     return out
+
+
+def _conditionally_registered_ids(src: str) -> set[str]:
+    """包在 `if ...:` 底下的 add_job —— 條件不成立時它根本不會被註冊。
+
+    2026-08-12：`einvoice_sync` 包在 `if os.getenv("MOF_APP_ID")` 內，環境變數沒設
+    就從不註冊，於是「從未有執行紀錄」是預期而非故障。把它算成應有排程，
+    會在『沒有任何訊號』清單裡留下一筆永遠修不掉的雜訊 —— 而永遠亮著的燈
+    等於沒有燈。判準看**直接包住它的那個區塊是不是 if**（`for hour in [...]`
+    那種迴圈註冊仍然會真的註冊，不能一併排除）。
+    """
+    lines = src.splitlines()
+    out: set[str] = set()
+    for i, line in enumerate(lines):
+        if not line.lstrip().startswith("scheduler.add_job("):
+            continue
+        indent = len(line) - len(line.lstrip())
+        for j in range(i - 1, -1, -1):
+            prev = lines[j]
+            if not prev.strip():
+                continue
+            prev_indent = len(prev) - len(prev.lstrip())
+            if prev_indent >= indent:
+                continue
+            if prev.lstrip().startswith("if "):
+                m = re.search(r"id=f?['\"]([a-z0-9_]+)", "\n".join(lines[i:i + 12]))
+                if m:
+                    out.add(m.group(1).rstrip("_"))
+            break
+    return out
+
+
+def _tracked_job_ids(src_path: Path | None = None) -> set[str]:
+    """哪些 job 有 @tracked_job —— 只有它們會寫進 cron_events.jsonl。
+
+    沒有這個裝飾的 job（如 kg_metrics_refresh）本來就不留持久紀錄，
+    「cron_events 查無此人」對它們是預期，不是故障。少了這個區分，
+    下面的「無任何訊號」清單會把設計如此的東西報成異常。
+    """
+    p = src_path or _scheduler_path()
+    if p is None:
+        return set()
+    try:
+        src = p.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return set()
+    return set(re.findall(r"@tracked_job\(\s*['\"]([a-z0-9_]+)['\"]", src))
+
+
+def _cron_events_path() -> Path | None:
+    """cron_events.jsonl —— host 與容器路徑不同，兩個都試（同 _scheduler_path 的教訓）。
+
+    ⚠️ 2026-08-12 踩到的坑，值得寫下來：本函式初版把 host 候選寫成
+    `<repo>/logs/cron_events.jsonl`（錯的，compose 掛的是 `./backend/logs:/app/logs`），
+    於是往下試容器路徑 `/app/logs/...`。**在 Windows 上這不會失敗** ——
+    `/app` 被當成磁碟根相對路徑解析成 `D:\\app\\`，而那個目錄真的存在
+    （過去某次在 host 執行帶容器路徑的程式碼時被靜靜建出來的），
+    裡面躺著一份 08-10 的舊 cron_events。結果就是：讀到了、有資料、看起來很正常，
+    然後據此把 36 個健康的排程判成「從未執行」、把一個正常的判成 dormant。
+    在 Linux 上路徑寫錯會 FileNotFoundError，在 Windows 上會**讀到一份假的**。
+    → 容器候選只在非 Windows 採用；host 一律走 compose 掛載的真實位置。
+    """
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parents[2] / "backend" / "logs" / "cron_events.jsonl",  # host（compose 掛載來源）
+    ]
+    if os.name != "nt":
+        candidates.append(Path("/app/logs/cron_events.jsonl"))       # container
+    for p in candidates:
+        if p.exists():
+            return p
+    return None
+
+
+def fetch_last_event_ages() -> dict[str, float] | None:
+    """從持久的 cron_events.jsonl 取每個 job 最後一次執行距今幾秒。
+
+    為什麼需要第二個來源：/metrics 的 gauge 是**行程內**的，容器一重啟就從零開始，
+    只有「重啟後跑過」的 job 才有值。2026-08-12 凌晨異常關機（02:52 斷、05:43 恢復），
+    當時 55 個推導出閾值的排程裡只有 15 個出現在 /metrics —— 其餘 40 個不是健康、
+    不是異常，而是**根本不在畫面上**，本支照樣印「✓ all monitored cron」。
+    「不在監控範圍」與「監控通過」不得長得一樣。
+    cron_events.jsonl 是落地檔案、跨重啟存活，正好補上這個缺口。
+    """
+    p = _cron_events_path()
+    if p is None:
+        return None
+    now = datetime.now()
+    last: dict[str, datetime] = {}
+    try:
+        with p.open(encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                    ts = datetime.fromisoformat(e["ts"])
+                except Exception:
+                    continue
+                jid = e.get("job_id")
+                if jid and (jid not in last or ts > last[jid]):
+                    last[jid] = ts
+    except Exception as e:
+        print(f"ERR: cron_events 讀取失敗：{e}")
+        return None
+    if not last:
+        print(f"ERR: {p} 沒有任何可解析的事件")
+        return None
+    # 新鮮度守衛：backend 有在跑（我們拿得到 /metrics）卻讀到一份幾天前就停止
+    # 增長的紀錄檔，那就不是權威來源，而是某個副本。用它判定會得出精確而錯誤的
+    # 結論 —— 上面 docstring 記的 D:\app 事件正是如此。寧可說「沒有依據」。
+    newest_age_h = min((now - t).total_seconds() for t in last.values()) / 3600
+    if newest_age_h > 6:
+        print(f"ERR: {p} 最新事件已 {newest_age_h:.0f}h 前 —— 疑為過期副本，不採信")
+        return None
+    return {j: (now - t).total_seconds() for j, t in last.items()}
 
 
 def fetch_ages() -> dict[str, float]:
@@ -196,8 +325,50 @@ def main() -> int:
             print(f"  🟢 {jid:38} age={age/3600:.1f}h / max {threshold/3600:.1f}h ({ratio:.0%})")
             healthy += 1
 
+    # ------------------------------------------------------------------
+    # 有閾值卻沒有指標的 job —— 2026-08-12 新增。
+    #
+    # 上面那個迴圈只走訪 /metrics 給的東西，於是「該被監控卻沒出現在指標裡」
+    # 的排程連一行都不會被印出來。當日 55 個閾值只有 15 個有指標，
+    # 而畫面顯示 15/15 全綠。這正是它要抓的那種沉默，只是發生在它自己身上。
+    # ------------------------------------------------------------------
+    event_ages = fetch_last_event_ages()
+    tracked = _tracked_job_ids()
+    missing = sorted(set(thresholds) - set(ages))
+    blind: list[str] = []          # 兩個來源都查不到＝完全沒有訊號
+    if missing:
+        print()
+        print(f"— {len(missing)} 個排程有閾值但 /metrics 沒有指標（行程重啟後尚未跑過），"
+              f"改以 cron_events 持久紀錄判定：")
+        if event_ages is None:
+            # 找不到持久紀錄就等於這 40 個完全沒人看 —— 必須出聲，不得靜默略過
+            print("  ✗ 找不到 cron_events.jsonl —— 這些排程本次無任何判定依據")
+            blind = list(missing)
+        else:
+            for jid in missing:
+                threshold = thresholds[jid]
+                age = event_ages.get(jid)
+                if age is None:
+                    if jid not in tracked:
+                        # 沒有 @tracked_job 就不會寫 cron_events，這是設計而非故障，
+                        # 但它同時也沒有 gauge → 誠實說出「這支沒有任何存活訊號」。
+                        # 收束方式已知：下次 backend rebuild 時替它們補上 @tracked_job，
+                        # 就跟其餘 53 支一樣有持久紀錄。刻意不為兩個裝飾子單獨 rebuild
+                        # （backend/app 非 bind mount），所以它會黃到那時為止。
+                        print(f"  ⚪ {jid:38} 無 @tracked_job，不留持久紀錄＝無存活訊號")
+                    else:
+                        print(f"  ⚪ {jid:38} 從未有執行紀錄（可能條件註冊未啟用）")
+                    blind.append(jid)
+                elif age > threshold:
+                    red_jobs.append(jid)
+                    print(f"  🔴 {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h（持久紀錄）")
+                else:
+                    healthy += 1
+                    print(f"  🟢 {jid:38} age={age/3600:.1f}h / max {threshold/3600:.1f}h（持久紀錄）")
+
     print()
-    print(f"Summary: {healthy} healthy / {len(red_jobs)} RED / {len(unknown_jobs)} unknown")
+    print(f"Summary: {healthy} healthy / {len(red_jobs)} RED / "
+          f"{len(unknown_jobs)} unknown / {len(blind)} 無訊號")
 
     # 2026-08-11：以下三條退出碼語意一併校正（0=GREEN / 1=YELLOW / 2+=RED）。
     #
@@ -222,7 +393,17 @@ def main() -> int:
             print(f"    - {j}")
         return 2
 
-    print("✓ all monitored cron within max age")
+    # (d) 2026-08-12：兩個來源都查不到的排程不算通過。它們沒有失敗、沒有紀錄、
+    #     也不在任何一行綠字裡 —— 正是本支存在要抓的那種安靜。
+    if blind:
+        print(f"🟡 {len(blind)} 個排程沒有任何存活訊號（既無指標也無執行紀錄）：")
+        for j in blind:
+            print(f"    - {j}")
+        print("   → 不是「監控通過」，是「沒有人看得見它」")
+        return 1
+
+    print(f"✓ {healthy} 個排程皆在門檻內（指標 {len(ages)} + 持久紀錄 "
+          f"{max(0, healthy - len(ages))}），無盲區")
     return 0
 
 
