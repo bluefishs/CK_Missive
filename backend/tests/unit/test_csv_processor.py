@@ -14,7 +14,7 @@ from datetime import datetime
 # 將 backend 目錄加入 Python 路徑
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app.services.csv_processor import DocumentCSVProcessor
+from app.services.io_import.csv_processor import DocumentCSVProcessor
 
 
 class TestDocumentCSVProcessorInit:

@@ -29,7 +29,7 @@ from .common import (
 from app.schemas.document_calendar import BatchUpdateStatusRequest, BatchDeleteRequest
 from app.extended.models import ContractProject
 from app.extended.models.associations import project_user_assignment
-from app.services.user_alias_service import expand_user_alias
+from app.services.user.alias import expand_user_alias
 from app.core.dependencies import is_admin_user
 
 

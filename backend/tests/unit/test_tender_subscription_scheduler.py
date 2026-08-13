@@ -49,7 +49,7 @@ class TestCheckAllSubscriptions:
         result_mock.scalars.return_value = scalars_mock
         mock_db.execute.return_value = result_mock
 
-        from app.services.tender_subscription_scheduler import check_all_subscriptions
+        from app.services.tender.subscription_scheduler import check_all_subscriptions
         result = await check_all_subscriptions(mock_db)
 
         assert result == {"checked": 0, "notified": 0, "details": []}
@@ -82,7 +82,7 @@ class TestCheckAllSubscriptions:
                 "app.services.notification_service.NotificationService.create_notification",
                 new_callable=AsyncMock,
             ):
-                from app.services.tender_subscription_scheduler import check_all_subscriptions
+                from app.services.tender.subscription_scheduler import check_all_subscriptions
                 result = await check_all_subscriptions(mock_db)
 
         assert result["checked"] == 1
@@ -110,7 +110,7 @@ class TestCheckAllSubscriptions:
                 "total_records": 20, "records": [],
             })
 
-            from app.services.tender_subscription_scheduler import check_all_subscriptions
+            from app.services.tender.subscription_scheduler import check_all_subscriptions
             result = await check_all_subscriptions(mock_db)
 
         assert result["notified"] == 0
@@ -136,7 +136,7 @@ class TestCheckAllSubscriptions:
                 "total_records": 10, "records": [],
             })
 
-            from app.services.tender_subscription_scheduler import check_all_subscriptions
+            from app.services.tender.subscription_scheduler import check_all_subscriptions
             result = await check_all_subscriptions(mock_db)
 
         assert result["notified"] == 0
@@ -159,7 +159,7 @@ class TestCheckAllSubscriptions:
             instance = MockService.return_value
             instance.search_by_title = AsyncMock(side_effect=Exception("API timeout"))
 
-            from app.services.tender_subscription_scheduler import check_all_subscriptions
+            from app.services.tender.subscription_scheduler import check_all_subscriptions
             result = await check_all_subscriptions(mock_db)
 
         assert result["checked"] == 0
@@ -190,7 +190,7 @@ class TestCheckAllSubscriptions:
                 "app.services.notification_service.NotificationService.create_notification",
                 new_callable=AsyncMock,
             ):
-                from app.services.tender_subscription_scheduler import check_all_subscriptions
+                from app.services.tender.subscription_scheduler import check_all_subscriptions
                 result = await check_all_subscriptions(mock_db)
 
         assert result["checked"] == 2

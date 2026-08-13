@@ -28,7 +28,7 @@ from app.extended.models import OfficialDocument
 from app.services.base.import_base import ImportBaseService
 from app.services.base.response import ImportResult, ImportRowResult
 from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder
-from app.services.import_validators import (
+from app.services.io_import.validators import (
     validate_preview_row as _validate_preview_row_impl,
     prepare_document_data as _prepare_document_data_impl,
 )

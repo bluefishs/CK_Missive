@@ -476,7 +476,7 @@ class AnalysisToolExecutor:
 
         # 先嘗試 vector search（如果 kb_chunks 表有資料）
         try:
-            from app.services.kb_embedding_service import KBEmbeddingService
+            from app.services.ai.misc.kb_embedding import KBEmbeddingService
             kb_svc = KBEmbeddingService(self.db)
             vector_results = await kb_svc.search(query, limit=limit)
             if vector_results:

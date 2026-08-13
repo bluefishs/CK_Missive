@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from decimal import Decimal
 from datetime import date
 
-from app.services.expense_import_service import ExpenseImportService
+from app.services.erp.expense_import import ExpenseImportService
 
 
 @pytest.fixture

@@ -16,7 +16,7 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.reminder_service import ReminderService
+from app.services.calendar.reminder_service import ReminderService
 
 
 # ============================================================================

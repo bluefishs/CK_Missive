@@ -65,7 +65,7 @@ async def preview_excel_import(
 
         logger.info(f"Excel 匯入預覽: {filename}, 大小: {len(file_content)} bytes")
 
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
         import_service = ExcelImportService(db)
         result = await import_service.preview_excel(
             file_content, filename, preview_rows, check_duplicates
@@ -130,7 +130,7 @@ async def import_documents_excel(
         logger.info(f"開始 Excel 匯入: {filename}, 大小: {len(file_content)} bytes")
 
         # 使用 ExcelImportService 處理
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
         import_service = ExcelImportService(db, upsert_mode=upsert_mode)
         result = await import_service.import_from_excel(file_content, filename)
 

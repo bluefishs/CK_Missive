@@ -17,7 +17,7 @@ from fastapi import HTTPException
 
 from app.services.base.import_base import ImportBaseService
 from app.services.base.response import ImportResult, ImportRowResult
-from app.services.csv_processor import DocumentCSVProcessor
+from app.services.io_import.csv_processor import DocumentCSVProcessor
 from .core import DocumentService
 from app.schemas.document import DocumentImportResult
 

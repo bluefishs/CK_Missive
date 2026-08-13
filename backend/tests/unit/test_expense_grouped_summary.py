@@ -159,7 +159,7 @@ class TestExpenseApprovalService:
 
     def test_get_approval_info_low_value(self):
         """低金額 (≤30K) 審核資訊"""
-        from app.services.expense_approval_service import ExpenseApprovalService
+        from app.services.erp.expense_approval import ExpenseApprovalService
 
         invoice = MagicMock()
         invoice.status = "pending"
@@ -171,7 +171,7 @@ class TestExpenseApprovalService:
 
     def test_get_approval_info_high_value(self):
         """高金額 (>30K) 需三級審核"""
-        from app.services.expense_approval_service import ExpenseApprovalService
+        from app.services.erp.expense_approval import ExpenseApprovalService
 
         invoice = MagicMock()
         invoice.status = "manager_approved"
@@ -183,7 +183,7 @@ class TestExpenseApprovalService:
 
     def test_get_approval_info_verified(self):
         """已核准狀態無下一步"""
-        from app.services.expense_approval_service import ExpenseApprovalService
+        from app.services.erp.expense_approval import ExpenseApprovalService
 
         invoice = MagicMock()
         invoice.status = "verified"
@@ -195,7 +195,7 @@ class TestExpenseApprovalService:
 
     def test_determine_next_approval_low(self):
         """低金額從 manager_approved 直接到 verified"""
-        from app.services.expense_approval_service import ExpenseApprovalService
+        from app.services.erp.expense_approval import ExpenseApprovalService
 
         svc = ExpenseApprovalService.__new__(ExpenseApprovalService)
         assert svc._determine_next_approval("pending", Decimal("15000")) == "manager_approved"
@@ -203,7 +203,7 @@ class TestExpenseApprovalService:
 
     def test_determine_next_approval_high(self):
         """高金額需經過 finance_approved"""
-        from app.services.expense_approval_service import ExpenseApprovalService
+        from app.services.erp.expense_approval import ExpenseApprovalService
 
         svc = ExpenseApprovalService.__new__(ExpenseApprovalService)
         assert svc._determine_next_approval("pending", Decimal("50000")) == "manager_approved"

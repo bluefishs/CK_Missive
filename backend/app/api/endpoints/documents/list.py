@@ -209,7 +209,7 @@ async def optimized_search(
     - 多欄位權重搜尋
     - 搜尋結果快取
     """
-    from app.services.search_optimizer import SearchOptimizer
+    from app.services.ai.search.optimizer import SearchOptimizer
 
     try:
         optimizer = SearchOptimizer(db)
@@ -294,7 +294,7 @@ async def get_search_suggestions(
     - 主旨匹配建議
     - 文號匹配建議
     """
-    from app.services.search_optimizer import SearchOptimizer
+    from app.services.ai.search.optimizer import SearchOptimizer
 
     try:
         optimizer = SearchOptimizer(db)
@@ -328,7 +328,7 @@ async def get_popular_searches(
     current_user: User = Depends(require_auth()),
 ):
     """取得熱門搜尋詞"""
-    from app.services.search_optimizer import SearchOptimizer
+    from app.services.ai.search.optimizer import SearchOptimizer
 
     try:
         optimizer = SearchOptimizer(db)

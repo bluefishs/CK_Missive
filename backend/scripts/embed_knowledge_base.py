@@ -28,7 +28,7 @@ async def main():
 
     dry_run = "--dry-run" in sys.argv
 
-    from app.services.kb_embedding_service import (
+    from app.services.ai.misc.kb_embedding import (
         DOCS_DIR, SCAN_DIRS, _split_markdown_sections,
     )
 

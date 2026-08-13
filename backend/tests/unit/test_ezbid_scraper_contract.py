@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.ezbid_scraper import EzbidScraper
+from app.services.tender.ezbid_scraper import EzbidScraper
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "ezbid_sample.html"
 

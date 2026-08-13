@@ -87,7 +87,7 @@ async def run_scan(
     _user: User = Depends(require_auth()),
 ):
     """立即執行完整安全掃描（程式碼掃描+依賴檢查）。"""
-    from app.services.security_scanner import SecurityScanner
+    from app.services.security.scanner import SecurityScanner
     result = await SecurityScanner(db).run_full_scan()
     return {"success": True, **result}
 

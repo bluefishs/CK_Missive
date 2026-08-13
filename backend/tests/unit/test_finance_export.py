@@ -13,7 +13,7 @@ from io import BytesIO
 
 from openpyxl import load_workbook
 
-from app.services.finance_export_service import FinanceExportService
+from app.services.erp.finance_export import FinanceExportService
 
 
 def _make_mock_invoice(**kwargs):

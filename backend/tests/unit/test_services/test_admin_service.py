@@ -13,7 +13,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from fastapi import HTTPException
 
-from app.services.admin_service import (
+from app.services.system.admin import (
     _validate_read_only_sql,
     validate_table_name,
     ALLOWED_TABLES,

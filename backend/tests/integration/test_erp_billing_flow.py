@@ -29,7 +29,7 @@ from app.extended.models.finance import FinanceLedger
 from app.schemas.erp import ERPBillingCreate, ERPBillingUpdate, ERPInvoiceCreate
 from app.services.erp.billing_service import ERPBillingService
 from app.services.erp.invoice_service import ERPInvoiceService
-from app.services.finance_ledger_service import FinanceLedgerService
+from app.services.erp.finance_ledger import FinanceLedgerService
 
 pytestmark = pytest.mark.integration
 

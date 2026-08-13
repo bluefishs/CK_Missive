@@ -259,7 +259,7 @@ class TestExpenseInvoiceService:
     @pytest.fixture
     def approval_service(self, mock_db):
         """Direct access to ExpenseApprovalService for approve/reject tests"""
-        from app.services.expense_approval_service import ExpenseApprovalService
+        from app.services.erp.expense_approval import ExpenseApprovalService
         svc = ExpenseApprovalService(mock_db)
         svc.repo = AsyncMock()
         svc.ledger_service = AsyncMock()
@@ -456,7 +456,7 @@ class TestFinanceLedgerService:
 
     @pytest.fixture
     def service(self, mock_db):
-        from app.services.finance_ledger_service import FinanceLedgerService
+        from app.services.erp.finance_ledger import FinanceLedgerService
         svc = FinanceLedgerService(mock_db)
         svc.repo = AsyncMock()
         return svc
@@ -832,7 +832,7 @@ class TestApprovalStateMachine:
 
     def test_determine_next_pending_receipt(self):
         """pending_receipt → pending (via _determine_next_approval on ApprovalService)"""
-        from app.services.expense_approval_service import ExpenseApprovalService
+        from app.services.erp.expense_approval import ExpenseApprovalService
         mock_db = AsyncMock()
         svc = ExpenseApprovalService(mock_db)
         # pending_receipt is not in the standard flow, returns current status
@@ -858,7 +858,7 @@ class TestBudgetAudit:
 
     @pytest.fixture
     def service(self, mock_db):
-        from app.services.expense_approval_service import ExpenseApprovalService
+        from app.services.erp.expense_approval import ExpenseApprovalService
         svc = ExpenseApprovalService(mock_db)
         svc.repo = AsyncMock()
         svc.repo.commit = AsyncMock()
@@ -1105,7 +1105,7 @@ class TestBillingAutoLedger:
     @pytest.mark.asyncio
     async def test_record_from_billing_creates_income(self):
         """record_from_billing 建立收入記錄"""
-        from app.services.finance_ledger_service import FinanceLedgerService
+        from app.services.erp.finance_ledger import FinanceLedgerService
         mock_db = AsyncMock()
         svc = FinanceLedgerService(mock_db)
         svc.repo = AsyncMock()
@@ -1246,7 +1246,7 @@ class TestVendorPayableAutoLedger:
     @pytest.mark.asyncio
     async def test_record_from_vendor_payable_creates_expense(self):
         """record_from_vendor_payable 建立支出記錄"""
-        from app.services.finance_ledger_service import FinanceLedgerService
+        from app.services.erp.finance_ledger import FinanceLedgerService
         mock_db = AsyncMock()
         svc = FinanceLedgerService(mock_db)
         svc.repo = AsyncMock()

@@ -29,7 +29,7 @@ async def get_skill_evolution_tree(
     返回系統所有技能節點、演化路徑、融合關係，
     供前端渲染互動式技能演化視覺化。
     """
-    from app.services.skill_evolution_service import build_skill_tree
+    from app.services.ai.misc.skill_evolution import build_skill_tree
     return build_skill_tree()
 
 

@@ -9,7 +9,7 @@ SQL 注入多層防禦 — 單元測試
 import pytest
 from fastapi import HTTPException
 
-from app.services.admin_service import _validate_read_only_sql
+from app.services.system.admin import _validate_read_only_sql
 
 
 class TestValidReadOnlyQueries:

@@ -475,7 +475,7 @@ class TestExcelImportServiceFieldMapping:
 
     def test_field_mapping_completeness(self):
         """確認核心欄位都有映射"""
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
 
         expected_fields = ['公文ID', '公文字號', '主旨', '類別', '發文單位', '受文單位']
         for field in expected_fields:
@@ -483,7 +483,7 @@ class TestExcelImportServiceFieldMapping:
 
     def test_required_fields(self):
         """確認必填欄位定義正確"""
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
 
         assert '公文字號' in ExcelImportService.REQUIRED_FIELDS
         assert '主旨' in ExcelImportService.REQUIRED_FIELDS
@@ -491,7 +491,7 @@ class TestExcelImportServiceFieldMapping:
 
     def test_ignored_fields(self):
         """確認忽略欄位定義"""
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
 
         assert '附件紀錄' in ExcelImportService.IGNORED_FIELDS
         assert '建立時間' in ExcelImportService.IGNORED_FIELDS
@@ -503,7 +503,7 @@ class TestExcelImportServiceValidation:
     @pytest.mark.asyncio
     async def test_validate_preview_row_insert(self):
         """新增模式（無公文ID）的驗證"""
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
 
         db = make_mock_db()
         service = ExcelImportService(db, auto_create_events=False)
@@ -540,7 +540,7 @@ class TestExcelImportServiceValidation:
     @pytest.mark.asyncio
     async def test_validate_preview_row_update(self):
         """更新模式（有公文ID）的驗證"""
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
 
         db = make_mock_db()
         service = ExcelImportService(db, auto_create_events=False)
@@ -577,7 +577,7 @@ class TestExcelImportServiceValidation:
     @pytest.mark.asyncio
     async def test_validate_preview_row_duplicate(self):
         """檔案內重複公文字號檢測"""
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
 
         db = make_mock_db()
         service = ExcelImportService(db, auto_create_events=False)
@@ -616,7 +616,7 @@ class TestExcelImportServiceValidation:
     @pytest.mark.asyncio
     async def test_validate_preview_row_db_existing(self):
         """資料庫已存在的公文字號檢測"""
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
 
         db = make_mock_db()
         service = ExcelImportService(db, auto_create_events=False)
@@ -652,7 +652,7 @@ class TestExcelImportServiceValidation:
     @pytest.mark.asyncio
     async def test_validate_preview_row_missing_required(self):
         """缺少必填欄位時標記 warning"""
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
 
         db = make_mock_db()
         service = ExcelImportService(db, auto_create_events=False)
@@ -692,5 +692,5 @@ class TestExcelImportServiceFormatVersion:
 
     def test_format_version(self):
         """確認格式版本"""
-        from app.services.excel_import_service import ExcelImportService
+        from app.services.io_import.excel_service import ExcelImportService
         assert ExcelImportService.FORMAT_VERSION == "2.0"

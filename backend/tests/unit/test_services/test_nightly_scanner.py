@@ -201,11 +201,11 @@ class TestLinePushTypeLabels:
     """驗證 LinePushScheduler 類型標籤完整性"""
 
     def test_budget_overrun_label_exists(self):
-        from app.services.line_push_scheduler import LinePushScheduler
+        from app.services.integration.line_push_scheduler import LinePushScheduler
         assert "budget_overrun" in LinePushScheduler._TYPE_LABELS
         assert LinePushScheduler._TYPE_LABELS["budget_overrun"] == "預算警報"
 
     def test_pending_receipt_label_exists(self):
-        from app.services.line_push_scheduler import LinePushScheduler
+        from app.services.integration.line_push_scheduler import LinePushScheduler
         assert "pending_receipt_stale" in LinePushScheduler._TYPE_LABELS
         assert LinePushScheduler._TYPE_LABELS["pending_receipt_stale"] == "待核銷提醒"

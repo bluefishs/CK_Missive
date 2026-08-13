@@ -144,7 +144,7 @@ class TestFinanceToolExecutor:
         }
 
         with patch(
-            "app.services.financial_summary_service.FinancialSummaryService.get_company_overview",
+            "app.services.erp.financial_summary.FinancialSummaryService.get_company_overview",
             new_callable=AsyncMock,
             return_value=mock_overview,
         ):
@@ -165,7 +165,7 @@ class TestFinanceToolExecutor:
         }
 
         with patch(
-            "app.services.financial_summary_service.FinancialSummaryService.get_project_summary",
+            "app.services.erp.financial_summary.FinancialSummaryService.get_project_summary",
             new_callable=AsyncMock,
             return_value=mock_summary,
         ):
@@ -215,7 +215,7 @@ class TestFinanceToolExecutor:
         }
 
         with patch(
-            "app.services.financial_summary_service.FinancialSummaryService.get_company_overview",
+            "app.services.erp.financial_summary.FinancialSummaryService.get_company_overview",
             new_callable=AsyncMock,
             return_value=mock_overview,
         ):
@@ -249,7 +249,7 @@ class TestFinanceToolExecutor:
         }
 
         with patch(
-            "app.services.financial_summary_service.FinancialSummaryService.get_company_overview",
+            "app.services.erp.financial_summary.FinancialSummaryService.get_company_overview",
             new_callable=AsyncMock,
             return_value=mock_overview,
         ):

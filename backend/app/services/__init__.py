@@ -39,11 +39,11 @@ from .agency_service import AgencyService
 from .project_agency_contact_service import ProjectAgencyContactService
 
 # 行事曆與提醒服務
-from .document_calendar_service import DocumentCalendarService
-from .document_calendar_integrator import DocumentCalendarIntegrator
-from .reminder_service import ReminderService
+from .calendar.document_service import DocumentCalendarService
+from .calendar.document_integrator import DocumentCalendarIntegrator
+from .calendar.reminder_service import ReminderService
 from .notification_service import NotificationService
-from .project_notification_service import ProjectNotificationService
+from .notification.project_notification import ProjectNotificationService
 from .notification_template_service import (
     NotificationTemplateService,
     NotificationType,
@@ -57,8 +57,8 @@ from .notification_template_service import (
 from .document_import_service import DocumentImportService
 from .document_export_service import DocumentExportService
 from .document_statistics_service import DocumentStatisticsService
-from .csv_processor import DocumentCSVProcessor
-from .excel_import_service import ExcelImportService
+from .io_import.csv_processor import DocumentCSVProcessor
+from .io_import.excel_service import ExcelImportService
 
 
 __all__ = [

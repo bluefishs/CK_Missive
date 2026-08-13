@@ -375,7 +375,7 @@ async def lifespan(app: FastAPI):
         async def on_billing_paid(event):
             """Auto-create ledger entry when billing is paid."""
             from app.db.database import AsyncSessionLocal
-            from app.services.finance_ledger_service import FinanceLedgerService
+            from app.services.erp.finance_ledger import FinanceLedgerService
 
             payload = event.payload
             try:

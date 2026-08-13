@@ -7,7 +7,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 print(f"Working directory: {os.getcwd()}")
 
 # 載入服務
-from app.services.document_calendar_service import DocumentCalendarService
+from app.services.calendar.document_service import DocumentCalendarService
 
 # 初始化新實例
 service = DocumentCalendarService()

@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from app.core.dependencies import get_service, require_auth
 from app.extended.models import User
 from app.services.erp.financial_summary import FinancialSummaryService
-from app.services.finance_export_service import FinanceExportService
+from app.services.erp.finance_export import FinanceExportService
 from app.schemas.erp.financial_summary import (
     ProjectSummaryRequest,
     AllProjectsSummaryRequest,

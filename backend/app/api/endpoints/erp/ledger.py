@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import get_service, require_auth
 from app.extended.models import User
-from app.services.finance_ledger_service import FinanceLedgerService
+from app.services.erp.finance_ledger import FinanceLedgerService
 from app.schemas.erp.ledger import (
     LedgerCreate,
     LedgerQuery,

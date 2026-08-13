@@ -16,7 +16,7 @@ import pytest
 from datetime import date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.document_calendar_integrator import DocumentCalendarIntegrator
+from app.services.calendar.document_integrator import DocumentCalendarIntegrator
 
 
 # ============================================================================

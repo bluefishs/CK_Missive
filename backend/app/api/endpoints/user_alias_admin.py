@@ -24,7 +24,7 @@ from app.schemas.user_alias import (
     MergeAliasRequest,
     MergeAliasResponse,
 )
-from app.services.user_alias_service import (
+from app.services.user.alias import (
     detect_potential_aliases,
     merge_alias,
 )

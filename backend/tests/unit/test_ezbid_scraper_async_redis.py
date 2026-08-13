@@ -7,7 +7,7 @@ miss on every request → 3.5s cold hit on every tender search.
 """
 import inspect
 
-from app.services.ezbid_scraper import EzbidScraper
+from app.services.tender.ezbid_scraper import EzbidScraper
 
 
 def test_get_cache_uses_await():

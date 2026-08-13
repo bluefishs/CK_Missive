@@ -623,7 +623,7 @@ async def kb_coverage_check_job():
 async def security_scan_job():
     """自動安全掃描 — 偵測硬編碼密鑰、SQL 注入、缺認證端點等"""
     from app.db.database import async_session_maker
-    from app.services.security_scanner import SecurityScanner
+    from app.services.security.scanner import SecurityScanner
 
     logger.info("開始執行自動安全掃描")
     try:

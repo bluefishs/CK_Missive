@@ -287,14 +287,14 @@ class TestFinancialSummaryServiceDashboard:
         mock_db = AsyncMock()
 
         with patch(
-            "app.services.financial_summary_service.FinancialSummaryRepository"
+            "app.services.erp.financial_summary.FinancialSummaryRepository"
         ) as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.get_monthly_trend = AsyncMock(return_value=[
                 {"month": "2026-03", "income": Decimal("100"), "expense": Decimal("50"), "net": Decimal("50")},
             ])
 
-            from app.services.financial_summary_service import FinancialSummaryService
+            from app.services.erp.financial_summary import FinancialSummaryService
             service = FinancialSummaryService(mock_db)
 
             result = await service.get_monthly_trend(months=1, case_code="PRJ-001")

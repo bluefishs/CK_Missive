@@ -7,7 +7,7 @@
 # 1.  資料來源: 從指定資料夾讀取多種格式公文清單 CSV 檔案。
 #     - 自動判斷文件類型 (收/發文) 與形式 (電子/紙本)。
 #     - 兼容 UTF-8 及 Big5 編碼。
-# 2.  數據處理: (現在由 app.services.csv_processor 統一處理)
+# 2.  數據處理: (現在由 app.services.io_import.csv_processor 統一處理)
 #     - 清理欄位值 (去除空白)。
 #     - 民國日期 ('公文日期') 轉換為西元日期 ('日期')。
 #     - 處理跨日期重複數據：合併所有數據後，保留每個唯一記錄的最新版本。
@@ -41,7 +41,7 @@ import json
 from tqdm import tqdm
 
 # 匯入統一的 CSV 處理器
-from app.services.csv_processor import DocumentCSVProcessor
+from app.services.io_import.csv_processor import DocumentCSVProcessor
 
 
 try:

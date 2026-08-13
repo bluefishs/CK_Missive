@@ -74,7 +74,7 @@ async def search_knowledge_base(
     db: AsyncSession = Depends(get_async_db),
 ) -> KBSearchResponse:
     """混合搜尋知識庫內容：向量搜尋優先，文字搜尋兜底。"""
-    from app.services.kb_embedding_service import KBEmbeddingService
+    from app.services.ai.misc.kb_embedding import KBEmbeddingService
 
     # 向量搜尋優先
     vector_results = await KBEmbeddingService(db).search(req.query, limit=req.limit)
@@ -99,7 +99,7 @@ async def trigger_kb_embedding(
     db: AsyncSession = Depends(get_async_db),
 ) -> KBEmbedResponse:
     """觸發知識庫 Embedding 管線（掃描 docs/ → 分段 → 向量化）。"""
-    from app.services.kb_embedding_service import KBEmbeddingService
+    from app.services.ai.misc.kb_embedding import KBEmbeddingService
 
     kb_service = KBEmbeddingService(db)
     try:
@@ -156,7 +156,7 @@ async def get_kb_stats(
     db: AsyncSession = Depends(get_async_db),
 ) -> KBStatsResponse:
     """取得知識庫 Embedding 統計資訊。"""
-    from app.services.kb_embedding_service import KBEmbeddingService
+    from app.services.ai.misc.kb_embedding import KBEmbeddingService
 
     kb_service = KBEmbeddingService(db)
     stats = await kb_service.get_stats()

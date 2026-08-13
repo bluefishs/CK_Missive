@@ -13,7 +13,7 @@ from app.schemas.admin import AdminQueryRequest
 import logging
 
 # 匯入服務層
-from app.services.admin_service import AdminService
+from app.services.system.admin import AdminService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

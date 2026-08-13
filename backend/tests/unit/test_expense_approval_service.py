@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from decimal import Decimal
 
-from app.services.expense_approval_service import ExpenseApprovalService
+from app.services.erp.expense_approval import ExpenseApprovalService
 
 
 def _make_invoice(
