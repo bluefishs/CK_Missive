@@ -852,6 +852,7 @@ async def kg_embedding_backfill_job():
         return {"processed": 0, "embedded": 0, "skipped": 0, "reason": f"job error: {e}"}
 
 
+@tracked_job("kg_metrics_refresh")
 async def kg_metrics_refresh_job():
     """v5.10.2 #7：KG metrics 即時刷新 — 每 15 分鐘從 DB 讀最新覆蓋率到 Prometheus
 
@@ -862,18 +863,26 @@ async def kg_metrics_refresh_job():
     from app.db.database import async_session_maker
     from app.core.kg_stats_metrics import get_kg_stats_metrics
 
-    try:
-        async with async_session_maker() as db:
-            metrics = get_kg_stats_metrics()
-            stats = await metrics.refresh_from_db(db)
-            logger.debug(
-                "KG metrics refreshed: total=%d embedded=%d coverage=%.3f",
-                stats["total"], stats["embedded"], stats["coverage"],
-            )
-    except Exception as e:
-        logger.error("KG metrics refresh job 失敗: %s", e, exc_info=True)
+    # 2026-08-12：補 @tracked_job + 回 detail。在此之前它既不寫 cron_events
+    # （沒有裝飾子）也沒有自己的 gauge，是 53 支排程裡唯二**完全沒有存活訊號**的
+    # ——它掛了的症狀會是「Grafana 上的 KG 覆蓋率停住」，而沒有任何一支檢核會出聲。
+    # 例外改為 raise：吞掉就回到沉默失敗（ADR-0028），tracked_job 會記 status=error。
+    async with async_session_maker() as db:
+        metrics = get_kg_stats_metrics()
+        stats = await metrics.refresh_from_db(db)
+        logger.debug(
+            "KG metrics refreshed: total=%d embedded=%d coverage=%.3f",
+            stats["total"], stats["embedded"], stats["coverage"],
+        )
+        return {
+            "total": stats["total"],
+            "embedded": stats["embedded"],
+            "coverage": round(stats["coverage"], 4),
+            "reason": "ok",
+        }
 
 
+@tracked_job("memory_metrics_refresh")
 async def memory_metrics_refresh_job():
     """v5.10.2 Phase 1：Memory Wiki metrics 即時刷新 — 每 15 分鐘掃 wiki/memory/*
 
@@ -888,28 +897,36 @@ async def memory_metrics_refresh_job():
     from pathlib import Path
     from app.core.memory_wiki_metrics import get_memory_wiki_metrics
 
-    try:
-        # PROJECT_ROOT/wiki/memory 路徑（同 endpoints/ai/memory.py 用法）
-        # 2026-05-24 fix: docker container 內 PROJECT_ROOT 計算偏 1 層（=/ 非 /app）
-        # 因 docker layout flatten backend/ → /app，與 host layout 不同。
-        # 加 CK_WIKI_DIR env override：docker compose 設 /app/wiki，host 走 fallback。
-        from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
-        wiki_memory = _Path(os.getenv("CK_WIKI_DIR", str(project_root / "wiki"))) / "memory"
-        if not wiki_memory.exists():
-            logger.warning("wiki/memory 目錄不存在，skip metrics refresh (path=%s)", wiki_memory)
-            return
+    # 2026-08-12：補 @tracked_job + 回 detail（同 kg_metrics_refresh，見該處說明）。
+    # 例外改為 raise —— 吞掉就回到沉默失敗（ADR-0028）。
+    # PROJECT_ROOT/wiki/memory 路徑（同 endpoints/ai/memory.py 用法）
+    # 2026-05-24 fix: docker container 內 PROJECT_ROOT 計算偏 1 層（=/ 非 /app）
+    # 因 docker layout flatten backend/ → /app，與 host layout 不同。
+    # 加 CK_WIKI_DIR env override：docker compose 設 /app/wiki，host 走 fallback。
+    from app.core.paths import PROJECT_ROOT as project_root  # v6.10 P1-E SSOT
+    wiki_memory = _Path(os.getenv("CK_WIKI_DIR", str(project_root / "wiki"))) / "memory"
+    if not wiki_memory.exists():
+        # 目錄不在＝這支永遠刷不到值，屬設定問題而非「沒事可做」→ reason 要說得出來
+        logger.warning("wiki/memory 目錄不存在，skip metrics refresh (path=%s)", wiki_memory)
+        return {"reason": f"wiki_memory_missing:{wiki_memory}"}
 
-        metrics = get_memory_wiki_metrics()
-        metrics.refresh_from_disk(wiki_memory)
-        logger.debug(
-            "Memory metrics refreshed: diary=%d patterns=%d crystals=%d proposals_pending=%d",
-            int(metrics.diary_days._value.get()),
-            int(metrics.patterns._value.get()),
-            int(metrics.crystals._value.get()),
-            int(metrics.proposals_pending._value.get()),
-        )
-    except Exception as e:
-        logger.error("Memory metrics refresh job 失敗: %s", e, exc_info=True)
+    metrics = get_memory_wiki_metrics()
+    metrics.refresh_from_disk(wiki_memory)
+    diary = int(metrics.diary_days._value.get())
+    patterns = int(metrics.patterns._value.get())
+    crystals = int(metrics.crystals._value.get())
+    pending = int(metrics.proposals_pending._value.get())
+    logger.debug(
+        "Memory metrics refreshed: diary=%d patterns=%d crystals=%d proposals_pending=%d",
+        diary, patterns, crystals, pending,
+    )
+    return {
+        "diary_days": diary,
+        "patterns": patterns,
+        "crystals": crystals,
+        "proposals_pending": pending,
+        "reason": "ok",
+    }
 
 
 async def _push_channel(channel: str, recipient: str, text: str) -> tuple[bool, str | None]:
