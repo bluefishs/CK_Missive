@@ -24,7 +24,7 @@
 | 🪟 Windows 工作排程器 | 1 |
 | ⚪ 無排程（手動／一次性／已被取代） | 25 |
 
-<!--baseline:check_scripts-->合計 **156** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **157** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -67,6 +67,7 @@
 | `declaration_gate.py` | 腳本強制表態閘門（CK_Missive 薄包裝）— 2026-08-09 |
 | `docker_compose_volume_consistency.py` | 偵測同一專案多個 docker-compose*.yml + backup script 內 volume 命名 drift |
 | `governance_dashboard_completeness_audit.py` | Governance Dashboard Completeness Audit |
+| `module_import_sweep.py` | 每個模組都必須真的能被匯入 —— 消滅「匯入即失敗但沒有人在匯入它」家族 |
 | `run_fitness_daily.sh` | Fitness Tier 1 Daily — 8 critical step (~1 min) |
 | `shell_script_eol_audit.py` | shell script 不得帶 CRLF —— 那會讓它在 Linux 容器裡直接無法執行 |
 

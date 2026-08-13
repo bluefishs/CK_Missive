@@ -101,6 +101,28 @@ def check_file(path: Path) -> list[tuple[int, str]]:
     except (SyntaxError, UnicodeDecodeError):
         return issues
 
+    # 2026-08-13：同一函式裡連續 `asyncio.create_task(...)` 也會產生一模一樣的競態。
+    # 實例：missive_agent 用 create_task 同時跑 get_self_profile(self.db) 與
+    # scan_agent_alerts(self.db)，每次對話都撞
+    # 「This session is provisioning a new connection」，而主動提醒因此靜默失效。
+    # 本支原本只認 gather —— **同樣的競態、不同的寫法，就在視野外**。
+    for scope in ast.walk(tree):
+        if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        created = [
+            n for n in ast.walk(scope)
+            if isinstance(n, ast.Call)
+            and ((isinstance(n.func, ast.Attribute) and n.func.attr == "create_task")
+                 or (isinstance(n.func, ast.Name) and n.func.id == "create_task"))
+            and n.args and _task_uses_shared_db(n.args[0])
+        ]
+        if len(created) >= 2:
+            issues.append((
+                created[0].lineno,
+                f"同一函式內 {len(created)} 個 asyncio.create_task 共用 db session — "
+                f"與 gather 同型競態（ADR-0021），改用 run_with_fresh_session 包裹",
+            ))
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue

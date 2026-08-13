@@ -70,8 +70,21 @@ class MissiveAgent:
             from app.services.ai.agent.agent_self_profile import get_self_profile
             from app.services.ai.agent.agent_proactive_scanner import scan_agent_alerts
 
-            profile_task = asyncio.create_task(get_self_profile(self.db))
-            alerts_task = asyncio.create_task(scan_agent_alerts(self.db))
+            # 2026-08-13：兩個 task 原本共用 self.db —— asyncpg connection 是單飛模式，
+            # 兩個 coroutine 同時用同一個 session 必然撞
+            # 「This session is provisioning a new connection」。
+            # 後果是靜默的：scan 失敗 → deadline 提醒空清單、未讀數 fallback 成 0
+            # → 對話裡的「主動提醒」實際上等於不存在，而 log 只有一行 warning。
+            #
+            # 專案規範（development-rules.md §5.1 / ADR-0021）早有這條，
+            # 靜態守護 async_session_race_guard 也在做這件事 ——
+            # 但它只看 `asyncio.gather`，這裡用的是 `asyncio.create_task`：
+            # 同樣的競態、不同的寫法，於是它看不見（守護已一併補上）。
+            from app.db.database import run_with_fresh_session
+            profile_task = asyncio.create_task(
+                run_with_fresh_session(lambda s: get_self_profile(s)))
+            alerts_task = asyncio.create_task(
+                run_with_fresh_session(lambda s: scan_agent_alerts(s)))
 
             # 載入用戶偏好
             if session_id:

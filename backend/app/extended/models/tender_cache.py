@@ -7,6 +7,18 @@ Version: 1.0.0
 """
 from ._base import *
 
+# 2026-08-13：`_base` 的星號匯入給的是 `Text`（欄位型別），**不是** `text`
+# （SQL 表達式函式）—— 兩個名字只差一個大小寫，而 Python 的錯誤訊息還會
+# 好心地問「Did you mean: 'Text'?」。下面 __table_args__ 的 postgresql_where
+# 要的是後者，於是這個模組**從匯入的那一刻就 NameError**。
+#
+# 為什麼一直沒被發現：models/__init__.py 沒有收錄本模組，三個消費端
+# （AI 的 search_across_graphs、統一圖譜的標案分支、案件流程追蹤）
+# 又都是函式內的延遲匯入 → 應用照常啟動，只有真的用到標案 ORM 時才炸，
+# 而上層把它 catch 成一行 "Tool ... failed" 的 warning。
+# 最早的那行日誌是 2026-05-27。
+from sqlalchemy import text
+
 
 class TenderRecord(Base):
     """標案主表 — 快取 g0v + ezbid 資料"""

@@ -226,6 +226,16 @@ run_step "10" "shell script 行尾（CRLF 會使容器內完全不執行）" \
 run_step "11" "DB 交易狀態（中止未 rollback）" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/db_transaction_health_check.py"
 
+# Step 12: 模組匯入掃描（2026-08-13）
+# 一天之內找到三個彼此無關、形狀卻完全一樣的缺陷：模組匯入即失敗，
+# 但因為不在 __init__ 匯出、消費端又是函式內延遲匯入、上層再 catch 成 warning，
+# 於是可以壞好幾個月而所有訊號都是綠的（tender_cache 至少 78 天、
+# wiki/compiler 三個多月、pm/staff_* 自 v5.2.0）。
+# py_compile／型別檢查／測試／走查全都抓不到 —— 唯一的辦法是真的匯入一次。
+# 放 daily 而非 weekly：它要在應用實際執行的環境裡跑，而 daily 正是在容器內。
+run_step "12" "模組匯入掃描（匯入即失敗的模組）" \
+    "PYTHONIOENCODING=utf-8 python scripts/checks/module_import_sweep.py"
+
 # ============================================================
 # Summary
 # ============================================================
