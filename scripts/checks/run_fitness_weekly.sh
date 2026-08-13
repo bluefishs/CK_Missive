@@ -48,6 +48,11 @@ echo ""
 
 FAIL_COUNT=0
 FAIL_STEPS=()
+# 2026-08-13：逐步結果歷史。原本只記整體 rc，於是無法回答兩個問題 ——
+# 「哪些檢核從來沒紅過」（要嘛防的事不會發生，要嘛它根本不會紅）
+# 與「哪些紅了但沒人處理」（那是噪音，會稀釋真訊號）。
+# 這兩個數字才是「檢核機制健不健康」的真實指標，不是步數。
+STEP_RESULTS=()
 WARN_COUNT=0
 WARN_STEPS=()
 
@@ -89,6 +94,7 @@ run_step() {
     # 三態：0=GREEN / 1=YELLOW / 2+=RED（見上方「刻意不傳 --strict」說明）
     local rc=0
     PYTHONIOENCODING=utf-8 python "$script" 2>&1 || rc=$?
+    STEP_RESULTS+=("$step_num|$step_name|$rc")
     if [[ $rc -eq 1 ]]; then
         WARN_COUNT=$((WARN_COUNT+1)); WARN_STEPS+=("$step_num $step_name")
     elif [[ $rc -ne 0 ]]; then
@@ -283,6 +289,38 @@ run_step "50" "startup dependency race（compose depends_on）"    "scripts/chec
 # 自動分類：多數教訓是行為準則，區分需語意判斷會產不可信清單）。
 # 覆蓋率本身不判紅，引用了不存在的腳本（斷鏈）才判紅。
 run_step "51" "治理強制覆蓋＋宣告閘門（ADR／教訓）"            "scripts/checks/governance_enforcement_coverage.py --gate"
+
+# Step 52: 檢核有效性報告（2026-08-13）
+# 到目前為止沒有任何人在看兩個數字：「哪些檢核從來沒紅過」與「哪些紅了沒人處理」。
+# 那兩個才是「檢核機制健不健康」的真實指標 —— 不是步數。
+# 樣本不足時它會明講不足而不下結論；也不自動刪除或降級任何東西。
+run_step "52" "檢核有效性報告（誰真的在保護我們）"        "scripts/checks/check_effectiveness_report.py"
+
+
+# ------------------------------------------------------------------
+# 逐步結果歷史（2026-08-13）
+# ------------------------------------------------------------------
+# 只記整體 rc 時，三個月後也回答不出「哪一支檢核從來沒紅過」。
+# 而那正是判斷「這 158 支裡有多少真的在保護我們」的唯一依據 ——
+# 從沒紅過的，要嘛防的事不會發生（可降級），要嘛它根本不會紅（假綠，更嚴重：
+# 2026-08-13 一天就找到三支屬於後者）。
+# skip 也要記：**「沒檢查」與「檢查通過」不得在歷史裡長得一樣**，
+# 那正是這整套機制反覆踩到的東西。
+_HIST="wiki/memory/fitness_step_history.jsonl"
+mkdir -p "$(dirname "$_HIST")" 2>/dev/null
+{
+  printf '{"ts":"%s","runner":"%s","steps":{' "$(date +%Y-%m-%dT%H:%M:%S)" "weekly"
+  _first=1
+  for _r in "${STEP_RESULTS[@]:-}"; do
+    [ -z "$_r" ] && continue
+    _n="${_r%%|*}"; _rest="${_r#*|}"; _name="${_rest%%|*}"; _rc="${_rest##*|}"
+    [ $_first -eq 0 ] && printf ','
+    printf '"%s":%s' "$_n $_name" "$_rc"
+    _first=0
+  done
+  printf '}}
+'
+} >> "$_HIST" 2>/dev/null || true
 
 # ============================================================
 # Summary

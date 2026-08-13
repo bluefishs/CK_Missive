@@ -24,7 +24,7 @@
 | 🪟 Windows 工作排程器 | 1 |
 | ⚪ 無排程（手動／一次性／已被取代） | 25 |
 
-<!--baseline:check_scripts-->合計 **158** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **159** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -85,6 +85,7 @@
 | `alias_rls_e2e_check.py` | Alias RLS End-to-End Check |
 | `api_contract_alignment_audit.py` | 程式 × 頁面 × 服務 三者對應完整性稽核 |
 | `capability_usage_snapshot.py` | 能力使用度快照 —— 第 6 階「價值層」的資料收集 |
+| `check_effectiveness_report.py` | 檢核有效性報告 —— 哪些從沒紅過（可能是假綠）、哪些紅了沒人處理（噪音） |
 | `credential_liveness_audit.py` | 憑證存活稽核 —— 提請複查 |
 | `cross_domain_link_audit.py` | Fitness step 71: KG cross-domain 連結率 audit |
 | `cross_repo_template_drift_audit.py` | Fitness step 65: 跨 repo 範本漂移 audit |

@@ -45,6 +45,11 @@ echo ""
 
 FAIL_COUNT=0
 FAIL_STEPS=()
+# 2026-08-13：逐步結果歷史。原本只記整體 rc，於是無法回答兩個問題 ——
+# 「哪些檢核從來沒紅過」（要嘛防的事不會發生，要嘛它根本不會紅）
+# 與「哪些紅了但沒人處理」（那是噪音，會稀釋真訊號）。
+# 這兩個數字才是「檢核機制健不健康」的真實指標，不是步數。
+STEP_RESULTS=()
 WARN_COUNT=0
 WARN_STEPS=()
 SKIP_STEPS=()
@@ -136,6 +141,7 @@ run_step() {
     # 退出碼一律依腳本原生三態（0/1/2+），嚴重度不由呼叫端的旗標決定。
     local rc=0
     eval "$cmd" 2>&1 || rc=$?
+    STEP_RESULTS+=("$step_num|$step_name|$rc")
     if [[ $rc -eq 1 ]]; then
         WARN_COUNT=$((WARN_COUNT+1)); WARN_STEPS+=("$step_num $step_name")
     elif [[ $rc -ne 0 ]]; then
@@ -235,6 +241,38 @@ run_step "11" "DB 交易狀態（中止未 rollback）" \
 # 放 daily 而非 weekly：它要在應用實際執行的環境裡跑，而 daily 正是在容器內。
 run_step "12" "模組匯入掃描（匯入即失敗的模組）" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/module_import_sweep.py"
+
+
+# ------------------------------------------------------------------
+# 逐步結果歷史（2026-08-13）
+# ------------------------------------------------------------------
+# 只記整體 rc 時，三個月後也回答不出「哪一支檢核從來沒紅過」。
+# 而那正是判斷「這 158 支裡有多少真的在保護我們」的唯一依據 ——
+# 從沒紅過的，要嘛防的事不會發生（可降級），要嘛它根本不會紅（假綠，更嚴重：
+# 2026-08-13 一天就找到三支屬於後者）。
+# skip 也要記：**「沒檢查」與「檢查通過」不得在歷史裡長得一樣**，
+# 那正是這整套機制反覆踩到的東西。
+_HIST="wiki/memory/fitness_step_history.jsonl"
+mkdir -p "$(dirname "$_HIST")" 2>/dev/null
+{
+  printf '{"ts":"%s","runner":"%s","steps":{' "$(date +%Y-%m-%dT%H:%M:%S)" "daily"
+  _first=1
+  for _r in "${STEP_RESULTS[@]:-}"; do
+    [ -z "$_r" ] && continue
+    _n="${_r%%|*}"; _rest="${_r#*|}"; _name="${_rest%%|*}"; _rc="${_rest##*|}"
+    [ $_first -eq 0 ] && printf ','
+    printf '"%s":%s' "$_n $_name" "$_rc"
+    _first=0
+  done
+  for _s in "${SKIP_STEPS[@]:-}"; do
+    [ -z "$_s" ] && continue
+    [ $_first -eq 0 ] && printf ','
+    printf '"%s":"skip"' "$_s"
+    _first=0
+  done
+  printf '}}
+'
+} >> "$_HIST" 2>/dev/null || true
 
 # ============================================================
 # Summary
