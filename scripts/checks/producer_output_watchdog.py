@@ -125,32 +125,137 @@ def _monitored_jobs() -> set[str]:
     return jobs
 
 
-# 非 producer allowlist（稽核/檢查/watchdog/清理/暖機/外部推送/covered-elsewhere——無本地可驗產出）
-NON_PRODUCER_JOBS = {
-    # 稽核/檢查/watchdog/清理/暖機
-    "agent_self_diagnosis", "cf_tunnel_verify", "cleanup_events", "critique_health_audit",
-    "cron_outcome_freshness", "cron_self_health_alert", "crystal_review_overdue",
-    # 2026-08-05：fitness_daily / fitness_weekly 已改為回 detail 並註冊為 producer
-    # （檢核階梯自己原本不在監看範圍內），故從豁免移除。
-    "embedding_warmup", "health_check_broadcast",
-    "llm_quota_check", "memory_anti_echo_scan", "process_reminders", "proposal_aging_alert", "security_scan", "tender_dashboard_warm",
-    "soul_mirror_sync",
-    # 2026-08-03 逐一核實後維持豁免（理由要留在這裡，不是留在 commit message）：
-    #   cf_tunnel_verify   — detail 是 {checks_passed, reason}，純驗證結果、
-    #                        無業務產出；其失敗已由 fitness cf_tunnel_verify 覆蓋
-    #   code_dup_triage    — detail 是 {candidates, true_duplicates}，
-    #                        候選為 0 是常態（沒有新重複才是好事），監控會恆為噪音
-    "code_dup_triage",
-    # 2026-07-18 契約 rollout：圖譜 ingest（健康由 orphan/reconcile step 68 覆蓋）
-    "code_graph_incremental", "erp_graph_ingest", "db_graph_refresh",
-    # 外部 LINE 推送（產出為外部 LINE，非本地可驗；配額由 line push 邏輯管）
-    "daily_self_reflection_line_push", "line_weekly_pulse", "proactive_trigger_scan", "tender_subscription",
-    # covered-elsewhere / 非業務產出 / 測試 / L77 死結
-    # 2026-08-05 移除 memory_crystallization_scan：08-05 已補 detail 並註冊為 producer
-    # （「結晶提案（學習閉環）」），同時列在豁免與 registry 是自相矛盾
-    "health_snapshot_log", "synthetic_baseline_inject",
-    "tender_pcc_enrichment", "tender_refresh_pending", "ledger_reconciliation",
-    "kunge_weekly_learning_summary", "einvoice_sync",
+# 非 producer allowlist —— 2026-08-13 由 `set` 改為 `dict`，每一項必須寫理由。
+#
+# ## 為什麼改
+#
+# 原本是個沒有理由欄位的 set。本檔自己的註解早就寫著
+# 「豁免一旦寫進來就再也沒有東西複查它還對不對」—— 但只做了一半：
+# `audit_stale_exemptions` 抓得到「豁免卻留下 detail」的，抓不到
+# 「當初憑什麼認為它不需要證明」。於是 31 個豁免撐起「0 blind spot」的綠燈，
+# 而沒有任何地方記著那 31 個判斷的依據。
+#
+# owner 2026-08-13：「到底還有多少潛藏沉默成本」——
+# 這份清單是唯一能把估不出的總量變成**有限具體清單**的地方。
+#
+# ## 理由怎麼寫才算數
+#
+# 必須回答：**它壞掉時，症狀是什麼？**
+# 若答案是「會有某個東西不見／不動／變舊」，那就是可驗產出 → **不該豁免**，
+# 該註冊為 producer。答不出來的，就是還沒想清楚。
+#
+# 逐項寫過之後，有 5 個當場現形（見下方 SHOULD_BE_PRODUCER）。
+NON_PRODUCER_JOBS: dict[str, str] = {
+    # ── 檢核／watchdog：產出是「判斷」，判斷本身由它的退出碼與上層 runner 承接 ──
+    "agent_self_diagnosis":
+        "坤哥自我診斷。壞掉的症狀由 weekly agent_evolution_health 直接查同一批指標，"
+        "不必再要求它自己留證據（兩者都紅才是真的）。",
+    "cf_tunnel_verify":
+        "detail 是 {checks_passed, reason}，純驗證結果無業務產出；"
+        "結果檔另由 json_result 納管，失敗會從那裡出聲。",
+    "cron_outcome_freshness":
+        "檢核的檢核。它壞掉的症狀＝沉默失敗沒人報，而那正是本 watchdog 自己在做的事 —— "
+        "由本檔在 host 端獨立執行構成互為備援，不該互相要求對方留產出。",
+    "cron_self_health_alert":
+        "同 cron_outcome_freshness：告警管道的健康由 credential_liveness_audit（憑證）"
+        "與 line 配額計數承接。",
+    "critique_health_audit":
+        "每兩週寫一個 marker 檔。marker 存在與否本身就是產出，"
+        "但它刻意寫在 critiques/_health/ 以免被算成真 critique（2026-08-05 修）—— "
+        "由 diary_density_audit 看真 critique 的節奏，不看 marker。",
+    "crystal_review_overdue":
+        "提醒 owner 有逾期未審提案。0 筆逾期是常態且是好事，納管會恆為噪音；"
+        "真正該看的是 proposal 存量本身（已由『結晶提案』producer 納管）。",
+    "code_dup_triage":
+        "detail 是 {candidates, true_duplicates}；候選為 0 是常態（沒有新重複才是好事），"
+        "納管會恆為噪音。",
+
+    # ── 圖譜 ingest：產出是圖上的邊，而邊的健康由專門的稽核看 ──
+    "code_graph_incremental":
+        "產出是 code graph 的邊。壞掉的症狀＝邊數塌陷或 orphan 累積，"
+        "已由『程式圖譜關係』的 db_row_count（min 5000）與 weekly orphan/reconcile 覆蓋 —— "
+        "那比 job 自己回報的筆數可靠（2026-07-20 就是靠 row count 抓到每日洗圖的 bug）。",
+    "erp_graph_ingest":
+        "同 code_graph_incremental，產出併入同一張圖的 row count 監測。",
+    "db_graph_refresh":
+        "同上；schema 反射的結果落在同一張圖。",
+
+    # ── 外部推送：產出離開本機，本地留不下可驗證據 ──
+    "daily_self_reflection_line_push":
+        "產出是送到 LINE 的訊息，本地無法驗證對方收到。"
+        "推播管道的健康由 credential_liveness_audit（token 存活）與月配額計數承接。",
+    "line_weekly_pulse": "同上。",
+    "proactive_trigger_scan":
+        "夜間吹哨者：掃描結果進 line_digest_buffer，由晨報一次送出 —— "
+        "產出的接收者是晨報而非本地檔案；晨報本身已納管。",
+    "tender_subscription":
+        "標案訂閱推播。同 LINE 族；另 owner 已關閉即時推播（TENDER_SUB_LINE_REALTIME），"
+        "此時 0 推送是政策性合理空，納管會誤報。",
+
+    # ── 暖機／快取：產出是「下一次比較快」，沒有可驗的落地物 ──
+    "embedding_warmup":
+        "把模型載進記憶體。壞掉的症狀是首次查詢變慢，屬效能不屬正確性；"
+        "真的失效會在 shadow_baseline 的 p95 上顯現。",
+    "tender_dashboard_warm":
+        "預熱標案儀表板快取。壞掉的症狀是使用者第一次開比較慢，資料本身仍正確；"
+        "資料面的健康由 tender_freshness_audit 覆蓋。",
+
+    # ── 清理：產出是「東西變少」，而變少沒有下限可訂 ──
+    "cleanup_events":
+        "清理過期事件。壞掉的症狀是 cron_events.jsonl 無限增長 —— "
+        "⚠️ 這其實可觀測（檔案大小），只是目前沒有人在看。列為待升級候選。",
+
+    # ── 其他 ──
+    "health_check_broadcast":
+        "每 5 分鐘檢查各服務健康並在異常時推播。無異常時本來就不該有產出；"
+        "服務本身的健康由五系統公網探針與容器 healthcheck 承接。",
+    "health_snapshot_log":
+        "把當下健康寫進 log 供事後追溯。log 本身就是產出，"
+        "但它的價值在出事後回查，平時要求它證明自己會產生噪音。",
+    "llm_quota_check":
+        "檢查 LLM 配額。額度充足時無產出；不足時走 digest。"
+        "憑證與配額的存活由 credential_liveness_audit 承接。",
+    "memory_anti_echo_scan":
+        "反回音掃描：抓記憶裡自我引用造成的假成長。0 命中是常態且是好事。",
+    "proposal_aging_alert":
+        "提案老化告警。0 筆逾期是常態；提案存量本身已由『結晶提案』producer 納管。",
+    "security_scan":
+        "⚠️ 它其實會產出 issues 數（實測掃到 9 issues），"
+        "只是沒有回 detail。列為待升級候選。",
+    "soul_mirror_sync":
+        "SOUL.md 跨 repo 同步。漂移由 weekly soul_mirror_drift_check 直接比對兩份檔案 —— "
+        "那比 job 自己說「我同步了」可靠。",
+    "synthetic_baseline_inject":
+        "注入合成查詢以維持 baseline 樣本量。產出是 shadow_trace 的列，"
+        "而 baseline 的健康由 shadow_baseline_* 五個 gauge 承接。",
+    "process_reminders":
+        "⚠️ 它其實會產出 {total, sent, failed, retries}（log 裡看得到），"
+        "只是沒有回 detail。列為待升級候選。",
+    "tender_pcc_enrichment":
+        "PCC 詳情補完。L77 已確證資料源存在死結（org_id 只在被反爬限流的頁面），"
+        "取不到是已知且無解的常態，納管等於每天報一次已知問題。",
+    "tender_refresh_pending":
+        "重試先前失敗的標案抓取。0 筆待重試是常態且是好事。",
+    "ledger_reconciliation":
+        "⚠️ 帳本對帳。對得上時無產出，但『對不上幾筆』是明確可回報的數字。"
+        "列為待升級候選。",
+    "kunge_weekly_learning_summary":
+        "週學習摘要，產出走 LINE digest；學習閉環的實質產出"
+        "（patterns/proposals/crystals）已於 2026-08-05 各自納管。",
+    "einvoice_sync":
+        "⚠️ 財政部電子發票同步，會產出同步筆數。目前 MOF_APP_ID 未設定故從未註冊，"
+        "但一旦啟用就是不折不扣的 producer。列為待升級候選（啟用時必須同時註冊）。",
+}
+
+# 逐項寫理由時當場現形的 —— 它們**有可驗產出**，只是還沒回 detail。
+# 不立刻改成 producer 是因為那需要動 scheduler 並 rebuild；
+# 列在這裡讓它們不會再度隱形，下次動 backend 時一併處理。
+SHOULD_BE_PRODUCER = {
+    "process_reminders": "已有 {total, sent, failed, retries}，只是沒回傳",
+    "security_scan": "已有 issues 數，只是沒回傳",
+    "ledger_reconciliation": "『對不上幾筆』是明確數字",
+    "cleanup_events": "清了幾筆／檔案大小是可觀測的",
+    "einvoice_sync": "啟用後即為 producer，啟用時必須同時註冊",
 }
 
 
@@ -220,10 +325,10 @@ def audit_producer_coverage() -> list[str]:
     # 一支稽核把「認不得的東西」靜靜排除，就會一路印「0 blind spot」。
     jobs = set(re.findall(r'@tracked_job\("([a-z0-9_]+)"\)',
                           sched.read_text(encoding="utf-8", errors="ignore")))
-    unclassified = sorted(jobs - _monitored_jobs() - NON_PRODUCER_JOBS)
+    unclassified = sorted(jobs - _monitored_jobs() - set(NON_PRODUCER_JOBS))
     print("\n" + "-" * 70)
     print(f"契約覆蓋強制：{len(jobs)} tracked jobs = 已監控 {len(jobs & _monitored_jobs())} "
-          f"+ 非producer {len(jobs & NON_PRODUCER_JOBS)} + 未納管 {len(unclassified)}")
+          f"+ 非producer {len(jobs & set(NON_PRODUCER_JOBS))} + 未納管 {len(unclassified)}")
     if unclassified:
         print("⚠️ 未納管 producer（blind spot，須補註冊信號或加 NON_PRODUCER allowlist）：")
         for j in unclassified:
@@ -459,6 +564,18 @@ def main() -> int:
         print("  → 有可驗產出就該被監控。請改註冊為 producer，")
         print("     或在 registry 寫明「為何有 detail 仍不需監控」——")
         print("     理由要留在 registry，不是留在某次 commit message 裡。")
+
+    # 2026-08-13：豁免清單改為帶理由後，有 5 項在寫理由的當下現形 ——
+    # 它們**有可驗產出，只是沒回傳 detail**。寫在註解裡等於沒說，必須印出來，
+    # 否則下次還是只會看到「0 blind spot」的綠燈。
+    # 刻意不判紅：它們現在的狀態與昨天一樣，紅一個「早就存在且已知」的東西
+    # 只會製造噪音；但它必須是可見的，直到有人動 scheduler 把 detail 補上。
+    if SHOULD_BE_PRODUCER:
+        print("")
+        print(f"📋 豁免中但其實有可驗產出（{len(SHOULD_BE_PRODUCER)} 項，"
+              f"下次動 backend 時一併補 detail 並註冊）：")
+        for job, why in SHOULD_BE_PRODUCER.items():
+            print(f"     {job}: {why}")
 
     # SKIP ≠ PASS：未驗完必須與通過分開講，否則「20 producer 產出正常」
     # 會把「其中 2 個根本沒驗」一起講成正常（2026-08-03 實際踩到）。
