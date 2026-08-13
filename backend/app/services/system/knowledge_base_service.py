@@ -94,6 +94,8 @@ class KnowledgeBaseService:
         # 編號改以檔名為後備來源 —— 檔名本來就是 `0028-...`，比標題可靠。
         # 欄位前綴實際有三種寫法並存：`> **狀態**：` / `- **Status**: ` / `> **Status**:`
         # ——歷年 ADR 模板換過，而解析器只認其中一種。
+        # 行首宣告（weekly step 51 的宣告制閘門所要求的表態）
+        decl_re = re.compile(r"^<!--\s*(enforced-by|not-enforceable)\s*:\s*(.+?)\s*-->")
         title_re = re.compile(r"^#\s+ADR-(\d+)[:：]\s*(.+)")
         status_re = re.compile(r"^\s*[>\-*]?\s*\*\*(?:狀態|Status)\*\*[:：]\s*(.+)", re.I)
         date_re = re.compile(r"^\s*[>\-*]?\s*\*\*(?:日期|Date)\*\*[:：]\s*(.+)", re.I)
@@ -107,6 +109,13 @@ class KnowledgeBaseService:
             # 檔名一律是 `NNNN-...`，比標題可靠 —— 標題格式歷年不一致
             fname_num = f.stem.split("-", 1)[0]
             number, title, status, date = fname_num, f.stem, "", ""
+            enforced_by = not_enforceable = ""
+            m0 = decl_re.match(lines[0]) if lines else None
+            if m0:
+                if m0.group(1) == "enforced-by":
+                    enforced_by = m0.group(2).strip()
+                else:
+                    not_enforceable = m0.group(2).strip()
             for line in lines:
                 m = title_re.match(line)
                 if m:
@@ -120,7 +129,9 @@ class KnowledgeBaseService:
                 if m:
                     date = m.group(1).strip()
                     continue
-            items.append(AdrInfo(number=number, title=title, status=status, date=date, path=f"adr/{f.name}"))
+            items.append(AdrInfo(number=number, title=title, status=status, date=date,
+                                 path=f"adr/{f.name}", enforced_by=enforced_by,
+                                 not_enforceable_reason=not_enforceable))
         return items
 
     # ── 架構圖列表 ─────────────────────────────────────────────────

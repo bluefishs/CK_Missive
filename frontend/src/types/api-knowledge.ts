@@ -32,6 +32,10 @@ export interface AdrInfo {
   status: string;
   date: string;
   path: string;
+  /** 誰在強制這條決策（檢核腳本路徑）。空＝沒有指向任何機制 */
+  enforced_by?: string;
+  /** 明確宣告「本質上無法用檢核防範」的理由。與 enforced_by 二擇一 */
+  not_enforceable_reason?: string;
 }
 
 export interface AdrListResponse {

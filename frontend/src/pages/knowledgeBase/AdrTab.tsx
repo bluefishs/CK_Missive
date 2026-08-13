@@ -7,7 +7,7 @@
  * @version 1.0.0
  */
 import React, { useState } from 'react';
-import { Table, Tag, Card, Empty, Spin, Typography } from 'antd';
+import { Table, Tag, Card, Empty, Spin, Typography, Tooltip } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -55,6 +55,37 @@ const columns: ColumnsType<AdrInfo> = [
     dataIndex: 'date',
     width: 120,
     sorter: (a, b) => (a.date || '').localeCompare(b.date || ''),
+  },
+  {
+    // 2026-08-13：一條決策若沒有任何機制強制，它就只是一段文字 ——
+    // 而文字不會在有人違反時出聲。這個欄位讓「這條 ADR 有沒有牙齒」
+    // 在人實際看 ADR 的地方就看得到，而不是要另外去翻治理報告。
+    // 資料來自 ADR 檔行首的宣告，weekly step 51 的閘門擋新增未表態者。
+    title: '誰在強制',
+    key: 'enforced',
+    width: 220,
+    render: (_: unknown, r: AdrInfo) => {
+      if (r.enforced_by) {
+        return <Tag color="green">{r.enforced_by.replace('scripts/checks/', '')}</Tag>;
+      }
+      if (r.not_enforceable_reason) {
+        return (
+          <Tooltip title={r.not_enforceable_reason}>
+            <Tag color="default">本質上無法用檢核防範</Tag>
+          </Tooltip>
+        );
+      }
+      return <Tag color="orange">未表態</Tag>;
+    },
+    filters: [
+      { text: '有檢核在強制', value: 'enforced' },
+      { text: '無法用檢核防範', value: 'not_enforceable' },
+      { text: '未表態', value: 'none' },
+    ],
+    onFilter: (value, r) =>
+      value === 'enforced' ? !!r.enforced_by
+        : value === 'not_enforceable' ? !!r.not_enforceable_reason
+          : !r.enforced_by && !r.not_enforceable_reason,
   },
 ];
 

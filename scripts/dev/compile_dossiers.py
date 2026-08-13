@@ -70,6 +70,32 @@ def main() -> int:
     feat_pages = out_feat.count("✓")
     print(f"  功能模組履歷  rc={rc_feat}  產出 {feat_pages} 頁")
 
+    # 知識地圖 —— 2026-08-13 併入本入口。
+    #
+    # 它本來掛在 `.git/hooks/post-commit` 上，條件是 commit 有動到
+    # `.claude/{skills,rules,agents,commands}/` 或 `docs/{adr,diagrams,knowledge-map}/`。
+    # 但那個呼叫是 **背景執行 + 輸出丟 /dev/null**：失敗與沒跑長得完全一樣。
+    # 實際結果是 owner 回報「知識地圖感覺還是舊的」時，內容停在 **2026-03-19**、
+    # 已經五個月 —— 而手動跑一次就正常產出（226 → 281 卡片），生成器毫無問題。
+    # 機制在、產出停了，沒有任何訊號。這正是本檔要治的那個形狀，只是換個對象。
+    kmap = ROOT / ".claude" / "scripts" / "generate-knowledge-map.cjs"
+    if kmap.exists():
+        p = subprocess.run(["node", str(kmap)], cwd=str(ROOT), capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=1800)
+        cards = 0
+        m = __import__("re").search(r"卡片[:：]\s*(\d+)", p.stdout or "")
+        if m:
+            cards = int(m.group(1))
+        print(f"  知識地圖      rc={p.returncode}  卡片 {cards} 張")
+        results["kmap_cards"] = cards
+        if p.returncode != 0 or cards == 0:
+            results["fail"] = int(results["fail"]) + 1
+            results.setdefault("errors", []).append(  # type: ignore[union-attr]
+                f"knowledge-map: rc={p.returncode} cards={cards}")
+    else:
+        results["fail"] = int(results["fail"]) + 1
+        results.setdefault("errors", []).append("knowledge-map: 生成器不存在")  # type: ignore[union-attr]
+
     results["adr_pages"] = adr_pages
     results["feature_pages"] = feat_pages
     results["pages"] = adr_pages + feat_pages
