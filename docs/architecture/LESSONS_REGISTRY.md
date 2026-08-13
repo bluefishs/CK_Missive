@@ -29,6 +29,7 @@
 ---
 
 ## L01 — SSOT 聲明 vs 實作斷鏈（Dead Doc 反模式）
+<!--enforced-by: scripts/checks/adr_lifecycle_check.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -39,6 +40,7 @@
 | **Refs** | ADR-0028 / commit `284ef07e` / PLAYBOOK §4.9 |
 
 ## L02 — Yaml config 聲明卻 0 reader（Dead Config）
+<!--enforced-by: scripts/checks/config_dead_reader_scan.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -49,6 +51,7 @@
 | **Refs** | ADR-0030 patch A 案例 / commit `f0a3dc5a` / PLAYBOOK §4.9 |
 
 ## L03 — Mock.patch 路徑遷移（Wave 1 sub-batch B）
+<!--not-enforceable: 這是 Wave 1-8 服務遷移期的一次性操作程序（掃 patch 路徑／私有 import／test 檔）。遷移已於 2026-08-13 隨最後 32 個 stub 清除而結束，沒有持續適用的規則可強制。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -59,6 +62,7 @@
 | **Refs** | commit `173230f1` / PLAYBOOK §4.3 |
 
 ## L04 — Multi-line patch sed 失效（Wave 4 tender）
+<!--not-enforceable: 這是 Wave 1-8 服務遷移期的一次性操作程序（掃 patch 路徑／私有 import／test 檔）。遷移已於 2026-08-13 隨最後 32 個 stub 清除而結束，沒有持續適用的規則可強制。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -69,6 +73,7 @@
 | **Refs** | commit `74b3d262` / PLAYBOOK §4.8 |
 
 ## L05 — Class name collision（Wave 1 sub-batch C notification）
+<!--not-enforceable: 這是 Wave 1-8 服務遷移期的一次性操作程序（掃 patch 路徑／私有 import／test 檔）。遷移已於 2026-08-13 隨最後 32 個 stub 清除而結束，沒有持續適用的規則可強制。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -79,6 +84,7 @@
 | **Refs** | commit `b106cc3a` / PLAYBOOK §4.4 |
 
 ## L06 — 內部循環 import → relative import（Wave 1 sub-batch A document）
+<!--not-enforceable: 這是 Wave 1-8 服務遷移期的一次性操作程序（掃 patch 路徑／私有 import／test 檔）。遷移已於 2026-08-13 隨最後 32 個 stub 清除而結束，沒有持續適用的規則可強制。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -89,6 +95,7 @@
 | **Refs** | commit `33d23776` / PLAYBOOK §4.5 |
 
 ## L07 — Private function (`_` 開頭) re-export（Wave 2 ERP）
+<!--not-enforceable: 這是 Wave 1-8 服務遷移期的一次性操作程序（掃 patch 路徑／私有 import／test 檔）。遷移已於 2026-08-13 隨最後 32 個 stub 清除而結束，沒有持續適用的規則可強制。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -99,6 +106,7 @@
 | **Refs** | commit `e1641e05` / PLAYBOOK §4.6 |
 
 ## L08 — Production caller 路徑同步（Wave 3 integration）
+<!--not-enforceable: 這是 Wave 1-8 服務遷移期的一次性操作程序（掃 patch 路徑／私有 import／test 檔）。遷移已於 2026-08-13 隨最後 32 個 stub 清除而結束，沒有持續適用的規則可強制。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -109,6 +117,7 @@
 | **Refs** | commit `bd5baeba` / PLAYBOOK §4.7 |
 
 ## L09 — Async mock 斷鏈（pre-existing test failures）
+<!--not-enforceable: 這是 Wave 1-8 服務遷移期的一次性操作程序（掃 patch 路徑／私有 import／test 檔）。遷移已於 2026-08-13 隨最後 32 個 stub 清除而結束，沒有持續適用的規則可強制。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -119,6 +128,7 @@
 | **Refs** | 多處：test_case_code / test_pm_case / test_agency_statistics 等 |
 
 ## L10 — Dead UI（後端實作但前端缺 UI）
+<!--enforced-by: scripts/checks/dead_ui_detector.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -129,6 +139,7 @@
 | **Refs** | commit `03963499` / PLAYBOOK §6.5 |
 
 ## L11 — React Query staleTime + 0 invalidate = 60s 不刷新
+<!--enforced-by: scripts/checks/queryKey_drift_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -139,6 +150,7 @@
 | **Refs** | commit `244593d0` / 派工總覽 morning-status 案例 |
 
 ## L12 — Stub 算散戶 → entropy 短期不會降
+<!--not-enforceable: 這是 Wave 1-8 服務遷移期的一次性操作程序（掃 patch 路徑／私有 import／test 檔）。遷移已於 2026-08-13 隨最後 32 個 stub 清除而結束，沒有持續適用的規則可強制。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -149,6 +161,7 @@
 | **Refs** | PLAYBOOK §6 / WAVE_1_RETROSPECTIVE.md / 整體 entropy 29.4% → 23.5% 軌跡 |
 
 ## L13 — sed 替換漏掃 cross-cutting test 檔（Wave 8）
+<!--not-enforceable: 這是 Wave 1-8 服務遷移期的一次性操作程序（掃 patch 路徑／私有 import／test 檔）。遷移已於 2026-08-13 隨最後 32 個 stub 清除而結束，沒有持續適用的規則可強制。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -159,6 +172,7 @@
 | **Refs** | commit `bf69487c` |
 
 ## L14 — GitHub Actions 自動觸發產生雲端費用
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -169,6 +183,7 @@
 | **Refs** | feedback memory `feedback_no_github_actions_cost.md` / `.github/workflows/ci.yml` |
 
 ## L15 — Telegram 個人號當主推播通道（ADR-0027）
+<!--enforced-by: scripts/checks/credential_liveness_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -179,6 +194,7 @@
 | **Refs** | ADR-0027 / `telegram_content_sanitizer` |
 
 ## L16 — 一個 dataclass 塞 100+ 設定欄位
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -189,6 +205,7 @@
 | **Refs** | TEMPLATE_EXTRACTION.md §3.6 |
 
 ## L17 — DDD 遷移看職責邊界不看行數
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -199,6 +216,7 @@
 | **Refs** | feedback memory / WAVE_1_RETROSPECTIVE.md |
 
 ## L18 — Wiki dispatch backfill 不需 fuzzy match
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -219,6 +237,7 @@
 | **Refs** | v5.10.1 fitness 後 996% → 100% / Ollama nomic-embed-text |
 
 ## L21 — Agent evolution scheduler 整合斷鏈（redis counter 卡 0）
+<!--enforced-by: scripts/checks/agent_evolution_health.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -229,6 +248,7 @@
 | **Refs** | v5.10.2 fix commit pending / `agent_post_processing.py:144` / `agent_evolution_health.py:44` / `agent_evolution_scheduler.py` / 同類 L01 dead integration / **這是「silent failure × silent failure」疊加經典反例**（ADR-0028 教材） |
 
 ## L24 — Self-evaluator 標準過鬆 / Pattern 門檻過緊（雙重失衡）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -239,6 +259,7 @@
 | **Refs** | v5.10.2 Phase 4.1 評估 / `agent_evolution_scheduler.py:78-79` 門檻常數 / synthetic-baseline-inject.py 修正後仍 100% 高分問題 |
 
 ## L25 — 鏈路驗證 vs 鏈路盤點（grep 關鍵字陷阱）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -249,6 +270,7 @@
 | **Refs** | KUNGE_LEARNING_VERIFICATION.md §1 鏈路 2 / `auto_defense.py:97 get_defensive_rules_block` / 同類 L01（dead integration 判斷需證據而非假設） |
 
 ## L20 — Lessons 散落 commit/ADR/PLAYBOOK → 需 SSOT
+<!--enforced-by: scripts/checks/lessons_drift_check.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -259,6 +281,7 @@
 | **Refs** | 本檔自身 / commit `3fd04734` / `lessons_drift_check.py` |
 
 ## L23 — 領域驅動拆分 vs 行數驅動拆分（拒拆判準）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -269,6 +292,7 @@
 | **Refs** | v5.10.2 #6 評估 / `morning_report_service.py` (kept 1,074L) / `agent_orchestrator.py` (kept 642L) / 對比 `ai_stats.py` (拆 692L → 7 檔) / `feedback_ddd_over_line_count.md` |
 
 ## L26 — Half-Wired Anti-Pattern Stacking（多層 bug 疊加遮蔽）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -279,6 +303,7 @@
 | **Refs** | `wiki/memory/failures/failure-sidebar-perm-4layer-stack.md` / commits P-57~P-60 / 同類 ADR-0025 13-day dormant |
 
 ## L27 — Dev Mode Override Trap（VITE_AUTH_DISABLED 強制覆蓋真實用戶）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -299,6 +324,7 @@
 | **Refs** | v6.9 commit pending / `agent_self_evaluator.py:259-285` / `agent_capability_tracker.py:31-90 + resolve_tool_domain` / 同類 L21（兩次 silent failure 疊加）+ L01（dead integration）+ L25（鏈路驗證需穿透式）/ **這是「dict key contract drift × static map 涵蓋率不足 × silent except」三重疊加教材** |
 
 ## L28 — JSON-as-TEXT Schema Drift（DB Text 存 JSON 但忘 parse）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -309,6 +335,7 @@
 | **Refs** | `failure-sidebar-perm-4layer-stack.md` §層 1 / commit P-57 / `test_nav_permission_required_parse.py` (19 tests) / 對比正確 implementation：`role_permissions_admin.py` nav-tree endpoint |
 
 ## L30 — Pipeline Integration as Priority（環節不連通就是浪費）
+<!--enforced-by: scripts/checks/capability_usage_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -339,6 +366,7 @@
 | **Refs** | ADR-0036 §Lessons / PACKAGING_PATTERN.md Rule 7/8/9 / step 34 transitive_deps_audit.py / lvrland Webmap 真採用 evidence (2026-05-18) |
 
 ## L33 — Transitive Deps 缺失必致 Half-Wired（LR-015/016 配套）
+<!--enforced-by: scripts/checks/manifest_drift_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -349,6 +377,7 @@
 | **Refs** | LR-015 / LR-016 lvrland session feedback / ADR-0036 §Lessons / manifest.yml v2.0 ck-navigation / step 34 transitive_deps_audit.py |
 
 ## L34 — 業務 specific 不可進 shared package（lvrland LR-020 對應 / 2026-05-18）
+<!--enforced-by: scripts/checks/module_portability_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -359,6 +388,7 @@
 | **Refs** | lvrland LR-020 / PACKAGING_PATTERN.md Rule 8 / step 30 module_portability_audit / ck-navigation v2.0 changelog |
 
 ## L35 — 採納前必過 baseline TS check（lvrland LR-019 對應 / 2026-05-18）
+<!--enforced-by: scripts/checks/cross_repo_template_drift_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -369,6 +399,7 @@
 | **Refs** | lvrland LR-019 / ADR-0036 §Lessons / consumers.yml v6.10 P1 / install.sh 6-stage 守門（待 v1.1 升級）|
 
 ## L36 — Repo Structure Assumption（install.sh 寫死目標路徑 / 2026-05-18）
+<!--enforced-by: scripts/checks/module_portability_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -379,6 +410,7 @@
 | **Refs** | lvrland P220 件 3 失敗 evidence (2026-05-18) / ck-navigation v2.0 install.sh / PACKAGING_PATTERN.md Rule 10（待補） |
 
 ## L22 — 範本資產缺跨 repo 引用治理規範
+<!--enforced-by: scripts/checks/cross_repo_template_drift_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -389,6 +421,7 @@
 | **Refs** | commit `b3112a9d` / `CROSS_REPO_REFERENCE_GUIDE_v1.0` / 同類 L20 dead doc 預防 |
 
 ## L37 — 覆盤報告自身也是「真活宣告 vs 真接通」候選（2026-05-19）
+<!--enforced-by: scripts/checks/doc_reference_integrity_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -399,6 +432,7 @@
 | **Refs** | `docs/architecture/RETRO_20260519_strategic_health_check.md` §9（自我檢視 7 缺陷）/ ADR-0036 §Lessons LR-015 / 同類 L30/L31 dead investment / 覆盤工具自身也犯反模式 = 元教訓 |
 
 ## L39 — QueryKey Drift（React Query invalidate silent dead）（2026-05-20）
+<!--enforced-by: scripts/checks/queryKey_drift_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -409,6 +443,7 @@
 | **Refs** | 用戶 5/20 報案（image dispatch=158）/ `frontend/src/hooks/taoyuan/useDispatchCacheInvalidator.ts:36` / `frontend/src/hooks/business/useTaoyuanDispatch.ts:48` / `frontend/src/config/queryConfig.ts` queryKeys.taoyuanDispatch.orders / 同類 L29 dict-key contract drift + L21 redis key 名稱漂移 + L28 JSON-as-TEXT schema drift（drift 反模式三件套）|
 
 ## L38 — 平時保險（cron / 異地備份）也是 LR-015 反模式高發區（2026-05-19）
+<!--enforced-by: scripts/checks/offsite_backup_completeness_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -419,6 +454,7 @@
 | **Refs** | `scripts/backup/pre_upgrade_backup.sh` / `scripts/backup/restore_from_volume_tar.sh` / `docs/runbooks/docker-desktop-upgrade-sop.md` / `RETRO_20260519` §10 / 同類 L01 dead integration + L30 pipeline integration + L37 覆盤自身反模式 |
 
 ## L41 — JWT Secret Drift Silent Fail（4 重疊加 / 2026-05-21）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -431,6 +467,7 @@
 ---
 
 ## L77 — 標案 enrichment 死結：openfun 需 org_id、org_id 只在被反爬限流的 PCC 詳情頁（勿重試爬蟲路徑 / 2026-06-17）
+<!--not-enforceable: 這是領域判斷的結論（資料源限制／相關性判準），不是可用機器驗證的規則。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -443,6 +480,7 @@
 ---
 
 ## L76 — Windows Docker backend recreate/restart 易留殭屍埠轉發 socket → 公網 502（部署後必驗 host→8001 / 2026-06-16）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -455,6 +493,7 @@
 ---
 
 ## L75 — 推薦相關性：機關關係 ≠ 工項相關；粗放機關信號 + 粗粒度（府級）比對＝噪音源（標案業務推薦 / 2026-06-16）
+<!--not-enforceable: 這是領域判斷的結論（資料源限制／相關性判準），不是可用機器驗證的規則。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -506,6 +545,7 @@
 ---
 
 ## L89 — 跨 repo 共用腳本帶著自己的退出碼約定進到別人的 runner，會被靜靜降級成「未驗完」（2026-08-09）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -519,6 +559,7 @@
 ---
 
 ## L87 — 「多給一種憑證」不是保險，是多開一條會失敗的路；而剛上線的檢核最不該被信任（2026-08-09）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -545,6 +586,7 @@
 ---
 
 ## L86 — 連續猜錯五次之後：讓工具「說出它看到什麼」，比再猜第六次有效（2026-08-08）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -557,6 +599,7 @@
 ---
 
 ## L85 — 破壞性指令的作用範圍必須先確認；而且答案往往早就寫在文件裡（2026-08-08）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -569,6 +612,7 @@
 ---
 
 ## L84 — 「設定寫得很嚴謹」與「它跑得起來」是兩件事：從未啟動成功過的服務，會逼出一條更差的替代路徑（2026-08-08）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -593,6 +637,7 @@
 ---
 
 ## L81 — 換了出口就要換整條鏈：把通知從 A 管道改到 B 管道時，閘門、測試安全網、測試斷言都會留在 A（2026-08-04）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -617,6 +662,7 @@
 ---
 
 ## L80 — SSO 反覆回歸的底層＝「後端 token 生命週期層」：SSO 沒有可用的透明 refresh 路徑（前端不變式救不了 / 2026-07-21）
+<!--enforced-by: scripts/checks/sso_ttl_ssot_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -701,6 +747,7 @@
 ---
 
 ## L69 — secureApiService single-flight 讓並發共用「單次」CSRF token → nav 選單 403（修 L49 反效果 / 2026-06-11）
+<!--enforced-by: scripts/checks/auth_state_ssot_audit.cjs-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -713,6 +760,7 @@
 ---
 
 ## L68 — CSRF refresh 死結：csrf cookie 過期→refresh 被 CSRF 擋→全站 403「權限不足」（OWASP / 2026-06-10）
+<!--enforced-by: scripts/checks/auth_state_ssot_audit.cjs-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -725,6 +773,7 @@
 ---
 
 ## L66 — 跨子域 SSO 消費端 self-heal gate 漏掉 cookie-session（顯示「訪客」race / 2026-06-10）
+<!--enforced-by: scripts/checks/auth_state_ssot_audit.cjs-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -737,6 +786,7 @@
 ---
 
 ## L67 — 前端 baseURL 已含 `/api` 卻硬編 `/api` 前綴 → double-prefix 404（半接通 / 2026-06-10）
+<!--enforced-by: scripts/checks/auth_state_ssot_audit.cjs-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -774,6 +824,7 @@
 > 中央 registry 缺索引列 → SSOT 漂移。以下回填精簡索引列（完整內容見各 Refs 檔）。
 
 ## L63 — 學習閉環需 aging alert 才能突破 owner 健忘（2026-05-31）
+<!--enforced-by: scripts/checks/proposal_aging_alert.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -794,6 +845,7 @@
 | **Refs** | `wiki/memory/lessons/universal/L62_integration_continuous_validation_not_one_shot.md` / `scripts/checks/integration_e2e_validation.py`（step 62）|
 
 ## L61 — 下游反治理（PileMgmt R18 案例 / L60 真活驗證範本）（2026-05-31）
+<!--enforced-by: scripts/checks/cross_repo_template_drift_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -804,6 +856,7 @@
 | **Refs** | `wiki/memory/lessons/universal/L61_downstream_reverse_governance.md` / 同層 L58/L59/L60 |
 
 ## L60 — 平衡 = 結構正常化（非中間值）（2026-05-30，meta-治理第 8 句立法）
+<!--not-enforceable: 這是行為準則，本質上無法用檢核防範 —— 它要求的是動手前先做某件事（先驗、先問、先核實），而機器看不到「有沒有先想過」。靠 review 與這份紀錄本身。-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -814,6 +867,7 @@
 | **Refs** | `wiki/memory/lessons/missive-specific/L60_balance_via_structural_normalization.md` |
 
 ## L59 — 治理架構倒置（上游 meta 缺 audit / 業務 source 反向 audit 子專案）（2026-05-30）
+<!--enforced-by: scripts/checks/cross_repo_template_drift_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -824,6 +878,7 @@
 | **Refs** | `wiki/memory/lessons/missive-specific/L59_governance_architecture_inversion.md` |
 
 ## L58 — 治理範本污染風險（強推 132 檔 57% 為本專案特定）（2026-05-30）
+<!--enforced-by: scripts/checks/module_portability_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
@@ -844,6 +899,7 @@
 | **Refs** | `wiki/memory/lessons/universal/L57_backend_dir_logs_vs_mount_drift.md` / 母案 L52 |
 
 ## L54 — 跨 repo 套用 ≠ 落實（install-template apply vs commit gap）（2026-05-30）
+<!--enforced-by: scripts/checks/cross_repo_uncommitted_audit.py-->
 
 | 欄位 | 內容 |
 |---|---|
