@@ -267,6 +267,30 @@
         "no_pattern_met_threshold"
       ],
       "_why": "2026-08-05：進化成長（學習閉環）先前只納管 patterns 一環 —— proposals/crystals 自 07-07 起 28 天零產出完全沒有人看得到，而 job 每天回 success。納管的是**產出與原因**，不是「有沒有跑」。"
+    },
+    {
+      "name": "履歷編譯",
+      "signal": "json_result",
+      "path": "wiki/memory/integration-health/dossier-compile.json",
+      "fail_key": "fail",
+      "min_key": "pages",
+      "min_value": 30,
+      "max_h": 192,
+      "_why": "2026-08-13：履歷是手動產出的一次性成果，本專案最常見的死法就是這個 —— 產出一次後沒人維護，幾個月後記載的已不是現實而沒有任何訊號會說。改由 host 排程 CK_Missive-Dossier-Compile（週一 04:50）產出。min_pages 擋住「產出 0 頁也叫綠」：兩支生成器的輸入（docs/adr、site_navigation_items）都不可能真的變空，所以 0 頁就是壞了。max_h=192（8 天）＝週級排程漏一次就出聲。"
+    },
+    {
+      "name": "kg_metrics_refresh",
+      "signal": "cron_detail",
+      "job": "kg_metrics_refresh",
+      "key": "total",
+      "_why": "2026-08-13 補 @tracked_job 後成為 tracked job，契約閘門立刻抓到它未分類。它產出的是 Prometheus 的 KG gauge —— 掛掉的症狀是「Grafana 上的覆蓋率停住」，在此之前既無持久紀錄也無自己的 gauge，是 53 支排程裡唯二完全沒有存活訊號的。key 用 total（canonical_entities 不可能為 0）。"
+    },
+    {
+      "name": "memory_metrics_refresh",
+      "signal": "cron_detail",
+      "job": "memory_metrics_refresh",
+      "key": "diary_days",
+      "_why": "同 kg_metrics_refresh。key 用 diary_days —— 日記天數只會增加，變 0 代表 wiki/memory 讀不到（設定或掛載問題），那正是要抓的。"
     }
   ]
 }

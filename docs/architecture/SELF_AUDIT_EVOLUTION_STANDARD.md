@@ -172,7 +172,7 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 
 目前納管的 key（`scripts/checks/doc_baseline_claim_audit.py`）：
 
-<!--baseline:producers-->producer registry 現有 32 筆
+<!--baseline:producers-->producer registry 現有 35 筆
 <!--baseline:ui_flows-->UI 流程檢核現有 17 條
 <!--baseline:fitness_steps-->主 fitness runner 現有 78 步
 <!--baseline:weekly_steps-->weekly runner 現有 50 步
