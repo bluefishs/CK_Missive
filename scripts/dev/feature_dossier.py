@@ -200,12 +200,15 @@ def api_to_module() -> dict[str, str]:
 def _walk_results() -> dict[str, list[str]]:
     """走查結果 —— 只取檔案裡**真的有**的東西。
 
-    ⚠️ `ui-sweep.json` 記的是 `pass`/`fail` 總數、`failures`、`known_limitations`，
-    **沒有通過路由的清單**。所以「這個功能模組有沒有被走查涵蓋」在現有資料裡
-    無法回答。初版假設它有 `results[]` 而算出「涵蓋 0/3」—— 那個 0 不是
-    「沒被涵蓋」，是「查不到」，兩者意思相反。這裡只回真的讀得到的失敗清單。
+    ⚠️ 2026-08-13 上午：`ui-sweep.json` 當時只記 `pass`/`fail` 總數與失敗清單，
+    **沒有通過路由的清單** → 這個維度整個答不出來。初版假設它有 `results[]`
+    而算出「涵蓋 0/3」—— 那個 0 不是「沒被涵蓋」，是「查不到」，兩者意思相反，
+    所以當時選擇**不交付**而不是給一個錯的數字。
+
+    同日下午已在走查引擎 canonical（`shared-modules/selfaudit/src/ui_page_sweep.cjs`）
+    補上 `passed_routes` 並同步五個 repo、實跑驗過 87 條。這個維度因此恢復。
     """
-    out: dict[str, list[str]] = {"failures": []}
+    out: dict[str, list[str]] = {"failures": [], "passed": []}
     f = ROOT / "wiki" / "memory" / "integration-health" / "ui-sweep.json"
     if not f.exists():
         return out
@@ -217,6 +220,7 @@ def _walk_results() -> dict[str, list[str]]:
         r = item.get("route") if isinstance(item, dict) else str(item)
         if r:
             out["failures"].append(str(r))
+    out["passed"] = [str(r) for r in (data.get("passed_routes") or [])]
     return out
 
 
@@ -260,15 +264,22 @@ def render(feat: dict, r2p: dict, const: dict, a2m: dict, cov: dict, md: bool) -
     b.append(f"{'  ' if md else '   '}那是事實不是推論。與第 6 階價值層改用 Prometheus 真實流量同一個道理。")
     b.append("")
 
-    b.append(f"{h2}誰在看它 —— 走查結果檔目前答不出來")
-    b.append(f"{'- ' if md else '  '}`ui-sweep.json` 只記 `pass`/`fail` 總數與失敗清單，")
-    b.append(f"{'  ' if md else '   '}**不記通過了哪些路由** → 無法回答「這個功能模組有沒有被走查涵蓋」。")
-    b.append(f"{'- ' if md else '  '}這本身是個缺口：走查每天在跑、涵蓋率卻無人可查。")
-    b.append(f"{'  ' if md else '   '}修法是讓引擎輸出通過路由清單（一行的事），不是在這裡猜。")
-    if cov.get("failures"):
-        mine = [r for r in cov["failures"] if any(r.startswith(p) for _t, p, _f in pages)]
-        if mine:
-            b.append(f"{'- ' if md else '  '}⚠️ 走查回報的失敗中屬於本模組：" + "、".join(mine[:6]))
+    # 「誰在看它」= owner 語言的覆蓋率，比「87 條路由全綠」有意義得多。
+    # 2026-08-13 下午在走查引擎補了 passed_routes 之後才答得出來。
+    routes = {p for _t, p, _f in pages}
+    watched = sorted(routes & set(cov["passed"]))
+    blind = sorted(routes - set(cov["passed"]))
+    b.append(f"{h2}誰在看它")
+    if not cov["passed"]:
+        b.append(f"{'- ' if md else '  '}⚠️ 走查結果檔沒有 `passed_routes` —— 無法判定"
+                 f"（不是「沒被涵蓋」，是「查不到」）")
+    else:
+        b.append(f"{'- ' if md else '  '}瀏覽器走查涵蓋：**{len(watched)}/{len(routes)}** 條路由")
+        if blind:
+            b.append(f"{'- ' if md else '  '}⚠️ **沒有人在看**：" + "、".join(blind[:10]))
+    failing = sorted(routes & set(cov["failures"]))
+    if failing:
+        b.append(f"{'- ' if md else '  '}🔴 走查回報失敗：" + "、".join(failing[:6]))
     b.append("")
     return "\n".join(b)
 

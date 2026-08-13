@@ -163,6 +163,11 @@ async function main() {
     const throttled = [];
     const limitations = [];
     let okCount = 0;
+    // 2026-08-13：原本只累加數量。於是「這個功能模組有沒有被走查涵蓋」
+    // 這個問題**在結果檔裡無法回答** —— 走查每天在跑、涵蓋率卻無人可查，
+    // 而據此推算會得到「涵蓋 0/3」這種把『查不到』說成『沒被涵蓋』的錯誤結論
+    // （兩者意思相反）。skipped_routes 早就記了，通過的沒有理由不記。
+    const passed = [];
 
   for (const route of routeList) {
     const page = await ctx.newPage();
@@ -325,6 +330,7 @@ async function main() {
     if (problems.length && known && problems.every((p) => known.match.test(p))) {
       limitations.push({ route, reason: known.reason });
       okCount++;
+      passed.push(route);
       await page.close();
       await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));
       continue;
@@ -336,15 +342,16 @@ async function main() {
       await page.screenshot({ path: path.join(SHOT_DIR, `${safe}.png`) }).catch(() => {});
     } else {
       okCount++;
+      passed.push(route);
     }
     await page.close();
     await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));  // 節流：避免掃描自己觸發 429
   }
-    return { bad, skipped, throttled, limitations, okCount };
+    return { bad, skipped, throttled, limitations, okCount, passed };
   }
 
   const pass1 = await runPass(routes, context);
-  let { bad, skipped, throttled, limitations, okCount } = pass1;
+  let { bad, skipped, throttled, limitations, okCount, passed } = pass1;
 
   if (bad.length) {
     const retryRoutes = bad.map((b) => b.route);
@@ -370,6 +377,8 @@ async function main() {
     // pass2 只跑 pass1 的失敗項，故兩者的 okCount 沒有交集，直接相加即可。
     // （pass2 內部已把「已知限制」計進自己的 okCount，這裡再加一次就會重複計數。）
     okCount = pass1.okCount + pass2.okCount;
+    // pass2 只跑 pass1 的失敗項，兩者的通過清單沒有交集，直接相接即可。
+    passed = pass1.passed.concat(pass2.passed);
     skipped = skipped.concat(pass2.skipped);
     throttled = throttled.concat(pass2.throttled);
     limitations = limitations.concat(pass2.limitations);
@@ -503,6 +512,9 @@ async function main() {
       // 但**查不到是哪一條**——只能重跑一次才知道。跳過屬「未驗完」，
       // 未驗完的清單本身就是要留下來給人看的資訊。
       skipped_routes: skipped,
+      // 2026-08-13：通過的路由清單。沒有它，「這個功能模組有沒有被走查涵蓋」
+      // 就無法回答 —— 而那正是 owner 語言的覆蓋率（比「87 條全綠」有意義）。
+      passed_routes: passed,
       throttled: throttled.length,
       known_limitations: limitations.map((l) => ({ route: l.route, reason: l.reason })),
       failures: bad.map((b) => ({ route: b.route, problems: b.problems })),
