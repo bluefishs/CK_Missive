@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/heterogeneous_work_audit.py-->
 # ADR-0031：Frontend Page Consolidation v6.0 — 意識體入口統一 + 圖譜元件共用
 
 > **狀態**：accepted

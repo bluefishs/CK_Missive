@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/memory_diary_freshness_check.py-->
 # ADR-0022: Memory Wiki — 助理自我記憶與進化系統
 
 > **狀態**: accepted

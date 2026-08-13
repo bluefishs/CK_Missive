@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/network_audit.py-->
 # ADR-0015: 廢止 CK_NemoClaw，採 Cloudflare Tunnel 公網暴露
 
 > **狀態**: accepted

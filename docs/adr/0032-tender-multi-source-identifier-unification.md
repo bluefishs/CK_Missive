@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/tender_ezbid_pcc_match_audit.py-->
 # ADR-0032: Tender 多源識別碼統一策略
 
 - **Status**: Accepted

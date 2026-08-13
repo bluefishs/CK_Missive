@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/alias_rls_coverage_audit.py-->
 # ADR-0025: User Identity Unification — canonical_user_id + 權限隔離
 
 - **Status**: Accepted

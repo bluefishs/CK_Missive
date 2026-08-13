@@ -2,20 +2,6 @@
 # 這些 ADR／教訓在閘門上線時尚未表態，逐項清掉即從本檔移除一行。
 # 閘門每次執行都印剩餘數量 —— 數字不動就代表沒有人在清。
 # 新增的項目不在此列，會被真的擋下。
-adr:0011-ai-config-db-crud-removed.md
-adr:0012-tender-search-module.md
-adr:0013-unified-coding-system.md
-adr:0014-hermes-replace-openclaw.md
-adr:0015-retire-nemoclaw-cloudflare-tunnel.md
-adr:0016-multi-project-platform-subdomain.md
-adr:0022-memory-wiki-self-evolving-assistant.md
-adr:0023-kunge-consciousness-launch.md
-adr:0025-user-identity-unification.md
-adr:0030-hermes-go-no-go-revision.md
-adr:0031-frontend-page-consolidation.md
-adr:0032-tender-multi-source-identifier-unification.md
-adr:0033-disable-password-authentication.md
-adr:0035-gitnexus-bridge-agent-tool.md
 lesson:L01
 lesson:L02
 lesson:L03

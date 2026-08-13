@@ -1,3 +1,4 @@
+<!--not-enforceable: Phase 2a dev-only 且受 License 紅線管控，沒有在 production 生效的規則可強制；狀態由治理儀表板呈現-->
 # ADR-0035: GitNexus Bridge — Agent Code Intelligence
 
 > **Status**: proposed

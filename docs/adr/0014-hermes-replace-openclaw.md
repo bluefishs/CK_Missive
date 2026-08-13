@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/hermes_baseline_gate_audit.py-->
 # ADR-0014: 以 NousResearch Hermes Agent 取代 OpenClaw
 
 > **狀態**: accepted (amended 2026-04-18)

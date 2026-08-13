@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/tender_freshness_audit.py-->
 # ADR-0012: 標案檢索模組架構設計
 
 > **狀態**: accepted

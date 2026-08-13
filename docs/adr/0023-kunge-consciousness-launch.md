@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/agent_evolution_health.py-->
 # ADR-0023: 坤哥意識體上線（v5.8.0）
 
 - **Status**: Accepted

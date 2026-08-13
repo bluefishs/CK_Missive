@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/sso_coverage_check.py-->
 # ADR-0033: 關閉帳號密碼登入機制
 
 - **Status**: Accepted

@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/hermes_baseline_gate_audit.py-->
 # ADR-0030：Hermes GO/NO-GO 決策重訂 — 通道策略 + baseline 門檻
 
 > **狀態**：accepted

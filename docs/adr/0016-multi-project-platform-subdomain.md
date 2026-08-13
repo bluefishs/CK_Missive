@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/public_exposure_audit.py-->
 # ADR-0016: 多專案平台級子網域策略（cksurvey.tw）
 
 > **狀態**: accepted

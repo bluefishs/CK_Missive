@@ -1,3 +1,4 @@
+<!--enforced-by: scripts/checks/contract_case_code_coverage_audit.py-->
 # ADR-0013: 統一編碼體系架構設計
 
 > **狀態**: **accepted** (Phase 1 + 2 已交付；Phase 3-4 延後)
