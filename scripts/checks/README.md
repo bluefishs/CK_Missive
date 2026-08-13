@@ -24,7 +24,7 @@
 | 🪟 Windows 工作排程器 | 1 |
 | ⚪ 無排程（手動／一次性／已被取代） | 25 |
 
-<!--baseline:check_scripts-->合計 **157** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **158** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -180,6 +180,7 @@
 | `signal_consumer_lint.sh` | Memory Signal Producer-Consumer 治理 lint |
 | `sso_autoload_completeness_audit.py` | 驗證 consumer repo frontend SSO autoload 完整接通（next_session_resume #7） |
 | `sso_bridge_conformance_audit.py` | SSO Bridge Conformance Audit — 跨 repo sso_bridge 安全契約守門（Tier2 / L80） |
+| `governance_enforcement_coverage.py` | ADR／教訓有沒有人在強制 —— 只報數字與斷鏈，不判斷「該不該有」 |
 | `startup_dependency_race_audit.py` | 偵測 docker-compose depends_on 缺 condition: service_healthy 的 startup race 風險 |
 | `stub_import_lint.sh` | 禁止直接 import 已遷移的 stub 模組（DDD 遷移期護欄） |
 | `subdomain_registry_audit.py` | 偵測 subdomain registry SSOT drift（next_session_resume 8 大根因 #3） |

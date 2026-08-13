@@ -276,6 +276,14 @@ run_step "48" "docker compose volume 一致性（L43 防禦）"          "script
 run_step "49" "compose vs Dockerfile healthcheck SSOT（L45）"    "scripts/checks/compose_dockerfile_healthcheck_ssot.py"
 run_step "50" "startup dependency race（compose depends_on）"    "scripts/checks/startup_dependency_race_audit.py"
 
+# Step 51: 治理強制覆蓋（2026-08-13）
+# ADR 與教訓都是為了「不要再犯」而寫的，但沒有機制強制的那些只是文字，
+# 而文字不會在有人違反時出聲（L01 家族）。本支只回答可機器驗證的問題：
+# 這條有沒有指向任何檢核腳本 —— **不判斷「該不該有」**（v6.39 已正確否決
+# 自動分類：多數教訓是行為準則，區分需語意判斷會產不可信清單）。
+# 覆蓋率本身不判紅，引用了不存在的腳本（斷鏈）才判紅。
+run_step "51" "治理強制覆蓋（ADR／教訓 有沒有人在強制）"        "scripts/checks/governance_enforcement_coverage.py"
+
 # ============================================================
 # Summary
 # ============================================================

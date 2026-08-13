@@ -291,6 +291,16 @@
       "job": "memory_metrics_refresh",
       "key": "diary_days",
       "_why": "同 kg_metrics_refresh。key 用 diary_days —— 日記天數只會增加，變 0 代表 wiki/memory 讀不到（設定或掛載問題），那正是要抓的。"
+    },
+    {
+      "name": "治理強制覆蓋",
+      "signal": "json_result",
+      "path": "wiki/memory/integration-health/enforcement-coverage.json",
+      "fail_key": "fail",
+      "min_key": "scripts_referenced",
+      "min_value": 20,
+      "max_h": 192,
+      "_why": "2026-08-13：覆蓋率本身刻意不判紅（永遠亮著的燈等於沒有燈），改由這裡追蹤數字 —— 往下掉才是訊號（例如有人刪了檢核卻沒改教訓）。fail 記的是「引用了不存在的腳本」＝斷鏈，那是硬錯誤。"
     }
   ]
 }
