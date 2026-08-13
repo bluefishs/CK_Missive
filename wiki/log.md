@@ -7936,3 +7936,7 @@
 ## [2026-08-11] compile | topic | 近期關注焦點 (100 queries)
 
 ## [2026-08-13] lint | pages=314 orphans=1 broken=0
+
+## [2026-08-13] lint | pages=337 orphans=24 broken=0
+
+## [2026-08-13] lint | pages=337 orphans=0 broken=0
