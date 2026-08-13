@@ -282,7 +282,7 @@ run_step "50" "startup dependency race（compose depends_on）"    "scripts/chec
 # 這條有沒有指向任何檢核腳本 —— **不判斷「該不該有」**（v6.39 已正確否決
 # 自動分類：多數教訓是行為準則，區分需語意判斷會產不可信清單）。
 # 覆蓋率本身不判紅，引用了不存在的腳本（斷鏈）才判紅。
-run_step "51" "治理強制覆蓋（ADR／教訓 有沒有人在強制）"        "scripts/checks/governance_enforcement_coverage.py"
+run_step "51" "治理強制覆蓋＋宣告閘門（ADR／教訓）"            "scripts/checks/governance_enforcement_coverage.py --gate"
 
 # ============================================================
 # Summary

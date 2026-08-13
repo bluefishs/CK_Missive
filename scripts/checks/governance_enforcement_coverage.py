@@ -96,7 +96,78 @@ def scan_lessons(known: set[str]) -> tuple[list[dict], list[str]]:
     return rows, broken
 
 
+BASELINE = ROOT / "docs" / "architecture" / ".governance_declaration_baseline.txt"
+
+# 明確表態的標記。沿用 doc_baseline_claim_audit 已踩過的兩個取捨：
+# 用 HTML 註解不用中文字（行文提到就誤觸）、只認行首。
+_DECL_RE = re.compile(r"^<!--\s*(enforced-by|not-enforceable)\s*:\s*(.+?)\s*-->", re.M)
+
+
+def _load_baseline() -> set[str]:
+    if not BASELINE.exists():
+        return set()
+    return {l.strip() for l in BASELINE.read_text(encoding="utf-8").splitlines()
+            if l.strip() and not l.startswith("#")}
+
+
+def _declared(text: str) -> bool:
+    return bool(_DECL_RE.search(text))
+
+
+def run_gate(adrs: list[dict], lessons: list[dict]) -> int:
+    """閘門：**新增**的 ADR／教訓沒有表態就擋下。
+
+    存量走 baseline 逐步清，理由與 `declaration_gate`（腳本表態）完全相同 ——
+    一次要求 14 篇 ADR + 56 條教訓全部補齊，結果會是一個天天紅的閘門，
+    而天天紅的閘門三天後就沒有人看了。只擋新增，存量寫進 baseline 慢慢消。
+
+    「有表態」認兩種：
+      · 內文已指向某支檢核腳本（覆蓋掃描既有的判準，不必為此再補一個標記）
+      · 行首明確宣告 `<!--enforced-by: …-->` 或 `<!--not-enforceable: 理由-->`
+
+    ⚠️ `not-enforceable` 是**正當答案**，不是逃生口。多數教訓是行為準則
+    （L77「先做 spike 驗」），本來就無法用檢核防範 ——
+    v6.39 正是因為想自動分類這件事而正確地否決了整個做法。
+    這裡把判斷交還給寫的人，機器只驗「有沒有表態」。
+    """
+    base = _load_baseline()
+    naked: list[str] = []
+    for r in adrs:
+        ident = f"adr:{r['file']}"
+        if r["scripts"] or r["mentions_fitness"] or ident in base:
+            continue
+        text = (ROOT / "docs" / "adr" / r["file"]).read_text(encoding="utf-8", errors="ignore")
+        if not _declared(text):
+            naked.append(ident)
+    reg = (ROOT / "docs" / "architecture" / "LESSONS_REGISTRY.md").read_text(
+        encoding="utf-8", errors="ignore")
+    blocks = re.split(r"(?=^## L\d+)", reg, flags=re.M)
+    by_id = {re.match(r"## (L\d+)", b).group(1): b for b in blocks if re.match(r"## L\d+", b)}
+    for r in lessons:
+        ident = f"lesson:{r['id']}"
+        if r["scripts"] or r["mentions_fitness"] or ident in base:
+            continue
+        if not _declared(by_id.get(r["id"], "")):
+            naked.append(ident)
+
+    print("\n" + "-" * 70)
+    print(f"宣告制閘門：baseline {len(base)} 項存量｜未表態的新增 {len(naked)} 項")
+    if not naked:
+        print("Status: [GREEN] 沒有未表態的新增 ADR／教訓")
+        return 0
+    print("Status: [RED] 以下新增項目沒有表態：")
+    for n in naked:
+        print(f"  - {n}")
+    print("  → 在該檔行首加一行：")
+    print("       <!--enforced-by: scripts/checks/xxx.py-->")
+    print("     或（本質上無法用檢核防範時，這是正當答案）：")
+    print("       <!--not-enforceable: 這是行為準則，靠 review 不靠檢核-->")
+    return 2
+
+
 def main() -> int:
+    gate_mode = "--gate" in sys.argv
+    write_baseline = "--write-baseline" in sys.argv
     print("=" * 70)
     print("治理強制覆蓋（ADR／教訓 有沒有人在強制）")
     print("=" * 70)
@@ -146,9 +217,24 @@ def main() -> int:
             print(f"  - {b}")
         return 2
 
+    if write_baseline:
+        items = ([f"adr:{r['file']}" for r in adrs if not (r["scripts"] or r["mentions_fitness"])]
+                 + [f"lesson:{r['id']}" for r in lessons
+                    if not (r["scripts"] or r["mentions_fitness"])])
+        BASELINE.write_text(
+            "# 治理宣告閘門 —— 存量清單（2026-08-13 建立）\n"
+            "# 這些 ADR／教訓在閘門上線時尚未表態，逐項清掉即從本檔移除一行。\n"
+            "# 閘門每次執行都印剩餘數量 —— 數字不動就代表沒有人在清。\n"
+            "# 新增的項目不在此列，會被真的擋下。\n"
+            + "\n".join(sorted(items)) + "\n", encoding="utf-8")
+        print(f"\n  已寫入 baseline：{len(items)} 項存量 → {BASELINE.name}")
+
     print("\nStatus: [GREEN] 引用的檢核腳本全部存在")
     print("  註：覆蓋率本身不判紅（永遠亮著的燈等於沒有燈）——")
     print("      由 producer registry 追蹤，數字往下掉才是訊號。")
+
+    if gate_mode:
+        return run_gate(adrs, lessons)
     return 0
 
 
