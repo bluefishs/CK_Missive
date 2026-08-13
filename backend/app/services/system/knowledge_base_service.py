@@ -87,17 +87,26 @@ class KnowledgeBaseService:
         adr_dir = DOCS_DIR / "adr"
         if not adr_dir.is_dir():
             return []
-        title_re = re.compile(r"^#\s+ADR-(\d+):\s*(.+)")
-        status_re = re.compile(r">\s*\*\*狀態\*\*:\s*(.+)")
-        date_re = re.compile(r">\s*\*\*日期\*\*:\s*(.+)")
+        # 2026-08-13：三個正則原本只認**半形**冒號，而多數 ADR 的標題與欄位
+        # 用的是全形「：」→ 23 篇裡 13 篇解析不到狀態、6 篇連編號都沒有，
+        # 知識庫的 ADR 分頁因此長期顯示不完整（表格有列、狀態欄空白）。
+        # 這種缺陷不會拋錯、不會讓頁面壞掉，只會讓資訊安靜地少一半。
+        # 編號改以檔名為後備來源 —— 檔名本來就是 `0028-...`，比標題可靠。
+        # 欄位前綴實際有三種寫法並存：`> **狀態**：` / `- **Status**: ` / `> **Status**:`
+        # ——歷年 ADR 模板換過，而解析器只認其中一種。
+        title_re = re.compile(r"^#\s+ADR-(\d+)[:：]\s*(.+)")
+        status_re = re.compile(r"^\s*[>\-*]?\s*\*\*(?:狀態|Status)\*\*[:：]\s*(.+)", re.I)
+        date_re = re.compile(r"^\s*[>\-*]?\s*\*\*(?:日期|Date)\*\*[:：]\s*(.+)", re.I)
         items: List[AdrInfo] = []
         for f in sorted(adr_dir.glob("0*.md"), key=lambda p: p.name):
             try:
-                lines = f.read_text(encoding="utf-8").splitlines()[:10]
+                lines = f.read_text(encoding="utf-8").splitlines()[:16]  # 2026-08-13：由 10 放寬 —— 部分 ADR 的日期欄在第 11-14 行，且宣告行又佔掉一行
             except Exception:
                 logger.warning("無法讀取 ADR 檔案: %s", f.name)
                 continue
-            number, title, status, date = "", f.stem, "", ""
+            # 檔名一律是 `NNNN-...`，比標題可靠 —— 標題格式歷年不一致
+            fname_num = f.stem.split("-", 1)[0]
+            number, title, status, date = fname_num, f.stem, "", ""
             for line in lines:
                 m = title_re.match(line)
                 if m:

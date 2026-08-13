@@ -263,6 +263,31 @@ def fetch_last_event_ages() -> dict[str, float] | None:
     return {j: (now - t).total_seconds() for j, t in last.items()}
 
 
+def fetch_process_uptime() -> float | None:
+    """backend 行程已經跑了多久（秒）。
+
+    2026-08-13：同一天內兩次因為我自己 rebuild 而產生假 RED ——
+    `process_reminders` / `health_check_broadcast` 是 5 分鐘級 job（門檻 12 分鐘），
+    而 rebuild + 重啟的空窗約 14 分鐘，於是重啟後前十幾分鐘必然被判 dormant。
+
+    等它自己好不算修：每次後端 rebuild 都產生一次假紅，而假紅正是本專案
+    明文定義的告警疲勞（「連三天推同一則等於訓練人略過它」）。
+    行程剛啟動時，週期短於「已啟動時間」的 job 本來就不可能已經 fire 過。
+    """
+    try:
+        with urllib.request.urlopen("http://localhost:8001/metrics", timeout=10) as r:
+            text = r.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return None
+    for line in text.splitlines():
+        if line.startswith("process_start_time_seconds "):
+            try:
+                return datetime.now().timestamp() - float(line.rsplit(" ", 1)[1])
+            except ValueError:
+                return None
+    return None
+
+
 def fetch_ages() -> dict[str, float]:
     """從 /metrics 抓所有 scheduler_job_last_run_age_seconds"""
     try:
@@ -308,6 +333,17 @@ def main() -> int:
     unknown_jobs: list[str] = []
     healthy = 0
 
+    # 行程剛啟動時，週期比「已啟動時間」還長的 job 不可能已經 fire 過 ——
+    # 判它 dormant 是在報「我剛剛重啟了」，不是在報故障。
+    uptime = fetch_process_uptime()
+    young: set[str] = set()
+    if uptime is not None and uptime < 3600:
+        young = {j for j, t in thresholds.items() if t > uptime}
+        if young:
+            print(f"  · backend 行程啟動僅 {uptime/60:.0f} 分鐘 —— "
+                  f"{len(young)} 個 job 的門檻大於此值，本次不判其 dormant"
+                  f"（重啟後的必然現象，不是故障）")
+
     for jid, age in sorted(ages.items()):
         threshold = thresholds.get(jid)
         if threshold is None:
@@ -315,7 +351,11 @@ def main() -> int:
             print(f"  ⚪ {jid:38} age={age/3600:.1f}h (no threshold)")
             continue
         ratio = age / threshold
-        if age > threshold:
+        if age > threshold and jid in young:
+            healthy += 1
+            print(f"  ⏳ {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h"
+                  f" —— 行程剛啟動，尚不足以判定")
+        elif age > threshold:
             red_jobs.append(jid)
             print(f"  🔴 {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h ({ratio:.1f}x)")
         elif age > threshold * 0.5:
@@ -359,6 +399,12 @@ def main() -> int:
                     else:
                         print(f"  ⚪ {jid:38} 從未有執行紀錄（可能條件註冊未啟用）")
                     blind.append(jid)
+                elif age > threshold and jid in young:
+                    # 與上面的 metrics 路徑同一條判準 —— 只套一邊就會出現
+                    # 「同樣說不準的兩支，一支豁免一支判紅」這種不一致
+                    healthy += 1
+                    print(f"  ⏳ {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h"
+                          f" —— 行程剛啟動，尚不足以判定（持久紀錄）")
                 elif age > threshold:
                     red_jobs.append(jid)
                     print(f"  🔴 {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h（持久紀錄）")
