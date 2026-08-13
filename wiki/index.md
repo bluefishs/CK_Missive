@@ -259,6 +259,23 @@
 - [integration health 月報](topics/integration health 月報.md)
 - [observability 端點目錄](topics/observability 端點目錄.md)
 - [公文管理系統總覽](topics/公文管理系統總覽.md)
+- [功能模組 1.網站管理](topics/功能模組 1.網站管理.md)
+- [功能模組 2.網站權限](topics/功能模組 2.網站權限.md)
+- [功能模組 3.系統監控](topics/功能模組 3.系統監控.md)
+- [功能模組 5.知識地圖](topics/功能模組 5.知識地圖.md)
+- [功能模組 6.AI助理](topics/功能模組 6.AI助理.md)
+- [功能模組 ERP財務](topics/功能模組 ERP財務.md)
+- [功能模組 個人儀表板](topics/功能模組 個人儀表板.md)
+- [功能模組 公文管理](topics/功能模組 公文管理.md)
+- [功能模組 報表分析](topics/功能模組 報表分析.md)
+- [功能模組 專案管理](topics/功能模組 專案管理.md)
+- [功能模組 專案財務](topics/功能模組 專案財務.md)
+- [功能模組 政府標案](topics/功能模組 政府標案.md)
+- [功能模組 日曆管理](topics/功能模組 日曆管理.md)
+- [功能模組 桃園查估](topics/功能模組 桃園查估.md)
+- [功能模組 系統文件](topics/功能模組 系統文件.md)
+- [功能模組 系統管理](topics/功能模組 系統管理.md)
+- [功能模組 資產管理](topics/功能模組 資產管理.md)
 - [多通道整合目錄](topics/多通道整合目錄.md)
 - [履歷 ADR-0011](topics/履歷 ADR-0011.md)
 - [履歷 ADR-0012](topics/履歷 ADR-0012.md)
@@ -355,5 +372,5 @@
 - [app.services.ai.search.document_natural_search](modules/app.services.ai.search.document_natural_search.md)
 
 ---
-**統計**: 245 entities | 41 topics | 0 sources | 20 synthesis | 31 modules
+**統計**: 245 entities | 58 topics | 0 sources | 20 synthesis | 31 modules
 **最後更新**: 2026-08-13

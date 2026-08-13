@@ -1,0 +1,37 @@
+---
+title: 功能模組 ERP財務
+type: topic
+sources: [site_navigation_items, router/AppRouter.tsx, api/endpoints, api/routes.py, ui-sweep.json]
+tags: [功能模組, 履歷, 整合, auto-compiled]
+confidence: high
+---
+
+> 由 `scripts/dev/feature_dossier.py` 組出，**不要手改**。
+> 這是使用者語言的履歷：一個功能模組用到哪些頁面、API、後端模組，以及**誰在看它**。
+
+# 功能模組履歷：ERP財務
+
+## 使用者看到的（7 個項目）
+- 財務儀表板　`/erp/financial-dashboard`　→ frontend/src/pages/ERPFinancialDashboardPage.tsx
+- ERP 管理中心　`/erp`　→ frontend/src/pages/ERPHubPage.tsx
+- 電子發票　`/erp/einvoice-sync`　→ frontend/src/pages/ERPEInvoiceSyncPage.tsx
+- 財務總覽　`/erp/expenses`　→ frontend/src/pages/ERPExpenseListPage.tsx
+- 統一帳本　`/erp/ledger`　→ frontend/src/pages/ERPLedgerPage.tsx
+- 營運帳目　`/erp/operational`　→ frontend/src/pages/ERPOperationalListPage.tsx
+- 發票彙總　`/erp/invoices/summary-view`　→ frontend/src/pages/ERPInvoiceSummaryPage.tsx
+
+## 它打哪些 API —— 目前無法可信回答
+- 靜態追 import 得不出可信答案：頁面經 `from '../hooks'` 這類
+  barrel re-export 取用，追下去會把全 app 的端點都吸進來。
+  實測鑑別力：深度 3 時公文頁得到 42 個端點而**含 document 字樣者 0%**，
+  深度 5 爆到 168 個。依 SELF_AUDIT_EVOLUTION_STANDARD §3，
+  驗不出鑑別力的維度不得交付 —— 所以這裡不給清單，而不是給一份錯的。
+- **正確的解法是 runtime 而非靜態推論**：讓瀏覽器走查在開啟頁面時
+  記錄實際發出的請求（引擎已有 read_network_requests 能力），
+  那是事實不是推論。與第 6 階價值層改用 Prometheus 真實流量同一個道理。
+
+## 誰在看它 —— 走查結果檔目前答不出來
+- `ui-sweep.json` 只記 `pass`/`fail` 總數與失敗清單，
+  **不記通過了哪些路由** → 無法回答「這個功能模組有沒有被走查涵蓋」。
+- 這本身是個缺口：走查每天在跑、涵蓋率卻無人可查。
+  修法是讓引擎輸出通過路由清單（一行的事），不是在這裡猜。
