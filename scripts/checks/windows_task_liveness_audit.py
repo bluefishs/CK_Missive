@@ -90,9 +90,24 @@ ALLOWED_NONZERO: dict[str, dict[int, str]] = {
 # 而排程的真實頻率就寫在作業系統的 trigger 裡，兩份必然漂移。
 MAX_AGE_DAYS = 8
 
-# 「錯過未補跑」的緩衝。2026-08-12 立案，見 check_tasks() 內說明。
+# 「錯過未補跑」的緩衝。2026-08-12 立案，見 audit() 內說明。
 # 給 2 小時是因為排程本身可能延遲觸發、或正在執行中還沒更新 LastRunTime。
 MISSED_GRACE_HOURS = 2
+
+
+def _interval_days(task: dict) -> int:
+    """該排程的週期天數（日／週觸發）；純登入或開機觸發回 0。
+
+    PowerShell 5.1 的 ConvertTo-Json 對「管線只剩一個元素」仍可能序列化成陣列
+    （同檔頭已記過 -AsArray 不存在那個坑）→ Python 端再正規化一次，不與它角力。
+    """
+    v = task.get("IntervalDays") or 0
+    if isinstance(v, list):
+        v = v[0] if v else 0
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
 
 
 def query_tasks() -> list[dict]:
@@ -386,7 +401,13 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
             # 上一個應執行的時點過了，它到底跑了沒有。
             reds.append(f"{name}: StartWhenAvailable=False（機器關機時會整個跳過且無訊號）")
 
-        if logon:
+        # 2026-08-12：豁免條件由「有登入觸發」收窄為「**只有**登入觸發」。
+        # 當天為三支異地備份補了登入觸發（關機錯過後靠登入補跑），若照舊寫法，
+        # 它們會因此被歸為「登入觸發型，不以時間判逾期」——
+        # **最需要被盯的三支剛好因為變得更可靠而退出了監控範圍**。
+        # 有週期性 trigger 就照週期判，登入觸發只是額外的補跑機會。
+        periodic = bool(_interval_days(t))
+        if logon and not periodic:
             notes.append(f"{name}: 登入/開機觸發，不以時間判逾期")
         elif not last_run:
             reds.append(f"{name}: 從未執行過（註冊了但沒跑過）")
@@ -409,12 +430,8 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
         # 上一個應執行時點 = 作業系統自己給的 NextRunTime − 該排程自己的 trigger 週期。
         # LastRun 落在那之前，就是這一輪沒跑到。
         next_run = (t.get("NextRun") or "").strip()
-        # PowerShell 5.1 的 ConvertTo-Json 對「管線只剩一個元素」仍可能序列化成陣列
-        # （同檔頭已記過 -AsArray 不存在那個坑）→ Python 端再正規化一次，不與它角力。
-        interval_days = t.get("IntervalDays") or 0
-        if isinstance(interval_days, list):
-            interval_days = interval_days[0] if interval_days else 0
-        if last_run and next_run and interval_days and not logon:
+        interval_days = _interval_days(t)
+        if last_run and next_run and interval_days:
             try:
                 prev_due = datetime.fromisoformat(next_run) - timedelta(days=int(interval_days))
                 if (datetime.fromisoformat(last_run) < prev_due
@@ -445,10 +462,15 @@ EXPECTED_TASKS = {
         "CK_PileMgmt 資料庫異地備份",
     "CK_DigitalTunnel-MinIO-Offsite":
         "CK_DigitalTunnel MinIO 異地備份（MinIO 本身是 DB 備份的目的地，它沒有第二份）",
-    "LandValuation_Daily_Backup":
-        "CK_lvrland_Webmap 異地備份 —— 腳本 2026-05-20 就寫好了（scripts/"
-        "sync_backups_to_nas.ps1 + Setup-AutoBackup.ps1），但從未註冊；"
-        "本機 170 檔 3.9GB 目前是唯一副本，而 lvrland 是公網上線的主系統",
+    # 2026-08-12 已註冊並實際觸發驗過（Result=0，NAS 145 檔 338MB → 175 檔 4.4GB）。
+    # 名稱刻意**不用** `LandValuation_Daily_Backup` —— 那是該 repo
+    # `Setup-AutoBackup.ps1` 給**本機** DB 備份用的名字（跑 daily_backup_enhanced.bat），
+    # 而缺的一直是**異地同步**（sync_backups_to_nas.ps1）。原本這條期望把兩件事寫成一件，
+    # 用了本機備份的任務名去要求異地備份存在 —— 就算有人照著註冊，
+    # 註冊到的也會是錯的那一支。改用與 portfolio 一致的命名。
+    "CK_lvrland_Webmap-Offsite-Backup":
+        "CK_lvrland_Webmap 異地備份（backups/ → NAS，每日 03:45）—— "
+        "lvrland 是公網上線的主系統，本機 backups/ 曾是唯一副本",
 }
 
 
