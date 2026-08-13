@@ -60,8 +60,17 @@ const WikiBrowseTab: React.FC = () => {
   return (
     <div>
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        {['entities', 'topics', 'sources', 'synthesis'].map((k) => (
-          <Col span={6} key={k}>
+        {/*
+          2026-08-13：原本硬編 ['entities','topics','sources','synthesis'] ——
+          v6.41 新增的 `modules`（31 頁模組 wiki）因此在畫面上**完全看不到**。
+          子目錄的 SSOT 在後端 `services/wiki/service.py` 的 WIKI_SUBDIRS，
+          而 stats 回應的鍵就是它 → 直接以回應的鍵渲染，清單不再有第二份。
+          （v6.41 才踩過同型：子目錄清單寫死多處、漏改 rebuild_index 的 labels）
+        */}
+        {Object.keys(stats ?? { entities: 0, topics: 0, sources: 0, synthesis: 0, modules: 0 })
+          .filter((k) => k !== 'total')   // total 是合計，不是子目錄
+          .map((k) => (
+          <Col span={4} key={k}>
             <Card size="small">
               <Statistic title={k} value={stats?.[k as keyof WikiStats] ?? 0} prefix={<FileTextOutlined />} />
             </Card>

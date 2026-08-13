@@ -7,6 +7,8 @@ export interface WikiStats {
   topics: number;
   sources: number;
   synthesis: number;
+  /** v6.41 新增的模組 wiki —— 型別漏了它，畫面上 31 頁完全看不到（2026-08-13 補） */
+  modules: number;
   total: number;
 }
 
