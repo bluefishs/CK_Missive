@@ -221,6 +221,21 @@ def _walk_results() -> dict[str, list[str]]:
         if r:
             out["failures"].append(str(r))
     out["passed"] = [str(r) for r in (data.get("passed_routes") or [])]
+
+    # 每條路由**實際打出去**的 API（走查 runtime 事實，2026-08-13 起有）。
+    #
+    # ⚠️ 直接用會得到「每個功能都在用 auth API」—— `auth/check`、`auth/me`、
+    # `ai/config` 這些是全站共用的啟動請求，每一頁都會打。把它們算進去，
+    # 各功能的清單就會長得幾乎一樣＝沒有鑑別力。
+    # 判準：出現在 **> 70% 路由**上的視為全站共用基線，從各功能清單中扣除，
+    # 但要說出扣了什麼（不說＝資訊消失）。
+    ra = data.get("route_apis") or {}
+    out["route_apis"] = ra  # type: ignore[assignment]
+    if ra:
+        from collections import Counter
+        c = Counter(u for urls in ra.values() for u in urls)
+        thr = max(2, int(len(ra) * 0.7))
+        out["common_apis"] = sorted(u for u, n in c.items() if n >= thr)  # type: ignore[assignment]
     return out
 
 
@@ -253,15 +268,29 @@ def render(feat: dict, r2p: dict, const: dict, a2m: dict, cov: dict, md: bool) -
                  f"（動態路由或非 SPA 路由）：" + "、".join(f"{t}({p})" for t, p in unmapped[:6]))
     b.append("")
 
-    b.append(f"{h2}它打哪些 API —— 目前無法可信回答")
-    b.append(f"{'- ' if md else '  '}靜態追 import 得不出可信答案：頁面經 `from '../hooks'` 這類")
-    b.append(f"{'  ' if md else '   '}barrel re-export 取用，追下去會把全 app 的端點都吸進來。")
-    b.append(f"{'  ' if md else '   '}實測鑑別力：深度 3 時公文頁得到 42 個端點而**含 document 字樣者 0%**，")
-    b.append(f"{'  ' if md else '   '}深度 5 爆到 168 個。依 SELF_AUDIT_EVOLUTION_STANDARD §3，")
-    b.append(f"{'  ' if md else '   '}驗不出鑑別力的維度不得交付 —— 所以這裡不給清單，而不是給一份錯的。")
-    b.append(f"{'- ' if md else '  '}**正確的解法是 runtime 而非靜態推論**：讓瀏覽器走查在開啟頁面時")
-    b.append(f"{'  ' if md else '   '}記錄實際發出的請求（引擎已有 read_network_requests 能力），")
-    b.append(f"{'  ' if md else '   '}那是事實不是推論。與第 6 階價值層改用 Prometheus 真實流量同一個道理。")
+    # 它打哪些 API —— 2026-08-13 起改用走查 runtime 記錄的**事實**。
+    # 先前靠靜態追 import 得不出可信答案（barrel re-export 會把全 app 端點吸進來：
+    # 深度 3 時公文頁 42 個端點而含 document 字樣者 0%、深度 5 爆到 168 個），
+    # 當時依 §3 選擇不交付。現在走查會記錄每條路由實際發出的請求。
+    ra = cov.get("route_apis") or {}
+    common = set(cov.get("common_apis") or [])
+    mine: set[str] = set()
+    for _t, path, _f in pages:
+        mine |= set(ra.get(path) or [])
+    specific = sorted(mine - common)
+    b.append(f"{h2}它打哪些 API（走查實際觀測，非靜態推論）")
+    if not ra:
+        b.append(f"{'- ' if md else '  '}走查結果檔沒有 `route_apis` —— 無法判定（不是「沒有打 API」）")
+    elif not specific:
+        b.append(f"{'- ' if md else '  '}除全站共用請求外，未觀測到本模組特有的 API")
+        b.append(f"{'  ' if md else '   '}（可能是純前端頁面，或資料在進站時已由別處載入）")
+    else:
+        b.append(f"{'- ' if md else '  '}本模組特有 **{len(specific)}** 個：")
+        for u in specific[:20]:
+            b.append(f"{'  - ' if md else '     '}{u}")
+    if common:
+        b.append(f"{'- ' if md else '  '}（已扣除 {len(common)} 個全站共用啟動請求："
+                 f"{'、'.join(sorted(common)[:4])}…）—— 不扣的話每個功能看起來都一樣")
     b.append("")
 
     # 「誰在看它」= owner 語言的覆蓋率，比「87 條路由全綠」有意義得多。

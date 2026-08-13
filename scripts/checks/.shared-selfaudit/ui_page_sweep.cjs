@@ -168,11 +168,32 @@ async function main() {
     // 而據此推算會得到「涵蓋 0/3」這種把『查不到』說成『沒被涵蓋』的錯誤結論
     // （兩者意思相反）。skipped_routes 早就記了，通過的沒有理由不記。
     const passed = [];
+    // 2026-08-13：每條路由**實際發出**的 API 請求。
+    //
+    // 為什麼要 runtime 而不是靜態推論：功能模組履歷想回答「這個功能打哪些 API」，
+    // 靠靜態追 import 得不出可信答案 —— 頁面經 `from '../hooks'` 這種 barrel
+    // re-export 取用，追下去會把全 app 的端點都吸進來（實測深度 3 時公文頁
+    // 得到 42 個端點而含 document 字樣者 0%、深度 5 爆到 168 個）。
+    // 走查本來就會真的把頁面打開，它看到的是**事實**不是推論。
+    // 與第 6 階價值層改用 Prometheus 真實流量取代靜態推論同一個道理。
+    //
+    // 純被動觀察：只掛 listener 不攔截、不改寫、不阻擋，故不影響既有判定。
+    const routeApis = {};
 
   for (const route of routeList) {
     const page = await ctx.newPage();
     const errors = [];
     const dialogs = [];
+    const apiHits = new Set();
+    page.on('request', (req) => {
+      try {
+        const u = new URL(req.url());
+        // 只記本站的 API 呼叫；外部資源（字型、地圖圖磚）不是這個功能的能力
+        if (u.origin === new URL(BASE).origin && u.pathname.startsWith('/api/')) {
+          apiHits.add(u.pathname);
+        }
+      } catch { /* 非法 URL 忽略 */ }
+    });
     page.on('dialog', async (d) => { dialogs.push(d.message()); await d.dismiss().catch(() => {}); });
     page.on('console', (m) => { if (m.type() === 'error' && !isNoise(m.text())) errors.push(m.text()); });
     page.on('pageerror', (e) => { if (!isNoise(String(e))) errors.push(String(e)); });
@@ -257,6 +278,7 @@ async function main() {
         ).catch(() => 'unreadable');
         const why = errors.length ? `｜console: ${errors.slice(0, 2).join(' / ').slice(0, 160)}` : '｜console 無錯誤';
         skipped.push(`${route} → 被導回 ${nowPath}（登入態: ${seeded}｜cookie: ${ck}${why}）`);
+        if (apiHits.size) routeApis[route] = [...apiHits].sort();
         await page.close();
         continue;
       }
@@ -274,6 +296,7 @@ async function main() {
         // 這種輸出比沒有工具更糟——它讓人以為量過了（標準 §3）。
         if (!hasAuth) {
           skipped.push(`${route} → 空白（未提供登入態，無法判定）`);
+          if (apiHits.size) routeApis[route] = [...apiHits].sort();
           await page.close();
           await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));
           continue;
@@ -319,6 +342,7 @@ async function main() {
       );
       if (onlyAuthProblems && nonAuth.length === 0 && errors.some((e) => authSignal.test(e))) {
         skipped.push(`${route} → 需登入（401/403），未驗`);
+        if (apiHits.size) routeApis[route] = [...apiHits].sort();
         await page.close();
         await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));
         continue;
@@ -331,6 +355,7 @@ async function main() {
       limitations.push({ route, reason: known.reason });
       okCount++;
       passed.push(route);
+      if (apiHits.size) routeApis[route] = [...apiHits].sort();
       await page.close();
       await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));
       continue;
@@ -344,14 +369,17 @@ async function main() {
       okCount++;
       passed.push(route);
     }
+    // 主路徑（含成功與失敗）—— 前面幾個 close 是提早結束的分支，
+    // 只補那些會漏掉絕大多數路由（首版就是如此：87 條裡只記到 1 條）。
+    if (apiHits.size) routeApis[route] = [...apiHits].sort();
     await page.close();
     await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));  // 節流：避免掃描自己觸發 429
   }
-    return { bad, skipped, throttled, limitations, okCount, passed };
+    return { bad, skipped, throttled, limitations, okCount, passed, routeApis };
   }
 
   const pass1 = await runPass(routes, context);
-  let { bad, skipped, throttled, limitations, okCount, passed } = pass1;
+  let { bad, skipped, throttled, limitations, okCount, passed, routeApis } = pass1;
 
   if (bad.length) {
     const retryRoutes = bad.map((b) => b.route);
@@ -379,6 +407,7 @@ async function main() {
     okCount = pass1.okCount + pass2.okCount;
     // pass2 只跑 pass1 的失敗項，兩者的通過清單沒有交集，直接相接即可。
     passed = pass1.passed.concat(pass2.passed);
+    routeApis = { ...pass1.routeApis, ...pass2.routeApis };
     skipped = skipped.concat(pass2.skipped);
     throttled = throttled.concat(pass2.throttled);
     limitations = limitations.concat(pass2.limitations);
@@ -515,6 +544,8 @@ async function main() {
       // 2026-08-13：通過的路由清單。沒有它，「這個功能模組有沒有被走查涵蓋」
       // 就無法回答 —— 而那正是 owner 語言的覆蓋率（比「87 條全綠」有意義）。
       passed_routes: passed,
+      // 每條路由實際打出去的 API（runtime 事實，非靜態推論）
+      route_apis: routeApis,
       throttled: throttled.length,
       known_limitations: limitations.map((l) => ({ route: l.route, reason: l.reason })),
       failures: bad.map((b) => ({ route: b.route, problems: b.problems })),
