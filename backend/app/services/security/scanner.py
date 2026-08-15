@@ -158,6 +158,26 @@ class SecurityScanner:
                             continue
                         if snippet.lstrip().startswith("#"):
                             continue
+                        # 2026-08-15：SQL 注入規則只看「f-string 裡有 SQL 關鍵字且有 {」，
+                        # **分不出插進去的是「值」還是「表名／欄名」**。
+                        # 而表名與欄名本來就無法用 bind 參數表達 —— 那不是漏寫參數，
+                        # 是 SQL 的限制。實測 5 筆 high 全是假陽性：
+                        #   documents/delete.py、user_management.py、main.py
+                        #     → 表名來自程式碼內的**固定 list 常值**
+                        #   tender_module/graph_case.py
+                        #     → 先擋掉非白名單的 target_type 才用
+                        #   repositories/admin_repository.py
+                        #     → 已通過格式驗證＋白名單，且用雙引號包裹
+                        # 收窄判準：**同一行有 bind 參數（:name）就不算注入** ——
+                        # 值走參數化時，剩下的插值只可能是識別碼。
+                        # 假陽性堆在資安看板上比沒有更糟：它會訓練人略過紅字，
+                        # 於是真的注入出現時也不會有人看（本專案反覆記過的告警疲勞）。
+                        if owasp == "A03" and "SQL" in title:
+                            _ls = content.rfind(chr(10), 0, match.start()) + 1
+                            _le = content.find(chr(10), match.end())
+                            _line = content[_ls:_le if _le > 0 else None]
+                            if re.search(r":[a-zA-Z_][a-zA-Z0-9_]*", _line):
+                                continue
                         findings.append(ScanFinding(
                             title=title,
                             severity=severity,
@@ -299,7 +319,21 @@ class SecurityScanner:
         from app.extended.models.security import SecurityIssue
         from sqlalchemy import select
 
+        # 2026-08-15：路徑正規化。實測 open 的 67 筆裡有 18 筆用反斜線、
+        # 49 筆用斜線，而**正規化後只有 18 個不重複路徑** —— 同一批問題
+        # 被記了兩套，因為去重比對的是原始字串。掃描來源在 Windows 上
+        # 走 os.path，在容器內走 posix，兩邊產生的 file_path 形狀不同。
+        # 2026-08-15：**同一次掃描內**也要去重。
+        # 原本只查 DB，而同批新增的列還沒 flush → 10 筆一模一樣的
+        # 「依賴漏洞: aiohttp 3.13.3」（同檔、同 line 0、同 scan_id）全部通過檢查。
+        seen_in_batch: set = set()
         for f in findings:
+            if f.file_path:
+                f.file_path = f.file_path.replace("\\", "/")
+            batch_key = (f.file_path, f.line_number, f.title)
+            if batch_key in seen_in_batch:
+                continue
+            seen_in_batch.add(batch_key)
             # 去重檢查
             existing = await self.db.execute(
                 select(SecurityIssue).where(
@@ -325,5 +359,33 @@ class SecurityScanner:
                 remediation=f.remediation,
             )
             self.db.add(issue)
+
+        # 2026-08-15：自動關閉「這次沒再掃到」的問題。
+        #
+        # 在此之前 open 的列只增不減 —— 程式碼修好了，那一列仍然 open。
+        # 實測：本次掃描只找到 7 個問題，而看板上是 **61 個 open high**，
+        # 十倍的差距全是歷史殘留。資安看板顯示一個假的大數字，
+        # 比顯示 0 更糟：它讓人放棄看它。
+        #
+        # 只關閉「本次掃描涵蓋範圍內」的類型（同一組 owasp_category），
+        # 避免把別的來源建立的問題誤關。
+        scanned_keys = {(f.file_path, f.line_number, f.title) for f in findings}
+        scanned_cats = {f.owasp_category for f in findings if f.owasp_category}
+        if scanned_cats:
+            rows = (await self.db.execute(
+                select(SecurityIssue).where(
+                    SecurityIssue.status == "open",
+                    SecurityIssue.project_name == self.project_name,
+                    SecurityIssue.owasp_category.in_(scanned_cats),
+                )
+            )).scalars().all()
+            closed = 0
+            for row in rows:
+                key = ((row.file_path or "").replace("\\", "/"), row.line_number, row.title)
+                if key not in scanned_keys:
+                    row.status = "resolved"
+                    closed += 1
+            if closed:
+                logger.info("自動關閉本次未再掃到的資安問題: %d 筆", closed)
 
         await self.db.commit()

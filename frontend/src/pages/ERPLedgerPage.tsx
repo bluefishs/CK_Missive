@@ -22,7 +22,7 @@ import {
   useCaseCodeMap,
 } from '../hooks';
 import type { FinanceLedger, LedgerQuery, LedgerCreate, LedgerEntryType } from '../types/erp';
-import { LEDGER_ENTRY_TYPE_LABELS } from '../types/erp';
+import { LEDGER_ENTRY_TYPE_LABELS, LEDGER_SOURCE_TYPE_OPTIONS, ledgerSourceLabel } from '../types/erp';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -106,7 +106,14 @@ const ERPLedgerPage: React.FC = () => {
       },
     },
     { title: '說明', dataIndex: 'description', key: 'description', ellipsis: true },
-    { title: '來源', dataIndex: 'source_type', key: 'source_type', width: 100 },
+    {
+      // 2026-08-15：原本直接顯示 raw 值（erp_billing／expense_invoice）。
+      // 標籤與篩選收在 types/erp.ts 單一處，兩個頁面共用 —— 不各寫一份對照。
+      title: '來源', dataIndex: 'source_type', key: 'source_type', width: 110,
+      render: (v: string | null) => ledgerSourceLabel(v),
+      filters: LEDGER_SOURCE_TYPE_OPTIONS.map(o => ({ text: o.label, value: o.value })),
+      onFilter: (value, record: FinanceLedger) => record.source_type === value,
+    },
     {
       title: '操作',
       key: 'actions',

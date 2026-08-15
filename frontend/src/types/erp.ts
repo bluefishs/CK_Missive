@@ -518,6 +518,35 @@ export const LEDGER_ENTRY_TYPE_LABELS: Record<LedgerEntryType, string> = {
   expense: '支出',
 };
 
+/**
+ * 帳本分錄的來源單據類型。
+ *
+ * 2026-08-15：原本頁面直接顯示 raw 值（`erp_billing`、`expense_invoice`），
+ * 而 DB 裡同時存在 `billing` 與 `erp_billing` 兩套標籤 ——
+ * 寫入端某次改名時舊資料沒跟著遷移，於是**同一件事在畫面上有兩種名稱**，
+ * 而任何依這個欄位篩選的功能都只會拿到一半資料。
+ * 該次也讓對帳程式報出一個不存在的 1,329,710 差額（詳見 scheduler 的註解）。
+ *
+ * 資料已於同日統一為 `erp_billing`（35 筆遷移，金額與筆數守恆）。
+ * 這裡是**呈現層的單一來源** —— 兩個頁面共用，不各自寫一份對照。
+ */
+export const LEDGER_SOURCE_TYPE_LABELS: Record<string, string> = {
+  // 措辭沿用 ERPExpenseListPage 原本頁內的那一份 —— 使用者已經看習慣，
+  // 收斂時改動措辭會讓「同一件事」在他們眼中變成另一件事。
+  manual: '手動',
+  expense_invoice: '報銷',
+  erp_billing: '請款',
+  vendor_payable: '付款',
+  operational: '營運',
+};
+
+/** 未知來源保留原值顯示 —— 靜靜顯示空白會讓新來源看起來像資料遺失 */
+export const ledgerSourceLabel = (v?: string | null): string =>
+  (v ? LEDGER_SOURCE_TYPE_LABELS[v] || v : '—');
+
+export const LEDGER_SOURCE_TYPE_OPTIONS = Object.entries(LEDGER_SOURCE_TYPE_LABELS)
+  .map(([value, label]) => ({ value, label }));
+
 /** 帳本記錄 */
 export interface FinanceLedger {
   id: number;

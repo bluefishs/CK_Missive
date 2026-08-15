@@ -30,6 +30,7 @@ import type {
 } from '../types/erp';
 import {
   LEDGER_ENTRY_TYPE_LABELS,
+  ledgerSourceLabel,
 } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
@@ -299,13 +300,9 @@ const ERPExpenseListPage: React.FC = () => {
               },
               {
                 title: '來源', dataIndex: 'source_type', key: 'source', width: 100,
-                render: (v: string) => {
-                  const labels: Record<string, string> = {
-                    manual: '手動', expense_invoice: '報銷', erp_billing: '請款',
-                    vendor_payable: '付款', operational: '營運',
-                  };
-                  return <Tag>{labels[v] ?? v}</Tag>;
-                },
+                // 2026-08-15：原本頁內自帶一份對照，與帳本頁各一份 ——
+                // 同一個欄位兩份說法，改一邊另一邊不會知道。已收斂到 types/erp.ts。
+                render: (v: string) => <Tag>{ledgerSourceLabel(v)}</Tag>,
               },
             ]}
             dataSource={ledgerItems}
