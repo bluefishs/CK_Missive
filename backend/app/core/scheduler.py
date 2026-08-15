@@ -305,8 +305,17 @@ async def process_pending_reminders_job():
             service = ReminderService(db)
             stats = await service.process_pending_reminders()
             logger.info(f"提醒處理完成: 總數={stats['total']}, 成功={stats['sent']}, 失敗={stats['failed']}")
+            # 2026-08-14：補回 detail。它一直有 {total, sent, failed, retries}，
+            # 只是沒回傳 —— 於是「發了 30 則」與「一則都沒發」在 cron_events 裡
+            # 長得一模一樣。total=0 是常態（沒有到期提醒），failed>0 才是訊號。
+            return {
+                "total": stats.get("total", 0), "sent": stats.get("sent", 0),
+                "failed": stats.get("failed", 0), "retries": stats.get("retries", 0),
+                "reason": "ok",
+            }
     except Exception as e:
         logger.error(f"提醒處理排程任務失敗: {e}", exc_info=True)
+        raise
 
 
 @tracked_job("cleanup_events")
@@ -319,12 +328,28 @@ async def cleanup_expired_events_job():
 
     try:
         async with async_session_maker() as db:
-            # 清理 30 天前的已完成事件
+            # ⚠️ 2026-08-14：這支**什麼都沒做**。
+            #
+            # 它每天被排程叫醒、log 印「執行完成」、cron_events 記 success，
+            # 至今已 64 次以上 —— 而清理邏輯從來沒有被寫進來（原註解就寫著
+            # 「此處可添加清理邏輯，目前僅記錄日誌」）。
+            #
+            # 這比「壞掉的 job」更難發現：壞掉會留下錯誤，而它一切正常，
+            # 只是不做事。整整一輪 producer 契約盤點都沒抓到它，因為契約問的是
+            # 「有沒有留下產出」，而它被歸在「純清理無產出」的豁免名單裡 ——
+            # 那個豁免的理由是我 2026-08-13 寫的，我當時假設了它會清東西。
+            #
+            # 不擅自實作清理邏輯（要刪什麼、保留多久屬 owner 決定，且刪除不可逆），
+            # 但**必須停止假裝它在工作**：reason 明說是 not_implemented，
+            # 讓它在 cron_events 與 producer 報告裡都看得見。
             cutoff_date = datetime.now() - timedelta(days=30)
-            # 此處可添加清理邏輯，目前僅記錄日誌
-            logger.info(f"過期事件清理任務執行完成 (截止日期: {cutoff_date})")
+            logger.warning(
+                "cleanup_events 尚未實作任何清理邏輯（截止日期 %s 僅供參考）—— "
+                "此 job 目前不做任何事", cutoff_date)
+            return {"deleted": 0, "reason": "not_implemented"}
     except Exception as e:
         logger.error(f"過期事件清理排程任務失敗: {e}", exc_info=True)
+        raise
 
 
 @tracked_job("einvoice_sync")
@@ -635,8 +660,17 @@ async def security_scan_job():
                 result["total_issues"], result.get("critical", 0),
                 result.get("high", 0), result["duration_seconds"],
             )
+            # 2026-08-14：補回 detail。掃到幾個問題是明確數字（實測 9 個），
+            # 只是沒回傳。掃描器本身壞掉時 total 會變 0 —— 那與「真的沒問題」
+            # 在原本的紀錄裡無法區分。
+            return {
+                "total_issues": result["total_issues"],
+                "critical": result.get("critical", 0),
+                "high": result.get("high", 0), "reason": "ok",
+            }
     except Exception as e:
         logger.error("安全掃描失敗: %s", e, exc_info=True)
+        raise
 
 
 def _summarize_alerts(actionable: list, scanned: int) -> str:
@@ -1223,7 +1257,14 @@ async def ledger_reconciliation_job():
 
             ledger_billing_total = await db.scalar(
                 select(func.coalesce(func.sum(FinanceLedger.amount), 0))
-                .where(FinanceLedger.source_type == "erp_billing")
+                # 2026-08-15：改為同時涵蓋 "billing" 與 "erp_billing"。
+                # 補上 detail 後第一次執行就報 AR 差額 1,329,710 —— 查證後
+                # **帳本沒有掉錢，是這支對帳自己查錯標籤**：
+                # 帳本裡 35 筆舊資料用 `billing`（總額正好 1,329,710，與已收款帳單一致），
+                # 而寫入端某次改名為 `erp_billing` 時**舊資料沒有跟著遷移**，
+                # 對帳只查新值 → 看到 1 筆 0 元 → 報一個不存在的百萬差額。
+                # 它一直在報，但沒有 detail、通知也沒建立成功，所以沒有人知道。
+                .where(FinanceLedger.source_type.in_(("billing", "erp_billing")))
             ) or 0
 
             # AP: 已付 payable vs ledger
@@ -1268,8 +1309,24 @@ async def ledger_reconciliation_job():
                     )
             else:
                 logger.info("帳本對帳通過: AR 一致, AP 一致")
+            # 2026-08-14：補回 detail。「對不上幾筆／差額多少」是明確數字，
+            # 只是沒回傳 —— 於是「對帳通過」與「對帳根本沒跑」在紀錄裡一樣。
+            # 差額為 0 是常態且是好事，所以不判紅；但它必須是可見的。
+            # 標籤漂移**不吸收掉**：上面用 in_ 讓金額對得上，但兩套值並存本身
+            # 是待處理的資料問題（舊 35 筆 billing／新 1 筆 erp_billing），
+            # 任何依 source_type 篩選的新功能都會看到不完整的資料。
+            legacy_n = await db.scalar(
+                select(func.count()).select_from(FinanceLedger)
+                .where(FinanceLedger.source_type == "billing")
+            ) or 0
+            return {
+                "ar_diff": float(ar_diff), "ap_diff": float(ap_diff),
+                "legacy_source_type_rows": int(legacy_n),
+                "reason": "ok" if (ar_diff == 0 and ap_diff == 0) else "mismatch",
+            }
     except Exception as e:
         logger.error(f"帳本對帳失敗: {e}", exc_info=True)
+        raise
 
 
 @tracked_job("monthly_arch_review")

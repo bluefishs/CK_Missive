@@ -184,7 +184,10 @@ NON_PRODUCER_JOBS: dict[str, str] = {
     "daily_self_reflection_line_push":
         "產出是送到 LINE 的訊息，本地無法驗證對方收到。"
         "推播管道的健康由 credential_liveness_audit（token 存活）與月配額計數承接。",
-    "line_weekly_pulse": "同上。",
+    "line_weekly_pulse":
+        "週脈動推播。同 daily_self_reflection_line_push：產出送到 LINE，"
+        "本地無法驗證對方收到；管道健康由憑證稽核與月配額計數承接。"
+        "（原本寫「同上」—— 那在字典裡讀不出上文，等於沒寫。）",
     "proactive_trigger_scan":
         "夜間吹哨者：掃描結果進 line_digest_buffer，由晨報一次送出 —— "
         "產出的接收者是晨報而非本地檔案；晨報本身已納管。",
@@ -202,8 +205,11 @@ NON_PRODUCER_JOBS: dict[str, str] = {
 
     # ── 清理：產出是「東西變少」，而變少沒有下限可訂 ──
     "cleanup_events":
-        "清理過期事件。壞掉的症狀是 cron_events.jsonl 無限增長 —— "
-        "⚠️ 這其實可觀測（檔案大小），只是目前沒有人在看。列為待升級候選。",
+        "⚠️ 2026-08-14 更正：**它什麼都沒做**。原註解寫著「此處可添加清理邏輯，"
+        "目前僅記錄日誌」，而它已被排程叫醒 64 次以上、每次都記 success。"
+        "我 08-13 寫的豁免理由（『清理過期事件』）是錯的 —— 我假設了它會清東西。"
+        "現在它會回 reason=not_implemented，在 cron_events 裡看得見自己沒做事。"
+        "要清什麼、保留多久屬 owner 決定且刪除不可逆，故不擅自實作。",
 
     # ── 其他 ──
     "health_check_broadcast":
@@ -219,26 +225,17 @@ NON_PRODUCER_JOBS: dict[str, str] = {
         "反回音掃描：抓記憶裡自我引用造成的假成長。0 命中是常態且是好事。",
     "proposal_aging_alert":
         "提案老化告警。0 筆逾期是常態；提案存量本身已由『結晶提案』producer 納管。",
-    "security_scan":
-        "⚠️ 它其實會產出 issues 數（實測掃到 9 issues），"
-        "只是沒有回 detail。列為待升級候選。",
     "soul_mirror_sync":
         "SOUL.md 跨 repo 同步。漂移由 weekly soul_mirror_drift_check 直接比對兩份檔案 —— "
         "那比 job 自己說「我同步了」可靠。",
     "synthetic_baseline_inject":
         "注入合成查詢以維持 baseline 樣本量。產出是 shadow_trace 的列，"
         "而 baseline 的健康由 shadow_baseline_* 五個 gauge 承接。",
-    "process_reminders":
-        "⚠️ 它其實會產出 {total, sent, failed, retries}（log 裡看得到），"
-        "只是沒有回 detail。列為待升級候選。",
     "tender_pcc_enrichment":
         "PCC 詳情補完。L77 已確證資料源存在死結（org_id 只在被反爬限流的頁面），"
         "取不到是已知且無解的常態，納管等於每天報一次已知問題。",
     "tender_refresh_pending":
         "重試先前失敗的標案抓取。0 筆待重試是常態且是好事。",
-    "ledger_reconciliation":
-        "⚠️ 帳本對帳。對得上時無產出，但『對不上幾筆』是明確可回報的數字。"
-        "列為待升級候選。",
     "kunge_weekly_learning_summary":
         "週學習摘要，產出走 LINE digest；學習閉環的實質產出"
         "（patterns/proposals/crystals）已於 2026-08-05 各自納管。",
@@ -251,9 +248,6 @@ NON_PRODUCER_JOBS: dict[str, str] = {
 # 不立刻改成 producer 是因為那需要動 scheduler 並 rebuild；
 # 列在這裡讓它們不會再度隱形，下次動 backend 時一併處理。
 SHOULD_BE_PRODUCER = {
-    "process_reminders": "已有 {total, sent, failed, retries}，只是沒回傳",
-    "security_scan": "已有 issues 數，只是沒回傳",
-    "ledger_reconciliation": "『對不上幾筆』是明確數字",
     "cleanup_events": "清了幾筆／檔案大小是可觀測的",
     "einvoice_sync": "啟用後即為 producer，啟用時必須同時註冊",
 }

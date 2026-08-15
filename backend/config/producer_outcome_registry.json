@@ -301,6 +301,39 @@
       "min_value": 20,
       "max_h": 192,
       "_why": "2026-08-13：覆蓋率本身刻意不判紅（永遠亮著的燈等於沒有燈），改由這裡追蹤數字 —— 往下掉才是訊號（例如有人刪了檢核卻沒改教訓）。fail 記的是「引用了不存在的腳本」＝斷鏈，那是硬錯誤。"
+    },
+    {
+      "name": "提醒發送",
+      "signal": "cron_detail",
+      "job": "process_reminders",
+      "key": "total",
+      "ok_zero_reasons": [
+        null,
+        "ok"
+      ],
+      "_why": "2026-08-14：一直有 {total,sent,failed,retries} 只是沒回傳，於是「發了 30 則」與「一則都沒發」在 cron_events 裡長得一樣。total=0 是常態（沒有到期提醒）故 ok_zero；真正的訊號是 failed>0 與整支不再出現。"
+    },
+    {
+      "name": "安全掃描",
+      "signal": "cron_detail",
+      "job": "security_scan",
+      "key": "total_issues",
+      "ok_zero_reasons": [
+        null,
+        "ok"
+      ],
+      "_why": "2026-08-14：掃到幾個問題是明確數字（實測 9 個）。0 issues 可能是真的乾淨，也可能是掃描器壞了 —— 原本兩者無法區分，現在至少看得到數字變化。"
+    },
+    {
+      "name": "帳本對帳",
+      "signal": "cron_detail",
+      "job": "ledger_reconciliation",
+      "key": "ar_diff",
+      "ok_zero_reasons": [
+        null,
+        "ok"
+      ],
+      "_why": "2026-08-14：差額為 0 是常態且是好事，所以 ok_zero；重點在於「對帳有沒有跑」現在看得見，而 reason=mismatch 時會帶出實際差額。"
     }
   ]
 }

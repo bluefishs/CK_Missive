@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-07-16T02:05:12",
+  "timestamp": "2026-08-14T03:00:59",
   "all_ok": true,
   "broken_chains": [],
   "chains": {
     "chain_1_missive_health": {
       "ok": true,
-      "documents": 1933,
-      "entities": 48577
+      "documents": 2003,
+      "entities": 49734
     },
     "chain_2_kunge_snapshot": {
       "ok": true,
