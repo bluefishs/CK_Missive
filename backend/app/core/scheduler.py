@@ -3185,9 +3185,22 @@ async def llm_quota_check_job():
                 nvidia_month_req, nvidia_monthly_limit, nvidia_pct,
                 daily_cost, cost_daily_limit, cost_pct,
             )
+        # 2026-08-15：健康路徑原本只寫 logger.debug —— 生產不輸出 debug，
+        # 所以**實際用量從來看不到**，只有超標時才有一行 warning。
+        # 把三個百分比交出來：既能看出趨勢，也讓「有在算」與「沒在算」分得開。
+        return {
+            "alerts": len(alerts),
+            "groq_pct": round(groq_pct, 1), "nvidia_pct": round(nvidia_pct, 1),
+            "cost_pct": round(cost_pct, 1), "warn_pct": warn_pct,
+            "daily_cost_usd": round(daily_cost, 4),
+            "reason": "已 queue 進晨報 digest" if alerts else "三項皆低於告警閾值",
+        }
 
     except Exception as e:
+        # 原本只 warning 就吞掉 → 檢核失敗時這支 job 仍然記 success。
+        # 交出 reason 讓 producer watchdog 看得到它其實沒算成。
         logger.warning("LLM quota check 失敗: %s", e)
+        return {"alerts": 0, "reason": f"檢查失敗（{type(e).__name__}: {e}）"}
 
 
 # ─────────────────────────────────────────────────
@@ -3548,11 +3561,13 @@ async def cron_self_health_alert_job():
     - LINE_GROWTH_NOTIFY_ENABLED=false → 顯式關閉
     """
     import os
+    # 三條 return 路徑原本都不留任何痕跡 —— 於是「今天沒有異常」與
+    # 「這支根本沒在做事」在 cron_events 裡長得一模一樣（2026-08-15 補）。
     if os.getenv("LINE_GROWTH_NOTIFY_ENABLED", "true").lower() in ("false", "0"):
-        return
+        return {"queued": False, "reason": "LINE_GROWTH_NOTIFY_ENABLED=false（顯式關閉）"}
     line_user_id = os.getenv("LINE_ADMIN_USER_ID")
     if not line_user_id:
-        return
+        return {"queued": False, "reason": "LINE_ADMIN_USER_ID 未設＝這支告警沒有收件人"}
 
     summary = SchedulerTracker.get_summary()
     records = SchedulerTracker.get_all()
@@ -3565,7 +3580,8 @@ async def cron_self_health_alert_job():
     # 全綠 → silent
     if failed == 0 and never_run < (total / 2 if total else 0):
         logger.info("Cron self-health: all healthy, skip LINE push")
-        return
+        return {"queued": False, "total": total, "failed": 0, "never_run": never_run,
+                "reason": "全綠，不推「沒事」雜訊"}
 
     failed_jobs = [
         job_id for job_id, rec in records.items()
@@ -3598,6 +3614,8 @@ async def cron_self_health_alert_job():
         "Cron self-health alert queued to morning digest: failed=%d never_run=%d",
         failed, never_run,
     )
+    return {"queued": True, "total": total, "failed": failed,
+            "never_run": never_run, "failed_jobs": failed_jobs[:10]}
 
 
 @tracked_job("cron_outcome_freshness")
