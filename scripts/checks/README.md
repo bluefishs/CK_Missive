@@ -24,7 +24,7 @@
 | 🪟 Windows 工作排程器 | 1 |
 | ⚪ 無排程（手動／一次性／已被取代） | 25 |
 
-<!--baseline:check_scripts-->合計 **159** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **160** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -100,6 +100,7 @@
 | `hermes_baseline_gate_audit.py` | Fitness step 68: Hermes GO/NO-GO baseline gate 自動裁判 |
 | `idp_connectivity_check.py` | ADR-0033 配套 — IdP Connectivity Check |
 | `kg_embedding_coverage_check.py` | KG pgvector embedding 覆蓋率審計 |
+| `job_detail_completeness_audit.py` | 排程 job 算得出數字就該回傳 detail —— 儀器化缺口偵測 |
 | `knowledge_dedup_audit.py` | Fitness step 72: KG knowledge domain code entity 重複偵測 |
 | `memory_diary_freshness_check.py` | Memory Wiki Freshness Check |
 | `memory_metrics_alive_check.py` | Memory Wiki metrics alive check |

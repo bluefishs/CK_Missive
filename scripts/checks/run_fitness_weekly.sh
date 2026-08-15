@@ -296,6 +296,15 @@ run_step "51" "治理強制覆蓋＋宣告閘門（ADR／教訓）"            "
 # 樣本不足時它會明講不足而不下結論；也不自動刪除或降級任何東西。
 run_step "52" "檢核有效性報告（誰真的在保護我們）"        "scripts/checks/check_effectiveness_report.py"
 
+# Step 53: 排程 job detail 完整度（2026-08-15）
+# 2026-08-14～15 只是替既有 job 補上 detail 回傳，六次裡有六次找到藏著的問題
+# （對帳報不存在的百萬差額／資安看板 48 個假紅／依賴掃描從未執行／
+#  cleanup_events 空轉／soul_mirror_sync 從未同步）。
+# 共通形狀＝job 算得出數字卻沒交出來，於是「做了事」與「什麼都沒做」
+# 在 cron_events 裡長得一模一樣。把那個掃描變成常態，不必等人想起來再掃。
+# 判 YELLOW 不判 RED：這不是故障，是可以更看得見。
+run_step "53" "排程 job detail 完整度（有數字就該說出來）"    "scripts/checks/job_detail_completeness_audit.py"
+
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

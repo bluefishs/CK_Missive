@@ -2998,8 +2998,14 @@ async def embedding_warmup_job():
             "Embedding 預熱完成: warmed=%d, candidates=%d",
             warmed, candidates,
         )
+        # 2026-08-15：warmed/candidates 一直算得出來卻沒回傳。
+        # warmed=0 是常態（全部已快取＝好事），所以不判紅；
+        # 但 status 會區分 all_cached 與其他情形，讓「沒事做」與「壞掉」分得開。
+        return {"warmed": warmed, "candidates": candidates,
+                "status": result.get("status", "ok"), "reason": "ok"}
     except Exception as e:
         logger.error("Embedding 預熱失敗: %s", e, exc_info=True)
+        raise
 
 
 # Health check 去抖動 — 連續 N 次失敗才告警，避免 transient 偽警報
