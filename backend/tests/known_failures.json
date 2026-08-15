@@ -18,7 +18,6 @@
     "tests/unit/test_auth_service.py::TestDomainWhitelist::test_check_email_domain_not_in_whitelist",
     "tests/unit/test_morning_report_meetings.py::TestSummaryIncludesMeetingSections::test_meetings_and_site_visits_in_summary",
     "tests/unit/test_pattern_extractor.py::test_crystallization_candidate_flag",
-    "tests/unit/test_pattern_extractor.py::test_get_defensive_rules_block_empty",
     "tests/unit/test_services/test_agency_service.py::TestGetAgencyStatistics::test_get_agency_statistics",
     "tests/unit/test_services/test_agent_orchestrator.py::TestStreamAgentQuery::test_parallel_preprocess_and_plan",
     "tests/unit/test_services/test_case_code_service.py::TestFindNextSerial::test_cross_table_serial",
@@ -28,7 +27,6 @@
     "tests/unit/test_services/test_digital_twin_endpoints.py::TestAgentTopology::test_topology_structure",
     "tests/unit/test_services/test_digital_twin_endpoints.py::TestProxyTaskAction::test_approve_success",
     "tests/unit/test_services/test_digital_twin_endpoints.py::TestProxyTaskAction::test_proxy_upstream_error",
-    "tests/unit/test_services/test_financial_dashboard.py::TestFinancialSummaryServiceDashboard::test_get_monthly_trend_service",
     "tests/unit/test_services/test_multichannel_services.py::TestBroadcastToAll::test_broadcast_empty_lists",
     "tests/unit/test_services/test_multichannel_services.py::TestBroadcastToAll::test_broadcast_no_targets",
     "tests/unit/test_services/test_nightly_scanner.py::TestProactiveTriggerScanJob::test_line_push_failure_does_not_break_job",
@@ -39,5 +37,7 @@
     "tests/unit/test_services/test_pm_case_service.py::TestPMCaseServiceCreate::test_create_case_with_manual_code",
     "tests/unit/test_services/test_pm_erp_tools.py::TestToolResultGuardExpansion::test_guard_templates_cover_all_non_skill_tools",
     "tests/unit/test_wiki_aggregate_topics.py::test_compile_aggregate_topics_runs_all"
-  ]
+  ],
+  "updated_at": "2026-08-15",
+  "updated_note": "2026-08-15：實跑後移除 2 項已修好者（pattern_extractor、financial_dashboard）。⚠️ 同日一度多移了 3 項 test_auth_service —— 那是拿「容器」跑的結果改基線，而基線是對「host」維護的（weekly 跑在 host），已還原。教訓同 08-11：檢核跑在哪個環境，和它判得對不對一樣重要。"
 }

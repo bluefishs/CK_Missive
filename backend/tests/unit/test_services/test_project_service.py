@@ -44,7 +44,16 @@ def mock_db():
     db.refresh = AsyncMock()
     db.rollback = AsyncMock()
     db.delete = AsyncMock()
-    db.execute = AsyncMock()
+    # execute 本身要 await，但它回傳的 Result 是同步物件
+    # （`scalar_one_or_none()` / `scalars()` 都不是 coroutine）。
+    # 用裸 AsyncMock 會讓 Result 的方法也變成 coroutine，
+    # 於是 2026-08-10 加防重（core.py 查同名案件）之後這裡就開始壞，
+    # 而正式程式碼是對的 —— 是 mock 沒有跟著實作走。
+    _result = MagicMock()
+    _result.scalar_one_or_none.return_value = None   # 預設：查不到重複
+    _result.scalars.return_value.all.return_value = []
+    _result.scalar.return_value = 0
+    db.execute = AsyncMock(return_value=_result)
     return db
 
 
