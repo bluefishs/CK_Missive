@@ -231,10 +231,20 @@ class SecurityScanner:
         """pip-audit 依賴漏洞掃描（同步，有超時保護）"""
         findings = []
         try:
+            # 2026-08-15：容器內 pip-audit 一直是**跑不起來**的 ——
+            # 容器使用者沒有 home 目錄，pip-audit 建快取時
+            # `PermissionError: [Errno 13] Permission denied: '/nonexistent'`，
+            # 而下面的 `except Exception` 只 logger.debug 一行 →
+            # 回空清單 → 掃描報「0 個依賴漏洞」。
+            # **那不是乾淨，是從來沒掃過**，而兩者在報告上長得一模一樣。
+            # 給它一個一定寫得進去的快取目錄。
+            import os as _os
+            _env = {**_os.environ}
+            _env.setdefault("HOME", "/tmp")
             result = subprocess.run(
-                ["pip-audit", "--format=json", "--desc"],
-                capture_output=True, text=True, timeout=60,
-                cwd=str(BACKEND_DIR),
+                ["pip-audit", "--format=json", "--desc", "--cache-dir", "/tmp/.pip-audit-cache"],
+                capture_output=True, text=True, timeout=120,
+                cwd=str(BACKEND_DIR), env=_env,
             )
             if result.returncode != 0 and result.stdout:
                 import json
@@ -249,12 +259,16 @@ class SecurityScanner:
                             file_path="requirements.txt",
                             remediation=f"升級到 {', '.join(v.get('fix_versions', []))}",
                         ))
+        # 依賴掃描沒跑成功時**必須出聲**（ADR-0028）。
+        # 原本三個分支都是 logger.debug —— 於是「掃了沒問題」與
+        # 「根本沒掃」在報告上完全一樣，而後者持續了不知道多久。
         except FileNotFoundError:
-            logger.debug("pip-audit not installed, skipping")
+            logger.warning("依賴掃描未執行：pip-audit 未安裝 —— "
+                           "本次結果**不包含**依賴漏洞，不得解讀為沒有漏洞")
         except subprocess.TimeoutExpired:
-            logger.debug("pip-audit timed out")
+            logger.warning("依賴掃描未執行：pip-audit 逾時 —— 結果不含依賴漏洞")
         except Exception as e:
-            logger.debug("pip-audit failed: %s", e)
+            logger.warning("依賴掃描未執行：%s —— 結果不含依賴漏洞", e)
         return findings
 
     def _scan_env_secrets(self) -> List[ScanFinding]:
