@@ -204,14 +204,6 @@ NON_PRODUCER_JOBS: dict[str, str] = {
         "資料面的健康由 tender_freshness_audit 覆蓋。",
 
     # ── 清理：產出是「東西變少」，而變少沒有下限可訂 ──
-    "cleanup_events":
-        "⚠️ 2026-08-14 更正：**它什麼都沒做**。原註解寫著「此處可添加清理邏輯，"
-        "目前僅記錄日誌」，而它已被排程叫醒 64 次以上、每次都記 success。"
-        "我 08-13 寫的豁免理由（『清理過期事件』）是錯的 —— 我假設了它會清東西。"
-        "現在它會回 reason=not_implemented，在 cron_events 裡看得見自己沒做事。"
-        "要清什麼、保留多久屬 owner 決定且刪除不可逆，故不擅自實作。",
-
-    # ── 其他 ──
     "health_check_broadcast":
         "每 5 分鐘檢查各服務健康並在異常時推播。無異常時本來就不該有產出；"
         "服務本身的健康由五系統公網探針與容器 healthcheck 承接。",
@@ -248,7 +240,6 @@ NON_PRODUCER_JOBS: dict[str, str] = {
 # 不立刻改成 producer 是因為那需要動 scheduler 並 rebuild；
 # 列在這裡讓它們不會再度隱形，下次動 backend 時一併處理。
 SHOULD_BE_PRODUCER = {
-    "cleanup_events": "清了幾筆／檔案大小是可觀測的",
     "einvoice_sync": "啟用後即為 producer，啟用時必須同時註冊",
 }
 

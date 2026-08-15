@@ -334,6 +334,13 @@
         "ok"
       ],
       "_why": "2026-08-14：差額為 0 是常態且是好事，所以 ok_zero；重點在於「對帳有沒有跑」現在看得見，而 reason=mismatch 時會帶出實際差額。"
+    },
+    {
+      "name": "cron 軌跡修剪",
+      "signal": "cron_detail",
+      "job": "cleanup_events",
+      "key": "size_mb",
+      "_why": "2026-08-15：這支原本什麼都沒做（跑了 64 次以上、每次記 success）。查證後 DB 沒有累積的垃圾，真正無界成長的是稽核軌跡自己（cron_events.jsonl 7.3MB/71k 筆）。改為保留 90 天、超過 20MB 才修剪。key 用 size_mb 而非 trimmed —— trimmed=0 是常態（未達門檻或無過期資料），而 size_mb 一直有值且會顯示成長趨勢，掉到 0 才代表讀不到檔案。"
     }
   ]
 }

@@ -328,7 +328,23 @@ async def cleanup_expired_events_job():
 
     try:
         async with async_session_maker() as db:
-            # ⚠️ 2026-08-14：這支**什麼都沒做**。
+            # ⚠️ 2026-08-14 發現它什麼都沒做；2026-08-15 查證後改為做真正需要做的事。
+            #
+            # 量測：DB 裡**沒有累積的垃圾** —— 唯二超過 5000 列的表
+            # （canonical_entities 49k、entity_relationships 10k）都是業務資料。
+            # 所以「清理過期事件」要清的東西並不存在，這支不是「還沒實作」，
+            # 是它的前提不成立。
+            #
+            # 而真正無界成長的是**稽核軌跡自己**：cron_events.jsonl
+            # 7.3MB / 71,298 筆 / 最舊 2026-05-31，每天約 +1000 筆。
+            # 那份軌跡是今天多個機制的依據（producer watchdog、
+            # cron_silent_dormant_check 的持久紀錄退路、逐步結果歷史），
+            # 所以保留期取 **90 天** —— 遠大於所有既有門檻（最大 336h＝14 天），
+            # 也遠大於有效性報告需要的 30 次執行。
+            #
+            # 只在超過門檻時才重寫，避免每天重寫 7MB 檔案。
+            # 修剪筆數一律回報：**靜靜刪掉稽核軌跡是最不該沉默的一件事**。
+            # 舊註解保留於此供對照：
             #
             # 它每天被排程叫醒、log 印「執行完成」、cron_events 記 success，
             # 至今已 64 次以上 —— 而清理邏輯從來沒有被寫進來（原註解就寫著
@@ -342,11 +358,32 @@ async def cleanup_expired_events_job():
             # 不擅自實作清理邏輯（要刪什麼、保留多久屬 owner 決定，且刪除不可逆），
             # 但**必須停止假裝它在工作**：reason 明說是 not_implemented，
             # 讓它在 cron_events 與 producer 報告裡都看得見。
-            cutoff_date = datetime.now() - timedelta(days=30)
-            logger.warning(
-                "cleanup_events 尚未實作任何清理邏輯（截止日期 %s 僅供參考）—— "
-                "此 job 目前不做任何事", cutoff_date)
-            return {"deleted": 0, "reason": "not_implemented"}
+            from app.core.paths import LOGS_DIR
+            RETAIN_DAYS = 90
+            MAX_BYTES = 20 * 1024 * 1024   # 超過才修剪，避免每天重寫大檔
+            events = LOGS_DIR / "cron_events.jsonl"
+            if not events.exists():
+                return {"trimmed": 0, "reason": "no_events_file"}
+            size = events.stat().st_size
+            if size < MAX_BYTES:
+                return {"trimmed": 0, "size_mb": round(size / 1048576, 1),
+                        "reason": "under_threshold"}
+            cutoff = (datetime.now() - timedelta(days=RETAIN_DAYS)).isoformat()
+            kept, dropped = [], 0
+            with events.open(encoding="utf-8", errors="ignore") as fh:
+                for line in fh:
+                    # 解析失敗的行一律保留 —— 看不懂不等於可以丟
+                    ts = line[8:27] if line.startswith('{"ts": "') else ""
+                    if ts and ts < cutoff:
+                        dropped += 1
+                    else:
+                        kept.append(line)
+            tmp = events.with_suffix(".jsonl.tmp")
+            tmp.write_text("".join(kept), encoding="utf-8")
+            tmp.replace(events)   # 原子替換，避免修剪途中被讀到半個檔
+            logger.info("cron_events 修剪: 移除 %d 筆（保留 %d 天）", dropped, RETAIN_DAYS)
+            return {"trimmed": dropped, "retained": len(kept),
+                    "size_mb": round(size / 1048576, 1), "reason": "ok"}
     except Exception as e:
         logger.error(f"過期事件清理排程任務失敗: {e}", exc_info=True)
         raise
