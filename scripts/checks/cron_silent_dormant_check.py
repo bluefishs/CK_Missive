@@ -63,6 +63,45 @@ _ADD_JOB_RE = re.compile(
 )
 
 
+def cannot_judge(age: float, threshold: float, uptime: float) -> str | None:
+    """說不準的時候回傳理由字串，說得準回 None。
+
+    **這條規則有兩條路徑在用**（metrics 與持久紀錄）。寫成函式不是為了漂亮，
+    是因為 2026-08-15 第一版只改了其中一邊，出現「同樣說不準的兩支，
+    一支豁免一支判紅」—— 靠 NameError 當場炸出來才發現。
+
+    兩個守則缺一不可：
+
+    1. **扣掉重啟後的時間**：重啟會重置 IntervalTrigger，下一次 fire 是
+       「重啟時刻 + 週期」，所以重啟後那段沉默是必然的。
+       但重啟**只解釋得了重啟之後那一段** —— 已經沉默 200 小時的 job，
+       剛重啟也不該變綠，所以是扣除不是豁免。
+    2. **行程還沒開機夠久到能跑一次**：門檻是週期的兩倍（見 derive），
+       所以 `uptime < threshold/2` 代表這個 incarnation 裡它連一次機會都還沒有。
+       需要這條是因為 **uptime 只反映最後一次重啟** —— 一天內連續 rebuild 時，
+       扣除額被歸零而 age 持續累積，光靠守則 1 每次 rebuild 都會製造數小時假紅。
+
+       但守則 2 有**上限**：`age >= threshold × 2` 就不再適用。
+       重啟churn 每次最多只能解釋約一個週期的沉默，
+       超過門檻兩倍的沉默不是重啟解釋得了的 ——
+       少了這個上限，一支真的死掉 200 小時的 job 會在重啟後被判成綠的
+       （六情境測試第 3 案當場抓到，那比假紅嚴重得多）。
+
+    代價講明：真沉默的偵測最多延後一個週期，且只在 1～2 倍門檻的區間。
+    這是刻意的取捨 —— 延後一個週期，換掉每次 rebuild 都出現的假紅。
+    """
+    if age <= threshold:
+        return None
+    if uptime and (age - uptime) <= threshold:
+        return (f"扣掉重啟後的 {uptime/3600:.1f}h 即為 "
+                f"{(age-uptime)/3600:.1f}h，尚不足以判定")
+    interval = threshold / 2
+    if uptime and uptime < interval and age < threshold * 2:
+        return (f"行程啟動僅 {uptime/3600:.1f}h＜週期 {interval/3600:.1f}h，"
+                f"這次啟動後它還沒有過執行機會")
+    return None
+
+
 def _interval_seconds(kind: str, args: str) -> int | None:
     """由 trigger 參數推算執行週期（秒）。無法判定回 None（不猜）。"""
     if kind == "Interval":
@@ -362,10 +401,10 @@ def main() -> int:
             print(f"  ⚪ {jid:38} age={age/3600:.1f}h (no threshold)")
             continue
         ratio = age / threshold
-        if age > threshold and (age - discount) <= threshold:
+        _why = cannot_judge(age, threshold, discount)
+        if _why:
             healthy += 1
-            print(f"  ⏳ {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h"
-                  f" —— 扣掉重啟後的 {discount/3600:.1f}h 即為 {(age-discount)/3600:.1f}h，尚不足以判定")
+            print(f"  ⏳ {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h —— {_why}")
         elif age > threshold:
             red_jobs.append(jid)
             print(f"  🔴 {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h ({ratio:.1f}x)")
@@ -410,13 +449,10 @@ def main() -> int:
                     else:
                         print(f"  ⚪ {jid:38} 從未有執行紀錄（可能條件註冊未啟用）")
                     blind.append(jid)
-                elif age > threshold and (age - discount) <= threshold:
-                    # 與上面的 metrics 路徑同一條判準 —— 只套一邊就會出現
-                    # 「同樣說不準的兩支，一支豁免一支判紅」這種不一致
+                elif cannot_judge(age, threshold, discount):
                     healthy += 1
                     print(f"  ⏳ {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h"
-                          f" —— 扣掉重啟後的 {discount/3600:.1f}h 即為 "
-                          f"{(age-discount)/3600:.1f}h，尚不足以判定（持久紀錄）")
+                          f" —— {cannot_judge(age, threshold, discount)}（持久紀錄）")
                 elif age > threshold:
                     red_jobs.append(jid)
                     print(f"  🔴 {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h（持久紀錄）")
