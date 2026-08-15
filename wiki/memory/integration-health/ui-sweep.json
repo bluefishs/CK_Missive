@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-14T20:37:06.669Z",
+ "checked_at": "2026-08-15T17:25:46.449Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 87,
  "fail": 0,
@@ -38,7 +38,6 @@
   "/admin/backup",
   "/admin/deployment",
   "/admin/scheduler-events",
-  "/admin/case-nature",
   "/admin/ai-assistant",
   "/ai/graphs",
   "/ai/knowledge-graph",
@@ -92,7 +91,8 @@
   "/kunge/identity",
   "/kunge/memory",
   "/kunge/nebula",
-  "/kunge/dialogues"
+  "/kunge/dialogues",
+  "/admin/case-nature"
  ],
  "route_apis": {
   "/documents": [
@@ -450,16 +450,6 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
-   "/api/secure-site-management/csrf-token",
-   "/api/secure-site-management/navigation/action",
-   "/api/system-notifications/unread-count",
-   "/api/taoyuan-dispatch/dispatch/contract-projects"
-  ],
-  "/admin/case-nature": [
-   "/api/ai/config",
-   "/api/auth/check",
-   "/api/auth/me",
-   "/api/pm/case-nature/list",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -1060,6 +1050,16 @@
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
    "/api/taoyuan-dispatch/dispatch/contract-projects"
+  ],
+  "/admin/case-nature": [
+   "/api/ai/config",
+   "/api/auth/check",
+   "/api/auth/me",
+   "/api/pm/case-nature/list",
+   "/api/secure-site-management/csrf-token",
+   "/api/secure-site-management/navigation/action",
+   "/api/system-notifications/unread-count",
+   "/api/taoyuan-dispatch/dispatch/contract-projects"
   ]
  },
  "throttled": 0,
@@ -1078,110 +1078,324 @@
   "rows": [
    {
     "route": "/erp/expenses",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/quotations",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/ledger",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/assets",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/operational",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/financial-dashboard",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/vendor-accounts",
+    "viewportWidth": 390,
     "pageOverflow": 7,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/client-accounts",
+    "viewportWidth": 390,
     "pageOverflow": 7,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/documents",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/contract-cases",
+    "viewportWidth": 390,
     "pageOverflow": 7,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/taoyuan/dispatch",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/calendar",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/kunge/ops",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/documents/2689",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/quotations/168",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/erp/expenses/10",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/pm/cases/244",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0
    },
    {
     "route": "/contract-cases/187",
+    "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/quotations/168?tab=receivable",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/quotations/168?tab=payable",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/quotations/168?tab=expenses",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/pm/cases/244?tab=quotations",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/pm/cases/244?tab=expenses",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/expenses",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 971
+   },
+   {
+    "route": "/erp/quotations",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 562
+   },
+   {
+    "route": "/erp/ledger",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 462
+   },
+   {
+    "route": "/erp/assets",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 762
+   },
+   {
+    "route": "/erp/operational",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 582
+   },
+   {
+    "route": "/erp/financial-dashboard",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 762
+   },
+   {
+    "route": "/erp/vendor-accounts",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 462
+   },
+   {
+    "route": "/erp/client-accounts",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 522
+   },
+   {
+    "route": "/documents",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 586
+   },
+   {
+    "route": "/contract-cases",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 581
+   },
+   {
+    "route": "/taoyuan/dispatch",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 580
+   },
+   {
+    "route": "/calendar",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/kunge/ops",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 176
+   },
+   {
+    "route": "/documents/2689",
+    "viewportWidth": 768,
+    "pageOverflow": 3,
+    "layoutViewport": 768,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/quotations/168",
+    "viewportWidth": 768,
+    "pageOverflow": 19,
+    "layoutViewport": 768,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/expenses/10",
+    "viewportWidth": 768,
+    "pageOverflow": 9,
+    "layoutViewport": 768,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/pm/cases/244",
+    "viewportWidth": 768,
+    "pageOverflow": 46,
+    "layoutViewport": 768,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/contract-cases/187",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/erp/quotations/168?tab=receivable",
+    "viewportWidth": 768,
+    "pageOverflow": 19,
+    "layoutViewport": 768,
+    "tableOverflow": 424
+   },
+   {
+    "route": "/erp/quotations/168?tab=payable",
+    "viewportWidth": 768,
+    "pageOverflow": 19,
+    "layoutViewport": 768,
+    "tableOverflow": 440
+   },
+   {
+    "route": "/erp/quotations/168?tab=expenses",
+    "viewportWidth": 768,
+    "pageOverflow": 19,
+    "layoutViewport": 768,
+    "tableOverflow": 89
+   },
+   {
+    "route": "/pm/cases/244?tab=quotations",
+    "viewportWidth": 768,
+    "pageOverflow": 46,
+    "layoutViewport": 768,
+    "tableOverflow": 0
+   },
+   {
+    "route": "/pm/cases/244?tab=expenses",
+    "viewportWidth": 768,
+    "pageOverflow": 46,
+    "layoutViewport": 768,
     "tableOverflow": 0
    }
   ]
