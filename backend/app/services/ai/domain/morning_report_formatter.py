@@ -36,6 +36,9 @@ _SITE_VISIT_KEYWORDS = (
 # 2026-08-15 補 `verified` 與 `finance_approved`（審批四層裡的第二、第四層），
 # 它們自審批流上線起就一直漏著，而當下 DB 裡正好有 3 筆是這兩個狀態。
 # 新增審批狀態時，這張表要一起改 —— 由 test_expense_status_zh_covers_all 守著。
+# 段落標題佔位符：真正的編號在組裝時依實際渲染順序填入（見 format_summary 結尾）
+_SECTION_MARK = "【#. "
+
 _EXPENSE_STATUS_ZH = {
     "pending": "待審",
     "pending_receipt": "待補收據",
@@ -66,8 +69,13 @@ def _format_expense_line(item: dict) -> str:
     reason = (item.get("reason") or "").strip()
     if reason:
         parts.append(f"｜{reason}")
-    if item.get("inv_num"):
-        parts.append(f"｜{item['inv_num']}")
+    # 發票號只給末 4 碼。完整號碼（如 DN03384512＝2 字母 + 8 數字）會撞上
+    # 遮蔽器的身分證樣式，被整串換成 [識別碼] —— 那個欄位的用途就沒了，
+    # 而它本來是「回系統查這筆」的鍵（見本函式 docstring）。
+    # 末 4 碼配上事由與日期已足以定位，且不再構成完整 ID 樣式。
+    _inv = (item.get("inv_num") or "").strip()
+    if _inv:
+        parts.append("｜末4碼 " + _inv[-4:])
     return "".join(parts)
 
 
@@ -118,7 +126,7 @@ class MorningReportFormatter:
         sec: list[str] = []
         if dd.get("week_count", 0) > 0:
             parts.append(f"本週到期派工 {dd['week_count']} 筆")
-            sec.append("【1. 派工事件】")
+            sec.append(_SECTION_MARK + "派工事件】")
             for item in dd.get("week_items", [])[:5]:
                 days = item.get("days_left", 0)
                 urgency = "🔴 今日" if days == 0 else f"⏰ 剩 {days} 天"
@@ -154,6 +162,10 @@ class MorningReportFormatter:
         wc = ov.get("warning_count", 0) if _on("dispatch") else 0
         if wc > 0:
             parts.append(f"預警派工 {wc} 筆")
+            # 2026-08-15：這段原本也沒有標題，於是它佔了第 1 個位置
+            # 而編號從【2.】開始 —— 每個明細區塊都要有標題，否則
+            # 「位置」與「編號」就會對不起來，看起來像少了一段。
+            sec.append(_SECTION_MARK + "預警派工】")
             for item in ov.get("warning_items", [])[:5]:
                 progress = item.get("progress", "")
                 progress_tag = f" 〔{progress}〕" if progress else ""
@@ -188,7 +200,7 @@ class MorningReportFormatter:
         sec = []
         if mt.get("count", 0) > 0:
             parts.append(f"近期會議 {mt['count']} 場")
-            sec.append("【2. 會議事件】")
+            sec.append(_SECTION_MARK + "會議事件】")
             for item in mt.get("items", [])[:5]:
                 days = item.get("days_left", 0)
                 # v5.8.1：會議用 🤝（協作），與排程事件 📅 區隔
@@ -227,7 +239,7 @@ class MorningReportFormatter:
         sc = ov.get("scheduled_count", 0) if _on("dispatch") else 0
         if sc > 0:
             parts.append(f"排程作業 {sc} 筆")
-            sec.append("【3. 排程事件】")
+            sec.append(_SECTION_MARK + "排程事件】")
             for item in ov.get("scheduled_items", [])[:5]:
                 progress = item.get("progress", "")
                 progress_tag = f" 〔{progress}〕" if progress else ""
@@ -300,6 +312,9 @@ class MorningReportFormatter:
             if ex.get("count", 0) > 0:
                 total = ex.get("total_amount", 0)
                 parts.append(f"ERP 待審費用 {ex['count']} 筆 (合計 NT$ {int(total):,})")
+                # 2026-08-15：這段原本**完全沒有標題** —— 其他段都有【N. …】，
+                # 只有費用是一排 💰 直接接在分隔線後面，讀的人不知道那是什麼。
+                sec.append(_SECTION_MARK + "待審費用】")
                 for item in ex.get("items", [])[:3]:
                     sec.append(_format_expense_line(item))
             if sec:
@@ -312,9 +327,18 @@ class MorningReportFormatter:
         summary_line = " | ".join(parts)
         # 2026-04-22：分隔線前後加空行，避免段落緊貼
         separator = "\n\n─────────────────\n"
-        detail_text = separator.join(
-            "\n".join(lines) for lines in sections_detail if lines
-        )
+        # 2026-08-15：段落編號改為**依實際渲染順序推導**。
+        # 原本三個標題寫死【1.】【2.】【3.】，而每一段都是條件渲染 ——
+        # 今天沒有派工到期、沒有會議，訊息裡就只出現孤零零的「3. 排程事件」，
+        # 讀起來像是前兩段壞掉或漏掉了。編號是**位置**的函數，不該寫死。
+        _rendered = [lines for lines in sections_detail if lines]
+        _numbered = []
+        for _i, _lines in enumerate(_rendered, 1):
+            _numbered.append(chr(10).join(
+                ln.replace(_SECTION_MARK, f"【{_i}. ", 1) if _SECTION_MARK in ln else ln
+                for ln in _lines
+            ))
+        detail_text = separator.join(_numbered)
         report = f"{header}\n📊 {summary_line}\n"
         if detail_text:
             report += f"\n{detail_text}\n"
