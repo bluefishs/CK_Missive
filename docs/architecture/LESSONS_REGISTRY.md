@@ -531,6 +531,21 @@
 
 ---
 
+## L92 — 檢核在「要報問題的那一刻」崩掉，而平常看起來好好的（2026-08-15）
+
+<!--enforced-by: scripts/checks/governance_alignment_audit.py-->
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 做架構標準化複查時跑 `governance_alignment_audit`，它把 ADR/教訓/SOP/腳本數全都算完印出來了，最後卻退出 1。 |
+| **What happened** | 它在印最後那句「✓ 規範 vs 現況 完全對齊，無缺口」時 `UnicodeEncodeError` —— **全綠的時候反而退出 1**。往下掃，19 支檢核腳本 print 了 cp950 編不出來的符號（`✅🔴⚠✓❌🟡🟢` 等）且沒有 `sys.stdout.reconfigure`。host 上隨機挑 6 支實測，**5 支真的崩**。 |
+| **Root cause** | weekly 的 54 步跑在 **host（cp950）**，容器則有 `ENV PYTHONIOENCODING=utf-8` 所以不受影響 —— 這是 L90「檢核跑在哪個環境同樣重要」的又一例。而真正危險的是崩潰**路徑相依**：平常走 GREEN 分支沒事，偏偏走到 🔴 分支才倒。`hermes_baseline_gate_audit` 印 `✅🔴🟡`，而 🔴 那條正是有問題時才會走的。**「它平常好好的，只在要報問題時壞掉」比一直壞更難發現**，因為前者不會累積出任何可疑的紀錄。 |
+| **Fix** | 19 支補上標準 preamble（`sys.stdout.reconfigure(encoding="utf-8")`，try/except 包住），重測 0 支再崩。 |
+| **Prevention** | (a) **判準要用「實際做得到嗎」而不是「看起來像不像」**：我第一版用「有沒有 print 中文」當判準得到 28 支，**那是錯的** —— 中文在 cp950 本來就編得出來，崩的是符號；改用 `ch.encode('cp950')` 實測才收斂到真正的 19 支。(b) **批次改寫腳本時，「最後一個 import」不一定在頂層**：`knowledge_dedup_audit` 的 import 出現在要送進容器執行的字串裡，preamble 被塞進字串中（語法沒錯、跑起來仍崩）。(c) 同 L49.8（`.ps1` 缺 BOM 在 PowerShell 5.1 下整支解析失敗）家族：**看不見的編碼問題，症狀是整支不執行或在錯的地方倒下，而不是報錯**。 |
+| **Refs** | `scripts/checks/governance_alignment_audit.py` 等 19 支 / 同族：L49.8（BOM）、L90（環境差異）、`SELF_AUDIT_EVOLUTION_STANDARD.md` §3 #22 |
+
+---
+
 ## L91 — 在 Windows 上執行帶容器絕對路徑的程式碼不會失敗，它會靜靜讀寫 `D:\app\`（2026-08-12）
 
 | 欄位 | 內容 |
