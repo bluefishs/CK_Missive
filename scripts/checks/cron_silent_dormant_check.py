@@ -333,16 +333,27 @@ def main() -> int:
     unknown_jobs: list[str] = []
     healthy = 0
 
-    # 行程剛啟動時，週期比「已啟動時間」還長的 job 不可能已經 fire 過 ——
-    # 判它 dormant 是在報「我剛剛重啟了」，不是在報故障。
+    # 重啟會重置 IntervalTrigger：下一次 fire 是「重啟時刻 + 週期」，
+    # 所以重啟後那段時間的沉默是必然的，不是故障。
+    #
+    # ⚠️ 但重啟**只解釋得了重啟之後那一段**。原本寫成「uptime < 1 小時才豁免」
+    # 是個武斷的切點：2026-08-15 一次 rebuild 之後 uptime 2 小時、
+    # `llm_quota_check`（6 小時週期 / 12 小時門檻）就被判成 dormant ——
+    # 而它只是還沒輪到。反過來，若某個 job 其實已經沉默 200 小時，
+    # 剛重啟也不該讓它變綠。
+    #
+    # 正解是**把重啟後的時間從 age 裡扣掉**再跟門檻比：
+    #   dormant ⇔ (age − uptime) > threshold
+    # 這同時滿足兩邊 —— 剛重啟不會製造假紅，真沉默也蓋不住。
+    # 取不到 uptime 時 discount = 0（不豁免），保守。
     uptime = fetch_process_uptime()
-    young: set[str] = set()
-    if uptime is not None and uptime < 3600:
-        young = {j for j, t in thresholds.items() if t > uptime}
-        if young:
-            print(f"  · backend 行程啟動僅 {uptime/60:.0f} 分鐘 —— "
-                  f"{len(young)} 個 job 的門檻大於此值，本次不判其 dormant"
-                  f"（重啟後的必然現象，不是故障）")
+    discount = uptime or 0.0
+    if discount:
+        would_red = {j for j, t in thresholds.items()
+                     if ages.get(j, 0) > t and ages.get(j, 0) - discount <= t}
+        if would_red:
+            print(f"  · backend 行程已啟動 {discount/3600:.1f}h —— 判定時扣除這段"
+                  f"（重啟重置 IntervalTrigger）；{len(would_red)} 個 job 因此不判 dormant")
 
     for jid, age in sorted(ages.items()):
         threshold = thresholds.get(jid)
@@ -351,10 +362,10 @@ def main() -> int:
             print(f"  ⚪ {jid:38} age={age/3600:.1f}h (no threshold)")
             continue
         ratio = age / threshold
-        if age > threshold and jid in young:
+        if age > threshold and (age - discount) <= threshold:
             healthy += 1
             print(f"  ⏳ {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h"
-                  f" —— 行程剛啟動，尚不足以判定")
+                  f" —— 扣掉重啟後的 {discount/3600:.1f}h 即為 {(age-discount)/3600:.1f}h，尚不足以判定")
         elif age > threshold:
             red_jobs.append(jid)
             print(f"  🔴 {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h ({ratio:.1f}x)")
@@ -399,12 +410,13 @@ def main() -> int:
                     else:
                         print(f"  ⚪ {jid:38} 從未有執行紀錄（可能條件註冊未啟用）")
                     blind.append(jid)
-                elif age > threshold and jid in young:
+                elif age > threshold and (age - discount) <= threshold:
                     # 與上面的 metrics 路徑同一條判準 —— 只套一邊就會出現
                     # 「同樣說不準的兩支，一支豁免一支判紅」這種不一致
                     healthy += 1
                     print(f"  ⏳ {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h"
-                          f" —— 行程剛啟動，尚不足以判定（持久紀錄）")
+                          f" —— 扣掉重啟後的 {discount/3600:.1f}h 即為 "
+                          f"{(age-discount)/3600:.1f}h，尚不足以判定（持久紀錄）")
                 elif age > threshold:
                     red_jobs.append(jid)
                     print(f"  🔴 {jid:38} age={age/3600:.1f}h > max {threshold/3600:.1f}h（持久紀錄）")
