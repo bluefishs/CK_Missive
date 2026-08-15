@@ -217,9 +217,6 @@ NON_PRODUCER_JOBS: dict[str, str] = {
         "反回音掃描：抓記憶裡自我引用造成的假成長。0 命中是常態且是好事。",
     "proposal_aging_alert":
         "提案老化告警。0 筆逾期是常態；提案存量本身已由『結晶提案』producer 納管。",
-    "soul_mirror_sync":
-        "SOUL.md 跨 repo 同步。漂移由 weekly soul_mirror_drift_check 直接比對兩份檔案 —— "
-        "那比 job 自己說「我同步了」可靠。",
     "synthetic_baseline_inject":
         "注入合成查詢以維持 baseline 樣本量。產出是 shadow_trace 的列，"
         "而 baseline 的健康由 shadow_baseline_* 五個 gauge 承接。",

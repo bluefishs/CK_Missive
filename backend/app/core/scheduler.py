@@ -3880,12 +3880,24 @@ async def soul_mirror_sync_job():
     script_path = SCRIPTS_DIR / "sync" / "sync_soul_to_hermes.sh"
     target_path = CKPROJECT_ROOT / "CK_AaaP" / "runbooks" / "hermes-stack" / "SOUL.md"
 
+    # ⚠️ 2026-08-15：這支在容器裡**每次都靜默跳過**，已「成功」74 次卻從未同步過。
+    #
+    # 容器沒有掛 sibling repo → CKPROJECT_ROOT 解析成 `/` →
+    # 目標 `/CK_AaaP/runbooks/hermes-stack/SOUL.md` 永遠不存在 →
+    # 原本 `logger.debug` 一行就 return，cron_events 記 success、detail=None。
+    # 「跳過」與「同步完成」在紀錄上完全一樣。
+    #
+    # host 端看得到那個目標（實測存在），所以這是**環境問題不是設定問題** ——
+    # 與 weekly fitness（08-07）、履歷編譯（08-13）同一個處置：該跑在 host。
+    # 在移交之前，至少讓它說出自己沒做事，而不是回報成功。
     if not script_path.exists():
-        logger.warning("SOUL sync script missing, skip: %s", script_path)
-        return
+        logger.warning("SOUL sync 未執行：同步腳本不存在 %s", script_path)
+        return {"synced": False, "reason": f"script_missing:{script_path}"}
     if not target_path.exists():
-        logger.debug("AaaP target SOUL.md missing, skip (dev env?): %s", target_path)
-        return
+        logger.warning(
+            "SOUL sync 未執行：跨 repo 目標不存在 %s —— "
+            "容器沒有掛 sibling repo，這支需要在 host 執行才有效力", target_path)
+        return {"synced": False, "reason": "target_unreachable_in_container"}
 
     logger.info("開始執行 SOUL Mirror Sync")
     rc, stdout, stderr = await _run_script_async(
@@ -3901,11 +3913,13 @@ async def soul_mirror_sync_job():
             "SOUL Mirror Sync 完成: identical=%s rc=%d",
             identical, rc,
         )
-    else:
-        logger.error(
-            "SOUL Mirror Sync 失敗 rc=%d stderr=%s",
-            rc, (stderr or "")[:200],
-        )
+        # 「內容相同所以沒動」與「真的同步了」是兩件事，紀錄要分得出來
+        return {"synced": not identical, "identical": identical, "reason": "ok"}
+    logger.error(
+        "SOUL Mirror Sync 失敗 rc=%d stderr=%s",
+        rc, (stderr or "")[:200],
+    )
+    raise RuntimeError(f"soul_mirror_sync rc={rc}: {(stderr or '')[:120]}")
 
 
 async def _sum_monthly_count(tracker, provider: str) -> int:

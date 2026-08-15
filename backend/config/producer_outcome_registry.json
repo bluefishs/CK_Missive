@@ -341,6 +341,18 @@
       "job": "cleanup_events",
       "key": "size_mb",
       "_why": "2026-08-15：這支原本什麼都沒做（跑了 64 次以上、每次記 success）。查證後 DB 沒有累積的垃圾，真正無界成長的是稽核軌跡自己（cron_events.jsonl 7.3MB/71k 筆）。改為保留 90 天、超過 20MB 才修剪。key 用 size_mb 而非 trimmed —— trimmed=0 是常態（未達門檻或無過期資料），而 size_mb 一直有值且會顯示成長趨勢，掉到 0 才代表讀不到檔案。"
+    },
+    {
+      "name": "SOUL 跨 repo 同步",
+      "signal": "cron_detail",
+      "job": "soul_mirror_sync",
+      "key": "synced",
+      "ok_zero_reasons": [
+        null,
+        "ok",
+        "target_unreachable_in_container"
+      ],
+      "_why": "2026-08-15：這支在容器裡每次都靜默跳過（CKPROJECT_ROOT 解析成 / → AaaP 目標不存在 → logger.debug 一行 return），已「成功」74 次卻從未同步過。synced=False 且 reason=ok 是常態（內容相同不必動），但 reason=target_unreachable_in_container 會讓「跑在錯的環境」持續可見，直到移交 host。 2026-08-15 後續：已移交 host 排程 CK_Missive-SOUL-Mirror-Sync（每日 04:45，實跑 Result=0、drift 歸零），容器那支回 target_unreachable_in_container 視為合理零——**但理由字串本身就說出了它跑在錯的環境**，不是靜靜豁免。host 排程的存活由 windows_task_liveness_audit 承接。"
     }
   ]
 }
