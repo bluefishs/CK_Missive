@@ -1,83 +1,83 @@
 {
-  "captured_at": "2026-08-14T20:50:03+00:00",
+  "captured_at": "2026-08-15T11:59:11+00:00",
   "prometheus": "http://127.0.0.1:19090",
   "job": "ck-missive",
   "path_label": "path",
   "window_days": 7,
-  "data_depth_days": 15.12,
+  "data_depth_days": 15.75,
   "data_sufficient": true,
   "min_data_days": 14,
   "path_label_templated_since": "2026-08-04",
-  "days_since_path_label_change": 10,
+  "days_since_path_label_change": 11,
   "schema_settled": true,
   "decision_date": "2026-08-31",
   "counts": {
-    "endpoints_seen": 1151,
-    "active": 588,
+    "endpoints_seen": 1155,
+    "active": 569,
     "zero_traffic_exempt": 2,
     "zero_traffic_api_candidates": 11,
-    "zero_traffic_page_routes": 550
+    "zero_traffic_page_routes": 573
   },
   "top_active": [
     [
       "/api/health",
-      39540.33383249148
+      39515.33592935474
     ],
     [
       "/{spa_path}",
-      3054.1030254793745
+      2970.11436201932
     ],
     [
       "/api/system-notifications/unread-count",
-      2915.099848412935
+      2882.1161718348603
     ],
     [
       "/api/secure-site-management/csrf-token",
-      2357.07951246067
+      2321.0921590840553
     ],
     [
       "/api/ai/config",
-      2297.077488384454
+      2264.09229872958
     ],
     [
       "/api/secure-site-management/navigation/action",
-      2233.075329369824
+      2200.0904413757353
     ],
     [
       "/api/taoyuan-dispatch/dispatch/contract-projects",
-      2224.075025758392
+      2191.0900713882893
     ],
     [
       "/api/auth/check",
-      2220.0758613643848
+      2188.090687680053
     ],
     [
       "/api/auth/me",
-      2213.07522808005
+      2180.0901630832573
     ],
     [
       "/api/files/document/{document_id}",
-      1350.0455417148512
+      1262.0524319923668
     ],
     [
       "/api/auth/sso-bridge",
-      1141.0380506332226
+      1164.035791572586
     ],
     [
       "<unmatched>",
-      618.024859533063
+      600.0344084761007
     ],
     [
       "/api/users/list",
-      284.0104907715086
+      276.01225201487546
     ],
     [
       "/api/projects/list",
-      263.02398998129297
+      263.0260534058182
     ],
     [
       "/api/project-staff/project/{project_id}/list",
-      246.008298712484
+      236.00980574303298
     ]
   ],
   "zero_traffic_api_candidates": [
@@ -144,6 +144,7 @@
     "/assets/ContractCaseAgencyContactFormPage-DOUPnfSW.js",
     "/assets/ContractCaseAgencyContactFormPage-_Ak2fWCw.js",
     "/assets/ContractCaseDetailPage-BIpr1ysz.js",
+    "/assets/ContractCaseDetailPage-DVBb2qxY.js",
     "/assets/ContractCaseDetailPage-DdqVwQbM.js",
     "/assets/ContractCaseFormPage-BF2ccb0h.js",
     "/assets/ContractCaseFormPage-DJ-UVAv1.js",
@@ -276,6 +277,7 @@
     "/assets/ERPOperationalListPage-Cysgm6t9.js",
     "/assets/ERPOperationalListPage-KDJaWhs6.js",
     "/assets/ERPQuotationDetailPage-B7qNlAVB.js",
+    "/assets/ERPQuotationDetailPage-Bw96DI8m.js",
     "/assets/ERPQuotationDetailPage-D3c_XOnS.js",
     "/assets/ERPQuotationDetailPage-DNTsiMRU.js",
     "/assets/ERPQuotationFormPage-BEBmWqyV.js",
@@ -294,10 +296,12 @@
     "/assets/ERPVendorAccountsPage-CWssM2Vb.js",
     "/assets/ERPVendorAccountsPage-Ch3q90RE.js",
     "/assets/ERPVendorAccountsPage-DQFS0TAK.js",
+    "/assets/EnhancedTable-2HwZqWd6.js",
     "/assets/EnhancedTable-CDiUdF2x.js",
     "/assets/EnhancedTable-CHutR9E0.js",
     "/assets/EntryPage-9OLx0U5A.js",
     "/assets/EntryPage-CGqjO4PW.js",
+    "/assets/EntryPage-Ce6AlT30.js",
     "/assets/EntryPage-D1Lz-YQ1.js",
     "/assets/EntryPage-Dhu7kd5T.js",
     "/assets/ErpFormPageShell-D3WJ-vDr.js",
@@ -331,13 +335,16 @@
     "/assets/KungePage-BjyTfRJ7.js",
     "/assets/KungePage-CP6uwZuv.js",
     "/assets/KungePage-CxlAaz0z.js",
+    "/assets/KungePage-DDI7OPr_.js",
     "/assets/KungePage-DIUn2nZn.js",
     "/assets/LoginPage-BCwpa9LO.js",
+    "/assets/LoginPage-CuBnTeQL.js",
     "/assets/LoginPage-DD3t98Ag.js",
     "/assets/LoginPage-DSTE9Eir.js",
     "/assets/LoginPage-VhINXIfW.js",
     "/assets/MarkdownRenderer-AbTcm9dN.js",
     "/assets/MarkdownRenderer-BiPpHP9n.js",
+    "/assets/MarkdownRenderer-C2QNGcxH.js",
     "/assets/MarkdownRenderer-CC2udlzH.js",
     "/assets/MarkdownRenderer-CU8HWZAj.js",
     "/assets/MarkdownRenderer-CW6yls_3.js",
@@ -352,6 +359,7 @@
     "/assets/MemoryStatsRow-7nY9lDpf.js",
     "/assets/MemoryStatsRow-BLH5K7U0.js",
     "/assets/MemoryStatsRow-CSdajBM6.js",
+    "/assets/MemoryStatsRow-DrVrWDQ5.js",
     "/assets/MemoryStatsRow-DyhpVB9_.js",
     "/assets/MermaidBlock-BaKiiYIz.js",
     "/assets/MermaidBlock-Bnaw45JJ.js",
@@ -560,19 +568,24 @@
     "/assets/digitalTwin-C0mYIh3C.js",
     "/assets/digitalTwin-D2bRWVPR.js",
     "/assets/digitalTwin-DDGK5Fa0.js",
+    "/assets/digitalTwin-D_QI1O50.js",
     "/assets/digitalTwin-p_LDJRWl.js",
+    "/assets/documentsApi-N270Gpox.js",
     "/assets/documentsApi-vNR30vQg.js",
     "/assets/erDiagram-TEJ5UH35-B8VjzyCw.js",
     "/assets/erDiagram-TEJ5UH35-Bug5ugZu.js",
     "/assets/exportUtils-CqS3vI6z.js",
     "/assets/exportUtils-D3Jz7iLj.js",
+    "/assets/filesApi-BRLs39zL.js",
     "/assets/filesApi-PIgEPcHT.js",
     "/assets/flowDiagram-I6XJVG4X-D77c7pn5.js",
     "/assets/flowDiagram-I6XJVG4X-mFlkTMJy.js",
     "/assets/graph-J-x8Kix8.js",
     "/assets/layout-M7PuNLHE.js",
     "/assets/main-2GSrDopN.js",
+    "/assets/main-CzyMQeWS.js",
     "/assets/main-D9mg0Kho.js",
+    "/assets/mermaid-BrVn56Xk.js",
     "/assets/mermaid-DX1NAe8f.js",
     "/assets/mermaid-uo1gZv7q.js",
     "/assets/payments-CJIfYSB-.js",
@@ -580,10 +593,14 @@
     "/assets/payments-DIVTxXfs.js",
     "/assets/payments-DimSiPmd.js",
     "/assets/pm-BAZHyrFo.js",
+    "/assets/projectAgencyContacts-BcicBpVC.js",
     "/assets/projectAgencyContacts-DLneo8Fl.js",
     "/assets/projectStaffApi-BPD7KVW6.js",
+    "/assets/projectStaffApi-BZauYMja.js",
     "/assets/projectStaffApi-d5LanDjY.js",
+    "/assets/projectVendorsApi-BIkljrn8.js",
     "/assets/projectVendorsApi-DmpoCdeZ.js",
+    "/assets/projectsApi-Bt_PmLHj.js",
     "/assets/projectsApi-Xsbb_cIN.js",
     "/assets/projectsApi-dCvkNkDd.js",
     "/assets/sequenceDiagram-3UESZ5HK-CD31Zqxb.js",
@@ -598,6 +615,7 @@
     "/assets/taoyuanOptions-Cqdirrtt.js",
     "/assets/tenderApi-BNMmddhH.js",
     "/assets/tenderApi-C_qFHmOX.js",
+    "/assets/tenderApi-D_H2WcpP.js",
     "/assets/useDeleteWorkRecord-BDQh9CSQ.js",
     "/assets/useDeleteWorkRecord-BkUhhnTR.js",
     "/assets/useDeleteWorkRecord-CWG8J-QK.js",
@@ -611,14 +629,17 @@
     "/assets/useDispatchCacheInvalidator-BecOn7Fl.js",
     "/assets/useDispatchCacheInvalidator-Cvre1Q8K.js",
     "/assets/useDispatchCacheInvalidator-D_uqJHge.js",
+    "/assets/useDropdownData-CHRJM7Ta.js",
     "/assets/useDropdownData-D6isDoZ3.js",
     "/assets/useERPFinance-B0VzX0OO.js",
     "/assets/useERPFinance-BbyCb4rg.js",
     "/assets/useERPFinance-Bd_b-qOT.js",
     "/assets/useERPFinance-CLlFXiGY.js",
     "/assets/useERPQuotations-BRlQEU8p.js",
+    "/assets/useERPQuotations-BXglMNGK.js",
     "/assets/useERPQuotations-C3zS5o82.js",
     "/assets/useERPQuotations-DFEypID5.js",
+    "/assets/usePMCases-BaeCX1qJ.js",
     "/assets/usePMCases-CC23N3Mc.js",
     "/assets/usePMCases-DhkIPYm0.js",
     "/assets/useRolePermissions--BymQ8gX.js",
@@ -640,7 +661,9 @@
     "/assets/useWorkRecordColumns-znq53Cms.js",
     "/assets/usersApi-93l267c0.js",
     "/assets/usersApi-BBEama3z.js",
+    "/assets/usersApi-Da9JNZ2n.js",
     "/assets/vendorsApi-AU48zmvI.js",
+    "/assets/vendorsApi-Ctfi44cY.js",
     "/assets/vendorsApi-zqGZvMbj.js",
     "/uploads/asset_photos/asset_1_977c1bd3.png",
     "/uploads/asset_photos/asset_2_c34ab110.jpg"
