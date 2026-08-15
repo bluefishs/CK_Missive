@@ -60,7 +60,18 @@ def compute_quotation_profit(
         "total_cost": total_cost,
         "gross_profit": gross_profit,
         "gross_margin": gross_margin,
+        # ⚠️ net_profit 與 gross_profit 是**同一個數字**（2026-08-15 查證）。
+        # 報價詳情頁把「毛利」與「淨利」並排顯示，看的人會以為那是兩個指標。
+        # 真正的淨利要再扣營運費用與稅，而那些資料在 operational_expenses
+        # 與 finance_ledgers，這支函式看不到 —— 所以不是算錯，是**這一層算不出來**。
+        # 保留欄位避免破壞既有消費端，但標明它不是淨利；UI 已改為不再單獨顯示。
         "net_profit": gross_profit,
+        # 成本四欄未填時後端 schema 預設為 0（`Field(Decimal("0"))`），
+        # 於是「沒填成本」與「成本真的是零」在資料裡完全無法分辨，
+        # 毛利率會顯示 100%。實測 77 筆報價有 **37 筆**落在這裡，
+        # 其中最大一筆收入 943 萬。
+        # 這一層分不出來，但可以誠實說「沒有依據」，讓 UI 不要報一個假數字。
+        "cost_declared": total_cost > ZERO,
     }
 
 
@@ -225,6 +236,10 @@ class ERPQuotationService(AuditableServiceMixin):
             gross_profit=profit["gross_profit"],
             gross_margin=profit["gross_margin"],
             net_profit=profit["net_profit"],
+            cost_declared=profit["cost_declared"],
+            # 列表不查實際成本：那要逐筆打 DB（N+1），而這個方法存在的理由
+            # 正是消除 N+1（見 list_quotations 的批次聚合）。
+            # 實際成本只在詳情頁計算；列表顯示的是報價單上的估列。
             invoice_count=invoice_count,
             billing_count=billing_count,
             total_billed=total_billed,
@@ -377,6 +392,49 @@ class ERPQuotationService(AuditableServiceMixin):
     # 轉換
     # =========================================================================
 
+    async def _actual_cost(self, case_code: Optional[str], quotation_id: int) -> dict:
+        """實際成本 —— 與報價單的「估列」是**兩件事**，不得混用。
+
+        2026-08-15 owner：「報價單估列費用、實際成本、毛利皆由區分清楚不可混淆」。
+
+        以**統一帳本**為準，不把三個來源相加 —— 帳本本來就是收攏應付與核銷的地方，
+        相加會重複計算。但只報帳本會低估：目前 9 筆核銷只有 2 筆入帳、
+        36 筆應付一筆都沒標記已付（見 `erp_data_integrity_audit` §2）。
+
+        所以分成兩個數字：
+        - `actual_cost`：已入帳（帳本 expense，有憑有據）
+        - `pending_cost`：已發生但還沒入帳（核銷未入帳 ＋ 應付未付）
+
+        把 pending 放在使用的當下，填報缺口才會被真正的人看到 ——
+        而不是只出現在每週檢核裡。
+        """
+        from sqlalchemy import text as _sql
+
+        actual = pending = ZERO
+        if case_code:
+            row = (await self.db.execute(_sql("""
+                SELECT COALESCE(SUM(amount),0) FROM finance_ledgers
+                WHERE entry_type='expense' AND case_code = :cc
+            """), {"cc": case_code})).scalar()
+            actual = Decimal(str(row or 0))
+
+            row = (await self.db.execute(_sql("""
+                SELECT COALESCE(SUM(e.amount),0) FROM expense_invoices e
+                WHERE e.case_code = :cc
+                  AND NOT EXISTS (SELECT 1 FROM finance_ledgers l
+                                  WHERE l.source_type='expense_invoice' AND l.source_id=e.id)
+            """), {"cc": case_code})).scalar()
+            pending += Decimal(str(row or 0))
+
+        row = (await self.db.execute(_sql("""
+            SELECT COALESCE(SUM(COALESCE(payable_amount,0)),0) FROM erp_vendor_payables
+            WHERE erp_quotation_id = :qid AND payment_status <> 'paid'
+        """), {"qid": quotation_id})).scalar()
+        pending += Decimal(str(row or 0))
+
+        return {"actual_cost": actual, "pending_cost": pending}
+
+
     async def _to_response(self, quotation: ERPQuotation) -> ERPQuotationResponse:
         """轉換為回應格式 (含計算欄位 + 聚合)"""
         profit = self.compute_profit(quotation)
@@ -387,6 +445,7 @@ class ERPQuotationService(AuditableServiceMixin):
         total_payable = await self.payable_repo.get_total_payable(quotation.id)
         total_paid = await self.payable_repo.get_total_paid(quotation.id)
         billings = await self.billing_repo.get_by_quotation_id(quotation.id)
+        actual = await self._actual_cost(quotation.case_code, quotation.id)
 
         # 預算警示計算
         budget_limit = quotation.budget_limit
@@ -405,6 +464,9 @@ class ERPQuotationService(AuditableServiceMixin):
             gross_profit=profit["gross_profit"],
             gross_margin=profit["gross_margin"],
             net_profit=profit["net_profit"],
+            cost_declared=profit["cost_declared"],
+            actual_cost=actual["actual_cost"],
+            pending_cost=actual["pending_cost"],
             invoice_count=len(invoices),
             billing_count=len(billings),
             total_billed=total_billed,

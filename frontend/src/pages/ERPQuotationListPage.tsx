@@ -2,13 +2,13 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Button, Space, Input, Typography, Row, Col, Popconfirm, Alert, App, Upload } from 'antd';
+import { Card, Button, Space, Input, Typography, Row, Col, Alert, App, Upload } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
-import { PlusOutlined, ReloadOutlined, DownloadOutlined, EditOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, DownloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
-import { useERPQuotations, useERPProfitSummary, useDeleteERPQuotation, useAuthGuard } from '../hooks';
+import { useERPQuotations, useERPProfitSummary, useAuthGuard } from '../hooks';
 import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
@@ -25,16 +25,8 @@ export const ERPQuotationListPage: React.FC = () => {
   const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc' });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);
   const { data: profitSummary } = useERPProfitSummary();
-  const deleteMutation = useDeleteERPQuotation();
-
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteMutation.mutateAsync(id);
-      message.success('報價已刪除');
-    } catch {
-      message.error('刪除失敗');
-    }
-  };
+  // 2026-08-15：刪除改由詳情頁提供（對照 /documents 的導航設計），
+  // 列表不再持有刪除能力，故 useDeleteERPQuotation 與 handleDelete 一併移除。
 
   // 前端過濾：僅顯示已承攬
 
@@ -75,26 +67,12 @@ export const ERPQuotationListPage: React.FC = () => {
       align: 'right',
       render: (v: string | null) => v ? `${Number(v).toFixed(1)}%` : '-',
     },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 180,
-      render: (_: unknown, record: ERPQuotation) => (
-        <Space>
-          <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(record.id))); }}>
-            詳情
-          </Button>
-          {canWrite && (
-            <>
-              <Button type="link" size="small" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); navigate(ROUTES.ERP_QUOTATION_EDIT.replace(':id', String(record.id))); }} />
-              <Popconfirm title="確定刪除此報價？" onConfirm={() => handleDelete(record.id)} okText="確定" cancelText="取消">
-                <Button type="link" size="small" danger onClick={(e) => e.stopPropagation()}>刪除</Button>
-              </Popconfirm>
-            </>
-          )}
-        </Space>
-      ),
-    },
+    // 2026-08-15 移除「操作」欄（詳情／編輯／刪除）。
+    // 對照 `/documents` 列表：它沒有操作欄 —— 點列進詳情，所有操作在詳情頁。
+    // 這三顆在報價詳情頁本來就有，列表這一欄是重複的；
+    // 而且每一顆都要 stopPropagation 才不會和點列進詳情打架，
+    // 那個 stopPropagation 本身就是「這一欄不該在這裡」的訊號。
+    // 點列進詳情由下方 onRow 提供。
   ];
 
   const grossProfit = profitSummary ? Number(profitSummary.total_gross_profit) : 0;

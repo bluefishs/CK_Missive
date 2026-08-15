@@ -91,7 +91,30 @@ class ERPQuotationResponse(BaseModel):
     total_cost: Decimal = Decimal("0")
     gross_profit: Decimal = Decimal("0")
     gross_margin: Optional[Decimal] = Field(None, description="毛利率 (%)")
+    # ⚠️ net_profit 目前 == gross_profit（見 compute_quotation_profit）。
+    # 真正的淨利要再扣營運費用與稅，那些資料不在報價這一層。
     net_profit: Decimal = Decimal("0")
+    actual_cost: Decimal = Field(
+        Decimal("0"),
+        description="實際成本（已入帳）—— 統一帳本裡掛在此案號的支出。與估列 total_cost 是兩件事。",
+    )
+    pending_cost: Decimal = Field(
+        Decimal("0"),
+        description=(
+            "應付未付 ＋ 核銷未入帳 —— 尚未進入統一帳本的部分，不計入實際成本。"
+            "帳本在收付款時才入帳（現金基礎），而應付在義務成立時就認列（權責基礎），"
+            "所以兩者本來就會有落差；這個數字讓落差看得見，"
+            "而不是讓實際成本看起來偏低。"
+        ),
+    )
+    cost_declared: bool = Field(
+        True,
+        description=(
+            "成本四欄是否有填。未填時後端預設為 0，"
+            "「沒填」與「真的是零」在資料裡分不出來，毛利率會顯示 100%。"
+            "為 False 時前端不得呈現毛利率數字。"
+        ),
+    )
 
     # 聚合欄位
     invoice_count: int = 0

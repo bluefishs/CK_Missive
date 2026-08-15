@@ -431,7 +431,17 @@ async function main() {
   // 這類路由需要真實 id，無法從 routes 常數推導，故由設定明列。
   const mobileTargets = [...(MP.routes || []), ...(MP.detail_routes || [])];
   if (MP.enabled && mobileTargets.length) {
-    const vp = MP.viewport || { width: 390, height: 844 };
+    // 2026-08-15：改為可量**多個寬度**。
+    // 原本只量一個（預設 390），而版面問題是連續的不是二元的 ——
+    // 390px 時 hideOnMobile 會隱藏欄位、1440px 有足夠空間，
+    // 但**中間那段**拿到桌面欄位數卻只有平板寬度，兩邊都量不到。
+    // 實測：CK_Missive 在 390 只有 3 頁溢出，改量 768 立刻變成 21/23 頁，
+    // 最嚴重一頁 971px。那些問題一直都在，只是沒有任何寬度會照到它。
+    // 設定可給 viewports: [{width,height},…]；只給 viewport 時維持舊行為。
+    const vps = Array.isArray(MP.viewports) && MP.viewports.length
+      ? MP.viewports
+      : [MP.viewport || { width: 390, height: 844 }];
+    for (const vp of vps) {
     // 刻意不設 isMobile —— Playwright 的行動模擬會 shrink-to-fit：頁面內容較寬時
     // 它把 layout viewport 放大到內容寬度（實測設 390 卻回報 477），
     // 於是「溢出」永遠算成 0＝假綠。用純 viewport 才有可控基準。
@@ -463,12 +473,13 @@ async function main() {
             tableOverflow: tables.length ? Math.max(...tables) : 0,
           };
         }, vp.width);
-        mobileRows.push({ route, ...m });
-      } catch (e) { mobileRows.push({ route, error: String(e).slice(0, 80) }); }
+        mobileRows.push({ route, viewportWidth: vp.width, ...m });
+      } catch (e) { mobileRows.push({ route, viewportWidth: vp.width, error: String(e).slice(0, 80) }); }
       await page.close();
       await new Promise((r) => setTimeout(r, SWEEP.throttle_ms || 900));
     }
     await mctx.close();
+    }
   }
 
   await browser.close();

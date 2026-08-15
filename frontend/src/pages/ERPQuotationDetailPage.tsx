@@ -93,9 +93,38 @@ export const ERPQuotationDetailPage: React.FC = () => {
         <Card size="small" title="合約概況">
           <Row gutter={[16, 16]}>
             <Col xs={12} sm={6}><Statistic title="合約總價" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
-            <Col xs={12} sm={6}><Statistic title="估計成本" value={Number(quotation.total_cost)} precision={0} /></Col>
-            <Col xs={12} sm={6}><Statistic title="預估毛利" value={grossProfit} precision={0} styles={{ content: { color: grossProfit >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
-            <Col xs={12} sm={6}><Statistic title="毛利率" value={quotation.gross_margin ? Number(quotation.gross_margin) : 0} suffix="%" precision={1} /></Col>
+            {/* 2026-08-15 owner：「報價單估列費用、實際成本、毛利皆由區分清楚不可混淆」。
+                原本只有一個「估計成本」，看的人不知道那是報價時填的估列還是真的花掉的錢。
+                三個數字各自標明基準：估列來自報價單、實際來自統一帳本、待入帳是填報缺口。 */}
+            <Col xs={12} sm={6}>
+              <Statistic title="估列成本（報價單）" value={Number(quotation.total_cost)} precision={0} />
+            </Col>
+            <Col xs={12} sm={6}>
+              <Statistic title="實際成本（已入帳）" value={Number(quotation.actual_cost ?? 0)} precision={0} />
+              {Number(quotation.pending_cost ?? 0) > 0 && (
+                <div style={{ fontSize: 12, color: '#faad14', marginTop: 4 }}>
+                  另有 {Number(quotation.pending_cost).toLocaleString()} 元「應付未付＋核銷未入帳」
+                </div>
+              )}
+            </Col>
+            {/* 2026-08-15：成本未填時不得呈現毛利數字。
+                後端 schema 把未填的成本存成 0，於是「沒填」與「真的是零」
+                在資料裡分不出來，毛利率會顯示 100% —— 實測 77 筆報價有 37 筆
+                落在這裡，其中最大一筆收入 943 萬。
+                報一個 100% 比不報更糟：它看起來像結論。 */}
+            {quotation.cost_declared === false ? (
+              <Col xs={24} sm={12}>
+                <Statistic title="預估毛利" value="—" />
+                <div style={{ fontSize: 12, color: '#faad14', marginTop: 4 }}>
+                  尚未填寫成本，無法計算毛利
+                </div>
+              </Col>
+            ) : (
+              <>
+                <Col xs={12} sm={6}><Statistic title="預估毛利" value={grossProfit} precision={0} styles={{ content: { color: grossProfit >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
+                <Col xs={12} sm={6}><Statistic title="預估毛利率" value={quotation.gross_margin ? Number(quotation.gross_margin) : 0} suffix="%" precision={1} /></Col>
+              </>
+            )}
           </Row>
         </Card>
 
@@ -136,7 +165,21 @@ export const ERPQuotationDetailPage: React.FC = () => {
             <Col xs={12} sm={6}><Statistic title="營收 (含稅)" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
             <Col xs={12} sm={6}><Statistic title="稅額" value={Number(quotation.tax_amount)} precision={0} /></Col>
             <Col xs={12} sm={6}><Statistic title="營收 (未稅)" value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount)} precision={0} /></Col>
-            <Col xs={12} sm={6}><Statistic title="淨利" value={Number(quotation.net_profit)} precision={0} styles={{ content: { color: Number(quotation.net_profit) >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
+            {/* 2026-08-15：原本這裡顯示「淨利」，而 net_profit 與 gross_profit
+                是**同一個數字** —— 兩者並排會被讀成兩個不同的財務指標。
+                真正的淨利要再扣營運費用與稅，那些資料不在報價這一層。
+                改顯示「實際毛利」：以已入帳的實際成本為基準，與上方的預估毛利對照。 */}
+            <Col xs={12} sm={6}>
+              <Statistic
+                title="實際毛利（已入帳成本）"
+                value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount) - Number(quotation.actual_cost ?? 0)}
+                precision={0}
+                styles={{ content: { color: '#1677ff' } }}
+              />
+              <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>
+                僅計已入帳成本，與上方預估毛利基準不同
+              </div>
+            </Col>
           </Row>
           <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small" style={{ marginTop: 16 }}>
             <Descriptions.Item label="外包費">{Number(quotation.outsourcing_fee).toLocaleString()}</Descriptions.Item>

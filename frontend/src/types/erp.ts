@@ -47,10 +47,22 @@ export interface ERPQuotation {
   budget_limit?: number;
   budget_usage_pct?: number;
   is_over_budget: boolean;
+  /** 報價單上填的**估列**成本合計（外包＋人事＋管銷＋其他）—— 不是實際支出 */
   total_cost: number;
+  /** 預估毛利 = (總價 − 稅) − 估列成本 —— 基準是估列，不是實際 */
   gross_profit: number;
+  /** 預估毛利率（%）—— cost_declared 為 false 時不得呈現 */
   gross_margin?: number;
+  /** @deprecated 目前與 gross_profit 是同一個數字。真正的淨利要再扣營運費用與稅，
+   *  那些資料不在報價這一層。UI 已不再顯示，保留僅為相容。 */
   net_profit: number;
+  /** 實際成本（已入帳）—— 統一帳本裡掛在此案號的支出。與估列 total_cost 是兩件事。 */
+  actual_cost?: number;
+  /** 已發生但尚未入帳（核銷未入帳 ＋ 應付未付）—— 填報缺口，不計入實際成本。 */
+  pending_cost?: number;
+  /** 成本四欄是否有填。後端把未填存成 0，「沒填」與「真的是零」分不出來，
+   *  毛利率會顯示 100%。為 false 時前端不得呈現毛利數字。 */
+  cost_declared?: boolean;
   invoice_count: number;
   billing_count: number;
   total_billed: number;

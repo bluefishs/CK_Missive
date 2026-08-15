@@ -45,12 +45,8 @@
     ],
     "throttle_ms": 900,
     "mobile_probe": {
-      "_doc": "行動版面觀測（2026-08-02）。既有廣度掃描固定 1440×900，手機上版面壞掉沒有任何機制會發現——而核銷的主要入口正是手機掃 QR。刻意**只觀測不告警**：表格設 scroll={{x}} 橫向捲動是刻意設計，一律判 FAIL 會產出整片噪音。採用的量已做鑑別力對照（手機 vs 桌面同頁比對）：/erp/quotations 708 vs 0、/documents 158 vs 0 → 手機獨有。另量過的『小於 32px 觸控目標數』手機 157/桌面 156＝無鑑別力，已捨棄不交付。 2026-08-04：新增 detail_routes —— 原本只吃靜態路由，帶 :id 的詳情頁**結構上被排除、從未量過**，而詳情頁正是行動裝置最常檢視的地方；實測 /contract-cases/:id 每個分頁表格外溢 434~534px（390px 螢幕看不到一半）。",
+      "_doc": "行動版面觀測（2026-08-02）。既有廣度掃描固定 1440×900，手機上版面壞掉沒有任何機制會發現——而核銷的主要入口正是手機掃 QR。刻意**只觀測不告警**：表格設 scroll={{x}} 橫向捲動是刻意設計，一律判 FAIL 會產出整片噪音。採用的量已做鑑別力對照（手機 vs 桌面同頁比對）：/erp/quotations 708 vs 0、/documents 158 vs 0 → 手機獨有。另量過的『小於 32px 觸控目標數』手機 157/桌面 156＝無鑑別力，已捨棄不交付。 2026-08-04：新增 detail_routes —— 原本只吃靜態路由，帶 :id 的詳情頁**結構上被排除、從未量過**，而詳情頁正是行動裝置最常檢視的地方；實測 /contract-cases/:id 每個分頁表格外溢 434~534px（390px 螢幕看不到一半）。 ｜2026-08-15：改量兩個寬度。只量 390 時 hideOnMobile 會隱藏欄位、1440 有空間，**中間那段拿到桌面欄位數卻只有平板寬度**，兩邊都量不到 —— 實測 390 只有 3 頁溢出，768 立刻變成 21/23 頁、最嚴重 971px。刻意只加一個寬度不加兩個：三個寬度會讓走查超過 10 分鐘，而排程每天要付這個成本。",
       "enabled": true,
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
       "overflow_warn_px": 400,
       "routes": [
         "/erp/expenses",
@@ -72,7 +68,22 @@
         "/erp/quotations/168",
         "/erp/expenses/10",
         "/pm/cases/244",
-        "/contract-cases/187"
+        "/contract-cases/187",
+        "/erp/quotations/168?tab=receivable",
+        "/erp/quotations/168?tab=payable",
+        "/erp/quotations/168?tab=expenses",
+        "/pm/cases/244?tab=quotations",
+        "/pm/cases/244?tab=expenses"
+      ],
+      "viewports": [
+        {
+          "width": 390,
+          "height": 844
+        },
+        {
+          "width": 768,
+          "height": 1024
+        }
       ]
     },
     "known_limitations": [
@@ -722,6 +733,30 @@
           "action": "assertTextAbsent",
           "text": "無符合的公文",
           "failMsg": "已關聯的公文被誤報為『無符合的公文』"
+        }
+      ]
+    },
+    {
+      "id": "quotation-tab-deeplink",
+      "name": "報價詳情分頁深連結（?tab= 要真的切過去，不能靜靜回落第一頁）",
+      "auth": true,
+      "url": "/erp/quotations/168?tab=expenses",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 2500
+        },
+        {
+          "action": "assertTextsPresent",
+          "texts": [
+            "費用核銷"
+          ],
+          "failMsg": "?tab=expenses 沒有切到費用核銷分頁 —— 深連結失效或靜靜回落第一頁"
+        },
+        {
+          "action": "assertTextAbsent",
+          "text": "估列成本（報價單）",
+          "failMsg": "仍停在預設的成本結構分頁 —— ?tab= 沒有生效"
         }
       ]
     }
