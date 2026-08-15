@@ -175,7 +175,7 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 <!--baseline:producers-->producer registry 現有 41 筆
 <!--baseline:ui_flows-->UI 流程檢核現有 17 條
 <!--baseline:fitness_steps-->主 fitness runner 現有 78 步
-<!--baseline:weekly_steps-->weekly runner 現有 53 步
+<!--baseline:weekly_steps-->weekly runner 現有 54 步
 <!--baseline:daily_steps-->daily runner 現有 13 步
 <!--baseline:selfaudit_repos-->已導入瀏覽器自我走查的專案數 5
 <!--baseline:producer_signals-->producer 信號型別 5 種
@@ -229,6 +229,15 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 | 18 | `cron_silent_dormant_check` 的監控**分母** | 08-11 才修好「閾值缺席」，但指標來源是**行程內**的 gauge：容器一重啟，只有「重啟後跑過」的 job 才有值。55 個閾值只有 **15 個**出現在畫面上，其餘 40 個既不是綠也不是紅，而是**根本不在名單裡**，然後它印「✓ all monitored cron within max age」。覆蓋率是拿**看得見的東西**當分母算的 | 08-12 追關機漏跑時，把「有閾值」與「有指標」兩個集合相減才看出來 |
 | 19 | 我為 #18 加的持久紀錄退路（新加的東西自己出問題） | host 候選路徑寫錯 → 往下試容器路徑 `Path("/app/logs/...")`，**Windows 把它解析成 `D:\app\`** 而那個目錄真的存在（過去某次同型錯誤的殘留），裡面有份 08-10 的舊檔 → 據此把 36 個健康排程判成「從未執行」。**路徑錯了卻仍然成功**，比找不到危險得多 | 判定結果與容器內實跑不一致，回頭比對才發現讀的是另一個檔 |
 | 20 | `producer_output_watchdog` | 印 `RED: N producer 疑沉默成功` 卻 `return 1 if args.strict else 0` —— L83 家族**第三例**（08-07、08-10 各修過一次同型，這支漏改）。排程情境剛好帶了 `--strict` 所以沒出事，任何不帶旗標的人工複查拿到的是「畫面紅、退出碼綠」 | 用 `> file; echo $?` 正確取退出碼（不再經 pipe）時發現 |
+
+| 21 | `test_suite_health` 的**基線**（我自己改壞的） | 實跑後發現 39 項測試債裡有 5 項已修好（基線只增不減），於是移除它們 —— 但我是拿**容器**跑的結果去改，而基線是對 **host** 維護的（weekly 跑在 host）。其中 3 個 `test_auth_service` 在容器過、在 host 不過 → 下一次 weekly 會報「新增 3 項失敗」，而那是我製造的假紅 | 改完之後在 host 實跑驗證，看到「新增 6 項」才發現 |
+
+**#21 的通則**：**改一份基線，必須用它實際被維護的那個環境跑出來的結果。**
+這是 08-11「檢核跑在哪個環境，和它判得對不對一樣重要」的第二種形態——
+那次是檢核跑錯環境，這次是**判準本身**建立在錯的環境上。
+基線類檔案（`known_failures.json`、`.declaration_baseline.txt`、
+`.governance_declaration_baseline.txt`）都適用；它們也都該記 `updated_at`，
+否則沒有人知道那份清單有多舊（本次那 5 項已經修好多久，無從得知）。
 
 **#11 的通則（L83）**：檢核腳本的**印出狀態與退出碼必須一致**，且必須知道 runner
 用哪一種——本專案 `run_fitness_weekly.sh` **一律不傳旗標**、依原生三態

@@ -13,18 +13,24 @@
 按「**誰在跑它**」分組，不是按主題。因為要回答的第一個問題永遠是：
 **這支東西壞掉的時候，會有人知道嗎？**
 
-| 分組 | 支數 |
+| 分組 | 列數 |
 |---|---|
-| 🔴 每日（容器內 APScheduler `fitness_daily`） | 12 |
-| 🟠 每週（host 排程 `CK_Missive-Fitness-Weekly`，容器端只當接收者） | 43 |
-| 🧪 月度架構覆盤（`run_fitness.sh`） | 63 |
+| 🔴 每日（容器內 APScheduler `fitness_daily`） | 13 |
+| 🟠 每週（host 排程 `CK_Missive-Fitness-Weekly`，容器端只當接收者） | 50 |
+| 🧪 月度架構覆盤（`run_fitness.sh`） | 64 |
 | 🖥️ 瀏覽器走查（`run_ui_smoke.sh` / `run_visual_walk.sh`） | 4 |
 | ⏰ 後端排程（`backend/app/core/scheduler.py`） | 15 |
 | 💓 健康監控（`scripts/health/`） | 1 |
 | 🪟 Windows 工作排程器 | 1 |
 | ⚪ 無排程（手動／一次性／已被取代） | 25 |
 
-<!--baseline:check_scripts-->合計 **160** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+> ⚠️ 上表是**各段的表格列數**（含該段的 runner 本身，且一支可能出現在多段），
+> 所以加總會大於下面那個受納管的總數。
+> **只有總數由 `doc_baseline_claim_audit` 納管**，分組數字沒有人在看 ——
+> 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
+> 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
+
+<!--baseline:check_scripts-->合計 **161** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -103,6 +109,7 @@
 | `job_detail_completeness_audit.py` | 排程 job 算得出數字就該回傳 detail —— 儀器化缺口偵測 |
 | `knowledge_dedup_audit.py` | Fitness step 72: KG knowledge domain code entity 重複偵測 |
 | `memory_diary_freshness_check.py` | Memory Wiki Freshness Check |
+| `ner_relation_regression_check.py` | weekly 54：NER 關係抽取**修法後有無新缺口**（刻意不報 572 筆存量——已知待決的事每週報一次只會被略過） |
 | `memory_metrics_alive_check.py` | Memory Wiki metrics alive check |
 | `paths_compose_mount_audit.py` | Fitness step 62 (v6.12, L52 lesson): paths.py PROJECT_ROOT vs docker-compose mount audit |
 | `paths_subpath_mount_audit.py` | Fitness step 69: paths.py sub-path vs compose mount sub-path audit |
