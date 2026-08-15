@@ -30,10 +30,18 @@ _SITE_VISIT_KEYWORDS = (
 
 # 費用狀態的中文對照。晨報是給人看的 LINE 訊息，`manager_approved` 這種
 # 內部代碼直接印出來，讀的人得自己翻譯。
+# ⚠️ 這張表必須涵蓋 expense_invoices.status 的**每一個**實際值。
+# 漏掉的會走 fallback 印出英文原值 —— 中文訊息裡冒出 `〔finance_approved〕`，
+# 不會拋錯、不會有人發現，只是讀起來突然變成英文。
+# 2026-08-15 補 `verified` 與 `finance_approved`（審批四層裡的第二、第四層），
+# 它們自審批流上線起就一直漏著，而當下 DB 裡正好有 3 筆是這兩個狀態。
+# 新增審批狀態時，這張表要一起改 —— 由 test_expense_status_zh_covers_all 守著。
 _EXPENSE_STATUS_ZH = {
     "pending": "待審",
     "pending_receipt": "待補收據",
+    "verified": "已初核・待主管",
     "manager_approved": "主管已核准・待財務",
+    "finance_approved": "財務已核准・待結案",
     "approved": "已核准",
     "rejected": "已駁回",
 }

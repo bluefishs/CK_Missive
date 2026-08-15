@@ -30,7 +30,7 @@
 > 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
 > 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
 
-<!--baseline:check_scripts-->合計 **161** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **162** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -100,6 +100,7 @@
 | `diary_density_audit.py` | Diary density audit (L51.7 Sprint 2.P2.11 / |
 | `doc_baseline_claim_audit.py` | 文件宣稱數字納管 —— 標記制 |
 | `doc_reference_integrity_audit.py` | `docs/architecture/` 已累積 **102 份**文件，但沒有任何檢核在問「它們寫的還算數嗎」 |
+| `erp_data_integrity_audit.py` | weekly 55：ERP 帳本收攏／填報推進／案號橋樑／名稱相容字（§1 判 RED＝真漏帳，§2-4 判 YELLOW＝需要人或決策，不是系統壞了） |
 | `facade_adoption_audit.py` | Facade Adoption Audit (P1.7 / |
 | `governance_alignment_audit.py` | Fitness step 63: 規範 vs 現況對應檢核 — 程式圖譜 + LLM Wiki 雙源 |
 | `graph_domain_tagging_audit.py` | Graph domain tagging audit — entity_type vs graph_domain 一致性 |

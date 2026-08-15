@@ -168,20 +168,38 @@ class OperationalAccountService(AuditableServiceMixin):
         if not expense:
             return None
 
-        # 自動入帳至統一帳本
+        # 自動入帳至統一帳本（2026-08-15 補冪等 + 去 silent）
+        #
+        # 原本兩個問題：
+        # ① 沒有冪等檢查 —— 應付那條路徑有 `find_by_source` 檢查，這條沒有，
+        #    所以重複核准會重複入帳（金額會被算兩次）。
+        # ② `except Exception: logger.exception(...)` 只記 log 不 raise ——
+        #    核准成功、入帳靜靜沒發生，而使用者與呼叫端都看不出差別（沉默成功家族）。
+        #    這裡刻意**不 raise**：核准本身已經 commit，讓它整包失敗不合比例；
+        #    改成把「有沒有入帳」放進回傳值，讓呼叫端與稽核看得見。
+        account = await self.account_repo.get_by_id(expense.account_id)
+        ledger_ok, ledger_reason = False, None
         try:
             from .finance_ledger import FinanceLedgerService
             ledger_service = FinanceLedgerService(self.db)
-            account = await self.account_repo.get_by_id(expense.account_id)
-            await ledger_service.record_from_operational(
-                expense_id=expense.id,
-                account_code=account.account_code if account else "",
-                amount=expense.amount,
-                expense_date=expense.expense_date,
-                description=expense.description,
-                category=expense.category,
-            )
-        except Exception:
+            existing = await ledger_service.find_by_source("operational_expense", expense.id)
+            if existing:
+                ledger_reason = "帳本已有此筆，跳過重複入帳"
+                logger.warning(
+                    "帳本已有 operational_expense/%s 的 entry，跳過重複入帳", expense.id
+                )
+            else:
+                await ledger_service.record_from_operational(
+                    expense_id=expense.id,
+                    account_code=account.account_code if account else "",
+                    amount=expense.amount,
+                    expense_date=expense.expense_date,
+                    description=expense.description,
+                    category=expense.category,
+                )
+                ledger_ok, ledger_reason = True, "已入帳"
+        except Exception as e:
+            ledger_reason = f"入帳失敗（{type(e).__name__}: {e}）"
             logger.exception("營運費用自動入帳失敗: expense_id=%s", expense_id)
 
         # 審批通知

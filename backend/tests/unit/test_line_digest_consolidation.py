@@ -106,3 +106,42 @@ async def test_monthly_soft_cap_disabled_by_zero(monkeypatch):
     from app.services.integration import line_bot as lb
     monkeypatch.setenv("LINE_MONTHLY_SOFT_CAP", "0")
     assert await lb._within_monthly_budget() is True
+
+# ---------------------------------------------------------------------------
+# 2026-08-15：LINE **必須**套用金額遮蔽（方向與初版相反，已更正）
+#
+# owner 的 Telegram 帳號 2026-04-21 被永久封禁、申訴駁回，
+# 原因是**推播內容的金額與其對應呈現被判定為非正常金流**。
+# 這不是推測性風險 —— 已經發生過，代價是一個帳號永久失去。
+# 這條鎖住「別再以『Telegram 已死所以不用遮』為由把它拿掉」。
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_line_push_masks_amounts():
+    """LINE 推播的金額必須被遮蔽 —— 帳號被鎖過一次，不能再賭。"""
+    from app.core import scheduler as sch
+
+    text = "💰 差旅費 NT$3,200〔中華電信〕｜案件 CK2026_PM_01_005"
+    sent = {}
+
+    class _FakeLine:
+        enabled = True
+        async def push_message(self, recipient, body):
+            sent["body"] = body
+            return True
+
+    with patch("app.services.integration.line_bot.LineBotService",
+               new=lambda *a, **k: _FakeLine()):
+        ok, err = await sch._push_channel("line", "U123", text)
+
+    assert ok is True and err is None
+    assert "NT$3,200" not in sent["body"], "金額原樣送出 —— 遮蔽被拿掉了"
+    assert "[金額]" in sent["body"], "金額必須被遮成語意標籤"
+    # 遮蔽不得吃掉可讀性：品項與廠商要留著，否則收到的是一則無法行動的訊息
+    assert "差旅費" in sent["body"] and "中華電信" in sent["body"]
+
+
+def test_telegram_sanitizer_itself_still_works():
+    """對照組：遮蔽器本身仍該有效。"""
+    from app.services.common.telegram_content_sanitizer import sanitize
+    assert sanitize("NT$3,200") == "[金額]"

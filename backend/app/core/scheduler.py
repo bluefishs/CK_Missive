@@ -1022,7 +1022,19 @@ async def _push_channel(channel: str, recipient: str, text: str) -> tuple[bool, 
             line = LineBotService()
             if not line.enabled:
                 return False, "line service disabled"
-            # LINE push 也套用 sanitizer（與 telegram 一致）
+            # ⚠️ LINE 也必須套用金額遮蔽 —— 這不是「順便一致」，是有代價的教訓。
+            #
+            # 2026-04-21 owner 的 Telegram 帳號被官方**永久封禁、申訴駁回**，
+            # owner 2026-08-15 確認原因：**推播內容的金額與其對應呈現方式
+            # 被判定為非正常金流**。這不是推測性風險，是已經發生過的事，
+            # 而且代價是一個帳號永久失去。
+            #
+            # 我在 2026-08-15 一度以「Telegram 已死、遮蔽器沒必要」為由把 LINE
+            # 排除掉，那是錯的：**判斷風險要看「這件事有沒有發生過」，
+            # 不是看「我覺得這個平臺會不會這樣做」**。已還原。
+            #
+            # 真正該解的不是「要不要遮」，而是**遮了之後訊息還讀不讀得懂** ——
+            # 見 morning_report_formatter 的金額呈現規則。
             from app.services.common.telegram_content_sanitizer import sanitize
             safe_text = sanitize(text)
             ok = await line.push_message(recipient, safe_text)
