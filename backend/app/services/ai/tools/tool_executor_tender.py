@@ -54,16 +54,18 @@ class TenderToolExecutor:
         }
 
     async def auto_tender_to_case(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Multi-Agent: 標案搜尋→篩選→自動建案
+        """Multi-Agent: 標案自動批次建案。
 
-        流程: 搜尋標案 → 篩選符合乾坤業務的 → 自動建立 PM Case + ERP Quotation
+        2026-08-16：本方法原本自己寫了一份建案邏輯，與一鍵建案分歧到
+        **業務規則相反**的程度（詳見 `services/tender/case_creation.py` 檔頭）。
+        現在共用同一份實作，因此自動繼承 5 道查重、委託單位建立、金額帶入、
+        來源標案回指，以及「邀標階段不建報價單」這條規則。
         """
         from app.services.tender.search import TenderSearchService
-        from app.services.contract import CaseCodeService
-        from app.extended.models.pm import PMCase
-        from app.extended.models.erp import ERPQuotation
-        from datetime import date
+        from app.services.tender.case_creation import (
+            TenderCaseCreationService,
+            TenderCaseDuplicateError,
+        )
 
         query = params.get("query", "測量")
         max_create = min(params.get("max_create", 3), 5)
@@ -78,52 +80,53 @@ class TenderToolExecutor:
         ][:max_create]
 
         if not actionable:
-            return {"created": 0, "message": f"搜尋「{query}」無可建案的招標公告"}
+            return {
+                "success": True, "created": [], "skipped": [],
+                "message": f"找到 {len(records)} 筆標案，但沒有符合條件的公開/限制性招標",
+            }
 
-        code_service = CaseCodeService(self.db)
-        created = []
-        year = date.today().year
+        creator = TenderCaseCreationService(self.db)
+        created, skipped = [], []
 
         for r in actionable:
             try:
-                existing = await self.db.execute(
-                    __import__('sqlalchemy').select(PMCase).where(
-                        PMCase.case_name == r["title"][:200]
-                    )
+                res = await creator.create_from_tender(
+                    title=r["title"],
+                    unit_id=str(r.get("unit_id") or ""),
+                    unit_name=r.get("unit_name", ""),
+                    job_number=r.get("job_number"),
+                    budget=r.get("budget"),
+                    tender_id=r.get("id") or r.get("tender_id"),
+                    source_label="政府標案[Agent]",
                 )
-                if existing.scalar_one_or_none():
-                    continue
-
-                case_code = await code_service.generate_case_code("pm", year, "01")
-
-                pm = PMCase(case_code=case_code, case_name=r["title"][:200], year=year, status="bidding",
-                            notes=f"[Agent] 標案: {r.get('job_number', '')} ({r.get('unit_name', '')})")
-                self.db.add(pm)
-                await self.db.flush()
-
-                q = ERPQuotation(case_code=case_code, case_name=r["title"][:200], year=year,
-                                 total_price=0, status="draft",
-                                 notes=f"[Agent] {r.get('unit_name', '')} | {r.get('type', '')}")
-                self.db.add(q)
-
                 created.append({
-                    "case_code": case_code,
+                    "case_code": res["case_code"],
                     "title": r["title"][:60],
                     "unit_name": r.get("unit_name", ""),
+                    "contract_amount": res["contract_amount"],
                 })
-            except Exception:
-                continue
+            except TenderCaseDuplicateError as e:
+                skipped.append({"title": r["title"][:40], "reason": str(e)})
+            except Exception as e:
+                # 原本是 `except Exception: continue` —— 建案失敗完全不留痕跡，
+                # 而回傳的 created 清單看起來一切正常（沉默成功）。
+                logger.warning(
+                    "[Agent] 建案失敗 title=%r: %s: %s",
+                    r["title"][:40], type(e).__name__, e,
+                )
+                skipped.append({"title": r["title"][:40], "reason": f"{type(e).__name__}: {e}"})
 
         if created:
             await self.db.commit()
 
-        return {
-            "query": query,
-            "searched": len(records),
-            "actionable": len(actionable),
-            "created": len(created),
-            "cases": created,
-        }
+        no_amount = [c["case_code"] for c in created if c["contract_amount"] is None]
+        msg = f"已建立 {len(created)} 筆案件"
+        if skipped:
+            msg += f"，跳過 {len(skipped)} 筆"
+        if no_amount:
+            msg += f"。⚠️ {len(no_amount)} 筆來源標案無預算金額，需人工補填合約金額才能成案"
+
+        return {"success": True, "created": created, "skipped": skipped, "message": msg}
 
     async def analyze_diagram(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """分析工程圖/測量圖/地籍圖 (Gemma 4 Vision)"""

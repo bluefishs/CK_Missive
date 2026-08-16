@@ -249,6 +249,34 @@ async def get_tender_detail(
         return SuccessResponse(data=None, message="查無此標案")
     # ADR-0032: PCC response 明確標記 kind
     result["kind"] = "pcc"
+
+    # 2026-08-16 L3 回指補完：ezbid 分支早在 07-31 就回傳 tender_id，
+    # **PCC 分支一直沒有** —— 於是前端建案時送不出 tender_id，
+    # `pm_cases.source_tender_id` 在 74 筆裡是 **0 筆有值**，
+    # 「這個案件從哪個標案來」完全無從追溯（和美案即此形態）。
+    # (unit_id, job_number) 在 60,296 筆 PCC 紀錄中**完全唯一**，可安全定位。
+    try:
+        from sqlalchemy import text as _sa_text
+        from app.db.database import AsyncSessionLocal as _Sess
+        async with _Sess() as _db:
+            _row = (await _db.execute(_sa_text("""
+                SELECT id, budget FROM tender_records
+                WHERE source = 'pcc' AND unit_id = :u AND job_number = :j
+                LIMIT 1
+            """), {"u": req.unit_id, "j": req.job_number or ""})).one_or_none()
+        if _row:
+            result["tender_id"] = _row[0]
+            # PCC 來源 60,296 筆 budget 全為 NULL（清單頁本身就沒有金額欄），
+            # 但仍照實回傳 —— 有值時前端才帶得進案件，沒有就是沒有，不要編一個 0。
+            if _row[1] is not None:
+                result.setdefault("budget", str(_row[1]))
+    except Exception as _e:
+        # 查不到回指不該讓整個詳情頁掛掉，但必須出聲 ——
+        # 靜默的話又會變成「欄位一直是空的而沒有人知道」。
+        _logger.warning(
+            "PCC 詳情回指查詢失敗 unit_id=%s job_number=%s: %s",
+            req.unit_id, req.job_number, _e,
+        )
     # L51 task F: page view counter
     try:
         from app.services.tender.metrics import get_tender_metrics

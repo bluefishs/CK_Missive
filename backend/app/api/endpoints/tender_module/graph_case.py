@@ -221,114 +221,44 @@ async def create_case_from_tender(
     req: TenderCreateCaseRequest,
     service: TenderSearchService = Depends(get_tender_service),
 ):
-    """從標案一鍵建立 PM Case + ERP Quotation"""
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from app.db.database import get_async_db as get_db
-    from app.services.contract import CaseCodeService
-    from app.extended.models.pm import PMCase
-    from app.extended.models.erp import ERPQuotation
+    """從標案一鍵建立 PM Case。
+
+    2026-08-16：實作已抽到 `services/tender/case_creation.py`。
+    這裡只剩「HTTP 進、HTTP 出」—— 因為同一件事還有第二個入口
+    （AI 工具 `auto_tender_to_case`），而它原本自己寫了一份查重只有一道、
+    金額不帶、且對「邀標階段要不要建報價單」的答案相反的版本。
+    """
     from app.db.database import AsyncSessionLocal
-    import re
-    from datetime import date
+    from app.services.tender.case_creation import (
+        TenderCaseCreationService,
+        TenderCaseDuplicateError,
+    )
 
     async with AsyncSessionLocal() as db:
-        # 標案識別碼（L1）：ezbid 來源無 job_number（全庫 37,980 筆皆 NULL），
-        # 改以 ezbid:{unit_id} 作為識別，讓 ezbid 也能進入鏈路且查得了重。
-        tender_ref = (req.job_number or "").strip() or f"ezbid:{req.unit_id}"
-
-        # 防呆（L2）：三道查重，任一命中即擋
-        #   ① source_tender_id 精確回指（最可靠，2026-07-31 新增）
-        #   ② notes 內含標案識別碼（相容既有資料）
-        #   ③ 案名完全相同（原本完全沒有這道 → ezbid 因無 job_number 而查重整段被跳過，
-        #      按幾次就建幾個案；實測全庫 87 承攬案件中 33 筆有相似標案）
-        from sqlalchemy import select as sa_select, or_ as sa_or
-        from app.extended.models.core import ContractProject
-
-        existing = None
-        conds = [PMCase.notes.ilike(f"%{tender_ref}%"), PMCase.case_name == req.title]
-        if req.tender_id:
-            conds.append(PMCase.source_tender_id == req.tender_id)
-        existing = (await db.execute(
-            sa_select(PMCase).where(sa_or(*conds))
-        )).scalars().first()
-        if existing:
-            raise HTTPException(
-                status_code=409,
-                detail=f"此標案已建案: {existing.case_code} ({existing.case_name[:30]})"
+        try:
+            result = await TenderCaseCreationService(db).create_from_tender(
+                title=req.title,
+                unit_id=req.unit_id,
+                unit_name=req.unit_name,
+                job_number=req.job_number,
+                budget=req.budget,
+                tender_id=req.tender_id,
+                category=req.category or "01",
             )
+        except TenderCaseDuplicateError as e:
+            raise HTTPException(status_code=409, detail=str(e))
 
-        # 承攬案件端也要查 —— 案件 187 即為「直接建立承攬案件、從未走過建案」的型態，
-        # 若只查 pm_cases 會漏掉，導致同一案在兩個模組各存一份。
-        cp_conds = [ContractProject.project_name == req.title]
-        if req.tender_id:
-            cp_conds.append(ContractProject.source_tender_id == req.tender_id)
-        existing_cp = (await db.execute(
-            sa_select(ContractProject).where(sa_or(*cp_conds))
-        )).scalars().first()
-        if existing_cp:
-            raise HTTPException(
-                status_code=409,
-                detail=(f"已有同名承攬案件: {existing_cp.project_code} "
-                        f"({(existing_cp.project_name or '')[:30]})，"
-                        f"請改用「關聯到既有案件」避免重複")
-            )
-
-        code_service = CaseCodeService(db)
-
-        # 解析預算金額
-        budget_amount = 0
-        if req.budget:
-            nums = re.sub(r'[^\d.]', '', req.budget.replace(',', ''))
-            budget_amount = int(float(nums)) if nums else 0
-
-        year = date.today().year
-
-        # 產生案號
-        case_code = await code_service.generate_case_code("pm", year, "01")
-
-        # 查找或建立委託單位 (招標機關)
-        client_vendor_id = None
-        if req.unit_name:
-            from app.extended.models.core import PartnerVendor
-            from sqlalchemy import select as sa_select
-            existing_client = (await db.execute(
-                sa_select(PartnerVendor).where(
-                    PartnerVendor.vendor_name == req.unit_name,
-                    PartnerVendor.vendor_type == 'client',
-                )
-            )).scalar_one_or_none()
-            if existing_client:
-                client_vendor_id = existing_client.id
-            else:
-                new_client = PartnerVendor(
-                    vendor_name=req.unit_name,
-                    vendor_type='client',
-                    notes=f"[標案自動建立] {tender_ref}",
-                )
-                db.add(new_client)
-                await db.flush()
-                client_vendor_id = new_client.id
-
-        # 建立 PM Case
-        pm_case = PMCase(
-            case_code=case_code,
-            case_name=req.title,
-            year=year,
-            status="bidding",
-            contract_amount=budget_amount if budget_amount > 0 else None,
-            client_vendor_id=client_vendor_id,
-            # L3 回指：結構化記錄來源標案，讓案件頁看得到標案、標案頁看得到案件
-            source_tender_id=req.tender_id,
-            notes=f"來源: 政府標案 {tender_ref} ({req.unit_name})",
-        )
-        db.add(pm_case)
-        await db.flush()
-
-        # 邀標階段不建立 ERP Quotation — 等確認投標後再建
         await db.commit()
 
+        msg = f"已建立案件 {result['case_code']}"
+        if result["contract_amount"] is None:
+            # 來源標案沒有金額（PCC 來源 60,296 筆全部沒有）。
+            # 不擋建案，但要在當下就說 —— 否則會一路帶到成案才發現空白。
+            msg += "（來源標案無預算金額，請於案件內補填合約金額後才能成案）"
+
         return SuccessResponse(data={
-            "case_code": case_code,
-            "pm_case_id": pm_case.id,
-            "message": f"已建立案件 {case_code}",
+            "case_code": result["case_code"],
+            "pm_case_id": result["pm_case_id"],
+            "contract_amount": result["contract_amount"],
+            "message": msg,
         })

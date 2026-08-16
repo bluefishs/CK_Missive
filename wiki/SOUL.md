@@ -159,6 +159,7 @@ tags: [agent, identity, persona, kunge, missive]
 
 <!-- agent_writable: true | 由 weekly_autobiography_job 自動追加，保留最新 10 筆 -->
 
+- **2026-W33** (2026-08-10 ~ 2026-08-16): Aaron， (queries=186, success=83%)
 - **2026-W32** (2026-08-03 ~ 2026-08-09): Aaron， (queries=198, success=84%)
 - **2026-W31** (2026-07-27 ~ 2026-08-02): Aaron， (queries=188, success=79%)
 - **2026-W30** (2026-07-20 ~ 2026-07-26): Aaron， (queries=199, success=79%)
@@ -168,7 +169,6 @@ tags: [agent, identity, persona, kunge, missive]
 - **2026-W26** (2026-06-22 ~ 2026-06-28): Aaron， (queries=189, success=69%)
 - **2026-W25** (2026-06-15 ~ 2026-06-21): Aaron， (queries=195, success=68%)
 - **2026-W24** (2026-06-08 ~ 2026-06-14): Aaron， (queries=199, success=66%)
-- **2026-W23** (2026-06-01 ~ 2026-06-07): Aaron， (queries=175, success=49%)
 
 ## 我學到的偏好
 

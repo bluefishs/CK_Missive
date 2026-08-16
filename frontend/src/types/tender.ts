@@ -59,6 +59,9 @@ export interface TenderDetailEvent {
 /** PCC 政府採購網詳情（複合鍵：unit_id + job_number） */
 export interface TenderDetailPcc {
   kind: 'pcc';
+  /** tender_records.id — 2026-08-16 補：ezbid 分支 07-31 就有，PCC 分支一直沒有，
+   *  導致從 PCC 建的案件全部沒有來源標案回指（74 筆 pm_cases 中 0 筆有值）。 */
+  tender_id?: number;
   unit_id?: string;
   unit_name: string;
   job_number: string;

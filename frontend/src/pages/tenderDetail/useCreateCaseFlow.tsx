@@ -17,6 +17,7 @@ import { Modal, List, Tag, Typography, Space, Button, App } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { tenderApi } from '../../api/tenderApi';
 import { ROUTES } from '../../router/types';
+import { isEzbidDetail, isPccDetail, type TenderDetail } from '../../types/tender';
 
 const { Text } = Typography;
 
@@ -28,6 +29,47 @@ export interface CreateCaseInput {
   budget?: string;
   tender_id?: number;
 }
+
+/**
+ * 由標案詳情組出建案輸入 —— **單一實作**。
+ *
+ * 2026-08-16：`TenderDetailPage` 原本在同一個檔案裡把這份輸入寫了兩次
+ * （PCC 一份、ezbid 一份），而且**只有 ezbid 那份帶 `tender_id`**。
+ * 諷刺的是上一行註解正好寫著「避免兩處各寫一套而漂移」—— 抽掉的是按鈕列，
+ * 輸入本身還是兩份，然後就漂了。
+ *
+ * 後果：從 PCC 建的案件全部沒有來源標案回指
+ * （`pm_cases.source_tender_id` 74 筆中 0 筆有值），
+ * 「這個案件從哪個標案來」在系統裡查不到 —— owner 回報的和美案即此形態。
+ */
+export const toCaseInput = (
+  d: TenderDetail | null | undefined,
+  fallback: { unitId?: string; jobNumber?: string } = {},
+  mergedBudget?: string | number | null,
+): CreateCaseInput => {
+  if (isEzbidDetail(d)) {
+    return {
+      unit_id: d.ezbid_id || d.unit_id || '',
+      job_number: d.job_number || undefined,
+      title: d.title || '',
+      unit_name: d.unit_name || '',
+      budget: d.budget != null ? String(d.budget) : undefined,
+      tender_id: d.tender_id,
+    };
+  }
+  // PCC（或尚未載入）：unit_id/job_number 由路由參數補，因為 PCC 詳情本身
+  // 不一定帶這兩個欄位（原本就是這樣取的，此處保持不變）。
+  return {
+    unit_id: fallback.unitId ? decodeURIComponent(fallback.unitId) : (d?.unit_id || ''),
+    job_number: fallback.jobNumber ? decodeURIComponent(fallback.jobNumber) : undefined,
+    title: d?.title || '',
+    unit_name: d?.unit_name || '',
+    // PCC 來源 60,296 筆 budget 全為 NULL —— 這裡取到 undefined 是正常的，
+    // 後端會回「來源標案無預算金額，請補填後才能成案」。
+    budget: mergedBudget != null && mergedBudget !== '' ? String(mergedBudget) : undefined,
+    tender_id: isPccDetail(d) ? d.tender_id : undefined,
+  };
+};
 
 type Candidate = {
   type: 'pm_case' | 'contract_project';

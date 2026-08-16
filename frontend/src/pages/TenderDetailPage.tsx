@@ -22,6 +22,7 @@ import {
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import { BattleTab, PriceTab } from './tenderDetail';
+import { toCaseInput } from './tenderDetail/useCreateCaseFlow';
 import { TenderActionBar } from './tenderDetail/TenderActionBar';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
@@ -194,13 +195,9 @@ const TenderDetailPage: React.FC = () => {
         {/* 操作按鈕 — 2026-07-31 起與 ezbid 分支共用 TenderActionBar，
             避免兩處各寫一套而在順序/主次/功能上漂移（owner 以截圖指出的設計不一致）。 */}
         <TenderActionBar
-          caseInput={{
-            unit_id: decodeURIComponent(unitId || ''),
-            job_number: decodeURIComponent(jobNumber || ''),
-            title: detail?.title || '',
-            unit_name: detail?.unit_name || '',
-            budget: latest?.budget || undefined,
-          }}
+          /* 2026-08-16：改用 toCaseInput 單一實作 —— 這裡原本自己寫一份而漏了
+             `tender_id`，導致從 PCC 建的案件全部沒有來源標案回指。 */
+          caseInput={toCaseInput(detail, { unitId, jobNumber }, latest?.budget)}
           externalUrl={latest.pcc_url}
           externalLabel="政府採購網原始頁面"
           currentBookmark={currentBookmark}
@@ -298,14 +295,7 @@ const TenderDetailPage: React.FC = () => {
           </Descriptions>
         </Card>
         <TenderActionBar
-          caseInput={{
-            unit_id: ezbidData?.ezbid_id || ezbidData?.unit_id || '',
-            job_number: ezbidData?.job_number || undefined,
-            title: ezbidData?.title || '',
-            unit_name: ezbidData?.unit_name || '',
-            budget: ezbidData?.budget != null ? String(ezbidData.budget) : undefined,
-            tender_id: ezbidData?.tender_id,
-          }}
+          caseInput={toCaseInput(detail, { unitId, jobNumber })}
           externalUrl={ezbidData?.ezbid_url}
           externalLabel="在 ezbid 查看此標案"
           currentBookmark={currentBookmark}
