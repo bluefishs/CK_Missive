@@ -122,6 +122,28 @@ FROM documents;
 """
 
 
+def _psql(sql: str) -> list[list[str]] | None:
+    """host 走這條：.env 的 DATABASE_URL 指向容器網路（postgres:5432），host 連不到。
+
+    2026-08-16：第一版只寫了直連，於是這支在 **weekly 實際執行的 host 環境跑不起來**
+    （`fe_sendauth: no password supplied`），而 exit 2 看起來像「資料庫有事」。
+    這是 2026-08-11 記過的同一條：**檢核跑在哪個環境，和它判得對不對一樣重要**。
+    作法與 `work_record_chain_semantics_audit` 一致，不自創第二種。
+    """
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["docker", "exec", "ck_missive_postgres", "psql", "-U", "ck_user",
+             "-d", "ck_documents", "-tAF", "|", "-c", sql],
+            capture_output=True, text=True, encoding="utf-8", timeout=60,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    if out.returncode != 0:
+        return None
+    return [ln.split("|") for ln in out.stdout.splitlines() if ln.strip()]
+
+
 def _dsn() -> str:
     host = os.getenv("POSTGRES_HOST") or os.getenv("PGHOST") or "localhost"
     port = os.getenv("POSTGRES_PORT") or os.getenv("PGPORT") or "5434"
@@ -141,18 +163,41 @@ def main() -> int:
     except ImportError:
         print("\n✗ 沒有 psycopg2 —— 無法判定（不視為通過）")
         return 2
+    # 兩條路徑，**都不是靜默跳過**：host 的 .env DATABASE_URL 指向容器網路連不到，
+    # 借道 docker exec。兩條都不通才 exit 2。
+    conn = None
     try:
         conn = psycopg2.connect(_dsn())
-    except Exception as e:
-        print(f"\n✗ 連不上資料庫：{e} —— 無法判定（不視為通過）")
-        return 2
+    except Exception:
+        if _psql("SELECT 1") is None:
+            print(chr(10) + "✗ 直連與 docker exec 都不通 —— 無法判定（不視為通過）")
+            return 2
 
     red, yellow = [], []
+
+    def q(sql):
+        """conn 可用就直連，否則借道 docker exec —— 兩條路徑同一個出口。"""
+        if conn is not None:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                return cur.fetchall()
+        # ⚠️ psql 回傳的是**字串** —— 直接用 `if missing:` 判斷會把 "0" 當成真
+        #（Python 裡非空字串一律 truthy），於是「缺 0」也印紅。
+        # 這是**只在 host 路徑才會出現**的錯：容器直連回傳的是整數。
+        # 兩條路徑必須交出同型的東西，否則判斷邏輯得寫兩套 —— 那就是漂移的起點。
+        def _num(v):
+            s = (v or "").strip()
+            try:
+                return int(s)
+            except ValueError:
+                return s
+        rows = _psql(sql)
+        return [tuple(_num(c) for c in r) for r in (rows or [])]
+
     try:
-        with conn.cursor() as cur:
+        if True:
             print("\n§1 帳本覆蓋（入帳條件已成立卻沒有帳本記錄＝真的漏帳）")
-            cur.execute(SQL_COVERAGE)
-            for src, due, missing in cur.fetchall():
+            for src, due, missing in q(SQL_COVERAGE):
                 if missing:
                     red.append(f"{src} 有 {missing} 筆已達入帳條件卻不在帳本")
                     print(f"  🔴 {src:<22} 應入帳 {due:>4}｜缺 {missing}")
@@ -160,8 +205,7 @@ def main() -> int:
                     print(f"  🟢 {src:<22} 應入帳 {due:>4}｜缺 0")
 
             print("\n§2 填報推進（機制沒壞，是沒有人走到那個狀態）")
-            cur.execute(SQL_STAGNANT)
-            for kind, total, advanced, oldest in cur.fetchall():
+            for kind, total, advanced, oldest in q(SQL_STAGNANT):
                 if total and advanced == 0:
                     yellow.append(f"{kind} {total} 筆從未推進到終態（最舊 {oldest} 天）")
                     print(f"  🟡 {kind:<10} {total:>3} 筆｜推進 0｜最舊 {oldest} 天"
@@ -170,8 +214,7 @@ def main() -> int:
                     print(f"  🟢 {kind:<10} {total:>3} 筆｜推進 {advanced}｜最舊 {oldest} 天")
 
             print("\n§3 案號橋樑（case_code 指不到 pm_cases）")
-            cur.execute(SQL_BRIDGE)
-            for kind, total, dangling in cur.fetchall():
+            for kind, total, dangling in q(SQL_BRIDGE):
                 if dangling:
                     pct = dangling / total * 100 if total else 0
                     yellow.append(f"{kind} 有 {dangling}/{total} 筆 case_code 指不到")
@@ -180,8 +223,7 @@ def main() -> int:
                     print(f"  🟢 {kind:<22} 全數可解析")
 
             print("\n§4 名稱相容字（影響所有以名稱比對的管控，含承攬案件防重）")
-            cur.execute(SQL_NFKC)
-            for col, bad, total in cur.fetchall():
+            for col, bad, total in q(SQL_NFKC):
                 pct = bad / total * 100 if total else 0
                 flag = "🟡" if pct >= 5 else "🟢"
                 if pct >= 5:
@@ -191,7 +233,8 @@ def main() -> int:
         print(f"\n✗ 查詢失敗：{e} —— 無法判定（不視為通過）")
         return 2
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
     print()
     if red:

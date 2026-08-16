@@ -62,6 +62,28 @@ FROM gap JOIN documents d ON d.id = gap.document_id;
 """
 
 
+def _psql(sql: str) -> list[list[str]] | None:
+    """host 走這條：.env 的 DATABASE_URL 指向容器網路（postgres:5432），host 連不到。
+
+    2026-08-16：第一版只寫了直連，於是這支在 **weekly 實際執行的 host 環境跑不起來**
+    （`fe_sendauth: no password supplied`），而 exit 2 看起來像「資料庫有事」。
+    這是 2026-08-11 記過的同一條：**檢核跑在哪個環境，和它判得對不對一樣重要**。
+    作法與 `work_record_chain_semantics_audit` 一致，不自創第二種。
+    """
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["docker", "exec", "ck_missive_postgres", "psql", "-U", "ck_user",
+             "-d", "ck_documents", "-tAF", "|", "-c", sql],
+            capture_output=True, text=True, encoding="utf-8", timeout=60,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    if out.returncode != 0:
+        return None
+    return [ln.split("|") for ln in out.stdout.splitlines() if ln.strip()]
+
+
 def _dsn() -> str:
     host = os.getenv("POSTGRES_HOST") or os.getenv("PGHOST") or "localhost"
     port = os.getenv("POSTGRES_PORT") or os.getenv("PGPORT") or "5434"
@@ -83,21 +105,25 @@ def main() -> int:
         print("\n✗ 沒有 psycopg2 —— 無法判定（不視為通過）")
         return 2
 
+    # 兩條路徑，**都不是靜默跳過** —— 兩條都不通就 exit 2
+    after = before = 0
+    newest = None
     try:
         conn = psycopg2.connect(_dsn())
-    except Exception as e:
-        print(f"\n✗ 連不上資料庫：{e} —— 無法判定（不視為通過）")
-        return 2
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute(SQL, {"fix": FIX_DATE})
-            after, before, newest = cur.fetchone()
-    except Exception as e:
-        print(f"\n✗ 查詢失敗：{e} —— 無法判定（不視為通過）")
-        return 2
-    finally:
-        conn.close()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(SQL, {"fix": FIX_DATE})
+                after, before, newest = cur.fetchone()
+        finally:
+            conn.close()
+    except Exception:
+        rows = _psql(SQL.replace("%(fix)s", "'" + FIX_DATE + "'"))
+        if rows is None:
+            print(chr(10) + "✗ 直連與 docker exec 都不通 —— 無法判定（不視為通過）")
+            return 2
+        r = rows[0]
+        after, before = int(r[0] or 0), int(r[1] or 0)
+        newest = r[2] or None
 
     after, before = after or 0, before or 0
     print(f"\n  修法日 {FIX_DATE} 之後建檔卻無關係：{after}")
