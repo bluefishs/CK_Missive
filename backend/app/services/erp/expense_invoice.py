@@ -263,8 +263,8 @@ class ExpenseInvoiceService(AuditableServiceMixin):
     # 委派：審核工作流
     # ========================================================================
 
-    async def approve(self, invoice_id: int) -> Optional[ExpenseInvoice]:
-        return await self._approval.approve(invoice_id)
+    async def approve(self, invoice_id: int, approver_id: Optional[int] = None) -> Optional[ExpenseInvoice]:
+        return await self._approval.approve(invoice_id, approver_id=approver_id)
 
     async def reject(self, invoice_id: int, reason: Optional[str] = None) -> Optional[ExpenseInvoice]:
         return await self._approval.reject(invoice_id, reason)

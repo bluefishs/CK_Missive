@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 import datetime
 from typing import Optional, List, Literal
+import os
 from decimal import Decimal
 
 # 費用分類枚舉 — 新增分類請同步更新此處與 ledger.py
@@ -40,6 +41,20 @@ EXPENSE_STATUS = Literal[
 # 金額門檻 (TWD): 超過此金額需三級審核
 APPROVAL_THRESHOLD = Decimal("30000")
 
+# 2026-08-16：低額自動通過門檻。
+#
+# 實測核銷金額分布：**中位數 940 元**，9 筆裡 5 筆在 2,000 以下、
+# 只有 2 筆超過 30,000。而在此之前的「四層審批」對每一筆一視同仁 ——
+# 一張 300 元的計程車收據要走四次點擊，而每一層都是同一組人、
+# 沒有角色區分、沒有防自核，**做了也不產生控制效果**。
+# 結果是 9 筆只有 2 筆走完：不是大家偷懶，是流程與風險不成比例。
+#
+# 設 2,000 是依實測分布取的（涵蓋約 5/9），刻意**不設更高**：
+# 門檻越高省的力氣越多，但一旦出事的金額也越大。
+# 這個數字應該隨實際使用回頭調整，而不是一次定死。
+# 設為 0 即關閉自動通過（例如稽核期間）。
+AUTO_APPROVE_BELOW = Decimal(os.getenv("EXPENSE_AUTO_APPROVE_BELOW", "2000"))
+
 # 預算警告門檻 (百分比): 累計支出佔預算比率超過此值則預警
 BUDGET_WARNING_PCT = Decimal("80")
 # 預算攔截門檻 (百分比): 超過此值則攔截審核，需總經理介入
@@ -47,7 +62,10 @@ BUDGET_BLOCK_PCT = Decimal("100")
 
 # 狀態流轉規則 (current_status → 允許的下一狀態)
 APPROVAL_TRANSITIONS: dict[str, list[str]] = {
-    "pending":           ["manager_approved", "rejected"],
+    # 2026-08-16 加入 "verified"：低額（≤ AUTO_APPROVE_BELOW）直達終態。
+    # 沒有這一項，_determine_next_approval 回 verified 會被
+    # 「非法狀態流轉」擋掉 —— 加了但不會生效。
+    "pending":           ["manager_approved", "verified", "rejected"],
     "pending_receipt":   ["pending", "rejected"],
     "manager_approved":  ["finance_approved", "verified", "rejected"],
     "finance_approved":  ["verified", "rejected"],

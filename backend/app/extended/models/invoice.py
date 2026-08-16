@@ -60,6 +60,10 @@ class ExpenseInvoice(Base):
     receipt_image_path = Column(String(500), nullable=True,
                                 comment="收據影本路徑 (報帳員上傳)")
     raw_qr_data = Column(Text, nullable=True, comment="原始 QR Code 字串 (除錯用)")
+    # 2026-08-16：核銷審核在此之前**完全沒有記錄是誰核的**（見 20260816a001）
+    approved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
+                         nullable=True, comment="最後一次推進審核的人")
+    approved_at = Column(DateTime, nullable=True, comment="最後一次推進審核的時間")
     notes = Column(String(500), nullable=True, comment="備註")
     mof_invoice_track = Column(String(2), nullable=True,
                                comment="財政部發票字軌 (如 AB)")

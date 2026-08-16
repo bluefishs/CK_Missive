@@ -170,7 +170,7 @@ async def approve_expense(
     - >80%: 警告 (附在 message 中，仍放行)
     """
     try:
-        result = await service.approve(params.id)
+        result = await service.approve(params.id, approver_id=current_user.id)
         if not result:
             raise HTTPException(status_code=404, detail="發票不存在")
 
@@ -212,7 +212,7 @@ async def batch_approve_expenses(
     results = {"success": [], "failed": []}
     for invoice_id in ids:
         try:
-            result = await service.approve(invoice_id)
+            result = await service.approve(invoice_id, approver_id=current_user.id)
             if result:
                 results["success"].append({"id": invoice_id, "new_status": result.status})
             else:

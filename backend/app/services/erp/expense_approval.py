@@ -5,13 +5,14 @@
 
 Version: 1.0.0
 """
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from decimal import Decimal
 
 from app.extended.models.invoice import ExpenseInvoice
 from app.schemas.erp.expense import (
-    APPROVAL_THRESHOLD, APPROVAL_TRANSITIONS,
+    APPROVAL_THRESHOLD, APPROVAL_TRANSITIONS, AUTO_APPROVE_BELOW,
     BUDGET_WARNING_PCT, BUDGET_BLOCK_PCT,
 )
 from app.repositories.erp.expense_invoice_repository import ExpenseInvoiceRepository
@@ -33,7 +34,9 @@ class ExpenseApprovalService(AuditableServiceMixin):
         self.repo = ExpenseInvoiceRepository(db)
         self.ledger_service = FinanceLedgerService(db)
 
-    async def approve(self, invoice_id: int) -> Optional[ExpenseInvoice]:
+    async def approve(
+        self, invoice_id: int, approver_id: Optional[int] = None
+    ) -> Optional[ExpenseInvoice]:
         """多層審核推進 — 依金額門檻自動決定下一狀態
 
         ≤30K TWD: pending → manager_approved → verified (二級)
@@ -53,6 +56,23 @@ class ExpenseApprovalService(AuditableServiceMixin):
         if current in ("verified", "rejected"):
             raise ValueError(f"此發票狀態為「{current}」，不可進行審核操作")
 
+        # 2026-08-16：擋自核。
+        #
+        # 查證發現這套「四層審批」在 2026-08-16 之前**不產生任何控制效果**：
+        # 每一層都只要 `projects:write`（11 個在職帳號都有）、
+        # `approve()` 根本不接收使用者（不知道也不記錄誰核的）、
+        # 而且沒有防自核 —— 也就是同一個人可以把自己送的單點四次到底。
+        # 9 筆核銷只有 2 筆走完，不是大家偷懶，是這個流程做了也沒意義。
+        #
+        # 補權限角色（主管／財務／覆核）需要人員權限架構與職務異動維護，
+        # 而規模是 11 個可核准的人、9 筆核銷 —— 控制成本會遠超過控制價值。
+        # **擋自核是整套控制裡投報率最高的一條：一行判斷，換到真實的雙人原則。**
+        if approver_id is not None and invoice.user_id == approver_id:
+            raise ValueError(
+                "不能核准自己送出的核銷單 —— 請由其他同仁審核。"
+                "（若確實需要，請先請對方代為送出）"
+            )
+
         allowed = APPROVAL_TRANSITIONS.get(current, [])
         if "rejected" in allowed:
             allowed = [s for s in allowed if s != "rejected"]
@@ -70,6 +90,11 @@ class ExpenseApprovalService(AuditableServiceMixin):
             budget_warning = await self._check_budget(invoice.case_code, invoice.amount)
 
         await self.repo.update_status(invoice, next_status)
+        # 2026-08-16：記錄「誰核的」與「何時核的」。
+        # 在此之前完全沒有記錄 —— 事後無從得知任何一筆是誰推進的。
+        if approver_id is not None:
+            invoice.approved_by = approver_id
+            invoice.approved_at = datetime.now()
 
         # 僅最終 verified 才寫入帳本 (冪等：已有 entry 則跳過)
         if next_status == "verified":
@@ -140,6 +165,13 @@ class ExpenseApprovalService(AuditableServiceMixin):
         """根據當前狀態與金額決定下一審核狀態"""
         amount_val = Decimal(str(amount)) if not isinstance(amount, Decimal) else amount
         is_high_value = amount_val > APPROVAL_THRESHOLD
+
+        # 2026-08-16：低額直接到終態，不走中間層。
+        # 中位數 940 元 —— 一張 300 元的計程車收據原本要走四次點擊，
+        # 而那四次是同一組人、沒有角色區分、沒有防自核，不產生控制效果。
+        # 力氣留給大額；擋自核仍然適用（在 approve() 裡先擋）。
+        if current_status == "pending" and AUTO_APPROVE_BELOW > 0 and amount_val <= AUTO_APPROVE_BELOW:
+            return "verified"
 
         if current_status == "pending":
             return "manager_approved"
