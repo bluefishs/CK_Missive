@@ -354,12 +354,23 @@ def check_db_table_today(spec: dict) -> tuple[str, str]:
     async def q():
         conn = await asyncpg.connect(DSN)
         try:
-            return await conn.fetchval(build_count_sql(spec))
+            n = await conn.fetchval(build_count_sql(spec))
+            # 一併取「最後一筆距今幾天」——沿用同一條連線，不另開。
+            # 週末豁免只解釋得了「今天」，解釋不了連續多天沒有新增。
+            stale = None
+            tbl, dcol = spec.get("table"), spec.get("date_col")
+            if tbl and dcol:
+                w = spec.get("where") or "TRUE"
+                stale = await conn.fetchval(
+                    f"SELECT EXTRACT(day FROM NOW() - MAX({dcol}))::int "
+                    f"FROM {tbl} WHERE {w}"
+                )
+            return n, stale
         finally:
             await conn.close()
 
     try:
-        n = asyncio.run(q())
+        n, stale_days = asyncio.run(q())
     except Exception as e:
         return "SKIP", f"DB 查詢失敗：{str(e)[:60]}"
 
@@ -375,7 +386,21 @@ def check_db_table_today(spec: dict) -> tuple[str, str]:
         return "RED", f"{label} 今日 0（今日已執行卻無產出＝疑 producer 沉默失敗）"
     if n:
         return "GREEN", f"{label} 今日 +{n}"
-    return "GREEN", f"{label} 今日 0（週末合理空）"
+
+    # 2026-08-16：週末豁免不得只看「今天」。
+    #
+    # owner 反覆回報「ezbid 常複發」。查證當天（週日）：
+    # `tender_records` source='ezbid' **最新一筆停在 08-14 18:53**，
+    # 已經兩天沒有任何新增 —— 而這裡因為 weekend_legit 判成「合理空」而 GREEN。
+    # 週末解釋得了「今天 0 筆」，解釋不了「連續 N 天 0 筆」。
+    #
+    # registry 的註記本身就寫著這支曾「死 48 天完全隱形」（08-02 拆開監控），
+    # 那次拆的是「pcc 綠就整體綠」，這次是「週末綠就整體綠」——
+    # **同一個形狀換了一個豁免條件**。
+    if stale_days is not None and stale_days >= 3:
+        return "RED", (f"{label} 已連續 {stale_days} 天沒有新增 —— "
+                       f"週末解釋得了今天，解釋不了連續 {stale_days} 天")
+    return "GREEN", f"{label} 今日 0（週末合理空{f'；已 {stale_days} 天無新增' if stale_days else ''}）"
 
 
 def check_db_row_count(spec: dict) -> tuple[str, str]:

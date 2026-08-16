@@ -1273,6 +1273,18 @@ async def ezbid_cache_refresh_job():
         logger.info(f"ezbid 全量刷新: {len(records)} 筆")
 
         # 寫入 DB (持久化)
+        #
+        # 2026-08-16：這一段原本 `except` 只記 warning 就吞掉，而 job 照樣回報 success，
+        # 且**完全不回傳 detail** —— 1737 次執行全部 `success / detail: None`，
+        # 於是「抓到 1000 筆寫入 800 筆」與「抓到 0 筆寫入 0 筆」在紀錄裡長得一樣。
+        #
+        # 而 owner 反覆感覺到的「ezbid 常複發」，實際形狀是：
+        # dashboard 預熱（每 5 分鐘、analytics.py）一直在抓那 1000 筆並放進 Redis，
+        # 所以畫面看起來是有資料的；但**真正負責寫 DB 的就是這一支**，
+        # 它一停，DB 就停止成長而畫面完全看不出來
+        # （實測 2026-08-16：tender_records 最新一筆停在 08-14 18:53）。
+        saved = ingested = 0
+        db_error = None
         if records:
             try:
                 async with async_session_maker() as db:
@@ -1283,7 +1295,10 @@ async def ezbid_cache_refresh_job():
                     ingested = await _ingest_tender_entities(db, records)
                     logger.info(f"ezbid → DB: {saved} 筆新增, KG: {ingested} 實體入圖")
             except Exception as e:
-                logger.warning(f"ezbid DB 寫入失敗 (非致命): {e}")
+                # 仍不 raise（抓取本身成功，讓整包失敗不合比例），
+                # 但要把失敗交出去 —— producer watchdog 看得到才叫「有人在看」。
+                db_error = f"{type(e).__name__}: {e}"
+                logger.error("ezbid DB 寫入失敗: %s", db_error, exc_info=True)
 
         # 2026-04-24: 預熱 dashboard Redis cache，使 /tender/dashboard 首次訪問
         # 就能 cache-hit（否則首次 miss 要並行爬 ezbid+PCC+15 keywords 約 15s）
@@ -1300,8 +1315,22 @@ async def ezbid_cache_refresh_job():
             logger.info(f"dashboard cache 預熱完成: total_found={total}")
         except Exception as e:
             logger.warning(f"dashboard cache 預熱失敗 (非致命): {e}")
+
+        # 2026-08-16：交出 detail。原本這支**完全不回傳** ——
+        # 1737 次執行全是 `success / detail: None`，於是「抓到 1000 筆寫入 800 筆」
+        # 與「抓到 0 筆寫入 0 筆」在 cron_events 裡長得一模一樣，
+        # 而 producer watchdog 只看得到「它有跑」。
+        return {
+            "fetched": len(records),
+            "saved": saved,
+            "kg_ingested": ingested,
+            "reason": db_error or ("已寫入" if saved else "抓到但無新增（可能全是既有標案）"),
+        }
     except Exception as e:
+        # 抓取整個失敗要 raise —— 原本只記 error 就吞掉，
+        # job 照樣記 success，而那正是「常複發卻沒人知道」的來源。
         logger.error(f"ezbid 快取刷新失敗: {e}", exc_info=True)
+        raise
 
 
 @tracked_job("ledger_reconciliation")
