@@ -144,6 +144,20 @@ $$ LANGUAGE sql IMMUTABLE;
 """
 
 
+# §5 估列 vs 已建應付的落差（2026-08-16）
+# 實測 35 筆有應付的報價，**32 筆的外包費已經等於應付合計** —— 有人在手動抄。
+# 剩下的沒抄，於是估列成本是 0 而應付已建百萬級，毛利率顯示 100%。
+# 只報「應付 > 0 而外包費 = 0」這一種：那是明確的漏估。
+# **不報「兩者不等」**：估列與實際本來就會有差，報它會產出每週都紅的噪音。
+SQL_ESTIMATE_GAP = """
+SELECT count(*) AS gap
+FROM erp_quotations q
+WHERE COALESCE(q.outsourcing_fee,0) = 0
+  AND EXISTS (SELECT 1 FROM erp_vendor_payables p
+              WHERE p.erp_quotation_id = q.id AND COALESCE(p.payable_amount,0) > 0);
+"""
+
+
 def _psql(sql: str) -> list[list[str]] | None:
     """host 走這條：.env 的 DATABASE_URL 指向容器網路（postgres:5432），host 連不到。
 
@@ -243,6 +257,17 @@ def main() -> int:
                     print(f"  🟡 {kind:<22} {dangling}/{total}（{pct:.0f}%）指不到 pm_case")
                 else:
                     print(f"  🟢 {kind:<22} 全數可解析")
+
+            _g = q(SQL_ESTIMATE_GAP)
+            gap = _g[0][0] if _g else 0
+            print(chr(10) + "§5 估列漏填（已建應付卻沒有估列外包費）")
+            if gap:
+                yellow.append(f"{gap} 筆報價已建應付但外包費仍是 0")
+                print(f"  🟡 {gap} 筆 —— 應付已經建了，估列外包費卻還是 0，")
+                print("       毛利率會顯示 100%。估列與實際是兩件事，不自動帶入，")
+                print("       但這種漏估要看得見（詳情頁的外包費欄位也會提示）。")
+            else:
+                print("  🟢 沒有「已建應付卻沒估列」的報價")
 
             print("\n§4 名稱相容字（影響所有以名稱比對的管控，含承攬案件防重）")
             q(SQL_HELPER)

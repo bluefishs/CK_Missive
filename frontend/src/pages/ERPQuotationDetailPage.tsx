@@ -196,7 +196,23 @@ export const ERPQuotationDetailPage: React.FC = () => {
             </Col>
           </Row>
           <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small" style={{ marginTop: 16 }}>
-            <Descriptions.Item label="外包費">{Number(quotation.outsourcing_fee).toLocaleString()}</Descriptions.Item>
+            <Descriptions.Item label="外包費">
+              {Number(quotation.outsourcing_fee).toLocaleString()}
+              {/* 2026-08-16：外包費與已建應付的落差。
+                  實測 35 筆有應付的報價，**32 筆的外包費已經等於應付合計** ——
+                  也就是有人在手動抄。剩下 3 筆沒抄，於是估列成本是 0
+                  而應付已建 100 萬／200 萬／90 萬，毛利率顯示 100%。
+                  **刻意不自動覆寫**：估列與實際是兩件事（owner 明確要求區分），
+                  自動帶入會把「還沒估」與「估了剛好等於應付」混成一樣。
+                  只把落差說出來，帶不帶入由人決定。 */}
+              {Number(quotation.total_payable) > 0
+                && Number(quotation.outsourcing_fee) !== Number(quotation.total_payable) && (
+                <div style={{ fontSize: 12, color: '#faad14', marginTop: 4 }}>
+                  已建應付 {Number(quotation.total_payable).toLocaleString()}
+                  {Number(quotation.outsourcing_fee) === 0 ? '，但外包費尚未估列' : '，與估列不符'}
+                </div>
+              )}
+            </Descriptions.Item>
             <Descriptions.Item label="人事費">{Number(quotation.personnel_fee).toLocaleString()}</Descriptions.Item>
             <Descriptions.Item label="管銷費">{Number(quotation.overhead_fee).toLocaleString()}</Descriptions.Item>
             <Descriptions.Item label="其他成本">{Number(quotation.other_cost).toLocaleString()}</Descriptions.Item>
