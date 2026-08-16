@@ -69,6 +69,22 @@ class ERPBillingService(AuditableServiceMixin):
         for key, value in update_data.items():
             setattr(billing, key, value)
 
+        # 2026-08-16：「已收款」必須有金額。
+        #
+        # 入帳條件本來就要求 `billing.payment_amount`，但**存檔時沒有擋** ——
+        # 於是可以存下「狀態說已付、金額是空的」這個矛盾狀態，
+        # 而它不會報錯、不會入帳，只是安靜地讓帳本少一筆。
+        # 實測當天有 2 筆（BL_2026_049/050）正是如此。
+        #
+        # 擋在 service 而不是 schema：金額與狀態可能分兩次請求送，
+        # schema 只看得到單次 payload，看不到最終狀態。
+        if billing.payment_status == "paid" and not billing.payment_amount:
+            raise ValueError(
+                "標記為「已收款」時必須填寫收款金額 —— "
+                "沒有金額就無法入帳，帳本會少這一筆。"
+                "若尚未收到款，請維持「待收款」。"
+            )
+
         await self.db.flush()
         await self.db.refresh(billing)
 

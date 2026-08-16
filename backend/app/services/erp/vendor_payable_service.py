@@ -66,6 +66,16 @@ class ERPVendorPayableService(AuditableServiceMixin):
         for key, value in update_data.items():
             setattr(payable, key, value)
 
+        # 2026-08-16：與請款同型的守衛（請款那邊實測有 2 筆矛盾狀態）。
+        # 拋轉條件本來就要求 paid_amount，但存檔時不擋 ——
+        # 「狀態說已付、金額是空的」會安靜地讓帳本少一筆。
+        if payable.payment_status == "paid" and not payable.paid_amount:
+            raise ValueError(
+                "標記為「已付款」時必須填寫付款金額 —— "
+                "沒有金額就無法入帳，帳本會少這一筆。"
+                "若尚未付款，請維持「未付款」。"
+            )
+
         await self.db.flush()
         await self.db.refresh(payable)
 

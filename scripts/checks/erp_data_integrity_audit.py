@@ -80,7 +80,10 @@ SELECT '應付帳款' AS kind, count(*) AS total,
 FROM erp_vendor_payables
 UNION ALL
 SELECT '費用核銷', count(*),
-       count(*) FILTER (WHERE status IN ('approved','finance_approved')),
+       -- 終態是 verified 不是 approved（見 _determine_next_approval）。
+       -- 我第一版寫 approved/finance_approved 而把 finance_approved 當終態，
+       -- 那是中間層 —— 命名讓人誤讀，連寫檢核的我也誤讀了。
+       count(*) FILTER (WHERE status = 'verified'),
        COALESCE(max(EXTRACT(day FROM NOW()-created_at))::int, 0)
 FROM expense_invoices
 UNION ALL
