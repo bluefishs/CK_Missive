@@ -81,14 +81,19 @@ def cannot_judge(age: float, threshold: float, uptime: float) -> str | None:
        需要這條是因為 **uptime 只反映最後一次重啟** —— 一天內連續 rebuild 時，
        扣除額被歸零而 age 持續累積，光靠守則 1 每次 rebuild 都會製造數小時假紅。
 
-       但守則 2 有**上限**：`age >= threshold × 2` 就不再適用。
-       重啟churn 每次最多只能解釋約一個週期的沉默，
-       超過門檻兩倍的沉默不是重啟解釋得了的 ——
-       少了這個上限，一支真的死掉 200 小時的 job 會在重啟後被判成綠的
-       （六情境測試第 3 案當場抓到，那比假紅嚴重得多）。
+       ⚠️ **2026-08-16 移除守則 2 原本的上限（`age < threshold × 2`）**。
+       那個上限是為了防「真沉默被重啟蓋掉」，但它連「這次啟動後根本還沒有
+       機會跑」都一起否決了 —— 而後者是**可以確定的事實不是推測**。
+       實測：容器 13:14 啟動，`ezbid_cache_refresh`（1 小時週期）
+       13:15 註冊、下次 14:15，而它 age 12h（先前多次 rebuild 累積）
+       → 上限否決豁免 → **在它根本不可能跑的時候判它紅**。
 
-    代價講明：真沉默的偵測最多延後一個週期，且只在 1～2 倍門檻的區間。
-    這是刻意的取捨 —— 延後一個週期，換掉每次 rebuild 都出現的假紅。
+       移除上限**不會**讓真沉默變綠：豁免最多只持續一個週期，
+       uptime 超過週期後就恢復判定。而為了不把事情藏起來，
+       訊息會把「重啟前已經沉默多久」講出來 —— 那才是真正的資訊。
+
+    代價講明：真沉默的偵測最多延後一個週期。
+    這是刻意的取捨 —— 延後一個週期，換掉每次重啟都出現的假紅。
     """
     if age <= threshold:
         return None
@@ -96,9 +101,15 @@ def cannot_judge(age: float, threshold: float, uptime: float) -> str | None:
         return (f"扣掉重啟後的 {uptime/3600:.1f}h 即為 "
                 f"{(age-uptime)/3600:.1f}h，尚不足以判定")
     interval = threshold / 2
-    if uptime and uptime < interval and age < threshold * 2:
-        return (f"行程啟動僅 {uptime/3600:.1f}h＜週期 {interval/3600:.1f}h，"
+    if uptime and uptime < interval:
+        pre = age - uptime
+        note = (f"行程啟動僅 {uptime/3600:.1f}h＜週期 {interval/3600:.1f}h，"
                 f"這次啟動後它還沒有過執行機會")
+        if pre > threshold:
+            # 不藏事：重啟前就已經超過門檻，下個週期後若仍沒跑就會判紅
+            note += (f"；⚠️ 但重啟前已沉默 {pre/3600:.1f}h（超過門檻 "
+                     f"{threshold/3600:.1f}h）—— 再過一個週期仍未執行就會判紅")
+        return note
     return None
 
 
