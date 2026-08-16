@@ -397,9 +397,18 @@ def check_db_table_today(spec: dict) -> tuple[str, str]:
     # registry 的註記本身就寫著這支曾「死 48 天完全隱形」（08-02 拆開監控），
     # 那次拆的是「pcc 綠就整體綠」，這次是「週末綠就整體綠」——
     # **同一個形狀換了一個豁免條件**。
-    if stale_days is not None and stale_days >= 3:
+    # ⚠️ 2026-08-16 當天稍後更正門檻 3 → 5。
+    #
+    # 我先前判定「ezbid 兩天沒新增＝異常」是**錯的**：實測 announce_date 分布為
+    # 08-10 Mon 482 / 08-11 Tue 645 / 08-12 Wed 717 / 08-13 Thu 630 / 08-14 Fri 756、
+    # **週六日完全沒有** —— 政府不在週末發標，那是乾淨的週間模式。
+    # 手動觸發也證實：抓到 1000 筆、寫入 0 筆，因為全是既有標案。
+    #
+    # 門檻 3 天會在「週六→週日→週一早上」誤報，那是我自己造的假紅來源。
+    # 5 天代表跨過一個完整週末仍然沒有新增 —— 那才不是週末解釋得了的。
+    if stale_days is not None and stale_days >= 5:
         return "RED", (f"{label} 已連續 {stale_days} 天沒有新增 —— "
-                       f"週末解釋得了今天，解釋不了連續 {stale_days} 天")
+                       f"跨過一個完整週末仍無新增，不是週末解釋得了的")
     return "GREEN", f"{label} 今日 0（週末合理空{f'；已 {stale_days} 天無新增' if stale_days else ''}）"
 
 
