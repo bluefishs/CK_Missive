@@ -30,7 +30,7 @@
 > 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
 > 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
 
-<!--baseline:check_scripts-->合計 **163** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **164** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -67,6 +67,7 @@
 | `compose_dockerfile_healthcheck_ssot.py` | 偵測 docker-compose*.yml healthcheck 與對應 Dockerfile HEALTHCHECK SSOT drift（L45 family） |
 | `container_env_alignment_audit.py` | Container env vs host .env 對齊 audit |
 | `container_image_freshness_check.py` | Container image freshness check |
+| `business_vital_signs.py` | daily 13：**八條生命跡象** —— 問「這個模組今天活著嗎」而非「機制有沒有動」。150 支檢核裡 131 支只看機制，而四個「機制綠、業務停」的實證沒有一支問得到。首月觀測不告警 |
 | `cron_silent_dormant_check.py` | Fitness step (v6.12 #2 補完): cron silent dormant 偵測 |
 | `dashboard_freshness_check.py` | Fitness step 64: GOVERNANCE_INTEGRATED_DASHBOARD freshness 偵測 |
 | `db_transaction_health_check.py` | 資料庫連線狀態健檢 —— 抓「交易中止卻未 rollback」的現行犯 |
