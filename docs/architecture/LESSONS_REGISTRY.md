@@ -531,6 +531,22 @@
 
 ---
 
+## L93 — ORM mapper 初始化失敗＝整個系統無法登入，而 /health 仍是 200（2026-08-16）
+
+<!--not-enforceable: 部分可檢核（test_orm_mappers_configure 已鎖 mapper 可初始化），但「改 ORM 要重建不能只 docker cp」是行為準則-->
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 為核銷審核加 `approved_by` 欄位後，`ExpenseInvoice` 有兩個外鍵指向 `users`（`user_id`＝送出者、`approved_by`＝核准者）。 |
+| **What happened** | SQLAlchemy 無法判斷 `User.expense_invoices` 該走哪一條 → `AmbiguousForeignKeysError` → **mapper 初始化失敗** → 所有碰到 User 的查詢爆掉 → `POST /api/auth/google` 回 **500**，owner 回報「系統無法登入」。 |
+| **Root cause** | ① 加第二個指向同一張表的外鍵時，**兩端的 relationship 都必須指明 `foreign_keys`**。② 事故被放大的原因是**我修好程式碼後只做 `docker cp` 沒有重建** —— `docker cp` 不會重載已匯入的模組，行程仍載著舊 mapper，所以「程式碼是新的、行為是舊的」。 |
+| **為何沒被發現** | **`/health` 與公網首頁全程 200** —— 它們不觸發 ORM mapper 設定。L76 的三層驗證（host:8001／公網首頁／公網 API）**全部通過**，而登入是死的。又一次「服務層綠、業務層死」，而這次連我剛建的八條生命跡象也照不到（它們查資料不走 ORM relationship）。 |
+| **Fix** | 兩端 relationship 指明 `foreign_keys`；重建容器（非 docker cp）；新增 `test_orm_mappers_configure`（一次觸發全部 mapper 設定，負向測試：拿掉 foreign_keys 即紅）。 |
+| **Prevention** | (a) **改 ORM 一律重建容器**，`docker cp` 只對 bind-mount 的 `scripts/` 有效。(b) 加外鍵時問「這張表已經有幾個外鍵指向同一個目標」。(c) L76 的部署驗證應**加一條會觸發 ORM 的端點**（如 `/api/auth/check`），否則 200 只證明靜態層活著。 |
+| **Refs** | `backend/app/extended/models/{core,invoice}.py` / `backend/tests/unit/test_orm_mappers_configure.py` / 同族：L45（healthcheck 綠而服務死）、L90（檢核跑在哪個環境） |
+
+---
+
 ## L92 — 檢核在「要報問題的那一刻」崩掉，而平常看起來好好的（2026-08-15）
 
 <!--enforced-by: scripts/checks/governance_alignment_audit.py-->

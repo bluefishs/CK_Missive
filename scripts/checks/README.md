@@ -30,7 +30,7 @@
 > 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
 > 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
 
-<!--baseline:check_scripts-->合計 **164** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **165** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -71,6 +71,7 @@
 | `cron_silent_dormant_check.py` | Fitness step (v6.12 #2 補完): cron silent dormant 偵測 |
 | `dashboard_freshness_check.py` | Fitness step 64: GOVERNANCE_INTEGRATED_DASHBOARD freshness 偵測 |
 | `db_transaction_health_check.py` | 資料庫連線狀態健檢 —— 抓「交易中止卻未 rollback」的現行犯 |
+| `deploy_verify.py` | 部署後驗證（L76 三層＋**L93 ORM／認證層**）—— 2026-08-16 事故：三層全 200 而登入是死的，因為 /health 不觸發 ORM mapper。第 4 層用 **POST** /api/auth/check，401 是正確答案、500 才是壞了 |
 | `declaration_gate.py` | 腳本強制表態閘門（CK_Missive 薄包裝）— 2026-08-09 |
 | `docker_compose_volume_consistency.py` | 偵測同一專案多個 docker-compose*.yml + backup script 內 volume 命名 drift |
 | `governance_dashboard_completeness_audit.py` | Governance Dashboard Completeness Audit |
