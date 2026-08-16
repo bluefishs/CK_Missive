@@ -2,9 +2,10 @@
 from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 
 from app.schemas.common import BaseQueryParams
+from app.schemas._text_utils import normalize_cjk_compat
 
 
 def _validate_date_ordering(
@@ -46,6 +47,19 @@ class PMCaseCreate(BaseModel):
         """日期交叉驗證 — end_date 不得早於 start_date"""
         _validate_date_ordering(self.start_date, self.end_date)
         return self
+
+    # 2026-08-16：只正規化「看不見卻會壞比對」的相容字，**不動全形標點**。
+    #
+    # 實測 documents.subject 有 1560/2009（78%）帶 CJK 相容漢字
+    # （年 U+F98E vs 標準 U+5E74）—— 字形一模一樣、長度一樣、md5 不同，
+    # 於是所有以名稱比對的管控靜默失效（含承攬案件防重）。
+    #
+    # 刻意**不**套完整的 normalize_name：那會把全形括號（）轉半形()，
+    # 而公文主旨常用全形括號 —— 那是**看得見的改變**，不該由正規化順手做掉。
+    @field_validator('case_name', mode='before')
+    @classmethod
+    def _normalize_cjk(cls, v):
+        return normalize_cjk_compat(v) if isinstance(v, str) else v
 
 
 class PMCaseUpdate(BaseModel):

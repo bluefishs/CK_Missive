@@ -108,20 +108,39 @@ SELECT '承攬案件 → pm_cases',
 
 # 名稱相容字污染（影響所有以名稱比對的管控，含承攬案件防重）
 SQL_NFKC = """
+-- ⚠️ 2026-08-16 更正判準。原本用 `x <> normalize(x,NFKC)`，那**過寬 26 倍**：
+-- 全域 NFKC 會把全形逗號（U+FF0C）轉半形，而中文語境的全形標點是正常的 ——
+-- 於是 documents.subject 被報成 1560/2009（78%），實際帶相容漢字的只有 **59 筆**。
+-- 真正會壞比對的是**康熙部首（U+2F00-2FDF）與 CJK 相容漢字（U+F900-FAFF）**：
+-- 那些字形與標準漢字一模一樣、長度一樣、md5 不同。
+-- 判準與 `app/scripts/normalize_unicode.py` 一致（它一直是對的，是我算錯）。
+-- PostgreSQL 的字元範圍比對受 collation 影響不可靠，故用碼位逐字元判定。
 SELECT 'erp_quotations.case_name',
-       count(*) FILTER (WHERE case_name IS NOT NULL AND case_name<>normalize(case_name,NFKC)),
+       count(*) FILTER (WHERE case_name IS NOT NULL AND _has_cjk_compat(case_name)),
        count(*)
 FROM erp_quotations
 UNION ALL
 SELECT 'contract_projects.project_name',
-       count(*) FILTER (WHERE project_name IS NOT NULL AND project_name<>normalize(project_name,NFKC)),
+       count(*) FILTER (WHERE project_name IS NOT NULL AND _has_cjk_compat(project_name)),
        count(*)
 FROM contract_projects
 UNION ALL
 SELECT 'documents.subject',
-       count(*) FILTER (WHERE subject IS NOT NULL AND subject<>normalize(subject,NFKC)),
+       count(*) FILTER (WHERE subject IS NOT NULL AND _has_cjk_compat(subject)),
        count(*)
 FROM documents;
+"""
+
+# PostgreSQL 沒有現成的「含相容漢字」判斷；用一次性 SQL 函式定義，
+# 避免在三個地方各寫一份 range 條件（而 range 比對本身受 collation 影響不可靠）。
+SQL_HELPER = """
+CREATE OR REPLACE FUNCTION _has_cjk_compat(s text) RETURNS boolean AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM regexp_split_to_table(s, '') AS ch
+    WHERE ascii(ch) BETWEEN 12032 AND 12255      -- U+2F00-2FDF 康熙部首
+       OR ascii(ch) BETWEEN 63744 AND 64255      -- U+F900-FAFF CJK 相容漢字
+  );
+$$ LANGUAGE sql IMMUTABLE;
 """
 
 
@@ -226,6 +245,7 @@ def main() -> int:
                     print(f"  🟢 {kind:<22} 全數可解析")
 
             print("\n§4 名稱相容字（影響所有以名稱比對的管控，含承攬案件防重）")
+            q(SQL_HELPER)
             for col, bad, total in q(SQL_NFKC):
                 pct = bad / total * 100 if total else 0
                 flag = "🟡" if pct >= 5 else "🟢"

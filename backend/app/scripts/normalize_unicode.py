@@ -44,6 +44,10 @@ TABLES_TO_CHECK = [
     ('canonical_entities', ['canonical_name']),
     ('entity_aliases', ['alias_name']),
     ('document_entity_mentions', ['mention_text']),
+    # 2026-08-16 補入：這兩張表正是 case_code 橋樑比對的兩端，
+    # 名稱帶相容字會讓「同名」比對靜默失效（含承攬案件防重）。
+    ('erp_quotations', ['case_name']),
+    ('pm_cases', ['case_name']),
 ]
 
 # 安全性：建立允許的表名和列名白名單

@@ -9,6 +9,7 @@ from datetime import datetime, date
 from enum import Enum
 
 from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
+from app.schemas._text_utils import normalize_cjk_compat
 
 class DocumentCategory(str, Enum):
     """公文分類 (用於篩選) - 與資料庫實際值對齊"""
@@ -59,6 +60,19 @@ class DocumentBase(BaseModel):
     # 新增：發文形式與附件欄位
     delivery_method: Optional[str] = Field("電子交換", description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
     has_attachment: Optional[bool] = Field(False, description="是否含附件")
+
+    # 2026-08-16：只正規化「看不見卻會壞比對」的相容字，**不動全形標點**。
+    #
+    # 實測 documents.subject 有 1560/2009（78%）帶 CJK 相容漢字
+    # （年 U+F98E vs 標準 U+5E74）—— 字形一模一樣、長度一樣、md5 不同，
+    # 於是所有以名稱比對的管控靜默失效（含承攬案件防重）。
+    #
+    # 刻意**不**套完整的 normalize_name：那會把全形括號（）轉半形()，
+    # 而公文主旨常用全形括號 —— 那是**看得見的改變**，不該由正規化順手做掉。
+    @field_validator('subject', mode='before')
+    @classmethod
+    def _normalize_cjk(cls, v):
+        return normalize_cjk_compat(v) if isinstance(v, str) else v
 
 class DocumentCreate(DocumentBase):
     """建立公文資料結構"""
