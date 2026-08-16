@@ -509,30 +509,49 @@ async function main() {
     const warn = MP.overflow_warn_px || 400;
     const ranked = mobileRows.filter((r) => !r.error)
       .sort((a, b) => b.tableOverflow - a.tableOverflow);
-    console.log(`\n📱 行動版面觀測（${(MP.viewport || {}).width || 390}px 寬，觀測不告警）：`);
+    // 2026-08-16：多 viewport 上線後，消費端一度仍寫死單一寬度 ——
+    // 生產端每列都記了 `viewportWidth`（見上方），報表卻拿設定裡的第一個寬度
+    // 當所有列的標籤與基準。後果：768px 量到的列會被拿 390 去比而**誤報整頁被撐開**，
+    // 標頭也會把非該寬度的發現標成該寬度。**生產端改了、消費端沒跟上**，
+    // 而這種不一致不會有任何錯誤，只會產生看似精確的錯誤數字。
+    const widths = [...new Set(ranked.map((r) => r.viewportWidth).filter(Boolean))].sort((a, b) => a - b);
+    const widthLabel = widths.length ? widths.join(' / ') : ((MP.viewport || {}).width || 390);
+    const routeCount = new Set(ranked.map((r) => r.route)).size;
+    console.log(`\n📱 行動版面觀測（${widthLabel}px 寬，觀測不告警）：`);
     const over = ranked.filter((r) => r.tableOverflow >= warn);
     if (over.length) {
-      console.log(`   表格橫向外溢 ≥${warn}px 共 ${over.length} 頁（手機需左右滑動才看得完整列）：`);
-      over.slice(0, 8).forEach((r) => console.log(`      ${r.route} — 外溢 ${r.tableOverflow}px`));
-      if (over.length > 8) console.log(`      …另 ${over.length - 8} 頁`);
+      const overRoutes = new Set(over.map((r) => r.route)).size;
+      console.log(`   表格橫向外溢 ≥${warn}px 共 ${over.length} 筆／${overRoutes} 頁`
+        + `（手機需左右滑動才看得完整列）：`);
+      // 同一路由在不同寬度各是一筆 —— 標上寬度，否則清單看起來像重複
+      over.slice(0, 8).forEach((r) => console.log(`      ${r.route} @${r.viewportWidth}px — 外溢 ${r.tableOverflow}px`));
+      if (over.length > 8) console.log(`      …另 ${over.length - 8} 筆`);
     } else if (ranked.length === 0) {
       // 0 頁不是「全部通過」——是根本沒量到。實際發生過一次（登入態失效時
       // 每一頁都被導回登入頁而跳過），當時卻印「皆低於門檻」＝假綠。
       console.log(`   ⚠ 未量到任何頁面（設定了 ${mobileTargets.length} 條）`
         + ' —— 可能登入態失效或全被導回登入頁，**不可視為通過**');
     } else {
-      console.log(`   已測 ${ranked.length} 頁，皆低於 ${warn}px 門檻`);
+      console.log(`   已測 ${routeCount} 頁 × ${widths.length || 1} 個寬度（${ranked.length} 筆），`
+        + `皆低於 ${warn}px 門檻`);
     }
-    const vw = (MP.viewport || {}).width || 390;
-    const blown = ranked.filter((r) => (r.layoutViewport || vw) > vw + 8);
+    // ⚠️ 基準必須是**該列自己的** viewport 寬度。用固定值比對，
+    // 768px 量到的列會被拿 390 去比而全數誤報「整頁被撐開」。
+    const blown = ranked.filter((r) => {
+      const base = r.viewportWidth || (MP.viewport || {}).width || 390;
+      return (r.layoutViewport || base) > base + 8;
+    });
     if (blown.length) {
-      console.log(`   ⚠ 整頁被撐開（layout viewport > ${vw}px，屬版面破格，與表格無關）${blown.length} 頁：`);
-      blown.slice(0, 5).forEach((r) => console.log(`      ${r.route} — 撐到 ${r.layoutViewport}px`));
+      console.log(`   ⚠ 整頁被撐開（layout viewport 超過該次量測寬度，屬版面破格，與表格無關）`
+        + `${blown.length} 筆：`);
+      blown.slice(0, 5).forEach((r) => console.log(
+        `      ${r.route} @${r.viewportWidth}px — 撐到 ${r.layoutViewport}px`));
     }
     const pageOver = ranked.filter((r) => r.pageOverflow > 8 && !blown.includes(r));
     if (pageOver.length) {
-      console.log(`   ⚠ 整頁橫向溢出（版面破格，非表格內捲）${pageOver.length} 頁：`);
-      pageOver.slice(0, 5).forEach((r) => console.log(`      ${r.route} — ${r.pageOverflow}px`));
+      console.log(`   ⚠ 整頁橫向溢出（版面破格，非表格內捲）${pageOver.length} 筆：`);
+      pageOver.slice(0, 5).forEach((r) => console.log(
+        `      ${r.route} @${r.viewportWidth}px — ${r.pageOverflow}px`));
     }
   }
   console.log('-'.repeat(70));
@@ -561,8 +580,17 @@ async function main() {
       known_limitations: limitations.map((l) => ({ route: l.route, reason: l.reason })),
       failures: bad.map((b) => ({ route: b.route, problems: b.problems })),
       // 觀測資料（不影響 pass/fail 判定）
+      // 2026-08-16：改記 `viewports`（複數）—— rows 橫跨多個寬度時，
+      // 只記一個 viewport 會讓這份 JSON 自己說謊：讀者會以為所有列都在那個寬度量的。
+      // 保留 `viewport` 欄位（取第一個）僅為向後相容，新的消費端請讀 `viewports`
+      // 或每列自己的 `viewportWidth`。
       mobile_probe: mobileRows.length
-        ? { viewport: MP.viewport || { width: 390, height: 844 }, rows: mobileRows }
+        ? {
+          viewports: [...new Set(mobileRows.map((r) => r.viewportWidth).filter(Boolean))]
+            .sort((a, b) => a - b),
+          viewport: MP.viewport || { width: 390, height: 844 },
+          rows: mobileRows,
+        }
         : null,
     }, null, 1), 'utf-8');
   } catch (e) { console.error('寫入檢核結果失敗:', String(e)); }

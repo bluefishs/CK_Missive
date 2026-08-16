@@ -94,17 +94,54 @@ FROM operational_expenses;
 """
 
 # §3 案號橋樑（NFKC：名稱在不同模組可能用 CJK 相容字，字形相同碼位不同）
+# §3 案號橋樑 —— 2026-08-16 大幅收窄判準。
+#
+# 原本報「報價 27/77、承攬案件 38/88 指不到 pm_case」。查證後那是**三種東西
+# 被算在一起**，其中 34 筆根本不是缺陷：
+#
+# | 類別 | 數量 | 是什麼 |
+# |---|---|---|
+# | 舊格式 `CK2023_01_01_001`（類別是數字） | 22 | PM 模組還不存在時的案號體系 |
+# | 案號年度 ≤ 2024 | 13 | 歷史案件補登（全部 2026-03-18 一次匯入，107~113 年度）|
+# | **現行年度卻無 pm_case** | **4** | ⭐ 真缺口：執行中、有報價、其中一筆已請款兩次 |
+#
+# **刻意不補建那 34 筆**：那會憑空造出 2020 年的「案件」紀錄，
+# 而系統當時根本沒有這個概念 —— **歷史資料的正確狀態就是「沒有」，不是「補一個」**。
+#
+# 判準若不收窄，報出來的 27/38 裡有 34 筆是雜訊，而那種數字只會被略過
+# （本專案反覆記過的告警疲勞）。收窄後是 4 筆，每一筆都該有人處理。
+CURRENT_ERA = "2025"   # 案號年度 >= 此值才算現行流程；之前的是歷史補登
+
 SQL_BRIDGE = """
 SELECT '報價 → pm_cases' AS kind,
-       (SELECT count(*) FROM erp_quotations WHERE COALESCE(case_code,'')<>'') AS total,
-       (SELECT count(*) FROM erp_quotations q WHERE COALESCE(q.case_code,'')<>''
-          AND NOT EXISTS (SELECT 1 FROM pm_cases c WHERE c.case_code=q.case_code)) AS dangling
+       (SELECT count(*) FROM erp_quotations
+         WHERE case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+           AND substring(case_code from 3 for 4) >= '%(era)s') AS total,
+       (SELECT count(*) FROM erp_quotations q
+         WHERE q.case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+           AND substring(q.case_code from 3 for 4) >= '%(era)s'
+           AND NOT EXISTS (SELECT 1 FROM pm_cases c WHERE c.case_code=q.case_code)) AS dangling
 UNION ALL
 SELECT '承攬案件 → pm_cases',
-       (SELECT count(*) FROM contract_projects WHERE COALESCE(case_code,'')<>''),
-       (SELECT count(*) FROM contract_projects p WHERE COALESCE(p.case_code,'')<>''
-          AND NOT EXISTS (SELECT 1 FROM pm_cases c WHERE c.case_code=p.case_code));
-"""
+       (SELECT count(*) FROM contract_projects
+         WHERE case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+           AND substring(case_code from 3 for 4) >= '%(era)s'),
+       (SELECT count(*) FROM contract_projects p
+         WHERE p.case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+           AND substring(p.case_code from 3 for 4) >= '%(era)s'
+           AND NOT EXISTS (SELECT 1 FROM pm_cases c WHERE c.case_code=p.case_code));
+""" % {"era": CURRENT_ERA}
+
+# 真缺口要**列出來**，不能只給數字 —— 4 筆是可以逐一處理的量，
+# 而「27 筆指不到」那種數字沒有人會去查是哪幾筆。
+SQL_BRIDGE_DETAIL = """
+SELECT p.case_code, left(COALESCE(p.project_name,''), 28), p.status
+FROM contract_projects p
+WHERE p.case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+  AND substring(p.case_code from 3 for 4) >= '%(era)s'
+  AND NOT EXISTS (SELECT 1 FROM pm_cases c WHERE c.case_code=p.case_code)
+ORDER BY p.case_code;
+""" % {"era": CURRENT_ERA}
 
 # 名稱相容字污染（影響所有以名稱比對的管控，含承攬案件防重）
 SQL_NFKC = """
@@ -257,6 +294,10 @@ def main() -> int:
                     print(f"  🟡 {kind:<22} {dangling}/{total}（{pct:.0f}%）指不到 pm_case")
                 else:
                     print(f"  🟢 {kind:<22} 全數可解析")
+
+            # 4 筆是可以逐一處理的量 —— 列出來才有人會動它
+            for _cc, _nm, _st in q(SQL_BRIDGE_DETAIL):
+                print(f"       · {_cc}  {_nm}（{_st}）")
 
             _g = q(SQL_ESTIMATE_GAP)
             gap = _g[0][0] if _g else 0
