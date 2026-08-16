@@ -60,6 +60,47 @@ class ERPQuotation(Base):
                             cascade="all, delete-orphan")
     vendor_payables = relationship("ERPVendorPayable", back_populates="quotation", lazy="selectin",
                                    cascade="all, delete-orphan")
+    # 2026-08-16：報價明細（線上報價單）。lazy="selectin" 與其他關聯一致 ——
+    # 序列化時觸發 lazy IO 會爆 MissingGreenlet 而被誤標成 409（2026-07-30 踩過）。
+    items = relationship("ERPQuotationItem", back_populates="quotation", lazy="selectin",
+                         cascade="all, delete-orphan",
+                         order_by="ERPQuotationItem.sort_order")
+
+
+class ERPQuotationItem(Base):
+    """報價明細（線上報價單的逐項）—— 2026-08-16
+
+    owner：「線上報價單機制」。
+
+    在此之前 `erp_quotations` **只有彙總金額**（`total_price` 一個數字），
+    沒有任何逐項資料 —— 那不是報價單，是成本主檔。
+    實測 78 張報價裡 **23 張沒有總價**，因為那個數字只能靠人手填，
+    而人手上真正有的是一份逐項的報價內容。
+
+    有了明細之後 `total_price` 由小計加總得出，不再是獨立的一份事實。
+    """
+    __tablename__ = "erp_quotation_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quotation_id = Column(Integer, ForeignKey("erp_quotations.id", ondelete="CASCADE"),
+                          nullable=False, index=True)
+
+    item_name = Column(String(200), nullable=False, comment="工項名稱")
+    spec = Column(String(300), comment="規格/說明")
+    unit = Column(String(20), comment="單位（式/處/公頃…）")
+    qty = Column(Numeric(12, 2), nullable=False, server_default="1", comment="數量")
+    unit_price = Column(Numeric(15, 2), nullable=False, server_default="0", comment="單價")
+    # 小計由 qty × unit_price 算出後存下來。
+    # **存下來而不是每次算** —— 報價送出後單價可能調整，
+    # 而已送出的那份報價金額不該跟著變。
+    amount = Column(Numeric(15, 2), nullable=False, server_default="0", comment="小計")
+    sort_order = Column(Integer, nullable=False, server_default="0", comment="排序")
+    notes = Column(Text, comment="備註")
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    quotation = relationship("ERPQuotation", back_populates="items")
 
 
 class ERPInvoice(Base):

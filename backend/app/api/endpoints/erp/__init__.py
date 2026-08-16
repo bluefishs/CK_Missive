@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from app.core.dependencies import require_auth
 from . import quotations, invoices, billings, vendor_payables, vendor_accounts
 from . import client_accounts
-from . import expenses, expenses_io, ledger, financial_summary, einvoice_sync
+from . import expenses, expenses_io, ledger, financial_summary, einvoice_sync, filing_gaps, quotation_items
 from . import assets
 from . import operational
 
@@ -17,6 +17,10 @@ router.include_router(expenses.router, prefix="/expenses", tags=["費用報銷"]
 router.include_router(expenses_io.router, prefix="/expenses", tags=["費用報銷 IO"])
 router.include_router(ledger.router, prefix="/ledger", tags=["統一帳本"])
 router.include_router(financial_summary.router, prefix="/financial-summary", tags=["財務彙總"])
+# 2026-08-16 owner：「承攬報價案件對應填報人員通報管控」
+router.include_router(filing_gaps.router, prefix="/filing-gaps", tags=["填報缺口"])
+# 2026-08-16 owner：「線上報價單機制」
+router.include_router(quotation_items.router, prefix="/quotation-items", tags=["報價明細"])
 router.include_router(einvoice_sync.router, prefix="/einvoice-sync", tags=["電子發票同步"])
 router.include_router(client_accounts.router, prefix="/client-accounts", tags=["ERP 委託單位帳款"])
 router.include_router(assets.router, prefix="/assets", tags=["ERP 資產管理"])

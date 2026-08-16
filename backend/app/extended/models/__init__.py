@@ -122,6 +122,7 @@ from .pm import (
 # 15. 財務管理模組 (ERP)
 from .erp import (
     ERPQuotation,
+    ERPQuotationItem,
     ERPInvoice,
     ERPBilling,
     ERPVendorPayable,
@@ -240,6 +241,7 @@ __all__ = [
     # PMCaseStaff removed (v5.2.0 — migrated to project_user_assignments)
     # 財務管理 (ERP)
     "ERPQuotation",
+    "ERPQuotationItem",
     "ERPInvoice",
     "ERPBilling",
     "ERPVendorPayable",

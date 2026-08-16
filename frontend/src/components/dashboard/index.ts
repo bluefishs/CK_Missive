@@ -13,3 +13,4 @@ export { AIStatsPanel } from './AIStatsPanel';
 export { default as AIStatsPanelDefault } from './AIStatsPanel';
 export { SystemHealthDashboard } from './SystemHealthDashboard';
 export { default as SystemHealthDashboardDefault } from './SystemHealthDashboard';
+export { MyFilingGapsCard } from './MyFilingGapsCard';

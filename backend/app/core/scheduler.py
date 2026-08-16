@@ -1099,6 +1099,29 @@ async def morning_report_job():
             )
         return
 
+    # Step 1b: 填報缺口（2026-08-16 owner「承攬報價案件對應填報人員通報管控」）
+    #
+    # 走**既有** digest buffer 由晨報一次帶出，不新建通知管道 ——
+    # 核銷卡了 16 天沒人知道，不是因為少一個通道，是因為沒有人在算這件事。
+    # 失敗只記 warning 不中斷晨報：缺口是附加資訊，不該讓主報表發不出去。
+    try:
+        from app.services.erp.filing_gap import FilingGapService
+        from app.services.integration.line_digest_buffer import queue_digest
+
+        async with async_session_maker() as gap_db:
+            gap_svc = FilingGapService(gap_db)
+            gap_data = await gap_svc.collect()
+            gap_text = gap_svc.to_digest_text(gap_data)
+        if gap_text:
+            await queue_digest("填報缺口", gap_text)
+            logger.info("填報缺口已入 digest：%s 項", gap_data["total"])
+        else:
+            # 0 項要說出來 —— 「今天沒有缺口」與「這段根本沒跑」
+            # 在 log 裡不得長得一樣（本專案的沉默成功家族）。
+            logger.info("填報缺口 0 項，不入 digest")
+    except Exception as e:
+        logger.warning("填報缺口彙整失敗（晨報照常）: %s: %s", type(e).__name__, e)
+
     # Step 2: Build admin default summary for snapshot + fallback
     admin_svc = MorningReportService(None)  # pure formatter, db not needed
     admin_summary = await admin_svc.generate_summary_from_data(data)

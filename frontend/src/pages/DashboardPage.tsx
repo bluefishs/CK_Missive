@@ -16,7 +16,7 @@
 import React from 'react';
 import { Typography } from 'antd';
 import { useResponsive } from '../hooks';
-import { DashboardCalendarSection } from '../components/dashboard';
+import { DashboardCalendarSection, MyFilingGapsCard } from '../components/dashboard';
 
 const { Title } = Typography;
 
@@ -53,6 +53,9 @@ export const DashboardPage: React.FC = () => {
       >
         {isMobile ? '儀表板' : '儀表板總覽'}
       </Title>
+
+      {/* 我的待填報（0 項時整張不顯示）—— 2026-08-16 */}
+      <MyFilingGapsCard />
 
       {/* 我的待辦事項 - 滿版 */}
       <DashboardCalendarSection maxEvents={15} />

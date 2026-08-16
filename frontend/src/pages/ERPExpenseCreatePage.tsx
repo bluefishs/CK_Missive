@@ -11,7 +11,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Button, Card, Form, Input, InputNumber, Select, DatePicker,
-  Row, Col, Typography, App, Segmented, Alert, Divider, Space, Tag, Steps, Tooltip,
+  Row, Col, Typography, App, Segmented, Alert, Divider, Space, Tag, Steps, Tooltip, Collapse,
 } from 'antd';
 import {
   ArrowLeftOutlined, SaveOutlined,
@@ -328,23 +328,43 @@ const ERPExpenseCreatePage: React.FC = () => {
               parser={(v) => Number(v!.replace(/,/g, '')) as unknown as 0} />
           </Form.Item>
         </Col>
-        {!isMobile && (
-          <Col sm={12}>
-            <Form.Item name="tax_amount" label="稅額">
-              <InputNumber style={{ width: '100%' }} min={0} prefix="NT$" />
-            </Form.Item>
-          </Col>
-        )}
       </Row>
+
+      {/* 2026-08-16 核銷簡化（owner）。
+          量測：9 筆核銷裡 **6 筆走 QR 掃描**（會自動帶入稅額與統編），
+          而 **外幣三欄從來沒有被用過**（非 TWD 0 筆、匯率 0 筆）。
+          瓶頸其實不在填報而在審核（6 筆卡著、其中 4 筆 16 天沒動），
+          但把「掃了就有」與「從沒用過」的欄位一直攤在畫面上，
+          會讓這張表看起來比實際需要填的多一倍。
+          → 收進可展開區。**值仍然會被 QR 帶入並送出**，只是預設不占版面。 */}
       {!isMobile && (
-        <Row gutter={12}>
-          <Col xs={24} sm={12}>
-            <Form.Item name="buyer_ban" label="買方統編"><Input placeholder="8碼 (個人留空)" maxLength={8} /></Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item name="seller_ban" label="賣方統編"><Input placeholder="8碼" maxLength={8} /></Form.Item>
-          </Col>
-        </Row>
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: 8 }}
+          items={[{
+            key: 'adv',
+            label: <Typography.Text type="secondary" style={{ fontSize: 13 }}>進階（稅額、統編、幣別）— QR 掃描會自動帶入</Typography.Text>,
+            children: (
+              <Row gutter={12}>
+                <Col sm={6}>
+                  <Form.Item name="tax_amount" label="稅額">
+                    <InputNumber style={{ width: '100%' }} min={0} prefix="NT$" />
+                  </Form.Item>
+                </Col>
+                <Col sm={6}>
+                  <Form.Item name="buyer_ban" label="買方統編"><Input placeholder="8碼 (個人留空)" maxLength={8} /></Form.Item>
+                </Col>
+                <Col sm={6}>
+                  <Form.Item name="seller_ban" label="賣方統編"><Input placeholder="8碼" maxLength={8} /></Form.Item>
+                </Col>
+                <Col sm={6}>
+                  <Form.Item name="currency" label="幣別"><Select options={CURRENCY_OPTIONS} /></Form.Item>
+                </Col>
+              </Row>
+            ),
+          }]}
+        />
       )}
 
       <Divider style={{ margin: '8px 0 16px' }}>核銷歸屬</Divider>
@@ -378,7 +398,6 @@ const ERPExpenseCreatePage: React.FC = () => {
             <Select placeholder="選擇分類" size={ctrlSize} options={EXPENSE_CATEGORY_OPTIONS} />
           </Form.Item>
         </Col>
-        {!isMobile && <Col sm={6}><Form.Item name="currency" label="幣別"><Select options={CURRENCY_OPTIONS} /></Form.Item></Col>}
       </Row>
       {isForeignCurrency && (
         <Row gutter={12}>

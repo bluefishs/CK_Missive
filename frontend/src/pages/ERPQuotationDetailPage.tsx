@@ -14,7 +14,8 @@ import {
   EditOutlined, DeleteOutlined, DollarOutlined,
   InfoCircleOutlined, BankOutlined,
 } from '@ant-design/icons';
-import { FileTextOutlined } from '@ant-design/icons';
+import { FileTextOutlined, ProfileOutlined } from '@ant-design/icons';
+import { QuotationItemsTab } from './erpQuotation';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useERPQuotation, useAuthGuard } from '../hooks';
 import { AccountRecordTab } from './erpQuotation/AccountRecordTab';
@@ -80,6 +81,11 @@ export const ERPQuotationDetailPage: React.FC = () => {
   };
 
   const tabs = quotation ? [
+    // 2026-08-16 owner：「線上報價單機制」。放在成本結構**之前** ——
+    // 報價的起點是逐項內容，成本是後面才拆的。
+    createTabItem('items', { icon: <ProfileOutlined />, text: '報價明細' }, (
+      <QuotationItemsTab quotationId={quotation.id} caseName={quotation.case_name} caseCode={quotation.case_code} />
+    )),
     createTabItem('info', { icon: <InfoCircleOutlined />, text: '成本結構' }, (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {quotation.amount_mismatch && (

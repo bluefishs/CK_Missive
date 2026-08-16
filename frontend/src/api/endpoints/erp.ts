@@ -167,6 +167,12 @@ export const ERP_ENDPOINTS = {
   // --- 統一帳本 (ledger) ---
   /** 帳本列表 POST /erp/ledger/list */
   LEDGER_LIST: '/erp/ledger/list',
+  /** 填報缺口 —— 2026-08-16 owner「承攬報價案件對應填報人員通報管控」 */
+  FILING_GAPS_LIST: '/erp/filing-gaps/list',
+  FILING_GAPS_MINE: '/erp/filing-gaps/mine',
+  /** 線上報價單明細 —— 2026-08-16 owner「線上報價單機制」 */
+  QUOTATION_ITEMS_DETAIL: '/erp/quotation-items/detail',
+  QUOTATION_ITEMS_REPLACE: '/erp/quotation-items/replace',
   /** 手動記帳 POST /erp/ledger/create */
   LEDGER_CREATE: '/erp/ledger/create',
   /** 帳本詳情 POST /erp/ledger/detail */
