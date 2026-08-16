@@ -92,7 +92,14 @@ def main() -> int:
         print("Status: [RED] 部署後驗證未通過")
         for n, c, _ in bad:
             print(f"  · {n} 回 {c or '無回應'}")
-        print("\n  host:8001 不通 → Windows 殭屍埠（L76）：`docker restart ck_missive_backend`")
+        print("\n  host:8001 不通但**容器 healthy** → Windows 殭屍埠（L76）。修法有先後：")
+        print("    1) `docker restart ck_missive_backend`")
+        print("    2) 若仍不通 —— **restart 解不掉埠映射本身**（2026-08-16 實測），要重建：")
+        print("       `docker compose -f docker-compose.production.yml stop backend`")
+        print("       `docker compose -f docker-compose.production.yml rm -f backend`")
+        print("       `docker compose -f docker-compose.production.yml up -d --no-deps backend`")
+        print("    先確認是哪一層：`docker exec ck_missive_backend curl -s localhost:8001/health`")
+        print("    容器內 200 而 host 不通 ＝ 轉發層問題，不是應用問題。")
         print("  auth/check 回 500 → ORM mapper 或 DB（L93）：看 backend log 找")
         print("  `AmbiguousForeignKeysError` 之類的 mapper 錯誤；改 ORM 後要**重建**不能只 docker cp。")
         return 2

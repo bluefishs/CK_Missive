@@ -5,8 +5,8 @@
  */
 import React, { useState } from 'react';
 import {
-  Card, Button, Space, Tag, Input, Select, Typography,
-  Statistic, Row, Col, Modal, Form, DatePicker, Popconfirm, App, Alert,
+  Card, Button, Space, Tag, Select, Typography,
+  Statistic, Row, Col, Popconfirm, App, Alert,
 } from 'antd';
 import {
   PlusOutlined, ReloadOutlined, DeleteOutlined,
@@ -17,15 +17,14 @@ import { ResponsiveContent } from '@ck-shared/ui-components';
 import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
 import {
-  useLedger, useCreateLedger, useDeleteLedger,
+  useLedger, useDeleteLedger,
   useLedgerCategoryBreakdown, useAuthGuard, useProjectsDropdown,
   useCaseCodeMap,
 } from '../hooks';
-import type { FinanceLedger, LedgerQuery, LedgerCreate, LedgerEntryType } from '../types/erp';
+import type { FinanceLedger, LedgerQuery, LedgerEntryType } from '../types/erp';
 import { LEDGER_ENTRY_TYPE_LABELS, LEDGER_SOURCE_TYPE_OPTIONS, ledgerSourceLabel } from '../types/erp';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
@@ -39,29 +38,17 @@ const ERPLedgerPage: React.FC = () => {
   const { data: caseCodeMap } = useCaseCodeMap();
   const { data, isLoading, isError, refetch } = useLedger(params);
   const { data: breakdownData } = useLedgerCategoryBreakdown({ entry_type: 'expense' });
-  const createMutation = useCreateLedger();
   const deleteMutation = useDeleteLedger();
 
   const [statFilter, setStatFilter] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createForm] = Form.useForm<LedgerCreate>();
 
-  const handleCreate = async () => {
-    try {
-      const values = await createForm.validateFields();
-      const payload: LedgerCreate = {
-        ...values,
-        amount: Number(values.amount),
-        transaction_date: values.transaction_date ? dayjs(values.transaction_date).format('YYYY-MM-DD') : undefined,
-      };
-      await createMutation.mutateAsync(payload);
-      message.success('記帳成功');
-      setCreateOpen(false);
-      createForm.resetFields();
-    } catch {
-      message.error('記帳失敗');
-    }
-  };
+  // 2026-08-16：移除「手動記帳 Modal」死碼。
+  // 記帳早已改為導覽模式（`/erp/ledger/create` → ERPLedgerCreatePage，
+  // 下方工具列的按鈕就是 navigate 過去），但 Modal 連同它的 form、
+  // handleCreate、createMutation 一起被留了下來 ——
+  // **`setCreateOpen(true)` 全檔不存在，那個 Modal 永遠打不開**。
+  // 留著的代價不只是行數：它裡面的分類欄是自由輸入的 Input，
+  // 任何人照著它改都會以為分類可以隨便打。
 
   const handleDelete = async (id: number) => {
     try {
@@ -248,48 +235,6 @@ const ERPLedgerPage: React.FC = () => {
         />
       </Card>
 
-      {/* 手動記帳 Modal */}
-      <Modal
-        title="手動記帳"
-        open={createOpen}
-        onOk={handleCreate}
-        onCancel={() => { setCreateOpen(false); createForm.resetFields(); }}
-        confirmLoading={createMutation.isPending}
-        width={480}
-      >
-        <Form form={createForm} layout="vertical" initialValues={{ entry_type: 'expense' }}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="entry_type" label="類型" rules={[{ required: true }]}>
-                <Select options={Object.entries(LEDGER_ENTRY_TYPE_LABELS).map(([value, label]) => ({ value, label }))} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="amount" label="金額" rules={[{ required: true }]}>
-                <Input type="number" min={0} step={0.01} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="category" label="分類">
-                <Input placeholder="例：交通費、材料費" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="transaction_date" label="交易日期">
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="case_code" label="案號 (選填)">
-            <Input placeholder="留空 = 一般營運支出" />
-          </Form.Item>
-          <Form.Item name="description" label="說明">
-            <Input.TextArea rows={2} maxLength={500} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </ResponsiveContent>
   );
 };

@@ -3,10 +3,9 @@
  *
  * Tab: 帳目資訊 / 費用明細 / 預算分析
  */
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Descriptions, Tag, Button, Modal, Form, Input, InputNumber,
-  DatePicker, Select, Progress, Statistic, Row, Col, Card, Space, App,
+  Descriptions, Tag, Button, Modal, Progress, Statistic, Row, Col, Card, Space, App,
 } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import {
@@ -18,7 +17,6 @@ import dayjs from 'dayjs';
 import {
   useOperationalAccountDetail,
   useOperationalExpenses,
-  useCreateOperationalExpense,
   useApproveOperationalExpense,
   useRejectOperationalExpense,
   useDeleteOperationalAccount,
@@ -27,7 +25,7 @@ import {
   OPERATIONAL_CATEGORIES,
   OPERATIONAL_STATUS,
 } from '../types/erp';
-import type { OperationalExpense, OperationalExpenseCreate } from '../types/erp';
+import type { OperationalExpense } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
 import { useAuthGuard } from '../hooks';
@@ -53,7 +51,6 @@ const ERPOperationalDetailPage: React.FC = () => {
 
   const { data: account, isLoading } = useOperationalAccountDetail(accountId);
   const { data: expenseData, isLoading: expLoading } = useOperationalExpenses(accountId);
-  const createExpense = useCreateOperationalExpense();
   const approveExpense = useApproveOperationalExpense();
   const rejectExpense = useRejectOperationalExpense();
   const deleteAccount = useDeleteOperationalAccount();
@@ -62,8 +59,7 @@ const ERPOperationalDetailPage: React.FC = () => {
   const canWrite = hasPermission('operational:write');
   const canApprove = hasPermission('operational:approve');
 
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [form] = Form.useForm();
+  // 2026-08-16：新增費用已改為導覽頁（/erp/operational/:id/expenses/create）
 
   const expenses = expenseData?.items ?? [];
   const spent = account?.total_spent ?? 0;
@@ -71,25 +67,6 @@ const ERPOperationalDetailPage: React.FC = () => {
   const usagePct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
   const remaining = budget - spent;
 
-  const handleCreateExpense = async () => {
-    try {
-      const values = await form.validateFields();
-      const payload: OperationalExpenseCreate = {
-        account_id: accountId!,
-        expense_date: values.expense_date.format('YYYY-MM-DD'),
-        amount: values.amount,
-        description: values.description,
-        category: values.category,
-        notes: values.notes,
-      };
-      await createExpense.mutateAsync(payload);
-      message.success('費用已新增');
-      setShowExpenseModal(false);
-      form.resetFields();
-    } catch {
-      // validation or API error
-    }
-  };
 
   const handleDelete = () => {
     Modal.confirm({
@@ -220,7 +197,7 @@ const ERPOperationalDetailPage: React.FC = () => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => setShowExpenseModal(true)}
+            onClick={() => navigate(`/erp/operational/${accountId}/expenses/create`)}
           >
             新增費用
           </Button>
@@ -320,36 +297,6 @@ const ERPOperationalDetailPage: React.FC = () => {
       />
 
       {/* Create Expense Modal */}
-      <Modal
-        title="新增費用"
-        open={showExpenseModal}
-        onOk={handleCreateExpense}
-        onCancel={() => { setShowExpenseModal(false); form.resetFields(); }}
-        confirmLoading={createExpense.isPending}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item name="expense_date" label="日期" rules={[{ required: true, message: '請選擇日期' }]}>
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="amount" label="金額" rules={[{ required: true, message: '請輸入金額' }]}>
-            <InputNumber style={{ width: '100%' }} min={0} prefix="NT$" />
-          </Form.Item>
-          <Form.Item name="description" label="說明">
-            <Input />
-          </Form.Item>
-          <Form.Item name="category" label="費用類別">
-            <Select
-              placeholder="選擇類別"
-              allowClear
-              options={Object.entries(OPERATIONAL_CATEGORIES).map(([v, l]) => ({ value: v, label: l }))}
-            />
-          </Form.Item>
-          <Form.Item name="notes" label="備註">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </>
   );
 };

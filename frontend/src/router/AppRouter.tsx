@@ -121,9 +121,11 @@ const ERPClientAccountDetailPage = lazy(() => import('../pages/ERPClientAccountD
 const ERPInvoiceSummaryPage = lazy(() => import('../pages/ERPInvoiceSummaryPage'));
 const ERPAssetListPage = lazy(() => import('../pages/ERPAssetListPage'));
 const ERPAssetDetailPage = lazy(() => import('../pages/ERPAssetDetailPage'));
+const ERPAssetLogFormPage = lazy(() => import('../pages/ERPAssetLogFormPage'));
 const ERPAssetFormPage = lazy(() => import('../pages/ERPAssetFormPage'));
 const ERPOperationalListPage = lazy(() => import('../pages/ERPOperationalListPage'));
 const ERPOperationalDetailPage = lazy(() => import('../pages/ERPOperationalDetailPage'));
+const ERPOperationalExpenseFormPage = lazy(() => import('../pages/ERPOperationalExpenseFormPage'));
 const ERPOperationalFormPage = lazy(() => import('../pages/ERPOperationalFormPage'));
 const ERPAccountRecordFormPage = lazy(() => import('../pages/ERPAccountRecordFormPage'));
 const PMMilestoneFormPage = lazy(() => import('../pages/PMMilestoneFormPage'));
@@ -350,6 +352,7 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ERP_ASSET_CREATE} element={<ProtectedRoute><ERPAssetFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_ASSET_EDIT} element={<ProtectedRoute><ERPAssetFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_ASSET_DETAIL} element={<ProtectedRoute><ERPAssetDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_ASSET_LOG_CREATE} element={<ProtectedRoute><ERPAssetLogFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_ASSETS} element={<ProtectedRoute><ERPAssetListPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL_CREATE} element={<ProtectedRoute><ERPOperationalFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL_EDIT} element={<ProtectedRoute><ERPOperationalFormPage /></ProtectedRoute>} />
@@ -364,6 +367,7 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.CONTRACT_CASE_VENDOR_CREATE} element={<ProtectedRoute><ContractCaseVendorFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.CONTRACT_CASE_VENDOR_EDIT} element={<ProtectedRoute><ContractCaseVendorFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL_DETAIL} element={<ProtectedRoute><ERPOperationalDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_OPERATIONAL_EXPENSE_CREATE} element={<ProtectedRoute><ERPOperationalExpenseFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_OPERATIONAL} element={<ProtectedRoute><ERPOperationalListPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_HUB} element={<ProtectedRoute><ERPHubPage /></ProtectedRoute>} />
 

@@ -371,3 +371,4 @@
 | `scripts/checks/declaration_gate.py` | 腳本強制表態閘門（存量走 .declaration_baseline.txt 逐步清） | 本表守門人 |
 | `scripts/checks/sso_coverage_check.py` | ADR-0033 配套：未綁 SSO 者現在就已鎖死（密碼登入回 410） | weekly 35 |
 | `scripts/checks/entity_creation_ssot_audit.py` | 業務實體（PMCase／ContractProject／ERPQuotation）只能在授權處建構——防「從標案建案」那種兩份實作各自演化到業務規則相反 | weekly 57 |
+| `scripts/checks/enum_storage_convention_audit.py` | 分類／狀態列舉值的守門：寫入端 schema 要有 Literal、表單不得用自由輸入收列舉值（統一帳本就是這樣長出 `billing_payment` 的） | weekly 58 |

@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-15T23:47:31.584Z",
+ "checked_at": "2026-08-16T20:38:36.549Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 87,
  "fail": 0,
@@ -1071,6 +1071,10 @@
  ],
  "failures": [],
  "mobile_probe": {
+  "viewports": [
+   390,
+   768
+  ],
   "viewport": {
    "width": 390,
    "height": 844
@@ -1331,7 +1335,7 @@
    {
     "route": "/documents/2689",
     "viewportWidth": 768,
-    "pageOverflow": 3,
+    "pageOverflow": 0,
     "layoutViewport": 768,
     "tableOverflow": 0
    },

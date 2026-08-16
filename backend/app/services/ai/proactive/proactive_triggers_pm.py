@@ -46,7 +46,8 @@ async def check_pm_milestone_deadlines(
             PMMilestone.planned_date < today,
             PMMilestone.planned_date.isnot(None),
             PMMilestone.status.notin_(["completed", "skipped"]),
-            PMCase.status.in_(["planning", "in_progress"]),
+            PMCase.status.in_(["planning", "contracted"]),  # 2026-08-16：原本篩 in_progress，而該值 0 筆、planning 也 0 筆
+            # → 里程碑提醒對全部 51 筆「已承攬」案件從來不會觸發（沉默失效）。
         )
         .order_by(PMMilestone.planned_date)
         .limit(20)
@@ -87,7 +88,8 @@ async def check_pm_milestone_deadlines(
             PMMilestone.planned_date <= deadline_threshold,
             PMMilestone.planned_date.isnot(None),
             PMMilestone.status.notin_(["completed", "skipped"]),
-            PMCase.status.in_(["planning", "in_progress"]),
+            PMCase.status.in_(["planning", "contracted"]),  # 2026-08-16：原本篩 in_progress，而該值 0 筆、planning 也 0 筆
+            # → 里程碑提醒對全部 51 筆「已承攬」案件從來不會觸發（沉默失效）。
         )
         .order_by(PMMilestone.planned_date)
         .limit(20)

@@ -1,5 +1,37 @@
 {
   "last_full_compile": "2026-04-13T12:13:10.444398",
   "agencies": 62,
-  "projects": 30
+  "projects": 30,
+  "last_incremental": "2026-08-17T05:00:04.215149",
+  "last_affected_agencies": 24,
+  "last_affected_projects": 16,
+  "diff": {
+    "added": 0,
+    "updated": 19,
+    "removed": 0,
+    "unchanged": 335,
+    "added_pages": [],
+    "updated_pages": [
+      "entities/114~115年度本分局轄區因應氣候邊坡科技監測暨安全評估工作.md",
+      "entities/115年_派工單號025.md",
+      "entities/115年_派工單號026.md",
+      "entities/115年_派工單號033.md",
+      "entities/115年_派工單號034.md",
+      "entities/115年_派工單號035.md",
+      "entities/115年_派工單號036.md",
+      "entities/115年_派工單號037.md",
+      "entities/115年度仁愛鄉非都市計畫地區圖解數化地籍圖整合建置作業.md",
+      "entities/115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約).md",
+      "entities/115年度番路鄉、竹崎鄉非都市計畫地區圖解數化地籍圖整合建置作業.md",
+      "entities/115年度苗栗縣後龍鎮龍東段、龍南段及後龍段後龍、大庄小段地籍圖重測案.md",
+      "entities/彰化縣和美地政事務所.md",
+      "entities/桃園市政府工務局.md",
+      "entities/苗栗縣政府.md",
+      "entities/苗栗縣竹南地政事務所.md",
+      "entities/青山工程顧問股份有限公司.md",
+      "topics/Lessons Registry 索引.md",
+      "topics/近期關注焦點.md"
+    ],
+    "removed_pages": []
+  }
 }

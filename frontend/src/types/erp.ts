@@ -531,6 +531,29 @@ export const LEDGER_ENTRY_TYPE_LABELS: Record<LedgerEntryType, string> = {
 };
 
 /**
+ * 帳本分類（會計科目）—— 對應後端 `schemas/erp/ledger.py` 的 `LEDGER_CATEGORY_VALUES`。
+ *
+ * 2026-08-16 owner：「分類仍有中英紛雜 如統一帳本」。
+ * 根因是後端 `ledger.py` 的 category 原本是無約束的 `str`，而手動記帳表單的
+ * 分類欄是**自由輸入的 Input**（placeholder「例：交通費」）—— 兩端都不約束，
+ * 於是帳本累積出 `billing_payment`（英文代碼、35 筆歷史匯入）等清單外的值。
+ *
+ * 帳本同時記收入與支出，所以分類 = 收入科目 + 營運 + 支出科目
+ * （支出科目沿用 `EXPENSE_CATEGORY_OPTIONS`，**不另造一份**）。
+ */
+export const LEDGER_INCOME_CATEGORIES = ['收款', '其他收入'] as const;
+export const LEDGER_OPERATIONAL_CATEGORIES = ['營運費用'] as const;
+
+export const LEDGER_CATEGORY_GROUPS: {
+  label: string;
+  options: { value: string; label: string }[];
+}[] = [
+  { label: '收入', options: LEDGER_INCOME_CATEGORIES.map(v => ({ value: v, label: v })) },
+  { label: '營運', options: LEDGER_OPERATIONAL_CATEGORIES.map(v => ({ value: v, label: v })) },
+  { label: '支出科目', options: EXPENSE_CATEGORY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
+];
+
+/**
  * 帳本分錄的來源單據類型。
  *
  * 2026-08-15：原本頁面直接顯示 raw 值（`erp_billing`、`expense_invoice`），
@@ -1203,3 +1226,18 @@ export const erpQuotationStatusLabel = (v?: string | null): string =>
 
 export const erpQuotationStatusColor = (v?: string | null): string =>
   ERP_QUOTATION_STATUS.find((o) => o.value === v)?.color ?? 'default';
+
+/**
+ * 資產行為類型 —— 2026-08-16 由 `ERPAssetDetailPage` 的區域常數提升為 SSOT。
+ * 原本只寫在詳情頁裡；行為紀錄改為獨立填報頁後兩處都要用，
+ * 各留一份就是下一個「兩份說法不一致而沒有人會報錯」。
+ */
+export const ASSET_ACTION_LABELS: Record<string, string> = {
+  purchase: '採購', repair: '維修', maintain: '保養',
+  transfer: '調撥', dispose: '報廢', inspect: '盤點', other: '其他',
+};
+
+export const ASSET_ACTION_COLORS: Record<string, string> = {
+  purchase: 'blue', repair: 'orange', maintain: 'green',
+  transfer: 'purple', dispose: 'red', inspect: 'cyan', other: 'default',
+};

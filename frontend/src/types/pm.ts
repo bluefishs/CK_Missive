@@ -20,13 +20,30 @@ import type { ERPQuotation } from './erp';
  * 回到畫面卻看到「評估中」，看起來就像「改了沒反應」。
  * 產出端與消費端對同一個欄位的詞彙不一致，兩邊都不會報錯。
  */
-export type PMCaseStatus = 'planning' | 'contracted' | 'in_progress' | 'closed';
+/**
+ * PM 案件（**邀標階段**）狀態。
+ *
+ * 2026-08-16 owner：「邀標不應有執行中選項」—— 移除 `in_progress`。
+ *
+ * 邀標與執行是**兩個階段、兩個實體**：
+ *
+ *   PMCase（邀標）      評估中 → 已承攬 → 已結案
+ *   ContractProject（承攬）        執行中 → 已結案
+ *
+ * 「執行中」屬於承攬案件。邀標案件的終點是「承攬到了」，
+ * 之後的執行由承攬案件承接 —— 邀標案件同時也叫「執行中」，
+ * 會讓同一件工作在兩個模組各有一個「執行中」而無從分辨誰是誰。
+ *
+ * 混淆的來源是 `promote_to_project` 成案時**同時**設了
+ * `contract_projects.status='執行中'` 與 `pm_case.status='in_progress'`。
+ * 實測資料 74 筆 PM 案件中 `in_progress` **0 筆** —— 這個值從來沒有意義過。
+ */
+export type PMCaseStatus = 'planning' | 'contracted' | 'closed';
 
 /** PM 案件狀態標籤 */
 export const PM_CASE_STATUS_LABELS: Record<PMCaseStatus, string> = {
   planning: '評估中',
   contracted: '已承攬',
-  in_progress: '執行中',
   closed: '已結案',
 };
 
@@ -34,7 +51,6 @@ export const PM_CASE_STATUS_LABELS: Record<PMCaseStatus, string> = {
 export const PM_CASE_STATUS_COLORS: Record<PMCaseStatus, string> = {
   planning: 'default',
   contracted: 'blue',
-  in_progress: 'processing',
   closed: 'success',
 };
 

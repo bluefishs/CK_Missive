@@ -5,10 +5,9 @@
  *
  * @version 1.0.0
  */
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Descriptions, Tag, Button, Modal, Form, Input, InputNumber,
-  Select, DatePicker, Card, Empty, App, Image,
+  Descriptions, Tag, Button, Card, Empty, Image,
 } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import {
@@ -17,8 +16,9 @@ import {
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { useAssetDetail, useAssetLogs, useCreateAssetLog, useAssetDetailFull, useCaseCodeMap } from '../hooks';
-import type { AssetLog, AssetLogCreateRequest } from '../types/erp';
+import { useAssetDetail, useAssetLogs, useAssetDetailFull, useCaseCodeMap } from '../hooks';
+import { ASSET_ACTION_LABELS, ASSET_ACTION_COLORS } from '../types/erp';
+import type { AssetLog } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
@@ -40,15 +40,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   '交通工具': 'cyan', '軟體授權': 'geekblue', '其他': 'default',
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  purchase: '採購', repair: '維修', maintain: '保養',
-  transfer: '調撥', dispose: '報廢', inspect: '盤點', other: '其他',
-};
-
-const ACTION_COLORS: Record<string, string> = {
-  purchase: 'blue', repair: 'orange', maintain: 'green',
-  transfer: 'purple', dispose: 'red', inspect: 'cyan', other: 'default',
-};
+// 2026-08-16：兩個常數已提升到 `types/erp.ts` 作為 SSOT
+// （行為紀錄改獨立填報頁後兩處共用）。
+const ACTION_LABELS = ASSET_ACTION_LABELS;
+const ACTION_COLORS = ASSET_ACTION_COLORS;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -58,41 +53,18 @@ const ERPAssetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const assetId = id ? Number(id) : null;
-  const { message } = App.useApp();
 
   const { data: detailData, isLoading } = useAssetDetail(assetId);
   const { data: fullData } = useAssetDetailFull(assetId);
   const { data: logsData } = useAssetLogs(assetId);
   const { data: caseCodeMap } = useCaseCodeMap();
-  const createLogMutation = useCreateAssetLog();
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form] = Form.useForm();
+  // 2026-08-16：新增行為紀錄已改為導覽頁（/erp/assets/:id/logs/create），
+  // Modal 與其 form／mutation 一併移除。
 
   const asset = detailData ?? null;
   const logs = logsData?.items ?? [];
 
   // --- Create log handler ---
-  const handleCreateLog = async () => {
-    try {
-      const values = await form.validateFields();
-      const payload: AssetLogCreateRequest = {
-        asset_id: assetId!,
-        action: values.action,
-        action_date: values.action_date.format('YYYY-MM-DD'),
-        description: values.description,
-        cost: values.cost,
-        operator: values.operator,
-        notes: values.notes,
-      };
-      await createLogMutation.mutateAsync(payload);
-      message.success('紀錄新增成功');
-      setModalOpen(false);
-      form.resetFields();
-    } catch {
-      // validation or mutation error
-    }
-  };
 
   // --- Not found ---
   if (!asset && !isLoading) {
@@ -188,7 +160,7 @@ const ERPAssetDetailPage: React.FC = () => {
   const logsTab = (
     <>
       <div style={{ marginBottom: 12, textAlign: 'right' }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(`/erp/assets/${assetId}/logs/create`)}>
           新增紀錄
         </Button>
       </div>
@@ -274,40 +246,6 @@ const ERPAssetDetailPage: React.FC = () => {
       loading={isLoading}
       hasData={!!asset}
     >
-      {/* 新增紀錄 Modal */}
-      <Modal
-        title="新增行為紀錄"
-        open={modalOpen}
-        onOk={handleCreateLog}
-        onCancel={() => { setModalOpen(false); form.resetFields(); }}
-        confirmLoading={createLogMutation.isPending}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical" preserve={false}>
-          <Form.Item name="action" label="行為類型" rules={[{ required: true, message: '請選擇行為類型' }]}>
-            <Select placeholder="請選擇">
-              {Object.entries(ACTION_LABELS).map(([k, v]) => (
-                <Select.Option key={k} value={k}>{v}</Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="action_date" label="日期" rules={[{ required: true, message: '請選擇日期' }]}>
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="description" label="描述">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-          <Form.Item name="cost" label="費用">
-            <InputNumber style={{ width: '100%' }} min={0} prefix="NT$" />
-          </Form.Item>
-          <Form.Item name="operator" label="操作人">
-            <Input />
-          </Form.Item>
-          <Form.Item name="notes" label="備註">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </DetailPageLayout>
   );
 };

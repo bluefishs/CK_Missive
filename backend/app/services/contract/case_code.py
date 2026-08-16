@@ -348,7 +348,12 @@ class CaseCodeService:
 
         # 4. 更新 PM Case
         pm_case.project_code = project_code
-        pm_case.status = "in_progress"
+        # 2026-08-16 owner：「邀標不應有執行中選項」。
+        # 成案後邀標案件的正確終態是「已承攬」—— 執行由承攬案件承接
+        # （上面剛建的 contract_project 就是 status='執行中'）。
+        # 原本兩邊同時設「執行中」，於是同一件工作在兩個模組各有一個
+        # 「執行中」而無從分辨誰是誰，這正是 owner 回報的狀態混淆。
+        pm_case.status = "contracted"
 
         # 5. 連結 / 自動建立 ERP Quotation
         erp_linked = False

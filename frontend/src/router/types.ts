@@ -166,11 +166,13 @@ export const ROUTES = {
   ERP_ASSET_CREATE: '/erp/assets/create',
   ERP_ASSET_EDIT: '/erp/assets/:id/edit',
   ERP_ASSET_DETAIL: '/erp/assets/:id',
+  ERP_ASSET_LOG_CREATE: '/erp/assets/:id/logs/create',
   // 營運帳目
   ERP_OPERATIONAL: '/erp/operational',
   ERP_OPERATIONAL_DETAIL: '/erp/operational/:id',
   ERP_OPERATIONAL_CREATE: '/erp/operational/create',
   ERP_OPERATIONAL_EDIT: '/erp/operational/:id/edit',
+  ERP_OPERATIONAL_EXPENSE_CREATE: '/erp/operational/:id/expenses/create',
   /** @deprecated v6.0.0 — redirect to /kunge/ops（ADR-0031）；planned removal v6.1.0 */
   DIGITAL_TWIN: '/ai/digital-twin',
   /** @deprecated v6.0.0 — redirect to /kunge/ops（ADR-0031）；planned removal v6.1.0 */

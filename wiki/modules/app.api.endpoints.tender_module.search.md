@@ -2,18 +2,18 @@
 title: app.api.endpoints.tender_module.search
 kg_entity_id: 38572
 type: module
-module_lines: 480
+module_lines: 508
 module_relations: 31
 file_path: /app/app/api/endpoints/tender_module/search.py
 created: 2026-08-03
-updated: 2026-08-03
+updated: 2026-08-17
 tags: [程式模組, auto-compiled]
 confidence: medium
 ---
 # app.api.endpoints.tender_module.search
 
 ## 概述
-此 Python 模組提供了多種與標案搜尋相關的功能，包括基本的標案搜索、詳細信息獲取、公司相關標案搜索以及實時標案等。
+此 Python 模組包含了多個與標案搜尋相關的 API 函數，用於提供不同層次的標案資訊查詢服務。
 
 ## 主要函數
 - `get_tender_service`
@@ -25,13 +25,13 @@ confidence: medium
 - `realtime_tenders`
 
 ## 依賴關係
-- `app.core.redis_client`
-- `app.db.database`
+- `app.services.tender.search`
 - `app.schemas.common`
-- `app.extended.models.tender`
 - `app.schemas.tender_admin`
+- `app.db.database`
 - `app.services.tender.analytics`
 - `app.services.tender.analytics_battle`
 - `app.services.tender.analytics_price`
+- `app.extended.models.tender`
 - `app.services.tender.business_recommendation`
-- `app.services.tender.cache`
+- `app.services.tender.ezbid_scraper`

@@ -43,10 +43,15 @@ export const ProjectStatsPanel: React.FC = () => {
     );
   }
 
+  // 2026-08-16：這三個數字**原本全部恆為 0**。
+  //   · `in_progress` —— PM 案件沒有這個狀態（74 筆中 0 筆），且邀標本就不該有「執行中」
+  //   · `completed`   —— PM 的詞彙是 `closed`，讀 `completed` 永遠取不到
+  //   · 而佔 51 筆的 `contracted`（已承攬）**完全沒有顯示**
+  // 面板上三個 0，系統裡卻有 74 筆案件 —— 沒有人會發現，因為 0 看起來就像「還沒有」。
   const pmByStatus = pmSummary?.by_status ?? {};
-  const inProgress = pmByStatus['in_progress'] ?? 0;
   const planning = pmByStatus['planning'] ?? 0;
-  const completed = pmByStatus['completed'] ?? 0;
+  const contracted = pmByStatus['contracted'] ?? 0;
+  const closed = pmByStatus['closed'] ?? 0;
 
   return (
     <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
@@ -64,23 +69,23 @@ export const ProjectStatsPanel: React.FC = () => {
               </Col>
               <Col span={6}>
                 <Statistic
-                  title="執行中"
-                  value={inProgress}
+                  title="已承攬"
+                  value={contracted}
                   prefix={<SyncOutlined />}
                   styles={{ content: { color: '#1890ff' } }}
                 />
               </Col>
               <Col span={6}>
                 <Statistic
-                  title="規劃中"
+                  title="評估中"
                   value={planning}
                   prefix={<ClockCircleOutlined />}
                 />
               </Col>
               <Col span={6}>
                 <Statistic
-                  title="已完成"
-                  value={completed}
+                  title="已結案"
+                  value={closed}
                   prefix={<CheckCircleOutlined />}
                   styles={{ content: { color: '#52c41a' } }}
                 />
