@@ -10,11 +10,11 @@
  * 搬移前已把該頁缺少的「刪除」補上，並把「編輯」條件由 pending 放寬為
  * pending/rejected，與原欄位一致，確保沒有任何入口消失。
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Tag, Empty, Button, Typography, Row, Col,
-  Statistic, Card,
 } from 'antd';
+import ClickableStatCard from '../../components/common/ClickableStatCard';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -58,7 +58,13 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
     enabled: !!caseCode,
   });
 
-  const expenseRecords = (data?.records ?? []).filter(r => r.type === 'expense');
+  // 2026-08-15：統計卡片改為可切換型別（owner 回報「動態統計卡片」缺漏）。
+  //
+  // 原本四張卡是核銷／請款／開票**三種型別**的數字，而表格只顯示核銷 ——
+  // 卡片說「請款 5 筆」，列表卻一筆請款都沒有，看的人無從對應。
+  // 讓卡片切換表格顯示的型別，數字與列表才是同一件事。
+  const [typeFilter, setTypeFilter] = useState<'expense' | 'billing' | 'invoice'>('expense');
+  const expenseRecords = (data?.records ?? []).filter(r => r.type === typeFilter);
   const summary = data?.summary;
 
   const columns: ColumnsType<FinanceRecord> = [
@@ -81,19 +87,21 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
   return (
     <>
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={12} sm={6}>
-          <Card size="small"><Statistic title="核銷筆數" value={summary?.expense_count ?? 0} /></Card>
+        <Col xs={12} sm={12} lg={6}>
+          <ClickableStatCard title="核銷筆數" value={summary?.expense_count ?? 0}
+            active={typeFilter === 'expense'} onClick={() => setTypeFilter('expense')} />
         </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small"><Statistic title="核銷總額" value={summary?.expense_total ?? 0} precision={0} prefix="NT$" /></Card>
+        <Col xs={12} sm={12} lg={6}>
+          <ClickableStatCard title="核銷總額" value={summary?.expense_total ?? 0}
+            active={typeFilter === 'expense'} onClick={() => setTypeFilter('expense')} />
         </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small"><Statistic title="請款筆數" value={summary?.billing_count ?? 0}
-            styles={{ content: { color: '#1890ff' } }} /></Card>
+        <Col xs={12} sm={12} lg={6}>
+          <ClickableStatCard title="請款筆數" value={summary?.billing_count ?? 0} color="#1890ff"
+            active={typeFilter === 'billing'} onClick={() => setTypeFilter('billing')} />
         </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small"><Statistic title="開票筆數" value={summary?.invoice_count ?? 0}
-            styles={{ content: { color: '#52c41a' } }} /></Card>
+        <Col xs={12} sm={12} lg={6}>
+          <ClickableStatCard title="開票筆數" value={summary?.invoice_count ?? 0} color="#52c41a"
+            active={typeFilter === 'invoice'} onClick={() => setTypeFilter('invoice')} />
         </Col>
       </Row>
 

@@ -90,20 +90,34 @@ export const ERPQuotationDetailPage: React.FC = () => {
           />
         )}
         {/* 合約概況 */}
-        <Card size="small" title="合約概況">
+        {/* 2026-08-15：金額欄改為 lg 才分四欄。
+            原本 sm={6}（≥576px 就四欄）—— 768px 扣掉側欄約 568px 可用，
+            四欄各約 126px，而「22,675,000」在 24px 字級約需 132px，**必然裁切**。
+            390px 時是兩欄（約 175px）所以行動觀測量不到 ——
+            `pageOverflow: 0` 只代表文件沒被撐寬，**元素在固定寬度欄位裡被裁切不會撐寬文件**。
+            這一類要靠真人看，或看下方 money-stat 的字級收斂。 */}
+        {/* 金額字級收斂：AntD Statistic 預設 24px 不會隨欄寬縮小，
+            長數字（22,675,000＝10 字元）在窄欄會被裁切。
+            clamp 讓它在窄欄自動降到 16px，寬螢幕維持 24px。 */}
+        <style>{`.money-stat .ant-statistic-content-value {
+          font-size: clamp(16px, 2.2vw, 24px) !important;
+          white-space: nowrap;
+        }`}</style>
+        <Card size="small" title="合約概況" className="money-stat">
           <Row gutter={[16, 16]}>
-            <Col xs={12} sm={6}><Statistic title="合約總價" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+            <Col xs={12} sm={12} lg={6}><Statistic title="合約總價" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
             {/* 2026-08-15 owner：「報價單估列費用、實際成本、毛利皆由區分清楚不可混淆」。
                 原本只有一個「估計成本」，看的人不知道那是報價時填的估列還是真的花掉的錢。
                 三個數字各自標明基準：估列來自報價單、實際來自統一帳本、待入帳是填報缺口。 */}
-            <Col xs={12} sm={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Statistic title="估列成本（報價單）" value={Number(quotation.total_cost)} precision={0} />
             </Col>
-            <Col xs={12} sm={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Statistic title="實際成本（已入帳）" value={Number(quotation.actual_cost ?? 0)} precision={0} />
               {Number(quotation.pending_cost ?? 0) > 0 && (
-                <div style={{ fontSize: 12, color: '#faad14', marginTop: 4 }}>
-                  另有 {Number(quotation.pending_cost).toLocaleString()} 元「應付未付＋核銷未入帳」
+                <div style={{ fontSize: 12, color: '#faad14', marginTop: 4, lineHeight: 1.4 }}>
+                  另有 {Number(quotation.pending_cost).toLocaleString()} 元
+                  <br />「應付未付＋核銷未入帳」
                 </div>
               )}
             </Col>
@@ -121,8 +135,8 @@ export const ERPQuotationDetailPage: React.FC = () => {
               </Col>
             ) : (
               <>
-                <Col xs={12} sm={6}><Statistic title="預估毛利" value={grossProfit} precision={0} styles={{ content: { color: grossProfit >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
-                <Col xs={12} sm={6}><Statistic title="預估毛利率" value={quotation.gross_margin ? Number(quotation.gross_margin) : 0} suffix="%" precision={1} /></Col>
+                <Col xs={12} sm={12} lg={6}><Statistic title="預估毛利" value={grossProfit} precision={0} styles={{ content: { color: grossProfit >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
+                <Col xs={12} sm={12} lg={6}><Statistic title="預估毛利率" value={quotation.gross_margin ? Number(quotation.gross_margin) : 0} suffix="%" precision={1} /></Col>
               </>
             )}
           </Row>
@@ -133,19 +147,19 @@ export const ERPQuotationDetailPage: React.FC = () => {
           <Col xs={24} sm={12}>
             <Card size="small" title="應收概況 (委託單位)">
               <Row gutter={[16, 8]}>
-                <Col xs={12} sm={6}><Statistic title="應收總額" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
-                <Col xs={12} sm={6}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
-                <Col xs={12} sm={6}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
-                <Col xs={12} sm={6}><Statistic title="未收款" value={Number(quotation.total_price ?? 0) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_price ?? 0) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
+                <Col xs={12} sm={12} lg={6}><Statistic title="應收總額" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+                <Col xs={12} sm={12} lg={6}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
+                <Col xs={12} sm={12} lg={6}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
+                <Col xs={12} sm={12} lg={6}><Statistic title="未收款" value={Number(quotation.total_price ?? 0) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_price ?? 0) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
               </Row>
             </Card>
           </Col>
           <Col xs={24} sm={12}>
             <Card size="small" title="應付概況 (協力廠商)">
               <Row gutter={[16, 8]}>
-                <Col xs={12} sm={8}><Statistic title="應付總額" value={Number(quotation.total_payable)} precision={0} /></Col>
-                <Col xs={12} sm={8}><Statistic title="已付款" value={Number(quotation.total_paid)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
-                <Col xs={12} sm={8}><Statistic title="未付款" value={Number(quotation.total_payable) - Number(quotation.total_paid)} precision={0} styles={{ content: { color: Number(quotation.total_payable) > Number(quotation.total_paid) ? '#ff4d4f' : '#52c41a' } }} /></Col>
+                <Col xs={12} sm={12} lg={8}><Statistic title="應付總額" value={Number(quotation.total_payable)} precision={0} /></Col>
+                <Col xs={12} sm={12} lg={8}><Statistic title="已付款" value={Number(quotation.total_paid)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
+                <Col xs={12} sm={12} lg={8}><Statistic title="未付款" value={Number(quotation.total_payable) - Number(quotation.total_paid)} precision={0} styles={{ content: { color: Number(quotation.total_payable) > Number(quotation.total_paid) ? '#ff4d4f' : '#52c41a' } }} /></Col>
               </Row>
             </Card>
           </Col>
@@ -162,14 +176,14 @@ export const ERPQuotationDetailPage: React.FC = () => {
         {/* 損益分析 */}
         <Card size="small" title="損益分析">
           <Row gutter={[16, 8]}>
-            <Col xs={12} sm={6}><Statistic title="營收 (含稅)" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
-            <Col xs={12} sm={6}><Statistic title="稅額" value={Number(quotation.tax_amount)} precision={0} /></Col>
-            <Col xs={12} sm={6}><Statistic title="營收 (未稅)" value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount)} precision={0} /></Col>
+            <Col xs={12} sm={12} lg={6}><Statistic title="營收 (含稅)" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+            <Col xs={12} sm={12} lg={6}><Statistic title="稅額" value={Number(quotation.tax_amount)} precision={0} /></Col>
+            <Col xs={12} sm={12} lg={6}><Statistic title="營收 (未稅)" value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount)} precision={0} /></Col>
             {/* 2026-08-15：原本這裡顯示「淨利」，而 net_profit 與 gross_profit
                 是**同一個數字** —— 兩者並排會被讀成兩個不同的財務指標。
                 真正的淨利要再扣營運費用與稅，那些資料不在報價這一層。
                 改顯示「實際毛利」：以已入帳的實際成本為基準，與上方的預估毛利對照。 */}
-            <Col xs={12} sm={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Statistic
                 title="實際毛利（已入帳成本）"
                 value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount) - Number(quotation.actual_cost ?? 0)}

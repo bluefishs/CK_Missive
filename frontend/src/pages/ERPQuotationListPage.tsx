@@ -2,7 +2,7 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Button, Space, Input, Typography, Row, Col, Alert, App, Upload } from 'antd';
+import { Card, Button, Space, Input, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, DownloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -10,6 +10,7 @@ import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
 import { useERPQuotations, useERPProfitSummary, useAuthGuard } from '../hooks';
 import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
+import { erpQuotationStatusLabel, erpQuotationStatusColor } from '../types/erp';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
@@ -38,6 +39,15 @@ export const ERPQuotationListPage: React.FC = () => {
       key: 'case_name',
       ellipsis: true,
       render: (text: string | null) => <strong>{text ?? '-'}</strong>,
+    },
+    // 2026-08-15：補上「狀態」欄。
+    // owner 回報「表格無提供篩選」—— 實測排序圖示 12 個、篩選漏斗 **0 個**。
+    // 真因不是 enhanceColumns 沒生效，是**列表根本沒有狀態欄**：
+    // enhanceColumns 只對 STATUS_KEYS 類欄位自動加篩選，沒有那個欄位就沒有篩選。
+    // 而狀態（草稿／已確認／修訂中／已結案）是主要業務屬性，看不到本來就不合理。
+    {
+      title: '狀態', dataIndex: 'status', key: 'status', width: 100, align: 'center',
+      render: (v?: string) => <Tag color={erpQuotationStatusColor(v)}>{erpQuotationStatusLabel(v)}</Tag>,
     },
     { title: '年度', hideOnMobile: true, dataIndex: 'year', key: 'year', width: 80, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
     {

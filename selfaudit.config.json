@@ -759,6 +759,48 @@
           "failMsg": "仍停在預設的成本結構分頁 —— ?tab= 沒有生效"
         }
       ]
+    },
+    {
+      "id": "table-sort-filter-present",
+      "name": "列表表格必須可排序篩選（規範要求，owner 回報缺漏）",
+      "auth": true,
+      "url": "/erp/quotations",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "assertCount",
+          "selector": ".ant-table-column-sorter",
+          "min": 3,
+          "failMsg": "表格沒有排序圖示 —— enhanceColumns 沒有生效或走了窄螢幕路徑"
+        },
+        {
+          "action": "assertCount",
+          "selector": ".ant-table-filter-trigger",
+          "min": 1,
+          "failMsg": "表格沒有任何篩選漏斗 —— 狀態類欄位應自動帶篩選"
+        }
+      ]
+    },
+    {
+      "id": "finance-stat-cards-interactive",
+      "name": "財務統計卡片要能與列表互動篩選（owner 回報遺失對應）",
+      "auth": true,
+      "url": "/erp/quotations/168?tab=receivable",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "assertCount",
+          "selector": ".ant-card-hoverable",
+          "min": 3,
+          "failMsg": "統計卡片不可點 —— 看到「未結餘額 200 萬」卻不知道是哪幾筆"
+        }
+      ]
     }
   ],
   "output": {

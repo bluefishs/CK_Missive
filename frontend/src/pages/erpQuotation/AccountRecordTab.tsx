@@ -13,10 +13,11 @@
  * @version 2.0.0
  * @date 2026-08-02
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Button, Tag, Card, Statistic, Row, Col,
+  Button, Tag, Row, Col,
 } from 'antd';
+import ClickableStatCard from '../../components/common/ClickableStatCard';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined } from '@ant-design/icons';
 
@@ -118,6 +119,11 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   );
 
   // 統計
+  // 2026-08-15：統計卡片要能與列表互動篩選。
+  // 原本是三張純顯示的 Card + Statistic —— 看到「未結餘額 200 萬」卻不知道是哪幾筆，
+  // 只能自己往下捲著找。ClickableStatCard 早就存在（有 active 樣式與 onClick），
+  // 只是沒有擴散到這裡。
+  const [statFilter, setStatFilter] = useState<'all' | 'paid' | 'outstanding'>('all');
   const totalRequest = records.reduce((s, r) => s + (r.request_amount || 0), 0);
   const totalPaid = records.reduce((s, r) => s + (r.payment_amount || 0), 0);
   const outstanding = totalRequest - totalPaid;
@@ -139,6 +145,15 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
     );
 
   // 統一欄位
+  // 卡片與列表的對應：點「已收/付」只留有實付金額的、點「未結」只留還有餘額的。
+  // 判準與卡片的數字用**同一個欄位**，否則卡片說 3 筆、列表給 5 筆，
+  // 那比沒有互動更糟 —— 使用者會以為自己看錯。
+  const filteredRecords = records.filter((r) => {
+    if (statFilter === 'paid') return (r.payment_amount || 0) > 0;
+    if (statFilter === 'outstanding') return (r.request_amount || 0) - (r.payment_amount || 0) > 0;
+    return true;
+  });
+
   const columns: ResponsiveColumn<AccountRecord>[] = [
     { title: '期別', dataIndex: 'period', width: 80, render: (v) => v || '-' },
     { title: counterpartyLabel, dataIndex: 'counterparty', width: 140, ellipsis: true },
@@ -156,9 +171,13 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
     <div>
       {/* 統計摘要 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}><Card size="small"><Statistic title={`${dirLabel}總額`} value={totalRequest} precision={0} /></Card></Col>
-        <Col span={8}><Card size="small"><Statistic title={`已${paymentLabel}`} value={totalPaid} precision={0} styles={{ content: { color: '#52c41a' } }} /></Card></Col>
-        <Col span={8}><Card size="small"><Statistic title="未結餘額" value={outstanding} precision={0} styles={{ content: { color: outstanding > 0 ? '#ff4d4f' : '#52c41a' } }} /></Card></Col>
+        <Col xs={24} sm={8}><ClickableStatCard title={`${dirLabel}總額`} value={totalRequest}
+          active={statFilter === 'all'} onClick={() => setStatFilter('all')} /></Col>
+        <Col xs={24} sm={8}><ClickableStatCard title={`已${paymentLabel}`} value={totalPaid} color="#52c41a"
+          active={statFilter === 'paid'} onClick={() => setStatFilter('paid')} /></Col>
+        <Col xs={24} sm={8}><ClickableStatCard title="未結餘額" value={outstanding}
+          color={outstanding > 0 ? '#ff4d4f' : '#52c41a'}
+          active={statFilter === 'outstanding'} onClick={() => setStatFilter('outstanding')} /></Col>
       </Row>
 
       <div style={{ marginBottom: 12 }}>
@@ -167,7 +186,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
 
       <EnhancedTable<AccountRecord>
         columns={columns}
-        dataSource={records}
+        dataSource={filteredRecords}
         rowKey="id"
         onRow={(row: AccountRecord) => ({
           // 2026-08-04：操作欄移除後改為點列進填報頁（編輯／刪除都在那一頁的標題列）。

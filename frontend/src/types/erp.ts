@@ -1184,3 +1184,22 @@ export interface CaseFinanceData {
   records: CaseFinanceRecord[];
   summary: CaseFinanceSummary;
 }
+
+/**
+ * 報價狀態 SSOT（2026-08-15）
+ *
+ * 原本只定義在 ERPQuotationDetailPage 內；列表頁要用就會變成第二份，
+ * 而本專案反覆記過「同一件事有兩份說法時，沒有任何一方會報錯」。
+ */
+export const ERP_QUOTATION_STATUS = [
+  { value: 'draft', label: '草稿', color: 'default' },
+  { value: 'confirmed', label: '已確認', color: 'success' },
+  { value: 'revised', label: '修訂中', color: 'warning' },
+  { value: 'closed', label: '已結案', color: 'default' },
+] as const;
+
+export const erpQuotationStatusLabel = (v?: string | null): string =>
+  ERP_QUOTATION_STATUS.find((o) => o.value === v)?.label ?? (v || '-');
+
+export const erpQuotationStatusColor = (v?: string | null): string =>
+  ERP_QUOTATION_STATUS.find((o) => o.value === v)?.color ?? 'default';
