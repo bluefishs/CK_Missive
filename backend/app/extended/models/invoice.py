@@ -76,7 +76,10 @@ class ExpenseInvoice(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    user = relationship("User", back_populates="expense_invoices")
+    user = relationship(
+        "User", back_populates="expense_invoices",
+        foreign_keys=[user_id],   # 送出者；核准者是 approved_by
+    )
     vendor = relationship("PartnerVendor", foreign_keys=[vendor_id])
     # lazy="selectin"（2026-07-30 根治）：ExpenseInvoiceResponse 含 `items`，
     # 任何回傳 ORM 物件給 pydantic 序列化的路徑，只要 items 未載入就會在 async 情境

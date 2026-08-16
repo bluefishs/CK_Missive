@@ -174,5 +174,11 @@ class User(Base):
     certifications = relationship("StaffCertification", back_populates="user", cascade="all, delete-orphan")
 
     # 費用報銷 & 帳本
-    expense_invoices = relationship("ExpenseInvoice", back_populates="user")
+    # 2026-08-16：ExpenseInvoice 現在有兩個指向 users 的外鍵
+    # （user_id＝送出者、approved_by＝核准者），必須指明走哪一個，
+    # 否則 ORM 拋 AmbiguousForeignKeysError（當天實際踩到）。
+    expense_invoices = relationship(
+        "ExpenseInvoice", back_populates="user",
+        foreign_keys="ExpenseInvoice.user_id",
+    )
     finance_ledgers = relationship("FinanceLedger", back_populates="user")
