@@ -1,7 +1,7 @@
 {
- "checked_at": "2026-08-15T15:50:10.063Z",
+ "checked_at": "2026-08-16T01:55:42.944Z",
  "base": "https://missive.cksurvey.tw",
- "pass": 18,
+ "pass": 20,
  "fail": 0,
  "skip": 0,
  "failures": [],
@@ -60,6 +60,19 @@
    "id": "visual-walk-lock-contract-case-mobile",
    "values": [
     "基本資訊標籤數=16"
+   ]
+  },
+  {
+   "id": "table-sort-filter-present",
+   "values": [
+    ".ant-table-column-sorter=14",
+    ".ant-table-filter-trigger=2"
+   ]
+  },
+  {
+   "id": "finance-stat-cards-interactive",
+   "values": [
+    ".ant-card-hoverable=3"
    ]
   }
  ],

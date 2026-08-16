@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-15T17:25:46.449Z",
+ "checked_at": "2026-08-15T23:47:31.584Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 87,
  "fail": 0,
@@ -38,6 +38,7 @@
   "/admin/backup",
   "/admin/deployment",
   "/admin/scheduler-events",
+  "/admin/case-nature",
   "/admin/ai-assistant",
   "/ai/graphs",
   "/ai/knowledge-graph",
@@ -91,8 +92,7 @@
   "/kunge/identity",
   "/kunge/memory",
   "/kunge/nebula",
-  "/kunge/dialogues",
-  "/admin/case-nature"
+  "/kunge/dialogues"
  ],
  "route_apis": {
   "/documents": [
@@ -450,6 +450,16 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
+   "/api/secure-site-management/csrf-token",
+   "/api/secure-site-management/navigation/action",
+   "/api/system-notifications/unread-count",
+   "/api/taoyuan-dispatch/dispatch/contract-projects"
+  ],
+  "/admin/case-nature": [
+   "/api/ai/config",
+   "/api/auth/check",
+   "/api/auth/me",
+   "/api/pm/case-nature/list",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -1050,16 +1060,6 @@
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
    "/api/taoyuan-dispatch/dispatch/contract-projects"
-  ],
-  "/admin/case-nature": [
-   "/api/ai/config",
-   "/api/auth/check",
-   "/api/auth/me",
-   "/api/pm/case-nature/list",
-   "/api/secure-site-management/csrf-token",
-   "/api/secure-site-management/navigation/action",
-   "/api/system-notifications/unread-count",
-   "/api/taoyuan-dispatch/dispatch/contract-projects"
   ]
  },
  "throttled": 0,
@@ -1242,56 +1242,56 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 971
+    "tableOverflow": 0
    },
    {
     "route": "/erp/quotations",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 562
+    "tableOverflow": 0
    },
    {
     "route": "/erp/ledger",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 462
+    "tableOverflow": 0
    },
    {
     "route": "/erp/assets",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 762
+    "tableOverflow": 0
    },
    {
     "route": "/erp/operational",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 582
+    "tableOverflow": 0
    },
    {
     "route": "/erp/financial-dashboard",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 762
+    "tableOverflow": 0
    },
    {
     "route": "/erp/vendor-accounts",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 462
+    "tableOverflow": 0
    },
    {
     "route": "/erp/client-accounts",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 522
+    "tableOverflow": 0
    },
    {
     "route": "/documents",
@@ -1326,7 +1326,7 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 176
+    "tableOverflow": 0
    },
    {
     "route": "/documents/2689",
@@ -1368,21 +1368,21 @@
     "viewportWidth": 768,
     "pageOverflow": 19,
     "layoutViewport": 768,
-    "tableOverflow": 424
+    "tableOverflow": 0
    },
    {
     "route": "/erp/quotations/168?tab=payable",
     "viewportWidth": 768,
     "pageOverflow": 19,
     "layoutViewport": 768,
-    "tableOverflow": 440
+    "tableOverflow": 0
    },
    {
     "route": "/erp/quotations/168?tab=expenses",
     "viewportWidth": 768,
     "pageOverflow": 19,
     "layoutViewport": 768,
-    "tableOverflow": 89
+    "tableOverflow": 0
    },
    {
     "route": "/pm/cases/244?tab=quotations",
