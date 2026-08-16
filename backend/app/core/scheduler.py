@@ -288,7 +288,25 @@ def get_scheduler() -> AsyncIOScheduler:
     """取得排程器實例"""
     global _scheduler
     if _scheduler is None:
-        _scheduler = AsyncIOScheduler()
+        # 2026-08-16：全域 job_defaults —— APScheduler 的 misfire_grace_time
+        # **預設是 1 秒**，也就是排定時刻起算超過 1 秒沒被排到就整個跳過。
+        #
+        # 為什麼一直沒發現：5 分鐘週期的 job 一天有 288 次機會，
+        # 偶爾錯過一次看不出來；**每小時的 job 一次沒排到就整整少一小時**，
+        # 而事件迴圈在那一秒剛好在忙是很常見的事。
+        # 實測 `ezbid_cache_refresh`（每小時）最後執行停在 01:26，
+        # 14:15 那次排定時刻完全沒有 Running job 紀錄 —— 被靜靜 misfire 掉。
+        #
+        # 這是 L72 的同一個根因（當時修的是 cleanup_events/security_scan/
+        # fitness_daily 三支「02:00 壅塞 skip 從不執行」），但當時**只修了那三支**，
+        # 而全檔 52 個 add_job 有 **38 個**沒有這個參數。
+        # 設在 job_defaults 而不是逐一補：一個地方，不會有第 39 個漏網的。
+        #
+        # 1 小時：足以吸收事件迴圈壅塞，又不會讓一個停機半天的 job
+        # 在恢復後補跑一堆過期任務（coalesce 另外處理重複觸發）。
+        _scheduler = AsyncIOScheduler(
+            job_defaults={"misfire_grace_time": 3600, "coalesce": True}
+        )
     return _scheduler
 
 
