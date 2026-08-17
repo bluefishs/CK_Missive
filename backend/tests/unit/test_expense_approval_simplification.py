@@ -33,11 +33,36 @@ def test_transition_table_allows_the_shortcut():
     )
 
 
-def test_above_threshold_still_goes_through_tiers():
+def test_above_threshold_needs_one_approval_only():
+    """2026-08-17 owner「流程簡化」：財務層移除，一律最多兩段。
+
+    原本這個測試斷言「高額仍需財務層」—— 那是舊規則。
+    改變的理由是查證出**每一層都是同一組人**（沒有角色區分），
+    第三段是同一批人再簽一次＝儀式不是控制。
+    真正的雙人原則由 `approve()` 的擋自核提供。
+    """
     svc = _FakeSvc()
     assert svc._determine_next_approval("pending", AUTO_APPROVE_BELOW + 1) == "manager_approved"
-    # 高額仍需財務層
-    assert svc._determine_next_approval("manager_approved", APPROVAL_THRESHOLD + 1) == "finance_approved"
+    # 高額不再進財務層 —— 主管核准後直接終結
+    assert svc._determine_next_approval("manager_approved", APPROVAL_THRESHOLD + 1) == "verified"
+    # 既有停在 finance_approved 的資料仍要有出口
+    assert svc._determine_next_approval("finance_approved", APPROVAL_THRESHOLD + 1) == "verified"
+
+
+def test_no_path_exceeds_two_approvals():
+    """任何金額的審批路徑都不得超過兩段 —— 這是「簡化」的可驗證定義。"""
+    from app.schemas.erp.expense import APPROVAL_TRANSITIONS
+
+    svc = _FakeSvc()
+    for amt in (Decimal(1), AUTO_APPROVE_BELOW, AUTO_APPROVE_BELOW + 1,
+                APPROVAL_THRESHOLD, APPROVAL_THRESHOLD * 100):
+        cur, steps = "pending", 0
+        while cur not in ("verified", "rejected") and steps < 6:
+            nxt = svc._determine_next_approval(cur, amt)
+            assert nxt in APPROVAL_TRANSITIONS.get(cur, []), f"非法流轉 {cur}→{nxt}"
+            cur, steps = nxt, steps + 1
+        assert cur == "verified", f"{amt} 走不到終態（停在 {cur}）"
+        assert steps <= 2, f"{amt} 需要 {steps} 段核准 —— 超過簡化後的上限"
 
 
 def test_approve_signature_takes_approver():

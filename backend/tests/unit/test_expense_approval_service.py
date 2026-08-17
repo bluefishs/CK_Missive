@@ -75,8 +75,14 @@ class TestApprove:
         service.ledger_service.record_from_expense.assert_called_once_with(inv)
 
     @pytest.mark.asyncio
-    async def test_high_value_needs_finance(self, service):
-        """>30K: manager_approved → finance_approved (不入帳)"""
+    async def test_high_value_completes_after_manager(self, service):
+        """>30K: manager_approved → verified。
+
+        2026-08-17 owner「流程簡化」：財務層移除。
+        原本這裡斷言 → finance_approved（不入帳），那是舊規則 ——
+        改變的理由是每一層都是同一組人，第三段不產生控制效果。
+        高額現在主管核准後直接終結**並入帳**。
+        """
         inv = _make_invoice(status="manager_approved", amount=Decimal("50000"))
         service.repo.get_by_id_for_update = AsyncMock(return_value=inv)
         service.repo.update_status = AsyncMock()
@@ -87,8 +93,10 @@ class TestApprove:
                 with patch.object(service, 'audit_update', new_callable=AsyncMock):
                     await service.approve(1)
 
-        service.repo.update_status.assert_called_once_with(inv, "finance_approved")
-        service.ledger_service.record_from_expense.assert_not_called()
+        service.repo.update_status.assert_called_once_with(inv, "verified")
+        # 走到終態就要入帳 —— 這是流程簡化帶來的**行為改變**，不是測試寫錯：
+        # 舊流程停在 finance_approved 所以不入帳，新流程直接完成。
+        service.ledger_service.record_from_expense.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_verified_cannot_approve(self, service):
@@ -156,5 +164,6 @@ class TestDetermineNextApproval:
         assert svc._determine_next_approval("manager_approved", Decimal("10000")) == "verified"
         # 高金額路徑
         assert svc._determine_next_approval("pending", Decimal("50000")) == "manager_approved"
-        assert svc._determine_next_approval("manager_approved", Decimal("50000")) == "finance_approved"
+        # 2026-08-17 流程簡化：財務層移除，主管核准後直接終結
+        assert svc._determine_next_approval("manager_approved", Decimal("50000")) == "verified"
         assert svc._determine_next_approval("finance_approved", Decimal("50000")) == "verified"

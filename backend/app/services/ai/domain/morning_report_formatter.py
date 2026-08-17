@@ -39,15 +39,42 @@ _SITE_VISIT_KEYWORDS = (
 # 段落標題佔位符：真正的編號在組裝時依實際渲染順序填入（見 format_summary 結尾）
 _SECTION_MARK = "【#. "
 
+# 2026-08-17 owner「流程簡化」後更正：
+#   · `verified` 是**終態**，不是「待主管」—— 原本寫「已初核・待主管」是錯的，
+#     那筆其實已經結束並入帳了，而訊息叫人去等一個不存在的下一步。
+#   · `manager_approved` 不再「待財務」（財務層已移除），現在是待最後確認。
 _EXPENSE_STATUS_ZH = {
     "pending": "待審",
     "pending_receipt": "待補收據",
-    "verified": "已初核・待主管",
-    "manager_approved": "主管已核准・待財務",
-    "finance_approved": "財務已核准・待結案",
+    "verified": "已完成・已入帳",
+    "manager_approved": "主管已核准・待確認",
+    "finance_approved": "待確認（舊流程）",
     "approved": "已核准",
     "rejected": "已駁回",
 }
+
+
+def _amount_band(amount: int) -> str:
+    """把金額換成決策級距 —— **輸出不含任何數字**。
+
+    分界取自系統既有的審批門檻，不另訂一組（那會是第二份事實）：
+
+        ≤ AUTO_APPROVE_BELOW   免審直達      → 「小額」
+        < APPROVAL_THRESHOLD   一般審批      → 「一般」
+        ≥ APPROVAL_THRESHOLD   需主管核准    → 「需主管核准」⚠️
+
+    ⚠️ 這些標籤會通過 `telegram_content_sanitizer`，必須確保**沒有數字**，
+    否則會被遮成 `[金額]` 而前功盡棄。有測試守著（`test_amount_band_no_digits`）。
+    """
+    from app.schemas.erp.expense import APPROVAL_THRESHOLD, AUTO_APPROVE_BELOW
+
+    if amount <= 0:
+        return "金額未填"
+    if amount <= int(AUTO_APPROVE_BELOW):
+        return "小額"
+    if amount < int(APPROVAL_THRESHOLD):
+        return "一般"
+    return "需主管核准⚠️"
 
 
 def _format_expense_line(item: dict) -> str:
@@ -63,9 +90,30 @@ def _format_expense_line(item: dict) -> str:
     """
     amount = int(item.get("amount") or 0)
     category = (item.get("category") or "").strip() or "未分類"
-    status = _EXPENSE_STATUS_ZH.get(item.get("status"), item.get("status") or "")
+    # 狀態為空時原本會留下 `〔〕` 空括號 —— owner 2026-08-17 貼出的訊息
+    # 正是這個形狀（`差旅費 [金額]〔〕｜`）。沒有值就不要留框。
+    status = _EXPENSE_STATUS_ZH.get(item.get("status"), (item.get("status") or "").strip())
     who = (item.get("uploader") or "").strip()
-    parts = [f"  💰 {category} NT$ {amount:,}〔{status}〕{who or '未指定上傳者'}"]
+
+    # 金額改為**級距**（2026-08-17）。
+    #
+    # 推播一律經 `telegram_content_sanitizer` 遮蔽 —— 那是必要的，
+    # owner 的 Telegram 帳號就是因為金額呈現被判定為非正常金流而永久封禁。
+    # 但遮完之後訊息裡只剩 `[金額]`，**300 元和 50 萬長得一模一樣**，
+    # 早上瞄一眼完全無法判斷哪筆該先處理 —— 遮蔽解決了風險，卻讓訊息失去用途。
+    #
+    # 級距用的是**系統自己的審批門檻**（`AUTO_APPROVE_BELOW` / `APPROVAL_THRESHOLD`），
+    # 不是我另訂一組數字：讀的人真正要知道的是「這筆要不要我簽」。
+    # 級距標籤裡**沒有任何數字**，不構成金流樣式。
+    band = _amount_band(amount)
+    seg = [f"  💰 {category} {band}"]
+    if status:
+        seg.append(f"〔{status}〕")
+    else:
+        # 沒有狀態時要補一個分隔，否則「小額」與人名會黏成「小額未指定上傳者」
+        seg.append(" ")
+    seg.append(who or "未指定上傳者")
+    parts = ["".join(seg)]
     reason = (item.get("reason") or "").strip()
     if reason:
         parts.append(f"｜{reason}")

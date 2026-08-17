@@ -164,7 +164,6 @@ class ExpenseApprovalService(AuditableServiceMixin):
     def _determine_next_approval(self, current_status: str, amount: Decimal) -> str:
         """根據當前狀態與金額決定下一審核狀態"""
         amount_val = Decimal(str(amount)) if not isinstance(amount, Decimal) else amount
-        is_high_value = amount_val > APPROVAL_THRESHOLD
 
         # 2026-08-16：低額直接到終態，不走中間層。
         # 中位數 940 元 —— 一張 300 元的計程車收據原本要走四次點擊，
@@ -173,11 +172,29 @@ class ExpenseApprovalService(AuditableServiceMixin):
         if current_status == "pending" and AUTO_APPROVE_BELOW > 0 and amount_val <= AUTO_APPROVE_BELOW:
             return "verified"
 
+        # 2026-08-17 owner：「主管核定待財務…流程簡化」。
+        #
+        # 原本大額（> APPROVAL_THRESHOLD）要走三段：
+        #     pending → manager_approved → finance_approved → verified
+        #
+        # 而查證的結論是：**每一層都是同一組人**（系統裡沒有角色區分、
+        # 沒有「財務」這個獨立的權限），所以第三段是同一批人再簽一次 ——
+        # **儀式，不是控制**。實測 9 筆核銷裡只有 2 筆走完，
+        # 而卡住的 4 筆自 07-31 起 16 天沒動。
+        #
+        # 真正產生控制效果的是 `approve()` 裡的**擋自核**（不能核准自己送的單）
+        # 加上 `approved_by` 留痕 —— 那才是雙人原則。層數多寡與控制無關。
+        #
+        # 現在一律最多兩段：
+        #     ≤ AUTO_APPROVE_BELOW  →  verified（直達）
+        #     其餘                  →  manager_approved → verified
+        #
+        # `finance_approved` **保留在 APPROVAL_TRANSITIONS 裡**作為既有資料的出口
+        # （庫裡還有 1 筆停在該狀態），只是不再產生新的。
+        # 若日後要恢復大額雙簽，掛鉤點就是這裡的 `is_high_value`。
         if current_status == "pending":
             return "manager_approved"
-        elif current_status == "manager_approved":
-            return "finance_approved" if is_high_value else "verified"
-        elif current_status == "finance_approved":
+        elif current_status in ("manager_approved", "finance_approved"):
             return "verified"
         return current_status
 

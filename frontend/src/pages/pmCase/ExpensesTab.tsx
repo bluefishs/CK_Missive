@@ -4,6 +4,7 @@
  * 使用 /erp/expenses/case-finance API 一次取得案件所有財務紀錄。
  */
 import React from 'react';
+import { EXPENSE_STATUS_LABELS } from '../../types/erp';
 import { Tag, Empty, Button, Typography, Row, Col, Statistic, Card } from 'antd';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined } from '@ant-design/icons';
@@ -31,9 +32,11 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   invoice: { label: '開票', color: 'green' },
 };
 
+// 2026-08-17：費用狀態改由 types/erp.ts 的 SSOT 供應（原本自寫一份，
+// 流程簡化拿掉「財務核准」時不會跟著改）。
+// 帳款狀態（unpaid/partial/paid/issued）是**不同語意**，保留在這裡。
 const STATUS_LABELS: Record<string, string> = {
-  pending: '待審核', manager_approved: '主管核准', finance_approved: '財務核准',
-  verified: '已核准', rejected: '已駁回',
+  ...EXPENSE_STATUS_LABELS,
   unpaid: '未收款', partial: '部分收款', paid: '已收款',
   issued: '已開立',
 };

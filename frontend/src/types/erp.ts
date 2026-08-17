@@ -363,13 +363,30 @@ export type ExpenseInvoiceStatus =
   | 'verified'          // 最終通過 (已入帳)
   | 'rejected';         // 已駁回
 
+/**
+ * 2026-08-17 owner「流程簡化」：財務層已移除，一律最多兩段
+ * （小額直達／其餘 主管核准 → 完成）。
+ *
+ * ⚠️ 這份是 SSOT，但在此之前**前端有四份各自的狀態文字**
+ * （ERPExpenseDetailPage／erpQuotation/ExpensesTab／pmCase/ExpensesTab
+ * 各寫一份，而這份 SSOT 沒有人用）。其中詳情頁那份還依金額判斷要不要顯示
+ * 「財務核准」—— 流程改了它不會跟。已全數改為引用這裡。
+ */
 export const EXPENSE_STATUS_LABELS: Record<ExpenseInvoiceStatus, string> = {
-  pending: '待主管審核',
+  pending: '待審核',
   pending_receipt: '待上傳收據',
-  manager_approved: '主管已核准',
-  finance_approved: '財務已核准',
-  verified: '最終通過',
+  manager_approved: '主管已核准・待確認',
+  finance_approved: '待確認（舊流程）',
+  verified: '已完成・已入帳',
   rejected: '已駁回',
+};
+
+/** 審核按鈕文字 —— 由狀態決定，**不再依金額判斷** */
+export const EXPENSE_APPROVE_LABELS: Record<string, string> = {
+  pending: '核准',
+  manager_approved: '確認完成',
+  finance_approved: '確認完成',
+  pending_receipt: '推進',
 };
 
 export const EXPENSE_STATUS_COLORS: Record<ExpenseInvoiceStatus, string> = {

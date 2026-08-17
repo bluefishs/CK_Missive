@@ -11,6 +11,7 @@
  * pending/rejected，與原欄位一致，確保沒有任何入口消失。
  */
 import React, { useState } from 'react';
+import { EXPENSE_STATUS_LABELS, EXPENSE_STATUS_COLORS } from '../../types/erp';
 import {
   Tag, Empty, Button, Typography, Row, Col,
 } from 'antd';
@@ -31,13 +32,13 @@ const { Text } = Typography;
 
 
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  pending: { label: '待審核', color: 'orange' },
-  manager_approved: { label: '主管核准', color: 'blue' },
-  finance_approved: { label: '財務核准', color: 'cyan' },
-  verified: { label: '已核准', color: 'green' },
-  rejected: { label: '已駁回', color: 'red' },
-};
+// 2026-08-17：原本自寫一份標籤（前端共四份）。流程簡化把「財務核准」拿掉時，
+// 這種各自宣告的副本不會跟著改 —— 改由 types/erp.ts 的 SSOT 推導。
+const STATUS_MAP: Record<string, { label: string; color: string }> = Object.fromEntries(
+  Object.entries(EXPENSE_STATUS_LABELS).map(([k, label]) => [
+    k, { label: label as string, color: EXPENSE_STATUS_COLORS[k as keyof typeof EXPENSE_STATUS_COLORS] ?? 'default' },
+  ]),
+);
 
 interface Props {
   caseCode: string;

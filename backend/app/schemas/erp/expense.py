@@ -67,7 +67,11 @@ APPROVAL_TRANSITIONS: dict[str, list[str]] = {
     # 「非法狀態流轉」擋掉 —— 加了但不會生效。
     "pending":           ["manager_approved", "verified", "rejected"],
     "pending_receipt":   ["pending", "rejected"],
-    "manager_approved":  ["finance_approved", "verified", "rejected"],
+    # 2026-08-17 owner「流程簡化」：主管核准後直接終結，不再進財務層。
+    # `finance_approved` 仍留在表上，是因為庫裡還有 1 筆停在該狀態 ——
+    # 移除它會讓那筆永遠出不去（狀態機不該把既有資料鎖死）。
+    # 新的流程不會再產生 finance_approved（見 _determine_next_approval）。
+    "manager_approved":  ["verified", "rejected"],
     "finance_approved":  ["verified", "rejected"],
     "verified":          [],   # 終態
     "rejected":          [],   # 終態
