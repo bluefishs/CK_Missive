@@ -78,6 +78,43 @@ class PersonGaps:
     items: list[GapItem] = field(default_factory=list)
 
 
+# PM 已成案／執行中，但下游**整個不存在**（2026-08-17 補）。
+#
+# ⚠️ 這一條補的是一個**結構性盲區**：其餘五種缺口全部從下游表出發
+# （erp_quotations / contract_projects / erp_billings / erp_vendor_payables /
+# expense_invoices），於是「上游說已成案，而下游一列都沒有」在座標系之外
+# —— 不是判定寬鬆，是**那一列根本不在被掃描的集合裡**。
+#
+# 而它恰好是最嚴重的一種：代表「一鍵成案」從未執行、或執行到一半斷了，
+# 案子在 PM 看起來已成案、在財務端完全不存在（毛利、應收、核銷全都無從掛載）。
+#
+# 實測命中 1 筆：CK2026_PM_01_006（contracted、0 報價單、0 承攬案件、
+# 合約金額 33 元 —— 那個 33 本身也不可能是真的）。**先報出來讓人看見**，
+# 不自動補建：缺的是報價單與承攬案件兩個實體，該由誰、用什麼金額建，
+# 機器猜不出來（而猜錯會產生一筆看起來合法的假資料）。
+#
+# `planning` 排除：評估階段還沒有下游是正常的，不是缺口。
+SQL_PM_NO_DOWNSTREAM = """
+SELECT pm.id AS row_id, pm.case_code, COALESCE(pm.case_name, '') AS name,
+       COALESCE(pm.status, '') AS pm_status, pm.contract_amount,
+       u.id AS user_id, COALESCE(u.full_name, u.username, '') AS staff
+FROM pm_cases pm
+-- PM 案件的負責人在 pm_cases 自己的欄位上（沒有 project_user_assignments
+-- 可用 —— 那張表掛在 contract_projects.id 上，而這批案子的痛點正是
+-- 「沒有 contract_projects」）。
+LEFT JOIN users au ON au.id = pm.created_by
+LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
+WHERE COALESCE(pm.status, '') NOT IN ('closed', 'planning', '已結案')
+  AND NOT EXISTS (
+      SELECT 1 FROM erp_quotations q
+       WHERE q.case_code = pm.case_code AND q.deleted_at IS NULL
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM contract_projects cp WHERE cp.case_code = pm.case_code
+  )
+ORDER BY pm.case_code
+"""
+
 # 承攬案件缺合約金額。
 # 負責人取 `is_primary` 優先，沒有 primary 就取任一指派人
 # （有人負責總比沒有好；真的沒有指派才歸「未指派」）。
@@ -241,6 +278,24 @@ class FilingGapService:
             if key not in by_person:
                 by_person[key] = PersonGaps(user_id=user_id, name=name)
             return by_person[key]
+
+        # 這一條放在最前面：它代表「案子在財務端根本不存在」，
+        # 比「存在但少填一欄」嚴重一個量級，不該排在 32 筆缺金額的後面。
+        rows = (await self.db.execute(text(SQL_PM_NO_DOWNSTREAM))).all()
+        for r in rows:
+            bucket(r.user_id, r.staff).items.append(GapItem(
+                kind="已成案但財務端不存在",
+                ref=r.case_code or "",
+                label=(r.name or "")[:28],
+                detail=(
+                    f"PM 狀態為「{r.pm_status}」，但沒有報價單也沒有承攬案件"
+                    f" —— 毛利、應收、核銷都無處掛載"
+                ),
+                # 連回 PM 案件詳情：要補的是「從這裡建報價單／成案」，
+                # 而不是去 ERP 端找一個不存在的東西。
+                url=f"/pm/cases/{r.row_id}",
+                active=True,
+            ))
 
         rows = (await self.db.execute(text(SQL_CONTRACT_NO_AMOUNT))).all()
         for r in rows:

@@ -115,6 +115,11 @@
 | `memory_diary_freshness_check.py` | Memory Wiki Freshness Check |
 | `ner_relation_regression_check.py` | weekly 54：NER 關係抽取**修法後有無新缺口**（刻意不報 572 筆存量——已知待決的事每週報一次只會被略過） |
 | `memory_metrics_alive_check.py` | Memory Wiki metrics alive check |
+| `entity_creation_ssot_audit.py` | weekly 57：業務實體（PMCase／ContractProject／ERPQuotation）只能在授權處建構 —— 防「從標案建案」那種兩份實作各自演化到業務規則相反 |
+| `enum_storage_convention_audit.py` | weekly 58：狀態值存中文還是英文代碼**只能有一種**（`ENUM_STORAGE_CONVENTION.md`）—— 混存時篩選會靜靜漏掉一半 |
+| `schema_ssot_audit.py` | weekly 59：`api/endpoints/` 不得有本地 `BaseModel`（development-rules §3）—— 端點自帶 schema 會與 `app/schemas/` 各自演化 |
+| `savepoint_autocommit_audit.py` | weekly 60：`begin_nested()` 內不得呼叫 `auto_commit=True` 的 repo 方法 —— SAVEPOINT 被內層 commit 掉，外層 rollback 就救不回來 |
+| `model_response_field_reach_audit.py` | weekly 61：ORM 欄位是否到達 response schema —— Pydantic 對「model 有、schema 沒有」是**靜默丟棄**，API 永遠不回傳而不拋錯（`quotation_no` 就這樣存在資料庫而使用者看不到） |
 | `paths_compose_mount_audit.py` | Fitness step 62 (v6.12, L52 lesson): paths.py PROJECT_ROOT vs docker-compose mount audit |
 | `paths_subpath_mount_audit.py` | Fitness step 69: paths.py sub-path vs compose mount sub-path audit |
 | `public_exposure_audit.py` | 公網暴露稽核 —— API 文件不得對外開放 |

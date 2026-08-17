@@ -122,11 +122,29 @@ class CaseCodeService:
     async def generate_quotation_no(self, year: Optional[int] = None) -> str:
         """產生對外報價單號 QT{年}_{序}（2026-08-17 owner「編號統整」）。
 
+        ⚠️ **同日我曾想改成 `B{民國年}-B{序}` —— 那是誤判，已撤回。**
+
+        庫裡 48 筆歷史列的 `case_code` 是 `B114-B039` 這種形式
+        （來源 `docs/templates/import-templates/114報價單彙整.xlsx`，
+        工作表名就叫「老闆」與「原始」）。owner 給的解碼是：
+
+            B      114      B         039
+            邀標    年度     同仁代號   該同仁的第 39 筆報價紀錄
+
+        **序號是按人各自數的** —— 所以它結構上不可能當公司唯一號：
+        同仁 A 與同仁 B 各有自己的 039，兩張不同的報價單尾號一樣。
+        那份 xlsx 有兩個工作表也正是這個原因（一人一張表）。
+
+        建構線上報價單系統的目的就是取代這種各自記帳的狀態，
+        所以「B 式流進 case_code」不是要沿用的規格、是要被統整掉的現況。
+        沿用它等於把個人流水號固化成系統規格，方向剛好相反。
+
         沿用 `generate_case_code` 的形狀與 **advisory lock 防併發跳號** ——
         不另寫一套產號邏輯（那會是第二份事實，而兩份產號器撞號時
         只有唯一索引會擋，而那時使用者看到的是一個看不懂的 500）。
 
-        版次不影響單號：議價後重報是 revision+1，客戶引用的是同一張。
+        版次不進號碼本體：`revision` 另存一欄，
+        對外呈現時才組成 `QT2026_018-2`（見 `format_quotation_no`）。
         """
         from datetime import date as _date
 
@@ -147,6 +165,21 @@ class CaseCodeService:
         """), {"p": f"{prefix}%"})).scalar()
 
         return f"{prefix}{str((row or 0) + 1).zfill(3)}"
+
+    @staticmethod
+    def format_quotation_no(quotation_no: Optional[str], revision: int = 1) -> str:
+        """組成對外呈現的完整單號（含版次後綴）。
+
+        `QT2026_018` + revision 2 → `QT2026_018-2`；revision 1 不加後綴 ——
+        這樣「有後綴就是改過的」語意明確，客戶一眼看得出手上是不是最新版。
+        （議價後重報是同一件事的第 N 版，不該給新號、否則對帳時
+        會被當成兩張不同的報價單。）
+
+        單號為空時回「未編號」而不是空字串：正式文件上留白會被當成漏印。
+        """
+        if not quotation_no:
+            return "未編號"
+        return quotation_no if (revision or 1) <= 1 else f"{quotation_no}-{revision}"
 
     async def _find_next_serial(self, prefix: str) -> int:
         """在 PM/ERP 表中查找最大流水號 (含 advisory lock 防併發跳號)"""
