@@ -592,6 +592,26 @@ export const LEDGER_ENTRY_TYPE_LABELS: Record<LedgerEntryType, string> = {
  * 帳本同時記收入與支出，所以分類 = 收入科目 + 營運 + 支出科目
  * （支出科目沿用 `EXPENSE_CATEGORY_OPTIONS`，**不另造一份**）。
  */
+/**
+ * 請款期別詞彙表。
+ *
+ * 對應後端 `backend/app/schemas/erp/billing.py` 的 `BillingPeriod`／`BILLING_PERIODS`
+ * （那裡是唯一定義處，此處為前端下拉用的對照；`ENUM_STORAGE_CONVENTION.md` 規則 2
+ * 要求兩端註解互相指名）。
+ *
+ * owner 2026-08-17：「建議期別採下拉選單，避免不同專案不一致，如 第一期款」。
+ * 回報當下實測 51 筆已漂成三種寫法表達同一件事
+ * （第一期 47／第一期款項 3／資訊系統第一期款 1）—— 根因是本表單原本用
+ * `<Input placeholder="如 第1期" />` 收，違反規則 4。已由 migration
+ * `20260817a003` 全數收斂為「第一期」。
+ *
+ * 值用中文而非英文碼的理由見後端那份註解（期別不驅動邏輯，是印在單上給人看的字串）。
+ */
+export const BILLING_PERIOD_OPTIONS = [
+  '第一期', '第二期', '第三期', '第四期', '第五期',
+  '尾款', '一次請領',
+] as const;
+
 export const LEDGER_INCOME_CATEGORIES = ['收款', '其他收入'] as const;
 export const LEDGER_OPERATIONAL_CATEGORIES = ['營運費用'] as const;
 

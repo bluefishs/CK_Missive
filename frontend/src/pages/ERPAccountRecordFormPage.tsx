@@ -28,6 +28,8 @@ import dayjs from 'dayjs';
 import { apiClient } from '../api/client';
 import { ERP_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
+// 期別詞彙表 —— 唯一定義處在後端 `schemas/erp/billing.py: BillingPeriod`
+import { BILLING_PERIOD_OPTIONS } from '../types/erp';
 import { useResponsive } from '../hooks';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
 
@@ -88,6 +90,10 @@ const ERPAccountRecordFormPage: React.FC = () => {
       form.setFieldsValue({
         vendor_name: record.vendor_name,
         payable_amount: record.payable_amount != null ? Number(record.payable_amount) : null,
+        // 2026-08-17：補上 description —— 原本表單沒有這一欄，
+        // 於是編輯既有紀錄時它的說明**不會被載入**，儲存後就被清空了
+        // （比「看不到」更糟：看不到只是不知道，載不到會靜靜刪掉既有資料）。
+        description: record.description,
         invoice_number: record.invoice_number,
         due_date: record.due_date ? dayjs(record.due_date as string) : null,
         payment_status: record.payment_status ?? 'unpaid',
@@ -150,6 +156,7 @@ const ERPAccountRecordFormPage: React.FC = () => {
           erp_quotation_id: qid,
           vendor_name: values.vendor_name,
           payable_amount: values.payable_amount,
+          description: values.description,
           invoice_number: values.invoice_number,
           due_date: values.due_date?.format('YYYY-MM-DD'),
           payment_status: values.payment_status || 'unpaid',
@@ -192,8 +199,17 @@ const ERPAccountRecordFormPage: React.FC = () => {
       >
         {isReceivable ? (
           <>
+            {/* 2026-08-17 owner：「建議期別採下拉選單，避免不同專案不一致，如 第一期款」。
+                原本是 `<Input placeholder="如 第1期" />` —— 51 筆已漂成三種寫法表達
+                同一件事（第一期 47／第一期款項 3／資訊系統第一期款 1），任何以期別
+                分組的統計都會算成三種，而沒有任何一方會報錯。
+                詞彙表唯一定義處在後端 `schemas/erp/billing.py: BillingPeriod`。 */}
             <Form.Item name="billing_period" label="期別">
-              <Input placeholder="如 第1期" />
+              <Select
+                allowClear
+                placeholder="請選擇期別（不分期選「一次請領」）"
+                options={BILLING_PERIOD_OPTIONS.map((v) => ({ label: v, value: v }))}
+              />
             </Form.Item>
             <Form.Item name="billing_date" label="請款日期" rules={[{ required: true, message: '請選擇請款日期' }]}>
               <DatePicker style={{ width: '100%' }} inputReadOnly={isMobile} />
@@ -209,6 +225,24 @@ const ERPAccountRecordFormPage: React.FC = () => {
             </Form.Item>
             <Form.Item name="payable_amount" label="應付金額" rules={[{ required: true, message: '請輸入應付金額' }]}>
               <InputNumber style={{ width: '100%' }} min={0} inputMode="numeric" formatter={amountFormatter} />
+            </Form.Item>
+            {/* 2026-08-17 owner 回報「編輯無期別可修改，有藏欄位或標準化問題」——
+                期別在應付端**資料模型就沒有**（見下方說明），但這一查揪出真正的
+                藏欄位就是這個 `description`：
+
+                  · DB 有這一欄，37 筆裡 32 筆有值（都是匯入來的，格式「案名 外包費用」）
+                  · 表單從來沒有這一欄 ⇒ **凡是從表單建的必然空白**
+                  · 實測那 5 筆空白全是 2026-07 之後建立的，匯入的 32 筆都有值
+
+                症狀是「應付列表看不出這筆是做什麼的」，而不會有任何錯誤 ——
+                欄位在、資料型別對、只是沒有入口。同「發票關聯整條鏈都建好只缺一顆按鈕」
+                （CROSS_LAYER_CONTRACT_INTEGRITY.md 家族三）。 */}
+            <Form.Item
+              name="description"
+              label="說明"
+              extra="這筆應付是做什麼的（如「XX 案 外包費用」）—— 列表只看得到廠商與金額，沒有說明就分不出同廠商的多筆"
+            >
+              <Input placeholder="選填，建議填寫" />
             </Form.Item>
             <Form.Item name="invoice_number" label="廠商發票號碼">
               <Input placeholder="選填" />

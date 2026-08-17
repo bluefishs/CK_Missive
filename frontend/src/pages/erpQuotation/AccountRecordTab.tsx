@@ -99,7 +99,11 @@ const billingToRecord = (
 // 資料轉換: vendor_payable → 統一格式
 const payableToRecord = (p: Record<string, unknown>): AccountRecord => ({
   id: p.id as number,
-  period: undefined,
+  // 2026-08-17：應付**沒有期別欄位**（資料模型就沒有；owner 回報「編輯無期別可修改」
+  // 的真相是這個，不是欄位被藏起來）。同一個欄位位置改放 `description`
+  // ——「這筆是做什麼的」對應付而言正是最需要的辨識資訊：
+  // 實測 CK2026_PM_01_005 有兩筆同廠商同金額的應付，沒有說明時兩列長得一模一樣。
+  period: (p.description as string) || undefined,
   counterparty: p.vendor_name as string,
   request_date: p.due_date as string,
   request_amount: Number(p.payable_amount || 0),
@@ -202,7 +206,17 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   });
 
   const columns: ResponsiveColumn<AccountRecord>[] = [
-    { title: '期別', dataIndex: 'period', width: 80, render: (v) => v || '-' },
+    /* 2026-08-17：欄標題依方向而異。應收有期別（`billing_period`，已收斂為
+       標準詞彙見 `schemas/erp/billing.py: BillingPeriod`）；應付沒有期別欄位，
+       同一位置放「說明」（`description`）—— 那欄 DB 一直有、37 筆裡 32 筆有值，
+       但表單沒有入口、列表也沒有對映，等於資料在而沒有人看得到。 */
+    {
+      title: isReceivable ? '期別' : '說明',
+      dataIndex: 'period',
+      width: isReceivable ? 80 : 180,
+      ellipsis: !isReceivable,
+      render: (v) => v || '-',
+    },
     { title: counterpartyLabel, dataIndex: 'counterparty', width: 140, ellipsis: true },
     { title: '請款日期', dataIndex: 'request_date', width: 110, hideOnMobile: true },
     // 2026-08-17 owner：「建議列表表單僅顯示已收款經費資訊」。
