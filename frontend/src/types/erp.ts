@@ -33,6 +33,16 @@ export interface ERPQuotation {
   project_code?: string;
   case_name?: string;
   year?: number;
+
+  /** 對外報價單號 `QT{年}_{序}` —— 客戶引用的就是這個號（2026-08-17）。
+   *  版次變更不換號：議價後重報是 revision+1，同一張報價單。
+   *  後端契約：`schemas/erp/quotation.py` ERPQuotationResponse。 */
+  quotation_no?: string;
+  /** 版次。議價後重報 +1，單號不變 */
+  revision?: number;
+  /** 報價送出時間；undefined＝還在草稿 */
+  quoted_at?: string;
+
   total_price?: number;
   tax_amount: number;
   outsourcing_fee: number;

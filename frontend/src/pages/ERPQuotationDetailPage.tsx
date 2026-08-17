@@ -50,7 +50,16 @@ export const ERPQuotationDetailPage: React.FC = () => {
 
   const headerConfig = {
     title: quotation?.case_name ?? quotation?.case_code ?? '載入中...',
-    subtitle: quotation?.case_code,
+    // 2026-08-17：報價單號要看得到 —— 客戶回覆時引用的是「你們那張 QT-…」，
+    // 不是我們內部的案號。版次 >1 才顯示（v1 是常態，標它只是噪音）。
+    //
+    // ⚠️ 這一行是「產出端完成但接收端沒接」的補救：單號在 08-17 就產好並回填
+    // 78 筆，但 response schema 與前端型別都沒有它 → 使用者永遠看不到。
+    subtitle: [
+      quotation?.quotation_no,
+      (quotation?.revision ?? 1) > 1 ? `rev ${quotation?.revision}` : null,
+      quotation?.case_code,
+    ].filter(Boolean).join('　'),
     icon: <DollarOutlined />,
     backPath: ROUTES.ERP_QUOTATIONS,
     backText: '返回列表',

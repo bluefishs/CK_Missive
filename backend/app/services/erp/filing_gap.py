@@ -159,6 +159,56 @@ WHERE p.status <> '已結案'
 ORDER BY q.case_code
 """
 
+# ---------------------------------------------------------------------------
+# 案件財務待辦（2026-08-17 owner 回報「原機制消失了」後補）
+#
+# 我在同一天做了三次收窄（核准停用不報卡審核／標案類不要求成本／
+# 只推執行中），每一次個別都對，但**疊起來把 owner 的卡片清成 0 項**
+# —— 而「0 項不顯示」讓整張卡消失。
+#
+# 更根本的問題是範圍：filing_gap 原本只涵蓋「**填報**缺口」，
+# 而 owner 的目標是「個人專案財務通知與管理」—— 那是更廣的東西。
+# 實測 owner 負責 5 個執行中案件、合約金額全部有填（所以不在填報缺口裡），
+# 但底下有 **2 筆未收款請款、4 筆未付應付** 完全沒有人通知他。
+#
+# 這兩類不是「沒填」，是「**該收沒收、該付沒付**」——
+# 對案件負責人來說那比填欄位重要得多。
+# ---------------------------------------------------------------------------
+SQL_UNPAID_BILLING = """
+SELECT b.id AS row_id, q.id AS quotation_id, q.case_code, COALESCE(q.case_name,'') AS name,
+       b.billing_amount AS amount, b.payment_status,
+       (CURRENT_DATE - b.billing_date) AS age_days,
+       u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
+FROM erp_billings b
+JOIN erp_quotations q ON q.id = b.erp_quotation_id
+JOIN contract_projects p ON p.case_code = q.case_code
+LEFT JOIN LATERAL (
+    SELECT x.user_id, x.staff_name FROM project_user_assignments x
+    WHERE x.project_id = p.id ORDER BY x.is_primary DESC NULLS LAST, x.id LIMIT 1
+) a ON TRUE
+LEFT JOIN users au ON au.id = a.user_id
+LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
+WHERE p.status <> '已結案' AND b.payment_status <> 'paid'
+ORDER BY b.billing_date
+"""
+
+SQL_UNPAID_PAYABLE = """
+SELECT v.id AS row_id, q.id AS quotation_id, q.case_code, COALESCE(q.case_name,'') AS name,
+       v.payable_amount AS amount, v.payment_status, v.vendor_name,
+       u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
+FROM erp_vendor_payables v
+JOIN erp_quotations q ON q.id = v.erp_quotation_id
+JOIN contract_projects p ON p.case_code = q.case_code
+LEFT JOIN LATERAL (
+    SELECT x.user_id, x.staff_name FROM project_user_assignments x
+    WHERE x.project_id = p.id ORDER BY x.is_primary DESC NULLS LAST, x.id LIMIT 1
+) a ON TRUE
+LEFT JOIN users au ON au.id = a.user_id
+LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
+WHERE p.status <> '已結案' AND v.payment_status <> 'paid'
+ORDER BY v.id
+"""
+
 # 核銷卡在審核。
 # 這一類的負責人是**送單的人自己**（user_id），不是案件負責人 ——
 # 卡住的多半是「送了但忘了它還沒過」。
@@ -223,6 +273,34 @@ class FilingGapService:
                 detail="有總價但沒有成本 —— 毛利算不出來（只差這一步）",
                 url=f"/erp/quotations/{r.row_id}",
                 active=True,   # 這條 SQL 本身就排除了已結案
+            ))
+
+        rows = (await self.db.execute(text(SQL_UNPAID_BILLING))).all()
+        for r in rows:
+            bucket(r.user_id, r.staff).items.append(GapItem(
+                kind="請款未收款",
+                ref=f"{r.case_code or ''} #{r.row_id}",
+                label=f"{int(r.amount or 0):,} 元",
+                detail=f"請款已 {r.age_days} 天未收（{r.payment_status}）",
+                # ⚠️ 請款/應付**沒有自己的詳情路由**（08-02 隨 BillingsTab 一起移除），
+                # 它們只存在於報價詳情的分頁裡。所以連到報價 + `?tab=`
+                # —— `?tab=` 是 08-15 才支援的，不能憑印象假設它可用（已查證）。
+                url=f"/erp/quotations/{r.quotation_id}?tab=receivable",
+                active=True,
+            ))
+
+        rows = (await self.db.execute(text(SQL_UNPAID_PAYABLE))).all()
+        for r in rows:
+            bucket(r.user_id, r.staff).items.append(GapItem(
+                kind="應付未付款",
+                # ref 帶單據序號 —— 實測 CK2026_PM_01_005 有**兩筆**同廠商同金額的
+                # 應付（id 65/66，description 皆空）。只顯示案號的話兩行長得一模一樣，
+                # 使用者會以為是畫面重複而略過它們（而其中一筆可能真的是重複建立）。
+                ref=f"{r.case_code or ''} #{r.row_id}",
+                label=f"{(r.vendor_name or '')[:12]} {int(r.amount or 0):,} 元",
+                detail=f"應付尚未付款（{r.payment_status}）",
+                url=f"/erp/quotations/{r.quotation_id}?tab=payable",
+                active=True,
             ))
 
         # 2026-08-17：核准機制暫緩時不報「卡在審核」——
@@ -302,7 +380,7 @@ class FilingGapService:
             # 只剩已結案的歷史補登就不推 —— 那不是今天要做的事。
             return ""
 
-        lines = [f"待填報 {active} 項（執行中案件）："]
+        lines = [f"案件待辦 {active} 項（執行中）："]
         for p in data["people"][:max_people]:
             if not p.get("active_count"):
                 continue

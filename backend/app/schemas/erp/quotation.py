@@ -84,6 +84,21 @@ class ERPQuotationResponse(BaseModel):
     project_code: Optional[str] = None
     case_name: Optional[str] = None
     year: Optional[int] = None
+
+    # 2026-08-17：對外報價單號與版次。
+    #
+    # ⚠️ 這三欄一開始只加到 DB 與 ORM 就停了 —— Pydantic 對 model 上有、
+    # response schema 沒有的欄位是**靜默丟棄**：API 永遠不回傳，
+    # 前端 grep `quotation_no` 零命中，`QT2026_018` 存在資料庫而使用者永遠看不到。
+    #
+    # 那是同一天剛修過的失敗形狀（待填報連結指向沒有人在讀的 query 參數）：
+    # **產出端完成、接收端無人讀取、不拋錯、稽核仍綠、功能目的落空**。
+    # 而 `schema_ssot_audit` 抓不到它 —— 它只問「endpoints 有沒有本地 BaseModel」，
+    # 不問「model 欄位有沒有到達 response schema」。
+    quotation_no: Optional[str] = None
+    revision: int = 1
+    quoted_at: Optional[datetime] = None
+
     total_price: Optional[Decimal] = None
     tax_amount: Decimal = Decimal("0")
     outsourcing_fee: Decimal = Decimal("0")

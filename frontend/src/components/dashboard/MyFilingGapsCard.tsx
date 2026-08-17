@@ -1,5 +1,20 @@
 /**
- * 我的待填報
+ * 我的案件待辦
+ *
+ * 2026-08-17 owner：「原儀表板對應使用者案件財務通知與管理機制很好，
+ * 原目標就是逐步建立個人專案通報機制」＋「目前該機制消失了」。
+ *
+ * ⚠️ 它消失是我造成的：同一天做了三次收窄（核准停用不報卡審核／
+ * 標案類不要求成本／只推執行中），每一次個別都對，
+ * 但**疊起來把 owner 的 6 項清成 0**，而「0 項不顯示」讓整張卡消失。
+ *
+ * 更根本的是範圍：原本只涵蓋「**填報**缺口」，而 owner 要的是
+ * 「案件財務通知與管理」—— 實測 owner 負責 5 個執行中案件、金額全部有填
+ * （所以不在填報缺口裡），底下卻有 2 筆未收款、4 筆未付應付沒有人通知他。
+ * 那不是「沒填」，是「該收沒收、該付沒付」——對案件負責人重要得多。
+ *
+ * 教訓：收窄判準時要問「移除後這個人還剩什麼」。
+ * 通報機制的價值在於每個人打開都看得到自己的事，不在於清單短。
  *
  * 2026-08-16 owner：「承攬報價案件對應填報人員通報管控」。
  *
@@ -28,9 +43,13 @@ import type { MyFilingGaps } from '../../types/erp';
 const { Text } = Typography;
 
 const KIND_COLOR: Record<string, string> = {
+  // 金額相關的排前面用紅／橙 —— 它們直接影響毛利與現金流
   承攬案件缺合約金額: 'red',
-  報價缺總價: 'orange',
-  核銷卡在審核: 'gold',
+  請款未收款: 'volcano',
+  應付未付款: 'orange',
+  報價缺總價: 'gold',
+  報價缺估列成本: 'gold',
+  核銷卡在審核: 'blue',
 };
 
 export const MyFilingGapsCard: React.FC = () => {
@@ -65,7 +84,7 @@ export const MyFilingGapsCard: React.FC = () => {
       title={
         <span>
           <FormOutlined style={{ marginRight: 8 }} />
-          我的待填報
+          我的案件待辦
           <Tag color="orange" style={{ marginLeft: 8 }}>{active.length}</Tag>
         </span>
       }

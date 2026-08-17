@@ -20,7 +20,16 @@ import pytest
 
 # 前端有註冊的詳情路由（`router/types.ts`）。
 # 列表頁 + query param 的形式**刻意不列入** —— 那是這次的缺陷本身。
-ALLOWED_URL = re.compile(r"^/(erp/quotations|contract-cases|erp/expenses)/\{[a-z_.]+\}$")
+# 2026-08-17 放寬：允許 `?tab=` —— 但**只允許已查證過接收端會處理的參數**。
+# `?tab=` 由 `DetailPageLayout` 於 08-15 開始支援（已讀碼確認）；
+# `?case_code=` 則永遠不允許（列表頁不讀它，那正是本檔要防的缺陷）。
+#
+# 請款/應付沒有自己的詳情路由（08-02 隨 BillingsTab 移除），
+# 它們只存在於報價詳情的分頁裡，所以必須連到報價 + tab。
+ALLOWED_URL = re.compile(
+    r"^/(erp/quotations|contract-cases|erp/expenses)/\{[a-z_.]+\}"
+    r"(\?tab=(receivable|payable|items|info|expenses))?$"
+)
 
 
 def test_gap_urls_point_to_detail_pages():

@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from app.core.dependencies import get_service
 from app.services.erp import ERPQuotationService
 from app.schemas.erp import (
-    ERPQuotationCreate, ERPQuotationUpdate,
+    ERPQuotationCreate, ERPQuotationUpdate, ERPQuotationResponse,
     ERPQuotationListRequest,
     ERPIdRequest, ERPQuotationUpdateRequest,
     ERPSummaryRequest, ERPGenerateCodeRequest,
@@ -37,7 +37,26 @@ async def create_quotation(
     return SuccessResponse(data=result, message="報價建立成功")
 
 
-@router.post("/detail")
+@router.post(
+    "/detail",
+    # 2026-08-17：補上 OpenAPI 契約。
+    #
+    # 這一檔 14 個端點原本**都沒有宣告 response_model**（回 SuccessResponse 包裝），
+    # 於是 `ERPQuotationResponse` **從來不在 OpenAPI 裡** ——
+    # 而前端 `types/erp.ts` 的依據正是那份契約。
+    # 結果是後端加了欄位（quotation_no/revision），契約完全看不出來，
+    # 前端只能靠人去讀後端程式碼才知道有這些欄位。
+    #
+    # ⚠️ 刻意**只補這一個端點**，不改另外 13 個：
+    # 那會一次動到整份契約（OpenAPI 快照測試會全紅），
+    # 而收益是「文件更完整」—— 與風險不成比例。
+    # `responses` 而非 `response_model`：後者會讓 FastAPI 真的去驗證並過濾回應，
+    # 而這裡實際回的是 `SuccessResponse(data=dict)` 帶額外的 pm_contract_amount，
+    # 用 response_model 會把那兩個欄位**濾掉**（又一次靜默丟棄）。
+    responses={200: {"model": ERPQuotationResponse,
+                     "description": "報價詳情（實際包在 SuccessResponse.data，"
+                                    "另含 pm_contract_amount / amount_mismatch）"}},
+)
 async def get_quotation_detail(
     req: ERPIdRequest,
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
