@@ -133,29 +133,63 @@ VITALS = [
         # 但那 38 張算不出來的多數是已結案的歷史補登。
         # 把歷史案件算進分母，這個數字永遠不會變好，而它變不好就沒有人會看。
         "module": "毛利可算",
-        "what": "執行中的**承攬報價**案件算得出毛利（標案類不適用，見 SQL 註解）",
+        "what": "執行中案件算得出毛利（成本取估列**或**應付／核銷／帳本實際發生）",
+        # ⚠️⚠️ 2026-08-17 **當日改過一次判準，因為第一版結構上永遠是 0%**。
+        #
+        # 第一版問「有總價 **且** 有估列成本四欄」，並把分母限縮到 `category='02'`。
+        # 實測揭露兩層問題：
+        #
+        # ① **分母只有 1 張**。n=1 的百分比只有 0 或 100，沒有級距，
+        #    而它印出「0%（下限 50%）」看起來像一個比例。
+        #    這正是 BLIND_SPOT_STRATEGY §4.1 五個問句之一：「這個數字的分母是什麼」。
+        #
+        # ② **估列成本四欄自系統上線後從來沒有人填過一次**。
+        #    有值的 40 張報價**全部**是 2026-03-17 一次性 xlsx 匯入
+        #    （已結案 64 張中 40 張有、執行中 13 張中 0 張有）——
+        #    也就是成本不是「還沒填」，是**這個組織不在執行中填它**。
+        #    以它當判準 ⇒ 永遠 0% ⇒ 正是我在下面那行註解寫的
+        #    「一上線就紅的檢核活不過兩週」，而我自己訂了一個。
+        #    同 L82：「還沒到門檻」與「永遠到不了」在畫面上長得一樣。
+        #
+        # 改法＝**問一個實務上答得出來的問題**。毛利要的是總價與成本，
+        # 而成本除了估列，還有三個他們本來就會填的來源：
+        #   · 應付（給廠商的錢，`erp_vendor_payables`）
+        #   · 核銷（`expense_invoices`）
+        #   · 帳本已入帳支出（`finance_ledgers.entry_type='expense'`）
+        # 這三者是**已發生**的成本，執行中案件用它算出的是「目前為止的毛利」——
+        # 對進行中的案子而言那比估列更有意義，且**零額外填報**
+        # （對上 owner 記錄過的限制：填報成本高）。
+        #
+        # 因此也**不再限縮 category='02'**：估列成本標案填不了（owner 說的），
+        # 但應付與核銷兩類都有 —— 實測執行中 12 張標案裡 3 張已經有。
+        # 排除標案等於讓毛利只監控 1/13 的案子，而毛利是 owner 的核心目標。
         "sql": """
             SELECT CASE WHEN count(*) = 0 THEN 100
                    ELSE (100 * count(*) FILTER (
                        WHERE q.total_price > 0
-                         AND COALESCE(q.outsourcing_fee,0) + COALESCE(q.personnel_fee,0)
-                           + COALESCE(q.overhead_fee,0) + COALESCE(q.other_cost,0) > 0
+                         AND (
+                              COALESCE(q.outsourcing_fee,0) + COALESCE(q.personnel_fee,0)
+                            + COALESCE(q.overhead_fee,0)   + COALESCE(q.other_cost,0) > 0
+                           OR EXISTS (SELECT 1 FROM erp_vendor_payables vp
+                                       WHERE vp.erp_quotation_id = q.id)
+                           OR EXISTS (SELECT 1 FROM expense_invoices e
+                                       WHERE e.case_code = q.case_code)
+                           OR EXISTS (SELECT 1 FROM finance_ledgers l
+                                       WHERE l.case_code = q.case_code
+                                         AND l.entry_type = 'expense')
+                         )
                    ) / count(*))::int END
             FROM erp_quotations q
             JOIN contract_projects p ON p.case_code = q.case_code
             WHERE p.status <> '已結案'
-              -- ⭐ 2026-08-17 owner：「專案包含報價與標案兩類 —— 報價可明列
-              -- 作業單價統計成本，而標案涉及多項程序**不易填列成本**」。
-              -- category 01=委辦招標（標案類）／02=承攬報價。
-              -- 實測執行中 14 張報價裡 **11 張是 01**，只有 1 張 02 ——
-              -- 把兩類混在一個分母裡，這個指標**永遠不會變好**，
-              -- 而永遠不會變好的指標沒有人會看。
-              AND p.category = '02'
         """,
         "level": "YELLOW",
-        # 門檻刻意訂低（50%）：這是要看**趨勢往哪走**，不是要今天就達標。
-        # 訂高會讓它一上線就紅，而一上線就紅的檢核活不過兩週。
-        "min": 50,
+        # 門檻 20%：實測現況 3/13 = 23%，訂在剛好之下。
+        # **刻意不訂 50%** —— 那是第一版的數字，而第一版的分母是 1；
+        # 現在分母 13、真實水位 23%，訂 50 就是再造一個「永遠到不了」。
+        # 這條要看的是趨勢往哪走：新案有應付或核銷就會往上，
+        # 只建報價不記成本就會往下。
+        "min": 20,
         "unit": "%",
         "why_exempt": "填報缺口不是系統故障 —— 誰該補由 filing_gap 分派到人，"
                       "這裡只看整體有沒有在往好的方向走",

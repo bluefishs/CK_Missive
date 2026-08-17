@@ -187,12 +187,33 @@ LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
 WHERE p.status <> '已結案'
   -- ⭐ 2026-08-17 owner：「專案包含報價與標案兩類 —— 報價可明列作業單價
   -- 統計成本，而標案涉及多項程序**不易填列成本**」。
-  -- 只對 02 承攬報價要求成本；01 委辦招標（標案類）不列入缺口 ——
-  -- 報一個對方本來就填不了的東西，是製造沒有人能處理的待辦。
-  AND p.category = '02'
+  --
+  -- ⚠️ **當日改過一次**：原本 `AND p.category = '02'`（只對承攬報價要求成本）。
+  -- 那個限縮對「估列成本四欄」是對的，但實測揭露成本還有三個來源，
+  -- 而那三個**標案也填得出來**：
+  --
+  --   · 應付（給廠商的錢）—— 執行中 12 張標案裡 3 張已經有
+  --   · 核銷（`expense_invoices`）
+  --   · 帳本已入帳支出
+  --
+  -- 於是判準改為「**完全沒有任何成本資訊**」而不是「沒填估列四欄」。
+  -- 這樣既不會要求標案做它做不到的事（逐項估列），
+  -- 也不會讓 4 筆「有總價卻連一筆應付／核銷都沒有」的案子完全沒人報
+  -- —— 實測就是 4 筆，全部是標案，先前依 category 限縮而靜默。
+  --
+  -- ⚠️ 判準**必須與 `business_vital_signs.py` 的「毛利可算」一致** ——
+  -- 那條指標與這條待辦問的是同一件事（毛利算不算得出來）。
+  -- 兩份判準會讓「指標說 23% 而待辦說 0 件」同時成立，
+  -- 而不一致時沒有任何一方會報錯（本專案反覆記錄的形狀）。
   AND q.total_price > 0
   AND COALESCE(q.outsourcing_fee,0) + COALESCE(q.personnel_fee,0)
     + COALESCE(q.overhead_fee,0) + COALESCE(q.other_cost,0) = 0
+  AND NOT EXISTS (SELECT 1 FROM erp_vendor_payables vp
+                   WHERE vp.erp_quotation_id = q.id)
+  AND NOT EXISTS (SELECT 1 FROM expense_invoices e
+                   WHERE e.case_code = q.case_code)
+  AND NOT EXISTS (SELECT 1 FROM finance_ledgers l
+                   WHERE l.case_code = q.case_code AND l.entry_type = 'expense')
 ORDER BY q.case_code
 """
 
@@ -322,10 +343,21 @@ class FilingGapService:
         rows = (await self.db.execute(text(SQL_QUOTATION_NO_COST))).all()
         for r in rows:
             bucket(r.user_id, r.staff).items.append(GapItem(
-                kind="報價缺估列成本",
+                # 2026-08-17 改名：原本叫「報價缺估列成本」，但判準已改為
+                # 「完全沒有任何成本資訊」（估列／應付／核銷／帳本四者皆無）。
+                # 名稱若還寫「估列成本」，看到的人會去填那四個欄位 ——
+                # 而實測那四欄自系統上線後從來沒有人填過（有值的 40 張
+                # 全部是 2026-03-17 一次性 xlsx 匯入）。記一筆應付或核銷
+                # 同樣能解除這個缺口，而那是他們本來就會做的事。
+                kind="毛利算不出來（無成本資訊）",
                 ref=r.case_code or "",
                 label=(r.name or "")[:28],
-                detail="有總價但沒有成本 —— 毛利算不出來（只差這一步）",
+                # detail 明講**三條路都可以**：不指定一定要填估列四欄，
+                # 否則就等於在要求標案做它做不到的事（owner 08-17 的原話）。
+                detail=(
+                    "有總價但完全沒有成本資訊 —— 毛利算不出來。"
+                    "填估列成本、或記一筆應付、或核銷一張發票，任一即可"
+                ),
                 url=f"/erp/quotations/{r.row_id}",
                 active=True,   # 這條 SQL 本身就排除了已結案
             ))
