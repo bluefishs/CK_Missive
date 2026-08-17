@@ -373,3 +373,5 @@
 | `scripts/checks/entity_creation_ssot_audit.py` | 業務實體（PMCase／ContractProject／ERPQuotation）只能在授權處建構——防「從標案建案」那種兩份實作各自演化到業務規則相反 | weekly 57 |
 | `scripts/checks/enum_storage_convention_audit.py` | 分類／狀態列舉值的守門：寫入端 schema 要有 Literal、表單不得用自由輸入收列舉值（統一帳本就是這樣長出 `billing_payment` 的） | weekly 58 |
 | `scripts/checks/schema_ssot_audit.py` | endpoints 不得有本地 BaseModel（規範 §3）——存量 18 項列 baseline 不判紅，新增一律擋 | weekly 59 |
+| `scripts/checks/savepoint_autocommit_audit.py` | SAVEPOINT 內不得用 auto_commit=True——會關掉外層交易而使用者只看到「新增失敗」（測試 mock 掉 repo 所以抓不到） | weekly 60 |
+| `scripts/checks/model_response_field_reach_audit.py` | ORM 欄位有沒有到達 API 回應——Pydantic 對 schema 沒宣告的欄位是靜默丟棄（quotation_no 就這樣看不到） | weekly 61 |

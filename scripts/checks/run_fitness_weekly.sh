@@ -355,6 +355,16 @@ run_step "58" "列舉值儲存慣例（分類/狀態守門）" "scripts/checks/e
 # 存量列入 baseline 不判紅，新增的一律擋下。
 run_step "59" "型別 SSOT（endpoints 無本地 BaseModel）" "scripts/checks/schema_ssot_audit.py"
 
+# 2026-08-17 owner 回報「新增紀錄失敗」→ 追出 SAVEPOINT 內 auto_commit 家族
+# （請款與發票兩支都壞著，只有 asset 是對的）。測試抓不到：它們全部 mock 掉 repo，
+# 而 mock 不會 commit —— 測試一路綠而真實路徑一路壞。
+run_step "60" "SAVEPOINT 內不得自行 commit" "scripts/checks/savepoint_autocommit_audit.py"
+
+# 2026-08-17 stop hook 抓到：quotation_no 只做到 DB 與 ORM，
+# Pydantic 對「model 有、response schema 沒有」的欄位是靜默丟棄 ——
+# 資料在庫裡而使用者永遠看不到。判 YELLOW（有些欄位本來就不該對外）。
+run_step "61" "ORM 欄位是否到達 API 回應" "scripts/checks/model_response_field_reach_audit.py"
+
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
 # ------------------------------------------------------------------

@@ -44,13 +44,28 @@ class ERPBillingService(AuditableServiceMixin):
                 dump["billing_code"] = await code_svc.generate_billing_code(
                     year=datetime.now().year
                 )
-            billing = await self.repo.create(dump)
+            # 2026-08-17：**必須 auto_commit=False**。
+            # 這裡跑在 `retry_on_code_conflict` 的 SAVEPOINT 內，
+            # 而 `BaseRepository.create` 預設 `auto_commit=True` 會直接 commit
+            # → 外層交易被關掉 → `sp.commit()` 拋
+            # `ResourceClosedError: This transaction is closed`
+            # → 使用者看到「新增紀錄失敗」（owner 2026-08-17 於
+            # /erp/quotations/152/accounts/receivable/create 回報）。
+            #
+            # 對照組：`asset_service` 用的 `create_asset` 只 flush、
+            # 由外層自己 commit —— 那才是 savepoint 內該有的寫法。
+            billing = await self.repo.create(dump, auto_commit=False)
             await self.audit_create(billing.id, dump)
             return billing
 
         billing = await retry_on_code_conflict(
             self.db, _create_op, unique_field="billing_code"
         )
+        # savepoint commit 只是釋放 SAVEPOINT，**外層交易仍未落地** ——
+        # 少了這一行會變成「不報錯但資料沒存進去」，比原本的錯誤更糟
+        # （使用者以為成功了）。asset_service 的寫法就是這樣：
+        # retry_on_code_conflict 之後自己 commit。
+        await self.db.commit()
         return ERPBillingResponse.model_validate(billing)
 
     async def get_by_quotation(self, quotation_id: int) -> List[ERPBillingResponse]:

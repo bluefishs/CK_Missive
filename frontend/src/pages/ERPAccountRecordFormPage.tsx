@@ -219,8 +219,23 @@ const ERPAccountRecordFormPage: React.FC = () => {
           </>
         )}
 
+        {/* 2026-08-17 owner：「請款金額為何需要填列兩次？」
+            兩欄語意本來不同（開出去的 vs 實際收到的，`partial` 部分收款就是為此），
+            **但實測 36 筆有填收款金額的全部與請款金額相同、0 筆不同** ——
+            也就是這個區分在實務裡從來沒用到，只剩「同一個數字打兩次」。
+
+            改為狀態切到「已收款／已付款」時**自動帶入**，仍可手改
+            （真的部分收款時填不同值），而不是移除欄位 —— 移除會讓
+            部分收款無法表達，那是把一個罕見情境變成不可能。 */}
         <Form.Item name="payment_status" label={`${paymentLabel}狀態`}>
           <Select
+            onChange={(v) => {
+              const amtField = isReceivable ? 'payment_amount' : 'paid_amount';
+              const srcField = isReceivable ? 'billing_amount' : 'payable_amount';
+              if (v === 'paid' && !form.getFieldValue(amtField)) {
+                form.setFieldValue(amtField, form.getFieldValue(srcField));
+              }
+            }}
             options={
               isReceivable
                 ? [
@@ -242,7 +257,16 @@ const ERPAccountRecordFormPage: React.FC = () => {
           <DatePicker style={{ width: '100%' }} inputReadOnly={isMobile} />
         </Form.Item>
 
-        <Form.Item name={isReceivable ? 'payment_amount' : 'paid_amount'} label={`${paymentLabel}金額`}>
+        <Form.Item
+          name={isReceivable ? 'payment_amount' : 'paid_amount'}
+          label={`${paymentLabel}金額`}
+          extra={
+            <span>
+              狀態改為「{isReceivable ? '已收款' : '已付款'}」時會自動帶入
+              {isReceivable ? '請款' : '應付'}金額；金額不同時（部分{paymentLabel}）再手改。
+            </span>
+          }
+        >
           <InputNumber style={{ width: '100%' }} min={0} inputMode="numeric" formatter={amountFormatter} />
         </Form.Item>
 
