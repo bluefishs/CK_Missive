@@ -122,6 +122,38 @@ VITALS = [
         "why_exempt": "同上，是人的推進不是系統故障",
     },
     {
+        # 2026-08-17：owner 的核心目標是「毛利、核銷、報帳便利性」，
+        # 而八條生命跡象裡**沒有一條在問毛利**。
+        #
+        # 這一條問的不是「毛利多少」（那是業務數字不是生命跡象），
+        # 是「**執行中的案子有幾個算得出毛利**」——
+        # 算不出來的原因永遠是同一個：沒有總價、或沒有估列成本。
+        #
+        # ⚠️ 只看**執行中**：實測 78 張報價裡 40 張算得出毛利（51%），
+        # 但那 38 張算不出來的多數是已結案的歷史補登。
+        # 把歷史案件算進分母，這個數字永遠不會變好，而它變不好就沒有人會看。
+        "module": "毛利可算",
+        "what": "執行中的案子算得出毛利（有總價 ＋ 有估列成本）",
+        "sql": """
+            SELECT CASE WHEN count(*) = 0 THEN 100
+                   ELSE (100 * count(*) FILTER (
+                       WHERE q.total_price > 0
+                         AND COALESCE(q.outsourcing_fee,0) + COALESCE(q.personnel_fee,0)
+                           + COALESCE(q.overhead_fee,0) + COALESCE(q.other_cost,0) > 0
+                   ) / count(*))::int END
+            FROM erp_quotations q
+            JOIN contract_projects p ON p.case_code = q.case_code
+            WHERE p.status <> '已結案'
+        """,
+        "level": "YELLOW",
+        # 門檻刻意訂低（50%）：這是要看**趨勢往哪走**，不是要今天就達標。
+        # 訂高會讓它一上線就紅，而一上線就紅的檢核活不過兩週。
+        "min": 50,
+        "unit": "%",
+        "why_exempt": "填報缺口不是系統故障 —— 誰該補由 filing_gap 分派到人，"
+                      "這裡只看整體有沒有在往好的方向走",
+    },
+    {
         "module": "知識圖譜",
         "what": "**關係**有在長大（不是實體）",
         "sql": "SELECT COALESCE(EXTRACT(day FROM NOW() - MAX(extracted_at))::int, 9999) "
@@ -219,13 +251,22 @@ def main() -> int:
             print(f"  ⚪ {mod:<8} 查不到 —— 不當成通過（{v['what']}）")
             continue
 
-        # 判定：有 max 者比上限，其餘要求 > 0
+        # 判定：有 max 比上限、有 min 比下限，其餘要求 > 0
+        #
+        # ⚠️ 2026-08-17：`min` 是這天才加的。在此之前我寫了一條帶 `min` 的
+        # 生命跡象，而**腳本根本不認得它** —— 那條會靜靜退化成
+        # 「只要不是 0 就通過」，等於一條永遠綠的檢核。
+        # 這正是本輪反覆記錄的「寫了等於沒寫」：設定裡多一個鍵不會有人報錯。
+        unit = v.get("unit", "")
         if "max" in v:
             bad = n > v["max"]
-            shown = f"{n}（上限 {v['max']}）"
+            shown = f"{n}{unit}（上限 {v['max']}{unit}）"
+        elif "min" in v:
+            bad = n < v["min"]
+            shown = f"{n}{unit}（下限 {v['min']}{unit}）"
         else:
             bad = n == 0
-            shown = str(n)
+            shown = f"{n}{unit}"
 
         if bad and v.get("weekend_ok") and IS_WEEKEND:
             print(f"  🟢 {mod:<8} {shown} —— 週末合理（{v['why_exempt']}）")

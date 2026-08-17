@@ -1253,6 +1253,23 @@ export const ASSET_ACTION_COLORS: Record<string, string> = {
 // 後端契約：backend/app/schemas/erp/quotation.py QuotationItemIn。
 
 /** 報價明細的一列（前端編輯用，`key` 為表格 rowKey 非後端欄位） */
+export interface FilingGapItem {
+  kind: string;
+  ref: string;
+  label: string;
+  detail: string;
+  url: string;
+  /** 這個案子還在跑嗎。2026-08-17：62 項缺口裡 44 項是已結案的歷史補登，
+   *  把 18 項急件埋在裡面就是告警疲勞。 */
+  active: boolean;
+}
+
+export interface MyFilingGaps {
+  total: number;
+  active_total: number;
+  items: FilingGapItem[];
+}
+
 export interface QuotationItemRow {
   key: string;
   item_name: string;

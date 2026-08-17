@@ -25,6 +25,11 @@ owner：「承攬報價案件對應填報人員通報管控」。
 由 07:30 晨報一次帶出。核銷卡了 16 天沒人知道，不是因為少一個通道，
 是因為沒有人在算這件事。
 
+**負責人一律取 canonical 帳號**（ADR-0025）—— 首跑時「王駿穠」與
+「王駿穠(fly)」被算成兩個人，而 id 7 的 `canonical_user_id` 就是 13。
+既有規則在 `core/rls_filter.py`（`COALESCE(canonical_user_id, id)`），
+這裡沿用同一條、不自寫第二套。
+
 **找不到負責人的缺口要單獨列出，不可以吞掉** ——
 實測 32 筆無金額的承攬案件裡有 14 筆完全沒有指派人。
 把它們算進「未指派」比假裝沒有這些缺口誠實。
@@ -50,6 +55,13 @@ class GapItem:
     label: str         # 給人看的名稱
     detail: str        # 缺口說明
     url: str           # 直接可以點進去填的地方
+    # 2026-08-17：這個案子還在跑嗎。
+    #
+    # 實測：32 筆無金額的承攬案件裡 **27 筆已結案**、只有 5 筆執行中；
+    # 23 筆無總價的報價裡 17 筆已結案、6 筆執行中。
+    # 把 11 筆該現在處理的埋在 55 筆歷史補登裡，就是本專案反覆記錄的告警疲勞
+    # —— 清單長到某個程度，人就整份略過，連急件一起。
+    active: bool = True
 
 
 @dataclass
@@ -64,7 +76,8 @@ class PersonGaps:
 # （有人負責總比沒有好；真的沒有指派才歸「未指派」）。
 SQL_CONTRACT_NO_AMOUNT = """
 SELECT p.case_code, p.project_code, COALESCE(p.project_name, '') AS name,
-       a.user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
+       p.status,
+       u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM contract_projects p
 LEFT JOIN LATERAL (
     SELECT x.user_id, x.staff_name
@@ -73,7 +86,9 @@ LEFT JOIN LATERAL (
     ORDER BY x.is_primary DESC NULLS LAST, x.id
     LIMIT 1
 ) a ON TRUE
-LEFT JOIN users u ON u.id = a.user_id
+-- ADR-0025：以 canonical 人為準，否則同一個人的分身帳號會被算成兩個人
+LEFT JOIN users au ON au.id = a.user_id
+LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
 WHERE p.contract_amount IS NULL
 ORDER BY p.case_code
 """
@@ -81,7 +96,8 @@ ORDER BY p.case_code
 # 報價缺總價 —— 沒有總價，收入端是空的，毛利無從算起。
 SQL_QUOTATION_NO_PRICE = """
 SELECT q.case_code, COALESCE(q.case_name, '') AS name,
-       a.user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
+       COALESCE(p.status, '') AS status,
+       u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_quotations q
 LEFT JOIN contract_projects p ON p.case_code = q.case_code
 LEFT JOIN LATERAL (
@@ -91,8 +107,43 @@ LEFT JOIN LATERAL (
     ORDER BY x.is_primary DESC NULLS LAST, x.id
     LIMIT 1
 ) a ON TRUE
-LEFT JOIN users u ON u.id = a.user_id
+-- ADR-0025：以 canonical 人為準，否則同一個人的分身帳號會被算成兩個人
+LEFT JOIN users au ON au.id = a.user_id
+LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
 WHERE q.total_price IS NULL OR q.total_price = 0
+ORDER BY q.case_code
+"""
+
+# 執行中案件缺**估列成本** —— 2026-08-17 新增。
+#
+# 有總價只是收入端；沒有成本就算不出毛利。實測對比很清楚：
+#
+#     已結案 64 張報價 → 47 張有總價、**40 張有估列成本**
+#     執行中 14 張報價 →  8 張有總價、**0 張有估列成本**
+#
+# 而那 40 張的 `updated_at` **全部落在 2026-03-17～04-01**（一次性歷史匯入）。
+# 換句話說：**04-04 之後建立的報價，沒有任何一筆填過成本**，已經 4.5 個月。
+# 毛利算不出來的真因不是「結案後才回填」，是這個欄位沒有人在用。
+SQL_QUOTATION_NO_COST = """
+SELECT q.case_code, COALESCE(q.case_name, '') AS name,
+       COALESCE(p.status, '') AS status,
+       u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
+FROM erp_quotations q
+JOIN contract_projects p ON p.case_code = q.case_code
+LEFT JOIN LATERAL (
+    SELECT x.user_id, x.staff_name
+    FROM project_user_assignments x
+    WHERE x.project_id = p.id
+    ORDER BY x.is_primary DESC NULLS LAST, x.id
+    LIMIT 1
+) a ON TRUE
+-- ADR-0025：以 canonical 人為準，否則同一個人的分身帳號會被算成兩個人
+LEFT JOIN users au ON au.id = a.user_id
+LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
+WHERE p.status <> '已結案'
+  AND q.total_price > 0
+  AND COALESCE(q.outsourcing_fee,0) + COALESCE(q.personnel_fee,0)
+    + COALESCE(q.overhead_fee,0) + COALESCE(q.other_cost,0) = 0
 ORDER BY q.case_code
 """
 
@@ -102,9 +153,11 @@ ORDER BY q.case_code
 SQL_EXPENSE_STUCK = """
 SELECT e.id, e.inv_num, e.amount, e.status, e.case_code,
        (CURRENT_DATE - e.created_at::date) AS age_days,
-       e.user_id, COALESCE(u.full_name, u.username, '') AS staff
+       u.id AS user_id, COALESCE(u.full_name, u.username, '') AS staff
 FROM expense_invoices e
-LEFT JOIN users u ON u.id = e.user_id
+-- ADR-0025：同上
+LEFT JOIN users eu ON eu.id = e.user_id
+LEFT JOIN users u ON u.id = COALESCE(eu.canonical_user_id, eu.id)
 WHERE e.status IN ('pending', 'manager_approved', 'finance_approved')
   AND (CURRENT_DATE - e.created_at::date) >= :stuck_days
 ORDER BY e.created_at
@@ -135,6 +188,7 @@ class FilingGapService:
                 label=(r.name or "")[:28],
                 detail="沒有合約金額 —— 毛利與應收都算不出來",
                 url=f"/contract-cases?case_code={r.case_code or ''}",
+                active=(r.status or "") != "已結案",
             ))
 
         rows = (await self.db.execute(text(SQL_QUOTATION_NO_PRICE))).all()
@@ -145,6 +199,18 @@ class FilingGapService:
                 label=(r.name or "")[:28],
                 detail="沒有總價 —— 收入端是空的",
                 url=f"/erp/quotations?case_code={r.case_code or ''}",
+                active=(r.status or "") != "已結案",
+            ))
+
+        rows = (await self.db.execute(text(SQL_QUOTATION_NO_COST))).all()
+        for r in rows:
+            bucket(r.user_id, r.staff).items.append(GapItem(
+                kind="報價缺估列成本",
+                ref=r.case_code or "",
+                label=(r.name or "")[:28],
+                detail="有總價但沒有成本 —— 毛利算不出來（只差這一步）",
+                url=f"/erp/quotations?case_code={r.case_code or ''}",
+                active=True,   # 這條 SQL 本身就排除了已結案
             ))
 
         rows = (await self.db.execute(
@@ -159,18 +225,34 @@ class FilingGapService:
                 url=f"/erp/expenses/{r.id}",
             ))
 
+        for pg in by_person.values():
+            # 執行中的排前面 —— 清單長到某個程度人就整份略過，
+            # 急件不能埋在歷史補登下面。
+            pg.items.sort(key=lambda i: (not i.active, i.kind, i.ref))
+
         people = sorted(
             by_person.values(),
-            key=lambda p: (p.name == UNASSIGNED, -len(p.items), p.name),
+            key=lambda p: (
+                p.name == UNASSIGNED,
+                -sum(1 for i in p.items if i.active),   # 先看誰的急件多
+                -len(p.items),
+                p.name,
+            ),
         )
         total = sum(len(p.items) for p in people)
+        active_total = sum(1 for p in people for i in p.items if i.active)
         return {
             "total": total,
+            # **執行中的數量才是要行動的量** —— total 62 裡有 51 筆是已結案的
+            # 歷史補登，用 total 當標題會讓人以為有 62 件急事。
+            "active_total": active_total,
+            "closed_total": total - active_total,
             "people": [
                 {
                     "user_id": p.user_id,
                     "name": p.name,
                     "count": len(p.items),
+                    "active_count": sum(1 for i in p.items if i.active),
                     "items": [vars(i) for i in p.items],
                 }
                 for p in people
@@ -181,9 +263,11 @@ class FilingGapService:
         """單一使用者的待填報 —— 給「我的待辦」用。"""
         data = await self.collect(stuck_days=stuck_days)
         mine = [p for p in data["people"] if p["user_id"] == user_id]
+        items = [i for p in mine for i in p["items"]]
         return {
-            "total": sum(p["count"] for p in mine),
-            "items": [i for p in mine for i in p["items"]],
+            "total": len(items),
+            "active_total": sum(1 for i in items if i.get("active")),
+            "items": items,
         }
 
     def to_digest_text(self, data: dict[str, Any], max_people: int = 6) -> str:
@@ -191,17 +275,30 @@ class FilingGapService:
 
         **只講人與數量，不列明細** —— 明細在系統裡點得到，
         而一則塞滿 60 行的推播只會被略過（本專案記過的告警疲勞）。
+
+        2026-08-17：**只推執行中的**。實測 62 項裡有 44 項是已結案案件的
+        歷史補登 —— 每天推一則「還有 62 項待填」會讓人以為有 62 件急事，
+        而真正該今天處理的只有 18 項。清單長到某個程度人就整份略過，
+        連急件一起（本專案反覆記錄的告警疲勞）。
         """
-        if not data["total"]:
+        active = data.get("active_total", data["total"])
+        if not active:
+            # 只剩已結案的歷史補登就不推 —— 那不是今天要做的事。
             return ""
-        lines = [f"📋 待填報 {data['total']} 項："]
+
+        lines = [f"待填報 {active} 項（執行中案件）："]
         for p in data["people"][:max_people]:
+            if not p.get("active_count"):
+                continue
             kinds: dict[str, int] = {}
             for it in p["items"]:
-                kinds[it["kind"]] = kinds.get(it["kind"], 0) + 1
+                if it.get("active"):
+                    kinds[it["kind"]] = kinds.get(it["kind"], 0) + 1
             brief = "、".join(f"{k} {v}" for k, v in kinds.items())
             lines.append(f"　{p['name']}：{brief}")
-        rest = len(data["people"]) - max_people
-        if rest > 0:
-            lines.append(f"　⋯另 {rest} 人")
+
+        closed = data.get("closed_total", 0)
+        if closed:
+            # 歷史補登只講一個數字、不列人 —— 它是背景資訊不是待辦
+            lines.append(f"　（另有已結案歷史補登 {closed} 項，非急件）")
         return "\n".join(lines)

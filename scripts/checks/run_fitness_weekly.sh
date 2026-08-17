@@ -75,8 +75,14 @@ run_step() {
     local step_name="$2"
     local script="$3"
 
+    # 2026-08-17：`$3` 可能帶參數（如 "xxx.py --gate"），
+    # 而 `-f` 是拿整串去比對檔案 → 判成「腳本不存在」＝**假紅**。
+    # step 51 就是這樣連紅的：腳本明明在，只是名字後面多了一個旗標。
+    # 取第一個 token 當檔名，其餘原樣傳給 python。
+    local script_file="${script%% *}"
+
     echo -e "${CYAN}[$step_num/${TOTAL_STEPS}] $step_name${NC}"
-    if [[ ! -f "$script" ]]; then
+    if [[ ! -f "$script_file" ]]; then
         # 腳本不見了要算失敗 —— 原本只印一行 warning 就 return，
         # 等於「檢查消失」與「檢查通過」同樣是綠（alias_rls_audit 正是這個狀況）。
         echo -e "  ${RED}✗${NC} script not found: $script"
@@ -93,7 +99,10 @@ run_step() {
     # warning mode 的語意是「不阻斷」，不是「不報告」。
     # 三態：0=GREEN / 1=YELLOW / 2+=RED（見上方「刻意不傳 --strict」說明）
     local rc=0
-    PYTHONIOENCODING=utf-8 python "$script" 2>&1 || rc=$?
+    # 不加引號：`$script` 可能是 "xxx.py --gate"，加引號會整串被當成檔名。
+    # 這裡的路徑與旗標都不含空白，展開是安全的。
+    # shellcheck disable=SC2086
+    PYTHONIOENCODING=utf-8 python $script 2>&1 || rc=$?
     STEP_RESULTS+=("$step_num|$step_name|$rc")
     if [[ $rc -eq 1 ]]; then
         WARN_COUNT=$((WARN_COUNT+1)); WARN_STEPS+=("$step_num $step_name")

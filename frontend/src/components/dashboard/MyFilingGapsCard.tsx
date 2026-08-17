@@ -22,16 +22,10 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
+// 型別 SSOT 在 types/erp.ts（規範 §3 同精神：同一型別只能有一份宣告）
+import type { MyFilingGaps } from '../../types/erp';
 
 const { Text } = Typography;
-
-interface GapItem {
-  kind: string;
-  ref: string;
-  label: string;
-  detail: string;
-  url: string;
-}
 
 const KIND_COLOR: Record<string, string> = {
   承攬案件缺合約金額: 'red',
@@ -42,15 +36,15 @@ const KIND_COLOR: Record<string, string> = {
 export const MyFilingGapsCard: React.FC = () => {
   const navigate = useNavigate();
 
-  const { data, isLoading } = useQuery<{ total: number; items: GapItem[] }>({
+  const { data, isLoading } = useQuery<MyFilingGaps>({
     queryKey: ['my-filing-gaps'],
     queryFn: async () => {
       // apiClient.post<T> 回的就是 T（它已經取過 response.data），
       // 而後端外層還包著 SuccessResponse → 泛型要寫成 { data: ... }
-      const res = await apiClient.post<{ data: { total: number; items: GapItem[] } }>(
+      const res = await apiClient.post<{ data: MyFilingGaps }>(
         ERP_ENDPOINTS.FILING_GAPS_MINE, {},
       );
-      return res?.data ?? { total: 0, items: [] };
+      return res?.data ?? { total: 0, active_total: 0, items: [] };
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -58,8 +52,11 @@ export const MyFilingGapsCard: React.FC = () => {
   if (isLoading) {
     return <Card size="small" style={{ marginBottom: 16 }}><Skeleton active paragraph={{ rows: 2 }} /></Card>;
   }
-  // 0 項不顯示 —— 見檔頭取捨說明
-  if (!data || data.total === 0) return null;
+  // 只顯示執行中的 —— 2026-08-17：62 項缺口裡 44 項是已結案案件的歷史補登。
+  // 卡片上掛一個「62」會讓人以為有 62 件急事，看兩天就不看了。
+  const active = (data?.items ?? []).filter(i => i.active);
+  const closedCount = (data?.total ?? 0) - active.length;
+  if (!data || active.length === 0) return null;
 
   return (
     <Card
@@ -69,13 +66,13 @@ export const MyFilingGapsCard: React.FC = () => {
         <span>
           <FormOutlined style={{ marginRight: 8 }} />
           我的待填報
-          <Tag color="orange" style={{ marginLeft: 8 }}>{data.total}</Tag>
+          <Tag color="orange" style={{ marginLeft: 8 }}>{active.length}</Tag>
         </span>
       }
     >
       <List
         size="small"
-        dataSource={data.items.slice(0, 8)}
+        dataSource={active.slice(0, 8)}
         renderItem={(item) => (
           <List.Item
             style={{ cursor: 'pointer' }}
@@ -95,9 +92,14 @@ export const MyFilingGapsCard: React.FC = () => {
           </List.Item>
         )}
       />
-      {data.items.length > 8 && (
+      {active.length > 8 && (
         <Text type="secondary" style={{ fontSize: 12 }}>
-          ⋯另 {data.items.length - 8} 項
+          另有 {active.length - 8} 項
+        </Text>
+      )}
+      {closedCount > 0 && (
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+          （已結案案件的歷史補登 {closedCount} 項未列入，非急件）
         </Text>
       )}
     </Card>

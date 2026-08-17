@@ -1,83 +1,83 @@
 {
-  "captured_at": "2026-08-16T20:50:03+00:00",
+  "captured_at": "2026-08-17T01:18:15+00:00",
   "prometheus": "http://127.0.0.1:19090",
   "job": "ck-missive",
   "path_label": "path",
   "window_days": 7,
-  "data_depth_days": 15.62,
+  "data_depth_days": 15.05,
   "data_sufficient": true,
   "min_data_days": 14,
   "path_label_templated_since": "2026-08-04",
-  "days_since_path_label_change": 12,
+  "days_since_path_label_change": 13,
   "schema_settled": true,
   "decision_date": "2026-08-31",
   "counts": {
-    "endpoints_seen": 1678,
-    "active": 514,
+    "endpoints_seen": 1715,
+    "active": 505,
     "zero_traffic_exempt": 2,
-    "zero_traffic_api_candidates": 17,
-    "zero_traffic_page_routes": 1145
+    "zero_traffic_api_candidates": 20,
+    "zero_traffic_page_routes": 1188
   },
   "top_active": [
     [
       "/api/health",
-      38974.295593739895
+      38868.28810604428
     ],
     [
       "/api/system-notifications/unread-count",
-      2898.0561698870674
+      2900.0689182329775
     ],
     [
       "/{spa_path}",
-      2588.047880752732
+      2590.059078274033
     ],
     [
       "/api/secure-site-management/csrf-token",
-      2391.0489934701136
+      2393.059764387586
     ],
     [
       "/api/secure-site-management/navigation/action",
-      2265.047005747784
-    ],
-    [
-      "/api/taoyuan-dispatch/dispatch/contract-projects",
-      2254.0467741881976
+      2267.0572645090424
     ],
     [
       "/api/auth/check",
-      2250.048230178914
+      2257.058680811845
+    ],
+    [
+      "/api/taoyuan-dispatch/dispatch/contract-projects",
+      2256.056983127447
     ],
     [
       "/api/auth/me",
-      2241.0471297510926
+      2242.0570475250984
     ],
     [
       "/api/ai/config",
-      2224.044677728509
+      2225.0546103395823
     ],
     [
       "/api/files/document/{document_id}",
-      1244.0271608390526
+      1243.0329002024953
     ],
     [
       "/api/auth/sso-bridge",
-      962.0162273236023
+      946.0170247510365
     ],
     [
       "<unmatched>",
-      426.02616808651504
+      420.0242483718162
     ],
     [
       "/api/projects/list",
-      312.0219926029138
+      312.023438310298
     ],
     [
       "/api/users/list",
-      275.00705891192194
+      274.0083496875696
     ],
     [
       "/api/project-staff/project/{project_id}/list",
-      229.0050017238851
+      231.00611622794537
     ]
   ],
   "zero_traffic_api_candidates": [
@@ -89,6 +89,9 @@
     "/api/erp/billings/create",
     "/api/erp/client-accounts/detail",
     "/api/erp/expenses/auto-link-einvoice",
+    "/api/erp/filing-gaps/list",
+    "/api/erp/quotation-items/detail",
+    "/api/erp/quotation-items/replace",
     "/api/erp/vendor-accounts/detail",
     "/api/erp/vendor-payables/create",
     "/api/pm/cases/gantt",
@@ -225,10 +228,13 @@
     "/assets/ContractCaseVendorFormPage-BNAl_qEj.js",
     "/assets/DashboardPage-BLLsC4u9.js",
     "/assets/DashboardPage-BMCtojBS.js",
+    "/assets/DashboardPage-BPu6hNmB.js",
     "/assets/DashboardPage-BXP4_3Jk.js",
     "/assets/DashboardPage-CJn_tnYA.js",
+    "/assets/DashboardPage-D3ZISbD1.js",
     "/assets/DashboardPage-D4xLN_6U.js",
     "/assets/DashboardPage-DgfSvGX9.js",
+    "/assets/DashboardPage-chvkCes2.js",
     "/assets/DashboardPage-jc2v4KmK.js",
     "/assets/DatabaseGraphPage-BChQV838.js",
     "/assets/DatabaseGraphPage-BKIjpIT1.js",
@@ -258,8 +264,10 @@
     "/assets/DeploymentManagementPage-ci2-URnA.js",
     "/assets/DetailPageLayout-9_zHKHkr.js",
     "/assets/DetailPageLayout-B02n9za9.js",
+    "/assets/DetailPageLayout-BM_fol_z.js",
     "/assets/DetailPageLayout-BrgFxb0i.js",
     "/assets/DetailPageLayout-C-O_u90P.js",
+    "/assets/DetailPageLayout-Cfr7Cs0N.js",
     "/assets/DetailPageLayout-DRvoX9Hr.js",
     "/assets/DetailPageLayout-Dp7vOnMI.js",
     "/assets/DetailPageLayout-YsLOFH8_.js",
@@ -272,6 +280,7 @@
     "/assets/DiaryTab-DaxCT-7F.js",
     "/assets/DiaryTab-dg2-dLmv.js",
     "/assets/DiaryTab-w-fUkEU-.js",
+    "/assets/DispatchFormFields-CVbFDTG5.js",
     "/assets/DispatchFormFields-DHoEY2T0.js",
     "/assets/DispatchFormFields-M99n2xXC.js",
     "/assets/DispatchFormFields-iL5BzlWD.js",
@@ -283,11 +292,14 @@
     "/assets/DocumentCreateAttachmentTab-uYcDrCtB.js",
     "/assets/DocumentDetailPage-BLAcZFQp.js",
     "/assets/DocumentDetailPage-Bc70erj7.js",
+    "/assets/DocumentDetailPage-D1twFrWh.js",
     "/assets/DocumentDetailPage-DYB6c513.js",
+    "/assets/DocumentDetailPage-DZJyk9UD.js",
     "/assets/DocumentDetailPage-GaKNosFg.js",
     "/assets/DocumentDetailPage-YZ0AT-Xo.js",
     "/assets/DocumentList-6cmZZAAx.js",
     "/assets/DocumentList-BUfUoME-.js",
+    "/assets/DocumentList-CLIdnD5C.js",
     "/assets/DocumentList-CgX10ege.js",
     "/assets/DocumentList-DthU5PpD.js",
     "/assets/DocumentList-lypWfpqk.js",
@@ -298,6 +310,7 @@
     "/assets/DocumentNumbersPage-Di6pQQr5.js",
     "/assets/DocumentPage-BC8aO34z.js",
     "/assets/DocumentPage-CYbqK3jc.js",
+    "/assets/DocumentPage-DAET84M_.js",
     "/assets/DocumentPage-Kz-rwDKL.js",
     "/assets/DocumentPage-azqIPh7P.js",
     "/assets/DocumentTrendsChart-CYgZt7iV.js",
@@ -518,8 +531,10 @@
     "/assets/EntryPage-Ce6AlT30.js",
     "/assets/EntryPage-CkXXronG.js",
     "/assets/EntryPage-D3uex9zg.js",
+    "/assets/EntryPage-DBO7yQji.js",
     "/assets/EntryPage-Dhu7kd5T.js",
     "/assets/EntryPage-GDMMs5fs.js",
+    "/assets/EntryPage-a2IUw5Nw.js",
     "/assets/EntryPage-oeVVIF_G.js",
     "/assets/ErpFormPageShell-BRvs1Vs2.js",
     "/assets/ErpFormPageShell-C6qHLwGk.js",
@@ -593,8 +608,10 @@
     "/assets/LoginPage-BPfpimDF.js",
     "/assets/LoginPage-CuBnTeQL.js",
     "/assets/LoginPage-D1h-b27L.js",
+    "/assets/LoginPage-D2ZYy4fU.js",
     "/assets/LoginPage-DD3t98Ag.js",
     "/assets/LoginPage-DSTE9Eir.js",
+    "/assets/LoginPage-DrcBKAfX.js",
     "/assets/LoginPage-DrraEOIZ.js",
     "/assets/LoginPage-PUHuBTDh.js",
     "/assets/LoginPage-cHkPlDBO.js",
@@ -650,6 +667,8 @@
     "/assets/MorningReportOpsTab-nMUtI8Mn.js",
     "/assets/MorningReportOpsTab-sQOShk9Z.js",
     "/assets/MorningReportOpsTab-to5UfV3O.js",
+    "/assets/MyFilingGapsCard-B87_yxw2.js",
+    "/assets/MyFilingGapsCard-BppUhAVm.js",
     "/assets/PMCaseDetailPage-7zDlKFu_.js",
     "/assets/PMCaseDetailPage-BWK0P2Pu.js",
     "/assets/PMCaseDetailPage-BYnPD643.js",
@@ -730,9 +749,11 @@
     "/assets/ReportsPage-Cc5rrGaW.js",
     "/assets/ReportsPage-CvDYQLkU.js",
     "/assets/ReportsPage-DWmpHoPt.js",
+    "/assets/ResponsiveFormRow-BN2m9chL.js",
     "/assets/ResponsiveTable-5mqhOGzw.js",
     "/assets/ResponsiveTable-B7WSJajh.js",
     "/assets/ResponsiveTable-BxKl4if1.js",
+    "/assets/ResponsiveTable-CzmPzQi6.js",
     "/assets/ResponsiveTable-DeMGhg8Z.js",
     "/assets/ResponsiveTable-KIh74R7T.js",
     "/assets/ResponsiveTable-kmh9PpTu.js",
@@ -823,6 +844,7 @@
     "/assets/StaffPage-ChHYupgM.js",
     "/assets/StaffPage-x7Sn0aQy.js",
     "/assets/StaffTab-Bp9AeGQd.js",
+    "/assets/SystemHealthDashboard-CJ6erkbT.js",
     "/assets/SystemHealthDashboard-CNlVVapO.js",
     "/assets/SystemHealthDashboard-CXSABLDW.js",
     "/assets/SystemHealthDashboard-CbBbcWx6.js",
@@ -1002,7 +1024,10 @@
     "/assets/agenciesApi-D3eVGfBo.js",
     "/assets/agenciesApi-XLO5Sv0C.js",
     "/assets/agenciesApi-bbTV44hZ.js",
+    "/assets/antd-core-BvDST9MX.js",
+    "/assets/antd-icons-eVKF9f0w.js",
     "/assets/api-BH7vTupo.js",
+    "/assets/api-ByenuUhG.js",
     "/assets/api-DebrW8AK.js",
     "/assets/certificationsApi-C4YpvFgY.js",
     "/assets/certificationsApi-DmtOG5Oe.js",
@@ -1031,24 +1056,30 @@
     "/assets/documentsApi-B1yJN0-l.js",
     "/assets/documentsApi-BX_HSd-2.js",
     "/assets/documentsApi-C7tl1i6I.js",
+    "/assets/documentsApi-DK8UnkUN.js",
     "/assets/documentsApi-DgSe7w2h.js",
     "/assets/documentsApi-DiBvKRJr.js",
+    "/assets/documentsApi-P0AWb5cN.js",
     "/assets/documentsApi-XLa3Gh56.js",
     "/assets/erDiagram-TEJ5UH35-B8VjzyCw.js",
     "/assets/erDiagram-TEJ5UH35-Bug5ugZu.js",
     "/assets/erp-2tnf6zDq.js",
     "/assets/erp-BhqnykI8.js",
+    "/assets/erp-CgU3VurV.js",
     "/assets/exportUtils-B5-8Efho.js",
     "/assets/exportUtils-BigXDH_d.js",
     "/assets/exportUtils-CqS3vI6z.js",
     "/assets/exportUtils-DbE8DZ2N.js",
+    "/assets/exportUtils-DeGM9Kj5.js",
     "/assets/exportUtils-Dohc0qAT.js",
     "/assets/filesApi-4rmRwCSA.js",
     "/assets/filesApi-CICf4fBg.js",
     "/assets/filesApi-CVEIKqA6.js",
     "/assets/filesApi-CmvSXLK9.js",
+    "/assets/filesApi-DVjLsuSR.js",
     "/assets/filesApi-DYbM9Kpp.js",
     "/assets/filesApi-DoN7orWE.js",
+    "/assets/filesApi-Dzhn4Z1i.js",
     "/assets/flowDiagram-I6XJVG4X-D77c7pn5.js",
     "/assets/flowDiagram-I6XJVG4X-mFlkTMJy.js",
     "/assets/ganttDiagram-6RSMTGT7-DDDsGRdz.js",
@@ -1059,14 +1090,18 @@
     "/assets/main-BxT5cUKz.js",
     "/assets/main-CGLrcefs.js",
     "/assets/main-CzyMQeWS.js",
+    "/assets/main-DVZw_ROc.js",
     "/assets/main-Do63QiR8.js",
     "/assets/main-Dt2ioJIx.js",
     "/assets/main-DyFRV347.js",
+    "/assets/main-UnheJP6X.js",
     "/assets/mermaid-Bpc4hvOm.js",
     "/assets/mermaid-BrVn56Xk.js",
+    "/assets/mermaid-BvbMnLaB.js",
     "/assets/mermaid-CYy-nubG.js",
     "/assets/mermaid-DOF1T5_l.js",
     "/assets/mermaid-Do0c8EjF.js",
+    "/assets/mermaid-DtScnUxr.js",
     "/assets/mermaid-LVt8eSYQ.js",
     "/assets/mermaid-dlxuec4h.js",
     "/assets/mermaid-jQcUuzEP.js",
@@ -1082,10 +1117,12 @@
     "/assets/projectAgencyContacts-BfzapBMt.js",
     "/assets/projectAgencyContacts-Cc8Rl3NR.js",
     "/assets/projectAgencyContacts-CeKF49pb.js",
+    "/assets/projectAgencyContacts-CorDAnYD.js",
     "/assets/projectAgencyContacts-CpWBCtQu.js",
     "/assets/projectAgencyContacts-DCdSrCcv.js",
     "/assets/projectAgencyContacts-Dn3IVuKw.js",
     "/assets/projectAgencyContacts-DsTCB1B-.js",
+    "/assets/projectAgencyContacts-DyjQpU7D.js",
     "/assets/projectStaffApi-1qulPyWg.js",
     "/assets/projectStaffApi-BPD7KVW6.js",
     "/assets/projectStaffApi-BTjSvdbo.js",
@@ -1098,6 +1135,8 @@
     "/assets/projectVendorsApi-C06TfExb.js",
     "/assets/projectVendorsApi-CdmxnEh2.js",
     "/assets/projectVendorsApi-CmUOBCNy.js",
+    "/assets/projectVendorsApi-Cy5Cqu6i.js",
+    "/assets/projectVendorsApi-DSc3nySk.js",
     "/assets/projectVendorsApi-LFmvSFvU.js",
     "/assets/projectVendorsApi-ZXc4Fzot.js",
     "/assets/projectVendorsApi-r13qtDQj.js",
@@ -1109,6 +1148,7 @@
     "/assets/projectsApi-Xsbb_cIN.js",
     "/assets/projectsApi-bJJD-Byr.js",
     "/assets/projectsApi-hpW0MQ6J.js",
+    "/assets/recharts-BUmIUBqc.js",
     "/assets/sequenceDiagram-3UESZ5HK-CD31Zqxb.js",
     "/assets/sequenceDiagram-3UESZ5HK-DdeY4w4T.js",
     "/assets/swagger-ui-8cFIIh0C.js",
@@ -1125,7 +1165,9 @@
     "/assets/taoyuanOptions-CKDg1OvG.js",
     "/assets/taoyuanOptions-CT0TrFWZ.js",
     "/assets/taoyuanOptions-CXdfSgSd.js",
+    "/assets/taoyuanOptions-CzxgBTBE.js",
     "/assets/taoyuanOptions-nFjLwScG.js",
+    "/assets/taoyuanOptions-o9H6mcH7.js",
     "/assets/tenderApi-BCohLvgf.js",
     "/assets/tenderApi-BIvCo1av.js",
     "/assets/tenderApi-CEkp_d6W.js",
@@ -1158,10 +1200,13 @@
     "/assets/useDispatchCacheInvalidator-CmjExyX-.js",
     "/assets/useDispatchCacheInvalidator-Ct2BSSkS.js",
     "/assets/useDispatchCacheInvalidator-Cvre1Q8K.js",
+    "/assets/useDispatchCacheInvalidator-JyFAhApC.js",
     "/assets/useDropdownData-B1ntJPSO.js",
     "/assets/useDropdownData-BX9Tsei2.js",
+    "/assets/useDropdownData-Br8RqK0-.js",
     "/assets/useDropdownData-CQiYoDsh.js",
     "/assets/useDropdownData-CqxeJwKJ.js",
+    "/assets/useDropdownData-D_CrU6oa.js",
     "/assets/useDropdownData-D_ffmJP3.js",
     "/assets/useDropdownData-jvzXs5FA.js",
     "/assets/useDropdownData-qWTjuxjH.js",
@@ -1235,6 +1280,7 @@
     "/assets/usersApi-CsgC6Wna.js",
     "/assets/usersApi-DFYKdrct.js",
     "/assets/usersApi-DvkUNASz.js",
+    "/assets/utils-cWlbf4so.js",
     "/assets/vendorsApi-AU48zmvI.js",
     "/assets/vendorsApi-BlU9hug3.js",
     "/assets/vendorsApi-BoHhoY5m.js",
