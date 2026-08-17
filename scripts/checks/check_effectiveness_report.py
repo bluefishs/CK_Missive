@@ -86,15 +86,43 @@ def main() -> int:
                 elif rc == 1:
                     yellow[step] += 1
 
-        never_red = [s for s in seen if red[s] == 0 and yellow[s] == 0
-                     and skipped[s] < seen[s]]
-        always_skip = [s for s in seen if skipped[s] == seen[s]]
-        chronic_red = [(s, red[s], seen[s]) for s in seen
-                       if red[s] >= max(3, seen[s] * 0.5)]
+        # ⚠️ 2026-08-18 修正**分母**。
+        #
+        # 原本只排除「100% skip」的步驟，於是 daily 的 1~4 步
+        # （31 次 skip / **實際只判定過 2 次**）被列進「從未紅也未黃」，
+        # 而且括號印的是 `seen`＝**出現次數 33** 不是判定次數 2。
+        #
+        # 那個數字看起來像「跑了 33 次都沒紅」＝很可靠，
+        # 實際是「跑了 2 次」＝完全沒有證據。
+        # 而這支的存在理由正是要分辨「從沒紅過」與「根本不會紅」——
+        # 用出現次數當分母，它自己就分辨不出來。
+        #
+        # 這是同一天第三次踩到「這個數字的分母是什麼」
+        # （毛利可算 n=1、監控覆蓋率拿看得見的當分母、這裡）。
+        #
+        # 判定次數 = 出現次數 − skip 次數。低於門檻一律不下結論，
+        # 與整個 runner 的 MIN_RUNS 用同一條紀律。
+        evaluated = {s: seen[s] - skipped[s] for s in seen}
 
-        print(f"   從未紅也未黃：{len(never_red)}/{len(seen)} 步")
+        never_red = [s for s in seen
+                     if red[s] == 0 and yellow[s] == 0
+                     and evaluated[s] >= MIN_RUNS]
+        thin = [s for s in seen
+                if red[s] == 0 and yellow[s] == 0
+                and 0 < evaluated[s] < MIN_RUNS]
+        always_skip = [s for s in seen if evaluated[s] == 0]
+        chronic_red = [(s, red[s], evaluated[s]) for s in seen
+                       if evaluated[s] > 0 and red[s] >= max(3, evaluated[s] * 0.5)]
+
+        print(f"   從未紅也未黃：{len(never_red)}/{len(seen)} 步"
+              f"（判定次數 ≥ {MIN_RUNS} 才列入）")
         for s in sorted(never_red)[:12]:
-            print(f"      · {s}（{seen[s]} 次）")
+            print(f"      · {s}（判定 {evaluated[s]} 次）")
+        if thin:
+            print(f"   ── 判定次數不足（< {MIN_RUNS}）：{len(thin)} 步"
+                  f" —— 沒紅過，但**證據不足以說它有效或無效**")
+            for s in sorted(thin)[:8]:
+                print(f"      · {s}（判定 {evaluated[s]} 次／略過 {skipped[s]} 次）")
         if always_skip:
             print(f"   ⚠️ 每一次都是 skip：{len(always_skip)} 步"
                   f" —— 這不是通過，是從來沒有在這個環境判定過")
