@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.erp import ERPQuotationRepository
 from app.services.erp.quotation_service import ERPQuotationService
+from app.services.erp.company_profit import get_company_profit_rate
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,11 @@ class ERPQuotationIOService:
             year=year, skip=0, limit=9999,
         )
 
+        # 公司留成比率整批取一次（2026-08-18）——
+        # 匯出的毛利必須與畫面上的一致，否則對帳時會看到兩個數字
+        # 而不知道該信哪一個。
+        _rate = await get_company_profit_rate(self.db)
+
         output = io.StringIO()
         output.write("\ufeff")  # BOM for Excel
         writer = csv.writer(output)
@@ -46,7 +52,7 @@ class ERPQuotationIOService:
         ])
 
         for item in items:
-            profit = ERPQuotationService.compute_profit(item)
+            profit = ERPQuotationService.compute_profit(item, _rate)
             writer.writerow([
                 item.case_code or "",
                 item.case_name or "",
@@ -93,8 +99,13 @@ class ERPQuotationIOService:
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center")
 
+        # 公司留成比率整批取一次（2026-08-18）——
+        # 匯出的毛利必須與畫面上的一致，否則對帳時會看到兩個數字
+        # 而不知道該信哪一個。
+        _rate = await get_company_profit_rate(self.db)
+
         for row_idx, item in enumerate(items, 2):
-            profit = ERPQuotationService.compute_profit(item)
+            profit = ERPQuotationService.compute_profit(item, _rate)
             ws.cell(row=row_idx, column=1, value=item.case_code or "")
             ws.cell(row=row_idx, column=2, value=item.project_code or "")
             ws.cell(row=row_idx, column=3, value=item.case_name or "")

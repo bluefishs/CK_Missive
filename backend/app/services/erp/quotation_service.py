@@ -22,6 +22,9 @@ from app.schemas.erp import (
 )
 from app.services.contract import CaseCodeService
 from .finance_ledger import FinanceLedgerService
+# 公司固定利潤率（公司留成，2026-08-18）——
+# 純函式 compute_quotation_profit 不讀設定，由呼叫端取值後傳入。
+from .company_profit import get_company_profit_rate
 from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
@@ -32,12 +35,29 @@ ZERO = Decimal("0")
 def compute_quotation_profit(
     total_price, tax_amount=0,
     outsourcing_fee=0, personnel_fee=0, overhead_fee=0, other_cost=0,
+    company_profit_rate=0,
 ) -> dict:
     """統一利潤計算 — 全模組共用 (service/io/repository)
 
-    total_cost = outsourcing + personnel + overhead + other
-    gross_profit = (total_price - tax) - total_cost
-    gross_margin = gross_profit / (total_price - tax) * 100
+        營收       = 總價 − 稅額
+        公司留成   = 營收 × company_profit_rate       ← 2026-08-18 新增這一層
+        專案可用   = 營收 − 公司留成
+        total_cost = outsourcing + personnel + overhead + other
+        gross_profit = 專案可用 − total_cost
+        gross_margin = gross_profit / 專案可用 × 100
+
+    `company_profit_rate` 是 **0~1 的小數**（10% 傳 `Decimal("0.1")`），
+    由呼叫端從 `services/erp/company_profit.get_company_profit_rate()` 取得。
+    **刻意不在這裡讀設定表**：這支是純函式、被 io/repository/service 三處共用，
+    加上 db session 會讓三個呼叫端都被迫改簽名，而純粹正是它的價值。
+
+    ⚠️ 預設 0 ⇒ 不傳時行為與 08-18 之前**完全相同**。
+    這件事很重要：比率一生效，每一張報價的毛利都會變，
+    所以升級不得靠「忘記傳參數就自動套用」那種隱含行為。
+
+    ⚠️ 分母是**專案可用**不是營收：公司留成已經不屬於專案可支配的錢，
+    把它留在分母裡算出的毛利率會比真實情況低，
+    而看的人會以為是成本偏高（歸因到錯的地方）。
     """
     tp = Decimal(str(total_price or 0))
     tax = Decimal(str(tax_amount or 0))
@@ -45,14 +65,23 @@ def compute_quotation_profit(
     pers = Decimal(str(personnel_fee or 0))
     over = Decimal(str(overhead_fee or 0))
     other = Decimal(str(other_cost or 0))
+    rate = Decimal(str(company_profit_rate or 0))
 
     total_cost = out + pers + over + other
     revenue = tp - tax
-    gross_profit = revenue - total_cost
+
+    # 公司留成。四捨五入到元 —— 對外的金額不該出現小數分位
+    # （會與人手算的數字差一分而被當成系統算錯）。
+    company_reserve = (revenue * rate).quantize(
+        Decimal("1"), rounding=ROUND_HALF_UP
+    ) if rate > ZERO else ZERO
+    project_base = revenue - company_reserve
+
+    gross_profit = project_base - total_cost
 
     gross_margin = None
-    if revenue > ZERO:
-        gross_margin = (gross_profit / revenue * 100).quantize(
+    if project_base > ZERO:
+        gross_margin = (gross_profit / project_base * 100).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
 
@@ -60,6 +89,13 @@ def compute_quotation_profit(
         "total_cost": total_cost,
         "gross_profit": gross_profit,
         "gross_margin": gross_margin,
+        # 2026-08-18：把中間值一起回傳，否則毛利變小時看不出是被誰扣掉的。
+        # 只給 gross_profit 的話，owner 設了 10% 之後看到的是
+        # 「毛利莫名少了一截」，而查不到那一截去哪了。
+        "company_profit_rate": rate,
+        "company_reserve": company_reserve,
+        "project_base": project_base,
+        "revenue": revenue,
         # ⚠️ net_profit 與 gross_profit 是**同一個數字**（2026-08-15 查證）。
         # 報價詳情頁把「毛利」與「淨利」並排顯示，看的人會以為那是兩個指標。
         # 真正的淨利要再扣營運費用與稅，而那些資料在 operational_expenses
@@ -187,6 +223,8 @@ class ERPQuotationService(AuditableServiceMixin):
         payable_agg = await self.payable_repo.get_aggregates_batch(ids)
         # invoice count 透過 billing count 估算或單獨批次查詢
         invoice_counts = await self._get_invoice_counts_batch(ids)
+        # 整批取一次公司留成比率（值有 60 秒快取，但這裡連查詢都省掉）
+        rate = await get_company_profit_rate(self.db)
 
         responses = []
         for item in items:
@@ -200,6 +238,7 @@ class ERPQuotationService(AuditableServiceMixin):
                 total_payable=p.get("total_payable", ZERO),
                 total_paid=p.get("total_paid", ZERO),
                 invoice_count=invoice_counts.get(item.id, 0),
+                company_profit_rate=rate,
             ))
         return responses, total
 
@@ -216,9 +255,15 @@ class ERPQuotationService(AuditableServiceMixin):
         total_payable: Decimal,
         total_paid: Decimal,
         invoice_count: int,
+        company_profit_rate=ZERO,
     ) -> ERPQuotationResponse:
-        """轉換為回應格式 (使用預先批次聚合的數據，避免 N+1)"""
-        profit = self.compute_profit(quotation)
+        """轉換為回應格式 (使用預先批次聚合的數據，避免 N+1)
+
+        `company_profit_rate` 由呼叫端整批取一次後傳入 —— 這支是 **sync**，
+        不能在裡面 await；而就算能，每筆各查一次也是把一個
+        「一天不會變一次」的值查 N 遍。
+        """
+        profit = self.compute_profit(quotation, company_profit_rate)
 
         budget_limit = quotation.budget_limit
         budget_usage_pct = None
@@ -235,6 +280,13 @@ class ERPQuotationService(AuditableServiceMixin):
             total_cost=profit["total_cost"],
             gross_profit=profit["gross_profit"],
             gross_margin=profit["gross_margin"],
+            # 2026-08-18：這四欄必須手動接上 —— 這裡是**逐欄手寫**的 response，
+            # 不是 `**profit`，所以 compute 算出來的新欄位不會自動流過來。
+            # 漏接的症狀是「畫面永遠顯示 0%、而後端明明算對了」。
+            company_profit_rate=profit["company_profit_rate"],
+            company_reserve=profit["company_reserve"],
+            project_base=profit["project_base"],
+            revenue=profit["revenue"],
             net_profit=profit["net_profit"],
             cost_declared=profit["cost_declared"],
             # 列表不查實際成本：那要逐筆打 DB（N+1），而這個方法存在的理由
@@ -265,8 +317,16 @@ class ERPQuotationService(AuditableServiceMixin):
     # =========================================================================
 
     @staticmethod
-    def compute_profit(quotation: ERPQuotation) -> dict:
-        """計算毛利/淨利 — 委派至模組級 compute_quotation_profit()"""
+    def compute_profit(quotation: ERPQuotation, company_profit_rate=ZERO) -> dict:
+        """計算毛利/淨利 — 委派至模組級 compute_quotation_profit()
+
+        `company_profit_rate` 由呼叫端從 `get_company_profit_rate(db)` 取得
+        （0~1 小數）。**維持 staticmethod**：`quotation_service_io` 以類別呼叫它，
+        改成實例方法會連帶改動匯出路徑，而那不是這次要動的東西。
+
+        ⚠️ 預設 ZERO ⇒ 忘記傳的呼叫端行為與 08-18 之前相同（不扣公司留成）。
+        那是刻意的降級方向：漏傳會少扣，而不是算出一個沒人預期的小數字。
+        """
         return compute_quotation_profit(
             total_price=quotation.total_price,
             tax_amount=quotation.tax_amount,
@@ -274,6 +334,7 @@ class ERPQuotationService(AuditableServiceMixin):
             personnel_fee=quotation.personnel_fee,
             overhead_fee=quotation.overhead_fee,
             other_cost=quotation.other_cost,
+            company_profit_rate=company_profit_rate,
         )
 
     # =========================================================================
@@ -362,9 +423,10 @@ class ERPQuotationService(AuditableServiceMixin):
         # 批次取得請款聚合
         ids = [q.id for q in items]
         billing_agg = await self.billing_repo.get_aggregates_batch(ids) if ids else {}
+        rate = await get_company_profit_rate(self.db)
 
         for q in items:
-            profit = self.compute_profit(q)
+            profit = self.compute_profit(q, rate)
             price = Decimal(str(q.total_price or 0))
             tax = Decimal(str(q.tax_amount or 0))
             total_revenue += price - tax
@@ -477,7 +539,9 @@ class ERPQuotationService(AuditableServiceMixin):
 
     async def _to_response(self, quotation: ERPQuotation) -> ERPQuotationResponse:
         """轉換為回應格式 (含計算欄位 + 聚合)"""
-        profit = self.compute_profit(quotation)
+        profit = self.compute_profit(
+            quotation, await get_company_profit_rate(self.db)
+        )
 
         invoices = await self.invoice_repo.get_by_quotation_id(quotation.id)
         total_billed = await self.billing_repo.get_total_billed(quotation.id)
@@ -503,6 +567,13 @@ class ERPQuotationService(AuditableServiceMixin):
             total_cost=profit["total_cost"],
             gross_profit=profit["gross_profit"],
             gross_margin=profit["gross_margin"],
+            # 2026-08-18：這四欄必須手動接上 —— 這裡是**逐欄手寫**的 response，
+            # 不是 `**profit`，所以 compute 算出來的新欄位不會自動流過來。
+            # 漏接的症狀是「畫面永遠顯示 0%、而後端明明算對了」。
+            company_profit_rate=profit["company_profit_rate"],
+            company_reserve=profit["company_reserve"],
+            project_base=profit["project_base"],
+            revenue=profit["revenue"],
             net_profit=profit["net_profit"],
             cost_declared=profit["cost_declared"],
             actual_cost=actual["actual_cost"],

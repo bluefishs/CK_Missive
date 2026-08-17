@@ -59,10 +59,25 @@ export interface ERPQuotation {
   is_over_budget: boolean;
   /** 報價單上填的**估列**成本合計（外包＋人事＋管銷＋其他）—— 不是實際支出 */
   total_cost: number;
-  /** 預估毛利 = (總價 − 稅) − 估列成本 —— 基準是估列，不是實際 */
+  /** 預估毛利 = **專案可用金額** − 估列成本（2026-08-18 起扣除公司留成）
+   *
+   *  owner 2026-08-18：「若可設定公司固定利潤如 10%，那總金額扣除前述
+   *  才應該是專案毛利」。比率預設 0 ⇒ 未設定時與先前完全相同。 */
   gross_profit: number;
-  /** 預估毛利率（%）—— cost_declared 為 false 時不得呈現 */
+  /** 預估毛利率（%）＝ 毛利 ÷ **專案可用金額**（分母不是營收）
+   *  —— cost_declared 為 false 時不得呈現 */
   gross_margin?: number;
+  /** 公司固定利潤率（0~1 小數；0 表示不扣）。
+   *  設定處：/admin/site-management → `erp_company_profit_rate`（存百分比字串）。
+   *  後端唯一定義處 `services/erp/company_profit.py`。 */
+  company_profit_rate?: number;
+  /** 公司留成金額 ＝ 營收 × 比率。**必須與毛利一起顯示** ——
+   *  只看毛利的話，比率一設 10% 就會「莫名少一截」而查不出是誰扣的。 */
+  company_reserve?: number;
+  /** 專案可用金額 ＝ 營收 − 公司留成（毛利率的分母） */
+  project_base?: number;
+  /** 營收 ＝ 總價 − 稅額 */
+  revenue?: number;
   /** @deprecated 目前與 gross_profit 是同一個數字。真正的淨利要再扣營運費用與稅，
    *  那些資料不在報價這一層。UI 已不再顯示，保留僅為相容。 */
   net_profit: number;

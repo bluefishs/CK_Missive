@@ -161,6 +161,11 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
             .order_by(ERPQuotation.year)
         )
         result = await self.db.execute(query)
+        # 公司留成比率整批取一次（2026-08-18）。年度趨勢是逐年聚合後才算毛利，
+        # 所以留成也是對「該年度營收總額」扣一次 —— 與逐案扣再加總的結果相同
+        # （比率固定，乘法可分配），差異只在四捨五入的分位。
+        from app.services.erp.company_profit import get_company_profit_rate
+        rate = await get_company_profit_rate(self.db)
         rows = []
         for r in result.all():
             from app.services.erp.quotation_service import compute_quotation_profit
@@ -168,6 +173,7 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
                 total_price=r.sum_price, tax_amount=r.sum_tax,
                 outsourcing_fee=r.sum_out, personnel_fee=r.sum_pers,
                 overhead_fee=r.sum_over, other_cost=r.sum_other,
+                company_profit_rate=rate,
             )
             rows.append({
                 "year": r.year,

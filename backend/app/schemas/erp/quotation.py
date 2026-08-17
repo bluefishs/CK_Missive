@@ -142,6 +142,32 @@ class ERPQuotationResponse(BaseModel):
     total_cost: Decimal = Decimal("0")
     gross_profit: Decimal = Decimal("0")
     gross_margin: Optional[Decimal] = Field(None, description="毛利率 (%)")
+
+    # 2026-08-18 owner：「若可設定公司固定利潤如 10%，
+    # 那總金額扣除前述才應該是專案毛利」。
+    #
+    #     營收     = 總價 − 稅額
+    #     公司留成 = 營收 × company_profit_rate
+    #     專案可用 = 營收 − 公司留成          ← gross_profit 的基準
+    #     專案毛利 = 專案可用 − total_cost
+    #
+    # ⚠️ 這三欄**必須一起回傳**：只給 gross_profit 的話，
+    # 比率一設 10%，畫面上的毛利就會莫名少一截而查不出是誰扣的
+    # —— 而「數字變了但看不出為什麼」比數字錯更難處理。
+    #
+    # ⚠️ 同時這也是今天剛踩過的形狀（quotation_no 存在 DB 而 API 永遠不回傳）：
+    # Pydantic 對「service 算了、schema 沒宣告」的欄位是**靜默丟棄**。
+    # 算得再對，沒宣告就到不了前端。
+    company_profit_rate: Decimal = Field(
+        Decimal("0"), description="公司固定利潤率（0~1 小數；0 表示不扣）"
+    )
+    company_reserve: Decimal = Field(
+        Decimal("0"), description="公司留成金額 = 營收 × 比率"
+    )
+    project_base: Decimal = Field(
+        Decimal("0"), description="專案可用金額 = 營收 − 公司留成（毛利率的分母）"
+    )
+    revenue: Decimal = Field(Decimal("0"), description="營收 = 總價 − 稅額")
     # ⚠️ net_profit 目前 == gross_profit（見 compute_quotation_profit）。
     # 真正的淨利要再扣營運費用與稅，那些資料不在報價這一層。
     net_profit: Decimal = Decimal("0")

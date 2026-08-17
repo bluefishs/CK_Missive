@@ -116,6 +116,28 @@ export const ERPQuotationDetailPage: React.FC = () => {
         <Card size="small" title="合約概況" className="money-stat">
           <Row gutter={[16, 16]}>
             <Col xs={12} sm={12} lg={6}><Statistic title="合約總價" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+            {/* 2026-08-18 owner：「若可設定公司固定利潤如 10%，那總金額扣除前述
+                才應該是專案毛利」。
+
+                只在比率 > 0 時才顯示這一格：預設 0（不扣）時多一個「留成 0」
+                只是噪音，而畫面上每多一個永遠是 0 的數字，就多一個訓練人略過它的東西。
+
+                但比率一旦設了就**必須顯示** —— 否則毛利會莫名少一截而查不出
+                是誰扣的，而「數字變了但看不出為什麼」比數字錯更難處理。 */}
+            {Number(quotation.company_profit_rate ?? 0) > 0 && (
+              <Col xs={12} sm={12} lg={6}>
+                <Statistic
+                  title={`公司留成（${(Number(quotation.company_profit_rate) * 100).toFixed(0)}%）`}
+                  value={Number(quotation.company_reserve ?? 0)}
+                  precision={0}
+                  styles={{ content: { color: '#8c8c8c' } }}
+                />
+                <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 4, lineHeight: 1.4 }}>
+                  專案可用 {Number(quotation.project_base ?? 0).toLocaleString()} 元
+                  <br />（毛利率的分母）
+                </div>
+              </Col>
+            )}
             {/* 2026-08-15 owner：「報價單估列費用、實際成本、毛利皆由區分清楚不可混淆」。
                 原本只有一個「估計成本」，看的人不知道那是報價時填的估列還是真的花掉的錢。
                 三個數字各自標明基準：估列來自報價單、實際來自統一帳本、待入帳是填報缺口。 */}

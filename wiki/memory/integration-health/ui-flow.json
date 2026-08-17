@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-17T15:24:16.539Z",
+ "checked_at": "2026-08-17T16:42:50.939Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 20,
  "fail": 0,
@@ -53,7 +53,7 @@
   {
    "id": "visual-walk-lock-quotation-mobile",
    "values": [
-    "統計數字=15"
+    "統計數字=16"
    ]
   },
   {

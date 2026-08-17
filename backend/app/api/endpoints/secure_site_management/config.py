@@ -116,6 +116,17 @@ async def config_action(
             await config_repo.db.commit()
             await config_repo.db.refresh(config)
 
+            # 2026-08-18：有行程內快取的設定值，更新後要讓它立即失效。
+            # 不做的話 owner 改完比率會看到舊的毛利數字（TTL 60 秒），
+            # 而「改了設定但畫面沒變」會讓人以為沒存成功而重複操作。
+            #
+            # 用明列而非「掃描所有有快取的設定」：目前只有這一個，
+            # 而為一個項目建一套註冊機制是把簡單的事變複雜。
+            # 未來多起來再抽 —— 屆時這個 if 會很明顯地不夠用。
+            if key == "erp_company_profit_rate":
+                from app.services.erp.company_profit import invalidate_cache
+                invalidate_cache()
+
             return SecureResponse(
                 success=True,
                 message="Configuration updated successfully",
