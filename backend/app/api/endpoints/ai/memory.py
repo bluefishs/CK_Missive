@@ -40,6 +40,9 @@ router = APIRouter(dependencies=[Depends(require_auth())])
 # ────────── Paths（複用既有 constants）──────────
 
 from app.core.paths import PROJECT_ROOT, WIKI_MEMORY_DIR as WIKI_MEMORY  # v6.10 P1-E SSOT
+from app.schemas.ai.memory import (
+    ApproveReq, AutoApplyModeReq, DiaryQueryReq, ListReq, NebulaReq, RejectReq, RollbackReq,
+)
 DIARY_DIR = WIKI_MEMORY / "diary"
 PATTERNS_DIR = WIKI_MEMORY / "patterns"
 FAILURES_DIR = WIKI_MEMORY / "failures"
@@ -49,36 +52,6 @@ EVOLUTIONS_DIR = WIKI_MEMORY / "evolutions"
 
 
 # ────────── Schemas ──────────
-
-class DiaryQueryReq(BaseModel):
-    date: Optional[str] = Field(None, description="YYYY-MM-DD；None 為今日")
-
-
-class ListReq(BaseModel):
-    limit: int = 50
-    offset: int = 0
-
-
-class ApproveReq(BaseModel):
-    proposal_id: str
-    approved_by: str = "admin"
-
-
-class RejectReq(BaseModel):
-    proposal_id: str
-    reason: str = ""
-    rejected_by: str = "admin"
-
-
-class RollbackReq(BaseModel):
-    crystal_id: str
-
-
-class NebulaReq(BaseModel):
-    days: int = 30
-
-
-# ────────── Helpers ──────────
 
 def _parse_frontmatter(text: str) -> Dict[str, Any]:
     """解析 YAML frontmatter（2026-04-24 ADR-0028 根本重構）
@@ -545,11 +518,6 @@ async def memory_jobs_status():
 
 
 # ────────── Crystal Auto-Apply Mode 切換（v5.12 Phase A）──────────
-
-class AutoApplyModeReq(BaseModel):
-    mode: str = Field(..., description="dry-run | live")
-    confirmed_by: str = Field("admin", description="切換人")
-
 
 @router.post("/memory/crystal/auto-apply-mode/get")
 async def crystal_auto_apply_mode_get():

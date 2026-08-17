@@ -18,21 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import require_admin
 from app.db.database import get_async_db as get_db
 from app.schemas.common import SuccessResponse
+from app.schemas.tender_admin import ListReviewRequest, ReviewActionRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-class ListReviewRequest(BaseModel):
-    status: str = "pending"  # pending / approved / rejected / all
-    limit: int = 50
-    offset: int = 0
-    min_confidence: Optional[float] = None  # filter by confidence threshold
-
-
-class ReviewActionRequest(BaseModel):
-    review_id: int
-    note: Optional[str] = None
 
 
 @router.post("/enrichment/review-queue/list")

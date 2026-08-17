@@ -18,6 +18,7 @@ from app.schemas.tender_admin import (
 from app.db.database import get_async_db as get_db
 from app.core.dependencies import require_auth
 from app.extended.models import User
+from app.schemas.tender_admin import KeywordRulesRequest
 
 logger = logging.getLogger(__name__)
 
@@ -328,11 +329,6 @@ async def remove_company_bookmark(request: Request, db: AsyncSession = Depends(g
 
 
 # ── 標案關鍵字規則（同義詞 + 排除）— owner 從「關鍵訂閱」UI 自維（L75.4，即時生效免 rebuild）──
-
-class KeywordRulesRequest(BaseModel):
-    synonyms: list = []      # 同義詞群組 [[主詞, 同義詞...], ...]
-    exclusions: list = []    # 負面關鍵字 [str, ...]
-
 
 @router.post("/keyword-rules/list")
 async def get_keyword_rules(user: User = Depends(require_auth)):

@@ -81,7 +81,15 @@ apiClient.post(`${AI_ENDPOINTS.ANALYSIS}/${documentId}`);
 
 ## 3. 型別定義同步 (SSOT)
 
+<!--enforced-by: scripts/checks/schema_ssot_audit.py-->
+
 每個實體型別只能有一個「真實來源」定義。
+
+> **2026-08-17**：這條規範寫了很久、大家大致遵守，**但在此之前沒有任何機制在強制**
+> —— 累積出 6 檔 18 個違規而無人知曉，發現它的是 stop hook 讀規範，
+> 不是 159 支檢核裡的任何一支。18 個當天全數搬回 `schemas/`，
+> 現在由 `schema_ssot_audit`（weekly 59）**嚴格**把關：任何本地 BaseModel 都是 RED。
+> 收斂的完整作法見 `docs/architecture/STANDARD_CONVERGENCE_PLAYBOOK.md`。
 
 ### 後端
 

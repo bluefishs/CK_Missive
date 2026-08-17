@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.paths import WIKI_MEMORY_DIR as WIKI_MEMORY
 from app.core.service_auth import require_scope
 from app.db.database import get_async_db as get_db
+from app.schemas.ai.kunge import KungeSnapshotReq, KungeSnapshotResp
 
 
 logger = logging.getLogger(__name__)
@@ -101,22 +102,6 @@ def _pending_proposals(limit: int = 10) -> List[Dict[str, Any]]:
             continue
     items.sort(key=lambda x: x.get("proposed_at", ""), reverse=True)
     return items[:limit]
-
-
-class KungeSnapshotReq(BaseModel):
-    window_days: int = Field(7, ge=1, le=90, description="統計窗口天數")
-    include_pending_proposals: bool = True
-
-
-class KungeSnapshotResp(BaseModel):
-    success: bool
-    timestamp: str
-    window_days: int
-    counts: Dict[str, int]
-    recent: Dict[str, List[str]]
-    pending_proposals: List[Dict[str, Any]]
-    db_stats: Dict[str, int]
-    health_signals: Dict[str, Any]
 
 
 @router.post("/kunge/snapshot", response_model=KungeSnapshotResp)

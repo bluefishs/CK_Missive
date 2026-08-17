@@ -115,3 +115,26 @@ class BookmarkUpdateRequest(BaseModel):
     status: Optional[str] = None
     case_code: Optional[str] = None
     notes: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# 標案 enrichment 人工複核（2026-08-17 由端點檔搬入，規範 §3）
+# ---------------------------------------------------------------------------
+class ListReviewRequest(BaseModel):
+    status: str = "pending"  # pending / approved / rejected / all
+    limit: int = 50
+    offset: int = 0
+    min_confidence: Optional[float] = None  # filter by confidence threshold
+
+
+class ReviewActionRequest(BaseModel):
+    review_id: int
+    note: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# 推薦關鍵字規則（2026-08-17 由端點檔搬入，規範 §3）
+# ---------------------------------------------------------------------------
+class KeywordRulesRequest(BaseModel):
+    synonyms: list = []      # 同義詞群組 [[主詞, 同義詞...], ...]
+    exclusions: list = []    # 負面關鍵字 [str, ...]

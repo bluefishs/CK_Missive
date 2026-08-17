@@ -10,6 +10,9 @@ from pydantic import BaseModel
 
 from app.core.dependencies import require_admin, require_auth, get_async_db
 from app.services.wiki.service import get_wiki_service
+from app.schemas.wiki import (
+    IngestEntityRequest, IngestSourceRequest, SaveSynthesisRequest, SearchRequest,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # 整組需登入（Wiki 為內部知識庫）；寫端點額外 require_admin 於單端點（見下方）
@@ -17,40 +20,6 @@ router = APIRouter(prefix="/wiki", tags=["wiki"], dependencies=[Depends(require_
 
 
 # ── Request / Response schemas ──
-
-class IngestEntityRequest(BaseModel):
-    name: str
-    entity_type: str
-    description: str
-    sources: List[str] = []
-    tags: List[str] = []
-    related_entities: List[str] = []
-    confidence: str = "medium"
-
-
-class IngestSourceRequest(BaseModel):
-    title: str
-    source_type: str
-    summary: str
-    key_points: List[str] = []
-    entities_mentioned: List[str] = []
-    source_id: Optional[str] = None
-    tags: List[str] = []
-
-
-class SaveSynthesisRequest(BaseModel):
-    title: str
-    content_md: str
-    sources: List[str] = []
-    tags: List[str] = []
-
-
-class SearchRequest(BaseModel):
-    query: str
-    limit: int = 10
-
-
-# ── Endpoints ──
 
 @router.post("/ingest/entity")
 async def ingest_entity(req: IngestEntityRequest, _admin=Depends(require_admin())):

@@ -28,11 +28,30 @@
 `schemas/` 那份與端點那份會各自演化，而**兩份不一致時沒有任何一方會報錯** ——
 序列化只會少一個欄位，畫面少一格，不拋錯。
 
-## 存量處理
+## 存量已清零（2026-08-17）
 
-18 個既有違規列入 baseline（見 `.schema_ssot_baseline.txt`），**不判紅**。
-一次搬 18 個型別的風險大於收益，而天天紅的告警等於沒有告警。
-但**新增的一律擋下**：baseline 只減不增。
+owner：「違規請檢視評估並納入作業安排，**不要讓規範變建議**」。
+
+原本打算把 18 個列 baseline 慢慢清 —— 但那正是「規範變建議」的機制本身：
+baseline 一旦存在就會一直存在，而「只減不增」在沒有期限的情況下等於「不減」。
+
+18 個逐一檢視後全部是**單純的 request/response DTO**（無驗證器、無交叉引用），
+搬遷是機械式的。當天全部搬完：
+
+    wiki.py 4 → schemas/wiki.py
+    ai/memory.py 7 → schemas/ai/memory.py
+    ai/kunge.py 2 → schemas/ai/kunge.py
+    ai/morning_report_subscriptions.py 2 → schemas/ai/morning_report.py
+    tender_module/{enrichment_review 2, subscriptions 1} → schemas/tender_admin.py
+
+**baseline 檔已刪除** —— 留一份空基線只會讓人以為還有存量。
+現在任何一個本地 BaseModel 都是 RED，沒有例外。
+
+## 這支是範本
+
+本專案是 portfolio 的範例專案。這支的 baseline 機制本身即可複用：
+存量列入 → 只減不增 → **清光就刪檔轉嚴格**。
+關鍵是最後一步 —— 沒有那一步，baseline 就是規範的墳墓。
 """
 from __future__ import annotations
 
