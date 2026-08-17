@@ -31,6 +31,39 @@ class ERPBillingService(AuditableServiceMixin):
         self._quotation_repo = ERPQuotationRepository(db)
         self.ledger_service = FinanceLedgerService(db)
 
+    async def _sync_ledger_if_paid(self, billing) -> None:
+        """已收款 → 同步統一帳本（冪等）。
+
+        2026-08-17：抽成共用方法。原本這段**只寫在 `update` 裡**，
+        於是「建立時就標已收款」那條路徑永遠不會入帳 ——
+        owner 回報「為何無對應帳本」正是這個（實測全庫 1 筆卡在這）。
+
+        同時移除了原本的 `old_status != "paid"` 條件：它的用意是
+        「只在狀態轉換那一刻入帳」，但**冪等已由 find_by_source 擔保**，
+        那個條件不提供任何保護，只製造盲區。
+
+        帳本是「專案財務 → 公司 ERP」的接點 —— 缺一筆不只是這一案看不到，
+        是公司層彙總少了這一筆。
+        """
+        if billing.payment_status != "paid" or not billing.payment_amount:
+            return
+        existing = await self.ledger_service.find_by_source("erp_billing", billing.id)
+        if existing:
+            logger.warning("帳本已有 erp_billing/%d 的 entry，跳過重複入帳", billing.id)
+            return
+        case_code = await self._get_case_code(billing.erp_quotation_id)
+        await self.ledger_service.record_from_billing(
+            billing_id=billing.id,
+            case_code=case_code,
+            payment_amount=billing.payment_amount,
+            payment_date=billing.payment_date,
+            billing_period=billing.billing_period,
+        )
+        logger.info(
+            "AR 同步入帳: 請款 #%d, 金額 %s, 案號 %s",
+            billing.id, billing.payment_amount, case_code,
+        )
+
     async def create(self, data: ERPBillingCreate) -> ERPBillingResponse:
         """建立請款 (ADR-0013 Phase 2: 自動生成 billing_code + 併發 retry)"""
         from datetime import datetime
@@ -106,6 +139,9 @@ class ERPBillingService(AuditableServiceMixin):
         billing = await retry_on_code_conflict(
             self.db, _create_op, unique_field="billing_code"
         )
+        # 建立時就標「已收款」也要入帳 —— 見 _sync_ledger_if_paid 的說明。
+        await self._sync_ledger_if_paid(billing)
+
         # savepoint commit 只是釋放 SAVEPOINT，**外層交易仍未落地** ——
         # 少了這一行會變成「不報錯但資料沒存進去」，比原本的錯誤更糟
         # （使用者以為成功了）。asset_service 的寫法就是這樣：
@@ -148,31 +184,20 @@ class ERPBillingService(AuditableServiceMixin):
         await self.db.flush()
         await self.db.refresh(billing)
 
-        # v2.0.0: 收款確認 → 同步帳本入帳 (冪等：已有 entry 則跳過)
-        new_status = billing.payment_status
-        if new_status == "paid" and old_status != "paid" and billing.payment_amount:
-            existing = await self.ledger_service.find_by_source("erp_billing", billing.id)
-            if existing:
-                logger.warning("帳本已有 erp_billing/%d 的 entry，跳過重複入帳", billing.id)
-            else:
-                case_code = await self._get_case_code(billing.erp_quotation_id)
-                await self.ledger_service.record_from_billing(
-                    billing_id=billing.id,
-                    case_code=case_code,
-                    payment_amount=billing.payment_amount,
-                    payment_date=billing.payment_date,
-                    billing_period=billing.billing_period,
-                )
-                logger.info(
-                    "AR 同步入帳: 請款 #%d, 金額 %s, 案號 %s",
-                    billing.id, billing.payment_amount, case_code,
-                )
+        await self._sync_ledger_if_paid(billing)
 
         await self.db.commit()
         await self.audit_update(billing_id, update_data)
 
         # EventBus 通知 (非關鍵路徑 — 用於通知推播，失敗不影響帳本)
-        if new_status == "paid" and old_status != "paid":
+        # ⚠️ 2026-08-17：我把入帳段抽成 `_sync_ledger_if_paid` 時，
+        # 連同 `new_status = billing.payment_status` 這行一起刪掉了，
+        # 而這裡還在用它 → NameError（實測當場踩到）。
+        # **抽共用方法時要檢查被刪的區塊裡有沒有別人在用的變數。**
+        #
+        # EventBus 這裡**保留** old_status 條件：推播的語意就是「狀態剛剛改變」，
+        # 重複推播是騷擾（與入帳不同 —— 入帳的冪等由 find_by_source 擔保）。
+        if billing.payment_status == "paid" and old_status != "paid":
             try:
                 from app.core.event_bus import EventBus
                 from app.core.domain_events import billing_paid

@@ -69,7 +69,27 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
   const summary = data?.summary;
 
   const columns: ColumnsType<FinanceRecord> = [
-    { title: '發票號碼', dataIndex: 'description', key: 'inv', width: 140 },
+    // 2026-08-17 owner：「tab=expenses 又有開票紀錄與發票號」。
+    //
+    // 那個欄位標題寫死「發票號碼」，而 `description` 一個欄位裝了**三種東西**
+    // （後端 CaseFinanceRecord 的註解自己寫著「發票號碼 / 請款期別 / 發票號」）：
+    //   · type='expense'  → 核銷的發票號
+    //   · type='billing'  → 請款**期別**（如「第一期款項」）
+    //   · type='invoice'  → 開立的發票號
+    //
+    // 於是請款那列顯示的是期別，掛在「發票號碼」標題底下 ——
+    // 看起來像「這筆請款已經開票了」，而實際上根本沒有發票。
+    // 標題改為中性的「摘要」，並用 type 標明每列是什麼。
+    {
+      title: '種類', dataIndex: 'type', key: 'type', width: 80,
+      render: (v: string) => (
+        <Tag color={{ expense: 'orange', billing: 'blue', invoice: 'green' }[v] ?? 'default'}>
+          {{ expense: '核銷', billing: '請款', invoice: '發票' }[v] ?? v}
+        </Tag>
+      ),
+    },
+    { title: '摘要', dataIndex: 'description', key: 'desc', width: 180, ellipsis: true,
+      render: (v: string) => v || '-' },
     { title: '日期', dataIndex: 'date', key: 'date', width: 110 },
     {
       title: '金額', dataIndex: 'amount', key: 'amount', width: 130, align: 'right',

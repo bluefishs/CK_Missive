@@ -80,6 +80,13 @@ export interface ERPQuotation {
   total_payable: number;
   total_paid: number;
   pm_contract_amount?: number;
+  /** 委託單位名稱（2026-08-17）—— 應收列表的對象。
+   *  來源 contract_projects.client_agency，回退 pm_cases.client_name。 */
+  client_name?: string;
+  /** 專案類別：`01` 委辦招標（標案類）／`02` 承攬報價（2026-08-17）。
+   *  owner：「標案涉及多項程序不易填列成本」→ 標案類不呈現報價明細分頁、
+   *  也不列入成本填報缺口。 */
+  case_category?: string;
   amount_mismatch?: boolean;
 }
 

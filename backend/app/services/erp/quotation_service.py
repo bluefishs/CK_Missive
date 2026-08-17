@@ -281,27 +281,67 @@ class ERPQuotationService(AuditableServiceMixin):
     # =========================================================================
 
     async def get_pm_amount_check(self, case_code: Optional[str]) -> Optional[dict]:
-        """比對 ERP total_price 與 PM contract_amount，回傳差異資訊"""
+        """比對 ERP total_price 與 PM contract_amount，並帶回委託單位名稱。
+
+        2026-08-17 owner：「委託單位無同步顯示」。
+        應收列表的 `counterparty` 原本是**硬編字串 `'委託單位'`**（欄位名被當成值），
+        所以每一列都顯示那四個字而不是真實單位名 ——
+        而名稱一直都在 `contract_projects.client_agency`（實測「嘉義縣竹崎地政事務所」）。
+
+        委託單位在這裡一起查，**不另開一次往返**：這個方法本來就在查同一個
+        case_code 的 PM 資料，多一個 join 比多一次呼叫便宜。
+        """
         if not case_code:
             return None
         try:
+            from app.extended.models.core import ContractProject
             from app.extended.models.pm import PMCase
             from sqlalchemy import select
+
             result = await self.db.execute(
                 select(PMCase.contract_amount).where(PMCase.case_code == case_code)
             )
             pm_amount = result.scalar_one_or_none()
-            if pm_amount is None:
-                return None
 
-            quotation = await self.repo.get_by_case_code(case_code)
-            erp_amount = Decimal(str(quotation.total_price or 0)) if quotation else ZERO
-            pm_dec = Decimal(str(pm_amount or 0))
+            # 委託單位：承攬案件的 client_agency 優先（那是成案後的正式對象），
+            # 沒有才回退 PM 的 client_name。
+            client_name = (await self.db.execute(
+                select(ContractProject.client_agency)
+                .where(ContractProject.case_code == case_code)
+            )).scalar_one_or_none()
+            if not client_name:
+                client_name = (await self.db.execute(
+                    select(PMCase.client_name).where(PMCase.case_code == case_code)
+                )).scalar_one_or_none()
 
-            return {
-                "pm_contract_amount": str(pm_dec),
-                "mismatch": abs(erp_amount - pm_dec) > Decimal("0.01"),
-            }
+            # ⚠️ 原本 pm_amount 為 None 就整個 return None ——
+            # 那會讓「有委託單位但沒填 PM 金額」的案件也拿不到單位名稱。
+            # 兩件資訊各自獨立，不該互相綁死。
+            # 專案類別（01 委辦招標／02 承攬報價）——
+            # owner 2026-08-17：「若是標案應無報價明細 tab」。
+            # 標案涉及多項程序、不易逐項填列成本，顯示一個填不了的分頁
+            # 就是在要求對方做不可能的事（同「要求標案填成本」那個錯）。
+            category = (await self.db.execute(
+                select(ContractProject.category)
+                .where(ContractProject.case_code == case_code)
+            )).scalar_one_or_none()
+            if not category:
+                category = (await self.db.execute(
+                    select(PMCase.category).where(PMCase.case_code == case_code)
+                )).scalar_one_or_none()
+
+            out: dict = {}
+            if category:
+                out["case_category"] = category
+            if client_name:
+                out["client_name"] = client_name
+            if pm_amount is not None:
+                quotation = await self.repo.get_by_case_code(case_code)
+                erp_amount = Decimal(str(quotation.total_price or 0)) if quotation else ZERO
+                pm_dec = Decimal(str(pm_amount or 0))
+                out["pm_contract_amount"] = str(pm_dec)
+                out["mismatch"] = abs(erp_amount - pm_dec) > Decimal("0.01")
+            return out or None
         except Exception:
             return None
 

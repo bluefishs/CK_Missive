@@ -70,8 +70,15 @@ async def get_quotation_detail(
     data = result.model_dump() if hasattr(result, 'model_dump') else result
     pm_info = await service.get_pm_amount_check(result.case_code)
     if pm_info:
-        data["pm_contract_amount"] = pm_info["pm_contract_amount"]
-        data["amount_mismatch"] = pm_info["mismatch"]
+        # 2026-08-17：改用 .get —— `get_pm_amount_check` 現在可能只回
+        # client_name（沒填 PM 金額的案件），直接 [] 取值會 KeyError。
+        if "pm_contract_amount" in pm_info:
+            data["pm_contract_amount"] = pm_info["pm_contract_amount"]
+            data["amount_mismatch"] = pm_info.get("mismatch")
+        if pm_info.get("client_name"):
+            data["client_name"] = pm_info["client_name"]
+        if pm_info.get("case_category"):
+            data["case_category"] = pm_info["case_category"]
     return SuccessResponse(data=data)
 
 

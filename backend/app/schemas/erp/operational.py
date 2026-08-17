@@ -50,6 +50,17 @@ EXPENSE_SUB_CATEGORIES: Dict[str, str] = {
 
 class OperationalAccountCreate(BaseModel):
     """建立營運帳目"""
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(..., max_length=200, description="帳目名稱")
     category: str = Field(..., description="類別: office/vehicle/equipment/personnel/maintenance/misc")
     fiscal_year: int = Field(..., description="年度 (西元)")
@@ -62,6 +73,17 @@ class OperationalAccountCreate(BaseModel):
 
 class OperationalAccountUpdate(BaseModel):
     """更新營運帳目"""
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     name: Optional[str] = Field(None, max_length=200)
     category: Optional[str] = None
     budget_limit: Optional[Decimal] = Field(None, max_digits=15, decimal_places=2)
@@ -115,6 +137,17 @@ class OperationalAccountResponse(BaseModel):
 
 class OperationalExpenseCreate(BaseModel):
     """建立營運費用"""
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     account_id: int = Field(..., description="帳目 ID")
     expense_date: datetime.date = Field(..., description="費用日期")
     amount: Decimal = Field(..., gt=0, max_digits=15, decimal_places=2, description="金額")

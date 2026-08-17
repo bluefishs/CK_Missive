@@ -239,13 +239,21 @@ export const ERPQuotationDetailPage: React.FC = () => {
         </Descriptions>
       </div>
     )),
+    // 2026-08-17 owner：「若是標案應無報價明細 tab 以及其填報效益」。
+    // category 01=委辦招標（標案類）／02=承攬報價。
+    // 標案涉及多項程序、不易逐項填列作業單價 —— 顯示一個填不了的分頁
+    // 就是在要求對方做不可能的事（同「要求標案填成本」那個錯，同日已修）。
+    // 未知類別時**仍顯示**：寧可多一個分頁，不要讓承攬報價案件失去它。
+    ...(quotation.case_category === '01' ? [] : [
     // 2026-08-16 owner：「線上報價單機制」。
     // 報價的起點是逐項內容，成本是後面才拆的。
     createTabItem('items', { icon: <ProfileOutlined />, text: '報價明細' }, (
       <QuotationItemsTab quotationId={quotation.id} caseName={quotation.case_name} caseCode={quotation.case_code} />
-    )),
+    ))
+    ]),
     createTabItem('receivable', { icon: <BankOutlined />, text: '應收帳款' }, (
-      id ? <AccountRecordTab erpQuotationId={Number(id)} direction="receivable" /> : null
+      id ? <AccountRecordTab erpQuotationId={Number(id)} direction="receivable"
+          clientName={(quotation as { client_name?: string })?.client_name} /> : null
     )),
     createTabItem('payable', { icon: <DollarOutlined />, text: '應付帳款' }, (
       id ? <AccountRecordTab erpQuotationId={Number(id)} direction="payable" /> : null

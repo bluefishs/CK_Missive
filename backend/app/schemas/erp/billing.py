@@ -7,6 +7,17 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class ERPBillingCreate(BaseModel):
     """建立請款"""
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     erp_quotation_id: int
     billing_code: Optional[str] = Field(None, max_length=20, description="系統請款編碼 BL_{yyyy}_{NNN}")
     billing_period: Optional[str] = Field(None, max_length=50, description="期別")
@@ -32,6 +43,17 @@ class ERPBillingCreate(BaseModel):
 
 class ERPBillingUpdate(BaseModel):
     """更新請款"""
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     billing_period: Optional[str] = Field(None, max_length=50)
     billing_date: Optional[date] = None
     billing_amount: Optional[Decimal] = None

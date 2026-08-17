@@ -107,6 +107,17 @@ class ExpenseInvoiceItemBase(BaseModel):
     amount: Decimal = Field(..., gt=0, max_digits=15, decimal_places=2, description="小計")
 
 class ExpenseInvoiceItemCreate(ExpenseInvoiceItemBase):
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     pass
 
 class ExpenseInvoiceItemResponse(ExpenseInvoiceItemBase):
@@ -133,6 +144,17 @@ class ExpenseInvoiceBase(BaseModel):
 
 class ExpenseInvoiceCreate(ExpenseInvoiceBase):
     """費用報銷發票建立 (QR 自動填入或手動輸入)"""
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     attribution_type: Optional[str] = Field("none", description="歸屬類型: project/operational/none")
     operational_account_id: Optional[int] = Field(None, description="營運帳目 ID")
     items: Optional[List[ExpenseInvoiceItemCreate]] = None
@@ -169,6 +191,17 @@ class ExpenseInvoiceCreate(ExpenseInvoiceBase):
 
 class ExpenseInvoiceUpdate(BaseModel):
     """允許更新少部分資訊或狀態"""
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     category: Optional[EXPENSE_CATEGORIES] = Field(None)
     notes: Optional[str] = Field(None, max_length=500)
     status: Optional[EXPENSE_STATUS] = Field(None, description="狀態 (受狀態機規則約束)")

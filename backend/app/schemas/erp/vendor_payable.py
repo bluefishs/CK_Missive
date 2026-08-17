@@ -7,6 +7,17 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class ERPVendorPayableCreate(BaseModel):
     """建立廠商應付"""
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     erp_quotation_id: int
     vendor_name: str = Field(..., max_length=200, description="廠商名稱")
     vendor_code: Optional[str] = Field(None, max_length=50, description="廠商代碼")
@@ -32,6 +43,17 @@ class ERPVendorPayableCreate(BaseModel):
 
 class ERPVendorPayableUpdate(BaseModel):
     """更新廠商應付"""
+    # 2026-08-17：extra="forbid" —— 送來的欄位若這裡沒有，**立刻 422 並指名**，
+    # 而不是被 Pydantic 靜默丟棄。
+    #
+    # 同日踩了三次同一個形狀：payment_amount / payment_date（請款）與
+    # payment_status / paid_amount / paid_date（應付）都被前端送出卻默默不見，
+    # 結果是 DB 存下「已收款、金額 null」而統計卡顯示「已收 0」——
+    # 三層都沒有人會報錯。
+    #
+    # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
+    model_config = ConfigDict(extra="forbid")
+
     vendor_name: Optional[str] = Field(None, max_length=200)
     vendor_code: Optional[str] = Field(None, max_length=50)
     payable_amount: Optional[Decimal] = None
