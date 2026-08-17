@@ -15,6 +15,18 @@ class ERPVendorPayableCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=300)
     due_date: Optional[date] = None
     invoice_number: Optional[str] = Field(None, max_length=50, description="廠商發票號碼")
+
+    # 2026-08-17：補上這三欄（同 billing 的形狀，但這裡**更嚴重**）。
+    #
+    # 前端建立表單一直在送 `payment_status` / `paid_date` / `paid_amount`，
+    # 而這個 schema **連 payment_status 都沒有** → 全部被 Pydantic 靜默丟棄
+    # → 建立時選「已付款」完全無效，一律落回 model 預設。
+    #
+    # 使用者的操作沒有任何效果，而且不會有任何錯誤訊息。
+    payment_status: Optional[str] = Field(None, description="付款狀態")
+    paid_amount: Optional[Decimal] = Field(None, description="已付金額")
+    paid_date: Optional[date] = Field(None, description="付款日期")
+
     notes: Optional[str] = None
 
 

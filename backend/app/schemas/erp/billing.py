@@ -13,6 +13,20 @@ class ERPBillingCreate(BaseModel):
     billing_date: date = Field(..., description="請款日期")
     billing_amount: Decimal = Field(..., description="請款金額")
     payment_status: str = Field("pending", description="狀態")
+
+    # 2026-08-17：補上這兩欄。
+    #
+    # 前端建立表單**一直在送** `payment_amount` 與 `payment_date`
+    # （見 ERPAccountRecordFormPage 的 payload），而這個 schema 沒有它們
+    # → **Pydantic 靜默丟棄** → DB 存下「payment_status='paid' 而金額是 null」
+    # → 統計卡「已收款額」顯示 **0**，而請款總額 3,383 萬。
+    #
+    # 實測全庫 15 筆都是這樣來的。這是同一天第三次踩到同一個形狀
+    # （quotation_no 到不了 API／待填報連結沒人接）：
+    # **送出端與接收端各說各話，而兩邊都不會報錯。**
+    payment_amount: Optional[Decimal] = Field(None, description="收款金額")
+    payment_date: Optional[date] = Field(None, description="收款日期")
+
     notes: Optional[str] = None
 
 

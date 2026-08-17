@@ -33,6 +33,27 @@ class ERPVendorPayableService(AuditableServiceMixin):
 
     async def create(self, data: ERPVendorPayableCreate) -> ERPVendorPayableResponse:
         """建立廠商應付 — 自動由 vendor_code 或 vendor_name 配對 vendor_id"""
+        # ── 防重（2026-08-17）────────────────────────────────────────────
+        # 與請款同型（見 billing_service.create 的說明）。
+        # 實測 CK2026_PM_01_005 已有兩筆同廠商同金額的應付（id 65/66）。
+        #
+        # 判準＝同報價 ＋ 同廠商 ＋ 同金額。不看 due_date（可空）。
+        from sqlalchemy import and_, select as _sel
+
+        dup = (await self.db.execute(
+            _sel(ERPVendorPayable).where(and_(
+                ERPVendorPayable.erp_quotation_id == data.erp_quotation_id,
+                ERPVendorPayable.vendor_name == data.vendor_name,
+                ERPVendorPayable.payable_amount == data.payable_amount,
+            )).limit(1)
+        )).scalars().first()
+        if dup:
+            raise ValueError(
+                f"已有相同的應付紀錄（{data.vendor_name}："
+                f"NT$ {int(data.payable_amount):,}）。"
+                "若確實有第二筆，請在說明或發票號碼標明差異後再送出。"
+            )
+
         create_data = data.model_dump()
         # 自動配對 vendor_id: 優先 vendor_code，其次 vendor_name 模糊匹配
         if not create_data.get("vendor_id"):

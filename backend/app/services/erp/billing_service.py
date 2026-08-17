@@ -37,6 +37,51 @@ class ERPBillingService(AuditableServiceMixin):
         from app.services.contract import CaseCodeService
         from app.services.coding_helpers import retry_on_code_conflict
 
+        # ── 「已收款」必須有金額（2026-08-17 補 create 端）─────────────────
+        #
+        # 08-16 我在 `update` 加了這道守衛，**但沒掃 create** ——
+        # 而這 15 筆失真資料正是**建立時就直接帶 payment_status='paid'** 進來的，
+        # 於是繞過守衛存下「狀態說已收、金額是空的」這個矛盾狀態。
+        # 後果：統計卡「已收款額」顯示 **0**，而請款總額 3,383 萬。
+        #
+        # 這是 L83 家族（修一處沒掃同型）——同一條規則要在**所有寫入路徑**上。
+        if data.payment_status == "paid" and not getattr(data, "payment_amount", None):
+            raise ValueError(
+                "建立時標記為「已收款」必須同時填寫收款金額 —— "
+                "否則統計會顯示「請款 N 元、已收 0 元」而看不出是資料缺失。"
+                "（若尚未收款，狀態請留「待收款」）"
+            )
+
+        # ── 防重（2026-08-17 owner：「沒防呆 新增超過 10 筆紀錄」）──────────
+        #
+        # 實測報價 152 有 **15 筆完全相同**的請款（同日期、同金額 2,249,163、
+        # 同期別）。成因是同日修好的那個交易層缺陷：
+        # `repo.create` 已經 commit 成功，才在 `sp.commit()` 拋
+        # ResourceClosedError → **資料存進去了但畫面說失敗** → 使用者重試 → 再存一筆。
+        #
+        # 那個缺陷已修，但**防重是獨立的必要條件**：
+        # 網路重送、連點兩下、瀏覽器重整都會造成同樣結果，
+        # 而請款是金額紀錄 —— 重複一筆就是帳目多一筆應收。
+        #
+        # 判準＝同報價 ＋ 同請款日期 ＋ 同金額。刻意**不看期別**：
+        # 期別可留空（實測 16 筆 pending 全為空），把可空欄位放進判準
+        # 會讓兩筆都沒填期別時無法比對 —— 那正是「防重防不到」的來源。
+        from sqlalchemy import and_, select as _sel
+
+        dup = (await self.db.execute(
+            _sel(ERPBilling).where(and_(
+                ERPBilling.erp_quotation_id == data.erp_quotation_id,
+                ERPBilling.billing_date == data.billing_date,
+                ERPBilling.billing_amount == data.billing_amount,
+            )).limit(1)
+        )).scalars().first()
+        if dup:
+            raise ValueError(
+                f"已有相同的請款紀錄（{dup.billing_code}：{data.billing_date} "
+                f"NT$ {int(data.billing_amount):,}）。"
+                "若確實需要同日同額的第二筆，請在期別或備註標明差異後再送出。"
+            )
+
         async def _create_op() -> ERPBilling:
             dump = data.model_dump()
             if not dump.get("billing_code"):
