@@ -3,38 +3,19 @@
 2026-08-16 owner：「線上報價單機制」。
 """
 import logging
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth
 from app.db.database import get_async_db
 from app.extended.models import User
 from app.schemas.common import SuccessResponse
+# §3 SSOT：型別定義唯一來源是 app/schemas/，端點不得有本地 BaseModel
+from app.schemas.erp.quotation import QuotationIdRequest, ReplaceItemsRequest
 from app.services.erp.quotation_items import QuotationItemService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-class QuotationItemIn(BaseModel):
-    item_name: str = Field("", max_length=200, description="工項名稱（空白列會被略過）")
-    spec: Optional[str] = Field(None, max_length=300)
-    unit: Optional[str] = Field(None, max_length=20)
-    qty: float = Field(1, ge=0)
-    unit_price: float = Field(0, ge=0)
-    sort_order: int = 0
-    notes: Optional[str] = None
-
-
-class QuotationIdRequest(BaseModel):
-    quotation_id: int = Field(..., ge=1)
-
-
-class ReplaceItemsRequest(QuotationIdRequest):
-    items: list[QuotationItemIn] = Field(default_factory=list)
 
 
 @router.post("/detail", response_model=SuccessResponse)

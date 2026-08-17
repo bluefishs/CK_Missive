@@ -173,3 +173,38 @@ class ERPProfitTrendItem(BaseModel):
     case_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# 線上報價單明細（2026-08-16 owner：「線上報價單機制」）
+#
+# 置於此處而非端點檔內：`.claude/rules/development-rules.md` §3 明訂
+# `api/endpoints/` 禁止本地 BaseModel，唯一來源是 `app/schemas/`。
+# ---------------------------------------------------------------------------
+
+class QuotationItemIn(BaseModel):
+    """報價明細的一列。
+
+    `item_name` 允許空字串 —— 表格編輯必然留下空白列，
+    由服務層略過而不是在這裡擋掉（擋掉會讓整批儲存失敗）。
+    """
+    item_name: str = Field("", max_length=200, description="工項名稱（空白列會被略過）")
+    spec: Optional[str] = Field(None, max_length=300, description="規格/說明")
+    unit: Optional[str] = Field(None, max_length=20, description="單位")
+    qty: float = Field(1, ge=0, description="數量")
+    unit_price: float = Field(0, ge=0, description="單價")
+    sort_order: int = Field(0, description="排序")
+    notes: Optional[str] = Field(None, description="備註")
+
+
+class QuotationIdRequest(BaseModel):
+    quotation_id: int = Field(..., ge=1, description="報價 ID")
+
+
+class ReplaceItemsRequest(QuotationIdRequest):
+    """整批取代明細。
+
+    用整批取代而不是逐筆 CRUD：使用者的心智模型是
+    「改完這張表按儲存」，不是「刪第 3 列」。
+    """
+    items: list[QuotationItemIn] = Field(default_factory=list)

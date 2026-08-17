@@ -82,6 +82,18 @@ class TaoyuanDispatchOrder(Base):
     work_type = Column(String(200), index=True, comment="作業類別(可多選,逗號分隔)")
     sub_case_name = Column(String(200), comment="分案名稱/派工備註")
     deadline = Column(String(200), comment="履約期限")
+    # 2026-08-16：由 `deadline` 原文解析出的日期（民國年轉西元）。
+    #
+    # 原文欄位同時裝著兩種東西 ——「115/07/10」是純日期，
+    # 而「115年02月08日前函覆(發文日起25日歷天内檢送成果)」帶著**業務條件**。
+    # 直接正規化成日期會刪掉交辦條件，所以**加欄位不改原文**：
+    # 這一欄供排序/比較/逾期判定，原文繼續顯示給人看。
+    #
+    # ⚠️ 遷移 20260816a002 建了 DB 欄位，但當時**漏了在 ORM 補上** ——
+    # 啟動時 schema 驗證會警告「資料庫欄位在模型中未定義」，
+    # 而那只是 warning，不會讓任何東西壞掉（所以差點就一直放著）。
+    deadline_date = Column(Date, nullable=True, index=True,
+                           comment="由 deadline 原文解析出的日期（民國年轉西元）")
     case_handler = Column(String(50), comment="案件承辦")
     survey_unit = Column(String(100), comment="查估單位")
     cloud_folder = Column(String(500), comment="雲端資料夾")

@@ -1241,3 +1241,34 @@ export const ASSET_ACTION_COLORS: Record<string, string> = {
   purchase: 'blue', repair: 'orange', maintain: 'green',
   transfer: 'purple', dispose: 'red', inspect: 'cyan', other: 'default',
 };
+
+// ---------------------------------------------------------------------------
+// 線上報價單明細（2026-08-16 owner：「線上報價單機制」）
+// ---------------------------------------------------------------------------
+// 原本宣告在 pages/erpQuotation/QuotationItemsTab.tsx 內。搬到這裡的理由與
+// 上面「案件整合財務紀錄」「報價狀態 SSOT」兩例完全相同 ——
+// 只要有第二個消費端（例如未來的列印檢視頁或 PDF 匯出）就會出現第二份宣告，
+// 而後端欄位一改，漏改的那一份是**靜默錯位**：欄位變 undefined，
+// 畫面只少一格、不會報錯。
+// 後端契約：backend/app/schemas/erp/quotation.py QuotationItemIn。
+
+/** 報價明細的一列（前端編輯用，`key` 為表格 rowKey 非後端欄位） */
+export interface QuotationItemRow {
+  key: string;
+  item_name: string;
+  spec?: string;
+  unit?: string;
+  qty: number;
+  unit_price: number;
+  amount: number;
+}
+
+/** 線上報價單完整內容（對應後端 /erp/quotation-items/detail） */
+export interface QuotationItemsDetail {
+  items: QuotationItemRow[];
+  subtotal: number;
+  tax_amount: number;
+  total: number;
+  /** 沒有明細時對外報價單不呈現逐項區塊 */
+  has_items: boolean;
+}

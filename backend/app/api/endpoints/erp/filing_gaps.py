@@ -9,23 +9,18 @@
 import logging
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth
 from app.db.database import get_async_db
 from app.extended.models import User
 from app.schemas.common import SuccessResponse
+# §3 SSOT：型別定義唯一來源是 app/schemas/，端點不得有本地 BaseModel
+from app.schemas.erp.filing_gap import FilingGapRequest
 from app.services.erp.filing_gap import FilingGapService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-class FilingGapRequest(BaseModel):
-    # 幾天沒動才算「卡住」。預設 3 天：核銷卡 1-2 天是正常的審核節奏，
-    # 卡 3 天以上才是「沒有人記得它」。實測那批卡了 16 天。
-    stuck_days: int = Field(3, ge=0, le=60, description="核銷停滯天數門檻")
 
 
 @router.post("/list", response_model=SuccessResponse)

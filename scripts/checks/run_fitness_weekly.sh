@@ -340,6 +340,12 @@ run_step "57" "業務實體建立路徑 SSOT（防第三份實作）" "scripts/c
 # 此處與 ledger.py」＝寫了等於沒寫），加上表單分類欄是自由輸入的 Input。
 run_step "58" "列舉值儲存慣例（分類/狀態守門）" "scripts/checks/enum_storage_convention_audit.py"
 
+# 2026-08-16：規範 §3「endpoints 禁止本地 BaseModel」寫了很久、大家大致遵守，
+# 但**沒有任何機制在強制** —— 於是累積出 6 檔 18 個違規，
+# 而我當天又新增了 2 個（是 stop hook 讀規範才發現的，不是檢核）。
+# 存量列入 baseline 不判紅，新增的一律擋下。
+run_step "59" "型別 SSOT（endpoints 無本地 BaseModel）" "scripts/checks/schema_ssot_audit.py"
+
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
 # ------------------------------------------------------------------

@@ -1,0 +1,22 @@
+# endpoints 本地 BaseModel 存量基線（2026-08-16 建立）
+# 依 .claude/rules/development-rules.md §3，這些都該搬進 backend/app/schemas/。
+# 一次搬 18 個的風險大於收益，故列為存量不判紅 —— 但**只減不增**。
+# 修好一個就從這裡刪一行；刪光了這份檔案就可以移除。
+ai/kunge.py::KungeSnapshotReq
+ai/kunge.py::KungeSnapshotResp
+ai/memory.py::ApproveReq
+ai/memory.py::AutoApplyModeReq
+ai/memory.py::DiaryQueryReq
+ai/memory.py::ListReq
+ai/memory.py::NebulaReq
+ai/memory.py::RejectReq
+ai/memory.py::RollbackReq
+ai/morning_report_subscriptions.py::SubscriptionCreateRequest
+ai/morning_report_subscriptions.py::SubscriptionUpdateRequest
+tender_module/enrichment_review.py::ListReviewRequest
+tender_module/enrichment_review.py::ReviewActionRequest
+tender_module/subscriptions.py::KeywordRulesRequest
+wiki.py::IngestEntityRequest
+wiki.py::IngestSourceRequest
+wiki.py::SaveSynthesisRequest
+wiki.py::SearchRequest

@@ -20,18 +20,11 @@ import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined } from '@an
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
+// 型別 SSOT 在 types/erp.ts —— 這裡若自己宣告一份，後端欄位一改就會靜默錯位
+import type { QuotationItemRow, QuotationItemsDetail } from '../../types/erp';
 
 const { Text, Title } = Typography;
 
-export interface QuotationItemRow {
-  key: string;
-  item_name: string;
-  spec?: string;
-  unit?: string;
-  qty: number;
-  unit_price: number;
-  amount: number;
-}
 
 interface Props {
   quotationId: number;
@@ -50,7 +43,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
   const { data, isLoading } = useQuery({
     queryKey: ['quotation-items', quotationId],
     queryFn: async () => {
-      const res = await apiClient.post<{ data: { items: QuotationItemRow[]; subtotal: number; tax_amount: number; total: number; has_items: boolean } }>(
+      const res = await apiClient.post<{ data: QuotationItemsDetail }>(
         ERP_ENDPOINTS.QUOTATION_ITEMS_DETAIL, { quotation_id: quotationId },
       );
       return res?.data;
