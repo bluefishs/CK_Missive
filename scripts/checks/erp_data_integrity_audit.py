@@ -112,22 +112,40 @@ FROM operational_expenses;
 # （本專案反覆記過的告警疲勞）。收窄後是 4 筆，每一筆都該有人處理。
 CURRENT_ERA = "2025"   # 案號年度 >= 此值才算現行流程；之前的是歷史補登
 
+# ⚠️ 2026-08-18 再次收窄：判準由 `^CK\d{4}_[A-Z]+_` 改為 `^CK\d{4}_PM_`。
+#
+# `[A-Z]+` 把**所有**模組代碼都算進來，而只有 PM 式案號應該對得到 pm_cases：
+#
+#     PM = 從邀標建案來的      → 必須有 pm_cases 列
+#     FN = ERP 產號器（erp）   → ERP 直接開的報價，本來就沒有 PM 階段
+#     GN = general（手動建立）  → 直接建承攬案件，同上
+#     DP = dispatch            → 派工
+#
+# 於是 `CK2026_FN_01_001` 被誤報成斷鏈 —— 它一點問題都沒有。
+# 收窄後 4 筆 → **3 筆**，而那 3 筆是真的：`CK2025_PM_02_001`／
+# `CK2026_PM_01_008`／`CK2026_PM_01_009`，全部執行中、全部有報價，
+# 而 2026 的 pm_cases 只到 `_007`。
+#
+# 真因已根治（`contract/core.py` 手動建立改用 GN 不再產 PM 式案號）；
+# 這 3 筆的改名屬 owner 決定 —— case_code 被 erp_quotations／
+# finance_ledgers／expense_invoices 多處引用。
+
 SQL_BRIDGE = """
 SELECT '報價 → pm_cases' AS kind,
        (SELECT count(*) FROM erp_quotations
-         WHERE case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+         WHERE case_code ~ '^CK[0-9]{4}_PM_'
            AND substring(case_code from 3 for 4) >= '%(era)s') AS total,
        (SELECT count(*) FROM erp_quotations q
-         WHERE q.case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+         WHERE q.case_code ~ '^CK[0-9]{4}_PM_'
            AND substring(q.case_code from 3 for 4) >= '%(era)s'
            AND NOT EXISTS (SELECT 1 FROM pm_cases c WHERE c.case_code=q.case_code)) AS dangling
 UNION ALL
 SELECT '承攬案件 → pm_cases',
        (SELECT count(*) FROM contract_projects
-         WHERE case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+         WHERE case_code ~ '^CK[0-9]{4}_PM_'
            AND substring(case_code from 3 for 4) >= '%(era)s'),
        (SELECT count(*) FROM contract_projects p
-         WHERE p.case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+         WHERE p.case_code ~ '^CK[0-9]{4}_PM_'
            AND substring(p.case_code from 3 for 4) >= '%(era)s'
            AND NOT EXISTS (SELECT 1 FROM pm_cases c WHERE c.case_code=p.case_code));
 """ % {"era": CURRENT_ERA}
@@ -137,7 +155,7 @@ SELECT '承攬案件 → pm_cases',
 SQL_BRIDGE_DETAIL = """
 SELECT p.case_code, left(COALESCE(p.project_name,''), 28), p.status
 FROM contract_projects p
-WHERE p.case_code ~ '^CK[0-9]{4}_[A-Z]+_'
+WHERE p.case_code ~ '^CK[0-9]{4}_PM_'
   AND substring(p.case_code from 3 for 4) >= '%(era)s'
   AND NOT EXISTS (SELECT 1 FROM pm_cases c WHERE c.case_code=p.case_code)
 ORDER BY p.case_code;
@@ -248,12 +266,29 @@ def main() -> int:
 
     red, yellow = [], []
 
-    def q(sql):
-        """conn 可用就直連，否則借道 docker exec —— 兩條路徑同一個出口。"""
+    def q(sql, expect_rows: bool = True):
+        """conn 可用就直連，否則借道 docker exec —— 兩條路徑同一個出口。
+
+        `expect_rows=False` 給 DDL 用（`CREATE OR REPLACE FUNCTION`）。
+
+        ⚠️ 2026-08-18：原本沒有這個參數，於是 `q(SQL_HELPER)`（建輔助函式）
+        在**直連路徑**會 `fetchall()` 一個沒有結果集的敘述 →
+        `no results to fetch` → 整支落到 except → 印「查詢失敗，無法判定」exit 2。
+
+        **只在直連路徑壞**：psql 路徑執行 DDL 完全正常。這支註冊在
+        weekly（host，走 psql）所以生產上一直是好的 ——
+        但在容器裡跑會拿到一個指向錯誤原因的訊息（真因是 DDL，
+        訊息卻讓人以為 SQL 寫錯或資料有問題）。
+        又一次「檢核跑在哪個環境，和它判得對不對一樣重要」。
+        """
         if conn is not None:
             with conn.cursor() as cur:
                 cur.execute(sql)
-                return cur.fetchall()
+                # DDL 沒有結果集 —— 回 [] 而不是讓 fetchall 拋錯。
+                # 刻意用參數明示而非「攔到 ProgrammingError 就回 []」：
+                # 後者會把「SELECT 真的失敗」也吞成空清單，
+                # 而空清單在下游是「沒有問題」的意思。
+                return cur.fetchall() if expect_rows else []
         # ⚠️ psql 回傳的是**字串** —— 直接用 `if missing:` 判斷會把 "0" 當成真
         #（Python 裡非空字串一律 truthy），於是「缺 0」也印紅。
         # 這是**只在 host 路徑才會出現**的錯：容器直連回傳的是整數。
@@ -311,7 +346,7 @@ def main() -> int:
                 print("  🟢 沒有「已建應付卻沒估列」的報價")
 
             print("\n§4 名稱相容字（影響所有以名稱比對的管控，含承攬案件防重）")
-            q(SQL_HELPER)
+            q(SQL_HELPER, expect_rows=False)
             for col, bad, total in q(SQL_NFKC):
                 pct = bad / total * 100 if total else 0
                 flag = "🟡" if pct >= 5 else "🟢"

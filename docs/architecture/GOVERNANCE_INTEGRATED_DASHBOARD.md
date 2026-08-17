@@ -1,6 +1,6 @@
 # Governance Integrated Dashboard — 規範 + 現況 + 覆盤 整合 SSOT
 
-> **Generated**: 2026-08-17 02:30:00
+> **Generated**: 2026-08-18 02:30:00
 > **Owner 問題**: 每次詢問都有缺漏，需整合 5 處治理文件 (ADR/lesson/SOP/fitness/architecture)
 > **解法**: 此 dashboard 由 cron 06:00 自動 regenerate，session 啟動讀此檔取完整快照
 > **生成器**: `scripts/checks/generate_governance_dashboard.py`
@@ -14,9 +14,9 @@
 | ADR | active=21 / archived=14 | `docs/adr/` |
 | Lessons | 82 | `docs/architecture/LESSONS_REGISTRY.md` |
 | SOPs | 0 | `.claude/rules/*.md`（容器未掛載 `.claude/`，host 端執行才計數） |
-| Fitness checks | 154 | `scripts/checks/*.py` |
-| Architecture docs | 101 | `docs/architecture/*.md` |
-| **Total** | **372** | 5 處散落 |
+| Fitness checks | 157 | `scripts/checks/*.py` |
+| Architecture docs | 104 | `docs/architecture/*.md` |
+| **Total** | **378** | 5 處散落 |
 
 ## 2. 現況真活 metric (從 /metrics 即時抓)
 
@@ -25,52 +25,42 @@
   governance_lessons_l4x_family_count                         0.0
   governance_lessons_total                                   17.0
   governance_pipeline_red_consecutive_days                    0.0
-  governance_wiki_freshness_hours                             6.4
-  governance_wiki_pages_total                               736.0
-  kg_entities_total                                       49688.0
+  governance_wiki_freshness_hours                             6.5
+  governance_wiki_pages_total                               755.0
+  kg_entities_total                                       49703.0
   memory_crystals_total                                       4.0
-  memory_diary_days_total                                   117.0
-  scheduler_job_last_run_age_seconds{job_id="kg_metrics_refresh"}         92.3
-  scheduler_job_last_run_age_seconds{job_id="memory_metrics_refresh"}         89.7
-  scheduler_job_last_run_age_seconds{job_id="tender_dashboard_warm"}         86.6
-  scheduler_job_success_created{job_id="kg_metrics_refresh"} 1786904908.0
-  scheduler_job_success_created{job_id="memory_metrics_refresh"} 1786904910.6
-  scheduler_job_success_created{job_id="tender_dashboard_warm"} 1786904913.7
+  memory_diary_days_total                                   118.0
+  scheduler_job_last_run_age_seconds{job_id="kg_metrics_refresh"}         12.1
+  scheduler_job_last_run_age_seconds{job_id="memory_metrics_refresh"}          9.5
+  scheduler_job_last_run_age_seconds{job_id="tender_dashboard_warm"}          7.1
+  scheduler_job_success_created{job_id="kg_metrics_refresh"} 1786991388.1
+  scheduler_job_success_created{job_id="memory_metrics_refresh"} 1786991390.7
+  scheduler_job_success_created{job_id="tender_dashboard_warm"} 1786991393.1
   scheduler_job_success_total{job_id="kg_metrics_refresh"}          1.0
   scheduler_job_success_total{job_id="memory_metrics_refresh"}          1.0
   scheduler_job_success_total{job_id="tender_dashboard_warm"}          1.0
-  shadow_baseline_call_total{provider="gemma-hermes"}          1.0
-  shadow_baseline_call_total{provider="gemma-local"}         59.0
-  shadow_baseline_call_total{provider="unknown"}              2.0
-  shadow_baseline_latency_p95_ms{provider="gemma-hermes"}         13.0
-  shadow_baseline_latency_p95_ms{provider="gemma-local"}      68649.0
-  shadow_baseline_latency_p95_ms{provider="unknown"}        123.0
-  shadow_baseline_rows_total{lookback_hours="24"}            62.0
-  shadow_baseline_success_ratio{provider="gemma-hermes"}          0.0
+  shadow_baseline_call_total{provider="gemma-local"}         45.0
+  shadow_baseline_latency_p95_ms{provider="gemma-local"}      64553.0
+  shadow_baseline_rows_total{lookback_hours="24"}            45.0
   shadow_baseline_success_ratio{provider="gemma-local"}          1.0
-  shadow_baseline_success_ratio{provider="unknown"}           0.5
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="draw_diagram"}          1.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="find_correspondence"}          3.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="find_correspondence"}          1.0
   shadow_baseline_tool_use_count{provider="gemma-local",tool="get_entity_detail"}          1.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_expense_overview"}          2.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_expense_overview"}          3.0
   shadow_baseline_tool_use_count{provider="gemma-local",tool="get_statistics"}         26.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_unpaid_billings"}          2.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="list_assets"}          2.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_across_graphs"}          2.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_dispatch_orders"}          9.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_documents"}         25.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="list_assets"}          1.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_across_graphs"}          3.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_dispatch_orders"}          7.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_documents"}         20.0
   shadow_baseline_tool_use_count{provider="gemma-local",tool="search_entities"}          8.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_projects"}          5.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_tender"}          4.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="summarize_entity"}          1.0
-  shadow_baseline_tool_use_count{provider="unknown",tool="doc_search"}          1.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_projects"}          3.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_tender"}          2.0
   v7_channel_diversity                                        0.0
   v7_reference_density_critique_pct                         100.0
-  v7_reference_density_diary_pct                             21.3
+  v7_reference_density_diary_pct                             21.8
   v7_soul_drift_lines                                         0.0
 ```
 
-> ⚠️ **本次未抓到 12 項前次存在的 metric**：`scheduler_job_failure_created{job_id="fitness_weekly"}`, `scheduler_job_failure_total{job_id="fitness_weekly"}`, `scheduler_job_last_run_age_seconds{job_id="fitness_weekly"}`, `scheduler_job_last_run_age_seconds{job_id="health_check_broadcast"}`, `scheduler_job_last_run_age_seconds{job_id="process_reminders"}`, `scheduler_job_last_run_age_seconds{job_id="proposal_aging_alert"}`（另 6 項）
+> ⚠️ **本次未抓到 10 項前次存在的 metric**：`shadow_baseline_call_total{provider="gemma-hermes"}`, `shadow_baseline_call_total{provider="unknown"}`, `shadow_baseline_latency_p95_ms{provider="gemma-hermes"}`, `shadow_baseline_latency_p95_ms{provider="unknown"}`, `shadow_baseline_success_ratio{provider="gemma-hermes"}`, `shadow_baseline_success_ratio{provider="unknown"}`（另 4 項）
 > 常見原因：backend 近期重啟，該類 gauge 需對應 job 跑過一次才會出現（例如 `scheduler_job_last_run_age_seconds`）。
 > 標出來是為了讓「沒抓到」與「值為 0／不存在」看得出差別，此處刻意不填前次數值以免謊報現況。
 
@@ -215,12 +205,12 @@
 
 | # | 條件 | 門檻 | 現況 | 達標 |
 |---|---|---|---|---|
-| 1 | baseline rows | ≥ 30 | 62 | ✅ |
+| 1 | baseline rows | ≥ 30 | 45 | ✅ |
 | 2 | dogfooding 連 7d | ≥ 7 days | 未追 | ⏳ |
 | 3 | soul fidelity | ≥ 70% | 未跑 | ⏳ |
-| 4 | error rate | < 5% | 50.0% | ❌ |
-| 5 | p95 latency | < 8s | 68.6s | ❌ |
-| **Summary** | — | — | **1/5** | **🔴 NO-GO** |
+| 4 | error rate | < 5% | 0.0% | ✅ |
+| 5 | p95 latency | < 8s | 64.6s | ❌ |
+| **Summary** | — | — | **2/5** | **🔴 NO-GO** |
 
 > ℹ️ **#4 error rate / #5 p95 為已接受的結構性限制（accepted constraint）**：瓶頸坐實在本地模型強度
 > （免費策略下 TPM 牆），非 prompt/管路可解；monorepo 已定調維持免費、勿再投 prompt 層 recall 強化。
@@ -269,16 +259,16 @@
 
 | 時間 | Job | 狀態 | 耗時 |
 |---|---|---|---|
-| 02:28:33 | `tender_dashboard_warm` | ✅ success | 715ms |
-| 02:28:30 | `memory_metrics_refresh` | ✅ success | 630ms |
-| 02:28:27 | `kg_metrics_refresh` | ✅ success | 12ms |
-| 02:23:02 | `tender_dashboard_warm` | ✅ success | 1ms |
-| 02:23:00 | `memory_metrics_refresh` | ✅ success | 625ms |
-| 02:22:57 | `kg_metrics_refresh` | ✅ success | 12ms |
-| 02:22:48 | `process_reminders` | ✅ success | 34ms |
-| 02:22:48 | `health_check_broadcast` | ✅ success | 24ms |
-| 02:18:08 | `tender_dashboard_warm` | ✅ success | 5935ms |
-| 02:17:47 | `health_check_broadcast` | ✅ success | 11ms |
+| 02:29:53 | `tender_dashboard_warm` | ✅ success | 1ms |
+| 02:29:50 | `memory_metrics_refresh` | ✅ success | 610ms |
+| 02:29:48 | `kg_metrics_refresh` | ✅ success | 10ms |
+| 02:27:09 | `tender_dashboard_warm` | ✅ success | 1ms |
+| 02:26:54 | `health_check_broadcast` | ✅ success | 42ms |
+| 02:26:54 | `process_reminders` | ✅ success | 42ms |
+| 02:22:11 | `tender_dashboard_warm` | ✅ success | 1627ms |
+| 02:21:54 | `health_check_broadcast` | ✅ success | 11ms |
+| 02:21:54 | `process_reminders` | ✅ success | 2ms |
+| 02:17:09 | `tender_dashboard_warm` | ✅ success | 1ms |
 
 **統計** (最近 30 個事件): 30 成功 / 0 失敗 / 失敗率 0.0%
 

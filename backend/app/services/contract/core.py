@@ -306,8 +306,26 @@ class ProjectService(AuditableServiceMixin):
         if not project_data.get("case_code"):
             try:
                 from app.services.contract.case_code import CaseCodeService
+                # ⚠️ 2026-08-18 由 "pm" 改為 "general"（PM → GN）。
+                #
+                # 原本用 PM 產號器，註解寫「保持體系一致」—— 但**它不建立 pm_cases 列**，
+                # 於是產出的 `CK2026_PM_01_008` 是一個長得像 PM 案件、
+                # 指向的地方卻不存在的案號。實測 3 筆這樣的案號
+                # （`CK2025_PM_02_001`／`CK2026_PM_01_008`／`_009`，全部執行中、
+                # 全部有報價），而 2026 的 pm_cases 只到 `_007`。
+                #
+                # 兩種修法我選了不說謊那一種：
+                #   (a) 一併建立 pm_cases 列 —— 那是憑空造一筆「邀標階段案件」，
+                #       而這個案子從未經過邀標；同支稽核自己的註解也否決過同型作法
+                #       （「歷史資料的正確狀態就是『沒有』，不是『補一個』」）。
+                #   (b) **改用 GN（general）** —— 案號誠實表達「這不是從 PM 建案來的」，
+                #       跨模組唯一性不受影響（case_code 的職責是唯一鍵，不是宣告來源）。
+                #
+                # 已查證無任何程式在解析案號中段，故改動安全。
+                # 既有 3 筆不在此次改名範圍：case_code 被 erp_quotations／
+                # finance_ledgers／expense_invoices 等多處引用，改名屬 owner 決定。
                 project_data["case_code"] = await CaseCodeService(self.db).generate_case_code(
-                    "pm",  # case_code 語意即「建案案號」，故用 PM 產號器保持體系一致
+                    "general",
                     project_data.get("year") or 2026,
                     project_data.get("category") or "01",
                 )

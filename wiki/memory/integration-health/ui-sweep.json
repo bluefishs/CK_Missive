@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-16T20:38:36.549Z",
+ "checked_at": "2026-08-17T20:39:34.652Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 87,
  "fail": 0,
@@ -83,8 +83,6 @@
   "/tender/dashboard",
   "/tender/org-ecosystem",
   "/tender/company-profile",
-  "/kunge",
-  "/kunge/chat",
   "/kunge/mind",
   "/kunge/evolution",
   "/kunge/graph",
@@ -92,7 +90,9 @@
   "/kunge/identity",
   "/kunge/memory",
   "/kunge/nebula",
-  "/kunge/dialogues"
+  "/kunge/dialogues",
+  "/kunge",
+  "/kunge/chat"
  ],
  "route_apis": {
   "/documents": [
@@ -127,6 +127,7 @@
    "/api/auth/check",
    "/api/auth/me",
    "/api/calendar/users/calendar-events",
+   "/api/erp/filing-gaps/mine",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -964,15 +965,6 @@
    "/api/system-notifications/unread-count",
    "/api/taoyuan-dispatch/dispatch/contract-projects"
   ],
-  "/kunge/chat": [
-   "/api/ai/config",
-   "/api/auth/check",
-   "/api/auth/me",
-   "/api/secure-site-management/csrf-token",
-   "/api/secure-site-management/navigation/action",
-   "/api/system-notifications/unread-count",
-   "/api/taoyuan-dispatch/dispatch/contract-projects"
-  ],
   "/kunge/mind": [
    "/api/ai/config",
    "/api/ai/memory/soul",
@@ -1054,6 +1046,15 @@
   "/kunge/dialogues": [
    "/api/ai/config",
    "/api/ai/memory/soul",
+   "/api/auth/check",
+   "/api/auth/me",
+   "/api/secure-site-management/csrf-token",
+   "/api/secure-site-management/navigation/action",
+   "/api/system-notifications/unread-count",
+   "/api/taoyuan-dispatch/dispatch/contract-projects"
+  ],
+  "/kunge/chat": [
+   "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
    "/api/secure-site-management/csrf-token",
@@ -1335,7 +1336,7 @@
    {
     "route": "/documents/2689",
     "viewportWidth": 768,
-    "pageOverflow": 0,
+    "pageOverflow": 3,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
@@ -1349,7 +1350,7 @@
    {
     "route": "/erp/expenses/10",
     "viewportWidth": 768,
-    "pageOverflow": 9,
+    "pageOverflow": 0,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
