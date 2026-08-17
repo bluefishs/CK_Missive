@@ -81,11 +81,6 @@ export const ERPQuotationDetailPage: React.FC = () => {
   };
 
   const tabs = quotation ? [
-    // 2026-08-16 owner：「線上報價單機制」。放在成本結構**之前** ——
-    // 報價的起點是逐項內容，成本是後面才拆的。
-    createTabItem('items', { icon: <ProfileOutlined />, text: '報價明細' }, (
-      <QuotationItemsTab quotationId={quotation.id} caseName={quotation.case_name} caseCode={quotation.case_code} />
-    )),
     createTabItem('info', { icon: <InfoCircleOutlined />, text: '成本結構' }, (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {quotation.amount_mismatch && (
@@ -234,6 +229,11 @@ export const ERPQuotationDetailPage: React.FC = () => {
           <Descriptions.Item label="備註" span={2}>{quotation.notes ?? '-'}</Descriptions.Item>
         </Descriptions>
       </div>
+    )),
+    // 2026-08-16 owner：「線上報價單機制」。
+    // 報價的起點是逐項內容，成本是後面才拆的。
+    createTabItem('items', { icon: <ProfileOutlined />, text: '報價明細' }, (
+      <QuotationItemsTab quotationId={quotation.id} caseName={quotation.case_name} caseCode={quotation.case_code} />
     )),
     createTabItem('receivable', { icon: <BankOutlined />, text: '應收帳款' }, (
       id ? <AccountRecordTab erpQuotationId={Number(id)} direction="receivable" /> : null

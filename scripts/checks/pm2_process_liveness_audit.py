@@ -79,6 +79,32 @@ except Exception:  # pragma: no cover - 舊版 Python 無此方法
 # ---------------------------------------------------------------------------
 KNOWN_ACCEPTABLE: dict[str, str] = {}
 
+# ---------------------------------------------------------------------------
+# 已知根因對照（2026-08-17）
+#
+# **這不是豁免** —— 這些項目仍然判 RED（備份真的壞了）。
+# 它的用途是：紅的時候直接說出「這是誰的、卡在什麼」，
+# 而不是讓人每週從頭追一次 log。
+#
+# 2026-08-17 查證：三支 RED 其實是**同一件事** ——
+#   ck-kv-snapshot 因 PM2 非互動環境未設 CLOUDFLARE_API_TOKEN 而失敗
+#   → CK_Website 的 KV 備份 30 天沒更新（可用 8 份／空 22 份）
+#   → ck-sso-health 與 ck-sso-contract-probe 讀到 STALE 跟著紅
+#
+# 三個 RED 看起來像三個問題，實際只有一個。沒有這張對照表，
+# 每週都會有人分別去追那三支。
+# ---------------------------------------------------------------------------
+KNOWN_ROOT_CAUSE: dict[str, str] = {
+    "ck-kv-snapshot":
+        "根因＝PM2 環境未設 CLOUDFLARE_API_TOKEN（需 Workers KV 讀取權限）。"
+        "屬 CK_Website。腳本已刻意不 rotate 以免擠掉僅存的可用備份；"
+        "設好 token 後 `pm2 restart ck-kv-snapshot`。",
+    "ck-sso-health":
+        "下游症狀 —— 讀到 ck-kv-snapshot 產出的 STALE 備份。修上游即恢復。",
+    "ck-sso-contract-probe":
+        "下游症狀 —— 同 ck-sso-health。修上游即恢復。",
+}
+
 # 暫存目錄特徵：script 落在這些路徑底下代表它活不過一次清理。
 TEMP_MARKERS = ("\\temp\\", "/temp/", "\\tmp\\", "/tmp/", "appdata\\local\\temp")
 
@@ -427,6 +453,16 @@ def main() -> int:
         print(f"RED: {len(reds)} 項")
         for r in reds:
             print(f"  · {r}")
+
+        # 已知根因：紅的時候直接說出「這是誰的、卡在什麼」，
+        # 而不是讓人每週從頭追一次 log。
+        hits = [(n, why) for n, why in KNOWN_ROOT_CAUSE.items()
+                if any(n in r for r in reds)]
+        if hits:
+            print("\n  已知根因（仍判 RED，這不是豁免）：")
+            for n, why in hits:
+                print(f"    · {n}：{why}")
+
         print("\n  ⚠️ PM2 的 cron 不補跑 —— 機器關機期間錯過的 fire 不會補上"
               "（同 Windows 排程沒設 StartWhenAvailable）。")
         print("     上面已印出最後啟動時間，請據此判斷是「真的停了」還是「那段時間機器是關的」。")
