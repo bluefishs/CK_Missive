@@ -4,13 +4,16 @@
  * 拆分自 ERPExpenseListPage.tsx
  */
 import React from 'react';
-import { Table, Tag, Button, Space, Spin } from 'antd';
+import { Table, Tag, Button, Space, Spin, Typography } from 'antd';
 import { App, Popconfirm } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import type { NavigateFunction } from 'react-router-dom';
 import { useExpenses, useApproveExpense, useRejectExpense } from '../../hooks';
 import type { ExpenseInvoice, ExpenseInvoiceQuery } from '../../types/erp';
 import type { ExpenseInvoiceStatus } from '../../types/erp';
+import { EXPENSE_APPROVAL_ENABLED } from '../../types/erp';
+
+const { Text } = Typography;
 import {
   EXPENSE_STATUS_LABELS, EXPENSE_STATUS_COLORS,
   EXPENSE_SOURCE_LABELS,
@@ -82,11 +85,22 @@ const InvoiceSubTable: React.FC<Props> = ({ record, navigate, canApprove }) => {
       ),
     },
     { title: '分類', dataIndex: 'category', key: 'category', width: 110 },
+    // 2026-08-17 owner：「應清楚表列紀錄」。核准機制暫緩後**留痕是唯一的控制手段**
+    // —— 沒有事前把關，表上至少要看得出「誰、為了什麼、什麼時候送的」。
+    // 在此之前這兩欄都沒有：回應只回 user_id（一個數字），事由則根本沒顯示。
+    {
+      title: '送出人', dataIndex: 'uploader_name', key: 'uploader', width: 100,
+      render: (v: string) => v || <Text type="secondary">—</Text>,
+    },
+    {
+      title: '事由', dataIndex: 'notes', key: 'notes', ellipsis: true, minWidth: 160,
+      render: (v: string) => v || <Text type="secondary">—</Text>,
+    },
     {
       title: '來源', dataIndex: 'source', key: 'source', width: 100,
       render: (v: string) => EXPENSE_SOURCE_LABELS[v as keyof typeof EXPENSE_SOURCE_LABELS] ?? v,
     },
-    ...(canApprove ? [{
+    ...(EXPENSE_APPROVAL_ENABLED && canApprove ? [{
       title: '操作', key: 'action', width: 140,
       render: (_: unknown, row: ExpenseInvoice) => {
         if (row.status === 'verified' || row.status === 'rejected') return null;

@@ -13,6 +13,7 @@ from decimal import Decimal
 from app.extended.models.invoice import ExpenseInvoice
 from app.schemas.erp.expense import (
     APPROVAL_THRESHOLD, APPROVAL_TRANSITIONS, AUTO_APPROVE_BELOW,
+    EXPENSE_APPROVAL_ENABLED,
     BUDGET_WARNING_PCT, BUDGET_BLOCK_PCT,
 )
 from app.repositories.erp.expense_invoice_repository import ExpenseInvoiceRepository
@@ -51,6 +52,15 @@ class ExpenseApprovalService(AuditableServiceMixin):
         invoice = await self.repo.get_by_id_for_update(invoice_id)
         if not invoice:
             return None
+
+        # 2026-08-17：核准機制暫緩期間，這條路徑不該被走到
+        # （送出即成立紀錄）。明確拒絕而不是靜靜運作 ——
+        # 若哪天有人從舊 UI 或 API 打進來，要看得出是機制停用而非權限不足。
+        if not EXPENSE_APPROVAL_ENABLED:
+            raise ValueError(
+                "核准機制目前暫緩（系統尚無財務獨立權限與人資編制）。"
+                "核銷送出即成立紀錄並入帳，不需要核准。"
+            )
 
         current = invoice.status
         if current in ("verified", "rejected"):

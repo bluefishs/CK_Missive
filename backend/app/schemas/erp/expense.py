@@ -55,6 +55,29 @@ APPROVAL_THRESHOLD = Decimal("30000")
 # 設為 0 即關閉自動通過（例如稽核期間）。
 AUTO_APPROVE_BELOW = Decimal(os.getenv("EXPENSE_AUTO_APPROVE_BELOW", "2000"))
 
+# ---------------------------------------------------------------------------
+# 核准機制開關（2026-08-17）
+#
+# owner：「系統目前**無財務獨立權限與人資**，故先暫緩核准機制，
+#          但應清楚表列紀錄」。
+#
+# 這是誠實的決定。查證支持它：
+#   · 11 個在職帳號都有 `projects:write`，**沒有任何角色區分**
+#   · 沒有「財務」這個權限、沒有主管／部屬關係可依循
+#   · 實測 9 筆核銷只有 2 筆走完，卡住的 4 筆 16 天沒動
+#
+# 沒有角色的「多層審批」不是控制，是**假裝有控制** ——
+# 而假裝有控制比明講沒有控制更危險：它會讓人以為這些單子被審過了。
+#
+# 停用後：送出即成立紀錄並入帳，**誰送的／何時／事由／金額／憑證全部留痕**。
+# 控制手段從「事前核准」換成「事後可查」，這在沒有角色分工時是唯一誠實的作法。
+#
+# ⚠️ **暫緩不是移除**：審批的程式碼、狀態機、擋自核全部保留。
+# 日後有財務權限與人資編制時，把這個旗標打開就恢復。
+EXPENSE_APPROVAL_ENABLED = os.getenv("EXPENSE_APPROVAL_ENABLED", "false").lower() in (
+    "1", "true", "yes",
+)
+
 # 預算警告門檻 (百分比): 累計支出佔預算比率超過此值則預警
 BUDGET_WARNING_PCT = Decimal("80")
 # 預算攔截門檻 (百分比): 超過此值則攔截審核，需總經理介入
@@ -161,6 +184,16 @@ class ExpenseInvoiceResponse(ExpenseInvoiceBase):
     items: List[ExpenseInvoiceItemResponse] = []
     approval_level: Optional[str] = Field(None, description="當前審核層級")
     next_approval: Optional[str] = Field(None, description="下一審核層級")
+
+    # 2026-08-17 owner：「應清楚表列紀錄」。
+    #
+    # 在此之前回傳只有 `user_id`（一個數字），前端顯示不出「誰送的」——
+    # 而核准機制暫緩後，**留痕就是唯一的控制手段**：
+    # 沒有事前把關，事後要查得到是誰、何時、為了什麼送的。
+    uploader_name: Optional[str] = Field(None, description="送出人姓名")
+    created_at: Optional[datetime.datetime] = Field(None, description="送出時間")
+    approved_by_name: Optional[str] = Field(None, description="核准人（暫緩期間為空）")
+    approved_at: Optional[datetime.datetime] = Field(None, description="核准時間")
 
     model_config = ConfigDict(from_attributes=True)
 

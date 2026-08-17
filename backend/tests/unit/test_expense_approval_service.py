@@ -40,6 +40,19 @@ def service(mock_db):
     return svc
 
 
+# 2026-08-17：核准機制**暫緩**（owner：系統無財務獨立權限與人資），
+# 預設 `EXPENSE_APPROVAL_ENABLED=False` → `approve()` 一律拒絕。
+#
+# 這些測試**不刪除也不 skip** —— 它們保護的是「日後開回來時流程要正確」，
+# 而暫緩不是移除。改為在啟用狀態下執行：patch 掉旗標即可。
+# （skip 掉的話，開回來的那天沒有任何東西在保護這條路徑。）
+@pytest.fixture(autouse=True)
+def _enable_approval(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.erp.expense_approval.EXPENSE_APPROVAL_ENABLED", True, raising=False
+    )
+
+
 class TestApprove:
     """多層審核推進"""
 

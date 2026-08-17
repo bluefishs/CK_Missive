@@ -213,9 +213,13 @@ class FilingGapService:
                 active=True,   # 這條 SQL 本身就排除了已結案
             ))
 
+        # 2026-08-17：核准機制暫緩時不報「卡在審核」——
+        # 沒有核准這個動作，就沒有人卡得住它。繼續報等於製造一個
+        # **沒有人能處理**的待辦，那正是告警疲勞的來源。
+        from app.schemas.erp.expense import EXPENSE_APPROVAL_ENABLED
         rows = (await self.db.execute(
             text(SQL_EXPENSE_STUCK), {"stuck_days": stuck_days}
-        )).all()
+        )).all() if EXPENSE_APPROVAL_ENABLED else []
         for r in rows:
             bucket(r.user_id, r.staff).items.append(GapItem(
                 kind="核銷卡在審核",

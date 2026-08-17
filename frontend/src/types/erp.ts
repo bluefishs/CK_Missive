@@ -381,6 +381,23 @@ export const EXPENSE_STATUS_LABELS: Record<ExpenseInvoiceStatus, string> = {
   rejected: '已駁回',
 };
 
+/**
+ * 核准機制是否啟用（2026-08-17）。
+ *
+ * owner：「系統目前**無財務獨立權限與人資**，故先暫緩核准機制，
+ *          但應清楚表列紀錄」。
+ *
+ * 對應後端 `EXPENSE_APPROVAL_ENABLED`（env）。停用時：
+ *   · 核銷送出即成立紀錄並入帳，不需核准
+ *   · 詳情頁不顯示核准／駁回（按了也會被後端拒絕，顯示只會造成困惑）
+ *   · 列表改以「紀錄」呈現：誰送的／何時／事由／金額／案號／憑證
+ *
+ * ⚠️ 這裡是**前端鏡像**，不是事實來源 —— 後端才是。
+ * 兩邊不一致時的症狀是「按鈕在但按了失敗」，不會有任何錯誤被記錄下來。
+ * 日後開啟時**兩邊都要改**（本專案反覆記錄的「同一件事有兩份說法」）。
+ */
+export const EXPENSE_APPROVAL_ENABLED = false;
+
 /** 審核按鈕文字 —— 由狀態決定，**不再依金額判斷** */
 export const EXPENSE_APPROVE_LABELS: Record<string, string> = {
   pending: '核准',

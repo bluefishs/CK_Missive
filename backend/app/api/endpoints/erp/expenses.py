@@ -33,13 +33,16 @@ async def list_expenses(
 ):
     """費用發票列表 (多條件查詢)"""
     items, total = await service.query(params)
-    # 附加審批層級資訊
+    # 2026-08-17：一次查出人名（不在迴圈裡逐筆查 —— 那是 N+1）
+    people = await service.attach_people(items)
     responses = []
     for i in items:
         resp = ExpenseInvoiceResponse.model_validate(i)
         info = service.get_approval_info(i)
         resp.approval_level = info.get("approval_level")
         resp.next_approval = info.get("next_approval")
+        resp.uploader_name = people.get(getattr(i, "user_id", None))
+        resp.approved_by_name = people.get(getattr(i, "approved_by", None))
         responses.append(resp)
     return PaginatedResponse.create(
         items=responses,

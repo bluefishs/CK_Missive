@@ -13,7 +13,7 @@ from decimal import Decimal
 from datetime import date, datetime as dt
 
 from app.extended.models.invoice import ExpenseInvoice, ExpenseInvoiceItem
-from app.schemas.erp.expense import ExpenseInvoiceCreate, ExpenseInvoiceUpdate, ExpenseInvoiceQuery
+from app.schemas.erp.expense import ExpenseInvoiceCreate, ExpenseInvoiceUpdate, ExpenseInvoiceQuery, EXPENSE_APPROVAL_ENABLED
 from app.repositories.erp.expense_invoice_repository import ExpenseInvoiceRepository
 from .finance_ledger import FinanceLedgerService
 from .expense_approval import ExpenseApprovalService
@@ -81,7 +81,9 @@ class ExpenseInvoiceService(AuditableServiceMixin):
             currency=data.currency or "TWD",
             source=data.source or "manual",
             receipt_image_path=data.receipt_image_path,
-            status="pending",
+            # 2026-08-17 owner：「系統目前無財務獨立權限與人資，故先暫緩核准機制，
+            # 但應清楚表列紀錄」。停用時送出即成立紀錄（並在下方入帳）。
+            status="pending" if EXPENSE_APPROVAL_ENABLED else "verified",
             user_id=user_id,
             vendor_id=vendor_id,
         )
@@ -103,6 +105,27 @@ class ExpenseInvoiceService(AuditableServiceMixin):
                 )
                 invoice.items.append(item)
 
+        # 核准機制暫緩時：送出即入帳。
+        #
+        # 「不用核准」不等於「不入帳」—— 相反，正因為沒有事前核准，
+        # **帳上要立刻看得到這筆**，控制才從「事前把關」換成「事後可查」。
+        # 若這裡不入帳，費用會變成一筆誰也看不到的孤兒紀錄。
+        if not EXPENSE_APPROVAL_ENABLED:
+            await self.db.flush()   # 需要 invoice.id
+            try:
+                from .finance_ledger import FinanceLedgerService
+                ledger = FinanceLedgerService(self.db)
+                existing = await ledger.find_by_source("expense_invoice", invoice.id)
+                if not existing:
+                    await ledger.record_from_expense(invoice)
+            except Exception as e:
+                # 入帳失敗不能讓建立整個失敗（使用者會以為費用沒存到而重送），
+                # 但**必須出聲** —— 沉默會讓帳本缺一筆而沒有人知道。
+                logger.error(
+                    "核銷 %s 建立成功但入帳失敗（需人工補）: %s: %s",
+                    invoice.inv_num, type(e).__name__, e, exc_info=True,
+                )
+
         await self.db.commit()
         # ⚠️ 必須連 items 一起 refresh（2026-07-30 根治）：
         # ExpenseInvoiceResponse 含 `items: List[...]`，而 items 是 lazy relationship。
@@ -115,6 +138,27 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         await self.db.refresh(invoice, attribute_names=["items"])
         await self.audit_create(invoice.id, data.model_dump() if hasattr(data, 'model_dump') else {})
         return invoice
+
+    async def attach_people(self, invoices: list) -> dict:
+        """一次查出送出人／核准人姓名。
+
+        2026-08-17 owner「應清楚表列紀錄」：回應原本只有 `user_id`（一個數字），
+        表列上顯示不出「誰送的」。核准機制暫緩後**留痕就是唯一的控制手段** ——
+        沒有事前把關，事後至少要查得到是誰、何時送的。
+
+        一次查完再對應，**不在迴圈裡逐筆查**（那是 N+1，20 筆就是 20 次往返）。
+        """
+        from sqlalchemy import select
+        from app.extended.models.core import User
+
+        ids = {i.user_id for i in invoices if getattr(i, "user_id", None)}
+        ids |= {i.approved_by for i in invoices if getattr(i, "approved_by", None)}
+        if not ids:
+            return {}
+        rows = (await self.db.execute(
+            select(User.id, User.full_name, User.username).where(User.id.in_(ids))
+        )).all()
+        return {r[0]: (r[1] or r[2] or "") for r in rows}
 
     async def get_by_id(self, invoice_id: int) -> Optional[ExpenseInvoice]:
         """取得發票詳情 (含 items eager load)"""

@@ -21,7 +21,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useExpenseDetail, useApproveExpense, useRejectExpense, useUpdateExpense, useUploadExpenseReceipt, useAuthGuard, useAutoLinkEinvoice, useAssetsByInvoice, useDeleteExpense } from '../hooks';
 import { expensesApi } from '../api/erp';
 import type { ExpenseInvoiceItem } from '../types/erp';
-import { EXPENSE_STATUS_LABELS, EXPENSE_STATUS_COLORS, EXPENSE_SOURCE_LABELS, EXPENSE_CATEGORY_OPTIONS, CURRENCY_SYMBOLS, EXPENSE_APPROVE_LABELS } from '../types/erp';
+import { EXPENSE_STATUS_LABELS, EXPENSE_STATUS_COLORS, EXPENSE_SOURCE_LABELS, EXPENSE_CATEGORY_OPTIONS, CURRENCY_SYMBOLS, EXPENSE_APPROVE_LABELS, EXPENSE_APPROVAL_ENABLED } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
 
@@ -75,7 +75,10 @@ const ERPExpenseDetailPage: React.FC = () => {
   // 那個欄位被移除後，這裡若維持較窄的條件，**已駁回的紀錄就再也沒有修改入口**
   // ——駁回的用意正是請人改完再送。
   const canEdit = !!invoice && ['pending', 'rejected'].includes(invoice.status);
-  const canAdvance = canApprove && invoice && !['verified', 'rejected'].includes(invoice.status);
+  // 2026-08-17：核准機制暫緩期間不顯示核准／駁回 ——
+  // 後端會明確拒絕，把按鈕留著只會讓人按了才知道。
+  const canAdvance = EXPENSE_APPROVAL_ENABLED && canApprove && invoice
+    && !['verified', 'rejected'].includes(invoice.status);
   // 2026-08-17：原本依 APPROVAL_THRESHOLD 判斷要顯示「財務核准」還是「最終核准」
   // —— 流程簡化後財務層已不存在，而這行不會跟著改（前端有四份狀態文字，
   // 這是其中一份）。改為引用 types/erp.ts 的 SSOT。
