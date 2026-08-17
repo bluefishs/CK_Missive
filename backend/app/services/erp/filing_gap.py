@@ -25,6 +25,13 @@ owner：「承攬報價案件對應填報人員通報管控」。
 由 07:30 晨報一次帶出。核銷卡了 16 天沒人知道，不是因為少一個通道，
 是因為沒有人在算這件事。
 
+**連結必須指向詳情頁而非列表加查詢參數**（2026-08-17 owner 回報）——
+我原本產 `/erp/quotations?case_code=CK2026_PM_01_005`，
+而**列表頁根本沒有讀 query 參數**，點過去只會停在未篩選的列表。
+那是「產了一個沒有人在接的連結」——同型的形狀本專案記過多次
+（送出端與接收端各說各話，而兩邊都不會報錯）。
+產連結時要確認**接收端真的處理那個參數**，不能只看網址長得合理。
+
 **負責人一律取 canonical 帳號**（ADR-0025）—— 首跑時「王駿穠」與
 「王駿穠(fly)」被算成兩個人，而 id 7 的 `canonical_user_id` 就是 13。
 既有規則在 `core/rls_filter.py`（`COALESCE(canonical_user_id, id)`），
@@ -75,7 +82,7 @@ class PersonGaps:
 # 負責人取 `is_primary` 優先，沒有 primary 就取任一指派人
 # （有人負責總比沒有好；真的沒有指派才歸「未指派」）。
 SQL_CONTRACT_NO_AMOUNT = """
-SELECT p.case_code, p.project_code, COALESCE(p.project_name, '') AS name,
+SELECT p.id AS row_id, p.case_code, p.project_code, COALESCE(p.project_name, '') AS name,
        p.status,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM contract_projects p
@@ -95,7 +102,7 @@ ORDER BY p.case_code
 
 # 報價缺總價 —— 沒有總價，收入端是空的，毛利無從算起。
 SQL_QUOTATION_NO_PRICE = """
-SELECT q.case_code, COALESCE(q.case_name, '') AS name,
+SELECT q.id AS row_id, q.case_code, COALESCE(q.case_name, '') AS name,
        COALESCE(p.status, '') AS status,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_quotations q
@@ -125,7 +132,7 @@ ORDER BY q.case_code
 # 換句話說：**04-04 之後建立的報價，沒有任何一筆填過成本**，已經 4.5 個月。
 # 毛利算不出來的真因不是「結案後才回填」，是這個欄位沒有人在用。
 SQL_QUOTATION_NO_COST = """
-SELECT q.case_code, COALESCE(q.case_name, '') AS name,
+SELECT q.id AS row_id, q.case_code, COALESCE(q.case_name, '') AS name,
        COALESCE(p.status, '') AS status,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_quotations q
@@ -141,6 +148,11 @@ LEFT JOIN LATERAL (
 LEFT JOIN users au ON au.id = a.user_id
 LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
 WHERE p.status <> '已結案'
+  -- ⭐ 2026-08-17 owner：「專案包含報價與標案兩類 —— 報價可明列作業單價
+  -- 統計成本，而標案涉及多項程序**不易填列成本**」。
+  -- 只對 02 承攬報價要求成本；01 委辦招標（標案類）不列入缺口 ——
+  -- 報一個對方本來就填不了的東西，是製造沒有人能處理的待辦。
+  AND p.category = '02'
   AND q.total_price > 0
   AND COALESCE(q.outsourcing_fee,0) + COALESCE(q.personnel_fee,0)
     + COALESCE(q.overhead_fee,0) + COALESCE(q.other_cost,0) = 0
@@ -187,7 +199,7 @@ class FilingGapService:
                 ref=r.case_code or r.project_code or "",
                 label=(r.name or "")[:28],
                 detail="沒有合約金額 —— 毛利與應收都算不出來",
-                url=f"/contract-cases?case_code={r.case_code or ''}",
+                url=f"/contract-cases/{r.row_id}",
                 active=(r.status or "") != "已結案",
             ))
 
@@ -198,7 +210,7 @@ class FilingGapService:
                 ref=r.case_code or "",
                 label=(r.name or "")[:28],
                 detail="沒有總價 —— 收入端是空的",
-                url=f"/erp/quotations?case_code={r.case_code or ''}",
+                url=f"/erp/quotations/{r.row_id}",
                 active=(r.status or "") != "已結案",
             ))
 
@@ -209,7 +221,7 @@ class FilingGapService:
                 ref=r.case_code or "",
                 label=(r.name or "")[:28],
                 detail="有總價但沒有成本 —— 毛利算不出來（只差這一步）",
-                url=f"/erp/quotations?case_code={r.case_code or ''}",
+                url=f"/erp/quotations/{r.row_id}",
                 active=True,   # 這條 SQL 本身就排除了已結案
             ))
 

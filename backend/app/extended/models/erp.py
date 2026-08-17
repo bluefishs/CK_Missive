@@ -43,6 +43,18 @@ class ERPQuotation(Base):
                     comment="狀態: draft/confirmed/revised")
     notes = Column(Text, comment="備註")
 
+    # 2026-08-17 owner「編號統整」：對外報價單號。
+    # 在此之前報價單**沒有自己的號**，只有邀標案號與成案編號 ——
+    # 而客戶回覆時引用的是「你們那張 QT-…」，不是我們內部的案號。
+    # ⚠️ 唯一性由遷移建的 **partial index**（`WHERE quotation_no IS NOT NULL`）
+    # 保證，這裡刻意不寫 `unique=True` —— 兩邊寫法不同會讓
+    # schema 驗證每次啟動都報不一致（本專案反覆記過「同一件事有兩份說法」）。
+    quotation_no = Column(String(30), index=True,
+                          comment="對外報價單號 QT{年}_{序}；版次變更不換號")
+    # 議價後重報是 v2，**單號不變**（客戶引用的是同一張報價單）
+    revision = Column(Integer, nullable=False, server_default="1", comment="版次")
+    quoted_at = Column(DateTime, comment="報價送出時間；NULL＝還在草稿")
+
     # 建立者
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                         nullable=True, index=True, comment="建立者")

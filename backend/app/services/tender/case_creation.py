@@ -103,6 +103,7 @@ class TenderCaseCreationService:
         AI 工具一次建多筆時才能一起成功或一起退回。
         """
         from app.extended.models.core import ContractProject, PartnerVendor
+        from app.extended.models.erp import ERPQuotation
         from app.extended.models.pm import PMCase
         from app.services.contract import CaseCodeService
 
@@ -139,8 +140,32 @@ class TenderCaseCreationService:
         self.db.add(pm_case)
         await self.db.flush()
 
-        # 邀標階段**不建立** ERP Quotation —— 等確認投標後再建。
-        # （這條規則原本只寫在一鍵建案裡，AI 工具那份剛好相反。）
+        # 2026-08-17 owner：「建構線上報價單機制，統整邀標報價程序」。
+        #
+        # **推翻 08-16 的「邀標階段不建立報價單」。**
+        #
+        # 那條規則的原意是「不要造出一堆 total_price=0 的空報價」，
+        # 但實測揭露它造成更嚴重的後果：報價單只在 `promote_to_project`
+        # （成案）時建立 → **有報價單的邀標案件 0 筆** →
+        # 08-16 我建的線上報價明細掛在一個「要先得標才存在」的物件上，
+        # 而報價是投標**前**的動作。
+        #
+        # 正確的解法不是延後報價單的出生，是**讓它一開始就有東西可填**。
+        # `status='draft'` 的語意剛好對（78 張裡只有 2 張用過 draft）。
+        quotation_no = await CaseCodeService(self.db).generate_quotation_no(year)
+        self.db.add(ERPQuotation(
+            case_code=case_code,
+            case_name=title[:200],
+            year=year,
+            quotation_no=quotation_no,
+            revision=1,
+            # 刻意**不帶**標案預算作為報價金額 —— 那是機關的預算上限，
+            # 不是我們要報的價。報價金額由明細加總得出（見 quotation_items）。
+            total_price=None,
+            status="draft",
+            notes=f"由{source_label} {tender_ref} 建案時同時開立",
+        ))
+        await self.db.flush()
 
         if budget_amount is None:
             # 不擋，但要留下痕跡：金額缺失會一路帶到成案與財務，
@@ -156,6 +181,7 @@ class TenderCaseCreationService:
             "contract_amount": budget_amount,
             "client_vendor_id": client_vendor_id,
             "tender_ref": tender_ref,
+            "quotation_no": quotation_no,
         }
 
     # ------------------------------------------------------------------

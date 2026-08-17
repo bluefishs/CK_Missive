@@ -119,6 +119,35 @@ class CaseCodeService:
 
         return f"{prefix}{str(next_serial).zfill(3)}"
 
+    async def generate_quotation_no(self, year: Optional[int] = None) -> str:
+        """產生對外報價單號 QT{年}_{序}（2026-08-17 owner「編號統整」）。
+
+        沿用 `generate_case_code` 的形狀與 **advisory lock 防併發跳號** ——
+        不另寫一套產號邏輯（那會是第二份事實，而兩份產號器撞號時
+        只有唯一索引會擋，而那時使用者看到的是一個看不懂的 500）。
+
+        版次不影響單號：議價後重報是 revision+1，客戶引用的是同一張。
+        """
+        from datetime import date as _date
+
+        from sqlalchemy import text
+
+        yr = year if (year and year > 1911) else (
+            (year + 1911) if year else _date.today().year
+        )
+        prefix = f"QT{yr}_"
+
+        lock_key = abs(hash(prefix)) % (2**31)
+        await self.db.execute(text(f"SELECT pg_advisory_xact_lock({lock_key})"))
+
+        row = (await self.db.execute(text("""
+            SELECT MAX(NULLIF(regexp_replace(quotation_no, '^QT[0-9]{4}_', ''), '')::int)
+            FROM erp_quotations
+            WHERE quotation_no LIKE :p
+        """), {"p": f"{prefix}%"})).scalar()
+
+        return f"{prefix}{str((row or 0) + 1).zfill(3)}"
+
     async def _find_next_serial(self, prefix: str) -> int:
         """在 PM/ERP 表中查找最大流水號 (含 advisory lock 防併發跳號)"""
         from sqlalchemy import text
