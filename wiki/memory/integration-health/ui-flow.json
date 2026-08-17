@@ -1,87 +1,11 @@
 {
- "checked_at": "2026-08-16T20:18:57.754Z",
+ "checked_at": "2026-08-17T06:43:42.329Z",
  "base": "https://missive.cksurvey.tw",
- "pass": 19,
- "fail": 1,
- "skip": 0,
- "failures": [
-  {
-   "id": "mobile-create",
-   "name": "行動版核銷建立頁（重點摘要 + 批次連續）",
-   "reason": "沒有「建立並繼續掃下一張」（手機批次會被中斷）（找到 0）"
-  }
- ],
- "measured": [
-  {
-   "id": "ezbid-create-case",
-   "values": [
-    "button:has-text(\"一鍵建案\")=1",
-    "button:has-text(\"收藏\")=1"
-   ]
-  },
-  {
-   "id": "receipt-image",
-   "values": [
-    "img[src^=\"blob:\"], img[alt*=\"收據\"]=1"
-   ]
-  },
-  {
-   "id": "account-record-entry",
-   "values": [
-    "button:has-text(\"新增應收\")=1"
-   ]
-  },
-  {
-   "id": "mobile-create",
-   "values": [
-    "button:has-text(\"建立並繼續\")=0"
-   ]
-  },
-  {
-   "id": "detail-page-no-action-column",
-   "values": [
-    "th:has-text(\"操作\")=0",
-    "th:has-text(\"操作\")=0"
-   ]
-  },
-  {
-   "id": "agency-contact-form-page",
-   "values": [
-    "th:has-text(\"操作\")=0"
-   ]
-  },
-  {
-   "id": "staff-form-page",
-   "values": [
-    "th:has-text(\"操作\")=0"
-   ]
-  },
-  {
-   "id": "visual-walk-lock-quotation-mobile",
-   "values": [
-    "統計數字=15"
-   ]
-  },
-  {
-   "id": "visual-walk-lock-contract-case-mobile",
-   "values": [
-    "基本資訊標籤數=16"
-   ]
-  },
-  {
-   "id": "table-sort-filter-present",
-   "values": [
-    ".ant-table-column-sorter=14",
-    ".ant-table-filter-trigger=2"
-   ]
-  },
-  {
-   "id": "finance-stat-cards-interactive",
-   "values": [
-    ".ant-card-hoverable=3"
-   ]
-  }
- ],
+ "pass": 1,
+ "fail": 0,
+ "skip": 19,
+ "failures": [],
+ "measured": [],
  "cannot_judge": [
   "版面是否好看／間距是否舒適（斷言只看元素在不在、數量對不對）",
   "文字是否被截斷（textContent 完整，但畫面上顯示成「王駿…」照樣 PASS）",

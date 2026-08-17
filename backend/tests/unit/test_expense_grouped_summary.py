@@ -11,6 +11,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from decimal import Decimal
 
 
+
+
+# 2026-08-17：核准機制**暫緩**（owner：系統無財務獨立權限與人資），
+# `EXPENSE_APPROVAL_ENABLED` 預設 False → `approve()` 一律拒絕。
+# 這些測試驗的是流程本身，**不刪也不 skip**（暫緩不是移除，
+# skip 掉的話開回來那天沒有任何東西在保護這條路徑），改為在啟用狀態下執行。
+@pytest.fixture(autouse=True)
+def _enable_approval_for_flow_tests(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.erp.expense_approval.EXPENSE_APPROVAL_ENABLED", True, raising=False
+    )
+
+
 class TestGroupedSummaryLogic:
     """分組彙總核心邏輯測試"""
 
@@ -201,11 +214,12 @@ class TestExpenseApprovalService:
         assert svc._determine_next_approval("pending", Decimal("15000")) == "manager_approved"
         assert svc._determine_next_approval("manager_approved", Decimal("15000")) == "verified"
 
+    # 2026-08-17：財務層移除 —— 高額也是 manager_approved → verified
     def test_determine_next_approval_high(self):
         """高金額需經過 finance_approved"""
         from app.services.erp.expense_approval import ExpenseApprovalService
 
         svc = ExpenseApprovalService.__new__(ExpenseApprovalService)
         assert svc._determine_next_approval("pending", Decimal("50000")) == "manager_approved"
-        assert svc._determine_next_approval("manager_approved", Decimal("50000")) == "finance_approved"
-        assert svc._determine_next_approval("finance_approved", Decimal("50000")) == "verified"
+        assert svc._determine_next_approval("manager_approved", Decimal("50000")) == "verified"
+        assert svc._determine_next_approval("verified", Decimal("50000")) == "verified"

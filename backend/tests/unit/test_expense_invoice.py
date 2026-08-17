@@ -18,6 +18,8 @@ from app.schemas.erp.expense import (
 )
 from app.schemas.erp.ledger import LedgerCreate, LedgerQuery
 from app.schemas.erp.financial_summary import (
+
+
     ProjectFinancialSummary,
     CompanyOverviewRequest,
     ProjectSummaryRequest,
@@ -27,6 +29,17 @@ from app.schemas.erp.financial_summary import (
 # ============================================================================
 # Schema 驗證測試
 # ============================================================================
+
+# 2026-08-17：核准機制**暫緩**（owner：系統無財務獨立權限與人資），
+# `EXPENSE_APPROVAL_ENABLED` 預設 False → `approve()` 一律拒絕。
+# 這些測試驗的是流程本身，**不刪也不 skip**（暫緩不是移除，
+# skip 掉的話開回來那天沒有任何東西在保護這條路徑），改為在啟用狀態下執行。
+@pytest.fixture(autouse=True)
+def _enable_approval_for_flow_tests(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.erp.expense_approval.EXPENSE_APPROVAL_ENABLED", True, raising=False
+    )
+
 
 class TestExpenseInvoiceCreateSchema:
     """ExpenseInvoiceCreate Schema 驗證"""
@@ -154,7 +167,7 @@ class TestLedgerCreateSchema:
         data = LedgerCreate(
             amount=Decimal("1200"),
             entry_type="expense",
-            category="交通",
+            category="交通費",
         )
         assert data.entry_type == "expense"
         assert data.case_code is None
@@ -280,15 +293,25 @@ class TestExpenseInvoiceService:
 
     @pytest.mark.asyncio
     async def test_approve_pending_to_manager(self, approval_service, mock_db):
-        """pending → manager_approved (第一層)"""
+        """pending → manager_approved (第一層)
+
+        2026-08-17：金額由 500 改為 5000 —— 500 ≤ AUTO_APPROVE_BELOW(2000)
+        會走**低額直達**（08-16 新增），直接到 verified 而不是 manager_approved。
+        要測「第一層」就必須用超過門檻的金額。
+        """
         mock_invoice = MagicMock()
         mock_invoice.id = 1
         mock_invoice.status = "pending"
-        mock_invoice.amount = Decimal("500")
+        mock_invoice.amount = Decimal("5000")
 
         approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
+        # 走到 verified 會查帳本是否已有分錄（冪等檢查）——
+        # 不 mock 會拿到未 await 的 coroutine 再去比大小 → TypeError
+        approval_service.ledger_service.find_by_source = AsyncMock(return_value=None)
+        # 走到 verified 且有 case_code 時會查預算 —— 未 mock 會拿到 coroutine
+        approval_service._check_budget = AsyncMock(return_value=None)
 
         await approval_service.approve(1)
 
@@ -307,6 +330,11 @@ class TestExpenseInvoiceService:
         approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
+        # 走到 verified 會查帳本是否已有分錄（冪等檢查）——
+        # 不 mock 會拿到未 await 的 coroutine 再去比大小 → TypeError
+        approval_service.ledger_service.find_by_source = AsyncMock(return_value=None)
+        # 走到 verified 且有 case_code 時會查預算 —— 未 mock 會拿到 coroutine
+        approval_service._check_budget = AsyncMock(return_value=None)
 
         await approval_service.approve(1)
 
@@ -314,7 +342,9 @@ class TestExpenseInvoiceService:
         approval_service.ledger_service.record_from_expense.assert_called_once_with(mock_invoice)
 
     @pytest.mark.asyncio
-    async def test_approve_high_value_manager_to_finance(self, approval_service, mock_db):
+    # 2026-08-17 owner「流程簡化」：財務層移除，主管核准後直接終結並入帳。
+    # 原名 test_approve_high_value_manager_to_finance —— 那是舊規則。
+    async def test_approve_high_value_manager_to_verified(self, approval_service, mock_db):
         """>30K: manager_approved → finance_approved"""
         mock_invoice = MagicMock()
         mock_invoice.id = 1
@@ -324,14 +354,24 @@ class TestExpenseInvoiceService:
         approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
+        # 走到 verified 會查帳本是否已有分錄（冪等檢查）——
+        # 不 mock 會拿到未 await 的 coroutine 再去比大小 → TypeError
+        approval_service.ledger_service.find_by_source = AsyncMock(return_value=None)
+        # 走到 verified 且有 case_code 時會查預算 —— 未 mock 會拿到 coroutine
+        approval_service._check_budget = AsyncMock(return_value=None)
 
         await approval_service.approve(1)
 
-        approval_service.repo.update_status.assert_called_once_with(mock_invoice, "finance_approved")
-        approval_service.ledger_service.record_from_expense.assert_not_called()
+        approval_service.repo.update_status.assert_called_once_with(mock_invoice, "verified")
+        # 2026-08-17：走到 verified 就要入帳 —— 這是流程簡化帶來的
+        # **行為改變**，不是測試寫錯（舊流程停在 finance_approved 才不入帳）。
+        approval_service.ledger_service.record_from_expense.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_approve_finance_to_verified(self, approval_service, mock_db):
+        # 2026-08-17：起始狀態必須是 finance_approved —— 這個測試驗的正是
+        # 「既有停在舊狀態的資料仍有出口」。我先前全域替換
+        # "finance_approved"→"verified" 時把它也換掉了（換過頭）。
         """finance_approved → verified + 入帳"""
         mock_invoice = MagicMock()
         mock_invoice.id = 1
@@ -342,6 +382,11 @@ class TestExpenseInvoiceService:
         approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
+        # 走到 verified 會查帳本是否已有分錄（冪等檢查）——
+        # 不 mock 會拿到未 await 的 coroutine 再去比大小 → TypeError
+        approval_service.ledger_service.find_by_source = AsyncMock(return_value=None)
+        # 走到 verified 且有 case_code 時會查預算 —— 未 mock 會拿到 coroutine
+        approval_service._check_budget = AsyncMock(return_value=None)
 
         await approval_service.approve(1)
 
@@ -370,6 +415,11 @@ class TestExpenseInvoiceService:
         approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
+        # 走到 verified 會查帳本是否已有分錄（冪等檢查）——
+        # 不 mock 會拿到未 await 的 coroutine 再去比大小 → TypeError
+        approval_service.ledger_service.find_by_source = AsyncMock(return_value=None)
+        # 走到 verified 且有 case_code 時會查預算 —— 未 mock 會拿到 coroutine
+        approval_service._check_budget = AsyncMock(return_value=None)
 
         await approval_service.approve(1)
 
@@ -387,11 +437,18 @@ class TestExpenseInvoiceService:
         approval_service.repo.get_by_id_for_update = AsyncMock(return_value=mock_invoice)
         approval_service.repo.update_status = AsyncMock(return_value=mock_invoice)
         approval_service.repo.commit = AsyncMock()
+        # 走到 verified 會查帳本是否已有分錄（冪等檢查）——
+        # 不 mock 會拿到未 await 的 coroutine 再去比大小 → TypeError
+        approval_service.ledger_service.find_by_source = AsyncMock(return_value=None)
+        # 走到 verified 且有 case_code 時會查預算 —— 未 mock 會拿到 coroutine
+        approval_service._check_budget = AsyncMock(return_value=None)
 
         await approval_service.approve(1)
 
-        approval_service.repo.update_status.assert_called_once_with(mock_invoice, "finance_approved")
-        approval_service.ledger_service.record_from_expense.assert_not_called()
+        approval_service.repo.update_status.assert_called_once_with(mock_invoice, "verified")
+        # 2026-08-17：走到 verified 就要入帳 —— 這是流程簡化帶來的
+        # **行為改變**，不是測試寫錯（舊流程停在 finance_approved 才不入帳）。
+        approval_service.ledger_service.record_from_expense.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_reject_with_reason(self, approval_service):
@@ -771,7 +828,7 @@ class TestApprovalStateMachine:
         """manager_approved 可轉為 finance_approved, verified, rejected"""
         from app.schemas.erp.expense import APPROVAL_TRANSITIONS
         allowed = APPROVAL_TRANSITIONS["manager_approved"]
-        assert "finance_approved" in allowed
+        assert "verified" in allowed
         assert "verified" in allowed
         assert "rejected" in allowed
 
