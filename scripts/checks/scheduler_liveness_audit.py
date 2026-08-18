@@ -111,6 +111,24 @@ def main(dormant_days: int = 8, strict: bool = False, now_iso: str | None = None
 
     now = datetime.fromisoformat(now_iso) if now_iso else datetime.now()
 
+    # 2026-08-18：STALE 門檻改為「各 job 自己的週期」，不再一律 8 天。
+    #
+    # 原本所有 job 共用 dormant_days=8，於是 `llm_quota_check`（每 6 小時）沉默
+    # **3.5 天**被這支判成正常（`dormant 0`），而 `cron_silent_dormant_check`
+    # （門檻＝週期×2＝12h）同時判它異常 —— **同一個 job，兩支稽核給相反答案，
+    # 而兩份都不會報錯**。更麻煩的是 `generate_governance_dashboard` 明文寫著
+    # 「silent dormant 以 scheduler_liveness_audit 為權威」，也就是被宣告為權威的
+    # 那一支，判準反而比較弱：任何週期短於 8 天的 job 沉默，它一律看不見。
+    #
+    # 週期推導直接重用 `cron_silent_dormant_check`，**不寫第三份判準**
+    # （v6.33 已為那支把手寫閾值表消除過一次，這裡不該把它再長回來）。
+    per_job: dict[str, int] = {}
+    try:
+        from cron_silent_dormant_check import derive_thresholds_from_scheduler
+        per_job = derive_thresholds_from_scheduler() or {}
+    except Exception as e:  # 推導不到要出聲，不得靜默退回寬鬆門檻
+        print(f"[WARN] 無法重用週期推導（{type(e).__name__}: {e}）→ 全部退回 {dormant_days} 天門檻")
+
     # 條件式註冊 job（env-gated，未設即刻意停用，非 silent 死）→ 不算 DORMANT
     conditional = {"einvoice_sync"}  # if os.getenv("MOF_APP_ID")
     dormant, failed, stale, cond_off = [], [], [], []
@@ -120,10 +138,13 @@ def main(dormant_days: int = 8, strict: bool = False, now_iso: str | None = None
             continue
         ts, st = runs[jid]
         age = _age_days(ts, now)
+        # 有推導到週期就用它，否則退回通用門檻（並在輸出標明用的是哪一個）
+        thr_days = per_job[jid] / 86400 if jid in per_job else float(dormant_days)
+        src = "週期" if jid in per_job else f"{dormant_days}天通用"
         if st != "success":
             failed.append((jid, ts, st))
-        elif age > dormant_days:
-            stale.append((jid, round(age, 1)))
+        elif age > thr_days:
+            stale.append((jid, round(age, 1), round(thr_days, 2), src))
 
     # logged 但未註冊（id 命名不符 / 動態 job）
     mismatch = sorted(set(runs) - reg)
@@ -142,9 +163,12 @@ def main(dormant_days: int = 8, strict: bool = False, now_iso: str | None = None
             print(f"  ✗ {j:32} {ts} status={st}")
         print()
     if stale:
-        print(f"[YELLOW-STALE] 最後執行 > {dormant_days} 天：")
-        for j, age in stale:
-            print(f"  ~ {j:32} {age} 天前")
+        print("[YELLOW-STALE] 最後執行超過該 job 自己的門檻：")
+        for j, age, thr, src in stale:
+            print(f"  ~ {j:32} {age} 天前（門檻 {thr} 天／{src}）")
+        # 這支不做「剛重啟所以還沒輪到它」的扣除法，所以重啟後可能列出必然的沉默。
+        # 判紅與否以 cron_silent_dormant_check 為準（它有扣除法與持久紀錄）。
+        print("  ↳ STALE 僅供參考、不計入退出碼；是否為真沉默請看 cron_silent_dormant_check")
         print()
     if cond_off:
         print(f"[INFO] 條件式停用（env 未設、刻意非故障）: {', '.join(cond_off)}\n")

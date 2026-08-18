@@ -4,11 +4,13 @@
 > 更新：2026-08-18（下午 15:36 斷電，16:13 恢復 —— 新增 §0「恢復窗口」與 §5 停用排程）
 > 適用：**非計畫性**的關機／斷電／休眠卡死。計畫性重啟走 `reboot-acceptance-checklist.md`。
 
-## §0 先等 20 分鐘再查 —— 恢復窗口內量到的東西不能當證據
+## §0 排程「自己被停用」不是斷電造成的 —— 有程式在持續關掉它們
 
-⚠️ **這一節放在最前面，是因為它會讓你去追一個不存在的問題。**
+⚠️ **這一節放在最前面，是因為 2026-08-18 我把它誤判成斷電後遺症，差點就此結案。**
 
-2026-08-18 開機後約 17 分鐘（16:30）量測，得到：
+### 症狀
+
+開機後約 17 分鐘（16:30）量測：
 
 ```
 CK-Missive-Offsite-Backup        | State=Disabled | Settings.Enabled=False
@@ -17,28 +19,67 @@ CK_DigitalTunnel-MinIO-Offsite   | State=Disabled | Settings.Enabled=False
 CK_PileMgmt_PM2_Autostart        | State=Disabled | Settings.Enabled=False
 ```
 
-**三個異地備份同時被停用**看起來像重大事故（而當天 15:26 的 pre-flight 白紙黑字
-記著「27 支全部 Ready」，兩相對照更像是斷電把它們弄壞了）。
+**三個異地備份同時被停用**，而當天 15:26 的 pre-flight 白紙黑字記著「27 支全部 Ready」
+—— 看起來就是斷電把它們弄壞了。20 分鐘後（16:49）四支全部回到 `Ready`，
+**我沒有做任何啟用操作**；再過四小時，換 `CK_Missive-SOUL-Mirror-Sync` 被停用。
 
-20 分鐘後（16:49）重新量測 —— **四支全部是 `Ready` / `Enabled=True`，我沒有做任何啟用操作**。
+### 誤判與更正
 
-同一個窗口還產生了第二個假訊號：`CK_lvrland_Webmap/docs/health/static-checks.json`
-在 **16:25**（開機後 12 分）被寫成 `state: RED, fail: 1`，而同一支檢核重跑
-是 **23 步全 PASS / OVERALL=GREEN / exit 0**。
+我第一版的結論是「Task Scheduler 服務在異常關機後尚未穩定，恢復窗口內量到的是暫態」。
+**這是錯的。** 錯在只看了 `^CK` 開頭的 27 支排程——把停用歸因到最近發生的事件（斷電），
+因為那是當下最顯眼的解釋。
+
+掃全機器（49 支非微軟排程）之後，事情完全不同：
+
+| 被停用的任務 | 最後執行 | 與斷電的關係 |
+|---|---|---|
+| Adobe Acrobat Update Task | **2025-01-24** | 無 |
+| ZoomUpdateTaskUser | **2025-02-03** | 無 |
+| OneDrive Startup Task | 2026-08-12 | 無（08-12 是**上一次**異常關機） |
+| SoftLandingTriggerTask | 2026-08-18 17:54 | 無（斷電後 2 小時才被停用） |
+| CK_Missive-SOUL-Mirror-Sync | 2026-08-18 04:45 | 無 |
+
+事件記錄（`Microsoft-Windows-TaskScheduler/Operational`，ID **142** = task disabled）
+給出決定性證據：
+
+```
+16:19:44  ID=142  User "User1" disabled task "\CK-Missive-Offsite-Backup"
+16:19:44  ID=142  User "User1" disabled task "\CK-Hermes-Health-Smoke"
+16:31:42  ID=140  User "User1" updated  task "\CK-Missive-Offsite-Backup"
+16:50:53  ID=142  User "User1" disabled task "\CK_Missive-SOUL-Mirror-Sync"
+18:35:16  ID=140  User "User1" updated  task "\CK-Hermes-Health-Smoke"
+```
+
+**停用動作分散在整個下午（16:19、16:50、18:35），不是單一時點的斷電後遺症。**
+本機裝有 IObit **Advanced SystemCare 19.4.0**（2026-06-22 安裝，`ASC`／`ASCService`／
+`ASCTray`／`Monitor` 四個程序常駐），其「啟動優化」正是做這件事，而上表 Adobe／Zoom／
+OneDrive 都是這類軟體的典型目標。⚠️ **但事件記錄只記到執行身分「User1」不記程式名，
+所以這是高度相關而非確證** —— 不要在文件裡把它寫成已證實的因果。
 
 ### 規則
 
-| 開機後經過 | 可以相信什麼 |
-|---|---|
-| < 20 分鐘 | **只相信「服務在不在」**（容器 status、公網 200、`/health` 業務量）。排程狀態、檢核結果檔一律不採信 |
-| > 20 分鐘 | 全部重量一次，**以第二次為準** |
+1. **`State` / `Settings.Enabled` 不可作為單次判準。** 同一件事量兩次，兩次一致才算數。
+2. **真正騙不了人的是 `LastRunTime` 有沒有如期推進** —— 排程稽核應以此為主判準，
+   `State` 只作為輔助訊號。
+3. **恢復窗口內產生的結果檔一律重跑覆蓋**，否則它會一直紅著，而下游
+   （`windows_task_liveness_audit` 會去讀別的 repo 的結果檔）照著它報 RED，
+   一個早就消失的問題被當成現存問題。lvrland `static-checks.json` 就是這樣在 16:25
+   被寫成 `RED fail=1`，而重跑是 **23 步全 PASS**。
+4. **啟用需要提權**（`Enable-ScheduledTask` 以一般權限回 `Access is denied`）。
+5. **這是持續性威脅不是一次性事故**：輪到 `CK-Missive-Offsite-Backup` 被停用而沒人發現，
+   那天的資料就只有一份。處置方向是把 CK 排程加入該優化軟體的白名單，或關閉其啟動優化。
 
-判準是「同一件事量兩次，兩次一致才算數」——這比訂一個精確的等待秒數可靠，
-因為 Task Scheduler 服務重建的時間不是固定的。
+### 診斷指令
 
-**任何在恢復窗口內產生的結果檔都要重跑覆蓋**，否則它會一直紅著，而下游
-（例如 `windows_task_liveness_audit` 會去讀別的 repo 的結果檔）會照著它報 RED，
-於是一個早就消失的問題被持續當成現存問題。
+```powershell
+# 誰停用的（ID 142=disabled / 140=updated）—— 這是唯一能回答「誰動的」的來源
+Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-TaskScheduler/Operational';
+  StartTime=(Get-Date).AddHours(-8)} -MaxEvents 3000 |
+  Where-Object { $_.Id -in 140,142 -and $_.Message -match 'CK' } |
+  Select-Object TimeCreated, Id, Message | Format-List
+```
+
+⚠️ 不要查 Security log 的 4701 —— 該 log 太大，實測會 timeout。
 
 ## 為什麼需要這一份
 

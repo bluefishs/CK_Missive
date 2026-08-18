@@ -867,7 +867,7 @@ echo ""
 # 需容器內跑（讀 /app/logs/cron_events.jsonl）；host 端 SKIP。
 # ----------------------------------------------------------------------------
 echo -e "${CYAN}[57f/61] scheduler liveness audit (排程真活, 坤哥/Hermes/cron)${NC}"
-PYTHONIOENCODING=utf-8 python scripts/checks/scheduler_liveness_audit.py || true
+PYTHONIOENCODING=utf-8 python scripts/checks/scheduler_liveness_audit.py
 echo ""
 
 # ----------------------------------------------------------------------------
