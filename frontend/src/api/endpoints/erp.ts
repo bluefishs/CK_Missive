@@ -116,6 +116,11 @@ export const ERP_ENDPOINTS = {
   EXPORT: '/erp/quotations/export',
   /** 匯出 Excel POST /erp/quotations/export-excel */
   EXPORT_EXCEL: '/erp/quotations/export-excel',
+  /** 報價單正式文件（xlsx，以 `app/templates/quotation_template.xlsx` 為底）
+   *  POST /erp/quotations/export-document
+   *  與 EXPORT/EXPORT_EXCEL 不同：那兩支是**清單匯出**（多筆、資料列表），
+   *  這支是**單張報價單**，可直接寄給客戶簽回。 */
+  EXPORT_DOCUMENT: '/erp/quotations/export-document',
   /** 匯入 Excel POST /erp/quotations/import */
   IMPORT: '/erp/quotations/import',
   /** 下載匯入範本 POST /erp/quotations/import-template */

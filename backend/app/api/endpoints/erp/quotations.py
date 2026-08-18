@@ -4,12 +4,13 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 
-from app.core.dependencies import get_service
+from app.core.dependencies import get_service, require_auth
+from app.extended.models import User
 from app.services.erp import ERPQuotationService
 from app.schemas.erp import (
     ERPQuotationCreate, ERPQuotationUpdate, ERPQuotationResponse,
     ERPQuotationListRequest,
-    ERPIdRequest, ERPQuotationUpdateRequest,
+    ERPIdRequest, ERPQuotationUpdateRequest, ERPQuotationIdRequest,
     ERPSummaryRequest, ERPGenerateCodeRequest,
 )
 from app.schemas.common import PaginatedResponse, SuccessResponse, DeleteResponse
@@ -202,3 +203,49 @@ async def generate_case_code(
     """產生 ERP 案號"""
     code = await service.generate_case_code(year=req.year, category=req.category)
     return SuccessResponse(data={"case_code": code})
+
+
+@router.post("/export-document")
+async def export_quotation_document(
+    request: ERPQuotationIdRequest,
+    service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
+):
+    """輸出報價單正式文件（xlsx）。
+
+    owner 2026-08-17：「新增報價單要可輸出正式文件，非僅資料列表用途」。
+
+    以 `app/templates/quotation_template.xlsx` 為底填值 —— 該範本取自
+    owner 2026-08-18 提供的實際報價單，內含公司抬頭圖片、框線、
+    合計公式與簽章欄。換版面是換那個檔，不是改這裡。
+    """
+    from urllib.parse import quote
+
+    from app.services.erp.quotation_document import QuotationDocumentService
+
+    doc = QuotationDocumentService(service.db)
+    try:
+        data = await doc.gather(request.erp_quotation_id)
+        content = doc.render_xlsx(data)
+    except ValueError as e:
+        # 找不到報價、或明細超過範本列數 —— 兩者都要讓使用者看到原因，
+        # 而不是一個沒有訊息的 500。
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    filename = doc.suggest_filename(data)
+    # ⚠️ 檔名含中文（案名），必須用 RFC 5987 `filename*=UTF-8''…`。
+    # 既有匯出端點全是 ASCII 檔名所以沒踩到這件事；
+    # 只給 `filename=` 的話瀏覽器會存成亂碼或直接截斷。
+    # 同時保留一個 ASCII 後備給不支援 RFC 5987 的舊客戶端。
+    ascii_fallback = f"quotation_{data['quotation_no'] or data['quotation_id']}.xlsx"
+    disposition = (
+        f"attachment; filename=\"{ascii_fallback}\"; "
+        f"filename*=UTF-8''{quote(filename)}"
+    )
+    return StreamingResponse(
+        iter([content]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": disposition},
+    )

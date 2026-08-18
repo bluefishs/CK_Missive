@@ -6,7 +6,7 @@
  *
  * @version 2.0.0 — 遷移至 DetailPageLayout
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Button, Descriptions, Statistic, Row, Col, Card, Alert, Popconfirm, App,
 } from 'antd';
@@ -14,13 +14,16 @@ import {
   EditOutlined, DeleteOutlined, DollarOutlined,
   InfoCircleOutlined, BankOutlined,
 } from '@ant-design/icons';
-import { FileTextOutlined, ProfileOutlined } from '@ant-design/icons';
+import { FileTextOutlined, ProfileOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { QuotationItemsTab } from './erpQuotation';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useERPQuotation, useAuthGuard } from '../hooks';
 import { AccountRecordTab } from './erpQuotation/AccountRecordTab';
 import ExpensesTab from './erpQuotation/ExpensesTab';
 import { ROUTES } from '../router/types';
+import { apiClient } from '../api/client';
+import { ERP_ENDPOINTS } from '../api/endpoints';
+import { extractApiMessage } from '../utils/apiMessage';
 
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
@@ -40,12 +43,56 @@ export const ERPQuotationDetailPage: React.FC = () => {
   const { message } = App.useApp();
   const canWrite = hasPermission('projects:write');
   const { data: quotation, isLoading } = useERPQuotation(id ? Number(id) : null);
+  // ⚠️ 必須在早退（`if (!quotation && !isLoading) return`）**之前** ——
+  // Hook 的呼叫順序每次 render 必須相同，放在早退之後會在
+  // 「報價不存在」那條路徑上少呼叫一個 Hook。ESLint 當場擋下。
+  const [exporting, setExporting] = useState(false);
 
   if (!quotation && !isLoading) {
     return <DetailPageLayout header={{ title: '報價不存在', backPath: ROUTES.ERP_QUOTATIONS }} tabs={[]} hasData={false} />;
   }
 
   const grossProfit = Number(quotation?.gross_profit ?? 0);
+
+  // 2026-08-18：報價單正式文件下載。
+  //
+  // 走 `apiClient` 而不是 `window.open`：這支端點需要認證標頭與 CSRF，
+  // 直接開新視窗會變成未帶憑證的請求（公網實測回 401）。
+  //
+  // 檔名取自後端的 `Content-Disposition`（RFC 5987 編碼的中文檔名）——
+  // 前端自己拼檔名會與後端各自演化，而檔名裡有單號，兩邊不一致時
+  // 使用者會拿到一個對不上系統的檔案。
+  const handleExportDocument = async () => {
+    if (!quotation?.id) return;
+    setExporting(true);
+    try {
+      const res = await apiClient.post(
+        ERP_ENDPOINTS.EXPORT_DOCUMENT,
+        { erp_quotation_id: quotation.id },
+        { responseType: 'blob' },
+      );
+      const raw = res as unknown as { data?: Blob } | Blob;
+      const blob = raw instanceof Blob ? raw : (raw.data as Blob);
+      const cd = (res as unknown as { headers?: Record<string, string> })?.headers?.[
+        'content-disposition'
+      ] || '';
+      const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+      const filename = m?.[1]
+        ? decodeURIComponent(m[1])
+        : `報價單_${quotation.quotation_no || quotation.id}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      message.error(extractApiMessage(e, '報價單輸出失敗'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const statusOpt = STATUS_OPTIONS.find(o => o.value === quotation?.status);
 
   const headerConfig = {
@@ -69,6 +116,14 @@ export const ERPQuotationDetailPage: React.FC = () => {
         {quotation?.case_code && (
           <ExpenseQRButton caseCode={quotation.case_code} caseName={quotation.case_name} />
         )}
+        {/* 2026-08-17 owner：「新增報價單要可輸出正式文件，非僅資料列表用途」。
+            以 owner 提供的實際報價單為範本（含公司抬頭、框線、合計公式、簽章欄），
+            產出的檔案可直接寄給客戶簽回。
+
+            與列表頁的「匯出」不同：那是多筆資料列表，這是單張正式文件。 */}
+        <Button icon={<FileExcelOutlined />} loading={exporting} onClick={handleExportDocument}>
+          輸出報價單
+        </Button>
         <Button type="primary" icon={<EditOutlined />}
           onClick={() => navigate(ROUTES.ERP_QUOTATION_EDIT.replace(':id', String(quotation?.id)))}
         >編輯</Button>

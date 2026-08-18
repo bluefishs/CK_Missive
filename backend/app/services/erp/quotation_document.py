@@ -41,7 +41,9 @@ openpyxl **讀不了也寫不了** —— 需先確認副檔名實際格式，
 """
 from __future__ import annotations
 
+import io
 from datetime import date, datetime
+from pathlib import Path
 from decimal import Decimal
 from typing import Any, Optional
 
@@ -101,6 +103,15 @@ class QuotationDocumentService:
             SELECT COALESCE(cp.client_agency, pm.client_name) AS client_name,
                    cp.location,
                    cp.agency_contact_person,
+                   ga.tax_id          AS client_tax_id,
+                   ga.phone           AS client_phone,
+                   ga.address         AS client_address,
+                   pc.contact_name    AS contact_name,
+                   pc.phone           AS contact_phone,
+                   pc.mobile          AS contact_mobile,
+                   pc.email           AS contact_email,
+                   su.staff_name      AS staff_name,
+                   su.staff_email     AS staff_email,
                    COALESCE(cp.category, pm.category)         AS category
               FROM (SELECT :cc AS cc) x
               -- ⚠️ contract_projects 與 pm_cases **都沒有 deleted_at**
@@ -110,6 +121,29 @@ class QuotationDocumentService:
               -- 若沒有實跑就交付，症狀會是「按匯出就 500」而測試全綠。
               LEFT JOIN contract_projects cp ON cp.case_code = x.cc
               LEFT JOIN pm_cases pm          ON pm.case_code = x.cc
+              -- 2026-08-18：範本（`app/templates/quotation_template.xlsx`）
+              -- 要的欄位比原本多，逐一接上真實來源，不留空格：
+              --   統一編號／聯絡電話／傳真／地址 → 機關主檔
+              --   聯絡人手機／E-mail              → 該案的機關承辦
+              --   服務人員姓名／E-mail            → 專案負責人（is_primary 優先）
+              LEFT JOIN government_agencies ga ON ga.id = cp.client_agency_id
+              LEFT JOIN LATERAL (
+                  SELECT pc.contact_name, pc.phone, pc.mobile, pc.email
+                    FROM project_agency_contacts pc
+                   WHERE pc.project_id = cp.id
+                   ORDER BY pc.is_primary DESC NULLS LAST, pc.id
+                   LIMIT 1
+              ) pc ON TRUE
+              LEFT JOIN LATERAL (
+                  SELECT COALESCE(u.full_name, u.username) AS staff_name, u.email AS staff_email
+                    FROM project_user_assignments pa
+                    LEFT JOIN users au ON au.id = pa.user_id
+                    -- ADR-0025：以 canonical 人為準，分身帳號不得顯示成另一個人
+                    LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
+                   WHERE pa.project_id = cp.id
+                   ORDER BY pa.is_primary DESC NULLS LAST, pa.id
+                   LIMIT 1
+              ) su ON TRUE
              LIMIT 1
         """), {"cc": q.case_code})).mappings().first() or {}
 
@@ -142,7 +176,20 @@ class QuotationDocumentService:
             "valid_days": VALID_DAYS,
             "client_name": row.get("client_name"),
             "location": row.get("location"),
-            "contact_person": row.get("agency_contact_person"),
+            "contact_person": row.get("contact_name") or row.get("agency_contact_person"),
+            # 以下 2026-08-18 新增 —— 範本上有格子的欄位一律給值，
+            # 取不到就給 None，由 renderer 決定留白還是印「—」。
+            "client_tax_id": row.get("client_tax_id"),
+            "client_phone": row.get("client_phone"),
+            # 範本有「傳真號碼」格子，但 `government_agencies` **沒有 fax 欄位**。
+            # 不為了填滿版面而發明資料來源 —— 留白比印一個錯的號碼好。
+            "client_fax": None,
+            "client_address": row.get("client_address"),
+            "contact_phone": row.get("contact_phone"),
+            "contact_mobile": row.get("contact_mobile"),
+            "contact_email": row.get("contact_email"),
+            "staff_name": row.get("staff_name"),
+            "staff_email": row.get("staff_email"),
             # '01' 委辦招標（標案，無明細）／'02' 承攬報價（逐項單價）
             "category": row.get("category") or "",
             "items": [dict(r) for r in items],
@@ -165,15 +212,142 @@ class QuotationDocumentService:
             name = name.replace(ch, "_")
         return f"報價單_{data['display_no']}_{name[:40]}.{ext}"
 
-    # ── 版面層（待 owner 明日提供範本）─────────────────────────────────
+    # ── 版面層（2026-08-18 owner 提供範本後實作）──────────────────────
     #
-    # 明天拿到範本的執行順序：
-    #   1. 驗副檔名實際格式 —— .xls(BIFF) 還是 .xlsx？openpyxl 只吃後者
-    #   2. 逐格對出「哪一格填什麼」，明細列的起始列與可擴充列數
-    #   3. render_xlsx(data) -> bytes，走既有 StreamingResponse 形狀
-    #      （參照 `api/endpoints/erp/assets.py:151` 的匯出端點）
-    #   4. 中文檔名要 RFC 5987 `filename*=UTF-8''…`：既有匯出全用 ASCII
-    #      檔名所以沒踩到，這裡的檔名含案名必然是中文
+    # 範本＝`app/templates/quotation_template.xlsx`，取自
+    # `Z:\03.專案管控專區\01.報價單紀錄\報價單_B115-D004-0_….xlsx`。
     #
-    # 刻意不先寫一個「暫時版面」：那會變成第二份範本，
-    # 而真範本到了之後沒有人會記得回來刪掉暫時那份。
+    # **以範本為底填值，不用程式重畫版面。** 理由：
+    #   · 範本內含 2 張圖片（公司抬頭）、21 組合併儲存格、框線與字型
+    #   · 合計公式已寫在裡面（`E26=SUM(F16:F25)`、稅額 5%、總計）
+    #   · 日後版面要改，是換一個檔案，不是改程式
+    #
+    # 動手前實測過 openpyxl 讀寫的往返保真：
+    # 圖片 2→2、合併格 21→21、公式保留、字型/框線/欄寬/列印範圍皆存活。
+    # （若沒驗就寫，最可能的失敗是「檔案產生了、打開發現 logo 不見了」。）
+
+    #: 範本各欄位的位置。**寫在同一處**，範本改版時只改這張表。
+    #:
+    #: 版面規律（實測範本得出，不是猜的）：
+    #:   **標籤在 A 欄與 C:D 合併格；值在 B 欄與 E 欄。**
+    #:
+    #: ⚠️ 我第一版把統編／工程編號／手機／E-mail 的值放在 D 欄 ——
+    #: 而 `C7:D7` 是合併格且裡面裝的是**標籤**（「統一編號：」），
+    #: openpyxl 直接 `AttributeError: MergedCell ... read-only`。
+    #: 實跑當場擋下；若只讀程式碼不跑，這會變成「按匯出就 500」。
+    #: 對照 `E12=賴柏霖`／`E13=email` 才確認值欄位在 E。
+    CELLS = {
+        "quotation_no": "F4",       # 報價單編號
+        "quoted_date": "F5",        # 報價日期（民國）
+        "client_name": "B7",        # 客戶名稱
+        "client_tax_id": "E7",      # 統一編號（C7:D7 是標籤）
+        "contact_person": "B8",     # 聯絡人
+        "case_code": "E8",          # 工程編號 ← 用內部案號
+        "contact_phone": "B9",      # 聯絡電話
+        "contact_mobile": "E9",     # 手機號碼
+        "client_fax": "B10",        # 傳真號碼（無資料來源，留白）
+        "contact_email": "E10",     # E-mail
+        "client_address": "B11",    # 聯絡地址
+        "case_name": "B12",         # 計畫名稱
+        "staff_name": "E12",        # 服務人員
+        "location": "B13",          # 工作地點
+        "staff_email": "E13",       # 服務人員 E-mail
+        "notes": "B21",             # 備註
+    }
+
+    #: 明細列範圍（範本的 `SUM(F16:F25)` 就是這 10 列）
+    ITEM_FIRST_ROW = 16
+    ITEM_LAST_ROW = 25
+
+    #: 項次的中文數字（範本用「一、二、三、」）
+    _CN = "一二三四五六七八九十"
+
+    def render_xlsx(self, data: dict[str, Any]) -> bytes:
+        """把取料結果填進範本，回傳 xlsx bytes。"""
+        from openpyxl import load_workbook
+
+        tpl = Path(__file__).resolve().parents[2] / "templates" / "quotation_template.xlsx"
+        if not tpl.exists():
+            # 明確失敗而不是產生一個沒有版面的檔案 ——
+            # 「檔案下載成功但長得不對」比下載失敗更難查。
+            raise FileNotFoundError(f"找不到報價單範本：{tpl}")
+
+        wb = load_workbook(tpl)
+        ws = wb["報價單"]
+
+        # ── 表頭與客戶資訊 ──
+        for key, cell in self.CELLS.items():
+            if key in ("case_code", "quoted_date", "quotation_no"):
+                continue
+            ws[cell] = data.get(key) or None
+
+        ws[self.CELLS["quotation_no"]] = data["display_no"]
+        ws[self.CELLS["quoted_date"]] = data.get("quoted_date_roc") or None
+        # 工程編號用內部案號：客戶收到的單子上有它，回頭對帳才對得起來
+        ws[self.CELLS["case_code"]] = data.get("case_code") or None
+
+        # ── 明細 ──
+        items = data.get("items") or []
+        if len(items) > (self.ITEM_LAST_ROW - self.ITEM_FIRST_ROW + 1):
+            # 不靜靜截斷 —— 少印幾項的報價單會被當成完整報價送出去。
+            raise ValueError(
+                f"報價明細 {len(items)} 項超過範本可容納的 "
+                f"{self.ITEM_LAST_ROW - self.ITEM_FIRST_ROW + 1} 列。"
+                "請調整範本（擴充列數並同步 SUM 範圍）或拆分報價。"
+            )
+
+        for i, it in enumerate(items):
+            r = self.ITEM_FIRST_ROW + i
+            ws[f"A{r}"] = f"{self._CN[i]}、" if i < len(self._CN) else f"{i + 1}、"
+            ws[f"B{r}"] = it.get("item_name") or ""
+            ws[f"C{r}"] = float(it.get("qty") or 0)
+            ws[f"D{r}"] = it.get("unit") or ""
+            ws[f"E{r}"] = float(it.get("unit_price") or 0)
+            # F 欄寫**公式**不是數值 —— 客戶改數量時金額自己跟著動。
+            #
+            # ⚠️ 必須每列都寫：範本只在 16/17/18 有公式（樣本剛好 3 項），
+            # 第 4 項以後若不補，複價欄會是空白而合計卻少算 ——
+            # 那種錯不會報錯，只會讓總價比明細少。
+            ws[f"F{r}"] = f"=E{r}*C{r}"
+            ws[f"G{r}"] = it.get("notes") or ""
+
+        # 清掉範本殘留的範例資料（範本本身是一份填好的真實報價單）
+        #
+        # ⚠️ **F 欄也要清**。第一版把 F 排除在外（想保留公式），
+        # 實際開檔驗證才發現：範本樣本有 3 項，於是 F16~F18 的
+        # `=E*C` 公式留在沒有明細的列上 → 那三格顯示 0，
+        # 而 F16 那一列還同時印著「本案為委辦招標案」的說明文字。
+        #
+        # 這是「只看 bytes 不開檔」會漏掉的一類 —— 檔案產生了、
+        # 大小正常、不報錯，打開才看得出版面不對。
+        for r in range(self.ITEM_FIRST_ROW + len(items), self.ITEM_LAST_ROW + 1):
+            for col in ("A", "B", "C", "D", "E", "F", "G"):
+                ws[f"{col}{r}"] = None
+
+        # ── 沒有明細時（標案類）──
+        #
+        # 合計三格是公式（SUM/稅額/總計），沒有明細時它們會算出 0 ——
+        # 而「總計 0 元」印在報價單上是錯的。改為寫入實際總價，
+        # **覆蓋公式**：這一類本來就沒有逐項可加總。
+        if not items:
+            total = data.get("total_price")
+            tax = data.get("tax_amount") or ZERO
+            if total is not None:
+                ws["E26"] = float(total - tax)
+                ws["E27"] = float(tax)
+                ws["E28"] = float(total)
+            else:
+                ws["E26"] = ws["E27"] = ws["E28"] = None
+            if data.get("category") == "01":
+                ws["B16"] = "本案為委辦招標案，依招標文件所列項目辦理"
+
+        # 明細小計與報價總價不一致時**標在文件上**，不是挑一個顯示
+        if data.get("amount_mismatch"):
+            cur = ws["B21"].value or ""
+            ws["B21"] = (
+                f"{cur}\n※ 系統提醒：明細小計與報價總額不一致，請確認後再對外發出。"
+            ).strip()
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        return buf.getvalue()
