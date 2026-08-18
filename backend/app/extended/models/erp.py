@@ -197,6 +197,10 @@ class ERPVendorPayable(Base):
     billing_id = Column(Integer, ForeignKey("erp_billings.id", ondelete="SET NULL"),
                         nullable=True, index=True, comment="關聯請款期別")
     payable_amount = Column(Numeric(15, 2), nullable=False, comment="應付金額")
+    # 2026-08-18：與應收 `erp_billings.billing_period` 對稱。
+    # 值域共用 `schemas/erp/billing.py: BillingPeriod` —— 分期就是分期，
+    # 沒有理由讓應收的「第一期」與應付的「第一期」是兩份清單。
+    payable_period = Column(String(50), nullable=True, comment="期別（第一期／尾款／一次請領…）")
     description = Column(String(300), comment="項目說明")
 
     # 付款追蹤

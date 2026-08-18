@@ -37,6 +37,9 @@ type AccountDirection = 'receivable' | 'payable';
 interface AccountRecord {
   id: number;
   period?: string;
+  /** 說明 —— 只有應付有（`erp_vendor_payables.description`）。
+   *  應收的對手方與案名由報價帶出，不需要這一欄。 */
+  description?: string;
   counterparty?: string;       // 對象 (委託單位 or 廠商)
   request_date?: string;       // 請款日期
   request_amount?: number;     // 請款金額
@@ -86,6 +89,8 @@ const billingToRecord = (
 ): AccountRecord => ({
   id: b.id as number,
   period: b.billing_period as string,
+  // 應收沒有說明欄位（對手方與案名由報價帶出）—— 給 undefined 讓兩邊型別一致
+  description: undefined,
   counterparty: clientName || '（未設定委託單位）',
   request_date: b.billing_date as string,
   request_amount: Number(b.billing_amount || 0),
@@ -99,11 +104,11 @@ const billingToRecord = (
 // 資料轉換: vendor_payable → 統一格式
 const payableToRecord = (p: Record<string, unknown>): AccountRecord => ({
   id: p.id as number,
-  // 2026-08-17：應付**沒有期別欄位**（資料模型就沒有；owner 回報「編輯無期別可修改」
-  // 的真相是這個，不是欄位被藏起來）。同一個欄位位置改放 `description`
-  // ——「這筆是做什麼的」對應付而言正是最需要的辨識資訊：
-  // 實測 CK2026_PM_01_005 有兩筆同廠商同金額的應付，沒有說明時兩列長得一模一樣。
-  period: (p.description as string) || undefined,
+  // 2026-08-18：應付已補 `payable_period`（owner：「應收與應付兩者設計不一致」）。
+  // 08-17 曾把 `description` 擠進這一格當權宜 —— 那讓「期別」欄裝著說明，
+  // 是本專案反覆記錄的「一欄多語意」。現在兩者各自成欄。
+  period: (p.payable_period as string) || undefined,
+  description: (p.description as string) || undefined,
   counterparty: p.vendor_name as string,
   request_date: p.due_date as string,
   request_amount: Number(p.payable_amount || 0),
@@ -206,17 +211,18 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   });
 
   const columns: ResponsiveColumn<AccountRecord>[] = [
-    /* 2026-08-17：欄標題依方向而異。應收有期別（`billing_period`，已收斂為
-       標準詞彙見 `schemas/erp/billing.py: BillingPeriod`）；應付沒有期別欄位，
-       同一位置放「說明」（`description`）—— 那欄 DB 一直有、37 筆裡 32 筆有值，
-       但表單沒有入口、列表也沒有對映，等於資料在而沒有人看得到。 */
-    {
-      title: isReceivable ? '期別' : '說明',
-      dataIndex: 'period',
-      width: isReceivable ? 80 : 180,
-      ellipsis: !isReceivable,
-      render: (v) => v || '-',
-    },
+    /* 期別 —— 兩方向共用同一份詞彙表（`schemas/erp/billing.py: BillingPeriod`）。
+       2026-08-18 應付補上 `payable_period` 後，這一欄不再身兼二職。 */
+    { title: '期別', dataIndex: 'period', width: 90, render: (v) => v || '-' },
+    /* 說明只有應付有（`description`，DB 一直有值但表單與列表都沒有入口，
+       08-18 才接上）。應收的對手方與案名由報價帶出，不需要這一欄。 */
+    ...(isReceivable ? [] : [{
+      title: '說明',
+      dataIndex: 'description' as const,
+      width: 180,
+      ellipsis: true,
+      render: (v: unknown) => (v as string) || '-',
+    }]),
     { title: counterpartyLabel, dataIndex: 'counterparty', width: 140, ellipsis: true },
     { title: '請款日期', dataIndex: 'request_date', width: 110, hideOnMobile: true },
     // 2026-08-17 owner：「建議列表表單僅顯示已收款經費資訊」。

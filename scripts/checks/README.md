@@ -30,7 +30,7 @@
 > 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
 > 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
 
-<!--baseline:check_scripts-->合計 **170** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **171** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -120,6 +120,7 @@
 | `schema_ssot_audit.py` | weekly 59：`api/endpoints/` 不得有本地 `BaseModel`（development-rules §3）—— 端點自帶 schema 會與 `app/schemas/` 各自演化 |
 | `savepoint_autocommit_audit.py` | weekly 60：`begin_nested()` 內不得呼叫 `auto_commit=True` 的 repo 方法 —— SAVEPOINT 被內層 commit 掉，外層 rollback 就救不回來 |
 | `model_response_field_reach_audit.py` | weekly 61：ORM 欄位是否到達 response schema —— Pydantic 對「model 有、schema 沒有」是**靜默丟棄**，API 永遠不回傳而不拋錯（`quotation_no` 就這樣存在資料庫而使用者看不到） |
+| `write_payload_schema_audit.py` | weekly 62：前端送出的寫入欄位，寫入端 schema 收得到嗎 —— `extra='forbid'` 之下收不到就是 **422**（不是風險是現行故障）。以端點常數為錨比對 Create/Update，**不用欄位交集猜**（08-17 那次就是猜錯對象而漏掉） |
 | `paths_compose_mount_audit.py` | Fitness step 62 (v6.12, L52 lesson): paths.py PROJECT_ROOT vs docker-compose mount audit |
 | `paths_subpath_mount_audit.py` | Fitness step 69: paths.py sub-path vs compose mount sub-path audit |
 | `public_exposure_audit.py` | 公網暴露稽核 —— API 文件不得對外開放 |

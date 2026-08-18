@@ -2,6 +2,8 @@
 from typing import Optional
 from datetime import date, datetime
 from decimal import Decimal
+# 期別詞彙表唯一定義處在應收那一支 —— 不另建第二份
+from app.schemas.erp.billing import BillingPeriod
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -23,6 +25,10 @@ class ERPVendorPayableCreate(BaseModel):
     vendor_code: Optional[str] = Field(None, max_length=50, description="廠商代碼")
     vendor_id: Optional[int] = Field(None, description="廠商 ID (自動配對)")
     payable_amount: Decimal = Field(..., description="應付金額")
+    # 2026-08-18 owner：「應收與應付兩者設計不一致」——
+    # 期別值域與應收共用（`schemas/erp/billing.py: BillingPeriod`），
+    # 寫入端收緊、讀取端寬鬆（ENUM_STORAGE_CONVENTION 規則 3）。
+    payable_period: Optional[BillingPeriod] = Field(None, description="期別")
     description: Optional[str] = Field(None, max_length=300)
     due_date: Optional[date] = None
     invoice_number: Optional[str] = Field(None, max_length=50, description="廠商發票號碼")
@@ -57,6 +63,7 @@ class ERPVendorPayableUpdate(BaseModel):
     vendor_name: Optional[str] = Field(None, max_length=200)
     vendor_code: Optional[str] = Field(None, max_length=50)
     payable_amount: Optional[Decimal] = None
+    payable_period: Optional[BillingPeriod] = Field(None, description="期別")
     description: Optional[str] = Field(None, max_length=300)
     due_date: Optional[date] = None
     paid_date: Optional[date] = None
@@ -74,6 +81,9 @@ class ERPVendorPayableResponse(BaseModel):
     vendor_code: Optional[str] = None
     vendor_id: Optional[int] = None
     payable_amount: Decimal
+    # 讀取端保持寬鬆（str 而非 Literal）：萬一將來有清單外的歷史值，
+    # 顯示不該因此壞掉。
+    payable_period: Optional[str] = None
     description: Optional[str] = None
     due_date: Optional[date] = None
     paid_date: Optional[date] = None

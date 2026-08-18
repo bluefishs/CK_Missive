@@ -88,6 +88,7 @@ const ERPAccountRecordFormPage: React.FC = () => {
       });
     } else {
       form.setFieldsValue({
+        payable_period: record.payable_period,
         vendor_name: record.vendor_name,
         payable_amount: record.payable_amount != null ? Number(record.payable_amount) : null,
         // 2026-08-17：補上 description —— 原本表單沒有這一欄，
@@ -143,7 +144,6 @@ const ERPAccountRecordFormPage: React.FC = () => {
     }
     const payload = isReceivable
       ? {
-          erp_quotation_id: qid,
           billing_period: values.billing_period,
           billing_date: values.billing_date?.format('YYYY-MM-DD'),
           billing_amount: values.billing_amount,
@@ -153,7 +153,7 @@ const ERPAccountRecordFormPage: React.FC = () => {
           notes: values.notes,
         }
       : {
-          erp_quotation_id: qid,
+          payable_period: values.payable_period,
           vendor_name: values.vendor_name,
           payable_amount: values.payable_amount,
           description: values.description,
@@ -164,7 +164,23 @@ const ERPAccountRecordFormPage: React.FC = () => {
           paid_amount: values.paid_amount,
           notes: values.notes,
         };
-    mutation.mutate(payload);
+    // ⚠️ 2026-08-18：`erp_quotation_id` **只在建立時送**。
+    //
+    // 原本它寫在 payload 本體裡，Create 與 Update 共用 —— 而 Update schema
+    // 沒有這一欄，08-17 開 `extra='forbid'` 之後，編輯任何一筆應收/應付都 422。
+    //
+    // 語意上也不該送：帳款不能改掛到另一張報價（那不是「編輯」是「搬移」，
+    // 真要做得刪掉重建）。
+    //
+    // 第一版修法是在 mutate 前解構掉它。行為正確，但 payload 字面值裡
+    // 仍然看得到那一欄 —— **讀程式碼的人（與檢核）都會以為更新時會送**。
+    // 改為本體不含、建立時才補：讓寫法本身說出規則。
+    //
+    // 我 08-17 開 forbid 前有掃前端 payload，但那支腳本用「欄位交集最大」
+    // 找對應 schema —— 這個 payload 交集最大的是 **Create**，
+    // 於是 Update 缺的欄位沒有被看見。**掃描找錯了比對對象，就等於沒掃。**
+    // 現由 `write_payload_schema_audit` 以端點常數為錨比對，不再用猜的。
+    mutation.mutate(isEdit ? payload : { erp_quotation_id: qid, ...payload });
   };
 
   return (
@@ -197,20 +213,26 @@ const ERPAccountRecordFormPage: React.FC = () => {
         preserve={false}
         initialValues={{ payment_status: isReceivable ? 'pending' : 'unpaid' }}
       >
+        {/* 期別 —— **兩個方向共用**（2026-08-18 owner：「應收與應付兩者設計不一致」）。
+            原本只有應收有，而應付的資料模型連欄位都沒有；同一個表單切換方向時
+            欄位就少一個，而沒有任何理由。已補 `erp_vendor_payables.payable_period`。
+
+            2026-08-17：由自由輸入 `<Input placeholder="如 第1期" />` 改為下拉。
+            51 筆曾漂成三種寫法表達同一件事（第一期 47／第一期款項 3／
+            資訊系統第一期款 1），任何以期別分組的統計都會算成三種，
+            而沒有任何一方會報錯。
+            詞彙表唯一定義處在後端 `schemas/erp/billing.py: BillingPeriod`，
+            應收與應付共用同一份 —— 分期就是分期。 */}
+        <Form.Item name={isReceivable ? 'billing_period' : 'payable_period'} label="期別">
+          <Select
+            allowClear
+            placeholder="請選擇期別（不分期選「一次請領」）"
+            options={BILLING_PERIOD_OPTIONS.map((v) => ({ label: v, value: v }))}
+          />
+        </Form.Item>
+
         {isReceivable ? (
           <>
-            {/* 2026-08-17 owner：「建議期別採下拉選單，避免不同專案不一致，如 第一期款」。
-                原本是 `<Input placeholder="如 第1期" />` —— 51 筆已漂成三種寫法表達
-                同一件事（第一期 47／第一期款項 3／資訊系統第一期款 1），任何以期別
-                分組的統計都會算成三種，而沒有任何一方會報錯。
-                詞彙表唯一定義處在後端 `schemas/erp/billing.py: BillingPeriod`。 */}
-            <Form.Item name="billing_period" label="期別">
-              <Select
-                allowClear
-                placeholder="請選擇期別（不分期選「一次請領」）"
-                options={BILLING_PERIOD_OPTIONS.map((v) => ({ label: v, value: v }))}
-              />
-            </Form.Item>
             <Form.Item name="billing_date" label="請款日期" rules={[{ required: true, message: '請選擇請款日期' }]}>
               <DatePicker style={{ width: '100%' }} inputReadOnly={isMobile} />
             </Form.Item>

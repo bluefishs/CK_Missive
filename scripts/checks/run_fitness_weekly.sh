@@ -364,6 +364,7 @@ run_step "60" "SAVEPOINT 內不得自行 commit" "scripts/checks/savepoint_autoc
 # Pydantic 對「model 有、response schema 沒有」的欄位是靜默丟棄 ——
 # 資料在庫裡而使用者永遠看不到。判 YELLOW（有些欄位本來就不該對外）。
 run_step "61" "ORM 欄位是否到達 API 回應" "scripts/checks/model_response_field_reach_audit.py"
+run_step "62" "前端送出的寫入欄位 schema 收得到嗎（extra=forbid 生效範圍）" "scripts/checks/write_payload_schema_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
