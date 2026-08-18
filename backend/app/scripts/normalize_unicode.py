@@ -36,7 +36,10 @@ from app.db.database import AsyncSessionLocal
 
 # 常見需要清理的表和欄位 (白名單，欄位名需與實際 DB 一致)
 TABLES_TO_CHECK = [
-    ('contract_projects', ['project_name', 'project_code', 'description']),
+    # `client_agency` 2026-08-18 補入（見檔尾說明）—— 併進既有這一筆，
+    # 不另開第二個 contract_projects 條目：同一張表兩處宣告，
+    # 下次改的人只會看到其中一處。
+    ('contract_projects', ['project_name', 'project_code', 'description', 'client_agency']),
     ('government_agencies', ['agency_name', 'agency_short_name', 'address']),
     ('documents', ['subject', 'content', 'notes', 'ck_note', 'doc_number']),
     ('partner_vendors', ['vendor_name', 'contact_person', 'address']),
@@ -48,6 +51,19 @@ TABLES_TO_CHECK = [
     # 名稱帶相容字會讓「同名」比對靜默失效（含承攬案件防重）。
     ('erp_quotations', ['case_name']),
     ('pm_cases', ['case_name']),
+    # 2026-08-18 補入：owner 開 `/contract-cases/21/agency-contacts/26/edit`
+    # 時順手查到 —— 那筆的 `department` 是「桃園市政府⼯務局⼯程⽤地科」，
+    # 用的是**康熙部首** `⼯`(U+2F27)／`⽤`(U+2F65) 而不是 `工`／`用`。
+    #
+    # 字形一模一樣、長度一樣，肉眼與畫面都看不出來，
+    # 但 `contract_projects.client_agency` 的「桃園市政府⼯務局」
+    # **永遠比對不到** `government_agencies.agency_name` 的「桃園市政府工務局」。
+    #
+    # 這兩欄原本不在白名單裡 —— 而它們正是機關關聯比對的兩端。
+    # 實測 5 筆：承辦 department 3、機關名 1、承攬 client_agency 1
+    #（機關那筆是「南投縣埔⾥地政事務所」的 `里` U+F9E9，
+    # 前後看起來完全相同 —— 本專案在 wiki 連結那次踩過同一個字）。
+    ('project_agency_contacts', ['contact_name', 'department', 'position']),
 ]
 
 # 安全性：建立允許的表名和列名白名單
@@ -183,6 +199,7 @@ async def fix_table(db, table: str, columns: list) -> int:
     （比 SQL REPLACE 鏈更可靠，涵蓋所有 NFKC 可轉換字元）
     """
     fixed_count = 0
+    failed: list[str] = []
 
     safe_table = validate_identifier(table, ALLOWED_TABLES, "表名")
 
@@ -216,7 +233,32 @@ async def fix_table(db, table: str, columns: list) -> int:
                 fixed_count += len(batch_updates)
 
         except Exception as e:
+            # ⚠️ 2026-08-18：這裡原本只 log warning **而不 rollback**。
+            #
+            # PostgreSQL 的交易一旦有敘述失敗就進入 aborted 狀態，
+            # 後續每一個查詢都直接回 `InFailedSQLTransactionError` ——
+            # 於是**第一個欄位失敗之後，這張表剩下的欄位全部被跳過**，
+            # 每個都只留一行 warning，最後印「共修復 0 筆」。
+            #
+            # 實際踩到：`government_agencies.agency_name` 正規化後撞唯一鍵
+            #（因為表裡已經有一筆正常字的同名機關），
+            # 導致 agency_short_name / address 兩欄根本沒被檢查過，
+            # 而輸出看起來像「這張表沒事」。
+            #
+            # 同本專案反覆記錄的 `idle in transaction (aborted)` 家族。
+            failed.append(f"{table}.{column}: {type(e).__name__}")
             logger.warning(f"修復 {table}.{column} 時發生錯誤: {e}")
+            try:
+                await db.rollback()   # 讓後續欄位還能繼續
+            except Exception:
+                pass
+
+    if failed:
+        # **不能只留 warning** —— 呼叫端只看 fixed_count 會以為沒事可做。
+        logger.error(
+            "%s：%d 個欄位修復失敗（未修復不等於沒問題）：%s",
+            table, len(failed), "; ".join(failed),
+        )
 
     return fixed_count
 
