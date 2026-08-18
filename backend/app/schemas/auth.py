@@ -1,10 +1,15 @@
 """
 使用者認證相關的 Pydantic 模型
 """
-from pydantic import BaseModel, EmailStr, Field, ConfigDict # 新增 ConfigDict
+# ⚠️ 這一行原本的註解寫「新增 ConfigDict, field_validator」，
+# 但 import 清單裡**只有 ConfigDict** —— 註解描述了一個沒有發生的事。
+# 2026-08-18 我的批次改寫用「檔頭有沒有 field_validator 字樣」判斷是否已 import，
+# 被這個註解騙過去 → NameError。註解不是宣告，但它會被當成宣告讀。
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+from app.schemas._text_utils import blank_to_none
 
 class AuthProvider(str, Enum):
     EMAIL = "email"
@@ -44,6 +49,12 @@ class ProfileUpdate(BaseModel):
     full_name: Optional[str] = Field(None, min_length=1, max_length=200)
     department: Optional[str] = Field(None, max_length=100)
     position: Optional[str] = Field(None, max_length=100)
+
+    # 空字串 → None：使用者清空選填欄位是正常操作，不該 422
+    # （見 `_text_utils.blank_to_none`；2026-08-18 同型共 7 支）
+    _blank = field_validator("full_name", mode="before")(
+        classmethod(lambda cls, v: blank_to_none(v))
+    )
 
 class PasswordReset(BaseModel):
     """密碼重設請求"""
@@ -224,6 +235,12 @@ class UserUpdate(BaseModel):
     permissions: Optional[str] = None
     department: Optional[str] = None
     position: Optional[str] = None
+
+    # 空字串 → None：使用者清空選填欄位是正常操作，不該 422
+    # （見 `_text_utils.blank_to_none`；2026-08-18 同型共 7 支）
+    _blank = field_validator("email", mode="before")(
+        classmethod(lambda cls, v: blank_to_none(v))
+    )
 
 class UserListResponse(BaseModel):
     users: List[UserResponse]

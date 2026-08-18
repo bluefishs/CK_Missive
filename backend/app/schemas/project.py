@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 
 from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
 from app.schemas._text_utils import normalize_cjk_compat
+from app.schemas._text_utils import blank_to_none
 
 class ProjectBase(BaseModel):
     """承攬案件基礎Schema"""
@@ -135,6 +136,12 @@ class ProjectUpdate(BaseModel):
         if v is not None and v < 0:
             raise ValueError('合約金額不能為負數')
         return v
+
+    # 空字串 → None：使用者清空選填欄位是正常操作，不該 422
+    # （見 `_text_utils.blank_to_none`；2026-08-18 同型共 7 支）
+    _blank = field_validator("project_name", "agency_contact_email", mode="before")(
+        classmethod(lambda cls, v: blank_to_none(v))
+    )
 
 class ProjectResponse(ProjectBase):
     """承攬案件回應Schema"""

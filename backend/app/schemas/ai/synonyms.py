@@ -2,7 +2,8 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+from app.schemas._text_utils import blank_to_none
 
 
 class AISynonymBase(BaseModel):
@@ -24,6 +25,12 @@ class AISynonymUpdate(BaseModel):
     words: Optional[str] = Field(None, min_length=1, description="同義詞列表，逗號分隔")
     is_active: Optional[bool] = Field(None, description="是否啟用")
 
+
+    # 空字串 → None：使用者清空選填欄位是正常操作，不該 422
+    # （見 `_text_utils.blank_to_none`；2026-08-18 同型共 7 支）
+    _blank = field_validator("category", "words", mode="before")(
+        classmethod(lambda cls, v: blank_to_none(v))
+    )
 
 class AISynonymResponse(AISynonymBase):
     """同義詞群組回應"""

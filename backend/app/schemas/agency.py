@@ -11,6 +11,7 @@ from datetime import datetime
 
 # normalize_name 已收斂至 schemas/_text_utils（57e SSOT）
 from app.schemas._text_utils import normalize_name
+from app.schemas._text_utils import blank_to_none
 
 
 class AgencyBase(BaseModel):
@@ -52,6 +53,12 @@ class AgencyUpdate(BaseModel):
     @classmethod
     def normalize_names(cls, v: Optional[str]) -> Optional[str]:
         return normalize_name(v)
+
+    # 空字串 → None：使用者清空選填欄位是正常操作，不該 422
+    # （見 `_text_utils.blank_to_none`；2026-08-18 同型共 7 支）
+    _blank = field_validator("email", mode="before")(
+        classmethod(lambda cls, v: blank_to_none(v))
+    )
 
 class Agency(AgencyBase):
     """用於 API 回應的 schema，包含資料庫生成的欄位"""

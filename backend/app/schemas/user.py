@@ -8,6 +8,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 
 from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
+from app.schemas._text_utils import blank_to_none
 
 # 專案角色選項 (承辦同仁專用)
 ALLOWED_PROJECT_ROLES = ['計畫主持', '計畫協同', '專案PM', '職安主管']
@@ -60,6 +61,12 @@ class UserUpdate(BaseModel):
                 raise ValueError(f'角色必須是以下之一: {all_roles}')
         return v
 
+
+    # 空字串 → None：使用者清空選填欄位是正常操作，不該 422
+    # （見 `_text_utils.blank_to_none`；2026-08-18 同型共 7 支）
+    _blank = field_validator("email", mode="before")(
+        classmethod(lambda cls, v: blank_to_none(v))
+    )
 
 class UserStatusUpdate(BaseModel):
     """更新使用者狀態 Schema"""

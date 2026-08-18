@@ -98,6 +98,40 @@ class ERPBillingCreate(BaseModel):
 
 ---
 
+## 家族一之三：清空選填欄位就 422（2026-08-18）
+
+owner 回報 `POST /api/project-agency-contacts/update` 422。
+
+`Optional[EmailStr]` 與 `Field(None, min_length=1)` **只接受 `None`，
+不接受空字串**。而表單清空一個欄位送出的是 `""`：
+
+```
+使用者把 email 清掉 ──→ 前端送 email: ""
+                        ↓
+              Optional[EmailStr] 拒絕空字串
+                        ↓
+        422「不是有效的電子郵件」← 他做的是「清空」不是「填錯」
+```
+
+**掃全後同型共 8 支**（機關／廠商／使用者×2／專案／個人檔案／同義詞／機關承辦）
+—— 也就是這些模組**全部都無法清空 email**。
+
+修在 schema（`_text_utils.blank_to_none`）不是前端：
+「每個表單都要記得把空字串轉成 null」行不通，漏一個就是一個 422，
+而它只在「使用者剛好清空那一欄」時發生，平常測不到。
+
+**建立時的必填欄位仍拒絕空字串** —— 那時「沒填」是真的錯誤，不是「清空」。
+
+### 契約鏈現在有三面
+
+| 面 | 問題 | 檢核 |
+|---|---|---|
+| 前端 payload → 寫入 schema | 送得出去、收不到 → **422** | `write_payload_schema_audit`（weekly 62）|
+| ORM → Response schema | 算得出、送不出去 → 靜默丟棄 | `model_response_field_reach_audit`（weekly 61）|
+| Response → 前端手寫型別 | 回得來、型別守不住 → tsc 失去守備 | `response_frontend_type_audit`（weekly 63）|
+
+三面缺一面，欄位就會在那一段消失而沒有人報錯。
+
 ## 家族二：顯示層寫死了應該來自資料的東西（#5 #6）
 
 ```tsx

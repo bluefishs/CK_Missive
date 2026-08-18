@@ -30,6 +30,7 @@ import { ERP_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
 // 期別詞彙表 —— 唯一定義處在後端 `schemas/erp/billing.py: BillingPeriod`
 import { BILLING_PERIOD_OPTIONS } from '../types/erp';
+import type { ERPBilling, ERPVendorPayable } from '../types/erp';
 import { useResponsive } from '../hooks';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
 
@@ -68,10 +69,20 @@ const ERPAccountRecordFormPage: React.FC = () => {
     enabled: isEdit,
   });
 
-  const record = useMemo(() => {
+  // 2026-08-18：`record` 由 `Record<string, unknown>` 改為兩個方向的聯集型別。
+  //
+  // 原本每個欄位靠 `record.xxx` 取值而不受檢查 —— 於是我在後端補了
+  // `payable_period` 卻漏了前端型別，tsc 完全沒有機會發現。
+  // 同一次比對還揪出前端 `ERPVendorPayable` 少了 7 個後端一直有回傳的欄位。
+  //
+  // 用 `Partial<A & B>`：這一頁本來就同時處理兩種紀錄，而編輯時
+  // 只有其中一組欄位有值。**繞過型別的地方，型別就守不住那個欄位。**
+  const record = useMemo((): Partial<ERPBilling & ERPVendorPayable> | undefined => {
     if (!isEdit) return undefined;
     const rows = (rawData?.data ?? (rawData as unknown as Record<string, unknown>[]) ?? []) as Record<string, unknown>[];
-    return rows.find((r) => Number(r.id) === rid);
+    return rows.find((r) => Number(r.id) === rid) as
+      | Partial<ERPBilling & ERPVendorPayable>
+      | undefined;
   }, [rawData, rid, isEdit]);
 
   useEffect(() => {

@@ -18,6 +18,7 @@ ALLOWED_BUSINESS_TYPES = ['測量業務', '資訊系統', '系統業務', '查�
 
 # normalize_name 已收斂至 schemas/_text_utils（57e SSOT）
 from app.schemas._text_utils import normalize_name
+from app.schemas._text_utils import blank_to_none
 
 
 class VendorBase(BaseModel):
@@ -79,6 +80,12 @@ class VendorUpdate(BaseModel):
         if v is not None and (v < 1 or v > 5):
             raise ValueError('評價必須在 1-5 之間')
         return v
+
+    # 空字串 → None：使用者清空選填欄位是正常操作，不該 422
+    # （見 `_text_utils.blank_to_none`；2026-08-18 同型共 7 支）
+    _blank = field_validator("email", mode="before")(
+        classmethod(lambda cls, v: blank_to_none(v))
+    )
 
 class Vendor(VendorBase):
     id: int

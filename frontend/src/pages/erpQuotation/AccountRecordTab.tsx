@@ -23,6 +23,7 @@ import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined } from '@ant-design/icons';
 
 import type { ResponsiveColumn } from '../../components/common/EnhancedTable';
+import type { ERPVendorPayable } from '../../types/erp';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -102,21 +103,28 @@ const billingToRecord = (
 });
 
 // 資料轉換: vendor_payable → 統一格式
-const payableToRecord = (p: Record<string, unknown>): AccountRecord => ({
-  id: p.id as number,
+// 2026-08-18：參數改用 `ERPVendorPayable` 而非 `Record<string, unknown>`。
+//
+// 原本每個欄位都 `as` 轉型 —— 於是 08-18 我在後端補了 `payable_period`
+// 卻漏了前端型別，**tsc 完全沒有機會發現**（轉型把它繞過去了）。
+// 同一次比對還揪出前端介面少了 7 個後端一直有回傳的欄位。
+//
+// **繞過型別的地方，型別就守不住那個欄位。**
+const payableToRecord = (p: ERPVendorPayable): AccountRecord => ({
+  id: p.id,
   // 2026-08-18：應付已補 `payable_period`（owner：「應收與應付兩者設計不一致」）。
   // 08-17 曾把 `description` 擠進這一格當權宜 —— 那讓「期別」欄裝著說明，
   // 是本專案反覆記錄的「一欄多語意」。現在兩者各自成欄。
-  period: (p.payable_period as string) || undefined,
-  description: (p.description as string) || undefined,
-  counterparty: p.vendor_name as string,
-  request_date: p.due_date as string,
+  period: p.payable_period || undefined,
+  description: p.description || undefined,
+  counterparty: p.vendor_name,
+  request_date: p.due_date,
   request_amount: Number(p.payable_amount || 0),
-  invoice_number: p.invoice_number as string,
-  payment_status: (p.payment_status as string) || 'unpaid',
-  payment_date: p.paid_date as string,
+  invoice_number: p.invoice_number,
+  payment_status: p.payment_status || 'unpaid',
+  payment_date: p.paid_date,
   payment_amount: p.paid_amount ? Number(p.paid_amount) : undefined,
-  notes: p.notes as string,
+  notes: p.notes,
 });
 
 export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
@@ -143,7 +151,9 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   const records: AccountRecord[] = (
     rawData?.data ?? (rawData as unknown as Record<string, unknown>[]) ?? []
   ).map((row) =>
-    isReceivable ? billingToRecord(row, clientName) : payableToRecord(row),
+    isReceivable
+      ? billingToRecord(row, clientName)
+      : payableToRecord(row as unknown as ERPVendorPayable),
   );
 
   // 統計

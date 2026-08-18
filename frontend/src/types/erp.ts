@@ -154,11 +154,32 @@ export interface ERPVendorPayable {
   id: number;
   erp_quotation_id: number;
   vendor_name: string;
+  /** 期別 —— 與應收 `ERPBilling.billing_period` 對稱（2026-08-18）。
+   *  值域共用後端 `schemas/erp/billing.py: BillingPeriod`；
+   *  前端下拉選項見 `BILLING_PERIOD_OPTIONS`。
+   *
+   *  ⚠️ 我 08-18 在後端補了 `payable_period` 卻**漏了這裡** ——
+   *  於是「應收有期別、應付沒有」這個不對稱，在前端型別裡原封不動。
+   *  tsc 沒抓到是因為兩處使用端都繞過型別（`Record<string, unknown>`
+   *  加 `as string`、表單 values 未標型別）——**繞過型別的地方，
+   *  型別就守不住那個欄位**。 */
+  payable_period?: string;
   payable_amount: number;
   description?: string;
   payment_status: string;
   paid_date?: string;
   paid_amount: number;
+  /** 以下 7 欄 2026-08-18 補齊 —— 後端 `ERPVendorPayableResponse` 一直有回傳，
+   *  而這份手寫介面沒有宣告。使用端靠 `Record<string, unknown>` + `as` 轉型
+   *  取值，所以 tsc 從來沒有機會發現 —— **繞過型別的地方，型別就守不住**。
+   *  （欄位清單以後端 Response schema 為準逐一比對，不是為了過編譯而猜。） */
+  vendor_code?: string;
+  vendor_id?: number;
+  due_date?: string;
+  invoice_number?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // ============================================================================
@@ -250,6 +271,9 @@ export interface ERPBilling {
   invoice_number?: string;
   created_at?: string;
   updated_at?: string;
+  /** 系統請款編碼 `BL_{yyyy}_{NNN}` —— 後端 Response 一直有回傳，
+   *  這份手寫介面漏了（2026-08-18 由 `response_frontend_type_audit` 揪出）。 */
+  billing_code?: string;
 }
 
 export interface ERPBillingCreate {
@@ -271,6 +295,16 @@ export interface ERPVendorPayableDetail {
   id: number;
   erp_quotation_id: number;
   vendor_name: string;
+  /** 期別 —— 與應收 `ERPBilling.billing_period` 對稱（2026-08-18）。
+   *  值域共用後端 `schemas/erp/billing.py: BillingPeriod`；
+   *  前端下拉選項見 `BILLING_PERIOD_OPTIONS`。
+   *
+   *  ⚠️ 我 08-18 在後端補了 `payable_period` 卻**漏了這裡** ——
+   *  於是「應收有期別、應付沒有」這個不對稱，在前端型別裡原封不動。
+   *  tsc 沒抓到是因為兩處使用端都繞過型別（`Record<string, unknown>`
+   *  加 `as string`、表單 values 未標型別）——**繞過型別的地方，
+   *  型別就守不住那個欄位**。 */
+  payable_period?: string;
   vendor_code?: string;
   vendor_id?: number;
   payable_amount: number;
@@ -288,6 +322,16 @@ export interface ERPVendorPayableDetail {
 export interface ERPVendorPayableCreate {
   erp_quotation_id: number;
   vendor_name: string;
+  /** 期別 —— 與應收 `ERPBilling.billing_period` 對稱（2026-08-18）。
+   *  值域共用後端 `schemas/erp/billing.py: BillingPeriod`；
+   *  前端下拉選項見 `BILLING_PERIOD_OPTIONS`。
+   *
+   *  ⚠️ 我 08-18 在後端補了 `payable_period` 卻**漏了這裡** ——
+   *  於是「應收有期別、應付沒有」這個不對稱，在前端型別裡原封不動。
+   *  tsc 沒抓到是因為兩處使用端都繞過型別（`Record<string, unknown>`
+   *  加 `as string`、表單 values 未標型別）——**繞過型別的地方，
+   *  型別就守不住那個欄位**。 */
+  payable_period?: string;
   vendor_code?: string;
   payable_amount: number;
   description?: string;

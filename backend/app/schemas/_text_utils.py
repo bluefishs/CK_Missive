@@ -47,3 +47,36 @@ def normalize_name(value: Optional[str]) -> Optional[str]:
     result = result.replace('（', '(').replace('）', ')')
     result = re.sub(r'\s+', ' ', result)
     return result if result else None
+
+
+# ---------------------------------------------------------------------------
+# 空字串 → None（2026-08-18）
+# ---------------------------------------------------------------------------
+def blank_to_none(value):
+    """表單清空欄位時送的是 `""`，對選填欄位而言那與 `None` 是同一件事。
+
+    ## 為什麼需要
+
+    `Optional[EmailStr]` 與 `Field(None, min_length=1)` **只接受 None，
+    不接受空字串** —— 於是使用者把 email 或姓名清掉再儲存就 **422**，
+    而錯誤訊息說「不是有效的電子郵件」，他看不懂自己做錯什麼
+    （他做的是「把這一欄清掉」，那是完全正常的操作）。
+
+    owner 2026-08-18 實際踩到：`POST /api/project-agency-contacts/update` 422。
+    掃全後發現**同型共 7 支**更新 schema（機關／廠商／專案／使用者／同義詞…），
+    也就是這些模組**全部都無法清空 email**。
+
+    ## 為什麼修在 schema 不是前端
+
+    「每個表單都要記得把空字串轉成 null」行不通 —— 漏一個就是一個 422，
+    而它只在「使用者剛好清空那一欄」時發生，平常測不到。
+
+    ## 邊界
+
+    只用於**更新類**的選填欄位。建立時的必填欄位仍應拒絕空字串
+    （那時「沒填」是真的錯誤，不是「清空」）。
+
+    只吃掉純空白字串；`" a "` 這種會保留原值不 strip ——
+    去空白是另一件事，混在一起會讓這支變成「順便做很多事」的工具。
+    """
+    return None if isinstance(value, str) and not value.strip() else value

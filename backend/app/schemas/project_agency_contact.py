@@ -6,7 +6,7 @@
 
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 
 
 class ProjectAgencyContactBase(BaseModel):
@@ -19,6 +19,23 @@ class ProjectAgencyContactBase(BaseModel):
     email: Optional[EmailStr] = Field(None, max_length=100, description="電子郵件")
     is_primary: Optional[bool] = Field(False, description="是否為主要承辦人")
     notes: Optional[str] = Field(None, description="備註")
+
+
+# ---------------------------------------------------------------------------
+# 2026-08-18：表單清空欄位時送的是 `""`，而 `Optional[EmailStr]` 與
+# `min_length=1` 都只接受 `None` —— 於是**清空 email 或姓名再儲存就 422**，
+# 而錯誤訊息說「不是有效的電子郵件」，使用者看不懂自己做錯什麼
+# （他做的是「把這一欄清掉」，那是完全正常的操作）。
+#
+# owner 2026-08-18 實際踩到：`POST /api/project-agency-contacts/update` 422。
+#
+# 修在 schema 而不是前端：**每個表單都要記得把空字串轉成 null** 是行不通的
+# ——漏一個就是一個 422，而它只在「使用者剛好清空那一欄」時發生。
+# 語意上 `""` 與 `None` 對選填欄位本來就是同一件事：都是「沒有值」。
+#
+# 只用於**更新**類 schema；建立時的必填欄位仍應拒絕空字串。
+def _blank_to_none(v):
+    return None if isinstance(v, str) and not v.strip() else v
 
 
 class ProjectAgencyContactCreate(ProjectAgencyContactBase):
@@ -36,6 +53,12 @@ class ProjectAgencyContactUpdate(BaseModel):
     email: Optional[EmailStr] = Field(None, max_length=100, description="電子郵件")
     is_primary: Optional[bool] = Field(None, description="是否為主要承辦人")
     notes: Optional[str] = Field(None, description="備註")
+
+    # 空字串 → None（見檔頭 `_blank_to_none` 說明）
+    _blank = field_validator(
+        "contact_name", "position", "department", "phone", "mobile", "email", "notes",
+        mode="before",
+    )(classmethod(lambda cls, v: _blank_to_none(v)))
 
 
 class ProjectAgencyContactResponse(ProjectAgencyContactBase):
@@ -69,3 +92,9 @@ class UpdateContactRequest(BaseModel):
     email: Optional[EmailStr] = Field(None, max_length=100, description="電子郵件")
     is_primary: Optional[bool] = Field(None, description="是否為主要承辦人")
     notes: Optional[str] = Field(None, description="備註")
+
+    # 空字串 → None（見檔頭 `_blank_to_none` 說明）
+    _blank = field_validator(
+        "contact_name", "position", "department", "phone", "mobile", "email", "notes",
+        mode="before",
+    )(classmethod(lambda cls, v: _blank_to_none(v)))
