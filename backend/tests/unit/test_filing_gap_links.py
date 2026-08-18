@@ -27,7 +27,10 @@ import pytest
 # 請款/應付沒有自己的詳情路由（08-02 隨 BillingsTab 移除），
 # 它們只存在於報價詳情的分頁裡，所以必須連到報價 + tab。
 ALLOWED_URL = re.compile(
-    r"^/(erp/quotations|contract-cases|erp/expenses)/\{[a-z_.]+\}"
+    # 2026-08-18 補 `pm/cases`：新增的「已成案但財務端不存在」缺口連到 PM 案件詳情
+    # （`ROUTES.PM_CASE_DETAIL = /pm/cases/:id`，types.ts 與 AppRouter 皆已註冊，已查證）。
+    # 它要連的是「去這裡建報價單／成案」，不是去 ERP 找一個不存在的東西。
+    r"^/(erp/quotations|contract-cases|erp/expenses|pm/cases)/\{[a-z_.]+\}"
     r"(\?tab=(receivable|payable|items|info|expenses))?$"
 )
 

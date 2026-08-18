@@ -30,19 +30,45 @@ class TestCaseCodeAutoGeneration:
         assert "generate_case_code" in body
 
     def test_case_code_generation_is_fail_soft(self):
-        """產號失敗不得阻斷建案本身 —— 案件比橋樑重要"""
-        src = _read("app/services/contract/core.py")
+        """產號失敗不得阻斷建案本身 —— 案件比橋樑重要
+
+        ⚠️ 2026-08-18：原本取 `src[i:i+900]` 固定字元窗，而 08-18 在那段
+        加了一段較長的註解（說明為何由 PM 改為 GN），`try:` 就被擠出窗外
+        → 測試失敗，**但程式碼行為完全沒變**。
+
+        固定字元窗會讓「寫了註解」與「刪掉 try」產生同一個結果。
+        改為先去註解再取窗：斷言的對象是程式碼，註解長度不該影響它。
+        """
+        src = _strip_comments(_read("app/services/contract/core.py"))
         i = src.index('if not project_data.get("case_code")')
         seg = src[i:i + 900]
         assert "try:" in seg and "except Exception" in seg
         assert "logger.warning" in seg
-        assert "raise" not in _strip_comments(seg), "產號失敗不得 raise"
+        assert "raise" not in seg, "產號失敗不得 raise"
 
-    def test_uses_pm_module_code_for_consistency(self):
-        """case_code 語意即「建案案號」，應用 PM 產號器（避免第三套命名體系）"""
+    def test_manual_creation_does_not_forge_pm_case_code(self):
+        """手動建承攬案件**不得**產出 PM 式案號（2026-08-18 反轉原規則）。
+
+        原測試斷言必須是 `"pm"`，理由寫「避免第三套命名體系」。
+        那個前提本來就不成立 —— `FN`（ERP 產號器）早就在用，
+        模組代碼本來就有多個，那是同一套體系裡的欄位不是另一套體系。
+
+        真正的問題是：`ProjectService.create` 產 PM 式案號卻**不建立
+        pm_cases 列**，於是 `CK2026_PM_01_008` 是一個長得像 PM 案件、
+        指向的地方卻不存在的案號。實測 3 筆這樣的資料（全部執行中、
+        全部有報價），而 2026 的 pm_cases 只到 `_007`。
+
+        改用 `general`（GN）＝案號誠實表達「不是從 PM 建案來的」。
+        跨模組唯一性不受影響 —— case_code 的職責是唯一鍵，不是宣告來源。
+        """
         src = _strip_comments(_read("app/services/contract/core.py"))
         i = src.index("generate_case_code")
-        assert '"pm"' in src[i:i + 200]
+        seg = src[i:i + 200]
+        assert '"pm"' not in seg, (
+            "手動建立承攬案件不得用 PM 產號器 —— 它不建立 pm_cases 列，"
+            "產出的案號會指向不存在的 PM 案件"
+        )
+        assert '"general"' in seg
 
 
 class TestFinanceContainer:

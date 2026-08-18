@@ -87,7 +87,7 @@ KNOWN_ACCEPTABLE: dict[str, str] = {}
 # 而不是讓人每週從頭追一次 log。
 #
 # 2026-08-17 查證：三支 RED 其實是**同一件事** ——
-#   ck-kv-snapshot 因 PM2 非互動環境未設 CLOUDFLARE_API_TOKEN 而失敗
+#   ck-kv-snapshot 在 PM2 非互動環境沒有 Cloudflare 認證而失敗
 #   → CK_Website 的 KV 備份 30 天沒更新（可用 8 份／空 22 份）
 #   → ck-sso-health 與 ck-sso-contract-probe 讀到 STALE 跟著紅
 #
@@ -96,9 +96,15 @@ KNOWN_ACCEPTABLE: dict[str, str] = {}
 # ---------------------------------------------------------------------------
 KNOWN_ROOT_CAUSE: dict[str, str] = {
     "ck-kv-snapshot":
-        "根因＝PM2 環境未設 CLOUDFLARE_API_TOKEN（需 Workers KV 讀取權限）。"
-        "屬 CK_Website。腳本已刻意不 rotate 以免擠掉僅存的可用備份；"
-        "設好 token 後 `pm2 restart ck-kv-snapshot`。",
+        # ⚠️ 2026-08-18 owner 更正：**wrangler 用的是互動式 OAuth 登入，不是 API token**。
+        # 我原本寫「未設 CLOUDFLARE_API_TOKEN」——那個描述會讓人去找一把
+        # 不存在的 token，而真因是「PM2 非互動環境拿不到 `wrangler login`
+        # 建立的那個 OAuth session」。**指向錯誤修法的根因，比沒有根因更糟。**
+        "根因＝wrangler 走互動式 OAuth（`wrangler login`），"
+        "而 PM2 是非互動環境，拿不到那個 session → 5/5 namespace 全讀不到。"
+        "屬 CK_Website。腳本已刻意不 rotate 以免擠掉僅存的可用備份。"
+        "兩條路（由 owner 選）：①改用非互動憑證（Workers KV 讀取權限）"
+        "並注入 PM2 環境；②把這支移出 PM2、改由具備 OAuth session 的環境執行。",
     "ck-sso-health":
         "下游症狀 —— 讀到 ck-kv-snapshot 產出的 STALE 備份。修上游即恢復。",
     "ck-sso-contract-probe":

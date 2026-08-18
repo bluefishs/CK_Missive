@@ -79,6 +79,19 @@ def _make_mock_quotation(
     return mock
 
 
+# 2026-08-18：公司固定利潤率（公司留成）由 `_to_response` 讀設定表取得。
+#
+# 這些測試驗的是**毛利算法**，不是設定查詢 —— 但它們用 `mock_db_session`
+# （`execute` 是一支通用 AsyncMock），而我在 `_to_response` 前面加了一次
+# `db.execute` 之後，**後續每個 mock 回傳都往後錯一位**：
+# `_actual_cost` 拿到的不再是它預期的那個值，`Decimal(str(...))` 直接爆。
+#
+# 修法是把比率查詢明確 patch 掉，而不是在測試裡排出正確的 mock 序列 ——
+# 後者會讓這些測試對「服務內部查詢的順序」敏感，而那不是它們該關心的事。
+# 比率本身的行為另有專屬驗證（純函式四情境＋端到端設值還原）。
+_RATE = "app.services.erp.quotation_service.get_company_profit_rate"
+
+
 def _patch_all_repos():
     """Context manager that patches all 5 dependencies of ERPQuotationService."""
     return (
@@ -226,7 +239,7 @@ class TestERPQuotationServiceGetDetail:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository") as MockInv, \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBill, \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPay, \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_q)
             MockInv.return_value.get_by_quotation_id = AsyncMock(return_value=[MagicMock(), MagicMock()])
@@ -235,6 +248,22 @@ class TestERPQuotationServiceGetDetail:
             MockBill.return_value.get_total_received = AsyncMock(return_value=Decimal("300000"))
             MockPay.return_value.get_total_payable = AsyncMock(return_value=Decimal("200000"))
             MockPay.return_value.get_total_paid = AsyncMock(return_value=Decimal("100000"))
+
+            # 2026-08-16 起 `_to_response` 會查統一帳本算「實際成本」。
+            # `mock_db_session.execute` 是通用 AsyncMock，`.scalar()` 回 MagicMock，
+            # 而 `Decimal(str(MagicMock))` 直接爆 —— 這兩支測試因此自 08-16 起就是紅的
+            # （基線錄於 08-15，所以它們被算成「新增失敗」，但**不是今天造成的**）。
+            #
+            # 明確給 0：這兩支驗的是估列毛利與聚合欄位，
+            # 實際成本另有自己的驗證，不該讓它的查詢決定這裡的成敗。
+            # ⚠️ 直接設 `execute.return_value.scalar.return_value` 沒有用：
+            # `execute` 是 AsyncMock，它的子屬性也是 AsyncMock ——
+            # `scalar()` 同步呼叫回的是 coroutine 而不是設定的值
+            #（症狀就是那句 `coroutine ... was never awaited`）。
+            # 必須明確給一個 MagicMock 當結果物件。
+            _res = MagicMock()
+            _res.scalar.return_value = 0
+            mock_db_session.execute.return_value = _res
 
             service = ERPQuotationService(mock_db_session)
             result = await service.get_detail(1)
@@ -258,7 +287,7 @@ class TestERPQuotationServiceGetDetail:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=None)
 
@@ -280,7 +309,7 @@ class TestERPQuotationServiceUpdate:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository") as MockInv, \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBill, \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPay, \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.update = AsyncMock(return_value=mock_q)
             MockInv.return_value.get_by_quotation_id = AsyncMock(return_value=[])
@@ -289,6 +318,11 @@ class TestERPQuotationServiceUpdate:
             MockBill.return_value.get_total_received = AsyncMock(return_value=Decimal("0"))
             MockPay.return_value.get_total_payable = AsyncMock(return_value=Decimal("0"))
             MockPay.return_value.get_total_paid = AsyncMock(return_value=Decimal("0"))
+
+            # `_to_response` 自 08-16 起會查統一帳本算實際成本（見上方說明）
+            _res = MagicMock()
+            _res.scalar.return_value = 0
+            mock_db_session.execute.return_value = _res
 
             service = ERPQuotationService(mock_db_session)
             data = ERPQuotationUpdate(status="confirmed", total_price=Decimal("2000000"))
@@ -304,9 +338,19 @@ class TestERPQuotationServiceUpdate:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.update = AsyncMock(return_value=None)
+
+            # 同上：`_to_response` 的實際成本查詢需要一個可轉 Decimal 的值
+            # ⚠️ 直接設 `execute.return_value.scalar.return_value` 沒有用：
+            # `execute` 是 AsyncMock，它的子屬性也是 AsyncMock ——
+            # `scalar()` 同步呼叫回的是 coroutine 而不是設定的值
+            #（症狀就是那句 `coroutine ... was never awaited`）。
+            # 必須明確給一個 MagicMock 當結果物件。
+            _res = MagicMock()
+            _res.scalar.return_value = 0
+            mock_db_session.execute.return_value = _res
 
             service = ERPQuotationService(mock_db_session)
             result = await service.update(999, ERPQuotationUpdate(status="confirmed"))
@@ -348,7 +392,7 @@ class TestERPQuotationServiceDelete:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBilling, \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             paid = MagicMock()
             paid.payment_status = "paid"
@@ -366,7 +410,7 @@ class TestERPQuotationServiceDelete:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBilling, \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPayable, \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockBilling.return_value.get_by_quotation_id = AsyncMock(return_value=[])
             paid = MagicMock()
@@ -409,7 +453,7 @@ class TestERPQuotationServiceList:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository") as MockInv, \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBill, \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPay, \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.filter_quotations = AsyncMock(return_value=(mock_items, 3))
             MockBill.return_value.get_aggregates_batch = AsyncMock(return_value={})
@@ -447,7 +491,7 @@ class TestERPQuotationServiceProfitSummary:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBill, \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.filter_quotations = AsyncMock(return_value=([q1, q2], 2))
             MockBill.return_value.get_aggregates_batch = AsyncMock(return_value={
@@ -475,7 +519,7 @@ class TestERPQuotationServiceProfitSummary:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.filter_quotations = AsyncMock(return_value=([], 0))
 
@@ -501,7 +545,7 @@ class TestERPQuotationServiceProfitTrend:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.get_yearly_trend_sql = AsyncMock(return_value=[
                 {
@@ -533,7 +577,7 @@ class TestERPQuotationServiceProfitTrend:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.get_yearly_trend_sql = AsyncMock(return_value=[])
 
@@ -549,7 +593,7 @@ class TestERPQuotationServiceProfitTrend:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             # SQL already excludes NULL years, so repo returns empty
             MockRepo.return_value.get_yearly_trend_sql = AsyncMock(return_value=[])
@@ -576,7 +620,7 @@ class TestERPQuotationServiceExportCsv:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockIORepo.return_value.filter_quotations = AsyncMock(return_value=(items, 2))
 
@@ -597,7 +641,7 @@ class TestERPQuotationServiceExportCsv:
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
-             patch("app.services.erp.quotation_service.CaseCodeService"):
+             patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockIORepo.return_value.filter_quotations = AsyncMock(return_value=([], 0))
 
