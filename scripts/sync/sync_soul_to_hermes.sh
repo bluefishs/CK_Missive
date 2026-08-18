@@ -39,8 +39,29 @@
 set -uo pipefail
 
 APPLY=false
-if [[ "${1:-}" == "--apply" ]]; then
-    APPLY=true
+FORCE=false
+for arg in "$@"; do
+    case "$arg" in
+        --apply) APPLY=true ;;
+        --i-know-this-is-forbidden) FORCE=true ;;
+    esac
+done
+
+# -- fail-closed guard (2026-08-18) ---------------------------------------
+# 上面那道 ⛔ 禁令原本只活在註解裡 —— 2026-08-15 有人把本腳本包成每日 Windows
+# 排程 `CK_Missive-SOUL-Mirror-Sync --apply`（不在版控、無決策紀錄），從此每天
+# 04:45 把坤哥人格覆蓋掉 CK_AaaP 的 Meta 部署源 SOUL.md，且 LastResult=0 一路綠燈。
+# 2026-08-18 覆盤揪出並還原。教訓：**「不應執行」若沒有寫成 exit，就不是禁令，
+# 只是建議** —— 包一層 scheduler 就繞過去了，而且繞過去時沒有任何東西會叫。
+# 對策：--apply 預設 fail-closed；要真的跑必須額外明示 --i-know-this-is-forbidden，
+# 讓「刻意違反」在命令列上留下痕跡（排程若照舊參數呼叫，會被擋下並回非 0）。
+if [[ "$APPLY" == true && "$FORCE" != true ]]; then
+    echo "[BLOCKED] 拒絕執行：本腳本自 2026-08-02 起不應執行（見檔頭三點理由）。" >&2
+    echo "   坤哥（Missive 意識體）與 meta（AaaP 整體大腦）是不同意識體，" >&2
+    echo "   內容不同是 ADR-CK-003 的設計，不是 drift。" >&2
+    echo "   已登記：docs/architecture/TIER3_INTENTIONAL_DIVERGENCE_REGISTRY.md 1.9" >&2
+    echo "   若架構真的改變、確定要同步：加 --i-know-this-is-forbidden 明示。" >&2
+    exit 3
 fi
 
 CYAN='\033[0;36m'
