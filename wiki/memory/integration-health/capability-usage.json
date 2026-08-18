@@ -1,14 +1,14 @@
 {
-  "captured_at": "2026-08-17T20:50:03+00:00",
+  "captured_at": "2026-08-18T00:11:35+00:00",
   "prometheus": "http://127.0.0.1:19090",
   "job": "ck-missive",
   "path_label": "path",
   "window_days": 7,
-  "data_depth_days": 15.12,
+  "data_depth_days": 15.26,
   "data_sufficient": true,
   "min_data_days": 14,
   "path_label_templated_since": "2026-08-04",
-  "days_since_path_label_change": 13,
+  "days_since_path_label_change": 14,
   "schema_settled": true,
   "decision_date": "2026-08-31",
   "counts": {
@@ -21,63 +21,63 @@
   "top_active": [
     [
       "/api/health",
-      38404.21251395164
+      38329.21096984658
     ],
     [
       "/api/system-notifications/unread-count",
-      2802.0908944234243
+      2802.1051777901675
     ],
     [
       "/{spa_path}",
-      2675.0848017702715
+      2686.0848639377978
     ],
     [
       "/api/secure-site-management/csrf-token",
-      2305.0727767273006
+      2306.0728578706485
     ],
     [
       "/api/ai/config",
-      2231.070440294407
+      2231.0864580275597
     ],
     [
       "/api/secure-site-management/navigation/action",
-      2188.0690826374553
+      2188.0872584825843
     ],
     [
       "/api/taoyuan-dispatch/dispatch/contract-projects",
-      2176.0687037564453
+      2176.0867723042006
     ],
     [
       "/api/auth/me",
-      2165.068356448853
+      2165.0863336574425
     ],
     [
       "/api/auth/check",
-      2125.067765677755
+      2125.0866150934285
     ],
     [
       "/api/files/document/{document_id}",
-      1219.038487995913
+      1219.0513762378375
     ],
     [
       "/api/auth/sso-bridge",
-      915.0365458115479
+      906.0348478183722
     ],
     [
       "<unmatched>",
-      341.01893094274726
+      341.01798589472264
     ],
     [
       "/api/projects/list",
-      283.008935277148
+      283.01198708931986
     ],
     [
       "/api/users/list",
-      233.0078708036187
+      233.0102689121044
     ],
     [
       "/api/vendors/list",
-      210.00663041767166
+      210.00986493099592
     ]
   ],
   "zero_traffic_api_candidates": [
