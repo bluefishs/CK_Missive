@@ -45,6 +45,26 @@ CSRF_EXEMPT_PATHS: Set[str] = {
     #   → 後續全站 mutating 403「權限不足」(GlobalApiErrorNotifier 誤標)。
     #   OWASP CSRF Prevention：SameSite=Strict cookie 為認可的 token-less 防護手段。
     "/api/auth/refresh",
+    # 2026-08-18 (L68 的另一面，當時只修了一半)：logout 同樣豁免。
+    #
+    # owner log 實證：`[IdleTimeout] 閒置 60 分鐘，自動登出` →
+    # `POST /api/auth/logout` **403**。
+    #
+    # 死結的形狀與 refresh 完全相同，只是這次是**時間剛好對齊**：
+    #   csrf_token cookie `max_age=3600`（1 小時）
+    #   前端閒置逾時     `DEFAULT_IDLE_TIMEOUT_MS = 60 * 60 * 1000`（60 分鐘）
+    # 兩者同時到期 ⇒ **閒置登出這條路徑上，CSRF 必然已經不見了**。
+    # 也就是說這不是偶發，是「閒置自動登出」100% 會 403。
+    #
+    # 後果：前端的 `finally { clearAuth() }` 讓本地看起來登出了，
+    # 但**後端沒有清 httpOnly cookie** —— access/refresh token 還留在瀏覽器裡。
+    # 使用者以為登出了，實際憑證還在。這比「登出失敗並提示」更糟。
+    #
+    # 豁免的安全性理由與 refresh 相同：這兩支都靠 httpOnly + SameSite=Strict
+    # 的 cookie 認身分，跨站請求不會帶上 → 已自帶 CSRF 防護。
+    # 且 logout 的 CSRF 風險本來就低（最壞情況是被強制登出，
+    # OWASP 明列為可接受豁免）。
+    "/api/auth/logout",
     "/api/secure-site-management/csrf-token",  # CSRF token issue endpoint（雞生蛋）
     "/health",
     "/health/detailed",

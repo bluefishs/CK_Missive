@@ -77,6 +77,33 @@ export const useClientOptions = () => {
   return { clients: data ?? [], isLoading };
 };
 
+/**
+ * 協力廠商下拉選單 Hook (vendor_type=subcontractor)
+ *
+ * 2026-08-18 owner：「其協力廠商應對應資料庫提供下拉選單，非自行填列」。
+ *
+ * 應付填報頁原本是 `<Input placeholder="廠商名稱" />` —— 自行輸入的後果是
+ * 同一家廠商會有多種寫法（有無「股份」「有限公司」、全半形），
+ * 而 `_resolve_vendor_id` 是靠名稱去配對 `partner_vendors` 的 ——
+ * **名字打不一樣就配不到，應付與廠商主檔從此對不起來。**
+ *
+ * 這是 `useClientOptions`（委託單位）的對稱面 —— 那一支早就有，
+ * 而協力廠商這一側一直沒有。實測庫裡有 23 家 subcontractor。
+ */
+export const useSubcontractorOptions = () => {
+  const { data, isLoading } = useQuery({
+    queryKey: ['subcontractors-dropdown'],
+    queryFn: async () => {
+      const { vendorsApi } = await import('../../api/vendorsApi');
+      const resp = await vendorsApi.getVendors({ vendor_type: 'subcontractor', limit: 200 });
+      return resp.items ?? [];
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  return { subcontractors: data ?? [], isLoading };
+};
+
 /** 作業性質下拉選項 (從 DB 取得) */
 export const useCaseNatureOptions = () => {
   const { data, isLoading } = useQuery({

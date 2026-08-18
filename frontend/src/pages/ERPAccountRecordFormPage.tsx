@@ -18,9 +18,9 @@
  * 直呼 ERP_ENDPOINTS），避免「換了入口也換了行為」。
  */
 
-import React, { useEffect, useMemo } from 'react';
-import { Form, Input, InputNumber, DatePicker, Select, App, Button, Popconfirm } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Form, Input, InputNumber, DatePicker, Select, App, Button, Popconfirm, Divider, Space } from 'antd';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -32,6 +32,8 @@ import { ROUTES } from '../router/types';
 import { BILLING_PERIOD_OPTIONS } from '../types/erp';
 import type { ERPBilling, ERPVendorPayable } from '../types/erp';
 import { useResponsive } from '../hooks';
+import { useSubcontractorOptions } from '../hooks/business/useDropdownData';
+import { extractApiMessage } from '../utils/apiMessage';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
 
 const amountFormatter = (v: unknown) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -115,6 +117,27 @@ const ERPAccountRecordFormPage: React.FC = () => {
       });
     }
   }, [record, isReceivable, form]);
+
+
+  // 協力廠商下拉（2026-08-18）—— 值用 vendor_name 以維持後端欄位不變。
+  const { subcontractors, isLoading: subLoading } = useSubcontractorOptions();
+  const [newVendorName, setNewVendorName] = useState('');
+  const qc = useQueryClient();
+  const handleAddVendor = async () => {
+    const name = newVendorName.trim();
+    if (!name) return;
+    try {
+      const { vendorsApi } = await import('../api/vendorsApi');
+      await vendorsApi.createVendor({ vendor_name: name, vendor_type: 'subcontractor' });
+      // 讓下拉立刻看得到新廠商 —— 不重整清單的話使用者會以為沒新增成功
+      await qc.invalidateQueries({ queryKey: ['subcontractors-dropdown'] });
+      form.setFieldValue('vendor_name', name);
+      setNewVendorName('');
+      message.success('已新增協力廠商');
+    } catch (e) {
+      message.error(extractApiMessage(e, '新增廠商失敗'));
+    }
+  };
 
   const backToQuotation = () => {
     navigate(`${ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(qid))}?tab=${isReceivable ? 'receivable' : 'payable'}`);
@@ -253,8 +276,48 @@ const ERPAccountRecordFormPage: React.FC = () => {
           </>
         ) : (
           <>
-            <Form.Item name="vendor_name" label="協力廠商" rules={[{ required: true, message: '請輸入廠商名稱' }]}>
-              <Input placeholder="廠商名稱" />
+            {/* 2026-08-18 owner：「其協力廠商應對應資料庫提供下拉選單，非自行填列」。
+
+                原本是自由輸入 —— 後果是同一家廠商會有多種寫法（有無「股份」
+                「有限公司」、全半形），而後端 `_resolve_vendor_id` 是**靠名稱**
+                去配對 `partner_vendors` 的：名字打不一樣就配不到，
+                應付與廠商主檔從此對不起來，而**兩邊都不會報錯**。
+
+                沿用專案既有規約：Select 找不到選項時由 `dropdownRender` 提供
+                即時新增（同 `ContractCaseVendorFormPage`），
+                不逼使用者離開這一頁去建廠商。
+
+                送出的仍是 `vendor_name`（後端欄位沒變），只是值改為從清單挑。 */}
+            <Form.Item name="vendor_name" label="協力廠商" rules={[{ required: true, message: '請選擇協力廠商' }]}>
+              <Select
+                showSearch
+                allowClear
+                placeholder="選擇或新增協力廠商"
+                optionFilterProp="label"
+                loading={subLoading}
+                options={subcontractors.map((v) => ({
+                  label: v.vendor_name,
+                  value: v.vendor_name,
+                }))}
+                dropdownRender={(menu) => (
+                  <>
+                    {menu}
+                    <Divider style={{ margin: '8px 0' }} />
+                    <Space style={{ padding: '0 8px 4px' }}>
+                      <Input
+                        placeholder="輸入新廠商名稱"
+                        value={newVendorName}
+                        onChange={(e) => setNewVendorName(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        size="small"
+                      />
+                      <Button type="link" icon={<PlusOutlined />} size="small" onClick={handleAddVendor}>
+                        新增
+                      </Button>
+                    </Space>
+                  </>
+                )}
+              />
             </Form.Item>
             <Form.Item name="payable_amount" label="應付金額" rules={[{ required: true, message: '請輸入應付金額' }]}>
               <InputNumber style={{ width: '100%' }} min={0} inputMode="numeric" formatter={amountFormatter} />

@@ -37,7 +37,19 @@ class ERPVendorPayableService(AuditableServiceMixin):
         # 與請款同型（見 billing_service.create 的說明）。
         # 實測 CK2026_PM_01_005 已有兩筆同廠商同金額的應付（id 65/66）。
         #
-        # 判準＝同報價 ＋ 同廠商 ＋ 同金額。不看 due_date（可空）。
+        # 判準＝同報價 ＋ 同廠商 ＋ 同金額 ＋ **同期別**。不看 due_date（可空）。
+        #
+        # ⚠️ 2026-08-18 修正：原本沒有期別這一項，於是**分期付款被擋住** ——
+        # owner 在 `/erp/quotations/161/accounts/payable/create` 撞到 400，
+        # 而該報價已有一筆「金粟科技 900,000 第一期」，要新增的是第二期。
+        #
+        # 同廠商、同金額、不同期別**是分期付款的正常樣貌**，不是重複。
+        # 我 08-18 稍早才補上 `payable_period` 欄位，卻沒同步這個判準 ——
+        # **加了新欄位就要問：有哪些既有邏輯應該把它算進去？**
+        #
+        # 兩筆都沒填期別時仍會被擋（NULL = NULL 在 SQL 裡不成立，
+        # 所以用 IS NOT DISTINCT FROM 讓「都沒填」也視為相同）——
+        # 那才是真正無法分辨的情況，而訊息已經告訴使用者怎麼區分。
         from sqlalchemy import and_, select as _sel
 
         dup = (await self.db.execute(
@@ -45,13 +57,18 @@ class ERPVendorPayableService(AuditableServiceMixin):
                 ERPVendorPayable.erp_quotation_id == data.erp_quotation_id,
                 ERPVendorPayable.vendor_name == data.vendor_name,
                 ERPVendorPayable.payable_amount == data.payable_amount,
+                ERPVendorPayable.payable_period.is_not_distinct_from(
+                    data.payable_period
+                ),
             )).limit(1)
         )).scalars().first()
         if dup:
+            same_period = f"（{data.payable_period}）" if data.payable_period else ""
             raise ValueError(
-                f"已有相同的應付紀錄（{data.vendor_name}："
-                f"NT$ {int(data.payable_amount):,}）。"
-                "若確實有第二筆，請在說明或發票號碼標明差異後再送出。"
+                f"已有相同的應付紀錄{same_period}：{data.vendor_name} "
+                f"NT$ {int(data.payable_amount):,}。"
+                "若這是不同期的款項，請填「期別」；"
+                "若確實是同期的第二筆，請在說明或發票號碼標明差異後再送出。"
             )
 
         create_data = data.model_dump()
