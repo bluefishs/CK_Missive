@@ -64,7 +64,51 @@ TABLES_TO_CHECK = [
     #（機關那筆是「南投縣埔⾥地政事務所」的 `里` U+F9E9，
     # 前後看起來完全相同 —— 本專案在 wiki 連結那次踩過同一個字）。
     ('project_agency_contacts', ['contact_name', 'department', 'position']),
+    # 2026-08-18 同日稍後：**全庫掃描**（477 個文字欄位）而不是只看白名單 ——
+    # 白名單本身就是「拿看得見的東西當分母」，它只涵蓋 27 欄。
+    #
+    # 掃出 **29 個欄位 / 約 1,500 筆**帶康熙部首或相容漢字，
+    # 而實害已經在三個層級發生：
+    #
+    #   機關      `南投縣埔里地政事務所` 兩筆並存（id 42 正常字／146 U+2FA5）
+    #   KG        canonical 兩組重複：`115年度`(52/42477)、
+    #             `國強一街至文中路道路開闢工程`(286/14908)
+    #   實體解析  `document_entities` **28 個不重複名稱**永遠併不進 canonical
+    #
+    # KG 的整個價值就建立在名稱比對上，而這幾欄原本不在白名單裡。
+    ('document_entities', ['entity_name']),
+    ('entity_relations', ['source_entity_name', 'target_entity_name']),
+    ('documents', ['receiver']),
 ]
+
+# ---------------------------------------------------------------------------
+# 刻意**不**正規化的欄位（2026-08-18 全庫掃描後的判斷）
+#
+# 全庫 29 個受污染欄位裡，只有上面那些該修。其餘分兩類，改了反而是錯的：
+#
+# ① **原文快照** —— 改了就與來源不一致，日後對不回去
+#      tender_records.raw_data(365) / .title(365)   外部爬來的原始資料
+#      document_entities.context(31)                抽取當下的上下文片段
+#      document_entity_mentions.context(20)         同上
+#      document_chunks.chunk_text(7)                文件切片，改了與原文不符
+#      tender_match_review.pcc_title(28)            外部來源的原始標題
+#
+# ② **歷史事實** —— 那是「當時發生了什麼」，不是可以整理的資料
+#      audit_logs.changes(109)                      稽核紀錄
+#      system_notifications.message(245)            已經送出去的訊息
+#      agent_query_traces.*(5)                      當時的問答紀錄
+#      event_reminders.title/message(6)             已送出的提醒
+#
+# ③ 純顯示、不參與比對 —— 修了沒有壞處也沒有好處，不值得動生產資料
+#      document_calendar_events.title(63)/.description(14)
+#      taoyuan_work_records.description(18)
+#      canonical_entities.description(2) / entity_relations.relation_label(2)
+#      erp_invoices/erp_vendor_payables/finance_ledgers.description(各 1)
+#      contract_projects.project_path(1)
+#
+# 判準：**這個欄位有沒有人拿去和別的東西比對？** 有 → 正規化；
+# 沒有 → 不動（動生產資料要有理由，「看起來不整齊」不是理由）。
+NOT_NORMALIZED_REASON = "見上方註解：原文快照／歷史事實／純顯示欄位刻意不動"
 
 # 安全性：建立允許的表名和列名白名單
 ALLOWED_TABLES = {t[0] for t in TABLES_TO_CHECK}

@@ -183,7 +183,38 @@ UNION ALL
 SELECT 'documents.subject',
        count(*) FILTER (WHERE subject IS NOT NULL AND _has_cjk_compat(subject)),
        count(*)
-FROM documents;
+FROM documents
+-- 2026-08-18 擴充：原本只看三欄，而**全庫掃描（477 個文字欄位）揪出 29 欄
+-- 約 1,500 筆**。三欄與 29 欄的差距不是判定寬鬆，是那些欄位不在座標系裡。
+--
+-- 只納入**比對用**的欄位（有人拿它去和別的東西比對）。
+-- 原文快照（tender_records.raw_data、*.context、chunk_text）與
+-- 歷史事實（audit_logs.changes、已送出的通知）刻意不納 ——
+-- 改了就與來源不一致，而「看起來不整齊」不是動生產資料的理由。
+-- 完整分類見 `app/scripts/normalize_unicode.py: NOT_NORMALIZED_REASON` 上方註解。
+--
+-- 實害已在三個層級發生：機關重複 1 組、KG canonical 重複 2 組、
+-- document_entities 28 個名稱併不進 canonical。
+UNION ALL
+SELECT 'canonical_entities.canonical_name',
+       count(*) FILTER (WHERE _has_cjk_compat(canonical_name)), count(*)
+FROM canonical_entities
+UNION ALL
+SELECT 'entity_aliases.alias_name',
+       count(*) FILTER (WHERE _has_cjk_compat(alias_name)), count(*)
+FROM entity_aliases
+UNION ALL
+SELECT 'document_entities.entity_name',
+       count(*) FILTER (WHERE entity_name IS NOT NULL AND _has_cjk_compat(entity_name)), count(*)
+FROM document_entities
+UNION ALL
+SELECT 'government_agencies.agency_name',
+       count(*) FILTER (WHERE _has_cjk_compat(agency_name)), count(*)
+FROM government_agencies
+UNION ALL
+SELECT 'project_agency_contacts.department',
+       count(*) FILTER (WHERE department IS NOT NULL AND _has_cjk_compat(department)), count(*)
+FROM project_agency_contacts;
 """
 
 # PostgreSQL 沒有現成的「含相容漢字」判斷；用一次性 SQL 函式定義，
