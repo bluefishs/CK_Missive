@@ -100,6 +100,12 @@ def get_default_csp() -> str:
       accounts.google.com  Google OAuth 登入
       www.cksurvey.tw      SSO IdP（/auth/renew、/auth/verify）
       access.line.me       LINE 登入（redirect 走 form-action，非 connect-src）
+      static.cloudflareinsights.com / cloudflareinsights.com
+                           CF Web Analytics beacon
+                           ⚠️ 這一項是 **Report-Only 實測才抓到的**：靜態分析 dashboard 頁面的
+                           實際載入來源時發現它，而第一版 CSP 沒放行 —— 若當初直接上強制，
+                           analytics 會靜默失效（beacon 被擋不會有任何畫面異常）。
+                           lh3.googleusercontent.com（Google 頭像）則已被 img-src 的 https: 涵蓋。
 
     script-src 目前仍保留 'unsafe-inline'/'unsafe-eval'（React 生態常見需求）。
     收緊它屬於另一件事，不該和「先讓 CSP 存在」混在一起做 —— 一次改太多，
@@ -107,12 +113,13 @@ def get_default_csp() -> str:
     """
     return (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com "
+        "https://apis.google.com https://static.cloudflareinsights.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' data: https://fonts.gstatic.com; "
         "img-src 'self' data: blob: https:; "
         "connect-src 'self' https://www.cksurvey.tw https://accounts.google.com "
-        "https://oauth2.googleapis.com https://www.googleapis.com; "
+        "https://oauth2.googleapis.com https://www.googleapis.com https://cloudflareinsights.com; "
         "frame-src https://accounts.google.com; "
         "frame-ancestors 'none'; "
         "object-src 'none'; "
