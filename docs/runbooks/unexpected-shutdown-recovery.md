@@ -1,7 +1,44 @@
 # 異常關機後的復原檢查（Unexpected Shutdown Recovery）
 
 > 建立：2026-08-12（觸發事件：本機凌晨異常關機，cron 事件 02:52 斷至 05:43）
+> 更新：2026-08-18（下午 15:36 斷電，16:13 恢復 —— 新增 §0「恢復窗口」與 §5 停用排程）
 > 適用：**非計畫性**的關機／斷電／休眠卡死。計畫性重啟走 `reboot-acceptance-checklist.md`。
+
+## §0 先等 20 分鐘再查 —— 恢復窗口內量到的東西不能當證據
+
+⚠️ **這一節放在最前面，是因為它會讓你去追一個不存在的問題。**
+
+2026-08-18 開機後約 17 分鐘（16:30）量測，得到：
+
+```
+CK-Missive-Offsite-Backup        | State=Disabled | Settings.Enabled=False
+CK_lvrland_Webmap-Offsite-Backup | State=Disabled | Settings.Enabled=False
+CK_DigitalTunnel-MinIO-Offsite   | State=Disabled | Settings.Enabled=False
+CK_PileMgmt_PM2_Autostart        | State=Disabled | Settings.Enabled=False
+```
+
+**三個異地備份同時被停用**看起來像重大事故（而當天 15:26 的 pre-flight 白紙黑字
+記著「27 支全部 Ready」，兩相對照更像是斷電把它們弄壞了）。
+
+20 分鐘後（16:49）重新量測 —— **四支全部是 `Ready` / `Enabled=True`，我沒有做任何啟用操作**。
+
+同一個窗口還產生了第二個假訊號：`CK_lvrland_Webmap/docs/health/static-checks.json`
+在 **16:25**（開機後 12 分）被寫成 `state: RED, fail: 1`，而同一支檢核重跑
+是 **23 步全 PASS / OVERALL=GREEN / exit 0**。
+
+### 規則
+
+| 開機後經過 | 可以相信什麼 |
+|---|---|
+| < 20 分鐘 | **只相信「服務在不在」**（容器 status、公網 200、`/health` 業務量）。排程狀態、檢核結果檔一律不採信 |
+| > 20 分鐘 | 全部重量一次，**以第二次為準** |
+
+判準是「同一件事量兩次，兩次一致才算數」——這比訂一個精確的等待秒數可靠，
+因為 Task Scheduler 服務重建的時間不是固定的。
+
+**任何在恢復窗口內產生的結果檔都要重跑覆蓋**，否則它會一直紅著，而下游
+（例如 `windows_task_liveness_audit` 會去讀別的 repo 的結果檔）會照著它報 RED，
+於是一個早就消失的問題被持續當成現存問題。
 
 ## 為什麼需要這一份
 

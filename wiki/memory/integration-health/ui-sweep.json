@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-17T20:39:34.652Z",
+ "checked_at": "2026-08-18T13:13:28.441Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 87,
  "fail": 0,
@@ -83,6 +83,8 @@
   "/tender/dashboard",
   "/tender/org-ecosystem",
   "/tender/company-profile",
+  "/kunge",
+  "/kunge/chat",
   "/kunge/mind",
   "/kunge/evolution",
   "/kunge/graph",
@@ -90,9 +92,7 @@
   "/kunge/identity",
   "/kunge/memory",
   "/kunge/nebula",
-  "/kunge/dialogues",
-  "/kunge",
-  "/kunge/chat"
+  "/kunge/dialogues"
  ],
  "route_apis": {
   "/documents": [
@@ -965,6 +965,15 @@
    "/api/system-notifications/unread-count",
    "/api/taoyuan-dispatch/dispatch/contract-projects"
   ],
+  "/kunge/chat": [
+   "/api/ai/config",
+   "/api/auth/check",
+   "/api/auth/me",
+   "/api/secure-site-management/csrf-token",
+   "/api/secure-site-management/navigation/action",
+   "/api/system-notifications/unread-count",
+   "/api/taoyuan-dispatch/dispatch/contract-projects"
+  ],
   "/kunge/mind": [
    "/api/ai/config",
    "/api/ai/memory/soul",
@@ -1046,15 +1055,6 @@
   "/kunge/dialogues": [
    "/api/ai/config",
    "/api/ai/memory/soul",
-   "/api/auth/check",
-   "/api/auth/me",
-   "/api/secure-site-management/csrf-token",
-   "/api/secure-site-management/navigation/action",
-   "/api/system-notifications/unread-count",
-   "/api/taoyuan-dispatch/dispatch/contract-projects"
-  ],
-  "/kunge/chat": [
-   "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
    "/api/secure-site-management/csrf-token",
@@ -1343,7 +1343,7 @@
    {
     "route": "/erp/quotations/168",
     "viewportWidth": 768,
-    "pageOverflow": 19,
+    "pageOverflow": 151,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
@@ -1371,21 +1371,21 @@
    {
     "route": "/erp/quotations/168?tab=receivable",
     "viewportWidth": 768,
-    "pageOverflow": 19,
+    "pageOverflow": 151,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
    {
     "route": "/erp/quotations/168?tab=payable",
     "viewportWidth": 768,
-    "pageOverflow": 19,
+    "pageOverflow": 151,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
    {
     "route": "/erp/quotations/168?tab=expenses",
     "viewportWidth": 768,
-    "pageOverflow": 19,
+    "pageOverflow": 151,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
