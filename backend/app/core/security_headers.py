@@ -38,6 +38,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         referrer_policy: str = "strict-origin-when-cross-origin",
         permissions_policy: str = "geolocation=(), microphone=(), camera=()",
         content_security_policy: str = None,
+        content_security_policy_report_only: str = None,
     ):
         super().__init__(app)
         self.x_frame_options = x_frame_options
@@ -46,6 +47,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         self.referrer_policy = referrer_policy
         self.permissions_policy = permissions_policy
         self.content_security_policy = content_security_policy
+        self.content_security_policy_report_only = content_security_policy_report_only
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         response = await call_next(request)
@@ -69,24 +71,51 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         if self.content_security_policy:
             response.headers["Content-Security-Policy"] = self.content_security_policy
 
+        # CSP Report-Only（2026-08-18 新增）
+        # 上線一份新的 CSP 之前先跑這個：瀏覽器會照常載入所有資源，
+        # 只把「若強制執行會被擋的東西」報到 console 的 securitypolicyviolation。
+        # 對這個系統特別重要的一點：前端 bundle 內有
+        # `https://www.cksurvey.tw/auth/renew`（SSO 滑動續期），
+        # connect-src 若漏掉它，使用者會在 8 小時後被登出而且**沒有任何錯誤畫面** —— 
+        # 同一個坑 lvrland 在 2026-08-09 踩過（fetch 被 CSP 擋、只有 console.warn）。
+        if self.content_security_policy_report_only:
+            response.headers["Content-Security-Policy-Report-Only"] = (
+                self.content_security_policy_report_only
+            )
+
         return response
 
 
 def get_default_csp() -> str:
     """
-    取得預設的 Content Security Policy
+    預設 Content Security Policy。
 
-    注意: CSP 需要根據實際應用需求調整
+    ⚠️ 2026-08-18 修正：原本這份缺了 `https://www.cksurvey.tw`，
+    而前端 bundle 內確實有 `https://www.cksurvey.tw/auth/renew`（SSO 滑動續期）。
+    若照原樣強制執行，續期 fetch 會被 connect-src 擋掉 —— 而那個失敗是**靜默的**：
+    共享模組只會 console.warn，使用者照樣在 8 小時後被中斷、動作遺失。
+    lvrland 在 2026-08-09 就是這樣被擋了兩天（見 CK_Website#docs/SSO-SLIDING-RENEWAL.md）。
+
+    各項來源都對照過 prod bundle 實測：
+      accounts.google.com  Google OAuth 登入
+      www.cksurvey.tw      SSO IdP（/auth/renew、/auth/verify）
+      access.line.me       LINE 登入（redirect 走 form-action，非 connect-src）
+
+    script-src 目前仍保留 'unsafe-inline'/'unsafe-eval'（React 生態常見需求）。
+    收緊它屬於另一件事，不該和「先讓 CSP 存在」混在一起做 —— 一次改太多，
+    出事時分不出是哪一項造成的。
     """
     return (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com; "
-        "img-src 'self' data: https:; "
-        "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
+        "img-src 'self' data: blob: https:; "
+        "connect-src 'self' https://www.cksurvey.tw https://accounts.google.com "
+        "https://oauth2.googleapis.com https://www.googleapis.com; "
         "frame-src https://accounts.google.com; "
+        "frame-ancestors 'none'; "
         "object-src 'none'; "
         "base-uri 'self'; "
-        "form-action 'self';"
+        "form-action 'self' https://accounts.google.com https://access.line.me;"
     )

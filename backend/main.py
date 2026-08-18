@@ -643,8 +643,20 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(LoggingMiddleware, log_manager=log_manager)
 
 # --- 🛡️ 安全標頭中間件 (v1.27.0) ---
-from app.core.security_headers import SecurityHeadersMiddleware
-app.add_middleware(SecurityHeadersMiddleware)
+from app.core.security_headers import SecurityHeadersMiddleware, get_default_csp
+# 2026-08-18：本系統公網原本**完全沒有 CSP**（header 與 meta 皆無）。
+# 這支 middleware 一直支援 CSP、`get_default_csp()` 也早就寫好，
+# 只是註冊時沒有把它接上 —— 屬於「寫好了沒接線」而不是「沒寫」。
+#
+# 先掛 **Report-Only**：瀏覽器照常載入所有資源，只把「若強制執行會被擋的」
+# 報到 securitypolicyviolation。確認主要頁面零 violation 後，
+# 再把參數改成 content_security_policy=... 轉為強制。
+# 直接上強制的風險是具體的：漏掉一個來源就會靜默壞掉某個功能，
+# 而 CSP 造成的失敗多半沒有錯誤畫面。
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    content_security_policy_report_only=get_default_csp(),
+)
 
 # --- 🛡️ CSRF 防護中間件 (v1.44.0) ---
 from app.core.csrf import CSRFMiddleware
