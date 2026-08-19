@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ============================================================================
@@ -24,6 +24,29 @@ class TenderSearchRequest(BaseModel):
 class TenderDetailRequest(BaseModel):
     unit_id: str = Field(..., description="機關代碼 或 ezbid_id")
     job_number: Optional[str] = Field(None, description="標案案號（ezbid 時可為空）")
+
+    @field_validator("unit_id", "job_number", mode="before")
+    @classmethod
+    def _undo_url_encoding(cls, v):
+        """把殘留的 URL 編碼還原（`%3D` → `=`）。
+
+        PCC 的 `unit_id` 是 base64，尾端常有 `=`（例如 `NzEzMDQ3MzI=`）。
+        它出現在路由路徑上會被編成 `%3D`，而還原這件事只要**任何一段**
+        漏掉，送到這裡的就是 `NzEzMDQ3MzI%3D` —— 那個值在資料庫裡不存在，
+        於是查無資料。
+
+        2026-08-19 owner 連續回報三個 `%3D` 開頭的網址「沒有任何標案資料」，
+        實測其中 `NzEzMDQ3MzI=/NLSC-115-83` 在資料庫裡**是存在的**
+        （id=108985，當天公告的標樁採購案）—— 斷的是編碼還原不是資料。
+
+        修在收件端而不是去追哪一段漏了解碼：這個欄位有多個來源
+        （搜尋結果連結、書籤、外部貼進來的網址），逐一修等於維護多份判準，
+        而 base64 本身不含 `%`，看到 `%` 就是編碼殘留，還原它是安全的。
+        """
+        if isinstance(v, str) and "%" in v:
+            from urllib.parse import unquote
+            return unquote(v)
+        return v
 
 
 class TenderCompanySearchRequest(BaseModel):
