@@ -1,6 +1,8 @@
 """ERP 報價 API 端點 (POST-only)"""
 import io
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 
@@ -11,9 +13,12 @@ from app.schemas.erp import (
     ERPQuotationCreate, ERPQuotationUpdate, ERPQuotationResponse,
     ERPQuotationListRequest,
     ERPIdRequest, ERPQuotationUpdateRequest, ERPQuotationIdRequest,
+    ERPQuotationExportRequest,
     ERPSummaryRequest, ERPGenerateCodeRequest,
 )
 from app.schemas.common import PaginatedResponse, SuccessResponse, DeleteResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -32,9 +37,16 @@ async def list_quotations(
 async def create_quotation(
     data: ERPQuotationCreate,
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
 ):
-    """建立報價"""
-    result = await service.create(data)
+    """建立報價。
+
+    ⚠️ `user_id` 一定要傳：`service.create` 早就用它寫 `created_by`，
+    但這裡原本沒傳 —— 於是 **77 張報價單的 `created_by` 全部是 NULL**
+    （2026-08-18 實測），而正式報價單的「服務人員／E-mail」正是取自它。
+    欄位存在、service 支援、端點不傳 = 半接通，沒有任何一層會報錯。
+    """
+    result = await service.create(data, user_id=current_user.id)
     return SuccessResponse(data=result, message="報價建立成功")
 
 
@@ -171,12 +183,14 @@ async def download_import_template(
 async def import_quotations(
     file: UploadFile = File(...),
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
 ):
     """匯入報價 Excel (.xlsx/.xls)"""
     if not file.filename or not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="僅支援 .xlsx/.xls 格式")
     content = await file.read()
-    result = await service.import_from_excel(content)
+    # 與單筆建立同理：匯入進來的報價一樣要記得是誰匯的（見 create_quotation）
+    result = await service.import_from_excel(content, user_id=current_user.id)
     return SuccessResponse(data=result)
 
 
@@ -207,17 +221,19 @@ async def generate_case_code(
 
 @router.post("/export-document")
 async def export_quotation_document(
-    request: ERPQuotationIdRequest,
+    request: ERPQuotationExportRequest,
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
     current_user: User = Depends(require_auth()),
 ):
-    """輸出報價單正式文件（xlsx）。
+    """輸出報價單正式文件（xlsx／pdf），並自動存進系統。
 
-    owner 2026-08-17：「新增報價單要可輸出正式文件，非僅資料列表用途」。
+    owner 2026-08-17：「新增報價單要可輸出正式文件，非僅資料列表用途」
+    owner 2026-08-18：「報價單要能輸出 pdf 並且自動納入系統存檔」
 
     以 `app/templates/quotation_template.xlsx` 為底填值 —— 該範本取自
-    owner 2026-08-18 提供的實際報價單，內含公司抬頭圖片、框線、
-    合計公式與簽章欄。換版面是換那個檔，不是改這裡。
+    owner 提供的實際報價單，內含公司抬頭圖片、框線、合計公式與簽章欄。
+    **換版面是換那個檔，不是改這裡**；PDF 也是從同一份 xlsx 轉出，
+    所以版面永遠只有一份來源。
     """
     from urllib.parse import quote
 
@@ -227,25 +243,45 @@ async def export_quotation_document(
     try:
         data = await doc.gather(request.erp_quotation_id)
         content = doc.render_xlsx(data)
+        if request.format == "pdf":
+            content = doc.render_pdf(content)
     except ValueError as e:
         # 找不到報價、或明細超過範本列數 —— 兩者都要讓使用者看到原因，
         # 而不是一個沒有訊息的 500。
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=500, detail=str(e))
+    except RuntimeError as e:
+        # PDF 轉換失敗（缺 LibreOffice／soffice 卡住／產物不是 PDF）。
+        # 不退回 xlsx 假裝成功 —— 那會讓使用者拿到副檔名 .pdf 卻打不開的檔案。
+        raise HTTPException(status_code=500, detail=f"PDF 轉換失敗：{e}")
+
+    ext = request.format
+    if request.archive:
+        try:
+            await doc.archive(data, content, ext, current_user.id)
+        except Exception as e:
+            # 存檔失敗**不擋下載**（使用者手上這份仍是好的），
+            # 但一定要出聲：靜靜地沒存進系統，正是最不會被發現的那種失敗。
+            logger.error("報價單存檔失敗 qid=%s: %s", request.erp_quotation_id, e, exc_info=True)
 
     filename = doc.suggest_filename(data)
+    if ext == "pdf":
+        filename = filename.rsplit(".", 1)[0] + ".pdf"
     # ⚠️ 檔名含中文（案名），必須用 RFC 5987 `filename*=UTF-8''…`。
     # 既有匯出端點全是 ASCII 檔名所以沒踩到這件事；
     # 只給 `filename=` 的話瀏覽器會存成亂碼或直接截斷。
     # 同時保留一個 ASCII 後備給不支援 RFC 5987 的舊客戶端。
-    ascii_fallback = f"quotation_{data['quotation_no'] or data['quotation_id']}.xlsx"
+    ascii_fallback = f"quotation_{data['quotation_no'] or data['quotation_id']}.{ext}"
     disposition = (
         f"attachment; filename=\"{ascii_fallback}\"; "
         f"filename*=UTF-8''{quote(filename)}"
     )
     return StreamingResponse(
         iter([content]),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        media_type=(
+            "application/pdf" if ext == "pdf"
+            else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
         headers={"Content-Disposition": disposition},
     )

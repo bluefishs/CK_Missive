@@ -7,7 +7,8 @@ logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app.core.dependencies import get_service
+from app.core.dependencies import get_service, require_auth
+from app.extended.models import User
 from app.services.pm import PMCaseService
 from app.schemas.pm import (
     PMCaseCreate, PMCaseUpdate, PMCaseResponse,
@@ -35,10 +36,15 @@ async def list_cases(
 async def create_case(
     data: PMCaseCreate,
     service: PMCaseService = Depends(get_service(PMCaseService)),
+    current_user: User = Depends(require_auth()),
 ):
-    """建立案件 — 含重複檢查、案號格式驗證"""
+    """建立案件 — 含重複檢查、案號格式驗證
+
+    ⚠️ `user_id` 一定要傳：`service.create` 用它寫 `created_by`，
+    原本沒傳 —— 與報價單同型（2026-08-18 掃出，見 erp/quotations.py）。
+    """
     try:
-        result = await service.create(data)
+        result = await service.create(data, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     return SuccessResponse(data=result, message="案件建立成功")

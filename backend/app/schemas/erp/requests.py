@@ -3,7 +3,7 @@
 所有 ERP 端點的 BaseModel 請求定義集中於此，
 禁止在 api/endpoints/ 中定義本地 BaseModel。
 """
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 from .quotation import ERPQuotationUpdate
@@ -24,6 +24,22 @@ class ERPIdRequest(BaseModel):
 class ERPQuotationIdRequest(BaseModel):
     """以 erp_quotation_id 查詢的請求 (廠商應付/請款/發票列表)"""
     erp_quotation_id: int
+
+
+class ERPQuotationExportRequest(BaseModel):
+    """報價單正式文件輸出（xlsx／pdf）＋自動存檔。
+
+    ⚠️ 刻意**不共用** `ERPQuotationIdRequest`：那個物件同時被
+    billings／invoices／vendor_payables／quotations **4 個端點**使用，
+    在它上面加欄位等於同時改動 4 條與輸出無關的路徑。
+    2026-08-17 的「編輯應收/應付一律 422」正是 Create 與 Update
+    共用同一個 payload 造成的 —— 同一個坑不踩第二次。
+    """
+    erp_quotation_id: int
+    #: 產出格式。pdf 由 LibreOffice 從同一份 xlsx 轉出（版面只有一份來源）
+    format: Literal["xlsx", "pdf"] = "xlsx"
+    #: 是否同時存進系統（owner 2026-08-18「自動納入系統存檔」，只保留最新一份）
+    archive: bool = True
 
 
 # ============================================================================

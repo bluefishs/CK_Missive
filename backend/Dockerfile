@@ -55,10 +55,24 @@ RUN adduser --system --group appuser
 #   → 智慧掃描三條路徑（QR / OCR / 視覺）全部不可用，但端點仍回 200 + success:false
 #   → 使用者只看到「未辨識出發票資訊，請手動填寫」＝沉默失敗。
 #   實證：唯一成功的 smart_qr 紀錄是 2026-04-09（PM2 時代），改 Docker 後再無成功。
+# 報價單正式文件轉 PDF（owner 2026-08-18）：libreoffice-calc + fonts-noto-cjk
+#
+# 用 LibreOffice 而非在程式碼裡重畫版面 —— 版面的唯一來源是
+# `app/templates/quotation_template.xlsx`，改抬頭或欄位只要換那個檔；
+# 若改用 reportlab 重畫，就會變成 xlsx 一份版面、PDF 一份版面，
+# 日後兩份不一致時沒有任何一方會報錯（本專案反覆踩過的那一類）。
+# fonts-noto-cjk 是必要的：沒有中文字型，PDF 會整片變成方框。
+#
+# ⚠️ 這段註解**必須放在 RUN 之前**，不能插在 `\` 續行中間。
+# 2026-08-19 我第一版就是插在續行裡，結果 `libreoffice-calc fonts-noto-cjk`
+# 被吞掉 —— build log 照樣印出安裝過程、映像照樣 Built，
+# 但映像內 `dpkg -l | grep -c libreoffice` = **0**。
+# 同型事故見 v6.52：註解插進 `COOKIE=... \` 的續行中間，環境變數整個沒套用。
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl postgresql-client \
     libzbar0 libgl1 libglib2.0-0 \
     tesseract-ocr tesseract-ocr-chi-tra tesseract-ocr-eng \
+    libreoffice-calc fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder stage

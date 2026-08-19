@@ -44,7 +44,7 @@ from .operational import (
     OperationalAccountStatsResponse,
 )
 from .requests import (
-    ERPIdRequest, ERPQuotationIdRequest,
+    ERPIdRequest, ERPQuotationIdRequest, ERPQuotationExportRequest,
     ERPQuotationUpdateRequest, ERPSummaryRequest,
     ERPGenerateCodeRequest,
     ERPPayableUpdateRequest, ERPBillingUpdateRequest, ERPInvoiceUpdateRequest,
@@ -82,7 +82,7 @@ __all__ = [
     "OperationalExpenseApproveRequest", "OperationalExpenseRejectRequest",
     "OperationalAccountStatsResponse",
     # Request schemas
-    "ERPIdRequest", "ERPQuotationIdRequest",
+    "ERPIdRequest", "ERPQuotationIdRequest", "ERPQuotationExportRequest",
     "ERPQuotationUpdateRequest", "ERPSummaryRequest",
     "ERPGenerateCodeRequest",
     "ERPPayableUpdateRequest", "ERPBillingUpdateRequest", "ERPInvoiceUpdateRequest",

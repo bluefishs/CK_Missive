@@ -42,6 +42,7 @@ openpyxl **讀不了也寫不了** —— 需先確認副檔名實際格式，
 from __future__ import annotations
 
 import io
+import logging
 from datetime import date, datetime
 from pathlib import Path
 from decimal import Decimal
@@ -57,6 +58,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # —— 本次是我自己手動 import 時撞到，比等到明天早一天。
 from app.extended.models.erp import ERPQuotation
 from app.services.contract.case_code import CaseCodeService
+
+logger = logging.getLogger(__name__)
 
 ZERO = Decimal("0")
 
@@ -262,6 +265,23 @@ class QuotationDocumentService:
     #: 項次的中文數字（範本用「一、二、三、」）
     _CN = "一二三四五六七八九十"
 
+    @staticmethod
+    def _set(ws, coord: str, value: Any) -> None:
+        """寫值，並清掉範本殘留在該格的超連結。
+
+        ⚠️ openpyxl 對「有 hyperlink 但 value=None」的儲存格，存檔時會把
+        hyperlink 的 target 當成顯示值寫出去 —— 於是「清空一個欄位」的結果
+        是印出 `mailto:xxx@gmail.com`。
+
+        範本 E13（服務人員 E-mail）就有這樣一個殘留連結，指向範本原主的信箱；
+        在服務人員取不到值時，它會被印在**每一份**送給客戶的報價單上。
+        2026-08-18 實測：`ws['E13']=None` 存檔後讀回，value 變成
+        `'mailto:david790707@gmail.com'`。清值必須連 hyperlink 一起清。
+        """
+        cell = ws[coord]
+        cell.value = value
+        cell.hyperlink = None
+
     def render_xlsx(self, data: dict[str, Any]) -> bytes:
         """把取料結果填進範本，回傳 xlsx bytes。"""
         from openpyxl import load_workbook
@@ -279,12 +299,12 @@ class QuotationDocumentService:
         for key, cell in self.CELLS.items():
             if key in ("case_code", "quoted_date", "quotation_no"):
                 continue
-            ws[cell] = data.get(key) or None
+            self._set(ws, cell, data.get(key) or None)
 
-        ws[self.CELLS["quotation_no"]] = data["display_no"]
-        ws[self.CELLS["quoted_date"]] = data.get("quoted_date_roc") or None
+        self._set(ws, self.CELLS["quotation_no"], data["display_no"])
+        self._set(ws, self.CELLS["quoted_date"], data.get("quoted_date_roc") or None)
         # 工程編號用內部案號：客戶收到的單子上有它，回頭對帳才對得起來
-        ws[self.CELLS["case_code"]] = data.get("case_code") or None
+        self._set(ws, self.CELLS["case_code"], data.get("case_code") or None)
 
         # ── 明細 ──
         items = data.get("items") or []
@@ -348,6 +368,158 @@ class QuotationDocumentService:
                 f"{cur}\n※ 系統提醒：明細小計與報價總額不一致，請確認後再對外發出。"
             ).strip()
 
+        # ── 列印縮放：讓 PDF 是「一頁寬」──
+        #
+        # 範本的 `fitToWidth`／`scale` 全是 None（沒設過縮放），而 A~G 欄總寬
+        # 超過 A4 直式 —— 2026-08-19 實測轉出來是 **4 頁**：橫向被切成兩半，
+        # 右半頁單獨成頁。一張報價單印成 4 頁送給客戶是不能用的。
+        #
+        # 設在這裡而不是改範本檔：範本是 owner 提供的原件，動它等於在二進位
+        # 檔案裡藏一個看不見的變更；寫在程式裡，每次輸出都保證正確且看得懂。
+        from openpyxl.worksheet.properties import PageSetupProperties
+
+        ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0  # 0＝高度不限，長明細自然往下延頁
+
         buf = io.BytesIO()
         wb.save(buf)
         return buf.getvalue()
+
+    # ── PDF ───────────────────────────────────────────────────────────
+    #
+    # owner 2026-08-18：「報價單要能輸出 pdf」。
+    #
+    # 轉換交給 LibreOffice，**不在程式碼裡重畫版面** —— 版面的唯一來源是
+    # `templates/quotation_template.xlsx`。若用 reportlab 重畫，xlsx 與 PDF
+    # 會各有一份版面，改抬頭要改兩處，而兩份不一致時沒有任何一方會報錯。
+
+    #: soffice 轉檔上限。超過就當它卡住 —— 一個永遠不回來的轉檔，
+    #: 症狀會是「按匯出之後什麼都沒發生」，比明確失敗更難查。
+    PDF_TIMEOUT_SEC = 120
+
+    @classmethod
+    def render_pdf(cls, xlsx_bytes: bytes) -> bytes:
+        """把 xlsx 轉成 PDF；失敗一律 raise，不退回 xlsx 假裝成功。"""
+        import shutil
+        import subprocess
+        import tempfile
+        import uuid
+
+        soffice = shutil.which("soffice") or shutil.which("libreoffice")
+        if soffice is None:
+            # 明確講出缺什麼。靜默退回 xlsx 會讓使用者拿到副檔名是 .pdf
+            # 但其實是 xlsx 的檔案 —— 那種檔案打不開，而且看不出原因。
+            raise RuntimeError(
+                "容器內找不到 LibreOffice（soffice）——"
+                "PDF 轉換需要它，見 backend/Dockerfile 的 libreoffice-calc"
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "quotation.xlsx"
+            src.write_bytes(xlsx_bytes)
+            # ⚠️ `-env:UserInstallation` 是必要的，不是保險：
+            # soffice 預設要在 $HOME 建設定檔，而容器內跑 job 的身分未必有
+            # 可寫的 HOME。2026-08-15 就有一次 `pip-audit` 因為
+            # `PermissionError: /nonexistent` 而**從來沒有跑起來過**，
+            # 且三個 except 都只寫 logger.debug ⇒ 看起來像「沒有問題」。
+            # 這裡指定一個一定可寫的 profile 目錄，從源頭避開同一件事。
+            profile = f"file://{tmp}/lo_{uuid.uuid4().hex[:8]}"
+            proc = subprocess.run(
+                [soffice, "--headless", "--norestore", f"-env:UserInstallation={profile}",
+                 "--convert-to", "pdf", "--outdir", tmp, str(src)],
+                capture_output=True, timeout=cls.PDF_TIMEOUT_SEC,
+            )
+            out = Path(tmp) / "quotation.pdf"
+            if not out.exists():
+                # soffice 失敗時退出碼常常仍是 0 —— 所以判準是「檔案在不在」
+                # 而不是回傳碼（又一次「成功訊號不等於做了事」）。
+                raise RuntimeError(
+                    "LibreOffice 轉檔沒有產生 PDF"
+                    f"（rc={proc.returncode}）：{(proc.stderr or b'')[:300].decode('utf-8', 'replace')}"
+                )
+            content = out.read_bytes()
+
+        # 產出必須真的是 PDF。只驗「檔案存在」等於沒驗。
+        if not content.startswith(b"%PDF"):
+            raise RuntimeError(f"轉檔產物不是 PDF（開頭 {content[:8]!r}）")
+        return content
+
+    # ── 自動存檔 ──────────────────────────────────────────────────────
+    #
+    # owner 2026-08-18：「並且自動納入系統存檔」，策略選「只保留最新一份」。
+    #
+    # 落點沿用既有的 `pm_case_attachments`（以 `case_code` 關聯，而報價單的
+    # case_code 100% 有值）—— **不另造一套報價單專用附件表**。路徑與命名
+    # 沿用 `api/endpoints/pm/attachments.py` 的慣例，讓既有的列表／下載／
+    # 刪除三個端點直接就能用，不必為這批檔案再寫一份。
+
+    #: 檔案落點（與 pm/attachments.py 同一個 env，不另立第二個設定）
+    ARCHIVE_ROOT_ENV = "PM_ATTACHMENT_DIR"
+    ARCHIVE_ROOT_DEFAULT = "uploads/pm_attachments"
+
+    async def archive(
+        self, data: dict[str, Any], content: bytes, ext: str, user_id: Optional[int]
+    ) -> dict[str, Any]:
+        """把輸出的報價單文件存進系統，**覆蓋同一張報價單的舊檔**。
+
+        檔名固定為 `報價單_<報價單編號>.<ext>`（不帶時間戳）—— 覆蓋策略要靠
+        它才找得到上一份；若檔名帶時間戳，每次輸出都會變成新的一筆，
+        那是「保留版本」而不是 owner 選的「只保留最新」。
+        """
+        import hashlib
+        import os
+
+        from app.extended.models.pm import PMCaseAttachment
+
+        case_code = data.get("case_code")
+        if not case_code:
+            # 沒有 case_code 就沒有掛載點。這裡不靜靜跳過 ——
+            # 「文件下載成功但沒有存進系統」正是使用者最不會發現的那種失敗。
+            raise ValueError("報價單缺少 case_code，無法存檔（附件以 case_code 關聯）")
+
+        display_no = data.get("display_no") or f"Q{data.get('quotation_id')}"
+        file_name = f"報價單_{display_no}.{ext}"
+        root = os.environ.get(self.ARCHIVE_ROOT_ENV, self.ARCHIVE_ROOT_DEFAULT)
+        dir_path = os.path.join(root, str(case_code), datetime.now().strftime("%Y%m"))
+        os.makedirs(dir_path, exist_ok=True)
+        # 正斜線寫入：2026-05-27 有一批 `file_path` 存成 Windows 反斜線，
+        # 進 Linux 容器後 `os.path.exists` 一律 false（L49.3）。
+        full_path = os.path.join(dir_path, file_name).replace("\\", "/")
+
+        # 先清掉同一張報價單的舊紀錄與舊實體檔（owner 選「只保留最新一份」）
+        old = (await self.db.execute(
+            select(PMCaseAttachment).where(
+                PMCaseAttachment.case_code == case_code,
+                PMCaseAttachment.file_name == file_name,
+            )
+        )).scalars().all()
+        for att in old:
+            prev = (att.file_path or "").replace("\\", os.sep)
+            if prev and os.path.exists(prev) and os.path.abspath(prev) != os.path.abspath(full_path):
+                try:
+                    os.remove(prev)
+                except OSError:
+                    # 舊檔刪不掉不該擋住新檔存檔，但要留下痕跡而不是靜靜吞掉
+                    logger.warning("報價單存檔：舊檔刪除失敗 path=%s", prev)
+            await self.db.delete(att)
+
+        with open(full_path, "wb") as f:
+            f.write(content)
+
+        att = PMCaseAttachment(
+            case_code=case_code,
+            file_name=file_name,
+            file_path=full_path,
+            file_size=len(content),
+            mime_type=(
+                "application/pdf" if ext == "pdf"
+                else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            original_name=file_name,
+            checksum=hashlib.sha256(content).hexdigest(),
+            uploaded_by=user_id,
+        )
+        self.db.add(att)
+        await self.db.commit()
+        return {"file_name": file_name, "file_path": full_path, "replaced": len(old)}
