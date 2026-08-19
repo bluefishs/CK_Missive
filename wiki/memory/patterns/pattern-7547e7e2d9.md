@@ -5,13 +5,13 @@ template_hash: 7547e7e2d9
 tool_sequence: [get_unpaid_billings]
 domains: [erp]
 wiki_topics: [wiki/topics/案件索引.md]
-hit_count: 45
-success_count: 45
+hit_count: 48
+success_count: 48
 failure_count: 0
 success_rate: 1.0
-avg_latency_ms: 23152
+avg_latency_ms: 50547
 first_seen: '2026-06-08'
-last_seen: '2026-08-14'
+last_seen: '2026-08-18'
 crystallization_candidate: true
 tags: [memory, pattern, erp]
 ---
@@ -24,16 +24,16 @@ tags: [memory, pattern, erp]
 
 ## 統計
 
-- **觸發次數**：45（累計）
+- **觸發次數**：48（累計）
 - **成功率**：100.0%
-- **平均延遲**：23152ms
+- **平均延遲**：50547ms
 - **涉及領域**：erp
 - **相關 Wiki**：[[wiki/topics/案件索引.md]]
 
 ## 典型問法
 
-- 查詢廠商應付帳款（get_vendor_detail），到期日近者優先
 - 未付請款清單（get_unpaid_billings）
+- 查詢廠商應付帳款（get_vendor_detail），到期日近者優先
 
 ## 結晶候選
 
@@ -41,4 +41,4 @@ tags: [memory, pattern, erp]
 
 ---
 
-_由 pattern_extractor 自動產生，最後更新：2026-08-14_
+_由 pattern_extractor 自動產生，最後更新：2026-08-18_
