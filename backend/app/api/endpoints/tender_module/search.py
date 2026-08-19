@@ -141,6 +141,56 @@ async def search_tenders(
         )
         result["total_records"] = len(result["records"])
 
+    # ── 最終統一去重（三軌合併之後，回傳之前）──
+    #
+    # 這一支合併三個來源：DB 快查、g0v/PCC 服務、ezbid 即時抓取。
+    # 原本**每一段各自去重**，於是只要有一段沒涵蓋到，重複就會漏出去 ——
+    # 2026-08-19 owner 兩次回報同一個標案在搜尋頁連續出現兩筆
+    # （臺北港海陸光達、花蓮和平空載光達）。我第一次只修了「ezbid 對既有結果」
+    # 那一段，重複照樣出現，因為它來自另一段。
+    #
+    # 去重放在**唯一的出口**，比在每一段各自維護一份判準可靠：
+    # 三段的欄位命名不同（unit_id / ezbid_id / db 的 unit_id），
+    # 而「標題＋機關」是三段都有、且跨來源穩定的欄位。
+    #
+    # 保留策略：同一案取**資訊較完整**的那筆（有預算金額的優先），
+    # 因為 PCC 公告幾乎都沒有 budget 而 ezbid 有（實測 13,913/14,105 組）。
+    # 鍵優先用 `job_number`（招標案的正式編號）——它才是「同一個案子」的定義。
+    # 實測 owner 回報的花蓮案：`B115076` 在 **07-15 與 08-06 各公告一次**
+    # （很可能流標重招），另有 `B115077` 是同名但不同招標方式的另一個案子。
+    # 只用「標題＋機關」會把 B115076/B115077 併成一筆（錯，那是兩個案），
+    # 只用 job_number 又會撞號（不同機關各自編號，實測 1,129 組標題不同）
+    # ⇒ 兩者都要。沒有 job_number 的（ezbid 即時抓取）才退回標題＋機關。
+    def _merge_key(rec: dict) -> str:
+        jn = (rec.get("job_number") or "").strip()
+        if jn:
+            return "J|" + jn + "|" + (rec.get("title") or "")[:20]
+        return "T|" + (rec.get("title") or "")[:30] + "|" + (rec.get("unit_name") or "")
+
+    def _better(a: dict, b: dict) -> dict:
+        """同一案的多筆之中留哪一筆：先看公告日新舊，同日再看有沒有金額。"""
+        da, db = a.get("date") or "", b.get("date") or ""
+        if da != db:
+            return a if da > db else b
+        if not a.get("budget") and b.get("budget"):
+            return b
+        return a
+
+    _records = result.get("records") or []
+    if _records:
+        _by_key: dict[str, dict] = {}
+        _order: list[str] = []
+        for _r in _records:
+            _k = _merge_key(_r)
+            if _k not in _by_key:
+                _by_key[_k] = _r
+                _order.append(_k)
+            else:
+                _by_key[_k] = _better(_by_key[_k], _r)
+        if len(_order) != len(_records):
+            result["records"] = [_by_key[k] for k in _order]
+            result["total_records"] = len(result["records"])
+
     # 搜尋結果自動入庫 — 2026-04-24 改非同步背景任務，不阻塞 response
     try:
         import asyncio as _aio
