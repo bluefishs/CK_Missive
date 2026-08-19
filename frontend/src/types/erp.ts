@@ -40,6 +40,14 @@ export interface ERPQuotation {
   quotation_no?: string;
   /** 版次。議價後重報 +1，單號不變 */
   revision?: number;
+  /**
+   * 舊案號（個人管理時期，如 `B114-B002`）。
+   *
+   * 保留它是因為紙本、雲端硬碟檔名、客戶往來信件用的都是這組編號 ——
+   * 回簽 PDF 的檔名就長這樣：`回簽報價單_B115-C013-0_朱冠綸_….pdf`，
+   * 要把那批檔案掛回系統得靠它比對。
+   */
+  legacy_quotation_no?: string;
   /** 報價送出時間；undefined＝還在草稿 */
   quoted_at?: string;
 
@@ -1418,4 +1426,32 @@ export interface QuotationItemsDetail {
   total: number;
   /** 沒有明細時對外報價單不呈現逐項區塊 */
   has_items: boolean;
+}
+
+
+/** 既有報價單彙整匯入：略過的列 */
+export interface ERPQuotationLegacyImportSkipped {
+  legacy_no: string;
+  reason: string;
+}
+
+/**
+ * 既有報價單彙整匯入的結果。
+ *
+ * 對應後端 `schemas/erp/quotation.py` 的 `ERPQuotationLegacyImportResult`。
+ * 宣告在這裡而不是在 api 層內聯 —— 內聯過的型別無法被其他頁面重用，
+ * 而且後端改了欄位時沒有任何一方會報錯。
+ */
+export interface ERPQuotationLegacyImportResult {
+  success: boolean;
+  dry_run: boolean;
+  total_rows: number;
+  will_create: number;
+  will_update: number;
+  skipped: number;
+  skipped_detail?: ERPQuotationLegacyImportSkipped[];
+  sample_create?: Array<Record<string, unknown>>;
+  created?: number;
+  updated?: number;
+  error?: string;
 }

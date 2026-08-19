@@ -121,6 +121,15 @@ class ERPQuotationResponse(BaseModel):
     revision: int = 1
     quoted_at: Optional[datetime] = None
 
+    # 2026-08-19：舊案號（個人管理時期，如 B114-B002）。
+    #
+    # ⚠️ 加在這裡是因為上面那段註解講的正是同一件事 —— 我 08-19 又只加到
+    # ORM 與 migration 就停了，若不補這一行，`legacy_quotation_no` 會被
+    # Pydantic 靜默丟棄、API 永遠不回傳，而**回簽 PDF 依舊案號掛回系統**
+    # 那件事會直接卡死（前端拿不到編號就無從比對）。
+    # 同一個檔案、同一種失敗形狀，隔兩天再踩一次。
+    legacy_quotation_no: Optional[str] = None
+
     total_price: Optional[Decimal] = None
     tax_amount: Decimal = Decimal("0")
     outsourcing_fee: Decimal = Decimal("0")
@@ -271,3 +280,29 @@ class ReplaceItemsRequest(QuotationIdRequest):
     「改完這張表按儲存」，不是「刪第 3 列」。
     """
     items: list[QuotationItemIn] = Field(default_factory=list)
+
+
+class ERPQuotationLegacyImportSkipped(BaseModel):
+    """略過的列：編號與原因（檔案內重複／缺案名）。"""
+    legacy_no: str
+    reason: str
+
+
+class ERPQuotationLegacyImportResult(BaseModel):
+    """既有報價單彙整匯入的結果。
+
+    dry_run=True 時只有 will_* 有意義；實際寫入後才有 created/updated。
+    定義在這裡而不是讓端點回裸 dict —— 前端要照著它宣告型別，
+    兩邊各自內聯就是「同一件事有兩份說法」的起點。
+    """
+    success: bool = True
+    dry_run: bool
+    total_rows: int
+    will_create: int
+    will_update: int
+    skipped: int
+    skipped_detail: list[ERPQuotationLegacyImportSkipped] = []
+    sample_create: list[dict] = []
+    created: Optional[int] = None
+    updated: Optional[int] = None
+    error: Optional[str] = None

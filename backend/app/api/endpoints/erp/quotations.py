@@ -14,6 +14,7 @@ from app.schemas.erp import (
     ERPQuotationListRequest,
     ERPIdRequest, ERPQuotationUpdateRequest, ERPQuotationIdRequest,
     ERPQuotationExportRequest,
+    ERPQuotationLegacyImportResult,
     ERPSummaryRequest, ERPGenerateCodeRequest,
 )
 from app.schemas.common import PaginatedResponse, SuccessResponse, DeleteResponse
@@ -219,7 +220,7 @@ async def generate_case_code(
     return SuccessResponse(data={"case_code": code})
 
 
-@router.post("/import-legacy")
+@router.post("/import-legacy", response_model=SuccessResponse[ERPQuotationLegacyImportResult])
 async def import_legacy_quotations(
     file: UploadFile = File(...),
     dry_run: bool = True,

@@ -2,6 +2,8 @@
 from .quotation import (
     ERPQuotationCreate, ERPQuotationUpdate, ERPQuotationResponse,
     ERPQuotationListRequest, ERPProfitSummary, ERPProfitTrendItem,
+    ERPQuotationLegacyImportResult,
+    ERPQuotationLegacyImportSkipped,
 )
 from .invoice import (
     ERPInvoiceCreate, ERPInvoiceUpdate, ERPInvoiceResponse,
