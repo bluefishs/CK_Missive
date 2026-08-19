@@ -155,6 +155,10 @@ export interface AttachmentsTabProps {
   onPreview: (attachmentId: number, filename: string) => Promise<void>;
   onDownloadAll: (group: LocalGroupedAttachment) => Promise<void>;
   relatedDocsCount: number;
+  /** 案件案號 —— 用來顯示掛在案件本身的附件（報價單、客戶回簽） */
+  caseCode?: string;
+  /** 可寫時才出現上傳區與刪除鈕 */
+  canWrite?: boolean;
 }
 
 /** 關聯公文 Tab Props */

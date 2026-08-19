@@ -19,6 +19,7 @@ import {
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import type { AttachmentsTabProps, Attachment, LocalGroupedAttachment } from './types';
+import { AttachmentPanel } from '../../../components/common/AttachmentPanel';
 
 const { Text } = Typography;
 
@@ -53,6 +54,8 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
   onPreview,
   onDownloadAll,
   relatedDocsCount,
+  caseCode,
+  canWrite = false,
 }) => {
   const navigate = useNavigate();
 
@@ -175,11 +178,12 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
   ];
 
   return (
+    <>
     <Card
       title={
         <Space>
           <PaperClipOutlined />
-          <span>附件紀錄</span>
+          <span>關聯公文附件</span>
           <Tag color="blue">{attachments.length} 個檔案</Tag>
           {groupedAttachments.length > 0 && (
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -243,6 +247,29 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
         />
       )}
     </Card>
+
+    {/* 2026-08-19：案件自有附件（報價單、客戶回簽）。
+        
+        ⚠️ **與上面那一區是兩件事**，所以並列而不是合併：
+        上面是「來自關聯公文的附件」（依公文分組、可整包下載、資料由父層傳入），
+        這裡是「掛在這個案件本身的檔案」（以 case_code 關聯 pm_case_attachments，
+        系統輸出的報價單與客戶回簽都落在這裡）。
+        
+        原本規劃是把整個分頁換成共用元件 —— 實際看過才發現那會弄壞公文附件檢視。
+        兩者語意不同，硬合併只會做出一個要靠旗標切換的元件。 */}
+    {caseCode && (
+      <div style={{ marginTop: 16 }}>
+        <AttachmentPanel
+          caseCode={caseCode}
+          isEditing={canWrite}
+          title="案件附件"
+          uploadTitle="上傳案件附件"
+          emptyText="尚無案件附件（系統輸出的報價單與客戶回簽會出現在這裡）"
+          showDocType
+        />
+      </div>
+    )}
+    </>
   );
 };
 

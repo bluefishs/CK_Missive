@@ -135,6 +135,7 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
         loading={attachmentsLoading} onRefresh={reloadData}
         onDownload={handlers.handleDownloadAttachment} onPreview={handlers.handlePreviewAttachment}
         onDownloadAll={handlers.handleDownloadAllAttachments} relatedDocsCount={relatedDocs.length}
+        caseCode={data?.case_code ?? undefined} canWrite
       />
     ),
     createTabItem('documents', { icon: <FileTextOutlined />, text: '關聯公文', count: relatedDocs.length },
