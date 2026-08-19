@@ -14,12 +14,13 @@ import {
   EditOutlined, DeleteOutlined, DollarOutlined,
   InfoCircleOutlined, BankOutlined,
 } from '@ant-design/icons';
-import { FileTextOutlined, ProfileOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { FileTextOutlined, ProfileOutlined, FileExcelOutlined, FilePdfOutlined, PaperClipOutlined } from '@ant-design/icons';
 import { QuotationItemsTab } from './erpQuotation';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useERPQuotation, useAuthGuard } from '../hooks';
 import { AccountRecordTab } from './erpQuotation/AccountRecordTab';
 import ExpensesTab from './erpQuotation/ExpensesTab';
+import { AttachmentPanel } from '../components/common/AttachmentPanel';
 import { ROUTES } from '../router/types';
 import { apiClient } from '../api/client';
 import { ERP_ENDPOINTS } from '../api/endpoints';
@@ -346,6 +347,26 @@ export const ERPQuotationDetailPage: React.FC = () => {
     )),
     createTabItem('expenses', { icon: <FileTextOutlined />, text: '費用核銷' }, (
       quotation?.case_code ? <ExpensesTab caseCode={quotation.case_code} /> : null
+    )),
+    // 2026-08-19 owner：「每筆報價單呈現可參照公文模式提供上傳與預覽機制，
+    // 統一整體系統呈現與程式維護，降低異質同工機制」。
+    //
+    // 用共用的 AttachmentPanel（抽自 pmCase/QuotationRecordsTab，那是盤點
+    // 全前端 9 處附件實作後唯一四項功能齊全的一份）——不另寫第 10 份。
+    //
+    // 附件以 case_code 關聯，與 PM 案件的報價紀錄**是同一批檔案**：
+    // 系統輸出的報價單（archive 自動標 generated_quotation）與客戶回簽
+    // （匯入時標 signed_quotation）都在這裡看得到。
+    createTabItem('attachments', { icon: <PaperClipOutlined />, text: '附件' }, (
+      quotation?.case_code
+        ? <AttachmentPanel
+            caseCode={quotation.case_code}
+            isEditing={canWrite}
+            title="報價單附件"
+            uploadTitle="上傳附件"
+            showDocType
+          />
+        : null
     )),
   ] : [];
 
