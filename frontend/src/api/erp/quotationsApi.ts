@@ -104,6 +104,27 @@ export const erpQuotationsApi = {
     return response.data!;
   },
 
+  /**
+   * 匯入既有報價單彙整（一個入口做 upsert：有就更新、沒有就新增）。
+   *
+   * `dryRun` 預設 true —— 先回報「會新增幾筆、更新幾筆」不寫入。
+   * 第一次匯入是 277 列業務資料，沒有預覽就寫進去，錯了要靠備份還原。
+   */
+  async importLegacy(file: File, dryRun = true): Promise<{
+    total_rows: number; will_create: number; will_update: number;
+    skipped: number; skipped_detail?: Array<{ legacy_no: string; reason: string }>;
+    sample_create?: Array<Record<string, unknown>>;
+    created?: number; updated?: number; dry_run: boolean;
+  }> {
+    const response = await apiClient.upload<SuccessResponse<{
+      total_rows: number; will_create: number; will_update: number;
+      skipped: number; skipped_detail?: Array<{ legacy_no: string; reason: string }>;
+      sample_create?: Array<Record<string, unknown>>;
+      created?: number; updated?: number; dry_run: boolean;
+    }>>(`${ERP_ENDPOINTS.IMPORT_LEGACY}?dry_run=${dryRun}`, file, 'file');
+    return response.data!;
+  },
+
   /** 產生案號 */
   async generateCode(params: { year: number; category?: string }): Promise<string> {
     const response = await apiClient.post<SuccessResponse<{ case_code: string }>>(

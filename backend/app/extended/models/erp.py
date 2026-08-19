@@ -55,6 +55,14 @@ class ERPQuotation(Base):
     revision = Column(Integer, nullable=False, server_default="1", comment="版次")
     quoted_at = Column(DateTime, comment="報價送出時間；NULL＝還在草稿")
 
+    # 個人管理時期的報價單號（B114-B002 / B115-C017a-0）。
+    # 保留它是因為紙本、雲端硬碟檔名、客戶往來信件用的都是這組編號 ——
+    # 回簽 PDF 的檔名就長這樣：`回簽報價單_B115-C013-0_朱冠綸_….pdf`，
+    # 沒有它就無法把那批檔案掛回系統。
+    # 唯一性同樣由遷移建的 partial index 保證（見 20260819a001），這裡不寫 unique。
+    legacy_quotation_no = Column(String(64), index=True,
+                                 comment="舊案號（個人管理時期），供與紙本／回簽檔對帳")
+
     # 建立者
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                         nullable=True, index=True, comment="建立者")

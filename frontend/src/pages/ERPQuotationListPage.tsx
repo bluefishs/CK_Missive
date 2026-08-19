@@ -19,7 +19,7 @@ const { Title } = Typography;
 
 export const ERPQuotationListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('projects:write');
   const [statFilter, setStatFilter] = useState<string | null>(null);
@@ -190,6 +190,53 @@ export const ERPQuotationListPage: React.FC = () => {
                 }}
               >
                 <Button icon={<UploadOutlined />}>匯入 Excel</Button>
+              </Upload>
+              {/* owner 2026-08-19：「若線上產出報價單未完全上線前，如何匯入與管理
+                  既有 XLS 為目前階段重點」「新增與更新整合為一個按鍵鈕」。
+                  依舊案號（B114-B002）upsert —— 有就更新、沒有就新增，
+                  使用者不需要先知道 277 列裡哪些已在系統。
+                  按下去**先預覽再確認**：這是第一次把數百筆業務資料寫進系統。 */}
+              <Upload
+                accept=".xlsx"
+                showUploadList={false}
+                beforeUpload={async (file) => {
+                  try {
+                    message.loading({ content: '解析中...', key: 'legacy' });
+                    const p = await erpQuotationsApi.importLegacy(file, true);
+                    message.destroy('legacy');
+                    modal.confirm({
+                      title: '匯入既有報價單彙整',
+                      width: 560,
+                      content: (
+                        <div>
+                          <p>共讀到 <b>{p.total_rows}</b> 列：</p>
+                          <ul>
+                            <li>將<b>新增 {p.will_create}</b> 筆</li>
+                            <li>將<b>更新 {p.will_update}</b> 筆（依舊案號比對到既有資料）</li>
+                            {p.skipped > 0 && <li>略過 {p.skipped} 筆（檔案內重複或缺案名）</li>}
+                          </ul>
+                          {(p.skipped_detail?.length ?? 0) > 0 && (
+                            <Alert type="warning" showIcon message="略過明細"
+                              description={p.skipped_detail!.slice(0, 5)
+                                .map(x => `${x.legacy_no}：${x.reason}`).join('；')} />
+                          )}
+                        </div>
+                      ),
+                      okText: '確認寫入', cancelText: '取消',
+                      onOk: async () => {
+                        const r = await erpQuotationsApi.importLegacy(file, false);
+                        message.success(`匯入完成：新增 ${r.created} 筆、更新 ${r.updated} 筆`);
+                        refetch();
+                      },
+                    });
+                  } catch {
+                    message.destroy('legacy');
+                    message.error('彙整表解析失敗');
+                  }
+                  return false;
+                }}
+              >
+                <Button icon={<FileExcelOutlined />}>匯入彙整表（舊案號）</Button>
               </Upload>
               <Button
                 icon={<DownloadOutlined />}

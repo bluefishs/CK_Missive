@@ -219,6 +219,45 @@ async def generate_case_code(
     return SuccessResponse(data={"case_code": code})
 
 
+@router.post("/import-legacy")
+async def import_legacy_quotations(
+    file: UploadFile = File(...),
+    dry_run: bool = True,
+    service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
+):
+    """匯入既有報價單彙整 XLS（個人管理時期的資料）。
+
+    owner 2026-08-19：「若線上產出報價單未完全上線前，如何匯入與管理既有 XLS
+    為目前階段重點」「新增與更新整合為一個按鍵鈕」。
+
+    **一個入口做 upsert**：依舊案號（`B114-B002`）比對，有就更新、沒有就新增。
+    使用者不需要先知道 277 列裡哪些已在系統 —— 他也無從知道。
+
+    `dry_run=True`（預設）只回報「會新增幾筆、更新幾筆」不寫入。
+    第一次匯入 277 筆業務資料，沒有預覽就寫進去，錯了要靠備份還原。
+    """
+    if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="僅支援 .xlsx/.xls 格式")
+    # .xls 是 BIFF，openpyxl 讀不了 —— 明講而不是丟一個看不懂的解析錯誤
+    if file.filename.lower().endswith(".xls"):
+        raise HTTPException(
+            status_code=400,
+            detail="這是舊版 .xls（BIFF）格式，請先用 Excel 另存為 .xlsx 再匯入",
+        )
+
+    from app.services.erp.quotation_legacy_import import QuotationLegacyImportService
+
+    content = await file.read()
+    svc = QuotationLegacyImportService(service.db)
+    try:
+        return SuccessResponse(data=await svc.run(
+            content, dry_run=dry_run, user_id=current_user.id,
+        ))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/export-document")
 async def export_quotation_document(
     request: ERPQuotationExportRequest,

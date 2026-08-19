@@ -125,6 +125,11 @@ export const ERP_ENDPOINTS = {
    *  與 EXPORT/EXPORT_EXCEL 不同：那兩支是**清單匯出**（多筆、資料列表），
    *  這支是**單張報價單**，可直接寄給客戶簽回。 */
   EXPORT_DOCUMENT: '/erp/quotations/export-document',
+  /**
+   * 匯入既有報價單彙整 XLS（個人管理時期的資料，帶舊案號 B114-B002）。
+   * 與 IMPORT 不同：那支吃系統匯出的格式，這支吃 owner 手上的彙整表。
+   */
+  IMPORT_LEGACY: '/erp/quotations/import-legacy',
   /** 匯入 Excel POST /erp/quotations/import */
   IMPORT: '/erp/quotations/import',
   /** 下載匯入範本 POST /erp/quotations/import-template */
