@@ -67,7 +67,7 @@ services:
       - "-c"
       - "timezone=Asia/Taipei"
     networks:
-      - app_network
+      - ck_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -84,7 +84,7 @@ services:
     volumes:
       - redis_dev_data:/data
     networks:
-      - app_network
+      - ck_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -105,7 +105,7 @@ services:
     volumes:
       - ollama_dev_data:/root/.ollama
     networks:
-      - app_network
+      - ck_network
     restart: unless-stopped
     deploy:
       resources:
@@ -139,7 +139,7 @@ services:
     volumes:
       - vllm_dev_cache:/root/.cache/huggingface
     networks:
-      - app_network
+      - ck_network
     restart: unless-stopped
     command: >
       --model ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
@@ -185,7 +185,7 @@ services:
       # P4：曝 metrics 給 Prometheus（不對外，僅 docker network 內）
       - "127.0.0.1:9114:2000"
     networks:
-      - app_network
+      - ck_network
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "localhost:host-gateway"
@@ -226,7 +226,18 @@ volumes:
 
 # --- 網路配置（與 docker-compose.dev.yml 共享） ---
 networks:
-  app_network:
+  # ⚠️ 2026-08-20：這個鍵原本叫 app_network，導致這份 compose **完全無法使用**。
+  #    docker 會把 compose 的網路鍵寫成 `com.docker.compose.network` 標籤，
+  #    而 ck_missive_network 是 docker-compose.production.yml 以鍵 `ck_network`
+  #    建立的，標籤就是 ck_network。用 app_network 宣告同一個網路時：
+  #      network ck_missive_network was found but has incorrect label
+  #      com.docker.compose.network set to "ck_network" (expected: "app_network")
+  #    → 這份檔案裡的 postgres / redis / ollama / cloudflared 一律起不來。
+  #
+  #    這是在真的嘗試切換 cloudflared 時才炸出來的（切換失敗、已回退）。
+  #    改名而不是用 external: true —— 本檔含 postgres/redis，要能獨立啟動；
+  #    改名後誰先建都可以，標籤一致。
+  ck_network:
     name: ck_missive_network
     driver: bridge
   # nemoclaw_network: 已移除 (ADR-0015, 2026-04-16)

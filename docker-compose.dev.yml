@@ -56,7 +56,7 @@ services:
       - "-c"
       - "timezone=Asia/Taipei"
     networks:
-      - app_network
+      - ck_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -73,7 +73,7 @@ services:
     volumes:
       - redis_dev_data:/data
     networks:
-      - app_network
+      - ck_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -108,7 +108,7 @@ services:
       - ./backend/logs:/app/logs
       - ./backend/GoogleCalendarAPIKEY.json:/app/GoogleCalendarAPIKEY.json:ro
     networks:
-      app_network: {}
+      ck_network: {}
     depends_on:
       postgres:
         condition: service_healthy
@@ -151,7 +151,7 @@ services:
       - /app/dist  # 排除建置目錄
       - ./frontend/logs:/app/logs
     networks:
-      - app_network
+      - ck_network
     depends_on:
       backend:
         condition: service_healthy
@@ -168,7 +168,7 @@ services:
     volumes:
       - ollama_dev_data:/root/.ollama
     networks:
-      - app_network
+      - ck_network
     restart: "no"  # PM2 混合模式：按需手動啟動
     deploy:
       resources:
@@ -195,7 +195,7 @@ services:
     environment:
       - ADMINER_DEFAULT_SERVER=postgres
     networks:
-      - app_network
+      - ck_network
     depends_on:
       postgres:
         condition: service_healthy
@@ -215,7 +215,7 @@ volumes:
 
 # --- 🌐 網路配置 ---
 networks:
-  app_network:
+  ck_network:
     name: ck_missive_network
     driver: bridge
   # nemoclaw_network: 已移除 (ADR-0015, 2026-04-16)
