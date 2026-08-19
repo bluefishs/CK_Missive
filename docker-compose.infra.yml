@@ -189,14 +189,24 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "localhost:host-gateway"
-    restart: unless-stopped
-    # P1 配套：加 healthcheck — connection 失聯時可自動偵測
-    healthcheck:
-      test: ["CMD", "cloudflared", "tunnel", "info"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    restart: unless-stopped      # ⚠️ 2026-08-19：這裡原本是 `test: ["CMD","cloudflared","tunnel","info"]`，
+      #    但那個指令**必定失敗** —— `tunnel info` 需要一個 tunnel ID/名稱參數：
+      #      "cloudflared tunnel info" accepts exactly one argument
+      #    也就是說這份 compose 一旦真的被拿去 up，會產生一個**永遠 unhealthy**
+      #    的容器。（實測方式：docker exec ck_missive_cloudflared cloudflared tunnel info）
+      #
+      #    已移除而不是換一個 —— 因為這個 image 是 distroless（連 ls 都沒有），
+      #    docker healthcheck 無法發 HTTP 請求，做不出真正的健康探測。
+      #    lvrland 那份寫 `cloudflared --version` 是**有意識的取捨**（見該檔 2026-05-22
+      #    註解：已知 distroless 無 /bin/sh，故退而求其次證明 binary 還能執行）。
+      #    它偵測得到「行程死掉」，但偵測不到「隧道與 Cloudflare 斷線」——
+      #    而後者才是會讓公網 502 的那個。不是錯，是不夠。
+      #
+      #    真正的健康訊號改由**主機側**探 TUNNEL_METRICS 的 /ready
+      #    （隧道有活躍連線時才回 200），見
+      #    CK_Website/scripts/check-restart-resilience.cjs 的 HTTP_HEALTH_PATHS。
+      #    這裡選擇不放 healthcheck，而不是放一個測不到真實故障的 ——
+      #    缺少訊號是誠實的，假訊號會讓人在排查時把這一項劃掉。
     profiles:
       - tunnel
 
