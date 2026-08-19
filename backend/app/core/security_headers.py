@@ -83,6 +83,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 self.content_security_policy_report_only
             )
 
+        # Reporting-Endpoints（2026-08-19 補）
+        # CSP 裡的 `report-to csp-endpoint` 只是**引用一個名字**，
+        # 名字要在這個標頭裡定義，否則新式瀏覽器完全不會送報告 ——
+        # 而且不會有任何錯誤，就只是安靜地不送。
+        # 只在真的有 CSP 時才送，避免對不需要的回應加無意義的標頭。
+        if self.content_security_policy or self.content_security_policy_report_only:
+            response.headers["Reporting-Endpoints"] = (
+                'csp-endpoint="/api/security/csp-report"'
+            )
+
         return response
 
 
@@ -124,5 +134,12 @@ def get_default_csp() -> str:
         "frame-ancestors 'none'; "
         "object-src 'none'; "
         "base-uri 'self'; "
-        "form-action 'self' https://accounts.google.com https://access.line.me;"
+        "form-action 'self' https://accounts.google.com https://access.line.me; "
+        # ⚠️ 沒有這一行，Report-Only 就是**無法證偽的**：
+        #    瀏覽器算出違規後回報給沒有人，「觀察一段時間確認零違規」永遠會成立。
+        #    2026-08-19 實測 prod 標頭才發現原本兩個回報指令都沒有。
+        #    report-uri 已廢棄但仍是唯一被所有瀏覽器支援的；report-to 需搭配
+        #    Reporting-Endpoints 標頭，兩者並存以涵蓋新舊瀏覽器。
+        "report-uri /api/security/csp-report; "
+        "report-to csp-endpoint;"
     )

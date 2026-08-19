@@ -121,3 +121,9 @@ api_router.include_router(wiki_router, tags=["LLM Wiki"])
 # --- 資安管理中心 (v5.2.5) ---
 from app.api.endpoints.security import router as security_router
 api_router.include_router(security_router)
+
+# --- CSP 違規回報收集（2026-08-19）---
+# 免認證：瀏覽器送 CSP 報告不帶憑證，要求認證等同關掉回報。
+# 端點自身有限流 + 大小上限 + 記憶體去重，見該檔案開頭說明。
+from app.api.endpoints.csp_report import router as csp_report_router
+api_router.include_router(csp_report_router)
