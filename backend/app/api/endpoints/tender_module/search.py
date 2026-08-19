@@ -310,8 +310,22 @@ async def get_tender_detail(
     result = await service.get_tender_detail(
         unit_id=req.unit_id, job_number=req.job_number or "",
     )
-    if not result:
-        return SuccessResponse(data=None, message="查無此標案")
+    # ⚠️ 不能只判 `not result`：`get_tender_detail` 查不到時回的是一個
+    # **有 key 但值都是空的 dict**，於是 `not result` 為 False、空殼被當成
+    # 有資料送回前端，而前端的「查無此標案」判斷寫的是 `!detail` ——
+    # 兩邊對「沒有資料」的定義不一樣，結果是畫面渲染成一片空白，
+    # 使用者看到的是「壞掉」而不是「查無」。
+    #
+    # 2026-08-19 owner 連續回報三個 URL 都空白，實測其中
+    # `NzEyODY4Nzk=` 這個 unit_id 在 DB 根本不存在 —— 那是**即時搜尋結果**
+    # （搜尋結果入庫是背景非同步，使用者點得比入庫快），
+    # 而外部 PCC 詳情頁有反爬限流（L77）所以也取不到。
+    # 這種情況要講清楚，不是給一張空白頁。
+    if not result or not str(result.get("title") or "").strip():
+        return SuccessResponse(
+            data=None,
+            message="查無此標案內容 —— 可能是即時搜尋結果尚未收錄，或政府採購網詳情頁當下不可取得",
+        )
     # ADR-0032: PCC response 明確標記 kind
     result["kind"] = "pcc"
 
