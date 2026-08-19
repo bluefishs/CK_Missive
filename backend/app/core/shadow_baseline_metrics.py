@@ -45,7 +45,10 @@ logger = logging.getLogger(__name__)
 # 修法: 對齊 mount target，用 /app/logs 直接
 from pathlib import Path as _Path
 import os as _os
-_LOGS_DIR = _Path(_os.getenv("CK_LOGS_DIR", "/app/logs"))
+# 2026-08-19：fallback 由寫死的 "/app/logs" 改為 paths.LOGS_DIR（見 paths.py 規約 E）。
+# 寫死容器路徑會讓本機執行時產生 D:pp\logs 這種孤兒目錄。
+from app.core.paths import LOGS_DIR as _PROJECT_LOGS_DIR
+_LOGS_DIR = _Path(_os.getenv("CK_LOGS_DIR") or _PROJECT_LOGS_DIR)
 if not _LOGS_DIR.exists():
     # fallback to BACKEND_DIR/logs (host dev mode)
     from app.core.paths import BACKEND_DIR

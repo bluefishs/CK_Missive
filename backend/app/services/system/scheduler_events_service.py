@@ -20,7 +20,9 @@ class SchedulerEventsService:
     """Cron 執行事件與覆盤報告的讀取/聚合（純檔案讀取，無 DB）。"""
 
     def __init__(self) -> None:
-        self._logs_dir = Path(os.getenv("CK_LOGS_DIR", "/app/logs"))
+        # 2026-08-19：fallback 改用 paths.LOGS_DIR，不再寫死容器路徑（見 paths.py 規約 E）
+        from app.core.paths import LOGS_DIR as _PROJECT_LOGS_DIR
+        self._logs_dir = Path(os.getenv("CK_LOGS_DIR") or _PROJECT_LOGS_DIR)
         self._wiki_memory_dir = Path(os.getenv("CK_PROJECT_ROOT", "/app")) / "wiki" / "memory"
 
     # ── 內部 ──────────────────────────────────────────────────────

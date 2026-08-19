@@ -40,7 +40,11 @@ from app.core.paths import BACKEND_DIR  # v6.10 P1-E SSOT
 # container 內 BACKEND_DIR=/app/backend/ 但 mount 是 /app/logs/
 # 統一用 CK_LOGS_DIR env (預設 /app/logs container) fallback BACKEND_DIR/logs (host)
 from pathlib import Path as _Path
-_LOGS_DIR = _Path(os.getenv("CK_LOGS_DIR", "/app/logs"))
+# 2026-08-19：上面那行註解寫的是「fallback BACKEND_DIR/logs (host)」，
+# 但實作其實 fallback 到 "/app/logs" —— 註解與程式碼不一致，而不一致的那一方
+# 悄悄產生了 D:pp\logs。改用 paths.LOGS_DIR 讓兩者對齊。
+from app.core.paths import LOGS_DIR as _PROJECT_LOGS_DIR
+_LOGS_DIR = _Path(os.getenv("CK_LOGS_DIR") or _PROJECT_LOGS_DIR)
 if not _LOGS_DIR.exists():
     _LOGS_DIR = BACKEND_DIR / "logs"
 _DB_PATH = _LOGS_DIR / "shadow_trace.db"
