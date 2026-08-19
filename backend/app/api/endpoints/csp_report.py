@@ -128,9 +128,19 @@ async def collect_csp_report(request: Request) -> Response:
             continue
         # ⚠️ 白名單取欄位。不要 `logger.info(rep)` —— 那會把整份報告
         #    （含帶 token 的完整網址）原樣寫進 log。
-        directive = str(rep.get("effective-directive") or rep.get("violated-directive") or "?")[:80]
-        blocked = _strip_query(str(rep.get("blocked-uri") or "?"))
-        document = _strip_query(str(rep.get("document-uri") or "?"))
+        #
+        # ⚠️ 兩種格式的欄位名不一樣，而且**只支援一種的話另一種會安靜地變成空報告**：
+        #   舊式 report-uri     : effective-directive / blocked-uri / document-uri（連字號）
+        #   新式 Reporting API  : effectiveDirective  / blockedURL  / documentURL （camelCase）
+        # 2026-08-19 首次部署後就在 log 裡看到一行 `directive=? blocked=`，
+        # 才發現漏了 camelCase 那組 —— 端點有在收，但收到的東西是空的，
+        # 而「有 log 行」看起來像是在正常運作。
+        directive = str(
+            rep.get("effective-directive") or rep.get("effectiveDirective")
+            or rep.get("violated-directive") or rep.get("violatedDirective") or "?"
+        )[:80]
+        blocked = _strip_query(str(rep.get("blocked-uri") or rep.get("blockedURL") or "?"))
+        document = _strip_query(str(rep.get("document-uri") or rep.get("documentURL") or "?"))
         disposition = str(rep.get("disposition") or "report")[:20]
 
         write, count = _should_log(directive, blocked)
