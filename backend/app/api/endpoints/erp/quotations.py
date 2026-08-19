@@ -319,6 +319,16 @@ async def export_quotation_document(
     doc = QuotationDocumentService(service.db)
     try:
         data = await doc.gather(request.erp_quotation_id)
+        # owner 2026-08-19：「政府標案無需報價單機制，僅邀標報價案件才需要」。
+        #
+        # 前端已對委辦招標隱藏按鈕，但**隱藏按鈕不等於端點不能被呼叫** ——
+        # 舊分頁、書籤、直接打 API 都繞得過去，而產出一張「報價單」
+        # 給政府標案是錯的文件。判準與前端同一條（`category == '01'`）。
+        if (data.get("category") or "") == "01":
+            raise ValueError(
+                "委辦招標案件不適用報價單輸出 —— 標案是投標程序，"
+                "不是對客戶報價；如需投標文件請用附件功能上傳"
+            )
         content = doc.render_xlsx(data)
         if request.format == "pdf":
             content = doc.render_pdf(content)

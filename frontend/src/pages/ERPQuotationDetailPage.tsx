@@ -120,20 +120,30 @@ export const ERPQuotationDetailPage: React.FC = () => {
         {quotation?.case_code && (
           <ExpenseQRButton caseCode={quotation.case_code} caseName={quotation.case_name} />
         )}
-        {/* 2026-08-17 owner：「新增報價單要可輸出正式文件，非僅資料列表用途」。
-            以 owner 提供的實際報價單為範本（含公司抬頭、框線、合計公式、簽章欄），
-            產出的檔案可直接寄給客戶簽回。
+        {/* 2026-08-17 owner：「新增報價單要可輸出正式文件，非僅資料列表用途」
+            2026-08-18 owner：「報價單要能輸出 pdf 並且自動納入系統存檔」
+            2026-08-19 owner：「政府標案無需報價單機制，僅邀標報價案件才需要」
 
-            與列表頁的「匯出」不同：那是多筆資料列表，這是單張正式文件。 */}
-        <Button icon={<FileExcelOutlined />} loading={exporting} onClick={() => handleExportDocument('xlsx')}>
-          輸出報價單
-        </Button>
-        {/* 2026-08-18 owner：「報價單要能輸出 pdf 並且自動納入系統存檔」。
-            PDF 與 xlsx 共用同一份範本，兩者版面必然一致。
-            兩個按鈕而非下拉：這是每次都會用到的動作，多一次點擊沒有價值。 */}
-        <Button icon={<FilePdfOutlined />} loading={exporting} onClick={() => handleExportDocument('pdf')}>
-          輸出 PDF
-        </Button>
+            ⚠️ 委辦招標（`01`）不顯示這兩個按鈕：標案是**投標**不是對客戶報價，
+            輸出一張「報價單」給政府機關沒有意義。
+
+            判斷用 `!== '01'` 而不是 `=== '02'` —— 資料庫裡另有 4 張
+            `category='03'`（彰濱控制測量、台8線改善評估…），從案名看是承攬類，
+            而 `PM_CATEGORY_LABELS` 只定義了 01/02、**沒有 03**。
+            用排除法才不會誤傷未定義的類別。
+
+            這與下方「報價明細」分頁用的是**同一個判準**（`case_category === '01'`），
+            不另立第二份規則。 */}
+        {quotation?.case_category !== '01' && (
+          <>
+            <Button icon={<FileExcelOutlined />} loading={exporting} onClick={() => handleExportDocument('xlsx')}>
+              輸出報價單
+            </Button>
+            <Button icon={<FilePdfOutlined />} loading={exporting} onClick={() => handleExportDocument('pdf')}>
+              輸出 PDF
+            </Button>
+          </>
+        )}
         <Button type="primary" icon={<EditOutlined />}
           onClick={() => navigate(ROUTES.ERP_QUOTATION_EDIT.replace(':id', String(quotation?.id)))}
         >編輯</Button>
