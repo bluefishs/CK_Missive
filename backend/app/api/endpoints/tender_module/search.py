@@ -80,10 +80,25 @@ async def search_tenders(
             cat = category_map.get(req.category or "", "ALL")
             ezbid = await scraper.fetch_latest(query=req.query, category=cat, pages=1)
 
-            seen = {(r.get("unit_id", "") + r.get("title", "")[:20]) for r in result.get("records", [])}
+            # ⚠️ 去重鍵**兩邊必須取自同一組欄位**。
+            #
+            # 原本 `seen` 用 `unit_id + title`，而新項目比對時用 `ezbid_id + title`
+            # —— 第一段來自不同欄位，於是這個 key **永遠不可能相等**，
+            # 每一筆 ezbid 結果都被判成「沒看過」而插入。
+            # 症狀就是同一個標案在搜尋頁出現兩三次（2026-08-19 owner 回報
+            # 「臺北港鄰近淺水域海陸光達測繪」連出三筆）。
+            #
+            # 改用「標題＋機關」：跨來源的 unit_id 格式本來就不同
+            # （PCC 是 base64 如 `NzEzMDA1NzQ=`，ezbid 是 `A.47.3`），
+            # 拿它當同一性判準從一開始就不成立；而 `job_number` 在
+            # ezbid 即時抓取時是空字串，也不能用。
+            def _dedupe_key(rec: dict) -> str:
+                return (rec.get("title") or "")[:30] + "|" + (rec.get("unit_name") or "")
+
+            seen = {_dedupe_key(r) for r in result.get("records", [])}
             ezbid_added = 0
             for r in ezbid.get("records", []):
-                key = r.get("ezbid_id", "") + r.get("title", "")[:20]
+                key = _dedupe_key(r)
                 if key not in seen:
                     seen.add(key)
                     result["records"].insert(0, {
@@ -259,17 +274,60 @@ async def get_tender_detail(
         from sqlalchemy import text as _sa_text
         from app.db.database import AsyncSessionLocal as _Sess
         async with _Sess() as _db:
+            # 2026-08-19：改為**跨來源補值**。
+            #
+            # 原本這裡只查 `source='pcc'`，而註解自己就寫著「PCC 來源 budget
+            # 全為 NULL」—— 也就是它去問一個已知永遠沒有答案的地方，
+            # 結果就是詳情頁永遠沒有預算金額，使用者看到的是「找不到資料」。
+            #
+            # 同一個標案在 ezbid 常常是有金額的。實測（owner 回報的
+            # `NAMR115131` 臺北港案）：PCC 那筆 budget 空、status 空；
+            # ezbid 那筆 budget = 4,000,000、status =「公告」。
+            # 全庫規模：跨來源可靠配對 14,105 組，其中
+            # **pcc 缺 budget 而 ezbid 有的佔 13,913 組（98.6%）**，反向為 0。
+            #
+            # 配對鍵用 `job_number + 標題前 20 字`，**不用 pg_trgm**：
+            # ADR-0046 的自動 link 就是用 pg_trgm 相似度計分（HIGH 門檻 0.85），
+            # 而 pg_trgm 對中文無效 —— 實測這兩筆標題與機關名**完全相同**，
+            # similarity 卻都是 **0.0000**，結構上永遠達不到門檻
+            # （這就是 47,232 筆 ezbid 只 link 到 2,033 筆的原因）。
+            # job_number 單獨不可靠（不同機關會撞號，實測 1,129 組標題不同），
+            # 所以必須加上標題比對。
             _row = (await _db.execute(_sa_text("""
-                SELECT id, budget FROM tender_records
-                WHERE source = 'pcc' AND unit_id = :u AND job_number = :j
-                LIMIT 1
+                SELECT p.id,
+                       COALESCE(p.budget, x.budget)                  AS budget,
+                       CASE WHEN p.budget IS NULL AND x.budget IS NOT NULL
+                            THEN x.source END                        AS budget_from,
+                       COALESCE(NULLIF(p.status, ''), x.status)      AS status
+                  FROM tender_records p
+                  LEFT JOIN LATERAL (
+                      SELECT e.budget, e.status, e.source
+                        FROM tender_records e
+                       WHERE p.job_number IS NOT NULL AND p.job_number <> ''
+                         AND e.job_number = p.job_number
+                         AND left(e.title, 20) = left(p.title, 20)
+                         AND e.source <> p.source
+                       ORDER BY (e.budget IS NOT NULL) DESC, e.id
+                       LIMIT 1
+                  ) x ON TRUE
+                 WHERE p.source = 'pcc' AND p.unit_id = :u AND p.job_number = :j
+                 LIMIT 1
             """), {"u": req.unit_id, "j": req.job_number or ""})).one_or_none()
         if _row:
             result["tender_id"] = _row[0]
-            # PCC 來源 60,296 筆 budget 全為 NULL（清單頁本身就沒有金額欄），
-            # 但仍照實回傳 —— 有值時前端才帶得進案件，沒有就是沒有，不要編一個 0。
-            if _row[1] is not None:
-                result.setdefault("budget", str(_row[1]))
+            # ⚠️ 不能用 `setdefault` —— `result` 這時**已經有** `budget` 這個 key
+            # 而值是 `None`，setdefault 只在 key 不存在時才寫入，於是補到的值
+            # 會被靜靜丟掉。2026-08-19 實測就撞到：`budget_source` 標成了 ezbid
+            # （代表配對有命中），而 `budget` 仍是 None。
+            # 判準要看「值有沒有內容」，不是「key 在不在」。
+            if _row[1] is not None and not result.get("budget"):
+                result["budget"] = str(_row[1])
+                # 值若來自另一個來源就講明白 —— 不讓使用者以為
+                # 這個數字是 PCC 公告上寫的。
+                if _row[2]:
+                    result["budget_source"] = _row[2]
+            if _row[3] and not result.get("status"):
+                result["status"] = _row[3]
     except Exception as _e:
         # 查不到回指不該讓整個詳情頁掛掉，但必須出聲 ——
         # 靜默的話又會變成「欄位一直是空的而沒有人知道」。

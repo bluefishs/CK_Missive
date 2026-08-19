@@ -19,6 +19,7 @@ import {
   App,
   Switch,
   Tag,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -149,6 +150,32 @@ export const StaffPage: React.FC = () => {
   };
 
   // 響應式表格欄位定義 (導航模式：刪除功能整合至詳情頁)
+  // ADR-0025：同一個人可能有兩個登入帳號（例如業務用與管理用各一）。
+  //
+  // ⚠️ 標籤刻意用「同一人」而非「分身」：owner 2026-08-19 指出
+  // `jujuiacc`（canonical）其實是**管理員身分**，而 `aaronfly1978`
+  // （被標成 alias 的那個）才是**實際業務身分**、6 個專案指派都掛在它上面。
+  // 「分身」這個詞暗示了誰主誰次，而在這個案例裡方向是反的。
+  // 合併之後權限與 RLS 都以 canonical 為準，但這一頁是**人員管理**，
+  // 兩個帳號都該看得到 —— 缺的是「看得出它們是同一個人」。
+  // 2026-08-19 owner 回報：/staff 出現「王駿穠」與「王駿穠(fly)」兩列，
+  // 分不出關係；而 /admin/user-management 有帶 canonical_only 所以只有一列。
+  const renderNameWithAlias = (text: string, record: Staff) => {
+    const canonicalId = (record as Staff & { canonical_user_id?: number }).canonical_user_id;
+    if (!canonicalId) return <span>{text || record.username}</span>;
+    const canonical = staffList.find((u) => u.id === canonicalId);
+    return (
+      <Space size={4}>
+        <span>{text || record.username}</span>
+        <Tooltip
+          title={`與「${canonical?.full_name || canonical?.username || `使用者 #${canonicalId}`}」是同一個人（同仁可能有兩個登入帳號，例如業務用與管理用各一）。資料可見範圍會涵蓋兩個帳號。`}
+        >
+          <Tag color="orange" style={{ marginInlineEnd: 0 }}>同一人</Tag>
+        </Tooltip>
+      </Space>
+    );
+  };
+
   const columns: TableColumnType<Staff>[] = isMobile
     ? [
         {
@@ -157,7 +184,7 @@ export const StaffPage: React.FC = () => {
           key: 'full_name',
           render: (text: string, record: Staff) => (
             <Space vertical size={0}>
-              <strong><UserOutlined /> {text || record.username}</strong>
+              <strong><UserOutlined /> {renderNameWithAlias(text, record)}</strong>
               {record.department && <Tag color="blue" style={{ fontSize: 12 }}>{record.department}</Tag>}
               <small style={{ color: '#666' }}>{record.email}</small>
             </Space>
@@ -192,7 +219,7 @@ export const StaffPage: React.FC = () => {
           render: (text: string, record: Staff) => (
             <Space>
               <UserOutlined />
-              <span>{text || record.username}</span>
+              {renderNameWithAlias(text, record)}
             </Space>
           ),
         },

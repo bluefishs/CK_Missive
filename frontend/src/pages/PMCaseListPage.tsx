@@ -16,6 +16,8 @@ import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive } from '../ho
 import { ClickableStatCard } from '../components/common';
 import { PM_CATEGORY_LABELS } from '../types/api';
 import type { PMCase } from '../types/api';
+import { PM_CASE_STATUS_LABELS } from '../types/pm';
+import type { PMCaseStatus } from '../types/pm';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
 
@@ -28,7 +30,6 @@ export const PMCaseListPage: React.FC = () => {
   const { isMobile } = useResponsive();
   const { message } = App.useApp();
 
-  const [statFilter, setStatFilter] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const [yearFilter, setYearFilter] = useState<number | undefined>(new Date().getFullYear());
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
@@ -219,37 +220,39 @@ export const PMCaseListPage: React.FC = () => {
                 title="邀標總數"
                 value={summary.total_cases}
                 icon={<FileSearchOutlined />}
-                active={statFilter === 'all'}
-                onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
+                active={!statusFilter}
+                onClick={() => { setStatusFilter(undefined); setCurrentPage(1); }}
               />
             </Col>
+            {/* 2026-08-19：標籤與取值原本對不起來 ——
+                「報價中」讀的是 `in_progress`，而 PM 案件根本沒有這個狀態
+                （SSOT 只有 planning/contracted/closed）⇒ 這張卡恆為 0；
+                「已成案」讀的是 `closed`（已結案），於是後端回的
+                `contracted: 2` 完全沒有地方顯示，畫面說「已成案 1」
+                而列表列著 2 筆「已承攬」。改為直接由 SSOT 推導，
+                標籤、取值、列表用同一組詞彙。 */}
+            {(['contracted', 'closed'] as PMCaseStatus[]).map((st) => (
+              <Col xs={12} sm={6} key={st}>
+                <ClickableStatCard
+                  title={PM_CASE_STATUS_LABELS[st]}
+                  value={summary.by_status?.[st] ?? 0}
+                  icon={st === 'contracted' ? <SendOutlined /> : <CheckCircleOutlined />}
+                  color={st === 'contracted' ? '#1890ff' : '#52c41a'}
+                  active={statusFilter === st}
+                  onClick={() => {
+                    setStatusFilter(statusFilter === st ? undefined : st);
+                    setCurrentPage(1);
+                  }}
+                />
+              </Col>
+            ))}
             <Col xs={12} sm={6}>
-              <ClickableStatCard
-                title="報價中"
-                value={summary.by_status?.['in_progress'] ?? 0}
-                icon={<SendOutlined />}
-                color="#1890ff"
-                active={statFilter === 'in_progress'}
-                onClick={() => setStatFilter(statFilter === 'in_progress' ? null : 'in_progress')}
-              />
-            </Col>
-            <Col xs={12} sm={6}>
-              <ClickableStatCard
-                title="已成案"
-                value={summary.by_status?.['closed'] ?? 0}
-                icon={<CheckCircleOutlined />}
-                color="#52c41a"
-                active={statFilter === 'closed'}
-                onClick={() => setStatFilter(statFilter === 'closed' ? null : 'closed')}
-              />
-            </Col>
-            <Col xs={12} sm={6}>
+              {/* 金額不是狀態，點它沒有對應的篩選語意 —— 不給 onClick，
+                  元件就不會 hoverable（原本點了只會變色，列表不動）。 */}
               <ClickableStatCard
                 title="報價總額"
-                value={`NT$${(summary.total_contract_amount ?? 0).toLocaleString()}`}
+                value={`NT$${Number(summary.total_contract_amount ?? 0).toLocaleString()}`}
                 icon={<DollarOutlined />}
-                active={statFilter === 'amount'}
-                onClick={() => setStatFilter(statFilter === 'amount' ? null : 'amount')}
               />
             </Col>
           </Row>

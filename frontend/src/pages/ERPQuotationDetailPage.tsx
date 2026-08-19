@@ -14,7 +14,7 @@ import {
   EditOutlined, DeleteOutlined, DollarOutlined,
   InfoCircleOutlined, BankOutlined,
 } from '@ant-design/icons';
-import { FileTextOutlined, ProfileOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { FileTextOutlined, ProfileOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { QuotationItemsTab } from './erpQuotation';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useERPQuotation, useAuthGuard } from '../hooks';
@@ -62,13 +62,16 @@ export const ERPQuotationDetailPage: React.FC = () => {
   // 檔名取自後端的 `Content-Disposition`（RFC 5987 編碼的中文檔名）——
   // 前端自己拼檔名會與後端各自演化，而檔名裡有單號，兩邊不一致時
   // 使用者會拿到一個對不上系統的檔案。
-  const handleExportDocument = async () => {
+  const handleExportDocument = async (format: 'xlsx' | 'pdf' = 'xlsx') => {
     if (!quotation?.id) return;
     setExporting(true);
     try {
       const res = await apiClient.post(
         ERP_ENDPOINTS.EXPORT_DOCUMENT,
-        { erp_quotation_id: quotation.id },
+        // 2026-08-18 owner：「報價單要能輸出 pdf 並且自動納入系統存檔」。
+        // PDF 由後端從**同一份 xlsx 範本**轉出（LibreOffice），版面只有一份來源。
+        // archive 預設為 true：輸出即存進系統（只保留最新一份）。
+        { erp_quotation_id: quotation.id, format },
         { responseType: 'blob' },
       );
       const raw = res as unknown as { data?: Blob } | Blob;
@@ -79,7 +82,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
       const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
       const filename = m?.[1]
         ? decodeURIComponent(m[1])
-        : `報價單_${quotation.quotation_no || quotation.id}.xlsx`;
+        : `報價單_${quotation.quotation_no || quotation.id}.${format}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -121,8 +124,14 @@ export const ERPQuotationDetailPage: React.FC = () => {
             產出的檔案可直接寄給客戶簽回。
 
             與列表頁的「匯出」不同：那是多筆資料列表，這是單張正式文件。 */}
-        <Button icon={<FileExcelOutlined />} loading={exporting} onClick={handleExportDocument}>
+        <Button icon={<FileExcelOutlined />} loading={exporting} onClick={() => handleExportDocument('xlsx')}>
           輸出報價單
+        </Button>
+        {/* 2026-08-18 owner：「報價單要能輸出 pdf 並且自動納入系統存檔」。
+            PDF 與 xlsx 共用同一份範本，兩者版面必然一致。
+            兩個按鈕而非下拉：這是每次都會用到的動作，多一次點擊沒有價值。 */}
+        <Button icon={<FilePdfOutlined />} loading={exporting} onClick={() => handleExportDocument('pdf')}>
+          輸出 PDF
         </Button>
         <Button type="primary" icon={<EditOutlined />}
           onClick={() => navigate(ROUTES.ERP_QUOTATION_EDIT.replace(':id', String(quotation?.id)))}
