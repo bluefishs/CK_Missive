@@ -48,6 +48,14 @@ export interface ERPQuotation {
    * 要把那批檔案掛回系統得靠它比對。
    */
   legacy_quotation_no?: string;
+  /**
+   * 填報者（誰輸入這筆資料）。
+   *
+   * ⚠️ 與「服務人員」不同：服務人員是案子的窗口（依 ADR-0025 收斂到
+   * canonical 帳號），填報者就是輸入的那個帳號本人 —— 兩者在同仁有
+   * 兩個登入帳號時會不同，不可混用。
+   */
+  created_by_name?: string;
   /** 報價送出時間；undefined＝還在草稿 */
   quoted_at?: string;
 

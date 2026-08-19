@@ -130,6 +130,18 @@ class ERPQuotationResponse(BaseModel):
     # 同一個檔案、同一種失敗形狀，隔兩天再踩一次。
     legacy_quotation_no: Optional[str] = None
 
+    # 2026-08-19：填報者姓名。
+    #
+    # `created_by` 本身只是一個 user id —— 前端就算顯示也只會看到一個數字，
+    # 而 owner 要的是「這張報價單是誰填的」。
+    #
+    # ⚠️ 這裡**不做 canonical 轉換**（與同頁的「服務人員」相反）：
+    # 服務人員問的是「這個案子的窗口是誰」⇒ 以 ADR-0025 的 canonical 為準；
+    # 填報者問的是「這筆資料是誰輸入的」⇒ 就是那個帳號本人。
+    # 兩者在王駿穠身上會不同（aaronfly1978 業務身分 vs jujuiacc 管理帳號），
+    # 而那正是不能混為一談的理由。
+    created_by_name: Optional[str] = None
+
     total_price: Optional[Decimal] = None
     tax_amount: Decimal = Decimal("0")
     outsourcing_fee: Decimal = Decimal("0")

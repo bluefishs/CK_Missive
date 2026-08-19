@@ -40,6 +40,30 @@ export const ERPQuotationListPage: React.FC = () => {
       ellipsis: true,
       render: (text: string | null) => <strong>{text ?? '-'}</strong>,
     },
+    // 2026-08-19 owner：「報價單要能對應填報者」。
+    //
+    // `created_by` 一直存在於資料表，但**77 張全是 NULL**（端點建立時
+    // 沒把使用者傳進去，08-19 已修 ⇒ 之後新建的才有），而且它只是一個
+    // user id —— 就算顯示也只是個數字。後端補了 `created_by_name`，
+    // 這裡才看得到人。
+    //
+    // 舊資料顯示「—」是誠實的：那些是修法之前建立的，系統當時沒有記錄
+    // 是誰填的，寫任何名字上去都是編的。
+    {
+      title: '填報者',
+      dataIndex: 'created_by_name',
+      key: 'created_by_name',
+      width: 110,
+      render: (v: string | null) => v || <span style={{ color: '#999' }}>—</span>,
+    },
+    // 舊案號（個人管理時期，B114-B002）—— 與紙本、回簽 PDF 檔名對得起來的那組編號
+    {
+      title: '舊案號',
+      dataIndex: 'legacy_quotation_no',
+      key: 'legacy_quotation_no',
+      width: 130,
+      render: (v: string | null) => v || <span style={{ color: '#999' }}>—</span>,
+    },
     // 2026-08-15：補上「狀態」欄。
     // owner 回報「表格無提供篩選」—— 實測排序圖示 12 個、篩選漏斗 **0 個**。
     // 真因不是 enhanceColumns 沒生效，是**列表根本沒有狀態欄**：

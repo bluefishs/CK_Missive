@@ -9,6 +9,7 @@ from typing import Optional, Tuple, List
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPQuotation
@@ -225,6 +226,8 @@ class ERPQuotationService(AuditableServiceMixin):
         invoice_counts = await self._get_invoice_counts_batch(ids)
         # 整批取一次公司留成比率（值有 60 秒快取，但這裡連查詢都省掉）
         rate = await get_company_profit_rate(self.db)
+        # 填報者姓名同樣整批取 —— 逐筆查會讓列表變成 N+1
+        creator_names = await self._get_creator_names_batch([q.created_by for q in items])
 
         responses = []
         for item in items:
@@ -232,6 +235,7 @@ class ERPQuotationService(AuditableServiceMixin):
             p = payable_agg.get(item.id, {})
             responses.append(self._to_response_with_aggregates(
                 item,
+                creator_name=creator_names.get(item.created_by),
                 billing_count=b.get("count", 0),
                 total_billed=b.get("total_billed", ZERO),
                 total_received=b.get("total_received", ZERO),
@@ -241,6 +245,23 @@ class ERPQuotationService(AuditableServiceMixin):
                 company_profit_rate=rate,
             ))
         return responses, total
+
+    async def _get_creator_names_batch(self, user_ids: List[int]) -> dict:
+        """一次取回填報者姓名（避免列表 N+1）。
+
+        ⚠️ **不做 canonical 轉換**：填報者問的是「這筆資料是誰輸入的」，
+        就是那個帳號本人；而同一頁的「服務人員」問的是案子窗口，
+        那個才依 ADR-0025 收斂到 canonical。兩者在王駿穠身上會不同
+        （aaronfly1978 業務身分 vs jujuiacc 管理帳號）。
+        """
+        ids = [i for i in set(user_ids or []) if i]
+        if not ids:
+            return {}
+        from app.extended.models import User
+        rows = (await self.db.execute(
+            select(User.id, User.full_name, User.username).where(User.id.in_(ids))
+        )).all()
+        return {r[0]: (r[1] or r[2]) for r in rows}
 
     async def _get_invoice_counts_batch(self, quotation_ids: List[int]) -> dict:
         """批次取得發票數量 — 委派至 ERPInvoiceRepository"""
@@ -256,6 +277,7 @@ class ERPQuotationService(AuditableServiceMixin):
         total_paid: Decimal,
         invoice_count: int,
         company_profit_rate=ZERO,
+        creator_name: Optional[str] = None,
     ) -> ERPQuotationResponse:
         """轉換為回應格式 (使用預先批次聚合的數據，避免 N+1)
 
@@ -292,6 +314,7 @@ class ERPQuotationService(AuditableServiceMixin):
             # 列表不查實際成本：那要逐筆打 DB（N+1），而這個方法存在的理由
             # 正是消除 N+1（見 list_quotations 的批次聚合）。
             # 實際成本只在詳情頁計算；列表顯示的是報價單上的估列。
+            created_by_name=creator_name,
             invoice_count=invoice_count,
             billing_count=billing_count,
             total_billed=total_billed,
@@ -578,6 +601,9 @@ class ERPQuotationService(AuditableServiceMixin):
             cost_declared=profit["cost_declared"],
             actual_cost=actual["actual_cost"],
             pending_cost=actual["pending_cost"],
+            # 單筆詳情：直接查一次（列表走 _get_creator_names_batch）
+            created_by_name=(await self._get_creator_names_batch(
+                [quotation.created_by])).get(quotation.created_by),
             invoice_count=len(invoices),
             billing_count=len(billings),
             total_billed=total_billed,

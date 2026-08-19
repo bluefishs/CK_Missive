@@ -137,3 +137,52 @@ A 直接解決那個痛點，且不動任何權限語意。若之後發現真的
 2. **可見性**：採 A（只加篩選鈕，建議）還是 B（預設只看自己）？
 3. **既有 77 張報價單的 `created_by`**：留 NULL 並在 UI 標明，還是要回填？（回填需要你指認）
 4. **回簽是否為成案的必要條件**？若是，**只對新案件生效**（既有 88 件無一有回簽檔）。
+
+---
+
+## 6. 發票：先保留架構，不動 schema（2026-08-19）
+
+owner：「目前無發票號，請先保留架構設計，如對應 ERP 相關欄位一致性」。
+
+### 兩份彙整表都沒有發票號
+
+25 欄逐一確認過：只有「發票日期」（115 檔）／「發票日」（114 檔），
+**沒有發票號碼**。發票日期覆蓋率 51/69。
+
+### 對應的是 `erp_invoices`，不是在報價單上加欄位
+
+| 彙整表欄位 | 對應到 | 說明 |
+|---|---|---|
+| 發票日期／發票日 | `erp_invoices.invoice_date` | 已存在 |
+| （待補）發票號 | `erp_invoices.invoice_number` | 已存在 |
+| 報價金額／總價 | `erp_invoices.amount` | 已存在 |
+| 稅額 | `erp_invoices.tax_amount` | 已存在 |
+| — | `erp_invoices.erp_quotation_id` | 關聯報價單 |
+
+**欄位全部現成，不需要新增。** 那張表就是「開給客戶的發票」（銷項）；
+`expense_invoices` 是費用核銷的進項（`inv_num`／`date`），
+兩者概念不同，不可混用 —— 這也是為什麼**不在 `erp_quotations` 上加發票欄位**：
+那會變成第三套發票概念。
+
+### 為什麼現在不建 `erp_invoices` 記錄
+
+`invoice_number` 是 **`nullable=False` + `unique=True`**。
+沒有號碼就建記錄，只有兩條路：
+
+1. 放寬 NOT NULL — **不為還沒發生的需求動 DB 約束**
+2. 填佔位號（如 `LEGACY-B115-B003-0`）— 那是把假資料寫進發票號
+
+兩條都不該現在走。所以：**發票日期先原樣保存在報價單的備註**
+（匯入時已收，見 `quotation_legacy_import.py` 的 `_NOTES_FIELDS`），
+資料不遺失。
+
+### 發票號到位後怎麼接（三步，不需要改結構）
+
+1. 從報價單備註取出發票日期（或另給一份含號碼的清單）
+2. 依 `legacy_quotation_no` 找到對應的 `erp_quotations.id`
+3. 建立 `erp_invoices`：`erp_quotation_id` + `invoice_number` + `invoice_date`
+   + `amount` + `tax_amount`，`invoice_type='sales'`
+
+⚠️ **前置條件是 `legacy_quotation_no` 要能被讀到** —— 2026-08-19 補上
+response schema 與前端型別之前，那個欄位存在資料庫而 API 永遠不回傳，
+這一步會直接卡死。
