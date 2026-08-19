@@ -1,4 +1,4 @@
-import type { ERPQuotationLegacyImportResult } from '../../types/erp';
+import type { ERPQuotationLegacyImportResult, ERPSignedImportResult } from '../../types/erp';
 /**
  * ERP 報價/成本主檔 API 服務
  */
@@ -114,6 +114,21 @@ export const erpQuotationsApi = {
   async importLegacy(file: File, dryRun = true): Promise<ERPQuotationLegacyImportResult> {
     const response = await apiClient.upload<SuccessResponse<ERPQuotationLegacyImportResult>>(
       `${ERP_ENDPOINTS.IMPORT_LEGACY}?dry_run=${dryRun}`, file, 'file',
+    );
+    return response.data!;
+  },
+
+  /**
+   * 匯入客戶回簽報價單（多檔）。
+   *
+   * ⚠️ 用 FormData 手動組多檔 —— `apiClient.upload` 只收單檔。
+   * 檔名就是對應關係：`回簽報價單_<舊案號>_<客戶>_<標的>_<項目>.pdf`
+   */
+  async importSigned(files: File[], dryRun = true): Promise<ERPSignedImportResult> {
+    const fd = new FormData();
+    files.forEach((f) => fd.append('files', f));
+    const response = await apiClient.post<SuccessResponse<ERPSignedImportResult>>(
+      `${ERP_ENDPOINTS.IMPORT_SIGNED}?dry_run=${dryRun}`, fd,
     );
     return response.data!;
   },

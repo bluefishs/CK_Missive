@@ -15,6 +15,7 @@ from app.schemas.erp import (
     ERPIdRequest, ERPQuotationUpdateRequest, ERPQuotationIdRequest,
     ERPQuotationExportRequest,
     ERPQuotationLegacyImportResult,
+    ERPSignedImportResult,
     ERPSummaryRequest, ERPGenerateCodeRequest,
 )
 from app.schemas.common import PaginatedResponse, SuccessResponse, DeleteResponse
@@ -218,6 +219,42 @@ async def generate_case_code(
     """產生 ERP 案號"""
     code = await service.generate_case_code(year=req.year, category=req.category)
     return SuccessResponse(data={"case_code": code})
+
+
+@router.post("/import-signed", response_model=SuccessResponse[ERPSignedImportResult])
+async def import_signed_quotations(
+    files: list[UploadFile] = File(...),
+    dry_run: bool = True,
+    service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
+):
+    """匯入客戶回簽報價單（依檔名的舊案號自動掛回對應案件）。
+
+    owner 2026-08-19：「產生報價單只是步驟一，其需將客戶回簽檔案上傳確認
+    才正式完成邀標報價承攬」。
+
+    檔名格式：`回簽報價單_<舊案號>_<客戶>_<標的>_<項目>.pdf`
+
+    ⚠️ 比對走**正規化**：回簽檔寫 `B115-C017a-0`、彙整表寫 `B115-C017-a`，
+    直接字串比對 5 個檔會有 3 個掛不上（2026-08-19 實測）。
+
+    `dry_run=True`（預設）只回報「幾個對得上、幾個對不上」不寫入；
+    對不上的會列出檔名與原因，不靜靜跳過。
+    """
+    from app.services.erp.signed_quotation_import import SignedQuotationImportService
+
+    payload: list[tuple[str, bytes]] = []
+    for f in files:
+        if not f.filename:
+            continue
+        payload.append((f.filename, await f.read()))
+    if not payload:
+        raise HTTPException(status_code=400, detail="沒有可處理的檔案")
+
+    svc = SignedQuotationImportService(service.db)
+    return SuccessResponse(data=await svc.run(
+        payload, dry_run=dry_run, user_id=current_user.id,
+    ))
 
 
 @router.post("/import-legacy", response_model=SuccessResponse[ERPQuotationLegacyImportResult])

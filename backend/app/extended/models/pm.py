@@ -112,6 +112,12 @@ class PMCaseAttachment(Base):
     mime_type = Column(String(100), comment="MIME 類型")
     original_name = Column(String(255), comment="原始檔名")
     checksum = Column(String(64), index=True, comment="SHA256 校驗碼")
+    # 2026-08-19：文件類型。沒有它，「系統產出的報價單」與「客戶回簽的報價單」
+    # 在資料上長得一模一樣、只能靠檔名猜 —— 而「這個案子有沒有客戶回簽」
+    # 是成案的判準，不能建立在猜測上。
+    # NULL 與 'other' 刻意分開：「還沒有人分類過」不等於「它是其他」。
+    doc_type = Column(String(32), index=True,
+                      comment="generated_quotation/signed_quotation/other；NULL＝未分類")
     uploaded_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                          nullable=True, comment="上傳者")
     notes = Column(Text, comment="備註 (如：第一版報價、修正版等)")

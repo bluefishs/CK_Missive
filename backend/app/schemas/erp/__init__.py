@@ -3,6 +3,8 @@ from .quotation import (
     ERPQuotationCreate, ERPQuotationUpdate, ERPQuotationResponse,
     ERPQuotationListRequest, ERPProfitSummary, ERPProfitTrendItem,
     ERPQuotationLegacyImportResult,
+    ERPSignedImportResult,
+    ERPSignedImportUnmatched,
     ERPQuotationLegacyImportSkipped,
 )
 from .invoice import (

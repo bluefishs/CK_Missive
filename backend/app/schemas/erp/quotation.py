@@ -318,3 +318,25 @@ class ERPQuotationLegacyImportResult(BaseModel):
     created: Optional[int] = None
     updated: Optional[int] = None
     error: Optional[str] = None
+
+
+class ERPSignedImportUnmatched(BaseModel):
+    """沒掛上的回簽檔：檔名與原因（不靜靜跳過）。"""
+    file_name: str
+    reason: str
+
+
+class ERPSignedImportResult(BaseModel):
+    """客戶回簽報價單匯入的結果。
+
+    與彙整表匯入同一個原則：dry_run 先回報，確認才寫。
+    """
+    success: bool = True
+    dry_run: bool
+    total_files: int
+    will_attach: int
+    unmatched: int
+    unmatched_detail: list[ERPSignedImportUnmatched] = []
+    sample_match: list[dict] = []
+    attached: Optional[int] = None
+    replaced: Optional[int] = None

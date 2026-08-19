@@ -130,6 +130,8 @@ export const ERP_ENDPOINTS = {
    * 與 IMPORT 不同：那支吃系統匯出的格式，這支吃 owner 手上的彙整表。
    */
   IMPORT_LEGACY: '/erp/quotations/import-legacy',
+  /** 匯入客戶回簽報價單（依檔名的舊案號自動掛回對應案件） */
+  IMPORT_SIGNED: '/erp/quotations/import-signed',
   /** 匯入 Excel POST /erp/quotations/import */
   IMPORT: '/erp/quotations/import',
   /** 下載匯入範本 POST /erp/quotations/import-template */

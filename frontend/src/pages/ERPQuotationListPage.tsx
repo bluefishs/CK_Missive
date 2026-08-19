@@ -262,6 +262,65 @@ export const ERPQuotationListPage: React.FC = () => {
               >
                 <Button icon={<FileExcelOutlined />}>匯入彙整表（舊案號）</Button>
               </Upload>
+              {/* owner 2026-08-19：「產生報價單只是步驟一，其需將客戶回簽檔案
+                  上傳確認才正式完成邀標報價承攬」。
+                  檔名就是對應關係：回簽報價單_<舊案號>_<客戶>_<標的>_<項目>.pdf
+                  ⚠️ 相依：要先匯入彙整表（系統才有舊案號可比對），
+                  否則會全部回報「找不到舊案號」—— 訊息會講清楚，不會靜靜跳過。 */}
+              <Upload
+                accept=".pdf"
+                multiple
+                showUploadList={false}
+                beforeUpload={() => false}
+                onChange={async (info) => {
+                  // AntD 的 originFileObj 型別是 RcFile（File 的子型別，多了 uid），
+                  // 這裡只需要當成 File 傳給 FormData
+                  const files: File[] = info.fileList
+                    .map((f) => f.originFileObj)
+                    .filter(Boolean) as unknown as File[];
+                  if (files.length !== info.fileList.length) return;
+                  try {
+                    message.loading({ content: '比對中...', key: 'signed' });
+                    const p = await erpQuotationsApi.importSigned(files, true);
+                    message.destroy('signed');
+                    modal.confirm({
+                      title: '匯入客戶回簽報價單',
+                      width: 620,
+                      content: (
+                        <div>
+                          <p>共 <b>{p.total_files}</b> 個檔案：</p>
+                          <ul>
+                            <li>可掛回 <b>{p.will_attach}</b> 份</li>
+                            {p.unmatched > 0 && <li>對不上 {p.unmatched} 份</li>}
+                          </ul>
+                          {(p.unmatched_detail?.length ?? 0) > 0 && (
+                            <Alert type="warning" showIcon message="對不上的檔案"
+                              description={
+                                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                                  {p.unmatched_detail!.slice(0, 5).map((u) => (
+                                    <li key={u.file_name}>{u.file_name}：{u.reason}</li>
+                                  ))}
+                                </ul>
+                              } />
+                          )}
+                        </div>
+                      ),
+                      okText: '確認掛回', cancelText: '取消',
+                      okButtonProps: { disabled: p.will_attach === 0 },
+                      onOk: async () => {
+                        const r = await erpQuotationsApi.importSigned(files, false);
+                        message.success(`回簽掛回完成：${r.attached} 份`);
+                        refetch();
+                      },
+                    });
+                  } catch {
+                    message.destroy('signed');
+                    message.error('回簽檔解析失敗');
+                  }
+                }}
+              >
+                <Button icon={<UploadOutlined />}>匯入客戶回簽</Button>
+              </Upload>
               <Button
                 icon={<DownloadOutlined />}
                 onClick={async () => {

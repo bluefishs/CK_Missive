@@ -1463,3 +1463,26 @@ export interface ERPQuotationLegacyImportResult {
   updated?: number;
   error?: string;
 }
+
+
+/** 客戶回簽匯入：沒掛上的檔案 */
+export interface ERPSignedImportUnmatched {
+  file_name: string;
+  reason: string;
+}
+
+/**
+ * 客戶回簽報價單匯入的結果。
+ * 對應後端 `schemas/erp/quotation.py` 的 `ERPSignedImportResult`。
+ */
+export interface ERPSignedImportResult {
+  success: boolean;
+  dry_run: boolean;
+  total_files: number;
+  will_attach: number;
+  unmatched: number;
+  unmatched_detail?: ERPSignedImportUnmatched[];
+  sample_match?: Array<Record<string, unknown>>;
+  attached?: number;
+  replaced?: number;
+}
