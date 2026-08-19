@@ -191,6 +191,48 @@ async def search_tenders(
             result["records"] = [_by_key[k] for k in _order]
             result["total_records"] = len(result["records"])
 
+    # ── 列表層的跨來源補值 ──
+    #
+    # 詳情頁在 2026-08-19 已經會跨來源補金額，但**列表沒有** ——
+    # owner 回報「15 筆紀錄皆無詳細資料」。實測搜尋「測量」34 筆，
+    # 有金額的只有 12 筆，而且**全部是 ezbid 來源；pcc 來源一筆都沒有**
+    # （PCC 清單頁本身就沒有金額欄位）。
+    #
+    # 一次 SQL 補完，不逐筆查（那會是 N+1）。配對鍵與詳情頁同一條：
+    # job_number + 標題前 20 字（job_number 單獨會撞號）。
+    _need = [r for r in (result.get("records") or [])
+             if not r.get("budget") and (r.get("job_number") or "").strip()]
+    if _need:
+        try:
+            from sqlalchemy import text as _sa_text2
+            from app.db.database import AsyncSessionLocal as _Sess2
+            _jns = list({(r.get("job_number") or "").strip() for r in _need})
+            async with _Sess2() as _db2:
+                _rows = (await _db2.execute(_sa_text2("""
+                    SELECT job_number, left(title, 20) AS t, budget, source
+                      FROM tender_records
+                     WHERE job_number = ANY(:jns) AND budget IS NOT NULL
+                """), {"jns": _jns})).all()
+            _lookup = {(r[0], r[1]): (r[2], r[3]) for r in _rows}
+            _filled = 0
+            for _r in _need:
+                _hit = _lookup.get(
+                    ((_r.get("job_number") or "").strip(), (_r.get("title") or "")[:20])
+                )
+                if _hit and _hit[0] is not None:
+                    _r["budget"] = float(_hit[0])
+                    # 標明出處 —— 不讓使用者以為這個數字是該來源公告上寫的
+                    _r["budget_source"] = _hit[1]
+                    _filled += 1
+            if _filled:
+                logging.getLogger(__name__).info(
+                    "標案列表跨來源補金額：%d/%d 筆", _filled, len(_need)
+                )
+        except Exception as _e:
+            # 補值失敗不該讓整個搜尋掛掉，但要出聲 ——
+            # 靜默的話又會變成「金額一直是空的而沒有人知道為什麼」。
+            logging.getLogger(__name__).warning("標案列表跨來源補值失敗: %s", _e)
+
     # 搜尋結果自動入庫 — 2026-04-24 改非同步背景任務，不阻塞 response
     try:
         import asyncio as _aio
@@ -393,12 +435,64 @@ async def get_tender_detail(
             if _row[3] and not result.get("status"):
                 result["status"] = _row[3]
     except Exception as _e:
-        # 查不到回指不該讓整個詳情頁掛掉，但必須出聲 ——
-        # 靜默的話又會變成「欄位一直是空的而沒有人知道」。
-        _logger.warning(
+        logging.getLogger(__name__).warning(
             "PCC 詳情回指查詢失敗 unit_id=%s job_number=%s: %s",
             req.unit_id, req.job_number, _e,
         )
+
+    # ── 還是沒有金額 → 直接去 PCC 詳情頁抓 ──
+    #
+    # 2026-08-19：既有程式只把 PCC 詳情頁的**網址**組出來給前端，
+    # 從來沒有真的去抓那一頁的內容 —— 而 `budget` 取自 DB，
+    # PCC 來源 60,296 筆的 budget 全是 NULL，所以永遠是空的。
+    #
+    # 這推翻了 L77「enrichment 死結」的判斷。那條教訓講的是
+    # **採購性質／底價**需要 org_id、而 org_id 只在被限流的頁面上；
+    # 但**預算金額**就寫在詳情頁本文，不需要 org_id。
+    # 實測三筆全部 HTTP 200、0.2~1.2 秒、無驗證碼，且值可交叉驗證：
+    #   NzEzMDA1NzQ= → 4,000,000（與 ezbid 那筆一致）
+    #   NzEyODY4Nzk= →   625,000（與該案 PM 合約金額一致）
+    #
+    # 只在沒有金額時才抓（有值的走 DB，不會多打一次外部）；
+    # 抓到就寫回 DB，所以同一筆最多只會抓一次。
+    if not result.get("budget"):
+        try:
+            import re as _re
+            from urllib.parse import quote as _q2
+            import httpx as _httpx
+            # ⚠️ base64 尾端的 `=` 必須原樣送出：編成 %3D 會被 PCC 導向精簡 stub 頁
+            _pcc_url = (
+                "https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain="
+                + _q2(str(req.unit_id), safe="=")
+            )
+            async with _httpx.AsyncClient(
+                timeout=8, follow_redirects=True,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+            ) as _c:
+                _resp = await _c.get(_pcc_url)
+            _m = _re.search(r"預算金額[^0-9]{0,40}([0-9,]{4,})", _resp.text or "")
+            if _m:
+                _amt = _m.group(1).replace(",", "")
+                if _amt.isdigit() and int(_amt) > 0:
+                    result["budget"] = _amt
+                    result["budget_source"] = "pcc_detail"
+                    # 寫回 DB —— 下一次同一筆就不必再打外部
+                    try:
+                        from sqlalchemy import text as _sa_text3
+                        from app.db.database import AsyncSessionLocal as _Sess3
+                        async with _Sess3() as _db3:
+                            await _db3.execute(_sa_text3("""
+                                UPDATE tender_records SET budget = :b, updated_at = NOW()
+                                 WHERE source = 'pcc' AND unit_id = :u AND job_number = :j
+                                   AND budget IS NULL
+                            """), {"b": int(_amt), "u": req.unit_id, "j": req.job_number or ""})
+                            await _db3.commit()
+                    except Exception as _e3:
+                        # 寫不回去不影響這次顯示，但要出聲（否則會變成每次都重抓）
+                        logging.getLogger(__name__).warning("PCC 預算回寫失敗: %s", _e3)
+        except Exception as _e2:
+            # 外部抓取失敗不擋詳情頁 —— 沒有金額仍然要看得到標案本身
+            logging.getLogger(__name__).info("PCC 詳情頁預算抓取未成功: %s", _e2)
     # L51 task F: page view counter
     try:
         from app.services.tender.metrics import get_tender_metrics
