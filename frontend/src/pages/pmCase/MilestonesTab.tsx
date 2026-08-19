@@ -19,6 +19,8 @@ import { useResponsive } from '../../hooks';
 import type { PMMilestone, PMMilestoneType, PMMilestoneStatus } from '../../types/pm';
 import { PM_MILESTONE_TYPE_LABELS, PM_MILESTONE_STATUS_LABELS } from '../../types/pm';
 import { usePMMilestones } from '../../hooks/business/usePMCases';
+import { apiClient } from '../../api/client';
+import { PM_ENDPOINTS } from '../../api/endpoints';
 
 interface MilestonesTabProps {
   pmCaseId: number;
@@ -117,12 +119,13 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
           </Button>
           <Button icon={<DownloadOutlined />} onClick={async () => {
             try {
-              const resp = await fetch('/api/pm/milestones/export-xlsx', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pm_case_id: pmCaseId }),
-              });
-              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-              const blob = await resp.blob();
+              // ⚠️ 原本用裸 fetch：不經 apiClient 就不帶認證 cookie 與 X-CSRF-Token，
+              // 這個功能一直是壞的（同型掃全 4 處，2026-08-19 一併改）。
+              const res = await apiClient.post(
+                PM_ENDPOINTS.MILESTONES_EXPORT, { pm_case_id: pmCaseId }, { responseType: 'blob' },
+              );
+              const raw = res as unknown as { data?: Blob } | Blob;
+              const blob = raw instanceof Blob ? raw : (raw.data as Blob);
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a'); a.href = url;
               a.download = `milestones_${pmCaseId}.xlsx`; a.click();
@@ -136,8 +139,12 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
             try {
               message.loading({ content: '匯入中...', key: 'ms-import' });
               const formData = new FormData(); formData.append('file', file);
-              const resp = await fetch('/api/pm/milestones/import-xlsx', { method: 'POST', body: formData });
-              const result = await resp.json();
+              type MsImportResult = {
+                success?: boolean; created?: number; updated?: number; error?: string;
+              };
+              const res = await apiClient.post(PM_ENDPOINTS.MILESTONES_IMPORT, formData);
+              const result = ((res as unknown as { data?: MsImportResult })?.data
+                ?? (res as unknown as MsImportResult));
               if (result.success) {
                 message.success({ content: `匯入完成: 新增 ${result.created} 筆, 更新 ${result.updated} 筆`, key: 'ms-import', duration: 5 });
                 window.location.reload();

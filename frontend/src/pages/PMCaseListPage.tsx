@@ -20,6 +20,8 @@ import { PM_CASE_STATUS_LABELS } from '../types/pm';
 import type { PMCaseStatus } from '../types/pm';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
+import { apiClient } from '../api/client';
+import { PM_ENDPOINTS } from '../api/endpoints';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -41,9 +43,14 @@ export const PMCaseListPage: React.FC = () => {
   const handleExportXlsx = async () => {
     try {
       message.loading({ content: '匯出中...', key: 'export' });
-      const response = await fetch('/api/pm/cases/export-xlsx', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
+// ⚠️ 這裡原本用**裸 `fetch`** 打 `/api/...`：不經 apiClient 就不會帶上
+      // 認證 cookie 與 X-CSRF-Token，於是這個功能一直是壞的
+      // （owner 2026-08-19 回報「匯出 XLS 無法運作」）。
+      // 同型掃全共 4 處：PM 案件匯出/匯入、里程碑匯出/匯入 —— 一併改用 apiClient。
+      // 路徑也改用端點常數，不再硬編字串。
+      const res = await apiClient.post(PM_ENDPOINTS.EXPORT_XLSX, {}, { responseType: 'blob' });
+      const raw = res as unknown as { data?: Blob } | Blob;
+      const blob = raw instanceof Blob ? raw : (raw.data as Blob);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -62,12 +69,14 @@ export const PMCaseListPage: React.FC = () => {
       message.loading({ content: '匯入中...', key: 'import' });
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch('/api/pm/cases/import-xlsx', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const result = await response.json();
+      // 同上：裸 fetch 不帶認證，改走 apiClient
+      // 匯入回應的形狀（後端 pm/cases/import-xlsx）
+      type ImportResult = {
+        success?: boolean; updated?: number; synced?: number; errors?: string[]; error?: string;
+      };
+      const res = await apiClient.post(PM_ENDPOINTS.IMPORT_XLSX, formData);
+      const result = ((res as unknown as { data?: ImportResult })?.data
+        ?? (res as unknown as ImportResult));
 
       if (result.success) {
         message.success({

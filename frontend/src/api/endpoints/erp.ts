@@ -50,6 +50,10 @@ export const PM_ENDPOINTS = {
   ATTACHMENTS_DELETE: (id: number) => `/pm/cases/attachments/${id}/delete` as const,
   /** 匯出 CSV POST /pm/cases/export */
   EXPORT: '/pm/cases/export',
+  /** 匯出案件 XLSX POST /pm/cases/export-xlsx */
+  EXPORT_XLSX: '/pm/cases/export-xlsx',
+  /** 匯入案件 XLSX（修正用） POST /pm/cases/import-xlsx */
+  IMPORT_XLSX: '/pm/cases/import-xlsx',
   /** 多年度趨勢 POST /pm/cases/yearly-trend */
   YEARLY_TREND: '/pm/cases/yearly-trend',
   /** 作業性質代碼列表 POST /pm/case-nature/list */
