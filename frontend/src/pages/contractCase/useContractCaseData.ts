@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '../../api/projectsApi';
-import { usersApi } from '../../api/usersApi';
+import { apiClient } from '../../api/client';
+import { USERS_ENDPOINTS } from '../../api/endpoints';
 import { vendorsApi } from '../../api/vendorsApi';
 import { documentsApi } from '../../api/documentsApi';
 import { filesApi, type FileAttachment } from '../../api/filesApi';
@@ -163,10 +164,16 @@ export function useContractCaseData(projectId: number | undefined) {
     enabled: !!projectId && relatedDocs.length > 0,
   });
 
+  // ⚠️ queryKey `contract-case-user-options` **與 ContractCaseStaffFormPage 相同**。
+  //    兩處共用同一個 key 是刻意的（同一份清單），但前提是**資料源必須也相同** ——
+  //    2026-08-20 之前這裡打 `users/list`（admin-only）而那裡打別的，
+  //    於是誰先載入誰就決定了快取內容：從承攬案件詳情頁點進「新增承辦同仁」時，
+  //    create 頁沿用的是詳情頁留下的結果，改 create 頁那支根本不會生效。
+  //    key 撞號本身不是錯，源不一致才是。
   const { data: userOptions = [] } = useQuery({
     queryKey: ['contract-case-user-options'],
     queryFn: async () => {
-      const response = await usersApi.getUsers({ limit: 100 }) as PaginatedResponse<User>;
+      const response = await apiClient.post<{ items: User[] }>(USERS_ENDPOINTS.ASSIGNABLE, {});
       // 排除已合併的分身帳號（ADR-0025）—— 見 utils/assignableUsers
       const users = filterAssignableUsers(response.items || []);
       return users.map((u) => ({

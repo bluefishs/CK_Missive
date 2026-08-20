@@ -41,14 +41,23 @@ export const useProjectsDropdown = () => {
  * 使用者下拉選單 Hook
  *
  * staleTime 10 分鐘。
+ *
+ * 2026-08-20：資料源由 `users/list`（`require_admin()`）改為
+ * `users/assignable`（只要登入即可）。
+ *
+ * 原本以 `role='user'` 的帳號登入時，這支會 **403 ⇒ 回空陣列**，
+ * 於是資產保管人、PM 承辦、公文承辦人這些下拉**對一般同仁一律是空的** ——
+ * 而 AntD Select 在 options 空、value 有值時會直接顯示原始數字 id，
+ * 也就是 owner 看到的「同仁變成代碼」。這不是那一頁的問題，
+ * 是五個人員下拉共用同一條打不通的資料源。
  */
 export const useUsersDropdown = () => {
   const { data, isLoading } = useQuery({
     queryKey: ['users-dropdown'],
     queryFn: async () => {
       const resp = await apiClient.post<{ users?: User[]; items?: User[] }>(
-        USERS_ENDPOINTS.LIST,
-        { page: 1, limit: 100 }
+        USERS_ENDPOINTS.ASSIGNABLE,
+        {}
       );
       const items = resp.users || resp.items || [];
       return Array.isArray(items) ? items : [];

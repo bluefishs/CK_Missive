@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-19T14:16:09.207Z",
+ "checked_at": "2026-08-19T20:38:47.053Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 87,
  "fail": 0,
@@ -1343,7 +1343,7 @@
    {
     "route": "/erp/quotations/168",
     "viewportWidth": 768,
-    "pageOverflow": 270,
+    "pageOverflow": 19,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
@@ -1371,21 +1371,21 @@
    {
     "route": "/erp/quotations/168?tab=receivable",
     "viewportWidth": 768,
-    "pageOverflow": 270,
+    "pageOverflow": 19,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
    {
     "route": "/erp/quotations/168?tab=payable",
     "viewportWidth": 768,
-    "pageOverflow": 270,
+    "pageOverflow": 19,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
    {
     "route": "/erp/quotations/168?tab=expenses",
     "viewportWidth": 768,
-    "pageOverflow": 270,
+    "pageOverflow": 19,
     "layoutViewport": 768,
     "tableOverflow": 0
    },

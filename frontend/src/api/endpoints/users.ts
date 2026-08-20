@@ -7,6 +7,13 @@
 export const USERS_ENDPOINTS = {
   /** 使用者列表 POST /users/list */
   LIST: '/users/list',
+  /**
+   * 可指派人員（僅姓名等最小欄位，**只要登入就能取得**）。
+   * 與 LIST 不同：那支是 require_admin，一般使用者呼叫會 403 ——
+   * 而選項為空時 AntD Select 會顯示原始 value（數字 id），
+   * 也就是 owner 2026-08-20 回報的「只顯示代號無姓名」。
+   */
+  ASSIGNABLE: '/users/assignable',
   /** 建立使用者 POST /users */
   CREATE: '/users',
   /** 使用者詳情 POST /users/:id/detail */

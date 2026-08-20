@@ -85,7 +85,8 @@ const ContractCaseVendorFormPage: React.FC = () => {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['project-vendors', projectId] });
-    queryClient.invalidateQueries({ queryKey: ['contract-case', projectId] });
+    // ⚠️ 原本寫 `['contract-case', projectId]` —— 那個 key 不存在（見 L39）。
+    queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
   };
 
   // 下拉內即時新增廠商：專案既有規約（Select 找不到選項時 dropdownRender 提供新增）

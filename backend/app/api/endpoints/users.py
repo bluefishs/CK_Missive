@@ -30,7 +30,7 @@ from app.core.exceptions import (
     ConflictException,
     ForbiddenException,
 )
-from app.core.dependencies import is_superuser_user, require_admin
+from app.core.dependencies import require_auth, is_superuser_user, require_admin
 from app.core.auth_service import AuthService
 
 router = APIRouter()
@@ -73,6 +73,64 @@ def get_user_repository(db: AsyncSession = Depends(get_async_db)) -> UserReposit
 # ============================================================================
 # 使用者列表 API
 # ============================================================================
+
+@router.post(
+    "/assignable",
+    summary="可指派人員（僅姓名等最小欄位）",
+)
+async def get_assignable_users(
+    user_repo: UserRepository = Depends(get_user_repository),
+    current_user: User = Depends(require_auth()),
+):
+    """指派同仁用的人員清單 —— **只要登入就能取得**。
+
+    owner 2026-08-20：「切換前述兩組帳號，皆僅顯示代號無姓名」
+    （`/contract-cases/194/staff/create`）。
+
+    # 根因
+
+    那個頁面原本打 `/users/list`，而它是 `require_admin()`。
+    以 `role='user'` 的帳號登入 ⇒ **403 ⇒ 選項為空**，
+    而 AntD 的 Select 在 options 為空、value 有值時會直接顯示原始 value
+    ⇒ 畫面上就是一個數字 id，也就是 owner 說的「代號」。
+
+    「新增承辦同仁」是業務操作，不該只有管理員能做。
+
+    # 為什麼另開端點而不是放寬 /users/list
+
+    `/users/list` 回傳 last_login、department、角色與權限等資訊，
+    對一般使用者開放不合適。這一支只回**指派需要的最小欄位**：
+    id / full_name / username / email / is_active / canonical_user_id。
+
+    分身欄位要給 —— 前端 `filterAssignableUsers` 靠它排除已合併的帳號，
+    少了它同一個人會在下拉出現兩次（2026-08-04 的原始症狀）。
+
+    email 也要給，理由不是「反正看得到」，而是**既有下拉的 label 就是
+    `姓名 (email)`**（資產保管人、PM 承辦）。少給它，換資料源的當下
+    畫面就會少一半資訊 —— 而 2026-08-04 那次「同仁變成代碼」的成因
+    正是我把 label 從 `姓名 (email)` 簡化成只剩姓名。公務信箱是同一個
+    系統內的同事聯絡方式，與 last_login／department 不同層級。
+    """
+    # `get_active_users` 本身就只回在職者 —— 指派清單本來就不該出現離職同仁
+    # （2026-08-10 owner 回報「不該出現 superuser」時已立此判準：
+    #  在不在職由 is_active 表達，不另立系統帳號名單）。
+    users = await user_repo.get_active_users(skip=0, limit=500)
+    return {
+        "success": True,
+        "items": [
+            {
+                "id": u.id,
+                "full_name": u.full_name,
+                "username": u.username,
+                "email": u.email,
+                "is_active": u.is_active,
+                "canonical_user_id": getattr(u, "canonical_user_id", None),
+            }
+            for u in users
+        ],
+        "total": len(users),
+    }
+
 
 @router.post(
     "/list",

@@ -12,7 +12,7 @@
  * 免得日後有人以為這是為了修某個 bug。
  */
 import React, { useEffect } from 'react';
-import { Form, Select, App, Button, Popconfirm } from 'antd';
+import { Form, Select, App, Button, Popconfirm, Alert } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,11 +21,11 @@ import { ROUTES } from '../router/types';
 import { useResponsive } from '../hooks';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
 import { projectStaffApi } from '../api/projectStaffApi';
-import { usersApi } from '../api/usersApi';
-import type { PaginatedResponse } from '../api/types';
 import type { User } from '../types/api';
 import { STAFF_ROLE_OPTIONS } from '../constants/staffOptions';
 import { filterAssignableUsers, userDisplayName } from '../utils/assignableUsers';
+import { apiClient } from '../api/client';
+import { USERS_ENDPOINTS } from '../api/endpoints';
 
 const ContractCaseStaffFormPage: React.FC = () => {
   const { caseId, userId } = useParams<{ caseId: string; userId?: string }>();
@@ -62,10 +62,16 @@ const ContractCaseStaffFormPage: React.FC = () => {
 
   // 新增時要挑人；編輯時人已定，不再讓改（改人＝換一筆關聯）
   // 沿用詳情頁本來就在用的那支（usersApi + 同一組查詢鍵），不另開資料來源
-  const { data: allUsers = [] } = useQuery({
+  const { data: allUsers = [], isError: userListFailed, isLoading: userListLoading } = useQuery({
     queryKey: ['contract-case-user-options'],
     queryFn: async () => {
-      const response = await usersApi.getUsers({ limit: 100 }) as PaginatedResponse<User>;
+      // ⚠️ 這裡原本打 `/users/list`，而它是 **require_admin** ——
+      // 以 role='user' 的帳號登入會 403 ⇒ 選項為空，
+      // 而 AntD Select 在 options 為空、value 有值時會顯示原始 value（數字 id），
+      // 畫面上就是 owner 2026-08-20 回報的「只顯示代號無姓名」。
+      //
+      // 改打只需登入的 `/users/assignable`（只回 id/姓名/帳號/在職/分身欄位）。
+      const response = await apiClient.post<{ items: User[] }>(USERS_ENDPOINTS.ASSIGNABLE, {});
       return response.items || [];
     },
     staleTime: 10 * 60 * 1000,
@@ -89,7 +95,9 @@ const ContractCaseStaffFormPage: React.FC = () => {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['project-staff', projectId] });
-    queryClient.invalidateQueries({ queryKey: ['contract-case', projectId] });
+    // ⚠️ 原本寫 `['contract-case', projectId]` —— 那個 key 不存在，
+    //    詳情頁用的是 `contract-case-detail`（前綴比對是逐元素，不是字串開頭）。
+    queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
   };
 
   const handleSubmit = async () => {
@@ -170,11 +178,31 @@ const ContractCaseStaffFormPage: React.FC = () => {
             optionFilterProp="label"
             placeholder="選擇同仁"
             disabled={isEdit}
+            loading={!isEdit && userListLoading}
+            // 清單載不到時要**說出來**，不能只是留一個空的下拉 ——
+            // 「同仁變成代碼」這個症狀的成因不是誰有權限，而是清單空掉時
+            // 畫面退化成顯示原始數字 id，看起來像資料壞了而不是載入失敗。
+            notFoundContent={
+              userListFailed
+                ? '同仁清單載入失敗，請重新整理；若持續發生請告知管理員'
+                : userListLoading
+                  ? '載入中…'
+                  : '沒有可指派的同仁'
+            }
             options={isEdit
               ? [{ value: uid as number, label: String(record?.user_name || `#${uid}`) }]
               : userOptions}
           />
         </Form.Item>
+        {!isEdit && userListFailed && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message="同仁清單載入失敗"
+            description="下拉選單目前是空的。這是清單取得失敗，不是系統裡沒有同仁 —— 請重新整理頁面再試。"
+          />
+        )}
         <Form.Item name="role" label="角色/職責" rules={[{ required: true, message: '請選擇角色' }]}>
           <Select placeholder="選擇角色" options={STAFF_ROLE_OPTIONS.map((r) => ({ value: r, label: r }))} />
         </Form.Item>

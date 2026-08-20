@@ -191,7 +191,7 @@
 | `paths_sloppy_calc_guard.py` | Paths Sloppy Calc Guard |
 | `powershell_bom_audit.py` | PowerShell UTF-8 BOM Audit |
 | `producer_output_watchdog.py` | Producer 產出自我檢核 watchdog（Silent-Success Detector）— 行為層 SSOT ★標準化架構 |
-| `queryKey_drift_audit.py` | React Query queryKey Drift Audit (L39) |
+| `queryKey_drift_audit.py` | React Query queryKey 一致性（兩種形態）：**漂移**＝invalidate 的 key 沒有人在用（L39）；**撞號**＝同一個 key 對到不同資料源，誰先載入誰決定快取內容（2026-08-20 新增） |
 | `role_permissions_consistency_check.py` | Role Permissions Consistency Check（ADR-0034 配套） |
 | `run_fitness.sh` | Architecture Fitness Functions — 本地月度覆盤腳本（零 CI 費用） |
 | `scheduler_liveness_audit.py` | Scheduler Liveness Audit — 排程真活對賬 |

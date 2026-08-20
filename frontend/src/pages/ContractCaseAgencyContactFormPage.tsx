@@ -59,8 +59,12 @@ const ContractCaseAgencyContactFormPage: React.FC = () => {
     navigate(`${ROUTES.CONTRACT_CASE_DETAIL.replace(':id', String(projectId))}?tab=agency-contacts`);
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['project-agency-contacts', projectId] });
-    queryClient.invalidateQueries({ queryKey: ['contract-case', projectId] });
+    // ⚠️ 這兩行原本是 `['project-agency-contacts', ...]` 與 `['contract-case', ...]`，
+    //    **兩個都不存在** —— invalidateQueries 是逐元素比對，
+    //    `'contract-case' !== 'contract-case-detail'`，所以存檔後詳情頁不會重載。
+    //    機關承辦清單本來就是跟著 `contract-case-detail` 那一支一起撈回來的
+    //    （useContractCaseData 的 Promise.all），所以 invalidate 它就夠。
+    queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
   };
 
   const handleSubmit = async () => {

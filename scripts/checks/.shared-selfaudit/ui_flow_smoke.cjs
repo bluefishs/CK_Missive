@@ -155,6 +155,28 @@ async function runSteps(page, ctx, steps) {
       case 'assertNoDialog':
         if (ctx.dialogs.length) return { fail: `${st.failMsg}：「${ctx.dialogs.join(' / ')}」` };
         break;
+      case 'assertBox': {
+        // 2026-08-20 新增（lvrland 視覺走查）：版面幾何斷言 —— 文字存在 ≠ 看得懂。
+        // 頂欄品牌名稱／使用者名在窄幅會逐字直排、高度暴增並壓到內容，
+        // 「文字有沒有」類斷言完全看不到。量 bounding box：maxHeight／maxWidth／minWidth（px）。
+        // 元素不存在＝FAIL（要斷言「不存在」請用 assertCount max:0）。
+        const loc = page.locator(st.selector).first();
+        const box = await loc.boundingBox().catch(() => null);
+        if (!box) return { fail: `${st.failMsg}（找不到 ${st.selector}）` };
+        ctx.measured.push(`${st.label || st.selector}=${Math.round(box.width)}x${Math.round(box.height)}`);
+        if (st.maxHeight !== undefined && box.height > st.maxHeight)
+          return { fail: `${st.failMsg}（高 ${Math.round(box.height)} > ${st.maxHeight}）` };
+        if (st.maxWidth !== undefined && box.width > st.maxWidth)
+          return { fail: `${st.failMsg}（寬 ${Math.round(box.width)} > ${st.maxWidth}）` };
+        if (st.minWidth !== undefined && box.width < st.minWidth)
+          return { fail: `${st.failMsg}（寬 ${Math.round(box.width)} < ${st.minWidth}）` };
+        // maxRight／maxBottom：元素右緣／下緣不得超出（例：viewport 寬）—— 抓「被擠出畫面」
+        if (st.maxRight !== undefined && box.x + box.width > st.maxRight)
+          return { fail: `${st.failMsg}（右緣 ${Math.round(box.x + box.width)} > ${st.maxRight}）` };
+        if (st.maxBottom !== undefined && box.y + box.height > st.maxBottom)
+          return { fail: `${st.failMsg}（下緣 ${Math.round(box.y + box.height)} > ${st.maxBottom}）` };
+        break;
+      }
       case 'assertUrlMatches': {
         const u = page.url();
         if (new RegExp(st.pattern, 'i').test(u)) return { ok: st.okMsg || `導向 ${u}` };

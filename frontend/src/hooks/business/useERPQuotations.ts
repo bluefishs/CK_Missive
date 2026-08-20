@@ -222,7 +222,8 @@ export const useCreateInvoiceFromBilling = () => {
       queryClient.invalidateQueries({ queryKey: erpKeys.invoices.all });
       queryClient.invalidateQueries({ queryKey: erpKeys.billings.all });
       queryClient.invalidateQueries({ queryKey: erpKeys.quotations.all });
-      queryClient.invalidateQueries({ queryKey: ['erp-billings-details'] });
+      // 上一行的 erpKeys.billings.all（`['erp-billings']`）已涵蓋 byQuotation，
+      // 原本這行的 `['erp-billings-details']` 沒有任何 useQuery 在用（L39 dead）。
     },
   });
 };

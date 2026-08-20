@@ -124,6 +124,95 @@ def load_baseline() -> Dict:
         return {"total_baseline": 0, "dead_tokens": []}
 
 
+# ---------------------------------------------------------------------------
+# 第二種形態：queryKey 撞號（2026-08-20 新增）
+#
+# 上面那一段管的是「invalidate 的 key 沒有人在用」＝ key **漂移**。
+# 這一段管的是相反的一面：**同一個 key、不同的資料源**。
+#
+# 觸發事件：`/contract-cases/194/staff/create`「同仁又變成代碼」。
+#   `useContractCaseData`（承攬案件詳情）與 `ContractCaseStaffFormPage`
+#   都用 `['contract-case-user-options']`，但一個打 `users/list`（admin-only）、
+#   一個打 `users/assignable`。於是**誰先載入誰就決定了快取內容** ——
+#   從詳情頁點進「新增承辦同仁」時，create 頁沿用的是詳情頁留下的結果，
+#   改 create 頁那一支根本不會生效。而清單空掉時 AntD Select 會顯示原始
+#   數字 id，看起來像資料壞了，其實是載入失敗。
+#
+# key 撞號本身不是錯（同一份資料本來就該共用快取），**源不一致才是**。
+#
+# 判準刻意收窄，否則沒有鑑別力（第一版用「首 token + 任何差異」報 30 個，
+# 逐一看幾乎全是假陽性：mutation 的 invalidate 被算進來、
+# `['tender','search']` 與 `['tender','detail']` 本來就該不同）：
+#   1. 只看 useQuery，不看 mutation
+#   2. queryKey 必須**全部是字面字串**（含變數的 key 天生就會分流，無可比性）
+#   3. 資料源**交集為空**才算不一致（同檔的 mutation 會溢進比對範圍）
+#
+# 實測：現況 0；把 useContractCaseData 改回修法前的寫法即報 1；還原回 0。
+# ---------------------------------------------------------------------------
+
+_SRC_RE = re.compile(
+    r"([A-Z][A-Z0-9_]*_ENDPOINTS\.[A-Za-z0-9_]+)|(\b[a-z][A-Za-z0-9]*Api\.[A-Za-z0-9_]+)"
+)
+_LITERAL_KEY_RE = re.compile(r"\[\s*(?:'[^']*'\s*,?\s*)+\]")
+
+
+def scan_key_source_collisions():
+    """找出「同一個全字面 queryKey，資料源交集為空」的組合。"""
+    src_root = PROJECT_ROOT / "frontend" / "src"
+    if not src_root.exists():
+        return []
+    uses = {}
+    files = list(src_root.rglob("*.ts")) + list(src_root.rglob("*.tsx"))
+    for f in files:
+        if "__tests__" in str(f):
+            continue
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        for m in re.finditer(r"useQuery\s*(?:<[^>]*>)?\s*\(\s*\{", text):
+            blk = text[m.end(): m.end() + 1500]
+            nxt = blk.find("useQuery(")
+            if nxt > 0:
+                blk = blk[:nxt]
+            km = re.search(r"queryKey:\s*(\[[^\]]*\])", blk)
+            if not km:
+                continue
+            raw = km.group(1).strip()
+            if not _LITERAL_KEY_RE.fullmatch(raw):
+                continue
+            key = tuple(re.findall(r"'([^']*)'", raw))
+            srcs = {a or b for a, b in _SRC_RE.findall(blk[km.end(): km.end() + 900])}
+            srcs = {s for s in srcs if not s.startswith("messageApi.")}
+            if not srcs:
+                continue
+            rel = str(f.relative_to(src_root)).replace("\\", "/")
+            uses.setdefault(key, set()).add((rel, tuple(sorted(srcs))))
+    out = []
+    for key, entries in sorted(uses.items()):
+        sets = [set(s) for _, s in entries]
+        if len(sets) > 1 and not set.intersection(*sets):
+            out.append((key, sorted(entries)))
+    return out
+
+
+def report_collisions(collisions) -> None:
+    """人可讀輸出。刻意說明「為什麼是問題」——只列清單的話，看的人會以為是命名風格。"""
+    if not collisions:
+        return
+    print("-" * 60)
+    print("KEY/SOURCE COLLISION ({}) - 同一個 queryKey 對到不同資料源:".format(len(collisions)))
+    print("-" * 60)
+    for key, entries in collisions:
+        print("  [X] {}".format(list(key)))
+        for fpath, calls in entries:
+            print("      <- {}  ->  {}".format(fpath, ", ".join(calls)))
+    print()
+    print("  為什麼是問題：誰先載入誰就決定快取內容，改另一處不會生效。")
+    print("  修法：把資料源統一（同一份清單就該同一支端點），不是改 key。")
+    print()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Fitness step 33 — React Query queryKey Drift Audit (L39)"
@@ -143,6 +232,7 @@ def main() -> int:
 
     baseline = load_baseline()
     baseline_total = baseline.get("total_baseline", 0)
+    collisions = scan_key_source_collisions()
 
     if args.json:
         report = {
@@ -154,9 +244,13 @@ def main() -> int:
             "dead_tokens": [
                 {"token": t, "callers": inv_tokens[t][:3]} for t in dead
             ],
+            "key_source_collisions": [
+                {"key": list(k), "sources": [{"file": f, "calls": list(c)} for f, c in v]}
+                for k, v in collisions
+            ],
         }
         print(json.dumps(report, indent=2, ensure_ascii=False))
-        if args.ci and current_total > baseline_total:
+        if args.ci and (current_total > baseline_total or collisions):
             return 1
         return 0
 
@@ -171,7 +265,9 @@ def main() -> int:
     print(f"  SSOT tokens: {len(ssot_tokens)}")
     print(f"  current dead invalidate: {current_total}")
     print(f"  baseline: {baseline_total}")
+    print(f"  queryKey 撞號（同 key 不同源）: {len(collisions)}")
     print()
+    report_collisions(collisions)
 
     if dead:
         print("-" * 60)
@@ -191,6 +287,9 @@ def main() -> int:
 
     # CI enforce
     if args.ci:
+        if collisions:
+            print("\n[FAIL] queryKey 撞號 {} 組（同 key 不同源）".format(len(collisions)), file=sys.stderr)
+            return 1
         if current_total > baseline_total:
             print(
                 f"\n[FAIL] dead invalidate 淨增加: {baseline_total} → {current_total} "

@@ -80,7 +80,10 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         message.warning(`明細已清空。報價總價維持 ${money(r?.total_price ?? 0)} 未歸零`);
       }
       qc.invalidateQueries({ queryKey: ['quotation-items', quotationId] });
-      qc.invalidateQueries({ queryKey: ['erp-quotation', quotationId] });
+      // ⚠️ 原本寫 `['erp-quotation', ...]`（單數）—— 不存在。
+      //    報價單家族的首 token 是 `erp-quotations`（見 useERPQuotations 的 erpKeys），
+      //    用前綴一次涵蓋詳情與清單：改明細會動到總價，兩邊都該重載。
+      qc.invalidateQueries({ queryKey: ['erp-quotations'] });
     },
     onError: () => message.error('儲存失敗'),
   });
