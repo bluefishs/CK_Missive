@@ -267,6 +267,79 @@ class QuotationLegacyImportService:
         self.db = db
         self.code_service = CaseCodeService(db)
 
+
+    # ------------------------------------------------------------------
+    # 邀標案件（pm_cases）補建
+    # ------------------------------------------------------------------
+    #
+    # owner 2026-08-20：「/pm/cases 無 115 年度報價單紀錄」「2026 僅 4 筆紀錄」。
+    #
+    # 查證：`pm_cases` 的 70 件 `B114-B001~B070` 是 **2026-03-17 一次性匯入**
+    # 建立的 —— 也就是說「一個報價案號 = 一個邀標案件」本來就是這個系統的做法。
+    # 而 115 年度有 68 個案號只有報價單、沒有案件 ⇒ **那是缺的，不是刻意不建**。
+    #
+    # ⚠️ 我一度套用 2026-08-19 的「不擅自補建 pm_cases」判準而沒有建 ——
+    #    那是**誤用**：那條講的是「手動建承攬案件時，憑空造一筆從未經過邀標的
+    #    PM 案件」；而這裡的報價單**本身就是邀標紀錄**，補的是已經發生的事實。
+    #
+    # 欄位比照 03-17 那批（案名／年度／類別／客戶／金額／狀態／地點／作業日期），
+    # 資料全部來自彙整表，不發明任何值。
+    async def _ensure_pm_cases(self, rows: list[dict[str, Any]], dry_run: bool = False) -> int:
+        """為新報價單補建對應的邀標案件；已存在則不動。回傳補建數。"""
+        from app.extended.models.pm import PMCase
+
+        wanted: dict[str, dict[str, Any]] = {}
+        for r in rows:
+            code = _derive_case_code(r["legacy_no"])
+            if not code:
+                continue
+            # 同一案號多版報價 → 只建一件，取**最早報價**那筆當案件基本資料
+            cur = wanted.get(code)
+            if cur is None or (r.get("quoted_date") and cur.get("quoted_date")
+                               and r["quoted_date"] < cur["quoted_date"]):
+                wanted[code] = r
+        if not wanted:
+            return 0
+
+        existing = {
+            row[0] for row in (await self.db.execute(
+                select(PMCase.case_code).where(PMCase.case_code.in_(list(wanted)))
+            )).all()
+        }
+        missing = {k: v for k, v in wanted.items() if k not in existing}
+        if dry_run or not missing:
+            return len(missing)
+
+        # 客戶名稱 → 既有廠商 id。對不到就只留文字（不自動建廠商 ——
+        # 那會把彙整表裡的簡稱、筆誤全部變成新廠商，而 owner 正在處理
+        # 廠商重複的問題「勤典工程行／勤典測量工程行」）。
+        names = {v["client_name"] for v in missing.values() if v.get("client_name")}
+        vendor_id: dict[str, int] = {}
+        if names:
+            rs = (await self.db.execute(text(
+                "SELECT id, vendor_name FROM partner_vendors WHERE vendor_name = ANY(:ns)"
+            ), {"ns": list(names)})).all()
+            vendor_id = {row[1]: row[0] for row in rs}
+
+        for code, r in missing.items():
+            self.db.add(PMCase(
+                case_code=code,
+                case_name=r["case_name"],
+                year=r["year"] or date.today().year,
+                # 邀標報價 = 02。01 是委辦招標（政府標案），那類不走報價單流程。
+                category="02",
+                client_name=r.get("client_name"),
+                client_vendor_id=vendor_id.get(r.get("client_name") or ""),
+                contract_amount=r.get("total_price"),
+                # 「是否成立=v」＝客戶接受了這張報價 ⇒ 已承攬；否則仍在評估。
+                # 不寫 in_progress —— 邀標案件沒有那個狀態（2026-08-16 owner 已定）。
+                status="contracted" if r.get("established") else "planning",
+                start_date=r.get("quoted_date"),
+                location=r.get("location"),
+                notes=f"由報價單彙整匯入（舊案號 {r['legacy_no']}）",
+            ))
+        return len(missing)
+
     async def run(self, content: bytes, *, dry_run: bool = True,
                   user_id: Optional[int] = None) -> dict[str, Any]:
         rows = parse_workbook(content)
@@ -369,6 +442,12 @@ class QuotationLegacyImportService:
                 for r in to_create[:10]
             ],
         }
+        # 預覽也要算「會補建幾件邀標案件」—— 這是使用者在 /pm/cases 看得到的東西，
+        # 只講「新增幾張報價單」而不講案件，等於預覽沒有涵蓋一半的後果。
+        # 涵蓋 to_create **與** to_update —— 這支是冪等的（已存在就不建），
+        # 而只看新增的話，「報價單已匯入但案件還沒補」的情況永遠補不上。
+        preview["will_create_pm_cases"] = await self._ensure_pm_cases(
+            to_create + to_update, dry_run=True)
         if dry_run:
             return preview
 
@@ -393,10 +472,6 @@ class QuotationLegacyImportService:
         #    而同一個交易內前面那些還沒 commit，所以每次都查到一樣的值。
         #    那批已回滾（備份在 backups/manual/）。
         #
-        # 對不上 PM 案件的就**留空**，不憑空產一個指向不存在案件的號：
-        #    實測 180 個唯一舊案號裡只有 40 個對得上（其餘本來就沒成案），
-        #    而依 2026-08-19 的判準，也不該為它們補建 pm_cases
-        #    —— 那是憑空造一筆從未經過邀標的案件。
         for r in to_create:
             q = ERPQuotation(
                 case_code=_derive_case_code(r["legacy_no"]),
@@ -416,6 +491,10 @@ class QuotationLegacyImportService:
             self.db.add(q)
             created += 1
 
+        pm_created = await self._ensure_pm_cases(to_create + to_update)
+
         await self.db.commit()
-        logger.info("報價單彙整匯入：新增 %d／更新 %d／略過 %d", created, updated, len(skipped))
-        return {**preview, "dry_run": False, "created": created, "updated": updated}
+        logger.info("報價單彙整匯入：新增 %d／更新 %d／略過 %d／補建 PM 案件 %d",
+                    created, updated, len(skipped), pm_created)
+        return {**preview, "dry_run": False, "created": created, "updated": updated,
+                "created_pm_cases": pm_created}

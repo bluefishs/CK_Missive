@@ -354,6 +354,11 @@ class ERPQuotationLegacyImportResult(BaseModel):
     sample_create: list[dict] = []
     created: Optional[int] = None
     updated: Optional[int] = None
+    # 邀標案件補建 —— **這兩個欄位少一個，服務端算出來的就到不了畫面**。
+    # 同一個檔案已為 quotation_no(08-17)、legacy_quotation_no(08-19)、
+    # conflicts(08-20 稍早) 記過三次同型失敗，這是第四次提醒自己。
+    will_create_pm_cases: int = 0
+    created_pm_cases: Optional[int] = None
     error: Optional[str] = None
 
 
