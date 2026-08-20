@@ -18,6 +18,7 @@ import {
 import { FileTextOutlined, ProfileOutlined, FileExcelOutlined, FilePdfOutlined, PaperClipOutlined } from '@ant-design/icons';
 import { QuotationItemsTab } from './erpQuotation';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useERPQuotation, useAuthGuard } from '../hooks';
 import { AccountRecordTab } from './erpQuotation/AccountRecordTab';
 import ExpensesTab from './erpQuotation/ExpensesTab';
@@ -42,7 +43,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuthGuard();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const canWrite = hasPermission('projects:write');
   const { data: quotation, isLoading } = useERPQuotation(id ? Number(id) : null);
   // ⚠️ 必須在早退（`if (!quotation && !isLoading) return`）**之前** ——
@@ -52,6 +53,22 @@ export const ERPQuotationDetailPage: React.FC = () => {
   // PDF 產出後直接在畫面上看（owner 2026-08-20：「產出 pdf 頁面」）
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfName, setPdfName] = useState('');
+
+  // 報價明細筆數 —— 與 `QuotationItemsTab` **共用同一組 queryKey**，
+  // 所以不會多打一次 API，而且那邊存檔後這裡的數字會一起更新。
+  //
+  // 為什麼詳情頁需要知道：實測 256 張報價單**沒有任何一張填過明細**，
+  // 而輸出的報價單長這樣 —— 抬頭、客戶、案名都對，「項次／工作內容／
+  // 數量／單價」整片空白。系統產出一張空表時一句話都沒說，
+  // 使用者要等打開檔案才發現。
+  const { data: itemsData } = useQuery({
+    queryKey: ['quotation-items', quotation?.id],
+    queryFn: () => apiClient.post<{ items?: unknown[] }>(
+      ERP_ENDPOINTS.QUOTATION_ITEMS_DETAIL, { quotation_id: quotation!.id },
+    ),
+    enabled: !!quotation?.id,
+  });
+  const itemCount = itemsData?.items?.length ?? 0;
 
   if (!quotation && !isLoading) {
     return <DetailPageLayout header={{ title: '報價不存在', backPath: ROUTES.ERP_QUOTATIONS }} tabs={[]} hasData={false} />;
@@ -69,6 +86,26 @@ export const ERPQuotationDetailPage: React.FC = () => {
   // 使用者會拿到一個對不上系統的檔案。
   const handleExportDocument = async (format: 'xlsx' | 'pdf' = 'xlsx') => {
     if (!quotation?.id) return;
+    // 沒有明細就直接產出，會得到一張只有抬頭與客戶、工項全空的報價單 ——
+    // 而那是要寄給客戶的文件。先講清楚，並給一條去填的路；
+    // 但**不阻擋**（有人就是要一張空白表格去手寫，那是他的判斷）。
+    if (itemCount === 0) {
+      const go = await new Promise<boolean>((resolve) => {
+        modal.confirm({
+          title: '這張報價單還沒有工項',
+          content: '直接產出的話，「項次／工作內容／數量／單價」會是空白的。'
+            + '要先去「報價明細」填寫嗎？（明細可以像 Excel 一樣直接在頁面上編輯）',
+          okText: '前往填寫明細',
+          cancelText: '仍要產出空白表',
+          onOk: () => resolve(true),
+          onCancel: () => resolve(false),
+        });
+      });
+      if (go) {
+        navigate(`${ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(quotation.id))}?tab=items`);
+        return;
+      }
+    }
     setExporting(true);
     try {
       const res = await apiClient.post(
@@ -361,7 +398,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
     ...(quotation.case_category === '01' ? [] : [
     // 2026-08-16 owner：「線上報價單機制」。
     // 報價的起點是逐項內容，成本是後面才拆的。
-    createTabItem('items', { icon: <ProfileOutlined />, text: '報價明細' }, (
+    createTabItem('items', { icon: <ProfileOutlined />, text: '報價明細', count: itemCount }, (
       <QuotationItemsTab quotationId={quotation.id} caseName={quotation.case_name} caseCode={quotation.case_code} />
     ))
     ]),

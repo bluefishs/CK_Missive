@@ -166,8 +166,15 @@ class QuotationDocumentService:
             "quotation_id": q.id,
             # 含版次後綴的對外單號（QT2026_018-2）；未編號時回「未編號」，
             # 不回空字串 —— 正式文件上留白會被當成漏印。
-            "display_no": CaseCodeService.format_quotation_no(
-                q.quotation_no, q.revision or 1
+            #
+            # 2026-08-20：沒有系統單號時**改用舊案號**（B114-A016-3）。
+            # 179 張從彙整表匯入的報價單本來就沒有系統單號，但它們有舊案號 ——
+            # 而那正是客戶手上那張紙、以及回簽 PDF 檔名用的編號。
+            # 印「未編號」不只難看，是**印了一個比實際更少資訊的值**。
+            "display_no": (
+                CaseCodeService.format_quotation_no(q.quotation_no, q.revision or 1)
+                if q.quotation_no
+                else (q.legacy_quotation_no or CaseCodeService.format_quotation_no(None, 1))
             ),
             "quotation_no": q.quotation_no,
             "revision": q.revision or 1,
