@@ -28,7 +28,7 @@ class PMCaseCreate(BaseModel):
     project_code: Optional[str] = Field(None, max_length=100, description="成案專案編號 (成案後由系統產生)")
     case_name: str = Field(..., max_length=500, description="案名")
     client_vendor_id: Optional[int] = Field(None, description="委託單位 ID (partner_vendors)")
-    year: Optional[int] = Field(None, description="年度 (民國)")
+    year: Optional[int] = Field(None, description="年度（西元）")
     category: Optional[str] = Field(None, max_length=50, description="計畫類別: 01委辦招標, 02承攬報價")
     case_nature: Optional[str] = Field(None, max_length=50, description="作業性質: 01地面測量~11其他類別")
     client_name: Optional[str] = Field(None, max_length=200, description="業主")
@@ -61,6 +61,12 @@ class PMCaseCreate(BaseModel):
     def _normalize_cjk(cls, v):
         return normalize_cjk_compat(v) if isinstance(v, str) else v
 
+    @field_validator("year", mode="before")
+    @classmethod
+    def _normalize_year(cls, v):
+        """民國年一律轉西元（規範：統一西元年為主，見 schemas/_year.py）。"""
+        from app.schemas._year import normalize_year
+        return normalize_year(v)
 
 class PMCaseUpdate(BaseModel):
     """更新案件"""
@@ -89,6 +95,12 @@ class PMCaseUpdate(BaseModel):
         _validate_date_ordering(self.start_date, self.end_date, self.actual_end_date)
         return self
 
+    @field_validator("year", mode="before")
+    @classmethod
+    def _normalize_year(cls, v):
+        """民國年一律轉西元（規範：統一西元年為主，見 schemas/_year.py）。"""
+        from app.schemas._year import normalize_year
+        return normalize_year(v)
 
 class PMCaseResponse(BaseModel):
     """案件完整資訊"""

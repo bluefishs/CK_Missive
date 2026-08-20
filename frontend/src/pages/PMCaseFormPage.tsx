@@ -20,6 +20,7 @@ import { vendorsApi } from '../api/vendorsApi';
 import { PM_CATEGORY_LABELS } from '../types/api';
 import type { PMCaseCreate, PMCaseUpdate } from '../types/api';
 import { ROUTES } from '../router/types';
+import { toADYear } from '../utils/yearOptions';
 
 const CATEGORY_OPTIONS = Object.entries(PM_CATEGORY_LABELS).map(([k, v]) => ({ value: k, label: v }));
 
@@ -98,18 +99,25 @@ export const PMCaseFormPage: React.FC = () => {
           </Typography.Title>
         </div>
 
+        {/* 2026-08-20：表單預設年度原本是 `year: 114` —— 民國、而且是寫死的過期年份。
+            規範是西元（owner：「之前有標註統一西元年為主」），改為當前西元年。
+            寫死年份的另一個問題是它每年都會過期，而沒有任何機制會發現。 */}
         <Card loading={isEdit && loadingCase}>
           <Form
             form={form}
             layout="vertical"
             onFinish={handleSubmit}
-            initialValues={{ status: 'planning', year: 114 }}
+            initialValues={{ status: 'planning', year: new Date().getFullYear() }}
             style={{ maxWidth: 800 }}
           >
             <Row gutter={16}>
               <Col xs={24} sm={8}>
-                <Form.Item name="year" label="年度">
-                  <InputNumber style={{ width: '100%' }} placeholder="民國年" />
+                {/* 2026-08-20：placeholder 原本寫「民國年」，而規範與實際資料都是西元。
+                    `CK2026_PM_01_006` 的 year 被填成 115 —— 那不是使用者填錯，
+                    他是照著這個提示填的；而以 2026 篩選時就看不到那一筆。
+                    改提示之外還要正規化：只改提示擋不住既有習慣。 */}
+                <Form.Item name="year" label="年度" normalize={(v) => toADYear(v as number)}>
+                  <InputNumber style={{ width: '100%' }} placeholder={`西元年，如 ${new Date().getFullYear()}`} />
                 </Form.Item>
               </Col>
               <Col xs={24} sm={16}>

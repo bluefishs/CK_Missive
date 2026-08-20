@@ -24,7 +24,7 @@ class ERPQuotationCreate(BaseModel):
     case_code: Optional[str] = Field(None, max_length=50, description="建案案號 (未提供時自動產生)")
     project_code: Optional[str] = Field(None, max_length=100, description="成案專案編號")
     case_name: Optional[str] = Field(None, max_length=500, description="案名")
-    year: Optional[int] = Field(None, description="年度 (民國)")
+    year: Optional[int] = Field(None, description="年度（西元）")
     total_price: Optional[Decimal] = Field(None, description="總價 (含稅)")
     tax_amount: Decimal = Field(Decimal("0"), description="稅額")
     outsourcing_fee: Decimal = Field(Decimal("0"), description="外包費")
@@ -70,6 +70,12 @@ class ERPQuotationCreate(BaseModel):
     def _normalize_cjk(cls, v):
         return normalize_cjk_compat(v) if isinstance(v, str) else v
 
+    @field_validator("year", mode="before")
+    @classmethod
+    def _normalize_year(cls, v):
+        """民國年一律轉西元（規範：統一西元年為主，見 schemas/_year.py）。"""
+        from app.schemas._year import normalize_year
+        return normalize_year(v)
 
 class ERPQuotationUpdate(BaseModel):
     """更新報價"""
@@ -98,6 +104,12 @@ class ERPQuotationUpdate(BaseModel):
     status: Optional[str] = None
     notes: Optional[str] = None
 
+    @field_validator("year", mode="before")
+    @classmethod
+    def _normalize_year(cls, v):
+        """民國年一律轉西元（規範：統一西元年為主，見 schemas/_year.py）。"""
+        from app.schemas._year import normalize_year
+        return normalize_year(v)
 
 class ERPQuotationResponse(BaseModel):
     """報價完整資訊 (含計算欄位)"""
@@ -295,9 +307,30 @@ class ReplaceItemsRequest(QuotationIdRequest):
 
 
 class ERPQuotationLegacyImportSkipped(BaseModel):
-    """略過的列：編號與原因（檔案內重複／缺案名）。"""
+    """略過的列：編號與原因（檔案內重複／缺案名）。
+
+    2026-08-20 補三個欄位。**這裡的欄位少一個，服務端算出來的就少一個到得了畫面**
+    —— 同一個檔案已經為 `quotation_no`（08-17）與 `legacy_quotation_no`（08-19）
+    記過兩次同型失敗，這是第三次。
+    """
     legacy_no: str
     reason: str
+    sheet: Optional[str] = Field(None, description="這一列來自哪個工作表")
+    filled_from_dup: Optional[list[str]] = Field(
+        None, description="從這一列補到保留者身上的空缺欄位（重複不再等於丟資料）")
+    conflict_fields: Optional[list[str]] = Field(
+        None, description="兩邊都有值且不同的欄位 —— 保留的是先遇到的那份")
+
+
+class ERPQuotationLegacyImportConflict(BaseModel):
+    """同一編號在多個工作表有**不同的值** —— 需要人看的那一類。
+
+    合併只補空缺、不覆蓋，所以這些欄位保留的是先遇到的工作表那份。
+    """
+    legacy_no: str
+    kept_sheet: Optional[str] = None
+    other_sheet: Optional[str] = None
+    conflict_fields: list[str] = []
 
 
 class ERPQuotationLegacyImportResult(BaseModel):
@@ -314,6 +347,10 @@ class ERPQuotationLegacyImportResult(BaseModel):
     will_update: int
     skipped: int
     skipped_detail: list[ERPQuotationLegacyImportSkipped] = []
+    skipped_detail_truncated: bool = Field(
+        False, description="明細是否被截斷 —— 只給前 N 筆卻不說，等於「匯入了卻不知道丟了什麼」")
+    conflicts: list[ERPQuotationLegacyImportConflict] = []
+    conflicts_count: int = 0
     sample_create: list[dict] = []
     created: Optional[int] = None
     updated: Optional[int] = None

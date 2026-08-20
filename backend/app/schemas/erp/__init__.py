@@ -6,6 +6,7 @@ from .quotation import (
     ERPSignedImportResult,
     ERPSignedImportUnmatched,
     ERPQuotationLegacyImportSkipped,
+    ERPQuotationLegacyImportConflict,
 )
 from .invoice import (
     ERPInvoiceCreate, ERPInvoiceUpdate, ERPInvoiceResponse,

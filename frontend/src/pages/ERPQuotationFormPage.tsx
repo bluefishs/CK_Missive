@@ -11,6 +11,7 @@ import { ERP_QUOTATION_STATUS_LABELS, ERP_CATEGORY_CODES } from '../types/erp';
 import type { ERPQuotationCreate } from '../types/erp';
 import { erpQuotationsApi } from '../api/erp';
 import { ROUTES } from '../router/types';
+import { toADYear } from '../utils/yearOptions';
 
 const { Title } = Typography;
 
@@ -162,8 +163,14 @@ export const ERPQuotationFormPage: React.FC = () => {
           </Space>
 
           <Space style={{ display: 'flex', gap: 16 }} align="start">
-            <Form.Item name="year" label="年度" style={{ flex: 1 }}>
-              <InputNumber placeholder="民國年" style={{ width: '100%' }} />
+            {/* 2026-08-20：placeholder 原本寫「民國年」，而全系統規範與實際資料都是西元
+                （owner：「之前有標註統一西元年為主」）—— 使用者照著提示填民國並不是填錯。
+                除了改提示，離開欄位時把民國值轉成西元：只改提示的話，
+                習慣填民國的人還是會產生錯資料，而那個錯要等到有人用年度篩選才看得出來。 */}
+            <Form.Item name="year" label="年度" style={{ flex: 1 }}
+              normalize={(v) => toADYear(v as number)}
+            >
+              <InputNumber placeholder={`西元年，如 ${new Date().getFullYear()}`} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item name="erp_category" label="報價類別" style={{ flex: 1 }}>
               <Select placeholder="選擇類別" options={categoryOptions} allowClear />

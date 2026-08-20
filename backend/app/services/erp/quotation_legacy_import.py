@@ -45,7 +45,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPQuotation
@@ -164,6 +164,33 @@ def _year_from_legacy(legacy_no: str, quoted: Optional[date]) -> Optional[int]:
 _ESTABLISHED = {"v", "V", "y", "Y", "yes", "是", "✓", "○", "1", 1, True}
 
 
+def _derive_case_code(legacy_no: str) -> str:
+    """由舊案號推導 case_code：去掉版次尾碼。`B114-B022-1` → `B114-B022`
+
+    ## 為什麼不產新號
+
+    2026-08-20 第一版用 `generate_case_code()`，結果 180 筆**全部拿到同一個
+    `CK2025_FN_02_001`** —— 產號器查的是 DB 現有最大流水號，而同一個交易內
+    前面那些還沒 commit，所以每次都查到一樣的值。那批已回滾。
+
+    ## 為什麼是「去版次的舊案號」
+
+    實測既有 77 張報價單的 `case_code` 就是 `B114-B003` 這種格式，
+    `pm_cases` 的案號也是（`B114-B022`、`B114-B026-2`）。
+    也就是說**這個編號體系本來就是系統在用的**，推導出來自然就對上了 ——
+    不需要另外查表比對，也不會憑空產生一個指向不存在案件的號。
+
+    同一個案件的多版報價（`-0`／`-1`）會共用同一個 case_code，那正是要的語意。
+
+    ⚠️ 只去掉 `-數字[英文]` 形式的尾碼。`B114-B017-B01` 的尾段不是版次
+    （B01 是子號），原樣保留 —— 猜錯會把兩個不同的案件併成一個。
+    """
+    ln = (legacy_no or "").strip()
+    if not ln:
+        return ln
+    return re.sub(r"-\d+[A-Za-z]?$", "", ln) or ln
+
+
 def parse_workbook(content: bytes) -> list[dict[str, Any]]:
     """解析彙整檔；**全部工作表**都讀（114 年度分成 5 個表）。"""
     import openpyxl
@@ -258,17 +285,65 @@ class QuotationLegacyImportService:
         }
 
         to_create, to_update, skipped = [], [], []
-        seen: set[str] = set()
+        seen: dict[str, dict] = {}
+        conflicts: list[dict] = []
         for r in rows:
             ln = r["legacy_no"]
             if ln in seen:
-                # 同一份檔案裡重複的編號：只處理第一筆，其餘列出來讓人看
-                skipped.append({"legacy_no": ln, "reason": "檔案內重複"})
+                # 同一份檔案裡重複的編號。
+                #
+                # 114 年度的彙整表分成 5 個工作表（原始／老闆／慶忠／元宏／其他），
+                # 同一張報價單會在「原始」總表與個人分表各出現一次 —— 實測 97 組重複，
+                # 其中 84 組完全相同（純副本），**13 組內容不同**（多半是發票日期
+                # 只填在其中一邊）。
+                #
+                # ⚠️ 原本的做法是「只留第一筆、其餘丟掉」，於是那 13 組裡
+                # 另一邊獨有的欄位會**靜靜消失** —— 實測有 1 組保留到的是較不完整的那份。
+                # 而「先遇到的比較完整」只是工作表順序剛好（原始排第一），不是設計。
+                #
+                # 改為**補空缺**：只把保留者為空、而重複列有值的欄位補上，
+                # 不覆蓋任何已有值（兩邊都有值且不同時，仍以先遇到的為準並列入
+                # conflicts 讓人看）。這樣重複不再等於丟資料。
+                base = seen[ln]
+                filled_from_dup, conflict_keys = [], []
+                for k, v in r.items():
+                    if k in ("sheet", "legacy_no"):
+                        continue
+                    if v in (None, "", False):
+                        continue
+                    cur = base.get(k)
+                    if cur in (None, "", False):
+                        base[k] = v
+                        filled_from_dup.append(k)
+                    elif str(cur) != str(v):
+                        conflict_keys.append(k)
+                if conflict_keys:
+                    conflicts.append({
+                        "legacy_no": ln,
+                        "kept_sheet": base.get("sheet"),
+                        "other_sheet": r.get("sheet"),
+                        "conflict_fields": conflict_keys,
+                    })
+                skipped.append({
+                    "legacy_no": ln,
+                    "reason": "檔案內重複（已補空缺欄位）" if filled_from_dup else "檔案內重複（內容相同）",
+                    "sheet": r.get("sheet"),
+                    "filled_from_dup": filled_from_dup or None,
+                    "conflict_fields": conflict_keys or None,
+                })
                 continue
-            seen.add(ln)
             if not r["case_name"]:
-                skipped.append({"legacy_no": ln, "reason": "缺案名"})
+                skipped.append({"legacy_no": ln, "reason": "缺案名", "sheet": r.get("sheet")})
                 continue
+            # 非案號的儲存格 —— 彙整表裡夾雜說明文字（實測有一列的「報價單編號」
+            # 欄寫著「訂購通知」），照收就會產生一筆案號是中文的報價單。
+            # 判準只要求「含數字」：所有真實案號都有年碼或日期
+            # （`B114-B022-1`、`20260304-1`），而說明文字沒有。
+            if not any(ch.isdigit() for ch in ln):
+                skipped.append({"legacy_no": ln, "reason": "不是案號（無數字，疑為說明文字）",
+                                "sheet": r.get("sheet")})
+                continue
+            seen[ln] = r
             (to_update if ln in existing else to_create).append(r)
 
         preview = {
@@ -278,7 +353,15 @@ class QuotationLegacyImportService:
             "will_create": len(to_create),
             "will_update": len(to_update),
             "skipped": len(skipped),
-            "skipped_detail": skipped[:20],
+            # ⚠️ 原本固定切 20 筆，而實測跳過 97 筆 —— 看的人無從核實其餘 77 筆
+            #    是不是該跳過，那等於「匯入了卻不知道丟了什麼」。
+            #    改為全給，並明講有沒有被截斷（上限只是防回應過大）。
+            "skipped_detail": skipped[:200],
+            "skipped_detail_truncated": len(skipped) > 200,
+            # 兩邊都有值且不同的欄位 —— 這些是**人必須看的**，
+            # 合併只補空缺、不會覆蓋，所以衝突欄位保留的是先遇到的那份。
+            "conflicts": conflicts,
+            "conflicts_count": len(conflicts),
             "sample_create": [
                 {"legacy_no": r["legacy_no"], "case_name": r["case_name"],
                  "client_name": r["client_name"], "total_price": str(r["total_price"] or ""),
@@ -302,14 +385,21 @@ class QuotationLegacyImportService:
                 q.quoted_at = datetime.combine(r["quoted_date"], datetime.min.time())
             updated += 1
 
+        # case_code 是「這張報價單屬於哪個案件」的跨模組橋樑 ——
+        # 既有 PM 案件用的就是舊案號（`B114-B022`），所以要用它去對，**不是產新號**。
+        #
+        # ⚠️ 2026-08-20 第一次匯入用 `generate_case_code()` 產號，結果 180 筆
+        #    **全部拿到同一個 `CK2025_FN_02_001`** —— 產號器查的是 DB 現有最大流水號，
+        #    而同一個交易內前面那些還沒 commit，所以每次都查到一樣的值。
+        #    那批已回滾（備份在 backups/manual/）。
+        #
+        # 對不上 PM 案件的就**留空**，不憑空產一個指向不存在案件的號：
+        #    實測 180 個唯一舊案號裡只有 40 個對得上（其餘本來就沒成案），
+        #    而依 2026-08-19 的判準，也不該為它們補建 pm_cases
+        #    —— 那是憑空造一筆從未經過邀標的案件。
         for r in to_create:
-            # case_code 走既有產號器 —— 不自己拼一組編號規則
-            # （2026-08-18 已有「手動建案用了 PM 產號器卻不建 pm_cases」的前例）
-            case_code = await self.code_service.generate_case_code(
-                "erp", r["year"] or date.today().year, "02",
-            )
             q = ERPQuotation(
-                case_code=case_code,
+                case_code=_derive_case_code(r["legacy_no"]),
                 case_name=r["case_name"],
                 year=r["year"] or date.today().year,
                 total_price=r["total_price"],

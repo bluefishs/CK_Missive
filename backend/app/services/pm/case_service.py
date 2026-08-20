@@ -5,6 +5,7 @@ Version: 1.2.0
 import csv
 import io
 import logging
+from datetime import datetime
 from typing import Optional, Dict, Any, Tuple, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,7 +51,10 @@ class PMCaseService:
 
         # 2. 案名重複檢查 (同年度 + 同名 → 疑似重複)
         case_name = dump.get("case_name", "")
-        year = dump.get("year") or 114
+        # 2026-08-20：預設值原本是 `114` —— 民國、而且是寫死的過期年份。
+        # 規範是統一西元（owner），且寫死的年份每年都會過期而沒有人會發現。
+        # schema 的 field_validator 已把送進來的民國值轉成西元，這裡只處理「沒給」。
+        year = dump.get("year") or datetime.now().year
         if case_name:
             from sqlalchemy import select, func
             dup_q = await self.db.execute(
