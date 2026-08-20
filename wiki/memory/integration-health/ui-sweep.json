@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-19T20:38:47.053Z",
+ "checked_at": "2026-08-20T20:39:06.168Z",
  "base": "https://missive.cksurvey.tw",
  "pass": 87,
  "fail": 0,
@@ -835,7 +835,7 @@
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
    "/api/taoyuan-dispatch/dispatch/contract-projects",
-   "/api/users/list"
+   "/api/users/assignable"
   ],
   "/erp/operational": [
    "/api/ai/config",

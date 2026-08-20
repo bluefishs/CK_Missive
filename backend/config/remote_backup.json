@@ -2,16 +2,16 @@
     "remote_path":  "\\\\CKNAS\\CK_Project\\#Project_data\\missive_databsae",
     "sync_enabled":  false,
     "sync_interval_hours":  24,
-    "last_sync_time":  "2026-08-19T03:00:24.634766",
+    "last_sync_time":  "2026-08-21T03:00:30.885716",
     "sync_status":  "idle",
     "last_sync_result":  "success",
     "last_sync_source":  "windows_scheduled_task:CK-Missive-Offsite-Backup",
     "last_sync_message":  "附件 2 檔為長檔名，已打包 1 個目錄",
     "remote_file_count":  30,
-    "latest_remote_file":  "ck_missive_backup_20260819_015959.sql",
-    "latest_remote_size_mb":  516.9,
-    "latest_remote_time":  "2026-08-19T02:00:11",
+    "latest_remote_file":  "ck_missive_backup_20260821_015959.sql",
+    "latest_remote_size_mb":  519.8,
+    "latest_remote_time":  "2026-08-21T02:00:15",
     "attachment_remote_path":  "\\\\CKNAS\\CK_Project\\#Project_data\\missive_attachments",
-    "attachment_remote_count":  1517,
-    "attachment_remote_size_mb":  1179.1
+    "attachment_remote_count":  1527,
+    "attachment_remote_size_mb":  1181.8
 }
