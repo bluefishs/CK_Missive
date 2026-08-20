@@ -19,7 +19,7 @@ import { useUsersDropdown } from '../hooks/business/useDropdownData';
 import { ROUTES } from '../router/types';
 import { ERP_ENDPOINTS } from '../api/endpoints';
 import apiClient from '../api/client';
-import { filterAssignableUsers, userDisplayName } from '../utils/assignableUsers';
+import { filterAssignableUsers, userDisplayName, assignableNotFound } from '../utils/assignableUsers';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -62,7 +62,7 @@ const ERPAssetFormPage: React.FC = () => {
   const { data: existingAsset, isLoading } = useAssetDetail(isEdit ? Number(id) : null);
   const createMutation = useCreateAsset();
   const updateMutation = useUpdateAsset();
-  const { users, isLoading: usersLoading } = useUsersDropdown();
+  const { users, isLoading: usersLoading, isError: usersError } = useUsersDropdown();
   const { data: caseCodeMap } = useCaseCodeMap();
 
   // 保管人下拉選項 (存名字字串，相容現有資料)
@@ -279,6 +279,8 @@ const ERPAssetFormPage: React.FC = () => {
               optionFilterProp="label"
               options={custodianOptions}
               loading={usersLoading}
+              // 清單載不到要說出來（見 utils/assignableUsers）
+              notFoundContent={assignableNotFound({ isLoading: usersLoading, isError: usersError })}
               placeholder="請選擇保管人"
             />
           </Form.Item>

@@ -33,6 +33,7 @@
 | B4 | **`/tender/ezbid/A.47.3` 定位不到** | `A.47.3` 是**機關代碼**不是標案 id；ezbid 唯一鍵是 `ezbid_id` | 需改路由參數 |
 | B5 | **08-15 標案寫入 0 筆** | 抓取 job 跑了 25 次全 success 而該日 `created_at` 0 筆＝沉默成功 | 未查明是抓取失敗或當天真無公告 |
 | B6 | **匯出表單格式** | owner 指示「先完成前述整合再議」；已知不輸出委託單位 ID | 待 A1 完成後 |
+| B7 | **管理動作按鈕對一般使用者可見但按下去 403** | 4 個頁面路由是 `ProtectedRoute`（只要登入）而頁內含管理動作：`/ai/erp-graph` 的 Ingest Admin 分頁、`/ai/code-graph`、`/ai/knowledge-graph` 的管理面板、`/erp/einvoice-sync` 的「同步」 | 403 部分屬**刻意**（同步會呼叫財政部 API、有配額），所以不擅自放寬；缺的是**畫面不該給一個必然失敗的按鈕**。盤點用 `scripts/checks/admin_endpoint_ui_consumers.py`（人工觸發） |
 
 ---
 

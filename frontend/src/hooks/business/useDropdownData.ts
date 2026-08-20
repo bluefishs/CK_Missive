@@ -52,7 +52,9 @@ export const useProjectsDropdown = () => {
  * 是五個人員下拉共用同一條打不通的資料源。
  */
 export const useUsersDropdown = () => {
-  const { data, isLoading } = useQuery({
+  // isError 要往外給 —— 清單載不到時畫面必須說出來，
+  // 否則空的 options 會讓 Select 直接顯示原始數字 id（見 utils/assignableUsers）
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['users-dropdown'],
     queryFn: async () => {
       const resp = await apiClient.post<{ users?: User[]; items?: User[] }>(
@@ -66,7 +68,7 @@ export const useUsersDropdown = () => {
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-  return { users: data ?? [], isLoading };
+  return { users: data ?? [], isLoading, isError };
 };
 
 /**

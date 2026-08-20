@@ -101,12 +101,6 @@
       "max_h": 30
     },
     {
-      "name": "patterns",
-      "signal": "file_fresh",
-      "path": "wiki/memory/patterns",
-      "max_h": 30
-    },
-    {
       "name": "優化管線報告",
       "signal": "file_fresh",
       "path": "wiki/memory/pipeline-reports",
@@ -266,7 +260,7 @@
         "no_traces",
         "no_pattern_met_threshold"
       ],
-      "_why": "2026-08-05：進化成長（學習閉環）先前只納管 patterns 一環 —— proposals/crystals 自 07-07 起 28 天零產出完全沒有人看得到，而 job 每天回 success。納管的是**產出與原因**，不是「有沒有跑」。"
+      "_why": "2026-08-05：進化成長（學習閉環）先前只納管 patterns 一環 —— proposals/crystals 自 07-07 起 28 天零產出完全沒有人看得到，而 job 每天回 success。納管的是**產出與原因**，不是「有沒有跑」。｜2026-08-20：移除了另一筆同時存在的 `patterns`（signal=file_fresh, max_h=30）—— **同一件事有兩筆註冊而兩份判準不同**：那一筆只看檔案有沒有在 30 小時內更新，於是學習閉環「合理空」的第二天必然假紅（當天實測報『34h > 30h』，而 cron 紀錄是 04:05 有跑、reason=no_pattern_met_threshold）。合理空在這條管線是常態，不是故障；假紅的代價是訓練人忽略 producer watchdog。⚠️ 取捨要誠實記下：只看 cron_detail 就抓不到「job 說 saved:4 但檔案其實沒寫出來」那一面。要兩者兼顧，得讓 file_fresh 也認得 reason，那是 registry 的形態擴充，不在這一輪。"
     },
     {
       "name": "履歷編譯",

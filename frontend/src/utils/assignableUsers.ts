@@ -70,3 +70,27 @@ export function filterAssignableUsers<T extends AssignableUserLike>(
 export function userDisplayName(u: AssignableUserLike): string {
   return u.full_name || u.username || `#${u.id}`;
 }
+
+/**
+ * 人員下拉的空狀態文字。
+ *
+ * ## 為什麼需要這個
+ *
+ * 「同仁變成代碼」的成因**不是誰有權限**，是**空清單退化成數字**：
+ * AntD Select 在 options 為空、value 有值時會直接把原始 value 印在畫面上。
+ * 2026-08-04 與 2026-08-20 兩次回報都是這個形狀，只是讓清單變空的原因不同
+ * （一次是我把 label 簡化掉、一次是端點需要管理員）。
+ *
+ * 所以要治的是「清單載不到時畫面長什麼樣」——不管未來什麼原因造成，
+ * 都必須看得出是**載入失敗**而不是資料壞了。
+ *
+ * ## 為什麼收在這裡
+ *
+ * 四個人員下拉（承辦同仁／資產保管人／PM 承辦／承攬案件）本來就共用
+ * `filterAssignableUsers`；文案分開寫就是四份會各自演化的東西。
+ */
+export function assignableNotFound(state?: { isLoading?: boolean; isError?: boolean }): string {
+  if (state?.isError) return '同仁清單載入失敗，請重新整理；若持續發生請告知管理員';
+  if (state?.isLoading) return '載入中…';
+  return '沒有可指派的同仁';
+}

@@ -23,7 +23,7 @@ import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
 import { projectStaffApi } from '../api/projectStaffApi';
 import type { User } from '../types/api';
 import { STAFF_ROLE_OPTIONS } from '../constants/staffOptions';
-import { filterAssignableUsers, userDisplayName } from '../utils/assignableUsers';
+import { filterAssignableUsers, userDisplayName, assignableNotFound } from '../utils/assignableUsers';
 import { apiClient } from '../api/client';
 import { USERS_ENDPOINTS } from '../api/endpoints';
 
@@ -61,7 +61,12 @@ const ContractCaseStaffFormPage: React.FC = () => {
   );
 
   // 新增時要挑人；編輯時人已定，不再讓改（改人＝換一筆關聯）
-  // 沿用詳情頁本來就在用的那支（usersApi + 同一組查詢鍵），不另開資料來源
+  //
+  // ⚠️ queryKey 與 `useContractCaseData`（承攬案件詳情）**相同是刻意的**
+  //    —— 同一份清單就該共用快取。但前提是**兩處的資料源也必須相同**：
+  //    2026-08-20 之前詳情頁打 `users/list` 而這裡打別的，於是誰先載入誰
+  //    就決定了快取內容，動線「詳情頁 → 新增承辦同仁」讓這一支的修改完全
+  //    不會生效。兩處現在同源；`queryKey_drift_audit` 會擋住它再度分岔。
   const { data: allUsers = [], isError: userListFailed, isLoading: userListLoading } = useQuery({
     queryKey: ['contract-case-user-options'],
     queryFn: async () => {
@@ -182,13 +187,7 @@ const ContractCaseStaffFormPage: React.FC = () => {
             // 清單載不到時要**說出來**，不能只是留一個空的下拉 ——
             // 「同仁變成代碼」這個症狀的成因不是誰有權限，而是清單空掉時
             // 畫面退化成顯示原始數字 id，看起來像資料壞了而不是載入失敗。
-            notFoundContent={
-              userListFailed
-                ? '同仁清單載入失敗，請重新整理；若持續發生請告知管理員'
-                : userListLoading
-                  ? '載入中…'
-                  : '沒有可指派的同仁'
-            }
+            notFoundContent={assignableNotFound({ isLoading: userListLoading, isError: userListFailed })}
             options={isEdit
               ? [{ value: uid as number, label: String(record?.user_name || `#${uid}`) }]
               : userOptions}

@@ -17,7 +17,7 @@ import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import { useUsersDropdown } from '../../hooks';
 import { STAFF_ROLE_OPTIONS } from '../contractCase/tabs/constants';
-import { filterAssignableUsers, userDisplayName } from '../../utils/assignableUsers';
+import { filterAssignableUsers, userDisplayName, assignableNotFound } from '../../utils/assignableUsers';
 
 interface StaffRecord {
   id: number;
@@ -44,7 +44,7 @@ export default function StaffTab({ caseCode }: StaffTabProps) {
   const [form] = Form.useForm();
   const [modalVisible, setModalVisible] = useState(false);
 
-  const { users } = useUsersDropdown();
+  const { users, isLoading: usersLoading, isError: usersError } = useUsersDropdown();
   const queryKey = ['project-staff-by-case', caseCode];
 
   const { data, isLoading } = useQuery({
@@ -178,6 +178,9 @@ export default function StaffTab({ caseCode }: StaffTabProps) {
               placeholder="搜尋同仁..."
               optionFilterProp="label"
               options={userOptions}
+              loading={usersLoading}
+              // 清單載不到要說出來，不能留一個空下拉（見 utils/assignableUsers）
+              notFoundContent={assignableNotFound({ isLoading: usersLoading, isError: usersError })}
             />
           </Form.Item>
           <Form.Item name="role" label="角色/職責" initialValue="專案PM"
