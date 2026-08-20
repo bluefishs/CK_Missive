@@ -194,6 +194,27 @@ export const PMCaseDetailPage: React.FC = () => {
         {pmCase?.case_code && (
           <ExpenseQRButton caseCode={pmCase.case_code} caseName={pmCase.case_name} />
         )}
+        {/* 2026-08-20 owner：「尚未看到新增報價單機制」
+            「新增報價單應建構在 pm/cases（新增報價），目前為何在 erp/quotations/152?tab=info？」
+
+            邀標案件是報價單的起點，但這一頁一直沒有通往報價單的入口 ——
+            從案件出發的人得自己記住案號、切到 ERP 模組、再打一次。
+
+            ⚠️ 委辦招標（`01`）不顯示：標案是投標程序不是對客戶報價。
+            判準用 `!== '01'` 與報價單詳情頁的輸出按鈕一致，不另立第二份規則。 */}
+        {canWrite && pmCase?.case_code && pmCase?.category !== '01' && (
+          <Button
+            icon={<FileTextOutlined />}
+            onClick={() => {
+              const p = new URLSearchParams({
+                case_code: pmCase.case_code!,
+                case_name: pmCase.case_name ?? '',
+              });
+              if (pmCase.year) p.set('year', String(pmCase.year));
+              navigate(`${ROUTES.ERP_QUOTATION_CREATE}?${p.toString()}`);
+            }}
+          >新增報價</Button>
+        )}
         {canWrite && (
           <Button type="primary" icon={<EditOutlined />} onClick={() => setIsEditing(true)}>編輯</Button>
         )}

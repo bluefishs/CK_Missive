@@ -9,6 +9,7 @@
 import React, { useState } from 'react';
 import {
   Button, Descriptions, Statistic, Row, Col, Card, Alert, Popconfirm, App,
+  Modal,
 } from 'antd';
 import {
   EditOutlined, DeleteOutlined, DollarOutlined,
@@ -48,6 +49,9 @@ export const ERPQuotationDetailPage: React.FC = () => {
   // Hook 的呼叫順序每次 render 必須相同，放在早退之後會在
   // 「報價不存在」那條路徑上少呼叫一個 Hook。ESLint 當場擋下。
   const [exporting, setExporting] = useState(false);
+  // PDF 產出後直接在畫面上看（owner 2026-08-20：「產出 pdf 頁面」）
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfName, setPdfName] = useState('');
 
   if (!quotation && !isLoading) {
     return <DetailPageLayout header={{ title: '報價不存在', backPath: ROUTES.ERP_QUOTATIONS }} tabs={[]} hasData={false} />;
@@ -85,11 +89,24 @@ export const ERPQuotationDetailPage: React.FC = () => {
         ? decodeURIComponent(m[1])
         : `報價單_${quotation.quotation_no || quotation.id}.${format}`;
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      if (format === 'pdf') {
+        // 2026-08-20 owner：「尚未看到…產出 pdf 頁面」。
+        //
+        // 原本只有下載 —— 使用者得先存檔、再自己開檔，才知道版面對不對、
+        // 金額有沒有填進去。而報價單是要寄給客戶的文件，「看一眼再送出」
+        // 本來就是這個動作的一部分。
+        //
+        // 改為先在畫面上開起來（可捲動、可放大），下載鈕仍在 Modal 裡；
+        // ⚠️ 不 revoke URL —— iframe 還在用它，關閉 Modal 時才釋放。
+        setPdfUrl(url);
+        setPdfName(filename);
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     } catch (e) {
       message.error(extractApiMessage(e, '報價單輸出失敗'));
     } finally {
@@ -381,12 +398,39 @@ export const ERPQuotationDetailPage: React.FC = () => {
   ] : [];
 
   return (
-    <DetailPageLayout
-      header={headerConfig}
-      tabs={tabs}
-      loading={isLoading}
-      hasData={!!quotation}
-    />
+    <>
+      <DetailPageLayout
+        header={headerConfig}
+        tabs={tabs}
+        loading={isLoading}
+        hasData={!!quotation}
+      />
+      <Modal
+        title={`報價單預覽 — ${pdfName}`}
+        open={!!pdfUrl}
+        width={960}
+        onCancel={() => {
+          // iframe 用完才釋放 —— 提早 revoke 會讓預覽變成空白頁
+          if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+          setPdfUrl(null);
+        }}
+        footer={[
+          <Button key="dl" type="primary" icon={<FilePdfOutlined />} onClick={() => {
+            if (!pdfUrl) return;
+            const a = document.createElement('a');
+            a.href = pdfUrl;
+            a.download = pdfName;
+            a.click();
+          }}>下載 PDF</Button>,
+        ]}
+        styles={{ body: { padding: 0, height: '78vh' } }}
+      >
+        {pdfUrl && (
+          <iframe src={pdfUrl} title={pdfName}
+            style={{ width: '100%', height: '100%', border: 'none' }} />
+        )}
+      </Modal>
+    </>
   );
 };
 

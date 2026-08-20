@@ -43,6 +43,14 @@ export const ERPQuotationFormPage: React.FC = () => {
     const cn = searchParams.get('case_name');
     if (pc) prefill.project_code = pc;
     if (cn) prefill.case_name = cn;
+    // 2026-08-20：從邀標案件（/pm/cases）點「新增報價」帶進來的。
+    // owner：「新增報價單應建構在 pm/cases，目前為何在 erp/quotations/152?tab=info？」
+    // case_code 是 PM 案件與報價單之間的鍵 —— 不帶進來，使用者得自己回頭抄一次案號，
+    // 抄錯就是一張掛不到案件上的報價單。
+    const cc = searchParams.get('case_code');
+    const yr = searchParams.get('year');
+    if (cc) prefill.case_code = cc;
+    if (yr && /^\d{4}$/.test(yr)) prefill.year = Number(yr);
     // 2026-07-31 L4 財務接續：若該案有來源標案，把標案預算帶進「預算上限」。
     // 原本從標案來的預算/機關/案名全部要人工重打 —— 資料明明就在系統裡。
     const bl = searchParams.get('budget_limit');
