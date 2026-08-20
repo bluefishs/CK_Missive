@@ -265,9 +265,23 @@ class QuotationDocumentService:
         "notes": "B21",             # 備註
     }
 
-    #: 明細列範圍（範本的 `SUM(F16:F25)` 就是這 10 列）
+    #: 明細列範圍。
+    #:
+    #: ⚠️ 2026-08-20 由 25 改為 20。範本的 `SUM(F16:F25)` 涵蓋 10 列沒錯，
+    #: **但第 21 列是範本的備註列**（`A21="備註："` / `B21=備註內容`）——
+    #: 範本樣本只有 3 項明細，作者就把備註放在那裡了。
+    #:
+    #: 原本設 25 的後果是備註**兩種情況都印不出來**：
+    #:   明細 ≤5 項 → 備註被下方「清掉範本殘留」的迴圈清掉；
+    #:   明細 ≥6 項 → 第 6 項的工作內容直接覆蓋 B21。
+    #: 也就是說那 10 項容量是假的，實際可用只有 5 項。
+    #:
+    #: 要更多項目得改範本（把備註移到合計之後、擴充列數並同步 SUM 範圍），
+    #: 那要動 owner 提供的原始版面 —— 不在程式裡假裝有 10 列。
     ITEM_FIRST_ROW = 16
-    ITEM_LAST_ROW = 25
+    ITEM_LAST_ROW = 20
+    #: 備註列（範本 A21 是標籤、B21 是內容）—— 不得被明細或清空迴圈碰到
+    NOTES_ROW = 21
 
     #: 項次的中文數字（範本用「一、二、三、」）
     _CN = "一二三四五六七八九十"
@@ -317,10 +331,13 @@ class QuotationDocumentService:
         items = data.get("items") or []
         if len(items) > (self.ITEM_LAST_ROW - self.ITEM_FIRST_ROW + 1):
             # 不靜靜截斷 —— 少印幾項的報價單會被當成完整報價送出去。
+            cap = self.ITEM_LAST_ROW - self.ITEM_FIRST_ROW + 1
             raise ValueError(
-                f"報價明細 {len(items)} 項超過範本可容納的 "
-                f"{self.ITEM_LAST_ROW - self.ITEM_FIRST_ROW + 1} 列。"
-                "請調整範本（擴充列數並同步 SUM 範圍）或拆分報價。"
+                f"報價明細 {len(items)} 項超過範本可容納的 {cap} 項。"
+                f"範本第 {self.NOTES_ROW} 列是備註列，明細只能用第 "
+                f"{self.ITEM_FIRST_ROW}~{self.ITEM_LAST_ROW} 列；"
+                "要更多項目請調整範本（把備註移到合計之後、擴充列數並同步 SUM 範圍），"
+                "或把工項合併後把細節寫進備註。"
             )
 
         for i, it in enumerate(items):
