@@ -164,6 +164,17 @@ def _year_from_legacy(legacy_no: str, quoted: Optional[date]) -> Optional[int]:
 _ESTABLISHED = {"v", "V", "y", "Y", "yes", "是", "✓", "○", "1", 1, True}
 
 
+#: 工作表名稱的別名 —— 不是姓名、但 owner 指認過對應的人。
+#:
+#: owner 2026-08-20：「老闆 董事長 張坤樹」。
+#: 只放**人講過**的對應，不自行推測（「其他」「原始」「工作表1」不在此列，
+#: 它們本來就不是人）。這一份會隨檔案而變，所以放在這裡而不是寫進資料庫 ——
+#: 下一份彙整表若換了工作表命名，改的是這一行。
+_SHEET_ALIASES = {
+    "老闆": "張坤樹",
+}
+
+
 def _derive_case_code(legacy_no: str) -> str:
     """由舊案號推導 case_code：去掉版次尾碼。`B114-B022-1` → `B114-B022`
 
@@ -340,6 +351,90 @@ class QuotationLegacyImportService:
             ))
         return len(missing)
 
+
+    # ------------------------------------------------------------------
+    # 承辦同仁：從來源工作表名稱對應
+    # ------------------------------------------------------------------
+    #
+    # owner 2026-08-20：「報價單要對應使用者以利自我案件維護管理」
+    # （並指向 `/pm/cases/305?tab=staff` —— 也就是既有的承辦同仁機制）。
+    #
+    # 114 彙整表分成 5 個工作表，而其中三個**是人名**：原始／老闆／慶忠／元宏／其他。
+    # 那不是分類，是「這個案子誰在跑」—— 資訊一直都在檔案裡，
+    # 我第一版匯入只把它寫進備註文字，等於丟掉了。
+    #
+    # ⚠️ 必須用**原始列**（未去重）：去重保留的是先遇到的那份，而工作表順序
+    # 「原始」排第一 ⇒ 去重後 108 張都掛在「原始」名下，人名全部消失。
+    #
+    # 比對方式：工作表名是否**包含**在使用者姓名裡（「慶忠」⊂「洪慶忠」）。
+    # 對不到就**不指派**並列出來 —— 「老闆」「其他」「原始」「工作表1」都對不到，
+    # 而「老闆是誰」是我猜不得的事（owner 提過張坤樹是董事長，但那是他說的，
+    # 不是這份檔案說的）。
+    async def _assign_staff_from_sheets(
+        self, raw_rows: list[dict[str, Any]], dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """依來源工作表名稱指派承辦同仁。冪等：已存在的指派不重複建立。"""
+        from collections import defaultdict
+
+        sheets_by_case: dict[str, set[str]] = defaultdict(set)
+        for r in raw_rows:
+            ln = r.get("legacy_no") or ""
+            if not any(ch.isdigit() for ch in ln):
+                continue
+            sheets_by_case[_derive_case_code(ln)].add(r.get("sheet") or "")
+
+        users = (await self.db.execute(text(
+            "SELECT id, COALESCE(full_name, username) AS nm FROM users"
+            " WHERE is_active AND canonical_user_id IS NULL"
+        ))).all()
+
+        def match(sheet: str):
+            # owner 指認過的別名優先（「老闆」→ 張坤樹），其次才是姓名包含比對
+            target = _SHEET_ALIASES.get(sheet, sheet)
+            for uid, nm in users:
+                if target and nm and target in nm:
+                    return uid, nm
+            return None, None
+
+        wanted: list[tuple[str, int]] = []
+        unmatched: dict[str, int] = {}
+        for case_code, sheet_set in sheets_by_case.items():
+            for sh in sheet_set:
+                uid, _ = match(sh)
+                if uid:
+                    wanted.append((case_code, uid))
+                else:
+                    unmatched[sh] = unmatched.get(sh, 0) + 1
+        if not wanted:
+            return {"assigned": 0, "unmatched_sheets": unmatched}
+
+        existing = {
+            (row[0], row[1]) for row in (await self.db.execute(text(
+                "SELECT case_code, user_id FROM project_user_assignments"
+                " WHERE case_code = ANY(:cs)"
+            ), {"cs": list({c for c, _ in wanted})})).all()
+        }
+        todo = [(c, u) for c, u in dict.fromkeys(wanted) if (c, u) not in existing]
+        if dry_run or not todo:
+            return {"assigned": len(todo), "unmatched_sheets": unmatched}
+
+        name_of = {uid: nm for uid, nm in users}
+        for case_code, uid in todo:
+            await self.db.execute(text(
+                "INSERT INTO project_user_assignments"
+                " (case_code, user_id, staff_name, role, is_primary, status, notes,"
+                "  assignment_date, created_at, updated_at)"
+                " VALUES (:cc, :uid, :nm, :role, false, 'active', :notes,"
+                "         CURRENT_DATE, NOW(), NOW())"
+            ), {
+                "cc": case_code, "uid": uid, "nm": name_of.get(uid),
+                # 既有選項（計畫主持／計畫協同／專案PM／職安主管）取「專案PM」——
+                # 彙整表只說了「這是誰的案子」，沒說職責層級，不多猜一層。
+                "role": "專案PM",
+                "notes": "由報價單彙整匯入（來源工作表即承辦人）",
+            })
+        return {"assigned": len(todo), "unmatched_sheets": unmatched}
+
     async def run(self, content: bytes, *, dry_run: bool = True,
                   user_id: Optional[int] = None) -> dict[str, Any]:
         rows = parse_workbook(content)
@@ -448,6 +543,9 @@ class QuotationLegacyImportService:
         # 而只看新增的話，「報價單已匯入但案件還沒補」的情況永遠補不上。
         preview["will_create_pm_cases"] = await self._ensure_pm_cases(
             to_create + to_update, dry_run=True)
+        _staff = await self._assign_staff_from_sheets(rows, dry_run=True)
+        preview["will_assign_staff"] = _staff["assigned"]
+        preview["staff_unmatched_sheets"] = _staff["unmatched_sheets"]
         if dry_run:
             return preview
 
@@ -492,9 +590,12 @@ class QuotationLegacyImportService:
             created += 1
 
         pm_created = await self._ensure_pm_cases(to_create + to_update)
+        staff_res = await self._assign_staff_from_sheets(rows)
 
         await self.db.commit()
         logger.info("報價單彙整匯入：新增 %d／更新 %d／略過 %d／補建 PM 案件 %d",
                     created, updated, len(skipped), pm_created)
         return {**preview, "dry_run": False, "created": created, "updated": updated,
-                "created_pm_cases": pm_created}
+                "created_pm_cases": pm_created,
+                "assigned_staff": staff_res["assigned"],
+                "staff_unmatched_sheets": staff_res["unmatched_sheets"]}

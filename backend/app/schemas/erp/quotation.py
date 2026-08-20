@@ -359,6 +359,12 @@ class ERPQuotationLegacyImportResult(BaseModel):
     # conflicts(08-20 稍早) 記過三次同型失敗，這是第四次提醒自己。
     will_create_pm_cases: int = 0
     created_pm_cases: Optional[int] = None
+    # 承辦同仁指派（來源工作表即承辦人）—— 第五次提醒：schema 沒宣告就到不了畫面
+    will_assign_staff: int = 0
+    assigned_staff: Optional[int] = None
+    staff_unmatched_sheets: dict[str, int] = Field(
+        default_factory=dict,
+        description="對不到使用者的工作表名稱與案號數 —— 需要人決定，不自行猜測")
     error: Optional[str] = None
 
 
