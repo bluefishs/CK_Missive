@@ -114,11 +114,7 @@ for _path, _mod in (("/app", "main"), ("/app/backend", "main"),
 if app is None:
     print("@@JSON@@" + json.dumps({"_error": "app not found", "tried": _tried[:5]}))
     sys.exit(0)
-AUTH = ("require_auth", "require_admin", "require_superuser", "get_current_user",
-        "optional_auth", "is_admin_user", "is_superuser_user", "verify_service_token",
-        "get_admin", "service_auth", "require_service", "require_scope",
-        "get_current_active_user", "verify_token", "auth_required") + tuple(
-            n for n in "__EXTRA_AUTH__".split(",") if n and not n.startswith("__"))
+AUTH = tuple(n for n in "__AUTH_NAMES__".split(",") if n)
 def deps(route):
     out, d = set(), getattr(route, "dependant", None)
     if not d:
@@ -154,7 +150,8 @@ def probe(container: str = CONTAINER, extra_auth: str = "") -> list[dict] | None
     # 而那是 Missive 專有的（`backend/logs:/app/logs`）。2026-08-21 跨 repo
     # 實測：對 lvrland 直接回 "can't open file '/app/logs/_auth_probe.py'"。
     # 明確帶 PYTHONIOENCODING，否則含中文註解的程式碼在部分容器會解碼失敗。
-    code = _PROBE.replace("__EXTRA_AUTH__", extra_auth or "")
+    names = list(AUTH_DEFAULT) + [n.strip() for n in (extra_auth or "").split(",") if n.strip()]
+    code = _PROBE.replace("__AUTH_NAMES__", ",".join(dict.fromkeys(names)))
     try:
         r = subprocess.run(
             ["docker", "exec", "-i", "-e", "PYTHONIOENCODING=utf-8",
@@ -179,8 +176,45 @@ def probe(container: str = CONTAINER, extra_auth: str = "") -> list[dict] | None
     return None
 
 
-def why_intended(path: str) -> str | None:
-    for pat, reason in INTENDED:
+#: 認證相依名稱 —— **單一來源**。先前這份清單同時存在於 `_PROBE` 字串裡
+#: 與模組層，兩份會各自演化（正是本專案反覆記的「同一件事有兩份說法」）。
+#: 現在只有這一份，探測時注入進去。
+AUTH_DEFAULT = (
+    "require_auth", "require_admin", "require_superuser", "get_current_user",
+    "optional_auth", "is_admin_user", "is_superuser_user", "verify_service_token",
+    "get_admin", "service_auth", "require_service", "require_scope",
+    "get_current_active_user", "verify_token", "auth_required",
+)
+
+#: 座標檔位置（相對於該 repo 根）。**由本腳本產生，不手寫** ——
+#: SSOT 仍是上面的 INTENDED 與 AUTH 常數，JSON 只是它們的機器可讀投影。
+#: 手寫會立刻變成第二份事實（本專案反覆踩過：兩份說法不一致時沒有一方會報錯）。
+COORD_REL = "docs/health/auth-coordinates.json"
+
+
+def load_coordinates(repo_root: str) -> dict | None:
+    """讀目標 repo 自己宣告的審計座標系。
+
+    2026-08-21 lvrland 提的源頭解：跨 repo 工具讀不到目標 repo 的座標系
+    （認證函式名單＋公開白名單＋退出碼語意），只能靠人肉傳 —— 於是
+    「判準 11：跨 repo 要先套該 repo 的白名單」永遠停在紀律層次，
+    而紀律會被忘記。**有這份檔就自動讀，判準就從紀律變成機制。**
+
+    找不到不是錯 —— 該 repo 還沒落檔而已，退回預設並在報告裡說明。
+    """
+    p = Path(repo_root) / COORD_REL
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        # 壞掉的座標檔比沒有更危險：它會讓人以為已經套上了
+        print(f"[RED] 座標檔無法解析：{p}\n      {type(e).__name__}: {e}", file=sys.stderr)
+        raise SystemExit(2)
+
+
+def why_intended(path: str, extra: list[tuple[str, str]] | None = None) -> str | None:
+    for pat, reason in list(INTENDED) + list(extra or []):
         if re.search(pat, path):
             return reason
     return None
@@ -199,9 +233,57 @@ def main() -> int:
                          "（lvrland 實測：49 條走 service-token 家族"
                          "`require_service_scope`／`get_user_or_service`／"
                          "`verify_telegram_secret`，本檔預設清單認不得）")
+    ap.add_argument("--repo", default=".",
+                    help=f"目標 repo 根 —— 會自動讀 {COORD_REL}（若有），"
+                         "把該 repo 自己宣告的認證名單與公開白名單套上去")
+    ap.add_argument("--emit-coordinates", action="store_true",
+                    help=f"把本 repo 的座標系輸出成 {COORD_REL} 供其他 repo 的"
+                         "工具讀取（由常數產生，不手寫，避免第二份事實）")
     ap.add_argument("--update-baseline", action="store_true",
                     help="把目前的缺口寫成 baseline（只在**確認每一條都已處理或已決定接受**時用）")
     args = ap.parse_args()
+
+    if args.emit_coordinates:
+        out = Path(args.repo) / COORD_REL
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps({
+            "_why": "本 repo 的審計座標系。由 public_endpoint_auth_audit.py "
+                    "--emit-coordinates 產生，**不要手寫** —— SSOT 是該腳本的"
+                    "INTENDED 與 AUTH 常數，手寫會立刻變成第二份事實。",
+            "_schema": "portfolio/auth-coordinates/v1",
+            "repo": Path(args.repo).resolve().name,
+            "container": args.container,
+            "auth_dependency_names": sorted(AUTH_DEFAULT),
+            "public_routes": [{"pattern": p, "reason": r} for p, r in INTENDED],
+            "exit_code_semantics": {"0": "GREEN", "2": "RED 或探測不可用（不下結論）"},
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"座標檔已產生：{out}")
+        print(f"  認證名單 {len(AUTH_DEFAULT)} 個｜公開白名單 {len(INTENDED)} 條")
+        return 0
+
+    coords = load_coordinates(args.repo)
+    extra_intended: list[tuple[str, str]] = []
+    if coords and coords.get("container") and coords["container"] != args.container:
+        # 座標系不匹配 —— 這正是今天要治的病症本身，不能靜靜套下去。
+        # 2026-08-21 實測：`--container ck_lvrland_webmap-backend-1` 而
+        # `--repo` 用預設 `.` ⇒ 讀到 Missive 自己的座標檔，還印
+        # 「已套用 CK_Missive 宣告的座標系」。結果碰巧沒差，訊息卻是錯的。
+        print(f"[RED] 座標系不匹配：你在掃 `{args.container}`，"
+              f"而 {args.repo} 的座標檔宣告的是 `{coords['container']}`。\n"
+              f"      請用 `--repo <目標 repo 根>` 指向該 repo 自己的 "
+              f"{COORD_REL}；若該 repo 還沒落檔，請它先跑 --emit-coordinates。",
+              file=sys.stderr)
+        return 2
+    if coords:
+        names = coords.get("auth_dependency_names") or []
+        merged = ",".join(sorted(set(names) - set(AUTH_DEFAULT)))
+        args.auth_names = ",".join(x for x in (args.auth_names, merged) if x)
+        extra_intended = [(e["pattern"], e.get("reason", "（該 repo 未寫理由）"))
+                          for e in (coords.get("public_routes") or [])
+                          if e.get("pattern")]
+        print(f"  已套用 {coords.get('repo', '?')} 宣告的座標系："
+              f"認證名單 +{len(set(names) - set(AUTH_DEFAULT))}／"
+              f"白名單 +{len(extra_intended)}")
 
     rows = probe(args.container, args.auth_names)
     if rows is None:
@@ -209,7 +291,7 @@ def main() -> int:
         return 2
 
     no_auth = [r["path"] for r in rows if not r["authed"]]
-    gaps = [p for p in no_auth if not why_intended(p)]
+    gaps = [p for p in no_auth if not why_intended(p, extra_intended)]
     #: path -> 該路徑下無認證的方法（報告要印，否則看不出是哪個動詞漏了）
     gap_methods: dict[str, list[str]] = {}
     for r in rows:
@@ -219,7 +301,8 @@ def main() -> int:
     by_path: dict[str, set[bool]] = {}
     for r in rows:
         by_path.setdefault(r["path"], set()).add(r["authed"])
-    mixed = sorted(p for p, s in by_path.items() if len(s) > 1 and not why_intended(p))
+    mixed = sorted(p for p, st in by_path.items()
+                   if len(st) > 1 and not why_intended(p, extra_intended))
 
     base = []
     if BASELINE.exists():

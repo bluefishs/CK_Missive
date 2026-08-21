@@ -1,0 +1,73 @@
+{
+  "_why": "本 repo 的審計座標系。由 public_endpoint_auth_audit.py --emit-coordinates 產生，**不要手寫** —— SSOT 是該腳本的INTENDED 與 AUTH 常數，手寫會立刻變成第二份事實。",
+  "_schema": "portfolio/auth-coordinates/v1",
+  "repo": "CK_Missive",
+  "container": "ck_missive_backend",
+  "auth_dependency_names": [
+    "auth_required",
+    "get_admin",
+    "get_current_active_user",
+    "get_current_user",
+    "is_admin_user",
+    "is_superuser_user",
+    "optional_auth",
+    "require_admin",
+    "require_auth",
+    "require_scope",
+    "require_service",
+    "require_superuser",
+    "service_auth",
+    "verify_service_token",
+    "verify_token"
+  ],
+  "public_routes": [
+    {
+      "pattern": "^/api/auth/",
+      "reason": "登入流程本身（未登入才會打）"
+    },
+    {
+      "pattern": "^/api/health",
+      "reason": "健康檢查（cloudflared/監控要用）"
+    },
+    {
+      "pattern": "^/api/line/",
+      "reason": "LINE webhook（走 X-Line-Signature 驗簽）"
+    },
+    {
+      "pattern": "^/api/telegram/",
+      "reason": "Telegram webhook（走 token 路徑）"
+    },
+    {
+      "pattern": "^/api/discord/",
+      "reason": "Discord interactions（走簽章驗證）"
+    },
+    {
+      "pattern": "^/api/hermes/",
+      "reason": "Hermes ACP（走 X-Service-Token）"
+    },
+    {
+      "pattern": "^/api/public/",
+      "reason": "刻意公開的唯讀端點"
+    },
+    {
+      "pattern": "^/api/(docs|redoc|openapi)",
+      "reason": "API 文件（另有來源守衛擋公網，見 main.py）"
+    },
+    {
+      "pattern": "^/api/security/csp-report",
+      "reason": "瀏覽器自動回報 CSP 違規，無法帶憑證"
+    },
+    {
+      "pattern": "^/api/secure-site-management/csrf-token",
+      "reason": "CSRF 自癒需要（L68），必須未登入可取"
+    },
+    {
+      "pattern": "^/api/debug/",
+      "reason": "開發除錯端點（生產實測 404/403）"
+    }
+  ],
+  "exit_code_semantics": {
+    "0": "GREEN",
+    "2": "RED 或探測不可用（不下結論）"
+  }
+}
