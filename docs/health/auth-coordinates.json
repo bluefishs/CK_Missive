@@ -63,7 +63,7 @@
     },
     {
       "pattern": "^/api/debug/",
-      "reason": "開發除錯端點（生產實測 404/403）"
+      "reason": "開發除錯端點（2026-08-21 公網實測：POST 401／GET 404，認證由中介層提供，dependency 樹看不到）"
     }
   ],
   "exit_code_semantics": {

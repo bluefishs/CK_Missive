@@ -87,7 +87,17 @@ INTENDED = [
     (r"^/api/(docs|redoc|openapi)", "API 文件（另有來源守衛擋公網，見 main.py）"),
     (r"^/api/security/csp-report", "瀏覽器自動回報 CSP 違規，無法帶憑證"),
     (r"^/api/secure-site-management/csrf-token", "CSRF 自癒需要（L68），必須未登入可取"),
-    (r"^/api/debug/", "開發除錯端點（生產實測 404/403）"),
+    # ⚠️ 2026-08-21 複驗更正：原本寫「生產實測 404/403」是**未經驗證的宣稱**
+    # （CK_FacilityDev 提醒「baseline 收的是現況，不保證現況是對的」後回頭驗）。
+    # 實測 6 條 debug 路由（含會吐業務資料的 documents/count 與 documents/raw）：
+    # POST 一律 401、GET 一律 404 —— 擋住了，但**回的是 401 不是 403**。
+    #
+    # 更重要的是它暴露本工具的限制：dependency 樹說這些端點沒有認證相依，
+    # 實際卻回 401 ⇒ **認證來自中介層而不是 dependency**，而本工具看不到中介層。
+    # ⇒ 「無認證」這個判定是**保守的**（可能高估），但反過來不成立：
+    # 中介層若有例外路徑，dependency 樹也看不出來。跨 repo 尤其要注意。
+    (r"^/api/debug/", "開發除錯端點（2026-08-21 公網實測：POST 401／GET 404，"
+                      "認證由中介層提供，dependency 樹看不到）"),
 ]
 
 _PROBE = r'''
