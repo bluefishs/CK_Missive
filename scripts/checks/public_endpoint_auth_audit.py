@@ -52,7 +52,6 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     except Exception:
         pass
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 #: 預設容器；跨 repo 用 --container 指定
 #: （lvrland: ck_lvrland_webmap-backend-1／pile: ck_pilemgmt-backend-1／
 #:  dataform: ck_lvrland_dataform-backend-1／DT: ck-tunnel-api-1）
@@ -70,6 +69,13 @@ BASELINE = Path(__file__).with_name("public_endpoint_auth_baseline.json")
 #: 結果仍是 147 條。真因是**我把「無認證」直接當成「缺口」而沒套該 repo 的
 #: 白名單**。⇒ 跨 repo 使用時必須先由該 repo 自己列出 INTENDED，
 #: 否則得到的是一份不可採信的清單（本專案已立的判準：先驗鑑別力再交付）。
+#:
+#: ⚠️⚠️ **座標系有兩半，白名單只是其中一半**（lvrland 2026-08-21 補充後查證）：
+#: 他們用本 repo 的判定本尊逐一歸類 147 條，結果 **真缺口 0** ——
+#: 96 條是白名單命中，**另 ~49 條是「有認證，但用的是 service-token 家族」**
+#: （`require_service_scope`／`get_user_or_service`／`verify_telegram_secret` 等，
+#: 本檔預設 AUTH 清單認不得）。⇒ **只帶白名單不帶認證名單，仍會拿到 49 條假陽性。**
+#: 跨 repo 用 `--auth-names` 或 `AUTH_AUDIT_EXTRA_NAMES` 補上該 repo 的認證家族。
 INTENDED = [
     (r"^/api/auth/", "登入流程本身（未登入才會打）"),
     (r"^/api/health", "健康檢查（cloudflared/監控要用）"),
@@ -111,7 +117,8 @@ if app is None:
 AUTH = ("require_auth", "require_admin", "require_superuser", "get_current_user",
         "optional_auth", "is_admin_user", "is_superuser_user", "verify_service_token",
         "get_admin", "service_auth", "require_service", "require_scope",
-        "get_current_active_user", "verify_token", "auth_required")
+        "get_current_active_user", "verify_token", "auth_required") + tuple(
+            n for n in "__EXTRA_AUTH__".split(",") if n and not n.startswith("__"))
 def deps(route):
     out, d = set(), getattr(route, "dependant", None)
     if not d:
@@ -142,23 +149,29 @@ print("@@JSON@@" + json.dumps(rows, ensure_ascii=False))
 '''
 
 
-def probe(container: str = CONTAINER) -> list[dict] | None:
-    f = PROJECT_ROOT / "backend" / "logs" / "_auth_probe.py"
-    f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(_PROBE, encoding="utf-8")
+def probe(container: str = CONTAINER, extra_auth: str = "") -> list[dict] | None:
+    # 用 stdin 傳程式碼，不寫檔 —— 寫檔要依賴該容器剛好有某個可寫掛載，
+    # 而那是 Missive 專有的（`backend/logs:/app/logs`）。2026-08-21 跨 repo
+    # 實測：對 lvrland 直接回 "can't open file '/app/logs/_auth_probe.py'"。
+    # 明確帶 PYTHONIOENCODING，否則含中文註解的程式碼在部分容器會解碼失敗。
+    code = _PROBE.replace("__EXTRA_AUTH__", extra_auth or "")
     try:
         r = subprocess.run(
-            ["docker", "exec", "-w", "/app", container, "python", "/app/logs/_auth_probe.py"],
-            capture_output=True, text=True, encoding="utf-8", timeout=180,
+            ["docker", "exec", "-i", "-e", "PYTHONIOENCODING=utf-8",
+             "-w", "/app", container, "python", "-"],
+            input=code.encode("utf-8"),
+            capture_output=True, timeout=180,
         )
+        r = subprocess.CompletedProcess(
+            r.args, r.returncode,
+            (r.stdout or b"").decode("utf-8", "replace"),
+            (r.stderr or b"").decode("utf-8", "replace"))
     except FileNotFoundError:
         print("[RED] 找不到 docker CLI —— 無法取得 runtime 事實，不下結論", file=sys.stderr)
         return None
     except subprocess.TimeoutExpired:
         print("[RED] 容器探測逾時", file=sys.stderr)
         return None
-    finally:
-        f.unlink(missing_ok=True)
     for line in (r.stdout or "").splitlines():
         if line.startswith("@@JSON@@"):
             return json.loads(line[len("@@JSON@@"):])
@@ -179,11 +192,18 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--container", default=CONTAINER,
                     help="要探測的後端容器（跨 repo 用）")
+    ap.add_argument("--auth-names", default=os.getenv("AUTH_AUDIT_EXTRA_NAMES", ""),
+                    help="該 repo 額外的認證相依名稱（逗號分隔）。"
+                         "**認證名單與白名單一樣是座標系的一部分** —— "
+                         "只帶白名單不帶認證名單，仍會得到假陽性"
+                         "（lvrland 實測：49 條走 service-token 家族"
+                         "`require_service_scope`／`get_user_or_service`／"
+                         "`verify_telegram_secret`，本檔預設清單認不得）")
     ap.add_argument("--update-baseline", action="store_true",
                     help="把目前的缺口寫成 baseline（只在**確認每一條都已處理或已決定接受**時用）")
     args = ap.parse_args()
 
-    rows = probe(args.container)
+    rows = probe(args.container, args.auth_names)
     if rows is None:
         # 探測不到就是不知道 —— 不得靜靜回綠（本專案已立此判準）
         return 2
