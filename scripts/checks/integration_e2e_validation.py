@@ -136,8 +136,12 @@ async def check_chain_3_tools_manifest() -> Dict[str, Any]:
             r = await client.post("http://localhost:8001/api/ai/agent/tools",
                                   headers=headers)
             if r.status_code in (401, 403) and not token:
-                # 沒有 token 就無法驗 —— 說出來，不要判成「整合斷了」
-                return {"ok": False, "status": r.status_code,
+                # 沒有 token 就無法驗 —— **ok=None 是第三態「未驗完」**。
+                # 2026-08-21：原本這裡回 ok=False 並附上正確的 reason，
+                # 但值是 False ⇒ 仍被算進 broken_chains、整份報告 all_ok=false。
+                # 訊息說對了而狀態說錯了，讀報告的人只看得到 OVERALL BROKEN。
+                # 「沒檢查」與「檢查失敗」不得長得一樣（本專案已立，L89 同族）。
+                return {"ok": None, "status": r.status_code,
                         "reason": "MCP_SERVICE_TOKEN 未設，無法驗證（不是整合斷了）"}
             if r.status_code != 200:
                 return {"ok": False, "status": r.status_code}
@@ -218,11 +222,16 @@ def write_health_report(results: Dict[str, Dict[str, Any]]) -> Path:
     now = datetime.now()
     filename = f"integration-health-{now.strftime('%Y%m%d-%H%M%S')}.json"
     path = HEALTH_DIR / filename
-    all_ok = all(r.get("ok", False) for r in results.values())
+    # 三態：True 通過／False 真的斷了／None 未驗完（缺憑證等）。
+    # broken 只收**明確 False** —— 把「沒檢查」算成「斷了」會製造假紅，
+    # 而假紅久了就沒人信真紅（本專案已立的判準）。
+    broken = [k for k, v in results.items() if v.get("ok") is False]
+    unverified = [k for k, v in results.items() if v.get("ok") is None]
     payload = {
         "timestamp": now.isoformat(timespec="seconds"),
-        "all_ok": all_ok,
-        "broken_chains": [k for k, v in results.items() if not v.get("ok", False)],
+        "all_ok": not broken,
+        "broken_chains": broken,
+        "unverified_chains": unverified,
         "chains": results,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -272,17 +281,21 @@ async def main() -> int:
         "chain_5_bridge_skill": check_chain_5_bridge_skill(),
     }
 
-    all_ok = all(r.get("ok", False) for r in results.values())
-    broken = [k for k, v in results.items() if not v.get("ok", False)]
+    broken = [k for k, v in results.items() if v.get("ok") is False]
+    unverified = [k for k, v in results.items() if v.get("ok") is None]
+    all_ok = not broken
 
     for name, r in results.items():
-        emoji = "✅" if r.get("ok") else "❌"
+        emoji = "✅" if r.get("ok") is True else ("⊘" if r.get("ok") is None else "❌")
         # 簡潔輸出
         details = {k: v for k, v in r.items() if k != "ok"}
         print(f"{emoji} {name}: {json.dumps(details, ensure_ascii=False)[:200]}")
 
     print()
-    print(f"OVERALL: {'✅ ALL PASS' if all_ok else f'❌ BROKEN: {broken}'}")
+    if unverified:
+        print(f"未驗完（不算斷）: {unverified}")
+    print(f"OVERALL: {'✅ ALL PASS' if all_ok else f'❌ BROKEN: {broken}'}"
+          + (f"（{len(unverified)} 條未驗完）" if unverified else ""))
 
     if not args.dry_run:
         path = write_health_report(results)
