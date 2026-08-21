@@ -127,3 +127,9 @@ api_router.include_router(security_router)
 # 端點自身有限流 + 大小上限 + 記憶體去重，見該檔案開頭說明。
 from app.api.endpoints.csp_report import router as csp_report_router
 api_router.include_router(csp_report_router)
+
+# --- 跨系統通知投遞（2026-08-20）---
+# CK_Website 的治理告警靠這條進 LINE 晨報。走 queue_digest 而非直接推播：
+# LINE 月配額 200 則，額外推播數必須是 0。詳見該檔案開頭。
+from app.api.endpoints.notify import router as notify_router
+api_router.include_router(notify_router)

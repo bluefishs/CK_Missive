@@ -32,7 +32,13 @@ from .line_flex_builder import (
 from .line_image_handler import (
     download_line_content,
     format_ocr_reply,
+    # 2026-08-21：改用統一辨識器（QR 優先 + OCR 補充）之後，
+    # 呼叫端換成了這兩個，**而 import 沒跟著換** ⇒
+    # LINE 傳發票圖片必然 NameError，被外層 except 吞成
+    # 「圖片處理時發生錯誤，請重新傳送。」—— 使用者只看得到那一句。
+    format_recognition_reply,
     try_create_expense_from_ocr,
+    try_create_expense_from_recognition,
 )
 
 logger = logging.getLogger(__name__)

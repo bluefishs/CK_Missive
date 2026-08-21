@@ -1,6 +1,7 @@
 """
 標案搜尋 API — search / detail / detail-full / search-company / recommend / realtime
 """
+from app.core.dependencies import require_auth
 import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, text
@@ -18,7 +19,14 @@ from app.db.database import get_async_db as get_db
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# 2026-08-21：router 層要求登入。
+#
+# 公網實測（未帶憑證）本模組端點回 200 並吐出業務資料 ——
+# 根因是 TUNNEL_GUARD_ENABLED=false，沒有自帶認證的端點一律對外開放。
+# 在 router 層加而不是逐一改端點參數：逐一改會漏，而漏掉的那條沒有人會發現。
+#
+# 用 require_auth() 不是 require_admin()：這些是一般同仁每天在用的功能。
+router = APIRouter(dependencies=[Depends(require_auth())])
 
 
 # ============================================================================

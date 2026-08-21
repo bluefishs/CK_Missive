@@ -2313,12 +2313,20 @@ async def fitness_weekly_job():
     keys = sorted(history.keys())[-12:]
     history = {k: history[k] for k in keys}
 
+    # 2026-08-21：`history_ok` 原本**從來沒有在這個函式裡定義過**，
+    # 而下方兩處 return 都把它放進 detail ⇒ 每次執行到 return 就 NameError。
+    # （另一個函式在 2607 行有同名變數，pyflakes 的 F821 才把它揪出來。）
+    #
+    # 語意就是「這一輪的歷史檔有沒有寫成功」—— 寫不進去時 red_streak
+    # 會從殘缺的歷史算出來，那個數字不能當真，所以要讓收的人知道。
+    history_ok = True
     try:
         state_file.parent.mkdir(parents=True, exist_ok=True)
         state_file.write_text(
             json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8"
         )
     except Exception as e:
+        history_ok = False
         logger.warning(f"weekly fitness history save failed: {e}")
 
     # 2026-08-05：一律回 detail（含連紅週數）—— 否則 cron_events 只有 success，
