@@ -1,24 +1,16 @@
 {
   "_why": "已知的無認證端點，逐步清；新增的一律 RED。",
   "known_gaps": [
-    "/api/ai/agency/match",
     "/api/ai/agent/query",
     "/api/ai/agent/tools",
-    "/api/ai/config",
-    "/api/ai/diagram/analyze",
-    "/api/ai/diagram/compare",
-    "/api/ai/diagram/extract-coordinates",
-    "/api/ai/document/parse-intent",
     "/api/ai/graph/federated-contribute",
     "/api/ai/graph/smart-search",
-    "/api/ai/health",
     "/api/ai/kunge/snapshot",
     "/api/ai/memory/digest",
-    "/api/ai/vision/describe",
-    "/api/ai/voice/transcribe",
     "/api/calendar/google-events",
     "/api/documents-enhanced/by-project",
     "/api/documents-enhanced/integrated-search",
+    "/api/notify/digest",
     "/api/secure-site-management/config/action"
   ]
 }

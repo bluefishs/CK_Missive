@@ -20,8 +20,14 @@ Counters（fire-and-forget inc）：
 - memory_pattern_extract_runs_total 每次 cron job 跑完 +1（with status label）
 - memory_crystal_applied_total     每次 crystal apply OK +1
 """
+import logging
 from pathlib import Path
-from typing import Optional
+# 2026-08-21：`Dict` 與 `logger` **從來沒有被匯入／定義過**，而檔案內有 4 處在用。
+# `Dict[...]` 只在型別註解位置（執行期不求值故沒爆），但 `logger.error`／`logger.info`
+# 是真的呼叫 —— 那兩處分別在「治理指標刷新失敗」與 debug log 上，
+# 也就是**只有出事時才會走到**：平常不會爆，一出事就再爆一次並蓋掉真正的原因。
+# 由 pyflakes F821 掃出（py_compile 與型別檢查都看不到這一類）。
+from typing import Dict, Optional
 
 from prometheus_client import Counter, Gauge, CollectorRegistry, REGISTRY
 
@@ -52,6 +58,9 @@ M1_REF_DENSITY_CRITIQUE = "v7_reference_density_critique_pct"
 M1_SOUL_DRIFT_LINES = "v7_soul_drift_lines"
 # M4 (5/04 補完)：provider fidelity 從 fidelity_log.jsonl 讀
 M1_PROVIDER_FIDELITY_GAP = "v7_provider_fidelity_gap_pct"
+
+
+logger = logging.getLogger(__name__)
 
 
 class MemoryWikiMetrics:
