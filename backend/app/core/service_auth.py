@@ -105,12 +105,30 @@ def require_scope(*scopes: str):
         if not _verify_token(x_service_token):
             raise HTTPException(status_code=401, detail="Invalid service token")
 
-        # Scope 檢查（目前 MCP_SERVICE_TOKEN 擁有所有 scope）
-        # 未來可擴展為 token → scope mapping（DB/Redis）
+        # ⚠️ 2026-08-21：這段**只驗 scope 名稱合不合法，不驗這把 token 有沒有被授予它**。
+        #
+        # `_ALL_SCOPES = VALID_SCOPES` ⇒ `require_scope("admin:system")` 與
+        # `require_scope("read:kg")` 的實際效果**完全相同**：有 token 就過。
+        # 也就是說 scope 目前是**裝飾性的** —— 而它讀起來像有授權控制，
+        # 那比沒有更糟（會讓人以為有保護）。這是本專案記過的
+        # 「宣告了一個沒實作的機制」家族。
+        #
+        # 具體後果（CK_Website session 2026-08-21 指出）：該站為了送一則通知
+        # 呼叫 `/api/notify/digest`（宣告 admin:system），實際拿到的是
+        # **能讀 KG、改 agent、跑備份**的憑證。
+        #
+        # 要真的修需要 token → scope 對照，而 MCP_SERVICE_TOKEN 目前由
+        # Hermes／LINE／CK_Website 共用 ⇒ 跨 repo 改動，屬 owner 決策。
+        # 在那之前**至少讓它出聲**，不要只寫在註解裡沒有人看得到。
         for scope in scopes:
             if scope not in _ALL_SCOPES:
                 logger.warning("Unknown scope requested: %s", scope)
                 raise HTTPException(status_code=403, detail=f"Unknown scope: {scope}")
+        if scopes:
+            logger.info(
+                "service_auth: scope %s 通過（⚠️ 目前未做 token→scope 對照，"
+                "任何合法 token 皆可通過任何 scope）", ",".join(scopes),
+            )
 
         return True
 
