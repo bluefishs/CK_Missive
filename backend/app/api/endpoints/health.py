@@ -11,6 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import Response
 from datetime import datetime
 
+from app.core.build_info import build_info
+
 from app.core.rate_limiter import limiter
 from app.extended.models import User
 from app.core.dependencies import require_admin, get_service
@@ -51,7 +53,7 @@ async def detailed_health_check(
     health_data: Dict[str, Any] = {
         "timestamp": datetime.now().isoformat(),
         "service": "CK Missive API",
-        "version": "3.0.0",
+        "build": build_info(),   # 硬編版本號無法回答「跑的是哪一份程式碼」
         "status": "healthy",
         "checks": {},
     }

@@ -20,7 +20,7 @@
 | A7 | **發票號在哪** | 兩份彙整表 25 欄逐一確認**都沒有發票號**，只有發票日期 | `QUOTATION_LIFECYCLE_PLAN` §6 |
 | A8 | **角色模型**：先做 A（`position` 表達職稱）還是直接 B（RBAC） | 取決於人資站點的時程 —— **順序不能顛倒** | `ROLE_MODEL_PLAN` §4 |
 | A9 | **`D:\tmp` 18 個檔案**（7/14 起累積）是否清理 | 非本輪產生，但確實是資料四散的來源 | — |
-| A10 | **⭐CK_PileMgmt 確認有公開外洩，而它沒有 session 在處理** | 2026-08-21 跨 repo 探測：395 條無認證端點，其中含 **11,025 個控制點**的資料。其餘四個 repo 當日都已開 session 自行處理，pile 沒有 ⇒ **需要你指派**。工具已可直接用：`AUTH_AUDIT_CONTAINER=ck_pilemgmt-backend-1 python scripts/checks/public_endpoint_auth_audit.py`（⚠️ 先依判準 11 由 pile 自己列白名單） | 本檔判準 11 |
+| A10 | **⭐⭐CK_PileMgmt 確認有公開外洩，而它沒有 session 在處理** —— **完整診斷已落檔：`PILE_AUTH_GAP_20260821.md`**（含公網實測證據、48 條控制點端點、⚠️ 含爬蟲任務 cancel/pause/resume 等**控制**類、修法判準）。2026-08-21 再次公網實測未帶憑證仍 200（22 縣市控制點統計、含衛星追蹤站）| 2026-08-21 跨 repo 探測：395 條無認證端點，其中含 **11,025 個控制點**的資料。其餘四個 repo 當日都已開 session 自行處理，pile 沒有 ⇒ **需要你指派**。工具已可直接用：`AUTH_AUDIT_CONTAINER=ck_pilemgmt-backend-1 python scripts/checks/public_endpoint_auth_audit.py`（⚠️ 先依判準 11 由 pile 自己列白名單） | 本檔判準 11 |
 | A11 | **`require_scope` 的 token→scope 對照要不要做**（原 B9 升級為需決策） | 跨 repo：`MCP_SERVICE_TOKEN` 由 Hermes／LINE／CK_Website 共用，改成多把或帶 scope 宣告要各消費端同步改。2026-08-21 已先讓它**出聲**（每次通過都記 log 說明未做對照），不再只寫在註解裡 | 本檔 B9 |
 
 ---

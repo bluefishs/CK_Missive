@@ -140,6 +140,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        # 由 scripts/deploy 或手動 build 時帶入；沒帶就是 unknown（誠實的答案，
+        # 不要給一個看起來正常的預設值 —— 那會讓人以為驗證過了）
+        CK_BUILD_COMMIT: ${CK_BUILD_COMMIT:-unknown}
+        CK_BUILD_TIME: ${CK_BUILD_TIME:-unknown}
     image: ck-missive-backend:production
     container_name: ck_missive_backend
     restart: always

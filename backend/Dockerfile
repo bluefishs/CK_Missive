@@ -86,6 +86,14 @@ COPY . .
 ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUNBUFFERED=1
 
+# runtime 身分證 —— 讓 /api/health/detailed 說得出「跑的是哪一份程式碼」。
+# 2026-08-21：先前四個來源四個值且 health 根本不回版本，事故當下沒有人
+# 說得出線上是修好的版本還是沒修的。容器內沒有 .git，只能在 build 當下釘住。
+ARG CK_BUILD_COMMIT=unknown
+ARG CK_BUILD_TIME=unknown
+ENV CK_BUILD_COMMIT=${CK_BUILD_COMMIT}
+ENV CK_BUILD_TIME=${CK_BUILD_TIME}
+
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/logs /app/uploads && \
     chown -R appuser:appuser /app
