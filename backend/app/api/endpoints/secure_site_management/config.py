@@ -5,6 +5,7 @@
 
 使用 ConfigurationRepository 進行資料存取，遵循 Repository Pattern。
 """
+from app.core.dependencies import require_auth
 import logging
 from datetime import datetime
 
@@ -20,7 +21,19 @@ from .common import validate_csrf_token, generate_csrf_token
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# 2026-08-21：router 層要求登入。
+#
+# 這支是「統一的配置操作接口」，支援 **list／create／update／delete** ——
+# 而它原本**只驗 CSRF token**（`validate_csrf_token`）。
+# CSRF 不是認證：`/api/secure-site-management/csrf-token` 是刻意公開的
+# （L68 自癒需要），任何人取一枚就能打進來改系統配置。
+# 實測公網未登入帶該 token → 422（參數不足而已，端點是通的）。
+#
+# 用 `require_auth()` 不是 `require_admin()`：`SiteConfigManagement` 是管理頁沒錯，
+# 但同一個 service 也服務其他登入後的呼叫；**先把「任何人」收斂成「要登入」**，
+# create／update／delete 的進一步授權（是否該限 admin）另案處理 ——
+# 一次改兩層，壞掉時分不出是哪一層造成的。
+router = APIRouter(dependencies=[Depends(require_auth())])
 
 
 def get_config_repository(
