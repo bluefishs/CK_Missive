@@ -15,7 +15,7 @@ unhealthy=1 resilience=DEGRADED，連續九次（偵測延遲只有 5 分鐘）�
 ------------------------------------
 LINE 免費月配額 200 則、軟上限 185。2026-08-20 本月已用 93 則而月份才過
 三分之二，推估月底約 144 —— 餘裕不足以再開一個直接推播的來源。
-queue_digest 由每日 08:00 晨報一次帶走併成一則，額外推播數為 0。
+queue_digest 由每日 07:30 晨報一次帶走併成一則，額外推播數為 0。
 
 加監控時要先問「這個東西被我加上去之後，會不會自己變成負載來源」。
 同一週已經有過反例 —— 把 Prometheus 以 60s 接上一個每請求做 7 次 KV list
@@ -28,10 +28,24 @@ queue_digest 由每日 08:00 晨報一次帶走併成一則，額外推播數為
 
 已知限制（不要當成已解決）
 --------------------------
-require_scope("admin:system") 對 MCP_SERVICE_TOKEN 形同虛設 —— 該 token
-預設擁有 _ALL_SCOPES（見 service_auth.py 註解）。呼叫端為了送一則通知，
-實際上拿到能讀 KG、改 agent、跑備份的憑證。真正的修法是支援第二把
-窄權限 token，超出本次範圍。在那之前，呼叫端限於本機同一台機器上的治理腳本。
+下面這個 `require_scope("admin:system")` **目前不提供任何授權控制**。
+
+2026-08-21 與 ck-missive session 協同查證的結論比「過度授權」更嚴重：
+`require_scope` 只驗 scope **名稱合不合法**，從不檢查這把 token 有沒有被
+授予它（`_ALL_SCOPES = VALID_SCOPES`）。所以
+`require_scope("admin:system")` 與 `require_scope("read:kg")` 效果完全相同 ——
+**有 token 就過**。
+
+也就是說：呼叫端為了送一則通知而持有的憑證，實際上同時能讀 KG、改 agent、
+跑備份。而這行程式碼**讀起來像有授權控制，那比沒有更糟** ——
+下一個人會以為這裡已經收斂過了。
+
+寫成 "admin:system" 而不是留白，是為了在對照表真的生效那天不必回頭改；
+在那之前它是宣告意圖，不是防線。真正的修法要動 MCP_SERVICE_TOKEN 的發放
+方式，而 Hermes／LINE／CK_Website 三方共用同一把，屬跨 repo 決策。
+已登記於 CK_Missive `docs/architecture/OPEN_ITEMS_20260819.md` B9。
+
+在那之前，呼叫端限於本機同一台機器上的治理腳本。
 """
 
 import logging
@@ -82,7 +96,7 @@ async def post_digest(
     """
     把一段文字排入 LINE 晨報摘要。
 
-    不會即時送出 —— 由每日 08:00 的 morning_report_job 一次帶走。
+    不會即時送出 —— 由每日 07:30 的 morning_report_job 一次帶走。
     需要即時通知的情境不該用這個端點（而在加之前，請先確認月配額撐得住）。
 
     回 202 而不是 200：這是「已收下、稍後處理」，不是「已送達」。
@@ -98,4 +112,4 @@ async def post_digest(
         raise HTTPException(status_code=503, detail="digest 緩衝不可用，本則未排入")
 
     logger.info("[notify] digest 已排入 topic=%s len=%d", topic[:40], len(body.text))
-    return {"queued": True, "topic": topic, "delivery": "每日 08:00 晨報"}
+    return {"queued": True, "topic": topic, "delivery": "每日 07:30 晨報"}

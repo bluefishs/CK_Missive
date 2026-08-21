@@ -1,10 +1,4 @@
 {
   "_why": "已知的無認證端點，逐步清；新增的一律 RED。",
-  "known_gaps": [
-    "/api/ai/agent/query",
-    "/api/ai/graph/federated-contribute",
-    "/api/ai/kunge/snapshot",
-    "/api/ai/memory/digest",
-    "/api/notify/digest"
-  ]
+  "known_gaps": []
 }

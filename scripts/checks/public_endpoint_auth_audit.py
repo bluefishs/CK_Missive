@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -52,10 +53,23 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
         pass
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-CONTAINER = "ck_missive_backend"
+#: 預設容器；跨 repo 用 --container 指定
+#: （lvrland: ck_lvrland_webmap-backend-1／pile: ck_pilemgmt-backend-1／
+#:  dataform: ck_lvrland_dataform-backend-1／DT: ck-tunnel-api-1）
+CONTAINER = os.getenv("AUTH_AUDIT_CONTAINER", "ck_missive_backend")
 BASELINE = Path(__file__).with_name("public_endpoint_auth_baseline.json")
 
 #: 刻意公開 —— 每一條都要能回答「為什麼它不需要登入」。
+#:
+#: ⚠️ **跨 repo 用這支時，這份白名單不會自動適用**（2026-08-21 實測）：
+#: 對 lvrland 掃出 147 條無認證，其中前幾條是 `/api/auth/{login,register,
+#: refresh,logout}` —— 登入流程本來就該公開。CK_lvrland session 起初判斷
+#: 「探測跑在 `enforce_route_auth` 之前所以看到未強化的 app」，**那不成立**：
+#: 用與容器啟動指令完全相同的匯入方式（`/app` + `backend.app.main`）重跑，
+#: log 明確印出 `route_auth_policy_enforced hardened_routes=276`，
+#: 結果仍是 147 條。真因是**我把「無認證」直接當成「缺口」而沒套該 repo 的
+#: 白名單**。⇒ 跨 repo 使用時必須先由該 repo 自己列出 INTENDED，
+#: 否則得到的是一份不可採信的清單（本專案已立的判準：先驗鑑別力再交付）。
 INTENDED = [
     (r"^/api/auth/", "登入流程本身（未登入才會打）"),
     (r"^/api/health", "健康檢查（cloudflared/監控要用）"),
@@ -72,11 +86,32 @@ INTENDED = [
 
 _PROBE = r'''
 import json, sys
-sys.path.insert(0, "/app")
-from main import app
+# 各 repo 的容器結構不同：Missive 是 /app::main，lvrland/pile 是
+# /app/backend::app.main。逐個候選試，**找不到就說找不到，不猜也不回空**
+# —— 回空會被讀成「沒有無認證端點」，那是最糟的假綠。
+import importlib
+app = None
+_tried = []
+for _path, _mod in (("/app", "main"), ("/app/backend", "main"),
+                    ("/app/backend", "app.main"), ("/app", "app.main"),
+                    ("/app", "backend.main")):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
+    try:
+        _m = importlib.import_module(_mod)
+        _c = getattr(_m, "app", None)
+        if _c is not None and hasattr(_c, "routes"):
+            app = _c
+            break
+    except Exception as _e:
+        _tried.append(f"{_path}::{_mod} -> {type(_e).__name__}")
+if app is None:
+    print("@@JSON@@" + json.dumps({"_error": "app not found", "tried": _tried[:5]}))
+    sys.exit(0)
 AUTH = ("require_auth", "require_admin", "require_superuser", "get_current_user",
         "optional_auth", "is_admin_user", "is_superuser_user", "verify_service_token",
-        "get_admin", "service_auth", "require_service")
+        "get_admin", "service_auth", "require_service", "require_scope",
+        "get_current_active_user", "verify_token", "auth_required")
 def deps(route):
     out, d = set(), getattr(route, "dependant", None)
     if not d:
@@ -95,18 +130,25 @@ for r in app.routes:
     if not p or not p.startswith("/api"):
         continue
     names = deps(r)
-    rows.append({"path": p, "authed": any(any(a in n for a in AUTH) for n in names)})
+    # 帶上 method：同一路徑可能 GET 有認證而 POST 沒有，只以 path 為單位
+    # 會把兩者混成一筆而看不出差別（CK_AaaP session 2026-08-21 指出的盲區，
+    # 他們的形態是「只探 GET，而 POST-only 的端點回 405 被讀成沒問題」；
+    # 這裡讀的是 runtime 樹本來就涵蓋所有方法，缺的是**報告要印出來**）。
+    ms = sorted(getattr(r, "methods", None) or [])
+    ms = [m for m in ms if m not in ("HEAD", "OPTIONS")] or ms
+    rows.append({"path": p, "methods": ms,
+                 "authed": any(any(a in n for a in AUTH) for n in names)})
 print("@@JSON@@" + json.dumps(rows, ensure_ascii=False))
 '''
 
 
-def probe() -> list[dict] | None:
+def probe(container: str = CONTAINER) -> list[dict] | None:
     f = PROJECT_ROOT / "backend" / "logs" / "_auth_probe.py"
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(_PROBE, encoding="utf-8")
     try:
         r = subprocess.run(
-            ["docker", "exec", "-w", "/app", CONTAINER, "python", "/app/logs/_auth_probe.py"],
+            ["docker", "exec", "-w", "/app", container, "python", "/app/logs/_auth_probe.py"],
             capture_output=True, text=True, encoding="utf-8", timeout=180,
         )
     except FileNotFoundError:
@@ -135,17 +177,29 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="無認證端點稽核（runtime dependency 樹）")
     ap.add_argument("--ci", action="store_true", help="新增缺口即 exit 2")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--container", default=CONTAINER,
+                    help="要探測的後端容器（跨 repo 用）")
     ap.add_argument("--update-baseline", action="store_true",
                     help="把目前的缺口寫成 baseline（只在**確認每一條都已處理或已決定接受**時用）")
     args = ap.parse_args()
 
-    rows = probe()
+    rows = probe(args.container)
     if rows is None:
         # 探測不到就是不知道 —— 不得靜靜回綠（本專案已立此判準）
         return 2
 
     no_auth = [r["path"] for r in rows if not r["authed"]]
     gaps = [p for p in no_auth if not why_intended(p)]
+    #: path -> 該路徑下無認證的方法（報告要印，否則看不出是哪個動詞漏了）
+    gap_methods: dict[str, list[str]] = {}
+    for r in rows:
+        if not r["authed"] and r["path"] in set(gaps):
+            gap_methods.setdefault(r["path"], []).extend(r.get("methods") or [])
+    #: 同一路徑「有的方法要認證、有的不要」—— 最容易漏看的形態，一律點名
+    by_path: dict[str, set[bool]] = {}
+    for r in rows:
+        by_path.setdefault(r["path"], set()).add(r["authed"])
+    mixed = sorted(p for p, s in by_path.items() if len(s) > 1 and not why_intended(p))
 
     base = []
     if BASELINE.exists():
@@ -180,10 +234,16 @@ def main() -> int:
         print(f"\n  ✓ 已修好 {len(fixed)} 條 —— 請跑 --update-baseline 鎖住改善：")
         for p in fixed[:10]:
             print(f"      {p}")
+    if mixed:
+        print(f"\n  [注意] {len(mixed)} 條路徑「有的方法要認證、有的不要」：")
+        for p in mixed[:10]:
+            has = [f"{'+' if r['authed'] else '-'}{'/'.join(r.get('methods') or [])}"
+                   for r in rows if r["path"] == p]
+            print(f"      {p}   {' '.join(has)}")
     if new_gaps:
         print(f"\n  [RED] 新增 {len(new_gaps)} 條無認證端點：")
         for p in new_gaps:
-            print(f"      {p}")
+            print(f"      [{'/'.join(sorted(set(gap_methods.get(p) or []))) or '?'}] {p}")
         print("\n  修法：在該 router 加 `APIRouter(dependencies=[Depends(require_auth())])`")
         print("        —— 逐一改端點參數會漏，而漏掉的那條不會有人發現。")
         print("  若是刻意公開，請加進本檔的 INTENDED 並**寫明理由**。")

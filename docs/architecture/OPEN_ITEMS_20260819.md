@@ -20,6 +20,8 @@
 | A7 | **發票號在哪** | 兩份彙整表 25 欄逐一確認**都沒有發票號**，只有發票日期 | `QUOTATION_LIFECYCLE_PLAN` §6 |
 | A8 | **角色模型**：先做 A（`position` 表達職稱）還是直接 B（RBAC） | 取決於人資站點的時程 —— **順序不能顛倒** | `ROLE_MODEL_PLAN` §4 |
 | A9 | **`D:\tmp` 18 個檔案**（7/14 起累積）是否清理 | 非本輪產生，但確實是資料四散的來源 | — |
+| A10 | **⭐CK_PileMgmt 確認有公開外洩，而它沒有 session 在處理** | 2026-08-21 跨 repo 探測：395 條無認證端點，其中含 **11,025 個控制點**的資料。其餘四個 repo 當日都已開 session 自行處理，pile 沒有 ⇒ **需要你指派**。工具已可直接用：`AUTH_AUDIT_CONTAINER=ck_pilemgmt-backend-1 python scripts/checks/public_endpoint_auth_audit.py`（⚠️ 先依判準 11 由 pile 自己列白名單） | 本檔判準 11 |
+| A11 | **`require_scope` 的 token→scope 對照要不要做**（原 B9 升級為需決策） | 跨 repo：`MCP_SERVICE_TOKEN` 由 Hermes／LINE／CK_Website 共用，改成多把或帶 scope 宣告要各消費端同步改。2026-08-21 已先讓它**出聲**（每次通過都記 log 說明未做對照），不再只寫在註解裡 | 本檔 B9 |
 
 ---
 
@@ -80,6 +82,22 @@
 8. **同一個 queryKey 用不同資料源，等於誰先載入誰說了算** ——
    key 撞號本身不是錯（同一份資料就該共用快取），源不一致才是。
    已由 `queryKey_drift_audit` 的第二種形態擋住。
+9. **⭐⭐安全驗證的結論，取決於量測方法本身有沒有先被驗證**（2026-08-21）。
+   同一輪有**四次**機會宣告「已經擋住了」而每一次都會是錯的：
+   Cloudflare 擋掉 `Python-urllib` 預設 UA（全 403，看起來像應用層擋住）／
+   bash `while read` 迴圈裡的 curl 吃掉 stdin（全 000）／連續快打觸發速率限制
+   （同樣全 000）／token 解析寫壞（`token=無` 卻仍印 403）。
+   **四種失敗都長得像「安全」**，這是與判準 2（在有豁免的環境驗證安全機制
+   等於沒驗證）同一族的第三種形態。
+10. **CSRF 不是認證** —— `/api/secure-site-management/csrf-token` 是**刻意公開**的
+   （L68 自癒需要），未登入即可取得。**判準：帶著公開可取的 CSRF token 之後
+   仍然 401 才算真的擋住**；只看第一輪的 403 會得到相反結論。
+11. **跨 repo 套用檢核工具，必須先由該 repo 自己列白名單**（2026-08-21）。
+   `public_endpoint_auth_audit` 對 lvrland 掃出 147 條無認證，而前幾條是
+   `/api/auth/{login,register,refresh,logout}` —— 登入流程本來就該公開。
+   ⚠️ lvrland 起初判斷「探測跑在 `enforce_route_auth` 之前」，**那不成立**：
+   用與容器啟動指令完全相同的匯入方式重跑，log 印出 `hardened_routes=276`
+   而結果不變。**工具沒錯，錯的是拿別人的座標系直接下結論。**
 
 ---
 
