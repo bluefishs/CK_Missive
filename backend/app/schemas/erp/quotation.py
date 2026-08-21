@@ -154,6 +154,16 @@ class ERPQuotationResponse(BaseModel):
     # 而那正是不能混為一談的理由。
     created_by_name: Optional[str] = None
 
+    # 2026-08-21 owner：「報價單也尚未對應承辦同仁」。
+    #
+    # 與 `created_by_name` 是**兩件事**：填報者問「誰輸入這筆資料」，
+    # 承辦同仁問「這個案子誰在跑」—— 匯入的 179 張填報者都是執行匯入的人，
+    # 而承辦人來自彙整表的工作表名稱（慶忠／元宏／老闆）。
+    #
+    # 來源是 `project_user_assignments`（以 case_code 關聯）——
+    # 與 `/pm/cases/:id?tab=staff` 看到的**同一份**，不另建一套。
+    staff_name: Optional[str] = Field(None, description="承辦同仁（多人以、分隔）")
+
     total_price: Optional[Decimal] = None
     tax_amount: Decimal = Decimal("0")
     outsourcing_fee: Decimal = Decimal("0")

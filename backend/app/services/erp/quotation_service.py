@@ -9,7 +9,7 @@ from typing import Optional, Tuple, List
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPQuotation
@@ -228,6 +228,7 @@ class ERPQuotationService(AuditableServiceMixin):
         rate = await get_company_profit_rate(self.db)
         # 填報者姓名同樣整批取 —— 逐筆查會讓列表變成 N+1
         creator_names = await self._get_creator_names_batch([q.created_by for q in items])
+        staff_names = await self._get_staff_names_batch([q.case_code for q in items])
 
         responses = []
         for item in items:
@@ -236,6 +237,7 @@ class ERPQuotationService(AuditableServiceMixin):
             responses.append(self._to_response_with_aggregates(
                 item,
                 creator_name=creator_names.get(item.created_by),
+                staff_name=staff_names.get(item.case_code),
                 billing_count=b.get("count", 0),
                 total_billed=b.get("total_billed", ZERO),
                 total_received=b.get("total_received", ZERO),
@@ -245,6 +247,35 @@ class ERPQuotationService(AuditableServiceMixin):
                 company_profit_rate=rate,
             ))
         return responses, total
+
+
+    async def _get_staff_names_batch(self, case_codes: List[str]) -> dict:
+        """整批取每個 case_code 的承辦同仁姓名。
+
+        owner 2026-08-21：「報價單也尚未對應承辦同仁」。
+
+        資料本來就通 —— 承辦同仁掛在 `project_user_assignments.case_code` 上，
+        而報價單也有 case_code；缺的只是把它帶出來。
+
+        **不另建一套人員關聯**：邀標案件（`/pm/cases/:id?tab=staff`）看到的
+        就是同一份，兩邊各自維護一份人員名單才是問題的開始。
+
+        ADR-0025：以 canonical 人為準 —— 分身帳號不得顯示成另一個人。
+        """
+        codes = [c for c in {c for c in case_codes if c}]
+        if not codes:
+            return {}
+        rows = (await self.db.execute(text("""
+            SELECT pa.case_code,
+                   string_agg(DISTINCT COALESCE(u.full_name, u.username), '、') AS names
+              FROM project_user_assignments pa
+              LEFT JOIN users au ON au.id = pa.user_id
+              LEFT JOIN users u  ON u.id = COALESCE(au.canonical_user_id, au.id)
+             WHERE pa.case_code = ANY(:cs)
+               AND COALESCE(pa.status, 'active') <> 'inactive'
+             GROUP BY pa.case_code
+        """), {"cs": codes})).all()
+        return {r[0]: r[1] for r in rows if r[1]}
 
     async def _get_creator_names_batch(self, user_ids: List[int]) -> dict:
         """一次取回填報者姓名（避免列表 N+1）。
@@ -277,6 +308,7 @@ class ERPQuotationService(AuditableServiceMixin):
         total_paid: Decimal,
         invoice_count: int,
         company_profit_rate=ZERO,
+        staff_name: Optional[str] = None,
         creator_name: Optional[str] = None,
     ) -> ERPQuotationResponse:
         """轉換為回應格式 (使用預先批次聚合的數據，避免 N+1)
@@ -315,6 +347,7 @@ class ERPQuotationService(AuditableServiceMixin):
             # 正是消除 N+1（見 list_quotations 的批次聚合）。
             # 實際成本只在詳情頁計算；列表顯示的是報價單上的估列。
             created_by_name=creator_name,
+            staff_name=staff_name,
             invoice_count=invoice_count,
             billing_count=billing_count,
             total_billed=total_billed,
@@ -604,6 +637,8 @@ class ERPQuotationService(AuditableServiceMixin):
             # 單筆詳情：直接查一次（列表走 _get_creator_names_batch）
             created_by_name=(await self._get_creator_names_batch(
                 [quotation.created_by])).get(quotation.created_by),
+            staff_name=(await self._get_staff_names_batch(
+                [quotation.case_code])).get(quotation.case_code),
             invoice_count=len(invoices),
             billing_count=len(billings),
             total_billed=total_billed,

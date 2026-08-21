@@ -386,6 +386,20 @@ export const ERPQuotationDetailPage: React.FC = () => {
           <Descriptions.Item label="案名">{quotation.case_name ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="年度">{quotation.year ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="狀態">{quotation.status}</Descriptions.Item>
+          {/* owner 2026-08-21：「報價單也尚未對應承辦同仁」「服務人員 等同 承辦同仁」。
+              兩欄語意不同，所以並列而不是二選一：
+                承辦同仁 = 這個案子誰在跑（＝正式報價單上的「服務人員」）
+                填報者   = 誰把這筆資料打進系統
+              匯入的 179 張填報者都是執行匯入的人，承辦人才是彙整表工作表上的那位。 */}
+          <Descriptions.Item label="承辦同仁">
+            {quotation.staff_name ?? <span style={{ color: '#999' }}>—</span>}
+          </Descriptions.Item>
+          <Descriptions.Item label="填報者">
+            {quotation.created_by_name ?? <span style={{ color: '#999' }}>—</span>}
+          </Descriptions.Item>
+          <Descriptions.Item label="舊案號">
+            {quotation.legacy_quotation_no ?? <span style={{ color: '#999' }}>—</span>}
+          </Descriptions.Item>
           <Descriptions.Item label="備註" span={2}>{quotation.notes ?? '-'}</Descriptions.Item>
         </Descriptions>
       </div>

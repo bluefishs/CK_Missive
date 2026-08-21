@@ -56,6 +56,19 @@ export interface ERPQuotation {
    * 兩個登入帳號時會不同，不可混用。
    */
   created_by_name?: string;
+
+  /**
+   * 承辦同仁（owner 2026-08-21：「服務人員 等同 承辦同仁」）。
+   *
+   * 與 `created_by_name` 是兩件事：填報者問「誰輸入這筆資料」，
+   * 承辦同仁問「這個案子誰在跑」—— 匯入的 179 張填報者都是執行匯入的人，
+   * 而承辦人來自彙整表的工作表名稱（慶忠／元宏／老闆）。
+   *
+   * 來源是 `project_user_assignments`（以 case_code 關聯），
+   * 與 `/pm/cases/:id?tab=staff` 看到的是同一份；正式報價單的
+   * 「服務人員」欄也取自它。多人以「、」分隔。
+   */
+  staff_name?: string;
   /** 報價送出時間；undefined＝還在草稿 */
   quoted_at?: string;
 

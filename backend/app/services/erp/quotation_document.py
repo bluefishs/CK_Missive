@@ -143,7 +143,18 @@ class QuotationDocumentService:
                     LEFT JOIN users au ON au.id = pa.user_id
                     -- ADR-0025：以 canonical 人為準，分身帳號不得顯示成另一個人
                     LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
-                   WHERE pa.project_id = cp.id
+                   -- 2026-08-21：也吃 `pa.case_code`。
+                   --
+                   -- 原本只比對 `pa.project_id = cp.id` —— 那要求案件已經成案
+                   -- （有 contract_project）。而從彙整表匯入的 179 件邀標案件
+                   -- 多數還沒成案，於是正式報價單的「服務人員」永遠是空白，
+                   -- 即使承辦同仁明明已經指派好了。
+                   --
+                   -- `project_user_assignments` 本來就有 case_code 欄位
+                   -- （`/project-staff/case/{case_code}/list` 端點註解寫著
+                   --  「支援未成案的 PM 案件」）—— 資料一直都在，是這條 JOIN
+                   -- 只認其中一條路。
+                   WHERE pa.project_id = cp.id OR pa.case_code = x.cc
                    ORDER BY pa.is_primary DESC NULLS LAST, pa.id
                    LIMIT 1
               ) su ON TRUE

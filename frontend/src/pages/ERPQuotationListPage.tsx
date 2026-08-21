@@ -49,6 +49,15 @@ export const ERPQuotationListPage: React.FC = () => {
     //
     // 舊資料顯示「—」是誠實的：那些是修法之前建立的，系統當時沒有記錄
     // 是誰填的，寫任何名字上去都是編的。
+    // 承辦同仁在填報者前面：找案子時問的是「這是誰的案子」，
+    // 而不是「誰把它打進系統」。（owner 2026-08-21：服務人員＝承辦同仁）
+    {
+      title: '承辦同仁',
+      dataIndex: 'staff_name',
+      key: 'staff_name',
+      width: 110,
+      render: (v: string | null) => v || <span style={{ color: '#999' }}>—</span>,
+    },
     {
       title: '填報者',
       dataIndex: 'created_by_name',
