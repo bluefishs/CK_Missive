@@ -367,6 +367,12 @@ run_step "61" "ORM 欄位是否到達 API 回應" "scripts/checks/model_response
 run_step "62" "前端送出的寫入欄位 schema 收得到嗎（extra=forbid 生效範圍）" "scripts/checks/write_payload_schema_audit.py"
 run_step "63" "Response schema 的欄位前端型別宣告了嗎（契約鏈第三面）" "scripts/checks/response_frontend_type_audit.py"
 
+# 2026-08-21：公網未帶憑證可取得業務資料（實測 documents-enhanced/statistics 回 200
+# 並吐出公文總數）。根因是 TUNNEL_GUARD_ENABLED=false ⇒ 沒有自帶認證的端點一律對外。
+# 用 FastAPI runtime dependency 樹判定 —— 既有的 grep 規則「端點缺少認證裝飾器」
+# 產生了 122 個誤判（是真問題的 6 倍），認不出 Depends(require_auth()) 這類寫法。
+run_step "64" "無認證端點（runtime dependency 樹）" "scripts/checks/public_endpoint_auth_audit.py"
+
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
 # ------------------------------------------------------------------
