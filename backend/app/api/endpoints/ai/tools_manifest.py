@@ -13,6 +13,9 @@ import logging
 
 from fastapi import APIRouter, Depends, Request
 
+# 與 agent_query_sync 共用同一套服務 token 驗證 —— 不另寫一份
+from app.api.endpoints.ai.agent_query_sync import _verify_service_token
+
 router = APIRouter(prefix="/agent", tags=["AI-工具清冊"])
 
 logger = logging.getLogger(__name__)
@@ -381,6 +384,16 @@ TOOL_MANIFEST = {
 @router.post(
     "/tools",
     summary="工具清冊 (Plugin Contract v1.2) — POST（資安政策）",
+    # 2026-08-21：改為需要 X-Service-Token。
+    #
+    # 這份清冊**是給 Hermes skill bridge 啟動時取的**（`tools.py` 動態工具發現），
+    # 呼叫者是機器不是人 ⇒ 不能用 `require_auth()`（Hermes 沒有使用者 session），
+    # 要用與 `agent_query_sync` 同一套的服務 token。
+    #
+    # 為什麼要擋：實測公網未登入、帶一枚公開可取的 CSRF token 就回 200，
+    # 內容是**整份工具清冊與 server 資訊** —— 等於把系統能力目錄公開，
+    # 而那是規劃攻擊面時最有用的一份文件。
+    dependencies=[Depends(_verify_service_token)],
 )
 async def get_tools():
     """回傳 CK_Missive 的工具清冊，供 Hermes Agent skill bridge 動態工具發現使用。

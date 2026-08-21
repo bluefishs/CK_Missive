@@ -115,11 +115,30 @@ async def check_chain_2_kunge_snapshot() -> Dict[str, Any]:
 
 
 async def check_chain_3_tools_manifest() -> Dict[str, Any]:
-    """Chain 3: tools manifest 公開 kunge_snapshot"""
+    """Chain 3: tools manifest 含 kunge_snapshot（需帶服務 token）
+
+    2026-08-21：`/api/ai/agent/tools` 改為需要 `X-Service-Token`。
+    原本的 docstring 寫「manifest **公開**」—— 那個假設不再成立：
+    實測公網未登入、帶一枚公開可取的 CSRF token 就拿得到整份工具清冊
+    與 server 資訊，而那是規劃攻擊面時最有用的一份文件。
+
+    ⚠️ Hermes 端**本來就帶**（`tools.py:_make_headers` 設 X-Service-Token），
+    所以真正的整合沒壞 —— 壞的是這支驗證腳本自己還在用舊假設。
+    這正是 L81「換了出口就要換整條鏈」：改了端點的認證，
+    消費端之一沒跟上，而它的失敗看起來像整合斷了。
+    """
     try:
+        import os
         import httpx
+        token = os.getenv("MCP_SERVICE_TOKEN") or ""
+        headers = {"X-Service-Token": token} if token else {}
         async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.post("http://localhost:8001/api/ai/agent/tools")
+            r = await client.post("http://localhost:8001/api/ai/agent/tools",
+                                  headers=headers)
+            if r.status_code in (401, 403) and not token:
+                # 沒有 token 就無法驗 —— 說出來，不要判成「整合斷了」
+                return {"ok": False, "status": r.status_code,
+                        "reason": "MCP_SERVICE_TOKEN 未設，無法驗證（不是整合斷了）"}
             if r.status_code != 200:
                 return {"ok": False, "status": r.status_code}
             data = r.json()

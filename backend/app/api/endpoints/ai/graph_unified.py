@@ -302,6 +302,10 @@ async def get_module_mappings(
 async def smart_graph_search(
     request: Request,
     db: AsyncSession = Depends(get_async_db),
+    # 2026-08-21：這條原本**沒有任何認證**（同檔其他端點有，唯獨它漏了）。
+    # 實測公網未登入、帶一枚公開可取的 CSRF token 就回 200 —— 而它是
+    # 自然語言知識圖譜搜尋（走 LLM），等於把公司的圖譜與算力一起開放。
+    current_user: User = Depends(require_auth()),
 ):
     """自然語言知識圖譜搜尋 (Gemma 4 powered)"""
     body = await request.json()

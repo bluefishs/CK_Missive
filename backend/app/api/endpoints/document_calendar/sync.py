@@ -9,6 +9,7 @@
 @version 1.0.0
 @date 2026-01-22
 """
+from app.core.dependencies import require_auth
 from fastapi import APIRouter
 
 from .common import (
@@ -22,7 +23,14 @@ from .common import (
     logger
 )
 
-router = APIRouter()
+# 2026-08-21：router 層要求登入。
+#
+# 2026-08-21 稽核（FastAPI runtime dependency 樹）發現本檔端點沒有認證依賴，
+# 而 `TUNNEL_GUARD_ENABLED=false` ⇒ 沒有自帶認證的端點一律對公網開放。
+# 在 router 層加而不是逐一改參數：**逐一改會漏，而漏掉的那條不會有人發現**
+# —— documents/list.py 就是這樣，多數端點有 require_auth，
+# 唯獨 by-project 與 integrated-search 兩條漏掉。
+router = APIRouter(dependencies=[Depends(require_auth())])
 
 
 @router.post("/events/sync", summary="同步事件至 Google Calendar")
