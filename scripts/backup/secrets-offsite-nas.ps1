@@ -147,9 +147,16 @@ try {
     New-Item -ItemType Directory -Path $work -Force | Out-Null
     foreach ($t in $targets) { Copy-Item -LiteralPath $t.Path -Destination (Join-Path $work $t.As) -Force }
 
-    # tar 與 openssl 都用 Git for Windows 附的（openssl 3.5.x）。
-    # -pbkdf2 是必要的：預設的 KDF 已經不安全，且新版 openssl 解密時會抱怨。
-    & tar -cf $tar -C $work .
+    # ⚠️ 2026-08-22：tar **必須用 Windows 內建那個**（System32\tar.exe）。
+    #    系統 PATH 上 Git for Windows 的 tar.exe 排在前面，而它會把
+    #    `C:\...` 當成遠端主機 ⇒ `Cannot connect to C: resolve failed`、exit=128。
+    #    這不是環境問題而是腳本缺陷：呼叫 `tar` 卻沒指定是哪一個 ——
+    #    碰巧走到對的那支就成功、走到另一支就失敗，而兩者長得一模一樣。
+    #    openssl 仍用 Git 附的（3.5.x，本來就正常）；
+    #    -pbkdf2 是必要的：預設 KDF 已不安全，且新版 openssl 解密時會抱怨。
+    $tarExe = Join-Path $env:SystemRoot 'System32\tar.exe'
+    if (-not (Test-Path $tarExe)) { throw "找不到 Windows 內建 tar：$tarExe" }
+    & $tarExe -cf $tar -C $work .
     if ($LASTEXITCODE -ne 0) { throw "tar 失敗 exit=$LASTEXITCODE" }
 
     $env:CK_ENC_PASS = $pass

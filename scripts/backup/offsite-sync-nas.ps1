@@ -244,17 +244,11 @@ if (Test-Path $AttachSource) {
     Log "WARN 附件來源不存在: $AttachSource"
 }
 
-# 5. 寫入同步狀態 + NAS 實際內容（供 admin/backup UI 顯示 / 容器 mount 可見）
-#    附件若有失敗且未被打包救回 → 整體判 error。
-#    「DB 同步成功但附件漏了」不得顯示成綠燈 —— 那正是這次要根治的形態。
-if ($attachFailed -gt 0 -and $attachArchived -eq 0) {
-    Write-SyncStatus -Result "error" -Message "附件同步失敗 $attachFailed 檔且未能打包"
-    Log "=== 異地同步完成（附件有失敗）==="
-    exit 1
-}
-Write-SyncStatus -Result "success" -Message $(
-    if ($attachArchived -gt 0) { "附件 $attachFailed 檔為長檔名，已打包 $attachArchived 個目錄" } else { "" }
-)
+# ⚠️ 2026-08-22 順序修正：金鑰段原本在附件判定**之後**，而附件失敗那條是
+#    `exit 1` ⇒ 今晨 03:00 附件有 2 檔長檔名 robocopy 失敗，腳本就此結束，
+#    **金鑰備份從來沒被執行到**（是完整性稽核測到「40.6h 未更新」才發現的）。
+#    附件與金鑰是兩件互不相干的事，一件失敗不該讓另一件不發生。
+#    ⇒ 金鑰先做、附件判定移到最後，兩者的失敗各自都會反映在退出碼上。
 
 # ---------------------------------------------------------------------------
 # 6. 金鑰與憑證異地備份（2026-08-10）
@@ -282,6 +276,19 @@ if ($secretsCode -ne 0) {
     Log "=== 異地同步完成（金鑰備份失敗 exit=$secretsCode）==="
     exit 1
 }
+
+# 5. 寫入同步狀態 + NAS 實際內容（供 admin/backup UI 顯示 / 容器 mount 可見）
+#    附件若有失敗且未被打包救回 → 整體判 error。
+#    「DB 同步成功但附件漏了」不得顯示成綠燈 —— 那正是這次要根治的形態。
+if ($attachFailed -gt 0 -and $attachArchived -eq 0) {
+    Write-SyncStatus -Result "error" -Message "附件同步失敗 $attachFailed 檔且未能打包"
+    Log "=== 異地同步完成（附件有失敗）==="
+    exit 1
+}
+Write-SyncStatus -Result "success" -Message $(
+    if ($attachArchived -gt 0) { "附件 $attachFailed 檔為長檔名，已打包 $attachArchived 個目錄" } else { "" }
+)
+
 
 Log "=== 異地同步完成 ==="
 exit 0
