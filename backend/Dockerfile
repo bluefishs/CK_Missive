@@ -91,8 +91,10 @@ ENV PYTHONUNBUFFERED=1
 # 說得出線上是修好的版本還是沒修的。容器內沒有 .git，只能在 build 當下釘住。
 ARG CK_BUILD_COMMIT=unknown
 ARG CK_BUILD_TIME=unknown
+ARG CK_BUILD_VERSION=unknown
 ENV CK_BUILD_COMMIT=${CK_BUILD_COMMIT}
 ENV CK_BUILD_TIME=${CK_BUILD_TIME}
+ENV CK_BUILD_VERSION=${CK_BUILD_VERSION}
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/logs /app/uploads && \

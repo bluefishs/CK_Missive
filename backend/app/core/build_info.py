@@ -39,6 +39,7 @@ from pathlib import Path
 #: 容器內沒有 .git，所以 runtime 推導不出來，只能在 build 當下釘住。
 _ENV_COMMIT = "CK_BUILD_COMMIT"
 _ENV_TIME = "CK_BUILD_TIME"
+_ENV_VERSION = "CK_BUILD_VERSION"
 
 UNKNOWN = "unknown"
 
@@ -65,6 +66,12 @@ def build_info() -> dict[str, str]:
     """回 runtime 的身分證。所有欄位都可能是 "unknown"，那是誠實的答案。"""
     commit = os.getenv(_ENV_COMMIT, "").strip() or _git_commit()
     return {
+        #: 語意版號與 commit **綁在一起，不是要它們相等**
+        #: （CK_FacilityDev 2026-08-21）：version 回答「這一輪做了什麼」、
+        #: commit 回答「跑的是哪一份程式碼」，兩者語意不同。綁定的價值在於
+        #: 出事時能立刻回答「公網跑的這個 commit，到底是不是 v6.60？」
+        #: —— 而不是去翻 git log 對照。
+        "version": os.getenv(_ENV_VERSION, "").strip() or UNKNOWN,
         "commit": commit or UNKNOWN,
         "built_at": os.getenv(_ENV_TIME, "").strip() or UNKNOWN,
         #: 來源是 build 注入還是 host 推導 —— 讓讀的人知道這個值有多可信。

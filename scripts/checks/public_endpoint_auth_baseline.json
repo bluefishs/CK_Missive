@@ -1,4 +1,6 @@
 {
   "_why": "已知的無認證端點，逐步清；新增的一律 RED。",
+  "_fingerprint_why": "座標系（白名單 pattern＋理由＋認證名單）的內容指紋。條目數不變而理由改了 ⇒ 判斷改了 ⇒ 這個值會變，而只鎖缺口清單抓不到那種漂移。",
+  "coordinates_fingerprint": "12d8aac2",
   "known_gaps": []
 }

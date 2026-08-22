@@ -69,5 +69,6 @@
   "exit_code_semantics": {
     "0": "GREEN",
     "2": "RED 或探測不可用（不下結論）"
-  }
+  },
+  "fingerprint": "12d8aac2"
 }

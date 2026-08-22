@@ -202,6 +202,25 @@ AUTH_DEFAULT = (
 COORD_REL = "docs/health/auth-coordinates.json"
 
 
+def coordinates_fingerprint() -> str:
+    """座標系的內容指紋 —— 鎖住「條目數不變而內容改了」。
+
+    2026-08-21 CK_FacilityDev 的實例：他們第一版指紋只取 `(型別, 值域筆數)`，
+    結果套了 **814 處 `required` 旗標而指紋竟然沒變** —— 旗標改變行為卻不動型別。
+    **「數量不變而內容全變」是最難察覺的漂移。**
+
+    對應到這裡：baseline 只鎖「缺口清單」，鎖不住
+    ①白名單 pattern 改了但條目數相同 ②**理由改了**（理由改＝判斷改，
+    而判斷才是白名單真正的內容）③認證名單換掉一個名稱但數量相同。
+    ⇒ 指紋取 **(pattern, 理由) 與認證名單的全文**，不是條目數。
+    """
+    import hashlib
+    payload = json.dumps(
+        {"intended": [[p, r] for p, r in INTENDED], "auth": sorted(AUTH_DEFAULT)},
+        ensure_ascii=False, sort_keys=True)
+    return hashlib.md5(payload.encode("utf-8")).hexdigest()[:8]
+
+
 def load_coordinates(repo_root: str) -> dict | None:
     """讀目標 repo 自己宣告的審計座標系。
 
@@ -266,6 +285,7 @@ def main() -> int:
             "auth_dependency_names": sorted(AUTH_DEFAULT),
             "public_routes": [{"pattern": p, "reason": r} for p, r in INTENDED],
             "exit_code_semantics": {"0": "GREEN", "2": "RED 或探測不可用（不下結論）"},
+            "fingerprint": coordinates_fingerprint(),
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"座標檔已產生：{out}")
         print(f"  認證名單 {len(AUTH_DEFAULT)} 個｜公開白名單 {len(INTENDED)} 條")
@@ -326,6 +346,10 @@ def main() -> int:
     if args.update_baseline:
         BASELINE.write_text(json.dumps(
             {"_why": "已知的無認證端點，逐步清；新增的一律 RED。",
+             "_fingerprint_why": "座標系（白名單 pattern＋理由＋認證名單）的內容指紋。"
+                                 "條目數不變而理由改了 ⇒ 判斷改了 ⇒ 這個值會變，"
+                                 "而只鎖缺口清單抓不到那種漂移。",
+             "coordinates_fingerprint": coordinates_fingerprint(),
              "known_gaps": sorted(gaps)}, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"baseline 已更新：{len(gaps)} 條")
         return 0

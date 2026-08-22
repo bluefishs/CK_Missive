@@ -145,6 +145,7 @@ services:
         # 不要給一個看起來正常的預設值 —— 那會讓人以為驗證過了）
         CK_BUILD_COMMIT: ${CK_BUILD_COMMIT:-unknown}
         CK_BUILD_TIME: ${CK_BUILD_TIME:-unknown}
+        CK_BUILD_VERSION: ${CK_BUILD_VERSION:-unknown}
     image: ck-missive-backend:production
     container_name: ck_missive_backend
     restart: always
