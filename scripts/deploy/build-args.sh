@@ -51,8 +51,12 @@ except Exception:
     sys.stdout.write('unknown')
 " 2>/dev/null || echo unknown)"
 
-# 工作樹有未提交變更時，commit 不足以識別跑的是什麼 —— 標出來
-if ! git -C "$_root" diff --quiet HEAD -- backend 2>/dev/null; then
+# 工作樹有未提交的**程式碼**變更時，commit 不足以識別跑的是什麼 —— 標出來。
+# ⚠️ 排除 runtime 狀態檔：`backend/config/remote_backup.json` 由異地備份排程
+# 每次執行寫入（NAS 份數／最新檔／結果），它一直都是「已修改」狀態而
+# 不該提交。把它算進 dirty，等於這個標記永遠亮著 ⇒ 亮著等於沒有訊號。
+if ! git -C "$_root" diff --quiet HEAD -- backend \
+        ':(exclude)backend/config/remote_backup.json' 2>/dev/null; then
     CK_BUILD_COMMIT="${CK_BUILD_COMMIT}-dirty"
 fi
 
