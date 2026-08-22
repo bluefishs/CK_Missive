@@ -13,7 +13,6 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
@@ -22,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
+from app.schemas.pm import CaseAttachmentListResponse, CaseAttachmentResponse
 from app.extended.models.pm import PMCaseAttachment
 
 logger = logging.getLogger(__name__)
@@ -122,22 +122,28 @@ async def list_quotation_attachments(
     )
     attachments = result.scalars().all()
 
-    return {
-        "success": True,
-        "attachments": [
-            {
-                "id": a.id,
-                "file_name": a.original_name or a.file_name,
-                "file_size": a.file_size,
-                "mime_type": a.mime_type,
-                "notes": a.notes,
-                "uploaded_by": a.uploaded_by,
-                "created_at": a.created_at.isoformat() if a.created_at else None,
-            }
+    # 2026-08-22：原本是手寫 dict，而 08-19 新增的 `doc_type` 沒被加進去
+    # ⇒ 前端「類型」欄永遠顯示「—」。危險的不是漏一個欄位，是它漏得無聲：
+    # 「—」的語意是「還沒有人分類過」，與「後端根本沒送」在畫面上一模一樣；
+    # tsc 抓不到（optional 欄位）；而 `model_response_field_reach_audit`
+    # 比對的是 ORM↔schema，**手寫 dict 沒有 schema 可比，整個端點在它的
+    # 座標系外**。改用 schema 不只是規範，是讓這個端點進入既有檢核的視野。
+    return CaseAttachmentListResponse(
+        attachments=[
+            CaseAttachmentResponse(
+                id=a.id,
+                file_name=a.original_name or a.file_name,
+                file_size=a.file_size,
+                mime_type=a.mime_type,
+                doc_type=a.doc_type,
+                notes=a.notes,
+                uploaded_by=a.uploaded_by,
+                created_at=a.created_at.isoformat() if a.created_at else None,
+            )
             for a in attachments
         ],
-        "total": len(attachments),
-    }
+        total=len(attachments),
+    )
 
 
 @router.post("/attachments/{attachment_id}/download", summary="下載報價單")

@@ -54,6 +54,13 @@ MANAGED = [
      "backend/app/schemas/erp/quotation.py", "ERPQuotationResponse"),
     ("backend/app/extended/models/invoice.py", "ExpenseInvoice",
      "backend/app/schemas/erp/expense.py", "ExpenseInvoiceResponse"),
+    # 2026-08-22 納管：`doc_type` 加了 ORM、加了前端型別，唯獨列表回應是
+    # **手寫 dict** 沒帶它 ⇒ 前端「類型」欄永遠顯示「—」。
+    # 而「—」的語意是「還沒有人分類過」，與「後端根本沒送」長得一模一樣。
+    # ⚠️ 本檢核當時抓不到它，因為它比對的是 ORM↔schema，而**手寫 dict
+    # 沒有 schema 可比 ⇒ 整個端點在座標系外**。已改用 schema 才進得來。
+    ("backend/app/extended/models/pm.py", "PMCaseAttachment",
+     "backend/app/schemas/pm/attachment.py", "CaseAttachmentResponse"),
 ]
 
 # 刻意不對外的欄位 —— **必須寫理由**。沒有理由的豁免等於沒有豁免。
@@ -62,6 +69,13 @@ INTENTIONALLY_INTERNAL: dict[str, dict[str, str]] = {
         "deleted_at": "軟刪除時間戳，屬內部狀態；對外只看得到未刪除的資料",
         "updated_at": "既有 Response 未含，且前端不使用；納入會改變契約",
         "budget_limit": "預算上限屬內部管控，已由 budget_usage_pct 表達",
+    },
+    "PMCaseAttachment": {
+        "case_code": "查詢參數本身（呼叫端就是帶 case_code 來的），回傳等於回聲",
+        "file_path": "伺服器儲存路徑，對外洩漏目錄結構；下載走 id 不走路徑",
+        "checksum": "SHA256 供伺服器端比對重複，前端不驗也無從驗",
+        "original_name": "已由 file_name 對外（優先取它，沒有才退回儲存檔名）",
+        "updated_at": "前端不使用；納入會改變既有契約",
     },
     "ExpenseInvoice": {
         "deleted_at": "同上",

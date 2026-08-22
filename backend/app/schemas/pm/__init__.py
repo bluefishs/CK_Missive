@@ -9,6 +9,9 @@ from .milestone import (
 from .staff import (
     PMCaseStaffCreate, PMCaseStaffUpdate, PMCaseStaffResponse,
 )
+from .attachment import (
+    CaseAttachmentResponse, CaseAttachmentListResponse,
+)
 from .requests import (
     PMIdRequest, PMCaseIdByFieldRequest,
     PMCaseIdRequest, PMCaseUpdateRequest,
@@ -22,6 +25,7 @@ __all__ = [
     "PMCaseListRequest", "PMCaseSummary", "PMYearlyTrendItem",
     "PMMilestoneCreate", "PMMilestoneUpdate", "PMMilestoneResponse",
     "PMCaseStaffCreate", "PMCaseStaffUpdate", "PMCaseStaffResponse",
+    "CaseAttachmentResponse", "CaseAttachmentListResponse",
     # Request schemas
     "PMIdRequest", "PMCaseIdByFieldRequest",
     "PMCaseIdRequest", "PMCaseUpdateRequest",
