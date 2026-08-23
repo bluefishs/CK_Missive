@@ -221,16 +221,55 @@ def self_test() -> int:
 #: 2026-08-23 遞迴掃描發現 **CK_Website 與 dataform 在 NAS 上完全沒有目錄**，
 #: 而 CK_Website 是四個系統的 IdP。那不是誰做錯，是**沒有任何東西在問**。
 #: ⇒ 這一段的價值不在判定，在讓缺口每週被看見一次。
+#: (NAS 目錄, 標籤, 負責的 Windows 排程名)
+#:
+#: ⚠️⚠️ **「目的地最新檔年齡」對鏡像型備份有歧義**（CK_AaaP 2026-08-23 在我這支
+#: 剛推的程式碼上抓到，而且是在**我自己的目錄**上）：robocopy 保留來源 mtime，
+#: 所以目的地最新檔 43 小時前，意思是「**來源 43 小時沒有新東西**」，
+#: 不是「備份 43 小時沒跑」。他們的狀態檔白紙黑字寫著
+#: `ran_at 08-23T04:00 成功` 而 `newest_file 08-22T00:01` —— 備份是好的。
+#:
+#: ⇒ 依 CK_AaaP CONVENTIONS §11：**`ran_at` 與 `newest_file` 要分開記**。
+#:    前者答「它有沒有在跑」，後者答「有沒有東西可搬」。
+#:    只有其中一個，43.1 小時那一題就無解 —— 而我第一版只有後者。
+#: 這裡的 `ran_at` 取自 Windows 排程的 `LastRunTime`（作業系統自己的紀錄，
+#: 不另建第二份事實）。取不到就明講取不到，不用 newest_file 頂替。
 PORTFOLIO_EXPECTED = {
-    "missive_databsae": "CK_Missive 資料庫",
-    "missive_attachments": "CK_Missive 公文附件",
-    "missive_secrets": "CK_Missive 金鑰憑證",
-    "lvrland_database": "CK_lvrland_Webmap",
-    "pilemgmt_database": "CK_PileMgmt",
-    "digitaltunnel_minio": "CK_DigitalTunnel MinIO",
-    "governance_records": "CK_AaaP 治理紀錄",
-    "CK_FacilityDev_Backups": "CK_FacilityDev",
+    "missive_databsae": ("CK_Missive 資料庫", "CK-Missive-Offsite-Backup"),
+    "missive_attachments": ("CK_Missive 公文附件", "CK-Missive-Offsite-Backup"),
+    "missive_secrets": ("CK_Missive 金鑰憑證", "CK-Missive-Offsite-Backup"),
+    "lvrland_database": ("CK_lvrland_Webmap", "CK_lvrland_Webmap-Offsite-Backup"),
+    "pilemgmt_database": ("CK_PileMgmt", "CK_PileMgmt_DB_Backup"),
+    "digitaltunnel_minio": ("CK_DigitalTunnel MinIO", "CK_DigitalTunnel-MinIO-Offsite"),
+    "governance_records": ("CK_AaaP 治理紀錄", "CK_AaaP_GovernanceRecordsBackup"),
+    "CK_FacilityDev_Backups": ("CK_FacilityDev", None),
 }
+
+
+def _task_last_run() -> dict:
+    """讀 Windows 排程的 LastRunTime／LastTaskResult —— 這是 `ran_at`。
+
+    取自作業系統自己的紀錄，**不另建第二份事實**（本專案已立的判準）。
+    讀不到就回空 dict，呼叫端要明講「取不到」而不是拿 newest_file 頂替。
+    """
+    import json as _j
+    import subprocess as _sp
+    ps = (
+        "Get-ScheduledTask | Where-Object {$_.TaskName -match '^CK'} | "
+        "ForEach-Object { $i = $_ | Get-ScheduledTaskInfo; "
+        "[pscustomobject]@{n=$_.TaskName; "
+        "r=(($i.LastRunTime).ToString('o')); c=$i.LastTaskResult} } | "
+        "ConvertTo-Json -Compress"
+    )
+    try:
+        out = _sp.run(["powershell", "-NoProfile", "-Command", ps],
+                      capture_output=True, timeout=60)
+        data = _j.loads((out.stdout or b"").decode("utf-8", "replace") or "[]")
+    except Exception:
+        return {}
+    if isinstance(data, dict):
+        data = [data]
+    return {d["n"]: (d.get("r"), d.get("c")) for d in data if d.get("n")}
 #: 已知缺口 —— 列出來才有人補。空著等於默認它不存在。
 PORTFOLIO_MISSING = {
     "CK_Website": "四系統的 SSO IdP。08-11 已知 ck-kv-snapshot 失敗（PM2 非互動環境缺 "
@@ -250,13 +289,17 @@ def check_portfolio(rows: list[str]) -> list[str]:
     量測方法沒先驗，結論就不可信。
     """
     import time as _t
+    from datetime import datetime as _dt
     notes: list[str] = []
+    tasks = _task_last_run()
     rows.append("")
     rows.append("  ── portfolio 各專案（只報不判紅，我不知道別人的備份意圖）──")
-    for d, label in PORTFOLIO_EXPECTED.items():
+    rows.append("     ran_at＝排程上次執行（有沒有在跑）｜"
+                "newest＝目的地最新檔（有沒有東西可搬）")
+    for d, (label, task) in PORTFOLIO_EXPECTED.items():
         base = NAS / d
         if not base.exists():
-            rows.append(f"  [?    ] {label:<24} 目錄不存在")
+            rows.append(f"  [?    ] {label:<22} 目錄不存在")
             notes.append(f"{label}：NAS 目錄不存在")
             continue
         n, newest = 0, 0.0
@@ -269,14 +312,43 @@ def check_portfolio(rows: list[str]) -> list[str]:
                 except OSError:
                     pass
         if n == 0:
-            rows.append(f"  [?    ] {label:<24} 完全沒有檔案")
+            rows.append(f"  [?    ] {label:<22} 完全沒有檔案")
             notes.append(f"{label}：目錄在但沒有任何檔案")
             continue
         age = (_t.time() - newest) / 3600
-        tag = "STALE" if age > STALE_HOURS else "ok   "
-        rows.append(f"  [{tag}] {label:<24} {n:>5} 檔｜最新 {age:>6.1f}h 前")
-        if age > STALE_HOURS:
-            notes.append(f"{label}：最新備份已 {age:.0f}h（> {STALE_HOURS:.0f}h）")
+
+        # ran_at —— 排程有沒有在跑。取不到就說取不到，不用 newest 頂替。
+        ran_txt, ran_age, rc = "ran_at 取不到", None, None
+        if task and task in tasks:
+            iso, rc = tasks[task]
+            try:
+                ran = _dt.fromisoformat((iso or "").split(".")[0])
+                ran_age = (_dt.now() - ran).total_seconds() / 3600
+                ran_txt = f"ran {ran_age:.1f}h 前 rc={rc}"
+            except Exception:
+                ran_txt = f"ran_at 無法解析({iso})"
+
+        # 判準：**先看 ran_at**。它有跑且成功 ⇒ newest 舊只代表來源沒新東西，
+        # 那是合理空不是故障（CK_AaaP 08-23 在我這支程式碼上抓到的歧義）。
+        ran_ok = ran_age is not None and ran_age <= STALE_HOURS and rc == 0
+        if age <= STALE_HOURS:
+            tag = "ok   "
+        elif ran_ok:
+            # 排程有跑且成功，但目的地很久沒有新東西。
+            # **我分不出這是「來源真的沒變」還是「同步空跑」** ——
+            # 那要產出端自己說（CK_AaaP §11：`saved: N`），而我拿不到別的
+            # repo 的狀態檔。⇒ 誠實的做法是把兩個數字並陳、標成待確認，
+            # 不宣稱故障，也不因為 rc=0 就當作沒事。
+            # 08-23 實例：DT MinIO `ran 17.2h rc=0` 但 `newest 89.2h`，
+            # 而我通報後他們一跑就產生新檔 ⇒ 那次確實不是「合理空」。
+            tag = "待確認"
+            notes.append(f"{label}：排程有跑（{ran_txt}）但目的地最新已 {age:.0f}h"
+                         f" —— 是來源沒變還是同步空跑？需該 repo 回報搬了幾個物件")
+        else:
+            tag = "STALE"
+            why = f"排程 {ran_txt}" if ran_age is not None else "且查不到對應排程"
+            notes.append(f"{label}：目的地最新 {age:.0f}h、{why}")
+        rows.append(f"  [{tag}] {label:<22} {n:>5} 檔｜newest {age:>6.1f}h｜{ran_txt}")
     for repo, why in PORTFOLIO_MISSING.items():
         rows.append(f"  [缺口 ] {repo:<24} NAS 上沒有任何目錄")
         notes.append(f"{repo}：沒有異地備份 —— {why}")

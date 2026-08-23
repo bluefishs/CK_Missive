@@ -128,7 +128,8 @@ def query_tasks() -> list[dict]:
         "        elseif ($_.CimClass.CimClassName -match 'Weekly') { 7 * [int]$_.WeeksInterval }"
         "        else { 0 } } | Where-Object { $_ -gt 0 } | Sort-Object | Select-Object -First 1));"
         "     StartWhenAvailable=[bool]$_.Settings.StartWhenAvailable;"
-        "     LogonTrigger=[bool](@($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }).Count)"
+        "     LogonTrigger=[bool](@($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }).Count);"
+        "     TimeLimit=[string]$_.Settings.ExecutionTimeLimit"
         "   } }) | ConvertTo-Json -Depth 3"
     )
     # Windows PowerShell 5.1 沒有 if 運算式，改用 subexpression
@@ -371,6 +372,27 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
 
         if state not in ("Ready", "Running"):
             reds.append(f"{name}: State={state}（非 Ready＝已被停用或損壞）")
+
+        # ExecutionTimeLimit —— 2026-08-23 新增。
+        #
+        # 為什麼補這個欄位：pile 的異地備份是 **PT72H**（3 天）＝形同沒有上限，
+        # 而他們前一天才剛經歷「單 worker 被單一請求卡住 23 小時」。同型換到
+        # 備份上，代價是那三天完全沒有異地備份而**沒有任何訊號**。
+        # CK_AaaP 把這條套回自己身上，發現 `CK_AaaP_DailyCheckpoint` 也是 PT72H
+        # 而實測只跑 12 秒（上限是它的 21,600 倍）；我自己也有兩支
+        # （CK_Website 走查，我建的）—— 三個 repo 各有一份，沒有人在看。
+        #
+        # 它為什麼一直在雷達外（CK_AaaP 的診斷，值得照抄）：
+        # 文件裡有「這支排程可回溯版控」的**散文**，而**散文不帶設定** ——
+        # 光是「有文件寫到」不夠，要有能把它重建出來的東西，或有人在讀那個欄位。
+        #
+        # 判 YELLOW 不判 RED：合理的上限值因任務而異（備份要久、探針要短），
+        # 我沒有一份權威表，也不打算另建第二份事實。只把**離譜的**點出來。
+        tl = (t.get("TimeLimit") or "").strip()
+        if tl in ("PT72H", "P3D") or tl.startswith("P") and tl.endswith("D"):
+            notes.append(
+                f"{name}: ExecutionTimeLimit={tl}（形同沒有上限 —— "
+                f"它 hang 住時，這段時間內不會有任何訊號）")
 
         selfaudit = re.match(SELFAUDIT_TASK_RE, name)
         # 2026-08-09：Windows 排程的 LastTaskResult **不是只有結束碼** ——
