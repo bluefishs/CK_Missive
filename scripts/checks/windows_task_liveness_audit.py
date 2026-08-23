@@ -95,6 +95,24 @@ MAX_AGE_DAYS = 8
 MISSED_GRACE_HOURS = 2
 
 
+def _last_boot():
+    """上次開機時間 —— 登入觸發型排程的判準基準（CK_AaaP 2026-08-23）。
+
+    取不到就回 None，呼叫端要說「無法判定」而**不是當作通過** ——
+    「查不到」與「沒問題」不得長得一樣（本專案反覆記的判準）。
+    """
+    import subprocess as _sp
+    try:
+        r = _sp.run(
+            ["powershell", "-NoProfile", "-Command",
+             "(Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToString('s')"],
+            capture_output=True, timeout=30)
+        txt = (r.stdout or b"").decode("utf-8", "replace").strip()
+        return datetime.fromisoformat(txt) if txt else None
+    except Exception:
+        return None
+
+
 def _interval_days(task: dict) -> int:
     """該排程的週期天數（日／週觸發）；純登入或開機觸發回 0。
 
@@ -430,7 +448,29 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
         # 有週期性 trigger 就照週期判，登入觸發只是額外的補跑機會。
         periodic = bool(_interval_days(t))
         if logon and not periodic:
-            notes.append(f"{name}: 登入/開機觸發，不以時間判逾期")
+            # 2026-08-23：原本只是「排除」—— 而**排除等於放棄鑑別力**，
+            # 抓不到「開機登入了、它卻沒有觸發」這種真故障。
+            # CK_AaaP 的修法：判準一句話 **lastRun >= lastBoot**。
+            #   晚於上次開機 → 印一則說明（降級不隱藏），不算問題
+            #   早於上次開機 → 點名，那正是排除法會放棄的那一半
+            boot = _last_boot()
+            if boot is None:
+                notes.append(f"{name}: 登入/開機觸發，取不到上次開機時間故無法判定")
+            elif not last_run:
+                reds.append(f"{name}: 登入/開機觸發但從未執行過")
+            else:
+                try:
+                    lr = datetime.fromisoformat(last_run)
+                    if lr >= boot:
+                        notes.append(
+                            f"{name}: 登入/開機觸發，上次執行 {lr:%m-%d %H:%M}"
+                            f" 晚於上次開機 {boot:%m-%d %H:%M}（正常）")
+                    else:
+                        reds.append(
+                            f"{name}: 開機後未觸發 —— 上次執行 {lr:%m-%d %H:%M}"
+                            f" 早於上次開機 {boot:%m-%d %H:%M}")
+                except ValueError:
+                    reds.append(f"{name}: LastRun 無法解析（{last_run}）")
         elif not last_run:
             reds.append(f"{name}: 從未執行過（註冊了但沒跑過）")
         else:

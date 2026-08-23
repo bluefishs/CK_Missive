@@ -288,6 +288,7 @@ def check_portfolio(rows: list[str]) -> list[str]:
     因為那幾類是放在子目錄的。差一點就通報五個專案「你們沒有備份」。
     量測方法沒先驗，結論就不可信。
     """
+    import json as _json
     import time as _t
     from datetime import datetime as _dt
     notes: list[str] = []
@@ -316,6 +317,33 @@ def check_portfolio(rows: list[str]) -> list[str]:
             notes.append(f"{label}：目錄在但沒有任何檔案")
             continue
         age = (_t.time() - newest) / 3600
+
+        # ── 優先讀目的地狀態檔 ──
+        # CK_AaaP 2026-08-23：我原本說「跨 repo 觀察者只有兩個外部可見的數字」，
+        # 他們指出**那不是限制、是他們的漏洞** —— 狀態檔只寫在本機是可以改的，
+        # 於是把同一份也寫到 `<dest>/_backup-status.json`（刻意在資料寫完之後
+        # 才寫，使它不會早於它所描述的那批資料）。
+        # ⇒ 有這支就不必猜「來源沒變還是同步空跑」，產出端自己說了。
+        # 沒有也不算錯（其他 repo 還沒跟進），退回下面的 ran_at + newest 推論。
+        st = base / "_backup-status.json"
+        if st.exists():
+            try:
+                sd = _json.loads(st.read_text(encoding="utf-8-sig"))
+                res = str(sd.get("result", "?"))
+                saved = sd.get("saved", sd.get("files", "?"))
+                sa = _dt.fromisoformat(str(sd.get("ran_at", "")).split(".")[0])
+                sa_age = (_dt.now() - sa).total_seconds() / 3600
+                tag = "ok   " if (res == "ok" and sa_age <= STALE_HOURS) else "STALE"
+                rows.append(f"  [{tag}] {label:<22} {n:>5} 檔｜狀態檔 result={res}"
+                            f" ran {sa_age:.1f}h 前 files={saved}")
+                if tag != "ok   ":
+                    notes.append(f"{label}：狀態檔 result={res}、ran {sa_age:.0f}h 前")
+                continue
+            except Exception as e:
+                # 狀態檔壞掉不得靜靜退回年齡判準 —— 那會讓「狀態檔壞了」隱形
+                # （CK_AaaP 同日的第三點，他們自己也踩到）。
+                print(f"  [WARN] {label} 狀態檔讀取失敗，退回年齡判準："
+                      f"{type(e).__name__}: {e}", file=sys.stderr)
 
         # ran_at —— 排程有沒有在跑。取不到就說取不到，不用 newest 頂替。
         ran_txt, ran_age, rc = "ran_at 取不到", None, None
