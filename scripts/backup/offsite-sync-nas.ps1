@@ -49,6 +49,49 @@ $cfgPath = "D:\CKProject\CK_Missive\backend\config\remote_backup.json"
   「異地備份到底正不正常」，而不是只看容器端那個刻意關閉的開關。
   失敗路徑也必須寫（原本 error 直接 exit → UI 仍顯示上次成功時間＝沉默失敗）。
 #>
+function Write-DestStatus {
+    # 把同一份狀態寫到**目的地**，讓跨 repo 的觀察者不必猜。
+    #
+    # 為什麼需要（CK_AaaP 2026-08-23 §11 + 我這邊的實例）：
+    # 外部只看得到「目的地最新檔年齡」，而 robocopy 保留來源 mtime ⇒
+    # 那個數字答的是「來源多久沒變」不是「備份多久沒跑」。
+    # 兩者在外部長得一模一樣，於是觀察者只能停在「待確認」。
+    #
+    # ⚠️ 順序：**在資料寫完之後才寫**，否則狀態檔會早於它所描述的那批資料。
+    # 本機那份（remote_backup.json）仍是權威 —— 目的地不可達時，
+    # 你還是要知道它試過。
+    param(
+        [string]$Result,
+        [string]$Dest,
+        [int]$Files = -1,
+        [string]$Detail = ""
+    )
+    try {
+        if (-not (Test-Path -LiteralPath $Dest)) { return }
+        $newest = $null
+        $items = Get-ChildItem -LiteralPath $Dest -Recurse -File -ErrorAction SilentlyContinue
+        if ($items) {
+            $newest = ($items | Sort-Object LastWriteTime -Descending |
+                       Select-Object -First 1).LastWriteTime.ToString("s")
+            if ($Files -lt 0) { $Files = @($items).Count }
+        }
+        $payload = [ordered]@{
+            _why        = "供跨 repo 觀察者判讀。ran_at 答「有沒有在跑」、newest_file 答「有沒有東西可搬」——只有其中一個那題無解。"
+            runner      = "CK_Missive/scripts/backup/offsite-sync-nas.ps1"
+            result      = $Result
+            ran_at      = (Get-Date).ToString("s")
+            newest_file = $newest
+            files       = $Files
+            detail      = $Detail
+        }
+        $out = Join-Path $Dest "_backup-status.json"
+        ($payload | ConvertTo-Json) | Set-Content -LiteralPath $out -Encoding UTF8
+    } catch {
+        # 寫不進去不該讓整個備份失敗 —— 但要出聲，否則「狀態檔沒寫成」隱形
+        Log "WARN 目的地狀態檔寫入失敗 ($Dest): $_"
+    }
+}
+
 function Write-SyncStatus {
     param([string]$Result, [string]$Message = "")
     if ($DryRun) { return }
@@ -169,6 +212,49 @@ if (-not $DryRun) {
 }
 
 # ---------------------------------------------------------------------------
+# ⚠️ 2026-08-24 順序再調整：金鑰段從附件段**之後**搬到**之前**。
+#
+#    附件段裡的「遞迴掃描 NAS」會**間歇性地把整支腳本帶走** ——
+#    log 停在掃描那一行、State=Ready、Result=1、try/catch 攔不到
+#    （⇒ 不是 PowerShell 例外，是行程本身被結束）。等 400 秒確認過。
+#
+#    我修不了間歇性的行程死亡，但可以改順序：
+#    **把最關鍵、最小的東西放到最脆弱的步驟之前。**
+#      金鑰 15.5 KB —— 沒有它，資料全還原回來系統仍然起不來
+#      附件掃描     —— 遞迴 1500+ 檔走 NAS，會殺掉整支腳本
+#
+#    這不是繞過（掃描仍會死、仍會 exit 1 出聲），是讓**已知會失敗的
+#    那一步不再連坐其他人**。08-23「附件失敗把金鑰一起殺掉」是同一個
+#    病的第一種形態（exit 1 連坐），這是第二種（行程直接消失）。
+
+# ---------------------------------------------------------------------------
+# 6. 金鑰與憑證異地備份（2026-08-10）
+#
+#   刻意在同一支腳本裡串接、而不是在 Windows 排程加第二個 Action：
+#   多 Action 的 LastTaskResult 只反映**最後一個**的退出碼 ——
+#   前面失敗會被後面的成功蓋掉，而 windows_task_liveness_audit 讀的正是那個欄位。
+#   一條鏈、一個退出碼，才不會有「一半成功也叫成功」。
+# ---------------------------------------------------------------------------
+$secretsScript = Join-Path (Split-Path $PSCommandPath -Parent) "secrets-offsite-nas.ps1"
+$secretsCode = 0
+if (Test-Path $secretsScript) {
+    Log "--- 轉呼叫金鑰異地備份 ---"
+    $sArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $secretsScript)
+    if ($DryRun) { $sArgs += "-DryRun" }
+    & powershell @sArgs | ForEach-Object { if ($_ -match '\S') { Log "  $_" } }
+    $secretsCode = $LASTEXITCODE
+    Log "金鑰異地備份 exit=$secretsCode"
+} else {
+    Log "ERROR 金鑰備份腳本不存在: $secretsScript"
+    $secretsCode = 2
+}
+
+if ($secretsCode -ne 0) {
+    Log "=== 異地同步完成（金鑰備份失敗 exit=$secretsCode）==="
+    exit 1
+}
+
+
 # 4. 附件異地同步（2026-08-10 新增）
 #
 #   /E 含空目錄、/XO 只複製較新；**刻意不用 /MIR** —— 本機刪檔不該傳播到異地，
@@ -207,15 +293,31 @@ if (Test-Path $AttachSource) {
     # 這違反了本專案自己的原則：要問產出物，不要問成功訊號。
     # 現在問的是「NAS 上到底缺哪些檔」——語言無關、格式無關、重定向行為無關。
     # -----------------------------------------------------------------------
+    # ⚠️ 2026-08-23：這段遞迴掃描曾讓整支腳本**無聲死掉** ——
+    #    以排程觸發，log 停在上面那行 robocopy，之後一行都沒有，
+    #    任務 Ready、Result=1。`-ErrorAction SilentlyContinue` 只擋
+    #    非終止性錯誤，SMB 連線中斷這類終止性錯誤照樣把腳本帶走。
+    #    而且它是**間歇的**（同日 17:10 那次完整跑完）——
+    #    間歇 + 無聲是最難查的組合。
+    #    ⇒ 修法不是讓它不要死，是**讓它死的時候說得出死在哪**。
     $arcRoot = Join-Path $AttachDest "_longname_archive"
     $remote = @{}
     $prefix = $AttachDest.TrimEnd('\') + '\'
-    foreach ($p in (Get-ChildItem -LiteralPath $AttachDest -Recurse -File -ErrorAction SilentlyContinue)) {
-        if ($p.FullName.StartsWith($arcRoot, [StringComparison]::OrdinalIgnoreCase)) { continue }
-        $remote[$p.FullName.Substring($prefix.Length)] = $true
+    Log "掃描 NAS 附件清單（遞迴，慢）: $AttachDest"
+    try {
+        foreach ($p in (Get-ChildItem -LiteralPath $AttachDest -Recurse -File -ErrorAction SilentlyContinue)) {
+            if ($p.FullName.StartsWith($arcRoot, [StringComparison]::OrdinalIgnoreCase)) { continue }
+            $remote[$p.FullName.Substring($prefix.Length)] = $true
+        }
+    } catch {
+        Log "ERROR 掃描 NAS 附件清單失敗: $_"
+        Write-SyncStatus -Result "error" -Message "NAS 附件清單掃描失敗: $_"
+        exit 1
     }
+    Log "  NAS 附件清單: $($remote.Count) 檔"
     $srcPrefix = $AttachSource.TrimEnd('\') + '\'
     $missingDirs = @{}
+    Log "比對來源附件: $AttachSource"
     foreach ($f in (Get-ChildItem -LiteralPath $AttachSource -Recurse -File -ErrorAction SilentlyContinue)) {
         $rel = $f.FullName.Substring($srcPrefix.Length)
         if (-not $remote.ContainsKey($rel)) {
@@ -250,33 +352,6 @@ if (Test-Path $AttachSource) {
 #    附件與金鑰是兩件互不相干的事，一件失敗不該讓另一件不發生。
 #    ⇒ 金鑰先做、附件判定移到最後，兩者的失敗各自都會反映在退出碼上。
 
-# ---------------------------------------------------------------------------
-# 6. 金鑰與憑證異地備份（2026-08-10）
-#
-#   刻意在同一支腳本裡串接、而不是在 Windows 排程加第二個 Action：
-#   多 Action 的 LastTaskResult 只反映**最後一個**的退出碼 ——
-#   前面失敗會被後面的成功蓋掉，而 windows_task_liveness_audit 讀的正是那個欄位。
-#   一條鏈、一個退出碼，才不會有「一半成功也叫成功」。
-# ---------------------------------------------------------------------------
-$secretsScript = Join-Path (Split-Path $PSCommandPath -Parent) "secrets-offsite-nas.ps1"
-$secretsCode = 0
-if (Test-Path $secretsScript) {
-    Log "--- 轉呼叫金鑰異地備份 ---"
-    $sArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $secretsScript)
-    if ($DryRun) { $sArgs += "-DryRun" }
-    & powershell @sArgs | ForEach-Object { if ($_ -match '\S') { Log "  $_" } }
-    $secretsCode = $LASTEXITCODE
-    Log "金鑰異地備份 exit=$secretsCode"
-} else {
-    Log "ERROR 金鑰備份腳本不存在: $secretsScript"
-    $secretsCode = 2
-}
-
-if ($secretsCode -ne 0) {
-    Log "=== 異地同步完成（金鑰備份失敗 exit=$secretsCode）==="
-    exit 1
-}
-
 # 5. 寫入同步狀態 + NAS 實際內容（供 admin/backup UI 顯示 / 容器 mount 可見）
 #    附件若有失敗且未被打包救回 → 整體判 error。
 #    「DB 同步成功但附件漏了」不得顯示成綠燈 —— 那正是這次要根治的形態。
@@ -289,6 +364,10 @@ Write-SyncStatus -Result "success" -Message $(
     if ($attachArchived -gt 0) { "附件 $attachFailed 檔為長檔名，已打包 $attachArchived 個目錄" } else { "" }
 )
 
+
+# 資料都寫完了，才寫目的地狀態檔（順序不可顛倒，見 Write-DestStatus 註解）
+Write-DestStatus -Result "ok" -Dest $Dest -Detail "db+attachments+secrets"
+if ($AttachDest) { Write-DestStatus -Result "ok" -Dest $AttachDest -Detail "attachments" }
 
 Log "=== 異地同步完成 ==="
 exit 0
