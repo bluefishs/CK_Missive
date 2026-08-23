@@ -45,7 +45,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 try:
@@ -215,6 +215,74 @@ def self_test() -> int:
     return 0
 
 
+#: portfolio 各專案在 NAS 上的目錄。**這一段只報不判紅** ——
+#: 我不知道別的 repo 的備份頻率與意圖，判紅會製造我修不了的噪音。
+#: 但「完全沒有人在問這個專案有沒有備份」是更糟的狀態：
+#: 2026-08-23 遞迴掃描發現 **CK_Website 與 dataform 在 NAS 上完全沒有目錄**，
+#: 而 CK_Website 是四個系統的 IdP。那不是誰做錯，是**沒有任何東西在問**。
+#: ⇒ 這一段的價值不在判定，在讓缺口每週被看見一次。
+PORTFOLIO_EXPECTED = {
+    "missive_databsae": "CK_Missive 資料庫",
+    "missive_attachments": "CK_Missive 公文附件",
+    "missive_secrets": "CK_Missive 金鑰憑證",
+    "lvrland_database": "CK_lvrland_Webmap",
+    "pilemgmt_database": "CK_PileMgmt",
+    "digitaltunnel_minio": "CK_DigitalTunnel MinIO",
+    "governance_records": "CK_AaaP 治理紀錄",
+    "CK_FacilityDev_Backups": "CK_FacilityDev",
+}
+#: 已知缺口 —— 列出來才有人補。空著等於默認它不存在。
+PORTFOLIO_MISSING = {
+    "CK_Website": "四系統的 SSO IdP。08-11 已知 ck-kv-snapshot 失敗（PM2 非互動環境缺 "
+                  "CLOUDFLARE_API_TOKEN），最新可用備份停在 2026-07-18",
+    "CK_lvrland_dataform": "本機 Docker 常駐。「未公網暴露」是安全考量，"
+                           "與「會不會遺失」是兩件事",
+}
+STALE_HOURS = 72.0
+
+
+def check_portfolio(rows: list[str]) -> list[str]:
+    """掃 portfolio 各專案的 NAS 目錄新鮮度（**遞迴**）。
+
+    ⚠️ 一定要遞迴：2026-08-23 第一版只數頂層檔案，於是 missive_attachments／
+    lvrland_database／digitaltunnel_minio 全部顯示「空」—— **五個假警報**，
+    因為那幾類是放在子目錄的。差一點就通報五個專案「你們沒有備份」。
+    量測方法沒先驗，結論就不可信。
+    """
+    import time as _t
+    notes: list[str] = []
+    rows.append("")
+    rows.append("  ── portfolio 各專案（只報不判紅，我不知道別人的備份意圖）──")
+    for d, label in PORTFOLIO_EXPECTED.items():
+        base = NAS / d
+        if not base.exists():
+            rows.append(f"  [?    ] {label:<24} 目錄不存在")
+            notes.append(f"{label}：NAS 目錄不存在")
+            continue
+        n, newest = 0, 0.0
+        for dp, _dirs, files in os.walk(base):
+            for f in files:
+                try:
+                    st = os.stat(os.path.join(dp, f))
+                    n += 1
+                    newest = max(newest, st.st_mtime)
+                except OSError:
+                    pass
+        if n == 0:
+            rows.append(f"  [?    ] {label:<24} 完全沒有檔案")
+            notes.append(f"{label}：目錄在但沒有任何檔案")
+            continue
+        age = (_t.time() - newest) / 3600
+        tag = "STALE" if age > STALE_HOURS else "ok   "
+        rows.append(f"  [{tag}] {label:<24} {n:>5} 檔｜最新 {age:>6.1f}h 前")
+        if age > STALE_HOURS:
+            notes.append(f"{label}：最新備份已 {age:.0f}h（> {STALE_HOURS:.0f}h）")
+    for repo, why in PORTFOLIO_MISSING.items():
+        rows.append(f"  [缺口 ] {repo:<24} NAS 上沒有任何目錄")
+        notes.append(f"{repo}：沒有異地備份 —— {why}")
+    return notes
+
+
 def main() -> int:
     if "--self-test" in sys.argv:
         return self_test()
@@ -234,6 +302,7 @@ def main() -> int:
     check_milestones(reds, rows)
     check_attachments(reds, rows)
     check_secrets(reds, rows)
+    portfolio_notes = check_portfolio(rows)
 
     print()
     for r in rows:
@@ -246,6 +315,14 @@ def main() -> int:
             print(f"  · {r}")
         print("\n  四類缺一不可 —— 少任何一類，災難時就是「資料回得來、系統起不來」。")
         return 2
+    if portfolio_notes:
+        print(f"YELLOW（portfolio，非本 repo 故障）: {len(portfolio_notes)} 項")
+        for n in portfolio_notes:
+            print(f"  · {n}")
+        print()
+        print("  這一段只報不判紅 —— 但**沒有人在問**才是最糟的狀態，"
+              "所以它每週都會出現在這裡直到被處理。")
+        print()
     print("GREEN: 四類異地備份齊全且新鮮（資料庫／里程碑／附件／金鑰）")
     print("  註：本檔只驗素材齊不齊，不驗還原出來對不對。")
     print("      完整還原測試是月度動作，見 docs/runbooks/disaster-recovery.md")
