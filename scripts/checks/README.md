@@ -30,7 +30,7 @@
 > 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
 > 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
 
-<!--baseline:check_scripts-->合計 **176** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **177** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -142,6 +142,7 @@
 | `public_endpoint_auth_audit.py` | **weekly 64**：哪些 API 端點沒有任何認證依賴 —— 用 FastAPI **runtime dependency 樹**，不是 grep。2026-08-21 實測公網未帶憑證可取得 `documents-enhanced/statistics`（回傳公文總數 2017）；根因是 `TUNNEL_GUARD_ENABLED=false`，沒有自帶認證的端點一律對外。既有的 grep 規則「端點缺少認證裝飾器」產生 **122 個誤判**（真問題的 6 倍），認不出 `Depends(require_auth())`。baseline 內已知項不判紅，**新增一律 RED**；探測不到就 exit 2 不下結論 |
 | `router_level_auth_mixing_audit.py` | **weekly 65**：router 層加認證有沒有**誤擋公開端點**（C2）。CK_PileMgmt 2026-08-24 指出這是 08-21 那個修法的反面風險 —— 同一個 router 檔案裡可能混雜真公開端點（他們的 `gislayers` 一半是管理 CRUD、一半是公開地圖互動），router 層加認證會把公開那半一起擋掉，而**那種失敗只有真的打開那一頁才看得見**（tsc／py_compile／以管理員身分跑的走查都看不到）。現況 16 檔 86 端點、12 條公開路由全是認證流程 ⇒ GREEN。⚠️ 它看不到**非瀏覽器消費者**，那一面由 `integration_e2e_validation` 負責 |
 | `http_method_convention_audit.py` | **weekly 66**：規範 §24「所有 endpoint POST」有沒有人在管。2026-08-24 盤點發現 **175 支腳本裡沒有一支驗 HTTP 方法** —— 規範只是散文（CK_AaaP 同日：「散文不帶設定」）。實測 21 條純 GET 裡 16 條是外部工具強制（healthcheck 只發 GET／SSE 的 EventSource 只能 GET／Swagger 是瀏覽器導覽），**5 條真違反**，已改 4 條（scheduler_events，後端＋前端常數＋呼叫端三處一起）。剩 `/api/ai/memory/digest` 消費端在 CK_Hermes ⇒ 走協作 |
+| `probe_fingerprint_guard.py` | **weekly 67**：公網探測的**客戶端指紋**。Cloudflare 依 User-Agent 擋 —— 實測同一條已知未受保護的端點：`curl` 預設 UA **200**／`urllib` 預設 UA **403**／`urllib` 帶瀏覽器 UA **200**。⇒ 用 Python 預設 UA 探公網，每一條都回 403，**而那個 403 長得正好像「認證有效」**。本專案 08-21 因此四次得出「已經擋住了」的錯誤結論；CK_AaaP 08-24 在 pile 一個**進行中的 P0 外洩**上重現同一件事。⚠️ 本 repo 三支端點稽核**不對外打 HTTP**（讀容器內 runtime tree）故免疫，這支守的是臨時探測腳本 |
 | `admin_endpoint_ui_consumers.py` | **人工觸發、刻意不接排程**：需要管理員的端點被哪些非管理頁面消費。2026-08-20「同仁變成代碼」修完後的掃全結果＝無第二例；剩下的是「頁面只要登入但頁內含管理動作」，403 部分屬刻意 ⇒ 接排程只會每天報同樣 4 個已知項。它是 `OPEN_ITEMS` **C5**（走查永遠以最高權限跑）收束時的盤點素材 |
 | `wiki_kg_link_audit.py` | Wiki ↔ KG 雙向引用率審計 |
 | `windows_task_liveness_audit.py` | Windows 排程存活稽核 |

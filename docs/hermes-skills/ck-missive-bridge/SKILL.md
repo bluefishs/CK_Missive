@@ -22,8 +22,9 @@ prerequisites:
 ```
 Hermes Agent（L0 助理層）
   └─ ck-missive-bridge skill
-       ├─ tools.py         動態從 Missive manifest 註冊所有 tool
-       ├─ tool_spec.json   fallback 靜態 tool spec
+       ├─ scripts/query.py ★ **實際在跑的就是這支**（自足，不 import tools.py）
+       ├─ tools.py         ⚠️ 舊版動態註冊，**不在活路徑上**（見下方說明）
+       ├─ tool_spec.json   靜態 tool spec
        └─ SKILL.md         本文（prompt context 注入）
               │
               ▼
@@ -52,10 +53,24 @@ docker compose cp ck-missive-bridge/ hermes-gateway:/opt/data/skills/ck-missive-
 
 ## 工具清單
 
-### 動態模式（推薦）
+### ⚠️ `tools.py` 不在活路徑上（2026-08-24 更正）
 
-`tools.py` 啟動時向 `POST /api/ai/agent/tools` 取得 manifest，自動註冊所有 tool。
-目前 Missive 提供的 tool：
+本文件先前有**兩個相反的說法**：架構圖說 `tools.py`「動態從 Missive manifest
+註冊所有 tool」，而別處說它「未啟用、僅留參考」。**兩個都不精確**，
+而讀的人會照著錯的那句去 debug。
+
+CK_AaaP 追活路徑、本 repo 複驗後的事實：
+
+* **實際在跑的是 `scripts/query.py`** —— 它是**自足的**（不 import `tools.py`），
+  自帶 `TIMEOUT_S = 90` 與 `/api/ai/agent/query`；
+* 容器裡的 `tools.py` 是 332 行的**舊版**，還寫著
+  `"dispatch_search": "/api/ai/agent/query_sync"` 與 `TIMEOUT_S=60`
+  —— 那是 2026-05-30 就修好的東西。**它沒有造成故障，因為它不在路徑上。**
+
+⇒ 改 tool 對應時**改 `scripts/query.py`**；改 `tools.py` 裡那張表**不會生效**。
+
+下表列的是 Missive 端提供的 tool（`POST /api/ai/agent/tools` 回的 manifest），
+供對照用：
 
 | Hermes Tool 名稱 | Missive 端點 | 用途 |
 |---|---|---|

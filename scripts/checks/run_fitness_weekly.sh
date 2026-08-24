@@ -376,6 +376,8 @@ run_step "64" "無認證端點（runtime dependency 樹）" "scripts/checks/publ
 run_step "65" "router 層認證有沒有誤擋公開端點" "scripts/checks/router_level_auth_mixing_audit.py"
 # C1（2026-08-24）：規範 §24「所有 endpoint POST」先前**沒有任何檢核在管**—— 175 支腳本沒有一支驗 HTTP 方法。散文不帶設定。
 run_step "66" "端點 POST 慣例（runtime methods）" "scripts/checks/http_method_convention_audit.py"
+# 2026-08-24：Cloudflare 依 UA 擋請求 —— Python 預設 UA 打公網**每一條都回 403**，而那個 403 長得正好像「認證有效」。CK_AaaP 在 pile 一個進行中的 P0 外洩上重現。
+run_step "67" "公網探測的客戶端指紋（403 不一定是應用層擋的）" "scripts/checks/probe_fingerprint_guard.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
