@@ -52,7 +52,23 @@ except Exception:
     pass
 
 SESSION_MINUTES = 20
+# role 分流後前綴要帶身分，否則跑 user 那次會清掉 admin 那次的 session
 JTI_PREFIX = "ui-smoke-"
+
+
+def _wanted_role() -> str:
+    """`--role admin`（預設）或 `--role user`。
+
+    2026-08-24（C3）：走查**永遠以最高權限跑**，一般同仁看到的畫面從來沒有
+    被驗過 —— 08-20「同仁變成代碼」就在這個盲區裡（五個人員下拉對
+    `role='user'` 一律是空的，而走查、tsc、py_compile、模組匯入掃描全部綠燈）。
+    這不是檢核寫錯，是**座標系裡沒有「非管理員」這個維度**。
+    """
+    import argparse
+    ap = argparse.ArgumentParser(add_help=False)
+    ap.add_argument("--role", choices=("admin", "user"), default="admin")
+    known, _ = ap.parse_known_args()
+    return known.role
 
 
 async def main() -> None:
@@ -75,20 +91,24 @@ async def main() -> None:
         # 這是對的 —— 認證掛掉時假裝通過，比報錯更糟。
         #
         # 一併排除分身帳號：拿分身去跑走查，看到的資料範圍會與本尊不同。
+        role = _wanted_role()
+        if role == "admin":
+            cond = [User.is_admin.is_(True)]
+            what = "admin（需 is_admin 且 is_active 且非分身帳號）"
+        else:
+            # ⚠️ 兩個條件都要 —— `is_admin=false` 但 `role='admin'` 的帳號存在
+            # （實測 id=3），那正是 08-10「管理員判定有四份規則」的殘留：
+            # `require_admin` 併看 role 故它其實是管理員。只看 is_admin 會挑到它，
+            # 於是「以一般使用者身分跑」跑出來的還是管理員畫面 —— 白做。
+            cond = [User.is_admin.is_(False), User.role != "admin"]
+            what = "一般使用者（需 is_admin=false 且 role!='admin' 且 is_active 且非分身）"
         admin = (await db.execute(
             select(User)
-            .where(
-                User.is_admin.is_(True),
-                User.is_active.is_(True),
-                User.canonical_user_id.is_(None),
-            )
+            .where(User.is_active.is_(True), User.canonical_user_id.is_(None), *cond)
             .order_by(User.id)
         )).scalars().first()
         if not admin:
-            raise SystemExit(
-                "ERROR: DB 內沒有**可用**的 admin 使用者"
-                "（需 is_admin 且 is_active 且非分身帳號）"
-            )
+            raise SystemExit(f"ERROR: DB 內沒有**可用**的{what}")
 
         # 2026-08-07：每跑一次走查就留下一列，且沒有任何人清 —— 實測自 07-31 起
         # 累積 222 列**全部已過期卻仍標為 is_active**。數量本身無害，但它污染了
@@ -108,10 +128,10 @@ async def main() -> None:
                 "DELETE FROM user_sessions "
                 "WHERE token_jti LIKE :p AND created_at < NOW() - INTERVAL '1 day'"
             ),
-            {"p": f"{JTI_PREFIX}%"},
+            {"p": f"{JTI_PREFIX}{role}-%"},
         )
 
-        jti = f"{JTI_PREFIX}{uuid.uuid4().hex[:12]}"
+        jti = f"{JTI_PREFIX}{role}-{uuid.uuid4().hex[:12]}"
         expires = datetime.utcnow() + timedelta(minutes=SESSION_MINUTES)
         await db.execute(
             text(
@@ -155,7 +175,9 @@ async def main() -> None:
         print("COOKIE=" + cookie)
         print("USER_INFO=" + json.dumps({
             "id": admin.id, "email": admin.email, "username": admin.username,
-            "is_admin": True, "is_superuser": bool(admin.is_superuser),
+            # ⚠️ 不得寫死 True —— 假造權限會讓走查在真實使用者被擋的地方通過，
+            # 那比假陽性更糟（同 08-10 lvrland 走查 token 沒有角色宣告那次）。
+            "is_admin": bool(admin.is_admin), "is_superuser": bool(admin.is_superuser),
             "role": admin.role,
         }, ensure_ascii=False))
 
