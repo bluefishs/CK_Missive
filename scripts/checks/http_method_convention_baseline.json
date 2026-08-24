@@ -1,0 +1,9 @@
+{
+  "_why": "已知違反 POST 慣例的 GET 端點，逐步清；新增的一律 RED。每一條要嘛改成 POST，要嘛加進 FORCED_GET 並寫明「為什麼它不能改成 POST」。",
+  "known": [
+    "/api/ai/memory/digest"
+  ],
+  "_pending": {
+    "/api/ai/memory/digest": "跨 repo，走協作不逕改（owner 2026-08-24：跨平台採協作方式辦理）。消費端是 **CK_Hermes** 的 query.py（不在本 repo 的 skill 包裡），單方面改會讓 S3 聯邦那條鏈斷掉，而它的失敗看起來會像「Hermes 壞了」—— L81：換了出口就要換整條鏈。"
+  }
+}

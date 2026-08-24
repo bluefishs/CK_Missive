@@ -53,7 +53,7 @@ const useCronEvents = (limit = 100) =>
   useQuery<EventsResp>({
     queryKey: ['scheduler-events', limit],
     queryFn: async () => {
-      return await apiClient.get<EventsResp>(SCHEDULER_EVENTS_ENDPOINTS.EVENTS(limit));
+      return await apiClient.post<EventsResp>(SCHEDULER_EVENTS_ENDPOINTS.EVENTS, { limit });
     },
     refetchInterval: 60000,
   });
@@ -62,7 +62,7 @@ const useJobStats = () =>
   useQuery<StatsResp>({
     queryKey: ['scheduler-stats'],
     queryFn: async () => {
-      return await apiClient.get<StatsResp>(SCHEDULER_EVENTS_ENDPOINTS.STATS);
+      return await apiClient.post<StatsResp>(SCHEDULER_EVENTS_ENDPOINTS.STATS, {});
     },
     refetchInterval: 60000,
   });
@@ -71,7 +71,7 @@ const useRetrospectiveReports = () =>
   useQuery<ReportsResp>({
     queryKey: ['retrospective-reports'],
     queryFn: async () => {
-      return await apiClient.get<ReportsResp>(SCHEDULER_EVENTS_ENDPOINTS.RETRO_REPORTS(30));
+      return await apiClient.post<ReportsResp>(SCHEDULER_EVENTS_ENDPOINTS.RETRO_REPORTS, { limit: 30 });
     },
   });
 
@@ -88,7 +88,7 @@ export const SchedulerEventsPage: React.FC = () => {
     setSelectedReport(date);
     setReportLoading(true);
     try {
-      const data = await apiClient.get<{ markdown: string }>(SCHEDULER_EVENTS_ENDPOINTS.RETRO_REPORT(date));
+      const data = await apiClient.post<{ markdown: string }>(SCHEDULER_EVENTS_ENDPOINTS.RETRO_REPORT(date), {});
       setReportContent(data.markdown);
     } catch (e) {
       setReportContent('讀取失敗');

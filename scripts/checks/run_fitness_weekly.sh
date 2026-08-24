@@ -374,6 +374,8 @@ run_step "63" "Response schema 的欄位前端型別宣告了嗎（契約鏈第�
 run_step "64" "無認證端點（runtime dependency 樹）" "scripts/checks/public_endpoint_auth_audit.py"
 # C2（2026-08-24）：router 層加認證的反面風險 —— 同一個檔案裡混雜真公開端點時，公開那半會被一起擋掉，而那種失敗只有真的打開那一頁才看得見。
 run_step "65" "router 層認證有沒有誤擋公開端點" "scripts/checks/router_level_auth_mixing_audit.py"
+# C1（2026-08-24）：規範 §24「所有 endpoint POST」先前**沒有任何檢核在管**—— 175 支腳本沒有一支驗 HTTP 方法。散文不帶設定。
+run_step "66" "端點 POST 慣例（runtime methods）" "scripts/checks/http_method_convention_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

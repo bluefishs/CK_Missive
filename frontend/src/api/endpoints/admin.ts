@@ -176,12 +176,12 @@ export const SECURE_SITE_MANAGEMENT_ENDPOINTS = {
 
 /** 排程追溯 / 自省報告（57g：SchedulerEventsPage 去硬編） */
 export const SCHEDULER_EVENTS_ENDPOINTS = {
-  /** cron 事件列表 GET /admin/scheduler/events?limit= */
-  EVENTS: (limit: number) => `/admin/scheduler/events?limit=${limit}` as const,
-  /** job 統計 GET /admin/scheduler/events/stats */
+  /** cron 事件列表 POST /admin/scheduler/events（2026-08-24 依 §24 由 GET 改 POST）*/
+  EVENTS: '/admin/scheduler/events',
+  /** job 統計 POST /admin/scheduler/events/stats */
   STATS: '/admin/scheduler/events/stats',
-  /** 自省報告列表 GET /admin/retrospective/reports?limit= */
-  RETRO_REPORTS: (limit: number) => `/admin/retrospective/reports?limit=${limit}` as const,
+  /** 自省報告列表 POST /admin/retrospective/reports */
+  RETRO_REPORTS: '/admin/retrospective/reports',
   /** 單筆自省報告 GET /admin/retrospective/reports/:date */
   RETRO_REPORT: (date: string) => `/admin/retrospective/reports/${date}` as const,
   /** 排程健康 GET /health/scheduler */
