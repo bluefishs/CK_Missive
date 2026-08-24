@@ -20,8 +20,14 @@
 | A7 | **發票號在哪** | 兩份彙整表 25 欄逐一確認**都沒有發票號**，只有發票日期 | `QUOTATION_LIFECYCLE_PLAN` §6 |
 | A8 | **角色模型**：先做 A（`position` 表達職稱）還是直接 B（RBAC） | 取決於人資站點的時程 —— **順序不能顛倒** | `ROLE_MODEL_PLAN` §4 |
 | A9 | **`D:\tmp` 18 個檔案**（7/14 起累積）是否清理 | 非本輪產生，但確實是資料四散的來源 | — |
-| A10 | **⭐⭐CK_PileMgmt 確認有公開外洩，而它沒有 session 在處理** —— **完整診斷已落檔：`PILE_AUTH_GAP_20260821.md`**（含公網實測證據、48 條控制點端點、⚠️ 含爬蟲任務 cancel/pause/resume 等**控制**類、修法判準）。2026-08-21 再次公網實測未帶憑證仍 200（22 縣市控制點統計、含衛星追蹤站）| 2026-08-21 跨 repo 探測：395 條無認證端點，其中含 **11,025 個控制點**的資料。其餘四個 repo 當日都已開 session 自行處理，pile 沒有 ⇒ **需要你指派**。工具已可直接用：`AUTH_AUDIT_CONTAINER=ck_pilemgmt-backend-1 python scripts/checks/public_endpoint_auth_audit.py`（⚠️ 先依判準 11 由 pile 自己列白名單） | 本檔判準 11 |
+| A10 | **✅ 已由 pile session 處理（08-24：62 個端點收斂、真缺口 319→161），可降級。**原文：**CK_PileMgmt 確認有公開外洩，而它沒有 session 在處理** —— **完整診斷已落檔：`PILE_AUTH_GAP_20260821.md`**（含公網實測證據、48 條控制點端點、⚠️ 含爬蟲任務 cancel/pause/resume 等**控制**類、修法判準）。2026-08-21 再次公網實測未帶憑證仍 200（22 縣市控制點統計、含衛星追蹤站）| 2026-08-21 跨 repo 探測：395 條無認證端點，其中含 **11,025 個控制點**的資料。其餘四個 repo 當日都已開 session 自行處理，pile 沒有 ⇒ **需要你指派**。工具已可直接用：`AUTH_AUDIT_CONTAINER=ck_pilemgmt-backend-1 python scripts/checks/public_endpoint_auth_audit.py`（⚠️ 先依判準 11 由 pile 自己列白名單） | 本檔判準 11 |
 | A11 | **`require_scope` 的 token→scope 對照要不要做**（原 B9 升級為需決策） | 跨 repo：`MCP_SERVICE_TOKEN` 由 Hermes／LINE／CK_Website 共用，改成多把或帶 scope 宣告要各消費端同步改。2026-08-21 已先讓它**出聲**（每次通過都記 log 說明未做對照），不再只寫在註解裡 | 本檔 B9 |
+| A12 | **CK_Website 沒有異地備份** | 四系統的 SSO IdP。08-11 已知 `ck-kv-snapshot` 失敗（PM2 非互動環境缺 `CLOUDFLARE_API_TOKEN`），最新可用備份停在 07-18；NAS 上完全沒有目錄 | `RETRO_AND_PLAN_20260824` |
+| A13 | **dataform frontend／ORS 埠是否收斂** | 收斂會移除 CLAUDE.md 明載的「從別台機器開 UI」功能。⚠️ ORS `0.0.0.0:8080` 自區網 `/ors/v2/health` 回 200 ⇒ 別人可用我們的路徑運算資源（§0） | 同上 |
+| A14 | **dataform 的 NAS 備份路徑與 push 授權** | 動到共用資源與遠端 | 同上 |
+| A15 | **pile 的 82 條公開業務查詢是否去識別化** | 已補 60/min 防爬取；公開與否屬產品決策 | 同上 |
+| A16 | **DT 點雲／裂縫影像的內容認證** | 08-09 判為產品決策；**新論據＝頻寬成本**（§0） | 同上 |
+| A17 | **`FT_StorageTank` NAS 備份停在 54 天前，且該專案無 session** | 需指派 | 同上 |
 
 ---
 
@@ -117,7 +123,7 @@
    **但值仍是 `ok=False`** ⇒ 進 `broken_chains`、`all_ok=false`、
    OVERALL BROKEN。已改 `ok=None` 第三態並分開統計
    （現況 ALL PASS／1 條未驗完；注入真斷仍 BROKEN + exit 1）。
-15. **⭐⭐三種發現方式，各自抓到不同的東西**（2026-08-23，與 CK_AaaP 交叉驗證後
+14. **⭐⭐三種發現方式，各自抓到不同的東西**（2026-08-23，與 CK_AaaP 交叉驗證後
    拿本 repo 當日紀錄逐項核實）。我原本說「真正抓到我的沒有一次是自查」，
    **那句話是錯的**，攤開來看形狀更準：
 
@@ -140,7 +146,7 @@
 
    ⚠️ 界限（CK_AaaP 立的，我同意）：**互查依賴對方當時剛好在跑，不能取代
    自查，也不寫成流程** —— 寫成流程就會變成一個沒有人跑得動的儀式。
-16. **⭐跨 session 訊息裡的「已」只能寫已經 commit 的事**
+15. **⭐跨 session 訊息裡的「已」只能寫已經 commit 的事**
    （CK_AaaP 2026-08-21 主動更正自己時提出，對我同樣適用）。
    他們對我說了兩句「已記進 X」，事後自查發現當時只是打算做。
    **訊息是一個完全沒有守門的紀錄面** —— 送出就進入對方的工作脈絡、
