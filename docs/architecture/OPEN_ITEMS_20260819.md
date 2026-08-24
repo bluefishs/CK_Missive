@@ -154,6 +154,7 @@
 
 | 文件 | 涵蓋 |
 |---|---|
+| **`RETRO_AND_PLAN_20260824.md`** | **08-21～24 四天跨 8 repo 的覆盤、八條判準、權責劃分（A owner／B 各 repo／C Missive 自己）與優先序** ← 最新入口 |
 | `QUOTATION_LIFECYCLE_PLAN.md` | 回簽流程、帳號對應、既有案件補件、發票架構、已完成清單 |
 | `ROLE_MODEL_PLAN.md` | 人／帳號／職能三層、兩個頁面的定位、RBAC 路徑 |
 | `TENDER_DATA_GAPS.md` | 決標資料 0 筆、三條取得路徑的實測、PCC 預算已解決 |
