@@ -372,6 +372,8 @@ run_step "63" "Response schema 的欄位前端型別宣告了嗎（契約鏈第�
 # 用 FastAPI runtime dependency 樹判定 —— 既有的 grep 規則「端點缺少認證裝飾器」
 # 產生了 122 個誤判（是真問題的 6 倍），認不出 Depends(require_auth()) 這類寫法。
 run_step "64" "無認證端點（runtime dependency 樹）" "scripts/checks/public_endpoint_auth_audit.py"
+# C2（2026-08-24）：router 層加認證的反面風險 —— 同一個檔案裡混雜真公開端點時，公開那半會被一起擋掉，而那種失敗只有真的打開那一頁才看得見。
+run_step "65" "router 層認證有沒有誤擋公開端點" "scripts/checks/router_level_auth_mixing_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
