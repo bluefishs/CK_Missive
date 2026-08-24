@@ -115,6 +115,22 @@ class BackupScheduler:
                         'timestamp': last_log.get('timestamp'),
                         'details': last_log.get('details')
                     }
+                    # 2026-08-24：`_last_backup_time` 是**記憶體變數**，容器一重啟
+                    # 就歸零，要等到當天 02:00 才會再有值 —— 而 `/admin/backup`
+                    # 的「上次執行」讀的正是它，於是**重啟後到隔天凌晨之間永遠顯示「-」**，
+                    # 看起來像從來沒有備份過。而同一份回應裡的
+                    # `stats.last_backup_result.timestamp` 有正確的值。
+                    #
+                    # 同一件事有兩個來源、而 UI 讀的那個是空的 —— 本專案反覆抓到的家族。
+                    # 修在源頭（復原 stats 時一併復原它），不是叫 UI 改讀另一個欄位：
+                    # 讓兩個欄位繼續各說各話，下一個讀它的人還是會踩。
+                    ts = last_log.get('timestamp')
+                    if ts and self._last_backup_time is None:
+                        try:
+                            self._last_backup_time = datetime.fromisoformat(str(ts))
+                        except (TypeError, ValueError):
+                            # 解析不了就維持 None —— 寧可顯示「-」也不要顯示錯的時間
+                            pass
 
                 # 計算尾部連續失敗次數（從最近往回數）
                 consecutive = 0

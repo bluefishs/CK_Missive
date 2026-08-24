@@ -74,20 +74,29 @@ ADAPTER_REL="$(read_cfg auth.adapter_host_script)"
 ADAPTER="$ROOT/$ADAPTER_REL"
 
 MODE="flow"
+# 2026-08-24（C3）：走查身分。預設 admin ⇒ **不帶參數時行為與先前完全相同**。
+# `--role user` 讓走查以一般同仁身分跑一遍 —— 那個維度先前不存在，
+# 而 2026-08-20「同仁變成代碼」就藏在裡面（五個人員下拉對非管理員一律是空的，
+# 而走查、tsc、py_compile、模組匯入掃描全部綠燈）。
+ROLE="admin"
 ARGS=()
 for a in "$@"; do
   if [ "$a" = "--sweep" ]; then MODE="sweep"
   elif [ "$a" = "--visual" ]; then MODE="visual"
+  elif [ "$a" = "--role" ]; then NEXT_IS_ROLE=1
+  elif [ "${NEXT_IS_ROLE:-0}" = "1" ]; then ROLE="$a"; NEXT_IS_ROLE=0
   else ARGS+=("$a"); fi
 done
 
 # ── 1. 簽發臨時憑證 ────────────────────────────────────────────────
 CRED_ENV=()
 if [ -n "$CONTAINER" ] && [ -f "$ADAPTER" ]; then
-  echo "[1/2] 簽發臨時檢核憑證（$CONTAINER）..."
+  echo "[1/2] 簽發臨時檢核憑證（$CONTAINER｜身分=$ROLE）..."
   AUTH_OUT="$(mktemp)"
   trap 'rm -f "$AUTH_OUT"' EXIT
-  if ! MSYS_NO_PATHCONV=1 docker exec -i "$CONTAINER" python - < "$ADAPTER" > "$AUTH_OUT" 2>/dev/null; then
+  # role 走**環境變數**：入口用 stdin 傳 adapter，傳不了 CLI 參數。
+  # adapter 不支援 role 時這個變數對它無效、照舊跑 —— 不會壞（五 repo 共用）。
+  if ! MSYS_NO_PATHCONV=1 docker exec -i -e "SELFAUDIT_ROLE=$ROLE" "$CONTAINER" python - < "$ADAPTER" > "$AUTH_OUT" 2>/dev/null; then
     # 「沒取到」必須說出來：靜靜往下跑會讓整批頁面被導回登入頁，
     # 而症狀（全部 SKIP）看起來像「這些頁面需要登入」，把真正的原因藏起來。
     echo "  ⚠️  簽發失敗（容器未啟動？）—— 僅能跑免登入項目"

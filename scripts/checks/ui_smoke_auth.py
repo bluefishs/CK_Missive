@@ -65,6 +65,13 @@ def _wanted_role() -> str:
     這不是檢核寫錯，是**座標系裡沒有「非管理員」這個維度**。
     """
     import argparse
+    import os
+    # ⚠️ 環境變數優先於 argv —— 共用入口用 `docker exec -i python - < adapter`
+    # 傳這支進容器，**argv 傳不進來**，只有 -e 進得去。
+    # 直接手動執行時 argv 仍然有效（兩種呼叫方式都要能用）。
+    env = (os.getenv("SELFAUDIT_ROLE") or "").strip().lower()
+    if env in ("admin", "user"):
+        return env
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument("--role", choices=("admin", "user"), default="admin")
     known, _ = ap.parse_known_args()
