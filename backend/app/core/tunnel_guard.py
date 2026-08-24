@@ -91,7 +91,24 @@ def _path_allowed(path: str) -> bool:
 
 
 # API 文件路徑：吐出全部端點的 schema，只該給內網。
-API_DOC_PATHS = ("/openapi.json", "/api/docs", "/api/redoc", "/docs/oauth2-redirect")
+#: 只准內網來源的路徑。
+#:
+#: ⚠️ 2026-08-24 加入 `/metrics` —— 它是 08-21 那個外洩的**側門**，
+#: 而我當時沒看到，因為 `public_endpoint_auth_audit` **只掃 `/api/*`**。
+#: 公網實測未帶憑證回 200、**1,013,354 字元**，內容包括：
+#:   kg_entities_total 49899      ← 正是關掉 statistics 端點要擋的那個數字
+#:   kg_edges_total / kg_embedding_coverage_ratio
+#:   341 條端點路徑（完整 API 地圖，含 admin 端點）
+#:   LLM provider 名稱與效能（gemma-local、latency p95、success ratio）
+#:
+#: 這個盲區是 CK_PileMgmt session 2026-08-24 指出的：runtime dependency 樹
+#: 「擅長找出誰忘記加認證，但看不到**非瀏覽器消費者**（Prometheus／webhook
+#: 這類基礎設施抓取器）」—— 它們不在前端消費鏈裡，也不在 `/api/*` 底下。
+#:
+#: Prometheus 走內網抓（實測 log：`host: host.docker.internal:8001`、
+#: `user-agent: Prometheus/2.53.0`），所以加這條守衛**不影響採集**。
+API_DOC_PATHS = ("/openapi.json", "/api/docs", "/api/redoc", "/docs/oauth2-redirect",
+                 "/metrics")
 
 
 class ApiDocsGuardMiddleware(BaseHTTPMiddleware):

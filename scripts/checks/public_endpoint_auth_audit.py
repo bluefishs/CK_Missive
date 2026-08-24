@@ -98,6 +98,17 @@ INTENDED = [
     # 中介層若有例外路徑，dependency 樹也看不出來。跨 repo 尤其要注意。
     (r"^/api/debug/", "開發除錯端點（2026-08-21 公網實測：POST 401／GET 404，"
                       "認證由中介層提供，dependency 樹看不到）"),
+    # ── 以下四條為 2026-08-24 擴大掃描範圍後才看得到的根層路由 ──
+    # 它們的共同點：**認證由中介層（ApiDocsGuardMiddleware）提供**，
+    # dependency 樹看不到，所以會被判成「無認證」。
+    # ⇒ 判準是「公網實測回什麼」，不是「樹上有沒有相依」。
+    (r"^/metrics$", "Prometheus 採集端點（走內網 host.docker.internal:8001）。"
+                    "⚠️ 2026-08-24 前公網未認證可取 1MB、含 kg_entities_total 與 "
+                    "341 條端點路徑 —— 已加進 ApiDocsGuardMiddleware，公網回 404"),
+    (r"^/openapi\.json$", "API schema（根層）。ApiDocsGuardMiddleware 擋公網，"
+                          "實測 2026-08-24 公網回 404"),
+    (r"^/health$", "健康檢查（cloudflared/Docker HEALTHCHECK 只發 GET，必須公開）"),
+    (r"^/docs/oauth2-redirect$", "Swagger OAuth 回跳頁；ApiDocsGuardMiddleware 已涵蓋"),
 ]
 
 _PROBE = r'''
@@ -140,7 +151,16 @@ def deps(route):
 rows = []
 for r in app.routes:
     p = getattr(r, "path", None)
-    if not p or not p.startswith("/api"):
+    if not p:
+        continue
+    # 2026-08-24：**不再只掃 `/api/*`**。CK_PileMgmt 指出這個盲區 ——
+    # runtime dependency 樹「看不到非瀏覽器消費者」（Prometheus／webhook
+    # 這類基礎設施抓取器），而它們往往不在 `/api/` 底下。
+    # 實例：`/metrics` 公網未認證回 200、1,013,354 字元，含 kg_entities_total
+    # 與 341 條端點路徑 —— 那是 08-21 外洩的側門，而本檔當時看不到它。
+    # 排除純前端靜態與 SPA catch-all（它們本來就該公開，且不是端點）。
+    if p in ("/", "/{full_path:path}") or p.startswith(("/assets", "/uploads",
+                                                        "/static", "/{spa_path")):
         continue
     names = deps(r)
     # 帶上 method：同一路徑可能 GET 有認證而 POST 沒有，只以 path 為單位
