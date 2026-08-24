@@ -189,14 +189,51 @@ async function runSteps(page, ctx, steps) {
   return { ok: 'ok' };
 }
 
-const CHECKS = (CONFIG.flows || []).map((f) => ({
-  id: f.id,
-  name: f.name,
-  auth: !!f.auth,
-  url: f.url,
-  viewport: f.viewport,
-  run: (page, ctx) => runSteps(page, ctx, f.steps || []),
-}));
+// 2026-08-24（C3）：flow 可宣告它適用哪些身分。
+//
+// 走查**先前永遠以最高權限跑**，一般同仁看到的畫面從來沒有被驗過。
+// 實測以一般同仁身分跑，20 條有 5 條 FAIL —— 而**逐一查證後沒有一條是缺陷**：
+// 有的是 tab 文案依 isAdmin 分流（斷言驗的是管理員那個字），
+// 有的是 RLS 正確擋住（走查帳號不在該案件的指派名單裡）。
+//
+// ⇒ 若把它們當缺陷去修，會修出一堆不存在的問題；
+//   若把 FAIL 當雜訊忽略，這個維度就白加了。
+//   **正解是讓 flow 自己說它適用哪些身分。**
+//
+// `roles` 未宣告 ⇒ **兩種身分都跑**。
+//
+// ⚠️ 我第一版把預設寫成 `['admin']`，理由是「行為與先前完全相同」——
+// 那是錯的：以 user 身分跑時**一條都篩不到**（守衛正確擋下並 exit 2）。
+// 真正該保持不變的是「**不帶 --role 時**（＝admin）跑全部 20 條」，
+// 而那在「未宣告＝都跑」之下同樣成立。
+// 預設值要問的是「這條 flow 適用誰」而不是「先前的行為是什麼」——
+// 未宣告代表**沒有人判斷過它限不限身分**，那時候該跑而不是該跳過。
+const RUN_ROLE = (process.env.SELFAUDIT_ROLE || 'admin').toLowerCase();
+if (!['admin', 'user'].includes(RUN_ROLE)) {
+  // 入口已擋一次，這裡再擋一次 —— 引擎也可能被單獨呼叫。
+  // 兩端對同一個值必須有同一種處置，否則就是「不一致而沒有人報錯」。
+  console.error(`[RED] 未知身分 "${RUN_ROLE}" —— 只接受 admin｜user。不下結論。`);
+  process.exit(2);
+}
+const CHECKS = (CONFIG.flows || [])
+  .filter((f) => {
+    if (!Array.isArray(f.roles) || !f.roles.length) return true;   // 未宣告 ⇒ 都跑
+    return f.roles.includes(RUN_ROLE);
+  })
+  .map((f) => ({
+    id: f.id,
+    name: f.name,
+    auth: !!f.auth,
+    url: f.url,
+    viewport: f.viewport,
+    run: (page, ctx) => runSteps(page, ctx, f.steps || []),
+  }));
+if (!CHECKS.length) {
+  // 篩不到任何一條 = 身分寫錯或 config 壞了，不是「全部通過」。
+  console.error(`[RED] 身分 "${RUN_ROLE}" 篩不到任何 flow —— 不下結論`);
+  process.exit(2);
+}
+console.log(`  身分=${RUN_ROLE}｜適用 ${CHECKS.length}/${(CONFIG.flows || []).length} 條 flow`);
 
 // ---------------------------------------------------------------------------
 async function main() {

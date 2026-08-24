@@ -79,6 +79,10 @@ MODE="flow"
 # 而 2026-08-20「同仁變成代碼」就藏在裡面（五個人員下拉對非管理員一律是空的，
 # 而走查、tsc、py_compile、模組匯入掃描全部綠燈）。
 ROLE="admin"
+# ⚠️ 無效身分必須擋在入口 —— 負向測試（--role nobody）實測會**靜靜跑 15 條並印綠燈**：
+#    adapter 那端有 choices 擋住所以退回 admin 簽發，而引擎照收 nobody 去篩，
+#    篩掉 5 條 admin-only 之後剩 15 條全過 ⇒ **打錯字看起來像通過**。
+#    兩端對同一個值有兩種處置，而不一致時沒有任何一方報錯。
 ARGS=()
 for a in "$@"; do
   if [ "$a" = "--sweep" ]; then MODE="sweep"
@@ -90,6 +94,11 @@ done
 
 # ── 1. 簽發臨時憑證 ────────────────────────────────────────────────
 CRED_ENV=()
+case "$ROLE" in
+  admin|user) ;;
+  *) echo "[RED] 未知身分 \"$ROLE\" —— 只接受 admin｜user。不下結論。" >&2; exit 2 ;;
+esac
+
 if [ -n "$CONTAINER" ] && [ -f "$ADAPTER" ]; then
   echo "[1/2] 簽發臨時檢核憑證（$CONTAINER｜身分=$ROLE）..."
   AUTH_OUT="$(mktemp)"
@@ -135,5 +144,5 @@ if command -v cygpath >/dev/null 2>&1; then ENTRY_JS="$(cygpath -w "$ENTRY_JS")"
 # ⚠️ 環境變數與 node 之間**不得插入註解**：註解一旦落在 `\` 續行裡，
 # 賦值會被截斷、變數完全沒傳給 node（2026-08-08 在 pile 就是這樣把 COOKIE 傳丟，
 # 表面症狀是「走查大量失敗」，查了五個錯誤方向才發現）。
-env SELFAUDIT_CONFIG="$CONFIG_WIN" "${CRED_ENV[@]+"${CRED_ENV[@]}"}" \
+env SELFAUDIT_CONFIG="$CONFIG_WIN" SELFAUDIT_ROLE="$ROLE" "${CRED_ENV[@]+"${CRED_ENV[@]}"}" \
   node "$ENTRY_JS" "${ARGS[@]+"${ARGS[@]}"}"

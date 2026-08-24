@@ -282,7 +282,11 @@
           "text": "載入失敗",
           "failMsg": "進化分頁載入失敗（學習閉環資料鏈斷）"
         }
-      ]
+      ],
+      "roles": [
+        "admin"
+      ],
+      "roles_why": "運維主軸的文案 isAdmin 分流（KungePage.tsx:83：管理員看到「運維」、一般同仁看到「儀表板」）—— 斷言驗的是管理員那個字"
     },
     {
       "id": "account-record-entry",
@@ -570,7 +574,11 @@
           "text": "找不到這筆",
           "failMsg": "填報頁顯示找不到資料（單筆查詢壞了）"
         }
-      ]
+      ],
+      "roles": [
+        "admin"
+      ],
+      "roles_why": "指向 /contract-cases/187，而該案件的指派是 [3,7]；走查用的一般同仁 id=4 不在其中 ⇒ RLS 正確擋住"
     },
     {
       "id": "staff-form-page",
@@ -633,7 +641,11 @@
           "min": 1,
           "failMsg": "填報頁標題列沒有移除鈕"
         }
-      ]
+      ],
+      "roles": [
+        "admin"
+      ],
+      "roles_why": "同上（同一個案件）"
     },
     {
       "id": "visual-walk-lock-quotation-mobile",
@@ -703,7 +715,11 @@
           "min": 8,
           "failMsg": "基本資訊標籤數異常（Descriptions 結構被改動）"
         }
-      ]
+      ],
+      "roles": [
+        "admin"
+      ],
+      "roles_why": "同上 —— 欄位缺漏是因為看不到那個案件，不是版面壞掉"
     },
     {
       "id": "dispatch-doc-search-already-linked",
@@ -734,7 +750,11 @@
           "text": "無符合的公文",
           "failMsg": "已關聯的公文被誤報為『無符合的公文』"
         }
-      ]
+      ],
+      "roles": [
+        "admin"
+      ],
+      "roles_why": "點不到搜尋框，同屬看不到資料而元素沒渲染"
     },
     {
       "id": "quotation-tab-deeplink",
