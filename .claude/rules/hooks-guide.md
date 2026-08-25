@@ -12,9 +12,30 @@
 
 ### PostToolUse (工具執行後)
 
+> ⚠️ **2026-08-26：`typescript-check` 已從 PostToolUse 移除**（腳本保留，可手動跑）。
+>
+> 起因是 CK_Website 回報他們的 `PostToolUse:Edit` 平均 8.4 秒；量本 repo 更嚴重 ——
+> 近 30 個 session 裡 `PostToolUse:Edit` **3,315 次 × 5.9 秒 = 5.4 小時**，
+> 加 Write 共約 **6.6 小時**純阻塞等待。逐支量測後元兇是它：改一個 `.tsx`
+> 要 **28.8 秒**（`npx tsc --noEmit` 全專案 600+ 檔；`--incremental` 也只降到 15.1 秒）。
+>
+> 而真正的問題不是慢，是**同一件事有三份，最貴的那份跑得最頻繁**：
+>
+> | 層 | 做什麼 | 頻率 |
+> |---|---|---|
+> | ~~`PostToolUse`~~ | `npx tsc --noEmit` | **每次 Edit** —— 平均 4.3 次／turn，最多 39 次 |
+> | `Stop` quality-gate | prompt 明寫「執行 `npx tsc --noEmit`」 | 每 turn 1 次 |
+> | `pre-commit` | TypeScript 編譯檢查 | 提交時 |
+>
+> 近 10 個 session 有 366 個 turn 動到檔案 ⇒ 每 turn 多跑 3.3 次無用的全專案編譯。
+> 而且一次修改往往要多次 Edit，**中間狀態的型別錯誤是「還沒改完」不是「改錯了」**。
+>
+> 移除後保護沒有變薄：Stop（每 turn）與 pre-commit（提交時）兩層都還在，
+> 而後者實測會擋（本輪提交時印出「[Pre-commit] TypeScript 編譯通過」）。
+> 若日後覺得少了即時回饋，加回一行即可 —— 這個取捨是可逆的。
+
 | Hook | Matcher | 說明 | 腳本 |
 |------|---------|------|------|
-| typescript-check | `Edit\|Write` | TypeScript 編譯檢查 (.ts/.tsx) | `.claude/hooks/typescript-check.ps1` |
 | python-lint | `Edit\|Write` | Python 語法檢查 (.py) | `.claude/hooks/python-lint.ps1` |
 | api-serialization-check | `Edit\|Write` | API 序列化問題檢測 (.py, 僅 endpoints/) | `.claude/hooks/api-serialization-check.ps1` |
 | performance-check | `Edit\|Write` | N+1 查詢與缺分頁檢測 (.py, 僅 services/endpoints/) | `.claude/hooks/performance-check.ps1` |

@@ -75,11 +75,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/typescript-check.ps1",
-            "timeout": 60
-          },
-          {
-            "type": "command",
             "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/python-lint.ps1",
             "timeout": 30
           },
