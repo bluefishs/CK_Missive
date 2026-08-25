@@ -43,7 +43,7 @@
 | B6 | **匯出表單格式** | owner 指示「先完成前述整合再議」；已知不輸出委託單位 ID | 待 A1 完成後 |
 | B9 | **`require_scope` 是裝飾性的 —— token→scope 對照從未實作** | `_ALL_SCOPES = VALID_SCOPES`，所以 `require_scope("admin:system")` 與 `require_scope("read:kg")` 效果**完全相同**：有 token 就過，從不檢查這把 token 有沒有被授予該 scope | **具體後果**：CK_Website 為了送一則通知呼叫 `/api/notify/digest`（宣告 `admin:system`），實際拿到能讀 KG、改 agent、跑備份的憑證。⚠️ **要修需要跨 repo**：`MCP_SERVICE_TOKEN` 由 Hermes／LINE／CK_Website 共用，改成多把或帶 scope 宣告要各消費端同步 ⇒ **屬 owner 決策**。2026-08-21 已先讓它出聲（每次通過都記 log 說明未做對照），不再只寫在註解裡 |
 | B8 | **廠商重複（勤典工程行／勤典測量工程行）** | ⛔ **owner 2026-08-20 決定不做**：「此非系統問題，實為人為填報機制要修正」。量測支持這個判斷 —— 5 組名稱相似裡**只有 1 組是真重複**（台電三個發電廠、工務局與用地科、「楊長燁加李雅倫」「祐鴻+昱緯+建倫」都是有意義的不同），自動判重會產生 4/5 假陽性 | **不要再提議加相似度比對**。另：補建的 137 件邀標案件裡 130 件的委託單位只有文字沒有連結，而 101 個不重複客戶名裡有「何明利」「劉庚霖之繼承人(4人)」「劉進財、孫瑟花」等**自然人地主** —— 那些本來就不該建成「廠商」，自動補建會把資料模型弄錯 |
-| B7 | **管理動作按鈕對一般使用者可見但按下去 403** | 4 個頁面路由是 `ProtectedRoute`（只要登入）而頁內含管理動作：`/ai/erp-graph` 的 Ingest Admin 分頁、`/ai/code-graph`、`/ai/knowledge-graph` 的管理面板、`/erp/einvoice-sync` 的「同步」 | 403 部分屬**刻意**（同步會呼叫財政部 API、有配額），所以不擅自放寬；缺的是**畫面不該給一個必然失敗的按鈕**。盤點用 `scripts/checks/admin_endpoint_ui_consumers.py`（人工觸發） |
+| ~~B7~~ | ~~**管理動作按鈕對一般使用者可見但按下去 403**~~ | **2026-08-26 收束**。原記的 4 頁實查後只有 `/ai/erp-graph` 真的漏（另三頁都已有 `isAdmin` 且真的用在渲染上）；接著建 `admin_action_visibility_audit.py`（weekly 68）**自動掃全**，另抓到兩個原本不在清單裡的：`/ai/db-graph`（選單權限已是 `admin:settings`、**但路由沒鎖 ⇒ 直接打網址就進得去**）與 `/staff`（選單權限 `projects:read` ⇒ **一般同仁看得到，點進去是空表格＋統計全 0，看起來像「公司沒有同仁」**）| 三頁修法各不相同且都**不放寬端點權限**：erp-graph 分頁依 `isAdmin` 顯示／db-graph 路由補 `roles={['admin']}` 與選單一致／staff **只治症狀**（載不到要說出來、不給必然失敗的按鈕），該不該對一般同仁開放仍是 owner 的產品決策。⚠️ 這支檢核自己踩了兩個坑才有鑑別力，見 `scripts/checks/README.md` weekly 68 |
 
 ---
 

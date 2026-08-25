@@ -294,7 +294,10 @@ export const AppRouter: React.FC = () => {
           {/* ERP 財務圖譜 */}
           <Route path={ROUTES.ERP_GRAPH} element={<ProtectedRoute><ERPGraphPage /></ProtectedRoute>} />
           {/* 資料庫圖譜 */}
-          <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute><DatabaseGraphPage /></ProtectedRoute>} />
+          {/* 2026-08-26（C4）：導覽權限是 admin:settings（一般同仁選單裡看不到），
+              但路由原本只寫 ProtectedRoute ⇒ **直接打網址就進得去**、然後整頁 403。
+              補上 roles 與選單一致 —— 這不改變任何人現在看得到的東西。 */}
+          <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute requireAuth={true} roles={['admin']}><DatabaseGraphPage /></ProtectedRoute>} />
           {/* 數位分身 + 智能體中心（v5.8.1 整合）→ 全部重導到坤哥 */}
           <Route path={ROUTES.DIGITAL_TWIN} element={<Navigate to="/kunge/ops" replace />} />
           <Route path={ROUTES.AGENT_DASHBOARD} element={<Navigate to="/kunge/ops" replace />} />

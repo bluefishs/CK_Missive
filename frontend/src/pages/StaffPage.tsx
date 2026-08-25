@@ -20,6 +20,7 @@ import {
   Switch,
   Tag,
   Tooltip,
+  Alert,
 } from 'antd';
 import {
   PlusOutlined,
@@ -41,6 +42,7 @@ import { useTableColumnSearch, useResponsive } from '../hooks';
 import { defaultQueryOptions } from '../config/queryConfig';
 import { ROUTES } from '../router/types';
 import { useDepartments } from '../hooks/system';
+import { useAuthGuard } from '../hooks/utility/useAuthGuard';
 import { logger } from '../services/logger';
 
 const { Title } = Typography;
@@ -71,6 +73,16 @@ export const StaffPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { data: departmentOptions = [] } = useDepartments();
 
+  // 2026-08-26（C4）：這一頁的內容**全部需要管理員**（清單 USERS.LIST、
+  // 啟用停用 USERS.STATUS），而 `/staff` 的導覽權限是 `projects:read`
+  // ⇒ 一般同仁看得到選單、點進來看到**空表格 + 統計全 0**，
+  // 看起來像「公司沒有同仁」——而那與「你沒有權限看」意思完全相反。
+  //
+  // 這一頁該不該對一般同仁開放是**產品決策**，這裡不改權限
+  // （08-20 立過：那些 403 部分是刻意的，不擅自放寬），只治兩件事 ——
+  // 載不到要說出來，且不給一個必然失敗的按鈕。
+  const { isAdmin } = useAuthGuard();
+
   // 分頁狀態
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -81,7 +93,7 @@ export const StaffPage: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState<string>('');
 
   // 使用 React Query 載入承辦同仁列表
-  const { data: staffData, isLoading: loading } = useQuery({
+  const { data: staffData, isLoading: loading, isError } = useQuery({
     queryKey: ['users', 'list', { page: current, limit: pageSize, search: searchText, is_active: activeFilter, department: departmentFilter }],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -299,6 +311,25 @@ export const StaffPage: React.FC = () => {
         },
         // 導航模式：刪除功能整合至詳情頁，列表頁不顯示刪除按鈕
       ];
+
+  // ⚠️ 「載不到」與「沒有資料」必須看得出差別 —— 空表格會被讀成
+  // 「公司沒有同仁」（08-20 的判準：空清單不得退化成看起來像真的答案）。
+  if (isError && !isAdmin) {
+    return (
+      <div style={{ padding: pagePadding }}>
+        <Title level={isMobile ? 4 : 3} style={{ marginBottom: 16 }}>
+          <TeamOutlined style={{ marginRight: 8 }} />
+          {isMobile ? '同仁管理' : '承辦同仁管理'}
+        </Title>
+        <Alert
+          type="info"
+          showIcon
+          message="這一頁需要管理員權限"
+          description="承辦同仁的帳號管理（啟用停用、部門、最後登入）屬於管理功能。若你要指派工作給同仁，請直接在案件或派工的「承辦同仁」欄位選擇。"
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: pagePadding }}>

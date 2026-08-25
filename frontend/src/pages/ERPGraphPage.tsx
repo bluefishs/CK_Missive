@@ -398,7 +398,9 @@ const GraphNetworkTab: React.FC = () => {
 // ── Main Page ──
 
 const ERPGraphPage: React.FC = () => {
-  useAuthGuard();
+  // 原本是裸呼叫 `useAuthGuard()`（只為了觸發登入守衛）；
+  // 2026-08-24 改為取用它的 isAdmin —— 同一個 hook 不呼叫兩次。
+  const { isAdmin } = useAuthGuard();
   const [activeTab, setActiveTab] = useState('overview');
 
   const tabItems = [
@@ -414,9 +416,17 @@ const ERPGraphPage: React.FC = () => {
     createTabItem('search', { icon: <SearchOutlined />, text: '實體搜尋' },
       <EntitySearchTab />
     ),
-    createTabItem('admin', { icon: <ToolOutlined />, text: '入圖管理' },
+    // 2026-08-24（C4）：入圖管理打 `/ai/graph/admin/erp-ingest`（需管理員），
+    // 而本頁只是 ProtectedRoute（只要登入）⇒ 一般同仁看得到、**點下去必然 403**。
+    //
+    // 修法是**不顯示它**，不是放寬端點權限 —— 入圖會重建圖譜，是管理動作，
+    // 403 是對的；缺的是「畫面不該給一個必然失敗的按鈕」（OPEN_ITEMS B7）。
+    //
+    // 同組四頁裡另外三個（CodeGraphManagementPage／KnowledgeGraphPage／
+    // ERPEInvoiceSyncPage）都已有 isAdmin 判斷，只有這一頁漏了。
+    ...(isAdmin ? [createTabItem('admin', { icon: <ToolOutlined />, text: '入圖管理' },
       <IngestAdminTab />
-    ),
+    )] : []),
   ];
 
   return (
