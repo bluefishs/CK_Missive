@@ -28,6 +28,7 @@
 | A15 | **pile 的 82 條公開業務查詢是否去識別化** | 已補 60/min 防爬取；公開與否屬產品決策 | 同上 |
 | A16 | **DT 點雲／裂縫影像的內容認證** | 08-09 判為產品決策；**新論據＝頻寬成本**（§0） | 同上 |
 | A17 | **`FT_StorageTank` NAS 備份停在 54 天前，且該專案無 session** | 需指派 | 同上 |
+| A18 | **L43 的 503 防禦只覆蓋了一半，另一半要 owner 登 CF Dashboard 才看得到** | CF Dashboard 我看不到 —— 需要你登入確認該 tunnel 的 health path 指向哪一個 | `configs/cloudflare-tunnel.yml` 檔頭（完整查證＋三處與現實的矛盾）｜commit `8485361a` |
 
 ---
 
@@ -43,7 +44,6 @@
 | B6 | **匯出表單格式** | owner 指示「先完成前述整合再議」；已知不輸出委託單位 ID | 待 A1 完成後 |
 | B9 | **`require_scope` 是裝飾性的 —— token→scope 對照從未實作** | `_ALL_SCOPES = VALID_SCOPES`，所以 `require_scope("admin:system")` 與 `require_scope("read:kg")` 效果**完全相同**：有 token 就過，從不檢查這把 token 有沒有被授予該 scope | **具體後果**：CK_Website 為了送一則通知呼叫 `/api/notify/digest`（宣告 `admin:system`），實際拿到能讀 KG、改 agent、跑備份的憑證。⚠️ **要修需要跨 repo**：`MCP_SERVICE_TOKEN` 由 Hermes／LINE／CK_Website 共用，改成多把或帶 scope 宣告要各消費端同步 ⇒ **屬 owner 決策**。2026-08-21 已先讓它出聲（每次通過都記 log 說明未做對照），不再只寫在註解裡 |
 | B8 | **廠商重複（勤典工程行／勤典測量工程行）** | ⛔ **owner 2026-08-20 決定不做**：「此非系統問題，實為人為填報機制要修正」。量測支持這個判斷 —— 5 組名稱相似裡**只有 1 組是真重複**（台電三個發電廠、工務局與用地科、「楊長燁加李雅倫」「祐鴻+昱緯+建倫」都是有意義的不同），自動判重會產生 4/5 假陽性 | **不要再提議加相似度比對**。另：補建的 137 件邀標案件裡 130 件的委託單位只有文字沒有連結，而 101 個不重複客戶名裡有「何明利」「劉庚霖之繼承人(4人)」「劉進財、孫瑟花」等**自然人地主** —— 那些本來就不該建成「廠商」，自動補建會把資料模型弄錯 |
-| A18 | **L43 的 503 防禦只覆蓋了一半，另一半要 owner 登 CF Dashboard 才看得到** | `/health`（`backend/main.py:955`，L43 volume mount drift 災難後建的）會回 documents／canonical_entities，低於門檻就 **503** ⇒ 讓 healthcheck fail、流量不打進空殼 instance。實測 `ok=True, docs=2021, KG=49918` 正常。**但同名的 `/api/health`（health.py router）是精簡版、不看業務量、永遠回 healthy** —— `docker-compose.production.yml:334` 指對了（`/health`），而 `configs/cloudflare-tunnel.yml:40` 指的是 `/api/health`。那個 yml 查證後**完全沒有在生效**（cloudflared 是 token 模式、零 volume 掛載，ingress 在 CF Dashboard），所以它本身不是現行故障 —— **真正的問題是 CF Dashboard 那一側指向哪一個，我看不到** | owner 登入 CF Dashboard 確認該 tunnel 的 health path。若是 `/api/health`，L43 對 Cloudflare 那一層的防禦是失效的（空殼 DB 照樣被導流量進來），改成 `/health` 即可。⚠️ 同名兩個端點、一個有防禦一個沒有，本身就是個陷阱：我本輪複查時打了 `/api/health`，看到 `business_data=None` 差點誤判防禦不見了 |
 | ~~B7~~ | ~~**管理動作按鈕對一般使用者可見但按下去 403**~~ | **2026-08-26 收束**。原記的 4 頁實查後只有 `/ai/erp-graph` 真的漏（另三頁都已有 `isAdmin` 且真的用在渲染上）；接著建 `admin_action_visibility_audit.py`（weekly 68）**自動掃全**，另抓到兩個原本不在清單裡的：`/ai/db-graph`（選單權限已是 `admin:settings`、**但路由沒鎖 ⇒ 直接打網址就進得去**）與 `/staff`（選單權限 `projects:read` ⇒ **一般同仁看得到，點進去是空表格＋統計全 0，看起來像「公司沒有同仁」**）| 三頁修法各不相同且都**不放寬端點權限**：erp-graph 分頁依 `isAdmin` 顯示／db-graph 路由補 `roles={['admin']}` 與選單一致／staff **只治症狀**（載不到要說出來、不給必然失敗的按鈕），該不該對一般同仁開放仍是 owner 的產品決策。⚠️ 這支檢核自己踩了兩個坑才有鑑別力，見 `scripts/checks/README.md` weekly 68 |
 
 ---
