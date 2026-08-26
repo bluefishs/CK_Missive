@@ -354,6 +354,21 @@ echo -e "${CYAN}[23/78] Capability usage audit${NC}"
 if $STRICT; then
     PYTHONIOENCODING=utf-8 python scripts/checks/capability_usage_audit.py --quick --ci || FAIL_COUNT=$((FAIL_COUNT+1))
 else
+    # ⚠️ 2026-08-26：`|| true` 保留，但**理由必須寫明**，否則它就是本 repo
+    # v6.33 記過的那個反模式（三支 fitness 腳本 `|| true` 恆印全綠）。
+    #
+    # 保留的理由：這一支目前報 **RED / 87 dead findings**，而 87 個裡
+    # 83 個是 Agent 工具、4 個是 KG 實體 —— **全部是已知存量**，
+    # 沒有 baseline 機制之前讓它 exit 非 0，只會讓月度覆盤天天紅而沒人看。
+    #
+    # ⚠️ 但那不代表這件事沒問題：owner 2026-08-26 指出
+    # 「代表系統知識文庫機制尚未完善，相同問題再次發生」——
+    # 具體形態是**沒有任何機制在問「這個業務能力有人在用嗎」**：
+    #   · 這一支只看 Agent 工具與 KG 實體，座標系不含業務能力；
+    #   · `dead_ui_detector` 判「後端有端點、前端沒常數」，
+    #     而線上報價編輯器**常數有、元件有、頁面也用著**，它抓不到。
+    # ⇒ 已在 `business_vital_signs` 補上「線上報價明細有人在用」那一條，
+    #    因為那是每天都會看到的地方。**這一支的 baseline 化仍是待辦。**
     PYTHONIOENCODING=utf-8 python scripts/checks/capability_usage_audit.py --quick || true
 fi
 echo ""
