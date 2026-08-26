@@ -95,7 +95,12 @@ docker run --rm \
 
 # 4. 編輯 docker-compose.infra.yml 改 bind mount
 # 5. 重啟
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f docker-compose.infra.yml --profile tunnel up -d
+# ⚠️ `--profile tunnel` 不可省：`cloudflared` 有 `profiles: ['tunnel']`，
+#    不帶它 `up -d` **不會把公網入口建回來**（`config --services` 也不列它）。
+#    `restart: unless-stopped` 只救重啟，救不了「容器被移除」。
+#    2026-08-26 由 CK_AaaP 指出容器不在 `config --services` 裡而查出。
+
 
 # 6. 驗證
 docker exec ck_missive_postgres_dev psql -U ck_user -d ck_documents -c "SELECT COUNT(*) FROM official_documents;"
@@ -155,7 +160,7 @@ docker volume ls | grep ck_missive
 # 應看到 ck_missive_postgres_dev_data + ck_missive_redis_dev_data
 
 # 2. 啟動服務
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f docker-compose.infra.yml --profile tunnel up -d
 
 # 3. 等待 healthy（最多 30s）
 sleep 30 && docker compose -f docker-compose.infra.yml ps
@@ -191,13 +196,13 @@ bash scripts/checks/run_fitness.sh 2>&1 | tail -20
 
 ```bash
 bash scripts/backup/restore_from_volume_tar.sh latest
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f docker-compose.infra.yml --profile tunnel up -d
 ```
 
 ### §5.2 從 pg_dump 還原（次選，需重建 schema）
 
 ```bash
-docker compose -f docker-compose.infra.yml up -d postgres
+docker compose -f docker-compose.infra.yml --profile tunnel up -d postgres
 sleep 10
 
 # 確認 DB exists
@@ -230,12 +235,12 @@ bash scripts/backup/restore_from_volume_tar.sh <TS>
 
 ```bash
 # Ollama
-docker compose -f docker-compose.infra.yml up -d ollama
+docker compose -f docker-compose.infra.yml --profile tunnel up -d ollama
 docker exec ck_missive_ollama_dev ollama pull gemma:8b-instruct-fp16
 docker exec ck_missive_ollama_dev ollama pull nomic-embed-text
 
 # vLLM (Qwen2.5-7B-AWQ)
-docker compose -f docker-compose.infra.yml up -d vllm
+docker compose -f docker-compose.infra.yml --profile tunnel up -d vllm
 # 預期 5-10 分鐘下載 model
 ```
 

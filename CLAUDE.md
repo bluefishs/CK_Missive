@@ -365,7 +365,12 @@ Discord → Interactions Endpoint → Missive Agent API (直連)
 .\scripts\dev\dev-stop.ps1 -KeepInfra    # 僅停 PM2，保留 DB/Redis
 
 # === 手動啟動 ===
-docker compose -f docker-compose.infra.yml up -d      # 基礎設施
+docker compose -f docker-compose.infra.yml --profile tunnel up -d
+# ⚠️ `--profile tunnel` 不可省：`cloudflared` 有 `profiles: ['tunnel']`，
+#    不帶它 `up -d` **不會把公網入口建回來**（`config --services` 也不列它）。
+#    `restart: unless-stopped` 只救重啟，救不了「容器被移除」。
+#    2026-08-26 由 CK_AaaP 指出容器不在 `config --services` 裡而查出。
+      # 基礎設施
 cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8001
 cd frontend && npm run dev
 pm2 start ecosystem.config.js
