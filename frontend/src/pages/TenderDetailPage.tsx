@@ -111,6 +111,13 @@ const TenderDetailPage: React.FC = () => {
     // 實際上是**編號少了一半**。那兩件事意思完全相反。
     const looksLikeOrgCodeOnly =
       isEzbidOnly && !!uid && !uid.includes('/') && !/^\d+$/.test(uid);
+    // owner 2026-08-26：「原則上 PCC 為主要來源，不太可能會無案件資料」。
+    // 實測佐證：66,341 筆 pcc 來源裡 65,976 筆的 unit_id 是 base64 的 pkPmsMain
+    // （`NzEzMDE4NDg=`），只有 362 筆是點分機關碼。
+    // ⇒ PCC 這一支出現「查無」時，**編號有問題的機率遠高於資料真的不存在**，
+    //    而原訊息「PCC 開放資料中查無此標案」正好暗示相反的意思。
+    const pccKeyLooksWrong =
+      !isEzbidOnly && !!uid && (!jn || /^[0-9A-Za-z]+(\.[0-9]+)+$/.test(uid));
     return (
       <DetailPageLayout
         header={{
@@ -135,9 +142,18 @@ const TenderDetailPage: React.FC = () => {
               </>
             ) : (
               <>
-                <Text type="secondary">
-                  {isEzbidOnly ? 'ezbid 與本地資料庫中查無此標案' : 'PCC 開放資料中查無此標案'}
-                </Text>
+                {pccKeyLooksWrong ? (
+                  <Alert
+                    type="info"
+                    showIcon
+                    message="這組編號看起來不完整"
+                    description={`PCC 的標案要「案件編號＋標案案號」兩段才定位得到（案件編號長得像 NzEzMDE4NDg=）。${jn ? '' : '目前只有前半段。'}政府採購網是主要來源、幾乎不會沒有資料，所以查不到時通常是編號的問題 —— 請改用搜尋。`}
+                  />
+                ) : (
+                  <Text type="secondary">
+                    {isEzbidOnly ? 'ezbid 與本地資料庫中查無此標案' : 'PCC 開放資料中查無此標案'}
+                  </Text>
+                )}
                 {uid && (
                   <div style={{ marginTop: 16 }}>
                     {/* 08-02 站台改版後詳情頁是 `/detail/{機關}/{案號}`；
