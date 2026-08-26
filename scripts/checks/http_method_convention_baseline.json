@@ -4,6 +4,6 @@
     "/api/ai/memory/digest"
   ],
   "_pending": {
-    "/api/ai/memory/digest": "跨 repo，走協作不逕改（owner 2026-08-24：跨平台採協作方式辦理）。消費端是 **CK_Hermes** 的 query.py（不在本 repo 的 skill 包裡），單方面改會讓 S3 聯邦那條鏈斷掉，而它的失敗看起來會像「Hermes 壞了」—— L81：換了出口就要換整條鏈。"
+    "/api/ai/memory/digest": "三步過渡，2026-08-26 完成第 1 步。① **端點現在同時收 GET 與 POST**（commit `652fa6d6`，實作共用 `_build_digest`，GET 標 deprecated）—— 消費端不動也不會壞。② 待 CK_Hermes 把 `query.py` 的 `memory_digest` handler 切成 POST。⚠️ **不能只改 `method` 一個字**：那個 handler 目前用 `query_args: ['since','limit']` 把參數附成 query string，而送出邏輯是 `if body_required and method != 'GET'` 才建 body ⇒ 改成 POST 但維持 `body_required: False`，since/limit 會**靜默消失**（仍回 200，只是用預設近 7 日）。正確的 patch 是同時 `\"method\": \"POST\"` + `\"body_required\": True`，並把 `query_args` 改為 body（schema `MemoryDigestRequest` 未設 extra='forbid'，多送欄位會被忽略，安全）。③ 兩邊確認後移除 GET 並清掉本條。實打驗證（service token，容器內）：GET 200／POST 無 body 200／POST 帶 `{\"limit\":3}` 200 且 window 正確。⚠️ `query.py` 的權威副本雖在本 repo（`docs/hermes-skills/ck-missive-bridge/scripts/`），但它**跑在 Hermes 的容器**，改它就是改別人的 runtime ⇒ 依 owner 2026-08-24「跨平台採協作方式」不擅自動。"
   }
 }
