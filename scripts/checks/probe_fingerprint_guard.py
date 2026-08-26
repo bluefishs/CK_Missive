@@ -63,6 +63,16 @@ CONTROL_URL = "https://missive.cksurvey.tw/api/health"
 #:   而且兩個方向都會錯：誤判有洞，或漏掉真的洞。
 #:   判定必須看 **content-type**，不能只看狀態碼。
 CATCHALL_URL = "https://missive.cksurvey.tw/__nonexistent_probe_7f3a9z"
+
+#: **反向案例**：已知會回 JSON 的路徑（`/api/*` 不吃 SPA catch-all，
+#: 不存在時回 404 + application/json）。
+#: 若連它都被判成 catch-all，那不是站台有問題，是**這支的 content-type
+#: 根本沒在讀**（寫死、取錯 header、或又打錯 URL）⇒ 不下結論。
+#:
+#: CK_AaaP 2026-08-26：新寫的檢核第一次跑出來的結果，最該懷疑的是
+#: 檢核本身。這支昨天確實是這樣被逮到的（印 `→ 200` 又說「打不到」
+#: 還 exit 0），但那是運氣 —— 它剛好把矛盾印在同一段裡。
+NEGATIVE_URL = "https://missive.cksurvey.tw/api/__nonexistent_probe_7f3a9z"
 BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
@@ -141,8 +151,23 @@ def main() -> int:
         print("       所以探公網仍應主動帶瀏覽器 UA，不要依賴這個結果。")
     # ── 第二種指紋：SPA catch-all ──
     st, ct = probe_type(CATCHALL_URL)
+    neg_st, neg_ct = probe_type(NEGATIVE_URL)
     print(f"\n  SPA catch-all 對照: {CATCHALL_URL}")
-    print(f"    保證不存在的路徑 → {st} {ct}")
+    print(f"    保證不存在的路徑    → {st} {ct}")
+    print(f"    反向案例（/api/*）  → {neg_st} {neg_ct}")
+
+    # ── 反向驗證：這支自己的判定有沒有鑑別力 ──
+    # `/api/*` 不吃 SPA catch-all，**必須**回非 html。若它也是 html，
+    # 就是 content-type 沒在讀（寫死／取錯 header／又打錯 URL）。
+    if neg_st is not None and neg_ct.startswith("text/html"):
+        print("\n  [RED] **反向案例也被判成 catch-all** —— 這支的 content-type", file=sys.stderr)
+        print("        沒有真的在讀，或探測打錯了 URL。不下結論。", file=sys.stderr)
+        return 2
+    if neg_st is not None and not neg_ct:
+        print("\n  [RED] 反向案例取不到 content-type —— 判定失去依據，不下結論。",
+              file=sys.stderr)
+        return 2
+
     if st is None:
         print("    ⚪ 對照組打不到 —— 這一項未驗完，不下結論。")
     elif st == 200 and ct.startswith("text/html"):
