@@ -22,11 +22,12 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 from zoneinfo import ZoneInfo
 
+from app.schemas.ai.memory import MemoryDigestRequest
 from app.core.paths import WIKI_MEMORY_DIR as WIKI_MEMORY
 from app.core.service_auth import require_scope
 from app.db.database import get_async_db
@@ -204,14 +205,14 @@ def _compose_digest_text(
     return "".join(parts)[:800]
 
 
-@router.get("/memory/digest")
-async def memory_digest(
-    since: Optional[str] = Query(None, description="YYYY-MM-DD（預設近 7 日）"),
-    limit: int = Query(7, ge=1, le=30, description="各清單上限"),
-    db: AsyncSession = Depends(get_async_db),
-    _auth: bool = Depends(require_scope("read:agent")),
+async def _build_digest(
+    since: Optional[str], limit: int, db: AsyncSession,
 ) -> Dict[str, Any]:
-    """坤哥成長摘要（唯讀、冪等）— S3 段 A 契約回應。"""
+    """坤哥成長摘要的唯一實作 —— GET 與 POST 兩個入口共用。
+
+    ⚠️ 刻意不複製一份給 POST：兩份會各自演化，而過渡期正是最容易
+    長出第二份的時候（本 repo 已有多次同型紀錄）。
+    """
     until = datetime.now(TZ).date()
     if since:
         try:
@@ -242,3 +243,39 @@ async def memory_digest(
         "digest_text": _compose_digest_text(
             since_d, until, highlights, patterns, crystals, uncertainties, metrics),
     }
+
+
+# ── 兩個薄入口，共用 `_build_digest` ────────────────────────────
+#
+# 規範 §24「所有 endpoint POST」。這一條是 weekly 66 盤點出的 5 條真違反
+# 裡**唯一沒改**的 —— 消費端在 **CK_Hermes** 的 `query.py`（別的 repo 的
+# skill 包）。直接改成 POST 會讓那一段立刻壞掉，而**失敗看起來會像
+# 「Hermes 掛了」**，排查成本落在別人身上而根因在我這（L81：換了出口
+# 就要換整條鏈，而鏈的另一端不在我手上）。
+#
+# 三步過渡：① 同時收兩種方法（現在）② CK_Hermes 切 POST 並確認
+# ③ 移除 GET 並清掉 baseline 的 `_pending`。
+
+@router.post("/memory/digest")
+async def memory_digest_post(
+    req: MemoryDigestRequest = Body(default_factory=MemoryDigestRequest),
+    db: AsyncSession = Depends(get_async_db),
+    _auth: bool = Depends(require_scope("read:agent")),
+) -> Dict[str, Any]:
+    """坤哥成長摘要（唯讀、冪等）— S3 段 A 契約回應。**規範要求的方法。**"""
+    return await _build_digest(req.since, req.limit, db)
+
+
+@router.get("/memory/digest", deprecated=True)
+async def memory_digest(
+    since: Optional[str] = Query(None, description="YYYY-MM-DD（預設近 7 日）"),
+    limit: int = Query(7, ge=1, le=30, description="各清單上限"),
+    db: AsyncSession = Depends(get_async_db),
+    _auth: bool = Depends(require_scope("read:agent")),
+) -> Dict[str, Any]:
+    """⚠️ **過渡期保留** —— 待 CK_Hermes 的 `query.py` 切成 POST 後移除。
+
+    留著它不是因為 GET 比較好，是因為**單方面拔掉會讓別人的系統壞掉**，
+    而那個壞法看起來會像是他們的問題。
+    """
+    return await _build_digest(since, limit, db)

@@ -49,10 +49,8 @@ queue_digest 由每日 07:30 晨報一次帶走併成一則，額外推播數為
 """
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, model_validator
 
 from app.core.service_auth import require_scope
 from app.services.integration.line_digest_buffer import queue_digest
@@ -63,30 +61,11 @@ router = APIRouter(prefix="/notify", tags=["跨系統通知"])
 # 晨報把當日所有主題併成一則推播，LINE 單則有長度上限，
 # 任何一個來源灌爆都會拖垮整封晨報。
 # 超長拒收而不截斷 —— 截斷會產生「看起來完整、其實少了結論」的訊息。
-MAX_TEXT_LEN = 800
-MAX_TOPIC_LEN = 40
-DEFAULT_TOPIC = "治理告警"
-
-
-class DigestIn(BaseModel):
-    """
-    兩種都收：
-      {"topic": "SSO 健康", "text": "..."}   明確指定主題
-      {"text": "..."}                        Slack webhook 相容，主題用預設值
-    """
-
-    text: str = Field(..., min_length=1, max_length=MAX_TEXT_LEN,
-                      description="內容；超長請自行摘要，這裡不截斷而是拒收")
-    topic: Optional[str] = Field(None, max_length=MAX_TOPIC_LEN,
-                                 description="主題（會成為晨報裡的分段標題）")
-
-    @model_validator(mode="after")
-    def _fill_topic(self):
-        # 空字串與 None 一律視為未指定 —— 空主題會讓晨報出現一個沒有標題的段落
-        if not (self.topic or "").strip():
-            self.topic = DEFAULT_TOPIC
-        return self
-
+# 型別與界限的唯一來源是 `app/schemas/`（development-rules §3）。
+# ⚠️ 只匯入真的用到的：我原本一併 re-export 了 MAX_TEXT_LEN／MAX_TOPIC_LEN
+# 以為錯誤訊息在用，pyflakes 指出**沒有** —— 未用的 re-export 會讓人
+# 以為那兩個常數在這裡還有意義，而它們只該有一個來源。
+from app.schemas.notification import DEFAULT_TOPIC, DigestIn  # noqa: E402
 
 @router.post("/digest", status_code=202, summary="把一則告警併入每日晨報（不即時推播）")
 async def post_digest(

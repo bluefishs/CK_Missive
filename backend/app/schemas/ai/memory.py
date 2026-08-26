@@ -48,3 +48,14 @@ class NebulaReq(BaseModel):
 class AutoApplyModeReq(BaseModel):
     mode: str = Field(..., description="dry-run | live")
     confirmed_by: str = Field("admin", description="切換人")
+
+
+class MemoryDigestRequest(BaseModel):
+    """`POST /api/ai/memory/digest` 的請求 —— 欄位與舊 GET 的 query 參數一一對應。
+
+    2026-08-26：規範 §24 要求所有 endpoint 用 POST，而這一條是 weekly 66
+    盤點出的 5 條真違反裡唯一沒改的（消費端在 CK_Hermes 的 skill 包）。
+    過渡期兩個方法並存，`_pending` 清掉之前 GET 仍在。
+    """
+    since: Optional[str] = Field(None, description="YYYY-MM-DD（預設近 7 日）")
+    limit: int = Field(7, ge=1, le=30, description="各清單上限")

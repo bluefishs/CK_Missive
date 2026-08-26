@@ -7,7 +7,7 @@ Pydantic schemas for Notifications
 - 專案通知 (Project Notifications)
 """
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from datetime import datetime
 
 
@@ -143,3 +143,36 @@ class UserNotificationsQuery(BaseModel):
     """使用者通知查詢請求"""
     unread_only: bool = Field(default=False, description="僅顯示未讀通知")
     limit: int = Field(default=50, ge=1, le=1000, description="回傳數量上限")
+
+
+# ────────── 治理告警併入晨報（`POST /api/notify/digest`）──────────
+#
+# 2026-08-26：原本定義在 `api/endpoints/notify.py` 裡（08-21 補認證時新增），
+# 違反 development-rules §3「endpoints 不得有本地 BaseModel」。純搬遷。
+#
+# 常數一併搬過來 —— 把 schema 搬走卻把它依賴的界限留在端點檔，
+# 就變成「定義在這裡、約束在那裡」，改其中一邊不會有任何一方報錯。
+
+MAX_TEXT_LEN = 800
+MAX_TOPIC_LEN = 40
+DEFAULT_TOPIC = "治理告警"
+
+
+class DigestIn(BaseModel):
+    """
+    兩種都收：
+      {"topic": "SSO 健康", "text": "..."}   明確指定主題
+      {"text": "..."}                        Slack webhook 相容，主題用預設值
+    """
+
+    text: str = Field(..., min_length=1, max_length=MAX_TEXT_LEN,
+                      description="內容；超長請自行摘要，這裡不截斷而是拒收")
+    topic: Optional[str] = Field(None, max_length=MAX_TOPIC_LEN,
+                                 description="主題（會成為晨報裡的分段標題）")
+
+    @model_validator(mode="after")
+    def _fill_topic(self):
+        # 空字串與 None 一律視為未指定 —— 空主題會讓晨報出現一個沒有標題的段落
+        if not (self.topic or "").strip():
+            self.topic = DEFAULT_TOPIC
+        return self
