@@ -111,8 +111,9 @@ ADR-0046 的自動 link 用 **`pg_trgm` 相似度計分、HIGH 門檻 0.85**。
                  └─ ezbid_scraper ──────┘         │  寫 tender_records
                     每小時                         └→ 寫 tender_company_links
                                                       （得標/投標廠商）
-   跨來源配對     enrichment.enrich_all_unmatched()   ← ADR-0046，pg_trgm，4.5%
-                  ⚠️ 中文無效，見 §3
+   跨來源配對     enrichment.enrich_all_exact()       ← 每日 03:30 ①有案號，confidence 1.0
+                  enrichment.enrich_all_fallback()    ←            ②無案號，confidence 0.9
+                  ⚠️ enrich_all_unmatched()（pg_trgm）**已廢止**，不再被任何排程呼叫
 
    詳情補料       detail_enrichment.enrich_recent()   ← 每日 03:45（2026-08-26 才接上）
                   org_id → openfun API → 採購性質/底價/決標/廠商
@@ -184,13 +185,21 @@ silent dormant**（scheduler 缺 cron），05-27 才補回」。
 
 ---
 
-## 6. 待決（需 owner 判斷）
+## 6. 待決 —— **三項已於 2026-08-26 全部辦理**（owner 授權）
 
-| # | 議題 | 為什麼需要決定 |
+owner：「1 重新整合對應／2 無法成功等同無用／3 最佳方案辦理」。
+
+| # | 原議題 | 結果 |
 |---|---|---|
-| T1 | **要不要用精確鍵重跑一次全庫配對**（2,204 → 可達 17,843） | 純資料庫運算、零外部請求、可 dry-run 先看。但它會改寫 `pcc_match_*` 三個欄位共 ~15,600 筆，屬於批次寫入業務資料 ⇒ **不擅自執行** |
-| T2 | ADR-0046 的 `pg_trgm` 判準要不要**廢止** | 它結構上永遠達不到門檻（中文 similarity 恆 0）。留著它等於留一個永遠不會成功的機制，而它每天都在跑 |
-| T3 | 決標金額 | 實測 openfun **有**決標結構（決標日期、得標廠商、決標方式），但**總決標金額視機關是否公開** —— 抽測那筆有 `決標資料:總決標金額是否公開` 而**沒有金額欄位**。⇒ `award_amount` 不會是 100%，那是資料本身的性質不是缺陷 |
+| ~~T1~~ | 要不要重跑全庫配對 | **已做**。兩階段共 +20,232 筆，4.5% → **45.3%**（見 §5.5）。先 dry-run、抽驗、確認機關名 100% 一致才寫入 |
+| ~~T2~~ | 是否廢止 `pg_trgm` 判準 | **已廢止**。`enrich_all_unmatched` 保留原始碼（ADR-0046 的推理過程有紀錄價值）但**不再被任何排程呼叫**，函式上方寫明理由 |
+| ~~T3~~ | 決標金額 | **已打開路徑**。`detail_enrichment` 的 org_id 多了第三來源＝**配對到的 ezbid**（它的 `unit_id` 本身就是點分 org_id）⇒ 有配對關係的 pcc 記錄可用對方的 org_id 查 openfun，**完全不必打 PCC 詳情頁**。涵蓋 **10,484 筆**。⚠️ `award_amount` 不會是 100% —— 總決標金額**視機關是否公開**（抽測那筆有「總決標金額是否公開」欄而沒有金額欄），那是資料性質不是缺陷 |
+
+### 仍然做不到的（不是待辦，是事實）
+
+**2026-04~05 月那段 ezbid 資料沒有對象可配** —— PCC 在 04 月只有 30 筆，
+因為 `pcc_today_scrape` 自 04-08 起 silent dormant 50 天。
+**歷史抓取的洞補不回來**（PCC 的 today 端點只給當日）。
 
 ---
 
