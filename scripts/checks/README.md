@@ -67,7 +67,7 @@
 | `compose_dockerfile_healthcheck_ssot.py` | 偵測 docker-compose*.yml healthcheck 與對應 Dockerfile HEALTHCHECK SSOT drift（L45 family） |
 | `container_env_alignment_audit.py` | Container env vs host .env 對齊 audit |
 | `container_image_freshness_check.py` | Container image freshness check |
-| `business_vital_signs.py` | daily 13：**八條生命跡象** —— 問「這個模組今天活著嗎」而非「機制有沒有動」。150 支檢核裡 131 支只看機制，而四個「機制綠、業務停」的實證沒有一支問得到。首月觀測不告警 |
+| `business_vital_signs.py` | daily 13：**生命跡象**（條目數見腳本輸出，不寫死在這裡 —— 2026-08-26 加第九條時發現腳本自己的文案寫死「八條」而實際已是 **10 條／9 個模組**，漂了很久沒人看；已改為從 `VITALS` 算） —— 問「這個模組今天活著嗎」而非「機制有沒有動」。150 支檢核裡 131 支只看機制，而四個「機制綠、業務停」的實證沒有一支問得到。首月觀測不告警 |
 | `cron_silent_dormant_check.py` | Fitness step (v6.12 #2 補完): cron silent dormant 偵測 |
 | `dashboard_freshness_check.py` | Fitness step 64: GOVERNANCE_INTEGRATED_DASHBOARD freshness 偵測 |
 | `db_transaction_health_check.py` | 資料庫連線狀態健檢 —— 抓「交易中止卻未 rollback」的現行犯 |

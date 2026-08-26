@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-"""八條生命跡象 —— 問「這個模組今天活著嗎」，不問「機制有沒有動」。
+"""生命跡象 —— 問「這個模組今天活著嗎」，不問「機制有沒有動」。
+
+⚠️ 條目數與模組數**不寫死在文案裡**：2026-08-26 加第九條時發現
+「八條」「八個模組」各寫死一處，而加條目的人不會想到要改文案 ——
+那正是本 repo 由 `doc_baseline_claim_audit` 納管文件數字的同一種漂移，
+只是這次漂在程式的輸出裡，沒有任何東西在看。
 
 ## 為什麼需要這一支（2026-08-16 owner：「每週都重複檢修…還是修補不完」）
 
@@ -94,6 +99,36 @@ VITALS = [
         "max": 5,
         "why_exempt": "政府週末不發標（實測 announce_date：週一至五 480–910 筆／"
                       "週六日 0 筆）。5 天＝跨過一個完整週末仍無新增",
+    },
+    {
+        "module": "標案",
+        "what": "標案**寫入端**有在動（平日不得整天沒抓到）",
+        # ⚠️ 與上一條的差別是整條檢核的重點：上一條看 `announce_date`
+        # （政府公告日），這一條看 `created_at`（我們寫入的日期）。
+        #
+        # 爬蟲停擺後恢復時會**一次補回前幾天的 announce_date** ⇒
+        # `MAX(announce_date)` 看起來完全正常，而那幾天實際上什麼都沒抓到。
+        # 公告日回答「政府有沒有發標」，回答不了「我們有沒有抓到」。
+        #
+        # 2026-08-26 查 B5 時發現：`pcc_today_scrape`（每 2 小時、預期 12 次/日）
+        # 在 08-16~08-17 **連續 48 小時 0 次執行**，而同期 health_check_broadcast
+        # 跑了 208 次 ⇒ scheduler 是活的、只有這一支停了。當天 daily 的 RED
+        # 是別的步驟，`cron_silent_dormant_check`（門檻 4 小時）沒報而**原因查不出來**。
+        # ⇒ 這一條刻意不依賴 cron 機制本身，直接問資料庫。
+        #
+        # 視窗 2 天、只算平日（週六日政府不發標，實測全部 0 筆）。
+        # 鑑別力：對過去 14 天逐日模擬 —— 08-18／08-19 會報（08-17 那個空平日），
+        # 其餘 12 天全部 0，**零誤報含所有週末**。
+        "sql": "SELECT COUNT(*) FROM generate_series("
+               "(CURRENT_DATE - 2)::date, (CURRENT_DATE - 1)::date, '1 day') d "
+               "WHERE EXTRACT(dow FROM d) BETWEEN 1 AND 5 "
+               "AND NOT EXISTS (SELECT 1 FROM tender_records "
+               "WHERE created_at::date = d::date)",
+        "level": "RED",
+        "max": 0,
+        "why_exempt": "週六日政府不發標（實測 created_at：週一至五 780–1939 筆／"
+                      "週六日 0 筆）⇒ 只算平日。平日整天 0 筆＝抓取端停了，"
+                      "不是業務現實",
     },
     {
         "module": "請款收款",
@@ -257,7 +292,8 @@ def main() -> int:
     args = ap.parse_args()
 
     print("=" * 74)
-    print("八條生命跡象 —— 這個模組今天活著嗎")
+    print(f"{len(VITALS)} 條生命跡象（{len({x['module'] for x in VITALS})} 個模組）"
+          f" —— 這個模組今天活著嗎")
     print("=" * 74)
 
     conn = None
@@ -338,7 +374,7 @@ def main() -> int:
             print(f"  · {y}")
         print("\n  這些不是系統故障，是流程沒有走完 —— 判 YELLOW 不判 RED。")
     else:
-        print("Status: [GREEN] 八個模組今天都活著")
+        print(f"Status: [GREEN] {len({x['module'] for x in VITALS})} 個模組今天都活著")
 
     if not args.enforce:
         print("\n（觀測模式：首月不告警。新機制上線當下最不該被信任 ——")
