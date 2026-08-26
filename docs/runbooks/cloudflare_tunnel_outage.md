@@ -229,3 +229,64 @@ done
 - `docs/runbooks/backend_restart.md`（backend 死的後續流程）
 
 > **首要原則**：Tunnel 死的時候，**先確認是 tunnel 還是 backend**（§1）。混判會多花 20 分鐘。
+
+---
+
+## §N 讀 cloudflared 日誌之前：先問「這個訊號是誰產生的」
+
+> 2026-08-26 加。起因是 CK_AaaP 在追公網可用率的間歇劣化，向我們要日誌；
+> 我給了一份分布，**幾小時內就得自己更正** —— 那個數字幾乎全是我們自己造成的。
+
+### 實測：840 行日誌裡，八成以上是兩邊自己的動作
+
+近 7 天全部 error 樣態（`docker logs ck_missive_cloudflared`）：
+
+| 次數 | 字串 | 誰產生的 |
+|---:|---|---|
+| 514 | `Unable to reach the origin service…` | **我們自己 rebuild backend** |
+| 152 | `Incoming request ended abruptly: context canceled` | **AaaP 的探測**（下游先放棄） |
+| 26 | `accept stream listener encountered a failure…` | — |
+| 10 | `failed to accept QUIC stream: timeout…` | — |
+
+**證據**：今日 46 次的分鐘級聚合全部落在兩個時間點（`03:23`×30、`05:41`×16），
+而 `docker inspect ck_missive_backend --format '{{.State.StartedAt}}'`
+= `2026-08-26T05:41:53` —— **兩次 rebuild 都對得上，一次不差**。
+每次 rebuild 產生約 **15–30 次** origin 錯誤（重啟期間隧道打不到後端，
+公網短暫 502，即 L76 記的已知行為）。
+
+7 天的峰值在 UTC **03h(96)／09h(88)** ＝ 本地 **11:00／17:00**，
+正是有人在做 rebuild 的時段 —— **不是系統在那個時間比較脆弱。**
+
+### 因此：哪些字串能用、哪些不能
+
+```bash
+# ❌ 不要看 error 總數 —— 被部署行為主導
+docker logs ck_missive_cloudflared 2>&1 | grep -c error
+
+# ✅ 看這兩個（不受 rebuild 影響，7 天各只有 14 / 10 次）
+docker logs --timestamps ck_missive_cloudflared 2>&1 \
+  | grep -E "Registered tunnel connection|Retrying connection"
+```
+
+`Retrying connection` ＝ 主動重試／`Registered tunnel connection` ＝ 重新註冊成功。
+**「主動重連」與「被邊緣踢掉」的區別只在這兩個字串裡，指標沒有這個維度。**
+
+### ⚠️ 兩個量測陷阱（都實測踩過）
+
+1. **時間戳是 UTC，而 `--since` 不帶時區時被當成本地時間。**
+   實測 `--since 2026-08-26T00:00:00`（本地）回傳了 `2026-08-25T18:00:13Z` 的行 ——
+   因為本地 08-26 00:00 = UTC 08-25 16:00。按小時分桶會差 8 小時。
+   用相對時間（`--since 24h`）不受影響。
+
+2. **日誌保留期要先驗。** 這裡是 `json-file` 無上限、實測保留 **7 天**（840 行）；
+   但 08-19 那次記過「容器 log 只有 3 小時」—— **不同容器不一樣，
+   要抓歷史事件前先確認最早一行的時間**，否則到時候才發現就來不及了：
+
+```bash
+docker logs --timestamps <容器> 2>&1 | head -1 | cut -c1-30   # 最早
+docker logs --timestamps <容器> 2>&1 | cut -c1-19 | sort | tail -1  # 真正最新
+```
+
+> ⚠️ 第二條指令用 `sort | tail -1` 而不是 `--tail 1` 是刻意的：
+> stdout 與 stderr 是兩個 stream，`2>&1` 合併後順序不保證。
+> 本次實測兩者結果一致，但那是運氣不是保證。
