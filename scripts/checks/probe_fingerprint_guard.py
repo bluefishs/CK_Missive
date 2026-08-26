@@ -55,13 +55,21 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
 #: 對照組必須是**已知未受保護**的端點 —— 用受保護的端點當對照，
 #: 401/403 分不出是「認證擋的」還是「邊界擋的」，等於沒有對照。
 CONTROL_URL = "https://missive.cksurvey.tw/api/health"
+
+#: 保證不存在的路徑 —— 用來測「這個站有沒有 SPA catch-all」。
+#: CK_AaaP 2026-08-26 用外部探測證明：本站任意不存在的路徑回
+#: **200 + text/html**，只有 `/api/*` 才回 404 JSON。複測確認。
+#: ⇒ **「200 ＝ 端點存在且未受保護」會把 catch-all 讀成認證繞過**，
+#:   而且兩個方向都會錯：誤判有洞，或漏掉真的洞。
+#:   判定必須看 **content-type**，不能只看狀態碼。
+CATCHALL_URL = "https://missive.cksurvey.tw/__nonexistent_probe_7f3a9z"
 BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
 
-def via_urllib(ua: str | None) -> object:
+def via_urllib(ua: str | None, url: str | None = None) -> object:
     rq = urllib.request.Request(
-        CONTROL_URL, headers={"User-Agent": ua} if ua else {}, method="GET")
+        url or CONTROL_URL, headers={"User-Agent": ua} if ua else {}, method="GET")
     try:
         with urllib.request.urlopen(rq, timeout=20) as r:
             return r.status
@@ -69,6 +77,22 @@ def via_urllib(ua: str | None) -> object:
         return e.code
     except Exception as e:  # noqa: BLE001
         return f"ERR {type(e).__name__}"
+
+
+def probe_type(url: str) -> tuple:
+    """回 (status, content_type) —— catch-all 判定要看 content-type。
+
+    ⚠️ 只看狀態碼分不出「SPA 首頁」與「應用回應了這條路徑」，
+    而那兩件事在安全稽核上意思完全相反。
+    """
+    rq = urllib.request.Request(url, headers={"User-Agent": BROWSER_UA}, method="GET")
+    try:
+        with urllib.request.urlopen(rq, timeout=20) as r:
+            return r.status, (r.headers.get("Content-Type") or "").split(";")[0].strip()
+    except urllib.error.HTTPError as e:
+        return e.code, (e.headers.get("Content-Type") or "").split(";")[0].strip()
+    except Exception as e:  # noqa: BLE001
+        return None, f"ERR {type(e).__name__}"
 
 
 def via_curl() -> object:
@@ -115,6 +139,24 @@ def main() -> int:
         print(f"\n  [GREEN] 預設 UA 未被擋（{default_ua}）—— 邊界目前不做 UA 過濾。")
         print("    ⚠️ 這是**環境當下的事實**，不是保證：邊界規則會變，")
         print("       所以探公網仍應主動帶瀏覽器 UA，不要依賴這個結果。")
+    # ── 第二種指紋：SPA catch-all ──
+    st, ct = probe_type(CATCHALL_URL)
+    print(f"\n  SPA catch-all 對照: {CATCHALL_URL}")
+    print(f"    保證不存在的路徑 → {st} {ct}")
+    if st is None:
+        print("    ⚪ 對照組打不到 —— 這一項未驗完，不下結論。")
+    elif st == 200 and ct.startswith("text/html"):
+        print("    [注意] **任意不存在的路徑回 200 + text/html** —— 本站有 SPA catch-all。")
+        print("      ⇒ 探測若以「200 ＝ 端點存在且未受保護」判定，**每一條都會命中**。")
+        print("      判定必須看 content-type：`text/html` 是 SPA 首頁，")
+        print("      `application/json` 才是應用真的回應了那條路徑。")
+        print("      （CK_AaaP 2026-08-26 指出；本 repo 的 `public_exposure_audit`")
+        print("       判的是「200 **且**內容命中特徵」，結構上免疫。）")
+    elif st == 200:
+        print(f"    [注意] 不存在的路徑回 200（{ct}）—— 仍是 catch-all，判定不可只看狀態碼。")
+    else:
+        print(f"    [GREEN] 不存在的路徑回 {st} —— 沒有 catch-all 混淆。")
+
     return 0
 
 

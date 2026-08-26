@@ -28,7 +28,7 @@
 | A15 | **pile 的 82 條公開業務查詢是否去識別化** | 已補 60/min 防爬取；公開與否屬產品決策 | 同上 |
 | A16 | **DT 點雲／裂縫影像的內容認證** | 08-09 判為產品決策；**新論據＝頻寬成本**（§0） | 同上 |
 | A17 | **`FT_StorageTank` NAS 備份停在 54 天前，且該專案無 session** | 需指派 | 同上 |
-| A18 | **L43 的 503 防禦只覆蓋了一半，另一半要 owner 登 CF Dashboard 才看得到** | CF Dashboard 我看不到 —— 需要你登入確認該 tunnel 的 health path 指向哪一個 | `configs/cloudflare-tunnel.yml` 檔頭（完整查證＋三處與現實的矛盾）｜commit `8485361a` |
+| ~~A18~~ | ~~**L43 的 503 防禦只覆蓋了一半**~~ | **2026-08-26 由 CK_AaaP 推翻前提，已撤銷**。我原本要 owner 去 CF Dashboard 查「該 tunnel 的 health path 指向哪一個」—— **那個角色根本不存在**。他們從外部打四條路徑證明：任意路徑都被原樣轉發到同一個 origin service，由應用決定回什麼 ⇒ CF Tunnel 的 ingress 是 **hostname → service** 的映射，**它不會挑一個 health path 去探 origin**（除非另掛 CF Load Balancer 並設 origin health monitor，那是 LB 的設定不是 tunnel 的）。⇒ 容器 healthcheck 指 `/health`（正確、實測 `ok=True docs=2023 KG=49919`）與 CF 是**兩件互不相干的事**，L43 的防禦沒有缺口。`configs/cloudflare-tunnel.yml` 不生效仍然是事實（已在檔頭標明），但它不生效**不代表有另一份設定在別處決定 health path** | 無需 owner 動作。⚠️ 副產品已落地：他們同時指出本站 **SPA catch-all 讓任意路徑回 200 + text/html**，而 `/api/*` 才回 404 JSON ⇒ **「200 就是通過」會把 catch-all 讀成認證繞過**。已加進 `probe_fingerprint_guard`（weekly 67）當第二種指紋 |
 
 ---
 
