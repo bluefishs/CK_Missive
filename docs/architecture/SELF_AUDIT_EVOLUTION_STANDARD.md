@@ -179,7 +179,7 @@ CK_FacilityDev 已踩過並記下兩個取捨，直接沿用不重踩：
 <!--baseline:daily_steps-->daily runner 現有 14 步
 <!--baseline:selfaudit_repos-->已導入瀏覽器自我走查的專案數 5
 <!--baseline:producer_signals-->producer 信號型別 5 種
-<!--baseline:tracked_jobs-->scheduler 內 @tracked_job 共 55 支
+<!--baseline:tracked_jobs-->scheduler 內 @tracked_job 共 56 支
 
 > 這裡只納**可機器驗證**的數字。文件寫的「結論是否還成立」刻意不納管 ——
 > 那需要語意判斷，會產出無法採信的清單（同 2026-08-03 已立的判準）。
