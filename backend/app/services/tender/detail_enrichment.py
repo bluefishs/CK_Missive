@@ -1,9 +1,23 @@
 """標案詳情 Enrichment（P2）— 2-hop: PCC searchTenderDetail 取點分 orgId → openfun API 取乾淨詳情。
 
-⚠️ 2026-06-17 實測結論（重要）：**PCC 詳情頁有反爬限流**——少量請求後即回精簡 stub 頁
-（43-49KB、無 orgId），無論 curl/httpx/補 headers/換 UA。故 2-hop 取 orgId **無法可靠規模化**，
-本服務**不掛自動 cron**，僅保留為 best-effort 手動工具（低量、可接受偶發失敗）。可靠的職能
-篩選請用確定性自維機制（關鍵字 + 排除 + 承攬史建議，已上線 UI）。詳見 TENDER_RECOMMENDATION_FLOW。
+⚠️⚠️ 2026-08-26 更正：**這支程式從建立起就沒有任何人呼叫它**（全 repo 零 import）。
+scheduler 的 `tender_pcc_enrichment_job` 跑的是名字很像的另一支（`enrichment.py`，
+做 ezbid↔PCC 配對）。所以下面那條「不掛 cron」的決定實際上等於「它從未執行過」——
+而它一跑就暴露四個 bug（見各處註解）：unit_id 兩來源語意不同、`_pick` 無優先序
+且會命中「是否…」欄位、`bidders` 收到廠商代碼與地址、SQL 參數型別未 CAST
+導致整筆 UPDATE 失敗且**一筆壞掉後剩下全部陪葬**。
+
+⚠️ 2026-06-17 實測結論：**PCC 詳情頁有反爬限流**——少量請求後即回精簡 stub 頁
+（43-49KB、無 orgId），無論 curl/httpx/補 headers/換 UA。故 2-hop 取 orgId **無法可靠規模化**。
+   **2026-08-26 實測補充**：這條對 `source='pcc'` 仍成立（要 2-hop），
+   但對 **`source='ezbid'` 完全不適用** —— ezbid 的 `unit_id` 本身就是點分 org_id，
+   **根本不需要打 PCC 詳情頁**，直接查 openfun 即可（實測 org_ok 5/5、errors 0）。
+   近 7 天待補 7,703 筆裡 ezbid 佔 2,472 筆，那一段是零反爬風險的。
+   另：今日對 PCC 詳情頁實測 3 筆亦全部 HTTP 200（130KB、orgId 可取），
+   與 06-17 的觀察不一致 —— 可能是限流有時間窗，**不據此放寬 pcc 那一段**。
+
+可靠的職能篩選請用確定性自維機制（關鍵字 + 排除 + 承攬史建議，已上線 UI）。
+詳見 TENDER_RECOMMENDATION_FLOW。
 另：使用者瀏覽器點官方直連（searchTenderDetail?pkPmsMain=，原始 '='）不受此限（非我方伺服 IP）。
 
 
@@ -37,14 +51,42 @@ PCC_DETAIL_URL = "https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetai
 OPENFUN_TENDER = "https://pcc-api.openfun.app/api/tender"
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"}
 _ORG_ID_RE = re.compile(r"orgId=([0-9A-Za-z][0-9A-Za-z.]*\.[0-9.]+)")  # 收 A.13.6.20 與 3.5.48 兩式
+
+#: `unit_id` 這個欄位對兩個來源是**兩種不同的東西**：
+#:   * `source='pcc'`   → PCC 的 `pkPmsMain`，base64（`NzEzMTA4MzY=`）
+#:   * `source='ezbid'` → **點分機關代碼**（`3.5.10.100`）＝ openfun 要的 org_id 本身
+#:
+#: 2026-08-26 實測：`enrich_recent` 對近 7 天的資料 `org_ok=0 errors=2`，
+#: 而同一支 `_fetch_org_id` 手動餵 base64 unit_id **成功**（HTTP 200、
+#: orgId=3.79.14.14）。差別就是撈到的都是 ezbid ——
+#: 把 `3.5.10.100` 當成 pkPmsMain 塞進 PCC 詳情頁網址，當然查不到。
+#:
+#: ⇒ 已是點分格式就直接用，不必再去抓一次 PCC 詳情頁。
+#: 這同時省掉 ezbid 那 2,472 筆的外部請求（近 7 天待補的三分之一）。
+_DOTTED_ORG_RE = re.compile(r"^[0-9A-Za-z]+(\.[0-9]+)+$")
 _THROTTLE_SEC = 0.8  # 每案延遲（禮貌性，避免封 IP）
 
 
-def _pick(detail: Dict[str, Any], *substrs: str) -> Optional[str]:
-    """從 openfun detail dict 取第一個 key 含任一 substr 的值。"""
-    for k, v in detail.items():
-        if any(s in k for s in substrs) and v not in (None, "", []):
-            return str(v).strip()
+def _pick(detail: Dict[str, Any], *substrs: str, exclude: tuple = ()) -> Optional[str]:
+    """從 openfun detail dict 取值 —— **依 substrs 的順序當優先序**。
+
+    ⚠️ 2026-08-26 修兩個 bug，兩個都會給出「看起來像數字所以像是對的」的錯值：
+
+    ① **原本沒有優先序**：舊版遍歷 `detail` 的 key，第一個命中**任一** substr
+       就回 —— 所以 `_pick(det, "總決標金額", "決標金額")` 實際拿到哪一個
+       取決於 dict 的順序，很可能是 `決標品項:第1品項:決標金額`（**單一品項**
+       的金額）而不是總額。兩者都是合理的數字，看不出錯。
+
+    ② **子字串會命中「是非題」的欄位**：`_pick(det, "底價")` 命中
+       `招標資料:是否訂有底價` ⇒ `base_price` 被寫成 **'否'**。
+       實測就是這樣：`{'base_price': '否'}`。
+       ⇒ 預設排除 key 含「是否」的欄位。
+    """
+    ex = tuple(exclude) + ("是否",)
+    for s in substrs:                       # 外層跑 substrs ＝ 真的有優先序
+        for k, v in detail.items():
+            if s in k and not any(e in k for e in ex) and v not in (None, "", []):
+                return str(v).strip()
     return None
 
 
@@ -106,8 +148,17 @@ async def _fetch_openfun_detail(client: httpx.AsyncClient, org_id: str, job_numb
             award = _pick(det, "總決標金額", "決標金額")
             if award and not out.get("award_result"):
                 out["award_result"] = award
+            # ⚠️ 2026-08-26：原本收所有 key 含「得標廠商／投標廠商」的值 ——
+            # 而 openfun 的結構是 `投標廠商:投標廠商N:<欄位>`，**每一個欄位都以
+            # 「投標廠商」開頭** ⇒ 廠商代碼、組織型態、地址、電話、是否得標
+            # 全被當成廠商名稱收進去。實測結果：
+            #   ['3', '22008619', '合記書局有限公司', '是', '公司登記', '其他', '臺北市信義區…']
+            # 只有第 3 個是廠商名。**存進 jsonb 之後看起來像資料，其實是垃圾。**
             for k, v in det.items():
-                if ("得標廠商" in k or "投標廠商" in k) and v:
+                if not v:
+                    continue
+                # 只收真正的名稱欄（`…:廠商名稱`／`…:得標廠商`），不收其屬性
+                if k.endswith(":廠商名稱") or k.endswith(":得標廠商"):
                     name = str(v).strip()
                     if name and name not in bidders:
                         bidders.append(name)
@@ -120,10 +171,17 @@ async def _fetch_openfun_detail(client: httpx.AsyncClient, org_id: str, job_numb
 
 async def enrich_recent(
     db: AsyncSession, days_back: int = 7, limit: int = 60, only_unenriched: bool = True,
+    only_dotted_org: bool = False,
 ) -> Dict[str, int]:
-    """批次 enrich 近 N 日標案（節流）。回 {scanned, org_ok, enriched, updated_budget, errors}。"""
+    """批次 enrich 近 N 日標案（節流）。回 {scanned, org_ok, enriched, updated_budget, errors}。
+
+    `only_dotted_org=True` 只處理 `unit_id` 已是點分 org_id 的記錄（＝ezbid 來源）——
+    那一段**完全不需要打 PCC 詳情頁**，所以不受 06-17 記的反爬限流影響，
+    可以安全地掛自動排程。pcc 來源仍需 2-hop，維持手動/低量。
+    """
     stats = {"scanned": 0, "org_ok": 0, "enriched": 0, "updated_budget": 0, "errors": 0}
     where_unenriched = "AND detail_enriched_at IS NULL" if only_unenriched else ""
+    where_dotted = r"AND unit_id ~ '^[0-9A-Za-z]+(\.[0-9]+)+$'" if only_dotted_org else ""
     rows = (await db.execute(text(f"""
         SELECT id, unit_id, job_number, org_id, budget
         FROM tender_records
@@ -131,6 +189,7 @@ async def enrich_recent(
           AND COALESCE(tender_type, '') NOT LIKE '%決標%'
           AND unit_id IS NOT NULL AND job_number IS NOT NULL AND job_number <> ''
           {where_unenriched}
+          {where_dotted}
         ORDER BY announce_date DESC
         LIMIT :lim
     """), {"db_days": days_back, "lim": limit})).fetchall()
@@ -141,7 +200,12 @@ async def enrich_recent(
     async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
         for r in rows:
             try:
-                org_id = r.org_id or await _fetch_org_id(client, r.unit_id)
+                # ezbid 的 unit_id 本身就是 org_id（見 _DOTTED_ORG_RE 的說明）
+                org_id = r.org_id
+                if not org_id and r.unit_id and _DOTTED_ORG_RE.match(str(r.unit_id)):
+                    org_id = str(r.unit_id)
+                if not org_id:
+                    org_id = await _fetch_org_id(client, r.unit_id)
                 if not org_id:
                     stats["errors"] += 1
                     # 仍標記嘗試過（避免每日重撞），但不寫 enriched 欄
@@ -157,10 +221,16 @@ async def enrich_recent(
                         org_id = :org_id,
                         category = COALESCE(NULLIF(:category,''), category),
                         procurement_nature = COALESCE(NULLIF(:nature,''), procurement_nature),
-                        budget = CASE WHEN budget IS NULL AND :budget IS NOT NULL THEN :budget ELSE budget END,
+                        -- 同樣要 CAST：`:budget` 在同一句出現兩次且可能為 NULL，
+                        -- asyncpg 回 `could not determine data type of parameter $4`
+                        budget = CASE WHEN budget IS NULL AND CAST(:budget AS bigint) IS NOT NULL
+                                      THEN CAST(:budget AS bigint) ELSE budget END,
                         base_price = COALESCE(NULLIF(:base_price,''), base_price),
                         award_result = COALESCE(NULLIF(:award,''), award_result),
-                        bidders = COALESCE(:bidders, bidders),
+                        -- ⚠️ 必須 CAST：`bidders` 是 jsonb，而參數為 NULL 時
+                        -- asyncpg 推不出型別，整筆 UPDATE 會失敗（errors+1）——
+                        -- 而失敗只寫在 logger.warning 裡，統計上長得像「這筆沒資料」。
+                        bidders = COALESCE(CAST(:bidders AS jsonb), bidders),
                         detail_enriched_at = :now
                     WHERE id = :id
                 """), {
@@ -180,6 +250,15 @@ async def enrich_recent(
             except Exception as e:
                 logger.warning(f"enrich tender id={r.id} failed: {e}")
                 stats["errors"] += 1
+                # ⚠️ 2026-08-26：沒有這一行的話**一筆壞掉、剩下全部陪葬** ——
+                # PostgreSQL 的交易一旦中止，後續每一句都回
+                # `current transaction is aborted`，而這裡 except 只是累加
+                # errors 繼續跑迴圈。實測 5 筆裡第 1 筆型別錯，後 4 筆全被判 error，
+                # **統計上長得像「這些案子都沒有資料」**，而它們根本沒被試過。
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
             await asyncio.sleep(_THROTTLE_SEC)
         await db.commit()
     logger.info(f"tender enrich_recent done: {stats}")

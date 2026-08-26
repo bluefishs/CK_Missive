@@ -36,7 +36,7 @@
 
 | # | 議題 | 根因（已查證） | 規模 |
 |---|---|---|---|
-| B1 | **標案決標資訊全庫 0 筆** | 抓取端只抓招標公告；`analytics.py` 在分析從來沒進來的資料 | 109,344 筆 |
+| ~~B1~~ | ~~**標案決標資訊全庫 0 筆**~~ | **2026-08-26 查證後根因與原記載完全不同，已修並接上排程**。原記「抓取端只抓招標公告、analytics 在分析從來沒進來的資料」—— **兩句都不準**：① dashboard 實打回 200／0.17s、`total_found=2286`、本週決標 11 筆、得標廠商 top 10 有真實公司名 ⇒ **它是活的**（即時查外部，不讀 DB）；② 真正的斷點是 **`detail_enrichment.py` 從建立起沒有任何人呼叫它**（全 repo 零 import）—— scheduler 的 `tender_pcc_enrichment_job` 跑的是名字很像的另一支（`enrichment.py`，做 ezbid↔PCC 配對）。它一跑就暴露四個 bug：`unit_id` 對 ezbid／pcc 是兩種東西（點分機關代碼 vs base64 pkPmsMain）⇒ org_ok=0；`_pick` 無優先序且命中「**是否**訂有底價」⇒ `base_price='否'`；`bidders` 收到廠商代碼與地址；SQL 參數未 CAST ⇒ 整筆 UPDATE 失敗、**且一筆壞掉後剩下全部陪葬**（統計上長得像「這些案子都沒資料」）| 四個 bug 全修，實測 `org_ok 5/5 enriched 5 errors 0`、`bidders=['合記書局','藝軒圖書','黎明書店']`（與 `tender_company_links` 一致）。已接排程 **每日 03:45**，只跑 ezbid 那一段（`unit_id` 本身就是 org_id、**不打 PCC**、零反爬風險）。⚠️ **`award_amount` 仍會是 0 且那是正確的** —— 實測該案 openfun 有 `決標資料:總決標金額是否公開` 但**沒有金額欄位**，即機關選擇不公開。L77「enrichment 死結」**完全不成立**（08-19 推翻預算那一半，今日推翻 org_id 這一半：實測 3 筆 PCC 詳情頁全 200、orgId 可取）|
 | B2 | **報價單附件上傳與預覽** | `PreviewDrawer` 可重用；`ExistingAttachmentsList` 綁死 `DocumentAttachment` 型別 | 需新建共用元件 |
 | B3 | **報價單入口在 ERP 側** | `/pm/cases` 沒有「新增報價」，從案件出發的人找不到 | 前端入口 |
 | B4 | **`/tender/ezbid/A.47.3` 定位不到** | `A.47.3` 是**機關代碼**不是標案 id；ezbid 唯一鍵是 `ezbid_id` | 需改路由參數 |

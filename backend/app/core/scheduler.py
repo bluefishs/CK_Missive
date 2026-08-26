@@ -2133,6 +2133,36 @@ async def tender_pcc_enrichment_job():
         logger.error(f"ezbid → PCC enrichment 失敗: {e}", exc_info=True)
 
 
+@tracked_job("tender_detail_enrichment")
+async def tender_detail_enrichment_job():
+    """標案詳情補料 —— 每日 03:45（避開 03:30 的 ezbid↔PCC 配對）。
+
+    ⚠️ 2026-08-26：`detail_enrichment.py` 從建立起**沒有任何人呼叫它**
+    （全 repo 零 import）。它的檔頭寫著「不掛自動 cron」（06-17，因 PCC 反爬），
+    但那條對 **ezbid 來源不適用** —— ezbid 的 `unit_id` 本身就是點分 org_id，
+    直接查 openfun 即可，**完全不打 PCC 詳情頁**、零反爬風險。
+
+    所以這裡只跑 `only_dotted_org=True`（＝ezbid 那一段）。
+    `source='pcc'` 需要 2-hop 取 org_id，維持手動/低量，不進排程。
+
+    量：limit 40 × 節流 0.8s ≈ 32 秒、40 次 openfun 請求／日。
+    `detail_enriched_at` 會標記已試過，所以不會每天重撞同一批。
+    """
+    from app.db.database import async_session_maker
+
+    try:
+        async with async_session_maker() as db:
+            from app.services.tender.detail_enrichment import enrich_recent
+            stats = await enrich_recent(
+                db, days_back=14, limit=40, only_unenriched=True, only_dotted_org=True,
+            )
+            logger.info(f"標案詳情補料完成: {stats}")
+            return stats
+    except Exception as e:
+        logger.error(f"標案詳情補料失敗: {e}", exc_info=True)
+        raise
+
+
 @tracked_job("tender_dashboard_warm")
 async def tender_dashboard_warm_job():
     """標案儀表板 cache 預熱 — 每 5 min 主動寫 Redis cache，避用戶 first hit 等 scraper
@@ -4287,6 +4317,19 @@ def setup_scheduler(
         coalesce=True,
     )
     logger.info("已添加 ezbid → PCC enrichment: 每日 03:30 執行")
+
+    # 標案詳情補料（採購性質/底價/決標/廠商）— 每日 03:45
+    # 只跑 ezbid 那一段（unit_id 本身就是 org_id，不打 PCC 詳情頁）
+    scheduler.add_job(
+        tender_detail_enrichment_job,
+        trigger=CronTrigger(hour=3, minute=45),
+        id='tender_detail_enrichment',
+        name='標案詳情補料（ezbid → openfun，不打 PCC）',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("已添加標案詳情補料: 每日 03:45 執行")
 
     # ezbid 即時快取刷新 — 每小時
     scheduler.add_job(
