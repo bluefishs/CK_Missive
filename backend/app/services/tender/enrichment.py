@@ -224,6 +224,18 @@ async def _enqueue_medium_review(
         return False
 
 
+# ⚠️⚠️ 2026-08-26 廢止（owner：「無法成功等同無用」）。
+#
+# 這一支用 `similarity()`（pg_trgm）計分、HIGH 門檻 0.85 —— 而 **pg_trgm
+# 對中文無效**：實測兩筆標題與機關名**完全相同**，similarity 仍是 **0.0000**。
+# 不是門檻調太嚴，是**分數結構上永遠到不了**。
+#
+# 它每天 03:30 都在跑，而 49,497 筆 ezbid 只配到 2,204 筆（4.5%）。
+# 一個永遠不會成功的機制每天執行，比沒有這個機制更糟 —— 它讓人以為有在配。
+#
+# 取代者：`enrich_all_exact()`（精確鍵，實測可配 10,198 筆且機關名 100% 一致）。
+# 保留本函式不刪，是因為 ADR-0046 的推理過程有紀錄價值；
+# **但它不再被任何排程呼叫**。
 async def enrich_all_unmatched(
     db: AsyncSession,
     batch_size: int = 500,
@@ -363,3 +375,125 @@ async def enrich_all_unmatched(
         await db.commit()
 
     return stats
+
+
+
+# ────────────────────────────────────────────────────────────────
+# 精確鍵配對（2026-08-26 取代 pg_trgm）
+# ────────────────────────────────────────────────────────────────
+
+#: 三個條件同時成立才算配對成功 —— **每一個都有實測依據，缺一不可**：
+#:
+#:   job_number 相同   只用它：96,991 組裡 79,148 組是撞號（81.6%），
+#:                     不同機關會用同一個案號編制
+#:   標題前 20 字相同   只用它：`B115076 公開招標` 與 `B115077 公開取得報價單`
+#:                     是兩個不同的案子，標題卻一樣
+#:   機關名相同         前兩者成立時，10,199 筆裡仍有 1 筆機關名不同
+#:                     ⇒ 加上它就是 100% 可靠
+#:
+#: 一個 ezbid 可能對到多個 pcc（同案的招標／更正／決標公告），
+#: 用 `DISTINCT ON` 取**公告日最接近**的那一筆。
+_EXACT_MATCH_SQL = """
+WITH cand AS (
+    SELECT DISTINCT ON (e.id)
+           e.id AS eid, p.unit_id AS pu, p.job_number AS pj
+    FROM tender_records e
+    JOIN tender_records p
+      ON e.job_number = p.job_number
+     AND LEFT(e.title, 20) = LEFT(p.title, 20)
+     AND e.unit_name IS NOT DISTINCT FROM p.unit_name
+    WHERE e.source = 'ezbid' AND p.source = 'pcc'
+      AND e.job_number IS NOT NULL AND e.job_number <> ''
+      AND e.title IS NOT NULL AND e.title <> ''
+      AND e.pcc_match_unit_id IS NULL
+    ORDER BY e.id,
+             ABS(COALESCE(e.announce_date, '1900-01-01'::date)
+                 - COALESCE(p.announce_date, '1900-01-01'::date))
+)
+"""
+
+
+#: **第二階段**：沒有 `job_number` 的舊 ezbid（37,980 筆，2026-08-02 站台改版前
+#: 的列表不提供標案案號）改用「標題前 20 字 ＋ 機關名 ＋ 公告日差 ≤ 3 天」。
+#:
+#: ⚠️ 少了 job_number 把關，所以日期條件收得很緊（≤3 天而不是第一階段的
+#: 「取最接近的」）。抽驗三筆全部：標題與機關名完全相同、公告日差 0 天。
+#:
+#: ⚠️ 這一段的上限不在演算法：`pcc_today_scrape` 自 2026-04-08 起
+#: **silent dormant 50 天**（05-27 才補回 cron），所以 04 月 PCC 只有 30 筆 ——
+#: **那段 ezbid 資料本來就沒有對象可配**，不是配對失敗。
+_FALLBACK_MATCH_SQL = """
+WITH cand AS (
+    SELECT DISTINCT ON (e.id)
+           e.id AS eid, p.unit_id AS pu, p.job_number AS pj
+    FROM tender_records e
+    JOIN tender_records p
+      ON LEFT(e.title, 20) = LEFT(p.title, 20)
+     AND e.unit_name IS NOT DISTINCT FROM p.unit_name
+     AND ABS(e.announce_date - p.announce_date) <= 3
+    WHERE e.source = 'ezbid' AND p.source = 'pcc'
+      AND e.pcc_match_unit_id IS NULL
+      AND (e.job_number IS NULL OR e.job_number = '')
+      AND e.title IS NOT NULL AND e.title <> ''
+      AND e.announce_date IS NOT NULL AND p.announce_date IS NOT NULL
+    ORDER BY e.id, ABS(e.announce_date - p.announce_date)
+)
+"""
+
+
+async def enrich_all_fallback(
+    db: AsyncSession, dry_run: bool = True,
+) -> Dict[str, Any]:
+    """第二階段配對（無 job_number 者）。回 {candidates, applied, dry_run}。
+
+    `pcc_match_confidence` 記 **0.9** 而不是 1.0 —— 少了案號把關，
+    可靠度確實低一級，而**把它記成跟精確配對一樣就是把差別抹掉**。
+    """
+    candidates = (await db.execute(
+        text(_FALLBACK_MATCH_SQL + "SELECT COUNT(*) FROM cand"))).scalar() or 0
+    if dry_run or not candidates:
+        return {"candidates": candidates, "applied": 0, "dry_run": True}
+
+    result = await db.execute(text(_FALLBACK_MATCH_SQL + """
+        UPDATE tender_records t
+           SET pcc_match_unit_id = cand.pu,
+               pcc_match_job_number = cand.pj,
+               pcc_match_confidence = 0.9,
+               pcc_match_at = NOW()
+          FROM cand
+         WHERE t.id = cand.eid
+    """))
+    await db.commit()
+    applied = result.rowcount or 0
+    logger.info(f"tender fallback match applied: {applied} (candidates={candidates})")
+    return {"candidates": candidates, "applied": applied, "dry_run": False}
+
+
+async def enrich_all_exact(
+    db: AsyncSession, dry_run: bool = True,
+) -> Dict[str, Any]:
+    """用精確鍵補上 ezbid → PCC 的對應。回 {candidates, applied, dry_run}。
+
+    ⚠️ `dry_run` 預設 **True** —— 這一支會寫業務資料（`pcc_match_*` 四欄），
+    預設不寫是刻意的：要寫入必須明講。
+    """
+    count_sql = text(_EXACT_MATCH_SQL + "SELECT COUNT(*) FROM cand")
+    candidates = (await db.execute(count_sql)).scalar() or 0
+
+    if dry_run or not candidates:
+        return {"candidates": candidates, "applied": 0, "dry_run": True}
+
+    apply_sql = text(_EXACT_MATCH_SQL + """
+        UPDATE tender_records t
+           SET pcc_match_unit_id = cand.pu,
+               pcc_match_job_number = cand.pj,
+               pcc_match_confidence = 1.0,
+               pcc_match_at = NOW()
+          FROM cand
+         WHERE t.id = cand.eid
+    """)
+    result = await db.execute(apply_sql)
+    await db.commit()
+    applied = result.rowcount or 0
+    logger.info(f"tender exact match applied: {applied} (candidates={candidates})")
+    return {"candidates": candidates, "applied": applied, "dry_run": False}

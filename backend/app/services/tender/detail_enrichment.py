@@ -180,17 +180,28 @@ async def enrich_recent(
     可以安全地掛自動排程。pcc 來源仍需 2-hop，維持手動/低量。
     """
     stats = {"scanned": 0, "org_ok": 0, "enriched": 0, "updated_budget": 0, "errors": 0}
-    where_unenriched = "AND detail_enriched_at IS NULL" if only_unenriched else ""
-    where_dotted = r"AND unit_id ~ '^[0-9A-Za-z]+(\.[0-9]+)+$'" if only_dotted_org else ""
+    where_unenriched = "AND t.detail_enriched_at IS NULL" if only_unenriched else ""
+    where_dotted = r"AND t.unit_id ~ '^[0-9A-Za-z]+(\.[0-9]+)+$'" if only_dotted_org else ""
     rows = (await db.execute(text(f"""
-        SELECT id, unit_id, job_number, org_id, budget
-        FROM tender_records
-        WHERE announce_date >= (CURRENT_DATE - :db_days * INTERVAL '1 day')::date
-          AND COALESCE(tender_type, '') NOT LIKE '%決標%'
-          AND unit_id IS NOT NULL AND job_number IS NOT NULL AND job_number <> ''
+        SELECT t.id, t.unit_id, t.job_number, t.budget,
+               -- 2026-08-26（T3）：org_id 的第三個來源 —— **配對到的 ezbid**。
+               -- ezbid 的 unit_id 本身就是點分 org_id，所以只要這筆 pcc
+               -- 有配對關係，就能用對方的 org_id 查 openfun，
+               -- **完全不必打 PCC 詳情頁**（零反爬風險）。
+               -- 精確配對上線後這條路徑涵蓋 10,484 筆 pcc 記錄。
+               COALESCE(t.org_id, m.unit_id) AS org_id
+        FROM tender_records t
+        LEFT JOIN tender_records m
+               ON m.source = 'ezbid'
+              AND m.pcc_match_unit_id = t.unit_id
+              AND m.pcc_match_job_number = t.job_number
+              AND m.unit_id ~ '^[0-9A-Za-z]+(\.[0-9]+)+$'
+        WHERE t.announce_date >= (CURRENT_DATE - :db_days * INTERVAL '1 day')::date
+          AND COALESCE(t.tender_type, '') NOT LIKE '%決標%'
+          AND t.unit_id IS NOT NULL AND t.job_number IS NOT NULL AND t.job_number <> ''
           {where_unenriched}
           {where_dotted}
-        ORDER BY announce_date DESC
+        ORDER BY t.announce_date DESC
         LIMIT :lim
     """), {"db_days": days_back, "lim": limit})).fetchall()
     stats["scanned"] = len(rows)

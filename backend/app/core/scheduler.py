@@ -2122,13 +2122,25 @@ async def tender_pcc_enrichment_job():
     logger.info("開始執行 ezbid → PCC enrichment")
     try:
         async with async_session_maker() as db:
-            from app.services.tender.enrichment import enrich_all_unmatched
-            stats = await enrich_all_unmatched(db, dry_run=False, high_only=True)
-            logger.info(
-                f"ezbid PCC enrichment 完成: applied={stats['applied']} "
-                f"high={stats['matched_high']} medium={stats['matched_medium']} "
-                f"errors={stats['errors']}"
+            # 2026-08-26（owner：「無法成功等同無用」）：從 pg_trgm 換成精確鍵。
+            # 舊的 `enrich_all_unmatched` 用 similarity() 計分、門檻 0.85，而
+            # **pg_trgm 對中文無效** —— 標題與機關名完全相同時 similarity 仍是
+            # 0.0000 ⇒ 分數結構上永遠到不了。它每天都在跑而只配到 4.5%。
+            # 換成三個精確條件（job_number ＋ 標題前 20 字 ＋ 機關名）後
+            # 一次補上 10,199 筆，配對率 4.5% → 25.1%。
+            from app.services.tender.enrichment import (
+                enrich_all_exact, enrich_all_fallback,
             )
+            # 兩階段：① 有案號 → 三個精確條件；② 無案號（改版前的舊資料）
+            # → 標題＋機關名＋公告日差 ≤3 天，confidence 記 0.9 以保留差別。
+            s1 = await enrich_all_exact(db, dry_run=False)
+            s2 = await enrich_all_fallback(db, dry_run=False)
+            stats = {
+                "exact": s1["applied"], "fallback": s2["applied"],
+                "applied": s1["applied"] + s2["applied"],
+            }
+            logger.info(f"ezbid PCC 配對完成: {stats}")
+            return stats
     except Exception as e:
         logger.error(f"ezbid → PCC enrichment 失敗: {e}", exc_info=True)
 
