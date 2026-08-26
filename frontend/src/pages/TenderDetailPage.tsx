@@ -101,18 +101,57 @@ const TenderDetailPage: React.FC = () => {
   const isEzbidDbOnly = !!ezbidData;
 
   if (!detail && !isLoading) {
+    // 2026-08-26（B4）：查不到時原本只說「PCC 開放資料中查無此標案」——
+    // 兩個問題：① 這條路徑可能是 ezbid，來源就講錯了；② **沒說出真正的問題**。
+    //
+    // ezbid 的唯一鍵有兩種格式（實測 DB）：純數字 37,980 筆（舊）、
+    // `{機關代碼}/{標案案號}` 含斜線 11,470 筆（08-02 站台改版後）。
+    // 若使用者貼的是**只有機關代碼**（例如 `A.47.3`），它兩種都不是 ——
+    // 而畫面給的「查無此標案」會被讀成「這筆資料不存在」，
+    // 實際上是**編號少了一半**。那兩件事意思完全相反。
+    const looksLikeOrgCodeOnly =
+      isEzbidOnly && !!uid && !uid.includes('/') && !/^\d+$/.test(uid);
     return (
       <DetailPageLayout
-        header={{ title: '查無此標案', backPath: '/tender/search' }}
+        header={{
+          title: looksLikeOrgCodeOnly ? '這個編號不完整' : '查無此標案',
+          backPath: '/tender/search',
+        }}
         tabs={[createTabItem('empty', { icon: <ClockCircleOutlined />, text: '說明' },
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <Text type="secondary">PCC 開放資料中查無此標案</Text>
-            {uid && (
-              <div style={{ marginTop: 16 }}>
-                <Button type="primary" onClick={() => window.open(`https://cf.ezbid.tw/tender/${uid}`, '_blank')}>
-                  在 ezbid 查看此標案 →
-                </Button>
-              </div>
+            {looksLikeOrgCodeOnly ? (
+              <>
+                <Alert
+                  type="info"
+                  showIcon
+                  message={`「${uid}」看起來是機關代碼，不是標案編號`}
+                  description="ezbid 的標案編號是「機關代碼／標案案號」兩段（例如 A.21.100.36/TH115144），或是一組純數字。只有機關代碼查不到單一標案 —— 請改用搜尋。"
+                />
+                <div style={{ marginTop: 16 }}>
+                  <Button type="primary" onClick={() => navigate(`/tender/search?q=${encodeURIComponent(uid)}`)}>
+                    用「{uid}」搜尋這個機關的標案 →
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Text type="secondary">
+                  {isEzbidOnly ? 'ezbid 與本地資料庫中查無此標案' : 'PCC 開放資料中查無此標案'}
+                </Text>
+                {uid && (
+                  <div style={{ marginTop: 16 }}>
+                    {/* 08-02 站台改版後詳情頁是 `/detail/{機關}/{案號}`；
+                        純數字是改版前的舊 id，仍走舊路徑。 */}
+                    <Button type="primary" onClick={() => window.open(
+                      uid.includes('/')
+                        ? `https://ezbid.tw/detail/${uid}`
+                        : `https://cf.ezbid.tw/tender/${uid}`,
+                      '_blank')}>
+                      在 ezbid 查看此標案 →
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )]}
