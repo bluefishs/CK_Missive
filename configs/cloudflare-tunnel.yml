@@ -1,3 +1,25 @@
+# ⚠️⚠️ 這個檔案**沒有在生效**（2026-08-26 查證）。
+#
+# 實測：cloudflared 容器的啟動指令是 `tunnel run`（**token 模式**），
+# 且 `docker inspect` 顯示它**沒有掛載任何 volume** ⇒ 底下的 ingress
+# 一行都不會被讀到。真正的路由設定在 **Cloudflare Dashboard**。
+#
+# 保留這個檔是因為它記著 tunnel ID 與當初的設計意圖，但**照它改不會有
+# 任何效果** —— 而它看起來卻很權威（L84：設定寫得很嚴謹 ≠ 它跑得起來）。
+#
+# 它與現實至少矛盾三處，每一處都會誤導人：
+#   1. hostname 寫 `cksurvey.cloudflareaccess.com`，實際公網是 `missive.cksurvey.tw`
+#   2. 註解寫 `TUNNEL_GUARD_ENABLED=true`，**實際是 false**（08-03 的既有決策）——
+#      08-21 那個公網外洩的根因正是它是 false，而讀這個檔的人會以為守衛開著
+#   3. 底下的 health path 指 `/api/health`（精簡版，**不看業務量**），
+#      而 L43 volume mount drift 災難後建的 503 防禦在**根路徑 `/health`**
+#      （`backend/main.py:955`，會回 documents／canonical_entities 並在低於門檻時 503）。
+#      docker-compose 的 healthcheck 指對了（`/health`）；
+#      **CF Dashboard 那一側指向哪一個，需要 owner 登入查** —— 若也是 `/api/health`，
+#      L43 對 Cloudflare 那一層的防禦是失效的（空殼 DB 照樣被導流量進來）。
+#
+# ── 以下為原始內容，僅供參考 ──────────────────────────────────
+#
 # Cloudflare Tunnel 配置 — CK_Missive Webhook 通道
 #
 # Tunnel ID: e66a0acc-7940-4b54-ac75-ca3923e652d0
