@@ -13,7 +13,7 @@ import {
 } from 'antd';
 import {
   EditOutlined, DeleteOutlined, RocketOutlined, SaveOutlined, CloseOutlined,
-  InfoCircleOutlined, TeamOutlined, PaperClipOutlined, BarChartOutlined, PlusOutlined,
+  InfoCircleOutlined, TeamOutlined, BarChartOutlined, PlusOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -344,8 +344,16 @@ export const PMCaseDetailPage: React.FC = () => {
     createTabItem('staff', { icon: <TeamOutlined />, text: '承辦同仁' }, (
       <Suspense fallback={<Spin />}><PMStaffTab caseCode={pmCase.case_code} /></Suspense>
     )),
-    createTabItem('quotations', { icon: <PaperClipOutlined />, text: '報價紀錄' }, (
-      <Suspense fallback={<Spin />}><QuotationRecordsTab caseCode={pmCase.case_code} isEditing={isEditing} /></Suspense>
+    // 2026-08-26：分頁名由「報價紀錄」改為「報價單」——
+    // 它現在是**線上明細編輯器**（嵌入 QuotationItemsTab），不是一份紀錄清單。
+    createTabItem('quotations', { icon: <FileTextOutlined />, text: '報價單' }, (
+      <Suspense fallback={<Spin />}>
+        <QuotationRecordsTab
+          caseCode={pmCase.case_code}
+          caseName={pmCase.case_name}
+          isEditing={isEditing}
+        />
+      </Suspense>
     )),
     createTabItem('milestones', { icon: <BarChartOutlined />, text: '里程碑/甘特圖' }, (
       <Suspense fallback={<Spin />}><MilestonesGanttTab pmCaseId={pmCase.id} /></Suspense>
