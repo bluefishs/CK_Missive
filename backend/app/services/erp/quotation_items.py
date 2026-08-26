@@ -90,6 +90,25 @@ class QuotationItemService:
         if count:
             # 有明細才回寫 —— 見檔頭：空明細不代表 0 元
             quotation.total_price = total
+            # ⚠️ 2026-08-26：稅額必須跟著小計重算，否則 `detail` 會回
+            # **新小計 ＋ 舊稅額**，那在算術上就是錯的。
+            # 端到端實測抓到：小計改成 8,000 之後，稅額仍是舊的 12,656
+            # （原總價 253,120 的 5%），total 算出 20,656。
+            #
+            # 這個 bug 一直沒有真實發生，因為 `erp_quotation_items`
+            # **0 筆 / 256 張** —— 沒有人用過線上明細。接通之後就會發生。
+            #
+            # ⚠️ 順帶查出 `total_price` 這個欄位**混了兩種語意**：
+            #     147 張  tax = total × 5.00%      ⇒ total 是**未稅**
+            #      66 張  tax = total × 4.76%      ⇒ 4.76% = 5/105，
+            #                                        ⇒ total 是**含稅**
+            # 明細小計依定義必然是**未稅**（單價 × 數量），所以這裡按未稅算。
+            # 使用者一旦改用明細填報，那張的語意就統一到未稅 —— 這是收斂
+            # 不是破壞，但**只在他真的填了明細時才發生**，不動沒有明細的。
+            #
+            # 5% 是法定營業稅率，此處寫死；若日後要可設定，
+            # 照既有的 `site_configurations.erp_company_profit_rate` 形態加一個 key。
+            quotation.tax_amount = (total * Decimal("0.05")).quantize(Decimal("1"))
         else:
             logger.info(
                 "報價 %s 明細清空，**不動 total_price（維持 %s）**"
