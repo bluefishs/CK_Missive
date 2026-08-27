@@ -5,7 +5,7 @@ from typing import Optional, List, Tuple
 from typing import Dict, Any
 from decimal import Decimal
 
-from sqlalchemy import select, func, or_, and_
+from sqlalchemy import select, func, or_, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPQuotation
@@ -86,12 +86,44 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         )
         revenue = (row.total_price or 0) - (row.tax_amount or 0)
         gross_profit = revenue - total_cost
+
+        # 2026-08-27 owner：「以利掌握公司專案資金管理」。
+        #
+        # 在此之前這裡只回**合約總價與毛利** —— 那是「這個案子談成多少」，
+        # 回答不了「**收了多少、付了多少、還有多少沒收**」。
+        # 承攬案件的「財務紀錄」分頁因此看不到任何實際金流。
+        #
+        # ⚠️ 請款與應付**掛在報價單**（只有 `erp_quotation_id`），
+        # 不是掛在專案 ⇒ 這裡以 `row.id`（報價單 id）聚合是正確的路徑；
+        # 若改用 project_code 會查不到而**回 0 不是報錯**。
+        cash = (await self.db.execute(text("""
+            SELECT
+              COALESCE((SELECT SUM(billing_amount) FROM erp_billings
+                         WHERE erp_quotation_id = :qid), 0)                 AS billed,
+              COALESCE((SELECT SUM(payment_amount) FROM erp_billings
+                         WHERE erp_quotation_id = :qid
+                           AND payment_status = 'paid'), 0)                 AS received,
+              COALESCE((SELECT SUM(payable_amount) FROM erp_vendor_payables
+                         WHERE erp_quotation_id = :qid), 0)                 AS payable,
+              COALESCE((SELECT SUM(paid_amount) FROM erp_vendor_payables
+                         WHERE erp_quotation_id = :qid
+                           AND payment_status = 'paid'), 0)                 AS paid
+        """), {"qid": row.id})).one()
+
         return {
             "id": row.id,
             "case_name": row.case_name,
             "status": row.status,
             "total_price": str(row.total_price) if row.total_price else "0",
             "gross_profit": str(gross_profit),
+            # 實際金流 —— 與上面的「合約總價／毛利」是**兩件事**：
+            # 那是談定的，這是真的進出的。
+            "billed_total": str(cash.billed),      # 已開立請款
+            "received_total": str(cash.received),  # 已收款
+            "unreceived": str(cash.billed - cash.received),
+            "payable_total": str(cash.payable),    # 應付
+            "paid_total": str(cash.paid),          # 已付
+            "unpaid": str(cash.payable - cash.paid),
         }
 
     async def filter_quotations(
