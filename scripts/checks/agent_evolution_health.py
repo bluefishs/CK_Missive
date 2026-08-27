@@ -101,7 +101,38 @@ async def diagnose(redis_url: str) -> int:
         pong = await r.ping()
         print(f"  ✓ Redis ping: {pong}")
     except Exception as e:
+        # 2026-08-27：**「我連不到」不等於「它掛了」** —— 這支跑在 host（weekly 在 host），
+        # 而 Redis 只發佈在 `127.0.0.1:6380`。實測那個埠轉發是 **L76 殭屍**：
+        # TCP 連得上（socket 接受）但立刻被關閉，raw PING 收到空回應。
+        # 同時容器內 `redis-cli ping` 回 **PONG**、backend 容器內 `r.ping()` 回 **True**。
+        # ⇒ evolution scheduler 跑在容器裡，它**完全不受影響**。
+        #
+        # 原本這裡直接 return 2 並斷言「永不觸發」——那是**假紅燈加上錯誤結論**，
+        # 而 weekly 每週都會產生一次。同族：`check_runs_in_which_environment`
+        # 「檢核要在排程實際執行的環境裡驗」。
+        #
+        # 改為：連不到就從容器再問一次，兩者分開講。
+        import subprocess
+        container_ok = False
+        try:
+            out = subprocess.run(
+                ["docker", "exec", "ck_missive_redis", "redis-cli", "ping"],
+                capture_output=True, encoding="utf-8", timeout=20,
+                env=dict(os.environ, MSYS_NO_PATHCONV="1"))
+            container_ok = "PONG" in (out.stdout or "")
+        except Exception:
+            container_ok = False
+
+        if container_ok:
+            print(f"  ⚠️  從本機（host）連不到 Redis：{e}")
+            print("      但**容器內 redis-cli ping = PONG** —— Redis 是活的。")
+            print("      這是 host 端的埠轉發問題（L76 殭屍轉發：TCP 連得上、立刻被關閉），")
+            print("      而 evolution scheduler 跑在容器裡，**不受影響**。")
+            print("      → 判 YELLOW：要修的是埠轉發（stop+rm+up -d，不是 restart），")
+            print("        不是 evolution 機制。本檢核後續步驟需要 Redis，故就此停住。")
+            return 1
         print(f"  ❌ Redis 不可達: {e}")
+        print("     （容器內也問不到 PONG ⇒ 這次是真的）")
         print("  → evolution scheduler 完全靠 redis counter，不可達 = 永不觸發")
         return 2
 
