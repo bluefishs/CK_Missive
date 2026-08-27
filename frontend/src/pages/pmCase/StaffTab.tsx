@@ -8,7 +8,7 @@
  * @version 4.0.0 — 統一版型，移除外部人員，使用 useUsersDropdown
  */
 import { useState } from 'react';
-import { Button, Modal, Form, Select, Tag, Popconfirm, App } from 'antd';
+import { Button, Modal, Form, Select, Tag, Popconfirm, App, Alert, Empty } from 'antd';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -47,7 +47,7 @@ export default function StaffTab({ caseCode }: StaffTabProps) {
   const { users, isLoading: usersLoading, isError: usersError } = useUsersDropdown();
   const queryKey = ['project-staff-by-case', caseCode];
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey,
     queryFn: () => apiClient.post<StaffListResponse>(
       API_ENDPOINTS.PROJECT_STAFF.CASE_LIST(caseCode)
@@ -153,14 +153,39 @@ export default function StaffTab({ caseCode }: StaffTabProps) {
         </Button>
       </div>
 
-      <EnhancedTable<StaffRecord>
-        dataSource={staff}
-        columns={columns}
-        rowKey="id"
-        loading={isLoading}
-        size="small"
-        pagination={false}
-      />
+      {/* 2026-08-27 owner：「/pm/cases/525?tab=staff 其承辦同仁 tab 為何還是空的無對應」
+          查證：該案（case_code B115-C020-0）**三種鍵都查過都沒有指派紀錄** ——
+          不是接線壞掉，是真的沒有人被指派（253 件 PM 案件裡只有 102 件有承辦同仁）。
+
+          但畫面把兩件意思相反的事講成同一句：本頁原本只解構 `isLoading`，
+          **`isError` 完全沒接** ⇒ 清單載入失敗時同樣是一張空表格。
+          「載不到」與「沒有人」在畫面上長得一模一樣，而處置完全不同。
+          同族：08-20 空清單退化成數字、08-26 /staff 空表格看起來像公司沒有同仁。 */}
+      {isError ? (
+        <Alert
+          type="warning"
+          showIcon
+          message="承辦同仁清單載入失敗"
+          description="這不代表此案沒有指派人員 —— 請重新整理；若持續失敗請回報。"
+        />
+      ) : (
+        <EnhancedTable<StaffRecord>
+          dataSource={staff}
+          columns={columns}
+          rowKey="id"
+          loading={isLoading}
+          size="small"
+          pagination={false}
+          locale={{
+            emptyText: isLoading ? ' ' : (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="這個案件還沒有指派承辦同仁 —— 請用右上角「新增人員」加入"
+              />
+            ),
+          }}
+        />
+      )}
 
       <Modal
         title="新增承辦同仁"
