@@ -90,8 +90,29 @@ def list_adrs() -> list[tuple[str, str]]:
 
 
 def list_lessons() -> list[str]:
-    """回 ['L01', 'L02', ...]"""
-    out = []
+    """回 ['L01', 'L02', ...]
+
+    2026-08-27 修：原本只讀 `wiki/memory/lessons/`，而那個目錄**是空的**
+    ⇒ 這支檢核三個月來一直印「Lessons (wiki/memory): 0」然後判「無漂移」。
+    真正的 lessons 集中在 `docs/architecture/LESSONS_REGISTRY.md`（82 條）。
+
+    ⚠️ **同一個 bug 在同一個 repo 裡已經修過一次**：
+    `generate_governance_dashboard.py:112` 的註解白紙黑字寫著
+    「L67 同型修（2026-06-11）：原讀空目錄 wiki/memory/lessons/ → Lessons 永遠 0；
+      真實 lessons 集中在 LESSONS_REGISTRY.md」。
+    兩支腳本讀同一份東西，當時只修了其中一支 —— 而沒被修的那支不會報錯，
+    它只是安靜地回 0，然後說一切正常。掃全同型的價值就在這裡。
+    """
+    out: list[str] = []
+    registry = ROOT / "docs" / "architecture" / "LESSONS_REGISTRY.md"
+    if registry.is_file():
+        for line in registry.read_text(encoding="utf-8", errors="ignore").splitlines():
+            m = re.match(r"^##\s+(L\d+)\s", line)
+            if m:
+                out.append(m.group(1))
+    if out:
+        return out
+    # fallback：舊目錄（目前是空的，保留是為了有人日後改回檔案制）
     lesson_dir = ROOT / "wiki" / "memory" / "lessons"
     if not lesson_dir.is_dir():
         return out
@@ -174,17 +195,37 @@ def check_lesson_id_continuity(lessons: list[str]) -> list[str]:
 
 
 def check_wiki_lessons_link(metrics: dict) -> list[str]:
-    """governance_lessons_total metric 對齊 lessons/ 檔數"""
+    """`governance_lessons_total` 的名字說 lessons，量到的其實是 failures。
+
+    2026-08-27 修。原本的比對是：
+
+        metric(governance_lessons_total) vs list_lessons() + failures/
+
+    而 `list_lessons()` 讀的是空目錄（恆 0），metric 的實作
+    （`memory_wiki_metrics.py:418`）合算 `lessons/` + `failures/` 也等於只有 failures
+    ⇒ **兩邊都在數同一批 18 個 failures 檔，恆等，這個比對永遠不會報。**
+
+    這裡改成分開對，讓「名字」與「量的東西」的落差看得見：
+
+      1. metric 對得上 failures/ 檔數嗎（它實際在量的東西）
+      2. LESSONS_REGISTRY 讀得到條目嗎（讀 0 = 又讀錯地方了，是哨兵不是統計）
+    """
     out = []
     metric_count = metrics.get("governance_lessons_total", 0)
-    actual = len(list_lessons())
-    # actual count lessons + failures (governance metric 合算)
+
     failures_dir = ROOT / "wiki" / "memory" / "failures"
-    if failures_dir.is_dir():
-        actual += len(list(failures_dir.glob("*.md")))
-    if metric_count > 0 and abs(metric_count - actual) > 2:
+    failures = len(list(failures_dir.glob("*.md"))) if failures_dir.is_dir() else 0
+    if metric_count > 0 and abs(metric_count - failures) > 2:
         out.append(
-            f"  ⚠ governance_lessons_total={metric_count:.0f} vs actual files={actual} (drift > 2)"
+            f"  ⚠ governance_lessons_total={metric_count:.0f} vs wiki/memory/failures/={failures}"
+            f" (drift > 2)"
+        )
+
+    registry_count = len(list_lessons())
+    if registry_count == 0:
+        # 這一項刻意是哨兵：registry 有 80+ 條，讀到 0 只有一種可能 —— 讀錯地方。
+        out.append(
+            "  ⚠ LESSONS_REGISTRY.md 讀到 0 條 —— 這不是「沒有 lesson」，是解析或路徑壞了"
         )
     return out
 
@@ -214,9 +255,12 @@ def main() -> int:
     active_adr = sum(1 for _, s in adrs if s in ("accepted", "proposed", "proposal"))
     print(f"┌─ 規範清單盤點 ─┐")
     print(f"  ADRs:                   total={len(adrs):>3}  active={active_adr}")
-    print(f"  Lessons (wiki/memory):  {len(lessons):>3} (含 L52+L53 本日新增)")
+    print(f"  Lessons (LESSONS_REGISTRY): {len(lessons):>3}")
     print(f"  SOPs (.claude/rules):   {len(sops):>3}")
-    print(f"  Fitness check scripts:  {len(fitness):>3}")
+    # 2026-08-27：標明數法。這裡只數檔名以 _audit/_check/_guard 結尾的（126），
+    # 而 scripts/checks/ 頂層實際有 178 支 —— 兩個數字都不是錯的，
+    # 但不標數法的話，跟 README 的 178 擺在一起會被當成漂移。
+    print(f"  Fitness scripts (*_audit/_check/_guard): {len(fitness):>3}")
     print()
 
     print(f"┌─ 漂移檢測 ─┐")
@@ -251,12 +295,17 @@ def main() -> int:
             print(i)
     print()
 
-    print(f"┌─ 進化執行成效 ─┐")
-    print(f"  v6.12 進化 4 原則完整落地: ✓")
-    print(f"  本日新增 lesson: L52 + L53")
-    print(f"  Facade B 方案: 13→3 收口 (-1509L, 0 殘留)")
-    print(f"  Fitness 51→63 step (本批 + step 62 + 63)")
-    print(f"  governance_* metric 真活: 7 個 gauge expose")
+    # 2026-08-27：原本這裡印五行「進化執行成效」，而那五行是 2026-05-30 寫死的字串
+    # （"本日新增 lesson: L52 + L53"、"Fitness 51→63 step"…），三個月來每天印同一句。
+    # 固定文字不是成效，它只是讓輸出看起來很豐富 —— 而讀的人會以為那是今天量到的。
+    # 改成只印真的算得出來的東西；算不出來的就不要印。
+    print(f"┌─ 本次實際量到 ─┐")
+    print(f"  Lessons (registry) : {len(lessons)}")
+    print(f"  ADRs (active/total): {active_adr}/{len(adrs)}")
+    print(f"  SOPs (.claude/rules): {len(sops)}")
+    print(f"  Fitness scripts    : {len(fitness)} （只數 *_audit/_check/_guard；頂層總數見 scripts/checks/README.md）")
+    live_gauges = [k for k in metrics if k.startswith("governance_")]
+    print(f"  governance_* gauge : {len(live_gauges)} 個 expose 中")
     print()
 
     if issues and strict:
