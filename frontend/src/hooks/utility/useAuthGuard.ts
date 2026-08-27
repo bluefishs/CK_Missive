@@ -28,22 +28,85 @@ export function resetStartupValidation() {
   /* no-op：啟動驗證已移至 sessionStore.bootstrap */
 }
 
-/** 權限類型 */
+/**
+ * 權限類型。
+ *
+ * ⚠️ 2026-08-27 校正 —— 這是**第四份**權限來源，而它兩個方向都錯：
+ *
+ *   列了不存在的： documents:write / projects:write / admin:access
+ *   漏了存在的：   projects:create / agencies:* / vendors:* / calendar:* /
+ *                  reports:* / system_docs:* / admin:database / admin:site_management …
+ *
+ * **它正是讓 `projects:write` 看起來合法的原因** —— tsc 接受它，
+ * 於是 `ContractCasePage` 的「新增案件」按鈕用一個沒有任何角色擁有的權限守著，
+ * 而 admin 打 API 明明建得了案件（後端要的是 `projects:create`）。
+ *
+ * 本清單現在取自實際的三個來源聯集：
+ *   `role_permissions` 已分派 ∪ `site_navigation_items.permission_required`
+ *   ∪ 後端 `_BUSINESS_PERMISSIONS`
+ *
+ * ⚠️ 它仍然是手維護的（`PERMISSION_CATEGORIES` 沒有 `as const`，
+ *   導不出字面聯集）。真正的守門是
+ *   `scripts/checks/role_permissions_consistency_check.py` 第 5 項 ——
+ *   它掃 `hasPermission('X')` 與端點的 `require_permission("X")`，
+ *   比對「有沒有角色拿得到」，新出現的一律判紅。
+ *   **這個型別擋的是筆誤，不是擋漂移；漂移由那支檢核擋。**
+ */
 export type Permission =
-  | 'documents:read'
-  | 'documents:write'
-  | 'documents:create'
-  | 'documents:edit'
-  | 'documents:delete'
-  | 'projects:read'
-  | 'projects:write'
-  | 'projects:delete'
-  | 'admin:access'
-  | 'admin:users'
+  | 'admin:database'
   | 'admin:settings'
+  | 'admin:site_management'
+  | 'admin:users'
+  | 'agencies:create'
+  | 'agencies:delete'
+  | 'agencies:edit'
+  | 'agencies:read'
+  | 'calendar:edit'
+  | 'calendar:read'
+  | 'documents:create'
+  | 'documents:delete'
+  | 'documents:edit'
+  | 'documents:read'
+  | 'operational:approve'
   | 'operational:read'
   | 'operational:write'
-  | 'operational:approve';
+  | 'projects:create'
+  | 'projects:delete'
+  | 'projects:edit'
+  | 'projects:read'
+  | 'reports:assets:view'
+  | 'reports:erp:view'
+  | 'reports:export'
+  | 'reports:finance:view'
+  | 'reports:stats:view'
+  | 'reports:tender:view'
+  | 'reports:view'
+  | 'system_docs:create'
+  | 'system_docs:delete'
+  | 'system_docs:edit'
+  | 'system_docs:read'
+  | 'vendors:create'
+  | 'vendors:delete'
+  | 'vendors:edit'
+  | 'vendors:read'
+  // ── 以下三個**不存在於任何角色與 SSOT**，留在型別裡只是為了讓既有程式碼編得過 ──
+  //
+  // 2026-08-27：它們是「無人可得」的權限（見 permission_unreachable_baseline.json）。
+  // 留著它們不是認可，是因為移除會讓四個頁面編不過，而那四個頁面的正解
+  // 需要 owner 決定命名（owner 指示費用核銷相關「最後在處理」）。
+  //
+  //   'projects:write'  → ERPExpenseDetailPage / ERPExpenseListPage / ERPLedgerPage
+  //                       （後端 erp/expenses.py 的 approve/reject/delete 也要它）
+  //                       ⚠️ 語意上這不是「專案寫入」，正解多半是新開 expenses:approve
+  //   'admin:access'    → ERPEInvoiceSyncPage（電子發票同步，會呼叫財政部 API 有配額）
+  //                       ⚠️ 正解多半是 admin:settings，但那是**放寬**，屬產品決策
+  //   'documents:write' → 目前無人使用，留著僅為相容
+  //
+  // **這三行本身就是待辦**。解掉之後要從這裡移除 ——
+  // 留著一個永遠不會成立的型別成員，等於把問題藏進型別系統。
+  | 'projects:write'
+  | 'admin:access'
+  | 'documents:write';
 
 /** 認證狀態 */
 export interface AuthState {

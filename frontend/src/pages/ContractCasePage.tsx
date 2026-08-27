@@ -48,7 +48,22 @@ export const ContractCasePage: React.FC = () => {
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
   const { hasPermission } = useAuthGuard();
-  const canCreate = hasPermission('projects:write');
+  // 2026-08-27：原本檢查 `projects:write` —— 那個名字**不存在於任何地方**
+  //   （後端 _BUSINESS_PERMISSIONS 沒有、前端 PERMISSION_CATEGORIES 沒有、
+  //     沒有任何角色擁有）⇒ 權限編輯畫面不會列出它，任何人都無法授予
+  //   ⇒ 這個按鈕只有 superuser 看得到（hasPermission 只對 superuser 短路）。
+  //
+  //   而**後端要的是 `projects:create`**（`projects/crud.py:134`
+  //   `require_permission("projects:create")`，admin 角色擁有它）
+  //   ⇒ admin 直接打 API 建得了案件，卻看不到按鈕。
+  //
+  //   這不是產品決策，是前後端對不上：前端檢查的權限與端點要求的不是同一個。
+  //   對齊到端點實際要求的那一個。
+  //
+  //   ⚠️ `projects:write` 的另一個使用點在 `ERPExpenseDetailPage`（費用核銷審核），
+  //      那一塊 owner 指示「最後在處理」，本次不動 —— 它的正解可能是
+  //      新開 `expenses:approve` 而不是沿用 projects 家族（語意上那不是專案寫入）。
+  const canCreate = hasPermission('projects:create');
 
   // ---[UI 狀態管理]---
   const [statFilter, setStatFilter] = useState<string | null>(null);
