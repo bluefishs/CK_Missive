@@ -365,7 +365,14 @@ services:
     environment:
       - TZ=Asia/Taipei
     ports:
-      - "3000:80"
+      # 2026-08-27：原為 "3000:80"，而容器內 nginx 監聽的是 3000（Dockerfile EXPOSE 3000、
+      # conf.d/default.conf `listen 3000`）⇒ 發布出去的 3000 埠轉到容器裡沒有人在聽的 80，
+      # 從 host 連 http://localhost:3000 一律連線被拒（實測 curl 回 000、netstat 見 TIME_WAIT）。
+      # 而 healthcheck 探的是容器內真正在聽的 3000 ⇒ **永遠 healthy**。
+      # 這是 L45 只修了一半：當時把 healthcheck 對齊到 3000，卻沒有一併對齊 port mapping。
+      # 沒被發現是因為公網不走這個容器（cloudflared → backend:8001 直接吐 frontend/dist），
+      # 所以它從 2026-06-02 起就是一個「外面連不上、儀表板永遠綠」的容器。
+      - "3000:3000"
     networks:
       - ck_network
     depends_on:
