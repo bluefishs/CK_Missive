@@ -143,7 +143,7 @@ def query_tasks() -> list[dict]:
         " ForEach-Object { $i = $_ | Get-ScheduledTaskInfo;"
         "   [PSCustomObject]@{"
         "     Name=$_.TaskName; State=[string]$_.State;"
-        "     Result=$i.LastTaskResult;"
+        "     Result=$i.LastTaskResult; MissedRuns=[int]$i.NumberOfMissedRuns;"
         "     LastRun=(if($i.LastRunTime){$i.LastRunTime.ToString('s')}else{''});"
         "     NextRun=(if($i.NextRunTime){$i.NextRunTime.ToString('s')}else{''});"
         "     IntervalDays=(@($_.Triggers | ForEach-Object {"
@@ -397,6 +397,12 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
         state = (t.get("State") or "").strip()
         result = t.get("Result")
         last_run = (t.get("LastRun") or "").strip()
+        next_run_raw = (t.get("NextRun") or "").strip()
+        # `1999-11-30T00:00:00` 是 Windows 對「從未執行」的哨兵值，不是一個真實時間。
+        # 不正規化的話它是 truthy，會一路走到「上次執行 9767 天前」——
+        # 把哨兵值當資料讀，是本檔 08-27 那次誤報的直接成因。
+        if last_run.startswith("1999-11-30"):
+            last_run = ""
         swa = bool(t.get("StartWhenAvailable"))
         logon = bool(t.get("LogonTrigger"))
 
@@ -484,7 +490,36 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
                 except ValueError:
                     reds.append(f"{name}: LastRun 無法解析（{last_run}）")
         elif not last_run:
-            reds.append(f"{name}: 從未執行過（註冊了但沒跑過）")
+            # 2026-08-27（由 CK_Hermes session 指出）：**「還沒跑過」與「停擺了」不是同一件事**。
+            #
+            # 誤報實例：`CK-Hermes-Health-Smoke-Daily` 於 12:42 註冊，trigger 的
+            # StartBoundary 是當日 09:10 —— 本檔從 NextRun 往回推得「今天 09:10 該跑」，
+            # 卻沒有考慮**它在那個時刻還不存在**。於是它同時吃到兩個紅燈：
+            # 「上次執行 9767 天前」與「應於 09:10 執行卻沒跑」。
+            #
+            # 這不是那一支的特例，是**通則性誤報：任何 StartBoundary 在過去、
+            # 而註冊時間晚於它的排程，第一天都會被判成錯過首次執行**。
+            # 每建一支新排程就誤報一次，而誤報會訓練人略過整組 —— 那正是本檔要防的事。
+            #
+            # 諷刺的是本檔**自己就認得** 267011（SCHED_S_TASK_HAS_NOT_RUN，見
+            # SCHED_STATUS_CODES，退出碼那一段判它「非失敗」），只是這一段沒去問它。
+            # 同一支腳本裡，一段知道它從沒跑過，另一段把「從沒跑過」讀成「9767 天沒跑」。
+            #
+            # 判準改用**排程器自己的帳**而不是我推導的：NextRun 在未來
+            # 且 NumberOfMissedRuns=0 ⇒ 尚未首跑，正常。
+            missed = int(t.get("MissedRuns") or 0)
+            first_due_ahead = False
+            if next_run_raw:
+                try:
+                    first_due_ahead = datetime.fromisoformat(next_run_raw) > now
+                except ValueError:
+                    first_due_ahead = False
+            if first_due_ahead and missed == 0:
+                notes.append(
+                    f"{name}: 註冊後尚未首次執行，首跑 {next_run_raw[:16].replace('T', ' ')}"
+                    f"（NumberOfMissedRuns=0 —— 排程器自己說沒漏跑）")
+            else:
+                reds.append(f"{name}: 從未執行過（註冊了但沒跑過，NumberOfMissedRuns={missed}）")
         else:
             try:
                 age = now - datetime.fromisoformat(last_run)
