@@ -590,15 +590,35 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
             tol = timedelta(minutes=max(3 * rep_min, 30))
             try:
                 lr = datetime.fromisoformat(last_run)
-                if now - lr > tol:
+                since_run = now - lr
+                # ⚠️ 2026-08-27（由 CK_Hermes session 在我推送後半小時指出）：
+                # `LastRunTime` **跨重啟保存，而關機期間任務不可能 fire**。
+                # 隔夜關機 13 小時再開機，這裡會看到「上次執行 13 小時前」並判紅 ——
+                # **每次隔夜重啟誤報一次**。上面那個 30 分鐘下限治不了它：
+                # 那治的是「週跑單次取樣抽中空窗」，這是關機時長，可以是十幾小時。
+                #
+                # 取「距上次執行」與「距開機」的較小值：任務再健康也不可能在關機時跑。
+                # ⚠️ 夾住開機時間**不得讓這個檢查變瞎** —— 開機已久（> 容忍值）
+                # 而任務仍沒 fire，照樣要紅。合成情境 D 就是驗這一格。
+                boot_hf = _last_boot()
+                clamped = False
+                if boot_hf is not None and boot_hf > lr:
+                    since_boot = now - boot_hf
+                    if since_boot < since_run:
+                        since_run, clamped = since_boot, True
+                mins = int(since_run.total_seconds() // 60)
+                if since_run > tol:
                     reds.append(
-                        f"{name}: 節奏 {rep_min}min 但上次執行 "
-                        f"{int((now - lr).total_seconds() // 60)} 分鐘前"
-                        f"（容忍 {int(tol.total_seconds() // 60)} 分鐘）")
-                else:
+                        f"{name}: 節奏 {rep_min}min 但已 {mins} 分鐘沒跑"
+                        f"（容忍 {int(tol.total_seconds() // 60)} 分鐘"
+                        f"{'；已扣除關機時間' if clamped else ''}）")
+                elif clamped:
+                    # 被夾住時說「N 分鐘前跑過」是假的 —— 它上次跑是在重啟之前。
                     notes.append(
-                        f"{name}: {int((now - lr).total_seconds() // 60)} 分鐘前跑過"
-                        f"（節奏 {rep_min}min）")
+                        f"{name}: 開機 {mins} 分鐘內、尚未進入下個 tick"
+                        f"（上次執行在重啟前 {last_run[:16].replace('T', ' ')}，節奏 {rep_min}min）")
+                else:
+                    notes.append(f"{name}: {mins} 分鐘前跑過（節奏 {rep_min}min）")
             except ValueError:
                 pass  # LastRun 解析失敗上面已經報過，不重複
 
