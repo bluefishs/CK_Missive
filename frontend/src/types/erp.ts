@@ -183,6 +183,13 @@ export interface ERPVendorPayable {
   id: number;
   erp_quotation_id: number;
   vendor_name: string;
+  /** 2026-08-27（V4 廠商身分統一源頭）：`vendor_name` 現在一律以
+   *  FK 指向的 `partner_vendors` 為準。應付單自存的那份文字若與之不同，
+   *  會放在這裡 —— **不能靜靜蓋掉**：實測 3 筆對不上，其中「林晉廷」
+   *  vs FK 的「林宥廷測量技師事務所」**是不同的人**，
+   *  若 FK 才是錯的那一邊，蓋掉等於把錯誤變成唯一事實。
+   *  ⇒ `undefined` 代表兩者一致；有值代表**這一筆的廠商身分有出入**。 */
+  vendor_name_recorded?: string;
   /** 期別 —— 與應收 `ERPBilling.billing_period` 對稱（2026-08-18）。
    *  值域共用後端 `schemas/erp/billing.py: BillingPeriod`；
    *  前端下拉選項見 `BILLING_PERIOD_OPTIONS`。
@@ -324,6 +331,13 @@ export interface ERPVendorPayableDetail {
   id: number;
   erp_quotation_id: number;
   vendor_name: string;
+  /** 2026-08-27（V4 廠商身分統一源頭）：`vendor_name` 現在一律以
+   *  FK 指向的 `partner_vendors` 為準。應付單自存的那份文字若與之不同，
+   *  會放在這裡 —— **不能靜靜蓋掉**：實測 3 筆對不上，其中「林晉廷」
+   *  vs FK 的「林宥廷測量技師事務所」**是不同的人**，
+   *  若 FK 才是錯的那一邊，蓋掉等於把錯誤變成唯一事實。
+   *  ⇒ `undefined` 代表兩者一致；有值代表**這一筆的廠商身分有出入**。 */
+  vendor_name_recorded?: string;
   /** 期別 —— 與應收 `ERPBilling.billing_period` 對稱（2026-08-18）。
    *  值域共用後端 `schemas/erp/billing.py: BillingPeriod`；
    *  前端下拉選項見 `BILLING_PERIOD_OPTIONS`。

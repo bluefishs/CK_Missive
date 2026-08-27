@@ -15,7 +15,7 @@
  */
 import React, { useState } from 'react';
 import {
-  Button, Tag, Row, Col, Alert, Modal, Form, Input, DatePicker, App,
+  Button, Tag, Row, Col, Alert, Modal, Form, Input, DatePicker, App, Tooltip,
 } from 'antd';
 import ClickableStatCard from '../../components/common/ClickableStatCard';
 import { useCreateInvoiceFromBilling } from '../../hooks/business/useERPQuotations';
@@ -42,6 +42,9 @@ interface AccountRecord {
    *  應收的對手方與案名由報價帶出，不需要這一欄。 */
   description?: string;
   counterparty?: string;       // 對象 (委託單位 or 廠商)
+  /** 2026-08-27（V4）：廠商身分以 FK 為單一來源，而應付單自存的那份
+   *  文字若與之不同會放這裡 ⇒ **這一筆的廠商身分有出入，要看得見**。 */
+  counterpartyRecorded?: string;
   request_date?: string;       // 請款日期
   request_amount?: number;     // 請款金額
   invoice_number?: string;     // 發票號碼
@@ -118,6 +121,7 @@ const payableToRecord = (p: ERPVendorPayable): AccountRecord => ({
   period: p.payable_period || undefined,
   description: p.description || undefined,
   counterparty: p.vendor_name,
+  counterpartyRecorded: p.vendor_name_recorded,
   request_date: p.due_date,
   request_amount: Number(p.payable_amount || 0),
   invoice_number: p.invoice_number,
@@ -233,7 +237,19 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
       ellipsis: true,
       render: (v: unknown) => (v as string) || '-',
     }]),
-    { title: counterpartyLabel, dataIndex: 'counterparty', width: 140, ellipsis: true },
+    {
+      title: counterpartyLabel, dataIndex: 'counterparty', width: 140, ellipsis: true,
+      // 2026-08-27（V4）：廠商名以 FK 為單一來源。若這一筆自存的名字與之不同，
+      // **要看得見** —— 實測「林晉廷」vs FK 的「林宥廷測量技師事務所」是不同的人，
+      // 只顯示其中一個就等於替使用者決定了哪個對（而系統不知道）。
+      render: (v: string, r: AccountRecord) => (
+        r.counterpartyRecorded ? (
+          <Tooltip title={`此筆自行填寫的名稱是「${r.counterpartyRecorded}」，與廠商檔登記的不同 —— 請確認是同一家。`}>
+            <span>{v} <Tag color="orange" style={{ marginInlineStart: 4 }}>名稱不符</Tag></span>
+          </Tooltip>
+        ) : <span>{v}</span>
+      ),
+    },
     { title: '請款日期', dataIndex: 'request_date', width: 110, hideOnMobile: true },
     // 2026-08-17 owner：「建議列表表單僅顯示已收款經費資訊」。
     // 請款金額與收款金額實測 36/36 完全相同（見 ERPAccountRecordFormPage 的說明），

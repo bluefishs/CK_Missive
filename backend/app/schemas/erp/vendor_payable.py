@@ -78,6 +78,14 @@ class ERPVendorPayableResponse(BaseModel):
     id: int
     erp_quotation_id: int
     vendor_name: str
+    # 2026-08-27（V4 統一源頭）：有 `vendor_id` 時，上面的 `vendor_name`
+    # 一律以 **FK 指向的 partner_vendors 為準**（單一來源）。
+    # 而應付單自存的那份文字若與之不同，放這裡 —— **不能靜靜蓋掉**：
+    # 實測 3 筆對不上，其中「林晉廷」vs FK 的「林宥廷測量技師事務所」
+    # **是不同的人**，若 FK 才是錯的那一邊，蓋掉就等於把錯誤變成唯一事實。
+    # ⇒ 兩個都給，讓畫面說得出「這裡有出入」。None 代表兩者一致。
+    vendor_name_recorded: Optional[str] = Field(
+        None, description="應付單自存的廠商名（僅在與 FK 不同時有值）")
     vendor_code: Optional[str] = None
     vendor_id: Optional[int] = None
     payable_amount: Decimal

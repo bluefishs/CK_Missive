@@ -84,10 +84,48 @@ class ERPVendorPayableService(AuditableServiceMixin):
         await self.audit_create(payable.id, create_data)
         return ERPVendorPayableResponse.model_validate(payable)
 
+    async def _canonical_vendor_names(self, items: list) -> dict:
+        """vendor_id → partner_vendors 的現行名稱（批次一次查，避免 N+1）。
+
+        owner 2026-08-27：「**廠商身分統一為單一來源**」。
+
+        應付單自存一份 `vendor_name` 文字，而 FK 指向 `partner_vendors`
+        ⇒ **同一件事兩個來源**。2026-08-27 實測已有 3 筆對不上：
+
+            應付#47  自存「竣吉不動產估價師」        vs FK「竣吉不動產估價師事務所」
+            應付#39  自存「林晉廷」                  vs FK「林宥廷測量技師事務所」
+            應付#51  自存「銢欣有限公司乃耳企業社」   vs FK「銢欣有限公司」
+
+        ⚠️ 它們**不是配對配錯的**：`_resolve_vendor_id` 是**精確**比對
+        （`find_one_by(vendor_name=...)`，儘管上面的註解寫「模糊匹配」——
+        註解與實作不一致，我一度採信了註解）。
+        真正的成因是**先配對成功、之後 `partner_vendors.vendor_name` 被改**，
+        而應付單那份文字沒跟著改 —— 典型的「快照 vs 引用」。
+
+        ⇒ 有 `vendor_id` 時**一律以 FK 為準**；自存的舊值留在 DB 不動
+        （那是歷史，改它要 owner 決定哪個對，見 V5）。
+        """
+        ids = {p.vendor_id for p in items if getattr(p, "vendor_id", None)}
+        if not ids:
+            return {}
+        rows = await self._vendor_repo.get_by_ids(list(ids))
+        return {v.id: v.vendor_name for v in rows if v.vendor_name}
+
+    def _with_canonical_name(self, payable, names: dict) -> ERPVendorPayableResponse:
+        resp = ERPVendorPayableResponse.model_validate(payable)
+        canonical = names.get(getattr(payable, "vendor_id", None))
+        if canonical and canonical != resp.vendor_name:
+            # 兩個都保留 —— 見 schema 的說明：靜靜蓋掉會讓「FK 才是錯的」
+            # 那一種情況永遠沒有人發現
+            resp.vendor_name_recorded = resp.vendor_name
+            resp.vendor_name = canonical
+        return resp
+
     async def get_by_quotation(self, quotation_id: int) -> List[ERPVendorPayableResponse]:
-        """取得報價單所有應付"""
+        """取得報價單所有應付（廠商名以 FK 為單一來源）"""
         items = await self.repo.get_by_quotation_id(quotation_id)
-        return [ERPVendorPayableResponse.model_validate(p) for p in items]
+        names = await self._canonical_vendor_names(items)
+        return [self._with_canonical_name(p, names) for p in items]
 
     async def update(self, payable_id: int, data: ERPVendorPayableUpdate) -> Optional[ERPVendorPayableResponse]:
         """更新廠商應付 — 付款確認時自動寫入帳本
