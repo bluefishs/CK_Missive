@@ -47,6 +47,81 @@ BACKEND = PROJECT_ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
 
+def scan_backend_declared() -> set:
+    """後端端點**實際宣告**的權限 —— `require_permission("X")` 的字面值。
+
+    ⚠️ 這是 2026-08-27 補上的維度。在此之前這支檢核比對的是
+    `_BUSINESS_PERMISSIONS` —— 那是一份**手維護的清單**，
+    而端點實際要求什麼是另一回事。兩者一漂移，這支就看不見。
+
+    實測後果：`projects:write` 被 `erp/expenses.py` 的
+    approve／batch-approve／reject／delete 四支端點要求，
+    但它**不在 `_BUSINESS_PERMISSIONS`、不在任何角色、也不在前端 SSOT**
+    ⇒ 費用核銷的審核流程除了 superuser 之外**沒有人做得了，連 admin 也不行**，
+    而這支檢核回全綠。
+
+    這與 2026-08-21 的教訓同型：那次把「哪些端點沒有認證」從 grep 規則
+    改成 FastAPI runtime dependency 樹，理由是**手維護的清單不是權威**。
+    這裡取字面值而非 runtime 樹，是因為 permission 字串是 `require_permission`
+    的引數、runtime 物件裡拿不到；grep 對「字面字串引數」夠可靠，
+    但若日後有人改成變數傳入就會漏 —— 這個限制寫在這裡，不要靠記憶。
+    """
+    import re as _re
+    out = set()
+    for f in (PROJECT_ROOT / "backend" / "app").rglob("*.py"):
+        if "__pycache__" in str(f):
+            continue
+        try:
+            txt = f.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        out |= set(_re.findall(r'require_permission\(\s*"([^"]+)"', txt))
+    out.discard("items:delete")  # dependencies.py docstring 的範例，不是真端點
+    return out
+
+
+def scan_frontend_used() -> set:
+    """前端**實際檢查**的權限 —— `hasPermission('X')` / `hasAnyPermission([...])`。
+
+    測試檔排除：它們刻意用 `'nonexistent:perm'` 之類的字串驗行為，
+    算進來就是三個必然的假陽性。
+    """
+    import re as _re
+    out = set()
+    root = PROJECT_ROOT / "frontend" / "src"
+    if not root.is_dir():
+        return out
+    for f in list(root.rglob("*.ts")) + list(root.rglob("*.tsx")):
+        if "__tests__" in f.as_posix():
+            continue
+        try:
+            txt = f.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        out |= set(_re.findall(r"hasPermission\(\s*'([^']+)'", txt))
+        for grp in _re.findall(r"hasAnyPermission\(\s*\[([^\]]*)\]", txt):
+            out |= set(_re.findall(r"'([^']+)'", grp))
+    return out
+
+
+def load_unreachable_baseline() -> dict:
+    """已知且尚未決議的「無人可得」權限 —— 每一條都要寫明理由。
+
+    用 baseline 而不是直接判紅：這四個的修法都需要 owner 決定命名
+    （`projects:write` 該改成 `projects:create` 還是新開 `expenses:approve`？），
+    而一個修不掉的紅燈會訓練人忽略整支檢核。
+    **新出現的一律判紅。**
+    """
+    import json as _json
+    f = PROJECT_ROOT / "scripts" / "checks" / "permission_unreachable_baseline.json"
+    if not f.is_file():
+        return {}
+    try:
+        return _json.loads(f.read_text(encoding="utf-8")).get("known", {})
+    except Exception:
+        return {}
+
+
 async def _run() -> int:
     """回傳嚴重失敗數（dangling 或 admin coverage 不足）。"""
     from sqlalchemy import text
@@ -180,6 +255,49 @@ async def _run() -> int:
                 # 不算 fail，列出供 review
             else:
                 print("  [OK ] 無敏感 nav 缺權限")
+
+            # 5) 2026-08-27 新增維度：端點／前端要求的權限，有沒有角色拿得到
+            #
+            #    前四項比對的是 nav ↔ roles ↔ _BUSINESS_PERMISSIONS，
+            #    **從來沒有問過「後端端點實際宣告什麼」「前端實際檢查什麼」**。
+            #    於是四個權限結構上無人可得，而這支檢核回全綠。
+            result = await db.execute(text("""
+                SELECT DISTINCT jsonb_array_elements_text(permissions) AS perm
+                FROM role_permissions WHERE role != 'superuser'
+            """))
+            granted = {r[0] for r in result.fetchall()}
+
+            declared = scan_backend_declared()
+            fe_used = scan_frontend_used()
+            baseline = load_unreachable_baseline()
+
+            unreachable = {}
+            for perm in sorted((declared | fe_used) - granted):
+                src = []
+                if perm in declared:
+                    src.append("端點")
+                if perm in fe_used:
+                    src.append("前端")
+                unreachable[perm] = "+".join(src)
+
+            new_ones = {p: v for p, v in unreachable.items() if p not in baseline}
+            known_ones = {p: v for p, v in unreachable.items() if p in baseline}
+
+            print()
+            if not unreachable:
+                print("  [OK ] 端點／前端要求的權限，都至少有一個角色拿得到")
+            else:
+                if known_ones:
+                    print(f"  [WARN] 已知無人可得（baseline，待 owner 決議命名）: {len(known_ones)}")
+                    for perm, src in known_ones.items():
+                        print(f"    - {perm:<22} 使用於 {src}｜{baseline[perm]}")
+                if new_ones:
+                    fail += len(new_ones)
+                    print(f"  [FAIL] **新出現**無人可得的權限: {len(new_ones)}")
+                    for perm, src in new_ones.items():
+                        print(f"    - {perm:<22} 使用於 {src}")
+                    print("    → 只有 superuser 通得過；admin 也不行（hasPermission 只對 superuser 短路）")
+                    print("    → 修法：把它加進某個 role，或改用既有的權限名")
 
     finally:
         await engine.dispose()

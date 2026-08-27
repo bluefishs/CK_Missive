@@ -1,0 +1,11 @@
+{
+  "_why": "已知「沒有任何角色拿得到」的權限。用 baseline 而不是直接判紅，是因為這四個的修法都需要 owner 決定命名，而一個修不掉的紅燈會訓練人忽略整支檢核。新出現的一律判紅。",
+  "_created": "2026-08-27",
+  "_scan": "role_permissions_consistency_check.py 第 5 項（端點 require_permission + 前端 hasPermission）",
+  "known": {
+    "projects:write": "erp/expenses.py 的 approve/batch-approve/reject/delete 四支端點要求它，前端 ContractCasePage「新增承攬案件」與 ERPExpenseDetailPage 審核也用它。⚠️ 兩份 SSOT 都沒有這個名字（_BUSINESS_PERMISSIONS 與前端 PERMISSION_CATEGORIES）⇒ 權限編輯畫面不會列出它，**任何人都無法授予** ⇒ 費用核銷審核只有 superuser 做得了，admin 也不行。待 owner 決：改成 projects:create／新開 expenses:approve／或把它補進 SSOT。",
+    "admin:access": "ERPEInvoiceSyncPage.tsx:32 `const isAdmin = hasPermission('admin:access')`。⚠️ 兩份 SSOT 都沒有這個名字，admin role 實際有的是 admin:database／admin:settings／admin:site_management／admin:users ⇒ 那一頁的管理區塊只有 superuser 看得到。待 owner 決：多半應改成 admin:settings。",
+    "operational:write": "ERPOperationalDetailPage 的編輯動作。✅ 這個**有**在兩份 SSOT 裡（後端 _BUSINESS_PERMISSIONS + 前端 PERMISSION_CATEGORIES），只是還沒分派給任何角色 ⇒ 會以「未分派紅點」出現在 /admin/permissions/:role 的可選清單，owner 在畫面上就能給。⚠️ 對應的後端端點只要 require_auth ⇒ 目前是前端擋、後端不擋。",
+    "operational:approve": "ERPOperationalDetailPage 的審批動作。狀況同 operational:write。"
+  }
+}

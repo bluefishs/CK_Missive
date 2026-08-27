@@ -198,7 +198,7 @@
 | `powershell_bom_audit.py` | PowerShell UTF-8 BOM Audit |
 | `producer_output_watchdog.py` | Producer 產出自我檢核 watchdog（Silent-Success Detector）— 行為層 SSOT ★標準化架構 |
 | `queryKey_drift_audit.py` | React Query queryKey 一致性（兩種形態）：**漂移**＝invalidate 的 key 沒有人在用（L39）；**撞號**＝同一個 key 對到不同資料源，誰先載入誰決定快取內容（2026-08-20 新增） |
-| `role_permissions_consistency_check.py` | Role Permissions Consistency Check（ADR-0034 配套） |
+| `role_permissions_consistency_check.py` | 角色權限一致性（ADR-0034）。2026-08-27 加第 5 項：**端點 `require_permission` 與前端 `hasPermission` 要求的權限，有沒有角色拿得到** —— 前四項只比對 nav ↔ roles ↔ 手維護的 `_BUSINESS_PERMISSIONS`，於是 4 個權限結構上無人可得而它回全綠。已知的走 `permission_unreachable_baseline.json`（每條註明理由），新出現的判紅 |
 | `run_fitness.sh` | Architecture Fitness Functions — 本地月度覆盤腳本（零 CI 費用） |
 | `scheduler_liveness_audit.py` | Scheduler Liveness Audit — 排程真活對賬 |
 | `service-line-count-check.py` | 後端服務行數監控 — CI 自動警告 |
