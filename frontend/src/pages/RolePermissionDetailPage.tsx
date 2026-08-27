@@ -60,7 +60,7 @@ const RolePermissionDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
 
-  const { data: detailData, isLoading } = useRolePermissionsDetail(role);
+  const { data: detailData, isLoading, refetch: refetchDetail } = useRolePermissionsDetail(role);
   const { data: availableData } = useAvailablePermissions();
   const updateMutation = useUpdateRolePermissions();
   const syncUsersMutation = useSyncRoleUsers();
@@ -78,6 +78,7 @@ const RolePermissionDetailPage: React.FC = () => {
       key: roleData.role,
       name_zh: roleData.name_zh || roleData.role,
       description_zh: roleData.description_zh,
+      pending_sync_users: roleData.pending_sync_users ?? 0,
       can_login: roleData.can_login,
       default_permissions: roleData.permissions,
       icon: roleConfig[roleData.role]?.icon || <UserOutlined />,
@@ -100,9 +101,21 @@ const RolePermissionDetailPage: React.FC = () => {
   const handleSave = async () => {
     if (!role) return;
     try {
-      await updateMutation.mutateAsync({ role, permissions });
-      message.success(`已更新 ${roleInfo?.name_zh}（${permissions.length} 個權限）`);
+      const saved = await updateMutation.mutateAsync({ role, permissions });
       setHasChanges(false);
+      // ⚠️ 「已更新」是真的，但它只更新了**角色定義**。
+      //    既有使用者要等「同步至所有用戶」才會拿到 —— 不講清楚的話，
+      //    這句成功訊息會讓人以為設定已經生效（owner 2026-08-27 就是這樣）。
+      const pending = saved?.role?.pending_sync_users ?? 0;
+      if (pending > 0) {
+        message.warning(
+          `已更新 ${roleInfo?.name_zh}（${permissions.length} 個權限），` +
+          `但尚未套用到 ${pending} 位在職使用者 —— 請按「同步至所有用戶」`,
+          8,
+        );
+      } else {
+        message.success(`已更新 ${roleInfo?.name_zh}（${permissions.length} 個權限）`);
+      }
     } catch (error) {
       message.error('儲存失敗：' + (error instanceof Error ? error.message : '未知錯誤'));
     }
@@ -121,8 +134,41 @@ const RolePermissionDetailPage: React.FC = () => {
   const unassignedCount = availableData?.unassigned_count || 0;
   const unassignedList = availableData?.unassigned || [];
 
+  // 2026-08-27：改角色權限**不會**動到既有使用者 —— `role_permissions` 只在
+  // 「建立新帳號」那一刻被讀一次（oauth.py 的 is_new_user 分支）。
+  //
+  // owner 在這一頁把「業務同仁」設成含 vendors:create，儲存成功、畫面回
+  // 「已更新 業務同仁（14 個權限）」—— 然後功能還是不能用，因為 8 位 staff
+  // 沒有一個拿到它。同步的按鈕就在右上角，但**沒有任何東西告訴他需要按**：
+  // 儲存成功的訊息讀起來就是「做完了」。
+  //
+  // 這裡把它變成看得見的事實。已對齊時 pending 是 0，這個 Alert 不出現 ——
+  // 每次都喊的警告會被訓練成背景雜訊。
+  const pendingSync = roleInfo?.pending_sync_users ?? 0;
+
   const sharedAlertSection = roleInfo ? (
     <>
+      {!isWildcard && pendingSync > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<WarningOutlined />}
+          message={`這個角色的設定尚未套用到 ${pendingSync} 位在職使用者`}
+          description={
+            <div>
+              <Paragraph style={{ margin: 0 }}>
+                修改角色權限**不會**自動改變既有使用者 —— 角色定義只在建立新帳號時被讀取。
+                在按下右上角的「<b>同步至所有用戶</b>」之前，這裡的設定對他們沒有作用。
+              </Paragraph>
+              <Paragraph style={{ margin: '8px 0 0' }} type="secondary">
+                停用中的帳號不會被同步，也不計入這個數字。
+              </Paragraph>
+            </div>
+          }
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
       {isWildcard && (
         <Alert
           type="warning"
@@ -227,6 +273,8 @@ const RolePermissionDetailPage: React.FC = () => {
     try {
       const result = await syncUsersMutation.mutateAsync({ role, onlyOutdated: true });
       message.success(result.message);
+      // 重新取 roleInfo，讓上面那個「尚未套用」的 Alert 依實際結果消失
+      await refetchDetail();
     } catch (e) {
       message.error('同步失敗：' + (e instanceof Error ? e.message : '未知錯誤'));
     }

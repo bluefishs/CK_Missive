@@ -55,12 +55,64 @@ class RolePermissionsService:
         rows = await self.repo.list_all()
         return [self._to_dict(r) for r in rows]
 
+    async def count_pending_sync_users(self, role: str) -> int:
+        """該 role 有幾位**在職**使用者的 permissions 還沒對齊角色定義。
+
+        ## 為什麼需要這個數字（2026-08-27）
+
+        owner 在 `/admin/permissions/staff` 把「業務同仁」設成含 `vendors:create`，
+        儲存成功、畫面回「已更新 業務同仁（14 個權限）」—— 然後功能還是不能用。
+
+        因為 `update_role_permissions` **只寫角色定義表，不碰任何使用者**，
+        而 `role_permissions` 只在「建立新帳號」那一刻被讀一次
+        （`oauth.py` 的 `is_new_user` 分支）⇒ **既有使用者永遠拿不到新權限**。
+
+        同步的能力是有的（`sync_users_to_role_permissions`，那一頁也有
+        「同步至所有用戶」按鈕），缺的是**沒有人告訴你需要按它**：
+        儲存成功的訊息讀起來就是「做完了」。
+
+        這個數字讓「還沒生效」變成一個**看得見的事實**而不是一句每次都喊的警告
+        —— 已經對齊時它是 0，畫面就不該出聲。
+
+        ⚠️ 只算 `is_active` 的人：停用帳號本來就不該被同步
+        （`sync_users_to_role_permissions` 也是同一個範圍，兩者必須一致，
+        否則畫面說「還有 8 位」而按下去只動了 6 位）。
+        """
+        import json as _json
+        from sqlalchemy import select
+        from app.extended.models import User
+
+        rp = await self.repo.get_by_role(role)
+        if not rp:
+            return 0
+        if rp.permissions == ["*"]:
+            return 0  # wildcard 不適用同步概念
+
+        target = sorted(rp.permissions or [])
+        rows = (await self.db.execute(
+            select(User.permissions).where(
+                User.role == role, User.is_active == True,  # noqa: E712
+            )
+        )).fetchall()
+
+        pending = 0
+        for (perms,) in rows:
+            try:
+                current = sorted(_json.loads(perms)) if perms else []
+            except Exception:
+                current = []
+            if current != target:
+                pending += 1
+        return pending
+
     async def get_role(self, role: str) -> Optional[Dict]:
         """取單一 role 配置 dict。"""
         rp = await self.repo.get_by_role(role)
         if not rp:
             return None
-        return self._to_dict(rp)
+        data = self._to_dict(rp)
+        data["pending_sync_users"] = await self.count_pending_sync_users(role)
+        return data
 
     async def update_role_permissions(
         self,
@@ -70,7 +122,10 @@ class RolePermissionsService:
     ) -> Dict:
         """更新 role 的 permissions（含 actor audit）。"""
         rp = await self.repo.update_permissions(role, permissions, actor_id)
-        return self._to_dict(rp)
+        data = self._to_dict(rp)
+        # 儲存當下就把「還有幾位沒套用」一起回去 —— 這是最需要知道的那一刻
+        data["pending_sync_users"] = await self.count_pending_sync_users(role)
+        return data
 
     async def get_available_permissions(self) -> Dict:
         """回傳系統內所有可分派的 permission keys（給編輯介面下拉用）。

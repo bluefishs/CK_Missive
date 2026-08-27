@@ -16,6 +16,17 @@ export interface RolePermissionDetail {
   is_wildcard: boolean;
   updated_at: string | null;
   updated_by: number | null;
+  /**
+   * 該 role 有幾位**在職**使用者的權限還沒對齊角色定義。
+   *
+   * 2026-08-27 新增。改角色權限**不會**動到既有使用者
+   * （`role_permissions` 只在建立新帳號那一刻被讀一次），
+   * 而儲存成功的訊息讀起來就是「做完了」——owner 因此以為設定生效了。
+   * 這個數字讓「還沒生效」變成看得見的事實；已對齊時是 0，畫面就不出聲。
+   *
+   * 只在 `/get` 與 `/update` 回傳；`/list` 沒有（那一頁不需要，且要多 N 次查詢）。
+   */
+  pending_sync_users?: number;
 }
 
 export interface RolePermissionsListResponse {
