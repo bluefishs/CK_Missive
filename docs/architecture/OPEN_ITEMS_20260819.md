@@ -34,6 +34,8 @@
 | A20 | **CSP 轉強制的時機** | 判準已經可查證：`increase(csp_violations_total[7d]) == 0`，**且 backend 起來要滿 7 天**（counter 隨重啟歸零）。最早可判日 **2026-09-03**。已知一筆違規已修（`accounts.google.com/gsi/style`，`style-src` 已補）。轉強制只改一個參數名，回退成本很低 —— 但要你決定何時開那個維護窗 | `docs/runbooks/csp-report-only-to-enforce.md` |
 | A21 | **Facade B 方案 60 天 trial 已到期 28 天** | 到期日 2026-07-30，儀表板 §10 一直列著「待 owner 結案」。建議（RETRO_20260730 §4 已寫）：**全保留 + 停止設成長目標 + 往後新增 facade 須先有 ≥3 既存 caller**。這不需要新的分析，只需要你說一句「就這樣」，然後把它從 §10 拿掉 —— **一個永遠不結案的待辦，會訓練人忽略整張待辦表** | `RETRO_20260730_POST_SWEEP_REVIEW.md` §4 |
 
+| A22 | **`user_sessions` 的 `expires_at` 與 `created_at` 存在不同時區** | 2026-08-27 實測同一列：`created_at=11:26:33`（DB 本地 Asia/Taipei，`server_default=func.now()`）而 `expires_at=04:26:33`（Python `datetime.utcnow()`）⇒ **每一筆 session 一建立就「已過期 7 小時」**，欄位型別是 `timestamp without time zone`，沒有任何一端會做轉換。**應用本身是一致的**（`session_repository` 兩處都用 `UserSession.expires_at > datetime.utcnow()`），所以功能正常 —— 壞的是**任何拿 `expires_at` 跟 DB `NOW()` 比的東西**：`admin_backup_smoke_test.py:55` 就是這樣寫的，它永遠找不到有效 session、每次都新插一筆（靠 fallback 才沒出事）；`ui_smoke_auth.py:130` 的註解已經記過同一件事。⚠️ **我沒有動它** —— 時區慣例屬「帳號／權限架構」，而本專案 SSO 反覆回歸（L74／L78／L80）的教訓都指向同一件事：這一區改動的失敗不在 happy path。要修的話兩條路（統一為 UTC ／統一為 DB `func.now()`），**都需要先盤點所有讀這三個欄位的地方**，是獨立一輪的工作 | 本輪由 owner console 的 `auth/renew 401` 追出（該 401 本身來自 CK_Website 的 IdP 端，Missive 側無對應錯誤；11:26 有新 session 建立＝已重新登入自行復原）|
+
 ---
 
 ## B. 已查明根因、尚未實作
