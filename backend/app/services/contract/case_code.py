@@ -87,6 +87,23 @@ class CaseCodeService:
         self.erp_repo = ERPQuotationRepository(db)
         self.project_repo = ProjectRepository(db)
         self.doc_repo = DocumentRepository(db)
+        #: 同一交易內已發出、但尚未 commit 的流水號 —— 存在
+        #: **session 上**（`db.info`）而不是 service 實例上。
+        #
+        # ⚠️ 2026-08-20 實際事故：報價單彙整匯入用 `generate_case_code()` 產號，
+        #    **180 筆全部拿到同一個 `CK2025_FN_02_001`** —— 因為產號器查的是
+        #    `MAX(case_code)`，而同一交易內前面那些 INSERT 還沒 commit，
+        #    每次都查到一樣的值。那批已回滾。
+        #
+        # advisory lock 擋得住**跨交易**併發，擋不住**同一交易內**的批次呼叫 ——
+        # 兩者是不同的問題，而先前只解了前者。
+        #
+        # ⚠️ 為什麼綁 session 不綁 self：實測若每筆 `CaseCodeService(db)` 新建一個
+        #    實例，實例層的記錄就歸零、5 次全部拿到同一個號 —— 而「批次時要重用
+        #    同一個實例」是**呼叫端才知道的隱性契約**，寫錯不會報錯、只會撞號。
+        #    綁在 session 上就與呼叫端怎麼寫無關。
+        if "case_code_issued_serials" not in db.info:
+            db.info["case_code_issued_serials"] = {}
 
     async def generate_case_code(
         self,
@@ -225,7 +242,13 @@ class CaseCodeService:
             except (IndexError, ValueError):
                 pass
 
-        return max_serial + 1
+        # 同一交易內已發出的號碼 —— DB 查不到它們（尚未 commit）
+        issued = self.db.info.setdefault("case_code_issued_serials", {})
+        max_serial = max(max_serial, issued.get(prefix, 0))
+
+        next_serial = max_serial + 1
+        issued[prefix] = next_serial
+        return next_serial
 
     async def validate_case_code(self, case_code: str) -> bool:
         """驗證案號格式是否合規"""
@@ -383,12 +406,43 @@ class CaseCodeService:
                     f"請把名稱或年度改成能分辨的內容再成案。"
                 )
 
-        # 2. 產生 project_code (含作業性質)
-        project_code = await self.generate_project_code(
-            year=pm_case.year or 114,
-            category=pm_case.category or "01",
-            case_nature=getattr(pm_case, 'case_nature', None) or "01",
+        # 2. 產生 project_code —— **建案案號去掉 `_PM_`**
+        #
+        # owner 2026-08-27 決策：「成案編號無須連號，內部識別」。
+        #
+        # 舊做法是 `generate_project_code(year, category, case_nature)`，
+        # 它有自己的流水號計數器（目的是「只有成案的才領號、且連號」）。
+        # 放棄連號換到三件事：
+        #   ① **不再需要作業性質碼** —— 而它推導不出來（legacy 編號裡沒有
+        #      這個資訊，第 2 組字母是承辦同仁不是性質），先前有 179 筆卡在這
+        #   ② **不再需要第二個流水號計數器** —— 也就不會重演 08-20 那次批次撞號
+        #   ③ 一眼可回溯：`CK2026_02_007` <-> `CK2026_PM_02_007`
+        #
+        # ⚠️ legacy 案號（`B115-C020-0`）去 PM 無效 —— 這裡**明確擋下**而不是
+        #    悄悄退回舊產號器。退回會讓兩套編碼繼續混生，而混生正是
+        #    這一輪要收斂的東西。擋下的訊息會出現在 API 回應裡
+        #    （`pm/cases.py` 的 except 已於同日改為回傳訊息而非只寫 log）。
+        if "_PM_" not in case_code:
+            raise ValueError(
+                f"案號 {case_code} 不是建案案號格式（缺 `_PM_`），無法產生成案編號。"
+                "成案編號＝建案案號去掉 `_PM_`，所以要先讓這個案子有正式的建案案號。"
+                "舊制編號（B115-C020-0 之類）請先執行建案案號轉換。"
+            )
+        project_code = case_code.replace("_PM_", "_", 1)
+
+        # 唯一性 —— `contract_projects.project_code` 有 UNIQUE 約束，
+        # 撞號在 commit 時才爆，訊息是資料庫的，讀不出所以然。這裡先問一次。
+        from sqlalchemy import text as _text
+        _dup = await self.db.scalar(
+            _text("SELECT 1 FROM contract_projects WHERE btrim(project_code) = :p LIMIT 1"),
+            {"p": project_code},
         )
+        if _dup:
+            raise ValueError(
+                f"成案編號 {project_code} 已經存在。"
+                f"這代表建案案號 {case_code} 對應的案子可能已經成過案 —— "
+                "請先確認是否重複，不要另編一個號。"
+            )
 
         # 3. 建立 ContractProject (透過 Repository)
         contract_project = await self.project_repo.create({

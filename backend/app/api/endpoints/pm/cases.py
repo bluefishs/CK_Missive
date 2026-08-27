@@ -114,10 +114,26 @@ async def update_case(
                     data=result,
                     message=f"案件已承攬，自動成案: {promote_result['project_code']}",
                 )
+        # ⚠️ 2026-08-27：失敗必須說出來。
+        # 原本兩個 except 都只寫 logger.warning，於是使用者看到的是
+        # 「案件更新成功」—— 而成案根本沒發生。實測 176 個 status='contracted'
+        # 的案件沒有對應承攬案件，而畫面上看起來流程走完了。
+        #
+        # 更新本身確實成功了（不該把它改成失敗），所以做法是
+        # **保留成功、但在訊息裡講清楚成案沒成、以及為什麼**。
         except ValueError as e:
             logger.warning("自動成案失敗 (不影響更新): %s", e)
+            return SuccessResponse(
+                data=result,
+                message=f"案件已更新為「已承攬」，但**自動成案未完成**：{e}",
+            )
         except Exception as e:
-            logger.warning("自動成案異常 (不影響更新): %s", e)
+            logger.error("自動成案異常 (不影響更新): %s", e, exc_info=True)
+            return SuccessResponse(
+                data=result,
+                message=("案件已更新為「已承攬」，但**自動成案發生非預期錯誤**，"
+                         "承攬案件尚未建立。請通知管理員查看後端日誌。"),
+            )
 
     return SuccessResponse(data=result, message="案件更新成功")
 
@@ -156,8 +172,20 @@ async def update_case_by_id(
             if case_code and not project_code:
                 promote_result = await service.code_service.promote_to_project(case_code)
                 return SuccessResponse(data=result, message=f"案件已承攬，自動成案: {promote_result['project_code']}")
-        except Exception as e:
+        # 同上：失敗要說出來，不要讓「更新成功」蓋掉「沒有成案」
+        except ValueError as e:
             logger.warning("自動成案失敗: %s", e)
+            return SuccessResponse(
+                data=result,
+                message=f"案件已更新為「已承攬」，但**自動成案未完成**：{e}",
+            )
+        except Exception as e:
+            logger.error("自動成案異常: %s", e, exc_info=True)
+            return SuccessResponse(
+                data=result,
+                message=("案件已更新為「已承攬」，但**自動成案發生非預期錯誤**，"
+                         "承攬案件尚未建立。請通知管理員查看後端日誌。"),
+            )
 
     return SuccessResponse(data=result, message="案件更新成功")
 
