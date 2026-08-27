@@ -6,16 +6,15 @@
  *
  * @version 2.0.0 — 遷移至 DetailPageLayout
  */
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Button, Descriptions, Statistic, Row, Col, Card, Alert, Popconfirm, App,
-  Modal,
-} from 'antd';
+  } from 'antd';
 import {
   EditOutlined, DeleteOutlined, DollarOutlined,
   InfoCircleOutlined, BankOutlined,
 } from '@ant-design/icons';
-import { FileTextOutlined, ProfileOutlined, FileExcelOutlined, FilePdfOutlined, PaperClipOutlined } from '@ant-design/icons';
+import { FileTextOutlined, ProfileOutlined, PaperClipOutlined } from '@ant-design/icons';
 import { QuotationItemsTab } from './erpQuotation';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -26,7 +25,7 @@ import { AttachmentPanel } from '../components/common/AttachmentPanel';
 import { ROUTES } from '../router/types';
 import { apiClient } from '../api/client';
 import { ERP_ENDPOINTS } from '../api/endpoints';
-import { extractApiMessage } from '../utils/apiMessage';
+import { useQuotationExport } from './erpQuotation/useQuotationExport';
 
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
@@ -44,7 +43,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuthGuard();
-  const { message, modal } = App.useApp();
+  const { message } = App.useApp();
   // 2026-08-27：原本用 `projects:write` 守著，而那個名字**不存在於任何地方**
   //   （沒有角色擁有、兩份 SSOT 都沒有）⇒ 只有 superuser 看得到這些按鈕，
   //   admin 與業務同仁都看不到。
@@ -66,12 +65,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
   const canWrite = hasPermission('projects:edit');
   const { data: quotation, isLoading } = useERPQuotation(id ? Number(id) : null);
   // ⚠️ 必須在早退（`if (!quotation && !isLoading) return`）**之前** ——
-  // Hook 的呼叫順序每次 render 必須相同，放在早退之後會在
-  // 「報價不存在」那條路徑上少呼叫一個 Hook。ESLint 當場擋下。
-  const [exporting, setExporting] = useState(false);
-  // PDF 產出後直接在畫面上看（owner 2026-08-20：「產出 pdf 頁面」）
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [pdfName, setPdfName] = useState('');
+  // exporting / pdfUrl / pdfName 已移入 `useQuotationExport`（2026-08-27）
 
   // 報價明細筆數 —— 與 `QuotationItemsTab` **共用同一組 queryKey**，
   // 所以不會多打一次 API，而且那邊存檔後這裡的數字會一起更新。
@@ -89,86 +83,28 @@ export const ERPQuotationDetailPage: React.FC = () => {
   });
   const itemCount = itemsData?.items?.length ?? 0;
 
+  // ⚠️ Hook 必須在早退之前呼叫 —— 這一頁原本就有一段註解警告過同一件事
+  //   （「放在早退之後會在『報價不存在』那條路徑上少呼叫一個 Hook」），
+  //   而我抽共用時還是把它放到了早退後面，ESLint 當場擋下。
+  // 2026-08-18：報價單正式文件下載。
+  //
+  // 2026-08-27：輸出流程抽到 `erpQuotation/useQuotationExport` —— owner 指出
+  // 這個機制應該在 /pm/cases 也有，而複製一份等於承諾兩邊都要記得改
+  // （空工項提醒、後端給的檔名、PDF 預覽、blob 釋放時機，四件都容易各自演化）。
+  const { exportButtons, pdfPreview } = useQuotationExport({
+    quotationId: quotation?.id,
+    quotationNo: quotation?.quotation_no,
+    itemCount,
+    onGoToItems: () => navigate(
+      `${ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(quotation!.id))}?tab=items`,
+    ),
+  });
+
   if (!quotation && !isLoading) {
     return <DetailPageLayout header={{ title: '報價不存在', backPath: ROUTES.ERP_QUOTATIONS }} tabs={[]} hasData={false} />;
   }
 
   const grossProfit = Number(quotation?.gross_profit ?? 0);
-
-  // 2026-08-18：報價單正式文件下載。
-  //
-  // 走 `apiClient` 而不是 `window.open`：這支端點需要認證標頭與 CSRF，
-  // 直接開新視窗會變成未帶憑證的請求（公網實測回 401）。
-  //
-  // 檔名取自後端的 `Content-Disposition`（RFC 5987 編碼的中文檔名）——
-  // 前端自己拼檔名會與後端各自演化，而檔名裡有單號，兩邊不一致時
-  // 使用者會拿到一個對不上系統的檔案。
-  const handleExportDocument = async (format: 'xlsx' | 'pdf' = 'xlsx') => {
-    if (!quotation?.id) return;
-    // 沒有明細就直接產出，會得到一張只有抬頭與客戶、工項全空的報價單 ——
-    // 而那是要寄給客戶的文件。先講清楚，並給一條去填的路；
-    // 但**不阻擋**（有人就是要一張空白表格去手寫，那是他的判斷）。
-    if (itemCount === 0) {
-      const go = await new Promise<boolean>((resolve) => {
-        modal.confirm({
-          title: '這張報價單還沒有工項',
-          content: '直接產出的話，「項次／工作內容／數量／單價」會是空白的。'
-            + '要先去「報價明細」填寫嗎？（明細可以像 Excel 一樣直接在頁面上編輯）',
-          okText: '前往填寫明細',
-          cancelText: '仍要產出空白表',
-          onOk: () => resolve(true),
-          onCancel: () => resolve(false),
-        });
-      });
-      if (go) {
-        navigate(`${ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(quotation.id))}?tab=items`);
-        return;
-      }
-    }
-    setExporting(true);
-    try {
-      const res = await apiClient.post(
-        ERP_ENDPOINTS.EXPORT_DOCUMENT,
-        // 2026-08-18 owner：「報價單要能輸出 pdf 並且自動納入系統存檔」。
-        // PDF 由後端從**同一份 xlsx 範本**轉出（LibreOffice），版面只有一份來源。
-        // archive 預設為 true：輸出即存進系統（只保留最新一份）。
-        { erp_quotation_id: quotation.id, format },
-        { responseType: 'blob' },
-      );
-      const raw = res as unknown as { data?: Blob } | Blob;
-      const blob = raw instanceof Blob ? raw : (raw.data as Blob);
-      const cd = (res as unknown as { headers?: Record<string, string> })?.headers?.[
-        'content-disposition'
-      ] || '';
-      const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
-      const filename = m?.[1]
-        ? decodeURIComponent(m[1])
-        : `報價單_${quotation.quotation_no || quotation.id}.${format}`;
-      const url = URL.createObjectURL(blob);
-      if (format === 'pdf') {
-        // 2026-08-20 owner：「尚未看到…產出 pdf 頁面」。
-        //
-        // 原本只有下載 —— 使用者得先存檔、再自己開檔，才知道版面對不對、
-        // 金額有沒有填進去。而報價單是要寄給客戶的文件，「看一眼再送出」
-        // 本來就是這個動作的一部分。
-        //
-        // 改為先在畫面上開起來（可捲動、可放大），下載鈕仍在 Modal 裡；
-        // ⚠️ 不 revoke URL —— iframe 還在用它，關閉 Modal 時才釋放。
-        setPdfUrl(url);
-        setPdfName(filename);
-      } else {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (e) {
-      message.error(extractApiMessage(e, '報價單輸出失敗'));
-    } finally {
-      setExporting(false);
-    }
-  };
 
   const statusOpt = STATUS_OPTIONS.find(o => o.value === quotation?.status);
 
@@ -209,12 +145,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
             不另立第二份規則。 */}
         {quotation?.case_category !== '01' && (
           <>
-            <Button icon={<FileExcelOutlined />} loading={exporting} onClick={() => handleExportDocument('xlsx')}>
-              輸出報價單
-            </Button>
-            <Button icon={<FilePdfOutlined />} loading={exporting} onClick={() => handleExportDocument('pdf')}>
-              輸出 PDF
-            </Button>
+            {exportButtons}
           </>
         )}
         <Button type="primary" icon={<EditOutlined />}
@@ -475,31 +406,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
         loading={isLoading}
         hasData={!!quotation}
       />
-      <Modal
-        title={`報價單預覽 — ${pdfName}`}
-        open={!!pdfUrl}
-        width={960}
-        onCancel={() => {
-          // iframe 用完才釋放 —— 提早 revoke 會讓預覽變成空白頁
-          if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-          setPdfUrl(null);
-        }}
-        footer={[
-          <Button key="dl" type="primary" icon={<FilePdfOutlined />} onClick={() => {
-            if (!pdfUrl) return;
-            const a = document.createElement('a');
-            a.href = pdfUrl;
-            a.download = pdfName;
-            a.click();
-          }}>下載 PDF</Button>,
-        ]}
-        styles={{ body: { padding: 0, height: '78vh' } }}
-      >
-        {pdfUrl && (
-          <iframe src={pdfUrl} title={pdfName}
-            style={{ width: '100%', height: '100%', border: 'none' }} />
-        )}
-      </Modal>
+      {pdfPreview}
     </>
   );
 };

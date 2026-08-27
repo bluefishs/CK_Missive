@@ -259,8 +259,11 @@ export const PMCaseDetailPage: React.FC = () => {
                   API_ENDPOINTS.PM.CASES_PROMOTE, { case_code: pmCase!.case_code }
                 );
                 message.success(`成案成功，成案編號: ${resp.data.project_code}`);
+                // `pm-cases` 已經涵蓋詳情（真實 key 是 `['pm-cases','detail',id]`，
+                // invalidate 是**前綴逐元素比對**）。
+                // ⚠️ 我先前多加了一行 `['pm-case', id]` —— 那個 key 不存在，
+                //    `queryKey_drift_audit` 當場把 dead invalidate 從 0 抓成 1。
                 queryClient.invalidateQueries({ queryKey: ['pm-cases'] });
-                queryClient.invalidateQueries({ queryKey: ['pm-case', pmCase!.id] });
               } catch (e) {
                 // 2026-08-27 owner：「承攬狀態已承攬，為何有『確認成案』按鈕，且無法正常執行」。
                 //

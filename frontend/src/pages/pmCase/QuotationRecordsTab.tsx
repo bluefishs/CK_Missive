@@ -33,6 +33,7 @@
  */
 import { Suspense, lazy } from 'react';
 import { Card, Empty, Space, Spin, Alert, Typography } from 'antd';
+import { useQuotationExport } from '../erpQuotation/useQuotationExport';
 import { useQuery } from '@tanstack/react-query';
 import { AttachmentPanel } from '../../components/common/AttachmentPanel';
 import { apiClient } from '../../api/client';
@@ -67,6 +68,42 @@ export default function QuotationRecordsTab({
   const quotations = data?.items ?? [];
   const primary = quotations[0];
 
+  // 明細筆數：與 `QuotationItemsTab` **共用同一個 queryKey**，
+  // 所以嵌入的編輯器已經取過時這裡不會多打一次。
+  const { data: itemsData } = useQuery({
+    // 與 QuotationItemsTab 完全相同的 key + queryFn ——
+    // 形狀必須一致，否則就是今天修過的那個「同 key 不同形狀」的坑。
+    queryKey: ['quotation-items', primary?.id],
+    queryFn: async () => {
+      const res = await apiClient.post<{ data: { items?: unknown[] } }>(
+        ERP_ENDPOINTS.QUOTATION_ITEMS_DETAIL, { quotation_id: primary!.id },
+      );
+      return res?.data;
+    },
+    enabled: !!primary?.id,
+  });
+
+  // 2026-08-27 owner：「為何 /erp/quotations/150 會輸出報價單與輸出 pdf 功能鈕，
+  //   此機制應在 /pm/cases 新增報價作業機制」。
+  //
+  // 複查：新增報價（08-20）與線上填明細（08-26）都已經在 PM 案件頁了，
+  // **只有「輸出」還留在 ERP 側** ⇒ 流程走到一半得跳模組。
+  // 用共用 hook 而不是把按鈕複製一份 —— 那個流程裡有四件容易各自演化的東西
+  // （空工項提醒、後端給的檔名、PDF 預覽、blob 釋放時機）。
+  //
+  // ⚠️ 委辦招標（`01`）不顯示：判準與 ERP 詳情頁、後端 `quotation_document.py`
+  //   同一條（`case_category === '01'`），不另立第二份。
+  //   而 PM 側其實更早就攔掉了 —— 委辦招標案件連這個分頁都不會掛上
+  //   （見 `PMCaseDetailPage` 的 `isTenderCase`），這裡是第二層保險。
+  const isTenderCase = primary?.case_category === '01';
+  const { exportButtons, pdfPreview } = useQuotationExport({
+    quotationId: primary?.id,
+    quotationNo: primary?.quotation_no,
+    itemCount: itemsData?.items?.length,
+    // 明細編輯器就嵌在這一頁下方，不需要導航 —— 不給 onGoToItems
+    // 等於略過「前往填寫」那個選項，但仍會照常輸出。
+  });
+
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       {isLoading ? (
@@ -83,6 +120,17 @@ export default function QuotationRecordsTab({
         </Card>
       ) : (
         <>
+          {!isTenderCase && (
+            <Card size="small" styles={{ body: { padding: '8px 12px' } }}>
+              <Space wrap>
+                <Text type="secondary">產出正式文件：</Text>
+                {exportButtons}
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  （輸出後自動存入本案附件，只保留最新一份）
+                </Text>
+              </Space>
+            </Card>
+          )}
           <Suspense fallback={<div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}>
             <QuotationItemsTab
               quotationId={primary.id}
@@ -111,6 +159,8 @@ export default function QuotationRecordsTab({
         emptyText={isEditing ? '尚無檔案，可上傳客戶回簽或掃描件' : '尚無檔案'}
         showDocType
       />
+
+      {pdfPreview}
     </Space>
   );
 }
