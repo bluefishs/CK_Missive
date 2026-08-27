@@ -125,7 +125,13 @@ def get_default_csp() -> str:
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com "
         "https://apis.google.com https://static.cloudflareinsights.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        # 2026-08-27：補 accounts.google.com —— 這是 **Report-Only 實際回報出來的**，
+        #   directive=style-src-elem blocked=https://accounts.google.com/gsi/style
+        #   document=https://missive.cksurvey.tw/entry
+        # 也就是說，照原樣轉強制會把 Google 登入按鈕的樣式擋掉，而樣式被擋不會有錯誤畫面。
+        # 這一項正是 Report-Only 這個機制存在的理由：它抓到了靜態閱讀 CSP 抓不到的東西。
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com "
+        "https://accounts.google.com; "
         "font-src 'self' data: https://fonts.gstatic.com; "
         "img-src 'self' data: blob: https:; "
         "connect-src 'self' https://www.cksurvey.tw https://accounts.google.com "

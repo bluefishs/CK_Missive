@@ -58,6 +58,36 @@ MAX_TRACKED_KEYS = 500
 _seen: dict[tuple[str, str], dict] = {}
 _lock = Lock()
 
+# ──────────────────────────────────────────────────────────────────────
+# 2026-08-27：把違規做成 metric，因為 log 沒有接收者。
+#
+# 這支端點原本解決的是「瀏覽器算出違規後回報給沒有人」。它做到了 —— 但只到
+# 「伺服器收到並寫了一行 warning」為止。實測今天有兩筆真違規
+# （style-src-elem / accounts.google.com/gsi/style，在 /entry），
+# **而沒有任何檢核、排程或儀表板在讀它**，且它只存在容器 stdout
+# （json-file 10m×3）⇒ 重啟就沒了。
+#
+# 於是「先掛 Report-Only、觀察一段時間確認零違規再轉強制」這個計畫，
+# 仍然停在同一種無法收束的狀態：不是沒有訊號，是訊號沒有人收。
+# 這是本專案反覆記的型態（訊號存在但沒有接收者 / 「還沒到門檻」與「永遠到不了」長得一樣）。
+#
+# 用 Counter 而不是再寫一支檢核腳本：Prometheus 已經在 scrape /metrics，
+# 接上去就有保留期、有歷史、可設 alert，不必新增第 179 支沒人跑的腳本。
+#
+# ⚠️ label 只放 directive，**不放 blocked-uri** —— 後者由外部輸入決定、基數無上限，
+#    當 label 會被人用不同的 blocked-uri 灌爆 Prometheus（同一份檔案上面
+#    對 _seen 已經做過同樣的防護，理由一樣）。要看是哪個來源被擋就去看 log 行。
+try:  # pragma: no cover - 匯入失敗不該讓回報端點掛掉
+    from prometheus_client import Counter as _Counter
+
+    CSP_VIOLATIONS = _Counter(
+        "csp_violations_total",
+        "CSP 違規回報數（Report-Only 期間＝若轉強制會被擋掉的次數）",
+        ["directive", "disposition"],
+    )
+except Exception:  # prometheus_client 不在或重複註冊
+    CSP_VIOLATIONS = None
+
 
 def _strip_query(uri: str) -> str:
     """
@@ -142,6 +172,13 @@ async def collect_csp_report(request: Request) -> Response:
         blocked = _strip_query(str(rep.get("blocked-uri") or rep.get("blockedURL") or "?"))
         document = _strip_query(str(rep.get("document-uri") or rep.get("documentURL") or "?"))
         disposition = str(rep.get("disposition") or "report")[:20]
+
+        if CSP_VIOLATIONS is not None:
+            # 每一筆都算 —— 去重只影響「寫不寫 log」，不該影響「發生了幾次」。
+            try:
+                CSP_VIOLATIONS.labels(directive=directive, disposition=disposition).inc()
+            except Exception:
+                pass
 
         write, count = _should_log(directive, blocked)
         if write:
