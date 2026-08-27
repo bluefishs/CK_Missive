@@ -31,6 +31,7 @@ import { extractApiMessage } from '../utils/apiMessage';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
 import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
+import { getErrorMessage } from '../utils/apiErrorParser';
 
 const STATUS_OPTIONS = [
   { value: 'draft', label: '草稿', color: 'default' },
@@ -227,7 +228,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
               await erpQuotationsApi.delete(quotation!.id);
               message.success('報價已刪除');
               navigate(ROUTES.ERP_QUOTATIONS);
-            } catch { message.error('刪除失敗'); }
+            } catch (e) { message.error(getErrorMessage(e, '刪除失敗'), 8); }
           }}
         >
           <Button danger icon={<DeleteOutlined />}>刪除</Button>

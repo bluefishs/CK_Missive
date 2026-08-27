@@ -36,6 +36,7 @@ import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import type { CaseAttachment, CaseAttachmentListResponse } from '../../types/attachment';
 import { ATTACHMENT_DOC_TYPE_LABELS, ATTACHMENT_DOC_TYPE_COLORS } from '../../types/attachment';
+import { getErrorMessage } from '../../utils/apiErrorParser';
 
 const getFileIcon = (mime?: string) => {
   if (!mime) return <FileOutlined />;
@@ -142,7 +143,7 @@ export function AttachmentPanel({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch { message.error('下載失敗'); }
+    } catch (e) { message.error(getErrorMessage(e, '下載失敗'), 8); }
   };
 
   const handlePreview = async (record: CaseAttachment) => {
@@ -152,7 +153,7 @@ export function AttachmentPanel({
       setPreviewUrl(url);
       setPreviewTitle(record.file_name);
       setPreviewType(record.mime_type?.includes('pdf') ? 'pdf' : 'image');
-    } catch { message.error('預覽失敗'); }
+    } catch (e) { message.error(getErrorMessage(e, '預覽失敗'), 8); }
   };
 
   const attachments = data?.attachments ?? [];

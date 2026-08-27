@@ -36,6 +36,7 @@ import { ContractCaseDetailContent } from './ContractCaseDetailPage';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem, getTagColor } from '../components/common/DetailPage/utils';
 import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
+import { getErrorMessage } from '../utils/apiErrorParser';
 
 const MilestonesGanttTab = lazy(() => import('./pmCase/MilestonesGanttTab'));
 const PMStaffTab = lazy(() => import('./pmCase/StaffTab'));
@@ -75,7 +76,7 @@ export const PMCaseDetailPage: React.FC = () => {
       setNewClientName('');
       queryClient.invalidateQueries({ queryKey: ['clients-dropdown'] });
       form.setFieldsValue({ client_vendor_id: created.id });
-    } catch { message.error('建立失敗'); }
+    } catch (e) { message.error(getErrorMessage(e, '建立失敗'), 8); }
   };
 
   // ── Inline 編輯 ──
@@ -259,7 +260,20 @@ export const PMCaseDetailPage: React.FC = () => {
                 );
                 message.success(`成案成功，成案編號: ${resp.data.project_code}`);
                 queryClient.invalidateQueries({ queryKey: ['pm-cases'] });
-              } catch { message.error('成案失敗'); }
+                queryClient.invalidateQueries({ queryKey: ['pm-case', pmCase!.id] });
+              } catch (e) {
+                // 2026-08-27 owner：「承攬狀態已承攬，為何有『確認成案』按鈕，且無法正常執行」。
+                //
+                // 實測 `/pm/cases/promote` 對這個案子回 400，而**後端寫得很完整**：
+                //   「同名承攬案件已存在：CK2026_01_01_008（…）。這件工作看起來已經建過案 ——
+                //     若要沿用，請直接把 PM 案件的成案編號指向它；
+                //     若確實是不同的兩案，請把名稱或年度改成能分辨的內容再成案。」
+                //
+                // 而原本是 `catch { message.error('成案失敗') }` —— **裸 catch 把整段丟掉**，
+                // 使用者只看到四個字，於是「按了沒反應」與「有具體原因但你看不到」
+                // 在畫面上長得一模一樣。後端做對了事，前端把它扔了。
+                message.error(getErrorMessage(e, '成案失敗'), 10);
+              }
             }}
           >
             <Button type="primary" style={{ background: '#52c41a', borderColor: '#52c41a' }} icon={<RocketOutlined />}>確認成案</Button>

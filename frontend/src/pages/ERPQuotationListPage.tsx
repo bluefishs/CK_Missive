@@ -14,6 +14,7 @@ import { erpQuotationStatusLabel, erpQuotationStatusColor } from '../types/erp';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
+import { getErrorMessage } from '../utils/apiErrorParser';
 
 const { Title } = Typography;
 
@@ -220,7 +221,7 @@ export const ERPQuotationListPage: React.FC = () => {
                 a.click();
                 URL.revokeObjectURL(url);
                 message.success('匯出成功');
-              } catch { message.error('匯出失敗'); }
+              } catch (e) { message.error(getErrorMessage(e, '匯出失敗'), 8); }
             }}
           >匯出 Excel</Button>
           {canWrite && (
@@ -236,7 +237,7 @@ export const ERPQuotationListPage: React.FC = () => {
                       message.warning(`${result.errors.length} 筆匯入失敗`);
                     }
                     refetch();
-                  } catch { message.error('匯入失敗'); }
+                  } catch (e) { message.error(getErrorMessage(e, '匯入失敗'), 8); }
                   return false;
                 }}
               >
@@ -359,7 +360,7 @@ export const ERPQuotationListPage: React.FC = () => {
                     a.download = 'erp_quotation_template.xlsx';
                     a.click();
                     URL.revokeObjectURL(url);
-                  } catch { message.error('下載範本失敗'); }
+                  } catch (e) { message.error(getErrorMessage(e, '下載範本失敗'), 8); }
                 }}
               >下載範本</Button>
             </>

@@ -32,6 +32,7 @@ import type { SmartScanResult } from '../api/erp/expensesApi';
 import ExpenseScanPanel from './erpExpense/ExpenseScanPanel';
 import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
 import { compressImage } from './erpExpense/imageUtils';
+import { getErrorMessage } from '../utils/apiErrorParser';
 
 type InputMethod = '智慧掃描' | '手動填寫' | '財政部發票';
 
@@ -139,7 +140,7 @@ const ERPExpenseCreatePage: React.FC = () => {
         message.warning('未辨識出發票資訊，請手動填寫');
         if (isMobile) setMobileStep(1);
       }
-    } catch { message.error('辨識失敗'); }
+    } catch (e) { message.error(getErrorMessage(e, '辨識失敗'), 8); }
     finally { setScanning(false); }
   };
 

@@ -27,6 +27,7 @@ import { ROUTES } from '../router/types';
 
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
+import { getErrorMessage } from '../utils/apiErrorParser';
 
 const ERPExpenseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -95,7 +96,7 @@ const ERPExpenseDetailPage: React.FC = () => {
   };
   const handleReject = async () => {
     if (!invoice) return;
-    try { await rejectMutation.mutateAsync({ id: invoice.id }); message.success('已駁回'); } catch { message.error('駁回失敗'); }
+    try { await rejectMutation.mutateAsync({ id: invoice.id }); message.success('已駁回'); } catch (e) { message.error(getErrorMessage(e, '駁回失敗'), 8); }
   };
   const handleDelete = async () => {
     if (!invoice) return;
@@ -113,7 +114,7 @@ const ERPExpenseDetailPage: React.FC = () => {
       const values = await editForm.validateFields();
       await updateMutation.mutateAsync({ id: invoice.id, data: values });
       message.success('更新成功'); setIsEditing(false);
-    } catch { message.error('更新失敗'); }
+    } catch (e) { message.error(getErrorMessage(e, '更新失敗'), 8); }
   };
 
   const headerConfig = {
