@@ -133,6 +133,31 @@ def _interval_days(task: dict) -> int:
         return 0
 
 
+def _repetition_minutes(task: dict) -> int:
+    """該排程的重複節奏（分鐘）；沒有重複設定回 0。
+
+    2026-08-27 補：`_interval_days` 只認 Daily／Weekly，**高頻排程一律回 0**，
+    而漏跑判準要求 `interval_days` 為真 ⇒ 它們整個被跳過，
+    唯一的時間判準只剩「上次執行超過 8 天」。
+
+    後果是量得出來的：本機兩支 `PT5M` 排程 —— `CK-Hermes-Cron-Tick`（R2 記憶引擎驅動）
+    與 **`CK_AaaP_ContainerHealthAlerts`（容器健康告警）**。後者若停止 fire，
+    容器告警要**八天**才會有人知道。5 分鐘的節奏配 8 天的判準，等於沒有判準。
+
+    （這個缺口是 CK_Hermes session 在他們自己的 `C-3b` 修同型問題時讓我回頭查到的：
+    他們原本用 `State -ne 'Disabled'` 當 PASS —— 把 config 當 liveness；
+    我這邊則是**根本沒有判準**。兩種寫法，同一個下場：不會紅。）
+    """
+    v = task.get("RepInterval") or ""
+    if isinstance(v, list):
+        v = v[0] if v else ""
+    m = re.match(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$", str(v).strip(), re.I)
+    if not m:
+        return 0
+    h, mi, sec = (int(g) if g else 0 for g in m.groups())
+    return h * 60 + mi + (1 if sec and not (h or mi) else 0)
+
+
 def query_tasks() -> list[dict]:
     """問作業系統要 CK 開頭的排程。查不到就是查不到，不編造空清單。"""
     # 注意：Windows PowerShell 5.1 的 ConvertTo-Json **沒有 -AsArray**，
@@ -150,6 +175,7 @@ def query_tasks() -> list[dict]:
         "        if ($_.CimClass.CimClassName -match 'Daily') { [int]$_.DaysInterval }"
         "        elseif ($_.CimClass.CimClassName -match 'Weekly') { 7 * [int]$_.WeeksInterval }"
         "        else { 0 } } | Where-Object { $_ -gt 0 } | Sort-Object | Select-Object -First 1));"
+        "     RepInterval=[string](@($_.Triggers | ForEach-Object { $_.Repetition.Interval } |""        Where-Object { $_ }) | Select-Object -First 1);"
         "     StartWhenAvailable=[bool]$_.Settings.StartWhenAvailable;"
         "     LogonTrigger=[bool](@($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }).Count);"
         "     TimeLimit=[string]$_.Settings.ExecutionTimeLimit"
@@ -550,6 +576,31 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
                         f"（上次 {last_run[:16].replace('T', ' ')}）")
             except ValueError:
                 notes.append(f"{name}: NextRun 無法解析（{next_run}），略過錯過判定")
+
+        # 高頻排程（Repetition.Interval，如 PT5M）—— 上面那段對它們完全無效：
+        # `_interval_days` 回 0 ⇒ `if ... and interval_days` 直接跳過，
+        # 只剩「8 天沒跑」這一個判準。5 分鐘的節奏配 8 天的門檻等於沒有判準。
+        rep_min = _repetition_minutes(t)
+        if last_run and rep_min and not interval_days:
+            # 容忍 max(3 個週期, 30 分鐘)：3 週期與 CK_Hermes 的 C-3b 對齊
+            # （兩支稽核對同一件事用同一個判準，才不會互相打架）；
+            # 30 分鐘的下限是給重啟空窗 —— 剛開機到第一次 fire 之間必然有一段空白，
+            # 而本稽核是週跑、單次取樣，抽中那一刻就會誤報。
+            # ⚠️ 這仍然是 8 天 → 30 分鐘，改善 384 倍；不必為了更嚴而換來 flap。
+            tol = timedelta(minutes=max(3 * rep_min, 30))
+            try:
+                lr = datetime.fromisoformat(last_run)
+                if now - lr > tol:
+                    reds.append(
+                        f"{name}: 節奏 {rep_min}min 但上次執行 "
+                        f"{int((now - lr).total_seconds() // 60)} 分鐘前"
+                        f"（容忍 {int(tol.total_seconds() // 60)} 分鐘）")
+                else:
+                    notes.append(
+                        f"{name}: {int((now - lr).total_seconds() // 60)} 分鐘前跑過"
+                        f"（節奏 {rep_min}min）")
+            except ValueError:
+                pass  # LastRun 解析失敗上面已經報過，不重複
 
     return reds, notes
 
