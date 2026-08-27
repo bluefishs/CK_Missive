@@ -1,93 +1,152 @@
 #!/bin/bash
 # deploy-public.sh — 公網部署一鍵腳本
 #
-# 執行：bash scripts/deploy/deploy-public.sh
+# 執行：bash scripts/deploy/deploy-public.sh [--frontend-only]
+#
+# ──────────────────────────────────────────────────────────────────────
+# 2026-08-27 重寫。前一版（v1.0.0）做的是 PM2 時代的事，而現在不成立：
+#
+#   * 它跑 `pm2 restart ck-backend` —— 但 `pm2 jlist` 裡**根本沒有 ck-backend**
+#     （只剩 showcase / tunnel-viewer 那幾支）。後端 2026-05 起就跑在
+#     `ck_missive_backend` 容器裡，8001 由 docker 轉發。
+#   * 而那一行寫成 `pm2 restart ck-backend 2>&1 | tail -1` ⇒ `set -e` 看到的是
+#     **tail 的退出碼**（永遠 0）⇒ 重啟失敗不會中斷，腳本照樣印
+#     「Deploy complete!」。本專案 08-24 才記過同一個 `| tail` 陷阱。
+#   * 它從來不 build backend image ⇒ 後端改動用這支腳本部署，**完全不會生效**；
+#     前端改動則是「碰巧會動」（frontend/dist 是 bind mount，FastAPI 直接讀硬碟）。
+#   * 也因此它從沒機會 source build-args.sh ⇒ 映像身分永遠是 unknown。
+#
+# 所以這一版的原則：**每一步都要能失敗**，而且失敗要停下來。
+# ──────────────────────────────────────────────────────────────────────
 #
 # 流程：
-#   1. Frontend production build (AUTH_DISABLED=false)
-#   2. PM2 restart backend (載入新 dist)
-#   3. 等待 health OK
-#   4. 驗證公網可達
+#   1. Frontend production build（驗 AUTH_DISABLED=false 真的進了 bundle）
+#   2. Backend image build（帶 build-args 綁定 version @ commit）
+#   3. up -d 換新容器
+#   4. 等 health
+#   5. 驗身分：runtime 回報的 commit 必須等於這次 build 的 commit
+#   6. 驗公網 200（L76：Windows Docker recreate 會留殭屍埠轉發 socket）
 #
-# Version: 1.0.0
+# Version: 2.0.0
 
-set -e
+set -euo pipefail
 cd "$(dirname "$0")/../.."
 PROJECT_ROOT=$(pwd)
+COMPOSE="docker compose -f docker-compose.production.yml"
+FRONTEND_ONLY=0
+[ "${1:-}" = "--frontend-only" ] && FRONTEND_ONLY=1
 
 echo "╔══════════════════════════════════════╗"
-echo "║   CK_Missive 公網部署               ║"
+echo "║   CK_Missive 公網部署 v2.0.0        ║"
 echo "╚══════════════════════════════════════╝"
 
-# Step 1: Build
+# ── Step 1: Frontend build ────────────────────────────────────────────
 echo ""
-echo "[1/4] Building frontend (production mode)..."
-cd frontend
-npm run build --silent 2>&1 | tail -2
-cd "$PROJECT_ROOT"
+echo "[1/6] Building frontend (production)..."
+( cd frontend && npm run build --silent )   # 不接 pipe，build 失敗就是失敗
 
-# Verify AUTH_DISABLED=false in build
-MAIN_JS=$(ls frontend/dist/assets/main-*.js | head -1)
+MAIN_JS=$(ls frontend/dist/assets/main-*.js 2>/dev/null | head -1 || true)
+if [ -z "$MAIN_JS" ]; then
+    echo "  ✗ 找不到 frontend/dist/assets/main-*.js —— build 沒有產出"
+    exit 1
+fi
 if grep -q 'VITE_AUTH_DISABLED:"false"' "$MAIN_JS"; then
-    echo "  ✓ AUTH_DISABLED=false confirmed in build"
+    echo "  ✓ AUTH_DISABLED=false confirmed in bundle"
 else
-    echo "  ✗ WARNING: AUTH_DISABLED may not be false in build!"
-    echo "  Check frontend/.env.production"
+    # 這不是警告而已 —— 帶著 AUTH_DISABLED=true 的 bundle 上公網
+    # 等於前端自己把認證關掉。寧可停在這裡。
+    echo "  ✗ bundle 內 AUTH_DISABLED 不是 false，拒絕部署"
+    echo "    檢查 frontend/.env.production"
+    exit 1
 fi
 
-# Step 2: Restart
-echo ""
-echo "[2/4] Restarting ck-backend..."
-pm2 restart ck-backend --update-env 2>&1 | tail -1
+if [ "$FRONTEND_ONLY" = "1" ]; then
+    echo ""
+    echo "  （--frontend-only：dist 是 bind mount，FastAPI 直接讀硬碟，不需重啟後端）"
+fi
 
-# Step 3: Wait
+# ── Step 2: Backend image build（帶身分）──────────────────────────────
+if [ "$FRONTEND_ONLY" = "0" ]; then
+    echo ""
+    echo "[2/6] Building backend image (帶 build 身分綁定)..."
+    # shellcheck source=/dev/null
+    source scripts/deploy/build-args.sh    # 會印出「build 綁定：vX @ <commit>」
+    $COMPOSE build backend
+
+    echo ""
+    echo "[3/6] Recreating backend container..."
+    $COMPOSE up -d backend
+else
+    echo ""
+    echo "[2/6] (skipped) backend image build"
+    echo "[3/6] (skipped) backend recreate"
+    CK_BUILD_COMMIT="${CK_BUILD_COMMIT:-}"
+fi
+
+# ── Step 4: Health ────────────────────────────────────────────────────
 echo ""
-echo "[3/4] Waiting for backend health..."
+echo "[4/6] Waiting for backend health..."
 TRIES=0
 until curl -sf http://localhost:8001/health >/dev/null 2>&1; do
     TRIES=$((TRIES + 1))
-    if [ $TRIES -gt 30 ]; then
-        echo "  ✗ Backend failed to start after 60s"
+    if [ $TRIES -gt 45 ]; then
+        echo "  ✗ Backend 90s 內沒有回到 healthy"
+        echo "    docker logs --tail 50 ck_missive_backend"
         exit 1
     fi
     sleep 2
 done
 echo "  ✓ Backend healthy (${TRIES}x2s)"
 
-# Step 4: Verify public
+# ── Step 5: 身分驗證 ──────────────────────────────────────────────────
+# 「內容有沒有進去」與「跑的是哪一份」是兩個問題。前者由
+# container_image_freshness_check 的 md5 比對回答，後者只有這裡回答得了。
 echo ""
-echo "[4/4] Verifying public access..."
-HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://missive.cksurvey.tw/health 2>/dev/null)
-if [ "$HTTP" = "200" ]; then
-    echo "  ✓ https://missive.cksurvey.tw → 200 OK"
-else
-    echo "  ✗ Public check failed: HTTP $HTTP"
-    echo "  Check cloudflared container"
-    exit 1
+echo "[5/6] Verifying build identity..."
+RUNTIME_JSON=$(curl -sf --max-time 15 http://localhost:8001/api/health/detailed || echo '{}')
+RUNTIME_COMMIT=$(printf '%s' "$RUNTIME_JSON" | python -c "
+import json,sys
+try: print(json.load(sys.stdin).get('build',{}).get('commit','unknown'))
+except Exception: print('unknown')
+")
+RUNTIME_VERSION=$(printf '%s' "$RUNTIME_JSON" | python -c "
+import json,sys
+try: print(json.load(sys.stdin).get('build',{}).get('version','unknown'))
+except Exception: print('unknown')
+")
+echo "  runtime: ${RUNTIME_VERSION} @ ${RUNTIME_COMMIT}"
+
+if [ "$FRONTEND_ONLY" = "0" ]; then
+    if [ "$RUNTIME_COMMIT" = "unknown" ]; then
+        echo "  ✗ runtime 回報 unknown —— build-args 沒有進到映像"
+        exit 1
+    fi
+    if [ "$RUNTIME_COMMIT" != "${CK_BUILD_COMMIT}" ]; then
+        # 跑的不是剛剛 build 的那一份 = 換容器沒成功（舊容器還在）
+        echo "  ✗ runtime commit (${RUNTIME_COMMIT}) ≠ 本次 build (${CK_BUILD_COMMIT})"
+        echo "    舊容器可能還在服務；檢查 docker ps -a --filter name=ck_missive_backend"
+        exit 1
+    fi
+    echo "  ✓ runtime 就是這次 build 的那一份"
 fi
 
-# Step 5: Observability check
+# ── Step 6: 公網 ──────────────────────────────────────────────────────
+# L76：Windows 上 recreate 後常留殭屍埠轉發 socket ⇒ 容器 healthy 但公網 502。
+# 所以本機 health 綠**不能**當作部署成功。
 echo ""
-echo "[5/5] Observability status..."
-# Prometheus metrics
-METRICS=$(curl -sf http://localhost:8001/metrics 2>/dev/null | wc -l)
-if [ "$METRICS" -gt 10 ]; then
-    echo "  ✓ Prometheus /metrics: ${METRICS} lines"
+echo "[6/6] Verifying public access..."
+HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/health || echo 000)
+if [ "$HTTP" = "200" ]; then
+    echo "  ✓ https://missive.cksurvey.tw/health → 200"
 else
-    echo "  ⚠ Prometheus /metrics not available"
+    echo "  ✗ 公網回 HTTP $HTTP（本機 health 是綠的 ⇒ 疑似 L76 殭屍埠轉發）"
+    echo "    修法見 docs/runbooks/ 與 LESSONS_REGISTRY.md#L76"
+    exit 1
 fi
-# Cloudflared
-CF=$(docker ps --filter "name=cloudflared" --format "{{.Status}}" 2>/dev/null | head -1)
-echo "  ✓ Cloudflared: ${CF:-not running}"
-# Watchdog
-WD=$(pm2 list 2>/dev/null | grep watchdog | grep -o "online\|stopped")
-echo "  ✓ Watchdog: ${WD:-unknown}"
-# Grafana config
-if [ -f "$PROJECT_ROOT/configs/grafana/dashboards/ck-missive-overview.json" ]; then
-    echo "  ✓ Grafana dashboard: provisioned"
-fi
+API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/ || echo 000)
+echo "  ✓ 公網首頁 → $API"
 
 echo ""
 echo "══════════════════════════════════════"
-echo "  Deploy complete!"
+echo "  Deploy complete — ${RUNTIME_VERSION} @ ${RUNTIME_COMMIT}"
 echo "══════════════════════════════════════"

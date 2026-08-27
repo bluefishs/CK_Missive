@@ -65,6 +65,11 @@ git add ...
 git commit -m "..."
 
 # 4. Build image（含新 commit）
+#    ⚠️ 2026-08-27 補上 source —— 這一行原本不在 SOP 裡，而少了它
+#    映像的 CK_BUILD_COMMIT/VERSION 就是 unknown，事故當下沒有人說得出
+#    線上跑的是哪一版。實測今天的 production 容器正是 unknown：
+#    **不是有人忘記，是照這份 SOP 做就一定會得到 unknown。**
+source scripts/deploy/build-args.sh    # 印出「build 綁定：v6.xx @ <commit>」
 docker compose -f docker-compose.production.yml build backend
 
 # 5. Up -d (用新 image 起新 container)
@@ -72,7 +77,8 @@ docker compose -f docker-compose.production.yml up -d backend
 
 # 6. 驗證（必跑 fitness step 60）
 python scripts/checks/container_image_freshness_check.py
-# 期望: 全部 ✓ MATCH
+# 期望: 11 ✓ MATCH + 「✅ build 身分可辨識」兩段都要過
+#       只有前半綠 = 內容對齊但說不出跑的是哪一份（2026-08-27 起會判 YELLOW）
 
 # 7. (optional) Push code
 git push origin main
@@ -91,6 +97,7 @@ MSYS_NO_PATHCONV=1 docker cp ./fixed.py ck_missive_backend:/app/path/to/file.py
 
 # 2. 立刻 commit + rebuild + redeploy（不可拖）
 git add ... && git commit ...
+source scripts/deploy/build-args.sh
 docker compose -f docker-compose.production.yml build backend
 docker compose -f docker-compose.production.yml up -d backend
 

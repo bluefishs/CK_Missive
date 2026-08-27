@@ -78,6 +78,71 @@ def container_md5(container: str, path: str) -> str:
         return ""
 
 
+def check_build_identity(container: str) -> tuple[int, list[str]]:
+    """第二個維度：內容對齊 ≠ 身分可辨識。
+
+    2026-08-27 加。這支檢核原本只問「容器裡的檔案跟 host 一不一樣」，
+    而它今天回全綠 —— 11/11 match、0 drift。同一時刻實測容器內：
+
+        CK_BUILD_COMMIT=unknown
+        CK_BUILD_VERSION=unknown
+        /api/health/detailed → build={"version":"unknown","commit":"unknown"}
+
+    ⇒ **內容確實對齊，但沒有人說得出線上跑的是哪一個 commit。**
+    那正是 2026-08-21 建立 `build_info.py` 要解決的問題，它已經悄悄回來了。
+
+    根因不是有人忘記，是**流程本身漏了那一步**：
+    `scripts/deploy/build-args.sh` 只在它自己的註解裡被提到，
+    `CONTAINER_DEPLOYMENT_SOP.md` §2.1 的 build 指令沒有 source 它，
+    也沒有任何檢核在看這個欄位 ⇒ 照 SOP 做就一定會得到 unknown。
+
+    判 YELLOW 不判 RED：系統是好的、資料是好的，只是「出事時說不出跑的是哪一版」。
+    它會一直亮到下次帶 build-args 重建映像為止 —— 那是真的還沒解決，不是假紅。
+    """
+    problems: list[str] = []
+    env = {}
+    try:
+        r = subprocess.run(
+            ["docker", "exec", container, "printenv"],
+            capture_output=True, text=True, timeout=10,
+        )
+        for line in r.stdout.splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip()
+    except Exception as exc:
+        # 讀不到就說讀不到，不要當成通過
+        return 1, [f"無法讀取容器環境變數：{exc}"]
+
+    commit = env.get("CK_BUILD_COMMIT", "")
+    version = env.get("CK_BUILD_VERSION", "")
+
+    if not commit or commit == "unknown":
+        problems.append("CK_BUILD_COMMIT=unknown —— 線上這個容器無法對應到任何 commit")
+    if not version or version == "unknown":
+        problems.append("CK_BUILD_VERSION=unknown —— 線上這個容器無法對應到任何語意版號")
+
+    if not problems:
+        # 有值就再問一句：它跟現在的 HEAD 是不是同一個？
+        # 不相等**不必然是問題**（HEAD 可能已經往前走了而還沒部署），
+        # 所以只印出來讓人自己判斷，不計入 problems。
+        try:
+            head = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True, text=True, timeout=5,
+                cwd=str(Path(__file__).resolve().parents[2]),
+            ).stdout.strip()
+        except Exception:
+            head = ""
+        note = f"  · runtime = {version} @ {commit}"
+        if head:
+            same = commit.replace("-dirty", "") == head
+            note += f"   host HEAD = {head}   {'（同一份）' if same else '（HEAD 已前進，尚未部署）'}"
+        print(note)
+
+    return (1 if problems else 0), problems
+
+
 def main(strict: bool = False, container: str = "ck_missive_backend") -> int:
     print(f"=== Container Image Freshness Check (L51.7.1 / fitness step 60) ===")
     print(f"  container: {container}")
@@ -143,6 +208,22 @@ def main(strict: bool = False, container: str = "ck_missive_backend") -> int:
         return 1
     if match_count >= len(CRITICAL_FILES) - 1:  # 容忍 1 個 missing
         print("✅ Image 與 source 對齊")
+
+    # ── 第二個維度：身分綁定（2026-08-27 加，理由見 check_build_identity docstring）
+    print()
+    print("--- build 身分綁定 ---")
+    ident_rc, ident_problems = check_build_identity(container)
+    if ident_problems:
+        for msg in ident_problems:
+            print(f"  ✗  {msg}")
+        print()
+        print("⚠ 內容對齊了，但線上跑的是哪一份說不出來")
+        print("  修法（build 時帶身分，不是事後補文件）:")
+        print("    source scripts/deploy/build-args.sh")
+        print("    docker compose -f docker-compose.production.yml build backend")
+        print("    docker compose -f docker-compose.production.yml up -d backend")
+        return 1
+    print("✅ build 身分可辨識")
 
     return 0
 
