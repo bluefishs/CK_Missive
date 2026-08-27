@@ -24,17 +24,24 @@ owner：「ERP 是確認承攬**後**程序」「**前述成案程序的問題�
 編碼規則（owner 提供）：`B114-B003-0`
 ＝ `B`報價單 ｜ `114`年度 ｜ `B`承辦同仁（A坤樹／B慶忠／C元宏）｜ `003`流水號 ｜ `-0`**版次**
 
-⇒ 結尾 `-N` 是**版次**。舊系統存的是「無版次」形態（`B114-B003`），
-2026-08-20 那次匯入存的是「版次 0」形態（`B114-B003-0`）——**同一版被存成兩筆**，
-案件層與報價層都是 **30 組**（21 組金額呈含稅／未稅 ×1.05 關係、8 組金額完全相同）。
+⚠️ **但 `-N` 在這份資料裡兩種用法都有，只看編碼會誤判。**
+`quotation_legacy_import._derive_case_code` 的註解（08-20）主張「子號是子案，不是版次」，
+並舉 `B114-B026`（平鎮區土地協議市價查估）vs `B114-B026-2`（翠64透地雷達）為證。
+實測我判為重複的那批裡確實有 **4 組案名完全不同**
+（`B114-B026-0` 是「永翠76透地雷達測量」，與無版次那筆毫無關係）。
 
-⚠️ 而 `B113-A016-2` 與 `-3` 是**不同版次**、是真實的不同報價，**不是重複**。
-我第一版用「去掉 `-N` 後同 base 即重複」，會把 12 組版次差異誤判成重複（42 vs 30）。
-判準因此只認一種形態：同一 base 底下「無版次 + 版次0」。
+判準因此是**兩道**：① 同一 base 底下「無版次 + 版次0」 ② **案名必須完全相同**。
+結果：**26 組確定重複**（21 組金額呈含稅／未稅 ×1.05、8 組金額完全相同），
+另 **4 組編碼形態相同但案名不同 → 不列為重複，需人看**。
 
-⚠️ 更關鍵：那 30 組裡 **30 組的「有碼那一側」都是有金流的** —— 錢記在原始那筆上。
-⇒ 176 件裡有 30 件是匯入的分身，**不是業務缺口**。
-   **扣掉之後真正缺編碼且缺金流的是 146 件 / 811 萬。**
+我一路收斂了三次，三個數字都留著當教訓：
+* **42**：只用「去掉 `-N` 後同 base」⇒ 把 12 組真實版次差異誤判成重複
+* **30**：加上「無版次 + 版次0」形態 ⇒ 仍含 4 組不同案子
+* **26**：再加上案名相同 ⇒ 這一版
+
+⚠️ 更關鍵：那 26 組**全部**的「有碼那一側」都是有金流的 —— 錢記在原始那筆上。
+⇒ 176 件裡有 26 件是匯入的分身，**不是業務缺口**。
+   **扣掉之後真正缺編碼且缺金流的是 150 件 / 835 萬。**
 
 ⚠️ **但編碼不是技術上的阻擋**：金流的外鍵是 `case_code`（finance_ledgers）與
 `erp_quotation_id`（erp_billings），**完全不經過 project_code**，那些案件兩個鍵都有。
@@ -127,13 +134,27 @@ WITH n AS (
          regexp_replace(c.case_code, '-[0-9]+$', '') AS base,
          CASE WHEN c.case_code ~ '-[0-9]+$' THEN regexp_replace(c.case_code, '^.*-', '') ELSE 'X' END AS ver,
          (c.project_code IS NOT NULL AND c.project_code <> '') AS coded,
-         c.status
+         c.status, c.case_name
     FROM pm_cases c
 ),
+-- ⚠️ 光靠編碼形態不夠：`quotation_legacy_import._derive_case_code` 的註解
+-- （08-20 寫的）主張「**子號是子案，不是版次**」，並舉 `B114-B026`（平鎮區土地
+-- 協議市價查估）vs `B114-B026-2`（翠64透地雷達）為證 —— 兩個完全不同的案子。
+-- 實測我這 30 組裡確實有 4 組案名不同（B114-B026 / B027 / B012 / B016），
+-- 其中 B026-0 是「永翠76透地雷達測量」，與無版次那筆毫無關係。
+-- ⇒ **`-N` 在這份資料裡兩種用法都有**，只看編碼會誤判。
+-- 判準因此再加一道：**案名必須完全相同**才算重複；案名不同的另計為「需人看」。
 dup AS (
-  SELECT base FROM n GROUP BY base
-   HAVING count(*) FILTER (WHERE ver = 'X') = 1
-      AND count(*) FILTER (WHERE ver = '0') = 1
+  SELECT nx.base FROM n nx JOIN n n0
+    ON n0.base = nx.base AND nx.ver = 'X' AND n0.ver = '0'
+   WHERE nx.case_name = n0.case_name
+   GROUP BY nx.base
+),
+ambiguous AS (
+  SELECT nx.base FROM n nx JOIN n n0
+    ON n0.base = nx.base AND nx.ver = 'X' AND n0.ver = '0'
+   WHERE nx.case_name <> n0.case_name
+   GROUP BY nx.base
 ),
 flow AS (
   SELECT n.base, n.coded,
@@ -146,8 +167,10 @@ SELECT (SELECT count(*) FROM dup),
        (SELECT count(DISTINCT base) FROM flow WHERE coded AND has_money),
        (SELECT count(*) FROM n WHERE base IN (SELECT base FROM dup)
                             AND ver = '0' AND NOT coded AND status = 'contracted'),
+       -- 案名不同的那幾組：不算重複，但要有人看
        (SELECT COALESCE(round(sum(q.total_price)), 0) FROM erp_quotations q
-         WHERE q.case_code IN (SELECT case_code FROM n WHERE base IN (SELECT base FROM dup) AND ver = '0'));
+         WHERE q.case_code IN (SELECT case_code FROM n WHERE base IN (SELECT base FROM dup) AND ver = '0')),
+       (SELECT count(*) FROM ambiguous);
 """
 
 SQL_TENDER = """
@@ -179,7 +202,7 @@ def _rows(sql: str):
 def main() -> int:
     rows = _rows(SQL)
     tender = _rows(SQL_TENDER)[0]
-    dup_groups, dup_coded_money, dup_in_nocode, dup_quoted = (
+    dup_groups, dup_coded_money, dup_in_nocode, dup_quoted, dup_ambiguous = (
         int(x) for x in _rows(SQL_DUP)[0])
 
     stages: dict[tuple[str, bool], dict] = {}
@@ -228,6 +251,8 @@ def main() -> int:
     _nq = g("contracted", False, "quoted")
     print(f"   ② 的 {_nc} 件裡有 {dup_in_nocode} 件是重複的無碼側，報價 {dup_quoted:,} 元")
     print(f"   ⇒ 扣掉重複後，真正缺編碼且缺金流的是 {_nc - dup_in_nocode} 件 / {_nq - dup_quoted:,} 元")
+    print(f"   ⚠️ 另有 {dup_ambiguous} 組編碼形態相同但**案名不同** —— 不列為重複，需人看")
+    print("      （例：B114-B026「平鎮區土地協議市價查估」vs B114-B026-0「永翠76透地雷達測量」）")
     print("   ⚠️ 重複要不要清除是資料決策（保留哪一側、金額以含稅或未稅為準），不在本檢核職權內。")
 
     print("\n【標案一鍵建案這條路】")
