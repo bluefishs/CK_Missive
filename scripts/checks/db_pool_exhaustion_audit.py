@@ -93,11 +93,44 @@ def _server_side_budget():
 
     u, m = int(used), int(limit)
     pct = (u / m * 100) if m else 0
+
+    def _who() -> str:
+        """快滿時「是誰佔著」—— 2026-08-27 實測 49/50 而我查不出成因。
+
+        當時能用的只有 `/proc/net/tcp` 的 peer 位址（DB 已經拒連），
+        而我是臨時手刻的；下次再發生時這一段要自己說出來，
+        否則報表只有「49/50」，接手的人從零開始。
+
+        位址是十六進位小端序（`040014AC` = 172.20.0.4），順手轉成點分十進位；
+        對照容器 IP 就知道是哪一個。**只在快滿時才跑**，平時不加負擔。
+        """
+        raw = _exec(["sh", "-c",
+                     "awk 'NR>1 && $4==\"01\"' /proc/net/tcp 2>/dev/null "
+                     "| awk '{print $3}' | cut -d: -f1 | sort | uniq -c | sort -rn | head -5"])
+        if not raw:
+            return ""
+        out = []
+        for ln in raw.strip().split(chr(10)):
+            parts = ln.split()
+            if len(parts) != 2:
+                continue
+            cnt, hexip = parts
+            try:
+                b = bytes.fromhex(hexip)
+                ip = ".".join(str(x) for x in reversed(b))
+            except Exception:
+                ip = hexip
+            out.append(f"{ip}×{cnt}")
+        if not out:
+            return ""
+        return ("　連線來源：" + "、".join(out)
+                + "（對照容器：docker inspect <名稱> --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}'）")
+
     line = "伺服器端 %d/%d（%.0f%%）｜來源：%s" % (u, m, pct, how)
     if pct >= 90:
-        return "RED", line + "　⚠️ 額度快用完 —— 新連線會被拒絕（含 psql 與所有檢核腳本）"
+        return "RED", line + "　⚠️ 額度快用完 —— 新連線會被拒絕（含 psql 與所有檢核腳本）" + _who()
     if pct >= 70:
-        return "YELLOW", line + "　⚠️ 餘裕不足"
+        return "YELLOW", line + "　⚠️ 餘裕不足" + _who()
     return "GREEN", line
 
 
