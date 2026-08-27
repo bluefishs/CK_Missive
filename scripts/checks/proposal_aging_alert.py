@@ -60,13 +60,34 @@ def parse_proposal(path: Path) -> Dict:
     if not m:
         return {}
 
-    meta: Dict = {"proposal_id": path.stem}
+    meta: Dict = {"proposal_id": path.stem, "_path": str(path)}
     for line in m.group(1).splitlines():
         if ":" not in line:
             continue
         k, v = line.split(":", 1)
         meta[k.strip()] = v.strip().strip('"').strip("'")
     return meta
+
+
+# 年齡判不出來時的降級紀錄 —— **保守值必須出聲**。
+# 2026-08-27 由 CK_Hermes session 的同型發現觸發（他們的 `_age_days` 解析失敗回 0.0，
+# 方向保守但安靜：docker 改個措辭就變成「無逾期 image」，看起來很健康）。
+# 這裡的鏡像版本更糟一點：0.0 讓提案**永遠達不到 aging 門檻**。
+_UNPARSED: List[str] = []
+
+
+def _mtime_age(meta: Dict, why: str) -> float:
+    """退回檔案 mtime 當年齡下界；判不出來就記下來，由報告末尾大聲說。
+
+    mtime 是**下界**不是真值（檔案被改過就會偏新），但它遠好過 0.0 ——
+    至少「放了很久」這件事還看得見。
+    """
+    _UNPARSED.append(f"{meta.get('proposal_id', '?')}: {why}")
+    try:
+        mt = datetime.fromtimestamp(Path(meta["_path"]).stat().st_mtime, timezone.utc)
+        return (datetime.now(timezone.utc) - mt).total_seconds() / 86400
+    except Exception:
+        return 0.0
 
 
 def assess_risk(meta: Dict) -> str:
@@ -85,8 +106,13 @@ def age_days(meta: Dict) -> float:
     """計算 proposal age"""
     proposed_at = meta.get("proposed_at", "")
     if not proposed_at:
-        # 用檔案 mtime fallback
-        return 0.0
+        # 2026-08-27：原本這裡只有一行註解「用檔案 mtime fallback」和 `return 0.0`
+        # —— **註解承諾的行為沒有實作**（同 soul_loader「聲稱同步鏡像但無實作」）。
+        # 而 0.0 的後果不是保守，是**隱形**：line 220 篩的是 `>= min_age_days`（預設 7），
+        # 於是任何缺 `proposed_at` 的提案「永遠是剛建立的」，
+        # aging 告警**永遠不會提到它**，而且不會有任何一行說它被跳過了。
+        # 這支腳本存在的唯一目的就是「別讓提案被放到爛」。
+        return _mtime_age(meta, "缺 proposed_at")
     try:
         # 解析 ISO 格式 (可能含 timezone)
         dt = datetime.fromisoformat(proposed_at.replace("Z", "+00:00"))
@@ -95,7 +121,7 @@ def age_days(meta: Dict) -> float:
         delta = datetime.now(timezone.utc) - dt
         return delta.days + delta.seconds / 86400
     except Exception:
-        return 0.0
+        return _mtime_age(meta, f"proposed_at 無法解析（{proposed_at[:40]}）")
 
 
 def list_pending_proposals() -> List[Dict]:
@@ -216,12 +242,21 @@ async def main() -> int:
     for p in proposals:
         print(f"  {p['proposal_id'][:60]} age={p['_age_days']:.1f}d risk={p['_risk']}")
 
+    # 判不出年齡的必須大聲說 —— 沉默的降級會讓「沒有逾期」與「讀不懂」長得一樣。
+    if _UNPARSED:
+        print("")
+        print(f"⚠️  {len(_UNPARSED)} 份提案的年齡是用檔案 mtime 推的（下界，可能偏新）：")
+        for u in _UNPARSED:
+            print(f"    · {u}")
+        print("    ⇒ 這幾份的 aging 判定不完全可信；請補 frontmatter 的 proposed_at。")
+
     # 篩選 aging
     aging = [p for p in proposals if p.get("_age_days", 0) >= args.min_age_days]
     print(f"\nAging (>= {args.min_age_days}d): {len(aging)}")
 
     if not aging:
-        print("✅ 無 aging proposal")
+        print("✅ 無 aging proposal"
+              + ("（但上面有年齡判不出來的，不等於全部都新）" if _UNPARSED else ""))
         return 0
 
     summary = build_owner_summary(aging)
