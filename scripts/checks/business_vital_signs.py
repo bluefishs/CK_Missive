@@ -158,6 +158,42 @@ VITALS = [
                       "入口不通或還沒開始用，兩者都要有人看見，但都不是故障",
     },
     {
+        "module": "專案資金",
+        "what": "執行中且有合約金額的案子，有在走金流",
+        # owner 2026-08-26：「以利掌握公司專案資金管理」。
+        #
+        # 2026-08-27 量測：88 個承攬專案裡 **37 個（42%）完全沒有任何
+        # 請款或應付紀錄**。拆開之後兩群完全不同：
+        #   已結案 28 案 → 合約金額**全部是 0**（2025-03~05 舊資料，未填）
+        #   執行中  9 案 → 合約金額合計 **$11,555,000**  ← 這一群才是問題
+        #
+        # 「執行中、有合約金額、卻沒有任何金流」＝ **錢該收而系統裡沒有紀錄**。
+        # 那不是系統故障，是**沒有任何東西在問這個問題** ——
+        # 帳本層實測完全健康（已收款 38→帳本 0 缺、已付 33→0 缺、孤兒 0），
+        # 而健康的帳本回答不了「該進帳本的有沒有進來」。
+        #
+        # ⚠️ 條件加上「合約金額 > 0」：沒填金額的可能是還沒簽約，
+        # 把它們算進來會讓這條每天報一個不能行動的數字。
+        #
+        # ⚠️ 關聯要走三跳：請款與應付掛在**報價單**（只有 erp_quotation_id），
+        # 不是掛在專案 ⇒ project_code → case_code → quotation_id。
+        "sql": """
+            SELECT COUNT(*) FROM contract_projects p
+             WHERE p.status = '執行中'
+               AND COALESCE(p.contract_amount, 0) > 0
+               AND NOT EXISTS (SELECT 1 FROM erp_billings b
+                                 JOIN erp_quotations q ON q.id = b.erp_quotation_id
+                                WHERE q.case_code = p.case_code)
+               AND NOT EXISTS (SELECT 1 FROM erp_vendor_payables v
+                                 JOIN erp_quotations q ON q.id = v.erp_quotation_id
+                                WHERE q.case_code = p.case_code)
+        """,
+        "level": "YELLOW",
+        "max": 0,
+        "why_exempt": "這是業務推進不是系統故障（可能還沒到請款時點）⇒ 判 YELLOW。"
+                      "但它必須每天出現在畫面上，因為沒有人在問這個問題",
+    },
+    {
         "module": "請款收款",
         "what": "已收款的請款都進了統一帳本",
         "sql": "SELECT count(*) FROM erp_billings b WHERE b.payment_status='paid' "
