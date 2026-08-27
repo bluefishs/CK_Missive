@@ -20,6 +20,7 @@ import authService from '../../services/authService';
 import { NotificationCenter } from '../common';
 import { IdleCountdownBadge } from './IdleCountdownBadge';
 import { logger } from '../../services/logger';
+import { getRoleDisplayName } from '../../constants/permissions';
 
 const { Header: AntHeader } = Layout;
 const { Title } = Typography;
@@ -42,21 +43,26 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  // 取得角色顯示名稱
-  const getRoleDisplayName = (role?: string): string => {
-    switch (role) {
-      case 'superuser': return '超級管理員';
-      case 'admin': return '管理員';
-      default: return '一般使用者';
-    }
-  };
+  // 角色顯示名稱一律走 SSOT（`constants/permissions.ts` 的 USER_ROLES）。
+  //
+  // ⚠️ 2026-08-27：這裡原本自己定義了一個**同名**的本地函式蓋掉 SSOT 那支，
+  //    而它只認得 superuser／admin，其餘一律落到 `default: '一般使用者'`。
+  //    於是 `role='staff'` 的同仁在右上角看到的是「一般使用者」，
+  //    而 `/profile` 顯示「承辦同仁」—— owner 回報的正是這兩處對不起來。
+  //
+  //    真正難看的是那個 `default`：它把**任何認不得的角色**都降級成一個
+  //    看起來完全正常的值。`staff` 與 `unverified` 都會顯示成「一般使用者」，
+  //    而「我不認得這個角色」與「這個人就是一般使用者」在畫面上長得一模一樣
+  //    （同「空清單退化成數字」那一族）。SSOT 那支認不得時回 roleKey 本身，
+  //    看得出是沒對應到。
+  const roleLabel = getRoleDisplayName(currentUser?.role || '');
 
   // 使用者下拉選單項目
   const userMenuItems = [
     {
       key: 'user-info',
       icon: <UserOutlined />,
-      label: `角色：${getRoleDisplayName(currentUser?.role)}`,
+      label: `角色：${roleLabel}`,
       disabled: true,
       style: { color: '#666', fontSize: '12px' }
     },

@@ -17,6 +17,7 @@ import {
   USER_ROLES,
   USER_STATUSES,
   getRoleDisplayName,
+  ROLE_FILTER_OPTIONS,
   getStatusDisplayName
 } from '../constants/permissions';
 import type { User } from '../types/api';
@@ -81,12 +82,9 @@ export const createUserTableColumns = ({
     dataIndex: 'role',
     key: 'role',
     sorter: (a, b) => (a.role || '').localeCompare(b.role || ''),
-    filters: [
-      { text: '超級管理員', value: 'superuser' },
-      { text: '管理員', value: 'admin' },
-      { text: '一般使用者', value: 'user' },
-      { text: '未驗證', value: 'unverified' },
-    ],
+    // 2026-08-27：原本手寫四個且**漏了 staff** ⇒ 8 位業務同仁篩不出來。
+    // 改由 SSOT 導出，新增角色時這裡自動跟上。
+    filters: ROLE_FILTER_OPTIONS,
     onFilter: (value, record) => record.role === value,
     render: (role: string, record) => {
       const roleConfig = USER_ROLES[role as keyof typeof USER_ROLES];

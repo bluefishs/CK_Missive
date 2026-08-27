@@ -11,7 +11,7 @@ import type { ColumnType, ColumnsType } from 'antd/es/table';
 import type { FilterConfirmProps } from 'antd/es/table/interface';
 import Highlighter from 'react-highlight-words';
 import { SearchOutlined, UserOutlined } from '@ant-design/icons';
-import { getRoleDisplayName, getStatusDisplayName } from '../constants/permissions';
+import { getRoleDisplayName, getStatusDisplayName, ROLE_FILTER_OPTIONS } from '../constants/permissions';
 import type { User } from '../types/api';
 
 // Auth provider display config
@@ -117,12 +117,10 @@ export function useUserColumns(isMobile: boolean) {
     [handleTableSearch, handleTableReset]
   );
 
-  const roleFilters = [
-    { text: '超級管理員', value: 'superuser' },
-    { text: '管理員', value: 'admin' },
-    { text: '一般使用者', value: 'user' },
-    { text: '訪客', value: 'guest' },
-  ];
+  // 2026-08-27：原本手寫四個，**漏了 staff**（8 位業務同仁篩不出來），
+  // 而且多一個 `guest` —— 系統裡沒有這個角色（USER_ROLES 沒有、DB 也沒有），
+  // 也就是說那是一個**永遠篩不到任何人**的選項。改由 SSOT 導出。
+  const roleFilters = ROLE_FILTER_OPTIONS;
 
   const authProviderFilters = [
     { text: '電子郵件', value: 'email' },

@@ -27,6 +27,7 @@ import authService from '../../services/authService';
 import { LINE_LOGIN_CHANNEL_ID, LINE_BIND_REDIRECT_URI } from '../../config/env';
 import { logger } from '../../utils/logger';
 import type { AccountInfoCardProps } from './types';
+import { getRoleDisplayName } from '../../constants/permissions';
 
 const { Text } = Typography;
 
@@ -39,24 +40,41 @@ const PROVIDER_CONFIG: Record<string, { label: string; color: string; icon?: Rea
 };
 
 /** Render a colored Tag based on user role */
+/** 角色標籤的顏色 —— 只有顏色是這裡的事，**名稱一律問 SSOT**。 */
+const ROLE_TAG_COLOR: Record<string, string> = {
+  superuser: 'purple',
+  admin: 'red',
+  staff: 'geekblue',
+  user: 'blue',
+  unverified: 'orange',
+};
+
+/**
+ * ⚠️ 2026-08-27：這裡原本自己維護一份 role→中文，而它與 SSOT 不一致——
+ *
+ *     USER_ROLES.staff.name_zh   = 「業務同仁」  ← SSOT
+ *     這裡（原本）                = 「承辦同仁」
+ *     Header（原本，另一份）      = 「一般使用者」（根本沒有 staff 這個 case）
+ *
+ * 同一個 `role='staff'`，三個地方三個答案，而 owner 就是在 `/profile`
+ * 與右上角看到兩種說法才回報的。
+ *
+ * 改用 SSOT 的 `getRoleDisplayName` 後，`staff` 顯示為**業務同仁**。
+ * 選它不是因為它比較好聽，是因為：
+ *   1. SSOT 就是這樣定義的，而 `UserManagementPage`／`UserFormPage`／
+ *      使用者列表三處也都已經是「業務同仁」——「承辦同仁」是四比一的少數
+ *   2. **「承辦同仁」在本系統是另一個概念**（專案人員指派，
+ *      `project_staff` 那一整族），角色用同一個詞會撞在一起
+ */
 const getRoleTag = (role: string | undefined, isAdmin: boolean) => {
   if (isAdmin) {
-    return <Tag color="red">管理員</Tag>;
+    return <Tag color="red">{getRoleDisplayName('admin')}</Tag>;
   }
-  switch (role) {
-    case 'superuser':
-      return <Tag color="purple">超級管理員</Tag>;
-    case 'admin':
-      return <Tag color="red">管理員</Tag>;
-    case 'staff':
-      return <Tag color="geekblue">承辦同仁</Tag>;
-    case 'user':
-      return <Tag color="blue">一般用戶</Tag>;
-    case 'unverified':
-      return <Tag color="orange">未驗證</Tag>;
-    default:
-      return <Tag>{role || '未設定'}</Tag>;
+  if (!role) {
+    return <Tag>未設定</Tag>;
   }
+  // SSOT 認不得時回 roleKey 本身 —— 看得出是「沒對應到」而不是某個正常值
+  return <Tag color={ROLE_TAG_COLOR[role]}>{getRoleDisplayName(role)}</Tag>;
 };
 
 /** Render single auth provider tag */

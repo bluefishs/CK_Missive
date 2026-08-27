@@ -538,6 +538,32 @@ export const getRoleDisplayName = (roleKey: string, language: 'zh' | 'en' = 'zh'
 };
 
 /**
+ * 角色由高到低的位階順序 —— 選單／篩選一律照這個順序列。
+ *
+ * 2026-08-27 新增。在此之前每個要列角色的地方都自己手寫一份，而它們**不一致**：
+ *
+ *   UserManagementPage   5 個，正確
+ *   userTableColumns     4 個，**漏 staff** ⇒ 8 位業務同仁篩不出來
+ *   useUserColumns       4 個，**漏 staff、且多一個系統裡不存在的 `guest`**
+ *                        ⇒ 提供一個永遠篩不到任何人的選項
+ *
+ * 手寫清單的問題不是當下寫錯，是**新增一個角色時沒有任何東西會提醒你去改它們**。
+ */
+export const ROLE_ORDER: Array<keyof typeof USER_ROLES> = [
+  'superuser', 'admin', 'staff', 'user', 'unverified',
+];
+
+/**
+ * 角色選項（`{text, value}`）—— 給 AntD 的 `filters` 與 Select 用。
+ * 名稱一律取自 `USER_ROLES`，所以不可能與顯示用的 `getRoleDisplayName` 分岔。
+ */
+export const ROLE_FILTER_OPTIONS = ROLE_ORDER.map((key) => ({
+  text: USER_ROLES[key].name_zh,
+  label: USER_ROLES[key].name_zh,
+  value: key as string,
+}));
+
+/**
  * 獲取狀態顯示名稱
  */
 export const getStatusDisplayName = (statusKey: string, language: 'zh' | 'en' = 'zh'): string => {

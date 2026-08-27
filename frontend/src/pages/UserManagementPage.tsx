@@ -17,6 +17,7 @@ import { useAdminUsersPage, useResponsive } from '../hooks';
 import { ROUTES } from '../router/types';
 import { useUserColumns } from './useUserColumns';
 import { AliasIntegrationDrawer } from '../components/admin/AliasIntegrationDrawer';
+import { ROLE_FILTER_OPTIONS } from '../constants/permissions';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -124,12 +125,12 @@ const UserManagementPage: React.FC = () => {
             <Select placeholder={isMobile ? '角色' : '角色篩選'} allowClear value={roleFilter || undefined}
               onChange={setRoleFilter} style={{ width: '100%' }} size={isMobile ? 'small' : 'middle'}
             >
-              {/* 位階排序：超級管理員 > 管理員 > 業務同仁 > 一般使用者 > 未驗證者 */}
-              <Option value="superuser">超級管理員</Option>
-              <Option value="admin">管理員</Option>
-              <Option value="staff">業務同仁</Option>
-              <Option value="user">一般使用者</Option>
-              <Option value="unverified">未驗證者</Option>
+              {/* 2026-08-27：這一份原本是對的（5 個都在），但仍是手寫的第三份。
+                  同日在另外兩處各發現一個缺陷（漏 staff／多一個不存在的 guest），
+                  而它們的共同點是「新增角色時沒有東西會提醒你來改」。改由 SSOT 導出。 */}
+              {ROLE_FILTER_OPTIONS.map((r) => (
+                <Option key={r.value} value={r.value}>{r.label}</Option>
+              ))}
             </Select>
           </Col>
           {!isMobile && (
