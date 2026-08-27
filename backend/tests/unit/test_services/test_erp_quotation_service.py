@@ -197,7 +197,13 @@ class TestERPQuotationServiceCreate:
             result = await service.create(data, user_id=1)
 
             assert result.case_code == "CK2025_FN_01_001"
-            code_inst.generate_case_code.assert_awaited_once_with("erp", 114, "01")
+            # ⚠️ 2026-08-28：期待值由 114 改為 2025。
+            # `ERPQuotationCreate` 有 `_normalize_year`（民國一律轉西元，
+            # 見 `schemas/_year.py`）—— 實測 114→2025、2025→2025、115→2026。
+            # 所以送進 service 的已經是西元，**service 本身沒有做轉換**
+            # （它是 `year = dump.get("year") or today().year`）。
+            # 這是「年度單位統一為西元」那次修法的一部分，測試沒跟上，不是程式壞了。
+            code_inst.generate_case_code.assert_awaited_once_with("erp", 2025, "01")
 
     @pytest.mark.asyncio
     async def test_create_quotation_with_manual_code(self, mock_db_session):
@@ -447,7 +453,8 @@ class TestERPQuotationServiceList:
     @pytest.mark.asyncio
     async def test_list_quotations(self, mock_db_session):
         """Verify batch aggregate delegation"""
-        mock_items = [_make_mock_quotation(qid=i) for i in range(1, 4)]
+        # created_by=7 對應下面 mock 的使用者列，讓「填報者姓名」這條路真的走到
+        mock_items = [_make_mock_quotation(qid=i, created_by=7) for i in range(1, 4)]
 
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository") as MockInv, \
@@ -459,6 +466,14 @@ class TestERPQuotationServiceList:
             MockBill.return_value.get_aggregates_batch = AsyncMock(return_value={})
             MockPay.return_value.get_aggregates_batch = AsyncMock(return_value={})
             MockInv.return_value.get_counts_by_quotation_ids = AsyncMock(return_value={})
+            # ⚠️ 2026-08-28：`_get_creator_names_batch`（08-19「報價單對應填報者」加的）
+            # **直接在 service 層 `db.execute(select(User...))`**，不經 repository，
+            # 所以上面那幾個 MockRepo 蓋不到它。conftest 的 `session.execute` 是 AsyncMock
+            # ⇒ `.all()` 回的是 coroutine ⇒ `TypeError: 'coroutine' object is not iterable`。
+            # 這裡把它補齊，並**真的驗到姓名有出來**（否則只是讓它不爆）。
+            _rows = MagicMock()
+            _rows.all.return_value = [(7, "王駿穠", "aaronfly1978")]
+            mock_db_session.execute = AsyncMock(return_value=_rows)
 
             service = ERPQuotationService(mock_db_session)
             params = ERPQuotationListRequest(page=1, limit=20, year=114)
@@ -466,6 +481,8 @@ class TestERPQuotationServiceList:
 
             assert total == 3
             assert len(responses) == 3
+            # 姓名真的到達回應 —— 只補 mock 而不斷言，等於只是讓它不爆
+            assert responses[0].created_by_name == "王駿穠"
             MockBill.return_value.get_aggregates_batch.assert_awaited_once()
             MockPay.return_value.get_aggregates_batch.assert_awaited_once()
 
