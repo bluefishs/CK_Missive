@@ -44,9 +44,21 @@ owner：「ERP 是確認承攬**後**程序」「**前述成案程序的問題�
 ⚠️ 也不是舊資料：1,273 萬裡 **1,264 萬是 2025–2026**，而有編碼那組也全是 2025–2026。
 同一時期、同樣的業務，一半走了成案程序、一半沒走。
 
-標案那條路同樣斷：`category='01'` 的 4 件（全庫僅有的 4 件系統編碼）
-**沒有一件留下 `source_tender_id`**，也**沒有一件經過 `status='bidding'`** ——
-`case_creation.py` 明明兩者都會寫。直接跳到 contracted，2/4 沒有成案編碼。
+標案那條路：`category='01'` 的 4 件（全庫僅有的 4 件系統編碼）
+沒有一件留下 `source_tender_id`，也沒有一件經過 `status='bidding'`。
+
+⚠️ **但那不是程式壞了**（第一版我這樣寫，會害人去修沒壞的東西）：
+3/4 件的 notes 帶著「來源: 政府標案 <案號>」⇒ 確實是一鍵建案的產物；
+而 `services/tender/case_creation.py` 是 **2026-08-17** 才有的，
+那 4 件建於 **04-02～07-31，全部早於這支服務**。
+前端兩條分支（ezbid／PCC）都確認有帶 `tender_id` ⇒ **現行路徑是完整的**。
+
+⇒ 真正的事實是：**重構後的一鍵建案至今一次都沒有被用過**
+（08-17 之後建立的 179 件全是 08-21 那批 XLS 匯入，`category='02'`）。
+「寫好了沒有人用過」與「寫壞了」在畫面上長得一樣，所以本檢核**印日期不下結論**。
+
+而 `status='bidding'` 從未出現這件事本身是實的：**成案前沒有可觀察的中間狀態**，
+那正是「這件到底成了沒有」無處可問的原因。
 
 ## 判準：只對「惡化」報紅，不對「既有存量」報紅
 
@@ -141,7 +153,8 @@ SELECT (SELECT count(*) FROM dup),
 SQL_TENDER = """
 SELECT count(*) FILTER (WHERE category = '01')                       AS tender_cases,
        count(*) FILTER (WHERE category = '01' AND source_tender_id IS NOT NULL) AS with_origin,
-       count(*) FILTER (WHERE status = 'bidding')                    AS bidding
+       count(*) FILTER (WHERE status = 'bidding')                    AS bidding,
+       COALESCE(max(created_at) FILTER (WHERE category = '01')::date::text, '(無)') AS newest_tender_case
   FROM pm_cases;
 """
 
@@ -220,13 +233,24 @@ def main() -> int:
     print("\n【標案一鍵建案這條路】")
     print(f"   category='01' 案件 {tender[0]} 件｜留下 source_tender_id 的 {tender[1]} 件"
           f"｜status='bidding' 的 {tender[2]} 件")
+    print(f"   最新一件標案案件建立於 {tender[3]}")
     if int(tender[0]) and not int(tender[1]):
-        print("   ⚠️ 一件都沒有留下來源標案 —— `case_creation.py` 會寫 source_tender_id，"
-              "代表這些案件不是走那支建立的，或 tender_id 沒被送進來。"
-              "「這個案子從哪個標案來」目前無從追溯。")
+        # 2026-08-27 查證後改寫：第一版寫「代表這些案件不是走那支建立的，或
+        # tender_id 沒被送進來」—— **那會讓人去修沒有壞的程式**。
+        # 實查：3/4 件的 notes 帶著「來源: 政府標案 <案號>」⇒ 確實是一鍵建案的產物；
+        # 而 `services/tender/case_creation.py` 是 2026-08-17 才有的，
+        # 那 4 件建於 04-02～07-31，**全部早於這支服務**。前端兩條分支
+        # （ezbid／PCC）都確認有帶 tender_id ⇒ **現行路徑是完整的，只是還沒被用過**。
+        # 所以這裡印出「最新一件的日期」而不是下結論 —— 讀的人自己比對得出來。
+        print("   ⚠️ 沒有一件留下 source_tender_id。⚠️ **這不一定代表程式壞了** ——")
+        print("      現行 `case_creation.py` 會寫這個欄位（前端兩條分支也都有帶 tender_id）。")
+        print("      先比對上面那個日期與該服務的上線日：若案件都比它早，"
+              "那是**舊路徑的遺留**，不是缺陷。")
+        print("      真正的後果只有一個：這些舊案「從哪個標案來」無從追溯。")
     if not int(tender[2]):
         print("   ⚠️ 沒有任何案件處於 'bidding' —— 「投標中」這個階段實際上沒有被使用，"
-              "案件是直接出現在 contracted。**成案前沒有可觀察的中間狀態。**")
+              "案件是直接出現在 contracted。**成案前沒有可觀察的中間狀態**，"
+              "而那正是「這件到底成了沒有」無處可問的原因。")
 
     reds, notes = [], []
     for k, zh in [("contracted_no_code", "已承攬但無成案編碼的件數"),
