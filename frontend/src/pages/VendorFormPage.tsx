@@ -169,8 +169,8 @@ export const VendorFormPage: React.FC = () => {
           >
             <Input placeholder="請輸入廠商名稱" />
           </Form.Item>
-          <Form.Item name="vendor_code" label="廠商統編">
-            <Input placeholder="請輸入廠商統編" />
+          <Form.Item name="vendor_code" label="統一編號">
+            <Input placeholder="請輸入統一編號（8 碼）" />
           </Form.Item>
         </ResponsiveFormRow>
 

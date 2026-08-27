@@ -88,7 +88,11 @@ const ERPVendorAccountsPage: React.FC = () => {
       ellipsis: true,
     },
     {
-      title: '廠商代碼',
+      // 2026-08-27 owner：「廠商代碼請釐清，是否唯統一編號」。
+      // 實測 65 家裡 15 家有值，**全部都是 8 碼純數字（統編格式）**、
+      // 零非統編、零重複 ⇒ 它實務上就是統一編號，只是欄位名沒說。
+      // ⇒ 標題直接寫明，避免與其他「代碼」混淆。
+      title: '統一編號',
       dataIndex: 'vendor_code',
       key: 'vendor_code',
       width: 140,
@@ -216,11 +220,35 @@ const ERPVendorAccountsPage: React.FC = () => {
 
       {isError && <Alert type="error" message="載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
+      {/* 2026-08-27 owner：「統計圖卡互動篩選機制」＋「區分年度不能混淆」。
+          卡片與年度同時作用時，列表會變少而**畫面說不出為什麼** ——
+          使用者只看到「共 N 廠商」，不知道那是篩過的還是全部。 */}
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 12 }}
+        message={
+          <span>
+            目前顯示：<b>{year === 0 ? '全部年度' : `${year} 年度`}</b>
+            {statFilter === 'paid' && <>｜僅<b>有已付款</b>的廠商</>}
+            {statFilter === 'outstanding' && <>｜僅<b>有未付款</b>的廠商</>}
+            {statFilter === 'all' && <>｜<b>全部</b>廠商</>}
+            {keyword && <>｜關鍵字「{keyword}」</>}
+            ｜共 <b>{filteredItems.length}</b> 家
+          </span>
+        }
+        action={statFilter || keyword ? (
+          <a onClick={() => { setStatFilter(null); setKeyword(''); }}>清除篩選</a>
+        ) : undefined}
+      />
+
       <Card>
         <EnhancedTable<VendorAccountSummaryItem>
           columns={columns}
           dataSource={filteredItems}
-          rowKey="vendor_id"
+          // ⚠️ 不能用 `vendor_id` 當 key —— 廠商檔裡沒有的那些（實測「勤典工程行」
+          // 4 筆）`vendor_id` 是 NULL ⇒ React key 重複，渲染會出錯。
+          rowKey={(r) => (r.vendor_id != null ? `id:${r.vendor_id}` : `name:${r.vendor_name}`)}
           loading={isLoading}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 廠商` }}
           size="middle"

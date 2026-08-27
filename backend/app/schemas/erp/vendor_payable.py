@@ -22,7 +22,7 @@ class ERPVendorPayableCreate(BaseModel):
 
     erp_quotation_id: int
     vendor_name: str = Field(..., max_length=200, description="廠商名稱")
-    vendor_code: Optional[str] = Field(None, max_length=50, description="廠商代碼")
+    vendor_code: Optional[str] = Field(None, max_length=50, description="統一編號（`partner_vendors.vendor_code`，實測全部為 8 碼統編格式）")
     vendor_id: Optional[int] = Field(None, description="廠商 ID (自動配對)")
     payable_amount: Decimal = Field(..., description="應付金額")
     # 2026-08-18 owner：「應收與應付兩者設計不一致」——

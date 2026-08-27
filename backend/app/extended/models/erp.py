@@ -199,7 +199,7 @@ class ERPVendorPayable(Base):
 
     vendor_name = Column(String(200), nullable=False, comment="廠商名稱")
     vendor_code = Column(String(50), nullable=True, index=True,
-                         comment="廠商代碼 (軟參照 partner_vendors.vendor_code)")
+                         comment="統一編號 (軟參照 partner_vendors.vendor_code；實測全部為 8 碼統編格式)")
     vendor_id = Column(Integer, ForeignKey("partner_vendors.id", ondelete="SET NULL"),
                        nullable=True, index=True, comment="廠商 ID (強參照)")
     billing_id = Column(Integer, ForeignKey("erp_billings.id", ondelete="SET NULL"),

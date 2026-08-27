@@ -93,14 +93,14 @@ async def create_vendor(
     建立新廠商
 
     🔒 權限要求：vendors:create
-    若廠商代碼已存在會回傳 409 Conflict 錯誤。
+    若統一編號已存在會回傳 409 Conflict 錯誤。
     """
     try:
         return await vendor_service.create(vendor)
     except ValueError as e:
         logger.warning("建立廠商衝突: %s", e)
         raise ConflictException(
-            message="廠商代碼已存在",
+            message="統一編號已存在",
             field="vendor_code",
             value=vendor.vendor_code
         )
