@@ -239,6 +239,10 @@ export const PMCaseDetailPage: React.FC = () => {
               const p = new URLSearchParams({
                 case_code: pmCase.case_code!,
                 case_name: pmCase.case_name ?? '',
+                // 2026-08-27：帶著來源，讓建立表單存完能回到這一頁的報價單分頁
+                // （線上填明細就嵌在那裡）。先前存完會被丟回 ERP 列表，
+                // 流程在第一步就離開了邀標報價程序 —— owner 問「為何一直無法整合」的直接原因。
+                pm_case_id: String(pmCase.id),
               });
               if (pmCase.year) p.set('year', String(pmCase.year));
               navigate(`${ROUTES.ERP_QUOTATION_CREATE}?${p.toString()}`);

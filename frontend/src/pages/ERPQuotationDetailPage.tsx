@@ -25,7 +25,6 @@ import { AttachmentPanel } from '../components/common/AttachmentPanel';
 import { ROUTES } from '../router/types';
 import { apiClient } from '../api/client';
 import { ERP_ENDPOINTS } from '../api/endpoints';
-import { useQuotationExport } from './erpQuotation/useQuotationExport';
 
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
@@ -86,19 +85,15 @@ export const ERPQuotationDetailPage: React.FC = () => {
   // ⚠️ Hook 必須在早退之前呼叫 —— 這一頁原本就有一段註解警告過同一件事
   //   （「放在早退之後會在『報價不存在』那條路徑上少呼叫一個 Hook」），
   //   而我抽共用時還是把它放到了早退後面，ESLint 當場擋下。
-  // 2026-08-18：報價單正式文件下載。
+  // 2026-08-27（第二次修正）：**輸出報價單／輸出 PDF 已從本頁移除**。
   //
-  // 2026-08-27：輸出流程抽到 `erpQuotation/useQuotationExport` —— owner 指出
-  // 這個機制應該在 /pm/cases 也有，而複製一份等於承諾兩邊都要記得改
-  // （空工項提醒、後端給的檔名、PDF 預覽、blob 釋放時機，四件都容易各自演化）。
-  const { exportButtons, pdfPreview } = useQuotationExport({
-    quotationId: quotation?.id,
-    quotationNo: quotation?.quotation_no,
-    itemCount,
-    onGoToItems: () => navigate(
-      `${ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(quotation!.id))}?tab=items`,
-    ),
-  });
+  // 我上一版做成「兩邊都有、共用同一支 hook」，而 owner 要的是**只在邀標報價**：
+  //   「/erp/quotations/385 不應有輸出報價單與輸出 pdf 兩功能鈕，
+  //     包含 /erp/quotations 首頁也不應該有新增報價鈕，都要在邀標報價程序」
+  //
+  // 抽共用是對的（四件事容易各自演化），但抽完仍留在這裡就不是他要的收斂：
+  // **報價的產生與產出都屬於邀標報價流程，ERP 這一頁是財務視角的檢視。**
+  // 唯一的輸出入口＝`/pm/cases/:id?tab=quotations`（`pmCase/QuotationRecordsTab`）。
 
   if (!quotation && !isLoading) {
     return <DetailPageLayout header={{ title: '報價不存在', backPath: ROUTES.ERP_QUOTATIONS }} tabs={[]} hasData={false} />;
@@ -129,25 +124,15 @@ export const ERPQuotationDetailPage: React.FC = () => {
         {quotation?.case_code && (
           <ExpenseQRButton caseCode={quotation.case_code} caseName={quotation.case_name} />
         )}
-        {/* 2026-08-17 owner：「新增報價單要可輸出正式文件，非僅資料列表用途」
-            2026-08-18 owner：「報價單要能輸出 pdf 並且自動納入系統存檔」
-            2026-08-19 owner：「政府標案無需報價單機制，僅邀標報價案件才需要」
+        {/* 2026-08-27 owner（第二次指出）：「/erp/quotations/385 不應有
+            輸出報價單與輸出 pdf 兩功能鈕 …… 都要在邀標報價程序」
+            ⇒ **輸出鈕已從本頁移除**，唯一入口＝`/pm/cases/:id?tab=quotations`。
 
-            ⚠️ 委辦招標（`01`）不顯示這兩個按鈕：標案是**投標**不是對客戶報價，
-            輸出一張「報價單」給政府機關沒有意義。
-
-            判斷用 `!== '01'` 而不是 `=== '02'` —— 資料庫裡另有 4 張
-            `category='03'`（彰濱控制測量、台8線改善評估…），從案名看是承攬類，
-            而 `PM_CATEGORY_LABELS` 只定義了 01/02、**沒有 03**。
-            用排除法才不會誤傷未定義的類別。
-
-            這與下方「報價明細」分頁用的是**同一個判準**（`case_category === '01'`），
-            不另立第二份規則。 */}
-        {quotation?.case_category !== '01' && (
-          <>
-            {exportButtons}
-          </>
-        )}
+            那兩顆鈕的歷史（08-17／08-18／08-19 owner 三次要求、以及委辦招標
+            不顯示的判準 `case_category !== '01'`）**沒有消失，只是搬家了** ——
+            全部保留在 `pmCase/QuotationRecordsTab.tsx` 與 `useQuotationExport.tsx`。
+            在這裡留這段是為了讓下一個想「ERP 這頁怎麼不能輸出」的人知道去哪找，
+            而不是重新加一顆回來。 */}
         <Button type="primary" icon={<EditOutlined />}
           onClick={() => navigate(ROUTES.ERP_QUOTATION_EDIT.replace(':id', String(quotation?.id)))}
         >編輯</Button>
@@ -406,7 +391,6 @@ export const ERPQuotationDetailPage: React.FC = () => {
         loading={isLoading}
         hasData={!!quotation}
       />
-      {pdfPreview}
     </>
   );
 };

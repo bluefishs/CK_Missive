@@ -36,6 +36,8 @@ export const ERPQuotationFormPage: React.FC = () => {
    * 存檔後 project_code 即成為兩模組的關聯鍵（cross_module_lookup 有 fallback）。
    */
   const [searchParams] = useSearchParams();
+  // 從哪個 PM 案件進來的 —— 決定存檔與返回要回哪裡（見下方 onFinish 註解）
+  const pmCaseId = searchParams.get('pm_case_id');
   React.useEffect(() => {
     if (isEdit) return;
     const prefill: Record<string, string | number> = {};
@@ -121,7 +123,18 @@ export const ERPQuotationFormPage: React.FC = () => {
         await createMutation.mutateAsync(data);
         message.success('報價已建立');
       }
-      navigate(ROUTES.ERP_QUOTATIONS);
+      // 2026-08-27 owner：「新增『邀標報價』不是已建構線上 xls 填報機制，為何一直無法整合」
+      //
+      // 這裡就是斷點。08-20 把「新增報價」加到 PM 案件頁，**入口換了、回程沒換** ——
+      // 存檔後一律 `navigate(ROUTES.ERP_QUOTATIONS)`，也就是把人丟回 ERP 列表。
+      // 於是流程在第一步就離開了邀標報價程序，而下一步（線上填明細）
+      // **就嵌在剛剛那個 PM 案件的報價單分頁裡**，使用者卻已經被帶走了。
+      // 同族：L81「換了出口沒換整條鏈」。
+      //
+      // 帶著來源回去，讓三段接成一條：新增報價 → 線上填明細 → 輸出。
+      navigate(pmCaseId
+        ? `${ROUTES.PM_CASE_DETAIL.replace(':id', pmCaseId)}?tab=quotations`
+        : ROUTES.ERP_QUOTATIONS);
     } catch {
       message.error(isEdit ? '更新失敗' : '建立失敗');
     }
@@ -135,7 +148,9 @@ export const ERPQuotationFormPage: React.FC = () => {
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(ROUTES.ERP_QUOTATIONS)}>返回</Button>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(pmCaseId
+          ? `${ROUTES.PM_CASE_DETAIL.replace(':id', pmCaseId)}?tab=quotations`
+          : ROUTES.ERP_QUOTATIONS)}>返回</Button>
         <Title level={4} style={{ margin: 0 }}>{isEdit ? '編輯報價' : '新增報價'}</Title>
       </div>
 

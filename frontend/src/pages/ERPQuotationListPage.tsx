@@ -145,11 +145,20 @@ export const ERPQuotationListPage: React.FC = () => {
         <Row justify="space-between" align="middle">
           <Col><Title level={3} style={{ margin: 0 }}>財務管理 (ERP)</Title></Col>
           <Col>
-            {canWrite && (
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(ROUTES.ERP_QUOTATION_CREATE)}>
-                新增報價
-              </Button>
-            )}
+            {/* 2026-08-27 owner：「/erp/quotations 首頁也不應該有新增報價鈕，
+                都要在邀標報價程序」⇒ 建立入口只留在 PM 案件頁。
+
+                ⚠️ 刻意留一個**指路**而不是整個拿掉：這一頁一直是大家找報價的地方，
+                按鈕忽然不見會變成「功能沒了」而不是「換地方了」——
+                本專案已經有過同型（空清單退化成數字、標案查無資料沒說出真正原因）。
+                它是連結不是動作，不受 canWrite 影響（找路不需要權限）。 */}
+            <Button
+              type="link"
+              icon={<PlusOutlined />}
+              onClick={() => navigate(ROUTES.PM_CASES)}
+            >
+              新增報價請至「邀標報價案件」
+            </Button>
           </Col>
         </Row>
         {profitSummary && (
