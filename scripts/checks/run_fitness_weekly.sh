@@ -386,6 +386,7 @@ run_step "66" "端點 POST 慣例（runtime methods）" "scripts/checks/http_met
 run_step "67" "公網探測的客戶端指紋（403 不一定是應用層擋的）" "scripts/checks/probe_fingerprint_guard.py"
 run_step "68" "管理動作有沒有給一般同仁看見（畫面不該給必然失敗的按鈕）" "scripts/checks/admin_action_visibility_audit.py"
 run_step "69" "協力廠商合約經費 vs 應付分期加總（同一件事兩個數字）" "scripts/checks/vendor_contract_payable_consistency.py"
+run_step "70" "廠商身分源頭一致（同一張單不得有兩個名字）" "scripts/checks/vendor_identity_ssot_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
