@@ -327,7 +327,17 @@ def _shadow_baseline_summary() -> StepResult:
                    MAX(latency_ms),
                    SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN latency_ms > 30000 THEN 1 ELSE 0 END),
-                   SUM(CASE WHEN latency_ms > 60000 THEN 1 ELSE 0 END)
+                   SUM(CASE WHEN latency_ms > 60000 THEN 1 ELSE 0 END),
+                   -- 2026-08-28：延遲報紅時，第一個要問的是「**是哪個 LLM**」。
+                   -- `provider` 欄只是**通道標籤**（web → `gemma-local`），不是實體 provider
+                   -- （`inference_provider_context.py` 的檔頭就是這麼寫的）；
+                   -- 真正的答案在 `actual_llm_provider`，由 `ai_connector` 經 ContextVar 寫入。
+                   -- ⚠️ 實測它**自 2026-08-01 起全空，27 天沒有人發現** ——
+                   -- 而同期 baseline 一直在報 45s ⇒ 報了紅燈卻**無法歸因**。
+                   -- 歷史上它是有用的（groq 488／ollama 418／nvidia 128）。
+                   -- 把「能不能歸因」一起報出來，否則下一個人會像我一樣先繞一圈才發現。
+                   SUM(CASE WHEN actual_llm_provider IS NOT NULL
+                             AND actual_llm_provider <> '' THEN 1 ELSE 0 END)
             FROM query_trace
             WHERE ts > datetime('now', '-24 hours')
             """
@@ -342,7 +352,7 @@ def _shadow_baseline_summary() -> StepResult:
             duration_ms=(time.time() - t0) * 1000,
         )
 
-    n, avg_ms, max_ms, ok_count, over30, over60 = row
+    n, avg_ms, max_ms, ok_count, over30, over60, attributed = row
     n = n or 0
     avg_ms = avg_ms or 0
     max_ms = max_ms or 0
@@ -385,9 +395,17 @@ def _shadow_baseline_summary() -> StepResult:
         summary=(
             f"24h n={n} avg={avg_ms/1000:.1f}s p95={p95_ms/1000 if p95_ms else 0:.1f}s "
             f"success={success_ratio:.2%} over30={over30}/over60={over60}"
+            # 歸因覆蓋率：延遲報紅時，第一個問題是「是哪個 LLM」。
+            # 0/n 代表**報得出慢、指不出誰** —— 那比慢本身更該先修。
+            + (f"｜⚠️ 歸因 {attributed or 0}/{n}"
+               + ("（actual_llm_provider 全空 ⇒ 無法歸因；"
+                  "provider 欄只是通道標籤不是實體 LLM）"
+                  if not (attributed or 0) else "")
+               if n else "")
         ),
         details={
             "n": n,
+            "attributed": attributed or 0,
             "avg_ms": int(avg_ms),
             "p95_ms": p95_ms,
             "max_ms": int(max_ms),
