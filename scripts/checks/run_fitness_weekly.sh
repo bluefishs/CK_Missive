@@ -150,7 +150,11 @@ run_step "28" "Windows 排程存活"             "scripts/checks/windows_task_li
 # 其中 health-watchdog 的「假死自動復原」沒有等價物 ——
 # Docker 不會因為 unhealthy 就重啟容器，restart:always 只在程序結束時作用。
 # 與 step 28 同一個家族（宣告 vs 實際），刻意放在一起。
-run_step "70" "PM2 宣告 vs 實際在跑"          "scripts/checks/pm2_declared_vs_running_audit.py"
+# ⚠️ 編號 71 而非 70：2026-08-27 我與同 repo 另一個 session 同時加步驟，
+#    兩邊都取了 70（對方的「廠商身分源頭一致」在檔案後段）。
+#    改我這支而不是對方的 —— 動自己加的東西不會撞到別人正在編輯的檔案區段。
+#    編號因此不隨檔案順序遞增，那是可接受的（本檔本來就有 23→26 的跳號）。
+run_step "71" "PM2 宣告 vs 實際在跑"          "scripts/checks/pm2_declared_vs_running_audit.py"
 # 2026-08-05 owner：「有資安風險皆不應該公開」。掃全 portfolio 當下發現
 # lvrland 與 digitaltwin 把完整 API schema 放在公網（1.5MB／196 端點），
 # 且沒有任何機制在問「我們對外開了什麼」—— 修一次不代表不會再開。
