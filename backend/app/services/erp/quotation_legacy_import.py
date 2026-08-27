@@ -190,6 +190,11 @@ def _derive_case_code(legacy_no: str) -> str:
 
     **子號是子案，不是版次。**
 
+    ⚠️ 而 `signed_quotation_import.normalize_legacy_no`（回簽 PDF 掛檔）**刻意相反**，
+    它忽略尾碼 —— 因為那一側「掛不上」的代價高於「掛錯」，而這一側正好相反。
+    **同一個欄位兩種讀法，都是對的。不要統一。**
+    已登記 `docs/architecture/TIER3_INTENTIONAL_DIVERGENCE_REGISTRY.md` §10。
+
     ## 那「既有那張與匯入這張是不是同一張」呢
 
     不由編號規則決定 —— 那要看案名與金額語意（36 組看起來是，4 組明顯不是），
