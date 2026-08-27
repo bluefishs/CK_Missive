@@ -17,6 +17,7 @@ import { projectsApi } from '../../api/projectsApi';
 import { filesApi } from '../../api/filesApi';
 import { logger } from '../../utils/logger';
 import type { QueryClient } from '@tanstack/react-query';
+import { getErrorMessage } from '../../utils/apiErrorParser';
 import type {
   CaseInfoFormValues,  LocalGroupedAttachment,
   ApiErrorResponse,} from './tabs';
@@ -93,7 +94,7 @@ export function useContractCaseHandlers(opts: UseContractCaseHandlersOptions) {
 
   const handleDownloadAttachment = useCallback(async (attachmentId: number, filename: string) => {
     try { await filesApi.downloadAttachment(attachmentId, filename); }
-    catch { message.error('下載附件失敗'); }
+    catch (e) { message.error(getErrorMessage(e, '下載附件失敗'), 8); }
   }, [message]);
 
   const handlePreviewAttachment = useCallback(async (attachmentId: number, filename: string) => {
@@ -102,7 +103,7 @@ export function useContractCaseHandlers(opts: UseContractCaseHandlersOptions) {
       const previewUrl = window.URL.createObjectURL(blob);
       window.open(previewUrl, '_blank');
       setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
-    } catch { message.error(`預覽 ${filename} 失敗`); }
+    } catch (e) { message.error(getErrorMessage(e, `預覽 ${filename} 失敗`), 8); }
   }, [message]);
 
   const handleDownloadAllAttachments = useCallback(async (group: LocalGroupedAttachment) => {

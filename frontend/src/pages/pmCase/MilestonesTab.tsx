@@ -21,6 +21,7 @@ import { PM_MILESTONE_TYPE_LABELS, PM_MILESTONE_STATUS_LABELS } from '../../type
 import { usePMMilestones } from '../../hooks/business/usePMCases';
 import { apiClient } from '../../api/client';
 import { PM_ENDPOINTS } from '../../api/endpoints';
+import { getErrorMessage } from '../../utils/apiErrorParser';
 
 interface MilestonesTabProps {
   pmCaseId: number;
@@ -131,7 +132,7 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
               a.download = `milestones_${pmCaseId}.xlsx`; a.click();
               URL.revokeObjectURL(url);
               message.success('匯出成功');
-            } catch { message.error('匯出失敗'); }
+            } catch (e) { message.error(getErrorMessage(e, '匯出失敗'), 8); }
           }}>
             匯出 XLSX
           </Button>
@@ -151,7 +152,7 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
               } else {
                 message.error({ content: result.error || '匯入失敗', key: 'ms-import' });
               }
-            } catch { message.error({ content: '匯入失敗', key: 'ms-import' }); }
+            } catch (e) { message.error({ content: getErrorMessage(e, '匯入失敗'), key: 'ms-import', duration: 8 }); }
             return false;
           }}>
             <Button icon={<UploadOutlined />}>匯入 XLSX</Button>

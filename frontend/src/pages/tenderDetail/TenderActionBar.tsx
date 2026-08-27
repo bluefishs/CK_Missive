@@ -20,6 +20,7 @@ import {
   LinkOutlined, StarOutlined, StarFilled, DeleteOutlined, PlusOutlined,
 } from '@ant-design/icons';
 import { useCreateCaseFlow, type CreateCaseInput } from './useCreateCaseFlow';
+import { getErrorMessage } from '../../utils/apiErrorParser';
 
 const BOOKMARK_STATUS_OPTIONS = [
   { value: 'tracking', label: '追蹤中' },
@@ -78,7 +79,7 @@ export const TenderActionBar: React.FC<TenderActionBarProps> = ({
               try {
                 await onUpdateBookmark({ id: currentBookmark.id, status });
                 message.success(`狀態更新: ${status}`);
-              } catch { message.error('更新失敗'); }
+              } catch (e) { message.error(getErrorMessage(e, '更新失敗'), 8); }
             }}
             options={BOOKMARK_STATUS_OPTIONS}
           />
@@ -86,7 +87,7 @@ export const TenderActionBar: React.FC<TenderActionBarProps> = ({
             title="取消收藏？"
             onConfirm={async () => {
               try { await onDeleteBookmark(currentBookmark.id); message.success('已取消收藏'); }
-              catch { message.error('失敗'); }
+              catch (e) { message.error(getErrorMessage(e, '失敗'), 8); }
             }}
           >
             <Button icon={<DeleteOutlined />} size="small" danger type="text" />
@@ -97,7 +98,7 @@ export const TenderActionBar: React.FC<TenderActionBarProps> = ({
           icon={<StarOutlined />}
           onClick={async () => {
             try { await onCreateBookmark(bookmarkPayload); message.success('已收藏'); }
-            catch { message.error('收藏失敗（可能已收藏）'); }
+            catch (e) { message.error(getErrorMessage(e, '收藏失敗（可能已收藏）'), 8); }
           }}
         >
           收藏此標案

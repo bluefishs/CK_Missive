@@ -51,6 +51,7 @@ import type {
   AISynonymUpdateRequest,
 } from '../../../types/ai';
 import SynonymFormModal from './SynonymFormModal';
+import { getErrorMessage } from '../../../utils/apiErrorParser';
 
 const { Title, Text } = Typography;
 
@@ -165,7 +166,7 @@ export const SynonymManagementContent: React.FC = () => {
       await deleteMutation.mutateAsync(id);
       message.success('刪除成功');
       void afterCrudSync();
-    } catch { message.error('刪除失敗'); }
+    } catch (e) { message.error(getErrorMessage(e, '刪除失敗'), 8); }
   };
 
   const handleToggleActive = async (item: AISynonymItem) => {
@@ -173,7 +174,7 @@ export const SynonymManagementContent: React.FC = () => {
       await updateMutation.mutateAsync({ id: item.id, is_active: !item.is_active });
       message.success(item.is_active ? '已停用' : '已啟用');
       void afterCrudSync();
-    } catch { message.error('操作失敗'); }
+    } catch (e) { message.error(getErrorMessage(e, '操作失敗'), 8); }
   };
 
   const handleReload = async () => {
@@ -185,7 +186,7 @@ export const SynonymManagementContent: React.FC = () => {
         setSyncStatus('success');
         setLastSyncTime(new Date().toLocaleTimeString('zh-TW', { hour12: false }));
       } else { message.error(result.message); setSyncStatus('error'); }
-    } catch { message.error('重新載入失敗'); setSyncStatus('error'); }
+    } catch (e) { message.error(getErrorMessage(e, '重新載入失敗'), 8); setSyncStatus('error'); }
   };
 
   const columns: ColumnsType<AISynonymItem> = [
