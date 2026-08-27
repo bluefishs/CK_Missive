@@ -480,6 +480,70 @@ export const USER_ROLES = {
     ],
     can_login: true
   },
+  // ── 職能角色（2026-08-27 新增）──────────────────────────────────────
+  //
+  // owner：「角色扁平議題請同步評估規劃，如財務角色、高階主管等／
+  //         如 ERP 財務與營運等管理」。
+  //
+  // 扁平的實際代價（實測）：`reports:erp:view` **只有 admin 這一個角色擁有**
+  // ⇒ 想讓財務看 ERP 的 9 個選單，唯一做法是給她 admin，
+  //    順帶給了使用者管理、權限管理、備份、部署、資料庫、資安 ——
+  //    admin 看得到全部 71 個選單，而 finance 只需要 33 個。
+  //
+  // ⚠️ 這三個角色目前**只做到選單層的隔離**。`erp/` 端點有 60 支只有
+  //    `require_auth`，任何登入者直接打 API 都拿得到財務資料
+  //    （實測 role='staff' 只有 5 項唯讀權限也拿得到帳本／營運帳目／報價單）。
+  //    要讓它成為真正的權限而不只是介面，得先把那些 router 改成
+  //    `require_permission` —— 見 `ROLE_MODEL_PLAN.md` §7 階段 0。
+  //    **在那之前，這三個角色的價值是「最小權限」而不是「資料隔離」。**
+  finance: {
+    key: 'finance',
+    name_zh: '財務',
+    name_en: 'Finance',
+    description_zh: 'ERP 財務與帳款、資產、報表；不含系統管理與使用者權限',
+    description_en: 'ERP finance, receivables/payables, assets and reports; no system administration',
+    default_permissions: [
+      'documents:read', 'projects:read', 'agencies:read', 'vendors:read', 'calendar:read',
+      'reports:view', 'reports:export',
+      'reports:erp:view', 'reports:finance:view',
+      'reports:assets:view', 'reports:stats:view',
+      'operational:write', 'operational:approve',
+    ],
+    can_login: true
+  },
+  ops: {
+    key: 'ops',
+    name_zh: '營運管理',
+    name_en: 'Operations',
+    description_zh: '營運帳目與審批、公文與專案編輯；不含系統管理',
+    description_en: 'Operational ledger and approvals, document/project editing; no system administration',
+    default_permissions: [
+      'documents:read', 'projects:read', 'agencies:read', 'vendors:read', 'calendar:read',
+      'documents:create', 'documents:edit',
+      'projects:edit', 'calendar:edit',
+      'reports:view', 'reports:erp:view', 'reports:finance:view',
+      'operational:write', 'operational:approve',
+    ],
+    can_login: true
+  },
+  exec: {
+    key: 'exec',
+    name_zh: '高階主管',
+    name_en: 'Executive',
+    description_zh: '全域唯讀：所有報表與業務資料可看，不含任何寫入與系統管理',
+    description_en: 'Global read-only across all reports and business data',
+    default_permissions: [
+      'documents:read', 'projects:read', 'agencies:read', 'vendors:read', 'calendar:read',
+      'reports:view', 'reports:export',
+      'reports:erp:view', 'reports:finance:view',
+      'reports:tender:view', 'reports:assets:view', 'reports:stats:view',
+    ],
+    // ⚠️ 刻意做成「唯讀的全部」而不是「admin 減掉幾項」：
+    //    後者在新增功能時預設是**給**，前者預設是**不給**。
+    //    董事長要看的是全貌，不是操作 —— 需要簽核類寫入時再單獨加。
+    can_login: true
+  },
+
   superuser: {
     key: 'superuser',
     name_zh: '超級管理員',
@@ -550,7 +614,9 @@ export const getRoleDisplayName = (roleKey: string, language: 'zh' | 'en' = 'zh'
  * 手寫清單的問題不是當下寫錯，是**新增一個角色時沒有任何東西會提醒你去改它們**。
  */
 export const ROLE_ORDER: Array<keyof typeof USER_ROLES> = [
-  'superuser', 'admin', 'staff', 'user', 'unverified',
+  // 由高到低。職能角色（exec/finance/ops）排在 admin 之下、staff 之上 ——
+  // 它們的系統權限比 admin 小（沒有 admin:*），但業務可見範圍比 staff 大。
+  'superuser', 'admin', 'exec', 'finance', 'ops', 'staff', 'user', 'unverified',
 ];
 
 /**

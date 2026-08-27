@@ -51,8 +51,21 @@ $checks += Test-Endpoint "2. CF Tunnel health" "$PublicUrl/api/health"
 # 3. TLS 憑證是否 valid（https 成功即表示 CF 憑證就緒）
 $checks += Test-Endpoint "3. TLS 憑證" "$PublicUrl/api/health"
 
-# 4. Manifest POST-only 政策
-$checks += Test-Endpoint "4. Manifest (POST)" "$PublicUrl/api/ai/agent/tools" "POST" @{} "{}"
+# 4. Manifest 需要服務憑證
+#
+# 2026-08-27 修：這一項原本不帶 token 打 POST 並期望 200，而 2026-08-21 已把
+# `/api/ai/agent/tools` 改為需要 `X-Service-Token`（在那之前公網未登入、
+# 帶一枚公開可取的 CSRF token 就拿得到整份工具清冊）⇒ 它從 08-21 起就是紅的，
+# 紅了 6 天沒有人處理，因為 overall=FAIL 只寫進 json 檔。
+#
+# 當時修了 `integration_e2e_validation`（chain_3 改帶 token），
+# **這一支有同樣的過期期望值卻沒被一起修** —— L81「換了出口就要換整條鏈」。
+#
+# 改為驗「沒有憑證就要被擋」，與下面第 6、7 項同一個形狀。
+# 刻意不在這支腳本裡放 token：
+#   · 它是 Windows 排程跑的 .ps1，放 secret 進去是更糟的事
+#   · 「帶對 token 會回 200」已由 integration_e2e_validation 驗（那支拿得到 env）
+$checks += Test-Endpoint "4. Manifest 無 token" "$PublicUrl/api/ai/agent/tools" "POST" @{} "{}"
 
 # 5. GET 應被 FastAPI 以 405 拒絕（驗證 POST-only）
 $checks += Test-Endpoint "5. Manifest 拒 GET" "$PublicUrl/api/ai/agent/tools"
@@ -73,7 +86,7 @@ foreach ($c in $checks) {
         "1. 本機*"          { 200 }
         "2. CF Tunnel*"     { 200 }
         "3. TLS*"           { 200 }
-        "4. Manifest (POST)*" { 200 }
+        "4. Manifest 無 token*" { 401 }
         "5. Manifest 拒 GET*" { 405 }
         "6. ACP 無 token*"  { @(401, 403) }
         "7. Feedback 無 token*" { @(401, 403) }

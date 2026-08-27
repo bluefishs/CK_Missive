@@ -1956,7 +1956,20 @@ async def cloudflare_tunnel_verify_job():
         ("1. 本機 health", "GET", f"{local_url}/api/health", None, {200}),
         ("2. CF Tunnel health", "GET", f"{public_url}/api/health", None, {200}),
         ("3. TLS 憑證", "GET", f"{public_url}/api/health", None, {200}),
-        ("4. Manifest (POST)", "POST", f"{public_url}/api/ai/agent/tools", {}, {200}),
+        # 2026-08-27 修：這一項原本不帶憑證打 POST 並期望 **200**，而 2026-08-21 已把
+        # `/api/ai/agent/tools` 改為需要 `X-Service-Token`（在那之前公網未登入、
+        # 帶一枚公開可取的 CSRF token 就拿得到整份工具清冊）⇒ **它從 08-21 起就是紅的**。
+        #
+        # 紅了 6 天沒人處理，因為結果只寫進 `cf-tunnel-verify.json`，
+        # 而讀它的 producer watchdog 直到今天的月度覆盤才把它印出來。
+        #
+        # 當時修了 `integration_e2e_validation`（chain_3 改帶 token），
+        # **同一件事的第二個消費端沒有一起修** —— L81「換了出口就要換整條鏈」。
+        #
+        # 改為驗「沒有憑證就要被擋」，與下面第 6、7 項同一個形狀。
+        # 刻意不在這裡帶 token：這一項要回答的是「公網有沒有被保護」，
+        # 而「帶對 token 會回 200」由 `integration_e2e_validation` 驗（它拿得到 env）。
+        ("4. Manifest 無 token", "POST", f"{public_url}/api/ai/agent/tools", {}, {401, 403}),
         # 405（方法不符）或 404（API 命名空間不 fallback SPA）皆代表「GET 未被服務」＝政策生效。
         # 2026-07-30 前此檢查恆 FAIL：spa_fallback 未排除 /api/* → 回 200 index.html。
         ("5. Manifest 拒 GET", "GET", f"{public_url}/api/ai/agent/tools", None, {404, 405}),
