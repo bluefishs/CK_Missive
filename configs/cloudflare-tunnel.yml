@@ -1,3 +1,17 @@
+# ⚠️ 2026-08-27：這份檔案目前**沒有任何程序在讀**。
+#
+# 實際跑的 `ck_missive_cloudflared` 是**遠端管理型 tunnel**：
+#   cmd  = ["tunnel","run"]（沒有 --config）
+#   掛載 = 無
+#   ingress 規則存在 Cloudflare Dashboard，origin = http://host.docker.internal:8001
+#
+# 而這份檔案的內容與實際不符：hostname 寫的是 `cksurvey.cloudflareaccess.com`
+# 加一條 catch-all 404，實際對外服務的是 `missive.cksurvey.tw`。
+# 也就是說，照這份檔案排障會得到與事實相反的結論（L02 Dead Config 型態）。
+#
+# 保留不刪的理由：若日後改回自管型 tunnel（`tunnel run --config`），它是可用的起點。
+# 但在那之前，**要看實際 ingress 請開 Cloudflare Dashboard，不要看這裡。**
+#
 # ⚠️⚠️ 這個檔案**沒有在生效**（2026-08-26 查證）。
 #
 # 實測：cloudflared 容器的啟動指令是 `tunnel run`（**token 模式**），

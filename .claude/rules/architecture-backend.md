@@ -44,20 +44,55 @@ CK_Missive/
 
 ## 請求流與中間件執行順序（v6.18 覆盤補充 2026-06-12）
 
-公網請求流：`cloudflared tunnel`（`configs/cloudflare-tunnel.yml` → `http://localhost:8001`）→ FastAPI（`backend/main.py`）。
+公網請求流：`cloudflared tunnel` → FastAPI（`backend/main.py`）。
 
-中間件**註冊在 `main.py:633-666`**；FastAPI 後加=最外層，故**實際執行由外到內**：
+> ⚠️ 2026-08-27 校正：origin 是 **`http://host.docker.internal:8001`**，不是 `localhost:8001`，
+> 而且**設定不在 repo 裡** —— `ck_missive_cloudflared` 的 cmd 是 `tunnel run`（無 `--config`、無掛載），
+> 屬**遠端管理型 tunnel**，ingress 規則存在 Cloudflare Dashboard。
+> `configs/cloudflare-tunnel.yml` 目前**沒有任何程序在讀**（內容也與實際不符：
+> 它寫 hostname `cksurvey.cloudflareaccess.com` + catch-all 404，而實際服務的是 `missive.cksurvey.tw`）。
+> 這是 L02「Dead Config」型態 —— 照著它排障會得到錯的結論。
+
+中間件**註冊在 `main.py:632-684`**；FastAPI 後加=最外層，故**實際執行由外到內**：
 
 | 執行序 | 中間件 | 職責 |
 |---|---|---|
 | 1（最外） | `RequestIdMiddleware` | request id 追蹤 |
-| 2 | `PrometheusMiddleware` | 指標採集（排除 /health, /metrics）|
-| 3 | `TunnelGuardMiddleware` | 外網路由守衛（僅放行 `/api/{line,discord,public}/*` + `/api/health`）|
-| 4 | `CSRFMiddleware` | X-CSRF-Token 驗證（webhook 走 X-Service-Token 豁免）|
-| 5 | `SecurityHeadersMiddleware` | 安全標頭 |
-| 6 | `LoggingMiddleware` | structlog 結構化日誌 |
-| 7 | `GZipMiddleware` | 回應壓縮 |
-| 8（最內） | `CORSMiddleware` | CORS（最後註冊＝最內，符合 OWASP）|
+| 2 | `PrometheusMiddleware` | 指標採集（排除 /health, /health/liveness, /health/readiness, /metrics）|
+| 3 | `ApiDocsGuardMiddleware` | `/openapi.json`・`/api/docs` 僅限內網（2026-08-03；**獨立於 `TUNNEL_GUARD_ENABLED`**）|
+| 4 | `TunnelGuardMiddleware` | 外網路由守衛（僅放行 `/api/{line,discord,public}/*` + `/api/health`）⚠️ **現況 `TUNNEL_GUARD_ENABLED=false`**，見下方註 |
+| 5 | `CSRFMiddleware` | X-CSRF-Token 驗證（webhook 走 X-Service-Token 豁免）|
+| 6 | `SecurityHeadersMiddleware` | 安全標頭 + **CSP（目前為 `Content-Security-Policy-Report-Only`，尚未強制）** |
+| 7 | `LoggingMiddleware` | structlog 結構化日誌 |
+| 8 | `GZipMiddleware` | 回應壓縮（minimum_size=1000）|
+| 9（最內） | `CORSMiddleware` | CORS（最後註冊＝最內，符合 OWASP）|
+
+> 2026-08-27 校正：原表只有 8 層、缺 `ApiDocsGuardMiddleware`，且沒有標出
+> TunnelGuard 實際是關閉的、CSP 只是 Report-Only。**這三個都不是細節** ——
+> 讀這張表的人會據此判斷「公網打得到什麼」，而少一層守衛、或把 Report-Only
+> 當成已強制，得到的結論會相反（2026-08-21 那次外洩正是這個誤判的變形）。
+
+### CSP 現況（2026-08-27 實測）
+
+`Content-Security-Policy-Report-Only` 已上線，違規回報端點
+`POST /api/security/csp-report`（`include_in_schema=False`，故不在 openapi 裡）實測回 204。
+
+**它正在回報真實違規**，不是零：
+
+```
+directive=style-src-elem  blocked=https://accounts.google.com/gsi/style
+document=https://missive.cksurvey.tw/entry
+```
+
+⇒ 照原樣轉強制會擋掉 Google 登入按鈕的樣式（`style-src` 原本缺
+`https://accounts.google.com`，2026-08-27 已補）。**Report-Only 這個機制是有效的
+—— 它抓到了靜態閱讀 CSP 抓不到的東西。**
+
+違規現在同時累加 `csp_violations_total{directive,disposition}`（2026-08-27 加）。
+在此之前它只寫一行 container log，沒有任何檢核、排程或儀表板在讀，
+而 log 是 json-file 10m×3 ⇒ 重啟就沒了 —— 「觀察一段時間確認零違規再轉強制」
+在結構上永遠收束不了。**轉強制的門檻現在可以用 metric 回答：
+`increase(csp_violations_total[7d]) == 0`。**
 
 > 認證流細節見 `docs/AUTH_FLOW_DIAGRAM.md`；CSRF 死結教訓見 `LESSONS_REGISTRY.md#L68`/`#L69`。
 

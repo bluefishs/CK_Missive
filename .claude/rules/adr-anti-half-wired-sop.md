@@ -175,7 +175,8 @@ def test_pure_admin_keywords_no_false_positive():
 
 ```bash
 # 月度執行
-bash scripts/checks/run_fitness.sh                # 18 step 全跑
+bash scripts/checks/run_fitness.sh                # 月度架構覆盤全跑（步數以腳本自身輸出的 [n/N] 為準；
+                                                  #  2026-08-27 校正：此處原寫死 18，實際 78 —— 沒有人在納管這個數字）
 python scripts/checks/adr_lifecycle_check.py     # ADR 數量治理
 python scripts/checks/sso_coverage_check.py      # ADR-0033 配套
 python scripts/checks/idp_connectivity_check.py  # ADR-0033 配套

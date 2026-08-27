@@ -269,7 +269,7 @@
 | `scripts/checks/service-line-count-check.py` | 後端服務行數監控 (>600L 警告，已修正為觀察而非拆分依據 — 見 feedback_ddd_over_line_count) |
 | `scripts/checks/service_dir_entropy.py` | 🆕 v5.9.6 — services/ 頂層散戶比例（閾值 20%）|
 | `scripts/checks/config_dead_reader_scan.py` | 🆕 v5.9.6 — yaml config dead reader 偵測（ADR-0030 審計配套）|
-| `scripts/checks/run_fitness.sh` | 🆕 v5.9.6 — 本地 fitness runner（零 CI 費用，v6.8 升級為 **16 step**）|
+| `scripts/checks/run_fitness.sh` | 本地 fitness runner（零 CI 費用）。**步數不在此處寫死** —— 以腳本輸出的 `[n/N]` 為準（2026-08-27 校正：原寫 16，實際 78）。腳本索引見 `scripts/checks/README.md` |
 | `scripts/checks/integration_liveness_check.py` | 🆕 v6.8 F14 — 整合鏈活體驗證（v3.0 8 接觸面 evidence query / fitness step 15）|
 | `scripts/checks/line_notify_heartbeat_check.py` | 🆕 v6.8 F15 — LINE notify 7d 推送計數 watchdog（fitness step 16）|
 | `scripts/checks/v7_metrics_report.py` | 🆕 v6.8 M1 — v7.0 4 指標 lite report（取代「成熟度 %」baseline）|
