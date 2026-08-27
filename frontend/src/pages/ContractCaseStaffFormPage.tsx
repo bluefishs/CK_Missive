@@ -21,11 +21,9 @@ import { ROUTES } from '../router/types';
 import { useResponsive } from '../hooks';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
 import { projectStaffApi } from '../api/projectStaffApi';
-import type { User } from '../types/api';
 import { STAFF_ROLE_OPTIONS } from '../constants/staffOptions';
 import { filterAssignableUsers, userDisplayName, assignableNotFound } from '../utils/assignableUsers';
-import { apiClient } from '../api/client';
-import { USERS_ENDPOINTS } from '../api/endpoints';
+import { useUsersDropdown } from '../hooks/business/useDropdownData';
 
 const ContractCaseStaffFormPage: React.FC = () => {
   const { caseId, userId } = useParams<{ caseId: string; userId?: string }>();
@@ -62,26 +60,32 @@ const ContractCaseStaffFormPage: React.FC = () => {
 
   // 新增時要挑人；編輯時人已定，不再讓改（改人＝換一筆關聯）
   //
-  // ⚠️ queryKey 與 `useContractCaseData`（承攬案件詳情）**相同是刻意的**
-  //    —— 同一份清單就該共用快取。但前提是**兩處的資料源也必須相同**：
-  //    2026-08-20 之前詳情頁打 `users/list` 而這裡打別的，於是誰先載入誰
-  //    就決定了快取內容，動線「詳情頁 → 新增承辦同仁」讓這一支的修改完全
-  //    不會生效。兩處現在同源；`queryKey_drift_audit` 會擋住它再度分岔。
-  const { data: allUsers = [], isError: userListFailed, isLoading: userListLoading } = useQuery({
-    queryKey: ['contract-case-user-options'],
-    queryFn: async () => {
-      // ⚠️ 這裡原本打 `/users/list`，而它是 **require_admin** ——
-      // 以 role='user' 的帳號登入會 403 ⇒ 選項為空，
-      // 而 AntD Select 在 options 為空、value 有值時會顯示原始 value（數字 id），
-      // 畫面上就是 owner 2026-08-20 回報的「只顯示代號無姓名」。
-      //
-      // 改打只需登入的 `/users/assignable`（只回 id/姓名/帳號/在職/分身欄位）。
-      const response = await apiClient.post<{ items: User[] }>(USERS_ENDPOINTS.ASSIGNABLE, {});
-      return response.items || [];
-    },
-    staleTime: 10 * 60 * 1000,
-    enabled: !isEdit,
-  });
+  // ⚠️ 2026-08-27 —— 這裡原本自己開一支 `useQuery`，
+  //    **與 `useContractCaseData`（承攬案件詳情）用同一個 queryKey
+  //    `contract-case-user-options`，而兩支的回傳形狀不同**：
+  //
+  //      詳情頁     → [{ id, name, email }]        ← 已 map 過
+  //      這裡       → response.items = User[]      ← 原始欄位
+  //
+  //    共用 key ⇒ 誰先載入誰就決定快取內容。使用者的動線正是
+  //    「詳情頁 → 新增承辦同仁」，於是這裡拿到的是 `{id,name,email}`，
+  //    而 `userDisplayName` 要的 `full_name`／`username` 在那個形狀裡都不存在
+  //    ⇒ 退到 `#${id}` ⇒ **畫面上就是 owner 反覆回報的「代號」**。
+  //
+  //    2026-08-20 修的是「兩處資料源不同」（都改打 assignable）——
+  //    源對齊了，**形狀沒有對齊**，所以症狀原封不動。
+  //    而它只在那一條動線上出現：**直接開這一頁的網址是正常的**，
+  //    這就是它被修過還能反覆回報、而走查也驗不出來的原因。
+  //
+  //    治法不是再對齊一次形狀（那會是第三次對齊同一件事），
+  //    是**讓它只有一份**：與另外四個人員下拉共用 `useUsersDropdown`
+  //    （queryKey `users-dropdown`）⇒ 一個 queryFn、一種形狀，
+  //    結構上不可能再分岔。
+  const {
+    users: allUsers,
+    isError: userListFailed,
+    isLoading: userListLoading,
+  } = useUsersDropdown();
   const userOptions = React.useMemo(() => {
     const taken = new Set(staffList.map((s) => Number(s.user_id)));
     // 排除已合併的分身帳號 —— 否則同一個人會出現兩次，

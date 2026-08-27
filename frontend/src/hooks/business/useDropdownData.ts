@@ -102,7 +102,9 @@ export const useClientOptions = () => {
  * 而協力廠商這一側一直沒有。實測庫裡有 23 家 subcontractor。
  */
 export const useSubcontractorOptions = () => {
-  const { data, isLoading } = useQuery({
+  // isError 要往外給 —— 理由同 useUsersDropdown：清單載不到時畫面必須說出來，
+  // 否則空的 options 會讓 Select 直接顯示原始 value（2026-08-27 承攬案件協力廠商同型）
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['subcontractors-dropdown'],
     queryFn: async () => {
       const { vendorsApi } = await import('../../api/vendorsApi');
@@ -112,7 +114,7 @@ export const useSubcontractorOptions = () => {
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-  return { subcontractors: data ?? [], isLoading };
+  return { subcontractors: data ?? [], isLoading, isError };
 };
 
 /** 作業性質下拉選項 (從 DB 取得) */

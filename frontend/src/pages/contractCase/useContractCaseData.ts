@@ -1,19 +1,16 @@
+import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '../../api/projectsApi';
-import { apiClient } from '../../api/client';
-import { USERS_ENDPOINTS } from '../../api/endpoints';
-import { vendorsApi } from '../../api/vendorsApi';
 import { documentsApi } from '../../api/documentsApi';
 import { filesApi, type FileAttachment } from '../../api/filesApi';
 import { projectStaffApi, type ProjectStaff } from '../../api/projectStaffApi';
 import { projectVendorsApi, type ProjectVendor } from '../../api/projectVendorsApi';
 import { getProjectAgencyContacts } from '../../api/projectAgencyContacts';
 import { logger } from '../../utils/logger';
-import type { User, Vendor } from '../../types/api';
-import type { PaginatedResponse } from '../../api/types';
 import type { ProjectAgencyContact } from '../../api/projectAgencyContacts';
 
 import { filterAssignableUsers, userDisplayName } from '../../utils/assignableUsers';
+import { useUsersDropdown, useSubcontractorOptions } from '../../hooks/business/useDropdownData';
 
 import type {
   ProjectData,
@@ -164,42 +161,61 @@ export function useContractCaseData(projectId: number | undefined) {
     enabled: !!projectId && relatedDocs.length > 0,
   });
 
-  // ⚠️ queryKey `contract-case-user-options` **與 ContractCaseStaffFormPage 相同**。
-  //    兩處共用同一個 key 是刻意的（同一份清單），但前提是**資料源必須也相同** ——
-  //    2026-08-20 之前這裡打 `users/list`（admin-only）而那裡打別的，
-  //    於是誰先載入誰就決定了快取內容：從承攬案件詳情頁點進「新增承辦同仁」時，
-  //    create 頁沿用的是詳情頁留下的結果，改 create 頁那支根本不會生效。
-  //    key 撞號本身不是錯，源不一致才是。
-  const { data: userOptions = [] } = useQuery({
-    queryKey: ['contract-case-user-options'],
-    queryFn: async () => {
-      const response = await apiClient.post<{ items: User[] }>(USERS_ENDPOINTS.ASSIGNABLE, {});
-      // 排除已合併的分身帳號（ADR-0025）—— 見 utils/assignableUsers
-      const users = filterAssignableUsers(response.items || []);
-      return users.map((u) => ({
-        id: u.id,
-        name: userDisplayName(u),
-        email: u.email,
-      }));
-    },
-    staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  // 人員清單改用共用的 `useUsersDropdown`（queryKey `users-dropdown`）。
+  //
+  // ⚠️ 2026-08-27 —— 這裡原本自己開一支 `contract-case-user-options`，
+  //    **與 ContractCaseStaffFormPage 用同一個 key，而兩支的 queryFn 回傳形狀不同**：
+  //
+  //      詳情頁（這裡） → [{ id, name, email }]        ← 已 map 過
+  //      新增同仁頁     → response.items = User[]      ← 原始欄位
+  //
+  //    共用 key ⇒ 誰先載入誰就決定快取內容。使用者的動線正是
+  //    「詳情頁 → 新增承辦同仁」，於是 create 頁拿到的是 `{id,name,email}`，
+  //    而它會對每一筆做 `full_name || username || '#'+id` ——
+  //    那三個欄位在這個形狀裡都不存在 ⇒ **label 全變成 `#3`、`#13`**，
+  //    也就是 owner 反覆回報的「只顯示代號無姓名」。
+  //
+  //    2026-08-20 修的是「兩處資料源不同」（都改打 assignable），源確實對齊了，
+  //    **但形狀沒有對齊**，所以症狀原封不動。而它只在那一條動線上出現：
+  //    直接開 create 頁的網址是正常的 —— 這就是它被修過還能反覆回報的原因。
+  //
+  //    `queryKey_drift_audit` 抓不到，因為它的座標系裡只有「資料源」沒有「回傳形狀」。
+  //
+  //    治法不是再對齊一次形狀（那是第三次對齊同一件事），是**讓它只有一份**：
+  //    共用 hook ⇒ 一個 queryFn、一種形狀，結構上不可能再分岔。
+  //    另外四個人員下拉（資產保管人／PM 承辦／公文承辦／文件操作）本來就用它。
+  const { users: assignableUsers } = useUsersDropdown();
+  const userOptions = useMemo(
+    // 排除已合併的分身帳號（ADR-0025）—— 見 utils/assignableUsers
+    () => filterAssignableUsers(assignableUsers).map((u) => ({
+      id: u.id,
+      name: userDisplayName(u),
+      email: u.email,
+    })),
+    [assignableUsers],
+  );
 
-  const { data: vendorOptions = [] } = useQuery({
-    queryKey: ['contract-case-vendor-options'],
-    queryFn: async () => {
-      const response = await vendorsApi.getVendors({ vendor_type: 'subcontractor', limit: 100 }) as PaginatedResponse<Vendor>;
-      const vendors = response.items || [];
-      return vendors.map((v) => ({
-        id: v.id,
-        name: v.vendor_name,
-        code: v.vendor_code || '',
-      }));
-    },
-    staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  // ⚠️ 2026-08-27 —— 與人員清單**完全相同的問題**，只是換成協力廠商。
+  //    這裡與 `ContractCaseVendorFormPage` 共用 `contract-case-vendor-options`，
+  //    而兩支 queryFn 的回傳形狀不同：
+  //
+  //      詳情頁（這裡）       → { id, name, code }
+  //      新增協力廠商頁       → { value, label }     ← AntD Select 要的形狀
+  //
+  //    那一頁的註解寫著「廠商清單沿用詳情頁本來就在用的那支與查詢鍵」——
+  //    **它以為自己在共用，但形狀不一樣**。動線「詳情頁 → 新增協力廠商」
+  //    會讓 Select 拿到 `{id,name,code}`，`value`／`label` 雙雙 undefined。
+  //
+  //    同樣改用既有的共用 hook（回原始 `Vendor[]`），呈現形狀留在各自的消費端。
+  const { subcontractors } = useSubcontractorOptions();
+  const vendorOptions = useMemo(
+    () => subcontractors.map((v) => ({
+      id: v.id,
+      name: v.vendor_name,
+      code: v.vendor_code || '',
+    })),
+    [subcontractors],
+  );
 
   const data = coreData?.project ?? null;
   const staffList = coreData?.staffList ?? [];

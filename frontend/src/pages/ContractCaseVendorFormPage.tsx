@@ -7,7 +7,7 @@
  * 取代 `VendorsTab` 內的新增 Modal 與列內就地編輯／移除（owner 指示逐一辦理）。
  * 「下拉內即時新增廠商」是專案既有規約，原樣保留在這一頁。
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Form, Select, InputNumber, DatePicker, Input, Button, Popconfirm, Space, Divider, Row, Col, App,
 } from 'antd';
@@ -18,11 +18,10 @@ import dayjs from 'dayjs';
 
 import { ROUTES } from '../router/types';
 import { useResponsive } from '../hooks';
+import { useSubcontractorOptions } from '../hooks/business/useDropdownData';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
 import { projectVendorsApi } from '../api/projectVendorsApi';
 import { vendorsApi } from '../api/vendorsApi';
-import type { PaginatedResponse } from '../api/types';
-import type { Vendor } from '../types/api';
 import { VENDOR_ROLE_OPTIONS } from './contractCase/tabs/constants';
 import { parseCurrencyInput } from '../utils/format';
 
@@ -55,18 +54,23 @@ const ContractCaseVendorFormPage: React.FC = () => {
     [assocList, vid, isEdit],
   );
 
-  // 廠商清單沿用詳情頁本來就在用的那支與查詢鍵
-  const { data: vendorOptions = [], refetch: reloadVendors } = useQuery({
-    queryKey: ['contract-case-vendor-options'],
-    queryFn: async () => {
-      const response = await vendorsApi.getVendors({ vendor_type: 'subcontractor', limit: 100 }) as PaginatedResponse<Vendor>;
-      return (response.items || []).map((v) => ({
-        value: v.id,
-        label: `${v.vendor_name}${v.vendor_code ? ` (${v.vendor_code})` : ''}`,
-      }));
-    },
-    staleTime: 10 * 60 * 1000,
-  });
+  // ⚠️ 2026-08-27 —— 原本這裡自己開一支 useQuery，註解寫著
+  //    「廠商清單沿用詳情頁本來就在用的那支與查詢鍵」。**key 確實沿用了，
+  //    形狀沒有**：詳情頁回 `{id,name,code}`、這裡回 `{value,label}`，
+  //    共用同一個 cache key ⇒ 誰先載入誰就決定內容。動線
+  //    「詳情頁 → 新增協力廠商」會讓 Select 拿到 `{id,name,code}`，
+  //    `value` 與 `label` 雙雙 undefined。
+  //
+  //    與同日修的人員下拉是同一個家族（同 key、同源、**不同形狀**）。
+  //    改用既有共用 hook 回原始 `Vendor[]`，呈現形狀在這裡自己組。
+  const { subcontractors, isLoading: vendorsLoading, isError: vendorsFailed } = useSubcontractorOptions();
+  const vendorOptions = useMemo(
+    () => subcontractors.map((v) => ({
+      value: v.id,
+      label: `${v.vendor_name}${v.vendor_code ? ` (${v.vendor_code})` : ''}`,
+    })),
+    [subcontractors],
+  );
 
   useEffect(() => {
     if (record) {
@@ -98,7 +102,9 @@ const ContractCaseVendorFormPage: React.FC = () => {
       });
       message.success(`廠商「${newVendorName}」已建立`);
       setNewVendorName('');
-      await reloadVendors();
+      // 清單改由共用 hook 提供，這裡讓它重取 —— 用 invalidate 而不是本地 refetch，
+      // 新建的廠商在**所有**用到這份清單的地方都會立刻出現。
+      await queryClient.invalidateQueries({ queryKey: ['subcontractors-dropdown'] });
       form.setFieldsValue({ vendor_id: created.id });
     } catch {
       message.error('建立失敗');
@@ -178,6 +184,13 @@ const ContractCaseVendorFormPage: React.FC = () => {
             optionFilterProp="label"
             disabled={isEdit}
             options={vendorOptions}
+            // 載不到時要說出來 —— 空下拉會讓人以為「系統裡沒有協力廠商」，
+            // 那與「這次沒載到」在畫面上長得一模一樣（同人員下拉的判準）
+            notFoundContent={
+              vendorsFailed ? '廠商清單載入失敗，請重新整理'
+                : vendorsLoading ? '載入中…'
+                : '沒有可選的協力廠商'
+            }
             dropdownRender={isEdit ? undefined : (menu) => (
               <>
                 {menu}

@@ -196,6 +196,112 @@ def scan_key_source_collisions():
     return out
 
 
+# ---------------------------------------------------------------------------
+# 第三種形態：queryKey 撞號、資料源相同，**但回傳形狀不同**（2026-08-27 新增）
+#
+# 觸發事件：owner 第三次回報 `/contract-cases/194/staff/create`「仍無法顯示人名，
+# 目前為代號」。上面那一段（第二種形態）當時判 GREEN —— 而它是對的：
+# 兩處 08-20 之後**確實都打 `USERS_ENDPOINTS.ASSIGNABLE`**，資料源交集不為空。
+#
+#   詳情頁 `useContractCaseData`   → 回 [{ id, name, email }]   ← 已 map 過
+#   新增同仁頁 `ContractCaseStaffFormPage` → 回 response.items = User[]
+#
+# 共用同一個 cache key ⇒ 誰先載入誰就決定內容。使用者的動線正是
+# 「詳情頁 → 新增承辦同仁」，於是 create 頁拿到 `{id,name,email}`，
+# 而 `userDisplayName` 要的 `full_name`／`username` 在那個形狀裡都不存在
+# ⇒ 退到 `#${id}` ⇒ 畫面上就是「代號」。
+#
+# **08-20 修的是「源不一致」，源對齊了，形狀沒有對齊 —— 症狀原封不動。**
+# 而它只在那一條動線上出現（直接開 create 頁的網址是正常的），
+# 所以走查與人工複驗都驗不出來，只有真實使用者會遇到。
+#
+# 判準必須是**形狀**，不是文字：
+# 我第一版量「queryFn 文字不同」，6 個候選裡報 4 個，逐一核實後
+# **有 4 個是假陽性** —— `['ai-management','health']` 之流兩處都是
+# `queryFn: () => aiApi.checkHealth()`，完全相同，只是 staleTime／
+# refetchInterval 不同而被我的擷取範圍掃進去。真問題只有 1 個。
+#
+# 所以這裡比對的是**物件字面的鍵集合**（`=> ({a,b,c})` 或 `return {a,b,c}`）：
+#   · 兩邊都取得到鍵集合、且集合不同 → 報
+#   · 任一邊取不到（例如 `return resp.data`、`() => aiApi.getX()`）→ 不報
+#     （寧可漏，不要製造 4 個假陽性 —— 假紅的代價是訓練人忽略這支檢核）
+#
+# 實測：現況 0；把兩支承攬案件的 hook 改回修法前即報 2（人員＋協力廠商）；還原回 0。
+# ---------------------------------------------------------------------------
+
+_OBJ_LITERAL_RE = re.compile(r"(?:=>\s*\(\s*\{|return\s*\{)([^{}]{0,600})\}")
+_OBJ_FIELD_RE = re.compile(r"(?:^|,)\s*([A-Za-z_][A-Za-z0-9_]*)\s*[:,]")
+
+
+def _shape_of(block: str) -> frozenset:
+    """從 queryFn 區塊抽出「回傳的物件字面有哪些鍵」。取不到就回空集合。"""
+    best: frozenset = frozenset()
+    for m in _OBJ_LITERAL_RE.finditer(block):
+        fields = frozenset(_OBJ_FIELD_RE.findall(m.group(1)))
+        if len(fields) > len(best):
+            best = fields
+    return best
+
+
+def scan_key_shape_collisions():
+    """同一個全字面 queryKey、資料源有交集，但回傳的物件鍵集合不同。"""
+    src_root = PROJECT_ROOT / "frontend" / "src"
+    if not src_root.exists():
+        return []
+    uses = {}
+    files = list(src_root.rglob("*.ts")) + list(src_root.rglob("*.tsx"))
+    for f in files:
+        if "__tests__" in str(f):
+            continue
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        for m in re.finditer(r"useQuery\s*(?:<[^>]*>)?\s*\(\s*\{", text):
+            blk = text[m.end(): m.end() + 1500]
+            nxt = blk.find("useQuery(")
+            if nxt > 0:
+                blk = blk[:nxt]
+            km = re.search(r"queryKey:\s*(\[[^\]]*\])", blk)
+            if not km:
+                continue
+            raw = km.group(1).strip()
+            if not _LITERAL_KEY_RE.fullmatch(raw):
+                continue
+            key = tuple(re.findall(r"'([^']*)'", raw))
+            fn = re.search(r"queryFn:\s*(.{0,1200})", blk, re.S)
+            if not fn:
+                continue
+            shape = _shape_of(fn.group(1))
+            if not shape:
+                continue   # 取不到形狀就不下結論
+            rel = str(f.relative_to(src_root)).replace("\\", "/")
+            uses.setdefault(key, set()).add((rel, shape))
+    out = []
+    for key, entries in sorted(uses.items()):
+        shapes = {sh for _, sh in entries}
+        if len({p for p, _ in entries}) > 1 and len(shapes) > 1:
+            out.append((key, sorted((p, tuple(sorted(sh))) for p, sh in entries)))
+    return out
+
+
+def report_shape_collisions(collisions) -> None:
+    if not collisions:
+        return
+    print("-" * 60)
+    print("KEY/SHAPE COLLISION ({}) - 同一個 queryKey 回傳不同形狀:".format(len(collisions)))
+    print("-" * 60)
+    for key, entries in collisions:
+        print("  [X] {}".format(list(key)))
+        for fpath, fields in entries:
+            print("      <- {}  ->  {{{}}}".format(fpath, ", ".join(fields)))
+    print()
+    print("  為什麼是問題：資料源相同不代表快取內容相同。誰先載入誰就決定形狀，")
+    print("  另一處拿到的欄位全部是 undefined —— 而那在畫面上長得像「資料壞了」。")
+    print("  修法：抽成共用 hook（一個 queryFn、一種形狀），呈現形狀留在各自消費端。")
+    print()
+
+
 def report_collisions(collisions) -> None:
     """人可讀輸出。刻意說明「為什麼是問題」——只列清單的話，看的人會以為是命名風格。"""
     if not collisions:
@@ -233,6 +339,7 @@ def main() -> int:
     baseline = load_baseline()
     baseline_total = baseline.get("total_baseline", 0)
     collisions = scan_key_source_collisions()
+    shape_collisions = scan_key_shape_collisions()
 
     if args.json:
         report = {
@@ -248,9 +355,13 @@ def main() -> int:
                 {"key": list(k), "sources": [{"file": f, "calls": list(c)} for f, c in v]}
                 for k, v in collisions
             ],
+            "key_shape_collisions": [
+                {"key": list(k), "shapes": [{"file": f, "fields": list(sh)} for f, sh in v]}
+                for k, v in shape_collisions
+            ],
         }
         print(json.dumps(report, indent=2, ensure_ascii=False))
-        if args.ci and (current_total > baseline_total or collisions):
+        if args.ci and (current_total > baseline_total or collisions or shape_collisions):
             return 1
         return 0
 
@@ -266,8 +377,10 @@ def main() -> int:
     print(f"  current dead invalidate: {current_total}")
     print(f"  baseline: {baseline_total}")
     print(f"  queryKey 撞號（同 key 不同源）: {len(collisions)}")
+    print(f"  queryKey 撞號（同 key 同源、不同形狀）: {len(shape_collisions)}")
     print()
     report_collisions(collisions)
+    report_shape_collisions(shape_collisions)
 
     if dead:
         print("-" * 60)
@@ -289,6 +402,13 @@ def main() -> int:
     if args.ci:
         if collisions:
             print("\n[FAIL] queryKey 撞號 {} 組（同 key 不同源）".format(len(collisions)), file=sys.stderr)
+            return 1
+        if shape_collisions:
+            print(
+                "\n[FAIL] queryKey 撞號 {} 組（同 key 同源、**回傳形狀不同**）".format(
+                    len(shape_collisions)),
+                file=sys.stderr,
+            )
             return 1
         if current_total > baseline_total:
             print(
