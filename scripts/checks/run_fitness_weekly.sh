@@ -379,6 +379,7 @@ run_step "66" "端點 POST 慣例（runtime methods）" "scripts/checks/http_met
 # 2026-08-24：Cloudflare 依 UA 擋請求 —— Python 預設 UA 打公網**每一條都回 403**，而那個 403 長得正好像「認證有效」。CK_AaaP 在 pile 一個進行中的 P0 外洩上重現。
 run_step "67" "公網探測的客戶端指紋（403 不一定是應用層擋的）" "scripts/checks/probe_fingerprint_guard.py"
 run_step "68" "管理動作有沒有給一般同仁看見（畫面不該給必然失敗的按鈕）" "scripts/checks/admin_action_visibility_audit.py"
+run_step "69" "協力廠商合約經費 vs 應付分期加總（同一件事兩個數字）" "scripts/checks/vendor_contract_payable_consistency.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
