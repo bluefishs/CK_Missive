@@ -10,7 +10,7 @@ Created: 2026-04-09
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin, get_async_db
@@ -44,21 +44,49 @@ async def ingest_code_graph(
     🔒 權限要求: Admin
     """
     import os
-    from pathlib import Path
+    from app.core.paths import PROJECT_ROOT, BACKEND_DIR
     from app.services.ai.graph.code_graph_service import CodeGraphIngestionService
 
-    # 動態偵測專案根目錄（相容 PM2 + Docker + 直接執行）
-    _this_file = Path(__file__).resolve()
-    # 往上找直到找到包含 backend/ 和 frontend/ 的目錄
-    project_root = _this_file.parents[5]  # 預設: backend/app/api/endpoints/ai/ → 5 層
-    for i in range(3, 7):
-        candidate = _this_file.parents[i]
-        if (candidate / "backend" / "app").is_dir():
-            project_root = candidate
-            break
-    backend_app_dir = project_root / "backend" / "app"
-    frontend_src_dir = project_root / "frontend" / "src" if request.include_frontend else None
-    logger.info(f"Code-graph ingest: project_root={project_root}, backend_app={backend_app_dir} (exists={backend_app_dir.is_dir()})")
+    # ⚠️ 2026-08-27：這裡原本自己往上找專案根目錄 ——
+    #
+    #     project_root = _this_file.parents[5]
+    #     for i in range(3, 7):
+    #         candidate = _this_file.parents[i]
+    #
+    #   容器內這支檔案在 `/app/app/api/endpoints/ai/`，`parents[5]` 已經是 `/`，
+    #   而 `parents[6]` **IndexError** ⇒ 迴圈跑到 i=6 一定爆 ⇒ **這個端點在容器裡
+    #   每一次呼叫都回 500**。而 `.git/hooks/post-commit` 每次 commit 都會打它、
+    #   把輸出丟進 /dev/null，然後印「Code graph update triggered in background」
+    #   ⇒ 印著成功、實際上從來沒有成功過（實測後端 24 小時 0 筆紀錄）。
+    #
+    #   `app/core/paths.py` **就是為了這件事存在的** —— 它的註解裡記的正是同一個
+    #   失敗（「Docker container 內 parents[3] = / → PROJECT_ROOT 計算錯誤」，L52）。
+    #   自己再寫一份往上找的邏輯，就是再踩一次已經修過的坑。
+    backend_app_dir = BACKEND_DIR / "app"
+
+    # 前端原始碼在容器裡**不存在**（只掛了 frontend/dist）。
+    # 不存在就說不存在，不要傳一個不存在的路徑進去讓它安靜地掃出 0 個 TS 模組 ——
+    # 「掃到 0」與「根本沒掃」在回應裡長得一模一樣。
+    frontend_src_dir = None
+    frontend_skip_reason = None
+    if request.include_frontend:
+        candidate = PROJECT_ROOT / "frontend" / "src"
+        if candidate.is_dir():
+            frontend_src_dir = candidate
+        else:
+            frontend_skip_reason = f"前端原始碼不在此環境（{candidate} 不存在，容器只掛 frontend/dist）"
+            logger.warning("Code-graph ingest: %s", frontend_skip_reason)
+
+    if not backend_app_dir.is_dir():
+        # 連後端原始碼都找不到就沒有東西可掃 —— 明講，不要回一個 0 當成功
+        raise HTTPException(
+            status_code=500,
+            detail=f"找不到後端原始碼目錄：{backend_app_dir}（PROJECT_ROOT={PROJECT_ROOT}）",
+        )
+    logger.info(
+        "Code-graph ingest: project_root=%s backend_app=%s frontend_src=%s",
+        PROJECT_ROOT, backend_app_dir, frontend_src_dir or "(skip)",
+    )
 
     # 建構同步 DB URL（schema reflection 用）
     db_url = None
@@ -98,6 +126,10 @@ async def ingest_code_graph(
             msg_parts.append(f", {ts_modules} TS模組, {ts_components} 元件, {ts_hooks} Hook")
         if skipped > 0:
             msg_parts.append(f"（跳過 {skipped} 個未變更檔案）")
+        if frontend_skip_reason:
+            # 要求掃前端卻沒掃到，必須在回應裡講 —— 否則 ts_modules=0
+            # 看起來就像「前端沒有東西」
+            msg_parts.append(f"；⚠️ 未掃前端：{frontend_skip_reason}")
         return KGCodeGraphIngestResponse(
             success=True,
             message="".join(msg_parts),

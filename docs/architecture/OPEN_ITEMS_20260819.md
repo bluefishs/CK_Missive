@@ -40,6 +40,9 @@
 | A24 | **兩位 admin 的實際權限是唯讀 6 項** | 張坤樹（id 29）與賴秀玲（id 30）role='admin'，而 `users.permissions` 只有 `documents:read／projects:read／agencies:read／vendors:read／calendar:read／reports:view`，**角色定義是 33 項**。兩人 `last_login` 皆為 NULL ⇒ 從沒登入過，所以沒有人發現。成因同 A25：改角色不會改既有使用者的權限。**待你決**：在 `/admin/permissions/admin` 按「同步至所有用戶」即可補齊（會一併影響其他 3 位 admin，但他們已經是 33 項、屬「已對齊」會被略過）| 2026-08-27 盤點；新的 `pending_sync_users` 計數會顯示 admin=2 |
 | A25 | **6 位在職業務同仁的權限尚未套用角色定義** | 你 08-27 11:22 把「業務同仁」設成 14 項含 `vendors:create/edit`，但 `update_role_permissions` 只寫角色定義表 —— `role_permissions` 只在**建立新帳號**那一刻被讀一次。曾廷睿／邱元宏／張浩翊／馮俊翔 各 8 項（缺 6）、**王駿穠與賴柏霖各只有 5 項唯讀**（缺 9，連 `documents:create` 都沒有）。何丞穎 `permissions` 是 NULL 但已停用、不受同步影響 | 修法已上線：該頁現在會顯示「尚未套用到 N 位在職使用者」，儲存時也會提醒。按右上角「同步至所有用戶」執行 |
 
+| A26 | **⚠️ ERP／財務資料現在沒有被角色保護 —— 是否本來就不該人人可見** | `erp/` 端點 **60 支只有 `require_auth`**（4 支 `require_permission`、1 支 `require_admin`）。實測 uid=7（`role='staff'`、`users.permissions` 只有 5 項唯讀、**選單完全看不到 ERP**）直接打 API：統一帳本 200／5 筆、營運帳目 200／3 筆、報價單 200／5 筆、ERP 財務總覽 200 ⇒ **唯一的屏障是「選單看不到」，而選單不是安全機制**。修法是把 router 從 `require_auth` 改為 `require_permission("reports:erp:view")`（加在 **router 層**，逐一改會漏）。⚠️ **這會改變現況行為**，需要你先確認「ERP 資料本來就不該人人可見」；⚠️ 且**順序不能顛倒** —— 目前連兩位 `admin` 都只有 6 項唯讀權限（A24），端點一鎖他們立刻被擋在外面，**必須先同步使用者權限再鎖端點** | `ROLE_MODEL_PLAN` §6.1／§7 階段 0 |
+| A27 | **角色扁平：三個職能角色要不要開**（owner 08-27 提「財務角色／高階主管／ERP 財務與營運等管理」） | 現況 `reports:erp:view` **只有 `admin` 這一個角色擁有** ⇒ 想讓財務看 ERP 的 9 個選單，唯一做法是給 `admin`，**順帶給 23 個系統管理選單＋使用者權限管理＋部署＋備份＋資安**。賴秀玲現在的 role 正是 `admin`。✅ 好消息：`users.role` **沒有任何 CHECK 約束**、`role_permissions` 是普通表 ⇒ **加角色零 schema 成本**，`/admin/permissions/:role` 現成可編輯。建議 `finance`／`ops`／`exec` 三個；**`exec` 刻意設計成全域唯讀**（預設是「不給」而不是「admin 減幾項」，新增功能時才不會自動放行）。**待你決**：三個角色的名稱與中文顯示、`exec` 是否需要簽核類寫入 | `ROLE_MODEL_PLAN` §6.3／§7 階段 1 |
+
 ---
 
 ## B. 已查明根因、尚未實作
