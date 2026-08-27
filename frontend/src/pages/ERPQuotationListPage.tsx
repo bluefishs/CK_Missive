@@ -16,7 +16,7 @@ import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
 import { getErrorMessage } from '../utils/apiErrorParser';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export const ERPQuotationListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -143,7 +143,18 @@ export const ERPQuotationListPage: React.FC = () => {
     <ResponsiveContent maxWidth="full" padding="medium">
       <Card style={{ marginBottom: 16 }}>
         <Row justify="space-between" align="middle">
-          <Col><Title level={3} style={{ margin: 0 }}>財務管理 (ERP)</Title></Col>
+          {/* 2026-08-27 階段 1（QUOTATION_PHASE_POSITIONING §5）：
+              標題原本是「財務管理 (ERP)」，而這一頁七成的內容是**還沒確認承攬**的報價
+              （256 張裡 178 張對應的 PM 案件沒有 project_code）。
+              ERP 是確認承攬「之後」的程序，用它當標題等於把位階講反了。
+              選單同步移到「專案管理」底下並更名為「報價單總覽」。
+              ⚠️ 路由與 API 前綴**刻意不動**（階段 2 才處理，且需 owner 先定階段 0 判準）。*/}
+          <Col>
+            <Title level={3} style={{ margin: 0 }}>報價單總覽</Title>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              跨案件檢視 —— 建立與線上填寫明細請至各案件的「邀標報價」頁
+            </Text>
+          </Col>
           <Col>
             {/* 2026-08-27 owner：「/erp/quotations 首頁也不應該有新增報價鈕，
                 都要在邀標報價程序」⇒ 建立入口只留在 PM 案件頁。
