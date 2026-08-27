@@ -91,9 +91,29 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
     ) -> Tuple[List[Dict[str, Any]], int]:
         """跨案件廠商應付彙總列表
 
-        Uses vendor_name as primary grouping key to handle records
-        where vendor_id is NULL (created with vendor_name only).
+        ⚠️ 2026-08-27 owner：「**標準化 `/vendors` 為源頭**，
+        `/erp/vendor-accounts` 對應」＋「如金粟科技工程顧問有限公司**重複**」。
+
+        原本分組鍵是 `(vendor_name, vendor_id)` **兩個欄位一起** ——
+        於是同一家廠商只要有些筆有 `vendor_id`、有些是 NULL，
+        就會**分成兩列**。金粟就是這樣重複的（一列 id=12、一列 NULL）。
+
+        ⇒ 改為**以 `vendor_id` 為分組主鍵**（`/vendors` 是源頭）；
+        沒有 `vendor_id` 的才退回用 `vendor_name`，並且**不會**與
+        有 id 的那些混在一起 —— 它們是「廠商檔裡還沒有這家」的另一群。
+
+        ⚠️ 年度：owner「**篩選條件統一為西元年，且預設當年度**」。
+        原本 `if year:` ⇒ **不給就不篩，所有年度混在一起算成一個總數**。
+        實測 vendor_id=2 有 2025 兩筆已付、2026 四筆未付 ⇒
+        「已付 100 萬」與「未付 300 萬」被加成一個數字，
+        那正是 owner 說的「管理資訊不清晰」。
+        ⇒ `year=None` 時預設**當年度**；要看全部必須明確傳 `year=0`。
         """
+        from datetime import date as _date
+        if year is None:
+            year = _date.today().year        # 預設當年度
+        elif year == 0:
+            year = None                      # 明確要求「全部年度」
         query = (
             select(
                 ERPVendorPayable.vendor_id,
@@ -122,7 +142,13 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
                 )
             )
 
-        group_cols = [ERPVendorPayable.vendor_name, ERPVendorPayable.vendor_id]
+        # 以 vendor_id 為源頭；無 id 者才用名稱當鍵，且兩群不相混
+        # （`COALESCE` 讓「有 id」永遠走 id，不會因名稱差異再分裂）
+        vendor_key = func.coalesce(
+            func.concat("id:", ERPVendorPayable.vendor_id),
+            func.concat("name:", ERPVendorPayable.vendor_name),
+        )
+        group_cols = [vendor_key, ERPVendorPayable.vendor_id, ERPVendorPayable.vendor_name]
 
         # Count total vendors
         count_subq = query.group_by(*group_cols).subquery()

@@ -24,15 +24,28 @@ import type { ColumnsType } from 'antd/es/table';
 
 const { Title } = Typography;
 
-const currentYear = new Date().getFullYear() - 1911;
-const yearOptions = Array.from({ length: 5 }, (_, i) => ({
-  value: currentYear - i,
-  label: `${currentYear - i} 年`,
-}));
+// 2026-08-27 owner：「篩選條件**統一為西元年**，且**預設當年度**呈現統計經費與總支出」。
+//
+// ⚠️ 原本這裡是 `new Date().getFullYear() - 1911`（**民國年**），
+// 送出去的是 115，而後端比對的是 `erp_quotations.year`（**西元 2026**）
+// ⇒ **選了年度永遠是空的，這個篩選從來沒有作用過**。
+// 兩邊各自用自己的紀年，而沒有任何一方會報錯。
+const currentYear = new Date().getFullYear();
+const yearOptions = [
+  // `0` = 全部年度（後端約定：None 走預設當年、0 才是不篩）
+  { value: 0, label: '全部年度' },
+  ...Array.from({ length: 5 }, (_, i) => ({
+    value: currentYear - i,
+    label: `${currentYear - i} 年`,
+  })),
+];
 
 const ERPVendorAccountsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [year, setYear] = useState<number | undefined>();
+  // 預設當年度 —— 不給年度時所有年度會混在一起算成一個總數，
+  // 而 owner 指出那正是「管理資訊不清晰」的來源
+  // （實測 vendor_id=2：2025 已付 100 萬與 2026 未付 300 萬被加成一個數字）。
+  const [year, setYear] = useState<number | undefined>(currentYear);
   const [keyword, setKeyword] = useState('');
   const [statFilter, setStatFilter] = useState<string | null>(null);
 
@@ -158,8 +171,8 @@ const ERPVendorAccountsPage: React.FC = () => {
             />
             <Select
               placeholder="年度"
-              allowClear
-              style={{ width: 120 }}
+              value={year}
+              style={{ width: 130 }}
               options={yearOptions}
               onChange={(v) => setYear(v)}
             />

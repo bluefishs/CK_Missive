@@ -26,7 +26,13 @@ import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 
 const { Title } = Typography;
 
-const currentYear = new Date().getFullYear() - 1911;
+// 2026-08-27 owner：「`/erp/client-accounts` **相同架構問題**」。
+//
+// ⚠️ 與應付端完全一樣的 bug：這裡原本是 `getFullYear() - 1911`（**民國年**），
+// 送出去的是 115，而後端比對的是 `pm_cases.year`（**西元 2026**）
+// ⇒ **選了年度永遠是空的，這個篩選從來沒有作用過**。
+// 兩邊各自用自己的紀年，而沒有任何一方會報錯 —— 同一個缺陷在兩頁各有一份。
+const currentYear = new Date().getFullYear();
 const yearOptions = Array.from({ length: 5 }, (_, i) => ({
   value: currentYear - i,
   label: `${currentYear - i} 年`,
@@ -34,7 +40,8 @@ const yearOptions = Array.from({ length: 5 }, (_, i) => ({
 
 const ERPClientAccountsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [year, setYear] = useState<number | undefined>();
+  // 預設當年度 —— 不篩年度時所有年度會混在一起算成一個總數
+  const [year, setYear] = useState<number | undefined>(currentYear);
   const [keyword, setKeyword] = useState('');
   const [statFilter, setStatFilter] = useState<string | null>(null);
 
@@ -172,9 +179,9 @@ const ERPClientAccountsPage: React.FC = () => {
             />
             <Select
               placeholder="年度"
-              allowClear
               style={{ width: 120 }}
-              options={yearOptions}
+              value={year}
+              options={[{ value: 0, label: '全部年度' }, ...yearOptions]}
               onChange={(v) => setYear(v)}
             />
           </Space>

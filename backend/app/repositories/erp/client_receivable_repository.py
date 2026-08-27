@@ -71,6 +71,19 @@ class ClientReceivableRepository:
             )
         )
 
+        # 2026-08-27 owner：「`/erp/client-accounts` **相同架構問題**」
+        # ⇒ 與應付端同一套約定：`year=None` 預設**當年度**，
+        #   要看全部年度必須明確傳 `year=0`。
+        #
+        # 原本 `if year:` ⇒ 不給就不篩，**所有年度混在一起算成一個總數**，
+        # 而前端送來的還是**民國年**（115）而這裡比對西元（2026）
+        # ⇒ 選了年度永遠是空的、不選則全部混在一起。兩種都不對，
+        #   而兩邊各自用自己的紀年，沒有任何一方會報錯。
+        from datetime import date as _date
+        if year is None:
+            year = _date.today().year
+        elif year == 0:
+            year = None
         if year:
             query = query.where(PMCase.year == year)
         if keyword:

@@ -262,7 +262,20 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                 {getCaseNatureTagText(data.case_nature)}
               </Tag>
             ) },
-            { key: '契約金額', label: '契約金額', children: data.contract_amount ? `NT$ ${formatAmount(data.contract_amount)}` : '-' },
+            // 2026-08-27 owner：「**承攬案件都要能經費管控**」。
+            //
+            // 契約金額原本沒填就顯示 `-`，與「開始日期沒填」長得一模一樣 ——
+            // 但這兩件事的份量完全不同：**沒有契約金額就沒有經費管控的基準**
+            // （協力廠商的合約經費是上位規範，而專案這一層的契約金額
+            //  是整個案子的上位）。
+            //
+            // 實測 88 個承攬專案裡 **33 個** contract_amount 為 0/NULL
+            // （執行中 5、已結案 28），而系統裡**沒有任何可自動回填的來源**
+            // （對應報價單有金額 0 筆、請款 > 0 的 0 筆）⇒ 只能人工填。
+            // ⇒ 那就至少要讓人看見它是空的，而不是一個中性的 `-`。
+            { key: '契約金額', label: '契約金額', children: data.contract_amount
+                ? `NT$ ${formatAmount(data.contract_amount)}`
+                : <Text type="warning">未填 —— 無經費管控基準</Text> },
             { key: '得標金額', label: '得標金額', children: data.winning_amount ? `NT$ ${formatAmount(data.winning_amount)}` : '-' },
             { key: '開始日期', label: '開始日期', children: data.start_date ? dayjs(data.start_date).format('YYYY/MM/DD') : '-' },
             { key: '結束日期', label: '結束日期', children: data.end_date ? dayjs(data.end_date).format('YYYY/MM/DD') : '-' },
