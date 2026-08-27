@@ -195,7 +195,7 @@ async def enrich_recent(
                ON m.source = 'ezbid'
               AND m.pcc_match_unit_id = t.unit_id
               AND m.pcc_match_job_number = t.job_number
-              AND m.unit_id ~ '^[0-9A-Za-z]+(\.[0-9]+)+$'
+              AND m.unit_id ~ '^[0-9A-Za-z]+(\\.[0-9]+)+$'
         WHERE t.announce_date >= (CURRENT_DATE - :db_days * INTERVAL '1 day')::date
           AND COALESCE(t.tender_type, '') NOT LIKE '%決標%'
           AND t.unit_id IS NOT NULL AND t.job_number IS NOT NULL AND t.job_number <> ''
