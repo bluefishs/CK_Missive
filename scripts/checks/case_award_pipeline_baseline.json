@@ -1,6 +1,7 @@
 {
-  "contracted_no_code": 176,
-  "contracted_no_code_quoted": 12731695,
+  "contracted_no_code": 146,
+  "contracted_no_code_quoted": 8118495,
+  "dup_groups": 30,
   "coded_without_money": 3,
   "tender_cases_without_origin": 4
 }

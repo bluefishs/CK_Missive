@@ -15,12 +15,29 @@ owner：「ERP 是確認承攬**後**程序」「**前述成案程序的問題�
 | 階段 | 件數 | 報價金額 | 有請款 | 有帳本 |
 |---|---|---|---|---|
 | 已承攬 **有**編碼 | 51 | 892 萬 | 48 | 44 |
-| 已承攬 **無**編碼 | **176** | **1,273 萬** | **0** | **0** |
+| 已承攬 **無**編碼 | 176 | 1,273 萬 | **0** | **0** |
 
 不是相關性偏高，是 48/51 對 0/175 —— 幾乎完全分離。
 
+⚠️ **但 176／1,273 萬這兩個數字不能直接用**（owner 追問「是否為重複紀錄」才查出來）。
+
+編碼規則（owner 提供）：`B114-B003-0`
+＝ `B`報價單 ｜ `114`年度 ｜ `B`承辦同仁（A坤樹／B慶忠／C元宏）｜ `003`流水號 ｜ `-0`**版次**
+
+⇒ 結尾 `-N` 是**版次**。舊系統存的是「無版次」形態（`B114-B003`），
+2026-08-20 那次匯入存的是「版次 0」形態（`B114-B003-0`）——**同一版被存成兩筆**，
+案件層與報價層都是 **30 組**（21 組金額呈含稅／未稅 ×1.05 關係、8 組金額完全相同）。
+
+⚠️ 而 `B113-A016-2` 與 `-3` 是**不同版次**、是真實的不同報價，**不是重複**。
+我第一版用「去掉 `-N` 後同 base 即重複」，會把 12 組版次差異誤判成重複（42 vs 30）。
+判準因此只認一種形態：同一 base 底下「無版次 + 版次0」。
+
+⚠️ 更關鍵：那 30 組裡 **30 組的「有碼那一側」都是有金流的** —— 錢記在原始那筆上。
+⇒ 176 件裡有 30 件是匯入的分身，**不是業務缺口**。
+   **扣掉之後真正缺編碼且缺金流的是 146 件 / 811 萬。**
+
 ⚠️ **但編碼不是技術上的阻擋**：金流的外鍵是 `case_code`（finance_ledgers）與
-`erp_quotation_id`（erp_billings），**完全不經過 project_code**，那 176 件兩個鍵都有。
+`erp_quotation_id`（erp_billings），**完全不經過 project_code**，那些案件兩個鍵都有。
 ⇒ 他們不是「因為沒編碼所以記不了帳」，是**沒有人去記**。
    **把編碼補上，金流依然會是 0** —— 那只是把指標弄綠。
 
@@ -82,6 +99,45 @@ SELECT status, has_code,
   FROM money GROUP BY status, has_code ORDER BY status, has_code;
 """
 
+SQL_DUP = """
+-- 2026-08-27 owner 提供編碼規則後才判得準：
+--   `B114-B003-0` = B(報價單) 114(年度) B(承辦同仁：A坤樹/B慶忠/C元宏) 003(流水號) -0(版次)
+-- ⇒ 結尾 `-N` 是**版次**，不是重複的記號。
+--
+-- 舊系統存的是「無版次」形態（`B114-B003`），2026-08-20 那次匯入存的是
+-- 「版次 0」形態（`B114-B003-0`）—— **同一版被存成兩筆**。
+-- 而 `B113-A016-2` 與 `-3` 是**不同版次**，是真實的不同報價，不能當重複。
+--
+-- 所以判準只認一種形態：同一 base 底下「無版次 + 版次0」。
+-- 我第一版寫成「去掉 -N 後同 base 就算重複」，那會把 12 組版次差異誤判成重複。
+WITH n AS (
+  SELECT c.case_code,
+         regexp_replace(c.case_code, '-[0-9]+$', '') AS base,
+         CASE WHEN c.case_code ~ '-[0-9]+$' THEN regexp_replace(c.case_code, '^.*-', '') ELSE 'X' END AS ver,
+         (c.project_code IS NOT NULL AND c.project_code <> '') AS coded,
+         c.status
+    FROM pm_cases c
+),
+dup AS (
+  SELECT base FROM n GROUP BY base
+   HAVING count(*) FILTER (WHERE ver = 'X') = 1
+      AND count(*) FILTER (WHERE ver = '0') = 1
+),
+flow AS (
+  SELECT n.base, n.coded,
+         (EXISTS(SELECT 1 FROM finance_ledgers l WHERE l.case_code = n.case_code)
+       OR EXISTS(SELECT 1 FROM erp_billings b JOIN erp_quotations q ON q.id = b.erp_quotation_id
+                  WHERE q.case_code = n.case_code)) AS has_money
+    FROM n WHERE n.base IN (SELECT base FROM dup)
+)
+SELECT (SELECT count(*) FROM dup),
+       (SELECT count(DISTINCT base) FROM flow WHERE coded AND has_money),
+       (SELECT count(*) FROM n WHERE base IN (SELECT base FROM dup)
+                            AND ver = '0' AND NOT coded AND status = 'contracted'),
+       (SELECT COALESCE(round(sum(q.total_price)), 0) FROM erp_quotations q
+         WHERE q.case_code IN (SELECT case_code FROM n WHERE base IN (SELECT base FROM dup) AND ver = '0'));
+"""
+
 SQL_TENDER = """
 SELECT count(*) FILTER (WHERE category = '01')                       AS tender_cases,
        count(*) FILTER (WHERE category = '01' AND source_tender_id IS NOT NULL) AS with_origin,
@@ -110,6 +166,8 @@ def _rows(sql: str):
 def main() -> int:
     rows = _rows(SQL)
     tender = _rows(SQL_TENDER)[0]
+    dup_groups, dup_coded_money, dup_in_nocode, dup_quoted = (
+        int(x) for x in _rows(SQL_DUP)[0])
 
     stages: dict[tuple[str, bool], dict] = {}
     for st, hc, n, q, wm in rows:
@@ -119,8 +177,11 @@ def main() -> int:
         return stages.get((st, hc), {}).get(k, 0)
 
     cur = {
-        "contracted_no_code": g("contracted", False, "cases"),
-        "contracted_no_code_quoted": g("contracted", False, "quoted"),
+        # 追蹤**扣掉重複後**的數字 —— 用含重複的原始數字當基線，
+        # 會讓「清掉重複」看起來像「缺口改善」，那是假的改善。
+        "contracted_no_code": g("contracted", False, "cases") - dup_in_nocode,
+        "contracted_no_code_quoted": g("contracted", False, "quoted") - dup_quoted,
+        "dup_groups": dup_groups,
         "coded_without_money": g("contracted", True, "cases") - g("contracted", True, "with_money"),
         "tender_cases_without_origin": int(tender[0]) - int(tender[1]),
     }
@@ -146,6 +207,16 @@ def main() -> int:
         name = label.get(key, f"{key[0]}／{'有' if key[1] else '無'}編碼")
         print(f"   {name:<22} {v['cases']:>4} 件 ｜ {v['quoted']:>11,} 元 ｜ 有金流 {v['with_money']:>3}")
 
+    print("")
+    print("【⚠️ 匯入造成的重複 —— 上面 ② 的數字不能直接當成業務缺口】")
+    print(f"   案件層重複 {dup_groups} 組（同一 base 同時有「無版次」與「版次0」兩筆，案名相同）")
+    print(f"   其中 {dup_coded_money} 組的「有碼那一側」是有金流的 —— 錢記在原始那筆上")
+    _nc = g("contracted", False, "cases")
+    _nq = g("contracted", False, "quoted")
+    print(f"   ② 的 {_nc} 件裡有 {dup_in_nocode} 件是重複的無碼側，報價 {dup_quoted:,} 元")
+    print(f"   ⇒ 扣掉重複後，真正缺編碼且缺金流的是 {_nc - dup_in_nocode} 件 / {_nq - dup_quoted:,} 元")
+    print("   ⚠️ 重複要不要清除是資料決策（保留哪一側、金額以含稅或未稅為準），不在本檢核職權內。")
+
     print("\n【標案一鍵建案這條路】")
     print(f"   category='01' 案件 {tender[0]} 件｜留下 source_tender_id 的 {tender[1]} 件"
           f"｜status='bidding' 的 {tender[2]} 件")
@@ -161,7 +232,8 @@ def main() -> int:
     for k, zh in [("contracted_no_code", "已承攬但無成案編碼的件數"),
                   ("contracted_no_code_quoted", "上述案件的報價金額"),
                   ("coded_without_money", "有成案編碼卻完全沒有金流的件數"),
-                  ("tender_cases_without_origin", "標案建案但無來源連結的件數")]:
+                  ("tender_cases_without_origin", "標案建案但無來源連結的件數"),
+                  ("dup_groups", "匯入造成的重複組數")]:
         b = base.get(k)
         if b is None:
             notes.append(f"{zh}：{cur[k]:,}（首次記錄，納入基線）")
@@ -185,11 +257,12 @@ def main() -> int:
             json.dumps(new_base, ensure_ascii=False, indent=2) + "\n")
 
     print("\n" + "-" * 70)
-    print("⚠️ 這支**不負責**把存量 176 件變成 0 —— 那需要逐案的業務判斷。")
-    print("   它負責的是：不讓第 177 件靜靜地發生。")
+    _real = _nc - dup_in_nocode
+    print(f"⚠️ 這支**不負責**把存量 {_real} 件變成 0 —— 那需要逐案的業務判斷。")
+    print(f"   它負責的是：不讓第 {_real + 1} 件靜靜地發生。")
     print("⚠️ 也請記得：補上成案編碼**不會**自動帶來金流。")
     print("   金流的外鍵是 case_code 與 erp_quotation_id，不經過 project_code；")
-    print("   那 176 件兩個鍵都有，缺的是**有人去記**。")
+    print("   那些案件兩個鍵都有，缺的是**有人去記**。")
 
     if reds:
         print("\nStatus: [RED] 成案程序的缺口正在擴大")
