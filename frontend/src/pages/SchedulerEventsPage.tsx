@@ -11,11 +11,20 @@
  */
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Tabs, Table, Tag, Card, Typography, Space, Drawer, Spin } from 'antd';
+import {
+  Tabs,
+  Tag,
+  Card,
+  Typography,
+  Space,
+  Drawer,
+  Spin,
+} from 'antd';
 import { ClockCircleOutlined, BarChartOutlined, FileTextOutlined } from '@ant-design/icons';
 import { apiClient } from '../api/client';
 import { SCHEDULER_EVENTS_ENDPOINTS } from '../api/endpoints/admin';
 
+import { EnhancedTable } from '../components/common/EnhancedTable';
 const { Title, Text } = Typography;
 
 interface CronEvent {
@@ -115,7 +124,7 @@ export const SchedulerEventsPage: React.FC = () => {
             label: <span><ClockCircleOutlined /> Cron Events 歷史</span>,
             children: (
               <Card title={`最近 ${eventsQ.data?.events?.length ?? 0} 事件 / 總計 ${eventsQ.data?.total ?? 0}`}>
-                <Table
+                <EnhancedTable
                   size="small"
                   loading={eventsQ.isLoading}
                   dataSource={eventsQ.data?.events ?? []}
@@ -139,7 +148,7 @@ export const SchedulerEventsPage: React.FC = () => {
             label: <span><BarChartOutlined /> Job 統計</span>,
             children: (
               <Card title={`${statsQ.data?.total_jobs ?? 0} jobs / ${statsQ.data?.total_events ?? 0} events`}>
-                <Table
+                <EnhancedTable
                   size="small"
                   loading={statsQ.isLoading}
                   dataSource={statsQ.data?.jobs ?? []}
@@ -162,7 +171,7 @@ export const SchedulerEventsPage: React.FC = () => {
             label: <span><FileTextOutlined /> Daily Retrospective</span>,
             children: (
               <Card title={`${reportsQ.data?.total ?? 0} 份報告`}>
-                <Table
+                <EnhancedTable
                   size="small"
                   loading={reportsQ.isLoading}
                   dataSource={reportsQ.data?.reports ?? []}

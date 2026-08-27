@@ -5,7 +5,19 @@
  */
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  Card, Row, Col, Statistic, Table, Tag, Typography, Spin, Input, Button, Empty, Space, Progress, Alert,
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Tag,
+  Typography,
+  Spin,
+  Input,
+  Button,
+  Empty,
+  Space,
+  Progress,
+  Alert,
 } from 'antd';
 import { TeamOutlined, SearchOutlined, TrophyOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -23,6 +35,7 @@ import { ROUTES } from '../router/types';
 import CategoryPieChart from '../components/tender/CategoryPieChart';
 import { enhanceColumns } from '../utils/tableEnhancer';
 
+import { EnhancedTable } from '../components/common/EnhancedTable';
 const { Title, Text } = Typography;
 
 interface CompanyData {
@@ -216,7 +229,7 @@ const TenderCompanyProfilePage: React.FC = () => {
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             <Col xs={24}>
               <Card title={`投標紀錄 (${data.recent_tenders?.length ?? 0} 筆)`} size="small">
-                <Table
+                <EnhancedTable
                   columns={enhanceColumns([
                     {
                       title: '標案名稱', dataIndex: 'title', key: 'title',

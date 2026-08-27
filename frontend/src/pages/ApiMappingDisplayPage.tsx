@@ -14,9 +14,15 @@
  * @status REFERENCE
  */
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Table, Spin, Alert } from 'antd';
+import {
+  Card,
+  Typography,
+  Spin,
+  Alert,
+} from 'antd';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 
+import { EnhancedTable } from '../components/common/EnhancedTable';
 const { Title, Paragraph } = Typography;
 
 interface ApiMappingItem {
@@ -166,7 +172,7 @@ export const ApiMappingDisplayPage: React.FC = () => {
 
       {!loading && (
         <Card>
-          <Table
+          <EnhancedTable
             columns={columns}
             dataSource={apiMappings}
             rowKey={(record) => record.api}

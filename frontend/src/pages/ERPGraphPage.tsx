@@ -10,8 +10,19 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import {
-  Typography, Tabs, Card, Row, Col, Statistic, Table, Tag, Input,
-  Button, Space, Alert, message, Spin,
+  Typography,
+  Tabs,
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Tag,
+  Input,
+  Button,
+  Space,
+  Alert,
+  message,
+  Spin,
 } from 'antd';
 import {
   DollarOutlined, SyncOutlined, SearchOutlined,
@@ -24,6 +35,7 @@ import { createTabItem } from '../components/common/DetailPage/utils';
 import { useAuthGuard } from '../hooks/utility/useAuthGuard';
 import { ForceGraphLazy } from '../components/graph/ForceGraphLazy';
 
+import { EnhancedTable } from '../components/common/EnhancedTable';
 const { Title, Text } = Typography;
 
 // ── Types ──
@@ -145,7 +157,7 @@ const EntitySearchTab: React.FC = () => {
         />
         <Button type="primary" onClick={() => setSearchQuery(query)}>搜尋</Button>
       </Space>
-      <Table
+      <EnhancedTable
         dataSource={data?.results || []}
         columns={columns}
         loading={isLoading}

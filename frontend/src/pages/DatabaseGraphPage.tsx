@@ -25,7 +25,6 @@ import {
   Typography,
   Divider,
   Button,
-  Table,
   Tag,
   Descriptions,
   Tabs,
@@ -52,6 +51,7 @@ import { KnowledgeGraph } from '../components/ai/KnowledgeGraph';
 import type { ExternalGraphData } from '../components/ai/KnowledgeGraph';
 import type { TableDataResponse } from '../types/admin-system';
 
+import { EnhancedTable } from '../components/common/EnhancedTable';
 const { Title, Text } = Typography;
 
 /** 表資料預覽每頁筆數 */
@@ -322,7 +322,7 @@ const DatabaseGraphPage: React.FC = () => {
                       <Title level={5} style={{ margin: '0 0 8px', fontSize: 14 }}>
                         欄位定義
                       </Title>
-                      <Table
+                      <EnhancedTable
                         dataSource={selectedTable.columns}
                         columns={columnDefs}
                         rowKey="name"
@@ -392,7 +392,7 @@ const DatabaseGraphPage: React.FC = () => {
                     {tableDataLoading ? (
                       <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
                     ) : tableData && tableData.columns.length > 0 ? (
-                      <Table
+                      <EnhancedTable
                         dataSource={tableData.rows.map((row, idx) => {
                           const record: Record<string, unknown> = { _key: `${tableDataPage}-${idx}` };
                           tableData.columns.forEach((col, ci) => { record[col] = row[ci]; });

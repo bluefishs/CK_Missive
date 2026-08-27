@@ -6,7 +6,17 @@
  *   「系統監控」選單原 redirect 到管理員面板（C5/G3 語意不符）。本頁補接後端監控能力。
  */
 import React from 'react';
-import { Card, Tabs, Row, Col, Statistic, Table, Alert, Progress, Tag, Empty } from 'antd';
+import {
+  Card,
+  Tabs,
+  Row,
+  Col,
+  Statistic,
+  Alert,
+  Progress,
+  Tag,
+  Empty,
+} from 'antd';
 import {
   DashboardOutlined, HeartOutlined, WarningOutlined, FileTextOutlined,
 } from '@ant-design/icons';
@@ -14,6 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { SYSTEM_ENDPOINTS } from '../api/endpoints/core';
 
+import { EnhancedTable } from '../components/common/EnhancedTable';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const post = async (url: string): Promise<any> => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,7 +99,7 @@ const ErrorsTab: React.FC = () => {
     <>
       {summary ? <Alert style={{ marginBottom: 16 }} type={(summary.total_errors ?? summary.total ?? 0) > 0 ? 'warning' : 'success'}
         message={`錯誤統計：總計 ${summary.total_errors ?? summary.total ?? 0} 筆`} showIcon /> : null}
-      <Table
+      <EnhancedTable
         loading={isLoading}
         rowKey={(_, i) => String(i)}
         size="small"
@@ -108,7 +119,7 @@ const LogsTab: React.FC = () => {
   const { data, isLoading } = useQuery({ queryKey: ['system-log-files'], queryFn: () => post(SYSTEM_ENDPOINTS.LOG_FILES) });
   const files: Record<string, unknown>[] = data?.log_files || data?.files || [];
   return (
-    <Table<Record<string, unknown>>
+    <EnhancedTable<Record<string, unknown>>
       loading={isLoading}
       rowKey={(r, i) => String(r.name ?? i)}
       size="small"

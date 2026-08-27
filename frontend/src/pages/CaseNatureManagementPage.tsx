@@ -13,7 +13,17 @@
  */
 import React, { useState } from 'react';
 import {
-  Card, Table, Button, Space, Input, InputNumber, Switch, Form, Modal, App, Tag, Typography,
+  Card,
+  Button,
+  Space,
+  Input,
+  InputNumber,
+  Switch,
+  Form,
+  Modal,
+  App,
+  Tag,
+  Typography,
 } from 'antd';
 import { PlusOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -22,6 +32,7 @@ import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import type { ColumnsType } from 'antd/es/table';
 
+import { EnhancedTable } from '../components/common/EnhancedTable';
 const { Title } = Typography;
 
 interface CaseNatureCode {
@@ -141,7 +152,7 @@ const CaseNatureManagementPage: React.FC = () => {
           </Space>
         }
       >
-        <Table<CaseNatureCode>
+        <EnhancedTable<CaseNatureCode>
           dataSource={items}
           columns={columns}
           rowKey="id"
