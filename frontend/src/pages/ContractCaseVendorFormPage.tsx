@@ -18,6 +18,7 @@ import dayjs from 'dayjs';
 
 import { ROUTES } from '../router/types';
 import { useResponsive } from '../hooks';
+import { usePermissions } from '../hooks/utility/usePermissions';
 import { useSubcontractorOptions } from '../hooks/business/useDropdownData';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
 import { projectVendorsApi } from '../api/projectVendorsApi';
@@ -63,6 +64,8 @@ const ContractCaseVendorFormPage: React.FC = () => {
   //
   //    與同日修的人員下拉是同一個家族（同 key、同源、**不同形狀**）。
   //    改用既有共用 hook 回原始 `Vendor[]`，呈現形狀在這裡自己組。
+  const { hasPermission } = usePermissions();
+  const canCreateVendor = hasPermission('vendors:create');
   const { subcontractors, isLoading: vendorsLoading, isError: vendorsFailed } = useSubcontractorOptions();
   const vendorOptions = useMemo(
     () => subcontractors.map((v) => ({
@@ -189,9 +192,14 @@ const ContractCaseVendorFormPage: React.FC = () => {
             notFoundContent={
               vendorsFailed ? '廠商清單載入失敗，請重新整理'
                 : vendorsLoading ? '載入中…'
-                : '沒有可選的協力廠商'
+                : canCreateVendor ? '沒有可選的協力廠商'
+                : '找不到這家廠商，請洽管理員建立'
             }
-            dropdownRender={isEdit ? undefined : (menu) => (
+                // 2026-08-27：一般同仁看得到這個「新增廠商」，按下去必然 403
+                // （`POST /api/vendors` 要 `vendors:create`；owner 實測 uid=7 連按三次全 403）。
+                // 08-26 已立的判準：**不給一般同仁一個必然失敗的按鈕**。
+                // 刻意不放寬端點權限 —— 誰能建廠商是產品決策，不是這一頁能決定的。
+            dropdownRender={(isEdit || !canCreateVendor) ? undefined : (menu) => (
               <>
                 {menu}
                 <Divider style={{ margin: '8px 0' }} />

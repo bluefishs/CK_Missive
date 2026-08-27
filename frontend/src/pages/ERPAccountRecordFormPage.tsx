@@ -33,6 +33,7 @@ import { BILLING_PERIOD_OPTIONS } from '../types/erp';
 import type { ERPBilling, ERPVendorPayable } from '../types/erp';
 import { useResponsive } from '../hooks';
 import { useSubcontractorOptions } from '../hooks/business/useDropdownData';
+import { usePermissions } from '../hooks/utility/usePermissions';
 import { extractApiMessage } from '../utils/apiMessage';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
 
@@ -120,6 +121,8 @@ const ERPAccountRecordFormPage: React.FC = () => {
 
 
   // 協力廠商下拉（2026-08-18）—— 值用 vendor_name 以維持後端欄位不變。
+  const { hasPermission } = usePermissions();
+  const canCreateVendor = hasPermission('vendors:create');
   const { subcontractors, isLoading: subLoading, isError: subFailed } = useSubcontractorOptions();
   const [newVendorName, setNewVendorName] = useState('');
   const qc = useQueryClient();
@@ -308,9 +311,12 @@ const ERPAccountRecordFormPage: React.FC = () => {
                 notFoundContent={
                   subFailed ? '廠商清單載入失敗，請重新整理'
                     : subLoading ? '載入中…'
-                    : '沒有可選的協力廠商'
+                    : canCreateVendor ? '沒有可選的協力廠商'
+                    : '找不到這家廠商，請洽管理員建立'
                 }
-                dropdownRender={(menu) => (
+                // 2026-08-27：同 ContractCaseVendorFormPage —— 一般同仁按下去必然 403
+                // （`POST /api/vendors` 要 `vendors:create`）。不給必然失敗的按鈕。
+                dropdownRender={!canCreateVendor ? undefined : (menu) => (
                   <>
                     {menu}
                     <Divider style={{ margin: '8px 0' }} />
