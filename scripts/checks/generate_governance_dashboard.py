@@ -643,12 +643,47 @@ def render() -> str:
     # ── 10 owner action 待辦 ──
     a("## 10. Owner action 待辦 (不可委任)")
     a("")
-    a("- ADR-0020 + ADR-0035 proposed 收斂")
-    a("- 4 pending crystal 審批 (`/admin/crystals`)")
-    a("- Hermes GO/NO-GO baseline 重評")
-    a(f"- 跨 repo install-template 對 {red_count} RED 子專案套用 (詳 §9)")
-    a("- CK_KMapAdvisor CLAUDE.md STALE 32 天")
-    a("- Task Scheduler 重建 / sync_enabled=true")
+    # 2026-08-27：這一段原本是**六行寫死的字串**，與早上修掉的
+    # `governance_alignment_audit` 的「進化執行成效」同一族。逐項核實後至少錯三處：
+    #
+    #   · 「4 pending crystal 審批」 → 實際 `memory_proposals_pending = 0`
+    #     （那個 4 是 `memory_crystals_total`，是另一件事）
+    #   · 「CK_KMapAdvisor CLAUDE.md STALE 32 天」 → 實際 121 天（錯了 89 天）
+    #   · 只點名 KMapAdvisor，而 FT_StorageTank 也 58 天沒動 —— 清單本身不完整
+    #   · 「Hermes GO/NO-GO baseline 重評」與 §8.5 自己的結論矛盾：
+    #     那裡已把 error rate / p95 標為「已接受的結構性限制」並註明
+    #     「維持免費策略期間此兩項不列為待辦，避免每次覆盤重觸發雜訊」
+    #
+    # 改為只印**算得出來的**，算不出來的指向單一入口而不是在這裡維護第二份清單
+    #（本專案 2026-08-19 立的做法：待辦收斂成單一入口）。
+    pending_props = metrics.get("memory_proposals_pending")
+    if pending_props is not None and pending_props > 0:
+        a(f"- {int(pending_props)} 個學習閉環 proposal 待審批 (`/admin/crystals`)")
+    if red_count:
+        a(f"- 跨 repo install-template 對 {red_count} RED 子專案套用 (詳 §9)")
+
+    # 兄弟 repo 的 CLAUDE.md 新鮮度 —— 全掃而不是點名一個
+    try:
+        from datetime import datetime as _dt
+        sib = ROOT.parent
+        stale = []
+        for d in sorted(sib.iterdir()):
+            f = d / "CLAUDE.md"
+            if not f.is_file() or d.name == ROOT.name:
+                continue
+            days = (_dt.now() - _dt.fromtimestamp(f.stat().st_mtime)).days
+            if days >= 30:
+                stale.append((days, d.name))
+        for days, name in sorted(stale, reverse=True):
+            a(f"- `{name}/CLAUDE.md` 已 {days} 天未更新")
+    except Exception as exc:
+        a(f"- ⚠️ 兄弟 repo 新鮮度掃描失敗：{type(exc).__name__}（不下結論）")
+
+    a("")
+    a("> 其餘待決事項**不在這裡維護第二份清單** —— 單一入口是")
+    a("> [`OPEN_ITEMS_20260819.md`](OPEN_ITEMS_20260819.md)（A 段＝需 owner 決定）。")
+    a("> 2026-08-27 起本段只印算得出來的；寫死的字串已移除，")
+    a("> 理由是它們在被發現前已經錯了 89 天而每天照印。")
     a("")
 
     # ── 10 整合視角結論 ──
