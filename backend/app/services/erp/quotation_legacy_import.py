@@ -319,6 +319,38 @@ class QuotationLegacyImportService:
             )).all()
         }
         missing = {k: v for k, v in wanted.items() if k not in existing}
+
+        # 2026-08-27：這裡只比對 **完整 case_code**，而 08-20 那次匯入正是這樣
+        # 建出 26 件分身：既有 `B114-B003`，彙整表帶的是 `B114-B003-0`，
+        # 兩者 case_code 不同 ⇒ 判為「不存在」⇒ 再建一件，**而且不出聲**。
+        # 事後查證：那 26 組兩側**案名完全相同**，且有碼那一側全部都有金流
+        # （錢記在原始那筆上），⇒ 新建的那 26 件是分身，不是業務缺口。
+        #
+        # ⚠️ **刻意不自動合併**：本檔 `_derive_case_code` 的判斷是
+        # 「子號是子案，不是版次」，而那是對的 —— 實測有 4 組同 base 同版次形態
+        # 但案名完全不同（`B114-B026` 平鎮區查估 vs `B114-B026-0` 永翠76透地雷達）。
+        # 合併與否要看案名與金額語意，屬人的判斷。
+        #
+        # 但**沉默地再建一次**不是「留給人判斷」，是不給人判斷的機會。
+        # 所以這裡只做一件事：把「同 base 且**案名完全相同**、只差版次」的挑出來說。
+        self.dup_candidates: list[dict[str, str]] = []
+        if missing:
+            bases = {re.sub(r"-[0-9]+$", "", k) for k in missing}
+            rs = (await self.db.execute(text(
+                "SELECT case_code, case_name FROM pm_cases "
+                "WHERE regexp_replace(case_code, '-[0-9]+$', '') = ANY(:bs)"
+            ), {"bs": list(bases)})).all()
+            by_base: dict[str, list[tuple[str, str]]] = {}
+            for cc, cn in rs:
+                by_base.setdefault(re.sub(r"-[0-9]+$", "", cc), []).append((cc, cn))
+            for code, r in missing.items():
+                base = re.sub(r"-[0-9]+$", "", code)
+                for cc, cn in by_base.get(base, []):
+                    if cn and cn == r.get("case_name"):
+                        self.dup_candidates.append(
+                            {"new_case_code": code, "existing_case_code": cc, "case_name": cn})
+                        break
+
         if dry_run or not missing:
             return len(missing)
 
@@ -544,6 +576,10 @@ class QuotationLegacyImportService:
         # 而只看新增的話，「報價單已匯入但案件還沒補」的情況永遠補不上。
         preview["will_create_pm_cases"] = await self._ensure_pm_cases(
             to_create + to_update, dry_run=True)
+        # 「同 base 且案名完全相同、只差版次」的候選 —— 08-20 那次靜靜建了 26 件分身，
+        # 這裡把它攤在匯入前的預覽上。**只提醒不阻擋**：合併與否是人的判斷。
+        preview["duplicate_candidates"] = getattr(self, "dup_candidates", [])[:200]
+        preview["duplicate_candidate_count"] = len(getattr(self, "dup_candidates", []))
         _staff = await self._assign_staff_from_sheets(rows, dry_run=True)
         preview["will_assign_staff"] = _staff["assigned"]
         preview["staff_unmatched_sheets"] = _staff["unmatched_sheets"]
@@ -596,6 +632,9 @@ class QuotationLegacyImportService:
         await self.db.commit()
         logger.info("報價單彙整匯入：新增 %d／更新 %d／略過 %d／補建 PM 案件 %d",
                     created, updated, len(skipped), pm_created)
+        # 實際匯入時重算一次 —— preview 那次是 dry_run，兩次的 missing 可能不同
+        preview["duplicate_candidates"] = getattr(self, "dup_candidates", [])[:200]
+        preview["duplicate_candidate_count"] = len(getattr(self, "dup_candidates", []))
         return {**preview, "dry_run": False, "created": created, "updated": updated,
                 "created_pm_cases": pm_created,
                 "assigned_staff": staff_res["assigned"],

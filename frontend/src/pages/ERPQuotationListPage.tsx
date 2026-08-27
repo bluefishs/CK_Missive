@@ -287,6 +287,42 @@ export const ERPQuotationListPage: React.FC = () => {
                             <li>將<b>更新 {p.will_update}</b> 筆（依舊案號比對到既有資料）</li>
                             {p.skipped > 0 && <li>略過 {p.skipped} 筆（檔案內重複或缺案名）</li>}
                           </ul>
+                          {/* 2026-08-27：08-20 那次匯入靜靜建出 26 件分身 ——
+                              既有 `B114-B003`、彙整表帶 `B114-B003-0`，
+                              case_code 不同故判為「不存在」而再建一件。
+                              事後查證那 26 組兩側**案名完全相同**，且有碼那一側全部都有金流。
+                              ⚠️ 只提醒不阻擋：實測另有 4 組同形態但案名完全不同
+                              （B114-B026「平鎮區查估」vs B114-B026-0「永翠76透地雷達」），
+                              合併與否要看案名與金額語意，是人的判斷。 */}
+                          {(p.duplicate_candidate_count ?? 0) > 0 && (
+                            <Alert
+                              type="warning"
+                              showIcon
+                              style={{ marginBottom: 8 }}
+                              message={`有 ${p.duplicate_candidate_count} 筆可能是既有案件的分身`}
+                              description={
+                                <div>
+                                  <div style={{ marginBottom: 4 }}>
+                                    這些新案號與既有案件<b>只差版次尾碼，且案名完全相同</b>：
+                                  </div>
+                                  {(p.duplicate_candidates ?? []).slice(0, 5).map((d) => (
+                                    <div key={d.new_case_code} style={{ fontSize: 12 }}>
+                                      · <b>{d.new_case_code}</b> ← 既有 {d.existing_case_code}
+                                      {' '}— {d.case_name}
+                                    </div>
+                                  ))}
+                                  {(p.duplicate_candidate_count ?? 0) > 5 && (
+                                    <div style={{ fontSize: 12 }}>
+                                      …其餘 {(p.duplicate_candidate_count ?? 0) - 5} 筆
+                                    </div>
+                                  )}
+                                  <div style={{ marginTop: 4 }}>
+                                    仍會建立（系統不自動合併）——確認是同一件的話，匯入後請自行處理。
+                                  </div>
+                                </div>
+                              }
+                            />
+                          )}
                           {(p.skipped_detail?.length ?? 0) > 0 && (
                             <Alert type="warning" showIcon message="略過明細"
                               description={p.skipped_detail!.slice(0, 5)

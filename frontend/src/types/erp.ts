@@ -1477,6 +1477,13 @@ export interface ERPQuotationLegacyImportSkipped {
  * 宣告在這裡而不是在 api 層內聯 —— 內聯過的型別無法被其他頁面重用，
  * 而且後端改了欄位時沒有任何一方會報錯。
  */
+/** 匯入時偵測到的「可能是既有案件分身」 */
+export interface ERPQuotationLegacyDupCandidate {
+  new_case_code: string;
+  existing_case_code: string;
+  case_name: string;
+}
+
 export interface ERPQuotationLegacyImportResult {
   success: boolean;
   dry_run: boolean;
@@ -1485,6 +1492,10 @@ export interface ERPQuotationLegacyImportResult {
   will_update: number;
   skipped: number;
   skipped_detail?: ERPQuotationLegacyImportSkipped[];
+  /** 與既有案件只差版次尾碼、且案名完全相同的新案號（2026-08-27）——
+   *  08-20 那次匯入靜靜建出 26 件分身。系統**不自動合併**，只提醒。 */
+  duplicate_candidates?: ERPQuotationLegacyDupCandidate[];
+  duplicate_candidate_count?: number;
   sample_create?: Array<Record<string, unknown>>;
   created?: number;
   updated?: number;
