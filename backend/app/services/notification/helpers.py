@@ -6,7 +6,7 @@
 這些方法使用獨立 session，避免交易污染，適合在背景任務中呼叫。
 
 使用方式：
-    from app.services.notification_helpers import (
+    from app.services.notification.helpers import (
         safe_notify_critical_change,
         safe_notify_document_deleted,
     )

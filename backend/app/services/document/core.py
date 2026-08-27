@@ -57,7 +57,7 @@ from .dispatch_linker import DocumentDispatchLinkerService
 from .import_logic import DocumentImportLogicService
 from app.core.cache_manager import cache_dropdown_data, cache_statistics
 from app.core.rls_filter import RLSFilter
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 

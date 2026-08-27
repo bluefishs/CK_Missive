@@ -8,7 +8,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.core.dependencies import get_service, optional_auth, require_auth, require_permission
 from app.extended.models import User
-from app.services.expense_invoice_service import ExpenseInvoiceService
+from app.services.erp.expense_invoice import ExpenseInvoiceService
 from app.schemas.erp.expense import (
     CaseFinanceResponse,
     ExpenseInvoiceCreate,

@@ -234,7 +234,7 @@ class TelegramBotService:
                 return
 
             # 統一辨識器: 嘗試發票辨識
-            from app.services.invoice_recognizer import recognize_invoice
+            from app.services.erp.invoice_recognizer import recognize_invoice
             import tempfile
 
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:

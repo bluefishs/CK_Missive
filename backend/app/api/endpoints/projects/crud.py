@@ -30,7 +30,7 @@ from app.schemas.common import (
     PaginationMeta,
     DeleteResponse,
 )
-from app.services.project_service import ProjectService
+from app.services.contract.core import ProjectService
 from app.core.dependencies import (
     get_service,
     require_auth,
@@ -221,7 +221,7 @@ async def update_project(
         sync_fields = ["category", "case_nature", "client_agency", "contract_amount"]
         changed = {k: v for k, v in project_data.model_dump(exclude_unset=True).items() if k in sync_fields}
         if changed:
-            from app.services.case_field_sync_service import CaseFieldSyncService
+            from app.services.contract.field_sync import CaseFieldSyncService
             sync_svc = CaseFieldSyncService(project_service.db)
             await sync_svc.sync_from_contract(project_id, changed)
             await project_service.db.commit()

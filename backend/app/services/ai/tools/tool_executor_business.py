@@ -93,7 +93,7 @@ class BusinessToolExecutor:
     async def list_pending_expenses(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """查詢待審核費用清單"""
         from app.schemas.erp.expense import ExpenseInvoiceQuery
-        from app.services.expense_invoice_service import ExpenseInvoiceService
+        from app.services.erp.expense_invoice import ExpenseInvoiceService
 
         status = params.get("status", "pending")
         limit = min(int(params.get("limit", 20)), 50)
@@ -127,7 +127,7 @@ class BusinessToolExecutor:
 
     async def get_expense_detail(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """查詢費用報銷詳情含明細和審核歷程"""
-        from app.services.expense_invoice_service import ExpenseInvoiceService
+        from app.services.erp.expense_invoice import ExpenseInvoiceService
 
         expense_id = params.get("expense_id")
         if not expense_id:

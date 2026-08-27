@@ -19,9 +19,9 @@ from app.schemas.agency import (
     FixAgenciesRequest, FixAgenciesResponse
 )
 from app.schemas.common import PaginationMeta
-from app.services.agency_service import AgencyService
-from app.services.agency_statistics_service import AgencyStatisticsService
-from app.services.agency_matching_service import AgencyMatchingService
+from app.services.agency.core import AgencyService
+from app.services.agency.statistics import AgencyStatisticsService
+from app.services.agency.matching import AgencyMatchingService
 
 logger = logging.getLogger(__name__)
 

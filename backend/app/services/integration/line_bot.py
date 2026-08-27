@@ -165,7 +165,7 @@ class LineBotService:
                 return
 
             # 統一辨識器: QR 優先 + OCR 補充
-            from app.services.invoice_recognizer import recognize_invoice
+            from app.services.erp.invoice_recognizer import recognize_invoice
 
             recognition = recognize_invoice(str(file_path))
 

@@ -146,7 +146,7 @@ class DomainToolExecutor:
     async def get_expense_overview(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """查詢費用報銷總覽"""
         from app.schemas.erp.expense import ExpenseInvoiceQuery
-        from app.services.expense_invoice_service import ExpenseInvoiceService
+        from app.services.erp.expense_invoice import ExpenseInvoiceService
 
         limit = min(int(params.get("limit", 20)), 50)
         query = ExpenseInvoiceQuery(

@@ -96,7 +96,7 @@ class UnitOfWork:
     def documents(self):
         """文件服務"""
         if 'documents' not in self._services:
-            from app.services.document_service import DocumentService
+            from app.services.document.core import DocumentService
             self._services['documents'] = DocumentService(self.session)
         return self._services['documents']
 
@@ -104,7 +104,7 @@ class UnitOfWork:
     def vendors(self):
         """廠商服務（工廠模式，直接使用）"""
         if 'vendors' not in self._services:
-            from app.services.vendor_service import VendorService
+            from app.services.vendor.core import VendorService
             self._services['vendors'] = VendorService(self.session)
         return self._services['vendors']
 
@@ -112,7 +112,7 @@ class UnitOfWork:
     def agencies(self):
         """機關服務（工廠模式，直接使用）"""
         if 'agencies' not in self._services:
-            from app.services.agency_service import AgencyService
+            from app.services.agency.core import AgencyService
             self._services['agencies'] = AgencyService(self.session)
         return self._services['agencies']
 
@@ -120,7 +120,7 @@ class UnitOfWork:
     def projects(self):
         """專案服務（工廠模式，直接使用）"""
         if 'projects' not in self._services:
-            from app.services.project_service import ProjectService
+            from app.services.contract.core import ProjectService
             self._services['projects'] = ProjectService(self.session)
         return self._services['projects']
 

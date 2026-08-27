@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.rate_limiter import limiter
 
 from app.db.database import get_async_db
-from app.services.document_import_service import DocumentImportService
+from app.services.document.import_facade import DocumentImportService
 from app.api.endpoints.auth import get_current_user
 from app.extended.models import User
 

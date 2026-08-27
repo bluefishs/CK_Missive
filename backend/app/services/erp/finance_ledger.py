@@ -8,7 +8,7 @@ from app.extended.models.finance import FinanceLedger
 from app.extended.models.invoice import ExpenseInvoice
 from app.schemas.erp.ledger import LedgerCreate, LedgerQuery
 from app.repositories.erp.ledger_repository import LedgerRepository
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 # 2026-08-03：`delete_by_source` 用了 logger 但全檔從未 import ——
 # 只在「真的刪到帳本記錄」時才走到那行，所以平時看不出來，

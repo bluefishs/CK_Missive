@@ -26,7 +26,7 @@ from .finance_ledger import FinanceLedgerService
 # 公司固定利潤率（公司留成，2026-08-18）——
 # 純函式 compute_quotation_profit 不讀設定，由呼叫端取值後傳入。
 from .company_profit import get_company_profit_rate
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 

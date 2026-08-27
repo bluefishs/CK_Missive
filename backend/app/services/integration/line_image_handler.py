@@ -101,7 +101,7 @@ async def try_create_expense_from_ocr(
             if not user:
                 return "💡 請先在系統中綁定 LINE 帳號，即可自動建立費用紀錄。"
 
-            from app.services.expense_invoice_service import ExpenseInvoiceService
+            from app.services.erp.expense_invoice import ExpenseInvoiceService
 
             expense_service = ExpenseInvoiceService(db)
             relative_path = f"receipts/{Path(image_path).name}"
@@ -158,7 +158,7 @@ async def try_create_expense_from_recognition(
             if not user:
                 return "💡 請先在系統中綁定 LINE 帳號，即可自動建立費用紀錄。"
 
-            from app.services.expense_invoice_service import ExpenseInvoiceService
+            from app.services.erp.expense_invoice import ExpenseInvoiceService
             from app.schemas.erp.expense import ExpenseInvoiceCreate
             from datetime import date as date_cls
 

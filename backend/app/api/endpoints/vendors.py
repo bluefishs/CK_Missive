@@ -21,7 +21,7 @@ from app.schemas.common import (
     SuccessResponse,
 )
 from app.schemas.erp.vendor_financial import VendorFinancialSummary
-from app.services.vendor_service import VendorService
+from app.services.vendor.core import VendorService
 from app.core.exceptions import NotFoundException, ConflictException, ResourceInUseException
 from app.core.dependencies import get_service
 

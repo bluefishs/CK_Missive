@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.dependencies import get_service, optional_auth, require_auth
 from app.extended.models import User
-from app.services.expense_invoice_service import ExpenseInvoiceService
+from app.services.erp.expense_invoice import ExpenseInvoiceService
 from app.schemas.erp.expense import ExpenseInvoiceQRScanRequest
 from app.schemas.erp.requests import ERPIdRequest
 from app.schemas.common import PaginatedResponse, SuccessResponse
@@ -136,7 +136,7 @@ async def ocr_parse_invoice(
     async with aiofiles.open(file_path, "wb") as f:
         await f.write(content)
 
-    from app.services.invoice_ocr_service import InvoiceOCRService
+    from app.services.erp.invoice_ocr_service import InvoiceOCRService
     ocr_service = InvoiceOCRService()
     try:
         result = ocr_service.parse_image(str(file_path))
@@ -177,7 +177,7 @@ async def smart_scan_invoice(
     async with aiofiles.open(file_path, "wb") as f:
         await f.write(content)
 
-    from app.services.invoice_recognizer import recognize_invoice
+    from app.services.erp.invoice_recognizer import recognize_invoice
     recognition = recognize_invoice(str(file_path))
 
     result_data = recognition.to_dict()

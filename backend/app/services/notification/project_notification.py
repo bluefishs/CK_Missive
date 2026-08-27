@@ -9,7 +9,7 @@ from sqlalchemy import select, and_, text
 from datetime import datetime
 
 from app.extended.models import User, SystemNotification, DocumentCalendarEvent
-from app.services.notification_template_service import (
+from app.services.notification.template import (
     NotificationTemplateService,
     NotificationType,
     get_notification_template_service

@@ -93,7 +93,7 @@ async def update_case(
         changed = {k: v for k, v in data.model_dump(exclude_unset=True).items()
                    if k in ("category", "case_nature", "client_name", "contract_amount")}
         if changed:
-            from app.services.case_field_sync_service import CaseFieldSyncService
+            from app.services.contract.field_sync import CaseFieldSyncService
             sync_svc = CaseFieldSyncService(service.db)
             sync_result = await sync_svc.sync_from_pm(case_id, changed)
             if any(sync_result.values()):
@@ -138,7 +138,7 @@ async def update_case_by_id(
         changed = {k: v for k, v in req.data.model_dump(exclude_unset=True).items()
                    if k in ("category", "case_nature", "client_name", "contract_amount")}
         if changed:
-            from app.services.case_field_sync_service import CaseFieldSyncService
+            from app.services.contract.field_sync import CaseFieldSyncService
             sync_svc = CaseFieldSyncService(service.db)
             sync_result = await sync_svc.sync_from_pm(req.id, changed)
             if any(sync_result.values()):
@@ -291,7 +291,7 @@ async def batch_update_cases(
     同步更新 ContractProject + ERPQuotation。
     """
     from app.extended.models.pm import PMCase
-    from app.services.case_field_sync_service import CaseFieldSyncService
+    from app.services.contract.field_sync import CaseFieldSyncService
     from sqlalchemy import select
 
     updates = body.get("updates", [])
@@ -393,7 +393,7 @@ async def import_cases_xlsx(
 
         # 複用 batch-update 邏輯
         from app.extended.models.pm import PMCase
-        from app.services.case_field_sync_service import CaseFieldSyncService
+        from app.services.contract.field_sync import CaseFieldSyncService
         from sqlalchemy import select
 
         allowed_fields = {"category", "case_nature", "client_name", "contract_amount",

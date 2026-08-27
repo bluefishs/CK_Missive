@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_async_db
-from app.services.project_agency_contact_service import ProjectAgencyContactService
+from app.services.contract.agency_contact import ProjectAgencyContactService
 from app.schemas.project_agency_contact import (
     ProjectAgencyContactCreate,
     ProjectAgencyContactUpdate,

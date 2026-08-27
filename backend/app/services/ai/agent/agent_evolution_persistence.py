@@ -211,7 +211,7 @@ async def push_evolution_report(summary: str, report: Dict[str, Any]) -> None:
             f"\U0001f4ca 信號: {signals} | 動作: {actions_count}"
         )
 
-        from app.services.notification_dispatcher import NotificationDispatcher
+        from app.services.notification.dispatcher import NotificationDispatcher
         dispatcher = NotificationDispatcher()
         line_ids = [uid.strip() for uid in push_targets.split(",") if uid.strip()] if push_targets else None
         discord_ids = [cid.strip() for cid in discord_channels.split(",") if cid.strip()] if discord_channels else None

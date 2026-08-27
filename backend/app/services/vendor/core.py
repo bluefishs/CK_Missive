@@ -34,7 +34,7 @@ from app.repositories import VendorRepository
 from app.extended.models import PartnerVendor, project_vendor_association
 from app.schemas.vendor import VendorCreate, VendorUpdate
 from app.services.base import DeleteCheckHelper, StatisticsHelper
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 

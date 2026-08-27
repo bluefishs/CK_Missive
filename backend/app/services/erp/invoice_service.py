@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.erp import ERPInvoiceRepository
 from app.schemas.erp import ERPInvoiceCreate, ERPInvoiceUpdate, ERPInvoiceResponse
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 

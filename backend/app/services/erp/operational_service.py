@@ -26,7 +26,7 @@ from app.schemas.erp.operational import (
     OperationalAccountStatsResponse,
     ACCOUNT_CATEGORIES,
 )
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 

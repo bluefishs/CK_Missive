@@ -225,7 +225,7 @@ async def rebuild_correspondence(
     logger = logging.getLogger(__name__)
 
     try:
-        from app.services.document_dispatch_linker_service import DocumentDispatchLinkerService
+        from app.services.document.dispatch_linker import DocumentDispatchLinkerService
 
         # 1. 確認派工單存在
         order_result = await db.execute(

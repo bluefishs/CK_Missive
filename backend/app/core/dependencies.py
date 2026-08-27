@@ -53,7 +53,7 @@ def get_service(service_class: Type[T]) -> Callable[[AsyncSession], T]:
 
     使用方式:
         from app.core.dependencies import get_service
-        from app.services.vendor_service import VendorService
+        from app.services.vendor.core import VendorService
 
         @router.get("/vendors")
         async def list_vendors(
@@ -79,13 +79,13 @@ get_service_with_db = get_service
 
 def get_project_service(db: AsyncSession = Depends(get_async_db)):
     """ProjectService 工廠函數"""
-    from app.services.project_service import ProjectService
+    from app.services.contract.core import ProjectService
     return ProjectService(db)
 
 
 def get_agency_service(db: AsyncSession = Depends(get_async_db)):
     """AgencyService 工廠函數"""
-    from app.services.agency_service import AgencyService
+    from app.services.agency.core import AgencyService
     return AgencyService(db)
 
 

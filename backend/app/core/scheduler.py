@@ -793,7 +793,7 @@ async def proactive_trigger_scan_job():
     from app.db.database import async_session_maker
     from app.services.ai.proactive.proactive_triggers import ProactiveTriggerService
     from app.services.ai.proactive.proactive_triggers_erp import ERPTriggerScanner
-    from app.services.notification_helpers import _safe_create_notification
+    from app.services.notification.helpers import _safe_create_notification
 
     logger.info("開始執行夜間吹哨者掃描")
 
@@ -1418,7 +1418,7 @@ async def ledger_reconciliation_job():
                     ap_diff, paid_payable_total, ledger_payable_total,
                 )
                 # 寫入告警通知
-                from app.services.notification_helpers import _safe_create_notification
+                from app.services.notification.helpers import _safe_create_notification
                 if ar_diff > 0:
                     await _safe_create_notification(
                         notification_type="reconciliation_alert",

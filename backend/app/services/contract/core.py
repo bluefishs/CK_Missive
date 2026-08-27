@@ -42,7 +42,7 @@ from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.core.rls_filter import RLSFilter
 from app.repositories import ProjectRepository
 from app.repositories.taoyuan import PaymentRepository
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
@@ -507,7 +507,7 @@ class ProjectService(AuditableServiceMixin):
 
     def _analytics(self):
         """Lazy-load analytics service"""
-        from app.services.project_analytics_service import ProjectAnalyticsService
+        from app.services.contract.analytics import ProjectAnalyticsService
         return ProjectAnalyticsService(self.db)
 
     async def get_project_statistics(self) -> dict:

@@ -125,7 +125,7 @@ async def prepare_document_data(
     contract_project_id = await match_project(contract_name) if contract_name else None
 
     # 正規化收發文單位
-    from app.services.receiver_normalizer import (
+    from app.services.document.receiver_normalizer import (
         normalize_unit, cc_list_to_json, infer_agency_from_doc_number,
     )
     s_norm = normalize_unit(sender_name)

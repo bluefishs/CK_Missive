@@ -11,7 +11,7 @@
 
 使用方式:
     from app.core.dependencies import get_service
-    from app.services.agency_service import AgencyService
+    from app.services.agency.core import AgencyService
 
     @router.get("/agencies")
     async def list_agencies(
@@ -27,7 +27,7 @@ from app.repositories import AgencyRepository
 from app.services.base import DeleteCheckHelper
 from app.extended.models import GovernmentAgency, OfficialDocument
 from app.schemas.agency import AgencyCreate, AgencyUpdate
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class AgencyService(AuditableServiceMixin):
             ValueError: 機關名稱已存在或無效
         """
         # 正規化名稱（去除協力廠商後綴、統編前綴等）
-        from app.services.receiver_normalizer import normalize_unit
+        from app.services.document.receiver_normalizer import normalize_unit
         normalized = normalize_unit(data.agency_name)
         if normalized.primary != data.agency_name:
             data.agency_name = normalized.primary

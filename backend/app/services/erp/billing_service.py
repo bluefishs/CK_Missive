@@ -15,7 +15,7 @@ from app.extended.models.erp import ERPBilling
 from app.repositories.erp import ERPBillingRepository, ERPQuotationRepository
 from app.schemas.erp import ERPBillingCreate, ERPBillingUpdate, ERPBillingResponse
 from .finance_ledger import FinanceLedgerService
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 

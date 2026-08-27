@@ -22,9 +22,9 @@ from app.extended.models import (
     User,
     project_user_assignment,
 )
-from app.services.document_service import DocumentService
-from app.services.document_statistics_service import DocumentStatisticsService
-from app.services.document_export_service import DocumentExportService
+from app.services.document.core import DocumentService
+from app.services.document.statistics import DocumentStatisticsService
+from app.services.document.export import DocumentExportService
 from app.schemas.document import (
     DocumentFilter,
     DocumentListQuery,

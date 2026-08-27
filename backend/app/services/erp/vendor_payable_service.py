@@ -14,7 +14,7 @@ from app.repositories.erp import ERPVendorPayableRepository, ERPQuotationReposit
 from app.repositories.vendor_repository import VendorRepository
 from app.schemas.erp import ERPVendorPayableCreate, ERPVendorPayableUpdate, ERPVendorPayableResponse
 from .finance_ledger import FinanceLedgerService
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 

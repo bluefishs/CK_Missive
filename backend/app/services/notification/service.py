@@ -384,7 +384,7 @@ class NotificationService:
         table_name: str = "documents"
     ) -> bool:
         """安全版本：通知關鍵欄位變更（委派至 notification_helpers）"""
-        from app.services.notification_helpers import safe_notify_critical_change
+        from app.services.notification.helpers import safe_notify_critical_change
         return await safe_notify_critical_change(
             document_id=document_id,
             field=field,
@@ -404,7 +404,7 @@ class NotificationService:
         user_name: Optional[str] = None
     ) -> bool:
         """安全版本：通知公文刪除（委派至 notification_helpers）"""
-        from app.services.notification_helpers import safe_notify_document_deleted
+        from app.services.notification.helpers import safe_notify_document_deleted
         return await safe_notify_document_deleted(
             document_id=document_id,
             doc_number=doc_number,

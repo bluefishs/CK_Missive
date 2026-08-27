@@ -29,7 +29,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from sqlalchemy import text
 
-from app.services.audit_event_loggers import AuditEventLoggersMixin as _AuditEventLoggersMixin
+from app.services.audit.event_loggers import AuditEventLoggersMixin as _AuditEventLoggersMixin
 
 logger = logging.getLogger(__name__)
 

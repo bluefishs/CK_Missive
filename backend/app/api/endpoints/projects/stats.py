@@ -16,7 +16,7 @@
 from fastapi import APIRouter, Depends
 
 from app.schemas.common import SuccessResponse
-from app.services.project_service import ProjectService
+from app.services.contract.core import ProjectService
 from app.core.dependencies import (
     get_service,
     require_auth,

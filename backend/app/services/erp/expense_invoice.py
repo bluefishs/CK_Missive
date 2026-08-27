@@ -18,7 +18,7 @@ from app.repositories.erp.expense_invoice_repository import ExpenseInvoiceReposi
 from .finance_ledger import FinanceLedgerService
 from .expense_approval import ExpenseApprovalService
 from .expense_import import ExpenseImportService
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 import logging
 

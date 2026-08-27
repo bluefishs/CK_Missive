@@ -18,7 +18,7 @@ from app.schemas.erp.expense import (
 )
 from app.repositories.erp.expense_invoice_repository import ExpenseInvoiceRepository
 from .finance_ledger import FinanceLedgerService
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 import logging
 
@@ -213,7 +213,7 @@ class ExpenseApprovalService(AuditableServiceMixin):
     ) -> None:
         """核銷狀態變更通知"""
         try:
-            from app.services.notification_helpers import _safe_create_notification
+            from app.services.notification.helpers import _safe_create_notification
 
             STATUS_LABELS = {
                 "pending": "待主管審核", "manager_approved": "主管已核准",

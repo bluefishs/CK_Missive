@@ -13,7 +13,7 @@ from app.schemas.erp.asset import (
     AssetLogCreateRequest,
     AssetLogListRequest,
 )
-from app.services.audit_mixin import AuditableServiceMixin
+from app.services.audit.mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 

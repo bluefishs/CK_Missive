@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Body
 
 from app.core.dependencies import require_auth, get_service
 from app.extended.models import User
-from app.services.project_staff_service import ProjectStaffService
+from app.services.contract.staff import ProjectStaffService
 from app.schemas.common import DeleteResponse
 from app.schemas.project_staff import (
     ProjectStaffCreate,
