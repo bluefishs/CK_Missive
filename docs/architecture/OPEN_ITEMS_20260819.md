@@ -30,6 +30,10 @@
 | A17 | **`FT_StorageTank` NAS 備份停在 54 天前，且該專案無 session** | 需指派 | 同上 |
 | ~~A18~~ | ~~**L43 的 503 防禦只覆蓋了一半**~~ | **2026-08-26 由 CK_AaaP 推翻前提，已撤銷**。我原本要 owner 去 CF Dashboard 查「該 tunnel 的 health path 指向哪一個」—— **那個角色根本不存在**。他們從外部打四條路徑證明：任意路徑都被原樣轉發到同一個 origin service，由應用決定回什麼 ⇒ CF Tunnel 的 ingress 是 **hostname → service** 的映射，**它不會挑一個 health path 去探 origin**（除非另掛 CF Load Balancer 並設 origin health monitor，那是 LB 的設定不是 tunnel 的）。⇒ 容器 healthcheck 指 `/health`（正確、實測 `ok=True docs=2023 KG=49919`）與 CF 是**兩件互不相干的事**，L43 的防禦沒有缺口。`configs/cloudflare-tunnel.yml` 不生效仍然是事實（已在檔頭標明），但它不生效**不代表有另一份設定在別處決定 health path** | 無需 owner 動作。⚠️ 副產品已落地：他們同時指出本站 **SPA catch-all 讓任意路徑回 200 + text/html**，而 `/api/*` 才回 404 JSON ⇒ **「200 就是通過」會把 catch-all 讀成認證繞過**。已加進 `probe_fingerprint_guard`（weekly 67）當第二種指紋 |
 
+| A19 | **「假死自動復原」現在是空的 —— 要不要補回來** | `ecosystem.config.js` 宣告的 `health-watchdog`（每 2 分鐘探 `/health`、連 2 次失敗就重啟）**沒有在 PM2 上跑**（`pm2 jlist` 的 14 支全屬別的 repo）。容器端看似有覆蓋其實沒有：healthcheck 只會把容器標成 **unhealthy**，而 **Docker 不會因為 unhealthy 就重啟容器**（`restart: always` 只在程序結束時作用）⇒ 一個「還活著但卡住」的 backend 會停在 unhealthy 不動。08-24 那次「56 容器 0 非健康」量的是**狀態**，不是**復原能力**。三選一：① `pm2 start ecosystem.config.js --only health-watchdog`（最快，但 PM2 是第三個排程層、只有註冊覆蓋沒有執行結果哨兵）② 加 container autoheal ③ 明確接受「假死靠人看」並把 `health-watchdog.sh` 歸檔 | `ecosystem.config.js` 檔頭（2026-08-27 已標註三支的實際接手者）|
+| A20 | **CSP 轉強制的時機** | 判準已經可查證：`increase(csp_violations_total[7d]) == 0`，**且 backend 起來要滿 7 天**（counter 隨重啟歸零）。最早可判日 **2026-09-03**。已知一筆違規已修（`accounts.google.com/gsi/style`，`style-src` 已補）。轉強制只改一個參數名，回退成本很低 —— 但要你決定何時開那個維護窗 | `docs/runbooks/csp-report-only-to-enforce.md` |
+| A21 | **Facade B 方案 60 天 trial 已到期 28 天** | 到期日 2026-07-30，儀表板 §10 一直列著「待 owner 結案」。建議（RETRO_20260730 §4 已寫）：**全保留 + 停止設成長目標 + 往後新增 facade 須先有 ≥3 既存 caller**。這不需要新的分析，只需要你說一句「就這樣」，然後把它從 §10 拿掉 —— **一個永遠不結案的待辦，會訓練人忽略整張待辦表** | `RETRO_20260730_POST_SWEEP_REVIEW.md` §4 |
+
 ---
 
 ## B. 已查明根因、尚未實作
@@ -45,6 +49,9 @@
 | B9 | **`require_scope` 是裝飾性的 —— token→scope 對照從未實作** | `_ALL_SCOPES = VALID_SCOPES`，所以 `require_scope("admin:system")` 與 `require_scope("read:kg")` 效果**完全相同**：有 token 就過，從不檢查這把 token 有沒有被授予該 scope | **具體後果**：CK_Website 為了送一則通知呼叫 `/api/notify/digest`（宣告 `admin:system`），實際拿到能讀 KG、改 agent、跑備份的憑證。⚠️ **要修需要跨 repo**：`MCP_SERVICE_TOKEN` 由 Hermes／LINE／CK_Website 共用，改成多把或帶 scope 宣告要各消費端同步 ⇒ **屬 owner 決策**。2026-08-21 已先讓它出聲（每次通過都記 log 說明未做對照），不再只寫在註解裡 |
 | B8 | **廠商重複（勤典工程行／勤典測量工程行）** | ⛔ **owner 2026-08-20 決定不做**：「此非系統問題，實為人為填報機制要修正」。量測支持這個判斷 —— 5 組名稱相似裡**只有 1 組是真重複**（台電三個發電廠、工務局與用地科、「楊長燁加李雅倫」「祐鴻+昱緯+建倫」都是有意義的不同），自動判重會產生 4/5 假陽性 | **不要再提議加相似度比對**。另：補建的 137 件邀標案件裡 130 件的委託單位只有文字沒有連結，而 101 個不重複客戶名裡有「何明利」「劉庚霖之繼承人(4人)」「劉進財、孫瑟花」等**自然人地主** —— 那些本來就不該建成「廠商」，自動補建會把資料模型弄錯 |
 | ~~B7~~ | ~~**管理動作按鈕對一般使用者可見但按下去 403**~~ | **2026-08-26 收束**。原記的 4 頁實查後只有 `/ai/erp-graph` 真的漏（另三頁都已有 `isAdmin` 且真的用在渲染上）；接著建 `admin_action_visibility_audit.py`（weekly 68）**自動掃全**，另抓到兩個原本不在清單裡的：`/ai/db-graph`（選單權限已是 `admin:settings`、**但路由沒鎖 ⇒ 直接打網址就進得去**）與 `/staff`（選單權限 `projects:read` ⇒ **一般同仁看得到，點進去是空表格＋統計全 0，看起來像「公司沒有同仁」**）| 三頁修法各不相同且都**不放寬端點權限**：erp-graph 分頁依 `isAdmin` 顯示／db-graph 路由補 `roles={['admin']}` 與選單一致／staff **只治症狀**（載不到要說出來、不給必然失敗的按鈕），該不該對一般同仁開放仍是 owner 的產品決策。⚠️ 這支檢核自己踩了兩個坑才有鑑別力，見 `scripts/checks/README.md` weekly 68 |
+
+| B10 | **`scripts/hooks/post-commit-code-graph.sh` 從來沒有被安裝** | `.git/hooks/post-commit` 實際跑的是知識地圖增量更新，裡面 **grep 不到任何 `code-graph`** ⇒ 這支腳本存在於 repo，但沒有任何東西會執行它 | 規模小、風險低。要嘛併進現有 post-commit，要嘛歸檔。**判準是 `scripts/checks/README.md` 已經寫過的那一句：「這支東西壞掉的時候，會有人知道嗎？」** |
+| B11 | **「有產出端、沒有消費端」這個維度沒有任何檢核在管** | 2026-08-27 一輪覆盤，**五個發現的形狀完全一樣**：版本綁定沒人帶／治理檢核讀空目錄／前端埠沒人聽而探針探別的埠／CSP 違規沒人看／部署腳本重啟不存在的程序。全部都不會報錯 | ⚠️ **刻意不做成通用掃描**：實測掃 `scripts/`（`checks/` 以外）81 支，25 支完全沒被提到、13 支只有文件提到 —— 但多數是**刻意手動的工具**，逐一核實後真訊號只有 2 個（訊噪比約 1:19）。做成通用告警＝製造沒人看的噪音（同 08-20 那次「48 個 Select 我選擇不交付」）。**建議改為三個窄座標各一支**，都有明確判準、低誤報：① `ecosystem.config.js` 宣告 vs `pm2 jlist` 實際 ② Prometheus metric expose vs 有無 alert／dashboard／檢核在讀 ③ git hook 腳本 vs `.git/hooks` 實際安裝 |
 
 ---
 
