@@ -155,6 +155,35 @@ run_step "28" "Windows 排程存活"             "scripts/checks/windows_task_li
 #    改我這支而不是對方的 —— 動自己加的東西不會撞到別人正在編輯的檔案區段。
 #    編號因此不隨檔案順序遞增，那是可接受的（本檔本來就有 23→26 的跳號）。
 run_step "71" "PM2 宣告 vs 實際在跑"          "scripts/checks/pm2_declared_vs_running_audit.py"
+
+# 2026-08-27：四支「強制規範的守門腳本」先前**沒有任何東西在跑它們**。
+#
+# 鏈斷在三個地方，而每一段看起來都像已經接好了：
+#   ① `scripts/checks/README.md` 把它們列在「⏰ 後端排程（scheduler.py）」底下 ——
+#      而 `scheduler.py` **一次都沒提到它們**（實測 grep -c 全為 0）。
+#   ② 真正的執行者設計上是 `.git/hooks/pre-commit`，而那支 hook 裡**一支都沒有**
+#      （檔案自 2026-05-27 未再更動）。
+#   ③ orchestrator 有一步 `_precommit_hook_probe` 正是要抓②，
+#      **但它跑在容器裡，而 `.git/` 刻意不 mount** ⇒ 它回 `info: skipped`，
+#      自 2026-05-31 起每天都是這個結果。**能抓到的地方它不跑，跑的地方它抓不到。**
+#
+# `async_session_race_guard` 守的是 `development-rules.md` §5.1／ADR-0021
+# （asyncio.gather 不得共用 db session）—— 規範寫著**強制**。
+#
+# 接到 weekly 而不是加回 pre-commit：host 端、進版控、不增加每次提交的延遲
+# （08-26 才因為同樣的理由把 tsc 從 PostToolUse 拿掉）。
+# ⚠️ 實測四支目前**全部通過**（一個 WARN）—— 這是把潛伏缺口補上，
+#    不是修一個正在發生的問題。
+run_step "72" "並行 DB session 競態（ADR-0021 強制規範）" "scripts/checks/async_session_race_guard.py"
+run_step "73" "SSE 端點必須顯式 identity 編碼"        "scripts/checks/sse_headers_guard.py"
+run_step "74" "Schema 不得觸發 ORM lazy-load"          "scripts/checks/schema_lazy_load_guard.py"
+run_step "75" "pattern YAML id-like 欄位型別"          "scripts/checks/pattern_yaml_type_guard.py"
+
+# 2026-08-27：本表自己的守門人。
+# `declaration_gate`（本表的另一個守門人）只驗「這支腳本有沒有被宣告」，
+# **宣告是不是真的先前沒有人驗** —— 首跑就抓到 7 支宣告錯了，
+# 其中四支（含 ADR-0021 強制規範）宣告的執行者一次都沒提到它們。
+run_step "76" "README 宣告的執行者是不是真的在跑它" "scripts/checks/declared_runner_truth_audit.py"
 # 2026-08-05 owner：「有資安風險皆不應該公開」。掃全 portfolio 當下發現
 # lvrland 與 digitaltwin 把完整 API schema 放在公網（1.5MB／196 端點），
 # 且沒有任何機制在問「我們對外開了什麼」—— 修一次不代表不會再開。
@@ -404,7 +433,12 @@ run_step "70" "廠商身分源頭一致（同一張單不得有兩個名字）" 
 _HIST="wiki/memory/fitness_step_history.jsonl"
 mkdir -p "$(dirname "$_HIST")" 2>/dev/null
 {
-  printf '{"ts":"%s","runner":"%s","steps":{' "$(date +%Y-%m-%dT%H:%M:%S)" "weekly"
+  # 2026-08-27：手動跑必須與排程跑**分得出來**。
+  # 我今天為了驗新加的 step 手動全跑一次，寫進歷史的那一行與排程跑的一模一樣 ——
+  # 而這份歷史唯一的用途是回答「哪一支從來沒紅過」，多一筆人為樣本就會稀釋它。
+  # 同族前例：負向測試污染正式晨報、走查累積 222 列 user_sessions。
+  # 用法：CK_FITNESS_MANUAL=1 bash scripts/checks/run_fitness_weekly.sh
+  printf '{"ts":"%s","runner":"%s","manual":%s,"steps":{'     "$(date +%Y-%m-%dT%H:%M:%S)" "weekly"     "$([ "${CK_FITNESS_MANUAL:-0}" = "1" ] && echo true || echo false)"
   _first=1
   for _r in "${STEP_RESULTS[@]:-}"; do
     [ -z "$_r" ] && continue

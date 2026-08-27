@@ -413,11 +413,21 @@ def _precommit_hook_probe() -> StepResult:
     git_dir = PROJECT_ROOT / ".git"
     hook = git_dir / "hooks" / "pre-commit"
     if not git_dir.exists():
-        # container 環境 .git 不 mount，回 INFO skip (不是 RED)
+        # 2026-08-27：這個 skip **自 2026-05-31 起每天都發生，而且不可能不發生** ——
+        # 本 pipeline 只跑在容器內，而 `.git/` 刻意不 mount。
+        # ⇒ 「能抓到的地方它不跑，跑的地方它抓不到」。
+        #
+        # 實測後果：那四支 guard 的 hook 裡**一支都沒有**（hook 自 2026-05-27 未動），
+        # 而本步驟三個月來每天回 info、看起來像有人在顧。
+        # `async_session_race_guard` 守的是 ADR-0021／development-rules §5.1 的**強制規範**。
+        #
+        # 執行者已改接 weekly 72–75（host 端、進版控）。這一步保留為「host 端額外確認」，
+        # 但 summary 必須指出真正的執行者，否則讀 digest 的人會把 info 讀成覆蓋。
         return StepResult(
             name="precommit_hook",
             status="info",
-            summary="skipped: .git/ not present (container env, host-side check only)",
+            summary=("skipped: .git/ 不在容器內（設計如此，故此步驟在此環境永遠不會評估）"
+                     "；四支 guard 的實際執行者＝weekly 72–75"),
             duration_ms=(time.time() - t0) * 1000,
         )
     if not hook.exists():

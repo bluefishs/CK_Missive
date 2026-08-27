@@ -26,6 +26,7 @@
 #   4. 等 health
 #   5. 驗身分：runtime 回報的 commit 必須等於這次 build 的 commit
 #   6. 驗公網 200（L76：Windows Docker recreate 會留殭屍埠轉發 socket）
+#   7. 部署後四層驗證 deploy_verify.py（L93：三層 200 而 ORM mapper 壞掉＝無法登入）
 #
 # Version: 2.0.0
 
@@ -42,7 +43,7 @@ echo "╚═══════════════════════�
 
 # ── Step 1: Frontend build ────────────────────────────────────────────
 echo ""
-echo "[1/6] Building frontend (production)..."
+echo "[1/7] Building frontend (production)..."
 ( cd frontend && npm run build --silent )   # 不接 pipe，build 失敗就是失敗
 
 MAIN_JS=$(ls frontend/dist/assets/main-*.js 2>/dev/null | head -1 || true)
@@ -68,24 +69,24 @@ fi
 # ── Step 2: Backend image build（帶身分）──────────────────────────────
 if [ "$FRONTEND_ONLY" = "0" ]; then
     echo ""
-    echo "[2/6] Building backend image (帶 build 身分綁定)..."
+    echo "[2/7] Building backend image (帶 build 身分綁定)..."
     # shellcheck source=/dev/null
     source scripts/deploy/build-args.sh    # 會印出「build 綁定：vX @ <commit>」
     $COMPOSE build backend
 
     echo ""
-    echo "[3/6] Recreating backend container..."
+    echo "[3/7] Recreating backend container..."
     $COMPOSE up -d backend
 else
     echo ""
-    echo "[2/6] (skipped) backend image build"
-    echo "[3/6] (skipped) backend recreate"
+    echo "[2/7] (skipped) backend image build"
+    echo "[3/7] (skipped) backend recreate"
     CK_BUILD_COMMIT="${CK_BUILD_COMMIT:-}"
 fi
 
 # ── Step 4: Health ────────────────────────────────────────────────────
 echo ""
-echo "[4/6] Waiting for backend health..."
+echo "[4/7] Waiting for backend health..."
 TRIES=0
 until curl -sf http://localhost:8001/health >/dev/null 2>&1; do
     TRIES=$((TRIES + 1))
@@ -102,7 +103,7 @@ echo "  ✓ Backend healthy (${TRIES}x2s)"
 # 「內容有沒有進去」與「跑的是哪一份」是兩個問題。前者由
 # container_image_freshness_check 的 md5 比對回答，後者只有這裡回答得了。
 echo ""
-echo "[5/6] Verifying build identity..."
+echo "[5/7] Verifying build identity..."
 RUNTIME_JSON=$(curl -sf --max-time 15 http://localhost:8001/api/health/detailed || echo '{}')
 RUNTIME_COMMIT=$(printf '%s' "$RUNTIME_JSON" | python -c "
 import json,sys
@@ -134,7 +135,7 @@ fi
 # L76：Windows 上 recreate 後常留殭屍埠轉發 socket ⇒ 容器 healthy 但公網 502。
 # 所以本機 health 綠**不能**當作部署成功。
 echo ""
-echo "[6/6] Verifying public access..."
+echo "[6/7] Verifying public access..."
 HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/health || echo 000)
 if [ "$HTTP" = "200" ]; then
     echo "  ✓ https://missive.cksurvey.tw/health → 200"
@@ -145,6 +146,28 @@ else
 fi
 API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/ || echo 000)
 echo "  ✓ 公網首頁 → $API"
+
+# 2026-08-27：上面三層**擋不住 L93**。
+#
+# 2026-08-16 加 `approved_by` 後 `ExpenseInvoice` 有兩個外鍵指向 users，
+# SQLAlchemy mapper 初始化失敗 ⇒ `POST /api/auth/google` 回 500，
+# **owner 回報「系統無法登入」** —— 而當時 `/health` 與首頁**全部 200**
+# （它們不觸發 ORM mapper 設定）。
+#
+# `deploy_verify.py` 就是為了這件事寫的（多一層走 ORM 與認證鏈的 `/api/auth/check`），
+# 而它**先前沒有任何東西在呼叫它**：README 把它列在「每日 fitness_daily」底下，
+# 而 `run_fitness_daily.sh` 一次都沒提到它。寫好了、擺著、沒人跑。
+#
+# ⚠️ 第 4 層的正確答案是 **401 不是 200**（未帶憑證本來就該被拒絕）——
+# 把 401 當失敗會讓它永遠紅，把 500 當通過則等於沒有這一層。判準在該腳本內。
+echo ""
+echo "[7/7] 部署後四層驗證（含 ORM／認證鏈，L76 + L93）..."
+if python "$(dirname "$0")/../checks/deploy_verify.py"; then
+    echo "  ✓ 四層皆通過"
+else
+    echo "  ✗ 部署後驗證失敗 —— 公網 200 不代表系統能用（見上方逐層結果）"
+    exit 1
+fi
 
 echo ""
 echo "══════════════════════════════════════"

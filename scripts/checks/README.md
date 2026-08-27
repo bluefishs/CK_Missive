@@ -30,7 +30,7 @@
 > 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
 > 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
 
-<!--baseline:check_scripts-->合計 **181** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **182** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -71,7 +71,6 @@
 | `cron_silent_dormant_check.py` | Fitness step (v6.12 #2 補完): cron silent dormant 偵測 |
 | `dashboard_freshness_check.py` | Fitness step 64: GOVERNANCE_INTEGRATED_DASHBOARD freshness 偵測 |
 | `db_transaction_health_check.py` | 資料庫連線狀態健檢 —— 抓「交易中止卻未 rollback」的現行犯 |
-| `deploy_verify.py` | 部署後驗證（L76 三層＋**L93 ORM／認證層**）—— 2026-08-16 事故：三層全 200 而登入是死的，因為 /health 不觸發 ORM mapper。第 4 層用 **POST** /api/auth/check，401 是正確答案、500 才是壞了 |
 | `declaration_gate.py` | 腳本強制表態閘門（CK_Missive 薄包裝）— 2026-08-09 |
 | `docker_compose_volume_consistency.py` | 偵測同一專案多個 docker-compose*.yml + backup script 內 volume 命名 drift |
 | `governance_dashboard_completeness_audit.py` | Governance Dashboard Completeness Audit |
@@ -146,11 +145,24 @@
 | `vendor_contract_payable_consistency.py` | **weekly 69**：協力廠商 tab 的「合約經費」與應付帳款 tab 的「分期應付」對不對得起來。owner 2026-08-27 問「如何對應管控避免兩端不一致」—— 查證後**問題比不一致更基本：兩端幾乎沒有交集**（33 筆協力廠商登記裡**只有 1 筆**填了合約經費、28 組應付完全沒登記過廠商）。而不一致**已經真實發生**：`CK2026_PM_01_005` 政威資訊，協力廠商填 $2,000,000 而應付合計 $1,000,000，**差 100 萬且沒有任何東西在報**。⚠️ 兩端沒有共同外鍵，只能經 `case_code` 三跳相接 —— 漏掉那一跳會**回 0 筆而不是報錯**，看起來像完全一致。判準：兩端都有值且差 > 1 元 → RED（那是矛盾）／只有一端 → YELLOW（那是還沒填，把 29 筆未填報成紅色只會訓練人忽略它）。三個修法方案見 `VENDOR_FUND_CONTROL_PLAN.md` |
 | `admin_action_visibility_audit.py` | **weekly 68**：管理動作有沒有給一般同仁看見（`OPEN_ITEMS` B7）。判準三條件同時成立才 RED：**被路由掛載的頁面**＋**路由沒有 roles 限制**＋**檔內消費管理端點卻無身分守衛**。⚠️ 這支自己踩了兩個坑才有鑑別力：①第一版只比對**字面路徑**，而規範 §1 要求走端點常數 ⇒ 路徑根本不在頁面檔裡，把 ERPGraphPage 的守衛**完全移除**它仍回 GREEN（首跑那兩個命中剛好都是假陽性）；②改用常數後又用**裸常數名**，`CREATE`／`DELETE`／`LIST` 在四個 endpoints 檔裡都有，於是 `API_ENDPOINTS.USERS.CREATE` 被對到 backup 的 `CREATE` —— **同一個坑 08-20 掃全管理員端點時已踩過一次**。用完整限定名後 14→2，兩個都是真的。鑑別力實測 0→1→0 |
 | `probe_fingerprint_guard.py` | **weekly 67**：公網探測的**客戶端指紋**。Cloudflare 依 User-Agent 擋 —— 實測同一條已知未受保護的端點：`curl` 預設 UA **200**／`urllib` 預設 UA **403**／`urllib` 帶瀏覽器 UA **200**。⇒ 用 Python 預設 UA 探公網，每一條都回 403，**而那個 403 長得正好像「認證有效」**。本專案 08-21 因此四次得出「已經擋住了」的錯誤結論；CK_AaaP 08-24 在 pile 一個**進行中的 P0 外洩**上重現同一件事。⚠️ 本 repo 三支端點稽核**不對外打 HTTP**（讀容器內 runtime tree）故免疫，這支守的是臨時探測腳本 。**2026-08-26 補第二種指紋＋反向案例**（CK_AaaP 建議）：本站 **SPA catch-all 讓任意路徑回 200 + text/html**，只有 `/api/*` 回 404 JSON ⇒「200 就是通過」會把 catch-all 讀成認證繞過，**兩個方向都會錯**（誤判有洞／漏掉真的洞）。反向案例＝打一條已知回 JSON 的 `/api/*`：連它都被判成 catch-all 就是 **content-type 沒在讀**，exit 2 不下結論。鑑別力實測：寫死 content-type 即 **EXIT=2**、還原即 0。⚠️ 我的第一版自己就壞了（`via_urllib` 寫死打 `CONTROL_URL` ⇒ catch-all 根本沒被測到，而且同一段輸出印 `→ 200` 又說「打不到」還 exit 0）——**新寫的檢核第一次跑出來的結果，最該懷疑的是檢核本身**（CK_AaaP 的判準；他們有結構相同的案例：守門測試造的反向告警自己滿足了守門正則因而通過）|
-| `admin_endpoint_ui_consumers.py` | **人工觸發、刻意不接排程**：需要管理員的端點被哪些非管理頁面消費。2026-08-20「同仁變成代碼」修完後的掃全結果＝無第二例；剩下的是「頁面只要登入但頁內含管理動作」，403 部分屬刻意 ⇒ 接排程只會每天報同樣 4 個已知項。它是 `OPEN_ITEMS` **C5**（走查永遠以最高權限跑）收束時的盤點素材 |
 | `wiki_kg_link_audit.py` | Wiki ↔ KG 雙向引用率審計 |
 | `windows_task_liveness_audit.py` | Windows 排程存活稽核 |
 | `pm2_declared_vs_running_audit.py` | **PM2 宣告 vs 實際在跑**（weekly 71）。2026-08-27 人工盤點才發現 `ecosystem.config.js` 宣告三支而 pm2 上一支都沒在跑；其中 `health-watchdog` 的「假死自動復原」**沒有等價物** —— Docker 不會因為 unhealthy 就重啟容器。刻意不設 baseline：兩個方向（跑起來／從設定移除）都會讓它變綠，用 baseline 反而讓「還沒決定」看起來像已處理 |
 | `work_record_chain_semantics_audit.py` | 作業紀錄鏈的語意檢核：完成的成果不該是新事件的前序 |
+
+> ⚠️ **2026-08-27 校正**：下面四支先前列在「⏰ 後端排程（`scheduler.py`）」底下，
+> 而 `scheduler.py` **一次都沒提到它們**。真正的執行者設計上是 `.git/hooks/pre-commit`，
+> 而那支 hook 裡**一支都沒有**（檔案自 2026-05-27 未再更動）。
+> orchestrator 有一步正是要抓這件事，但它跑在容器裡而 `.git/` 刻意不 mount
+> ⇒ 自 2026-05-31 起每天回 `info: skipped`。**能抓到的地方它不跑，跑的地方它抓不到。**
+> 已改接 weekly（host 端、進版控、不增加提交延遲）。
+
+| `async_session_race_guard.py` | 並行 DB session 競態（ADR-0021／`development-rules.md` §5.1 **強制規範**）—— 靜態檢查 asyncio.gather 不得共用 db session | weekly 72 |
+| `sse_headers_guard.py` | SSE 端點必須顯式 `Content-Encoding: identity` | weekly 73 |
+| `schema_lazy_load_guard.py` | Pydantic Schema 不得訪問 ORM lazy-relationship | weekly 74 |
+| `pattern_yaml_type_guard.py` | 掃 memory/patterns/failures/proposals 等 YAML frontmatter 的 id-like 欄位型別 | weekly 75 |
+| `governance_enforcement_coverage.py` | ADR／教訓有沒有人在強制 —— 只報數字與斷鏈，不判斷「該不該有」 ｜weekly 51（⚠️ 2026-08-27 校正：原列在「月度架構覆盤」底下，實際跑它的是 weekly） |
+| `declared_runner_truth_audit.py` | **本表自己的守門人** —— README 宣告的執行者是不是真的在跑它。`declaration_gate` 只驗「有沒有宣告」，宣告是不是真的先前沒有人驗：2026-08-27 首跑抓到 **7 支宣告錯了**，其中四支守的是強制規範（ADR-0021 等），真正的執行者設計上是 pre-commit hook 而那支 hook 裡一支都沒有 | weekly 76 |
 
 ## 🧪 月度架構覆盤（`run_fitness.sh`）
 
@@ -209,7 +221,6 @@
 | `signal_consumer_lint.sh` | Memory Signal Producer-Consumer 治理 lint |
 | `sso_autoload_completeness_audit.py` | 驗證 consumer repo frontend SSO autoload 完整接通（next_session_resume #7） |
 | `sso_bridge_conformance_audit.py` | SSO Bridge Conformance Audit — 跨 repo sso_bridge 安全契約守門（Tier2 / L80） |
-| `governance_enforcement_coverage.py` | ADR／教訓有沒有人在強制 —— 只報數字與斷鏈，不判斷「該不該有」 |
 | `startup_dependency_race_audit.py` | 偵測 docker-compose depends_on 缺 condition: service_healthy 的 startup race 風險 |
 | `stub_import_lint.sh` | 禁止直接 import 已遷移的 stub 模組（DDD 遷移期護欄） |
 | `subdomain_registry_audit.py` | 偵測 subdomain registry SSOT drift（next_session_resume 8 大根因 #3） |
@@ -234,20 +245,14 @@
 
 | 腳本 | 用途 |
 |---|---|
-| `async_session_race_guard.py` | Async Session Race Guard — 靜態檢查 asyncio.gather 不得共用 db session |
 | `critique_health_audit.py` | Critique Health Audit |
 | `daily_self_retrospective.py` | Daily Self-Retrospective |
 | `generate_governance_dashboard.py` | Governance Integrated Dashboard Generator |
-| `pattern_yaml_type_guard.py` | Pattern YAML Type Guard — 掃 memory/patterns/failures/proposals 等 YAML frontmatter |
 | `producer_registry.py` | Producer 產出判定的**單一實作** |
 | `proposal_aging_alert.py` | Proposal Aging Alert |
 | `run_fitness_weekly_host.sh` | Tier 2 Weekly fitness — host 端執行器 |
-| `schema_lazy_load_guard.py` | Schema Lazy-Load Guard — 靜態檢查 Pydantic Schema 不得訪問 ORM lazy-relationship |
 | `shadow-baseline-report.cjs` | 用 better-sqlite3 若可用，否則 fallback node sqlite3 package |
-| `skill_value_audit.py` | 技能系統真價值稽核（Skill-System Value Audit）— 誠實化「技能演化」KPI |
-| `sse_headers_guard.py` | SSE Headers Guard — 靜態檢查 SSE 端點必須顯式 Content-Encoding: identity |
 | `synthetic-baseline-inject.py` | Synthetic Baseline Inject — 注入模擬查詢到 /api/ai/agent/query_sync 以加速 Hermes 基線採集 |
-| `v7_metrics_report.py` | M1 (5/04 v3.0 覆盤洞察 14) — v7.0 新指標 lite 報表 |
 | `weekly_evolution_generator.py` | Weekly Evolution Generator |
 
 ## 💓 健康監控（`scripts/health/`）
@@ -294,6 +299,10 @@
 | `verify_ai_stubs.py` | AI re-export stub 一致性驗證 | 一次性｜DDD 遷移期 AI re-export stub 驗證，遷移已完成 |
 | `verify_architecture.py` | CK_Missive 架構驗證腳本 | 手動 / CI｜架構 7 項自動化驗證 |
 | `wiki-orphan-classify.cjs` | 讀取全部 wiki pages | 手動｜wiki 孤兒分類輔助 |
+| `admin_endpoint_ui_consumers.py` | **人工觸發、刻意不接排程**：需要管理員的端點被哪些非管理頁面消費。2026-08-20「同仁變成代碼」修完後的掃全結果＝無第二例；剩下的是「頁面只要登入但頁內含管理動作」，403 部分屬刻意 ⇒ 接排程只會每天報同樣 4 個已知項。它是 `OPEN_ITEMS` **C5**（走查永遠以最高權限跑）收束時的盤點素材 ⚠️ 2026-08-27 校正：原列在「每週」底下，而它自己的說明就寫著「刻意不接排程」——**同一列裡兩件事互相矛盾**。 |
+| `skill_value_audit.py` | 技能系統真價值稽核（Skill-System Value Audit）— 誠實化「技能演化」KPI ⚠️ 2026-08-27 校正：原列在「後端排程」底下，而 `scheduler.py` 一次都沒提到它。 |
+| `v7_metrics_report.py` | M1 (5/04 v3.0 覆盤洞察 14) — v7.0 新指標 lite 報表 ⚠️ 2026-08-27 校正：原列在「後端排程」底下，而 `scheduler.py` 一次都沒提到它。 |
+| `deploy_verify.py` | 部署後驗證（L76 三層＋**L93 ORM／認證層**）—— 2026-08-16 事故：三層全 200 而登入是死的，因為 /health 不觸發 ORM mapper。第 4 層用 **POST** /api/auth/check，401 是正確答案、500 才是壞了 ⚠️ 2026-08-27 校正：原列在「每日 fitness_daily」底下而它一次都沒被呼叫。**已改由 `scripts/deploy/deploy-public.sh` 第 7 步呼叫**——它的用途本來就是「部署後」，不是每日。 |
 
 ---
 
