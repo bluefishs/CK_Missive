@@ -36,6 +36,10 @@
 
 | A22 | **`user_sessions` 的 `expires_at` 與 `created_at` 存在不同時區** | 2026-08-27 實測同一列：`created_at=11:26:33`（DB 本地 Asia/Taipei，`server_default=func.now()`）而 `expires_at=04:26:33`（Python `datetime.utcnow()`）⇒ **每一筆 session 一建立就「已過期 7 小時」**，欄位型別是 `timestamp without time zone`，沒有任何一端會做轉換。**應用本身是一致的**（`session_repository` 兩處都用 `UserSession.expires_at > datetime.utcnow()`），所以功能正常 —— 壞的是**任何拿 `expires_at` 跟 DB `NOW()` 比的東西**：`admin_backup_smoke_test.py:55` 就是這樣寫的，它永遠找不到有效 session、每次都新插一筆（靠 fallback 才沒出事）；`ui_smoke_auth.py:130` 的註解已經記過同一件事。⚠️ **我沒有動它** —— 時區慣例屬「帳號／權限架構」，而本專案 SSO 反覆回歸（L74／L78／L80）的教訓都指向同一件事：這一區改動的失敗不在 happy path。要修的話兩條路（統一為 UTC ／統一為 DB `func.now()`），**都需要先盤點所有讀這三個欄位的地方**，是獨立一輪的工作 | 本輪由 owner console 的 `auth/renew 401` 追出（該 401 本身來自 CK_Website 的 IdP 端，Missive 側無對應錯誤；11:26 有新 session 建立＝已重新登入自行復原）|
 
+| A23 | **4 個權限沒有任何角色拿得到 —— 命名怎麼收** | 2026-08-27 七層鏈路盤點。`hasPermission` **只對 superuser 短路，admin 走正常過濾** ⇒ 這四個功能除了超級管理員之外沒有人做得了。**`projects:write`**（erp/expenses 的 approve／batch-approve／reject／delete 四支端點＋前端「新增承攬案件」與費用審核）與 **`admin:access`**（ERPEInvoiceSyncPage 管理區塊）**兩份 SSOT 都沒有這個名字** ⇒ 權限編輯畫面不會列出，**任何人都無法授予**；**`operational:write`／`operational:approve`** 在兩份 SSOT 裡都有、只是還沒分派 ⇒ 會以「未分派紅點」出現，你在畫面上就能給（⚠️ 但對應端點只要 `require_auth`，目前是前端擋、後端不擋）。**待你決**：`projects:write` 改成 `projects:create`／新開 `expenses:approve`／或補進 SSOT；`admin:access` 多半應改成 `admin:settings` | `scripts/checks/permission_unreachable_baseline.json`（每條註明理由）；檢核＝`role_permissions_consistency_check` 第 5 項 |
+| A24 | **兩位 admin 的實際權限是唯讀 6 項** | 張坤樹（id 29）與賴秀玲（id 30）role='admin'，而 `users.permissions` 只有 `documents:read／projects:read／agencies:read／vendors:read／calendar:read／reports:view`，**角色定義是 33 項**。兩人 `last_login` 皆為 NULL ⇒ 從沒登入過，所以沒有人發現。成因同 A25：改角色不會改既有使用者的權限。**待你決**：在 `/admin/permissions/admin` 按「同步至所有用戶」即可補齊（會一併影響其他 3 位 admin，但他們已經是 33 項、屬「已對齊」會被略過）| 2026-08-27 盤點；新的 `pending_sync_users` 計數會顯示 admin=2 |
+| A25 | **6 位在職業務同仁的權限尚未套用角色定義** | 你 08-27 11:22 把「業務同仁」設成 14 項含 `vendors:create/edit`，但 `update_role_permissions` 只寫角色定義表 —— `role_permissions` 只在**建立新帳號**那一刻被讀一次。曾廷睿／邱元宏／張浩翊／馮俊翔 各 8 項（缺 6）、**王駿穠與賴柏霖各只有 5 項唯讀**（缺 9，連 `documents:create` 都沒有）。何丞穎 `permissions` 是 NULL 但已停用、不受同步影響 | 修法已上線：該頁現在會顯示「尚未套用到 N 位在職使用者」，儲存時也會提醒。按右上角「同步至所有用戶」執行 |
+
 ---
 
 ## B. 已查明根因、尚未實作
@@ -54,6 +58,9 @@
 
 | B10 | **`scripts/hooks/post-commit-code-graph.sh` 從來沒有被安裝** | `.git/hooks/post-commit` 實際跑的是知識地圖增量更新，裡面 **grep 不到任何 `code-graph`** ⇒ 這支腳本存在於 repo，但沒有任何東西會執行它 | 規模小、風險低。要嘛併進現有 post-commit，要嘛歸檔。**判準是 `scripts/checks/README.md` 已經寫過的那一句：「這支東西壞掉的時候，會有人知道嗎？」** |
 | B11 | **「有產出端、沒有消費端」這個維度沒有任何檢核在管** | 2026-08-27 一輪覆盤，**五個發現的形狀完全一樣**：版本綁定沒人帶／治理檢核讀空目錄／前端埠沒人聽而探針探別的埠／CSP 違規沒人看／部署腳本重啟不存在的程序。全部都不會報錯 | ⚠️ **刻意不做成通用掃描**：實測掃 `scripts/`（`checks/` 以外）81 支，25 支完全沒被提到、13 支只有文件提到 —— 但多數是**刻意手動的工具**，逐一核實後真訊號只有 2 個（訊噪比約 1:19）。做成通用告警＝製造沒人看的噪音（同 08-20 那次「48 個 Select 我選擇不交付」）。**建議改為三個窄座標各一支**，都有明確判準、低誤報：① `ecosystem.config.js` 宣告 vs `pm2 jlist` 實際 ② Prometheus metric expose vs 有無 alert／dashboard／檢核在讀 ③ git hook 腳本 vs `.git/hooks` 實際安裝 |
+
+| B12 | **細粒度權限只覆蓋 16 支端點，其餘 478 支是二分法** | 494 支端點裡：`require_auth` **313**（只要登入）／`require_admin` **165**（管理員）／`require_permission` **僅 16**。也就是說 `/admin/permissions/:role` 上調整的 33 個權限，**對絕大多數端點沒有任何作用** —— 真正在決定「誰能做什麼」的是「登入 vs 管理員」這個二分法 | ⚠️ **不建議大規模改造**：把 478 支逐一分權是高風險低回報，而且會產生大量「宣告了但沒有角色擁有」的新缺口（正是 A23 那個形狀）。建議只在**業務上真的需要分權的動作**上加（費用審核、廠商維護這類），其餘維持二分法並在文件寫明這是**刻意的**，不是還沒做完 |
+| B13 | **`operational:*` 是前端擋、後端不擋** | `ERPOperationalDetailPage` 用 `hasPermission('operational:write'/'operational:approve')` 隱藏編輯與審批按鈕，而 `erp/operational.py` 的端點**全部只有 `require_auth`** ⇒ 任何登入者直接打 API 都能改。目前沒有實害（沒有 UI 入口），但這是「前端當安全機制」的形狀 | 修法方向：若那些動作真要限權，加在**端點**上；若不需要，前端就不該擋（現況是兩邊說法不同，而使用者看到的是「按鈕不見了」） |
 
 ---
 
