@@ -67,6 +67,19 @@ def _safe_get_token() -> str:
     return ""
 
 
+def _err(e: Exception) -> str:
+    """例外訊息 —— **型別一定要帶上**。
+
+    2026-08-27 實測：`integration-health-20260827-132527.json` 記著
+    `chain_1_missive_health: {"ok": false, "error": ""}` —— 報了斷鏈卻沒說原因。
+    成因是 httpx 的連線類例外（`ConnectError()` / `ReadTimeout()`）`str()` 是空字串，
+    而這裡只取 `str(e)`。**「斷了」與「斷在哪」被寫成同一件事，而後者整個消失。**
+    producer watchdog 因此只能報「broken_chains=1」，接手的人得從零查起。
+    """
+    msg = str(e).strip()
+    return f"{type(e).__name__}: {msg}"[:200] if msg else f"{type(e).__name__}（無訊息）"
+
+
 async def check_chain_1_missive_health() -> Dict[str, Any]:
     """Chain 1: Missive backend /health (業務量 OK)"""
     try:
@@ -83,7 +96,7 @@ async def check_chain_1_missive_health() -> Dict[str, Any]:
                 "entities": data.get("business_data", {}).get("canonical_entities", 0),
             }
     except Exception as e:
-        return {"ok": False, "error": str(e)[:200]}
+        return {"ok": False, "error": _err(e)}
 
 
 async def check_chain_2_kunge_snapshot() -> Dict[str, Any]:
@@ -111,7 +124,7 @@ async def check_chain_2_kunge_snapshot() -> Dict[str, Any]:
                 "pending_proposals": data.get("health_signals", {}).get("pending_proposals_count", 0),
             }
     except Exception as e:
-        return {"ok": False, "error": str(e)[:200]}
+        return {"ok": False, "error": _err(e)}
 
 
 async def check_chain_3_tools_manifest() -> Dict[str, Any]:
@@ -154,7 +167,7 @@ async def check_chain_3_tools_manifest() -> Dict[str, Any]:
                 "has_kunge_snapshot": has_kunge,
             }
     except Exception as e:
-        return {"ok": False, "error": str(e)[:200]}
+        return {"ok": False, "error": _err(e)}
 
 
 async def check_chain_4_hermes_container() -> Dict[str, Any]:
@@ -186,7 +199,7 @@ async def check_chain_4_hermes_container() -> Dict[str, Any]:
             "tried_hosts": ["ck-hermes-gateway", "hermes-gateway", "host.docker.internal"],
         }
     except Exception as e:
-        return {"ok": False, "error": str(e)[:200]}
+        return {"ok": False, "error": _err(e)}
 
 
 def check_chain_5_bridge_skill() -> Dict[str, Any]:

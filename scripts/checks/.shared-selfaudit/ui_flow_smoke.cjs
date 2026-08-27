@@ -341,11 +341,26 @@ async function main() {
   // 「跑了全過」與「根本沒跑」。由既有 producer watchdog 以 file_fresh 監控此檔，
   // 停跑即由每日 cron_outcome_freshness 告警（不另建一套通知）。
   try {
-    const RESULT_JSON = path.resolve(ROOT, CONFIG.output.flow_result);
+    // 2026-08-27：結果檔必須帶身分，且**非 admin 不得寫進同一個檔**。
+    //
+    // 起因是實跑：`--role user` 跑完，`ui-flow.json` 就被 user 的結果蓋掉了
+    // （pass 13 / fail 2），而 producer registry 對這個路徑的門檻是照 admin
+    // 訂的（fail==0、min pass 8）⇒ **watchdog 會照著別人的身分報 RED，
+    // 而檔案裡沒有任何一個欄位說得出這是誰跑的**。
+    //
+    // 兩件事一起做才夠：
+    //   ① `role` 進 JSON —— 往後任何讀這個檔的人都分得出身分（先前分不出）
+    //   ② 非 admin 改寫 `<name>.<role>.json` —— admin 路徑維持原樣，
+    //      五個 repo 既有的 registry 與新鮮度檢核完全不受影響
+    const _base = path.resolve(ROOT, CONFIG.output.flow_result);
+    const RESULT_JSON = RUN_ROLE === 'admin'
+      ? _base
+      : _base.replace(/\.json$/, `.${RUN_ROLE}.json`);
     fs.mkdirSync(path.dirname(RESULT_JSON), { recursive: true });
     fs.writeFileSync(RESULT_JSON, JSON.stringify({
       checked_at: new Date().toISOString(),
       base: BASE,
+      role: RUN_ROLE,
       pass: passed, fail: failed, skip: skipped,
       failures: results.filter((r) => r.outcome.fail).map((r) => ({ id: r.check.id, name: r.check.name, reason: r.outcome.fail })),
       // 2026-08-05：記**實測值**而非只記 PASS（借自 CK_FacilityDev 走查表）。

@@ -561,11 +561,21 @@ async function main() {
   // 「跑了全過」與「根本沒跑」。由既有 producer watchdog 以 file_fresh 監控此檔，
   // 停跑即由每日 cron_outcome_freshness 告警（不另建一套通知）。
   try {
-    const RESULT_JSON = path.resolve(ROOT, CONFIG.output.sweep_result);
+    // 2026-08-27：與 ui_flow_smoke 同一件事 —— 結果檔必須帶身分。
+    // ⚠️ 這支引擎**先前完全不讀 `SELFAUDIT_ROLE`**，而 run.sh 仍會照要求的身分
+    // 簽發憑證 ⇒ `--sweep --role user` 會用一般同仁的 cookie 掃完全站，
+    // 然後把結果寫進 admin 的那個檔，**沒有任何欄位說得出身分**。
+    // 比 flow 那邊更難察覺，因為這裡連 role 這個概念都不存在。
+    const _sweepRole = (process.env.SELFAUDIT_ROLE || 'admin').toLowerCase();
+    const _base = path.resolve(ROOT, CONFIG.output.sweep_result);
+    const RESULT_JSON = _sweepRole === 'admin'
+      ? _base
+      : _base.replace(/\.json$/, `.${_sweepRole}.json`);
     fs.mkdirSync(path.dirname(RESULT_JSON), { recursive: true });
     fs.writeFileSync(RESULT_JSON, JSON.stringify({
       checked_at: new Date().toISOString(),
       base: BASE,
+      role: _sweepRole,
       pass: okCount, fail: bad.length, skip: skipped.length,
       // 2026-08-04：原本只記數量。實測某次掃描出現 skip=1，退出碼因此固定為 2，
       // 但**查不到是哪一條**——只能重跑一次才知道。跳過屬「未驗完」，

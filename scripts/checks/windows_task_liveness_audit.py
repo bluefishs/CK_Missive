@@ -58,7 +58,12 @@ TASK_PREFIX_RE = r"^(CK[-_]|LandValuation|StorageTank|SaltWarehouse|Hermes)"
 # 1 與 2 都代表**任務本身跑完了**，紅的是內容 —— 那由下面的 check_sweep_results()
 # 直接讀結果 JSON 判定，不靠退出碼。把兩件事混在一起判，會變成
 # 「任務掛了」與「頁面壞了」共用一個燈號，而它們的處置完全不同。
-SELFAUDIT_TASK_RE = r"^(CK[_-][A-Za-z0-9_]+)-SelfAudit-(Flow|Sweep)$"
+# 2026-08-27：尾綴改為可選 —— 走查加了身分維度後任務名變成 `-SelfAudit-Flow-User`，
+# 而原本的 `$` 讓它**落到通用分支**：一般同仁走查只要抓到一個 FAIL 就退出 1，
+# 通用分支會把那個 1 判成「未宣告的失敗碼」⇒ 排程稽核報紅，而真正該報的是
+# 走查結果本身（已由 producer registry 的 ui-flow.user.json 兩筆接手）。
+# 同一件事兩個地方報紅，其中一個還報錯了原因 —— 那正是這一段註解在防的。
+SELFAUDIT_TASK_RE = r"^(CK[_-][A-Za-z0-9_]+)-SelfAudit-(Flow|Sweep)(?:-([A-Za-z0-9]+))?$"
 
 # 其餘任務的非 0 退出碼 —— **必須寫理由**，否則就是「紅燈看久了就習慣」的起點
 ALLOWED_NONZERO: dict[str, dict[int, str]] = {
@@ -185,6 +190,11 @@ def check_sweep_results(tasks: list[dict], portfolio_root: Path) -> tuple[list[s
         if not m:
             continue
         repo, kind = m.group(1), m.group(2).lower()
+        # 2026-08-27：身分尾綴要**換一個結果檔**，不能沿用 admin 那份。
+        # 我加完 regex 後這裡立刻印了兩次 `CK_Missive flow: pass=20 fail=0` ——
+        # 兩支任務讀同一個檔。那正是「換了出口卻沒換整條鏈」（L81）：
+        # 一般同仁走查若整支死掉，這裡會照樣讀到 admin 的綠燈說它很好。
+        role = (m.group(3) or "admin").lower()
         # 結果檔位置**讀各 repo 自己的 selfaudit.config.json**，不在這裡寫死。
         # 初版寫死 docs/health/ 立刻誤報 CK_Missive「結果檔不存在」——
         # 它的輸出在 wiki/memory/integration-health/。把路徑複製一份到這裡，
@@ -196,26 +206,28 @@ def check_sweep_results(tasks: list[dict], portfolio_root: Path) -> tuple[list[s
         try:
             out = json.loads(cfg_path.read_text(encoding="utf-8"))["output"]
             rel = out["flow_result" if kind == "flow" else "sweep_result"]
+            if role != "admin":
+                rel = re.sub(r"\.json$", f".{role}.json", rel)   # 與引擎的分檔規則同一條
         except Exception as e:
             reds.append(f"{repo}: selfaudit.config.json 讀不到 output 路徑（{e}）")
             continue
         f = portfolio_root / repo / rel
         if not f.exists():
-            reds.append(f"{repo} {kind}: 結果檔不存在（{f.name}）—— 排程跑了卻沒有產出")
+            reds.append(f"{repo} {kind}[{role}]: 結果檔不存在（{f.name}）—— 排程跑了卻沒有產出")
             continue
         try:
             d = json.loads(f.read_text(encoding="utf-8"))
         except Exception as e:
-            reds.append(f"{repo} {kind}: 結果檔無法解析（{e}）")
+            reds.append(f"{repo} {kind}[{role}]: 結果檔無法解析（{e}）")
             continue
         n_pass, n_fail = int(d.get("pass") or 0), int(d.get("fail") or 0)
         # pass=0 且 fail=0 ＝ 什麼都沒掃到；設定寫錯與大面積失效長得一樣，不可判綠
         if n_pass == 0 and n_fail == 0:
-            reds.append(f"{repo} {kind}: 掃到 0 項（0 項不等於全部健康）")
+            reds.append(f"{repo} {kind}[{role}]: 掃到 0 項（0 項不等於全部健康）")
         elif n_fail > 0:
-            reds.append(f"{repo} {kind}: fail={n_fail}（頁面層有真實故障，看 {f}）")
+            reds.append(f"{repo} {kind}[{role}]: fail={n_fail}（頁面層有真實故障，看 {f}）")
         else:
-            notes.append(f"{repo} {kind}: pass={n_pass} fail=0")
+            notes.append(f"{repo} {kind}[{role}]: pass={n_pass} fail=0")
     return reds, notes
 
 

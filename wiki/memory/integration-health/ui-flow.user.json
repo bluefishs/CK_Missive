@@ -1,8 +1,8 @@
 {
- "checked_at": "2026-08-27T11:04:48.313Z",
+ "checked_at": "2026-08-27T11:10:36.653Z",
  "base": "https://missive.cksurvey.tw",
- "role": "admin",
- "pass": 20,
+ "role": "user",
+ "pass": 15,
  "fail": 0,
  "skip": 0,
  "failures": [],
@@ -40,27 +40,9 @@
    ]
   },
   {
-   "id": "agency-contact-form-page",
-   "values": [
-    "th:has-text(\"操作\")=0"
-   ]
-  },
-  {
-   "id": "staff-form-page",
-   "values": [
-    "th:has-text(\"操作\")=0"
-   ]
-  },
-  {
    "id": "visual-walk-lock-quotation-mobile",
    "values": [
     "統計數字=15"
-   ]
-  },
-  {
-   "id": "visual-walk-lock-contract-case-mobile",
-   "values": [
-    "基本資訊標籤數=16"
    ]
   },
   {

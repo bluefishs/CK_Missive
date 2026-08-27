@@ -838,6 +838,13 @@
       "entry": "scripts/checks/run_capability_snapshot.sh",
       "time": "04:50",
       "args": ""
+    },
+    {
+      "suffix": "Flow-User",
+      "entry": "scripts/checks/run_ui_smoke.sh",
+      "time": "05:10",
+      "args": "--role user",
+      "_why": "2026-08-27：`--role user` 的能力 08-24 就做好了，而**沒有任何排程在用它** —— 走查一路只以 admin 跑，C5 那個盲區其實只補了一半（引擎有、接收端沒有）。15/20 條 flow 適用一般同仁；結果寫 ui-flow.user.json（引擎 08-27 起依身分分檔，否則會蓋掉 admin 那份，而檔案裡沒有任何欄位說得出身分）。"
     }
   ],
   "visual_walk": {

@@ -212,6 +212,23 @@
       "_why": "2026-08-04：原本只登記 file_fresh —— 那證明的是「檢核器有跑」，不是「頁面是健康的」。實測若 fail 由 0 變 25，watchdog 仍然全綠，因為沒有任何人讀那個欄位。min_pass 同時擋住「掃到 0 條也叫綠」（設定錯與大面積失效長得一樣）。"
     },
     {
+      "name": "UI 流程自我檢核（一般同仁）",
+      "signal": "file_fresh",
+      "path": "wiki/memory/integration-health/ui-flow.user.json",
+      "max_h": 30,
+      "_why": "2026-08-27：走查以**一般同仁**身分跑的那一份。`--role user` 的能力 08-24 就做好了，但先前沒有任何排程在用它 —— 這一筆就是那個缺席的接收端。⚠️ 門檻刻意與 admin 那份分開：適用 flow 是 15/20（5 條宣告 admin-only），把兩種身分放進同一個座標系，會讓「這條本來就不適用」與「它壞了」長得一樣。"
+    },
+    {
+      "name": "UI 流程檢核結果（一般同仁）",
+      "signal": "json_result",
+      "path": "wiki/memory/integration-health/ui-flow.user.json",
+      "fail_key": "fail",
+      "min_key": "pass",
+      "min_value": 10,
+      "skip_key": "skip",
+      "_why": "2026-08-27：走查以**一般同仁**身分跑的那一份。`--role user` 的能力 08-24 就做好了，但先前沒有任何排程在用它 —— 這一筆就是那個缺席的接收端。⚠️ 門檻刻意與 admin 那份分開：適用 flow 是 15/20（5 條宣告 admin-only），把兩種身分放進同一個座標系，會讓「這條本來就不適用」與「它壞了」長得一樣。 min_pass 取 10（首次實跑 15/15 全過）——低於它代表**這個身分能走到的東西變少了**。"
+    },
+    {
       "name": "全站頁面掃描結果",
       "signal": "json_result",
       "path": "wiki/memory/integration-health/ui-sweep.json",
