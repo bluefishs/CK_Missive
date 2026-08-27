@@ -59,4 +59,21 @@ json.dump({"rc": rc, "ts": ts, "tail": tail, "runner": "host"},
 print(f"  已寫入交接檔：{out}")
 PY
 
+# ── 治理儀表板：在 host 端 regenerate ───────────────────────────────────
+# 2026-08-27 加。儀表板唯一的排程是容器內的 02:30 cron，而 §3（最近 commits）
+# 與 §4（最近 session）在容器裡**結構上就取不到**（無 git、無 ~/.claude）。
+# 保留機制（L73 非 clobber）讓它們不會被洗成空白 —— 但也因此靜靜地留在原地：
+# 實測 §3 停在三個月前的 v6.36/v6.37，§4 停在 2026-07-30，
+# 而檔頭寫的是「Generated: 今天」。這份檔案的定位是「session 啟動讀它取快照」。
+#
+# weekly 本來就跑在 host（git 與 ~/.claude 都在），是唯一合適的接手者。
+# 刻意不讓它影響 RC —— 儀表板沒生成出來不該把 weekly 判成 RED，
+# 但要出聲；真正的哨兵是 §3/§4 保留值上的時間戳年齡。
+echo "[fitness-weekly-host] regenerate 治理儀表板（host 端才取得到 §3/§4）"
+if python "$ROOT/scripts/checks/generate_governance_dashboard.py" >/dev/null 2>&1; then
+    echo "  ✓ 治理儀表板已更新"
+else
+    echo "  ⚠ 治理儀表板 regenerate 失敗（不影響 weekly 判定，但 §3/§4 會繼續變舊）"
+fi
+
 exit "$RC"

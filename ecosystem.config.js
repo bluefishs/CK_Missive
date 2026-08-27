@@ -2,6 +2,34 @@
  * PM2 Ecosystem Configuration
  * CK_Missive 公文管理系統
  *
+ * ⚠️⚠️ 2026-08-27 實測：**這份檔案宣告的三支，PM2 上一支都沒有在跑。**
+ *
+ *   宣告：health-watchdog / synthetic-baseline / invoice-watcher
+ *   實際：pm2 jlist 上的 14 支全部屬於別的 repo
+ *         （ck-showcase-* / ck-sso-* / tunnel-viewer / pm2-logrotate …）
+ *
+ * 逐支核實過現在誰接手：
+ *
+ *   synthetic-baseline  → ✅ 已遷入容器內 APScheduler
+ *                          （scheduler.py:1897 `@tracked_job("synthetic_baseline_inject")`，
+ *                            cron_events.jsonl 累積 257 次執行，活著）
+ *   invoice-watcher     → ✅ 對應 `einvoice_sync` job，容器內註冊
+ *                          （目前條件式停用：env 未設，非故障）
+ *   health-watchdog     → ❌ **沒有等價物，這個能力現在是空的**
+ *
+ * health-watchdog 做的是「假死偵測 + 自動重啟」。容器端看似有覆蓋，其實沒有：
+ *
+ *   backend healthcheck = curl -f /health，30s、retries 3   ← 只會把容器標成 unhealthy
+ *   restart policy      = always                            ← 只在**程序結束**時作用
+ *
+ * **Docker 不會因為 unhealthy 就重啟容器**（那需要 autoheal 之類的外掛）。
+ * 所以一個「還活著但卡住」的 backend 會停在 unhealthy 不動，直到有人看到。
+ * 08-24 那次「56 容器 0 非健康」量的是狀態，不是復原能力。
+ *
+ * ⇒ 待 owner 決定：恢復 watchdog（pm2 start ecosystem.config.js --only health-watchdog）
+ *   ／改用容器 autoheal ／或明確接受「假死靠人看」。
+ *   在決定之前**不要把這份檔案當成現況的描述** —— 它描述的是意圖。
+ *
  * 推薦使用統一管理腳本（v1.53.0）：
  *   .\scripts\dev-start.ps1              # 混合模式啟動（推薦）
  *   .\scripts\dev-start.ps1 -Status      # 查看狀態

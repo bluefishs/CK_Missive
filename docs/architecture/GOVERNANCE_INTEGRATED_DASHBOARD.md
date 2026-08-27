@@ -1,6 +1,6 @@
 # Governance Integrated Dashboard — 規範 + 現況 + 覆盤 整合 SSOT
 
-> **Generated**: 2026-08-25 02:30:00
+> **Generated**: 2026-08-27 10:09:12
 > **Owner 問題**: 每次詢問都有缺漏，需整合 5 處治理文件 (ADR/lesson/SOP/fitness/architecture)
 > **解法**: 此 dashboard 由 cron 06:00 自動 regenerate，session 啟動讀此檔取完整快照
 > **生成器**: `scripts/checks/generate_governance_dashboard.py`
@@ -13,89 +13,55 @@
 |---|---|---|
 | ADR | active=21 / archived=14 | `docs/adr/` |
 | Lessons | 82 | `docs/architecture/LESSONS_REGISTRY.md` |
-| SOPs | 0 | `.claude/rules/*.md`（容器未掛載 `.claude/`，host 端執行才計數） |
-| Fitness checks | 164 | `scripts/checks/*.py` |
-| Architecture docs | 111 | `docs/architecture/*.md` |
-| **Total** | **392** | 5 處散落 |
+| SOPs | 13 | `.claude/rules/*.md` |
+| Fitness checks | 165 | `scripts/checks/*.py` |
+| Architecture docs | 114 | `docs/architecture/*.md` |
+| **Total** | **409** | 5 處散落 |
 
 ## 2. 現況真活 metric (從 /metrics 即時抓)
 
 ```
-  governance_fitness_report_freshness_hours                  23.3
+  governance_fitness_report_freshness_hours                   7.1
   governance_lessons_l4x_family_count                         0.0
-  governance_lessons_total                                   17.0
+  governance_lessons_total                                   18.0
   governance_pipeline_red_consecutive_days                    0.0
-  governance_wiki_freshness_hours                             6.0
-  governance_wiki_pages_total                               789.0
-  kg_entities_total                                       49909.0
+  governance_wiki_freshness_hours                             0.8
+  governance_wiki_pages_total                               801.0
+  kg_entities_total                                       49939.0
   memory_crystals_total                                       4.0
-  memory_diary_days_total                                   125.0
-  scheduler_job_last_run_age_seconds{job_id="cleanup_events"}       1697.1
-  scheduler_job_last_run_age_seconds{job_id="daily_self_reflection_line_push"}      16200.3
-  scheduler_job_last_run_age_seconds{job_id="ezbid_cache_refresh"}        541.8
-  scheduler_job_last_run_age_seconds{job_id="fitness_daily"}       1694.1
-  scheduler_job_last_run_age_seconds{job_id="health_check_broadcast"}        251.3
-  scheduler_job_last_run_age_seconds{job_id="integration_e2e_validation"}       1487.3
-  scheduler_job_last_run_age_seconds{job_id="kg_metrics_refresh"}        541.3
-  scheduler_job_last_run_age_seconds{job_id="llm_quota_check"}        551.3
-  scheduler_job_last_run_age_seconds{job_id="memory_metrics_refresh"}        538.2
-  scheduler_job_last_run_age_seconds{job_id="pcc_today_scrape"}        549.1
-  scheduler_job_last_run_age_seconds{job_id="proactive_trigger_scan"}       7199.3
-  scheduler_job_last_run_age_seconds{job_id="process_reminders"}        251.3
-  scheduler_job_last_run_age_seconds{job_id="security_scan"}       1691.1
-  scheduler_job_last_run_age_seconds{job_id="tender_dashboard_warm"}        236.4
-  scheduler_job_success_created{job_id="cleanup_events"} 1787594503.2
-  scheduler_job_success_created{job_id="daily_self_reflection_line_push"} 1787580000.0
-  scheduler_job_success_created{job_id="ezbid_cache_refresh"} 1787577658.2
-  scheduler_job_success_created{job_id="fitness_daily"} 1787594506.2
-  scheduler_job_success_created{job_id="health_check_broadcast"} 1787574349.0
-  scheduler_job_success_created{job_id="integration_e2e_validation"} 1787594713.0
-  scheduler_job_success_created{job_id="kg_metrics_refresh"} 1787574059.1
-  scheduler_job_success_created{job_id="llm_quota_check"} 1787595649.1
-  scheduler_job_success_created{job_id="memory_metrics_refresh"} 1787574063.5
-  scheduler_job_success_created{job_id="pcc_today_scrape"} 1787581250.0
-  scheduler_job_success_created{job_id="proactive_trigger_scan"} 1787589001.1
-  scheduler_job_success_created{job_id="process_reminders"} 1787574349.0
-  scheduler_job_success_created{job_id="security_scan"} 1787594509.3
-  scheduler_job_success_created{job_id="tender_dashboard_warm"} 1787574064.0
-  scheduler_job_success_total{job_id="cleanup_events"}          1.0
-  scheduler_job_success_total{job_id="daily_self_reflection_line_push"}          1.0
-  scheduler_job_success_total{job_id="ezbid_cache_refresh"}          6.0
-  scheduler_job_success_total{job_id="fitness_daily"}          1.0
-  scheduler_job_success_total{job_id="health_check_broadcast"}         73.0
-  scheduler_job_success_total{job_id="integration_e2e_validation"}          1.0
-  scheduler_job_success_total{job_id="kg_metrics_refresh"}         25.0
-  scheduler_job_success_total{job_id="llm_quota_check"}          1.0
-  scheduler_job_success_total{job_id="memory_metrics_refresh"}         25.0
-  scheduler_job_success_total{job_id="pcc_today_scrape"}          3.0
-  scheduler_job_success_total{job_id="proactive_trigger_scan"}          1.0
-  scheduler_job_success_total{job_id="process_reminders"}         73.0
-  scheduler_job_success_total{job_id="security_scan"}          1.0
-  scheduler_job_success_total{job_id="tender_dashboard_warm"}         74.0
-  shadow_baseline_call_total{provider="gemma-local"}         60.0
-  shadow_baseline_latency_p95_ms{provider="gemma-local"}      90002.0
-  shadow_baseline_rows_total{lookback_hours="24"}            60.0
+  memory_diary_days_total                                   128.0
+  scheduler_job_last_run_age_seconds{job_id="kg_metrics_refresh"}        275.3
+  scheduler_job_last_run_age_seconds{job_id="memory_metrics_refresh"}        271.6
+  scheduler_job_last_run_age_seconds{job_id="tender_dashboard_warm"}        270.4
+  scheduler_job_success_created{job_id="kg_metrics_refresh"} 1787796277.2
+  scheduler_job_success_created{job_id="memory_metrics_refresh"} 1787796280.9
+  scheduler_job_success_created{job_id="tender_dashboard_warm"} 1787796282.1
+  scheduler_job_success_total{job_id="kg_metrics_refresh"}          1.0
+  scheduler_job_success_total{job_id="memory_metrics_refresh"}          1.0
+  scheduler_job_success_total{job_id="tender_dashboard_warm"}          1.0
+  shadow_baseline_call_total{provider="gemma-local"}         40.0
+  shadow_baseline_latency_p95_ms{provider="gemma-local"}      90003.0
+  shadow_baseline_rows_total{lookback_hours="24"}            40.0
   shadow_baseline_success_ratio{provider="gemma-local"}          0.9
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="find_correspondence"}          3.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_entity_detail"}          2.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_expense_overview"}          1.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="draw_diagram"}          1.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_entity_detail"}          4.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_expense_overview"}          2.0
   shadow_baseline_tool_use_count{provider="gemma-local",tool="get_financial_summary"}          1.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_statistics"}         26.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_unpaid_billings"}          2.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_across_graphs"}          4.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_dispatch_orders"}          8.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_documents"}         32.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_entities"}          9.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_projects"}          4.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_tender"}          2.0
-  shadow_baseline_tool_use_count{provider="gemma-local",tool="summarize_entity"}          1.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_statistics"}         19.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="get_unpaid_billings"}          1.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_across_graphs"}          2.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_dispatch_orders"}          2.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_documents"}         27.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_entities"}         13.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="search_tender"}          3.0
+  shadow_baseline_tool_use_count{provider="gemma-local",tool="summarize_entity"}          2.0
   v7_channel_diversity                                        0.0
   v7_reference_density_critique_pct                         100.0
-  v7_reference_density_diary_pct                             30.4
+  v7_reference_density_diary_pct                             29.6
   v7_soul_drift_lines                                         3.0
 ```
 
-> ⚠️ **本次未抓到 10 項前次存在的 metric**：`scheduler_job_last_run_age_seconds{job_id="memory_weekly_autobiography"}`, `scheduler_job_last_run_age_seconds{job_id="synthetic_baseline_inject"}`, `scheduler_job_last_run_age_seconds{job_id="tender_subscription"}`, `scheduler_job_success_created{job_id="memory_weekly_autobiography"}`, `scheduler_job_success_created{job_id="synthetic_baseline_inject"}`, `scheduler_job_success_created{job_id="tender_subscription"}`（另 4 項）
+> ⚠️ **本次未抓到 28 項前次存在的 metric**：`scheduler_job_last_run_age_seconds{job_id="cleanup_events"}`, `scheduler_job_last_run_age_seconds{job_id="ezbid_cache_refresh"}`, `scheduler_job_last_run_age_seconds{job_id="fitness_daily"}`, `scheduler_job_last_run_age_seconds{job_id="health_check_broadcast"}`, `scheduler_job_last_run_age_seconds{job_id="integration_e2e_validation"}`, `scheduler_job_last_run_age_seconds{job_id="pcc_today_scrape"}`（另 22 項）
 > 常見原因：backend 近期重啟，該類 gauge 需對應 job 跑過一次才會出現（例如 `scheduler_job_last_run_age_seconds`）。
 > 標出來是為了讓「沒抓到」與「值為 0／不存在」看得出差別，此處刻意不填前次數值以免謊報現況。
 
@@ -105,16 +71,16 @@
 
 ## 3. 最近 8 commits (進化執行軌跡)
 
-- `207dcdc0 docs: v6.37 里程碑 + LESSONS_REGISTRY 標註 L42-L48 編號缺口`
-- `dd2f181c feat(checks): 補上「測試套件跑不跑得起來」這一階，並修掉一個 flaky`
-- `4d73195f test: 修三類過時測試（DDD 遷移後的 import 路徑、鎖死的版本號）`
-- `88a87f36 fix(erp): finance_ledger 用了未 import 的 logger，刪除有帳本的請款單會 NameError`
-- `7a3daa70 fix(tender): 封鎖偵測誤把 CSS class 當封鎖；ezbid fixture 補回改版後的回歸保護`
-- `4366a2ed docs: v6.36 里程碑（測試庫隔離）`
-- `bea53984 fix(tests): 測試套件改用獨立測試庫，整套從「不能安全執行」變成 9 分鐘跑完`
-- `2dccea23 fix(checks): producer watchdog 區分「還沒做」與「做了沒產出」，且 SKIP 不算通過`
+- `420e09d9 docs: 中介層表少一層、tunnel 設定沒有人在讀、兩處步數寫死了三個月`
+- `0e71b54c fix(security): 內容安全政策正在回報真違規，而收到之後沒有人看`
+- `31b2c4aa fix(checks): 治理對齊檢核讀的是空目錄，於是它結構上永遠是綠的`
+- `37f9edde fix(compose): 前端容器發布的埠沒有人在聽，而 healthcheck 探的是另一個埠`
+- `2c3d4310 fix(deploy): 線上跑的是哪個 commit，現在說不出來——而 SOP 照著做就一定會這樣`
+- `33f9d502 feat(finance): 9 個執行中專案共 1,155 萬完全沒有金流紀錄，而沒有人在問`
+- `128d9682 test(erp): 線上報價明細補測試——零測試是那個 bug 活到今天的原因`
+- `ea9ae899 fix(erp): 線上報價明細更新後稅額沒重算——total 是「新小計＋舊稅額」`
 
-> ℹ️ 容器內無 git；以上為前次 host regenerate 保留值（L73 非 clobber，避免 silent 回退空白）。
+> <!--host-captured:2026-08-27T10:09:12-->
 
 ## 4. 最近 5 session 覆盤 (memory/)
 
@@ -124,7 +90,7 @@
 - session_20260723_24_frontend_shared_consolidation.md
 - session_20260721_22_sso_modularization_verification.md
 
-> ℹ️ 容器內無 ~/.claude memory；以上為前次 host regenerate 保留值（L73 非 clobber）。
+> <!--host-captured:2026-08-27T10:09:12-->
 
 ## 5. Facade B 方案 60 天 trial（**已到期 2026-07-30，待 owner 結案**）
 
@@ -240,10 +206,10 @@
 
 | # | 條件 | 門檻 | 現況 | 達標 |
 |---|---|---|---|---|
-| 1 | baseline rows | ≥ 30 | 60 | ✅ |
+| 1 | baseline rows | ≥ 30 | 40 | ✅ |
 | 2 | dogfooding 連 7d | ≥ 7 days | 未追 | ⏳ |
 | 3 | soul fidelity | ≥ 70% | 未跑 | ⏳ |
-| 4 | error rate | < 5% | 6.7% | ❌ |
+| 4 | error rate | < 5% | 5.0% | ❌ |
 | 5 | p95 latency | < 8s | 90.0s | ❌ |
 | **Summary** | — | — | **1/5** | **🔴 NO-GO** |
 
@@ -257,11 +223,16 @@
 
 | Repo | 跟進度 | Verdict | 修法建議 |
 |---|---|---|---|
-| CK_lvrland_Webmap | 0/6 | ⚪ N/A | — |
-| CK_PileMgmt | 0/6 | ⚪ N/A | — |
-| CK_Showcase | 0/6 | ⚪ N/A | — |
-| CK_KMapAdvisor | 0/6 | ⚪ N/A | — |
+| CK_lvrland_Webmap | 1/6 | 🔴 RED | `install-template-to.sh` |
+| CK_PileMgmt | 0/6 | 🔴 RED-zero | `install-template-to.sh` |
+| CK_Showcase | 6/6 | 🟢 GREEN | — |
+| CK_KMapAdvisor | 6/6 | 🟢 GREEN | — |
 
+⚠ **2/4 子專案 RED** — 範本對外採用度不足，owner approve 後執行:
+```bash
+bash scripts/install-template-to.sh ../<repo_name> \
+  --include=cross-file-ssot,fitness-tier,governance-dashboard,l4x-lessons
+```
 
 ## 9.5 Cron 排程真活全表 (事件追溯依據)
 
@@ -273,22 +244,11 @@
 
 | Job ID | Age | Success | Failure | 狀態 |
 |---|---|---|---|---|
-| `daily_self_reflection_line_push` | 4.5h | 1 | 0 | 🟢 |
-| `proactive_trigger_scan` | 2.0h | 1 | 0 | 🟢 |
-| `cleanup_events` | 0.5h | 1 | 0 | 🟢 |
-| `fitness_daily` | 0.5h | 1 | 0 | 🟢 |
-| `security_scan` | 0.5h | 1 | 0 | 🟢 |
-| `integration_e2e_validation` | 0.4h | 1 | 0 | 🟢 |
-| `llm_quota_check` | 0.2h | 1 | 0 | 🟢 |
-| `pcc_today_scrape` | 0.2h | 3 | 0 | 🟢 |
-| `ezbid_cache_refresh` | 0.2h | 6 | 0 | 🟢 |
-| `kg_metrics_refresh` | 0.2h | 25 | 0 | 🟢 |
-| `memory_metrics_refresh` | 0.1h | 25 | 0 | 🟢 |
-| `process_reminders` | 0.1h | 73 | 0 | 🟢 |
-| `health_check_broadcast` | 0.1h | 73 | 0 | 🟢 |
-| `tender_dashboard_warm` | 0.1h | 74 | 0 | 🟢 |
+| `kg_metrics_refresh` | 0.1h | 1 | 0 | 🟢 |
+| `memory_metrics_refresh` | 0.1h | 1 | 0 | 🟢 |
+| `tender_dashboard_warm` | 0.1h | 1 | 0 | 🟢 |
 
-**統計**：14 個近期活躍 cron / 14 GREEN / 0 YELLOW / 0 RED（完整對賬見 scheduler_liveness_audit）
+**統計**：3 個近期活躍 cron / 3 GREEN / 0 YELLOW / 0 RED（完整對賬見 scheduler_liveness_audit）
 
 **凌晨低干擾排程設計（v6.13）**：
 - 02:00 fitness_daily / 02:30 dashboard_regen / 02:45 self_retrospective
@@ -305,16 +265,16 @@
 
 | 時間 | Job | 狀態 | 耗時 |
 |---|---|---|---|
-| 02:26:03 | `tender_dashboard_warm` | ✅ success | 3ms |
-| 02:25:49 | `health_check_broadcast` | ✅ success | 58ms |
-| 02:25:49 | `process_reminders` | ✅ success | 38ms |
-| 02:21:03 | `tender_dashboard_warm` | ✅ success | 1ms |
-| 02:21:02 | `memory_metrics_refresh` | ✅ success | 1156ms |
-| 02:20:59 | `kg_metrics_refresh` | ✅ success | 14ms |
-| 02:20:58 | `ezbid_cache_refresh` | ✅ success | 9522ms |
-| 02:20:51 | `pcc_today_scrape` | ✅ success | 2222ms |
-| 02:20:49 | `llm_quota_check` | ✅ success | 50ms |
-| 02:20:49 | `health_check_broadcast` | ✅ success | 23ms |
+| 10:04:42 | `tender_dashboard_warm` | ✅ success | 3ms |
+| 10:04:40 | `memory_metrics_refresh` | ✅ success | 1751ms |
+| 10:04:37 | `kg_metrics_refresh` | ✅ success | 40ms |
+| 09:59:58 | `tender_dashboard_warm` | ✅ success | 2ms |
+| 09:59:57 | `memory_metrics_refresh` | ✅ success | 1434ms |
+| 09:59:54 | `kg_metrics_refresh` | ✅ success | 20ms |
+| 09:59:46 | `pcc_today_scrape` | ✅ success | 2636ms |
+| 09:59:45 | `ezbid_cache_refresh` | ✅ success | 1783ms |
+| 09:59:44 | `process_reminders` | ✅ success | 51ms |
+| 09:59:44 | `health_check_broadcast` | ✅ success | 35ms |
 
 **統計** (最近 30 個事件): 30 成功 / 0 失敗 / 失敗率 0.0%
 
@@ -323,7 +283,7 @@
 - ADR-0020 + ADR-0035 proposed 收斂
 - 4 pending crystal 審批 (`/admin/crystals`)
 - Hermes GO/NO-GO baseline 重評
-- 跨 repo install-template 對 0 RED 子專案套用 (詳 §9)
+- 跨 repo install-template 對 2 RED 子專案套用 (詳 §9)
 - CK_KMapAdvisor CLAUDE.md STALE 32 天
 - Task Scheduler 重建 / sync_enabled=true
 

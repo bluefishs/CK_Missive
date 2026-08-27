@@ -193,6 +193,52 @@ def _existing_section_body(section_header: str) -> list[str]:
     return body
 
 
+HOST_STAMP_PREFIX = "> <!--host-captured:"
+
+
+def _host_stamp() -> str:
+    """host 產出實值時打上時間戳。
+
+    2026-08-27 加。在此之前 §3／§4 的保留機制（L73 非 clobber）是對的 ——
+    容器內拿不到 git 與 ~/.claude，保留前次實值好過洗成空白。
+    但它少了一件事：**保留了多久看不出來**。
+
+    實測今天：§3 的 commit 清單停在 v6.36/v6.37 那一批（約三個月前），
+    而 §4 的 session 清單最新是 2026-07-30 —— 儀表板檔頭卻寫著
+    「Generated: 2026-08-27 02:30」。而這份檔案的定位是
+    「session 啟動讀此檔取完整快照」⇒ **讀的人會把三個月前的東西當成今天的。**
+
+    根因不是保留機制壞了，是**沒有人在 host 端跑這支生成器**：
+    唯一的排程是容器內的 02:30 cron，而它結構上就取不到這兩段。
+    （已一併把生成器接進 run_fitness_weekly_host.sh —— weekly 本來就跑在 host。）
+
+    這個戳記是那件事的哨兵：host 排程若停掉，年齡會自己長出來，
+    「沒有人在更新」不會靜靜地看起來像「沒有變化」。
+    """
+    return f"{HOST_STAMP_PREFIX}{datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}-->"
+
+
+def _retained_note(prev: list[str], reason: str) -> str:
+    """保留前次實值時，把「保留了多久」講出來。"""
+    stamp = ""
+    for ln in prev:
+        if ln.startswith(HOST_STAMP_PREFIX):
+            stamp = ln[len(HOST_STAMP_PREFIX):].rstrip("-->").strip()
+            break
+    if not stamp:
+        return (f"> ⚠️ {reason}；以上為前次 host regenerate 保留值，"
+                f"**但沒有時間戳，無法判斷有多舊** —— 請在 host 端跑一次 "
+                f"`python scripts/checks/generate_governance_dashboard.py`。")
+    try:
+        age_days = (datetime.now() - datetime.fromisoformat(stamp)).days
+    except Exception:
+        return f"> ⚠️ {reason}；保留值時間戳無法解析（{stamp}）。"
+    flag = "⚠️" if age_days >= 7 else "ℹ️"
+    tail = "（host 端生成器已超過一週沒跑 —— 這一段不是現況）" if age_days >= 7 else ""
+    return (f"> {flag} {reason}；以上為 host 於 **{stamp}**（{age_days} 天前）"
+            f"regenerate 的保留值{tail}")
+
+
 def _is_placeholder(body: list[str]) -> bool:
     """前次區段是否本身就是 placeholder（無實值可保留）。"""
     return (not body) or any(("⚪" in b) or ("⚠️ git log" in b) or ("⚠ git log" in b) for b in body)
@@ -356,13 +402,15 @@ def render() -> str:
     if commits:
         for c in commits:
             a(f"- `{c}`")
+        a("")
+        a(_host_stamp())
     else:
         prev = _existing_section_body("## 3.")
         if not _is_placeholder(prev):
             for ln in prev:
                 a(ln)
             a("")
-            a("> ℹ️ 容器內無 git；以上為前次 host regenerate 保留值（L73 非 clobber，避免 silent 回退空白）。")
+            a(_retained_note(prev, "容器內無 git"))
         elif not IS_GIT_REPO:
             a("> ⚪ 容器內執行（非 git repo）無法取 commit 歷史；於 host 端手動 regenerate 可填。")
         else:
@@ -375,13 +423,15 @@ def render() -> str:
     if sessions:
         for s in sessions:
             a(f"- {s}")
+        a("")
+        a(_host_stamp())
     else:
         prev = _existing_section_body("## 4.")
         if not _is_placeholder(prev):
             for ln in prev:
                 a(ln)
             a("")
-            a("> ℹ️ 容器內無 ~/.claude memory；以上為前次 host regenerate 保留值（L73 非 clobber）。")
+            a(_retained_note(prev, "容器內無 ~/.claude memory"))
         else:
             a("> ⚪ 容器內無 ~/.claude memory 存取；於 host 端手動 regenerate 可填。")
     a("")
