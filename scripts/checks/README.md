@@ -190,7 +190,7 @@
 | `cross_repo_auth_state_audit.py` | fitness step 42 (L44 配套) |
 | `cross_repo_secret_audit.py` | fitness step 41 (L41 配套) |
 | `csrf_service_drift_audit.py` | CSRF Service Drift Audit — pile ↔ lvrland csrf_service 單一源守門（Tier2 / L80） |
-| `db_pool_exhaustion_audit.py` | 偵測 SQLAlchemy DB connection pool 耗盡風險（v6.12 P3 forward-looking） |
+| `db_pool_exhaustion_audit.py` | **兩個維度**：① 應用自己的池（原有）② **伺服器端 `max_connections` 額度**（2026-08-27 加）—— 兩者會完全背離：實測應用池 15/35 報 GREEN 2.9%，而伺服器 49/50 正在拒絕每一個新連線。②**刻意不靠 DB 連線量**（需要它的時候正是連不進去的時候），退回 postgres 容器的 `/proc/net/tcp` |
 | `db_schema_drift_audit.py` | 偵測 SQLAlchemy 模型 vs Alembic migration drift（next_session_resume #1） |
 | `dead_ui_detector.py` | Dead UI Detector — PLAYBOOK §6.5 Anti-pattern 落實 |
 | `dialogue_learning_coverage_audit.py` | Dialogue Learning Coverage Audit — 對話學習真實覆蓋率 |

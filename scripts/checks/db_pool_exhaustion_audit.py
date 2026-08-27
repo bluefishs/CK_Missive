@@ -38,6 +38,69 @@ HEALTH_ENDPOINTS = [
 ]
 
 
+def _server_side_budget():
+    """伺服器端的 `max_connections` 用掉多少 —— 與應用自己的池是**兩件事**。
+
+    2026-08-27 實測到兩者完全背離：
+      · 應用池   15/35 → 本檢核報 **GREEN 2.9%**
+      · 伺服器   49/50 → **每一個新連線都被拒絕**（psql 也連不進去）
+
+    ⇒ 原本這支問的是「我的池滿了嗎」，而使用者遇到的是「資料庫還收不收連線」。
+      池沒滿也可能整台 DB 進不去 —— 額度是**所有客戶端共用**的，
+      應用池只佔其中一部分。那次連兩支檢核（sso_coverage / agent_evolution_health）
+      都因此報假 RED。
+
+    ⚠️ **不能靠 DB 連線來量這件事** —— 需要它的時候正是連不進去的時候。
+      所以優先走 DB（準），連不上就退回 postgres 容器的 `/proc/net/tcp`
+      數 ESTABLISHED（不需要任何連線）。
+
+    ⚠️ 代理的已知限制（實測對照，不假裝沒有）：proc 只數 **TCP** 客戶端，
+      容器內走 unix socket 的 psql 不在內（實測 proc=2 / client_backends=3，
+      差的 1 就是那個 psql）。**低估的方向是安全的**：它不會把健康的誤報成滿。
+    """
+    import os
+    import subprocess
+
+    env = dict(os.environ, MSYS_NO_PATHCONV="1")
+    container = os.getenv("PG_CONTAINER", "ck_missive_postgres")
+
+    def _exec(cmd):
+        try:
+            r = subprocess.run(["docker", "exec", container] + cmd,
+                               capture_output=True, encoding="utf-8",
+                               timeout=25, env=env)
+            return (r.stdout or "").strip() if r.returncode == 0 else ""
+        except Exception:
+            return ""
+
+    psql = ["psql", "-U", "ck_user", "-d", "ck_documents", "-t", "-A", "-c"]
+    used = _exec(psql + ["SELECT count(*) FROM pg_stat_activity "
+                         "WHERE backend_type='client backend'"])
+    limit = _exec(psql + ["SELECT setting FROM pg_settings WHERE name='max_connections'"])
+    how = "pg_stat_activity"
+
+    if not used.isdigit():
+        # DB 收不了連線 —— 這正是本段存在的理由
+        used = _exec(["sh", "-c",
+                      "awk 'NR>1 && $4==\"01\"' /proc/net/tcp /proc/net/tcp6 "
+                      "2>/dev/null | wc -l"])
+        how = "/proc/net/tcp（DB 連不上，退回 OS 層；只數 TCP 客戶端）"
+    if not limit.isdigit():
+        limit = os.getenv("PG_MAX_CONNECTIONS", "50")
+        how += "｜max_connections 取自預設"
+    if not used.isdigit():
+        return "SKIP", "取不到伺服器端連線數（容器 %s 問不到）" % container
+
+    u, m = int(used), int(limit)
+    pct = (u / m * 100) if m else 0
+    line = "伺服器端 %d/%d（%.0f%%）｜來源：%s" % (u, m, pct, how)
+    if pct >= 90:
+        return "RED", line + "　⚠️ 額度快用完 —— 新連線會被拒絕（含 psql 與所有檢核腳本）"
+    if pct >= 70:
+        return "YELLOW", line + "　⚠️ 餘裕不足"
+    return "GREEN", line
+
+
 def _curl_json(url: str, timeout: int = 5) -> dict | None:
     """Fetch URL and parse as JSON."""
     try:
@@ -132,6 +195,20 @@ def main() -> int:
     if not any_reachable:
         print(f"\n  ⚪ no endpoint reachable — skipping audit")
         return 0
+
+    # === 第二個維度：伺服器端額度（與應用池是兩件事，2026-08-27 加）===
+    sev2, msg2 = _server_side_budget()
+    icon = {"RED": "🔴", "YELLOW": "🟡", "GREEN": "🟢", "SKIP": "⚪"}[sev2]
+    print("")
+    print(f"  {icon} {msg2}")
+    if sev2 == "RED":
+        overall_severity = "RED"
+    elif sev2 == "YELLOW" and overall_severity == "GREEN":
+        overall_severity = "YELLOW"
+    elif sev2 == "SKIP" and overall_severity == "GREEN":
+        # 「沒量到」不得與「量了沒事」在歷史裡長得一樣 —— 本 repo 的三態約定
+        # （0 GREEN / 1 YELLOW / 2+ RED）裡，未驗完屬 YELLOW 不屬 GREEN。
+        overall_severity = "YELLOW"
 
     print(f"\n  Final severity: {overall_severity}")
 
