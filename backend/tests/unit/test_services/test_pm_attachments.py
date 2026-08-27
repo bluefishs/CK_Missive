@@ -248,13 +248,18 @@ class TestListQuotationAttachments:
         user.id = 1
         return user
 
-    def _make_attachment(self, att_id=1, original_name="report.pdf"):
+    def _make_attachment(self, att_id=1, original_name="report.pdf", doc_type=None):
         att = MagicMock()
         att.id = att_id
         att.file_name = f"abc12345_{original_name}"
         att.original_name = original_name
         att.file_size = 1024
         att.mime_type = "application/pdf"
+        # 2026-08-28：`doc_type` 是 08-19 新增、08-22 才接進回應的欄位，
+        # 而這個 fixture 沒跟上 ⇒ MagicMock 過不了 Pydantic 驗證。
+        # ⚠️ 預設給 None 是刻意的：**None 代表「還沒有人分類過」，與 'other' 不同**
+        # （schema 的註解明寫）。下面的測試各覆蓋一種。
+        att.doc_type = doc_type
         att.notes = None
         att.uploaded_by = 1
         att.created_at = datetime(2026, 3, 25, 10, 0, 0)
@@ -264,8 +269,8 @@ class TestListQuotationAttachments:
     async def test_list_returns_attachments(self, mock_db, mock_user):
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [
-            self._make_attachment(1, "report.pdf"),
-            self._make_attachment(2, "quotation.xlsx"),
+            self._make_attachment(1, "report.pdf", doc_type="signed_quotation"),
+            self._make_attachment(2, "quotation.xlsx"),  # doc_type=None＝還沒分類
         ]
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -275,10 +280,17 @@ class TestListQuotationAttachments:
             current_user=mock_user,
         )
 
-        assert result["success"] is True
-        assert result["total"] == 2
-        assert len(result["attachments"]) == 2
-        assert result["attachments"][0]["file_name"] == "report.pdf"
+        # 2026-08-28：端點已改回 typed model（`CaseAttachmentListResponse`），
+        # 不再是 dict —— 那是本專案 schema SSOT 的方向，**程式是對的、測試過時**。
+        # 失敗訊息是 `'CaseAttachmentListResponse' object is not subscriptable`。
+        assert result.success is True
+        assert result.total == 2
+        assert len(result.attachments) == 2
+        # 端點是 `file_name=a.original_name or a.file_name` ⇒ 對外給原始檔名
+        assert result.attachments[0].file_name == "report.pdf"
+        # None 與 'other' 是兩件事，兩種都要走到
+        assert result.attachments[0].doc_type == "signed_quotation"
+        assert result.attachments[1].doc_type is None
 
     @pytest.mark.asyncio
     async def test_list_empty(self, mock_db, mock_user):
@@ -292,9 +304,9 @@ class TestListQuotationAttachments:
             current_user=mock_user,
         )
 
-        assert result["success"] is True
-        assert result["total"] == 0
-        assert result["attachments"] == []
+        assert result.success is True
+        assert result.total == 0
+        assert result.attachments == []
 
 
 # ============================================================================

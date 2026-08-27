@@ -191,7 +191,13 @@ async def test_crystallization_candidate_flag(temp_memory):
 
     pattern_files = list(temp_memory["patterns"].glob("pattern-*.md"))
     content = pattern_files[0].read_text(encoding="utf-8")
-    assert "crystallization_candidate: True" in content
+    # ⚠️ 2026-08-28：原本斷言 `"crystallization_candidate: True"`（大寫 T），
+    # 那是 **Python 的 repr**；frontmatter 改由 `yaml.safe_dump` 產生之後
+    # 寫出來的是 YAML 的 `true`（小寫）⇒ 永遠對不上。
+    # 改為**解析後比值**，不比字串形態 —— 否則序列化方式一換就再壞一次。
+    import yaml as _yaml
+    fm = _yaml.safe_load(content.split("---")[1])
+    assert fm["crystallization_candidate"] is True
 
 
 # ────────── AutoDefense ──────────
@@ -274,11 +280,38 @@ Rule for {sig}
 
 
 @pytest.mark.asyncio
-async def test_get_defensive_rules_block_empty(temp_memory):
-    """無 active failure → 回空字串（planner 不 inject）。"""
-    from app.services.memory.auto_defense import get_defensive_rules_block
-    result = await get_defensive_rules_block()
+async def test_get_defensive_rules_block_empty(temp_memory, monkeypatch):
+    """無 active failure → 回空字串（planner 不 inject）。
+
+    ⚠️ 2026-08-28：`temp_memory` 只隔離了 `FAILURES_DIR`，而
+    `get_defensive_rules_block` 還有**第二個來源** `check_soul_drift_defense()`，
+    它讀的是真實的 `wiki/SOUL.md` 與 `../CK_AaaP/runbooks/hermes-stack/SOUL.md`。
+    ⇒ 這支只有在那兩個檔剛好一致時才會過 —— **環境相依的假失敗**，
+    與 `test_windows_task_liveness_audit` 那支同一天抓到的是同一種形態。
+
+    本測試要驗的是「沒有 active failure 時不 inject」，
+    不是「這台機器上兩個 SOUL 檔同不同步」，所以把第二個來源也釘住。
+    另有 `test_..._includes_soul_drift` 專門驗那條防線本身。
+    """
+    from app.services.memory import auto_defense as ad
+    monkeypatch.setattr(ad, "check_soul_drift_defense", lambda: None)
+
+    result = await ad.get_defensive_rules_block()
     assert result == ""
+
+
+@pytest.mark.asyncio
+async def test_get_defensive_rules_block_includes_soul_drift(temp_memory, monkeypatch):
+    """反面：SOUL 防線有話說時必須被 inject。
+
+    2026-08-28 補 —— 上面那支把第二個來源釘住之後，若沒有這一支，
+    「釘住」就等於把那條防線移出測試視野，而測試會照樣全綠。
+    """
+    from app.services.memory import auto_defense as ad
+    monkeypatch.setattr(ad, "check_soul_drift_defense", lambda: "SOUL 不同步：測試用規則")
+
+    result = await ad.get_defensive_rules_block()
+    assert "SOUL 不同步：測試用規則" in result
 
 
 @pytest.mark.asyncio
