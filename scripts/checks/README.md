@@ -30,7 +30,7 @@
 > 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
 > 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
 
-<!--baseline:check_scripts-->合計 **179** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **180** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -148,6 +148,7 @@
 | `admin_endpoint_ui_consumers.py` | **人工觸發、刻意不接排程**：需要管理員的端點被哪些非管理頁面消費。2026-08-20「同仁變成代碼」修完後的掃全結果＝無第二例；剩下的是「頁面只要登入但頁內含管理動作」，403 部分屬刻意 ⇒ 接排程只會每天報同樣 4 個已知項。它是 `OPEN_ITEMS` **C5**（走查永遠以最高權限跑）收束時的盤點素材 |
 | `wiki_kg_link_audit.py` | Wiki ↔ KG 雙向引用率審計 |
 | `windows_task_liveness_audit.py` | Windows 排程存活稽核 |
+| `pm2_declared_vs_running_audit.py` | **PM2 宣告 vs 實際在跑**（weekly 70）。2026-08-27 人工盤點才發現 `ecosystem.config.js` 宣告三支而 pm2 上一支都沒在跑；其中 `health-watchdog` 的「假死自動復原」**沒有等價物** —— Docker 不會因為 unhealthy 就重啟容器。刻意不設 baseline：兩個方向（跑起來／從設定移除）都會讓它變綠，用 baseline 反而讓「還沒決定」看起來像已處理 |
 | `work_record_chain_semantics_audit.py` | 作業紀錄鏈的語意檢核：完成的成果不該是新事件的前序 |
 
 ## 🧪 月度架構覆盤（`run_fitness.sh`）

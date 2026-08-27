@@ -145,6 +145,12 @@ run_step "27" "憑證存活稽核（提請複查）"       "scripts/checks/crede
 # 異地備份、Hermes tick）**沒有任何人在看**。既有 scheduler_liveness_audit 管的是
 # 容器內 APScheduler。「排程註冊了不等於排程會跑」已踩過三次，且手動呼叫都會過。
 run_step "28" "Windows 排程存活"             "scripts/checks/windows_task_liveness_audit.py"
+# 2026-08-27：ecosystem.config.js 宣告三支 PM2 服務（health-watchdog /
+# synthetic-baseline / invoice-watcher），而 pm2 上**一支都沒有在跑**。
+# 其中 health-watchdog 的「假死自動復原」沒有等價物 ——
+# Docker 不會因為 unhealthy 就重啟容器，restart:always 只在程序結束時作用。
+# 與 step 28 同一個家族（宣告 vs 實際），刻意放在一起。
+run_step "70" "PM2 宣告 vs 實際在跑"          "scripts/checks/pm2_declared_vs_running_audit.py"
 # 2026-08-05 owner：「有資安風險皆不應該公開」。掃全 portfolio 當下發現
 # lvrland 與 digitaltwin 把完整 API schema 放在公網（1.5MB／196 端點），
 # 且沒有任何機制在問「我們對外開了什麼」—— 修一次不代表不會再開。
