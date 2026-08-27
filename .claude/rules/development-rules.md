@@ -170,6 +170,30 @@ cd backend && python -m py_compile app/main.py  # Python
 
 ## 5. 服務層架構
 
+> ⚠️ **2026-08-28 實測：這一節寫的是方向，不是現況。** 別把它讀成「我們已經這樣做了」。
+>
+> | 碰 DB 的 service（129 支） | 檔數 | 占比 |
+> |---|---|---|
+> | 只走 repository | **55** | 43% |
+> | **只有直接 `db.execute(select(...))`** | **61** | **47%** |
+> | 兩者混用 | 13 | 10% |
+>
+> 全庫 `services/` 底下直接 `db.execute(select(...))` 共 **435 處、74 個檔案**
+> （另有 278 支純邏輯不碰 DB）。
+>
+> **刻意不把它做成檢核**：第一天就 435 個紅點，而「永遠是紅的訊號與沒有訊號
+> 是同一個下場」—— 本 repo 2026-08-27 才在排程稽核上付過這個學費。
+> 規範留著（方向是對的），但**現狀寫出來**，免得有人照著它推論「所以資料存取都在 repository」。
+>
+> **它已經收過一次代價**（2026-08-28）：`erp/quotation_service._get_creator_names_batch`
+> 是該檔唯一不走 repository 的批次方法，於是單元測試裡 mock 掉 repository **蓋不到它**，
+> `db.execute` 的 AsyncMock 讓 `.all()` 回 coroutine ⇒
+> `TypeError: 'coroutine' object is not iterable`，而那支測試在基線外壞了一段時間沒人發現。
+> ⇒ **繞過 repository 的直接代價是「測不到」**，不只是分層不好看。
+>
+> 要收斂的話請先問「哪一段的錯誤代價最高」，而不是從 435 處裡隨機挑。
+
+
 | 層級 | 位置 | 職責 |
 |------|------|------|
 | API 層 | `backend/app/api/endpoints/` | HTTP 處理、參數驗證 |
