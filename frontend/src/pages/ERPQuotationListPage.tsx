@@ -21,7 +21,25 @@ export const ERPQuotationListPage: React.FC = () => {
   const navigate = useNavigate();
   const { message, modal } = App.useApp();
   const { hasPermission } = useAuthGuard();
-  const canWrite = hasPermission('projects:write');
+  // 2026-08-27：原本用 `projects:write` 守著，而那個名字**不存在於任何地方**
+  //   （沒有角色擁有、兩份 SSOT 都沒有）⇒ 只有 superuser 看得到這些按鈕，
+  //   admin 與業務同仁都看不到。
+  //
+  //   ⚠️ 改成 `projects:edit` **不會放寬任何 API 存取** ——
+  //   這一頁對應的後端端點全部只有 `require_auth`（實測：quotations 5 支、
+  //   pm/cases 1 支，零個 require_admin／require_permission）
+  //   ⇒ 任何登入者本來就打得到那些 API。前端的守衛只是在隱藏入口，
+  //   而它隱藏的對象包含本來就有權限的人。
+  //
+  //   為什麼是 `projects:edit`：它是最接近的**既有**權限（admin／staff／ops 擁有），
+  //   而報價單與 PM 案件在資料模型上都掛在承攬案件之下（case_code 橋接）。
+  //   「新增」動作刻意用同一個守衛而不是 `projects:create`（admin 專屬）——
+  //   因為後端沒有做這個區分，前端多做一層會再製造一次「前後端不一致」。
+  //
+  //   ⚠️ 這是**過渡對齊**，不是最終答案。正解是 `quotations:*` / `pm:*` 自己的
+  //   權限詞彙，那需要 owner 決定（A23 後續）。在那之前，這個對齊讓畫面
+  //   與後端說同一件事。
+  const canWrite = hasPermission('projects:edit');
   const [statFilter, setStatFilter] = useState<string | null>(null);
   const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc' });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);

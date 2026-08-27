@@ -209,7 +209,10 @@ export const PMCaseListPage: React.FC = () => {
               >
                 <Button icon={<UploadOutlined />}>匯入修正</Button>
               </Upload>
-              {hasPermission('projects:write') && (
+              {/* 2026-08-27：`projects:write` 不存在於任何地方（見 useAuthGuard 的 Permission 註解），
+                  只有 superuser 看得到這個按鈕。後端 pm/cases 只有 require_auth ⇒
+                  改成 projects:edit 不放寬任何 API 存取，只是停止隱藏入口。 */}
+              {hasPermission('projects:edit') && (
                 <Button
                   type="primary"
                   icon={<PlusOutlined />}
