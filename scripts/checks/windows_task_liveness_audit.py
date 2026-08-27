@@ -600,6 +600,13 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
                 # 取「距上次執行」與「距開機」的較小值：任務再健康也不可能在關機時跑。
                 # ⚠️ 夾住開機時間**不得讓這個檢查變瞎** —— 開機已久（> 容忍值）
                 # 而任務仍沒 fire，照樣要紅。合成情境 D 就是驗這一格。
+                #
+                # 註：`boot > lr` 與 `since_boot < since_run` 是**同一個條件**
+                # （兩邊都減 now 就等價），下面寫成兩層純粹為了讀的人 ——
+                # CK_Hermes 那端用的是等價的 `Min(sinceRun, sinceBoot)` 封閉形式。
+                # ⚠️ 真正要防的**不是**少一個判斷，而是有人嫌它囉唆、
+                # 簡化成「無條件取距開機時間」：那會讓長 uptime 的真停擺永遠不紅
+                # （合成情境 D 就是為了鎖這一格）。
                 boot_hf = _last_boot()
                 clamped = False
                 if boot_hf is not None and boot_hf > lr:
