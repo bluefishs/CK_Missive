@@ -120,7 +120,7 @@ const ERPAccountRecordFormPage: React.FC = () => {
 
 
   // 協力廠商下拉（2026-08-18）—— 值用 vendor_name 以維持後端欄位不變。
-  const { subcontractors, isLoading: subLoading } = useSubcontractorOptions();
+  const { subcontractors, isLoading: subLoading, isError: subFailed } = useSubcontractorOptions();
   const [newVendorName, setNewVendorName] = useState('');
   const qc = useQueryClient();
   const handleAddVendor = async () => {
@@ -299,6 +299,17 @@ const ERPAccountRecordFormPage: React.FC = () => {
                   label: v.vendor_name,
                   value: v.vendor_name,
                 }))}
+                // 2026-08-27：這個下拉自 08-18 上線起就一直是空的 ——
+                // `useSubcontractorOptions` 送 limit=200 而後端上限是 100 ⇒ 422 ⇒
+                // useQuery 失敗 ⇒ `?? []`。422 在本專案屬「業務錯誤、元件自理」，
+                // 不會被 GlobalApiErrorNotifier 接走，所以**沒有任何一層出聲**。
+                // limit 已修，但真正要治的是**空清單長什麼樣**：
+                // 「沒有選項」與「公司沒有協力廠商」在畫面上必須分得出來。
+                notFoundContent={
+                  subFailed ? '廠商清單載入失敗，請重新整理'
+                    : subLoading ? '載入中…'
+                    : '沒有可選的協力廠商'
+                }
                 dropdownRender={(menu) => (
                   <>
                     {menu}

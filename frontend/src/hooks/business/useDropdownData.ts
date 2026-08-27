@@ -108,7 +108,20 @@ export const useSubcontractorOptions = () => {
     queryKey: ['subcontractors-dropdown'],
     queryFn: async () => {
       const { vendorsApi } = await import('../../api/vendorsApi');
-      const resp = await vendorsApi.getVendors({ vendor_type: 'subcontractor', limit: 200 });
+      // ⚠️ limit 上限是 100（`schemas/vendor.py: VendorListQuery.limit` 是 `le=100`）。
+      //
+      // 這裡原本寫 200 —— 2026-08-18「協力廠商改下拉」那次引入的。
+      // 實測 `limit=200` 回 **422**（`Input should be less than or equal to 100`），
+      // 而 422 在本專案的錯誤分流裡屬「業務錯誤，交給元件自己處理」，
+      // 不會被 GlobalApiErrorNotifier 接走 ⇒ useQuery 失敗 ⇒ `?? []` ⇒ **空下拉**。
+      //
+      // 於是那個功能從上線起就沒有正常運作過，而**沒有任何一層會出聲**：
+      // 前端沒報錯、後端回的是規規矩矩的 422、畫面只是「沒有選項」——
+      // 而「沒有選項」與「公司沒有協力廠商」長得一模一樣。
+      //
+      // 現況 23 家，100 夠用。若日後超過 100，這裡會**靜默截斷**而不是報錯 ——
+      // 真的要一次載完就得改後端上限或改成分頁載入，不是把數字調大。
+      const resp = await vendorsApi.getVendors({ vendor_type: 'subcontractor', limit: 100 });
       return resp.items ?? [];
     },
     staleTime: 10 * 60 * 1000,

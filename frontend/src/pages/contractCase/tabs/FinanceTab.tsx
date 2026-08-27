@@ -113,6 +113,44 @@ const FinanceTab: React.FC<Props> = ({ caseCode, projectCode, projectName, sourc
         </Row>
       </Card>
 
+      {/* 2026-08-27 owner：「以利掌握公司專案資金管理」。
+          上面那張卡是**談定的**（合約總價／毛利），這一張是**真的進出的**。
+          在此之前這一頁看不到任何實際金流 —— 而「這個案子談成 765 萬」
+          與「這個案子收到 225 萬」是兩個不同的問題。 */}
+      <Card size="small" title="實際金流" style={{ marginBottom: 16 }}>
+        <Row gutter={[24, 16]}>
+          <Col xs={12} sm={4}>
+            <Statistic title="已開請款" value={Number(erp.billed_total ?? 0)} precision={0} prefix="NT$" />
+          </Col>
+          <Col xs={12} sm={4}>
+            <Statistic title="已收款" value={Number(erp.received_total ?? 0)} precision={0} prefix="NT$"
+              styles={{ content: { color: '#52c41a' } }} />
+          </Col>
+          <Col xs={12} sm={4}>
+            <Statistic title="未收" value={Number(erp.unreceived ?? 0)} precision={0} prefix="NT$"
+              styles={{ content: { color: Number(erp.unreceived ?? 0) > 0 ? '#fa8c16' : undefined } }} />
+          </Col>
+          <Col xs={12} sm={4}>
+            <Statistic title="應付" value={Number(erp.payable_total ?? 0)} precision={0} prefix="NT$" />
+          </Col>
+          <Col xs={12} sm={4}>
+            <Statistic title="已付" value={Number(erp.paid_total ?? 0)} precision={0} prefix="NT$" />
+          </Col>
+          <Col xs={12} sm={4}>
+            <Statistic title="未付" value={Number(erp.unpaid ?? 0)} precision={0} prefix="NT$"
+              styles={{ content: { color: Number(erp.unpaid ?? 0) > 0 ? '#fa8c16' : undefined } }} />
+          </Col>
+        </Row>
+        {Number(erp.billed_total ?? 0) === 0 && Number(erp.payable_total ?? 0) === 0 && (
+          // ⚠️「還沒開始走金流」與「載不到」意思不同 —— 這裡是前者，明說出來。
+          // 2026-08-27 量測：88 個承攬專案裡 9 個執行中的案子完全沒有金流紀錄，
+          // 合約金額合計 1,155 萬。那不是系統故障，是**沒有人看見**。
+          <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+            這個案子還沒有任何請款或應付紀錄。
+          </Text>
+        )}
+      </Card>
+
       {/* 導航至 ERP Quotation 詳情頁 */}
       <Card>
         <div style={{ textAlign: 'center', padding: '24px 0' }}>

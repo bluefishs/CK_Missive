@@ -271,5 +271,22 @@ export const PM_CATEGORY_CODES: Record<string, string> = {
 export interface CrossModuleLookupResult {
   case_code: string;
   pm: { id: number; case_name: string; status: string; progress: number } | null;
-  erp: { id: number; case_name: string; status: string; total_price: string; gross_profit: string } | null;
+  erp: {
+    id: number;
+    case_name: string;
+    status: string;
+    /** 談定的金額 —— 與底下的實際金流是**兩件事** */
+    total_price: string;
+    gross_profit: string;
+    /** 2026-08-27：實際金流。在此之前這裡只有合約總價與毛利，
+     *  而「這個案子談成多少」回答不了「收了多少、付了多少、還有多少沒收」。
+     *  ⚠️ 宣告在這裡才會被 tsc 守住 —— 契約鏈的第三面（ORM→schema→前端型別）
+     *  漏掉任何一面，那個欄位就會在該段靜靜消失。 */
+    billed_total?: string;
+    received_total?: string;
+    unreceived?: string;
+    payable_total?: string;
+    paid_total?: string;
+    unpaid?: string;
+  } | null;
 }
