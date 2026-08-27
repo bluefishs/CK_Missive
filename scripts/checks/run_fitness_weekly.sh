@@ -184,6 +184,14 @@ run_step "75" "pattern YAML id-like 欄位型別"          "scripts/checks/patte
 # **宣告是不是真的先前沒有人驗** —— 首跑就抓到 7 支宣告錯了，
 # 其中四支（含 ADR-0021 強制規範）宣告的執行者一次都沒提到它們。
 run_step "76" "README 宣告的執行者是不是真的在跑它" "scripts/checks/declared_runner_truth_audit.py"
+
+# 2026-08-27 owner 立案：「前述成案程序的問題就是核心要管控」
+# 「如同政府標案一鍵建案 也是相同歷程」。
+# 兩條入口（邀標報價／標案一鍵建案）走同一條鏈，而它在同一個地方斷：
+# 已承攬 176 件無成案編碼、報價 1,273 萬、請款與帳本各 0；
+# 有編碼的 51 件則 48 件有請款。48/51 對 0/175。
+# ⚠️ 只對「惡化」報紅，存量不報紅 —— 否則它第一天就是紅的（今日已付過這個學費）。
+run_step "77" "成案程序管控（承攬→編碼→金流）" "scripts/checks/case_award_pipeline_audit.py"
 # 2026-08-05 owner：「有資安風險皆不應該公開」。掃全 portfolio 當下發現
 # lvrland 與 digitaltwin 把完整 API schema 放在公網（1.5MB／196 端點），
 # 且沒有任何機制在問「我們對外開了什麼」—— 修一次不代表不會再開。
