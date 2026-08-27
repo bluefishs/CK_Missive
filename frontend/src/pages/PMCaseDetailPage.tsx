@@ -192,6 +192,17 @@ export const PMCaseDetailPage: React.FC = () => {
   //   與後端說同一件事。
   const canWrite = hasPermission('projects:edit');
 
+  // 委辦招標（`01`）＝投標程序，不對客戶報價。
+  //
+  // 2026-08-27 owner：「已強調計畫類別為『委辦招標』其無須有報價單 tab」。
+  // 在此之前只有「新增報價」按鈕排除了 01，**分頁本身仍無條件掛上** ——
+  // 於是委辦招標案件有一個永遠是空的「報價單」分頁，而空的分頁與
+  // 「還沒建報價單」在畫面上長得一模一樣。
+  //
+  // 判準抽成一個常數讓兩處共用：按鈕與分頁若各寫一份 `!== '01'`，
+  // 下次改規則（例如再加一個不報價的類別）只會有一處被改到。
+  const isTenderCase = pmCase?.category === '01';
+
   const headerConfig = {
     title: pmCase?.case_name ?? '載入中...',
     subtitle: pmCase?.case_code,
@@ -220,7 +231,7 @@ export const PMCaseDetailPage: React.FC = () => {
 
             ⚠️ 委辦招標（`01`）不顯示：標案是投標程序不是對客戶報價。
             判準用 `!== '01'` 與報價單詳情頁的輸出按鈕一致，不另立第二份規則。 */}
-        {canWrite && pmCase?.case_code && pmCase?.category !== '01' && (
+        {canWrite && pmCase?.case_code && !isTenderCase && (
           <Button
             icon={<FileTextOutlined />}
             onClick={() => {
@@ -364,15 +375,19 @@ export const PMCaseDetailPage: React.FC = () => {
     )),
     // 2026-08-26：分頁名由「報價紀錄」改為「報價單」——
     // 它現在是**線上明細編輯器**（嵌入 QuotationItemsTab），不是一份紀錄清單。
-    createTabItem('quotations', { icon: <FileTextOutlined />, text: '報價單' }, (
-      <Suspense fallback={<Spin />}>
-        <QuotationRecordsTab
-          caseCode={pmCase.case_code}
-          caseName={pmCase.case_name}
-          isEditing={isEditing}
-        />
-      </Suspense>
-    )),
+    //
+    // 2026-08-27：委辦招標不掛這個分頁（判準見上方 `isTenderCase`）。
+    ...(isTenderCase ? [] : [
+      createTabItem('quotations', { icon: <FileTextOutlined />, text: '報價單' }, (
+        <Suspense fallback={<Spin />}>
+          <QuotationRecordsTab
+            caseCode={pmCase.case_code}
+            caseName={pmCase.case_name}
+            isEditing={isEditing}
+          />
+        </Suspense>
+      )),
+    ]),
     createTabItem('milestones', { icon: <BarChartOutlined />, text: '里程碑/甘特圖' }, (
       <Suspense fallback={<Spin />}><MilestonesGanttTab pmCaseId={pmCase.id} /></Suspense>
     )),
