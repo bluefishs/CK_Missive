@@ -40,9 +40,21 @@ owner 2026-08-27：
 
 ## 判準
 
-* 兩端都有值且差額 > 容差 → **RED**（那是矛盾，不是未完成）
-* 只有一端有值 → **YELLOW**（尚未對應，需要人補）
-* 容差 1 元（避免小數進位造成假紅）
+⚠️ **2026-08-27 owner 決策，判準語意整個改了**：
+
+> 「協力廠商 tab 須填列**合約經費為上位規範**，故應付帳款 tab
+>   **應以合約經費為規範管控**」
+
+⇒ 兩者**不是對等的兩份資料**，是**規範與執行**：
+   合約經費是先談定的上限，應付分期是在它之下逐次執行。
+
+    應付合計  >  合約經費   → **RED**   超出規範（超付風險）
+    應付合計  <  合約經費   → GREEN     還沒建完分期，那是正常的
+    有應付但**合約經費未填** → **RED**   沒有上位規範可管控，等於無限制
+    只有合約經費、無應付     → YELLOW   還沒開始執行
+
+**我原本寫的是「不相等即 RED」，那個語意是錯的** —— 它把「還沒建完分期」
+也判成矛盾，而依 owner 的規範那是正常狀態。容差 1 元（避免進位假紅）。
 
 退出碼：0 GREEN／1 YELLOW／2 RED。
 """
@@ -83,11 +95,19 @@ WITH pv AS (
      WHERE y.vendor_id IS NOT NULL
      GROUP BY q.case_code, y.vendor_id
 )
-SELECT 'MISMATCH|' || pv.case_code || '|' || pv.vendor_name || '|'
+-- 超出上位規範（合約經費）—— owner 2026-08-27 的管控方向
+SELECT 'OVER|' || pv.case_code || '|' || pv.vendor_name || '|'
        || COALESCE(pv.contract_amount::bigint::text, '0') || '|'
        || pay.amt::bigint::text || '|' || pay.n || '|' || pay.n_period
   FROM pv JOIN pay ON pay.case_code = pv.case_code AND pay.vendor_id = pv.vendor_id
- WHERE ABS(COALESCE(pv.contract_amount, 0) - pay.amt) > {TOLERANCE}
+ WHERE COALESCE(pv.contract_amount, 0) > 0
+   AND pay.amt - COALESCE(pv.contract_amount, 0) > {TOLERANCE}
+UNION ALL
+-- 有應付卻沒有上位規範可管 —— 等於無限制
+SELECT 'NO_CONTRACT|' || pv.case_code || '|' || pv.vendor_name || '|0|'
+       || pay.amt::bigint::text || '|' || pay.n || '|' || pay.n_period
+  FROM pv JOIN pay ON pay.case_code = pv.case_code AND pay.vendor_id = pv.vendor_id
+ WHERE COALESCE(pv.contract_amount, 0) = 0
 UNION ALL
 SELECT 'ONLY_VENDOR|' || COUNT(*)::text || '|' || '' || '|' || '' || '|' || '' || '|' || ''
   FROM pv WHERE COALESCE(pv.contract_amount, 0) > 0
@@ -126,45 +146,63 @@ def main() -> int:
     if rows is None:
         return 2
 
-    mismatches, only_vendor, only_payable = [], 0, 0
+    over, no_contract, only_vendor, only_payable = [], [], 0, 0
+    #: ⚠️ 未知的 kind 必須出聲。2026-08-27 改判準時 SQL 已回 `OVER`／
+    #: `NO_CONTRACT`，而這裡還在找舊的 `MISMATCH` —— 資料回來了卻被
+    #: 靜靜丟掉，畫面顯示「0 組」⇒ **假綠**。同一種失敗不能再發生一次。
+    unknown: list[str] = []
     for ln in rows:
         parts = ln.split("|")
         kind = parts[0]
-        if kind == "MISMATCH":
-            mismatches.append(parts[1:])
+        if kind == "OVER":
+            over.append(parts[1:])
+        elif kind == "NO_CONTRACT":
+            no_contract.append(parts[1:])
         elif kind == "ONLY_VENDOR":
             only_vendor = int(parts[1] or 0)
         elif kind == "ONLY_PAYABLE":
             only_payable = int(parts[1] or 0)
+        else:
+            unknown.append(kind)
+
+    if unknown:
+        print(f"[RED] 查詢回了 {len(unknown)} 種未知類型：{sorted(set(unknown))}",
+              file=sys.stderr)
+        print("      SQL 與判讀不同步 —— 不下結論。", file=sys.stderr)
+        return 2
 
     print("=" * 70)
-    print("協力廠商「合約經費」 vs 應付帳款「分期應付」")
+    print("應付分期有沒有超出上位規範（合約經費）")
     print("=" * 70)
-    print(f"  兩端都有值卻對不上 : {len(mismatches)}")
-    print(f"  只有協力廠商有金額 : {only_vendor}（尚未建應付）")
-    print(f"  只有應付、未登記廠商: {only_payable}")
+    print(f"  應付**超出**合約經費 : {len(over)}")
+    print(f"  有應付但合約經費未填 : {len(no_contract)}")
+    print(f"  只有合約經費、無應付 : {only_vendor}")
+    print(f"  只有應付、未登記廠商 : {only_payable}")
 
-    if mismatches:
-        print(f"\n  [RED] {len(mismatches)} 組金額矛盾 ——"
-              f" 兩邊都填了，而數字不同：")
-        for case_code, vendor, contract, paid, n, n_period in mismatches:
-            diff = int(contract) - int(paid)
-            print(f"      {case_code} | {vendor}")
-            print(f"        協力廠商 ${int(contract):,} vs 應付合計 ${int(paid):,}"
-                  f"（{n} 期，{n_period} 期有填期別）→ 差 ${diff:,}")
-        print("\n  這不是「還沒填完」，是**同一件事有兩個數字**。")
-        print("  修法在畫面：協力廠商的合約經費應該由應付分期加總得出，")
-        print("  或至少在兩者不符時當場說出來 —— 見 VENDOR_FUND_CONTROL_PLAN。")
+    if over or no_contract:
+        if over:
+            print(f"\n  [RED] {len(over)} 組**超出合約經費**：")
+            for case_code, vendor, contract, paid, n, _np in over:
+                print(f"      {case_code} | {vendor}")
+                print(f"        合約經費 ${int(contract):,} < 應付合計 ${int(paid):,}"
+                      f"（{n} 期）→ **超出 ${int(paid) - int(contract):,}**")
+        if no_contract:
+            print(f"\n  [RED] {len(no_contract)} 組**有應付卻沒有合約經費** ——"
+                  f" 沒有上位規範可管控，等於無限制：")
+            for case_code, vendor, _c, paid, n, _np in no_contract:
+                print(f"      {case_code} | {vendor} | 應付 ${int(paid):,}（{n} 期）")
+        print("\n  依 owner 2026-08-27 的規範：**合約經費是上位，應付在它之下執行**。")
+        print("  ⇒ 超出要嘛是應付填錯、要嘛是合約經費該調高（追加）——")
+        print("     兩者都需要人決定，系統不自行判斷。")
         return 2
 
     if only_vendor or only_payable:
-        print(f"\n  [YELLOW] 尚未對應：協力廠商有金額但無應付 {only_vendor} 筆／"
+        print(f"\n  [YELLOW] 尚未對應：有合約經費但無應付 {only_vendor} 筆／"
               f"有應付但未登記廠商 {only_payable} 組")
-        print("     判 YELLOW 不判 RED —— 那多半是**還沒填**而不是填錯，")
-        print("     把未填每天報成紅色只會訓練人忽略它。")
+        print("     判 YELLOW 不判 RED —— 那是**還沒建**而不是超支。")
         return 1
 
-    print("\n  [GREEN] 兩端金額一致")
+    print("\n  [GREEN] 沒有超出合約經費的應付")
     return 0
 
 
