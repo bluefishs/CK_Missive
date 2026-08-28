@@ -76,6 +76,20 @@ class PMCaseService:
                 "pm", year, category,
             )
 
+        # 2026-08-29：由 FK 回填 `client_name` —— `update` 早就這樣做了
+        # （見本檔 update 的同段），而 **create 沒有**。於是「只送 FK 的
+        # 建案入口」會產生 client_name 空白的案件，而報價單輸出的客戶抬頭
+        # 正是讀它（`quotation_document.gather` 的 COALESCE(cp.client_agency,
+        # pm.client_name)）⇒ 文件上的客戶欄會是空的。
+        # 同一條規則要在所有寫入路徑上（L83）。
+        if dump.get("client_vendor_id") and not dump.get("client_name"):
+            from sqlalchemy import select as _sel
+            from app.extended.models.core import PartnerVendor as _PV
+            vendor_name = await self.db.scalar(
+                _sel(_PV.vendor_name).where(_PV.id == dump["client_vendor_id"]))
+            if vendor_name:
+                dump["client_name"] = vendor_name
+
         pm_case = PMCase(
             **dump,
             created_by=user_id,

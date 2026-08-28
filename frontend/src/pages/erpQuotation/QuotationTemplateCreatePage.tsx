@@ -19,6 +19,7 @@ import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Card, Table, Button, Input, InputNumber, Space, Typography, App, Row, Col, Form, Modal,
+  Select, Divider,
 } from 'antd';
 import {
   PlusOutlined, DeleteOutlined, SaveOutlined, ArrowLeftOutlined, FileTextOutlined,
@@ -31,6 +32,9 @@ import { ROUTES } from '../../router/types';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import type { SuccessResponse } from '../../api/types';
 import type { PMCase } from '../../types/pm';
+import { useClientOptions } from '../../hooks/business/useDropdownData';
+import { vendorsApi } from '../../api/vendorsApi';
+import { useQueryClient } from '@tanstack/react-query';
 
 const { Text, Title } = Typography;
 
@@ -58,13 +62,20 @@ const QuotationTemplateCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const [searchParams] = useSearchParams();
+  const qc = useQueryClient();
+  const { clients } = useClientOptions();
 
   // 入口 2（PM 案件詳情頁）帶進來的既有案件
   const presetCaseCode = searchParams.get('case_code') || undefined;
   const presetPmCaseId = searchParams.get('pm_case_id') || undefined;
 
   const [caseName, setCaseName] = React.useState(searchParams.get('case_name') ?? '');
-  const [clientName, setClientName] = React.useState('');
+  // 2026-08-29：委託單位改用**主檔 Select**（原本是自由文字，只送
+  // `client_name` 不送 `client_vendor_id`）—— 那會讓這個入口持續產生
+  // 「只有文字沒有連結」的案件，而全庫已有 145 筆是這個狀態。
+  // 與 PMCaseFormPage 同一套控件（Select + dropdownRender inline 新增）。
+  const [clientVendorId, setClientVendorId] = React.useState<number | undefined>();
+  const [newClientName, setNewClientName] = React.useState('');
   const [year, setYear] = React.useState<number>(
     Number(searchParams.get('year')) || new Date().getFullYear(),
   );
@@ -93,6 +104,22 @@ const QuotationTemplateCreatePage: React.FC = () => {
     }
   };
 
+  // 下拉找不到時就地新增（與 PMCaseFormPage 同一套流程）
+  const handleAddClient = async () => {
+    if (!newClientName.trim()) return;
+    try {
+      const created = await vendorsApi.createVendor({
+        vendor_name: newClientName.trim(), vendor_type: 'client',
+      });
+      message.success(`委託單位「${newClientName}」已建立`);
+      setNewClientName('');
+      qc.invalidateQueries({ queryKey: ['clients-dropdown'] });
+      setClientVendorId(created.id);
+    } catch {
+      message.error('建立失敗');
+    }
+  };
+
   const patch = (key: string, part: Partial<DraftItemRow>) =>
     setRows(rs => rs.map(r => (r.key === key ? { ...r, ...part } : r)));
 
@@ -113,8 +140,9 @@ const QuotationTemplateCreatePage: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!caseName.trim()) { message.error('請填寫案名'); return; }
-    if (!presetCaseCode && !clientName.trim()) {
-      message.error('請填寫委託單位 —— 輸出的報價單需要客戶抬頭'); return;
+    if (!presetCaseCode && !clientVendorId) {
+      message.error('請選擇委託單位 —— 輸出的報價單需要客戶抬頭，且案件要能關聯到單位主檔');
+      return;
     }
     setSaving(true);
     try {
@@ -124,7 +152,8 @@ const QuotationTemplateCreatePage: React.FC = () => {
       if (!caseCode) {
         const res = await apiClient.post<SuccessResponse<PMCase>>(PM_ENDPOINTS.CASES_CREATE, {
           case_name: caseName.trim(),
-          client_name: clientName.trim(),
+          // 送 FK（案件關聯的單一事實），client_name 由後端從 FK 推導
+          client_vendor_id: clientVendorId,
           year,
           category: '02', // 承攬報價 —— 本頁就是報價流程的入口
           status: 'planning',
@@ -265,8 +294,31 @@ const QuotationTemplateCreatePage: React.FC = () => {
               {!presetCaseCode && (
                 <Col xs={24} md={8}>
                   <Form.Item label="委託單位（客戶抬頭）" required style={{ marginBottom: 8 }}>
-                    <Input value={clientName} placeholder="輸出報價單的客戶名稱"
-                      onChange={e => setClientName(e.target.value)} />
+                    <Select
+                      showSearch allowClear
+                      placeholder="選擇或新增委託單位"
+                      optionFilterProp="label"
+                      value={clientVendorId}
+                      onChange={(v) => setClientVendorId(v)}
+                      options={clients.map(c => ({ value: c.id, label: c.vendor_name }))}
+                      dropdownRender={(menu) => (
+                        <>
+                          {menu}
+                          <Divider style={{ margin: '8px 0' }} />
+                          <Space style={{ padding: '0 8px 4px' }}>
+                            <Input
+                              placeholder="輸入新委託單位名稱"
+                              value={newClientName}
+                              onChange={(e) => setNewClientName(e.target.value)}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                            <Button type="text" icon={<PlusOutlined />} onClick={handleAddClient}>
+                              新增
+                            </Button>
+                          </Space>
+                        </>
+                      )}
+                    />
                   </Form.Item>
                 </Col>
               )}
