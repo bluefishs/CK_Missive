@@ -8,8 +8,8 @@
  *
  * @version 2.0.0
  */
-import React, { useMemo } from 'react';
-import { Button, Card, Col, Descriptions, Row, Space, Statistic, Tag, Typography } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Button, Card, Col, Descriptions, Row, Select, Space, Statistic, Tag, Typography } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { InfoCircleOutlined, UnorderedListOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -26,11 +26,22 @@ const { Text } = Typography;
 type VendorPayableRecord = VendorCasePayableItem['items'][number];
 type FlatPaymentRecord = VendorPayableRecord & { case_code: string; project_code?: string; case_name?: string };
 
+// 年度選項（西元）—— 與應收端明細頁同一套約定（2026-08-29 owner：
+// 「明細頁也要區分年度以利掌握年度資金，類似情況通盤調整」）
+const _currentYear = new Date().getFullYear();
+const _yearOptions = [
+  { value: 0, label: '全部年度' },
+  ...Array.from({ length: 5 }, (_, i) => ({
+    value: _currentYear - i, label: `${_currentYear - i} 年`,
+  })),
+];
+
 const ERPVendorAccountDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const vendorId = id ? Number(id) : null;
-  const { data: detail, isLoading } = useVendorAccountDetail(vendorId);
+  const [year, setYear] = useState<number>(_currentYear);
+  const { data: detail, isLoading } = useVendorAccountDetail(vendorId, year || undefined);
 
   // Must be before early return to satisfy Rules of Hooks
   const allPayments = useMemo<FlatPaymentRecord[]>(() => {
@@ -180,6 +191,14 @@ const ERPVendorAccountDetailPage: React.FC = () => {
         title: detail?.vendor_name ?? '載入中...',
         backPath: ROUTES.ERP_VENDOR_ACCOUNTS,
         subtitle: detail?.vendor_code,
+        extra: (
+          <Select
+            style={{ width: 120 }}
+            value={year}
+            options={_yearOptions}
+            onChange={(v) => setYear(v)}
+          />
+        ),
       }}
       tabs={[overviewTab, casesTab, timelineTab]}
       loading={isLoading}

@@ -8,8 +8,8 @@
  *
  * @version 2.0.0
  */
-import React, { useMemo } from 'react';
-import { Button, Card, Col, Descriptions, Row, Space, Statistic, Tag, Typography } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Button, Card, Col, Descriptions, Row, Select, Space, Statistic, Tag, Typography } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { InfoCircleOutlined, UnorderedListOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -26,11 +26,25 @@ const { Text } = Typography;
 type BillingRecord = ClientCaseReceivableItem['items'][number];
 type FlatBillingRecord = BillingRecord & { case_code: string; project_code?: string; case_name?: string };
 
+// 年度選項（西元 —— 後端比對 pm_cases/contract_projects.year，皆西元）
+const _currentYear = new Date().getFullYear();
+const _yearOptions = [
+  { value: 0, label: '全部年度' },
+  ...Array.from({ length: 5 }, (_, i) => ({
+    value: _currentYear - i, label: `${_currentYear - i} 年`,
+  })),
+];
+
 const ERPClientAccountDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const vendorId = id ? Number(id) : null;
-  const { data: detail, isLoading } = useClientAccountDetail(vendorId);
+  // 2026-08-29 owner：「明細頁也要區分年度以利掌握年度資金」——
+  // 後端 get_client_case_detail 本就支援 year（腿 1/腿 2 都會過濾，
+  // 統計卡由過濾後的案件重算），缺的只是這條前端接線。
+  // 預設當年度，與列表頁同一套約定。
+  const [year, setYear] = useState<number>(_currentYear);
+  const { data: detail, isLoading } = useClientAccountDetail(vendorId, year || undefined);
 
   // Must be before early return to satisfy Rules of Hooks
   const allBillings = useMemo<FlatBillingRecord[]>(() => {
@@ -189,6 +203,14 @@ const ERPClientAccountDetailPage: React.FC = () => {
         title: detail?.vendor_name ?? '載入中...',
         backPath: ROUTES.ERP_CLIENT_ACCOUNTS,
         subtitle: detail?.vendor_code,
+        extra: (
+          <Select
+            style={{ width: 120 }}
+            value={year}
+            options={_yearOptions}
+            onChange={(v) => setYear(v)}
+          />
+        ),
       }}
       tabs={[overviewTab, casesTab, timelineTab]}
       loading={isLoading}

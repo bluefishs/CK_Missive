@@ -296,6 +296,38 @@ async def import_legacy_quotations(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/template-preview")
+async def quotation_template_preview(
+    service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
+):
+    """報價單 XLS 範本樣式預覽 —— 空白範本轉 PDF（owner 2026-08-29
+    「xls樣本報價單無法呈現嗎」）。
+
+    版面唯一來源＝`app/templates/quotation_template.xlsx`；這裡**不填值**，
+    使用者看到的正是輸出時的版面（同一條 LibreOffice 轉換鏈）。
+    與「輸出 PDF」的差別：那個要先有報價單，這個在建單前就能看。
+    """
+    from pathlib import Path as _Path
+
+    from app.services.erp import quotation_document as _qd
+    from app.services.erp.quotation_document import QuotationDocumentService
+
+    # 與 render_xlsx 內部同一條路徑推導（quotation_document.py:321）
+    tpl = _Path(_qd.__file__).resolve().parents[2] / "templates" / "quotation_template.xlsx"
+    if not tpl.exists():
+        raise HTTPException(status_code=500, detail=f"範本不存在：{tpl.name}")
+    try:
+        pdf = QuotationDocumentService.render_pdf(tpl.read_bytes())
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=f"PDF 轉換失敗：{e}")
+    return StreamingResponse(
+        iter([pdf]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="quotation_template_preview.pdf"'},
+    )
+
+
 @router.post("/export-document")
 async def export_quotation_document(
     request: ERPQuotationExportRequest,

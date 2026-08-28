@@ -18,10 +18,11 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Card, Table, Button, Input, InputNumber, Space, Typography, App, Row, Col, Form,
+  Card, Table, Button, Input, InputNumber, Space, Typography, App, Row, Col, Form, Modal,
 } from 'antd';
 import {
   PlusOutlined, DeleteOutlined, SaveOutlined, ArrowLeftOutlined, FileTextOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS, PM_ENDPOINTS } from '../../api/endpoints';
@@ -70,6 +71,27 @@ const QuotationTemplateCreatePage: React.FC = () => {
   const [notes, setNotes] = React.useState('');
   const [rows, setRows] = React.useState<DraftItemRow[]>([newRow(), newRow(), newRow()]);
   const [saving, setSaving] = React.useState(false);
+  const [tplUrl, setTplUrl] = React.useState<string | null>(null);
+  const [tplLoading, setTplLoading] = React.useState(false);
+
+  // owner 2026-08-29：「xls 樣本報價單無法呈現嗎」——可以：
+  // 空白範本經後端同一條 LibreOffice 鏈轉 PDF，建單前就能看到正式版面
+  // （輸出 PDF 的預覽要先有單，這顆不用）。
+  const showTemplate = async () => {
+    setTplLoading(true);
+    try {
+      const res = await apiClient.post(
+        ERP_ENDPOINTS.QUOTATION_TEMPLATE_PREVIEW, {}, { responseType: 'blob' },
+      );
+      const raw = res as unknown as { data?: Blob } | Blob;
+      const blob = raw instanceof Blob ? raw : (raw.data as Blob);
+      setTplUrl(URL.createObjectURL(blob));
+    } catch {
+      message.error('範本預覽產生失敗，請稍後再試');
+    } finally {
+      setTplLoading(false);
+    }
+  };
 
   const patch = (key: string, part: Partial<DraftItemRow>) =>
     setRows(rs => rs.map(r => (r.key === key ? { ...r, ...part } : r)));
@@ -205,12 +227,30 @@ const QuotationTemplateCreatePage: React.FC = () => {
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
-        <Space>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>返回</Button>
-          <Title level={4} style={{ margin: 0 }}>
-            <FileTextOutlined style={{ marginRight: 8 }} />新增報價單
-          </Title>
+        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Space>
+            <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>返回</Button>
+            <Title level={4} style={{ margin: 0 }}>
+              <FileTextOutlined style={{ marginRight: 8 }} />新增報價單
+            </Title>
+          </Space>
+          <Button icon={<EyeOutlined />} loading={tplLoading} onClick={showTemplate}>
+            檢視 XLS 範本樣式
+          </Button>
         </Space>
+
+        <Modal
+          title="報價單範本樣式（輸出時即為此版面）"
+          open={!!tplUrl}
+          onCancel={() => { if (tplUrl) URL.revokeObjectURL(tplUrl); setTplUrl(null); }}
+          footer={null}
+          width="80%"
+        >
+          {tplUrl && (
+            <iframe src={tplUrl} title="quotation-template-preview"
+              style={{ width: '100%', height: '70vh', border: 'none' }} />
+          )}
+        </Modal>
 
         {/* 案首 —— 對應範本抬頭下方的案件資訊區 */}
         <Card size="small" title="案件資訊">
