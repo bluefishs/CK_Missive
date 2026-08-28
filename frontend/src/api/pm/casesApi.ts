@@ -61,6 +61,18 @@ export const pmCasesApi = {
     return response.data!;
   },
 
+  /** 更新並回傳完整回應 —— 後端把「自動成案未完成」寫在 message 裡，
+   *  只回 data 的 update() 會把它丟掉（M1，2026-08-29）。編輯表單要用這支。 */
+  async updateWithMessage(
+    id: number, data: PMCaseUpdate,
+  ): Promise<{ data: PMCase; message?: string }> {
+    const response = await apiClient.post<SuccessResponse<PMCase>>(
+      PM_ENDPOINTS.CASES_UPDATE,
+      { id, data }
+    );
+    return { data: response.data!, message: response.message };
+  },
+
   /** 刪除案件 */
   async delete(id: number): Promise<DeleteResponse> {
     return await apiClient.post<DeleteResponse>(PM_ENDPOINTS.CASES_DELETE, { id });

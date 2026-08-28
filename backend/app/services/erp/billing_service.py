@@ -84,6 +84,13 @@ class ERPBillingService(AuditableServiceMixin):
                 "否則統計會顯示「請款 N 元、已收 0 元」而看不出是資料缺失。"
                 "（若尚未收款，狀態請留「待收款」）"
             )
+        # 2026-08-29（P2-6）：paid 也要有日期 —— 實測 2 筆 paid 缺 payment_date
+        # （id 63/95，正是重複入帳那兩筆），入帳落 date.today() 使交易日期失真
+        if data.payment_status == "paid" and not getattr(data, "payment_date", None):
+            raise ValueError(
+                "建立時標記為「已收款」必須同時填寫收款日期 —— "
+                "缺日期會讓帳本的交易日期失真為入帳當天。"
+            )
 
         # ── 防重（2026-08-17 owner：「沒防呆 新增超過 10 筆紀錄」）──────────
         #
@@ -179,6 +186,12 @@ class ERPBillingService(AuditableServiceMixin):
                 "標記為「已收款」時必須填寫收款金額 —— "
                 "沒有金額就無法入帳，帳本會少這一筆。"
                 "若尚未收到款，請維持「待收款」。"
+            )
+        # 2026-08-29（P2-6）：與 create 端同判準（L83：同一條規則掃所有寫入路徑）
+        if billing.payment_status == "paid" and not billing.payment_date:
+            raise ValueError(
+                "標記為「已收款」時必須填寫收款日期 —— "
+                "缺日期會讓帳本的交易日期失真為入帳當天。"
             )
 
         await self.db.flush()

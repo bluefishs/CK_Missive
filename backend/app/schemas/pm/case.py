@@ -24,6 +24,13 @@ def _validate_date_ordering(
 
 class PMCaseCreate(BaseModel):
     """建立案件"""
+    # 2026-08-29（H2 同判準）：案號一律去頭尾空白 —— contract_projects
+    # id=190 曾因前導空白使所有案號 join 整批失敗
+    @field_validator("case_code", "project_code", mode="before", check_fields=False)
+    @classmethod
+    def _strip_codes(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
     case_code: Optional[str] = Field(None, max_length=50, description="建案案號 (未提供時自動產生)")
     project_code: Optional[str] = Field(None, max_length=100, description="成案專案編號 (成案後由系統產生)")
     case_name: str = Field(..., max_length=500, description="案名")
@@ -72,6 +79,12 @@ class PMCaseUpdate(BaseModel):
     """更新案件"""
     case_code: Optional[str] = Field(None, max_length=50)
     project_code: Optional[str] = Field(None, max_length=100)
+
+    # H2 同判準：案號去頭尾空白
+    @field_validator("case_code", "project_code", mode="before", check_fields=False)
+    @classmethod
+    def _strip_codes(cls, v):
+        return v.strip() if isinstance(v, str) else v
     case_name: Optional[str] = Field(None, max_length=500)
     year: Optional[int] = None
     category: Optional[str] = Field(None, max_length=50)

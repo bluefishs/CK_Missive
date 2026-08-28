@@ -84,6 +84,15 @@ async def update_case(
     - 建立 ContractProject
     - 同步 ERP Quotation
     """
+    # 2026-08-29（M2）：自動成案的判準必須是「狀態**改變**為已承攬」，
+    # 不是「payload 含 contracted」—— 前端編輯表單永遠帶 status，
+    # 於是對 91 筆「已承攬但成案待 owner 判讀」的案件（含 08-28 撤回的
+    # 51 筆），**改個備註都會嘗試靜默成案**，而成案是不可逆動作。
+    from sqlalchemy import select as _sel
+    from app.extended.models.pm import PMCase as _PMCase
+    prev_status = await service.db.scalar(
+        _sel(_PMCase.status).where(_PMCase.id == case_id))
+
     result = await service.update(case_id, data)
     if not result:
         raise HTTPException(status_code=404, detail="案件不存在")
@@ -102,9 +111,9 @@ async def update_case(
     except Exception as e:
         logger.warning("三方同步失敗 (不影響更新): %s", e)
 
-    # 自動成案：status 變更為已承攬時觸發
+    # 自動成案：status **由其他狀態變更為**已承攬時觸發（M2：不是「含 contracted」）
     new_status = getattr(data, 'status', None)
-    if new_status == 'contracted':
+    if new_status == 'contracted' and prev_status != 'contracted':
         try:
             case_code = result.case_code if hasattr(result, 'case_code') else getattr(result, 'case_code', None)
             project_code = result.project_code if hasattr(result, 'project_code') else getattr(result, 'project_code', None)
@@ -145,6 +154,11 @@ async def update_case_by_id(
 ):
     """更新案件 (POST body 包含 id + data) — 含三方同步"""
     logger.info("[PM_UPDATE_BY_ID] id=%d fields=%s", req.id, list(req.data.model_dump(exclude_unset=True).keys()))
+    # M2 同判準（2026-08-29）：見 /update 的說明 —— 觸發條件是狀態改變，不是 payload 含值
+    from sqlalchemy import select as _sel
+    from app.extended.models.pm import PMCase as _PMCase
+    prev_status = await service.db.scalar(
+        _sel(_PMCase.status).where(_PMCase.id == req.id))
     result = await service.update(req.id, req.data)
     if not result:
         raise HTTPException(status_code=404, detail="案件不存在")
@@ -163,9 +177,9 @@ async def update_case_by_id(
     except Exception as e:
         logger.warning("三方同步失敗 (不影響更新): %s", e)
 
-    # 自動成案
+    # 自動成案（M2：狀態改變才觸發）
     new_status = getattr(req.data, 'status', None)
-    if new_status == 'contracted':
+    if new_status == 'contracted' and prev_status != 'contracted':
         try:
             case_code = result.case_code if hasattr(result, 'case_code') else None
             project_code = result.project_code if hasattr(result, 'project_code') else None

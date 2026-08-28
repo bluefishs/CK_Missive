@@ -31,6 +31,54 @@ class ERPVendorPayableService(AuditableServiceMixin):
         self._vendor_repo = VendorRepository(db)
         self.ledger_service = FinanceLedgerService(db)
 
+    async def _sync_ledger_if_paid(self, payable) -> None:
+        """已付款 → 同步統一帳本（冪等＋金額校正）。
+
+        2026-08-29 財務域複查 P0-2：AP 差額 1,060,000 的三筆全是這裡的缺口——
+        ① `create` 路徑**完全沒有**入帳同步 ⇒ 建立時就標 paid 的（id 72/73，
+           各 500,000）永遠不入帳——與 billing 08-17 修掉的是同一型；
+        ② `update` 只在「非 paid → paid」轉換那一刻入帳 ⇒ 已 paid 後改金額
+           （id 69：900,000 → 960,000）帳本不會跟。
+        修法同 billing `_sync_ledger_if_paid`：冪等由 find_by_source 擔保、
+        不設轉換條件；另加**金額校正**——既有 entry 金額與現值不符時更新
+        （billing 端零筆不符所以不需要；AP 端實測有）。
+        """
+        if payable.payment_status != "paid" or not payable.paid_amount:
+            return
+        existing = await self.ledger_service.find_by_source("erp_vendor_payable", payable.id)
+        if existing:
+            from decimal import Decimal
+            paid = Decimal(str(payable.paid_amount))
+            if existing.amount != paid:
+                logger.info(
+                    "AP 帳本金額校正: 應付 #%d %s -> %s",
+                    payable.id, existing.amount, paid,
+                )
+                existing.amount = paid
+                if payable.paid_date:
+                    existing.transaction_date = payable.paid_date
+            return
+        case_code = await self._get_case_code(payable.erp_quotation_id)
+        if not case_code:
+            logger.error(
+                "AP 入帳失敗：應付 #%d 找不到案號（報價 %s）",
+                payable.id, payable.erp_quotation_id,
+            )
+            return
+        await self.ledger_service.record_from_vendor_payable(
+            payable_id=payable.id,
+            case_code=case_code,
+            paid_amount=payable.paid_amount,
+            paid_date=payable.paid_date,
+            vendor_name=payable.vendor_name,
+            description=payable.description,
+            vendor_id=payable.vendor_id,
+        )
+        logger.info(
+            "AP 自動入帳: 廠商 %s, 金額 %s, 案號 %s",
+            payable.vendor_name, payable.paid_amount, case_code,
+        )
+
     async def create(self, data: ERPVendorPayableCreate) -> ERPVendorPayableResponse:
         """建立廠商應付 — 自動由 vendor_code 或 vendor_name 配對 vendor_id"""
         # ── 防重（2026-08-17）────────────────────────────────────────────
@@ -80,7 +128,20 @@ class ERPVendorPayableService(AuditableServiceMixin):
             )
             if resolved:
                 create_data["vendor_id"] = resolved
+        # 建立時就標 paid 也要擋「沒金額／沒日期」—— 與 update 同判準
+        if create_data.get("payment_status") == "paid":
+            if not create_data.get("paid_amount"):
+                raise ValueError(
+                    "標記為「已付款」時必須填寫付款金額 —— 沒有金額就無法入帳。"
+                )
+            if not create_data.get("paid_date"):
+                raise ValueError(
+                    "標記為「已付款」時必須填寫付款日期 —— "
+                    "缺日期會讓帳本的交易日期失真為入帳當天。"
+                )
         payable = await self.repo.create(create_data)
+        # 建立時就標「已付款」也要入帳（P0-2 ①：這條路徑原本完全沒有同步）
+        await self._sync_ledger_if_paid(payable)
         await self.audit_create(payable.id, create_data)
         return ERPVendorPayableResponse.model_validate(payable)
 
@@ -151,30 +212,23 @@ class ERPVendorPayableService(AuditableServiceMixin):
                 "沒有金額就無法入帳，帳本會少這一筆。"
                 "若尚未付款，請維持「未付款」。"
             )
+        # 2026-08-29（P2-6 同型）：paid 也要有日期 —— 缺日期時入帳
+        # 落 date.today()，交易日期失真為入帳當天
+        if payable.payment_status == "paid" and not payable.paid_date:
+            raise ValueError(
+                "標記為「已付款」時必須填寫付款日期 —— "
+                "缺日期會讓帳本的交易日期失真為入帳當天。"
+            )
 
         await self.db.flush()
         await self.db.refresh(payable)
 
-        # AP 自動拋轉：非 paid → paid 且有付款金額時入帳 (冪等)
-        new_status = payable.payment_status
-        if old_status != "paid" and new_status == "paid" and payable.paid_amount:
-            existing = await self.ledger_service.find_by_source("erp_vendor_payable", payable.id)
-            if existing:
-                logger.warning("帳本已有 erp_vendor_payable/%d 的 entry，跳過重複入帳", payable.id)
-            elif (case_code := await self._get_case_code(payable.erp_quotation_id)):
-                await self.ledger_service.record_from_vendor_payable(
-                    payable_id=payable.id,
-                    case_code=case_code,
-                    paid_amount=payable.paid_amount,
-                    paid_date=payable.paid_date,
-                    vendor_name=payable.vendor_name,
-                    description=payable.description,
-                    vendor_id=payable.vendor_id,
-                )
-                logger.info(
-                    f"AP 自動入帳: 廠商 {payable.vendor_name}, "
-                    f"金額 {payable.paid_amount}, 案號 {case_code}"
-                )
+        # AP 自動拋轉（2026-08-29 改）：移除「非 paid → paid」轉換條件 ——
+        # 冪等由 _sync_ledger_if_paid 的 find_by_source 擔保，轉換條件不提供
+        # 保護、只讓「已 paid 後改金額」永遠不同步（P0-2 ②，id 69 實例）。
+        # old_status 保留給 audit 語意（此處不再使用）。
+        _ = old_status
+        await self._sync_ledger_if_paid(payable)
 
         await self.db.commit()
         await self.audit_update(payable_id, update_data)

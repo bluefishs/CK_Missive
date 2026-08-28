@@ -15,6 +15,15 @@ from app.schemas._text_utils import normalize_cjk_compat
 from app.schemas._text_utils import blank_to_none
 
 class ProjectBase(BaseModel):
+    # 2026-08-29（H2）：案號欄位一律去頭尾空白 —— 實測 id=190 的
+    # project_code 帶前導空白（` CK2026_01_01_008`），所有以案號 join 的
+    # 查詢整批失敗，而 promote 的 btrim 唯一性預檢反而擋得住「正確的」新號。
+    # 資料已修，這裡擋住下一筆。
+    @field_validator("project_code", "case_code", mode="before", check_fields=False)
+    @classmethod
+    def _strip_codes(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
     """承攬案件基礎Schema"""
     project_name: str = Field(..., min_length=1, max_length=500, description="案件名稱")
     year: Optional[int] = Field(None, description="年度 (民國或西元)")
@@ -86,6 +95,12 @@ class ProjectCreate(ProjectBase):
 
 class ProjectUpdate(BaseModel):
     """更新承攬案件Schema"""
+    # H2 同判準：案號去頭尾空白（見 ProjectBase 的說明）
+    @field_validator("project_code", "case_code", mode="before", check_fields=False)
+    @classmethod
+    def _strip_codes(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
     project_name: Optional[str] = Field(None, min_length=1, max_length=500, description="案件名稱")
     year: Optional[int] = Field(None, description="年度 (民國或西元)")
     client_agency: Optional[str] = Field(None, max_length=200, description="委託單位")

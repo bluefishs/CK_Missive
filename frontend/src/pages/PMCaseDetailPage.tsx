@@ -127,10 +127,17 @@ export const PMCaseDetailPage: React.FC = () => {
         location: values.location,
         notes: values.notes,
       };
-      await pmCasesApi.update(pmCase.id, payload);
+      const resp = await pmCasesApi.updateWithMessage(pmCase.id, payload);
       // invalidate 所有 pm-cases 查詢 (key prefix match: 列表 + detail 全部刷新)
       await queryClient.invalidateQueries({ queryKey: ['pm-cases'] });
-      message.success('儲存成功');
+      // 2026-08-29（M1）：後端把「自動成案未完成」寫在 message 裡 ——
+      // 硬編「儲存成功」會把它蓋掉，使用者以為流程走完了（08-27 在
+      // /promote 按鈕修掉的同一件事，編輯路徑上還在）。
+      if (resp.message && (resp.message.includes('未完成') || resp.message.includes('非預期錯誤'))) {
+        message.warning(resp.message, 10);
+      } else {
+        message.success(resp.message || '儲存成功', resp.message?.includes('自動成案') ? 6 : 3);
+      }
       setIsEditing(false);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
