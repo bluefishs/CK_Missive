@@ -531,6 +531,47 @@
 
 ---
 
+## L96 — 取走資料的動作與送出的動作之間，只要有失敗的可能，就必須有回填路徑（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | LINE 免費月配額 200 則，各主題 job 改走 `queue_digest` 暫存、每日晨報一次帶走合併推播（2026-07-07 落地）。 |
+| **What happened** | `drain_digest()` 是「`lrange` 讀取後立刻 `redis.delete`」，而真正的送出在 scheduler 幾十行之後。中間失敗——**最現實的是 LINE 月配額用罄**（`_call_line_api` 對 429 monthly limit 有短路旗標，配額用盡直接回 False 不送）——那批主題摘要**已經從 Redis 刪掉了，永久遺失且沒有任何痕跡**。不是延遲送達，是消失。 |
+| **Root cause** | dequeue 與 deliver 之間沒有事務性。而「送出成功」是**我方單方面判定**的：呼叫返回被當成對方收到。 |
+| **為何沒被發現** | 佇列空了與「本來就沒有告警」長得一模一樣。且 LINE 送出鏈的其餘部分都是對的（檢查 status_code、非 200 回 False、記 `admin_push_metrics.record_failure`、`log_delivery` 依 ok 記 success/failed、連續失敗 2 天 streak 告警）——**缺的只有 drain 與 send 之間那一段，而那一段剛好是唯一沒有人在看的地方**。 |
+| **Fix** | 保留 drain 出來的原始條目；一個管道都沒送成功時 `restore_digest()` 放回佇列（rpush 維持時序、重置 TTL）。判準＝digest 是同一份內容送給多人 ⇒ **至少一個管道成功即算送出，全部失敗才回填**。另加 `logs/digest_history.jsonl` append-only 持久紀錄（跨 repo 治理告警的唯一入口只活在 48h TTL 裡，事後無從回答「上週有沒有人通報過什麼」）。 |
+| **Prevention** | **任何 dequeue／claim 語意的操作，寫的時候就要同時寫回填路徑**，不要等到需要時才有。⚠️ 實證：`restore_digest` 寫完當天就攔下我自己的清理動作——drain 出來的 18 則真實告警（含 3 則跨 repo 送來的）差點被吃掉。**那類佇列的日常操作（清理、除錯、手動 drain）本身就是資料遺失的主要來源，不是罕見路徑。** |
+| **Refs** | `backend/app/services/integration/line_digest_buffer.py` / `backend/tests/test_line_digest_restore_regression.py` / 同族：CK_Website `flushDigest` 的 cursor 無條件前進、L83（送出的與收到的不一致） |
+
+---
+
+## L95 — 排程紅燈有四種型態，而稽核上長得一模一樣（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 排程存活稽核只能看到「這支紅了」（`LastTaskResult != 0`），看不到紅的原因屬於哪一類。 |
+| **What happened** | `CK_Missive_AutoStart` 永遠 `result=1`，而 `autostart.log` 顯示**所有容器都正常啟動**。根因：PowerShell 對 native 指令用 `2>&1`，每行 stderr 被包成 ErrorRecord 使 `$?` 為 false，即使 exe 退出碼是 0——而 `docker compose` 的進度訊息**本來就走 stderr**。 |
+| **Root cause** | 「動作成功但退出碼騙人」。與同日處理的 A39（`CK_Missive_Daily_Backup` 指向搬家前舊路徑、連續失敗 171 天）合起來，可歸納為四型。 |
+| **四型** | ① **路徑不存在**＝真失敗但沒人看（A39，171 天）② **工作已被別人接手**＝假失敗，該刪（A39 的備份已由容器內 asyncio task 承擔）③ **動作成功但退出碼騙人**＝假失敗，該修（本例）④ **真失敗但已知有界**＝該豁免但仍要出聲（CK_Website 的 NAMELEN）。**四者在稽核輸出上完全相同。** |
+| **Fix** | 改 `exit $LASTEXITCODE`（native 的真實退出碼，不受 ErrorRecord 影響）；端到端觸發實測 `result` 1→0，稽核 RED 7→6。 |
+| **Prevention** | (a) PowerShell 排程呼叫 native 指令時用 `exit $LASTEXITCODE`，不要依賴 `$?`。(b) ⚠️ **rc=0 沒有鑑別力**（CK_Website 的兩個反例：bat 整體退出碼掩蓋段內 robocopy rc=11、PM2 autostart rc=0 而 9 條 cron 缺席 37 分鐘）——**rc≠0 是訊號，rc=0 什麼都不證明**；單段指令才可把 rc 當主判準。(c) 判型必須由人做過一次才能進豁免白名單，**白名單為空是「還沒有人判過型」而非「還沒填」**。 |
+| **Refs** | 排程 `CK_Missive_AutoStart` / `scripts/checks/windows_task_liveness_audit.py` / 同族：A28（被停用正是對的）、L38（平時保險反模式） |
+
+---
+
+## L94 — 把觀測者的回報路徑接到被觀測的系統上，就是讓它們共用失敗模式（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | CK_Website 的 CF edge Worker 持續監測四個 SSO 消費端；另有 PM2 端治理 cron 走本 repo 的 `/api/notify/digest` → 晨報 → LINE。兩條鏈送到同一個 LINE、共用同一個月配額，看起來重複。 |
+| **What happened** | 提議把 Worker 也改走 `/api/notify/digest`（好處真實：長期記憶、配額只算一次、集中在會被讀的地方）。而那 38 則告警裡**最有價值的一筆是「四站同時 530」——正是本機重啟 37 分鐘、PM2 鏈整個死掉的時刻**。合一之後 Worker 會投遞到 `missive.cksurvey.tw`，**那個域名在該事件中也是 530** ⇒ 告警記錄的正是那次失敗，而它會因為那次失敗而送不出去。 |
+| **Root cause** | 外部監測的價值來自**它不共用被監測系統的失敗模式**。任何「合併以節省成本」的優化都可能在無意間消滅這個性質，而收益（配額、集中化）是立即可見的，代價只在故障時才顯現。 |
+| **Fix** | 合一可行，但**直接推送的路徑必須保留為 fallback，這是條件不是選項**（我方端點回非 2xx 時才走）。 |
+| **Prevention** | (a) 評估任何監測整併前先問：**「被監測的系統掛掉時，這條回報路徑還在嗎？」** (b) 同理適用於容器內 metrics／`cron_events.jsonl`——它們在容器不可達時什麼都證明不了，而那正是最需要證據的時刻。**「看守者掛掉的那一段，只有站在它外面的東西看得見。」**(c) 我方實例：兩筆公網 502 期間 `cron_events` 顯示排程照跑無異常空窗 ⇒ backend 活著、CF 打不進來＝L76 殭屍埠——**這是 L76 第一次有外部證據**，而 `deploy-public.sh` 的公網驗證是單次 curl，間歇性殭屍埠會讓那次剛好通過 ⇒ **部署後的公網驗證要多次抽樣**。 |
+| **Refs** | `docs/architecture/OPEN_ITEMS_20260819.md` 結案總表 / 跨 session：CK_Website `ck-sso-edge-cron` / 同族：L76（殭屍埠）、L84（設定嚴謹≠跑得起來） |
+
+---
+
 ## L93 — ORM mapper 初始化失敗＝整個系統無法登入，而 /health 仍是 200（2026-08-16）
 
 <!--not-enforceable: 部分可檢核（test_orm_mappers_configure 已鎖 mapper 可初始化），但「改 ORM 要重建不能只 docker cp」是行為準則-->

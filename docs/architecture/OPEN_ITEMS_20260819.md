@@ -38,6 +38,31 @@
 | **AutoStart 假失敗** | `CK_Missive_AutoStart` 永遠 result=1 **而容器其實全部正常啟動** —— PowerShell 對 native 指令用 `2>&1`，每行 stderr 被包成 ErrorRecord 使 `$?` 為 false，即使 docker 退出碼是 0（而 docker compose 的進度訊息**本來就走 stderr**）。改 `exit $LASTEXITCODE` | 端到端觸發實測 **result=0**；排程稽核 RED 7→6。<br>⚠️ **這是 A39 家族的第三型**：①路徑不存在（真失敗、沒人看）②工作被接手（假失敗、該刪）③**動作成功但退出碼騙人**（假失敗、該修）—— 三者在稽核上長得一模一樣，都只顯示「這支紅了」 |
 | **B2** 報價單附件 | 複核**早已完成**（帳目過期） | `AttachmentPanel` 已接 |
 
+### 結案總表（續）—— owner 逐項指示與跨 session 互查的產出
+
+| 項 | 事實 | 驗證證據 |
+|---|---|---|
+| **161 未收款對不上** | 同一個詞兩種算法：詳情頁用「合約額−已收款」＝15,915,000，而 receivable 分頁與 client-accounts 用「已請款−已收款」＝2,680,000 | 已對齊全系統定義，並補「未請款」讓兩條等式在畫面可驗算 |
+| **發票統計卡** | 前端 reduce 當頁 20 筆而發票實有 48 筆 | 實測修法前顯示 1,892,988、正確值 **7,258,898**（少 74%）；後端補分頁前 SQL SUM |
+| **統一帳本** | 無年度篩選、卡片只能標「本頁收入」 | 新增 `/erp/ledger/totals`（濾鏡與 /list 共用 builder）＋年度選擇器；實測 2026 支出 112,124 vs 全部 3,286,496 |
+| **明細頁年度** | 應收/應付明細頁補年度維度（後端本就支援，缺前端接線） | vendor 78 實測：全年度 6 案/60,196,000 vs 2026 年 3 案/40,666,000 |
+| **XLS 範本呈現** | 建單前無處可看正式版面 | 新增 `/erp/quotations/template-preview`（空白範本經同一條 LibreOffice 鏈轉 PDF），實測回真 PDF |
+| **開票防呆** | 累計開票 > 合約額 110% 即擋 | 存量掃描零誤傷；線上實測擋下超限請求 |
+| **應付上限稽核** | weekly 72 `payable_budget_ceiling_audit` | 5 筆 YELLOW（委外經費未填），零 RED |
+| **模型下架偵測** | weekly 73 `llm_model_availability_audit` —— 補 A31 那個 27 天盲區 | NVIDIA 確認下架（同家族候選已列）；Groq 403 判 YELLOW 不下結論 |
+| **委託單位關聯** | 我 08-28 新增的建單頁用自由文字、不寫 FK，正持續產生「只有文字無連結」的案件 | 改主檔 Select＋inline 新增；順帶補後端 `create` 的 FK→名稱回填（`update` 早有而 create 沒有 ⇒ 報價單客戶抬頭會空白） |
+| **digest 回填（L96）** | drain 刪除與 send 之間無事務性，送不出去即永久遺失 | `restore_digest` ＋回歸測試 2 項；**寫完當天就攔下我自己的清理動作**（18 則真實告警，含 3 則跨 repo 送來的） |
+| **告警長期記憶** | 跨 repo 治理告警的唯一入口只活在 48h TTL | `logs/digest_history.jsonl` append-only；端到端實證落檔 |
+| **AutoStart 假失敗（L95）** | 永遠 result=1 而容器全部正常啟動（PowerShell `2>&1` 陷阱） | 改 `exit $LASTEXITCODE`，觸發實測 1→0，稽核 RED 7→6 |
+| **scope 使用量觀測** | B9/A11 決策所需的實際資料（此前只有會被淹沒的 log） | `service_token_scope_usage{scope}` counter，**實證會動**（非只驗程式碼存在） |
+| **L76 首次外部證據（L94）** | 兩筆公網 502 期間 `cron_events` 顯示排程照跑無空窗 ⇒ backend 活著、CF 打不進來 | 由 CK_Website 的 edge Worker 持續監測提供；**`deploy-public.sh` 的單次 curl 驗證會漏掉間歇性殭屍埠** |
+
+> **本輪跨 session 互查的結構性收穫**：三條判準寫進 `verification_signal_too_coarse` 記憶檔
+> （第六型量測工具在待測對象上失效／第七型「同一指令的兩個世界」＝隱式參數／
+> 正向控制與負向對照），三條教訓入冊 **L94–L96**。
+> ⭐ 最值得記的一句（CK_Website）：**「分析出一個陷阱不會讓人免疫於它，只會讓人在事後認出它」**
+> ⇒ 判準要寫成**事後可執行的檢查**，不是「要記得小心」。
+
 ---
 
 ## A. 需要 owner 決定（我不會自己做）
