@@ -335,16 +335,24 @@ def _shadow_baseline_summary() -> StepResult:
                    -- ⚠️ 實測它**自 2026-08-01 起全空，27 天沒有人發現** ——
                    -- 而同期 baseline 一直在報 45s ⇒ 報了紅燈卻**無法歸因**。
                    -- 歷史上它是有用的（groq 488／ollama 418／nvidia 128）。
-                   -- ⚠️ 2026-08-28 追過根因但**沒有定案**，兩個假設都被自己的實測推翻：
-                   --   ① 「asyncio.wait_for 會擋住 ContextVar 傳回父層」→ 實測**會**傳回，不成立
-                   --   ② 「走 stream_completion fallback（三支串流都不設 provider）」→
-                   --      log 裡 0 次 "Synthesis chat_completion failed"，主路徑沒失敗
-                   -- 已確認：setter 在 chat_completion 的**所有** provider return 路徑上都會執行，
-                   --         沒有任何地方呼叫 reset_actual_provider。
-                   -- ⚠️ 第三個假設「這些查詢根本沒走 LLM 合成」**驗不了** ——
-                   --   我要查 synthesis_end 日誌時，容器剛被我自己重新部署過，
-                   --   `docker logs --since 24h` 裡只有一分鐘。**那是無效觀測不是發現。**
-                   -- ⇒ 要定案需要一個「已經跑了一段時間、期間有真實查詢」的容器日誌。
+                   -- ⚠️ 2026-08-28 **根因已定案**（過程中我三個假設錯了兩個、一個驗不了）：
+                   --   合成（`synthesize_answer`）跑在 `agent_orchestrator.py:457` 的
+                   --   `asyncio.create_task(_run_tool_loop())` **子任務**裡，
+                   --   而 `set_actual_provider` 就在那個子任務的 context 副本中執行。
+                   --   實測（六行腳本）：async generator **會**把 ContextVar 傳回父層，
+                   --   而 `create_task` 與 `gather` **都不會** ⇒ 父層的
+                   --   `fire_shadow_trace` 永遠讀到 None。
+                   --   ⚠️ 被推翻的兩個假設：`asyncio.wait_for` 阻斷（實測會傳回）、
+                   --      走 stream fallback（log 裡 0 次「chat_completion failed」）。
+                   --   ⚠️ 現場證據：容器重啟 13 分鐘內 30 次查詢、**5 次 synthesis_end**，
+                   --      而同期寫入的 trace 仍全部 actual_llm_provider 空。
+                   --   修法兩選一（**未實作，屬 owner 決策，動到核心推論接線**）：
+                   --     ① ContextVar 改存**可變容器**（dict），在請求進入時設一次 ——
+                   --        子任務共用同一個物件，改它父層看得到。正解，但要動請求生命週期。
+                   --     ② `shadow_logger` 在 ContextVar 為空時退回 `connector._last_provider`
+                   --        （該屬性已存在，`agent_orchestrator:80` 就是這樣拿 model_used 的）——
+                   --        一行可成，但**跨併發請求會互相污染**；本站真人一天 2 次，
+                   --        污染機率低，可是那正是「日後沒人會質疑的錯數字」。
                    -- 把「能不能歸因」一起報出來，否則下一個人會像我一樣先繞一圈才發現。
                    SUM(CASE WHEN actual_llm_provider IS NOT NULL
                              AND actual_llm_provider <> '' THEN 1 ELSE 0 END),
