@@ -107,6 +107,48 @@ async def drain_digest() -> List[dict]:
     return items
 
 
+async def restore_digest(items: List[dict]) -> int:
+    """把 drain 出來但**沒能送出去**的條目放回佇列（2026-08-29）。
+
+    ## 為什麼需要這支
+
+    `drain_digest()` 是「讀取後立刻 delete」，而真正的送出在**幾十行之後**
+    （scheduler 的 Step 4）。中間那段若失敗——最現實的情況是
+    **LINE 月配額用罄**（本檔同族的 `_call_line_api` 有 429 monthly limit
+    短路，配額用盡時直接回 False 不送）——那批主題摘要已經從 Redis 刪掉了，
+    **永久遺失且沒有任何痕跡**。
+
+    這與 CK_Website 2026-08-29 在他們 Worker `flushDigest` 上找到的是同一族：
+    **「呼叫的返回被當成對方收到」**——我方單方面就能判定成功，不需要對方確認。
+    他們提醒我掃自己的送出路徑，掃出了這一條。
+
+    語意：digest 是**同一份內容送給多人**，所以「至少一個管道送達」即視為
+    已送出、不回填；**全部失敗**才放回去等下一次晨報。
+    回填用 rpush（佇列尾端）以維持時序：drain 時是 lrange + reversed，
+    舊的在前，rpush 進去的會排在既有新條目之後仍屬正確時序。
+    """
+    if not items:
+        return 0
+    if _is_isolated():
+        _memory_buffer.extend(items)
+        return len(items)
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if redis:
+            for it in items:
+                await redis.rpush(_KEY, json.dumps(it, ensure_ascii=False))
+            await redis.expire(_KEY, _TTL_S)
+            logger.warning(
+                "[line-digest] %d 則主題摘要**未送達**，已放回佇列等下次晨報", len(items),
+            )
+            return len(items)
+    except Exception as e:
+        logger.error("[line-digest] 回填失敗，%d 則將遺失: %s", len(items), e, exc_info=True)
+    _memory_buffer.extend(items)
+    return len(items)
+
+
 def build_digest_tail(items: List[dict]) -> str:
     """把主題條目組成晨報尾段（依主題分組、時序保留、總長 cap）。純函式可測。"""
     if not items:

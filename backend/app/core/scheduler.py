@@ -1139,11 +1139,13 @@ async def morning_report_job():
     # cron 健康/排程產出/標案訂閱），組「昨日主題摘要」尾段附於推播訊息。
     # snapshot 保持純晨報（尾段僅存在於投遞訊息）；drain 失敗回空不影響晨報。
     digest_tail = ""
+    digest_items: list = []          # 2026-08-29：保留原始條目以便送不出去時回填
     try:
         from app.services.integration.line_digest_buffer import (
             build_digest_tail, drain_digest,
         )
-        digest_tail = build_digest_tail(await drain_digest())
+        digest_items = await drain_digest()
+        digest_tail = build_digest_tail(digest_items)
         if digest_tail:
             logger.info("Morning digest tail attached (%d chars)", len(digest_tail))
     except Exception as e:
@@ -1214,6 +1216,20 @@ async def morning_report_job():
                     len(pushed_to), ", ".join(pushed_to))
     else:
         logger.warning("Morning report generated but NO recipients")
+        # 2026-08-29：一個都沒送出去時，把主題摘要**放回佇列**。
+        # 在此之前 `drain_digest()` 已經把它們從 Redis 刪掉了，而送出
+        # 可能在幾十行後才失敗（最現實的是 LINE 月配額用罄）⇒ 那批內容
+        # 永久遺失且無痕跡。判準：digest 是同一份內容送給多人，
+        # **至少一個管道成功就算送出**；全部失敗才回填等下次晨報。
+        # （CK_Website 在他們 Worker 的 flushDigest 找到同族缺陷後提醒我掃，
+        #   掃出了這一條——「呼叫的返回被當成對方收到」。）
+        if digest_items:
+            try:
+                from app.services.integration.line_digest_buffer import restore_digest
+                await restore_digest(digest_items)
+            except Exception as e:
+                logger.error("digest 回填失敗，%d 則將遺失: %s",
+                             len(digest_items), e, exc_info=True)
 
     # Step 5: 連續失敗告警（A2）
     async with async_session_maker() as db:
