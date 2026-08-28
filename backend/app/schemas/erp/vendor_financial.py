@@ -111,7 +111,9 @@ class VendorAccountDetail(BaseModel):
 
 class ClientAccountSummaryItem(BaseModel):
     """委託單位帳款彙總項目 (列表用)"""
-    vendor_id: int
+    # None＝客戶只存在於承攬案件文字欄，尚無 partner_vendor 主檔
+    # （2026-08-28 彙總腿 2；與 frontend/src/types/erp.ts 同步）
+    vendor_id: Optional[int] = None
     vendor_name: str
     vendor_code: Optional[str] = None
     case_count: int = 0
@@ -124,7 +126,9 @@ class ClientAccountSummaryItem(BaseModel):
 
 class ClientCaseReceivableItem(BaseModel):
     """委託單位在單一案件的應收明細"""
-    erp_quotation_id: int
+    # None＝該案尚未建報價單（零額列，2026-08-28 起不再整案消失；
+    # 與 frontend/src/types/erp.ts 同步）
+    erp_quotation_id: Optional[int] = None
     case_code: str
     case_name: Optional[str] = None
     year: Optional[int] = None
