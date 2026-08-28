@@ -2,18 +2,18 @@
 title: app.schemas.auth
 kg_entity_id: 12274
 type: module
-module_lines: 334
-module_relations: 38
+module_lines: 351
+module_relations: 40
 file_path: /app/app/schemas/auth.py
 created: 2026-08-03
-updated: 2026-08-03
+updated: 2026-08-24
 tags: [程式模組, auto-compiled]
 confidence: medium
 ---
 # app.schemas.auth
 
 ## 概述
-此 Python 模組包含一系列 Pydantic 模型，用於定義使用者認證相關的數據結構和驗證規則。
+此模組包含一系列 Pydantic 模型，用於定義使用者認證相關的數據結構。這些模型涵蓋了用戶登録、登錄、權限檢查、會話管理等多個方面。
 
 ## 主要類別
 - AuthProvider
@@ -43,14 +43,14 @@ confidence: medium
 - UserSearchParams
 - LoginHistoryItem
 - LoginHistoryResponse
+- AdminLoginHistoryItem
+- AdminLoginHistoryResponse
 - MFASetupResponse
 - MFAVerifyRequest
 - MFADisableRequest
 - MFAValidateRequest
 - MFAStatusResponse
 - VerifyEmailRequest
-- AdminLoginHistoryItem
-- AdminLoginHistoryResponse
 - LineAuthRequest
 - LineBindRequest
 - LineUserInfo
@@ -59,4 +59,4 @@ confidence: medium
 無公開函數。
 
 ## 依賴關係
-無外部依賴。
+- app.schemas._text_utils

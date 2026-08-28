@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-08-24T17:11:04",
+  "all_ok": true,
+  "broken_chains": [],
+  "unverified_chains": [
+    "chain_3_tools_manifest"
+  ],
+  "chains": {
+    "chain_1_missive_health": {
+      "ok": true,
+      "documents": 2020,
+      "entities": 49899
+    },
+    "chain_2_kunge_snapshot": {
+      "ok": true,
+      "lessons": 16,
+      "patterns": 12,
+      "proposals": 9,
+      "pending_proposals": 0
+    },
+    "chain_3_tools_manifest": {
+      "ok": null,
+      "status": 401,
+      "reason": "MCP_SERVICE_TOKEN 未設，無法驗證（不是整合斷了）"
+    },
+    "chain_4_hermes_container": {
+      "ok": true,
+      "endpoint": "host.docker.internal:8642",
+      "status": 200
+    },
+    "chain_5_bridge_skill": {
+      "ok": true,
+      "has_kunge_endpoint": true,
+      "tools_py_size": 19572,
+      "tools_py_path": "D:\\CKProject\\CK_Missive\\docs\\hermes-skills\\ck-missive-bridge\\tools.py"
+    }
+  }
+}

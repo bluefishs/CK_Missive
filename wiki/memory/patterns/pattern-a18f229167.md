@@ -5,13 +5,13 @@ template_hash: a18f229167
 tool_sequence: [get_statistics, search_across_graphs]
 domains: [analysis]
 wiki_topics: []
-hit_count: 41
-success_count: 41
+hit_count: 47
+success_count: 47
 failure_count: 0
 success_rate: 1.0
-avg_latency_ms: 46610
+avg_latency_ms: 73375
 first_seen: '2026-05-30'
-last_seen: '2026-08-03'
+last_seen: '2026-08-24'
 crystallization_candidate: true
 tags: [memory, pattern, analysis]
 ---
@@ -24,9 +24,9 @@ tags: [memory, pattern, analysis]
 
 ## 統計
 
-- **觸發次數**：41（累計）
+- **觸發次數**：47（累計）
 - **成功率**：100.0%
-- **平均延遲**：46611ms
+- **平均延遲**：73375ms
 - **涉及領域**：analysis
 - **相關 Wiki**：(無對應)
 
@@ -41,4 +41,4 @@ tags: [memory, pattern, analysis]
 
 ---
 
-_由 pattern_extractor 自動產生，最後更新：2026-08-03_
+_由 pattern_extractor 自動產生，最後更新：2026-08-24_

@@ -172,6 +172,7 @@
 - [115年度仁愛鄉非都市計畫地區圖解數化地籍圖整合建置作業](entities/115年度仁愛鄉非都市計畫地區圖解數化地籍圖整合建置作業.md)
 - [115年度南投縣都市計畫樁位測補釘案委託技術服務案(開口契約)](entities/115年度南投縣都市計畫樁位測補釘案委託技術服務案(開口契約).md)
 - [115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)](entities/115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約).md)
+- [115年度桃園市都市計畫內公共設施完竣地區調查、測量及範圍劃定](entities/115年度桃園市都市計畫內公共設施完竣地區調查、測量及範圍劃定.md)
 - [115年度番路鄉、竹崎鄉非都市計畫地區圖解數化地籍圖整合建置作業](entities/115年度番路鄉、竹崎鄉非都市計畫地區圖解數化地籍圖整合建置作業.md)
 - [115年度苗栗縣後龍鎮龍東段、龍南段及後龍段後龍、大庄小段地籍圖重測案](entities/115年度苗栗縣後龍鎮龍東段、龍南段及後龍段後龍、大庄小段地籍圖重測案.md)
 - [中華空間資訊學會](entities/中華空間資訊學會.md)
@@ -344,10 +345,13 @@
 - [app.api.endpoints.ai.agent_evolution](modules/app.api.endpoints.ai.agent_evolution.md)
 - [app.api.endpoints.ai.agent_query_sync](modules/app.api.endpoints.ai.agent_query_sync.md)
 - [app.api.endpoints.ai.digital_twin](modules/app.api.endpoints.ai.digital_twin.md)
+- [app.api.endpoints.ai.document_ai](modules/app.api.endpoints.ai.document_ai.md)
 - [app.api.endpoints.ai.embedding_pipeline](modules/app.api.endpoints.ai.embedding_pipeline.md)
 - [app.api.endpoints.ai.graph_admin](modules/app.api.endpoints.ai.graph_admin.md)
+- [app.api.endpoints.ai.graph_entity](modules/app.api.endpoints.ai.graph_entity.md)
 - [app.api.endpoints.ai.graph_unified](modules/app.api.endpoints.ai.graph_unified.md)
 - [app.api.endpoints.ai.memory](modules/app.api.endpoints.ai.memory.md)
+- [app.api.endpoints.ai.morning_report](modules/app.api.endpoints.ai.morning_report.md)
 - [app.api.endpoints.auth.mfa](modules/app.api.endpoints.auth.mfa.md)
 - [app.api.endpoints.auth.oauth](modules/app.api.endpoints.auth.oauth.md)
 - [app.api.endpoints.backup](modules/app.api.endpoints.backup.md)
@@ -375,8 +379,10 @@
 - [app.schemas.agency](modules/app.schemas.agency.md)
 - [app.schemas.ai.stats](modules/app.schemas.ai.stats.md)
 - [app.schemas.auth](modules/app.schemas.auth.md)
+- [app.schemas.common](modules/app.schemas.common.md)
 - [app.schemas.document](modules/app.schemas.document.md)
 - [app.schemas.document_calendar](modules/app.schemas.document_calendar.md)
+- [app.schemas.erp.quotation](modules/app.schemas.erp.quotation.md)
 - [app.schemas.knowledge_graph](modules/app.schemas.knowledge_graph.md)
 - [app.schemas.taoyuan.dispatch](modules/app.schemas.taoyuan.dispatch.md)
 - [app.services.ai.agent.agent_orchestrator](modules/app.services.ai.agent.agent_orchestrator.md)
@@ -385,8 +391,9 @@
 - [app.services.ai.agent.agent_router](modules/app.services.ai.agent.agent_router.md)
 - [app.services.ai.agent.agent_synthesis](modules/app.services.ai.agent.agent_synthesis.md)
 - [app.services.ai.search.document_natural_search](modules/app.services.ai.search.document_natural_search.md)
+- [app.services.document.core](modules/app.services.document.core.md)
 - [app.services.tender.business_recommendation](modules/app.services.tender.business_recommendation.md)
 
 ---
-**統計**: 245 entities | 58 topics | 0 sources | 20 synthesis | 47 modules
-**最後更新**: 2026-08-17
+**統計**: 246 entities | 58 topics | 0 sources | 20 synthesis | 53 modules
+**最後更新**: 2026-08-24

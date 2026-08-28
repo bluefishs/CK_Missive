@@ -10,16 +10,16 @@ confidence: high
 # integration health 月報
 
 **統計來源**: prometheus v7 gauges (M1, 5/04 v3.0 覆盤)
-**編譯時間**: 2026-08-17 05:00
+**編譯時間**: 2026-08-24 05:00
 
 ## v3.0 8 接觸面當下健康度
 
 | 接觸面 | 當前 | 目標 | 狀態 |
 |--------|-----:|-----:|------|
-| ❼ 跨通道 pattern 多樣性 | 0 | ≥ 4 | ✗ WARN |
-| ❺ Diary↔KG entity tag % | 21.3% | ≥ 50% | ✗ WARN |
+| ❼ 跨通道 pattern 多樣性 | 1 | ≥ 4 | ✗ WARN |
+| ❺ Diary↔KG entity tag % | 27.9% | ≥ 50% | ✗ WARN |
 | ❹ Critique↔KG 引用 % | 100.0% | ≥ 80% | ✓ OK |
-| ❽ SOUL drift lines | 0 | ≤ 5 | ✓ OK |
+| ❽ SOUL drift lines | 3 | ≤ 5 | ✓ OK |
 
 ## 對應 v3.0 review 洞察
 

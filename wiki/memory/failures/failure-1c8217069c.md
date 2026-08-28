@@ -3,13 +3,12 @@ type: agent_memory
 memory_type: failure
 signature: 1c8217069c
 tool_sequence: ["get_statistics", "search_documents"]
-hit_count: 11
-failure_count: 7
-failure_rate: 0.636
-active: false
-expired_reason: stale >21d (last_seen 2026-06-03)
+hit_count: 13
+failure_count: 8
+failure_rate: 0.615
+active: true
 first_seen: 2026-05-05
-last_seen: 2026-06-03
+last_seen: 2026-08-21
 tags: [memory, failure, defensive]
 ---
 
@@ -21,22 +20,21 @@ tags: [memory, failure, defensive]
 
 ## 失敗統計
 
-- **觸發次數**：11
-- **失敗次數**：7
-- **失敗率**：63.6%
-- **症狀**：成功率僅 20%，共 4 次失敗
+- **觸發次數**：13
+- **失敗次數**：8
+- **失敗率**：61.5%
+- **症狀**：成功率僅 50%，共 1 次失敗
 
 ## 典型問法
 
 - 狀態
-- 顯示財務彙總（get_financial_summary）含科目分類
-- 列出所有資產（list_assets）並顯示資產統計
+- 知識圖譜有多少實體？
 
 ## 🛡️ Defensive Rule（planner 將自動注入）
 
 **觸發**：規劃包含 `get_statistics` + `search_documents` 的組合
 
-**歷史問題**：成功率僅 20%，共 4 次失敗
+**歷史問題**：成功率僅 50%，共 1 次失敗
 
 **建議**：
 - 優先考慮單獨使用其中一個工具而非全部組合

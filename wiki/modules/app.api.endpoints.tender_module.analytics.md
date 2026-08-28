@@ -2,37 +2,35 @@
 title: app.api.endpoints.tender_module.analytics
 kg_entity_id: 38543
 type: module
-module_lines: 213
-module_relations: 23
+module_lines: 221
+module_relations: 25
 file_path: /app/app/api/endpoints/tender_module/analytics.py
 created: 2026-08-04
-updated: 2026-08-04
+updated: 2026-08-24
 tags: [程式模組, auto-compiled]
 confidence: medium
 ---
 # app.api.endpoints.tender_module.analytics
 
 ## 概述
-該模塊提供了與標案分析相關的各種 API 端點，包括 dashboard、battle-room、org-ecosystem、company-profile、price-analysis 和 price-trends。
-
-## 主要類別
-無
+該模組提供了多個與標案分析相關的 API 端點，用於展示和處理各種標案數據，包括統計信息、待審核標案刷新、跨標案參考、分析儀表板、戰鬥室、組織生態系統、公司概況、標案價格分析以及價格趨勢。
 
 ## 公開函數
-1. `cache_stats`
-2. `refresh_pending`
-3. `cross_reference`
-4. `analytics_dashboard`
-5. `analytics_battle_room`
-6. `analytics_org_ecosystem`
-7. `analytics_company_profile`
-8. `tender_price_analysis`
-9. `tender_price_trends`
+- `cache_stats`
+- `refresh_pending`
+- `cross_reference`
+- `analytics_dashboard`
+- `analytics_battle_room`
+- `analytics_org_ecosystem`
+- `analytics_company_profile`
+- `tender_price_analysis`
+- `tender_price_trends`
 
 ## 依賴關係
-1. `app.db.database`
-2. `app.schemas.common`
-3. `app.services.tender.analytics`
-4. `app.services.tender.business_recommendation`
-5. `app.services.tender.cache`
-6. `app.services.tender.metrics`
+- `app.core.dependencies`
+- `app.db.database`
+- `app.schemas.common`
+- `app.services.tender.analytics`
+- `app.services.tender.business_recommendation`
+- `app.services.tender.cache`
+- `app.services.tender.metrics`

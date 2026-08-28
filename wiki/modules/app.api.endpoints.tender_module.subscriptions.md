@@ -2,42 +2,42 @@
 title: app.api.endpoints.tender_module.subscriptions
 kg_entity_id: 38594
 type: module
-module_lines: 356
-module_relations: 36
+module_lines: 352
+module_relations: 35
 file_path: /app/app/api/endpoints/tender_module/subscriptions.py
 created: 2026-08-03
-updated: 2026-08-03
+updated: 2026-08-24
 tags: [程式模組, auto-compiled]
 confidence: medium
 ---
 # app.api.endpoints.tender_module.subscriptions
 
 ## 概述
-此模塊提供了一組 API 結合功能，用於管理標案訂閱和書籤。這些 API 包括創建、更新和刪除標案訂閱以及書籤，並支持查詢相關信息。
+該模組包含了與標案訂閱、書籤以及廠商關注相關的API接口，用於管理用戶對標案和書籤的操作。
 
 ## 主要類別
-- `KeywordRulesRequest`
+無
 
 ## 公開函數
-- `list_subscriptions`
-- `create_subscription`
-- `update_subscription`
-- `delete_subscription`
-- `list_bookmarks`
-- `create_bookmark`
-- `update_bookmark`
-- `delete_bookmark`
-- `check_subscriptions`
-- `list_company_bookmarks`
+1. `list_subscriptions` - 列出用戶的所有標案訂閱。
+2. `create_subscription` - 創建新的標案訂閱。
+3. `update_subscription` - 更新已存在的標案訂閱信息。
+4. `delete_subscription` - 刪除指定的標案訂閱。
+5. `list_bookmarks` - 列出用戶的所有書籤。
+6. `create_bookmark` - 創建新的書籤。
+7. `update_bookmark` - 更新已存在的書籤信息。
+8. `delete_bookmark` - 刪除指定的書籤。
+9. `check_subscriptions` - 檢查用戶是否有訂閱特定標案。
+10. `list_company_bookmarks` - 列出廠商的所有書籤。
 
 ## 依賴關係
-- `app.core.dependencies`
-- `app.db.database`
-- `app.extended.models`
 - `app.schemas.common`
-- `app.extended.models.tender`
-- `app.core.domain_events`
-- `app.core.event_bus`
 - `app.schemas.tender_admin`
+- `app.db.database`
+- `app.core.dependencies`
+- `app.extended.models`
+- `app.extended.models.tender`
+- `app.services.tender.search`
 - `app.services.user.alias`
+- `app.services.tender.subscription_scheduler`
 - `app.services.tender.business_recommendation`

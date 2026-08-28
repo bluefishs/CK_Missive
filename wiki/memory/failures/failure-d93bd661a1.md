@@ -3,13 +3,12 @@ type: agent_memory
 memory_type: failure
 signature: d93bd661a1
 tool_sequence: ["search_documents"]
-hit_count: 65
-failure_count: 38
-failure_rate: 0.585
-active: false
-expired_reason: stale >21d (last_seen 2026-05-20)
+hit_count: 67
+failure_count: 39
+failure_rate: 0.582
+active: true
 first_seen: 2026-04-24
-last_seen: 2026-05-20
+last_seen: 2026-08-27
 tags: [memory, failure, defensive]
 ---
 
@@ -21,22 +20,21 @@ tags: [memory, failure, defensive]
 
 ## 失敗統計
 
-- **觸發次數**：65
-- **失敗次數**：38
-- **失敗率**：58.5%
-- **症狀**：成功率僅 40%，共 3 次失敗
+- **觸發次數**：67
+- **失敗次數**：39
+- **失敗率**：58.2%
+- **症狀**：成功率僅 50%，共 1 次失敗
 
 ## 典型問法
 
-- 測試
+- 最近有哪些收文？
 - 桃園市政府的來文有幾封？
-- 功能
 
 ## 🛡️ Defensive Rule（planner 將自動注入）
 
 **觸發**：規劃包含 `search_documents` 的組合
 
-**歷史問題**：成功率僅 40%，共 3 次失敗
+**歷史問題**：成功率僅 50%，共 1 次失敗
 
 **建議**：
 - 優先考慮單獨使用其中一個工具而非全部組合
