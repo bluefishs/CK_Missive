@@ -301,13 +301,35 @@ class QuotationLegacyImportService:
     #
     # 欄位比照 03-17 那批（案名／年度／類別／客戶／金額／狀態／地點／作業日期），
     # 資料全部來自彙整表，不發明任何值。
-    async def _ensure_pm_cases(self, rows: list[dict[str, Any]], dry_run: bool = False) -> int:
-        """為新報價單補建對應的邀標案件；已存在則不動。回傳補建數。"""
+    async def _ensure_pm_cases(
+        self, rows: list[dict[str, Any]], dry_run: bool = False,
+        code_of: Optional[dict[str, Optional[str]]] = None,
+    ) -> int:
+        """為新報價單補建對應的邀標案件；已存在則不動。回傳補建數。
+
+        2026-08-28 step 6（A32 之後才能做的那一步）：案件身分不再由
+        `_derive_case_code(legacy_no)` 決定 —— A32 已把存量 pm_cases 全轉為
+        CK 建案案號，再用舊編號去比對必然「找不到 ⇒ 重複建案」。
+        改由呼叫端傳入 `code_of`（legacy_no → case_code）：
+          · 既有報價單（以 legacy_quotation_no 對到）→ 用它現在的 case_code
+          · 真正的新業務 → 寫入時由產號器發 CK 碼；dry-run 時值為 None
+            （代表「必建」，數字不預先消耗流水號）
+        未傳 code_of 時退回舊行為（僅供 legacy 情境）。
+        """
         from app.extended.models.pm import PMCase
 
         wanted: dict[str, dict[str, Any]] = {}
+        pending_new: list[dict[str, Any]] = []
         for r in rows:
-            code = _derive_case_code(r["legacy_no"])
+            ln = r["legacy_no"]
+            if code_of is not None and ln in code_of:
+                code = code_of[ln]
+                if code is None:
+                    # dry-run 的新業務：案號寫入時才產，必然是待補建
+                    pending_new.append(r)
+                    continue
+            else:
+                code = _derive_case_code(ln)
             if not code:
                 continue
             # 同一案號多版報價 → 只建一件，取**最早報價**那筆當案件基本資料
@@ -315,14 +337,16 @@ class QuotationLegacyImportService:
             if cur is None or (r.get("quoted_date") and cur.get("quoted_date")
                                and r["quoted_date"] < cur["quoted_date"]):
                 wanted[code] = r
-        if not wanted:
+        if not wanted and not pending_new:
             return 0
 
-        existing = {
-            row[0] for row in (await self.db.execute(
-                select(PMCase.case_code).where(PMCase.case_code.in_(list(wanted)))
-            )).all()
-        }
+        existing = set()
+        if wanted:
+            existing = {
+                row[0] for row in (await self.db.execute(
+                    select(PMCase.case_code).where(PMCase.case_code.in_(list(wanted)))
+                )).all()
+            }
         missing = {k: v for k, v in wanted.items() if k not in existing}
 
         # 2026-08-27：這裡只比對 **完整 case_code**，而 08-20 那次匯入正是這樣
@@ -356,8 +380,15 @@ class QuotationLegacyImportService:
                             {"new_case_code": code, "existing_case_code": cc, "case_name": cn})
                         break
 
-        if dry_run or not missing:
-            return len(missing)
+        if dry_run:
+            return len(missing) + len(pending_new)
+        # 寫入模式下 code_of 必須完整（新業務的號已先產好）—— pending_new
+        # 非空代表呼叫端漏了產號，出聲而不是靜靜少建
+        if pending_new:
+            raise ValueError(
+                f"{len(pending_new)} 筆新業務沒有建案案號 —— 寫入前必須先產號")
+        if not missing:
+            return 0
 
         # 客戶名稱 → 既有廠商 id。對不到就只留文字（不自動建廠商 ——
         # 那會把彙整表裡的簡稱、筆誤全部變成新廠商，而 owner 正在處理
@@ -579,8 +610,17 @@ class QuotationLegacyImportService:
         # 只講「新增幾張報價單」而不講案件，等於預覽沒有涵蓋一半的後果。
         # 涵蓋 to_create **與** to_update —— 這支是冪等的（已存在就不建），
         # 而只看新增的話，「報價單已匯入但案件還沒補」的情況永遠補不上。
+        # step 6（2026-08-28）：案件身分的對照表 ——
+        #   既有報價單 → 它現在的 case_code（A32 後是 CK 建案案號）
+        #   新業務 → None（寫入時才產號，dry-run 不消耗流水號）
+        code_of: dict[str, Optional[str]] = {
+            r["legacy_no"]: existing[r["legacy_no"]].case_code for r in to_update
+        }
+        for r in to_create:
+            code_of[r["legacy_no"]] = None
+
         preview["will_create_pm_cases"] = await self._ensure_pm_cases(
-            to_create + to_update, dry_run=True)
+            to_create + to_update, dry_run=True, code_of=code_of)
         # 「同 base 且案名完全相同、只差版次」的候選 —— 08-20 那次靜靜建了 26 件分身，
         # 這裡把它攤在匯入前的預覽上。**只提醒不阻擋**：合併與否是人的判斷。
         preview["duplicate_candidates"] = getattr(self, "dup_candidates", [])[:200]
@@ -604,17 +644,25 @@ class QuotationLegacyImportService:
                 q.quoted_at = datetime.combine(r["quoted_date"], datetime.min.time())
             updated += 1
 
-        # case_code 是「這張報價單屬於哪個案件」的跨模組橋樑 ——
-        # 既有 PM 案件用的就是舊案號（`B114-B022`），所以要用它去對，**不是產新號**。
+        # step 6（2026-08-28，A32 之後才成立）：case_code 是跨模組橋樑，
+        # 而存量 pm_cases 已全轉為 CK 建案案號 —— 再把報價單編號寫進
+        # case_code 就是把 legacy 制重新引進來（且與既有案子永遠比對不上
+        # ⇒ 每次匯入都重複建案，08-20 那 36 組分身的同型）。
         #
-        # ⚠️ 2026-08-20 第一次匯入用 `generate_case_code()` 產號，結果 180 筆
-        #    **全部拿到同一個 `CK2025_FN_02_001`** —— 產號器查的是 DB 現有最大流水號，
-        #    而同一個交易內前面那些還沒 commit，所以每次都查到一樣的值。
-        #    那批已回滾（備份在 backups/manual/）。
-        #
+        # 既有報價單以 legacy_quotation_no 對到（to_update，case_code 不動）；
+        # to_create ＝ 真正的新業務 ⇒ 走正式產號。
+        # ⚠️ 08-20 那次產號 180 筆全拿到同一個號（同交易內查不到未 commit 的），
+        #    產號器已修：流水號計數器掛在 session（db.info）上，同批不撞。
+        code_svc = CaseCodeService(self.db)
+        for r in to_create:
+            yr = r["year"] or date.today().year
+            if yr and yr < 1911:
+                yr += 1911
+            code_of[r["legacy_no"]] = await code_svc.generate_case_code("pm", yr, "02")
+
         for r in to_create:
             q = ERPQuotation(
-                case_code=_derive_case_code(r["legacy_no"]),
+                case_code=code_of[r["legacy_no"]],
                 case_name=r["case_name"],
                 year=r["year"] or date.today().year,
                 total_price=r["total_price"],
@@ -631,7 +679,7 @@ class QuotationLegacyImportService:
             self.db.add(q)
             created += 1
 
-        pm_created = await self._ensure_pm_cases(to_create + to_update)
+        pm_created = await self._ensure_pm_cases(to_create + to_update, code_of=code_of)
         staff_res = await self._assign_staff_from_sheets(rows)
 
         await self.db.commit()
