@@ -551,10 +551,12 @@ export const useEInvoiceSyncLogs = (params?: EInvoiceSyncLogQuery) => {
 
 /** 跨案件發票彙總 */
 export function useInvoiceSummary(params: InvoiceSummaryRequest) {
-  return useQuery<{ items: InvoiceSummaryItem[]; total: number }>({
+  // totals＝後端分頁前的全量合計（統計卡分母，2026-08-29）
+  type InvoiceTotals = { sales: string; purchase: string; net: string };
+  return useQuery<{ items: InvoiceSummaryItem[]; total: number; totals?: InvoiceTotals }>({
     queryKey: erpFinanceKeys.invoices.summary(params),
     queryFn: async () => {
-      const res = await apiClient.post<{ data: { items: InvoiceSummaryItem[]; total: number } }>(
+      const res = await apiClient.post<{ data: { items: InvoiceSummaryItem[]; total: number; totals?: InvoiceTotals } }>(
         ERP_ENDPOINTS.INVOICES_SUMMARY, params
       );
       return res.data ?? { items: [], total: 0 };

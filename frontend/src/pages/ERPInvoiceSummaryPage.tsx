@@ -64,13 +64,21 @@ const ERPInvoiceSummaryPage: React.FC = () => {
 
   // 統計（2026-07-20：amount 由 API 回傳為字串〔Decimal 序列化〕，須 Number() 轉數字
   //   否則 `0 + "222048.00"` 觸發字串串接 → 銷項總額變「0222048.0015750.00…」、淨額 NaN）
+  //
+  // 2026-08-29：改用後端**分頁前**的全量合計。原本 reduce 當頁 items，
+  // 而 limit 是 20、發票實有 48 筆 ⇒ 三張卡都只算了 20/48 且不會報錯。
+  // 無 totals 時退回舊算法（相容），但那條路只在後端未更新時走到。
   const salesTotal = useMemo(
-    () => items.filter(i => i.invoice_type === 'sales').reduce((s, i) => s + Number(i.amount || 0), 0),
-    [items],
+    () => data?.totals
+      ? Number(data.totals.sales)
+      : items.filter(i => i.invoice_type === 'sales').reduce((s, i) => s + Number(i.amount || 0), 0),
+    [items, data?.totals],
   );
   const purchaseTotal = useMemo(
-    () => items.filter(i => i.invoice_type === 'purchase').reduce((s, i) => s + Number(i.amount || 0), 0),
-    [items],
+    () => data?.totals
+      ? Number(data.totals.purchase)
+      : items.filter(i => i.invoice_type === 'purchase').reduce((s, i) => s + Number(i.amount || 0), 0),
+    [items, data?.totals],
   );
   const netAmount = salesTotal - purchaseTotal;
 

@@ -95,10 +95,11 @@ class ERPInvoiceService(AuditableServiceMixin):
         limit: int = 50,
     ) -> dict:
         """跨案件發票彙總"""
-        items, total = await self.repo.get_invoice_summary(
+        items, total, totals = await self.repo.get_invoice_summary(
             invoice_type=invoice_type, year=year, skip=skip, limit=limit,
         )
-        return {"items": items, "total": total}
+        # totals＝分頁前全量合計（統計卡分母，2026-08-29）
+        return {"items": items, "total": total, "totals": totals}
 
     async def delete(self, invoice_id: int) -> bool:
         """刪除發票"""

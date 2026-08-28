@@ -8,7 +8,7 @@
  */
 import React from 'react';
 import {
-  Button, Descriptions, Statistic, Row, Col, Card, Alert, Popconfirm, App,
+  Button, Descriptions, Statistic, Row, Col, Card, Alert, Popconfirm, App, Typography,
   } from 'antd';
 import {
   EditOutlined, DeleteOutlined, DollarOutlined,
@@ -31,6 +31,8 @@ import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayo
 import { createTabItem } from '../components/common/DetailPage/utils';
 import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
 import { getErrorMessage } from '../utils/apiErrorParser';
+
+const { Text } = Typography;
 
 const STATUS_OPTIONS = [
   { value: 'draft', label: '草稿', color: 'default' },
@@ -249,13 +251,28 @@ export const ERPQuotationDetailPage: React.FC = () => {
         {/* 應收/應付概況 */}
         <Row gutter={16}>
           <Col xs={24} sm={12}>
+            {/* 2026-08-29 owner：「/erp/quotations/161?tab=info 的未收款與
+                ?tab=receivable 對不上」。查證：本頁「未收款」算的是
+                **合約額 − 已收款**（16,935,000 − 1,020,000 = 15,915,000），
+                而 receivable 分頁與 `/erp/client-accounts` 用的是
+                **已請款 − 已收款**（＝應收帳款餘額 2,680,000）。
+                同一個詞兩種算法，而標籤沒說是哪一種。
+
+                改為全系統一致（已請款 − 已收款），並補「未請款」讓兩條
+                等式在畫面上可驗算，合約額的資訊不會因此消失：
+                  應收總額 = 已請款 + 未請款
+                  已請款   = 已收款 + 未收款 */}
             <Card size="small" title="應收概況 (委託單位)">
               <Row gutter={[16, 8]}>
-                <Col xs={12} sm={12} lg={6}><Statistic title="應收總額" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
-                <Col xs={12} sm={12} lg={6}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
-                <Col xs={12} sm={12} lg={6}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
-                <Col xs={12} sm={12} lg={6}><Statistic title="未收款" value={Number(quotation.total_price ?? 0) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_price ?? 0) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
+                <Col xs={12} sm={8} lg={4}><Statistic title="應收總額" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+                <Col xs={12} sm={8} lg={5}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
+                <Col xs={12} sm={8} lg={5}><Statistic title="未請款" value={Number(quotation.total_price ?? 0) - Number(quotation.total_billed)} precision={0} styles={{ content: { color: '#8c8c8c' } }} /></Col>
+                <Col xs={12} sm={12} lg={5}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
+                <Col xs={12} sm={12} lg={5}><Statistic title="未收款" value={Number(quotation.total_billed) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_billed) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
               </Row>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                未請款＝合約額−已請款｜未收款＝已請款−已收款（應收帳款餘額，與委託單位帳款頁同一定義）
+              </Text>
             </Card>
           </Col>
           <Col xs={24} sm={12}>

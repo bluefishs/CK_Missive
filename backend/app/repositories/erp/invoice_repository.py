@@ -1,5 +1,6 @@
 """ERP 發票 Repository"""
 import logging
+from decimal import Decimal
 from typing import Optional, List, Dict
 
 from sqlalchemy import select, func
@@ -57,6 +58,27 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
         count_query = select(func.count()).select_from(query.subquery())
         total = await self.db.scalar(count_query) or 0
 
+        # 2026-08-29：分頁**前**的全量金額合計 —— 統計卡的分母。
+        # 前端原本 reduce 當頁 items（limit 20）而發票實有 48 筆 ⇒
+        # 三張卡都只算了 20/48，且不會報錯（同 client-accounts／ledger 家族）。
+        sum_q = select(
+            ERPInvoice.invoice_type,
+            func.coalesce(func.sum(ERPInvoice.amount), 0),
+        ).join(ERPQuotation, ERPInvoice.erp_quotation_id == ERPQuotation.id)
+        if invoice_type:
+            sum_q = sum_q.where(ERPInvoice.invoice_type == invoice_type)
+        if year:
+            sum_q = sum_q.where(ERPQuotation.year == year)
+        sums = {"sales": Decimal("0"), "purchase": Decimal("0")}
+        for itype, amt in (await self.db.execute(sum_q.group_by(ERPInvoice.invoice_type))).all():
+            if itype in sums:
+                sums[itype] = amt or Decimal("0")
+        totals = {
+            "sales": str(sums["sales"]),
+            "purchase": str(sums["purchase"]),
+            "net": str(sums["sales"] - sums["purchase"]),
+        }
+
         # Results
         query = query.order_by(ERPInvoice.invoice_date.desc()).offset(skip).limit(limit)
         result = await self.db.execute(query)
@@ -80,7 +102,7 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
                 "erp_quotation_id": inv.erp_quotation_id,
             })
 
-        return items, total
+        return items, total, totals
 
     async def get_counts_by_quotation_ids(
         self, quotation_ids: List[int]
