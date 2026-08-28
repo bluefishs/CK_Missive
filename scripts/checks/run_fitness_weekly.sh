@@ -429,6 +429,7 @@ run_step "68" "管理動作有沒有給一般同仁看見（畫面不該給必�
 run_step "69" "協力廠商合約經費 vs 應付分期加總（同一件事兩個數字）" "scripts/checks/vendor_contract_payable_consistency.py"
 run_step "70" "廠商身分源頭一致（同一張單不得有兩個名字）" "scripts/checks/vendor_identity_ssot_audit.py"
 run_step "72" "應付有沒有上限在管（報價委外經費 vs 應付合計）" "scripts/checks/payable_budget_ceiling_audit.py"
+run_step "73" "設定的 LLM 模型在 provider 那邊還存不存在" "scripts/checks/llm_model_availability_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
