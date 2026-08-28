@@ -454,6 +454,18 @@ class AgentOrchestrator:
                 actual_iterations = result["iterations"]
                 step_index = result["step_index"]
 
+            # 2026-08-28：**必須在 create_task 之前**建立 provider holder。
+            #
+            # 合成（`synthesize_answer`）就在 `_run_tool_loop` 裡，而
+            # `set_actual_provider` 因此跑在**子任務的 context 副本**中 ——
+            # 實測 `create_task` 與 `gather` 都不會把 ContextVar 的設值傳回父層
+            # （async generator 會）。結果是 `actual_llm_provider` 自 2026-08-01
+            # 起全空 27 天，而同期 shadow_baseline 一直報紅卻指不出是哪個 LLM。
+            #
+            # holder 是**可變 dict**：子任務拿到同一個物件，改它父層看得到。
+            # ⚠️ 這一行的位置就是修法本身 —— 移到 create_task 之後等於沒改。
+            from app.core.inference_provider_context import init_provider_holder
+            init_provider_holder()
             loop_task = asyncio.create_task(_run_tool_loop())
             deadline = time.time() + self.config.agent_stream_timeout
             try:
