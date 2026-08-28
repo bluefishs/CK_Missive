@@ -50,6 +50,11 @@ logs/
 backups/database/*.sql
 backups/database/*.sql.gz
 backups/database/*.dump
+# 2026-08-29：備份產物一律不進版控 —— 狀態檔每次備份都變（A40①），
+# CSV 是修資料前的表快照。原規則只列 .sql/.dump，於是它們每天出現在
+# `git status` 裡，而「一直有雜訊」與「有東西沒提交」長得一樣。
+backups/database/_backup-status.json
+backups/database/*.csv
 backups/*.dump
 backups/redis/
 !backups/database/.gitkeep

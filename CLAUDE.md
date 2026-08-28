@@ -2,9 +2,9 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
-> **版本**: v6.64（2026-08-28）/ ⭐⭐⭐**兩個雲端模型都已下架，agent 已在本地 ollama 上跑了約 27 天**（Groq `llama-3.3-70b-versatile` 與 NVIDIA `nemotron-super-49b-v1.5` **都不在各自的 models 清單裡**，而 API key 都有效 ⇒ 不是憑證問題；現場 `Groq circuit OPEN → NVIDIA circuit OPEN → 走 Ollama` → 合成 35s 逾時。**這是從一個 metrics 欄位為何全空追出來的**）＋⭐⭐報價位階錯置（256 張裡 178 張還沒 `project_code` 卻掛在財務底下）與「已確認承攬」的三個矛盾數字＋⭐⭐重複判定收斂三次 42→30→26（每次都是我太寬），而那 26 組的有碼側全部都有金流 ⇒ 缺口 1,273 萬修正為 835 萬＋七支新失敗測試**沒有一項是程式壞了**＋檢核自己說謊的三種形態＋⚠️ **我自己一天七次把工具行為當成系統狀態**（`| tail` 退出碼／我下的 timeout／背景任務 killed 其實跑完了／連線數／UTC 對本地／剛部署過的容器日誌／`docker exec` 讀到的是新程序的 singleton）—— 判準：**先排除自己，再談系統**＋重啟前基線見 [`docs/runbooks/reboot-pre-flight-20260828.md`](docs/runbooks/reboot-pre-flight-20260828.md)
+> **版本**: v6.65（2026-08-29）/ ⭐⭐⭐**案號體系全庫收斂**：249 筆 legacy 轉 CK 建案制（三表殘留 0）＋15 筆「長得像 PM 卻沒有上游建案」的假案號改 GN；85 筆乾淨成案，而**51 筆機械成案後查出同名同年既有案已整批撤回**——守衛的「同委託單位」條件會被名稱變體騙過（技師本人 vs 事務所、啓/啟相容字）＋⭐⭐**帳本 AR 虛增 1,681 萬**（2 筆毫秒級重複入帳＋1 筆零額）—— 冪等只靠應用層 check-then-insert，0.05 秒的併發就穿過去；已修資料＋加部分唯一索引，**對帳歸零 22,435,123 兩側相等**，而那個對帳告警**連發 5 天無人看**（已接進晨報第 0 段）＋⭐⭐**民國/西元家族一次抓到四例**（client-accounts／vendor-accounts／財務總覽／發票彙總的年度篩選**從來沒有作用過**）——土壤是各端點紀年契約不一，同一支 service 兩種收法＋⭐**A38 完整閉環**：放大器（generator closed）與觸發器（檔名 UTF-8 位元組 > NAME_MAX）都修，**02:00 無人值守實證 attachments 120 → 1,559**＋⭐**owner 走的是內網 :3000 而我一直在驗公網** —— 同一份程式碼兩份事實，frontend 容器改掛 `dist` 收斂（A29 定案）＋⚠️ **我自己的三個「退出碼 0 但什麼都沒發生」**：`docker exec` 少 `-i`（stdin 空跑）／RAISE 用 `%%` 帶參數（PL/pgSQL 編譯期報錯使交易永遠回滾）／`--apply` 印了計畫卻沒實作寫入—— 判準：**寫入後要用新查詢自我複驗，不信任自己的輸出**
 > （更早版本的一行摘要同樣在 `docs/MILESTONES_ARCHIVE.md`）
-> **最後更新**: 2026-08-27
+> **最後更新**: 2026-08-29
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)
 > （2026-08-27，v6.59–v6.61 共 46,981 字元；更早的 64 條 08-24 已先移入）。
