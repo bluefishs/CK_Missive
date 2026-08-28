@@ -238,14 +238,18 @@ const ERPClientAccountsPage: React.FC = () => {
         <EnhancedTable<ClientAccountSummaryItem>
           columns={columns}
           dataSource={filteredItems}
-          rowKey="vendor_id"
+          rowKey={(r) => r.vendor_id != null ? String(r.vendor_id) : `name:${r.vendor_name}`}
           loading={isLoading}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 單位` }}
           size="middle"
           scroll={{ x: 960 }}
           onRow={(record) => ({
-            onClick: () => navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${record.vendor_id}`),
-            style: { cursor: 'pointer' },
+            // 2026-08-28：客戶只存在於承攬案件文字欄（尚無 partner_vendor 主檔）時
+            // vendor_id 為 null —— 沒有明細頁可去，點了導到 /null 只會 404
+            onClick: record.vendor_id != null
+              ? () => navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${record.vendor_id}`)
+              : undefined,
+            style: record.vendor_id != null ? { cursor: 'pointer' } : undefined,
           })}
         />
       </Card>

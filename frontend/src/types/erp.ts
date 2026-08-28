@@ -1090,7 +1090,8 @@ export interface VendorAccountDetail {
 }
 
 export interface ClientAccountSummaryItem {
-  vendor_id: number;
+  /** null＝客戶只存在於承攬案件文字欄，尚無 partner_vendor 主檔（2026-08-28 腿 2） */
+  vendor_id: number | null;
   vendor_name: string;
   vendor_code?: string;
   case_count: number;
@@ -1101,7 +1102,8 @@ export interface ClientAccountSummaryItem {
 }
 
 export interface ClientCaseReceivableItem {
-  erp_quotation_id: number;
+  /** null＝該案尚未建報價單（零額列；2026-08-28 起不再整案消失） */
+  erp_quotation_id: number | null;
   case_code: string;
   project_code?: string;
   case_name?: string;

@@ -91,11 +91,9 @@ export default function QuotationRecordsTab({
   // 用共用 hook 而不是把按鈕複製一份 —— 那個流程裡有四件容易各自演化的東西
   // （空工項提醒、後端給的檔名、PDF 預覽、blob 釋放時機）。
   //
-  // ⚠️ 委辦招標（`01`）不顯示：判準與 ERP 詳情頁、後端 `quotation_document.py`
-  //   同一條（`case_category === '01'`），不另立第二份。
-  //   而 PM 側其實更早就攔掉了 —— 委辦招標案件連這個分頁都不會掛上
-  //   （見 `PMCaseDetailPage` 的 `isTenderCase`），這裡是第二層保險。
-  const isTenderCase = primary?.case_category === '01';
+  // 2026-08-28 owner 更新：委辦招標（`01`）**也呈現**報價單與輸出 ——
+  //   取代 08-27「01 不顯示」的規則。後端 `quotation_document.py` 本來就
+  //   不擋 01，只在文件上加註「本案為委辦招標案，依招標文件所列項目辦理」。
   const { exportButtons, pdfPreview } = useQuotationExport({
     quotationId: primary?.id,
     quotationNo: primary?.quotation_no,
@@ -120,17 +118,15 @@ export default function QuotationRecordsTab({
         </Card>
       ) : (
         <>
-          {!isTenderCase && (
-            <Card size="small" styles={{ body: { padding: '8px 12px' } }}>
-              <Space wrap>
-                <Text type="secondary">產出正式文件：</Text>
-                {exportButtons}
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  （輸出後自動存入本案附件，只保留最新一份）
-                </Text>
-              </Space>
-            </Card>
-          )}
+          <Card size="small" styles={{ body: { padding: '8px 12px' } }}>
+            <Space wrap>
+              <Text type="secondary">產出正式文件：</Text>
+              {exportButtons}
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                （輸出後自動存入本案附件，只保留最新一份）
+              </Text>
+            </Space>
+          </Card>
           <Suspense fallback={<div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}>
             <QuotationItemsTab
               quotationId={primary.id}

@@ -57,10 +57,15 @@ export function useWorkRecordFormLogic({
   const dispatchCache = useDispatchCacheInvalidator();
 
   // 查詢現有紀錄
+  // 2026-08-28：編輯表單必須拿最新值 —— 全域 staleTime 2 分鐘曾讓
+  // 使用者在儲存成功後重開表單看到舊快照，再存一次就把舊值整包寫回
+  // （「所屬作業怎麼指定都不生效」的真因，backend log 三次 200 中間零 GET）。
   const { data: record, isLoading } = useQuery({
-    queryKey: ['dispatch-work-record', workRecordId],
+    queryKey: queryKeys.workRecords.detail(workRecordId ?? 0),
     queryFn: () => workflowApi.getDetail(workRecordId!),
     enabled: !isNew && !!workRecordId,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const { data: existingRecordsData } = useQuery({
@@ -220,8 +225,10 @@ export function useWorkRecordFormLogic({
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: WorkRecordUpdate }) =>
       workflowApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       message.success('作業紀錄更新成功');
+      // 單筆快取一併作廢 —— 只作廢清單而漏掉單筆，正是舊值回寫事故的成因
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
       dispatchCache.invalidateWorkRecord();

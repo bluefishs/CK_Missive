@@ -58,7 +58,10 @@ const ERPClientAccountDetailPage: React.FC = () => {
   const simpleCaseColumns: ColumnsType<ClientCaseReceivableItem> = [
     { title: '案號', key: 'project_code', width: 160, render: (_: unknown, r) => {
       const code = r.project_code || r.case_code;
-      return <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.erp_quotation_id)))}>{code}</a>;
+      // 尚未建報價單的零額列沒有報價詳情可去
+      return r.erp_quotation_id != null
+        ? <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.erp_quotation_id)))}>{code}</a>
+        : <span>{code}</span>;
     }},
     { title: '案名', dataIndex: 'case_name', ellipsis: true },
     { title: '年度', dataIndex: 'year', width: 80, render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
@@ -94,7 +97,9 @@ const ERPClientAccountDetailPage: React.FC = () => {
   const caseColumns: ColumnsType<ClientCaseReceivableItem> = [
     { title: '案號', key: 'project_code', width: 160, render: (_: unknown, r) => {
       const code = r.project_code || r.case_code;
-      return <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.erp_quotation_id)))}>{code}</a>;
+      return r.erp_quotation_id != null
+        ? <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.erp_quotation_id)))}>{code}</a>
+        : <span>{code}</span>;
     }},
     { title: '案名', dataIndex: 'case_name', ellipsis: true },
     { title: '合約金額', dataIndex: 'contract_amount', width: 130, align: 'right', render: (v: number) => Number(v).toLocaleString() },
@@ -139,7 +144,9 @@ const ERPClientAccountDetailPage: React.FC = () => {
               </Descriptions.Item>
               <Descriptions.Item label="">
                 <Space>
-                  <Button type="link" size="small" onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(record.erp_quotation_id)))}>報價詳情</Button>
+                  {record.erp_quotation_id != null && (
+                    <Button type="link" size="small" onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(record.erp_quotation_id)))}>報價詳情</Button>
+                  )}
                 </Space>
               </Descriptions.Item>
             </Descriptions>

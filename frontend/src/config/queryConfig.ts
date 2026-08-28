@@ -171,6 +171,11 @@ export const queryKeys = {
   workRecords: {
     dispatchAll: ['dispatch-work-records'] as const,
     dispatch: (dispatchId: number) => ['dispatch-work-records', dispatchId] as const,
+    // 2026-08-28：單筆紀錄的 key 收進工廠。它原本是裸 key
+    // `['dispatch-work-record', id]`（單數）散在編輯頁，而 mutation 只
+    // invalidate 複數前綴 ⇒ 前綴不匹配、單筆快取從未被作廢——
+    // 編輯頁 2 分鐘內重開拿到舊快照，整包送出把舊值寫回（L39 queryKey drift）。
+    detail: (recordId: number) => ['dispatch-work-record', recordId] as const,
     projectAll: ['project-work-records'] as const,
     project: (projectId: number) => ['project-work-records', projectId] as const,
   },

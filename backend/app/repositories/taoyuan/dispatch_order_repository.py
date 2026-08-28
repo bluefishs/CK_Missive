@@ -649,30 +649,47 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         work_types: List[str],
     ) -> int:
         """
-        替換派工單的所有作業類別
+        同步派工單的作業類別為指定清單（diff 式）。
 
-        先刪除現有記錄，再建立新記錄。
+        2026-08-28 改寫：原本是整批 DELETE 後重建，id 全換 —— 而
+        `taoyuan_work_records.work_type_id` 的 FK 是 ondelete='SET NULL'，
+        於是**任何人存一次派工單基本資料，該單所有作業紀錄的「所屬作業」
+        歸屬就全部被清空**（前端每次儲存都會送 work_type 字串，即使沒改）。
+        dispatch 179 的 7 月紀錄歸屬變 NULL 就是這樣來的。
 
-        Args:
-            dispatch_id: 派工單 ID
-            work_types: 作業類別列表
+        現在同名的既有列保留原 id（只更新 sort_order），只增刪真正的差異；
+        名稱沒變時本方法實質上是 no-op，FK 不再被無關的編輯觸發。
 
         Returns:
-            新建的作業類別數量
+            同步後的作業類別數量
         """
-        await self.db.execute(
-            delete(TaoyuanDispatchWorkType).where(
+        result = await self.db.execute(
+            select(TaoyuanDispatchWorkType).where(
                 TaoyuanDispatchWorkType.dispatch_order_id == dispatch_id
             )
         )
+        existing = result.scalars().all()
+
+        remaining: Dict[str, List[TaoyuanDispatchWorkType]] = {}
+        for row in existing:
+            remaining.setdefault(row.work_type, []).append(row)
 
         for idx, wt in enumerate(work_types):
-            link = TaoyuanDispatchWorkType(
-                dispatch_order_id=dispatch_id,
-                work_type=wt,
-                sort_order=idx,
-            )
-            self.db.add(link)
+            rows = remaining.get(wt)
+            if rows:
+                row = rows.pop(0)
+                row.sort_order = idx
+            else:
+                self.db.add(TaoyuanDispatchWorkType(
+                    dispatch_order_id=dispatch_id,
+                    work_type=wt,
+                    sort_order=idx,
+                ))
+
+        # 只刪除真的被移除的類別 —— 這些的 SET NULL 是正確語意（類別不存在了）
+        for rows in remaining.values():
+            for row in rows:
+                await self.db.delete(row)
 
         return len(work_types)
 

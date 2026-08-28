@@ -9,7 +9,7 @@
 import React, { useState, useMemo } from 'react';
 import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
-import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive } from '../hooks';
@@ -212,6 +212,17 @@ export const PMCaseListPage: React.FC = () => {
               {/* 2026-08-27：`projects:write` 不存在於任何地方（見 useAuthGuard 的 Permission 註解），
                   只有 superuser 看得到這個按鈕。後端 pm/cases 只有 require_auth ⇒
                   改成 projects:edit 不放寬任何 API 存取，只是停止隱藏入口。 */}
+              {/* 2026-08-28 owner：「新增報價在右上角獨立按鈕，非在各案件內」——
+                  不必先進入某一筆案件；表單的案號欄支援手填或自動產生，
+                  存檔後進報價單詳情頁即有線上明細編輯與 PDF 輸出。 */}
+              {hasPermission('projects:edit') && (
+                <Button
+                  icon={<FileTextOutlined />}
+                  onClick={() => navigate(ROUTES.ERP_QUOTATION_CREATE)}
+                >
+                  新增報價
+                </Button>
+              )}
               {hasPermission('projects:edit') && (
                 <Button
                   type="primary"

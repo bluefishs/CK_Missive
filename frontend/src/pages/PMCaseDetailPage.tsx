@@ -193,16 +193,11 @@ export const PMCaseDetailPage: React.FC = () => {
   //   與後端說同一件事。
   const canWrite = hasPermission('projects:edit');
 
-  // 委辦招標（`01`）＝投標程序，不對客戶報價。
-  //
-  // 2026-08-27 owner：「已強調計畫類別為『委辦招標』其無須有報價單 tab」。
-  // 在此之前只有「新增報價」按鈕排除了 01，**分頁本身仍無條件掛上** ——
-  // 於是委辦招標案件有一個永遠是空的「報價單」分頁，而空的分頁與
-  // 「還沒建報價單」在畫面上長得一模一樣。
-  //
-  // 判準抽成一個常數讓兩處共用：按鈕與分頁若各寫一份 `!== '01'`，
-  // 下次改規則（例如再加一個不報價的類別）只會有一處被改到。
-  const isTenderCase = pmCase?.category === '01';
+  // 委辦招標（`01`）的報價單顯示規則變過兩次，都來自 owner：
+  //   2026-08-27「委辦招標無須有報價單 tab」→ 按鈕與分頁都排除 01
+  //   2026-08-28「委辦案件（即使無報價）仍呈現報價單」→ 取消排除
+  // 現在按鈕與分頁對所有類別一致顯示；輸出文件時後端會對 01 自動加註
+  // 「本案為委辦招標案，依招標文件所列項目辦理」（quotation_document.py）。
 
   const headerConfig = {
     title: pmCase?.case_name ?? '載入中...',
@@ -230,9 +225,10 @@ export const PMCaseDetailPage: React.FC = () => {
             邀標案件是報價單的起點，但這一頁一直沒有通往報價單的入口 ——
             從案件出發的人得自己記住案號、切到 ERP 模組、再打一次。
 
-            ⚠️ 委辦招標（`01`）不顯示：標案是投標程序不是對客戶報價。
-            判準用 `!== '01'` 與報價單詳情頁的輸出按鈕一致，不另立第二份規則。 */}
-        {canWrite && pmCase?.case_code && !isTenderCase && (
+            2026-08-28 owner 更新：委辦招標案件也呈現報價單（分頁已不再隱藏），
+            按鈕同步放開 —— 分頁的空狀態叫人「用上方新增報價建立」，
+            按鈕卻不存在，會把「刻意不給」與「壞了」混在一起。 */}
+        {canWrite && pmCase?.case_code && (
           <Button
             icon={<FileTextOutlined />}
             onClick={() => {
@@ -397,18 +393,17 @@ export const PMCaseDetailPage: React.FC = () => {
     // 2026-08-26：分頁名由「報價紀錄」改為「報價單」——
     // 它現在是**線上明細編輯器**（嵌入 QuotationItemsTab），不是一份紀錄清單。
     //
-    // 2026-08-27：委辦招標不掛這個分頁（判準見上方 `isTenderCase`）。
-    ...(isTenderCase ? [] : [
-      createTabItem('quotations', { icon: <FileTextOutlined />, text: '報價單' }, (
-        <Suspense fallback={<Spin />}>
-          <QuotationRecordsTab
-            caseCode={pmCase.case_code}
-            caseName={pmCase.case_name}
-            isEditing={isEditing}
-          />
-        </Suspense>
-      )),
-    ]),
+    // 2026-08-28 owner 更新指示：委辦招標案件**也要呈現**報價單分頁
+    // （即使通常沒有報價，也不隱藏）—— 取代 08-27「01 不掛分頁」的規則。
+    createTabItem('quotations', { icon: <FileTextOutlined />, text: '報價單' }, (
+      <Suspense fallback={<Spin />}>
+        <QuotationRecordsTab
+          caseCode={pmCase.case_code}
+          caseName={pmCase.case_name}
+          isEditing={isEditing}
+        />
+      </Suspense>
+    )),
     createTabItem('milestones', { icon: <BarChartOutlined />, text: '里程碑/甘特圖' }, (
       <Suspense fallback={<Spin />}><MilestonesGanttTab pmCaseId={pmCase.id} /></Suspense>
     )),
