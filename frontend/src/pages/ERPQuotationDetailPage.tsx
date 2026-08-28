@@ -23,6 +23,7 @@ import { AccountRecordTab } from './erpQuotation/AccountRecordTab';
 import ExpensesTab from './erpQuotation/ExpensesTab';
 import { AttachmentPanel } from '../components/common/AttachmentPanel';
 import { ROUTES } from '../router/types';
+import { queryKeys } from '../config/queryConfig';
 import { apiClient } from '../api/client';
 import { ERP_ENDPOINTS } from '../api/endpoints';
 
@@ -73,11 +74,18 @@ export const ERPQuotationDetailPage: React.FC = () => {
   // 而輸出的報價單長這樣 —— 抬頭、客戶、案名都對，「項次／工作內容／
   // 數量／單價」整片空白。系統產出一張空表時一句話都沒說，
   // 使用者要等打開檔案才發現。
+  // ⚠️ 這個 key 與 QuotationItemsTab／QuotationRecordsTab 共用（工廠 SSOT），
+  // queryFn 的**回傳形狀必須與那兩處一致（解 .data）** ——
+  // 2026-08-28 修正：原本回整包 SuccessResponse，詳情頁先載入時
+  // 明細分頁從快取拿到錯的形狀 ⇒ 有明細也顯示空表（L39 家族）。
   const { data: itemsData } = useQuery({
-    queryKey: ['quotation-items', quotation?.id],
-    queryFn: () => apiClient.post<{ items?: unknown[] }>(
-      ERP_ENDPOINTS.QUOTATION_ITEMS_DETAIL, { quotation_id: quotation!.id },
-    ),
+    queryKey: queryKeys.erpQuotations.items(quotation?.id ?? 0),
+    queryFn: async () => {
+      const res = await apiClient.post<{ data?: { items?: unknown[] } }>(
+        ERP_ENDPOINTS.QUOTATION_ITEMS_DETAIL, { quotation_id: quotation!.id },
+      );
+      return res?.data;
+    },
     enabled: !!quotation?.id,
   });
   const itemCount = itemsData?.items?.length ?? 0;

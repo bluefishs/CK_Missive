@@ -38,7 +38,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AttachmentPanel } from '../../components/common/AttachmentPanel';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
-import { defaultQueryOptions } from '../../config/queryConfig';
+import { defaultQueryOptions, queryKeys } from '../../config/queryConfig';
 import type { ERPQuotation } from '../../types/erp';
 
 const QuotationItemsTab = lazy(() =>
@@ -73,7 +73,7 @@ export default function QuotationRecordsTab({
   const { data: itemsData } = useQuery({
     // 與 QuotationItemsTab 完全相同的 key + queryFn ——
     // 形狀必須一致，否則就是今天修過的那個「同 key 不同形狀」的坑。
-    queryKey: ['quotation-items', primary?.id],
+    queryKey: queryKeys.erpQuotations.items(primary?.id ?? 0),
     queryFn: async () => {
       const res = await apiClient.post<{ data: { items?: unknown[] } }>(
         ERP_ENDPOINTS.QUOTATION_ITEMS_DETAIL, { quotation_id: primary!.id },

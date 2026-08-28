@@ -212,9 +212,11 @@ export const PMCaseListPage: React.FC = () => {
               {/* 2026-08-27：`projects:write` 不存在於任何地方（見 useAuthGuard 的 Permission 註解），
                   只有 superuser 看得到這個按鈕。後端 pm/cases 只有 require_auth ⇒
                   改成 projects:edit 不放寬任何 API 存取，只是停止隱藏入口。 */}
-              {/* 2026-08-28 owner：「新增報價在右上角獨立按鈕，非在各案件內」——
-                  不必先進入某一筆案件；表單的案號欄支援手填或自動產生，
-                  存檔後進報價單詳情頁即有線上明細編輯與 PDF 輸出。 */}
+              {/* 2026-08-28 owner：「新增報價在右上角獨立按鈕，非在各案件內」＋
+                  「create 仍是 mis 非 xls 樣板」——
+                  範本式一頁建單（案首＋明細＋合計）：送出時自動建立邀標案件
+                  （委託單位寫進 pm_cases.client_name，輸出文件才有客戶抬頭），
+                  完成後直達該案件的報價單分頁（明細編輯＋輸出 PDF 都在那裡）。 */}
               {hasPermission('projects:edit') && (
                 <Button
                   icon={<FileTextOutlined />}

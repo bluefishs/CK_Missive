@@ -20,6 +20,7 @@ import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined } from '@an
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
+import { queryKeys } from '../../config/queryConfig';
 // 型別 SSOT 在 types/erp.ts —— 這裡若自己宣告一份，後端欄位一改就會靜默錯位
 import type { QuotationItemRow, QuotationItemsDetail } from '../../types/erp';
 
@@ -41,7 +42,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
   const [dirty, setDirty] = React.useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['quotation-items', quotationId],
+    queryKey: queryKeys.erpQuotations.items(quotationId),
     queryFn: async () => {
       const res = await apiClient.post<{ data: QuotationItemsDetail }>(
         ERP_ENDPOINTS.QUOTATION_ITEMS_DETAIL, { quotation_id: quotationId },
@@ -79,7 +80,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         // 明細清空時要說清楚「總價沒有被歸零」，否則使用者會以為資料掉了
         message.warning(`明細已清空。報價總價維持 ${money(r?.total_price ?? 0)} 未歸零`);
       }
-      qc.invalidateQueries({ queryKey: ['quotation-items', quotationId] });
+      qc.invalidateQueries({ queryKey: queryKeys.erpQuotations.items(quotationId) });
       // ⚠️ 原本寫 `['erp-quotation', ...]`（單數）—— 不存在。
       //    報價單家族的首 token 是 `erp-quotations`（見 useERPQuotations 的 erpKeys），
       //    用前綴一次涵蓋詳情與清單：改明細會動到總價，兩邊都該重載。
@@ -158,6 +159,12 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
 
       <Space style={{ marginBottom: 12 }} wrap>
         <Button icon={<PlusOutlined />} onClick={() => {
+          // 正式範本明細僅容 5 項（quotation_document.py ITEM_LAST_ROW）——
+          // 資料層存得下所以不擋，但要在**填的當下**說，
+          // 不是走到輸出那一步才被 400 打回來合併工項。
+          if (rows.length >= 5) {
+            message.warning('正式文件範本目前僅容 5 項，超出的項目輸出時需先合併');
+          }
           setRows(p => [...p, {
             key: `new-${Date.now()}-${p.length}`,
             item_name: '', unit: '式', qty: 1, unit_price: 0, amount: 0,

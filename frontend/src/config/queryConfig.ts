@@ -207,6 +207,11 @@ export const queryKeys = {
     detail: (id: number) => [...queryKeys.erpQuotations.details(), id] as const,
     profitSummary: ['erp-quotations', 'profit-summary'] as const,
     profitTrend: ['erp-quotations', 'profit-trend'] as const,
+    // 2026-08-28：三個檔共用的裸 key 收進工廠。⚠️ 共用 key 的 queryFn
+    // **回傳形狀必須一致（解 .data 後的 QuotationItemsDetail）** ——
+    // 詳情頁曾回整包 SuccessResponse，誰先載入誰的形狀進快取，
+    // 明細分頁就顯示空表（L39 家族）。
+    items: (quotationId: number) => ['quotation-items', quotationId] as const,
     vendorPayables: (quotationId: number) => ['erp-quotations', quotationId, 'vendor-payables'] as const,
   },
 } as const;

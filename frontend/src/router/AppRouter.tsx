@@ -107,6 +107,9 @@ const ERPHubPage = lazy(() => import('../pages/ERPHubPage'));
 const ERPQuotationListPage = lazy(() => import('../pages/ERPQuotationListPage'));
 const ERPQuotationDetailPage = lazy(() => import('../pages/ERPQuotationDetailPage'));
 const ERPQuotationFormPage = lazy(() => import('../pages/ERPQuotationFormPage'));
+// 2026-08-28 owner：「erp/quotations/create 仍是 mis 非 xls 樣板」——
+// 建立改走範本式一頁建單；MIS 欄位表單保留給編輯（財務視角）。
+const QuotationTemplateCreatePage = lazy(() => import('../pages/erpQuotation/QuotationTemplateCreatePage'));
 const ERPExpenseListPage = lazy(() => import('../pages/ERPExpenseListPage'));
 const ERPExpenseCreatePage = lazy(() => import('../pages/ERPExpenseCreatePage'));
 const ERPExpenseDetailPage = lazy(() => import('../pages/ERPExpenseDetailPage'));
@@ -337,7 +340,7 @@ export const AppRouter: React.FC = () => {
 
           {/* 財務管理 (ERP) */}
           <Route path={ROUTES.ERP_QUOTATIONS} element={<ProtectedRoute><ERPQuotationListPage /></ProtectedRoute>} />
-          <Route path={ROUTES.ERP_QUOTATION_CREATE} element={<ProtectedRoute><ERPQuotationFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_QUOTATION_CREATE} element={<ProtectedRoute><QuotationTemplateCreatePage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_QUOTATION_EDIT} element={<ProtectedRoute><ERPQuotationFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_QUOTATION_DETAIL} element={<ProtectedRoute><ERPQuotationDetailPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_EXPENSES} element={<ProtectedRoute><ERPExpenseListPage /></ProtectedRoute>} />

@@ -52,19 +52,25 @@ export function useQuotationExport({
     // 沒有明細就直接產出，會得到一張只有抬頭與客戶、工項全空的報價單 ——
     // 而那是要寄給客戶的文件。先講清楚，並給一條去填的路；
     // 但**不阻擋**（有人就是要一張空白表格去手寫，那是他的判斷）。
-    if (itemCount === 0 && onGoToItems) {
+    //
+    // 2026-08-28：警示與「前往填寫」**解耦** —— 原本用 `&& onGoToItems` 併在
+    // 一個條件裡，PM 分頁刻意不傳 onGoToItems（編輯器就在下方）時，
+    // 連「產出會是空白表」的提醒本身也一併消失了，而那正是唯一的輸出入口。
+    if (itemCount === 0) {
       const go = await new Promise<boolean>((resolve) => {
         modal.confirm({
           title: '這張報價單還沒有工項',
           content: '直接產出的話，「項次／工作內容／數量／單價」會是空白的。'
-            + '要先去填寫明細嗎？（明細可以像 Excel 一樣直接在頁面上編輯）',
-          okText: '前往填寫明細',
+            + (onGoToItems
+              ? '要先去填寫明細嗎？（明細可以像 Excel 一樣直接在頁面上編輯）'
+              : '明細編輯器就在本頁下方，建議先填寫再輸出。'),
+          okText: onGoToItems ? '前往填寫明細' : '回去填明細',
           cancelText: '仍要產出空白表',
           onOk: () => resolve(true),
           onCancel: () => resolve(false),
         });
       });
-      if (go) { onGoToItems(); return; }
+      if (go) { onGoToItems?.(); return; }
     }
 
     setExporting(true);
@@ -84,9 +90,13 @@ export function useQuotationExport({
       // 檔名取自後端的 `Content-Disposition`（RFC 5987 編碼的中文檔名）——
       // 前端自己拼檔名會與後端各自演化，而檔名裡有單號，
       // 兩邊不一致時使用者會拿到一個對不上系統的檔案。
-      const cd = (res as unknown as { headers?: Record<string, string> })?.headers?.[
-        'content-disposition'
-      ] || '';
+      const headers = (res as unknown as { headers?: Record<string, string> })?.headers ?? {};
+      // 2026-08-28：UI 承諾「輸出後自動存入本案附件」，沒存成必須讓人知道
+      // （後端存檔失敗不擋下載，狀態改由 X-Archive-Status 傳出）
+      if (headers['x-archive-status'] === 'failed') {
+        message.warning('文件已產出，但自動存入本案附件失敗 —— 請手動上傳這份檔案', 8);
+      }
+      const cd = headers['content-disposition'] || '';
       const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
       const filename = m?.[1]
         ? decodeURIComponent(m[1])

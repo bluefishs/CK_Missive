@@ -319,16 +319,10 @@ async def export_quotation_document(
     doc = QuotationDocumentService(service.db)
     try:
         data = await doc.gather(request.erp_quotation_id)
-        # owner 2026-08-19：「政府標案無需報價單機制，僅邀標報價案件才需要」。
-        #
-        # 前端已對委辦招標隱藏按鈕，但**隱藏按鈕不等於端點不能被呼叫** ——
-        # 舊分頁、書籤、直接打 API 都繞得過去，而產出一張「報價單」
-        # 給政府標案是錯的文件。判準與前端同一條（`category == '01'`）。
-        if (data.get("category") or "") == "01":
-            raise ValueError(
-                "委辦招標案件不適用報價單輸出 —— 標案是投標程序，"
-                "不是對客戶報價；如需投標文件請用附件功能上傳"
-            )
+        # 2026-08-28 owner 更新（取代 08-19「標案不輸出」）：「委辦案件無仍呈現
+        # 報價單」—— 01 也開放輸出。renderer 會在文件上自動加註
+        # 「本案為委辦招標案，依招標文件所列項目辦理」（quotation_document.py）。
+        # 前端同日已放開按鈕；這裡若仍擋 400 就是前後端各說各話的半接通。
         content = doc.render_xlsx(data)
         if request.format == "pdf":
             content = doc.render_pdf(content)
@@ -344,12 +338,18 @@ async def export_quotation_document(
         raise HTTPException(status_code=500, detail=f"PDF 轉換失敗：{e}")
 
     ext = request.format
+    # 2026-08-28：存檔結果讓前端看得到（X-Archive-Status header）。
+    # 先前只寫 log —— 而 UI 對使用者承諾「輸出後自動存入本案附件」，
+    # 沒存成時使用者無從得知（出聲只到 log 層等於沒出到人面前）。
+    archive_status = "skipped"
     if request.archive:
         try:
             await doc.archive(data, content, ext, current_user.id)
+            archive_status = "ok"
         except Exception as e:
             # 存檔失敗**不擋下載**（使用者手上這份仍是好的），
             # 但一定要出聲：靜靜地沒存進系統，正是最不會被發現的那種失敗。
+            archive_status = "failed"
             logger.error("報價單存檔失敗 qid=%s: %s", request.erp_quotation_id, e, exc_info=True)
 
     filename = doc.suggest_filename(data)
@@ -370,5 +370,10 @@ async def export_quotation_document(
             "application/pdf" if ext == "pdf"
             else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ),
-        headers={"Content-Disposition": disposition},
+        headers={
+            "Content-Disposition": disposition,
+            "X-Archive-Status": archive_status,
+            # 自訂 header 需列入 expose 否則跨域 JS 讀不到（CORS 預設只給 simple headers）
+            "Access-Control-Expose-Headers": "X-Archive-Status",
+        },
     )

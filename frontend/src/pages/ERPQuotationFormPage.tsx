@@ -201,7 +201,13 @@ export const ERPQuotationFormPage: React.FC = () => {
             <Form.Item name="status" label="狀態" initialValue="draft" style={{ flex: 1 }}>
               <Select options={Object.entries(ERP_QUOTATION_STATUS_LABELS).map(([value, label]) => ({ value, label }))} />
             </Form.Item>
-            <Form.Item name="total_price" label="總價 (含稅)" style={{ flex: 1 }}>
+            {/* 2026-08-28：標籤不再寫「含稅」—— 明細儲存後 total_price 回寫的是
+                **未稅小計**（稅額另存 tax_amount，quotation_items.py），
+                寫「含稅」會讓業務同仁拿錯數字報價。存量雙語意（147 未稅/66 含稅）
+                已記錄於後端該處註解。 */}
+            <Form.Item name="total_price" label="報價總額"
+              tooltip="填有線上明細時，此欄由明細小計（未稅）自動回寫；稅額另存"
+              style={{ flex: 1 }}>
               <InputNumber placeholder="總價" style={{ width: '100%' }} formatter={numberFormatter} />
             </Form.Item>
           </Space>
