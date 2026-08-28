@@ -146,6 +146,25 @@ def get_structured_path(document_id: Optional[int], filename: str) -> tuple[str,
     if not safe_filename:
         safe_filename = 'unnamed'
 
+    # 2026-08-29（A38 觸發器根治）：檔名以 **UTF-8 位元組數** 封頂。
+    # Windows NTFS 算 UTF-16 字元（255 字，中文檔名放得下），而 Linux 容器
+    # 與 NAS 算 UTF-8 位元組（NAME_MAX 255，中文一字 3 bytes）——
+    # 使用者把整段公文主旨當檔名時（實例 268 bytes），來源端存得進、
+    # 備份端 Errno 5／robocopy ERROR 123 **靜默失敗**。A38 已修掉
+    # 「一個壞檔讓掃描全斷」的放大器；這裡拔掉觸發器本身。
+    # 上限 200 bytes：留餘裕給 `{uuid8}_` 前綴與任何備份端的路徑組合。
+    # 截斷保留副檔名；完整原始檔名仍在 DB（document_attachments.file_name）。
+    _MAX_NAME_BYTES = 200
+    if len(safe_filename.encode("utf-8")) > _MAX_NAME_BYTES:
+        stem, dot, ext = safe_filename.rpartition(".")
+        if not dot:
+            stem, ext = safe_filename, ""
+        budget = _MAX_NAME_BYTES - len(ext.encode("utf-8")) - (1 if dot else 0)
+        raw = stem.encode("utf-8")[:budget]
+        # 位元組切割可能落在多位元組字元中間 —— 用 ignore 丟棄殘缺尾字
+        stem = raw.decode("utf-8", "ignore")
+        safe_filename = f"{stem}.{ext}" if dot else stem
+
     unique_filename = f"{file_uuid}_{safe_filename}"
 
     if document_id:
