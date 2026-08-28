@@ -1,4 +1,4 @@
-# PermissionRequest Hook: 自動核准唯讀操作 (v1.0.0)
+﻿# PermissionRequest Hook: 自動核准唯讀操作 (v1.0.0)
 # 事件: PermissionRequest
 # 自動 allow: Read, Glob, Grep, WebFetch, WebSearch, Task (Explore)
 # 不介入: Edit, Write, Bash (交由使用者決定)

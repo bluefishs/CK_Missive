@@ -41,7 +41,15 @@ def main() -> int:
     red_files = []
     total_chinese = 0
 
-    for ps1 in (REPO_ROOT / "scripts").rglob("*.ps1"):
+    #: ⚠️ 2026-08-27：原本**只掃 `scripts/`**，而 `.claude/hooks/` 底下有 3 支
+    #: 含中文卻無 BOM —— 其中 `careful-guard.ps1`（攔截危險指令的安全守衛）
+    #: **每次呼叫都解析失敗 exit 1**，30 天內 12,491 次一次都沒攔過任何東西。
+    #: 而這支稽核同一時刻回「無 BOM: 0 🟢 GREEN」，**它判得沒錯 —— 它只是
+    #: 看不到那個目錄**。hook 才是最需要這個保護的地方：它們每次工具呼叫
+    #: 都跑，壞掉的症狀是一片安靜。
+    _SCAN_DIRS = ["scripts", ".claude/hooks"]
+    _targets = [f for d in _SCAN_DIRS for f in (REPO_ROOT / d).rglob("*.ps1")]
+    for ps1 in _targets:
         try:
             content = ps1.read_bytes()
         except OSError:

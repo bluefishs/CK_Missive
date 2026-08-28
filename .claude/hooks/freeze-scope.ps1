@@ -1,4 +1,4 @@
-# Freeze Scope Hook (v1.0.0)
+﻿# Freeze Scope Hook (v1.0.0)
 # PreToolUse: 限制編輯範圍到指定目錄，防止偵錯/重構時意外修改無關程式碼
 # 協議: 從 stdin 讀取 JSON，檢查 Edit/Write 的目標路徑是否在允許範圍內
 #

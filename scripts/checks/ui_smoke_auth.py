@@ -107,13 +107,39 @@ async def main() -> None:
             # （實測 id=3），那正是 08-10「管理員判定有四份規則」的殘留：
             # `require_admin` 併看 role 故它其實是管理員。只看 is_admin 會挑到它，
             # 於是「以一般使用者身分跑」跑出來的還是管理員畫面 —— 白做。
-            cond = [User.is_admin.is_(False), User.role != "admin"]
-            what = "一般使用者（需 is_admin=false 且 role!='admin' 且 is_active 且非分身）"
-        admin = (await db.execute(
+            # ⚠️ 2026-08-27（CK_DigitalTunnel 回饋後改法）：
+            # 這裡**不再自己列條件**，改為 SQL 粗篩 + 呼叫權威判定
+            # `dependencies.is_admin_user()`。
+            #
+            # 我原本的判準是 `is_admin=false AND role != 'admin'`，
+            # 第一版修法是「再補一個欄位」（`is_superuser`）。DT 指出那個
+            # 方向本身有問題：**欄位數是可觀察的代理指標，不是判準**。
+            # 拿 Missive 驗證，他們是對的 ——
+            #
+            #     is_admin_user() 認的是 role in ("admin", "superuser")  <- 兩種字串
+            #
+            # 所以就算補齊三個欄位，一個 `role='superuser'` 而兩個 flag
+            # 都 false 的帳號仍會被選成「一般使用者」，而權威判定說它是
+            # 管理員 ⇒ **又是白做一次**。而下次它多認第三種角色字串，
+            # 這裡會再漂移一次。
+            #
+            # ⇒ 判準從此只有一份：`is_admin_user()` 本人。
+            #   SQL 只做**不會漏抓**的粗篩（`is_admin=false`），
+            #   精確判定在 Python 端交給權威函式。
+            cond = [User.is_admin.is_(False)]
+            what = "一般使用者（需 is_admin_user() 為 False 且 is_active 且非分身）"
+        candidates = (await db.execute(
             select(User)
             .where(User.is_active.is_(True), User.canonical_user_id.is_(None), *cond)
             .order_by(User.id)
-        )).scalars().first()
+        )).scalars().all()
+
+        if role == "admin":
+            admin = candidates[0] if candidates else None
+        else:
+            # 權威判定是唯一的一份 —— 見上方說明
+            from app.core.dependencies import is_admin_user
+            admin = next((u for u in candidates if not is_admin_user(u)), None)
         if not admin:
             raise SystemExit(f"ERROR: DB 內沒有**可用**的{what}")
 

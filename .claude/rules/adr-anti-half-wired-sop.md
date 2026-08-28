@@ -1,3 +1,11 @@
+---
+paths:
+  - docs/adr/**
+  - docs/architecture/**
+---
+
+<!-- 2026-08-27 /doctor：加上 paths 讓這份改為**延遲載入**（ADR 上線流程 —— 只在動到 ADR／架構文件時才需要）。
+     內容零刪除；只是不再每個 session 都進 context。 -->
 # ADR 半接通防範 SOP
 
 > **強制等級**：所有新 ADR 上線必走

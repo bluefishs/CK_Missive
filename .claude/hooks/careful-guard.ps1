@@ -1,4 +1,4 @@
-# Careful Guard Hook (v1.0.0)
+﻿# Careful Guard Hook (v1.0.0)
 # PreToolUse: 攔截危險命令並警告
 # 協議: 從 stdin 讀取 JSON，檢查 Bash 命令是否包含危險操作
 

@@ -105,10 +105,23 @@ if [ -n "$CONTAINER" ] && [ -f "$ADAPTER" ]; then
   trap 'rm -f "$AUTH_OUT"' EXIT
   # role 走**環境變數**：入口用 stdin 傳 adapter，傳不了 CLI 參數。
   # adapter 不支援 role 時這個變數對它無效、照舊跑 —— 不會壞（五 repo 共用）。
-  if ! MSYS_NO_PATHCONV=1 docker exec -i -e "SELFAUDIT_ROLE=$ROLE" "$CONTAINER" python - < "$ADAPTER" > "$AUTH_OUT" 2>/dev/null; then
+  # ⚠️ 2026-08-27（CK_DigitalTunnel 回報）：這裡原本是 `2>/dev/null`，
+  #    **把 adapter 說出來的原因丟掉**——而正下方的註解寫著「『沒取到』必須說出來」。
+  #    DT 實測 `--role user`：adapter 明確 exit 2 說「沒有非管理員帳號」，
+  #    而操作者看到的是「簽發失敗（容器未啟動？）」＋26 條被導回登入頁
+  #    ⇒ 真正的原因被丟棄，訊息還把人指向錯的方向。
+  AUTH_ERR="$(mktemp)"
+  trap 'rm -f "$AUTH_OUT" "$AUTH_ERR"' EXIT
+  if ! MSYS_NO_PATHCONV=1 docker exec -i -e "SELFAUDIT_ROLE=$ROLE" "$CONTAINER" python - < "$ADAPTER" > "$AUTH_OUT" 2>"$AUTH_ERR"; then
     # 「沒取到」必須說出來：靜靜往下跑會讓整批頁面被導回登入頁，
     # 而症狀（全部 SKIP）看起來像「這些頁面需要登入」，把真正的原因藏起來。
-    echo "  ⚠️  簽發失敗（容器未啟動？）—— 僅能跑免登入項目"
+    echo "  ⚠️  簽發失敗（身分=$ROLE）—— 僅能跑免登入項目"
+    if [ -s "$AUTH_ERR" ]; then
+      echo "  ↳ adapter 說："
+      sed 's/^/       /' "$AUTH_ERR" >&2
+    else
+      echo "  ↳ adapter 沒有說明原因（容器未啟動？）"
+    fi
   fi
   got=""
   for k in $CRED_KEYS; do
