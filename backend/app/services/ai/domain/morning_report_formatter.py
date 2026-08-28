@@ -169,6 +169,19 @@ class MorningReportFormatter:
             su = item.get("survey_unit", "")
             return f"({su[:2]})" if su else ""
 
+        # ── 0. 財務對帳告警（2026-08-29）──
+        # 刻意**不受 sections 篩選**：這種告警曾連發 5 天無人接
+        # （AR 虛增 1,681 萬期間），它需要的是必達，不是可訂閱。
+        ra = data.get("reconciliation_alerts", {})
+        sec0: list[str] = []
+        if ra.get("count", 0) > 0:
+            parts.append(f"⚠️ 財務對帳告警 {ra['count']} 則")
+            sec0.append(_SECTION_MARK + "財務對帳告警】")
+            for item in ra.get("items", [])[:3]:
+                sec0.append(f"  🔴 {item.get('title', '')} — {item.get('message', '')[:80]}")
+        if sec0:
+            sections_detail.append(sec0)
+
         # ── 1. 派工事件 ──
         dd = data.get("dispatch_deadlines", {}) if _on("dispatch") else {}
         sec: list[str] = []

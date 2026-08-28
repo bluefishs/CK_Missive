@@ -95,7 +95,29 @@ class MorningReportService:
             default={"count": 0, "total_amount": 0, "items": []},
         )
 
+        # 8. 財務對帳告警（2026-08-29，P0-1 ③）：每日 05:00 的
+        # ledger_reconciliation 只寫 system_notifications，曾連發 5 天
+        # 無人看（AR 虛增 1,681 萬期間）—— 訊號存在但沒有接收者。
+        # 晨報是 owner 每天真的會讀的東西，把它接上。
+        sections["reconciliation_alerts"] = await self._safe_query(
+            self._get_reconciliation_alerts,
+            default={"count": 0, "items": []},
+        )
+
         return sections
+
+    async def _get_reconciliation_alerts(self) -> Dict[str, Any]:
+        """近 26 小時的對帳告警（26h＝每日對帳＋一點寬限，跨過整點漂移）。"""
+        rows = (await self.db.execute(text("""
+            SELECT title, message FROM system_notifications
+            WHERE notification_type = 'reconciliation_alert'
+              AND created_at >= NOW() - INTERVAL '26 hours'
+            ORDER BY created_at DESC LIMIT 5
+        """))).all()
+        return {
+            "count": len(rows),
+            "items": [{"title": r[0], "message": (r[1] or "")[:200]} for r in rows],
+        }
 
     async def _safe_query(self, fn, *args, default):
         """執行查詢；失敗時 rollback session 並回 default，避免 transaction abort 擴散。"""

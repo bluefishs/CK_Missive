@@ -161,8 +161,15 @@ export const PMCaseListPage: React.FC = () => {
         { text: '已結案', value: 'closed' },
       ],
       onFilter: (value, record) => record.status === value,
-      render: (status: string) => {
-        if (status === 'contracted') return <Tag color="blue">已承攬</Tag>;
+      render: (status: string, record: PMCase) => {
+        if (status === 'contracted') {
+          // 2026-08-29（M3）：「已承攬未成案」與「已承攬已成案」在列表上
+          // 原本無法區分 —— 而這個缺口存量 114 筆（91 待判讀＋23 可成案），
+          // 使用者只能逐筆點進詳情頁看 project_code 有無。
+          return record.project_code
+            ? <Tag color="blue">已承攬</Tag>
+            : <Tag color="gold">已承攬・未成案</Tag>;
+        }
         if (status === 'closed') return <Tag color="success">已結案</Tag>;
         return <Tag color="default">評估中</Tag>;
       },
