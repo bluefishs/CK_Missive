@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -136,6 +137,14 @@ def has_lesson_ref(message: str) -> list[str]:
 
 
 def main() -> int:
+    # 2026-08-28：這支掃 git commit 訊息，而**容器內沒有 git** ——
+    # daily 跑在容器內，原本會 `FileNotFoundError: 'git'` 直接拋出，
+    # 而 runner 用 `|| true` 接住 ⇒ 整體 EXIT=0、看起來像跑過了。
+    # 大聲 SKIP 才分得出「這個環境驗不了」與「驗過而且沒問題」。
+    if shutil.which("git") is None:
+        print("[SKIP] 此環境沒有 git（容器內）—— 本檢核掃的是 commit 訊息，"
+              "在這裡驗不了。請在 host 執行。")
+        return 0
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--days", type=int, default=30, help="掃過去 N 天 commit（預設 30）")
     parser.add_argument("--since-registry", action="store_true",

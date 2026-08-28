@@ -83,6 +83,15 @@ def live_nav_items() -> list[dict]:
 
 
 def main() -> int:
+    # 2026-08-28：這支要讀前端原始碼比對路由，而**容器內沒有掛載 frontend/** ——
+    # daily 跑在容器內，原本會 `FileNotFoundError: /app/frontend/src/router/types.ts`
+    # 直接拋出，而 runner 用 `|| true` 接住 ⇒ 整體 EXIT=0、看起來像跑過了。
+    # 大聲 SKIP 才分得出「這個環境驗不了」與「驗過而且沒問題」。
+    _types = ROOT / "frontend/src/router/types.ts"
+    if not _types.exists():
+        print(f"[SKIP] 找不到 {_types} —— 此環境沒有前端原始碼"
+              "（容器內未掛載 frontend/），本稽核在這裡驗不了。請在 host 執行。")
+        return 0
     ap = argparse.ArgumentParser()
     ap.add_argument("--ci", action="store_true")
     args = ap.parse_args()

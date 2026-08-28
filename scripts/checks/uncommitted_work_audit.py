@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -101,7 +102,24 @@ def container_drift(paths: list[str]) -> list[str]:
     return drifted
 
 
+def _git_available() -> bool:
+    """容器內沒有 git。缺它時要**大聲 SKIP**，不是崩掉。
+
+    2026-08-28：daily 跑在容器內，這一步 `FileNotFoundError: 'git'` 直接拋出，
+    而 runner 用 `|| true` 接住 ⇒ **整體 EXIT=0，看起來像跑過了**。
+    輸出裡只多一段 traceback，而沒有人在讀 traceback。
+
+    這支的本質是「host 端工作樹有沒有東西沒提交」，容器內問這個沒有意義 ——
+    所以正確的行為是說出「這個環境驗不了」，而不是假裝驗過。
+    """
+    return shutil.which("git") is not None
+
+
 def main() -> int:
+    if not _git_available():
+        print("[SKIP] 此環境沒有 git（容器內）—— 本稽核問的是 host 工作樹，"
+              "在這裡驗不了。請在 host 執行（weekly 本來就跑 host）。")
+        return 0
     strict = "--strict" in sys.argv
     pending = collect_pending()
     if not pending:
