@@ -164,6 +164,70 @@ def q(sql: str):
         return None
 
 
+def _apply_plan(plan: list) -> int:
+    """單一交易寫入：四張表同步替換＋交易內斷言，任何不符整體 rollback。
+
+    2026-08-28 owner「授權執行」後補上（原本刻意只印計畫、stderr 說明未實作）。
+    設計要點：
+      * 對照表先進 TEMP TABLE，四張表都 JOIN 它替換 —— 不逐筆下 UPDATE，
+        沒有「一筆壞掉後剩下全部陪葬」的窗口（B1 那次的教訓）。
+      * `legacy_quotation_no` 為空時以舊 case_code 補上（COALESCE）——
+        轉換後仍可用舊編號回溯，回簽 PDF 掛回不受影響。
+      * 交易內 DO 斷言：舊碼歸零、新碼筆數＝計畫筆數，否則 RAISE ⇒ 全部回滾。
+    """
+    esc = lambda s: str(s).replace("'", "''")
+    n = len(plan)
+    values = ",\n".join(
+        f"('{esc(p['case_code'])}', '{esc(p['new_code'])}')" for p in plan)
+    sql = f"""
+\\set ON_ERROR_STOP on
+BEGIN;
+CREATE TEMP TABLE _a32_map (old_code text PRIMARY KEY, new_code text UNIQUE) ON COMMIT DROP;
+INSERT INTO _a32_map (old_code, new_code) VALUES
+{values};
+
+UPDATE pm_cases p SET case_code = m.new_code
+  FROM _a32_map m WHERE p.case_code = m.old_code;
+UPDATE erp_quotations e
+   SET case_code = m.new_code,
+       legacy_quotation_no = COALESCE(e.legacy_quotation_no, m.old_code)
+  FROM _a32_map m WHERE e.case_code = m.old_code;
+UPDATE contract_projects c SET case_code = m.new_code
+  FROM _a32_map m WHERE c.case_code = m.old_code;
+UPDATE project_user_assignments u SET case_code = m.new_code
+  FROM _a32_map m WHERE u.case_code = m.old_code;
+
+DO $$
+DECLARE bad int;
+BEGIN
+  SELECT count(*) INTO bad FROM pm_cases p JOIN _a32_map m ON p.case_code = m.old_code;
+  IF bad > 0 THEN RAISE EXCEPTION 'pm_cases 還剩 % 筆舊案號未轉換 — 全部回滾', bad; END IF;
+  SELECT count(*) INTO bad FROM pm_cases p JOIN _a32_map m ON p.case_code = m.new_code;
+  IF bad <> {n} THEN RAISE EXCEPTION 'pm_cases 新案號 % 筆 != 計畫 {n} 筆 — 全部回滾', bad; END IF;
+  SELECT count(*) INTO bad FROM erp_quotations e JOIN _a32_map m ON e.case_code = m.old_code;
+  IF bad > 0 THEN RAISE EXCEPTION 'erp_quotations 還剩 % 筆舊案號 — 全部回滾', bad; END IF;
+  SELECT count(*) INTO bad FROM erp_quotations e
+    JOIN _a32_map m ON e.case_code = m.new_code
+   WHERE e.legacy_quotation_no IS NULL;
+  IF bad > 0 THEN RAISE EXCEPTION '% 筆報價單轉換後失去舊編號回溯 — 全部回滾', bad; END IF;
+END $$;
+COMMIT;
+"""
+    r = subprocess.run(
+        ["docker", "exec", "-i", CONTAINER, "psql", "-U", DB_USER, "-d", DB_NAME],
+        input=sql.encode("utf-8"), capture_output=True, timeout=300,
+    )
+    out = (r.stdout or b"").decode("utf-8", "replace")
+    err = (r.stderr or b"").decode("utf-8", "replace")
+    tags = [ln for ln in out.splitlines() if ln.startswith(("UPDATE", "INSERT"))]
+    print("\n  [寫入結果] " + ("；".join(tags) if tags else "（無 UPDATE 回報）"))
+    if r.returncode != 0 or "ROLLBACK" in out or "ERROR" in err:
+        print(f"  [RED] 寫入失敗，交易已回滾：\n{err[:800]}", file=sys.stderr)
+        return 2
+    print(f"  ✅ {n} 筆已轉換並通過交易內斷言（舊碼歸零／新碼 {n}／回溯欄位齊全）。")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--scope", choices=("pending", "all"), default="pending",
@@ -260,8 +324,8 @@ def main() -> int:
         print("  確認無誤後加 --apply 執行；執行前請先備份（scripts/backup/）。")
         return 0
 
-    print("\n  [寫入模式] 尚未實作 —— 需 owner 明確確認上表後再開放。", file=sys.stderr)
-    return 2
+    # 2026-08-28 owner 於本表 dry-run 對照後明言「授權執行」——寫入路徑就此開放。
+    return _apply_plan(plan)
 
 
 if __name__ == "__main__":
