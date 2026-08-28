@@ -35,6 +35,7 @@
 | **報價流程** | 範本式一頁建單、01 委辦案輸出放開、XLS 範本樣式預覽 | 01 案輸出實測 200；範本預覽回真 PDF |
 | **A29** frontend 容器 | 改掛 `frontend/dist`（映像只剩 nginx 外殼） | 內網 :3000 bundle 與 dist hash 一致 |
 | **排程視窗** | 16 支 Interactive → S4U（NAS 相關刻意排除） | 白天 cmd 視窗來源清零 |
+| **AutoStart 假失敗** | `CK_Missive_AutoStart` 永遠 result=1 **而容器其實全部正常啟動** —— PowerShell 對 native 指令用 `2>&1`，每行 stderr 被包成 ErrorRecord 使 `$?` 為 false，即使 docker 退出碼是 0（而 docker compose 的進度訊息**本來就走 stderr**）。改 `exit $LASTEXITCODE` | 端到端觸發實測 **result=0**；排程稽核 RED 7→6。<br>⚠️ **這是 A39 家族的第三型**：①路徑不存在（真失敗、沒人看）②工作被接手（假失敗、該刪）③**動作成功但退出碼騙人**（假失敗、該修）—— 三者在稽核上長得一模一樣，都只顯示「這支紅了」 |
 | **B2** 報價單附件 | 複核**早已完成**（帳目過期） | `AttachmentPanel` 已接 |
 
 ---
