@@ -24,6 +24,7 @@ host 側執行（DB localhost:5434 + backend/logs/cron_events.jsonl）。cp950 �
 """
 from __future__ import annotations
 
+import os
 import argparse
 import json
 import sys
@@ -38,7 +39,12 @@ except Exception:
 
 ROOT = Path(__file__).resolve().parents[2]
 EVENTS = ROOT / "backend" / "logs" / "cron_events.jsonl"
-DSN = "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents"
+# 2026-08-28：原本純硬編 `localhost:5434`，而 daily 檢核跑在**容器內** ——
+# 容器裡沒有 5434（那是 host 的對外埠）⇒ 連線 OSError，而整體仍 EXIT=0
+#（沉默失敗，實測 [5/78] 與 [55/78] 兩步都是這樣）。
+# 改為讀 DATABASE_URL、保留原值當 host 執行時的 fallback。
+# `.replace` 不可省：容器內的值是 postgresql+asyncpg://，asyncpg.connect 不接受該 scheme。
+DSN = os.getenv("DATABASE_URL", "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents").replace("postgresql+asyncpg://", "postgresql://")
 IS_WEEKEND = date.today().weekday() >= 5
 
 # job self-report 到 detail.reason 的問題原因 → 已移入 producer_registry.PROBLEM_REASONS

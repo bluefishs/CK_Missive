@@ -32,6 +32,7 @@ host 側執行（read-only 查 KG）。cp950 韌性（L49.8）。
 """
 from __future__ import annotations
 
+import os
 import argparse
 import asyncio
 import sys
@@ -48,7 +49,12 @@ except ImportError:
     print("需要 asyncpg", file=sys.stderr)
     sys.exit(0)
 
-DSN = "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents"
+# 2026-08-28：原本純硬編 `localhost:5434`，而 daily 檢核跑在**容器內** ——
+# 容器裡沒有 5434（那是 host 的對外埠）⇒ 連線 OSError，而整體仍 EXIT=0
+#（沉默失敗，實測 [5/78] 與 [55/78] 兩步都是這樣）。
+# 改為讀 DATABASE_URL、保留原值當 host 執行時的 fallback。
+# `.replace` 不可省：容器內的值是 postgresql+asyncpg://，asyncpg.connect 不接受該 scheme。
+DSN = os.getenv("DATABASE_URL", "postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents").replace("postgresql+asyncpg://", "postgresql://")
 
 # 已 triage 判定為「合理領域拆分」的 module-pair（非異質同工，不再報）
 LEGIT_SPLIT_WHITELIST = {
