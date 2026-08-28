@@ -54,6 +54,24 @@ def reset_memory_buffer() -> None:
 DIGEST_TAIL_MAX_CHARS = 1800
 
 
+
+def _append_history(item: dict) -> None:
+    """把主題條目 append 到持久 jsonl（best-effort，失敗不影響排入佇列）。"""
+    try:
+        from app.core.paths import LOGS_DIR
+        path = LOGS_DIR / "digest_history.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps(
+            {**item, "recorded_at": datetime.now(TZ).isoformat()},
+            ensure_ascii=False,
+        )
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception as e:
+        # 持久紀錄失敗不得阻斷告警排入 —— 但要出聲，否則它就是下一個
+        # 「靜靜地沒有留下痕跡」的東西
+        logger.warning("[line-digest] 歷史落檔失敗（不影響排入）: %s", e)
+
 async def queue_digest(topic: str, text: str) -> bool:
     """主題 job 呼叫：把本要單推 LINE 的文字暫存，待晨報合併推送。"""
     item = {
@@ -63,6 +81,21 @@ async def queue_digest(topic: str, text: str) -> bool:
     }
     if not item["text"]:
         return False
+
+    # 2026-08-29：**先落一份持久紀錄**，再進 48h TTL 的佇列。
+    #
+    # 起因（CK_Website 同日）：他們的 38 則 edge 告警 KV TTL 48h，
+    # 「無論 digest 送不送得出去，資料本身都會靜默消失，而且沒有任何地方
+    # 留下曾經有過這些告警的紀錄」——他們最後把時間軸固定成版控檔案才保住。
+    #
+    # 我方同型：`/api/notify/digest`（**跨 repo 治理告警的唯一入口**，
+    # CK_Website 的告警走這條）只寫進這個 Redis 佇列，沒有任何持久紀錄。
+    # 晨報帶走後 Redis 就清空了，事後無從回答「上週有沒有人通報過什麼」。
+    #
+    # 落 jsonl 而不是寫 system_notifications：後者會進通知中心
+    # （吹哨者曾把它灌到 4708 筆未讀），而這裡要的是**可追溯**不是**要人看**。
+    # 與 cron_events.jsonl 同一個模式：append-only、跨重啟、需要時 grep。
+    _append_history(item)
     if _is_isolated():
         _memory_buffer.append(item)
         return True
