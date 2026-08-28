@@ -36,7 +36,14 @@ const ALERT_LABELS: Record<string, string> = {
   critical: '超支警報',
 };
 
-const currentYear = new Date().getFullYear() - 1911;
+// ⚠️ 同族第三例（2026-08-29，前二例＝client-accounts／vendor-accounts）：
+// 這裡原本送**民國年**（getFullYear()-1911＝115），而它唯一的消費端
+// useAllProjectsSummary → get_case_codes_paginated 比對的是
+// `ERPQuotation.year`（**西元** 2026）⇒ 選了年度永遠是空的，
+// 這個篩選從來沒有作用過。兩邊各自用自己的紀年，沒有一方會報錯。
+// （同一支 service 的 monthly-trend 方法反而收民國再 +1911 —— 契約
+//   不統一是這一族反覆長出來的土壤，已回報 owner。）
+const currentYear = new Date().getFullYear();
 const yearOptions = Array.from({ length: 5 }, (_, i) => ({
   value: currentYear - i,
   label: `${currentYear - i} 年`,

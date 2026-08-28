@@ -357,6 +357,15 @@ services:
     image: ck-missive-frontend:production
     container_name: ck_missive_frontend
     restart: always
+    volumes:
+      # 2026-08-29（A29 方案②定案）：內網 :3000 改供 **host 建置的 dist** ——
+      # 與公網（backend bind mount 同一目錄）單一來源，每次 deploy 自動最新。
+      # 起因：owner 統計卡歸零，CK_Website 診斷出 :3000 的映像停在民國年
+      # 修法之前（映像內容 vs 掛載內容＝兩份事實，L51 家族）；
+      # 而映像重建又撞上「@ck-shared 在 build context 外」的既知基礎設施雷
+      # （frontend_shared_package_docker_build_blocker，勿尾端 trial-and-error）。
+      # 掛載後映像只剩 nginx 外殼，內容永不陳舊。
+      - ./frontend/dist:/usr/share/nginx/html:ro
     logging:
       driver: "json-file"
       options:

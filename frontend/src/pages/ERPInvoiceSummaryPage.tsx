@@ -24,9 +24,11 @@ const { Title } = Typography;
 
 /** 產生民國年選項 (近 5 年) */
 const generateYearOptions = () => {
-  const currentRocYear = new Date().getFullYear() - 1911;
+  // 同族第四例（2026-08-29）：後端 invoice_repository 比對的是
+  // `ERPQuotation.year`（西元）—— 原本送民國年，此篩選從未作用過
+  const currentYear = new Date().getFullYear();
   return Array.from({ length: 5 }, (_, i) => {
-    const y = currentRocYear - i;
+    const y = currentYear - i;
     return { value: y, label: `${y} 年` };
   });
 };
