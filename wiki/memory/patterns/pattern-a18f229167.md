@@ -5,13 +5,13 @@ template_hash: a18f229167
 tool_sequence: [get_statistics, search_across_graphs]
 domains: [analysis]
 wiki_topics: []
-hit_count: 47
-success_count: 47
+hit_count: 51
+success_count: 51
 failure_count: 0
 success_rate: 1.0
-avg_latency_ms: 73375
+avg_latency_ms: 44647
 first_seen: '2026-05-30'
-last_seen: '2026-08-24'
+last_seen: '2026-08-28'
 crystallization_candidate: true
 tags: [memory, pattern, analysis]
 ---
@@ -24,16 +24,16 @@ tags: [memory, pattern, analysis]
 
 ## 統計
 
-- **觸發次數**：47（累計）
+- **觸發次數**：51（累計）
 - **成功率**：100.0%
-- **平均延遲**：73375ms
+- **平均延遲**：44648ms
 - **涉及領域**：analysis
 - **相關 Wiki**：(無對應)
 
 ## 典型問法
 
-- 查詢標案決標資訊（tender award lookup）
 - 在 wiki 知識庫搜尋「派工流程」相關內容
+- 查詢標案決標資訊（tender award lookup）
 
 ## 結晶候選
 
@@ -41,4 +41,4 @@ tags: [memory, pattern, analysis]
 
 ---
 
-_由 pattern_extractor 自動產生，最後更新：2026-08-24_
+_由 pattern_extractor 自動產生，最後更新：2026-08-28_

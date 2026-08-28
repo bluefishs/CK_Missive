@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-27T20:39:07.452Z",
+ "checked_at": "2026-08-28T20:38:59.254Z",
  "base": "https://missive.cksurvey.tw",
  "role": "admin",
  "pass": 87,
@@ -202,6 +202,7 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
+   "/api/pm/case-nature/options",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -713,7 +714,8 @@
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
-   "/api/taoyuan-dispatch/dispatch/contract-projects"
+   "/api/taoyuan-dispatch/dispatch/contract-projects",
+   "/api/vendors/list"
   ],
   "/erp/expenses": [
    "/api/ai/config",
@@ -745,6 +747,7 @@
    "/api/auth/me",
    "/api/erp/ledger/category-breakdown",
    "/api/erp/ledger/list",
+   "/api/erp/ledger/totals",
    "/api/erp/quotations/case-code-map",
    "/api/projects/list",
    "/api/secure-site-management/csrf-token",
@@ -1234,7 +1237,7 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 584
    },
    {
     "route": "/pm/cases/244?tab=expenses",
@@ -1358,7 +1361,7 @@
    {
     "route": "/pm/cases/244",
     "viewportWidth": 768,
-    "pageOverflow": 46,
+    "pageOverflow": 164,
     "layoutViewport": 768,
     "tableOverflow": 0
    },
@@ -1393,14 +1396,14 @@
    {
     "route": "/pm/cases/244?tab=quotations",
     "viewportWidth": 768,
-    "pageOverflow": 46,
+    "pageOverflow": 164,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 454
    },
    {
     "route": "/pm/cases/244?tab=expenses",
     "viewportWidth": 768,
-    "pageOverflow": 46,
+    "pageOverflow": 164,
     "layoutViewport": 768,
     "tableOverflow": 0
    }

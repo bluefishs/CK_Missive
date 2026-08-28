@@ -6,7 +6,8 @@ tool_sequence: ["get_financial_summary"]
 hit_count: 2
 failure_count: 2
 failure_rate: 1.000
-active: true
+active: false
+expired_reason: stale >21d (last_seen 2026-08-06)
 first_seen: 2026-08-06
 last_seen: 2026-08-06
 tags: [memory, failure, defensive]
