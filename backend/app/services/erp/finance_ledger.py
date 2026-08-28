@@ -209,3 +209,7 @@ class FinanceLedgerService(AuditableServiceMixin):
     async def query(self, params: LedgerQuery) -> Tuple[List[FinanceLedger], int]:
         """多條件查詢與分頁"""
         return await self.repo.query(params)
+
+    async def totals(self, params: LedgerQuery) -> dict:
+        """同濾鏡全量收支合計（統計卡分母；忽略 skip/limit）"""
+        return await self.repo.sum_by_filters(params)

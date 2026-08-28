@@ -31,6 +31,21 @@ async def list_ledger(
     )
 
 
+@router.post("/totals")
+async def ledger_totals(
+    params: LedgerQuery,
+    service: FinanceLedgerService = Depends(get_service(FinanceLedgerService)),
+    current_user: User = Depends(require_auth()),
+):
+    """同濾鏡的全量收支合計 —— 統計卡用（2026-08-29）。
+
+    列表卡片原本由前端加總「當頁」items，只能誠實標「本頁收入」；
+    分頁前的 SQL SUM 才是卡片該有的分母。濾鏡與 /list 共用同一個
+    builder（repo._apply_query_filters），不會各自漂移。
+    """
+    return SuccessResponse(data=await service.totals(params))
+
+
 @router.post("/create")
 async def create_ledger_entry(
     data: LedgerCreate,

@@ -197,6 +197,8 @@ export const ERP_ENDPOINTS = {
   LEDGER_DETAIL: '/erp/ledger/detail',
   /** 專案收支餘額 POST /erp/ledger/balance */
   LEDGER_BALANCE: '/erp/ledger/balance',
+  /** 同濾鏡全量收支合計（統計卡分母）POST /erp/ledger/totals */
+  LEDGER_TOTALS: '/erp/ledger/totals',
   /** 分類拆解 POST /erp/ledger/category-breakdown */
   LEDGER_CATEGORY_BREAKDOWN: '/erp/ledger/category-breakdown',
   /** 刪除帳本 POST /erp/ledger/delete */

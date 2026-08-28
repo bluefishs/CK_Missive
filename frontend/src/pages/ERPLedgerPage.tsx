@@ -17,7 +17,7 @@ import { ResponsiveContent } from '@ck-shared/ui-components';
 import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
 import {
-  useLedger, useDeleteLedger,
+  useLedger, useLedgerTotals, useDeleteLedger,
   useLedgerCategoryBreakdown, useAuthGuard, useProjectsDropdown,
   useCaseCodeMap,
 } from '../hooks';
@@ -28,15 +28,37 @@ import type { ColumnsType } from 'antd/es/table';
 
 const { Title } = Typography;
 
+// 年度 → 交易日期區間（帳本以 transaction_date 記帳，年度＝該年 1/1~12/31；
+// 這裡的年度語意是**交易年度**，與帳本「今年收支多少」的問句一致）
+const _currentYear = new Date().getFullYear();
+const _yearOptions = [
+  { value: 0, label: '全部年度' },
+  ...Array.from({ length: 5 }, (_, i) => ({
+    value: _currentYear - i, label: `${_currentYear - i} 年`,
+  })),
+];
+const _yearRange = (y: number) =>
+  y > 0
+    ? { date_from: `${y}-01-01`, date_to: `${y}-12-31` }
+    : { date_from: undefined, date_to: undefined };
+
 const ERPLedgerPage: React.FC = () => {
   const { hasPermission } = useAuthGuard();
   const { message } = App.useApp();
   const navigate = useNavigate();
   const canWrite = hasPermission('projects:write');
-  const [params, setParams] = useState<LedgerQuery>({ skip: 0, limit: 20 });
+  // 2026-08-29 owner「掌握年度資金」通盤檢視：統一帳本此前完全沒有年度
+  // 篩選，統計卡只能標「本頁收入」。預設當年度，與帳款頁同一套約定。
+  const [year, setYear] = useState<number>(_currentYear);
+  const [params, setParams] = useState<LedgerQuery>({
+    skip: 0, limit: 20, ..._yearRange(_currentYear),
+  });
   const { projects: projectOptions } = useProjectsDropdown();
   const { data: caseCodeMap } = useCaseCodeMap();
   const { data, isLoading, isError, refetch } = useLedger(params);
+  // 卡片是分母：不隨「點卡片篩選類型」變動（否則點收入卡時支出卡歸零），
+  // 但跟著年度／案號等其他濾鏡走
+  const { data: totals } = useLedgerTotals({ ...params, entry_type: undefined });
   const { data: breakdownData } = useLedgerCategoryBreakdown({ entry_type: 'expense' });
   const deleteMutation = useDeleteLedger();
 
@@ -130,9 +152,11 @@ const ERPLedgerPage: React.FC = () => {
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
-  // 2026-07-20：amount 由 API 回字串（Decimal），須 Number() 轉數字防字串串接
-  const incomeSum = items.filter(i => i.entry_type === 'income').reduce((s, i) => s + Number(i.amount || 0), 0);
-  const expenseSum = items.filter(i => i.entry_type === 'expense').reduce((s, i) => s + Number(i.amount || 0), 0);
+  // 2026-08-29：卡片改用後端「分頁前」全量合計（/ledger/totals，與 /list
+  // 共用同一個濾鏡 builder）。此前只能由前端 reduce 當頁 items，
+  // 卡片被迫誠實標成「本頁收入」—— 標籤說了真話，但那不是使用者要的數字。
+  const incomeSum = Number(totals?.income ?? 0);
+  const expenseSum = Number(totals?.expense ?? 0);
   const breakdownItems = breakdownData?.data ?? [];
 
   return (
@@ -141,15 +165,26 @@ const ERPLedgerPage: React.FC = () => {
         <Row justify="space-between" align="middle">
           <Col><Title level={3} style={{ margin: 0 }}>統一帳本</Title></Col>
           <Col>
-            {canWrite && (
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(ROUTES.ERP_LEDGER_CREATE)}>手動記帳</Button>
-            )}
+            <Space>
+              <Select
+                style={{ width: 120 }}
+                value={year}
+                options={_yearOptions}
+                onChange={(v) => {
+                  setYear(v);
+                  setParams(p => ({ ...p, ..._yearRange(v), skip: 0 }));
+                }}
+              />
+              {canWrite && (
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(ROUTES.ERP_LEDGER_CREATE)}>手動記帳</Button>
+              )}
+            </Space>
           </Col>
         </Row>
         <Row gutter={[12, 12]} style={{ marginTop: 16 }}>
           <Col xs={12} sm={6}>
             <ClickableStatCard
-              title="本頁收入" value={incomeSum.toLocaleString()}
+              title="收入" value={incomeSum.toLocaleString()}
               icon={<ArrowUpOutlined />} color="#3f8600"
               active={statFilter === 'income'}
               onClick={() => { const v = statFilter === 'income' ? null : 'income'; setStatFilter(v); setParams(p => ({ ...p, entry_type: v as LedgerEntryType | undefined ?? undefined, skip: 0 })); }}
@@ -157,7 +192,7 @@ const ERPLedgerPage: React.FC = () => {
           </Col>
           <Col xs={12} sm={6}>
             <ClickableStatCard
-              title="本頁支出" value={expenseSum.toLocaleString()}
+              title="支出" value={expenseSum.toLocaleString()}
               icon={<ArrowDownOutlined />} color="#cf1322"
               active={statFilter === 'expense'}
               onClick={() => { const v = statFilter === 'expense' ? null : 'expense'; setStatFilter(v); setParams(p => ({ ...p, entry_type: v as LedgerEntryType | undefined ?? undefined, skip: 0 })); }}
@@ -165,7 +200,7 @@ const ERPLedgerPage: React.FC = () => {
           </Col>
           <Col xs={12} sm={6}>
             <ClickableStatCard
-              title="本頁淨額" value={(incomeSum - expenseSum).toLocaleString()}
+              title="淨額" value={(incomeSum - expenseSum).toLocaleString()}
               icon={<SwapOutlined />} color={incomeSum - expenseSum >= 0 ? '#52c41a' : '#ff4d4f'}
             />
           </Col>

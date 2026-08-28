@@ -57,9 +57,8 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
         balance["net"] = balance["income"] - balance["expense"]
         return balance
 
-    async def query(self, params: LedgerQuery) -> Tuple[List[FinanceLedger], int]:
-        stmt = select(self.model)
-        
+    def _apply_query_filters(self, stmt, params: LedgerQuery):
+        """list 與 totals 共用同一組濾鏡 —— 各寫一份遲早漂移（跨檔 SSOT 家族）"""
         if params.case_code:
             stmt = stmt.where(self.model.case_code == params.case_code)
         if params.entry_type:
@@ -73,6 +72,36 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
             stmt = stmt.where(self.model.transaction_date >= params.date_from)
         if params.date_to:
             stmt = stmt.where(self.model.transaction_date <= params.date_to)
+        return stmt
+
+    async def sum_by_filters(self, params: LedgerQuery) -> dict:
+        """同濾鏡的**全量**收支合計 —— 統計卡用。
+
+        2026-08-29 owner「統計圖卡＋掌握年度資金」通盤檢視：本頁卡片原本
+        由前端 reduce 當頁 items（≤limit 筆），只能誠實標成「本頁收入」——
+        分頁前 SQL SUM 才是卡片該有的分母（同 client-accounts totals 修法）。
+        """
+        from decimal import Decimal
+
+        stmt = select(
+            self.model.entry_type,
+            func.coalesce(func.sum(self.model.amount), 0).label("total"),
+        )
+        stmt = self._apply_query_filters(stmt, params).group_by(self.model.entry_type)
+        rows = (await self.db.execute(stmt)).all()
+        sums = {"income": Decimal("0"), "expense": Decimal("0")}
+        for entry_type, total in rows:
+            if entry_type in sums:
+                sums[entry_type] = total
+        return {
+            "income": str(sums["income"]),
+            "expense": str(sums["expense"]),
+            "net": str(sums["income"] - sums["expense"]),
+        }
+
+    async def query(self, params: LedgerQuery) -> Tuple[List[FinanceLedger], int]:
+        stmt = select(self.model)
+        stmt = self._apply_query_filters(stmt, params)
 
         count_query = select(func.count()).select_from(stmt.subquery())
         total = await self.db.scalar(count_query)

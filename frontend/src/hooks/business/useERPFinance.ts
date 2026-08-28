@@ -323,6 +323,24 @@ export const useLedger = (params?: LedgerQuery) => {
   });
 };
 
+/** 同濾鏡全量收支合計（統計卡分母 —— 前端加總當頁只會得到「本頁收入」） */
+export const useLedgerTotals = (params?: LedgerQuery) => {
+  // 合計不分頁 —— skip/limit 剔除（eslint 不接受棄置解構，改 delete）
+  const filters: Record<string, unknown> = { ...(params ?? {}) };
+  delete filters.skip;
+  delete filters.limit;
+  return useQuery<{ income: string; expense: string; net: string }>({
+    queryKey: [...erpFinanceKeys.ledger.all, 'totals', filters],
+    queryFn: async () => {
+      const res = await apiClient.post<{ data: { income: string; expense: string; net: string } }>(
+        ERP_ENDPOINTS.LEDGER_TOTALS, filters,
+      );
+      return res.data ?? { income: '0', expense: '0', net: '0' };
+    },
+    ...defaultQueryOptions.statistics,
+  });
+};
+
 /** 帳本詳情 */
 export const useLedgerDetail = (id: number | null | undefined) => {
   return useQuery({
