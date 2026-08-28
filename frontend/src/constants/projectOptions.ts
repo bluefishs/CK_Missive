@@ -31,6 +31,21 @@ export const PROJECT_CATEGORY_VALUES = [
 export type ProjectCategory = (typeof PROJECT_CATEGORY_VALUES)[number];
 
 // 作業性質選項 (v2.0 — 11 類)
+/**
+ * ⚠️ 2026-08-28：**這一份沒有任何消費者，而且值格式與其他兩處不同。不要接回來。**
+ *
+ * 同一個概念此刻有三處定義：
+ *
+ *   本檔                                value: '01地面測量'  （代碼+名稱）← 無人使用
+ *   pages/contractCase/tabs/constants   value: '01'          （純代碼）
+ *   DB 主檔 case_nature_codes           code='01' label='地面測量'  ← **權威**
+ *
+ * `contract_projects.case_nature` 裡有 51 筆「代碼+名稱」格式，是**歷史殘留**，
+ * 不是現在產生的 —— 現行的兩個輸入端（PM 案件頁、承攬案件頁）都存純代碼。
+ *
+ * 需要作業性質選項時請用 `useCaseNatureOptions()`（讀 DB 主檔），
+ * 那是唯一會隨主檔新增而更新的來源。
+ */
 export const CASE_NATURE_OPTIONS = [
   { value: '01地面測量', label: '01地面測量' },
   { value: '02LiDAR掃描', label: '02LiDAR掃描' },

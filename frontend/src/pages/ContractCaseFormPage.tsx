@@ -23,11 +23,11 @@ import {
 
 import {
   CATEGORY_OPTIONS,
-  CASE_NATURE_OPTIONS,
   STATUS_OPTIONS,
 } from './contractCase/tabs/constants';
 
 import { AddAgencyModal } from './contractCase/AddAgencyModal';
+import { useCaseNatureOptions } from '../hooks/business/useDropdownData';
 import { useContractCaseForm, CLIENT_TYPE_OPTIONS } from './contractCase/useContractCaseForm';
 
 const { Title } = Typography;
@@ -54,6 +54,9 @@ export const ContractCaseFormPage: React.FC = () => {
     generateYearOptions,
     handleAddAgencySubmit,
   } = useContractCaseForm();
+
+  // 作業性質改讀 DB 主檔（與 PM 案件頁同源）
+  const { caseNatureOptions, isLoading: caseNatureLoading } = useCaseNatureOptions();
 
   if (loading) {
     return (
@@ -109,12 +112,26 @@ export const ContractCaseFormPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col xs={24} sm={8}>
+              {/*
+                2026-08-28：改讀 DB 主檔 `case_nature_codes`，與 PM 案件頁同源。
+                原本這裡讀硬編陣列（`./contractCase/tabs/constants`），而
+                PM 建案／詳情頁讀的是 DB —— **同一個欄位兩個來源**。
+                兩者目前值格式碰巧一致（都是 `01`），所以還沒長出矛盾，
+                但主檔新增一個性質時只有 PM 那邊會看到。
+
+                ⚠️ 另有第三份 `constants/projectOptions.ts` 的同名匯出，
+                值是 `01地面測量`（代碼+名稱）**且無人使用** ——
+                DB 裡 51 筆那種格式是歷史殘留，不是現在產生的。
+                已在該檔標註，避免有人日後把它接回來。
+              */}
               <Form.Item label="案件性質" name="case_nature">
-                <Select placeholder="請選擇案件性質" allowClear>
-                  {CASE_NATURE_OPTIONS.map(opt => (
-                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                  ))}
-                </Select>
+                <Select
+                  placeholder="請選擇案件性質"
+                  allowClear
+                  loading={caseNatureLoading}
+                  options={caseNatureOptions}
+                  notFoundContent={caseNatureLoading ? '載入中…' : '載入失敗，請重新整理'}
+                />
               </Form.Item>
             </Col>
 
