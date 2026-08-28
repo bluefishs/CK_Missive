@@ -34,6 +34,38 @@ from fastapi import Header, HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
+# 2026-08-29：scope 實際使用量的觀測（B9／A11 決策所需的資料）。
+#
+# `require_scope` 目前是裝飾性的（見下方 _verify 內的說明），而要修它需要
+# token → scope 對照表 —— 那張表要怎麼設計，取決於**每個 scope 實際被誰用、
+# 用多少**，而那個資料此前只存在於「每次通過印一行 log」裡，會被淹沒也無法聚合。
+#
+# CK_Website 2026-08-29 問「要不要乾脆不接」時的判斷是：不構成不接的理由，
+# 但構成**接之前先修 B9** 的理由。要修就要先有資料，這支就是那個資料。
+#
+# ⚠️ 名稱不帶 `_total`：prometheus_client 會自己補，寫成 `xxx_total` 會變成
+# `xxx_total_total`（CK_Website 踩過，查原名會讀到 0.0 而以為計數壞了）。
+_SCOPE_USAGE = None
+
+
+def _record_scope_usage(scope: str) -> None:
+    """記錄某個 scope 被通過一次（best-effort，絕不影響認證流程）。"""
+    global _SCOPE_USAGE
+    try:
+        if _SCOPE_USAGE is None:
+            from prometheus_client import REGISTRY, Counter
+            _SCOPE_USAGE = Counter(
+                "service_token_scope_usage",
+                "service token 通過各 scope 的次數"
+                "（⚠️ 目前未做 token→scope 對照，此為使用量觀測非授權紀錄）",
+                ["scope"],
+                registry=REGISTRY,
+            )
+        _SCOPE_USAGE.labels(scope=scope).inc()
+    except Exception:
+        # 觀測失敗不得影響認證 —— 但也不吞成靜默：重複註冊是唯一預期的例外
+        pass
+
 # Scope 定義（擴展時加入此處）
 VALID_SCOPES = {
     "read:agent",       # Agent 查詢
@@ -125,6 +157,8 @@ def require_scope(*scopes: str):
                 logger.warning("Unknown scope requested: %s", scope)
                 raise HTTPException(status_code=403, detail=f"Unknown scope: {scope}")
         if scopes:
+            for scope in scopes:
+                _record_scope_usage(scope)
             logger.info(
                 "service_auth: scope %s 通過（⚠️ 目前未做 token→scope 對照，"
                 "任何合法 token 皆可通過任何 scope）", ",".join(scopes),
