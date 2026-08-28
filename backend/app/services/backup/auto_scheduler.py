@@ -175,6 +175,26 @@ class BackupScheduler:
         delta = next_backup - datetime.now()
         return max(delta.total_seconds(), 0)
 
+    def _write_status_file(self, payload: dict) -> None:
+        """A40① (2026-08-28)：把執行結果寫到備份目的地的 `_backup-status.json`。
+
+        `offsite_backup_completeness_audit`（weekly 45）與 CK_AaaP §41 已在讀
+        這個格式（`result`／`ran_at`／`saved`），寫了就直接被兩邊看見。
+        2026-05-22~27 那 6 天連續失敗當時沒有任何狀態檔可對賬 —— 容器內
+        02:00 產 dump 這一層此前沒有自己的狀態檔，host 的 offsite-sync-nas.ps1
+        寫的那份涵蓋的是異地同步層。
+        刻意在資料寫完之後才寫，使它不會早於它所描述的那批資料。
+        """
+        try:
+            status_path = backup_service.backup_dir / "_backup-status.json"
+            status_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as e:
+            # 狀態檔寫入失敗不阻斷備份，但必須出聲（沉默成功家族）
+            logger.error(f"備份狀態檔寫入失敗: {e}", exc_info=True)
+
     async def _perform_backup(self) -> None:
         """執行備份任務"""
         logger.info(f"[{datetime.now()}] 開始執行每日自動備份...")
@@ -201,11 +221,26 @@ class BackupScheduler:
                     f"資料庫: {db_info.get('filename', 'N/A')} ({db_info.get('size_kb', 0)} KB), "
                     f"附件: {att_info.get('dirname', 'N/A')} ({att_info.get('file_count', 0)} 檔案)"
                 )
+                self._write_status_file({
+                    "result": "ok",
+                    "ran_at": datetime.now().isoformat(),
+                    "saved": 1 + int(att_info.get("file_count", 0) or 0),
+                    "database_file": db_info.get("filename"),
+                    "attachments_files": att_info.get("file_count", 0),
+                    "source": "BackupScheduler(in-container daily 02:00)",
+                })
             else:
                 self._backup_stats['failed_backups'] += 1
                 self._consecutive_failures += 1
                 errors = result.get("errors", [])
                 logger.error(f"❌ 每日備份失敗: {errors}")
+                self._write_status_file({
+                    "result": "fail",
+                    "ran_at": datetime.now().isoformat(),
+                    "errors": errors,
+                    "consecutive_failures": self._consecutive_failures,
+                    "source": "BackupScheduler(in-container daily 02:00)",
+                })
                 await self._handle_backup_failure("; ".join(errors))
 
         except Exception as e:
@@ -213,6 +248,13 @@ class BackupScheduler:
             self._consecutive_failures += 1
             self._backup_stats['last_backup_result'] = {"success": False, "error": str(e)}
             logger.exception(f"❌ 每日備份發生例外: {e}")
+            self._write_status_file({
+                "result": "fail",
+                "ran_at": datetime.now().isoformat(),
+                "errors": [str(e)],
+                "consecutive_failures": self._consecutive_failures,
+                "source": "BackupScheduler(in-container daily 02:00)",
+            })
             await self._handle_backup_failure(str(e))
 
     async def _handle_backup_failure(self, error_msg: str) -> None:

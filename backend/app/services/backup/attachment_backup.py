@@ -8,6 +8,7 @@
 
 import json
 import logging
+import os
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -17,27 +18,32 @@ logger = logging.getLogger(__name__)
 
 
 def _safe_rglob(root: Path) -> Iterator[Path]:
-    """L49 (2026-05-28): OSError-tolerant rglob generator。
+    """OSError-tolerant 遞迴走訪（產出語意等同 rglob("*")：目錄與檔案都給）。
 
-    Windows host volume mount 進 Linux container 對長中文檔名 (e.g. doc_885 內
-    357f752c_電115年02月25日_...) 偶現 Errno 5 I/O error — entry 看得到但 stat 失敗。
-    rglob iterator 自己 next() 也會拋 OSError，無容錯時整個迴圈直接中斷。
+    L49 (2026-05-28) 原以 `while True: try: next(rglob_iter) except OSError: continue`
+    實作，**那個容錯從來沒有生效過**：包住的是 generator，而 generator 一旦
+    拋出非 StopIteration 的例外就進入 closed 狀態，後續 next() 只會拿到
+    StopIteration ⇒ 第一個壞 entry 就是掃描的終點，日誌卻只留一行
+    「跳過無法讀取的 entry」，看起來像只漏了一個。
 
-    此 helper：每次 next() 包 try/except，跳過壞 entry，不中斷主流程。
+    A38 (2026-08-28) 容器內實測：走訪 233 entry 後停在 2026/02/doc_884，
+    warning 1 次（doc_885 Errno 5），manifest 記 total_files=120，
+    而 os.walk 實際可掃到 1,550 檔 ⇒ 1,430 檔靜默消失。
+
+    改用 os.walk(onerror=…)：壞目錄由 onerror 記錄後**跳過該子樹並繼續**，
+    這才是原本宣稱的行為。回歸測試見
+    tests/test_attachment_backup_rglob_regression.py。
     """
-    try:
-        iterator = root.rglob("*")
-    except OSError as e:
-        logger.warning(f"_safe_rglob 啟動失敗 {root}: {e}")
-        return
-    while True:
-        try:
-            yield next(iterator)
-        except StopIteration:
-            return
-        except OSError as e:
-            logger.warning(f"_safe_rglob 跳過無法讀取的 entry: {e}")
-            continue
+
+    def _on_error(err: OSError) -> None:
+        logger.warning(f"_safe_rglob 跳過無法讀取的目錄: {err}")
+
+    for dirpath, dirnames, filenames in os.walk(root, onerror=_on_error):
+        base = Path(dirpath)
+        for name in dirnames:
+            yield base / name
+        for name in filenames:
+            yield base / name
 
 
 class AttachmentBackupMixin:

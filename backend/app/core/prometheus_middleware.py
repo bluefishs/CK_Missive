@@ -250,6 +250,15 @@ def get_metrics_endpoint(registry: Optional[CollectorRegistry] = None):
             _METRICS_POPULATE_ERRORS.labels(source="tender").inc()
             logger.error("tender metrics populate failed: %s", e, exc_info=True)
 
+        # A40② (2026-08-28): 備份存活 gauge — 判準是「距上次成功多久」
+        # 涵蓋「每天跑但每天失敗」與「根本沒跑」兩種形態（5/22 事故的守門）
+        try:
+            from app.core.backup_metrics import populate_backup_metrics
+            populate_backup_metrics(reg)
+        except Exception as e:
+            _METRICS_POPULATE_ERRORS.labels(source="backup").inc()
+            logger.error("backup metric populate failed: %s", e, exc_info=True)
+
         # v6.12 #2 補完 (2026-05-30): cron job age 即時刷新
         # 確保 scheduler_job_last_run_age_seconds 不會 stuck — silent dormant 偵測
         try:

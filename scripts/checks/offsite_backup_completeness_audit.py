@@ -243,6 +243,21 @@ PORTFOLIO_EXPECTED = {
     "digitaltunnel_minio": ("CK_DigitalTunnel MinIO", "CK_DigitalTunnel-MinIO-Offsite"),
     "governance_records": ("CK_AaaP 治理紀錄", "CK_AaaP_GovernanceRecordsBackup"),
     "CK_FacilityDev_Backups": ("CK_FacilityDev", None),
+    # 2026-08-28 實測移入：目錄 21 檔、排程 CK_lvrland_dataform-Offsite-Backup
+    # rc=0 當日 13:45 跑過 ⇒ 原本列在 PORTFOLIO_MISSING 的「沒有排程」已過期。
+    "dataform_workspace": ("CK_lvrland_dataform", "CK_lvrland_dataform-Offsite-Backup"),
+    # 2026-08-28 新增：先前**兩邊清單都沒有它** —— 而本檔註解自己寫著
+    # 「空著等於默認它不存在」。NAS 上 20 檔但**最新停在 2026-06-30**，
+    # 且全機掃不到任何對應排程（它不是 ^CK 開頭，_task_last_run 本來也抓不到）。
+    # FT_StorageTank 的 STATUS 記「異地備份機制實測通過、**NAS 路徑待填**」
+    # ⇒ 那 20 檔是一次性手動放的，之後沒有自動化在維護。
+    # 列進來是為了讓它每週被問一次，不是為了判它紅。
+    "StorageTank_database": ("FT_StorageTank", None),
+    # 2026-08-28 移入：CK_Website 當日補上備份第四段（`backup_CKProject.bat`
+    # 的 WebsiteSecrets 段），我方獨立清點 45 檔 / 1.94 MB / 40 份 KV 快照
+    # / RS256 私鑰在。⚠️ 它**沒有** `_backup-status.json`，所以這一列會退回
+    # ran_at + newest 推論 —— 那是誠實的降級，不是故障。
+    "ckwebsite_secrets": ("CK_Website 金鑰與 KV 快照", "CKProject_DailyBackup"),
 }
 
 
@@ -271,6 +286,14 @@ def _task_last_run() -> dict:
         data = [data]
     return {d["n"]: (d.get("r"), d.get("c")) for d in data if d.get("n")}
 #: 已知缺口 —— 列出來才有人補。空著等於默認它不存在。
+#: ⚠️ 2026-08-28 實測更正兩處，**兩處都是「清單本身過期」而不是備份出事**：
+#:   ① `CK_lvrland_dataform` 已移入 EXPECTED —— `dataform_workspace` 21 檔、
+#:      排程 `CK_lvrland_dataform-Offsite-Backup` rc=0 當日 13:45 跑過。
+#:      原記「Windows 排程也沒有對應任務」在 08-23 寫時為真，5 天後就過期了。
+#:   ② `FT_StorageTank` 先前**兩邊清單都沒有** ⇒ 沒有任何人在問它。
+#:      NAS 20 檔但最新停在 2026-06-30，且掃不到對應排程。
+#: ⇒ 判準：**這份清單本身需要有人定期對帳，否則它會安靜地過期**——
+#:   一個過期的「已知缺口」清單，與沒有清單的差別只在於它看起來像有人在管。
 #: ⚠️ 2026-08-24 措辭更正 —— 這台環境有**兩個備份區，用途不同**（owner 澄清）：
 #:   `\CKNAS\CK_Project\#Project_data`（192.168.50.250）＝**異地備份區**
 #:                                                          （專案資料庫與附件）
@@ -281,14 +304,15 @@ def _task_last_run() -> dict:
 #: 我猜的 CK_Website）。⇒ 正確說法是「**不在異地備份區**」，不是「沒有備份」。
 #: 這個區分很實際：本機備份與被保護的資料**在同一個場所**，
 #: 場所級事故（火、竊、電力）會一起沒有 —— 那正是異地備份要防的。
-PORTFOLIO_MISSING = {
-    "CK_Website": "**不在異地備份區（250）**；本機備份區（212）有。"
-                  "它是四系統的 SSO IdP ⇒ 場所級事故時最不能沒有的一份。"
-                  "⚠️ 08-11 記的「kv-snapshot 失敗、備份停在 07-18」**已過期** —— "
-                  "他們 08-18 修好，08-24 實測 196 keys／0 errors／12 份可用",
-    "CK_lvrland_dataform": "**不在異地備份區（250）**，Windows 排程也沒有對應任務。"
-                           "「未公網暴露」是安全考量，與「會不會遺失」是兩件事",
-}
+#: 2026-08-28 CK_Website 已補上 —— 這一條的歷史值得留著，因為**缺口的形狀被修正過兩次**：
+#:   08-11 記「kv-snapshot 失敗、備份停在 07-18」→ 08-18 他們修好，記載過期；
+#:   08-24 我記「完全沒有異地備份」→ 語意過強，他們在本機備份區（212）有；
+#:   08-28 他們再指出「沒有異地備份」仍高估 —— **程式碼有 GitHub 這個異地副本**，
+#:         真正沒有異地的是 **KV 快照**（四系統的員工名冊／身份權威）
+#:         與 **RS256 私鑰**（JWKS 簽發根，遺失即四系統 SSO 要重來）。
+#:   ⇒ 判準：**「有沒有備份」問不出東西，要問「哪一份不見了會怎樣」** ——
+#:     前者的答案在三次修正裡都是「有」，而那三次講的是不同的東西。
+PORTFOLIO_MISSING: dict[str, str] = {}
 STALE_HOURS = 72.0
 
 
@@ -395,6 +419,29 @@ def check_portfolio(rows: list[str]) -> list[str]:
     return notes
 
 
+def _print_scope_limits() -> None:
+    """把這支檢查**不驗**的東西印出來。
+
+    2026-08-28：CK_Website 的 `ckwebsite_secrets` 同時發生三件事 ——
+    少了 5 個檔、缺了 SSO 簽章私鑰（`.pem`）、40 檔**全部未加密** ——
+    而本檔對它回報 `[ok]`。**三件一件都看不出來**，因為它只數檔案數與新鮮度。
+
+    ⇒ 我驗的是「有沒有備份、新不新鮮」，要保證的卻是「災難時還原得回來」。
+      **一份缺了簽章私鑰的備份，在檔案數與新鮮度上完全健康。**
+
+    刻意**不**把本檔改成驗內容（那會讓它變成另一個東西，而且我不該替各 repo
+    決定哪些檔是關鍵）。改為誠實聲明邊界 ——
+    **一個說出自己不驗什麼的檢查，比一個看起來什麼都驗的檢查有用，
+    因為讀的人知道還缺什麼。**
+    """
+    print("  註：本檔只驗素材齊不齊，不驗還原出來對不對。")
+    print("      完整還原測試是月度動作，見 docs/runbooks/disaster-recovery.md")
+    print("  ⚠️ 本檔**不驗**「關鍵檔在不在」與「是否加密」——")
+    print("      這兩者由各 repo 自己的檢查負責"
+          "（CK_Website ＝ `check-secrets-offsite.cjs`）。")
+    print("      2026-08-28 實例：某目錄少了簽章私鑰且全未加密，本檔仍報 [ok]。")
+
+
 def main() -> int:
     if "--self-test" in sys.argv:
         return self_test()
@@ -435,9 +482,25 @@ def main() -> int:
         print("  這一段只報不判紅 —— 但**沒有人在問**才是最糟的狀態，"
               "所以它每週都會出現在這裡直到被處理。")
         print()
+        # 2026-08-28：原本印完「YELLOW: N 項」仍 `return 0`，
+        # 而 run_fitness_weekly 的 run_step **只讀退出碼、不讀輸出**
+        # ⇒ 那 N 項在 weekly 摘要裡完全不存在，
+        # 上一行「每週都會出現在這裡直到被處理」的前提從來沒有被滿足。
+        #
+        # 修法用本 repo 既有的三態語意：0=GREEN / 1=YELLOW / 2+=RED。
+        # 回 1 之後它會進 weekly 的 WARN_STEPS（摘要看得見），
+        # 而 weekly 的 exit 1 只由 FAIL_COUNT 觸發 ⇒ **cron 不會因此失敗**。
+        #
+        # 「不替別的 repo 判紅」這個克制是對的，保留；
+        # 但**不判紅與不可見不是同一件事**，區分它們的成本只是這個退出碼。
+        # （判準來自 CK_AaaP §41 的同型修法：「摘要行要帶覆蓋數 ——
+        #   drift 只印這一行，缺口若只在明細裡等於沒印」。）
+        print(f"GREEN（本 repo 四類）: 齊全且新鮮（資料庫／里程碑／附件／金鑰）"
+              f" —— 但 portfolio 另有 {len(portfolio_notes)} 項待確認，見上")
+        _print_scope_limits()
+        return 1
     print("GREEN: 四類異地備份齊全且新鮮（資料庫／里程碑／附件／金鑰）")
-    print("  註：本檔只驗素材齊不齊，不驗還原出來對不對。")
-    print("      完整還原測試是月度動作，見 docs/runbooks/disaster-recovery.md")
+    _print_scope_limits()
     return 0
 
 

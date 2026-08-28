@@ -74,6 +74,42 @@ groups:
   - name: silent_failure
     interval: 30s
     rules:
+      # A40② (2026-08-28)：備份存活守門。判準是「距上次成功多久」而非
+      # 「上次執行是否失敗」—— 前者同時抓到「每天有跑但每天失敗」
+      # （2026-05-22~27 連續 6 天，當時零告警）與「根本沒跑」兩種形態。
+      # 26h = 每日 02:00 排程 + 一天的寬限；backend 重啟不影響
+      # （gauge 從持久化的 backup_operations.json 讀，見 backup_metrics.py）。
+      - alert: BackupLastSuccessTooOld
+        expr: time() - backup_last_success_timestamp_seconds > 93600
+        for: 30m
+        labels:
+          severity: critical
+          component: backup
+        annotations:
+          summary: "容器內每日備份距上次成功已超過 26 小時"
+          description: |
+            in-container BackupScheduler（每日 02:00）距上次成功 create 超過 26h。
+            兩種可能都由本規則涵蓋：每天有跑但每天失敗／排程根本沒跑。
+            檢查：docker logs ck_missive_backend | grep 備份；
+            backend/backups/database/_backup-status.json（產出端自述）；
+            backend/logs/backup_operations.json（事實來源）。
+
+      # 空集合不會讓任何東西變紅（A41 家族：metric 從未 emit 時所有
+      # 「scrape 通」的檢查都綠）。absent() 補這一面。
+      - alert: BackupMetricAbsent
+        expr: absent(backup_last_success_timestamp_seconds)
+        for: 30m
+        labels:
+          severity: warning
+          component: backup
+        annotations:
+          summary: "backup_last_success_timestamp_seconds 這個 metric 不存在"
+          description: |
+            /metrics 沒有暴露備份存活 gauge —— populate 失敗（查
+            metrics_populate_errors_total{source="backup"}）或
+            backup_operations.json 不存在/從無成功紀錄。
+            BackupLastSuccessTooOld 在 metric 缺席時不會觸發，本規則補位。
+
       - alert: AdminPushConsecutiveFailures
         expr: admin_push_consecutive_fails >= 3
         for: 1m
