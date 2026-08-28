@@ -1089,6 +1089,14 @@ export interface VendorAccountDetail {
   cases: VendorCasePayableItem[];
 }
 
+/** 分頁前的全體合計（2026-08-29）—— 統計卡用它，不由前端加總「取回那頁」 */
+export interface ClientAccountTotals {
+  total_contract: string;
+  total_billed: string;
+  total_received: string;
+  outstanding: string;
+}
+
 export interface ClientAccountSummaryItem {
   /** null＝客戶只存在於承攬案件文字欄，尚無 partner_vendor 主檔（2026-08-28 腿 2） */
   vendor_id: number | null;

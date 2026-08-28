@@ -18,13 +18,14 @@ async def get_client_account_summary(
     repo: ClientReceivableRepository = Depends(get_service(ClientReceivableRepository)),
 ):
     """委託單位跨案件應收彙總列表"""
-    items, total = await repo.get_client_summary_list(
+    items, total, totals = await repo.get_client_summary_list(
         year=params.year,
         keyword=params.keyword,
         skip=params.skip,
         limit=params.limit,
     )
-    return SuccessResponse(data={"items": items, "total": total})
+    # totals＝分頁前的全體合計 —— 統計卡用它，不再由前端加總「取回那頁」
+    return SuccessResponse(data={"items": items, "total": total, "totals": totals})
 
 
 @router.post("/detail")

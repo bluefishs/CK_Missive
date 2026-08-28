@@ -34,6 +34,7 @@ import type {
   VendorAccountSummaryItem,
   VendorAccountDetail,
   ClientAccountSummaryItem,
+  ClientAccountTotals,
   ClientAccountDetail,
   Asset,
   AssetLog,
@@ -583,10 +584,10 @@ export function useVendorAccountDetail(vendorId: number | null, year?: number) {
 
 /** 委託單位帳款彙總 */
 export function useClientAccountSummary(params: AccountListRequest) {
-  return useQuery<{ items: ClientAccountSummaryItem[]; total: number }>({
+  return useQuery<{ items: ClientAccountSummaryItem[]; total: number; totals?: ClientAccountTotals }>({
     queryKey: erpFinanceKeys.clientAccounts.summary(params),
     queryFn: async () => {
-      const res = await apiClient.post<{ data: { items: ClientAccountSummaryItem[]; total: number } }>(
+      const res = await apiClient.post<{ data: { items: ClientAccountSummaryItem[]; total: number; totals?: ClientAccountTotals } }>(
         ERP_ENDPOINTS.CLIENT_ACCOUNTS_SUMMARY, params
       );
       return res.data ?? { items: [], total: 0 };

@@ -173,8 +173,18 @@ class ClientReceivableRepository:
 
         items.sort(key=lambda x: x["_tc"], reverse=True)
         total = len(items)
-        page = items[skip: skip + limit]
 
+        # 2026-08-29（CK_Website 指出的計時炸彈）：統計卡若由前端加總
+        # 「取回的那一頁」，資料超過 limit 時會**靜默少算而不報錯**。
+        # 全體合計在分頁**之前**算好、由後端一次給 —— 卡的數字與分頁無關。
+        totals = {
+            "total_contract": str(sum((r["_tc"] for r in items), Decimal("0"))),
+            "total_billed": str(sum((r["_tb"] for r in items), Decimal("0"))),
+            "total_received": str(sum((r["_tr"] for r in items), Decimal("0"))),
+            "outstanding": str(sum((r["_tb"] - r["_tr"] for r in items), Decimal("0"))),
+        }
+
+        page = items[skip: skip + limit]
         out = []
         for row in page:
             tc, tb, tr = row.pop("_tc"), row.pop("_tb"), row.pop("_tr")
@@ -185,7 +195,7 @@ class ClientReceivableRepository:
                 "total_received": str(tr),
                 "outstanding": str(tb - tr),
             })
-        return out, total
+        return out, total, totals
 
     async def get_client_case_detail(
         self, vendor_id: int, year: Optional[int] = None

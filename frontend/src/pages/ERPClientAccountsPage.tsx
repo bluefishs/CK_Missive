@@ -58,6 +58,18 @@ const ERPClientAccountsPage: React.FC = () => {
 
   // Top-level stats
   const stats = useMemo(() => {
+    // 2026-08-29：優先用後端「分頁前」的全體合計 —— 前端只加總取回的
+    // 那一頁，資料超過 limit 時統計卡會**靜默少算而不報錯**（CK_Website
+    // 指出的計時炸彈，現況 25 列沒炸只是還沒到 50）。
+    const t = data?.totals;
+    if (t) {
+      return {
+        totalContract: Number(t.total_contract ?? 0),
+        totalBilled: Number(t.total_billed ?? 0),
+        totalReceived: Number(t.total_received ?? 0),
+        totalOutstanding: Number(t.outstanding ?? 0),
+      };
+    }
     let totalContract = 0;
     let totalBilled = 0;
     let totalReceived = 0;
@@ -69,7 +81,7 @@ const ERPClientAccountsPage: React.FC = () => {
       totalOutstanding += Number(item.outstanding ?? 0);
     }
     return { totalContract, totalBilled, totalReceived, totalOutstanding };
-  }, [items]);
+  }, [items, data?.totals]);
 
   const filteredItems = useMemo(() => {
     if (!statFilter) return items;
