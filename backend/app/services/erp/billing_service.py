@@ -31,6 +31,39 @@ class ERPBillingService(AuditableServiceMixin):
         self._quotation_repo = ERPQuotationRepository(db)
         self.ledger_service = FinanceLedgerService(db)
 
+    async def _guard_billing_within_contract(
+        self, quotation_id: int, new_amount, exclude_billing_id: int | None = None,
+    ) -> None:
+        """累計開票不得超過合約額 110%（owner 2026-08-29「請加強防呆機制」）。
+
+        實例：CK2026_PM_01_005 的 4 筆請款照 10,560,000 排（多打一個零），
+        而合約是 1,056,000 —— 開票排到合約的 10.5 倍，沒有任何一道在問。
+        10% 容差涵蓋「total_price 未稅、開票含稅」的既有雙語意（147 未稅/66
+        含稅）與尾差；十倍級的輸入錯誤必定被擋。合約額未填（NULL/0）不擋 ——
+        那是 A36 那一族的問題，由週稽核盯，不在這裡誤傷。
+        """
+        from decimal import Decimal
+        from sqlalchemy import select as _sel, func as _fn
+
+        quotation = await self._quotation_repo.get_by_id(quotation_id)
+        total = getattr(quotation, "total_price", None) if quotation else None
+        if not total or Decimal(str(total)) <= 0:
+            return
+        stmt = _sel(_fn.coalesce(_fn.sum(ERPBilling.billing_amount), 0)).where(
+            ERPBilling.erp_quotation_id == quotation_id)
+        if exclude_billing_id is not None:
+            stmt = stmt.where(ERPBilling.id != exclude_billing_id)
+        existing_sum = Decimal(str(await self.db.scalar(stmt) or 0))
+        cumulative = existing_sum + Decimal(str(new_amount or 0))
+        limit = Decimal(str(total)) * Decimal("1.10")
+        if cumulative > limit:
+            raise ValueError(
+                f"累計開票 NT$ {int(cumulative):,} 已超過合約額 NT$ {int(Decimal(str(total))):,} "
+                f"的 110% —— 請先確認合約額或既有請款是否有誤。"
+                f"（本筆 NT$ {int(Decimal(str(new_amount or 0))):,}，"
+                f"既有 {int(existing_sum):,}）"
+            )
+
     async def _sync_ledger_if_paid(self, billing) -> None:
         """已收款 → 同步統一帳本（冪等）。
 
@@ -122,6 +155,10 @@ class ERPBillingService(AuditableServiceMixin):
                 "若確實需要同日同額的第二筆，請在期別或備註標明差異後再送出。"
             )
 
+        # 2026-08-29 owner：「請加強防呆機制」—— 累計開票 vs 合約額
+        await self._guard_billing_within_contract(
+            data.erp_quotation_id, data.billing_amount)
+
         async def _create_op() -> ERPBilling:
             dump = data.model_dump()
             if not dump.get("billing_code"):
@@ -193,6 +230,10 @@ class ERPBillingService(AuditableServiceMixin):
                 "標記為「已收款」時必須填寫收款日期 —— "
                 "缺日期會讓帳本的交易日期失真為入帳當天。"
             )
+        # 2026-08-29 owner 防呆：更新金額也要過合約上限（L83 同型掃描）
+        await self._guard_billing_within_contract(
+            billing.erp_quotation_id, billing.billing_amount,
+            exclude_billing_id=billing.id)
 
         await self.db.flush()
         await self.db.refresh(billing)
