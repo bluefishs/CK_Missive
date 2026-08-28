@@ -335,6 +335,16 @@ def _shadow_baseline_summary() -> StepResult:
                    -- ⚠️ 實測它**自 2026-08-01 起全空，27 天沒有人發現** ——
                    -- 而同期 baseline 一直在報 45s ⇒ 報了紅燈卻**無法歸因**。
                    -- 歷史上它是有用的（groq 488／ollama 418／nvidia 128）。
+                   -- ⚠️ 2026-08-28 追過根因但**沒有定案**，兩個假設都被自己的實測推翻：
+                   --   ① 「asyncio.wait_for 會擋住 ContextVar 傳回父層」→ 實測**會**傳回，不成立
+                   --   ② 「走 stream_completion fallback（三支串流都不設 provider）」→
+                   --      log 裡 0 次 "Synthesis chat_completion failed"，主路徑沒失敗
+                   -- 已確認：setter 在 chat_completion 的**所有** provider return 路徑上都會執行，
+                   --         沒有任何地方呼叫 reset_actual_provider。
+                   -- ⚠️ 第三個假設「這些查詢根本沒走 LLM 合成」**驗不了** ——
+                   --   我要查 synthesis_end 日誌時，容器剛被我自己重新部署過，
+                   --   `docker logs --since 24h` 裡只有一分鐘。**那是無效觀測不是發現。**
+                   -- ⇒ 要定案需要一個「已經跑了一段時間、期間有真實查詢」的容器日誌。
                    -- 把「能不能歸因」一起報出來，否則下一個人會像我一樣先繞一圈才發現。
                    SUM(CASE WHEN actual_llm_provider IS NOT NULL
                              AND actual_llm_provider <> '' THEN 1 ELSE 0 END),
