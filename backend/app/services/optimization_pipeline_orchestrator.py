@@ -337,7 +337,19 @@ def _shadow_baseline_summary() -> StepResult:
                    -- 歷史上它是有用的（groq 488／ollama 418／nvidia 128）。
                    -- 把「能不能歸因」一起報出來，否則下一個人會像我一樣先繞一圈才發現。
                    SUM(CASE WHEN actual_llm_provider IS NOT NULL
-                             AND actual_llm_provider <> '' THEN 1 ELSE 0 END)
+                             AND actual_llm_provider <> '' THEN 1 ELSE 0 END),
+                   -- 2026-08-28：**合成與真人要分開**，混在一起那個平均兩邊都不代表。
+                   -- 實測 24h：合成 30 筆平均 40.4s／真人 **2 筆**平均 19.1s
+                   -- ⇒ 這個 RED 主要是**合成探針自己**造成的，而不是使用者體感；
+                   --   同時它也揭露另一件事：真人一天只用 2 次。
+                   -- 兩個數字回答的是不同問題：
+                   --   合成 = 這條管線端到端還活著嗎（探針本來就慢，它跑滿全套工具）
+                   --   真人 = 使用者實際等多久
+                   SUM(CASE WHEN session_id LIKE 'synthetic-%' THEN 1 ELSE 0 END),
+                   AVG(CASE WHEN session_id IS NULL
+                             OR session_id NOT LIKE 'synthetic-%' THEN latency_ms END),
+                   SUM(CASE WHEN session_id IS NULL
+                             OR session_id NOT LIKE 'synthetic-%' THEN 1 ELSE 0 END)
             FROM query_trace
             WHERE ts > datetime('now', '-24 hours')
             """
@@ -352,7 +364,7 @@ def _shadow_baseline_summary() -> StepResult:
             duration_ms=(time.time() - t0) * 1000,
         )
 
-    n, avg_ms, max_ms, ok_count, over30, over60, attributed = row
+    n, avg_ms, max_ms, ok_count, over30, over60, attributed, n_syn, real_avg_ms, n_real = row
     n = n or 0
     avg_ms = avg_ms or 0
     max_ms = max_ms or 0
@@ -402,10 +414,16 @@ def _shadow_baseline_summary() -> StepResult:
                   "provider 欄只是通道標籤不是實體 LLM）"
                   if not (attributed or 0) else "")
                if n else "")
+            + (f"｜合成 {n_syn or 0} 筆／真人 {n_real or 0} 筆"
+               + (f"（真人平均 {real_avg_ms/1000:.1f}s）" if n_real and real_avg_ms else "")
+               if n else "")
         ),
         details={
             "n": n,
             "attributed": attributed or 0,
+            "n_synthetic": n_syn or 0,
+            "n_real": n_real or 0,
+            "real_avg_ms": int(real_avg_ms) if real_avg_ms else None,
             "avg_ms": int(avg_ms),
             "p95_ms": p95_ms,
             "max_ms": int(max_ms),
