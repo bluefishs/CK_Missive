@@ -16,6 +16,8 @@ import React from 'react';
 import {
   Table, Button, InputNumber, Input, Space, Typography, App, Alert, Popconfirm,
 } from 'antd';
+import type { ColumnType } from 'antd/es/table';
+import { useResponsive } from '../../hooks';
 import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -102,7 +104,17 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
   const subtotal = rows.reduce((s, r) => s + (r.amount || 0), 0);
   const tax = data?.tax_amount ?? 0;
 
-  const columns = [
+  const { isMobile, isTablet } = useResponsive();
+  const isNarrow = isMobile || isTablet;
+
+  // 2026-08-29：窄螢幕（含平板）收掉選填欄並降低強制寬度。
+  // 實測 390px 下本表外溢 584px —— 而它是**可編輯**表格（每格是 Input），
+  // 收掉必填欄會讓人改不了價，所以只收「規格／說明」（選填）。
+  //
+  // ⚠️ 這是**減災不是解決**：六欄價目表在 390px 上仍需橫向捲（降到約 230px）。
+  // 真正的解是窄螢幕改一列一卡的編輯器，那是另一個工作量級；
+  // 在那之前不要把這裡的數字下降讀成「手機可以順順地編報價單了」。
+  const columns = ([
     {
       title: '工項', dataIndex: 'item_name', width: '28%',
       render: (v: string, r: QuotationItemRow) => (
@@ -110,7 +122,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
       ),
     },
     {
-      title: '規格／說明', dataIndex: 'spec', width: '24%',
+      title: '規格／說明', dataIndex: 'spec', width: '24%', _optionalOnNarrow: true,
       render: (v: string, r: QuotationItemRow) => (
         <Input value={v} placeholder="選填" onChange={e => update(r.key, { spec: e.target.value })} />
       ),
@@ -148,7 +160,8 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
           onClick={() => { setRows(p => p.filter(x => x.key !== r.key)); setDirty(true); }} />
       ),
     },
-  ];
+  ] as (ColumnType<QuotationItemRow> & { _optionalOnNarrow?: boolean })[])
+    .filter((c) => !(isNarrow && c._optionalOnNarrow));
 
   return (
     <div>
@@ -190,7 +203,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         columns={columns}
         pagination={false}
         size="small"
-        scroll={{ x: 900 }}
+        scroll={{ x: isNarrow ? 620 : 900 }}
         locale={{ emptyText: '尚未逐項拆列。按「新增工項」開始，總價會由小計自動加總。' }}
         summary={() => (
           <Table.Summary fixed>
