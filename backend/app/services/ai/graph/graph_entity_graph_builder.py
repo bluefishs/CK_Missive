@@ -104,7 +104,18 @@ class GraphEntityGraphBuilder:
         year_entity_ids: set[int] | None = None
         if year:
             from sqlalchemy import extract as sa_extract
-            ad_year = year + 1911  # 民國 -> 西元
+            # 2026-08-29 owner 裁示：**系統統一採西元年建置資料與查詢服務**。
+            # 此處原為 `year + 1911`（收民國）—— 而 `doc_date` 存的是西元，
+            # 前端也已於同日改送西元 ⇒ 兩邊契約不一致是「年度篩選從未生效」
+            # 那一族的最後一個實例。收到 <1911 視為舊客戶端，轉換並出聲。
+            ad_year = year
+            if year < 1911:
+                logger.warning(
+                    "entity graph 收到民國年 %s —— 系統已統一西元"
+                    "（owner 2026-08-29 裁示），請修正呼叫端；本次轉換為 %s",
+                    year, year + 1911,
+                )
+                ad_year = year + 1911
             year_docs = await self.db.execute(
                 select(OfficialDocument.id)
                 .where(sa_extract('year', OfficialDocument.doc_date) == ad_year)

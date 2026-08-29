@@ -49,9 +49,12 @@ const KnowledgeGraphPage: React.FC = () => {
 
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const yearOptions = useMemo(() => {
-    const currentRocYear = new Date().getFullYear() - 1911;
+    // 2026-08-29 owner 裁示：系統統一採西元年建置資料與查詢服務。
+    // 此處原送民國年而 doc_date 存西元，後端靠 +1911 補償——同一天抓到的
+    // 四個「年度篩選從未生效」就是這種兩邊各自紀年造成的。後端已同步改收西元。
+    const currentYear = new Date().getFullYear();
     const options = [{ label: '全部年度', value: 0 }];
-    for (let y = currentRocYear; y >= currentRocYear - 4; y--) {
+    for (let y = currentYear; y >= currentYear - 4; y--) {
       options.push({ label: `${y} 年`, value: y });
     }
     return options;

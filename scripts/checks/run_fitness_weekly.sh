@@ -430,6 +430,7 @@ run_step "69" "協力廠商合約經費 vs 應付分期加總（同一件事兩�
 run_step "70" "廠商身分源頭一致（同一張單不得有兩個名字）" "scripts/checks/vendor_identity_ssot_audit.py"
 run_step "72" "應付有沒有上限在管（報價委外經費 vs 應付合計）" "scripts/checks/payable_budget_ceiling_audit.py"
 run_step "73" "設定的 LLM 模型在 provider 那邊還存不存在" "scripts/checks/llm_model_availability_audit.py"
+run_step "74" "紀年契約：API 查詢參數一律西元（§2.5）" "scripts/checks/year_convention_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

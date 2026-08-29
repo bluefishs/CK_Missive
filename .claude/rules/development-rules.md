@@ -112,6 +112,45 @@ apiClient.post(`${AI_ENDPOINTS.ANALYSIS}/${documentId}`);
 | `/.env` | 唯一來源 |
 | `/backend/.env` | **禁止存在** |
 
+## 2.5 紀年一律西元（owner 2026-08-29 裁示）
+
+> **「系統統一採西元年建置資料與查詢服務」**
+
+| 層 | 用什麼 |
+|---|---|
+| **DB 欄位** | **西元**（`pm_cases.year`／`contract_projects.year`／`erp_quotations.year` 實查全是西元，無任何 115 之類的值） |
+| **API 查詢參數** | **西元**。後端不得在收到 `year` 後 `+1911` |
+| **前端送出** | **西元**（`new Date().getFullYear()`，**不減 1911**） |
+| **顯示層** | 民國、西元皆可，依畫面需求 —— 這一層不受本規範限制 |
+| **外部資料解析** | 依來源格式（財政部 API／發票 QR／匯入 xls 都是民國）—— 解析後**立即轉西元**再進系統 |
+
+### 為什麼立這條
+
+2026-08-29 一天內抓到**四個「年度篩選從未生效」**：委託單位帳款／廠商帳款／
+財務總覽／發票彙總。四者的形狀完全相同 —— **前端送民國 115、後端比對西元 2026**，
+於是選了年度永遠是空的，而**兩邊各自用自己的紀年、沒有任何一方會報錯**。
+
+土壤不是四個各自的疏忽，是**契約不統一**：同一支 service 裡
+`get_company_overview` 收民國（`+1911`）而 `get_all_projects_summary` 收西元，
+兩種寫法都「對」，只看你讀到哪一段。
+
+### 相容處理（不靜默接受）
+
+存量呼叫端可能還在送民國年。後端收到 `year < 1911` 時**轉換並 `logger.warning` 出聲**，
+不得靜默接受 —— 靜默轉換會讓錯誤的呼叫端永遠不會被發現。
+
+### 已改的地方（2026-08-29）
+
+`erp/financial_summary.get_company_overview`／`ai/graph/graph_entity_graph_builder`
+（後端不再 +1911）；前端 client-accounts／vendor-accounts／財務總覽／發票彙總／
+知識圖譜（改送西元）。
+
+⚠️ **不在此規範範圍**：`case_code.py` 的 `year > 1911 ? year : year + 1911` 是
+**產號時的輸入容錯**（人可能手打民國年），不是查詢參數；`quotation_document.py`
+的 `year - 1911` 是**輸出到正式文件**的顯示格式。兩者都保留。
+
+---
+
 ## 3. 型別定義同步 (SSOT)
 
 <!--enforced-by: scripts/checks/schema_ssot_audit.py-->

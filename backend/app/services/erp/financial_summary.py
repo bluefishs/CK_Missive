@@ -36,11 +36,27 @@ class FinancialSummaryService:
         top_n: int = 10,
     ) -> dict:
         """全公司財務總覽"""
-        # 民國年度轉西元日期區間
+        # 2026-08-29 owner 裁示：**系統統一採西元年建置資料與查詢服務**。
+        #
+        # 此處原為 `ad_year = year + 1911`（收民國年）—— 而同一支 service 的
+        # `get_all_projects_summary` 走的 repo 是直接比對 `ERPQuotation.year`
+        # （西元）⇒ **同一個 service 兩種紀年契約**，正是 08-29 一天抓到四個
+        # 「年度篩選從未生效」的土壤（client-accounts／vendor-accounts／
+        # 財務總覽／發票彙總）。
+        #
+        # 現在一律收西元。⚠️ 相容處理：DB 的 year 欄位全部是西元（實查
+        # pm_cases／contract_projects 無任何 115 之類的值），所以收到 <1911
+        # 的值只可能是舊客戶端送民國年 —— 轉換並**出聲**，不靜默接受。
         if year and not date_from and not date_to:
-            ad_year = year + 1911
-            date_from = date(ad_year, 1, 1)
-            date_to = date(ad_year, 12, 31)
+            if year < 1911:
+                logger.warning(
+                    "get_company_overview 收到民國年 %s —— 系統已統一西元"
+                    "（owner 2026-08-29 裁示），請修正呼叫端；本次自動轉換為 %s",
+                    year, year + 1911,
+                )
+                year = year + 1911
+            date_from = date(year, 1, 1)
+            date_to = date(year, 12, 31)
 
         overview = await self.repo.get_company_overview(
             date_from=date_from, date_to=date_to, top_n=top_n
