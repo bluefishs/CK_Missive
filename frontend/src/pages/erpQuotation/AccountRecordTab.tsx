@@ -198,6 +198,30 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
     (r) => r.payment_status === 'paid' && !(r.payment_amount || 0),
   );
 
+  // ── 代墊風險：付協力廠商時，客戶那邊還沒付 ──────────────────────
+  //
+  // 外部評估建議在應付表新增 `linked_billing_id`（綁定請款期別）。
+  // **不採用那個做法**：新欄位要人去填，而本專案剛付過這個代價 ——
+  // 承辦同仁欄位存在多時，257 張報價單裡 122 張是空的，因為沒人填。
+  // 一個沒人填的欄位提供的不是精確度，是**假的精確度**。
+  //
+  // 改成用**已經存在的事實**判斷：同一張報價單底下有沒有未收的請款。
+  // 這不需要任何人多填一格，而且涵蓋所有案子（實測當日 4 件符合）。
+  // 代價是它說不出「是哪一期」—— 那正是誠實的界線，寫在提示文字裡。
+  const { data: arRaw } = useQuery({
+    queryKey: ['erp-billings', erpQuotationId, 'for-backtoback'],
+    queryFn: () => apiClient.post<{ data: Record<string, unknown>[] }>(
+      ERP_ENDPOINTS.BILLINGS_LIST, { erp_quotation_id: erpQuotationId }),
+    enabled: !isReceivable,   // 只有應付那一側需要問這件事
+  });
+  const unpaidAr = (
+    (arRaw?.data ?? (arRaw as unknown as Record<string, unknown>[]) ?? [])
+  ).filter((b) => b.payment_status !== 'paid');
+  const unpaidArAmount = unpaidAr.reduce(
+    (sum, b) => sum + (Number(b.billing_amount) || 0) - (Number(b.payment_amount) || 0), 0);
+  const hasUnpaidPayable = !isReceivable
+    && records.some((r) => r.payment_status !== 'paid');
+
 
   const goCreate = () =>
     navigate(
@@ -332,6 +356,25 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
           </Form.Item>
         </Form>
       </Modal>
+
+      {hasUnpaidPayable && unpaidAr.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="這個案子的客戶款還沒收齊，而底下有未付的協力款"
+          description={
+            <span>
+              客戶端還有 <strong>{unpaidAr.length}</strong> 筆請款未收訖
+              （未收約 <strong>NT$ {Math.round(unpaidArAmount).toLocaleString()}</strong>）。
+              現在付協力廠商等於<strong>公司先行代墊</strong> —— 請評估資金水位再送出。
+              <br />
+              ⚠️ 這是<strong>案件層級</strong>的提醒，說不出「哪一期對哪一期」——
+              系統沒有那個對應關係，而硬要人手動綁定只會多一個沒人填的欄位。
+            </span>
+          }
+        />
+      )}
 
       {paidButNoAmount.length > 0 && (
         <Alert
