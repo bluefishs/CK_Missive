@@ -1,4 +1,4 @@
-import type { ERPQuotationLegacyImportResult, ERPSignedImportResult } from '../../types/erp';
+import type { ERPQuotationLegacyImportResult, ERPSignedImportResult, ERPQuotationTemplateMeta } from '../../types/erp';
 /**
  * ERP 報價/成本主檔 API 服務
  */
@@ -140,5 +140,16 @@ export const erpQuotationsApi = {
       { year: params.year, category: params.category ?? '01' }
     );
     return response.data!.case_code;
+  },
+
+  /**
+   * 正式 XLS 範本的容量 —— 前端不得自行寫死（來源＝後端 ITEM_{FIRST,LAST}_ROW）。
+   * 2026-08-29 手抄常數漂移事故的修法，見 QuotationTemplateCreatePage 檔頭。
+   */
+  async getTemplateMeta(): Promise<ERPQuotationTemplateMeta> {
+    const response = await apiClient.post<SuccessResponse<ERPQuotationTemplateMeta>>(
+      ERP_ENDPOINTS.QUOTATION_TEMPLATE_META, {},
+    );
+    return response.data!;
   },
 };

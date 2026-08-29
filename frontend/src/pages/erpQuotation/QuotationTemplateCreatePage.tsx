@@ -34,7 +34,7 @@ import type { SuccessResponse } from '../../api/types';
 import type { PMCase } from '../../types/pm';
 import { useClientOptions } from '../../hooks/business/useDropdownData';
 import { vendorsApi } from '../../api/vendorsApi';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const { Text, Title } = Typography;
 
@@ -50,8 +50,18 @@ interface DraftItemRow {
   unit_price: number;
 }
 
-/** 正式範本的明細容量 —— 超過的輸出時會被擋（quotation_document.py ITEM_LAST_ROW） */
-const TEMPLATE_ITEM_CAPACITY = 5;
+/**
+ * 正式範本的明細容量 —— **不在這裡寫死**。
+ *
+ * 2026-08-29：後端把上限從 5 提到 10，而這裡曾有一份手抄的 `= 5` 沒跟著改，
+ * 於是第 6 項起畫面警告「僅容 5 項，超出的需先合併」——
+ * **叫使用者去手動合併後端其實輸出得出來的工項**。tsc 檢查不出一個過期的字面值。
+ *
+ * ⇒ 改由 `/erp/quotations/template-meta` 取（來源＝ITEM_LAST_ROW - ITEM_FIRST_ROW + 1）。
+ * 下面這個只是**取值失敗前的保守起始值**：取偏小只會多提醒一次，
+ * 取偏大會讓人填到輸出才被 400 擋。
+ */
+const CAPACITY_FALLBACK = 5;
 
 let _keySeq = 0;
 const newRow = (): DraftItemRow => ({
@@ -84,6 +94,14 @@ const QuotationTemplateCreatePage: React.FC = () => {
   const [saving, setSaving] = React.useState(false);
   const [tplUrl, setTplUrl] = React.useState<string | null>(null);
   const [tplLoading, setTplLoading] = React.useState(false);
+
+  // 容量取自後端（見 CAPACITY_FALLBACK 的說明）
+  const { data: tplMeta } = useQuery({
+    queryKey: ['quotation-template-meta'],
+    queryFn: () => quotationsApi.getTemplateMeta(),
+    staleTime: 60 * 60 * 1000,  // 版面容量只有換範本時才變
+  });
+  const capacity = tplMeta?.item_capacity ?? CAPACITY_FALLBACK;
 
   // owner 2026-08-29：「xls 樣本報價單無法呈現嗎」——可以：
   // 空白範本經後端同一條 LibreOffice 鏈轉 PDF，建單前就能看到正式版面
@@ -129,10 +147,10 @@ const QuotationTemplateCreatePage: React.FC = () => {
   const total = subtotal + tax;
 
   const addRow = () => {
-    if (rows.length >= TEMPLATE_ITEM_CAPACITY) {
+    if (rows.length >= capacity) {
       // 不擋（資料層存得下），但要在**填的當下**說，不是輸出那一步才 400
       message.warning(
-        `正式文件範本目前僅容 ${TEMPLATE_ITEM_CAPACITY} 項，超出的項目輸出時需先合併`,
+        `正式文件範本目前僅容 ${capacity} 項，超出的項目輸出時需先合併`,
       );
     }
     setRows(rs => [...rs, newRow()]);

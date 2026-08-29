@@ -127,6 +127,7 @@ export const ERP_ENDPOINTS = {
   EXPORT_DOCUMENT: '/erp/quotations/export-document',
   /** 空白範本樣式預覽（建單前看版面）POST /erp/quotations/template-preview */
   QUOTATION_TEMPLATE_PREVIEW: '/erp/quotations/template-preview',
+  QUOTATION_TEMPLATE_META: '/erp/quotations/template-meta',
   /**
    * 匯入既有報價單彙整 XLS（個人管理時期的資料，帶舊案號 B114-B002）。
    * 與 IMPORT 不同：那支吃系統匯出的格式，這支吃 owner 手上的彙整表。

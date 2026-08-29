@@ -398,3 +398,18 @@ class ERPSignedImportResult(BaseModel):
     sample_match: list[dict] = []
     attached: Optional[int] = None
     replaced: Optional[int] = None
+
+
+class ERPQuotationTemplateMeta(BaseModel):
+    """正式 XLS 範本的版面容量 —— 前端唯一容量來源。
+
+    2026-08-29：明細上限由 5 提升為 10 時，前端 `QuotationTemplateCreatePage`
+    有一份**手抄的** `TEMPLATE_ITEM_CAPACITY = 5` 沒有跟著改，於是第 6 項起
+    畫面會警告「僅容 5 項，超出的需先合併」—— 叫使用者去手動合併
+    後端其實輸出得出來的工項。tsc 檢查不出一個過期的字面值。
+
+    ⇒ 容量只留一個家：`QuotationDocumentService.ITEM_{FIRST,LAST}_ROW`，
+    由本 schema 帶到前端。
+    """
+    item_capacity: int = Field(description="明細最多幾項（= ITEM_LAST_ROW - ITEM_FIRST_ROW + 1）")
+    notes_row: int = Field(description="備註列（僅供除錯／稽核對照，前端不用）")

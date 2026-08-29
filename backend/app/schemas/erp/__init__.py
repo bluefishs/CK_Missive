@@ -7,6 +7,7 @@ from .quotation import (
     ERPSignedImportUnmatched,
     ERPQuotationLegacyImportSkipped,
     ERPQuotationLegacyImportConflict,
+    ERPQuotationTemplateMeta,
 )
 from .invoice import (
     ERPInvoiceCreate, ERPInvoiceUpdate, ERPInvoiceResponse,
@@ -58,6 +59,7 @@ from .requests import (
 __all__ = [
     "ERPQuotationCreate", "ERPQuotationUpdate", "ERPQuotationResponse",
     "ERPQuotationListRequest", "ERPProfitSummary", "ERPProfitTrendItem",
+    "ERPQuotationTemplateMeta",
     "ERPInvoiceCreate", "ERPInvoiceUpdate", "ERPInvoiceResponse",
     "InvoiceSummaryRequest", "CreateFromBillingRequest",
     "ERPBillingCreate", "ERPBillingUpdate", "ERPBillingResponse",

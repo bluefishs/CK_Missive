@@ -303,6 +303,11 @@ class QuotationDocumentService:
     #: 2026-08-29 由 21 移到 29（合計之後）；範本的 A29/B29 原為空白，
     #: 故 `_write_notes_label` 會補上「備註：」標籤並沿用 A21 的字型。
     NOTES_ROW = 29
+    #: 範本**原本**的備註列。搬走之後它落在明細區裡（16~25），
+    #: 兩個用途：① 新備註標籤沿用它的字型（那是 owner 提供的版面，不自己挑）
+    #: ② 範本殘留的舊備註要清掉，否則明細不足 6 項時該列會同時出現空明細與舊備註。
+    #: ⚠️ 不是「還能再用一次的座標」—— 下次再搬列時這三個常數要一起看。
+    LEGACY_NOTES_ROW = 21
 
     #: 項次的中文數字（範本用「一、二、三、」）
     _CN = "一二三四五六七八九十"
@@ -401,19 +406,20 @@ class QuotationDocumentService:
         if data.get("notes"):
             label = ws[f"A{self.NOTES_ROW}"]
             label.value = "備註："
-            src = ws["A21"]
+            src = ws[f"A{self.LEGACY_NOTES_ROW}"]
             if src.has_style:
                 label.font = copy(src.font)
                 label.alignment = copy(src.alignment)
 
-        # 舊備註列（21）現在屬於明細區，範本殘留的「備註：」/內容要清掉 ——
-        # 否則明細不足 6 項時，第 21 列會同時出現空明細與舊備註。
-        for col in ("A", "B"):
-            cell = ws[f"{col}21"]
-            if isinstance(cell.value, str) and (
-                cell.value.startswith("備註") or col == "B"
-            ):
-                if 21 >= self.ITEM_FIRST_ROW + len(items):
+        # 舊備註列現在屬於明細區，範本殘留的「備註：」/內容要清掉 ——
+        # 否則明細不足 6 項時，該列會同時出現空明細與舊備註。
+        # 條件＝它落在「明細沒填到的那一段」；有填到就已被明細覆寫，不能再清。
+        if self.LEGACY_NOTES_ROW >= self.ITEM_FIRST_ROW + len(items):
+            for col in ("A", "B"):
+                cell = ws[f"{col}{self.LEGACY_NOTES_ROW}"]
+                if isinstance(cell.value, str) and (
+                    cell.value.startswith("備註") or col == "B"
+                ):
                     cell.value = None
 
         # ── 沒有明細時（標案類）──

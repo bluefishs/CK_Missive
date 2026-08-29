@@ -1612,3 +1612,19 @@ export interface AssetDetailFull {
     status: string;
   } | null;
 }
+
+
+/**
+ * 正式 XLS 範本的版面容量（對應後端 `schemas/erp/quotation.py`
+ * 的 `ERPQuotationTemplateMeta`）。
+ *
+ * 存在的理由是一次真實漂移：後端把明細上限 5 → 10，而前端有一份手抄的
+ * `TEMPLATE_ITEM_CAPACITY = 5` 沒跟著改，第 6 項起就叫使用者「先合併」
+ * 後端其實輸出得出來的工項。**容量只留一個家，在後端。**
+ */
+export interface ERPQuotationTemplateMeta {
+  /** 明細最多幾項 */
+  item_capacity: number;
+  /** 備註列（除錯／稽核對照用，畫面不呈現） */
+  notes_row: number;
+}

@@ -17,6 +17,7 @@ from app.schemas.erp import (
     ERPQuotationLegacyImportResult,
     ERPSignedImportResult,
     ERPSummaryRequest, ERPGenerateCodeRequest,
+    ERPQuotationTemplateMeta,
 )
 from app.schemas.common import PaginatedResponse, SuccessResponse, DeleteResponse
 
@@ -326,6 +327,28 @@ async def quotation_template_preview(
         media_type="application/pdf",
         headers={"Content-Disposition": 'inline; filename="quotation_template_preview.pdf"'},
     )
+
+
+@router.post("/template-meta", response_model=SuccessResponse[ERPQuotationTemplateMeta])
+async def quotation_template_meta(
+    current_user: User = Depends(require_auth()),
+):
+    """正式 XLS 範本的容量 —— 前端唯一容量來源。
+
+    2026-08-29：明細上限 5 → 10 時，前端有一份手抄的 `TEMPLATE_ITEM_CAPACITY = 5`
+    沒跟著改，第 6 項起會警告使用者「需先合併」—— 叫人去手動合併後端其實
+    輸出得出來的工項。**tsc 檢查不出一個過期的字面值**，只有把數字搬回
+    單一來源才擋得住下一次。
+
+    值由 `ITEM_FIRST_ROW/ITEM_LAST_ROW` 推導，不另外寫一個常數
+    （另寫一個就是第三份 SSOT）。
+    """
+    from app.services.erp.quotation_document import QuotationDocumentService as _Q
+
+    return SuccessResponse(data=ERPQuotationTemplateMeta(
+        item_capacity=_Q.ITEM_LAST_ROW - _Q.ITEM_FIRST_ROW + 1,
+        notes_row=_Q.NOTES_ROW,
+    ))
 
 
 @router.post("/export-document")
