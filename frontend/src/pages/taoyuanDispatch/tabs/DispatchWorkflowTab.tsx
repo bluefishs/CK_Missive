@@ -90,7 +90,11 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   workType,
 }) => {
   const navigate = useNavigate();
-  const { isMobile } = useResponsive();
+  // ⚠️ 2026-08-29：窄螢幕判準含平板。isMobile = !screens.md 而 AntD 的 md
+  // 斷點就是 768 ⇒ **恰好 768px 時 isMobile 為 false**，桌面的固定 scroll.x
+  // 會在 768px 視窗上照樣套用（weekly 81 稽核此形狀）。
+  const { isMobile, isTablet } = useResponsive();
+  const isNarrow = isMobile || isTablet;
   const { message } = App.useApp();
 
   const [viewMode, setViewMode] = useState<ViewMode>('chain');
@@ -307,8 +311,8 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
           loading={isLoading}
           size="small"
           pagination={false}
-          scroll={isMobile ? undefined : { x: 1100 }}
-          tableLayout={isMobile ? 'fixed' : undefined}
+          scroll={isNarrow ? undefined : { x: 1100 }}
+          tableLayout={isNarrow ? 'fixed' : undefined}
           locale={{
             emptyText: (
               <Empty

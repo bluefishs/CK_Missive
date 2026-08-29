@@ -56,7 +56,11 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
   const { message } = App.useApp();
 
   // RWD 響應式
-  const { isMobile } = useResponsive();
+  // ⚠️ 2026-08-29：窄螢幕判準含平板。isMobile = !screens.md 而 AntD 的 md
+  // 斷點就是 768 ⇒ **恰好 768px 時 isMobile 為 false**，桌面的固定 scroll.x
+  // 會在 768px 視窗上照樣套用（weekly 81 稽核此形狀）。
+  const { isMobile, isTablet } = useResponsive();
+  const isNarrow = isMobile || isTablet;
 
   // 使用集中的 Hook 查詢契金管控資料
   const {
@@ -360,8 +364,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
         dataSource={items}
         rowKey="dispatch_order_id"
         loading={isLoading}
-        scroll={isMobile ? undefined : { x: 2200 }}
-        tableLayout={isMobile ? 'fixed' : undefined}
+        scroll={isNarrow ? undefined : { x: 2200 }}
+        tableLayout={isNarrow ? 'fixed' : undefined}
         pagination={{
           showSizeChanger: true,
           showTotal: (total) => `共 ${total} 筆`,

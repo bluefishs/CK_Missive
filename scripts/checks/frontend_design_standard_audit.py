@@ -93,6 +93,14 @@ EXEMPT_FILES = {
     # 它自己就是另一個表格基礎元件（內建 sortConfig），不是業務表格
     "components/common/UnifiedTable.tsx":
         "表格基礎元件，自帶 sortConfig；EnhancedTable 亦建構於此類包裝之上",
+    "components/common/ResponsiveTable.tsx":
+        "它就是共用表格包裝本身（antd Table 的封裝），不是業務表格",
+    # 2026-08-29：這一個是**有意識的決定**，不是漏改。原註解：「刻意不改用
+    # EnhancedTable —— 那會連帶套上自動排序/篩選，對 owner 每天在看的
+    # 晨報追蹤表，行為變動的風險高於收益。」它的窄螢幕溢出已另行修正
+    # （scroll 判準改 isNarrow），排序則是逐欄手動宣告。
+    "components/taoyuan/MorningReportTrackingTable.tsx":
+        "owner 每日使用的晨報追蹤表，刻意保留手工欄位宣告；排序已逐欄手動加",
 }
 
 # 用了 Table.Summary 等靜態子元件者 —— EnhancedTable 是函式包裝沒有那些成員，
@@ -173,8 +181,14 @@ def main() -> int:
     # 2.5) 業務子元件的表格（owner 2026-08-29「表格皆需」）
     raw_sub = []
     for p, rel in _biz_component_files():
-        t = p.read_text(encoding="utf-8", errors="ignore")
+        raw = p.read_text(encoding="utf-8", errors="ignore")
         scanned += 1
+        # ⚠️ 必須去掉註解再判「有沒有用 EnhancedTable」。
+        # 2026-08-29：`MorningReportTrackingTable.tsx` 是 /taoyuan/dispatch 預設分頁的
+        # 16 欄表格（實測 768px 外溢 580px），本檢核卻放過它 —— 因為它的註解裡
+        # 寫著「這裡刻意不改用 EnhancedTable」，`"EnhancedTable" in t` 就成立了。
+        # **判準命中的是說明文字，不是程式碼**（同日在 weekly 81 也犯過同一個錯）。
+        t = re.sub(r"/\*[\s\S]*?\*/|//[^\n]*", "", raw)
         if not re.search(r"<Table[\s<]", t) or "EnhancedTable" in t:
             continue
         if not re.search(r"dataIndex", t):

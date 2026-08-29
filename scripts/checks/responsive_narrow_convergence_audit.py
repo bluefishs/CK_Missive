@@ -91,6 +91,29 @@ def main() -> int:
             continue  # 已用 < 992px 判準
         reds.append(f.name)
 
+    # 2026-08-29 擴大：**這個 bug 不只出現在共用元件**。
+    # `MorningReportTrackingTable`（/taoyuan/dispatch 預設分頁）自己就寫著
+    # `scroll={isMobile ? undefined : { x: 1050 }}` —— 同一個形狀、同樣在 768px
+    # 強制橫向捲（實測外溢 580px），而它刻意不使用共用元件（理由已註明）。
+    # 只掃 components/common/ 的話，這種**自己處理 RWD 的表格**永遠不會被看到。
+    #
+    # 判準收得很緊：只抓 `scroll` 或 `tableLayout` 用 isMobile 三元式且
+    # 桌面分支帶固定 x 的寫法 —— 那是明確的「把平板當桌面」，不是風格問題。
+    SRC = ROOT / "frontend" / "src"
+    inline = re.compile(
+        r"scroll=\{\s*isMobile\s*\?[^}]*\}|tableLayout=\{\s*isMobile\s*\?"
+    )
+    for f in sorted(SRC.rglob("*.tsx")):
+        rel = str(f.relative_to(SRC)).replace("\\", "/")
+        if "__tests__" in rel or ".test." in f.name or rel.startswith("components/common/"):
+            continue
+        t = _strip_comments(f.read_text(encoding="utf-8", errors="ignore"))
+        if not inline.search(t):
+            continue
+        checked.append(rel)
+        if "isTablet" not in t and "isNarrow" not in t:
+            reds.append(rel)
+
     print("=" * 74)
     print("窄螢幕收斂判準：共用表格元件不得只看 isMobile（weekly 81）")
     print("=" * 74)

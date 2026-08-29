@@ -65,7 +65,11 @@ const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode; orde
 };
 
 export const MorningReportTrackingTab: React.FC = () => {
-  const { isMobile } = useResponsive();
+  // ⚠️ 2026-08-29：窄螢幕判準含平板。isMobile = !screens.md 而 AntD 的 md
+  // 斷點就是 768 ⇒ **恰好 768px 時 isMobile 為 false**，桌面的固定 scroll.x
+  // 會在 768px 視窗上照樣套用（weekly 81 稽核此形狀）。
+  const { isMobile, isTablet } = useResponsive();
+  const isNarrow = isMobile || isTablet;
   const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined);
   const [searchText, setSearchText] = useState('');
@@ -305,8 +309,8 @@ export const MorningReportTrackingTab: React.FC = () => {
           loading={isLoading}
           size="small"
           pagination={{ pageSize: 25, showSizeChanger: true, showTotal: (t) => `共 ${t} 筆` }}
-          scroll={isMobile ? undefined : { x: 950 }}
-        tableLayout={isMobile ? 'fixed' : undefined}
+          scroll={isNarrow ? undefined : { x: 950 }}
+        tableLayout={isNarrow ? 'fixed' : undefined}
         />
       </Card>
     </div>

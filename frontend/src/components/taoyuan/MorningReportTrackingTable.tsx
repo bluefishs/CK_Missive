@@ -86,7 +86,12 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
   isLoading,
   externalFilter,
 }) => {
-  const { isMobile } = useResponsive();
+  // ⚠️ 2026-08-29：窄螢幕判準必須含平板。isMobile = !screens.md，而 AntD 的
+  // md 斷點就是 768 ⇒ **恰好 768px 時 isMobile 為 false**，於是下方的
+  // scroll x:1050 在 768px 視窗上仍然套用，實測 /taoyuan/dispatch 外溢 580px。
+  // 這裡維持不改用 EnhancedTable（理由見下方 scroll 處的註解），只修判準。
+  const { isMobile, isTablet } = useResponsive();
+  const isNarrow = isMobile || isTablet;
   const navigate = useNavigate();
   const { message } = App.useApp();
   const dispatchCache = useDispatchCacheInvalidator();
@@ -329,8 +334,8 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
         // 2026-08-02：窄螢幕不套桌面的固定寬度（x:1050 在 390px 下等於強制每列橫向滑）。
         // 這裡刻意不改用 EnhancedTable —— 那會連帶套上自動排序/篩選，
         // 對 owner 每天在看的晨報追蹤表，行為變動的風險高於收益。
-        scroll={isMobile ? undefined : { x: 1050 }}
-        tableLayout={isMobile ? 'fixed' : undefined}
+        scroll={isNarrow ? undefined : { x: 1050 }}
+        tableLayout={isNarrow ? 'fixed' : undefined}
         expandable={{
           rowExpandable: (record) => record.per_type_progress.length >= 2,
           expandedRowRender: (record) => (
