@@ -26,13 +26,13 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 import { apiClient } from '../../api/client';
-import { ERP_ENDPOINTS, PM_ENDPOINTS } from '../../api/endpoints';
+import { ERP_ENDPOINTS, PM_ENDPOINTS, API_ENDPOINTS } from '../../api/endpoints';
 import { erpQuotationsApi as quotationsApi } from '../../api/erp/quotationsApi';
 import { ROUTES } from '../../router/types';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import type { SuccessResponse } from '../../api/types';
 import type { PMCase } from '../../types/pm';
-import { useClientOptions } from '../../hooks/business/useDropdownData';
+import { useClientOptions, useUsersDropdown } from '../../hooks/business/useDropdownData';
 import { vendorsApi } from '../../api/vendorsApi';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -74,6 +74,7 @@ const QuotationTemplateCreatePage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const { clients } = useClientOptions();
+  const { users: staffUsers, isError: staffLoadError } = useUsersDropdown();
 
   // 入口 2（PM 案件詳情頁）帶進來的既有案件
   const presetCaseCode = searchParams.get('case_code') || undefined;
@@ -90,6 +91,12 @@ const QuotationTemplateCreatePage: React.FC = () => {
     Number(searchParams.get('year')) || new Date().getFullYear(),
   );
   const [notes, setNotes] = React.useState('');
+  // 承辦同仁 —— 2026-08-29 實查：257 張報價單有 **122 張**全庫查不到任何指派
+  // 紀錄，正式報價單的「服務人員」（範本 E12/E13）因此空白。
+  // ⚠️ 那不是查詢寫錯：取料的 JOIN 早在 08-21 就同時吃 project_id 與 case_code，
+  // 改 JOIN 只救得回 7 張。**122 張是資料從來沒有被建立** ——
+  // 因為在此之前，建單這條路徑上根本沒有地方可以指派。
+  const [staffUserId, setStaffUserId] = React.useState<number | undefined>();
   const [rows, setRows] = React.useState<DraftItemRow[]>([newRow(), newRow(), newRow()]);
   const [saving, setSaving] = React.useState(false);
   const [tplUrl, setTplUrl] = React.useState<string | null>(null);
@@ -202,7 +209,27 @@ const QuotationTemplateCreatePage: React.FC = () => {
         });
       }
 
-      message.success(`報價單已建立（${caseCode}）`);
+      // ④ 承辦同仁指派（選填）
+      //
+      // 刻意**不放進上面的 try 主線**：報價單與明細已經寫進去了，
+      // 這一步失敗時整個 catch 會顯示「建立失敗」，而使用者會以為
+      // 什麼都沒建成、回頭再建一次 —— 那會產生重複的報價單。
+      // 失敗就明講「單建好了、指派沒成功、去哪裡補」。
+      let staffWarn = '';
+      if (staffUserId) {
+        try {
+          await apiClient.post(API_ENDPOINTS.PROJECT_STAFF.CREATE, {
+            case_code: caseCode,
+            user_id: staffUserId,
+            role: '主辦',
+            is_primary: true,   // 報價單只印一個服務人員，取 is_primary 優先
+          });
+        } catch {
+          staffWarn = '（承辦同仁指派失敗，請於案件詳情頁的人員分頁補上）';
+        }
+      }
+
+      message.success(`報價單已建立（${caseCode}）${staffWarn}`);
       // ④ 直達唯一的輸出入口 —— 該案件的報價單分頁（明細編輯器＋輸出 PDF 都在那裡）
       if (pmCaseId) {
         navigate(`${ROUTES.PM_CASE_DETAIL.replace(':id', pmCaseId)}?tab=quotations`);
@@ -340,6 +367,28 @@ const QuotationTemplateCreatePage: React.FC = () => {
                   </Form.Item>
                 </Col>
               )}
+              <Col xs={24} md={5}>
+                <Form.Item
+                  label="承辦同仁"
+                  style={{ marginBottom: 8 }}
+                  // 選單載不到時要說出來 —— 空的 options 與「沒有同仁」長得一樣
+                  validateStatus={staffLoadError ? 'warning' : undefined}
+                  help={staffLoadError ? '同仁清單載入失敗，可稍後於案件詳情頁指派' : undefined}
+                >
+                  <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="選填 —— 印在報價單的服務人員欄"
+                    value={staffUserId}
+                    onChange={setStaffUserId}
+                    options={staffUsers.map(u => ({
+                      value: u.id,
+                      label: u.full_name || u.username,
+                    }))}
+                  />
+                </Form.Item>
+              </Col>
               <Col xs={12} md={4}>
                 <Form.Item label="年度" style={{ marginBottom: 8 }}>
                   <InputNumber value={year} style={{ width: '100%' }}
