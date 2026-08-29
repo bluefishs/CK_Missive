@@ -154,6 +154,22 @@ def main() -> int:
         #
         # 形狀由 CK_AaaP 同日提出：他們的快照寫入在 live 不可達時拒絕，
         # 理由是「基準只有一半，會讓下次比對永遠對不上」。
+        #
+        # ⚠️ 同日複查時發現本 repo 早有更強的形式 ——
+        # `http_method_convention_audit` 的註解：
+        #   「找不到東西不得回綠 —— 740 個端點不可能一條 GET 都沒有
+        #     （/api/health 一定在）」
+        # 那是**用領域知識定下限**，比「與摘要對得上」更強：
+        # 它連「掃描壞了而摘要也一起壞了」都擋得住。
+        # 這裡的對應下限是 `passed` —— 4000+ 支測試不可能一支都沒跑。
+        m_passed = re.search(r"(\d+) passed", summary)
+        passed_n = int(m_passed.group(1)) if m_passed else 0
+        if passed_n < 100:
+            print(f"  ✗ RED：只有 {passed_n} 支通過 —— **不寫入**")
+            print("    本套件有 4000+ 支測試，個位數／零通過代表它根本沒跑完，")
+            print("    而不是「測試都壞了」。基線不該記錄一次沒跑起來的結果。")
+            return 2
+
         m_failed = re.search(r"(\d+) failed", summary)
         said = int(m_failed.group(1)) if m_failed else 0
         if said != len(failed):
