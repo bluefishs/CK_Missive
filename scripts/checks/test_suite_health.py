@@ -110,6 +110,8 @@ def run_suite() -> tuple[set[str], str, int, dict]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--update", action="store_true", help="以本次結果重錄基線")
+    ap.add_argument("--force", action="store_true",
+                    help="允許把基線歸零（僅在確認全部真的修好時用）")
     args = ap.parse_args()
 
     print("=" * 66)
@@ -139,6 +141,41 @@ def main() -> int:
         return 2
 
     if args.update:
+        # ── 寫入前的自洽檢查 ────────────────────────────────────────
+        #
+        # ⚠️ 2026-08-30 事故：我為了印出 skip 理由而加 `-rs`，
+        # 而 pytest 的 `-r` 是**取代**不是附加 ⇒ 預設的 `fE` 被換掉
+        # ⇒ **FAILED 行整批不印** ⇒ 解析到 0 個失敗
+        # ⇒ **基線被寫成 0 項，而該次實際有 36 failed**。
+        #
+        # collection-error 與異常退出碼兩道守衛**都通過了** ——
+        # pytest 正常結束，只是我沒解析到。⇒ 需要第三道：
+        # **拿解析結果去對 pytest 自己的摘要**。
+        #
+        # 形狀由 CK_AaaP 同日提出：他們的快照寫入在 live 不可達時拒絕，
+        # 理由是「基準只有一半，會讓下次比對永遠對不上」。
+        m_failed = re.search(r"(\d+) failed", summary)
+        said = int(m_failed.group(1)) if m_failed else 0
+        if said != len(failed):
+            print(f"  ✗ RED：pytest 說 {said} failed，而解析到 {len(failed)} 項 —— **不寫入**")
+            print("    兩者不一致代表輸出解析壞了（例如 `-r` 旗標把 FAILED 行關掉）。")
+            print("    寫進去會讓下次比對把既有失敗全報成新增，")
+            print("    而慣常處置是「重錄基線」⇒ **真正的新增回歸會一起被吸收**。")
+            return 2
+
+        prev = {}
+        if BASELINE.exists():
+            try:
+                prev = json.loads(BASELINE.read_text(encoding="utf-8"))
+            except Exception:
+                prev = {}
+        prev_n = len(prev.get("known_failures") or [])
+        if prev_n and len(failed) == 0 and not args.force:
+            print(f"  ✗ RED：基線原有 {prev_n} 項，本次解析到 **0** 項 —— **不寫入**")
+            print("    全部修好是可能的，但更常見的是解析壞了。")
+            print("    確定要歸零請加 --force。")
+            return 2
+
         BASELINE.write_text(
             json.dumps({
                 "known_failures": sorted(failed),
@@ -147,7 +184,8 @@ def main() -> int:
             }, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        print(f"  基線已更新：{len(failed)} 項 → {BASELINE.relative_to(REPO)}")
+        print(f"  基線已更新：{len(failed)} 項（與 pytest 摘要一致）"
+              f" → {BASELINE.relative_to(REPO)}")
         return 0
 
     if not BASELINE.exists():
