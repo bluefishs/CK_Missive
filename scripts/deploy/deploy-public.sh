@@ -147,6 +147,25 @@ fi
 API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/ || echo 000)
 echo "  ✓ 公網首頁 → $API"
 
+# 2026-08-29（CK_Website 跨平台探針指出，四個平台都適用）：
+# **首頁 200 不代表 sso-bridge 健康**。他們的探針打的是 sso-bridge、
+# 巡檢 curl 的是首頁，於是三天的 502 沒被發現 —— 那是「換個端點」
+# 的問題，不是「多抽幾次」能解的（我們前幾天才把單次 curl 改成三次抽樣，
+# 那解的是另一半）。
+# ⚠️ **它只接受 POST**（openapi 實查 `methods=['post']`）。
+# 我第一版用 GET 打，回 404 —— 差點把「方法用錯」寫成一條每次部署都
+# 發警告的檢查。無 cookie 的 POST 應回 401。
+SSO=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20       -X POST -H "Content-Type: application/json" -d '{}'       https://missive.cksurvey.tw/api/auth/sso-bridge || echo 000)
+if [ "$SSO" = "401" ] || [ "$SSO" = "403" ]; then
+    echo "  ✓ 公網 sso-bridge → $SSO（無憑證應被拒，代表它活著）"
+elif [ "$SSO" = "502" ] || [ "$SSO" = "000" ]; then
+    echo "  ✗ 公網 sso-bridge → $SSO —— **使用者從 www 跳轉進來會撞到這個**"
+    echo "    首頁是 200 而它不是 ⇒ 不是入口問題，是這條路徑本身"
+    exit 1
+else
+    echo "  ⚠ 公網 sso-bridge → $SSO（預期 401/403；非致命但值得看一眼）"
+fi
+
 # 2026-08-27：上面三層**擋不住 L93**。
 #
 # 2026-08-16 加 `approved_by` 後 `ExpenseInvoice` 有兩個外鍵指向 users，
