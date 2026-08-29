@@ -8,6 +8,28 @@
 
 set -euo pipefail
 
+# ⚠️ 2026-08-29 實測：本腳本**從來沒有被跑過**（或跑過但 pre-commit 後來被重寫）。
+# 當日 `scripts/hooks/` 的 3 支守衛，**沒有一支被任何已安裝的 hook 呼叫**。
+#
+# 而查下去比「沒安裝」嚴重：`.git/hooks/pre-commit` 的「檢查 5 Secret scan」
+# 依賴 `scripts/check-secrets.cjs`，**那個檔案不存在** ⇒ `if [ -f ... ]`
+# 為 false ⇒ **整段靜靜跳過**，而 hook 印出的是一切正常。
+#
+# 實測：把含 `sk-proj-...` 的 `.env.LEAKTEST` 加進暫存 ⇒
+# **pre-commit exit 0，輸出裡連提都沒提**。⇒ 提交時完全沒有 secret 掃描。
+#
+# 已直接改 `.git/hooks/pre-commit` 改用本目錄的 `pre-commit-secret-guard.sh`，
+# 並讓「守衛檔不見」時**出聲 exit 1** 而不是沉默跳過。
+#
+# ⚠️ `.git/hooks/` **不在版控**（git 的設計）⇒ 那個修正只存在於這台機器。
+# **換機器或重新 clone 的人必須跑這支**：
+#
+#     bash scripts/hooks/install-hooks.sh
+#
+# 判準（待辦 B10 自己寫的那句）：「這支東西壞掉的時候，會有人知道嗎？」
+# —— 答案曾經是「不會」，因為它壞掉的樣子就是「什麼都沒印」。
+
+
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOOKS_DIR="$PROJECT_ROOT/.git/hooks"
 SCRIPTS_HOOKS="$PROJECT_ROOT/scripts/hooks"
