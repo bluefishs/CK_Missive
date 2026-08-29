@@ -161,6 +161,19 @@ class DocumentResponse(BaseModel):
     sender_agency_name: Optional[str] = Field(None, description="發文機關名稱")
     receiver_agency_name: Optional[str] = Field(None, description="受文機關名稱")
 
+
+    # ⚠️ 2026-08-29：這 6 個欄位在 `DocumentBase`/`DocumentUpdate` 宣告了很久，
+    # 而 **ORM 沒有、DocumentResponse 也沒有** —— 契約鏈三面缺了兩面。
+    # 同日補齊 ORM 與 DB 之後才發現：光補 ORM 回應仍不會帶，
+    # 因為 Pydantic 對 schema 沒宣告的欄位是**靜默丟棄**（weekly 61 記過的形狀）。
+    # ⇒ 補一面不夠，要把三面一起走過：寫入 schema → ORM → 回應 schema。
+    contract_case: Optional[str] = Field(None, description="承攬案件名稱或編號")
+    doc_word: Optional[str] = Field(None, description="公文字（例：府、院、部）")
+    doc_class: Optional[str] = Field(None, description="公文類別（例：函、令、公告）")
+    priority_level: Optional[str] = Field(None, description="速別（普通/速件/最速件）")
+    creator: Optional[str] = Field(None, description="建立者")
+    user_confirm: Optional[bool] = Field(None, description="使用者確認狀態")
+
     model_config = ConfigDict(from_attributes=True)
 
 class DocumentFilter(BaseModel):

@@ -42,6 +42,29 @@ class OfficialDocument(Base):
 
     assignee = Column(String(500), comment="承辦人（多人以逗號分隔）")
     notes = Column(Text, comment="備註")
+
+    # ─────────────────────────────────────────────────────────────────────
+    # 2026-08-29（owner 決定：補齊而非從 schema 移除）
+    #
+    # 這 6 個欄位**在 Pydantic schema 裡宣告了很久，而 ORM 一個都沒有**
+    # （weekly 83 架構驗證抓到；`DocumentBase`/`DocumentUpdate` 都有）。
+    # ⇒ API 收得到但存不進去，回應也永遠不含它們。
+    #
+    # 實測後果（不是推論）：`DocumentDetailPage` 與行事曆的
+    # `useIntegratedEvent` 都在**讀** `document.priority_level`，
+    # 而它永遠 undefined ⇒ 每次落到預設值 `|| 3`。
+    # **畫面上的速別從來不是真的，而看不出來。**
+    #
+    # ⚠️ 前端目前**沒有這些欄位的輸入介面** —— 所以補完 ORM 之後，
+    # 它們仍然只有在 API 直接寫入時才會有值。要讓使用者填得到，
+    # 還需要前端表單（那是另一件事，不在本次範圍）。
+    # 這一點寫在這裡，免得日後有人看到欄位存在就以為功能完整。
+    contract_case = Column(String(200), comment="承攬案件名稱或編號")
+    doc_word = Column(String(50), comment="公文字（例：府、院、部）")
+    doc_class = Column(String(50), comment="公文類別（例：函、令、公告）")
+    priority_level = Column(String(20), server_default="普通", comment="速別（普通/速件/最速件）")
+    creator = Column(String(100), comment="建立者")
+    user_confirm = Column(Boolean, server_default="false", comment="使用者確認狀態")
     ck_note = Column(Text, comment="簡要說明(乾坤備註)")
     keywords = Column(Text, nullable=True, comment="AI 提取關鍵字（JSON 陣列）")
     ner_pending = Column(Boolean, server_default='true', nullable=False, index=True, comment="是否待 NER 提取")
