@@ -307,6 +307,18 @@ daily 不是 weekly）。
 
 ## A′. 2026-08-29 晚間新增（owner 決定）
 
+> ⚠️ **A 編號跨整份文件唯一**（上方「結案總表」用的是同一套）。
+> 新增前務必 `grep -oE '\*\*A[0-9]+\*\*' 本檔 | sort -uV | tail -1`，
+> **不要從自己剛加的那幾筆往下數** —— 2026-08-30 我就是這樣同時撞掉 A39 與 A40
+> （兩者都早已被結案項目佔用，而它們在檔案上半部、不在我當時看的那張表裡）。
+>
+> ⚠️ **另有兩組更早的碰撞，我沒有改**（改號會打斷已寫進 commit 訊息與記憶檔的引用，屬 owner 決定）：
+> · **A29** ＝「frontend 容器改掛 `frontend/dist`」（結案總表）**與**「91 件已承攬但未成案」（待決）
+> · **A32** ＝「案號轉換 175＋74 筆」（結案總表）**與**「廠商身分矛盾 #39 林晉廷 vs 林宥廷」（待決）
+>
+> 對照組：**A38／A39／A41 的兩列是同一件事**（結案總表＋明細），那是正常的。
+> 判準是**比對主題不是比對編號出現幾次** —— 我第一版的重複偵測把這五組全報成碰撞。
+
 | # | 議題 | 為什麼需要你決定 | 證據 |
 |---|---|---|---|
 | **A29** | **91 件「已承攬但未成案」要怎麼處理** | 自動成案**只在狀態由其他狀態改變為已承攬時觸發**，那 91 件早已是 `contracted` ⇒ 觸發條件不會再滿足，需要逐件按「確認成案」。在**會回滾的交易**裡抽驗 6 筆：**沒有任何驗證擋著**（且成案流程會承接承辦、補 `project_id`）。⚠️ **它們正是 `8b5acc26` 刻意撤回、標記「待判讀」的那批** ⇒ 批次成案等於推翻那個決定，而成案不可逆。三選一：全部／只非撤回的／給你清單逐件決定 | 實測 6/6 會成功；⚠️ 我在該次試算中**誤成案了 3 件並已依裁示還原**（L107） |
@@ -328,11 +340,15 @@ daily 不是 weekly）。
 
 ---
 
-| **A39** | **repo 根 `logs/cron_events.jsonl` 是一份假的事件流，建議清掉** | 它**不是**正式事件流 —— 正式的在 `backend/logs/`（compose 掛 `./backend/logs:/app/logs`，87,677 筆／57 種 job）。repo 根那份 504 筆／5 種 job，是 **pytest 在 host 上跑時寫的**（`scheduler.py` module 層讀 `CK_LOGS_DIR`，未設就落到 repo 根）。<br><br>⚠️ **它已經騙過兩次**：`_cron_events_path()` 的註解記著第一次（「讀到了、有資料、看起來很正常」），2026-08-30 是第二次 —— 我照它的內容做出「`llm_quota_check` 其實有在跑」的**相反結論**（實際 repo 根顯示 1.2h 前跑過，正式紀錄是 69.8h 前）。<br><br>破綻只有 `test_obs_job` 這個 job_id，其餘連 detail 格式都是真的。<br><br>**產生源已封**（`conftest.py` 在 import `main` 前設 `CK_LOGS_DIR` 到 `backend/tests/.artifacts/logs`，實測 504→504 未再增長）。**剩下的是那份存量檔要不要刪** —— 它 gitignored、無獨有 job_id、刪掉不損失任何正式紀錄，但**刪檔是不可逆的**，故列此請 owner 裁示。 | 2026-08-30 實測；教訓＝L109 |
+| **A44** | **repo 根 `logs/cron_events.jsonl` 是一份假的事件流，建議清掉** | 它**不是**正式事件流 —— 正式的在 `backend/logs/`（compose 掛 `./backend/logs:/app/logs`，87,677 筆／57 種 job）。repo 根那份 504 筆／5 種 job，是 **pytest 在 host 上跑時寫的**（`scheduler.py` module 層讀 `CK_LOGS_DIR`，未設就落到 repo 根）。<br><br>⚠️ **它已經騙過兩次**：`_cron_events_path()` 的註解記著第一次（「讀到了、有資料、看起來很正常」），2026-08-30 是第二次 —— 我照它的內容做出「`llm_quota_check` 其實有在跑」的**相反結論**（實際 repo 根顯示 1.2h 前跑過，正式紀錄是 69.8h 前）。<br><br>破綻只有 `test_obs_job` 這個 job_id，其餘連 detail 格式都是真的。<br><br>**產生源已封**（`conftest.py` 在 import `main` 前設 `CK_LOGS_DIR` 到 `backend/tests/.artifacts/logs`，實測 504→504 未再增長）。**剩下的是那份存量檔要不要刪** —— 它 gitignored、無獨有 job_id、刪掉不損失任何正式紀錄，但**刪檔是不可逆的**，故列此請 owner 裁示。 | 2026-08-30 實測；教訓＝L109 |
 
 ---
 
-| **A40** | **`.claude/hooks/link-id-check.ps1` 建議刪除（功能已由 weekly 90 取代）** | 它同時有三個缺陷，而**沒有任何 runner 在叫它**：①`-Path "src\**\*.tsx"` —— PowerShell 的 `**` **不是遞迴 glob**，實測掃得到 **119/604** 個 `.tsx`（20%）而照樣印 `[PASS]`（假綠）；②斷言 `BaseLink` 必須在 `types/api.ts`，實際在 `types/taoyuan.ts:53` ⇒ **永久假紅**；③防禦性檢查計數同樣受 glob 盲區影響，報「0 個」而 `DispatchLinksTab` 就有。<br><br>⇒ 淨效果：誰把它接進 runner，拿到的是**一個永久紅燈加兩個假綠**。**另兩支同型的也已實查（三支、三種壞法、沒有一支產出真發現）**：<br>· `route-sync-check.ps1` —— 專案根算高一層（三層 `Split-Path` 應為兩層）⇒ 找不到路由檔、每次 exit 1。**已修**；但修好後發現它的判準本身不對：它拿「前端 144 條全部路由」比對「只收導覽選單的白名單」，兩者本來就不該相等；反方向的 `/admin/` 是把 `navigation_validator.py:127` 的**字串常數** `.replace("/admin/", "/")` 當成白名單項讀進去（同 L97）⇒ **不接進 weekly**。<br>· `link-id-validation.ps1` —— 跑得動、報 7 個警告，但 **exit 0** ⇒ 接進 runner 也永遠不會紅；抽查第一個（`project_dispatch_links.py:31`）是假陽性，該回應第 51 行就有 `'link_id': link.id`。<br><br>已改寫為 `scripts/checks/link_id_fallback_audit.py`（805 檔、負向對照兩種形式皆翻紅）。**刪檔不可逆，故列此請 owner 裁示。** | 2026-08-30 實測；教訓＝L111 |
+| **A42** | **`.claude/hooks/link-id-check.ps1` 建議刪除（功能已由 weekly 90 取代）** | 它同時有三個缺陷，而**沒有任何 runner 在叫它**：①`-Path "src\**\*.tsx"` —— PowerShell 的 `**` **不是遞迴 glob**，實測掃得到 **119/604** 個 `.tsx`（20%）而照樣印 `[PASS]`（假綠）；②斷言 `BaseLink` 必須在 `types/api.ts`，實際在 `types/taoyuan.ts:53` ⇒ **永久假紅**；③防禦性檢查計數同樣受 glob 盲區影響，報「0 個」而 `DispatchLinksTab` 就有。<br><br>⇒ 淨效果：誰把它接進 runner，拿到的是**一個永久紅燈加兩個假綠**。**另兩支同型的也已實查（三支、三種壞法、沒有一支產出真發現）**：<br>· `route-sync-check.ps1` —— 專案根算高一層（三層 `Split-Path` 應為兩層）⇒ 找不到路由檔、每次 exit 1。**已修**；但修好後發現它的判準本身不對：它拿「前端 144 條全部路由」比對「只收導覽選單的白名單」，兩者本來就不該相等；反方向的 `/admin/` 是把 `navigation_validator.py:127` 的**字串常數** `.replace("/admin/", "/")` 當成白名單項讀進去（同 L97）⇒ **不接進 weekly**。<br>· `link-id-validation.ps1` —— 跑得動、報 7 個警告，但 **exit 0** ⇒ 接進 runner 也永遠不會紅；抽查第一個（`project_dispatch_links.py:31`）是假陽性，該回應第 51 行就有 `'link_id': link.id`。<br><br>已改寫為 `scripts/checks/link_id_fallback_audit.py`（805 檔、負向對照兩種形式皆翻紅）。**刪檔不可逆，故列此請 owner 裁示。** | 2026-08-30 實測；教訓＝L111 |
+
+---
+
+| **A43** | **`careful-guard` 的 CRITICAL／WARNING 分級只存在於資料裡，行為上完全一樣** | 兩層 pattern 表分別寫著「可能造成不可逆的破壞」與「請確認此操作的必要性」，而**兩層都 `exit 2`**（硬阻擋）。⇒ `git clean -fd`／`docker system prune`／`docker rm -f`／`kill -9`／`git stash drop`／`pip uninstall -y` 這些例行操作全部被硬擋，而不是「提醒後放行」。<br><br>hook 協議其實有非阻擋通道：**`exit 0` + stdout JSON 的 `additionalContext`**（`.claude/rules/hooks-guide.md` 有寫）。WARNING 層應該走那條。<br><br>⚠️ **我刻意不自行改** —— 讓安全護欄變得比較不會擋，是會降低保護的變更，屬 owner 決定。兩個選項：①WARNING 改走 `additionalContext`（提醒但放行）；②把 WARNING 表裡真正該硬擋的搬進 CRITICAL、其餘刪除。<br><br>✅ 順帶複驗：`careful-guard` 本身**現在確實會攔**（BOM 修法生效）——CRITICAL 四種樣式皆 exit 2，`ls -la`／`git status` 皆 exit 0；12 支掛在 settings.json 上的 hook BOM 全部正常。 | 2026-08-30 實測；教訓＝L112 |
 
 ---
 

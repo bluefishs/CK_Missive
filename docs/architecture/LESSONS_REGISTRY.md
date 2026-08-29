@@ -539,9 +539,9 @@
 | **What happened** | `validate-file-location.ps1` 是活的（它正確擋下 `frontend/src/foo.py`），**但 6 條規則裡有 3 條從未命中過**：`^[^/]+\.md$`／`^temp_`／`^test_` 都帶 `^` 錨點，比對的是完整路徑，而 **Claude Code 的 Write/Edit 要求絕對路徑** ⇒ 字串一律以 `D:/…` 開頭 ⇒ 三條全部落空。實測同一支 hook：餵絕對路徑 exit 0、餵相對路徑 exit 2。**而另外三條會命中，所以它一直看起來是正常的。** |
 | **同一支還缺一條** | `backend/.env` 放行 —— 而 development-rules §2 明文「**禁止存在**」。CI 的 `config-consistency` job 自 2026-03-09 起全面停用（收費），這支不查它 ⇒ **那條規範零強制**。已補。 |
 | **修的時候差點放寬成另一個 bug** | 我第一版把 `^test_` 從「路徑」改套到「檔名」—— 那會把 `backend/tests/test_foo.py` 這種**合法的 pytest 檔全部擋掉**。原意是「不應在**根目錄**」。⇒ 改成先判斷「父目錄 == repo 根」再套檔名規則。**修一條沒生效的規則時，很容易順手把它放寬成另一個 bug**；負向控制必須包含「原本就該放行的東西」。 |
-| **另一個發現（未自行修）** | `careful-guard` 的 CRITICAL／WARNING 分級**只存在於資料裡**：兩層都 `exit 2`。例行操作（`docker system prune`／`kill -9`／`git clean -fd`）被硬擋而非提醒。協議有非阻擋通道（`exit 0` + `additionalContext`）。**放寬安全護欄屬 owner 決定，列 A41 不自行改。** |
+| **另一個發現（未自行修）** | `careful-guard` 的 CRITICAL／WARNING 分級**只存在於資料裡**：兩層都 `exit 2`。例行操作（`docker system prune`／`kill -9`／`git clean -fd`）被硬擋而非提醒。協議有非阻擋通道（`exit 0` + `additionalContext`）。**放寬安全護欄屬 owner 決定，列 A43 不自行改。** |
 | **Prevention** | ⚠️ **一支 hook「有在擋東西」不代表它的每條規則都在擋。** 驗 hook 要逐條給違規輸入，而不是看它整體會不會動。⚠️ 特別留意**錨點與輸入形態的假設**（相對 vs 絕對路徑）—— 這類失效不報錯、不留痕，只是安靜地放行。 |
-| **Refs** | `.claude/hooks/validate-file-location.ps1`（`$RootOnlyForbiddenNames` + `$RepoRoot`）／A41／同族：L111（沒人跑的三支）、L109（路徑深度 off-by-one）、`arch_pattern_script_existence_not_enforcement` |
+| **Refs** | `.claude/hooks/validate-file-location.ps1`（`$RootOnlyForbiddenNames` + `$RepoRoot`）／A43／同族：L111（沒人跑的三支）、L109（路徑深度 off-by-one）、`arch_pattern_script_existence_not_enforcement` |
 
 ---
 
@@ -553,9 +553,9 @@
 | **What happened** | 三支都**沒有任何 runner／settings／git hook 在叫它們**，而且**三支各自壞成不同的樣子**：<br>① `link-id-check.ps1`：`Select-String -Path "src\**\*.tsx"` —— **PowerShell 的 `**` 不是遞迴 glob**，等同於 `*`。實測掃得到 **119/604** 個 `.tsx`（20%）**而照樣印 `[PASS]`** ⇒ 假綠。同檔另有一條斷言 `BaseLink` 必須在 `types/api.ts`，而它實際在 `types/taoyuan.ts:53` ⇒ **永久假紅**。<br>② `route-sync-check.ps1`：專案根用了**三層** `Split-Path`（應為兩層）⇒ 算到 monorepo 根、找不到路由檔、每次 exit 1。<br>③ `link-id-validation.ps1`：跑得動、報 7 個警告，**但 exit 0** ⇒ 接進 runner 也永遠不會紅；抽查第一個是假陽性。 |
 | **重點不是「它們沒被跑」** | 而是**如果今天有人照著文件把它們接進 runner，拿到的是一個永久紅燈加一批假綠**。⇒ 「腳本存在 ≠ 有在強制」還要再加一句：**「腳本能跑 ≠ 它說的是真的」**。接一支久未執行的檢核之前，先跑它、並**確認它報的東西真的存在**。 |
 | **修好之後才看得見的第二層** | `route-sync-check` 修好路徑後給出「前端 144 條 vs 後端白名單 41 條」，看起來像大規模漂移 —— 實際那份白名單只收**導覽選單**的路徑，本來就不該等於全部路由；而反方向的 `/admin/` 是把 `navigation_validator.py:127` 的**字串常數** `.replace("/admin/", "/")` 當成白名單項（同 L97）。⇒ **修好一支壞掉的檢核，不等於得到一支正確的檢核。** 故它已修好但**刻意不接進 weekly**。 |
-| **Fix** | §7 改寫為 `scripts/checks/link_id_fallback_audit.py`（走 `lib/ts_source` 剝註解／字串，掃 **805** 個檔，豁免 React `key=` —— 它只決定渲染身分不決定操作對象），接為 **weekly 90**。負向對照：把 `key=` 的回退改成 `unlinkDispatchMutation.mutate(link_id ?? other)` 與 `\|\|` 兩種形式，皆 GREEN→RED（行號正確）→還原後 GREEN。`route-sync-check` 路徑已修但不接。舊 PS1 保留待裁示＝A40。 |
+| **Fix** | §7 改寫為 `scripts/checks/link_id_fallback_audit.py`（走 `lib/ts_source` 剝註解／字串，掃 **805** 個檔，豁免 React `key=` —— 它只決定渲染身分不決定操作對象），接為 **weekly 90**。負向對照：把 `key=` 的回退改成 `unlinkDispatchMutation.mutate(link_id ?? other)` 與 `\|\|` 兩種形式，皆 GREEN→RED（行號正確）→還原後 GREEN。`route-sync-check` 路徑已修但不接。舊 PS1 保留待裁示＝A42。 |
 | **本支自帶的解析度證據** | 新檢核印「掃描 N 個前端原始檔」，且 `N < 400` 直接回 2 不視為通過 —— 因為舊版正是**掃得少而印 PASS**。**凡是掃描型檢核，掃了幾個必須說出來，並為它設下限。** |
-| **Refs** | `scripts/checks/link_id_fallback_audit.py`（weekly 90）／`.claude/rules/hooks-guide.md`（已標記取代）／A40／同族：`arch_pattern_script_existence_not_enforcement`、L97（判準命中字串）、L109／L110（同日的兩個路徑與欄位盲區） |
+| **Refs** | `scripts/checks/link_id_fallback_audit.py`（weekly 90）／`.claude/rules/hooks-guide.md`（已標記取代）／A42／同族：`arch_pattern_script_existence_not_enforcement`、L97（判準命中字串）、L109／L110（同日的兩個路徑與欄位盲區） |
 
 ---
 
@@ -585,7 +585,7 @@
 | **Root cause** | 重複實作。**同一份知識在兩處各寫一次，錯的那一份不會告訴你它是錯的** —— 而正確的那一份就在同檔上方 100 行。 |
 | **Fix** | ① `_restart_stamps_within()` 改用既有的 `_cron_events_path()`。② `longest_uptime_within()` 排除「事件流開始之前」那段（那是**未觀測**不是連續存活；首版把 24h 窗算成 10.87h 而真值 2.80h）。③ 窗口內 0 筆事件回 `None` 不回 `seconds`。④ `backend/tests/conftest.py` 在 import `main` **之前**設 `CK_LOGS_DIR`，讓測試不再污染 repo 根（實測 504 行 → 504 行未動，隔離檔收到寫入）。 |
 | **Prevention** | ⚠️ **寫任何「路徑推導／環境判別」之前，先在同一個檔案裡 grep 一次有沒有人做過。** 這類邏輯是本 repo 最常被重複實作、也最常靜默出錯的一類（L52／L57／`windows_container_path_trap` 同族）。⚠️ 以及：**讀到資料不等於讀對檔案** —— 對事件流做結論前，先確認它的 job 種類數與時間範圍合理（本例 5 種 vs 57 種、504 筆 vs 87,677 筆，一眼可辨）。 |
-| **Refs** | `scripts/checks/cron_silent_dormant_check.py`（`_cron_events_path` / `_restart_stamps_within` / `longest_uptime_within` / `observed_span`）／`backend/tests/conftest.py`／同族：L52、L57、`windows_container_path_trap`、`symptom_is_not_the_cause`（能解釋症狀就停手）、`proxy_metric_looks_good` |
+| **Refs** | `scripts/checks/cron_silent_dormant_check.py`（`_cron_events_path` / `_restart_stamps_within` / `longest_uptime_within` / `observed_span`）／`backend/tests/conftest.py`（A44）／同族：L52、L57、`windows_container_path_trap`、`symptom_is_not_the_cause`（能解釋症狀就停手）、`proxy_metric_looks_good` |
 
 ---
 

@@ -81,7 +81,7 @@
 | Hook | 說明 | 檔案 |
 |------|------|------|
 | route-sync-check | 檢查前後端路徑一致性 | `.claude/hooks/route-sync-check.ps1` |
-| ~~link-id-check~~ | ⚠️ **已被 `scripts/checks/link_id_fallback_audit.py`（weekly 90）取代**。它從 2026-01-21 起沒有任何 runner 在叫它，而且跑起來會給錯的答案：`-Path "src\**\*.tsx"` 在 PowerShell 裡的 `**` **不是遞迴 glob**（等同 `*`），實測只掃得到 **119/604** 個 `.tsx` 而照樣印 `[PASS]`；另有一條斷言 `BaseLink` 必須在 `types/api.ts`，而它實際在 `types/taoyuan.ts:53` ⇒ **永久假紅**。檔案保留待 owner 裁示刪除（A40） | `.claude/hooks/link-id-check.ps1` |
+| ~~link-id-check~~ | ⚠️ **已被 `scripts/checks/link_id_fallback_audit.py`（weekly 90）取代**。它從 2026-01-21 起沒有任何 runner 在叫它，而且跑起來會給錯的答案：`-Path "src\**\*.tsx"` 在 PowerShell 裡的 `**` **不是遞迴 glob**（等同 `*`），實測只掃得到 **119/604** 個 `.tsx` 而照樣印 `[PASS]`；另有一條斷言 `BaseLink` 必須在 `types/api.ts`，而它實際在 `types/taoyuan.ts:53` ⇒ **永久假紅**。檔案保留待 owner 裁示刪除（A42） | `.claude/hooks/link-id-check.ps1` |
 | link-id-validation | 後端 link_id 傳遞完整性驗證 | `.claude/hooks/link-id-validation.ps1` |
 
 ## Hook 開發協議
