@@ -11,14 +11,16 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Card, Button, Space, Tag, Typography,
-  Statistic, Row, Col, Tabs,
+  Row, Col, Tabs, Select,
 } from 'antd';
 import {
   PlusOutlined, BookOutlined,
   UploadOutlined, FileTextOutlined, ScanOutlined,
+  ProjectOutlined, ShopOutlined, ClockCircleOutlined,
 } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { EnhancedTable } from '../components/common/EnhancedTable';
+import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -58,15 +60,20 @@ const ERPExpenseListPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
   const attributionType = activeTab === 'ledger' ? 'all' : activeTab;
 
+  // 2026-08-29 owner 裁示：「統計圖卡與列表互動篩選，皆以當年度為統計基準」。
+  // 年度一律西元（§2.5）。0 = 全部年度。
+  const [year, setYear] = useState<number>(new Date().getFullYear());
+
   // Grouped summary query
   const {
     data: groupedData,
     isLoading: groupedLoading,
   } = useQuery({
-    queryKey: ['expense-grouped-summary', attributionType],
+    queryKey: ['expense-grouped-summary', attributionType, year],
     queryFn: async () => {
-      const body: Record<string, string> = {};
+      const body: Record<string, string | number> = {};
       if (attributionType !== 'all') body.attribution_type = attributionType;
+      if (year) body.year = year;
       const res = await apiClient.post<{ data: { groups: ExpenseGroup[]; total_count: number; total_amount: number } }>(
         ERP_ENDPOINTS.EXPENSES_GROUPED_SUMMARY,
         body,
@@ -212,26 +219,57 @@ const ERPExpenseListPage: React.FC = () => {
                   SmartScanModal 原本已寫好卻從未掛載（出生即孤兒），此處整合納入。 */}
               <Button icon={<ScanOutlined />} onClick={() => setScanOpen(true)}>批次掃描</Button>
               <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>核銷匯入</Button>
+              {/* 年度基準（owner 2026-08-29）：西元、預設當年度、0=全部 */}
+              <Select
+                style={{ width: 120 }}
+                value={year}
+                onChange={(v) => setYear(v)}
+                options={[
+                  { value: 0, label: '全部年度' },
+                  ...Array.from({ length: 5 }, (_, i) => {
+                    const y = new Date().getFullYear() - i;
+                    return { value: y, label: `${y} 年` };
+                  }),
+                ]}
+              />
             </Space>
           </Col>
         </Row>
 
-        {/* Stats cards */}
+        {/* Stats cards —— 2026-08-29：改為可點擊篩選（owner「統計圖卡與列表
+            互動篩選機制」）。點卡片即切換對應歸屬 Tab，再點一次回全部。 */}
         <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
           <Col xs={12} sm={6}>
-            <Statistic title="核銷總筆數" value={totalCount} />
+            <ClickableStatCard
+              title="核銷總筆數" value={totalCount.toLocaleString()}
+              icon={<FileTextOutlined />} color="#1890ff"
+              active={activeTab === 'all'}
+              onClick={() => setActiveTab('all')}
+            />
           </Col>
           <Col xs={12} sm={6}>
-            <Statistic title="專案費用合計" value={projectAmount} precision={0} />
+            <ClickableStatCard
+              title="專案費用合計" value={projectAmount.toLocaleString()}
+              icon={<ProjectOutlined />} color="#52c41a"
+              active={activeTab === 'project'}
+              onClick={() => setActiveTab(activeTab === 'project' ? 'all' : 'project')}
+            />
           </Col>
           <Col xs={12} sm={6}>
-            <Statistic title="營運費用合計" value={operationalAmount} precision={0} />
+            <ClickableStatCard
+              title="營運費用合計" value={operationalAmount.toLocaleString()}
+              icon={<ShopOutlined />} color="#faad14"
+              active={activeTab === 'operational'}
+              onClick={() => setActiveTab(activeTab === 'operational' ? 'all' : 'operational')}
+            />
           </Col>
           <Col xs={12} sm={6}>
-            <Statistic
-              title="待審核"
-              value={actualPendingCount}
-              styles={{ content: { color: actualPendingCount > 0 ? '#faad14' : undefined } }}
+            <ClickableStatCard
+              title="待審核" value={actualPendingCount.toLocaleString()}
+              icon={<ClockCircleOutlined />}
+              color={actualPendingCount > 0 ? '#faad14' : '#52c41a'}
+              active={activeTab === 'none'}
+              onClick={() => setActiveTab(activeTab === 'none' ? 'all' : 'none')}
             />
           </Col>
         </Row>

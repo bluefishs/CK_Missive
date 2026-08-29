@@ -59,7 +59,18 @@ async def grouped_expense_summary(
     """費用核銷按歸屬分組彙總 — 專案/營運/未歸屬各自統計"""
     body = await request.json()
     attribution_type = body.get("attribution_type")
-    result = await service.grouped_summary(attribution_type=attribution_type)
+    # 2026-08-29 owner 裁示：統計以當年度為基準。年度一律西元（§2.5）；
+    # 收到 <1911 視為舊客戶端送民國年，轉換並出聲不靜默接受。
+    year = body.get("year")
+    if isinstance(year, int) and 0 < year < 1911:
+        logger.warning(
+            "grouped-summary 收到民國年 %s —— 系統已統一西元（§2.5），"
+            "請修正呼叫端；本次轉換為 %s", year, year + 1911,
+        )
+        year = year + 1911
+    result = await service.grouped_summary(
+        attribution_type=attribution_type, year=year,
+    )
     return SuccessResponse(data=result)
 
 

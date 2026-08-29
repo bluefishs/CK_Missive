@@ -205,7 +205,9 @@ class ExpenseInvoiceService(AuditableServiceMixin):
     async def query(self, params: ExpenseInvoiceQuery) -> Tuple[List[ExpenseInvoice], int]:
         return await self.repo.query(params)
 
-    async def grouped_summary(self, attribution_type: Optional[str] = None) -> dict:
+    async def grouped_summary(
+        self, attribution_type: Optional[str] = None, year: Optional[int] = None,
+    ) -> dict:
         """全案件費用核銷彙總 — 列出所有案件（含無費用紀錄的）
 
         以 erp_quotations 全量案件為基底，左接 expense_invoices 統計。
@@ -220,10 +222,16 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         from app.extended.models.erp import ERPQuotation
 
         # 1. 全部 ERP Quotation 案件 (作為基底)
+        # 2026-08-29 owner 裁示：統計以**當年度**為基準（年度＝西元，§2.5）。
+        # 兩側都要篩，否則會出現「案件是今年、費用是去年」的錯配：
+        #   · 案件基底用 `ERPQuotation.year`
+        #   · 費用用 `invoice_date` 的年份（費用的年度是發生年，不是案件年）
         q_stmt = select(
             ERPQuotation.id, ERPQuotation.case_code,
             ERPQuotation.case_name, ERPQuotation.project_code,
         ).order_by(ERPQuotation.case_code)
+        if year:
+            q_stmt = q_stmt.where(ERPQuotation.year == year)
         q_result = await self.db.execute(q_stmt)
         all_cases = {r.case_code: r for r in q_result.all()}
 
@@ -237,6 +245,9 @@ class ExpenseInvoiceService(AuditableServiceMixin):
 
         if attribution_type and attribution_type not in ("all",):
             exp_stmt = exp_stmt.where(EI.attribution_type == attribution_type)
+        if year:
+            from sqlalchemy import extract as _extract
+            exp_stmt = exp_stmt.where(_extract("year", EI.invoice_date) == year)
 
         exp_result = await self.db.execute(exp_stmt)
         expense_map: dict = {}
