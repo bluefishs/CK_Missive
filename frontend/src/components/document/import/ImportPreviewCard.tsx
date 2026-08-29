@@ -3,18 +3,16 @@
  */
 
 import React from 'react';
-import {
-  Alert,
+import {Alert,
   Button,
   Space,
   Typography,
   Divider,
   Flex,
   Tag,
-  Table,
   Tooltip,
-  Card,
-} from 'antd';
+  Card} from 'antd';
+import { EnhancedTable } from '../../common/EnhancedTable';
 import {
   FileExcelOutlined,
   CloseCircleOutlined,
@@ -149,7 +147,7 @@ const ImportPreviewCardInner: React.FC<ImportPreviewCardProps> = ({
         {preview_rows.length > 0 && (
           <>
             <Divider titlePlacement="left">資料預覽（前 {preview_rows.length} 筆）</Divider>
-            <Table
+            <EnhancedTable
               dataSource={preview_rows}
               columns={previewColumns}
               rowKey="row"

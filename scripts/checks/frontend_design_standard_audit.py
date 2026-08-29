@@ -59,12 +59,69 @@ NO_DETAIL_PAGE = {
 # 這些不是「列表頁」：表單、儀表板、掃描、詳情
 NOT_A_LIST = re.compile(r"(FormPage|CreatePage|EditPage|DetailPage|Dashboard|Hub|Scan)")
 
+# ─────────────────────────────────────────────────────────────────────────
+# 2026-08-29 owner 裁示「表格**皆需**提供篩選排序機制」⇒ 範圍擴到業務子元件。
+#
+# 在此之前本檔只掃「頁面根目錄的業務列表」，回報 0 —— 那個 0 是對的，
+# 但它答的是比 owner 問的更窄的問題。實際有 42 個檔直接用 antd <Table>
+# 繞過增強，其中 13 個是使用者會想排序篩選的業務資料（報價明細／作業歷程／
+# 承辦證照／關聯公文／付款追蹤…）。
+#
+# 首版全掃會產出 30 處噪音，多為診斷表 —— 所以這裡不是取消範圍限制，
+# 而是**把範圍換成白名單制**：診斷／開發者工具明列豁免，其餘一律要增強。
+# 白名單要有人判過型，不是「還沒改的收容所」。
+DIAGNOSTIC_DIRS = (
+    "pages/codeGraph/",            # 程式碼圖譜：開發者診斷
+    "pages/databaseManagement/",   # 資料庫管理：DBA 工具
+    "pages/memoryWiki/",           # 記憶維基：意識體內部狀態
+    "pages/unifiedFormDemo/",      # 表單 demo
+    "components/ai/management/",   # AI 管理台：模型/工具診斷
+    "components/admin/",           # 系統管理診斷面板
+    "pages/systemManagement/",     # 系統管理
+    "pages/knowledgeBase/",        # 知識庫：治理文件檢視
+    "pages/digitalTwin/",          # 數位孿生診斷面板
+    "pages/deployment/",           # 部署歷程：運維診斷
+    "components/dashboard/SearchStatsDashboard",  # 搜尋統計診斷
+    "components/site-management/",  # 站台設定管理
+)
+
+# 檔案級豁免 —— 逐一判過型，理由寫在這裡（不是「還沒改的收容所」）
+EXEMPT_FILES = {
+    # 排序會打亂輸入順序：這是**編輯用**表格（逐項明細輸入），不是資料檢視
+    "pages/erpQuotation/QuotationTemplateCreatePage.tsx":
+        "報價明細輸入表，列順序即報價單列順序，不得被排序打亂",
+    # 它自己就是另一個表格基礎元件（內建 sortConfig），不是業務表格
+    "components/common/UnifiedTable.tsx":
+        "表格基礎元件，自帶 sortConfig；EnhancedTable 亦建構於此類包裝之上",
+}
+
+# 用了 Table.Summary 等靜態子元件者 —— EnhancedTable 是函式包裝沒有那些成員，
+# 其排序篩選需在 columns 手動宣告（該檔內已註記理由）。
+TABLE_STATIC_MEMBER = re.compile(r"<Table\.(Summary|Column|ColumnGroup)")
+
 
 def _files():
     for p in sorted(PAGES.rglob("*.tsx")):
         if "__tests__" in str(p) or ".test." in p.name:
             continue
         yield p
+
+
+def _biz_component_files():
+    """業務子元件：pages/ 子目錄 + components/ 底下，扣掉診斷類。"""
+    src = ROOT / "frontend" / "src"
+    for base in (PAGES, src / "components"):
+        if not base.is_dir():
+            continue
+        for p in sorted(base.rglob("*.tsx")):
+            rel = str(p.relative_to(src)).replace("\\", "/")
+            if "__tests__" in rel or ".test." in p.name:
+                continue
+            if base == PAGES and p.parent == PAGES:
+                continue  # 頁面根目錄由判準 2 掃過了
+            if any(d in rel for d in DIAGNOSTIC_DIRS) or rel in EXEMPT_FILES:
+                continue
+            yield p, rel
 
 
 def main() -> int:
@@ -113,7 +170,20 @@ def main() -> int:
         if is_detail and "DetailPageLayout" not in t:
             no_layout.append(rel)
 
-    print(f"\n  掃描 {scanned} 個頁面檔")
+    # 2.5) 業務子元件的表格（owner 2026-08-29「表格皆需」）
+    raw_sub = []
+    for p, rel in _biz_component_files():
+        t = p.read_text(encoding="utf-8", errors="ignore")
+        scanned += 1
+        if not re.search(r"<Table[\s<]", t) or "EnhancedTable" in t:
+            continue
+        if not re.search(r"dataIndex", t):
+            continue  # 沒有欄位定義的不是資料表
+        if TABLE_STATIC_MEMBER.search(t):
+            continue  # 用了 Table.Summary 等靜態成員，見上方說明
+        raw_sub.append(rel)
+
+    print(f"\n  掃描 {scanned} 個前端檔")
 
     def report(title, items, why):
         print(f"\n  {'🟡' if items else '🟢'} {title}：{len(items)}")
@@ -128,11 +198,15 @@ def main() -> int:
     report("直接用 antd <Table>（沒有排序篩選）", raw_table,
            "改用 EnhancedTable —— 規範要求表格皆需可排序篩選，"
            "而那是 enhanceColumns 自動加上的。")
+    report("業務子元件直接用 antd <Table>", raw_sub,
+           "owner 2026-08-29「表格皆需提供篩選排序機制」——「皆需」包含子元件。"
+           "改用 EnhancedTable 即自動獲得（換 import 即可，不必逐欄宣告）。"
+           "若確屬診斷／開發者工具，請加進 DIAGNOSTIC_DIRS 並註明理由。")
     report("詳情頁沒有用 DetailPageLayout", no_layout,
            "分頁深連結（?tab=）由 DetailPageLayout 提供；不用它就無法從晨報／"
            "LINE 直接連到特定分頁，也無法被行動觀測量到非預設分頁。")
 
-    total = len(action_col) + len(raw_table) + len(no_layout)
+    total = len(action_col) + len(raw_table) + len(raw_sub) + len(no_layout)
     print()
     if total:
         print(f"Status: [YELLOW] {total} 處偏離設計規範")

@@ -2,7 +2,8 @@
  * PM 案件多年度趨勢卡片
  */
 import React from 'react';
-import { Card, Table, Progress, Typography } from 'antd';
+import {Card, Progress, Typography} from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 import { usePMYearlyTrend } from '../../hooks';
 import type { PMYearlyTrendItem } from '../../types/pm';
@@ -64,7 +65,7 @@ const YearlyTrendCard: React.FC = () => {
   return (
     <Card style={{ marginBottom: 16 }}>
       <Title level={5} style={{ marginBottom: 16 }}>多年度案件趨勢</Title>
-      <Table<PMYearlyTrendItem>
+      <EnhancedTable<PMYearlyTrendItem>
         columns={columns}
         dataSource={data ?? []}
         rowKey="year"
