@@ -15,6 +15,7 @@
 import React from 'react';
 import {
   Table, Button, InputNumber, Input, Space, Typography, App, Alert, Popconfirm,
+  Card, Row, Col, Divider,
 } from 'antd';
 import type { ColumnType } from 'antd/es/table';
 import { useResponsive } from '../../hooks';
@@ -23,6 +24,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
 import { queryKeys } from '../../config/queryConfig';
+import { erpQuotationsApi } from '../../api/erp/quotationsApi';
 // 型別 SSOT 在 types/erp.ts —— 這裡若自己宣告一份，後端欄位一改就會靜默錯位
 import type { QuotationItemRow, QuotationItemsDetail } from '../../types/erp';
 
@@ -107,6 +109,16 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
   const { isMobile, isTablet } = useResponsive();
   const isNarrow = isMobile || isTablet;
 
+  // 範本容量取自後端 —— 這裡原本也有一份手抄的 `5`，
+  // 後端 08-29 提到 10 之後它會繼續叫使用者去合併輸出得出來的工項。
+  // 同一個檔案裡的第二份手抄常數，與建單頁那份是同一天的同一個病。
+  const { data: tplMeta } = useQuery({
+    queryKey: ['quotation-template-meta'],
+    queryFn: () => erpQuotationsApi.getTemplateMeta(),
+    staleTime: 60 * 60 * 1000,
+  });
+  const capacity = tplMeta?.item_capacity ?? 5;
+
   // 2026-08-29：窄螢幕（含平板）收掉選填欄並降低強制寬度。
   // 實測 390px 下本表外溢 584px —— 而它是**可編輯**表格（每格是 Input），
   // 收掉必填欄會讓人改不了價，所以只收「規格／說明」（選填）。
@@ -163,6 +175,87 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
   ] as (ColumnType<QuotationItemRow> & { _optionalOnNarrow?: boolean })[])
     .filter((c) => !(isNarrow && c._optionalOnNarrow));
 
+  // ── 窄螢幕：一列一卡（<992px）──────────────────────────────
+  //
+  // 六欄價目表每格都是 Input，390px 下即使收掉選填欄仍外溢約 230px ——
+  // 而**編輯**時的橫向捲比瀏覽時更難用：手指捲動會誤觸輸入框。
+  // 卡片版把同一列的六個欄位疊成三行，寬度由容器決定，**不需要橫向捲**。
+  //
+  // 刻意不共用 columns 定義：那六個 render 是為 <td> 寫的（無標籤、靠表頭
+  // 說明語意），搬進卡片後每格都需要自己的標籤 —— 硬共用會得到一排無名輸入框。
+  const narrowCards = (
+    <div>
+      {rows.length === 0 && (
+        <Card size="small" style={{ marginBottom: 12 }}>
+          <Text type="secondary">尚未逐項拆列。按「新增工項」開始，總價會由小計自動加總。</Text>
+        </Card>
+      )}
+      {rows.map((r, i) => (
+        <Card
+          key={r.key}
+          size="small"
+          style={{ marginBottom: 8 }}
+          title={<Text type="secondary" style={{ fontSize: 12 }}>第 {i + 1} 項</Text>}
+          extra={
+            <Button type="text" danger size="small" icon={<DeleteOutlined />}
+              onClick={() => { setRows(p => p.filter(x => x.key !== r.key)); setDirty(true); }} />
+          }
+        >
+          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+            <div>
+              <Text type="secondary" style={{ fontSize: 12 }}>工項</Text>
+              <Input value={r.item_name} placeholder="工項名稱"
+                onChange={e => update(r.key, { item_name: e.target.value })} />
+            </div>
+            <div>
+              <Text type="secondary" style={{ fontSize: 12 }}>規格／說明</Text>
+              <Input value={r.spec} placeholder="選填"
+                onChange={e => update(r.key, { spec: e.target.value })} />
+            </div>
+            <Row gutter={8}>
+              <Col span={7}>
+                <Text type="secondary" style={{ fontSize: 12 }}>單位</Text>
+                <Input value={r.unit} placeholder="式"
+                  onChange={e => update(r.key, { unit: e.target.value })} />
+              </Col>
+              <Col span={8}>
+                <Text type="secondary" style={{ fontSize: 12 }}>數量</Text>
+                <InputNumber<number> style={{ width: '100%' }} min={0} value={r.qty}
+                  onChange={n => update(r.key, { qty: n ?? 0 })} />
+              </Col>
+              <Col span={9}>
+                <Text type="secondary" style={{ fontSize: 12 }}>單價</Text>
+                <InputNumber<number> style={{ width: '100%' }} min={0} value={r.unit_price}
+                  formatter={n => `${n ?? ''}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={n => Number((n || '').replace(/,/g, ''))}
+                  onChange={n => update(r.key, { unit_price: n ?? 0 })} />
+              </Col>
+            </Row>
+            <div style={{ textAlign: 'right' }}>
+              <Text type="secondary" style={{ fontSize: 12, marginRight: 8 }}>小計</Text>
+              <Text strong>{money(r.amount || 0)}</Text>
+            </div>
+          </Space>
+        </Card>
+      ))}
+
+      {/* 合計 —— 卡片版沒有 Table.Summary，要自己給，否則窄螢幕看不到總價 */}
+      <Card size="small">
+        <Row justify="space-between"><Col><Text type="secondary">小計</Text></Col>
+          <Col><Text strong>{money(subtotal)}</Text></Col></Row>
+        {tax > 0 && (
+          <Row justify="space-between" style={{ marginTop: 4 }}>
+            <Col><Text type="secondary">稅額</Text></Col><Col>{money(tax)}</Col></Row>
+        )}
+        <Divider style={{ margin: '8px 0' }} />
+        <Row justify="space-between" align="middle">
+          <Col><Text strong>總計</Text></Col>
+          <Col><Title level={5} style={{ margin: 0, color: '#1677ff' }}>{money(subtotal + tax)}</Title></Col>
+        </Row>
+      </Card>
+    </div>
+  );
+
   return (
     <div>
       {dirty && (
@@ -170,13 +263,19 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
           message="尚未儲存" description="明細改動要按「儲存明細」才會回寫報價總價。" />
       )}
 
+      {isNarrow && (
+        <Space direction="vertical" size={0} style={{ marginBottom: 8 }}>
+          <Text strong>{caseName || '報價單'}</Text>
+          {caseCode && <Text type="secondary" style={{ fontSize: 12 }}>{caseCode}</Text>}
+        </Space>
+      )}
+
       <Space style={{ marginBottom: 12 }} wrap>
         <Button icon={<PlusOutlined />} onClick={() => {
-          // 正式範本明細僅容 5 項（quotation_document.py ITEM_LAST_ROW）——
           // 資料層存得下所以不擋，但要在**填的當下**說，
           // 不是走到輸出那一步才被 400 打回來合併工項。
-          if (rows.length >= 5) {
-            message.warning('正式文件範本目前僅容 5 項，超出的項目輸出時需先合併');
+          if (rows.length >= capacity) {
+            message.warning(`正式文件範本目前僅容 ${capacity} 項，超出的項目輸出時需先合併`);
           }
           setRows(p => [...p, {
             key: `new-${Date.now()}-${p.length}`,
@@ -196,6 +295,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         </Button>
       </Space>
 
+      {isNarrow ? narrowCards : (
       <Table
         rowKey="key"
         loading={isLoading}
@@ -235,6 +335,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
           </Space>
         )}
       />
+      )}
     </div>
   );
 };
