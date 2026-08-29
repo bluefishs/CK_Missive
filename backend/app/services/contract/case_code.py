@@ -493,6 +493,30 @@ class CaseCodeService:
             erp_linked = True
             logger.info(f"自動建立 ERP Quotation: case_code={case_code}")
 
+        # 6. 承辦同仁：把 PM 階段的指派補上 project_id（2026-08-29）
+        #
+        # 成案前的指派是以 `case_code` 掛的（PM 側 StaffTab 就是這樣寫的），
+        # 而承攬側的查詢用 `project_id`（`/project-staff/project/{id}/list`）
+        # ⇒ 成案後同一個人在承攬案件頁**看不到**，要重新指派一次。
+        # 實測：94 筆承攬案的承辦裡有 65 筆 `project_id` 是空的、只靠 case_code 掛著。
+        #
+        # 這裡不新增指派、不改 user，只把已存在的那幾筆補上 project_id ——
+        # 「同一件工作換了個編號」不該讓人從頭再指派一次。
+        # 用 UPDATE 而非逐筆 ORM：這是機械式回填，且 case_code 已由本方法保證唯一。
+        try:
+            from sqlalchemy import text as _t
+            r = await self.db.execute(_t(
+                "UPDATE project_user_assignments SET project_id = :pid "
+                "WHERE case_code = :cc AND project_id IS NULL"
+            ), {"pid": contract_project.id, "cc": case_code})
+            if r.rowcount:
+                logger.info("成案承辦同仁承接: case_code=%s 補 project_id=%s 共 %d 筆",
+                            case_code, contract_project.id, r.rowcount)
+        except Exception as e:
+            # 不阻擋成案（案件比關聯重要），但要出聲 —— 靜靜地少接一段
+            # 正是這個缺口原本的樣子
+            logger.error("成案承辦同仁承接失敗 case_code=%s: %s", case_code, e, exc_info=True)
+
         await self.db.commit()
 
         # 審計記錄：成案事件
