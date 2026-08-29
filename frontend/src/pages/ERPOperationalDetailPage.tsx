@@ -6,7 +6,10 @@
 import React from 'react';
 import {
   Descriptions, Tag, Button, Modal, Progress, Statistic, Row, Col, Card, Space, App,
+  Alert, Typography,
 } from 'antd';
+
+const { Text } = Typography;
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import {
   InfoCircleOutlined, FileTextOutlined, BarChartOutlined,
@@ -58,6 +61,24 @@ const ERPOperationalDetailPage: React.FC = () => {
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('operational:write');
   const canApprove = hasPermission('operational:approve');
+
+  // ⚠️ 2026-08-29 實測：`operational:write` 與 `operational:approve`
+  // 在 `role_permissions` 裡**只掛在 `finance` 與 `ops` 兩個角色**，
+  // 而**沒有任何在職使用者持有那兩個角色**（12 位：staff 6／admin 5／superuser 1）
+  // ⇒ **0 人有這兩個權限**，`admin` 也沒有（`hasPermission` 只對 superuser 短路）。
+  //
+  // 也就是說：新增費用／編輯／審批這三顆按鈕，**12 個人裡只有 1 個看得到**。
+  //
+  // 原本它們是**靜靜消失**的 —— 使用者分不出「這個功能不存在」與
+  // 「我沒有權限」，那兩件事在畫面上長得一模一樣
+  // （同 B7 的 `/staff`「空表格 vs 載不到」）。
+  //
+  // ⚠️ **刻意不放寬權限**：要不要讓誰做這些動作是產品決策（待辦 A27，
+  // owner 尚未決定是否開 finance／ops 角色）。這裡只治「看不出原因」。
+  const missingOps: string[] = [
+    !canWrite && 'operational:write',
+    !canApprove && 'operational:approve',
+  ].filter(Boolean) as string[];
 
   // 2026-08-16：新增費用已改為導覽頁（/erp/operational/:id/expenses/create）
 
@@ -192,6 +213,24 @@ const ERPOperationalDetailPage: React.FC = () => {
   // --- Tab 2: Expenses ---
   const expensesTab = (
     <Card>
+      {missingOps.length > 0 && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="部分操作未顯示：你的帳號沒有對應權限"
+          description={
+            <span>
+              缺少 {missingOps.map((k, i) => (
+                <React.Fragment key={k}>{i > 0 && '、'}<Text code>{k}</Text></React.Fragment>
+              ))} ⇒ 新增費用／編輯／審批按鈕不會出現。
+              <br />
+              這兩個權限目前只掛在「finance」與「ops」角色上，而<strong>尚未有人被指派這兩個角色</strong> ——
+              需要時請找系統管理員在 <Text code>/admin/permissions</Text> 調整。
+            </span>
+          }
+        />
+      )}
       <div style={{ marginBottom: 16, textAlign: 'right' }}>
         {canWrite && (
           <Button
