@@ -356,6 +356,10 @@ daily 不是 weekly）。
 
 ---
 
+| **A46** | **`pre-push` 從來沒有跑過一次；要不要接上** | `.git/hooks/pre-push`（7,787 B、3 階段守門包）被 `core.hooksPath` 旁路，而 `frontend/.husky/` **沒有 pre-push** ⇒ husky 的 shim 遇到檔案不存在就 `exit 0` ⇒ **靜靜放行**。它自己的安裝說明還寫著 `cp ... .git/hooks/pre-push`，指向那條死路徑。⚠️ 記憶／A36 記的是「其餘 5 個 repo 的 pre-push 仍是舊版（**本 repo 已同步**）」——**檔案內容是同步的，但它不會執行**。<br><br>**我實跑了一次（467 秒）**：<br>· Stage 1 文件漂移 `--ci`（8 項）→ ✅ 通過<br>· Stage 2 API 契約 → ❌ **失敗**，失敗點是 `CK_Tunnel http://localhost:18000/health`<br>· Stage 3 守門 FAIL 路徑回歸測試 **458 passed** → ✅ 通過<br><br>⇒ **接上去的實際意義是「別的 repo 的服務沒開，就不能推本 repo」**，而且每次 push 多等 ~8 分鐘。這是設計取捨不是 bug，故不自行接。<br><br>選項：①原樣接上（最嚴，跨 repo 耦合）②接上但 Stage 2 對「非本 repo 的服務」降為警告③只接 Stage 1＋3（本 repo 自足、且 458 支測試已證實可跑）④不接。**我的建議是 ③** —— 它擋得住本 repo 的文件漂移與守門失效，又不把 push 綁在別人的服務上。 | 2026-08-30 實測；教訓＝L113 同族 |
+
+---
+
 ### 做不了／不該做（已核實，列此以免重複提案）
 
 | 議題 | 為什麼 |

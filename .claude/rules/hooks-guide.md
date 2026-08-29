@@ -61,6 +61,21 @@
 
 ## Git Hooks (本地 CI)
 
+> ⚠️ **2026-08-30 實測：`git config core.hooksPath = frontend/.husky/_`**
+> ⇒ git **只**執行 `frontend/.husky/` 底下的 hook，**`.git/hooks/` 整個目錄不會被執行**。
+> 下表原本把位置寫成 `.git/hooks/`，那是**錯的**（已更正）。
+>
+> | hook | `.git/hooks/`（死） | `frontend/.husky/`（活） |
+> |---|---|---|
+> | pre-commit | 9,674 B、6 項檢查 | ✅ 已於 08-30 補上 secret guard 與 destructive ops |
+> | **pre-push** | **7,787 B、3 階段守門包** | **❌ 不存在 ⇒ 從來沒有跑過一次** |
+> | post-commit | 5,736 B（知識地圖增量更新）| ❌ 不存在 |
+> | post-checkout / post-merge | 有 | ✅ 有 |
+> | commit-msg | 無 | ✅ commitlint |
+>
+> **要改 pre-commit 行為請改 `frontend/.husky/pre-commit`。**
+> pre-push 要不要接上見待辦 A46（實跑 467 秒、且會因別的 repo 服務掛掉而擋住本 repo 的 push）。
+
 | Hook | 說明 | 位置 |
 |------|------|------|
 | pre-commit | Skills 架構驗證 + TypeScript 編譯 + Python 語法 + 敏感檔案偵測 | `.git/hooks/pre-commit` |
