@@ -91,3 +91,5 @@
 | `scripts/checks/verify_architecture.py` | 架構完整性 13 項（路由/API 前綴/型別 SSOT/Schema-ORM/棄用模組）。⚠️ 2026-08-29 之前**壞著且沒有人在跑**（L99） | weekly 83 |
 | `scripts/checks/lib/ts_source.py` | 給靜態判準用的 TS 讀取器：委派 TypeScript parser 剝掉註解／字串／樣板／JSX 文字。**手寫正則版擋不掉後三者**（L97） | 上列前端類稽核共用 |
 | `scripts/checks/runner_flag_drift_audit.py` | 基線鎖有沒有真的被叫到——腳本在、排程在、旗標在，**只是呼叫時少了旗標**（L100） | weekly 84 |
+| `scripts/checks/fitness_manual_freshness_audit.py` | 手動月度架構覆盤有沒有真的在跑——它獨佔 57 支檢核卻原本不留任何產出 | weekly 85 |
+| `scripts/checks/orphan_component_audit.py` | 元件建好了但沒有任何入口渲染它（`dead_ui_detector` 抓不到的第三種形狀）。**基線是問題清單不是刪除清單** | weekly 86 |

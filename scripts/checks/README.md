@@ -16,7 +16,7 @@
 | 分組 | 列數 |
 |---|---|
 | 🔴 每日（容器內 APScheduler `fitness_daily`） | 13 |
-| 🟠 每週（host 排程 `CK_Missive-Fitness-Weekly`，容器端只當接收者） | 84 |
+| 🟠 每週（host 排程 `CK_Missive-Fitness-Weekly`，容器端只當接收者） | 86 |
 | 🧪 月度架構覆盤（`run_fitness.sh`） | 64 |
 | 🖥️ 瀏覽器走查（`run_ui_smoke.sh` / `run_visual_walk.sh`） | 4 |
 | ⏰ 後端排程（`backend/app/core/scheduler.py`） | 15 |
@@ -30,7 +30,7 @@
 > 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
 > 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
 
-<!--baseline:check_scripts-->合計 **189** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **191** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
