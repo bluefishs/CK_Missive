@@ -497,6 +497,7 @@ run_step "85" "手動月度架構覆盤有沒有真的在跑" "scripts/checks/fi
 #   而那條教訓寫的是「動元件前先 grep 誰在用」—— 一個人要記得做的動作。
 run_step "86" "元件建好了但沒有任何入口渲染它（禁淨增）" "scripts/checks/orphan_component_audit.py"
 run_step "87" "測試庫 schema 不得落後正式庫" "scripts/checks/test_db_schema_drift_audit.py"
+run_step "88" "postgres 調校參數跨檔 SSOT（compose×3＋規格書＋執行時）" "scripts/checks/pg_tuning_ssot_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

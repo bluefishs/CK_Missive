@@ -92,5 +92,6 @@
 | `scripts/checks/lib/ts_source.py` | 給靜態判準用的 TS 讀取器：委派 TypeScript parser 剝掉註解／字串／樣板／JSX 文字。**手寫正則版擋不掉後三者**（L97） | 上列前端類稽核共用 |
 | `scripts/checks/runner_flag_drift_audit.py` | 基線鎖有沒有真的被叫到——腳本在、排程在、旗標在，**只是呼叫時少了旗標**（L100） | weekly 84 |
 | `scripts/checks/fitness_manual_freshness_audit.py` | 手動月度架構覆盤有沒有真的在跑——它獨佔 57 支檢核卻原本不留任何產出 | weekly 85 |
+| `scripts/checks/pg_tuning_ssot_audit.py` | postgres 調校參數的跨檔 SSOT：三份 compose ＋規格書＋**執行時**三層比對——`postgresql-tuning.conf` 掛載了卻**從未被讀**（Dead Config），而 dev/infra 定義同一個容器卻給不同的 `max_connections` | weekly 88 |
 | `scripts/checks/test_db_schema_drift_audit.py` | 測試庫 schema 不得落後正式庫——測試庫**原本沒有 `alembic_version`**，每支新 migration 都讓它再漂一次，症狀是測試 500 `column X does not exist`，看起來像「測試壞了」 | weekly 87 |
 | `scripts/checks/orphan_component_audit.py` | 元件建好了但沒有任何入口渲染它（`dead_ui_detector` 抓不到的第三種形狀）。**基線是問題清單不是刪除清單** | weekly 86 |
