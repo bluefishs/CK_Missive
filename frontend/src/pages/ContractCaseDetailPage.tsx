@@ -73,6 +73,7 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
     attachments,
     groupedAttachments,
     attachmentsLoading,
+    caseAttachmentCount,
     loading,
     reloadData,
     queryClient,
@@ -129,7 +130,10 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
     createTabItem('vendors', { icon: <ShopOutlined />, text: '協力廠商', count: vendorList.length },
       <VendorsTab vendorList={vendorList} projectId={projectId} />
     ),
-    createTabItem('attachments', { icon: <PaperClipOutlined />, text: '附件紀錄', count: attachments.length },
+    createTabItem('attachments', { icon: <PaperClipOutlined />, text: '附件紀錄',
+      // 徽章要含**兩種**附件：關聯公文的 + 掛在案件本身的（pm_case_attachments）。
+      // 原本只算前者 ⇒ `/contract-cases/284` 徽章寫 0 而面板裡擺著 1 個報價單 PDF。
+      count: attachments.length + caseAttachmentCount },
       <AttachmentsTab
         attachments={attachments} groupedAttachments={groupedAttachments}
         loading={attachmentsLoading} onRefresh={reloadData}

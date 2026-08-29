@@ -7,6 +7,8 @@ import { projectStaffApi, type ProjectStaff } from '../../api/projectStaffApi';
 import { projectVendorsApi, type ProjectVendor } from '../../api/projectVendorsApi';
 import { getProjectAgencyContacts } from '../../api/projectAgencyContacts';
 import { logger } from '../../utils/logger';
+import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import type { ProjectAgencyContact } from '../../api/projectAgencyContacts';
 
 import { filterAssignableUsers, userDisplayName } from '../../utils/assignableUsers';
@@ -222,6 +224,24 @@ export function useContractCaseData(projectId: number | undefined) {
   const vendorList = coreData?.vendorList ?? [];
   const agencyContacts = coreData?.agencyContacts ?? [];
   const loading = coreLoading;
+  // 案件本身的附件（`pm_case_attachments`，以 case_code 關聯）。
+  //
+  // ⚠️ 2026-08-29：這一段原本不存在，於是分頁徽章寫「附件紀錄 0」
+  // 而**面板裡就擺著 1 個檔案** —— 徽章只數了關聯公文的附件。
+  // 實測 `/contract-cases/284`：徽章 0、內容「案件附件 (1) 報價單_B115-A007-1.pdf」。
+  //
+  // queryKey 與 `AttachmentPanel` **刻意相同** ⇒ 共用快取、不多發一次請求，
+  // 且面板上傳後 invalidate 這個 key 時徽章會一起更新
+  // （queryKey drift 讓 invalidate 靜靜失效是本專案記過的 L39）。
+  const { data: caseAttachmentData } = useQuery({
+    queryKey: ['pm-case-attachments', data?.case_code],
+    queryFn: () => apiClient.post<{ attachments?: unknown[] }>(
+      API_ENDPOINTS.PM.ATTACHMENTS_LIST(data!.case_code!),
+    ),
+    enabled: !!data?.case_code,
+  });
+  const caseAttachmentCount = caseAttachmentData?.attachments?.length ?? 0;
+
   const attachments = attachmentData?.attachments ?? [];
   const groupedAttachments = attachmentData?.grouped ?? [];
 
@@ -240,6 +260,7 @@ export function useContractCaseData(projectId: number | undefined) {
     attachments,
     groupedAttachments,
     attachmentsLoading,
+    caseAttachmentCount,
     loading,
     userOptions,
     vendorOptions,
