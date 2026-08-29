@@ -5,6 +5,7 @@
  * @date 2026-01-22
  */
 import React, { useState, useMemo } from 'react';
+import { ClickableStatCard } from '../components/common';
 import type { TableColumnType } from 'antd';
 import {
   Button,
@@ -15,7 +16,6 @@ import {
   Typography,
   Row,
   Col,
-  Statistic,
   App,
   Switch,
   Tag,
@@ -339,37 +339,39 @@ export const StaffPage: React.FC = () => {
         {isMobile ? '同仁管理' : '承辦同仁管理'}
       </Title>
 
-      {/* 統計卡片 */}
+      {/* 統計卡片 —— development-rules §2.6 ②：卡片可點擊篩選列表，再點一次取消。
+          2026-08-29：`activeFilter` 狀態**本來就存在**（下方篩選列在用），
+          只是卡片沒有接上去 —— 使用者看到「啟用中 12」的下一個動作必然是
+          「哪 12 個」，而先前那是一個看得到、點不動的數字。 */}
       <Row gutter={[8, 8]} style={{ marginBottom: isMobile ? 12 : 16 }}>
         <Col xs={8} sm={8}>
-          <Card size="small">
-            <Statistic
-              title={isMobile ? '總數' : '總人數'}
-              value={stats.total}
-              prefix={<TeamOutlined />}
-              styles={{ content: { fontSize: isMobile ? 18 : 24 } }}
-            />
-          </Card>
+          <ClickableStatCard
+            title={isMobile ? '總數' : '總人數'}
+            value={stats.total}
+            icon={<TeamOutlined />}
+            active={activeFilter === undefined}
+            onClick={() => { setActiveFilter(undefined); setCurrent(1); }}
+          />
         </Col>
         <Col xs={8} sm={8}>
-          <Card size="small">
-            <Statistic
-              title={isMobile ? '啟用' : '啟用中'}
-              value={stats.active}
-              styles={{ content: { color: '#3f8600', fontSize: isMobile ? 18 : 24 } }}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
+          <ClickableStatCard
+            title={isMobile ? '啟用' : '啟用中'}
+            value={stats.active}
+            color="#3f8600"
+            icon={<CheckCircleOutlined />}
+            active={activeFilter === true}
+            onClick={() => { setActiveFilter(activeFilter === true ? undefined : true); setCurrent(1); }}
+          />
         </Col>
         <Col xs={8} sm={8}>
-          <Card size="small">
-            <Statistic
-              title={isMobile ? '停用' : '已停用'}
-              value={stats.inactive}
-              styles={{ content: { color: '#999', fontSize: isMobile ? 18 : 24 } }}
-              prefix={<CloseCircleOutlined />}
-            />
-          </Card>
+          <ClickableStatCard
+            title={isMobile ? '停用' : '已停用'}
+            value={stats.inactive}
+            color="#999"
+            icon={<CloseCircleOutlined />}
+            active={activeFilter === false}
+            onClick={() => { setActiveFilter(activeFilter === false ? undefined : false); setCurrent(1); }}
+          />
         </Col>
       </Row>
 

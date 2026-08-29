@@ -41,13 +41,24 @@ class EInvoiceSyncRepository:
 
     async def get_pending_receipts(
         self, skip: int = 0, limit: int = 20
-    ) -> tuple[list[ExpenseInvoice], int]:
+    ) -> tuple[list[ExpenseInvoice], int, object]:
         count_q = (
             select(func.count())
             .select_from(ExpenseInvoice)
             .where(ExpenseInvoice.status == "pending_receipt")
         )
         total = (await self.db.execute(count_q)).scalar() or 0
+
+        # 2026-08-29（development-rules §2.6 ①）：統計卡的數字要**分頁前的全量**。
+        # 前端「待核銷金額」原本是 `pendingItems.reduce(...)` ＝ 只加當頁，
+        # 而同一排的「待核銷發票」用的是這裡的 total ⇒ **同一排卡片一個當頁
+        # 一個全量**，筆數與金額對不起來而畫面上看不出來。
+        # 用同一個 where 條件（不另寫一份篩選，免得兩個數字各自演化）。
+        amount_q = (
+            select(func.coalesce(func.sum(ExpenseInvoice.amount), 0))
+            .where(ExpenseInvoice.status == "pending_receipt")
+        )
+        total_amount = (await self.db.execute(amount_q)).scalar() or 0
 
         query = (
             select(ExpenseInvoice)
@@ -58,7 +69,7 @@ class EInvoiceSyncRepository:
         )
         result = await self.db.execute(query)
         items = list(result.scalars().all())
-        return items, total
+        return items, total, total_amount
 
     async def update_invoice_receipt(
         self,
@@ -95,6 +106,17 @@ class EInvoiceSyncRepository:
         count_q = select(func.count()).select_from(EInvoiceSyncLog)
         total = (await self.db.execute(count_q)).scalar() or 0
 
+        # 2026-08-29（development-rules §2.6 ①）：統計卡的數字要**分頁前的全量**。
+        # 前端「待核銷金額」原本是 `pendingItems.reduce(...)` ＝ 只加當頁，
+        # 而同一排的「待核銷發票」用的是這裡的 total ⇒ **同一排卡片一個當頁
+        # 一個全量**，筆數與金額對不起來而畫面上看不出來。
+        # 用同一個 where 條件（不另寫一份篩選，免得兩個數字各自演化）。
+        amount_q = (
+            select(func.coalesce(func.sum(ExpenseInvoice.amount), 0))
+            .where(ExpenseInvoice.status == "pending_receipt")
+        )
+        total_amount = (await self.db.execute(amount_q)).scalar() or 0
+
         query = (
             select(EInvoiceSyncLog)
             .order_by(EInvoiceSyncLog.started_at.desc())
@@ -103,7 +125,7 @@ class EInvoiceSyncRepository:
         )
         result = await self.db.execute(query)
         items = list(result.scalars().all())
-        return items, total
+        return items, total, total_amount
 
     # -- 事務控制 --
 

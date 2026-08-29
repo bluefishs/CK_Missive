@@ -34,6 +34,15 @@
 「手機要不要顯示某個區塊」是合理的業務判斷（平板空間夠，該顯示）；
 本規則要防的是**共用表格元件**把平板誤判成桌面，那是元件契約問題。
 
+## 怎麼知道它是綠的（負向對照紀錄）
+
+| 注入 | 結果 |
+|---|---|
+| `ResponsiveTable` 的 `isNarrow` 改回 `isMobile` | 首版**仍回綠**（判準命中該檔註解裡的「isTablet」）；去註解後才 RED |
+| `MorningReportTrackingTable` 的欄位過濾判準改回 `isMobile` | RED（同檔兩個判準不一致）→ 還原 GREEN |
+
+⚠️ 第一列是這支存在的理由之一：**判準命中的是散文不是程式碼**。
+
 ## 誰跑它
 
 weekly step 81（`run_fitness_weekly.sh`）。

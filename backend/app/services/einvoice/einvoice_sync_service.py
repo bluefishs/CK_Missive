@@ -197,7 +197,7 @@ class EInvoiceSyncService:
         self,
         skip: int = 0,
         limit: int = 20,
-    ) -> tuple[list[ExpenseInvoice], int]:
+    ) -> tuple[list[ExpenseInvoice], int, object]:
         """取得待核銷清單 (status=pending_receipt)
 
         給報帳員手機端使用，列出所有從財政部同步但尚未上傳收據的發票。

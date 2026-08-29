@@ -35,6 +35,23 @@ owner 2026-08-29 裁示：「具備統計圖卡與列表互動篩選機制，且
 靜態分析追不到 `stats.totalPayable` 是從哪來的，而「這一頁到底有沒有
 跟後端要全量」是可靠且不會誤判的代理問題。
 
+## 怎麼知道它是綠的（負向對照紀錄）
+
+GREEN 是空結果，而**空結果沒有內在證據可以證明自己是對的** ——
+「沒有違規」與「偵測器壞了」在畫面上完全一樣。本支的鑑別力實證：
+
+| 日期 | 注入什麼 | 結果 |
+|---|---|---|
+| 2026-08-29 | 把 `ERPVendorAccountsPage` 的 `data?.totals` 拿掉、改回逐筆累加 | GREEN → **RED**（行號正確）→ 還原後 GREEN |
+| 2026-08-29 | 同上但**留一個樣板字串裡的 `totals`** | 首版（手寫剝除）**仍回綠**；改用 TS parser 後才 RED |
+
+⚠️ 第二列是重點：它是**手寫正則版擋不掉的形態**。合成案例 8/8 全過而
+真實檔案失敗過一次 —— **負向對照要打在真實檔案上**。
+
+⚠️ 判準的**寬窄兩端**都被真實案例校正過：
+首版 `items\.reduce` 漏掉 `pendingItems`（誤漏）；
+首版掃 rglob 把詳情頁分頁也算進來（誤報）。兩次都是實測才發現。
+
 ## 誰跑它
 
 weekly step 82（`run_fitness_weekly.sh`）。
@@ -69,9 +86,16 @@ CARD = re.compile(r"<(Statistic|ClickableStatCard)\b")
 # 後端全量彙總的痕跡 —— 有任一個就代表這一頁知道要跟後端要總數
 BACKEND_TOTAL = re.compile(r"\btotals\b|\bsummary_totals\b|\baggregates?\b|/totals\b")
 # 在分頁陣列上累加
+# ⚠️ 2026-08-29 放寬：首版寫 `\bitems\.reduce` —— 而真實變數叫 `pendingItems`，
+# **「items」前面沒有單字邊界所以不匹配** ⇒ `ERPEInvoiceSyncPage` 的「待核銷金額」
+# （當頁加總，而同一排的「待核銷發票」用的是全量 total）整個漏掉。
+#
+# 這是**誤漏**，與同日那幾個「判準命中散文」的誤報剛好是一體兩面：
+# **判準的寬窄都要用真實案例校準，不能憑想像寫。**
+# 改為比對「識別字**結尾**是 items/rows/list/dataSource」。
 LOCAL_SUM = re.compile(
-    r"\b(?:items|rows|dataSource|filtered\w*)\s*\.\s*reduce\s*\("
-    r"|for\s*\(\s*const\s+\w+\s+of\s+(?:items|rows|dataSource|filtered\w*)\s*\)"
+    r"\b\w*(?:[Ii]tems|[Rr]ows|[Ll]ist|dataSource)\s*\.\s*reduce\s*\("
+    r"|for\s*\(\s*const\s+\w+\s+of\s+\w*(?:[Ii]tems|[Rr]ows|[Ll]ist|dataSource)\s*\)"
 )
 
 
@@ -80,9 +104,16 @@ def main() -> int:
         print(f"✗ 找不到 {PAGES} —— 無法判定（不視為通過）")
         return 2
 
+    # §2.6 的對象是**業務列表頁**，明文排除「詳情頁、儀表板、圖譜頁」。
+    # ⚠️ 2026-08-29：首版掃 rglob（含子目錄）⇒ 把詳情頁的分頁也算進來。
+    # `contractCase/tabs/VendorsTab` 的 `vendorList` 是 prop、無分頁
+    # （一個案件的全部廠商），分母本來就是全體 —— 判它是誤報。
+    # 收斂成「頁面根目錄」，與 weekly 56 對「業務列表頁」的定義一致。
+    NOT_A_LIST = re.compile(r"(DetailPage|Dashboard|Hub|Scan|FormPage|CreatePage|EditPage)")
     candidates = [
-        p for p in sorted(PAGES.rglob("*.tsx"))
+        p for p in sorted(PAGES.glob("*.tsx"))
         if "__tests__" not in str(p) and ".test." not in p.name
+        and not NOT_A_LIST.search(p.name)
     ]
     try:
         sources = code_only(candidates)

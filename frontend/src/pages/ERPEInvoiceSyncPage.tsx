@@ -148,6 +148,14 @@ const ERPEInvoiceSyncPage: React.FC = () => {
 
   const pendingItems = pendingData?.items ?? [];
   const pendingTotal = pendingData?.total ?? 0;
+  // ⚠️ 2026-08-29（§2.6 ①）：「待核銷金額」原本是 `pendingItems.reduce(...)`
+  // ＝只加**當頁**，而同一排的「待核銷發票」用的是 `total`（全量）⇒
+  // **同一排卡片一個當頁一個全量，筆數與金額對不起來而畫面上看不出來**。
+  // 後端已改回 totals.pending_amount（分頁前、同一個 where 條件）。
+  const pendingAmount = Number(
+    (pendingData as { totals?: { pending_amount?: string } } | undefined)
+      ?.totals?.pending_amount ?? NaN,
+  );
   const logItems = logsData?.items ?? [];
   const logTotal = logsData?.total ?? 0;
 
@@ -215,8 +223,11 @@ const ERPEInvoiceSyncPage: React.FC = () => {
           <Col xs={12} sm={6}>
             <Statistic
               title="待核銷金額"
-              value={pendingItems.reduce((s, i) => s + Number(i.amount || 0), 0)}
+              value={Number.isFinite(pendingAmount) ? pendingAmount : undefined}
               precision={0}
+              // 後端沒回 totals 時**不顯示假數字** —— 顯示當頁加總會讓人以為
+              // 那是全部（ADR-0028：不靜默降級）。
+              formatter={Number.isFinite(pendingAmount) ? undefined : () => '—'}
             />
           </Col>
           <Col xs={12} sm={6}><Statistic title="同步記錄" value={logTotal} /></Col>

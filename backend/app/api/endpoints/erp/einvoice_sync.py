@@ -59,15 +59,18 @@ async def get_pending_receipt_list(
 
     列出所有從財政部同步但尚未上傳收據的發票。
     """
-    items, total = await service.get_pending_receipt_list(
+    items, total, total_amount = await service.get_pending_receipt_list(
         skip=params.skip, limit=params.limit
     )
-    return PaginatedResponse.create(
+    resp = PaginatedResponse.create(
         items=[ExpenseInvoiceResponse.model_validate(i) for i in items],
         total=total,
         page=(params.skip // params.limit) + 1,
         limit=params.limit,
     )
+    # totals＝分頁前的全量（§2.6 ①）。前端「待核銷金額」原本只加當頁，
+    # 與同一排的「待核銷發票」筆數對不起來。
+    return {**resp.model_dump(), "totals": {"pending_amount": str(total_amount)}}
 
 
 @router.post("/upload-receipt")

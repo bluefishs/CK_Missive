@@ -35,6 +35,15 @@ L99 記的是「**宣告的執行者不存在**」——`verify_architecture.py`
 首版粗判準實測 28 個命中，逐一判型後真問題只有 1 個（誤報率 96%）。
 ⇒ 這支的價值全在判準的窄度上。
 
+## 怎麼知道它是綠的（負向對照紀錄）
+
+2026-08-29：把 weekly 第 7 步的 `--ci` 拿掉（模擬回歸）
+→ **RED**「run_fitness_weekly.sh 呼叫 alias_rls_coverage_audit.py 時沒帶 --ci」；
+還原 → GREEN。
+
+⚠️ 這一支平時回的是**空結果**，而空結果無法自證。沒有上面這一列，
+「基線鎖都有被叫到」與「偵測器根本沒在看」是同一個畫面。
+
 ## 誰跑它
 
 weekly step 84（`run_fitness_weekly.sh`）。
