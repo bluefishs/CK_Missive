@@ -66,6 +66,43 @@ if [ "$FRONTEND_ONLY" = "1" ]; then
     echo "  （--frontend-only：dist 是 bind mount，FastAPI 直接讀硬碟，不需重啟後端）"
 fi
 
+# ── Step 1.5: 後端真的變了嗎 ─────────────────────────────────────────
+#
+# 2026-08-29：CK_AaaP 的告警器對本站當日的容器重啟發了 critical
+# （`ContainerRestartLoop ck_missive_backend`）。他們的門檻註解寫著
+# 「部署很少在一小時內重啟同一容器兩次」—— **那個假設在開發活躍日不成立**，
+# 而那正是重啟最密集的日子。
+#
+# 但真正該修的是我這一側：當日多次完整部署裡，有幾次**只改了
+# `scripts/checks/`**（那些檔案根本不進 image）⇒ 換容器是純粹的浪費，
+# 換來一次跨 repo 的假警報、一次 60 秒的啟動視窗、一次連線池重建。
+#
+# 判準：比對「執行中容器的 build commit」與「HEAD」之間，
+# **`backend/` 底下有沒有變更**。沒有就跳過 build 與 recreate。
+# ⚠️ 用 `--force-backend` 可強制（image 基底或依賴變了時需要）。
+if [ "$FRONTEND_ONLY" = "0" ] && [ "${1:-}" != "--force-backend" ]; then
+    # ⚠️ build 身分在 **env **，不是 label。
+    # 我第一版寫 `.Config.Labels` —— 回空字串，而下面的 `-n` 守衛讓它
+    # **靜靜地什麼都不做**（跳過邏輯永遠不觸發，且看不出來）。
+    # 同本日反覆出現的形狀：機制看起來在，而它的輸入不存在。
+    RUNNING_COMMIT="$(docker inspect ck_missive_backend         --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null         | sed -n 's/^CK_BUILD_COMMIT=//p' | head -1)"
+    RUNNING_COMMIT="${RUNNING_COMMIT%%-dirty}"
+    if [ -n "$RUNNING_COMMIT" ] && git rev-parse --verify -q "$RUNNING_COMMIT" >/dev/null 2>&1; then
+        # ⚠️ 排除 `backend/tests/`：`.dockerignore` 已排除 `test_*.py`，
+        # 而容器內沒有任何東西會 import 測試 ⇒ 改測試不需要換容器。
+        # **其餘 backend/ 一律視為需要**（保守）—— 這裡判錯的代價是
+        # 「以為部署了而跑的是舊碼」，那比多換一次容器嚴重得多。
+        _BE_PATHS="backend/ :(exclude)backend/tests/"
+        # shellcheck disable=SC2086
+        if git diff --quiet "$RUNNING_COMMIT" HEAD -- $_BE_PATHS 2>/dev/null            && git diff --quiet HEAD -- $_BE_PATHS 2>/dev/null; then
+            echo ""
+            echo "  ⏭  backend/ 自 $RUNNING_COMMIT 以來沒有變更 —— 跳過換容器"
+            echo "     （避免無謂的啟動視窗與跨 repo 假警報；要強制請帶 --force-backend）"
+            FRONTEND_ONLY=1
+        fi
+    fi
+fi
+
 # ── Step 2: Backend image build（帶身分）──────────────────────────────
 if [ "$FRONTEND_ONLY" = "0" ]; then
     echo ""
