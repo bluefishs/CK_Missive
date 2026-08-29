@@ -496,6 +496,7 @@ run_step "85" "手動月度架構覆盤有沒有真的在跑" "scripts/checks/fi
 #   re-export）。本 repo 記過最貴的陷阱正是「改到孤兒元件、全綠但沒人看得到」，
 #   而那條教訓寫的是「動元件前先 grep 誰在用」—— 一個人要記得做的動作。
 run_step "86" "元件建好了但沒有任何入口渲染它（禁淨增）" "scripts/checks/orphan_component_audit.py"
+run_step "87" "測試庫 schema 不得落後正式庫" "scripts/checks/test_db_schema_drift_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

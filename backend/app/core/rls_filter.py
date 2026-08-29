@@ -161,10 +161,23 @@ class RLSFilter:
 
         alias_ids = cls.get_alias_group_subquery(user_id)
 
+        # ⚠️ 2026-08-29：`project_id` 與 `case_code` 兩條路都要認 ——
+        # 邀標階段的指派沒有 project_id 可寫（案件還沒成案），
+        # 成案後那筆指派仍然只有 case_code。詳見 `get_user_accessible_project_ids`。
+        from app.extended.models.core import ContractProject
+
+        case_code_of = (
+            select(ContractProject.case_code)
+            .where(ContractProject.id == project_id)
+            .scalar_subquery()
+        )
         result = await db.execute(
             select(exists().where(
                 and_(
-                    project_user_assignment.c.project_id == project_id,
+                    or_(
+                        project_user_assignment.c.project_id == project_id,
+                        project_user_assignment.c.case_code == case_code_of,
+                    ),
                     project_user_assignment.c.user_id.in_(alias_ids),
                     project_user_assignment.c.status.in_(cls.ACTIVE_ASSIGNMENT_STATUSES)
                 )
@@ -254,10 +267,22 @@ class RLSFilter:
         # v2 (2026-05-06, TaskB)：展開 alias group，未合併的同人多帳號相互可見
         alias_ids = cls.get_alias_group_subquery(user_id)
 
+        # ⚠️ 2026-08-29：這一處是**承攬案件列表**的過濾器 —— 只認 `project_id`
+        # 的話，指派只掛在 `case_code` 上的承辦會在自己的列表裡看不到自己的案子。
+        # 實測當日：139 件 02 承攬案件裡 65 件只有 case_code 指派。
+        #
+        # ⚠️ 同族第五、六處。我在同一天內修了四處（quotation_document 08-21／
+        # filing_gap／project_repository／get_user_accessible_project_ids），
+        # **而這個檔案裡剩下的兩處是隔一輪複查才發現的** ——
+        # 當天才寫下「同族修法要先數清楚有幾處再動手」，然後又犯了同一件事。
+        # 教訓的形態是：修完第一處之後要 grep 整個檔案，不是憑印象。
         return query.where(
             exists().where(
                 and_(
-                    project_user_assignment.c.project_id == project_model.id,
+                    or_(
+                        project_user_assignment.c.project_id == project_model.id,
+                        project_user_assignment.c.case_code == project_model.case_code,
+                    ),
                     project_user_assignment.c.user_id.in_(alias_ids),
                     project_user_assignment.c.status.in_(cls.ACTIVE_ASSIGNMENT_STATUSES)
                 )
