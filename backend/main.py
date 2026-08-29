@@ -1074,9 +1074,46 @@ if _FRONTEND_INDEX.exists():
         #       ③ 路由拼錯看起來像「端點存在」，遮蔽 L67 那類 double-prefix 缺陷
         # 屬 L01「SSOT 聲明 vs 實作斷鏈」。API 命名空間一律不 fallback 到 SPA。
         if spa_path == "api" or spa_path.startswith("api/"):
+            # 2026-08-29（CK_Website 跨 repo 探針指出）：上面那個修法把**兩件事
+            # 併成同一個 404**，而訊息本身就承認了（「此路徑不提供 GET，**或**
+            # 端點不存在」）。兩者的意思與處置完全相反：
+            #   · 路徑存在、只是不吃 GET  → 呼叫端用錯方法，改 POST 即可
+            #   · 路徑根本不存在          → 路由改名／部署漏檔／功能被移除，
+            #                               那是**聯邦斷掉的前兆**
+            # 實測四個平台：missive 回 404，lvrland／pilemgmt／digitaltwin 回 405
+            # ⇒ 404 在跨 repo 語境下失去單一含義，別人的健康探針因此不敢把 404
+            #   判成異常（「有平台會正常回 404」），於是**端點整個消失也不會被發現**。
+            #
+            # 修法：先問「這條路徑有沒有註冊在別的方法上」。有 ⇒ 405 + Allow。
+            target = f"/{spa_path}"
+            allowed: set[str] = set()
+            for route in app.routes:
+                match = getattr(route, "path_regex", None)
+                methods = getattr(route, "methods", None)
+                rpath = getattr(route, "path", "") or ""
+                if match is None or not methods:
+                    continue
+                # ⚠️ 必須排除 catch-all 自己：`/{spa_path:path}` 匹配所有 GET，
+                # 不排除的話 `allowed` 永遠非空 ⇒ **連真的不存在的路徑也回 405**，
+                # 那比原本的一律 404 更糟（把「端點消失」偽裝成「方法用錯」）。
+                # 首版就是這樣壞的，四個案例逐一實測才抓到 —— 只驗「方法錯」
+                # 那一個案例會看到 405 而以為成功了。
+                if not rpath.startswith("/api/"):
+                    continue
+                if match.match(target):
+                    allowed |= {m for m in methods if m not in ("HEAD", "OPTIONS")}
+            if allowed:
+                raise HTTPException(
+                    status_code=405,
+                    detail=(
+                        f"Method Not Allowed: /{spa_path} 不接受 GET"
+                        f"（可用方法：{', '.join(sorted(allowed))}）"
+                    ),
+                    headers={"Allow": ", ".join(sorted(allowed | {"OPTIONS"}))},
+                )
             raise HTTPException(
                 status_code=404,
-                detail=f"API endpoint not found: /{spa_path}（此路徑不提供 GET，或端點不存在）",
+                detail=f"API endpoint not found: /{spa_path}（此路徑未註冊任何方法）",
             )
 
         # 直接服務存在的檔案（favicon、manifest、robots 等）
