@@ -159,7 +159,7 @@ run_step "8" "tender_freshness"               "scripts/checks/tender_freshness_a
 run_step "9" "tender_subscription_watchdog"   "scripts/checks/tender_subscription_watchdog_audit.py"
 run_step "10" "tender_enrichment_freshness"   "scripts/checks/tender_enrichment_freshness_audit.py"
 run_step "11" "diary density audit"           "scripts/checks/diary_density_audit.py"
-run_step "12" "facade adoption audit"         "scripts/checks/facade_adoption_audit.py"
+run_step "12" "facade adoption audit（僅報告·不判紅）"         "scripts/checks/facade_adoption_audit.py"
 run_step "13" "paths.py vs compose mount"     "scripts/checks/paths_compose_mount_audit.py"
 run_step "14" "governance alignment audit"    "scripts/checks/governance_alignment_audit.py"
 run_step "15" "cross-repo template drift"     "scripts/checks/cross_repo_template_drift_audit.py"
@@ -498,6 +498,7 @@ run_step "85" "手動月度架構覆盤有沒有真的在跑" "scripts/checks/fi
 run_step "86" "元件建好了但沒有任何入口渲染它（禁淨增）" "scripts/checks/orphan_component_audit.py"
 run_step "87" "測試庫 schema 不得落後正式庫" "scripts/checks/test_db_schema_drift_audit.py"
 run_step "88" "postgres 調校參數跨檔 SSOT（compose×3＋規格書＋執行時）" "scripts/checks/pg_tuning_ssot_audit.py"
+run_step "89" "weekly 每一步都要能紅，否則要說自己只是報告" "scripts/checks/gate_vs_report_step_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
