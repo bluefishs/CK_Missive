@@ -531,6 +531,35 @@
 
 ---
 
+## L97 — 判準命中的是註解不是程式碼，而註解寫得越用心它越容易被騙（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | owner 裁示「響應式頁面排版檢視與調整優化」，為 RWD 缺口寫稽核（weekly 81）並複查既有的 weekly 56。 |
+| **What happened** | 兩支稽核的判準都是**字串比對檔案內容**（有沒有 `isTablet` / 有沒有 `EnhancedTable`），而兩支都被**註解**騙過：① weekly 81 的負向對照——把 `isNarrow` 改回 `isMobile` 注入回歸，它**仍然回綠**，因為該檔的說明註解裡就寫著「isTablet」；② weekly 56 放過 `MorningReportTrackingTable`（16 欄、實測 768px 外溢 580px），因為它的註解寫著「刻意不改用 **EnhancedTable**」。 |
+| **Root cause** | 靜態判準把「檔案文字」當成「程式碼行為」。**說明為什麼不用某個東西的那句話，在字串比對眼裡等於用了它。** |
+| **為何沒被發現** | 兩者都回綠，而綠燈沒有人會去追。①靠負向對照當場揭穿；②靠「稽核說 0，但我實測這頁確實有一張原生 Table」的**矛盾**發現——與 L83 家族同一個救援機制。 |
+| **Fix** | 兩支都改成 `re.sub(r"/\*[\s\S]*?\*/\|//[^
+]*", "", src)` 先去註解再比對。weekly 81 的負向對照在去註解後才成立（GREEN→RED→GREEN）。 |
+| **Prevention** | **凡是用字串比對判斷「程式碼有沒有做某件事」，一律先去註解。** 且新稽核**必須跑負向對照**——沒有這一步，分不出它是綠的還是瞎的。本則的①正是負向對照唯一一次真的擋下東西。 |
+| **Refs** | `scripts/checks/responsive_narrow_convergence_audit.py` / `scripts/checks/frontend_design_standard_audit.py` / 同族：`verification_signal_too_coarse`（第八型）、L83 |
+
+---
+
+## L98 — 修一個共用元件不會讓它的同類變好，而它們的症狀一模一樣（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 行動版面走查回報 768px 下多頁表格外溢 ~580px。 |
+| **What happened** | 根因是 `useResponsive` 的 `isMobile = !screens.md`，而 AntD 的 md 斷點**就是 768** ⇒ **恰好 768px 時 isMobile 為 false**，平板（768–991）走桌面分支，拿到為桌面挑的固定 `scroll.x`（呼叫端傳 1100/1530，元件內建 `md: 900`）。**設定本身就在製造橫向捲動。** 而這個 bug `EnhancedTable` **2026-08-15 就修過了**（改判 `isMobile \|\| isTablet`）——只是沒有擴散到 `ResponsiveTable`（23 個檔在用）與四個自己寫 RWD 的頁面。 |
+| **Root cause** | 同一個角色有多份實作：表格包裝三份（EnhancedTable／ResponsiveTable／UnifiedTable）＋散在頁面裡的 `scroll={isMobile ? ... : {x:N}}` 四處。修一份時沒有人問「還有幾份」。 |
+| **為何沒被發現** | 08-15 修完當下量測確實改善了（那次量的頁剛好都用 EnhancedTable），**看起來就是修好了**。而行動量測只涵蓋 18/125 條路由，`/pm/cases` 列表根本沒被量、只量了它的詳情頁。 |
+| **Fix** | 五處全改 `isNarrow = isMobile \|\| isTablet`；量測路由由 13 條擴到 31 條業務頁。實測表格外溢 9 筆／8 頁 → 4 筆／3 頁。配套 weekly 81 掃**全前端**（不只共用元件）的 `scroll={isMobile ? …}` 形狀。 |
+| **Prevention** | **修共用元件時先問「同一個角色還有幾份實作」**（`grep -rl` 找同類）。⚠️ 並問「量測涵蓋到哪裡為止」——擴大路由後，`/document-numbers`(612px)／`/projects`／`/staff`／`/taoyuan` 立刻全部上榜，先前的「只有 8 頁溢出」答的是比問題更窄的範圍。 |
+| **Refs** | `frontend/src/components/common/ResponsiveTable.tsx` / `scripts/checks/responsive_narrow_convergence_audit.py`（weekly 81）/ `selfaudit.config.json` `page_sweep.mobile_probe` / 同族：`proxy_metric_looks_good`、`arch_pattern_script_existence_not_enforcement` |
+
+---
+
 ## L96 — 取走資料的動作與送出的動作之間，只要有失敗的可能，就必須有回填路徑（2026-08-29）
 
 | 欄位 | 內容 |
