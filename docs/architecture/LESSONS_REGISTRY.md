@@ -531,6 +531,63 @@
 
 ---
 
+## L107 — 外層 rollback 擋不住內部自己 commit 的函式，而我把「已回滾」寫進了回報（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | owner 問「91 件已承攬但未成案的案子是不是被什麼擋著」。為了不真的改資料，我寫了一段外層包 `db.rollback()` 的測試去呼叫 `promote_to_project`。 |
+| **What happened** | **`promote_to_project` 內部自己 `await self.db.commit()`** ⇒ 外層 rollback 對已提交的交易無效。**3 件真的成案了**，而且正是 owner 刻意撤回、標記「待判讀」的那批（`8b5acc26`：85 筆成案＋91 筆撤回）。我還在同一段對話裡說「刻意不批次成案，成案不可逆，那是 owner 的決定」。 |
+| **發現它的唯一原因** | **weekly step 28 的基線比對**：「已承攬但無成案編碼 **91 → 88**」。那個數字不該變。若不是那支在盯基線，這件事不會被發現。 |
+| **Root cause** | 錯的不只是技術細節（沒查被呼叫的函式會不會自己 commit），是**我用一個沒有驗證過隔離性的方法，然後把「已回滾」當成事實寫進回報**。回報裡的每一句斷言都會變成別人的判斷依據。 |
+| **Fix** | 依 owner 裁示還原：先查所有指向 `contract_projects` 的外鍵（6 張表，除我造成的 3 筆指派外全為 0），再於單一交易內逐表撤銷（`project_id`→NULL／兩處 `project_code`→NULL／DELETE 三筆）。**指派本身不刪** —— NULL 才是它的原狀。基線檔也還原（weekly 已把它棘輪到 88，**否則會把一個錯誤狀態記成新常態**）。`promote_to_project` 的 docstring 加上「本方法內部會 commit」的警告。 |
+| **Prevention** | ⚠️ 對**不可逆**函式做試算前，先 `grep self.db.commit()`。有的話外層 rollback 是假的。⚠️ 沒把握就用**唯讀方式**推導（讀它的驗證條件），不要真的呼叫。⚠️ **驗收要驗系統狀態，不是驗自己的輸出** —— 「我做了 X 而狀態沒變」與「我以為狀態沒變」是兩件事。 |
+| **Refs** | `backend/app/services/contract/case_code.py` docstring／memory `rollback_did_not_roll_back`／同族：L101（量測工具）、`my_tool_behaviour_is_not_the_finding` |
+
+---
+
+## L106 — 公網探的那支 health 根本不查 DB，而 L43 的防禦做在另一條路徑上（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 為了套用 `max_connections` 而重建 postgres 後做驗證，注意到公網 `/api/health` 的回應**沒有 `business_data` 欄位**。 |
+| **What happened** | 系統有**兩個** health 端點：`/health`（main.py，DB ping + 業務量 + pool）與 `/api/health`（endpoints/health.py，**靜態 dict、完全不碰 DB**）。**公網探的是後者** ⇒ postgres 掛掉它一樣回 `healthy`。 |
+| **為何嚴重** | L43（2026-05-21 volume mount drift）的修法白紙黑字寫著「面向公網的 `/health` **必須**包含業務量檢查」，機制是「healthcheck fail → 流量不打進空殼 instance」。**那個防禦只做在 `/health` 上** ⇒ 同一個事故形態在真正對外的那條路徑上原封不動地留著。 |
+| **它騙過的不只是監控** | **我自己整天用 `/api/health` 當部署後的驗證** —— 那個 200 比我以為的弱得多。這一整天的「公網 200」證據強度因此要打折。 |
+| **Root cause** | 同一件事有兩份實作，而**規範只約束了其中一份**。規範說的是「/health」這個名字，沒有說「所有對外的健康端點」。 |
+| **Fix** | 業務量檢查抽成 `app/core/health_probe.py`，兩個端點共用同一份實作；`/api/health` 現在做 DB ping + 業務量檢查，不通過回 **503**。⚠️ **`/health/liveness` 維持不碰 DB** —— 那是故意的：「程序活著嗎」與「系統可用嗎」是兩個問題，合併會讓重啟中的程序被誤判。 |
+| **Prevention** | ⚠️ 寫「必須有 X」的規範時，要問**有幾個地方在做同一件事**，而不是只約束你當時看到的那一個。用執行時路由表（不是 grep）掃同名端點：本次掃 748 條路由找出 3 組根路徑與 `/api` 的碰撞。 |
+| **Refs** | `backend/app/core/health_probe.py`／`cross-file-ssot-governance.md` 規則 3／L43 |
+
+---
+
+## L105 — 「我這條路徑找不到」不等於「資料不存在」，而那句結論寫進了文件（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | owner 問「為何承攬報價紀錄皆未對應承辦同仁」。257 張報價單中 122 張的服務人員欄是空的。 |
+| **What happened** | 2026-08-20 我從彙整表的**工作表名稱**取承辦（原始／老闆／慶忠／元宏／其他），115 檔只有一個「工作表1」⇒ 我下了結論並寫進 commit：「115 檔沒有承辦人資訊 —— **那是資料本身沒有**，不是漏掉。」**那個結論是錯的。** |
+| **資料一直都在** | 在 `legacy_quotation_no` 裡：`B115-**A**001-0A`／`B115-**B**003-0`。第一段 `B115` 是年度前綴（那個 B 不是人），**人的代碼是第二段開頭那個字母**。owner 說「A坤樹 B慶忠 C元宏 D廷睿」**已多次提出**，而系統一直沒有記下來。 |
+| **Root cause** | 我讀了**一個**來源、讀不到，就宣告來源不存在 —— 而那筆記錄還有其他欄位我沒看過。更糟的是那句結論寫進了 commit 訊息與文件，成了後面所有人判斷的依據。 |
+| **Fix** | 依代碼回填 115 件案號（張坤樹 5／洪慶忠 61／邱元宏 49），報價單有承辦 **135 → 250 張**。解碼規則**先在已知答案上驗證**才用（A/C/D 零反例、B 有 2 筆反例 ⇒ 已有指派一律不覆蓋）。代碼表寫進 `quotation_legacy_import._LEGACY_CODE_TO_NAME` 且**代碼優先於工作表名稱**。 |
+| **Prevention** | ⚠️ 宣告「資料不存在」之前，先列出**這筆記錄還有哪些欄位沒看過**。⚠️ owner 講過的領域知識要**寫進程式常數**，不是寫進當次的 commit 訊息 —— 訊息不會被下一次執行讀到，常數會。 |
+| **Refs** | `backend/app/services/erp/quotation_legacy_import.py`／`scripts/init/backfill_quotation_staff_from_legacy_code.py`／memory `quotation_legacy_staff_code` |
+
+---
+
+## L104 — 註解指名了來源檔，不代表值是從那裡來的（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 後端把報價單明細上限從 5 提到 10（範本本來就有 10 列，卡住的只是備註列的位置）。 |
+| **What happened** | 前端有一份**手抄的**：`/** 正式範本的明細容量（quotation_document.py ITEM_LAST_ROW） */ const TEMPLATE_ITEM_CAPACITY = 5;`。註解**自己指名了來源檔**，值卻是手抄的 ⇒ 第 6 項起畫面警告「僅容 5 項，超出的需先合併」——**叫使用者去手動合併後端其實輸出得出來的工項**，而真正的邊界（第 11 項才 400）從來沒出現在畫面上。 |
+| **為何沒被發現** | **`npx tsc --noEmit` 是綠的。型別檢查看不出一個過期的字面值。** 失敗形態是「畫面說一套、後端做另一套」，兩邊都不會報錯。 |
+| **同一小時內犯了第二次** | 我修完建單頁那一份、commit 訊息寫著「容量只留一個家」，**而同一個功能的另一個檔案裡還有第二份 `>= 5`**（`QuotationItemsTab.tsx`）。⇒ **宣稱的範圍大於實際做到的範圍，比沒修更糟** —— 它會讓下一個人不再去找。 |
+| **Fix** | 容量只留一個家：`ITEM_LAST_ROW - ITEM_FIRST_ROW + 1` → `ERPQuotationTemplateMeta` schema → `/erp/quotations/template-meta` → 前端 `useQuery`。前端留的 fallback 在註解寫明**偏哪一邊比較安全**（取偏小只多提醒一次，取偏大會讓人填到輸出才被擋）。 |
+| **Prevention** | ⚠️ 改任何後端邊界值（上限／門檻／容量）前，先 grep 前端有沒有同名或同義常數。⚠️ **同族修法要先數清楚有幾處再動手**，不是修掉眼前這個就宣稱收斂完成。⚠️ 判準：**那份複本有沒有宣稱自己是別處的鏡像** —— 預設參數（如 `maxFileSizeMB = DEFAULT_MAX_FILE_SIZE_MB`）不算，它沒有宣稱自己是鏡像。 |
+| **Refs** | `frontend/src/pages/erpQuotation/QuotationTemplateCreatePage.tsx`／memory `hand_copied_constant_across_layers`／同族：L99、L100 |
+
+---
+
 ## L103 — 我把 runner 改壞、提交進版控，而它印著 GREEN 與退出碼 0（2026-08-29）
 
 | 欄位 | 內容 |
