@@ -247,7 +247,7 @@ class ExpenseInvoiceService(AuditableServiceMixin):
             exp_stmt = exp_stmt.where(EI.attribution_type == attribution_type)
         if year:
             from sqlalchemy import extract as _extract
-            exp_stmt = exp_stmt.where(_extract("year", EI.invoice_date) == year)
+            exp_stmt = exp_stmt.where(_extract("year", EI.date) == year)
 
         exp_result = await self.db.execute(exp_stmt)
         expense_map: dict = {}
