@@ -44,6 +44,7 @@ weekly 裡確實是紅的）。
 
 weekly step 89（`run_fitness_weekly.sh`）。
 """
+import ast
 import re
 import sys
 from pathlib import Path
@@ -60,19 +61,124 @@ RUNNER = ROOT / "scripts" / "checks" / "run_fitness_weekly.sh"
 #: 步驟名裡出現任一個就視為已標明「這只是報告」
 _MARKED = re.compile(r"僅報告|不判紅|informational|report[- ]only", re.I)
 
-#: 非 0 退出路徑（剝掉註解後才比對）
-_NONZERO = re.compile(r"(?:sys\.exit|SystemExit)\s*\(\s*[1-9]|return\s+[1-9]\d*\b|exit\s+[1-9]")
+#: shell 用的非 0 退出（Python 那邊改走 AST，見 `_py_can_fail`）
+_SH_NONZERO = re.compile(r"\bexit\s+[1-9]")
 
 _STEP = re.compile(r'run_step\s+"(\d+)"\s+"([^"]*)"\s+"([^"]+)"')
 
 
-def _strip_comments(text: str, is_py: bool) -> str:
-    """去掉註解與 docstring —— 判準要看程式碼，不看它怎麼描述自己。"""
-    if is_py:
-        # 去掉三引號區塊（docstring）
-        text = re.sub(r'"""[\s\S]*?"""', "", text)
-        text = re.sub(r"'''[\s\S]*?'''", "", text)
-    return "\n".join(ln.split("#", 1)[0] for ln in text.splitlines())
+def _py_can_fail(text: str):
+    """Python 檔：用 **AST** 判斷有沒有非 0 退出路徑。
+
+    ⚠️ 2026-08-29 改用 AST（首版是手寫剝除註解＋正則）。五個案例實測，
+    手寫版**誤判 1/5**：
+
+        print("如果失敗請 return 1")     ← 被算成一條退出路徑
+
+    一般字串裡的 `return 1` 剝不掉 —— 剝得掉的只有註解與 docstring。
+    本 repo 當日已為同一件事把前端判準改用 TypeScript parser。
+
+    CK_AaaP 同日的說法更準：**字串比對的預設誤用率就是高的**，
+    一天用幾十次就一定有幾次落在散文上
+    ⇒ **預設用 AST，讓字串比對成為需要理由的選項。**
+
+    回傳 None＝語法錯誤（無法判定；呼叫端當成比「不會紅」更嚴重）。
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return None
+
+    #: 模組層定義的函式 —— 供 `sys.exit(main())` 追進去看它的 return
+    _local_funcs = {
+        n.name: n for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+    def _nonzero_int(node) -> bool:
+        return (isinstance(node, ast.Constant) and isinstance(node.value, int)
+                and not isinstance(node.value, bool) and node.value != 0)
+
+    def _may_be_nonzero(node) -> bool:
+        """這個運算式**有沒有可能**是非 0。
+
+        ⚠️ 2026-08-29：首版只認 `ast.Constant`，於是**漏判 5 支真守門**：
+
+            return 1 if ci else 0     ← ast.IfExp，不是 Constant
+            sys.exit(main())          ← 引數是 Call，不是 Constant
+
+        那 5 支被報成「永遠不可能紅」—— **相反方向的錯誤，而且更糟**：
+        它會叫人把真守門標成「僅報告」。
+        ⇒ 判準變嚴格之後，要驗它**新增的命中**是真的，
+          不能因為它更嚴格就相信它。
+
+        **保守原則**：算不出來的一律當成「可能非 0」。
+        漏報（把真守門標成報告）比誤報（多問一句）嚴重得多。
+        """
+        if node is None:
+            return False
+        if _nonzero_int(node):
+            return True
+        if isinstance(node, ast.IfExp):               # a if cond else b
+            return _may_be_nonzero(node.body) or _may_be_nonzero(node.orelse)
+        if isinstance(node, ast.BoolOp):              # a or b / a and b
+            return any(_may_be_nonzero(v) for v in node.values)
+        if isinstance(node, ast.Constant):            # 明確的 0 / None / 字串
+            return False
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            # ⚠️ `sys.exit(main())` —— 幾乎每支腳本都這樣結尾。
+            # 把它當成不透明的 Call 而「保守視為可能非 0」，會讓本檢核的
+            # **偵測力歸零**（實測：連唯一的真實案例 step 12 都不再被抓到）。
+            # ⇒ 追進那個函式，看它自己的 return —— **那才是退出碼的來源**。
+            #
+            # 這是本日第二次修正同一個判準：先漏判（只認 Constant），
+            # 再過度保守（把 Call 一律當成可能非 0）。
+            # **兩次都不是「更嚴格／更寬鬆」的問題，是判準沒有對準對象。**
+            fn = _local_funcs.get(node.func.id)
+            if fn is not None:
+                return any(_may_be_nonzero(r.value)
+                           for r in ast.walk(fn) if isinstance(r, ast.Return))
+        # 其餘（屬性呼叫／BinOp／Subscript…）值要執行才知道，保守視為可能非 0
+        return True
+
+    # ⚠️ 2026-08-29 第三次修正這個判準，而這次改的是**對象**不是鬆緊。
+    #
+    # 首版：掃「檔案裡任何一個 `return 非0`」。那是錯的 ——
+    # `count_importers` 的 `return len(files)` 是**輔助函式的回傳值**，
+    # 與退出碼無關，卻讓 `facade_adoption_audit` 被判成「會紅」。
+    #
+    # **決定退出碼的只有 `sys.exit()` 與 `raise SystemExit()`。**
+    # 一支從不呼叫它們的腳本，退出碼永遠是 0，不管內部 return 什麼。
+    # ⇒ 只看這兩者（並在引數是本地函式時追進去看它的 return）。
+    #
+    # 三次修正：漏判（只認 Constant）→ 過度保守（Call 一律算可能非 0）
+    # → **對錯了對象**（掃所有 return）。前兩次我以為問題在鬆緊，
+    # 而真正的問題是**我沒有先問「退出碼是從哪裡來的」**。
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            f = node.func
+            name = f.attr if isinstance(f, ast.Attribute) else (
+                f.id if isinstance(f, ast.Name) else "")
+            if name in ("exit", "_exit", "SystemExit"):
+                if any(_may_be_nonzero(a) for a in node.args):
+                    return True
+        # `raise SystemExit(<運算式>)` —— 值可能是函式回傳，保守視為可失敗
+        if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
+            f = node.exc.func
+            if ((isinstance(f, ast.Name) and f.id == "SystemExit")
+                    or (isinstance(f, ast.Attribute) and f.attr == "SystemExit")):
+                return True
+    return False
+
+
+def _sh_can_fail(text: str) -> bool:
+    """Shell 檔：沒有標準 parser，仍用文字比對但先剝註解。
+
+    ⚠️ 這一半**明知較弱**，寫出來以免有人以為整支都用 AST。
+    shell 的 `exit 1` 幾乎不會出現在字串裡，誤判風險遠低於 Python。
+    """
+    code = "\n".join(ln.split("#", 1)[0] for ln in text.splitlines())
+    return bool(_SH_NONZERO.search(code))
 
 
 def main() -> int:
@@ -85,16 +191,22 @@ def main() -> int:
         print("✗ 解析不到任何 run_step —— 判定不可信，不視為通過")
         return 2
 
-    reds, marked, missing = [], [], []
+    reds, marked, missing, broken = [], [], [], []
     for no, label, path in steps:
         script = ROOT / path.split()[0]
         if not script.is_file():
             missing.append((no, label, path))
             continue
-        code = _strip_comments(
-            script.read_text(encoding="utf-8", errors="replace"),
-            script.suffix == ".py")
-        can_fail = bool(_NONZERO.search(code))
+        raw = script.read_text(encoding="utf-8", errors="replace")
+        if script.suffix == ".py":
+            verdict = _py_can_fail(raw)
+            if verdict is None:
+                # 語法錯比「不會紅」嚴重 —— 它根本跑不起來（同 L99）
+                broken.append((no, label, script.name))
+                continue
+            can_fail = verdict
+        else:
+            can_fail = _sh_can_fail(raw)
         is_marked = bool(_MARKED.search(label))
         if can_fail:
             continue
@@ -103,6 +215,12 @@ def main() -> int:
     print(f"weekly 共 {len(steps)} 步｜永遠不可能紅但**已標明**的 {len(marked)} 步")
     for no, label, name in marked:
         print(f"    step {no}: {label}  ({name})")
+
+    if broken:
+        print(f"\n✗ {len(broken)} 步的腳本**有語法錯誤**（比不會紅嚴重：它跑不起來）")
+        for no, label, name in broken:
+            print(f"    step {no}: {label}  ({name})")
+        return 2
 
     if missing:
         print(f"\n✗ {len(missing)} 步的腳本檔不存在：")
