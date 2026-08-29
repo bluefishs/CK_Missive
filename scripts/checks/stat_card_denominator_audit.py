@@ -52,6 +52,22 @@ GREEN 是空結果，而**空結果沒有內在證據可以證明自己是對的
 首版 `items\.reduce` 漏掉 `pendingItems`（誤漏）；
 首版掃 rglob 把詳情頁分頁也算進來（誤報）。兩次都是實測才發現。
 
+## 收窄到「根目錄頁面」的代價已實測 —— 是零（2026-08-29 晚）
+
+同日稍早發現 `/pm/cases/509` 的報價單合計顯示錯誤（35,000 顯示成 1,750），
+而那個元件在**子目錄**（`pages/erpQuotation/QuotationItemsTab.tsx`）
+⇒ 合理的懷疑是「上面那個收窄放過了真問題」。
+
+**實測反駁了這個懷疑**：拿同一套判準掃全部 158 個子目錄頁面，
+命中 **1 個**，正是已知的誤報 `contractCase/tabs/VendorsTab`。
+⇒ 收窄沒有藏起任何真問題，維持現狀。
+
+那個 509 的 bug 漏掉的原因是**另一個**：它的錯數字在 `Table.Summary`
+裡，不是 `<Statistic>` 卡片。而全庫「畫了 Table 合計列且含金額」的元件
+**只有 2 個**（509 那個＋`taoyuan/PaymentsTab`，後者取全量且
+`total_budget` 來自後端，是對的）⇒ **為這個形狀加判準會是零命中**，
+不加。這裡寫下來是為了不用再查第二次。
+
 ## 誰跑它
 
 weekly step 82（`run_fitness_weekly.sh`）。
