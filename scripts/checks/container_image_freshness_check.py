@@ -1,4 +1,15 @@
-"""Container image freshness check (L51.7.1 / fitness step 60, 2026-05-30)
+"""Container image freshness check (L51.7.1 / fitness step 47, 2026-05-30)
+
+⚠️ 2026-08-30：容器沒跑／docker 不可用時**原本 `return 0`** ⇒ weekly
+顯示**綠燈，而它什麼都沒驗**。那是「無法驗證」被記成「驗過了沒問題」。
+
+runner 有三態（`0=GREEN / 1=YELLOW / 2+=RED`），而這個情境正是 YELLOW：
+**「未驗」不是「沒有 drift」，也不是「壞了」。** 已改回 1。
+
+（由 CK_AaaP 指出他們的快照守門在服務不起來時只黃字不擋而查出。
+本 repo 19 支依賴外部服務的稽核裡，只有這一支的**退出碼來源函式**
+在 except 裡 return 0 —— 另外四支是輔助函式的回傳值，不是退出碼。）
+
 
 L51 incident 揭發: docker cp 修法不持久，image 內檔過舊導致 5 防護層
 silent disabled 36h。本 check 自動偵測 host 與 container 內檔 hash drift，
@@ -7,7 +18,8 @@ silent disabled 36h。本 check 自動偵測 host 與 container 內檔 hash drif
 設計：
 - 對 N 個 critical backend 檔做 md5 比對 host vs container
 - 任一 drift → RED
-- container 未起 → SKIP (informational)
+- container 未起 → **YELLOW（exit 1）**，不是 SKIP／不是綠
+  （2026-08-30 改；原本是 `return 0` ⇒ 綠燈而什麼都沒驗）
 - 預設不入 strict fail（dev 環境可能沒 docker）
 
 Usage:
@@ -154,11 +166,11 @@ def main(strict: bool = False, container: str = "ck_missive_backend") -> int:
             capture_output=True, text=True, timeout=5,
         )
         if result.returncode != 0 or "true" not in result.stdout:
-            print(f"  [SKIP] container {container} not running")
-            return 0
+            print(f"  [YELLOW] container {container} 沒在跑 —— **未驗**，不是「沒有 drift」")
+            return 1
     except Exception:
-        print(f"  [SKIP] docker not available")
-        return 0
+        print("  [YELLOW] docker 不可用 —— **未驗**，不是「沒有 drift」")
+        return 1
 
     print()
     drift_count = 0
