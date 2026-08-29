@@ -24,6 +24,11 @@ except Exception:
 import argparse
 import os
 import sys
+from pathlib import Path as _Path
+
+# `lib/` 與本檔同目錄 —— 從別的 cwd 呼叫時（run_fitness.sh 從專案根跑）
+# 沒有這一行就 import 不到 `lib.env_loader`。
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
 
 # 公文事件標準前綴（與 event_auto_builder.EVENT_TYPE_PREFIX_MAP 對齊 — 改 builder 須同步此處）
 DOC_PREFIXES = ("[提醒]", "[會議]", "[審查]", "[參考]", "[截止]")
@@ -33,6 +38,19 @@ NONCONFORM_THRESHOLD_PCT = 1.0  # 非標準前綴占比門檻
 
 
 def _db_url() -> str | None:
+    """取 DB 連線字串。
+
+    ⚠️ 2026-08-30：原本只讀 `os.environ`，而本 audit 唯一的執行者
+    （`run_fitness.sh` 手動月度覆盤）**跑在 host**，那裡的 shell
+    沒有 source 過 `.env` ⇒ 永遠 `[SKIP] 無 DATABASE_URL` + exit 0
+    ⇒ **永遠綠燈、永遠沒驗**，而 `.env` 裡明明就有這個值。
+
+    「依賴不可用」與「依賴就在旁邊而我不知道去拿」是兩件事，
+    而它們產生的輸出一模一樣。
+    """
+    from lib.env_loader import load_env_file
+    if not (os.environ.get("DATABASE_URL") or os.environ.get("CK_DATABASE_URL")):
+        load_env_file()          # 不覆寫已存在的值（容器內不受影響）
     return os.environ.get("DATABASE_URL") or os.environ.get("CK_DATABASE_URL")
 
 
@@ -40,13 +58,18 @@ def main(strict: bool = False) -> int:
     try:
         import psycopg2  # type: ignore
     except Exception:
+        # ⚠️ 這裡**維持 exit 0**：psycopg2 是選用相依，host 沒裝是常態，
+        # 而那不是「檢查失敗」。但下面「有 psycopg2 卻沒有連線字串」
+        # 就不同了 —— 那是本來驗得到而沒去驗。
         print("[SKIP] psycopg2 不可用（host 端）— 此 audit 需 DB，請於容器內跑")
         return 0
 
     url = _db_url()
     if not url:
-        print("[SKIP] 無 DATABASE_URL")
-        return 0
+        # ⚠️ 改為 YELLOW（1）：`.env` 都讀過了還沒有，代表設定真的缺，
+        # 而不是「這個環境本來就不該驗」。**未驗不是通過。**
+        print("[YELLOW] 連 .env 都沒有 DATABASE_URL —— **未驗**，不是「沒有問題」")
+        return 1
     # asyncpg url → psycopg2
     url = url.replace("postgresql+asyncpg://", "postgresql://")
 

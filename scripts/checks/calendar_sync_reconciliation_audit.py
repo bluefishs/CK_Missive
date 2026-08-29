@@ -42,8 +42,23 @@ def main(sample: int = SAMPLE_DEFAULT, strict: bool = False) -> int:
         cred_path = os.path.join("/app", cred_path.lstrip("./"))
     cal_id = os.environ.get("GOOGLE_CALENDAR_ID", "primary")
     if not url or not os.path.exists(cred_path):
-        print("[SKIP] 無 DATABASE_URL 或憑證")
-        return 0
+        # ⚠️ 2026-08-30：原本 `[SKIP] … return 0` ⇒ 綠燈。
+        # 而它唯一的執行者 `run_fitness.sh` **跑在 host**，
+        # 而 host 上沒有 `GoogleCalendarAPIKEY.json`（只在容器裡）
+        # ⇒ **每一次執行都是綠燈，而它一次都沒真的驗過。**
+        #
+        # 這支確實需要容器（憑證路徑寫死 `/app`），所以不硬跑 ——
+        # 但「未驗」要看得見：改回 **YELLOW(1)**，並說出缺什麼、怎麼跑。
+        missing = []
+        if not url:
+            missing.append("DATABASE_URL")
+        if not os.path.exists(cred_path):
+            missing.append(f"憑證 {cred_path}")
+        print(f"  [YELLOW] 缺 {'、'.join(missing)} —— **未驗**，不是「沒有問題」")
+        print("           這支需要容器內環境。要真的驗請跑：")
+        print("             docker exec -w /app ck_missive_backend python "
+              "scripts/checks/calendar_sync_reconciliation_audit.py")
+        return 1
 
     try:
         conn = psycopg2.connect(url)
