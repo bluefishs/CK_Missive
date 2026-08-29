@@ -334,7 +334,18 @@ class CaseCodeService:
         return f"{prefix}{str(next_serial).zfill(3)}"
 
     async def promote_to_project(self, case_code: str) -> dict:
-        """成案觸發：從 PM Case 自動建立 ContractProject + 連結 ERP Quotation
+        """⚠️ **本方法內部會 `await self.db.commit()`** —— 呼叫端在外面包
+        `try/finally: await db.rollback()` **不會**讓它變成可回滾的試算。
+
+        2026-08-29：我為了確認「那 91 件待判讀的案件是不是被驗證擋著」，
+        寫了一段外層 rollback 的測試並在回報裡寫「（已回滾，未實際成案）」——
+        **那句話是錯的，3 件真的成案了**（後由 weekly step 28 的
+        「已承攬但無成案編碼 91 → 88」抓到，已逐表還原）。
+
+        要試算請改用**唯讀的方式**推導（查 `_validate_*` 的條件），
+        或在一個真的沒有 commit 的分支上做；不要靠外層 rollback。
+
+        成案觸發：從 PM Case 自動建立 ContractProject + 連結 ERP Quotation
 
         1. 查找 PM Case
         2. 產生 project_code
