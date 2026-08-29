@@ -531,6 +531,20 @@
 
 ---
 
+## L111 — 沒有人在跑的檢核不是「沒用」，是**會腐爛，而且腐爛的方式你猜不到**（2026-08-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 複查六條沒有守門的核心規範（§1／§2／§5.1／§6／§7／§8），8 個候選逐一核實後 **0 個真違規**。轉去查記憶裡標記「同一件事被發現兩次」的模式 —— `.claude/hooks/` 底下標為「手動執行」的三支。 |
+| **What happened** | 三支都**沒有任何 runner／settings／git hook 在叫它們**，而且**三支各自壞成不同的樣子**：<br>① `link-id-check.ps1`：`Select-String -Path "src\**\*.tsx"` —— **PowerShell 的 `**` 不是遞迴 glob**，等同於 `*`。實測掃得到 **119/604** 個 `.tsx`（20%）**而照樣印 `[PASS]`** ⇒ 假綠。同檔另有一條斷言 `BaseLink` 必須在 `types/api.ts`，而它實際在 `types/taoyuan.ts:53` ⇒ **永久假紅**。<br>② `route-sync-check.ps1`：專案根用了**三層** `Split-Path`（應為兩層）⇒ 算到 monorepo 根、找不到路由檔、每次 exit 1。<br>③ `link-id-validation.ps1`：跑得動、報 7 個警告，**但 exit 0** ⇒ 接進 runner 也永遠不會紅；抽查第一個是假陽性。 |
+| **重點不是「它們沒被跑」** | 而是**如果今天有人照著文件把它們接進 runner，拿到的是一個永久紅燈加一批假綠**。⇒ 「腳本存在 ≠ 有在強制」還要再加一句：**「腳本能跑 ≠ 它說的是真的」**。接一支久未執行的檢核之前，先跑它、並**確認它報的東西真的存在**。 |
+| **修好之後才看得見的第二層** | `route-sync-check` 修好路徑後給出「前端 144 條 vs 後端白名單 41 條」，看起來像大規模漂移 —— 實際那份白名單只收**導覽選單**的路徑，本來就不該等於全部路由；而反方向的 `/admin/` 是把 `navigation_validator.py:127` 的**字串常數** `.replace("/admin/", "/")` 當成白名單項（同 L97）。⇒ **修好一支壞掉的檢核，不等於得到一支正確的檢核。** 故它已修好但**刻意不接進 weekly**。 |
+| **Fix** | §7 改寫為 `scripts/checks/link_id_fallback_audit.py`（走 `lib/ts_source` 剝註解／字串，掃 **805** 個檔，豁免 React `key=` —— 它只決定渲染身分不決定操作對象），接為 **weekly 90**。負向對照：把 `key=` 的回退改成 `unlinkDispatchMutation.mutate(link_id ?? other)` 與 `\|\|` 兩種形式，皆 GREEN→RED（行號正確）→還原後 GREEN。`route-sync-check` 路徑已修但不接。舊 PS1 保留待裁示＝A40。 |
+| **本支自帶的解析度證據** | 新檢核印「掃描 N 個前端原始檔」，且 `N < 400` 直接回 2 不視為通過 —— 因為舊版正是**掃得少而印 PASS**。**凡是掃描型檢核，掃了幾個必須說出來，並為它設下限。** |
+| **Refs** | `scripts/checks/link_id_fallback_audit.py`（weekly 90）／`.claude/rules/hooks-guide.md`（已標記取代）／A40／同族：`arch_pattern_script_existence_not_enforcement`、L97（判準命中字串）、L109／L110（同日的兩個路徑與欄位盲區） |
+
+---
+
 ## L110 — 判準去問「那個欄位長什麼樣」，而違規是「那個欄位不存在」（2026-08-30）
 
 | 欄位 | 內容 |

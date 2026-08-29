@@ -332,6 +332,10 @@ daily 不是 weekly）。
 
 ---
 
+| **A40** | **`.claude/hooks/link-id-check.ps1` 建議刪除（功能已由 weekly 90 取代）** | 它同時有三個缺陷，而**沒有任何 runner 在叫它**：①`-Path "src\**\*.tsx"` —— PowerShell 的 `**` **不是遞迴 glob**，實測掃得到 **119/604** 個 `.tsx`（20%）而照樣印 `[PASS]`（假綠）；②斷言 `BaseLink` 必須在 `types/api.ts`，實際在 `types/taoyuan.ts:53` ⇒ **永久假紅**；③防禦性檢查計數同樣受 glob 盲區影響，報「0 個」而 `DispatchLinksTab` 就有。<br><br>⇒ 淨效果：誰把它接進 runner，拿到的是**一個永久紅燈加兩個假綠**。**另兩支同型的也已實查（三支、三種壞法、沒有一支產出真發現）**：<br>· `route-sync-check.ps1` —— 專案根算高一層（三層 `Split-Path` 應為兩層）⇒ 找不到路由檔、每次 exit 1。**已修**；但修好後發現它的判準本身不對：它拿「前端 144 條全部路由」比對「只收導覽選單的白名單」，兩者本來就不該相等；反方向的 `/admin/` 是把 `navigation_validator.py:127` 的**字串常數** `.replace("/admin/", "/")` 當成白名單項讀進去（同 L97）⇒ **不接進 weekly**。<br>· `link-id-validation.ps1` —— 跑得動、報 7 個警告，但 **exit 0** ⇒ 接進 runner 也永遠不會紅；抽查第一個（`project_dispatch_links.py:31`）是假陽性，該回應第 51 行就有 `'link_id': link.id`。<br><br>已改寫為 `scripts/checks/link_id_fallback_audit.py`（805 檔、負向對照兩種形式皆翻紅）。**刪檔不可逆，故列此請 owner 裁示。** | 2026-08-30 實測；教訓＝L111 |
+
+---
+
 ### 做不了／不該做（已核實，列此以免重複提案）
 
 | 議題 | 為什麼 |

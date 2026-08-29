@@ -20,7 +20,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 # 專案根目錄
-$ProjectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+# ⚠️ 2026-08-30：原本是**三層** Split-Path ⇒ 算到 `D:\CKProject`（monorepo 根）
+# 而不是 `D:\CKProject\CK_Missive`，於是找不到路由檔、每次都 exit 1。
+# $PSScriptRoot = <repo>\.claude\hooks ⇒ 兩層就到 repo 根。
+# 這支從來沒有任何 runner 在叫它，所以壞了多久沒有人知道。
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $ProjectRoot) {
     $ProjectRoot = Get-Location
 }

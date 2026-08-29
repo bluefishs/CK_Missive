@@ -95,4 +95,5 @@
 | `scripts/checks/gate_vs_report_step_audit.py` | weekly 的每一步都必須能紅，否則步驟名要標明「僅報告」——**永遠不可能紅的綠燈與真守門長得一樣**。判準看**程式碼有沒有非 0 退出路徑**，不看檔頭怎麼描述自己（首版掃字樣命中 7 支、**6 支是誤報**）| weekly 89 |
 | `scripts/checks/pg_tuning_ssot_audit.py` | postgres 調校參數的跨檔 SSOT：三份 compose ＋規格書＋**執行時**三層比對——`postgresql-tuning.conf` 掛載了卻**從未被讀**（Dead Config），而 dev/infra 定義同一個容器卻給不同的 `max_connections` | weekly 88 |
 | `scripts/checks/test_db_schema_drift_audit.py` | 測試庫 schema 不得落後正式庫——測試庫**原本沒有 `alembic_version`**，每支新 migration 都讓它再漂一次，症狀是測試 500 `column X does not exist`，看起來像「測試壞了」 | weekly 87 |
+| `scripts/checks/link_id_fallback_audit.py` | `link_id` 不得用 `??`／`||` 回退到別的 id（§7）——失效的代價是**對錯的紀錄執行操作**而畫面無異狀。豁免 React `key=`（只決定渲染身分）。⚠️ 取代 `.claude/hooks/link-id-check.ps1`：那支**沒有任何 runner 在叫它**，且 `-Path "src\**\*.tsx"` 在 PowerShell 裡的 `**` **不是遞迴 glob** ⇒ 只掃得到 119/604 個檔而照樣印 PASS，另有一條斷言的型別路徑早已過期＝永久假紅 | weekly 90 |
 | `scripts/checks/orphan_component_audit.py` | 元件建好了但沒有任何入口渲染它（`dead_ui_detector` 抓不到的第三種形狀）。**基線是問題清單不是刪除清單** | weekly 86 |

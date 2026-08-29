@@ -500,6 +500,12 @@ run_step "87" "測試庫 schema 不得落後正式庫" "scripts/checks/test_db_s
 run_step "88" "postgres 調校參數跨檔 SSOT（compose×3＋規格書＋執行時）" "scripts/checks/pg_tuning_ssot_audit.py"
 run_step "89" "weekly 每一步都要能紅，否則要說自己只是報告" "scripts/checks/gate_vs_report_step_audit.py"
 
+# 2026-08-30：§7 link_id 回退。原本有 `.claude/hooks/link-id-check.ps1`（2026-01-21），
+# 但**沒有任何 runner 在叫它**，而且跑起來會給錯的答案 —— `-Path "src\**\*.tsx"`
+# 在 PowerShell 裡的 `**` 不是遞迴 glob，實測只掃得到 119/604 個檔（20%）而照樣印 PASS。
+# 新版走 ts_source（剝註解／字串），掃 805 個檔，並豁免 React `key=`。
+run_step "90" "link_id 不得回退到別的 id（§7）" "scripts/checks/link_id_fallback_audit.py"
+
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
 # ------------------------------------------------------------------
