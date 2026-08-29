@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""統計卡的分母必須是全體，不能是當頁（development-rules §2.6 ①）。
+r"""統計卡的分母必須是全體，不能是當頁（development-rules §2.6 ①）。
 
 ## 為什麼有這一支
 
