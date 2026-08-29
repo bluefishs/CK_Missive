@@ -103,8 +103,22 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
     setDirty(true);
   };
 
-  const subtotal = rows.reduce((s, r) => s + (r.amount || 0), 0);
+  // ⚠️ 2026-08-29：這裡原本一律 `小計 = 明細加總`、`總計 = 小計 + 稅額`，
+  // 於是**沒有明細的報價單顯示的總計是錯的** —— 案件 509（35,000 元）
+  // 畫面顯示「小計 0／稅額 1,750／總計 1,750」，而後端 `data.total` 回的是 35,000。
+  //
+  // 後端算對了，前端拿到後又自己算了一次。而本檔檔頭寫著
+  // 「**清空明細不會把總價歸零** —— 空明細代表『還沒逐項拆』，不是『0 元』」：
+  // 儲存邏輯守住了這條，**顯示沒有**。
+  //
+  // 判準：**有明細時以明細為準**（編輯中要即時反映改動，那是這個畫面的用途），
+  // **沒有明細時以報價單本身的金額為準**（那是唯一的事實來源）。
+  const itemsSubtotal = rows.reduce((s, r) => s + (r.amount || 0), 0);
   const tax = data?.tax_amount ?? 0;
+  const noItems = rows.length === 0;
+  const storedTotal = data?.total ?? 0;
+  const subtotal = noItems ? Math.max(storedTotal - tax, 0) : itemsSubtotal;
+  const total = noItems ? storedTotal : itemsSubtotal + tax;
 
   const { isMobile, isTablet } = useResponsive();
   const isNarrow = isMobile || isTablet;
@@ -241,7 +255,8 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
 
       {/* 合計 —— 卡片版沒有 Table.Summary，要自己給，否則窄螢幕看不到總價 */}
       <Card size="small">
-        <Row justify="space-between"><Col><Text type="secondary">小計</Text></Col>
+        <Row justify="space-between">
+          <Col><Text type="secondary">小計{noItems && '（報價單金額）'}</Text></Col>
           <Col><Text strong>{money(subtotal)}</Text></Col></Row>
         {tax > 0 && (
           <Row justify="space-between" style={{ marginTop: 4 }}>
@@ -250,7 +265,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         <Divider style={{ margin: '8px 0' }} />
         <Row justify="space-between" align="middle">
           <Col><Text strong>總計</Text></Col>
-          <Col><Title level={5} style={{ margin: 0, color: '#1677ff' }}>{money(subtotal + tax)}</Title></Col>
+          <Col><Title level={5} style={{ margin: 0, color: '#1677ff' }}>{money(total)}</Title></Col>
         </Row>
       </Card>
     </div>
@@ -308,7 +323,9 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         summary={() => (
           <Table.Summary fixed>
             <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={5}><Text type="secondary">小計</Text></Table.Summary.Cell>
+              <Table.Summary.Cell index={0} colSpan={5}>
+                <Text type="secondary">小計{noItems && '（報價單金額，尚未逐項拆列）'}</Text>
+              </Table.Summary.Cell>
               <Table.Summary.Cell index={1} align="right"><Text strong>{money(subtotal)}</Text></Table.Summary.Cell>
               <Table.Summary.Cell index={2} />
             </Table.Summary.Row>
@@ -322,7 +339,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
             <Table.Summary.Row>
               <Table.Summary.Cell index={0} colSpan={5}><Text strong>總計</Text></Table.Summary.Cell>
               <Table.Summary.Cell index={1} align="right">
-                <Title level={5} style={{ margin: 0, color: '#1677ff' }}>{money(subtotal + tax)}</Title>
+                <Title level={5} style={{ margin: 0, color: '#1677ff' }}>{money(total)}</Title>
               </Table.Summary.Cell>
               <Table.Summary.Cell index={2} />
             </Table.Summary.Row>
