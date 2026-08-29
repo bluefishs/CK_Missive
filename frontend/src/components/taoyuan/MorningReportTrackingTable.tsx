@@ -170,11 +170,22 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
     return Array.from(set).sort().map(c => ({ text: c, value: c }));
   }, [items]);
 
+  // 2026-08-29 owner：「欄寬比例也不正確 導致資訊遮蔽」。
+  // 實測 1287px 容器下逐欄截斷率 —— 查估單位 **12/12（100%）**、工程名稱 4/12、
+  // 其餘 ≤1；而履約/交付期限各給 110px 裝 10 字元日期（本案交付期限整欄是「-」）。
+  // **空間給在不需要的地方，需要的地方不夠。**
+  //
+  // 第二輪用 canvas 量出每欄內容**實際需要的像素寬**（不是估的）：
+  //   查估單位 max 182 / p80 168（「昇揚不動產估價師聯合事務所」）
+  //   工程名稱 max 416 / p80 359（「桃園市八德區霄裡公園及周邊道路興闢工程」）
+  //   派工單號 max 122（「115年_派工單號001」）← 原本給 160，多了 38
+  // 1287px 容器塞不下全部 max，故壓縮確定有餘裕的欄（單號/承辦/類別/進度），
+  // 把省下的 ~130px 讓給查估單位與工程名稱，使 p80 的列都不再截斷。
   const allColumns: ColumnsType<MorningStatusItem> = [
     {
       title: '派工單號',
       dataIndex: 'dispatch_no',
-      width: 160,
+      width: 130,
       sorter: (a, b) => a.dispatch_no.localeCompare(b.dispatch_no),
       render: (text: string, record) => (
         <a onClick={() => navigate(`${ROUTES.TAOYUAN_DISPATCH}/${record.id}`)}>{text}</a>
@@ -183,21 +194,28 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
     {
       title: '工程名稱',
       dataIndex: 'project_name',
-      ellipsis: true,
+      ellipsis: isNarrow,
+      // 2026-08-29 owner：「導致資訊遮蔽」。ellipsis 的本質就是遮蔽 ——
+      // 再怎麼調寬度，總會有一列被截（實測查估單位在 185px 下仍有 5/12）。
+      // 這張表是**每天早上用來掃全部派工**的，改成換行：列高變高，
+      // 但沒有任何一個字看不到。桌面版才換行；窄螢幕仍走 ellipsis
+      // （手機上兩三行會把列撐得比螢幕還高，那是另一種看不到）。
+      onCell: () => ({ style: { whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 } }),
       sorter: (a, b) => a.project_name.localeCompare(b.project_name),
     },
     {
       title: '承辦',
       dataIndex: 'handler',
-      width: 80,
+      width: 76,
       filters: handlerOptions,
       onFilter: (value, record) => record.handler === value,
     },
     {
       title: '查估單位',
       dataIndex: 'survey_unit',
-      width: 100,
-      ellipsis: true,
+      width: 185,
+      ellipsis: isNarrow,
+      onCell: () => ({ style: { whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 } }),
       filters: (() => {
         const set = new Set(items.map(i => i.survey_unit).filter(Boolean));
         return Array.from(set).sort().map(s => ({ text: s, value: s }));
@@ -206,7 +224,7 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
     },
     {
       title: '作業類別',
-      width: 160,
+      width: 130,
       filters: categoryOptions,
       onFilter: (value, record) =>
         record.work_types.some(t => t === value) || record.work_category_label === value,
@@ -246,7 +264,7 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
     },
     {
       title: '進度',
-      width: 80,
+      width: 60,
       sorter: (a, b) => {
         const ra = a.total_records ? a.completed_count / a.total_records : -1;
         const rb = b.total_records ? b.completed_count / b.total_records : -1;
@@ -266,13 +284,13 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
     {
       title: '履約期限',
       dataIndex: 'deadline',
-      width: 110,
+      width: 100,
       sorter: (a, b) => (a.deadline || '').localeCompare(b.deadline || ''),
     },
     {
       title: '交付期限',
       dataIndex: 'next_event',
-      width: 110,
+      width: 100,
       sorter: (a, b) => (a.next_event || '').localeCompare(b.next_event || ''),
       render: (text: string | null) =>
         text ? <Tag icon={<CalendarOutlined />} color="blue">{text}</Tag> : <Text type="secondary">-</Text>,
@@ -282,8 +300,12 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
   // 2026-08-03：窄螢幕除了拿掉 scroll.x，還必須拿掉**欄位自己的固定 width** ——
   // 13 欄的 width 加總是 1620px，fixed layout 會照用，表格照樣撐爆 390px 視窗。
   // 另收斂次要欄位：手機上先看得到「是誰的、什麼狀態、進度多少」比看全欄重要。
+  // ⚠️ 2026-08-29：這一段判準原本也是 `isMobile` —— 於是 768px 只拿掉了
+  // scroll.x（上面那個判準已改 isNarrow），**欄寬卻照樣加總**，
+  // 實測 `<col>` 右緣 1197px、整頁溢出 429px。兩個判準要一致，
+  // 否則等於只做了一半（走查新增的「哪個元素在撐寬」診斷正是這樣抓到的）。
   const HIDE_ON_MOBILE = new Set(['查估單位', '作業類別', '履約期限']);
-  const columns = isMobile
+  const columns = isNarrow
     ? allColumns
         .filter((c) => !HIDE_ON_MOBILE.has(String((c as { title?: unknown }).title ?? '')))
         .map((c) => {

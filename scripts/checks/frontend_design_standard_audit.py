@@ -70,6 +70,8 @@ NOT_A_LIST = re.compile(r"(FormPage|CreatePage|EditPage|DetailPage|Dashboard|Hub
 # 首版全掃會產出 30 處噪音，多為診斷表 —— 所以這裡不是取消範圍限制，
 # 而是**把範圍換成白名單制**：診斷／開發者工具明列豁免，其餘一律要增強。
 # 白名單要有人判過型，不是「還沒改的收容所」。
+# 診斷／開發者工具 —— **owner 2026-08-29 明示豁免**（「診斷表是豁免 並非依照」）。
+# 「表格皆需提供篩選排序機制」這條規範的對象是**業務表格**，不含這些。
 DIAGNOSTIC_DIRS = (
     "pages/codeGraph/",            # 程式碼圖譜：開發者診斷
     "pages/databaseManagement/",   # 資料庫管理：DBA 工具
@@ -113,6 +115,27 @@ def _files():
         if "__tests__" in str(p) or ".test." in p.name:
             continue
         yield p
+
+
+def _sibling_column_sources(p: Path, text: str) -> str:
+    """把本檔 import 進來的**同目錄/子目錄欄位模組**內容併進來一起判。
+
+    2026-08-29：`PaymentsTab.tsx` 的 columns 來自 `payments/usePaymentColumns.ts`，
+    而本檢核只掃 `.tsx` ⇒ 看不到那裡的 sorter，會誤報「這張表沒有排序」。
+    判準看的是「這張表有沒有排序篩選」，那就必須跟著欄位定義走。
+    """
+    out = []
+    for m in re.finditer(r"from\s+'(\.[^']+)'", text):
+        spec = m.group(1)
+        for ext in (".ts", ".tsx", "/index.ts"):
+            cand = (p.parent / (spec + ext)).resolve()
+            if cand.is_file():
+                try:
+                    out.append(cand.read_text(encoding="utf-8", errors="ignore"))
+                except Exception:
+                    pass
+                break
+    return "\n".join(out)
 
 
 def _biz_component_files():
@@ -191,8 +214,17 @@ def main() -> int:
         t = re.sub(r"/\*[\s\S]*?\*/|//[^\n]*", "", raw)
         if not re.search(r"<Table[\s<]", t) or "EnhancedTable" in t:
             continue
+        # ⚠️ 欄位定義可能不在本檔：`PaymentsTab.tsx` 的 columns 來自
+        # `payments/usePaymentColumns.ts`（**.ts 不是 .tsx**，不在掃描範圍內）。
+        # 只看本檔會①誤報它「沒有排序」②反過來也可能漏掉真的沒排序的表。
+        # 故判定要**連同它 import 的同目錄欄位模組一起看**。
+        t += _sibling_column_sources(p, t)
         if not re.search(r"dataIndex", t):
             continue  # 沒有欄位定義的不是資料表
+        # 逐欄手動宣告也算數 —— 規範要的是「有排序篩選機制」，不限定實作方式。
+        # PaymentsTab 用 Table.Summary 不能自動增強，改為手動宣告 5 個 sorter。
+        if re.search(r"\bsorter\b|\bfilters:", t):
+            continue
         if TABLE_STATIC_MEMBER.search(t):
             continue  # 用了 Table.Summary 等靜態成員，見上方說明
         raw_sub.append(rel)

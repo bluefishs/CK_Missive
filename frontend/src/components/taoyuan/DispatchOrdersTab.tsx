@@ -372,9 +372,23 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           dataSource={orders}
           rowKey="id"
           loading={isLoading}
-          scroll={{ x: 1530 }}
+          // ⚠️ 2026-08-29：原本寫死 1530，而欄寬宣告總和只有 1351 ——
+          // **瀏覽器會把每一欄等比放大 13% 來填滿 1530**，於是「序」這種
+          // 只需要 34px 的流水號欄被撐到 46px，比它需要的還寬，
+          // 而「工程名稱」(需 434px) 只拿到 205px。owner 2026-08-29：
+          // 「僅是流水號其欄寬較其他重要資訊還寬，原本呈現還不會如此」。
+          // 重配後總和 1482；這裡跟著改成 1482，讓宣告值就是實際值。
+          scroll={{ x: 1482 }}
           size="small"
-          mobileHiddenColumns={['sub_case_name', 'contact_note', 'project_folder', 'survey_unit']}
+          // ⚠️ 2026-08-29：原清單是 ['sub_case_name','contact_note','project_folder','survey_unit']
+          // —— 前三個**在現行欄位裡根本不存在**（欄位改過名而清單沒跟著改），
+          // 實際只藏掉 1 欄。實測 768px：13 欄擠在 496px 容器＝每欄 38px，
+          // 而整頁溢出量測是 0（**擠壓不算溢出**，那個訊號對這件事是盲的）。
+          // 窄螢幕保留「是誰的、什麼進度、什麼時候要交」，其餘進詳情頁看。
+          mobileHiddenColumns={[
+            'work_type', 'survey_unit', 'batch_no', 'cloud_folder',
+            'linked_documents', 'linked_projects', 'attachment_count',
+          ]}
           rowSelection={{
             selectedRowKeys,
             onChange: setSelectedRowKeys,

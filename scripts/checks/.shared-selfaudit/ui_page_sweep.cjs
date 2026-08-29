@@ -471,6 +471,30 @@ async function main() {
             // innerWidth 本身就是訊號：它 > 設定值代表整頁被撐開（破版），與表格無關
             layoutViewport: window.innerWidth,
             tableOverflow: tables.length ? Math.max(...tables) : 0,
+            // 2026-08-29 加：**是哪一個元素**在撐寬。
+            // 在此之前報告只說「整頁溢出 164px」，而定位靠翻程式碼猜
+            // （CK_Missive 實測 /pm/cases/244 三個分頁都是 164px ⇒ 判定在外框
+            //  而非分頁內容，但「外框的哪一段」猜不出來）。
+            // 量測說得出數字卻說不出位置，就只能靠人重新做一次量測。
+            widest: (() => {
+              const over = [];
+              for (const el of document.querySelectorAll('body *')) {
+                const r = el.getBoundingClientRect();
+                if (r.width === 0 || r.right <= vw + 2) continue;
+                // 只留「自己就寬」的元素，排除單純被子元素撐大的祖先：
+                // 祖先與子孫同樣超界時，取最深的那一個才是真兇。
+                if ([...el.children].some((c) => c.getBoundingClientRect().right > vw + 2)) continue;
+                over.push({
+                  sel: el.tagName.toLowerCase()
+                    + (el.id ? '#' + el.id : '')
+                    + (typeof el.className === 'string' && el.className
+                        ? '.' + el.className.trim().split(/\s+/).slice(0, 3).join('.') : ''),
+                  right: Math.round(r.right),
+                });
+              }
+              over.sort((a, b) => b.right - a.right);
+              return over.slice(0, 3);
+            })(),
           };
         }, vp.width);
         mobileRows.push({ route, viewportWidth: vp.width, ...m });
@@ -550,8 +574,13 @@ async function main() {
     const pageOver = ranked.filter((r) => r.pageOverflow > 8 && !blown.includes(r));
     if (pageOver.length) {
       console.log(`   ⚠ 整頁橫向溢出（版面破格，非表格內捲）${pageOver.length} 筆：`);
-      pageOver.slice(0, 5).forEach((r) => console.log(
-        `      ${r.route} @${r.viewportWidth}px — ${r.pageOverflow}px`));
+      pageOver.slice(0, 5).forEach((r) => {
+        console.log(`      ${r.route} @${r.viewportWidth}px — ${r.pageOverflow}px`);
+        // 兇手一併印出來。只寫進 JSON 不印，等於沒有接收者 ——
+        // 而讀報告的人下一個動作必然是「所以是哪裡」。
+        (r.widest || []).slice(0, 2).forEach((w) => console.log(
+          `          ↳ ${w.sel}（右緣 ${w.right}px）`));
+      });
     }
   }
   console.log('-'.repeat(70));

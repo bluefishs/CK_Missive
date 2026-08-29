@@ -292,7 +292,14 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
           dataSource={projects}
           rowKey="id"
           loading={isLoading}
-          scroll={{ x: 1100 }}
+          // ⚠️ 2026-08-29：本表原本**完全沒有 mobileHiddenColumns** ⇒ 窄螢幕
+          // 10 欄平均分配，實測 768px 下每欄僅 50px（整頁溢出量測是 0，
+          // 因為擠壓不算溢出）。窄螢幕保留「哪一件、在哪、誰辦、派了幾張」。
+          // 「項次」只是流水號，窄螢幕第一個該讓位的就是它。
+          mobileHiddenColumns={['sequence_no', 'review_year', 'case_type', 'sub_case_name', 'survey_unit', 'linked_documents']}
+          // 欄寬總和 1135 > scroll.x 1100 ⇒ 不會有等比放大的問題（對照
+          // DispatchOrdersTab 原本 1530 vs 1351 那個把「序」撐寬的 bug）。
+          scroll={{ x: 1135 }}
           size="middle"
           pagination={{
             showSizeChanger: true,

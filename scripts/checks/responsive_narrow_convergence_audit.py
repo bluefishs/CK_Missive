@@ -114,6 +114,30 @@ def main() -> int:
         if "isTablet" not in t and "isNarrow" not in t:
             reds.append(rel)
 
+    # 2026-08-29 第二次擴大：**同一個檔裡兩個判準不一致**。
+    # `MorningReportTrackingTable` 把 scroll/tableLayout 改成 isNarrow 之後，
+    # 底下「窄螢幕拿掉欄位固定 width + 藏次要欄」那一段**仍然是 isMobile** ——
+    # 於是 768px 只做了一半：scroll.x 拿掉了，欄寬照樣加總到 1197px。
+    # 走查的「哪個元素在撐寬」診斷指著 `<col>` 才抓到。
+    #
+    # 判準：檔內已經有 isNarrow（代表作者知道要含平板），卻仍用 isMobile
+    # 決定欄位過濾或欄寬移除 ⇒ 半套。
+    half = re.compile(
+        r"isMobile[\s\S]{0,80}?(\.filter\(|\bwidth:\s*_|width:\s*_unusedWidth|HIDE_ON_MOBILE)"
+        r"|(\.filter\(|HIDE_ON_MOBILE)[\s\S]{0,80}?isMobile"
+    )
+    for f in sorted(SRC.rglob("*.tsx")):
+        rel = str(f.relative_to(SRC)).replace("\\", "/")
+        if "__tests__" in rel or ".test." in f.name:
+            continue
+        t = _strip_comments(f.read_text(encoding="utf-8", errors="ignore"))
+        if "isNarrow" not in t or "isMobile" not in t:
+            continue
+        if not half.search(t):
+            continue
+        if rel not in reds:
+            reds.append(rel + "（同檔兩個判準不一致：scroll 用 isNarrow、欄寬/欄位過濾仍用 isMobile）")
+
     print("=" * 74)
     print("窄螢幕收斂判準：共用表格元件不得只看 isMobile（weekly 81）")
     print("=" * 74)

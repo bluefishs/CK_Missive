@@ -27,6 +27,13 @@ function getColumnDataIndex<T>(col: ColumnType<T>): string | undefined {
   if (Array.isArray(dataIndex)) {
     return dataIndex.join('.');
   }
+  // ⚠️ 2026-08-29：原本只認 dataIndex ⇒ **純渲染欄（只有 key、沒有 dataIndex）
+  // 永遠藏不掉**。DispatchOrdersTab 的「關聯公文／關聯工程／附件」正是這種，
+  // 於是 768px 下 13 欄擠在 496px（每欄 38px）而 mobileHiddenColumns 使不上力。
+  // 設定寫了卻不生效，和沒寫是同一個結果 —— 而它不會報錯。
+  if (typeof col.key === 'string') {
+    return col.key;
+  }
   return undefined;
 }
 

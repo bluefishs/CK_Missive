@@ -76,7 +76,19 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
   const totalRemaining = totalBudget - totalDispatched;
 
   // 建立表格欄位（已提取至 usePaymentColumns）
-  const columns = usePaymentColumns(navigate);
+  const columns = usePaymentColumns(navigate, items);
+  // ⚠️ scroll.x 原本寫死 2200，而實際欄寬總和只有 ~1876 ——
+  // 多出來的 324px 純粹是那個數字沒跟著欄位改。寫死的最小寬度會
+  // **自己製造橫向捲動**，且沒有任何東西會告訴你它跟欄位對不上了。
+  // 改由欄寬推導：群組欄要遞迴加總 children。
+  const tableMinWidth = React.useMemo(() => {
+    const w = (c: unknown): number => {
+      const col = c as { width?: number; children?: unknown[] };
+      if (col.children) return col.children.reduce((s: number, x) => s + w(x), 0);
+      return typeof col.width === 'number' ? col.width : 100;
+    };
+    return columns.reduce((s, c) => s + w(c), 0);
+  }, [columns]);
 
   // 匯出 Excel 功能
   const handleExportExcel = async () => {
@@ -356,7 +368,10 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
       </Row>
 
       {/* 契金紀錄 - RWD: 手機用卡片清單，桌面用表格 */}
-      {isMobile ? (
+      {/* ⚠️ 2026-08-29：原本只有 isMobile(<768) 切卡片清單 ⇒ **平板仍渲染 20 欄表格**，
+          實測 768px 整頁溢出 1345px、表格 1876px。這張表是 7 種作業類別 × 2 欄的
+          交叉表，欄位再怎麼壓縮都塞不進 768 —— 平板該走的就是卡片清單。 */}
+      {isNarrow ? (
         <MobilePaymentList />
       ) : (
         <Table
@@ -364,7 +379,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
         dataSource={items}
         rowKey="dispatch_order_id"
         loading={isLoading}
-        scroll={isNarrow ? undefined : { x: 2200 }}
+        scroll={isNarrow ? undefined : { x: tableMinWidth }}
         tableLayout={isNarrow ? 'fixed' : undefined}
         pagination={{
           showSizeChanger: true,

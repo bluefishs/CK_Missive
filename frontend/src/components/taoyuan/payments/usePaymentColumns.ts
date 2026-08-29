@@ -52,8 +52,12 @@ export const formatAmount = (val?: number | null) => {
  * @param navigate - React Router navigate 函數
  * @returns 完整的表格欄位定義陣列
  */
+// 2026-08-29 owner「表格皆需提供篩選排序機制」：本表用 Table.Summary 合計列，
+// 不能靠 EnhancedTable 自動增強（那是函式包裝、沒有靜態成員），故逐欄手動宣告。
+// '序'（列序號）與群組表頭刻意不排序 —— 序號排序沒有意義。
 export const usePaymentColumns = (
-  navigate: NavigateFunction
+  navigate: NavigateFunction,
+  items: PaymentControlItem[] = [],
 ): (ColumnGroupType<PaymentControlItem> | ColumnType<PaymentControlItem>)[] => {
   return useMemo(() => {
     // 基本欄位
@@ -68,6 +72,7 @@ export const usePaymentColumns = (
       },
       {
         title: '派工單號',
+        sorter: (a: PaymentControlItem, b: PaymentControlItem) => String(a.dispatch_no || '').localeCompare(String(b.dispatch_no || '')),
         dataIndex: 'dispatch_no',
         width: 120,
         fixed: 'left',
@@ -82,6 +87,7 @@ export const usePaymentColumns = (
       },
       {
         title: '工程名稱/派工事項',
+        sorter: (a: PaymentControlItem, b: PaymentControlItem) => String(a.project_name || '').localeCompare(String(b.project_name || '')),
         dataIndex: 'project_name',
         width: 280,
         fixed: 'left',
@@ -94,8 +100,21 @@ export const usePaymentColumns = (
       },
     ];
 
-    // 7 種作業類別欄位群組
-    const workTypeColumnGroups: ColumnGroupType<PaymentControlItem>[] = WORK_TYPE_COLUMNS.map(
+    // 2026-08-29 owner 回報「/taoyuan/dispatch 資訊完全超出頁框」：
+    // 這張表原本**無條件展開 7 種作業類別 × 2 欄**，桌面 1409px 下表格寬 2200、
+    // 容器只有 1112 ⇒ 要橫向捲 1088px，一次只看得到一半。
+    //
+    // 只渲染「這批資料真的用到」的類別。判準是該類別在**任何一列**有日期或金額；
+    // 全部沒有的類別對使用者是 14 欄的「-」，佔掉的正是他要看的空間。
+    // ⚠️ 開口契約常常七類全用（實測 project=21 就是），那時本節省不下來 ——
+    // 所以另外還做了兩件事：金額欄改 fixed:'right'、scroll.x 改由欄寬推導。
+    const usedWorkTypes = WORK_TYPE_COLUMNS.filter((wt) =>
+      items.length === 0 || items.some((it) => {
+        const rec = it as unknown as Record<string, unknown>;
+        return Boolean(rec[wt.dateField]) || Boolean(rec[wt.amountField]);
+      })
+    );
+    const workTypeColumnGroups: ColumnGroupType<PaymentControlItem>[] = usedWorkTypes.map(
       (workType) => ({
         title: React.createElement('span', { style: { fontWeight: 600, color: '#262626' } }, workType.label),
         key: workType.key,
@@ -172,6 +191,8 @@ export const usePaymentColumns = (
     const summaryColumns: ColumnType<PaymentControlItem>[] = [
       {
         title: '本次派工總金額',
+        fixed: 'right' as const,
+        sorter: (a: PaymentControlItem, b: PaymentControlItem) => (a.current_amount || 0) - (b.current_amount || 0),
         dataIndex: 'current_amount',
         key: 'current_amount',
         width: 110,
@@ -186,6 +207,8 @@ export const usePaymentColumns = (
       },
       {
         title: '累進派工金額',
+        fixed: 'right' as const,
+        sorter: (a: PaymentControlItem, b: PaymentControlItem) => (a.cumulative_amount || 0) - (b.cumulative_amount || 0),
         dataIndex: 'cumulative_amount',
         key: 'cumulative_amount',
         width: 110,
@@ -196,6 +219,8 @@ export const usePaymentColumns = (
       },
       {
         title: '剩餘金額',
+        fixed: 'right' as const,
+        sorter: (a: PaymentControlItem, b: PaymentControlItem) => (a.remaining_amount || 0) - (b.remaining_amount || 0),
         dataIndex: 'remaining_amount',
         key: 'remaining_amount',
         width: 110,
@@ -215,5 +240,5 @@ export const usePaymentColumns = (
     ];
 
     return [...baseColumns, ...workTypeColumnGroups, ...summaryColumns];
-  }, [navigate]);
+  }, [navigate, items]);
 };

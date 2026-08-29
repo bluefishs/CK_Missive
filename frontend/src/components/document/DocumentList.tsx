@@ -352,7 +352,16 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           />
         )}
       </Space>
-      <ResponsiveTable {...tableProps} mobileHiddenColumns={['category', 'status', 'created_at']} />
+      {/* ⚠️ 2026-08-29：原清單 ['category','status','created_at'] —— 這三個
+          **在 documentColumns 裡一個都不存在**（欄位是 delivery_method /
+          correspondent / doc_number / doc_date / subject / attachment_count /
+          contract_project_name / rowNumber）。設定寫了完全不生效，而它不會報錯，
+          結果是 768px 下 9 欄擠在 496px。與 DispatchOrdersTab 同一天發現的同型死設定。
+          窄螢幕保留「誰發的、什麼字號、講什麼」。 */}
+      <ResponsiveTable
+        {...tableProps}
+        mobileHiddenColumns={['rowNumber', 'delivery_method', 'doc_date', 'attachment_count', 'contract_project_name']}
+      />
     </>
   );
 };

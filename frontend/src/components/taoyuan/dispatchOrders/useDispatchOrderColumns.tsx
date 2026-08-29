@@ -64,7 +64,7 @@ export function useDispatchOrderColumns({
     {
       title: '序',
       key: 'rowIndex',
-      width: 40,
+      width: 36,
       fixed: 'left',
       align: 'center',
       render: (_: unknown, __: DispatchOrder, index: number) => index + 1,
@@ -72,7 +72,7 @@ export function useDispatchOrderColumns({
     {
       title: '派工單號',
       dataIndex: 'dispatch_no',
-      width: 125,
+      width: 140,
       fixed: 'left',
       sorter: (a, b) => (a.dispatch_no ?? '').localeCompare(b.dispatch_no ?? ''),
       ...getColumnSearchProps('dispatch_no'),
@@ -90,8 +90,9 @@ export function useDispatchOrderColumns({
     },
     {
       title: '工程名稱/派工事項',
+      onCell: () => ({ style: { whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 } }),
       dataIndex: 'project_name',
-      width: 180,
+      width: 250,
       ellipsis: true,
       sorter: (a, b) => (a.project_name ?? '').localeCompare(b.project_name ?? ''),
       ...getColumnSearchProps('project_name'),
@@ -110,7 +111,7 @@ export function useDispatchOrderColumns({
     {
       title: '作業類別',
       dataIndex: 'work_type',
-      width: 140,
+      width: 150,
       ellipsis: false,
       filters: WORK_TYPE_OPTIONS.map((opt) => ({ text: opt.label, value: opt.value })),
       onFilter: (value, record) => (record.work_type || '').includes(value as string),
@@ -137,7 +138,7 @@ export function useDispatchOrderColumns({
     {
       title: '履約期限',
       dataIndex: 'deadline',
-      width: 105,
+      width: 120,
       ellipsis: true,
       sorter: (a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? ''),
       render: (val?: string) => val ? (
@@ -149,7 +150,7 @@ export function useDispatchOrderColumns({
     {
       title: '作業進度',
       key: 'work_progress',
-      width: 120,
+      width: 135,
       filters: [
         { text: '進行中', value: 'in_progress' },
         { text: '已完成', value: 'completed' },
@@ -196,7 +197,7 @@ export function useDispatchOrderColumns({
     {
       title: '承辦',
       dataIndex: 'case_handler',
-      width: 65,
+      width: 60,
       align: 'center',
       ellipsis: true,
       sorter: (a, b) => (a.case_handler ?? '').localeCompare(b.case_handler ?? ''),
@@ -208,8 +209,9 @@ export function useDispatchOrderColumns({
     },
     {
       title: '查估單位',
+      onCell: () => ({ style: { whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 } }),
       dataIndex: 'survey_unit',
-      width: 100,
+      width: 120,
       ellipsis: true,
       filters: dispatchSurveyUnitFilters,
       onFilter: (value, record) => record.survey_unit === value,
@@ -220,7 +222,7 @@ export function useDispatchOrderColumns({
     {
       title: '結案批次',
       dataIndex: 'batch_no',
-      width: 80,
+      width: 74,
       align: 'center',
       filters: [
         ...Array.from({ length: 10 }, (_, i) => ({
@@ -243,7 +245,7 @@ export function useDispatchOrderColumns({
     {
       title: '雲端',
       dataIndex: 'cloud_folder',
-      width: 50,
+      width: 46,
       align: 'center',
       render: (val?: string) => val ? (
         <Tooltip title={val}>
@@ -255,8 +257,9 @@ export function useDispatchOrderColumns({
     },
     {
       title: '關聯公文',
+      onCell: () => ({ style: { whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 } }),
       key: 'linked_documents',
-      width: 130,
+      width: 175,
       render: (_, record) => {
         const docs = record.linked_documents || [];
         if (docs.length === 0) return <Text type="secondary">-</Text>;
@@ -289,8 +292,9 @@ export function useDispatchOrderColumns({
     },
     {
       title: '關聯工程',
+      onCell: () => ({ style: { whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 } }),
       key: 'linked_projects',
-      width: 120,
+      width: 130,
       render: (_, record) => {
         const projects = record.linked_projects || [];
         if (projects.length === 0) return <Text type="secondary">-</Text>;
@@ -315,7 +319,7 @@ export function useDispatchOrderColumns({
     {
       title: '附件',
       key: 'attachment_count',
-      width: 50,
+      width: 46,
       align: 'center',
       render: (_, record) => {
         const count = record.attachment_count ?? 0;
