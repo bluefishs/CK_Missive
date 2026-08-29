@@ -18,7 +18,12 @@ Agent 自主進化閉環整合測試（scaffold）
 
 Version: 0.1.0 (scaffold)
 Created: 2026-04-14
-Owner: P1 — 依 MEMORY Pending Work Queue
+Owner: 待辦 **A35**（docs/architecture/OPEN_ITEMS_20260819.md）
+
+⚠️ 2026-08-29 更正：原本寫「依 MEMORY Pending Work Queue」——
+**那個 queue 從來沒有追蹤過這個檔案**（實查：現有兩項都不是它），
+於是本 scaffold 自 2026-04-14 起 4.5 個月沒有任何進展而沒有人知道。
+宣告一個追蹤者不等於被追蹤（同 L99）。現已改指真正在用的待辦表。
 """
 
 import pytest
