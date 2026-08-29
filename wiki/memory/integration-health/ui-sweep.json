@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-28T20:38:59.254Z",
+ "checked_at": "2026-08-29T02:34:55.753Z",
  "base": "https://missive.cksurvey.tw",
  "role": "admin",
  "pass": 87,
@@ -1067,7 +1067,7 @@
    "/api/taoyuan-dispatch/dispatch/contract-projects"
   ]
  },
- "throttled": 0,
+ "throttled": 12,
  "known_limitations": [
   {
    "route": "/admin/deployment",
@@ -1090,322 +1090,1158 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "a",
+      "right": 1107
+     },
+     {
+      "sel": "a",
+      "right": 1000
+     },
+     {
+      "sel": "a",
+      "right": 841
+     }
+    ]
    },
    {
     "route": "/erp/quotations",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "strong",
+      "right": 815
+     }
+    ]
    },
    {
     "route": "/erp/ledger",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "button.ant-btn.css-1daqxe2.css-var-r0",
+      "right": 398
+     },
+     {
+      "sel": "button.ant-btn.css-1daqxe2.css-var-r0",
+      "right": 398
+     },
+     {
+      "sel": "button.ant-btn.css-1daqxe2.css-var-r0",
+      "right": 398
+     }
+    ]
    },
    {
     "route": "/erp/assets",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/erp/operational",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/erp/financial-dashboard",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/erp/vendor-accounts",
     "viewportWidth": 390,
     "pageOverflow": 17,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "path",
+      "right": 394
+     }
+    ]
    },
    {
     "route": "/erp/client-accounts",
     "viewportWidth": 390,
     "pageOverflow": 7,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "div.ant-select.ant-select-outlined.css-var-r0",
+      "right": 397
+     }
+    ]
    },
    {
     "route": "/documents",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "strong",
+      "right": 1339
+     },
+     {
+      "sel": "strong",
+      "right": 741
+     },
+     {
+      "sel": "strong",
+      "right": 739
+     }
+    ]
    },
    {
     "route": "/contract-cases",
     "viewportWidth": 390,
     "pageOverflow": 7,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 424
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 424
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 424
+     }
+    ]
    },
    {
     "route": "/taoyuan/dispatch",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 401
+     },
+     {
+      "sel": "span",
+      "right": 395
+     }
+    ]
    },
    {
     "route": "/calendar",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/kunge/ops",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/pm/cases",
+    "viewportWidth": 390,
+    "pageOverflow": 84,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 458
+     },
+     {
+      "sel": "path",
+      "right": 397
+     }
+    ]
+   },
+   {
+    "route": "/agencies",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/clients",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/vendors",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/staff",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/projects",
+    "viewportWidth": 390,
+    "pageOverflow": 7,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 424
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 424
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 424
+     }
+    ]
+   },
+   {
+    "route": "/dashboard",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 818
+     },
+     {
+      "sel": "span",
+      "right": 806
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 760
+     }
+    ]
+   },
+   {
+    "route": "/reports",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/document-numbers",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "strong",
+      "right": 1579
+     },
+     {
+      "sel": "strong",
+      "right": 1493
+     },
+     {
+      "sel": "strong",
+      "right": 1475
+     }
+    ]
+   },
+   {
+    "route": "/erp/einvoice-sync",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/erp/invoices/summary-view",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/taoyuan",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 401
+     },
+     {
+      "sel": "span",
+      "right": 395
+     }
+    ]
+   },
+   {
+    "route": "/settings",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 429
+     }
+    ]
+   },
+   {
+    "route": "/profile",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 429
+     }
+    ]
+   },
+   {
+    "route": "/entry",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 818
+     },
+     {
+      "sel": "span",
+      "right": 806
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 760
+     }
+    ]
+   },
+   {
+    "route": "/login",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 818
+     },
+     {
+      "sel": "span",
+      "right": 806
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 760
+     }
+    ]
+   },
+   {
+    "route": "/tender/search",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
+      "right": 857
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
+      "right": 857
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
+      "right": 753
+     }
+    ]
+   },
+   {
+    "route": "/tender/dashboard",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "a",
+      "right": 528
+     },
+     {
+      "sel": "a",
+      "right": 456
+     },
+     {
+      "sel": "a",
+      "right": 403
+     }
+    ]
    },
    {
     "route": "/documents/2689",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 554
+     },
+     {
+      "sel": "path",
+      "right": 504
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 459
+     }
+    ]
    },
    {
     "route": "/erp/quotations/168",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 507
+     },
+     {
+      "sel": "path",
+      "right": 473
+     },
+     {
+      "sel": "span",
+      "right": 429
+     }
+    ]
    },
    {
     "route": "/erp/expenses/10",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/pm/cases/244",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 554
+     },
+     {
+      "sel": "path",
+      "right": 493
+     },
+     {
+      "sel": "span",
+      "right": 448
+     }
+    ]
    },
    {
     "route": "/contract-cases/187",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 1052
+     },
+     {
+      "sel": "path",
+      "right": 992
+     },
+     {
+      "sel": "span",
+      "right": 946
+     }
+    ]
    },
    {
     "route": "/erp/quotations/168?tab=receivable",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 507
+     },
+     {
+      "sel": "path",
+      "right": 473
+     },
+     {
+      "sel": "span",
+      "right": 429
+     }
+    ]
    },
    {
     "route": "/erp/quotations/168?tab=payable",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 491
+     },
+     {
+      "sel": "path",
+      "right": 457
+     },
+     {
+      "sel": "span",
+      "right": 413
+     }
+    ]
    },
    {
     "route": "/erp/quotations/168?tab=expenses",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-green",
+      "right": 404
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-green",
+      "right": 404
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-green",
+      "right": 404
+     }
+    ]
    },
    {
     "route": "/pm/cases/244?tab=quotations",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 584
+    "tableOverflow": 304,
+    "widest": [
+     {
+      "sel": "td.ant-table-cell",
+      "right": 657
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 657
+     },
+     {
+      "sel": "col",
+      "right": 641
+     }
+    ]
    },
    {
     "route": "/pm/cases/244?tab=expenses",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/erp/expenses",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "a",
+      "right": 1363
+     },
+     {
+      "sel": "a",
+      "right": 1257
+     },
+     {
+      "sel": "a",
+      "right": 1098
+     }
+    ]
    },
    {
     "route": "/erp/quotations",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "strong",
+      "right": 1056
+     }
+    ]
    },
    {
     "route": "/erp/ledger",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/erp/assets",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/erp/operational",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/erp/financial-dashboard",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/erp/vendor-accounts",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/erp/client-accounts",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/documents",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 586
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/contract-cases",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 581
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/taoyuan/dispatch",
     "viewportWidth": 768,
-    "pageOverflow": 0,
+    "pageOverflow": 429,
     "layoutViewport": 768,
-    "tableOverflow": 580
+    "tableOverflow": 478,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1197
+     },
+     {
+      "sel": "path",
+      "right": 1187
+     },
+     {
+      "sel": "path",
+      "right": 1187
+     }
+    ]
    },
    {
     "route": "/calendar",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/kunge/ops",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/pm/cases",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/agencies",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/clients",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/vendors",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/staff",
+    "viewportWidth": 768,
+    "pageOverflow": 32,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 784
+     }
+    ]
+   },
+   {
+    "route": "/projects",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/dashboard",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1093
+     },
+     {
+      "sel": "span",
+      "right": 1088
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1035
+     }
+    ]
+   },
+   {
+    "route": "/reports",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/document-numbers",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/erp/einvoice-sync",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/erp/invoices/summary-view",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/taoyuan",
+    "viewportWidth": 768,
+    "pageOverflow": 429,
+    "layoutViewport": 768,
+    "tableOverflow": 478,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1197
+     },
+     {
+      "sel": "path",
+      "right": 1187
+     },
+     {
+      "sel": "path",
+      "right": 1187
+     }
+    ]
+   },
+   {
+    "route": "/settings",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/profile",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/entry",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1093
+     },
+     {
+      "sel": "span",
+      "right": 1088
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1035
+     }
+    ]
+   },
+   {
+    "route": "/login",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1093
+     },
+     {
+      "sel": "span",
+      "right": 1088
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1035
+     }
+    ]
+   },
+   {
+    "route": "/tender/search",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
+      "right": 1106
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
+      "right": 1106
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
+      "right": 1002
+     }
+    ]
+   },
+   {
+    "route": "/tender/dashboard",
+    "viewportWidth": 768,
+    "pageOverflow": 0,
+    "layoutViewport": 768,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "a",
+      "right": 782
+     }
+    ]
    },
    {
     "route": "/documents/2689",
     "viewportWidth": 768,
     "pageOverflow": 3,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 826
+     },
+     {
+      "sel": "button.ant-btn.css-1daqxe2.css-var-r0",
+      "right": 771
+     },
+     {
+      "sel": "path",
+      "right": 770
+     }
+    ]
    },
    {
     "route": "/erp/quotations/168",
     "viewportWidth": 768,
     "pageOverflow": 19,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 777
+     },
+     {
+      "sel": "span",
+      "right": 771
+     }
+    ]
    },
    {
     "route": "/erp/expenses/10",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": []
    },
    {
     "route": "/pm/cases/244",
     "viewportWidth": 768,
     "pageOverflow": 164,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 916
+     },
+     {
+      "sel": "path",
+      "right": 879
+     },
+     {
+      "sel": "span",
+      "right": 831
+     }
+    ]
    },
    {
     "route": "/contract-cases/187",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 1361
+     },
+     {
+      "sel": "path",
+      "right": 1293
+     },
+     {
+      "sel": "span",
+      "right": 1245
+     }
+    ]
    },
    {
     "route": "/erp/quotations/168?tab=receivable",
     "viewportWidth": 768,
     "pageOverflow": 19,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 777
+     },
+     {
+      "sel": "span",
+      "right": 771
+     }
+    ]
    },
    {
     "route": "/erp/quotations/168?tab=payable",
     "viewportWidth": 768,
     "pageOverflow": 19,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 777
+     },
+     {
+      "sel": "span",
+      "right": 771
+     }
+    ]
    },
    {
     "route": "/erp/quotations/168?tab=expenses",
     "viewportWidth": 768,
     "pageOverflow": 19,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 771
+     }
+    ]
    },
    {
     "route": "/pm/cases/244?tab=quotations",
     "viewportWidth": 768,
     "pageOverflow": 164,
     "layoutViewport": 768,
-    "tableOverflow": 454
+    "tableOverflow": 174,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 916
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 881
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 881
+     }
+    ]
    },
    {
     "route": "/pm/cases/244?tab=expenses",
     "viewportWidth": 768,
     "pageOverflow": 164,
     "layoutViewport": 768,
-    "tableOverflow": 0
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 916
+     },
+     {
+      "sel": "path",
+      "right": 879
+     },
+     {
+      "sel": "span",
+      "right": 826
+     }
+    ]
    }
   ]
  }

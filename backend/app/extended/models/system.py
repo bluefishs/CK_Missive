@@ -109,7 +109,25 @@ class UserSession(Base):
     ip_address = Column(String(255), nullable=True)
     user_agent = Column(Text, nullable=True)
     device_info = Column(Text, nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
+    # ⚠️ 2026-08-29：同一張表**曾有兩種時間基準**。
+    #
+    # `expires_at` 由 Python 寫入 `datetime.utcnow()`（naive UTC），
+    # 而 `created_at` 原本是 `server_default=func.now()` ＝ **PostgreSQL 本地時間
+    # （Asia/Taipei）**。實測 2,263 筆裡有 **1,185 筆** 的
+    # `expires_at - created_at` 是 **-7 小時 45 分** —— 看起來像「寫入當下就過期」。
+    #
+    # ⚠️ **使用者沒有受影響**：`session_repository` 驗證時同樣用 `utcnow()`，
+    # 與寫入一致（repository.py:65 / :359）。真正的傷害有兩處：
+    #   ① 同一列的兩個時間戳無法相減，任何算 session 壽命的分析都是錯的
+    #   ② 在 DB 層比對 `expires_at > NOW()` 的工具**永遠看到 0 個有效 session**
+    #      （實測：本地時間判定 0 筆 / UTC 判定 15 筆）
+    #      —— 那正是 `admin_backup_smoke_test` 每次都強制重新插入的原因。
+    #
+    # 修法只動 `created_at` 這一端（改為與 expires_at 同基準的 naive UTC），
+    # **不碰認證邏輯** —— 它是自洽的、在運作的，改它才會傷到使用者。
+    # ⚠️ 存量的 1,185 筆仍是本地時間，不回填：那是已過期的歷史 session，
+    # 回填等於改寫稽核軌跡；要區分新舊看 created_at 是否 > 本次部署時間。
+    created_at = Column(DateTime, server_default=func.timezone("UTC", func.now()))
     expires_at = Column(DateTime, nullable=False)
     last_activity = Column(DateTime, server_default=func.now())
     is_active = Column(Boolean, default=True)
