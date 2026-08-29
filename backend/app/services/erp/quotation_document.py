@@ -273,7 +273,7 @@ class QuotationDocumentService:
         "staff_name": "E12",        # 服務人員
         "location": "B13",          # 工作地點
         "staff_email": "E13",       # 服務人員 E-mail
-        "notes": "B21",             # 備註
+        "notes": "B29",             # 備註（2026-08-29 由 B21 下移，見下方說明）
     }
 
     #: 明細列範圍。
@@ -281,18 +281,28 @@ class QuotationDocumentService:
     #: ⚠️ 2026-08-20 由 25 改為 20。範本的 `SUM(F16:F25)` 涵蓋 10 列沒錯，
     #: **但第 21 列是範本的備註列**（`A21="備註："` / `B21=備註內容`）——
     #: 範本樣本只有 3 項明細，作者就把備註放在那裡了。
+    #: 於是那 10 項容量是假的，實際可用只有 5 項。
     #:
-    #: 原本設 25 的後果是備註**兩種情況都印不出來**：
-    #:   明細 ≤5 項 → 備註被下方「清掉範本殘留」的迴圈清掉；
-    #:   明細 ≥6 項 → 第 6 項的工作內容直接覆蓋 B21。
-    #: 也就是說那 10 項容量是假的，實際可用只有 5 項。
+    #: ⭐ 2026-08-29 恢復為 25 —— **備註改印在合計之後的第 29 列**。
     #:
-    #: 要更多項目得改範本（把備註移到合計之後、擴充列數並同步 SUM 範圍），
-    #: 那要動 owner 提供的原始版面 —— 不在程式裡假裝有 10 列。
+    #: 外部評估建議用 `ws.insert_rows()` 動態插列突破上限。**沒有採用**：
+    #: openpyxl 的 `insert_rows` 不搬移合併儲存格與圖片、也不更新公式參照，
+    #: 而本範本有 **2 張圖片、12 組合併儲存格**、合計三式引用 F16:F25。
+    #: 那個作法會在客戶收到的檔案上壞掉，而且不會報錯。
+    #:
+    #: 實查範本後發現根本不需要插列：**列 22~25 本來就是空的**，
+    #: 卡住的只有備註列的位置。把備註移到列 29（合計 28 與生效條款 30 之間，
+    #: 原本是空列，語意上也該在那裡）⇒ 明細 5 項 → **10 項**，
+    #: 版面、公式、合併儲存格一律不動。
+    #:
+    #: ⚠️ 超過 10 項仍會拋錯（不靜靜截斷）。要再更多就得真的改範本版面，
+    #: 那要 owner 決定 —— 不在程式裡假裝有更多列。
     ITEM_FIRST_ROW = 16
-    ITEM_LAST_ROW = 20
-    #: 備註列（範本 A21 是標籤、B21 是內容）—— 不得被明細或清空迴圈碰到
-    NOTES_ROW = 21
+    ITEM_LAST_ROW = 25
+    #: 備註列 —— 不得被明細或清空迴圈碰到。
+    #: 2026-08-29 由 21 移到 29（合計之後）；範本的 A29/B29 原為空白，
+    #: 故 `_write_notes_label` 會補上「備註：」標籤並沿用 A21 的字型。
+    NOTES_ROW = 29
 
     #: 項次的中文數字（範本用「一、二、三、」）
     _CN = "一二三四五六七八九十"
@@ -316,6 +326,7 @@ class QuotationDocumentService:
 
     def render_xlsx(self, data: dict[str, Any]) -> bytes:
         """把取料結果填進範本，回傳 xlsx bytes。"""
+        from copy import copy
         from openpyxl import load_workbook
 
         tpl = Path(__file__).resolve().parents[2] / "templates" / "quotation_template.xlsx"
@@ -378,6 +389,32 @@ class QuotationDocumentService:
         for r in range(self.ITEM_FIRST_ROW + len(items), self.ITEM_LAST_ROW + 1):
             for col in ("A", "B", "C", "D", "E", "F", "G"):
                 ws[f"{col}{r}"] = None
+
+        # ── 備註標籤（2026-08-29 備註由列 21 下移到列 29 之後才需要）──
+        #
+        # 範本的「備註：」標籤原本在 A21，而 A29 是空白格。
+        # 只搬內容不搬標籤的話，客戶收到的單子上會有一段沒有抬頭的文字。
+        # 字型沿用 A21（那是 owner 提供的版面，不自己挑）。
+        #
+        # ⚠️ 有備註才印標籤 —— 沒有備註卻印一個孤零零的「備註：」，
+        # 比不印更像出錯。
+        if data.get("notes"):
+            label = ws[f"A{self.NOTES_ROW}"]
+            label.value = "備註："
+            src = ws["A21"]
+            if src.has_style:
+                label.font = copy(src.font)
+                label.alignment = copy(src.alignment)
+
+        # 舊備註列（21）現在屬於明細區，範本殘留的「備註：」/內容要清掉 ——
+        # 否則明細不足 6 項時，第 21 列會同時出現空明細與舊備註。
+        for col in ("A", "B"):
+            cell = ws[f"{col}21"]
+            if isinstance(cell.value, str) and (
+                cell.value.startswith("備註") or col == "B"
+            ):
+                if 21 >= self.ITEM_FIRST_ROW + len(items):
+                    cell.value = None
 
         # ── 沒有明細時（標案類）──
         #
