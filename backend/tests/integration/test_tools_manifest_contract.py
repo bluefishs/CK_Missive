@@ -95,12 +95,35 @@ def test_no_breaking_tool_removals():
     )
 
 
-def test_manifest_endpoint_returns_200(client):
-    """POST-only per security policy（GET 應回 405）。"""
+def test_manifest_endpoint_requires_service_token(client):
+    """無 `X-Service-Token` 必須被拒。
+
+    ⚠️ 2026-08-29 重寫：原本叫 `test_manifest_endpoint_returns_200`，
+    **不帶 token 就斷言 200** —— 那與現行資安政策直接矛盾：
+    `scheduler.py:1988` 的公網契約檢查明寫
+    「4. Manifest 無 token → 期望 {401, 403}」。
+
+    端點自 `b095c9c0` 起要求 token（跨專案聯邦呼叫），而這個測試
+    仍在斷言舊契約。**兩份文件對同一件事說相反的話**，
+    而只有其中一份會在改壞時叫 —— 那份是排程的公網檢查，不是這裡。
+    """
     resp = client.post("/api/ai/agent/tools")
+    assert resp.status_code in (401, 403), (
+        f"無 token 應被拒，實得 {resp.status_code} —— "
+        "若這裡變成 200，代表 manifest 對外裸奔（2026-08-21 /api/ai/* 全裸的同型）"
+    )
+
+
+def test_manifest_body_matches_constant(client, monkeypatch):
+    """帶正確 token 時，回應內容須與 manifest 常數一致。"""
+    import os
+    token = os.getenv("MCP_SERVICE_TOKEN")
+    if not token:
+        pytest.skip("MCP_SERVICE_TOKEN 未設定 —— 無法驗證正向路徑（不假裝通過）")
+    resp = client.post("/api/ai/agent/tools", headers={"X-Service-Token": token})
     assert resp.status_code == 200
     body = resp.json()
-    # 端點回的版本必須與 manifest 常數一致（同上：驗一致性，不鎖死特定版本號）
+    # 驗一致性，不鎖死特定版本號
     assert body["version"] == TOOL_MANIFEST["version"]
     assert body["serverName"] == "ck_missive"
 

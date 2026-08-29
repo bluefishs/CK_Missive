@@ -280,6 +280,14 @@ def mock_db_session() -> MagicMock:
     session.refresh = AsyncMock()
     session.add = MagicMock()
     session.flush = AsyncMock()
+    # ⚠️ 2026-08-29 補 `scalar`：沒有 stub 時它回 MagicMock，而呼叫端常寫
+    # `Decimal(str(await db.scalar(stmt) or 0))` ⇒ `Decimal(str(MagicMock))`
+    # 直接 `decimal.InvalidOperation`。
+    # 這不是生產缺陷（真實 scalar 回數字或 None），是 **mock 的覆蓋面沒跟上
+    # 新增的查詢路徑** —— 今日 `_guard_billing_within_contract`（請款不得超出
+    # 合約上限）加進 update 流程時就撞到了。
+    # 預設 0＝「目前尚無其他請款」，是最無害的起點；需要別的值的測試自行覆寫。
+    session.scalar = AsyncMock(return_value=0)
     return session
 
 

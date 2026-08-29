@@ -473,7 +473,29 @@ def audit(tasks: list[dict]) -> tuple[list[str], list[str]]:
                 if reason:
                     notes.append(f"{name}: LastTaskResult={result} — 已知可接受（{reason}）")
                 else:
-                    reds.append(f"{name}: LastTaskResult={result}（未宣告的失敗碼）")
+                    # 2026-08-29（CK_AaaP 診斷 CK-Hermes-Health-Smoke 連紅三週）：
+                    # **logon 觸發的任務，結果碼在下次重開機前不會更新**。
+                    # 那支的 exit=1 是 08-28 那場 pm2 靜默失效窗口內跑出來的，
+                    # 而同腳本的 `-Daily` 版本今天跑出 exit=0、15 項全 PASS。
+                    # ⇒ 讀的人看到「連紅三週」會以為壞了三週，實際是**一次紅之後
+                    #   凍結**。訊息不說這件事，就會被當成慢性故障而習慣它。
+                    #
+                    # ⚠️ **只補說明、不降級**（CK_AaaP：「解釋不等於解決，
+                    # 把解釋做成降級就是消音」）。它仍然是 RED —— 因為那次失敗
+                    # 是真的發生過，而且沒有任何東西證明現在不會再發生。
+                    # ⚠️ 判準是「**沒有下次執行**」，不是「LastRun 早於開機」。
+                    # 實測 CK-Hermes-Health-Smoke：LastRun 12:15:02 其實**晚於**
+                    # 上次開機 12:11:51（登入時觸發），所以「早於開機」永遠不成立。
+                    # 真正讓結果凍結的是 **NextRun 為空 + 無週期觸發** ——
+                    # 在下一次登入之前，這個結果不會再變。
+                    # （CK_AaaP 的原始診斷用的是「早於開機」，那個條件在此案不成立。）
+                    _frozen = ""
+                    if logon and not periodic and not next_run_raw and last_run:
+                        _frozen = (
+                            f"｜⚠️ logon 觸發、無下次執行 ⇒ **結果凍結於 {last_run[:16]}**，"
+                            "下次登入前不會更新（連紅週數 ≠ 連續失敗週數）"
+                        )
+                    reds.append(f"{name}: LastTaskResult={result}（未宣告的失敗碼）{_frozen}")
 
         if not swa:
             # 08-02 實際踩過：沒有這個設定，機器關機那次就整個跳過且毫無訊號。

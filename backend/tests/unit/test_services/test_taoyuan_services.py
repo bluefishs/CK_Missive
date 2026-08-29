@@ -433,28 +433,63 @@ class TestDispatchOrderServiceDocRelevance:
 
 
 class TestDispatchOrderServiceSyncWorkType:
-    """測試作業類別同步"""
+    """測試作業類別同步
+
+    ⚠️ 2026-08-29 重寫：舊版斷言寫死了**實作細節**
+    （`db.execute.assert_called_once()`＝「只做一次 DELETE」、
+     「delete 一次 + add 兩次」），而那個實作在同日被刻意換掉了。
+
+    舊實作是 DELETE-all + 全部重建 ⇒ 每次編輯派工單，所有 work_type 的
+    **id 都會換新**，而 `work_type_id` 是 FK `ON DELETE SET NULL`
+    ⇒ **任何一次派工編輯都會清空全部的人員配置**（owner 回報的
+    「所屬作業無法指定」真因）。新實作改為差異同步：同名的既有列
+    保留原 id，只增刪真正的差異。
+
+    ⇒ 斷言改寫**意圖**：同名保留、只動差異。
+    寫死「執行幾次 SQL」會讓正確的修法被自己的測試擋下來 ——
+    那正是 CK_AaaP 2026-08-29 因為斷言綁在鄰居實作細節上而被擋 push 的同型。
+    """
+
+    @staticmethod
+    def _mock_db_with(existing_types: list[str]):
+        """回傳一個 mock db，其 SELECT 會吐出指定的既有 work_type 列。"""
+        from unittest.mock import MagicMock as _M
+
+        db = make_mock_db()
+        rows = []
+        for i, name in enumerate(existing_types):
+            row = _M()
+            row.work_type = name
+            row.sort_order = i
+            row.id = 100 + i          # 用可辨識的 id 驗「有沒有被保留」
+            rows.append(row)
+        result = _M()
+        result.scalars.return_value.all.return_value = rows
+        db.execute = AsyncMock(return_value=result)
+        db.delete = AsyncMock()
+        return db, rows
 
     @pytest.mark.asyncio
     async def test_sync_work_type_empty_clears(self):
-        """空字串清除所有關聯"""
+        """空字串 ⇒ 既有全部移除、不新增"""
         from app.services.taoyuan.dispatch_order_service import DispatchOrderService
 
-        db = make_mock_db()
+        db, rows = self._mock_db_with(["01.地上物查估作業"])
         service = DispatchOrderService(db)
 
+        # ⚠️ `_sync_work_type_links` 的簽章是 `-> None`（計數只進 log），
+        # 所以斷言必須看**可觀察的行為**，不能看回傳值。
         await service._sync_work_type_links(dispatch_id=1, work_type_str="")
 
-        # 應該執行 delete 但不 add
-        db.execute.assert_called_once()
-        db.add.assert_not_called()
+        db.add.assert_not_called()                  # 清空不新增
+        assert db.delete.await_count == len(rows)   # 既有的都被移除
 
     @pytest.mark.asyncio
     async def test_sync_work_type_multiple(self):
-        """逗號分隔的多個作業類別產生多筆關聯"""
+        """兩個新類別 ⇒ 兩筆新增"""
         from app.services.taoyuan.dispatch_order_service import DispatchOrderService
 
-        db = make_mock_db()
+        db, _ = self._mock_db_with([])
         service = DispatchOrderService(db)
 
         await service._sync_work_type_links(
@@ -462,8 +497,27 @@ class TestDispatchOrderServiceSyncWorkType:
             work_type_str="02.土地協議市價查估作業, 03.土地徵收查估作業",
         )
 
-        # delete 一次 + add 兩次
         assert db.add.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_sync_work_type_same_names_keep_ids(self):
+        """**本次修法的核心**：名稱沒變時不得新增、不得刪除。
+
+        舊實作在這個情境會 DELETE 兩列再 INSERT 兩列（id 全換）
+        ⇒ 連帶清空 project_user_assignments.work_type_id。
+        """
+        from app.services.taoyuan.dispatch_order_service import DispatchOrderService
+
+        names = ["02.土地協議市價查估作業", "03.土地徵收查估作業"]
+        db, rows = self._mock_db_with(names)
+        service = DispatchOrderService(db)
+
+        await service._sync_work_type_links(
+            dispatch_id=1, work_type_str=", ".join(names),
+        )
+
+        db.add.assert_not_called()          # 沒有新增 ⇒ id 沒換
+        db.delete.assert_not_called()       # 沒有刪除 ⇒ FK 不會被 SET NULL
 
 
 # =========================================================================

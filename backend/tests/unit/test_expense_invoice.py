@@ -1288,12 +1288,25 @@ class TestVendorPayableAutoLedger:
 
     @pytest.mark.asyncio
     async def test_already_paid_no_double_ledger(self, service, mock_db):
-        """已經是 paid 狀態不重複入帳"""
+        """已經是 paid 狀態不重複入帳。
+
+        ⚠️ 2026-08-29 重寫：**冪等的來源換了**。
+        舊版靠「非 paid → paid 轉換」才呼叫 `_sync_ledger_if_paid`，
+        而那個條件同時造成「**已 paid 後改金額永遠不同步**」（P0-2 ②，
+        實例 id 69）。同日改為一律呼叫，冪等改由 `find_by_source` 擔保。
+
+        ⇒ 斷言改為驗**新的冪等來源**：已有帳本分錄時不得再建一筆。
+        若仍斷言「不呼叫 sync」，等於把測試綁在被刻意移除的機制上。
+        """
         from app.schemas.erp import ERPVendorPayableUpdate
         payable = self._make_payable_mock(
             payment_status="paid", paid_amount=Decimal("80000"),
         )
         service.repo.get_by_id = AsyncMock(return_value=payable)
+        # 已存在的帳本分錄（金額一致 ⇒ 連校正都不該做）
+        existing = MagicMock()
+        existing.amount = Decimal("80000")
+        service.ledger_service.find_by_source = AsyncMock(return_value=existing)
 
         update_data = ERPVendorPayableUpdate(notes="補充說明")
         await service.update(1, update_data)

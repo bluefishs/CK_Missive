@@ -379,6 +379,12 @@ class TestBillingToLedgerFlow:
         mock_quotation_no_code = MagicMock(spec=ERPQuotation)
         mock_quotation_no_code.id = 200
         mock_quotation_no_code.case_code = None
+        # ⚠️ 2026-08-29：`_guard_billing_within_contract`（請款不得超出合約上限，
+        # 同日加入 update 流程）會讀 `total_price` 做 `Decimal(str(...))`；
+        # MagicMock 沒設這個屬性時會回 MagicMock ⇒ decimal.InvalidOperation。
+        # 本測試要驗的是「報價單沒有案號時的 fallback」，與金額無關，
+        # 給一個足以通過上限檢查的值即可。
+        mock_quotation_no_code.total_price = Decimal("500000.00")
 
         mock_billing = MagicMock(spec=ERPBilling)
         mock_billing.id = 2
