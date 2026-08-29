@@ -90,31 +90,53 @@ async def detailed_health_check(
 ) -> Dict[str, Any]:
     """詳細系統健康檢查"""
     start_time = time.time()
+    # ⚠️ 2026-08-29：`"status"` **刻意不放在這個字典字面值裡**。
+    #
+    # 原本它是 `"status": "healthy"` 的寫死初始值，稍後才被覆寫 ——
+    # 而覆寫只發生在檢查 1（database）與 2（tables）。
+    # 檢查 3~6（連線池／系統資源／AI 服務／KG 聯邦）**記錄了卻不影響判定** ⇒
+    # AI 服務整個 exception，頂層照樣說 healthy，而且訊息字面上寫著
+    # **「All systems operational」**。
+    #
+    # ⚠️ 還有一個更隱蔽的：`if total_ms > 5000: status = "slow"` 會**覆蓋掉
+    # `unhealthy`** —— DB 掛了又慢，結論變成「只是慢」，嚴重度被降級。
+    #
+    # 由 CK_AaaP 同日回報同型後查出（他們的 `all_healthy: True` 是寫死的
+    # 初始值，刪掉覆寫那行就會靜靜回來）。⇒ **判定值不放初始值，最後一次算出來。**
     health_data: Dict[str, Any] = {
         "timestamp": datetime.now().isoformat(),
         "service": "CK Missive API",
         "build": build_info(),   # 硬編版本號無法回答「跑的是哪一份程式碼」
-        "status": "healthy",
         "checks": {},
     }
+    #: 致命（回 503）／降級（回 200 但說出來）分開記 ——
+    #: AI 或 KG 聯邦掛掉不該讓公文系統被判死，但也不該說「一切正常」。
+    fatal: list = []
+    degraded: list = []
 
     # 1. 資料庫連線
     db_check = await service.check_database()
     health_data["checks"]["database"] = db_check
     if db_check["status"] != "healthy":
-        health_data["status"] = "unhealthy"
+        fatal.append("database")
 
     # 2. 核心資料表
     tables_check = await service.check_core_tables()
     health_data["checks"]["tables"] = tables_check
     if any(t["status"] != "healthy" for t in tables_check.values()):
-        health_data["status"] = "unhealthy"
+        fatal.append("tables")
 
     # 3. 連線池
-    health_data["checks"]["connection_pool"] = service.check_connection_pool()
+    pool_check = service.check_connection_pool()
+    health_data["checks"]["connection_pool"] = pool_check
+    if pool_check.get("status") != "healthy":
+        degraded.append("connection_pool")
 
     # 4. 系統資源
-    health_data["checks"]["system_resources"] = service.check_system_resources()
+    res_check = service.check_system_resources()
+    health_data["checks"]["system_resources"] = res_check
+    if res_check.get("status") != "healthy":
+        degraded.append("system_resources")
 
     # 5. AI 服務狀態
     try:
@@ -122,8 +144,21 @@ async def detailed_health_check(
         ai_connector = get_ai_connector()
         ai_health = await ai_connector.check_health()
         health_data["checks"]["ai_services"] = ai_health
+        # ⚠️ `check_health()` 回的是**逐 provider 的 `available` 布林**
+        # （groq／nvidia_cloud／ollama／vllm_local），**沒有頂層 `status`**。
+        # 我首版寫 `ai_health.get("status") not in (None, "healthy")` ——
+        # 那個條件**永遠不會觸發**，等於這一項白加。實測 dict 的鍵才發現。
+        #
+        # 判準是**三層 fallback 全斷才算降級**：還有任一 provider 可用時，
+        # 推論仍然做得出來（ADR：Groq → NVIDIA → Ollama → canned）。
+        providers = {k: v for k, v in (ai_health or {}).items() if isinstance(v, dict)}
+        if providers and not any(v.get("available") for v in providers.values()):
+            degraded.append("ai_services")
+            health_data["checks"]["ai_services"]["_verdict"] = (
+                "所有推論 provider 皆不可用 —— AI 功能會落到 canned 回應")
     except Exception as e:
-        health_data["checks"]["ai_services"] = {"error": str(e)}
+        health_data["checks"]["ai_services"] = {"status": "error", "error": str(e)[:200]}
+        degraded.append("ai_services")
 
     # 6. KG Federation 指標
     try:
@@ -143,19 +178,38 @@ async def detailed_health_check(
         else:
             fed_check["status"] = "redis_unavailable"
         health_data["checks"]["kg_federation"] = fed_check
+        if fed_check.get("status") != "healthy":
+            degraded.append("kg_federation")
     except Exception as e:
         health_data["checks"]["kg_federation"] = {"status": "error", "error": str(e)[:100]}
+        degraded.append("kg_federation")
 
     # 7. 回應時間
     total_ms = (time.time() - start_time) * 1000
     health_data["total_response_time_ms"] = round(total_ms, 2)
 
-    # 7. 整體狀態
+    # 7. 整體狀態 —— **最後一次算出來**，沒有初始值可以殘留
+    #
+    # 順序即嚴重度：fatal > degraded > slow > healthy。
+    # ⚠️ `slow` **不得覆蓋** fatal/degraded —— 原本 `if total_ms > 5000` 是第一個
+    # 分支，會把 `unhealthy` 蓋成 `slow`（DB 掛了又慢＝「只是慢」）。
     if total_ms > 5000:
-        health_data["status"] = "slow"
-        health_data["message"] = "API response time is slower than expected"
-    elif health_data["status"] == "healthy":
+        degraded.append("response_time")
+
+    if fatal:
+        health_data["status"] = "unhealthy"
+        health_data["message"] = f"核心依賴異常：{'、'.join(fatal)}"
+        response.status_code = 503
+    elif degraded:
+        health_data["status"] = "degraded"
+        health_data["message"] = (
+            f"核心可用，但這些項目異常：{'、'.join(degraded)}"
+            "（不影響公文與案件功能，故仍回 200）"
+        )
+    else:
+        health_data["status"] = "healthy"
         health_data["message"] = "All systems operational"
+    health_data["failing"] = {"fatal": fatal, "degraded": degraded}
 
     return health_data
 
