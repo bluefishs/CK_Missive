@@ -895,61 +895,10 @@ app.include_router(api_router, prefix="/api")
 
 
 # --- 系統端點（必須在 SPA catch-all 前註冊，否則會被 spa_fallback 搶走）---
-# 業務資料檢查 cache（防 /health 每秒 COUNT(*) 打 DB）
-_business_data_cache: dict = {"checked_at": 0.0, "result": None}
-
-
-async def _check_business_data_present(db: AsyncSession) -> dict:
-    """檢查核心業務表是否有預期最低資料量。
-
-    2026-05-21 事故防禦（L43 volume mount drift）：
-    若 docker volume 掛到空殼 / fresh DB / 大規模刪除，container 仍會 "healthy"
-    （DB connected, alembic head 推進不需資料），導致業務 API 全 500 但監控無感。
-    本檢查讓 /health 在這種情境立刻回 503，cloudflared healthcheck 失敗 → 流量
-    不會打進壞掉的 instance。
-
-    可透過 env 調整：
-    - HEALTH_BUSINESS_CHECK_ENABLED (default true)
-    - HEALTH_MIN_DOCUMENTS (default 100)
-    - HEALTH_MIN_KG_ENTITIES (default 1000)
-    - HEALTH_BUSINESS_CACHE_TTL_S (default 30)
-    """
-    enabled = os.getenv("HEALTH_BUSINESS_CHECK_ENABLED", "true").lower() == "true"
-    if not enabled:
-        return {"ok": True, "skipped": True}
-
-    cache_ttl = int(os.getenv("HEALTH_BUSINESS_CACHE_TTL_S", "30"))
-    now = time.time()
-    cached = _business_data_cache.get("result")
-    if cached is not None and (now - _business_data_cache["checked_at"]) < cache_ttl:
-        return cached
-
-    min_docs = int(os.getenv("HEALTH_MIN_DOCUMENTS", "100"))
-    min_kg = int(os.getenv("HEALTH_MIN_KG_ENTITIES", "1000"))
-
-    try:
-        docs = await db.scalar(text("SELECT COUNT(*) FROM documents"))
-        kg = await db.scalar(text("SELECT COUNT(*) FROM canonical_entities"))
-    except Exception as e:
-        result = {
-            "ok": False,
-            "reason": f"core_tables_query_failed: {type(e).__name__}",
-            "error_detail": str(e)[:200],
-        }
-        _business_data_cache.update({"checked_at": now, "result": result})
-        return result
-
-    ok = (docs or 0) >= min_docs and (kg or 0) >= min_kg
-    result = {
-        "ok": ok,
-        "documents": docs,
-        "canonical_entities": kg,
-        "thresholds": {"documents": min_docs, "canonical_entities": min_kg},
-    }
-    if not ok:
-        result["reason"] = "row_count_below_threshold"
-    _business_data_cache.update({"checked_at": now, "result": result})
-    return result
+# 業務資料量檢查的**唯一實作**在 `app/core/health_probe.py`。
+# 2026-08-29 抽出：原本只有這裡有，而公網探的 `/api/health` 是另一個
+# 完全不碰 DB 的靜態端點 ⇒ L43 的防禦在公網那條路徑上等於不存在。
+from app.core.health_probe import check_business_data_present as _check_business_data_present  # noqa: E402
 
 
 @app.get("/health", tags=["System"])

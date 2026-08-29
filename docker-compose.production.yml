@@ -77,7 +77,7 @@ services:
       - "-c"
       - "checkpoint_completion_target=0.9"
       - "-c"
-      - "max_connections=50"
+      - "max_connections=100"
       - "-c"
       - "log_min_duration_statement=500"
       - "-c"

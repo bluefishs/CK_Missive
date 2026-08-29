@@ -11,7 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import Response
 from datetime import datetime
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.build_info import build_info
+from app.db.database import get_async_db
 
 from app.core.rate_limiter import limiter
 from app.extended.models import User
@@ -22,6 +26,8 @@ from app.services.system.health_service import (
     get_uptime,
 )
 
+from app.core.health_probe import check_business_data_present
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -31,12 +37,46 @@ __all__ = ["router", "set_startup_time", "get_uptime"]
 
 @router.get("/health", summary="基本健康檢查")
 @limiter.limit("60/minute")
-async def basic_health_check(request: Request, response: Response):
-    """基本健康檢查端點"""
+async def basic_health_check(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """基本健康檢查端點 —— **公網探的就是這一支**。
+
+    ⚠️ 2026-08-29：這支原本是**靜態 dict、完全不碰 DB**，postgres 掛掉
+    它照樣回 `healthy`。而 L43（volume mount drift）的修法寫著
+    「面向公網的 /health 必須包含業務量檢查」，那個防禦卻只做在
+    `main.py` 的 `/health` 上 —— **公網走的是這一條**
+    （`https://missive.cksurvey.tw/api/health`）⇒ 防禦在真正的路徑上不存在。
+
+    它騙過的不只是監控：部署後用它驗「公網 200」也比看起來的弱。
+
+    現在與 `/health` 共用同一份業務量檢查（`app/core/health_probe`）。
+    ⚠️ **`/health/liveness` 維持不碰 DB** —— 那是故意的：
+    「程序活著嗎」與「系統可用嗎」是兩個問題，不該合併。
+    """
+    db_status = "disconnected"
+    try:
+        if (await db.execute(text("SELECT 1"))).scalar() == 1:
+            db_status = "connected"
+    except Exception as e:
+        logger.error("健康檢查 DB 失敗: %s", e)
+        db_status = "error"
+
+    business = {"ok": False, "reason": "db_unavailable"}
+    if db_status == "connected":
+        business = await check_business_data_present(db)
+
+    healthy = db_status == "connected" and business.get("ok", False)
+    if not healthy:
+        response.status_code = 503
     return {
-        "status": "healthy",
+        "status": "healthy" if healthy else "unhealthy",
         "timestamp": datetime.now().isoformat(),
         "service": "CK Missive API",
+        "database": {"status": db_status},
+        "business_data": business,
     }
 
 
