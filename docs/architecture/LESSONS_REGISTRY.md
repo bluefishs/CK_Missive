@@ -531,6 +531,20 @@
 
 ---
 
+## L112 — 掛上去、會執行、也真的擋過東西的 hook，仍有一半的規則從未命中（2026-08-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | L111 查的是**沒有人在跑**的 hook。這次查**真的掛在 settings.json 上**的 12 支 —— 先驗 BOM（`careful-guard` 曾因缺 BOM 而 12,491 次呼叫一次都沒攔到），結果 12 支全部正常。於是改問：**餵它違規輸入，它會不會有反應？** |
+| **What happened** | `validate-file-location.ps1` 是活的（它正確擋下 `frontend/src/foo.py`），**但 6 條規則裡有 3 條從未命中過**：`^[^/]+\.md$`／`^temp_`／`^test_` 都帶 `^` 錨點，比對的是完整路徑，而 **Claude Code 的 Write/Edit 要求絕對路徑** ⇒ 字串一律以 `D:/…` 開頭 ⇒ 三條全部落空。實測同一支 hook：餵絕對路徑 exit 0、餵相對路徑 exit 2。**而另外三條會命中，所以它一直看起來是正常的。** |
+| **同一支還缺一條** | `backend/.env` 放行 —— 而 development-rules §2 明文「**禁止存在**」。CI 的 `config-consistency` job 自 2026-03-09 起全面停用（收費），這支不查它 ⇒ **那條規範零強制**。已補。 |
+| **修的時候差點放寬成另一個 bug** | 我第一版把 `^test_` 從「路徑」改套到「檔名」—— 那會把 `backend/tests/test_foo.py` 這種**合法的 pytest 檔全部擋掉**。原意是「不應在**根目錄**」。⇒ 改成先判斷「父目錄 == repo 根」再套檔名規則。**修一條沒生效的規則時，很容易順手把它放寬成另一個 bug**；負向控制必須包含「原本就該放行的東西」。 |
+| **另一個發現（未自行修）** | `careful-guard` 的 CRITICAL／WARNING 分級**只存在於資料裡**：兩層都 `exit 2`。例行操作（`docker system prune`／`kill -9`／`git clean -fd`）被硬擋而非提醒。協議有非阻擋通道（`exit 0` + `additionalContext`）。**放寬安全護欄屬 owner 決定，列 A41 不自行改。** |
+| **Prevention** | ⚠️ **一支 hook「有在擋東西」不代表它的每條規則都在擋。** 驗 hook 要逐條給違規輸入，而不是看它整體會不會動。⚠️ 特別留意**錨點與輸入形態的假設**（相對 vs 絕對路徑）—— 這類失效不報錯、不留痕，只是安靜地放行。 |
+| **Refs** | `.claude/hooks/validate-file-location.ps1`（`$RootOnlyForbiddenNames` + `$RepoRoot`）／A41／同族：L111（沒人跑的三支）、L109（路徑深度 off-by-one）、`arch_pattern_script_existence_not_enforcement` |
+
+---
+
 ## L111 — 沒有人在跑的檢核不是「沒用」，是**會腐爛，而且腐爛的方式你猜不到**（2026-08-30）
 
 | 欄位 | 內容 |
