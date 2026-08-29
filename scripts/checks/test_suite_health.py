@@ -49,10 +49,28 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
-def run_suite() -> tuple[set[str], str, int]:
-    """跑全套，回傳 (失敗的 test id 集合, 摘要行, pytest returncode)。"""
+def run_suite() -> tuple[set[str], str, int, dict]:
+    """跑全套，回傳 (失敗的 test id 集合, 摘要行, pytest returncode, 未執行統計)。
+
+    ⚠️ 2026-08-29 擴充：原本**只解析 `failed`**，而 `skipped` 與 `xfailed`
+    完全不看 —— 那讓 `test_agent_evolution_loop.py` 的 **11 支 xfail**
+    自 2026-04-14 起 4.5 個月沒被執行過，而基線一直是綠的。
+
+    `xfail` 比 `skip` 更隱蔽：`pytest.xfail()` 寫在測試主體內，
+    報告顯示 `N xfailed`，**既不算通過也不算失敗，連 `-rs` 都不列**。
+
+    ⇒ 「沒有失敗」與「沒有執行」不是同一件事，而基線原本只看得見前者。
+    這是 CK_AaaP 2026-08-29 指出的「好機制只套在一條路徑上」的本地實例。
+    """
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests", "-q", "--no-header",
+        # `-rfEs`：failed + error + skipped。
+        #
+        # ⚠️ **必須是 `fEs` 不能只寫 `s`** —— pytest 的 `-r` 是**取代**不是附加。
+        # 我首版寫 `-rs`，把預設的 `fE` 換掉 ⇒ **FAILED 行整批不印** ⇒
+        # 解析到 0 個失敗 ⇒ **基線被寫成 0 項**（而該次實際有 36 failed）。
+        # 那會讓下一次執行把 36 個既有失敗全報成「新增」。
+        # 一個為了看見 skip 而加的旗標，差點讓失敗偵測整個失效。
+        [sys.executable, "-m", "pytest", "tests", "-q", "--no-header", "-rfEs",
          "-p", "no:cacheprovider"],
         cwd=BACKEND, capture_output=True, text=True,
         encoding="utf-8", errors="replace", timeout=3600,
@@ -74,7 +92,19 @@ def run_suite() -> tuple[set[str], str, int]:
     # collection 階段炸掉時 pytest 不會印 FAILED，只有 errors —— 那是最嚴重的情況
     if "error" in summary.lower() and not failed:
         failed.add("<collection-error>")
-    return failed, summary.strip(), proc.returncode
+    # 未執行的測試：skip 有理由可列，xfail 只有數字（pytest 不逐條印）
+    skipped = [
+        line.split(": ", 1)[-1].strip()
+        for line in out.splitlines() if line.startswith("SKIPPED ")
+    ]
+    m_x = re.search(r"(\d+) xfailed", summary)
+    m_s = re.search(r"(\d+) skipped", summary)
+    not_run = {
+        "skipped": int(m_s.group(1)) if m_s else 0,
+        "xfailed": int(m_x.group(1)) if m_x else 0,
+        "skip_reasons": sorted(set(skipped))[:20],
+    }
+    return failed, summary.strip(), proc.returncode, not_run
 
 
 def main() -> int:
@@ -91,7 +121,7 @@ def main() -> int:
         return 2
 
     try:
-        failed, summary, rc = run_suite()
+        failed, summary, rc, not_run = run_suite()
     except subprocess.TimeoutExpired:
         print("  ✗ RED：測試套件逾時未完成（>60 分鐘）")
         return 2
@@ -110,7 +140,11 @@ def main() -> int:
 
     if args.update:
         BASELINE.write_text(
-            json.dumps({"known_failures": sorted(failed)}, ensure_ascii=False, indent=2),
+            json.dumps({
+                "known_failures": sorted(failed),
+                # 未執行的測試也納入棘輪 —— 「沒有失敗」不等於「有被執行」
+                "not_run": {"skipped": not_run["skipped"], "xfailed": not_run["xfailed"]},
+            }, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         print(f"  基線已更新：{len(failed)} 項 → {BASELINE.relative_to(REPO)}")
@@ -121,12 +155,48 @@ def main() -> int:
         print("    首次建立請跑：python scripts/checks/test_suite_health.py --update")
         return 2
 
-    known = set(json.loads(BASELINE.read_text(encoding="utf-8"))["known_failures"])
+    _baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+    known = set(_baseline["known_failures"])
     new = sorted(failed - known)
     fixed = sorted(known - failed)
 
     print(f"  已知失敗 {len(known)} 項｜本次失敗 {len(failed)} 項"
           f"｜新增 {len(new)}｜已修好 {len(fixed)}")
+
+    # ── 未執行的測試（skip / xfail）──────────────────────────────────
+    #
+    # 「沒有失敗」不等於「有被執行」。本檢核原本只看 failed，於是
+    # `test_agent_evolution_loop.py` 的 11 支 xfail 從 2026-04-14 起
+    # **4.5 個月沒被執行過而基線一直是綠的**（待辦 A35）。
+    #
+    # 存量列基線不判紅（要不要補實作是業務決定），**新增即紅** ——
+    # 棘輪只准往下轉。
+    _base_nr = _baseline.get("not_run") or {}
+    base_skip = int(_base_nr.get("skipped", 0))
+    base_xf = int(_base_nr.get("xfailed", 0))
+    cur_skip, cur_xf = not_run["skipped"], not_run["xfailed"]
+
+    print(f"  未執行：skipped {cur_skip}（基線 {base_skip}）"
+          f"｜xfailed {cur_xf}（基線 {base_xf}）")
+    if not_run["skip_reasons"]:
+        print("    skip 理由（前 6）：")
+        for r in not_run["skip_reasons"][:6]:
+            print(f"      · {r[:88]}")
+
+    not_run_red = []
+    if cur_skip > base_skip:
+        not_run_red.append(f"skipped {base_skip} → {cur_skip}")
+    if cur_xf > base_xf:
+        not_run_red.append(f"xfailed {base_xf} → {cur_xf}")
+    if not_run_red:
+        print("")
+        print(f"  ✗ RED：未執行的測試變多了（{'、'.join(not_run_red)}）")
+        print("    ⚠️ 它們不會讓套件變紅 —— skip 與 xfail 都不算失敗，")
+        print("       而 xfail 連 `-rs` 都不會列出來。新增一支等於少一支覆蓋，")
+        print("       而報告上看不出差別。")
+        print("    修法：讓它真的能跑；或若確為 scaffold，記入待辦並在此更新基線")
+        print(f"          （python {Path(__file__).name} --update）")
+        return 2
 
     if new:
         print(f"\n  ✗ RED：新增 {len(new)} 項失敗（基線裡沒有＝這次弄壞的）")
