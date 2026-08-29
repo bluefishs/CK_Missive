@@ -26,10 +26,16 @@ if (-not $filePath -or $filePath -notmatch 'backend[\\/]app[\\/]extended[\\/]mod
 
 # Real match - output reminder
 $msg = "[remind] ORM model changed ($filePath). Run: cd backend && alembic revision --autogenerate -m 'desc'"
+# Correct shape: everything nests under hookSpecificOutput.
+# The flat form (hookEventName/additionalContext at top level) does not match
+# the documented contract, nor the working example in auto-approve.ps1.
+# See docs/architecture/LESSONS_REGISTRY.md L114 (2026-08-30).
 $context = @{
-    hookEventName = "PostToolUse"
-    additionalContext = $msg
-} | ConvertTo-Json -Compress
+    hookSpecificOutput = @{
+        hookEventName = "PostToolUse"
+        additionalContext = $msg
+    }
+} | ConvertTo-Json -Compress -Depth 5
 
 Write-Output $context
 exit 0

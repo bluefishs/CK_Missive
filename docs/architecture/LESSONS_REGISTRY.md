@@ -531,6 +531,21 @@
 
 ---
 
+## L114 — 我能證明的是「PreToolUse 的訊息到得了」，不是「PostToolUse 的到不了」（2026-08-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 續 L112：驗**掛在 settings.json 上**的 PostToolUse hook。`api-serialization-check`／`performance-check` 手動餵違規輸入 → **判準都正確**（N+1、缺 limit、ORM 直接回傳、datetime 未 isoformat 全抓到，乾淨檔通過）。 |
+| **問題不在判準，在通道** | 三支都用 `Write-Host` + `exit 0` —— 而協議記載的到達通道是「`exit 0` + stdout **JSON** 的 `additionalContext`」或「`exit 2` + stderr」。**兩條都不是。** |
+| **測到哪裡為止（重要）** | 我**實測 PreToolUse 的 `exit 2` + stderr 確實到得了**：Write 一個 `frontend/**.py` 當場被 `validate-file-location` 擋下，訊息出現在我眼前。<br>而 PostToolUse 的 `additionalContext` —— **扁平與巢狀兩種形狀都沒有可觀察到的輸出**。<br>⇒ **我不能宣稱「那四支 remind-* 從來沒送達過」** —— 我只能說**我驗不到**。無法區分「沒送達」與「送達了但不以我看得見的形式呈現」。 |
+| **確實查到的不一致** | 四支 `remind-*.ps1` 用**扁平** `@{hookEventName; additionalContext}`，而同目錄**實際運作中**的 `auto-approve.ps1` 與 `CK_DigitalTunnel/.agents/skills/claude-code-setup/hooks-reference.md` 都是**巢狀在 `hookSpecificOutput` 底下**。⇒ 已對齊（形狀更正 ≠ 已證實送達，兩件事分開講）。 |
+| **⚠️ 我在修的過程中親手重演了 careful-guard 的 BOM bug** | `remind-type-sync.ps1` 原本**無 BOM 且純 ASCII**，我加了中文註解 ⇒ PowerShell 以 cp950 誤讀 ⇒ **`運算式或陳述式中有未預期的 '}'`，整支掛掉**。當場被我的手動測試抓到。另三支我改時**刻意只動 JSON 結構、註解用英文**，維持純 ASCII 就不需要 BOM。 |
+| **守門已經存在而且有效** | `scripts/checks/powershell_bom_audit.py`（daily fitness step 54，L49 family #11）—— 38 個含中文 .ps1、0 個無 BOM。它會抓到我那個破壞，只是要等 02:00 的排程。⇒ **這一格是好消息：規範有守門、守門是活的。** |
+| **Prevention** | ⚠️ **在 .ps1 裡寫中文之前，先確認它有 BOM**（或把註解寫成英文）。⚠️ **報告「送不到」與「我驗不到」要分開** —— 前者是對系統的斷言，後者是對我的觀測能力的陳述，而我今天只證得了後者。 |
+| **Refs** | `.claude/hooks/remind-*.ps1`（四支已對齊巢狀）／`.claude/hooks/auto-approve.ps1`（正確範本）／`scripts/checks/powershell_bom_audit.py`（daily 54）／A47／同族：L112、L113、`my_tool_behaviour_is_not_the_finding` |
+
+---
+
 ## L113 — 我昨天「修好」的守衛，修在一個 git 從不執行的檔案上（2026-08-30）
 
 | 欄位 | 內容 |

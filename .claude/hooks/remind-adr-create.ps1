@@ -42,10 +42,16 @@ if (-not $matched) {
 
 # Real match - output reminder
 $msg = "[remind] architectural change detected ($filePath). Consider /adr new 'description' to create ADR."
+# Correct shape: everything nests under hookSpecificOutput.
+# The flat form (hookEventName/additionalContext at top level) does not match
+# the documented contract, nor the working example in auto-approve.ps1.
+# See docs/architecture/LESSONS_REGISTRY.md L114 (2026-08-30).
 $context = @{
-    hookEventName = "PostToolUse"
-    additionalContext = $msg
-} | ConvertTo-Json -Compress
+    hookSpecificOutput = @{
+        hookEventName = "PostToolUse"
+        additionalContext = $msg
+    }
+} | ConvertTo-Json -Compress -Depth 5
 
 Write-Output $context
 exit 0

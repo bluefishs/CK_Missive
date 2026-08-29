@@ -39,10 +39,16 @@ if (-not $matched) {
 
 # Real match - output reminder
 $msg = "[remind] route change detected ($filePath). 4-way sync: 1) router/types.ts 2) AppRouter.tsx 3) init_navigation_data.py 4) navigation_validator.py (auto). post-commit hook auto-syncs DB nav."
+# Correct shape: everything nests under hookSpecificOutput.
+# The flat form (hookEventName/additionalContext at top level) does not match
+# the documented contract, nor the working example in auto-approve.ps1.
+# See docs/architecture/LESSONS_REGISTRY.md L114 (2026-08-30).
 $context = @{
-    hookEventName = "PostToolUse"
-    additionalContext = $msg
-} | ConvertTo-Json -Compress
+    hookSpecificOutput = @{
+        hookEventName = "PostToolUse"
+        additionalContext = $msg
+    }
+} | ConvertTo-Json -Compress -Depth 5
 
 Write-Output $context
 exit 0

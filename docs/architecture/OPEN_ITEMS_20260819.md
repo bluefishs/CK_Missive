@@ -360,6 +360,10 @@ daily 不是 weekly）。
 
 ---
 
+| **A47** | **三支 PostToolUse 檢查 hook 的發現走 `Write-Host`，不是協議記載的到達通道** | `python-lint`／`api-serialization-check`／`performance-check` 掛在 `PostToolUse:Edit|Write`，**判準都正確**（手動實測：N+1、缺 limit、ORM 直接回傳、datetime 未 isoformat 全抓到，乾淨檔通過）。但三支都用 `Write-Host` + `exit 0`，而協議記載的到達通道是「`exit 0` + stdout **JSON** 的 `additionalContext`」或「`exit 2` + stderr」。<br><br>⚠️ **我只能說「驗不到」不能說「送不到」**：實測 PreToolUse 的 `exit 2` + stderr **確實到得了**（Write 一個 `frontend/**.py` 當場被擋、訊息我看見了）；而 PostToolUse 的 `additionalContext` **扁平與巢狀兩種形狀都沒有可觀察到的輸出** —— 無法區分「沒送達」與「送達了但不以我看得見的形式呈現」。<br><br>**已辦**：四支 `remind-*.ps1` 的扁平形狀已對齊為巢狀 `hookSpecificOutput`（同目錄實際運作中的 `auto-approve.ps1` 就是正確範本）。<br><br>**待你決**：這三支要不要一併改成輸出 `additionalContext`。⚠️ 我沒有自行改，因為**我無法證明改了就會到達** —— 改一個我驗不到效果的東西，只會把「不確定」變成「看起來已處理」。若你在畫面上看得到 hook 的提醒，那就值得改；看不到的話要先查客戶端是否呈現 PostToolUse 的 additionalContext。 | 2026-08-30 實測；教訓＝L114 |
+
+---
+
 ### 做不了／不該做（已核實，列此以免重複提案）
 
 | 議題 | 為什麼 |
