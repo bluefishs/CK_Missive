@@ -170,6 +170,29 @@ _ESTABLISHED = {"v", "V", "y", "Y", "yes", "是", "✓", "○", "1", 1, True}
 #: 只放**人講過**的對應，不自行推測（「其他」「原始」「工作表1」不在此列，
 #: 它們本來就不是人）。這一份會隨檔案而變，所以放在這裡而不是寫進資料庫 ——
 #: 下一份彙整表若換了工作表命名，改的是這一行。
+#: 舊報價編號的**承辦代碼** → 人。
+#:
+#: ⚠️ owner 2026-08-29：「114、115代碼解析 **已多次提出** A坤樹 B慶忠 C元宏 D廷睿」
+#: ＋「Y也指定慶忠」。這組對應被口頭提供過不只一次，而系統一直沒有記下來 ——
+#: 寫在這裡就是為了**不用再有人講第三次**。
+#:
+#: 編號格式 `B115-A001-0A`：第一段 `B115` 是年度前綴（那個 B **不是人**），
+#: 人的代碼是**第二段開頭那個字母**。
+#:
+#: 這比工作表名稱可靠：115 檔只有一個「工作表1」，但每一列的編號都帶著代碼。
+#: 2026-08-29 依此回填 115 件案號（張坤樹 5／洪慶忠 61／邱元宏 49），
+#: 報價單有承辦者由 135 張升到 250 張。
+_LEGACY_CODE_TO_NAME = {
+    "A": "張坤樹",
+    "B": "洪慶忠",
+    "C": "邱元宏",
+    "D": "曾廷睿",
+    "Y": "洪慶忠",
+}
+
+#: 從舊編號取承辦代碼
+_LEGACY_STAFF_CODE_RE = re.compile(r"^[A-Z][0-9]{3}-([A-Z])")
+
 _SHEET_ALIASES = {
     "老闆": "張坤樹",
 }
@@ -446,11 +469,14 @@ class QuotationLegacyImportService:
         from collections import defaultdict
 
         sheets_by_case: dict[str, set[str]] = defaultdict(set)
+        codes_by_case: dict[str, set[str]] = defaultdict(set)
         for r in raw_rows:
             ln = r.get("legacy_no") or ""
             if not any(ch.isdigit() for ch in ln):
                 continue
-            sheets_by_case[_derive_case_code(ln)].add(r.get("sheet") or "")
+            _cc = _derive_case_code(ln)
+            sheets_by_case[_cc].add(r.get("sheet") or "")
+            codes_by_case[_cc].add(ln)
 
         users = (await self.db.execute(text(
             "SELECT id, COALESCE(full_name, username) AS nm FROM users"
@@ -467,7 +493,26 @@ class QuotationLegacyImportService:
 
         wanted: list[tuple[str, int]] = []
         unmatched: dict[str, int] = {}
+        # 代碼優先於工作表名稱：115 檔只有一個「工作表1」（對不到任何人），
+        # 但它每一列的編號都帶著承辦代碼。先前只讀工作表名，於是整批 115 沒有承辦。
+        def match_code(case_code: str):
+            for ln in codes_by_case.get(case_code, ()):
+                m = _LEGACY_STAFF_CODE_RE.match(ln)
+                if not m:
+                    continue
+                nm_want = _LEGACY_CODE_TO_NAME.get(m.group(1))
+                if not nm_want:
+                    continue
+                for uid, nm in users:
+                    if nm and nm_want in nm:
+                        return uid
+            return None
+
         for case_code, sheet_set in sheets_by_case.items():
+            uid = match_code(case_code)
+            if uid:
+                wanted.append((case_code, uid))
+                continue
             for sh in sheet_set:
                 uid, _ = match(sh)
                 if uid:

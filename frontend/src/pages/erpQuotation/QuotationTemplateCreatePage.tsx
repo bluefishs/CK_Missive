@@ -34,6 +34,7 @@ import type { SuccessResponse } from '../../api/types';
 import type { PMCase } from '../../types/pm';
 import { useClientOptions, useUsersDropdown } from '../../hooks/business/useDropdownData';
 import { vendorsApi } from '../../api/vendorsApi';
+import { authService } from '../../services/authService';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const { Text, Title } = Typography;
@@ -76,6 +77,15 @@ const QuotationTemplateCreatePage: React.FC = () => {
   const { clients } = useClientOptions();
   const { users: staffUsers, isError: staffLoadError } = useUsersDropdown();
 
+  // owner 2026-08-29：「線上建單可對應登入帳號使用者」——
+  // 預設帶登入者。多數情況建單的人就是承辦的人，讓他**改**比讓他**填**省一步；
+  // 而預設值錯了看得見（名字就在畫面上），預設空白錯了看不見（就是那 122 張的來源）。
+  const { data: me } = useQuery({
+    queryKey: ['current-user-for-quotation-staff'],
+    queryFn: () => authService.getCurrentUser(),
+    staleTime: 30 * 60 * 1000,
+  });
+
   // 入口 2（PM 案件詳情頁）帶進來的既有案件
   const presetCaseCode = searchParams.get('case_code') || undefined;
   const presetPmCaseId = searchParams.get('pm_case_id') || undefined;
@@ -97,6 +107,8 @@ const QuotationTemplateCreatePage: React.FC = () => {
   // 改 JOIN 只救得回 7 張。**122 張是資料從來沒有被建立** ——
   // 因為在此之前，建單這條路徑上根本沒有地方可以指派。
   const [staffUserId, setStaffUserId] = React.useState<number | undefined>();
+  // 只在使用者還沒動過這一欄時帶入預設 —— 否則清空選擇會被自動填回去
+  const [staffTouched, setStaffTouched] = React.useState(false);
   const [rows, setRows] = React.useState<DraftItemRow[]>([newRow(), newRow(), newRow()]);
   const [saving, setSaving] = React.useState(false);
   const [tplUrl, setTplUrl] = React.useState<string | null>(null);
@@ -144,6 +156,13 @@ const QuotationTemplateCreatePage: React.FC = () => {
       message.error('建立失敗');
     }
   };
+
+  React.useEffect(() => {
+    if (staffTouched || staffUserId !== undefined || !me?.id) return;
+    // 登入者必須真的在可指派清單裡才帶入 —— 不在清單裡代表他不是可指派的對象，
+    // 硬塞會送出一個後端接不到的 user_id
+    if (staffUsers.some(u => u.id === me.id)) setStaffUserId(me.id);
+  }, [me, staffUsers, staffTouched, staffUserId]);
 
   const patch = (key: string, part: Partial<DraftItemRow>) =>
     setRows(rs => rs.map(r => (r.key === key ? { ...r, ...part } : r)));
@@ -381,7 +400,7 @@ const QuotationTemplateCreatePage: React.FC = () => {
                     optionFilterProp="label"
                     placeholder="選填 —— 印在報價單的服務人員欄"
                     value={staffUserId}
-                    onChange={setStaffUserId}
+                    onChange={(v) => { setStaffTouched(true); setStaffUserId(v); }}
                     options={staffUsers.map(u => ({
                       value: u.id,
                       label: u.full_name || u.username,

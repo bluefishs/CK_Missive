@@ -17,6 +17,13 @@ owner：「承攬報價案件對應填報人員通報管控」。
 
 ## 設計取捨
 
+⚠️ 2026-08-29：五處承辦查找原本**只比 `project_id`**，與
+`quotation_document.py` 08-21 修過的那條是同一個 bug，但這個檔沒被一起修。
+實測當下影響 **0 筆**（執行中 100 件，78 件兩條路都通、22 件根本沒指派）——
+**但那是因為存量指派都是成案後才寫的**。同日上線的「建單當下指派承辦同仁」
+只寫 `case_code`（案件還沒成案，沒有 project_id 可寫）⇒ 那些案子一旦成案，
+缺口通報就會找不到人。**是新功能讓這個潛伏 bug 即將變成真的**，所以現在修。
+
 **不新增負責人欄位** —— `project_user_assignments` 已經有
 `is_primary`（主要負責人），43 筆指派涵蓋 26 個專案。
 再加一個欄位就是第二份事實（本專案反覆踩的那個形狀）。
@@ -126,7 +133,7 @@ FROM contract_projects p
 LEFT JOIN LATERAL (
     SELECT x.user_id, x.staff_name
     FROM project_user_assignments x
-    WHERE x.project_id = p.id
+    WHERE x.project_id = p.id OR x.case_code = p.case_code
     ORDER BY x.is_primary DESC NULLS LAST, x.id
     LIMIT 1
 ) a ON TRUE
@@ -147,7 +154,7 @@ LEFT JOIN contract_projects p ON p.case_code = q.case_code
 LEFT JOIN LATERAL (
     SELECT x.user_id, x.staff_name
     FROM project_user_assignments x
-    WHERE x.project_id = p.id
+    WHERE x.project_id = p.id OR x.case_code = p.case_code
     ORDER BY x.is_primary DESC NULLS LAST, x.id
     LIMIT 1
 ) a ON TRUE
@@ -177,7 +184,7 @@ JOIN contract_projects p ON p.case_code = q.case_code
 LEFT JOIN LATERAL (
     SELECT x.user_id, x.staff_name
     FROM project_user_assignments x
-    WHERE x.project_id = p.id
+    WHERE x.project_id = p.id OR x.case_code = p.case_code
     ORDER BY x.is_primary DESC NULLS LAST, x.id
     LIMIT 1
 ) a ON TRUE
@@ -242,7 +249,7 @@ JOIN erp_quotations q ON q.id = b.erp_quotation_id
 JOIN contract_projects p ON p.case_code = q.case_code
 LEFT JOIN LATERAL (
     SELECT x.user_id, x.staff_name FROM project_user_assignments x
-    WHERE x.project_id = p.id ORDER BY x.is_primary DESC NULLS LAST, x.id LIMIT 1
+    WHERE x.project_id = p.id OR x.case_code = p.case_code ORDER BY x.is_primary DESC NULLS LAST, x.id LIMIT 1
 ) a ON TRUE
 LEFT JOIN users au ON au.id = a.user_id
 LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
@@ -259,7 +266,7 @@ JOIN erp_quotations q ON q.id = v.erp_quotation_id
 JOIN contract_projects p ON p.case_code = q.case_code
 LEFT JOIN LATERAL (
     SELECT x.user_id, x.staff_name FROM project_user_assignments x
-    WHERE x.project_id = p.id ORDER BY x.is_primary DESC NULLS LAST, x.id LIMIT 1
+    WHERE x.project_id = p.id OR x.case_code = p.case_code ORDER BY x.is_primary DESC NULLS LAST, x.id LIMIT 1
 ) a ON TRUE
 LEFT JOIN users au ON au.id = a.user_id
 LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
