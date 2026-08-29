@@ -2,7 +2,7 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Button, Space, Input, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
+import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, DownloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -17,6 +17,18 @@ import { ClickableStatCard } from '../components/common';
 import { getErrorMessage } from '../utils/apiErrorParser';
 
 const { Title, Text } = Typography;
+
+// development-rules §2.6 ③：列表以**當年度**為統計基準；§2.5：紀年一律西元。
+// 2026-08-29 複查發現本頁**完全沒有年度篩選 UI** —— `params.year` 只在匯出時
+// 用得到，於是列表把所有年度混在一起，統計卡也是歷年總和。
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = [
+  { value: 0, label: '全部年度' },
+  ...Array.from({ length: 5 }, (_, i) => {
+    const y = CURRENT_YEAR - i;
+    return { value: y, label: `${y} 年` };
+  }),
+];
 
 export const ERPQuotationListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,9 +54,13 @@ export const ERPQuotationListPage: React.FC = () => {
   //   與後端說同一件事。
   const canWrite = hasPermission('projects:edit');
   const [statFilter, setStatFilter] = useState<string | null>(null);
-  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc' });
+  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc', year: CURRENT_YEAR });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);
-  const { data: profitSummary } = useERPProfitSummary();
+  // ⚠️ 統計卡必須跟著年度篩選走，否則會出現「列表 92 筆／卡片 257 筆」的
+  // 不一致 —— 那比沒有年度篩選更糟：兩個數字都在畫面上，而使用者無從
+  // 判斷哪一個才是他要的。後端 get_profit_summary 本來就收 year，
+  // 是前端沒傳（同「送出的與收到的不一致」家族）。
+  const { data: profitSummary } = useERPProfitSummary({ year: params.year });
   // 2026-08-15：刪除改由詳情頁提供（對照 /documents 的導航設計），
   // 列表不再持有刪除能力，故 useDeleteERPQuotation 與 handleDelete 一併移除。
 
@@ -227,6 +243,13 @@ export const ERPQuotationListPage: React.FC = () => {
             allowClear
             onSearch={(v) => setParams((p) => ({ ...p, search: v || undefined, page: 1 }))}
             style={{ width: 240 }}
+          />
+          <Select
+            value={params.year ?? 0}
+            onChange={(v) => setParams((p) => ({ ...p, year: v || undefined, page: 1 }))}
+            options={YEAR_OPTIONS}
+            style={{ width: 130 }}
+            aria-label="年度"
           />
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
           <Button
