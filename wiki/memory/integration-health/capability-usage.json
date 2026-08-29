@@ -1,10 +1,10 @@
 {
-  "captured_at": "2026-08-29T11:44:56+00:00",
+  "captured_at": "2026-08-29T13:33:08+00:00",
   "prometheus": "http://127.0.0.1:19090",
   "job": "ck-missive",
   "path_label": "path",
   "window_days": 7,
-  "data_depth_days": 19.24,
+  "data_depth_days": 19.31,
   "data_sufficient": true,
   "min_data_days": 14,
   "path_label_templated_since": "2026-08-04",
@@ -12,72 +12,72 @@
   "schema_settled": true,
   "decision_date": "2026-08-31",
   "counts": {
-    "endpoints_seen": 2890,
-    "active": 521,
+    "endpoints_seen": 2950,
+    "active": 532,
     "zero_traffic_exempt": 2,
     "zero_traffic_api_candidates": 33,
-    "zero_traffic_page_routes": 2334
+    "zero_traffic_page_routes": 2383
   },
   "top_active": [
     [
       "/api/health",
-      46159.00244050735
+      46283.00857603467
     ],
     [
       "/",
-      25501.555260747675
+      25944.566807745075
     ],
     [
       "/{spa_path}",
-      12612.47422438748
+      12774.567060712117
     ],
     [
       "/api/system-notifications/unread-count",
-      3468.3096643075646
+      3482.3095892000724
     ],
     [
       "/api/auth/me",
-      2826.1323589119897
+      2838.1359191727183
     ],
     [
       "/api/secure-site-management/csrf-token",
-      2511.0994179831337
-    ],
-    [
-      "/api/secure-site-management/navigation/action",
-      2354.111233493632
-    ],
-    [
-      "/api/taoyuan-dispatch/dispatch/contract-projects",
-      2294.0938817270307
+      2516.099140988257
     ],
     [
       "/api/files/document/{document_id}",
-      2291.1506704527646
+      2360.1540076436636
+    ],
+    [
+      "/api/secure-site-management/navigation/action",
+      2359.1109625172717
+    ],
+    [
+      "/api/taoyuan-dispatch/dispatch/contract-projects",
+      2298.093582016615
     ],
     [
       "/api/ai/config",
-      2262.092644046554
+      2266.0923562504395
     ],
     [
       "/api/auth/check",
-      2208.1175943557955
+      2211.1169867694352
     ],
     [
       "/api/auth/sso-bridge",
-      1678.0452928185102
+      1681.034565691707
     ],
     [
       "<unmatched>",
-      537.4139826981443
+      537.4116763236469
     ],
     [
       "/api/auth/profile",
-      513.0184049079754
+      521.0221277896956
     ],
     [
       "/api/projects/list",
-      459.02492397914847
+      463.02497707288126
     ]
   ],
   "zero_traffic_api_candidates": [
@@ -138,6 +138,7 @@
     "/assets/AgenciesPage-B4OtY6AH.js",
     "/assets/AgenciesPage-BDUYz0N3.js",
     "/assets/AgenciesPage-BtIGjL6R.js",
+    "/assets/AgenciesPage-BuL929aq.js",
     "/assets/AgenciesPage-BywNE7od.js",
     "/assets/AgenciesPage-C86Se6hD.js",
     "/assets/AgenciesPage-CCMwatF9.js",
@@ -180,6 +181,7 @@
     "/assets/AttachmentPanel-C_foT_UY.js",
     "/assets/AttachmentPanel-D1CUUt3_.js",
     "/assets/AttachmentPanel-DbhjA3Xz.js",
+    "/assets/AttachmentPanel-DfwBpqHP.js",
     "/assets/AttachmentPanel-Dgrn3xii.js",
     "/assets/AttachmentPanel-Dpajx_zc.js",
     "/assets/AttachmentPanel-DwPMArs7.js",
@@ -187,6 +189,7 @@
     "/assets/AttachmentPanel-KMX3SCd5.js",
     "/assets/AttachmentPanel-SL1vHYfr.js",
     "/assets/AttachmentPanel-TBBcXIVF.js",
+    "/assets/AttachmentPanel-VOdU9-2l.js",
     "/assets/AttachmentPanel-ZvEO71Zh.js",
     "/assets/AttachmentPanel-d8sV_q34.js",
     "/assets/AttachmentPanel-l_JwlKRf.js",
@@ -283,6 +286,7 @@
     "/assets/ContractCaseDetailPage-BVc-hcKX.js",
     "/assets/ContractCaseDetailPage-BcXV46Yn.js",
     "/assets/ContractCaseDetailPage-Bpz4c6N3.js",
+    "/assets/ContractCaseDetailPage-BrPR3NS6.js",
     "/assets/ContractCaseDetailPage-Byjg0KYU.js",
     "/assets/ContractCaseDetailPage-C0lcC4XW.js",
     "/assets/ContractCaseDetailPage-CBEAS9fa.js",
@@ -291,6 +295,7 @@
     "/assets/ContractCaseDetailPage-CMQDFt9X.js",
     "/assets/ContractCaseDetailPage-CPNqCp3O.js",
     "/assets/ContractCaseDetailPage-C_uWEzTD.js",
+    "/assets/ContractCaseDetailPage-Cjn8-N9i.js",
     "/assets/ContractCaseDetailPage-DEpDB7D2.js",
     "/assets/ContractCaseDetailPage-DIL4GJYV.js",
     "/assets/ContractCaseDetailPage-DKRSPyYl.js",
@@ -326,6 +331,7 @@
     "/assets/ContractCasePage-BgbgTbNc.js",
     "/assets/ContractCasePage-Brn8qpPx.js",
     "/assets/ContractCasePage-Bu1g2Gvd.js",
+    "/assets/ContractCasePage-Bwc_Z209.js",
     "/assets/ContractCasePage-Bwv2C4_q.js",
     "/assets/ContractCasePage-CDztzAfG.js",
     "/assets/ContractCasePage-CQEufjrM.js",
@@ -342,6 +348,7 @@
     "/assets/ContractCasePage-DjHHnC4w.js",
     "/assets/ContractCasePage-LR4IRt_S.js",
     "/assets/ContractCasePage-XiipI5Ap.js",
+    "/assets/ContractCasePage-wzBImWkJ.js",
     "/assets/ContractCasePage-yQy9woqa.js",
     "/assets/ContractCaseStaffFormPage-B-12PDOj.js",
     "/assets/ContractCaseStaffFormPage-BWUz1R3f.js",
@@ -365,6 +372,7 @@
     "/assets/DashboardPage-BLLW59vO.js",
     "/assets/DashboardPage-BLQ0Ms5n.js",
     "/assets/DashboardPage-BcIF77b_.js",
+    "/assets/DashboardPage-BeMIQ8lk.js",
     "/assets/DashboardPage-BuD7MA8B.js",
     "/assets/DashboardPage-BwPbd9EU.js",
     "/assets/DashboardPage-C1DBx_-N.js",
@@ -428,12 +436,14 @@
     "/assets/DetailPageLayout-CmX1Ixt4.js",
     "/assets/DetailPageLayout-CxHzxJIp.js",
     "/assets/DetailPageLayout-D-GTA7O9.js",
+    "/assets/DetailPageLayout-D5Rurqdj.js",
     "/assets/DetailPageLayout-DImKzmqd.js",
     "/assets/DetailPageLayout-DIy_jRE6.js",
     "/assets/DetailPageLayout-DNpDnDRg.js",
     "/assets/DetailPageLayout-DcPZLuyT.js",
     "/assets/DetailPageLayout-Dk4yIhLy.js",
     "/assets/DetailPageLayout-DygryH1U.js",
+    "/assets/DetailPageLayout-DzB1araI.js",
     "/assets/DetailPageLayout-ZMmON3VH.js",
     "/assets/DetailPageLayout-ZctrZMSj.js",
     "/assets/DetailPageLayout-acP38HPx.js",
@@ -558,6 +568,7 @@
     "/assets/ERPAccountRecordFormPage-CKvZ9FUO.js",
     "/assets/ERPAccountRecordFormPage-CmoX3H-a.js",
     "/assets/ERPAccountRecordFormPage-CwTEhCqx.js",
+    "/assets/ERPAccountRecordFormPage-D84MDt8v.js",
     "/assets/ERPAccountRecordFormPage-J5u19MXH.js",
     "/assets/ERPAccountRecordFormPage-QUQEH3kq.js",
     "/assets/ERPAccountRecordFormPage-UZuNJ9FT.js",
@@ -763,6 +774,7 @@
     "/assets/ERPOperationalListPage-DZWfhLVs.js",
     "/assets/ERPOperationalListPage-YUH85Gzw.js",
     "/assets/ERPQuotationDetailPage-0_bz31dQ.js",
+    "/assets/ERPQuotationDetailPage-6c4UtH5l.js",
     "/assets/ERPQuotationDetailPage-B0FOcZFR.js",
     "/assets/ERPQuotationDetailPage-B4AC4Yk1.js",
     "/assets/ERPQuotationDetailPage-B8LNAj6D.js",
@@ -786,17 +798,20 @@
     "/assets/ERPQuotationDetailPage-DsKRLS8B.js",
     "/assets/ERPQuotationDetailPage-DsTYrSzr.js",
     "/assets/ERPQuotationDetailPage-DzwOGl1O.js",
+    "/assets/ERPQuotationDetailPage-ETTGurub.js",
     "/assets/ERPQuotationDetailPage-FSj7U7Go.js",
     "/assets/ERPQuotationDetailPage-a3fz-Lea.js",
     "/assets/ERPQuotationDetailPage-bgh_hM1A.js",
     "/assets/ERPQuotationDetailPage-yJ5extR7.js",
     "/assets/ERPQuotationFormPage-B3KuWK_4.js",
     "/assets/ERPQuotationFormPage-BYN26Wd5.js",
+    "/assets/ERPQuotationFormPage-BsWoiBAj.js",
     "/assets/ERPQuotationFormPage-CLBMmQOy.js",
     "/assets/ERPQuotationFormPage-COXXKIs-.js",
     "/assets/ERPQuotationFormPage-DCDEwc5i.js",
     "/assets/ERPQuotationFormPage-DItBAcFx.js",
     "/assets/ERPQuotationFormPage-DIvyV3LW.js",
+    "/assets/ERPQuotationFormPage-DRv1lWsz.js",
     "/assets/ERPQuotationFormPage-Di7CpbGa.js",
     "/assets/ERPQuotationListPage-1ql54nWZ.js",
     "/assets/ERPQuotationListPage-6Qqpowu5.js",
@@ -822,6 +837,7 @@
     "/assets/ERPQuotationListPage-CxRPslBw.js",
     "/assets/ERPQuotationListPage-D-IaBy_V.js",
     "/assets/ERPQuotationListPage-D1OiadD-.js",
+    "/assets/ERPQuotationListPage-D1OxzXAl.js",
     "/assets/ERPQuotationListPage-D5_nMVQL.js",
     "/assets/ERPQuotationListPage-DIp8fHon.js",
     "/assets/ERPQuotationListPage-DbHnEWgC.js",
@@ -903,6 +919,7 @@
     "/assets/EnhancedTable-Mbn7T-vQ.js",
     "/assets/EnhancedTable-cY0fah-M.js",
     "/assets/EnhancedTable-qeRCg7xm.js",
+    "/assets/EntryPage-4VRrFwg_.js",
     "/assets/EntryPage-AIwZfHDq.js",
     "/assets/EntryPage-BEq5hcuG.js",
     "/assets/EntryPage-BJG18kM9.js",
@@ -938,6 +955,7 @@
     "/assets/ErpFormPageShell-Dl6AuSMe.js",
     "/assets/ErpFormPageShell-DlgR0cZW.js",
     "/assets/ErpFormPageShell-DnhZYQB_.js",
+    "/assets/ErpFormPageShell-HPrwCxtS.js",
     "/assets/ErpFormPageShell-V6qTPQ5P.js",
     "/assets/ErpFormPageShell-uhozeQPa.js",
     "/assets/ErpFormPageShell-vB1oCNWE.js",
@@ -1034,6 +1052,7 @@
     "/assets/LoginPage-Cq9GbkYx.js",
     "/assets/LoginPage-DBYIiPgJ.js",
     "/assets/LoginPage-DQCaRkby.js",
+    "/assets/LoginPage-DTgiizOJ.js",
     "/assets/LoginPage-D_bfMN7U.js",
     "/assets/LoginPage-DajRxLnn.js",
     "/assets/LoginPage-DtQy9r7O.js",
@@ -1053,6 +1072,7 @@
     "/assets/MarkdownRenderer-B8orq1IR.js",
     "/assets/MarkdownRenderer-BB1FNyUO.js",
     "/assets/MarkdownRenderer-BCbEzYnB.js",
+    "/assets/MarkdownRenderer-BGN0GwNB.js",
     "/assets/MarkdownRenderer-BQ9FDR7R.js",
     "/assets/MarkdownRenderer-BU0NAV5o.js",
     "/assets/MarkdownRenderer-BY8YpaFJ.js",
@@ -1132,6 +1152,7 @@
     "/assets/MyFilingGapsCard-BiACvLdj.js",
     "/assets/MyFilingGapsCard-BnmTRUto.js",
     "/assets/MyFilingGapsCard-CF3godA_.js",
+    "/assets/MyFilingGapsCard-CTxENS8j.js",
     "/assets/MyFilingGapsCard-Cv4_jinG.js",
     "/assets/MyFilingGapsCard-D6NXJfLZ.js",
     "/assets/MyFilingGapsCard-DCMtPvc3.js",
@@ -1259,11 +1280,13 @@
     "/assets/QuotationItemsTab-CvqaGAvq.js",
     "/assets/QuotationItemsTab-DKVRo82N.js",
     "/assets/QuotationItemsTab-DQ8O80D7.js",
+    "/assets/QuotationItemsTab-DYy0fVQF.js",
     "/assets/QuotationItemsTab-DkwMVYdU.js",
     "/assets/QuotationItemsTab-DobWV-60.js",
     "/assets/QuotationItemsTab-_NvN59p4.js",
     "/assets/QuotationItemsTab-gfSy_jRy.js",
     "/assets/QuotationItemsTab-iWjhUUEk.js",
+    "/assets/QuotationItemsTab-mIYLJSAx.js",
     "/assets/QuotationItemsTab-rCbghAUQ.js",
     "/assets/QuotationItemsTab-xMuac1r2.js",
     "/assets/QuotationRecordsTab-BK16N_4Y.js",
@@ -1318,6 +1341,7 @@
     "/assets/ResponsiveContent-DG_v9CqC.js",
     "/assets/ResponsiveFormRow-DfttrRi4.js",
     "/assets/ResponsiveTable-B-ebEpdv.js",
+    "/assets/ResponsiveTable-B32hm98G.js",
     "/assets/ResponsiveTable-BEpP-F4y.js",
     "/assets/ResponsiveTable-BPlX8WAO.js",
     "/assets/ResponsiveTable-BkLAL-0j.js",
@@ -1343,6 +1367,7 @@
     "/assets/ResponsiveTable-IBsoSIEk.js",
     "/assets/ResponsiveTable-KNzWcLag.js",
     "/assets/ResponsiveTable-QATnNKb9.js",
+    "/assets/ResponsiveTable-QAU116po.js",
     "/assets/ResponsiveTable-S5VFH4B6.js",
     "/assets/ResponsiveTable-bjShUiJF.js",
     "/assets/ResponsiveTable-imKxO46f.js",
@@ -1621,6 +1646,7 @@
     "/assets/VendorFormPage-GrR5DGkz.js",
     "/assets/VendorFormPage-IW4GoTqY.js",
     "/assets/VendorFormPage-WA-Vomyo.js",
+    "/assets/VendorList-8jGPH9r8.js",
     "/assets/VendorList-B30yFQ-B.js",
     "/assets/VendorList-B5k0TArH.js",
     "/assets/VendorList-BP-pwJAw.js",
@@ -1661,6 +1687,7 @@
     "/assets/VendorPage-DWwhxll7.js",
     "/assets/VendorPage-DgWrhSoY.js",
     "/assets/VendorPage-DnqqPk8G.js",
+    "/assets/VendorPage-DuVQOV3t.js",
     "/assets/VendorPage-Mb7RjelS.js",
     "/assets/VendorPage-PtJEfSEf.js",
     "/assets/VendorPage-Q9BIA0bK.js",
@@ -1701,6 +1728,7 @@
     "/assets/adminUsersApi-xv5JB1e8.js",
     "/assets/agenciesApi-0-TvggX4.js",
     "/assets/agenciesApi-8HoaRPqb.js",
+    "/assets/agenciesApi-BP6nobbc.js",
     "/assets/agenciesApi-BYSD-r5E.js",
     "/assets/agenciesApi-Bu6Wii93.js",
     "/assets/agenciesApi-BwpvWPfj.js",
@@ -1740,12 +1768,14 @@
     "/assets/apiMessage-CoOxjEUe.js",
     "/assets/apiMessage-CsCSKzn0.js",
     "/assets/apiMessage-CsiKxFYw.js",
+    "/assets/apiMessage-CvXpBdLE.js",
     "/assets/apiMessage-DVQ8UuKS.js",
     "/assets/apiMessage-DXJfPF7n.js",
     "/assets/apiMessage-DZWKrsHU.js",
     "/assets/apiMessage-DdAiv-pa.js",
     "/assets/apiMessage-DjgivREI.js",
     "/assets/apiMessage-Dl3R0j0Z.js",
+    "/assets/apiMessage-ZrCEXPP2.js",
     "/assets/apiMessage-dhOMIaj1.js",
     "/assets/apiMessage-gWinGiVp.js",
     "/assets/apiMessage-jqVMGD0e.js",
@@ -1776,6 +1806,7 @@
     "/assets/documentsApi-Bn6pxKrU.js",
     "/assets/documentsApi-BrPLzIcQ.js",
     "/assets/documentsApi-Bw2wlavW.js",
+    "/assets/documentsApi-CBJLxkpk.js",
     "/assets/documentsApi-CEgkV2Mo.js",
     "/assets/documentsApi-COPcoGuQ.js",
     "/assets/documentsApi-CXhcwE2H.js",
@@ -1783,6 +1814,7 @@
     "/assets/documentsApi-Cf1d2Qy-.js",
     "/assets/documentsApi-Ci_Z37ri.js",
     "/assets/documentsApi-CjlnR4E5.js",
+    "/assets/documentsApi-CunuE_OU.js",
     "/assets/documentsApi-Cvh7EXQP.js",
     "/assets/documentsApi-D0gdb84j.js",
     "/assets/documentsApi-D6_7_-Bp.js",
@@ -1837,9 +1869,11 @@
     "/assets/filesApi-CKs8K8YR.js",
     "/assets/filesApi-CSF_Zpc_.js",
     "/assets/filesApi-ClPa-fdc.js",
+    "/assets/filesApi-CmVG9co6.js",
     "/assets/filesApi-Cz7i2R2Q.js",
     "/assets/filesApi-DHaE2uwg.js",
     "/assets/filesApi-DL2NBJgB.js",
+    "/assets/filesApi-DTtZDnLn.js",
     "/assets/filesApi-DWrLitGC.js",
     "/assets/filesApi-DZqzDbKg.js",
     "/assets/filesApi-DedZtZsK.js",
@@ -1958,6 +1992,8 @@
     "/assets/projectAgencyContacts-C8GqyVSg.js",
     "/assets/projectAgencyContacts-CAieXCNj.js",
     "/assets/projectAgencyContacts-C_wv97Ah.js",
+    "/assets/projectAgencyContacts-CcrnCakz.js",
+    "/assets/projectAgencyContacts-Cifz-SL5.js",
     "/assets/projectAgencyContacts-CkufPfw1.js",
     "/assets/projectAgencyContacts-CyBtxzoQ.js",
     "/assets/projectAgencyContacts-D1H6R40M.js",
@@ -1981,11 +2017,13 @@
     "/assets/projectAgencyContacts-u2psYbzF.js",
     "/assets/projectAgencyContacts-vfnqo3QP.js",
     "/assets/projectAgencyContacts-xRSfvmpt.js",
+    "/assets/projectStaffApi-1naElTTn.js",
     "/assets/projectStaffApi-2yFsa4jF.js",
     "/assets/projectStaffApi-88BI5XID.js",
     "/assets/projectStaffApi-B1c5H71h.js",
     "/assets/projectStaffApi-BLk0Q3en.js",
     "/assets/projectStaffApi-BOkBvLVw.js",
+    "/assets/projectStaffApi-BQN6VpPP.js",
     "/assets/projectStaffApi-B_SuFE-v.js",
     "/assets/projectStaffApi-BcJv4Npc.js",
     "/assets/projectStaffApi-Bl7y0qe_.js",
@@ -2037,9 +2075,11 @@
     "/assets/projectVendorsApi-DfU9jgLl.js",
     "/assets/projectVendorsApi-DrCUehUA.js",
     "/assets/projectVendorsApi-FioRNv28.js",
+    "/assets/projectVendorsApi-GRr8lKzI.js",
     "/assets/projectVendorsApi-VmGs1OpP.js",
     "/assets/projectVendorsApi-WGrIaHxa.js",
     "/assets/projectVendorsApi-WbWY5Qo5.js",
+    "/assets/projectVendorsApi-fTQCDHPp.js",
     "/assets/projectVendorsApi-jig_zRLZ.js",
     "/assets/projectVendorsApi-tZ8e8UT-.js",
     "/assets/projectVendorsApi-yInn9lgp.js",
@@ -2051,11 +2091,13 @@
     "/assets/projectsApi-BcYnw8zV.js",
     "/assets/projectsApi-Bf9hi5e0.js",
     "/assets/projectsApi-C869QPLb.js",
+    "/assets/projectsApi-CCVan1Vv.js",
     "/assets/projectsApi-CEXZDEy2.js",
     "/assets/projectsApi-CNqGf9NW.js",
     "/assets/projectsApi-CSDcVPvs.js",
     "/assets/projectsApi-CVk9OKKu.js",
     "/assets/projectsApi-ClfiwDfA.js",
+    "/assets/projectsApi-D5-2wQDP.js",
     "/assets/projectsApi-D6fmQ6-T.js",
     "/assets/projectsApi-DC-tgPyN.js",
     "/assets/projectsApi-DGM7Eljh.js",
@@ -2148,6 +2190,7 @@
     "/assets/tenderApi-Bsc-YRjU.js",
     "/assets/tenderApi-C6Nvm_xo.js",
     "/assets/tenderApi-CB-IqOPB.js",
+    "/assets/tenderApi-CD4wxZ3l.js",
     "/assets/tenderApi-CGnoNDo0.js",
     "/assets/tenderApi-CIft2g_c.js",
     "/assets/tenderApi-CM9bpBUB.js",
@@ -2162,6 +2205,7 @@
     "/assets/tenderApi-DzWE76at.js",
     "/assets/tenderApi-GRKITUqU.js",
     "/assets/tenderApi-IJ3qBky7.js",
+    "/assets/tenderApi-IO9X6asP.js",
     "/assets/tenderApi-MTzAjX2I.js",
     "/assets/tenderApi-TIw3falS.js",
     "/assets/useDeleteWorkRecord-83Rk9LEp.js",
@@ -2228,10 +2272,12 @@
     "/assets/useDropdownData-C3HRcQY5.js",
     "/assets/useDropdownData-C3ztc1ND.js",
     "/assets/useDropdownData-C9QxvQzN.js",
+    "/assets/useDropdownData-CFceMG4h.js",
     "/assets/useDropdownData-CLgG-UpE.js",
     "/assets/useDropdownData-CMtlKFP0.js",
     "/assets/useDropdownData-CPqaJZP-.js",
     "/assets/useDropdownData-CSegSwsm.js",
+    "/assets/useDropdownData-D34d80K0.js",
     "/assets/useDropdownData-DRDEbU__.js",
     "/assets/useDropdownData-DVEFw8u5.js",
     "/assets/useDropdownData-Dp-YKZ0j.js",
@@ -2307,6 +2353,7 @@
     "/assets/useERPQuotations-SRTRv39L.js",
     "/assets/useERPQuotations-aETWuTTx.js",
     "/assets/useERPQuotations-f7JdOMK1.js",
+    "/assets/usePMCases-4YOQE76E.js",
     "/assets/usePMCases-6-m35UQ2.js",
     "/assets/usePMCases-B0l_YGUl.js",
     "/assets/usePMCases-B1dRiZAc.js",
@@ -2338,6 +2385,7 @@
     "/assets/usePMCases-ojnO6-Dm.js",
     "/assets/usePMCases-pnCRdB3R.js",
     "/assets/usePMCases-seWuoNVz.js",
+    "/assets/usePMCases-tb9gxUHO.js",
     "/assets/usePMCases-uncJNSTv.js",
     "/assets/usePMCases-x_p7mvzr.js",
     "/assets/useQuotationExport-8GgkfUer.js",
@@ -2428,6 +2476,7 @@
     "/assets/vendorsApi-CQ5ZH0OY.js",
     "/assets/vendorsApi-CWBbTlkn.js",
     "/assets/vendorsApi-Ca-lvXt5.js",
+    "/assets/vendorsApi-CfXIuwyj.js",
     "/assets/vendorsApi-Cq_zAnyX.js",
     "/assets/vendorsApi-CviUk44i.js",
     "/assets/vendorsApi-CwsDbid9.js",
@@ -2439,6 +2488,7 @@
     "/assets/vendorsApi-DSfgCgDU.js",
     "/assets/vendorsApi-DUeya6sA.js",
     "/assets/vendorsApi-DZ1pzAoV.js",
+    "/assets/vendorsApi-DbAf1u4k.js",
     "/assets/vendorsApi-Dj0eYlbX.js",
     "/assets/vendorsApi-DoB6yZVA.js",
     "/assets/vendorsApi-Doj_iItb.js",
@@ -2448,7 +2498,6 @@
     "/assets/vendorsApi-aOx5QV98.js",
     "/assets/vendorsApi-j5UXyP12.js",
     "/assets/yearOptions-Dq1rgP8z.js",
-    "/health/detailed",
     "/uploads/"
   ],
   "exempt": [
