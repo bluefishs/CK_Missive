@@ -30,6 +30,28 @@ import os
 # 將 backend 目錄加入 Python 路徑
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# ============================================================
+# 稽核軌跡隔離（安全網，2026-08-30）
+# ============================================================
+# `scheduler.py` 在 **module import 時**就決定事件檔位置：
+#     _EVENTS_LOG = Path(os.getenv("CK_LOGS_DIR") or _LOGS_DIR_DEFAULT) / "cron_events.jsonl"
+# host 上跑 pytest 時 `CK_LOGS_DIR` 沒設 ⇒ 落到 **repo 根的 `logs/`**，
+# 而正式事件在 `backend/logs/`（compose 掛 `./backend/logs:/app/logs`）。
+#
+# 結果是 repo 根長出一個**看起來很正常的假事件流**：504 筆、今天還在更新、
+# 裡面連 `llm_quota_check` 的 detail 都是真的格式（`test_obs_job` 是唯一破綻）。
+# 它已經騙過兩次 —— `cron_silent_dormant_check._cron_events_path()` 的註解
+# 記著第一次（「讀到了、有資料、看起來很正常」），2026-08-30 是第二次：
+# 我照它的內容做出「這個 job 其實有在跑」的相反結論。
+#
+# ⚠️ 必須在 `from main import app` **之前**設 —— 那行會連帶 import scheduler，
+#    而上面那個 `_EVENTS_LOG` 是 module 層算好的，設晚了不生效。
+os.environ.setdefault(
+    "CK_LOGS_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".artifacts", "logs"),
+)
+os.makedirs(os.environ["CK_LOGS_DIR"], exist_ok=True)
+
 from app.core.config import settings
 from app.db.database import Base
 from main import app

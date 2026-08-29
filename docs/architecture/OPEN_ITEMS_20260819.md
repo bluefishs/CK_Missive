@@ -328,6 +328,10 @@ daily 不是 weekly）。
 
 ---
 
+| **A39** | **repo 根 `logs/cron_events.jsonl` 是一份假的事件流，建議清掉** | 它**不是**正式事件流 —— 正式的在 `backend/logs/`（compose 掛 `./backend/logs:/app/logs`，87,677 筆／57 種 job）。repo 根那份 504 筆／5 種 job，是 **pytest 在 host 上跑時寫的**（`scheduler.py` module 層讀 `CK_LOGS_DIR`，未設就落到 repo 根）。<br><br>⚠️ **它已經騙過兩次**：`_cron_events_path()` 的註解記著第一次（「讀到了、有資料、看起來很正常」），2026-08-30 是第二次 —— 我照它的內容做出「`llm_quota_check` 其實有在跑」的**相反結論**（實際 repo 根顯示 1.2h 前跑過，正式紀錄是 69.8h 前）。<br><br>破綻只有 `test_obs_job` 這個 job_id，其餘連 detail 格式都是真的。<br><br>**產生源已封**（`conftest.py` 在 import `main` 前設 `CK_LOGS_DIR` 到 `backend/tests/.artifacts/logs`，實測 504→504 未再增長）。**剩下的是那份存量檔要不要刪** —— 它 gitignored、無獨有 job_id、刪掉不損失任何正式紀錄，但**刪檔是不可逆的**，故列此請 owner 裁示。 | 2026-08-30 實測；教訓＝L109 |
+
+---
+
 ### 做不了／不該做（已核實，列此以免重複提案）
 
 | 議題 | 為什麼 |

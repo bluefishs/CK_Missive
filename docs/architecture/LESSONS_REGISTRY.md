@@ -531,6 +531,22 @@
 
 ---
 
+## L109 — 同一個檔案裡已經有人解過這題，而我自己又解了一次、解錯了（2026-08-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | `cron_silent_dormant_check.py` 判斷排程是否停擺時，用容器 uptime 扣除重啟時間，而它自己的註解指出 uptime「只反映**最後一次**重啟」。2026-08-29 加的 `scheduler_start` 事件正好記著每一次啟動 —— 產出端有了、消費端沒有（同日 `csp_violations_total` 的形狀）。於是我寫了 `count_restarts_within()` 去消費它。 |
+| **What happened** | 我在那支新函式裡**自己寫了一份路徑推導**：`parents[2] / "logs" / "cron_events.jsonl"`。而**同一個檔案第 268 行就有 `_cron_events_path()`**，它的註解寫著這個路徑是錯的（compose 掛的是 `./backend/logs:/app/logs`）、repo 根那份是舊的、「**讀到了、有資料、看起來很正常**」。⇒ 我在同一個檔案裡，重現了那個 helper 專門要防的 bug。 |
+| **兩次失敗的形狀不同，第二次危險得多** | ① 首版用了個不存在的 `ROOT` 常數 ⇒ `NameError`，會吵，看得見。② 二版指到 repo 根 ⇒ 那個檔案**真的存在** ⇒ 不報錯、不回 `None`，**安靜地讀了錯的檔案回 0**，而 0 會被讀成「期間沒有重啟」。⚠️ **語法檢查與「有沒有拋例外」都攔不到第二種。** |
+| **它接著造成一個錯誤的診斷** | 我據此寫出「重啟太密所以 job 結構上跑不到」—— 一個能解釋症狀的合理故事。實查才發現 repo 根那份**不是舊檔**，是 pytest 在 host 上跑時寫的（`CK_LOGS_DIR` 未設 ⇒ 落到 repo 根），504 筆、當天還在更新、連 detail 格式都是真的，破綻只有 `test_obs_job` 這個 job_id。⚠️ **假的事件流比沒有事件流更糟：它讓你做出有信心的相反結論。** |
+| **第三個錯：拿 13 小時的證據解釋 69 小時的空窗** | `scheduler_start` 前一天才加，觀測窗只有 13h，而空窗 69.8h。我第一版把整段都歸因於部署節奏。⇒ 補 `observed_span()`，任何用重啟史做的歸因都要先講「我看得到多遠」。 |
+| **Root cause** | 重複實作。**同一份知識在兩處各寫一次，錯的那一份不會告訴你它是錯的** —— 而正確的那一份就在同檔上方 100 行。 |
+| **Fix** | ① `_restart_stamps_within()` 改用既有的 `_cron_events_path()`。② `longest_uptime_within()` 排除「事件流開始之前」那段（那是**未觀測**不是連續存活；首版把 24h 窗算成 10.87h 而真值 2.80h）。③ 窗口內 0 筆事件回 `None` 不回 `seconds`。④ `backend/tests/conftest.py` 在 import `main` **之前**設 `CK_LOGS_DIR`，讓測試不再污染 repo 根（實測 504 行 → 504 行未動，隔離檔收到寫入）。 |
+| **Prevention** | ⚠️ **寫任何「路徑推導／環境判別」之前，先在同一個檔案裡 grep 一次有沒有人做過。** 這類邏輯是本 repo 最常被重複實作、也最常靜默出錯的一類（L52／L57／`windows_container_path_trap` 同族）。⚠️ 以及：**讀到資料不等於讀對檔案** —— 對事件流做結論前，先確認它的 job 種類數與時間範圍合理（本例 5 種 vs 57 種、504 筆 vs 87,677 筆，一眼可辨）。 |
+| **Refs** | `scripts/checks/cron_silent_dormant_check.py`（`_cron_events_path` / `_restart_stamps_within` / `longest_uptime_within` / `observed_span`）／`backend/tests/conftest.py`／同族：L52、L57、`windows_container_path_trap`、`symptom_is_not_the_cause`（能解釋症狀就停手）、`proxy_metric_looks_good` |
+
+---
+
 ## L108 — 為了看見一種訊號而加的旗標，把另一種訊號整批關掉了（2026-08-29）
 
 | 欄位 | 內容 |

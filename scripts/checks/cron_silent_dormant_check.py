@@ -109,6 +109,34 @@ def cannot_judge(age: float, threshold: float, uptime: float) -> str | None:
             # 不藏事：重啟前就已經超過門檻，下個週期後若仍沒跑就會判紅
             note += (f"；⚠️ 但重啟前已沉默 {pre/3600:.1f}h（超過門檻 "
                      f"{threshold/3600:.1f}h）—— 再過一個週期仍未執行就會判紅")
+            # ⚠️ 2026-08-30：這裡原本只能說「重啟前已沉默 pre 小時」，
+            # 而 `pre = age - uptime` 把**中間每一次重啟**都算成沉默 ——
+            # 一天內 rebuild 10 次時，那個數字會嚴重誇大。
+            # `scheduler_start` 事件記著每一次啟動，用它把話說準。
+            n = count_restarts_within(age)
+            longest = longest_uptime_within(age)
+            if n is None or longest is None:
+                note += "（⚠️ 讀不到 scheduler_start 事件流，無法確認期間重啟次數）"
+            elif n > 1 and longest < interval:
+                # 不是「它沒跑」，是「它在**有觀測的那段**跑不到」。
+                #
+                # ⚠️ 這裡只能講有事件覆蓋的區間 —— `scheduler_start`
+                # 2026-08-29 才加，在那之前沒有重啟紀錄。我第一版寫成
+                # 「上面那個已沉默 69.0h 是部署節奏造成的」，
+                # 而事件流只覆蓋最近 13h ⇒ **拿 13h 的證據解釋 69h 的空窗**。
+                # 能解釋症狀的故事不等於真因（本 repo 反覆付過的學費）。
+                obs = observed_span()
+                obs_txt = (f"（但事件流只覆蓋最近 {obs/3600:.0f}h，"
+                           f"更早的 {max(age - obs, 0)/3600:.0f}h 沒有重啟紀錄、"
+                           f"無法一併歸因）") if obs and obs < age * 0.9 else ""
+                note += (f"；⚠️ **這段期間重啟 {n} 次、最長連續存活僅 "
+                         f"{longest/3600:.1f}h < 週期 {interval/3600:.1f}h** —— "
+                         f"它在有觀測的區間內結構上不可能執行"
+                         f"（每次重啟都把計時歸零）{obs_txt}")
+            elif n > 1:
+                note += (f"；⚠️ **但這段期間重啟了 {n} 次** —— "
+                         f"上面那個「已沉默 {pre/3600:.1f}h」把中間的重啟"
+                         f"也算成沉默了，實際連續沉默時間比它短")
         return note
     return None
 
@@ -336,6 +364,125 @@ def fetch_process_uptime() -> float | None:
             except ValueError:
                 return None
     return None
+
+
+_UNSET = object()          # 「還沒讀過」——與「讀過但讀不到（None）」必須分得開
+_RESTART_CACHE: object = _UNSET
+
+
+def _restart_stamps_within(seconds: float) -> list[float] | None:
+    """這段時間內每一次 `scheduler_start` 的 epoch 秒（已排序）。
+
+    ⚠️ 2026-08-30：`fetch_process_uptime()` 用的
+    `process_start_time_seconds` **只反映最後一次重啟**，
+    而本檔上面的守則 2 註解自己就寫著那是個限制
+    （「一天內連續 rebuild 時，扣除額被歸零而 age 持續累積」）。
+
+    2026-08-29 為了分辨「空窗是容器重啟還是事件迴圈阻塞」而在
+    `scheduler.py` 加了 `scheduler_start` 事件 —— **它記著每一次啟動**，
+    正好是那個限制缺的資料。而在此之前**沒有任何檢核在讀它**
+    （23 筆事件躺著，只有文件提到）⇒ 產出端有了、消費端沒有，
+    同日 `csp_violations_total` 的同一個形狀。
+
+    回傳 None＝讀不到事件流（不可判，呼叫端不得當成 0）。
+    """
+    # ⚠️ 用本檔既有的 `_cron_events_path()`，**不要自己再寫一份路徑邏輯**。
+    #
+    # 我寫這支時自己重寫了一份，於是在同一個檔案裡重現了那個 helper
+    # 專門要防的 bug —— 它的註解就寫著「`<repo>/logs` 是錯的、裡面躺著
+    # 一份 08-10 的舊 cron_events、讀到了有資料看起來很正常」。
+    # 我寫的 `parents[2]/"logs"` 正好指到那一份：104KB、0 筆 scheduler_start
+    # ⇒ 不報錯、不回 None，**安靜地讀了錯的檔案回 0**。
+    #
+    # 教訓不是「路徑要寫對」，是**同一個檔案裡已經有人解過這題就別再解一次**：
+    # 重複的實作只會各自演化，而錯的那一份不會告訴你它是錯的。
+    # 一次性快取：事件檔約 10MB，而本函式在同一次執行裡會被
+    # count_restarts_within / longest_uptime_within / observed_span 各叫一次。
+    # 全部 stamps 讀一次，之後只做 cutoff 過濾。
+    global _RESTART_CACHE
+    if _RESTART_CACHE is not _UNSET:
+        if _RESTART_CACHE is None:
+            return None
+        cutoff = datetime.now().timestamp() - seconds
+        return [t for t in _RESTART_CACHE if t >= cutoff]
+
+    path = _cron_events_path()
+    if path is None:
+        _RESTART_CACHE = None
+        return None
+    cutoff = datetime.now().timestamp() - seconds
+    stamps: list[float] = []
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if '"scheduler_start"' not in line:
+                continue
+            try:
+                ev = json.loads(line)
+            except Exception:
+                continue
+            ts = ev.get("ts") or ev.get("timestamp") or ""
+            try:
+                t = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            # ⚠️ 快取存**全部**，不是本次窗口內的 —— 否則第一次呼叫的 `seconds`
+            #    會污染後續所有呼叫（observed_span 用 365 天窗，若被 24h 的
+            #    結果污染就會謊報「只看得到 24h」）。過濾在 return 時做。
+            stamps.append(t.timestamp())
+    except Exception:
+        _RESTART_CACHE = None
+        return None
+    _RESTART_CACHE = sorted(stamps)
+    return [t for t in _RESTART_CACHE if t >= cutoff]
+
+
+def count_restarts_within(seconds: float) -> int | None:
+    """這段時間內重啟過幾次。回傳 None＝讀不到（不可判，不得當成 0）。"""
+    stamps = _restart_stamps_within(seconds)
+    return None if stamps is None else len(stamps)
+
+
+def observed_span() -> float | None:
+    """`scheduler_start` 事件流覆蓋多長（秒）—— 即「這件事我看得到多遠」。
+
+    ⚠️ 這個標記 2026-08-29 才加。拿它去解釋更早的空窗會**超出證據範圍**，
+    所以任何用重啟史做的歸因都要先問「我的觀測窗有多長」。
+    回傳 None＝讀不到事件流。
+    """
+    stamps = _restart_stamps_within(365 * 24 * 3600)
+    if not stamps:
+        return None
+    return datetime.now().timestamp() - stamps[0]
+
+
+def longest_uptime_within(seconds: float) -> float | None:
+    """這段時間內**最長的一段連續存活**（秒）。
+
+    ⚠️ 這才是「job 跑不跑得到」的判準，而不是重啟次數。
+    週期 6h 的 job 需要連續 6h 不重啟才有機會 fire；
+    2026-08-30 實測：一天內 23 次重啟、**最長連續存活只有 2.8h**
+    ⇒ `llm_quota_check`（6h）在那段期間**結構上不可能跑到**，
+    而檢核原本只會說「已沉默 69.7h」—— 那個數字看起來像故障，
+    實際是我自己的部署節奏比排程週期還密。
+
+    回傳 None＝讀不到事件流。
+    """
+    stamps = _restart_stamps_within(seconds)
+    if stamps is None:
+        return None
+    if not stamps:
+        # ⚠️ 「窗口內沒有 scheduler_start」有兩個相反的成因，事件流分不出來：
+        #   ① 真的沒重啟過（全程連續）
+        #   ② 那段期間還沒有這個事件（本事件 2026-08-29 才加）
+        # ⇒ 回 None（不可判），不得回 `seconds`。
+        return None
+    now = datetime.now().timestamp()
+    # ⚠️ **不含**「窗口起點 → 第一筆事件」那一段 —— 那是**未觀測**，不是連續存活。
+    #    首版把它算進去：窗口 24h 得 10.87h，而實測最大間隔只有 2.80h
+    #    （因為事件流 13h 前才開始，前面 11h 的空白被當成「一直活著」）。
+    #    這是本 repo 反覆出現的形狀：**把「沒有資料」讀成「沒有發生」。**
+    bounds = stamps + [now]
+    return max(b - a for a, b in zip(bounds, bounds[1:]))
 
 
 def fetch_ages() -> dict[str, float]:

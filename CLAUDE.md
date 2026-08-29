@@ -4,7 +4,10 @@
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + Ollama/Groq
 > **版本**: v6.69（2026-08-29 晚）/ ⭐⭐⭐**同一個資源被讀取端只認一條路——同族六處，我在同一天內修了四處還漏掉兩處**：指派表的 `project_id` 是 nullable（邀標階段沒有專案可綁，只能寫 `case_code`），而讀取端 `quotation_document`(08-21)／`filing_gap`／`project_repository`／`get_user_accessible_project_ids`／**`check_user_project_access`／`apply_project_rls`** 各自只比 `project_id`。最嚴重的是最後一處是**權限過濾**：實測洪慶忠有 77 件案子而系統只讓他看到 **23** 件（admin 走短路所以看不出來）。⇒ **修完第一處要 grep 整個檔案，不是憑印象數**＋⭐⭐⭐**外層 rollback 擋不住內部自己 commit 的函式**：我在自稱「已回滾」的試算裡**真的成案了 3 件**（owner 刻意撤回待判讀的那批），是 **weekly step 28 的基線 91→88** 抓到的，已依裁示逐表還原（含還原被棘輪的基線，否則錯誤狀態會被記成新常態）＋⭐⭐⭐**公網探的那支 health 根本不查 DB**：`/api/health` 是靜態 dict，postgres 掛掉照樣回 healthy —— 而 L43 的「面向公網必須驗業務量」做在 `/health` 上。**我自己整天拿它當部署驗證**，那個綠燈比我以為的弱＋⭐⭐**「我這條路徑找不到」不等於「資料不存在」**：我 08-20 宣告「115 檔沒有承辦人資訊」，而代碼一直躺在 `legacy_quotation_no` 裡（A坤樹/B慶忠/C元宏/D廷睿/Y慶忠，**owner 講過多次而系統沒記**）⇒ 回填後報價單有承辦 **135 → 250 張**＋⭐⭐**註解指名了來源檔，不代表值是從那裡來的**：手抄的 `TEMPLATE_ITEM_CAPACITY=5` 叫使用者去合併後端輸出得出來的工項，而 tsc 全綠；**同一小時內我還漏掉同檔案的第二份**＋⭐⭐**後端算對了、前端又自己算一次**：報價單詳情頁的總計只顯示稅額，**235 張、9,206 萬元**＋⭐**設定檔整合**：三份 compose 的 14 個 postgres 參數只有 `max_connections` 不一致（而 dev/infra 定義**同一個容器**），且 `postgresql-tuning.conf` 掛載了卻**從未被讀**（Dead Config）—— 已對齊、已重新定位為規格書、weekly 88 三層守門（compose 之間／對規格／**對執行時**）＋⭐**測試庫 schema 落後正式庫 20 個欄位**且**根本沒有 `alembic_version`**（weekly 87）
 > （更早版本的一行摘要同樣在 `docs/MILESTONES_ARCHIVE.md`）
-> **最後更新**: 2026-08-29
+>
+> **2026-08-30**：⭐⭐⭐**假的事件流比沒有事件流更糟**（L109）——`scheduler_start` 事件加了卻沒有任何消費端（同 `csp_violations_total` 的形狀），我寫消費端時**自己重寫了一份路徑推導**，而**同一個檔案上方 100 行就有 `_cron_events_path()`**，它的註解寫著那條路是錯的。兩次寫錯的形狀不同：①不存在的 `ROOT` 常數 ⇒ NameError，**會吵**；②`parents[2]/"logs"` ⇒ 那個檔**真的存在** ⇒ 不報錯、不回 None、**安靜地讀了錯的檔案回 0**。它接著讓我做出「重啟太密所以 job 跑不到」這個**能解釋症狀的錯誤診斷**——實查才知 repo 根那份是 **pytest 在 host 上寫的**（`CK_LOGS_DIR` 未設），504 筆、當天還在更新、連 detail 格式都是真的，破綻只有 `test_obs_job`。⭐ 第三個錯是**拿 13 小時的觀測窗解釋 69 小時的空窗**（標記昨天才加）⇒ 補 `observed_span()`，凡用重啟史歸因先講「我看得到多遠」。⭐ 修法：消費端改用既有 helper／`longest_uptime_within` 排除「事件流開始之前」那段（首版把 24h 窗算成 10.87h 而真值 2.80h，**把「沒有資料」讀成「沒有發生」**）／窗內 0 筆回 `None` 不回 `seconds`／`conftest.py` 在 import `main` **之前**設 `CK_LOGS_DIR`（實測 504→504 未再增長、隔離檔收到寫入）。存量誘餌檔待 owner 裁示＝A39。
+>
+> **最後更新**: 2026-08-30
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)
 > （2026-08-27，v6.59–v6.61 共 46,981 字元；更早的 64 條 08-24 已先移入）。

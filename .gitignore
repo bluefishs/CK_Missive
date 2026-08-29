@@ -231,3 +231,6 @@ docs/health/ui_page_sweep_shots/
 
 # owner 2026-08-29：「地上物調查/ 未納版控 非本案作業」
 docs/templates/地上物調查/
+
+# pytest 稽核軌跡隔離（conftest 設的 CK_LOGS_DIR，2026-08-30）
+backend/tests/.artifacts/
