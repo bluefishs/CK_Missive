@@ -11,15 +11,13 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Segmented,
+import {Segmented,
   Select,
   Button,
   Space,
   Empty,
-  Table,
-  Spin,
-} from 'antd';
+  Spin} from 'antd';
+import { EnhancedTable } from '../../../components/common/EnhancedTable';
 import {
   PlusOutlined,
   FileTextOutlined,
@@ -315,7 +313,7 @@ export const ProjectWorkOverviewTab: React.FC<ProjectWorkOverviewTabProps> = ({
           />
         )
       ) : viewMode === 'table' ? (
-        <Table<WorkRecord>
+        <EnhancedTable<WorkRecord>
           columns={tableColumns}
           dataSource={records}
           rowKey="id"

@@ -7,7 +7,8 @@
  *   已交付 / 已結案 / 排程中 / 進行中 / 逾期 / 闕漏紀錄 / 待結案
  */
 import React, { useMemo, useState } from 'react';
-import { Table, Tag, Card, Statistic, Row, Col, Select, Space, Typography, Tooltip, Input } from 'antd';
+import {Tag, Card, Statistic, Row, Col, Select, Space, Typography, Tooltip, Input} from 'antd';
+import { EnhancedTable } from '../common/EnhancedTable';
 import { useResponsive } from '../../hooks';
 import {
   CheckCircleOutlined,
@@ -297,7 +298,7 @@ export const MorningReportTrackingTab: React.FC = () => {
           </Space>
         }
       >
-        <Table
+        <EnhancedTable
           dataSource={filteredItems}
           columns={columns}
           rowKey="id"

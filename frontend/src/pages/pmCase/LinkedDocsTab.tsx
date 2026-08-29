@@ -4,7 +4,8 @@
  * 透過 case_code 軟連結 ContractProject，列出關聯公文。
  */
 import React from 'react';
-import { Table, Empty, Typography } from 'antd';
+import {Empty, Typography} from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 import { usePMLinkedDocuments } from '../../hooks/business/usePMCases';
@@ -60,7 +61,7 @@ const LinkedDocsTab: React.FC<LinkedDocsTabProps> = ({ caseCode }) => {
   }
 
   return (
-    <Table<PMLinkedDocument>
+    <EnhancedTable<PMLinkedDocument>
       rowKey="id"
       columns={[
         ...columns,

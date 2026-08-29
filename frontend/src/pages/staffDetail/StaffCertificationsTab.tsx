@@ -3,16 +3,14 @@
  * @description Certifications table with add/edit/delete/preview actions
  */
 import React from 'react';
-import {
-  Button,
+import {Button,
   Space,
   Typography,
-  Table,
   Tag,
   Empty,
   Popconfirm,
-  Spin,
-} from 'antd';
+  Spin} from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import {
   EditOutlined,
   PlusOutlined,
@@ -67,7 +65,7 @@ export const StaffCertificationsTab: React.FC<StaffCertificationsTabProps> = ({
   }
 
   return (
-    <Table
+    <EnhancedTable
       dataSource={certifications}
       rowKey="id"
       size="small"

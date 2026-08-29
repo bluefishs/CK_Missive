@@ -9,19 +9,17 @@
  */
 
 import React from 'react';
-import {
-  Card,
+import {Card,
   Typography,
   Row,
   Col,
   Statistic,
   Select,
   Space,
-  Table,
   Spin,
   Empty,
-  Button,
-} from 'antd';
+  Button} from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import {
   DollarOutlined,
   ProjectOutlined,
@@ -321,7 +319,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
                     經費 {formatCurrency(stats.byAgency.find((a) => a.name === filterAgency)?.amount || 0)}
                   </Text>
                 </div>
-                <Table
+                <EnhancedTable
                   dataSource={stats.byAgency.find((a) => a.name === filterAgency)?.projects || []}
                   size="small"
                   rowKey="id"
@@ -332,7 +330,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
               </div>
             ) : (
               <>
-                <Table
+                <EnhancedTable
                   dataSource={stats.byAgency.slice(0, 15)}
                   columns={agencyColumns}
                   pagination={false}

@@ -16,12 +16,10 @@
 
 import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Table,
-  Button,
+import {Button,
   Empty,
-  App,
-} from 'antd';
+  App} from 'antd';
+import { EnhancedTable } from '../../../components/common/EnhancedTable';
 import { ThunderboltOutlined } from '@ant-design/icons';
 import { queryKeys } from '../../../config/queryConfig';
 import { useResponsive } from '../../../hooks';
@@ -302,7 +300,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
       ) : viewMode === 'correspondence' ? (
         renderCorrespondenceView()
       ) : (
-        <Table<WorkRecord>
+        <EnhancedTable<WorkRecord>
           columns={columns}
           dataSource={records}
           rowKey="id"

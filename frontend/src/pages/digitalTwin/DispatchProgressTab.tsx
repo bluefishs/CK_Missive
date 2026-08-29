@@ -8,7 +8,8 @@
  */
 
 import React from 'react';
-import { Card, Row, Col, Tag, Table, Empty, Spin, Statistic, Alert, Typography, Space, Badge, Tooltip } from 'antd';
+import {Card, Row, Col, Tag, Empty, Spin, Statistic, Alert, Typography, Space, Badge, Tooltip} from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import {
   CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined,
   UserOutlined, FileTextOutlined,
@@ -154,7 +155,7 @@ const OverdueTable: React.FC<{ items: DispatchItem[] }> = ({ items }) => {
       title={<span><ExclamationCircleOutlined style={{ color: '#ff4d4f' }} /> 逾期派工單 ({items.length})</span>}
       style={{ marginTop: 12 }}
     >
-      <Table dataSource={items} columns={enhanceColumns(columns, items)} rowKey="dispatch_id" size="small" pagination={false} />
+      <EnhancedTable dataSource={items} columns={enhanceColumns(columns, items)} rowKey="dispatch_id" size="small" pagination={false} />
     </Card>
   );
 };

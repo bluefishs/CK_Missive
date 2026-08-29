@@ -9,9 +9,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Table,
-  Button,
+import {Button,
   Tag,
   Space,
   Empty,
@@ -20,8 +18,8 @@ import {
   Typography,
   Select,
   App,
-  Segmented,
-} from 'antd';
+  Segmented} from 'antd';
+import { EnhancedTable } from '../../../components/common/EnhancedTable';
 import {
   PlusOutlined,
   EditOutlined,
@@ -348,7 +346,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
           onDelete={(id) => deleteMutation.mutate(id)}
         />
       ) : (
-        <Table<WorkRecord>
+        <EnhancedTable<WorkRecord>
           columns={columns}
           dataSource={records}
           rowKey="id"

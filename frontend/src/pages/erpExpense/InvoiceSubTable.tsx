@@ -4,7 +4,8 @@
  * 拆分自 ERPExpenseListPage.tsx
  */
 import React from 'react';
-import { Table, Tag, Button, Space, Spin, Typography } from 'antd';
+import {Tag, Button, Space, Spin, Typography} from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { App, Popconfirm } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import type { NavigateFunction } from 'react-router-dom';
@@ -128,7 +129,7 @@ const InvoiceSubTable: React.FC<Props> = ({ record, navigate, canApprove }) => {
   }
 
   return (
-    <Table<ExpenseInvoice>
+    <EnhancedTable<ExpenseInvoice>
       columns={subColumns}
       dataSource={items}
       rowKey="id"

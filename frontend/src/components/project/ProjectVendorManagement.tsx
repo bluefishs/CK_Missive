@@ -1,7 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import {
-  Modal,
-  Table,
+import {Modal,
   Button,
   Form,
   App,
@@ -11,8 +9,8 @@ import {
   Card,
   Row,
   Col,
-  Statistic
-} from 'antd';
+  Statistic} from 'antd';
+import { EnhancedTable } from '../common/EnhancedTable';
 import {
   PlusOutlined,
   EditOutlined,
@@ -281,7 +279,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
           </Button>
         </div>
 
-        <Table columns={columns} dataSource={associations} rowKey="vendor_id" loading={loading} pagination={false} scroll={{ y: 400 }} />
+        <EnhancedTable columns={columns} dataSource={associations} rowKey="vendor_id" loading={loading} pagination={false} scroll={{ y: 400 }} />
       </Modal>
 
       <VendorAssociationForm

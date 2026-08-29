@@ -1,15 +1,13 @@
 import React from 'react';
-import {
-  Card,
-  Table,
+import {Card,
   Tag,
   Button,
   Alert,
   Space,
   Badge,
   Avatar,
-  Typography,
-} from 'antd';
+  Typography} from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import {
   UserOutlined,
   TeamOutlined,
@@ -118,7 +116,7 @@ const PendingUsersCard: React.FC<PendingUsersCardProps> = ({
         showIcon
         style={{ marginBottom: 16 }}
       />
-      <Table
+      <EnhancedTable
         columns={columns}
         dataSource={pendingUsers}
         rowKey="id"

@@ -8,18 +8,16 @@
  */
 
 import React from 'react';
-import {
-  Card,
+import {Card,
   Typography,
   Row,
   Col,
   Statistic,
   Select,
   Space,
-  Table,
   Spin,
-  Empty,
-} from 'antd';
+  Empty} from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import {
   FileTextOutlined,
   RiseOutlined,
@@ -201,7 +199,7 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
             style={{ marginBottom: 16 }}
             extra={<Text type="secondary">共 {stats.bySender.length} 個機關，{stats.receiveCount} 件收文</Text>}
           >
-            <Table
+            <EnhancedTable
               dataSource={stats.bySender.slice(0, 15)}
               columns={senderColumns}
               pagination={false}
@@ -223,7 +221,7 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
               size="small"
               extra={<Text type="secondary">共 {stats.byReceiver.length} 個受文者，{stats.sendCount} 件發文</Text>}
             >
-              <Table
+              <EnhancedTable
                 dataSource={stats.byReceiver.slice(0, 15)}
                 columns={receiverColumns}
                 pagination={false}

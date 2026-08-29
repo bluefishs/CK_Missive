@@ -7,7 +7,8 @@
  * @version 1.0.0
  */
 import React, { useState } from 'react';
-import { Table, Tag, Card, Empty, Spin, Typography, Tooltip } from 'antd';
+import {Tag, Card, Empty, Spin, Typography, Tooltip} from 'antd';
+import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -114,7 +115,7 @@ export const AdrTab: React.FC = () => {
         {listLoading ? (
           <Spin description="載入中..."><div style={{ padding: 40 }} /></Spin>
         ) : (
-          <Table<AdrInfo>
+          <EnhancedTable<AdrInfo>
             columns={columns}
             dataSource={items}
             rowKey="number"

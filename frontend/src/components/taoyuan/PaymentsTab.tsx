@@ -13,12 +13,10 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import {
-  Typography,
+import {Typography,
   Button,
   Space,
   Card,
-  Table,
   Statistic,
   Row,
   Col,
@@ -27,8 +25,11 @@ import {
   Spin,
   Collapse,
   Tag,
-  Empty,
-} from 'antd';
+  Empty, Table } from 'antd';
+// ⚠️ 2026-08-29：本檔**刻意保留 antd Table**（未改用 EnhancedTable）——
+// 它用了 `Table.Summary` 系列子元件（合計列），而 EnhancedTable 是函式包裝、
+// 沒有那些靜態成員。owner 裁示「表格皆需提供篩選排序」，這一個的
+// 排序篩選需**在 columns 上手動宣告**，不能靠自動增強。
 import {
   ReloadOutlined,
   DollarOutlined,
