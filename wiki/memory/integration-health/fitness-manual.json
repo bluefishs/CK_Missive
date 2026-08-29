@@ -1,0 +1,8 @@
+{
+  "checked_at": "2026-08-29T05:38:26Z",
+  "runner": "run_fitness.sh",
+  "trigger": "manual (/arch-fitness)",
+  "strict": false,
+  "fail_count": 1,
+  "_doc": "手動月度架構覆盤的執行證據。沒有這個檔就無法回答『上次跑是什麼時候』。"
+}
