@@ -1,13 +1,38 @@
 """ERP API Endpoints — 全部端點需認證"""
 from fastapi import APIRouter, Depends
-from app.core.dependencies import require_auth
+from app.core.dependencies import require_permission
 from . import quotations, invoices, billings, vendor_payables, vendor_accounts
 from . import client_accounts
 from . import expenses, expenses_io, ledger, financial_summary, einvoice_sync, filing_gaps, quotation_items
 from . import assets
 from . import operational
 
-router = APIRouter(dependencies=[Depends(require_auth())])
+# ⚠️ 2026-08-29 owner 裁示「ERP 權限收斂」：由 `require_auth()`（只問有沒有登入）
+# 提升為 `require_permission("reports:erp:view")`。
+#
+# ## 為什麼
+#
+# 在此之前，**系統內任何登入者**（含一般同仁 staff）直接打 API 就能拉取
+# 統一帳本、營運帳目、報價單與財務總覽 —— 前端選單把按鈕藏起來，
+# 但那不是防禦（security through obscurity）。
+#
+# ## 前置條件已實測滿足（不是假設）
+#
+#   role_permissions 的 `reports:erp:view`：admin ✓ exec ✓ finance ✓ ops ✓ staff ✗
+#   現有使用者：admin 5 人、staff 6 人、superuser 1 人
+#   `require_permission` 對 superuser **短路放行**（dependencies.py:289）
+#
+# ⇒ 收斂後 **staff 6 人失去 ERP API 存取**，那正是目的；
+#   admin/superuser 不受影響。外部評估文件說「admin 僅有 6 項權限、
+#   同步前不可收斂」—— **實測 admin 有 33 項，那個前置警告已經過期**。
+#
+# ## 為什麼在 router 層而不是逐支端點
+#
+# ERP 目錄下 107 支端點，逐支改會漏（今天已經看過「同一條規則掃所有寫入
+# 路徑」漏掉一支的代價）。router 層是單一收斂點，新增端點自動繼承。
+# ⚠️ 反面風險：**同一個 router 底下若有真正該公開的端點，會被一起擋掉** ——
+# 已由 weekly 65 `router_level_auth_mixing_audit` 守這件事。
+router = APIRouter(dependencies=[Depends(require_permission("reports:erp:view"))])
 router.include_router(quotations.router, prefix="/quotations", tags=["ERP 報價管理"])
 router.include_router(invoices.router, prefix="/invoices", tags=["ERP 發票管理"])
 router.include_router(billings.router, prefix="/billings", tags=["ERP 請款管理"])
