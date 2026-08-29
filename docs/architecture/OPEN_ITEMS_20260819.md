@@ -324,6 +324,10 @@ daily 不是 weekly）。
 
 ---
 
+| **A37** | **22 個 Prometheus metric 沒有任何消費端** | 待辦 B11 建議的三個窄座標之一（「有產出端、沒有消費端」）。實測執行時 `/metrics`：**我們自己的 metric 67 個，其中 22 個沒有任何 alert rule／Grafana panel／檢核腳本在讀**。<br><br>抽查三個確認偵測正確（`csp_violations_total`／`ck_missive_up`／`db_pool_connections_active` 三者的 alert=0 dashboard=0 check=0）。<br><br>⚠️ **最諷刺的一個是我今天加的**：`csp_violations_total` 加它的理由正是「CSP 違規只寫一行 container log，沒有任何檢核／排程／儀表板在讀，而 log 是 json-file 10m×3 ⇒ 重啟就沒了」—— **而我加完 metric 之後，它自己也沒有消費端**。指標存在不等於有人看。<br><br>⚠️ **22 個不是 22 個缺陷**：`ck_missive_app_info` 這種標籤型 metric 本來就是給 PromQL join 用的，沒有自己的 alert 是正常的。要分三類：① 該補 alert／panel ② 標籤型或給人臨時查詢用 ③ 已無用可移除。**那是 owner 的觀測策略決定，不是我逐一判斷。**<br><br>⚠️ 我的**首版判準用 AST 掃 `Counter(...)` 直接呼叫，只找到 12 個**，而執行時實際有 94 個 —— 多數經 `registry.register`（47 處）或工廠函式產生，靜態掃描看不到。改問執行時才對（同日 `verify_architecture` 的同一個修法）。 | 2026-08-30 實測；B11 的另兩個座標：①`ecosystem.config.js` vs `pm2 jlist` **已有**（weekly 44）／③ git hook 安裝 **已辦**（B10）|
+
+---
+
 ### 做不了／不該做（已核實，列此以免重複提案）
 
 | 議題 | 為什麼 |
