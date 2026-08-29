@@ -121,7 +121,10 @@ run_step "5" "Memory Wiki metrics alive"      "scripts/checks/memory_metrics_ali
 run_step "6" "SOUL evolution alive"           "scripts/checks/soul_evolution_alive_check.py"
 # 2026-08-02 修檔名：原引用 alias_rls_audit.py（不存在），實際是 step 21 的 coverage 版。
 # 原本「腳本不存在」只印 warning 不計失敗 → 這一步等於從未執行過而沒人知道。
-run_step "7" "alias_rls coverage audit"       "scripts/checks/alias_rls_coverage_audit.py"
+# ⚠️ 2026-08-29 補 --ci：基線鎖（禁淨增）**只在 --ci 模式生效**，而這裡原本沒帶 ⇒
+#   自 2026-05-19 建立起從未被執行過。帶 --ci 的 run_fitness.sh 是手動月度觸發、
+#   非排程 ⇒ 三個月來它允許淨增 29 個未稽核 user filter 而不會有人知道。
+run_step "7" "alias_rls coverage audit（含基線鎖）" "scripts/checks/alias_rls_coverage_audit.py --ci"
 run_step "8" "tender_freshness"               "scripts/checks/tender_freshness_audit.py"
 run_step "9" "tender_subscription_watchdog"   "scripts/checks/tender_subscription_watchdog_audit.py"
 run_step "10" "tender_enrichment_freshness"   "scripts/checks/tender_enrichment_freshness_audit.py"

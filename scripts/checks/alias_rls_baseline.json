@@ -3,13 +3,13 @@
   "_origin": "RETRO_20260519_strategic_health_check.md §6 + ADR-0025 半接通防範 SOP",
   "_first_baseline_date": "2026-05-19",
   "_first_baseline_total_risks": 29,
-  "_rationale": "v6.10 P0-2 (5/18) 擴大偵測後揭發 29 個 unaudited user filter，本 baseline 鎖死避免 silent 累積；任何新 PR 使 risks > 29 即 fail",
+  "_rationale": "v6.10 P0-2 (5/18) 擴大偵測後揭發 29 個 unaudited user filter，本 baseline 鎖死避免 silent 累積；任何新 PR 使 risks > 29 即 fail ｜2026-08-29：存量已清完（實測 0），基線收到 0 ——**棘輪沒有往下轉就等於天花板遠高於地板**：允許 29 而實際 0，代表可以靜靜新增 29 個未稽核 user filter 而檢核照過。（同族：CK_AaaP L72「豁免是一筆待驗的斷言」）",
   "baselines": {
     "endpoint": 4,
     "repository": 8,
     "service": 16
   },
-  "total_baseline": 28,
+  "total_baseline": 0,
   "target_v7_0": 5,
   "_target_rationale": "v7.0 目標：總 risks ≤ 5（業務面 0 friction + RLSPort 真接通 90% bounded contexts）",
   "_last_update": "2026-05-20",
@@ -18,6 +18,11 @@
       "date": "2026-05-20",
       "risks": 28,
       "change": "-1 notification_repository P0 接通 RLSPort"
+    },
+    {
+      "date": "2026-08-29",
+      "total_baseline": 0,
+      "note": "由 29 收到 0（實測 risks=0、RLS coverage 100%）。⚠️ 這個基線**自 2026-05-19 建立起從未被執行過** —— 鎖只在 `--ci` 模式生效，而唯一的自動排程 CK_Missive-Fitness-Weekly 跑的 weekly 第 7 步沒帶 --ci（帶 --ci 的 run_fitness.sh 是手動月度觸發，且非排程）。⇒ 三個月來它允許淨增 29 而不會有人知道。同時把 weekly 7 改帶 --ci。"
     }
   ]
 }
