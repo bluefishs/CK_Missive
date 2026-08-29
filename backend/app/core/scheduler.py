@@ -4907,6 +4907,26 @@ def start_scheduler():
         scheduler.start()
         logger.info("排程器已啟動")
 
+        # 2026-08-29：**在 cron_events 留下重啟標記**。
+        #
+        # 追 sso-bridge 502 時卡在一個歧義：`health_check_broadcast`（每 5 分鐘）
+        # 出現 7~16 分鐘的空窗，而**空窗有兩種完全不同的成因**：
+        #   ① 容器重啟／部署 → 新行程從頭開始排程，前後自然有一段沒有事件
+        #   ② 事件迴圈被阻塞 → 行程還在，但排不出來
+        # 兩者的處置相反（①是正常的、②是故障），而事件流裡分不出來 ——
+        # 我今日 21 次空窗中有幾次是自己的部署，**查不出來**。
+        #
+        # 這與同日對 `run_fitness.sh` 用的是同一條判準：
+        # **沒有留下產出，就無法區分「跑了」與「沒跑」。**
+        # 留一個標記，往後所有空窗分析都能先扣掉重啟那一類。
+        try:
+            SchedulerTracker._append_event(
+                "scheduler_start", "success", None,
+                detail={"note": "排程器啟動（用於區分『重啟造成的空窗』與『停擺』）"},
+            )
+        except Exception:  # noqa: BLE001 — 標記寫不進去不該擋住啟動
+            logger.warning("排程器啟動標記寫入失敗（不影響啟動）", exc_info=True)
+
         # 2026-06-02 開機自檢（防 8 cron .parent 路徑 bug 同型 silent 死復發）：
         # script-based cron job 的腳本必須存在，否則 job 每次 silent 早退。
         # 開機 LOUD error（非 silent），讓 mount/path drift 立即暴露。
