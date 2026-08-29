@@ -117,7 +117,9 @@ def main() -> int:
         print(f"\nStatus: [RED] {len(reds)} 處仍在查詢路徑上做紀年轉換")
         return 1
 
-    print("  （查詢參數路徑上沒有紀年轉換）")
+    # ⚠️ 原本印「查詢參數路徑上沒有紀年轉換」——而本支分不出「查詢參數路徑」，
+    # 它查的是「白名單外、附近沒有 logger.warning 的 +1911」。
+    print("  （白名單外沒有「不出聲的 +1911」；本支以檔名白名單近似「查詢參數路徑」）")
     print("\nStatus: [GREEN] 紀年契約一致")
     return 0
 

@@ -160,7 +160,12 @@ def main() -> int:
         print(f"\nStatus: [RED] {len(reds)} 個統計卡用當頁當分母")
         return 1
 
-    print("\n  （統計卡都走後端全量彙總）")
+    # ⚠️ 措辭必須等於判準做了什麼。原本印「統計卡都走後端全量彙總」——
+    # 而判準只查「有沒有在分頁陣列上 reduce/for-of」。用 `.map().filter().length`、
+    # 用輔助函式、或用本支沒列的變數命名，都會通過而摘要照樣說「都走後端彙總」。
+    # CK_AaaP 同日：**分類器正確，而人讀到的摘要說了別的事。**
+    print("\n  （沒有偵測到「在分頁陣列上加總」的形態；"
+          "本支不保證每張卡都讀後端 totals）")
     print("\nStatus: [GREEN] 統計卡分母正確")
     return 0
 

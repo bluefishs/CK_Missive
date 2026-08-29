@@ -196,7 +196,11 @@ def main() -> int:
         print(f"\nStatus: [RED] {len(reds)} 個共用表格元件把平板當桌面")
         return 1
 
-    print("\n  （皆用 isMobile || isTablet，平板與手機同走窄螢幕分支）")
+    # ⚠️ 原本印「**皆**用 isMobile || isTablet」——而本支只掃共用表格包裝
+    # 與 `scroll={isMobile ? …}` 這個形狀。用 CSS media query 或別的變數名
+    # 做窄螢幕收斂的元件，本支根本沒看到，摘要卻說了「皆」。
+    print(f"\n  （掃到的 {len(checked)} 處窄螢幕收斂都含平板；未使用共用包裝、"
+          "也不是 scroll/tableLayout 三元式的寫法不在本支視野內）")
     print("\nStatus: [GREEN] 窄螢幕收斂判準一致")
     return 0
 
