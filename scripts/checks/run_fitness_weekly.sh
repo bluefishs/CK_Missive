@@ -70,6 +70,36 @@ WARN_STEPS=()
 # 原本表頭寫死總數，加了步驟卻沒改它 —— daily 實際 9 步印「/8」、
 # weekly 實際 28 步印「/27」。兩個數字描述同一件事就會漂，
 # 而這種漂移剛好出現在「用來檢查別人漂移」的腳本上。
+# ─────────────────────────────────────────────────────────────────────────
+# 自我完整性檢查（2026-08-29）：**本檔自己壞掉時，後面的步驟一步都不會跑。**
+#
+# 實例：我加 `--ci` 時把註解插進「步驟名」與「腳本路徑」之間，路徑掉到
+# 下一行變成獨立語句 ⇒ `run_step "64" "名稱"` 只有兩個參數 ⇒
+# `set -u` 下 `$3` unbound 直接致命 ⇒ **第 64~86 步一步都沒跑**，
+# 而那包含我當天新增的全部 8 支檢核。
+#
+# 更糟的是它**看起來像跑完了**：前 63 步逐一印 GREEN、退出碼 0，
+# 只有輸出末尾一句 `line 76: $3: unbound variable`。
+# ⇒「訊號存在但沒有接收者」的自身版本。而它**已經被提交進版控**，
+#   若不是我實跑一次完整 weekly，不會發現。
+_self_check() {
+    local bad=""
+    while IFS= read -r line; do
+        # 每個 run_step 必須有三個帶引號的參數（編號／名稱／腳本路徑）
+        local q
+        q=$(printf '%s' "$line" | tr -cd '"' | wc -c)
+        if [ "$q" -lt 6 ]; then bad="$bad$line"$'
+'; fi
+    done < <(grep -nE '^[[:space:]]*run_step ' "$0")
+    if [ -n "$bad" ]; then
+        echo -e "${RED}✗ run_fitness_weekly.sh 自身損壞：以下 run_step 缺少參數${NC}"
+        printf '%s' "$bad"
+        echo -e "${RED}  set -u 下這會讓 runner 從該行起全部中止 —— 後面一步都不會跑。${NC}"
+        exit 2
+    fi
+}
+_self_check
+
 run_step() {
     local step_num="$1"
     local step_name="$2"
@@ -421,17 +451,17 @@ run_step "63" "Response schema 的欄位前端型別宣告了嗎（契約鏈第�
 # 並吐出公文總數）。根因是 TUNNEL_GUARD_ENABLED=false ⇒ 沒有自帶認證的端點一律對外。
 # 用 FastAPI runtime dependency 樹判定 —— 既有的 grep 規則「端點缺少認證裝飾器」
 # 產生了 122 個誤判（是真問題的 6 倍），認不出 Depends(require_auth()) 這類寫法。
-run_step "64" "無認證端點（runtime dependency 樹）" # ⚠️ 2026-08-29 補 --ci：不帶時**新增**的無認證端點只回 1（YELLOW）。
+# ⚠️ 2026-08-29 補 --ci：不帶時**新增**的無認證端點只回 1（YELLOW）。
 #   YELLOW 是「規範沒被強制」那一級，而「公網多了一個不用認證就打得到的端點」
 #   是回歸不是漂移 —— 2026-08-21 那次 /api/ai/* 全裸就是這一類（別人用、我們付費）。
 #   ⚠️ 這與檔頭「刻意不傳 --strict」不衝突：--strict 是把 warning 升成 error，
 #   而這支的 --ci 只影響「**新增**缺口」的分級，baseline 內的存量不受影響。
-"scripts/checks/public_endpoint_auth_audit.py --ci"
+run_step "64" "無認證端點（runtime dependency 樹）" "scripts/checks/public_endpoint_auth_audit.py --ci"
 # C2（2026-08-24）：router 層加認證的反面風險 —— 同一個檔案裡混雜真公開端點時，公開那半會被一起擋掉，而那種失敗只有真的打開那一頁才看得見。
 run_step "65" "router 層認證有沒有誤擋公開端點" "scripts/checks/router_level_auth_mixing_audit.py"
 # C1（2026-08-24）：規範 §24「所有 endpoint POST」先前**沒有任何檢核在管**—— 175 支腳本沒有一支驗 HTTP 方法。散文不帶設定。
-run_step "66" "端點 POST 慣例（runtime methods）" # 同上：--ci 只把「新增違反」升為 RED，baseline 存量仍是 YELLOW。
-"scripts/checks/http_method_convention_audit.py --ci"
+# 同上：--ci 只把「新增違反」升為 RED，baseline 存量仍是 YELLOW。
+run_step "66" "端點 POST 慣例（runtime methods）" "scripts/checks/http_method_convention_audit.py --ci"
 # 2026-08-24：Cloudflare 依 UA 擋請求 —— Python 預設 UA 打公網**每一條都回 403**，而那個 403 長得正好像「認證有效」。CK_AaaP 在 pile 一個進行中的 P0 外洩上重現。
 run_step "67" "公網探測的客戶端指紋（403 不一定是應用層擋的）" "scripts/checks/probe_fingerprint_guard.py"
 run_step "68" "管理動作有沒有給一般同仁看見（畫面不該給必然失敗的按鈕）" "scripts/checks/admin_action_visibility_audit.py"
