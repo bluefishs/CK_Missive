@@ -512,3 +512,32 @@ export interface ModuleMappingsResponse {
   disabled_keys: string[];
   total: number;
 }
+
+
+// ── 2026-08-29：型別 SSOT 收斂（development-rules §3）──────────────
+// 原本宣告在 `src/api/ai/knowledgeGraph.ts` —— 規範明文禁止 api/*.ts 定義業務型別，
+// 而**前端一直沒有機制在強制**（後端 2026-08-17 才補上 weekly 59，
+// 當時累積出 18 個違規無人知曉；前端是同一個故事的另一半）。
+export interface SmartGraphSearchResult {
+  success: boolean;
+  data?: {
+    query_params: Record<string, unknown>;
+    entities: Array<{
+      id: number;
+      canonical_name: string;
+      entity_type: string;
+      mention_count: number;
+      description?: string;
+    }>;
+    count: number;
+    related_documents?: Array<{
+      document_id: number;
+      subject: string;
+      doc_number: string;
+      doc_date: string | null;
+      entity_id: number;
+    }>;
+  };
+  error?: string;
+}
+

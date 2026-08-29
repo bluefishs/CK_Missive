@@ -15,6 +15,10 @@ import type {
   ExpenseInvoiceOCRResult,
   ExpenseListResponse,
 } from '../../types/erp';
+// 型別 SSOT（development-rules §3）：本檔不得宣告業務型別。
+// 2026-08-29 由此處搬入 `types/erp.ts`，這裡只 re-export 供既有呼叫端不動。
+export type { SmartScanResult } from '../../types/erp';
+import type { SmartScanResult } from '../../types/erp';
 
 export const expensesApi = {
   async list(params?: ExpenseInvoiceQuery): Promise<ExpenseListResponse> {
@@ -79,23 +83,3 @@ export const expensesApi = {
 };
 
 /** 智慧辨識結果型別 */
-export interface SmartScanResult {
-  success: boolean;
-  method: string;
-  inv_num?: string;
-  date?: string;
-  random_code?: string;
-  sales_amount?: number;
-  total_amount?: number;
-  amount?: number;
-  tax_amount?: number;
-  buyer_ban?: string;
-  seller_ban?: string;
-  items?: Array<{ name: string; qty: number; unit_price: number; amount: number }>;
-  confidence: number;
-  warnings: string[];
-  receipt_path?: string;
-  created?: boolean;
-  invoice_id?: number;
-  message?: string;
-}

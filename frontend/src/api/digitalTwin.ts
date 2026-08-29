@@ -12,6 +12,10 @@ import { DIGITAL_TWIN_ENDPOINTS } from './endpoints';
 import { logger } from '../services/logger';
 import { apiClient } from './client';
 import { getCookie } from './interceptors';
+// 型別 SSOT（development-rules §3）：本檔不得宣告業務型別。
+// 2026-08-29 由此處搬入 `types/ai.ts`，這裡只 re-export 供既有呼叫端不動。
+export type { DelegateAutoRequest, DelegateAutoResponse } from '../types/ai';
+import type { DelegateAutoRequest, DelegateAutoResponse } from '../types/ai';
 
 /** 2026-06-02: stream 用 raw fetch 不過 apiClient interceptor → 須手動帶 X-CSRF-Token
  * （CSRFMiddleware 對 POST 比對 cookie csrf_token 與 header；缺則 403）。auth 走 httpOnly cookie。 */
@@ -230,22 +234,6 @@ async function _attemptStream(
 // ---------------------------------------------------------------------------
 // E-6: Delegate Auto — 跨域自動委派
 // ---------------------------------------------------------------------------
-
-export interface DelegateAutoRequest {
-  intent: string;
-  context?: Record<string, unknown>;
-  timeout?: number;
-}
-
-export interface DelegateAutoResponse {
-  success: boolean;
-  target_agent_id?: string;
-  delegated?: boolean;
-  target_response?: unknown;
-  routing_reason?: string;
-  latency_ms?: number;
-  error?: string;
-}
 
 export async function delegateAuto(
   request: DelegateAutoRequest,

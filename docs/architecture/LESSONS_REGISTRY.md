@@ -531,6 +531,20 @@
 
 ---
 
+## L99 — 壞掉的腳本＋假的執行者宣告＋文件把它列為驗證命令（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | owner 要求「複查確認前後端服務與涉及架構設計完整性與標準化」，照 `CLAUDE.md`／`ci-cd.md` 寫的命令跑 `verify_architecture.py`。 |
+| **What happened** | 一啟動就 `[FATAL] 前端目錄不存在: .../scripts/frontend/src` —— 根目錄推導寫的是 `Path(__file__).resolve().parent.parent`，而本檔在某次整理中**被移進 `scripts/checks/`**，於是它把 `scripts/` 當成專案根。修好之後又發現兩處讀單檔（`api/endpoints.ts`、`extended/models.py`）而那兩個**早已拆成目錄**，那兩項自拆分起就一直是 ERROR、實質沒有驗過。 |
+| **Root cause** | 檔案搬家與模組拆分都沒有同步更新引用它們的腳本；而**沒有任何人在跑它**，所以壞了也沒有人知道。 |
+| **為何沒被發現** | `spec_executor_audit`（專門查「規範宣告的腳本有沒有人在做」）的白名單裡寫著「由 pre-commit hook 與 CI 呼叫」—— **實查 `.git/hooks/pre-commit` 提及 0 次、三支 workflow 各 0 次**，而 CI 本身早在 2026-03-09 全面停用（收費）。⇒ **那句宣告讓專門抓這件事的稽核放過了它。** 白名單裡的理由沒有人驗證過。 |
+| **Fix** | 修根目錄（`parents[2]`）＋兩處改讀目錄；更正 `spec_executor_audit` 的宣告；接進 **weekly 83**。跑起來後真的抓到東西：**前端型別 SSOT 違規 4 檔 12 個 interface**（`development-rules` §3 明文禁止 `api/*.ts` 定義業務型別，而**前端一直沒有機制在強制** —— 後端 2026-08-17 才補上 weekly 59，當時累積 18 個違規無人知曉；前端是同一個故事的另一半）。已全數搬入 `types/` 並 re-export，違規歸零。 |
+| **Prevention** | ⚠️ **豁免／白名單裡的「理由」本身要被驗證。** 「由 X 呼叫」是一句可以求證的斷言（`grep -c` 就夠），而它一旦是假的，就同時關掉了守門與守門的守門。⇒ 凡是白名單條目寫著「由某某執行」，稽核應**實際確認那個執行者提到它**，而不是相信欄位內容。 |
+| **Refs** | `scripts/checks/verify_architecture.py` / `scripts/checks/spec_executor_audit.py` / weekly 83 / 同族：`arch_pattern_script_existence_not_enforcement`、L98（修法只擴散到一半） |
+
+---
+
 ## L97 — 判準命中的是註解不是程式碼，而註解寫得越用心它越容易被騙（2026-08-29）
 
 | 欄位 | 內容 |

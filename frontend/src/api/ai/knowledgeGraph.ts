@@ -34,6 +34,10 @@ import type {
   GraphNode,
   GraphEdge,
 } from './types';
+// 型別 SSOT（development-rules §3）：本檔不得宣告業務型別。
+// 2026-08-29 由此處搬入 `types/ai-knowledge-graph.ts`，這裡只 re-export 供既有呼叫端不動。
+export type { SmartGraphSearchResult } from '../../types/ai-knowledge-graph';
+import type { SmartGraphSearchResult } from '../../types/ai-knowledge-graph';
 
 /** 搜尋正規化實體 */
 export async function searchGraphEntities(
@@ -346,28 +350,6 @@ export async function analyzeDiffImpact(): Promise<{
 }
 
 /** 自然語言知識圖譜搜尋結果 */
-export interface SmartGraphSearchResult {
-  success: boolean;
-  data?: {
-    query_params: Record<string, unknown>;
-    entities: Array<{
-      id: number;
-      canonical_name: string;
-      entity_type: string;
-      mention_count: number;
-      description?: string;
-    }>;
-    count: number;
-    related_documents?: Array<{
-      document_id: number;
-      subject: string;
-      doc_number: string;
-      doc_date: string | null;
-      entity_id: number;
-    }>;
-  };
-  error?: string;
-}
 
 /** 自然語言知識圖譜搜尋 (Gemma 4 powered) */
 export async function smartGraphSearch(

@@ -1542,3 +1542,30 @@ export interface ERPSignedImportResult {
   attached?: number;
   replaced?: number;
 }
+
+
+// ── 2026-08-29：型別 SSOT 收斂（development-rules §3）──────────────
+// 原本宣告在 `src/api/erp/expensesApi.ts` —— 規範明文禁止 api/*.ts 定義業務型別，
+// 而**前端一直沒有機制在強制**（後端 2026-08-17 才補上 weekly 59，
+// 當時累積出 18 個違規無人知曉；前端是同一個故事的另一半）。
+export interface SmartScanResult {
+  success: boolean;
+  method: string;
+  inv_num?: string;
+  date?: string;
+  random_code?: string;
+  sales_amount?: number;
+  total_amount?: number;
+  amount?: number;
+  tax_amount?: number;
+  buyer_ban?: string;
+  seller_ban?: string;
+  items?: Array<{ name: string; qty: number; unit_price: number; amount: number }>;
+  confidence: number;
+  warnings: string[];
+  receipt_path?: string;
+  created?: boolean;
+  invoice_id?: number;
+  message?: string;
+}
+

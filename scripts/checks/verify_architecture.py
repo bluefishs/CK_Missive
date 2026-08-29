@@ -29,7 +29,11 @@ from typing import Dict, List, Set, Tuple
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# ⚠️ 2026-08-29：原本是 `.parent.parent` —— 本檔在某次整理中被移進
+# `scripts/checks/`，而根目錄推導沒跟著改，於是它把 `scripts/` 當成專案根、
+# 一啟動就 [FATAL] 前端目錄不存在。**CLAUDE.md 與 ci-cd.md 都把它列為
+# 驗證命令，而那個命令跑不起來。**
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_SRC = PROJECT_ROOT / "frontend" / "src"
 BACKEND_APP = PROJECT_ROOT / "backend" / "app"
 
@@ -210,10 +214,19 @@ def check_api_prefix_consistency():
     print("\n[3/7] API 端點前綴一致性")
     print("-" * 40)
 
-    endpoints_file = FRONTEND_SRC / "api" / "endpoints.ts"
+    # ⚠️ 2026-08-29：原本讀單檔 `api/endpoints.ts` —— 它早已拆成
+    # **目錄** `api/endpoints/`（多個 *.ts + index）。腳本沒跟著改，
+    # 於是這一項自拆分之後就一直是 [ERROR] 讀不到檔、實質沒有驗過。
+    endpoints_dir = FRONTEND_SRC / "api" / "endpoints"
     routes_file = BACKEND_APP / "api" / "routes.py"
 
-    fe_content = read_file(endpoints_file)
+    if endpoints_dir.is_dir():
+        fe_content = "\n".join(
+            f.read_text(encoding="utf-8", errors="ignore")
+            for f in sorted(endpoints_dir.rglob("*.ts"))
+        )
+    else:
+        fe_content = read_file(FRONTEND_SRC / "api" / "endpoints.ts")
     be_content = read_file(routes_file)
 
     if not fe_content or not be_content:
@@ -312,11 +325,22 @@ def check_type_ssot():
 
         # 搜尋 export interface Xxx { 或 export type Xxx = 模式
         # 排除 re-export（export type { Xxx } from）
-        local_types = re.findall(
-            r"^export\s+(?:interface|type)\s+(\w+)\s*[={]",
-            content,
-            re.MULTILINE,
-        )
+        #
+        # ⚠️ 2026-08-29：原判準把 `export type Document = OfficialDocument;` 也算違規。
+        # 那是**指向 SSOT 型別的別名**，正是規範鼓勵的做法（讓呼叫端有個短名字，
+        # 而定義只有一份）—— 判成違規等於懲罰照做的人。實測 7 個命中裡有 3 個
+        # 是這種（documentsApi／calendarApi／filesApi），誤報率 43%。
+        #
+        # 真違規是**本地宣告了一個新的形狀**：`interface X {` 或 `type X = { … }`
+        # ／`type X = A & { … }`。單純的別名（`type X = Y;`／`type X = Y[]`）放行。
+        local_types = [
+            name for name, body in re.findall(
+                r"^export\s+(?:interface|type)\s+(\w+)\s*(?:=\s*)?([^\n]*)",
+                content,
+                re.MULTILINE,
+            )
+            if "{" in body or body.strip().endswith(("&", "|"))
+        ]
         if local_types:
             rel = ts_file.relative_to(PROJECT_ROOT)
             violations.append(f"前端 {rel}: 本地型別 [{', '.join(local_types)}]")
@@ -342,10 +366,17 @@ def check_schema_orm_alignment():
     print("\n[5/7] Schema-ORM 欄位對齊")
     print("-" * 40)
 
-    models_file = BACKEND_APP / "extended" / "models.py"
+    # ⚠️ 同上：`extended/models.py` 早已拆成套件 `extended/models/`。
+    models_dir = BACKEND_APP / "extended" / "models"
     schemas_dir = BACKEND_APP / "schemas"
 
-    models_content = read_file(models_file)
+    if models_dir.is_dir():
+        models_content = "\n".join(
+            f.read_text(encoding="utf-8", errors="ignore")
+            for f in sorted(models_dir.rglob("*.py"))
+        )
+    else:
+        models_content = read_file(BACKEND_APP / "extended" / "models.py")
     if not models_content:
         return
 

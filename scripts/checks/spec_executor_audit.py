@@ -64,7 +64,11 @@ SCRIPT_RE = re.compile(r"scripts/checks/([A-Za-z0-9_\-]+\.(?:py|sh))")
 # 已知的人工工具：規範提到它，但**刻意**不接排程。必須寫理由。
 MANUAL_BY_DESIGN: dict[str, str] = {
     "v6_8_acceptance.sh": "v6.8 一次性驗收腳本，規範中作為歷史紀錄引用",
-    "verify_architecture.py": "由 pre-commit hook 與 CI 呼叫，非 fitness runner（見 ci-cd.md）",
+    # ⚠️ 2026-08-29 更正：原宣告「由 pre-commit hook 與 CI 呼叫」是**假的** ——
+    # 實查 `.git/hooks/pre-commit` 提及 0 次、三支 workflow 各 0 次，
+    # 而 CI 本身早在 2026-03-09 就全面停用（收費）。這條宣告讓本稽核
+    # 放過了一支**壞掉且沒有人在跑**的腳本，正是它要防的東西。
+    "verify_architecture.py": "weekly 83（run_fitness_weekly.sh）",
     "soul-fidelity-eval.py": "需人工判讀多 provider 輸出品質，且會消耗 LLM 配額 —— 刻意不掛 cron",
 }
 

@@ -83,3 +83,10 @@
 | `scripts/checks/schema_ssot_audit.py` | endpoints 不得有本地 BaseModel（規範 §3）——存量 18 項列 baseline 不判紅，新增一律擋 | weekly 59 |
 | `scripts/checks/savepoint_autocommit_audit.py` | SAVEPOINT 內不得用 auto_commit=True——會關掉外層交易而使用者只看到「新增失敗」（測試 mock 掉 repo 所以抓不到） | weekly 60 |
 | `scripts/checks/model_response_field_reach_audit.py` | ORM 欄位有沒有到達 API 回應——Pydantic 對 schema 沒宣告的欄位是靜默丟棄（quotation_no 就這樣看不到） | weekly 61 |
+| `scripts/checks/payable_budget_ceiling_audit.py` | 應付上限：報價單委外經費 vs 應付合計 | weekly 78 |
+| `scripts/checks/llm_model_availability_audit.py` | 設定的模型在 provider 那邊還存不存在——**實際打一次**，因為「在清單裡」不等於叫得動（NVIDIA 清單有但呼叫 404） | weekly 79 |
+| `scripts/checks/year_convention_audit.py` | 紀年契約：API 查詢參數一律西元（§2.5）。判準是「附近有沒有 logger.warning」——規範要的不是禁止轉換，是**不得靜默轉換** | weekly 80 |
+| `scripts/checks/responsive_narrow_convergence_audit.py` | 窄螢幕收斂判準：不得只看 `isMobile`（AntD 的 md 斷點就是 768 ⇒ 平板會走桌面分支） | weekly 81 |
+| `scripts/checks/stat_card_denominator_audit.py` | 統計卡分母必須是全體不是當頁（§2.6 ①）——它抓的是形狀，不是當下數字對不對 | weekly 82 |
+| `scripts/checks/verify_architecture.py` | 架構完整性 13 項（路由/API 前綴/型別 SSOT/Schema-ORM/棄用模組）。⚠️ 2026-08-29 之前**壞著且沒有人在跑**（L99） | weekly 83 |
+| `scripts/checks/lib/ts_source.py` | 給靜態判準用的 TS 讀取器：委派 TypeScript parser 剝掉註解／字串／樣板／JSX 文字。**手寫正則版擋不掉後三者**（L97） | 上列前端類稽核共用 |

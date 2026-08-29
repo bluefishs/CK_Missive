@@ -41,5 +41,7 @@
 powershell -File scripts/checks/skills-sync-check.ps1
 
 # 架構驗證 (7 項)
-cd backend && python ../scripts/checks/verify_architecture.py
+python scripts/checks/verify_architecture.py   # ⚠️ 從**專案根**跑；
+# 舊寫法 `cd backend && python ../scripts/...` 會讓它把 scripts/ 當專案根（已修，L99）。
+# 它現在也是 weekly 83 —— 先前宣告「由 pre-commit 與 CI 呼叫」是假的（兩邊各 0 次）。
 ```
