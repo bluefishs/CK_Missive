@@ -56,11 +56,30 @@ COMMON = ROOT / "frontend" / "src" / "components" / "common"
 # isMobile 之後它**仍然回綠** —— 因為該檔的說明註解裡就寫著「isTablet」，
 # `"isTablet" in t` 恆為真。判準命中的是我自己寫的散文，不是程式碼。
 # 這正是本 repo 記過的「驗證訊號的粒度比被驗證的性質粗」。
-COMMENT = re.compile(r"/\*[\s\S]*?\*/|//[^\n]*")
+# 2026-08-29 續：手寫剝除仍有洞（樣板字串／JSX 文字／多行樣板），
+# 而 React 專案裡 JSX 文字到處都是。改委派 TypeScript 自己的 parser。
+# 詳見 `lib/ts_source.py` 檔頭（含 CK_AaaP 同日獨立踩到的同型案例）。
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.ts_source import code_only, TsToolUnavailable  # noqa: E402
+
+_CACHE: dict = {}
 
 
-def _strip_comments(t: str) -> str:
-    return COMMENT.sub("", t)
+def _preload(paths) -> None:
+    """一次剝除全部候選檔。
+
+    ⚠️ 首版是 `_src()` 裡逐檔呼叫 —— 等於為 500+ 個 .tsx **各開一次 node 程序**，
+    整支跑不完（180 秒逾時）。`code_only` 本來就會分批，是我在外層把它拆散了。
+    **批次工具要在批次的層級呼叫**，包成單檔介面會悄悄退化成 N 次啟動成本。
+    """
+    todo = [p for p in paths if str(Path(p).resolve()) not in _CACHE]
+    if todo:
+        _CACHE.update(code_only(todo))
+
+
+def _src(p: Path) -> str:
+    """該檔『只剩程式碼』的內容（行號與原檔一致）。需先 _preload。"""
+    return _CACHE.get(str(Path(p).resolve()), "")
 
 
 # 窄螢幕收斂的三個著力點 —— 用 isMobile 決定這些就是把平板當桌面
@@ -77,11 +96,22 @@ def main() -> int:
         print(f"✗ 找不到 {COMMON} —— 無法判定（不視為通過）")
         return 2
 
+    SRC_ALL = ROOT / "frontend" / "src"
+    try:
+        _preload([
+            p for p in SRC_ALL.rglob("*.tsx")
+            if "__tests__" not in str(p) and ".test." not in p.name
+        ])
+    except TsToolUnavailable as e:
+        # 明確失敗不退回手寫正則 —— 判準變弱與「沒有違規」在輸出上一樣
+        print(f"✗ 無法可靠剝除註解／字串：{e}")
+        return 2
+
     reds, checked = [], []
     for f in sorted(COMMON.glob("*.tsx")):
         if "Table" not in f.name or ".test." in f.name:
             continue
-        t = _strip_comments(f.read_text(encoding="utf-8", errors="ignore"))
+        t = _src(f)
         if "useResponsive" not in t:
             continue
         checked.append(f.name)
@@ -107,7 +137,7 @@ def main() -> int:
         rel = str(f.relative_to(SRC)).replace("\\", "/")
         if "__tests__" in rel or ".test." in f.name or rel.startswith("components/common/"):
             continue
-        t = _strip_comments(f.read_text(encoding="utf-8", errors="ignore"))
+        t = _src(f)
         if not inline.search(t):
             continue
         checked.append(rel)
@@ -130,7 +160,7 @@ def main() -> int:
         rel = str(f.relative_to(SRC)).replace("\\", "/")
         if "__tests__" in rel or ".test." in f.name:
             continue
-        t = _strip_comments(f.read_text(encoding="utf-8", errors="ignore"))
+        t = _src(f)
         if "isNarrow" not in t or "isMobile" not in t:
             continue
         if not half.search(t):

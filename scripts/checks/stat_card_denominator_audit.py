@@ -52,17 +52,19 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
 ROOT = Path(__file__).resolve().parents[2]
 PAGES = ROOT / "frontend" / "src" / "pages"
 
-COMMENT = re.compile(r"/\*[\s\S]*?\*/|//[^\n]*")
-# ⚠️ 註解**與字串字面值**都要先去掉再比對。
-# 2026-08-29 負向對照當場揭穿：注入回歸後本檢核仍回綠，因為該檔的
-# `console.warn('後端未回傳 totals…')` 是**字串**，滿足了「有走後端彙總」。
-# 同一天已經在 weekly 81 與 weekly 56 各犯過一次（那兩次是註解）——
-# **凡是用字串比對判斷程式碼行為，說明文字與訊息文字都會冒充程式碼。**
-STRING = re.compile(r"'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\"")
+# ⚠️ 剝除註解與字串**不自己寫**。
+# 2026-08-29 手寫正則版被負向對照揭穿：`console.warn('後端未回傳 totals…')`
+# 是**字串**，卻滿足了「有走後端彙總」的判準。補上引號字串之後又實測 7 種
+# 形態，仍漏 **樣板字串／JSX 文字／多行樣板** —— 而 React 專案裡 JSX 文字
+# 到處都是，等於這個洞一直開著。
+#
+# CK_AaaP 同日獨立踩到同一形狀（正則抓 `add_middleware(...)`，把註解掉的
+# 與字串裡的都算進去，解析出 5 個而實際生效 3 個），並抽成他們的 L71。
+# 兩個獨立來源、同一天、同一形狀 ⇒ 這是類別不是個案。結論：
+# **不要自己寫剝除邏輯，用語言自己的解析器。**
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.ts_source import code_only, TsToolUnavailable  # noqa: E402
 
-
-def _strip(src: str) -> str:
-    return STRING.sub("''", COMMENT.sub("", src))
 CARD = re.compile(r"<(Statistic|ClickableStatCard)\b")
 # 後端全量彙總的痕跡 —— 有任一個就代表這一頁知道要跟後端要總數
 BACKEND_TOTAL = re.compile(r"\btotals\b|\bsummary_totals\b|\baggregates?\b|/totals\b")
@@ -78,12 +80,23 @@ def main() -> int:
         print(f"✗ 找不到 {PAGES} —— 無法判定（不視為通過）")
         return 2
 
+    candidates = [
+        p for p in sorted(PAGES.rglob("*.tsx"))
+        if "__tests__" not in str(p) and ".test." not in p.name
+    ]
+    try:
+        sources = code_only(candidates)
+    except TsToolUnavailable as e:
+        # 明確失敗，不退回較弱的判準 —— 「判準變弱」與「沒有違規」
+        # 在輸出上長得一樣，那正是本檢核要防的東西（ADR-0028）。
+        print(f"✗ 無法可靠剝除註解／字串：{e}")
+        print("  刻意不退回手寫正則 —— 判準悄悄變弱與「沒有違規」在輸出上一樣。")
+        return 2
+
     reds, scanned = [], 0
-    for p in sorted(PAGES.rglob("*.tsx")):
+    for p in candidates:
         rel = str(p.relative_to(PAGES)).replace("\\", "/")
-        if "__tests__" in rel or ".test." in p.name:
-            continue
-        t = _strip(p.read_text(encoding="utf-8", errors="ignore"))
+        t = sources.get(str(p.resolve()), "")
         if "dataIndex" not in t or not CARD.search(t):
             continue
         scanned += 1

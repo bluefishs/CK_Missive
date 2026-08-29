@@ -47,6 +47,9 @@ try:
 except Exception:
     pass
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.ts_source import code_only, TsToolUnavailable  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[2]
 PAGES = ROOT / "frontend" / "src" / "pages"
 
@@ -117,6 +120,20 @@ def _files():
         yield p
 
 
+_CACHE: dict = {}
+
+
+def _preload(paths) -> None:
+    """一次剝除全部候選檔（批次工具要在批次的層級呼叫）。"""
+    todo = [p for p in paths if str(Path(p).resolve()) not in _CACHE]
+    if todo:
+        _CACHE.update(code_only(todo))
+
+
+def _src(p) -> str:
+    return _CACHE.get(str(Path(p).resolve()), "")
+
+
 def _sibling_column_sources(p: Path, text: str) -> str:
     """把本檔 import 進來的**同目錄/子目錄欄位模組**內容併進來一起判。
 
@@ -162,6 +179,17 @@ def main() -> int:
 
     if not PAGES.is_dir():
         print(f"\n✗ 找不到 {PAGES} —— 無法判定（不視為通過）")
+        return 2
+
+    SRC_ALL = ROOT / "frontend" / "src"
+    try:
+        _preload([
+            p for p in SRC_ALL.rglob("*.tsx")
+            if "__tests__" not in str(p) and ".test." not in p.name
+        ])
+    except TsToolUnavailable as e:
+        print(f"✗ 無法可靠剝除註解／字串：{e}")
+        print("  刻意不退回手寫正則 —— 判準悄悄變弱與「沒有違規」在輸出上一樣。")
         return 2
 
     action_col, raw_table, no_layout = [], [], []
@@ -211,7 +239,14 @@ def main() -> int:
         # 16 欄表格（實測 768px 外溢 580px），本檢核卻放過它 —— 因為它的註解裡
         # 寫著「這裡刻意不改用 EnhancedTable」，`"EnhancedTable" in t` 就成立了。
         # **判準命中的是說明文字，不是程式碼**（同日在 weekly 81 也犯過同一個錯）。
-        t = re.sub(r"/\*[\s\S]*?\*/|//[^\n]*", "", raw)
+        #
+        # 2026-08-29 續：剝除改委派 TypeScript parser（`lib/ts_source`）——
+        # 手寫正則擋不掉樣板字串／JSX 文字／多行樣板，而 React 專案裡
+        # JSX 文字到處都是。CK_AaaP 同日獨立踩到同型並抽成他們的 L71。
+        # ⚠️ 刻意**不寫 `_src(p) or <正則版>`** —— 那是靜默降級：
+        # preload 失敗時判準會悄悄變弱，而變弱與「沒有違規」在輸出上一樣。
+        # preload 失敗已在 main 開頭以 exit 2 明確結束。
+        t = _src(p)
         if not re.search(r"<Table[\s<]", t) or "EnhancedTable" in t:
             continue
         # ⚠️ 欄位定義可能不在本檔：`PaymentsTab.tsx` 的 columns 來自
