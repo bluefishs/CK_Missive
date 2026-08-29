@@ -1164,6 +1164,31 @@ else
     fi
 fi
 echo -e "${CYAN}================================${NC}"
+
+# ----------------------------------------------------------------------------
+# 產出（2026-08-29 新增）
+#
+# ⚠️ 本 runner 原本**只印到終端機、不留任何檔案** —— 於是
+# 「跑了全過」與「根本沒跑」在事後完全無法區分，而它獨佔 57 支檢核
+# （weekly 沒有的那些：dead_ui_detector／db_schema_drift／cron_health_check…）。
+# 本 repo 自己的契約規則第 4 條就寫著：**驗證型 job 也必須留下可驗產出**
+# （見 ui_page_sweep.cjs 檔尾），而這一支是漏網的。
+#
+# 由 `fitness_manual_freshness_audit`（weekly 85）以新鮮度監看：
+# 超過 45 天沒跑 ⇒ 那 57 支等於沒有在保護任何東西。
+FITNESS_RESULT="wiki/memory/integration-health/fitness-manual.json"
+mkdir -p "$(dirname "$FITNESS_RESULT")"
+cat > "$FITNESS_RESULT" <<JSON
+{
+  "checked_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "runner": "run_fitness.sh",
+  "trigger": "manual (/arch-fitness)",
+  "strict": $($STRICT && echo true || echo false),
+  "fail_count": $FAIL_COUNT,
+  "_doc": "手動月度架構覆盤的執行證據。沒有這個檔就無法回答『上次跑是什麼時候』。"
+}
+JSON
+echo "產出：$FITNESS_RESULT"
 echo ""
 echo "本地零費用模式：手動觸發（GitHub Actions 已禁用）"
 echo "建議頻率：每月架構覆盤 / 大重構前"

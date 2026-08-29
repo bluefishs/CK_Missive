@@ -610,8 +610,18 @@ def check_backend_imports():
             issues.append(f"Wildcard import: schemas/__init__.py ({len(wildcards)} 個)")
 
     # 7c: 檢查已棄用模組的引用
+    # ⚠️ 2026-08-29：本節報「knowledge_base.py 引用已棄用模組 base_service」——
+    # **誤判**。該檔的 import 是 `from app.services.system.knowledge_base_service
+    # import KnowledgeBaseService`，而 `knowledge_base_service` **字串裡包含
+    # `base_service`**，判準的 `\S*{mod}\S*` 就命中了。
+    # 而 `app/services/base_service.py` **早已不存在**（實查）。
+    #
+    # 這是「拿一個較寬的字串當一個較窄的概念的代理」——同日在別處犯了
+    # 五次的同一形狀（註解/字串冒充程式碼、`\bitems` 漏 `pendingItems`）。
+    # 修法：模組名要**以路徑分隔或詞界收尾**，不能是任意子字串。
     deprecated_modules = [
-        "base_service",  # v1.42.0 標記棄用
+        # 已確認不存在於 services/ 底下；留著是為了擋「有人把它加回來」
+        "base_service",       # v1.42.0 標記棄用，檔案已移除
         "vendor_service_v2",  # 已刪除
     ]
     services_dir = BACKEND_APP / "services"
@@ -625,8 +635,11 @@ def check_backend_imports():
                 if py_file.stem == mod:
                     continue
                 # 檢查是否有實際的 import 語句
+                # 模組名必須是**完整的一段**：前面是 `.` 或空白（套件分隔），
+                # 後面是詞界。`knowledge_base_service` 的 `base_service` 前面是
+                # `_`，不是分隔符 ⇒ 不再命中。
                 import_pattern = re.findall(
-                    rf"^from\s+\S*{mod}\S*\s+import",
+                    rf"^from\s+[\w.]*(?:^|[\s.]){re.escape(mod)}\b[\w.]*\s+import",
                     content,
                     re.MULTILINE,
                 )

@@ -456,6 +456,16 @@ run_step "83" "架構完整性（路由/API 前綴/型別 SSOT/Schema-ORM）" "s
 #   就這樣三個月沒鎖過。判準刻意只抓「基線比對包在 if args.ci 裡」這一種，
 #   不抓 --strict（那是本檔檔頭的既有政策，粗判準會產出 26 個假紅）。
 run_step "84" "基線鎖有沒有真的被叫到（runner 漏旗標）" "scripts/checks/runner_flag_drift_audit.py"
+# 2026-08-29：`run_fitness.sh`（手動月度 /arch-fitness）**獨佔 57 支檢核** ——
+#   weekly 沒有的那些（dead_ui_detector／db_schema_drift／cron_health_check…）。
+#   而它原本只印到終端機、不留檔案 ⇒ 「跑了全過」與「根本沒跑」事後無法區分。
+#   已讓它寫 fitness-manual.json，這一步監看新鮮度。
+run_step "85" "手動月度架構覆盤有沒有真的在跑" "scripts/checks/fitness_manual_freshness_audit.py"
+# 2026-08-29：`dead_ui_detector` 抓「後端有端點、前端沒常數」，抓不到
+#   **常數在、元件在、沒有入口** 這第三種形狀（ProfitTrendTab 只在 index.ts
+#   re-export）。本 repo 記過最貴的陷阱正是「改到孤兒元件、全綠但沒人看得到」，
+#   而那條教訓寫的是「動元件前先 grep 誰在用」—— 一個人要記得做的動作。
+run_step "86" "元件建好了但沒有任何入口渲染它（禁淨增）" "scripts/checks/orphan_component_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
