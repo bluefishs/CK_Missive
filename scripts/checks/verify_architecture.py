@@ -85,6 +85,36 @@ def log(msg: str):
 # 工具函數
 # =============================================================================
 
+def _runtime_api_prefixes():
+    """從**執行中的後端**取 API 前綴（權威來源），取不到回 None。
+
+    2026-08-29：grep `routes.py` 的 prefix= 會漏掉所有透過子 router／
+    分層 include 註冊的路由 —— 實測 6 個「不一致」全部誤報。
+    改問 runtime 的 OpenAPI；取不到時回 None 由呼叫端明說「沒驗」，
+    **不退回 grep**（一堆假警告比「這一項沒驗」更糟）。
+    """
+    import json
+    import subprocess
+
+    code = (
+        "import json,urllib.request;"
+        "d=json.load(urllib.request.urlopen('http://localhost:8001/openapi.json'));"
+        "print(json.dumps(sorted({'/'+p.split('/')[2] for p in d['paths'] "
+        "if p.startswith('/api/') and len(p.split('/'))>2})))"
+    )
+    try:
+        r = subprocess.run(
+            ["docker", "exec", "-i", "ck_missive_backend", "python", "-c", code],
+            capture_output=True, text=True, timeout=60,
+            env={**os.environ, "MSYS_NO_PATHCONV": "1"},
+        )
+        if r.returncode != 0 or not r.stdout.strip():
+            return None
+        return set(json.loads(r.stdout.strip()))
+    except Exception:
+        return None
+
+
 def read_file(path: Path) -> str:
     """讀取檔案內容"""
     try:
@@ -241,13 +271,22 @@ def check_api_prefix_consistency():
         if parts:
             fe_prefixes.add("/" + parts[0])
 
-    # 後端: 提取 include_router 中的 prefix
-    be_prefixes = set(re.findall(r'prefix="(/[^"]+)"', be_content))
-    be_prefix_roots = set()
-    for p in be_prefixes:
-        parts = p.strip("/").split("/")
-        if parts:
-            be_prefix_roots.add("/" + parts[0])
+    # 後端前綴：**權威來源是 runtime 的 OpenAPI，不是 grep routes.py**。
+    #
+    # ⚠️ 2026-08-29：原本只 grep `routes.py` 的 `prefix="..."`，於是凡是
+    # 透過子 router／分層 include 註冊的都看不到。實測 6 個「不一致」
+    # （/security /tender /wiki /document-numbers /project-notifications
+    # /telegram）**全部存在於 runtime**（9/39/11/6/8/2 條）—— 誤報率 100%。
+    # 本 repo 已為同一個道理寫過 `public_endpoint_auth_audit`（走 FastAPI
+    # dependency 樹而非 grep）；這裡沿用同一個原則。
+    be_prefix_roots = _runtime_api_prefixes()
+    if be_prefix_roots is None:
+        results.warn(
+            "API 前綴比對已略過：取不到 runtime OpenAPI（後端容器未啟動？）。"
+            "**刻意不退回 grep routes.py** —— 那會產生 100% 誤報，"
+            "而「有一堆假警告」比「這一項沒驗」更糟。"
+        )
+        return
 
     # 比對
     fe_only = fe_prefixes - be_prefix_roots
@@ -262,12 +301,27 @@ def check_api_prefix_consistency():
     known_fe_only = {"/ai", "/deploy", "/health", "/taoyuan-dispatch"}
     fe_only = fe_only - known_fe_only
 
+    # 「後端有但前端無」大多不是缺陷 —— webhook 與 agent 面向的 API 本來就
+    # 沒有前端呼叫端。**逐一判過型**才列進來，每條附一句可求證的理由：
+    NON_UI_BACKEND = {
+        "/telegram": "webhook 端點，由 Telegram 平臺呼叫（openapi 有 /api/telegram/webhook）",
+        "/hermes": "Hermes Agent gateway 面向，非瀏覽器",
+        "/notify": "推播/通知投遞，由排程與 bridge 呼叫",
+        "/project-notifications": "專案通知，由排程產生（前端讀的是彙整後的晨報）",
+    }
+    real_be_only = {p for p in real_be_only if p not in NON_UI_BACKEND}
+
     if fe_only:
-        results.warn(f"前端有但後端無的 API 前綴: {', '.join(sorted(fe_only))}")
+        # 這個方向才是真 bug：前端打一個後端不存在的路徑 ⇒ 使用者會拿到 404
+        results.warn(f"前端有但後端無的 API 前綴（前端會拿到 404）: {', '.join(sorted(fe_only))}")
     if real_be_only:
-        results.warn(f"後端有但前端無的 API 前綴: {', '.join(sorted(real_be_only))}")
+        results.warn(
+            f"後端有但前端無、且非 webhook/agent 面向: {', '.join(sorted(real_be_only))}"
+            " —— ⚠️ **不要據此直接刪**：`zero_traffic_is_not_dead` 記過 11 個零流量端點"
+            "核實後沒有一個該刪。這是一個要問的問題，不是一份刪除清單。"
+        )
     if not fe_only and not real_be_only:
-        results.ok("前後端 API 前綴一致")
+        results.ok("前後端 API 前綴一致（webhook/agent 面向已依理由排除）")
 
     log(f"前端前綴: {len(fe_prefixes)} 個, 後端前綴: {len(be_prefix_roots)} 個")
 

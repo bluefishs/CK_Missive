@@ -65,6 +65,27 @@
 
 ---
 
+### 公文 6 個欄位：schema 收得到、ORM 沒有（2026-08-29 weekly 83 抓到）
+
+`DocumentBase` / `DocumentUpdate` 宣告了 **contract_case（承攬案件）／doc_word（公文字）／
+doc_class（公文類別）／priority_level（速別）／creator（建立者）／user_confirm**，
+而 `OfficialDocument` ORM **一個對應欄都沒有**（也沒有改名版本，逐一比對過）。
+
+⇒ **API 收得到但存不進去；回應也永遠不含它們。**
+
+實測後果（不是推論）：`DocumentDetailPage` 與行事曆的 `useIntegratedEvent`
+都在**讀** `document.priority_level`，而它永遠是 undefined ⇒ 每次都落到
+預設值 `|| 3`。**使用者看到的速別從來不是真的，而畫面上看不出來。**
+
+這是 `model_response_field_reach_audit`（weekly 61，管 ORM→API 沒到達）的
+**反方向**：API→ORM 沒到達。同一個家族，先前沒有守門。
+
+⚠️ **需要 owner 決定，我不會自己做**：修法是加 ORM 欄位 + Alembic migration
+（資料模型變更），或反過來從 schema 移除這些欄位（等於承認這些業務欄位不做）。
+兩條路的差別是「速別要不要真的能用」，那是業務決定不是技術決定。
+
+---
+
 ## A. 需要 owner 決定（我不會自己做）
 
 | # | 議題 | 為什麼需要你決定 | 詳見 |
