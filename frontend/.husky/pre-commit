@@ -84,5 +84,43 @@ if [ -n "$FRONTEND_CHANGES" ]; then
   cd "$PROJECT_ROOT" || exit 1
 fi
 
+# ============================================================
+# 3. 安全守衛（2026-08-30 補接）
+# ============================================================
+# ⚠️ 為什麼這兩段要寫在**這裡**：
+#   `git config core.hooksPath = frontend/.husky/_` ⇒ git **只**執行 husky 底下的
+#   hook，`.git/hooks/pre-commit` 從不執行。而那支 193 行的檔案裡有 6 項檢查
+#   （destructive ops／_shared／Skills／secret guard／backend 長度閘門），**全是死的**。
+#
+#   我 2026-08-29 才「修好」那支的 secret guard，並以為它生效了 —— 實測把一個
+#   含私鑰的 `.pem` 加進暫存，實際執行的 hook 回 **exit 0 並印「全部檢查通過」**。
+#   ⇒ **修在不會被執行的檔案上，不會報錯，只是永遠不生效。**
+#
+#   兩套 hook 系統並存而較新的那套靜默勝出（husky 在 frontend/ 底下 npm install
+#   時設了 core.hooksPath），這就是根因。
+
+# 3a. 破壞性操作偵測（ADR-0010 Tier 5 / CK_Website#0010 + L47）
+DESTRUCTIVE_HOOK="$PROJECT_ROOT/scripts/pre-commit-block-destructive.sh"
+if [ -x "$DESTRUCTIVE_HOOK" ]; then
+  bash "$DESTRUCTIVE_HOOK" || exit $?
+fi
+
+# 3b. Secret guard —— 檔名層（.env/.pem/.key/credentials.json）＋內容層
+SECRET_GUARD="$PROJECT_ROOT/scripts/hooks/pre-commit-secret-guard.sh"
+if [ "${SKIP_SECRET_SCAN}" != "1" ]; then
+  if [ -f "$SECRET_GUARD" ]; then
+    if ! bash "$SECRET_GUARD"; then
+      echo "[Pre-commit] 偵測到敏感檔或疑似憑證，請移除後再提交"
+      echo "[Pre-commit] 緊急跳過：SKIP_SECRET_SCAN=1 git commit"
+      exit 1
+    fi
+    echo "[Pre-commit] Secret guard 通過"
+  else
+    # 守衛不見了要**出聲**，不能沉默跳過 —— 沉默跳過正是 2026-08-29 的根因
+    echo "[Pre-commit] 找不到 $SECRET_GUARD —— 提交未經 secret 檢查"
+    exit 1
+  fi
+fi
+
 echo "[Pre-commit] 全部檢查通過"
 exit 0

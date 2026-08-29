@@ -55,7 +55,7 @@ def test_validator_secret_leak():
     from app.services.memory.narrative_validator import validate_narrative
     text = (
         "阿榮，本週處理 100 筆查詢，成功率 80%。"
-        "我也注意到 token sk-proj-abcdef1234567890abcdef1234 需要保護。"
+        "我也注意到 token sk-proj-abcdef1234567890abcdef1234 需要保護。"  # pragma: allowlist secret（測試用假值）
         "下週會更注意。印象最深是週三那次大案子。學到很多。"
     )
     r = validate_narrative(text)

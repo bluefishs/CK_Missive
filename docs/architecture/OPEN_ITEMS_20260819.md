@@ -352,6 +352,10 @@ daily 不是 weekly）。
 
 ---
 
+| **A45** | **`.git/hooks/pre-commit` 整支是死的；其中兩項守衛要不要接上** | `core.hooksPath = frontend/.husky/_` ⇒ git **只**跑 husky 的 hook，`.git/hooks/pre-commit` 的 6 項檢查**全部從不執行**。根因是兩套 hook 系統並存而較新的那套（husky，在 `frontend/` 底下 npm install 時設的）**靜默勝出**。<br><br>⚠️ 我 2026-08-29 才在那支死檔上「修好」secret guard 並以為生效 —— 08-30 實測：`.pem` 私鑰加進暫存，實際跑的 hook 回 **exit 0 並印「全部檢查通過」**。<br><br>**已辦**：secret guard 與 destructive ops 兩段已接進 `frontend/.husky/pre-commit`（實測 7/7）。<br><br>**待你決**：`backend/app/{services,routers,api/v1/endpoints}` 的 **.py >1000 行阻擋**要不要一併接上。現況有 2 支超標：`ai/domain/morning_report_service.py`（1112 L）與 `wiki/compiler.py`（2043 L）⇒ 接上後**任何觸及這兩支的提交都會被擋**（有 `SKIP_LENGTH_CHECK=1` 出口）。選項：①接上並先 refactor 那 2 支 ②接上但把門檻暫調到 2100 ③不接。 | 2026-08-30 實測；教訓＝L113 |
+
+---
+
 ### 做不了／不該做（已核實，列此以免重複提案）
 
 | 議題 | 為什麼 |

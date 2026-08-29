@@ -531,6 +531,22 @@
 
 ---
 
+## L113 — 我昨天「修好」的守衛，修在一個 git 從不執行的檔案上（2026-08-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 2026-08-29 發現 pre-commit 的 secret 掃描依賴一個**不存在**的 `scripts/check-secrets.cjs`，`[ -f ]` 為 false ⇒ 整段靜靜跳過。我改用 repo 裡已寫好的 `pre-commit-secret-guard.sh`，並讓「守衛不見時**出聲**」。改的是 `.git/hooks/pre-commit`。 |
+| **What happened** | `git config core.hooksPath` = **`frontend/.husky/_`** ⇒ git **只**執行 husky 底下的 hook，`.git/hooks/pre-commit` **從不執行**。那支 193 行、6 項檢查（destructive ops／`_shared`／Skills／secret guard／backend 長度閘門）**全是死的**。<br><br>2026-08-30 實測：把一個含私鑰的 `.pem` 加進暫存 → 實際跑的 hook 回 **exit 0 並印「全部檢查通過」**。 |
+| **辨識的線索** | 我幾次 commit 看到的輸出是 `[Pre-commit] 驗證 CK_Missive...`，而我改的那支印的是 `[Skills Hook] 驗證完成` —— **兩段文字不一樣**。線索一直在畫面上，我讀了好幾次都沒對照。⇒ **改一個 hook 之前，先確認它印的字就是你實際看到的那些字。** |
+| **根因** | 兩套 hook 系統並存，**較新的那套靜默勝出**：husky 在 `frontend/` 底下 npm install 時設了 `core.hooksPath`，把 `.git/hooks/` 整個旁路掉，沒有任何警告。 |
+| **修好之後才看得見的第二層** | 接上 secret guard 後實測，它的「內容層」**只警告不阻擋**，且必須有 `password\|secret\|api_key\|token` 這類關鍵字接 `[:=]` ⇒ **裸字面完全無聲**：`X = "sk-ant-api03-…"`／`ghp_…`／`AKIA…` 全部通過。**最高信心也最傷的那種形狀，正好是它看不見的那種。** |
+| **Fix** | ① `frontend/.husky/pre-commit`（真正會跑的那支）補上 destructive ops 與 secret guard 兩段。② secret guard 新增**供應商前綴阻擋層**（`sk-ant-`／`sk-proj-`／`ghp_`／`AKIA`／`xox?-`／`AIza`＋長度下限），出口是同行加 `pragma: allowlist secret`。③ `.git/hooks/pre-commit` 加警示標頭寫明「**這個檔案不會被 git 執行**」，免得下一個人（或我）再修一次。 |
+| **判準先量誤報再上線** | 新前綴樣式對**全 repo 追蹤中的檔案**掃描，命中 **1 個** —— `test_autobiography.py` 的測試用假金鑰（已加 allowlist 標記）。佔位字串 `sk-proj-xxxxx` 因長度下限而正確不命中。7/7 正負向控制通過。 |
+| **Prevention** | ⚠️ **改任何 hook 之前先 `git config core.hooksPath`。** 更一般地：**在「修好」一個機制之後，要用它真正的觸發路徑驗一次，而不是直接執行那個檔。** 直接跑 `.git/hooks/pre-commit` 會通過，而那不是 git 走的路。 |
+| **Refs** | `frontend/.husky/pre-commit`／`scripts/hooks/pre-commit-secret-guard.sh`／`.git/hooks/pre-commit`（警示標頭）／A45（長度閘門要不要接）／同族：L112、L111、L109（都是「機制在，但不是你以為的那條路徑」） |
+
+---
+
 ## L112 — 掛上去、會執行、也真的擋過東西的 hook，仍有一半的規則從未命中（2026-08-30）
 
 | 欄位 | 內容 |
