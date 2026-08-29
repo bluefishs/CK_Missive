@@ -32,6 +32,7 @@ import type {
   InvoiceSummaryItem,
   AccountListRequest,
   VendorAccountSummaryItem,
+  VendorAccountTotals,
   VendorAccountDetail,
   ClientAccountSummaryItem,
   ClientAccountTotals,
@@ -571,10 +572,10 @@ export function useInvoiceSummary(params: InvoiceSummaryRequest) {
 
 /** 廠商帳款彙總 */
 export function useVendorAccountSummary(params: AccountListRequest) {
-  return useQuery<{ items: VendorAccountSummaryItem[]; total: number }>({
+  return useQuery<{ items: VendorAccountSummaryItem[]; total: number; totals?: VendorAccountTotals }>({
     queryKey: erpFinanceKeys.vendorAccounts.summary(params),
     queryFn: async () => {
-      const res = await apiClient.post<{ data: { items: VendorAccountSummaryItem[]; total: number } }>(
+      const res = await apiClient.post<{ data: { items: VendorAccountSummaryItem[]; total: number; totals?: VendorAccountTotals } }>(
         ERP_ENDPOINTS.VENDOR_ACCOUNTS_SUMMARY, params
       );
       return res.data ?? { items: [], total: 0 };

@@ -436,6 +436,7 @@ run_step "80" "紀年契約：API 查詢參數一律西元（§2.5）" "scripts/
 #   已改到 78-80。新增步驟前請先跑：
 #   grep -oE 'run_step "[0-9]+"' 本檔 | sort -n | uniq -d
 run_step "81" "窄螢幕收斂判準：共用表格元件不得只看 isMobile" "scripts/checks/responsive_narrow_convergence_audit.py"
+run_step "82" "統計卡分母必須是全體不是當頁（§2.6 ①）" "scripts/checks/stat_card_denominator_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

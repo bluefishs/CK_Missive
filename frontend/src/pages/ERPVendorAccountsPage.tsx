@@ -60,18 +60,36 @@ const ERPVendorAccountsPage: React.FC = () => {
     [data?.items],
   );
 
-  // Top-level stats
+  // 統計卡的數字必須是**分頁前的全量**（development-rules §2.6 ①）。
+  // 2026-08-29：原本 `for (const item of items)` 逐筆累加 —— items 是**當頁**。
+  // 現況 16 家廠商、每頁 20 ⇒ 卡片**碰巧是對的**，但那是巧合不是設計：
+  // 廠商數一超過一頁就靜靜少算，而畫面上的數字看起來一樣正常
+  // （發票彙總卡就是這樣少了 74%）。改讀後端 totals。
   const stats = useMemo(() => {
-    let totalPayable = 0;
-    let totalPaid = 0;
-    let totalOutstanding = 0;
+    const t = data?.totals;
+    if (t) {
+      return {
+        totalPayable: Number(t.total_payable ?? 0),
+        totalPaid: Number(t.total_paid ?? 0),
+        totalOutstanding: Number(t.outstanding ?? 0),
+      };
+    }
+    // 後端還沒回 totals 才走這條。**出聲**不靜默降級 —— 靜默的話，
+    // 「後端沒回」與「真的就是這個數字」在畫面上完全一樣（ADR-0028）。
+    if (items.length > 0) {
+      console.warn(
+        '[vendor-accounts] 後端未回傳 totals，統計卡退回當頁加總；' +
+        `資料超過一頁時數字會偏低（本次 ${items.length} 筆）`,
+      );
+    }
+    let totalPayable = 0, totalPaid = 0, totalOutstanding = 0;
     for (const item of items) {
       totalPayable += Number(item.total_payable ?? 0);
       totalPaid += Number(item.total_paid ?? 0);
       totalOutstanding += Number(item.outstanding ?? 0);
     }
     return { totalPayable, totalPaid, totalOutstanding };
-  }, [items]);
+  }, [items, data?.totals]);
 
   const filteredItems = useMemo(() => {
     if (!statFilter) return items;

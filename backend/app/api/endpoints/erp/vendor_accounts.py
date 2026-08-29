@@ -18,14 +18,15 @@ async def get_vendor_account_summary(
     repo: ERPVendorPayableRepository = Depends(get_service(ERPVendorPayableRepository)),
 ):
     """協力廠商跨案件應付彙總列表"""
-    items, total = await repo.get_vendor_summary_list(
+    items, total, totals = await repo.get_vendor_summary_list(
         vendor_type=params.vendor_type,
         year=params.year,
         keyword=params.keyword,
         skip=params.skip,
         limit=params.limit,
     )
-    return SuccessResponse(data={"items": items, "total": total})
+    # totals＝分頁前的全量合計（§2.6 ①：卡片的分母不是當頁）
+    return SuccessResponse(data={"items": items, "total": total, "totals": totals})
 
 
 @router.post("/detail")

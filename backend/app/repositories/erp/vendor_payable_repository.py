@@ -88,7 +88,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         keyword: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
-    ) -> Tuple[List[Dict[str, Any]], int]:
+    ) -> Tuple[List[Dict[str, Any]], int, Dict[str, Any]]:
         """跨案件廠商應付彙總列表
 
         ⚠️ 2026-08-27 owner：「**標準化 `/vendors` 為源頭**，
@@ -155,6 +155,28 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         count_query = select(func.count()).select_from(count_subq)
         total = await self.db.scalar(count_query) or 0
 
+        # 2026-08-29（development-rules §2.6 ①）：統計卡的數字必須是**分頁前的全量**。
+        # 前端原本用 `for (const item of items)` 逐筆累加 —— items 是**當頁**，
+        # 於是廠商數一旦超過每頁筆數，三張卡就會靜靜少算而不報錯。
+        # 現況 16 家、每頁 20 ⇒ 卡片**碰巧是對的**，但那是巧合不是設計；
+        # 發票彙總卡就是同一個形狀（48 筆只算 20，少 74%）。
+        #
+        # 走 count_subq 同一條路 —— 篩選邏輯只有一份，不會有「兩個數字各自演化」。
+        totals_row = (await self.db.execute(
+            select(
+                func.coalesce(func.sum(count_subq.c.total_payable), 0),
+                func.coalesce(func.sum(count_subq.c.total_paid), 0),
+            ).select_from(count_subq)
+        )).first()
+        _tp = Decimal(str((totals_row[0] if totals_row else 0) or 0))
+        _pd = Decimal(str((totals_row[1] if totals_row else 0) or 0))
+        totals = {
+            "total_payable": str(_tp),
+            "total_paid": str(_pd),
+            "outstanding": str(_tp - _pd),
+            "vendor_count": total,
+        }
+
         # Paginated results
         query = (
             query.group_by(*group_cols)
@@ -178,7 +200,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
                 "total_paid": str(pd),
                 "outstanding": str(tp - pd),
             })
-        return items, total
+        return items, total, totals
 
     async def get_vendor_case_detail(
         self, vendor_id: int, year: Optional[int] = None,

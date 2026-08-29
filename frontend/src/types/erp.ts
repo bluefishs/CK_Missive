@@ -1054,6 +1054,14 @@ export interface VendorAccountSummaryItem {
   outstanding: number;
 }
 
+/** 廠商帳款統計卡的**全量**合計（分頁前，後端計算）—— development-rules §2.6 ① */
+export interface VendorAccountTotals {
+  total_payable: string;
+  total_paid: string;
+  outstanding: string;
+  vendor_count: number;
+}
+
 export interface VendorCasePayableItem {
   erp_quotation_id: number;
   case_code: string;
