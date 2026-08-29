@@ -1175,24 +1175,52 @@ class ProjectRepository(BaseRepository[ContractProject]):
         """
         if not project_ids:
             return {}
+
+        # ⚠️ 2026-08-29：原本只比 `project_id`，於是**以 case_code 指派的人查不到**。
+        #
+        # 指派表的 `project_id` 是 nullable —— 邀標階段還沒成案、沒有
+        # contract_project 可綁，那時只能寫 `case_code`（欄位註解：
+        # 「未成案時透過此欄關聯」）。成案之後那筆指派仍然只有 case_code。
+        #
+        # owner 2026-08-29 回報「/contract-cases 一堆 02承攬報價無對應承辦同仁」。
+        # 實測：139 件 02 承攬案件裡 **65 件只有 case_code 指派** ⇒ 全部顯示無承辦。
+        # 成因是同日依舊編號代碼回填 115 件時只寫 case_code（那個寫法是對的，
+        # 指派本來就掛在案號上），**錯的是這裡只認一條路**。
+        #
+        # 同族第四處：`quotation_document.py`(08-21)／`filing_gap.py`(08-29)／
+        # `rls_filter.py`(08-29，那一處更嚴重：承辦看不到自己的案子)。
+        from app.extended.models.core import ContractProject
+
         query = (
             select(
-                project_user_assignment.c.project_id,
+                ContractProject.id.label('project_id'),
                 project_user_assignment.c.role,
                 User.id.label('user_id'),
                 User.full_name,
             )
             .select_from(
-                project_user_assignment.join(
-                    User, project_user_assignment.c.user_id == User.id
+                project_user_assignment
+                .join(User, project_user_assignment.c.user_id == User.id)
+                .join(
+                    ContractProject,
+                    or_(
+                        ContractProject.id == project_user_assignment.c.project_id,
+                        ContractProject.case_code == project_user_assignment.c.case_code,
+                    ),
                 )
             )
-            .where(project_user_assignment.c.project_id.in_(project_ids))
+            .where(ContractProject.id.in_(project_ids))
+            .distinct()
         )
         result = await self.db.execute(query)
         staff_map: Dict[int, List[Dict[str, Any]]] = {}
+        seen: set = set()
         for row in result.all():
             pid = row.project_id
+            # 兩條路可能指到同一筆（project_id 與 case_code 都填了）—— 同一人只列一次
+            if (pid, row.user_id) in seen:
+                continue
+            seen.add((pid, row.user_id))
             if pid not in staff_map:
                 staff_map[pid] = []
             staff_map[pid].append({

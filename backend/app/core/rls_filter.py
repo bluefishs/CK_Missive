@@ -97,17 +97,44 @@ class RLSFilter:
             可用於 .in_() 的子查詢
         """
         from app.extended.models import project_user_assignment
+        from app.extended.models.core import ContractProject
 
         alias_ids = cls.get_alias_group_subquery(user_id)
 
-        return select(
-            project_user_assignment.c.project_id
-        ).where(
-            and_(
-                project_user_assignment.c.user_id.in_(alias_ids),
-                project_user_assignment.c.status.in_(cls.ACTIVE_ASSIGNMENT_STATUSES)
-            )
+        cond = and_(
+            project_user_assignment.c.user_id.in_(alias_ids),
+            project_user_assignment.c.status.in_(cls.ACTIVE_ASSIGNMENT_STATUSES)
         )
+
+        # 直接綁 project_id 的指派
+        by_project = select(
+            project_user_assignment.c.project_id
+        ).where(and_(cond, project_user_assignment.c.project_id.isnot(None)))
+
+        # ⚠️ 2026-08-29：只比 `project_id` 會漏掉**以 case_code 指派**的人。
+        #
+        # `project_user_assignment.project_id` 是 nullable —— 邀標階段的案件
+        # 還沒成案、沒有 contract_project 可綁，所以那時只能寫 case_code
+        # （該表的 `case_code` 欄位註解寫著「未成案時透過此欄關聯」）。
+        #
+        # 實測（2026-08-29 晚，owner 回報「/contract-cases 一堆 02承攬報價
+        # 無對應承辦同仁」）：139 件 02 承攬案件中，**65 件只有 case_code 指派**
+        # ⇒ 那 65 件的承辦在自己的案件列表裡**看不到自己的案子**。
+        #
+        # 成因是同日的承辦回填（依舊編號代碼補 115 件）只寫 case_code ——
+        # 那個寫法本身是對的（指派掛在案號上，跨成案前後都成立），
+        # **錯的是這裡只認一條路**。同族第三處：
+        # `quotation_document.py`（08-21 修）／`filing_gap.py`（08-29 修）。
+        by_case = select(
+            ContractProject.id
+        ).select_from(
+            project_user_assignment.join(
+                ContractProject,
+                ContractProject.case_code == project_user_assignment.c.case_code,
+            )
+        ).where(cond)
+
+        return by_project.union(by_case)
 
     @classmethod
     async def check_user_project_access(
