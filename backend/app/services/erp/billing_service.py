@@ -225,7 +225,17 @@ class ERPBillingService(AuditableServiceMixin):
                 "若尚未收到款，請維持「待收款」。"
             )
         # 2026-08-29（P2-6）：與 create 端同判準（L83：同一條規則掃所有寫入路徑）
-        if billing.payment_status == "paid" and not billing.payment_date:
+        # ⚠️ 2026-08-29 修正過度嚴格：原本只看「最終狀態是 paid 且沒有日期」，
+        # 於是**連只改備註的既有紀錄也擋** —— 而系統裡確實有缺日期的存量
+        # （同日查出 billing 63/95、payables 72/73 共 4 筆，那是資料問題、
+        #  需要 owner 提供真實日期，不是我能編的）。
+        # 我的驗證會讓那些紀錄**再也無法編輯**，包括補上日期本身以外的任何欄位。
+        # ⇒ 只在這次更新**真的碰到付款欄位**時才擋（新設為 paid、或改動日期）。
+        #   存量的不一致由對帳與 weekly 檢核處理，不是靠讓人改不了東西。
+        _touched_payment = bool(
+            {"payment_status", "payment_date", "payment_amount"} & set(update_data)
+        )
+        if _touched_payment and billing.payment_status == "paid" and not billing.payment_date:
             raise ValueError(
                 "標記為「已收款」時必須填寫收款日期 —— "
                 "缺日期會讓帳本的交易日期失真為入帳當天。"

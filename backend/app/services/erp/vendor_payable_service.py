@@ -214,7 +214,17 @@ class ERPVendorPayableService(AuditableServiceMixin):
             )
         # 2026-08-29（P2-6 同型）：paid 也要有日期 —— 缺日期時入帳
         # 落 date.today()，交易日期失真為入帳當天
-        if payable.payment_status == "paid" and not payable.paid_date:
+        # ⚠️ 2026-08-29 修正過度嚴格：原本只看「最終狀態是 paid 且沒有日期」，
+        # 於是**連只改備註的既有紀錄也擋** —— 而系統裡確實有缺日期的存量
+        # （同日查出 billing 63/95、payables 72/73 共 4 筆，那是資料問題、
+        #  需要 owner 提供真實日期，不是我能編的）。
+        # 我的驗證會讓那些紀錄**再也無法編輯**，包括補上日期本身以外的任何欄位。
+        # ⇒ 只在這次更新**真的碰到付款欄位**時才擋（新設為 paid、或改動日期）。
+        #   存量的不一致由對帳與 weekly 檢核處理，不是靠讓人改不了東西。
+        _touched_payment = bool(
+            {"payment_status", "paid_date", "payment_amount"} & set(update_data)
+        )
+        if _touched_payment and payable.payment_status == "paid" and not payable.paid_date:
             raise ValueError(
                 "標記為「已付款」時必須填寫付款日期 —— "
                 "缺日期會讓帳本的交易日期失真為入帳當天。"
