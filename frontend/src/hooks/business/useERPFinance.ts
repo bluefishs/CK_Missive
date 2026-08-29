@@ -731,26 +731,11 @@ export function useDeleteAsset() {
 }
 
 /** 資產完整詳情 (含關聯發票+案件) */
-export interface AssetDetailFull {
-  asset: Asset;
-  invoice: {
-    id: number;
-    inv_num: string;
-    date: string | null;
-    amount: string;
-    seller_ban: string | null;
-    category: string | null;
-    status: string;
-    source: string;
-  } | null;
-  case_quotation: {
-    id: number;
-    case_code: string;
-    case_name: string | null;
-    total_price: string;
-    status: string;
-  } | null;
-}
+// 型別 SSOT（development-rules §3）：本檔不得宣告業務型別。
+// 2026-08-29 由此處搬入 `types/erp.ts` —— 它是**手寫的 API 回應型別**
+// （含 invoice / case_quotation 兩個巢狀物件），後端 schema 改了不會有人發現。
+export type { AssetDetailFull } from '../../types/erp';
+import type { AssetDetailFull } from '../../types/erp';
 
 export function useAssetDetailFull(assetId: number | null) {
   return useQuery<AssetDetailFull | null>({

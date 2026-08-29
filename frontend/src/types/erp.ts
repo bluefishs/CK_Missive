@@ -1585,3 +1585,30 @@ export interface SmartScanResult {
   message?: string;
 }
 
+
+
+// ── 2026-08-29：型別 SSOT 收斂 ──────────────────────────────────
+// 原本宣告在 `hooks/business/useERPFinance.ts`（commit f1555705，早於當日 session）。
+// ⚠️ 這是**手寫的**回應型別、不是從後端 schema 生成的 —— 後端 `assets/detail-full`
+// 的欄位改了，前端不會有任何編譯錯誤，只會在執行期拿到 undefined。
+// 對應後端：`schemas/erp/asset.py` 的 detail-full 回應。
+export interface AssetDetailFull {
+  asset: Asset;
+  invoice: {
+    id: number;
+    inv_num: string;
+    date: string | null;
+    amount: string;
+    seller_ban: string | null;
+    category: string | null;
+    status: string;
+    source: string;
+  } | null;
+  case_quotation: {
+    id: number;
+    case_code: string;
+    case_name: string | null;
+    total_price: string;
+    status: string;
+  } | null;
+}
