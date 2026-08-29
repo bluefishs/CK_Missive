@@ -51,11 +51,13 @@ PROVIDERS = {
     "groq": {
         "const": "GROQ_DEFAULT_MODEL",
         "url": "https://api.groq.com/openai/v1/models",
+        "chat_url": "https://api.groq.com/openai/v1/chat/completions",
         "key_env": "GROQ_API_KEY",
     },
     "nvidia": {
         "const": "NVIDIA_DEFAULT_MODEL",
         "url": "https://integrate.api.nvidia.com/v1/models",
+        "chat_url": "https://integrate.api.nvidia.com/v1/chat/completions",
         "key_env": "NVIDIA_API_KEY",
     },
 }
@@ -65,10 +67,12 @@ def _configured_model(const_name: str):
     """從 ai_connector.py 讀模組級常數 —— 不 import（避免拉起整個 app）"""
     if not CONNECTOR.exists():
         return None
-    m = re.search(
-        rf'^{const_name}\s*=\s*["\']([^"\']+)["\']',
-        CONNECTOR.read_text(encoding="utf-8"), re.M,
-    )
+    txt = CONNECTOR.read_text(encoding="utf-8")
+    # 兩種形式都要認得：直接賦值，以及 2026-08-29 改成的 os.getenv(..., "預設")
+    m = re.search(rf'^{const_name}\s*=\s*os\.getenv\([^,]+,\s*["\']([^"\']+)["\']', txt, re.M)
+    if m:
+        return m.group(1)
+    m = re.search(rf'^{const_name}\s*=\s*["\']([^"\']+)["\']', txt, re.M)
     return m.group(1) if m else None
 
 
@@ -97,34 +101,60 @@ def main() -> int:
         if not key:
             yellows.append(f"  [YELLOW] {name}: 沒有 {cfg['key_env']}，無法查詢（不下結論）")
             continue
+        # ⚠️ 2026-08-29 修正：原本用 `urllib` 打 models 端點，Groq 一律回
+        # **403 error code 1010** —— 那是 **Cloudflare 的 bot 判定**（擋 urllib
+        # 預設 UA），不是模型狀態。本 repo 判準 9 記過同一件事，而我在寫這支
+        # 的**當天又踩了一次**：工具在待測對象上失效，交回來的是看起來正常的
+        # YELLOW。改用 `httpx`（與 `ai_connector` 同一個 client）後 Groq 立刻
+        # 回真相：舊模型 404、`openai/gpt-oss-120b` 200。
+        #
+        # 且改為打 **chat 端點實際呼叫**而非列清單 —— NVIDIA 實測過
+        # 「模型在 83 個清單裡但呼叫回 404 Function not found」⇒
+        # **清單存在不等於可呼叫**，而我們要保證的是後者。
+        ids: set = set()
         try:
-            req = urllib.request.Request(cfg["url"], headers={"Authorization": f"Bearer {key}"})
-            data = json.loads(urllib.request.urlopen(req, timeout=25).read())
-            ids = {m["id"] for m in data.get("data", [])}
-        except urllib.error.HTTPError as e:
-            # 403/401 可能是 IP 限制或 key 權限，**不等於模型下架** —— 不下結論
-            yellows.append(
-                f"  [YELLOW] {name}: models 端點回 HTTP {e.code} —— 查不到清單，"
-                f"**無法判斷** `{model}` 是否還在（不是「沒問題」也不是「下架了」）")
-            continue
+            import httpx
+            with httpx.Client(timeout=30) as c:
+                r = c.post(
+                    cfg["chat_url"],
+                    json={"model": model,
+                          "messages": [{"role": "user", "content": "ping"}],
+                          "max_tokens": 1},
+                    headers={"Authorization": f"Bearer {key}"},
+                )
+            code = r.status_code
         except Exception as e:
-            yellows.append(f"  [YELLOW] {name}: 查詢失敗 {type(e).__name__} —— 不下結論")
+            yellows.append(f"  [YELLOW] {name}: 探測失敗 {type(e).__name__} —— 不下結論")
             continue
 
-        if model in ids:
-            greens.append(f"  [ok   ] {name}: `{model}` 在清單裡（provider 共 {len(ids)} 個模型）")
-        else:
-            # 候選＝共用「家族詞」的模型（nemotron／llama…）。取設定名裡
-            # 長度 ≥ 6 的英文詞當家族詞 —— 用第一段字元比對會撈到
-            # nemoguard 這種不相干的（實測過，那對 owner 挑替代品沒有幫助）。
-            # 只從**去掉 org 前綴**的部分取家族詞 —— 用完整名會撈到 "nvidia"
-            # 這個 org 詞，於是 83 個 nvidia/* 全部命中（實測過，等於沒篩）
+        if code == 200:
+            greens.append(f"  [ok   ] {name}: `{model}` **實際呼叫成功**（HTTP 200）")
+        elif code in (401, 403):
+            yellows.append(
+                f"  [YELLOW] {name}: HTTP {code} —— 憑證或存取被擋，"
+                f"**無法判斷** `{model}` 是否還在（不是「沒問題」也不是「下架了」）")
+        elif code == 404:
+            # 候選＝共用「家族詞」的模型。只從**去掉 org 前綴**的部分取，
+            # 用完整名會撈到 "nvidia" 而 83 個 nvidia/* 全部命中（實測過，等於沒篩）。
+            try:
+                import httpx as _hx
+                with _hx.Client(timeout=25) as c2:
+                    lr = c2.get(cfg["url"], headers={"Authorization": f"Bearer {key}"})
+                if lr.status_code == 200:
+                    ids = {m["id"] for m in lr.json().get("data", [])}
+            except Exception:
+                pass
             fam = [w for w in re.findall(r"[a-z]{6,}", model.split("/")[-1])
                    if w not in ("instruct", "versatile")]
             near = sorted(i for i in ids if any(f in i for f in fam))[:6]
             reds.append(
-                f"  [RED  ] {name}: 設定的 `{model}` **不在** provider 的 {len(ids)} 個模型清單裡"
-                + (f"\n           同家族（{'/'.join(fam)}）可用：{', '.join(near)}" if near else ""))
+                f"  [RED  ] {name}: 設定的 `{model}` **實際呼叫回 404（不存在）**"
+                + (f"\n           同家族清單中有：{', '.join(near)}"
+                   f"\n           ⚠️ **清單有不等於可呼叫** —— NVIDIA 實測過"
+                   f"「在 83 個清單裡但呼叫回 Function not found」，換之前逐一實打"
+                   if near else ""))
+        else:
+            yellows.append(f"  [YELLOW] {name}: HTTP {code} —— 非預期回應，不下結論")
 
     print("=" * 74)
     print("設定的 LLM 模型是否還存在（weekly 73）")

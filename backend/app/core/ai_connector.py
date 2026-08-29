@@ -35,11 +35,20 @@ logger = logging.getLogger(__name__)
 
 # Groq API 配置
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
+# 2026-08-29（A31 owner 授權換裝）：`llama-3.3-70b-versatile` **已下架**
+# （httpx 實測 404 "model does not exist"），而 agent 因此在本地 ollama 上
+# 跑了約 27 天、合成 35s 逾時。換 `openai/gpt-oss-120b`（實測 200）。
+# ⚠️ 下方 GROQ_SKIP_PROMPT_CHARS 的 12K TPM 假設是照 llama-3.3-70b 訂的，
+#    換模型後那個門檻需重新驗證（見該常數的註解）。
+GROQ_DEFAULT_MODEL = os.getenv("GROQ_DEFAULT_MODEL", "openai/gpt-oss-120b")
 
 # NVIDIA Cloud API 配置 (OpenAI-compatible)
 NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-NVIDIA_DEFAULT_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+# 2026-08-29（A31）：`llama-3.3-nemotron-super-49b-v1.5` 已下架（不在 83 個
+# 模型清單裡）；同家族的 nemotron-70b／51b 實測也是 404（清單有名字但
+# Function 不存在——**清單存在不等於可呼叫**）。改用實測 200 的
+# `nvidia/nemotron-3-super-120b-a12b`。
+NVIDIA_DEFAULT_MODEL = os.getenv("NVIDIA_DEFAULT_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 
 # vLLM 本地配置 (OpenAI-compatible, 取代 NIM TRT-LLM)
 VLLM_LOCAL_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8000/v1") + "/chat/completions"
