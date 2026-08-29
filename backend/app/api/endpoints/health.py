@@ -77,6 +77,23 @@ async def basic_health_check(
         "service": "CK Missive API",
         "database": {"status": db_status},
         "business_data": business,
+        # ⚠️ 2026-08-29：**明說這個綠燈涵蓋什麼、不涵蓋什麼。**
+        #
+        # 由 CK_AaaP 跨 session 提出：「錯的不是範圍窄，是**看不出來範圍有多窄**。」
+        # 判定範圍窄是**刻意**的 —— 這支是公網探針讀的，若把 AI／KG／快取
+        # 也納入判定，ollama 沒開就會讓整站被判死，那是**判不準的健康檢查，
+        # 比沒有更糟**。但「範圍窄」與「沒說範圍」是兩件事：
+        # 後者會讓讀的人以為綠燈涵蓋了它其實沒看的東西
+        # （同本站 `/api/health/detailed` 那句「All systems operational」）。
+        #
+        # AI／KG／連線池的狀態在 `/api/health/detailed`（需 admin）。
+        "verdict_inputs": {
+            "deciding": ["database", "business_data"],
+            "not_covered": ["ai_services", "kg_federation",
+                            "connection_pool", "system_resources"],
+            "note": ("綠燈只涵蓋 deciding 這兩項。not_covered 的項目失敗**不會**"
+                     "讓本端點回 503 —— 那些要看 /api/health/detailed（需 admin）。"),
+        },
     }
 
 
