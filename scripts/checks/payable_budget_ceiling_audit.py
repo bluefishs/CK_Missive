@@ -22,7 +22,7 @@ owner 2026-08-29（財務域複查 P1-4 後裁示「防呆預警」）：
 
 ## 誰跑它
 
-weekly step 72（`run_fitness_weekly.sh`）。
+weekly step 78（`run_fitness_weekly.sh`）。
 """
 import subprocess
 import sys

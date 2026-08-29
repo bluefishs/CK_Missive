@@ -28,7 +28,7 @@ compose 只傳 API key。本腳本直接讀那兩個常數，不猜 env。
 
 ## 誰跑它
 
-weekly step 73（`run_fitness_weekly.sh`）。
+weekly step 79（`run_fitness_weekly.sh`）。
 """
 import json
 import os

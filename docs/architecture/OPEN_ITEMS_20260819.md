@@ -48,8 +48,8 @@
 | **明細頁年度** | 應收/應付明細頁補年度維度（後端本就支援，缺前端接線） | vendor 78 實測：全年度 6 案/60,196,000 vs 2026 年 3 案/40,666,000 |
 | **XLS 範本呈現** | 建單前無處可看正式版面 | 新增 `/erp/quotations/template-preview`（空白範本經同一條 LibreOffice 鏈轉 PDF），實測回真 PDF |
 | **開票防呆** | 累計開票 > 合約額 110% 即擋 | 存量掃描零誤傷；線上實測擋下超限請求 |
-| **應付上限稽核** | weekly 72 `payable_budget_ceiling_audit` | 5 筆 YELLOW（委外經費未填），零 RED |
-| **模型下架偵測** | weekly 73 `llm_model_availability_audit` —— 補 A31 那個 27 天盲區 | NVIDIA 確認下架（同家族候選已列）；Groq 403 判 YELLOW 不下結論 |
+| **應付上限稽核** | weekly 78 `payable_budget_ceiling_audit` | 5 筆 YELLOW（委外經費未填），零 RED |
+| **模型下架偵測** | weekly 79 `llm_model_availability_audit` —— 補 A31 那個 27 天盲區 | NVIDIA 確認下架（同家族候選已列）；Groq 403 判 YELLOW 不下結論 |
 | **委託單位關聯** | 我 08-28 新增的建單頁用自由文字、不寫 FK，正持續產生「只有文字無連結」的案件 | 改主檔 Select＋inline 新增；順帶補後端 `create` 的 FK→名稱回填（`update` 早有而 create 沒有 ⇒ 報價單客戶抬頭會空白） |
 | **digest 回填（L96）** | drain 刪除與 send 之間無事務性，送不出去即永久遺失 | `restore_digest` ＋回歸測試 2 項；**寫完當天就攔下我自己的清理動作**（18 則真實告警，含 3 則跨 repo 送來的） |
 | **告警長期記憶** | 跨 repo 治理告警的唯一入口只活在 48h TTL | `logs/digest_history.jsonl` append-only；端到端實證落檔 |

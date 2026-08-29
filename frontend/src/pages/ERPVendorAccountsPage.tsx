@@ -19,8 +19,8 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import { useVendorAccountSummary } from '../hooks';
 import type { VendorAccountSummaryItem } from '../types/erp';
+import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { EnhancedTable } from '../components/common/EnhancedTable';
-import type { ColumnsType } from 'antd/es/table';
 
 const { Title } = Typography;
 
@@ -80,7 +80,7 @@ const ERPVendorAccountsPage: React.FC = () => {
     return items;
   }, [items, statFilter]);
 
-  const columns: ColumnsType<VendorAccountSummaryItem> = [
+  const columns: ResponsiveColumn<VendorAccountSummaryItem>[] = [
     {
       title: '廠商名稱',
       dataIndex: 'vendor_name',
@@ -92,13 +92,13 @@ const ERPVendorAccountsPage: React.FC = () => {
       // 實測 65 家裡 15 家有值，**全部都是 8 碼純數字（統編格式）**、
       // 零非統編、零重複 ⇒ 它實務上就是統一編號，只是欄位名沒說。
       // ⇒ 標題直接寫明，避免與其他「代碼」混淆。
-      title: '統一編號',
+      title: '統一編號', hideOnMobile: true,
       dataIndex: 'vendor_code',
       key: 'vendor_code',
       width: 140,
     },
     {
-      title: '合作案件數',
+      title: '合作案件數', hideOnMobile: true,
       dataIndex: 'case_count',
       key: 'case_count',
       width: 110,
@@ -115,7 +115,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       render: (v: number) => Number(v).toLocaleString(),
     },
     {
-      title: '已付總額',
+      title: '已付總額', hideOnMobile: true,
       dataIndex: 'total_paid',
       key: 'total_paid',
       width: 130,
@@ -142,7 +142,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       },
     },
     {
-      title: '付款率',
+      title: '付款率', hideOnMobile: true,
       key: 'payment_rate',
       width: 100,
       align: 'center',

@@ -29,7 +29,7 @@ owner 2026-08-29 裁示「系統統一採西元年建置資料與查詢服務」
 
 ## 誰跑它
 
-weekly step 74（`run_fitness_weekly.sh`）。
+weekly step 80（`run_fitness_weekly.sh`）。
 """
 import re
 import sys

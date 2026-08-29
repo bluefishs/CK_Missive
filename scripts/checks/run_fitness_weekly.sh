@@ -428,9 +428,14 @@ run_step "67" "公網探測的客戶端指紋（403 不一定是應用層擋的�
 run_step "68" "管理動作有沒有給一般同仁看見（畫面不該給必然失敗的按鈕）" "scripts/checks/admin_action_visibility_audit.py"
 run_step "69" "協力廠商合約經費 vs 應付分期加總（同一件事兩個數字）" "scripts/checks/vendor_contract_payable_consistency.py"
 run_step "70" "廠商身分源頭一致（同一張單不得有兩個名字）" "scripts/checks/vendor_identity_ssot_audit.py"
-run_step "72" "應付有沒有上限在管（報價委外經費 vs 應付合計）" "scripts/checks/payable_budget_ceiling_audit.py"
-run_step "73" "設定的 LLM 模型在 provider 那邊還存不存在" "scripts/checks/llm_model_availability_audit.py"
-run_step "74" "紀年契約：API 查詢參數一律西元（§2.5）" "scripts/checks/year_convention_audit.py"
+run_step "78" "應付有沒有上限在管（報價委外經費 vs 應付合計）" "scripts/checks/payable_budget_ceiling_audit.py"
+run_step "79" "設定的 LLM 模型在 provider 那邊還存不存在" "scripts/checks/llm_model_availability_audit.py"
+run_step "80" "紀年契約：API 查詢參數一律西元（§2.5）" "scripts/checks/year_convention_audit.py"
+# 2026-08-29：加這一步時發現 72/73/74 三個編號**各有兩支**——我前一天新增時
+#   沒查既有編號就往下接。編號重複會讓「weekly 74 紅了」這句話無法定位，
+#   已改到 78-80。新增步驟前請先跑：
+#   grep -oE 'run_step "[0-9]+"' 本檔 | sort -n | uniq -d
+run_step "81" "窄螢幕收斂判準：共用表格元件不得只看 isMobile" "scripts/checks/responsive_narrow_convergence_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

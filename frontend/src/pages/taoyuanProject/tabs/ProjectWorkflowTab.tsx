@@ -175,7 +175,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
   const columns: ColumnsType<WorkRecord> = useMemo(
     () => [
       {
-        title: '批次',
+        title: '批次', hideOnMobile: true,
         key: 'batch',
         width: 90,
         render: () => (
@@ -183,7 +183,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
           ),
       },
       {
-        title: '序號',
+        title: '序號', hideOnMobile: true,
         dataIndex: 'sort_order',
         key: 'sort_order',
         width: 60,
@@ -206,7 +206,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
         ),
       },
       {
-        title: '說明',
+        title: '說明', hideOnMobile: true,
         key: 'description',
         width: 220,
         ellipsis: { showTitle: false },
@@ -237,7 +237,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
         ),
       },
       {
-        title: '關聯公文',
+        title: '關聯公文', hideOnMobile: true,
         key: 'linked_doc',
         width: 140,
         render: (_: unknown, record: WorkRecord) => {
