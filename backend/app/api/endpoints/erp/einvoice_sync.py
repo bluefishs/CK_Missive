@@ -18,6 +18,10 @@ from app.core.dependencies import get_service, require_auth, require_admin
 from app.extended.models import User
 from app.services.einvoice.einvoice_sync_service import EInvoiceSyncService
 from app.schemas.erp.einvoice_sync import (
+    PendingReceiptListResponse,
+    PendingReceiptTotals,
+)
+from app.schemas.erp.einvoice_sync import (
     EInvoiceSyncRequest,
     EInvoiceSyncLogQuery,
     EInvoiceSyncLogResponse,
@@ -49,7 +53,7 @@ async def trigger_sync(
     return SuccessResponse(data=result, message="同步完成")
 
 
-@router.post("/pending-list")
+@router.post("/pending-list", response_model=PendingReceiptListResponse)
 async def get_pending_receipt_list(
     params: PendingReceiptQuery,
     service: EInvoiceSyncService = Depends(get_service(EInvoiceSyncService)),
@@ -62,15 +66,22 @@ async def get_pending_receipt_list(
     items, total, total_amount = await service.get_pending_receipt_list(
         skip=params.skip, limit=params.limit
     )
-    resp = PaginatedResponse.create(
+    # ⚠️ 2026-08-29 自我更正：第一版是 `return {**resp.model_dump(), "totals": …}`
+    # ——**繞過 response schema**：欄位對 OpenAPI 不可見、前端只能 inline cast
+    # 補償，後端改名不會產生任何編譯錯誤。契約在前後端各宣告一次而靠巧合一致。
+    # 改回傳正式 model（見 schemas/erp/einvoice_sync.PendingReceiptListResponse）。
+    base = PaginatedResponse.create(
         items=[ExpenseInvoiceResponse.model_validate(i) for i in items],
         total=total,
         page=(params.skip // params.limit) + 1,
         limit=params.limit,
     )
-    # totals＝分頁前的全量（§2.6 ①）。前端「待核銷金額」原本只加當頁，
-    # 與同一排的「待核銷發票」筆數對不起來。
-    return {**resp.model_dump(), "totals": {"pending_amount": str(total_amount)}}
+    return PendingReceiptListResponse(
+        items=base.items,
+        pagination=base.pagination,
+        # totals＝分頁前的全量（§2.6 ①）。金額用 str 傳，避免 JSON number 浮點誤差。
+        totals=PendingReceiptTotals(pending_amount=str(total_amount)),
+    )
 
 
 @router.post("/upload-receipt")

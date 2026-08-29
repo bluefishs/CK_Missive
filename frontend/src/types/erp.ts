@@ -1030,9 +1030,25 @@ export interface SyncResult {
   skipped_duplicate: number;
 }
 
+/** 待核銷清單的**分頁前**合計 —— 對應 `schemas/erp/einvoice_sync.PendingReceiptTotals`。
+ *
+ * ⚠️ `pending_amount` 是 **string**：後端金額是 Decimal，JSON number 會有浮點誤差。
+ * 呼叫端負責 `Number(...)` 轉換。**不要改成 number** —— 那會讓後端被迫先損失精度。
+ */
+export interface PendingReceiptTotals {
+  pending_amount: string;
+}
+
+/** 待核銷清單回應 —— 對應 `schemas/erp/einvoice_sync.PendingReceiptListResponse`。
+ *
+ * ⚠️ 2026-08-29：`totals` 一度只存在於後端拼出來的裸 dict 與前端的 inline cast 裡
+ * （型別在兩處各宣告一次、靠巧合一致），**後端改名不會產生任何編譯錯誤**。
+ * 現已同時進 Pydantic response_model 與此處，契約只有一份。
+ */
 export interface PendingListResponse {
   items: ExpenseInvoice[];
   total: number;
+  totals?: PendingReceiptTotals;
 }
 
 export interface SyncLogsResponse {

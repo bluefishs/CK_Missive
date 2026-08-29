@@ -152,10 +152,9 @@ const ERPEInvoiceSyncPage: React.FC = () => {
   // ＝只加**當頁**，而同一排的「待核銷發票」用的是 `total`（全量）⇒
   // **同一排卡片一個當頁一個全量，筆數與金額對不起來而畫面上看不出來**。
   // 後端已改回 totals.pending_amount（分頁前、同一個 where 條件）。
-  const pendingAmount = Number(
-    (pendingData as { totals?: { pending_amount?: string } } | undefined)
-      ?.totals?.pending_amount ?? NaN,
-  );
+  // 型別來自 `types/erp.PendingListResponse`（與後端 response_model 同源），
+  // **不再用 inline cast** —— cast 會把「後端改名」壓成不會報錯的執行期 undefined。
+  const pendingAmount = Number(pendingData?.totals?.pending_amount ?? NaN);
   const logItems = logsData?.items ?? [];
   const logTotal = logsData?.total ?? 0;
 
