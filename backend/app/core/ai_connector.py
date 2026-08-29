@@ -66,8 +66,17 @@ RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
 RATE_LIMIT_NO_RETRY_CODES = {429, 413}
 
 # Context-aware routing 閾值（零花費前提下避開 Groq free tier TPM 上限）
-# CJK 每字符約 1.5 tokens，設 10,000 字符 ≈ 15K tokens > Groq llama-3.3-70b TPM 12K
-GROQ_SKIP_PROMPT_CHARS = int(os.getenv("GROQ_SKIP_PROMPT_CHARS", "10000"))
+#
+# 2026-08-29 換模型後**實測重訂**（原為 10,000，照 llama-3.3-70b 的 12K TPM 估）：
+# `openai/gpt-oss-120b` 的回應標頭 `x-ratelimit-limit-tokens` 是 **8000**，
+# 比舊模型更低 ⇒ 原門檻 10,000 字元（CJK ≈ 15K tokens）**比上限還寬**，
+# 長查詢必然 429 再 fallback，等於白繞一圈。
+#
+# 新值 4,500 字元 ≈ 6,750 tokens，留約 15% 餘裕給 system prompt 與回應。
+# ⚠️ 這個數字綁定「當前模型的 TPM」，**換模型必須重新實測**——
+# 查法：打一次 chat 端點看 `x-ratelimit-limit-tokens` 標頭，不要用估的。
+# （這正是 A31 的教訓：門檻背後的假設沒有跟著模型一起被檢查。）
+GROQ_SKIP_PROMPT_CHARS = int(os.getenv("GROQ_SKIP_PROMPT_CHARS", "4500"))
 
 # 任務→模型映射 — 不同任務可配置不同模型（未來可替換為更適合的模型）
 TASK_MODEL_MAP = {
