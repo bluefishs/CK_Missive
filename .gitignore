@@ -228,3 +228,6 @@ docs/health/ui_page_sweep_shots/
 
 # 負向測試的暫存備份（2026-08-16：曾誤 commit 一個）
 *.py.bak
+
+# owner 2026-08-29：「地上物調查/ 未納版控 非本案作業」
+docs/templates/地上物調查/
