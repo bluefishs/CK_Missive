@@ -90,22 +90,45 @@ DIAGNOSTIC_DIRS = (
     "components/site-management/",  # 站台設定管理
 )
 
-# 檔案級豁免 —— 逐一判過型，理由寫在這裡（不是「還沒改的收容所」）
+# ─────────────────────────────────────────────────────────────────────────
+# 檔案級豁免：**理由 + 可驗證的條件**。
+#
+# ⚠️ 2026-08-29 同日的 L99 寫的正是「白名單裡的『理由』本身要被驗證」——
+# 而我當天稍早加的這份清單只有散文。散文不會失效，**它描述的事實會**：
+# 「排序已逐欄手動加」如果哪天被人刪掉了 sorter，這條豁免就從
+# 「有意識的決定」變成「一個沒有排序的表格被永久放行」，而沒有任何東西會說話。
+#
+# CK_AaaP 同日的說法更尖銳：**豁免的成本，是在它不再需要的那一刻開始計算的。**
+#
+# ⇒ 每條豁免附一個 predicate（吃「只剩程式碼」的內容，回 True 表示理由仍成立）。
+#   predicate 不成立 ⇒ 豁免失效，該檔回到一般判準，並額外報「豁免已過期」。
 EXEMPT_FILES = {
-    # 排序會打亂輸入順序：這是**編輯用**表格（逐項明細輸入），不是資料檢視
-    "pages/erpQuotation/QuotationTemplateCreatePage.tsx":
+    # 排序會打亂輸入順序：這是**編輯用**表格（逐項明細輸入），不是資料檢視。
+    # 條件：欄位裡確實有輸入元件 —— 不再是編輯表就沒有理由豁免。
+    "pages/erpQuotation/QuotationTemplateCreatePage.tsx": (
         "報價明細輸入表，列順序即報價單列順序，不得被排序打亂",
-    # 它自己就是另一個表格基礎元件（內建 sortConfig），不是業務表格
-    "components/common/UnifiedTable.tsx":
+        lambda t: re.search(r"<(Input|InputNumber|Select)\b", t) is not None,
+    ),
+    # 它自己就是另一個表格基礎元件（內建 sortConfig），不是業務表格。
+    # 條件：sortConfig 還在 —— 拿掉了就等於失去豁免的依據。
+    "components/common/UnifiedTable.tsx": (
         "表格基礎元件，自帶 sortConfig；EnhancedTable 亦建構於此類包裝之上",
-    "components/common/ResponsiveTable.tsx":
+        lambda t: "sortConfig" in t,
+    ),
+    # 條件：它仍然是共用表格包裝（有 export）。
+    "components/common/ResponsiveTable.tsx": (
         "它就是共用表格包裝本身（antd Table 的封裝），不是業務表格",
+        lambda t: "ResponsiveTableInner" in t or "export const ResponsiveTable" in t,
+    ),
     # 2026-08-29：這一個是**有意識的決定**，不是漏改。原註解：「刻意不改用
     # EnhancedTable —— 那會連帶套上自動排序/篩選，對 owner 每天在看的
-    # 晨報追蹤表，行為變動的風險高於收益。」它的窄螢幕溢出已另行修正
-    # （scroll 判準改 isNarrow），排序則是逐欄手動宣告。
-    "components/taoyuan/MorningReportTrackingTable.tsx":
+    # 晨報追蹤表，行為變動的風險高於收益。」
+    # 條件：**排序真的還在**（逐欄手動宣告）。這是四條裡最會腐壞的一條 ——
+    # 它的理由不是「這個檔的性質」而是「有人做了補償措施」，而補償措施會被刪。
+    "components/taoyuan/MorningReportTrackingTable.tsx": (
         "owner 每日使用的晨報追蹤表，刻意保留手工欄位宣告；排序已逐欄手動加",
+        lambda t: len(re.findall(r"\bsorter:", t)) >= 3,
+    ),
 }
 
 # 用了 Table.Summary 等靜態子元件者 —— EnhancedTable 是函式包裝沒有那些成員，
@@ -120,6 +143,7 @@ def _files():
         yield p
 
 
+STALE_EXEMPTIONS: list = []
 _CACHE: dict = {}
 
 
@@ -167,8 +191,19 @@ def _biz_component_files():
                 continue
             if base == PAGES and p.parent == PAGES:
                 continue  # 頁面根目錄由判準 2 掃過了
-            if any(d in rel for d in DIAGNOSTIC_DIRS) or rel in EXEMPT_FILES:
+            if any(d in rel for d in DIAGNOSTIC_DIRS):
                 continue
+            if rel in EXEMPT_FILES:
+                # 豁免只在它自己的條件仍成立時有效（見 EXEMPT_FILES 上方說明）
+                _reason, pred = EXEMPT_FILES[rel]
+                try:
+                    still = bool(pred(_src(p)))
+                except Exception:
+                    still = False
+                if still:
+                    continue
+                STALE_EXEMPTIONS.append((rel, _reason))
+                # 條件不成立 ⇒ 不再豁免，落回一般判準
             yield p, rel
 
 
@@ -283,11 +318,20 @@ def main() -> int:
            "owner 2026-08-29「表格皆需提供篩選排序機制」——「皆需」包含子元件。"
            "改用 EnhancedTable 即自動獲得（換 import 即可，不必逐欄宣告）。"
            "若確屬診斷／開發者工具，請加進 DIAGNOSTIC_DIRS 並註明理由。")
+    if STALE_EXEMPTIONS:
+        print(f"\n  🔴 豁免已過期：{len(STALE_EXEMPTIONS)}")
+        for rel, reason in STALE_EXEMPTIONS:
+            print(f"      · {rel}")
+            print(f"        當初的理由：{reason}")
+        print("      → 豁免的**條件**不再成立（見 EXEMPT_FILES 的 predicate）。")
+        print("        散文不會失效，它描述的事實會 —— 這條豁免現在放行的是別的東西。")
+        print("        請重新判型：要嘛修好被刪掉的補償措施，要嘛移除豁免。")
+
     report("詳情頁沒有用 DetailPageLayout", no_layout,
            "分頁深連結（?tab=）由 DetailPageLayout 提供；不用它就無法從晨報／"
            "LINE 直接連到特定分頁，也無法被行動觀測量到非預設分頁。")
 
-    total = len(action_col) + len(raw_table) + len(raw_sub) + len(no_layout)
+    total = len(action_col) + len(raw_table) + len(raw_sub) + len(no_layout) + len(STALE_EXEMPTIONS)
     print()
     if total:
         print(f"Status: [YELLOW] {total} 處偏離設計規範")
