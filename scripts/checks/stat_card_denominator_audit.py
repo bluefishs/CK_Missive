@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-r"""統計卡的分母必須是全體，不能是當頁（development-rules §2.6 ①）。
+r"""§2.6 列表頁三要素的守門：① 統計卡分母＝全體　③ 年度篩選預設當年度。
+
+（② 互動篩選**刻意不做** —— `Statistic` 用在很多不該互動的地方，
+一律判紅只會產出整片噪音。理由與 `frontend_design_standard_audit` 同。）
 
 ## 為什麼有這一支
 
@@ -44,6 +47,27 @@ GREEN 是空結果，而**空結果沒有內在證據可以證明自己是對的
 |---|---|---|
 | 2026-08-29 | 把 `ERPVendorAccountsPage` 的 `data?.totals` 拿掉、改回逐筆累加 | GREEN → **RED**（行號正確）→ 還原後 GREEN |
 | 2026-08-29 | 同上但**留一個樣板字串裡的 `totals`** | 首版（手寫剝除）**仍回綠**；改用 TS parser 後才 RED |
+| 2026-08-30 | 拿掉 `ERPInvoiceSummaryPage` 的預設當年度 | GREEN → **RED**（指名該檔）→ 還原後 GREEN |
+| 2026-08-30 | 拿掉 `ERPOperationalListPage` 年度 Select 的 `value` 綁定 | GREEN → **RED** → 還原後 GREEN |
+
+## ③ 的判準為何以「有沒有 setter」為進場條件（2026-08-30）
+
+**這一條的違規形狀是「那個 key 不存在」**，而我的第一版判準去問
+「`year` 的初始值對不對」—— 對「params 裡根本沒有 `year`」完全是盲的，
+於是量出「0 違規」。實際上盲區裡就躺著兩個真的：
+
+| 頁面 | 初始 params | 後果 |
+|---|---|---|
+| `ERPInvoiceSummaryPage` | `{skip:0,limit:20}` | 年度 Select 開場空的 ⇒ **歷年混算** |
+| `ERPOperationalListPage` | `fiscal_year` 未設 | 同上 |
+
+⇒ 進場條件改成「**有沒有人在寫入年度**」（setter 存在＝這頁有年度篩選），
+再問「預設值在不在」。**用「有沒有人要改它」證明欄位該存在，
+比用「欄位長什麼樣」可靠。**
+
+⚠️ 同時查了「篩了卻不顯示」：`ERPOperationalListPage` 的年度 Select
+只有 `onChange` 沒有 `value` —— 我加預設值時**差點造出隱形篩選**
+（資料被篩而畫面說未選，比不篩更糟）。故 ③ 一併查 `value` 綁定。
 
 ⚠️ 第二列是重點：它是**手寫正則版擋不掉的形態**。合成案例 8/8 全過而
 真實檔案失敗過一次 —— **負向對照要打在真實檔案上**。
@@ -114,6 +138,57 @@ LOCAL_SUM = re.compile(
     r"|for\s*\(\s*const\s+\w+\s+of\s+\w*(?:[Ii]tems|[Rr]ows|[Ll]ist|dataSource)\s*\)"
 )
 
+# ── §2.6 ③：預設當年度 ────────────────────────────────────────────────
+# 「這一頁有年度篩選」的證據＝**有人在寫入年度**（setter），因為字串
+# （`placeholder="年度"`）會被 code_only 剝掉，識別字才留得下來。
+YEAR_SETTER = re.compile(r"\b(?:set\w*[Yy]ear\w*\s*\(|\b(?:fiscal_year|year)\s*:\s*v\b)")
+# 預設值的兩種合法形狀：獨立 state，或包在 params 物件裡
+YEAR_STATE = re.compile(r"const\s*\[\s*\w*[Yy]ear\w*\s*,\s*set\w+\s*\]\s*=\s*useState[^;]*;")
+YEAR_IN_PARAMS = re.compile(
+    r"useState\s*(?:<[^>]*>)?\s*\(\s*\{[^{}]*\b(?:fiscal_year|year)\s*:\s*([^,}\n]+)", re.S)
+# 同檔內等同於 getFullYear() 的別名（`const currentYear = new Date().getFullYear()`）
+YEAR_ALIAS = re.compile(r"\bconst\s+(\w+)\s*=\s*new\s+Date\(\)\.getFullYear\(\)")
+# 顯示綁定 —— 篩了卻不顯示＝隱形篩選，比不篩更糟
+SELECT_BLOCK = re.compile(r"<Select\b(.*?)/>", re.S)
+
+
+def _audit_year_default(rel: str, t: str) -> list[tuple[str, str]]:
+    """§2.6 ③：有年度篩選的列表頁，預設必須是當年度、且必須顯示出來。
+
+    ⚠️ **這一條的違規形狀是「那個 key 不存在」** —— 而我 2026-08-30 第一版
+    判準去找 `year:` 開頭的初始值，於是對「params 裡根本沒有 year」完全是盲的。
+    實測後果：`ERPInvoiceSummaryPage`（`{skip:0,limit:20}`）與
+    `ERPOperationalListPage`（`fiscal_year` 未設）兩頁的年度 Select
+    開場是空的 ⇒ **歷年混算**，而我先前量出來的答案是「0 違規」。
+    ⇒ 判準必須以「有沒有年度 setter」為進場條件，再問「預設值在不在」。
+    """
+    if not YEAR_SETTER.search(t):
+        return []                       # 這一頁沒有年度篩選，不適用
+    aliases = set(YEAR_ALIAS.findall(t))
+
+    def _is_current_year(expr: str) -> bool:
+        return "getFullYear" in expr or any(
+            re.search(rf"\b{re.escape(a)}\b", expr) for a in aliases)
+
+    out: list[tuple[str, str]] = []
+    st = YEAR_STATE.search(t)
+    pm = YEAR_IN_PARAMS.search(t)
+    if st and _is_current_year(st.group(0)):
+        pass
+    elif pm and _is_current_year(pm.group(1)):
+        pass
+    else:
+        out.append((rel, "年度篩選沒有預設當年度 ⇒ 歷年混算（§2.6 ③）"))
+
+    # 顯示綁定：年度 Select 必須有 value/defaultValue
+    for m in SELECT_BLOCK.finditer(t):
+        blk = m.group(1)
+        if not re.search(r"\b(?:fiscal_year|year|yearFilter)\b", blk):
+            continue
+        if not re.search(r"\b(?:value|defaultValue)=\{", blk):
+            out.append((rel, "年度 Select 沒有 value 綁定 ⇒ 篩了卻顯示未選＝隱形篩選"))
+    return out
+
 
 def main() -> int:
     if not PAGES.is_dir():
@@ -141,10 +216,18 @@ def main() -> int:
         return 2
 
     reds, scanned = [], 0
+    year_reds: list[tuple[str, str]] = []
+    year_scanned = 0
     for p in candidates:
         rel = str(p.relative_to(PAGES)).replace("\\", "/")
         t = sources.get(str(p.resolve()), "")
-        if "dataIndex" not in t or not CARD.search(t):
+        if "dataIndex" not in t:
+            continue
+        # §2.6 ③ 的對象是「有年度篩選的列表頁」，與 ① 的「有統計卡」不同集合
+        if YEAR_SETTER.search(t):
+            year_scanned += 1
+            year_reds.extend(_audit_year_default(rel, t))
+        if not CARD.search(t):
             continue
         scanned += 1
         if BACKEND_TOTAL.search(t):
@@ -155,7 +238,7 @@ def main() -> int:
             reds.append((rel, line, m.group(0).strip()[:60]))
 
     print("=" * 74)
-    print("統計卡分母：必須是全體不是當頁（development-rules §2.6 ①，weekly 82）")
+    print("§2.6 列表頁：① 統計卡分母＝全體　③ 年度篩選預設當年度（weekly 82）")
     print("=" * 74)
     print(f"\n  掃描 {scanned} 個有統計卡的業務列表頁")
 
@@ -170,10 +253,22 @@ def main() -> int:
         print("           改法：後端多回一個 totals（分頁前計算），前端讀它。")
         print("           參考 `client_receivable_repository` / `ledger_repository.sum_by_filters`。")
 
-    if reds:
-        print(f"\n⚠️ 這一類的危險不在「現在算錯了」，而在**它會在資料長大時才開始錯**，")
-        print("   且畫面上的數字看起來一樣正常。實測案例：發票彙總卡少 74%。")
-        print(f"\nStatus: [RED] {len(reds)} 個統計卡用當頁當分母")
+    print(f"  掃描 {year_scanned} 個有年度篩選的業務列表頁（§2.6 ③）")
+    if year_scanned == 0:
+        print("\n✗ 一個年度篩選都沒掃到 —— 篩選寫法可能變了，③ 的判準已失效")
+        return 2
+    for rel, why in year_reds:
+        print(f"\n  [RED  ] pages/{rel}")
+        print(f"           {why}")
+
+    if reds or year_reds:
+        if reds:
+            print(f"\n⚠️ 這一類的危險不在「現在算錯了」，而在**它會在資料長大時才開始錯**，")
+            print("   且畫面上的數字看起來一樣正常。實測案例：發票彙總卡少 74%。")
+        if year_reds:
+            print("\n⚠️ 年度那一類的危險是**歷年混算**：數字大得莫名其妙，但沒有任何錯誤。")
+            print("   而「篩了卻不顯示」更糟 —— 使用者不知道自己看到的是子集。")
+        print(f"\nStatus: [RED] ① {len(reds)} 個統計卡用當頁當分母／③ {len(year_reds)} 個年度篩選違規")
         return 1
 
     # ⚠️ 措辭必須等於判準做了什麼。原本印「統計卡都走後端全量彙總」——
@@ -182,7 +277,7 @@ def main() -> int:
     # CK_AaaP 同日：**分類器正確，而人讀到的摘要說了別的事。**
     print("\n  （沒有偵測到「在分頁陣列上加總」的形態；"
           "本支不保證每張卡都讀後端 totals）")
-    print("\nStatus: [GREEN] 統計卡分母正確")
+    print("\nStatus: [GREEN] 統計卡分母正確、年度篩選預設當年度且有顯示")
     return 0
 
 

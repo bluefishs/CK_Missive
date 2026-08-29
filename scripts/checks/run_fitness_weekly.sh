@@ -475,7 +475,7 @@ run_step "80" "紀年契約：API 查詢參數一律西元（§2.5）" "scripts/
 #   已改到 78-80。新增步驟前請先跑：
 #   grep -oE 'run_step "[0-9]+"' 本檔 | sort -n | uniq -d
 run_step "81" "窄螢幕收斂判準：共用表格元件不得只看 isMobile" "scripts/checks/responsive_narrow_convergence_audit.py"
-run_step "82" "統計卡分母必須是全體不是當頁（§2.6 ①）" "scripts/checks/stat_card_denominator_audit.py"
+run_step "82" "統計卡分母＋年度篩選預設當年度（§2.6 ①③）" "scripts/checks/stat_card_denominator_audit.py"
 # 2026-08-29：`verify_architecture.py` 的宣告是「由 pre-commit hook 與 CI 呼叫」，
 # 實查 **兩邊都是 0 次**（CI 另已於 2026-03-09 全面停用）。而它自己也壞著 ——
 # 根目錄推導寫成 `.parent.parent`（本檔被移進 scripts/checks/ 之後沒改），

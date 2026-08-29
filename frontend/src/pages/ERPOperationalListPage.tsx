@@ -62,7 +62,11 @@ interface ListParams {
 
 const ERPOperationalListPage: React.FC = () => {
   const navigate = useNavigate();
-  const [params, setParams] = useState<ListParams>({ skip: 0, limit: 20 });
+  // §2.6 ③：預設當年度（西元）。在此之前 `fiscal_year` 未設 ⇒ 年度篩選開場是空的
+  // ⇒ 歷年混算。可清除＝「全部年度」。
+  const [params, setParams] = useState<ListParams>({
+    skip: 0, limit: 20, fiscal_year: new Date().getFullYear(),
+  });
 
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('operational:write');
@@ -229,6 +233,10 @@ const ERPOperationalListPage: React.FC = () => {
           <Select
             placeholder="年度"
             allowClear
+            // ⚠️ `value` 綁定不可省：這個 Select 原本只有 onChange，
+            //    加了預設年度卻不顯示 ⇒ 資料被篩了而畫面說「未選」＝隱形篩選，
+            //    比不篩更糟（使用者不知道自己看到的是子集）。
+            value={params.fiscal_year}
             style={{ width: 100 }}
             options={YEAR_OPTIONS}
             onChange={(v) => setParams((p) => ({ ...p, fiscal_year: v, skip: 0 }))}

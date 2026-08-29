@@ -55,7 +55,12 @@ const INVOICE_STATUS_LABELS: Record<string, string> = {
 
 const ERPInvoiceSummaryPage: React.FC = () => {
   const navigate = useNavigate();
-  const [params, setParams] = useState<InvoiceSummaryRequest>({ skip: 0, limit: 20 });
+  // §2.6 ③：預設當年度（西元）。在此之前初始 params 沒有 `year` ⇒ 年度 Select
+  // 開場是空的 ⇒ **歷年發票混在一起算成一個總數**，而畫面不會有任何異狀。
+  // `allowClear` 仍在，使用者清掉即為「全部年度」。
+  const [params, setParams] = useState<InvoiceSummaryRequest>({
+    skip: 0, limit: 20, year: new Date().getFullYear(),
+  });
   const [statFilter, setStatFilter] = useState<string | null>(null);
   const { data, isLoading, isError } = useInvoiceSummary(params);
 

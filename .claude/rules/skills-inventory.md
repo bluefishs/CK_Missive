@@ -87,7 +87,7 @@
 | `scripts/checks/llm_model_availability_audit.py` | 設定的模型在 provider 那邊還存不存在——**實際打一次**，因為「在清單裡」不等於叫得動（NVIDIA 清單有但呼叫 404） | weekly 79 |
 | `scripts/checks/year_convention_audit.py` | 紀年契約：API 查詢參數一律西元（§2.5）。判準是「附近有沒有 logger.warning」——規範要的不是禁止轉換，是**不得靜默轉換** | weekly 80 |
 | `scripts/checks/responsive_narrow_convergence_audit.py` | 窄螢幕收斂判準：不得只看 `isMobile`（AntD 的 md 斷點就是 768 ⇒ 平板會走桌面分支） | weekly 81 |
-| `scripts/checks/stat_card_denominator_audit.py` | 統計卡分母必須是全體不是當頁（§2.6 ①）——它抓的是形狀，不是當下數字對不對 | weekly 82 |
+| `scripts/checks/stat_card_denominator_audit.py` | §2.6 列表頁 **①③**：統計卡分母必須是全體不是當頁；年度篩選必須預設當年度**且顯示出來**（篩了卻顯示未選＝隱形篩選，比不篩更糟）。⚠️ ③ 的違規形狀是**那個 key 不存在**，所以判準的進場條件是「有沒有年度 setter」而不是「year 的初始值對不對」——首版問後者，於是對兩個真違規完全是盲的 | weekly 82 |
 | `scripts/checks/verify_architecture.py` | 架構完整性 13 項（路由/API 前綴/型別 SSOT/Schema-ORM/棄用模組）。⚠️ 2026-08-29 之前**壞著且沒有人在跑**（L99） | weekly 83 |
 | `scripts/checks/lib/ts_source.py` | 給靜態判準用的 TS 讀取器：委派 TypeScript parser 剝掉註解／字串／樣板／JSX 文字。**手寫正則版擋不掉後三者**（L97） | 上列前端類稽核共用 |
 | `scripts/checks/runner_flag_drift_audit.py` | 基線鎖有沒有真的被叫到——腳本在、排程在、旗標在，**只是呼叫時少了旗標**（L100） | weekly 84 |
