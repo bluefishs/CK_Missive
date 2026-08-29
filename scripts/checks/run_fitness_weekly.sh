@@ -421,11 +421,17 @@ run_step "63" "Response schema 的欄位前端型別宣告了嗎（契約鏈第�
 # 並吐出公文總數）。根因是 TUNNEL_GUARD_ENABLED=false ⇒ 沒有自帶認證的端點一律對外。
 # 用 FastAPI runtime dependency 樹判定 —— 既有的 grep 規則「端點缺少認證裝飾器」
 # 產生了 122 個誤判（是真問題的 6 倍），認不出 Depends(require_auth()) 這類寫法。
-run_step "64" "無認證端點（runtime dependency 樹）" "scripts/checks/public_endpoint_auth_audit.py"
+run_step "64" "無認證端點（runtime dependency 樹）" # ⚠️ 2026-08-29 補 --ci：不帶時**新增**的無認證端點只回 1（YELLOW）。
+#   YELLOW 是「規範沒被強制」那一級，而「公網多了一個不用認證就打得到的端點」
+#   是回歸不是漂移 —— 2026-08-21 那次 /api/ai/* 全裸就是這一類（別人用、我們付費）。
+#   ⚠️ 這與檔頭「刻意不傳 --strict」不衝突：--strict 是把 warning 升成 error，
+#   而這支的 --ci 只影響「**新增**缺口」的分級，baseline 內的存量不受影響。
+"scripts/checks/public_endpoint_auth_audit.py --ci"
 # C2（2026-08-24）：router 層加認證的反面風險 —— 同一個檔案裡混雜真公開端點時，公開那半會被一起擋掉，而那種失敗只有真的打開那一頁才看得見。
 run_step "65" "router 層認證有沒有誤擋公開端點" "scripts/checks/router_level_auth_mixing_audit.py"
 # C1（2026-08-24）：規範 §24「所有 endpoint POST」先前**沒有任何檢核在管**—— 175 支腳本沒有一支驗 HTTP 方法。散文不帶設定。
-run_step "66" "端點 POST 慣例（runtime methods）" "scripts/checks/http_method_convention_audit.py"
+run_step "66" "端點 POST 慣例（runtime methods）" # 同上：--ci 只把「新增違反」升為 RED，baseline 存量仍是 YELLOW。
+"scripts/checks/http_method_convention_audit.py --ci"
 # 2026-08-24：Cloudflare 依 UA 擋請求 —— Python 預設 UA 打公網**每一條都回 403**，而那個 403 長得正好像「認證有效」。CK_AaaP 在 pile 一個進行中的 P0 外洩上重現。
 run_step "67" "公網探測的客戶端指紋（403 不一定是應用層擋的）" "scripts/checks/probe_fingerprint_guard.py"
 run_step "68" "管理動作有沒有給一般同仁看見（畫面不該給必然失敗的按鈕）" "scripts/checks/admin_action_visibility_audit.py"
@@ -445,6 +451,11 @@ run_step "82" "統計卡分母必須是全體不是當頁（§2.6 ①）" "scrip
 # 根目錄推導寫成 `.parent.parent`（本檔被移進 scripts/checks/ 之後沒改），
 # 一啟動就 [FATAL]。**壞掉的腳本 + 假的執行者宣告 + 文件把它列為驗證命令。**
 run_step "83" "架構完整性（路由/API 前綴/型別 SSOT/Schema-ORM）" "scripts/checks/verify_architecture.py"
+# 2026-08-29：L99 的下一個變形 —— **執行者存在、腳本存在、旗標存在，
+#   只是呼叫時少了那個旗標**，三者分開看都是綠的。alias_rls 的基線鎖
+#   就這樣三個月沒鎖過。判準刻意只抓「基線比對包在 if args.ci 裡」這一種，
+#   不抓 --strict（那是本檔檔頭的既有政策，粗判準會產出 26 個假紅）。
+run_step "84" "基線鎖有沒有真的被叫到（runner 漏旗標）" "scripts/checks/runner_flag_drift_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

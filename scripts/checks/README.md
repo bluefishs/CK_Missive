@@ -16,7 +16,7 @@
 | 分組 | 列數 |
 |---|---|
 | 🔴 每日（容器內 APScheduler `fitness_daily`） | 13 |
-| 🟠 每週（host 排程 `CK_Missive-Fitness-Weekly`，容器端只當接收者） | 50 |
+| 🟠 每週（host 排程 `CK_Missive-Fitness-Weekly`，容器端只當接收者） | 84 |
 | 🧪 月度架構覆盤（`run_fitness.sh`） | 64 |
 | 🖥️ 瀏覽器走查（`run_ui_smoke.sh` / `run_visual_walk.sh`） | 4 |
 | ⏰ 後端排程（`backend/app/core/scheduler.py`） | 15 |
@@ -30,7 +30,7 @@
 > 2026-08-15 一次校正就發現每週那格寫 43 而實際 50。
 > 若日後再漂，處理方式是重數一次，不是把它當成新增了 7 支。
 
-<!--baseline:check_scripts-->合計 **183** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
+<!--baseline:check_scripts-->合計 **189** 支（頂層 `*.py` + `*.sh`；子目錄 `.shared-selfaudit/` 由上游同步，不在表態閘門管轄內）。
 
 > 這個數字現在由 `doc_baseline_claim_audit`（weekly 26）納管。
 > 2026-08-11 更正：原本寫 164 而實際 156 —— 閘門比對的是「檔名有沒有出現在文件裡」、
@@ -116,6 +116,13 @@
 | `memory_metrics_alive_check.py` | Memory Wiki metrics alive check |
 | `entity_creation_ssot_audit.py` | weekly 57：業務實體（PMCase／ContractProject／ERPQuotation）只能在授權處建構 —— 防「從標案建案」那種兩份實作各自演化到業務規則相反 |
 | `enum_storage_convention_audit.py` | weekly 58：狀態值存中文還是英文代碼**只能有一種**（`ENUM_STORAGE_CONVENTION.md`）—— 混存時篩選會靜靜漏掉一半 |
+| `payable_budget_ceiling_audit.py` | weekly 78：應付上限（報價單委外經費 vs 應付合計） |
+| `llm_model_availability_audit.py` | weekly 79：設定的模型在 provider 那邊還存不存在——**實際打一次**，因為「在清單裡」不等於叫得動（NVIDIA 清單有但呼叫 404；Groq 用 urllib 會被 Cloudflare 擋成 403，要用 httpx） |
+| `year_convention_audit.py` | weekly 80：紀年契約一律西元（§2.5）。判準是「附近有沒有 logger.warning」——規範要的不是禁止轉換，是**不得靜默轉換** |
+| `responsive_narrow_convergence_audit.py` | weekly 81：窄螢幕收斂判準不得只看 `isMobile`（AntD 的 md 斷點就是 768 ⇒ 平板會走桌面分支拿到桌面的固定 scroll.x） |
+| `stat_card_denominator_audit.py` | weekly 82：統計卡分母必須是全體不是當頁（§2.6 ①）——抓的是形狀，不是當下數字對不對 |
+| `verify_architecture.py` | weekly 83：架構完整性 13 項。⚠️ 2026-08-29 之前**壞著且沒有人在跑**（根目錄推導在檔案搬家後沒改；白名單裡「由 pre-commit 與 CI 呼叫」是假的，實查各 0 次）——L99 |
+| `runner_flag_drift_audit.py` | weekly 84：基線鎖有沒有真的被叫到——腳本在、排程在、旗標在，**只是呼叫時少了旗標**（L100） |
 | `schema_ssot_audit.py` | weekly 59：`api/endpoints/` 不得有本地 `BaseModel`（development-rules §3）—— 端點自帶 schema 會與 `app/schemas/` 各自演化 |
 | `savepoint_autocommit_audit.py` | weekly 60：`begin_nested()` 內不得呼叫 `auto_commit=True` 的 repo 方法 —— SAVEPOINT 被內層 commit 掉，外層 rollback 就救不回來 |
 | `model_response_field_reach_audit.py` | weekly 61：ORM 欄位是否到達 response schema —— Pydantic 對「model 有、schema 沒有」是**靜默丟棄**，API 永遠不回傳而不拋錯（`quotation_no` 就這樣存在資料庫而使用者看不到） |

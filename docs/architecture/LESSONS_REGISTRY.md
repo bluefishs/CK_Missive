@@ -531,6 +531,20 @@
 
 ---
 
+## L100 — 執行者在、腳本在、旗標也在，只是呼叫時少了那個旗標（2026-08-29）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | CK_AaaP 提出 L72（豁免是一筆待驗的斷言，需要可求證的理由**和**到期日），據此回掃本 repo 的 8 份基線與白名單。 |
+| **What happened** | 兩份三個多月沒動的基線，逐一判型後**不是**「暫時容忍變成永久」—— 它們是**棘輪基線**（禁淨增），沒動代表沒變糟。但 `alias_rls_baseline` 有兩個真問題：① 鎖在 **29** 而實測 risks=**0**（棘輪從沒往下轉 ⇒ 天花板高於地板 29 格，可以靜靜新增 29 個未稽核 user filter 而檢核照過）；② **那個鎖從未被執行過** —— 基線比對整段包在 `if args.ci:` 裡，而唯一的自動排程 `CK_Missive-Fitness-Weekly` 跑的 weekly 第 7 步**沒帶 `--ci`**（帶 `--ci` 的 `run_fitness.sh` 是手動月度觸發、不在 Windows 排程裡）。 |
+| **Root cause** | 能力與啟用分離：腳本有那個能力，但能力藏在旗標後面，而排程用的是不帶旗標的那條路徑。 |
+| **為何沒被發現** | **三者分開看都是綠的**：排程存在（`Get-ScheduledTask` 看得到）、腳本存在且會跑（weekly 每週真的執行第 7 步）、旗標存在且正確（負向對照證明鎖本身有效）。L99 那種「宣告的執行者不存在」`grep -c` 就抓得到；這一種要比對的是「腳本的哪個模式才有那個能力」與「排程實際傳了什麼」，沒有窗口在問。 |
+| **Fix** | baseline 29→0；weekly 7 改帶 `--ci`；另外兩支「新增缺口即 exit 2」且有基線檔的（`public_endpoint_auth_audit`／`http_method_convention_audit`）也補上 —— 新增一個無認證的公開端點是**回歸**不是漂移，應該是 RED。配套 **weekly 84** `runner_flag_drift_audit`。 |
+| **Prevention** | ⚠️ **判準必須窄。** 首版粗判準（「支援嚴格旗標但沒帶」）實測 28 個命中，逐一判型後真問題只有 1 個 —— **誤報率 96%**，因為 `run_fitness_weekly.sh` 檔頭明文「刻意不傳 `--strict`」（2026-08-03 決定，避免把 YELLOW 升成 RED）。那是**政策不是疏漏**，一併判紅會讓人開始無視這支檢核。收窄成「基線比對被旗標包住」後命中 1、誤報 0。⇒ **這支的價值全在判準的窄度上。** |
+| **Refs** | `scripts/checks/runner_flag_drift_audit.py`（weekly 84）/ `scripts/checks/alias_rls_baseline.json` / 同族：L99（宣告的執行者不存在）、`arch_pattern_script_existence_not_enforcement`、CK_AaaP#L72 |
+
+---
+
 ## L99 — 壞掉的腳本＋假的執行者宣告＋文件把它列為驗證命令（2026-08-29）
 
 | 欄位 | 內容 |
