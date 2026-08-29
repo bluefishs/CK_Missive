@@ -114,16 +114,68 @@ def check_repo(repo_path: Path) -> dict:
 #: **換成了別的機制**／我們自己退步了。**只有第一種適用「補完」**。
 #:
 #: ⇒ 建議「補完」之前要先分類。未分類者一律 YELLOW（需要人看），不判 RED。
+#:
+#: ⚠️ **豁免的理由必須是會被驗證的斷言，不是一句話。**
+#:
+#: 首版我寫「有 43 支自有檢核」—— 那句話**今天為真，一年後可能不為真**
+#: （對方可能刪光了），而它不會有任何東西提醒我。
+#: 對照 CK_AaaP 的指紋白名單：md5 一變就自動失效。我這個沒有等價機制。
+#:
+#: ⇒ 改為 `(最少幾支自有檢核, 說明)`。**每次執行都重數**，
+#:   低於門檻就撤銷豁免、退回需要人看的狀態 ——
+#:   同他們說的「把豁免當待驗斷言而不是開關」。
 _ALTERNATIVE_MECHANISM = {
-    "CK_lvrland_Webmap": "有 43 支自有檢核（41 py + 2 sh），機制不同名不代表沒有",
-    "CK_PileMgmt": "有 12 支自有檢核 —— 原本判 RED-zero（0/6），"
-                   "而 0/6 只代表它沒有我這 6 個**特定檔名**，不代表它沒有檢核",
+    # repo: (min_own_checks, why)
+    "CK_lvrland_Webmap": (30, "2026-08-30 實測 43 支自有檢核（41 py + 2 sh）；"
+                              "機制不同名不代表沒有"),
+    "CK_PileMgmt": (8, "2026-08-30 實測 12 支自有檢核 —— 原本判 RED-zero（0/6），"
+                       "而 0/6 只代表它沒有我這 6 個**特定檔名**"),
 }
 
-#: 已歸檔／已遷移的 repo —— 它們的分數沒有意義
+#: 已歸檔／已遷移的 repo —— 它們的分數沒有意義。
+#: 這一份的斷言可查證的形式是「**遷移目的地存在**」。
 _ARCHIVED = {
-    "CK_Showcase": "ADR-0020 Phase 2 已遷入 CK_AaaP/platform/services/，目錄留著是歷史",
+    # repo: (遷移目的地相對路徑, why)
+    "CK_Showcase": ("../CK_AaaP/platform/services",
+                    "ADR-0020 Phase 2 已遷入 CK_AaaP/platform/services/，目錄留著是歷史"),
 }
+
+
+def _own_check_count(repo_dir: Path) -> int:
+    """數對方自己有幾支檢核腳本 —— 豁免斷言的可查證形式。"""
+    d = repo_dir / "scripts" / "checks"
+    if not d.is_dir():
+        return 0
+    return len(list(d.glob("*.py"))) + len(list(d.glob("*.sh")))
+
+
+def _exemption_still_valid(name: str, repo_dir: Path) -> tuple[bool, str]:
+    """豁免現在還成立嗎？回傳 (是否成立, 說明)。
+
+    ⚠️ 這一支存在的理由：**沒有到期日的豁免會變成永久的盲點。**
+    """
+    if name in _ARCHIVED:
+        dest, why = _ARCHIVED[name]
+        ok = (repo_dir.parent / dest.replace("../", "")).exists() or Path(dest).exists()
+        return ok, (why if ok else f"{why} —— ⚠️ **但遷移目的地 `{dest}` 不存在**，豁免不再成立")
+    if name in _ALTERNATIVE_MECHANISM:
+        floor, why = _ALTERNATIVE_MECHANISM[name]
+        n = _own_check_count(repo_dir)
+        ok = n >= floor
+        return ok, (f"{why}（現在 {n} 支，門檻 {floor}）" if ok
+                    else f"{why} —— ⚠️ **現在只剩 {n} 支（門檻 {floor}）**，豁免不再成立")
+    return False, ""
+
+
+def _repo_dir(name: str) -> Path:
+    """repo 名 → 實際目錄。
+
+    ⚠️ 2026-08-30：首版把 `TARGETS` 裡的 repo **名字**直接當路徑用
+    （`Path(repo)/"scripts"/"checks"`）⇒ 相對於 cwd 而不是 monorepo
+    ⇒ 數到 0 支 ⇒ **兩個豁免當場被判失效，而實際有 43 與 12 支**。
+    正是本檔在修的那個病的鏡像：**判準對錯了對象**。
+    """
+    return ROOT.parent / name.strip("./\\").replace("../", "")
 
 
 def classify(present: int, total: int, stale_count: int, repo: str = "") -> str:
@@ -132,11 +184,13 @@ def classify(present: int, total: int, stale_count: int, repo: str = "") -> str:
     ⚠️ **RED 的語意是「該補而沒補」，不是「不一樣」。** 分不出來的一律 YELLOW。
     """
     name = repo.strip("./\\").replace("../", "")
-    if name in _ARCHIVED:
-        return "⚪ ARCHIVED"
-    if name in _ALTERNATIVE_MECHANISM:
-        # 有自己的機制 —— 不是缺口，但仍值得每年看一次兩邊是否還等價
-        return "🟡 ALT-MECH"
+    if name in _ARCHIVED or name in _ALTERNATIVE_MECHANISM:
+        # ⚠️ **每次執行都重驗豁免的斷言** —— 不成立就撤銷豁免，
+        # 退回一般判定（該紅就紅）。沒有到期日的豁免會變成永久盲點。
+        still_ok, _ = _exemption_still_valid(name, _repo_dir(name))
+        if still_ok:
+            return "⚪ ARCHIVED" if name in _ARCHIVED else "🟡 ALT-MECH"
+        # 落到下面的一般判定 —— 並由輸出段說明豁免為何失效
     if present == 0:
         return "🔴 RED-zero"
     if stale_count > 0 and present < total // 2:
@@ -192,11 +246,27 @@ def main() -> int:
     # 先把「換了別的機制／已歸檔」講清楚 —— 它們不是缺口
     noted = [(t, v) for t, v, _, _ in summary_rows if v in ("🟡 ALT-MECH", "⚪ ARCHIVED")]
     if noted:
-        print("以下不是缺口（已查證，不需要 install-template）：")
+        print("以下不是缺口（豁免斷言**本次執行已重驗**，不需要 install-template）：")
         for t, v in noted:
             name = t.strip("./\\").replace("../", "")
-            why = _ALTERNATIVE_MECHANISM.get(name) or _ARCHIVED.get(name, "")
+            _, why = _exemption_still_valid(name, _repo_dir(name))
             print(f"    {v}  {name}：{why}")
+        print()
+
+    # 豁免登記著、但斷言已不成立的 —— 那比「沒有豁免」更該說出來
+    revoked = [
+        (t.strip("./\\").replace("../", ""), _exemption_still_valid(
+            t.strip("./\\").replace("../", ""), _repo_dir(t))[1])
+        for t, v, _, _ in summary_rows
+        if v not in ("🟡 ALT-MECH", "⚪ ARCHIVED", "⚪ N/A")
+        and t.strip("./\\").replace("../", "") in (_ALTERNATIVE_MECHANISM | _ARCHIVED)
+    ]
+    if revoked:
+        print("⚠ **豁免已失效**（登記著，但斷言重驗不通過）：")
+        for name, why in revoked:
+            print(f"    {name}：{why}")
+        print("    ⇒ 要嘛更新 `_ALTERNATIVE_MECHANISM` 的門檻與理由，"
+              "要嘛承認它現在真的是缺口。")
         print()
 
     if overall_issues:
