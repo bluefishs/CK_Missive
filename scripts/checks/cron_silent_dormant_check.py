@@ -19,6 +19,11 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+# 2026-08-30：路徑一律走共用層（weekly 93）。不要在這裡自己算 parents[N] ——
+# 本檔就是那個教訓的來源（同檔內重寫一份，讀到誘餌檔回 0）。
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.paths import backend_dir, cron_events_path as _shared_cron_events_path  # noqa: E402
+
 # host 端 Windows 主控台預設 cp950，印任何非 CJK 符號（⚪ ✓ …）就 UnicodeEncodeError
 # → 整支檢核崩潰，fitness 只看得到非 0 exit code、以為是「偵測到 dormant」。
 # 2026-08-02：本支是 L49.8 家族第 3 例（前兩支已修，此支漏網）。
@@ -178,10 +183,11 @@ def _scheduler_path() -> Path | None:
     每天在排程情境下給一個假綠，一路綠到 08-11 才被發現。
     這是 L52（host↔container 路徑）與「沉默降級＝假綠」的交集。
     """
-    here = Path(__file__).resolve()
+    # 2026-08-30：改走共用層（weekly 93 的示範遷移）——
+    # 本檔正是「同一個檔案裡自己重寫一份路徑推導」的當事人。
     candidates = [
-        here.parents[2] / "backend" / "app" / "core" / "scheduler.py",  # host: <repo>/backend/...
-        here.parents[2] / "app" / "core" / "scheduler.py",              # container: /app/app/...
+        backend_dir() / "app" / "core" / "scheduler.py",   # host: <repo>/backend/...
+        Path("/app/app/core/scheduler.py"),                # container
     ]
     for p in candidates:
         if p.exists():
@@ -287,16 +293,10 @@ def _cron_events_path() -> Path | None:
     在 Linux 上路徑寫錯會 FileNotFoundError，在 Windows 上會**讀到一份假的**。
     → 容器候選只在非 Windows 採用；host 一律走 compose 掛載的真實位置。
     """
-    here = Path(__file__).resolve()
-    candidates = [
-        here.parents[2] / "backend" / "logs" / "cron_events.jsonl",  # host（compose 掛載來源）
-    ]
-    if os.name != "nt":
-        candidates.append(Path("/app/logs/cron_events.jsonl"))       # container
-    for p in candidates:
-        if p.exists():
-            return p
-    return None
+    # 2026-08-30：改走共用層。`lib.paths.cron_events_path()` 已內含
+    # 「host 是 backend/logs、容器是 /app/logs、Windows 不採用容器候選」
+    # 這三件事 —— 那正是本檔註解上方寫了一大段的內容。
+    return _shared_cron_events_path()
 
 
 def fetch_last_event_ages() -> dict[str, float] | None:

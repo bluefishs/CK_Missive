@@ -1,0 +1,428 @@
+{
+  "_why": "存量的自造清單（2026-08-30）。這是**待清清單不是缺陷清單** —— 一律判紅會讓 weekly 第一天就報 134 支，而本 repo 記過「永遠是紅的訊號與沒有訊號是同一個下場」。新增一支、或既有腳本增加自造處，才判紅。",
+  "_how_to_clear": "不專案化。**因別的原因動到某支腳本時，順手把它改用 lib 並從這裡移除一行。** 本 repo 有範本鋪太廣而失血的前例（L58／L59），故刻意用這個節奏。",
+  "_created": "2026-08-30",
+  "known": {
+    "admin_action_visibility_audit.py": {
+      "self_path": 1,
+      "self_docker": 1
+    },
+    "admin_backup_smoke_test.py": {
+      "self_docker": 1
+    },
+    "admin_check_ssot_audit.py": {
+      "self_path": 1
+    },
+    "admin_endpoint_ui_consumers.py": {
+      "self_path": 1,
+      "self_docker": 1
+    },
+    "adr_level_audit.py": {
+      "self_path": 1
+    },
+    "adr_lifecycle_check.py": {
+      "self_path": 1
+    },
+    "agent_evolution_health.py": {
+      "self_docker": 1
+    },
+    "alias_rls_coverage_audit.py": {
+      "self_path": 1
+    },
+    "alias_rls_e2e_check.py": {
+      "self_path": 1
+    },
+    "api_contract_alignment_audit.py": {
+      "self_path": 1,
+      "self_docker": 2
+    },
+    "async_session_race_guard.py": {
+      "self_path": 1
+    },
+    "autobiography_freshness_check.py": {
+      "self_path": 1
+    },
+    "business_vital_signs.py": {
+      "self_path": 1,
+      "self_docker": 3
+    },
+    "calendar_sync_reconciliation_audit.py": {
+      "self_docker": 1
+    },
+    "capability_usage_audit.py": {
+      "self_path": 1,
+      "self_docker": 2
+    },
+    "capability_usage_snapshot.py": {
+      "self_path": 1
+    },
+    "case_award_pipeline_audit.py": {
+      "self_docker": 1
+    },
+    "check_effectiveness_report.py": {
+      "self_path": 1
+    },
+    "code_duplication_audit.py": {
+      "self_path": 1
+    },
+    "code_graph_orphan_audit.py": {
+      "self_path": 1
+    },
+    "code_graph_orphan_prune.py": {
+      "self_path": 1
+    },
+    "config_settings_drift_audit.py": {
+      "self_path": 1
+    },
+    "container_env_alignment_audit.py": {
+      "self_path": 1
+    },
+    "container_host_dependency_audit.py": {
+      "self_docker": 1
+    },
+    "container_image_freshness_check.py": {
+      "self_path": 2,
+      "self_docker": 3
+    },
+    "contracts_only_import_guard.py": {
+      "self_path": 1
+    },
+    "credential_liveness_audit.py": {
+      "self_path": 1,
+      "self_docker": 3
+    },
+    "critique_health_audit.py": {
+      "self_path": 1
+    },
+    "cron_external_binary_guard.py": {
+      "self_path": 1
+    },
+    "cron_liveness_snapshot.py": {
+      "self_docker": 1
+    },
+    "cross_domain_link_audit.py": {
+      "self_path": 1,
+      "self_docker": 1
+    },
+    "cross_repo_template_drift_audit.py": {
+      "self_path": 1
+    },
+    "cross_repo_uncommitted_audit.py": {
+      "self_path": 1
+    },
+    "csrf_service_drift_audit.py": {
+      "self_path": 1
+    },
+    "daily_self_retrospective.py": {
+      "self_path": 1
+    },
+    "dashboard_freshness_check.py": {
+      "self_path": 1
+    },
+    "db_pool_exhaustion_audit.py": {
+      "self_docker": 1
+    },
+    "db_schema_drift_audit.py": {
+      "self_docker": 1
+    },
+    "db_transaction_health_check.py": {
+      "self_docker": 3
+    },
+    "declaration_gate.py": {
+      "self_path": 1
+    },
+    "declared_runner_truth_audit.py": {
+      "self_path": 1
+    },
+    "deploy_verify.py": {
+      "self_docker": 1
+    },
+    "doc_baseline_claim_audit.py": {
+      "self_path": 1
+    },
+    "doc_reference_integrity_audit.py": {
+      "self_path": 1
+    },
+    "entity_creation_ssot_audit.py": {
+      "self_path": 1
+    },
+    "enum_storage_convention_audit.py": {
+      "self_path": 1
+    },
+    "erp_data_integrity_audit.py": {
+      "self_docker": 4
+    },
+    "facade_only_check.py": {
+      "self_path": 1
+    },
+    "fitness_manual_freshness_audit.py": {
+      "self_path": 1
+    },
+    "frontend_api_wiring_audit.py": {
+      "self_path": 3
+    },
+    "frontend_backend_endpoint_audit.py": {
+      "self_path": 1
+    },
+    "frontend_bundle_size_drift_audit.py": {
+      "self_path": 1
+    },
+    "frontend_design_standard_audit.py": {
+      "self_path": 1
+    },
+    "gate_vs_report_step_audit.py": {
+      "self_path": 1
+    },
+    "generate_governance_dashboard.py": {
+      "self_path": 1
+    },
+    "generic_filter_audit.py": {
+      "self_path": 1
+    },
+    "governance_alignment_audit.py": {
+      "self_path": 1
+    },
+    "governance_dashboard_completeness_audit.py": {
+      "self_path": 1
+    },
+    "governance_enforcement_coverage.py": {
+      "self_path": 1
+    },
+    "graph_domain_tagging_audit.py": {
+      "self_docker": 2
+    },
+    "heterogeneous_work_audit.py": {
+      "self_path": 1
+    },
+    "hook_reachability_audit.py": {
+      "self_path": 1
+    },
+    "http_method_convention_audit.py": {
+      "self_docker": 1
+    },
+    "integration_e2e_validation.py": {
+      "self_path": 3
+    },
+    "integration_liveness_check.py": {
+      "self_path": 1
+    },
+    "job_detail_completeness_audit.py": {
+      "self_path": 3
+    },
+    "knowledge_base_consistency_check.py": {
+      "self_path": 1,
+      "self_db": 2
+    },
+    "knowledge_dedup_audit.py": {
+      "self_docker": 1
+    },
+    "lib_adoption_audit.py": {
+      "self_docker": 2,
+      "self_db": 3
+    },
+    "line_notify_heartbeat_check.py": {
+      "self_path": 1
+    },
+    "link_id_fallback_audit.py": {
+      "self_path": 1
+    },
+    "llm_model_availability_audit.py": {
+      "self_path": 1
+    },
+    "manifest_drift_audit.py": {
+      "self_path": 1
+    },
+    "memory_diary_freshness_check.py": {
+      "self_path": 1
+    },
+    "model_response_field_reach_audit.py": {
+      "self_path": 1
+    },
+    "module_portability_audit.py": {
+      "self_path": 1
+    },
+    "naming_convention_audit.py": {
+      "self_path": 1
+    },
+    "navigation_live_integrity_audit.py": {
+      "self_path": 1,
+      "self_docker": 1
+    },
+    "ner_relation_regression_check.py": {
+      "self_docker": 2
+    },
+    "offsite_backup_completeness_audit.py": {
+      "self_path": 1
+    },
+    "orphan_component_audit.py": {
+      "self_path": 1
+    },
+    "paths_compose_mount_audit.py": {
+      "self_path": 1
+    },
+    "paths_sloppy_calc_guard.py": {
+      "self_path": 1
+    },
+    "paths_subpath_mount_audit.py": {
+      "self_path": 1
+    },
+    "pattern_yaml_type_guard.py": {
+      "self_path": 1
+    },
+    "payable_budget_ceiling_audit.py": {
+      "self_docker": 1
+    },
+    "pg_tuning_ssot_audit.py": {
+      "self_path": 1,
+      "self_docker": 1
+    },
+    "pm2_declared_vs_running_audit.py": {
+      "self_path": 1
+    },
+    "producer_output_watchdog.py": {
+      "self_path": 1
+    },
+    "proposal_aging_alert.py": {
+      "self_path": 1
+    },
+    "public_endpoint_auth_audit.py": {
+      "self_docker": 1
+    },
+    "queryKey_drift_audit.py": {
+      "self_path": 1
+    },
+    "repository_coverage_audit.py": {
+      "self_path": 1
+    },
+    "response_frontend_type_audit.py": {
+      "self_path": 1
+    },
+    "responsive_narrow_convergence_audit.py": {
+      "self_path": 1
+    },
+    "role_permissions_consistency_check.py": {
+      "self_path": 1
+    },
+    "router_level_auth_mixing_audit.py": {
+      "self_path": 1,
+      "self_docker": 1
+    },
+    "runner_flag_drift_audit.py": {
+      "self_path": 1
+    },
+    "savepoint_autocommit_audit.py": {
+      "self_path": 1
+    },
+    "scheduler_liveness_audit.py": {
+      "self_path": 2
+    },
+    "schema_lazy_load_guard.py": {
+      "self_path": 1
+    },
+    "schema_ssot_audit.py": {
+      "self_path": 1
+    },
+    "service_port_exposure_audit.py": {
+      "self_docker": 1
+    },
+    "shell_script_eol_audit.py": {
+      "self_path": 1
+    },
+    "soul-fidelity-eval.py": {
+      "self_path": 2
+    },
+    "soul_evolution_alive_check.py": {
+      "self_path": 1
+    },
+    "soul_mirror_drift_check.py": {
+      "self_docker": 1
+    },
+    "spec_executor_audit.py": {
+      "self_path": 1
+    },
+    "sse_headers_guard.py": {
+      "self_path": 1
+    },
+    "sso_bridge_conformance_audit.py": {
+      "self_path": 1
+    },
+    "sso_coverage_check.py": {
+      "self_path": 1
+    },
+    "sso_ttl_ssot_audit.py": {
+      "self_path": 1
+    },
+    "stat_card_denominator_audit.py": {
+      "self_path": 1
+    },
+    "synthetic-baseline-inject.py": {
+      "self_path": 2
+    },
+    "synthetic_baseline_freshness_audit.py": {
+      "self_path": 1,
+      "self_docker": 1
+    },
+    "tender_enrichment_freshness_audit.py": {
+      "self_docker": 1
+    },
+    "tender_freshness_audit.py": {
+      "self_path": 1
+    },
+    "tier1_shared_package_audit.py": {
+      "self_path": 1
+    },
+    "toolkit_sync_audit.py": {
+      "self_path": 1
+    },
+    "transaction_pollution_audit.py": {
+      "self_path": 1,
+      "self_db": 1
+    },
+    "transitive_deps_audit.py": {
+      "self_path": 1
+    },
+    "ui_smoke_auth.py": {
+      "self_path": 2,
+      "self_docker": 3
+    },
+    "ui_smoke_data_guard.py": {
+      "self_docker": 1
+    },
+    "uncommitted_work_audit.py": {
+      "self_path": 1,
+      "self_docker": 1
+    },
+    "v7_metrics_report.py": {
+      "self_path": 1
+    },
+    "vendor_contract_payable_consistency.py": {
+      "self_docker": 1
+    },
+    "vendor_identity_ssot_audit.py": {
+      "self_docker": 1
+    },
+    "verify_architecture.py": {
+      "self_path": 1,
+      "self_docker": 1
+    },
+    "visual_walk_freshness.py": {
+      "self_path": 1
+    },
+    "weekly_evolution_generator.py": {
+      "self_path": 1
+    },
+    "windows_task_liveness_audit.py": {
+      "self_path": 4
+    },
+    "work_record_chain_semantics_audit.py": {
+      "self_docker": 4
+    },
+    "write_payload_schema_audit.py": {
+      "self_path": 1
+    },
+    "year_convention_audit.py": {
+      "self_path": 1
+    }
+  },
+  "_recalibrated": "2026-08-30 判準放寬後重建：首版要求 Path(__file__) 與 .parents[N] 同行，漏掉最常見的兩行寫法（here = Path(__file__).resolve() … here.parents[2]）。"
+}
