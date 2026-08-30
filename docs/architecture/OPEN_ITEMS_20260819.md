@@ -657,3 +657,34 @@ owner 提供 `knowledge_graph_and_wiki_architectural_integration.md`。**逐條�
 | `TENDER_DATA_GAPS.md` | 決標資料 0 筆、三條取得路徑的實測、PCC 預算已解決 |
 | `docs/runbooks/unexpected-shutdown-recovery.md` §0 | 排程被停用的診斷程序與指令 |
 | `CLAUDE.md` v6.59 | 本輪完整里程碑 |
+
+---
+
+### A55 — `ck-showcase-audit`（CK_AaaP 的稽核）跨過兩個週一沒有觸發（2026-08-30 發現）
+
+**狀態**：待 CK_AaaP session 處理（跨 repo，我不在別的 repo 裡自行動作）
+
+由 weekly step 44「PM2 程序存活（註冊了不等於在跑）」抓到：
+
+    [RED] ck-showcase-audit  cron=0 9 * * 1  上次應 fire=08-24 09:00  最後啟動=08-10 09:00
+
+**已排除的解釋**（逐項查過，不是猜的）：
+
+| 假設 | 實查 |
+|---|---|
+| 腳本不見了 | `CK_AaaP/platform/services/scripts/validate/audit-dependencies.sh` **存在** |
+| 設定形狀不對 | `autorestart:false` + `cron_restart` 是正確的一次性排程形狀 |
+| PM2 的 cron 對 stopped 的 app 無效 | **無效這個說法不成立** —— 另外 9 支 cron job 形狀完全相同，且 04:30／05:00／05:30 三支今天都正常觸發 |
+| 那兩個週一機器關著 | Windows 事件記錄 08-15～08-26 只有 **08-18 15:36 一次非預期關機**（16:13 開回），**08-17 與 08-24 09:00 機器都開著** |
+| 執行後失敗留下線索 | 兩份日誌**都是 0 bytes**（`audit-out.log` 於 08-25 00:00 被 logrotate 清空）⇒ **證據已經沒了** |
+
+**所以剩下的是**：機器開著、設定對、腳本在、同型的別支會跑，而它就是沒被觸發，
+且失敗當下的輸出已被輪替清掉。要再往下查需要 PM2 daemon 層的 cron 註冊狀態
+（`[PM2][WORKER] Registering a cron job on: <id>` 在 `~/.pm2/pm2.log` 裡看得到，
+但該檔也只保留近期）。
+
+**順帶一提，同表另有兩支長得像但不是同一回事**：`ck-prod-topology-drift`
+（`0 4 2 * *`）與 `ck-ui-dormant-check`（`0 4 3 * *`）最後啟動都是 08-09 的
+**手動執行**，稽核判 GREEN 是因為「最後啟動晚於上次應 fire」—— 判準本身沒錯，
+但它們其實**從來沒有被 cron 觸發過**，下一次應觸發是 09-02／09-03。
+**到那兩天要回來看**：若屆時仍停在 08-09，就是同一個問題而不是巧合。
