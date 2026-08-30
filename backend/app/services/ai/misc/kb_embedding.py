@@ -8,10 +8,11 @@ Version: 1.0.0
 Created: 2026-03-19
 """
 
+import hashlib
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,6 +105,176 @@ class KBEmbeddingService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    # ── 增量同步（2026-08-30）───────────────────────────────────────────
+    #
+    # 為什麼要有這條路徑：`scan_and_embed()` 是**全庫重建**（delete 全部 →
+    # 重新分段 → 重新向量化 → 寫回），現況 289 檔／2,343 段。
+    # 而它**沒有任何排程在跑** —— `scheduler.py` 的註解自己就寫著
+    # 「kb_chunks 由手動 /embed 維護」⇒ docs/ 改了之後向量庫不會跟上，
+    # RAG 檢索到舊內容，而畫面上看不出來。
+    #
+    # 要把它排程化就不能是「每天砍掉重建」：
+    #   · 開銷 —— 2,343 段全部重算
+    #   · 風險 —— 批次 embedding 的例外目前被 `logger.warning` 吞掉，
+    #     那批以 `embedding=None` 寫入，**靜默降級到下次全重建才修**
+    #
+    # 增量的比對鍵是 `file_hash`（來源檔 MD5）：雜湊沒變就整檔跳過，
+    # 連分段都不做；變了才刪那一個 file_path 重建。
+
+    @staticmethod
+    def _file_md5(content: str) -> str:
+        return hashlib.md5(content.encode("utf-8")).hexdigest()
+
+    def _collect_source_files(self) -> Dict[str, Tuple[Path, str, str]]:
+        """掃 docs/ 下的 .md，回 {rel_path: (path, content, md5)}。
+
+        路徑安全檢查與 `scan_and_embed` 同一套（不另寫一份，免得兩邊漂移）。
+        """
+        out: Dict[str, Tuple[Path, str, str]] = {}
+        for subdir_name in SCAN_DIRS:
+            subdir = DOCS_DIR / subdir_name
+            if not subdir.is_dir():
+                continue
+            for md_file in subdir.rglob("*.md"):
+                try:
+                    md_file.resolve().relative_to(DOCS_DIR.resolve())
+                except ValueError:
+                    continue
+                try:
+                    content = md_file.read_text(encoding="utf-8")
+                except Exception:
+                    logger.warning("無法讀取檔案: %s", md_file)
+                    continue
+                if not content.strip():
+                    continue
+                rel = md_file.relative_to(DOCS_DIR).as_posix()
+                out[rel] = (md_file, content, self._file_md5(content))
+        return out
+
+    async def _embed_texts(self, texts: List[str]) -> Tuple[List[Optional[List[float]]], int]:
+        """批次向量化。回 (向量清單, 成功數)。
+
+        ⚠️ 失敗的批次回 None 而不是丟例外 —— 呼叫端**必須**檢查成功數，
+        不能把「有幾筆沒拿到向量」當成正常（見 embed_file 的守衛）。
+        """
+        connector = get_ai_connector()
+        out: List[Optional[List[float]]] = [None] * len(texts)
+        ok = 0
+        batch_size = 50
+        for start in range(0, len(texts), batch_size):
+            end = min(start + batch_size, len(texts))
+            try:
+                results = await EmbeddingManager.get_embeddings_batch(texts[start:end], connector)
+                for j, emb in enumerate(results):
+                    out[start + j] = emb
+                    if emb is not None:
+                        ok += 1
+            except Exception as e:
+                logger.warning("批次 embedding 失敗 (%d-%d): %s", start, end, e)
+        return out, ok
+
+    async def embed_file(self, rel_path: str, content: str, md5: str) -> Dict:
+        """重建單一檔案的 chunks（先刪該 file_path，再寫入）。
+
+        ⚠️ **向量沒拿到就不要刪掉舊的**：先算向量、確認拿得到，才動既有資料。
+        這是 2026-07-20 全庫守衛（embedding 不可用時不做破壞性重建）的
+        單檔版本 —— 少了它，一次 provider 抖動就會把該檔的向量清成 NULL。
+        """
+        sections = _split_markdown_sections(content)
+        if not sections:
+            return {"file": rel_path, "chunks": 0, "embedded": 0, "skipped": "no_sections"}
+
+        vectors, ok = await self._embed_texts([s["content"] for s in sections])
+        if ok == 0:
+            logger.warning("KB embed_file 跳過 %s：一個向量都沒拿到（保留既有 chunks）", rel_path)
+            return {"file": rel_path, "chunks": 0, "embedded": 0, "skipped": "embedding_unavailable"}
+
+        await self.db.execute(delete(KBChunk).where(KBChunk.file_path == rel_path))
+        await self.db.flush()
+
+        filename = Path(rel_path).name
+        for idx, section in enumerate(sections):
+            chunk = KBChunk(
+                file_path=rel_path,
+                filename=filename,
+                section_title=section["section_title"],
+                content=section["content"],
+                chunk_index=idx,
+                file_hash=md5,
+            )
+            if vectors[idx] is not None:
+                chunk.embedding = vectors[idx]
+            self.db.add(chunk)
+        return {"file": rel_path, "chunks": len(sections), "embedded": ok}
+
+    async def scan_and_embed_incremental(self) -> Dict:
+        """增量同步：只處理新增／異動／已刪除的檔案。
+
+        比 `scan_and_embed()` 多的保證：**沒有變動的檔案，它的向量不會被碰到。**
+        """
+        if not EmbeddingManager.is_available():
+            # 與全庫版同樣的守衛：provider 不可用時什麼都不做，保留既有向量
+            logger.warning("KB 增量同步跳過：EmbeddingManager 不可用（保留既有 chunks）")
+            return {"skipped": True, "reason": "embedding_unavailable",
+                    "unchanged": 0, "updated": 0, "added": 0, "removed": 0}
+
+        sources = self._collect_source_files()
+
+        # DB 現況：{file_path: file_hash}（同檔多段共用同一個 hash，取任一）
+        rows = (await self.db.execute(
+            select(KBChunk.file_path, KBChunk.file_hash).distinct()
+        )).all()
+        db_state: Dict[str, Optional[str]] = {}
+        for fp, fh in rows:
+            # 同一檔若出現多個 hash（理論上不該有），保守起見視為需重建
+            if fp in db_state and db_state[fp] != fh:
+                db_state[fp] = None
+            else:
+                db_state.setdefault(fp, fh)
+
+        unchanged = updated = added = 0
+        chunks_written = embedded = 0
+        details: List[Dict] = []
+
+        for rel, (_path, content, md5) in sources.items():
+            known = db_state.get(rel, "__missing__")
+            if known == md5:
+                unchanged += 1
+                continue
+            r = await self.embed_file(rel, content, md5)
+            if r.get("skipped"):
+                details.append(r)
+                continue
+            chunks_written += r["chunks"]
+            embedded += r["embedded"]
+            if known == "__missing__":
+                added += 1
+            else:
+                updated += 1
+
+        # 來源已刪除 → 清掉殘留 chunks（否則 RAG 會檢索到不存在的文件）
+        removed = 0
+        for fp in db_state:
+            if fp not in sources:
+                await self.db.execute(delete(KBChunk).where(KBChunk.file_path == fp))
+                removed += 1
+
+        await self.db.commit()
+        stats = {
+            "mode": "incremental",
+            "files_total": len(sources),
+            "unchanged": unchanged,
+            "updated": updated,
+            "added": added,
+            "removed": removed,
+            "chunks_written": chunks_written,
+            "embeddings_generated": embedded,
+        }
+        if details:
+            stats["skipped_files"] = details
+        logger.info("KB 增量同步完成: %s", stats)
+        return stats
+
     async def scan_and_embed(self) -> Dict:
         """
         Scan docs/ directory, split into chunks, generate embeddings, and upsert.
@@ -138,6 +309,9 @@ class KBEmbeddingService:
 
                 rel_path = md_file.relative_to(DOCS_DIR).as_posix()
                 sections = _split_markdown_sections(content)
+                # 2026-08-30：全庫重建也要寫 file_hash —— 否則重建完雜湊全是 NULL，
+                # 下一次增量同步會把每個檔都判成「需重建」，增量等於沒有作用。
+                file_md5 = self._file_md5(content)
 
                 for idx, section in enumerate(sections):
                     all_chunks.append({
@@ -146,6 +320,7 @@ class KBEmbeddingService:
                         "section_title": section["section_title"],
                         "content": section["content"],
                         "chunk_index": idx,
+                        "file_hash": file_md5,
                     })
 
         if not all_chunks:
@@ -201,6 +376,7 @@ class KBEmbeddingService:
                 section_title=chunk_data["section_title"],
                 content=chunk_data["content"],
                 chunk_index=chunk_data["chunk_index"],
+                file_hash=chunk_data["file_hash"],
             )
             # Set embedding via raw column if pgvector available
             if embeddings[i] is not None and embedding_available:
