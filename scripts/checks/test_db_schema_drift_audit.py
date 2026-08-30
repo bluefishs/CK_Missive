@@ -65,6 +65,17 @@ _SQL = (
     "WHERE table_schema='public'"
 )
 
+# 執行時自建、不歸 Alembic 管的表 —— 拿它們比對是誤報。
+#
+# 2026-08-30：A50 讓排程改用持久化 jobstore，APScheduler 會**自己建**
+# `apscheduler_jobs`。它只在「有排程器跑過」的庫裡存在，測試庫沒有排程器
+# ⇒ 永遠缺這 3 個欄位，而那不是 schema 落後。
+# `apscheduler_probe` 是同日驗證修法時留下的探針表（空表，待刪 → A54）。
+#
+# ⚠️ 判準要問的是「**Alembic 管的 schema** 有沒有漂移」，
+#    不是「兩個庫的表是不是完全一樣」—— 後者永遠不會成立。
+_RUNTIME_TABLES = ("apscheduler_",)
+
 
 def _columns(db: str) -> set:
     """取一個庫的 table.column 集合。取不到就讓例外往外拋 —— 見下方註解。"""
@@ -76,7 +87,10 @@ def _columns(db: str) -> set:
     )
     if out.returncode != 0:
         raise RuntimeError(f"{db}: {out.stderr.strip()[:200]}")
-    return {ln.strip() for ln in out.stdout.splitlines() if ln.strip()}
+    return {
+        ln.strip() for ln in out.stdout.splitlines()
+        if ln.strip() and not ln.strip().startswith(_RUNTIME_TABLES)
+    }
 
 
 def main() -> int:
