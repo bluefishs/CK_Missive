@@ -372,7 +372,89 @@ daily 不是 weekly）。
 
 ---
 
-| **A50** | **排程用 MemoryJobStore ⇒ 重啟窗口內到期的 job 被靜靜跳過，`misfire_grace_time` 救不了** | `optimization_pipeline`（每日 03:00）最後一次執行是 **08-28 03:00**，08-29／08-30 兩天都沒跑，產出停在 `wiki/memory/pipeline-reports/2026-08-28.json`。watchdog 以 `file_fresh` 判 RED（55h > 30h）。<br><br>**不是它自己壞了** —— 那兩天的 03:00 容器都活著（02:30–03:30 窗口分別有 49／55 筆其他 job 的事件）。<br><br>**根因（證據）**：<br>· 08-30：`scheduler_start` 在 **03:00:19** —— 重啟正好撞在觸發時刻，APScheduler 註冊時 03:00 已過 ⇒ 下次排到明天。<br>· 08-29：`scheduler_start` 標記 **當天 14:35 才加**，看不到；但 `health_check_broadcast` 固定每 5 分鐘（02:48:11／02:53:11／02:58:11），**03:03 那一次缺席、下一次是 03:05:11** ⇒ 那段時間排程重啟過（間接證據）。<br>· `AsyncIOScheduler(job_defaults=...)` **沒有指定 jobstore ⇒ 預設 `MemoryJobStore`**。重啟後沒有「錯過的觸發」這筆紀錄，`misfire_grace_time=600`（該 job 有設）只在「排程器活著但忙過頭」時有用，**對重啟橫跨觸發時刻無效**。<br><br>⚠️ 規模：cron_events 顯示 **28 次 `scheduler_start`**（08-29 14:35 起約 20 小時內），多數是開發期的 rebuild。每日排程撞上重啟窗口的機率不低。<br><br>**三個選項（我不自行改排程基礎設施）**：<br>① **持久化 jobstore**（`SQLAlchemyJobStore` 用既有 Postgres，**零新增費用**）—— 重啟後 APScheduler 看得到錯過的觸發，配合既有 grace time 就會補跑。⚠️ 代價：停機較久時恢復當下可能一次補跑多個 job（`coalesce=True` 已設，可壓成一次）。<br>② **逐支開機補跑**：產出是檔案的那幾支，啟動時檢查「今天的產出在不在」，缺就跑一次。範圍小但每支都要改。<br>③ **接受現狀**：偵測已經有效（watchdog 55h 判紅、cron_silent_dormant_check 也看得到），只是要人去補跑。<br><br>**我的建議是 ①** —— 它一處解決全部 55 個 job，且用既有資料庫不增加成本。 | 2026-08-30 實測；教訓＝L117 |
+| ~~**A50**~~ | ✅ **已辦（owner 2026-08-30 裁示採選項 ①）**：持久化 jobstore ＋ 保留錯過的觸發 ＋ 清理殘留 job。詳見下方「已辦」段。原文：**排程用 MemoryJobStore ⇒ 重啟窗口內到期的 job 被靜靜跳過，`misfire_grace_time` 救不了** | `optimization_pipeline`（每日 03:00）最後一次執行是 **08-28 03:00**，08-29／08-30 兩天都沒跑，產出停在 `wiki/memory/pipeline-reports/2026-08-28.json`。watchdog 以 `file_fresh` 判 RED（55h > 30h）。<br><br>**不是它自己壞了** —— 那兩天的 03:00 容器都活著（02:30–03:30 窗口分別有 49／55 筆其他 job 的事件）。<br><br>**根因（證據）**：<br>· 08-30：`scheduler_start` 在 **03:00:19** —— 重啟正好撞在觸發時刻，APScheduler 註冊時 03:00 已過 ⇒ 下次排到明天。<br>· 08-29：`scheduler_start` 標記 **當天 14:35 才加**，看不到；但 `health_check_broadcast` 固定每 5 分鐘（02:48:11／02:53:11／02:58:11），**03:03 那一次缺席、下一次是 03:05:11** ⇒ 那段時間排程重啟過（間接證據）。<br>· `AsyncIOScheduler(job_defaults=...)` **沒有指定 jobstore ⇒ 預設 `MemoryJobStore`**。重啟後沒有「錯過的觸發」這筆紀錄，`misfire_grace_time=600`（該 job 有設）只在「排程器活著但忙過頭」時有用，**對重啟橫跨觸發時刻無效**。<br><br>⚠️ 規模：cron_events 顯示 **28 次 `scheduler_start`**（08-29 14:35 起約 20 小時內），多數是開發期的 rebuild。每日排程撞上重啟窗口的機率不低。<br><br>**三個選項（我不自行改排程基礎設施）**：<br>① **持久化 jobstore**（`SQLAlchemyJobStore` 用既有 Postgres，**零新增費用**）—— 重啟後 APScheduler 看得到錯過的觸發，配合既有 grace time 就會補跑。⚠️ 代價：停機較久時恢復當下可能一次補跑多個 job（`coalesce=True` 已設，可壓成一次）。<br>② **逐支開機補跑**：產出是檔案的那幾支，啟動時檢查「今天的產出在不在」，缺就跑一次。範圍小但每支都要改。<br>③ **接受現狀**：偵測已經有效（watchdog 55h 判紅、cron_silent_dormant_check 也看得到），只是要人去補跑。<br><br>**我的建議是 ①** —— 它一處解決全部 55 個 job，且用既有資料庫不增加成本。 | 2026-08-30 實測；教訓＝L117 |
+
+---
+
+### A50 已辦內容（2026-08-30）
+
+**三件事，缺一不可**：
+
+1. **持久化 jobstore** —— `SQLAlchemyJobStore` 用既有 Postgres（`+asyncpg` → `+psycopg2`，容器內已有 psycopg2），**零新增費用**。取不到 DB 時**大聲**降級為記憶體並記 `logger.error`。
+2. **保留錯過的觸發** —— ⚠️ **光加持久化不夠**。讀 APScheduler 3.11.1 原始碼確認：`_real_add_job` 在 `not hasattr(job,'next_run_time')` 時重算成未來，再由 `replace_existing=True` 走 `store.update_job(job)` **覆蓋掉存起來的**；而本檔 56 處 `add_job` 全部帶 `replace_existing=True` ⇒ 每次重啟都沖掉。修法＝`_RecoveringAsyncIOScheduler._real_add_job` 先查 store，**只接回已經過去的** `next_run_time`（未來的讓 trigger 重算，這樣改 cron 排程仍會生效）。
+3. **清理殘留 job** —— 持久化的新風險：改名／刪除的 job 仍留在資料表裡，每次到期都會嘗試 import 不存在的函式。啟動後以 `setup_scheduler` 實際註冊過的 id 為準，其餘移除並 log。
+
+**可觀測性**：`scheduler_start` 事件現在帶 `jobstore`（sqlalchemy／memory）、`recovered_missed`（這次接回哪些）、`stale_removed`。**降級若不留痕，「重啟後漏跑」會繼續發生而事後查不出原因** —— 那正是本案的病本身。
+
+**驗證**（容器內、真 DB、複製正式程式的順序：先 add_job 再 start）：
+
+| | 錯過 19 秒的 job 有沒有被執行 |
+|---|---|
+| **修法版** | **1 次**（`recovered=['fixjob']`）|
+| **原生版**（只有持久化、無修法）| **0 次** ⇒ 問題重現 |
+
+⚠️ 這個對照做了三次才做對：前兩次分別被「排程器執行緒自己把到期 job 跑掉」與「我寫成 start() 再 add_job，與正式程式順序相反」污染，兩組都『有跑』而分不出差別。**負向對照要複製正式程式的呼叫順序，不是只複製它的元件。**
+
+**回歸鎖**：`backend/tests/test_scheduler_persistence_regression.py`（3 項，AST，不連 DB）——鎖住 ①`get_scheduler()` 有傳 `jobstores` ②`_RecoveringAsyncIOScheduler` 有覆寫 `_real_add_job` ③每個 `add_job` 都帶 `replace_existing`。兩種負向對照皆正確翻紅。
+⚠️ 該測試首版把子類別自己的 `super().add_job(*args, **kwargs)` 也算進去，報「1/56 沒有 replace_existing」的假陽性 —— 已排除。
+
+⚠️ **要 rebuild 才生效**（`backend/app` 非 bind mount）＝A48 同一批。
+⚠️ 測試留下一張空的 `apscheduler_probe` 表（0 筆）——`careful-quard` 正確擋下了我的 `DROP TABLE`，故未刪除，待你決定。
+
+---
+
+| **A51** | **同型複查：限流的計數只存在記憶體 ⇒ 每次重啟都送出一份新的每日配額** | 依你交代「再複查類似累積的問題」，掃了四類「跨時間累積、重啟即歸零」的機制：<br><br>· **熔斷器**（19 檔）→ `provider_circuit_breaker` 走 redis，已落地 ✓<br>· **告警抑制** `SchedulerAlertManager._last_alert_time` → 記憶體 dict、300 秒冷卻。重啟後冷卻歸零 ⇒ **多送告警**。失敗方向是噪音不是靜默，**判定可接受、不修**。<br>· **去重集合** → 抽查皆為單次請求內的區域變數，不跨時間累積 ✓<br>· **限流** `core/rate_limiter.py` → `Limiter(...)` **沒有 `storage_uri` ⇒ slowapi 預設記憶體**。實際掛著（`app.state.limiter` + `SlowAPIMiddleware`），限額 **60/分、10,000/日**。⇒ **每次重啟所有計數歸零**；20 小時 28 次重啟時，每日上限形同虛設。<br><br>**曝險評估（不誇大）**：10,000/日 正常使用打不到，且公網前面還有 Cloudflare；所以這是「防線名義上在、實際不成立」，不是正在被濫用。<br><br>**另一個方向的「累積」也查了 —— 沒有發現持續性問題**：`backend/logs` 共 26 檔／106MB，其中 `api.log.1~.5` 是 RotatingFileHandler 的輪替檔（上限約 50MB，**我的首版判準認不出它、誤報成「找不到修剪機制」**）、`cron_events.jsonl` 有 RETAIN 修剪。唯一的殘留是 6 個帶日期的錯誤日誌，**全部集中在 2026-05-25～05-27 三天、共 29MB**，之後就沒有了 —— 那是日誌設定改成輪替後留下的**殘骸**，不是持續累積。<br><br>**待你決**：要不要改用 Redis 儲存（`storage_uri`，用既有 Redis、零新增費用）。⚠️ 代價是**每個請求都多一個 Redis 依賴** —— Redis 掛掉時 slowapi 不會自動退回記憶體，需要像 A50 的 jobstore 那樣寫一層大聲降級。我沒有自行改：那是使用者可感知的行為變更（原本重啟就重置的配額會開始真的生效）。 | 2026-08-30 實測；同 A50 家族 |
+
+---
+
+### KG／Wiki 整合建議書的核實與處置（2026-08-30）
+
+owner 提供 `knowledge_graph_and_wiki_architectural_integration.md`。**逐條核實後，多數建議已經實作**：
+
+| 文件主張 | 實況 |
+|---|---|
+| 「5 萬多個實體」 | `canonical_entities` = **50,113** ✓ 準確 |
+| **Phase 2** 登記並排程 `code_graph_reconcile` | **已登記、每週跑且有實效**（08-16 掃 47／08-23 掃 18／08-30 掃 2 個孤兒節點）|
+| §2.2 每日 04:30 `kg_embedding_backfill` ＋冷啟動閘門 | **已存在**，程式註解就寫著冷啟動空轉的防護 |
+| **Phase 3** 加 Graph Explorer／Coverage tab | `WikiGraphTab.tsx`／`WikiCoverageTab.tsx` **都已存在** |
+| **Phase 1** 「剩餘 5% 缺連結」 | **實測是 12%**（29/246）。門檻 80%，稽核當時已判 GREEN |
+
+#### 已辦：dispatch 連結率 88% → 96%
+
+⚠️ **文件建議的順序是反的**。它說「執行 backfill 把剩餘的重新配對」——
+實測 29 個缺連結裡**只有 2 個補得起來**，其餘 **27 個在 KG 裡根本沒有對應實體**，
+沒有東西可以配對。
+
+真因：`scripts/sync/dispatch_kg_ingest.py` 是**一次性腳本、沒有任何 runner／排程在叫它**。
+它的註解寫「127 筆」——那是 2026-04 的數字，而 `taoyuan_dispatch_orders` 現在有 **149 筆**，
+多出來的 22 筆從未進 KG，wiki 頁卻照常產生 ⇒ 連結率隨時間往下漂。
+
+處置（先 ingest 才有東西可配對）：
+1. `dispatch_kg_ingest.py --apply` ⇒ KG dispatch **127 → 149**（115 年 21 → 43）
+2. `backfill_wiki_dispatch_kg.py --apply` ⇒ 回填 21 個 frontmatter
+3. 複驗：整體 **88% → 96%**（217/246 → 238/246），dispatch **84% → 98%**
+4. 冪等性複驗：再跑一次 dry-run ⇒ 149/149、待新增 0 ✓
+
+⚠️ 順修一個坑：`--apply` **已經 commit 成功**，卻在**最後一行成功訊息**拋
+`UnicodeEncodeError`（Windows cp950 印不出 `✓`）⇒ 退出碼非 0、看起來像失敗。
+**「做完了但回報成失敗」與「真的失敗」對讀的人是一樣的。** 已補 `stdout.reconfigure`。
+
+#### 刻意不做：project 的 2 個缺連結
+
+`backfill_wiki_project_kg.py` 能配對到 2 個，但配到的是 **`kg_type=erp_quotation`**——
+而那兩個 wiki 頁是 `project`。查證：兩者在 `contract_projects` 裡**都是執行中的承攬專案**
+（id=35 `CK2026_01_01_002`、id=24 `CK2026_01_01_001`），KG 裡卻沒有同名的 `project` 型實體。
+
+⇒ 套用它會讓連結率變好看，而 SQL JOIN 從 wiki 落到**錯的物件型別**上。
+**紅燈不是修理單** —— 缺的是 project→KG 的 ingest，不是 frontmatter。
+
+⚠️ 而 KG 裡 263 個 `project` 實體的 `external_id` **全部是 NULL** ⇒ 它們不是由
+「以外部鍵冪等 ingest」建立的（不像 dispatch 那支），是從實體抽取長出來的。
+所以沒有一支現成的「contract_projects → KG project」ingest 可以跑。⇒ A52。
+
+---
+
+| **A52** | **contract_projects 沒有冪等的 KG ingest；2 個執行中的專案不在圖譜裡** | KG 的 263 個 `entity_type='project'` 實體 **`external_id` 全部是 NULL** ⇒ 它們是從實體抽取長出來的，**沒有一支以 `contract_projects.id` 為鍵的冪等 ingest**（對照組：dispatch 有 `dispatch_kg_ingest.py`，`external_id='dispatch:{id}'`，重跑不重複）。<br><br>後果：`contract_projects` 共 175 筆，其中 **id=35（`CK2026_01_01_002`）與 id=24（`CK2026_01_01_001`）兩個執行中的專案**在 KG 裡沒有 `project` 型實體，它們的 wiki 頁因此連不上（連結率卡在 project 88%）。<br><br>⚠️ **現成的 `backfill_wiki_project_kg.py` 會把它們連到 `erp_quotation` 型實體** —— 連結率會變好看，而 SQL JOIN 從 wiki 落到錯的物件型別上。**我沒有套用。**<br><br>**建議**：仿 `dispatch_kg_ingest.py` 寫一支 `project_kg_ingest.py`（`external_id='project:{id}'`、冪等、dry-run 預設），並**接進排程** —— dispatch 那支正是因為「寫好了但沒有人叫它」而讓連結率從 4 月漂到今天。<br><br>⚠️ 要先確認一件事再動：既有 263 個 project 實體與 `contract_projects` 的**對應關係**（同名？重複？跨年度？）—— 貿然 ingest 可能製造重複節點。 | 2026-08-30 實測 |
 
 ---
 

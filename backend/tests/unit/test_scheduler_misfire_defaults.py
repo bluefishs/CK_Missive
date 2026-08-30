@@ -13,25 +13,46 @@
 全檔 52 個 add_job 有 38 個沒有這個參數。改設在 job_defaults：
 一個地方，不會有第 39 個漏網的。
 """
-import re
+import ast
 from pathlib import Path
 
 SCHED = Path(__file__).resolve().parents[2] / "app" / "core" / "scheduler.py"
 
 
 def test_scheduler_has_job_defaults_misfire():
-    src = SCHED.read_text(encoding="utf-8")
-    # 原始碼裡的建構是多行的（含註解），用 DOTALL 抓 AsyncIOScheduler( 之後那一段
-    i = src.find("AsyncIOScheduler(")
-    assert i > 0, "找不到 AsyncIOScheduler 建構"
-    body = src[i:i + 400]
-    assert "job_defaults" in body, "沒有設 job_defaults —— misfire_grace_time 會回到 1 秒預設"
-    grace = re.search(r'"misfire_grace_time":\s*(\d+)', body)
-    assert grace, "job_defaults 裡沒有 misfire_grace_time"
-    assert int(grace.group(1)) >= 600, (
-        f"misfire_grace_time 只有 {grace.group(1)} 秒 —— "
-        "小時級的 job 一次沒排到就整整少一小時"
-    )
+    """建構排程器時必須帶 job_defaults.misfire_grace_time。
+
+    ⚠️ 2026-08-30 改用 AST：原本是 `src.find("AsyncIOScheduler(")` 取後 400 字元。
+    A50 加了 `class _RecoveringAsyncIOScheduler(AsyncIOScheduler):` 之後，
+    那個 find **先命中類別定義**而不是實例化 ⇒ 測試紅了，而 `job_defaults`
+    其實還在（同一批的執行時測試一直是綠的）。
+    **文字搜尋的判準會被無關的改動打斷** —— 改成找「真正被呼叫的建構式」。
+    """
+    tree = ast.parse(SCHED.read_text(encoding="utf-8"))
+    calls = [
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        and n.func.id.endswith("AsyncIOScheduler")
+    ]
+    assert calls, "找不到任何 *AsyncIOScheduler(...) 的建構呼叫"
+
+    for call in calls:
+        kw = next((k for k in call.keywords if k.arg == "job_defaults"), None)
+        assert kw is not None, (
+            f"第 {call.lineno} 行的排程器建構沒有設 job_defaults —— "
+            "misfire_grace_time 會回到 1 秒預設"
+        )
+        grace = None
+        if isinstance(kw.value, ast.Dict):
+            for k, v in zip(kw.value.keys, kw.value.values):
+                if isinstance(k, ast.Constant) and k.value == "misfire_grace_time" \
+                        and isinstance(v, ast.Constant):
+                    grace = v.value
+        assert grace is not None, f"第 {call.lineno} 行的 job_defaults 裡沒有 misfire_grace_time"
+        assert grace >= 600, (
+            f"misfire_grace_time 只有 {grace} 秒 —— "
+            "小時級的 job 一次沒排到就整整少一小時"
+        )
 
 
 def test_runtime_scheduler_actually_carries_the_default():

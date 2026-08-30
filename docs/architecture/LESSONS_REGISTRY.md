@@ -542,7 +542,8 @@
 | **與 L72 的關係** | L72（02:00 壅塞 misfire skip）修的是**真的**壅塞，補 grace time 是對的。本條是**另一種**空窗，補再多 grace time 也沒有用 —— 把兩者混為一談會讓人以為「已經修過了」。 |
 | **規模** | cron_events 顯示 **28 次 `scheduler_start`**（約 20 小時內，多為開發期 rebuild）。每日排程撞上重啟窗口不是罕見事件。同日的 `llm_quota_check`（6h 週期）也是被同一個機制餓死的（L109）。 |
 | **Prevention** | ⚠️ 看到排程沒跑時，**先問「那個時刻排程器在不在」**，再問「它為什麼沒排到」——兩者的修法完全不同。⚠️ 以及：**一個參數有沒有設，不代表它防得了你眼前這件事**；要對照它的語意前提（此例＝排程器當時必須活著）。 |
-| **Fix** | 不自行改排程基礎設施 ⇒ **A50** 列三個選項，建議持久化 jobstore（`SQLAlchemyJobStore` 用既有 Postgres，零新增費用，一處解決全部 55 個 job）。 |
+| **Fix（owner 同日裁示採選項 ①，已辦）** | ⚠️ **而我當時的建議只對了一半 —— 光加持久化不夠。**讀 APScheduler 3.11.1 `BaseScheduler._real_add_job` 確認：`if not hasattr(job,'next_run_time')` 時會重算成**未來**，接著 `except ConflictingIdError: if replace_existing: store.update_job(job)` **用剛算的值覆蓋掉存起來的** —— 而本檔 56 處 `add_job` **全部**帶 `replace_existing=True` ⇒ 每次重啟照樣沖掉，持久化等於白做。<br><br>⇒ 實際修法是**三件事**：①持久化 jobstore（既有 Postgres，零費用）②`_RecoveringAsyncIOScheduler._real_add_job` **只接回已經過去的** `next_run_time`（未來的讓 trigger 重算，改 cron 排程才會生效）③啟動後清理「程式碼已移除但 DB 還留著」的殘留 job。<br><br>容器內對照實測（真 DB、複製正式程式的順序）：**修法版執行 1 次／原生版 0 次**。⚠️ 這個對照做了三次才做對 —— 前兩次被「排程器自己把到期 job 跑掉」與「我寫成 start() 再 add_job，與正式順序相反」污染，兩組都『有跑』而分不出差別。**負向對照要複製正式程式的呼叫順序，不是只複製它的元件。** |
+| **推薦一個修法時，要確認它單獨成立** | 我 08-30 上午寫「建議持久化 jobstore」時，**沒有讀 `_real_add_job` 就下了建議**。它聽起來完全合理、方向也對，但少了第二件事就是無效的。⇒ **在建議裡寫「這樣做就會解決」之前，先把那條路走到底**；只走到「機制存在」就停手，正是本 repo 反覆記過的形狀（只是這次發生在建議階段而不是實作階段）。 |
 | **Refs** | `backend/app/core/scheduler.py`（`_scheduler` 初始化／`optimization_pipeline` add_job）／A50／同族：L72、L109（同一機制餓死 `llm_quota_check`）、`observed_span()`（本次 08-29 那段正是「我看不到那麼遠」） |
 
 ---

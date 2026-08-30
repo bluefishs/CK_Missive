@@ -289,6 +289,91 @@ def tracked_job(job_id: str):
     return decorator
 
 
+# 排程 jobstore 的實際型態（"sqlalchemy" / "memory"）——寫進 scheduler_start 事件，
+# 否則「降級成記憶體」與「一切正常」在事後查證時長得一樣。
+_JOBSTORE_KIND = "unknown"
+
+
+def _build_jobstore():
+    """持久化 jobstore（A50）。取不到 DB 時**大聲**降級成記憶體，不靜默。
+
+    用既有 Postgres，**不新增任何費用**（owner 2026-08-21 立規）。
+    APScheduler 的 SQLAlchemyJobStore 走同步引擎，故把 `+asyncpg` 換成
+    `+psycopg2`（容器內已有 psycopg2，2026-08-30 實測）。
+    """
+    global _JOBSTORE_KIND
+    try:
+        from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+        from app.core.config import settings
+
+        url = str(settings.DATABASE_URL).replace("+asyncpg", "+psycopg2")
+        store = SQLAlchemyJobStore(url=url, tablename="apscheduler_jobs")
+        _JOBSTORE_KIND = "sqlalchemy"
+        return store
+    except Exception as e:
+        # 降級要出聲：靜默降級會讓「重啟後漏跑」繼續發生而沒有人知道，
+        # 那正是 A50 要修的東西本身。
+        from apscheduler.jobstores.memory import MemoryJobStore
+        _JOBSTORE_KIND = "memory"
+        logger.error(
+            "排程 jobstore 建立失敗，**降級為記憶體**（重啟後錯過的觸發將無法補跑）: %s",
+            e, exc_info=True,
+        )
+        return MemoryJobStore()
+
+
+class _RecoveringAsyncIOScheduler(AsyncIOScheduler):
+    """讓「重啟時錯過的觸發」不會被 `replace_existing` 沖掉。
+
+    ⚠️ **光加持久化 jobstore 是不夠的**（2026-08-30 讀 APScheduler 3.11.1
+    原始碼確認，不是推測）：`BaseScheduler._real_add_job` 裡
+
+        if not hasattr(job, "next_run_time"):
+            replacements["next_run_time"] = job.trigger.get_next_fire_time(None, now)
+        ...
+        except ConflictingIdError:
+            if replace_existing:
+                store.update_job(job)        # ← 用剛算的未來時間覆蓋掉存起來的
+
+    而本檔 56 處 `add_job` **全部**帶 `replace_existing=True` ⇒ 每次重啟都會把
+    「昨天排定、今天還沒跑到」的那個時間點沖掉，持久化等於白做。
+
+    修法：在 `_real_add_job`（此時 jobstore 已 start，查得到既有 job）先看
+    store 裡有沒有同 id 且 `next_run_time` **已經過去**的 job；有就把它接回
+    `job.next_run_time`，`hasattr` 成立 ⇒ 上游不會重算 ⇒ 錯過的觸發保留下來，
+    再由既有的 `misfire_grace_time`（3600s）與 `coalesce=True` 決定補不補跑。
+
+    刻意**只接回過去的時間**：未來的讓 trigger 重算，這樣改了 cron 排程
+    在下次啟動就會生效（否則會被舊值鎖死）。
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # setup_scheduler 註冊過的 id —— 用來清理「程式碼已移除但 DB 還留著」的殘留
+        self.registered_job_ids: set = set()
+        self.recovered_job_ids: list = []
+
+    def add_job(self, *args, **kwargs):
+        jid = kwargs.get("id")
+        if jid:
+            self.registered_job_ids.add(jid)
+        return super().add_job(*args, **kwargs)
+
+    def _real_add_job(self, job, jobstore_alias, replace_existing):
+        if replace_existing and not hasattr(job, "next_run_time"):
+            try:
+                store = self._lookup_jobstore(jobstore_alias)
+                existing = store.lookup_job(job.id)
+                if existing is not None and existing.next_run_time is not None:
+                    now = datetime.now(self.timezone)
+                    if existing.next_run_time <= now:
+                        job.next_run_time = existing.next_run_time
+                        self.recovered_job_ids.append(job.id)
+            except Exception as e:  # 查不到就照原樣走，不讓它擋住啟動
+                logger.debug("jobstore 查既有 job 失敗（%s），照常註冊: %s", job.id, e)
+        return super()._real_add_job(job, jobstore_alias, replace_existing)
+
+
 def get_scheduler() -> AsyncIOScheduler:
     """取得排程器實例"""
     global _scheduler
@@ -309,8 +394,18 @@ def get_scheduler() -> AsyncIOScheduler:
         #
         # 1 小時：足以吸收事件迴圈壅塞，又不會讓一個停機半天的 job
         # 在恢復後補跑一堆過期任務（coalesce 另外處理重複觸發）。
-        _scheduler = AsyncIOScheduler(
-            job_defaults={"misfire_grace_time": 3600, "coalesce": True}
+        #
+        # ── 2026-08-30（A50 / L117）：改用**持久化 jobstore** ──────────────
+        # `misfire_grace_time` 防的是「排程器活著但忙過頭」，**防不了重啟**：
+        # 原本沒有指定 jobstore ⇒ 預設 `MemoryJobStore` ⇒ 重啟後 job 是全新
+        # 註冊的，**根本不存在「錯過的觸發」這筆紀錄**，grace time 無從施力。
+        #
+        # 實據：`optimization_pipeline`（每日 03:00）08-29／08-30 兩天沒跑，
+        # 而 08-30 的 `scheduler_start` 落在 **03:00:19** —— 重啟正好撞在
+        # 觸發時刻。20 小時內 28 次 scheduler_start，這不是罕見事件。
+        _scheduler = _RecoveringAsyncIOScheduler(
+            jobstores={"default": _build_jobstore()},
+            job_defaults={"misfire_grace_time": 3600, "coalesce": True},
         )
     return _scheduler
 
@@ -4919,10 +5014,39 @@ def start_scheduler():
         # 這與同日對 `run_fitness.sh` 用的是同一條判準：
         # **沒有留下產出，就無法區分「跑了」與「沒跑」。**
         # 留一個標記，往後所有空窗分析都能先扣掉重啟那一類。
+        # ── A50（2026-08-30）：清理「程式碼已移除但 DB 還留著」的殘留 job ──
+        # 持久化 jobstore 的新風險：改名／刪除的 job 仍留在資料表裡，
+        # 每次到期都會嘗試 import 一個不存在的函式並失敗。
+        # 這裡以 setup_scheduler 實際註冊過的 id 為準，其餘一律移除。
+        stale_removed = []
+        try:
+            registered = getattr(scheduler, "registered_job_ids", None)
+            if registered:  # 空集合代表沒收集到 —— 寧可不清，也不要清錯
+                for _j in scheduler.get_jobs():
+                    if _j.id not in registered:
+                        scheduler.remove_job(_j.id)
+                        stale_removed.append(_j.id)
+                if stale_removed:
+                    logger.warning(
+                        "已移除 %d 個殘留排程（程式碼已無對應註冊）: %s",
+                        len(stale_removed), stale_removed,
+                    )
+        except Exception:  # noqa: BLE001 — 清理失敗不該擋住啟動
+            logger.warning("殘留排程清理失敗（不影響啟動）", exc_info=True)
+
         try:
             SchedulerTracker._append_event(
                 "scheduler_start", "success", None,
-                detail={"note": "排程器啟動（用於區分『重啟造成的空窗』與『停擺』）"},
+                detail={
+                    "note": "排程器啟動（用於區分『重啟造成的空窗』與『停擺』）",
+                    # ⚠️ jobstore 型態要寫進事件：降級成記憶體時若不留痕，
+                    # 「重啟後漏跑」會繼續發生而事後查不出原因（A50 的病本身）。
+                    "jobstore": _JOBSTORE_KIND,
+                    # 這次啟動接回了幾個「錯過的觸發」——0 是常態，非零代表
+                    # 重啟正好撞在某個 job 的觸發時刻，而它被救回來了。
+                    "recovered_missed": list(getattr(scheduler, "recovered_job_ids", [])),
+                    "stale_removed": stale_removed,
+                },
             )
         except Exception:  # noqa: BLE001 — 標記寫不進去不該擋住啟動
             logger.warning("排程器啟動標記寫入失敗（不影響啟動）", exc_info=True)
