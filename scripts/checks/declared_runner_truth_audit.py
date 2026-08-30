@@ -76,6 +76,10 @@ SECTION_RUNNERS: list[tuple[str, list[str] | None]] = [
     # ⚠️ 仍**不能**把 UNKNOWN 改成略過：新增一節而沒登記時必須有人知道。
     ("怎麼讀這份表", None),
     ("相關", None),
+    # 2026-08-30：這一節的表格列是「查了什麼／結果」，不是腳本清單 ——
+    # 與「怎麼讀這份表」同類。登記為 None 而不是讓它掉進 UNKNOWN，
+    # 否則 step 76 會為一個說明性小節永遠紅著，而永遠紅的燈沒有人看。
+    ("已查證的否定結果", None),
 ]
 
 SCRIPT_RE = re.compile(r"^\|\s*`([A-Za-z0-9_.\-]+\.(?:py|sh|cjs|ps1))`")

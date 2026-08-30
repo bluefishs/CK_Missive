@@ -173,22 +173,40 @@ fi
 # 所以本機 health 綠**不能**當作部署成功。
 echo ""
 echo "[6/7] Verifying public access..."
-HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/health || echo 000)
-if [ "$HTTP" = "200" ]; then
-    echo "  ✓ https://missive.cksurvey.tw/health → 200"
-else
-    echo "  ✗ 公網回 HTTP $HTTP（本機 health 是綠的 ⇒ 疑似 L76 殭屍埠轉發）"
-    echo "    修法見 docs/runbooks/ 與 LESSONS_REGISTRY.md#L76"
-    exit 1
-fi
+# 2026-08-30：**三次抽樣，任一次非 200 即失敗。**
+#
+# L94(c) 記著「部署後的公網驗證要多次抽樣」，因為殭屍埠是**間歇性**的 ——
+# 單次 curl 剛好通過，部署就被判成功。而 2026-08-29 兩筆公網 502 期間
+# `cron_events` 顯示排程照跑無異常空窗（backend 活著、CF 打不進來），
+# 那是 L76 第一次有外部證據。
+#
+# ⚠️ 下面那段註解一直宣稱「我們前幾天才把單次 curl 改成三次抽樣」，
+#    而全 repo grep「三次抽樣」**只命中那句註解本身**，`for i in 1 2 3`
+#    與 `SAMPLES` 一個都不存在 —— **宣稱的改動從未發生**（L104 形狀）。
+#    這次是真的做了。
+for _i in 1 2 3; do
+    HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/health || echo 000)
+    if [ "$HTTP" != "200" ]; then
+        echo "  ✗ 公網第 $_i 次抽樣回 HTTP $HTTP（本機 health 是綠的 ⇒ 疑似 L76 殭屍埠轉發）"
+        echo "    間歇性失敗同樣是失敗 —— 使用者撞到的就是這一次。"
+        echo "    修法見 docs/runbooks/ 與 LESSONS_REGISTRY.md#L76"
+        exit 1
+    fi
+    # ⚠️ 這裡**不能**寫 `[ "$_i" -lt 3 ] && sleep 2`。
+    #    本檔開頭是 `set -euo`：第 3 圈條件為假 ⇒ 整個 && 串列回 1
+    #    ⇒ **三次抽樣全部 200，部署卻在這一行中止**。
+    #    我第一版就是這樣寫的，實跑當場印出三個 200 之後 exit=1。
+    if [ "$_i" -lt 3 ]; then sleep 2; fi
+done
+echo "  ✓ https://missive.cksurvey.tw/health → 200（三次抽樣皆通過）"
 API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/ || echo 000)
 echo "  ✓ 公網首頁 → $API"
 
 # 2026-08-29（CK_Website 跨平台探針指出，四個平台都適用）：
 # **首頁 200 不代表 sso-bridge 健康**。他們的探針打的是 sso-bridge、
 # 巡檢 curl 的是首頁，於是三天的 502 沒被發現 —— 那是「換個端點」
-# 的問題，不是「多抽幾次」能解的（我們前幾天才把單次 curl 改成三次抽樣，
-# 那解的是另一半）。
+# 的問題，不是「多抽幾次」能解的（三次抽樣解的是另一半 —— 見上方 Step 6，
+# 2026-08-30 才真的做上去；在那之前這句話是空的）。
 # ⚠️ **它只接受 POST**（openapi 實查 `methods=['post']`）。
 # 我第一版用 GET 打，回 404 —— 差點把「方法用錯」寫成一條每次部署都
 # 發警告的檢查。無 cookie 的 POST 應回 401。
