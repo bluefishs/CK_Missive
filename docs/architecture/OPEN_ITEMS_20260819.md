@@ -732,6 +732,37 @@ header 所以公網不會 bypass），**那些防護都成立**。
 3. 取消 fallback —— 內網也要登入。**代價**：`EntryPage` 的「快速進入」會失效，
    內網使用者每次都要走 SSO（見 `sso_expiry_silent_failure`：8h 到期＝上滿一天班必撞一次）。
 
+
+#### A56 補充（2026-08-31）—— 嚴重性上修：不只是讀得到公文，是可對整個資料庫下任意 SELECT
+
+CK_AaaP session 把上一輪那個「只探 GET」的路標走完了，用極保守的白名單
+（路徑末段須恰為 query/list/search/detail… ／無參數／避開 26 個動作型字樣）
+探到：
+
+    POST /api/admin/database/query  →  422（送空 body `{}`）
+
+**422 的意思要說準**：欄位驗證發生在認證**之後** ⇒ 422 代表請求**已經走到處理
+函式，認證沒有攔它**。擋下它的是 body 格式，不是關卡。對方**沒有嘗試構造
+合法 body**，我也沒有。
+
+實查該端點（`backend/app/api/endpoints/admin.py:64`）：
+
+| 面向 | 現況 |
+|---|---|
+| 認證 | `Depends(require_admin())` —— 但 L49.17 的 fallback 回的是 **superuser mock** ⇒ 區網通過 |
+| **寫入** | **擋得住**。`_validate_read_only_sql` 多層驗證：去 SQL 註解／去字串文字／禁多重語句／首關鍵字須為 SELECT·WITH·EXPLAIN／禁 DML·DDL 正則（明確防 CTE 注入 `WITH x AS (INSERT…)`）|
+| **讀取** | **不受限**。`execute_read_only_query` **只呼叫驗證器，沒有套用 `ALLOWED_TABLES`** —— 那份白名單服務的是另一支 `get_table_data`。⇒ 自由 SELECT，任何表 |
+
+⇒ **區網上任何人可以對整個資料庫下任意 SELECT**，包含 `users`、ERP 財務、
+全部公文。這與「讀得到公文列表」不是同一個量級。
+
+**這一格請放進「內網快速進入 vs 取消 fallback」的權衡裡。**上一版 A56 我寫
+「三個選項不預選」，現在仍不預選 —— 但選項 2（收斂 fallback）如果採用，
+`/api/admin/database/*` 應該是第一批排除在 fallback 之外的路徑，
+因為它的能力等級與其他讀取型端點差一個數量級。
+
+⚠️ 我沒有執行任何查詢，只讀程式碼。
+
 **順帶一個檢核盲區（已可命名，不需 owner 決定）**：
 `public_endpoint_auth_audit.py`（weekly 64）走 FastAPI dependency 樹問
 「這條路由會不會跑認證」—— 而繞過發生在**那個 dependency 的內部**。
