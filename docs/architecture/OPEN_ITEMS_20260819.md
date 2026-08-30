@@ -688,3 +688,53 @@ owner 提供 `knowledge_graph_and_wiki_architectural_integration.md`。**逐條�
 **手動執行**，稽核判 GREEN 是因為「最後啟動晚於上次應 fire」—— 判準本身沒錯，
 但它們其實**從來沒有被 cron 觸發過**，下一次應觸發是 09-02／09-03。
 **到那兩天要回來看**：若屆時仍停在 08-09，就是同一個問題而不是巧合。
+
+---
+
+### A56 — 區網＝超級管理員，而同一個區網在 08-10 被判定為不可信（2026-08-30，跨 session 觸發）
+
+**狀態**：待 owner 裁示。**我不自行改動認證行為** —— 它會影響「快速進入」流程，
+可能把內網使用者鎖在外面，那是 owner 的取捨不是我的。
+
+**怎麼發現的**：CK_AaaP session 做區網稽核，探到
+`ck_missive_backend:8001/api/ai/digital-twin/live-activity/stream` 未帶憑證回 200。
+他們刻意不下結論，並且明講**只探無參數 GET**。
+
+**那一支本身沒事**：它已停用（ADR-0014/0015），83 bytes 就是那句
+`Live activity service retired` 的 SSE 事件，沒有資料。
+
+**而 GET-only 探測看不到的才是重點**（本 repo 是 POST-only 慣例）：
+
+    未帶任何憑證、非 CF 來源
+    POST /api/documents-enhanced/list  →  200，回真實公文
+    （id／doc_number／subject／sender／receiver…）
+
+**根因是刻意的設計，不是漏接**：`backend/app/api/endpoints/auth/common.py:234`
+的 **L49.17 內網信任網路 token-less fallback**（2026-05-28）——
+RFC 1918 來源 ＋ 非 CF ＋ 無 token ⇒ 直接回 `get_superuser_mock()`。
+它的威脅模型寫得很完整（只信 TCP peer 不信 X-Forwarded-For、CF 必帶 `cf-*`
+header 所以公網不會 bypass），**那些防護都成立**。
+
+**要 owner 判斷的是它的前提：區網可不可信。**
+
+| 時間 | 對區網的判定 |
+|---|---|
+| 2026-05-28 | L49.17：內網可信 ⇒ 免 token 給 superuser |
+| **2026-08-10** | 資料層 12 埠**全數改綁 127.0.0.1** —— 因為實測「可用預設密碼登入 postgres、redis 無密碼可讀寫」 |
+| 現況 | 8001 綁 `0.0.0.0`（`docker port` 實查），而 CK_AaaP 從 192.168.50.210 確實打得到 |
+
+⇒ **同一個網段，資料庫當它不可信而 API 當它可信。**兩個決策不可能同時對。
+
+**選項（我不預選）**
+
+1. 維持現狀 —— 明確記下「區網視為可信」是決策，並把 8001 是否該綁 `0.0.0.0` 一起確認。
+2. 收斂 fallback —— 例如只放行讀取型端點，或限縮到特定來源網段／需要一個共享標頭。
+3. 取消 fallback —— 內網也要登入。**代價**：`EntryPage` 的「快速進入」會失效，
+   內網使用者每次都要走 SSO（見 `sso_expiry_silent_failure`：8h 到期＝上滿一天班必撞一次）。
+
+**順帶一個檢核盲區（已可命名，不需 owner 決定）**：
+`public_endpoint_auth_audit.py`（weekly 64）走 FastAPI dependency 樹問
+「這條路由會不會跑認證」—— 而繞過發生在**那個 dependency 的內部**。
+`/api/documents/list` 有 `Depends(require_auth())`，所以稽核看到的是「已保護」。
+**權威來源也有邊界：它回答「會不會跑認證」，不回答「那個認證會不會放行」。**
+要補的話，判準得是「未帶憑證實打一次看回什麼」，而那必須在容器內對自己打。
