@@ -1,0 +1,17 @@
+{
+  "_why": "存量的不可觸達 hook。這是待決清單不是缺陷清單 —— 一律判紅會讓 weekly 永遠是紅的，而『永遠是紅的訊號與沒有訊號是同一個下場』。新增一筆才判紅。",
+  "_created": "2026-08-30",
+  "_note": ".git/hooks/pre-commit 不在此列 —— 它檔頭已寫明「不會被 git 執行」，走的是 ACKNOWLEDGED_MARK 豁免。要移出基線就用同一招，或真的把它接上／刪掉。",
+  "known": {
+    ".git/hooks/post-checkout": "被 core.hooksPath 旁路；husky 底下有自己的 post-checkout 在跑，這份是重複的殘留 → A45",
+    ".git/hooks/post-commit": "被旁路；內容是知識地圖增量更新（--if-stale，背景）。husky 底下沒有對應實作 ⇒ 該功能目前完全沒有在跑 → A45",
+    ".git/hooks/post-merge": "被旁路；husky 底下有自己的 post-merge 在跑，這份是重複的殘留 → A45",
+    ".git/hooks/pre-push": "被旁路；3 階段守門包（文件漂移／API 契約／458 支守門 FAIL 路徑測試）。實跑 467 秒，Stage 1+3 通過、Stage 2 因別的 repo 服務未啟而失敗 → A46 待決要不要接、以哪種範圍接",
+    ".husky/post-commit": "shim 有、實作缺席 ⇒ 靜靜 exit 0；而 .git/hooks 有一份被擱置（同上）→ A45",
+    ".husky/pre-push": "shim 有、實作缺席 ⇒ 靜靜 exit 0；而 .git/hooks 有一份被擱置（同上）→ A46",
+    ".claude/hooks/link-id-check.ps1": "沒有任何 runner／settings 在叫；且實測它自己也壞著（PowerShell 的 ** 不是遞迴 glob ⇒ 只掃 119/604 個檔而印 PASS；BaseLink 斷言路徑過期 ⇒ 永久假紅）。功能已由 scripts/checks/link_id_fallback_audit.py（weekly 90）取代 → A42 待決刪除",
+    ".claude/hooks/link-id-validation.ps1": "沒有任何 runner／settings 在叫；跑得動但 exit 0（永遠不會紅），抽查第一個警告是假陽性 → A42 同批待決",
+    ".claude/hooks/route-sync-check.ps1": "沒有任何 runner／settings 在叫。2026-08-30 已修好它的專案根路徑（原三層 Split-Path 算到 monorepo 根），但**刻意不接進 weekly** —— 它拿「前端 144 條全部路由」比對「只收導覽選單的白名單」，兩者本來就不該相等 → A42 同批待決",
+    ".claude/hooks/typescript-check.ps1": "**刻意**於 2026-08-26 從 PostToolUse 移除（改一個 .tsx 要 28.8 秒，近 30 個 session 累計 5.4 小時純阻塞；Stop quality-gate 與 pre-commit 兩層仍在）。腳本保留供手動執行 —— 這一筆是設計決定，不是缺陷。理由見 .claude/rules/hooks-guide.md"
+  }
+}

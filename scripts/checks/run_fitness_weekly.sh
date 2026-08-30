@@ -506,6 +506,12 @@ run_step "89" "weekly 每一步都要能紅，否則要說自己只是報告" "s
 # 新版走 ts_source（剝註解／字串），掃 805 個檔，並豁免 React `key=`。
 run_step "90" "link_id 不得回退到別的 id（§7）" "scripts/checks/link_id_fallback_audit.py"
 
+# 2026-08-30：問的是「hook 有沒有機會被觸發」，與 weekly 39 的 spec_executor_audit
+# 剛好相反 —— 那支問「規範宣告的腳本有沒有執行者」，執行者來源不含 git hook
+# 與 .claude/settings.json，所以在 pre-push 從未執行、secret guard 修在死檔上的
+# 情況下仍回 GREEN。存量 10 筆走基線，新增才判紅。
+run_step "91" "hook 有沒有機會被觸發（不可觸達偵測）" "scripts/checks/hook_reachability_audit.py"
+
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
 # ------------------------------------------------------------------
