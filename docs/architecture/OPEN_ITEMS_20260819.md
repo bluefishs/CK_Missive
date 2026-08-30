@@ -372,6 +372,10 @@ daily 不是 weekly）。
 
 ---
 
+| **A50** | **排程用 MemoryJobStore ⇒ 重啟窗口內到期的 job 被靜靜跳過，`misfire_grace_time` 救不了** | `optimization_pipeline`（每日 03:00）最後一次執行是 **08-28 03:00**，08-29／08-30 兩天都沒跑，產出停在 `wiki/memory/pipeline-reports/2026-08-28.json`。watchdog 以 `file_fresh` 判 RED（55h > 30h）。<br><br>**不是它自己壞了** —— 那兩天的 03:00 容器都活著（02:30–03:30 窗口分別有 49／55 筆其他 job 的事件）。<br><br>**根因（證據）**：<br>· 08-30：`scheduler_start` 在 **03:00:19** —— 重啟正好撞在觸發時刻，APScheduler 註冊時 03:00 已過 ⇒ 下次排到明天。<br>· 08-29：`scheduler_start` 標記 **當天 14:35 才加**，看不到；但 `health_check_broadcast` 固定每 5 分鐘（02:48:11／02:53:11／02:58:11），**03:03 那一次缺席、下一次是 03:05:11** ⇒ 那段時間排程重啟過（間接證據）。<br>· `AsyncIOScheduler(job_defaults=...)` **沒有指定 jobstore ⇒ 預設 `MemoryJobStore`**。重啟後沒有「錯過的觸發」這筆紀錄，`misfire_grace_time=600`（該 job 有設）只在「排程器活著但忙過頭」時有用，**對重啟橫跨觸發時刻無效**。<br><br>⚠️ 規模：cron_events 顯示 **28 次 `scheduler_start`**（08-29 14:35 起約 20 小時內），多數是開發期的 rebuild。每日排程撞上重啟窗口的機率不低。<br><br>**三個選項（我不自行改排程基礎設施）**：<br>① **持久化 jobstore**（`SQLAlchemyJobStore` 用既有 Postgres，**零新增費用**）—— 重啟後 APScheduler 看得到錯過的觸發，配合既有 grace time 就會補跑。⚠️ 代價：停機較久時恢復當下可能一次補跑多個 job（`coalesce=True` 已設，可壓成一次）。<br>② **逐支開機補跑**：產出是檔案的那幾支，啟動時檢查「今天的產出在不在」，缺就跑一次。範圍小但每支都要改。<br>③ **接受現狀**：偵測已經有效（watchdog 55h 判紅、cron_silent_dormant_check 也看得到），只是要人去補跑。<br><br>**我的建議是 ①** —— 它一處解決全部 55 個 job，且用既有資料庫不增加成本。 | 2026-08-30 實測；教訓＝L117 |
+
+---
+
 ### 做不了／不該做（已核實，列此以免重複提案）
 
 | 議題 | 為什麼 |
