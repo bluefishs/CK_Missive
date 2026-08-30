@@ -364,6 +364,25 @@
         "target_unreachable_in_container"
       ],
       "_why": "2026-08-15：這支在容器裡每次都靜默跳過（CKPROJECT_ROOT 解析成 / → AaaP 目標不存在 → logger.debug 一行 return），已「成功」74 次卻從未同步過。synced=False 且 reason=ok 是常態（內容相同不必動），但 reason=target_unreachable_in_container 會讓「跑在錯的環境」持續可見，直到移交 host。 2026-08-15 後續：已移交 host 排程 CK_Missive-SOUL-Mirror-Sync（每日 04:45，實跑 Result=0、drift 歸零），容器那支回 target_unreachable_in_container 視為合理零——**但理由字串本身就說出了它跑在錯的環境**，不是靜靜豁免。host 排程的存活由 windows_task_liveness_audit 承接。"
+    },
+    {
+      "name": "KB 向量庫增量同步",
+      "signal": "cron_detail",
+      "job": "kb_embedding_incremental_sync",
+      "key": "files_total",
+      "ok_zero_reasons": [],
+      "_why": "2026-08-30：新增排程時**沒有一併登記 producer**，於是它會跑、會報 success，而沒有任何人檢查它有沒有真的產出 —— 正是本 repo 反覆記過的「產出端有了、消費端沒有」。key 取 `files_total` 而不是 `updated`：`updated=0`（全部未變）是常態且是好事，拿它當判準會天天假紅；而 `files_total=0` 一定是壞了（docs 掃不到或 provider 不可用）。`ok_zero_reasons` 刻意留空 —— **這個 job 沒有『合理的零』**：跳過時會帶 files_total=0 + reason=embedding_unavailable，那正是要看見的事。"
+    },
+    {
+      "name": "標案詳情補完",
+      "signal": "cron_detail",
+      "job": "tender_detail_enrichment",
+      "key": "scanned",
+      "ok_zero_reasons": [
+        null,
+        "ok"
+      ],
+      "_why": "2026-08-30：watchdog 的契約覆蓋強制報它是**唯一未納管的 producer**（blind spot）。它確實有可驗產出：detail = {scanned, org_ok, enriched, updated_budget, errors}。key 取 `scanned` 不取 `enriched` —— 沒有新標案時 `enriched=0` 是常態，拿它當判準會天天假紅；而**掃了 0 筆**代表來源或查詢壞了。`ok_zero_reasons` 含 null：該 job 不回 reason 欄，而待補標案清空時 scanned=0 是合理的。"
     }
   ]
 }

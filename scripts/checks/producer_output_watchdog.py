@@ -164,7 +164,9 @@ NON_PRODUCER_JOBS: dict[str, str] = {
         "由本檔在 host 端獨立執行構成互為備援，不該互相要求對方留產出。",
     "cron_self_health_alert":
         "同 cron_outcome_freshness：告警管道的健康由 credential_liveness_audit（憑證）"
-        "與 line 配額計數承接。",
+        "與 line 配額計數承接。"
+        "【2026-08-30 複查仍成立】detail = {queued:false, total:6, failed:0, never_run:1, reason:全綠…}"
+        "—— 它報的是別人的健康度，自身無業務產出。",
     "critique_health_audit":
         "每兩週寫一個 marker 檔。marker 存在與否本身就是產出，"
         "但它刻意寫在 critiques/_health/ 以免被算成真 critique（2026-08-05 修）—— "
@@ -204,7 +206,9 @@ NON_PRODUCER_JOBS: dict[str, str] = {
     # ── 暖機／快取：產出是「下一次比較快」，沒有可驗的落地物 ──
     "embedding_warmup":
         "把模型載進記憶體。壞掉的症狀是首次查詢變慢，屬效能不屬正確性；"
-        "真的失效會在 shadow_baseline 的 p95 上顯現。",
+        "真的失效會在 shadow_baseline 的 p95 上顯現。"
+        "【2026-08-30 複查仍成立】最新 detail = {warmed:0, candidates:0, status:all_cached, reason:ok}"
+        "—— 全部已快取，與理由一致。",
     "tender_dashboard_warm":
         "預熱標案儀表板快取。壞掉的症狀是使用者第一次開比較慢，資料本身仍正確；"
         "資料面的健康由 tender_freshness_audit 覆蓋。",
@@ -218,7 +222,9 @@ NON_PRODUCER_JOBS: dict[str, str] = {
         "但它的價值在出事後回查，平時要求它證明自己會產生噪音。",
     "llm_quota_check":
         "檢查 LLM 配額。額度充足時無產出；不足時走 digest。"
-        "憑證與配額的存活由 credential_liveness_audit 承接。",
+        "憑證與配額的存活由 credential_liveness_audit 承接。"
+        "【2026-08-30 複查仍成立】detail 是配額百分比的回顯（groq_pct/nvidia_pct/warn_pct），"
+        "不是業務產出；credential_liveness_audit 仍在 weekly 27。",
     "memory_anti_echo_scan":
         "反回音掃描：抓記憶裡自我引用造成的假成長。0 命中是常態且是好事。",
     "proposal_aging_alert":
@@ -228,7 +234,8 @@ NON_PRODUCER_JOBS: dict[str, str] = {
         "而 baseline 的健康由 shadow_baseline_* 五個 gauge 承接。",
     "tender_pcc_enrichment":
         "PCC 詳情補完。L77 已確證資料源存在死結（org_id 只在被反爬限流的頁面），"
-        "取不到是已知且無解的常態，納管等於每天報一次已知問題。",
+        "取不到是已知且無解的常態，納管等於每天報一次已知問題。"
+        "【2026-08-30 複查仍成立】最新 detail = {exact:0, fallback:0, applied:0} —— 全零，與 L77 的結論一致。",
     "tender_refresh_pending":
         "重試先前失敗的標案抓取。0 筆待重試是常態且是好事。",
     "kunge_weekly_learning_summary":

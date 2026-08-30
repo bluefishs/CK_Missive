@@ -996,9 +996,13 @@ async def kb_embedding_incremental_sync_job():
         stats = await KBEmbeddingService(db).scan_and_embed_incremental()
 
     if stats.get("skipped"):
-        # 跳過不是成功 —— 讓它在 cron_events 與 producer watchdog 裡看得見
+        # 跳過不是成功 —— 讓它在 cron_events 與 producer watchdog 裡看得見。
+        # ⚠️ 一定要帶 `files_total`：producer watchdog 的 cron_detail 判準是
+        # 「detail 裡沒有那個 key ＝ job 沒有 self-report ＝ 沉默成功」。
+        # 只回 skipped/reason 的話訊息會變成「未回報 files_total」，
+        # 而真正的原因（provider 不可用）反而看不見。
         logger.warning("KB 增量同步跳過: %s", stats.get("reason"))
-        return {"skipped": True, "reason": stats.get("reason")}
+        return {"skipped": True, "reason": stats.get("reason"), "files_total": 0}
 
     logger.info(
         "KB 增量同步: 共 %s 檔（未變 %s／更新 %s／新增 %s／移除 %s），寫入 %s 段",
