@@ -1356,6 +1356,21 @@
 
 ---
 
+---
+
+## L118 — hook 擋對了，而它說的話是亂碼 ⇒ 那次攔截等同沒有發生（2026-08-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 我在修 `validate-file-location` 的過程中被它擋下一個 Write，收到的訊息是 `?ɮצ?m?H?W: D:/... - 請參考 .claude/rules/architecture.md`。**退出碼正確、判斷正確、沒有任何錯誤** —— 只是我看不懂為什麼被擋。 |
+| **根因** | Windows 主控台預設 cp950，PowerShell 用它編碼 stdout/stderr。中文被**有損**替換成 `?`。掛在 `.claude/settings.json` 的 9 支中文 hook 裡，**8 支缺 `[Console]::OutputEncoding`**。 |
+| **這不是美觀問題** | 一個看不懂的攔截訊息，接收端無法據以行動 ⇒ 與「hook 沒跑」同一個結果。它屬於 weekly 91 已在管的**可觸達性**家族：機制在，而它的輸出沒有抵達。同族三種形狀：`.git/hooks` 被 `core.hooksPath` 旁路／husky shim 沒有實作／**訊息以亂碼抵達**。 |
+| **BOM 與輸出編碼是兩件事** | BOM 決定 PowerShell 怎麼**讀**這個檔（本 repo 2026-08-27 已為 `careful-guard` 沒有 BOM 付過一次學費，12,491 次呼叫一次都沒攔到東西）；`[Console]::OutputEncoding` 決定它怎麼**寫**。**修好其中一個，另一個照樣讓訊息變成亂碼。** |
+| **⭐ 負向對照當場否決了我的第一版判準** | 我用字樣 `OutputEncoding` 當判準，抽掉真正有效的那行之後**它仍回 GREEN** —— 因為下一行的 `$OutputEncoding` 讓字樣命中。而那個變數管的是「管線送給原生命令」的編碼，**與 console 輸出無關**。⇒ 判準收緊為 `[Console]::OutputEncoding`。**沒有負向對照，我會提交一段永遠不會紅的程式碼，並以為自己防住了。** |
+| **另一個「我以為是系統問題」** | 同一則攔截訊息裡，hook 回顯我的命令時中文也是亂碼，我一度判定 stdin 讀取也壞了。實測餵含中文的路徑 `112年_派工單號001.md` 進去，**讀回完全一致** —— 那段亂碼是我自己的命令被回顯的編碼，不是 hook 的缺陷。同族：`my_tool_behaviour_is_not_the_finding`。 |
+| **修法** | ①9 支全補 UTF-8 輸出（BOM 皆已有）②`hook_reachability_audit` 加判準 ④（被引用＋含中文 ⇒ BOM 與輸出編碼缺一不可），三種缺法各驗一次會紅、還原回綠 ③規範寫進 `.claude/rules/hooks-guide.md`，含「`$OutputEncoding` 單獨設沒有用」這條反例 |
+| **Refs** | `scripts/checks/hook_reachability_audit.py`（weekly 91 判準 ④）/ `.claude/rules/hooks-guide.md` §中文 hook 的兩個編碼要求 / 同族：L83（送出的≠收到的）、`verification_signal_too_coarse`、`signal_without_receiver` |
+
 ## v6.0 detector 候選
 
 未來實作 `scripts/checks/lessons_drift_check.py`：

@@ -116,3 +116,32 @@
 - **exit 0** + stdout JSON → 成功 (可附加 `additionalContext`)
 - **exit 2** + stderr → 阻擋操作 (stderr 訊息傳給 Claude)
 - **exit 其他** → 非阻擋錯誤
+
+### 中文 hook 的兩個編碼要求（2026-08-30 立規，weekly 91 判準 ④ 強制）
+
+任何會輸出中文的 `.ps1` hook，**兩件事缺一不可**：
+
+| 要求 | 管什麼 | 缺了會怎樣 |
+|---|---|---|
+| 檔案存成 **UTF-8 with BOM** | PowerShell 怎麼**讀**這個檔 | 檔內中文字面量在記憶體裡就已經是錯的 |
+| 開頭設 **`[Console]::OutputEncoding`** | 它怎麼**寫**出去 | Windows 主控台預設 cp950 ⇒ 中文被有損替換成 `?` |
+
+```powershell
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch { }
+```
+
+⚠️ **`$OutputEncoding` 單獨設沒有用** —— 它管的是「管線送給原生命令時用什麼
+編碼」，與 console 輸出無關。判準只認 `[Console]::OutputEncoding`。
+
+**為什麼這算「可觸達性」而不是美觀問題**：當日 `validate-file-location`
+擋下一個 Write，我收到的是 `?ɮצ?m?H?W`。它**擋對了、退出碼正確、
+不會有任何錯誤**，而我看不懂為什麼被擋 ⇒ 那次攔截等同沒有發生。
+9 支掛在 settings 的中文 hook 裡，當時有 8 支缺輸出編碼。
+
+**SessionStart 另有形狀要求**：輸出 `{"hookSpecificOutput":{"hookEventName":
+"SessionStart","additionalContext":"…"}}`，不是純文字。純文字經實測送不到，
+而 `session-start.ps1` 的註解寫著「stdout → 自動加入上下文」——
+**註解與協議不一致時，以協議為準**。

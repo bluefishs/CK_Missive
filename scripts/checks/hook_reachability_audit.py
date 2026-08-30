@@ -18,7 +18,7 @@ r"""Hook 有沒有機會被觸發（不是「它存不存在」，也不是「�
 `.claude/settings.json`**。所以它在上述三件事全部成立時仍回 GREEN。
 本支補的是**反方向**：**執行者存在 → 它有沒有機會被觸發。**
 
-## 三條判準（都是機械式的，沒有推測成分）
+## 四條判準（都是機械式的，沒有推測成分）
 
 1. **`.git/hooks/` 被旁路** —— `core.hooksPath` 指向別處時，該目錄下
    所有非 `.sample` 檔案永遠不會執行。
@@ -26,6 +26,27 @@ r"""Hook 有沒有機會被觸發（不是「它存不存在」，也不是「�
    代表「有人寫了這個 hook，而它沒有接上」。
    （shim 有、兩邊都沒實作 = 沒人用這個 hook 型別，**不判**。）
 3. **`.claude/hooks/*.ps1` 沒有被 `.claude/settings.json` 引用。**
+4. **被引用、含中文，卻沒有明示 UTF-8 輸出編碼**（2026-08-30 追加）。
+
+## 為什麼第 4 條也是「可觸達性」
+
+它看起來像編碼細節，實際上是同一種失效：**hook 跑了，而它說的話沒有抵達。**
+
+當日實測：`validate-file-location` 擋下一個 Write，我收到的是
+
+    ?ɮצ?m?H?W: D:/... - 請參考 .claude/rules/architecture.md
+
+—— **擋對了，但看不懂為什麼**，於是那次攔截等同沒有發生。根因是
+Windows 主控台預設 cp950，PowerShell 用它編碼 stdout/stderr，
+中文被替換成 `?`（有損），而 hook 自己的退出碼完全正常 ⇒ 不會有人發現。
+
+⚠️ **BOM 與輸出編碼是兩件事，都要**：BOM 決定 PowerShell 怎麼**讀**這個檔
+（沒有 BOM ⇒ 檔內中文字面量就已經錯了，本 repo 2026-08-27 為 `careful-guard`
+付過這個學費）；`[Console]::OutputEncoding` 決定它怎麼**寫**出去。
+修好其中一個，另一個照樣讓訊息變成亂碼。
+
+判準只看「有沒有設 UTF-8 輸出編碼」這個機械事實，不試圖執行它 ——
+執行需要真實 payload，而不同 hook 的 payload 形狀不同。
 
 ## 基線制（刻意不讓它第一天就滿江紅）
 
@@ -52,11 +73,29 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     except Exception:
         pass
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.paths import repo_root  # noqa: E402
+
+ROOT = repo_root()
 BASELINE = Path(__file__).resolve().parent / ".hook_reachability_baseline.json"
 
 # 檔案內含這段字樣 = 已知且已標註「不會被執行」，不重複報
 ACKNOWLEDGED_MARK = "不會被 git 執行"
+
+# 判準 ④：中文訊息要抵達，這兩件事缺一不可
+#
+# ⚠️ 字樣必須是 `[Console]::OutputEncoding`，**不能只寫 `OutputEncoding`**。
+#    PowerShell 另有一個 `$OutputEncoding` 自動變數，它管的是「管線送給
+#    原生命令（native exe）時用什麼編碼」，**與 console 輸出無關** ——
+#    只設它，中文照樣以 cp950 有損輸出。
+#    首版判準寫成寬字樣，負向對照當場證明它不會紅：我抽掉了真正有效的那行，
+#    而下一行的 `$OutputEncoding` 仍讓字樣命中 ⇒ 判準等於裝飾。
+_UTF8_OUT_MARK = "[Console]::OutputEncoding"
+_CJK = range(0x4E00, 0xA000)
+
+
+def _has_cjk(text: str) -> bool:
+    return any(ord(ch) in _CJK for ch in text)
 
 
 def _hooks_path() -> tuple[str, Path]:
@@ -117,6 +156,25 @@ def collect() -> list[dict]:
             if p.name not in blob:
                 found.append({"kind": "claude-hook-unreferenced",
                               "id": f".claude/hooks/{p.name}"})
+                continue
+
+            # ④ 被引用、含中文 → 訊息要抵達，BOM 與輸出編碼缺一不可
+            try:
+                raw = p.read_bytes()
+            except OSError:
+                continue
+            txt = raw.decode("utf-8-sig", errors="replace")
+            if not _has_cjk(txt):
+                continue
+            miss = []
+            if raw[:3] != b"\xef\xbb\xbf":
+                miss.append("BOM")
+            if _UTF8_OUT_MARK not in txt:
+                miss.append("UTF-8 輸出編碼")
+            if miss:
+                found.append({"kind": "claude-hook-mojibake",
+                              "id": f".claude/hooks/{p.name}",
+                              "missing": "／".join(miss)})
     return found
 
 
@@ -159,6 +217,12 @@ def main() -> int:
         elif f["kind"] == "shim-noop-with-stranded-impl":
             print("           husky shim 存在但**沒有實作** ⇒ 靜靜 exit 0；"
                   "而 `.git/hooks/` 有一份被擱置")
+        elif f["kind"] == "claude-hook-mojibake":
+            print(f"           含中文卻缺：**{f['missing']}** ⇒ 訊息以亂碼抵達")
+            print("           退出碼會完全正常 —— 它擋對了，而看不懂為什麼，")
+            print("           那次攔截等同沒有發生。修法：檔案存成 UTF-8 with BOM，")
+            print("           並在開頭加 `[Console]::OutputEncoding = "
+                  "[System.Text.Encoding]::UTF8`。")
         else:
             print("           `.claude/settings.json` 沒有引用它 ⇒ 沒有任何事件會觸發")
 

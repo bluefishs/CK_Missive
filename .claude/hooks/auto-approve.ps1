@@ -3,6 +3,15 @@
 # 自動 allow: Read, Glob, Grep, WebFetch, WebSearch, Task (Explore)
 # 不介入: Edit, Write, Bash (交由使用者決定)
 
+
+# 2026-08-30：輸出編碼明示 UTF-8。Windows 主控台預設 cp950，
+# PowerShell 會用它編碼 stdout/stderr ⇒ 中文訊息以亂碼抵達 Claude。
+# 這不是顯示問題：同日 validate-file-location 擋下 Write 時，
+# 「檔案位置違規」實際收到的是 `?????m?H?W` —— 擋對了但看不懂為什麼。
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch { }
 $ErrorActionPreference = "SilentlyContinue"
 
 # 從 stdin 讀取 hook 輸入 JSON
