@@ -977,6 +977,37 @@ async def proactive_trigger_scan_job():
         logger.error(f"夜間吹哨者失敗: {e}", exc_info=True)
 
 
+@tracked_job("kb_embedding_incremental_sync")
+async def kb_embedding_incremental_sync_job():
+    """KB 向量庫增量同步（每日 04:45）—— 只處理新增／異動／已刪除的檔案。
+
+    在此之前 `kb_chunks` **只能手動觸發 `/embed`**，docs/ 改了向量庫不會跟上，
+    而 RAG 檢索到舊內容在畫面上看不出來。
+
+    ⚠️ **一定要回 detail**：本 repo 的 producer 契約要求「做了事」與
+    「什麼都沒做」在 cron_events 裡分得出來。全部 unchanged（0 更新）是常態
+    且是好事，但那與「provider 掛了所以跳過」必須長得不一樣 ——
+    後者會帶 `skipped=True`。
+    """
+    from app.db.database import async_session_maker
+    from app.services.ai.misc.kb_embedding import KBEmbeddingService
+
+    async with async_session_maker() as db:
+        stats = await KBEmbeddingService(db).scan_and_embed_incremental()
+
+    if stats.get("skipped"):
+        # 跳過不是成功 —— 讓它在 cron_events 與 producer watchdog 裡看得見
+        logger.warning("KB 增量同步跳過: %s", stats.get("reason"))
+        return {"skipped": True, "reason": stats.get("reason")}
+
+    logger.info(
+        "KB 增量同步: 共 %s 檔（未變 %s／更新 %s／新增 %s／移除 %s），寫入 %s 段",
+        stats.get("files_total"), stats.get("unchanged"), stats.get("updated"),
+        stats.get("added"), stats.get("removed"), stats.get("chunks_written"),
+    )
+    return stats
+
+
 @tracked_job("kg_embedding_backfill")
 async def kg_embedding_backfill_job():
     """KG 實體 Embedding 自動回填 — 批次生成缺少向量的跨專案實體"""
@@ -4400,6 +4431,27 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 KG Embedding 自動回填: 每日 04:30 執行")
+
+    # 2026-08-30：KB 向量庫增量同步 —— 每日 04:45（與 04:30 KG 回填錯開 15 分）
+    #
+    # 為什麼需要它：`kb_chunks` 在此之前**只能手動觸發 /embed**，本檔原本的
+    # 註解自己就寫著「kb_chunks 由手動 /embed 維護」⇒ docs/ 改了之後向量庫
+    # 不會跟上，RAG 檢索到的是舊內容，**而畫面上看不出來**。
+    #
+    # 為什麼用增量而不是排程既有的全庫重建：
+    #   · 開銷 —— 現況 289 檔／2,343 段，每天全部重算
+    #   · 風險 —— 批次 embedding 的失敗是被 `logger.warning` 吞掉的，
+    #     那批會以 embedding=None 寫入，靜默降級到下次全重建才修
+    scheduler.add_job(
+        kb_embedding_incremental_sync_job,
+        trigger=CronTrigger(hour=4, minute=45),
+        id='kb_embedding_incremental_sync',
+        name='KB 向量庫增量同步 (每日 04:45)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 KB 向量庫增量同步: 每日 04:45 執行")
 
     # 每日晨報生成 + 推送 — 每日 07:30
     # 2026-08-03：原為 08:00 整點發送。owner 要求「上班 8 點前完成訊息發送，

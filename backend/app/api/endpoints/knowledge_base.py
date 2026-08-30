@@ -19,6 +19,7 @@ from app.schemas.knowledge_base import (
     DiagramListResponse,
     FileContentResponse,
     FileRequest,
+    KBEmbedRequest,
     KBEmbedResponse,
     KBSearchRequest,
     KBSearchResponse,
@@ -95,17 +96,30 @@ async def search_knowledge_base(
 
 @router.post("/embed", response_model=KBEmbedResponse)
 async def trigger_kb_embedding(
+    req: KBEmbedRequest = KBEmbedRequest(),
     _admin: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_async_db),
 ) -> KBEmbedResponse:
-    """觸發知識庫 Embedding 管線（掃描 docs/ → 分段 → 向量化）。"""
+    """觸發知識庫 Embedding 管線（掃描 docs/ → 分段 → 向量化）。
+
+    `mode=incremental`（預設）只處理新增／異動／已刪除的檔案；
+    `mode=force_rebuild` 是全庫砍掉重建，**只在緊急自癒時使用**。
+
+    ⚠️ 預設改為增量（2026-08-30）：原本無論如何都全庫重建 289 檔／2,343 段，
+    而批次 embedding 的失敗是被吞掉的 ⇒ 一次 provider 抖動就會把那批
+    chunk 的向量清成 NULL，靜默降級到下次全重建才修。
+    """
     from app.services.ai.misc.kb_embedding import KBEmbeddingService
 
     kb_service = KBEmbeddingService(db)
     try:
-        stats = await kb_service.scan_and_embed()
+        if req.mode == "force_rebuild":
+            stats = await kb_service.scan_and_embed()
+            stats.setdefault("mode", "force_rebuild")
+        else:
+            stats = await kb_service.scan_and_embed_incremental()
     except Exception:
-        logger.exception("KB embedding 管線失敗")
+        logger.exception("KB embedding 管線失敗（mode=%s）", req.mode)
         raise HTTPException(status_code=500, detail="Embedding 管線執行失敗")
 
     return KBEmbedResponse(success=True, **stats)

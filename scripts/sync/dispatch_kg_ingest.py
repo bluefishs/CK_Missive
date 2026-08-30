@@ -28,6 +28,15 @@ import os
 import argparse
 import asyncio
 import sys
+
+# 2026-08-30：Windows 主控台預設 cp950，印不出 ✓ 之類的字元。
+# 實測 `--apply` 已經 commit 成功，卻在**最後一行成功訊息**拋
+# UnicodeEncodeError ⇒ 退出碼非 0、看起來像失敗。
+# 「做完了但回報成失敗」與「真的失敗」對讀的人是一樣的。
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 from typing import Optional
 
 try:

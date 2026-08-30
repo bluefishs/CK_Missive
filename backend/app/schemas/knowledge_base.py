@@ -1,5 +1,7 @@
 """知識庫瀏覽器 API Schema"""
 
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -80,11 +82,45 @@ class KBSearchResponse(BaseModel):
     search_mode: str = "text"  # "vector" | "text"
 
 
+class KBEmbedRequest(BaseModel):
+    """向量化模式。
+
+    預設 `incremental` —— 只處理新增／異動／已刪除的檔案，
+    沒有變動的檔案其向量不會被碰到。
+    `force_rebuild` 是全庫砍掉重建，**只在緊急自癒時使用**。
+    """
+    mode: Literal["incremental", "force_rebuild"] = "incremental"
+
+
 class KBEmbedResponse(BaseModel):
+    """向量化結果。
+
+    ⚠️ 2026-08-30：原本只有下面三個欄位，而 service 在「embedding provider
+    不可用而跳過破壞性重建」時會回 `skipped` / `reason` ——
+    **Pydantic 預設靜默丟棄多餘欄位** ⇒ 那個「我沒有做事」的訊息
+    從來沒有到達呼叫端，畫面上看起來與成功一樣（同 weekly 61 的形狀）。
+    故一併宣告出來。
+    """
     success: bool
-    files_scanned: int
-    chunks_created: int
-    embeddings_generated: int
+    mode: str = "force_rebuild"
+
+    # 全庫重建
+    files_scanned: int = 0
+    chunks_created: int = 0
+    embeddings_generated: int = 0
+
+    # 跳過（provider 不可用）—— 一定要看得見
+    skipped: bool = False
+    reason: Optional[str] = None
+
+    # 增量同步
+    files_total: Optional[int] = None
+    unchanged: Optional[int] = None
+    updated: Optional[int] = None
+    added: Optional[int] = None
+    removed: Optional[int] = None
+    chunks_written: Optional[int] = None
+    skipped_files: Optional[List[Dict[str, Any]]] = None
 
 
 class KBStatsResponse(BaseModel):

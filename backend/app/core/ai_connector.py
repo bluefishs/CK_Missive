@@ -119,6 +119,59 @@ REQUIRED_MODELS: set = {
 from app.core.ai_connector_management import AIConnectorManagementMixin
 
 
+# ── Embedding 輸入截斷（2026-08-30 修正）───────────────────────────────
+#
+# 原本兩處都寫 `text[:8000]`，註解是「nomic-embed-text 建議 8192 tokens」——
+# **把字元當成 token**。而本 repo 的文件幾乎全是中文。
+#
+# 實測（直接打 ollama `/api/embed`，二分逼近）：
+#     中文  約 2,046 字仍可，2,115 起回 400「input length exceeds the context length」
+#     英文  約 17,860 字元仍可
+# ⇒ 中文約 **4 token/字**，而 `text[:8000]` 對純中文等於送 ~32,000 tokens，
+#   截斷完仍然超標 4 倍 —— **那個截斷防不住它要防的東西**。
+#
+# 失敗形態是 400 → `logger.warning` → 回 None ⇒ **該段靜默沒有向量**，
+# 而 RAG 檢索不到它時畫面上看不出來。
+#
+# 現況曝險小（kb_chunks 2,343 段裡估算超標的只有 1 段），但這是潛在的：
+# 任何中文長段落一旦出現就會靜默失敗。
+_CJK_RE = re.compile(r"[　-〿一-鿿＀-￯]")
+
+# 保守預算：模型上限 8192，留 15% 餘裕給估算誤差
+_EMBED_TOKEN_BUDGET = 7000
+_TOKENS_PER_CJK_CHAR = 4.0      # 實測 8192/2046 ≈ 4.0
+_TOKENS_PER_OTHER_CHAR = 0.5    # 實測 8192/17860 ≈ 0.46，取 0.5 偏保守
+
+
+def _estimate_embedding_tokens(s: str) -> float:
+    """估算送進 embedding 的 token 數（中文與其他字元權重不同）。"""
+    if not s:
+        return 0.0
+    cjk = len(_CJK_RE.findall(s))
+    return cjk * _TOKENS_PER_CJK_CHAR + (len(s) - cjk) * _TOKENS_PER_OTHER_CHAR
+
+
+def _truncate_for_embedding(text: Optional[str]) -> str:
+    """按**估算 token 數**截斷，而不是按字元數。
+
+    先用整體比例估一個字元上限，再逐步收斂 —— 混合中英文時單一比例會失準。
+    """
+    if not text:
+        return ""
+    if _estimate_embedding_tokens(text) <= _EMBED_TOKEN_BUDGET:
+        return text
+    # 依整體密度估初值，再最多收斂幾次（避免逐字迴圈拖慢批次）
+    out = text
+    for _ in range(6):
+        est = _estimate_embedding_tokens(out)
+        if est <= _EMBED_TOKEN_BUDGET:
+            break
+        ratio = _EMBED_TOKEN_BUDGET / est
+        cut = max(1, int(len(out) * ratio * 0.95))
+        out = out[:cut]
+    return out
+
+
 class AIConnector(AIConnectorManagementMixin):
     """
     混合 AI 連接器 - Groq + NVIDIA Cloud + Ollama (3-tier fallback)
@@ -1050,40 +1103,63 @@ class AIConnector(AIConnectorManagementMixin):
             768 維的 embedding 向量（浮點數列表），失敗時回傳 None
         """
         embed_model = model or os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
-        # 截斷過長文字（nomic-embed-text 建議 8192 tokens）
-        truncated_text = text[:8000] if text else ""
+        truncated_text = _truncate_for_embedding(text)
         if not truncated_text.strip():
             logger.warning("Embedding 生成跳過：輸入文字為空")
             return None
 
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{self.ollama_base_url}/api/embed",
-                    json={
-                        "model": embed_model,
-                        "input": truncated_text,
-                    },
-                    timeout=self.embed_timeout,
-                )
-                response.raise_for_status()
-                data = response.json()
-
-                # Ollama /api/embed 回傳格式: {"embeddings": [[...]]}
-                embeddings = data.get("embeddings", [])
-                if embeddings and len(embeddings) > 0:
-                    embedding = embeddings[0]
-                    logger.debug(
-                        f"Embedding 生成成功 (model={embed_model}, "
-                        f"dim={len(embedding)}, text_len={len(truncated_text)})"
+        # ⚠️ 估算不保證。實測 `_Relationship-Map.md` 截到 6,504 字元、
+        # 估 5,128 tokens，ollama 仍回 400 —— 那份檔案裡有 CJK 正則抓不到
+        # 但 tokenize 很貴的字元（箭頭／表格框線／emoji）。
+        # ⇒ **啟發式負責常見情況（一次呼叫），對半重試負責尾巴。**
+        # 沒有這一段的話，超長內容會靜默沒有向量，而 RAG 檢索不到它時看不出來。
+        attempt_text = truncated_text
+        for attempt in range(5):
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"{self.ollama_base_url}/api/embed",
+                        json={
+                            "model": embed_model,
+                            "input": attempt_text,
+                        },
+                        timeout=self.embed_timeout,
                     )
-                    return embedding
+                    response.raise_for_status()
+                    data = response.json()
 
-                logger.warning(f"Embedding 回應中無有效向量: {data}")
+                    # Ollama /api/embed 回傳格式: {"embeddings": [[...]]}
+                    embeddings = data.get("embeddings", [])
+                    if embeddings and len(embeddings) > 0:
+                        embedding = embeddings[0]
+                        logger.debug(
+                            "Embedding 生成成功 (model=%s, dim=%d, text_len=%d, 縮短 %d 次)",
+                            embed_model, len(embedding), len(attempt_text), attempt,
+                        )
+                        return embedding
+
+                    logger.warning(f"Embedding 回應中無有效向量: {data}")
+                    return None
+            except httpx.HTTPStatusError as e:
+                # 只有「超出 context」值得縮短重試；其他 4xx/5xx 縮短也沒用
+                over_ctx = (
+                    e.response is not None
+                    and e.response.status_code == 400
+                    and "context length" in (e.response.text or "")
+                )
+                if over_ctx and len(attempt_text) > 200 and attempt < 4:
+                    attempt_text = attempt_text[: len(attempt_text) // 2]
+                    logger.info(
+                        "Embedding 輸入超出 context，縮短至 %d 字元重試（第 %d 次）",
+                        len(attempt_text), attempt + 1,
+                    )
+                    continue
+                logger.warning(f"Embedding 生成失敗 (model={embed_model}): {e}")
                 return None
-        except Exception as e:
-            logger.warning(f"Embedding 生成失敗 (model={embed_model}): {e}")
-            return None
+            except Exception as e:
+                logger.warning(f"Embedding 生成失敗 (model={embed_model}): {e}")
+                return None
+        return None
 
     async def generate_embeddings_batch(
         self,
@@ -1108,11 +1184,11 @@ class AIConnector(AIConnectorManagementMixin):
 
         embed_model = model or os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 
-        # 截斷每段文字並記錄有效索引
+        # 截斷每段文字並記錄有效索引（同單筆版，走同一個截斷函式）
         truncated_texts = []
         valid_indices = []
         for i, text in enumerate(texts):
-            t = text[:8000] if text else ""
+            t = _truncate_for_embedding(text)
             if t.strip():
                 truncated_texts.append(t)
                 valid_indices.append(i)

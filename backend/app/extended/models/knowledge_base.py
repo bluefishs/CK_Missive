@@ -33,6 +33,15 @@ class KBChunk(Base):
         onupdate=func.now(),
         comment="更新時間",
     )
+    # 2026-08-30：增量同步的比對鍵。同一個 file_path 的所有 chunk 共用同一個
+    # 檔案雜湊 —— 比對時只要「這個檔的雜湊沒變」就整檔跳過，不必重算分段。
+    # nullable：既有 2,343 筆沒有值，第一次增量同步時補上（不需要資料遷移）。
+    file_hash = Column(
+        String(32),
+        nullable=True,
+        index=True,
+        comment="來源檔 MD5（增量同步比對用；NULL 代表尚未記錄，會被視為需重建）",
+    )
 
     if Vector is not None:
         embedding = deferred(Column(
