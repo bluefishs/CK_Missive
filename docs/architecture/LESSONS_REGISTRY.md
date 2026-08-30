@@ -531,6 +531,21 @@
 
 ---
 
+## L116 — 同一天內我兩次從「沒有人在看」出發，而兩次鏈路都是通的（2026-08-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **第一次** | 走查抓到的 HTTP 400 —— 我寫「沒有人看那份產出」。實查：registry 已登記 `fail_key`、watchdog exit 2、**02:02:25 queued「🚨 每日檢核 RED」、07:30:14 隨晨報送出**。已於同日更正（見 L115）。 |
+| **第二次（本條）** | watchdog 報「帳本對帳 ar_diff=0 非合理零 reason=mismatch」，我一路推到「AP 差額 100 萬沒有人在看」。實查：`system_notifications` 有 **144 則 `reconciliation_alert`**，今天 05:00 那則寫著「已付應付總額 4174372.00 vs 帳本支出 3174372.00，差額 1000000.00」。**系統偵測到了、也建立了通知**（未讀，但那是收件匣不是系統故障）。 |
+| **我的推理偏誤** | **我預設「沒有接收者」**。這個 repo 的歷史裡確實有很多「訊號存在但沒有接收者」（L109／A37／signal_without_receiver），於是它變成我的第一假設 —— 而**一個曾經反覆為真的模式，會讓人停止驗證它這一次是否為真**。⇒ 凡是要下「沒有人在看 X」這種結論，**先沿鏈路取證**（登記 → 判準退出碼 → 通知落地 → 送出紀錄），四段都要有證據才說得出口。 |
+| **過程中三次表名踩空** | `erp_expense_invoices`（實為 `expense_invoices`）／`finance_ledger`（實為 `finance_ledgers`）／`notifications`（實為 `system_notifications`，前者是 0 筆的殘留表）。最後那次差點讓我做出「通知管道全死」的相反結論。⇒ **查資料前先 `information_schema` 對一次表名**，代價一次查詢，錯了的代價是整條推論。 |
+| **真正的發現（收窄後）** | ① **業務資料**：`erp_vendor_payables` id=72／73（政威資訊顧問，各 500,000）標記 `paid` 但 `paid_date`／`invoice_number`／帳本分錄全空，id=72 建立時就是 paid ⇒ AP 差額正好 1,000,000（A49，待 owner 判斷）。② **訊息指錯數字**：watchdog 說「ar_diff=0 非合理零」而真正非零的是 `ap_diff` —— **判準正確，而人讀到的摘要說了別的事**。 |
+| **Fix** | `producer_registry.judge()` 的 `cron_detail` 訊息**只改措辭不改裁決**：把 detail 裡其他非零數值一併列出 ⇒ 現在顯示「…reason=mismatch（沉默成功）（detail 另有 ap_diff=1000000.0）」。複驗：RED 數與 exit code 不變（4 RED / exit 2）。 |
+| **⚠️ 刻意不做的** | 不把 `ap_diff` 另立一筆 registry —— `cron_detail` 的 judge 是**值為 0 時判紅**（設計目的是抓「不合理的零＝沉默成功」），那個登記管的是**對帳有沒有跑**，不是差額對不對；差額的正確性由 job 自己的通知負責，而那條路是通的。**把 liveness 的判準拿去做 correctness，兩件事都會做不好。** |
+| **Refs** | `scripts/checks/producer_registry.py`／`backend/config/producer_outcome_registry.json`／A49／同族：L115（同日第一次）、`my_tool_behaviour_is_not_the_finding`、`signal_without_receiver`（正是被我過度套用的那個模式） |
+
+---
+
 ## L115 — 走查昨晚就記下了那個 400，而沒有人看那份產出（2026-08-30）
 
 | 欄位 | 內容 |

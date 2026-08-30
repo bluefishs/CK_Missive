@@ -195,7 +195,20 @@ def judge(
         if spec["key"] not in detail:
             return f"{name}: detail 未回報 {spec['key']}（job 沒有 self-report＝沉默成功）"
         if detail.get(spec["key"]) == 0 and reason not in ok_zero:
-            return f"{name}: {spec['key']}=0 非合理零 reason={reason}（沉默成功）"
+            # ⚠️ 2026-08-30：訊息要指向真正的數字。
+            # 實例：帳本對帳的 spec key 是 `ar_diff`，而今天 ar_diff=0（AR 已修好）、
+            # 真正非零的是 `ap_diff=1000000`。原訊息只說「ar_diff=0 非合理零」，
+            # 讀的人會以為問題在 AR —— **判準正確，而人讀到的摘要說了別的事**
+            # （同 stat_card 那支 08-29 的教訓）。
+            # 這裡只改措辭、不改任何裁決：把 detail 裡其他非零數值一併列出。
+            others = ", ".join(
+                f"{k}={v}" for k, v in detail.items()
+                if k != spec["key"] and isinstance(v, (int, float))
+                and not isinstance(v, bool) and v != 0
+            )
+            tail = f"（detail 另有 {others}）" if others else ""
+            return (f"{name}: {spec['key']}=0 非合理零 reason={reason}"
+                    f"（沉默成功）{tail}")
         return None
 
     if signal == "db_table_today":
