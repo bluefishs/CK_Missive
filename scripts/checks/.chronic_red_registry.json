@@ -57,6 +57,16 @@
       "why": "ecosystem.config.js 宣告了但 PM2 裡沒在跑的項目。後端 2026-05 起已遷入容器，PM2 只剩少數服務。",
       "owner_decision": "二選一：真的要它跑 → `pm2 start ecosystem.config.js --only <name>`；已被取代 → 從 ecosystem.config.js 移除並在檔頭寫明誰接手了。",
       "tracked_as": "pm2_layer_no_liveness_sentinel 記憶卡"
+    },
+    "44 PM2 程序存活（註冊了不等於在跑）": {
+      "why": "ck-showcase-audit（CK_AaaP 的稽核，cron=0 9 * * 1）最後啟動停在 08-10，跨過 08-17／08-24 兩個週一。五個解釋逐一排除：腳本存在／設定形狀正確／同型 9 支今天 04:30·05:00·05:30 都正常觸發／Windows 事件記錄顯示那兩天機器都開著／失敗當下的輸出已被 logrotate 於 08-25 清成 0 bytes。要再往下查需 PM2 daemon 層的 cron 註冊狀態。",
+      "owner_decision": "跨 repo：由 CK_AaaP session 決定重啟或改排程方式。我不在別的 repo 裡自行動作。",
+      "tracked_as": "A55"
+    },
+    "45 異地備份完整性（四類缺一不可）": {
+      "why": "**本 repo 自己的四類全 GREEN**（DB dump 12.5h／里程碑 8 份／附件 1561 對 1560+1 封存／金鑰 14 份）。紅的是 portfolio 段的別的專案：CK_DigitalTunnel MinIO 排程有跑 rc=0 但目的地最新已 163h（來源沒變還是同步空跑？）、FT_StorageTank 目的地最新 1463h（約 61 天）且查不到排程執行紀錄。檢核自己標明「只報不判紅，我不知道別人的備份意圖」。",
+      "owner_decision": "請該兩個 repo 回報：MinIO 那支實際搬了幾個物件；FT_StorageTank 的備份排程是否還在。**備份漏一天就是那一天的資料只有一份**，不宜久懸。",
+      "tracked_as": "本名冊／offsite_backup_four_classes 記憶卡"
     }
   }
 }

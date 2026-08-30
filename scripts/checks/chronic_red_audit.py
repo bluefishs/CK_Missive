@@ -121,6 +121,25 @@ def main() -> int:
         known = json.loads(REGISTRY.read_text(encoding="utf-8")).get("known", {})
 
     print(f"\n  歷史 {len(runs)} 輪｜檢視最近 {min(WINDOW, len(runs))} 輪")
+
+    # ⚠️ 2026-08-30：**本支結構上永遠慢一輪，這件事必須說出來。**
+    #
+    # `run_fitness_weekly.sh` 把逐步結果寫進歷史是在 step 94 **之後** ——
+    # 所以這裡看到的視窗**不含本輪自己**。後果不是理論的：本輪 step 51
+    # 剛剛才轉綠，而本支仍以「連續 5 輪非綠」把它報成未登記的長期紅燈。
+    #
+    # 不改寫入時機（那會讓歷史的語意變成「跑到一半的結果」），
+    # 改成明講落差 —— 同 `observed_span()` 的作法：
+    # **凡是拿歷史歸因，先講「我看得到多遠」。**
+    win = runs[-WINDOW:]
+    if win:
+        first, last = win[0].get("ts", "?"), win[-1].get("ts", "?")
+        manual_n = sum(1 for r in win if r.get("manual"))
+        print(f"  視窗：{first[:19]} ～ {last[:19]}"
+              f"（其中手動跑 {manual_n} 輪）")
+        print("  ⚠️ **不含本輪** —— 逐步結果在 step 94 之後才寫入歷史。"
+              "本輪剛轉綠的步驟仍會在此被報成長期紅燈，下一輪才會消失。")
+
     print(f"  連續 {CHRONIC_RUNS}+ 輪非綠：{len(chronic)} 支｜已登記 {len(known)} 支")
 
     registered = [k for k in chronic if k in known]
