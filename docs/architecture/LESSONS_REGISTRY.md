@@ -531,6 +531,22 @@
 
 ---
 
+## L115 — 走查昨晚就記下了那個 400，而沒有人看那份產出（2026-08-30）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 把「反方向」問法套到排程層（註冊了的 job 有沒有機會被觸發）——結果**乾淨**：1 個條件註冊（`einvoice_sync` 卡 `MOF_APP_ID`，08-12 已記載為刻意停用）、4 個旗標閘門（3 個預設開啟；唯一關閉的 `tender_business_recommend_job` **回傳 `{"pushed":0,"reason":"line_push_disabled"}`，不是沉默成功**）。轉去跑既有的 `windows_task_liveness_audit`（weekly 28），**RED 6 項，其中兩項是本 repo 的頁面層真實故障。** |
+| **走查抓到的三件事，沒有一件有人看過** | ① `quotation-expense`：報價單「費用核銷」列點不進詳情頁。② `receipt-image`：核銷收據影像載不出來（**owner 回報過「看不到」**）。③ `/erp/einvoice-sync` console error **HTTP 400**。產出時間是 **08-29 20:41／21:14**。 |
+| **①② 是系統行為正確，走查設定錯了** | 兩者都只在 `role: user` 失敗、admin 20/20 全過。實查 `role_permissions`：`user` 只有 `documents:read／projects:read／agencies:read／vendors:read／calendar:read`，**沒有 `reports:erp:view`**，而 `expenses`／`expenses_io` 兩個 router 在 `erp/__init__.py` 被該權限包住 ⇒ 一般同仁本來就拿不到資料。⇒ **把它弄綠（給 user ERP 權限）才是錯的**（`red_light_is_not_a_repair_order`）。修法＝在 `selfaudit.config.json` 補 `roles: ["admin"]` + `roles_why`，與既有 5 個項目同一慣例。數字也對得上：20 − 5 admin 專屬 = 15 = user 那次跑的項目數。 |
+| **③ 是真的 bug，而且是我昨天弄壞的** | 08-29 做 §2.6 ①（統計卡分母）時，`total_amount` 被**同時加到兩個 repo 方法**：`get_pending_receipts`（對的，端點解三個）與 `get_sync_logs`（**錯的，端點只解兩個**）⇒ 每次呼叫都 `too many values to unpack (expected 2)`，電子發票同步頁的歷史清單自那天起整個壞掉。而那個多出來的值**沒有任何消費端**（前端讀的是另一支的 `totals.pending_amount`）。 |
+| **三個地方同時說謊而沒有一個報錯** | repo 的型別註解寫 `tuple[list[...], int]`（兩個）／service 的註解也是兩個／端點解兩個 —— **只有執行時才炸**。Python 不驗註解，而 CI 的 MyPy 是 soft-fail 且 GitHub Actions 自 2026-03-09 全面停用。 |
+| **元教訓** | **產出存在、內容正確、時間也夠早 —— 缺的只是「有人讀它」。** 這與今天的 A37（22 個 metric 沒有消費端）、`scheduler_start`（事件加了沒人讀）是同一個形狀，只是這一次**被漏讀的是一個已經寫成檔案的紅燈**。⇒ 走查產出必須有人／有機制在讀，否則它只是把「沒人知道」變成「檔案裡有寫但沒人知道」。 |
+| **Fix** | ① `get_sync_logs` 移除多餘回傳值，回到註解宣告的形狀。② 新增 `backend/tests/test_einvoice_sync_arity_regression.py` —— **AST 比對 repo 的 return 元素數 × 端點的解包數**，不需 DB、不受測試庫 schema 漂移影響；負向對照：把修法還原 ⇒ **精確地只有那一組紅**（另一組仍綠）。③ `selfaudit.config.json` 補兩個 `roles: ["admin"]`。<br>⚠️ 全庫掃同型「repo 回 N、端點解 M」共 **0 個**，是孤例 ⇒ 配回歸鎖而非新開檢核。 |
+| **待辦** | `backend/app` 非 bind mount ⇒ **③ 的修法要 rebuild 才在容器內生效**（A48）。另：`selfaudit.config.json` 的 `$schema` 指向 `scripts/checks/selfaudit.schema.json` 而**該檔不存在**（懸空引用）。 |
+| **Refs** | `backend/app/repositories/erp/einvoice_sync_repository.py`／`backend/tests/test_einvoice_sync_arity_regression.py`／`selfaudit.config.json`／同族：A37、L109（產出端有了消費端沒有）、`red_light_is_not_a_repair_order`、`audit_runs_as_admin_only` |
+
+---
+
 ## L114 — 我能證明的是「PreToolUse 的訊息到得了」，不是「PostToolUse 的到不了」（2026-08-30）
 
 | 欄位 | 內容 |

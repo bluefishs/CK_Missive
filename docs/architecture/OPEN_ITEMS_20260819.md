@@ -364,6 +364,10 @@ daily 不是 weekly）。
 
 ---
 
+| **A48** | **電子發票同步頁的 400 已修在原始碼，但要 rebuild 才在容器內生效** | `get_sync_logs` 多回一個值而端點只解兩個 ⇒ `too many values to unpack (expected 2)`，自 2026-08-29 起該頁歷史清單整個壞掉（走查 08-29 20:41 就記了，沒有人看）。已修並附 AST 回歸鎖（負向對照：還原修法 ⇒ 精確只有那一組紅）。<br><br>⚠️ **`backend/app` 不是 bind mount**，容器內仍是舊的。<br><br>⚠️ 我沒有自行 rebuild：今天已重啟 23 次，而最長連續存活只有 2.8h ——那正是讓 6 小時週期的 `llm_quota_check` 跑不到的原因（L109）。**部署是對外動作、且會再切一次排程**，請你決定時機。<br><br>順帶：`selfaudit.config.json` 的 `$schema` 指向 `scripts/checks/selfaudit.schema.json` 而**該檔不存在**（懸空引用，不影響執行）。 | 2026-08-30；教訓＝L115 |
+
+---
+
 ### 做不了／不該做（已核實，列此以免重複提案）
 
 | 議題 | 為什麼 |

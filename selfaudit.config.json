@@ -147,6 +147,10 @@
     {
       "id": "quotation-expense",
       "name": "報價「費用核銷」列可點入詳情，且 tab 內不得有狀態變更操作",
+      "roles": [
+        "admin"
+      ],
+      "roles_why": "ERP 費用核銷資料需要 `reports:erp:view`，而 `role_permissions` 裡 `user` 只有 `documents:read／projects:read／agencies:read／vendors:read／calendar:read` —— `expenses` 與 `expenses_io` 兩個 router 在 `erp/__init__.py` 被 `require_permission(\"reports:erp:view\")` 包住 ⇒ 一般同仁拿不到資料、列不會渲染、收據影像也取不到。**這是權限模型正確運作，不是 bug**（2026-08-30 實查）。⚠️ 若日後裁示一般同仁應該看得到費用核銷，要改的是權限而不是這個 roles 標記 —— 屆時把這一行拿掉，讓走查重新在 user 角色下驗。",
       "auth": true,
       "url": "/erp/quotations/168",
       "steps": [
@@ -237,6 +241,10 @@
     {
       "id": "receipt-image",
       "name": "核銷收據影像載得出來（owner 回報：看不到）",
+      "roles": [
+        "admin"
+      ],
+      "roles_why": "ERP 費用核銷資料需要 `reports:erp:view`，而 `role_permissions` 裡 `user` 只有 `documents:read／projects:read／agencies:read／vendors:read／calendar:read` —— `expenses` 與 `expenses_io` 兩個 router 在 `erp/__init__.py` 被 `require_permission(\"reports:erp:view\")` 包住 ⇒ 一般同仁拿不到資料、列不會渲染、收據影像也取不到。**這是權限模型正確運作，不是 bug**（2026-08-30 實查）。⚠️ 若日後裁示一般同仁應該看得到費用核銷，要改的是權限而不是這個 roles 標記 —— 屆時把這一行拿掉，讓走查重新在 user 角色下驗。",
       "auth": true,
       "url": "/erp/expenses/6",
       "steps": [

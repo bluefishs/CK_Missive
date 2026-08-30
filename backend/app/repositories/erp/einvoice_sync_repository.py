@@ -103,19 +103,24 @@ class EInvoiceSyncRepository:
     async def get_sync_logs(
         self, skip: int = 0, limit: int = 10
     ) -> tuple[list[EInvoiceSyncLog], int]:
+        # ⚠️ 2026-08-30：這裡原本多回一個 `total_amount`。
+        # 那是 08-29 做 §2.6 ①（統計卡分母）時**加錯方法** —— 待核銷金額卡片的
+        # 來源是 `get_pending_receipt_list`（它正確回三個值、端點也解三個），
+        # 而這支 `get_sync_logs` 的端點是 `items, total = ...` 只解兩個
+        # ⇒ **每次呼叫都 `too many values to unpack (expected 2)`**，
+        # 電子發票同步頁的歷史清單自那天起整個壞掉。
+        #
+        # 三個地方同時說謊而沒有任何一個報錯：
+        #   · 本方法的型別註解仍寫 `tuple[list[EInvoiceSyncLog], int]`
+        #   · service `get_sync_logs` 的註解也是兩個值
+        #   · 端點解兩個值 —— 只有**執行時**才炸
+        # 而那個多出來的值**沒有任何消費端**（前端讀的是另一支的
+        # `totals.pending_amount`）⇒ 直接移除，回到註解宣告的形狀。
+        #
+        # 抓到它的是既有的頁面走查（ui-sweep）—— 它 08-29 20:41 就記了
+        # `/erp/einvoice-sync` console error HTTP 400，而沒有人看那份產出。
         count_q = select(func.count()).select_from(EInvoiceSyncLog)
         total = (await self.db.execute(count_q)).scalar() or 0
-
-        # 2026-08-29（development-rules §2.6 ①）：統計卡的數字要**分頁前的全量**。
-        # 前端「待核銷金額」原本是 `pendingItems.reduce(...)` ＝ 只加當頁，
-        # 而同一排的「待核銷發票」用的是這裡的 total ⇒ **同一排卡片一個當頁
-        # 一個全量**，筆數與金額對不起來而畫面上看不出來。
-        # 用同一個 where 條件（不另寫一份篩選，免得兩個數字各自演化）。
-        amount_q = (
-            select(func.coalesce(func.sum(ExpenseInvoice.amount), 0))
-            .where(ExpenseInvoice.status == "pending_receipt")
-        )
-        total_amount = (await self.db.execute(amount_q)).scalar() or 0
 
         query = (
             select(EInvoiceSyncLog)
@@ -125,7 +130,7 @@ class EInvoiceSyncRepository:
         )
         result = await self.db.execute(query)
         items = list(result.scalars().all())
-        return items, total, total_amount
+        return items, total
 
     # -- 事務控制 --
 
