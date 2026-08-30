@@ -1,0 +1,62 @@
+{
+  "_why": "長期紅燈的名冊。登記不是把紅燈變綠 —— 那 11 支照樣各自紅著。這裡只回答一件事：這個一直在響的訊號，有沒有人在收？沒有登記的長期紅燈，代表『它在響而看不出來有沒有人收』，那比單一故障更該知道。",
+  "_rule": "每一筆必須寫明：why（為什麼還紅著）／owner_decision（誰要決定什麼）／tracked_as（追到哪個待辦編號或 lesson）。轉綠之後要把該筆移除，否則名冊本身會過期（本支會判 YELLOW 提醒）。",
+  "_created": "2026-08-30",
+  "known": {
+    "28 Windows 排程存活": {
+      "why": "6 項異常：其中 CK-Hermes-Health-Smoke 是 logon 觸發、結果凍結於 08-28（連紅週數 ≠ 連續失敗週數）；lvrland 三支是別的 repo 的排程；本 repo 的 flow[user]／sweep[admin] 已於 08-30 修正（走查設定補 roles 標記與 einvoice 400 修法）。",
+      "owner_decision": "跨 repo 的排程失敗要由該 repo 處理；本 repo 的部分已辦。",
+      "tracked_as": "A36（其餘 5 repo 的 pre-push）／KG-Wiki 核實段"
+    },
+    "34 跨 repo 工作連續性": {
+      "why": "其他 repo 有未推送的 commit（Hermes 16／AaaP 3，兩者 session 已關閉）。本 repo 自己也累積了 140+ 未推送 —— push 被權限分類器擋下，需要 owner 手動執行。",
+      "owner_decision": "在終端機執行 `! git push origin main`；跨 repo 的部分由各自 session 處理。",
+      "tracked_as": "reboot-pre-flight-20260828 §其他 repo"
+    },
+    "35 SSO 覆蓋率（ADR-0033）": {
+      "why": "2 個 admin 未綁 SSO。ADR-0033 後密碼登入回 HTTP 410 ⇒ **他們現在就登不進來**，不是 outage 時才有風險。這是最該優先處理的一支。",
+      "owner_decision": "二選一：(1) 本人用 Google/LINE 登入一次即自動綁定；(2) 確認是廢棄帳號 → 標 is_active=FALSE（留著會讓這條告警永遠紅）。**我不能代為變更帳號狀態。**",
+      "tracked_as": "ADR-0033／本名冊"
+    },
+    "50 startup dependency race（compose depends_on）": {
+      "why": "compose 的 depends_on 沒有等到相依服務真正就緒。目前實務上靠 healthcheck 兜住，未造成實際故障。",
+      "owner_decision": "要不要改 depends_on 的 condition（會影響啟動時序與部署時間）。",
+      "tracked_as": "本名冊"
+    },
+    "54 NER 關係抽取回歸（修法後有無新缺口）": {
+      "why": "抽取覆蓋率未達門檻。屬 AI 品質的漸進項目，非故障。",
+      "owner_decision": "是否投資提升抽取率（涉及模型與 prompt，成本效益待評估；owner 已決策『停止投 prompt-recall』）。",
+      "tracked_as": "ai_role_repositioning 記憶卡"
+    },
+    "55 ERP 財務完整性（帳本／填報／案號）": {
+      "why": "帳本有真的漏帳。與 A49（應付 id=72/73 各 50 萬無帳本分錄）同源。",
+      "owner_decision": "那兩筆是否真的已付？若是需補帳本分錄；若否應改回未付。**業務資料我不自行變更。**",
+      "tracked_as": "A49"
+    },
+    "56 前端設計規範（操作欄／表格能力／詳情頁模板）": {
+      "why": "2 處偏離設計規範。檢核自己標明「刻意判 YELLOW 不判 RED：這些不是故障，是規範沒有被強制」。",
+      "owner_decision": "要不要把那 2 處改成符合規範（屬 UI 一致性，非功能缺陷）。",
+      "tracked_as": "本名冊"
+    },
+    "61 ORM 欄位是否到達 API 回應": {
+      "why": "18 個 ORM 欄位沒有出現在 API 回應。Pydantic 對 schema 未宣告的欄位是靜默丟棄 —— 但這 18 個未必都該回傳。",
+      "owner_decision": "逐一判斷哪些該補進 response schema、哪些是刻意不回傳（後者應加豁免說明）。",
+      "tracked_as": "本名冊"
+    },
+    "69 協力廠商合約經費 vs 應付分期加總（同一件事兩個數字）": {
+      "why": "1 組超出合約經費：CK2026_PM_01_005 桃園市府約僱，合約經費填 **$3** 而應付 $159,000 —— 明顯是填報錯誤。另 3 組應付各 $1（佔位值）且無合約經費。",
+      "owner_decision": "修正填報資料（合約經費應為實際金額），或確認那些 $1／$3 是測試資料而清除。**業務資料我不自行變更。**",
+      "tracked_as": "本名冊"
+    },
+    "70 廠商身分源頭一致（同一張單不得有兩個名字）": {
+      "why": "3 筆同一張單兩個名字，其中一筆是兩個不同的人（林晉廷 vs 林宥廷測量技師事務所）。需要來源單據才能判斷哪個是對的。",
+      "owner_decision": "提供來源單據以決定正確名稱。owner 已明示『此非系統問題，實為人為填報機制要修正』⇒ 不得提議自動相似度比對合併。",
+      "tracked_as": "A32"
+    },
+    "71 PM2 宣告 vs 實際在跑": {
+      "why": "ecosystem.config.js 宣告了但 PM2 裡沒在跑的項目。後端 2026-05 起已遷入容器，PM2 只剩少數服務。",
+      "owner_decision": "二選一：真的要它跑 → `pm2 start ecosystem.config.js --only <name>`；已被取代 → 從 ecosystem.config.js 移除並在檔頭寫明誰接手了。",
+      "tracked_as": "pm2_layer_no_liveness_sentinel 記憶卡"
+    }
+  }
+}
