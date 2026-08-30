@@ -60,6 +60,34 @@ CRITICAL_FILES = [
 ]
 
 
+def _deploy_gap(root: str, image_commit: str):
+    """映像的建置點距離現在的 HEAD 有多遠：(落後幾個 commit, 建置點距今幾小時)。
+
+    任一項取不到就回 None —— **不可判定不等於沒問題**，呼叫端不得當成 0。
+    """
+    behind = age_h = None
+    try:
+        r = subprocess.run(
+            ["git", "rev-list", "--count", f"{image_commit}..HEAD"],
+            capture_output=True, text=True, timeout=10, cwd=root,
+        )
+        if r.returncode == 0 and r.stdout.strip().isdigit():
+            behind = int(r.stdout.strip())
+    except Exception:
+        pass
+    try:
+        import datetime as _dt
+        r = subprocess.run(
+            ["git", "log", "-1", "--format=%ct", image_commit],
+            capture_output=True, text=True, timeout=10, cwd=root,
+        )
+        if r.returncode == 0 and r.stdout.strip().isdigit():
+            age_h = (_dt.datetime.now().timestamp() - int(r.stdout.strip())) / 3600
+    except Exception:
+        pass
+    return behind, age_h
+
+
 def host_md5(path: Path) -> str:
     """計算 host 檔案 md5（前 8 chars）"""
     if not path.exists():
@@ -136,21 +164,47 @@ def check_build_identity(container: str) -> tuple[int, list[str]]:
 
     if not problems:
         # 有值就再問一句：它跟現在的 HEAD 是不是同一個？
-        # 不相等**不必然是問題**（HEAD 可能已經往前走了而還沒部署），
-        # 所以只印出來讓人自己判斷，不計入 problems。
+        #
+        # ⚠️ 2026-08-30 修正：原本這裡的理由是「不相等不必然是問題
+        # （HEAD 可能已經往前走了而還沒部署），所以只印出來讓人自己判斷」。
+        # 那對「落後 1 個 commit」是對的 —— **但它沒有區分 1 個和 38 個**。
+        #
+        # 實測當日：映像停在前一天，**落後 38 個 commit**，而這支檢核每天都在跑、
+        # 每天都印那一行提示，**從來不會紅**。當日 9 項新機制有 5 項因此
+        # 停在原始碼層（含 secret guard 與 KB 每日同步），而是 owner 問起才發現。
+        # ⇒ **訊號存在、每天在跑、印得出來，就是永遠不會出聲。**
+        #
+        # 門檻的取法：開發中落後幾個 commit 是常態，不該吵；
+        # 但「一整天的工作沒有部署」值得知道，「三天沒部署」該出聲。
         try:
+            root = str(Path(__file__).resolve().parents[2])
             head = subprocess.run(
                 ["git", "rev-parse", "--short", "HEAD"],
-                capture_output=True, text=True, timeout=5,
-                cwd=str(Path(__file__).resolve().parents[2]),
+                capture_output=True, text=True, timeout=5, cwd=root,
             ).stdout.strip()
         except Exception:
             head = ""
         note = f"  · runtime = {version} @ {commit}"
         if head:
-            same = commit.replace("-dirty", "") == head
+            base = commit.replace("-dirty", "")
+            same = base == head
             note += f"   host HEAD = {head}   {'（同一份）' if same else '（HEAD 已前進，尚未部署）'}"
-        print(note)
+            print(note)
+            if not same:
+                behind, age_h = _deploy_gap(root, base)
+                if behind is not None:
+                    print(f"       落後 {behind} 個 commit"
+                          + (f"，映像建置點距今 {age_h:.0f} 小時" if age_h is not None else ""))
+                    if behind >= 50 or (age_h is not None and age_h >= 72):
+                        problems.append(
+                            f"映像落後 {behind} 個 commit"
+                            + (f"／{age_h:.0f} 小時" if age_h is not None else "")
+                            + " —— 已提交的修法沒有在跑"
+                        )
+                    elif behind >= 20 or (age_h is not None and age_h >= 24):
+                        print("       ⚠️ 超過一天份的工作尚未部署（未判紅，但值得看一眼）")
+        else:
+            print(note)
 
     return (1 if problems else 0), problems
 
