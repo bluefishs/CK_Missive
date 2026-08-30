@@ -75,14 +75,36 @@ def scan_adrs(known: set[str]) -> tuple[list[dict], list[str]]:
     return rows, broken
 
 
+def _lesson_blocks(lines: list[str]) -> list[tuple[str, str]]:
+    """回 [(教訓編號, 該條的文字)]。
+
+    ⚠️ 2026-08-30：**區塊結尾要看「下一個任何 `## ` 標題」，不是「下一個
+    `## L\\d+`」。** 原本用後者，於是**最後一條教訓把檔案尾端全部吸收進來** ——
+    而檔尾的「v6.0 detector 候選」那節永久寫著
+    `scripts/checks/lessons_drift_check.py` ⇒ 最後一條永遠被判成
+    「已指向強制機制」⇒ **每個 session 在檔尾新增的那條教訓一律免檢**。
+
+    這正是本閘門要防的形狀（每個 session 各自創、沒有接上強制），
+    而它自己漏掉的恰好是「最新寫下的那一條」。
+    發現方式：塞一條沒有表態的假教訓當負向對照，閘門放行。
+    """
+    heads = [i for i, l in enumerate(lines) if re.match(r"^## ", l)]
+    out: list[tuple[str, str]] = []
+    for idx, start in enumerate(heads):
+        m = re.match(r"^## (L\d+)", lines[start])
+        if not m:
+            continue
+        end = heads[idx + 1] if idx + 1 < len(heads) else len(lines)
+        out.append((m.group(1), "\n".join(lines[start:end])))
+    return out
+
+
 def scan_lessons(known: set[str]) -> tuple[list[dict], list[str]]:
     reg = ROOT / "docs" / "architecture" / "LESSONS_REGISTRY.md"
     lines = reg.read_text(encoding="utf-8", errors="ignore").splitlines()
-    heads = [(i, l) for i, l in enumerate(lines) if re.match(r"^## L\d+", l)]
     rows, broken = [], []
-    for idx, (start, head) in enumerate(heads):
-        end = heads[idx + 1][0] if idx + 1 < len(heads) else len(lines)
-        block = "\n".join(lines[start:end])
+    for lid, block in _lesson_blocks(lines):
+        head = block.splitlines()[0]
         scripts = sorted(set(_SCRIPT_RE.findall(block)))
         for s in scripts:
             if s not in known:
@@ -139,10 +161,12 @@ def run_gate(adrs: list[dict], lessons: list[dict]) -> int:
         text = (ROOT / "docs" / "adr" / r["file"]).read_text(encoding="utf-8", errors="ignore")
         if not _declared(text):
             naked.append(ident)
-    reg = (ROOT / "docs" / "architecture" / "LESSONS_REGISTRY.md").read_text(
-        encoding="utf-8", errors="ignore")
-    blocks = re.split(r"(?=^## L\d+)", reg, flags=re.M)
-    by_id = {re.match(r"## (L\d+)", b).group(1): b for b in blocks if re.match(r"## L\d+", b)}
+    # 用同一份切法（見 _lesson_blocks 的註解）——原本這裡是
+    # `re.split(r"(?=^## L\d+)")`，與 scan_lessons 犯同一個錯：
+    # 最後一條會吸收檔尾，於是它的表態判定也讀到別節的內容。
+    reg_lines = (ROOT / "docs" / "architecture" / "LESSONS_REGISTRY.md").read_text(
+        encoding="utf-8", errors="ignore").splitlines()
+    by_id = dict(_lesson_blocks(reg_lines))
     for r in lessons:
         ident = f"lesson:{r['id']}"
         if r["scripts"] or r["mentions_fitness"] or ident in base:

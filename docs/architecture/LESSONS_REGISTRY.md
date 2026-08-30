@@ -1382,6 +1382,22 @@
 | **修法** | ①9 支全補 UTF-8 輸出（BOM 皆已有）②`hook_reachability_audit` 加判準 ④（被引用＋含中文 ⇒ BOM 與輸出編碼缺一不可），三種缺法各驗一次會紅、還原回綠 ③規範寫進 `.claude/rules/hooks-guide.md`，含「`$OutputEncoding` 單獨設沒有用」這條反例 |
 | **Refs** | `scripts/checks/hook_reachability_audit.py`（weekly 91 判準 ④）/ `.claude/rules/hooks-guide.md` §中文 hook 的兩個編碼要求 / 同族：L83（送出的≠收到的）、`verification_signal_too_coarse`、`signal_without_receiver` |
 
+---
+
+## L119 — 為了證明閘門會擋而做的負向對照，抓到閘門本身漏掉「最新的那一條」（2026-08-30）
+
+<!--enforced-by: scripts/checks/governance_enforcement_coverage.py（_lesson_blocks 以「下一個任何 ## 標題」為界；三種情境的負向對照記於本條 Fix 欄）-->
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | owner 目標「不要再發生每個 session 各自創、無整合運用」。本 session 建了五支閘門，而 Stop hook 指出：**機制存在不等於有履歷** —— 要證明的是「下一個 session 真的被擋住」。我無法觀測未來的 session，所以改為證明閘門**有牙齒**：模擬三種「各自創」的形狀各跑一次負向對照。 |
+| **三種情境** | ①新腳本自己算專案根路徑（`parents[2]`）⇒ weekly 93 判紅並點名 ✓ ②新教訓沒有接上任何強制 ⇒ **放行** ✗ ③新 hook 含中文但沒設輸出編碼 ⇒ weekly 91 判紅並點名 ✓ |
+| **根因（情境 ②）** | `scan_lessons` 用「下一個 `^## L\d+`」當區塊結尾 ⇒ **最後一條教訓把檔案尾端整段吸收進來**。而檔尾的「v6.0 detector 候選」那節永久寫著 `scripts/checks/lessons_drift_check.py` ⇒ 該條被判成「已指向強制機制」而跳過。**每個 session 在檔尾新增的那條教訓，一律免檢。**我自己當天寫的 L118 就是這樣溜過去的。 |
+| **⭐ 為什麼這個漏洞特別壞** | 它漏掉的恰好是**最新寫下的那一條** —— 也就是「這個 session 剛學到的東西」。而下一個 session 再寫一條，才會把前一條推進檢查範圍 ⇒ 表面上閘門一直是綠的、存量也一直在清，**只有當下那一條永遠不受檢查**。閘門要防的正是「每個 session 各自創」，而它自己在這個維度上是盲的。 |
+| **Fix** | `_lesson_blocks()` 改以「下一個**任何** `^## ` 標題」為界，`scan_lessons` 與 `run_gate` 共用同一份切法（原本兩處各切一次、犯同一個錯）。負向對照複驗：塞一條未表態的假教訓 ⇒ RED 且點名；移除 ⇒ GREEN。全庫掃同型切法只此一處（`diary_service.py` 用的是「任何 `^##`」，本來就對）。 |
+| **Prevention** | (a) **「機制存在」與「機制會擋」是兩個問題，後者只能用負向對照回答。**本 session 內這已是第三次負向對照當場否決我的實作（前兩次：`OutputEncoding` 字樣太寬、`^test_` 差點擋掉合法 pytest 檔）。(b) 凡是「切區塊」的判準，問一句**最後一塊到哪裡結束**——尾端往往有內容會被吸進去，而那不會報錯。(c) 要檢驗一個守門機制，餵它**它應該擋的東西**，不是看它平時是不是綠的。(d) ⭐ **而「它應該擋的東西」必須同時不滿足它的每一個通過條件。**驗本條自己時我第一版只抽掉 `<!--enforced-by-->`，閘門仍放行 —— 我當下讀成「連修好的閘門也漏檢」，實際是本條內文引用了 `governance_enforcement_coverage.py`，滿足了**另一個**合格條件（內文已指向檢核腳本）。把兩個條件一起拿掉才判紅並點名。**多條件的守門，負向對照只違反其中一條，得到的綠燈毫無意義。** |
+| **Refs** | `scripts/checks/governance_enforcement_coverage.py`（`_lesson_blocks`）／同族：L111（腳本能跑 ≠ 它說的是真的）、L118（負向對照否決寬字樣）、`fitness_self_false_green`、`arch_pattern_script_existence_not_enforcement` |
+
 ## v6.0 detector 候選
 
 未來實作 `scripts/checks/lessons_drift_check.py`：
