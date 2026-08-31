@@ -149,6 +149,78 @@ def check_forms() -> list[tuple[str, str]]:
     return bad
 
 
+# ── §3 前端鏡像 vs 後端權威（2026-08-31 追加）──────────────────────
+#
+# 為什麼加在這一支而不是新開一支：它問的是同一件事的第三面 ——
+# §1「寫入端有沒有約束」、§2「前端表單有沒有約束」、§3「**前端的複本跟上了沒有**」。
+#
+# 觸發事件：`frontend/src/types/erp.ts` 檔頭寫「對應後端 app/schemas/erp/」，
+# 而 `ExpenseSource` 只有 6 個值、後端 `ExpenseInvoiceBase.source` 有 9 個。
+# 後果不是型別錯誤：`EXPENSE_SOURCE_LABELS` 是以該聯集為鍵的 `Record`，
+# 後端送 `smart_qr` 進來查表得 `undefined` ⇒ **畫面空白而 tsc 全綠**。
+# 實測正式庫 9 筆費用發票裡 6 筆正是 `smart_qr` —— 缺的是多數。
+#
+# ⚠️ **配對必須明列，不得自動發現。** 我第一版用「值集合重疊」自動配對，
+#    把後端 `CaseFinanceRecord.type`（expense|billing|invoice，記錄種類）
+#    配成前端 `VoucherType`（invoice|receipt|ticket|utility|other，憑證類別）——
+#    兩個不同概念只因都含 `invoice`。
+#    跨 session（CK_AaaP）同日的同型結論更關鍵：**若用「掃出所有相符者」當分母，
+#    一個複本漂移之後只會默默離開集合，而集合仍然全綠。**
+#    `erp.ts` 正是如此 —— 它沒有從任何清單裡消失，它只是不再正確。
+#
+# ⚠️ 只有這兩個前端聯集在後端有 `Literal` 權威；其餘 10 個後端是純 `str`
+#    （即「沒有人在守門」，那是 §1 的職責，不在本節重複判）。
+MIRROR_PAIRS = [
+    # (前端型別名, 後端檔, 後端 class, 後端欄位)
+    ("ExpenseSource", "expense.py", "ExpenseInvoiceBase", "source"),
+    ("LedgerEntryType", "ledger.py", "LedgerBase", "entry_type"),
+]
+MIRROR_FILE = "frontend/src/types/erp.ts"
+
+
+def _fe_union(text: str, name: str):
+    m = re.search(rf"export type {re.escape(name)}\s*=\s*((?:[^;])+);", text)
+    if not m:
+        return None
+    return set(re.findall(r"'([^']*)'", m.group(1)))
+
+
+def _be_literal(text: str, cls: str, field: str):
+    ci = text.find(f"class {cls}")
+    if ci < 0:
+        return None
+    nxt = text.find("\nclass ", ci + 1)
+    blk = text[ci: nxt if nxt > 0 else len(text)]
+    m = re.search(rf"^\s*{re.escape(field)}\s*:\s*(?:Optional\[)?Literal\[([^\]]+)\]",
+                  blk, re.M)
+    if not m:
+        return None
+    return set(re.findall(r'["\']([^"\']+)["\']', m.group(1)))
+
+
+def check_mirrors():
+    """回 [(前端型別, 後端來源, 後端有而前端沒有的值)]；查不到來源也算違規。"""
+    bad = []
+    fe_path = ROOT / MIRROR_FILE
+    if not fe_path.is_file():
+        return [(MIRROR_FILE, "—", {"（鏡像檔不存在）"})]
+    fe = fe_path.read_text(encoding="utf-8", errors="replace")
+    for fe_name, be_file, be_cls, be_field in MIRROR_PAIRS:
+        src = f"{be_cls}.{be_field}"
+        fv = _fe_union(fe, fe_name)
+        be_path = ROOT / "backend" / "app" / "schemas" / "erp" / be_file
+        bv = _be_literal(be_path.read_text(encoding="utf-8", errors="replace"),
+                         be_cls, be_field) if be_path.is_file() else None
+        # 任一端讀不到就是違規：明列的配對消失了，而消失不該是靜默的
+        if fv is None or bv is None:
+            bad.append((fe_name, src, {"（配對的一端已不存在，判準失效）"}))
+            continue
+        missing = bv - fv
+        if missing:
+            bad.append((fe_name, src, missing))
+    return bad
+
+
 def main() -> int:
     print("=" * 74)
     print("列舉值儲存慣例稽核")
@@ -184,7 +256,21 @@ def main() -> int:
         print("       🟢 未發現")
     print()
 
-    if schema_bad or form_bad:
+    mirror_bad = check_mirrors()
+    print(f"  §3 前端鏡像跟上後端權威（{len(MIRROR_PAIRS)} 對明列配對）")
+    if mirror_bad:
+        for fe_name, src, missing in mirror_bad:
+            print(f"       ✗ {MIRROR_FILE} 的 `{fe_name}` 缺 {sorted(missing)}")
+            print(f"          後端權威：schemas/erp/{src}")
+        print()
+        print("       後端能送出而前端聯集不含的值 ⇒ 以該聯集為鍵的 Record 查表得")
+        print("       undefined ⇒ **畫面空白，而 tsc 全綠**（資料被宣告成該型別，")
+        print("       但那個宣告是假的）。手工維護的鏡像不會告訴你它落後了。")
+    else:
+        print("       🟢 明列配對皆一致")
+    print()
+
+    if schema_bad or form_bad or mirror_bad:
         print("Status: [RED] 違反列舉值儲存慣例")
         print("  依據：docs/architecture/ENUM_STORAGE_CONVENTION.md")
         return 2
