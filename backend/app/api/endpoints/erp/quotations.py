@@ -26,13 +26,48 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# 可跨案查詢報價單的權限 —— owner 2026-08-31：「跨案查報價暫無此考量，
+# 但需評估此議題後續彈性擴充機制」。
+#
+# 做成一個**權限**而不是寫死的角色判斷：日後真的有人要跨案比對單價、
+# 找歷史案例時，**授予這個權限即可，不必改程式碼**。
+# 目前無人持有 ⇒ 行為等同「只有管理者看得到全部」。
+QUOTATION_CROSS_CASE_PERMISSION = "reports:erp:view"
+
+
+def _quotation_scope(user):
+    """回可見的 case_code 範圍；**None ＝ 不限縮**。
+
+    ⚠️ 範圍由**伺服器依身分**決定，不接受請求參數指定 ——
+    否則前端傳什麼就給什麼，等於沒有 RLS。
+    """
+    from app.core.auth_service import AuthService
+    from app.core.dependencies import is_admin_user, is_superuser_user
+    from app.core.rls_filter import RLSFilter
+
+    # 管理員判定走既有 SSOT（併看 flag 與 role）—— 本 repo 有兩位 role=admin
+    # 而 is_admin 旗標為 false，只看旗標會把他們當成一般同仁。
+    if is_superuser_user(user) or is_admin_user(user):
+        return None
+    if AuthService.check_permission(user, QUOTATION_CROSS_CASE_PERMISSION):
+        return None
+    return RLSFilter.get_user_accessible_case_codes(user.id)
+
+
 @router.post("/list")
 async def list_quotations(
     params: ERPQuotationListRequest,
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
 ):
-    """報價列表"""
-    items, total = await service.list_quotations(params)
+    """報價列表。
+
+    ⭐ 2026-08-31 兩層收斂（owner）：
+      · **成案主軸** —— 預設只給有承攬案件的報價單（`include_unawarded` 可取回）
+      · **依身分限縮** —— 一般同仁只看自己被指派的案子，與 /contract-cases 同一條規則
+    """
+    scope = _quotation_scope(current_user)
+    items, total = await service.list_quotations(params, accessible_case_codes=scope)
     return PaginatedResponse.create(items=items, total=total, page=params.page, limit=params.limit)
 
 

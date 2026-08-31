@@ -202,8 +202,17 @@ class ERPQuotationService(AuditableServiceMixin):
         await self.audit_delete(quotation_id)
         return True
 
-    async def list_quotations(self, params: ERPQuotationListRequest) -> Tuple[List[ERPQuotationResponse], int]:
-        """報價列表 — 使用批次聚合消除 N+1 查詢"""
+    async def list_quotations(
+        self,
+        params: ERPQuotationListRequest,
+        accessible_case_codes=None,
+    ) -> Tuple[List[ERPQuotationResponse], int]:
+        """報價列表 — 使用批次聚合消除 N+1 查詢。
+
+        `accessible_case_codes`：**None ＝不限縮**（管理者或持有跨案查詢
+        權限者）。由端點依登入身分算出來傳進來 —— 服務層不自己查身分，
+        否則同一個服務在不同呼叫路徑會有不同的可見範圍。
+        """
         items, total = await self.repo.filter_quotations(
             year=params.year,
             status=params.status,
@@ -213,6 +222,8 @@ class ERPQuotationService(AuditableServiceMixin):
             limit=params.limit,
             sort_by=params.sort_by or "id",
             sort_order=params.sort_order.value if params.sort_order else "desc",
+            include_unawarded=params.include_unawarded,
+            accessible_case_codes=accessible_case_codes,
         )
 
         if not items:

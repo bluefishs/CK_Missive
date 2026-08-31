@@ -136,8 +136,21 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         limit: int = 20,
         sort_by: str = "id",
         sort_order: str = "desc",
+        include_unawarded: bool = False,
+        accessible_case_codes=None,
     ) -> Tuple[List[ERPQuotation], int]:
-        """篩選報價列表"""
+        """篩選報價列表。
+
+        Args:
+            include_unawarded: 是否納入未成案（無 contract_project）的報價單。
+                預設 False —— owner 2026-08-31：「應改以成案案件為主，
+                未成案承攬案件報價單參考價值低」。實測 257 張裡 93 張未成案，
+                其中 90 張狀態是 confirmed 卻從未成案。
+            accessible_case_codes: 可見範圍。**None ＝不限縮**（管理者或持有
+                跨案查詢權限者）；給子查詢／清單則限縮到那些 case_code。
+                ⚠️ 範圍由**呼叫端依身分**決定，不由請求參數決定 ——
+                否則前端傳什麼就給什麼，等於沒有 RLS。
+        """
         query = select(ERPQuotation).where(ERPQuotation.deleted_at.is_(None))
         count_query = select(func.count(ERPQuotation.id)).where(ERPQuotation.deleted_at.is_(None))
 
@@ -153,6 +166,21 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
                 ERPQuotation.case_code.ilike(f"%{search}%"),
                 ERPQuotation.case_name.ilike(f"%{search}%"),
             ))
+
+        # 成案主軸：只留有承攬案件的報價單
+        if not include_unawarded:
+            from app.extended.models.core import ContractProject
+            conditions.append(
+                ERPQuotation.case_code.in_(
+                    select(ContractProject.case_code).where(
+                        ContractProject.case_code.isnot(None)
+                    )
+                )
+            )
+
+        # 可見範圍（None ＝ 不限縮）
+        if accessible_case_codes is not None:
+            conditions.append(ERPQuotation.case_code.in_(accessible_case_codes))
 
         if conditions:
             query = query.where(and_(*conditions))

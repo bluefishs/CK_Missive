@@ -137,6 +137,52 @@ class RLSFilter:
         return by_project.union(by_case)
 
     @classmethod
+    def get_user_accessible_case_codes(cls, user_id: int) -> Select:
+        """使用者（含 alias group）可存取的 **case_code** 子查詢。
+
+        ## 為什麼需要 case_code 版而不是沿用 project_id 版
+
+        報價單以 `case_code` 為鍵，而且**可以在成案之前就存在**
+        （邀標／報價階段還沒有 contract_project 可綁）。
+        用 project_id 版會漏掉那一批 —— 那正是本 repo 2026-08-29
+        修過四處、隔一輪才發現還有兩處的同族缺陷。
+
+        ## 兩條來源都要（與 get_user_accessible_project_ids 對稱）
+
+        · 指派直接寫 `case_code`（未成案時唯一可寫的欄位）
+        · 指派寫 `project_id` → 反查該專案的 case_code
+
+        **不重寫 alias 展開** —— 共用 `get_alias_group_subquery`，
+        與 `apply_project_rls` 同一套判定。
+
+        Returns:
+            可用於 `.in_()` 的子查詢
+        """
+        from app.extended.models import project_user_assignment
+        from app.extended.models.core import ContractProject
+
+        alias_ids = cls.get_alias_group_subquery(user_id)
+        cond = and_(
+            project_user_assignment.c.user_id.in_(alias_ids),
+            project_user_assignment.c.status.in_(cls.ACTIVE_ASSIGNMENT_STATUSES),
+        )
+
+        by_case = select(project_user_assignment.c.case_code).where(
+            and_(cond, project_user_assignment.c.case_code.isnot(None))
+        )
+        by_project = select(ContractProject.case_code).where(
+            and_(
+                ContractProject.case_code.isnot(None),
+                ContractProject.id.in_(
+                    select(project_user_assignment.c.project_id).where(
+                        and_(cond, project_user_assignment.c.project_id.isnot(None))
+                    )
+                ),
+            )
+        )
+        return by_case.union(by_project)
+
+    @classmethod
     async def check_user_project_access(
         cls,
         db: AsyncSession,

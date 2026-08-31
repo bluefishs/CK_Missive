@@ -253,6 +253,27 @@ class ERPQuotationListRequest(BaseQueryParams):
     status: Optional[str] = Field(None, description="狀態篩選")
     case_code: Optional[str] = Field(None, description="案號篩選")
 
+    # ⭐ 2026-08-31 owner：「應改以成案案件為主，未成案承攬案件報價單參考價值低」。
+    #
+    # 實測 257 張報價單裡 **164 已成案、93 未成案**，而未成案那 93 張裡
+    # **90 張狀態是 `confirmed`**（2024–2026）—— 確認了卻從未成案。
+    #
+    # 預設只給成案的。**未成案不是刪除而是收起來**：把 `include_unawarded`
+    # 設為 true 就拿得回來，那是 owner 同日交代的「後續彈性擴充機制」——
+    # 需求改變時是**改一個參數**，不是回來改判準。
+    include_unawarded: bool = Field(
+        False, description="是否納入未成案（無承攬案件）的報價單；預設否"
+    )
+
+    # ⭐ 跨案查詢的擴充點（owner：「跨案查報價暫無此考量，但需評估後續彈性擴充」）。
+    #
+    # 預設依登入者的案件指派過濾（與 /contract-cases 同一條 RLS）。
+    # 日後若有人需要跨案比對單價／找歷史案例，**授予權限即可**，
+    # 不需要改這裡的程式碼 —— 見端點層的 `_quotation_scope`。
+    #
+    # 刻意**不**在 request 上開一個「看全部」的旗標：那會變成
+    # 前端傳什麼就給什麼，等於沒有 RLS。範圍由伺服器依身分決定。
+
 
 class ERPProfitSummary(BaseModel):
     """損益摘要"""
