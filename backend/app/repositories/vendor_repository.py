@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc, asc
 
 from app.repositories.base_repository import BaseRepository
+from app.repositories.sort_utils import resolve_sort_column
 from app.extended.models import (
     PartnerVendor,
     project_vendor_association,
@@ -107,7 +108,7 @@ class VendorRepository(BaseRepository[PartnerVendor]):
             count_query = count_query.where(combined)
 
         # 排序
-        sort_column = getattr(PartnerVendor, sort_by, PartnerVendor.vendor_name)
+        sort_column = resolve_sort_column(PartnerVendor, sort_by, PartnerVendor.vendor_name)
         order_fn = asc if sort_order == 'asc' else desc
         query = query.order_by(order_fn(sort_column))
 

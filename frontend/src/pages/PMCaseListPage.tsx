@@ -39,6 +39,19 @@ export const PMCaseListPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
+  /**
+   * 表頭排序 —— **交給後端做**（2026-08-31）。
+   *
+   * 這一頁是伺服器分頁，前端比較器只看得到當前這 20 筆；
+   * 「依案號排序」實際上只排了眼前這一頁，而畫面上完全看不出來。
+   * 欄位標 `sorter: true` 只是宣告「這一欄可排」，實際排序由 `sort_by`
+   * 送進 API（後端白名單見 `pm/case_repository.SORTABLE_COLUMNS`）。
+   */
+  const [sort, setSort] = useState<{ field: string; order: 'asc' | 'desc' }>({
+    field: 'year',
+    order: 'desc',
+  });
+
   // 匯出 XLSX
   const handleExportXlsx = async () => {
     try {
@@ -97,13 +110,13 @@ export const PMCaseListPage: React.FC = () => {
   const queryParams = useMemo(() => ({
     page: currentPage,
     limit: pageSize,
-    sort_by: 'year',
-    sort_order: 'desc' as const,
+    sort_by: sort.field,
+    sort_order: sort.order,
     ...(searchText && { search: searchText }),
     ...(yearFilter !== undefined && { year: yearFilter }),
     ...(statusFilter && { status: statusFilter }),
     ...(categoryFilter && { category: categoryFilter }),
-  }), [currentPage, searchText, yearFilter, statusFilter, categoryFilter]);
+  }), [currentPage, searchText, yearFilter, statusFilter, categoryFilter, sort]);
 
   const { data: casesData, isLoading, refetch } = usePMCases(queryParams);
   const { data: summary } = usePMCaseSummary({ year: yearFilter });
@@ -117,6 +130,7 @@ export const PMCaseListPage: React.FC = () => {
       title: '案號',
       dataIndex: 'case_code',
       key: 'case_code',
+      sorter: true,
       width: 140,
       render: (code: string) => <Typography.Text strong style={{ fontFamily: 'monospace', fontSize: 12 }}>{code}</Typography.Text>,
     },
@@ -124,12 +138,14 @@ export const PMCaseListPage: React.FC = () => {
       title: '專案名稱',
       dataIndex: 'case_name',
       key: 'case_name',
+      sorter: true,
       ellipsis: true,
     },
     {
       title: '委託單位',
       dataIndex: 'client_name',
       key: 'client_name',
+      sorter: true,
       width: 150,
       ellipsis: true,
       render: (v: string) => v || '-',
@@ -138,13 +154,15 @@ export const PMCaseListPage: React.FC = () => {
       title: '計畫類別',
       dataIndex: 'category',
       key: 'category',
-      width: 100,
+      sorter: true,
+      width: 112,
       render: (cat: string) => PM_CATEGORY_LABELS[cat] || cat || '-',
     },
     {
       title: '報價金額',
       dataIndex: 'contract_amount',
       key: 'contract_amount',
+      sorter: true,
       width: 120,
       align: 'right' as const,
       render: (v: number) => v ? `NT$${v.toLocaleString()}` : '-',
@@ -153,14 +171,12 @@ export const PMCaseListPage: React.FC = () => {
       title: '承攬狀態',
       dataIndex: 'status',
       key: 'contract_status',
-      width: 90,
+      sorter: true,
+      width: 96,
       align: 'center' as const,
-      filters: [
-        { text: '評估中', value: 'planning' },
-        { text: '已承攬', value: 'contracted' },
-        { text: '已結案', value: 'closed' },
-      ],
-      onFilter: (value, record) => record.status === value,
+      // 2026-08-31：移除表頭的前端篩選。這一頁是伺服器分頁，
+      // `onFilter` 只作用於當前這一頁 ⇒ 選了「已結案」而本頁沒有 ⇒ 整頁空白。
+      // 工具列的「承攬狀態」下拉才是對的入口（它把 status 送進查詢參數）。
       render: (status: string, record: PMCase) => {
         if (status === 'contracted') {
           // 2026-08-29（M3）：「已承攬未成案」與「已承攬已成案」在列表上
@@ -178,6 +194,7 @@ export const PMCaseListPage: React.FC = () => {
       title: '成案編號',
       dataIndex: 'project_code',
       key: 'project_code',
+      sorter: true,
       width: 130,
       render: (code: string) => code
         ? <Typography.Text style={{ fontFamily: 'monospace', fontSize: 12 }}>{code}</Typography.Text>
@@ -367,6 +384,18 @@ export const PMCaseListPage: React.FC = () => {
             onChange: setCurrentPage,
             showSizeChanger: false,
             showTotal: (t) => `共 ${t} 筆`,
+          }}
+          // 表頭排序轉成 API 參數（2026-08-31）。取消排序時回到預設的年度新→舊，
+          // 不留空 —— `sort_by` 空字串在後端會退回 `id`，那不是使用者要的順序。
+          onChange={(_pagination, _filters, sorter) => {
+            const s = Array.isArray(sorter) ? sorter[0] : sorter;
+            const field = typeof s?.field === 'string' ? s.field : undefined;
+            if (!field || !s?.order) {
+              setSort({ field: 'year', order: 'desc' });
+            } else {
+              setSort({ field, order: s.order === 'ascend' ? 'asc' : 'desc' });
+            }
+            setCurrentPage(1);
           }}
           onRow={(record) => ({
             onClick: () => navigate(`/pm/cases/${record.id}`),

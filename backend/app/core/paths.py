@@ -90,7 +90,22 @@ DOCS_ARCHIVED_DIR: Path = DOCS_DIR / "archived"
 
 # === 配置 ===
 ENV_FILE: Path = PROJECT_ROOT / ".env"
-REMOTE_BACKUP_CONFIG: Path = CONFIGS_DIR / "remote_backup.json"
+# ⚠️ 2026-08-31：原本指向 `CONFIGS_DIR`（＝repo 根的 `configs/`），而那是**非權威副本**
+# （該檔自己的 `_note` 就寫著「非權威副本。權威來源＝backend/config/remote_backup.json」）。
+#
+# 全庫有三份同名檔、內容互不相同：
+#   config/remote_backup.json          609B  2026-07-03  非權威（有 _note）
+#   configs/remote_backup.json         625B  2026-07-03  非權威（有 _note）
+#   backend/config/remote_backup.json  788B  2026-08-31  **權威**（Windows 排程寫入，
+#                                                        容器掛載為 /app/config）
+#
+# 本常數目前**沒有任何消費端**（Dead Config），所以指錯也沒出事 ——
+# 但那正是危險之處：下一個人用它時會讀到 7 月的舊檔，而舊檔的
+# `last_sync_time` 是 None、`remote_file_count` 根本不存在，
+# 據以判斷「異地備份有沒有在跑」會得到相反的結論。
+#
+# `BACKEND_DIR` 已同時處理兩種環境（host＝<repo>/backend，容器＝/app）。
+REMOTE_BACKUP_CONFIG: Path = BACKEND_DIR / "config" / "remote_backup.json"
 
 # === 跨 repo 相關（cross-repo path discovery）===
 CKPROJECT_ROOT: Path = PROJECT_ROOT.parent  # D:/CKProject (CK_AaaP, hermes-agent 等同層)

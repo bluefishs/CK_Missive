@@ -22,6 +22,49 @@ function get(obj: unknown, key: string): unknown {
   return (obj as R)?.[key];
 }
 
+/**
+ * 剝掉「只看得到當前這一頁」的欄位功能 —— 給伺服器分頁的表格用。
+ *
+ * 2026-08-31 建立。前端的比較器與 `onFilter` 只走過 `dataSource`，
+ * 而伺服器分頁時那是本頁的 10 筆，分頁器顯示的卻是全部 72 筆。
+ * 失效的三種形狀（owner 當日各回報一次，沒有一種會報錯）：
+ *
+ *   ① 篩選後整頁空白       ② 下拉只列得出本頁有的那一個值
+ *   ③ 「依金額排序」只排了這 10 筆 —— **它給你一個看起來合理的錯答案**
+ *
+ * 保留 `sorter: true`／`filterMultiple` 這類**伺服器端**標記：
+ * 它們代表「排序交給後端做」，本來就是對的。只剝函式型的。
+ *
+ * ⚠️ 搜尋框（`getColumnSearchProps`）要連 `filterDropdown` 一起剝：
+ * 只拿掉 `onFilter` 會留下一個打了字沒有反應的輸入框 —— 比錯答案更難察覺。
+ */
+export function stripClientOnlyColumnFeatures<T = R>(
+  columns: ColumnsType<T>,
+): ColumnsType<T> {
+  return columns.map((col) => {
+    const c = col as ColumnType<T>;
+    const out: ColumnType<T> = { ...c };
+    let touched = false;
+
+    if (typeof out.sorter === 'function') {
+      delete out.sorter;
+      delete out.sortDirections;
+      delete out.defaultSortOrder;
+      touched = true;
+    }
+    if (out.onFilter) {
+      delete out.onFilter;
+      delete out.filters;
+      delete out.filterDropdown;
+      delete out.filterIcon;
+      delete out.filteredValue;
+      delete out.defaultFilteredValue;
+      touched = true;
+    }
+    return touched ? out : col;
+  });
+}
+
 export function enhanceColumns<T = R>(
   columns: ColumnsType<T>,
   data?: T[],

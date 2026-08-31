@@ -8,8 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.pm import PMCase
 from app.repositories.base_repository import BaseRepository
+from app.repositories.sort_utils import resolve_sort_column
 
 logger = logging.getLogger(__name__)
+
+
+#: ⚠️ 這裡原本有一份手抄的 `SORTABLE_COLUMNS`（2026-08-31 稍早我自己加的），
+#: 已移除 —— 改用 `sort_utils.resolve_sort_column` 直接問 ORM。
+#: 理由寫在那支的檔頭：手抄清單會跟著 model 漂移，而我抄的第一版
+#: 就已經放了一個不存在的欄位（`quotation_amount`，報價金額其實是聚合來的）。
+#: **聚合欄位無法用這條路徑排序，前端也不得對它標 `sorter: true`。**
 
 
 class PMCaseRepository(BaseRepository[PMCase]):
@@ -100,7 +108,7 @@ class PMCaseRepository(BaseRepository[PMCase]):
             count_query = count_query.where(and_(*conditions))
 
         # 排序
-        sort_col = getattr(PMCase, sort_by, PMCase.id)
+        sort_col = resolve_sort_column(PMCase, sort_by, PMCase.id)
         if sort_order == "asc":
             query = query.order_by(sort_col.asc())
         else:

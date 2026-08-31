@@ -288,6 +288,9 @@ export const ContractCasePage: React.FC = () => {
               columns={columns}
               dataSource={projects}
               rowKey="id"
+              // 分頁器在表格外面（下方獨立的 <Pagination>），元件自己看不出來，
+              // 所以這裡要明講：前端排序／篩選只會作用於當前這一頁（2026-08-31）。
+              serverPaged
               pagination={false}
               scroll={{ x: isMobile ? 600 : 890 }}
               mobileHiddenColumns={['category', 'contract_period']}

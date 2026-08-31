@@ -17,6 +17,7 @@ from sqlalchemy import select, func, or_, update
 
 from app.repositories.base_repository import BaseRepository
 from app.extended.models import User, UserSession
+from app.repositories.sort_utils import resolve_sort_column
 
 logger = logging.getLogger(__name__)
 
@@ -342,7 +343,7 @@ class UserRepository(BaseRepository[User]):
         total = total_result.scalar() or 0
 
         # 排序
-        sort_column = getattr(User, sort_by, User.id)
+        sort_column = resolve_sort_column(User, sort_by, User.id)
         if sort_order == "desc":
             sort_column = sort_column.desc()
 

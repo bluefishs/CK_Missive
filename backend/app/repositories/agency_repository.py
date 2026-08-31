@@ -24,6 +24,7 @@ from app.extended.models import (
     OfficialDocument,
 )
 from sqlalchemy import update as sa_update
+from app.repositories.sort_utils import resolve_sort_column
 
 logger = logging.getLogger(__name__)
 
@@ -842,7 +843,7 @@ class AgencyRepository(BaseRepository[GovernmentAgency]):
         total = (await self.db.execute(count_query)).scalar() or 0
 
         # 排序
-        sort_column = getattr(GovernmentAgency, sort_by, GovernmentAgency.agency_name)
+        sort_column = resolve_sort_column(GovernmentAgency, sort_by, GovernmentAgency.agency_name)
         if sort_order.lower() == 'desc':
             query = query.order_by(desc(sort_column))
         else:

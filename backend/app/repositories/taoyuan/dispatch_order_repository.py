@@ -47,6 +47,7 @@ from app.extended.models import (
     ContractProject,
 )
 from app.core.constants import TAOYUAN_PROJECT_ID
+from app.repositories.sort_utils import resolve_sort_column
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +166,7 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
             'dispatch_date', 'created_at', 'updated_at',
         }
         safe_sort = sort_by if sort_by in allowed_sort_fields else 'id'
-        sort_column = getattr(TaoyuanDispatchOrder, safe_sort, TaoyuanDispatchOrder.id)
+        sort_column = resolve_sort_column(TaoyuanDispatchOrder, safe_sort, TaoyuanDispatchOrder.id)
         if sort_order == "desc":
             query = query.order_by(sort_column.desc())
         else:

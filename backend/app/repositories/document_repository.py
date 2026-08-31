@@ -22,6 +22,7 @@ from sqlalchemy import select, func, and_, or_, extract, desc, asc
 from sqlalchemy.orm import selectinload, joinedload
 
 from app.repositories.base_repository import BaseRepository
+from app.repositories.sort_utils import resolve_sort_column
 from app.extended.models import (
     OfficialDocument,
     DocumentAttachment,
@@ -689,7 +690,7 @@ class DocumentRepository(BaseRepository[OfficialDocument]):
         total = (await self.db.execute(count_query)).scalar() or 0
 
         # 排序
-        sort_column = getattr(OfficialDocument, sort_by, OfficialDocument.doc_date)
+        sort_column = resolve_sort_column(OfficialDocument, sort_by, OfficialDocument.doc_date)
         if sort_order.lower() == 'asc':
             query = query.order_by(asc(sort_column))
         else:

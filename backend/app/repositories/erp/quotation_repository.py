@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPQuotation
 from app.repositories.base_repository import BaseRepository
+from app.repositories.sort_utils import resolve_sort_column
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +187,7 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
             query = query.where(and_(*conditions))
             count_query = count_query.where(and_(*conditions))
 
-        sort_col = getattr(ERPQuotation, sort_by, ERPQuotation.id)
+        sort_col = resolve_sort_column(ERPQuotation, sort_by, ERPQuotation.id)
         if sort_order == "asc":
             query = query.order_by(sort_col.asc())
         else:

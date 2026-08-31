@@ -14,6 +14,7 @@ from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
 
 from ..base_repository import BaseRepository
+from app.repositories.sort_utils import resolve_sort_column
 from app.extended.models import (
     TaoyuanProject,
     TaoyuanDispatchProjectLink,
@@ -150,7 +151,7 @@ class TaoyuanProjectRepository(BaseRepository[TaoyuanProject]):
             'sub_case_name',
         }
         safe_sort = sort_by if sort_by in allowed_sort_fields else 'id'
-        sort_column = getattr(TaoyuanProject, safe_sort, TaoyuanProject.id)
+        sort_column = resolve_sort_column(TaoyuanProject, safe_sort, TaoyuanProject.id)
         if sort_order == "desc":
             query = query.order_by(sort_column.desc())
         else:

@@ -15,6 +15,7 @@ import { Table } from 'antd';
 import type { TableProps } from 'antd';
 import type { ColumnType, ColumnsType } from 'antd/es/table';
 import { useResponsive } from '../../hooks/utility/useResponsive';
+import { stripClientOnlyColumnFeatures } from '../../utils/tableEnhancer';
 
 /**
  * 從欄位定義中取得用於比對的 dataIndex 值
@@ -40,6 +41,14 @@ function getColumnDataIndex<T>(col: ColumnType<T>): string | undefined {
 export interface ResponsiveTableProps<T> extends TableProps<T> {
   /** 行動版隱藏的欄位 dataIndex 列表 */
   mobileHiddenColumns?: string[];
+  /**
+   * 分頁在伺服器端 —— 本元件只拿得到當前這一頁，因此**不得**在前端做排序／篩選。
+   *
+   * 平常不必傳：`pagination.total` 大於本頁筆數時會自動判定。
+   * 只有把分頁器放在表格外面（`pagination={false}` ＋ 另一個 `<Pagination>`）
+   * 的頁面要明講 —— 那種寫法從元件內部看不出來（/contract-cases 就是）。
+   */
+  serverPaged?: boolean;
 }
 
 function ResponsiveTableInner<T extends object>(
@@ -48,6 +57,7 @@ function ResponsiveTableInner<T extends object>(
     columns = [],
     scroll,
     size,
+    serverPaged,
     ...props
   }: ResponsiveTableProps<T>,
 ) {
@@ -84,6 +94,18 @@ function ResponsiveTableInner<T extends object>(
       const { width: _unusedWidth, ...rest } = c;  // eslint-disable-line @typescript-eslint/no-unused-vars
       return { ...rest, ellipsis: c.ellipsis ?? { showTitle: true } };
     });
+  }
+
+  // 伺服器分頁 ⇒ 剝掉只作用於當前這一頁的排序／篩選／欄位搜尋（2026-08-31）。
+  // 自動判準用執行時的事實：`pagination.total` 是伺服器的總筆數，
+  // 大於本頁筆數就代表這裡看不到全部。外掛分頁器的頁面則靠 `serverPaged` 明講。
+  const autoServerPaged =
+    !!props.pagination &&
+    typeof props.pagination === 'object' &&
+    typeof props.pagination.total === 'number' &&
+    props.pagination.total > (props.dataSource?.length ?? 0);
+  if (serverPaged ?? autoServerPaged) {
+    filteredColumns = stripClientOnlyColumnFeatures(filteredColumns);
   }
 
   // ⚠️ md: 900 只在**桌面分支**才會被用到了（isNarrow 已涵蓋 md）。

@@ -16,7 +16,7 @@
 import { useMemo } from 'react';
 import { Table } from 'antd';
 import type { TableProps, ColumnsType, ColumnType } from 'antd/es/table';
-import { enhanceColumns } from '../../utils/tableEnhancer';
+import { enhanceColumns, stripClientOnlyColumnFeatures } from '../../utils/tableEnhancer';
 import { useResponsive } from '../../hooks';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,6 +73,18 @@ export function EnhancedTable<T extends R = any>(props: TableProps<T>) {
   const { isMobile, isTablet } = useResponsive();
   const isNarrow = isMobile || isTablet;
 
+  /**
+   * 這張表格看得到全部資料嗎？
+   *
+   * `pagination.total` 是伺服器回報的總筆數。它大於本頁筆數，就代表
+   * 分頁在伺服器端 —— 任何在前端做的排序／篩選都只作用於眼前這一頁。
+   */
+  const isServerPaged =
+    !!pagination &&
+    typeof pagination === 'object' &&
+    typeof pagination.total === 'number' &&
+    pagination.total > (dataSource?.length ?? 0);
+
   const enhanced = useMemo(() => {
     if (!columns) return columns;
     // 窄螢幕先濾掉標記 hideOnMobile 的欄位，再做其餘加工
@@ -100,8 +112,26 @@ export function EnhancedTable<T extends R = any>(props: TableProps<T>) {
     // 姓名被截成兩個字」—— 那是**寬度不夠**的問題，在 768~992px 並不成立。
     // 2026-08-15 我一度把這裡也改成 isNarrow，結果平板整片失去排序篩選，
     // 而規範要求表格皆需可排序篩選。**欄位隱藏與互動移除是兩件事，斷點不該共用。**
+    //
+    // 2026-08-31：**伺服器分頁時不得自動加排序／篩選**（owner 回報三種症狀）。
+    //
+    // `enhanceColumns` 的排序比較器與篩選選項都只看 `dataSource`，
+    // 而伺服器分頁時那只是**當前這一頁**，分頁器顯示的卻是伺服器總數。
+    // 兩者搭在一起，三種症狀都出現過而且都不會報錯：
+    //
+    //   ① 篩選後整頁空白 —— 選項來自這 10 筆，套用到的也只有這 10 筆
+    //   ② 下拉只剩一個選項 —— /pm/cases 的「計畫類別」只列得出 02
+    //   ③ 「依金額排序」只排了這 10 筆 —— **最危險的一種，它不會空白，
+    //      它給你一個看起來合理的錯答案**
+    //
+    // 判準用執行時的事實（`total` vs 這一頁的筆數），不用靜態猜測：
+    // 我先前拿「頁面有沒有寫 total」去掃，58 頁裡漏掉了 owner 正在看的那兩頁。
+    // 元件自己手上就有精確答案 —— 它看不看得到全部，一比就知道。
+    //
+    // 全量在手的表格（`total` 未給、或 <= 本頁筆數）不受影響，照舊自動強化。
+    if (isServerPaged) return stripClientOnlyColumnFeatures(responsive);
     return isMobile ? responsive : enhanceColumns(responsive, dataSource as T[]);
-  }, [columns, dataSource, isNarrow, isMobile]);
+  }, [columns, dataSource, isNarrow, isMobile, isServerPaged]);
 
   const defaultPagination = pagination === false ? false : {
     showSizeChanger: true,
