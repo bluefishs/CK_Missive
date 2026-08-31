@@ -979,7 +979,7 @@ async def proactive_trigger_scan_job():
 
 @tracked_job("kb_embedding_incremental_sync")
 async def kb_embedding_incremental_sync_job():
-    """KB 向量庫增量同步（每日 04:45）—— 只處理新增／異動／已刪除的檔案。
+    """KB 向量庫增量同步（每日 05:15）—— 只處理新增／異動／已刪除的檔案。
 
     在此之前 `kb_chunks` **只能手動觸發 `/embed`**，docs/ 改了向量庫不會跟上，
     而 RAG 檢索到舊內容在畫面上看不出來。
@@ -4182,7 +4182,7 @@ async def memory_pattern_extract_job():
 
 @tracked_job("soul_mirror_sync")
 async def soul_mirror_sync_job():
-    """SOUL.md 跨 repo 自動同步（v6.4 C1）— 每日 04:45。
+    """SOUL.md 跨 repo 自動同步（v6.4 C1）— 每日 **04:50**。
 
     為何自動：
     - soul_mirror_drift_check.py 已偵測 drift，但同步腳本 sync_soul_to_hermes.sh
@@ -4410,7 +4410,7 @@ def setup_scheduler(
         max_instances=1,
         coalesce=True
     )
-    logger.info("已添加 DB Schema 快照更新: 每日 03:30 執行")
+    logger.info("已添加 DB Schema 快照更新: 每日 03:35 執行")
 
     # 添加 KB Embedding 覆蓋率檢查 — 每日 04:00 驗證文件向量完整性
     scheduler.add_job(
@@ -4436,7 +4436,7 @@ def setup_scheduler(
     )
     logger.info("已添加 KG Embedding 自動回填: 每日 04:30 執行")
 
-    # 2026-08-30：KB 向量庫增量同步 —— 每日 04:45（與 04:30 KG 回填錯開 15 分）
+    # 2026-08-30：KB 向量庫增量同步（2026-08-31 由 04:45 改 05:15，理由見下方註解）
     #
     # 為什麼需要它：`kb_chunks` 在此之前**只能手動觸發 /embed**，本檔原本的
     # 註解自己就寫著「kb_chunks 由手動 /embed 維護」⇒ docs/ 改了之後向量庫
@@ -4486,7 +4486,7 @@ def setup_scheduler(
         max_instances=1,
         coalesce=True
     )
-    logger.info("已添加每日晨報: 每日 08:00 執行")
+    logger.info("已添加每日晨報: 每日 07:30 執行")
 
     # 標案訂閱檢查 — 每日 08:00, 12:00, 18:00 (上班時段 3 次)
     for hour in [8, 12, 18]:
@@ -4828,7 +4828,7 @@ def setup_scheduler(
         max_instances=1,
         coalesce=True
     )
-    logger.info("已添加 Memory Pattern Extractor: 每日 04:00 執行")
+    logger.info("已添加 Memory Pattern Extractor: 每日 04:05 執行")
 
     # v5.13 Gap 1: 每日 06:00 agent self-diagnosis（主動讀自己 metrics）
     scheduler.add_job(
@@ -4840,7 +4840,7 @@ def setup_scheduler(
         max_instances=1,
         coalesce=True
     )
-    logger.info("已添加 Agent Self-Diagnosis: 每日 06:00 執行")
+    logger.info("已添加 Agent Self-Diagnosis: 每日 06:10 執行")
 
     # v5.10.2 #7 KG metrics 即時刷新（Prometheus + Grafana dashboard）
     # next_run_time=now：startup 後立刻 fire 一次填值，不等 15 分（避免 dead startup gap）
@@ -4880,7 +4880,7 @@ def setup_scheduler(
         max_instances=1,
         coalesce=True
     )
-    logger.info("已添加 Memory Crystallization Scan: 每日 04:30 執行")
+    logger.info("已添加 Memory Crystallization Scan: 每日 04:35 執行")
 
     # 2026-04-19 Memory Wiki Phase 4: 週日 18:00 Agent 週自傳
     scheduler.add_job(
@@ -4906,7 +4906,10 @@ def setup_scheduler(
     )
     logger.info("已添加 Anti-Echo Chamber Scan: 週一 06:00 執行")
 
-    # 2026-05-02 v6.4 C1: SOUL.md 跨 repo 自動同步（每日 04:45）
+    # 2026-05-02 v6.4 C1: SOUL.md 跨 repo 自動同步（每日 **04:50**）
+    # ⚠️ 2026-08-31 更正：這三處（docstring／本註解／下方 logger.info）原本都寫 04:45，
+    #    而實際觸發是 minute=50（2026-05-18 為了與 embedding_warmup 錯開而改）。
+    #    **改了時間沒改自述** ⇒ 日誌會對排查的人說謊：他去 04:45 的區間找，那裡什麼都沒有。
     # 解 SEVERE drift（Missive SOUL ↔ AaaP/Hermes SOUL 不同步問題）
     scheduler.add_job(
         soul_mirror_sync_job,
@@ -4917,7 +4920,7 @@ def setup_scheduler(
         max_instances=1,
         coalesce=True,
     )
-    logger.info("已添加 SOUL Mirror Sync: 每日 04:45 執行")
+    logger.info("已添加 SOUL Mirror Sync: 每日 04:50 執行")
 
     # 2026-05-02 v6.6 Phase B2 (5c): 日終反思 LINE 彙總（每日 22:00）
     # 解體感「anti_echo 觸發即推雜訊」— 每日一次彙總當日自我反思
