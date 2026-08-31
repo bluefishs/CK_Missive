@@ -50,6 +50,7 @@ import hashlib
 import os
 import re
 import sys
+import pathlib
 from pathlib import Path
 
 if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
@@ -139,7 +140,15 @@ def check_vector_freshness() -> tuple[str, dict]:
     try:
         import asyncio
 
-        sys.path.insert(0, str(ROOT / "backend"))
+        # ⚠️ host 是 `<repo>/backend/app/…`，**容器裡是 `/app/app/…`**（ROOT=/app）。
+        #    2026-08-31 實測：只插 `ROOT/"backend"` 時容器內回
+        #    `ModuleNotFoundError: No module named 'app'` ⇒ 判成「不可判定」(RED)
+        #    ⇒ 接進 fitness_daily（跑在容器內）就會是一支**天天紅**的步驟。
+        #    這正是「檢核要在它實際執行的環境裡驗」——host 上跑它完全正常。
+        for cand in (ROOT / "backend", ROOT):
+            if (cand / "app" / "db").is_dir():
+                sys.path.insert(0, str(cand))
+                break
         os.environ.setdefault(
             "DATABASE_URL",
             "postgresql+asyncpg://ck_user:ck_password_2024@127.0.0.1:5434/ck_documents",
@@ -183,7 +192,143 @@ def check_vector_freshness() -> tuple[str, dict]:
     }
 
 
+def _last_sync_ts() -> "float | None":
+    r"""上次 `kb_embedding_incremental_sync` 成功執行的 epoch 秒；取不到回 None。
+
+    走 `lib.paths.cron_events_path()` —— 它已內含「host 是 backend/logs、
+    容器是 /app/logs、**Windows 不採用容器候選**」這三件事。
+    最後一項不是小事：Windows 上 `/app/logs/...` 會被解析成 `D:\app\logs\...`，
+    而那個目錄真的存在（某次誤建），裡面躺著一份舊 cron_events ⇒
+    **讀得到、有資料、看起來很正常**，然後據此做出完全錯誤的判斷。
+
+    取不到就回 None，由呼叫端明講「無法分辨待同步與同步壞了」——
+    **不要猜一個時間**，猜錯的方向是把「同步壞了」讀成「還沒輪到」。
+    """
+    import json
+    from datetime import datetime
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        from lib.paths import cron_events_path
+        fp = cron_events_path()
+    except Exception:
+        return None
+    if not fp or not fp.is_file():
+        return None
+    last = None
+    try:
+        for line in fp.read_text(encoding="utf-8", errors="replace").splitlines():
+            if "kb_embedding_incremental_sync" not in line:
+                continue
+            try:
+                ev = json.loads(line)
+            except Exception:
+                continue
+            if ev.get("job_id") != "kb_embedding_incremental_sync":
+                continue
+            if ev.get("status") != "success":
+                continue
+            ts = ev.get("ts")
+            if not ts:
+                continue
+            try:
+                t = datetime.fromisoformat(ts).timestamp()
+            except Exception:
+                continue
+            if last is None or t > last:
+                last = t
+    except OSError:
+        return None
+    return last
+
+
+def _freshness_only() -> int:
+    """只跑判準 ③（向量庫 ↔ 檔案雜湊）—— 給 fitness_daily 用。
+
+    ## 為什麼要有這個旗標
+
+    owner 2026-08-31：「知識文庫要與系統同步更新，不然僅是舊歷史紀錄，
+    對於系統開發檢視與維護效益低」。
+
+    偵測的節奏必須跟得上它要偵測的東西：
+    **向量同步是每日 05:15，而本支整體掛在 weekly 92 ⇒ 同步壞掉最久要七天才知道。**
+    對一份用來做開發檢視與資訊檢索的文庫，七天的落後正是 owner 說的那個問題。
+
+    ⚠️ **刻意不另寫一支「每日 KB 新鮮度」腳本** —— 判準 ③ 的實作
+    （`check_vector_freshness`）已經是精確的，複製一份出去只會產生
+    兩份會各自演化的判準。這裡只是換一個入口。
+
+    ① 與 ② 不放進每日：①要掃全部 ADR 與地圖、②要掃原始碼，
+    都比較貴，而且它們的變化速度是「人改文件」不是「排程跑」。
+    """
+    status, detail = check_vector_freshness()
+    print("=" * 74)
+    print("知識文庫新鮮度：向量庫 ↔ 檔案雜湊（fitness_daily）")
+    print("=" * 74)
+    if status == "unavailable":
+        print(f"\n✗ 連不到 DB，**不可判定** —— {detail.get('error')}")
+        print("  「查不到」不等於「沒問題」，故不視為通過。")
+        return 2
+
+    last_sync = _last_sync_ts()
+    stale, orphan, never = detail["stale"], detail["orphan"], detail["never"]
+
+    # 分兩級 —— 直接把所有不同步判紅會做出一支天天紅的檢核：
+    # daily 跑 02:00、同步跑 05:15，當天改過的文件在 02:00 看必然「未同步」，
+    # 那是**正常待辦不是故障**。而永遠是紅的訊號與沒有訊號是同一個下場。
+    #
+    #   改在上次同步**之後** → 待同步（YELLOW，預期中）
+    #   改在上次同步**之前**卻還是舊的 → **同步跑了但沒修好**（RED）
+    pending, broken = [], []
+    for rel in stale:
+        f = DOCS / rel
+        try:
+            mtime = f.stat().st_mtime
+        except OSError:
+            broken.append((rel, "檔案讀不到"))
+            continue
+        if last_sync is not None and mtime > last_sync:
+            pending.append(rel)
+        else:
+            broken.append((rel, "上次同步之前就改了，而同步沒修好它"))
+
+    print(f"\n  來源 {detail['files_total']} 個檔")
+    if last_sync is None:
+        print("  ⚠️ 取不到上次同步時間（cron_events 讀不到）——"
+              " 無法分辨「待同步」與「同步壞了」，一律當待確認")
+    else:
+        import datetime as _dt
+        print(f"  上次同步：{_dt.datetime.fromtimestamp(last_sync):%Y-%m-%d %H:%M:%S}")
+    print(f"  待同步（改在上次同步之後）　：{len(pending)}")
+    print(f"  **同步後仍舊**　　　　　　　：{len(broken)}")
+    print(f"  DB 有、來源已刪　　　　　　 ：{len(orphan)}")
+    print(f"  來源有、DB 沒有　　　　　　 ：{len(never)}")
+
+    # orphan／never 不受同步時間影響：來源刪了或從未入庫，同步跑過就該處理掉
+    hard = len(broken) + len(orphan) + len(never)
+    if hard:
+        for rel, why in broken[:5]:
+            print(f"    · [同步後仍舊] {rel} —— {why}")
+        for p in orphan[:3]:
+            print(f"    · [索引殘留] {p}")
+        for p in never[:3]:
+            print(f"    · [從未入庫] {p}")
+        print("\n  ⚠️ 危險在於**畫面上看不出來**：RAG 檢索到舊內容或不存在的文件時，")
+        print("     回答看起來一樣正常。修法：POST /api/knowledge-base/embed（mode=incremental）")
+        print(f"\nStatus: [RED] {hard} 個檔在同步跑過之後仍然不一致")
+        return 2
+    if pending:
+        for p in pending[:5]:
+            print(f"    · [待同步] {p}")
+        print(f"\nStatus: [YELLOW] {len(pending)} 個檔等下一次 05:15 同步（預期中，非故障）")
+        return 1
+    print("\nStatus: [GREEN] 知識文庫與 docs/ 同步")
+    return 0
+
+
 def main() -> int:
+    if "--freshness-only" in sys.argv:
+        return _freshness_only()
+
     print("=" * 74)
     print("四位一體一致性：ADR × 知識地圖 × 架構圖 × 向量庫（weekly 92）")
     print("=" * 74)
