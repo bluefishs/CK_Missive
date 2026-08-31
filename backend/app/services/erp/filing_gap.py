@@ -162,7 +162,8 @@ ORDER BY p.case_code
 
 # 報價缺總價 —— 沒有總價，收入端是空的，毛利無從算起。
 SQL_QUOTATION_NO_PRICE = """
-SELECT q.id AS row_id, q.case_code, p.project_code, COALESCE(q.case_name, '') AS name,
+SELECT q.id AS row_id, q.case_code, p.project_code, p.id AS project_id,
+       COALESCE(p.category, '') AS category, COALESCE(q.case_name, '') AS name,
        COALESCE(p.status, '') AS status,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_quotations q
@@ -192,7 +193,8 @@ ORDER BY q.case_code
 # 換句話說：**04-04 之後建立的報價，沒有任何一筆填過成本**，已經 4.5 個月。
 # 毛利算不出來的真因不是「結案後才回填」，是這個欄位沒有人在用。
 SQL_QUOTATION_NO_COST = """
-SELECT q.id AS row_id, q.case_code, p.project_code, COALESCE(q.case_name, '') AS name,
+SELECT q.id AS row_id, q.case_code, p.project_code, p.id AS project_id,
+       COALESCE(p.category, '') AS category, COALESCE(q.case_name, '') AS name,
        COALESCE(p.status, '') AS status,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_quotations q
@@ -277,6 +279,33 @@ ORDER BY q.case_code
 #
 # ⚠️ 真正該修的是上游：**完工日與驗收日 0/100**。那兩個欄位一旦有人填，
 #    「該不該請款」就不必用天數猜。這裡先用天數，不代表天數是對的答案。
+# 委辦招標（category 01）沒有報價階段 —— 連結不該指向報價單詳情頁。
+#
+# 2026-08-31 owner：「以王駿穠而言皆是已成案，計畫類別 01 委辦招標，
+# 不應出現前述對應報價單或未成案紀錄」。
+#
+# 實測他 6 個執行中案件**全部是 01**，而六張「報價單」的
+# `total_price` 與合約金額完全相同、狀態 confirmed、
+# 且建立時間**晚於**承攬案件（2026-04-04 vs 2025-12-29）——
+# 那是成案後補建的**財務容器**，不是報價。把使用者導去那一頁，
+# 他看到的是一個他從來沒有做過的東西。
+#
+# 承攬案件詳情頁本來就有「財務紀錄」分頁（`FinanceTab`，涵蓋應付與請款），
+# 那才是 01 類案件的正確落點。**不新建頁面** —— 既有的就對。
+def _finance_url(category: str, project_id, quotation_id, tab: str) -> str:
+    """缺口的落點：01 委辦招標 → 承攬案件財務分頁；其餘 → 報價單對應分頁。
+
+    四類都適用（毛利／報價缺總價／請款未收／應付未付）—— 只要那一列
+    掛在報價單上，對 01 類就是錯的落點。
+    ⚠️ **不改偵測本身**：那 8 個 01 類「完全沒有成本資訊」是真的缺口，
+    記一筆應付或核銷即可解除（標案做得到，見 SQL_QUOTATION_NO_COST 的
+    2026-08-17 註解）。要不要把 01 整類排除在毛利追蹤之外，是業務決定。
+    """
+    if (category or "").strip() == "01" and project_id:
+        return f"/contract-cases/{project_id}?tab=finance"
+    return f"/erp/quotations/{quotation_id}?tab={tab}"
+
+
 SQL_NO_BILLING = """
 SELECT cp.id AS row_id, cp.case_code, cp.project_code,
        COALESCE(cp.project_name, '') AS name, cp.contract_amount,
@@ -315,7 +344,9 @@ ORDER BY cp.start_date
 """
 
 SQL_UNPAID_BILLING = """
-SELECT b.id AS row_id, q.id AS quotation_id, q.case_code, p.project_code, COALESCE(q.case_name,'') AS name,
+SELECT b.id AS row_id, q.id AS quotation_id, q.case_code, p.project_code,
+       p.id AS project_id, COALESCE(p.category,'') AS category,
+       COALESCE(q.case_name,'') AS name,
        b.billing_amount AS amount, b.payment_status,
        (CURRENT_DATE - b.billing_date) AS age_days,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
@@ -340,7 +371,9 @@ ORDER BY b.billing_date
 """
 
 SQL_UNPAID_PAYABLE = """
-SELECT v.id AS row_id, q.id AS quotation_id, q.case_code, p.project_code, COALESCE(q.case_name,'') AS name,
+SELECT v.id AS row_id, q.id AS quotation_id, q.case_code, p.project_code,
+       p.id AS project_id, COALESCE(p.category,'') AS category,
+       COALESCE(q.case_name,'') AS name,
        v.payable_amount AS amount, v.payment_status, v.vendor_name,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_vendor_payables v
@@ -429,7 +462,7 @@ class FilingGapService:
                 project_code=r.project_code or "",
                 label=(r.name or "")[:28],
                 detail="沒有總價 —— 收入端是空的",
-                url=f"/erp/quotations/{r.row_id}",
+                url=_finance_url(r.category, r.project_id, r.row_id, "items"),
                 active=(r.status or "") != "已結案",
             ))
 
@@ -453,7 +486,7 @@ class FilingGapService:
                     "有總價但完全沒有成本資訊 —— 毛利算不出來。"
                     "填估列成本、或記一筆應付、或核銷一張發票，任一即可"
                 ),
-                url=f"/erp/quotations/{r.row_id}",
+                url=_finance_url(r.category, r.project_id, r.row_id, "items"),
                 active=True,   # 這條 SQL 本身就排除了已結案
             ))
 
@@ -488,7 +521,7 @@ class FilingGapService:
                 # ⚠️ 請款/應付**沒有自己的詳情路由**（08-02 隨 BillingsTab 一起移除），
                 # 它們只存在於報價詳情的分頁裡。所以連到報價 + `?tab=`
                 # —— `?tab=` 是 08-15 才支援的，不能憑印象假設它可用（已查證）。
-                url=f"/erp/quotations/{r.quotation_id}?tab=receivable",
+                url=_finance_url(r.category, r.project_id, r.quotation_id, "receivable"),
                 active=True,
             ))
 
@@ -504,7 +537,7 @@ class FilingGapService:
                 project_code=r.project_code or "",
                 label=f"{(r.vendor_name or '')[:12]} {int(r.amount or 0):,} 元",
                 detail=f"應付尚未付款（{r.payment_status}）",
-                url=f"/erp/quotations/{r.quotation_id}?tab=payable",
+                url=_finance_url(r.category, r.project_id, r.quotation_id, "payable"),
                 active=True,
             ))
 
