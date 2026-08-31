@@ -400,8 +400,45 @@ class QuotationLegacyImportService:
                 for cc, cn in by_base.get(base, []):
                     if cn and cn == r.get("case_name"):
                         self.dup_candidates.append(
-                            {"new_case_code": code, "existing_case_code": cc, "case_name": cn})
+                            {"new_case_code": code, "existing_case_code": cc,
+                             "case_name": cn, "matched_by": "版次後綴"})
                         break
+
+            # ⚠️ 2026-08-31：上面那段**只認 `-N` 版次後綴**（`B114-B003` vs
+            # `B114-B003-0`），對 CK 制的案號完全無效 —— `CK2025_PM_02_010` 與
+            # `CK2025_PM_02_112` 去掉 `-N` 之後 base 仍然不同 ⇒ 判為不存在 ⇒
+            # **靜靜再建一件**，正是 08-20 那 26 件分身的同一個形狀換了編碼體系。
+            #
+            # 當天實測存量：39 個 PM 案與既有承攬案「同名＋同年＋同委託單位」，
+            # 其中 16 組金額恰為 ×1.05（未稅／含稅的同一件工作）、5 組金額完全相同。
+            # 那批全部卡在「已承攬但無法成案」——因為成案的防重擋住了它們。
+            #
+            # ⇒ 這裡改用**與 `promote_to_project` 相同的判準**（同名＋同年＋
+            # 同委託單位）再掃一次。兩條路徑用同一條規則，否則擋住一邊等於沒擋。
+            #
+            # 一樣**只報不合併**：同名同年同客戶可能真的是兩件工作
+            # （同一客戶同年做兩次透地雷達完全合理），合併屬人的判斷。
+            # 但沉默地再建一次，不是「留給人判斷」，是不給人判斷的機會。
+            already = {d["new_case_code"] for d in self.dup_candidates}
+            todo = {k: v for k, v in missing.items() if k not in already}
+            if todo:
+                rs2 = (await self.db.execute(text(
+                    "SELECT case_code, case_name, year, COALESCE(client_name,'') "
+                    "FROM pm_cases WHERE case_name = ANY(:ns)"
+                ), {"ns": [v.get("case_name") for v in todo.values() if v.get("case_name")]})).all()
+                by_key: dict[tuple, str] = {}
+                for cc, cn, yr, cl in rs2:
+                    by_key.setdefault(((cn or "").strip(), yr, (cl or "").strip()), cc)
+                for code, r in todo.items():
+                    nm = (r.get("case_name") or "").strip()
+                    if not nm:
+                        continue
+                    cl = (r.get("client_name") or "").strip()
+                    hit = by_key.get((nm, r.get("year"), cl))
+                    if hit and hit != code:
+                        self.dup_candidates.append(
+                            {"new_case_code": code, "existing_case_code": hit,
+                             "case_name": nm, "matched_by": "同名＋同年＋同委託單位"})
 
         if dry_run:
             return len(missing) + len(pending_new)
