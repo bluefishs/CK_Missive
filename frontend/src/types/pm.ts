@@ -179,11 +179,16 @@ export interface PMCaseListParams {
   search?: string;
   client_name?: string;
   /**
-   * 是否納入已成案的案件（已承攬且有 project_code）。省略＝後端預設 false。
+   * 是否納入已成案的案件（已承攬且有 project_code）。
    *
-   * 那些案件已移交 `/contract-cases` 列管，不該在邀標/報價頁重複出現
-   * （owner 2026-08-31）。**摘要查詢要帶同一個值**，否則統計卡的分母
-   * 與列表不同（規範 §2.6 ①）。
+   * ⚠️ **省略＝後端預設 `true`（向後相容，見 `schemas/pm/case.py`）。
+   * 要收斂範圍必須明寫 `false`。**
+   *
+   * 已成案的案件已移交 `/contract-cases` 列管，不該在邀標/報價頁重複出現
+   * （owner 2026-08-31）—— 但那是**呼叫端要表達的意圖**，不是預設值。
+   * 省略而以為排除了，會靜靜地多出 136 筆而不報錯。
+   *
+   * **摘要查詢要帶與列表同一個值**，否則統計卡的分母與列表不同（規範 §2.6 ①）。
    */
   include_converted?: boolean;
   [key: string]: unknown;
