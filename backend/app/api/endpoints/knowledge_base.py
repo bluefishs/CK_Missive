@@ -193,8 +193,13 @@ async def summarize_knowledge_card(
     from app.core.ai_connector import get_ai_connector
 
     ai = get_ai_connector()
+    # ⚠️ 2026-08-31：這裡原本兩層繁中防護都沒有。
+    #    實測輸出：「本ADR决定使用pgvector存储768维文件向量…替代原有的关键字对比方法」
+    #    —— 全簡體，而規約是「LLM 輸出禁簡體（prompt 強制 ＋ OpenCC s2twp 雙保險）」。
+    #    兩層都要：prompt 只是要求，模型不一定聽；OpenCC 是確定性的兜底。
     prompt = (
-        f"為以下知識卡片生成 2-3 句摘要：\n\n"
+        f"為以下知識卡片生成 2-3 句摘要。"
+        f"**必須使用繁體中文（臺灣用語）**，不得使用簡體字。\n\n"
         f"標題: {title}\n內容:\n{content[:1000]}\n\n"
         "摘要:"
     )
@@ -205,7 +210,11 @@ async def summarize_knowledge_card(
             max_tokens=200,
             task_type="summary",
         )
-        return JSONResponse({"success": True, "summary": summary})
+        # 第二層：OpenCC s2twp 確定性兜底。沿用 `agent_post_processing._sc2tc`
+        # 而不是再寫一份 —— `agent_synthesis` 也是這樣引用它的（兩處）。
+        from app.services.ai.agent.agent_post_processing import _sc2tc
+
+        return JSONResponse({"success": True, "summary": _sc2tc(summary)})
     except Exception as e:
         logger.error("summarize_knowledge_card failed: %s", e, exc_info=True)
         return JSONResponse({"success": False, "error": "摘要生成失敗，請稍後再試"})
