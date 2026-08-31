@@ -470,8 +470,28 @@ export const EXPENSE_CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }
   { value: '其他', label: '其他' },
 ];
 
-/** 費用發票來源 */
-export type ExpenseSource = 'qr_scan' | 'manual' | 'api' | 'ocr' | 'mof_sync' | 'line_upload';
+/** 費用發票來源
+ *
+ * ⚠️ 2026-08-31：本檔檔頭寫「對應後端 `app/schemas/erp/`」，而這一行**漂了**。
+ * 後端 `ExpenseInvoiceBase.source` 是 9 個值，這裡只有 6 —— 缺三個 `smart_*`。
+ * 後果不是型別錯誤：`EXPENSE_SOURCE_LABELS` 是以本聯集為鍵的 `Record`，
+ * 後端送 `smart_qr` 進來查表得 `undefined` ⇒ **畫面那一欄空白，而 tsc 全綠**
+ * （資料被宣告成這個型別，但那個宣告是假的）。
+ * 實測正式庫 9 筆費用發票裡 **6 筆是 `smart_qr`** —— 缺的是多數，不是邊角。
+ *
+ * ⇒ 手工維護的鏡像不會告訴你它落後了。同族：L104（註解指名了來源檔，
+ *   不代表值是從那裡來的）／memory `hand_copied_constant_across_layers`。
+ */
+export type ExpenseSource =
+  | 'qr_scan'
+  | 'manual'
+  | 'api'
+  | 'ocr'
+  | 'mof_sync'
+  | 'line_upload'
+  | 'smart_qr'
+  | 'smart_ocr'
+  | 'smart_camera';
 
 /** 費用發票狀態 — Phase 5-5 多層審核 */
 export type ExpenseInvoiceStatus =
@@ -544,6 +564,11 @@ export const EXPENSE_SOURCE_LABELS: Record<ExpenseSource, string> = {
   ocr: 'OCR 辨識',
   mof_sync: '財政部同步',
   line_upload: 'LINE 上傳',
+  // 2026-08-31 補：後端一直在寫這三個值，而這裡沒有 ⇒ 查表 undefined。
+  // 正式庫 6/9 筆是 smart_qr。
+  smart_qr: '智慧掃碼',
+  smart_ocr: '智慧辨識',
+  smart_camera: '智慧拍照',
 };
 
 /** 費用發票明細項目 */
