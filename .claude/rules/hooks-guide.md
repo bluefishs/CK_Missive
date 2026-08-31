@@ -70,6 +70,8 @@
 > | pre-commit | 9,674 B、6 項檢查 | ✅ 已於 08-30 補上 secret guard 與 destructive ops |
 > | **pre-push** | **7,787 B、3 階段守門包** | **❌ 不存在 ⇒ 從來沒有跑過一次** |
 > | post-commit | 5,736 B、6 段（**已標為不執行**）| ✅ **2026-08-31 接回，但只搬第 1 段** |
+> | post-checkout / post-merge | 有 | ✅ 有 |
+> | commit-msg | 無 | ✅ commitlint |
 > 
 > **post-commit 只搬「知識地圖增量更新」一段，其餘五段刻意留在死檔裡**：
 > code-ingest 端點是 `require_admin` 而 hook 不帶憑證 ⇒ 必然 401（原檔註解自己
@@ -80,18 +82,21 @@
 > ⚠️ 接回的理由是 owner 2026-08-31：「知識文庫要與系統同步更新，不然僅是舊歷史
 > 紀錄」。實測當時：知識地圖唯一的重生者是 `CK_Missive-Dossier-Compile`（**週排程**），
 > 而 `docs/` 一天改很多次，向量庫索引的又是地圖 ⇒ **知識文庫最多落後一週**。
-> | post-checkout / post-merge | 有 | ✅ 有 |
-> | commit-msg | 無 | ✅ commitlint |
 >
 > **要改 pre-commit 行為請改 `frontend/.husky/pre-commit`。**
 > pre-push 要不要接上見待辦 A46（實跑 467 秒、且會因別的 repo 服務掛掉而擋住本 repo 的 push）。
 
-| Hook | 說明 | 位置 |
+| Hook | 說明 | **實際被執行的位置** |
 |------|------|------|
-| pre-commit | Skills 架構驗證 + TypeScript 編譯 + Python 語法 + 敏感檔案偵測 | `.git/hooks/pre-commit` |
-| post-commit | 知識地圖增量更新 (`--if-stale`，背景執行) | `.git/hooks/post-commit` |
-| post-checkout | 分支切換時自動同步 Skills | `.git/hooks/post-checkout` |
-| post-merge | Pull/Merge 後自動同步 Skills | `.git/hooks/post-merge` |
+| pre-commit | Skills 架構驗證 + TypeScript 編譯 + Python 語法 + 敏感檔案偵測 + secret guard | `frontend/.husky/pre-commit` |
+| post-commit | 知識地圖增量更新 (`--if-stale`，背景執行) | `frontend/.husky/post-commit` |
+| post-checkout | 分支切換時自動同步 Skills | `frontend/.husky/post-checkout` |
+| post-merge | Pull/Merge 後自動同步 Skills | `frontend/.husky/post-merge` |
+| commit-msg | commitlint（subject 不得為 Pascal/Upper case） | `frontend/.husky/commit-msg` |
+
+⚠️ 位置欄原本寫 `.git/hooks/`，那是**錯的**——`core.hooksPath` 指向 husky，
+`.git/hooks/` 底下的同名檔案一個都不會執行。這張表誤導過人：08-29 有人（我）
+把 secret guard 修在 `.git/hooks/pre-commit` 上，而它從不執行。
 
 **pre-commit 檢查項目**:
 1. 禁止直接修改 `_shared/` 目錄
