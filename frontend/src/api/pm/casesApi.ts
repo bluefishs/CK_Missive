@@ -30,6 +30,21 @@ export const pmCasesApi = {
     if (params?.status) queryParams.status = params.status;
     if (params?.category) queryParams.category = params.category;
     if (params?.client_name) queryParams.client_name = params.client_name;
+    // ⚠️ 2026-08-31：這裡**必須用 `!== undefined`，不能用 truthy 判斷**。
+    //
+    // 這個參數的有效值就是 `false`（收斂範圍＝不列已成案），而
+    // `if (params?.include_converted)` 會把 `false` 當成「沒給」丟掉 ⇒
+    // 後端收到空的 ⇒ 用預設 `true` ⇒ 列表回全部。
+    //
+    // owner 2026-08-31 回報「/pm/cases 為何還有 72 筆已承攬」正是這個：
+    // 型別、hook、頁面、後端四層都改好了，**而這一層的手寫白名單沒有複製它**，
+    // 於是那個 false 從來沒有離開過瀏覽器。後端量出來列表與卡片完全一致
+    // （四種組合都對）—— 因為兩邊收到的都是 `true`，一致地錯。
+    //
+    // ⇒ 新增查詢參數時，這個白名單是**第五層**，很容易漏。
+    if (params?.include_converted !== undefined) {
+      queryParams.include_converted = params.include_converted;
+    }
 
     return await apiClient.postList<PMCase>(PM_ENDPOINTS.CASES_LIST, queryParams);
   },
@@ -79,7 +94,11 @@ export const pmCasesApi = {
   },
 
   /** 取得案件統計摘要 */
-  async summary(params?: { year?: number }): Promise<PMCaseSummary> {
+  // `include_converted` 必須在型別裡（2026-08-31）。它原本不在，而呼叫端有傳 ——
+  // TypeScript 對「變數傳給較窄的參數型別」不做多餘屬性檢查，所以編譯通過、
+  // 執行時因為 `params ?? {}` 也真的送出去了。**能動，但沒有人在保證它會繼續能動。**
+  // 這就是為什麼摘要（卡片）是對的而列表是錯的：兩條路徑的參數處理各寫一套。
+  async summary(params?: { year?: number; include_converted?: boolean }): Promise<PMCaseSummary> {
     const response = await apiClient.post<SuccessResponse<PMCaseSummary>>(
       PM_ENDPOINTS.CASES_SUMMARY,
       params ?? {}
