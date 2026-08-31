@@ -35,7 +35,7 @@ async def list_filing_gaps(
     實測 32 筆無金額的承攬案件裡有 14 筆完全沒有指派人，
     那 14 筆才是最容易永遠躺著的。
     """
-    data = await FilingGapService(db).collect(stuck_days=req.stuck_days)
+    data = await FilingGapService(db).collect(stuck_days=req.stuck_days, no_billing_days=req.no_billing_days)
     return SuccessResponse(data=data)
 
 
@@ -47,6 +47,7 @@ async def my_filing_gaps(
 ):
     """我的待填報。"""
     data = await FilingGapService(db).for_user(
-        current_user.id, stuck_days=req.stuck_days
+        current_user.id, stuck_days=req.stuck_days,
+        no_billing_days=req.no_billing_days,
     )
     return SuccessResponse(data=data)

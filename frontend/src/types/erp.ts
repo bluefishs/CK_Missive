@@ -1494,6 +1494,15 @@ export interface FilingGapItem {
   /** 這個案子還在跑嗎。2026-08-17：62 項缺口裡 44 項是已結案的歷史補登，
    *  把 18 項急件埋在裡面就是告警疲勞。 */
   active: boolean;
+  /** 分組鍵 —— 跨模組案號橋樑（見 development-rules §跨模組案號規範）。
+   *  2026-08-31 加：待辦要依案件收合成樹，需要一個穩定的分組依據。
+   *  **不自造 group_id**，用既有的 case_code。 */
+  case_code: string;
+  /** 成案編號；未成案為空。
+   *  ⚠️ `ref` 現在是「成案就顯示 project_code」——在此之前一律顯示
+   *  `case_code`（`CK2025_PM_02_050` 這種邀標期的橋接碼），
+   *  於是 136 筆**已成案**的案子在畫面上看起來像未成案（owner 08-31 回報）。 */
+  project_code: string;
 }
 
 export interface MyFilingGaps {

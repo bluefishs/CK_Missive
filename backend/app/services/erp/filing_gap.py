@@ -65,10 +65,26 @@ UNASSIGNED = "（未指派負責人）"
 @dataclass
 class GapItem:
     kind: str          # 缺什麼
-    ref: str           # 案號或單號
+    ref: str           # 顯示用的編號（成案後＝project_code，未成案＝case_code）
     label: str         # 給人看的名稱
     detail: str        # 缺口說明
     url: str           # 直接可以點進去填的地方
+    # ⭐ 2026-08-31 owner：「為何還有未成案編碼 PM」「應依案件區分樹狀結構呈現」
+    #
+    # 兩件事同一個根：**清單只給了一個字串，既不是正確的編號，也沒有分組鍵。**
+    #
+    # ① 顯示錯編號：`ref` 原本一律用 `case_code`，而那是**邀標/報價期**的
+    #    橋接碼（`CK2025_PM_02_050`）。實測帶 `_PM_` 的報價單 **136 筆已成案**、
+    #    全部都有 `project_code`（`CK2025_02_050`）—— 也就是說畫面上那些
+    #    「PM 編碼」根本不是未成案，是**成案後仍然顯示成案前的號碼**。
+    #    ⇒ `ref` 改為「成案就顯示 project_code」。
+    #
+    # ② 沒有分組鍵：14 筆平鋪成 14 列，同一個案件的多個缺口散在各處。
+    #    `case_code` 是跨模組的唯一橋樑（見 development-rules §跨模組案號規範），
+    #    把它獨立成欄位，前端才有辦法依案件收合成樹。
+    #    **不新增第三個識別碼** —— 用既有的 case_code，不自造 group_id。
+    case_code: str = ""      # 分組鍵（跨模組橋樑，恆存在）
+    project_code: str = ""   # 成案編號；未成案為空
     # 2026-08-17：這個案子還在跑嗎。
     #
     # 實測：32 筆無金額的承攬案件裡 **27 筆已結案**、只有 5 筆執行中；
@@ -146,7 +162,7 @@ ORDER BY p.case_code
 
 # 報價缺總價 —— 沒有總價，收入端是空的，毛利無從算起。
 SQL_QUOTATION_NO_PRICE = """
-SELECT q.id AS row_id, q.case_code, COALESCE(q.case_name, '') AS name,
+SELECT q.id AS row_id, q.case_code, p.project_code, COALESCE(q.case_name, '') AS name,
        COALESCE(p.status, '') AS status,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_quotations q
@@ -176,7 +192,7 @@ ORDER BY q.case_code
 # 換句話說：**04-04 之後建立的報價，沒有任何一筆填過成本**，已經 4.5 個月。
 # 毛利算不出來的真因不是「結案後才回填」，是這個欄位沒有人在用。
 SQL_QUOTATION_NO_COST = """
-SELECT q.id AS row_id, q.case_code, COALESCE(q.case_name, '') AS name,
+SELECT q.id AS row_id, q.case_code, p.project_code, COALESCE(q.case_name, '') AS name,
        COALESCE(p.status, '') AS status,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_quotations q
@@ -239,8 +255,67 @@ ORDER BY q.case_code
 # 這兩類不是「沒填」，是「**該收沒收、該付沒付**」——
 # 對案件負責人來說那比填欄位重要得多。
 # ---------------------------------------------------------------------------
+# 該請款而從未開單 —— 2026-08-31 owner：「頁面僅應未付款項目，是否也須增列應請款機制」。
+#
+# 實測（同日）：**執行中 100 個承攬案件裡，95 個從來沒有開過任何請款單。**
+# 現行六種缺口只涵蓋「已請款但沒收到錢」（active 2 筆）與「應付未付」（12 筆），
+# 而「該請款卻沒開單」完全在座標系之外 —— 金額上大一個量級。
+#
+# ⚠️ **門檻是用公司自己的資料校準的，不是拍的。**三個候選判準：
+#
+#   語意里程碑（已完工／已過結束日）→ **不可用**：
+#       執行中 100 件裡有結束日的只有 10 件，**完工日 0 件、驗收日 0 件**。
+#       判準需要的欄位沒有人在填，用它等於永遠 0 件。
+#   逾 90 天未請款 → **錯的**：
+#       實際第一張請款單距開工的中位數是 **205 天**，且 30 天內無人請款。
+#       用 90 天會把正常節奏叫成缺口（83 件），那是製造噪音不是發現問題。
+#   **逾一年未開單** → 採用：超過公司中位數 1.7 倍，保守且可辯護。
+#       實測命中 **43 件、合約金額 222 萬**。
+#
+# ⚠️ 門檻做成參數（`no_billing_days`）而不是寫死 —— 上面那個 205 天是
+#    **今天的**中位數，資料會變；寫死的數字三個月後沒有人知道它是怎麼來的。
+#
+# ⚠️ 真正該修的是上游：**完工日與驗收日 0/100**。那兩個欄位一旦有人填，
+#    「該不該請款」就不必用天數猜。這裡先用天數，不代表天數是對的答案。
+SQL_NO_BILLING = """
+SELECT cp.id AS row_id, cp.case_code, cp.project_code,
+       COALESCE(cp.project_name, '') AS name, cp.contract_amount,
+       (CURRENT_DATE - cp.start_date) AS age_days,
+       u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
+FROM contract_projects cp
+LEFT JOIN LATERAL (
+    SELECT x.user_id, x.staff_name FROM project_user_assignments x
+    WHERE x.project_id = cp.id OR x.case_code = cp.case_code
+    ORDER BY x.is_primary DESC NULLS LAST, x.id LIMIT 1
+) a ON TRUE
+LEFT JOIN users au ON au.id = a.user_id
+LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
+WHERE cp.status <> '已結案'
+  AND cp.contract_amount IS NOT NULL
+  AND cp.start_date IS NOT NULL
+  -- 三個坑，依序踩過（2026-08-31）：
+  --  1. 不轉型：CURRENT_DATE 減一個未標型別的參數，型別推導會把它當成
+  --     date（date 減 date 回 integer），於是變成 date <= integer 而報
+  --     operator does not exist。
+  --  2. 用兩個冒號轉型：SQLAlchemy 的 BIND_PARAMS 正則有「參數名後面不可
+  --     接冒號」的否定前瞻，那樣寫會讓該參數完全綁不到（同日在
+  --     kb_embedding 踩過，向量搜尋每次都 500）。所以用 CAST(x AS integer)。
+  --  3. ⭐ 註解裡不可以出現冒號加英文字 —— 那個正則**掃整段文字、
+  --     不排除 SQL 註解**。我第一版在這裡寫了一個冒號參數當範例，
+  --     SQLAlchemy 把它當成真的參數（SQL 編譯後出現 $1／$2 兩個位置），
+  --     而它沒有值 ⇒ 照樣 500。
+  --     **解析器的掃描範圍包含了描述它的文字** —— 同日第四次踩到同型。
+  AND cp.start_date <= CURRENT_DATE - CAST(:no_billing_days AS integer)
+  AND NOT EXISTS (
+      SELECT 1 FROM erp_billings b
+      JOIN erp_quotations q ON q.id = b.erp_quotation_id
+      WHERE q.case_code = cp.case_code
+  )
+ORDER BY cp.start_date
+"""
+
 SQL_UNPAID_BILLING = """
-SELECT b.id AS row_id, q.id AS quotation_id, q.case_code, COALESCE(q.case_name,'') AS name,
+SELECT b.id AS row_id, q.id AS quotation_id, q.case_code, p.project_code, COALESCE(q.case_name,'') AS name,
        b.billing_amount AS amount, b.payment_status,
        (CURRENT_DATE - b.billing_date) AS age_days,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
@@ -254,11 +329,18 @@ LEFT JOIN LATERAL (
 LEFT JOIN users au ON au.id = a.user_id
 LEFT JOIN users u ON u.id = COALESCE(au.canonical_user_id, au.id)
 WHERE p.status <> '已結案' AND b.payment_status <> 'paid'
+  -- ⚠️ 2026-08-31：**請款日在未來的不是待辦**。
+  --    `age_days = CURRENT_DATE - billing_date` 對未來日期是負數，
+  --    畫面上會寫「請款已 -61 天未收」—— 那句話沒有意義，而且它
+  --    把「還沒到期」與「逾期未收」混成同一件事。
+  --    實測 24 筆 pending 裡 **10 筆的請款日在未來**（42%），
+  --    也就是說待辦裡有四成是還不能做的事。
+  AND b.billing_date <= CURRENT_DATE
 ORDER BY b.billing_date
 """
 
 SQL_UNPAID_PAYABLE = """
-SELECT v.id AS row_id, q.id AS quotation_id, q.case_code, COALESCE(q.case_name,'') AS name,
+SELECT v.id AS row_id, q.id AS quotation_id, q.case_code, p.project_code, COALESCE(q.case_name,'') AS name,
        v.payable_amount AS amount, v.payment_status, v.vendor_name,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_vendor_payables v
@@ -297,7 +379,7 @@ class FilingGapService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def collect(self, stuck_days: int = 3) -> dict[str, Any]:
+    async def collect(self, stuck_days: int = 3, no_billing_days: int = 365) -> dict[str, Any]:
         by_person: dict[str, PersonGaps] = {}
 
         def bucket(user_id: Optional[int], staff: str) -> PersonGaps:
@@ -329,7 +411,9 @@ class FilingGapService:
         for r in rows:
             bucket(r.user_id, r.staff).items.append(GapItem(
                 kind="承攬案件缺合約金額",
-                ref=r.case_code or r.project_code or "",
+                ref=r.project_code or r.case_code or "",
+                case_code=r.case_code or "",
+                project_code=r.project_code or "",
                 label=(r.name or "")[:28],
                 detail="沒有合約金額 —— 毛利與應收都算不出來",
                 url=f"/contract-cases/{r.row_id}",
@@ -340,7 +424,9 @@ class FilingGapService:
         for r in rows:
             bucket(r.user_id, r.staff).items.append(GapItem(
                 kind="報價缺總價",
-                ref=r.case_code or "",
+                ref=r.project_code or r.case_code or "",
+                case_code=r.case_code or "",
+                project_code=r.project_code or "",
                 label=(r.name or "")[:28],
                 detail="沒有總價 —— 收入端是空的",
                 url=f"/erp/quotations/{r.row_id}",
@@ -357,7 +443,9 @@ class FilingGapService:
                 # 全部是 2026-03-17 一次性 xlsx 匯入）。記一筆應付或核銷
                 # 同樣能解除這個缺口，而那是他們本來就會做的事。
                 kind="毛利算不出來（無成本資訊）",
-                ref=r.case_code or "",
+                ref=r.project_code or r.case_code or "",
+                case_code=r.case_code or "",
+                project_code=r.project_code or "",
                 label=(r.name or "")[:28],
                 # detail 明講**三條路都可以**：不指定一定要填估列四欄，
                 # 否則就等於在要求標案做它做不到的事（owner 08-17 的原話）。
@@ -369,11 +457,32 @@ class FilingGapService:
                 active=True,   # 這條 SQL 本身就排除了已結案
             ))
 
+        # 該請款而從未開單 —— 比「已請款沒收到」更上游：連收入的入口都還沒開。
+        rows = (await self.db.execute(
+            text(SQL_NO_BILLING), {"no_billing_days": no_billing_days}
+        )).all()
+        for r in rows:
+            bucket(r.user_id, r.staff).items.append(GapItem(
+                kind="該請款未開單",
+                ref=r.project_code or r.case_code or "",
+                case_code=r.case_code or "",
+                project_code=r.project_code or "",
+                label=f"合約 {int(r.contract_amount or 0):,} 元",
+                detail=(
+                    f"已開工 {r.age_days} 天、合約金額已填，"
+                    f"而**一張請款單都沒有** —— 收入端還沒開始"
+                ),
+                url=f"/contract-cases/{r.row_id}",
+                active=True,   # SQL 已排除已結案
+            ))
+
         rows = (await self.db.execute(text(SQL_UNPAID_BILLING))).all()
         for r in rows:
             bucket(r.user_id, r.staff).items.append(GapItem(
                 kind="請款未收款",
-                ref=f"{r.case_code or ''} #{r.row_id}",
+                ref=f"{r.project_code or r.case_code or ''} #{r.row_id}",
+                case_code=r.case_code or "",
+                project_code=r.project_code or "",
                 label=f"{int(r.amount or 0):,} 元",
                 detail=f"請款已 {r.age_days} 天未收（{r.payment_status}）",
                 # ⚠️ 請款/應付**沒有自己的詳情路由**（08-02 隨 BillingsTab 一起移除），
@@ -390,7 +499,9 @@ class FilingGapService:
                 # ref 帶單據序號 —— 實測 CK2026_PM_01_005 有**兩筆**同廠商同金額的
                 # 應付（id 65/66，description 皆空）。只顯示案號的話兩行長得一模一樣，
                 # 使用者會以為是畫面重複而略過它們（而其中一筆可能真的是重複建立）。
-                ref=f"{r.case_code or ''} #{r.row_id}",
+                ref=f"{r.project_code or r.case_code or ''} #{r.row_id}",
+                case_code=r.case_code or "",
+                project_code=r.project_code or "",
                 label=f"{(r.vendor_name or '')[:12]} {int(r.amount or 0):,} 元",
                 detail=f"應付尚未付款（{r.payment_status}）",
                 url=f"/erp/quotations/{r.quotation_id}?tab=payable",
@@ -447,9 +558,10 @@ class FilingGapService:
             ],
         }
 
-    async def for_user(self, user_id: int, stuck_days: int = 3) -> dict[str, Any]:
+    async def for_user(self, user_id: int, stuck_days: int = 3,
+                       no_billing_days: int = 365) -> dict[str, Any]:
         """單一使用者的待填報 —— 給「我的待辦」用。"""
-        data = await self.collect(stuck_days=stuck_days)
+        data = await self.collect(stuck_days=stuck_days, no_billing_days=no_billing_days)
         mine = [p for p in data["people"] if p["user_id"] == user_id]
         items = [i for p in mine for i in p["items"]]
         return {

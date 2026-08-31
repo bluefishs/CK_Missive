@@ -30,9 +30,10 @@
  *  · 每一項都可以直接點過去填，不是只告訴你有問題
  *  · 不顯示別人的缺口（那在 ERP 管理者頁），這裡只講「我的」
  */
-import React from 'react';
-import { Card, List, Tag, Typography, Skeleton } from 'antd';
-import { FormOutlined, RightOutlined } from '@ant-design/icons';
+import React, { useMemo } from 'react';
+import { Card, Tree, Tag, Typography, Skeleton } from 'antd';
+import type { DataNode } from 'antd/es/tree';
+import { FormOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -44,6 +45,10 @@ const { Text } = Typography;
 
 const KIND_COLOR: Record<string, string> = {
   // 金額相關的排前面用紅／橙 —— 它們直接影響毛利與現金流
+  // 2026-08-31 owner：「是否也須增列應請款機制」。實測執行中 100 案有 95 案
+  // 從未開過請款單；逾一年未開單者 43 件、222 萬 —— 金額上比未付款大一個量級，
+  // 所以排在最前面用 red。
+  該請款未開單: 'red',
   承攬案件缺合約金額: 'red',
   請款未收款: 'volcano',
   應付未付款: 'orange',
@@ -68,6 +73,57 @@ export const MyFilingGapsCard: React.FC = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  // ⭐ 2026-08-31 owner：「應依案件區分樹狀結構呈現，避免視窗記錄過長」。
+  //
+  // 依 `case_code` 分組 —— 那是跨模組的唯一橋樑（development-rules
+  // §跨模組案號規範），報價、承攬、請款、應付都掛在同一個值上。
+  // **不自造 group_id**：再造一個識別碼就是第二份事實。
+  //
+  // 標題顯示的編號用 `project_code`（成案編號），沒有才退回 `case_code`
+  // —— 在此之前一律顯示 case_code，於是 136 筆已成案的案子在畫面上
+  // 帶著 `_PM_` 看起來像未成案（owner 同日回報的正是這個）。
+  //
+  // 預設全部收合：owner 要的是「視窗不要過長」，展開一層就失去意義。
+  const treeData = useMemo<DataNode[]>(() => {
+    const active = (data?.items ?? []).filter(i => i.active);
+    const groups = new Map<string, typeof active>();
+    for (const it of active) {
+      // case_code 理論上恆存在；真的沒有就用 ref 當退路，
+      // 而不是丟進一個「其他」桶 —— 那會讓兩個不同案子看起來是同一個。
+      const key = it.case_code || it.ref;
+      const arr = groups.get(key);
+      if (arr) arr.push(it); else groups.set(key, [it]);
+    }
+    return [...groups.entries()].map(([key, items]) => {
+      const shown = items[0]?.project_code || key;
+      const name = items.find(i => i.label)?.label ?? '';
+      return {
+        key,
+        selectable: false,
+        title: (
+          <span>
+            <Text strong>{shown}</Text>
+            {name && <Text type="secondary" style={{ marginLeft: 6 }}>{name}</Text>}
+            <Tag color="orange" style={{ marginLeft: 8 }}>{items.length}</Tag>
+          </span>
+        ),
+        children: items.map((it, n) => ({
+          key: `${key}#${n}`,
+          isLeaf: true,
+          title: (
+            <span
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate(it.url)}
+            >
+              <Tag color={KIND_COLOR[it.kind] ?? 'default'}>{it.kind}</Tag>
+              <Text type="secondary" style={{ fontSize: 12 }}>{it.detail}</Text>
+            </span>
+          ),
+        })),
+      };
+    });
+  }, [data, navigate]);
+
   if (isLoading) {
     return <Card size="small" style={{ marginBottom: 16 }}><Skeleton active paragraph={{ rows: 2 }} /></Card>;
   }
@@ -86,36 +142,14 @@ export const MyFilingGapsCard: React.FC = () => {
           <FormOutlined style={{ marginRight: 8 }} />
           我的案件待辦
           <Tag color="orange" style={{ marginLeft: 8 }}>{active.length}</Tag>
+          <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+            {treeData.length} 個案件
+          </Text>
         </span>
       }
     >
-      <List
-        size="small"
-        dataSource={active.slice(0, 8)}
-        renderItem={(item) => (
-          <List.Item
-            style={{ cursor: 'pointer' }}
-            onClick={() => navigate(item.url)}
-            actions={[<RightOutlined key="go" style={{ color: '#bfbfbf' }} />]}
-          >
-            <List.Item.Meta
-              title={
-                <span>
-                  <Tag color={KIND_COLOR[item.kind] ?? 'default'}>{item.kind}</Tag>
-                  <Text strong>{item.ref}</Text>
-                  {item.label && <Text type="secondary"> {item.label}</Text>}
-                </span>
-              }
-              description={<Text type="secondary" style={{ fontSize: 12 }}>{item.detail}</Text>}
-            />
-          </List.Item>
-        )}
-      />
-      {active.length > 8 && (
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          另有 {active.length - 8} 項
-        </Text>
-      )}
+      {/* 預設收合：點案件才展開它的缺口，清單不會一路往下長 */}
+      <Tree treeData={treeData} blockNode selectable={false} />
       {closedCount > 0 && (
         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
           （已結案案件的歷史補登 {closedCount} 項未列入，非急件）
