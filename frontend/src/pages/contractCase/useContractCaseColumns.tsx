@@ -16,8 +16,6 @@ import Highlighter from 'react-highlight-words';
 import dayjs from 'dayjs';
 import type { Project } from '../../types/api';
 import {
-  CATEGORY_OPTIONS,
-  normalizeCategory,
   getCategoryTagColor,
   getCategoryTagText,
   getStatusColor,
@@ -171,8 +169,17 @@ export function useContractCaseColumns(
       key: 'category',
       width: 90,
       align: 'center',
-      filters: CATEGORY_OPTIONS.map(c => ({ text: c.label, value: c.value })),
-      onFilter: (value, record) => normalizeCategory(record.category) === value,
+      // ⚠️ 2026-08-31：**移除欄位漏斗篩選**（owner 回報「對應篩選無資料，頁面空白」）。
+      //
+      // 結構性錯配：本頁是**後端分頁**（`dataSource` 只有當前 10 筆，
+      // 而分頁顯示的「共 175 項」來自伺服器），
+      // 而 AntD 的 `filters`＋`onFilter` 是**前端篩選**，只看得到那 10 筆。
+      // ⇒ 選了一個當前頁沒有的類別，表格就空了，而分頁仍寫「共 175 項」。
+      // 那不是「沒有資料」，是「這一頁沒有」——兩者在畫面上完全相同。
+      //
+      // **不改成後端篩選，而是移除** —— 工具列已經有「計畫類別」「案件狀態」
+      // 兩個下拉，它們會進查詢參數、由後端篩全庫。留著欄位漏斗等於
+      // 同一件事有兩套機制，而其中一套是壞的。
       render: (category) => (
         <Tag color={getCategoryTagColor(category)}>
           {getCategoryTagText(category)}
@@ -185,8 +192,7 @@ export function useContractCaseColumns(
       key: 'status',
       width: 80,
       align: 'center',
-      filters: availableStatuses.map(s => ({ text: getStatusLabel(s), value: s })),
-      onFilter: (value, record) => record.status === value,
+      // 同上：狀態的後端篩選在工具列，欄位漏斗只看得到當前頁 ⇒ 移除
       render: (status) => <Tag color={getStatusColor(status)}>{getStatusLabel(status)}</Tag>,
     },
     {
