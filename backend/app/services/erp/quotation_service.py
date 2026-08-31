@@ -265,8 +265,24 @@ class ERPQuotationService(AuditableServiceMixin):
 
         owner 2026-08-21：「報價單也尚未對應承辦同仁」。
 
-        資料本來就通 —— 承辦同仁掛在 `project_user_assignments.case_code` 上，
-        而報價單也有 case_code；缺的只是把它帶出來。
+        ⚠️ **2026-08-31 更正：原本這段寫「承辦同仁掛在
+        `project_user_assignments.case_code` 上」—— 那句話只對一半。**
+
+        `project_user_assignments` 有兩條綁法，而且是**互斥地**使用：
+          · `case_code` —— 邀標／報價階段，還沒成案、沒有 project_id 可寫
+          · `project_id` —— 成案之後從承攬案件那一側指派
+
+        只比 `case_code` 的話，**成案後才指派的承辦全部查不到**。
+        owner 回報 `/erp/quotations/541` 沒有承辦；實查該案
+        （CK2026_GN_02_001）有承攬案件 id 200、也有指派 id 249，
+        而那筆指派的 `case_code` 是空的、只綁 `project_id=200`。
+        全庫實測 **7 張報價單**因此看不到承辦（168/170/171/172/175/389/541）。
+
+        ⚠️ 這是**同族第七處**。2026-08-29 一天內修了四處
+        （quotation_document／filing_gap／project_repository／
+        get_user_accessible_project_ids），隔一輪又在 rls_filter 找到兩處，
+        而這一處是 owner 從畫面上回報才發現的。
+        ⇒ 「修完第一處要 grep 整個 repo」這件事，我到現在還沒做徹底。
 
         **不另建一套人員關聯**：邀標案件（`/pm/cases/:id?tab=staff`）看到的
         就是同一份，兩邊各自維護一份人員名單才是問題的開始。
@@ -277,14 +293,25 @@ class ERPQuotationService(AuditableServiceMixin):
         if not codes:
             return {}
         rows = (await self.db.execute(text("""
-            SELECT pa.case_code,
+            SELECT k.case_code,
                    string_agg(DISTINCT COALESCE(u.full_name, u.username), '、') AS names
-              FROM project_user_assignments pa
-              LEFT JOIN users au ON au.id = pa.user_id
+              FROM (
+                    -- 綁 case_code 的指派（邀標／報價階段）
+                    SELECT pa.case_code, pa.user_id, pa.status
+                      FROM project_user_assignments pa
+                     WHERE pa.case_code = ANY(:cs)
+                    UNION ALL
+                    -- 綁 project_id 的指派（成案之後）—— 反查該專案的 case_code
+                    SELECT cp.case_code, pa2.user_id, pa2.status
+                      FROM project_user_assignments pa2
+                      JOIN contract_projects cp ON cp.id = pa2.project_id
+                     WHERE pa2.project_id IS NOT NULL
+                       AND cp.case_code = ANY(:cs)
+                   ) k
+              LEFT JOIN users au ON au.id = k.user_id
               LEFT JOIN users u  ON u.id = COALESCE(au.canonical_user_id, au.id)
-             WHERE pa.case_code = ANY(:cs)
-               AND COALESCE(pa.status, 'active') <> 'inactive'
-             GROUP BY pa.case_code
+             WHERE COALESCE(k.status, 'active') <> 'inactive'
+             GROUP BY k.case_code
         """), {"cs": codes})).all()
         return {r[0]: r[1] for r in rows if r[1]}
 

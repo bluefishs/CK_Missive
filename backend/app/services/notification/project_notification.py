@@ -39,18 +39,44 @@ class ProjectNotificationService:
             團隊成員清單 [{user_id, user_name, email, role}]
         """
         try:
-            # 從 project_user_assignment 關聯表查詢專案成員
+            # ⚠️ 2026-08-31：這段**從來沒有成功過**。
+            #
+            # 原本寫 `FROM project_user_assignment`（單數），而資料表是
+            # `project_user_assignments`（複數）⇒ 每次都拋
+            # `relation "project_user_assignment" does not exist`，
+            # 而下面的 `except` 記一行 log 就 `return []`
+            # ⇒ **每個專案在呼叫端看起來都是「沒有團隊成員」**。
+            # 四個呼叫端全部受影響，包括發送專案通知的那一條
+            # （L128／L138）—— 也就是說專案通知從來沒有寄給任何人。
+            #
+            # 為什麼沒有人發現：回傳空陣列與「這個專案真的沒有指派」
+            # 在畫面上完全相同，而 log 沒有人在讀。
+            # 那個 SQLAlchemy 常數叫 `project_user_assignment`（單數），
+            # 這段手寫 SQL 大概是照著它抄的 —— **ORM 的物件名不是資料表名**。
+            #
+            # ⚠️ 同時補上雙路查找：指派可能綁 `case_code`（邀標階段，
+            # 還沒有 project_id 可寫）或 `project_id`（成案之後）。
+            # 只認其一會漏掉另一半 —— 同族第八處（見 quotation_service
+            # `_get_staff_names_batch` 的同日修法）。
             result = await db.execute(
                 text("""
-                    SELECT
+                    SELECT DISTINCT
                         u.id as user_id,
                         COALESCE(u.full_name, u.username) as user_name,
                         u.email,
-                        pua.role
-                    FROM project_user_assignment pua
-                    JOIN users u ON pua.user_id = u.id
-                    WHERE pua.project_id = :project_id
-                      AND COALESCE(pua.status, 'active') = 'active'
+                        k.role
+                    FROM (
+                          SELECT pua.user_id, pua.role, pua.status
+                            FROM project_user_assignments pua
+                           WHERE pua.project_id = :project_id
+                          UNION ALL
+                          SELECT pua2.user_id, pua2.role, pua2.status
+                            FROM project_user_assignments pua2
+                            JOIN contract_projects cp ON cp.case_code = pua2.case_code
+                           WHERE pua2.case_code IS NOT NULL AND cp.id = :project_id
+                         ) k
+                    JOIN users u ON k.user_id = u.id
+                    WHERE COALESCE(k.status, 'active') = 'active'
                 """),
                 {"project_id": project_id}
             )
@@ -65,7 +91,11 @@ class ProjectNotificationService:
                 for row in rows
             ]
         except Exception as e:
-            logger.error(f"獲取專案團隊成員失敗: {e}", exc_info=True)
+            # 保留吞錯（通知失敗不該讓主流程掛掉），但要知道它的代價：
+            # **2026-08-31 之前這裡吞的是一個必然發生的錯**，而回傳 []
+            # 與「真的沒有成員」在呼叫端無法分辨。
+            # ⇒ 若日後再次頻繁進到這裡，那是真的壞了，不是偶發。
+            logger.error(f"獲取專案團隊成員失敗（project_id={project_id}）: {e}", exc_info=True)
             return []
 
     async def setup_project_notifications(
