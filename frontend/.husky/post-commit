@@ -30,8 +30,18 @@
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 
 # 只在知識源真的變動時才重生（`--if-stale` 自己也會再判一次）
+#
+# ⚠️ 結尾的 `|| true` 不可省。husky 的 shim 是 `sh -e "$s"` ——
+#    **每一支 hook 都被外部注入 `-e`**，而 `grep` 無匹配時退出碼是 1，
+#    `VAR=$(...)` 的指派**在 `-e` 下不豁免**（與 `[ ] && cmd` 那種串列相反）。
+#    ⇒ 沒有 `|| true` 時，任何「不含知識源」的 commit 都會讓這支在第一行
+#      當場中止，husky 印 `post-commit script failed (code 1)`，
+#      而底下的邏輯一行都不會跑。第一版就是這樣，實測當場重現。
+#
+#    這也是我原本那次掃描的盲區：我掃「**檔案內含** `set -e`」的 .sh，
+#    而 husky 的 `-e` 是從外面來的 ⇒ 四支既有 husky hook 一支都沒掃到。
 KNOWLEDGE_SOURCES=$(git diff-tree --no-commit-id --name-only -r HEAD |
-  grep -E '\.claude/(skills|rules|agents|commands)/|docs/(adr|diagrams|knowledge-map)/|docs/architecture/')
+  grep -E '\.claude/(skills|rules|agents|commands)/|docs/(adr|diagrams|knowledge-map)/|docs/architecture/' || true)
 
 if [ -n "$KNOWLEDGE_SOURCES" ]; then
   SCRIPT="$PROJECT_ROOT/.claude/scripts/generate-knowledge-map.cjs"
