@@ -586,6 +586,64 @@ class QuotationLegacyImportService:
             })
         return {"assigned": len(todo), "unmatched_sheets": unmatched}
 
+    @staticmethod
+    def _legacy_base(ln: Optional[str]) -> Optional[str]:
+        """取估價單編號的 base（去掉版次後綴）。
+
+            B114-B048-1  →  B114-B048
+            B114-B048    →  B114-B048
+            B114-C033a-0 →  B114-C033a   ← **子碼 a/b/c 保留**
+
+        ⚠️ 子碼刻意留在 base 裡：`C033a` 與 `C033b` 是**同一份估價單的分項子單**
+        （實測 `C014a` 68,000 ＋ `C014b` 188,090，各涵蓋不同部分），
+        把它們當成同一張會把兩筆真實金額併成一筆。
+        版次（尾端 `-N`）才是同一張單的不同版本。
+        """
+        m = re.match(r"^([A-Z]\d+-[A-Z]\d+[a-z]*)(?:-(.*))?$", (ln or "").strip())
+        return m.group(1) if m else None
+
+    async def _detect_revision_dups(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """檔案裡的編號，其 base 是否已經以**別的版次**存在於資料庫。
+
+        回傳候選清單（只報不動）。取不到 base 的編號（格式異常）直接略過 ——
+        猜不出來就不猜，那類編號會出現在 `unparsable_legacy_no` 讓人看。
+        """
+        bases: dict[str, str] = {}
+        unparsable: list[str] = []
+        for r in rows:
+            ln = r.get("legacy_no")
+            b = self._legacy_base(ln)
+            if b is None:
+                if ln:
+                    unparsable.append(ln)
+            else:
+                bases.setdefault(b, ln)
+        self.unparsable_legacy_no = sorted(set(unparsable))
+        if not bases:
+            return []
+
+        # 撈出所有 base 相符的既有報價單（用 LIKE 前綴，再於 Python 精確比對 base）
+        found = (await self.db.execute(text(
+            "SELECT legacy_quotation_no, case_code, total_price FROM erp_quotations "
+            "WHERE deleted_at IS NULL AND legacy_quotation_no IS NOT NULL"
+        ))).all()
+        by_base: dict[str, list[tuple]] = {}
+        for ln, cc, amt in found:
+            b = self._legacy_base(ln)
+            if b:
+                by_base.setdefault(b, []).append((ln, cc, amt))
+
+        out: list[dict[str, Any]] = []
+        for b, incoming_ln in bases.items():
+            for ln, cc, amt in by_base.get(b, []):
+                if ln != incoming_ln:  # 完整編號相同的走既有的 to_update，不是這裡的事
+                    out.append({
+                        "incoming": incoming_ln, "existing": ln,
+                        "base": b, "existing_case_code": cc,
+                        "existing_amount": float(amt or 0),
+                    })
+        return out
+
     async def run(self, content: bytes, *, dry_run: bool = True,
                   user_id: Optional[int] = None) -> dict[str, Any]:
         rows = parse_workbook(content)
@@ -602,6 +660,23 @@ class QuotationLegacyImportService:
                 )
             )).scalars().all()
         }
+
+        # ⚠️ 2026-08-31：`existing` 用**完整編號**比對，而版次後綴會讓同一份
+        # 估價單被判成兩張不同的單。實測後果（owner 回報「報價單匯入搞到整個
+        # 系統都錯亂」後查證）：
+        #
+        #   03-17 匯入 `B114-B048`   ── 48 張
+        #   08-20 匯入 `B114-B048-1` ── 179 張，其中 49 張與既有的同一份估價單
+        #   ⇒ 03-17 那批 **48 張裡有 42 張被重新建了一次**
+        #   ⇒ 全庫 44 組 / 91 張是同一份估價單的多筆紀錄，**重複 47 張、
+        #      NT$6,144,188（占報價單總額 6.0%）**
+        #   ⇒ 連帶 08-21 自動補建 **179 筆邀標案件**（占全部 253 筆的 71%），
+        #      其中 72 筆同名同年同客戶互為分身
+        #
+        # 這裡**只報不合併**：版次要保留幾版是業務政策（最新版 vs 全部保留），
+        # 而且 `C033a`／`C033b` 那種子碼是**分項子單、不是版次**，合併會出錯。
+        # 但沉默地再建一次不是「留給人判斷」，是不給人判斷的機會。
+        self.revision_candidates: list[dict[str, Any]] = await self._detect_revision_dups(rows)
 
         to_create, to_update, skipped = [], [], []
         seen: dict[str, dict] = {}
@@ -681,6 +756,16 @@ class QuotationLegacyImportService:
             # 合併只補空缺、不會覆蓋，所以衝突欄位保留的是先遇到的那份。
             "conflicts": conflicts,
             "conflicts_count": len(conflicts),
+            # ⚠️ 2026-08-31 新增：**同一份估價單、不同版次**。
+            # 這是 08-20 那次匯入把 03-17 的 48 張裡 42 張重建一次的形狀 ——
+            # 比對用完整編號，`B114-B048` 與 `B114-B048-1` 於是各成一張。
+            # 全庫殘留：44 組 / 91 張，重複 47 張 NT$6,144,188（總額的 6.0%）。
+            # **這個數字不為 0 時，`will_create` 就不能照單全收。**
+            "revision_dups": self.revision_candidates,
+            "revision_dups_count": len(self.revision_candidates),
+            # 編號格式解析不出來的（例如 `B110-012-v6`、`20260512-01`）——
+            # 這些不在上面的偵測範圍內，要人看一眼。
+            "unparsable_legacy_no": getattr(self, "unparsable_legacy_no", []),
             "sample_create": [
                 {"legacy_no": r["legacy_no"], "case_name": r["case_name"],
                  "client_name": r["client_name"], "total_price": str(r["total_price"] or ""),
