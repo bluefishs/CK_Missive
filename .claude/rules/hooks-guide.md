@@ -69,7 +69,17 @@
 > |---|---|---|
 > | pre-commit | 9,674 B、6 項檢查 | ✅ 已於 08-30 補上 secret guard 與 destructive ops |
 > | **pre-push** | **7,787 B、3 階段守門包** | **❌ 不存在 ⇒ 從來沒有跑過一次** |
-> | post-commit | 5,736 B（知識地圖增量更新）| ❌ 不存在 |
+> | post-commit | 5,736 B、6 段（**已標為不執行**）| ✅ **2026-08-31 接回，但只搬第 1 段** |
+> 
+> **post-commit 只搬「知識地圖增量更新」一段，其餘五段刻意留在死檔裡**：
+> code-ingest 端點是 `require_admin` 而 hook 不帶憑證 ⇒ 必然 401（原檔註解自己
+> 寫著，且實測 24 小時 0 筆）；skill-evolution 與導覽 DB 同步同樣需要憑證且有
+> 副作用；skills 格式驗證 pre-commit 已在做；ER model 那段只是印一行字。
+> **接回一支死掉的 hook 不等於要把它整支搬過來** —— 那六段裡有五段搬過去也不會動。
+> 
+> ⚠️ 接回的理由是 owner 2026-08-31：「知識文庫要與系統同步更新，不然僅是舊歷史
+> 紀錄」。實測當時：知識地圖唯一的重生者是 `CK_Missive-Dossier-Compile`（**週排程**），
+> 而 `docs/` 一天改很多次，向量庫索引的又是地圖 ⇒ **知識文庫最多落後一週**。
 > | post-checkout / post-merge | 有 | ✅ 有 |
 > | commit-msg | 無 | ✅ commitlint |
 >

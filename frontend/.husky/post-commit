@@ -1,0 +1,47 @@
+#!/bin/sh
+# ============================================================
+# Post-Commit — 知識地圖增量更新（2026-08-31 接回）
+# ============================================================
+# owner：「知識文庫要與系統同步更新，不然僅是舊歷史紀錄，
+#         對於系統開發檢視與維護效益低」
+#
+# 為什麼要接回：
+#   `.git/hooks/post-commit` 裡本來就有這段，而 `core.hooksPath`
+#   指向 `frontend/.husky/_` ⇒ **那個檔 git 從不執行**，而 husky
+#   底下沒有 post-commit ⇒ **提交時從來不會重生知識地圖**。
+#   （同 L113：我修好的守衛修在一個 git 從不執行的檔案上。）
+#
+#   後果實測（2026-08-31）：
+#     · 知識地圖唯一的重生者是 `CK_Missive-Dossier-Compile` —— **週排程**
+#     · 而 `docs/` 一天改很多次
+#     · 向量庫（kb_chunks）索引的是地圖
+#     ⇒ 知識文庫最多可落後一週，正是 owner 說的「舊歷史紀錄」
+#
+# ⚠️ **只接回這一段。**原檔另有五段刻意不搬：
+#     · code-ingest：端點是 require_admin 而 hook 不帶憑證 ⇒ 必然 401
+#       （原檔註解自己寫著，且實測 24 小時 0 筆）。要自動入圖的正解是
+#       容器內排程，不是讓每個人的 git hook 帶管理員憑證。
+#     · skill-evolution／navigation DB 同步：有副作用且同樣需要憑證。
+#     · skills 格式驗證：pre-commit 已經在做。
+#     · ER model 提醒：只是印一行字。
+#
+# 非阻塞：背景執行，不影響 commit 速度。
+
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+
+# 只在知識源真的變動時才重生（`--if-stale` 自己也會再判一次）
+KNOWLEDGE_SOURCES=$(git diff-tree --no-commit-id --name-only -r HEAD |
+  grep -E '\.claude/(skills|rules|agents|commands)/|docs/(adr|diagrams|knowledge-map)/|docs/architecture/')
+
+if [ -n "$KNOWLEDGE_SOURCES" ]; then
+  SCRIPT="$PROJECT_ROOT/.claude/scripts/generate-knowledge-map.cjs"
+  if [ -f "$SCRIPT" ]; then
+    echo "[Post-commit] 知識源有變動，背景重生知識地圖（--if-stale）"
+    (cd "$PROJECT_ROOT" && node "$SCRIPT" --if-stale > /dev/null 2>&1) &
+  else
+    # 腳本不見了要出聲 —— 靜默跳過會讓「沒有重生」看起來像「不需要重生」
+    echo "[Post-commit] ⚠️ 找不到 $SCRIPT，知識地圖未更新"
+  fi
+fi
+
+exit 0
