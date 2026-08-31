@@ -194,9 +194,6 @@
     "heterogeneous_work_audit.py": {
       "self_path": 1
     },
-    "hook_reachability_audit.py": {
-      "self_path": 1
-    },
     "http_method_convention_audit.py": {
       "self_docker": 1
     },
@@ -424,5 +421,6 @@
       "self_path": 1
     }
   },
-  "_recalibrated": "2026-08-30 判準放寬後重建：首版要求 Path(__file__) 與 .parents[N] 同行，漏掉最常見的兩行寫法（here = Path(__file__).resolve() … here.parents[2]）。"
+  "_recalibrated": "2026-08-30 判準放寬後重建：首版要求 Path(__file__) 與 .parents[N] 同行，漏掉最常見的兩行寫法（here = Path(__file__).resolve() … here.parents[2]）。",
+  "_ratchet": "棘輪：清乾淨一支就從本檔移除一行。**還了債沒調基準，下次就會用舊基準宣告「沒有惡化」** —— 而那正是基線制最容易腐爛的方式。2026-08-31 首次調整：134 → 133（hook_reachability_audit.py 已改用 lib.paths）。"
 }
