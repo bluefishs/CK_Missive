@@ -4446,16 +4446,31 @@ def setup_scheduler(
     #   · 開銷 —— 現況 289 檔／2,343 段，每天全部重算
     #   · 風險 —— 批次 embedding 的失敗是被 `logger.warning` 吞掉的，
     #     那批會以 embedding=None 寫入，靜默降級到下次全重建才修
+    # ⚠️ 2026-08-31 由 04:45 改為 05:15 —— **順序倒置**。
+    #
+    # 向量庫索引的是 `docs/knowledge-map/`（產生出來的），而重生它的
+    # Windows 排程 `CK_Missive-Dossier-Compile` 跑在 **04:50**，
+    # 實際寫檔在 04:51 —— **比同步晚 6 分鐘**。
+    # 於是重生當天的地圖要等隔天 04:45 才進向量庫。
+    # 實測（08-31 09:5x）：403 篇索引裡 15 篇內容已變而未同步，
+    # 全部在 knowledge-map/ 底下，正是這 6 分鐘造成的。
+    #
+    # 05:15 在 dossier compile（04:50）之後、晨報（07:30）之前。
+    # 另一半修法是把 post-commit 的知識地圖重生接回 husky
+    # （`.git/hooks/` 那份因 core.hooksPath 從不執行 ⇒ 地圖原本只有週排程
+    #  會重生它，而 docs/ 一天改很多次）。兩者缺一：
+    #   · 只改時間 → 地圖仍然一週才新一次
+    #   · 只接 hook → 週排程那次重生仍慢 24 小時
     scheduler.add_job(
         kb_embedding_incremental_sync_job,
-        trigger=CronTrigger(hour=4, minute=45),
+        trigger=CronTrigger(hour=5, minute=15),
         id='kb_embedding_incremental_sync',
-        name='KB 向量庫增量同步 (每日 04:45)',
+        name='KB 向量庫增量同步 (每日 05:15)',
         replace_existing=True,
         max_instances=1,
         coalesce=True
     )
-    logger.info("已添加 KB 向量庫增量同步: 每日 04:45 執行")
+    logger.info("已添加 KB 向量庫增量同步: 每日 05:15 執行（在知識地圖重生之後）")
 
     # 每日晨報生成 + 推送 — 每日 07:30
     # 2026-08-03：原為 08:00 整點發送。owner 要求「上班 8 點前完成訊息發送，
