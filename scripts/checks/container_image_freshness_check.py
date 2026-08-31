@@ -45,6 +45,17 @@ except Exception:
     pass
 
 
+# ⚠️ 這是一份**明列**的清單，不是掃出來的 —— 所以新加的關鍵檔**不會自己進來**。
+#
+# 2026-08-31 實測到這份清單兩個相反方向的失效，同一天、同一個人（我）造成：
+#   · `app/core/scheduler.py` 改了但沒 docker cp ⇒ **被抓到**（清單裡有它）
+#   · `app/services/ai/misc/kb_embedding.py` docker cp 進去了但映像是舊的
+#     ⇒ **完全隱形**（清單裡沒有它）
+# 後者更危險：容器現在是對的，而下一次 `--force-recreate` 會靜靜退回壞的版本，
+# 那時沒有任何訊號會說「你剛剛失去了一個修法」。
+#
+# ⇒ 加關鍵檔時要一併加進這裡。判準是：**這個檔壞掉時，使用者看得到什麼？**
+#   `kb_embedding.py` 壞掉＝知識庫搜尋全部 500（2026-08-31 實證，且是從未成功過）。
 CRITICAL_FILES = [
     "main.py",
     "app/core/scheduler.py",
@@ -57,6 +68,9 @@ CRITICAL_FILES = [
     "app/api/endpoints/tender_module/enrichment_review.py",
     "app/services/tender/enrichment.py",
     "app/services/tender/metrics.py",
+    # 2026-08-31：知識庫檢索鏈。壞掉的症狀是搜尋全部 500，而它曾經壞了很久沒人知道。
+    "app/services/ai/misc/kb_embedding.py",
+    "app/api/endpoints/knowledge_base.py",
 ]
 
 
