@@ -443,13 +443,32 @@ class KBEmbeddingService:
 
         # Cosine similarity search via pgvector
         embedding_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
+        # ⚠️ 2026-08-31：這裡**不能**寫 `:embedding::vector`。
+        #
+        # SQLAlchemy 的 bind param 正則是
+        #     (?<![:\w\$]):([\w\$]+)(?![:\w\$])
+        # 結尾那個否定前瞻的意思是「參數名後面不可以再接冒號」——
+        # 而 PostgreSQL 的轉型語法正是 `::`。於是 `:embedding::vector` 裡的
+        # `:embedding` **完全不被視為參數**，原樣送進資料庫：
+        #     syntax error at or near ":"
+        #
+        # 實測後果：`POST /api/knowledge-base/search` 的向量搜尋
+        # **每一次查詢都 500**。而端點的 `if vector_results:` 兜底寫在
+        # 這一層之外，所以例外直接往上拋 —— 連退回文字搜尋都沒發生。
+        # 也就是說：**知識庫的向量檢索從來沒有成功過。**
+        #
+        # 同型前例就在本 repo：`auth/login_history.py:178` 的註解寫著
+        # 「asyncpg 不支援 :param::type」並改用動態 WHERE 繞開 ——
+        # 有人踩過、繞過了，而這裡沒有跟上。
+        #
+        # 修法用 `CAST(x AS vector)`，語意相同且不含 `::`。
         sql = text("""
             SELECT
                 id, file_path, filename, section_title, content, chunk_index,
-                1 - (embedding <=> :embedding::vector) AS similarity
+                1 - (embedding <=> CAST(:embedding AS vector)) AS similarity
             FROM kb_chunks
             WHERE embedding IS NOT NULL
-            ORDER BY embedding <=> :embedding::vector
+            ORDER BY embedding <=> CAST(:embedding AS vector)
             LIMIT :limit
         """)
 
