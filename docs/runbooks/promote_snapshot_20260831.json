@@ -1,0 +1,919 @@
+{
+ "taken_at": "2026-08-31T21:22:13.903041",
+ "purpose": "成案前快照 —— owner 2026-08-31 指示『承攬狀態已承攬建立成案編號』",
+ "note": "還原方式：把這些 id 的 project_code 設回 null、status 保持 contracted，並刪除本次新建的 contract_projects",
+ "rows": [
+  {
+   "id": 243,
+   "case_code": "CK2026_PM_01_006",
+   "case_name": "南投縣政府115年度委外辦理圖根點清理及補建新建作業",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "33.00",
+   "client_name": "南投縣政府"
+  },
+  {
+   "id": 388,
+   "case_code": "CK2025_PM_02_008",
+   "case_name": "興龍機械廠有限公司透地雷達測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "40000.00",
+   "client_name": "建邦土木結構技師事務所"
+  },
+  {
+   "id": 390,
+   "case_code": "CK2025_PM_02_010",
+   "case_name": "空軍貿易六村職務宿舍興建統包工程-透地雷達測量及補充基地測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "95000.00",
+   "client_name": "長富營造有限公司"
+  },
+  {
+   "id": 391,
+   "case_code": "CK2025_PM_02_011",
+   "case_name": "中鋼土方報告技師簽證",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "35000.00",
+   "client_name": "先創國際股份有限公司"
+  },
+  {
+   "id": 392,
+   "case_code": "CK2025_PM_02_012",
+   "case_name": "嘉義馬稠後滯洪池 現況地形測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "140000.00",
+   "client_name": "建邦土木結構技師事務所"
+  },
+  {
+   "id": 393,
+   "case_code": "CK2025_PM_02_013",
+   "case_name": "太平區欣欣段558地號建築線測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "17000.00",
+   "client_name": "華筱晨"
+  },
+  {
+   "id": 394,
+   "case_code": "CK2025_PM_02_014",
+   "case_name": "透地雷達測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "45000.00",
+   "client_name": "鄭志宏"
+  },
+  {
+   "id": 395,
+   "case_code": "CK2025_PM_02_015",
+   "case_name": "西屯區廣昌段162、162-1、163、163-1、164、165地號建築線測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "17000.00",
+   "client_name": "華筱晨"
+  },
+  {
+   "id": 396,
+   "case_code": "CK2025_PM_02_016",
+   "case_name": "嘉64線拓寬改善工程空拍及正射影像製作",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "35000.00",
+   "client_name": "浲州營造工程有限公司"
+  },
+  {
+   "id": 397,
+   "case_code": "CK2025_PM_02_017",
+   "case_name": "透地雷達測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "40000.00",
+   "client_name": null
+  },
+  {
+   "id": 400,
+   "case_code": "CK2025_PM_02_020",
+   "case_name": "學甲太陽能案場 現況地形測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "434000.00",
+   "client_name": "建邦工程顧問有限公司"
+  },
+  {
+   "id": 402,
+   "case_code": "CK2025_PM_02_022",
+   "case_name": "北屯區陳平段2971地號建築線測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "17000.00",
+   "client_name": "華筱晨"
+  },
+  {
+   "id": 403,
+   "case_code": "CK2025_PM_02_023",
+   "case_name": "中國砂輪企業股份有限公司竹北廠現況測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "15000.00",
+   "client_name": "山銘工程顧問有限公司"
+  },
+  {
+   "id": 404,
+   "case_code": "CK2025_PM_02_024",
+   "case_name": "桃園市楊梅區高獅段827號(部分)現況測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "14000.00",
+   "client_name": "洪得雄建築師事務所"
+  },
+  {
+   "id": 408,
+   "case_code": "CK2025_PM_02_028",
+   "case_name": "豐原區豐勢路二段217號透地雷達掃描",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "60000.00",
+   "client_name": "張啓良建築師事務所"
+  },
+  {
+   "id": 409,
+   "case_code": "CK2025_PM_02_029",
+   "case_name": "三重區寶寶共和國及大安區杭州南路二段51巷18號透地雷達掃描",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "60000.00",
+   "client_name": "建邦工程顧問有限公司"
+  },
+  {
+   "id": 411,
+   "case_code": "CK2025_PM_02_031",
+   "case_name": "臺中市清水區現況測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "12000.00",
+   "client_name": "秋森萬工程顧問有限公司"
+  },
+  {
+   "id": 412,
+   "case_code": "CK2025_PM_02_032",
+   "case_name": "集水區界限檢核、圖表製作及報告撰寫服務",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "100000.00",
+   "client_name": "台灣電力公司萬大發電廠"
+  },
+  {
+   "id": 413,
+   "case_code": "CK2025_PM_02_033",
+   "case_name": "新店區新和段89等地號透地雷達測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "40000.00",
+   "client_name": "鴻信營造股份有限公司"
+  },
+  {
+   "id": 414,
+   "case_code": "CK2025_PM_02_034",
+   "case_name": "西屯區下石碑段1595地號建築線測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "17000.00",
+   "client_name": "華筱晨"
+  },
+  {
+   "id": 415,
+   "case_code": "CK2025_PM_02_035",
+   "case_name": "中國土方驗算報告及技師簽證",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "20000.00",
+   "client_name": "先創國際股份有限公司"
+  },
+  {
+   "id": 416,
+   "case_code": "CK2025_PM_02_036",
+   "case_name": "北屯區東光段28地號現況測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "10000.00",
+   "client_name": "華筱晨"
+  },
+  {
+   "id": 417,
+   "case_code": "CK2025_PM_02_037",
+   "case_name": "湖山水庫第一次定期安全評估委託技術服務",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "945000.00",
+   "client_name": "黎明工程顧問股份有限公司"
+  },
+  {
+   "id": 418,
+   "case_code": "CK2025_PM_02_038",
+   "case_name": "南屯區春安段255地號建築線測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "17000.00",
+   "client_name": "華筱晨"
+  },
+  {
+   "id": 419,
+   "case_code": "CK2025_PM_02_039",
+   "case_name": "HDD site of land survey",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "323200.00",
+   "client_name": "國際海洋股份有限公司"
+  },
+  {
+   "id": 420,
+   "case_code": "CK2025_PM_02_040",
+   "case_name": "桃園龍昌先期規劃測量作業",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "220000.00",
+   "client_name": "洪得雄建築師事務所"
+  },
+  {
+   "id": 421,
+   "case_code": "CK2025_PM_02_041",
+   "case_name": "台86線向東延伸與182線共線路段道路改善工程委託綜合規劃、測量、地質探查、設計及環境影響評估服務工作",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "2300000.00",
+   "client_name": "林同棪工程顧問股份有限公司"
+  },
+  {
+   "id": 422,
+   "case_code": "CK2025_PM_02_042",
+   "case_name": "五峰鄉花園段地形測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "120000.00",
+   "client_name": "新竹縣五峰鄉公所"
+  },
+  {
+   "id": 423,
+   "case_code": "CK2025_PM_02_043",
+   "case_name": "嘉64線拓寬改善工程路線錄影空拍作業",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "50000.00",
+   "client_name": "浲州營造工程有限公司"
+  },
+  {
+   "id": 424,
+   "case_code": "CK2025_PM_02_044",
+   "case_name": "梧棲區民權段1643等16筆地號建築線測釘",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "16000.00",
+   "client_name": "王盟貴建築師事務所"
+  },
+  {
+   "id": 425,
+   "case_code": "CK2025_PM_02_045",
+   "case_name": "透地雷達測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "76200.00",
+   "client_name": null
+  },
+  {
+   "id": 426,
+   "case_code": "CK2025_PM_02_046",
+   "case_name": "桃園楓樹國小現況測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "15000.00",
+   "client_name": "精摯工程顧問股份有限公司"
+  },
+  {
+   "id": 427,
+   "case_code": "CK2025_PM_02_047",
+   "case_name": "臺中草屯區新富仁段567-26、567-27等2筆地號",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "15000.00",
+   "client_name": "貝加工業股份有限公司"
+  },
+  {
+   "id": 428,
+   "case_code": "CK2025_PM_02_048",
+   "case_name": "中鋼土方報告技師簽證",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "35000.00",
+   "client_name": "先創國際股份有限公司"
+  },
+  {
+   "id": 429,
+   "case_code": "CK2025_PM_02_049",
+   "case_name": "新竹縣芎林鄉金獅段1063、1064、1069及1070地號現況測量與地籍圖套繪",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "15000.00",
+   "client_name": "新家華建設有限公司"
+  },
+  {
+   "id": 433,
+   "case_code": "CK2024_PM_02_002",
+   "case_name": "苗栗縣通霄鎮北勢窩段1355等3筆地號現況地形測量",
+   "year": 2024,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "15000.00",
+   "client_name": "吳志宏"
+  },
+  {
+   "id": 444,
+   "case_code": "CK2025_PM_02_058",
+   "case_name": "建物第一次測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "188090.00",
+   "client_name": "順天建設股份有限公司"
+  },
+  {
+   "id": 446,
+   "case_code": "CK2025_PM_02_060",
+   "case_name": "現況測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "12000.00",
+   "client_name": "達麗建設事業股份有限公司"
+  },
+  {
+   "id": 447,
+   "case_code": "CK2025_PM_02_061",
+   "case_name": "現況測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "15000.00",
+   "client_name": "達麗建設事業股份有限公司"
+  },
+  {
+   "id": 451,
+   "case_code": "CK2025_PM_02_065",
+   "case_name": "地形測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "70000.00",
+   "client_name": "大毅工程顧問有限公司"
+  },
+  {
+   "id": 459,
+   "case_code": "CK2025_PM_02_073",
+   "case_name": "建物第一次測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "19700.00",
+   "client_name": "順天建設股份有限公司"
+  },
+  {
+   "id": 460,
+   "case_code": "CK2025_PM_02_074",
+   "case_name": "建物第一次測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "126040.00",
+   "client_name": "順天建設股份有限公司"
+  },
+  {
+   "id": 463,
+   "case_code": "CK2025_PM_02_077",
+   "case_name": "建物保存登記",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "50000.00",
+   "client_name": "寶泰開發事業股份有限公司"
+  },
+  {
+   "id": 476,
+   "case_code": "CK2025_PM_02_090",
+   "case_name": "建物第一次測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "8000.00",
+   "client_name": "築心建設有限公司"
+  },
+  {
+   "id": 496,
+   "case_code": "CK2025_PM_02_006",
+   "case_name": "苗栗縣通霄鎮北勢窩段1355等3筆地號現況地形測量",
+   "year": 2025,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "15000.00",
+   "client_name": "吳志宏"
+  },
+  {
+   "id": 510,
+   "case_code": "CK2026_PM_02_016",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "18500.00",
+   "client_name": "順天建設股份有限公司"
+  },
+  {
+   "id": 511,
+   "case_code": "CK2026_PM_02_017",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "25500.00",
+   "client_name": "萬寶資產管理股份有限公司"
+  },
+  {
+   "id": 513,
+   "case_code": "CK2026_PM_02_019",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "37200.00",
+   "client_name": "生活制造建設開發股份有限公司"
+  },
+  {
+   "id": 514,
+   "case_code": "CK2026_PM_02_020",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "22000.00",
+   "client_name": "林美建設有限公司"
+  },
+  {
+   "id": 515,
+   "case_code": "CK2026_PM_02_021",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "54000.00",
+   "client_name": "聚富建設有限公司"
+  },
+  {
+   "id": 516,
+   "case_code": "CK2026_PM_02_022",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "214280.00",
+   "client_name": "理仁建設股份有限公司"
+  },
+  {
+   "id": 517,
+   "case_code": "CK2026_PM_02_023",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "68000.00",
+   "client_name": "順源建設有限公司"
+  },
+  {
+   "id": 518,
+   "case_code": "CK2026_PM_02_024",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "24000.00",
+   "client_name": "裕毛屋建設有限公司"
+  },
+  {
+   "id": 519,
+   "case_code": "CK2026_PM_02_025",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "22400.00",
+   "client_name": "麗馳建設股份有限公司"
+  },
+  {
+   "id": 521,
+   "case_code": "CK2026_PM_02_027",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "145120.00",
+   "client_name": "惠民地政士事務所"
+  },
+  {
+   "id": 522,
+   "case_code": "CK2026_PM_02_028",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "63940.00",
+   "client_name": "惠民地政士事務所"
+  },
+  {
+   "id": 523,
+   "case_code": "CK2026_PM_02_029",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "130860.00",
+   "client_name": "聯聚建設股份有限公司"
+  },
+  {
+   "id": 524,
+   "case_code": "CK2026_PM_02_030",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "34140.00",
+   "client_name": "聯聚建設股份有限公司"
+  },
+  {
+   "id": 526,
+   "case_code": "CK2026_PM_02_031",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "253120.00",
+   "client_name": "聯聚建設股份有限公司"
+  },
+  {
+   "id": 527,
+   "case_code": "CK2026_PM_02_003",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "28000.00",
+   "client_name": "頤和建築師事務所"
+  },
+  {
+   "id": 528,
+   "case_code": "CK2026_PM_02_004",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "28000.00",
+   "client_name": "頤和建築師事務所"
+  },
+  {
+   "id": 530,
+   "case_code": "CK2026_PM_02_032",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "69300.00",
+   "client_name": "鉅陞建設股份有限公司"
+  },
+  {
+   "id": 531,
+   "case_code": "CK2026_PM_02_033",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "16000.00",
+   "client_name": "寶御營建工程股份有限公司"
+  },
+  {
+   "id": 532,
+   "case_code": "CK2026_PM_02_034",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "27000.00",
+   "client_name": "澔宇開發股份有限公司"
+  },
+  {
+   "id": 533,
+   "case_code": "CK2026_PM_02_035",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "6000.00",
+   "client_name": "廖梓滄"
+  },
+  {
+   "id": 534,
+   "case_code": "CK2026_PM_02_036",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "7200.00",
+   "client_name": "麗晨建設股份有限公司"
+  },
+  {
+   "id": 535,
+   "case_code": "CK2026_PM_02_037",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "22000.00",
+   "client_name": "藏富建設股份有限公司"
+  },
+  {
+   "id": 537,
+   "case_code": "CK2026_PM_02_039",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "38000.00",
+   "client_name": "金富壕國際建設股份有限公司"
+  },
+  {
+   "id": 538,
+   "case_code": "CK2026_PM_02_040",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "2000.00",
+   "client_name": "豐洋建設有限公司"
+  },
+  {
+   "id": 539,
+   "case_code": "CK2026_PM_02_041",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "6000.00",
+   "client_name": "蕭幸芬"
+  },
+  {
+   "id": 540,
+   "case_code": "CK2026_PM_02_042",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "35700.00",
+   "client_name": "拓富建設股份有限公司"
+  },
+  {
+   "id": 541,
+   "case_code": "CK2026_PM_02_043",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "15000.00",
+   "client_name": "台中商業銀行股份有限公司"
+  },
+  {
+   "id": 542,
+   "case_code": "CK2026_PM_02_044",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "6000.00",
+   "client_name": "張廖年峰"
+  },
+  {
+   "id": 543,
+   "case_code": "CK2026_PM_02_045",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "76000.00",
+   "client_name": "富宇建設股份有限公司"
+  },
+  {
+   "id": 544,
+   "case_code": "CK2026_PM_02_046",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "12000.00",
+   "client_name": "宏星建設有限公司"
+  },
+  {
+   "id": 545,
+   "case_code": "CK2026_PM_02_047",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "28000.00",
+   "client_name": "慶合建設股份有限公司"
+  },
+  {
+   "id": 546,
+   "case_code": "CK2026_PM_02_048",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "7500.00",
+   "client_name": "吉旺資產管理有限公司"
+  },
+  {
+   "id": 547,
+   "case_code": "CK2026_PM_02_049",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "6000.00",
+   "client_name": "林駿紘"
+  },
+  {
+   "id": 548,
+   "case_code": "CK2026_PM_02_050",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "4800.00",
+   "client_name": "富宇建設股份有限公司"
+  },
+  {
+   "id": 549,
+   "case_code": "CK2026_PM_02_051",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "16190.00",
+   "client_name": "揆峰建設股份有限公司"
+  },
+  {
+   "id": 550,
+   "case_code": "CK2026_PM_02_052",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "28190.00",
+   "client_name": "誠億富建設有限公司"
+  },
+  {
+   "id": 551,
+   "case_code": "CK2026_PM_02_053",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "6000.00",
+   "client_name": "黃力中、黃力均"
+  },
+  {
+   "id": 553,
+   "case_code": "CK2026_PM_02_055",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "15000.00",
+   "client_name": "財團法人中國醫藥大學"
+  },
+  {
+   "id": 554,
+   "case_code": "CK2026_PM_02_056",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "8400.00",
+   "client_name": "莊佑彬"
+  },
+  {
+   "id": 555,
+   "case_code": "CK2026_PM_02_057",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "6200.00",
+   "client_name": "黃琦文"
+  },
+  {
+   "id": 556,
+   "case_code": "CK2026_PM_02_058",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "87100.00",
+   "client_name": "舜元建設股份有限公司"
+  },
+  {
+   "id": 558,
+   "case_code": "CK2026_PM_02_060",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "12000.00",
+   "client_name": "胤齊建業開發有限公司"
+  },
+  {
+   "id": 559,
+   "case_code": "CK2026_PM_02_061",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "45000.00",
+   "client_name": "格誠建設有限公司"
+  },
+  {
+   "id": 560,
+   "case_code": "CK2026_PM_02_062",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "24000.00",
+   "client_name": "璟巖建設有限公司"
+  },
+  {
+   "id": 563,
+   "case_code": "CK2026_PM_02_063",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "102400.00",
+   "client_name": "惠安聯合地政士事務所"
+  },
+  {
+   "id": 564,
+   "case_code": "CK2026_PM_02_064",
+   "case_name": "建物第一次測量",
+   "year": 2026,
+   "status": "contracted",
+   "project_code": null,
+   "contract_amount": "209800.00",
+   "client_name": "惠安聯合地政士事務所"
+  }
+ ],
+ "contract_projects_max_id_before": 336,
+ "contract_projects_count_before": 175
+}
