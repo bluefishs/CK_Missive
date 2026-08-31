@@ -25,6 +25,12 @@
 | `app/services/erp/quotation_service.py` — 成案主軸／RLS／承辦雙路 |
 | `app/api/endpoints/erp/quotations.py` — 依身分限縮 |
 | `app/services/notification/project_notification.py` — 專案團隊查詢 |
+| **`app/repositories/sort_utils.py`（新檔）＋ 8 個 repository** — 排序欄位解析 |
+
+⚠️ 那 8 個 repository（agency／document／user／vendor／erp.quotation／
+pm.case／taoyuan.dispatch_order／taoyuan.project）**import 了 `sort_utils`**。
+容器被重建時三者一起退回舊版，狀態是一致的（舊版不 import 它），
+不會出現「有人 import 一個不存在的模組」的半套狀態 —— 已逐檔比對確認。
 
 **退回舊版的具體症狀**（不是抽象風險，都是今天實測過的）：
 
@@ -33,6 +39,8 @@
 * 專案團隊成員查詢**永遠回空**（連帶專案通知寄不出去）
 * 委託單位／協力廠商帳款**全部 staff 又看得到**
 * 報價單列表回到 257 筆（含 93 筆未成案）且不分使用者
+* 排序參數退回無防護版 —— `?sort_by=metadata` 之類會 500
+  （容器內實測 `metadata`、`registry` 皆爆）
 
 ### ⇒ 重啟方式決定風險
 
