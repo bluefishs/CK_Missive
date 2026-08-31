@@ -53,7 +53,19 @@ router.include_router(quotations.router, prefix="/quotations", dependencies=[Dep
 router.include_router(invoices.router, prefix="/invoices", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 發票管理"])
 router.include_router(billings.router, prefix="/billings", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["ERP 請款管理"])
 router.include_router(vendor_payables.router, prefix="/vendor-payables", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["ERP 廠商應付"])
-router.include_router(vendor_accounts.router, prefix="/vendor-accounts", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["ERP 廠商帳款"])
+# ⭐ 2026-08-31 owner：「這兩支維持全公司視角，改用權限區分
+#    （例如只有 admin／財務角色看得到）」。
+#
+# 為什麼是權限而不是行級過濾（RLS）：這兩支是**依往來對象彙總**的
+# （某委託單位／某廠商的總帳款）。若依案件指派限縮，語意會變成
+# 「這個客戶的帳款中屬於我的案子的那部分」—— **那個數字比不限縮更容易誤導**。
+#
+# 為什麼從 `reports:finance:view` 換成 `reports:erp:view`：實測
+# 12 位在職使用者裡 **11 位持有 finance:view**（含全部 5 位 staff）——
+# 那個閘門實際上等於全開。而 `reports:erp:view` 正好是 **5 位 admin、
+# 0 位 staff**，就是要的範圍，且它已經在用（filing-gaps 走同一個），
+# **不新增權限代碼**。superuser 由 require_permission 自身旁路。
+router.include_router(vendor_accounts.router, prefix="/vendor-accounts", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 廠商帳款"])
 router.include_router(expenses.router, prefix="/expenses", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["費用報銷"])
 router.include_router(expenses_io.router, prefix="/expenses", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["費用報銷 IO"])
 router.include_router(ledger.router, prefix="/ledger", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["統一帳本"])
@@ -63,6 +75,6 @@ router.include_router(filing_gaps.router, prefix="/filing-gaps", dependencies=[D
 # 2026-08-16 owner：「線上報價單機制」
 router.include_router(quotation_items.router, prefix="/quotation-items", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["報價明細"])
 router.include_router(einvoice_sync.router, prefix="/einvoice-sync", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["電子發票同步"])
-router.include_router(client_accounts.router, prefix="/client-accounts", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["ERP 委託單位帳款"])
+router.include_router(client_accounts.router, prefix="/client-accounts", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 委託單位帳款"])
 router.include_router(assets.router, prefix="/assets", dependencies=[Depends(require_permission("reports:assets:view"))], tags=["ERP 資產管理"])
 router.include_router(operational.router, prefix="/operational", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 營運帳目"])

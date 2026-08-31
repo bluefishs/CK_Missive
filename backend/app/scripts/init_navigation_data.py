@@ -344,10 +344,17 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "協力廠商,應付帳款,跨案件,廠商對帳",
-        "permission_required": "[]",
+        "permission_required": '["reports:erp:view"]',
     },
     # ERP 委託單位帳款 (對應 ROUTES.ERP_CLIENT_ACCOUNTS)
-    {
+            # 2026-08-31 owner：「這兩支維持全公司視角，改用權限區分
+        #   （例如只有 admin／財務角色看得到）」。
+        # ⚠️ 本檔原本是 `"[]"`（＝所有人可見），而 live DB 是
+        #    `["reports:finance:view"]` —— **兩邊早就漂移了**，
+        #    新環境重新 seed 會讓這兩個選單對所有人顯示。
+        #    實測 12 位在職使用者裡 11 位持有 finance:view（含全部 staff），
+        #    所以那個值本身也等於全開；改用 reports:erp:view（5 位 admin、0 staff）。
+{
         "title": "委託單位帳款",
         "key": "erp-client-accounts",
         "path": "/erp/client-accounts",
@@ -356,7 +363,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "委託單位,應收帳款,跨案件,業主對帳",
-        "permission_required": "[]",
+        "permission_required": '["reports:erp:view"]',
     },
     # =========================================================================
     # 標案檢索
