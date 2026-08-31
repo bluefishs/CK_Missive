@@ -725,6 +725,24 @@ header 所以公網不會 bypass），**那些防護都成立**。
 
 ⇒ **同一個網段，資料庫當它不可信而 API 當它可信。**兩個決策不可能同時對。
 
+**⚠️ 第二個要先排除的理由：「資料層已經綁 loopback」對本案不成立。**
+
+2026-08-10 把資料層 12 個埠改綁 `127.0.0.1`，那是真的、而且仍然有效
+（2026-08-31 以**埠號**為判準複查 56 個容器：CK_Missive 的 postgres／redis
+都不在 LAN 清單）。但那個安心的理由**在本案被繞過**——
+
+`POST /api/admin/database/query` 就是一個**應用層的資料庫代理**：它接受任意
+SELECT、跑在 `0.0.0.0:8001` 的 backend 裡、而 L49.17 讓區網來源直接取得
+superuser。**埠綁 loopback 擋的是直連，擋不住一個開在 LAN 上的代理。**
+
+（同型：CK_AaaP 2026-08-31 發現 `ck-tunnel-nginx-1` 在 `0.0.0.0:18080`
+反向代理到 `minio:9000`，而 MinIO 自己綁 `127.0.0.1:19000` —— 一樣是
+「已綁 loopback」被代理繞過。我們的代理不在 nginx 而在應用層；
+實查 `ck_missive_frontend` 的 nginx 只 proxy `http://backend/api/`，
+沒有任何資料層目標。）
+
+⇒ 評估選項時，**「資料庫沒有對外」與「資料庫的內容沒有對外」是兩回事**。
+
 **⚠️ 一個可能被拿來當作「其實還好」的理由，先排除掉：CSRF 不是這裡的補償控制。**
 
 `CSRFMiddleware` 走 Double Submit Cookie：**完全沒有 cookie 的請求直接豁免**
