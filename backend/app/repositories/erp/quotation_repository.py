@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPQuotation
 from app.repositories.base_repository import BaseRepository
-from app.repositories.sort_utils import resolve_sort_column
+from app.repositories.sort_utils import order_by_clause
 
 logger = logging.getLogger(__name__)
 
@@ -187,11 +187,10 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
             query = query.where(and_(*conditions))
             count_query = count_query.where(and_(*conditions))
 
-        sort_col = resolve_sort_column(ERPQuotation, sort_by, ERPQuotation.id)
-        if sort_order == "asc":
-            query = query.order_by(sort_col.asc())
-        else:
-            query = query.order_by(sort_col.desc())
+        # 空值一律排最後：PostgreSQL 的 DESC 預設 NULLS FIRST ⇒
+        # 「由大到小」第一頁會是一整頁空值（見 sort_utils.order_by_clause）。
+        query = query.order_by(order_by_clause(
+            ERPQuotation, sort_by, ERPQuotation.id, descending=sort_order != "asc"))
 
         query = query.offset(skip).limit(limit)
 

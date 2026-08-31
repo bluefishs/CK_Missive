@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc, asc
 
 from app.repositories.base_repository import BaseRepository
-from app.repositories.sort_utils import resolve_sort_column
+from app.repositories.sort_utils import order_by_clause
 from app.extended.models import (
     PartnerVendor,
     project_vendor_association,
@@ -108,9 +108,11 @@ class VendorRepository(BaseRepository[PartnerVendor]):
             count_query = count_query.where(combined)
 
         # 排序
-        sort_column = resolve_sort_column(PartnerVendor, sort_by, PartnerVendor.vendor_name)
-        order_fn = asc if sort_order == 'asc' else desc
-        query = query.order_by(order_fn(sort_column))
+        # 空值一律排最後：PostgreSQL 的 DESC 預設 NULLS FIRST ⇒
+        # 「由大到小」第一頁會是一整頁空值（見 sort_utils.order_by_clause）。
+        query = query.order_by(order_by_clause(
+            PartnerVendor, sort_by, PartnerVendor.vendor_name,
+            descending=sort_order != 'asc'))
 
         # 分頁
         query = query.offset(skip).limit(limit)

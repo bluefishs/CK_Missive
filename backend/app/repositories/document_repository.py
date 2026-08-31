@@ -22,7 +22,7 @@ from sqlalchemy import select, func, and_, or_, extract, desc, asc
 from sqlalchemy.orm import selectinload, joinedload
 
 from app.repositories.base_repository import BaseRepository
-from app.repositories.sort_utils import resolve_sort_column
+from app.repositories.sort_utils import order_by_clause
 from app.extended.models import (
     OfficialDocument,
     DocumentAttachment,
@@ -690,11 +690,11 @@ class DocumentRepository(BaseRepository[OfficialDocument]):
         total = (await self.db.execute(count_query)).scalar() or 0
 
         # 排序
-        sort_column = resolve_sort_column(OfficialDocument, sort_by, OfficialDocument.doc_date)
-        if sort_order.lower() == 'asc':
-            query = query.order_by(asc(sort_column))
-        else:
-            query = query.order_by(desc(sort_column))
+        # 空值一律排最後：PostgreSQL 的 DESC 預設 NULLS FIRST ⇒
+        # 「由大到小」第一頁會是一整頁空值（見 sort_utils.order_by_clause）。
+        query = query.order_by(order_by_clause(
+            OfficialDocument, sort_by, OfficialDocument.doc_date,
+            descending=sort_order.lower() != 'asc'))
 
         # 分頁
         query = query.offset(skip).limit(limit)

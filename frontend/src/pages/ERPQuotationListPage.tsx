@@ -71,6 +71,7 @@ export const ERPQuotationListPage: React.FC = () => {
     {
       title: '案名',
       dataIndex: 'case_name',
+      sorter: true,
       key: 'case_name',
       ellipsis: true,
       render: (text: string | null) => <strong>{text ?? '-'}</strong>,
@@ -104,6 +105,7 @@ export const ERPQuotationListPage: React.FC = () => {
     {
       title: '舊案號',
       dataIndex: 'legacy_quotation_no',
+      sorter: true,
       key: 'legacy_quotation_no',
       width: 130,
       render: (v: string | null) => v || <span style={{ color: '#999' }}>—</span>,
@@ -114,13 +116,14 @@ export const ERPQuotationListPage: React.FC = () => {
     // enhanceColumns 只對 STATUS_KEYS 類欄位自動加篩選，沒有那個欄位就沒有篩選。
     // 而狀態（草稿／已確認／修訂中／已結案）是主要業務屬性，看不到本來就不合理。
     {
-      title: '狀態', dataIndex: 'status', key: 'status', width: 100, align: 'center',
+      title: '狀態', dataIndex: 'status', key: 'status', sorter: true, width: 100, align: 'center',
       render: (v?: string) => <Tag color={erpQuotationStatusColor(v)}>{erpQuotationStatusLabel(v)}</Tag>,
     },
-    { title: '年度', hideOnMobile: true, dataIndex: 'year', key: 'year', width: 80, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
+    { title: '年度', hideOnMobile: true, dataIndex: 'year', key: 'year', sorter: true, width: 80, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
     {
       title: '總價',
       dataIndex: 'total_price',
+      sorter: true,
       key: 'total_price',
       width: 120,
       align: 'right',
@@ -465,6 +468,27 @@ export const ERPQuotationListPage: React.FC = () => {
             onChange: (page, pageSize) => setParams((p) => ({ ...p, page, limit: pageSize })),
             showSizeChanger: true,
             showTotal: (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
+          }}
+          // 表頭排序交給後端（2026-09-01）。
+          //
+          // 這一頁是伺服器分頁 ⇒ `EnhancedTable` 會剝掉前端的排序比較器
+          // （它只看得到當前這一頁，會給出看起來合理的錯答案）。
+          // 但**剝掉不等於修好** —— 09-01 04:15 的 `SelfAudit-Flow` 就抓到
+          // 「/erp/quotations 表格沒有排序圖示」而失敗，同一支檢核的
+          // `--role user` 卻通過（該身分只有 6 張報價單、全量在手 ⇒ 不算伺服器分頁）。
+          // 檢核抓對了：我拿掉了錯的排序，卻沒有補上對的。
+          //
+          // 只有真欄位標 `sorter: true`。承辦同仁／填報者／毛利／毛利率
+          // 都是**聚合出來的**，走這條路徑排序會靜靜地照 `id` 排。
+          onChange={(_p, _f, sorter) => {
+            const sd = Array.isArray(sorter) ? sorter[0] : sorter;
+            const field = typeof sd?.field === 'string' ? sd.field : undefined;
+            setParams((prev) => ({
+              ...prev,
+              sort_by: field && sd?.order ? field : 'year',
+              sort_order: field && sd?.order ? (sd.order === 'ascend' ? 'asc' : 'desc') : 'desc',
+              page: 1,
+            }));
           }}
           onRow={(record) => ({
             onClick: () => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(record.id))),

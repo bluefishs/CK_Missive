@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.pm import PMCase
 from app.repositories.base_repository import BaseRepository
-from app.repositories.sort_utils import resolve_sort_column
+from app.repositories.sort_utils import order_by_clause
 
 logger = logging.getLogger(__name__)
 
@@ -126,11 +126,10 @@ class PMCaseRepository(BaseRepository[PMCase]):
             count_query = count_query.where(and_(*conditions))
 
         # 排序
-        sort_col = resolve_sort_column(PMCase, sort_by, PMCase.id)
-        if sort_order == "asc":
-            query = query.order_by(sort_col.asc())
-        else:
-            query = query.order_by(sort_col.desc())
+        # 空值一律排最後：PostgreSQL 的 DESC 預設 NULLS FIRST ⇒
+        # 「由大到小」第一頁會是一整頁空值（見 sort_utils.order_by_clause）。
+        query = query.order_by(order_by_clause(
+            PMCase, sort_by, PMCase.id, descending=sort_order != "asc"))
 
         # 分頁
         query = query.offset(skip).limit(limit)

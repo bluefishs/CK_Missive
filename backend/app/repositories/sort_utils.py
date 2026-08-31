@@ -27,7 +27,7 @@
 
 from typing import Any, Optional
 
-from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import inspect as sa_inspect, nullslast
 
 
 def sortable_fields(model: Any) -> frozenset:
@@ -38,6 +38,26 @@ def sortable_fields(model: Any) -> frozenset:
     的情況下會不一樣，而呼叫端 `getattr` 用的是屬性名。
     """
     return frozenset(attr.key for attr in sa_inspect(model).mapper.column_attrs)
+
+
+def order_by_clause(model: Any, sort_by: Optional[str], default: Any, descending: bool) -> Any:
+    """解析欄位並產生排序子句 —— **空值一律排最後**。
+
+    ## 為什麼不能直接用 `.desc()`
+
+    PostgreSQL 的預設是 `ASC → NULLS LAST`、**`DESC → NULLS FIRST`**
+    （DESC 時 NULL 被當成最大）。所以「依金額由大到小」的第一頁會是
+    **一整頁空金額**，而使用者要的顯然是最大的那幾筆。
+
+    2026-09-01 實測（報價單）：`sort_by=total_price&sort_order=desc`
+    回來的前三筆金額都是 0/NULL，而該範圍內的真實最大值是 22,675,000。
+    它不會報錯 —— 只是給你一個看起來合理的錯答案。
+
+    空值代表「沒有這筆資料」，不論升冪降冪都該排在最後，所以兩個方向
+    都用 NULLS LAST，而不是只修 DESC。
+    """
+    col = resolve_sort_column(model, sort_by, default)
+    return nullslast(col.desc()) if descending else nullslast(col.asc())
 
 
 def resolve_sort_column(model: Any, sort_by: Optional[str], default: Any) -> Any:

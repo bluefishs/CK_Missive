@@ -24,7 +24,7 @@ from app.extended.models import (
     OfficialDocument,
 )
 from sqlalchemy import update as sa_update
-from app.repositories.sort_utils import resolve_sort_column
+from app.repositories.sort_utils import order_by_clause
 
 logger = logging.getLogger(__name__)
 
@@ -843,11 +843,11 @@ class AgencyRepository(BaseRepository[GovernmentAgency]):
         total = (await self.db.execute(count_query)).scalar() or 0
 
         # 排序
-        sort_column = resolve_sort_column(GovernmentAgency, sort_by, GovernmentAgency.agency_name)
-        if sort_order.lower() == 'desc':
-            query = query.order_by(desc(sort_column))
-        else:
-            query = query.order_by(asc(sort_column))
+        # 空值一律排最後：PostgreSQL 的 DESC 預設 NULLS FIRST ⇒
+        # 「由大到小」第一頁會是一整頁空值（見 sort_utils.order_by_clause）。
+        query = query.order_by(order_by_clause(
+            GovernmentAgency, sort_by, GovernmentAgency.agency_name,
+            descending=sort_order.lower() == 'desc'))
 
         # 分頁
         query = query.offset(skip).limit(limit)
