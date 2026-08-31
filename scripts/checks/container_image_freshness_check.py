@@ -74,6 +74,58 @@ CRITICAL_FILES = [
 ]
 
 
+def container_vs_image_drift(container: str, image: str = "ck-missive-backend:production"):
+    """執行中的容器與它的映像，哪些 .py 不一樣（＝容器一被重建就會失去的東西）。
+
+    ## 這與本檔原有的檢查是**兩個不同的問題**
+
+    | 問題 | 比誰 | 回答什麼 |
+    |---|---|---|
+    | 原有 `CRITICAL_FILES` | host vs 容器 | 容器跑的是不是 repo 現在的碼 |
+    | 本函式 | **容器 vs 映像** | **容器被重建時會失去哪些修法** |
+
+    重啟指引問的是後者，而它原本只能靠人手抄一份清單。
+    2026-08-31 實測：手抄的列了 14 個，真實是 25 個 —— 差的 11 個沒有人會發現。
+
+    ## 為什麼掃整棵樹而不是清單
+
+    清單有兩個病：漏了不會有人知道（沒有訊號），而且它會跟著程式漂移。
+    整棵樹只要**兩次 docker 呼叫**（各一次 `find | md5sum`），
+    比逐檔比對的 N×2 次快兩個數量級，而且不可能漏。
+
+    Returns:
+        (drift_list, error) —— 取不到時 drift_list 為 None，**呼叫端不得當成 0**。
+    """
+    cmd = "find /app/app -name '*.py' -type f -exec md5sum {} + | sort -k2"
+
+    def _collect(argv):
+        try:
+            r = subprocess.run(argv, capture_output=True, text=True, timeout=120)
+            if r.returncode != 0:
+                return None, (r.stderr or "").strip()[:160]
+            out = {}
+            for line in r.stdout.splitlines():
+                parts = line.split(None, 1)
+                if len(parts) == 2:
+                    out[parts[1].strip()] = parts[0]
+            return out, None
+        except Exception as exc:  # noqa: BLE001 — 回傳 None 讓呼叫端知道「未驗」
+            return None, f"{type(exc).__name__}: {exc}"[:160]
+
+    cont, err = _collect(["docker", "exec", container, "sh", "-c", cmd])
+    if cont is None:
+        return None, f"讀容器失敗：{err}"
+    img, err = _collect(["docker", "run", "--rm", "--entrypoint", "sh", image, "-c", cmd])
+    if img is None:
+        return None, f"讀映像失敗：{err}"
+
+    drift = sorted(
+        p for p in set(cont) | set(img)
+        if cont.get(p) != img.get(p)
+    )
+    return drift, None
+
+
 def _deploy_gap(root: str, image_commit: str):
     """映像的建置點距離現在的 HEAD 有多遠：(落後幾個 commit, 建置點距今幾小時)。
 
@@ -270,6 +322,23 @@ def main(strict: bool = False, container: str = "ck_missive_backend") -> int:
 
     print()
     print(f"Summary: {match_count} match, {drift_count} drift, {missing_count} missing")
+
+    # 容器 vs 映像（重建後會失去什麼）—— 與上面那組是不同的問題，見函式說明。
+    print()
+    print("--- 容器 vs 映像：一旦容器被重建就會失去的檔 ---")
+    only_in_container, err = container_vs_image_drift(container)
+    if only_in_container is None:
+        print(f"  [YELLOW] 無法判定（{err}）—— **未驗**，不是「沒有差異」")
+    elif not only_in_container:
+        print("  ✓ 容器與映像一致 —— 怎麼重啟都安全")
+    else:
+        print(f"  ⚠ {len(only_in_container)} 個檔只存在於執行中的容器：")
+        for p in only_in_container[:40]:
+            print(f"      {p}")
+        if len(only_in_container) > 40:
+            print(f"      …另 {len(only_in_container) - 40} 個")
+        print("    → `docker restart` 與機器重開會保留；"
+              "`--force-recreate`／`down` 會全部消失。正解是先跑一次部署。")
 
     if drift_count > 0:
         print()

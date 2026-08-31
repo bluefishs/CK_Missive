@@ -9,13 +9,24 @@
 ## 0. ⛔ 這一次最重要的一件事：**14 個修法只在容器裡，映像沒有**
 
 今天所有後端修改都是 `docker cp` 進執行中的容器，**映像 `ck-missive-backend:production`
-一個都沒有**（逐檔 md5 比對，14/14 不同）。
+一個都沒有**。
+
+> ⚠️ **2026-08-31 19:4x 更正：下面這份清單原本是手抄的，列了 14 個而真實是 25 個。**
+> 差的 11 個沒有任何訊號會說出來。**權威答案改由檢核自己算**（整棵樹兩次
+> `find | md5sum`，不可能漏、也不會過期）：
+>
+> ```bash
+> python scripts/checks/container_image_freshness_check.py
+> #   → 「容器 vs 映像」那一段列出的就是重建後會失去的全部檔案
+> ```
+>
+> 下表保留是因為它寫的是**症狀**（那才是推導不出來的部分），不是清單。
 
 | 一旦容器被**重建**就會退回舊版 |
 |---|
 | `app/services/ai/misc/kb_embedding.py` — 知識庫向量檢索的 `CAST` 修法 |
 | `app/api/endpoints/knowledge_base.py` — 知識卡片摘要的繁中兩層 |
-| `app/core/scheduler.py` — 向量同步 04:45→05:15、五行日誌時間 |
+| ~~`app/core/scheduler.py`~~ — ⚠️ **方向相反，見下方** |
 | `app/services/erp/filing_gap.py` — 待辦顯示成案編號／應請款缺口／類別分流 |
 | `app/schemas/erp/filing_gap.py`、`app/api/endpoints/erp/filing_gaps.py` |
 | `app/api/endpoints/erp/__init__.py` — 兩支帳款頁改 `reports:erp:view` |
@@ -26,6 +37,19 @@
 | `app/api/endpoints/erp/quotations.py` — 依身分限縮 |
 | `app/services/notification/project_notification.py` — 專案團隊查詢 |
 | **`app/repositories/sort_utils.py`（新檔）＋ 8 個 repository** — 排序欄位解析 |
+
+### ⚠️ `scheduler.py` 是**反過來**的：改了但沒進容器
+
+`e87e52d7`（今早 10:03）把 KB 向量同步從 04:45 改到 05:15，理由是它原本
+跑在知識地圖重生（`CK_Missive-Dossier-Compile`，04:50 觸發、04:51 寫檔）
+**之前 6 分鐘** ⇒ 當天改的文件要等隔天才進向量庫。
+
+**但那個檔從來沒有 `docker cp` 進容器**（容器 == 映像 == 舊版）。
+19:4x 實測差異：容器內仍是 `hour=4, minute=45`。
+
+⇒ **這個修法在 runtime 上還沒生效**，要等部署。
+今晚 22:00 的部署會一併帶進去，明天早上才會是 05:15。
+在那之前，08-31 當天改的文件不會即時進向量庫。
 
 ⚠️ 那 8 個 repository（agency／document／user／vendor／erp.quotation／
 pm.case／taoyuan.dispatch_order／taoyuan.project）**import 了 `sort_utils`**。
