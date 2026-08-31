@@ -157,6 +157,17 @@ class PMCaseListRequest(BaseQueryParams):
     status: Optional[str] = Field(None, description="狀態篩選")
     category: Optional[str] = Field(None, description="類別篩選")
     client_name: Optional[str] = Field(None, description="業主篩選")
+    include_converted: bool = Field(
+        True,
+        description=(
+            "是否納入已成案的案件（已承攬且有 project_code）。"
+            "那些案件已移交 /contract-cases 列管，不應在邀標/報價頁重複出現"
+            "（owner 2026-08-31 裁示）—— **由前端送 False 來收斂範圍**。"
+            "⚠️ 預設刻意是 True（向後相容）。若改成 False，尚未更新的前端"
+            "不會送這個參數 ⇒ 後端一重啟，費用報銷的案件下拉就少掉 136 個選項"
+            "而且不會報錯。**部署順序不同步時，預設值就是那個會咬人的東西。**"
+        ),
+    )
 
 
 class PMCaseSummary(BaseModel):

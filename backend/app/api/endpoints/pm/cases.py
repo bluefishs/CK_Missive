@@ -222,7 +222,9 @@ async def get_summary(
     service: PMCaseService = Depends(get_service(PMCaseService)),
 ):
     """案件統計摘要"""
-    result = await service.get_summary(year=req.year)
+    result = await service.get_summary(
+        year=req.year, include_converted=req.include_converted
+    )
     return SuccessResponse(data=result)
 
 

@@ -42,7 +42,11 @@ const ERPExpenseCreatePage: React.FC = () => {
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const createMutation = useCreateExpense();
-  const { data: pmCasesData } = usePMCases({ page: 1, page_size: 200 });
+  // 2026-08-31：`include_converted: true` 明寫出來。
+  // `/pm/cases` 列表送 false（已成案的移交 /contract-cases 列管），
+  // 但這裡是**費用報銷要挑案件**，已成案的正是最常報帳的那批 —— 一個都不能少。
+  // 後端預設也是 true，寫出來是為了讓「這裡要全部」不依賴預設值。
+  const { data: pmCasesData } = usePMCases({ page: 1, page_size: 200, include_converted: true });
   const { data: mofData } = useEInvoicePendingList({ skip: 0, limit: 50 });
   const mofInvoices = (mofData as { items?: Array<{ id: number; inv_num: string; date: string; amount: number; seller_ban?: string; status: string }> })?.items ?? [];
   const { isMobile } = useResponsive();

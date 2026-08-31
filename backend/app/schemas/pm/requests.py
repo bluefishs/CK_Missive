@@ -43,6 +43,14 @@ class PMCaseUpdateRequest(BaseModel):
 class PMSummaryRequest(BaseModel):
     """案件統計摘要/匯出請求"""
     year: Optional[int] = Field(None, description="年度")
+    include_converted: bool = Field(
+        True,
+        description=(
+            "是否納入已成案的案件。**必須與列表用同一個值** —— "
+            "統計卡是列表的分母，兩者範圍不同就會出現「卡片說 69 件、"
+            "列表點不出來」（規範 §2.6 ①）。"
+        ),
+    )
 
 
 class PMGenerateCodeRequest(BaseModel):

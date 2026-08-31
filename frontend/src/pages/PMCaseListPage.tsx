@@ -7,14 +7,14 @@
  * @version 3.0.0 — 重新定位為邀標/報價專區
  */
 import React, { useState, useMemo } from 'react';
-import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space } from 'antd';
+import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space, Checkbox } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive } from '../hooks';
 import { ClickableStatCard } from '../components/common';
-import { PM_CATEGORY_LABELS } from '../types/api';
+import { formatPMCategory, PM_CATEGORY_OPTIONS } from '../types/pm';
 import type { PMCase } from '../types/api';
 import { PM_CASE_STATUS_LABELS } from '../types/pm';
 import type { PMCaseStatus } from '../types/pm';
@@ -36,6 +36,21 @@ export const PMCaseListPage: React.FC = () => {
   const [yearFilter, setYearFilter] = useState<number | undefined>(new Date().getFullYear());
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
+  /**
+   * 是否納入**已成案**的案件（已承攬且有成案編號）。預設 false。
+   *
+   * owner 2026-08-31：「已承攬案件應由 /pm/cases 移轉至 /contract-cases 列管，
+   * 不應該兩邊皆有紀錄。」實測兩邊皆有的精確是 136 筆，且它們在
+   * `contract_projects` 全部對得上 case_code。
+   *
+   * ⚠️ 條件是「已承攬**且**有成案編號」，不是「已承攬」——
+   * 227 件已承攬裡有 91 件還沒成案（`contract_projects` 裡也沒有），
+   * 只看狀態會讓那 91 件從兩邊都消失。
+   *
+   * 開關留著而不是寫死：邀標階段的報價紀錄還掛在這些案件上，
+   * 偶爾要回頭查。**預設不顯示＝不列管；要查得到＝不是列管。**
+   */
+  const [includeConverted, setIncludeConverted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
@@ -45,7 +60,7 @@ export const PMCaseListPage: React.FC = () => {
    * 這一頁是伺服器分頁，前端比較器只看得到當前這 20 筆；
    * 「依案號排序」實際上只排了眼前這一頁，而畫面上完全看不出來。
    * 欄位標 `sorter: true` 只是宣告「這一欄可排」，實際排序由 `sort_by`
-   * 送進 API（後端白名單見 `pm/case_repository.SORTABLE_COLUMNS`）。
+   * 送進 API（後端只接受真正對應到欄位的名稱，見 `repositories/sort_utils.py`）。
    */
   const [sort, setSort] = useState<{ field: string; order: 'asc' | 'desc' }>({
     field: 'year',
@@ -116,10 +131,11 @@ export const PMCaseListPage: React.FC = () => {
     ...(yearFilter !== undefined && { year: yearFilter }),
     ...(statusFilter && { status: statusFilter }),
     ...(categoryFilter && { category: categoryFilter }),
-  }), [currentPage, searchText, yearFilter, statusFilter, categoryFilter, sort]);
+    include_converted: includeConverted,
+  }), [currentPage, searchText, yearFilter, statusFilter, categoryFilter, sort, includeConverted]);
 
   const { data: casesData, isLoading, refetch } = usePMCases(queryParams);
-  const { data: summary } = usePMCaseSummary({ year: yearFilter });
+  const { data: summary } = usePMCaseSummary({ year: yearFilter, include_converted: includeConverted });
 
   // PaginatedResponse<PMCase> has .items and .pagination directly
   const cases = casesData?.items ?? [];
@@ -155,8 +171,10 @@ export const PMCaseListPage: React.FC = () => {
       dataIndex: 'category',
       key: 'category',
       sorter: true,
-      width: 112,
-      render: (cat: string) => PM_CATEGORY_LABELS[cat] || cat || '-',
+      // 顯示代碼＋名稱（`02承攬報價`）—— owner 2026-08-31：「應顯示完整資訊」。
+      // 寬度要放得下 6 個中文字＋排序箭頭，否則標題會被折成「計畫類 別」。
+      width: 130,
+      render: (cat: string) => formatPMCategory(cat),
     },
     {
       title: '報價金額',
@@ -172,7 +190,9 @@ export const PMCaseListPage: React.FC = () => {
       dataIndex: 'status',
       key: 'contract_status',
       sorter: true,
-      width: 96,
+      // 「已承攬・未成案」是 7 個字，96px 放不下 ⇒ 被截成「已承攬・」而看不出未成案
+      //（owner 2026-08-31 回報）。這一欄的兩種值差別就在後三個字，不能截。
+      width: 150,
       align: 'center' as const,
       // 2026-08-31：移除表頭的前端篩選。這一頁是伺服器分頁，
       // `onFilter` 只作用於當前這一頁 ⇒ 選了「已結案」而本頁沒有 ⇒ 整頁空白。
@@ -196,8 +216,17 @@ export const PMCaseListPage: React.FC = () => {
       key: 'project_code',
       sorter: true,
       width: 130,
+      // 已成案者列管在 /contract-cases —— 這裡給一條路過去，
+      // 否則「移轉列管」對使用者就只是「東西不見了」。
       render: (code: string) => code
-        ? <Typography.Text style={{ fontFamily: 'monospace', fontSize: 12 }}>{code}</Typography.Text>
+        ? (
+          <Typography.Link
+            style={{ fontFamily: 'monospace', fontSize: 12 }}
+            onClick={(e) => { e.stopPropagation(); navigate(`${ROUTES.CONTRACT_CASES}?search=${encodeURIComponent(code)}`); }}
+          >
+            {code}
+          </Typography.Link>
+        )
         : <Typography.Text type="secondary">-</Typography.Text>,
     },
   ];
@@ -361,11 +390,19 @@ export const PMCaseListPage: React.FC = () => {
                 setCategoryFilter(v);
                 setCurrentPage(1);
               }}
-              options={Object.entries(PM_CATEGORY_LABELS).map(([k, v]) => ({
-                value: k,
-                label: v,
-              }))}
+              options={PM_CATEGORY_OPTIONS}
             />
+          </Col>
+          <Col>
+            {/* owner 2026-08-31：已成案的案件移交 /contract-cases 列管，這裡預設不列。
+                留一個開關而不是寫死 —— 邀標階段的報價紀錄還掛在這些案件上，
+                偶爾要回頭查。**預設不顯示＝不列管；查得到＝不是列管。** */}
+            <Checkbox
+              checked={includeConverted}
+              onChange={(e) => { setIncludeConverted(e.target.checked); setCurrentPage(1); }}
+            >
+              含已成案
+            </Checkbox>
           </Col>
           <Col>
             <Button icon={<ReloadOutlined />} onClick={() => refetch()} />

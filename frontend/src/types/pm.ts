@@ -60,6 +60,27 @@ export const PM_CATEGORY_LABELS: Record<string, string> = {
   '02': '承攬報價',
 };
 
+/**
+ * 計畫類別的完整顯示字串 —— 代碼＋名稱，例如 `02承攬報價`（owner 2026-08-31）。
+ *
+ * 為什麼做成函式而不是各頁自己串：這張對照表已經有三個消費端
+ * （列表／詳情／表單）。各串各的就是下一個「手抄常數跨層漂移」——
+ * 本 repo 08-21 才因為同一個形狀讓使用者去合併後端輸出得出來的工項。
+ *
+ * 未知代碼原樣回傳（不吞、不猜），空值回 `-`。
+ */
+export function formatPMCategory(code?: string | null): string {
+  if (!code) return '-';
+  const label = PM_CATEGORY_LABELS[code];
+  return label ? `${code}${label}` : code;
+}
+
+/** 給 Select 用的選項（與列表顯示同一個字串，避免兩處不一致） */
+export const PM_CATEGORY_OPTIONS = Object.keys(PM_CATEGORY_LABELS).map((code) => ({
+  value: code,
+  label: formatPMCategory(code),
+}));
+
 /** PM 案件 */
 export interface PMCase {
   id: number;
@@ -157,6 +178,14 @@ export interface PMCaseListParams {
   case_nature?: string;
   search?: string;
   client_name?: string;
+  /**
+   * 是否納入已成案的案件（已承攬且有 project_code）。省略＝後端預設 false。
+   *
+   * 那些案件已移交 `/contract-cases` 列管，不該在邀標/報價頁重複出現
+   * （owner 2026-08-31）。**摘要查詢要帶同一個值**，否則統計卡的分母
+   * 與列表不同（規範 §2.6 ①）。
+   */
+  include_converted?: boolean;
   [key: string]: unknown;
 }
 

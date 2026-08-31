@@ -81,12 +81,30 @@ class PMCaseRepository(BaseRepository[PMCase]):
         limit: int = 20,
         sort_by: str = "id",
         sort_order: str = "desc",
+        include_converted: bool = True,
     ) -> Tuple[List[PMCase], int]:
-        """篩選案件列表"""
+        """篩選案件列表
+
+        `include_converted=False` 時排除**已成案**的案件（已承攬且有
+        `project_code`）—— 那些已移交 `/contract-cases` 列管，
+        不該在邀標/報價頁重複出現（owner 2026-08-31 裁示）。
+
+        ⚠️ 條件刻意是「已承攬**且**有成案編號」，不是「已承攬」：
+        實測 227 件已承攬裡有 **91 件還沒成案**（沒有 project_code，
+        `contract_projects` 裡也沒有）。只看狀態會讓那 91 件從兩邊都消失。
+        """
         query = select(PMCase)
         count_query = select(func.count(PMCase.id))
 
         conditions = []
+        if not include_converted:
+            conditions.append(
+                or_(
+                    PMCase.status != "contracted",
+                    PMCase.project_code.is_(None),
+                    PMCase.project_code == "",
+                )
+            )
         if year is not None:
             conditions.append(PMCase.year == year)
         if status:
@@ -126,34 +144,45 @@ class PMCaseRepository(BaseRepository[PMCase]):
         return items, total
 
     async def get_summary(
-        self, year: Optional[int] = None
+        self, year: Optional[int] = None, include_converted: bool = True
     ) -> Dict[str, Any]:
-        """取得案件統計摘要"""
+        """取得案件統計摘要
+
+        `include_converted` **必須與列表查詢用同一個值** —— 統計卡是列表的
+        分母，範圍不同就會出現「卡片說 69 件、列表一件都點不出來」（規範 §2.6 ①）。
+        """
         base = select(PMCase)
         if year is not None:
             base = base.where(PMCase.year == year)
 
+        def _scoped(q):
+            """把年度與「是否含已成案」兩個範圍條件一次套上。
+
+            原本三段查詢各自 `if year is not None` 重複三次 —— 再加一個條件
+            就是重複六次，而漏掉其中一段不會報錯，只會讓某一張卡的分母跟別人不一樣。
+            """
+            if year is not None:
+                q = q.where(PMCase.year == year)
+            if not include_converted:
+                q = q.where(
+                    or_(
+                        PMCase.status != "contracted",
+                        PMCase.project_code.is_(None),
+                        PMCase.project_code == "",
+                    )
+                )
+            return q
+
         # 總數
-        total_q = select(func.count(PMCase.id))
-        if year is not None:
-            total_q = total_q.where(PMCase.year == year)
-        total = (await self.db.execute(total_q)).scalar() or 0
+        total = (await self.db.execute(_scoped(select(func.count(PMCase.id))))).scalar() or 0
 
         # 依狀態分組
-        status_q = (
-            select(PMCase.status, func.count(PMCase.id))
-            .group_by(PMCase.status)
-        )
-        if year is not None:
-            status_q = status_q.where(PMCase.year == year)
+        status_q = _scoped(select(PMCase.status, func.count(PMCase.id))).group_by(PMCase.status)
         status_result = await self.db.execute(status_q)
         by_status = {row[0] or "unknown": row[1] for row in status_result.all()}
 
         # 合約總額
-        amount_q = select(func.sum(PMCase.contract_amount))
-        if year is not None:
-            amount_q = amount_q.where(PMCase.year == year)
-        total_amount = (await self.db.execute(amount_q)).scalar()
+        total_amount = (await self.db.execute(_scoped(select(func.sum(PMCase.contract_amount))))).scalar()
 
         return {
             "total_cases": total,

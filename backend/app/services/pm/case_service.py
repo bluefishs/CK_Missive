@@ -157,6 +157,7 @@ class PMCaseService:
             limit=params.limit,
             sort_by=params.sort_by or "id",
             sort_order=params.sort_order.value if params.sort_order else "desc",
+            include_converted=params.include_converted,
         )
 
         if not items:
@@ -176,9 +177,11 @@ class PMCaseService:
         ]
         return responses, total
 
-    async def get_summary(self, year: Optional[int] = None) -> PMCaseSummary:
-        """案件統計摘要"""
-        data = await self.repo.get_summary(year=year)
+    async def get_summary(
+        self, year: Optional[int] = None, include_converted: bool = True
+    ) -> PMCaseSummary:
+        """案件統計摘要（範圍須與列表一致，見 repo 的說明）"""
+        data = await self.repo.get_summary(year=year, include_converted=include_converted)
         return PMCaseSummary(**data)
 
     async def get_yearly_trend(self) -> List[PMYearlyTrendItem]:

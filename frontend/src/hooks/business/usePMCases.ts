@@ -44,7 +44,7 @@ export const usePMCase = (id: number | null | undefined) => {
 };
 
 /** 取得 PM 案件統計摘要 */
-export const usePMCaseSummary = (params?: { year?: number }) => {
+export const usePMCaseSummary = (params?: { year?: number; include_converted?: boolean }) => {
   return useQuery({
     queryKey: pmKeys.summary(params),
     queryFn: () => pmCasesApi.summary(params),
