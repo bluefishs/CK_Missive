@@ -120,7 +120,14 @@ def main() -> int:
         delta = None if (p is None or recreated) else info["restarts"] - p["restarts"]
 
         if not info["running"]:
-            red.append(f"{name}：容器沒有在跑（exit={info['exit_code']}）")
+            # ⚠️ `.State.ExitCode` 在有 restart policy 的容器上**不是那次崩潰的退出碼** ——
+            #    它反映最後一次狀態轉換。2026-09-01 實測：inspect 回 0，
+            #    而 `docker events` 現場捕捉到的是 **136（SIGFPE，原生程式碼硬當機）**。
+            #    這裡標成「（僅供參考）」，不要讓讀的人拿它下結論。
+            red.append(
+                f"{name}：容器沒有在跑（inspect 回報 exit={info['exit_code']} —— "
+                f"**僅供參考，restart policy 下這個欄位不是那次崩潰的碼**）"
+            )
             verdict = "RED 沒在跑"
         elif recreated:
             verdict = "— 容器已重建（部署），基準重設"
@@ -159,8 +166,15 @@ def main() -> int:
         for x in red:
             print(f"  · {x}")
         print("\n  重啟迴圈的症狀是**間歇 502**，而 healthcheck 與公網探針在恢復後都是綠的。")
-        print("  取證：`docker events --filter container=<name> --filter event=die`")
-        print("        看真正的 exitCode（`docker inspect` 只留最後一次）。")
+        print()
+        print("  ⚠️ **取證不要用 `docker inspect`** —— 欄位名叫 `ExitCode`，但在有 restart")
+        print("     policy 的容器上它反映的是最後一次狀態轉換，不是那次崩潰。")
+        print("     2026-09-01 實測：inspect 回 **0**，現場捕捉是 **136（SIGFPE）** ——")
+        print("     兩者導向完全相反的診斷（「主進程正常結束」vs「原生程式碼硬當機」）。")
+        print()
+        print("     正確作法（唯讀事件流，不影響服務）：")
+        print("       docker events --filter container=<name> --filter event=die \\")
+        print("         --format '{{.Time}} exit={{.Actor.Attributes.exitCode}}'")
         return 2
     if yellow:
         print(f"[YELLOW] {len(yellow)} 項剛重啟過（觀察中）：")
