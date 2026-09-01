@@ -1515,6 +1515,21 @@
 
 ---
 
+## L129 — 診斷工具取樣的是「顯形時刻」，而你要找的是「成因時刻」（2026-09-01）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | `ck_missive_backend` 反覆崩潰（`RestartCount` 一天 15+）。三個樣本三種死法：**136（SIGFPE）／1（TypeError）／139（SIGSEGV）**。中間那次留下決定性的 traceback：`asyncio/base_events.py _run_once` 的 `for i in range(ntodo)` 拋 `TypeError: '_UnixSelectorEventLoop' object cannot be interpreted as an integer`。 |
+| **⭐ 為什麼那一行是決定性的** | `ntodo` 就是 `len(self._ready)`，**必然是整數**。它變成事件迴圈物件本身 —— **Python 層寫不出這個錯誤**。直譯器的物件狀態被踩壞了，剛好在撞到型別檢查時才顯形。三種死法是**同一個堆積損壞的三個角度**，不是三個問題。 |
+| **⭐ 判準（比這個 bug 活得久）** | **多數診斷工具取樣的是「顯形時刻」，而你要找的是「成因時刻」—— 兩者可以差幾分鐘，且毫無關聯。** |
+| **具體的取捨** | `PYTHONFAULTHANDLER=1` 印**顯形當下**的堆疊 ⇒ 對堆積損壞價值有限（那個位置與寫壞記憶體的地方沒有關係）。`PYTHONMALLOC=debug` 在哨兵位元組**被覆寫的當下**中止 ⇒ 直接指出成因。代價約 10–20% 效能。 |
+| **一般形式** | 問「它壞在哪」之前，先問「**我的工具取樣的是哪一個時刻**」。 |
+| **與同日兩條的關係** | L127（欄位語意：`ExitCode` 不是那個 exit code）＋ L128（基底率 vs 管線缺陷）＋ 本條（工具的因果距離）。`docker inspect .State.ExitCode` 正是三者交會處：**顯形之後的狀態 ＋ 誤導的欄位名 ＋ 真相只能在事發當下取得**。 |
+| **狀態** | 診斷旗標**尚未加**（要改 compose 並重啟對外服務，屬 owner 決定）。樣本持續累積於 `backend/logs/container_die_events.log` —— 刻意寫檔而非依賴背景任務，因為那種捕捉器會隨 session 結束而消失（CK_AaaP 實測：綁 session 的捕捉器 55 分鐘寫出 0 bytes，而窗口內確實死過一次）。 |
+| **跨 repo** | CK_AaaP 記為 L83／`CONVENTIONS.md` §10.11。他們另外兩支高重啟容器（45／37 次）的真實退出碼**仍未知** —— inspect 給的 0 已標為不可信。 |
+
+---
+
 ## v6.0 detector 候選
 
 未來實作 `scripts/checks/lessons_drift_check.py`：
