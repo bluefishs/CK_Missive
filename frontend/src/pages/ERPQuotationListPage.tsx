@@ -10,7 +10,8 @@ import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
 import { useERPQuotations, useERPProfitSummary, useAuthGuard } from '../hooks';
 import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
-import { erpQuotationStatusLabel, erpQuotationStatusColor } from '../types/erp';
+import { erpQuotationStatusLabel, erpQuotationStatusColor, ERP_QUOTATION_STATUS_LABELS } from '../types/erp';
+import type { ERPQuotationStatus } from '../types/erp';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
@@ -117,6 +118,19 @@ export const ERPQuotationListPage: React.FC = () => {
     // 而狀態（草稿／已確認／修訂中／已結案）是主要業務屬性，看不到本來就不合理。
     {
       title: '狀態', dataIndex: 'status', key: 'status', sorter: true, width: 100, align: 'center',
+      // 篩選選項來自 SSOT，**不是**從當前這一頁的資料推出來的（2026-09-01）。
+      //
+      // 原本靠 `enhanceColumns` 自動加，而它的選項是掃 `dataSource` 得到的 ——
+      // 伺服器分頁時那只有 20 筆，於是「已結案」可能整個列不出來。
+      // 08-31 起這類前端篩選會被 `stripClientOnlyColumnFeatures` 剝掉。
+      //
+      // 這裡刻意**只給 `filters`、不給 `onFilter`**：那是 AntD 的伺服器端
+      // 篩選寫法（由 onChange 送進查詢參數），而剝除器只在有 `onFilter`
+      // 時才連 `filters` 一起刪 —— 所以這個形狀是對的，也活得下來。
+      filters: (Object.keys(ERP_QUOTATION_STATUS_LABELS) as ERPQuotationStatus[])
+        .map((k) => ({ text: ERP_QUOTATION_STATUS_LABELS[k], value: k })),
+      filterMultiple: false,
+      filteredValue: params.status ? [params.status] : null,
       render: (v?: string) => <Tag color={erpQuotationStatusColor(v)}>{erpQuotationStatusLabel(v)}</Tag>,
     },
     { title: '年度', hideOnMobile: true, dataIndex: 'year', key: 'year', sorter: true, width: 80, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
@@ -480,11 +494,15 @@ export const ERPQuotationListPage: React.FC = () => {
           //
           // 只有真欄位標 `sorter: true`。承辦同仁／填報者／毛利／毛利率
           // 都是**聚合出來的**，走這條路徑排序會靜靜地照 `id` 排。
-          onChange={(_p, _f, sorter) => {
+          onChange={(_p, filters, sorter) => {
             const sd = Array.isArray(sorter) ? sorter[0] : sorter;
             const field = typeof sd?.field === 'string' ? sd.field : undefined;
+            // 表頭篩選也送進查詢參數（伺服器端篩選）。取消篩選時要送 undefined，
+            // 不能留空字串 —— API 層是 truthy 判斷，空字串會被丟掉而看起來像沒改。
+            const st = filters?.status?.[0];
             setParams((prev) => ({
               ...prev,
+              status: typeof st === 'string' ? st : undefined,
               sort_by: field && sd?.order ? field : 'year',
               sort_order: field && sd?.order ? (sd.order === 'ascend' ? 'asc' : 'desc') : 'desc',
               page: 1,
