@@ -29,7 +29,7 @@ import type { PMCase } from '../../types/pm';
  * 那是**繞過 Pydantic 驗證**的服務層呼叫，limit=1000 當然會過。
  * **要驗端點就得打端點。**
  */
-const DROPDOWN_PAGE_SIZE = 100;
+const DROPDOWN_PAGE_SIZE = 1000;
 /** 續抓的頁數上限 —— 防止端點回報異常 total 時無限迴圈。 */
 const DROPDOWN_MAX_PAGES = 10;
 
@@ -54,14 +54,25 @@ export const useProjectsDropdown = () => {
   const { data, isLoading } = useQuery({
     queryKey: ['projects-dropdown'],
     queryFn: async () => {
-      type Resp = { projects?: Project[]; items?: Project[]; total?: number };
+      // ⚠️ 端點回的是 `{ items, pagination: { total } }` —— **不是 `{ total }`**。
+      // 2026-09-01 我先前只讀 `resp.total` ⇒ 永遠是 0 ⇒ 續抓迴圈一次都不跑
+      // ⇒ 只拿到第一頁，226 筆裡的第 144 筆（owner 要的「開闢」）依然選不到。
+      // 我當時測的是 `ProjectService.get_projects()`（回 `{projects, total}`），
+      // **那是服務層的形狀，不是端點的**。兩種形狀都收，並以 pagination 優先。
+      type Resp = {
+        projects?: Project[]; items?: Project[];
+        total?: number; pagination?: { total?: number };
+      };
       const fetchPage = async (page: number) => {
         const resp = await apiClient.post<Resp>(
           PROJECTS_ENDPOINTS.LIST,
           { page, limit: DROPDOWN_PAGE_SIZE }
         );
         const items = resp.projects || resp.items || [];
-        return { items: Array.isArray(items) ? items : [], total: resp.total ?? 0 };
+        return {
+          items: Array.isArray(items) ? items : [],
+          total: resp.pagination?.total ?? resp.total ?? 0,
+        };
       };
 
       const first = await fetchPage(1);

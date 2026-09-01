@@ -201,7 +201,10 @@ class ProjectOption(BaseModel):
 class ProjectListQuery(BaseModel):
     """專案列表查詢參數（統一格式）"""
     page: int = Field(default=1, ge=1, description="頁碼")
-    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
+    # 2026-09-01 owner 裁示「先擴充限制比數，避免業務無法運作」：100 → 1000。
+    # 承攬案件已 226 筆，而下拉需要一次拿完（Select 的搜尋是在拿到的那些上做的）。
+    # 上限不是拿掉、是放到目前資料量的數倍 —— 完全不設限會讓誤傳的大 limit 拖垮查詢。
+    limit: int = Field(default=20, ge=1, le=1000, description="每頁筆數")
     search: Optional[str] = Field(None, description="搜尋關鍵字")
     year: Optional[int] = Field(None, description="年度篩選")
     category: Optional[str] = Field(None, description="類別篩選")
