@@ -13,28 +13,117 @@ import { apiClient } from '../../api/client';
 import { PROJECTS_ENDPOINTS, USERS_ENDPOINTS, PM_ENDPOINTS } from '../../api/endpoints';
 import { filesApi } from '../../api/filesApi';
 import type { Project, User } from '../../types/api';
+import type { PMCase } from '../../types/pm';
+
+/** 下拉一次抓的上限；超過就分頁續抓，直到湊齊 `total`。 */
+const DROPDOWN_PAGE_SIZE = 200;
+/** 續抓的頁數上限 —— 防止端點回報異常 total 時無限迴圈。 */
+const DROPDOWN_MAX_PAGES = 10;
 
 /**
  * 承攬案件下拉選單 Hook
  *
  * staleTime 10 分鐘 — 承攬案件幾乎不變，跨頁面共享快取。
+ *
+ * ## ⚠️ 為什麼要續抓，不是把 limit 調大就好（2026-09-01）
+ *
+ * 原本固定 `limit: 100`，而承攬案件已有 **226 筆** ⇒ **126 筆永遠選不到**，
+ * 且 Select 的搜尋是在這 100 筆上做的，所以「搜尋不到」看起來像資料不存在。
+ *
+ * owner 回報 `/documents/2748` 選不到「…工程開闢分析規劃第二期」：
+ * 那筆依建立時間排**第 144 名**。它昨天排第 93、剛好在界內 ——
+ * 今天成案 51 筆把它擠了出去。**上限是會被時間追上的，調大只是延後。**
+ *
+ * 回應本來就帶 `total`，所以「我少拿了幾筆」是元件手上就有的精確答案，
+ * 只是先前沒有人問它。現在問，並且補齊。
  */
 export const useProjectsDropdown = () => {
   const { data, isLoading } = useQuery({
     queryKey: ['projects-dropdown'],
     queryFn: async () => {
-      const resp = await apiClient.post<{ projects?: Project[]; items?: Project[] }>(
-        PROJECTS_ENDPOINTS.LIST,
-        { page: 1, limit: 100 }
-      );
-      const items = resp.projects || resp.items || [];
-      return Array.isArray(items) ? items : [];
+      type Resp = { projects?: Project[]; items?: Project[]; total?: number };
+      const fetchPage = async (page: number) => {
+        const resp = await apiClient.post<Resp>(
+          PROJECTS_ENDPOINTS.LIST,
+          { page, limit: DROPDOWN_PAGE_SIZE }
+        );
+        const items = resp.projects || resp.items || [];
+        return { items: Array.isArray(items) ? items : [], total: resp.total ?? 0 };
+      };
+
+      const first = await fetchPage(1);
+      const all = [...first.items];
+      // 端點回報的總數大於已取得 ⇒ 續抓。**不靠 `items.length === limit` 猜**，
+      // 那個判準在「總數剛好等於上限」時會多打一次無用的請求。
+      for (let page = 2; all.length < first.total && page <= DROPDOWN_MAX_PAGES; page += 1) {
+        const next = await fetchPage(page);
+        if (next.items.length === 0) break;   // 端點不照 total 給資料時要停，不能空轉
+        all.push(...next.items);
+      }
+      if (all.length < first.total) {
+        // 靜默截斷是這個 bug 的本體 —— 真的湊不齊時要留下痕跡，
+        // 而不是讓使用者以為那些案件不存在。
+        console.warn(
+          `[useProjectsDropdown] 承攬案件下拉只取得 ${all.length}/${first.total} 筆，`
+          + `已達 ${DROPDOWN_MAX_PAGES} 頁上限 —— 選單會缺項目。`
+        );
+      }
+      return all;
     },
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
   return { projects: data ?? [], isLoading };
+};
+
+/**
+ * PM 案件（邀標/報價）下拉選單 Hook
+ *
+ * ## 為什麼不是直接調大 limit（2026-09-01）
+ *
+ * `PMCaseListRequest.limit` 的驗證上限是 **100**，送 1000 會直接 422。
+ * 而 PM 案件已有 **253 筆** ⇒ 一次請求拿不完，只能分頁續抓。
+ *
+ * ⚠️ 這一頁先前寫的是 `page_size: 200` —— 那個 key **不在 `casesApi.list`
+ * 的白名單裡、從來沒有被送出去**，所以實際吃的是後端預設 `limit=20`：
+ * **費用報銷的案件下拉一直只有 20 個選項**，而它不會報錯。
+ * 兩個病疊在一起（送不出去的參數 ＋ 拿不完的資料），症狀都是「選不到」。
+ */
+export const usePMCasesDropdown = (opts?: { includeConverted?: boolean }) => {
+  const includeConverted = opts?.includeConverted ?? true;
+  const { data, isLoading } = useQuery({
+    queryKey: ['pm-cases-dropdown', includeConverted],
+    queryFn: async () => {
+      type Resp = { items?: PMCase[]; pagination?: { total?: number } };
+      const PAGE = 100;              // 後端驗證上限，不能再大
+      const MAX_PAGES = 20;
+      const fetchPage = async (page: number) => {
+        const resp = await apiClient.post<Resp>(PM_ENDPOINTS.CASES_LIST, {
+          page, limit: PAGE, include_converted: includeConverted,
+          sort_by: 'case_code', sort_order: 'desc',
+        });
+        return { items: resp.items ?? [], total: resp.pagination?.total ?? 0 };
+      };
+      const first = await fetchPage(1);
+      const all = [...first.items];
+      for (let page = 2; all.length < first.total && page <= MAX_PAGES; page += 1) {
+        const next = await fetchPage(page);
+        if (next.items.length === 0) break;
+        all.push(...next.items);
+      }
+      if (all.length < first.total) {
+        console.warn(
+          `[usePMCasesDropdown] 只取得 ${all.length}/${first.total} 筆 —— 選單會缺項目。`
+        );
+      }
+      return all;
+    },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  return { pmCases: data ?? [], isLoading };
 };
 
 /**

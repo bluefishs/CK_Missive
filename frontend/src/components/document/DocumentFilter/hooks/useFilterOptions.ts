@@ -56,14 +56,24 @@ export function useFilterOptions(): FilterOptionsData {
     queryKey: ['documents', 'filter-options', 'contract-projects'],
     queryFn: async () => {
       try {
+        // 2026-09-01：`limit: 100` 而承攬案件已有 226 筆 ⇒ **126 筆選不到**，
+        // 而 Select 的搜尋是在拿到的那些上做的 ⇒「搜尋不到」看起來像資料不存在。
+        // owner 從 /documents/2748 回報選不到「…工程開闢分析規劃第二期」（第 144 名）。
+        const FILTER_DROPDOWN_LIMIT = 1000;
         const data = await apiClient.post<ContractProjectsDropdownResponse>(
           API_ENDPOINTS.DOCUMENTS.CONTRACT_PROJECTS_DROPDOWN,
-          { limit: 100 }
+          { limit: FILTER_DROPDOWN_LIMIT }
         );
         const options = (data.options || []).map((option) => ({
           value: option.value,
           label: option.label,
         }));
+        // 上限是會被時間追上的。真的頂到就要出聲 —— 靜默截斷正是這個 bug 的本體。
+        if (options.length >= FILTER_DROPDOWN_LIMIT) {
+          logger.warn(
+            `承攬案件選項達到上限 ${FILTER_DROPDOWN_LIMIT}，選單可能缺項目 —— 請改為分頁續抓`
+          );
+        }
         logger.debug('成功從 contract_projects 表載入承攬案件選項:', options.length);
         return options;
       } catch {

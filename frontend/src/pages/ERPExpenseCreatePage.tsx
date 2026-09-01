@@ -21,7 +21,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useResponsive } from '../hooks/utility/useResponsive';
-import { useCreateExpense, usePMCases, useEInvoicePendingList } from '../hooks';
+import { useCreateExpense, usePMCasesDropdown, useEInvoicePendingList } from '../hooks';
 import type { ExpenseInvoiceCreate, VoucherType } from '../types/erp';
 import { EXPENSE_CATEGORY_OPTIONS, CURRENCY_OPTIONS, VOUCHER_TYPE_OPTIONS } from '../types/erp';
 import { ROUTES } from '../router/types';
@@ -46,7 +46,13 @@ const ERPExpenseCreatePage: React.FC = () => {
   // `/pm/cases` 列表送 false（已成案的移交 /contract-cases 列管），
   // 但這裡是**費用報銷要挑案件**，已成案的正是最常報帳的那批 —— 一個都不能少。
   // 後端預設也是 true，寫出來是為了讓「這裡要全部」不依賴預設值。
-  const { data: pmCasesData } = usePMCases({ page: 1, page_size: 200, include_converted: true });
+  // 2026-09-01：改用會分頁續抓的共用下拉 hook。
+  //
+  // 原本是 `usePMCases({ page: 1, page_size: 200 })` —— 兩個病疊在一起：
+  //   ① `page_size` **不在 `casesApi.list` 的白名單裡、從來沒被送出去** ⇒ 實際吃後端預設 20
+  //   ② 就算送出去也沒用：`PMCaseListRequest.limit` 的驗證上限是 100，送 200 會 422
+  // 而 PM 案件有 253 筆 ⇒ **報帳的案件下拉一直只有 20 個選項**，且不會報錯。
+  const { pmCases: pmCaseList } = usePMCasesDropdown({ includeConverted: true });
   const { data: mofData } = useEInvoicePendingList({ skip: 0, limit: 50 });
   const mofInvoices = (mofData as { items?: Array<{ id: number; inv_num: string; date: string; amount: number; seller_ban?: string; status: string }> })?.items ?? [];
   const { isMobile } = useResponsive();
@@ -93,8 +99,7 @@ const ERPExpenseCreatePage: React.FC = () => {
   }, []);
 
   const caseOptions = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pmCases = (pmCasesData as any)?.items ?? (pmCasesData as any)?.data?.items ?? [];
+    const pmCases = pmCaseList;
     const all = (Array.isArray(pmCases) ? pmCases : []).map((c: { case_code: string; project_code?: string; case_name: string; status: string }) => ({
       value: c.case_code,
       label: c.project_code ? `${c.project_code} ${c.case_name}` : `${c.case_code} ${c.case_name} (未成案)`,
@@ -109,7 +114,7 @@ const ERPExpenseCreatePage: React.FC = () => {
       return [...recent, ...rest];
     }
     return all;
-  }, [pmCasesData, recentCodes]);
+  }, [pmCaseList, recentCodes]);
 
   // --- 智慧掃描 (含圖片壓縮) ---
   const doScan = async (file: File) => {
