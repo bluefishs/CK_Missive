@@ -15,8 +15,21 @@ import { filesApi } from '../../api/filesApi';
 import type { Project, User } from '../../types/api';
 import type { PMCase } from '../../types/pm';
 
-/** 下拉一次抓的上限；超過就分頁續抓，直到湊齊 `total`。 */
-const DROPDOWN_PAGE_SIZE = 200;
+/**
+ * 下拉一次抓的筆數；超過就分頁續抓，直到湊齊 `total`。
+ *
+ * ⚠️ **100 是 `/api/projects/list` 的 `ProjectListQuery.limit` 上限（`le=100`）。
+ * 不要調大。** 2026-09-01 我把它寫成 200，結果端點回 **422** ⇒ useQuery 失敗
+ * ⇒ `?? []` ⇒ **整個下拉變空**，症狀從「少了某些案件」惡化成「完全無法篩選」。
+ *
+ * 這個坑本檔下方 `useSubcontractorOptions` 的註解早就記過（`limit=200` → 422
+ * → 空下拉），我讀過那段還是踩了。**上限要去 OpenAPI 查，不能憑感覺填。**
+ *
+ * ⚠️ 也是我驗證方法的漏洞：我測的是 `ProjectService.get_projects()`，
+ * 那是**繞過 Pydantic 驗證**的服務層呼叫，limit=1000 當然會過。
+ * **要驗端點就得打端點。**
+ */
+const DROPDOWN_PAGE_SIZE = 100;
 /** 續抓的頁數上限 —— 防止端點回報異常 total 時無限迴圈。 */
 const DROPDOWN_MAX_PAGES = 10;
 
