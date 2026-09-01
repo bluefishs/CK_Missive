@@ -4,5 +4,7 @@
   "sync_enabled": false,
   "sync_interval_hours": 24,
   "last_sync_time": null,
-  "sync_status": "idle"
+  "sync_status": "idle",
+  "_deprecated": "⚠️ 已標記移除（A63）：預定 2026-09-15 刪除。實測 0 個讀者 —— 權威來源＝backend/config/remote_backup.json。若你在此日期後仍需要它，請在 docs/architecture/OPEN_ITEMS_20260819.md 的 A63 留下理由。",
+  "_remove_after": "2026-09-15"
 }

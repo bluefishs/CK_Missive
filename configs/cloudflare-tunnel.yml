@@ -1,3 +1,8 @@
+# ⚠️ 已標記移除（A63）：預定 2026-09-15 移入 configs/archive/。
+# 沒有任何程序讀它 —— tunnel 是遠端管理型（cmd 是 `tunnel run`，無 --config、無掛載），ingress 規則在 Cloudflare Dashboard。
+# 內容也與實際不符（寫 cksurvey.cloudflareaccess.com，實際服務 missive.cksurvey.tw）。
+# _deprecated: true  _remove_after: 2026-09-15
+
 # ⚠️ 2026-08-27：這份檔案目前**沒有任何程序在讀**。
 #
 # 實際跑的 `ck_missive_cloudflared` 是**遠端管理型 tunnel**：

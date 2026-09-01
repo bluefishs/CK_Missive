@@ -594,6 +594,82 @@ GN 體系舊案（臺中市都計樁、南投都計樁位、鹽倉堆料等）�
 
 ---
 
+### A63 — 三個設定目錄收斂（2026-09-01 owner 裁示，含期程）
+
+**為什麼會散**：三個目錄是**三個時間點各自長出來的，沒有人合併過**。
+
+| 目錄 | 最早提交 | 檔數 | 定位 |
+|---|---|---|---|
+| `configs/` | 2025-12-30 | 15 | 基礎設施（nginx／postgres／grafana／prometheus） |
+| `config/` | 2026-02-03 | **1** | ⚠️ 只有一個檔，是別處的過期複本 |
+| `backend/config/` | 2026-02-26 | 5 | 應用層（agent 策略／推論 profile／備份） |
+
+`configs/` vs `backend/config/` 的分工說得通（基礎設施 vs 應用層）。
+**異常的是 `config/`** —— 憑空長出的第三個目錄，只裝一個過期複本。
+
+**已逐檔量過「誰真的在讀」**（完整路徑比對，排除註解與文件）：
+
+| 檔 | 讀者 | 處置 |
+|---|---|---|
+| `config/remote_backup.json` | **0**（10 處命中全是註解裡提到權威路徑） | 移除 |
+| `configs/remote_backup.json` | **0**（僅 paths.py 註解提及） | 移除 |
+| `configs/cloudflare-tunnel.yml` | **0**（tunnel 是遠端管理型，L02 Dead Config） | 移入 `configs/archive/` |
+| `configs/nginx.conf` | 僅 `configs/Dockerfile`，而**該 Dockerfile 無任何 compose 引用** | 移入 `configs/archive/` |
+| `configs/env.production.example` | 0（範例檔，本來就沒有讀者） | 保留 |
+| `configs/init.sql`／`postgresql-tuning.conf`／`subdomain-registry.yaml` | 3–5 處 | **保留（活的）** |
+
+**期程**（刻意分兩階段 —— 「沒有人讀」是靜態結論，要留一個觀察窗證明執行時也沒有人讀）：
+
+| 階段 | 時間 | 動作 |
+|---|---|---|
+| **P1** | 2026-09-01（今日） | 在待移除的檔頭加 `_deprecated` 標記與移除日期；**不刪** |
+| **P2** | **2026-09-15**（觀察兩週） | 若期間無任何讀取跡象 ⇒ 執行移除，`config/` 整個目錄刪除 |
+
+⚠️ **P2 需 owner 再確認一次**。刪除不可逆，而「grep 找不到讀者」≠「執行時沒有人讀」
+—— 本 repo 今天在「服務層 vs 端點」上就錯了三次。
+
+**防復發**：新增 `config_directory_ssot_audit.py` —— 專案根只允許
+`configs/` 與 `backend/config/` 兩個設定目錄，出現第三個即 RED。
+
+---
+
+### A64 — SSO 到期沒有明確提示，靜靜變成「訪客」（2026-09-01 owner 回報，待修項）
+
+owner 09-01 10:28 被登出，console：
+`[Auth] 401 但 session 尚未判定為 anonymous → 不清除、不跳轉，交由 bootstrap 權威決定`
+→ `[Header] currentUser=null 顯示「訪客」`。
+
+**不是部署造成的**（已查：`SECRET_KEY` 與 `CK_SSO_JWT_SECRET` 都來自環境變數、
+跨重啟不變；公網 health 200、無憑證 401 正確）。是 `SSO_ACCESS_TOKEN_EXPIRE_MINUTES=480`
+＝ **8 小時到期**，也就是 memory 早就記過的「上滿一天班必撞一次」。
+
+⚠️ **真正的缺口**：`X-Reauth-Required` 這個機制**全庫只出現在
+`.claude/rules/cross-file-ssot-governance.md` 的規範文字裡，程式碼一個都沒有**。
+規範說「到期時必須是明確的『請重新登入』而非靜默失敗」，而那件事沒有做。
+
+⇒ 到期的表現是「變成訪客」，使用者不知道發生什麼、也不知道該做什麼。
+
+**期程**：P1 2026-09-08 前實作（後端到期回應帶 `X-Reauth-Required`，
+前端攔到就跳明確的重新登入提示）。**這是 UX 缺口不是資安缺口**，不擋業務。
+
+---
+
+### A65 — 下拉改伺服器端搜尋的接線（2026-09-01，hook 已就緒待接）
+
+`hooks/business/useSearchableOptions.ts` 已建好並通過型別檢查，**尚未接上任何頁面**。
+
+接上之後資料量不再是變數（現在是靠放寬 limit 到 1000 撐著，
+承攬案件 226／PM 案件 253，餘裕 747–774 筆）。
+
+消費端 4 處：`useDocumentOperations`／`useDocumentDetail`／`ERPLedgerPage`／
+`useFilterOptions`。**一次改完，不要再長出第五份。**
+
+⚠️ 不排硬期程：目前狀態可用，而我今天在這條路上弄壞過兩次線上
+（422 空下拉、讀錯 total）。**接線時機由 owner 決定**，守門
+（`dropdown_limit_headroom_audit.py` weekly 95）會在餘裕不足時先出聲。
+
+---
+
 ## B. 已查明根因、尚未實作
 
 | # | 議題 | 根因（已查證） | 規模 |
