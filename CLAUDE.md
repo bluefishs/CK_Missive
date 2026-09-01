@@ -32,6 +32,21 @@
 > 重複 47 張、NT$6,144,188）／weekly 95（下拉取數上限）與 96（設定目錄 SSOT）
 > 兩支守門，**都做過負向對照**／設定目錄收斂 P1 標記完成，P2 排 09-15。
 >
+> ⛔ **2026-09-01 晚：全機 Python 行程隨機 segfault，`wsl --shutdown` 無效**（A66，P1 跨 repo）——
+> `ck_missive_backend` 一天重啟 17 次、使用者遇間歇 502，而**公網探針／healthcheck／blackbox 全綠**
+> （它是「反覆重啟後恢復」，綠燈之間的空窗才是使用者踩到的）。三層證據：三種死法
+> **136(SIGFPE)/1(TypeError)/139(SIGSEGV)**／8 分鐘內**三個 repo 的 HTTP 後端全部 SIGSEGV**（P=3.5×10⁻⁵）／
+> dmesg 顯示故障在 `libpython3.11.so`、`libc.so.6`、`python3.13` 裡。
+> **⭐ 最關鍵的一筆：`runc` 也在 `libc.so.6` 裡 segfault —— runc 不是 Python，所以這是整個 WSL2 VM 的問題**，
+> 不是任何語言執行期或套件。逐項排除：我們的原生擴充（沒裝的 repo 照樣崩）／httptools・uvloop
+> （版本不同、我們沒裝 uvloop）／共用基底映像（3.11 與 3.13 都中）／記憶體壓力／容器 OOM／
+> 單一壞核心／**VM 累積狀態（重啟後 4 小時內又 6 筆）**。剩下：WSL2 核心 `6.6.87.2-1`／
+> Docker Desktop `29.7.2` 的缺陷，或**硬體記憶體**（WHEA 近 3 天 0 筆，但**消費級非 ECC 常常不產生 WHEA**，未排除）。
+> ⇒ **下次重開機請順便跑 `mdsched`**，那是唯一還沒被檢驗的候選。
+> ⚠️ 判讀：dmesg 只涵蓋開機後，**「沒有故障」在頭幾小時內同時相容於「修好了」與「還沒輪到」**
+> （重啟前最長間隔 109 分鐘）。守門＝daily 15；樣本＝`backend/logs/container_die_events.log`。
+> 重啟指引＝`docs/runbooks/reboot-pre-flight-20260901.md`。
+>
 > **最後更新**: 2026-09-01
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)
