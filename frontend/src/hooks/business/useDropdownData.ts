@@ -119,15 +119,18 @@ export const usePMCasesDropdown = (opts?: { includeConverted?: boolean }) => {
   const { data, isLoading } = useQuery({
     queryKey: ['pm-cases-dropdown', includeConverted],
     queryFn: async () => {
-      type Resp = { items?: PMCase[]; pagination?: { total?: number } };
-      const PAGE = 100;              // 後端驗證上限，不能再大
+      type Resp = { items?: PMCase[]; total?: number; pagination?: { total?: number } };
+      // 2026-09-01：端點上限已放寬到 1000（PMCaseListRequest 覆寫），一次拿得完 253 筆。
+      // 續抓迴圈保留當保險 —— 但它先前**一次都沒跑過**，因為讀的是 `resp.total`
+      // 而端點回的是 `pagination.total`（同 useProjectsDropdown 的坑）。
+      const PAGE = 1000;
       const MAX_PAGES = 20;
       const fetchPage = async (page: number) => {
         const resp = await apiClient.post<Resp>(PM_ENDPOINTS.CASES_LIST, {
           page, limit: PAGE, include_converted: includeConverted,
           sort_by: 'case_code', sort_order: 'desc',
         });
-        return { items: resp.items ?? [], total: resp.pagination?.total ?? 0 };
+        return { items: resp.items ?? [], total: resp.pagination?.total ?? resp.total ?? 0 };
       };
       const first = await fetchPage(1);
       const all = [...first.items];

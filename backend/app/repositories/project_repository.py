@@ -939,8 +939,13 @@ class ProjectRepository(BaseRepository[ContractProject]):
 
         # 篩選條件
         if search:
+            # 2026-09-01：原本只比對案名。使用者也會用**案號**搜（`CK2026_01_01_006`），
+            # 而那時一筆都查不到 —— 看起來像資料不存在。
+            # 下拉改成伺服器端搜尋後，這一條就是使用者唯一的入口，不能只認名稱。
             query = query.where(
                 ContractProject.project_name.ilike(f"%{search}%")
+                | ContractProject.project_code.ilike(f"%{search}%")
+                | ContractProject.case_code.ilike(f"%{search}%")
             )
         if year:
             query = query.where(ContractProject.year == year)

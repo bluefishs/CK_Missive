@@ -153,6 +153,14 @@ class PMCaseResponse(BaseModel):
 
 class PMCaseListRequest(BaseQueryParams):
     """案件列表查詢"""
+    # 2026-09-01：覆寫 `limit` 上限 100 → 1000。
+    #
+    # PM 案件已 253 筆，而下拉需要一次拿完 ⇒ 上限 100 讓 153 筆選不到，
+    # 且症狀是「選不到」而不是報錯。與 `ProjectListQuery` 同步放寬。
+    #
+    # ⚠️ **刻意只改這一支，不動共用的 `PaginationParams`** ——
+    # 那會一次放寬所有端點，包含不需要、也沒有驗證過的那些。
+    limit: int = Field(default=20, ge=1, le=1000, description="每頁筆數")
     year: Optional[int] = Field(None, description="年度篩選")
     status: Optional[str] = Field(None, description="狀態篩選")
     category: Optional[str] = Field(None, description="類別篩選")

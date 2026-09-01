@@ -120,7 +120,9 @@ export const agenciesApi = {
    * @returns 機關選項列表
    */
   async getAgencyOptions(): Promise<AgencyOption[]> {
-    const response = await this.getAgencies({ limit: 100, include_stats: false });
+    // 2026-09-01：機關 99 筆而這裡只送 100 —— **再新增一筆就開始靜默截斷**。
+    // 端點上限本來就是 1000（AgencyListQuery），是前端自己設得太保守。
+    const response = await this.getAgencies({ limit: 1000, include_stats: false });
     return response.items.map((agency) => {
       const option: AgencyOption = {
         id: agency.id,
