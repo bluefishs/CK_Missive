@@ -234,3 +234,6 @@ docs/templates/地上物調查/
 
 # pytest 稽核軌跡隔離（conftest 設的 CK_LOGS_DIR，2026-08-30）
 backend/tests/.artifacts/
+
+# 容器重啟偵測的 runtime 狀態（每次執行改寫，不是設定）
+scripts/checks/.container_restart_state.json
