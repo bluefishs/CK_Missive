@@ -26,15 +26,34 @@ import subprocess
 # 給到 3 是容忍暫態；超過就代表 pipe 已經不通、每呼叫一次就多一個。
 DEFAULT_THRESHOLD = 3
 
+# 2026-09-02（同日第二版）：**第一版有假零。**
+#
+# 原本只回「CommandLine 含 pm2/God 的 node 行程數」。實測踩到：
+# node.exe 有 5 個，而其中 4 個**讀不到 CommandLine**（回 null，權限或跨 session）
+# ⇒ 過濾條件全部為 False ⇒ 回 0 ⇒ 護欄判定「安全」⇒ 照常呼叫 pm2。
+#
+# **護欄失效的方向是放行** —— 而它失效的時機正好是環境異常的時候。
+# docstring 原本寫著「數不出來回 None，不假裝是 0」，但實作把
+# 「讀不到 CommandLine」算成了「不符合條件」而不是「數不出來」。
+# ⇒ **寫下的判準與實作之間，還隔著一次「這個查詢在拿不到資料時會回什麼」。**
+#
+# 改成同時取三個數，讓呼叫端能分辨「真的是 0」與「我看不到」。
 _PS_COUNT = (
-    "(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" -ErrorAction SilentlyContinue "
-    "| Where-Object { $_.CommandLine -like '*God*' -or $_.CommandLine -like '*pm2*' } "
-    "| Measure-Object).Count"
+    "$all = @(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" -ErrorAction SilentlyContinue); "
+    "$known = @($all | Where-Object { $_.CommandLine }); "
+    "$hit = @($known | Where-Object { $_.CommandLine -like '*God*' -or $_.CommandLine -like '*pm2*' }); "
+    "\"$($all.Count) $($known.Count) $($hit.Count)\""
 )
 
 
 def pm2_daemon_count() -> int | None:
-    """目前有幾個 pm2 相關的 node 行程。數不出來回 None（**不假裝是 0**）。"""
+    """目前有幾個 pm2 相關的 node 行程。**數不出來回 None，不回 0。**
+
+    回 None 的兩種情況：
+    · PowerShell 本身失敗
+    · **有 node 行程存在，但一個都讀不到 CommandLine** —— 此時「符合條件 0 個」
+      是「我看不到」不是「沒有」（L133 的形狀，同日第二次踩到）
+    """
     try:
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command", _PS_COUNT],
@@ -42,7 +61,14 @@ def pm2_daemon_count() -> int | None:
         )
         if r.returncode != 0:
             return None
-        return int((r.stdout or "").strip().splitlines()[-1])
+        parts = (r.stdout or "").strip().splitlines()[-1].split()
+        if len(parts) != 3:
+            return None
+        total, known, hit = (int(x) for x in parts)
+        if total > 0 and known == 0:
+            # 有 node 行程但全部讀不到 CommandLine ⇒ 不可信
+            return None
+        return hit
     except Exception:
         return None
 
@@ -58,7 +84,11 @@ def pm2_safe_to_call(threshold: int = DEFAULT_THRESHOLD) -> tuple[bool, str]:
     """
     n = pm2_daemon_count()
     if n is None:
-        return True, "無法計數 pm2 行程（護欄未生效，仍照常呼叫）"
+        # ⚠️ 這一支的取捨方向與別處不同，理由要寫下來：
+        # 這裡回 True（照常呼叫）是因為「擋住正常運作」的代價高於「多一個 daemon」。
+        # 但它確實是一個已知的放行缺口 —— 若日後洩漏在護欄上線後仍繼續，
+        # **先來看是不是每次都走進了這一條**。
+        return True, "無法可信地計數 pm2 行程（護欄未生效，仍照常呼叫）"
     if n > threshold:
         return False, (
             f"偵測到 {n} 個 pm2 相關行程（門檻 {threshold}）—— "
