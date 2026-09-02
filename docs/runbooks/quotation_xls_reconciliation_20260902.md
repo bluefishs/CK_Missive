@@ -328,9 +328,9 @@ XLS 92 筆有檔案路徑（全部存在於 `D:\報價單6報價紀錄\`），
 | 3 | 統一新制、填報編碼同步檢核 | 手動建承攬案改為 `project_code = case_code`（GN 制；PM 成案仍「去 `_PM_`」）；舊制存量 **78** 筆不動。weekly 102 五判準（新建不得舊制／成案編碼可回溯／報價單 project_code＝承攬案的／新建 quote_kind 非 NULL／legacy 無重複），首跑 GREEN | ✅ |
 | 4 | 前 8 件協助辦理 | 不動你的總表，另存 `D:\報價單M報價單彙整總表_系統補列8筆_20260902.xlsx`（29 欄同「系統報價單」，含說明頁），請確認後貼回 | ✅ |
 | 5 | 發票／請款日期更新系統 | XLS「發票日期」139／「收款日期」21／「實收金額」4（實收全等於總價）。對得上且系統無金流者建 **請款 104**（`XLS-{編號}`，已收 20／待收 84）＋**發票 102**（總表無發票號碼，`XLS-{編號}` 佔位、綁請款）；9 筆「不開發票」等非日期原文留在 notes。既有 47 張自動補建的不動 | ✅ 請款 63→167、發票 49→151 |
-| 6 | /contract-cases 以 01 為主排列＋排序篩選 | 後端 `sort_by` 接受多欄 `category:asc,year:desc`；前端四欄 `sorter: true` 交後端（此前是前端 sorter，被 serverPaged 剝掉＝沒有排序）；年度預設當年度（§2.6 ③）；「合約總額」卡改後端全量（此前 reduce 當頁 10 筆＝§2.6 ① 違規） | ✅ 待部署驗證 |
-| 7 | 附件紀錄 tab 參照 /documents | 抽 `components/common/AttachmentRecordsPanel`（公文那套 UI：列表卡＋Dragger＋待上傳卡＋進度＋錯誤），公文 `DocumentAttachmentsTab` 290→59 行、承攬案／報價單共用的 `AttachmentPanel` 改用它——三處同一張臉，資料層各自保留 | ✅ 待部署驗證 |
-| 8 | /erp/quotations 已承攬明細不可編輯；兩 tab 關聯 | `QuotationItemsTab` 加 `readOnly`（成案＝有 `project_code` 即鎖：無新增／儲存／刪除、格子轉文字、Alert 說明）。關聯評估見下 | ✅ |
+| 6 | /contract-cases 以 01 為主排列＋排序篩選 | 後端 `sort_by` 接受多欄 `category:asc,year:desc`；前端四欄 `sorter: true` 交後端（此前是前端 sorter，被 serverPaged 剝掉＝沒有排序）；年度預設當年度（§2.6 ③）；「合約總額」卡改後端全量（此前 reduce 當頁 10 筆＝§2.6 ① 違規）。⚠️ 第一版改在 `filter_projects`，打端點才發現 `/projects/list` 走的是 `get_filtered_list`——**同一個排序兩處實作、改了沒人走的那份**（L138 同族，同一晚第二次）；已抽 `_sort_clauses` 單一來源 | ✅ 端點驗證 10/10：第一頁全 01、01 內年度遞減、第二鍵可換、不存在欄位不 500、合約總額 112,421,015 |
+| 7 | 附件紀錄 tab 參照 /documents | 抽 `components/common/AttachmentRecordsPanel`（公文那套 UI：列表卡＋Dragger＋待上傳卡＋進度＋錯誤），公文 `DocumentAttachmentsTab` 290→59 行、承攬案／報價單共用的 `AttachmentPanel` 改用它——三處同一張臉，資料層各自保留 | ✅ tsc／ESLint 綠；附件列表端點 `_027` 2、`_009` 1 |
+| 8 | /erp/quotations 已承攬明細不可編輯；兩 tab 關聯 | `QuotationItemsTab` 加 `readOnly`（成案＝有 `project_code` 即鎖：無新增／儲存／刪除、格子轉文字、Alert 說明）。關聯評估見下。另：報價單搜尋原本只搜 case_code／案名，**舊編號 B115-C0xx 搜不到**（端點驗證抓到 total=0），已加 legacy 與 QT 號 | ✅ #429 `project_code=CK2026_02_065` ⇒ 鎖；搜 B115-C0 → 75 |
 
 ### 明細 tab 與附件 tab 的關聯（第 8 點評估）
 
