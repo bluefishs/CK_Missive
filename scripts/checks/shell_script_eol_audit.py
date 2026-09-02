@@ -129,6 +129,14 @@ def main() -> int:
     # 讀的人還要自己把「這幾支裡有 runner」跟「所以檢核會死」連起來。
     # ⇒ 判準與現場的距離不是行數，是**它有沒有以答案的形式出現**。
     #   （判準由 ck-website-37 於同日提出，本 repo 採用）
+    # ⚠️ 已知限制：這是**檔名字串比對**。runner 若改名成不含 run_fitness 的
+    #    名字就會漏（ck-website-37 的同型測試用 rc=134 擋住了「只認 255 這個
+    #    字面值」的寫法；本條沒有等價的防護，因為判斷依據就是檔名本身）。
+    # 雙側驗證（2026-09-02，兩側都做才有鑑別力）：
+    #   正向 造 run_fitness_TEMPPROBE.sh(CRLF) ⇒ exit 2 且印出警示
+    #   負向 造 zz_temp_probe_notrunner.sh(CRLF) ⇒ exit 2 但**不印**警示
+    #   清理 兩者刪除後 ⇒ exit 0 GREEN，臨時檔確認移除
+    # 少了負向那一側，把條件式改回無條件也能讓正向通過。
     _runners = [f for f, _n in bad if "run_fitness" in f.name]
     if _runners:
         print("")
