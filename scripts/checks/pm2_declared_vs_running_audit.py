@@ -90,6 +90,23 @@ def running_apps() -> tuple[dict[str, str], bool]:
     #   而 pm2 的輸出含 UTF-8 ⇒ UnicodeDecodeError，然後這支就「pm2 不可用」。
     #   同 L92：檢核在**要說話的那一刻**崩掉，而平常看起來好好的。
     import shutil
+
+    # 2026-09-02：**呼叫之前先問 pm2 健不健康**。
+    # pm2 CLI 連不上 daemon 時會 spawn 一個約 50 MB 且不會退出的惰性 daemon，
+    # 而下面這個 candidates 迴圈一輪最多呼叫 5 次 ⇒ 一次稽核最多漏 250 MB。
+    # 本機實測（ck-aaap-58 通報後複驗）：98 個行程、5,125 MB。
+    # ⚠️ 修正確性沒有修掉副作用 —— 我當天為了驗證另一個修法跑了它兩次。
+    try:
+        from lib.pm2_guard import pm2_safe_to_call
+    except ImportError:  # 直接執行時的路徑
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+        from lib.pm2_guard import pm2_safe_to_call
+    _safe, _why = pm2_safe_to_call()
+    if not _safe:
+        print(f"  [SKIP-LOUD] 不呼叫 pm2：{_why}")
+        return {}, False
+
     candidates = ["pm2", "pm2.cmd", shutil.which("pm2"), shutil.which("pm2.cmd")]
     for exe in [c for c in candidates if c]:
         try:
@@ -138,9 +155,11 @@ def main() -> int:
         #
         # 改回 1（YELLOW）：三態約定 0=GREEN / 1=YELLOW / 2+=RED，
         # 而「我看不到」就是 YELLOW —— 不是通過，也不是故障（L133）。
-        print("  [YELLOW] pm2 不可用（未安裝或無法執行）—— **未驗**，不是「都在跑」")
-        print("     常見成因：pm2 jlist 輸出被 daemon spawn 訊息污染而退出碼非 0；")
-        print("     若剛有別的工具呼叫過 pm2，可能留下孤兒 daemon（重開機會清掉）。")
+        print("  [YELLOW] pm2 不可用 —— **未驗**，不是「都在跑」")
+        print("     2026-09-02 實證的成因：`pm2 jlist` 回 connect EPERM //./pipe/rpc.sock，")
+        print("     而 pm2 CLI 每次連不上就 spawn 一個約 50 MB 且不會退出的惰性 daemon。")
+        print("     本機當時 98 個行程／5,125 MB。⇒ 已由 lib/pm2_guard 在呼叫前擋下。")
+        print("     清理既有 daemon 屬 owner（有副作用）；重開機會自然清掉。")
         return 1
 
     if not declared:

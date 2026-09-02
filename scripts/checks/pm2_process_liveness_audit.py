@@ -212,6 +212,18 @@ def load_pm2_processes() -> list[dict]:
     （報 Invalid \\escape），同一份輸出寫成檔案再讀則完全正常。
     這一行註解是為了擋住「下次有人覺得管線比較簡潔」。
     """
+    # 2026-09-02：呼叫之前先問 pm2 健不健康（見 lib/pm2_guard 的說明）——
+    # pipe 為 EPERM 時每呼叫一次就多一個約 50 MB 且不會退出的惰性 daemon。
+    try:
+        from lib.pm2_guard import pm2_safe_to_call
+    except ImportError:
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+        from lib.pm2_guard import pm2_safe_to_call
+    _safe, _why = pm2_safe_to_call()
+    if not _safe:
+        raise RuntimeError(f"不呼叫 pm2（護欄擋下）：{_why}")
+
     exe = shutil.which("pm2")
     if not exe:
         raise RuntimeError(
