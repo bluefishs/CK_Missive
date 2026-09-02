@@ -204,6 +204,22 @@ def previous_fires(now: datetime, c: dict, count: int = 2, max_days: int = 70) -
 # ---------------------------------------------------------------------------
 # 取得 PM2 狀態
 # ---------------------------------------------------------------------------
+class Pm2Unreachable(RuntimeError):
+    """pm2 拿不到 —— **這是「我看不到」，不是「PM2 有問題」**。
+
+    2026-09-02：本檔原本把所有取得失敗都 raise RuntimeError 而呼叫端一律 return 2
+    （RED）。同一天我在 pm2_declared_vs_running_audit 把同樣的情況改成 YELLOW，
+    **於是同一個判準在同一天的兩個檔案裡做了相反的事** ——
+    而製造這個不一致的正是我自己加的護欄（它走 raise ⇒ 落進 RED）。
+
+    判準（L133）：**拿不到依賴時是 YELLOW，不是 RED 也不是 GREEN。**
+    報 RED 製造會被學會忽略的噪音；報 GREEN 是假綠。
+
+    ⚠️ 只有「取得管道不通」才用這個例外。**PM2 真的回報異常狀態仍然是 RED** ——
+    那時我們看得到，而看到的東西是壞的。
+    """
+
+
 def load_pm2_processes() -> list[dict]:
     """讀 `pm2 jlist`。
 
@@ -222,7 +238,7 @@ def load_pm2_processes() -> list[dict]:
         from lib.pm2_guard import pm2_safe_to_call
     _safe, _why = pm2_safe_to_call()
     if not _safe:
-        raise RuntimeError(f"不呼叫 pm2（護欄擋下）：{_why}")
+        raise Pm2Unreachable(f"不呼叫 pm2（護欄擋下）：{_why}")
 
     exe = shutil.which("pm2")
     if not exe:
@@ -438,6 +454,15 @@ def main() -> int:
 
     try:
         raw = load_pm2_processes()
+    except Pm2Unreachable as exc:
+        # 「我看不到」⇒ YELLOW（未驗），與 pm2_declared_vs_running_audit 一致。
+        # 2026-09-02：這個不一致是我自己造成的 —— 同一天我在另一支把
+        # 「拿不到」改成 YELLOW，卻在這支加了一個走 raise ⇒ 落進 RED 的護欄。
+        print("")
+        print(f"⚠ 未驗：{exc}")
+        print("   這不是「PM2 有問題」，是「拿不到 PM2 的狀態」——")
+        print("   兩者在結論上長得一樣，但要修的東西完全不同（L133）。")
+        return 1
     except Exception as exc:
         print(f"\n✗ 無法取得 PM2 狀態：{exc}")
         return 2
