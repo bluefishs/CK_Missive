@@ -2430,13 +2430,34 @@ def _parse_red_steps(out: str) -> list[str]:
     })
 
 
-def _daily_red_should_notify(red_streak: int, new_steps: list[str]) -> bool:
+def _daily_red_should_notify(
+    red_streak: int, new_steps: list[str], prev_delivered: bool = True
+) -> bool:
     """daily RED 要不要推播。抽成純函式才驗得了鑑別力 —— 否則「不推」和「壞掉」長得一樣。
 
     · 首日 RED、或出現新的紅步驟 → 推（這是新資訊）
+    · **上一次沒有真的送出去 → 推**（2026-09-02 新增，見下）
     · 連續相同 → 不逐日重複，但每 7 天提醒一次，避免無限靜默
+
+    2026-09-02（由 `ck-website-37` 在他們 repo 抓到同型缺陷後複查本 repo 而發現）：
+
+    去重原本只問「今天跟昨天是不是同一批紅燈」，**沒有問「昨天那則真的送到了嗎」**。
+    而 history 是在 `queue_digest` **之前**寫的、且不記錄送出結果 ⇒
+
+        Day 1  RED、streak=1 → 推 → **queue_digest 失敗** → 沒有人收到
+        Day 2  RED、streak=2、new_steps=[] → 判「跟昨天一樣」→ **抑制**
+        Day 3-6 同上
+        Day 7  streak % 7 == 0 → 才又推一次
+
+    ⇒ **告警鏈斷掉的那一刻起靜音 6 天，即使它幾分鐘後就恢復。**
+    對方那條是 24 小時（去重指紋登記在送出之前），本 repo 這條更久。
+
+    判準：**去重的前提是「上一則已經送到了」。** 沒送到就不叫重複，叫還沒送過。
     """
     if red_streak <= 1 or new_steps:
+        return True
+    if not prev_delivered:
+        # 上一則沒送出去 —— 這不是重複，是還沒送過
         return True
     return red_streak % 7 == 0
 
@@ -2885,6 +2906,11 @@ async def fitness_daily_job():
         "status": _fitness_runner_status(rc),
         "ts": datetime.now().isoformat(),
         "red_steps": red_steps,
+        # 2026-09-02：先寫 False，**送出成功後才回頭改 True 並重寫檔案**。
+        # 這個欄位存在的理由：去重需要知道「上一則有沒有真的送到」，
+        # 而 history 是在 queue_digest 之前寫的 —— 沒有它，送失敗與送成功
+        # 在明天的去重判定裡長得一模一樣（見 _daily_red_should_notify）。
+        "notified": False,
     }
     # 只保留最近 30 天
     history = {k: history[k] for k in sorted(history.keys())[-30:]}
@@ -2957,7 +2983,18 @@ async def fitness_daily_job():
     #   · 連續相同 → 不逐日重複，但每 7 天提醒一次，避免無限靜默
     # 不推時 delivered 仍為 1：那是設計上的抑制，機制運作正常
     #（同 weekly「首次 RED 刻意不通知」的既有語意）。
-    if not _daily_red_should_notify(red_streak, new_steps):
+    # 2026-09-02：往回找最近一則「已經是 RED 的日子」，看它到底有沒有送出去。
+    # 舊資料沒有 notified 欄位 —— 預設 True（視為已送達），
+    # 否則存量歷史會讓每一天都判成「上一則沒送到」而天天推播。
+    # **保守的預設要選在「不製造噪音」那一側，但要留得下痕跡**：
+    # 這個 .get(..., True) 只影響 09-02 之前的紀錄，之後一律有真值。
+    prev_delivered = True
+    for _d in reversed(days[:-1]):
+        if history[_d].get("status") == "RED":
+            prev_delivered = bool(history[_d].get("notified", True))
+            break
+
+    if not _daily_red_should_notify(red_streak, new_steps, prev_delivered):
         logger.info(
             "Fitness Tier 1 Daily RED（連續 %d 天、與昨日相同 %s）—— 抑制重複推播",
             red_streak, red_steps or "（未能解析步驟名）",
@@ -2965,6 +3002,7 @@ async def fitness_daily_job():
         return {
             "rc": rc, "status": "RED", "red_streak": red_streak,
             "red_steps": red_steps, "delivered": 1, "suppressed": "same_as_yesterday",
+            "prev_delivered": prev_delivered,
             "history_ok": history_ok,
         }
 
@@ -3002,11 +3040,26 @@ async def fitness_daily_job():
     except Exception as push_e:
         logger.error("Fitness Tier 1 Daily 告警入 digest 失敗: %s", push_e, exc_info=True)
 
+    # 2026-09-02：**送出成功才回寫 notified**，並立刻重寫 history 檔。
+    # 這一步是整個修法的重點 —— 沒有它，明天的去重仍然分不出
+    # 「昨天送到了」與「昨天送失敗了」，而後者被當成前者會靜音 6 天。
+    if notified:
+        try:
+            history[today]["notified"] = True
+            state_file.write_text(
+                json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except Exception as e:
+            # 寫不回去不得靜默：明天的去重會據此判斷，而它會判錯的方向是「抑制」
+            history_ok = False
+            logger.warning("daily fitness history 回寫 notified 失敗（明日去重可能誤抑制）: %s", e)
+
     return {
         "rc": rc, "status": "RED", "red_streak": red_streak,
         "red_steps": red_steps,
         "delivered": 1 if notified else 0,
         "reason": None if notified else "digest_queue_failed",
+        "prev_delivered": prev_delivered,
         "history_ok": history_ok,
     }
 
