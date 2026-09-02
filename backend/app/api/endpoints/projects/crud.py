@@ -218,7 +218,12 @@ async def update_project(
 
     # 三方同步：核心欄位變更時同步到 PMCase + ERPQuotation
     try:
-        sync_fields = ["category", "case_nature", "client_agency", "contract_amount"]
+        # 2026-09-02：這裡原本自己寫了一份白名單，與 field_sync.SYNC_FIELDS **是兩份**。
+        # 同日為修「結案不同步 PM 案」在 SYNC_FIELDS 加了 status，部署後驗證仍不生效——
+        # 因為 changed 在這裡就被過濾掉、sync_from_contract 根本沒被呼叫。
+        # 改用同一份來源；複製第二份判定就是製造會漂的兩份，本檔就是活例。
+        from app.services.contract.field_sync import SYNC_FIELDS
+        sync_fields = SYNC_FIELDS + ["client_agency"]
         changed = {k: v for k, v in project_data.model_dump(exclude_unset=True).items() if k in sync_fields}
         if changed:
             from app.services.contract.field_sync import CaseFieldSyncService
