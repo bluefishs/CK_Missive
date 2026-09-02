@@ -239,20 +239,51 @@ def quick_fix_attempt(self):
 
 ---
 
-### 🆕 交接：CK_PileMgmt 開機恢復鏈（來源 `ck-website-37`，非本 repo，只轉不動）
+### ~~交接：CK_PileMgmt 開機恢復鏈~~ → **撤回，待辦不成立**（2026-09-02 同日）
 
-> **沒有 session 在跑 CK_PileMgmt**，脈絡不在任何活著的 session 裡 ⇒ 屬 owner。
+> ⛔ **這一條我原本列進了給 owner 的待辦，而它是錯的判型。**
+> 來源 `ck-website-37` 主動撤回並附上真因；本 repo 同步更正。
 
-`CK_PileMgmt_PM2_Autostart`（`scripts/pm2-autostart.bat`，Logon 觸發）今晨回 **exit 255**
-⇒ **開機恢復鏈沒有做到它宣稱的事，9 條治理 cron 沒有恢復。**
+**原本寫的**：`CK_PileMgmt_PM2_Autostart` 回 exit 255 ⇒ 開機恢復鏈沒做到它宣稱的事、
+9 條治理 cron 沒有恢復，而 postboot-guard 兩次補救成功所以「表面無損」。
 
-⚠️ **危險的地方在於「表面上沒有損失」**：CK_Website 側的 postboot-guard 兩次偵測到並
-resurrect + 複驗成功 —— 這正是它能長期紅著沒人管的原因。它是該側
-`resilience=DEGRADED` 連續 61 次的根因之一（另一支是 `CK_DigitalTunnel-MinIO-Offsite` exit 1，未判型）。
+**真因**（CK_PileMgmt 側已於當日 11:36 修好，commit `9c01688e1`）：
 
-而且**兩次的通知都沒送出去**（`notify=FAILED` / `DEDUPED`）——
-**告警要投遞的目標，在那一刻跟被觀測的系統一起死了。**
-⇒ 不要把它當成已經有人知道的事。
+> `pm2` 撞上 **`connect EPERM //./pipe/rpc.sock`**，node 在未捕捉的 error event 上
+> 直接 abort，整個 cmd 進程一起結束 ⇒ **rc=255，而 bat 後面所有行（含寫 log 的
+> if/else）都沒有機會跑**。而**實際結果是成功的**：09:48:03 新 daemon 起來、cron 全數註冊。
+> **255 的意思不是「恢復失敗」，是「舊 daemon 連不上，但它 spawn 的新 daemon 接管了」。
+> 這個退出碼分不出這兩件事。**
+
+⇒ **owner 不需要為這一條做任何事。**
+
+### ⭐ 這條留下來的三個教訓
+
+**① 又是 `ExitCode` 語意（L127 家族的第三例）**
+L127 是 `docker inspect .State.ExitCode` 回 0 而容器其實死於 136；
+這次是 **255 同時代表「失敗」與「成功但舊通道斷了」**。
+⇒ **非零退出碼不等於失敗；它只代表「這個進程沒有走到正常結束」。**
+
+**② `log` 沒有新筆，被讀成「它沒跑」**
+`autostart.log` 停在 08-28 —— 對方原本把它當成「沒執行」的佐證，
+正確的讀法是「**它跑了，但死在寫 log 之前**」。
+連 08-28 才特地加的 `FAILED rc=N` 分支都沒執行到，這反而**支持**真因。
+⇒ 同 CLAUDE.md「我這條路徑找不到 ≠ 資料不存在」。
+
+**③ ⛔ 我自己的錯：轉達他人的判型時，沒有標明我沒有查證**
+我當時寫了「來源 `ck-website-37`」——**標了來源，但沒有標查證狀態**。
+於是它在清單上與我自己實測過的項目長得一樣，並被我在對話中向 owner 覆述了兩次。
+⇒ **轉達 ≠ 背書。轉述別人的結論時要標「未經本 repo 查證」**，
+與「這是推論／這是實測」是同一條紀律的跨 session 版本。
+
+### 仍然未決的（對方明確標為未查證，我照原樣轉）
+
+若 09:48 就全數註冊，**10:02 那次 postboot-guard 的 `MISSING 9/9` 是怎麼來的？**
+(a) 09:48 只帶起部分 ⇒ resurrect 是必要的補救
+(b) 它讀到自己 `pm2 jlist` spawn 的空 daemon ⇒ **resurrect 是誤判，且正是雙跑的候選機制**
+
+**沒有證據分辨**，等重開機後的乾淨環境再判。
+⚠️ 另：`CK_DigitalTunnel-MinIO-Offsite` exit 1 **仍未判型**，對方明言不要照同樣的方式去猜它。
 
 ---
 
