@@ -2,7 +2,7 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
+import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag, Checkbox } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, DownloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -275,6 +275,16 @@ export const ERPQuotationListPage: React.FC = () => {
             style={{ width: 130 }}
             aria-label="年度"
           />
+          {/* 2026-09-02：後端 08-31 加了 include_unawarded（預設只給已成案），前端從沒接
+              ⇒ 剛新建、尚未成案的報價單在這頁永遠看不到。owner 實測「CCC」找不到即此。
+              端點實測：預設 0 筆、帶 true 1 筆、export-document 回 200 —— 輸出本身是好的，
+              是「列表看不到 ⇒ 進不了詳情 ⇒ 按不到輸出」。半接通：後端有、前端沒傳、沒人報錯。 */}
+          <Checkbox
+            checked={!!params.include_unawarded}
+            onChange={(ev) => setParams((p) => ({ ...p, include_unawarded: ev.target.checked || undefined, page: 1 }))}
+          >
+            含未成案
+          </Checkbox>
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
           <Button
             icon={<FileExcelOutlined />}

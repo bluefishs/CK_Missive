@@ -233,6 +233,9 @@ export interface ERPQuotationListParams {
   status?: string;
   case_code?: string;
   search?: string;
+  /** 2026-09-02：後端 08-31 就有這個參數（預設 false＝只給已成案），前端從沒接 ⇒
+   *  新建、尚未成案的報價單在 UI 上永遠看不到。owner 當日新建「CCC」即此。 */
+  include_unawarded?: boolean;
   [key: string]: unknown;
 }
 

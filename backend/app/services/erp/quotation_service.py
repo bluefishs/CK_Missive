@@ -149,6 +149,17 @@ class ERPQuotationService(AuditableServiceMixin):
             # case_code 參照完整性驗證 — 確認 PM 案件存在
             await self._validate_case_code(dump["case_code"])
 
+        # 2026-09-02：**這條路徑原本不給 QT 號**。給號邏輯只在 tender/case_creation.py
+        # （從標案建案）那條路，而 /pm/cases「新增報價」走的是這裡 ⇒ 實測 257 張裡
+        # 181 張 quotation_no 為空（owner 當日新建的「CCC」正是其中一張）。
+        # 同一個欄位、兩條建立路徑、只有一條給號 —— 又一個「兩條路只認一條」。
+        if not dump.get("quotation_no"):
+            from datetime import date as _date
+            dump["quotation_no"] = await self.code_service.generate_quotation_no(
+                dump.get("year") or _date.today().year
+            )
+        dump.setdefault("revision", 1)
+
         dump["created_by"] = user_id
         quotation = await self.repo.create(dump)
         await self.audit_create(quotation.id, dump, user_id=user_id)
