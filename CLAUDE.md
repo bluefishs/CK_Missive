@@ -146,6 +146,12 @@
 > ⭐ **40 筆已承攬未成案的真正結構**：18 一對一（PM 未稅 vs 承攬含稅、承攬案全有請款）＋3 一對多唯一匹配＝**21 可自動**；
 > 2 中鋼土方（兩組都洪慶忠、都 36,750，推論依序號早對早）；1 PM→GN（已辦）；**16 筆「金額對不上」實查全是同客戶不同案，不是重複**。
 >
+> ⭐⭐**防呆與 status 同步已部署驗證 5/5**（打端點）。⚠️ **第一次驗證 1/4**：同步沒生效，真因 `crud.py:222` 有**第二份**同步白名單
+> （我只改了 `field_sync.SYNC_FIELDS`）——**同一個判定兩處、修一處漏一處**，本檔第一條教訓今天自己踩。已改單一來源。
+> ⭐ **pm2 EPERM 成因更正**（ck-pilemgmt-7c）：不是 daemon 太多，是 named pipe **session 隔離**——互動 session 對排程 spawn 的
+> daemon 必然拿不到，「拿不到清單」是常態，正確表態 YELLOW。⭐ 頂層 CLAUDE.md「pilemgmt `/api/ai/query` 是死的」**已過期**（pile 已修），
+> 本 repo 不動頂層（協同界線一），記於協同文件 §5.5。⭐ `deploy-public.sh` 把 curl 逾時印成「HTTP 200000」，判失敗對、輸出錯，已修。
+>
 > **最後更新**: 2026-09-02
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)
