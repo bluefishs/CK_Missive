@@ -159,6 +159,17 @@
 > ⚠️ 我的基底正則第一版把 `B114-B001` 剝成 `B114`，於是 48 筆全對到 `B114-D001`——**對照鍵的切法要拿已知配對驗**。
 > ⚠️ `docker exec` 少 `-i` ⇒ heredoc 沒送進去、python 靜默零輸出，而後面的 `ls` 照印——**看見輸出不等於看見那一段的輸出**。
 >
+> ⭐⭐⭐**09-02 晚 /goal：同一份白名單有四份，而我上午才「收斂成單一來源」**（L138）——上午把 `crud.py` 的第二份改成 import，
+> 宣稱「已改單一來源」；晚上打端點做整條鏈實測（標案→建案→報價→成案→改名同步），**PM 側改案名不同步而承攬側會**，
+> 真因是 `pm/cases.py` 兩個更新端點各自 inline 一份 `("category","case_nature","client_name","contract_amount")`——**連 status 都沒有**。
+> 上午的 grep 只找 `sync_fields = [` 這種寫法，對 inline tuple 是盲的；weekly 101 首版判準③同樣只認那種寫法、**印 GREEN**。
+> ⇒ 判準要問「有沒有人用字面清單過濾 changed」，不是「有沒有一個叫 sync_fields 的變數」。負向對照兩次才做對。
+> ⭐⭐**「同步做了」與「同步寫進 DB」在程式碼裡長得一樣**：`sync_from_pm` 寫 `ERPQuotation.client_name`，而**模型沒有這個欄位**——
+> `setattr` 設了一個 Python 屬性、不寫 DB、不報錯，從 03-30 建檔起就是這樣。⇒ weekly 101 判準②：同步目標欄位必須存在於模型。
+> ⭐ `quote_kind`：報價單表裝三種東西（01 投標 draft／02 承攬報價／成案 0 元錨點），先前只靠 case_code 段落＋人記；
+> 現在 migration 回填 contract 227／tender 18／anchor 5，**tender 有 legacy 編號 = 0** ⇒「XLS 只對 02」成為查詢條件不是口訣。
+> ⭐ **標案→PM 案 0/253 不是程式壞**：probe 證明 `create-case` 會寫 `source_tender_id`，是沒有人從標案頁建案。
+>
 > **最後更新**: 2026-09-02
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)
