@@ -106,4 +106,5 @@
 | `scripts/checks/orphan_component_audit.py` | 元件建好了但沒有任何入口渲染它（`dead_ui_detector` 抓不到的第三種形狀）。**基線是問題清單不是刪除清單** | weekly 86 |
 | `scripts/checks/ledger_case_code_reachability_audit.py` | **帳本 `case_code` 必須接得到主表**——08-29 案號收斂做了三張主表（殘留 0）卻沒轉帳本 ⇒ 49 個 `case_code` 只有 5 個接得到、**90% 孤兒**、背後 ~2,000 萬收入。09-02 收斂 43 個後剩 1（`B114-B002`，登記待判）。新孤兒 RED、只剩已知 YELLOW | weekly 97 |
 | `scripts/checks/contract_case_quotation_presence_audit.py` | **成案必有報價單，GN 豁免**——請款／發票／應付全掛 `erp_quotation_id`，承攬案件本身沒有金流外鍵 ⇒ 沒有報價單的承攬案在金流上等於不存在。實測 11 件全是 GN 標案（只有投標沒有報價單）⇒ 豁免不補登；**原建議「補登」是錯的，量了才知道** | weekly 98 |
+| `scripts/checks/contract_case_pipeline_reconciliation.py` | **以案件為主軸把整條鏈走一遍**（owner：「無法自行檢測整個流程對應數據嗎」）——97–99 各查一個環節，這支問每個承攬案「在 PM／報價／請款／發票／應付／帳本／指派／桃園各環節的數字對不對」。RED 只給**數字互相矛盾**（已收>請款、請款>合約、報價 vs 合約差 >50%、應付>報價）；已結案未收齊／執行中 >365 天 0 請款只 YELLOW（**後者多為小案，很可能是收了沒登**）。⚠️ 桃園 `cumulative_amount` 是全案累計、每張派工單各帶一份，sum 會重複 43 次——只用 `current_amount`。首跑抓到案 189 報價單多打一個 0（四期請款加總正好 = 合約額） | weekly 100 |
 | `scripts/checks/payable_billing_link_audit.py` | **應付必有 `billing_id`**——欄位存在、47 筆全空，「這筆應付對哪次請款」答不出來。09-02 回填 37 筆（可唯一對上者），10 筆多筆請款走基線待判。可唯一對上卻沒對 ⇒ RED（新建時沒走橋） | weekly 99 |

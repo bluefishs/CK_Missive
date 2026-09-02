@@ -554,6 +554,10 @@ run_step "96" "設定目錄 SSOT（不得長出第三個）" "scripts/checks/con
 run_step "97" "帳本 case_code 必須接得到主表（08-29 收斂漏了帳本）" "scripts/checks/ledger_case_code_reachability_audit.py"
 run_step "98" "成案必有報價單，GN 豁免（金流全掛報價單上）" "scripts/checks/contract_case_quotation_presence_audit.py"
 run_step "99" "應付必有 billing_id（橋設計了但 47 筆全空）" "scripts/checks/payable_billing_link_audit.py"
+# 100（2026-09-02 owner：「無法自行檢測整個流程對應數據嗎」）：97–99 各查一個環節，
+# 這一支從**案件**的角度把整條鏈走一遍。RED 只給「數字互相矛盾」（已收>請款、
+# 報價多打一個 0 那種）；「執行中 >365 天 0 請款」只 YELLOW——多為小案，很可能是收了沒登。
+run_step "100" "承攬案件端到端流程對應（以案件為主軸走整條鏈）" "scripts/checks/contract_case_pipeline_reconciliation.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

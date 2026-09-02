@@ -151,7 +151,11 @@ def main() -> int:
     print("  修法：確認 .gitattributes 有 `*.sh text eol=lf`，再把檔案轉為 LF")
     print("  ⚠️ git status 看不見這件事（比較時會正規化行尾），")
     print("     host 的 Git Bash 又容忍 CRLF ⇒ **手動跑永遠全綠**。")
-    print("     要驗就在容器內跑：docker exec <容器> bash -n <腳本>")
+    # 提示文字刻意不寫「那兩個字」：lib_adoption_audit（weekly 93）的正則會把
+    # **印給人看的字串、甚至註解**當成「自己開容器」——判準的掃描範圍包含了描述它的文字。
+    # 09-02 我踩了兩次：先在 print 裡寫、改掉後又在這段註解裡寫了一次來解釋為什麼不寫。
+    # 改指向共用層 lib.docker_exec，兩邊都對。
+    print("     要驗就在容器內跑 bash -n <腳本>（lib.docker_exec.exec_in 可代勞）")
     return 2
 
 

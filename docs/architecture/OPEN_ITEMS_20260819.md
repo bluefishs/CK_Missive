@@ -63,6 +63,23 @@ Directory inode 1707113, block #0: directory passes checks but fails checksum.
 | **推送** | **200 個 commit 未推送**（最早回溯 08-28；95 fix／47 feat／49 docs） | 待 owner | 本次選擇「修復完系統後再推」；慢性紅燈 34 因此紅著 |
 | **部署** | scheduler 三態修法**只在 host 檔案裡** —— `backend/app/` 未掛載，程式碼在映像裡 | 待 owner | L79「寫好 ≠ 在系統裡」；下次 daily 02:00 前部署才生效 |
 
+### 🆕 A79 — weekly 93 抓到 09-01 三支守門自造路徑／docker（遺留，非今日造成）
+
+`lib_adoption_audit`（weekly 93，週六才跑）09-02 手動跑報 RED：
+
+| 腳本 | 型態 | 屬誰 |
+|---|---|---|
+| `config_directory_ssot_audit.py` | self_path ×1 | 09-01 上線，當時 weekly 93 還沒跑過 |
+| `container_restart_loop_check.py` | self_path ×1 | 同上（daily 15） |
+| `dropdown_limit_headroom_audit.py` | self_docker ×1 | 同上 |
+| `container_image_freshness_check.py` | self_docker 3 → 4 | 增長，來源待查 |
+| ~~`shell_script_eol_audit.py`~~ | ~~self_docker 0 → 1~~ | **09-02 我造成的**——RED 提示文字寫了 `docker exec`，被正則當成自己開 docker。**已改**（判準的掃描範圍包含了描述它的文字） |
+
+⚠️ 前四項**刻意不在 09-02 修**：修法簡單（改 import），但每改一支要驗一支，而今天已在 `scripts/checks/` 動了 6 支。
+清的節奏照 weekly 93 自己寫的：「因別的原因動到某支時順手改一支」。
+
+---
+
 ### 🆕 A75–A77 — 承攬案件 × 金流管控（2026-09-02 實測，owner 指定聚焦）
 
 > 完整分析＝[`CONTRACT_CASE_FINANCE_GOVERNANCE.md`](CONTRACT_CASE_FINANCE_GOVERNANCE.md)。
