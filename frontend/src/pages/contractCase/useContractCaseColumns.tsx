@@ -106,7 +106,9 @@ export function useContractCaseColumns(
       dataIndex: 'project_code',
       key: 'project_code',
       width: 100,
-      sorter: (a, b) => (a.project_code || '').localeCompare(b.project_code || ''),
+      // 2026-09-02：本頁是後端分頁，前端 sorter 只排當頁（ResponsiveTable serverPaged 會把函式剝掉）；
+      // 改 `sorter: true` 交給後端（sort_by），頁面 onChange 接住
+      sorter: true,
       ...getColumnSearchProps('project_code'),
       render: (text) => (
         <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
@@ -128,7 +130,7 @@ export function useContractCaseColumns(
       width: 80,
       align: 'center',
       render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-',
-      sorter: (a, b) => (a.year || 0) - (b.year || 0),
+      sorter: true,
       defaultSortOrder: 'descend',
       filters: availableYears.map(y => ({ text: `${y < 1911 ? y + 1911 : y}`, value: y })),
       onFilter: (value, record) => record.year === value,
@@ -139,7 +141,7 @@ export function useContractCaseColumns(
       key: 'project_name',
       width: 260,
       ellipsis: true,
-      sorter: (a, b) => a.project_name.localeCompare(b.project_name, 'zh-TW'),
+      sorter: true,
       ...getColumnSearchProps('project_name'),
       render: (text) => (
         <strong>
@@ -160,7 +162,7 @@ export function useContractCaseColumns(
       key: 'client_agency',
       width: 160,
       ellipsis: true,
-      sorter: (a, b) => (a.client_agency || '').localeCompare(b.client_agency || '', 'zh-TW'),
+      sorter: true,
       ...getColumnSearchProps('client_agency'),
     },
     {
@@ -169,6 +171,9 @@ export function useContractCaseColumns(
       key: 'category',
       width: 90,
       align: 'center',
+      // 2026-09-02 owner：「列表以 01 委辦招標類別為主排列」——後端排序，預設 category 升冪
+      sorter: true,
+      defaultSortOrder: 'ascend' as const,
       // ⚠️ 2026-08-31：**移除欄位漏斗篩選**（owner 回報「對應篩選無資料，頁面空白」）。
       //
       // 結構性錯配：本頁是**後端分頁**（`dataSource` 只有當前 10 筆，

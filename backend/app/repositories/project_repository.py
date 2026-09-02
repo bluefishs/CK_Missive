@@ -893,11 +893,17 @@ class ProjectRepository(BaseRepository[ContractProject]):
         avg_amount = amount_result.scalar()
         avg_amount = round(float(avg_amount), 2) if avg_amount else 0.0
 
+        # 合約總額（全量）—— 2026-09-02：列表頁「合約總額」卡此前是前端 reduce 當頁 10 筆
+        # （§2.6 ① 違規：分頁前的全量要由後端算）
+        sum_amount = await self.db.scalar(select(func.sum(ContractProject.contract_amount)))
+        total_amount = round(float(sum_amount), 2) if sum_amount else 0.0
+
         return {
             "total_projects": total,
             "status_breakdown": status_stats,
             "year_breakdown": year_stats,
             "average_contract_amount": avg_amount,
+            "total_contract_amount": total_amount,
         }
 
     # =========================================================================
@@ -1033,8 +1039,17 @@ class ProjectRepository(BaseRepository[ContractProject]):
 
         builder.distinct()
 
-        # 排序：sort_by 動態欄位，預設 created_at
-        builder.order_by(sort_by, descending=(sort_order.lower() != 'asc'))
+        # 排序：sort_by 動態欄位，預設 created_at。
+        # 2026-09-02 owner：「列表以 01 委辦招標類別為主排列」——那是「先依類別、再依年度」，
+        # 單一欄位排不出來。sort_by 接受逗號分隔多欄，每欄可帶 `:asc`／`:desc`，
+        # 沒帶的沿用 sort_order；例：`category:asc,year:desc`。
+        for spec in str(sort_by or 'created_at').split(','):
+            spec = spec.strip()
+            if not spec:
+                continue
+            col, _, direction = spec.partition(':')
+            desc_flag = (direction or sort_order).lower() != 'asc'
+            builder.order_by(col.strip(), descending=desc_flag)
 
         # 分頁（builder.paginate 用 page/page_size，這裡用 skip/limit 直接設）
         builder._offset = skip

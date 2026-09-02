@@ -73,7 +73,12 @@ export const ContractCasePage: React.FC = () => {
 
   // 篩選狀態
   const [searchText, setSearchText] = useState('');
-  const [yearFilter, setYearFilter] = useState<number | undefined>();
+  // 2026-09-02：§2.6 ③ 預設當年度（西元），可切「全部」；此前預設空＝歷年混算
+  const currentYear = new Date().getFullYear();
+  const [yearFilter, setYearFilter] = useState<number | undefined>(currentYear);
+  // 2026-09-02 owner：「以 01 委辦招標類別為主排列」＋「表格無排序」。
+  // 後端 sort_by 接受逗號分隔多欄；類別永遠是第一鍵，使用者點的欄位接在後面。
+  const [userSort, setUserSort] = useState<{ field: string; order: 'asc' | 'desc' } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
 
@@ -85,13 +90,15 @@ export const ContractCasePage: React.FC = () => {
   const queryParams = useMemo(() => ({
     page: currentPage,
     limit: pageSize,
-    sort_by: 'year',
+    sort_by: userSort && userSort.field !== 'category'
+      ? `category:asc,${userSort.field}:${userSort.order}`
+      : `category:${userSort?.order ?? 'asc'},year:desc`,
     sort_order: 'desc' as const,
     ...(searchText && { search: searchText }),
     ...(yearFilter && { year: yearFilter }),
     ...(categoryFilter && { category: categoryFilter }),
     ...(statusFilter && { status: statusFilter }),
-  }), [currentPage, pageSize, searchText, yearFilter, categoryFilter, statusFilter]);
+  }), [currentPage, pageSize, searchText, yearFilter, categoryFilter, statusFilter, userSort]);
 
   const {
     projects,
@@ -132,7 +139,8 @@ export const ContractCasePage: React.FC = () => {
 
   const handleResetFilters = () => {
     setSearchText('');
-    setYearFilter(undefined);
+    setYearFilter(currentYear);
+    setUserSort(null);
     setCategoryFilter('');
     setStatusFilter('');
     setCurrentPage(1);
@@ -216,7 +224,8 @@ export const ContractCasePage: React.FC = () => {
           <Col xs={12} sm={6} md={4}>
             <ClickableStatCard
               title="合約總額"
-              value={`NT$${projects.reduce((sum, p) => sum + (p.contract_amount ?? 0), 0).toLocaleString()}`}
+              // 2026-09-02：§2.6 ① 卡片是分頁前的全量——此前 reduce 只加當頁 10 筆
+              value={`NT$${(statistics?.total_contract_amount ?? 0).toLocaleString()}`}
               icon={<DollarOutlined />}
               active={statFilter === 'amount'}
               onClick={() => setStatFilter(statFilter === 'amount' ? null : 'amount')}
@@ -292,6 +301,12 @@ export const ContractCasePage: React.FC = () => {
               // 所以這裡要明講：前端排序／篩選只會作用於當前這一頁（2026-08-31）。
               serverPaged
               pagination={false}
+              onChange={(_p, _f, sorter) => {
+                const s = Array.isArray(sorter) ? sorter[0] : sorter;
+                const field = typeof s?.field === 'string' ? s.field : undefined;
+                setUserSort(field && s?.order ? { field, order: s.order === 'ascend' ? 'asc' : 'desc' } : null);
+                setCurrentPage(1);
+              }}
               scroll={{ x: isMobile ? 600 : 890 }}
               mobileHiddenColumns={['category', 'contract_period']}
               onRow={(record) => ({

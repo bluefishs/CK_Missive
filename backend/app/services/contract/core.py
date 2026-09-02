@@ -275,14 +275,23 @@ class ProjectService(AuditableServiceMixin):
                     f"若這是重複建案，請直接使用既有的 {dup.project_code}。"
                 )
 
-        # 如果沒有提供 project_code，則自動產生
+        # 如果沒有提供 project_code，則自動產生。
+        #
+        # 2026-09-02 晚 owner：「統一新制避免混淆」。此前這裡走舊制
+        # `CK{年}_{類別}_{性質}_{序}`（含作業性質碼），而 case_code 走 GN 新制、
+        # 從 PM 成案的走「建案案號去 _PM_」—— 三種格式並存，「01」在舊制是類別、
+        # 在新制是模組。改法：先產 GN 制 case_code，成案編號**就是它**
+        # （GN 直接成案、身分不變，不像 PM→成案要換段）。唯一性由 case_code 保證；
+        # 舊制 23 筆存量不動（documents／taoyuan 都引用著），守門＝weekly 102。
         if not project_data.get("project_code"):
-            year = project_data.get("year") or 2025
-            category = project_data.get("category") or "01"
-            case_nature = project_data.get("case_nature") or "01"
-            project_data["project_code"] = await self._generate_project_code(
-                year, category, case_nature
-            )
+            if not project_data.get("case_code"):
+                from app.services.contract.case_code import CaseCodeService
+                project_data["case_code"] = await CaseCodeService(self.db).generate_case_code(
+                    "general",
+                    project_data.get("year") or 2026,
+                    project_data.get("category") or "01",
+                )
+            project_data["project_code"] = project_data["case_code"]
         else:
             # 檢查專案編號是否已存在
             existing = await self.get_by_field(

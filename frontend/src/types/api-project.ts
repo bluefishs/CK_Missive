@@ -445,4 +445,6 @@ export interface ProjectStatistics {
     count: number;
   }>;
   average_contract_amount: number;
+  /** 合約總額（全量，2026-09-02 加；列表頁統計卡用，取代前端當頁 reduce） */
+  total_contract_amount?: number;
 }

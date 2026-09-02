@@ -373,7 +373,9 @@ export const ERPQuotationDetailPage: React.FC = () => {
     // 2026-08-16 owner：「線上報價單機制」。
     // 報價的起點是逐項內容，成本是後面才拆的。
     createTabItem('items', { icon: <ProfileOutlined />, text: '報價明細', count: itemCount }, (
-      <QuotationItemsTab quotationId={quotation.id} caseName={quotation.case_name} caseCode={quotation.case_code} />
+      // 2026-09-02 owner：「已承攬不應有報價明細編輯機制」——成案（有 project_code）即鎖定
+      <QuotationItemsTab quotationId={quotation.id} caseName={quotation.case_name} caseCode={quotation.case_code}
+        readOnly={!!quotation.project_code} />
     ))
     ]),
     createTabItem('receivable', { icon: <BankOutlined />, text: '應收帳款' }, (

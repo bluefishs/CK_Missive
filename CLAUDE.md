@@ -170,6 +170,13 @@
 > 現在 migration 回填 contract 227／tender 18／anchor 5，**tender 有 legacy 編號 = 0** ⇒「XLS 只對 02」成為查詢條件不是口訣。
 > ⭐ **標案→PM 案 0/253 不是程式壞**：probe 證明 `create-case` 會寫 `source_tender_id`，是沒有人從標案頁建案。
 >
+> ⭐⭐**09-02 晚第二輪（owner 八項裁示）**：A80 版次分身 **40 組合併**（XLS 為真值：舊版留、編號／案名／金額改 XLS，新版刪；B114-B026 兩張都有金流留人工）／A81 **40 筆新增納管**（39 成案；1 筆被跨表防呆擋、賴柏霖不在 users）／
+> 發票 102＋請款 104 由總表建入（無發票號碼、佔位）／案號新制統一（手動建承攬案 `project_code = case_code`，weekly 102）／
+> /contract-cases 後端多欄排序（01 優先）＋年度預設當年度＋合約總額全量／附件 tab 三處共用 `AttachmentRecordsPanel`／已承攬報價明細唯讀。
+> ⭐⭐⭐**同一條教訓第二次（L139）**：匯入腳本的「dry-run」是外層 rollback，而 `promote_to_project` 自己 commit ⇒ 第一次 dry-run 就寫入 39 筆成案。
+> 08-29 的記憶檔第一句就是「先 grep 有沒有 commit」，**我當天讀過、沒做**；結果剛好正確是運氣。⇒ 讀過教訓 ≠ 會在需要時想起來，要做成腳本檔頭的固定檢查。
+> ⭐ **請款建入後 weekly 100 立刻 RED 87**「請款 > 合約額」——不是請款錯，是三表存未稅、XLS 總價含稅；XLS 為真值 ⇒ 三表對齊含稅（A85）。**新資料進來，舊的錯位才看得見。**
+>
 > **最後更新**: 2026-09-02
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)

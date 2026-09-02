@@ -35,11 +35,17 @@ interface Props {
   quotationId: number;
   caseName?: string;
   caseCode?: string;
+  /**
+   * 唯讀（2026-09-02 owner：「已承攬不應有報價明細編輯機制」）。
+   * 成案後明細是合約的依據，改它會讓報價單與承攬案、請款對不上；
+   * 要改要走版次（revision+1）或變更單，不是在這裡直接改。
+   */
+  readOnly?: boolean;
 }
 
 const money = (n: number) => `NT$ ${Math.round(n).toLocaleString()}`;
 
-export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, caseCode }) => {
+export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, caseCode, readOnly = false }) => {
   const { message } = App.useApp();
   const qc = useQueryClient();
   const [rows, setRows] = React.useState<QuotationItemRow[]>([]);
@@ -143,32 +149,32 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
   const columns = ([
     {
       title: '工項', dataIndex: 'item_name', width: '28%',
-      render: (v: string, r: QuotationItemRow) => (
+      render: (v: string, r: QuotationItemRow) => readOnly ? <Text>{v || '—'}</Text> : (
         <Input value={v} placeholder="工項名稱" onChange={e => update(r.key, { item_name: e.target.value })} />
       ),
     },
     {
       title: '規格／說明', dataIndex: 'spec', width: '24%', _optionalOnNarrow: true,
-      render: (v: string, r: QuotationItemRow) => (
+      render: (v: string, r: QuotationItemRow) => readOnly ? <Text type="secondary">{v || '—'}</Text> : (
         <Input value={v} placeholder="選填" onChange={e => update(r.key, { spec: e.target.value })} />
       ),
     },
     {
       title: '單位', dataIndex: 'unit', width: 80,
-      render: (v: string, r: QuotationItemRow) => (
+      render: (v: string, r: QuotationItemRow) => readOnly ? <Text>{v || '式'}</Text> : (
         <Input value={v} placeholder="式" onChange={e => update(r.key, { unit: e.target.value })} />
       ),
     },
     {
       title: '數量', dataIndex: 'qty', width: 100,
-      render: (v: number, r: QuotationItemRow) => (
+      render: (v: number, r: QuotationItemRow) => readOnly ? <Text>{v}</Text> : (
         <InputNumber<number> style={{ width: '100%' }} min={0} value={v}
           onChange={n => update(r.key, { qty: n ?? 0 })} />
       ),
     },
     {
       title: '單價', dataIndex: 'unit_price', width: 130,
-      render: (v: number, r: QuotationItemRow) => (
+      render: (v: number, r: QuotationItemRow) => readOnly ? <Text>{money(v || 0)}</Text> : (
         <InputNumber<number> style={{ width: '100%' }} min={0} value={v}
           formatter={n => `${n ?? ''}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
           parser={n => Number((n || '').replace(/,/g, ''))}
@@ -179,13 +185,13 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
       title: '小計', dataIndex: 'amount', width: 130, align: 'right' as const,
       render: (v: number) => <Text strong>{money(v || 0)}</Text>,
     },
-    {
+    ...(readOnly ? [] : [{
       title: '', width: 50,
       render: (_: unknown, r: QuotationItemRow) => (
         <Button type="text" danger icon={<DeleteOutlined />}
           onClick={() => { setRows(p => p.filter(x => x.key !== r.key)); setDirty(true); }} />
       ),
-    },
+    }]),
   ] as (ColumnType<QuotationItemRow> & { _optionalOnNarrow?: boolean })[])
     .filter((c) => !(isNarrow && c._optionalOnNarrow));
 
@@ -210,10 +216,10 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
           size="small"
           style={{ marginBottom: 8 }}
           title={<Text type="secondary" style={{ fontSize: 12 }}>第 {i + 1} 項</Text>}
-          extra={
+          extra={readOnly ? null : (
             <Button type="text" danger size="small" icon={<DeleteOutlined />}
               onClick={() => { setRows(p => p.filter(x => x.key !== r.key)); setDirty(true); }} />
-          }
+          )}
         >
           <Space direction="vertical" size={8} style={{ width: '100%' }}>
             <div>
@@ -285,8 +291,13 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         </Space>
       )}
 
+      {readOnly && (
+        <Alert type="info" showIcon style={{ marginBottom: 12 }}
+          message="此報價單已承攬，明細已鎖定"
+          description="成案後的明細是合約與請款的依據。需要調整請以新版次或變更單處理，不在此直接修改。" />
+      )}
       <Space style={{ marginBottom: 12 }} wrap>
-        <Button icon={<PlusOutlined />} onClick={() => {
+        {!readOnly && <Button icon={<PlusOutlined />} onClick={() => {
           // 資料層存得下所以不擋，但要在**填的當下**說，
           // 不是走到輸出那一步才被 400 打回來合併工項。
           if (rows.length >= capacity) {
@@ -297,13 +308,13 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
             item_name: '', unit: '式', qty: 1, unit_price: 0, amount: 0,
           }]);
           setDirty(true);
-        }}>新增工項</Button>
+        }}>新增工項</Button>}
 
-        <Popconfirm title="儲存明細？" description="總價會由小計加總覆寫" onConfirm={() => save.mutate()}>
+        {!readOnly && <Popconfirm title="儲存明細？" description="總價會由小計加總覆寫" onConfirm={() => save.mutate()}>
           <Button type="primary" icon={<SaveOutlined />} loading={save.isPending} disabled={!dirty}>
             儲存明細
           </Button>
-        </Popconfirm>
+        </Popconfirm>}
 
         <Button icon={<PrinterOutlined />} onClick={() => window.print()} disabled={!rows.length}>
           列印報價單
