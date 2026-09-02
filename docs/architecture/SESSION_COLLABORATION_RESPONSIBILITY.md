@@ -162,6 +162,14 @@ CK_Missive 與 CK_AaaP 兩個 session **各自獨立**對 `docker inspect .State
 
 ---
 
+## 5.5 跨 repo 修好但頂層記載未更新（2026-09-02 傍晚）
+
+`ck-pilemgmt-7c` 通報：`D:\CKProject\CLAUDE.md` 頂層記著「pilemgmt 的 `/api/ai/query` 答案路徑是死的（HTTP 200 帶著失敗）」——**已修**（真因是 `create_success_result()` 一行漏傳 `response_text`；18 字元 → 182 字元；守門 4 tests 有鑑別力；commit `dc45a990f`）。
+
+**我沒有改頂層那份**：它的權責不在 CK_Missive（界線一）。記在這裡讓下一個從本 repo 啟動的 session 知道那句已過期，並建議由 pile 或 AaaP 更新。
+
+同一則通報附的跨 repo 警示已採用：`pm2 jlist` 在互動 session 對排程 spawn 的 daemon **必然 EPERM**（named pipe session 隔離）——「拿不到清單」是常態不是異常，正確表態是 YELLOW。本 repo `lib/pm2_guard.py` 的成因註解已更正。
+
 ## 6. 這份文件不涵蓋的
 
 - **誰先做**（工作排序）——那是 owner 的決定，不是 session 之間協商出來的

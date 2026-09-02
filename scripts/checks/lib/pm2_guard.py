@@ -17,6 +17,14 @@
 
 清理既有的惰性 daemon **不在本模組職責內**（那是有副作用的動作，屬 owner；
 且重開機會自然清掉）。本模組只負責「不要再製造」。
+
+⚠️ 成因更正（2026-09-02 傍晚，ck-pilemgmt-7c 跨 repo 通報）：
+EPERM **不是 daemon 太多造成的**，是 Windows named pipe 的 session/integrity 隔離——
+互動 session 對「由排程 spawn 的 PM2 daemon」**必然**拿到 `connect EPERM //./pipe/rpc.sock`。
+所以「拿不到清單」在互動 session 是**常態**，不是異常；本模組的門檻擋的是「不要再製造
+惰性 daemon」這件事（那是真的），但**不要把 EPERM 讀成 PM2 壞了**——同日就有一則跨 repo
+通報因此把「9 條治理 cron 沒恢復」判錯（pm2.log 顯示全程正常）。
+⇒ 正確的表態是「本輪未驗，勿當作綠燈」（YELLOW），不是 RED。本 repo 兩支 pm2 稽核已如此。
 """
 from __future__ import annotations
 
