@@ -21,7 +21,7 @@ confidence: high
 - 發票彙總　`/erp/invoices/summary-view`　→ frontend/src/pages/ERPInvoiceSummaryPage.tsx
 
 ## 它打哪些 API（走查實際觀測，非靜態推論）
-- 本模組特有 **17** 個：
+- 本模組特有 **18** 個：
   - /api/erp/einvoice-sync/pending-list
   - /api/erp/einvoice-sync/sync-logs
   - /api/erp/expenses/grouped-summary
@@ -35,6 +35,7 @@ confidence: high
   - /api/erp/invoices/summary
   - /api/erp/ledger/category-breakdown
   - /api/erp/ledger/list
+  - /api/erp/ledger/totals
   - /api/erp/operational/list
   - /api/erp/operational/stats
   - /api/erp/quotations/case-code-map

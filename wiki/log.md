@@ -8800,3 +8800,24 @@
 ## [2026-08-28] lint | pages=377 orphans=0 broken=0
 
 ## [2026-08-29] lint | pages=377 orphans=0 broken=0
+
+## [2026-08-30] lint | pages=377 orphans=0 broken=0
+
+## [2026-08-31] lint | pages=377 orphans=0 broken=0
+
+## [2026-09-01] lint | pages=377 orphans=0 broken=0
+
+## [2026-09-01] lint | pages=377 orphans=0 broken=0
+
+## [2026-09-02] lint | pages=377 orphans=0 broken=0
+
+## 2026-09-02 06:15 — CF Tunnel verify FAIL (2/7)
+```
+  ✗ 1. 本機 health             ERR(ConnectError)  (expected [200])
+  ✗ 2. CF Tunnel health      502  (expected [200])
+  ✓ 3. TLS 憑證                200  (expected [200])
+  ✓ 4. Manifest 無 token      401  (expected [401, 403])
+  ✓ 5. Manifest 拒 GET        405  (expected [404, 405])
+  ✓ 6. ACP 無 token           401  (expected [401, 403])
+  ✓ 7. Feedback 無 token      401  (expected [401, 403])
+```

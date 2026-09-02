@@ -1,9 +1,4 @@
 {
-  "2026-W23": {
-    "rc": 1,
-    "status": "RED",
-    "ts": "2026-06-07T02:30:08.575043"
-  },
   "2026-W24": {
     "rc": 1,
     "status": "RED",
@@ -73,6 +68,21 @@
       "54 NER 關係抽取回歸（修法後有無新缺口）",
       "55 ERP 財務完整性（帳本／填報／案號）",
       "連不上資料庫：connection to server at \"localhost\" (::1), port 5434 failed: Connection refused (0x0000274D/10061)"
+    ]
+  },
+  "2026-W35": {
+    "rc": 1,
+    "status": "RED",
+    "ts": "2026-08-30T02:30:00.038411",
+    "red_steps": [
+      "24 測試套件健康（vs 基線）",
+      "28 Windows 排程存活",
+      "34 跨 repo 工作連續性",
+      "35 SSO 覆蓋率（ADR-0033）",
+      "4 Agent evolution health",
+      "44 PM2 程序存活（註冊了不等於在跑）",
+      "57 業務實體建立路徑 SSOT（防第三份實作）",
+      "59 型別 SSOT（endpoints 無本地 BaseModel）"
     ]
   }
 }

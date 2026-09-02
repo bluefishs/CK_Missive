@@ -1,10 +1,10 @@
 {
-  "checked_at": "2026-08-29T21:34:16",
+  "checked_at": "2026-08-31T06:57:37",
   "adr_total": 23,
   "adr_covered": 21,
-  "lesson_total": 96,
-  "lesson_covered": 58,
-  "scripts_referenced": 59,
+  "lesson_total": 109,
+  "lesson_covered": 71,
+  "scripts_referenced": 66,
   "fail": 0,
   "broken_refs": []
 }

@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-08-29T02:34:55.753Z",
+ "checked_at": "2026-09-01T20:40:50.449Z",
  "base": "https://missive.cksurvey.tw",
  "role": "admin",
  "pass": 87,
@@ -711,10 +711,12 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
+   "/api/erp/quotations/template-meta",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
    "/api/taoyuan-dispatch/dispatch/contract-projects",
+   "/api/users/assignable",
    "/api/vendors/list"
   ],
   "/erp/expenses": [
@@ -1067,7 +1069,7 @@
    "/api/taoyuan-dispatch/dispatch/contract-projects"
   ]
  },
- "throttled": 12,
+ "throttled": 0,
  "known_limitations": [
   {
    "route": "/admin/deployment",
@@ -1115,7 +1117,15 @@
     "widest": [
      {
       "sel": "strong",
-      "right": 815
+      "right": 658
+     },
+     {
+      "sel": "strong",
+      "right": 595
+     },
+     {
+      "sel": "strong",
+      "right": 585
      }
     ]
    },
@@ -1199,15 +1209,15 @@
     "widest": [
      {
       "sel": "strong",
-      "right": 1339
+      "right": 1416
      },
      {
       "sel": "strong",
-      "right": 741
+      "right": 1038
      },
      {
       "sel": "strong",
-      "right": 739
+      "right": 728
      }
     ]
    },
@@ -1220,15 +1230,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 424
+      "right": 417
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 424
+      "right": 417
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 424
+      "right": 417
      }
     ]
    },
@@ -1239,10 +1249,6 @@
     "layoutViewport": 390,
     "tableOverflow": 0,
     "widest": [
-     {
-      "sel": "span",
-      "right": 401
-     },
      {
       "sel": "span",
       "right": 395
@@ -1323,15 +1329,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 424
+      "right": 417
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 424
+      "right": 417
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 424
+      "right": 417
      }
     ]
    },
@@ -1344,15 +1350,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 818
+      "right": 891
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 834
      },
      {
       "sel": "span",
       "right": 806
-     },
-     {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 760
      }
     ]
    },
@@ -1410,10 +1416,6 @@
     "widest": [
      {
       "sel": "span",
-      "right": 401
-     },
-     {
-      "sel": "span",
       "right": 395
      }
     ]
@@ -1453,15 +1455,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 818
+      "right": 891
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 834
      },
      {
       "sel": "span",
       "right": 806
-     },
-     {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 760
      }
     ]
    },
@@ -1474,15 +1476,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 818
+      "right": 891
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 834
      },
      {
       "sel": "span",
       "right": 806
-     },
-     {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 760
      }
     ]
    },
@@ -1516,7 +1518,7 @@
     "widest": [
      {
       "sel": "a",
-      "right": 528
+      "right": 616
      },
      {
       "sel": "a",
@@ -1524,7 +1526,7 @@
      },
      {
       "sel": "a",
-      "right": 403
+      "right": 395
      }
     ]
    },
@@ -1587,15 +1589,15 @@
     "widest": [
      {
       "sel": "span",
-      "right": 554
+      "right": 1039
      },
      {
       "sel": "path",
-      "right": 493
+      "right": 979
      },
      {
       "sel": "span",
-      "right": 448
+      "right": 933
      }
     ]
    },
@@ -1688,19 +1690,19 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 304,
+    "tableOverflow": 0,
     "widest": [
      {
-      "sel": "td.ant-table-cell",
-      "right": 657
+      "sel": "span",
+      "right": 1039
      },
      {
-      "sel": "td.ant-table-cell",
-      "right": 657
+      "sel": "path",
+      "right": 979
      },
      {
-      "sel": "col",
-      "right": 641
+      "sel": "span",
+      "right": 933
      }
     ]
    },
@@ -1710,7 +1712,20 @@
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0,
-    "widest": []
+    "widest": [
+     {
+      "sel": "span",
+      "right": 1039
+     },
+     {
+      "sel": "path",
+      "right": 979
+     },
+     {
+      "sel": "span",
+      "right": 933
+     }
+    ]
    },
    {
     "route": "/erp/expenses",
@@ -1742,7 +1757,15 @@
     "widest": [
      {
       "sel": "strong",
-      "right": 1056
+      "right": 899
+     },
+     {
+      "sel": "strong",
+      "right": 836
+     },
+     {
+      "sel": "strong",
+      "right": 826
      }
     ]
    },
@@ -1813,21 +1836,13 @@
    {
     "route": "/taoyuan/dispatch",
     "viewportWidth": 768,
-    "pageOverflow": 429,
+    "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 478,
+    "tableOverflow": 0,
     "widest": [
      {
-      "sel": "col",
-      "right": 1197
-     },
-     {
-      "sel": "path",
-      "right": 1187
-     },
-     {
-      "sel": "path",
-      "right": 1187
+      "sel": "span",
+      "right": 797
      }
     ]
    },
@@ -1909,15 +1924,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1093
+      "right": 1166
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1109
      },
      {
       "sel": "span",
       "right": 1088
-     },
-     {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1035
      }
     ]
    },
@@ -1956,21 +1971,13 @@
    {
     "route": "/taoyuan",
     "viewportWidth": 768,
-    "pageOverflow": 429,
+    "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 478,
+    "tableOverflow": 0,
     "widest": [
      {
-      "sel": "col",
-      "right": 1197
-     },
-     {
-      "sel": "path",
-      "right": 1187
-     },
-     {
-      "sel": "path",
-      "right": 1187
+      "sel": "span",
+      "right": 797
      }
     ]
    },
@@ -1999,15 +2006,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1093
+      "right": 1166
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1109
      },
      {
       "sel": "span",
       "right": 1088
-     },
-     {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1035
      }
     ]
    },
@@ -2020,15 +2027,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1093
+      "right": 1166
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1109
      },
      {
       "sel": "span",
       "right": 1088
-     },
-     {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1035
      }
     ]
    },
@@ -2062,7 +2069,7 @@
     "widest": [
      {
       "sel": "a",
-      "right": 782
+      "right": 870
      }
     ]
    },
@@ -2115,21 +2122,21 @@
    {
     "route": "/pm/cases/244",
     "viewportWidth": 768,
-    "pageOverflow": 164,
+    "pageOverflow": 0,
     "layoutViewport": 768,
     "tableOverflow": 0,
     "widest": [
      {
       "sel": "span",
-      "right": 916
+      "right": 1348
      },
      {
       "sel": "path",
-      "right": 879
+      "right": 1280
      },
      {
       "sel": "span",
-      "right": 831
+      "right": 1232
      }
     ]
    },
@@ -2204,42 +2211,42 @@
    {
     "route": "/pm/cases/244?tab=quotations",
     "viewportWidth": 768,
-    "pageOverflow": 164,
+    "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 174,
+    "tableOverflow": 0,
     "widest": [
      {
       "sel": "span",
-      "right": 916
+      "right": 1348
      },
      {
-      "sel": "td.ant-table-cell",
-      "right": 881
+      "sel": "path",
+      "right": 1280
      },
      {
-      "sel": "td.ant-table-cell",
-      "right": 881
+      "sel": "span",
+      "right": 1232
      }
     ]
    },
    {
     "route": "/pm/cases/244?tab=expenses",
     "viewportWidth": 768,
-    "pageOverflow": 164,
+    "pageOverflow": 0,
     "layoutViewport": 768,
     "tableOverflow": 0,
     "widest": [
      {
       "sel": "span",
-      "right": 916
+      "right": 1348
      },
      {
       "sel": "path",
-      "right": 879
+      "right": 1280
      },
      {
       "sel": "span",
-      "right": 826
+      "right": 1232
      }
     ]
    }
