@@ -83,6 +83,14 @@ Directory inode 1707113, block #0: directory passes checks but fails checksum.
 | **A76** | **改為豁免，不補登**——那 11 件全是 **GN 政府標案、全已結案（2020–2024 舊案匯入）**，標案沒有報價單只有投標 | 原建議「補報價單」是錯的；規則改成「成案必有報價單，**GN 豁免**」 |
 | **A77** | **應付 37 筆 `billing_id` 已回填**（同 quotation 只有 1 筆請款者） | 回填後 37 有／10 空；備份 `erp_vendor_payables_bak_20260902`；**10 筆需人判斷**（見下） |
 | **權限** | 6 候選逐一讀 → **3 真**（`document_calendar/common.py`、`events_batch.py`、`project_query_builder.py` 只認 `project_id`），另 3 個只是 import 清單 | 三處改用 `RLSFilter.get_user_accessible_project_ids`；SQL 對照：**洪慶忠 31 → 85 件、邱元宏 +7、張坤樹 +4，沒有人會少看到** |
+| **部署** | B（給號）／C（含未成案開關）／D（權限第九處）已部署，映像 `34ef9cb` → `17d579bd` | **打端點驗證**：新建報價單 → `QT2026_023` ✓（假資料已刪）；洪慶忠身分 `/projects/list` total **85** ✓（舊邏輯 31）；CCC `include_unawarded` → total 1 ✓、預設 → 0 ✓ |
+| **守門** | weekly 97／98／99 已接，表態閘門 GREEN（205/205） | 三支各做負向對照：清名冊⇒RED、餵非GN⇒RED、餵GN⇒GREEN、清基線⇒RED、空⇒GREEN，**全過** |
+
+⚠️ **驗證過程我自己犯的（而且第一個解釋還是錯的）**：第一版驗證腳本把 `[C]` 讀成 0 筆。
+我先寫成「沒檢查 HTTP 狀態碼」——**錯**。實測兩個請求都是 200，真因是**回應形狀讀錯**：
+`PaginatedResponse` 的 `items` 在**頂層**（`{success, items, pagination}`），我讀的是 `data.items` ⇒ 永遠空。
+**「0 筆」與「讀錯欄位」在我的腳本裡長得一樣**——L124 家族第四例（同日第三次：`limit=300` 撞 `le=100`、
+`pagination.total` vs `total`、這次 `items` 的層級）。⇒ 驗證腳本要印**原始回應的 keys**，不要只印自己解析出的數字。
 
 **剩下要 owner 判斷的**：
 
