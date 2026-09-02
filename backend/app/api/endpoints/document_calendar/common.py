@@ -156,21 +156,13 @@ async def get_user_project_doc_ids(db: AsyncSession, user_id: int) -> List[int]:
     v2 (2026-05-06, ADR-0025 配套)：
         user_id 展開到 alias group — 未合併或已合併的同人多帳號相互可見。
     """
-    from app.extended.models import project_user_assignment
     from app.core.rls_filter import RLSFilter
 
-    # alias group 展開（與 RLSFilter.get_user_accessible_project_ids 同邏輯）
-    alias_ids_subq = RLSFilter.get_alias_group_subquery(user_id)
-
-    # Step 1: 取得 alias group 任一帳號參與的專案 ID
+    # 2026-09-02：原本這裡自己寫了一份「與 RLSFilter 同邏輯」的查詢——但**只認 project_id**，
+    # 指派表 267 筆裡 108 筆只有 case_code（邀標階段綁的），那些人在行事曆上看不到自己案子的公文。
+    # 註解說「同邏輯」而實作只有一半，正是「複製第二份判定會漂」的活例。改直接用它。
     project_ids_result = await db.execute(
-        select(project_user_assignment.c.project_id)
-        .where(
-            and_(
-                project_user_assignment.c.user_id.in_(alias_ids_subq),
-                func.coalesce(project_user_assignment.c.status, 'active') == 'active'
-            )
-        )
+        RLSFilter.get_user_accessible_project_ids(user_id)
     )
     user_project_ids = [row[0] for row in project_ids_result.fetchall()]
 

@@ -206,10 +206,13 @@ class ProjectQueryBuilder:
             )
         )
 
-        subquery = (
-            select(project_user_assignment.c.project_id)
-            .where(project_user_assignment.c.user_id.in_(alias_group))
-        )
+        # 2026-09-02：原本 subquery 只取 project_id（同族第九處）。上面那段 alias_group
+        # 展開保留不動（它是 08-2x 的修法、有自己的註解），但實際過濾改用 RLSFilter 的
+        # 共用子查詢——它自帶 alias 展開、status 過濾、以及 by_project ∪ by_case。
+        # 這是承攬案件列表的主查詢：只認 project_id 時，108 筆只綁 case_code 的指派
+        # 讓那些人在 /contract-cases 看不到自己的案子（08-29 實測洪慶忠 77 件只見 23 件的同型）。
+        from app.core.rls_filter import RLSFilter
+        subquery = RLSFilter.get_user_accessible_project_ids(user_id)
         self._conditions.append(self.model.id.in_(subquery))
         return self
 

@@ -14,7 +14,6 @@
 """
 from fastapi import APIRouter
 
-from sqlalchemy import exists
 
 from .common import (
     Depends, HTTPException, status,
@@ -28,9 +27,9 @@ from .common import (
 )
 from app.schemas.document_calendar import BatchUpdateStatusRequest, BatchDeleteRequest
 from app.extended.models import ContractProject
-from app.extended.models.associations import project_user_assignment
 from app.services.user.alias import expand_user_alias
 from app.core.dependencies import is_admin_user
+from app.core.rls_filter import RLSFilter
 
 
 def _is_superuser(user: User) -> bool:
@@ -135,17 +134,13 @@ async def get_user_calendar_events(
             alias_ids = await expand_user_alias(db, request.user_id)
             alias_id_list = list(alias_ids)
 
-            # 承辦同仁 correlated EXISTS：該 event 關聯公文所屬案件，
-            # requester 或其 alias 是 active staff
-            is_staff_collaborator = exists(
-                select(1)
-                .select_from(project_user_assignment)
-                .where(
-                    project_user_assignment.c.project_id == OfficialDocument.contract_project_id,
-                    project_user_assignment.c.user_id.in_(alias_id_list),
-                    project_user_assignment.c.status == 'active',
-                )
-                .correlate(OfficialDocument)
+            # 承辦同仁：該 event 關聯公文所屬案件，requester 或其 alias 是 active staff。
+            # 2026-09-02：原本是 correlated EXISTS 且**只比 project_id**（同族第九處）。
+            # 改成「案件 ∈ 使用者可存取的案件集合」——RLSFilter 那個子查詢已含
+            # alias 展開、status 過濾、by_project ∪ by_case，語意等價且多涵蓋
+            # 只綁 case_code 的 108 筆指派。
+            is_staff_collaborator = OfficialDocument.contract_project_id.in_(
+                RLSFilter.get_user_accessible_project_ids(request.user_id)
             )
             query = query.where(
                 or_(
