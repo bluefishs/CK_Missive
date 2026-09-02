@@ -117,7 +117,33 @@ def main() -> int:
     for f, n in bad:
         print(f"      {f.relative_to(ROOT)}（{n} 行）")
     print("\nStatus: [RED] 這些腳本在 Linux 容器內會 syntax error 而完全不執行")
+
+    # 2026-09-02：**把答案印在紅燈下面，不要只給清單。**
+    #
+    # 08-30 與 08-31 這一步報了兩天 RED，沒有人收；09-01 起
+    # run_fitness_daily.sh 自己變成 CRLF ⇒ 每日檢核一行都沒跑過，
+    # 而它的死法（rc=2、紅燈清單為空）被 scheduler 記成「RED」、
+    # 再被「連續相同紅燈」的去重靜音 ⇒ 連兩天沒有人知道。
+    #
+    # 當時的輸出已經寫了「會 syntax error」，但那是**一張清單**（哪些檔壞了），
+    # 讀的人還要自己把「這幾支裡有 runner」跟「所以檢核會死」連起來。
+    # ⇒ 判準與現場的距離不是行數，是**它有沒有以答案的形式出現**。
+    #   （判準由 ck-website-37 於同日提出，本 repo 採用）
+    _runners = [f for f, _n in bad if "run_fitness" in f.name]
+    if _runners:
+        print("")
+        print("  🚨 名單裡有 fitness runner —— 那是**這支檢核自己的執行器**。")
+        print("     它壞掉時的症狀是 rc=2 且紅燈清單為空（不是某一步紅）：")
+        print("       · scheduler 會把非 0/1 的退出碼記成 RED（已於 09-02 改為 ERROR）")
+        print("       · 「連續相同紅燈」的去重會把第二天判成「跟昨天一樣」而抑制")
+        print("     ⇒ **檢核不會跑，而且不會有人收到通知。**")
+        print("     2026-09-02 實例：08-30/08-31 報了兩天沒人收，09-01 起 runner 自己就跑不動了。")
+        print("")
+
     print("  修法：確認 .gitattributes 有 `*.sh text eol=lf`，再把檔案轉為 LF")
+    print("  ⚠️ git status 看不見這件事（比較時會正規化行尾），")
+    print("     host 的 Git Bash 又容忍 CRLF ⇒ **手動跑永遠全綠**。")
+    print("     要驗就在容器內跑：docker exec <容器> bash -n <腳本>")
     return 2
 
 
