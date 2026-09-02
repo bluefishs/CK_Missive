@@ -75,6 +75,36 @@ Directory inode 1707113, block #0: directory passes checks but fails checksum.
 | **A76** | **11 件無報價單的承攬案補登** ＋ 立「成案必有報價單」規則 | 金流全掛報價單（`erp_quotation_id`），這 11 件在金流上等於不存在；承辦人在金流頁面看不到自己的案子而系統不會說為什麼 | 補登要填金額，屬業務判斷 |
 | **A77** | **應付 47 筆 `billing_id` 全空** | 欄位存在、從未被填 ⇒ 「這筆應付對應哪次請款」答不出來 | 回填需對照單據 |
 
+### ✅ 09-02 午後辦理結果（owner「逐一辦理」）
+
+| # | 結果 | 證據 |
+|---|---|---|
+| **A75** | **帳本 43 個舊制 `case_code` 已收斂**（經 `legacy_quotation_no` 一對一對照，68 筆分錄） | 孤兒 **44 → 1**；接得到承攬案的分錄 **12 → 80**；總筆數 81 不變、金額 25,721,619 不變；備份 `finance_ledgers_bak_20260902` |
+| **A76** | **改為豁免，不補登**——那 11 件全是 **GN 政府標案、全已結案（2020–2024 舊案匯入）**，標案沒有報價單只有投標 | 原建議「補報價單」是錯的；規則改成「成案必有報價單，**GN 豁免**」 |
+| **A77** | **應付 37 筆 `billing_id` 已回填**（同 quotation 只有 1 筆請款者） | 回填後 37 有／10 空；備份 `erp_vendor_payables_bak_20260902`；**10 筆需人判斷**（見下） |
+| **權限** | 6 候選逐一讀 → **3 真**（`document_calendar/common.py`、`events_batch.py`、`project_query_builder.py` 只認 `project_id`），另 3 個只是 import 清單 | 三處改用 `RLSFilter.get_user_accessible_project_ids`；SQL 對照：**洪慶忠 31 → 85 件、邱元宏 +7、張坤樹 +4，沒有人會少看到** |
+
+**剩下要 owner 判斷的**：
+
+| 項 | 內容 |
+|---|---|
+| 帳本孤兒 1 筆 | `B114-B002`：`expense_invoice` 差旅費 50,500（08-17 一次性結清），報價單裡**沒有** B114-B002（含版次），不知該掛哪案 |
+| 應付 10 筆 | 同 quotation 有多筆請款，期別對應需人判：quotation 161（金粟 ×3 期＋尾款）、167（政威 ×2、桃園市府約僱）、168（政威 ×2、正展） |
+
+### ⭐ 順帶查出的：/pm/cases 新增報價單「看不到、沒編號」（owner 當日回報「CCC」）
+
+**打端點實測**（不是看程式碼）：`list` 預設 **0 筆**、帶 `include_unawarded=true` **1 筆**、`export-document` **HTTP 200／147 KB**、`detail` 的 `quotation_no=None`。
+
+| 症狀 | 真因 | 修法 |
+|---|---|---|
+| 列表看不到 | 後端 08-31 加了 `include_unawarded`（預設只給已成案），**前端從沒接** ⇒ 剛建、未成案的報價單 UI 上永遠看不到 | 前端加「含未成案」開關（`ERPQuotationListPage`） |
+| 無法輸出 | **輸出本身是好的**（200）——是列表看不到 ⇒ 進不了詳情頁 ⇒ 按不到輸出 | 同上 |
+| 沒有 QT 編號 | 給號邏輯只在 `tender/case_creation.py`，`/pm/cases` 走的 `quotation_service.create` **不給號** ⇒ 257 張裡 **181 張空** | `create` 補 `generate_quotation_no` |
+
+**owner 問「為何不是 XLS 線上編輯」**：現況是 AntD 表單建單 → 以 `quotation_template.xlsx` 填值 → 轉 PDF。版面只有一份來源（那個範本）。XLS 線上編輯（如 Luckysheet）是另一種產品形態，**需求先確認再評估**——列 **A78**。
+
+**已承攬未成案 40 筆**（owner 問「為何還有」）：那是 **A61**——09-01 成案 51 筆後剩下的，**同一件工作建了兩次案**（版次分身 `B114-B048` vs `B114-B048-1`），逐組對照表在 `quotation_revision_dups_20260901.md`，**要 owner 逐組判斷留哪張**，我不會自己決定。
+
 ### 評估結論（owner 問的兩件事）
 
 **① 報價單與承攬案會不會混淆、要不要區分？**
