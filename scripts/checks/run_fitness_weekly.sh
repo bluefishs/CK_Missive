@@ -545,6 +545,17 @@ run_step "95" "下拉取數上限 vs 資料筆數（會被時間追上）" "scri
 run_step "96" "設定目錄 SSOT（不得長出第三個）" "scripts/checks/config_directory_ssot_audit.py"
 
 # ------------------------------------------------------------------
+# 97–99（2026-09-02）：承攬案件 × 金流管控三支守門。
+# 起因：實測 226 個承攬案裡 173 個在金流上看不到——承攬案件本身不掛在任何
+# 一條金流上，全靠 case_code 間接推導，而帳本的 case_code 是舊制、90% 孤兒。
+# 三支判準都是精確的（SQL 集合關係），不是啟發式。
+# 完整分析：docs/architecture/CONTRACT_CASE_FINANCE_GOVERNANCE.md
+# ------------------------------------------------------------------
+run_step "97" "帳本 case_code 必須接得到主表（08-29 收斂漏了帳本）" "scripts/checks/ledger_case_code_reachability_audit.py"
+run_step "98" "成案必有報價單，GN 豁免（金流全掛報價單上）" "scripts/checks/contract_case_quotation_presence_audit.py"
+run_step "99" "應付必有 billing_id（橋設計了但 47 筆全空）" "scripts/checks/payable_billing_link_audit.py"
+
+# ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
 # ------------------------------------------------------------------
 # 只記整體 rc 時，三個月後也回答不出「哪一支檢核從來沒紅過」。
