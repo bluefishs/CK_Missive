@@ -185,9 +185,13 @@ echo "[6/7] Verifying public access..."
 #    與 `SAMPLES` 一個都不存在 —— **宣稱的改動從未發生**（L104 形狀）。
 #    這次是真的做了。
 for _i in 1 2 3; do
-    HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/health || echo 000)
+    # 2026-09-02：原本 `... || echo 000` 在 curl 收到 200 header 後逾時（exit 28）時，
+    # 會把 000 **追加**在已印出的 200 後面 ⇒ 印出「HTTP 200000」，看不出是逾時。
+    # 判失敗是對的（回應不完整，使用者也會撞到），但輸出要說清楚是哪一種失敗。
+    HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://missive.cksurvey.tw/health); _RC=$?
+    if [ $_RC -ne 0 ]; then HTTP="${HTTP:-000}(curl exit $_RC)"; fi
     if [ "$HTTP" != "200" ]; then
-        echo "  ✗ 公網第 $_i 次抽樣回 HTTP $HTTP（本機 health 是綠的 ⇒ 疑似 L76 殭屍埠轉發）"
+        echo "  ✗ 公網第 $_i 次抽樣回 HTTP $HTTP（本機 health 是綠的 ⇒ 疑似 L76 殭屍埠轉發或 cloudflared 重連中）"
         echo "    間歇性失敗同樣是失敗 —— 使用者撞到的就是這一次。"
         echo "    修法見 docs/runbooks/ 與 LESSONS_REGISTRY.md#L76"
         exit 1
