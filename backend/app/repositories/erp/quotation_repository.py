@@ -166,6 +166,10 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
             conditions.append(or_(
                 ERPQuotation.case_code.ilike(f"%{search}%"),
                 ERPQuotation.case_name.ilike(f"%{search}%"),
+                # 2026-09-02：舊案號（B115-C0xx）與 QT 號也要搜得到——總表、紙本、客戶信件用的都是它們，
+                # 只搜 case_code／案名等於要求使用者先知道系統編號
+                ERPQuotation.legacy_quotation_no.ilike(f"%{search}%"),
+                ERPQuotation.quotation_no.ilike(f"%{search}%"),
             ))
 
         # 成案主軸：只留有承攬案件的報價單

@@ -910,6 +910,27 @@ class ProjectRepository(BaseRepository[ContractProject]):
     # 列表查詢 (含 RLS 支援)
     # =========================================================================
 
+    @staticmethod
+    def _sort_clauses(sort_by: Optional[str], sort_order: str = "desc") -> list:
+        """把 `category:asc,year:desc` 這種多欄規格解析成 order_by 子句列表。
+
+        2026-09-02 owner：「列表以 01 委辦招標類別為主排列」——那是「先依類別、再依年度」，
+        單一欄位排不出來。每欄可帶 `:asc`／`:desc`，沒帶的沿用 sort_order；
+        不存在的欄位跳過（不 500）。**單一來源**：get_filtered_list 與 filter_projects 都走這裡。
+        """
+        clauses = []
+        for spec in str(sort_by or "").split(","):
+            spec = spec.strip()
+            if not spec:
+                continue
+            col_name, _, direction = spec.partition(":")
+            col = getattr(ContractProject, col_name.strip(), None)
+            if col is None:
+                continue
+            desc_flag = (direction or sort_order or "desc").strip().lower() != "asc"
+            clauses.append(col.desc().nulls_last() if desc_flag else col.asc().nulls_last())
+        return clauses
+
     async def get_filtered_list(
         self,
         search: Optional[str] = None,
@@ -964,11 +985,11 @@ class ProjectRepository(BaseRepository[ContractProject]):
         count_query = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_query)).scalar_one()
 
-        # 排序
-        sort_column = getattr(ContractProject, sort_by, None) if sort_by else None
-        if sort_column is not None:
-            order = sort_column.desc() if sort_order == "desc" else sort_column.asc()
-            query = query.order_by(order, ContractProject.project_code.desc())
+        # 排序 —— 與 filter_projects 共用同一份解析（2026-09-02 晚：多欄排序先改在 filter_projects，
+        # 打端點才發現 /projects/list 走的是這裡；同一個排序兩處實作、改了沒人走的那份）
+        orders = self._sort_clauses(sort_by, sort_order)
+        if orders:
+            query = query.order_by(*orders, ContractProject.project_code.desc())
         else:
             query = query.order_by(ContractProject.year.desc().nulls_last(), ContractProject.project_code.desc().nulls_last())
 
@@ -1039,17 +1060,9 @@ class ProjectRepository(BaseRepository[ContractProject]):
 
         builder.distinct()
 
-        # 排序：sort_by 動態欄位，預設 created_at。
-        # 2026-09-02 owner：「列表以 01 委辦招標類別為主排列」——那是「先依類別、再依年度」，
-        # 單一欄位排不出來。sort_by 接受逗號分隔多欄，每欄可帶 `:asc`／`:desc`，
-        # 沒帶的沿用 sort_order；例：`category:asc,year:desc`。
-        for spec in str(sort_by or 'created_at').split(','):
-            spec = spec.strip()
-            if not spec:
-                continue
-            col, _, direction = spec.partition(':')
-            desc_flag = (direction or sort_order).lower() != 'asc'
-            builder.order_by(col.strip(), descending=desc_flag)
+        # 排序：與 get_filtered_list 共用 _sort_clauses（多欄、每欄可帶 :asc/:desc）
+        for clause in self._sort_clauses(sort_by or 'created_at', sort_order):
+            builder._order_columns.append(clause)
 
         # 分頁（builder.paginate 用 page/page_size，這裡用 skip/limit 直接設）
         builder._offset = skip
