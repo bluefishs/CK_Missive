@@ -141,6 +141,9 @@ class ERPQuotationResponse(BaseModel):
     # 那件事會直接卡死（前端拿不到編號就無從比對）。
     # 同一個檔案、同一種失敗形狀，隔兩天再踩一次。
     legacy_quotation_no: Optional[str] = None
+    # 2026-09-02：報價單種類（tender／contract／finance_anchor）。同檔第三次為了「只加到 ORM
+    # 就停」補 response 欄位——這次一起加。
+    quote_kind: Optional[str] = None
 
     # 2026-08-19：填報者姓名。
     #

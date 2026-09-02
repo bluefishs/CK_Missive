@@ -159,6 +159,9 @@ class ERPQuotationService(AuditableServiceMixin):
                 dump.get("year") or _date.today().year
             )
         dump.setdefault("revision", 1)
+        if not dump.get("quote_kind"):
+            from app.services.erp.quote_kind import infer_quote_kind
+            dump["quote_kind"] = infer_quote_kind(dump.get("case_code"))
 
         dump["created_by"] = user_id
         quotation = await self.repo.create(dump)

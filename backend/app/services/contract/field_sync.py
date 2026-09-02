@@ -5,7 +5,7 @@ pm_cases ↔ contract_projects ↔ erp_quotations
 以 case_code 或 project_code 為關聯 KEY，
 任一方更新核心欄位時自動同步其餘兩方。
 
-同步欄位: category, case_nature, client_name, contract_amount
+同步欄位: category, case_nature, client_name, contract_amount, status, case_name
 
 Version: 1.0.0
 Created: 2026-03-30
@@ -20,7 +20,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 # 同步欄位清單
-SYNC_FIELDS = ["category", "case_nature", "client_name", "contract_amount", "status"]
+# 2026-09-02 晚：加 `case_name`。owner 提供「完整案名」對照表後，109 筆案名要改成
+# 三表各改一次——因為它不在這份白名單裡。三表共有的業務欄位（案名／客戶／金額／
+# 狀態／類別／性質）**全部**要在這裡，缺一個就是下一次的「改一處漏兩處」；
+# `case_field_sync_whitelist_audit`（weekly 101）守這件事。
+SYNC_FIELDS = ["category", "case_nature", "client_name", "contract_amount", "status", "case_name"]
+
+# 承攬案側的欄位名不同（client_agency／project_name），端點過濾 changed 時要用這份，
+# 不是自己再抄一份 —— `projects/crud.py` 09-02 就是抄了第二份才讓 status 同步失效。
+CONTRACT_SYNC_FIELDS = SYNC_FIELDS + ["client_agency", "project_name"]
 
 
 class CaseFieldSyncService:
@@ -69,6 +77,8 @@ class CaseFieldSyncService:
                 cp_update["client_agency"] = sync_data["client_name"]
             if "contract_amount" in sync_data:
                 cp_update["contract_amount"] = float(sync_data["contract_amount"]) if sync_data["contract_amount"] else None
+            if "case_name" in sync_data:
+                cp_update["project_name"] = sync_data["case_name"]
             if cp_update:
                 for k, v in cp_update.items():
                     setattr(cp, k, v)
@@ -82,10 +92,13 @@ class CaseFieldSyncService:
         erp = erp_result.scalar_one_or_none()
         if erp:
             erp_update = {}
-            if "client_name" in sync_data:
-                erp_update["client_name"] = sync_data["client_name"]
+            # ⚠️ ERPQuotation **沒有** client_name 欄位（客戶經 case_code 連 pm_cases 取）。
+            # 09-02 晚之前這裡寫 erp_update["client_name"]，setattr 設了一個 Python 屬性、
+            # 不寫 DB、不報錯 —— weekly 101 抓到的。
             if "contract_amount" in sync_data:
                 erp_update["total_price"] = float(sync_data["contract_amount"]) if sync_data["contract_amount"] else None
+            if "case_name" in sync_data:
+                erp_update["case_name"] = sync_data["case_name"]
             if erp_update:
                 for k, v in erp_update.items():
                     setattr(erp, k, v)
@@ -107,7 +120,7 @@ class CaseFieldSyncService:
         if not cp:
             return synced
 
-        sync_data = {k: v for k, v in changed_fields.items() if k in SYNC_FIELDS + ["client_agency"] and v is not None}
+        sync_data = {k: v for k, v in changed_fields.items() if k in CONTRACT_SYNC_FIELDS and v is not None}
         if not sync_data:
             return synced
 
@@ -125,6 +138,8 @@ class CaseFieldSyncService:
                     pm_update["client_name"] = sync_data["client_agency"]
                 if "contract_amount" in sync_data:
                     pm_update["contract_amount"] = sync_data["contract_amount"]
+                if "project_name" in sync_data:
+                    pm_update["case_name"] = sync_data["project_name"]
                 # 2026-09-02：承攬案結案時 PM 案不跟著結——實測 48 筆承攬案「已結案」而
                 # PM 案仍 contracted，於是 /pm/cases 篩「已結案」看不到那 12 件未收款的案子
                 #（owner：「已結案未收齊 12 件但 /pm/cases 僅顯示 1 筆」）。
@@ -147,11 +162,12 @@ class CaseFieldSyncService:
                 if "case_nature" in sync_data:
                     # ERP 沒有 case_nature，只同步金額/客戶
                     pass
-                if "client_agency" in sync_data:
-                    erp.client_name = sync_data["client_agency"]
-                    synced["erp_quotation"] = True
+                # client_agency 不同步到 ERP：模型沒有 client_name 欄位（見 sync_from_pm 同處註解）
                 if "contract_amount" in sync_data:
                     erp.total_price = float(sync_data["contract_amount"]) if sync_data["contract_amount"] else None
+                    synced["erp_quotation"] = True
+                if "project_name" in sync_data:
+                    erp.case_name = sync_data["project_name"]
                     synced["erp_quotation"] = True
 
         return synced

@@ -60,6 +60,12 @@ class ERPQuotation(Base):
     # 回簽 PDF 的檔名就長這樣：`回簽報價單_B115-C013-0_朱冠綸_….pdf`，
     # 沒有它就無法把那批檔案掛回系統。
     # 唯一性同樣由遷移建的 partial index 保證（見 20260819a001），這裡不寫 unique。
+    #: 報價單的種類（2026-09-02 晚）。同一張表裝了三種東西，先前只靠 case_code 的段落分辨：
+    #:   tender          — 01 委辦招標：標案建案時開的 draft，投標用（owner 08-17）
+    #:   contract        — 02 承攬報價：人工報價、XLS 匯入，owner 的「115 報價單彙整總表」只對這一種
+    #:   finance_anchor  — 成案時系統自動建的 0 元掛點，只為了讓請款／發票有地方掛
+    #: 推導規則單一來源＝`services/erp/quote_kind.py`；migration 回填用同一條規則。NULL＝存量未分類。
+    quote_kind = Column(String(20), nullable=True, index=True, comment="tender/contract/finance_anchor")
     legacy_quotation_no = Column(String(64), index=True,
                                  comment="舊案號（個人管理時期），供與紙本／回簽檔對帳")
 

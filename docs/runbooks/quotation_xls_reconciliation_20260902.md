@@ -305,3 +305,16 @@ XLS 92 筆有檔案路徑（全部存在於 `D:\報價單6報價紀錄\`），
 - 附件 #1 `B114-B002`「電子發票應用API規格.pdf」是測試檔、對應報價單早已不在——**留給 owner 裁示刪除**。
 - CCC 測試案（我 09-02 建的）：報價單 #542 soft-delete、PM 案 #568／指派／附件／目錄硬刪，殘留 0。
 - 4 筆 legacy 格式 `B115-C017-b` → `B115-C017b-0` 對齊 XLS。
+
+## 7. 「依前述規劃與建議逐一辦理」辦理紀錄（09-02 晚，owner /goal）
+
+| 建議 | 辦理 | 驗證 |
+|---|---|---|
+| ① `case_name` 進同步白名單＋守門 | `SYNC_FIELDS` 加 `case_name`；承攬側別名集中為 `CONTRACT_SYNC_FIELDS`；`projects/crud.py` 與 `pm/cases.py` **三份 inline 清單全改為 import 單一來源** | weekly 101 `case_field_sync_whitelist_audit`（三判準：共有欄位覆蓋／目標欄位存在於模型／端點不自抄）。**負向對照兩次**：未修前抓到 `sync_from_pm` 寫 `ERPQuotation.client_name`（模型沒這欄位，setattr 靜默不落地——**既有 bug**，順手修）；判準③擴寫後抓到 `pm/cases.py` 兩處 inline tuple |
+| ② 報價單加 `quote_kind` | migration `20260902a001`（nullable＋依 case_code 回填）；ORM／response schema／前端型別三層同加；三條建立路徑各帶明確值（標案建案 `tender`、成案自動建 `finance_anchor`、手動建依案號推導）；推導規則單一來源 `services/erp/quote_kind.py`，migration 的 SQL 與它逐字比對 | 回填：contract 227／tender 18／finance_anchor 5／NULL 5（全是舊制 03 類）。**tender 有 legacy 編號 = 0** ⇒「XLS 只對 contract」成為查詢條件。測試 19 條（含 SQL 與 Python 規則對 10 組已知案號逐一比對） |
+| ③ 新建案號拒絕舊制 | **不改**。手動建承攬案的 `project_code` 走舊制 `CK{年}_{類}_{性}_{序}`＋`case_code` 走 GN 制，是 08-18（GN 誠實表達「不是從 PM 建案來的」）與 08-27（成案編號無須連號）兩次裁決的既定設計；改它會動 UNIQUE 與兩次裁決。列 **A83** 供 owner 決定要不要統一 | — |
+| ④ #541 補 legacy | `B115-B012-0`、`total_price` 96,000（與承攬案 96,000 一致） | 唯一性 1 |
+| ⑤ 整條鏈打端點實測 | 容器內 `ASGITransport` 走 標案建案 → PM detail → 改 status 自動成案 → PM 改名 → 承攬側改名＋結案 → 重複建案 → 手動建報價單，全部 `__PROBE__` 標記、跑完硬刪 | **第一輪 17/19**：`source_tender_id` 寫入 ✓、draft 報價單 `tender`＋QT 號 ✓、自動成案（`CK2026_01_008`＝去 `_PM_`）✓、報價單 `project_code` 回填 ✓、承攬側改名／結案同步到 PM 與報價單 ✓、重複 409 ✓、手動建報價單推導 ✓；**❌ PM 側改名不同步**（就是上面那兩份 inline tuple）。修後第二輪見下 |
+| ⑥ 全套檢核 | weekly 97／98／100／101、`verify_architecture`、`schema_ssot_audit`、`entity_creation_ssot_audit`、`model_response_field_reach_audit`、`declaration_gate`、`tsc`、pytest 相關 74 支 | 全綠或 YELLOW 同改前；pytest 唯一失敗 `test_case_code_service::test_cross_table_serial` 在 `known_failures.json` 基線內 |
+
+⚠️ **關於「標案→PM 案 0/253」**：不是程式壞，是**沒有人走**。probe 證明 `create-case` 端點會寫 `source_tender_id`；存量 253 筆 PM 案裡 179 筆由工作表匯入、3 筆從標案建（欄位存在之前）。要讓這段鏈有資料，是流程（從標案頁建案）不是程式。

@@ -499,6 +499,8 @@ class CaseCodeService:
                 year=pm_case.year,
                 total_price=pm_case.contract_amount,
                 status="confirmed",
+                # 這張不是報價，是讓請款有地方掛的 0 元錨點；XLS 對照與人工報價清單都要排除它
+                quote_kind="finance_anchor",
             )
             self.db.add(new_erp)
             erp_linked = True

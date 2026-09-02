@@ -559,6 +559,11 @@ run_step "99" "應付必有 billing_id（橋設計了但 47 筆全空）" "scrip
 # 報價多打一個 0 那種）；「執行中 >365 天 0 請款」只 YELLOW——多為小案，很可能是收了沒登。
 run_step "100" "承攬案件端到端流程對應（以案件為主軸走整條鏈）" "scripts/checks/contract_case_pipeline_reconciliation.py"
 
+# 101（2026-09-02 晚）：三表共有欄位必須在同步白名單、同步目標欄位必須存在於模型。
+# 同日踩兩次同型（status 上午、case_name 晚上），第三種形狀是 sync 寫 ERPQuotation.client_name
+# 而模型根本沒這欄位 —— setattr 靜默不落地。全靜態、不連 DB。
+run_step "101" "三表共有欄位同步白名單（含目標欄位存在性）" "scripts/checks/case_field_sync_whitelist_audit.py"
+
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
 # ------------------------------------------------------------------

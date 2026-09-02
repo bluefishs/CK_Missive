@@ -204,6 +204,11 @@
 | `governance_enforcement_coverage.py` | ADR／教訓有沒有人在強制 —— 只報數字與斷鏈，不判斷「該不該有」 ｜weekly 51（⚠️ 2026-08-27 校正：原列在「月度架構覆盤」底下，實際跑它的是 weekly） |
 | `declared_runner_truth_audit.py` | **本表自己的守門人** —— README 宣告的執行者是不是真的在跑它。`declaration_gate` 只驗「有沒有宣告」，宣告是不是真的先前沒有人驗：2026-08-27 首跑抓到 **7 支宣告錯了**，其中四支守的是強制規範（ADR-0021 等），真正的執行者設計上是 pre-commit hook 而那支 hook 裡一支都沒有 | weekly 76 |
 | `case_award_pipeline_audit.py` | **成案程序管控** —— 報價/標案 → 承攬 → 成案編碼 → 金流，逐段報件數與**金額**。實查：已承攬無編碼 176 件／1,273 萬／請款 0；有編碼 51 件／48 有請款。⚠️ 只對惡化報紅（棘輪基線），存量不報紅 —— 它負責的是「不讓第 177 件靜靜發生」 | weekly 77 |
+| `ledger_case_code_reachability_audit.py` | 帳本 `case_code` 必須接得到主表（08-29 案號收斂沒轉帳本 ⇒ 90% 孤兒） | weekly 97 |
+| `contract_case_quotation_presence_audit.py` | 成案必有報價單，GN 豁免（金流全掛報價單，沒有報價單的承攬案在金流上等於不存在） | weekly 98 |
+| `payable_billing_link_audit.py` | 應付必有 `billing_id`（欄位存在、47 筆全空；可唯一對上卻沒對 ⇒ RED） | weekly 99 |
+| `contract_case_pipeline_reconciliation.py` | 以案件為主軸把整條鏈走一遍：RED 只給數字互相矛盾，已結案未收齊／執行中>365天0請款只 YELLOW | weekly 100 |
+| `case_field_sync_whitelist_audit.py` | 三表共有欄位必須在同步白名單、同步目標欄位必須存在於模型（`sync_from_pm` 曾寫 `ERPQuotation.client_name` 而模型沒這欄 ⇒ setattr 靜默不落地）、端點不得自抄清單。全靜態 | weekly 101 |
 
 ## 🧪 月度架構覆盤（`run_fitness.sh`）
 

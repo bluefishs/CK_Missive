@@ -99,8 +99,11 @@ async def update_case(
 
     # 三方同步：核心欄位變更時同步到 ContractProject + ERPQuotation
     try:
-        changed = {k: v for k, v in data.model_dump(exclude_unset=True).items()
-                   if k in ("category", "case_nature", "client_name", "contract_amount")}
+        # 2026-09-02 晚：原本 inline 一份 ("category","case_nature","client_name","contract_amount")
+        # —— 白名單的第三份，連 status／case_name 都沒有，於是 PM 側改案名永遠不同步而承攬側會
+        # （端到端 probe 抓到）。改用 field_sync 那一份；sync_from_pm 自己會擋 status。
+        from app.services.contract.field_sync import SYNC_FIELDS
+        changed = {k: v for k, v in data.model_dump(exclude_unset=True).items() if k in SYNC_FIELDS}
         if changed:
             from app.services.contract.field_sync import CaseFieldSyncService
             sync_svc = CaseFieldSyncService(service.db)
@@ -165,8 +168,9 @@ async def update_case_by_id(
 
     # 三方同步
     try:
-        changed = {k: v for k, v in req.data.model_dump(exclude_unset=True).items()
-                   if k in ("category", "case_nature", "client_name", "contract_amount")}
+        # 同上（2026-09-02 晚）：第四份 inline 清單，改用單一來源
+        from app.services.contract.field_sync import SYNC_FIELDS
+        changed = {k: v for k, v in req.data.model_dump(exclude_unset=True).items() if k in SYNC_FIELDS}
         if changed:
             from app.services.contract.field_sync import CaseFieldSyncService
             sync_svc = CaseFieldSyncService(service.db)

@@ -163,6 +163,8 @@ class TenderCaseCreationService:
             # 不是我們要報的價。報價金額由明細加總得出（見 quotation_items）。
             total_price=None,
             status="draft",
+            # 01 是投標報價、02 是承攬報價 —— 表上要寫明，不能只靠 case_code 段落
+            quote_kind=("tender" if (category or "01") == "01" else "contract"),
             notes=f"由{source_label} {tender_ref} 建案時同時開立",
         ))
         await self.db.flush()

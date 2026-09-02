@@ -49,6 +49,13 @@ export interface ERPQuotation {
    */
   legacy_quotation_no?: string;
   /**
+   * 報價單種類（2026-09-02）。同一張表裝三種東西：
+   * `tender` 01 委辦招標投標用 draft／`contract` 02 承攬報價（人工、XLS）／
+   * `finance_anchor` 成案時系統自動建的 0 元金流掛點。null＝存量未分類。
+   * 後端推導規則：`services/erp/quote_kind.py`。
+   */
+  quote_kind?: 'tender' | 'contract' | 'finance_anchor' | null;
+  /**
    * 填報者（誰輸入這筆資料）。
    *
    * ⚠️ 與「服務人員」不同：服務人員是案子的窗口（依 ADR-0025 收斂到

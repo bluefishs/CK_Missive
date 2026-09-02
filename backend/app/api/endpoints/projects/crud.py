@@ -222,9 +222,8 @@ async def update_project(
         # 同日為修「結案不同步 PM 案」在 SYNC_FIELDS 加了 status，部署後驗證仍不生效——
         # 因為 changed 在這裡就被過濾掉、sync_from_contract 根本沒被呼叫。
         # 改用同一份來源；複製第二份判定就是製造會漂的兩份，本檔就是活例。
-        from app.services.contract.field_sync import SYNC_FIELDS
-        sync_fields = SYNC_FIELDS + ["client_agency"]
-        changed = {k: v for k, v in project_data.model_dump(exclude_unset=True).items() if k in sync_fields}
+        from app.services.contract.field_sync import CONTRACT_SYNC_FIELDS
+        changed = {k: v for k, v in project_data.model_dump(exclude_unset=True).items() if k in CONTRACT_SYNC_FIELDS}
         if changed:
             from app.services.contract.field_sync import CaseFieldSyncService
             sync_svc = CaseFieldSyncService(project_service.db)
