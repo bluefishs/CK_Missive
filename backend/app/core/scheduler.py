@@ -2371,6 +2371,31 @@ def _kunge_quick_actions(tab: str = "memory") -> str:
     )
 
 
+def _fitness_runner_status(rc: int) -> str:
+    """把 fitness runner 的退出碼翻成三態 —— **不是兩態**。
+
+    `run_fitness_daily.sh` / `run_fitness_weekly.sh` 的合約只有兩個出口：
+    exit 0（全過）與 exit 1（有 RED）。**任何其他退出碼都代表它沒跑完** ——
+    bash 中途被中止、逾時、或容器在執行途中重啟。
+
+    2026-09-02 立此函式的原因：兩處原本都寫 `"RED" if rc != 0`，
+    於是 09-01 與 09-02 連兩天的 rc=2（backend 正在隨機 segfault，見 A66）
+    被記成 RED 且 red_steps 為空；daily 的去重接著把第二天判成
+    「跟昨天一樣的紅燈」而抑制推播 ⇒ **每日檢核連兩天沒跑完，沒有人收到通知**。
+
+    「檢核沒跑」要修的是檢核，「檢核發現問題」要修的是系統 ——
+    混成同一種狀態，兩邊都會被延誤。
+
+    daily 與 weekly 共用同一份判定：複製第二份就是製造會漂的兩份
+    （同 `_parse_red_steps` 於 2026-08-11 抽出的理由）。
+    """
+    if rc == 0:
+        return "PASS"
+    if rc == 1:
+        return "RED"
+    return "ERROR"
+
+
 def _parse_red_steps(out: str) -> list[str]:
     """從 fitness runner 的輸出解析「哪幾步紅」。
 
@@ -2506,7 +2531,7 @@ async def fitness_weekly_job():
 
     history[today] = {
         "rc": rc,
-        "status": "PASS" if rc == 0 else "RED",
+        "status": _fitness_runner_status(rc),
         "ts": datetime.now().isoformat(),
         "red_steps": red_steps,
     }
@@ -2542,6 +2567,39 @@ async def fitness_weekly_job():
         logger.info("Fitness Tier 2 Weekly: all step passed")
         return {"rc": 0, "status": "PASS", "red_streak": 0, "delivered": 1,
                 "history_ok": history_ok}
+
+    if _fitness_runner_status(rc) == "ERROR":
+        # 2026-09-02：沒跑完 —— **立刻出聲，不套用「首次 RED 等下週確認」**。
+        # 那條規則的前提是「單次抖動未必是真問題」，而這裡連一步都沒被驗證過，
+        # 等一週只是讓盲區多開七天。weekly 目前還沒踩到（歷史全是 rc=1），
+        # 但缺陷與 daily 同源 —— 修完第一處要 grep 整個檔案。
+        logger.error(
+            "Fitness Tier 2 Weekly 未跑完 rc=%d（runner 合約只有 0/1）—— 檢核故障非業務紅燈", rc,
+        )
+        notified_err = False
+        try:
+            tail_out = "\n".join((out or "").splitlines()[-15:])[:600]
+            tail_err = "\n".join((err or "").splitlines()[-15:])[:600]
+            body = (
+                "每週檢核**沒有跑完**（退出碼 " + str(rc) + "）。\n"
+                "runner 的合約只有 0=PASS／1=RED；其他退出碼代表它中途死了。\n"
+                "⚠️ 本週沒有任何一步被實際驗證過 —— 這不是「系統有問題」，是「檢核沒跑」。\n"
+                "\nstdout 尾：\n" + tail_out +
+                "\n\nstderr 尾：\n" + tail_err +
+                "\n\n複驗: bash scripts/checks/run_fitness_weekly_host.sh"
+                + _kunge_quick_actions("ops")
+            )
+            from app.services.integration.line_digest_buffer import queue_digest
+            await queue_digest("⚠️ 每週檢核未跑完（非業務紅燈）", body)
+            notified_err = True
+        except Exception as push_e:
+            logger.error("Fitness Tier 2 Weekly 未跑完告警入 digest 失敗: %s", push_e, exc_info=True)
+        return {
+            "rc": rc, "status": "ERROR", "red_streak": 0, "red_steps": [],
+            "delivered": 1 if notified_err else 0,
+            "reason": None if notified_err else "digest_queue_failed",
+            "history_ok": history_ok,
+        }
 
     # 偵測連續 2 週 RED → 通知
     consecutive_red = red_streak >= 2
@@ -2824,7 +2882,7 @@ async def fitness_daily_job():
             logger.warning("daily fitness history 讀取失敗（連續紅將無法累計）: %s", e)
     history[today] = {
         "rc": rc,
-        "status": "PASS" if rc == 0 else "RED",
+        "status": _fitness_runner_status(rc),
         "ts": datetime.now().isoformat(),
         "red_steps": red_steps,
     }
@@ -2853,6 +2911,41 @@ async def fitness_daily_job():
         logger.info("Fitness Tier 1 Daily: all step passed")
         return {"rc": 0, "status": "PASS", "red_streak": 0, "delivered": 1,
                 "history_ok": history_ok}
+
+    if _fitness_runner_status(rc) == "ERROR":
+        # 2026-09-02：沒跑完 —— **一律出聲，且不走連續紅去重**。
+        # 去重的前提是「同一個紅燈」，而這裡連紅燈是什麼都不知道（red_steps 必為空）。
+        # 對它套用去重，等於讓「檢核失效」本身變成靜默 —— 那正是 09-01/09-02 發生的事：
+        # 第一天記成 RED，第二天被判「跟昨天一樣」而抑制，兩天都沒有人知道檢核沒跑。
+        logger.error(
+            "Fitness Tier 1 Daily 未跑完 rc=%d（runner 合約只有 0/1）—— 檢核故障非業務紅燈", rc,
+        )
+        notified_err = False
+        try:
+            tail_out = "\n".join((out or "").splitlines()[-15:])[:600]
+            tail_err = "\n".join((err or "").splitlines()[-15:])[:600]
+            body = (
+                "每日檢核**沒有跑完**（退出碼 " + str(rc) + "）。\n"
+                "runner 的合約只有 0=PASS／1=RED；其他退出碼代表它中途死了。\n"
+                "⚠️ 今天沒有任何一步被實際驗證過 —— 這不是「系統有問題」，是「檢核沒跑」。\n"
+                "\nstdout 尾：\n" + tail_out +
+                "\n\nstderr 尾：\n" + tail_err +
+                "\n\n常見成因：容器在執行途中重啟"
+                "（查 backend/logs/container_die_events.log）／逾時（目前 300s）\n"
+                "複驗: docker exec ck_missive_backend bash scripts/checks/run_fitness_daily.sh --strict"
+                + _kunge_quick_actions("ops")
+            )
+            from app.services.integration.line_digest_buffer import queue_digest
+            await queue_digest("⚠️ 每日檢核未跑完（非業務紅燈）", body)
+            notified_err = True
+        except Exception as push_e:
+            logger.error("Fitness Tier 1 Daily 未跑完告警入 digest 失敗: %s", push_e, exc_info=True)
+        return {
+            "rc": rc, "status": "ERROR", "red_streak": 0, "red_steps": [],
+            "delivered": 1 if notified_err else 0,
+            "reason": None if notified_err else "digest_queue_failed",
+            "history_ok": history_ok,
+        }
 
     # 與前一天比較：有沒有**新**的紅。無法解析步驟名時不編造差異。
     prev = history.get(days[-2], {}).get("red_steps") if len(days) >= 2 else None
