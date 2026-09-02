@@ -42,6 +42,52 @@ Directory inode 1707113, block #0: directory passes checks but fails checksum.
 | **推送** | **200 個 commit 未推送**（最早回溯 08-28；95 fix／47 feat／49 docs） | 待 owner | 本次選擇「修復完系統後再推」；慢性紅燈 34 因此紅著 |
 | **部署** | scheduler 三態修法**只在 host 檔案裡** —— `backend/app/` 未掛載，程式碼在映像裡 | 待 owner | L79「寫好 ≠ 在系統裡」；下次 daily 02:00 前部署才生效 |
 
+### 🆕 A71 — 一支會謊報「修復成功」的殭屍修復腳本（已診斷，目前無害）
+
+> 來源：照 `ck-website-37` 的判準（**用命令名掃、不要用動詞**）盤點「對被觀測系統
+> 有副作用的自動處置」時查出來的。本 repo 共 **4 處**（動詞掃會命中 57 個檔案）。
+
+| # | 位置 | 副作用 |
+|---|---|---|
+| 1 | `backend/startup.py:156` | `taskkill /PID /F` |
+| 2 | `backend/startup.py:201` | `pip install -r` |
+| 3 | `backend/startup.py:226` | **`alembic upgrade head`**（副作用最大） |
+| 4 | `scripts/health/startup-verification.py:266` | `docker-compose ... restart` ＋ `shutil.copy2(".env.master", ".env")` |
+
+**第 4 項是本條的主體**，它與 CK_Website 的 postboot-guard 同型（驗證腳本帶著修復副作用），
+但更糟 —— 它**沒有任何前置狀態判斷**，連「合併」都談不上：
+
+```python
+def quick_fix_attempt(self):
+    if os.path.exists(".env.master"):
+        shutil.copy2(".env.master", ".env")      # 覆蓋 SSOT
+    subprocess.run(["docker-compose", "-f", "docker-compose.unified.yml", "restart"], ...)
+    self.log_message("已重啟 Docker 服務")
+    return True                                   # ← 不檢查回傳值
+```
+
+**三項實測**：
+
+| 檢查 | 結果 |
+|---|---|
+| `docker-compose.unified.yml` | ❌ **不存在** |
+| `.env.master` | ❌ **不存在** |
+| 誰呼叫 `startup-verification.py` | **沒有人**（全 repo 0 個呼叫端） |
+
+⇒ **目前無害**：目標不存在 ⇒ 副作用打不出去。
+⇒ **但它會謊報**：`subprocess.run` 不檢查回傳值 ⇒ restart 失敗照樣 log「已重啟 Docker 服務」
+並 `return True`。**宣稱修復成功而實際什麼都沒做。**
+
+⚠️ 兩個讓它從無害變有害的路徑：
+1. 有人哪天照著檔名跑 `--fix`，得到「修復成功」的假訊息並據此排除故障
+2. **`.env.master` 哪天被建立**（例如有人想備份 `.env`）⇒ 它就會真的覆蓋 `.env`
+   —— 而 `.env` 是本專案明文規定的唯一設定來源
+
+處置屬 owner（刪除 / 修好 / 標記封存三選一）。同族：webmap 的 LR-056
+「**一支很少執行的腳本可以累積任意多個致命缺陷而不被發現**」。
+
+---
+
 ### 🆕 A70 — 15% 的附件內容完全不可搜尋，而畫面不會說（已量測未處置）
 
 > 線索來自 `ck-facilitydev-67`：他那邊實測「檔案集用副檔名白名單維護，
