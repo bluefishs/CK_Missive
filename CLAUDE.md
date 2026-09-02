@@ -97,6 +97,14 @@
 > ⚠️ 但 **`mdsched` 從未執行過**，而 09-02 早上重開機兩次（皆正常關機、無 Kernel-Power 41）**兩次都錯過**
 > ⇒ 硬體**仍未排除**（WHEA 0 筆不足以排除，消費級非 ECC 常不產生 WHEA）。**A66-P3 待下次重開機。**
 >
+> ⭐**多 session 協同權責**（09-02 建立，owner 同時開 6 個 session）＝
+> [`docs/architecture/SESSION_COLLABORATION_RESPONSIBILITY.md`](docs/architecture/SESSION_COLLABORATION_RESPONSIBILITY.md)。
+> 三條界線：①**只動自己的 repo**（跨 repo 一律改成通知，理由是可追溯性——
+> 你的寫入會出現在別人的 `git status` 裡而他不知道來源）②**共用資源（宿主層）要有指定的記錄者、
+> 但不是指揮者**（A66 就是兩個 session 各自讀到同一個誤導欄位、各自往錯方向找數小時＝L127）
+> ③⛔**權限邊界不可轉包**——在你這裡被擋下的操作不可請別的 session 代做，那是繞過 owner 的權限決定；
+> 本日實例：我的 `git push` 被擋，**不可以**請 ck-aaap-58 代推，只能退回 owner。
+>
 > **最後更新**: 2026-09-02
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)
