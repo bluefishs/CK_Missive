@@ -451,7 +451,30 @@ def quick_fix_attempt(self):
 
 ---
 
-### ~~交接：CK_PileMgmt 開機恢復鏈~~ → **撤回，待辦不成立**（2026-09-02 同日）
+### 🔁 交接：CK_PileMgmt 開機恢復鏈 → 撤回 → **再更正：待辦重新成立，性質變了**（2026-09-02 傍晚）
+
+> ⛔ **這一條我轉達了兩次未查證的結論，方向相反。**
+> 第一次：「恢復鏈壞了、9 條 cron 沒恢復」（ck-website-37 的判型）。
+> 第二次：「撤回，實際結果是成功的」（ck-pilemgmt-7c 那支 bat 的註解）。
+> **兩次的依據都沒有人去讀證據**。傍晚 ck-website-37 讀了 `~/.pm2/pm2.log`
+> （檔案系統，不受 rpc.sock 的 pipe 權限影響）才收斂：
+
+```
+09:48:03  New PM2 Daemon started
+09:48:03  App [pm2-logrotate:0] starting → online     ← 只恢復了這一支（1/11）
+          （中間 14 分鐘，什麼都沒有）
+10:02:11  Registering a cron job on: 2,3,4,5,6         ← PostBootGuard 10:02:03 出手做的
+10:02:12  Registering a cron job on: 8,9,10,11,13
+```
+
+第二個獨立量測（sso-health log）：09:46 有、**10:00 完全缺席**、10:18 恢復。兩者互相印證。
+
+⇒ **真相**：`PM2_Autostart` 回 255 是**部分失敗**（resurrect 只恢復 1/11 就 abort），
+**9 條治理 cron 缺席了 14 分鐘**，是 CK_Website 的守衛補救的。
+「實際結果是成功的」那句註解若留著，下一個人會認為 255 不需處理。
+
+**待辦重新成立，但性質是**：恢復鏈只做一半就 abort，目前靠別 repo 的守衛補。
+屬 CK_PileMgmt（無 session 在跑時屬 owner）。
 
 > ⛔ **這一條我原本列進了給 owner 的待辦，而它是錯的判型。**
 > 來源 `ck-website-37` 主動撤回並附上真因；本 repo 同步更正。
@@ -467,7 +490,7 @@ def quick_fix_attempt(self):
 > **255 的意思不是「恢復失敗」，是「舊 daemon 連不上，但它 spawn 的新 daemon 接管了」。
 > 這個退出碼分不出這兩件事。**
 
-⇒ **owner 不需要為這一條做任何事。**
+⇒ ~~owner 不需要為這一條做任何事。~~ **傍晚更正：需要——恢復鏈是部分失敗，見上方。**
 
 ### ⭐ 這條留下來的三個教訓
 
