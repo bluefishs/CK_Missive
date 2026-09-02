@@ -1530,6 +1530,79 @@
 
 ---
 
+## L130 — 一個永遠不會完成的啟動，與一個很慢的啟動，在狀態欄裡長得一樣（2026-09-02）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 公網 `missive.cksurvey.tw` 回 **CF 1033**、`docker ps` 回 **500**。機器 8 分鐘前才開機、Docker Desktop 1 分鐘後才啟動，`docker desktop status` 回 **`starting`**。我判讀為「剛開機還沒起來」，決定先做別的、稍後再看 —— **那個判讀的每一項事實都是對的**。 |
+| **Cause** | Docker 的資料磁碟（`docker_data.vhdx`，356 GB，**PostgreSQL volume 就在裡面**）ext4 journal 損毀：`JBD2: Invalid checksum recovering data block 231768510` → `journal recovery failed` → `EXT4-fs: error loading journal`。Docker Desktop 無限重試掛載，**每次都卡在同一個 block**，而它對外一路顯示 `starting`，從未顯示 `error`。 |
+| **⭐ 判準（比這個 bug 活得久）** | **`starting` 是一個狀態，不是一個進度。** 一個永遠不會完成的啟動與一個很慢的啟動，在狀態欄裡無法區分 —— 而區分它們的成本只有一行指令。<br>⇒ **`docker desktop status` 回 `starting` 超過 5 分鐘就不要再等，去看 `wsl -d docker-desktop dmesg`。** 真相在核心日誌裡，不在狀態欄裡。 |
+| **同族但不同成因** | 記憶檔 `docker_engine_wedge_1033_recovery`（2026-06-25）記的是**另一個**成因：`docker-mcp.exe` 卡住擋停止。**症狀一模一樣（1033 ＋ 500），修法完全不同**——本案機器上根本沒有 `docker-mcp.exe` 行程。⇒ 一份 runbook 涵蓋一個成因時，要在標題就講清楚它涵蓋的是哪一個，否則下一個人會照著跑完全不適用的步驟，然後以為「試過了沒用」。 |
+| **Fix** | 唯讀診斷（`e2fsck -fn`）→ 確認損壞全為良性（3 個殘留 inode／2 個目錄 checksum／bitmap 計數偏差，**無 illegal block、無 unattached inode**）→ 停 Docker Desktop → `e2fsck -fy` → 驗 `needs_recovery` 旗標已從 features 消失 → 啟動 → 58 容器全起、業務量 documents 2047／KG 50189、公網 8/8 200。**零資料遺失。** |
+| **⭐ 驗收的判準** | 「`fsck` 沒報錯」與「`needs_recovery` 已清除」**是兩件事**。前者只說這一輪沒發現問題，後者才是「檔案系統認為自己是乾淨的」。要驗後者。 |
+| **Refs** | `docs/runbooks/docker-ext4-journal-corruption-20260902.md`（完整程序）／A66（上游假設）／L76（殭屍埠，驗收要多次抽樣的理由） |
+
+---
+
+## L131 — 我寫進 runbook 的裝置代號，12 分鐘後就指向另一顆磁碟（2026-09-02）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | L130 的修復程序我寫成 runbook 時，指令是 `e2fsck -fy /dev/sdd`。那在當下**完全正確** —— 我確認過 `sdd` 的 UUID 是 `9334535a…`、`Last mounted on: /mnt/docker-desktop-disk`。 |
+| **Trigger** | 12 分鐘後 Docker Desktop 自己重啟了一次，我再查，**`/dev/sdd` 已經變成 main distro（`bd6f718b…`）**。再一次重啟後，docker_data 變成 `/dev/sdf`。**三次開機、同一顆磁碟、三個代號（sdd → sde → sdf）。** |
+| **⭐ 為什麼危險** | 照著寫死代號的 runbook 跑 `e2fsck -fy`，**會對錯的檔案系統做寫入修復**。而它不會報錯 —— 那顆磁碟是好的，fsck 會愉快地跑完並回 0。**修錯對象的失敗形態是綠燈。** |
+| **一般形式** | **凡是「開機時由核心依偵測順序指派」的識別碼，都不是身分。** `/dev/sdX`、網卡 `ethN`、PCI 順序都屬這一類。身分要用 UUID、label、或它掛載到哪裡（本案：`Last mounted on: /mnt/docker-desktop-disk`）。 |
+| **Fix** | runbook 加 §3.0「先確認哪一顆才是 docker_data」，所有步驟改 `$DEV`，並附上逐顆比對 UUID 的迴圈。剩餘 5 處 `/dev/sdd` 全部是**說明重排現象的文字**，不是可執行的指令 —— 已逐行核對。 |
+| **⭐ 這條的來歷** | 不是別人踩到才記的，是**我自己寫完 runbook 之後、在同一個 session 內親眼看到它失效**。若不是恰好又重啟了一次，這份 runbook 會帶著一個綠燈型的陷阱躺在 repo 裡。⇒ **寫下一個具體識別碼時，先問它是「身分」還是「這次開機剛好排到的號碼」。** |
+| **Refs** | `docs/runbooks/docker-ext4-journal-corruption-20260902.md` §3.0 ／ 同族 L127（欄位名不是它看起來的意思） |
+
+---
+
+## L132 — 檢核報出了會殺死它自己的那個問題，而沒有人收（2026-09-02）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | 覆盤時查 `fitness_daily_history.json`，發現 **09-01 與 09-02 連兩天 `rc=2` 而 `red_steps` 是空的**。 |
+| **⭐ 我的第一個診斷是錯的** | 我判定「容器在執行途中被 segfault 打斷」（A66 最嚴重的正是那兩天）——**它能解釋每一個觀察到的現象**，而且時間吻合得令人信服。真相是 `run_fitness_daily.sh` 變成了 **CRLF 行尾**，容器內 bash 讀到 `CR` 直接 syntax error，**一行檢核都沒跑過**。⇒ 揭穿它的不是推理，是**手動在容器內跑一次**：`$'CR': command not found` 三行就結案。**一個能解釋症狀的假說，在旁邊剛好有大事發生時最危險。** |
+| **⭐ 真正的形狀（比 bug 本身重要）** | daily 的 **step 10 就是 CRLF 偵測**，它的註解白紙黑字寫著「這一支正是為了守住**本 runner 自己能不能執行**」，且記載 2026-08-07 踩過完全相同的事（「daily 每日 rc=2、weekly 連 9 週 RED」）。而 **08-30 與 08-31 兩天的 `red_steps` 裡就有這一條**。<br>⇒ **檢核偵測到了那個會殺死它自己的問題，報了兩天，沒有人收；第三天 CRLF 蔓延到 runner 自己身上，檢核就死了。** |
+| **⭐ 第三層：死法被靜音** | 死法是 `rc=2`，而 scheduler 寫的是 `"RED" if rc != 0` ⇒ 記成 RED（`red_steps` 空）。接著「連續相同紅燈不重複推播」的去重把第二天判成**「跟昨天一樣」而抑制** ⇒ **連兩天沒跑，而沒有人收到通知**。去重的前提是「同一個紅燈」，可是這裡連紅燈是什麼都不知道。 |
+| **判準** | ①**「檢核沒跑」與「檢核發現問題」必須是兩種狀態** —— 前者要修檢核，後者要修系統；混成一種，愈是系統出大事時愈容易混（那正是檢核最容易被打斷的時候）。②`git status` **看不見這個差異**：git 比較時會正規化行尾，磁碟上是 CRLF、容器完全跑不動，而版控是乾淨的。③**host 的 Git Bash 容忍 CRLF** —— 手動跑永遠全綠，這就是它能藏兩天的原因。 |
+| **Fix** | 三態 `_fitness_runner_status(rc)`（0=PASS／1=RED／**其他=ERROR**），daily 與 weekly 各加 ERROR 分支：**一律出聲、不走去重、weekly 也不套「首次 RED 等下週」**（連一步都沒驗過，等一週只是讓盲區多開七天）。正負向 7/7。`scripts/` 底下 **13 支 CRLF 轉 LF**（含 `run_fitness_weekly.sh` 607 個、**`deploy-public.sh` 257 個** —— 那兩支跑在 host 所以還活著，屬於下一次的地雷）。歷史兩筆矛盾紀錄回填為 `ERROR`。**在容器內複驗：exit 2 → exit 1，16 步全跑完。** |
+| **⭐ 同族修法的紀律** | 下錨點時命中 **2 次** —— weekly 有同一份程式碼。是靠 `assert count == 1` 失敗才被迫看見，不是靠自覺。而 CRLF 那一邊，我第一次用 `grep -q $'CR'` 掃出 **0 支**（量測工具在待測對象上失效，同 L126），改用 Python 讀位元組才看到 **17 支**。**兩次都是斷言/複驗救的，不是判斷力。** |
+| **Refs** | `backend/app/core/scheduler.py` `_fitness_runner_status`／`.gitattributes`（`*.sh text eol=lf`，08-07 就加了，**規則存在不等於工作目錄生效**）／`scripts/checks/shell_script_eol_audit.py`（step 10）／同族 L83、L126、`signal_without_receiver` 記憶檔 |
+
+---
+
+## L133 — 檢核跑在容器裡，而它要的東西不在容器裡（2026-09-02）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | L132 修好 CRLF 後，daily 首次完整跑完 16 步，**當場暴露兩個此前被 CRLF 遮住的結構性缺陷**。 |
+| **① step 0 結構性假紅** | 「腳本強制表態閘門」判 **13 個檔案未表態** —— 而它們**全部都登記在 `.claude/rules/skills-inventory.md` 裡**。它自己印了線索：「讀到 **1/3** 份索引；此環境不含：`CLAUDE.md`、`.claude/rules/skills-inventory.md`」（容器沒掛 `.claude/`）。⇒ **它無法區分「沒有表態」與「我看不到表態」，而它選擇報 RED。** 這正是本 repo 的核心判準之一：**「我這條路徑找不到」不等於「資料不存在」**。讀不到索引時應判 YELLOW（未驗）。 |
+| **② daily 15 結構性無效** | 09-01 才接上的容器重啟迴圈偵測（A66 的守門）：五個容器全部「取不到（未驗）」，且 `⚠ 狀態寫入失敗：[Errno 30] Read-only file system: '/app/scripts/checks/.container_restart_state.json'` —— `scripts` 是 **rw=false** 掛載。⇒ **它從上線第一天起就存不了基準，也拿不到 docker socket，永遠 YELLOW。A66 的守門自己是啞的。** |
+| **⭐ 共同形狀** | 兩者都不是「寫錯了」，是**放錯地方**：檢核被放進容器，而它依賴的資源（`.claude/` 索引、docker socket、可寫的狀態目錄）只在 host 上。**在 host 手動跑，兩支都會正常** —— 又一次「手動跑得動 ≠ 排程跑得動」，與 L132 的 CRLF 是同一個家族的三胞胎。 |
+| **判準** | 新增一步到 daily／weekly 之前，先問：**「它在排程實際執行的那個環境裡，拿得到它需要的每一樣東西嗎？」** 拿不到時的正確行為是 **YELLOW（未驗）而非 RED 或 GREEN** —— 前者製造會被學會忽略的噪音，後者製造假綠。 |
+| **狀態** | 兩者皆**已診斷未修**（改動涉及 compose 掛載與判定分級，屬 owner 決定）＝ **A68**。 |
+| **Refs** | `scripts/checks/declaration_gate.py`／`scripts/checks/container_restart_loop_check.py`／記憶檔 `check_runs_in_which_environment`（同一條規則，此前已記過一次） |
+
+---
+
+## L134 — 我在修 CRLF 的過程中，用 Python 製造了新的 CRLF（2026-09-02）
+
+| 欄位 | 內容 |
+|---|---|
+| **Context** | L132 剛修完 13 支 CRLF 腳本、剛把「CRLF 讓檢核死掉」寫進本登記簿。接著 `git commit` 吐出一行警告：`in the working copy of 'backend/app/core/scheduler.py', CRLF will be replaced by LF`。 |
+| **Cause** | **Python 在 Windows 上 `open(p, "w")` 預設啟用 universal newlines 轉譯** —— 寫出去的 LF 會變成 CRLF。我今天所有的檔案修改都是用 `io.open(p, "w", encoding="utf-8")` 做的 ⇒ **六個檔案全部被我改成 CRLF**，包括 `scheduler.py`（5,309 行）、`CLAUDE.md`、本登記簿、以及**我剛寫的那份教人怎麼處理 CRLF 的 runbook**。 |
+| **⭐ 為什麼沒有立刻發現** | 三層遮蔽同時作用：①`git status` 看不見（比較時正規化行尾）②`py_compile` 通過（Python 容忍 CRLF）③我修的那批是 `.sh`，而我寫壞的這批是 `.py` 與 `.md` —— **不同副檔名，所以我的 CRLF 掃描腳本從頭到尾沒有掃過它們**。揭穿它的不是任何一支檢核，是 `git commit` 順手印的一行 warning。 |
+| **判準** | **在 Windows 上用 Python 寫檔，一律加 `newline=""`（或明確指定 LF）；讀取比對時同樣用 `newline=""` 保留原樣。** 只要漏一次，那個檔案就靜靜地換了行尾，而上面三層遮蔽會讓它一路過關。 |
+| **⭐ 一般形式（這才是重點）** | **修某一類缺陷的工具，本身可能正在製造同一類缺陷。** 我當天稍早才寫下「量測工具在待測對象上失效」（L126 同族），而這次是更尖的版本 —— **不是量不到，是我就是污染源**。⇒ 做完一輪修復，要用**同一把尺量自己動過的每一個檔案**，而不是只量原本那批目標。我的掃描範圍是 `*.sh`，我的破壞範圍是「我今天寫過的所有檔案」，兩者從來沒有交集。 |
+| **Fix** | 六個檔案以位元組層級把 CRLF 換回 LF（只換 CRLF、不動孤立的 CR），複驗 6/6 為 LF、`py_compile` 通過。 |
+| **⚠️ 同一個坑當天踩了第二次** | 把本條寫進登記簿時，內容裡的跳脫序列（\n 與 \r\n）在 heredoc 送進 Python 的路徑上被展開成**真的換行與真的 CR**，把這張表從中間切斷、並留下 2 個真 CRLF。⇒ **要在文件裡談論跳脫序列時，不要把它寫成跳脫序列** —— 用 `chr(92)` 組出來，或直接用文字描述。 |
+| **⚠️ 未做** | 尚未把「Python 寫檔須帶 newline 參數」做成守門。既有的 `shell_script_eol_audit.py`（step 10）**只掃 shell 腳本**，涵蓋不到 `.py` 與 `.md`。擴大掃描範圍是否會產生大量存量噪音，需先量過 ＝ **A69**。 |
+| **Refs** | `scripts/checks/shell_script_eol_audit.py`（現況只掃 shell）／`.gitattributes`（`*.py text eol=lf` 早就有，但**規則管的是 git，不管我用 Python 直接寫檔**）／同族 L126、L132 |
+
+---
+
 ## v6.0 detector 候選
 
 未來實作 `scripts/checks/lessons_drift_check.py`：
