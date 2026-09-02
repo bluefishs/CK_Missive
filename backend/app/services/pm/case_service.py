@@ -68,6 +68,28 @@ class PMCaseService:
                     f"同年度已有同名案件「{case_name}」({year})，"
                     f"請確認是否重複建案"
                 )
+            # 2026-09-02 owner：「主要是由標案系統一件建案，但又有同仁由 PM 案管理
+            # 重複建置（此應防呆）」——實例 /pm/cases/243 vs /contract-cases/190。
+            # 上面那段 04-09 就在了，但**只查 pm_cases**；190 是承攬案（標案系統直接
+            # 成案、沒有 PM 案），所以同仁 06-24 從 PM 案管理建 243 時查不到它。
+            # 補查 contract_projects：同年同名已成案 ⇒ 擋，並指出該沿用哪個成案編號。
+            # ⚠️ 案名不具識別度（「建物第一次測量」有 70 個）：只擋**同年同名同客戶**，
+            # 否則同一家建設公司第二次來做同名工作就建不了案。
+            from app.extended.models.core import ContractProject
+            client = dump.get("client_name")
+            ct_q = select(ContractProject.project_code, ContractProject.case_code).where(
+                ContractProject.project_name == case_name,
+                ContractProject.year == year,
+            )
+            if client:
+                ct_q = ct_q.where(ContractProject.client_agency == client)
+            ct = (await self.db.execute(ct_q.limit(1))).first()
+            if ct:
+                raise ValueError(
+                    f"同年度已有同名{'同客戶' if client else ''}的承攬案件「{case_name}」"
+                    f"（成案編號 {ct[0] or ct[1]}）。若是同一件工作，請直接在該承攬案下作業，"
+                    f"不要重複建 PM 案；若確實是不同的兩案，請把名稱改成能分辨的內容再建。"
+                )
 
         # 3. 自動產生案號 (未手動提供時)
         if not manual_code:

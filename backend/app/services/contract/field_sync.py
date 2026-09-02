@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 # 同步欄位清單
-SYNC_FIELDS = ["category", "case_nature", "client_name", "contract_amount"]
+SYNC_FIELDS = ["category", "case_nature", "client_name", "contract_amount", "status"]
 
 
 class CaseFieldSyncService:
@@ -43,7 +43,11 @@ class CaseFieldSyncService:
         if not pm or not pm.case_code:
             return synced
 
-        sync_data = {k: v for k, v in changed_fields.items() if k in SYNC_FIELDS and v is not None}
+        # 2026-09-02：status 只允許承攬案→PM 案單向同步。PM 案的 status 是邀標階段語意
+        # （planning/contracted/closed），承攬案的是執行階段語意（執行中/已結案），
+        # 反向映射沒有意義；而 SYNC_FIELDS 是雙向共用的，同日為了修「結案不同步」
+        # 加了 status 進去，這裡要明確擋掉，否則 PM 案改 status 會把英文值寫進承攬案。
+        sync_data = {k: v for k, v in changed_fields.items() if k in SYNC_FIELDS and k != "status" and v is not None}
         if not sync_data:
             return synced
 
@@ -121,6 +125,14 @@ class CaseFieldSyncService:
                     pm_update["client_name"] = sync_data["client_agency"]
                 if "contract_amount" in sync_data:
                     pm_update["contract_amount"] = sync_data["contract_amount"]
+                # 2026-09-02：承攬案結案時 PM 案不跟著結——實測 48 筆承攬案「已結案」而
+                # PM 案仍 contracted，於是 /pm/cases 篩「已結案」看不到那 12 件未收款的案子
+                #（owner：「已結案未收齊 12 件但 /pm/cases 僅顯示 1 筆」）。
+                # 承攬案是主檔，它的狀態要映射到 PM 案；存量 48 筆已同日回填。
+                if "status" in sync_data:
+                    mapped = {"已結案": "closed", "執行中": "contracted"}.get(sync_data["status"])
+                    if mapped:
+                        pm_update["status"] = mapped
                 if pm_update:
                     for k, v in pm_update.items():
                         setattr(pm, k, v)
