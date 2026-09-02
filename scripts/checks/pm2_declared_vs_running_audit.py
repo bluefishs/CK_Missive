@@ -124,9 +124,24 @@ def main() -> int:
 
     if not pm2_ok:
         # 探測不到就不下結論 —— 「pm2 用不了」與「宣告的都沒在跑」
-        # 在結論上長得一樣，但意思完全不同（2026-08-21 立的判準）
-        print("  [SKIP] pm2 不可用（未安裝或無法執行）—— 不下結論")
-        return 0
+        # 在結論上長得一樣，但意思完全不同（2026-08-21 立的判準）。
+        #
+        # 2026-09-02：判準是對的，**退出碼錯了**。原本 return 0 ⇒ 探測不到時
+        # 在 weekly 上顯示為 GREEN，而本檔 docstring 自己就寫著
+        # 「永遠 SKIP 的檢核比沒有這支更糟：它在清單上看起來像有覆蓋」——
+        # 它知道這個危險，然後它自己就是那樣。
+        #
+        # 當天實測揭穿它：`pm2 jlist` 的輸出被 "[PM2] Spawning PM2 daemon..."
+        # 污染且退出碼 1（另一個 session 在同一台機器上留下孤兒 daemon），
+        # 於是同一個原因讓 pm2_process_liveness_audit 報 RED、本支報 GREEN。
+        # **同一個事實，兩支檢核給出相反的燈號。**
+        #
+        # 改回 1（YELLOW）：三態約定 0=GREEN / 1=YELLOW / 2+=RED，
+        # 而「我看不到」就是 YELLOW —— 不是通過，也不是故障（L133）。
+        print("  [YELLOW] pm2 不可用（未安裝或無法執行）—— **未驗**，不是「都在跑」")
+        print("     常見成因：pm2 jlist 輸出被 daemon spawn 訊息污染而退出碼非 0；")
+        print("     若剛有別的工具呼叫過 pm2，可能留下孤兒 daemon（重開機會清掉）。")
+        return 1
 
     if not declared:
         print("  [SKIP] ecosystem.config.js 沒有宣告任何 app")
