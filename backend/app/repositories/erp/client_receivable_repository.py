@@ -58,8 +58,15 @@ class ClientReceivableRepository:
                 func.coalesce(func.sum(ERPBilling.payment_amount), 0).label("total_received"),
             )
             .outerjoin(ERPBilling, ERPBilling.erp_quotation_id == ERPQuotation.id)
+            .where(ERPQuotation.deleted_at.is_(None))
             .group_by(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.project_code, ERPQuotation.total_price)
-        ).subquery()
+        )
+        # 2026-09-04 金流複查：年度口徑統一為**報價單年**（FIELD_SEMANTICS）。此前 leg1 用 PM 案年、leg2 用承攬案年，
+        # 與損益頁（報價單年）對不上——同一個 2026，委託單位頁少 563 萬（桃園案報價 2026、承攬案 2023）。
+        # 年度篩選放在報價單聚合裡，兩腿不再各自用案件年。
+        if year:
+            billing_agg = billing_agg.where(ERPQuotation.year == year)
+        billing_agg = billing_agg.subquery()
 
         # 2026-08-27 owner：「`/erp/client-accounts` **相同架構問題**」
         # ⇒ 與應付端同一套約定：`year=None` 預設**當年度**，
@@ -95,8 +102,7 @@ class ClientReceivableRepository:
                 PartnerVendor.vendor_type == "client",
             )
         )
-        if year:
-            leg1 = leg1.where(PMCase.year == year)
+        # year 已在 billing_agg 內套用（報價單年）；沒有該年報價單的案子 total 為 0，由下方 items 過濾
         if keyword:
             leg1 = leg1.where(PartnerVendor.vendor_name.ilike(f"%{keyword}%"))
         leg1 = leg1.group_by(
@@ -126,8 +132,6 @@ class ClientReceivableRepository:
             )
             .group_by(ContractProject.client_agency)
         )
-        if year:
-            leg2 = leg2.where(ContractProject.year == year)
         if keyword:
             leg2 = leg2.where(ContractProject.client_agency.ilike(f"%{keyword}%"))
 

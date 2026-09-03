@@ -112,3 +112,4 @@
 | `scripts/checks/first_billing_presence_audit.py` | **成案即應收**（owner 09-03「非常重要的自動化機制」）——`ERPBillingService.ensure_first_period` 在成案／建報價單／補總額時自動建「一次請領」第一期（金額＝報價總額、pending、請款日＝當天），夜間吹哨者才有東西可催。本支守「有金額的成案報價單必須有請款」；金額 0 的 YELLOW（要人填）。首跑 90 張 3,109 萬 | weekly 103 |
 | `scripts/checks/erp_amount_semantics_audit.py` | **金額語意三方對帳**（全景覆盤 A1）——含稅／未稅此前沒有一處寫死，請款一建入 weekly 100 就 RED 87。宣告處＝`FIELD_SEMANTICS.md`，這支照它對帳：RED 只給不可能同時為真的（一次請領≠總價、發票>請款、已收>請款、稅>總價）| weekly 104 |
 | `scripts/checks/payable_billing_link_audit.py` | **應付必有 `billing_id`**——欄位存在、47 筆全空，「這筆應付對哪次請款」答不出來。09-02 回填 37 筆（可唯一對上者），10 筆多筆請款走基線待判。可唯一對上卻沒對 ⇒ RED（新建時沒走橋） | weekly 99 |
+| `scripts/checks/case_state_consistency_audit.py` | **已承攬 ⇔ 承攬案 ⇔ project_code 三方一致**——匯入服務對總表「已成立」的列只寫 `status=contracted` 而不建承攬案，16 筆 PM 案在承攬列表看不到、報價單沒 `project_code`、損益摘要當未成案、掛著的請款在成案口徑裡消失，**每張表單獨看都正常**。同名待判走基線（登記不是變綠） | weekly 105 |

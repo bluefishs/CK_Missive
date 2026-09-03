@@ -575,6 +575,8 @@ run_step "103" "成案即應收：第一期請款存在性" "scripts/checks/firs
 # 104（2026-09-03 全景覆盤 A1）：金額語意三方對帳——報價總價 × 請款額 × 發票額，依 FIELD_SEMANTICS.md。
 # 100／103 判「該不該有請款」，這支判「三個地方寫的是不是同一個數」。
 run_step "104" "ERP 金額語意三方對帳（FIELD_SEMANTICS）" "scripts/checks/erp_amount_semantics_audit.py"
+# 105（09-04 金流複查）：匯入把「已成立」寫成 contracted 卻不建承攬案 ⇒ 16 筆在每張表上各自「正常」而整條鏈斷掉
+run_step "105" "案件狀態一致性（已承攬⇔承攬案⇔project_code）" "scripts/checks/case_state_consistency_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

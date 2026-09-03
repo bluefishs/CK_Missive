@@ -11,11 +11,15 @@
     ② 發票額 > 所綁請款額 × 1.01（開票超過請款）
     ③ 已收 payment_amount > billing_amount
     ④ 報價單稅額 > 總價（稅比總價還大）
+    ⑨ 報價總價 ≠ PM 合約額，且差值符合匯入缺陷簽名（`總價＋2×稅＝合約額` 或 `稅×21＝合約額`）
+       —— 09-04 抓到 230 張（03-17 批「含稅−2×稅」124、08-20 批「未稅×0.85」91），
+       weekly 100 的「差 >50%」門檻看不見 19% 的系統性偏差
   YELLOW — 可疑但可能是業務事實
     ⑤ 發票稅額 ≠ 含稅額的 5%（±2 元）且 ≠ 0（二聯式 0 合理）
     ⑥ 報價單稅額為 0 而總價 > 0（未填稅額，毛利會少算）
     ⑦ 發票額 ≠ 請款額（差 > 2 元、未超過）——可能分批開票
     ⑧ 佔位發票（XLS-）仍在——總表「需確認」那批
+    ⑩ 報價總價 ≠ PM 合約額（差 >2 元、不符簽名）——可能是議價，但要有人看過
 連不到 DB → YELLOW（未驗）。
 """
 from __future__ import annotations
@@ -38,6 +42,11 @@ SELECT json_build_object(
   'y6', (SELECT count(*) FROM erp_quotations WHERE deleted_at IS NULL AND total_price>0 AND COALESCE(tax_amount,0)=0),
   'y7', (SELECT count(*) FROM erp_invoices i JOIN erp_billings b ON b.id=i.billing_id WHERE abs(i.amount-b.billing_amount)>2 AND i.amount <= b.billing_amount*1.01),
   'y8', (SELECT count(*) FROM erp_invoices WHERE invoice_number LIKE 'XLS-%'),
+  'r9', (SELECT json_agg(json_build_array(q.id, q.case_code, q.total_price::bigint, q.tax_amount::bigint, pm.contract_amount::bigint)) FROM erp_quotations q JOIN pm_cases pm ON pm.case_code=q.case_code
+          WHERE q.deleted_at IS NULL AND q.total_price>0 AND pm.contract_amount>0 AND abs(q.total_price-pm.contract_amount)>2
+            AND (abs(q.total_price+2*COALESCE(q.tax_amount,0)-pm.contract_amount)<=2 OR abs(COALESCE(q.tax_amount,0)*21-pm.contract_amount)<=2)),
+  'y10', (SELECT count(*) FROM erp_quotations q JOIN pm_cases pm ON pm.case_code=q.case_code
+          WHERE q.deleted_at IS NULL AND q.total_price>0 AND pm.contract_amount>0 AND abs(q.total_price-pm.contract_amount)>2),
   'n_q', (SELECT count(*) FROM erp_quotations WHERE deleted_at IS NULL AND total_price>0),
   'n_b', (SELECT count(*) FROM erp_billings), 'n_i', (SELECT count(*) FROM erp_invoices)
 )::text
@@ -62,14 +71,15 @@ def main() -> int:
         return 1
     print(f"  報價單（有總價）{d['n_q']}｜請款 {d['n_b']}｜發票 {d['n_i']}")
     reds = []
-    for key, label in [("r1", "① 一次請領請款額 ≠ 報價總價"), ("r2", "② 發票額 > 請款額"), ("r3", "③ 已收 > 請款額"), ("r4", "④ 稅額 > 總價")]:
+    for key, label in [("r1", "① 一次請領請款額 ≠ 報價總價"), ("r2", "② 發票額 > 請款額"), ("r3", "③ 已收 > 請款額"), ("r4", "④ 稅額 > 總價"),
+                       ("r9", "⑨ 報價總價 vs PM 合約額＝匯入缺陷簽名")]:
         rows = d.get(key) or []
         if rows:
             print(f"\n  🔴 {label}：{len(rows)} 件")
             for r in rows[:6]:
                 print(f"     {r}")
             reds.append((label, len(rows)))
-    yels = [(lb, d.get(k) or 0) for k, lb in [("y5", "⑤ 發票稅額非 5%"), ("y6", "⑥ 報價單稅額為 0"), ("y7", "⑦ 發票額 ≠ 請款額（未超過）"), ("y8", "⑧ 佔位發票仍在")] if d.get(k)]
+    yels = [(lb, d.get(k) or 0) for k, lb in [("y5", "⑤ 發票稅額非 5%"), ("y6", "⑥ 報價單稅額為 0"), ("y7", "⑦ 發票額 ≠ 請款額（未超過）"), ("y8", "⑧ 佔位發票仍在"), ("y10", "⑩ 報價總價 ≠ PM 合約額（不符簽名）")] if d.get(k)]
     for lb, n in yels:
         print(f"  ⚠ {lb}：{n}")
     print()

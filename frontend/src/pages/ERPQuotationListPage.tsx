@@ -225,7 +225,7 @@ export const ERPQuotationListPage: React.FC = () => {
           <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
             <Col xs={12} sm={6}>
               <ClickableStatCard
-                title="營收總額"
+                title="營收總額（未稅）"
                 value={Number(profitSummary.total_revenue).toLocaleString()}
                 icon={<DollarOutlined />}
                 color="#1890ff"

@@ -52,7 +52,9 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
         if invoice_type:
             query = query.where(ERPInvoice.invoice_type == invoice_type)
         if year:
-            query = query.where(ERPQuotation.year == year)
+            # 2026-09-04 金流複查：發票彙總是稅務用途，「年度」＝發票開立年度（invoice_date），不是報價單案件年度。
+            # 此前用 ERPQuotation.year ⇒ 2026 年只算到 54 張 204 萬，而 2026 年實際開了 118 張 1,005 萬（FIELD_SEMANTICS）。
+            query = query.where(func.extract('year', ERPInvoice.invoice_date) == year)
 
         # Count
         count_query = select(func.count()).select_from(query.subquery())
@@ -68,7 +70,7 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
         if invoice_type:
             sum_q = sum_q.where(ERPInvoice.invoice_type == invoice_type)
         if year:
-            sum_q = sum_q.where(ERPQuotation.year == year)
+            sum_q = sum_q.where(func.extract('year', ERPInvoice.invoice_date) == year)
         sums = {"sales": Decimal("0"), "purchase": Decimal("0")}
         for itype, amt in (await self.db.execute(sum_q.group_by(ERPInvoice.invoice_type))).all():
             if itype in sums:

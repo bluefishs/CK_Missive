@@ -150,14 +150,16 @@ async def get_erp_overview(
 
     db = service.db
 
-    async def count(model):
-        return await db.scalar(select(func.count()).select_from(model)) or 0
+    async def count(model, *where):
+        return await db.scalar(select(func.count()).select_from(model).where(*where)) or 0
 
-    async def sum_col(col):
-        return await db.scalar(select(func.coalesce(func.sum(col), 0))) or 0
+    async def sum_col(col, *where):
+        return await db.scalar(select(func.coalesce(func.sum(col), 0)).where(*where)) or 0
+    # 2026-09-04 金流複查：報價單有 soft-delete，此前不排除 ⇒ 319 張／1.19 億含 64 張已刪；Hub 數字比列表頁多而兩者都在畫面上
+    _live = ERPQuotation.deleted_at.is_(None)
 
     return SuccessResponse(data={
-        "quotations": await count(ERPQuotation),
+        "quotations": await count(ERPQuotation, _live),
         "expenses": await count(ExpenseInvoice),
         "ledger": await count(FinanceLedger),
         "invoices": await count(ERPInvoice),
@@ -166,7 +168,7 @@ async def get_erp_overview(
         "vendor_payables": await count(ERPVendorPayable),
         "operational": await count(OperationalAccount),
         # Amount summaries
-        "quotation_amount": str(await sum_col(ERPQuotation.total_price)),
+        "quotation_amount": str(await sum_col(ERPQuotation.total_price, _live)),
         "expense_amount": str(await sum_col(ExpenseInvoice.amount)),
         "vendor_payable_amount": str(await sum_col(ERPVendorPayable.payable_amount)),
         "asset_value": str(await sum_col(Asset.current_value)),

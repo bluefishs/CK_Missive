@@ -458,6 +458,9 @@ class QuotationLegacyImportService:
                              "case_name": nm, "matched_by": "同名＋同年＋同委託單位"})
 
         if dry_run:
+            # 預告會成案幾件（寫入時走正式 promote），讓 preview 看得到不可逆動作的規模
+            self.will_promote = sum(1 for v in missing.values() if v.get("established")) + \
+                sum(1 for r in pending_new if r.get("established"))
             return len(missing) + len(pending_new)
         # 寫入模式下 code_of 必須完整（新業務的號已先產好）—— pending_new
         # 非空代表呼叫端漏了產號，出聲而不是靜靜少建
@@ -495,6 +498,26 @@ class QuotationLegacyImportService:
                 location=r.get("location"),
                 notes=f"由報價單彙整匯入（舊案號 {r['legacy_no']}）",
             ))
+
+        # 2026-09-04 金流複查：此前「已成立」的列只寫 status=contracted、**不建承攬案** ——
+        # 09-03 那次匯入留下 16 筆 PM 案標已承攬而承攬案列表看不到、報價單沒有 project_code、
+        # 損益摘要把它們當未成案、掛在上面的請款在成案口徑裡消失。
+        # 成立＝已承攬＝要有承攬案（owner 09-02：XLS 為真值；成案即應收）。走正式 promote_to_project：
+        # 它會擋同名承攬案（重複建案）與缺金額，擋住的**列出來**（promote_failures），不吞、也不降回 planning
+        # （總表說成立，那就是成立；是不是重複要人判）。⚠️ promote 內部會 commit（L139），本函式只在寫入模式到這裡。
+        await self.db.flush()
+        self.promote_failures: list[dict[str, str]] = []
+        self.promoted_count = 0
+        for code, r in missing.items():
+            if not r.get("established"):
+                continue
+            try:
+                await self.code_service.promote_to_project(code)
+                self.promoted_count += 1
+            except ValueError as e:
+                self.promote_failures.append({"case_code": code, "case_name": r.get("case_name") or "",
+                                              "reason": str(e)[:200]})
+                logger.warning("匯入成案被擋 case_code=%s：%s", code, str(e)[:200])
         return len(missing)
 
 
@@ -885,6 +908,7 @@ class QuotationLegacyImportService:
         # 這裡把它攤在匯入前的預覽上。**只提醒不阻擋**：合併與否是人的判斷。
         preview["duplicate_candidates"] = getattr(self, "dup_candidates", [])[:200]
         preview["duplicate_candidate_count"] = len(getattr(self, "dup_candidates", []))
+        preview["will_promote"] = getattr(self, "will_promote", 0)  # 寫入時會走正式 promote（不可逆）的件數
         _staff = await self._assign_staff_from_sheets(rows, dry_run=True)
         preview["will_assign_staff"] = _staff["assigned"]
         preview["staff_unmatched_sheets"] = _staff["unmatched_sheets"]
@@ -953,7 +977,9 @@ class QuotationLegacyImportService:
                 "INSERT INTO audit_logs (table_name, record_id, action, changes, user_id, source, is_critical, created_at) "
                 "VALUES ('erp_quotations', 0, 'import', :c, :u, 'quotation_legacy_import', true, now())"
             ), {"c": _json.dumps({"file": source_name, "total_rows": len(rows), "created": created, "updated": updated,
-                                  "skipped": len(skipped), "pm_created": pm_created, "finance": finance}, ensure_ascii=False), "u": user_id})
+                                  "skipped": len(skipped), "pm_created": pm_created, "finance": finance,
+                                  "promoted": getattr(self, "promoted_count", 0),
+                                  "promote_failures": getattr(self, "promote_failures", [])}, ensure_ascii=False), "u": user_id})
             await self.db.commit()
         except Exception as e:
             logger.warning("匯入審計寫入失敗（不影響匯入）: %s", e)
@@ -964,5 +990,7 @@ class QuotationLegacyImportService:
         preview["duplicate_candidate_count"] = len(getattr(self, "dup_candidates", []))
         return {**preview, "dry_run": False, "created": created, "updated": updated,
                 "created_pm_cases": pm_created, "finance": finance,
+                "promoted": getattr(self, "promoted_count", 0),
+                "promote_failures": getattr(self, "promote_failures", []),
                 "assigned_staff": staff_res["assigned"],
                 "staff_unmatched_sheets": staff_res["unmatched_sheets"]}
