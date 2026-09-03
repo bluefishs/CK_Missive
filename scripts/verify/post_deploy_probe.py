@@ -50,8 +50,10 @@ async def main():
             ok("自動成案", r.status_code == 200 and "自動成案" in str(r.json().get("message")))
             cts = await q("SELECT id, project_code, status FROM contract_projects WHERE case_code=:c", c=case_code); ct_id = cts[0]["id"] if cts else None
             ok("承攬案建立、project_code=去 _PM_", cts and cts[0]["project_code"] == case_code.replace("_PM_", "_", 1) and cts[0]["status"] == "執行中")
-            bl = await q("SELECT count(*) AS n FROM erp_billings WHERE erp_quotation_id=:i", i=qid)
-            ok("成案時無總額 ⇒ 不造 0 元請款", bl[0]["n"] == 0)
+            bl = await q("SELECT billing_amount::bigint AS amt FROM erp_billings WHERE erp_quotation_id=:i", i=qid)
+            # 09-04 校正：PM 更新帶 contract_amount 時三表同步先把報價單總價寫成 123000，成案即應收隨即建第一期 ——
+            # 那是設計行為；要守的是「不得造 0 元請款、至多一期」，不是「沒有請款」
+            ok("成案時不造 0 元請款、至多一期", len(bl) <= 1 and all(b["amt"] > 0 for b in bl), f"billings={[b['amt'] for b in bl]}")
             r = await c.post("/api/erp/quotations/update", json={"id": qid, "data": {"total_price": 123000}})
             bl = await q("SELECT billing_period, billing_amount::bigint AS amt, payment_status FROM erp_billings WHERE erp_quotation_id=:i", i=qid)
             ok("補總額 ⇒ 自動第一期（一次請領、金額＝總額、pending）", r.status_code == 200 and len(bl) == 1 and bl[0]["amt"] == 123000 and bl[0]["payment_status"] == "pending" and bl[0]["billing_period"] == "一次請領")
@@ -69,6 +71,13 @@ async def main():
             ok("重複建案 409", r.status_code == 409, f"HTTP {r.status_code}")
             r = await c.post("/api/erp/quotations/list", json={"page": 1, "limit": 3, "search": TITLE[:8]})
             ok("列表可搜到並帶 client_name／收款欄位", r.status_code == 200 and all("total_billed" in i for i in (r.json().get("items") or [])))
+            # 09-04 金流複查：財務摘要用 project_code 對 case_code（同族十二）⇒ 專案一覽只剩舊制 34 筆、排名案名全 None
+            r = await c.post("/api/erp/financial-summary/projects", json={"year": 2026, "limit": 50}); d = r.json().get("data") or {}
+            items = d.get("items") or []
+            ok("專案財務一覽：items＝min(limit,total) 且每列有案名（case_code 橋）", r.status_code == 200 and len(items) == min(50, d.get("total") or 0) and all(i.get("case_name") for i in items), f"items={len(items)} total={d.get('total')}")
+            r = await c.post("/api/erp/financial-summary/budget-ranking", json={"top_n": 15}); items = (r.json().get("data") or {}).get("items") or []
+            named = sum(1 for i in items if i.get("case_name"))
+            ok("預算排名：八成以上的列對得到案名（case_code 橋）", r.status_code == 200 and items and named >= int(len(items) * 0.8), f"named={named}/{len(items)}")
     finally:
         for sql in ["DELETE FROM erp_invoices WHERE erp_quotation_id IN (SELECT id FROM erp_quotations WHERE case_code=:c)",
                     "DELETE FROM erp_billings WHERE erp_quotation_id IN (SELECT id FROM erp_quotations WHERE case_code=:c)",

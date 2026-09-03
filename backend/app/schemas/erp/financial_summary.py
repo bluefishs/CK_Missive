@@ -58,7 +58,7 @@ class ProjectSummaryRequest(BaseModel):
 
 class AllProjectsSummaryRequest(BaseModel):
     """所有專案財務一覽請求"""
-    year: Optional[int] = Field(None, description="民國年度")
+    year: Optional[int] = Field(None, description="西元年度（§2.5；後端不 +1911）")
     skip: int = 0
     limit: int = 50
 
@@ -67,7 +67,7 @@ class CompanyOverviewRequest(BaseModel):
     """全公司財務總覽請求"""
     date_from: Optional[datetime.date] = None
     date_to: Optional[datetime.date] = None
-    year: Optional[int] = Field(None, description="民國年度")
+    year: Optional[int] = Field(None, description="西元年度（§2.5；後端不 +1911）")
     top_n: int = Field(default=10, description="Top N 專案")
 
 
@@ -142,7 +142,7 @@ class ExportLedgerRequest(BaseModel):
 class AgingRequest(BaseModel):
     """應收/應付帳齡分析請求"""
     direction: str = Field(default="receivable", pattern="^(receivable|payable)$", description="receivable=應收, payable=應付")
-    year: Optional[int] = Field(None, description="民國年度")
+    year: Optional[int] = Field(None, description="西元年度（§2.5；後端不 +1911）")
 
 
 class AgingBucket(BaseModel):

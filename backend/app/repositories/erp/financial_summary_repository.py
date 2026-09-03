@@ -17,91 +17,32 @@ class FinancialSummaryRepository:
         self.db = db
 
     async def get_project_summary(self, case_code: str) -> Optional[ProjectFinancialSummary]:
-        """抓取單一專案的預算/收支狀態"""
-        # 1. 取得專案主檔資訊 (ContractProject)
-        stmt_proj = select(ContractProject).where(ContractProject.project_code == case_code)
-        proj = (await self.db.execute(stmt_proj)).scalars().first()
-        if not proj:
-            return None
-
-        # 2. ExpenseInvoice 統計
-        stmt_expense = select(
-            func.count(ExpenseInvoice.id),
-            func.sum(ExpenseInvoice.amount)
-        ).where(ExpenseInvoice.case_code == case_code)
-        expense_res = (await self.db.execute(stmt_expense)).first()
-        exp_count = expense_res[0] or 0
-        exp_total = expense_res[1] or Decimal("0")
-
-        # 3. FinanceLedger 統計
-        stmt_ledger = select(
-            FinanceLedger.entry_type,
-            func.sum(FinanceLedger.amount)
-        ).where(FinanceLedger.case_code == case_code).group_by(FinanceLedger.entry_type)
-        ledger_res = (await self.db.execute(stmt_ledger)).all()
-        
-        income = Decimal("0")
-        expense = Decimal("0")
-        for r in ledger_res:
-            if r.entry_type == "income":
-                income = r[1] or Decimal("0")
-            elif r.entry_type == "expense":
-                expense = r[1] or Decimal("0")
-
-        net_balance = income - expense
-        
-        # 4. 取得 ERPQuotation ID + project_code
-        stmt_quot = select(ERPQuotation.id, ERPQuotation.project_code).where(ERPQuotation.case_code == case_code)
-        quot_row = (await self.db.execute(stmt_quot)).first()
-        quot_id = quot_row.id if quot_row else None
-        quot_project_code = quot_row.project_code if quot_row else None
-
-        budget = Decimal(str(proj.contract_amount)) if proj.contract_amount else None
-        used_perc = float((expense / budget) * 100) if budget and budget > 0 else None
-        
-        alert = "normal"
-        if used_perc:
-            if used_perc > 95:
-                alert = "critical"
-            elif used_perc > 80:
-                alert = "warning"
-
-        return ProjectFinancialSummary(
-            case_code=case_code,
-            project_code=quot_project_code,
-            case_name=proj.project_name,
-            erp_quotation_id=quot_id,
-            budget_total=budget,
-            expense_invoice_count=exp_count,
-            expense_invoice_total=exp_total,
-            total_income=income,
-            total_expense=expense,
-            net_balance=net_balance,
-            budget_used_percentage=used_perc,
-            budget_alert=alert
-        )
+        """抓取單一專案的預算/收支狀態 —— 委派批量版（2026-09-04：兩份實作各自把
+        `ContractProject.project_code` 拿去對 case_code，PM 制成案後永遠對不到；只留一份）。"""
+        rows = await self.get_batch_project_summaries([case_code])
+        return rows[0] if rows else None
 
     async def get_batch_project_summaries(
         self, case_codes: List[str]
     ) -> List[Optional[ProjectFinancialSummary]]:
-        """批量取得多專案財務彙總 — 避免 N+1 查詢
+        """批量取得多專案財務彙總 — 6 批量查詢取代 N×6 逐筆。
 
-        用 3 批量查詢取代 N*3 逐筆查詢：
-        1. 一次查所有 ContractProject
-        2. 一次 GROUP BY 所有 ExpenseInvoice
-        3. 一次 GROUP BY 所有 FinanceLedger
+        ⚠️ 2026-09-04 金流複查：主檔此前用 `ContractProject.project_code.in_(case_codes)` 去對
+        帳本／報價單的 **case_code** —— PM 制成案後兩者不同（`CK2025_PM_02_108` vs `CK2025_02_108`）。
+        實測帳本 49 個案號用 case_code 對得到 48、用 project_code 只對得到 3 ⇒ 財務儀表板的
+        「專案財務一覽」只剩 34 筆舊制案、其餘全被當「找不到主檔」丟掉，而 total 照數（131 筆／畫面 17 列）。
+        案號橋樑同族第十二處。另 `quotation_total`／請款／實收／應付四欄 schema 有、這裡從未填 ⇒ 畫面永遠 0。
         """
         if not case_codes:
             return []
+        from app.extended.models.erp import ERPBilling, ERPVendorPayable
 
-        # 1. 批量取專案主檔
-        stmt_proj = select(ContractProject).where(
-            ContractProject.project_code.in_(case_codes)
-        )
+        # 1. 主檔：以 case_code（跨模組橋樑）對；舊制 project_code=case_code 也在這條路上
+        stmt_proj = select(ContractProject).where(ContractProject.case_code.in_(case_codes))
         proj_rows = (await self.db.execute(stmt_proj)).scalars().all()
-        proj_map = {p.project_code: p for p in proj_rows}
+        proj_map = {p.case_code: p for p in proj_rows}
 
-        # 2. 批量取 ExpenseInvoice 統計
+        # 2. ExpenseInvoice
         stmt_expense = (
             select(
                 ExpenseInvoice.case_code,
@@ -111,10 +52,9 @@ class FinancialSummaryRepository:
             .where(ExpenseInvoice.case_code.in_(case_codes))
             .group_by(ExpenseInvoice.case_code)
         )
-        expense_rows = (await self.db.execute(stmt_expense)).all()
-        expense_map = {r.case_code: r for r in expense_rows}
+        expense_map = {r.case_code: r for r in (await self.db.execute(stmt_expense)).all()}
 
-        # 3. 批量取 Ledger 統計
+        # 3. Ledger
         stmt_ledger = (
             select(
                 FinanceLedger.case_code,
@@ -124,62 +64,90 @@ class FinancialSummaryRepository:
             .where(FinanceLedger.case_code.in_(case_codes))
             .group_by(FinanceLedger.case_code, FinanceLedger.entry_type)
         )
-        ledger_rows = (await self.db.execute(stmt_ledger)).all()
         ledger_map: dict = {}
-        for r in ledger_rows:
+        for r in (await self.db.execute(stmt_ledger)).all():
             ledger_map.setdefault(r.case_code, {})[r.entry_type] = r.total or Decimal("0")
 
-        # 4. 批量取 ERPQuotation ID (case_code → quotation_id)
+        # 4. 報價單：未刪；同案多版取「已成案的那張」，否則取最新
         stmt_quot = (
-            select(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.project_code)
-            .where(ERPQuotation.case_code.in_(case_codes))
+            select(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.project_code, ERPQuotation.total_price)
+            .where(ERPQuotation.case_code.in_(case_codes), ERPQuotation.deleted_at.is_(None))
+            .order_by(ERPQuotation.case_code, ERPQuotation.id)
         )
-        quot_rows = (await self.db.execute(stmt_quot)).all()
-        quot_map = {r.case_code: r.id for r in quot_rows}
-        quot_project_code_map = {r.case_code: r.project_code for r in quot_rows}
+        quot_pick: dict = {}
+        for r in (await self.db.execute(stmt_quot)).all():
+            cur = quot_pick.get(r.case_code)
+            if (cur is None or (r.project_code and not cur.project_code)
+                    or (bool(r.project_code) == bool(cur.project_code) and r.id > cur.id)):
+                quot_pick[r.case_code] = r
 
-        # 5. 組裝結果（保留原始順序）
-        results = []
+        # 5. 請款／實收、應付／已付 —— 金流掛在報價單上，按 case_code 匯總（版次全算，分身已合併）
+        stmt_bill = (
+            select(
+                ERPQuotation.case_code,
+                func.coalesce(func.sum(ERPBilling.billing_amount), 0).label("billed"),
+                func.coalesce(func.sum(ERPBilling.payment_amount), 0).label("received"),
+            )
+            .join(ERPQuotation, ERPQuotation.id == ERPBilling.erp_quotation_id)
+            .where(ERPQuotation.case_code.in_(case_codes), ERPQuotation.deleted_at.is_(None))
+            .group_by(ERPQuotation.case_code)
+        )
+        bill_map = {r.case_code: r for r in (await self.db.execute(stmt_bill)).all()}
+        stmt_pay = (
+            select(
+                ERPQuotation.case_code,
+                func.coalesce(func.sum(ERPVendorPayable.payable_amount), 0).label("payable"),
+                func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0).label("paid"),
+            )
+            .join(ERPQuotation, ERPQuotation.id == ERPVendorPayable.erp_quotation_id)
+            .where(ERPQuotation.case_code.in_(case_codes), ERPQuotation.deleted_at.is_(None))
+            .group_by(ERPQuotation.case_code)
+        )
+        pay_map = {r.case_code: r for r in (await self.db.execute(stmt_pay)).all()}
+
+        # 6. 組裝（保留原始順序）
+        results: List[Optional[ProjectFinancialSummary]] = []
         for cc in case_codes:
             proj = proj_map.get(cc)
             if not proj:
                 results.append(None)
                 continue
-
             exp = expense_map.get(cc)
             exp_count = exp.cnt if exp else 0
-            exp_total = exp.total or Decimal("0") if exp else Decimal("0")
-
+            exp_total = (exp.total or Decimal("0")) if exp else Decimal("0")
             ledger_entry = ledger_map.get(cc, {})
             income = ledger_entry.get("income", Decimal("0"))
             expense_amt = ledger_entry.get("expense", Decimal("0"))
-            net_balance = income - expense_amt
-
             budget = Decimal(str(proj.contract_amount)) if proj.contract_amount else None
             used_perc = float((expense_amt / budget) * 100) if budget and budget > 0 else None
-
             alert = "normal"
             if used_perc:
                 if used_perc > 95:
                     alert = "critical"
                 elif used_perc > 80:
                     alert = "warning"
-
+            qp = quot_pick.get(cc)
+            bl = bill_map.get(cc)
+            pa = pay_map.get(cc)
             results.append(ProjectFinancialSummary(
                 case_code=cc,
-                project_code=quot_project_code_map.get(cc),
+                project_code=proj.project_code or (qp.project_code if qp else None),
                 case_name=proj.project_name,
-                erp_quotation_id=quot_map.get(cc),
+                erp_quotation_id=qp.id if qp else None,
                 budget_total=budget,
+                quotation_total=Decimal(str(qp.total_price)) if qp and qp.total_price is not None else None,
+                billed_amount=Decimal(str(bl.billed)) if bl else Decimal("0"),
+                received_amount=Decimal(str(bl.received)) if bl else Decimal("0"),
+                vendor_payable_total=Decimal(str(pa.payable)) if pa else Decimal("0"),
+                vendor_paid_total=Decimal(str(pa.paid)) if pa else Decimal("0"),
                 expense_invoice_count=exp_count,
                 expense_invoice_total=exp_total,
                 total_income=income,
                 total_expense=expense_amt,
-                net_balance=net_balance,
+                net_balance=income - expense_amt,
                 budget_used_percentage=used_perc,
                 budget_alert=alert,
             ))
-
         return results
 
     async def get_company_overview(
@@ -256,26 +224,29 @@ class FinancialSummaryRepository:
     async def get_case_codes_paginated(
         self, year: Optional[int] = None, skip: int = 0, limit: int = 20
     ) -> Tuple[List[str], int]:
-        """從 ERPQuotation 取分頁案號列表及總數"""
-        conditions = []
+        """分頁案號 —— 來源是**承攬案**（成案才有「專案財務一覽」的意義）。
+
+        2026-09-04 前從報價單取：含已刪、同案多版重複，且 total 是報價單張數不是案數 ⇒
+        畫面「131 筆」只列 17 列。年度＝案件年**或**報價單年任一命中（財務頁口徑是報價單年，
+        GN 標案沒有報價單就看案件年）。
+        """
+        from sqlalchemy import or_
+
+        stmt = select(ContractProject.case_code)
         if year:
-            conditions.append(ERPQuotation.year == year)
-
-        # 案號列表
-        stmt = select(ERPQuotation.case_code)
-        if conditions:
-            stmt = stmt.where(*conditions)
-        stmt = stmt.order_by(ERPQuotation.case_code).offset(skip).limit(limit)
-        result = await self.db.execute(stmt)
-        case_codes = [row[0] for row in result.all()]
-
-        # 總數
-        count_stmt = select(func.count()).select_from(ERPQuotation)
-        if conditions:
-            count_stmt = count_stmt.where(*conditions)
-        total = await self.db.scalar(count_stmt) or 0
-
-        return case_codes, total
+            same_year_quote = (
+                select(ERPQuotation.id)
+                .where(ERPQuotation.case_code == ContractProject.case_code,
+                       ERPQuotation.year == year,
+                       ERPQuotation.deleted_at.is_(None))
+                .exists()
+            )
+            stmt = stmt.where(or_(ContractProject.year == year, same_year_quote))
+        total = await self.db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+        rows = (await self.db.execute(
+            stmt.order_by(ContractProject.case_code.desc()).offset(skip).limit(limit)
+        )).all()
+        return [r[0] for r in rows], total
 
     async def get_top_expense_projects(
         self,

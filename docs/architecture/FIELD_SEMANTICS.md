@@ -40,6 +40,12 @@ weekly 104 ⑨ 用這兩個簽名判 RED；⑩ 其他不等只 YELLOW（可能�
 
 委託單位帳款＝**所有**（未刪）報價單的請款，含未成案；損益摘要＝**成案**口徑。兩者差＝未成案報價單掛著的請款（09-04：150,024，5 張，屬 A90 那批）。
 
+### 跨表對帳的鍵（09-04 同族第十二處後明寫）
+
+**`case_code` 是唯一的跨模組橋樑**（pm_cases／erp_quotations／contract_projects／finance_ledgers／expense_invoices／project_user_assignments 都有它）。
+`project_code` 只是成案編號：PM 制＝case_code 去 `_PM_`，**拿它去對別表的 case_code 永遠只對得到舊制那 34 筆**。
+09-04 前財務摘要三處這樣寫，專案一覽因此只剩 17 列。
+
 ## 年份
 
 | 欄位 | 語意 |

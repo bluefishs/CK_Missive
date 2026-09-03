@@ -497,3 +497,16 @@ owner：「配合總表，評估調整 /erp/quotations 頁面呈現核心資訊�
 `_ensure_pm_cases` 對總表「已成立」的列此前只寫 `status=contracted`、**不建承攬案**（16 筆半狀態的來源）。
 現在寫入模式走正式 `promote_to_project`：同名／缺金額被擋的**列在 `promote_failures`**（不吞、不降回 planning）；dry-run 回 `will_promote`。
 單元測試 3（不打 DB）、往返匯入 3/3、weekly 105 `case_state_consistency_audit.py` 守門（首跑 YELLOW：基線 10＋未成案有請款 7）。
+
+### 第二輪（部署後續查財務儀表板）：案號橋樑同族第十二處
+
+| 端點 | 錯法 | 實測 | 修法 |
+|---|---|---|---|
+| `/erp/financial-summary/projects` | 主檔用 `ContractProject.project_code.in_(case_codes)` 對帳本／報價單的 **case_code**；PM 制成案後兩者不同（`CK2025_PM_02_108` vs `CK2025_02_108`） | 2026：`total=131`（報價單張數、含已刪）而 items 只回 **17**（只剩舊制 34 筆對得到）；`quotation_total`／請款／實收／應付四欄 schema 有、**從未填** ⇒ 畫面永遠 0；`skip=50` 回 0 筆 | 分頁來源改承攬案（年度＝案件年或報價單年）、主檔以 `case_code` 對、補四欄；修後 2026 **total=123（＝真值）、50 列全有案名與請款** |
+| `/erp/financial-summary/budget-ranking` | 同一把錯鍵 ⇒ PM 案的 `case_name`／`budget_total` 全 None；且叫「預算使用率」而分母是**收入**；repo 先截 top_n 再補資料 | 15 列裡 14 列 None | 以 `case_code` 對；有合約額就用合約額當分母；補完分母再排序取 top_n。修後 15/15 有案名 |
+| `/erp/financial-summary/project`（單案） | 第二份實作、同一把錯鍵 | 查 `CK2025_PM_02_108` 回空 | 委派批量版（單一實作） |
+
+量法：帳本 49 個案號用 `case_code` 對承攬案對得到 **48**、用 `project_code` 只對得到 **3**。
+其餘四個端點（公司總覽／月趨勢／帳齡 AR・AP／廠商帳款）與 SQL 真值**完全一致**。
+守門：`post_deploy_probe.py` 加兩條（一覽 items＝min(limit,total) 且每列有案名／排名八成以上有案名）＝15/15；
+另校正探針第 6 條：PM 更新帶合約額時三表同步先寫總價、成案即應收隨即建第一期是**設計行為**，改守「不造 0 元請款、至多一期」。

@@ -99,35 +99,41 @@ class FinancialSummaryService:
         top_n: int = 15,
         order_desc: bool = True,
     ) -> dict:
-        """預算使用率排行"""
-        items, total = await self.repo.get_budget_ranking(
-            top_n=top_n, order_desc=order_desc
-        )
+        """預算使用率排行。
 
-        # 批量補充案名+預算 (避免 N+1 查詢)
+        2026-09-04：案名／合約額此前用 `ContractProject.project_code` 對帳本的 case_code ⇒ PM 制永遠 None
+        （同族十二）。且名字叫「預算使用率」而分母是收入 —— 有合約額就用合約額，沒有才退回收入
+        （repo 的算法），並在**補完分母之後**才排序取 top_n（此前 repo 先截斷再補資料，順序是錯的）。
+        """
         from app.extended.models.core import ContractProject
         from sqlalchemy import select
 
+        items, total = await self.repo.get_budget_ranking(top_n=10**6, order_desc=order_desc)
+
         case_codes = [item["case_code"] for item in items if item.get("case_code")]
+        project_map = {}
         if case_codes:
             stmt = select(
-                ContractProject.project_code,
+                ContractProject.case_code,
                 ContractProject.project_name,
                 ContractProject.contract_amount,
-            ).where(ContractProject.project_code.in_(case_codes))
-            result = await self.db.execute(stmt)
-            project_map = {
-                row.project_code: row for row in result.all()
-            }
-        else:
-            project_map = {}
+            ).where(ContractProject.case_code.in_(case_codes))
+            project_map = {row.case_code: row for row in (await self.db.execute(stmt)).all()}
 
         for item in items:
             proj = project_map.get(item.get("case_code"))
             item["case_name"] = proj.project_name if proj else None
             item["budget_total"] = proj.contract_amount if proj else None
+            if proj and proj.contract_amount and float(proj.contract_amount) > 0:
+                pct = float(item.get("total_expense") or 0) / float(proj.contract_amount) * 100
+                item["usage_pct"] = round(pct, 1)
+                item["alert"] = "critical" if pct >= 100 else ("warning" if pct >= 80 else "normal")
 
-        return {"items": items, "total_projects": total}
+        items.sort(
+            key=lambda x: x["usage_pct"] if x["usage_pct"] is not None else -1,
+            reverse=order_desc,
+        )
+        return {"items": items[:top_n], "total_projects": total}
 
     async def get_aging_analysis(
         self,

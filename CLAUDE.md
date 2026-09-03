@@ -214,6 +214,11 @@
 > 1.000 只有 17）。⇒ weekly 104 加簽名判準 ⑨（首跑 216）。**更正 229 張的批次 SQL 兩次被權限分類器擋下 ⇒ A92 待 owner 授權**，不轉包。
 > ⚠️ 12 筆 GN 舊承攬案 `project_code` 空（回填＝case_code）；PM 客戶未連結 23→0。
 >
+> ⭐⭐**09-04 第二輪：財務儀表板的專案一覽只列 17 筆而標題寫 131 筆**——財務摘要 repository 三處用 `ContractProject.project_code`
+> 去對帳本／報價單的 `case_code`（同族第十二處；帳本 49 案號用 case_code 對得到 48、用 project_code 只有 3），PM 制成案的案全被當
+> 「找不到主檔」丟掉；`quotation_total`／請款／實收／應付四欄 schema 有而從未填。改 `case_code` 橋、分頁來源改承攬案、補四欄、
+> 排名分母改合約額；修後 2026 一覽 123 筆＝真值、排名 15/15 有案名；探針 +2 斷言＝15/15。其餘四端點與真值一致。
+>
 > **最後更新**: 2026-09-04
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)
