@@ -1,6 +1,7 @@
 /**
  * ERP 報價/成本管理列表頁面
  */
+import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag, Checkbox } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
@@ -88,6 +89,30 @@ export const ERPQuotationListPage: React.FC = () => {
     // 是誰填的，寫任何名字上去都是編的。
     // 承辦同仁在填報者前面：找案子時問的是「這是誰的案子」，
     // 而不是「誰把它打進系統」。（owner 2026-08-21：服務人員＝承辦同仁）
+    // 2026-09-03 owner：「配合總表調整列表核心資訊」——總表的第一排業務欄是 客戶／報價日期／是否成立／發票／收款，
+    // 此前列表沒有客戶與收款狀態，對帳要開詳情頁一張張看。收款狀態由後端全量 total_billed／total_received 推。
+    {
+      title: '客戶', dataIndex: 'client_name', key: 'client_name', width: 150, ellipsis: true,
+      render: (v?: string) => v || <Text type="secondary">—</Text>,
+    },
+    {
+      title: '報價日期', hideOnMobile: true, dataIndex: 'quoted_at', key: 'quoted_at', width: 105, sorter: true,
+      render: (v?: string) => v ? dayjs(v).format('YYYY-MM-DD') : <Text type="secondary">—</Text>,
+    },
+    {
+      title: '收款', key: 'receivable', width: 110, align: 'center',
+      render: (_: unknown, r: ERPQuotation) => {
+        const billed = Number(r.total_billed || 0), got = Number(r.total_received || 0);
+        if (!r.billing_count) return r.project_code ? <Tag color="volcano">未開請款</Tag> : <Text type="secondary">—</Text>;
+        if (got >= billed && billed > 0) return <Tag color="green">已收</Tag>;
+        if (got > 0) return <Tag color="gold">部分 {Math.round(got / billed * 100)}%</Tag>;
+        return <Tag color="orange">待收</Tag>;
+      },
+    },
+    {
+      title: '發票', hideOnMobile: true, key: 'invoice', width: 70, align: 'center',
+      render: (_: unknown, r: ERPQuotation) => r.invoice_count ? <Tag>{r.invoice_count}</Tag> : <Text type="secondary">—</Text>,
+    },
     {
       title: '承辦同仁',
       dataIndex: 'staff_name',

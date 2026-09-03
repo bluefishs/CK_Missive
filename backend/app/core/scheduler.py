@@ -919,6 +919,9 @@ async def proactive_trigger_scan_job():
                     if alert.entity_id is not None
                     else f"{alert.alert_type}:{alert.entity_type}:{alert.title}"
                 )
+                # 2026-09-03：警報若知道承辦人（metadata.owner_user_id），通知就寫給他——
+                # 此前全部 user_id=NULL，只有管理員的全域清單看得到；「稽催」對承辦同仁是啞的。
+                _owner = (alert.metadata or {}).get("owner_user_id")
                 ok = await _safe_create_notification(
                     notification_type="proactive_alert",
                     severity=alert.severity,
@@ -927,7 +930,8 @@ async def proactive_trigger_scan_job():
                     source_table=alert.entity_type,
                     source_id=alert.entity_id,
                     changes=alert.metadata,
-                    dedupe_key=dedupe_key,
+                    user_id=int(_owner) if _owner else None,
+                    dedupe_key=f"{dedupe_key}:u{_owner}" if _owner else dedupe_key,
                 )
                 if ok:
                     persisted += 1

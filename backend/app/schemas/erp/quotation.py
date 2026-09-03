@@ -166,6 +166,8 @@ class ERPQuotationResponse(BaseModel):
     # 來源是 `project_user_assignments`（以 case_code 關聯）——
     # 與 `/pm/cases/:id?tab=staff` 看到的**同一份**，不另建一套。
     staff_name: Optional[str] = Field(None, description="承辦同仁（多人以、分隔）")
+    # 2026-09-03 owner：列表頁對齊總表核心欄——客戶是總表的第一個業務欄，此前列表看不到
+    client_name: Optional[str] = Field(None, description="客戶／委託單位（承攬案 client_agency，回退 PM 案 client_name）")
 
     total_price: Optional[Decimal] = None
     tax_amount: Decimal = Decimal("0")

@@ -16,7 +16,7 @@
 import React from 'react';
 import { Typography } from 'antd';
 import { useResponsive } from '../hooks';
-import { DashboardCalendarSection, MyFilingGapsCard } from '../components/dashboard';
+import { DashboardCalendarSection, MyFilingGapsCard, MyErpSummaryCard } from '../components/dashboard';
 
 const { Title } = Typography;
 
@@ -54,6 +54,8 @@ export const DashboardPage: React.FC = () => {
         {isMobile ? '儀表板' : '儀表板總覽'}
       </Title>
 
+      {/* 我的專案統整（承辦視角：案件／待收／逾期）—— 2026-09-03 owner：個人儀表板核心 */}
+      <MyErpSummaryCard />
       {/* 我的待填報（0 項時整張不顯示）—— 2026-08-16 */}
       <MyFilingGapsCard />
 

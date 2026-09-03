@@ -71,6 +71,24 @@ class ERPTriggerScanner:
         today = date.today()
         alerts: List[TriggerAlert] = []
 
+        # 2026-09-03 owner：「稽催機制應配合承辦同仁建構通知機制」——警報要知道是誰的案子。
+        # 主辦＝指派表 is_primary 優先；指派有兩條綁法（case_code／project_id→承攬案），兩條都看
+        # （本 repo 08-29 起修到第九處的同族缺陷，這裡是第十處，一開始就兩條都認）。
+        from sqlalchemy import or_ as _or
+        from app.extended.models.core import ContractProject
+        # 指派表是 Table 物件不是 ORM class（associations.project_user_assignment）——用 .c 取欄
+        from app.extended.models.associations import project_user_assignment as PUA
+        owner_sq = (
+            select(PUA.c.user_id)
+            .where(_or(
+                PUA.c.case_code == ERPQuotation.case_code,
+                PUA.c.project_id.in_(
+                    select(ContractProject.id).where(ContractProject.case_code == ERPQuotation.case_code)),
+            ))
+            .order_by(PUA.c.is_primary.desc().nullslast(), PUA.c.id)
+            .limit(1)
+            .scalar_subquery()
+        )
         # 逾期未收
         overdue_result = await self.db.execute(
             select(
@@ -81,6 +99,7 @@ class ERPTriggerScanner:
                 ERPBilling.billing_period,
                 ERPQuotation.case_code,
                 ERPQuotation.case_name,
+                owner_sq.label("owner_user_id"),
             )
             .join(ERPQuotation, ERPBilling.erp_quotation_id == ERPQuotation.id)
             .where(
@@ -111,6 +130,8 @@ class ERPTriggerScanner:
                     "amount": str(row.billing_amount),
                     "case_code": row.case_code,
                     "billing_date": str(row.billing_date),
+                    # 承辦人：通知寫入時當 user_id，承辦登入就在自己的通知裡看到；None＝無指派，留給管理員
+                    "owner_user_id": row.owner_user_id,
                 },
             ))
 

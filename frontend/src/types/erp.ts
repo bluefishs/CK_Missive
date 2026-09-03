@@ -27,6 +27,31 @@ export const ERP_QUOTATION_STATUS_COLORS: Record<ERPQuotationStatus, string> = {
 };
 
 /** ERP 報價/成本主檔 */
+/** 我的專案統整（個人儀表板）。後端契約：`schemas/erp/my_summary.py` MyErpSummary（2026-09-03） */
+export interface MyOverdueItem {
+  billing_id: number;
+  quotation_id: number;
+  case_code?: string | null;
+  case_name?: string | null;
+  billing_period?: string | null;
+  amount: number;
+  billing_date?: string | null;
+  days_overdue: number;
+}
+export interface MyErpSummary {
+  cases_active: number;
+  cases_closed: number;
+  quotes_unawarded: number;
+  pending_count: number;
+  pending_amount: number;
+  overdue_count: number;
+  overdue_amount: number;
+  overdue_30_count: number;
+  received_ytd: number;
+  no_billing: number;
+  overdue_items: MyOverdueItem[];
+}
+
 export interface ERPQuotation {
   id: number;
   case_code: string;

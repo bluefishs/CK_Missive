@@ -6,6 +6,7 @@ from . import client_accounts
 from . import expenses, expenses_io, ledger, financial_summary, einvoice_sync, filing_gaps, quotation_items
 from . import assets
 from . import operational
+from . import my_summary
 
 # ⚠️ 2026-08-29 owner 裁示「ERP 權限收斂」：由 `require_auth()`（只問有沒有登入）
 # 提升為 `require_permission("reports:erp:view")`。
@@ -72,6 +73,8 @@ router.include_router(ledger.router, prefix="/ledger", dependencies=[Depends(req
 router.include_router(financial_summary.router, prefix="/financial-summary", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["財務彙總"])
 # 2026-08-16 owner：「承攬報價案件對應填報人員通報管控」
 router.include_router(filing_gaps.router, prefix="/filing-gaps", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["填報缺口"])
+# 2026-09-03：我的專案統整——承辦看自己的待收／逾期是稽催機制的一部分，只要登入（require_auth 在端點內），不掛 reports 權限
+router.include_router(my_summary.router, prefix="/my-summary", tags=["個人儀表板"])
 # 2026-08-16 owner：「線上報價單機制」
 router.include_router(quotation_items.router, prefix="/quotation-items", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["報價明細"])
 router.include_router(einvoice_sync.router, prefix="/einvoice-sync", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["電子發票同步"])

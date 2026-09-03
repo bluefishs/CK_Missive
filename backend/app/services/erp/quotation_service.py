@@ -267,6 +267,8 @@ class ERPQuotationService(AuditableServiceMixin):
         # 填報者姓名同樣整批取 —— 逐筆查會讓列表變成 N+1
         creator_names = await self._get_creator_names_batch([q.created_by for q in items])
         staff_names = await self._get_staff_names_batch([q.case_code for q in items])
+        # 客戶名也整批取（2026-09-03 列表加「客戶」欄；逐筆查會 N+1）
+        client_names = await self._get_client_names_batch([q.case_code for q in items])
 
         responses = []
         for item in items:
@@ -276,6 +278,7 @@ class ERPQuotationService(AuditableServiceMixin):
                 item,
                 creator_name=creator_names.get(item.created_by),
                 staff_name=staff_names.get(item.case_code),
+                client_name=client_names.get(item.case_code),
                 billing_count=b.get("count", 0),
                 total_billed=b.get("total_billed", ZERO),
                 total_received=b.get("total_received", ZERO),
@@ -286,6 +289,18 @@ class ERPQuotationService(AuditableServiceMixin):
             ))
         return responses, total
 
+
+    async def _get_client_names_batch(self, case_codes: List[str]) -> dict:
+        """case_code → 客戶名（承攬案 client_agency 優先、回退 PM 案 client_name），一次查完。"""
+        codes = [c for c in set(case_codes) if c]
+        if not codes:
+            return {}
+        from sqlalchemy import text as _t
+        rows = await self.db.execute(_t(
+            "SELECT x.cc, COALESCE(c.client_agency, p.client_name) AS name FROM unnest(CAST(:codes AS text[])) AS x(cc) "
+            "LEFT JOIN contract_projects c ON c.case_code=x.cc LEFT JOIN pm_cases p ON p.case_code=x.cc"
+        ), {"codes": codes})
+        return {r[0]: r[1] for r in rows.fetchall() if r[1]}
 
     async def _get_staff_names_batch(self, case_codes: List[str]) -> dict:
         """整批取每個 case_code 的承辦同仁姓名。
@@ -374,6 +389,7 @@ class ERPQuotationService(AuditableServiceMixin):
         invoice_count: int,
         company_profit_rate=ZERO,
         staff_name: Optional[str] = None,
+        client_name: Optional[str] = None,
         creator_name: Optional[str] = None,
     ) -> ERPQuotationResponse:
         """轉換為回應格式 (使用預先批次聚合的數據，避免 N+1)
@@ -413,6 +429,7 @@ class ERPQuotationService(AuditableServiceMixin):
             # 實際成本只在詳情頁計算；列表顯示的是報價單上的估列。
             created_by_name=creator_name,
             staff_name=staff_name,
+            client_name=client_name,
             invoice_count=invoice_count,
             billing_count=billing_count,
             total_billed=total_billed,
@@ -665,6 +682,12 @@ class ERPQuotationService(AuditableServiceMixin):
         )
 
         invoices = await self.invoice_repo.get_by_quotation_id(quotation.id)
+        # 客戶名：承攬案優先、回退 PM 案（與 quotation_document 同規則）
+        from sqlalchemy import text as _t
+        client_name = await self.db.scalar(_t(
+            "SELECT COALESCE(c.client_agency, p.client_name) FROM (SELECT :cc AS cc) x "
+            "LEFT JOIN contract_projects c ON c.case_code=x.cc LEFT JOIN pm_cases p ON p.case_code=x.cc LIMIT 1"
+        ), {"cc": quotation.case_code})
         total_billed = await self.billing_repo.get_total_billed(quotation.id)
         total_received = await self.billing_repo.get_total_received(quotation.id)
         total_payable = await self.payable_repo.get_total_payable(quotation.id)
@@ -706,6 +729,7 @@ class ERPQuotationService(AuditableServiceMixin):
                 [quotation.case_code])).get(quotation.case_code),
             invoice_count=len(invoices),
             billing_count=len(billings),
+            client_name=client_name,
             total_billed=total_billed,
             total_received=total_received,
             total_payable=total_payable,

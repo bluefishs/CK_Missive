@@ -189,6 +189,8 @@ export const ERP_ENDPOINTS = {
   /** 填報缺口 —— 2026-08-16 owner「承攬報價案件對應填報人員通報管控」 */
   FILING_GAPS_LIST: '/erp/filing-gaps/list',
   FILING_GAPS_MINE: '/erp/filing-gaps/mine',
+  /** 我的專案統整（承辦視角）POST /erp/my-summary —— 個人儀表板核心卡（2026-09-03） */
+  MY_SUMMARY: '/erp/my-summary',
   /** 線上報價單明細 —— 2026-08-16 owner「線上報價單機制」 */
   QUOTATION_ITEMS_DETAIL: '/erp/quotation-items/detail',
   QUOTATION_ITEMS_REPLACE: '/erp/quotation-items/replace',
