@@ -184,6 +184,21 @@ class ERPQuotationService(AuditableServiceMixin):
     async def update(self, quotation_id: int, data: ERPQuotationUpdate) -> Optional[ERPQuotationResponse]:
         """更新報價"""
         changes = data.model_dump(exclude_unset=True)
+        # 2026-09-03 全景覆盤 A3：已有請款的報價單不得直接改總價——請款額、發票額都對著它，
+        # 改了就是三個地方三個數（weekly 104 ①）。要改走版次：revision+1 一起送才放行。
+        if "total_price" in changes:
+            from decimal import Decimal
+            from sqlalchemy import select as _sel, func as _fn
+            from app.extended.models.erp import ERPBilling
+            cur = await self.repo.get_by_id(quotation_id)
+            if cur is not None and cur.total_price is not None and changes["total_price"] is not None \
+                    and Decimal(str(changes["total_price"])) != Decimal(str(cur.total_price)):
+                n_bill = await self.db.scalar(_sel(_fn.count(ERPBilling.id)).where(ERPBilling.erp_quotation_id == quotation_id))
+                if n_bill and int(changes.get("revision") or cur.revision or 1) <= int(cur.revision or 1):
+                    raise ValueError(
+                        f"此報價單已有 {n_bill} 筆請款，總價不可直接修改（請款額與發票額都對著它）。"
+                        f"要調整請以新版次送出（revision {int(cur.revision or 1) + 1}），並同步調整請款。"
+                    )
         quotation = await self.repo.update(quotation_id, changes)
         if not quotation:
             return None

@@ -151,6 +151,8 @@ class ERPInvoice(Base):
                     comment="狀態: issued/voided/cancelled")
     voided_at = Column(DateTime, nullable=True, comment="作廢時間")
     notes = Column(Text, comment="備註")
+    #: 來源（2026-09-03）：manual／xls_import／auto_from_billing——此前靠 notes 前綴分辨
+    source = Column(String(24), nullable=True, comment="manual/xls_import/auto_from_billing")
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

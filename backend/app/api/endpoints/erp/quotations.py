@@ -139,7 +139,11 @@ async def update_quotation(
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
 ):
     """更新報價"""
-    result = await service.update(req.id, req.data)
+    try:
+        result = await service.update(req.id, req.data)
+    except ValueError as e:
+        # 2026-09-03：服務層的業務拒絕（例如有請款後改總價）要變 400 說清楚，不是 500
+        raise HTTPException(status_code=400, detail=str(e))
     if not result:
         raise HTTPException(status_code=404, detail="報價不存在")
     return SuccessResponse(data=result, message="報價更新成功")
@@ -335,7 +339,7 @@ async def import_legacy_quotations(
     content = await file.read()
     svc = QuotationLegacyImportService(service.db)
     try:
-        r = await svc.run(content, dry_run=dry_run, user_id=current_user.id)
+        r = await svc.run(content, dry_run=dry_run, user_id=current_user.id, source_name=file.filename)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     # 2026-09-03：檔案沒有「報價單編號」欄（上傳到錯的檔）時 importer 回 {success: False, error}，

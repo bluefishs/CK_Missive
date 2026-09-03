@@ -387,6 +387,8 @@ class ERPQuotationLegacyImportResult(BaseModel):
         False, description="明細是否被截斷 —— 只給前 N 筆卻不說，等於「匯入了卻不知道丟了什麼」")
     conflicts: list[ERPQuotationLegacyImportConflict] = []
     conflicts_count: int = 0
+    # 2026-09-03：匯入順手做的金流（第一期／已收／發票）——run() 回了、schema 沒宣告就被靜默丟棄（weekly 61 那型）
+    finance: Optional[dict] = None
     sample_create: list[dict] = []
     created: Optional[int] = None
     updated: Optional[int] = None

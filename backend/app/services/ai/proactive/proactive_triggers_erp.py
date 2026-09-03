@@ -40,6 +40,7 @@ class ERPTriggerScanner:
 
         # ERP 請款/發票 (本地)
         alerts.extend(await self.check_erp_overdue_billings())
+        alerts.extend(await self.check_erp_billing_gaps())
         alerts.extend(await self.check_invoice_reminder())
         alerts.extend(await self.check_vendor_payment_milestones())
         alerts.extend(await self.check_amount_mismatch())
@@ -114,11 +115,12 @@ class ERPTriggerScanner:
             days_over = (today - row.billing_date).days
             amount_str = f"{float(row.billing_amount):,.0f}" if row.billing_amount else "未知"
             severity = "critical" if days_over > 30 else "warning"
-
+            # 2026-09-03 S2：分級寫進標題（30／60／90），承辦在通知鈴一眼看出輕重
+            tier = "🔴 90天+" if days_over > 90 else ("🟠 60天+" if days_over > 60 else ("🟡 30天+" if days_over > 30 else "逾期"))
             alerts.append(TriggerAlert(
                 alert_type="billing_overdue",
                 severity=severity,
-                title=f"請款逾期 {days_over} 天 ({amount_str} 元)",
+                title=f"{tier} 請款逾期 {days_over} 天 ({amount_str} 元)",
                 message=(
                     f"案件「{row.case_name}」({row.case_code}) "
                     f"請款 {amount_str} 元已逾期 {days_over} 天"
@@ -178,6 +180,35 @@ class ERPTriggerScanner:
             ))
 
         return alerts
+
+    async def check_erp_billing_gaps(self) -> List[TriggerAlert]:
+        """成案卻沒有請款起點（2026-09-03 S2）：①成案、有金額、無請款（自動第一期沒接到）②成案但金額 0。
+        此前只在 weekly 103 出現，承辦看不到；這裡發給承辦（owner_user_id），warning。"""
+        from sqlalchemy import text as _t
+        rows = (await self.db.execute(_t("""
+            SELECT q.id, q.case_code, q.case_name, q.total_price,
+                   (SELECT a.user_id FROM project_user_assignments a
+                     WHERE a.case_code=q.case_code OR a.project_id=c.id
+                     ORDER BY a.is_primary DESC NULLS LAST, a.id LIMIT 1) AS owner_user_id,
+                   EXISTS (SELECT 1 FROM erp_billings b WHERE b.erp_quotation_id=q.id) AS has_billing
+            FROM erp_quotations q JOIN contract_projects c ON c.case_code=q.case_code
+            WHERE q.deleted_at IS NULL AND c.status='執行中'
+              AND (COALESCE(q.total_price,0)=0 OR NOT EXISTS (SELECT 1 FROM erp_billings b WHERE b.erp_quotation_id=q.id))
+            ORDER BY q.id LIMIT 40
+        """))).mappings().all()
+        out: List[TriggerAlert] = []
+        for r in rows:
+            zero = not r["total_price"] or float(r["total_price"]) <= 0
+            out.append(TriggerAlert(
+                alert_type="billing_gap",
+                severity="warning",
+                title=("成案但報價單金額為 0" if zero else "成案有金額卻沒有請款"),
+                message=(f"案件「{r['case_name']}」({r['case_code']}) " + ("金額為 0，自動第一期建不了，請補總額" if zero else "沒有任何請款，稽催鏈對它是啞的")),
+                entity_type="erp_quotation",
+                entity_id=r["id"],
+                metadata={"case_code": r["case_code"], "owner_user_id": r["owner_user_id"], "zero_amount": zero},
+            ))
+        return out
 
     async def check_invoice_reminder(self) -> List[TriggerAlert]:
         """發票開立提醒 — 已請款但尚未開票"""

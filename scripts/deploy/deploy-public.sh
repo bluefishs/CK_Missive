@@ -247,13 +247,28 @@ fi
 # ⚠️ 第 4 層的正確答案是 **401 不是 200**（未帶憑證本來就該被拒絕）——
 # 把 401 當失敗會讓它永遠紅，把 500 當通過則等於沒有這一層。判準在該腳本內。
 echo ""
-echo "[7/7] 部署後四層驗證（含 ORM／認證鏈，L76 + L93）..."
+echo "[7/8] 部署後四層驗證（含 ORM／認證鏈，L76 + L93）..."
 if python "$(dirname "$0")/../checks/deploy_verify.py"; then
     echo "  ✓ 四層皆通過"
 else
     echo "  ✗ 部署後驗證失敗 —— 公網 200 不代表系統能用（見上方逐層結果）"
     exit 1
 fi
+
+# ── Step 8: 業務鏈實測（第五層，2026-09-03 G4）──────────────────────
+# 四層驗的是「服務起來了」；這一層在容器內打端點走整條鏈（建案→報價→成案→第一期→同步→409），
+# 全部 __PROBE__ 標記、跑完硬刪。今天三次「部署後才發現」都是這一層抓到的形狀。
+echo ""
+echo "[8/8] 業務鏈實測（容器內端點，scripts/verify/post_deploy_probe.py）..."
+_PROBE_OUT=$(MSYS_NO_PATHCONV=1 docker exec -i -w /app ck_missive_backend python - < "$(dirname "$0")/../verify/post_deploy_probe.py" 2>/dev/null | grep -v '^{"event"')
+printf '%s
+' "$_PROBE_OUT" | grep "✅\|❌\|殘留" | sed 's/^/  /'
+_PROBE=$(printf '%s
+' "$_PROBE_OUT" | grep "^RESULT" | tail -1)
+case "$_PROBE" in
+    RESULT*) _P=${_PROBE#RESULT }; if [ "${_P%%/*}" = "${_P##*/}" ]; then echo "  ✓ 業務鏈 $_P"; else echo "  ✗ 業務鏈 $_P —— 服務起來了但流程斷了"; exit 1; fi ;;
+    *) echo "  ✗ 業務鏈實測沒有回傳 RESULT（腳本崩潰）"; exit 1 ;;
+esac
 
 echo ""
 echo "══════════════════════════════════════"

@@ -84,6 +84,7 @@ class ERPInvoiceResponse(BaseModel):
     billing_id: Optional[int] = None
     voided_at: Optional[datetime] = None
     notes: Optional[str] = None
+    source: Optional[str] = None  # manual/xls_import/auto_from_billing（2026-09-03）
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

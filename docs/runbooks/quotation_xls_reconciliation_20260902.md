@@ -438,3 +438,25 @@ owner：「配合總表，評估調整 /erp/quotations 頁面呈現核心資訊�
 4. 匯入會順手：成立且有金額 ⇒ 第一期請款；收款日期 ⇒ 已收；發票號碼 ⇒ 補佔位或新建。只補空、不覆蓋人填的。
 
 ⚠️ 「總價」在列表與匯出都是**含稅**；總表的「報價金額」是未稅，匯出兩者都給。
+
+## 12. /goal「依規劃逐一辦理、ERP 正確性為首要」——第五輪（09-03）
+
+| 項 | 辦理 | 驗證 |
+|---|---|---|
+| **A1 欄位語意宣告** | `docs/architecture/FIELD_SEMANTICS.md`：金額（含稅）／年份（西元）／狀態值域／案號三制／來源。**weekly 104** `erp_amount_semantics_audit`：RED 只給不可能同時為真（一次請領≠總價、發票>請款、已收>請款、稅>總價） | 首跑 RED 0；YELLOW：報價單稅額 0 有 25、發票額≠請款額 2、佔位發票 15 |
+| **A3 有請款後鎖金額** | `quotation_service.update`：已有請款且 total_price 變動且未帶 revision+1 ⇒ ValueError；端點 ValueError → 400 | probe 新斷言「改總額 400」✓、同值更新不擋 ✓ |
+| **A5 匯入審計** | `run()` 尾端寫 `audit_logs`（action=import：檔名／列數／新增／更新／略過／金流） | 往返實跑後 audit 最新一筆含 `rt_all.xlsx` |
+| **C `erp_invoices.source`** | migration 20260903a001，回填 xls_import 121／auto_from_billing 47／manual 2；schema、匯入寫入端同步 | alembic head 20260903a001 |
+| **S2 通知分級與缺口** | 逾期標題分級 🟡30＋／🟠60＋／🔴90＋；新 `check_erp_billing_gaps`（成案無請款／成案金額 0）帶承辦進通知 | 逾期 20 筆全帶級別；缺口 4 筆（金額 0）全帶承辦 |
+| **G3 驗證總則** | `MANDATORY_CHECKLIST` 清單 G 加五條（打端點／印原始形狀／負向對照／rollback≠dry-run／收斂的驗收要打會走的路） | — |
+| **G4 部署第五層** | `scripts/verify/post_deploy_probe.py`（repo 版、13 斷言）＋ deploy-public.sh Step 8：不通就停 | 容器內 13/13 |
+
+### 往返匯入抓到的三個副作用（都是「匯出→匯入」做了才看得見）
+
+| 副作用 | 真因 | 修法 |
+|---|---|---|
+| 補建 **21 個 PM 案殼** | `_ensure_pm_cases` 對既有報價單（舊制／GN 案號）也補建 | 只對 `_PM_` 制案號補；殼已刪 |
+| **103 筆指派 `case_code` 是舊案號** | `_assign_staff_from_sheets` 用 `_derive_case_code(legacy)` 推不出就把 legacy 當案號（09-02 附件掛錯鍵同族） | 先查 DB（legacy／QT → 真案號）、非 CK 不建；103 筆已刪 |
+| 指派**重複 2 筆** | 查重只認 `case_code` 綁法、漏 `project_id` 綁法（同族第十一處） | UNION 兩條綁法；重複已刪 |
+
+修完全年度往返：**PM 0／指派 0／報價單 0／請款 0／發票 0 變動**。

@@ -368,6 +368,10 @@ class QuotationLegacyImportService:
                 code = _derive_case_code(ln)
             if not code:
                 continue
+            # 2026-09-03：只對 PM 制案號補建。既有報價單若掛在舊制／GN 制案號上（01 標案、直接建的承攬案），
+            # 它本來就沒有邀標階段，補一個 PM 案是憑空造（08-18 判過）——匯出→匯入往返實測造了 21 個殼。
+            if "_PM_" not in code:
+                continue
             # 同一案號多版報價 → 只建一件，取**最早報價**那筆當案件基本資料
             cur = wanted.get(code)
             if cur is None or (r.get("quoted_date") and cur.get("quoted_date")
@@ -520,11 +524,24 @@ class QuotationLegacyImportService:
 
         sheets_by_case: dict[str, set[str]] = defaultdict(set)
         codes_by_case: dict[str, set[str]] = defaultdict(set)
+        # 2026-09-03：案號先問資料庫（legacy／QT 號 → 報價單現在的 case_code），推導只當後備；
+        # 推不出 CK 制的一律不建 —— 此前 `_derive_case_code` 推不出來就把舊案號當 case_code 寫進指派表，
+        # 往返匯入一次造了 103 筆 `B115-C001a-0` 這種鍵（09-02 附件掛錯鍵同族）。
+        _lns = [r.get("legacy_no") for r in raw_rows if r.get("legacy_no")]
+        _map: dict[str, str] = {}
+        if _lns:
+            for _ln, _cc in (await self.db.execute(text(
+                "SELECT COALESCE(legacy_quotation_no, quotation_no), case_code FROM erp_quotations "
+                "WHERE deleted_at IS NULL AND (legacy_quotation_no = ANY(:l) OR quotation_no = ANY(:l))"
+            ), {"l": _lns})).all():
+                _map[_ln] = _cc
         for r in raw_rows:
             ln = r.get("legacy_no") or ""
             if not any(ch.isdigit() for ch in ln):
                 continue
-            _cc = _derive_case_code(ln)
+            _cc = _map.get(ln) or _derive_case_code(ln)
+            if not _cc or not str(_cc).startswith("CK"):
+                continue
             sheets_by_case[_cc].add(r.get("sheet") or "")
             codes_by_case[_cc].add(ln)
 
@@ -574,8 +591,11 @@ class QuotationLegacyImportService:
 
         existing = {
             (row[0], row[1]) for row in (await self.db.execute(text(
-                "SELECT case_code, user_id FROM project_user_assignments"
-                " WHERE case_code = ANY(:cs)"
+                # 2026-09-03：指派有兩條綁法（case_code／project_id→承攬案），查重要兩條都認——
+                # 只認 case_code 讓成案後改掛 project_id 的那筆被判「不存在」而重建（同族第十一處）
+                "SELECT a.case_code, a.user_id FROM project_user_assignments a WHERE a.case_code = ANY(:cs)"
+                " UNION SELECT c.case_code, a.user_id FROM project_user_assignments a"
+                " JOIN contract_projects c ON c.id = a.project_id WHERE c.case_code = ANY(:cs)"
             ), {"cs": list({c for c, _ in wanted})})).all()
         }
         todo = [(c, u) for c, u in dict.fromkeys(wanted) if (c, u) not in existing]
@@ -644,8 +664,8 @@ class QuotationLegacyImportService:
                     has = await self.db.scalar(_t("SELECT 1 FROM erp_invoices WHERE erp_quotation_id=:q LIMIT 1"), {"q": int(q)})
                     if not has and r.get("invoice_date"):
                         await self.db.execute(_t(
-                            "INSERT INTO erp_invoices (erp_quotation_id, invoice_number, invoice_date, amount, tax_amount, invoice_type, status, billing_id, notes, created_at, updated_at) "
-                            "VALUES (:q, :n, :d, :amt, :tax, 'sales', 'issued', (SELECT id FROM erp_billings WHERE erp_quotation_id=:q ORDER BY billing_date LIMIT 1), '由報價單彙整匯入（發票明細）', now(), now())"
+                            "INSERT INTO erp_invoices (erp_quotation_id, invoice_number, invoice_date, amount, tax_amount, invoice_type, status, billing_id, notes, source, created_at, updated_at) "
+                            "VALUES (:q, :n, :d, :amt, :tax, 'sales', 'issued', (SELECT id FROM erp_billings WHERE erp_quotation_id=:q ORDER BY billing_date LIMIT 1), '由報價單彙整匯入（發票明細）', 'xls_import', now(), now())"
                         ), {"q": int(q), "n": inv_no, "d": r["invoice_date"], "amt": r.get("invoice_amount") or r.get("total_price"), "tax": r.get("invoice_tax") or 0})
                         out["invoice_created"] += 1
         await self.db.commit()
@@ -710,7 +730,7 @@ class QuotationLegacyImportService:
         return out
 
     async def run(self, content: bytes, *, dry_run: bool = True,
-                  user_id: Optional[int] = None) -> dict[str, Any]:
+                  user_id: Optional[int] = None, source_name: Optional[str] = None) -> dict[str, Any]:
         rows = parse_workbook(content)
         if not rows:
             return {"success": False, "error": "檔案裡找不到『報價單編號』欄，請確認是報價單彙整表"}
@@ -926,6 +946,17 @@ class QuotationLegacyImportService:
         # 2026-09-03 owner「表單匯入修正機制」：收款／發票此前只寫進 notes（那時沒有結構化位置）。
         # 現在接到請款／發票，並讓成立且有金額的報價單有第一期（成案即應收）。
         finance = await self._sync_finance(to_create + to_update)
+        # 2026-09-03 全景覆盤 A5：匯入是最大的寫入來源，此前只有 log。寫一筆審計：誰、何時、哪個檔、改幾筆。
+        try:
+            import json as _json
+            await self.db.execute(text(
+                "INSERT INTO audit_logs (table_name, record_id, action, changes, user_id, source, is_critical, created_at) "
+                "VALUES ('erp_quotations', 0, 'import', :c, :u, 'quotation_legacy_import', true, now())"
+            ), {"c": _json.dumps({"file": source_name, "total_rows": len(rows), "created": created, "updated": updated,
+                                  "skipped": len(skipped), "pm_created": pm_created, "finance": finance}, ensure_ascii=False), "u": user_id})
+            await self.db.commit()
+        except Exception as e:
+            logger.warning("匯入審計寫入失敗（不影響匯入）: %s", e)
         logger.info("報價單彙整匯入：新增 %d／更新 %d／略過 %d／補建 PM 案件 %d",
                     created, updated, len(skipped), pm_created)
         # 實際匯入時重算一次 —— preview 那次是 dry_run，兩次的 missing 可能不同
