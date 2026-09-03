@@ -182,6 +182,11 @@
 > **它缺的是起點**：沒有請款的案子永遠不會被催，而那是 90 張。⚠️ 匯入腳本第二版用 savepoint 包每筆，`promote_to_project` 內部 commit 讓 savepoint 失效
 > （`ResourceClosedError`）——L139 家族第三種形狀；改成每筆各自 commit、防呆即 rollback 該筆。
 >
+> ⭐⭐**09-03 第三輪：稽催到人、儀表板到人、報價單頁對齊總表**：逾期警報帶承辦（指派兩條綁法、同族第十處）→ 通知寫給承辦；
+> 晨報本來就 per-user，加「你的案件」段（同 `my_summary_service`）；`/erp/my-summary`＋`MyErpSummaryCard`；列表加客戶／收款狀態；
+> 匯出 38 欄對齊總表；匯入接請款／發票／第一期且**完整案名優先**（否則匯入會把昨天改好的案名蓋回泛名）。
+> ⚠️ 吹哨者 LINE 推播是關的（配額），承辦只有 3/12 綁 LINE——通道與內容都到位了，**收得到與否是綁定問題（A88）**。
+>
 > **最後更新**: 2026-09-03
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)

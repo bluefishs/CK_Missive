@@ -123,6 +123,13 @@ owner 提供 `D:\報價單M報價單彙整總表.xlsx`（220 列，新增「完�
 | **A85** | 「請款 > 合約額」87 → 三表對齊 XLS 含稅總價後剩 **4 件**（`PM_02_127`／`_155`／`_108`／`_144`：03-17 匯入的舊請款額 ≠ XLS 總價），請判哪邊對 |
 | **A86** | 頂層 `D:\CKProject\CLAUDE.md` 子專案表把本 repo 記成「v5.5.8 運行中」，實際 v6.70——跨 repo 檔案，依協同界線一本 repo 不動，請從 `D:\CKProject\` 啟的 session 更新 | 跨 repo |
 | **A87** | `erp_invoices` 加 `source` 欄（manual／xls_import／auto_from_billing）——現在靠 notes 前綴分辨來源 | 不急，對帳時要 LIKE |
+| **A88** | 承辦 LINE 綁定只 3／12、晨報訂閱者才收得到個人段——請同仁綁 LINE 並訂閱晨報 | 流程 |
+| **A89** | 吹哨者即時 LINE 推播（`PROACTIVE_LINE_PUSH_ENABLED`）要不要開——配額 200／月 | owner 決定 |
+
+### ✅ 09-03 第三輪（runbook §10）
+
+逾期通知帶承辦人（20/20）／晨報加「你的案件」段／個人儀表板 `MyErpSummaryCard`＋`/erp/my-summary`／報價單列表加 客戶／報價日期／收款狀態／發票／匯出改總表 38 欄／匯入接請款發票第一期、完整案名優先。
+
 
 ### ✅ 09-03 總表 v2 四項（runbook §9）
 
