@@ -86,6 +86,13 @@ HEADER_MAP = {
     "發票日期": "invoice_date",
     "發票日": "invoice_date",      # 114 年度五張工作表用的是這個名字
     "印花": "stamp_duty",
+    # 總表 v2（2026-09-03）：完整案名優先；發票明細比對後追加的四欄＋比對方式（「需確認」的不進系統）
+    "完整案名(地點＋案名)": "full_case_name",
+    "發票號碼": "invoice_no",
+    "銷售額": "invoice_sales",
+    "稅額(發票)": "invoice_tax",
+    "發票金額": "invoice_amount",
+    "比對方式": "match_method",
 }
 
 #: 這些欄位系統目前**沒有對應的結構化位置**，先原樣保進 notes。
@@ -263,7 +270,8 @@ def parse_workbook(content: bytes) -> list[dict[str, Any]]:
                     "established": g("established") in _ESTABLISHED,
                     "quoted_date": quoted,
                     "client_name": str(g("client_name") or "").strip() or None,
-                    "case_name": str(g("case_name") or "").strip() or None,
+                    # 完整案名（地點＋案名）優先——「建物第一次測量」那種泛名對 70 個案，不具識別度
+                    "case_name": (str(g("full_case_name") or "").strip() or str(g("case_name") or "").strip() or None),
                     "location": str(g("location") or "").strip() or None,
                     "total_price": _to_decimal(g("total_price")),
                     "tax_amount": _to_decimal(g("tax_amount")),
@@ -275,6 +283,11 @@ def parse_workbook(content: bytes) -> list[dict[str, Any]]:
                     rec[key] = _to_decimal(g(key))
                 for key in ("received_date", "invoice_date"):
                     rec[key] = _roc_to_date(g(key))
+                # v2 發票欄
+                rec["invoice_no"] = (str(g("invoice_no") or "").strip() or None)
+                rec["match_method"] = (str(g("match_method") or "").strip() or None)
+                for key in ("invoice_sales", "invoice_tax", "invoice_amount"):
+                    rec[key] = _to_decimal(g(key))
                 for key in ("partner_vendor", "contact_person", "contact_phone",
                             "contact_mobile", "contact_fax", "client_tax_id",
                             "contact_email", "client_address", "remark", "tax_included"):
@@ -586,6 +599,58 @@ class QuotationLegacyImportService:
             })
         return {"assigned": len(todo), "unmatched_sheets": unmatched}
 
+    async def _sync_finance(self, rows: list[dict[str, Any]]) -> dict[str, int]:
+        """匯入列 → 請款／發票（2026-09-03）。
+
+        規則與 09-02／09-03 兩次總表匯入相同：
+        - 成立且有總額 ⇒ `ensure_first_period`（一次請領、pending；已有請款就不動）
+        - 有收款日期 ⇒ 第一筆請款標 paid（payment_date／payment_amount＝實收或總價）
+        - 有發票號碼且比對方式非「需確認」⇒ 有佔位（XLS-）就補真號，沒有發票就建一張綁第一筆請款
+        全部只補空、不覆蓋人填的值。
+        """
+        from sqlalchemy import text as _t
+        from app.services.erp.billing_service import ERPBillingService
+        out = {"first_period": 0, "paid": 0, "invoice_created": 0, "invoice_updated": 0, "skipped_unconfirmed": 0}
+        bsvc = ERPBillingService(self.db)
+        inv_pat = re.compile(r"^[A-Z]{2}[0-9]{8}$")
+        for r in rows:
+            q = await self.db.scalar(_t("SELECT id FROM erp_quotations WHERE legacy_quotation_no=:l AND deleted_at IS NULL LIMIT 1"), {"l": r["legacy_no"]})
+            if not q:
+                continue
+            if r.get("established") and (r.get("total_price") or 0) > 0:
+                if await bsvc.ensure_first_period(int(q), reason="總表匯入"):
+                    out["first_period"] += 1
+            if r.get("received_date"):
+                res = await self.db.execute(_t(
+                    "UPDATE erp_billings SET payment_status='paid', payment_date=:d, payment_amount=COALESCE(payment_amount, :a), updated_at=now() "
+                    "WHERE id=(SELECT id FROM erp_billings WHERE erp_quotation_id=:q ORDER BY billing_date LIMIT 1) AND payment_status<>'paid'"
+                ), {"d": r["received_date"], "a": r.get("received_amount") or r.get("total_price"), "q": int(q)})
+                out["paid"] += res.rowcount or 0
+            inv_no = r.get("invoice_no")
+            if inv_no and "需確認" in (r.get("match_method") or ""):
+                out["skipped_unconfirmed"] += 1
+                inv_no = None
+            if inv_no and inv_pat.match(inv_no):
+                dup = await self.db.scalar(_t("SELECT 1 FROM erp_invoices WHERE invoice_number=:n AND erp_quotation_id<>:q LIMIT 1"), {"n": inv_no, "q": int(q)})
+                if dup:
+                    continue
+                res = await self.db.execute(_t(
+                    "UPDATE erp_invoices SET invoice_number=:n, invoice_date=COALESCE(CAST(:d AS date), invoice_date), amount=COALESCE(CAST(:amt AS numeric), amount), tax_amount=COALESCE(CAST(:tax AS numeric), tax_amount), updated_at=now() "
+                    "WHERE erp_quotation_id=:q AND invoice_number LIKE 'XLS-%'"
+                ), {"n": inv_no, "d": r.get("invoice_date"), "amt": r.get("invoice_amount"), "tax": r.get("invoice_tax"), "q": int(q)})
+                if res.rowcount:
+                    out["invoice_updated"] += res.rowcount
+                else:
+                    has = await self.db.scalar(_t("SELECT 1 FROM erp_invoices WHERE erp_quotation_id=:q LIMIT 1"), {"q": int(q)})
+                    if not has and r.get("invoice_date"):
+                        await self.db.execute(_t(
+                            "INSERT INTO erp_invoices (erp_quotation_id, invoice_number, invoice_date, amount, tax_amount, invoice_type, status, billing_id, notes, created_at, updated_at) "
+                            "VALUES (:q, :n, :d, :amt, :tax, 'sales', 'issued', (SELECT id FROM erp_billings WHERE erp_quotation_id=:q ORDER BY billing_date LIMIT 1), '由報價單彙整匯入（發票明細）', now(), now())"
+                        ), {"q": int(q), "n": inv_no, "d": r["invoice_date"], "amt": r.get("invoice_amount") or r.get("total_price"), "tax": r.get("invoice_tax") or 0})
+                        out["invoice_created"] += 1
+        await self.db.commit()
+        return out
+
     @staticmethod
     def _legacy_base(ln: Optional[str]) -> Optional[str]:
         """取估價單編號的 base（去掉版次後綴）。
@@ -850,12 +915,15 @@ class QuotationLegacyImportService:
         staff_res = await self._assign_staff_from_sheets(rows)
 
         await self.db.commit()
+        # 2026-09-03 owner「表單匯入修正機制」：收款／發票此前只寫進 notes（那時沒有結構化位置）。
+        # 現在接到請款／發票，並讓成立且有金額的報價單有第一期（成案即應收）。
+        finance = await self._sync_finance(to_create + to_update)
         logger.info("報價單彙整匯入：新增 %d／更新 %d／略過 %d／補建 PM 案件 %d",
                     created, updated, len(skipped), pm_created)
         # 實際匯入時重算一次 —— preview 那次是 dry_run，兩次的 missing 可能不同
         preview["duplicate_candidates"] = getattr(self, "dup_candidates", [])[:200]
         preview["duplicate_candidate_count"] = len(getattr(self, "dup_candidates", []))
         return {**preview, "dry_run": False, "created": created, "updated": updated,
-                "created_pm_cases": pm_created,
+                "created_pm_cases": pm_created, "finance": finance,
                 "assigned_staff": staff_res["assigned"],
                 "staff_unmatched_sheets": staff_res["unmatched_sheets"]}
