@@ -80,7 +80,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """應用程式生命週期事件處理器"""
-    log_info(f"Application starting... v{app.version}")
+    log_info(f"Application starting... {app.version}")
 
     # Sprint A A-3 (2026-05-18): 公網部署 + DEVELOPMENT_MODE=True 立即中止
     _public_signals = (
