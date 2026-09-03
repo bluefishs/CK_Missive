@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-09-01T20:40:50.449Z",
+ "checked_at": "2026-09-02T20:40:45.990Z",
  "base": "https://missive.cksurvey.tw",
  "role": "admin",
  "pass": 87,
@@ -1117,15 +1117,15 @@
     "widest": [
      {
       "sel": "strong",
+      "right": 923
+     },
+     {
+      "sel": "strong",
+      "right": 815
+     },
+     {
+      "sel": "strong",
       "right": 658
-     },
-     {
-      "sel": "strong",
-      "right": 595
-     },
-     {
-      "sel": "strong",
-      "right": 585
      }
     ]
    },
@@ -1229,16 +1229,16 @@
     "tableOverflow": 0,
     "widest": [
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 417
+      "sel": "strong",
+      "right": 871
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 417
+      "sel": "strong",
+      "right": 622
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 417
+      "sel": "strong",
+      "right": 580
      }
     ]
    },
@@ -1328,16 +1328,16 @@
     "tableOverflow": 0,
     "widest": [
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 417
+      "sel": "strong",
+      "right": 871
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 417
+      "sel": "strong",
+      "right": 622
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 417
+      "sel": "strong",
+      "right": 580
      }
     ]
    },
@@ -1357,8 +1357,8 @@
       "right": 834
      },
      {
-      "sel": "span",
-      "right": 806
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 776
      }
     ]
    },
@@ -1462,8 +1462,8 @@
       "right": 834
      },
      {
-      "sel": "span",
-      "right": 806
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 776
      }
     ]
    },
@@ -1483,8 +1483,8 @@
       "right": 834
      },
      {
-      "sel": "span",
-      "right": 806
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 776
      }
     ]
    },
@@ -1497,15 +1497,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 857
+      "right": 972
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 857
+      "right": 972
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 753
+      "right": 912
      }
     ]
    },
@@ -1518,15 +1518,15 @@
     "widest": [
      {
       "sel": "a",
+      "right": 681
+     },
+     {
+      "sel": "a",
       "right": 616
      },
      {
       "sel": "a",
-      "right": 456
-     },
-     {
-      "sel": "a",
-      "right": 395
+      "right": 417
      }
     ]
    },
@@ -1757,15 +1757,15 @@
     "widest": [
      {
       "sel": "strong",
+      "right": 1164
+     },
+     {
+      "sel": "strong",
+      "right": 1056
+     },
+     {
+      "sel": "strong",
       "right": 899
-     },
-     {
-      "sel": "strong",
-      "right": 836
-     },
-     {
-      "sel": "strong",
-      "right": 826
      }
     ]
    },
@@ -1831,7 +1831,20 @@
     "pageOverflow": 0,
     "layoutViewport": 768,
     "tableOverflow": 0,
-    "widest": []
+    "widest": [
+     {
+      "sel": "strong",
+      "right": 1140
+     },
+     {
+      "sel": "strong",
+      "right": 891
+     },
+     {
+      "sel": "strong",
+      "right": 849
+     }
+    ]
    },
    {
     "route": "/taoyuan/dispatch",
@@ -1913,7 +1926,20 @@
     "pageOverflow": 0,
     "layoutViewport": 768,
     "tableOverflow": 0,
-    "widest": []
+    "widest": [
+     {
+      "sel": "strong",
+      "right": 1140
+     },
+     {
+      "sel": "strong",
+      "right": 891
+     },
+     {
+      "sel": "strong",
+      "right": 849
+     }
+    ]
    },
    {
     "route": "/dashboard",
@@ -1931,8 +1957,8 @@
       "right": 1109
      },
      {
-      "sel": "span",
-      "right": 1088
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1051
      }
     ]
    },
@@ -2013,8 +2039,8 @@
       "right": 1109
      },
      {
-      "sel": "span",
-      "right": 1088
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1051
      }
     ]
    },
@@ -2034,8 +2060,8 @@
       "right": 1109
      },
      {
-      "sel": "span",
-      "right": 1088
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1051
      }
     ]
    },
@@ -2048,15 +2074,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 1106
+      "right": 1221
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 1106
+      "right": 1221
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 1002
+      "right": 1161
      }
     ]
    },
@@ -2067,6 +2093,10 @@
     "layoutViewport": 768,
     "tableOverflow": 0,
     "widest": [
+     {
+      "sel": "a",
+      "right": 935
+     },
      {
       "sel": "a",
       "right": 870

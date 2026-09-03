@@ -1,12 +1,12 @@
 {
- "checked_at": "2026-09-02T06:15:02",
+ "checked_at": "2026-09-03T06:15:02",
  "public_url": "https://missive.cksurvey.tw",
- "passed": 5,
+ "passed": 7,
  "total": 7,
- "overall": "FAIL",
+ "overall": "PASS",
  "report": [
-  "  ✗ 1. 本機 health             ERR(ConnectError)  (expected [200])",
-  "  ✗ 2. CF Tunnel health      502  (expected [200])",
+  "  ✓ 1. 本機 health             200  (expected [200])",
+  "  ✓ 2. CF Tunnel health      200  (expected [200])",
   "  ✓ 3. TLS 憑證                200  (expected [200])",
   "  ✓ 4. Manifest 無 token      401  (expected [401, 403])",
   "  ✓ 5. Manifest 拒 GET        405  (expected [404, 405])",

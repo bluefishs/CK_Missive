@@ -614,10 +614,32 @@ async def lifespan(app: FastAPI):
     logger.info("資料庫連線池已關閉。")
 
 
+def _app_version() -> str:
+    """FastAPI app.version：部署映像 = CLAUDE.md 版本；本機 = pyproject 版本。"""
+    try:
+        from app.core.build_info import build_info, UNKNOWN
+        v = build_info().get("version", UNKNOWN)
+        if v and v != UNKNOWN:
+            return v
+    except Exception:
+        pass
+    try:
+        import tomllib
+        from pathlib import Path
+        data = tomllib.loads((Path(__file__).resolve().parent / "pyproject.toml").read_text(encoding="utf-8"))
+        return str(data.get("project", {}).get("version") or data.get("tool", {}).get("poetry", {}).get("version") or "unknown")
+    except Exception:
+        return "unknown"
+
+
 app = FastAPI(
     title="乾坤測繪公文管理系統 API",
     description="公文記錄管理、檢索查詢、案件歸聯系統後端API",
-    version="3.0.1",  # Trigger reload for audit fix
+    # 2026-09-03 owner「確保版本一致」：此前這裡 hardcode "3.0.1"（註解還是「Trigger reload」），
+    # pyproject 是 3.1.0、health 回 CLAUDE.md 的 v6.69 —— 三個來源三個數字。
+    # 改讀 build_info（部署時由 CLAUDE.md 檔頭注入）；本機開發拿不到就回 pyproject 的版本，
+    # 不再另存一份。SSOT = CLAUDE.md 檔頭 `**版本**: vX`。
+    version=_app_version(),
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     lifespan=lifespan,

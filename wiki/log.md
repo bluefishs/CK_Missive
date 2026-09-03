@@ -8821,3 +8821,5 @@
   ✓ 6. ACP 無 token           401  (expected [401, 403])
   ✓ 7. Feedback 無 token      401  (expected [401, 403])
 ```
+
+## [2026-09-03] lint | pages=377 orphans=0 broken=0

@@ -4,6 +4,29 @@
 
 ---
 
+## [v6.70] - 2026-09-02 晚 → 09-03（總表為真值：版次分身合併、納管、金流建入；三表同步白名單收斂）
+
+> ⚠️ 本檔自 v6.10.3（05-21）起未逐版登記；v6.11–v6.69 的一行摘要在 `docs/MILESTONES_ARCHIVE.md`
+> 與 `CLAUDE.md` 檔頭，**不在這裡**。本條起恢復：只記 `.claude/` 目錄的配置變更。
+
+### `.claude/` 變更
+
+| 檔 | 變更 |
+|---|---|
+| `rules/skills-inventory.md` | 登記 weekly 101 `case_field_sync_whitelist_audit`（三表共有欄位同步白名單）、weekly 102 `case_code_format_consistency_audit`（案號新制統一）；97–100 補登 `scripts/checks/README.md`（原本只在此檔，容器內讀不到＝A68-①） |
+| `CLAUDE.md` | 版本 v6.69 → **v6.70**；09-02 三段（XLS 對照／L138 四份白名單／L139 dry-run 寫入）；v6.69 摘要移 `MILESTONES_ARCHIVE.md` |
+
+### 版本一致（owner 09-03「確保版本一致」）
+
+| 來源 | 之前 | 現在 |
+|---|---|---|
+| `CLAUDE.md` 檔頭 `**版本**` | v6.69 | **v6.70**（SSOT；`build-args.sh` 讀它注入映像） |
+| `/api/health/detailed` build.version | v6.69 | 部署後 v6.70 |
+| FastAPI `app.version`（openapi／log） | hardcode `3.0.1` | 改讀 `build_info`，本機回 `pyproject` 3.1.0 |
+| `backend/pyproject.toml` | 3.1.0 | 不動（Python 套件版本，另一體系） |
+| `frontend/package.json` | 0.0.0 | **不動**：前端沒有任何地方讀它，改了是 Dead Config |
+| 頂層 `D:\CKProject\CLAUDE.md` 對本 repo | v5.5.8 | **不動**（跨 repo，協同界線一），已回報 owner |
+
 ## [v6.10.3] - 2026-05-21（L43 Volume Mount Drift 災難級事故 4h 完整恢復 + 5 層防禦）
 
 ### 🎯 主題
