@@ -876,29 +876,6 @@ def _summarize_alerts(actionable: list, scanned: int) -> str:
     return "\n".join(lines)
 
 
-async def _my_erp_tail(user_id) -> str:
-    """晨報個人段：這位訂閱者（以承辦身分）的待收／逾期。沒有案件或拿不到就回空字串，不影響晨報。"""
-    if not user_id:
-        return ""
-    try:
-        from app.db.database import async_session_maker
-        from app.services.erp.my_summary_service import get_my_summary
-        async with async_session_maker() as db:
-            d = await get_my_summary(db, int(user_id))
-        if not d or not (d.get("pending_count") or d.get("quotes_unawarded")):
-            return ""
-        lines = ["", "📌 你的案件", f"待收 {d['pending_count']} 筆 NT$ {d['pending_amount']:,}"]
-        if d.get("overdue_count"):
-            lines.append(f"逾期 {d['overdue_count']} 筆 NT$ {d['overdue_amount']:,}（>30 天 {d.get('overdue_30_count', 0)} 筆）")
-            for it in (d.get("overdue_items") or [])[:3]:
-                lines.append(f"・{(it.get('case_name') or it.get('case_code') or '')[:18]} {it.get('days_overdue')} 天 NT$ {it.get('amount', 0):,}")
-        if d.get("no_billing"):
-            lines.append(f"成案未開請款 {d['no_billing']} 件")
-        return chr(10).join(lines)
-    except Exception as e:  # 個人段失敗不能讓晨報發不出去
-        logger.warning("晨報個人段失敗 user=%s: %s", user_id, e)
-        return ""
-
 
 @tracked_job("proactive_trigger_scan")
 async def proactive_trigger_scan_job():
@@ -1328,12 +1305,6 @@ async def morning_report_job():
             personalized = await admin_svc.generate_summary_from_data(
                 data, sections=sub["sections"]
             )
-            # 2026-09-03 owner：「稽催機制目前僅透過 LINE，實應配合承辦同仁」——晨報本來就是
-            # per-user 送的，缺的是內容裡沒有「你的」那一段。這裡接承辦視角的待收／逾期
-            # （與儀表板 MyErpSummaryCard 同一個 service，兩邊數字一致）。不另外推、不多耗配額。
-            my_tail = await _my_erp_tail(sub.get("user_id"))
-            if my_tail:
-                personalized = personalized + my_tail
             if digest_tail:
                 personalized = personalized + digest_tail
             ok, err = await _push_channel(
