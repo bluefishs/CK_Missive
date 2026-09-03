@@ -210,6 +210,7 @@
 | `contract_case_pipeline_reconciliation.py` | 以案件為主軸把整條鏈走一遍：RED 只給數字互相矛盾，已結案未收齊／執行中>365天0請款只 YELLOW | weekly 100 |
 | `case_field_sync_whitelist_audit.py` | 三表共有欄位必須在同步白名單、同步目標欄位必須存在於模型（`sync_from_pm` 曾寫 `ERPQuotation.client_name` 而模型沒這欄 ⇒ setattr 靜默不落地）、端點不得自抄清單。全靜態 | weekly 101 |
 | `case_code_format_consistency_audit.py` | 案號新制統一：新建承攬案不得是舊制 `CK{年}_{類}_{性}_{序}`、成案編碼可回溯建案案號、報價單 project_code＝承攬案的、新建報價單 quote_kind 非 NULL、legacy 無重複 | weekly 102 |
+| `first_billing_presence_audit.py` | 成案即應收：成案且有金額的報價單必須有請款（自動第一期 `ensure_first_period` 的守門）；首跑 90 張 3,109 萬無請款＝稽催鏈對它們是啞的 | weekly 103 |
 
 ## 🧪 月度架構覆盤（`run_fitness.sh`）
 

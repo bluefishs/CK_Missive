@@ -166,6 +166,12 @@ class ERPQuotationService(AuditableServiceMixin):
         dump["created_by"] = user_id
         quotation = await self.repo.create(dump)
         await self.audit_create(quotation.id, dump, user_id=user_id)
+        # 成案即應收（2026-09-03）：直接建在已成案案號上、且有總額的報價單，也要有第一期
+        try:
+            from app.services.erp.billing_service import ERPBillingService
+            await ERPBillingService(self.db).ensure_first_period(quotation.id, reason="新建報價單")
+        except Exception as e:
+            logger.error("成案即應收掛點失敗（不阻擋建立）quotation=%s: %s", quotation.id, e, exc_info=True)
         return await self._to_response(quotation)
 
     async def get_detail(self, quotation_id: int) -> Optional[ERPQuotationResponse]:
@@ -182,6 +188,13 @@ class ERPQuotationService(AuditableServiceMixin):
         if not quotation:
             return None
         await self.audit_update(quotation_id, changes)
+        # 成案即應收（2026-09-03）：補填總額或轉 confirmed 時，若還沒有請款就建第一期
+        if "total_price" in changes or changes.get("status") == "confirmed":
+            try:
+                from app.services.erp.billing_service import ERPBillingService
+                await ERPBillingService(self.db).ensure_first_period(quotation_id, reason="報價單更新")
+            except Exception as e:
+                logger.error("成案即應收掛點失敗（不阻擋更新）quotation=%s: %s", quotation_id, e, exc_info=True)
         return await self._to_response(quotation)
 
     async def delete(self, quotation_id: int) -> bool:

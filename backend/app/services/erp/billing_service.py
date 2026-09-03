@@ -193,6 +193,48 @@ class ERPBillingService(AuditableServiceMixin):
         await self.db.commit()
         return ERPBillingResponse.model_validate(billing)
 
+    AUTO_FIRST_NOTE = "系統自動建立：成案即應收（一次請領，金額＝報價總額）"
+
+    async def ensure_first_period(self, quotation_id: int, *, reason: str = "") -> Optional[ERPBillingResponse]:
+        """成案即應收：報價單有總額、已成案、還沒有任何請款 ⇒ 自動建第一筆（owner 2026-09-03）。
+
+        為什麼一定要有這一筆：夜間吹哨者的「請款逾期」只看 erp_billings，沒有請款的案子
+        **永遠不會被催** —— 09-03 量到 90 張成案有金額卻無請款（3,109 萬），稽催鏈對它們是啞的。
+
+        規則（刻意簡單）：一次請領、金額＝報價總額、請款日＝今天、pending。分期是人的決定，
+        由承辦在請款頁把這一筆改期別／拆金額；系統只保證「有東西可催」。
+        不建的情況：無總額（要人填，weekly 103 YELLOW）／未成案／已有任何請款。
+        失敗只記 log 不 raise —— 案件比這一筆重要（同 promote 內的承辦承接）。
+        """
+        from datetime import date as _date
+        from decimal import Decimal
+        try:
+            q = await self._quotation_repo.get_by_id(quotation_id)
+            if not q or q.deleted_at is not None:
+                return None
+            total = getattr(q, "total_price", None)
+            if not total or Decimal(str(total)) <= 0:
+                return None
+            if not getattr(q, "project_code", None) and getattr(q, "status", "") != "confirmed":
+                return None
+            from sqlalchemy import select as _sel
+            existing = (await self.db.execute(_sel(ERPBilling.id).where(ERPBilling.erp_quotation_id == quotation_id).limit(1))).first()
+            if existing:
+                return None
+            created = await self.create(ERPBillingCreate(
+                erp_quotation_id=quotation_id,
+                billing_period="一次請領",
+                billing_date=_date.today(),
+                billing_amount=Decimal(str(total)),
+                payment_status="pending",
+                notes=f"{self.AUTO_FIRST_NOTE}{'；' + reason if reason else ''}",
+            ))
+            logger.info("成案即應收：自動建第一期 quotation=%s amount=%s (%s)", quotation_id, total, reason)
+            return created
+        except Exception as e:
+            logger.error("成案即應收自動建第一期失敗 quotation=%s: %s", quotation_id, e, exc_info=True)
+            return None
+
     async def get_by_quotation(self, quotation_id: int) -> List[ERPBillingResponse]:
         """取得報價單所有請款"""
         items = await self.repo.get_by_quotation_id(quotation_id)

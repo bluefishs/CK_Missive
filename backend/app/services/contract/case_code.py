@@ -554,6 +554,15 @@ class CaseCodeService:
             f"成案完成: case_code={case_code} → project_code={project_code}, "
             f"contract_project_id={contract_project.id}, erp_linked={erp_linked}"
         )
+        # 7. 成案即應收（owner 2026-09-03）：有報價總額就自動建第一期請款，
+        #    否則夜間吹哨者的「請款逾期」對這個案子永遠不會響。
+        try:
+            from app.services.erp.billing_service import ERPBillingService
+            erp_for_billing = await self.erp_repo.get_by_case_code(case_code)
+            if erp_for_billing:
+                await ERPBillingService(self.db).ensure_first_period(erp_for_billing.id, reason=f"成案 {project_code}")
+        except Exception as e:
+            logger.error("成案即應收掛點失敗（不阻擋成案）case_code=%s: %s", case_code, e, exc_info=True)
 
         # Publish domain event
         try:
