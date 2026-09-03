@@ -191,6 +191,10 @@
 > 列表欄序照總表；匯出＝範本＝匯入同一份表頭（`XLS_HEADERS`）；往返驗證「匯出 129 列匯入 → 新建 0」——沒做這一步之前，
 > 匯出檔匯回去會把每張 QT 單再建一次（legacy 比對不到）。⭐ 順手抓到：缺欄的檔案讓 importer 回 `{success:false}` 撞 response_model ⇒ **500**。
 >
+> 📒 **09-03 覆盤**＝[`docs/architecture/RETROSPECTIVE_20260903_ERP_CHAIN.md`](docs/architecture/RETROSPECTIVE_20260903_ERP_CHAIN.md)：兩天 56 commits／9 部署，
+> 成案之後的鏈對齊且 weekly 97–103 七支守門；**成案之前（標案→建案）回指 0/274，是沒人走不是走不通**。五個共同形狀：同一事實多份／沒有起點的鏈／
+> 一張表裝三種東西／新資料進來舊錯位才看得見／驗證的替身。規劃：近期 6 裁示、中期 A–E、季度三判斷。
+>
 > **最後更新**: 2026-09-03
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)
