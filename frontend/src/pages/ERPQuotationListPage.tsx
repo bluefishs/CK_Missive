@@ -69,7 +69,19 @@ export const ERPQuotationListPage: React.FC = () => {
   // 前端過濾：僅顯示已承攬
 
   const columns: ResponsiveColumn<ERPQuotation>[] = [
-    { title: '案號', key: 'project_code', width: 160, render: (_: unknown, r: ERPQuotation) => r.project_code || r.case_code },
+    // 2026-09-03 owner：「配合總表調整核心資訊；填報者、舊案號非必要，落實線上報價單後也無舊案號呈現必要」。
+    // 欄序照總表：年度／報價單編號／案名／客戶／承辦／報價日期／總價／狀態／收款／發票／毛利率。
+    // 舊案號（B114-B002）不再呈現，但仍是搜尋鍵（列表搜尋涵蓋 legacy 與 QT 號）與匯入比對鍵。
+    { title: '年度', dataIndex: 'year', key: 'year', sorter: true, width: 70, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
+    {
+      title: '報價單編號', dataIndex: 'quotation_no', key: 'quotation_no', sorter: true, width: 135,
+      render: (_: unknown, r: ERPQuotation) => (
+        <Space direction="vertical" size={0}>
+          <span>{r.quotation_no ?? r.case_code}</span>
+          {r.project_code && <Text type="secondary" style={{ fontSize: 11 }}>{r.project_code}</Text>}
+        </Space>
+      ),
+    },
     {
       title: '案名',
       dataIndex: 'case_name',
@@ -120,22 +132,6 @@ export const ERPQuotationListPage: React.FC = () => {
       width: 110,
       render: (v: string | null) => v || <span style={{ color: '#999' }}>—</span>,
     },
-    {
-      title: '填報者',
-      dataIndex: 'created_by_name',
-      key: 'created_by_name',
-      width: 110,
-      render: (v: string | null) => v || <span style={{ color: '#999' }}>—</span>,
-    },
-    // 舊案號（個人管理時期，B114-B002）—— 與紙本、回簽 PDF 檔名對得起來的那組編號
-    {
-      title: '舊案號',
-      dataIndex: 'legacy_quotation_no',
-      sorter: true,
-      key: 'legacy_quotation_no',
-      width: 130,
-      render: (v: string | null) => v || <span style={{ color: '#999' }}>—</span>,
-    },
     // 2026-08-15：補上「狀態」欄。
     // owner 回報「表格無提供篩選」—— 實測排序圖示 12 個、篩選漏斗 **0 個**。
     // 真因不是 enhanceColumns 沒生效，是**列表根本沒有狀態欄**：
@@ -158,7 +154,6 @@ export const ERPQuotationListPage: React.FC = () => {
       filteredValue: params.status ? [params.status] : null,
       render: (v?: string) => <Tag color={erpQuotationStatusColor(v)}>{erpQuotationStatusLabel(v)}</Tag>,
     },
-    { title: '年度', hideOnMobile: true, dataIndex: 'year', key: 'year', sorter: true, width: 80, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
     {
       title: '總價',
       dataIndex: 'total_price',
@@ -167,17 +162,6 @@ export const ERPQuotationListPage: React.FC = () => {
       width: 120,
       align: 'right',
       render: (v: string | null) => v ? Number(v).toLocaleString() : '-',
-    },
-    {
-      title: '毛利',
-      hideOnMobile: true, dataIndex: 'gross_profit',
-      key: 'gross_profit',
-      width: 120,
-      align: 'right',
-      render: (v: string) => {
-        const num = Number(v);
-        return <span style={{ color: num >= 0 ? '#52c41a' : '#ff4d4f' }}>{num.toLocaleString()}</span>;
-      },
     },
     {
       title: '毛利率',
@@ -328,23 +312,16 @@ export const ERPQuotationListPage: React.FC = () => {
           >匯出 Excel</Button>
           {canWrite && (
             <>
-              <Upload
-                accept=".xlsx,.xls"
-                showUploadList={false}
-                beforeUpload={async (file) => {
-                  try {
-                    const result = await erpQuotationsApi.importExcel(file);
-                    message.success(`匯入完成: 新增 ${result.created} 筆, 更新 ${result.updated} 筆`);
-                    if (result.errors?.length) {
-                      message.warning(`${result.errors.length} 筆匯入失敗`);
-                    }
-                    refetch();
-                  } catch (e) { message.error(getErrorMessage(e, '匯入失敗'), 8); }
-                  return false;
-                }}
-              >
-                <Button icon={<UploadOutlined />}>匯入 Excel</Button>
-              </Upload>
+              {/* 2026-09-03：移除舊 11 欄「匯入 Excel」——它與總表格式不同、會造出無編號的報價單。
+                  範本＝匯出＝匯入同一份表頭（後端 XLS_HEADERS 單一來源）：匯出 → 改 → 匯入可往返。 */}
+              <Button icon={<DownloadOutlined />} onClick={async () => {
+                try {
+                  const blob = await erpQuotationsApi.downloadTemplate();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a'); a.href = url; a.download = '報價單彙整_匯入範本.xlsx'; a.click();
+                  URL.revokeObjectURL(url);
+                } catch (e) { message.error(getErrorMessage(e, '範本下載失敗'), 8); }
+              }}>下載範本</Button>
               {/* owner 2026-08-19：「若線上產出報價單未完全上線前，如何匯入與管理
                   既有 XLS 為目前階段重點」「新增與更新整合為一個按鍵鈕」。
                   依舊案號（B114-B002）upsert —— 有就更新、沒有就新增，

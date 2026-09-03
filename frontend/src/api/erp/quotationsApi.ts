@@ -98,12 +98,7 @@ export const erpQuotationsApi = {
   },
 
   /** 匯入 Excel */
-  async importExcel(file: File): Promise<{ total_rows: number; created: number; updated: number; errors: Array<{ row: number; error: string }> }> {
-    const response = await apiClient.upload<SuccessResponse<{ total_rows: number; created: number; updated: number; errors: Array<{ row: number; error: string }> }>>(
-      ERP_ENDPOINTS.IMPORT, file, 'file'
-    );
-    return response.data!;
-  },
+  // 2026-09-03：importExcel（舊 11 欄）移除——匯入統一走 importLegacy（總表格式，先預覽再確認）。
 
   /**
    * 匯入既有報價單彙整（一個入口做 upsert：有就更新、沒有就新增）。

@@ -223,13 +223,23 @@ async def import_quotations(
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
     current_user: User = Depends(require_auth()),
 ):
-    """匯入報價 Excel (.xlsx/.xls)"""
+    """匯入報價 Excel（總表格式）。
+
+    2026-09-03：此端點原本吃另一套 11 欄範本，與匯出／總表對不上，且會建出沒有編號的報價單。
+    改為與 `/import-legacy` 同一條路（dry_run=False），回傳維持 {total_rows, created, updated, errors}
+    讓既有呼叫端不壞。前端已改用 import-legacy 的「先預覽再確認」流程。
+    """
     if not file.filename or not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="僅支援 .xlsx/.xls 格式")
     content = await file.read()
-    # 與單筆建立同理：匯入進來的報價一樣要記得是誰匯的（見 create_quotation）
-    result = await service.import_from_excel(content, user_id=current_user.id)
-    return SuccessResponse(data=result)
+    from app.services.erp.quotation_legacy_import import QuotationLegacyImportService
+    r = await QuotationLegacyImportService(service.db).run(content, dry_run=False, user_id=current_user.id)
+    if not r.get("success", True):
+        raise HTTPException(status_code=400, detail=r.get("error", "匯入失敗"))
+    return SuccessResponse(data={
+        "total_rows": r.get("total_rows", 0), "created": r.get("created", 0), "updated": r.get("updated", 0),
+        "errors": [], "finance": r.get("finance"), "skipped": r.get("skipped", 0),
+    })
 
 
 @router.post("/case-code-map")
@@ -325,11 +335,14 @@ async def import_legacy_quotations(
     content = await file.read()
     svc = QuotationLegacyImportService(service.db)
     try:
-        return SuccessResponse(data=await svc.run(
-            content, dry_run=dry_run, user_id=current_user.id,
-        ))
+        r = await svc.run(content, dry_run=dry_run, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    # 2026-09-03：檔案沒有「報價單編號」欄（上傳到錯的檔）時 importer 回 {success: False, error}，
+    # 而 response_model 要成功形狀 ⇒ 原本 500。錯的檔是使用者的錯，回 400 說清楚。
+    if r.get("success") is False:
+        raise HTTPException(status_code=400, detail=r.get("error") or "匯入失敗")
+    return SuccessResponse(data=r)
 
 
 @router.post("/template-preview")

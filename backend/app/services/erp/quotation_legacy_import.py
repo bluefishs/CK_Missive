@@ -614,7 +614,7 @@ class QuotationLegacyImportService:
         bsvc = ERPBillingService(self.db)
         inv_pat = re.compile(r"^[A-Z]{2}[0-9]{8}$")
         for r in rows:
-            q = await self.db.scalar(_t("SELECT id FROM erp_quotations WHERE legacy_quotation_no=:l AND deleted_at IS NULL LIMIT 1"), {"l": r["legacy_no"]})
+            q = await self.db.scalar(_t("SELECT id FROM erp_quotations WHERE (legacy_quotation_no=:l OR quotation_no=:l) AND deleted_at IS NULL LIMIT 1"), {"l": r["legacy_no"]})
             if not q:
                 continue
             if r.get("established") and (r.get("total_price") or 0) > 0:
@@ -725,6 +725,14 @@ class QuotationLegacyImportService:
                 )
             )).scalars().all()
         }
+        # 2026-09-03：匯出檔的「報價單編號」欄對沒有舊案號的單寫的是 QT 號（線上報價單機制）。
+        # 這些列以 quotation_no 比對既有——否則匯出→匯入會把每張 QT 單再建一次。
+        qt_nos = [ln for ln in legacy_nos if re.match(r"^QT\d{4}_\d{3}$", ln or "")]
+        if qt_nos:
+            for q in (await self.db.execute(
+                select(ERPQuotation).where(ERPQuotation.quotation_no.in_(qt_nos), ERPQuotation.deleted_at.is_(None))
+            )).scalars().all():
+                existing.setdefault(q.quotation_no, q)
 
         # ⚠️ 2026-08-31：`existing` 用**完整編號**比對，而版次後綴會讓同一份
         # 估價單被判成兩張不同的單。實測後果（owner 回報「報價單匯入搞到整個

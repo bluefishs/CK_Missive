@@ -167,35 +167,40 @@ class ERPQuotationIOService:
     # 匯入範本
     # =========================================================================
 
-    @staticmethod
-    def generate_import_template() -> bytes:
-        """產生匯入範本 Excel"""
+    @classmethod
+    def generate_import_template(cls) -> bytes:
+        """匯入範本＝匯出同一份表頭（XLS_HEADERS，owner 的總表格式）。
+
+        2026-09-03 之前範本是另一套 11 欄（案號／案名／年度／總價／成本…），與匯出的總表格式對不上；
+        使用者拿匯出檔改完要匯入還得重排。現在三者一份表頭：匯出 → 改 → 匯入可往返。
+        第 2 列是填寫說明（灰字），匯入時「報價單編號」空的列會被略過，所以說明列不會被吃進去。
+        """
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment
-
         wb = Workbook()
         ws = wb.active
-        ws.title = "報價匯入範本"
-
-        headers = ["案號", "案名", "年度(西元)", "總價", "稅額", "外包費", "人事費", "管銷費", "其他成本", "狀態", "備註"]
-        fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-        font = Font(bold=True, color="FFFFFF")
-
-        for col, h in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=h)
-            cell.fill = fill
-            cell.font = font
-            cell.alignment = Alignment(horizontal="center")
-
-        # 範例資料
-        sample = ["B114-B999", "範例測量案件", 2025, 100000, 5000, 30000, 40000, 20000, 10000, "draft", "匯入測試"]
-        for col, v in enumerate(sample, 1):
-            ws.cell(row=2, column=col, value=v)
-
-        for col in range(1, len(headers) + 1):
-            ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = 15
-        ws.column_dimensions["B"].width = 30
-
+        ws.title = "系統報價單"
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        for col, h in enumerate(cls.XLS_HEADERS, 1):
+            c = ws.cell(row=1, column=col, value=h)
+            c.fill = header_fill
+            c.font = Font(bold=True, color="FFFFFF")
+            c.alignment = Alignment(horizontal="center")
+        hints = {
+            "序號": "選填", "年度": "西元，如 2026", "承辦同仁": "姓名（對 users）", "報價單編號": "",
+            "是否成立": "v＝成案", "報價日期": "民國 115.03.12 或西元", "客戶名稱": "對委託單位", "案名": "若有「完整案名」以它為準。報價單編號必填：既有編號＝更新、新編號＝新增；本說明列編號留空所以不會被匯入",
+            "報價金額": "未稅", "稅額": "數字", "總價": "含稅", "實收金額": "有值＝已收", "收款日期": "有值＝已收",
+            "發票日期": "民國或西元", "發票號碼": "AB12345678；「比對方式」含需確認者不匿入", "銷售額": "未稅", "稅額(發票)": "數字", "發票金額": "含稅",
+            "完整案名(地點＋案名)": "優先於「案名」", "系統編號": "匯出帶出，匯入忽略", "案號": "匯入忽略", "成案編號": "匯入忽略", "種類": "匯入忽略", "狀態": "匯入忽略",
+        }
+        for col, h in enumerate(cls.XLS_HEADERS, 1):
+            c = ws.cell(row=2, column=col, value=hints.get(h, ""))
+            c.font = Font(italic=True, color="999999")
+        for col in range(1, len(cls.XLS_HEADERS) + 1):
+            ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = 14
+        ws.column_dimensions["H"].width = 40
+        ws.column_dimensions["AC"].width = 40
+        ws.freeze_panes = "B3"
         output = io.BytesIO()
         wb.save(output)
         return output.getvalue()
