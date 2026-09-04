@@ -333,7 +333,7 @@ class CaseCodeService:
 
         return f"{prefix}{str(next_serial).zfill(3)}"
 
-    async def promote_to_project(self, case_code: str) -> dict:
+    async def promote_to_project(self, case_code: str, *, allow_same_name: bool = False) -> dict:
         """⚠️ **本方法內部會 `await self.db.commit()`** —— 呼叫端在外面包
         `try/finally: await db.rollback()` **不會**讓它變成可回滾的試算。
 
@@ -393,7 +393,9 @@ class CaseCodeService:
         # 2026-08-10 實際發生：同一件工作 10:19 直接建立、10:43 成案，兩筆都成功。
         # 判準與 ProjectService.create 相同（同名＋同年度＋同委託單位），
         # 兩條路徑共用同一條規則，否則擋住一邊等於沒擋。
-        if pm_case.case_name:
+        # allow_same_name（2026-09-04）：owner 裁示「依總表為主」——總表裡 a／b／c 子案同名同客戶各是一列、各是一案，
+        # 這道守衛會把它們全擋下。只給資料修正腳本用；匯入與端點一律不傳。
+        if pm_case.case_name and not allow_same_name:
             from sqlalchemy import select, func
             from app.extended.models import ContractProject
             stmt = select(ContractProject).where(

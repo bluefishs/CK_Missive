@@ -378,7 +378,8 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           // 而「工程名稱」(需 434px) 只拿到 205px。owner 2026-08-29：
           // 「僅是流水號其欄寬較其他重要資訊還寬，原本呈現還不會如此」。
           // 重配後總和 1482；這裡跟著改成 1482，讓宣告值就是實際值。
-          scroll={{ x: 1482 }}
+          // 2026-09-04 依資料量測重配（單號 180／期限 104／承辦 64／查估 130／批次 66）⇒ 總和 1512
+          scroll={{ x: 1512 }}
           size="small"
           // ⚠️ 2026-08-29：原清單是 ['sub_case_name','contact_note','project_folder','survey_unit']
           // —— 前三個**在現行欄位裡根本不存在**（欄位改過名而清單沒跟著改），

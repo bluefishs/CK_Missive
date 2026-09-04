@@ -72,8 +72,11 @@ export function useDispatchOrderColumns({
     {
       title: '派工單號',
       dataIndex: 'dispatch_no',
-      width: 140,
+      // 2026-09-04 owner：「連派工單號這筆無法檢視」—— 單號固定 12 個中文字（115年_派工單號001），
+      // 140px 放不下會折行／被截。依資料量測：12 字 × 14px ＋ 內距 ⇒ 180，且不換行。
+      width: 180,
       fixed: 'left',
+      onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
       sorter: (a, b) => (a.dispatch_no ?? '').localeCompare(b.dispatch_no ?? ''),
       ...getColumnSearchProps('dispatch_no'),
       render: (val: string) =>
@@ -138,7 +141,7 @@ export function useDispatchOrderColumns({
     {
       title: '履約期限',
       dataIndex: 'deadline',
-      width: 120,
+      width: 104,
       ellipsis: true,
       sorter: (a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? ''),
       render: (val?: string) => val ? (
@@ -197,7 +200,7 @@ export function useDispatchOrderColumns({
     {
       title: '承辦',
       dataIndex: 'case_handler',
-      width: 60,
+      width: 64,
       align: 'center',
       ellipsis: true,
       sorter: (a, b) => (a.case_handler ?? '').localeCompare(b.case_handler ?? ''),
@@ -209,9 +212,10 @@ export function useDispatchOrderColumns({
     },
     {
       title: '查估單位',
+      // 最長 15 字，超過以 ellipsis＋tooltip 呈現（保留 130，不讓它把工程名稱擠掉）
       onCell: () => ({ style: { whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 } }),
       dataIndex: 'survey_unit',
-      width: 120,
+      width: 130,
       ellipsis: true,
       filters: dispatchSurveyUnitFilters,
       onFilter: (value, record) => record.survey_unit === value,
@@ -222,7 +226,7 @@ export function useDispatchOrderColumns({
     {
       title: '結案批次',
       dataIndex: 'batch_no',
-      width: 74,
+      width: 66,
       align: 'center',
       filters: [
         ...Array.from({ length: 10 }, (_, i) => ({
