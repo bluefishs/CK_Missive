@@ -4,6 +4,45 @@
 
 ---
 
+## [v6.72] - 2026-09-04（名稱標準化與主檔鍵／指派即應付／發票鏈防呆／表格篩選規範）
+
+### `.claude/` 變更
+
+| 檔 | 變更 |
+|---|---|
+| `rules/skills-inventory.md` | 登記 weekly 106 `vendor_association_payable_audit`（指派即應付）、weekly 107 `name_id_pair_consistency_audit`（id 是鍵、名稱是快照） |
+| `rules/development-rules.md` | §2.6 加 **④ 篩選與排序走表格本身**（owner 09-04：表格能篩就不重複做獨立下拉；後端分頁時漏斗不帶 `onFilter`、勾選值進查詢參數）；`/contract-cases` 為參考實作，其餘頁＝A98 |
+| `CLAUDE.md` | 版本 v6.71 → **v6.72**；v6.71 檔頭摘要移 `docs/MILESTONES_ARCHIVE.md` |
+
+### 版本一致
+
+| 來源 | 之前 | 現在 |
+|---|---|---|
+| `CLAUDE.md` 檔頭 `**版本**` | v6.71 | **v6.72**（SSOT；`build-args.sh` 讀它注入映像） |
+| runtime `Application starting...` | v6.71 | 部署後 v6.72 |
+| alembic head | 20260904a002 | **20260904a003**（`contract_projects.client_vendor_id`，已在正式庫套用） |
+| weekly 步數 | 105 | **107** |
+
+### owner 09-04 下半回報事項結案對照
+
+| # | 回報 | 修法 | commit |
+|---|---|---|---|
+| 1 | `/erp/quotations` 釐清匯出／匯入／範本；案件狀態篩選改委託單位、無含未成案；多筆協力廠商；成案編號不重複；**只列成案** | 工具列去重正名、委託單位 Select、固定只列成案、Tag、不重印 | e9701b75 |
+| 2 | `/erp/client-accounts` 竹崎地政無法點；代碼 vs 統一編號 | 第二腿名稱對主檔補 `vendor_id`；`tax_id`＝統編、`vendor_code`＝內部代碼（15 家搬） | e9701b75 |
+| 3／4 | 邱元宏／賴柏霖 02 案改完整案名 | 7 張三表更名 | 資料（e9701b75 附） |
+| 5 | `/contract-cases/431?tab=staff` 返回不回列表 | `backRoute=ROUTES.CONTRACT_CASES` | e9701b75 |
+| 6／7 | 協力廠商指派後廠商帳款／應付沒列入 | **指派即應付** `ensure_from_association`＋weekly 106；回填 2 筆 | e9701b75 |
+| 8 | 帳款兩頁「無法篩選查詢」 | 真因只取 50 家：`le=1000`＋取全＋截斷警示 | e9701b75 |
+| 9 | 168 發票已填報但無防呆與顯示；167 無按鈕也無顯示；文字統一「發票號碼」 | 欄合一、`create_from_billing` 格式與全庫重複、已收未開票標籤、weekly 104 ⑪ | f9bd11ec |
+| 10 | `/contract-cases` 搜徐瑛宜無紀錄；列表欄位無法篩選；統計卡無法動態篩選；表格能篩就不重複做下拉 | 搜尋補 `client_agency`；表頭漏斗接後端、撤三個下拉；統計卡驅動 status／排序；§2.6 ④ | b7270080 |
+| 11 | `/erp/quotations` 委託單位篩選無法正確檢索 | 選項改「案件實際客戶」端點；損益摘要跟類別／委託單位；重複主檔刪 2 | fa9d844f |
+| 12 | 152 已收未登錄發票 vs 發票頁有 ZZ00000001 | 未關聯發票列出＋`link-to-billing`（三種 400 負向對照） | 3c23182b |
+| /loop | 統整復盤；架構流程對應；名稱標準化與語意定義 | `ERP_CHAIN_REVIEW_20260904.md`；`contract_projects.client_vendor_id`（20260904a003）；FIELD_SEMANTICS「主檔鍵與名稱快照」；weekly 107；服務層自動補鍵 | dc7c35a1、7e70beff、554b2b69 |
+
+**待 owner 判**（不在「已完成」內）：A96 指派金額 vs 人工應付 3 筆／A97 已收款無發票 6 筆／A98 其餘列表頁改表格篩選／A99 名稱快照與主檔鍵不一致 5 筆／152 的 ZZ00000001 要不要掛到第一期。
+
+---
+
 ## [v6.71] - 2026-09-04（金流全面複查／報價單流程整合／部署無空窗／doctor 清理）
 
 ### `.claude/` 變更
