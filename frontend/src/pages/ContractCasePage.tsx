@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
+  Select,
   Card,
   Button,
   Space,
   Input,
-    Row,
+  Row,
   Col,
   Tag,
   Switch,
@@ -36,7 +37,7 @@ import { useAuthGuard, useResponsive } from '../hooks';
 import { useContractCaseColumns } from './contractCase/useContractCaseColumns';
 import { getStatusColor, getStatusLabel } from './contractCase/contractCaseConstants';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 // ---[類型定義]---
 import type { Project, ViewMode } from '../types/api';
@@ -249,16 +250,20 @@ export const ContractCasePage: React.FC = () => {
                 allowClear
               />
             </Col>
-            <Col xs={24} sm={12} md={16} lg={18}>
-              {/* 2026-09-04 owner：篩選走表頭漏斗（年度／類別／狀態）與欄位搜尋框，排序點欄名——
-                  不再另建三個下拉（同一件事兩套機制，08-31 那套壞在前端只篩本頁）。這一行只顯示現值。 */}
-              <Space wrap size={[4, 4]}>
-                <Text type="secondary">目前：</Text>
-                <Tag color={yearFilter ? 'blue' : 'default'}>{yearFilter ? `${yearFilter} 年度` : '全部年度'}</Tag>
-                <Tag color={categoryFilter ? 'blue' : 'default'}>{categoryFilter ? `${categoryFilter} 類` : '全部類別'}</Tag>
-                <Tag color={statusFilter ? 'blue' : 'default'}>{statusFilter ? getStatusLabel(statusFilter) : '全部狀態'}</Tag>
-                <Text type="secondary">— 用表頭漏斗改，點欄名排序</Text>
-              </Space>
+            {/* 2026-09-04 晚 owner：「不是將原篩選機制移除，是要完善各表單標頭提供篩選排序」——
+                工具列三個下拉留著，與表頭漏斗**共用同一份狀態**（yearFilter／categoryFilter／statusFilter）：
+                在哪邊改，另一邊同步顯示；查詢一律進後端參數。不是兩套機制，是同一個狀態的兩個入口。 */}
+            <Col xs={12} sm={6} md={4} lg={3}>
+              <Select placeholder="年度" value={yearFilter} onChange={(v) => { setYearFilter(v); setCurrentPage(1); }} allowClear style={{ width: '100%' }}
+                options={availableYears.map((y) => ({ value: y, label: `${y}年` }))} />
+            </Col>
+            <Col xs={12} sm={6} md={5} lg={4}>
+              <Select placeholder="計畫類別" value={categoryFilter || undefined} onChange={(v) => { setCategoryFilter(v ?? ''); setCurrentPage(1); }} allowClear style={{ width: '100%' }}
+                options={[{ value: '01', label: '01委辦招標' }, { value: '02', label: '02承攬報價' }]} />
+            </Col>
+            <Col xs={12} sm={6} md={4} lg={4}>
+              <Select placeholder="案件狀態" value={statusFilter || undefined} onChange={(v) => { setStatusFilter(v ?? ''); setCurrentPage(1); }} allowClear style={{ width: '100%' }}
+                options={availableStatuses.map((st) => ({ value: st, label: getStatusLabel(st) }))} />
             </Col>
           </Row>
           <Row justify="space-between">
