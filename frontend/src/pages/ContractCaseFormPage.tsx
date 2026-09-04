@@ -225,12 +225,12 @@ export const ContractCaseFormPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
-              <Form.Item label="得標金額" name="winning_amount">
+              <Form.Item label="議價金額" name="winning_amount">
                 <InputNumber<number>
                   style={{ width: '100%' }}
                   formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={(value) => Number(value!.replace(/\$\s?|(,*)/g, ''))}
-                  placeholder="請輸入得標金額" min={0} prefix="NT$"
+                  placeholder="請輸入議價金額" min={0} prefix="NT$"
                 />
               </Form.Item>
             </Col>

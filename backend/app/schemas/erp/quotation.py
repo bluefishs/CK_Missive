@@ -190,6 +190,9 @@ class ERPQuotationResponse(BaseModel):
     total_cost: Decimal = Decimal("0")
     gross_profit: Decimal = Decimal("0")
     gross_margin: Optional[Decimal] = Field(None, description="毛利率 (%)")
+    # 2026-09-04 owner 專案帳款頁欄位：協力廠商／議價金額
+    vendor_names: Optional[str] = Field(None, description="協力廠商（應付上的廠商名，去重、頓號分隔）")
+    contract_amount: Optional[Decimal] = Field(None, description="議價金額＝承攬案合約額（含稅）；未成案為 None")
 
     # 2026-08-18 owner：「若可設定公司固定利潤如 10%，
     # 那總金額扣除前述才應該是專案毛利」。
@@ -254,9 +257,13 @@ class ERPQuotationResponse(BaseModel):
 
 class ERPQuotationListRequest(BaseQueryParams):
     """報價列表查詢"""
-    year: Optional[int] = Field(None, description="年度篩選")
-    status: Optional[str] = Field(None, description="狀態篩選")
+    # 2026-09-04 owner「年度篩選是否失效——還看到 114 年度案件」：這頁是**專案帳款**視角，年度＝**案件年度**
+    # （建案案號 CK{年}_…），不是報價單的 year 欄（舊案在 2026 補建的 0 元錨點報價單 year=2026）。
+    year: Optional[int] = Field(None, description="案件年度（依建案案號 CK{年} 判，西元）")
+    status: Optional[str] = Field(None, description="報價單狀態篩選")
     case_code: Optional[str] = Field(None, description="案號篩選")
+    category: Optional[str] = Field(None, description="計畫類別：01 委辦招標／02 承攬報價（依建案案號段判）")
+    case_status: Optional[str] = Field(None, description="案件狀態：planning 評估中／contracted 已承攬（執行中）／closed 已結案")
 
     # ⭐ 2026-08-31 owner：「應改以成案案件為主，未成案承攬案件報價單參考價值低」。
     #

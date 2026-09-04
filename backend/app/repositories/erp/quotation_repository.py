@@ -139,6 +139,8 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         sort_order: str = "desc",
         include_unawarded: bool = False,
         accessible_case_codes=None,
+        category: Optional[str] = None,
+        case_status: Optional[str] = None,
     ) -> Tuple[List[ERPQuotation], int]:
         """篩選報價列表。
 
@@ -157,7 +159,24 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
 
         conditions = []
         if year is not None:
-            conditions.append(ERPQuotation.year == year)
+            # 2026-09-04：年度＝案件年度（建案案號 CK{年}_…），不是報價單 year 欄——
+            # 舊案在 2026 補建的錨點報價單 year=2026，用 year 欄篩會把 114 年的案子列進 2026。
+            conditions.append(ERPQuotation.case_code.like(f"CK{int(year)}_%"))
+        if category in ("01", "02"):
+            conditions.append(ERPQuotation.case_code.op("~")(rf"^CK\d{{4}}_(PM_)?{category}_"))
+        if case_status:
+            from app.extended.models.core import ContractProject
+            from app.extended.models.pm import PMCase
+            cp_codes = select(ContractProject.case_code).where(ContractProject.case_code.isnot(None))
+            if case_status == "planning":
+                conditions.append(ERPQuotation.case_code.in_(select(PMCase.case_code).where(PMCase.status == "planning")))
+            elif case_status == "contracted":
+                conditions.append(ERPQuotation.case_code.in_(cp_codes.where(ContractProject.status != "已結案")))
+            elif case_status == "closed":
+                conditions.append(or_(
+                    ERPQuotation.case_code.in_(cp_codes.where(ContractProject.status == "已結案")),
+                    ERPQuotation.case_code.in_(select(PMCase.case_code).where(PMCase.status == "closed")),
+                ))
         if status:
             conditions.append(ERPQuotation.status == status)
         if case_code:

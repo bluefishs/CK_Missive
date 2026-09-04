@@ -138,7 +138,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
       render: (value: string | undefined) => getCategoryDisplayName(value || '未分類'),
     },
     {
-      title: '得標金額',
+      title: '議價金額',
       dataIndex: 'contract_amount',
       key: 'contract_amount',
       width: 120,
@@ -218,7 +218,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
       {/* 統計說明 */}
       <div style={{ marginBottom: 8 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          ※ 經費統計以「得標金額」計算，不含待執行及未得標案件
+          ※ 經費統計以「議價金額」計算，不含待執行及未得標案件
         </Text>
       </div>
 
@@ -238,7 +238,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
         <Col xs={24} sm={8}>
           <Card>
             <Statistic
-              title={hasFilter ? '篩選後得標金額' : '得標金額總計'}
+              title={hasFilter ? '篩選後議價金額' : '議價金額總計'}
               value={stats.totalAmount}
               prefix={<DollarOutlined />}
               formatter={(value) => formatCurrency(Number(value))}

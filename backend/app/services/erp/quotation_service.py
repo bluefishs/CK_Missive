@@ -266,6 +266,8 @@ class ERPQuotationService(AuditableServiceMixin):
             sort_order=params.sort_order.value if params.sort_order else "desc",
             include_unawarded=params.include_unawarded,
             accessible_case_codes=accessible_case_codes,
+            category=getattr(params, "category", None),
+            case_status=getattr(params, "case_status", None),
         )
 
         if not items:
@@ -273,6 +275,8 @@ class ERPQuotationService(AuditableServiceMixin):
 
         # 批次取得聚合數據 (2 queries instead of N*6)
         ids = [q.id for q in items]
+        vendor_names = await self._get_vendor_names_batch(ids)
+        contract_amounts = await self._get_contract_amounts_batch([q.case_code for q in items])
         billing_agg = await self.billing_repo.get_aggregates_batch(ids)
         payable_agg = await self.payable_repo.get_aggregates_batch(ids)
         # invoice count 透過 billing count 估算或單獨批次查詢
@@ -301,8 +305,33 @@ class ERPQuotationService(AuditableServiceMixin):
                 total_paid=p.get("total_paid", ZERO),
                 invoice_count=invoice_counts.get(item.id, 0),
                 company_profit_rate=rate,
+                vendor_names=vendor_names.get(item.id),
+                contract_amount=contract_amounts.get(item.case_code),
             ))
         return responses, total
+
+    async def _get_vendor_names_batch(self, quotation_ids: List[int]) -> dict:
+        """quotation_id → 協力廠商名（應付上的廠商，去重、頓號分隔），一次查完。"""
+        if not quotation_ids:
+            return {}
+        from sqlalchemy import text as _t
+        rows = await self.db.execute(_t(
+            "SELECT erp_quotation_id, string_agg(DISTINCT vendor_name, '、' ORDER BY vendor_name) "
+            "FROM erp_vendor_payables WHERE erp_quotation_id = ANY(CAST(:ids AS int[])) AND vendor_name IS NOT NULL "
+            "GROUP BY erp_quotation_id"
+        ), {"ids": list(quotation_ids)})
+        return {r[0]: r[1] for r in rows.all()}
+
+    async def _get_contract_amounts_batch(self, case_codes: List[str]) -> dict:
+        """case_code → 承攬案合約額（議價金額）。未成案沒有值。"""
+        codes = [c for c in set(case_codes) if c]
+        if not codes:
+            return {}
+        from sqlalchemy import text as _t
+        rows = await self.db.execute(_t(
+            "SELECT case_code, contract_amount FROM contract_projects WHERE case_code = ANY(CAST(:codes AS text[]))"
+        ), {"codes": codes})
+        return {r[0]: r[1] for r in rows.all() if r[1] is not None}
 
 
     async def _get_client_names_batch(self, case_codes: List[str]) -> dict:
@@ -406,6 +435,8 @@ class ERPQuotationService(AuditableServiceMixin):
         staff_name: Optional[str] = None,
         client_name: Optional[str] = None,
         creator_name: Optional[str] = None,
+        vendor_names: Optional[str] = None,
+        contract_amount=None,
     ) -> ERPQuotationResponse:
         """轉換為回應格式 (使用預先批次聚合的數據，避免 N+1)
 
@@ -443,6 +474,8 @@ class ERPQuotationService(AuditableServiceMixin):
             # 正是消除 N+1（見 list_quotations 的批次聚合）。
             # 實際成本只在詳情頁計算；列表顯示的是報價單上的估列。
             created_by_name=creator_name,
+            vendor_names=vendor_names,
+            contract_amount=contract_amount,
             staff_name=staff_name,
             client_name=client_name,
             invoice_count=invoice_count,

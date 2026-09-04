@@ -194,10 +194,10 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="winning_amount" label="得標金額">
+                <Form.Item name="winning_amount" label="議價金額">
                   <InputNumber
                     style={{ width: '100%' }}
-                    placeholder="請輸入得標金額"
+                    placeholder="請輸入議價金額"
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                     parser={parseCurrencyInput}
                     prefix="NT$"
@@ -276,7 +276,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
             { key: '契約金額', label: '契約金額', children: data.contract_amount
                 ? `NT$ ${formatAmount(data.contract_amount)}`
                 : <Text type="warning">未填 —— 無經費管控基準</Text> },
-            { key: '得標金額', label: '得標金額', children: data.winning_amount ? `NT$ ${formatAmount(data.winning_amount)}` : '-' },
+            { key: '議價金額', label: '議價金額', children: data.winning_amount ? `NT$ ${formatAmount(data.winning_amount)}` : '-' },
             { key: '開始日期', label: '開始日期', children: data.start_date ? dayjs(data.start_date).format('YYYY/MM/DD') : '-' },
             { key: '結束日期', label: '結束日期', children: data.end_date ? dayjs(data.end_date).format('YYYY/MM/DD') : '-' },
             { key: '執行狀態', label: '執行狀態', children: (

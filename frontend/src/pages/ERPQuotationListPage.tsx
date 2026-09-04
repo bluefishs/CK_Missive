@@ -1,7 +1,6 @@
 /**
  * ERP 報價/成本管理列表頁面
  */
-import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag, Checkbox } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
@@ -11,8 +10,6 @@ import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
 import { useERPQuotations, useERPProfitSummary, useAuthGuard } from '../hooks';
 import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
-import { erpQuotationStatusLabel, erpQuotationStatusColor, ERP_QUOTATION_STATUS_LABELS } from '../types/erp';
-import type { ERPQuotationStatus } from '../types/erp';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
@@ -31,6 +28,12 @@ const YEAR_OPTIONS = [
     return { value: y, label: `${y} 年` };
   }),
 ];
+
+/** 案件年度：由建案案號 CK{年}_… 取；取不到才用報價單 year */
+const caseYear = (r: ERPQuotation): number | undefined => {
+  const m = /^CK(\d{4})_/.exec(r.case_code ?? '');
+  return m ? Number(m[1]) : (r.year ?? undefined);
+};
 
 export const ERPQuotationListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -73,107 +76,72 @@ export const ERPQuotationListPage: React.FC = () => {
     // 2026-09-03 owner：「配合總表調整核心資訊；填報者、舊案號非必要，落實線上報價單後也無舊案號呈現必要」。
     // 欄序照總表：年度／報價單編號／案名／客戶／承辦／報價日期／總價／狀態／收款／發票／毛利率。
     // 舊案號（B114-B002）不再呈現，但仍是搜尋鍵（列表搜尋涵蓋 legacy 與 QT 號）與匯入比對鍵。
-    { title: '年度', dataIndex: 'year', key: 'year', sorter: true, width: 70, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
+    // 2026-09-04 owner 專案帳款頁改版：年度＝案件年度；名詞統一（成案編號／建案案號／委託單位）；
+    // 欄位＝年度、成案編號、專案名稱、委託單位、承辦同仁、協力廠商、議價金額、應收帳款、應付帳款。
+    { title: '年度', key: 'case_year', width: 64, align: 'center', render: (_: unknown, r: ERPQuotation) => caseYear(r) ?? '—' },
     {
-      // 2026-09-04 owner「報價單編號、工程編號是否一致、列表無查詢對應管控」：
-      // 兩個號各自流水（QT{年}_{序}＝報價單、CK{年}_PM_02_{序}＝建案案號＝文件上的「工程編號」），
-      // 一張報價單對一個案號；這裡把工程編號印在編號下方，搜尋兩個號都吃。
-      title: '報價單編號／工程編號', dataIndex: 'quotation_no', key: 'quotation_no', sorter: true, width: 170,
+      title: '成案編號', dataIndex: 'project_code', key: 'project_code', sorter: true, width: 150,
       render: (_: unknown, r: ERPQuotation) => (
         <Space direction="vertical" size={0}>
-          <span>{r.quotation_no ?? '—'}</span>
-          <Text type="secondary" style={{ fontSize: 11 }}>{r.project_code || r.case_code}</Text>
+          <span>{r.project_code || <Text type="secondary">未成案</Text>}</span>
+          <Text type="secondary" style={{ fontSize: 11 }} title="建案案號">{r.case_code}</Text>
         </Space>
       ),
     },
     {
-      title: '案名',
-      dataIndex: 'case_name',
-      sorter: true,
-      key: 'case_name',
-      ellipsis: true,
+      title: '專案名稱', dataIndex: 'case_name', key: 'case_name', sorter: true, ellipsis: true,
       render: (text: string | null) => <strong>{text ?? '-'}</strong>,
     },
-    // 2026-08-19 owner：「報價單要能對應填報者」。
-    //
-    // `created_by` 一直存在於資料表，但**77 張全是 NULL**（端點建立時
-    // 沒把使用者傳進去，08-19 已修 ⇒ 之後新建的才有），而且它只是一個
-    // user id —— 就算顯示也只是個數字。後端補了 `created_by_name`，
-    // 這裡才看得到人。
-    //
-    // 舊資料顯示「—」是誠實的：那些是修法之前建立的，系統當時沒有記錄
-    // 是誰填的，寫任何名字上去都是編的。
-    // 承辦同仁在填報者前面：找案子時問的是「這是誰的案子」，
-    // 而不是「誰把它打進系統」。（owner 2026-08-21：服務人員＝承辦同仁）
-    // 2026-09-03 owner：「配合總表調整列表核心資訊」——總表的第一排業務欄是 客戶／報價日期／是否成立／發票／收款，
-    // 此前列表沒有客戶與收款狀態，對帳要開詳情頁一張張看。收款狀態由後端全量 total_billed／total_received 推。
     {
-      title: '客戶', dataIndex: 'client_name', key: 'client_name', width: 150, ellipsis: true,
+      title: '委託單位', dataIndex: 'client_name', key: 'client_name', width: 150, ellipsis: true,
       render: (v?: string) => v || <Text type="secondary">—</Text>,
     },
     {
-      title: '報價日期', hideOnMobile: true, dataIndex: 'quoted_at', key: 'quoted_at', width: 105, sorter: true,
-      render: (v?: string) => v ? dayjs(v).format('YYYY-MM-DD') : <Text type="secondary">—</Text>,
+      title: '承辦同仁', dataIndex: 'staff_name', key: 'staff_name', width: 120, ellipsis: true,
+      render: (v: string | null) => v || <Text type="secondary">—</Text>,
     },
     {
-      title: '收款', key: 'receivable', width: 110, align: 'center',
-      render: (_: unknown, r: ERPQuotation) => {
-        const billed = Number(r.total_billed || 0), got = Number(r.total_received || 0);
-        if (!r.billing_count) return r.project_code ? <Tag color="volcano">未開請款</Tag> : <Text type="secondary">—</Text>;
-        if (got >= billed && billed > 0) return <Tag color="green">已收</Tag>;
-        if (got > 0) return <Tag color="gold">部分 {Math.round(got / billed * 100)}%</Tag>;
-        return <Tag color="orange">待收</Tag>;
+      title: '協力廠商', dataIndex: 'vendor_names', key: 'vendor_names', width: 140, ellipsis: true, hideOnMobile: true,
+      render: (v?: string) => v || <Text type="secondary">—</Text>,
+    },
+    {
+      title: '議價金額', dataIndex: 'contract_amount', key: 'contract_amount', width: 120, align: 'right',
+      render: (v: string | number | null, r: ERPQuotation) => {
+        const n = v != null ? Number(v) : (r.total_price != null ? Number(r.total_price) : null);
+        return n != null ? <span title={v != null ? '承攬案合約額' : '尚未成案，顯示報價總價'}>{n.toLocaleString()}{v == null ? <Text type="secondary" style={{ fontSize: 11 }}>（報價）</Text> : null}</span> : '-';
       },
     },
     {
-      title: '發票', hideOnMobile: true, key: 'invoice', width: 70, align: 'center',
-      render: (_: unknown, r: ERPQuotation) => r.invoice_count ? <Tag>{r.invoice_count}</Tag> : <Text type="secondary">—</Text>,
+      title: '應收帳款', key: 'receivable', width: 130, align: 'right',
+      render: (_: unknown, r: ERPQuotation) => {
+        const billed = Number(r.total_billed ?? 0); const received = Number(r.total_received ?? 0);
+        if (!billed) return <Tag color="orange">未開請款</Tag>;
+        const pct = Math.round((received / billed) * 100);
+        return (
+          <Space direction="vertical" size={0} style={{ alignItems: 'flex-end' }}>
+            <span>{billed.toLocaleString()}</span>
+            <Tag color={pct >= 100 ? 'green' : pct > 0 ? 'gold' : 'orange'} style={{ margin: 0 }}>
+              {pct >= 100 ? '已收齊' : pct > 0 ? `已收 ${pct}%` : '待收'}
+            </Tag>
+          </Space>
+        );
+      },
     },
     {
-      title: '承辦同仁',
-      dataIndex: 'staff_name',
-      key: 'staff_name',
-      width: 110,
-      render: (v: string | null) => v || <span style={{ color: '#999' }}>—</span>,
-    },
-    // 2026-08-15：補上「狀態」欄。
-    // owner 回報「表格無提供篩選」—— 實測排序圖示 12 個、篩選漏斗 **0 個**。
-    // 真因不是 enhanceColumns 沒生效，是**列表根本沒有狀態欄**：
-    // enhanceColumns 只對 STATUS_KEYS 類欄位自動加篩選，沒有那個欄位就沒有篩選。
-    // 而狀態（草稿／已確認／修訂中／已結案）是主要業務屬性，看不到本來就不合理。
-    {
-      title: '狀態', dataIndex: 'status', key: 'status', sorter: true, width: 100, align: 'center',
-      // 篩選選項來自 SSOT，**不是**從當前這一頁的資料推出來的（2026-09-01）。
-      //
-      // 原本靠 `enhanceColumns` 自動加，而它的選項是掃 `dataSource` 得到的 ——
-      // 伺服器分頁時那只有 20 筆，於是「已結案」可能整個列不出來。
-      // 08-31 起這類前端篩選會被 `stripClientOnlyColumnFeatures` 剝掉。
-      //
-      // 這裡刻意**只給 `filters`、不給 `onFilter`**：那是 AntD 的伺服器端
-      // 篩選寫法（由 onChange 送進查詢參數），而剝除器只在有 `onFilter`
-      // 時才連 `filters` 一起刪 —— 所以這個形狀是對的，也活得下來。
-      filters: (Object.keys(ERP_QUOTATION_STATUS_LABELS) as ERPQuotationStatus[])
-        .map((k) => ({ text: ERP_QUOTATION_STATUS_LABELS[k], value: k })),
-      filterMultiple: false,
-      filteredValue: params.status ? [params.status] : null,
-      render: (v?: string) => <Tag color={erpQuotationStatusColor(v)}>{erpQuotationStatusLabel(v)}</Tag>,
-    },
-    {
-      title: '總價',
-      dataIndex: 'total_price',
-      sorter: true,
-      key: 'total_price',
-      width: 120,
-      align: 'right',
-      render: (v: string | null) => v ? Number(v).toLocaleString() : '-',
-    },
-    {
-      title: '毛利率',
-      hideOnMobile: true, dataIndex: 'gross_margin',
-      key: 'gross_margin',
-      width: 90,
-      align: 'right',
-      render: (v: string | null) => v ? `${Number(v).toFixed(1)}%` : '-',
+      title: '應付帳款', key: 'payable', width: 130, align: 'right', hideOnMobile: true,
+      render: (_: unknown, r: ERPQuotation) => {
+        const payable = Number(r.total_payable ?? 0); const paid = Number(r.total_paid ?? 0);
+        if (!payable) return <Text type="secondary">—</Text>;
+        const pct = Math.round((paid / payable) * 100);
+        return (
+          <Space direction="vertical" size={0} style={{ alignItems: 'flex-end' }}>
+            <span>{payable.toLocaleString()}</span>
+            <Tag color={pct >= 100 ? 'green' : pct > 0 ? 'gold' : 'default'} style={{ margin: 0 }}>
+              {pct >= 100 ? '已付清' : pct > 0 ? `已付 ${pct}%` : '未付'}
+            </Tag>
+          </Space>
+        );
+      },
     },
     // 2026-08-15 移除「操作」欄（詳情／編輯／刪除）。
     // 對照 `/documents` 列表：它沒有操作欄 —— 點列進詳情，所有操作在詳情頁。
@@ -276,7 +244,7 @@ export const ERPQuotationListPage: React.FC = () => {
       <Card>
         <Space wrap style={{ marginBottom: 16 }}>
           <Input.Search
-            placeholder="搜尋報價單編號／工程編號／案名"
+            placeholder="搜尋成案編號／建案案號／專案名稱"
             allowClear
             onSearch={(v) => setParams((p) => ({ ...p, search: v || undefined, page: 1 }))}
             style={{ width: 240 }}
@@ -292,6 +260,25 @@ export const ERPQuotationListPage: React.FC = () => {
               ⇒ 剛新建、尚未成案的報價單在這頁永遠看不到。owner 實測「CCC」找不到即此。
               端點實測：預設 0 筆、帶 true 1 筆、export-document 回 200 —— 輸出本身是好的，
               是「列表看不到 ⇒ 進不了詳情 ⇒ 按不到輸出」。半接通：後端有、前端沒傳、沒人報錯。 */}
+          <Select
+
+            placeholder="計畫類別" allowClear style={{ width: 130 }} value={params.category}
+
+            onChange={(v) => setParams((p) => ({ ...p, category: v || undefined, page: 1 }))}
+
+            options={[{ value: '01', label: '01 委辦招標' }, { value: '02', label: '02 承攬報價' }]}
+
+          />
+
+          <Select
+
+            placeholder="案件狀態" allowClear style={{ width: 130 }} value={params.case_status}
+
+            onChange={(v) => setParams((p) => ({ ...p, case_status: v || undefined, page: 1 }))}
+
+            options={[{ value: 'planning', label: '評估中' }, { value: 'contracted', label: '已承攬（執行中）' }, { value: 'closed', label: '已結案' }]}
+
+          />
           <Checkbox
             checked={!!params.include_unawarded}
             onChange={(ev) => setParams((p) => ({ ...p, include_unawarded: ev.target.checked || undefined, page: 1 }))}

@@ -164,6 +164,10 @@ export interface ERPQuotation {
    *  也不列入成本填報缺口。 */
   case_category?: string;
   amount_mismatch?: boolean;
+  /** 協力廠商（應付上的廠商名，頓號分隔；2026-09-04） */
+  vendor_names?: string;
+  /** 議價金額＝承攬案合約額；未成案為空 */
+  contract_amount?: number | string;
 }
 
 /** ERP 報價建立 */
@@ -269,6 +273,10 @@ export interface ERPQuotationListParams {
    *  新建、尚未成案的報價單在 UI 上永遠看不到。owner 當日新建「CCC」即此。 */
   include_unawarded?: boolean;
   [key: string]: unknown;
+  /** 計畫類別 01／02（2026-09-04） */
+  category?: string;
+  /** 案件狀態 planning／contracted／closed */
+  case_status?: string;
 }
 
 /** ERP 發票 */
