@@ -59,7 +59,7 @@ export const useERPQuotation = (id: number | null | undefined) => {
 };
 
 /** 取得損益摘要 */
-export const useERPProfitSummary = (params?: { year?: number }) => {
+export const useERPProfitSummary = (params?: { year?: number; search?: string }) => {
   return useQuery({
     queryKey: erpKeys.quotations.profitSummary(params),
     queryFn: () => erpQuotationsApi.profitSummary(params),

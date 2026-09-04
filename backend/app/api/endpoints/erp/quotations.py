@@ -167,7 +167,7 @@ async def get_profit_summary(
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
 ):
     """損益摘要"""
-    result = await service.get_profit_summary(year=req.year)
+    result = await service.get_profit_summary(year=req.year, search=req.search)
     return SuccessResponse(data=result)
 
 

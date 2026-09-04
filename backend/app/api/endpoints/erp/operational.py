@@ -111,7 +111,8 @@ async def get_stats(
 ):
     """營運帳目統計"""
     fiscal_year = params.get("fiscal_year") if isinstance(params, dict) else None
-    result = await service.get_stats(fiscal_year=fiscal_year)
+    keyword = params.get("keyword") if isinstance(params, dict) else None
+    result = await service.get_stats(fiscal_year=fiscal_year, keyword=keyword or None)
     return SuccessResponse(data=result)
 
 

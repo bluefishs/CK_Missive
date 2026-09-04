@@ -140,11 +140,13 @@ async def get_assets_by_invoice(
 
 @router.post("/stats")
 async def get_asset_stats(
+    params: dict = {},
     service: AssetService = Depends(get_service(AssetService)),
     current_user: User = Depends(require_auth()),
 ):
-    """取得資產統計"""
-    stats = await service.get_stats()
+    """取得資產統計（body 可帶 keyword，與列表同一組條件）"""
+    keyword = params.get("keyword") if isinstance(params, dict) else None
+    stats = await service.get_stats(keyword=keyword or None)
     return SuccessResponse(data=AssetStatsResponse(**stats))
 
 

@@ -94,25 +94,40 @@ class AssetRepository(BaseRepository[Asset]):
         await self.db.flush()
         return True
 
-    async def get_asset_stats(self) -> Dict[str, Any]:
-        """取得資產統計"""
-        # Status counts
-        status_query = (
-            select(Asset.status, func.count(Asset.id))
-            .group_by(Asset.status)
+    @staticmethod
+    def _keyword_clause(keyword: Optional[str]):
+        """列表與統計共用的關鍵字條件（2026-09-04：統計卡是列表的分母，兩邊必須同一組欄位）"""
+        if not keyword:
+            return None
+        pattern = f"%{keyword}%"
+        return or_(
+            Asset.name.ilike(pattern), Asset.asset_code.ilike(pattern), Asset.brand.ilike(pattern),
+            Asset.model.ilike(pattern), Asset.serial_number.ilike(pattern),
+            Asset.custodian.ilike(pattern), Asset.location.ilike(pattern),
         )
+
+    async def get_asset_stats(self, keyword: Optional[str] = None) -> Dict[str, Any]:
+        """取得資產統計（keyword 與列表同一組條件）"""
+        kw = self._keyword_clause(keyword)
+
+        def _scoped(q):
+            return q.where(kw) if kw is not None else q
+
+        # Status counts
+        status_query = _scoped(
+            select(Asset.status, func.count(Asset.id))
+        ).group_by(Asset.status)
         result = await self.db.execute(status_query)
         status_counts = {row[0]: row[1] for row in result.all()}
 
         # Category counts with total value
-        category_query = (
+        category_query = _scoped(
             select(
                 Asset.category,
                 func.count(Asset.id).label("count"),
                 func.coalesce(func.sum(Asset.current_value), 0).label("value"),
             )
-            .group_by(Asset.category)
-        )
+        ).group_by(Asset.category)
         result = await self.db.execute(category_query)
         by_category = {}
         for row in result.all():
@@ -122,9 +137,9 @@ class AssetRepository(BaseRepository[Asset]):
             }
 
         # Total value
-        total_value_query = select(
+        total_value_query = _scoped(select(
             func.coalesce(func.sum(Asset.current_value), 0)
-        )
+        ))
         total_value = await self.db.scalar(total_value_query) or 0
 
         total_count = sum(status_counts.values())

@@ -72,7 +72,8 @@ const ERPAssetListPage: React.FC = () => {
   const [statFilter, setStatFilter] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useAssetList(params);
-  const { data: stats } = useAssetStats();
+  // 2026-09-04：統計卡跟著關鍵字走
+  const { data: stats } = useAssetStats({ keyword: params.keyword || undefined });
   const exportMutation = useExportAssets();
   const importMutation = useImportAssets();
   const batchInventoryMutation = useBatchInventory();

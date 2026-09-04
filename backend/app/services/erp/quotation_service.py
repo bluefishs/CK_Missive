@@ -563,10 +563,10 @@ class ERPQuotationService(AuditableServiceMixin):
     # 損益摘要
     # =========================================================================
 
-    async def get_profit_summary(self, year: Optional[int] = None) -> ERPProfitSummary:
-        """年度損益摘要 — 批次聚合消除 N+1"""
+    async def get_profit_summary(self, year: Optional[int] = None, search: Optional[str] = None) -> ERPProfitSummary:
+        """年度損益摘要 — 批次聚合消除 N+1（search 與列表同一個關鍵字，統計卡跟著篩選走）"""
         items, _ = await self.repo.filter_quotations(
-            year=year, skip=0, limit=9999,
+            year=year, search=search or None, skip=0, limit=9999,
         )
 
         total_revenue = ZERO

@@ -106,7 +106,7 @@ export const erpFinanceKeys = {
     list: (filters: object) => [...erpFinanceKeys.assets.lists(), filters] as const,
     details: () => [...erpFinanceKeys.assets.all, 'detail'] as const,
     detail: (id: number) => [...erpFinanceKeys.assets.details(), id] as const,
-    stats: () => [...erpFinanceKeys.assets.all, 'stats'] as const,
+    stats: (params?: object) => [...erpFinanceKeys.assets.all, 'stats', params ?? {}] as const,
     logs: (assetId: number | null, action?: string) => [...erpFinanceKeys.assets.all, 'logs', assetId, action] as const,
     detailFull: (id: number) => [...erpFinanceKeys.assets.all, 'detail-full', id] as const,
   },
@@ -116,7 +116,7 @@ export const erpFinanceKeys = {
     list: (filters: object) => [...erpFinanceKeys.operational.lists(), filters] as const,
     details: () => [...erpFinanceKeys.operational.all, 'detail'] as const,
     detail: (id: number) => [...erpFinanceKeys.operational.details(), id] as const,
-    stats: () => [...erpFinanceKeys.operational.all, 'stats'] as const,
+    stats: (params?: object) => [...erpFinanceKeys.operational.all, 'stats', params ?? {}] as const,
     expenses: (accountId: number | null) => [...erpFinanceKeys.operational.all, 'expenses', accountId] as const,
   },
 };
@@ -666,12 +666,12 @@ export function useAssetDetail(assetId: number | null) {
 }
 
 /** 資產統計 */
-export function useAssetStats() {
+export function useAssetStats(params?: { keyword?: string }) {
   return useQuery<AssetStats>({
-    queryKey: erpFinanceKeys.assets.stats(),
+    queryKey: erpFinanceKeys.assets.stats(params),
     queryFn: async () => {
       const res = await apiClient.post<{ data: AssetStats }>(
-        ERP_ENDPOINTS.ASSETS_STATS, {}
+        ERP_ENDPOINTS.ASSETS_STATS, params ?? {}
       );
       return res.data ?? {} as AssetStats;
     },
@@ -873,12 +873,12 @@ export function useOperationalAccountDetail(id: number | null) {
 }
 
 /** 營運帳目統計 */
-export function useOperationalAccountStats() {
+export function useOperationalAccountStats(params?: { fiscal_year?: number; keyword?: string }) {
   return useQuery<OperationalAccountStats>({
-    queryKey: erpFinanceKeys.operational.stats(),
+    queryKey: erpFinanceKeys.operational.stats(params),
     queryFn: async () => {
       const res = await apiClient.post<{ data: OperationalAccountStats }>(
-        ERP_ENDPOINTS.OPERATIONAL_STATS, {}
+        ERP_ENDPOINTS.OPERATIONAL_STATS, params ?? {}
       );
       return res.data ?? { total_accounts: 0, total_budget: 0, total_spent: 0, by_category: {} };
     },

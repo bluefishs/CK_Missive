@@ -73,7 +73,8 @@ const ERPOperationalListPage: React.FC = () => {
 
   const [statFilter, setStatFilter] = useState<string | null>(null);
   const { data, isLoading, isError, refetch } = useOperationalAccounts(params);
-  const { data: stats } = useOperationalAccountStats();
+  // 2026-09-04：統計卡跟著年度＋關鍵字走（此前送空 body ⇒ 選了年度卡片不動）
+  const { data: stats } = useOperationalAccountStats({ fiscal_year: params.fiscal_year, keyword: params.keyword || undefined });
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const total = data?.total ?? 0;

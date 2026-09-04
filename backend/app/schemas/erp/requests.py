@@ -55,6 +55,7 @@ class ERPQuotationUpdateRequest(BaseModel):
 class ERPSummaryRequest(BaseModel):
     """損益摘要/匯出請求"""
     year: Optional[int] = Field(None, description="年度")
+    search: Optional[str] = Field(None, description="與列表同一個關鍵字（統計卡是列表的分母，2026-09-04）")
 
 
 class ERPGenerateCodeRequest(BaseModel):

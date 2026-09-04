@@ -88,13 +88,16 @@ class OperationalAccountRepository(BaseRepository[OperationalAccount]):
         return f"{prefix}{seq:03d}"
 
     async def get_stats(
-        self, fiscal_year: Optional[int] = None
+        self, fiscal_year: Optional[int] = None, keyword: Optional[str] = None,
     ) -> dict:
-        """取得統計數據"""
+        """取得統計數據（2026-09-04：加 keyword，與列表同一組條件——統計卡是列表的分母）"""
         # Base filters
         acct_filter = []
         if fiscal_year:
             acct_filter.append(self.model.fiscal_year == fiscal_year)
+        if keyword:
+            kw = f"%{keyword}%"
+            acct_filter.append(self.model.name.ilike(kw) | self.model.account_code.ilike(kw))
 
         # Total accounts
         stmt_count = select(func.count(self.model.id))
@@ -117,6 +120,9 @@ class OperationalAccountRepository(BaseRepository[OperationalAccount]):
         )
         if fiscal_year:
             spent_stmt = spent_stmt.where(OperationalAccount.fiscal_year == fiscal_year)
+        if keyword:
+            kw = f"%{keyword}%"
+            spent_stmt = spent_stmt.where(OperationalAccount.name.ilike(kw) | OperationalAccount.account_code.ilike(kw))
         total_spent = await self.db.scalar(spent_stmt) or Decimal("0")
 
         # By category

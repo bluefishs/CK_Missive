@@ -62,7 +62,8 @@ export const ERPQuotationListPage: React.FC = () => {
   // 不一致 —— 那比沒有年度篩選更糟：兩個數字都在畫面上，而使用者無從
   // 判斷哪一個才是他要的。後端 get_profit_summary 本來就收 year，
   // 是前端沒傳（同「送出的與收到的不一致」家族）。
-  const { data: profitSummary } = useERPProfitSummary({ year: params.year });
+  // 2026-09-04：統計卡跟著列表的年度＋關鍵字走（分母＝列表範圍）
+  const { data: profitSummary } = useERPProfitSummary({ year: params.year, search: params.search });
   // 2026-08-15：刪除改由詳情頁提供（對照 /documents 的導航設計），
   // 列表不再持有刪除能力，故 useDeleteERPQuotation 與 handleDelete 一併移除。
 

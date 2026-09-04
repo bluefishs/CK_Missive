@@ -115,9 +115,9 @@ class AssetService(AuditableServiceMixin):
         """取得資產完整詳情 (含關聯發票+案件)"""
         return await self.repo.get_asset_with_invoice(asset_id)
 
-    async def get_stats(self) -> Dict[str, Any]:
-        """取得資產統計"""
-        return await self.repo.get_asset_stats()
+    async def get_stats(self, keyword: Optional[str] = None) -> Dict[str, Any]:
+        """取得資產統計（keyword 與列表同一組條件）"""
+        return await self.repo.get_asset_stats(keyword=keyword)
 
     # =========================================================================
     # IO 委派 (Excel 匯出入 — 委派至 asset_service_io.py)
