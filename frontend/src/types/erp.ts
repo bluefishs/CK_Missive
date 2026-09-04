@@ -1138,6 +1138,8 @@ export interface VendorAccountSummaryItem {
   total_payable: number;
   total_paid: number;
   outstanding: number;
+  /** 統一編號（2026-09-04 起；vendor_code 只是內部代碼） */
+  tax_id?: string;
 }
 
 /** 廠商帳款統計卡的**全量**合計（分頁前，後端計算）—— development-rules §2.6 ① */
@@ -1181,6 +1183,8 @@ export interface VendorAccountDetail {
   total_paid: number;
   outstanding: number;
   cases: VendorCasePayableItem[];
+  /** 統一編號（2026-09-04 起；vendor_code 只是內部代碼） */
+  tax_id?: string;
 }
 
 /** 分頁前的全體合計（2026-08-29）—— 統計卡用它，不由前端加總「取回那頁」 */
@@ -1201,6 +1205,8 @@ export interface ClientAccountSummaryItem {
   total_billed: number;
   total_received: number;
   outstanding: number;
+  /** 統一編號（2026-09-04 起；vendor_code 只是內部代碼） */
+  tax_id?: string;
 }
 
 export interface ClientCaseReceivableItem {
@@ -1236,6 +1242,7 @@ export interface ClientAccountDetail {
   total_received: number;
   outstanding: number;
   cases: ClientCaseReceivableItem[];
+  tax_id?: string;
 }
 
 export interface AccountListRequest {

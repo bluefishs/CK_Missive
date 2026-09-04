@@ -94,7 +94,7 @@ const ERPClientAccountDetailPage: React.FC = () => {
       </Row>
       <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered style={{ marginBottom: 16 }}>
         <Descriptions.Item label="單位名稱">{detail?.vendor_name ?? '-'}</Descriptions.Item>
-        <Descriptions.Item label="代碼">{detail?.vendor_code ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="統一編號">{detail?.tax_id ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="案件數">{detail?.cases?.length ?? 0}</Descriptions.Item>
       </Descriptions>
       <EnhancedTable<ClientCaseReceivableItem>
@@ -202,7 +202,7 @@ const ERPClientAccountDetailPage: React.FC = () => {
       header={{
         title: detail?.vendor_name ?? '載入中...',
         backPath: ROUTES.ERP_CLIENT_ACCOUNTS,
-        subtitle: detail?.vendor_code,
+        subtitle: detail?.tax_id ? `統編 ${detail.tax_id}` : undefined,
         extra: (
           <Select
             style={{ width: 120 }}

@@ -577,6 +577,8 @@ run_step "103" "成案即應收：第一期請款存在性" "scripts/checks/firs
 run_step "104" "ERP 金額語意三方對帳（FIELD_SEMANTICS）" "scripts/checks/erp_amount_semantics_audit.py"
 # 105（09-04 金流複查）：匯入把「已成立」寫成 contracted 卻不建承攬案 ⇒ 16 筆在每張表上各自「正常」而整條鏈斷掉
 run_step "105" "案件狀態一致性（已承攬⇔承攬案⇔project_code）" "scripts/checks/case_state_consistency_audit.py"
+# 106（09-04 owner「協力廠商已增列費用但廠商帳款／應付沒列入」）：指派表與應付表沒有橋，16 案有指派 13 案無應付
+run_step "106" "指派即應付（協力廠商指派⇔應付）" "scripts/checks/vendor_association_payable_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

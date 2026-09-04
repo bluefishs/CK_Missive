@@ -187,14 +187,23 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         result = await self.db.execute(query)
         rows = result.all()
 
+        # 2026-09-04：以廠商名對主檔一次，補 id／內部代碼／統一編號（此前 vendor_code 一律 None）
+        from app.extended.models.core import PartnerVendor as _PV
+        _names = [(r.vendor_name or "").strip() for r in rows if r.vendor_name]
+        vendor_lookup: dict = {}
+        if _names:
+            _vr = (await self.db.execute(select(_PV.id, _PV.vendor_name, _PV.vendor_code, _PV.tax_id).where(_PV.vendor_name.in_(_names)))).all()
+            vendor_lookup = {(v.vendor_name or "").strip(): {"id": v.id, "vendor_code": v.vendor_code, "tax_id": v.tax_id} for v in _vr}
         items = []
         for r in rows:
             tp = Decimal(str(r.total_payable or 0))
             pd = Decimal(str(r.total_paid or 0))
+            _v = vendor_lookup.get((r.vendor_name or "").strip(), {})
             items.append({
-                "vendor_id": r.vendor_id or 0,
+                "vendor_id": r.vendor_id or _v.get("id") or 0,
                 "vendor_name": r.vendor_name,
-                "vendor_code": None,  # Not available without vendor_id join
+                "vendor_code": _v.get("vendor_code"),
+                "tax_id": _v.get("tax_id"),  # 2026-09-04：統一編號在 tax_id（此前存 vendor_code）
                 "case_count": r.case_count,
                 "total_payable": str(tp),
                 "total_paid": str(pd),
@@ -289,6 +298,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
             "vendor_id": vendor.id,
             "vendor_name": vendor.vendor_name,
             "vendor_code": vendor.vendor_code,
+            "tax_id": vendor.tax_id,
             "total_payable": str(total_payable),
             "total_paid": str(total_paid),
             "outstanding": str(total_payable - total_paid),

@@ -267,6 +267,85 @@ class ERPVendorPayableService(AuditableServiceMixin):
                 return vendor.id
         return None
 
+    # ── 2026-09-04 owner「/contract-cases/191?tab=vendors 已增列費用，但 /erp/vendor-accounts 沒列入、
+    #    /erp/quotations/172?tab=payable 也沒自動填報」──
+    # 承攬案的「協力廠商」分頁寫的是 project_vendor_association（vendor_id + contract_amount），
+    # 而廠商帳款／應付分頁讀的是 erp_vendor_payables（掛 erp_quotation_id）。兩張表沒有橋：
+    # 實測 16 案有指派、13 案沒有對應應付。與「成案即應收」（ensure_first_period）同型：指派即應付。
+    AUTO_TAG = "[auto:vendor_association]"
+
+    async def ensure_from_association(
+        self, project_id: int, vendor_id: int, contract_amount, role: Optional[str] = None,
+    ) -> Optional[ERPVendorPayable]:
+        """協力廠商指派 → 對應報價單的應付（沒有就建、自動建的且未付就跟著改金額）。
+
+        回 None 的情況：金額空／0、承攬案沒有報價單（GN 標案）、找不到廠商。都會 logger.info 出聲。
+        只動自己建的（notes 帶 AUTO_TAG）且尚未付款的；人工建的應付不碰。
+        """
+        from decimal import Decimal
+        from sqlalchemy import select as _sel
+        from app.extended.models.core import ContractProject, PartnerVendor
+        from app.extended.models.erp import ERPQuotation
+
+        amount = Decimal(str(contract_amount or 0))
+        cp = (await self.db.execute(_sel(ContractProject).where(ContractProject.id == project_id))).scalar_one_or_none()
+        vendor = (await self.db.execute(_sel(PartnerVendor).where(PartnerVendor.id == vendor_id))).scalar_one_or_none()
+        if cp is None or vendor is None:
+            logger.info("ensure_from_association: 承攬案 %s 或廠商 %s 不存在，略過", project_id, vendor_id)
+            return None
+        q = (await self.db.execute(
+            _sel(ERPQuotation)
+            # 不排除 quote_kind=tender：01 委辦招標案的應付本來就掛在那張投標報價單上
+            # （#189 的 10,560,000 就是 tender；首版排除它讓 187／189 四筆 2,000,000 指派全被略過）
+            .where(ERPQuotation.case_code == cp.case_code, ERPQuotation.deleted_at.is_(None))
+            .order_by((ERPQuotation.project_code == cp.project_code).desc(), ERPQuotation.id.desc())
+            .limit(1)
+        )).scalar_one_or_none()
+        if q is None:
+            logger.info("ensure_from_association: 承攬案 %s（%s）沒有報價單，應付無處可掛（GN 標案豁免，weekly 98）", project_id, cp.case_code)
+            return None
+        existing = (await self.db.execute(
+            _sel(ERPVendorPayable)
+            .where(ERPVendorPayable.erp_quotation_id == q.id)
+            .where((ERPVendorPayable.vendor_id == vendor_id) | (ERPVendorPayable.vendor_name == vendor.vendor_name))
+            .order_by(ERPVendorPayable.id)
+        )).scalars().all()
+        auto = [p for p in existing if (p.notes or "").startswith(self.AUTO_TAG)]
+        if existing and not auto:
+            # 人工已建應付 ⇒ 指派金額只是參考，不覆蓋人工紀錄
+            return existing[0]
+        if auto:
+            p = auto[0]
+            unpaid = (p.payment_status or "unpaid") in ("unpaid", "pending") and not (p.paid_amount or 0)
+            if amount <= 0 and unpaid:
+                await self.repo.delete(p.id)
+                await self.audit_delete(p.id)
+                return None
+            if unpaid and Decimal(str(p.payable_amount or 0)) != amount:
+                p.payable_amount = amount
+                p.description = role or p.description
+                await self.db.commit()
+                await self.audit_update(p.id, {"payable_amount": str(amount)})
+            return p
+        if amount <= 0:
+            return None
+        payable = await self.repo.create({
+            "erp_quotation_id": q.id,
+            "vendor_id": vendor.id,
+            "vendor_name": vendor.vendor_name,
+            "vendor_code": vendor.tax_id or vendor.vendor_code,
+            "payable_amount": amount,
+            "description": role or "協力廠商指派",
+            "payment_status": "unpaid",
+            "notes": f"{self.AUTO_TAG} 由承攬案「協力廠商」分頁的指派自動建立（{cp.project_code or cp.case_code}）",
+        })
+        await self.audit_create(payable.id, {"erp_quotation_id": q.id, "vendor_id": vendor.id, "payable_amount": str(amount), "source": "vendor_association"})
+        return payable
+
+    async def remove_auto_from_association(self, project_id: int, vendor_id: int) -> bool:
+        """指派刪除時，自動建且未付的應付一併撤；人工建的或已付的保留（會在 weekly 99 家族被看到）。"""
+        return (await self.ensure_from_association(project_id, vendor_id, 0)) is None
+
     async def delete(self, payable_id: int) -> bool:
         """刪除廠商應付 — 同步清理對應帳本 entries"""
         await self.ledger_service.delete_by_source("erp_vendor_payable", payable_id)

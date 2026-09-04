@@ -94,3 +94,12 @@ weekly 104 ⑨ 用這兩個簽名判 RED；⑩ 其他不等只 YELLOW（可能�
 |---|---|
 | `erp_invoices.source` | `manual`／`xls_import`／`auto_from_billing`（20260903a001） |
 | `erp_billings.notes` 前綴 `系統自動建立：` | 成案即應收自動第一期（weekly 103 認這個前綴） |
+| `erp_vendor_payables.notes` 前綴 `[auto:vendor_association]` | 承攬案「協力廠商」指派自動建的應付（**指派即應付**，2026-09-04；weekly 106 認這個前綴）。人工建的應付不帶前綴、指派金額改動不覆蓋它 |
+
+## 識別碼（2026-09-04 owner「代碼 vs 統一編號」）
+
+| 欄位 | 語意 |
+|---|---|
+| `partner_vendors.tax_id` | **統一編號**（8 碼）。畫面一律標「統一編號」、讀這欄 |
+| `partner_vendors.vendor_code` | **內部代碼**（選填）。此前協力廠商 15 家把統編填在這裡（已搬到 `tax_id`），委託單位卻填 `tax_id`——同一件事兩個欄位。查廠商 `get_id_by_vendor_code` 兩欄都認、`tax_id` 優先 |
+| `erp_vendor_payables.vendor_code` | 建立時抄廠商的 `tax_id`（無則 `vendor_code`）；唯讀快照，不是鍵 |

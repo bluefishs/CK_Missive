@@ -88,7 +88,7 @@ const ERPVendorAccountDetailPage: React.FC = () => {
       <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered style={{ marginBottom: 16 }}>
         <Descriptions.Item label="廠商名稱">{detail?.vendor_name ?? '-'}</Descriptions.Item>
         {/* 2026-08-27：`vendor_code` 實測全部是 8 碼統編格式 ⇒ 直接叫統一編號 */}
-        <Descriptions.Item label="統一編號">{detail?.vendor_code ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="統一編號">{detail?.tax_id ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="合作案件數">{detail?.cases?.length ?? 0}</Descriptions.Item>
       </Descriptions>
       <EnhancedTable<VendorCasePayableItem>

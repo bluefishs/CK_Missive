@@ -2,13 +2,14 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag, Checkbox } from 'antd';
+import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, DownloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
 import { useERPQuotations, useERPProfitSummary, useAuthGuard } from '../hooks';
+import { useClientOptions } from '../hooks/business/useDropdownData';
 import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
@@ -59,6 +60,9 @@ export const ERPQuotationListPage: React.FC = () => {
   //   與後端說同一件事。
   const canWrite = hasPermission('projects:edit');
   const [statFilter, setStatFilter] = useState<string | null>(null);
+  const { clients: clientOptions } = useClientOptions();
+  // 2026-09-04 owner：「專案帳款接續處理已承攬案件，不含非成案紀錄」——固定只列成案（後端預設 include_unawarded=false），
+  // 「含未成案」開關已移除；未成案的報價單在各案件的「報價單」分頁處理。
   const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc', year: CURRENT_YEAR });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);
   // ⚠️ 統計卡必須跟著年度篩選走，否則會出現「列表 92 筆／卡片 257 筆」的
@@ -84,7 +88,10 @@ export const ERPQuotationListPage: React.FC = () => {
       render: (_: unknown, r: ERPQuotation) => (
         <Space direction="vertical" size={0}>
           <span>{r.project_code || <Text type="secondary">未成案</Text>}</span>
-          <Text type="secondary" style={{ fontSize: 11 }} title="建案案號">{r.case_code}</Text>
+          {/* 舊制成案編號＝建案案號時不重複印（owner 09-04） */}
+          {r.case_code && r.case_code !== r.project_code && (
+            <Text type="secondary" style={{ fontSize: 11 }} title="建案案號">{r.case_code}</Text>
+          )}
         </Space>
       ),
     },
@@ -101,8 +108,10 @@ export const ERPQuotationListPage: React.FC = () => {
       render: (v: string | null) => v || <Text type="secondary">—</Text>,
     },
     {
-      title: '協力廠商', dataIndex: 'vendor_names', key: 'vendor_names', width: 140, ellipsis: true, hideOnMobile: true,
-      render: (v?: string) => v || <Text type="secondary">—</Text>,
+      title: '協力廠商', dataIndex: 'vendor_names', key: 'vendor_names', width: 170, hideOnMobile: true,
+      render: (v?: string) => v ? (
+        <Space size={[4, 4]} wrap>{v.split('、').map((n) => <Tag key={n} style={{ margin: 0 }}>{n}</Tag>)}</Space>
+      ) : <Text type="secondary">—</Text>,
     },
     {
       title: '議價金額', dataIndex: 'contract_amount', key: 'contract_amount', width: 120, align: 'right',
@@ -271,20 +280,11 @@ export const ERPQuotationListPage: React.FC = () => {
           />
 
           <Select
-
-            placeholder="案件狀態" allowClear style={{ width: 130 }} value={params.case_status}
-
-            onChange={(v) => setParams((p) => ({ ...p, case_status: v || undefined, page: 1 }))}
-
-            options={[{ value: 'planning', label: '評估中' }, { value: 'contracted', label: '已承攬（執行中）' }, { value: 'closed', label: '已結案' }]}
-
+            placeholder="委託單位" allowClear showSearch style={{ width: 220 }} value={params.client_name}
+            optionFilterProp="label"
+            onChange={(v) => setParams((p) => ({ ...p, client_name: v || undefined, page: 1 }))}
+            options={clientOptions.map((c) => ({ value: c.vendor_name, label: c.vendor_name }))}
           />
-          <Checkbox
-            checked={!!params.include_unawarded}
-            onChange={(ev) => setParams((p) => ({ ...p, include_unawarded: ev.target.checked || undefined, page: 1 }))}
-          >
-            含未成案
-          </Checkbox>
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
           <Button
             icon={<FileExcelOutlined />}
@@ -300,7 +300,7 @@ export const ERPQuotationListPage: React.FC = () => {
                 message.success('匯出成功');
               } catch (e) { message.error(getErrorMessage(e, '匯出失敗'), 8); }
             }}
-          >匯出 Excel</Button>
+           title="匯出目前篩選範圍的彙整表（38 欄，與範本、匯入同一份表頭）">匯出彙整表</Button>
           {canWrite && (
             <>
               {/* 2026-09-03：移除舊 11 欄「匯入 Excel」——它與總表格式不同、會造出無編號的報價單。
@@ -312,7 +312,7 @@ export const ERPQuotationListPage: React.FC = () => {
                   const a = document.createElement('a'); a.href = url; a.download = '報價單彙整_匯入範本.xlsx'; a.click();
                   URL.revokeObjectURL(url);
                 } catch (e) { message.error(getErrorMessage(e, '範本下載失敗'), 8); }
-              }}>下載範本</Button>
+              }} title="空白彙整表範本（表頭與匯出、匯入相同）">下載空白範本</Button>
               {/* owner 2026-08-19：「若線上產出報價單未完全上線前，如何匯入與管理
                   既有 XLS 為目前階段重點」「新增與更新整合為一個按鍵鈕」。
                   依舊案號（B114-B002）upsert —— 有就更新、沒有就新增，
@@ -394,7 +394,7 @@ export const ERPQuotationListPage: React.FC = () => {
                   return false;
                 }}
               >
-                <Button icon={<FileExcelOutlined />}>匯入彙整表（舊案號）</Button>
+                <Button icon={<FileExcelOutlined />} title="上傳彙整表（與匯出／範本同格式）：依舊案號或報價單編號比對，有就更新、沒有就新增；先預覽再寫入">匯入彙整表</Button>
               </Upload>
               {/* owner 2026-08-19：「產生報價單只是步驟一，其需將客戶回簽檔案
                   上傳確認才正式完成邀標報價承攬」。
@@ -453,22 +453,8 @@ export const ERPQuotationListPage: React.FC = () => {
                   }
                 }}
               >
-                <Button icon={<UploadOutlined />}>匯入客戶回簽</Button>
+                <Button icon={<UploadOutlined />} title="批次上傳回簽 PDF，檔名須帶舊案號（回簽報價單_<舊案號>_…）才對得到；單一案件請到案件頁的報價單分頁上傳">批次匯入回簽 PDF</Button>
               </Upload>
-              <Button
-                icon={<DownloadOutlined />}
-                onClick={async () => {
-                  try {
-                    const blob = await erpQuotationsApi.downloadTemplate();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'erp_quotation_template.xlsx';
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  } catch (e) { message.error(getErrorMessage(e, '下載範本失敗'), 8); }
-                }}
-              >下載範本</Button>
             </>
           )}
         </Space>

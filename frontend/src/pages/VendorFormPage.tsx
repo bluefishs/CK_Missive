@@ -169,8 +169,13 @@ export const VendorFormPage: React.FC = () => {
           >
             <Input placeholder="請輸入廠商名稱" />
           </Form.Item>
-          <Form.Item name="vendor_code" label="統一編號">
-            <Input placeholder="請輸入統一編號（8 碼）" />
+          {/* 2026-09-04 owner「代碼 vs 統一編號」：此前把統編填進 vendor_code（協力廠商 15 家）、委託單位卻填 tax_id ——
+              同一件事兩個欄位。統一：tax_id＝統一編號，vendor_code＝內部代碼（選填）。存量已搬。 */}
+          <Form.Item name="tax_id" label="統一編號" rules={[{ pattern: /^\d{8}$/, message: '統一編號為 8 碼數字' }]}>
+            <Input placeholder="8 碼數字" maxLength={8} />
+          </Form.Item>
+          <Form.Item name="vendor_code" label="內部代碼（選填）">
+            <Input placeholder="公司內部的廠商代碼；不是統編" />
           </Form.Item>
         </ResponsiveFormRow>
 

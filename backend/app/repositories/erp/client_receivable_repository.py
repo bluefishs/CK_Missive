@@ -90,6 +90,7 @@ class ClientReceivableRepository:
                 PMCase.client_vendor_id.label("vendor_id"),
                 PartnerVendor.vendor_name,
                 PartnerVendor.vendor_code,
+                PartnerVendor.tax_id,
                 func.count(func.distinct(PMCase.case_code)).label("case_count"),
                 func.coalesce(func.sum(billing_agg.c.contract_amount), 0).label("total_contract"),
                 func.coalesce(func.sum(billing_agg.c.total_billed), 0).label("total_billed"),
@@ -106,7 +107,7 @@ class ClientReceivableRepository:
         if keyword:
             leg1 = leg1.where(PartnerVendor.vendor_name.ilike(f"%{keyword}%"))
         leg1 = leg1.group_by(
-            PMCase.client_vendor_id, PartnerVendor.vendor_name, PartnerVendor.vendor_code
+            PMCase.client_vendor_id, PartnerVendor.vendor_name, PartnerVendor.vendor_code, PartnerVendor.tax_id
         )
 
         # ── 腿 2：承攬案件文字客戶路徑（case_code 不在腿 1 覆蓋範圍者）──
@@ -146,6 +147,7 @@ class ClientReceivableRepository:
                 "vendor_id": r.vendor_id,
                 "vendor_name": r.vendor_name,
                 "vendor_code": r.vendor_code,
+                "tax_id": r.tax_id,
                 "case_count": int(r.case_count or 0),
                 "_tc": Decimal(str(r.total_contract or 0)),
                 "_tb": Decimal(str(r.total_billed or 0)),
@@ -154,6 +156,16 @@ class ClientReceivableRepository:
             items.append(row)
             by_name[(r.vendor_name or "").strip()] = row
 
+        # 2026-09-04 owner「嘉義縣竹崎地政事務所無法點擊檢視細項」：leg2 只有名字，此前名稱對不上 leg1 就 vendor_id=None
+        # ⇒ 沒有明細頁。改成拿名字去委託單位主檔對一次（主檔已補齊承攬案的委託單位名），對到就給 vendor_id。
+        leg2_names = [(r.client_name or "").strip() for r in leg2_rows]
+        name_to_vendor: dict[str, tuple] = {}
+        if leg2_names:
+            vrows = (await self.db.execute(
+                select(PartnerVendor.id, PartnerVendor.vendor_name, PartnerVendor.vendor_code, PartnerVendor.tax_id)
+                .where(func.btrim(PartnerVendor.vendor_name).in_(leg2_names))
+            )).all()
+            name_to_vendor = {(v.vendor_name or "").strip(): (v.id, v.vendor_code, v.tax_id) for v in vrows}
         for r in leg2_rows:
             name = (r.client_name or "").strip()
             existing = by_name.get(name)
@@ -165,10 +177,12 @@ class ClientReceivableRepository:
             else:
                 # 名稱對不上任何 partner_vendor —— 誠實列出（vendor_id=None），
                 # 不自動建檔、不模糊比對（owner B8：重複判定屬人為填報要修正）
+                vid, vcode, vtax = name_to_vendor.get(name, (None, None, None))
                 items.append({
-                    "vendor_id": None,
+                    "vendor_id": vid,
                     "vendor_name": name,
-                    "vendor_code": None,
+                    "vendor_code": vcode,
+                    "tax_id": vtax,
                     "case_count": int(r.case_count or 0),
                     "_tc": Decimal(str(r.total_contract or 0)),
                     "_tb": Decimal(str(r.total_billed or 0)),
@@ -247,6 +261,7 @@ class ClientReceivableRepository:
                 "vendor_id": vendor.id,
                 "vendor_name": vendor.vendor_name,
                 "vendor_code": vendor.vendor_code,
+            "tax_id": vendor.tax_id,
                 "total_contract": "0",
                 "total_billed": "0",
                 "total_received": "0",

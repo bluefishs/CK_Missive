@@ -237,10 +237,11 @@ class VendorRepository(BaseRepository[PartnerVendor]):
         }
 
     async def get_id_by_vendor_code(self, vendor_code: str) -> Optional[int]:
-        """依 vendor_code (統編) 查詢廠商 ID"""
+        """依統一編號查廠商 ID —— 2026-09-04 起統編在 tax_id；vendor_code 只當內部代碼，留作後備。"""
         result = await self.db.execute(
             select(PartnerVendor.id)
-            .where(PartnerVendor.vendor_code == vendor_code)
+            .where(or_(PartnerVendor.tax_id == vendor_code, PartnerVendor.vendor_code == vendor_code))
+            .order_by((PartnerVendor.tax_id == vendor_code).desc())
             .limit(1)
         )
         return result.scalar_one_or_none()

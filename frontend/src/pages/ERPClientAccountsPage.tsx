@@ -49,6 +49,8 @@ const ERPClientAccountsPage: React.FC = () => {
     vendor_type: 'client',
     year,
     keyword: keyword || undefined,
+    // 2026-09-04：後端預設 50 而委託單位 186 家 ⇒ 此前頁面只列 50 家、其餘查不到（表格分頁與排序都在這 50 筆上做）
+    limit: 1000,
   });
 
   const items: ClientAccountSummaryItem[] = useMemo(
@@ -99,9 +101,9 @@ const ERPClientAccountsPage: React.FC = () => {
       ellipsis: true,
     },
     {
-      title: '代碼',
-      hideOnMobile: true, dataIndex: 'vendor_code',
-      key: 'vendor_code',
+      title: '統一編號',
+      hideOnMobile: true, dataIndex: 'tax_id',
+      key: 'tax_id',
       width: 140,
     },
     {
@@ -246,6 +248,10 @@ const ERPClientAccountsPage: React.FC = () => {
 
       {isError && <Alert type="error" message="載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
+      {data && data.total > items.length && (
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }}
+          message={`列表只取到 ${items.length}／${data.total} 筆——超過單次上限，請用關鍵字縮小範圍`} />
+      )}
       <Card>
         <EnhancedTable<ClientAccountSummaryItem>
           columns={columns}

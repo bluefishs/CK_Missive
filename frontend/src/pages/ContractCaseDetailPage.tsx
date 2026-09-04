@@ -17,6 +17,7 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
+import { ROUTES } from '../router/types';
 import { useParams } from 'react-router-dom';
 
 import { DetailPageLayout, createTabItem } from '../components/common/DetailPage';
@@ -234,7 +235,9 @@ export const ContractCaseDetailPage: React.FC = () => {
     return <div>Invalid project ID</div>;
   }
 
-  return <ContractCaseDetailContent projectId={projectId} />;
+  // 2026-09-04 owner「/contract-cases/431?tab=staff 返回無法正確回歸至 /contract-cases」：
+  // 沒給 backRoute 時 header 走 navigate(-1)，從別頁（委託單位帳款、報價單）連過來就回到那一頁。固定回列表。
+  return <ContractCaseDetailContent projectId={projectId} backRoute={ROUTES.CONTRACT_CASES} />;
 };
 
 export default ContractCaseDetailPage;

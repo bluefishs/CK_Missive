@@ -14,6 +14,7 @@ from app.db.database import get_async_db
 from app.core.dependencies import require_auth
 from app.extended.models import User
 from app.repositories.project_vendor_repository import ProjectVendorRepository
+from app.services.erp.vendor_payable_service import ERPVendorPayableService
 from app.schemas.project_vendor import (
     ProjectVendorCreate,
     ProjectVendorUpdate,
@@ -62,9 +63,15 @@ async def create_project_vendor_association(
         "end_date": association_data.end_date,
         "status": association_data.status or "active",
     })
+    # 2026-09-04：指派即應付（同「成案即應收」）——否則廠商帳款與應付分頁看不到這筆費用
+    payable = await ERPVendorPayableService(db).ensure_from_association(
+        association_data.project_id, association_data.vendor_id,
+        association_data.contract_amount, association_data.role,
+    )
 
     return {
-        "message": "案件與廠商關聯建立成功",
+        "message": "案件與廠商關聯建立成功" + ("，已自動建立應付帳款" if payable else "（本案無報價單，未建應付）"),
+        "payable_id": payable.id if payable else None,
         "project_id": association_data.project_id,
         "vendor_id": association_data.vendor_id,
     }
@@ -186,6 +193,12 @@ async def update_project_vendor_association(
     update_data = association_data.model_dump(exclude_unset=True)
     if update_data:
         await repo.update_association(project_id, vendor_id, update_data)
+        if "contract_amount" in update_data or "role" in update_data:
+            assoc = await repo.get_association(project_id, vendor_id)
+            if assoc is not None:
+                await ERPVendorPayableService(db).ensure_from_association(
+                    project_id, vendor_id, getattr(assoc, "contract_amount", None), getattr(assoc, "role", None),
+                )
 
     return {
         "message": "案件與廠商關聯更新成功",
@@ -211,7 +224,8 @@ async def delete_project_vendor_association(
     if not await repo.exists(project_id, vendor_id):
         raise HTTPException(status_code=404, detail="案件與廠商關聯不存在")
 
-    # 刪除關聯
+    # 刪除關聯（自動建且未付的應付一併撤；人工建的保留）
+    await ERPVendorPayableService(db).remove_auto_from_association(project_id, vendor_id)
     await repo.delete_association(project_id, vendor_id)
 
     return {

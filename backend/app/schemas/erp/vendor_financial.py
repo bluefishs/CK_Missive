@@ -50,7 +50,9 @@ class VendorAccountListRequest(BaseModel):
     year: Optional[int] = None
     keyword: Optional[str] = None
     skip: int = 0
-    limit: int = 50
+    # 2026-09-04 owner「/erp/client-accounts 表格無法查詢」：委託單位 186 家、預設 50 ⇒ 頁面永遠只有 50 家。
+    # 彙總是每家一列，上限放到 1000（weekly 95 家族：上限壞在資料長過它的那天——頁面另有截斷警示）。
+    limit: int = Field(50, ge=1, le=1000)
 
 
 class ClientAccountListRequest(BaseModel):
@@ -58,7 +60,9 @@ class ClientAccountListRequest(BaseModel):
     year: Optional[int] = None
     keyword: Optional[str] = None
     skip: int = 0
-    limit: int = 50
+    # 2026-09-04 owner「/erp/client-accounts 表格無法查詢」：委託單位 186 家、預設 50 ⇒ 頁面永遠只有 50 家。
+    # 彙總是每家一列，上限放到 1000（weekly 95 家族：上限壞在資料長過它的那天——頁面另有截斷警示）。
+    limit: int = Field(50, ge=1, le=1000)
 
 
 class VendorAccountSummaryItem(BaseModel):
@@ -66,6 +70,7 @@ class VendorAccountSummaryItem(BaseModel):
     vendor_id: int
     vendor_name: str
     vendor_code: Optional[str] = None
+    tax_id: Optional[str] = Field(None, description="統一編號（2026-09-04 起 vendor_code 只當內部代碼）")
     case_count: int = 0
     total_payable: Decimal = Decimal("0")
     total_paid: Decimal = Decimal("0")
@@ -98,6 +103,7 @@ class VendorAccountDetail(BaseModel):
     vendor_id: int
     vendor_name: str
     vendor_code: Optional[str] = None
+    tax_id: Optional[str] = Field(None, description="統一編號（2026-09-04 起 vendor_code 只當內部代碼）")
     total_payable: Decimal = Decimal("0")
     total_paid: Decimal = Decimal("0")
     outstanding: Decimal = Decimal("0")
@@ -116,6 +122,7 @@ class ClientAccountSummaryItem(BaseModel):
     vendor_id: Optional[int] = None
     vendor_name: str
     vendor_code: Optional[str] = None
+    tax_id: Optional[str] = Field(None, description="統一編號（2026-09-04 起 vendor_code 只當內部代碼）")
     case_count: int = 0
     total_contract: Decimal = Decimal("0")  # total_price from quotations
     total_billed: Decimal = Decimal("0")
@@ -145,6 +152,7 @@ class ClientAccountDetail(BaseModel):
     vendor_id: int
     vendor_name: str
     vendor_code: Optional[str] = None
+    tax_id: Optional[str] = Field(None, description="統一編號（2026-09-04 起 vendor_code 只當內部代碼）")
     total_contract: Decimal = Decimal("0")
     total_billed: Decimal = Decimal("0")
     total_received: Decimal = Decimal("0")
