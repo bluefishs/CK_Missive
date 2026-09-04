@@ -168,6 +168,8 @@ export interface ERPQuotation {
   vendor_names?: string;
   /** 議價金額＝承攬案合約額；未成案為空 */
   contract_amount?: number | string;
+  /** 議價金額（決標後實際承攬金額，含稅；空＝無議價） */
+  winning_amount?: number | string | null;
 }
 
 /** ERP 報價建立 */

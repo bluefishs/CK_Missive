@@ -33,8 +33,9 @@ from lib.docker_exec import python_in  # noqa: E402
 
 SQL = """
 SELECT json_build_object(
-  'r1', (SELECT json_agg(json_build_array(b.id, q.case_code, b.billing_amount::bigint, q.total_price::bigint)) FROM erp_billings b JOIN erp_quotations q ON q.id=b.erp_quotation_id
-          WHERE b.billing_period='一次請領' AND q.deleted_at IS NULL AND q.total_price>0 AND b.billing_amount<>q.total_price),
+  'r1', (SELECT json_agg(json_build_array(b.id, q.case_code, b.billing_amount::bigint, COALESCE(NULLIF(c.winning_amount,0), q.total_price)::bigint)) FROM erp_billings b JOIN erp_quotations q ON q.id=b.erp_quotation_id
+          LEFT JOIN contract_projects c ON c.case_code=q.case_code
+          WHERE b.billing_period='一次請領' AND q.deleted_at IS NULL AND q.total_price>0 AND b.billing_amount<>COALESCE(NULLIF(c.winning_amount,0), q.total_price)),
   'r2', (SELECT json_agg(json_build_array(i.id, i.invoice_number, i.amount::bigint, b.billing_amount::bigint)) FROM erp_invoices i JOIN erp_billings b ON b.id=i.billing_id WHERE i.amount > b.billing_amount*1.01),
   'r3', (SELECT json_agg(json_build_array(id, billing_code, payment_amount::bigint, billing_amount::bigint)) FROM erp_billings WHERE payment_amount > billing_amount),
   'r4', (SELECT json_agg(json_build_array(id, case_code, tax_amount::bigint, total_price::bigint)) FROM erp_quotations WHERE deleted_at IS NULL AND tax_amount > total_price AND total_price>0),

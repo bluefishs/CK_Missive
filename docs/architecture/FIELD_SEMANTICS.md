@@ -22,7 +22,8 @@
 | `erp_billings.payment_amount` | 實收，含稅；`paid` 時必填且 ≤ billing_amount | billing_service.create 守衛 |
 | `erp_invoices.amount` | 發票**含稅**額（＝銷售額＋稅額） | 與既有 47 張自動補建一致 |
 | `erp_invoices.tax_amount` | 發票稅額；`amount − tax_amount` ＝ 銷售額 | 三聯式 5%，二聯式可為 0 |
-| `contract_projects.contract_amount` | 合約額，**含稅**（同步自 PM `contract_amount`） | 三表同步白名單 |
+| `contract_projects.contract_amount` | **契約金額**，含稅：成案時的報價（投標）金額（同步自 PM `contract_amount`） | 三表同步白名單 |
+| `contract_projects.winning_amount` | **議價金額**，含稅：決標／議價後的實際承攬金額；0／NULL＝無議價。**承攬金額＝COALESCE(NULLIF(winning,0), contract)**，應收面（第一期請款、應收總額、承攬案合計、weekly 104 ①）一律用它（09-04 晚 owner：194 實際費用是議價 596,000 不是契約 625,000） | 12/285 有值、3 筆與契約不同 |
 | `pm_cases.contract_amount` | 同上 | |
 | 桃園 `taoyuan_contract_payments.current_amount` | 本期付款；`cumulative_amount` 是全案累計、每張派工單各帶一份，**不可 sum** | 09-02 |
 
@@ -140,11 +141,13 @@ owner：「各類經費名詞或定義請增列註記補充，以利釐清對應
 
 | key | 顯示文字 | 定義 |
 |---|---|---|
-| `contract_amount` | 契約金額 | 承攬案 contract_projects.contract_amount，含稅。成案時自報價總價同步；未成案的列顯示報價總價。舊稱「合約總額」「議價金額」都是它。 |
-| `contract_amount_sum` | 契約金額合計（含稅） | 目前篩選範圍內所有承攬案的契約金額加總，含稅。與報價單頁「應收總額（未稅）」差 5% 稅。 |
+| `contract_amount` | 契約金額 | 承攬案 contract_projects.contract_amount，含稅：成案時的報價（投標）金額。決標後若有議價，實際承攬金額是「議價金額」。舊稱「合約總額」。 |
+| `winning_amount` | 議價金額 | 承攬案 winning_amount，含稅：決標／議價後的實際承攬金額。有值時應收（第一期請款、應收總額、合計）以它為準；空＝無議價，等於契約金額。 |
+| `awarded_amount` | 承攬金額 | ＝議價金額，沒有議價則＝契約金額（含稅）。所有應收面的數字都用這個。 |
+| `contract_amount_sum` | 承攬金額合計（含稅） | 目前篩選範圍內所有承攬案的承攬金額（議價金額，無則契約金額）加總，含稅。與報價單頁「應收總額（未稅）」差 5% 稅。 |
 | `quotation_total` | 報價總價（含稅） | erp_quotations.total_price，含稅；請款、發票都以它為上限。未稅＝總價 − 稅額。 |
 | `receivable_total_untaxed` | 應收總額（未稅） | 篩選範圍內成案報價單的（總價 − 稅額）加總，未稅。承攬案頁的「契約金額合計」是同一批案的含稅數。 |
-| `billed` | 已請款 | 各期請款金額（erp_billings.billing_amount）加總，含稅；成案時自動建第一期＝報價總價。 |
+| `billed` | 已請款 | 各期請款金額（erp_billings.billing_amount）加總，含稅；成案時自動建第一期＝承攬金額（議價金額，無則報價總價）。 |
 | `unbilled` | 未請款 | 報價總價 − 已請款，含稅。 |
 | `received` | 已收款 | 已收款的請款實收金額（erp_billings.payment_amount）加總，含稅。 |
 | `outstanding` | 應收未收 | 已請款 − 已收款，含稅。列表頁點此卡只列有未收餘額的案。 |
@@ -162,4 +165,4 @@ owner：「各類經費名詞或定義請增列註記補充，以利釐清對應
 | `gross_margin` | 預估毛利率 | 預估毛利 ÷ 未稅營收。 |
 | `invoice_amount` | 發票金額 | erp_invoices.amount，含稅（銷售額＋稅額）；一筆請款一張票，發票額不得超過該期請款。 |
 
-**改名紀錄**：合約總額／議價金額 → **契約金額**；報價單詳情頁「應收總額」（其實是含稅總價）→ **報價總價（含稅）**，與列表頁「應收總額（未稅）」不再同名不同數。
+**改名紀錄**：合約總額 → **契約金額**（原報價）；**議價金額**＝決標後實際金額；**承攬金額**＝議價金額，無則契約金額——應收面用它。報價單詳情頁「應收總額」（含稅總價）→ **報價總價（含稅）**。

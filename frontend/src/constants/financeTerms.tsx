@@ -20,11 +20,19 @@ export const FINANCE_TERMS = {
   // ── 契約／報價 ──
   contract_amount: {
     label: '契約金額',
-    note: '承攬案 contract_projects.contract_amount，含稅。成案時自報價總價同步；未成案的列顯示報價總價。舊稱「合約總額」「議價金額」都是它。',
+    note: '承攬案 contract_projects.contract_amount，含稅：成案時的報價（投標）金額。決標後若有議價，實際承攬金額是「議價金額」。舊稱「合約總額」。',
+  },
+  winning_amount: {
+    label: '議價金額',
+    note: '承攬案 winning_amount，含稅：決標／議價後的實際承攬金額。有值時應收（第一期請款、應收總額、合計）以它為準；空＝無議價，等於契約金額。',
+  },
+  awarded_amount: {
+    label: '承攬金額',
+    note: '＝議價金額，沒有議價則＝契約金額（含稅）。所有應收面的數字都用這個。',
   },
   contract_amount_sum: {
-    label: '契約金額合計（含稅）',
-    note: '目前篩選範圍內所有承攬案的契約金額加總，含稅。與報價單頁「應收總額（未稅）」差 5% 稅。',
+    label: '承攬金額合計（含稅）',
+    note: '目前篩選範圍內所有承攬案的承攬金額（議價金額，無則契約金額）加總，含稅。與報價單頁「應收總額（未稅）」差 5% 稅。',
   },
   quotation_total: {
     label: '報價總價（含稅）',
@@ -37,7 +45,7 @@ export const FINANCE_TERMS = {
   // ── 應收 ──
   billed: {
     label: '已請款',
-    note: '各期請款金額（erp_billings.billing_amount）加總，含稅；成案時自動建第一期＝報價總價。',
+    note: '各期請款金額（erp_billings.billing_amount）加總，含稅；成案時自動建第一期＝承攬金額（議價金額，無則報價總價）。',
   },
   unbilled: {
     label: '未請款',

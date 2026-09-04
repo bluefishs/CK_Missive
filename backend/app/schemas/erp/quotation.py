@@ -192,7 +192,8 @@ class ERPQuotationResponse(BaseModel):
     gross_margin: Optional[Decimal] = Field(None, description="毛利率 (%)")
     # 2026-09-04 owner 專案帳款頁欄位：協力廠商／議價金額
     vendor_names: Optional[str] = Field(None, description="協力廠商（應付上的廠商名，去重、頓號分隔）")
-    contract_amount: Optional[Decimal] = Field(None, description="議價金額＝承攬案合約額（含稅）；未成案為 None")
+    contract_amount: Optional[Decimal] = Field(None, description="契約金額＝承攬案 contract_amount（含稅，成案時＝報價總價）；未成案為 None")
+    winning_amount: Optional[Decimal] = Field(None, description="議價金額＝決標後實際承攬金額（含稅；contract_projects.winning_amount，0／空＝無議價）")
 
     # 2026-08-18 owner：「若可設定公司固定利潤如 10%，
     # 那總金額扣除前述才應該是專案毛利」。

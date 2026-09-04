@@ -278,7 +278,8 @@ class ERPQuotationService(AuditableServiceMixin):
         # 批次取得聚合數據 (2 queries instead of N*6)
         ids = [q.id for q in items]
         vendor_names = await self._get_vendor_names_batch(ids)
-        contract_amounts = await self._get_contract_amounts_batch([q.case_code for q in items])
+        case_amounts = await self._get_case_amounts_batch([q.case_code for q in items])
+        contract_amounts = {k: v["contract"] for k, v in case_amounts.items() if v["contract"] is not None}
         billing_agg = await self.billing_repo.get_aggregates_batch(ids)
         payable_agg = await self.payable_repo.get_aggregates_batch(ids)
         # invoice count 透過 billing count 估算或單獨批次查詢
@@ -309,6 +310,7 @@ class ERPQuotationService(AuditableServiceMixin):
                 company_profit_rate=rate,
                 vendor_names=vendor_names.get(item.id),
                 contract_amount=contract_amounts.get(item.case_code),
+                winning_amount=case_amounts.get(item.case_code, {}).get("winning"),
             ))
         return responses, total
 
@@ -325,15 +327,29 @@ class ERPQuotationService(AuditableServiceMixin):
         return {r[0]: r[1] for r in rows.all()}
 
     async def _get_contract_amounts_batch(self, case_codes: List[str]) -> dict:
-        """case_code → 承攬案合約額（議價金額）。未成案沒有值。"""
+        """case_code → 契約金額（contract_amount）。未成案沒有值。"""
+        return {k: v["contract"] for k, v in (await self._get_case_amounts_batch(case_codes)).items() if v["contract"] is not None}
+
+    async def _get_case_amounts_batch(self, case_codes: List[str]) -> dict:
+        """case_code → {contract: 契約金額, winning: 議價金額, awarded: 承攬金額}。
+
+        2026-09-04 晚 owner「/contract-cases/194 實際費用為議價而非契約金額」：
+        契約金額＝成案時的報價（投標）金額；議價金額＝決標後實際承攬金額；
+        **承攬金額＝COALESCE(NULLIF(議價,0), 契約)**，應收面（第一期請款、應收總額、統計卡）一律用它。
+        """
         codes = [c for c in set(case_codes) if c]
         if not codes:
             return {}
         from sqlalchemy import text as _t
         rows = await self.db.execute(_t(
-            "SELECT case_code, contract_amount FROM contract_projects WHERE case_code = ANY(CAST(:codes AS text[]))"
+            "SELECT case_code, contract_amount, NULLIF(winning_amount, 0) AS winning FROM contract_projects WHERE case_code = ANY(CAST(:codes AS text[]))"
         ), {"codes": codes})
-        return {r[0]: r[1] for r in rows.all() if r[1] is not None}
+        out = {}
+        for r in rows.all():
+            contract = r[1]
+            winning = r[2]
+            out[r[0]] = {"contract": contract, "winning": winning, "awarded": winning if winning is not None else contract}
+        return out
 
 
     async def _get_client_names_batch(self, case_codes: List[str]) -> dict:
@@ -439,6 +455,7 @@ class ERPQuotationService(AuditableServiceMixin):
         creator_name: Optional[str] = None,
         vendor_names: Optional[str] = None,
         contract_amount=None,
+        winning_amount=None,
     ) -> ERPQuotationResponse:
         """轉換為回應格式 (使用預先批次聚合的數據，避免 N+1)
 
@@ -478,6 +495,7 @@ class ERPQuotationService(AuditableServiceMixin):
             created_by_name=creator_name,
             vendor_names=vendor_names,
             contract_amount=contract_amount,
+            winning_amount=winning_amount,
             staff_name=staff_name,
             client_name=client_name,
             invoice_count=invoice_count,
@@ -655,11 +673,18 @@ class ERPQuotationService(AuditableServiceMixin):
         payable_agg = await self.payable_repo.get_aggregates_batch(ids) if ids else {}
         total_payable = sum((v.get("total_payable", ZERO) for v in payable_agg.values()), ZERO)
 
+        awarded_map = await self._get_case_amounts_batch([q.case_code for q in items])
         for q in items:
             profit = self.compute_profit(q, rate)
             price = Decimal(str(q.total_price or 0))
             tax = Decimal(str(q.tax_amount or 0))
-            total_revenue += price - tax
+            # 2026-09-04 晚：有議價金額的案，應收以承攬金額為準（含稅）；未稅＝承攬金額 − 依同比例換算的稅
+            winning = (awarded_map.get(q.case_code) or {}).get("winning")
+            if winning is not None and price > 0:
+                w = Decimal(str(winning))
+                total_revenue += w - (tax * w / price).quantize(Decimal("1"))
+            else:
+                total_revenue += price - tax
             total_cost += profit["total_cost"]
             total_gross += profit["gross_profit"]
 

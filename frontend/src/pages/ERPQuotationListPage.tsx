@@ -135,12 +135,23 @@ export const ERPQuotationListPage: React.FC = () => {
       ) : <Text type="secondary">—</Text>,
     },
     {
-      // 2026-09-04 晚：原標「議價金額」，owner 問它是議價還是契約——它就是承攬案 contract_amount（含稅），與 /contract-cases 的
-      // 「契約金額合計（含稅）」同一個數；未成案顯示報價總價並標註。名稱統一為「契約金額」。
-      title: termTitle('contract_amount'), dataIndex: 'contract_amount', key: 'contract_amount', width: 120, align: 'right', sorter: true,
+      title: termTitle('awarded_amount'), dataIndex: 'contract_amount', key: 'contract_amount', width: 130, align: 'right', sorter: true,
+      // 2026-09-04 晚：顯示承攬金額＝議價金額（有）否則契約金額；有議價時把原契約金額印在下面，兩個數都看得到
       render: (v: string | number | null, r: ERPQuotation) => {
-        const n = v != null ? Number(v) : (r.total_price != null ? Number(r.total_price) : null);
-        return n != null ? <span title={v != null ? '承攬案契約金額（含稅）' : '尚未成案，顯示報價總價（含稅）'}>{n.toLocaleString()}{v == null ? <Text type="secondary" style={{ fontSize: 11 }}>（報價）</Text> : null}</span> : '-';
+        const contract = v != null ? Number(v) : null;
+        const winning = r.winning_amount != null && Number(r.winning_amount) > 0 ? Number(r.winning_amount) : null;
+        const shown = winning ?? contract ?? (r.total_price != null ? Number(r.total_price) : null);
+        if (shown == null) return '-';
+        return (
+          <Space direction="vertical" size={0} style={{ alignItems: 'flex-end' }}>
+            <span title={winning != null ? '議價金額（含稅）' : contract != null ? '契約金額（含稅，無議價）' : '尚未成案，顯示報價總價（含稅）'}>
+              {shown.toLocaleString()}{winning != null && <Tag color="purple" style={{ marginInlineStart: 4 }}>議價</Tag>}{contract == null && <Text type="secondary" style={{ fontSize: 11, marginInlineStart: 4 }}>報價</Text>}
+            </span>
+            {winning != null && contract != null && winning !== contract && (
+              <Text type="secondary" style={{ fontSize: 11 }} title="契約金額（原報價）">原 {contract.toLocaleString()}</Text>
+            )}
+          </Space>
+        );
       },
     },
     {

@@ -213,6 +213,14 @@ class ERPBillingService(AuditableServiceMixin):
             if not q or q.deleted_at is not None:
                 return None
             total = getattr(q, "total_price", None)
+            # 2026-09-04 晚：有議價金額的案，第一期＝承攬金額（議價後的實際金額），不是投標報價
+            if getattr(q, "case_code", None):
+                from sqlalchemy import text as _t
+                won = (await self.db.execute(_t(
+                    "SELECT NULLIF(winning_amount, 0) FROM contract_projects WHERE case_code = :c LIMIT 1"
+                ), {"c": q.case_code})).scalar()
+                if won is not None:
+                    total = won
             if not total or Decimal(str(total)) <= 0:
                 return None
             if not getattr(q, "project_code", None) and getattr(q, "status", "") != "confirmed":

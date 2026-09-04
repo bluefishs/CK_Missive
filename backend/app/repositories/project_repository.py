@@ -882,7 +882,8 @@ class ProjectRepository(BaseRepository[ContractProject]):
         avg_amount = (await self.db.execute(avg_q)).scalar()
         avg_amount = round(float(avg_amount), 2) if avg_amount else 0.0
         # 合約總額：分頁前全量（§2.6 ①），且跟著目前點選的狀態卡走
-        amt_q = _scoped(select(func.sum(ContractProject.contract_amount)))
+        # 2026-09-04 晚：合計＝承攬金額 COALESCE(NULLIF(議價,0), 契約)——194 議價 596,000 而契約 625,000，實際應收是前者
+        amt_q = _scoped(select(func.sum(func.coalesce(func.nullif(ContractProject.winning_amount, 0), ContractProject.contract_amount))))
         if status:
             amt_q = amt_q.where(ContractProject.status == status)
         sum_amount = await self.db.scalar(amt_q)
