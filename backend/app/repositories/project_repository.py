@@ -842,62 +842,51 @@ class ProjectRepository(BaseRepository[ContractProject]):
     # 統計方法 (Service 層用)
     # =========================================================================
 
-    async def get_project_statistics(self) -> Dict[str, Any]:
-        """
-        取得專案統計資料（含狀態/年度分組 + 平均金額）
+    async def get_project_statistics(
+        self, year: Optional[int] = None, category: Optional[str] = None,
+        status: Optional[str] = None, search: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """取得專案統計資料（含狀態/年度分組 + 合約總額）。
 
-        Returns:
-            統計資料字典，包含:
-            - total_projects: 總專案數
-            - status_breakdown: [{status, count}, ...]
-            - year_breakdown: [{year, count}, ...]
-            - average_contract_amount: 平均合約金額
+        2026-09-04 owner「統計圖卡無動態對應篩選條件，2026 年卻總計 285」：
+        此前全部是全量。year／category／search 是分母（總計、狀態分組、年度分組、合約總額都在裡面算）；
+        status 只套在合約總額——狀態卡就是互動篩選，點了「執行中」其他卡不能歸零（§2.6 ②）。
         """
-        # 總專案數
-        total = await self.count()
+        scope = []
+        if year:
+            scope.append(ContractProject.year == year)
+        if category:
+            scope.append(ContractProject.category == category)
+        if search:
+            scope.append(
+                ContractProject.project_name.ilike(f"%{search}%")
+                | ContractProject.project_code.ilike(f"%{search}%")
+                | ContractProject.case_code.ilike(f"%{search}%")
+            )
 
-        # 按狀態分組統計
+        def _scoped(q):
+            return q.where(*scope) if scope else q
+
+        total = (await self.db.execute(_scoped(select(func.count(ContractProject.id))))).scalar() or 0
         status_result = await self.db.execute(
-            select(
-                ContractProject.status,
-                func.count(ContractProject.id),
-            )
-            .group_by(ContractProject.status)
-            .order_by(ContractProject.status)
+            _scoped(select(ContractProject.status, func.count(ContractProject.id)))
+            .group_by(ContractProject.status).order_by(ContractProject.status)
         )
-        status_stats = [
-            {"status": row[0] or "未設定", "count": row[1]}
-            for row in status_result.fetchall()
-        ]
-
-        # 按年度分組統計
+        status_stats = [{"status": row[0] or "未設定", "count": row[1]} for row in status_result.fetchall()]
         year_result = await self.db.execute(
-            select(
-                ContractProject.year,
-                func.count(ContractProject.id),
-            )
-            .group_by(ContractProject.year)
-            .order_by(ContractProject.year.desc())
+            _scoped(select(ContractProject.year, func.count(ContractProject.id)))
+            .group_by(ContractProject.year).order_by(ContractProject.year.desc())
         )
-        year_stats = [
-            {"year": row[0], "count": row[1]}
-            for row in year_result.fetchall()
-        ]
-
-        # 平均合約金額
-        amount_result = await self.db.execute(
-            select(func.avg(ContractProject.contract_amount)).where(
-                ContractProject.contract_amount.isnot(None)
-            )
-        )
-        avg_amount = amount_result.scalar()
+        year_stats = [{"year": row[0], "count": row[1]} for row in year_result.fetchall()]
+        avg_q = _scoped(select(func.avg(ContractProject.contract_amount)).where(ContractProject.contract_amount.isnot(None)))
+        avg_amount = (await self.db.execute(avg_q)).scalar()
         avg_amount = round(float(avg_amount), 2) if avg_amount else 0.0
-
-        # 合約總額（全量）—— 2026-09-02：列表頁「合約總額」卡此前是前端 reduce 當頁 10 筆
-        # （§2.6 ① 違規：分頁前的全量要由後端算）
-        sum_amount = await self.db.scalar(select(func.sum(ContractProject.contract_amount)))
+        # 合約總額：分頁前全量（§2.6 ①），且跟著目前點選的狀態卡走
+        amt_q = _scoped(select(func.sum(ContractProject.contract_amount)))
+        if status:
+            amt_q = amt_q.where(ContractProject.status == status)
+        sum_amount = await self.db.scalar(amt_q)
         total_amount = round(float(sum_amount), 2) if sum_amount else 0.0
-
         return {
             "total_projects": total,
             "status_breakdown": status_stats,

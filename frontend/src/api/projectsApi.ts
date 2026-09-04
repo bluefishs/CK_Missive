@@ -35,6 +35,9 @@ export type { ProjectListParams } from './types';
 /**
  * 專案 API 服務
  */
+/** 統計卡範圍（year／category／search＝分母；status 只影響合約總額） */
+export type ProjectStatisticsParams = Pick<ProjectListParams, 'year' | 'category' | 'status' | 'search'>;
+
 export const projectsApi = {
   /**
    * 取得專案列表
@@ -140,9 +143,9 @@ export const projectsApi = {
    *
    * @returns 統計資料
    */
-  async getStatistics(): Promise<ProjectStatistics> {
+  async getStatistics(params?: ProjectStatisticsParams): Promise<ProjectStatistics> {
     const response = await apiClient.post<SuccessResponse<ProjectStatistics>>(
-      API_ENDPOINTS.PROJECTS.STATISTICS
+      API_ENDPOINTS.PROJECTS.STATISTICS, params ?? {}
     );
     return response.data ?? {
       total_projects: 0,

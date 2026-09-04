@@ -211,3 +211,15 @@ class ProjectListQuery(BaseModel):
     status: Optional[str] = Field(None, description="狀態篩選")
     sort_by: str = Field(default="id", description="排序欄位")
     sort_order: SortOrder = Field(default=SortOrder.DESC, description="排序方向")
+
+
+class ProjectStatisticsRequest(BaseModel):
+    """承攬案件統計卡的範圍（2026-09-04 owner：統計卡要跟篩選條件動態調整）。
+
+    year／category／search 決定分母（總計、狀態分組、合約總額都在這個範圍內算）；
+    status 只套在合約總額——狀態卡本身就是互動篩選，點了某一張其他卡不能歸零（§2.6 ②）。
+    """
+    year: Optional[int] = Field(None, description="西元年度")
+    category: Optional[str] = None
+    status: Optional[str] = Field(None, description="只影響 total_contract_amount")
+    search: Optional[str] = None

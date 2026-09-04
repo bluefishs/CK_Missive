@@ -5,6 +5,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi, ProjectListParams } from '../../api/projectsApi';
+import type { ProjectStatisticsParams } from '../../api/projectsApi';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 import type { ProjectCreate, ProjectUpdate } from '../../types/api';
 
@@ -46,10 +47,10 @@ export const useProject = (projectId: number | null | undefined) => {
  *
  * @returns React Query 結果
  */
-export const useProjectStatistics = () => {
+export const useProjectStatistics = (params?: ProjectStatisticsParams) => {
   return useQuery({
-    queryKey: queryKeys.projects.statistics,
-    queryFn: () => projectsApi.getStatistics(),
+    queryKey: [...queryKeys.projects.statistics, params ?? {}],
+    queryFn: () => projectsApi.getStatistics(params),
     ...defaultQueryOptions.statistics,
   });
 };
@@ -177,7 +178,10 @@ export const useProjectStatusOptions = () => {
  */
 export const useProjectsPage = (params?: ProjectListParams) => {
   const projectsQuery = useProjects(params);
-  const statisticsQuery = useProjectStatistics();
+  // 2026-09-04：統計卡跟著列表的篩選走（year／category／search 是分母，status 只影響合約總額）
+  const statisticsQuery = useProjectStatistics(params ? {
+    year: params.year, category: params.category, status: params.status, search: params.search,
+  } : undefined);
   const yearsQuery = useProjectYearOptions();
   const categoriesQuery = useProjectCategoryOptions();
   const statusesQuery = useProjectStatusOptions();

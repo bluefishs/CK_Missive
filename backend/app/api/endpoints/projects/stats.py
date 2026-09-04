@@ -1,3 +1,4 @@
+from typing import Optional
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -16,6 +17,7 @@
 from fastapi import APIRouter, Depends
 
 from app.schemas.common import SuccessResponse
+from app.schemas.project import ProjectStatisticsRequest
 from app.services.contract.core import ProjectService
 from app.core.dependencies import (
     get_service,
@@ -75,11 +77,15 @@ async def get_project_statuses(
 
 @router.post("/statistics", summary="獲取專案統計資料")
 async def get_project_statistics(
+    req: Optional[ProjectStatisticsRequest] = None,
     project_service: ProjectService = Depends(get_service(ProjectService)),
     current_user: User = Depends(require_auth())
 ) -> SuccessResponse:
-    """獲取專案統計資料（需要登入）"""
-    stats = await project_service.get_project_statistics()
+    """獲取專案統計資料（需要登入）。body 可帶 year／category／status／search 讓統計卡跟著篩選走。"""
+    req = req or ProjectStatisticsRequest()
+    stats = await project_service.get_project_statistics(
+        year=req.year, category=req.category, status=req.status, search=req.search,
+    )
     return SuccessResponse(
         success=True,
         data=stats
