@@ -24,8 +24,8 @@
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { App, Button, Modal } from 'antd';
-import { FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { App, Dropdown, Button, Modal } from 'antd';
+import { FileExcelOutlined, FilePdfOutlined, DownOutlined } from '@ant-design/icons';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
 import { extractApiMessage } from '../../utils/apiMessage';
@@ -131,15 +131,23 @@ export function useQuotationExport({
   };
 
   /** 兩個輸出按鈕。呼叫端自行決定要不要顯示（例如委辦招標不顯示）。 */
+  // 2026-09-04 owner：「列印報價單／輸出 PDF 異質同工、輸出報價單與輸出 PDF 是否整合」——
+  // 收成一個入口：主鈕＝PDF（先預覽再下載，等同「列印」），下拉＝XLS。瀏覽器列印已移除。
   const exportButtons = (
-    <>
-      <Button icon={<FileExcelOutlined />} loading={exporting} onClick={() => exportDocument('xlsx')}>
-        輸出報價單
-      </Button>
-      <Button icon={<FilePdfOutlined />} loading={exporting} onClick={() => exportDocument('pdf')}>
-        輸出 PDF
-      </Button>
-    </>
+    <Dropdown.Button
+      type="primary"
+      loading={exporting}
+      icon={<DownOutlined />}
+      onClick={() => exportDocument('pdf')}
+      menu={{
+        items: [
+          { key: 'pdf', icon: <FilePdfOutlined />, label: 'PDF（預覽／下載／列印）', onClick: () => exportDocument('pdf') },
+          { key: 'xlsx', icon: <FileExcelOutlined />, label: 'XLS（下載）', onClick: () => exportDocument('xlsx') },
+        ],
+      }}
+    >
+      <FilePdfOutlined /> 輸出報價單
+    </Dropdown.Button>
   );
 
   /** PDF 預覽 Modal，呼叫端要把它掛進畫面裡。

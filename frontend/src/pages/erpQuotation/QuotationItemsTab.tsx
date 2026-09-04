@@ -19,7 +19,7 @@ import {
 } from 'antd';
 import type { ColumnType } from 'antd/es/table';
 import { useResponsive } from '../../hooks';
-import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, SaveOutlined, } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
@@ -70,7 +70,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
 
   const save = useMutation({
     mutationFn: async () => {
-      const res = await apiClient.post<{ data: { item_count: number; total_price: number; total_price_updated: boolean } }>(
+      const res = await apiClient.post<{ data: { item_count: number; total_price: number; total_price_updated: boolean; documents_refreshed?: string[]; documents_error?: string } }>(
         ERP_ENDPOINTS.QUOTATION_ITEMS_REPLACE,
         {
           quotation_id: quotationId,
@@ -91,6 +91,13 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         message.warning(`明細已清空。報價總價維持 ${money(r?.total_price ?? 0)} 未歸零`);
       }
       qc.invalidateQueries({ queryKey: queryKeys.erpQuotations.items(quotationId) });
+      // 2026-09-04：已輸出的 XLS／PDF 由後端重新產出並覆蓋；沒有輸出過就不動
+      if (r?.documents_refreshed?.length) {
+        message.info(`已同步更新本案附件裡的 ${r.documents_refreshed.join('、')}`);
+        void qc.invalidateQueries({ queryKey: ['pm-case-attachments'] });
+      } else if (r?.documents_error) {
+        message.warning(`明細已存，但已輸出的報價單檔更新失敗：${r.documents_error}`, 8);
+      }
       // ⚠️ 原本寫 `['erp-quotation', ...]`（單數）—— 不存在。
       //    報價單家族的首 token 是 `erp-quotations`（見 useERPQuotations 的 erpKeys），
       //    用前綴一次涵蓋詳情與清單：改明細會動到總價，兩邊都該重載。
@@ -316,9 +323,6 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
           </Button>
         </Popconfirm>}
 
-        <Button icon={<PrinterOutlined />} onClick={() => window.print()} disabled={!rows.length}>
-          列印報價單
-        </Button>
       </Space>
 
       {isNarrow ? narrowCards : (

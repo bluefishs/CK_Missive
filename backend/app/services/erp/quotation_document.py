@@ -308,6 +308,9 @@ class QuotationDocumentService:
     #: ② 範本殘留的舊備註要清掉，否則明細不足 6 項時該列會同時出現空明細與舊備註。
     #: ⚠️ 不是「還能再用一次的座標」—— 下次再搬列時這三個常數要一起看。
     LEGACY_NOTES_ROW = 21
+    #: 資料格統一字型（2026-09-04）。換字型改這裡，不要在填值處各寫一份。
+    DATA_FONT_NAME = "標楷體"
+    DATA_FONT_SIZE = 11
 
     #: 項次的中文數字（範本用「一、二、三、」）
     _CN = "一二三四五六七八九十"
@@ -454,6 +457,20 @@ class QuotationDocumentService:
         #
         # 設在這裡而不是改範本檔：範本是 owner 提供的原件，動它等於在二進位
         # 檔案裡藏一個看不見的變更；寫在程式裡，每次輸出都保證正確且看得懂。
+        # 2026-09-04 owner「XLS 字形格式請統一」：範本的資料格字型本來就不一致
+        # （明細列 16–21 標楷體 11、22–25 新細明體 12、抬頭值 Tahoma 10／11／12 混用），
+        # 輸出檔逐格與範本相同，所以要在填值後把**資料格**統一；標題／標籤／公司抬頭維持範本。
+        from openpyxl.styles import Font
+        data_cells = [c for k, c in self.CELLS.items()] + [
+            f"{col}{r}" for r in range(self.ITEM_FIRST_ROW, self.NOTES_ROW + 1) for col in "ABCDEFG"
+        ] + ["E26", "E27", "E28"]
+        for coord in data_cells:
+            cell = ws[coord]
+            if cell.value in (None, ""):
+                continue
+            f = cell.font
+            cell.font = Font(name=self.DATA_FONT_NAME, size=self.DATA_FONT_SIZE, bold=f.bold,
+                             italic=f.italic, underline=f.underline, color=f.color)
         from openpyxl.worksheet.properties import PageSetupProperties
 
         ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
@@ -565,12 +582,14 @@ class QuotationDocumentService:
         # 進 Linux 容器後 `os.path.exists` 一律 false（L49.3）。
         full_path = os.path.join(dir_path, file_name).replace("\\", "/")
 
-        # 先清掉同一張報價單的舊紀錄與舊實體檔（owner 選「只保留最新一份」）
+        # 「只保留最新一份」：同一張報價單的同名檔**原地更新同一列**（id 不變）。
+        # 2026-09-04 前是刪舊列＋插新列 ⇒ 還開著的頁面握著舊 id，一點下載就 404
+        # （owner console：/attachments/63/download 404，63 正是被上一次重新輸出刪掉的那列）。
         old = (await self.db.execute(
             select(PMCaseAttachment).where(
                 PMCaseAttachment.case_code == case_code,
                 PMCaseAttachment.file_name == file_name,
-            )
+            ).order_by(PMCaseAttachment.id)
         )).scalars().all()
         for att in old:
             prev = (att.file_path or "").replace("\\", os.sep)
@@ -578,29 +597,28 @@ class QuotationDocumentService:
                 try:
                     os.remove(prev)
                 except OSError:
-                    # 舊檔刪不掉不該擋住新檔存檔，但要留下痕跡而不是靜靜吞掉
                     logger.warning("報價單存檔：舊檔刪除失敗 path=%s", prev)
-            await self.db.delete(att)
-
         with open(full_path, "wb") as f:
             f.write(content)
-
-        att = PMCaseAttachment(
-            case_code=case_code,
-            file_name=file_name,
-            file_path=full_path,
-            file_size=len(content),
-            mime_type=(
-                "application/pdf" if ext == "pdf"
-                else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            ),
-            original_name=file_name,
-            checksum=hashlib.sha256(content).hexdigest(),
-            uploaded_by=user_id,
-            # 2026-09-04：模型註解與前端標籤都說系統輸出會標 generated_quotation，
-            # 但這裡從沒寫過 ⇒ 附件列表把它們當「未分類」，報價單分頁也篩不出來。
-            doc_type="generated_quotation",
-        )
-        self.db.add(att)
+        keep = old[0] if old else None
+        for extra in old[1:]:
+            await self.db.delete(extra)
+        mime = ("application/pdf" if ext == "pdf"
+                else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        if keep is not None:
+            keep.file_path = full_path
+            keep.file_size = len(content)
+            keep.mime_type = mime
+            keep.original_name = file_name
+            keep.checksum = hashlib.sha256(content).hexdigest()
+            keep.uploaded_by = user_id
+            keep.doc_type = "generated_quotation"
+            keep.updated_at = datetime.now()
+        else:
+            self.db.add(PMCaseAttachment(
+                case_code=case_code, file_name=file_name, file_path=full_path, file_size=len(content),
+                mime_type=mime, original_name=file_name, checksum=hashlib.sha256(content).hexdigest(),
+                uploaded_by=user_id, doc_type="generated_quotation",
+            ))
         await self.db.commit()
         return {"file_name": file_name, "file_path": full_path, "replaced": len(old)}

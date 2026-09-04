@@ -31,10 +31,10 @@
  *
  * @version 5.0.0 — 嵌入 QuotationItemsTab（4.0.0 的清單是錯的方向）
  */
-import { Suspense, lazy, useState } from 'react';
-import { Card, Empty, Space, Spin, Alert, Select, Typography } from 'antd';
+import { Suspense, lazy, useState, useEffect } from 'react';
+import { Card, Empty, Space, Spin, Alert, Select, Typography, Input, Button, App } from 'antd';
 import { useQuotationExport } from '../erpQuotation/useQuotationExport';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AttachmentPanel } from '../../components/common/AttachmentPanel';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
@@ -99,6 +99,22 @@ export default function QuotationRecordsTab({
   // 2026-08-28 owner 更新：委辦招標（`01`）**也呈現**報價單與輸出 ——
   //   取代 08-27「01 不顯示」的規則。後端 `quotation_document.py` 本來就
   //   不擋 01，只在文件上加註「本案為委辦招標案，依招標文件所列項目辦理」。
+  // 2026-09-04 owner「編輯頁面無法編輯備註，但新增報價時有」：備註印在正式文件第 29 列，
+  // 建立頁填得到、這裡（唯一的輸出入口）卻改不了。同一個欄位、同一個更新端點。
+  const { message } = App.useApp();
+  const qc = useQueryClient();
+  const [notes, setNotes] = useState('');
+  useEffect(() => { setNotes(primary?.notes ?? ''); }, [primary?.id, primary?.notes]);
+  const saveNotes = useMutation({
+    mutationFn: () => apiClient.post(ERP_ENDPOINTS.QUOTATIONS_UPDATE, { id: primary!.id, data: { notes: notes.trim() || null } }),
+    onSuccess: () => {
+      message.success('備註已更新（已輸出的檔要重新輸出才會帶到）');
+      void qc.invalidateQueries({ queryKey: ['erp-quotations', 'by-case', caseCode] });
+    },
+    onError: () => message.error('備註更新失敗'),
+  });
+  const notesDirty = (primary?.notes ?? '') !== notes;
+
   const { exportButtons, pdfPreview } = useQuotationExport({
     quotationId: primary?.id,
     quotationNo: primary?.quotation_no,
@@ -132,6 +148,13 @@ export default function QuotationRecordsTab({
               </Text>
             </Space>
           </Card>
+          {!primary.project_code && (
+            <Card size="small" title="備註（印在正式文件備註列）" styles={{ body: { padding: '8px 12px' } }}
+              extra={<Button size="small" type="primary" disabled={!notesDirty} loading={saveNotes.isPending} onClick={() => saveNotes.mutate()}>儲存備註</Button>}>
+              <Input.TextArea value={notes} onChange={(e) => setNotes(e.target.value)} autoSize={{ minRows: 2, maxRows: 5 }}
+                placeholder="例：本案已領得使用執照，如經審視發現與法規不符需協助修改者，費用另計。" maxLength={500} showCount />
+            </Card>
+          )}
           <Suspense fallback={<div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}>
             <QuotationItemsTab
               quotationId={primary.id}

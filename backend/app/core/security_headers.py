@@ -136,7 +136,7 @@ def get_default_csp() -> str:
         "img-src 'self' data: blob: https:; "
         "connect-src 'self' https://www.cksurvey.tw https://accounts.google.com "
         "https://oauth2.googleapis.com https://www.googleapis.com https://cloudflareinsights.com; "
-        "frame-src https://accounts.google.com; "
+        "frame-src https://accounts.google.com blob:; "  # blob:＝報價單 PDF 預覽 iframe（2026-09-04）
         "frame-ancestors 'none'; "
         "object-src 'none'; "
         "base-uri 'self'; "

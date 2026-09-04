@@ -51,4 +51,30 @@ async def replace_items(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     await db.commit()
+    # 2026-09-04 owner「更新工項，既有報價檔案會同步更新嗎」：此前不會——存進附件的 XLS／PDF 是輸出當下的快照。
+    # 現在：這張報價單若已有系統輸出的檔（同名 報價單_<編號>.xlsx／.pdf），改完明細就重新產出並覆蓋。
+    # 盡力而為：文件產出失敗不影響明細已儲存的事實，但要在回應裡說（documents_refreshed / documents_error）。
+    result["documents_refreshed"] = []
+    try:
+        from sqlalchemy import select as _select
+        from app.extended.models.pm import PMCaseAttachment
+        from app.services.erp.quotation_document import QuotationDocumentService
+        doc = QuotationDocumentService(db)
+        data = await doc.gather(req.quotation_id)
+        display_no = data.get("display_no") or f"Q{req.quotation_id}"
+        names = {f"報價單_{display_no}.xlsx": "xlsx", f"報價單_{display_no}.pdf": "pdf"}
+        existing = (await db.execute(_select(PMCaseAttachment.file_name).where(
+            PMCaseAttachment.case_code == data.get("case_code"),
+            PMCaseAttachment.file_name.in_(list(names)),
+        ))).scalars().all()
+        if existing:
+            xlsx = doc.render_xlsx(data)
+            for fn in existing:
+                ext = names[fn]
+                content = xlsx if ext == "xlsx" else doc.render_pdf(xlsx)
+                await doc.archive(data, content, ext, current_user.id)
+                result["documents_refreshed"].append(fn)
+    except Exception as e:  # noqa: BLE001 —— 明細已存，文件更新失敗只回報不擋
+        logger.warning("工項更新後重新產出報價單文件失敗 qid=%s: %s", req.quotation_id, e)
+        result["documents_error"] = str(e)[:200]
     return SuccessResponse(data=result)
