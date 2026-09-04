@@ -57,7 +57,7 @@ async def upload_quotation_files(
     2026-09-04 owner「報價單回簽要在哪上傳」：報價單分頁的附件區常駐可上傳，帶 doc_type=signed_quotation
     讓「客戶回簽」與「系統產出」在列表上分得開（值域見 PMCaseAttachment.doc_type 註解）。
     """
-    if doc_type not in (None, "", "generated_quotation", "signed_quotation", "other"):
+    if doc_type not in (None, "", "generated_quotation", "signed_quotation", "contract_document", "other"):
         raise HTTPException(status_code=400, detail=f"doc_type 不合法：{doc_type}")
     uploaded = []
     errors = []

@@ -37,6 +37,7 @@ export interface CaseAttachmentListResponse {
 /** 文件類型的顯示標籤 */
 export const ATTACHMENT_DOC_TYPE_LABELS: Record<string, string> = {
   generated_quotation: '系統產出報價單',
+  contract_document: '契約文件',
   signed_quotation: '客戶回簽',
   other: '其他佐證',
 };
@@ -44,6 +45,7 @@ export const ATTACHMENT_DOC_TYPE_LABELS: Record<string, string> = {
 /** 文件類型的標籤顏色 */
 export const ATTACHMENT_DOC_TYPE_COLORS: Record<string, string> = {
   generated_quotation: 'blue',
+  contract_document: 'purple',
   signed_quotation: 'green',
   other: 'default',
 };

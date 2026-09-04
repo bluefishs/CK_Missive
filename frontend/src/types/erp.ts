@@ -1565,6 +1565,8 @@ export interface ERPQuotationDocumentData {
   staff_name?: string | null;
   staff_email?: string | null;
   staff_phone?: string | null;
+  /** 案件類別：01 委辦招標／02 承攬報價（檔案區與後續詢問依此分流） */
+  category?: string | null;
   notes?: string | null;
   pm_case_id?: number | null;
   client_vendor_id?: number | null;

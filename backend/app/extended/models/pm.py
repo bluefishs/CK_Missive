@@ -117,7 +117,7 @@ class PMCaseAttachment(Base):
     # 是成案的判準，不能建立在猜測上。
     # NULL 與 'other' 刻意分開：「還沒有人分類過」不等於「它是其他」。
     doc_type = Column(String(32), index=True,
-                      comment="generated_quotation/signed_quotation/other；NULL＝未分類")
+                      comment="generated_quotation/signed_quotation/contract_document（01 委辦招標：協力團隊契約／計畫契約／招標文件）/other；NULL＝未分類")
     uploaded_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                          nullable=True, comment="上傳者")
     notes = Column(Text, comment="備註 (如：第一版報價、修正版等)")

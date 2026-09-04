@@ -146,12 +146,15 @@ export default function QuotationRecordsTab({
     },
     onError: () => message.error('成案失敗，請到案件資訊分頁手動處理'),
   });
+  // 2026-09-04 owner「應區分計畫類別」：01 委辦招標沒有「客戶回簽報價單」，對應的是協力團隊契約／計畫契約／招標文件；
+  // 02 承攬報價才是回簽。檔案區的標題、上傳類型、後續詢問依類別切換；兩者答「是」都走同一條成案。
+  const isTender = (docHeader?.category ?? '') === '01';
   const askContracted = () => {
     if (!docHeader?.pm_case_id || primary?.project_code || docHeader?.contract_project_id) return;
     modal.confirm({
-      title: '已收到客戶回簽 — 本案是否已承攬？',
+      title: isTender ? '已上傳契約文件 — 本案是否已決標簽約？' : '已收到客戶回簽 — 本案是否已承攬？',
       content: `答「是」會把 ${primary?.quotation_no || '這張報價單'} 對應的案件標為已承攬並自動成案（建承攬案、成案編號、第一期應收 NT$${Number(primary?.total_price ?? 0).toLocaleString()}）。之後的請款、發票、核銷都掛在承攬案上。`,
-      okText: '是，已承攬（成案）', cancelText: '還沒，只是存檔',
+      okText: isTender ? '是，已決標簽約（成案）' : '是，已承攬（成案）', cancelText: '還沒，只是存檔',
       onOk: () => contractCase.mutateAsync(),
     });
   };
@@ -279,11 +282,11 @@ export default function QuotationRecordsTab({
       <AttachmentPanel
         caseCode={caseCode}
         isEditing
-        title="報價單檔案（系統產出／客戶回簽）"
-        uploadTitle="上傳客戶回簽報價單（PDF 或掃描檔）"
-        emptyText="尚無檔案——輸出報價單會自動存入；客戶回簽請由此上傳"
+        title={isTender ? '契約文件（協力團隊契約／計畫契約／招標文件／系統產出報價單）' : '報價單檔案（系統產出／客戶回簽）'}
+        uploadTitle={isTender ? '上傳契約文件（協力團隊契約、計畫契約、招標文件等）' : '上傳客戶回簽報價單（PDF 或掃描檔）'}
+        emptyText={isTender ? '尚無檔案——決標後請上傳協力團隊契約或計畫契約' : '尚無檔案——輸出報價單會自動存入；客戶回簽請由此上傳'}
         showDocType
-        uploadDocType="signed_quotation"
+        uploadDocType={isTender ? 'contract_document' : 'signed_quotation'}
         onUploaded={askContracted}
       />
 
