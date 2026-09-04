@@ -313,13 +313,15 @@ export const PMCaseListPage: React.FC = () => {
                 `contracted: 2` 完全沒有地方顯示，畫面說「已成案 1」
                 而列表列著 2 筆「已承攬」。改為直接由 SSOT 推導，
                 標籤、取值、列表用同一組詞彙。 */}
-            {(['contracted', 'closed'] as PMCaseStatus[]).map((st) => (
+            {/* 2026-09-04 owner：已承攬的案件會進 /contract-cases，這頁的統計卡改看「評估中」
+                （列表預設也不含已成案，卡片與列表才是同一個分母）。 */}
+            {(['planning', 'closed'] as PMCaseStatus[]).map((st) => (
               <Col xs={12} sm={6} key={st}>
                 <ClickableStatCard
                   title={PM_CASE_STATUS_LABELS[st]}
                   value={summary.by_status?.[st] ?? 0}
-                  icon={st === 'contracted' ? <SendOutlined /> : <CheckCircleOutlined />}
-                  color={st === 'contracted' ? '#1890ff' : '#52c41a'}
+                  icon={st === 'planning' ? <SendOutlined /> : <CheckCircleOutlined />}
+                  color={st === 'planning' ? '#faad14' : '#52c41a'}
                   active={statusFilter === st}
                   onClick={() => {
                     setStatusFilter(statusFilter === st ? undefined : st);
