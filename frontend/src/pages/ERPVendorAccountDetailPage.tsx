@@ -9,6 +9,7 @@
  * @version 2.0.0
  */
 import React, { useMemo, useState } from 'react';
+import { termTitle } from '../constants/financeTerms';
 import { Button, Card, Col, Descriptions, Row, Select, Space, Statistic, Tag, Typography } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { InfoCircleOutlined, UnorderedListOutlined, HistoryOutlined } from '@ant-design/icons';
@@ -80,9 +81,9 @@ const ERPVendorAccountDetailPage: React.FC = () => {
     <div>
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} lg={5}><Card size="small"><Statistic title="合作案件" value={detail?.cases?.length ?? 0} /></Card></Col>
-        <Col xs={12} sm={8} lg={5}><Card size="small"><Statistic title="應付總額" value={Number(detail?.total_payable ?? 0)} precision={0} /></Card></Col>
-        <Col xs={12} sm={8} lg={5}><Card size="small"><Statistic title="已付總額" value={Number(detail?.total_paid ?? 0)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Card></Col>
-        <Col xs={12} sm={8} lg={5}><Card size="small"><Statistic title="未付餘額" value={Number(detail?.outstanding ?? 0)} precision={0} styles={{ content: { color: Number(detail?.outstanding ?? 0) > 0 ? '#ff4d4f' : '#52c41a' } }} /></Card></Col>
+        <Col xs={12} sm={8} lg={5}><Card size="small"><Statistic title={termTitle('payable_total', '應付總額')} value={Number(detail?.total_payable ?? 0)} precision={0} /></Card></Col>
+        <Col xs={12} sm={8} lg={5}><Card size="small"><Statistic title={termTitle('paid_total', '已付總額')} value={Number(detail?.total_paid ?? 0)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Card></Col>
+        <Col xs={12} sm={8} lg={5}><Card size="small"><Statistic title={termTitle('payable_outstanding', '未付餘額')} value={Number(detail?.outstanding ?? 0)} precision={0} styles={{ content: { color: Number(detail?.outstanding ?? 0) > 0 ? '#ff4d4f' : '#52c41a' } }} /></Card></Col>
         <Col xs={12} sm={8} lg={4}><Card size="small"><Statistic title="付款率" value={paymentRate} suffix="%" precision={1} /></Card></Col>
       </Row>
       <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered style={{ marginBottom: 16 }}>

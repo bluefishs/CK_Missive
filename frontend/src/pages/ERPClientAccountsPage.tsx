@@ -9,6 +9,7 @@
  * @version 1.0.0
  */
 import React, { useState, useMemo } from 'react';
+import { termTitle } from '../constants/financeTerms';
 import {
   Alert, Card, Typography, Row, Col, Tag, Select, Space, Input,
 } from 'antd';
@@ -115,7 +116,7 @@ const ERPClientAccountsPage: React.FC = () => {
       sorter: (a, b) => (a.case_count ?? 0) - (b.case_count ?? 0),
     },
     {
-      title: '合約總額',
+      title: termTitle('contract_amount_sum', '契約金額合計'),
       dataIndex: 'total_contract',
       key: 'total_contract',
       width: 130,
@@ -124,7 +125,7 @@ const ERPClientAccountsPage: React.FC = () => {
       render: (v: number) => Number(v).toLocaleString(),
     },
     {
-      title: '已請款',
+      title: termTitle('billed'),
       hideOnMobile: true, dataIndex: 'total_billed',
       key: 'total_billed',
       width: 130,
@@ -133,7 +134,7 @@ const ERPClientAccountsPage: React.FC = () => {
       render: (v: number) => Number(v).toLocaleString(),
     },
     {
-      title: '已收款',
+      title: termTitle('received'),
       hideOnMobile: true, dataIndex: 'total_received',
       key: 'total_received',
       width: 130,
@@ -144,7 +145,7 @@ const ERPClientAccountsPage: React.FC = () => {
       ),
     },
     {
-      title: '未收餘額',
+      title: termTitle('outstanding', '未收餘額'),
       dataIndex: 'outstanding',
       key: 'outstanding',
       width: 130,
@@ -160,7 +161,7 @@ const ERPClientAccountsPage: React.FC = () => {
       },
     },
     {
-      title: '收款率',
+      title: termTitle('receipt_rate'),
       key: 'collection_rate',
       width: 100,
       align: 'right' as const,
@@ -205,7 +206,7 @@ const ERPClientAccountsPage: React.FC = () => {
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={6}>
             <ClickableStatCard
-              title="合約總額"
+              title={termTitle('contract_amount_sum')}
               value={stats.totalContract.toLocaleString()}
               icon={<FileTextOutlined />}
               color="#1890ff"
@@ -215,7 +216,7 @@ const ERPClientAccountsPage: React.FC = () => {
           </Col>
           <Col xs={24} sm={6}>
             <ClickableStatCard
-              title="已請款"
+              title={termTitle('billed')}
               value={stats.totalBilled.toLocaleString()}
               icon={<DollarOutlined />}
               color="#faad14"
@@ -225,7 +226,7 @@ const ERPClientAccountsPage: React.FC = () => {
           </Col>
           <Col xs={24} sm={6}>
             <ClickableStatCard
-              title="已收款"
+              title={termTitle('received')}
               value={stats.totalReceived.toLocaleString()}
               icon={<CheckCircleOutlined />}
               color="#3f8600"
@@ -235,7 +236,7 @@ const ERPClientAccountsPage: React.FC = () => {
           </Col>
           <Col xs={24} sm={6}>
             <ClickableStatCard
-              title="未收款"
+              title={termTitle('outstanding')}
               value={stats.totalOutstanding.toLocaleString()}
               icon={<ExclamationCircleOutlined />}
               color={stats.totalOutstanding > 0 ? '#cf1322' : '#3f8600'}

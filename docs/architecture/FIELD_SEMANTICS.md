@@ -133,3 +133,33 @@ weekly 104 ⑨ 用這兩個簽名判 RED；⑩ 其他不等只 YELLOW（可能�
 
 **守門**：weekly 107 `name_id_pair_consistency_audit`——名稱精確對得到主檔卻沒填鍵 ⇒ RED；快照漂移／主檔缺 ⇒ YELLOW。
 **同步**：PM 改委託單位 ⇒ `CaseFieldSyncService` 同步 `client_vendor_id` 與 `client_agency`（`CONTRACT_SYNC_FIELDS`）；成案 `promote_to_project` 帶鍵。
+
+## 經費名詞字典（2026-09-04 晚；UI 端 SSOT＝`frontend/src/constants/financeTerms.tsx`，本表由它產生）
+
+owner：「各類經費名詞或定義請增列註記補充，以利釐清對應與語意」。統計卡與欄位標題一律 `termTitle(key)`＝文字＋ⓘ 定義；同一個數只准一個名字。
+
+| key | 顯示文字 | 定義 |
+|---|---|---|
+| `contract_amount` | 契約金額 | 承攬案 contract_projects.contract_amount，含稅。成案時自報價總價同步；未成案的列顯示報價總價。舊稱「合約總額」「議價金額」都是它。 |
+| `contract_amount_sum` | 契約金額合計（含稅） | 目前篩選範圍內所有承攬案的契約金額加總，含稅。與報價單頁「應收總額（未稅）」差 5% 稅。 |
+| `quotation_total` | 報價總價（含稅） | erp_quotations.total_price，含稅；請款、發票都以它為上限。未稅＝總價 − 稅額。 |
+| `receivable_total_untaxed` | 應收總額（未稅） | 篩選範圍內成案報價單的（總價 − 稅額）加總，未稅。承攬案頁的「契約金額合計」是同一批案的含稅數。 |
+| `billed` | 已請款 | 各期請款金額（erp_billings.billing_amount）加總，含稅；成案時自動建第一期＝報價總價。 |
+| `unbilled` | 未請款 | 報價總價 − 已請款，含稅。 |
+| `received` | 已收款 | 已收款的請款實收金額（erp_billings.payment_amount）加總，含稅。 |
+| `outstanding` | 應收未收 | 已請款 − 已收款，含稅。列表頁點此卡只列有未收餘額的案。 |
+| `receivable_column` | 應收帳款 | 該案已請款合計（含稅）＋已收比例；「未開請款」＝一筆請款都沒有。 |
+| `receipt_rate` | 收款率 | 已收款 ÷ 已請款。 |
+| `payable_total` | 應付款項 | 協力廠商應付（erp_vendor_payables.payable_amount）加總，含稅；承攬案協力廠商分頁的指派金額會自動建一筆（指派即應付）。 |
+| `payable_column` | 應付帳款 | 該案應付合計（含稅）＋已付比例；「—」＝沒有協力廠商應付。 |
+| `paid_total` | 已付 | 應付中已付款的金額（paid_amount）加總，含稅。 |
+| `payable_outstanding` | 未付餘額 | 應付 − 已付，含稅。 |
+| `payment_rate` | 付款率 | 已付 ÷ 應付。 |
+| `cost_total` | 成本總額 | 報價單估列成本：外包費＋人事費＋管銷費＋其他成本（erp_quotations 四欄），未稅。不是實際支出。 |
+| `cost_estimated` | 估列成本（報價單） | 同「成本總額」：報價時估的四項成本，未稅。 |
+| `cost_actual` | 實際成本（已入帳） | 帳本支出：協力廠商應付已付款＋費用核銷入帳的合計。應付與核銷是帳本的鏡像，三者相加會重複計算。 |
+| `gross_profit` | 預估毛利 | （報價總價 − 稅額）− 估列成本。各頁口徑尚未統一，列表頁的毛利卡先隱藏。 |
+| `gross_margin` | 預估毛利率 | 預估毛利 ÷ 未稅營收。 |
+| `invoice_amount` | 發票金額 | erp_invoices.amount，含稅（銷售額＋稅額）；一筆請款一張票，發票額不得超過該期請款。 |
+
+**改名紀錄**：合約總額／議價金額 → **契約金額**；報價單詳情頁「應收總額」（其實是含稅總價）→ **報價總價（含稅）**，與列表頁「應收總額（未稅）」不再同名不同數。

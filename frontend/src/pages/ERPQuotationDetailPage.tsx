@@ -7,6 +7,7 @@
  * @version 2.0.0 — 遷移至 DetailPageLayout
  */
 import React from 'react';
+import { termTitle } from '../constants/financeTerms';
 import {
   Button, Descriptions, Statistic, Row, Col, Card, Alert, Popconfirm, App, Typography,
   } from 'antd';
@@ -216,10 +217,10 @@ export const ERPQuotationDetailPage: React.FC = () => {
                 原本只有一個「估計成本」，看的人不知道那是報價時填的估列還是真的花掉的錢。
                 三個數字各自標明基準：估列來自報價單、實際來自統一帳本、待入帳是填報缺口。 */}
             <Col xs={12} sm={12} lg={6}>
-              <Statistic title="估列成本（報價單）" value={Number(quotation.total_cost)} precision={0} />
+              <Statistic title={termTitle('cost_estimated')} value={Number(quotation.total_cost)} precision={0} />
             </Col>
             <Col xs={12} sm={12} lg={6}>
-              <Statistic title="實際成本（已入帳）" value={Number(quotation.actual_cost ?? 0)} precision={0} />
+              <Statistic title={termTitle('cost_actual')} value={Number(quotation.actual_cost ?? 0)} precision={0} />
               {Number(quotation.pending_cost ?? 0) > 0 && (
                 <div style={{ fontSize: 12, color: '#faad14', marginTop: 4, lineHeight: 1.4 }}>
                   另有 {Number(quotation.pending_cost).toLocaleString()} 元
@@ -234,15 +235,15 @@ export const ERPQuotationDetailPage: React.FC = () => {
                 報一個 100% 比不報更糟：它看起來像結論。 */}
             {quotation.cost_declared === false ? (
               <Col xs={24} sm={12}>
-                <Statistic title="預估毛利" value="—" />
+                <Statistic title={termTitle('gross_profit')} value="—" />
                 <div style={{ fontSize: 12, color: '#faad14', marginTop: 4 }}>
                   尚未填寫成本，無法計算毛利
                 </div>
               </Col>
             ) : (
               <>
-                <Col xs={12} sm={12} lg={6}><Statistic title="預估毛利" value={grossProfit} precision={0} styles={{ content: { color: grossProfit >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
-                <Col xs={12} sm={12} lg={6}><Statistic title="預估毛利率" value={quotation.gross_margin ? Number(quotation.gross_margin) : 0} suffix="%" precision={1} /></Col>
+                <Col xs={12} sm={12} lg={6}><Statistic title={termTitle('gross_profit')} value={grossProfit} precision={0} styles={{ content: { color: grossProfit >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
+                <Col xs={12} sm={12} lg={6}><Statistic title={termTitle('gross_margin')} value={quotation.gross_margin ? Number(quotation.gross_margin) : 0} suffix="%" precision={1} /></Col>
               </>
             )}
           </Row>
@@ -264,11 +265,11 @@ export const ERPQuotationDetailPage: React.FC = () => {
                   已請款   = 已收款 + 未收款 */}
             <Card size="small" title="應收概況 (委託單位)">
               <Row gutter={[16, 8]}>
-                <Col xs={12} sm={8} lg={4}><Statistic title="應收總額" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
-                <Col xs={12} sm={8} lg={5}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
-                <Col xs={12} sm={8} lg={5}><Statistic title="未請款" value={Number(quotation.total_price ?? 0) - Number(quotation.total_billed)} precision={0} styles={{ content: { color: '#8c8c8c' } }} /></Col>
-                <Col xs={12} sm={12} lg={5}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
-                <Col xs={12} sm={12} lg={5}><Statistic title="未收款" value={Number(quotation.total_billed) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_billed) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
+                <Col xs={12} sm={8} lg={4}><Statistic title={termTitle('quotation_total')} value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+                <Col xs={12} sm={8} lg={5}><Statistic title={termTitle('billed')} value={Number(quotation.total_billed)} precision={0} /></Col>
+                <Col xs={12} sm={8} lg={5}><Statistic title={termTitle('unbilled')} value={Number(quotation.total_price ?? 0) - Number(quotation.total_billed)} precision={0} styles={{ content: { color: '#8c8c8c' } }} /></Col>
+                <Col xs={12} sm={12} lg={5}><Statistic title={termTitle('received')} value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
+                <Col xs={12} sm={12} lg={5}><Statistic title={termTitle('outstanding', '未收款')} value={Number(quotation.total_billed) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_billed) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
               </Row>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 未請款＝合約額−已請款｜未收款＝已請款−已收款（應收帳款餘額，與委託單位帳款頁同一定義）

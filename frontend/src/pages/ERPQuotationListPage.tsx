@@ -2,6 +2,7 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
+import { termTitle } from '../constants/financeTerms';
 import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
@@ -136,14 +137,14 @@ export const ERPQuotationListPage: React.FC = () => {
     {
       // 2026-09-04 晚：原標「議價金額」，owner 問它是議價還是契約——它就是承攬案 contract_amount（含稅），與 /contract-cases 的
       // 「契約金額合計（含稅）」同一個數；未成案顯示報價總價並標註。名稱統一為「契約金額」。
-      title: '契約金額', dataIndex: 'contract_amount', key: 'contract_amount', width: 120, align: 'right', sorter: true,
+      title: termTitle('contract_amount'), dataIndex: 'contract_amount', key: 'contract_amount', width: 120, align: 'right', sorter: true,
       render: (v: string | number | null, r: ERPQuotation) => {
         const n = v != null ? Number(v) : (r.total_price != null ? Number(r.total_price) : null);
         return n != null ? <span title={v != null ? '承攬案契約金額（含稅）' : '尚未成案，顯示報價總價（含稅）'}>{n.toLocaleString()}{v == null ? <Text type="secondary" style={{ fontSize: 11 }}>（報價）</Text> : null}</span> : '-';
       },
     },
     {
-      title: '應收帳款', key: 'receivable', width: 130, align: 'right',
+      title: termTitle('receivable_column'), key: 'receivable', width: 130, align: 'right',
       render: (_: unknown, r: ERPQuotation) => {
         const billed = Number(r.total_billed ?? 0); const received = Number(r.total_received ?? 0);
         if (!billed) return <Tag color="orange">未開請款</Tag>;
@@ -159,7 +160,7 @@ export const ERPQuotationListPage: React.FC = () => {
       },
     },
     {
-      title: '應付帳款', key: 'payable', width: 130, align: 'right', hideOnMobile: true,
+      title: termTitle('payable_column'), key: 'payable', width: 130, align: 'right', hideOnMobile: true,
       render: (_: unknown, r: ERPQuotation) => {
         const payable = Number(r.total_payable ?? 0); const paid = Number(r.total_paid ?? 0);
         if (!payable) return <Text type="secondary">—</Text>;
@@ -230,7 +231,7 @@ export const ERPQuotationListPage: React.FC = () => {
           <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
             <Col xs={12} sm={6}>
               <ClickableStatCard
-                title="應收總額（未稅）"
+                title={termTitle('receivable_total_untaxed')}
                 value={Number(profitSummary.total_revenue).toLocaleString()}
                 icon={<DollarOutlined />}
                 color="#1890ff"
@@ -240,7 +241,7 @@ export const ERPQuotationListPage: React.FC = () => {
             </Col>
             <Col xs={12} sm={6}>
               <ClickableStatCard
-                title="應收未收"
+                title={termTitle('outstanding')}
                 value={Number(profitSummary.total_outstanding).toLocaleString()}
                 icon={<ExclamationCircleOutlined />}
                 color="#ff4d4f"
@@ -250,7 +251,7 @@ export const ERPQuotationListPage: React.FC = () => {
             </Col>
             <Col xs={12} sm={6}>
               <ClickableStatCard
-                title="應付款項"
+                title={termTitle('payable_total')}
                 value={Number(profitSummary.total_payable ?? 0).toLocaleString()}
                 icon={<FundOutlined />}
                 color="#722ed1"
@@ -260,7 +261,7 @@ export const ERPQuotationListPage: React.FC = () => {
             </Col>
             <Col xs={12} sm={6}>
               <ClickableStatCard
-                title="成本總額"
+                title={termTitle('cost_total')}
                 value={Number(profitSummary.total_cost).toLocaleString()}
                 icon={<BankOutlined />}
                 color="#faad14"

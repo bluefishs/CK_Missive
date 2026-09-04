@@ -20,7 +20,7 @@ import { Card, Statistic, Typography } from 'antd';
 const { Text } = Typography;
 
 interface ClickableStatCardProps {
-  title: string;
+  title: React.ReactNode;
   value: number | string;
   icon?: React.ReactNode;
   color?: string;

@@ -9,6 +9,7 @@
  * @version 1.0.0
  */
 import React, { useState, useMemo } from 'react';
+import { termTitle } from '../constants/financeTerms';
 import {
   Alert, Card, Typography, Row, Col, Tag, Select, Space, Input,
 } from 'antd';
@@ -126,7 +127,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       sorter: (a, b) => (a.case_count ?? 0) - (b.case_count ?? 0),
     },
     {
-      title: '應付總額',
+      title: termTitle('payable_total', '應付總額'),
       dataIndex: 'total_payable',
       key: 'total_payable',
       width: 130,
@@ -135,7 +136,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       render: (v: number) => Number(v).toLocaleString(),
     },
     {
-      title: '已付總額', hideOnMobile: true,
+      title: termTitle('paid_total', '已付總額'), hideOnMobile: true,
       dataIndex: 'total_paid',
       key: 'total_paid',
       width: 130,
@@ -146,7 +147,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       ),
     },
     {
-      title: '未付餘額',
+      title: termTitle('payable_outstanding'),
       dataIndex: 'outstanding',
       key: 'outstanding',
       width: 130,
@@ -162,7 +163,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       },
     },
     {
-      title: '付款率', hideOnMobile: true,
+      title: termTitle('payment_rate'), hideOnMobile: true,
       key: 'payment_rate',
       width: 100,
       align: 'center',
@@ -207,7 +208,7 @@ const ERPVendorAccountsPage: React.FC = () => {
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={8}>
             <ClickableStatCard
-              title="總應付"
+              title={termTitle('payable_total', '總應付')}
               value={stats.totalPayable.toLocaleString()}
               icon={<DollarOutlined />}
               color="#1890ff"
@@ -217,7 +218,7 @@ const ERPVendorAccountsPage: React.FC = () => {
           </Col>
           <Col xs={24} sm={8}>
             <ClickableStatCard
-              title="總已付"
+              title={termTitle('paid_total', '總已付')}
               value={stats.totalPaid.toLocaleString()}
               icon={<CheckCircleOutlined />}
               color="#3f8600"
@@ -227,7 +228,7 @@ const ERPVendorAccountsPage: React.FC = () => {
           </Col>
           <Col xs={24} sm={8}>
             <ClickableStatCard
-              title="總未付"
+              title={termTitle('payable_outstanding', '總未付')}
               value={stats.totalOutstanding.toLocaleString()}
               icon={<ExclamationCircleOutlined />}
               color={stats.totalOutstanding > 0 ? '#cf1322' : '#3f8600'}
