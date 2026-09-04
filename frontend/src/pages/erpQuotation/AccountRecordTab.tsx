@@ -21,7 +21,7 @@ import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined } from '@ant-design/icons';
 
 import type { ResponsiveColumn } from '../../components/common/EnhancedTable';
-import type { ERPVendorPayable } from '../../types/erp';
+import type { ERPBilling, ERPVendorPayable } from '../../types/erp';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -86,23 +86,23 @@ const STATUS_LABELS: Record<string, string> = {
 //
 // 兩者都是「資料在，缺的是接出來」，同本專案反覆記錄的形狀。
 const billingToRecord = (
-  b: Record<string, unknown>,
+  b: ERPBilling,
   clientName?: string,
 ): AccountRecord => ({
-  id: b.id as number,
-  period: b.billing_period as string,
+  id: b.id,
+  period: b.billing_period ?? '',
   // 應收沒有說明欄位（對手方與案名由報價帶出）—— 給 undefined 讓兩邊型別一致
   description: undefined,
   counterparty: clientName || '（未設定委託單位）',
-  request_date: b.billing_date as string,
+  request_date: b.billing_date,
   request_amount: Number(b.billing_amount || 0),
-  invoice_number: (b.invoice_number as string) || undefined,
-  invoice_date: (b.invoice_date as string) || undefined,
+  invoice_number: b.invoice_number || undefined,
+  invoice_date: b.invoice_date || undefined,
   invoice_amount: b.invoice_amount != null ? Number(b.invoice_amount) : undefined,
-  payment_status: (b.payment_status as string) || 'pending',
-  payment_date: b.payment_date as string,
+  payment_status: b.payment_status || 'pending',
+  payment_date: b.payment_date,
   payment_amount: b.payment_amount ? Number(b.payment_amount) : undefined,
-  notes: b.notes as string,
+  notes: b.notes,
 });
 
 // 資料轉換: vendor_payable → 統一格式
@@ -156,7 +156,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
     rawData?.data ?? (rawData as unknown as Record<string, unknown>[]) ?? []
   ).map((row) =>
     isReceivable
-      ? billingToRecord(row, clientName)
+      ? billingToRecord(row as unknown as ERPBilling, clientName)
       : payableToRecord(row as unknown as ERPVendorPayable),
   );
 

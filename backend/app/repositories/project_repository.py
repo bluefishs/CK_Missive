@@ -962,6 +962,10 @@ class ProjectRepository(BaseRepository[ContractProject]):
                 ContractProject.project_name.ilike(f"%{search}%")
                 | ContractProject.project_code.ilike(f"%{search}%")
                 | ContractProject.case_code.ilike(f"%{search}%")
+                # 2026-09-04 owner：搜尋框寫著「專案名稱、編號、委託單位」，搜「徐瑛宜地政士聯合事務所」卻 0 筆——
+                # 列表頁真正走的這條路徑從沒比對過 client_agency；有比對的是 filter_projects（SEARCH_FIELDS），
+                # 但列表端點沒走它。兩份搜尋實作各自演化。
+                | ContractProject.client_agency.ilike(f"%{search}%")
             )
         if year:
             query = query.where(ContractProject.year == year)

@@ -24,9 +24,24 @@ import {
 
 type DataIndex = keyof Project;
 
+/** 後端分頁下「表頭漏斗／搜尋框」的現值——由頁面持有、送進查詢參數；欄位只負責顯示勾選狀態 */
+export interface ServerFilters {
+  year?: number;
+  category?: string;
+  status?: string;
+  search?: string;
+  /** 最後一次用哪個欄位的搜尋框輸入（決定 filteredValue 顯示在哪一欄與高亮） */
+  searchColumn?: string;
+}
+
+// 2026-09-04 owner：「因為表格可篩選排序機制，就可減少系統重複開發獨立篩選欄位服務」。
+// 08-31 因為「前端漏斗只看得到本頁 10 筆」把漏斗拆掉、改用工具列下拉——那是把症狀往外搬。
+// 正解是漏斗**不帶 onFilter**（不在前端篩），勾選值經 Table onChange 進查詢參數、由後端篩全庫；
+// `stripClientOnlyColumnFeatures` 只剝有 onFilter 的欄，所以這樣寫的漏斗在 serverPaged 下會留著。
 export function useContractCaseColumns(
   availableYears: number[],
   availableStatuses: string[],
+  serverFilters: ServerFilters = {},
 ) {
   const [columnSearchText, setColumnSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
@@ -82,8 +97,8 @@ export function useContractCaseColumns(
     filterIcon: (filtered: boolean) => (
       <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
     ),
-    onFilter: (value, record) =>
-      record[dataIndex]?.toString().toLowerCase().includes((value as string).toLowerCase()) ?? false,
+    // 不給 onFilter：後端分頁下由伺服器比對（project_name／project_code／case_code／client_agency）
+    filteredValue: serverFilters.searchColumn === dataIndex && serverFilters.search ? [serverFilters.search] : null,
     filterDropdownProps: {
       onOpenChange(open) {
         if (open) setTimeout(() => searchInput.current?.select(), 100);
@@ -133,7 +148,8 @@ export function useContractCaseColumns(
       sorter: true,
       defaultSortOrder: 'descend',
       filters: availableYears.map(y => ({ text: `${y < 1911 ? y + 1911 : y}`, value: y })),
-      onFilter: (value, record) => record.year === value,
+      filterMultiple: false,
+      filteredValue: serverFilters.year ? [serverFilters.year] : null,
     },
     {
       title: '專案名稱',
@@ -174,6 +190,10 @@ export function useContractCaseColumns(
       // 2026-09-02 owner：「列表以 01 委辦招標類別為主排列」——後端排序，預設 category 升冪
       sorter: true,
       defaultSortOrder: 'ascend' as const,
+      // 2026-09-04：漏斗回來了，但這次不帶 onFilter——勾選值進查詢參數 `category`，後端篩全庫。
+      filters: [{ text: '01 委辦招標', value: '01' }, { text: '02 承攬報價', value: '02' }],
+      filterMultiple: false,
+      filteredValue: serverFilters.category ? [serverFilters.category] : null,
       // ⚠️ 2026-08-31：**移除欄位漏斗篩選**（owner 回報「對應篩選無資料，頁面空白」）。
       //
       // 結構性錯配：本頁是**後端分頁**（`dataSource` 只有當前 10 筆，
@@ -197,7 +217,10 @@ export function useContractCaseColumns(
       key: 'status',
       width: 80,
       align: 'center',
-      // 同上：狀態的後端篩選在工具列，欄位漏斗只看得到當前頁 ⇒ 移除
+      // 2026-09-04：漏斗接後端（不帶 onFilter），取代工具列下拉
+      filters: availableStatuses.map((st) => ({ text: getStatusLabel(st), value: st })),
+      filterMultiple: false,
+      filteredValue: serverFilters.status ? [serverFilters.status] : null,
       render: (status) => <Tag color={getStatusColor(status)}>{getStatusLabel(status)}</Tag>,
     },
     {
@@ -219,7 +242,7 @@ export function useContractCaseColumns(
       render: (code) => code ? <Tag color="blue">{code}</Tag> : '-',
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [availableYears, availableStatuses, columnSearchText, searchedColumn]);
+  ], [availableYears, availableStatuses, columnSearchText, searchedColumn, serverFilters]);
 
   return { columns };
 }

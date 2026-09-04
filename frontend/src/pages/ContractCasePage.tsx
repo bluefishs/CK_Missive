@@ -5,8 +5,7 @@ import {
   Button,
   Space,
   Input,
-  Select,
-  Row,
+    Row,
   Col,
   Tag,
   Switch,
@@ -37,8 +36,7 @@ import { useAuthGuard, useResponsive } from '../hooks';
 import { useContractCaseColumns } from './contractCase/useContractCaseColumns';
 import { getStatusColor, getStatusLabel } from './contractCase/contractCaseConstants';
 
-const { Title } = Typography;
-const { Option } = Select;
+const { Title, Text } = Typography;
 
 // ---[類型定義]---
 import type { Project, ViewMode } from '../types/api';
@@ -67,6 +65,8 @@ export const ContractCasePage: React.FC = () => {
 
   // ---[UI 狀態管理]---
   const [statFilter, setStatFilter] = useState<string | null>(null);
+  // 表頭搜尋框最後用在哪一欄（只影響漏斗勾選顯示與高亮；查詢一律走 search 參數）
+  const [searchColumn, setSearchColumn] = useState<string | undefined>(undefined);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -126,7 +126,9 @@ export const ContractCasePage: React.FC = () => {
   }, [statistics]);
 
   // 表格欄位 (extracted hook)
-  const { columns } = useContractCaseColumns(availableYears, availableStatuses);
+  const { columns } = useContractCaseColumns(availableYears, availableStatuses, {
+    year: yearFilter, category: categoryFilter, status: statusFilter, search: searchText, searchColumn,
+  });
 
   // ---[事件處理]---
   const handleView = (project: Project) => {
@@ -198,7 +200,7 @@ export const ContractCasePage: React.FC = () => {
               value={globalStats.total}
               icon={<TeamOutlined />}
               active={statFilter === 'all'}
-              onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
+              onClick={() => { setStatFilter(statFilter === 'all' ? null : 'all'); setStatusFilter(''); setCurrentPage(1); }}
             />
           </Col>
           <Col xs={12} sm={6} md={4}>
@@ -208,7 +210,7 @@ export const ContractCasePage: React.FC = () => {
               icon={<SyncOutlined />}
               color="#1890ff"
               active={statFilter === 'inProgress'}
-              onClick={() => setStatFilter(statFilter === 'inProgress' ? null : 'inProgress')}
+              onClick={() => { const on = statFilter !== 'inProgress'; setStatFilter(on ? 'inProgress' : null); setStatusFilter(on ? '執行中' : ''); setCurrentPage(1); }}
             />
           </Col>
           <Col xs={12} sm={6} md={4}>
@@ -218,7 +220,7 @@ export const ContractCasePage: React.FC = () => {
               icon={<CheckCircleOutlined />}
               color="#52c41a"
               active={statFilter === 'completed'}
-              onClick={() => setStatFilter(statFilter === 'completed' ? null : 'completed')}
+              onClick={() => { const on = statFilter !== 'completed'; setStatFilter(on ? 'completed' : null); setStatusFilter(on ? '已結案' : ''); setCurrentPage(1); }}
             />
           </Col>
           <Col xs={12} sm={6} md={4}>
@@ -228,7 +230,7 @@ export const ContractCasePage: React.FC = () => {
               value={`NT$${(statistics?.total_contract_amount ?? 0).toLocaleString()}`}
               icon={<DollarOutlined />}
               active={statFilter === 'amount'}
-              onClick={() => setStatFilter(statFilter === 'amount' ? null : 'amount')}
+              onClick={() => { const on = statFilter !== 'amount'; setStatFilter(on ? 'amount' : null); setUserSort(on ? { field: 'contract_amount', order: 'desc' } : null); setCurrentPage(1); }}
             />
           </Col>
         </Row>
@@ -247,23 +249,16 @@ export const ContractCasePage: React.FC = () => {
                 allowClear
               />
             </Col>
-            <Col xs={12} sm={6} md={4} lg={3}>
-              <Select placeholder="年度" value={yearFilter} onChange={setYearFilter} allowClear style={{ width: '100%' }}>
-                {availableYears.map(year => <Option key={year} value={year}>{year}年</Option>)}
-              </Select>
-            </Col>
-            <Col xs={12} sm={6} md={5} lg={4}>
-              <Select placeholder="計畫類別" value={categoryFilter} onChange={setCategoryFilter} allowClear style={{ width: '100%' }}>
-                {[
-                  { value: '01', label: '01委辦招標' },
-                  { value: '02', label: '02承攬報價' },
-                ].map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
-              </Select>
-            </Col>
-            <Col xs={12} sm={6} md={4} lg={4}>
-              <Select placeholder="案件狀態" value={statusFilter} onChange={setStatusFilter} allowClear style={{ width: '100%' }}>
-                {availableStatuses.map(stat => <Option key={stat} value={stat}>{getStatusLabel(stat)}</Option>)}
-              </Select>
+            <Col xs={24} sm={12} md={16} lg={18}>
+              {/* 2026-09-04 owner：篩選走表頭漏斗（年度／類別／狀態）與欄位搜尋框，排序點欄名——
+                  不再另建三個下拉（同一件事兩套機制，08-31 那套壞在前端只篩本頁）。這一行只顯示現值。 */}
+              <Space wrap size={[4, 4]}>
+                <Text type="secondary">目前：</Text>
+                <Tag color={yearFilter ? 'blue' : 'default'}>{yearFilter ? `${yearFilter} 年度` : '全部年度'}</Tag>
+                <Tag color={categoryFilter ? 'blue' : 'default'}>{categoryFilter ? `${categoryFilter} 類` : '全部類別'}</Tag>
+                <Tag color={statusFilter ? 'blue' : 'default'}>{statusFilter ? getStatusLabel(statusFilter) : '全部狀態'}</Tag>
+                <Text type="secondary">— 用表頭漏斗改，點欄名排序</Text>
+              </Space>
             </Col>
           </Row>
           <Row justify="space-between">
@@ -301,10 +296,28 @@ export const ContractCasePage: React.FC = () => {
               // 所以這裡要明講：前端排序／篩選只會作用於當前這一頁（2026-08-31）。
               serverPaged
               pagination={false}
-              onChange={(_p, _f, sorter) => {
+              onChange={(_p, filters, sorter) => {
                 const s = Array.isArray(sorter) ? sorter[0] : sorter;
                 const field = typeof s?.field === 'string' ? s.field : undefined;
                 setUserSort(field && s?.order ? { field, order: s.order === 'ascend' ? 'asc' : 'desc' } : null);
+                // 2026-09-04：表頭漏斗／搜尋框的勾選值 ⇒ 查詢參數（後端篩全庫）。
+                // 這裡是唯一的篩選入口；工具列的三個下拉已撤（owner：表格能篩就不要重複做一套）。
+                const first = (k: string) => {
+                  const v = filters?.[k];
+                  return Array.isArray(v) && v.length ? v[0] : undefined;
+                };
+                setYearFilter(first('year') as number | undefined);
+                setCategoryFilter((first('category') as string | undefined) ?? '');
+                setStatusFilter((first('status') as string | undefined) ?? '');
+                const searchCol = ['project_code', 'project_name', 'client_agency'].find((k) => first(k) !== undefined);
+                if (searchCol) {
+                  setSearchText(String(first(searchCol)));
+                  setSearchColumn(searchCol);
+                } else if (searchColumn) {
+                  // 使用者從搜尋框按「重置」：只清掉由表頭輸入的那份
+                  setSearchText('');
+                  setSearchColumn(undefined);
+                }
                 setCurrentPage(1);
               }}
               scroll={{ x: isMobile ? 600 : 890 }}

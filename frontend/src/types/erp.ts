@@ -355,6 +355,10 @@ export interface ERPBilling {
   /** 系統請款編碼 `BL_{yyyy}_{NNN}` —— 後端 Response 一直有回傳，
    *  這份手寫介面漏了（2026-08-18 由 `response_frontend_type_audit` 揪出）。 */
   billing_code?: string;
+  /** 關聯發票（`erp_invoices.billing_id` 反查，2026-09-04 起與 `invoice_number` 一起回） */
+  invoice_id?: number;
+  invoice_date?: string;
+  invoice_amount?: number;
 }
 
 export interface ERPBillingCreate {

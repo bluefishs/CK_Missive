@@ -163,6 +163,11 @@ apiClient.post(`${AI_ENDPOINTS.ANALYSIS}/${documentId}`);
 | ② **互動篩選** | 卡片可點擊，點下去篩選列表；再點一次取消 | ❌ 純 `Statistic` 唯讀卡 —— 使用者看到數字卻無法追進去 |
 | ③ **當年度基準** | 預設當年度（**西元**，見 §2.5），可切「全部年度」 | ❌ 不篩年度 ⇒ 所有年度混在一起算成一個總數 |
 
+| ④ **篩選與排序走表格本身**（owner 2026-09-04） | 表頭漏斗（`filters`＋`filterMultiple:false`）、欄位搜尋框、點欄名排序（`sorter:true`）；**後端分頁時勾選值經 `Table onChange` 進查詢參數、由後端篩全庫**，欄位**不帶 `onFilter`**（帶了會被 `stripClientOnlyColumnFeatures` 連漏斗一起剝掉）。工具列只留全文搜尋與「目前篩選」現值列 | ❌ 工具列另建年度／類別／狀態三個下拉——同一件事兩套機制（08-31 `/contract-cases` 就是把壞掉的前端漏斗搬成下拉）；❌ 漏斗帶 `onFilter` 在後端分頁下只篩本頁 |
+
+> ④ 的參考實作＝`/contract-cases`（`useContractCaseColumns` 的 `ServerFilters`＋`ContractCasePage` 的 `onChange`）。
+> 其餘列表頁（`/erp/quotations`、帳款兩頁、`/pm/cases`）仍是工具列下拉，逐頁改＝A98。③ 的「當年度預設要顯示」在 ④ 下由漏斗勾選狀態＋「目前：2026 年度」現值列滿足。
+
 ### 為什麼
 
 - **①** 2026-08-29 實測：發票彙總卡只算當頁 20/48 筆，顯示 1,892,988 而正確值是
