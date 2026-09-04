@@ -293,6 +293,7 @@ class ERPQuotationListRequest(BaseQueryParams):
 class ERPProfitSummary(BaseModel):
     """損益摘要"""
     total_revenue: Decimal = Decimal("0")
+    total_awarded: Decimal = Field(Decimal("0"), description="應收總額（含稅）＝Σ 承攬金額（議價→契約→報價總價），與 /contract-cases 承攬金額合計同口徑（2026-09-05）")
     total_cost: Decimal = Decimal("0")
     total_gross_profit: Decimal = Decimal("0")
     avg_gross_margin: Optional[Decimal] = None

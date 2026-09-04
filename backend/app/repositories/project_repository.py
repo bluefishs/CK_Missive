@@ -887,7 +887,8 @@ class ProjectRepository(BaseRepository[ContractProject]):
         if status:
             amt_q = amt_q.where(ContractProject.status == status)
         sum_amount = await self.db.scalar(amt_q)
-        total_amount = round(float(sum_amount), 2) if sum_amount else 0.0
+        from decimal import Decimal as _D, ROUND_HALF_UP as _RHU
+        total_amount = float(_D(str(sum_amount)).quantize(_D("1"), rounding=_RHU)) if sum_amount else 0.0  # 先加總再四捨五入，與報價單頁同一種進位
         return {
             "total_projects": total,
             "status_breakdown": status_stats,

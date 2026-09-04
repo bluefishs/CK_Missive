@@ -663,6 +663,7 @@ class ERPQuotationService(AuditableServiceMixin):
         )
 
         total_revenue = ZERO
+        total_awarded = ZERO
         total_cost = ZERO
         total_gross = ZERO
 
@@ -679,12 +680,17 @@ class ERPQuotationService(AuditableServiceMixin):
             price = Decimal(str(q.total_price or 0))
             tax = Decimal(str(q.tax_amount or 0))
             # 2026-09-04 晚：有議價金額的案，應收以承攬金額為準（含稅）；未稅＝承攬金額 − 依同比例換算的稅
-            winning = (awarded_map.get(q.case_code) or {}).get("winning")
+            amounts = awarded_map.get(q.case_code) or {}
+            winning = amounts.get("winning")
             if winning is not None and price > 0:
                 w = Decimal(str(winning))
                 total_revenue += w - (tax * w / price).quantize(Decimal("1"))
             else:
                 total_revenue += price - tax
+            # 2026-09-05 owner「是否皆以含稅呈現」：應收總額（含稅）＝承攬金額（議價→契約→報價總價），
+            # 與 /contract-cases 的承攬金額合計是同一個算法 ⇒ 兩頁數字相等。winning 是 Float，先整數化去 .5 雜訊。
+            awarded = amounts.get("awarded")
+            total_awarded += Decimal(str(awarded)) if awarded is not None else price
             total_cost += profit["total_cost"]
             total_gross += profit["gross_profit"]
 
@@ -701,8 +707,11 @@ class ERPQuotationService(AuditableServiceMixin):
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
 
+        # 兩頁同一種進位：先加總再四捨五入（逐列進位會與承攬案頁差 1）
+        total_awarded = total_awarded.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
         return ERPProfitSummary(
             total_revenue=total_revenue,
+            total_awarded=total_awarded,
             total_cost=total_cost,
             total_gross_profit=total_gross,
             avg_gross_margin=avg_margin,

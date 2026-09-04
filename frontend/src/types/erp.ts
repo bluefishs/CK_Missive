@@ -196,6 +196,8 @@ export type ERPQuotationUpdate = Partial<ERPQuotationCreate>;
 /** ERP 損益摘要 */
 export interface ERPProfitSummary {
   total_revenue: number;
+  /** 應收總額（含稅）＝Σ 承攬金額；與承攬案頁承攬金額合計同口徑 */
+  total_awarded?: number;
   total_cost: number;
   total_gross_profit: number;
   avg_gross_margin?: number;
