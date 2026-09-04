@@ -220,7 +220,9 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
       ),
     },
     ...(readOnly ? [] : [{
-      title: '', width: 50,
+      // 2026-09-04 owner「工項無法刪除」：表格改固定欄寬＋橫向捲動後，最右的刪除欄被推到可視範圍外。
+      // 釘在右側、給標題，捲不捲都看得到。
+      title: '刪除', width: 64, align: 'center' as const, fixed: 'right' as const,
       render: (_: unknown, r: QuotationItemRow) => (
         <Button type="text" danger icon={<DeleteOutlined />}
           onClick={() => { setRows(p => p.filter(x => x.key !== r.key)); setDirty(true); }} />

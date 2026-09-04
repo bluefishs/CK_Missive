@@ -270,8 +270,10 @@ export const PMCaseDetailPage: React.FC = () => {
             }}
           >新增報價</Button>
         )}
+        {/* 2026-09-04 owner「編輯鈕功能定位」：這顆只管「案件資訊」分頁的欄位；報價單分頁的明細／備註／抬頭
+            各自有儲存鈕、不需要它。標題寫清楚範圍，避免在報價單分頁以為要先按它。 */}
         {canWrite && (
-          <Button type="primary" icon={<EditOutlined />} onClick={() => setIsEditing(true)}>編輯</Button>
+          <Button type="primary" icon={<EditOutlined />} onClick={() => setIsEditing(true)} title="編輯案件資訊分頁的欄位（案名、委託單位、金額、日期…）；報價單分頁的內容直接在分頁內儲存">編輯案件資訊</Button>
         )}
         {canWrite && !pmCase?.project_code && pmCase?.status === 'contracted' && (
           <Popconfirm
