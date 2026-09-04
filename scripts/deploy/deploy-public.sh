@@ -44,32 +44,38 @@ echo "╚═══════════════════════�
 # ── Step 1: Frontend build ────────────────────────────────────────────
 echo ""
 echo "[1/7] Building frontend (production)..."
-# 2026-09-04 owner「頁面載入失敗…前端常發生」：vite build 會清空 dist/，舊 index.html（或還開著的分頁）
-# 引用的 hash chunk 立刻 404 ⇒ ErrorBoundary 重載也救不回。留住上一版的 assets 一個世代：
-# 舊分頁能把當下這頁走完，下一次整頁載入自然拿到新 index。
-# ⚠️ 只保留「上一次 build 自己產出的」那批：build 完會寫一份清單 dist/.build-assets.txt，
-# 下次只依清單補回。若把 dist 裡全部檔案都帶著走，上一版保留的更上一版也會一起被保留，
-# 每部署一次多累積一個世代（第一次實測 224 → 463，會無限長大）。
-_PREV_ASSETS="$(mktemp -d)"
-if [ -f frontend/dist/.build-assets.txt ] && [ -d frontend/dist/assets ]; then
-    while IFS= read -r b; do
-        [ -n "$b" ] && [ -e "frontend/dist/assets/$b" ] && cp "frontend/dist/assets/$b" "$_PREV_ASSETS/$b"
-    done < frontend/dist/.build-assets.txt
+# 2026-09-04 owner「頁面載入失敗…前端常發生」（同日第三次修法）：
+#   第一版：build 完把上一版 assets 補回 —— 但 vite 是「先清空 dist 再寫」，清空到寫完的
+#   幾十秒內所有 chunk 都 404，正在切頁的分頁照樣壞；而且半小時內連部四次時「上一版」根本不夠。
+#   現在：build 到 dist_next（不動 dist），完成後**覆蓋式**複製進 dist（assets 先、index.html 最後），
+#   dist 從頭到尾沒有空窗；舊 assets 不刪，只清 24 小時前且不在本次清單的（累積有上限）。
+( cd frontend && rm -rf dist_next && npx vite build --outDir dist_next --emptyOutDir --logLevel error )
+MAIN_JS_NEXT=$(ls frontend/dist_next/assets/main-*.js 2>/dev/null | head -1 || true)
+if [ -z "$MAIN_JS_NEXT" ]; then
+    echo "  ✗ 找不到 frontend/dist_next/assets/main-*.js —— build 沒有產出"
+    exit 1
 fi
-( cd frontend && npm run build --silent )   # 不接 pipe，build 失敗就是失敗
-ls frontend/dist/assets > frontend/dist/.build-assets.txt 2>/dev/null || true
-if [ -d "$_PREV_ASSETS" ] && [ -d frontend/dist/assets ]; then
-    _KEPT=0
-    for f in "$_PREV_ASSETS"/*; do
-        [ -e "$f" ] || continue
-        b="$(basename "$f")"
-        [ -e "frontend/dist/assets/$b" ] || { cp "$f" "frontend/dist/assets/$b" && _KEPT=$((_KEPT+1)); }
-    done
-    echo "  ↳ 保留上一版 assets $_KEPT 個（只留一個世代）"
-    rm -rf "$_PREV_ASSETS"
-fi
+mkdir -p frontend/dist/assets
+cp -rp frontend/dist_next/assets/. frontend/dist/assets/
+# assets 以外的檔案（index.html 最後）
+for f in frontend/dist_next/*; do
+    b="$(basename "$f")"
+    [ "$b" = "assets" ] && continue
+    [ "$b" = "index.html" ] && continue
+    cp -rp "$f" "frontend/dist/$b"
+done
+cp -p frontend/dist_next/index.html frontend/dist/index.html
+ls frontend/dist_next/assets > frontend/dist/.build-assets.txt
+_PRUNED=0
+for f in frontend/dist/assets/*; do
+    b="$(basename "$f")"
+    grep -qx -- "$b" frontend/dist/.build-assets.txt && continue
+    if [ -n "$(find "$f" -mmin +1440 2>/dev/null)" ]; then rm -f "$f"; _PRUNED=$((_PRUNED+1)); fi
+done
+rm -rf frontend/dist_next
+echo "  ↳ dist 覆蓋式更新完成；清掉 24 小時前的舊 assets $_PRUNED 個，現存 $(ls frontend/dist/assets | wc -l | tr -d ' ') 個"
 
-MAIN_JS=$(ls frontend/dist/assets/main-*.js 2>/dev/null | head -1 || true)
+MAIN_JS="$(ls -t frontend/dist/assets/main-*.js | head -1)"
 if [ -z "$MAIN_JS" ]; then
     echo "  ✗ 找不到 frontend/dist/assets/main-*.js —— build 沒有產出"
     exit 1
