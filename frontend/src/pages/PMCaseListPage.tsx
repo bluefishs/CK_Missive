@@ -7,7 +7,7 @@
  * @version 3.0.0 — 重新定位為邀標/報價專區
  */
 import React, { useState, useMemo } from 'react';
-import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space, Checkbox } from 'antd';
+import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -50,7 +50,8 @@ export const PMCaseListPage: React.FC = () => {
    * 開關留著而不是寫死：邀標階段的報價紀錄還掛在這些案件上，
    * 偶爾要回頭查。**預設不顯示＝不列管；要查得到＝不是列管。**
    */
-  const [includeConverted, setIncludeConverted] = useState(false);
+  // 2026-09-04 owner：「含已成案」開關移除——已成案的家在 /contract-cases，這頁固定只看未成案（評估中／已結案）。
+  const includeConverted = false;
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
@@ -399,17 +400,7 @@ export const PMCaseListPage: React.FC = () => {
               options={PM_CATEGORY_OPTIONS}
             />
           </Col>
-          <Col>
-            {/* owner 2026-08-31：已成案的案件移交 /contract-cases 列管，這裡預設不列。
-                留一個開關而不是寫死 —— 邀標階段的報價紀錄還掛在這些案件上，
-                偶爾要回頭查。**預設不顯示＝不列管；查得到＝不是列管。** */}
-            <Checkbox
-              checked={includeConverted}
-              onChange={(e) => { setIncludeConverted(e.target.checked); setCurrentPage(1); }}
-            >
-              含已成案
-            </Checkbox>
-          </Col>
+          {/* 2026-09-04 owner：原本這裡有「含已成案」開關（08-31 留的），已成案的家在 /contract-cases，這頁固定不列，開關移除。 */}
           <Col>
             <Button icon={<ReloadOutlined />} onClick={() => refetch()} />
           </Col>
