@@ -44,7 +44,22 @@ echo "╚═══════════════════════�
 # ── Step 1: Frontend build ────────────────────────────────────────────
 echo ""
 echo "[1/7] Building frontend (production)..."
+# 2026-09-04 owner「頁面載入失敗…前端常發生」：vite build 會清空 dist/，舊 index.html（或還開著的分頁）
+# 引用的 hash chunk 立刻 404 ⇒ ErrorBoundary 重載也救不回。留住上一版的 assets 一個世代：
+# 舊分頁能把當下這頁走完，下一次整頁載入自然拿到新 index。
+_PREV_ASSETS="$(mktemp -d)"
+[ -d frontend/dist/assets ] && cp -r frontend/dist/assets/. "$_PREV_ASSETS/" 2>/dev/null || true
 ( cd frontend && npm run build --silent )   # 不接 pipe，build 失敗就是失敗
+if [ -d "$_PREV_ASSETS" ] && [ -d frontend/dist/assets ]; then
+    _KEPT=0
+    for f in "$_PREV_ASSETS"/*; do
+        [ -e "$f" ] || continue
+        b="$(basename "$f")"
+        [ -e "frontend/dist/assets/$b" ] || { cp "$f" "frontend/dist/assets/$b" && _KEPT=$((_KEPT+1)); }
+    done
+    echo "  ↳ 保留上一版 assets $_KEPT 個（只留一個世代；再上一版此時被新 build 清掉）"
+    rm -rf "$_PREV_ASSETS"
+fi
 
 MAIN_JS=$(ls frontend/dist/assets/main-*.js 2>/dev/null | head -1 || true)
 if [ -z "$MAIN_JS" ]; then

@@ -71,7 +71,7 @@ const newRow = (): DraftItemRow => ({
 
 const QuotationTemplateCreatePage: React.FC = () => {
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const { clients } = useClientOptions();
@@ -187,6 +187,30 @@ const QuotationTemplateCreatePage: React.FC = () => {
     if (!presetCaseCode && !clientVendorId) {
       message.error('請選擇委託單位 —— 輸出的報價單需要客戶抬頭，且案件要能關聯到單位主檔');
       return;
+    }
+    // 2026-09-04：從案件頁進來時先看這個案已有幾張報價單 —— owner 測試時一個案建出三張 draft
+    // （每次「新增報價」都是新的一張，而分頁又看不到未成案的那幾張）。不擋，但要先說。
+    if (presetCaseCode) {
+      try {
+        const existing = await apiClient.post<{ items?: Array<{ id: number; quotation_no?: string | null; total_price?: number | string | null }> }>(
+          ERP_ENDPOINTS.QUOTATIONS_LIST, { case_code: presetCaseCode, page: 1, limit: 10, include_unawarded: true },
+        );
+        const n = existing?.items?.length ?? 0;
+        if (n > 0) {
+          const go = await new Promise<boolean>((resolve) => {
+            modal.confirm({
+              title: `此案已有 ${n} 張報價單`,
+              content: `${existing.items!.map((q) => q.quotation_no || `#${q.id}`).join('、')}。再建一張會成為新的版次；若只是要編輯明細或輸出，請回案件頁的「報價單」分頁。`,
+              okText: '仍要新建一張', cancelText: '回報價單分頁',
+              onOk: () => resolve(true), onCancel: () => resolve(false),
+            });
+          });
+          if (!go) {
+            navigate(presetPmCaseId ? `${ROUTES.PM_CASE_DETAIL.replace(':id', presetPmCaseId)}?tab=quotations` : ROUTES.ERP_QUOTATIONS);
+            return;
+          }
+        }
+      } catch { /* 查不到就照常建，不因防呆本身失敗而擋住建單 */ }
     }
     setSaving(true);
     try {

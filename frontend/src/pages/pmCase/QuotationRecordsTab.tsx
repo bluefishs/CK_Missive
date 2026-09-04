@@ -59,7 +59,9 @@ export default function QuotationRecordsTab({
   const { data, isLoading, isError } = useQuery({
     queryKey: ['erp-quotations', 'by-case', caseCode],
     queryFn: () => apiClient.post<{ items?: ERPQuotation[] }>(
-      ERP_ENDPOINTS.QUOTATIONS_LIST, { case_code: caseCode, page: 1, limit: 10 },
+      // 2026-09-04 owner「新增報價單也無看到紀錄」：列表端點預設只回成案的報價單（include_unawarded=false），
+      // 剛建的 draft 永遠不在裡面 ⇒ 分頁顯示「尚無報價單」。本案範圍要看全部版次。
+      ERP_ENDPOINTS.QUOTATIONS_LIST, { case_code: caseCode, page: 1, limit: 10, include_unawarded: true },
     ),
     enabled: !!caseCode,
     ...defaultQueryOptions.list,
