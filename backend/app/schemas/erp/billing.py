@@ -128,7 +128,10 @@ class ERPBillingResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    # 關聯顯示
+    # 關聯顯示（erp_invoices.billing_id 反查；2026-09-04 起連日期／金額一起帶，畫面才有「紀錄」可顯示）
     invoice_number: Optional[str] = None
+    invoice_id: Optional[int] = None
+    invoice_date: Optional[date] = None
+    invoice_amount: Optional[Decimal] = None
 
     model_config = ConfigDict(from_attributes=True)

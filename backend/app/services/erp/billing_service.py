@@ -246,18 +246,20 @@ class ERPBillingService(AuditableServiceMixin):
         from app.extended.models.erp import ERPInvoice
         items = await self.repo.get_by_quotation_id(quotation_id)
         ids = [b.id for b in items]
-        inv_by_billing: dict[int, str] = {}
+        inv_by_billing: dict[int, tuple] = {}
         if ids:
             rows = (await self.db.execute(
-                select(ERPInvoice.billing_id, ERPInvoice.invoice_number)
-                .where(ERPInvoice.billing_id.in_(ids)).order_by(ERPInvoice.id)
+                select(ERPInvoice.billing_id, ERPInvoice.id, ERPInvoice.invoice_number, ERPInvoice.invoice_date, ERPInvoice.amount)
+                .where(ERPInvoice.billing_id.in_(ids), ERPInvoice.status != "voided").order_by(ERPInvoice.id)
             )).all()
-            for bid, no in rows:
-                inv_by_billing.setdefault(bid, no)
+            for bid, iid, no, dt, amt in rows:
+                inv_by_billing.setdefault(bid, (iid, no, dt, amt))
         out = []
         for b in items:
             r = ERPBillingResponse.model_validate(b)
-            r.invoice_number = inv_by_billing.get(b.id)
+            inv = inv_by_billing.get(b.id)
+            if inv:
+                r.invoice_id, r.invoice_number, r.invoice_date, r.invoice_amount = inv
             out.append(r)
         return out
 

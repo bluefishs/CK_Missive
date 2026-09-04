@@ -132,6 +132,18 @@ class ERPInvoiceService(AuditableServiceMixin):
         )
         if existing_invoice.scalar_one_or_none():
             raise ValueError("此請款記錄已有關聯發票")
+        # 2026-09-04 owner「發票已填報但無防呆」：①統一發票號碼＝2 大寫英文＋8 碼數字（FIELD_SEMANTICS）
+        # ②全庫重複——此前直接撞 unique index，使用者看到的是 500 而不是「這個號碼已經開給誰」
+        import re as _re
+        invoice_number = (invoice_number or "").strip().upper()
+        if not _re.fullmatch(r"[A-Z]{2}\d{8}", invoice_number):
+            raise ValueError(f"發票號碼格式不對：「{invoice_number}」——統一發票為 2 個英文字母＋8 碼數字（例 EE15019500）")
+        dup = (await self.db.execute(
+            select(ERPInvoice.id, ERPInvoice.erp_quotation_id, ERPInvoice.billing_id)
+            .where(ERPInvoice.invoice_number == invoice_number).limit(1)
+        )).first()
+        if dup:
+            raise ValueError(f"發票號碼 {invoice_number} 已登錄在報價單 #{dup.erp_quotation_id}（發票 #{dup.id}）——同一號碼不能開兩次")
 
         invoice_data = {
             "erp_quotation_id": billing.erp_quotation_id,

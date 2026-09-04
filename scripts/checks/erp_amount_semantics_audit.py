@@ -47,6 +47,7 @@ SELECT json_build_object(
             AND (abs(q.total_price+2*COALESCE(q.tax_amount,0)-pm.contract_amount)<=2 OR abs(COALESCE(q.tax_amount,0)*21-pm.contract_amount)<=2)),
   'y10', (SELECT count(*) FROM erp_quotations q JOIN pm_cases pm ON pm.case_code=q.case_code
           WHERE q.deleted_at IS NULL AND q.total_price>0 AND pm.contract_amount>0 AND abs(q.total_price-pm.contract_amount)>2),
+  'y11', (SELECT count(*) FROM erp_billings b WHERE b.payment_status IN ('paid','partial') AND NOT EXISTS (SELECT 1 FROM erp_invoices i WHERE i.billing_id=b.id AND i.status<>'voided')),
   'n_q', (SELECT count(*) FROM erp_quotations WHERE deleted_at IS NULL AND total_price>0),
   'n_b', (SELECT count(*) FROM erp_billings), 'n_i', (SELECT count(*) FROM erp_invoices)
 )::text
@@ -79,7 +80,7 @@ def main() -> int:
             for r in rows[:6]:
                 print(f"     {r}")
             reds.append((label, len(rows)))
-    yels = [(lb, d.get(k) or 0) for k, lb in [("y5", "⑤ 發票稅額非 5%"), ("y6", "⑥ 報價單稅額為 0"), ("y7", "⑦ 發票額 ≠ 請款額（未超過）"), ("y8", "⑧ 佔位發票仍在"), ("y10", "⑩ 報價總價 ≠ PM 合約額（不符簽名）")] if d.get(k)]
+    yels = [(lb, d.get(k) or 0) for k, lb in [("y5", "⑤ 發票稅額非 5%"), ("y6", "⑥ 報價單稅額為 0"), ("y7", "⑦ 發票額 ≠ 請款額（未超過）"), ("y8", "⑧ 佔位發票仍在"), ("y10", "⑩ 報價總價 ≠ PM 合約額（不符簽名）"), ("y11", "⑪ 已收款但沒有登錄發票（09-04 owner：168 第一期 7,936,250 已收無票）")] if d.get(k)]
     for lb, n in yels:
         print(f"  ⚠ {lb}：{n}")
     print()

@@ -14,9 +14,7 @@
  * @date 2026-08-02
  */
 import React, { useState } from 'react';
-import {
-  Button, Tag, Row, Col, Alert, Modal, Form, Input, DatePicker, App, Tooltip,
-} from 'antd';
+import { Button, Tag, Row, Col, Alert, Modal, Form, Input, DatePicker, App, Tooltip, Space } from 'antd';
 import ClickableStatCard from '../../components/common/ClickableStatCard';
 import { useCreateInvoiceFromBilling } from '../../hooks/business/useERPQuotations';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
@@ -99,6 +97,8 @@ const billingToRecord = (
   request_date: b.billing_date as string,
   request_amount: Number(b.billing_amount || 0),
   invoice_number: (b.invoice_number as string) || undefined,
+  invoice_date: (b.invoice_date as string) || undefined,
+  invoice_amount: b.invoice_amount != null ? Number(b.invoice_amount) : undefined,
   payment_status: (b.payment_status as string) || 'pending',
   payment_date: b.payment_date as string,
   payment_amount: b.payment_amount ? Number(b.payment_amount) : undefined,
@@ -159,6 +159,8 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
       ? billingToRecord(row, clientName)
       : payableToRecord(row as unknown as ERPVendorPayable),
   );
+
+  const collectedNoInvoice = records.filter((r) => !r.invoice_number && (r.payment_status === 'paid' || r.payment_status === 'partial'));
 
   // 統計
   // 2026-08-15：統計卡片要能與列表互動篩選。
@@ -281,20 +283,35 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
     // 部分收款時兩者會不同，那時它是唯一能看出差額的欄位。
     { title: `${dirLabel}金額`, dataIndex: 'request_amount', width: 110, align: 'right',
       hideOnMobile: true, render: (v: number) => v?.toLocaleString() },
-    { title: '發票號碼', dataIndex: 'invoice_number', width: 120, hideOnMobile: true, render: (v) => v || '-' },
     { title: `${paymentLabel}狀態`, dataIndex: 'payment_status', width: 90, align: 'center',
       render: (s: string) => <Tag color={STATUS_COLORS[s] || 'default'}>{STATUS_LABELS[s] || s}</Tag> },
     { title: `${paymentLabel}日期`, dataIndex: 'payment_date', width: 110, hideOnMobile: true },
     { title: `${paymentLabel}金額`, dataIndex: 'payment_amount', width: 110, align: 'right', render: (v) => v?.toLocaleString() || '-' },
     // 開立發票只對應收有意義（銷項）。已有發票號的不再顯示按鈕 ——
     // 服務層本來就會擋（一筆請款只能有一張發票），但按鈕留著會讓人按了才知道。
+    // 2026-09-04 owner「更新發票後變成無按鈕但也無顯示」：此前「發票號碼」欄 hideOnMobile、而「發票」動作欄
+    // 有票就 null ⇒ 窄螢幕上兩欄都空。合成一欄（owner：文字統一「發票號碼」）：有票印號碼（日期／金額在 tooltip），
+    // 沒票給「開立發票」；已收款卻沒票的標「已收未開票」——那是 168 那種「填報了」卻沒有紀錄的防呆點。
     ...(isReceivable ? [{
-      title: '發票', width: 110, align: 'center' as const,
-      render: (_: unknown, r: AccountRecord) => (r.invoice_number ? null : (
-        <Button type="link" size="small"
-          onClick={(e) => { e.stopPropagation(); setInvoiceFor(r); invoiceForm.resetFields(); }}
-        >開立發票</Button>
-      )),
+      title: '發票號碼', width: 150, align: 'center' as const,
+      render: (_: unknown, r: AccountRecord) => {
+        if (r.invoice_number) {
+          return (
+            <Tooltip title={`開立日期 ${r.invoice_date ?? '-'}｜發票金額 ${(r.invoice_amount ?? r.request_amount ?? 0).toLocaleString()}`}>
+              <Tag color="blue" style={{ margin: 0 }}>{r.invoice_number}</Tag>
+            </Tooltip>
+          );
+        }
+        const collected = r.payment_status === 'paid' || r.payment_status === 'partial';
+        return (
+          <Space size={4}>
+            {collected && <Tag color="orange" style={{ margin: 0 }}>已收未開票</Tag>}
+            <Button type="link" size="small" style={{ padding: 0 }}
+              onClick={(e) => { e.stopPropagation(); setInvoiceFor(r); invoiceForm.resetFields(); }}
+            >開立發票</Button>
+          </Space>
+        );
+      },
     }] : []),
   ];
 
@@ -317,6 +334,10 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
           active={statFilter === 'outstanding'} onClick={() => setStatFilter('outstanding')} /></Col>
       </Row>
 
+      {isReceivable && collectedNoInvoice.length > 0 && (
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }}
+          message={`已收款但尚未登錄發票 ${collectedNoInvoice.length} 筆（${collectedNoInvoice.reduce((a, r) => a + (r.request_amount ?? 0), 0).toLocaleString()} 元）——收款前應先開立發票，請補登號碼`} />
+      )}
       {/* 開立發票：3 欄（發票號／日期／備註），在 Modal 豁免範圍內
           （UI_DESIGN_STANDARDS 2026-04-06：欄位 3-5 個且緊耦合 context）。
           它必須貼著「哪一筆請款」，做成獨立頁反而要再帶一次 context。 */}
@@ -342,8 +363,8 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
         }}
       >
         <Form form={invoiceForm} layout="vertical">
-          <Form.Item name="invoice_number" label="發票號碼"
-            rules={[{ required: true, message: '請輸入發票號碼' },
+          <Form.Item name="invoice_number" label="發票號碼" normalize={(v?: string) => (v ?? '').toUpperCase().trim()}
+            rules={[{ required: true, message: '請輸入發票號碼' }, { pattern: /^[A-Z]{2}\d{8}$/, message: '統一發票為 2 個英文字母＋8 碼數字（例 EE15019500）' },
                     { pattern: /^[A-Z]{2}\d{8}$/, message: '格式為 2 英文 + 8 數字（如 AB12345678）' }]}>
             <Input placeholder="AB12345678" maxLength={10} />
           </Form.Item>
