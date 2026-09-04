@@ -69,6 +69,11 @@ class ContractProject(Base):
     contact_person = Column(String(100), comment="聯絡人")
     contact_phone = Column(String(50), comment="聯絡電話")
     client_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, index=True, comment="委託機關ID")
+    # 2026-09-04：委託單位的**鍵**（partner_vendors）。此前承攬案只有 client_agency（文字）與
+    # client_agency_id（government_agencies，34/285 有值），與 PM 案的 client_vendor_id 不是同一個 id 空間 ⇒
+    # 帳款／篩選／主檔全靠名稱字串對（一天出三次事）。名稱欄保留＝顯示快照；關聯一律走這一欄。
+    client_vendor_id = Column(Integer, ForeignKey('partner_vendors.id', ondelete='SET NULL'), nullable=True, index=True,
+                              comment="委託單位（partner_vendors 的鍵；client_agency 只是名稱快照）")
     agency_contact_person = Column(String(100), comment="機關承辦人")
     agency_contact_phone = Column(String(50), comment="機關承辦電話")
     agency_contact_email = Column(String(100), comment="機關承辦Email")

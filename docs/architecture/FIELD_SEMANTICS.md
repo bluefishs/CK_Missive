@@ -103,3 +103,18 @@ weekly 104 ⑨ 用這兩個簽名判 RED；⑩ 其他不等只 YELLOW（可能�
 | `partner_vendors.tax_id` | **統一編號**（8 碼）。畫面一律標「統一編號」、讀這欄 |
 | `partner_vendors.vendor_code` | **內部代碼**（選填）。此前協力廠商 15 家把統編填在這裡（已搬到 `tax_id`），委託單位卻填 `tax_id`——同一件事兩個欄位。查廠商 `get_id_by_vendor_code` 兩欄都認、`tax_id` 優先 |
 | `erp_vendor_payables.vendor_code` | 建立時抄廠商的 `tax_id`（無則 `vendor_code`）；唯讀快照，不是鍵 |
+
+## 主檔鍵與名稱快照（2026-09-04 /loop「名稱標準化與語意定義」）
+
+**規則：`*_id` 是鍵，`*_name`／`client_agency` 是顯示快照。關聯、篩選、對帳一律走鍵；名稱只在鍵為空時當後備。**
+
+| 實體 | 鍵（唯一） | 快照欄（不作關聯） | 備註 |
+|---|---|---|---|
+| 委託單位 | `partner_vendors.id`：`pm_cases.client_vendor_id`、**`contract_projects.client_vendor_id`（20260904a003 新增，回填 271/285）** | `pm_cases.client_name`、`contract_projects.client_agency` | 此前承攬案沒有這把鍵，帳款／篩選／主檔全靠字串對，一天出三次事（竹崎地政無法點、張啟良三筆主檔、大有國際在主檔是 subcontractor） |
+| 委託機關（公部門） | `contract_projects.client_agency_id` → `government_agencies` | — | 34/285 有值，只有 01 公部門案用；**不是委託單位的鍵** |
+| 協力廠商 | `partner_vendors.id`：`erp_vendor_payables.vendor_id`、`project_vendor_association.vendor_id` | `erp_vendor_payables.vendor_name`、`vendor_code`（統編快照） | 應付建立時 `_resolve_vendor_id` 自動配；配不到＝主檔缺（勤典工程行 09-04 補建） |
+| 廠商身分 | `partner_vendors.vendor_type`（client／subcontractor）**單值** | — | 同一家可能兩種身分（大有國際／秋森萬既是協力也是委託單位）⇒ 選項清單不得只看 type，要看它在案件裡實際扮演的角色（`client-options` 端點） |
+| 案件 | `case_code`（三表共有） | `case_name`／`project_name` | 見「案號」節；`project_code` 只在成案後有 |
+
+**守門**：weekly 107 `name_id_pair_consistency_audit`——名稱精確對得到主檔卻沒填鍵 ⇒ RED；快照漂移／主檔缺 ⇒ YELLOW。
+**同步**：PM 改委託單位 ⇒ `CaseFieldSyncService` 同步 `client_vendor_id` 與 `client_agency`（`CONTRACT_SYNC_FIELDS`）；成案 `promote_to_project` 帶鍵。

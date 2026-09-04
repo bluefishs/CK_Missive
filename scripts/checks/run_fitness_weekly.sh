@@ -579,6 +579,8 @@ run_step "104" "ERP 金額語意三方對帳（FIELD_SEMANTICS）" "scripts/chec
 run_step "105" "案件狀態一致性（已承攬⇔承攬案⇔project_code）" "scripts/checks/case_state_consistency_audit.py"
 # 106（09-04 owner「協力廠商已增列費用但廠商帳款／應付沒列入」）：指派表與應付表沒有橋，16 案有指派 13 案無應付
 run_step "106" "指派即應付（協力廠商指派⇔應付）" "scripts/checks/vendor_association_payable_audit.py"
+# 107（09-04 /loop 名稱標準化）：名稱欄是快照、鍵欄才是關聯——可精確對上主檔卻沒填鍵＝RED
+run_step "107" "名稱欄 vs 鍵欄一致性（id 是鍵、名稱是快照）" "scripts/checks/name_id_pair_consistency_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

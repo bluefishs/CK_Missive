@@ -28,7 +28,8 @@ SYNC_FIELDS = ["category", "case_nature", "client_name", "contract_amount", "sta
 
 # 承攬案側的欄位名不同（client_agency／project_name），端點過濾 changed 時要用這份，
 # 不是自己再抄一份 —— `projects/crud.py` 09-02 就是抄了第二份才讓 status 同步失效。
-CONTRACT_SYNC_FIELDS = SYNC_FIELDS + ["client_agency", "project_name"]
+# client_vendor_id（2026-09-04）：PM 與承攬案共有的鍵欄，PM 改委託單位時一併同步（名稱走 client_name→client_agency）
+CONTRACT_SYNC_FIELDS = SYNC_FIELDS + ["client_agency", "project_name", "client_vendor_id"]
 
 
 class CaseFieldSyncService:
@@ -75,6 +76,8 @@ class CaseFieldSyncService:
                 cp_update["case_nature"] = sync_data["case_nature"]
             if "client_name" in sync_data:
                 cp_update["client_agency"] = sync_data["client_name"]
+            if changed_fields.get("client_vendor_id") is not None:
+                cp_update["client_vendor_id"] = changed_fields["client_vendor_id"]
             if "contract_amount" in sync_data:
                 cp_update["contract_amount"] = float(sync_data["contract_amount"]) if sync_data["contract_amount"] else None
             if "case_name" in sync_data:

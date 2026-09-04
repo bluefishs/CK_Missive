@@ -186,6 +186,11 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
             from app.extended.models.core import PartnerVendor
             pat = f"%{client_name}%"
             conditions.append(or_(
+                # 鍵優先（2026-09-04 起承攬案有 client_vendor_id）；名稱路徑保留給存量與快照漂移
+                ERPQuotation.case_code.in_(
+                    select(ContractProject.case_code).join(PartnerVendor, PartnerVendor.id == ContractProject.client_vendor_id)
+                    .where(PartnerVendor.vendor_name.ilike(pat))
+                ),
                 ERPQuotation.case_code.in_(select(ContractProject.case_code).where(ContractProject.client_agency.ilike(pat))),
                 ERPQuotation.case_code.in_(select(PMCase.case_code).where(PMCase.client_name.ilike(pat))),
                 ERPQuotation.case_code.in_(

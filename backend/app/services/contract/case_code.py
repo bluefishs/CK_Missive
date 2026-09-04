@@ -466,6 +466,7 @@ class CaseCodeService:
             "category": pm_case.category,
             "case_nature": getattr(pm_case, 'case_nature', None),
             "client_agency": pm_case.client_name,
+            "client_vendor_id": getattr(pm_case, "client_vendor_id", None),  # 2026-09-04：鍵跟著成案走，名稱只是快照
             "contract_amount": float(pm_case.contract_amount) if pm_case.contract_amount else None,
             "start_date": pm_case.start_date,
             "end_date": pm_case.end_date,
