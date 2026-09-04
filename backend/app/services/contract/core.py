@@ -217,6 +217,23 @@ class ProjectService(AuditableServiceMixin):
             year, category, case_nature
         )
 
+    async def _resolve_client_vendor_id(self, client_agency: Optional[str]) -> Optional[int]:
+        """委託單位名稱 → partner_vendors 的鍵（精確比對去空白；client 型優先）。
+
+        2026-09-04：承攬案表單三種來源（機關清單／廠商清單／自由輸入）都只送名稱，鍵欄
+        `client_vendor_id` 要有人填，否則帳款／篩選又回到字串比對。對不到就留 None，weekly 107 會列出來。
+        """
+        name = (client_agency or "").strip()
+        if not name:
+            return None
+        from sqlalchemy import select, func
+        from app.extended.models.core import PartnerVendor
+        row = (await self.db.execute(
+            select(PartnerVendor.id).where(func.btrim(PartnerVendor.vendor_name) == name)
+            .order_by((PartnerVendor.vendor_type == "client").desc(), PartnerVendor.id).limit(1)
+        )).scalar_one_or_none()
+        return row
+
     async def create(self, data: ProjectCreate) -> ContractProject:
         """
         建立新專案
@@ -231,6 +248,8 @@ class ProjectService(AuditableServiceMixin):
             ValueError: 專案編號已存在
         """
         project_data = data.model_dump()
+        if not project_data.get("client_vendor_id"):
+            project_data["client_vendor_id"] = await self._resolve_client_vendor_id(project_data.get("client_agency"))
 
         # ── 防重（2026-08-10）────────────────────────────────────────────
         # 承攬案件有**兩條互不知情的建立路徑**：
@@ -437,6 +456,9 @@ class ProjectService(AuditableServiceMixin):
             return None
 
         update_data = data.model_dump(exclude_unset=True)
+        # 改了委託單位名稱而沒給鍵 ⇒ 依名稱重新對鍵（對不到就清掉，不讓舊鍵指向另一家）
+        if "client_agency" in update_data and "client_vendor_id" not in update_data:
+            update_data["client_vendor_id"] = await self._resolve_client_vendor_id(update_data.get("client_agency"))
 
         # 記錄原始契約金額，用於判斷是否需要同步契金
         old_contract_amount = db_project.contract_amount
