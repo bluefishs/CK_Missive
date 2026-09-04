@@ -194,15 +194,22 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="winning_amount" label="議價金額">
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    placeholder="請輸入議價金額"
-                    formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={parseCurrencyInput}
-                    prefix="NT$"
-                  />
-                </Form.Item>
+                {/* 2026-09-04 晚 owner：01 委辦招標一定有議價程序；02 承攬報價沒有議價、顯示「—」而不是 0 */}
+                {data.category === '01' ? (
+                  <Form.Item name="winning_amount" label="議價金額" extra="01 委辦招標：決標／議價後的實際承攬金額（含稅）">
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      placeholder="請輸入議價金額"
+                      formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                      parser={parseCurrencyInput}
+                      prefix="NT$"
+                    />
+                  </Form.Item>
+                ) : (
+                  <Form.Item label="議價金額">
+                    <Text type="secondary">—（{data.category === '02' ? '02 承攬報價' : '本類別'}無議價程序，以契約金額為承攬金額）</Text>
+                  </Form.Item>
+                )}
               </Col>
               <Col span={24}>
                 <Form.Item name="date_range" label="契約期程">
@@ -276,7 +283,9 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
             { key: '契約金額', label: '契約金額', children: data.contract_amount
                 ? `NT$ ${formatAmount(data.contract_amount)}`
                 : <Text type="warning">未填 —— 無經費管控基準</Text> },
-            { key: '議價金額', label: '議價金額', children: data.winning_amount ? `NT$ ${formatAmount(data.winning_amount)}` : '-' },
+            { key: '議價金額', label: '議價金額', children: data.category === '01'
+                ? (data.winning_amount ? `NT$ ${formatAmount(data.winning_amount)}` : <Text type="warning">尚未議價 —— 01 委辦招標決標後請填實際承攬金額</Text>)
+                : <span title="02 承攬報價無議價程序，承攬金額＝契約金額">—</span> },
             { key: '開始日期', label: '開始日期', children: data.start_date ? dayjs(data.start_date).format('YYYY/MM/DD') : '-' },
             { key: '結束日期', label: '結束日期', children: data.end_date ? dayjs(data.end_date).format('YYYY/MM/DD') : '-' },
             { key: '執行狀態', label: '執行狀態', children: (

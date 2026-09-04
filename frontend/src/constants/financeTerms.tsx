@@ -24,7 +24,7 @@ export const FINANCE_TERMS = {
   },
   winning_amount: {
     label: '議價金額',
-    note: '承攬案 winning_amount，含稅：決標／議價後的實際承攬金額。有值時應收（第一期請款、應收總額、合計）以它為準；空＝無議價，等於契約金額。',
+    note: '承攬案 winning_amount，含稅：決標／議價後的實際承攬金額。只有 01 委辦招標有議價程序（必填）；02 承攬報價顯示「—」、承攬金額＝契約金額。',
   },
   awarded_amount: {
     label: '承攬金額',

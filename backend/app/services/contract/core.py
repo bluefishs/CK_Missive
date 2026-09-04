@@ -250,6 +250,9 @@ class ProjectService(AuditableServiceMixin):
         project_data = data.model_dump()
         if not project_data.get("client_vendor_id"):
             project_data["client_vendor_id"] = await self._resolve_client_vendor_id(project_data.get("client_agency"))
+        # 2026-09-04 晚 owner：只有 01 委辦招標有議價程序；02 承攬報價的議價金額必須是空（顯示「—」），不是 0
+        if project_data.get("category") != "01":
+            project_data["winning_amount"] = None
 
         # ── 防重（2026-08-10）────────────────────────────────────────────
         # 承攬案件有**兩條互不知情的建立路徑**：
@@ -459,6 +462,10 @@ class ProjectService(AuditableServiceMixin):
         # 改了委託單位名稱而沒給鍵 ⇒ 依名稱重新對鍵（對不到就清掉，不讓舊鍵指向另一家）
         if "client_agency" in update_data and "client_vendor_id" not in update_data:
             update_data["client_vendor_id"] = await self._resolve_client_vendor_id(update_data.get("client_agency"))
+        # 02 類不得有議價金額（owner 09-04 晚）；改類別為非 01 時也一併清空
+        final_category = update_data.get("category", getattr(db_project, "category", None))
+        if final_category != "01" and (update_data.get("winning_amount") is not None or "category" in update_data):
+            update_data["winning_amount"] = None
 
         # 記錄原始契約金額，用於判斷是否需要同步契金
         old_contract_amount = db_project.contract_amount
