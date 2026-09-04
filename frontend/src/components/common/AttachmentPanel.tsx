@@ -45,6 +45,8 @@ export interface AttachmentPanelProps {
   accept?: string;
   /** 是否顯示「文件類型」欄（報價單相關頁面才有意義） */
   showDocType?: boolean;
+  /** 上傳時標的 doc_type（例：signed_quotation＝客戶回簽）；不給就不標 */
+  uploadDocType?: string;
 }
 
 export function AttachmentPanel({
@@ -55,6 +57,7 @@ export function AttachmentPanel({
   emptyText,
   accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.png,.zip',
   showDocType = false,
+  uploadDocType,
 }: AttachmentPanelProps) {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
@@ -83,6 +86,7 @@ export function AttachmentPanel({
       if (files.length === 0) return;
       const formData = new FormData();
       files.forEach(f => formData.append('files', f as Blob));
+      if (uploadDocType) formData.append('doc_type', uploadDocType);
       setUploading(true);
       return apiClient.postForm<{ success: boolean; files: unknown[]; errors: string[] }>(
         API_ENDPOINTS.PM.ATTACHMENTS_UPLOAD(caseCode), formData,

@@ -256,13 +256,16 @@ export default function QuotationRecordsTab({
       )}
 
       {/* 上傳的檔案（客戶回簽、掃描件）—— 與線上明細是兩回事，兩者都要 */}
+      {/* 2026-09-04 owner「報價單回簽要在哪上傳」：此前只在案件「編輯」模式才出現上傳框——
+          回簽是報價流程的一步，不是案件編輯；這裡常駐可上傳，並標成 signed_quotation。 */}
       <AttachmentPanel
         caseCode={caseCode}
-        isEditing={isEditing}
-        title="報價單檔案"
-        uploadTitle="上傳報價單檔案"
-        emptyText={isEditing ? '尚無檔案，可上傳客戶回簽或掃描件' : '尚無檔案'}
+        isEditing
+        title="報價單檔案（系統產出／客戶回簽）"
+        uploadTitle="上傳客戶回簽報價單（PDF 或掃描檔）"
+        emptyText="尚無檔案——輸出報價單會自動存入；客戶回簽請由此上傳"
         showDocType
+        uploadDocType="signed_quotation"
       />
 
       {pdfPreview}

@@ -14,7 +14,8 @@ import os
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+from typing import Optional
+from fastapi import Form, APIRouter, Depends, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,10 +48,17 @@ def _validate_extension(filename: str) -> bool:
 async def upload_quotation_files(
     case_code: str,
     files: list[UploadFile] = File(...),
+    doc_type: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth()),
 ):
-    """上傳一或多個報價單檔案"""
+    """上傳一或多個報價單檔案。
+
+    2026-09-04 owner「報價單回簽要在哪上傳」：報價單分頁的附件區常駐可上傳，帶 doc_type=signed_quotation
+    讓「客戶回簽」與「系統產出」在列表上分得開（值域見 PMCaseAttachment.doc_type 註解）。
+    """
+    if doc_type not in (None, "", "generated_quotation", "signed_quotation", "other"):
+        raise HTTPException(status_code=400, detail=f"doc_type 不合法：{doc_type}")
     uploaded = []
     errors = []
 
@@ -90,6 +98,7 @@ async def upload_quotation_files(
             original_name=file.filename,
             checksum=checksum,
             uploaded_by=current_user.id,
+            doc_type=doc_type or None,
         )
         db.add(attachment)
         uploaded.append({

@@ -18,11 +18,11 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Card, Table, Button, Input, InputNumber, Space, Typography, App, Row, Col, Form, Modal,
+  Card, Button, Input, InputNumber, Space, Typography, App, Row, Col, Form, Modal,
   Select, Divider,
 } from 'antd';
 import {
-  PlusOutlined, DeleteOutlined, SaveOutlined, ArrowLeftOutlined, FileTextOutlined,
+  PlusOutlined, SaveOutlined, ArrowLeftOutlined, FileTextOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
 import { apiClient } from '../../api/client';
@@ -39,42 +39,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const { Text, Title } = Typography;
 
-const money = (n: number) => `NT$ ${Math.round(n).toLocaleString()}`;
 
 /** 範本明細列（本頁為建立期的本地列，尚無 quotation_id） */
-interface DraftItemRow {
-  key: string;
-  /** 項次（自填，如 1.1；空＝自動） */
-  item_no?: string;
-  item_name: string;
-  spec?: string;
-  unit?: string;
-  qty: number;
-  unit_price: number;
-  /** 工項備註（正式文件 G 欄） */
-  notes?: string;
-  /** 複價覆寫（undefined＝數量×單價） */
-  amount?: number;
-}
-
-/**
- * 正式範本的明細容量 —— **不在這裡寫死**。
- *
- * 2026-08-29：後端把上限從 5 提到 10，而這裡曾有一份手抄的 `= 5` 沒跟著改，
- * 於是第 6 項起畫面警告「僅容 5 項，超出的需先合併」——
- * **叫使用者去手動合併後端其實輸出得出來的工項**。tsc 檢查不出一個過期的字面值。
- *
- * ⇒ 改由 `/erp/quotations/template-meta` 取（來源＝ITEM_LAST_ROW - ITEM_FIRST_ROW + 1）。
- * 下面這個只是**取值失敗前的保守起始值**：取偏小只會多提醒一次，
- * 取偏大會讓人填到輸出才被 400 擋。
- */
-const CAPACITY_FALLBACK = 5;
-
-let _keySeq = 0;
-const newRow = (): DraftItemRow => ({
-  key: `draft-${++_keySeq}`, item_name: '', spec: '', unit: '式', qty: 1, unit_price: 0, notes: '',
-});
-
 const QuotationTemplateCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const { message, modal } = App.useApp();
@@ -106,7 +72,6 @@ const QuotationTemplateCreatePage: React.FC = () => {
   const [year, setYear] = React.useState<number>(
     Number(searchParams.get('year')) || new Date().getFullYear(),
   );
-  const [notes, setNotes] = React.useState('');
   // 承辦同仁 —— 2026-08-29 實查：257 張報價單有 **122 張**全庫查不到任何指派
   // 紀錄，正式報價單的「服務人員」（範本 E12/E13）因此空白。
   // ⚠️ 那不是查詢寫錯：取料的 JOIN 早在 08-21 就同時吃 project_id 與 case_code，
@@ -115,22 +80,11 @@ const QuotationTemplateCreatePage: React.FC = () => {
   const [staffUserId, setStaffUserId] = React.useState<number | undefined>();
   // 只在使用者還沒動過這一欄時帶入預設 —— 否則清空選擇會被自動填回去
   const [staffTouched, setStaffTouched] = React.useState(false);
-  const [rows, setRows] = React.useState<DraftItemRow[]>([newRow(), newRow(), newRow()]);
   const [saving, setSaving] = React.useState(false);
   const [tplUrl, setTplUrl] = React.useState<string | null>(null);
   const [tplLoading, setTplLoading] = React.useState(false);
 
   // 容量取自後端（見 CAPACITY_FALLBACK 的說明）
-  const { data: tplMeta } = useQuery({
-    queryKey: ['quotation-template-meta'],
-    queryFn: () => quotationsApi.getTemplateMeta(),
-    staleTime: 60 * 60 * 1000,  // 版面容量只有換範本時才變
-  });
-  const capacity = tplMeta?.item_capacity ?? CAPACITY_FALLBACK;
-
-  // owner 2026-08-29：「xls 樣本報價單無法呈現嗎」——可以：
-  // 空白範本經後端同一條 LibreOffice 鏈轉 PDF，建單前就能看到正式版面
-  // （輸出 PDF 的預覽要先有單，這顆不用）。
   const showTemplate = async () => {
     setTplLoading(true);
     try {
@@ -169,24 +123,6 @@ const QuotationTemplateCreatePage: React.FC = () => {
     // 硬塞會送出一個後端接不到的 user_id
     if (staffUsers.some(u => u.id === me.id)) setStaffUserId(me.id);
   }, [me, staffUsers, staffTouched, staffUserId]);
-
-  const patch = (key: string, part: Partial<DraftItemRow>) =>
-    setRows(rs => rs.map(r => (r.key === key ? { ...r, ...part } : r)));
-
-  const filled = rows.filter(r => r.item_name.trim());
-  const subtotal = filled.reduce((s, r) => s + (r.amount ?? r.qty * r.unit_price), 0);
-  const tax = Math.round(subtotal * 0.05);
-  const total = subtotal + tax;
-
-  const addRow = () => {
-    if (rows.length >= capacity) {
-      // 不擋（資料層存得下），但要在**填的當下**說，不是輸出那一步才 400
-      message.warning(
-        `正式文件範本目前僅容 ${capacity} 項，超出的項目輸出時需先合併`,
-      );
-    }
-    setRows(rs => [...rs, newRow()]);
-  };
 
   const handleSubmit = async () => {
     if (!caseName.trim()) { message.error('請填寫案名'); return; }
@@ -243,20 +179,7 @@ const QuotationTemplateCreatePage: React.FC = () => {
         case_code: caseCode,
         case_name: caseName.trim(),
         year,
-        notes: notes.trim() || undefined,
       });
-
-      // ③ 明細（有填才存；total_price 由後端小計回寫，不另填第二份事實）
-      if (filled.length > 0) {
-        await apiClient.post(ERP_ENDPOINTS.QUOTATION_ITEMS_REPLACE, {
-          quotation_id: quotation.id,
-          items: filled.map((r, i) => ({
-            item_no: r.item_no?.trim() || undefined, item_name: r.item_name.trim(), spec: r.spec?.trim() || undefined,
-            unit: r.unit?.trim() || undefined, qty: r.qty, unit_price: r.unit_price,
-            sort_order: i, notes: r.notes?.trim() || undefined, amount: r.amount,
-          })),
-        });
-      }
 
       // ④ 承辦同仁指派（選填）
       //
@@ -292,70 +215,6 @@ const QuotationTemplateCreatePage: React.FC = () => {
       setSaving(false);
     }
   };
-
-  const columns = [
-    {
-      title: '項次', width: 72, align: 'center' as const,
-      render: (_: unknown, r: DraftItemRow, i: number) => (
-        <Input value={r.item_no} placeholder={`${i + 1}`} onChange={e => patch(r.key, { item_no: e.target.value })} />
-      ),
-    },
-    {
-      title: '工作內容', dataIndex: 'item_name',
-      render: (_: unknown, r: DraftItemRow) => (
-        <Input value={r.item_name} placeholder="例：地上物查估作業"
-          onChange={e => patch(r.key, { item_name: e.target.value })} />
-      ),
-    },
-    {
-      title: '規格', dataIndex: 'spec', width: 140,
-      render: (_: unknown, r: DraftItemRow) => (
-        <Input value={r.spec} onChange={e => patch(r.key, { spec: e.target.value })} />
-      ),
-    },
-    {
-      title: '單位', dataIndex: 'unit', width: 80,
-      render: (_: unknown, r: DraftItemRow) => (
-        <Input value={r.unit} onChange={e => patch(r.key, { unit: e.target.value })} />
-      ),
-    },
-    {
-      title: '數量', dataIndex: 'qty', width: 90,
-      render: (_: unknown, r: DraftItemRow) => (
-        <InputNumber min={0} value={r.qty} style={{ width: '100%' }}
-          onChange={v => patch(r.key, { qty: Number(v ?? 0) })} />
-      ),
-    },
-    {
-      title: '單價', dataIndex: 'unit_price', width: 120,
-      render: (_: unknown, r: DraftItemRow) => (
-        <InputNumber min={0} value={r.unit_price} style={{ width: '100%' }}
-          formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-          onChange={v => patch(r.key, { unit_price: Number(v ?? 0) })} />
-      ),
-    },
-    {
-      title: '複價', width: 120, align: 'right' as const,
-      render: (_: unknown, r: DraftItemRow) => (
-        <InputNumber min={0} value={r.amount ?? r.qty * r.unit_price} style={{ width: '100%' }}
-          formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-          onChange={v => patch(r.key, { amount: v === null || v === undefined ? undefined : Number(v) })} />
-      ),
-    },
-    {
-      title: '備註', dataIndex: 'notes', width: 150,
-      render: (_: unknown, r: DraftItemRow) => (
-        <Input value={r.notes} placeholder="選填" onChange={e => patch(r.key, { notes: e.target.value })} />
-      ),
-    },
-    {
-      title: '', width: 44,
-      render: (_: unknown, r: DraftItemRow) => (
-        <Button type="text" danger icon={<DeleteOutlined />} size="small"
-          onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))} />
-      ),
-    },
-  ];
 
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
@@ -471,36 +330,12 @@ const QuotationTemplateCreatePage: React.FC = () => {
           )}
         </Card>
 
-        {/* 明細 —— 對應範本第 16~20 列 */}
-        <Card size="small" title="報價明細"
-          extra={<Button icon={<PlusOutlined />} size="small" onClick={addRow}>新增項目</Button>}>
-          <Table<DraftItemRow>
-            columns={columns} dataSource={rows} rowKey="key"
-            size="small" pagination={false}
-            scroll={{ x: 760 }}
-          />
-          <Row justify="end" style={{ marginTop: 12 }}>
-            <Col>
-              <Space direction="vertical" size={2} style={{ textAlign: 'right' }}>
-                <Text>小計：{money(subtotal)}</Text>
-                <Text>營業稅 5%：{money(tax)}</Text>
-                <Title level={5} style={{ margin: 0 }}>總計：{money(total)}</Title>
-              </Space>
-            </Col>
-          </Row>
-        </Card>
-
-        <Card size="small" title="備註">
-          <Input.TextArea rows={2} value={notes} placeholder="付款條件、有效期限等"
-            onChange={e => setNotes(e.target.value)} />
-        </Card>
-
         <Space>
           <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSubmit}>
             建立報價單
           </Button>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            建立後即進入報價單分頁，可繼續編輯明細並輸出正式 XLS／PDF（自動存入本案附件）
+            建立後直接進入案件的「報價單」分頁——明細（項次／複價／備註）、整單備註、客戶抬頭資料與輸出 XLS／PDF 都在那一份編輯器（2026-09-04：不再兩處各一套）
           </Text>
         </Space>
       </Space>
