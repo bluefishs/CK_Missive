@@ -59,11 +59,20 @@ export const useERPQuotation = (id: number | null | undefined) => {
 };
 
 /** 取得損益摘要 */
-export const useERPProfitSummary = (params?: { year?: number; search?: string }) => {
+export const useERPProfitSummary = (params?: { year?: number; search?: string; category?: string; client_name?: string }) => {
   return useQuery({
     queryKey: erpKeys.quotations.profitSummary(params),
     queryFn: () => erpQuotationsApi.profitSummary(params),
     ...defaultQueryOptions.statistics,
+  });
+};
+
+/** 委託單位篩選選項＝案件實際客戶（2026-09-04；取代主檔 client 型清單） */
+export const useERPQuotationClientOptions = () => {
+  return useQuery({
+    queryKey: ['erp-quotations', 'client-options'],
+    queryFn: () => erpQuotationsApi.clientOptions(),
+    staleTime: 10 * 60 * 1000,
   });
 };
 

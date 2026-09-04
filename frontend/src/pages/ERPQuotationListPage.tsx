@@ -9,7 +9,7 @@ import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
 import { useERPQuotations, useERPProfitSummary, useAuthGuard } from '../hooks';
-import { useClientOptions } from '../hooks/business/useDropdownData';
+import { useERPQuotationClientOptions } from '../hooks/business/useERPQuotations';
 import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
@@ -60,7 +60,8 @@ export const ERPQuotationListPage: React.FC = () => {
   //   與後端說同一件事。
   const canWrite = hasPermission('projects:edit');
   const [statFilter, setStatFilter] = useState<string | null>(null);
-  const { clients: clientOptions } = useClientOptions();
+  const { data: clientOptionsResp } = useERPQuotationClientOptions();
+  const clientOptions = clientOptionsResp?.data ?? [];
   // 2026-09-04 owner：「專案帳款接續處理已承攬案件，不含非成案紀錄」——固定只列成案（後端預設 include_unawarded=false），
   // 「含未成案」開關已移除；未成案的報價單在各案件的「報價單」分頁處理。
   const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc', year: CURRENT_YEAR });
@@ -70,7 +71,8 @@ export const ERPQuotationListPage: React.FC = () => {
   // 判斷哪一個才是他要的。後端 get_profit_summary 本來就收 year，
   // 是前端沒傳（同「送出的與收到的不一致」家族）。
   // 2026-09-04：統計卡跟著列表的年度＋關鍵字走（分母＝列表範圍）
-  const { data: profitSummary } = useERPProfitSummary({ year: params.year, search: params.search });
+  // 統計卡＝列表的分母：年度／關鍵字／類別／委託單位四個條件都跟（§2.6 ①；2026-09-04 前 api 層固定送空物件）
+  const { data: profitSummary } = useERPProfitSummary({ year: params.year, search: params.search, category: params.category, client_name: params.client_name });
   // 2026-08-15：刪除改由詳情頁提供（對照 /documents 的導航設計），
   // 列表不再持有刪除能力，故 useDeleteERPQuotation 與 handleDelete 一併移除。
 
@@ -283,7 +285,7 @@ export const ERPQuotationListPage: React.FC = () => {
             placeholder="委託單位" allowClear showSearch style={{ width: 220 }} value={params.client_name}
             optionFilterProp="label"
             onChange={(v) => setParams((p) => ({ ...p, client_name: v || undefined, page: 1 }))}
-            options={clientOptions.map((c) => ({ value: c.vendor_name, label: c.vendor_name }))}
+            options={clientOptions.map((c) => ({ value: c.name, label: `${c.name}（${c.count}）` }))}
           />
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
           <Button

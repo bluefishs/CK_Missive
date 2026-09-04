@@ -56,6 +56,8 @@ class ERPSummaryRequest(BaseModel):
     """損益摘要/匯出請求"""
     year: Optional[int] = Field(None, description="年度")
     search: Optional[str] = Field(None, description="與列表同一個關鍵字（統計卡是列表的分母，2026-09-04）")
+    category: Optional[str] = Field(None, description="計畫類別 01／02（與列表同條件）")
+    client_name: Optional[str] = Field(None, description="委託單位（與列表同條件）")
 
 
 class ERPGenerateCodeRequest(BaseModel):

@@ -597,10 +597,39 @@ class ERPQuotationService(AuditableServiceMixin):
     # 損益摘要
     # =========================================================================
 
-    async def get_profit_summary(self, year: Optional[int] = None, search: Optional[str] = None) -> ERPProfitSummary:
-        """年度損益摘要 — 批次聚合消除 N+1（search 與列表同一個關鍵字，統計卡跟著篩選走）"""
+    async def get_client_options(self) -> list[dict]:
+        """委託單位篩選的選項＝**案件實際的客戶**，不是主檔的 vendor_type=client。
+
+        2026-09-04 owner「委託單位篩選無法正確檢索案件」：選項此前取自主檔 client 型，但
+        ①大有國際／秋森萬在主檔是 subcontractor 型卻也是三個承攬案的委託單位 ⇒ 下拉沒有它們；
+        ②張啟良／張啓良（異體字）／張啟良建築師三筆主檔並存，選到不對的那筆就 0 筆。
+        取案件真有的名字，選了必然找得到。
+        """
+        from sqlalchemy import text as _text
+        rows = (await self.db.execute(_text("""
+            SELECT name, SUM(n)::int AS n FROM (
+              SELECT btrim(c.client_agency) AS name, count(DISTINCT q.id) AS n
+              FROM contract_projects c JOIN erp_quotations q ON q.case_code = c.case_code AND q.deleted_at IS NULL
+              WHERE c.client_agency IS NOT NULL AND btrim(c.client_agency) <> '' GROUP BY 1
+              UNION ALL
+              SELECT btrim(p.client_name), count(DISTINCT q.id)
+              FROM pm_cases p JOIN erp_quotations q ON q.case_code = p.case_code AND q.deleted_at IS NULL
+              JOIN contract_projects c ON c.case_code = p.case_code
+              WHERE p.client_name IS NOT NULL AND btrim(p.client_name) <> ''
+                AND NOT EXISTS (SELECT 1 FROM contract_projects c2 WHERE c2.case_code = p.case_code AND btrim(c2.client_agency) = btrim(p.client_name))
+              GROUP BY 1
+            ) t GROUP BY name ORDER BY name
+        """))).all()
+        return [{"name": r.name, "count": r.n} for r in rows]
+
+    async def get_profit_summary(
+        self, year: Optional[int] = None, search: Optional[str] = None,
+        category: Optional[str] = None, client_name: Optional[str] = None,
+    ) -> ERPProfitSummary:
+        """年度損益摘要 — 批次聚合消除 N+1（與列表同一組條件：年度／關鍵字／類別／委託單位，統計卡是列表的分母）"""
         items, _ = await self.repo.filter_quotations(
-            year=year, search=search or None, skip=0, limit=9999,
+            year=year, search=search or None, category=category or None, client_name=client_name or None,
+            skip=0, limit=9999,
         )
 
         total_revenue = ZERO

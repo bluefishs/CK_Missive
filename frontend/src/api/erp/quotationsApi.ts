@@ -65,12 +65,17 @@ export const erpQuotationsApi = {
   },
 
   /** 取得損益摘要 */
-  async profitSummary(params?: { year?: number; search?: string }): Promise<ERPProfitSummary> {
+  async profitSummary(params?: { year?: number; search?: string; category?: string; client_name?: string }): Promise<ERPProfitSummary> {
     const response = await apiClient.post<SuccessResponse<ERPProfitSummary>>(
       ERP_ENDPOINTS.PROFIT_SUMMARY,
       params ?? {}
     );
     return response.data!;
+  },
+
+  /** 委託單位篩選選項＝案件實際客戶（2026-09-04；主檔 client 型清單會漏掉 subcontractor 型的委託單位與異體字重複） */
+  async clientOptions(): Promise<{ data: { name: string; count: number }[] }> {
+    return apiClient.post<{ data: { name: string; count: number }[] }>(ERP_ENDPOINTS.QUOTATION_CLIENT_OPTIONS, {});
   },
 
   /** 取得損益趨勢 */
