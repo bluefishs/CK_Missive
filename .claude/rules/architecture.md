@@ -4,26 +4,7 @@
 
 ## 根目錄結構
 
-```
-CK_Missive/
-├── .claude/                    # Claude Code 配置
-├── backend/                    # FastAPI 後端 → 詳 architecture-backend.md
-├── frontend/                   # React 前端  → 詳 architecture-frontend.md
-├── configs/                    # 外部配置 (PostgreSQL tuning, init.sql)
-├── docs/                       # 文件目錄
-├── scripts/                    # 腳本目錄（分類：dev/checks/health/deploy/init/backup/archive）
-├── wiki/                       # LLM Wiki 產出 (Karpathy 4-Phase) → 詳 skills/wiki-authoring.md
-├── .env                        # 環境設定（唯一來源）
-├── docker-compose.infra.yml    # 基礎設施 Compose (PostgreSQL+Redis)
-├── docker-compose.dev.yml      # 全 Docker 開發 Compose
-├── backend/config/
-│   ├── agent-policy.yaml       # Agent 路由/工具/回退策略
-│   ├── inference-profiles.yaml # 推理 Profile (6 profiles)
-│   └── remote_backup.json      # 異地備份配置
-├── CLAUDE.md                   # 主配置
-├── README.md                   # 專案說明
-└── ecosystem.config.js         # PM2 配置
-```
+`ls` 即得；`.claude/` 配置目錄同樣 `ls .claude`。不可推導的部分（職責、契約、例外）在下方各節與拆分檔。
 
 ## 詳細結構檔索引
 

@@ -2,13 +2,9 @@
 
 ## 自動觸發 Hooks
 
-### PreToolUse (工具執行前)
+> 哪些 hook 掛在哪個事件、matcher、timeout：`jq .hooks .claude/settings.json` 即得（2026-09-04 /doctor 移除對照表）。下面只留教訓與協議。
 
-| Hook | Matcher | 說明 | 腳本 |
-|------|---------|------|------|
-| validate-file-location | `Write\|Edit` | 確認檔案位置符合架構規範 | `.claude/hooks/validate-file-location.ps1` |
-| freeze-scope | `Write\|Edit` | 編輯範圍鎖定（需 freeze-scope.json） | `.claude/hooks/freeze-scope.ps1` |
-| careful-guard | `Bash` | 危險命令攔截（rm -rf, DROP, force push 等） | `.claude/hooks/careful-guard.ps1` |
+### PreToolUse (工具執行前)
 
 ### PostToolUse (工具執行後)
 
@@ -34,30 +30,11 @@
 > 而後者實測會擋（本輪提交時印出「[Pre-commit] TypeScript 編譯通過」）。
 > 若日後覺得少了即時回饋，加回一行即可 —— 這個取捨是可逆的。
 
-| Hook | Matcher | 說明 | 腳本 |
-|------|---------|------|------|
-| python-lint | `Edit\|Write` | Python 語法檢查 (.py) | `.claude/hooks/python-lint.ps1` |
-| api-serialization-check | `Edit\|Write` | API 序列化問題檢測 (.py, 僅 endpoints/) | `.claude/hooks/api-serialization-check.ps1` |
-| performance-check | `Edit\|Write` | N+1 查詢與缺分頁檢測 (.py, 僅 services/endpoints/) | `.claude/hooks/performance-check.ps1` |
-| migration-check | `Edit\|Write` | ORM 模型修改提醒建立 Alembic 遷移 (prompt 類型) | settings.json 內嵌 |
-
 ### SessionStart (對話開始)
-
-| Hook | Matcher | 說明 | 腳本 |
-|------|---------|------|------|
-| session-start | `startup` | 自動載入專案上下文 (git/Docker/PM2) | `.claude/hooks/session-start.ps1` |
 
 ### PermissionRequest (權限請求)
 
-| Hook | 說明 | 腳本 |
-|------|------|------|
-| auto-approve | 自動核准唯讀操作 (Read/Glob/Grep 等) | `.claude/hooks/auto-approve.ps1` |
-
 ### Stop (回應結束)
-
-| Hook | Type | 說明 |
-|------|------|------|
-| quality-gate | agent | 自動驗證程式碼修改的品質 |
 
 ## Git Hooks (本地 CI)
 
@@ -86,14 +63,6 @@
 > **要改 pre-commit 行為請改 `frontend/.husky/pre-commit`。**
 > pre-push 要不要接上見待辦 A46（實跑 467 秒、且會因別的 repo 服務掛掉而擋住本 repo 的 push）。
 
-| Hook | 說明 | **實際被執行的位置** |
-|------|------|------|
-| pre-commit | Skills 架構驗證 + TypeScript 編譯 + Python 語法 + 敏感檔案偵測 + secret guard | `frontend/.husky/pre-commit` |
-| post-commit | 知識地圖增量更新 (`--if-stale`，背景執行) | `frontend/.husky/post-commit` |
-| post-checkout | 分支切換時自動同步 Skills | `frontend/.husky/post-checkout` |
-| post-merge | Pull/Merge 後自動同步 Skills | `frontend/.husky/post-merge` |
-| commit-msg | commitlint（subject 不得為 Pascal/Upper case） | `frontend/.husky/commit-msg` |
-
 ⚠️ 位置欄原本寫 `.git/hooks/`，那是**錯的**——`core.hooksPath` 指向 husky，
 `.git/hooks/` 底下的同名檔案一個都不會執行。這張表誤導過人：08-29 有人（我）
 把 secret guard 修在 `.git/hooks/pre-commit` 上，而它從不執行。
@@ -107,12 +76,6 @@
 6. 敏感檔案偵測 (`.env`, `credentials.json`, `.pem`, `.key`)
 
 ## 手動執行 Hooks
-
-| Hook | 說明 | 檔案 |
-|------|------|------|
-| route-sync-check | 檢查前後端路徑一致性 | `.claude/hooks/route-sync-check.ps1` |
-| ~~link-id-check~~ | ⚠️ **已被 `scripts/checks/link_id_fallback_audit.py`（weekly 90）取代**。它從 2026-01-21 起沒有任何 runner 在叫它，而且跑起來會給錯的答案：`-Path "src\**\*.tsx"` 在 PowerShell 裡的 `**` **不是遞迴 glob**（等同 `*`），實測只掃得到 **119/604** 個 `.tsx` 而照樣印 `[PASS]`；另有一條斷言 `BaseLink` 必須在 `types/api.ts`，而它實際在 `types/taoyuan.ts:53` ⇒ **永久假紅**。檔案保留待 owner 裁示刪除（A42） | `.claude/hooks/link-id-check.ps1` |
-| link-id-validation | 後端 link_id 傳遞完整性驗證 | `.claude/hooks/link-id-validation.ps1` |
 
 ## Hook 開發協議
 

@@ -4,6 +4,37 @@
 
 ---
 
+## [v6.71] - 2026-09-04（金流全面複查／報價單流程整合／部署無空窗／doctor 清理）
+
+### `.claude/` 變更
+
+| 檔 | 變更 |
+|---|---|
+| `settings.json` | **12 支 hook 的 `-File .claude/hooks/x.ps1` 改 `"$CLAUDE_PROJECT_DIR/.claude/hooks/x.ps1"`**——相對路徑在 shell cwd 離開專案根時找不到檔，近 50 個 session 靜默失敗 10,384 次（危險指令攔截、檔案位置驗證、Python 語法檢查全在內）。**需重啟 session 生效** |
+| `rules/skills-inventory.md` | 登記 weekly 105 `case_state_consistency_audit`（已承攬⇔承攬案⇔project_code）；weekly 104 加簽名判準 ⑨⑩ |
+| `rules/directory-structure.md` | **刪除**（純目錄樹，`ls .claude` 即得） |
+| `rules/architecture.md`／`rules/hooks-guide.md` | 刪根目錄樹／五張 hook 對照表（`jq .hooks` 即得），教訓與協議保留 |
+| `skills/dev-commands/SKILL.md` | **新增**：`CLAUDE.md`「常用命令」改為按需載入的 skill |
+| `CLAUDE.md` | 版本 v6.70 → **v6.71**；09-01～09-03 日記段（13.4k 字元）移 `MILESTONES_ARCHIVE.md`；刪專案概述／多專案架構／Subdomain／架構標準化表／整合來源（28,427 → ~10,600 字元） |
+| `settings.local.json`（不入版控） | 停用 35 支未用指令／skill；刪 65 條 >300 字元的 allow 規則 |
+
+### 版本一致
+
+| 來源 | 之前 | 現在 |
+|---|---|---|
+| `CLAUDE.md` 檔頭 `**版本**` | v6.70 | **v6.71**（SSOT；`build-args.sh` 讀它注入映像） |
+| runtime `Application starting...` | v6.70 | 部署後 v6.71 |
+| `backend/pyproject.toml`／`frontend/package.json` | 3.1.0／0.0.0 | 不動（另一體系／Dead Config，見 v6.70） |
+| alembic head | 20260903a001 | **20260904a002**（`erp_quotation_items.item_no`、`users.phone`） |
+| 部署腳本 | 保留上一版 assets | **build 到 dist_next 覆蓋式更新**＋24h 保留＋**tsc 閘門** |
+
+### 本版主要內容（程式面，摘要；細節見 `docs/runbooks/quotation_xls_reconciliation_20260902.md` §13 與 `OPEN_ITEMS` 09-04 各輪）
+
+金流統計口徑 4 處／財務摘要 case_code 橋（同族十二）／統計卡 5 處跟篩選／PM 卡「評估中」＋移除含已成案開關／
+229 張報價單總價更正（owner 授權）／A90 八筆子案成案、一筆刪除／報價單版面對齊實際回簽單（備註位置、折行、複價覆寫、已含稅、字型）／
+工項項次與備註欄／抬頭客戶資料接委託單位主檔＋卡上直接編／使用者聯絡電話／建立頁瘦身、案件頁直接建單／回簽上傳依 01／02 分流＋詢問成案／
+改工項自動重產已輸出檔／archive 原地更新 id 不變／CSP frame-src blob／weekly 105。
+
 ## [v6.70] - 2026-09-02 晚 → 09-03（總表為真值：版次分身合併、納管、金流建入；三表同步白名單收斂）
 
 > ⚠️ 本檔自 v6.10.3（05-21）起未逐版登記；v6.11–v6.69 的一行摘要在 `docs/MILESTONES_ARCHIVE.md`

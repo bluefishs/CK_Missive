@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/session-start.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.ps1\"",
             "timeout": 15
           }
         ]
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/auto-approve.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/auto-approve.ps1\"",
             "timeout": 5
           }
         ]
@@ -48,12 +48,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/validate-file-location.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/validate-file-location.ps1\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/freeze-scope.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/freeze-scope.ps1\"",
             "timeout": 5
           },
           {
@@ -67,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/careful-guard.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/careful-guard.ps1\"",
             "timeout": 5
           }
         ]
@@ -79,37 +79,37 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/python-lint.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/python-lint.ps1\"",
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/api-serialization-check.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/api-serialization-check.ps1\"",
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/performance-check.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/performance-check.ps1\"",
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/remind-alembic-migration.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/remind-alembic-migration.ps1\"",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/remind-adr-create.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/remind-adr-create.ps1\"",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/remind-type-sync.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/remind-type-sync.ps1\"",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File .claude/hooks/remind-route-sync.ps1",
+            "command": "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/remind-route-sync.ps1\"",
             "timeout": 5
           }
         ]

@@ -49,6 +49,8 @@ echo "[1/7] Building frontend (production)..."
 #   幾十秒內所有 chunk 都 404，正在切頁的分頁照樣壞；而且半小時內連部四次時「上一版」根本不夠。
 #   現在：build 到 dist_next（不動 dist），完成後**覆蓋式**複製進 dist（assets 先、index.html 最後），
 #   dist 從頭到尾沒有空窗；舊 assets 不刪，只清 24 小時前且不在本次清單的（累積有上限）。
+# 2026-09-04（L141）：vite 不做型別檢查，缺 import 的 bundle 會照樣 build 出來上線。先過 tsc 再 build。
+( cd frontend && npx tsc --noEmit ) || { echo "  ✗ TypeScript 檢查未過，拒絕部署（L141）"; exit 1; }
 ( cd frontend && rm -rf dist_next && npx vite build --outDir dist_next --emptyOutDir --logLevel error )
 MAIN_JS_NEXT=$(ls frontend/dist_next/assets/main-*.js 2>/dev/null | head -1 || true)
 if [ -z "$MAIN_JS_NEXT" ]; then
