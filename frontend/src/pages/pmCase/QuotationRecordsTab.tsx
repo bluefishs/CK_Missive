@@ -31,8 +31,8 @@
  *
  * @version 5.0.0 — 嵌入 QuotationItemsTab（4.0.0 的清單是錯的方向）
  */
-import { Suspense, lazy } from 'react';
-import { Card, Empty, Space, Spin, Alert, Typography } from 'antd';
+import { Suspense, lazy, useState } from 'react';
+import { Card, Empty, Space, Spin, Alert, Select, Typography } from 'antd';
 import { useQuotationExport } from '../erpQuotation/useQuotationExport';
 import { useQuery } from '@tanstack/react-query';
 import { AttachmentPanel } from '../../components/common/AttachmentPanel';
@@ -66,7 +66,10 @@ export default function QuotationRecordsTab({
   });
 
   const quotations = data?.items ?? [];
-  const primary = quotations[0];
+  // 2026-09-04：一案多張報價單時可切換（此前只顯示第一張，其餘要跳去 ERP 列表）。
+  // 列表由後端 id desc 排序 ⇒ 預設是最新一張，也就是使用者剛建立的那張。
+  const [selectedId, setSelectedId] = useState<number | undefined>();
+  const primary = quotations.find((q) => q.id === selectedId) ?? quotations[0];
 
   // 明細筆數：與 `QuotationItemsTab` **共用同一個 queryKey**，
   // 所以嵌入的編輯器已經取過時這裡不會多打一次。
@@ -135,13 +138,21 @@ export default function QuotationRecordsTab({
             />
           </Suspense>
           {quotations.length > 1 && (
-            // 實測 256 案全部一案一張；真的出現多張時要說出來而不是靜靜只顯示第一張
-            <Alert
-              type="info"
-              showIcon
-              message={`此案有 ${quotations.length} 張報價單，目前顯示的是第一張（${primary.quotation_no || `#${primary.id}`}）`}
-              description={<Text type="secondary">其餘可從 ERP 報價單列表開啟。</Text>}
-            />
+            <Card size="small" styles={{ body: { padding: '8px 12px' } }}>
+              <Space wrap>
+                <Text type="secondary">此案有 {quotations.length} 張報價單，切換：</Text>
+                <Select
+                  size="small"
+                  style={{ minWidth: 260 }}
+                  value={primary.id}
+                  onChange={(v: number) => setSelectedId(v)}
+                  options={quotations.map((q) => ({
+                    value: q.id,
+                    label: `${q.quotation_no || `#${q.id}`} ／ NT$${Number(q.total_price ?? 0).toLocaleString()} ／ ${q.status ?? ''}`,
+                  }))}
+                />
+              </Space>
+            </Card>
           )}
         </>
       )}

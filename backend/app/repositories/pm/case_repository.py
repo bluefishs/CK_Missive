@@ -143,7 +143,8 @@ class PMCaseRepository(BaseRepository[PMCase]):
         return items, total
 
     async def get_summary(
-        self, year: Optional[int] = None, include_converted: bool = True
+        self, year: Optional[int] = None, include_converted: bool = True,
+        status: Optional[str] = None, category: Optional[str] = None,
     ) -> Dict[str, Any]:
         """取得案件統計摘要
 
@@ -181,7 +182,14 @@ class PMCaseRepository(BaseRepository[PMCase]):
         by_status = {row[0] or "unknown": row[1] for row in status_result.all()}
 
         # 合約總額
-        total_amount = (await self.db.execute(_scoped(select(func.sum(PMCase.contract_amount))))).scalar()
+        # 2026-09-04：金額跟著目前點選的狀態卡／類別走（owner「報價總額應僅配合統計卡片動態調整」），
+        # 計數不跟——卡片是分母，點了某張卡其他卡的數字不能歸零。
+        amt_q = _scoped(select(func.sum(PMCase.contract_amount)))
+        if status:
+            amt_q = amt_q.where(PMCase.status == status)
+        if category:
+            amt_q = amt_q.where(PMCase.category == category)
+        total_amount = (await self.db.execute(amt_q)).scalar()
 
         return {
             "total_cases": total,

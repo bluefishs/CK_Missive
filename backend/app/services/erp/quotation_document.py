@@ -597,6 +597,9 @@ class QuotationDocumentService:
             original_name=file_name,
             checksum=hashlib.sha256(content).hexdigest(),
             uploaded_by=user_id,
+            # 2026-09-04：模型註解與前端標籤都說系統輸出會標 generated_quotation，
+            # 但這裡從沒寫過 ⇒ 附件列表把它們當「未分類」，報價單分頁也篩不出來。
+            doc_type="generated_quotation",
         )
         self.db.add(att)
         await self.db.commit()

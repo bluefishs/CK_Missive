@@ -371,7 +371,12 @@ async def quotation_template_preview(
     if not tpl.exists():
         raise HTTPException(status_code=500, detail=f"範本不存在：{tpl.name}")
     try:
-        pdf = QuotationDocumentService.render_pdf(tpl.read_bytes())
+        # 2026-09-04 owner「檢視 XLS 樣式格式錯誤」：此前把範本檔**原樣**轉 PDF ——
+        # 而範本檔不是空白的（owner 給的實際報價單：客戶、承辦 email、金額都在裡面），
+        # 也沒有 fitToPage ⇒ 預覽是 4 頁、印著別人的報價。正式輸出走 render_xlsx 清值＋縮放，
+        # 預覽也走同一條：空資料填進去，使用者看到的才是「輸出時的版面」。
+        blank = {"display_no": "", "items": [], "category": "", "has_items": False}
+        pdf = QuotationDocumentService.render_pdf(QuotationDocumentService(None).render_xlsx(blank))
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=f"PDF 轉換失敗：{e}")
     return StreamingResponse(

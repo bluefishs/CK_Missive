@@ -51,6 +51,11 @@ class PMSummaryRequest(BaseModel):
             "列表點不出來」（規範 §2.6 ①）。"
         ),
     )
+    # 2026-09-04 owner「報價總額應僅配合統計卡片動態調整」：狀態／類別只影響 total_contract_amount，
+    # 各卡的計數仍是全範圍（卡片是分母，§2.6 ②）。
+    status: Optional[str] = Field(None, description="只套用在報價總額的狀態篩選（planning/contracted/closed）")
+    category: Optional[str] = Field(None, description="只套用在報價總額的類別篩選（01/02）")
+
 
 
 class PMGenerateCodeRequest(BaseModel):

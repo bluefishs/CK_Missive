@@ -98,7 +98,7 @@ export const pmCasesApi = {
   // TypeScript 對「變數傳給較窄的參數型別」不做多餘屬性檢查，所以編譯通過、
   // 執行時因為 `params ?? {}` 也真的送出去了。**能動，但沒有人在保證它會繼續能動。**
   // 這就是為什麼摘要（卡片）是對的而列表是錯的：兩條路徑的參數處理各寫一套。
-  async summary(params?: { year?: number; include_converted?: boolean }): Promise<PMCaseSummary> {
+  async summary(params?: { year?: number; include_converted?: boolean; status?: string; category?: string }): Promise<PMCaseSummary> {
     const response = await apiClient.post<SuccessResponse<PMCaseSummary>>(
       PM_ENDPOINTS.CASES_SUMMARY,
       params ?? {}

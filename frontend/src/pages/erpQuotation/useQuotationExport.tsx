@@ -23,6 +23,7 @@
  * 好幾個地方付過這個代價（同一判準兩份、同一邏輯兩份實作）。
  */
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { App, Button, Modal } from 'antd';
 import { FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { apiClient } from '../../api/client';
@@ -42,6 +43,7 @@ export function useQuotationExport({
   quotationId, quotationNo, itemCount, onGoToItems,
 }: UseQuotationExportOptions) {
   const { message, modal } = App.useApp();
+  const queryClient = useQueryClient();
   const [exporting, setExporting] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfName, setPdfName] = useState('');
@@ -95,6 +97,12 @@ export function useQuotationExport({
       // （後端存檔失敗不擋下載，狀態改由 X-Archive-Status 傳出）
       if (headers['x-archive-status'] === 'failed') {
         message.warning('文件已產出，但自動存入本案附件失敗 —— 請手動上傳這份檔案', 8);
+      }
+      // 2026-09-04 owner「建立後…無看看對應 XLS／PDF」：後端存進本案附件了，但畫面上的附件列表
+      // 沒有重抓 ⇒ 使用者以為沒存。存檔成功就讓附件列表失效重抓（queryKey 與 AttachmentPanel 一致）。
+      if (headers['x-archive-status'] === 'ok') {
+        void queryClient.invalidateQueries({ queryKey: ['pm-case-attachments'] });
+        message.success(`已輸出並存入本案附件（${format.toUpperCase()}）`, 4);
       }
       const cd = headers['content-disposition'] || '';
       const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);

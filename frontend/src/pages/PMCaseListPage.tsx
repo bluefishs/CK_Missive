@@ -135,7 +135,11 @@ export const PMCaseListPage: React.FC = () => {
   }), [currentPage, searchText, yearFilter, statusFilter, categoryFilter, sort, includeConverted]);
 
   const { data: casesData, isLoading, refetch } = usePMCases(queryParams);
-  const { data: summary } = usePMCaseSummary({ year: yearFilter, include_converted: includeConverted });
+  // 2026-09-04 owner：報價總額跟著目前點選的狀態卡／類別動態調整；各卡計數不跟（分母）。
+  const { data: summary } = usePMCaseSummary({
+    year: yearFilter, include_converted: includeConverted,
+    status: statusFilter, category: categoryFilter,
+  });
 
   // PaginatedResponse<PMCase> has .items and .pagination directly
   const cases = casesData?.items ?? [];
@@ -328,7 +332,7 @@ export const PMCaseListPage: React.FC = () => {
               {/* 金額不是狀態，點它沒有對應的篩選語意 —— 不給 onClick，
                   元件就不會 hoverable（原本點了只會變色，列表不動）。 */}
               <ClickableStatCard
-                title="報價總額"
+                title={`報價總額${statusFilter ? `（${PM_CASE_STATUS_LABELS[statusFilter as PMCaseStatus] ?? statusFilter}）` : ''}${categoryFilter ? `・${categoryFilter}` : ''}`}
                 value={`NT$${Number(summary.total_contract_amount ?? 0).toLocaleString()}`}
                 icon={<DollarOutlined />}
               />

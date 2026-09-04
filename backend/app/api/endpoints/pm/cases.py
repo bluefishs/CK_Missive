@@ -227,7 +227,8 @@ async def get_summary(
 ):
     """案件統計摘要"""
     result = await service.get_summary(
-        year=req.year, include_converted=req.include_converted
+        year=req.year, include_converted=req.include_converted,
+        status=req.status, category=req.category,
     )
     return SuccessResponse(data=result)
 
