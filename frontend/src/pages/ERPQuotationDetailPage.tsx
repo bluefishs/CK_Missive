@@ -111,6 +111,13 @@ export const ERPQuotationDetailPage: React.FC = () => {
   }
 
   const grossProfit = Number(quotation?.gross_profit ?? 0);
+  // 2026-09-05 owner「文字與統計統一為承攬金額（含稅）」：詳情頁的合約總價／報價總價／營收都改用承攬金額
+  // ＝議價金額（01 類決標後）→ 契約金額 → 報價總價；稅額依承攬金額／報價總價的比例換算。
+  const quotedPrice = Number(quotation?.total_price ?? 0);
+  const winningAmt = quotation?.winning_amount != null && Number(quotation.winning_amount) > 0 ? Number(quotation.winning_amount) : null;
+  const contractAmt = quotation?.contract_amount != null ? Number(quotation.contract_amount) : null;
+  const awarded = winningAmt ?? contractAmt ?? quotedPrice;
+  const taxAdj = quotedPrice > 0 ? Math.round(Number(quotation?.tax_amount ?? 0) * awarded / quotedPrice) : Number(quotation?.tax_amount ?? 0);
 
   const statusOpt = STATUS_OPTIONS.find(o => o.value === quotation?.status);
 
@@ -190,7 +197,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
         }`}</style>
         <Card size="small" title="合約概況" className="money-stat">
           <Row gutter={[16, 16]}>
-            <Col xs={12} sm={12} lg={6}><Statistic title="合約總價" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+            <Col xs={12} sm={12} lg={6}><Statistic title={termTitle('awarded_amount')} value={awarded} precision={0} /></Col>
             {/* 2026-08-18 owner：「若可設定公司固定利潤如 10%，那總金額扣除前述
                 才應該是專案毛利」。
 
@@ -265,9 +272,9 @@ export const ERPQuotationDetailPage: React.FC = () => {
                   已請款   = 已收款 + 未收款 */}
             <Card size="small" title="應收概況 (委託單位)">
               <Row gutter={[16, 8]}>
-                <Col xs={12} sm={8} lg={4}><Statistic title={termTitle('quotation_total')} value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+                <Col xs={12} sm={8} lg={4}><Statistic title={termTitle('awarded_amount')} value={awarded} precision={0} /></Col>
                 <Col xs={12} sm={8} lg={5}><Statistic title={termTitle('billed')} value={Number(quotation.total_billed)} precision={0} /></Col>
-                <Col xs={12} sm={8} lg={5}><Statistic title={termTitle('unbilled')} value={Number(quotation.total_price ?? 0) - Number(quotation.total_billed)} precision={0} styles={{ content: { color: '#8c8c8c' } }} /></Col>
+                <Col xs={12} sm={8} lg={5}><Statistic title={termTitle('unbilled')} value={awarded - Number(quotation.total_billed)} precision={0} styles={{ content: { color: '#8c8c8c' } }} /></Col>
                 <Col xs={12} sm={12} lg={5}><Statistic title={termTitle('received')} value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
                 <Col xs={12} sm={12} lg={5}><Statistic title={termTitle('outstanding', '未收款')} value={Number(quotation.total_billed) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_billed) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
               </Row>
@@ -298,9 +305,9 @@ export const ERPQuotationDetailPage: React.FC = () => {
         {/* 損益分析 */}
         <Card size="small" title="損益分析">
           <Row gutter={[16, 8]}>
-            <Col xs={12} sm={12} lg={6}><Statistic title="營收 (含稅)" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
-            <Col xs={12} sm={12} lg={6}><Statistic title="稅額" value={Number(quotation.tax_amount)} precision={0} /></Col>
-            <Col xs={12} sm={12} lg={6}><Statistic title="營收 (未稅)" value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount)} precision={0} /></Col>
+            <Col xs={12} sm={12} lg={6}><Statistic title={termTitle('awarded_amount')} value={awarded} precision={0} /></Col>
+            <Col xs={12} sm={12} lg={6}><Statistic title="稅額（依承攬金額換算）" value={taxAdj} precision={0} /></Col>
+            <Col xs={12} sm={12} lg={6}><Statistic title="承攬金額（未稅）" value={awarded - taxAdj} precision={0} /></Col>
             {/* 2026-08-15：原本這裡顯示「淨利」，而 net_profit 與 gross_profit
                 是**同一個數字** —— 兩者並排會被讀成兩個不同的財務指標。
                 真正的淨利要再扣營運費用與稅，那些資料不在報價這一層。
@@ -308,7 +315,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
             <Col xs={12} sm={12} lg={6}>
               <Statistic
                 title="實際毛利（已入帳成本）"
-                value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount) - Number(quotation.actual_cost ?? 0)}
+                value={awarded - taxAdj - Number(quotation.actual_cost ?? 0)}
                 precision={0}
                 styles={{ content: { color: '#1677ff' } }}
               />

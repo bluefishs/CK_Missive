@@ -602,6 +602,16 @@ class ERPQuotationService(AuditableServiceMixin):
                 out["case_category"] = category
             if client_name:
                 out["client_name"] = client_name
+            # 2026-09-05：詳情頁也要「承攬金額（含稅）」——把承攬案的契約金額／議價金額帶回（列表路徑另有批次版）
+            from sqlalchemy import text as _txt
+            amt_row = (await self.db.execute(_txt(
+                "SELECT contract_amount, NULLIF(winning_amount, 0) FROM contract_projects WHERE case_code = :c LIMIT 1"
+            ), {"c": case_code})).first()
+            if amt_row is not None:
+                if amt_row[0] is not None:
+                    out["contract_amount"] = amt_row[0]
+                if amt_row[1] is not None:
+                    out["winning_amount"] = amt_row[1]
             if pm_amount is not None:
                 quotation = await self.repo.get_by_case_code(case_code)
                 erp_amount = Decimal(str(quotation.total_price or 0)) if quotation else ZERO
