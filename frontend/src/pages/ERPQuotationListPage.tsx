@@ -242,7 +242,7 @@ export const ERPQuotationListPage: React.FC = () => {
           <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
             <Col xs={12} sm={6}>
               <ClickableStatCard
-                title={termTitle('receivable_total')}
+                title={termTitle('contract_amount_sum')}
                 value={Number(profitSummary.total_awarded ?? profitSummary.total_revenue).toLocaleString()}
                 icon={<DollarOutlined />}
                 color="#1890ff"

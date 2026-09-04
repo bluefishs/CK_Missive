@@ -32,15 +32,11 @@ export const FINANCE_TERMS = {
   },
   contract_amount_sum: {
     label: '承攬金額合計（含稅）',
-    note: '目前篩選範圍內所有承攬案的承攬金額（議價金額，無則契約金額）加總，含稅。與報價單頁「應收總額（含稅）」同一個數。',
+    note: '篩選範圍內所有承攬案的承攬金額（議價金額→契約金額→報價總價）加總，含稅。承攬案頁與專案帳款頁同一個名字、同一個算法、同一個數（owner 09-05 統一）；未稅＝÷1.05。',
   },
   quotation_total: {
     label: '報價總價（含稅）',
     note: 'erp_quotations.total_price，含稅；請款、發票都以它為上限。未稅＝總價 − 稅額。',
-  },
-  receivable_total: {
-    label: '應收總額（含稅）',
-    note: '篩選範圍內成案的承攬金額（議價金額→契約金額→報價總價）加總，含稅。與承攬案頁「承攬金額合計（含稅）」是同一個算法、同一個數；未稅＝÷1.05。',
   },
   receivable_total_untaxed: {
     label: '應收總額（未稅）',
