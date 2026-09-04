@@ -831,6 +831,8 @@ class ERPQuotationService(AuditableServiceMixin):
         total_paid = await self.payable_repo.get_total_paid(quotation.id)
         billings = await self.billing_repo.get_by_quotation_id(quotation.id)
         actual = await self._actual_cost(quotation.case_code, quotation.id)
+        # 2026-09-05：詳情頁也要「承攬金額（含稅）」——帶承攬案的契約金額／議價金額（列表路徑用同一支批次）
+        case_amt = (await self._get_case_amounts_batch([quotation.case_code])).get(quotation.case_code) or {}
 
         # 預算警示計算
         budget_limit = quotation.budget_limit
@@ -871,4 +873,6 @@ class ERPQuotationService(AuditableServiceMixin):
             total_received=total_received,
             total_payable=total_payable,
             total_paid=total_paid,
+            contract_amount=case_amt.get("contract"),
+            winning_amount=case_amt.get("winning"),
         )
