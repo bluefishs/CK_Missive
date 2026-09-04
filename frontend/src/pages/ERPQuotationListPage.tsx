@@ -62,7 +62,7 @@ export const ERPQuotationListPage: React.FC = () => {
   const [statFilter, setStatFilter] = useState<string | null>(null);
   // 2026-09-04 owner：「專案帳款接續處理已承攬案件，不含非成案紀錄」——固定只列成案（後端預設 include_unawarded=false），
   // 「含未成案」開關已移除；未成案的報價單在各案件的「報價單」分頁處理。
-  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc', year: CURRENT_YEAR });
+  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'case_code', sort_order: 'desc', year: CURRENT_YEAR });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);
   // 選項與列表同一個年度／類別範圍——否則預設 2026 下 178 家有 84 家選了是空表（owner 09-04 晚）
   const { data: clientOptionsResp } = useERPQuotationClientOptions({ year: params.year, category: params.category });
@@ -513,7 +513,7 @@ export const ERPQuotationListPage: React.FC = () => {
               year: typeof yr === 'number' ? yr : undefined,
               category: typeof cat === 'string' ? cat : undefined,
               client_name: typeof client === 'string' ? client : undefined,
-              sort_by: sortField && sd?.order ? sortField : 'year',
+              sort_by: sortField && sd?.order ? sortField : 'case_code',
               sort_order: sortField && sd?.order ? (sd.order === 'ascend' ? 'asc' : 'desc') : 'desc',
               page: 1,
             }));
