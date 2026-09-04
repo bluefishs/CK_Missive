@@ -72,6 +72,27 @@ def parse_legacy_no(filename: str) -> Optional[str]:
     return no if re.match(r"^[A-Za-z]?\d{3}[-_]", no) else None
 
 
+_QT_RE = re.compile(r"QT\d{4}_\d{3,}")
+# 兩種形狀：新制 CK2026_PM_02_083／CK2026_02_083；舊制成案編號 CK2025_02_01_027（年_類_性_序）
+_CK_RE = re.compile(r"CK\d{4}(?:_(?:PM|GN|FN))?(?:_\d{2}){1,2}_\d{3,}[a-z]?")
+
+
+def parse_keys(filename: str) -> dict[str, Optional[str]]:
+    """檔名裡能當鑰匙的三種編號（2026-09-04 晚 owner「如無法對應所有案件機制則刪除」）。
+
+    舊案號只有 246/277 張有、QT 號只有 139 張有，唯獨 case_code 每張都有 ⇒ 三把任一即可，
+    案件無論新舊都對得到。QT／CK 在檔名任何位置都認（它們的形狀不會與標的名稱混淆）。
+    """
+    stem = os.path.splitext(os.path.basename(filename or ""))[0]
+    qt = _QT_RE.search(stem)
+    ck = _CK_RE.search(stem)
+    return {
+        "legacy_no": parse_legacy_no(filename),
+        "quotation_no": qt.group(0) if qt else None,
+        "case_code": ck.group(0) if ck else None,
+    }
+
+
 def normalize_legacy_no(no: str) -> str:
     """把舊案號正規化成可比對的形式。
 
@@ -127,44 +148,54 @@ class SignedQuotationImportService:
         unmatched: list[dict[str, str]] = []
 
         for filename, content in files:
-            legacy_no = parse_legacy_no(filename)
-            if not legacy_no:
+            keys = parse_keys(filename)
+            if not any(keys.values()):
                 unmatched.append({
                     "file_name": os.path.basename(filename),
-                    "reason": "檔名看不出舊案號（預期格式：回簽報價單_<舊案號>_…）",
+                    "reason": "檔名看不出任何編號——請含舊案號（B115-C017-0）、報價單編號（QT2026_063）或案號（CK2026_PM_02_083）之一",
                 })
                 continue
-            parsed.append({"file_name": os.path.basename(filename),
-                           "legacy_no": legacy_no, "content": content})
+            parsed.append({"file_name": os.path.basename(filename), **keys,
+                           "legacy_no": keys["legacy_no"], "content": content})
 
-        # ⚠️ 比對走**正規化**而不是字串相等：回簽檔寫 `B115-C017a-0`、
-        # 彙整表寫 `B115-C017-a`，直接比對 5 個檔會有 3 個掛不上。
-        #
-        # 因為要正規化，就不能用 `IN (...)` 讓資料庫比 —— 改為一次撈回
-        # 所有**有舊案號**的報價單（目前量級數百筆，一次查完仍遠優於逐筆 N+1）。
         found: dict[str, Any] = {}
+        by_qt: dict[str, Any] = {}
+        by_case: dict[str, Any] = {}
         if parsed:
             for q in (await self.db.execute(
-                select(ERPQuotation).where(
-                    ERPQuotation.legacy_quotation_no.isnot(None),
-                    ERPQuotation.deleted_at.is_(None),
-                )
+                select(ERPQuotation).where(ERPQuotation.deleted_at.is_(None))
             )).scalars().all():
-                # 同一個正規化鍵若有多筆（改版），保留最新的一筆
-                key = normalize_legacy_no(q.legacy_quotation_no)
-                prev = found.get(key)
-                if prev is None or (q.id or 0) > (prev.id or 0):
-                    found[key] = q
+                if q.legacy_quotation_no:
+                    key = normalize_legacy_no(q.legacy_quotation_no)
+                    prev = found.get(key)
+                    if prev is None or (q.id or 0) > (prev.id or 0):
+                        found[key] = q
+                if q.quotation_no:
+                    by_qt[q.quotation_no.upper()] = q
+                # 同一案多張報價單取最新一張（id 最大）
+                for code in (q.case_code, q.project_code):
+                    if code:
+                        prev = by_case.get(code.upper())
+                        if prev is None or (q.id or 0) > (prev.id or 0):
+                            by_case[code.upper()] = q
 
         matched: list[dict[str, Any]] = []
         for p in parsed:
-            q = found.get(normalize_legacy_no(p["legacy_no"]))
+            q = None
+            if p.get("legacy_no"):
+                q = found.get(normalize_legacy_no(p["legacy_no"]))
+            if q is None and p.get("quotation_no"):
+                q = by_qt.get(p["quotation_no"].upper())
+            if q is None and p.get("case_code"):
+                q = by_case.get(p["case_code"].upper())
             if q is None:
+                tried = "／".join(v for v in (p.get("legacy_no"), p.get("quotation_no"), p.get("case_code")) if v)
                 unmatched.append({
                     "file_name": p["file_name"],
-                    "reason": f"系統裡找不到舊案號 {p['legacy_no']}（可能彙整表還沒匯入）",
+                    "reason": f"系統裡找不到 {tried} 對應的報價單（舊案號可能彙整表還沒匯入）",
                 })
                 continue
+            p["legacy_no"] = p.get("legacy_no") or p.get("quotation_no") or p.get("case_code")
             if not q.case_code:
                 unmatched.append({
                     "file_name": p["file_name"],

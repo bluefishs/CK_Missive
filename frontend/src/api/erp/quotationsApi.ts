@@ -24,10 +24,15 @@ export const erpQuotationsApi = {
       sort_by: params?.sort_by ?? 'created_at',
       sort_order: params?.sort_order ?? 'desc',
     };
-    if (params?.search) queryParams.search = params.search;
-    if (params?.year) queryParams.year = params.year;
-    if (params?.status) queryParams.status = params.status;
-    if (params?.case_code) queryParams.case_code = params.case_code;
+    // 2026-09-04 晚 owner「計畫類別／委託單位皆無法正常篩選」：這裡此前**逐一白名單**只放行
+    // search／year／status／case_code，頁面送的 category／client_name／case_status／include_unawarded
+    // 全部在這一層被丟掉——後端與頁面各自都驗過，就是沒驗到中間這一層（verified_wrong_layer 第四次）。
+    // 改為全部透傳（去掉 undefined／空字串），新增參數不必再來這裡登記。
+    for (const [k, v] of Object.entries(params ?? {})) {
+      if (k in queryParams) continue;
+      if (v === undefined || v === null || v === '') continue;
+      queryParams[k] = v;
+    }
 
     return await apiClient.postList<ERPQuotation>(ERP_ENDPOINTS.QUOTATIONS_LIST, queryParams);
   },

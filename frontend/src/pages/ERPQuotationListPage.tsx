@@ -467,7 +467,7 @@ export const ERPQuotationListPage: React.FC = () => {
                   }
                 }}
               >
-                <Button icon={<UploadOutlined />} title="批次上傳回簽 PDF，檔名須帶舊案號（回簽報價單_<舊案號>_…）才對得到；單一案件請到案件頁的報價單分頁上傳">批次匯入回簽 PDF</Button>
+                <Button icon={<UploadOutlined />} title="批次上傳回簽 PDF：檔名含舊案號（B115-C017-0）、報價單編號（QT2026_063）或案號（CK2026_PM_02_083）任一即可對應；先預覽再寫入。單一案件也可到案件頁的報價單分頁上傳">批次匯入回簽 PDF</Button>
               </Upload>
             </>
           )}
