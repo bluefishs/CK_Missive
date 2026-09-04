@@ -76,7 +76,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
           quotation_id: quotationId,
           items: rows.map((r, i) => ({
             item_name: r.item_name, spec: r.spec, unit: r.unit,
-            qty: r.qty, unit_price: r.unit_price, sort_order: i,
+            qty: r.qty, unit_price: r.unit_price, sort_order: i, notes: r.notes || undefined,
           })),
         },
       );
@@ -191,6 +191,12 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
     {
       title: '小計', dataIndex: 'amount', width: 130, align: 'right' as const,
       render: (v: number) => <Text strong>{money(v || 0)}</Text>,
+    },
+    {
+      title: '備註', dataIndex: 'notes', width: 160, _optionalOnNarrow: true,
+      render: (v: string, r: QuotationItemRow) => readOnly ? <Text type="secondary">{v || '—'}</Text> : (
+        <Input value={v} placeholder="印在文件備註欄" onChange={e => update(r.key, { notes: e.target.value })} />
+      ),
     },
     ...(readOnly ? [] : [{
       title: '', width: 50,

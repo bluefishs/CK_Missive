@@ -49,6 +49,8 @@ interface DraftItemRow {
   unit?: string;
   qty: number;
   unit_price: number;
+  /** 工項備註（正式文件 G 欄） */
+  notes?: string;
 }
 
 /**
@@ -66,7 +68,7 @@ const CAPACITY_FALLBACK = 5;
 
 let _keySeq = 0;
 const newRow = (): DraftItemRow => ({
-  key: `draft-${++_keySeq}`, item_name: '', spec: '', unit: '式', qty: 1, unit_price: 0,
+  key: `draft-${++_keySeq}`, item_name: '', spec: '', unit: '式', qty: 1, unit_price: 0, notes: '',
 });
 
 const QuotationTemplateCreatePage: React.FC = () => {
@@ -247,7 +249,7 @@ const QuotationTemplateCreatePage: React.FC = () => {
           items: filled.map((r, i) => ({
             item_name: r.item_name.trim(), spec: r.spec?.trim() || undefined,
             unit: r.unit?.trim() || undefined, qty: r.qty, unit_price: r.unit_price,
-            sort_order: i,
+            sort_order: i, notes: r.notes?.trim() || undefined,
           })),
         });
       }
@@ -330,6 +332,12 @@ const QuotationTemplateCreatePage: React.FC = () => {
       title: '複價', width: 120, align: 'right' as const,
       render: (_: unknown, r: DraftItemRow) => (
         <Text>{money(r.qty * r.unit_price)}</Text>
+      ),
+    },
+    {
+      title: '備註', dataIndex: 'notes', width: 150,
+      render: (_: unknown, r: DraftItemRow) => (
+        <Input value={r.notes} placeholder="選填" onChange={e => patch(r.key, { notes: e.target.value })} />
       ),
     },
     {
