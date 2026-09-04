@@ -141,6 +141,7 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         accessible_case_codes=None,
         category: Optional[str] = None,
         case_status: Optional[str] = None,
+        client_name: Optional[str] = None,
     ) -> Tuple[List[ERPQuotation], int]:
         """篩選報價列表。
 
@@ -177,6 +178,21 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
                     ERPQuotation.case_code.in_(cp_codes.where(ContractProject.status == "已結案")),
                     ERPQuotation.case_code.in_(select(PMCase.case_code).where(PMCase.status == "closed")),
                 ))
+        if client_name:
+            # 2026-09-04 owner：篩選列的「案件狀態」改成「委託單位」。委託單位存在三個地方
+            # （承攬案 client_agency 文字／PM 案 client_name 文字／PM 案 client_vendor_id → 主檔），三條都比。
+            from app.extended.models.core import ContractProject
+            from app.extended.models.pm import PMCase
+            from app.extended.models.core import PartnerVendor
+            pat = f"%{client_name}%"
+            conditions.append(or_(
+                ERPQuotation.case_code.in_(select(ContractProject.case_code).where(ContractProject.client_agency.ilike(pat))),
+                ERPQuotation.case_code.in_(select(PMCase.case_code).where(PMCase.client_name.ilike(pat))),
+                ERPQuotation.case_code.in_(
+                    select(PMCase.case_code).join(PartnerVendor, PartnerVendor.id == PMCase.client_vendor_id)
+                    .where(PartnerVendor.vendor_name.ilike(pat))
+                ),
+            ))
         if status:
             conditions.append(ERPQuotation.status == status)
         if case_code:

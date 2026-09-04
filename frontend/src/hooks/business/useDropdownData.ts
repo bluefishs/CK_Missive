@@ -195,8 +195,15 @@ export const useClientOptions = () => {
     queryKey: ['clients-dropdown'],
     queryFn: async () => {
       const { vendorsApi } = await import('../../api/vendorsApi');
-      const resp = await vendorsApi.getVendors({ vendor_type: 'client', limit: 100 });
-      return resp.items ?? [];
+      // 2026-09-04：委託單位已 186 家，端點每頁上限 100 ⇒ 翻頁取全部（weekly 95 那一族：上限壞在資料長過它的那天）
+      const all: Awaited<ReturnType<typeof vendorsApi.getVendors>>['items'] = [];
+      for (let page = 1; page <= 20; page++) {
+        const resp = await vendorsApi.getVendors({ vendor_type: 'client', limit: 100, page });
+        const items = resp.items ?? [];
+        all.push(...items);
+        if (items.length < 100) break;
+      }
+      return all;
     },
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,

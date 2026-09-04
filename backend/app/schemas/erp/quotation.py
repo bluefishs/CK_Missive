@@ -264,6 +264,7 @@ class ERPQuotationListRequest(BaseQueryParams):
     case_code: Optional[str] = Field(None, description="案號篩選")
     category: Optional[str] = Field(None, description="計畫類別：01 委辦招標／02 承攬報價（依建案案號段判）")
     case_status: Optional[str] = Field(None, description="案件狀態：planning 評估中／contracted 已承攬（執行中）／closed 已結案")
+    client_name: Optional[str] = Field(None, description="委託單位（承攬案 client_agency／PM 案 client_name／委託單位主檔名，模糊比對）")
 
     # ⭐ 2026-08-31 owner：「應改以成案案件為主，未成案承攬案件報價單參考價值低」。
     #

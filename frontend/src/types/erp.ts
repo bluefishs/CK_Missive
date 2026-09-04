@@ -277,6 +277,8 @@ export interface ERPQuotationListParams {
   category?: string;
   /** 案件狀態 planning／contracted／closed */
   case_status?: string;
+  /** 委託單位（模糊比對；2026-09-04 取代案件狀態篩選） */
+  client_name?: string;
 }
 
 /** ERP 發票 */

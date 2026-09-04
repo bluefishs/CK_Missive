@@ -268,6 +268,7 @@ class ERPQuotationService(AuditableServiceMixin):
             accessible_case_codes=accessible_case_codes,
             category=getattr(params, "category", None),
             case_status=getattr(params, "case_status", None),
+            client_name=getattr(params, "client_name", None),
         )
 
         if not items:
