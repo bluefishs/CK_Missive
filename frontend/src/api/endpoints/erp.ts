@@ -125,6 +125,8 @@ export const ERP_ENDPOINTS = {
    *  與 EXPORT/EXPORT_EXCEL 不同：那兩支是**清單匯出**（多筆、資料列表），
    *  這支是**單張報價單**，可直接寄給客戶簽回。 */
   EXPORT_DOCUMENT: '/erp/quotations/export-document',
+  /** 文件抬頭資料（客戶／聯絡／工作地點／服務人員＋來源 id） */
+  QUOTATION_DOCUMENT_DATA: '/erp/quotations/document-data',
   /** 空白範本樣式預覽（建單前看版面）POST /erp/quotations/template-preview */
   QUOTATION_TEMPLATE_PREVIEW: '/erp/quotations/template-preview',
   QUOTATION_TEMPLATE_META: '/erp/quotations/template-meta',

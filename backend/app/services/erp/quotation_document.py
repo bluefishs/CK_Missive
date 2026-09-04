@@ -103,16 +103,22 @@ class QuotationDocumentService:
             raise ValueError(f"找不到報價 {quotation_id}")
 
         row = (await self.db.execute(text("""
-            SELECT COALESCE(cp.client_agency, pm.client_name) AS client_name,
-                   cp.location,
+            SELECT COALESCE(cp.client_agency, pm.client_name, pv.vendor_name) AS client_name,
+                   COALESCE(cp.location, pm.location)                     AS location,
                    cp.agency_contact_person,
-                   ga.tax_id          AS client_tax_id,
-                   ga.phone           AS client_phone,
-                   ga.address         AS client_address,
-                   pc.contact_name    AS contact_name,
-                   pc.phone           AS contact_phone,
-                   pc.mobile          AS contact_mobile,
-                   pc.email           AS contact_email,
+                   pm.id                AS pm_case_id,
+                   pm.client_vendor_id  AS client_vendor_id,
+                   cp.id                AS contract_project_id,
+                   -- 2026-09-04 owner「報價單無法編輯客戶資訊」：此前只從機關主檔（承攬案）取，
+                   -- 未成案的 PM 案客戶掛在委託單位主檔 partner_vendors —— 資料一直在，只是沒 JOIN，
+                   -- 於是文件上統編／電話／地址／聯絡人全空。機關主檔優先，其次委託單位主檔。
+                   COALESCE(ga.tax_id,  pv.tax_id)  AS client_tax_id,
+                   COALESCE(ga.phone,   pv.phone)   AS client_phone,
+                   COALESCE(ga.address, pv.address) AS client_address,
+                   COALESCE(pc.contact_name, cp.agency_contact_person, pv.contact_person) AS contact_name,
+                   COALESCE(pc.phone, pv.phone)     AS contact_phone,
+                   pc.mobile                        AS contact_mobile,
+                   COALESCE(pc.email, pv.email)     AS contact_email,
                    su.staff_name      AS staff_name,
                    su.staff_email     AS staff_email,
                    COALESCE(cp.category, pm.category)         AS category
@@ -124,6 +130,7 @@ class QuotationDocumentService:
               -- 若沒有實跑就交付，症狀會是「按匯出就 500」而測試全綠。
               LEFT JOIN contract_projects cp ON cp.case_code = x.cc
               LEFT JOIN pm_cases pm          ON pm.case_code = x.cc
+              LEFT JOIN partner_vendors pv   ON pv.id = pm.client_vendor_id
               -- 2026-08-18：範本（`app/templates/quotation_template.xlsx`）
               -- 要的欄位比原本多，逐一接上真實來源，不留空格：
               --   統一編號／聯絡電話／傳真／地址 → 機關主檔
@@ -197,6 +204,10 @@ class QuotationDocumentService:
             "valid_days": VALID_DAYS,
             "client_name": row.get("client_name"),
             "location": row.get("location"),
+            # 編輯入口用（文件抬頭資訊卡）：客戶資料改在委託單位主檔、工作地點改在 PM 案
+            "pm_case_id": row.get("pm_case_id"),
+            "client_vendor_id": row.get("client_vendor_id"),
+            "contract_project_id": row.get("contract_project_id"),
             "contact_person": row.get("contact_name") or row.get("agency_contact_person"),
             # 以下 2026-08-18 新增 —— 範本上有格子的欄位一律給值，
             # 取不到就給 None，由 renderer 決定留白還是印「—」。

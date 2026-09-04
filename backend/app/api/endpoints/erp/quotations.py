@@ -408,6 +408,32 @@ async def quotation_template_meta(
     ))
 
 
+@router.post("/document-data", response_model=SuccessResponse)
+async def quotation_document_data(
+    req: ERPQuotationIdRequest,
+    service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
+):
+    """正式文件會印出來的抬頭資料（客戶／聯絡人／工作地點／服務人員）與各自的來源 id。
+
+    2026-09-04 owner「報價單無法編輯客戶資訊」：這些欄位不存在報價單上，來自委託單位主檔、PM 案、承辦指派。
+    這個端點把「文件上會印什麼」原樣回給前端，並附來源 id 讓頁面給出編輯入口——不在報價單上另存一份。
+    """
+    from app.services.erp.quotation_document import QuotationDocumentService
+    try:
+        data = await QuotationDocumentService(service.db).gather(req.erp_quotation_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    data.pop("items", None)
+    for k in ("quoted_date",):
+        if data.get(k) is not None:
+            data[k] = str(data[k])
+    for k in ("items_subtotal", "tax_amount", "total_price"):
+        if data.get(k) is not None:
+            data[k] = float(data[k])
+    return SuccessResponse(data=data)
+
+
 @router.post("/export-document")
 async def export_quotation_document(
     request: ERPQuotationExportRequest,

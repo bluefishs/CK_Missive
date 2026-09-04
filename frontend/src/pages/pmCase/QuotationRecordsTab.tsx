@@ -32,12 +32,14 @@
  * @version 5.0.0 — 嵌入 QuotationItemsTab（4.0.0 的清單是錯的方向）
  */
 import { Suspense, lazy, useState, useEffect } from 'react';
-import { Card, Empty, Space, Spin, Alert, Select, Typography, Input, Button, App } from 'antd';
+import { Card, Empty, Space, Spin, Alert, Select, Typography, Input, Button, App, Descriptions } from 'antd';
 import { useQuotationExport } from '../erpQuotation/useQuotationExport';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AttachmentPanel } from '../../components/common/AttachmentPanel';
 import { apiClient } from '../../api/client';
-import { ERP_ENDPOINTS } from '../../api/endpoints';
+import { ERP_ENDPOINTS, PM_ENDPOINTS } from '../../api/endpoints';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../router/types';
 import { defaultQueryOptions, queryKeys } from '../../config/queryConfig';
 import type { ERPQuotation } from '../../types/erp';
 
@@ -115,6 +117,29 @@ export default function QuotationRecordsTab({
   });
   const notesDirty = (primary?.notes ?? '') !== notes;
 
+  // 2026-09-04 owner「報價單無法編輯客戶資訊等」：文件抬頭欄位不在報價單上（客戶＝委託單位主檔、
+  // 工作地點＝PM 案、服務人員＝承辦指派）。這張卡把「文件會印什麼」攤開，每一欄旁邊就是改它的入口。
+  const navigate = useNavigate();
+  interface DocHeader {
+    client_name?: string | null; client_tax_id?: string | null; client_phone?: string | null; client_address?: string | null;
+    contact_person?: string | null; contact_phone?: string | null; contact_mobile?: string | null; contact_email?: string | null;
+    location?: string | null; staff_name?: string | null; staff_email?: string | null;
+    pm_case_id?: number | null; client_vendor_id?: number | null;
+  }
+  const { data: docHeader } = useQuery({
+    queryKey: ['erp-quotations', 'document-data', primary?.id],
+    queryFn: async () => (await apiClient.post<{ data: DocHeader }>(ERP_ENDPOINTS.QUOTATION_DOCUMENT_DATA, { erp_quotation_id: primary!.id })).data,
+    enabled: !!primary?.id,
+  });
+  const [locationDraft, setLocationDraft] = useState('');
+  useEffect(() => { setLocationDraft(docHeader?.location ?? ''); }, [docHeader?.location]);
+  const saveLocation = useMutation({
+    mutationFn: () => apiClient.post(PM_ENDPOINTS.CASES_UPDATE, { id: docHeader!.pm_case_id, data: { location: locationDraft.trim() || null } }),
+    onSuccess: () => { message.success('工作地點已更新'); void qc.invalidateQueries({ queryKey: ['erp-quotations', 'document-data'] }); },
+    onError: () => message.error('工作地點更新失敗'),
+  });
+  const dash = (v?: string | null) => v || <Text type="secondary">—</Text>;
+
   const { exportButtons, pdfPreview } = useQuotationExport({
     quotationId: primary?.id,
     quotationNo: primary?.quotation_no,
@@ -147,6 +172,33 @@ export default function QuotationRecordsTab({
                 （輸出後自動存入本案附件，只保留最新一份）
               </Text>
             </Space>
+          </Card>
+          <Card size="small" title="文件抬頭資訊（正式報價單會印出來的）" styles={{ body: { padding: '8px 12px' } }}
+            extra={<Space size={4}>
+              {docHeader?.client_vendor_id ? (
+                <Button size="small" onClick={() => navigate(ROUTES.CLIENT_EDIT.replace(':id', String(docHeader.client_vendor_id)))}>編輯委託單位（客戶／聯絡人／統編／地址）</Button>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 12 }}>此案未連結委託單位主檔，請到案件資訊分頁選擇委託單位</Text>
+              )}
+              <Button size="small" onClick={() => navigate(`?tab=staff`)}>承辦同仁（服務人員）</Button>
+            </Space>}>
+            <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }} colon
+              items={[
+                { key: 'client', label: '客戶名稱', children: dash(docHeader?.client_name) },
+                { key: 'tax', label: '統一編號', children: dash(docHeader?.client_tax_id) },
+                { key: 'contact', label: '聯絡人', children: dash(docHeader?.contact_person) },
+                { key: 'phone', label: '聯絡電話', children: dash(docHeader?.contact_phone ?? docHeader?.client_phone) },
+                { key: 'mobile', label: '手機', children: dash(docHeader?.contact_mobile) },
+                { key: 'email', label: 'E-mail', children: dash(docHeader?.contact_email) },
+                { key: 'addr', label: '聯絡地址', children: dash(docHeader?.client_address), span: 2 },
+                { key: 'staff', label: '服務人員', children: dash(docHeader?.staff_name) },
+                { key: 'loc', label: '工作地點', span: 3, children: isEditing || !primary.project_code ? (
+                  <Space.Compact style={{ width: '100%', maxWidth: 560 }}>
+                    <Input value={locationDraft} onChange={(e) => setLocationDraft(e.target.value)} placeholder="例：西區後壠子段199-44地號" maxLength={300} />
+                    <Button type="primary" disabled={(docHeader?.location ?? '') === locationDraft || !docHeader?.pm_case_id} loading={saveLocation.isPending} onClick={() => saveLocation.mutate()}>儲存</Button>
+                  </Space.Compact>
+                ) : dash(docHeader?.location) },
+              ]} />
           </Card>
           <Suspense fallback={<div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}>
             <QuotationItemsTab
