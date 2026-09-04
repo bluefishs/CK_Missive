@@ -184,18 +184,20 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
             from app.extended.models.core import ContractProject
             from app.extended.models.pm import PMCase
             from app.extended.models.core import PartnerVendor
-            pat = f"%{client_name}%"
+            # 2026-09-04 晚：改**精確**比對（去空白）。下拉送的是完整名稱，模糊比對會讓「桃園市政府工務局」
+            # 吃到「桃園市政府工務局○○」（6 vs 7）、「張啟良建築師」吃到「張啟良建築師事務所」。
+            name = client_name.strip()
             conditions.append(or_(
                 # 鍵優先（2026-09-04 起承攬案有 client_vendor_id）；名稱路徑保留給存量與快照漂移
                 ERPQuotation.case_code.in_(
                     select(ContractProject.case_code).join(PartnerVendor, PartnerVendor.id == ContractProject.client_vendor_id)
-                    .where(PartnerVendor.vendor_name.ilike(pat))
+                    .where(func.btrim(PartnerVendor.vendor_name) == name)
                 ),
-                ERPQuotation.case_code.in_(select(ContractProject.case_code).where(ContractProject.client_agency.ilike(pat))),
-                ERPQuotation.case_code.in_(select(PMCase.case_code).where(PMCase.client_name.ilike(pat))),
+                ERPQuotation.case_code.in_(select(ContractProject.case_code).where(func.btrim(ContractProject.client_agency) == name)),
+                ERPQuotation.case_code.in_(select(PMCase.case_code).where(func.btrim(PMCase.client_name) == name)),
                 ERPQuotation.case_code.in_(
                     select(PMCase.case_code).join(PartnerVendor, PartnerVendor.id == PMCase.client_vendor_id)
-                    .where(PartnerVendor.vendor_name.ilike(pat))
+                    .where(func.btrim(PartnerVendor.vendor_name) == name)
                 ),
             ))
         if status:

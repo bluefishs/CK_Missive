@@ -177,11 +177,12 @@ async def get_profit_summary(
 
 @router.post("/client-options")
 async def get_client_options(
+    req: ERPSummaryRequest = ERPSummaryRequest(),
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
     current_user: User = Depends(require_auth()),
 ):
-    """委託單位篩選選項＝案件實際客戶（含筆數）——見 service.get_client_options 的說明"""
-    return SuccessResponse(data=await service.get_client_options())
+    """委託單位篩選選項＝案件實際客戶（含筆數），**與列表同年度／類別範圍**——見 service.get_client_options"""
+    return SuccessResponse(data=await service.get_client_options(year=req.year, category=getattr(req, "category", None)))
 
 
 @router.post("/profit-trend")

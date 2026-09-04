@@ -597,7 +597,7 @@ class ERPQuotationService(AuditableServiceMixin):
     # 損益摘要
     # =========================================================================
 
-    async def get_client_options(self) -> list[dict]:
+    async def get_client_options(self, year: Optional[int] = None, category: Optional[str] = None) -> list[dict]:
         """委託單位篩選的選項＝**案件實際的客戶**，不是主檔的 vendor_type=client。
 
         2026-09-04 owner「委託單位篩選無法正確檢索案件」：選項此前取自主檔 client 型，但
@@ -605,21 +605,32 @@ class ERPQuotationService(AuditableServiceMixin):
         ②張啟良／張啓良（異體字）／張啟良建築師三筆主檔並存，選到不對的那筆就 0 筆。
         取案件真有的名字，選了必然找得到。
         """
+        # 2026-09-04 晚 owner「下拉篩選對應仍有錯誤」：選項若不跟年度／類別走，178 家裡 84 家在頁面預設 2026 下
+        # 選了就是空表——選項數字說有 2 筆、列表 0 筆。選項必須與列表**同一個範圍**（§2.6 ①：卡片與選項都是分母）。
         from sqlalchemy import text as _text
-        rows = (await self.db.execute(_text("""
+        scope = "q.deleted_at IS NULL"
+        params: dict = {}
+        if year:
+            scope += " AND q.case_code LIKE :yr"
+            params["yr"] = f"CK{int(year)}_%"
+        if category in ("01", "02"):
+            scope += " AND q.case_code ~ :cat"
+            params["cat"] = r"^CK\d{4}_(PM_)?" + category + "_"
+        sql = """
             SELECT name, SUM(n)::int AS n FROM (
               SELECT btrim(c.client_agency) AS name, count(DISTINCT q.id) AS n
-              FROM contract_projects c JOIN erp_quotations q ON q.case_code = c.case_code AND q.deleted_at IS NULL
+              FROM contract_projects c JOIN erp_quotations q ON q.case_code = c.case_code AND __SCOPE__
               WHERE c.client_agency IS NOT NULL AND btrim(c.client_agency) <> '' GROUP BY 1
               UNION ALL
               SELECT btrim(p.client_name), count(DISTINCT q.id)
-              FROM pm_cases p JOIN erp_quotations q ON q.case_code = p.case_code AND q.deleted_at IS NULL
+              FROM pm_cases p JOIN erp_quotations q ON q.case_code = p.case_code AND __SCOPE__
               JOIN contract_projects c ON c.case_code = p.case_code
               WHERE p.client_name IS NOT NULL AND btrim(p.client_name) <> ''
                 AND NOT EXISTS (SELECT 1 FROM contract_projects c2 WHERE c2.case_code = p.case_code AND btrim(c2.client_agency) = btrim(p.client_name))
               GROUP BY 1
             ) t GROUP BY name ORDER BY name
-        """))).all()
+        """.replace("__SCOPE__", scope)
+        rows = (await self.db.execute(_text(sql), params)).all()
         return [{"name": r.name, "count": r.n} for r in rows]
 
     async def get_profit_summary(

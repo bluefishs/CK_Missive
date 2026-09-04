@@ -60,12 +60,13 @@ export const ERPQuotationListPage: React.FC = () => {
   //   與後端說同一件事。
   const canWrite = hasPermission('projects:edit');
   const [statFilter, setStatFilter] = useState<string | null>(null);
-  const { data: clientOptionsResp } = useERPQuotationClientOptions();
-  const clientOptions = clientOptionsResp?.data ?? [];
   // 2026-09-04 owner：「專案帳款接續處理已承攬案件，不含非成案紀錄」——固定只列成案（後端預設 include_unawarded=false），
   // 「含未成案」開關已移除；未成案的報價單在各案件的「報價單」分頁處理。
   const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc', year: CURRENT_YEAR });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);
+  // 選項與列表同一個年度／類別範圍——否則預設 2026 下 178 家有 84 家選了是空表（owner 09-04 晚）
+  const { data: clientOptionsResp } = useERPQuotationClientOptions({ year: params.year, category: params.category });
+  const clientOptions = clientOptionsResp?.data ?? [];
   // ⚠️ 統計卡必須跟著年度篩選走，否則會出現「列表 92 筆／卡片 257 筆」的
   // 不一致 —— 那比沒有年度篩選更糟：兩個數字都在畫面上，而使用者無從
   // 判斷哪一個才是他要的。後端 get_profit_summary 本來就收 year，
