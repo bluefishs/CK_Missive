@@ -126,6 +126,7 @@ class User(Base):
 
     department = Column(String(100), comment="部門名稱")
     position = Column(String(100), comment="職稱")
+    phone = Column(String(30), comment="聯絡電話（報價單服務人員；2026-09-04）")
 
     # 帳號鎖定
     failed_login_attempts = Column(Integer, default=0, nullable=False, server_default="0", comment="連續登入失敗次數")

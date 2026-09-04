@@ -121,6 +121,7 @@ class QuotationDocumentService:
                    COALESCE(pc.email, pv.email)     AS contact_email,
                    su.staff_name      AS staff_name,
                    su.staff_email     AS staff_email,
+                   su.staff_phone     AS staff_phone,
                    COALESCE(cp.category, pm.category)         AS category
               FROM (SELECT :cc AS cc) x
               -- ⚠️ contract_projects 與 pm_cases **都沒有 deleted_at**
@@ -145,7 +146,7 @@ class QuotationDocumentService:
                    LIMIT 1
               ) pc ON TRUE
               LEFT JOIN LATERAL (
-                  SELECT COALESCE(u.full_name, u.username) AS staff_name, u.email AS staff_email
+                  SELECT COALESCE(u.full_name, u.username) AS staff_name, u.email AS staff_email, u.phone AS staff_phone
                     FROM project_user_assignments pa
                     LEFT JOIN users au ON au.id = pa.user_id
                     -- ADR-0025：以 canonical 人為準，分身帳號不得顯示成另一個人
@@ -222,6 +223,7 @@ class QuotationDocumentService:
             "contact_email": row.get("contact_email"),
             "staff_name": row.get("staff_name"),
             "staff_email": row.get("staff_email"),
+            "staff_phone": row.get("staff_phone"),
             # '01' 委辦招標（標案，無明細）／'02' 承攬報價（逐項單價）
             "category": row.get("category") or "",
             "items": [dict(r) for r in items],

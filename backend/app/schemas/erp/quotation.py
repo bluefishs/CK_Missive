@@ -333,6 +333,49 @@ class QuotationItemIn(BaseModel):
     notes: Optional[str] = Field(None, description="備註")
 
 
+class ERPQuotationDocumentData(BaseModel):
+    """正式報價單文件會印出來的抬頭資料＋來源 id（POST /erp/quotations/document-data 的回應）。
+
+    欄位與 `QuotationDocumentService.gather()` 的業務語意名一致；這些欄位不存在報價單上
+    （客戶＝委託單位／機關主檔、工作地點＝PM 案、服務人員＝承辦指派），所以附來源 id 讓頁面給編輯入口。
+    """
+    quotation_id: int
+    display_no: Optional[str] = None
+    quotation_no: Optional[str] = None
+    revision: Optional[int] = None
+    case_code: Optional[str] = None
+    case_name: Optional[str] = None
+    year: Optional[int] = None
+    quoted_date: Optional[str] = None
+    quoted_date_roc: Optional[str] = None
+    valid_days: Optional[int] = None
+    client_name: Optional[str] = None
+    client_tax_id: Optional[str] = None
+    client_phone: Optional[str] = None
+    client_fax: Optional[str] = None
+    client_address: Optional[str] = None
+    contact_person: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_mobile: Optional[str] = None
+    contact_email: Optional[str] = None
+    location: Optional[str] = None
+    staff_name: Optional[str] = None
+    staff_email: Optional[str] = None
+    staff_phone: Optional[str] = None
+    category: Optional[str] = None
+    notes: Optional[str] = None
+    items_subtotal: Optional[float] = None
+    tax_amount: Optional[float] = None
+    total_price: Optional[float] = None
+    amount_mismatch: Optional[bool] = None
+    has_items: Optional[bool] = None
+    pm_case_id: Optional[int] = None
+    client_vendor_id: Optional[int] = None
+    contract_project_id: Optional[int] = None
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class QuotationIdRequest(BaseModel):
     quotation_id: int = Field(..., ge=1, description="報價 ID")
 

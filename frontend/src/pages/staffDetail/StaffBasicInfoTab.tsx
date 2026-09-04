@@ -128,6 +128,10 @@ export const StaffBasicInfoTab: React.FC<StaffBasicInfoTabProps> = ({
         </Col>
       </Row>
 
+      <Form.Item name="phone" label="聯絡電話" tooltip="正式報價單「服務人員」旁會印這個號碼（2026-09-04 owner）">
+        <Input placeholder="例：04-24722488 或 0912-345678" maxLength={30} />
+      </Form.Item>
+
       <Form.Item label="密碼管理">
         <Space>
           <Switch

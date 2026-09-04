@@ -52,6 +52,7 @@ class VendorCreate(VendorBase):
 
 class VendorUpdate(BaseModel):
     vendor_name: Optional[str] = Field(None, max_length=200)
+    tax_id: Optional[str] = Field(None, max_length=20, description="統一編號（2026-09-04：更新 schema 此前漏了，只有建立有）")
     vendor_code: Optional[str] = Field(None, max_length=50)
     vendor_type: Optional[str] = Field(None)
     contact_person: Optional[str] = Field(None, max_length=100)

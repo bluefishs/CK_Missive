@@ -32,16 +32,14 @@
  * @version 5.0.0 — 嵌入 QuotationItemsTab（4.0.0 的清單是錯的方向）
  */
 import { Suspense, lazy, useState, useEffect } from 'react';
-import { Card, Empty, Space, Spin, Alert, Select, Typography, Input, Button, App, Descriptions } from 'antd';
+import { Card, Empty, Space, Spin, Alert, Select, Typography, Input, Button, App, Descriptions, Modal, Form } from 'antd';
 import { useQuotationExport } from '../erpQuotation/useQuotationExport';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AttachmentPanel } from '../../components/common/AttachmentPanel';
 import { apiClient } from '../../api/client';
-import { ERP_ENDPOINTS, PM_ENDPOINTS } from '../../api/endpoints';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../router/types';
+import { ERP_ENDPOINTS, PM_ENDPOINTS, API_ENDPOINTS } from '../../api/endpoints';
 import { defaultQueryOptions, queryKeys } from '../../config/queryConfig';
-import type { ERPQuotation } from '../../types/erp';
+import type { ERPQuotation, ERPQuotationDocumentData } from '../../types/erp';
 
 const QuotationItemsTab = lazy(() =>
   import('../erpQuotation/QuotationItemsTab').then(m => ({ default: m.QuotationItemsTab })),
@@ -119,16 +117,9 @@ export default function QuotationRecordsTab({
 
   // 2026-09-04 owner「報價單無法編輯客戶資訊等」：文件抬頭欄位不在報價單上（客戶＝委託單位主檔、
   // 工作地點＝PM 案、服務人員＝承辦指派）。這張卡把「文件會印什麼」攤開，每一欄旁邊就是改它的入口。
-  const navigate = useNavigate();
-  interface DocHeader {
-    client_name?: string | null; client_tax_id?: string | null; client_phone?: string | null; client_address?: string | null;
-    contact_person?: string | null; contact_phone?: string | null; contact_mobile?: string | null; contact_email?: string | null;
-    location?: string | null; staff_name?: string | null; staff_email?: string | null;
-    pm_case_id?: number | null; client_vendor_id?: number | null;
-  }
   const { data: docHeader } = useQuery({
     queryKey: ['erp-quotations', 'document-data', primary?.id],
-    queryFn: async () => (await apiClient.post<{ data: DocHeader }>(ERP_ENDPOINTS.QUOTATION_DOCUMENT_DATA, { erp_quotation_id: primary!.id })).data,
+    queryFn: async () => (await apiClient.post<{ data: ERPQuotationDocumentData }>(ERP_ENDPOINTS.QUOTATION_DOCUMENT_DATA, { erp_quotation_id: primary!.id })).data,
     enabled: !!primary?.id,
   });
   const [locationDraft, setLocationDraft] = useState('');
@@ -139,6 +130,22 @@ export default function QuotationRecordsTab({
     onError: () => message.error('工作地點更新失敗'),
   });
   const dash = (v?: string | null) => v || <Text type="secondary">—</Text>;
+  // 2026-09-04 owner：「編輯委託單位不要再跳到 /clients/:id/edit，導致一直轉跳又回不來」——
+  // 改在這裡開一個小表單，直接寫回委託單位主檔（同一份資料、同一個更新端點）。
+  const [vendorOpen, setVendorOpen] = useState(false);
+  const [vendorForm] = Form.useForm<{ contact_person?: string; phone?: string; email?: string; tax_id?: string; address?: string }>();
+  const saveVendor = useMutation({
+    mutationFn: (values: { contact_person?: string; phone?: string; email?: string; tax_id?: string; address?: string }) =>
+      apiClient.post(API_ENDPOINTS.VENDORS.UPDATE(docHeader!.client_vendor_id!), Object.fromEntries(
+        Object.entries(values).map(([k, v]) => [k, typeof v === 'string' ? (v.trim() || null) : v]),
+      )),
+    onSuccess: () => {
+      message.success('委託單位資料已更新（文件下次輸出即帶新值）');
+      setVendorOpen(false);
+      void qc.invalidateQueries({ queryKey: ['erp-quotations', 'document-data'] });
+    },
+    onError: () => message.error('委託單位更新失敗'),
+  });
 
   const { exportButtons, pdfPreview } = useQuotationExport({
     quotationId: primary?.id,
@@ -174,14 +181,17 @@ export default function QuotationRecordsTab({
             </Space>
           </Card>
           <Card size="small" title="文件抬頭資訊（正式報價單會印出來的）" styles={{ body: { padding: '8px 12px' } }}
-            extra={<Space size={4}>
-              {docHeader?.client_vendor_id ? (
-                <Button size="small" onClick={() => navigate(ROUTES.CLIENT_EDIT.replace(':id', String(docHeader.client_vendor_id)))}>編輯委託單位（客戶／聯絡人／統編／地址）</Button>
-              ) : (
-                <Text type="secondary" style={{ fontSize: 12 }}>此案未連結委託單位主檔，請到案件資訊分頁選擇委託單位</Text>
-              )}
-              <Button size="small" onClick={() => navigate(`?tab=staff`)}>承辦同仁（服務人員）</Button>
-            </Space>}>
+            extra={docHeader?.client_vendor_id ? (
+              <Button size="small" onClick={() => {
+                vendorForm.setFieldsValue({
+                  contact_person: docHeader.contact_person ?? '', phone: docHeader.client_phone ?? '',
+                  email: docHeader.contact_email ?? '', tax_id: docHeader.client_tax_id ?? '', address: docHeader.client_address ?? '',
+                });
+                setVendorOpen(true);
+              }}>編輯客戶資料</Button>
+            ) : (
+              <Text type="secondary" style={{ fontSize: 12 }}>此案未連結委託單位主檔，請到案件資訊分頁選擇委託單位</Text>
+            )}>
             <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }} colon
               items={[
                 { key: 'client', label: '客戶名稱', children: dash(docHeader?.client_name) },
@@ -191,7 +201,7 @@ export default function QuotationRecordsTab({
                 { key: 'mobile', label: '手機', children: dash(docHeader?.contact_mobile) },
                 { key: 'email', label: 'E-mail', children: dash(docHeader?.contact_email) },
                 { key: 'addr', label: '聯絡地址', children: dash(docHeader?.client_address), span: 2 },
-                { key: 'staff', label: '服務人員', children: dash(docHeader?.staff_name) },
+                { key: 'staff', label: '服務人員', children: <>{dash(docHeader?.staff_name)}{docHeader?.staff_phone ? <Text type="secondary"> {docHeader.staff_phone}</Text> : <Text type="secondary" style={{ fontSize: 11 }}>（電話到 /staff 使用者資料補）</Text>}</> },
                 { key: 'loc', label: '工作地點', span: 3, children: isEditing || !primary.project_code ? (
                   <Space.Compact style={{ width: '100%', maxWidth: 560 }}>
                     <Input value={locationDraft} onChange={(e) => setLocationDraft(e.target.value)} placeholder="例：西區後壠子段199-44地號" maxLength={300} />
@@ -200,6 +210,17 @@ export default function QuotationRecordsTab({
                 ) : dash(docHeader?.location) },
               ]} />
           </Card>
+          <Modal title={`編輯客戶資料 — ${docHeader?.client_name ?? ''}`} open={vendorOpen} onCancel={() => setVendorOpen(false)}
+            onOk={() => vendorForm.validateFields().then((v) => saveVendor.mutate(v))} okText="儲存" confirmLoading={saveVendor.isPending} destroyOnHidden>
+            <Text type="secondary" style={{ fontSize: 12 }}>寫回委託單位主檔（/clients），所有掛在這個單位的案件都會看到新值。</Text>
+            <Form form={vendorForm} layout="vertical" style={{ marginTop: 12 }}>
+              <Form.Item name="contact_person" label="聯絡人"><Input maxLength={100} /></Form.Item>
+              <Form.Item name="phone" label="聯絡電話"><Input maxLength={50} /></Form.Item>
+              <Form.Item name="email" label="E-mail" rules={[{ type: 'email', message: '格式不正確' }]}><Input maxLength={100} /></Form.Item>
+              <Form.Item name="tax_id" label="統一編號"><Input maxLength={20} /></Form.Item>
+              <Form.Item name="address" label="聯絡地址"><Input maxLength={300} /></Form.Item>
+            </Form>
+          </Modal>
           <Suspense fallback={<div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}>
             <QuotationItemsTab
               quotationId={primary.id}

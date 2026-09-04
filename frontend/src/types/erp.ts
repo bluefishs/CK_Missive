@@ -1546,6 +1546,31 @@ export interface MyFilingGaps {
   items: FilingGapItem[];
 }
 
+/** 正式報價單文件會印出來的抬頭資料＋來源 id（POST /erp/quotations/document-data；後端 ERPQuotationDocumentData） */
+export interface ERPQuotationDocumentData {
+  quotation_id: number;
+  display_no?: string | null;
+  quotation_no?: string | null;
+  case_code?: string | null;
+  case_name?: string | null;
+  client_name?: string | null;
+  client_tax_id?: string | null;
+  client_phone?: string | null;
+  client_address?: string | null;
+  contact_person?: string | null;
+  contact_phone?: string | null;
+  contact_mobile?: string | null;
+  contact_email?: string | null;
+  location?: string | null;
+  staff_name?: string | null;
+  staff_email?: string | null;
+  staff_phone?: string | null;
+  notes?: string | null;
+  pm_case_id?: number | null;
+  client_vendor_id?: number | null;
+  contract_project_id?: number | null;
+}
+
 export interface QuotationItemRow {
   key: string;
   /** 項次（自填，如 1.1；空＝自動 一、二、三） */

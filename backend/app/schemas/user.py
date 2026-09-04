@@ -25,6 +25,7 @@ class UserBase(BaseModel):
     is_active: bool = Field(True, description="是否啟用")
     department: Optional[str] = Field(None, max_length=100, description="部門名稱")
     position: Optional[str] = Field(None, max_length=100, description="職稱")
+    phone: Optional[str] = Field(None, max_length=30, description="聯絡電話")
 
     @field_validator('role')
     @classmethod
@@ -51,6 +52,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=6, description="新密碼")
     department: Optional[str] = Field(None, max_length=100, description="部門名稱")
     position: Optional[str] = Field(None, max_length=100, description="職稱")
+    phone: Optional[str] = Field(None, max_length=30, description="聯絡電話")
 
     @field_validator('role')
     @classmethod
@@ -85,6 +87,7 @@ class UserResponse(BaseModel):
     created_at: Optional[datetime] = None
     department: Optional[str] = None
     position: Optional[str] = None
+    phone: Optional[str] = None
     email_verified: bool = False
     # 分身帳號指向的本尊（ADR-0025 身分統一）。None = 本人就是本尊。
     #

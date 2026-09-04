@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from app.core.dependencies import get_service, require_auth
 from app.extended.models import User
 from app.services.erp import ERPQuotationService
+from app.schemas.erp.quotation import ERPQuotationDocumentData
 from app.schemas.erp import (
     ERPQuotationCreate, ERPQuotationUpdate, ERPQuotationResponse,
     ERPQuotationListRequest,
@@ -408,7 +409,7 @@ async def quotation_template_meta(
     ))
 
 
-@router.post("/document-data", response_model=SuccessResponse)
+@router.post("/document-data", response_model=SuccessResponse[ERPQuotationDocumentData])
 async def quotation_document_data(
     req: ERPQuotationIdRequest,
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
@@ -425,13 +426,12 @@ async def quotation_document_data(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     data.pop("items", None)
-    for k in ("quoted_date",):
-        if data.get(k) is not None:
-            data[k] = str(data[k])
+    if data.get("quoted_date") is not None:
+        data["quoted_date"] = str(data["quoted_date"])
     for k in ("items_subtotal", "tax_amount", "total_price"):
         if data.get(k) is not None:
             data[k] = float(data[k])
-    return SuccessResponse(data=data)
+    return SuccessResponse(data=ERPQuotationDocumentData.model_validate(data))
 
 
 @router.post("/export-document")

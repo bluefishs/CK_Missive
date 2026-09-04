@@ -12,6 +12,8 @@ export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending';
 
 /** 使用者基礎介面 - 單一真實來源 (Single Source of Truth) */
 export interface User {
+  /** 聯絡電話（報價單服務人員；2026-09-04） */
+  phone?: string;
   id: number;
   username: string;
   email: string;
