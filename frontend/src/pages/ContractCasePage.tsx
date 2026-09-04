@@ -226,7 +226,9 @@ export const ContractCasePage: React.FC = () => {
           </Col>
           <Col xs={12} sm={6} md={4}>
             <ClickableStatCard
-              title="合約總額"
+              // 2026-09-04 晚 owner「合約總額與 /erp/quotations 應收總額為何不一致」：這張卡＝contract_projects.contract_amount 合計，
+              // **含稅**；報價單頁的「應收總額（未稅）」＝同一批案的報價總價 − 稅。兩者差＝5% 稅（另有 1 案 year 欄≠案號年，A100）。
+              title="契約金額合計（含稅）"
               // 2026-09-02：§2.6 ① 卡片是分頁前的全量——此前 reduce 只加當頁 10 筆
               value={`NT$${(statistics?.total_contract_amount ?? 0).toLocaleString()}`}
               icon={<DollarOutlined />}

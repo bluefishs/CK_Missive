@@ -134,10 +134,12 @@ export const ERPQuotationListPage: React.FC = () => {
       ) : <Text type="secondary">—</Text>,
     },
     {
-      title: '議價金額', dataIndex: 'contract_amount', key: 'contract_amount', width: 120, align: 'right', sorter: true,
+      // 2026-09-04 晚：原標「議價金額」，owner 問它是議價還是契約——它就是承攬案 contract_amount（含稅），與 /contract-cases 的
+      // 「契約金額合計（含稅）」同一個數；未成案顯示報價總價並標註。名稱統一為「契約金額」。
+      title: '契約金額', dataIndex: 'contract_amount', key: 'contract_amount', width: 120, align: 'right', sorter: true,
       render: (v: string | number | null, r: ERPQuotation) => {
         const n = v != null ? Number(v) : (r.total_price != null ? Number(r.total_price) : null);
-        return n != null ? <span title={v != null ? '承攬案合約額' : '尚未成案，顯示報價總價'}>{n.toLocaleString()}{v == null ? <Text type="secondary" style={{ fontSize: 11 }}>（報價）</Text> : null}</span> : '-';
+        return n != null ? <span title={v != null ? '承攬案契約金額（含稅）' : '尚未成案，顯示報價總價（含稅）'}>{n.toLocaleString()}{v == null ? <Text type="secondary" style={{ fontSize: 11 }}>（報價）</Text> : null}</span> : '-';
       },
     },
     {
