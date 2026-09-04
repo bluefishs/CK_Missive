@@ -348,7 +348,8 @@ class QuotationDocumentService:
 
         # ── 表頭與客戶資訊 ──
         for key, cell in self.CELLS.items():
-            if key in ("case_code", "quoted_date", "quotation_no"):
+            # notes 不在這裡寫：備註由下方「放回明細區」那段依工項數決定落點（2026-09-04）
+            if key in ("case_code", "quoted_date", "quotation_no", "notes"):
                 continue
             self._set(ws, cell, data.get(key) or None)
 
@@ -370,20 +371,27 @@ class QuotationDocumentService:
                 "或把工項合併後把細節寫進備註。"
             )
 
+        from openpyxl.styles import Alignment
+        import math
         for i, it in enumerate(items):
             r = self.ITEM_FIRST_ROW + i
             ws[f"A{r}"] = f"{self._CN[i]}、" if i < len(self._CN) else f"{i + 1}、"
-            ws[f"B{r}"] = it.get("item_name") or ""
+            name = it.get("item_name") or ""
+            ws[f"B{r}"] = name
             ws[f"C{r}"] = float(it.get("qty") or 0)
             ws[f"D{r}"] = it.get("unit") or ""
             ws[f"E{r}"] = float(it.get("unit_price") or 0)
-            # F 欄寫**公式**不是數值 —— 客戶改數量時金額自己跟著動。
-            #
-            # ⚠️ 必須每列都寫：範本只在 16/17/18 有公式（樣本剛好 3 項），
-            # 第 4 項以後若不補，複價欄會是空白而合計卻少算 ——
-            # 那種錯不會報錯，只會讓總價比明細少。
-            ws[f"F{r}"] = f"=E{r}*C{r}"
+            # 2026-09-04 owner「項目填寫彈性」：F 欄複價寫**值**不寫公式 —— 實際回簽單有
+            # 「單價 4,000 × 1，複價 0，備註『專案優惠』」，複價不一定等於數量×單價。
+            # （08-19 起每列寫 =E*C 公式是為了合計不少算；改寫值後合計 SUM(F16:F25) 照樣對。）
+            amt = it.get("amount")
+            ws[f"F{r}"] = float(amt) if amt is not None else float(it.get("qty") or 0) * float(it.get("unit_price") or 0)
             ws[f"G{r}"] = it.get("notes") or ""
+            # 長工項名折行（範本 22–25 列沒開 wrap；B 欄約 22 個中文字寬）＋列高跟行數走
+            ws[f"B{r}"].alignment = Alignment(wrap_text=True, vertical="center")
+            ws[f"G{r}"].alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
+            lines = max(1, math.ceil(len(name) / 22), math.ceil(len(it.get("notes") or "") / 6))
+            ws.row_dimensions[r].height = max(20.1, 15.0 * lines + 5)
 
         # 清掉範本殘留的範例資料（範本本身是一份填好的真實報價單）
         #
@@ -398,32 +406,40 @@ class QuotationDocumentService:
             for col in ("A", "B", "C", "D", "E", "F", "G"):
                 ws[f"{col}{r}"] = None
 
-        # ── 備註標籤（2026-08-29 備註由列 21 下移到列 29 之後才需要）──
+        # ── 備註：放回明細區（2026-09-04 owner「備註位置」）──
         #
-        # 範本的「備註：」標籤原本在 A21，而 A29 是空白格。
-        # 只搬內容不搬標籤的話，客戶收到的單子上會有一段沒有抬頭的文字。
-        # 字型沿用 A21（那是 owner 提供的版面，不自己挑）。
-        #
-        # ⚠️ 有備註才印標籤 —— 沒有備註卻印一個孤零零的「備註：」，
-        # 比不印更像出錯。
-        if data.get("notes"):
-            label = ws[f"A{self.NOTES_ROW}"]
-            label.value = "備註："
-            src = ws[f"A{self.LEGACY_NOTES_ROW}"]
-            if src.has_style:
-                label.font = copy(src.font)
-                label.alignment = copy(src.alignment)
-
-        # 舊備註列現在屬於明細區，範本殘留的「備註：」/內容要清掉 ——
-        # 否則明細不足 6 項時，該列會同時出現空明細與舊備註。
-        # 條件＝它落在「明細沒填到的那一段」；有填到就已被明細覆寫，不能再清。
+        # 實際回簽單的備註在**明細區內**（工項下方、可多行）。08-29 把它移到第 29 列
+        # （範本列高 6）的結果是一行字擠在總計底線上。現在：工項之後空一列放「備註」，
+        # 明細區放不下（工項 ≥ 9 項）才退到 29 列並把列高撐開。標籤字型沿用範本 A21。
+        src_label, src_text = ws[f"A{self.LEGACY_NOTES_ROW}"], ws[f"B{self.LEGACY_NOTES_ROW}"]
+        label_font, label_align = copy(src_label.font), copy(src_label.alignment)
+        text_font = copy(src_text.font)
+        # 範本 21 列是備註樣板列（高 63）：落在明細沒填到的那段就清成普通列
         if self.LEGACY_NOTES_ROW >= self.ITEM_FIRST_ROW + len(items):
             for col in ("A", "B"):
                 cell = ws[f"{col}{self.LEGACY_NOTES_ROW}"]
-                if isinstance(cell.value, str) and (
-                    cell.value.startswith("備註") or col == "B"
-                ):
+                if isinstance(cell.value, str) and (cell.value.startswith("備註") or col == "B"):
                     cell.value = None
+            ws.row_dimensions[self.LEGACY_NOTES_ROW].height = 20.1
+        notes_text = (data.get("notes") or "").strip()
+        notes_row = None
+        if notes_text:
+            n_lines = sum(max(1, math.ceil(len(ln) / 22)) for ln in (notes_text.splitlines() or [notes_text]))
+            cand = max(self.ITEM_FIRST_ROW + len(items) + 1, self.LEGACY_NOTES_ROW)
+            notes_row = cand if cand <= self.ITEM_LAST_ROW else self.NOTES_ROW
+            ws[f"A{notes_row}"] = "備註："
+            ws[f"A{notes_row}"].font, ws[f"A{notes_row}"].alignment = copy(label_font), copy(label_align)
+            ws[f"B{notes_row}"] = notes_text
+            ws[f"B{notes_row}"].font = copy(text_font)
+            ws[f"B{notes_row}"].alignment = Alignment(wrap_text=True, vertical="top", horizontal="left")
+            ws.row_dimensions[notes_row].height = max(20.1, 15.0 * n_lines + 6)
+
+        # ── 已含稅（2026-09-04 owner「項目填寫彈性」）──
+        # 實際回簽單稅額欄寫「(已含稅)」、總計＝合計。判準＝報價單稅額為 0 而總價 > 0。
+        if items and Decimal(str(data.get("tax_amount") or 0)) == ZERO and Decimal(str(data.get("total_price") or 0)) > ZERO:
+            ws["E27"] = "(已含稅)"
+            ws["E27"].alignment = Alignment(horizontal="right", vertical="center")
+            ws["E28"] = "=E26"
 
         # ── 沒有明細時（標案類）──
         #
@@ -444,10 +460,12 @@ class QuotationDocumentService:
 
         # 明細小計與報價總價不一致時**標在文件上**，不是挑一個顯示
         if data.get("amount_mismatch"):
-            cur = ws["B21"].value or ""
-            ws["B21"] = (
+            row = notes_row or min(max(self.ITEM_FIRST_ROW + len(items) + 1, self.LEGACY_NOTES_ROW), self.ITEM_LAST_ROW)
+            cur = ws[f"B{row}"].value or ""
+            ws[f"B{row}"] = (
                 f"{cur}\n※ 系統提醒：明細小計與報價總額不一致，請確認後再對外發出。"
             ).strip()
+            ws[f"B{row}"].alignment = Alignment(wrap_text=True, vertical="top", horizontal="left")
 
         # ── 列印縮放：讓 PDF 是「一頁寬」──
         #

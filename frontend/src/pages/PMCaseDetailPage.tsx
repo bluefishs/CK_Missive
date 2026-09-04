@@ -160,6 +160,17 @@ export const PMCaseDetailPage: React.FC = () => {
   };
 
   // Find matching contract_project
+  // 2026-09-04 owner：「/pm/cases/579 已有報價單但又可新增報價，邏輯不合理」——
+  // 一案一張（版次在報價單分頁切換）；已有報價單就不再給表頭的「新增報價」，入口只剩分頁。
+  const { data: quotationCountData } = useQuery({
+    queryKey: ['erp-quotations', 'by-case', pmCase?.case_code, 'count'],
+    queryFn: () => apiClient.post<{ pagination?: { total?: number }; items?: unknown[] }>(
+      API_ENDPOINTS.ERP.QUOTATIONS_LIST, { case_code: pmCase!.case_code, page: 1, limit: 1, include_unawarded: true },
+    ),
+    enabled: !!pmCase?.case_code,
+  });
+  const quotationCount = quotationCountData?.pagination?.total ?? quotationCountData?.items?.length ?? 0;
+
   const { data: matchedProject, isLoading: matchLoading } = useQuery({
     queryKey: ['contract-project-by-code', pmCase?.case_code],
     queryFn: async () => {
@@ -235,7 +246,7 @@ export const PMCaseDetailPage: React.FC = () => {
             2026-08-28 owner 更新：委辦招標案件也呈現報價單（分頁已不再隱藏），
             按鈕同步放開 —— 分頁的空狀態叫人「用上方新增報價建立」，
             按鈕卻不存在，會把「刻意不給」與「壞了」混在一起。 */}
-        {canWrite && pmCase?.case_code && (
+        {canWrite && pmCase?.case_code && quotationCount === 0 && (
           <Button
             icon={<FileTextOutlined />}
             onClick={() => {

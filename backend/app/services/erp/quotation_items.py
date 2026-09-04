@@ -72,7 +72,9 @@ class QuotationItemService:
                 continue
             qty = _money(raw.get("qty", 1))
             price = _money(raw.get("unit_price", 0))
-            amount = (qty * price).quantize(Decimal("0.01"))
+            # 複價可覆寫（2026-09-04）：給了就用給的，否則數量×單價
+            amount = (_money(raw["amount"]) if raw.get("amount") is not None
+                      else (qty * price)).quantize(Decimal("0.01"))
             total += amount
             self.db.add(ERPQuotationItem(
                 quotation_id=quotation_id,

@@ -148,13 +148,6 @@ export default function QuotationRecordsTab({
               </Text>
             </Space>
           </Card>
-          {!primary.project_code && (
-            <Card size="small" title="備註（印在正式文件備註列）" styles={{ body: { padding: '8px 12px' } }}
-              extra={<Button size="small" type="primary" disabled={!notesDirty} loading={saveNotes.isPending} onClick={() => saveNotes.mutate()}>儲存備註</Button>}>
-              <Input.TextArea value={notes} onChange={(e) => setNotes(e.target.value)} autoSize={{ minRows: 2, maxRows: 5 }}
-                placeholder="例：本案已領得使用執照，如經審視發現與法規不符需協助修改者，費用另計。" maxLength={500} showCount />
-            </Card>
-          )}
           <Suspense fallback={<div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}>
             <QuotationItemsTab
               quotationId={primary.id}
@@ -162,6 +155,13 @@ export default function QuotationRecordsTab({
               caseCode={caseCode}
             />
           </Suspense>
+          {!primary.project_code && (
+            <Card size="small" title="整張報價單的備註（印在明細區工項下方，可多行）" styles={{ body: { padding: '8px 12px' } }}
+              extra={<Button size="small" type="primary" disabled={!notesDirty} loading={saveNotes.isPending} onClick={() => saveNotes.mutate()}>儲存備註</Button>}>
+              <Input.TextArea value={notes} onChange={(e) => setNotes(e.target.value)} autoSize={{ minRows: 2, maxRows: 5 }}
+                placeholder="例：本案已領得使用執照，如經審視發現與法規不符需協助修改者，費用另計。" maxLength={500} showCount />
+            </Card>
+          )}
           {quotations.length > 1 && (
             <Card size="small" styles={{ body: { padding: '8px 12px' } }}>
               <Space wrap>

@@ -1556,6 +1556,8 @@ export interface QuotationItemRow {
   amount: number;
   /** 工項備註（印在正式文件 G 欄；2026-09-04 owner：備註是每個工項的，不是綜合） */
   notes?: string;
+  /** 前端旗標：複價被手動改過（不再跟數量×單價連動）；不送後端 */
+  amount_manual?: boolean;
 }
 
 /** 線上報價單完整內容（對應後端 /erp/quotation-items/detail） */

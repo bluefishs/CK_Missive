@@ -325,6 +325,9 @@ class QuotationItemIn(BaseModel):
     unit: Optional[str] = Field(None, max_length=20, description="單位")
     qty: float = Field(1, ge=0, description="數量")
     unit_price: float = Field(0, ge=0, description="單價")
+    # 2026-09-04 owner「項目填寫彈性」：實際回簽單有「單價 4,000 × 1，複價 0，備註『專案優惠』」——
+    # 複價不一定等於數量×單價。不給就照乘積算；給了就照給的。
+    amount: Optional[float] = Field(None, ge=0, description="複價（不給＝數量×單價）")
     sort_order: int = Field(0, description="排序")
     notes: Optional[str] = Field(None, description="備註")
 

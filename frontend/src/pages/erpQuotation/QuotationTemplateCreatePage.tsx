@@ -51,6 +51,8 @@ interface DraftItemRow {
   unit_price: number;
   /** 工項備註（正式文件 G 欄） */
   notes?: string;
+  /** 複價覆寫（undefined＝數量×單價） */
+  amount?: number;
 }
 
 /**
@@ -170,7 +172,7 @@ const QuotationTemplateCreatePage: React.FC = () => {
     setRows(rs => rs.map(r => (r.key === key ? { ...r, ...part } : r)));
 
   const filled = rows.filter(r => r.item_name.trim());
-  const subtotal = filled.reduce((s, r) => s + r.qty * r.unit_price, 0);
+  const subtotal = filled.reduce((s, r) => s + (r.amount ?? r.qty * r.unit_price), 0);
   const tax = Math.round(subtotal * 0.05);
   const total = subtotal + tax;
 
@@ -249,7 +251,7 @@ const QuotationTemplateCreatePage: React.FC = () => {
           items: filled.map((r, i) => ({
             item_name: r.item_name.trim(), spec: r.spec?.trim() || undefined,
             unit: r.unit?.trim() || undefined, qty: r.qty, unit_price: r.unit_price,
-            sort_order: i, notes: r.notes?.trim() || undefined,
+            sort_order: i, notes: r.notes?.trim() || undefined, amount: r.amount,
           })),
         });
       }
@@ -331,7 +333,9 @@ const QuotationTemplateCreatePage: React.FC = () => {
     {
       title: '複價', width: 120, align: 'right' as const,
       render: (_: unknown, r: DraftItemRow) => (
-        <Text>{money(r.qty * r.unit_price)}</Text>
+        <InputNumber min={0} value={r.amount ?? r.qty * r.unit_price} style={{ width: '100%' }}
+          formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+          onChange={v => patch(r.key, { amount: v === null || v === undefined ? undefined : Number(v) })} />
       ),
     },
     {

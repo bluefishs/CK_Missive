@@ -76,7 +76,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
           quotation_id: quotationId,
           items: rows.map((r, i) => ({
             item_name: r.item_name, spec: r.spec, unit: r.unit,
-            qty: r.qty, unit_price: r.unit_price, sort_order: i, notes: r.notes || undefined,
+            qty: r.qty, unit_price: r.unit_price, amount: r.amount, sort_order: i, notes: r.notes || undefined,
           })),
         },
       );
@@ -110,7 +110,13 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
     setRows(prev => prev.map(r => {
       if (r.key !== key) return r;
       const next = { ...r, ...patch };
-      next.amount = Math.round((next.qty || 0) * (next.unit_price || 0) * 100) / 100;
+      // 2026-09-04 owner「項目填寫彈性」：複價可直接改（專案優惠等）。改數量／單價時，
+      // 只在複價還等於原乘積（沒被手動改過）時才跟著重算；手動改過的複價保留。
+      if ('amount' in patch) {
+        next.amount_manual = true;
+      } else if (!r.amount_manual) {
+        next.amount = Math.round((next.qty || 0) * (next.unit_price || 0) * 100) / 100;
+      }
       return next;
     }));
     setDirty(true);
@@ -189,8 +195,13 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
       ),
     },
     {
-      title: '小計', dataIndex: 'amount', width: 130, align: 'right' as const,
-      render: (v: number) => <Text strong>{money(v || 0)}</Text>,
+      title: '複價', dataIndex: 'amount', width: 130, align: 'right' as const,
+      render: (v: number, r: QuotationItemRow) => readOnly ? <Text strong>{money(v || 0)}</Text> : (
+        <InputNumber<number> style={{ width: '100%' }} min={0} value={v}
+          formatter={n => `${n ?? ''}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+          parser={n => Number((n || '').replace(/,/g, ''))}
+          onChange={n => update(r.key, { amount: n ?? 0 })} />
+      ),
     },
     {
       title: '備註', dataIndex: 'notes', width: 160, _optionalOnNarrow: true,
@@ -333,6 +344,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
 
       {isNarrow ? narrowCards : (
       <Table
+        tableLayout="fixed"
         rowKey="key"
         loading={isLoading}
         dataSource={rows}
