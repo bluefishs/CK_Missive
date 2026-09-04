@@ -172,14 +172,14 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
     },
     {
       title: '工項', dataIndex: 'item_name', width: '28%',
-      render: (v: string, r: QuotationItemRow) => readOnly ? <Text>{v || '—'}</Text> : (
-        <Input value={v} placeholder="工項名稱" onChange={e => update(r.key, { item_name: e.target.value })} />
+      render: (v: string, r: QuotationItemRow) => readOnly ? <Text style={{ whiteSpace: 'pre-wrap' }}>{v || '—'}</Text> : (
+        <Input.TextArea value={v} placeholder="工項名稱" autoSize={{ minRows: 1, maxRows: 4 }} onChange={e => update(r.key, { item_name: e.target.value })} />
       ),
     },
     {
       title: '規格／說明', dataIndex: 'spec', width: '24%', _optionalOnNarrow: true,
       render: (v: string, r: QuotationItemRow) => readOnly ? <Text type="secondary">{v || '—'}</Text> : (
-        <Input value={v} placeholder="選填" onChange={e => update(r.key, { spec: e.target.value })} />
+        <Input.TextArea value={v} placeholder="選填" autoSize={{ minRows: 1, maxRows: 4 }} onChange={e => update(r.key, { spec: e.target.value })} />
       ),
     },
     {
@@ -216,7 +216,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
     {
       title: '備註', dataIndex: 'notes', width: 160, _optionalOnNarrow: true,
       render: (v: string, r: QuotationItemRow) => readOnly ? <Text type="secondary">{v || '—'}</Text> : (
-        <Input value={v} placeholder="印在文件備註欄" onChange={e => update(r.key, { notes: e.target.value })} />
+        <Input.TextArea value={v} placeholder="印在文件備註欄" autoSize={{ minRows: 1, maxRows: 4 }} onChange={e => update(r.key, { notes: e.target.value })} />
       ),
     },
     ...(readOnly ? [] : [{

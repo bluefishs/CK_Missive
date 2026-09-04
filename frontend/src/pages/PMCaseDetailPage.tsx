@@ -61,6 +61,7 @@ export const PMCaseDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuthGuard();
   const { message } = App.useApp();
+  const notifyError = (t: string) => { void message.error(t); };
   const queryClient = useQueryClient();
   const pmCaseId = id ? parseInt(id, 10) : null;
 
@@ -170,6 +171,7 @@ export const PMCaseDetailPage: React.FC = () => {
     enabled: !!pmCase?.case_code,
   });
   const quotationCount = quotationCountData?.pagination?.total ?? quotationCountData?.items?.length ?? 0;
+  const [creatingQuotation, setCreatingQuotation] = useState(false);
 
   const { data: matchedProject, isLoading: matchLoading } = useQuery({
     queryKey: ['contract-project-by-code', pmCase?.case_code],
@@ -249,17 +251,22 @@ export const PMCaseDetailPage: React.FC = () => {
         {canWrite && pmCase?.case_code && quotationCount === 0 && (
           <Button
             icon={<FileTextOutlined />}
-            onClick={() => {
-              const p = new URLSearchParams({
-                case_code: pmCase.case_code!,
-                case_name: pmCase.case_name ?? '',
-                // 2026-08-27：帶著來源，讓建立表單存完能回到這一頁的報價單分頁
-                // （線上填明細就嵌在那裡）。先前存完會被丟回 ERP 列表，
-                // 流程在第一步就離開了邀標報價程序 —— owner 問「為何一直無法整合」的直接原因。
-                pm_case_id: String(pmCase.id),
-              });
-              if (pmCase.year) p.set('year', String(pmCase.year));
-              navigate(`${ROUTES.ERP_QUOTATION_CREATE}?${p.toString()}`);
+            loading={creatingQuotation}
+            onClick={async () => {
+              // 2026-09-04 owner「須同步整合 pm/cases/:id?tab=quotations 的填報機制（避免異質同工）」：
+              // 從案件出發不再經過建立頁——直接建一張 draft，落到報價單分頁，明細／備註／抬頭都在那一份編輯器。
+              setCreatingQuotation(true);
+              try {
+                await apiClient.post(API_ENDPOINTS.ERP.QUOTATIONS_CREATE, {
+                  case_code: pmCase.case_code!, case_name: pmCase.case_name ?? '', year: pmCase.year ?? new Date().getFullYear(),
+                });
+                await queryClient.invalidateQueries({ queryKey: ['erp-quotations'] });
+                navigate(`${ROUTES.PM_CASE_DETAIL.replace(':id', String(pmCase.id))}?tab=quotations`);
+              } catch (e) {
+                notifyError(getErrorMessage(e, '建立報價單失敗'));
+              } finally {
+                setCreatingQuotation(false);
+              }
             }}
           >新增報價</Button>
         )}
