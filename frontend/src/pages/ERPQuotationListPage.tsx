@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
-import { PlusOutlined, ReloadOutlined, DownloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
@@ -60,6 +60,12 @@ export const ERPQuotationListPage: React.FC = () => {
   //   與後端說同一件事。
   const canWrite = hasPermission('projects:edit');
   const [statFilter, setStatFilter] = useState<string | null>(null);
+  // 卡片＝互動篩選（§2.6 ②）：點下去進查詢參數 card，再點取消；revenue 是分母、不篩
+  const toggleCard = (key: 'revenue' | 'outstanding' | 'payable' | 'cost') => {
+    const next = statFilter === key ? null : key;
+    setStatFilter(next);
+    setParams((p) => ({ ...p, card: next && next !== 'revenue' ? next : undefined, page: 1 }));
+  };
   // 2026-09-04 owner：「專案帳款接續處理已承攬案件，不含非成案紀錄」——固定只列成案（後端預設 include_unawarded=false），
   // 「含未成案」開關已移除；未成案的報價單在各案件的「報價單」分頁處理。
   const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'case_code', sort_order: 'desc', year: CURRENT_YEAR });
@@ -174,7 +180,6 @@ export const ERPQuotationListPage: React.FC = () => {
     // 點列進詳情由下方 onRow 提供。
   ];
 
-  const grossProfit = profitSummary ? Number(profitSummary.total_gross_profit) : 0;
 
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
@@ -216,36 +221,19 @@ export const ERPQuotationListPage: React.FC = () => {
             </Button>
           </Col>
         </Row>
+        {/* 2026-09-04 晚 owner：卡片依序＝應收總額（未稅）／應收未收／應付款項／成本總額。
+            「毛利」先隱藏——各頁毛利的計算口徑尚未統一（報價成本欄 vs 應付 vs 核銷，三者相加會重複，見 FIELD_SEMANTICS）。
+            統一口徑後再放回，statFilter 'profit' 的篩選邏輯保留。 */}
         {profitSummary && (
           <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
             <Col xs={12} sm={6}>
               <ClickableStatCard
-                title="營收總額（未稅）"
+                title="應收總額（未稅）"
                 value={Number(profitSummary.total_revenue).toLocaleString()}
                 icon={<DollarOutlined />}
                 color="#1890ff"
                 active={statFilter === 'revenue'}
-                onClick={() => setStatFilter(statFilter === 'revenue' ? null : 'revenue')}
-              />
-            </Col>
-            <Col xs={12} sm={6}>
-              <ClickableStatCard
-                title="成本總額"
-                value={Number(profitSummary.total_cost).toLocaleString()}
-                icon={<BankOutlined />}
-                color="#faad14"
-                active={statFilter === 'cost'}
-                onClick={() => setStatFilter(statFilter === 'cost' ? null : 'cost')}
-              />
-            </Col>
-            <Col xs={12} sm={6}>
-              <ClickableStatCard
-                title="毛利"
-                value={grossProfit.toLocaleString()}
-                icon={<FundOutlined />}
-                color={grossProfit >= 0 ? '#3f8600' : '#cf1322'}
-                active={statFilter === 'profit'}
-                onClick={() => setStatFilter(statFilter === 'profit' ? null : 'profit')}
+                onClick={() => toggleCard('revenue')}
               />
             </Col>
             <Col xs={12} sm={6}>
@@ -255,7 +243,27 @@ export const ERPQuotationListPage: React.FC = () => {
                 icon={<ExclamationCircleOutlined />}
                 color="#ff4d4f"
                 active={statFilter === 'outstanding'}
-                onClick={() => setStatFilter(statFilter === 'outstanding' ? null : 'outstanding')}
+                onClick={() => toggleCard('outstanding')}
+              />
+            </Col>
+            <Col xs={12} sm={6}>
+              <ClickableStatCard
+                title="應付款項"
+                value={Number(profitSummary.total_payable ?? 0).toLocaleString()}
+                icon={<FundOutlined />}
+                color="#722ed1"
+                active={statFilter === 'payable'}
+                onClick={() => toggleCard('payable')}
+              />
+            </Col>
+            <Col xs={12} sm={6}>
+              <ClickableStatCard
+                title="成本總額"
+                value={Number(profitSummary.total_cost).toLocaleString()}
+                icon={<BankOutlined />}
+                color="#faad14"
+                active={statFilter === 'cost'}
+                onClick={() => toggleCard('cost')}
               />
             </Col>
           </Row>
@@ -317,16 +325,7 @@ export const ERPQuotationListPage: React.FC = () => {
            title="匯出目前篩選範圍的彙整表（38 欄，與範本、匯入同一份表頭）">匯出彙整表</Button>
           {canWrite && (
             <>
-              {/* 2026-09-03：移除舊 11 欄「匯入 Excel」——它與總表格式不同、會造出無編號的報價單。
-                  範本＝匯出＝匯入同一份表頭（後端 XLS_HEADERS 單一來源）：匯出 → 改 → 匯入可往返。 */}
-              <Button icon={<DownloadOutlined />} onClick={async () => {
-                try {
-                  const blob = await erpQuotationsApi.downloadTemplate();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a'); a.href = url; a.download = '報價單彙整_匯入範本.xlsx'; a.click();
-                  URL.revokeObjectURL(url);
-                } catch (e) { message.error(getErrorMessage(e, '範本下載失敗'), 8); }
-              }} title="空白彙整表範本（表頭與匯出、匯入相同）">下載空白範本</Button>
+              {/* 2026-09-04 晚 owner：已有匯出／匯入彙整表（同一份表頭、可往返），「下載空白範本」冗餘，移除。 */}
               {/* owner 2026-08-19：「若線上產出報價單未完全上線前，如何匯入與管理
                   既有 XLS 為目前階段重點」「新增與更新整合為一個按鍵鈕」。
                   依舊案號（B114-B002）upsert —— 有就更新、沒有就新增，

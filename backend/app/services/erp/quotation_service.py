@@ -269,6 +269,7 @@ class ERPQuotationService(AuditableServiceMixin):
             category=getattr(params, "category", None),
             case_status=getattr(params, "case_status", None),
             client_name=getattr(params, "client_name", None),
+            card=getattr(params, "card", None),
         )
 
         if not items:
@@ -651,6 +652,8 @@ class ERPQuotationService(AuditableServiceMixin):
         ids = [q.id for q in items]
         billing_agg = await self.billing_repo.get_aggregates_batch(ids) if ids else {}
         rate = await get_company_profit_rate(self.db)
+        payable_agg = await self.payable_repo.get_aggregates_batch(ids) if ids else {}
+        total_payable = sum((v.get("total_payable", ZERO) for v in payable_agg.values()), ZERO)
 
         for q in items:
             profit = self.compute_profit(q, rate)
@@ -681,6 +684,7 @@ class ERPQuotationService(AuditableServiceMixin):
             total_billed=total_billed,
             total_received=total_received,
             total_outstanding=total_billed - total_received,
+            total_payable=total_payable,
             case_count=len(items),
         )
 

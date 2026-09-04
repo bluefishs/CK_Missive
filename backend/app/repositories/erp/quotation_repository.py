@@ -142,6 +142,7 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         category: Optional[str] = None,
         case_status: Optional[str] = None,
         client_name: Optional[str] = None,
+        card: Optional[str] = None,
     ) -> Tuple[List[ERPQuotation], int]:
         """篩選報價列表。
 
@@ -200,6 +201,21 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
                     .where(func.btrim(PartnerVendor.vendor_name) == name)
                 ),
             ))
+        if card:
+            # 2026-09-04 晚：統計卡點下去要篩列表（§2.6 ②）。此前四張卡只換底色。
+            from app.extended.models.erp import ERPBilling, ERPVendorPayable
+            if card == "outstanding":
+                conditions.append(ERPQuotation.id.in_(
+                    select(ERPBilling.erp_quotation_id).where(ERPBilling.billing_amount > func.coalesce(ERPBilling.payment_amount, 0))
+                ))
+            elif card == "payable":
+                conditions.append(ERPQuotation.id.in_(select(ERPVendorPayable.erp_quotation_id)))
+            elif card == "cost":
+                conditions.append(or_(
+                    func.coalesce(ERPQuotation.outsourcing_fee, 0) > 0, func.coalesce(ERPQuotation.personnel_fee, 0) > 0,
+                    func.coalesce(ERPQuotation.overhead_fee, 0) > 0, func.coalesce(ERPQuotation.other_cost, 0) > 0,
+                ))
+            # revenue＝全部（分母），不加條件
         if status:
             conditions.append(ERPQuotation.status == status)
         if case_code:

@@ -200,6 +200,8 @@ export interface ERPProfitSummary {
   total_billed: number;
   total_received: number;
   total_outstanding: number;
+  /** 應付款項合計（2026-09-04 統計卡） */
+  total_payable?: number;
   case_count: number;
   by_year: Record<string, unknown>;
 }
@@ -277,8 +279,10 @@ export interface ERPQuotationListParams {
   category?: string;
   /** 案件狀態 planning／contracted／closed */
   case_status?: string;
-  /** 委託單位（模糊比對；2026-09-04 取代案件狀態篩選） */
+  /** 委託單位（精確比對；2026-09-04 取代案件狀態篩選） */
   client_name?: string;
+  /** 統計卡篩選 outstanding／payable／cost（revenue＝全部） */
+  card?: 'revenue' | 'outstanding' | 'payable' | 'cost';
 }
 
 /** ERP 發票 */

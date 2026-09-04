@@ -265,6 +265,7 @@ class ERPQuotationListRequest(BaseQueryParams):
     category: Optional[str] = Field(None, description="計畫類別：01 委辦招標／02 承攬報價（依建案案號段判）")
     case_status: Optional[str] = Field(None, description="案件狀態：planning 評估中／contracted 已承攬（執行中）／closed 已結案")
     client_name: Optional[str] = Field(None, description="委託單位（承攬案 client_agency／PM 案 client_name／委託單位主檔名，模糊比對）")
+    card: Optional[str] = Field(None, pattern=r"^(revenue|outstanding|payable|cost)$", description="統計卡篩選：outstanding 有未收／payable 有應付／cost 有成本拆解（2026-09-04 §2.6 ②）")
 
     # ⭐ 2026-08-31 owner：「應改以成案案件為主，未成案承攬案件報價單參考價值低」。
     #
@@ -297,6 +298,7 @@ class ERPProfitSummary(BaseModel):
     total_billed: Decimal = Decimal("0")
     total_received: Decimal = Decimal("0")
     total_outstanding: Decimal = Decimal("0")
+    total_payable: Decimal = Field(Decimal("0"), description="應付款項合計（erp_vendor_payables.payable_amount；2026-09-04 統計卡）")
     case_count: int = 0
     by_year: dict = Field(default_factory=dict)
 
