@@ -47,9 +47,17 @@ echo "[1/7] Building frontend (production)..."
 # 2026-09-04 owner「頁面載入失敗…前端常發生」：vite build 會清空 dist/，舊 index.html（或還開著的分頁）
 # 引用的 hash chunk 立刻 404 ⇒ ErrorBoundary 重載也救不回。留住上一版的 assets 一個世代：
 # 舊分頁能把當下這頁走完，下一次整頁載入自然拿到新 index。
+# ⚠️ 只保留「上一次 build 自己產出的」那批：build 完會寫一份清單 dist/.build-assets.txt，
+# 下次只依清單補回。若把 dist 裡全部檔案都帶著走，上一版保留的更上一版也會一起被保留，
+# 每部署一次多累積一個世代（第一次實測 224 → 463，會無限長大）。
 _PREV_ASSETS="$(mktemp -d)"
-[ -d frontend/dist/assets ] && cp -r frontend/dist/assets/. "$_PREV_ASSETS/" 2>/dev/null || true
+if [ -f frontend/dist/.build-assets.txt ] && [ -d frontend/dist/assets ]; then
+    while IFS= read -r b; do
+        [ -n "$b" ] && [ -e "frontend/dist/assets/$b" ] && cp "frontend/dist/assets/$b" "$_PREV_ASSETS/$b"
+    done < frontend/dist/.build-assets.txt
+fi
 ( cd frontend && npm run build --silent )   # 不接 pipe，build 失敗就是失敗
+ls frontend/dist/assets > frontend/dist/.build-assets.txt 2>/dev/null || true
 if [ -d "$_PREV_ASSETS" ] && [ -d frontend/dist/assets ]; then
     _KEPT=0
     for f in "$_PREV_ASSETS"/*; do
@@ -57,7 +65,7 @@ if [ -d "$_PREV_ASSETS" ] && [ -d frontend/dist/assets ]; then
         b="$(basename "$f")"
         [ -e "frontend/dist/assets/$b" ] || { cp "$f" "frontend/dist/assets/$b" && _KEPT=$((_KEPT+1)); }
     done
-    echo "  ↳ 保留上一版 assets $_KEPT 個（只留一個世代；再上一版此時被新 build 清掉）"
+    echo "  ↳ 保留上一版 assets $_KEPT 個（只留一個世代）"
     rm -rf "$_PREV_ASSETS"
 fi
 
