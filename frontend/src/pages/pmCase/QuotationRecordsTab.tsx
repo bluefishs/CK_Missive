@@ -196,16 +196,9 @@ export default function QuotationRecordsTab({
         </Card>
       ) : (
         <>
-          <Card size="small" styles={{ body: { padding: '8px 12px' } }}>
-            <Space wrap>
-              <Text type="secondary">產出正式文件：</Text>
-              {exportButtons}
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                （輸出後自動存入本案附件，只保留最新一份）
-              </Text>
-            </Space>
-          </Card>
-          <Card size="small" title="文件抬頭資訊（正式報價單會印出來的）" styles={{ body: { padding: '8px 12px' } }}
+          {/* 2026-09-04 owner「頁面比例／RWD」：輸出鈕併進抬頭卡，明細表之前只剩一張卡；抬頭欄位依斷點 1／2／3 欄 */}
+          <Card size="small" title={<Space wrap size={8}>{exportButtons}<Text type="secondary" style={{ fontSize: 12 }}>輸出後自動存入本案附件，只保留最新一份</Text></Space>}
+            styles={{ body: { padding: '8px 12px' } }}
             extra={docHeader?.client_vendor_id ? (
               <Button size="small" onClick={() => {
                 vendorForm.setFieldsValue({
@@ -217,7 +210,7 @@ export default function QuotationRecordsTab({
             ) : (
               <Text type="secondary" style={{ fontSize: 12 }}>此案未連結委託單位主檔，請到案件資訊分頁選擇委託單位</Text>
             )}>
-            <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }} colon
+            <Descriptions size="small" column={{ xs: 1, sm: 1, md: 2, lg: 3 }} colon
               items={[
                 { key: 'client', label: '客戶名稱', children: dash(docHeader?.client_name) },
                 { key: 'tax', label: '統一編號', children: dash(docHeader?.client_tax_id) },

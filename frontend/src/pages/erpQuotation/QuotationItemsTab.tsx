@@ -171,13 +171,13 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
       ),
     },
     {
-      title: '工項', dataIndex: 'item_name', width: '28%',
+      title: '工項', dataIndex: 'item_name', width: 260,
       render: (v: string, r: QuotationItemRow) => readOnly ? <Text style={{ whiteSpace: 'pre-wrap' }}>{v || '—'}</Text> : (
         <Input.TextArea value={v} placeholder="工項名稱" autoSize={{ minRows: 1, maxRows: 4 }} onChange={e => update(r.key, { item_name: e.target.value })} />
       ),
     },
     {
-      title: '規格／說明', dataIndex: 'spec', width: '24%', _optionalOnNarrow: true,
+      title: '規格／說明', dataIndex: 'spec', width: 200, _optionalOnNarrow: true,
       render: (v: string, r: QuotationItemRow) => readOnly ? <Text type="secondary">{v || '—'}</Text> : (
         <Input.TextArea value={v} placeholder="選填" autoSize={{ minRows: 1, maxRows: 4 }} onChange={e => update(r.key, { spec: e.target.value })} />
       ),
@@ -214,7 +214,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
       ),
     },
     {
-      title: '備註', dataIndex: 'notes', width: 160, _optionalOnNarrow: true,
+      title: '備註', dataIndex: 'notes', width: 150, _optionalOnNarrow: true,
       render: (v: string, r: QuotationItemRow) => readOnly ? <Text type="secondary">{v || '—'}</Text> : (
         <Input.TextArea value={v} placeholder="印在文件備註欄" autoSize={{ minRows: 1, maxRows: 4 }} onChange={e => update(r.key, { notes: e.target.value })} />
       ),
@@ -361,7 +361,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         columns={columns}
         pagination={false}
         size="small"
-        scroll={{ x: isNarrow ? 620 : 900 }}
+        scroll={{ x: 1120 }}
         locale={{ emptyText: '尚未逐項拆列。按「新增工項」開始，總價會由小計自動加總。' }}
         summary={() => (
           <Table.Summary fixed>
