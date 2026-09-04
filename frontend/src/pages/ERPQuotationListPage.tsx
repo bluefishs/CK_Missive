@@ -171,7 +171,8 @@ export const ERPQuotationListPage: React.FC = () => {
       },
     },
     {
-      title: termTitle('payable_column'), key: 'payable', width: 130, align: 'right', hideOnMobile: true,
+      // 2026-09-05 owner「請在應收帳款增列應付款項」：此前這欄 hideOnMobile，窄螢幕看不到 ⇒ 常駐；名稱與卡片一致「應付款項」
+      title: termTitle('payable_column'), key: 'payable', width: 130, align: 'right',
       render: (_: unknown, r: ERPQuotation) => {
         const payable = Number(r.total_payable ?? 0); const paid = Number(r.total_paid ?? 0);
         if (!payable) return <Text type="secondary">—</Text>;

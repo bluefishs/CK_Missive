@@ -150,7 +150,7 @@ owner：「各類經費名詞或定義請增列註記補充，以利釐清對應
 | `receivable_column` | 應收帳款 | 該案已請款合計（含稅）＋已收比例；「未開請款」＝一筆請款都沒有。 |
 | `receipt_rate` | 收款率 | 已收款 ÷ 已請款。 |
 | `payable_total` | 應付款項 | 協力廠商應付（erp_vendor_payables.payable_amount）加總，含稅；承攬案協力廠商分頁的指派金額會自動建一筆（指派即應付）。 |
-| `payable_column` | 應付帳款 | 該案應付合計（含稅）＋已付比例；「—」＝沒有協力廠商應付。 |
+| `payable_column` | 應付款項 | 該案應付合計（含稅）＋已付比例；「—」＝沒有協力廠商應付。 |
 | `paid_total` | 已付 | 應付中已付款的金額（paid_amount）加總，含稅。 |
 | `payable_outstanding` | 未付餘額 | 應付 − 已付，含稅。 |
 | `payment_rate` | 付款率 | 已付 ÷ 應付。 |

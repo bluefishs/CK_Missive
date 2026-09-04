@@ -73,7 +73,7 @@ export const FINANCE_TERMS = {
     note: '協力廠商應付（erp_vendor_payables.payable_amount）加總，含稅；承攬案協力廠商分頁的指派金額會自動建一筆（指派即應付）。',
   },
   payable_column: {
-    label: '應付帳款',
+    label: '應付款項',
     note: '該案應付合計（含稅）＋已付比例；「—」＝沒有協力廠商應付。',
   },
   paid_total: {
