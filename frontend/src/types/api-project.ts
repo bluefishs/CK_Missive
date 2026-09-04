@@ -59,6 +59,8 @@ export interface Project {
   contact_person?: string;
   contact_phone?: string;
   client_agency_id?: number;
+  /** 委託單位鍵（partner_vendors）；client_agency 為名稱快照（2026-09-04，20260904a003） */
+  client_vendor_id?: number | null;
   agency_contact_person?: string;
   agency_contact_phone?: string;
   agency_contact_email?: string;
@@ -100,6 +102,8 @@ export interface ProjectCreate {
   contact_person?: string;
   contact_phone?: string;
   client_agency_id?: number;
+  /** 委託單位鍵（partner_vendors）；client_agency 為名稱快照（2026-09-04，20260904a003） */
+  client_vendor_id?: number | null;
   agency_contact_person?: string;
   agency_contact_phone?: string;
   agency_contact_email?: string;
