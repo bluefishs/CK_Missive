@@ -85,9 +85,18 @@ export const ERPQuotationListPage: React.FC = () => {
     // 舊案號（B114-B002）不再呈現，但仍是搜尋鍵（列表搜尋涵蓋 legacy 與 QT 號）與匯入比對鍵。
     // 2026-09-04 owner 專案帳款頁改版：年度＝案件年度；名詞統一（成案編號／建案案號／委託單位）；
     // 欄位＝年度、成案編號、專案名稱、委託單位、承辦同仁、協力廠商、議價金額、應收帳款、應付帳款。
-    { title: '年度', key: 'case_year', width: 64, align: 'center', render: (_: unknown, r: ERPQuotation) => caseYear(r) ?? '—' },
+    // 2026-09-04 晚 owner「表格標頭無篩選排序機制」：§2.6 ④——漏斗不帶 onFilter（後端分頁），勾選值進 params；
+    // 與工具列的下拉共用同一份 params，在哪邊改另一邊同步。排序 sort_by=case_code（CK{年}_ 前綴＝案件年度）。
+    {
+      title: '年度', dataIndex: 'case_code', key: 'case_code', width: 80, align: 'center', sorter: true,
+      filters: YEAR_OPTIONS.map((y) => ({ text: y.label, value: y.value })), filterMultiple: false,
+      filteredValue: params.year ? [params.year] : null,
+      render: (_: unknown, r: ERPQuotation) => caseYear(r) ?? '—',
+    },
     {
       title: '成案編號', dataIndex: 'project_code', key: 'project_code', sorter: true, width: 150,
+      filters: [{ text: '01 委辦招標', value: '01' }, { text: '02 承攬報價', value: '02' }], filterMultiple: false,
+      filteredValue: params.category ? [params.category] : null,
       render: (_: unknown, r: ERPQuotation) => (
         <Space direction="vertical" size={0}>
           <span>{r.project_code || <Text type="secondary">未成案</Text>}</span>
@@ -104,6 +113,8 @@ export const ERPQuotationListPage: React.FC = () => {
     },
     {
       title: '委託單位', dataIndex: 'client_name', key: 'client_name', width: 150, ellipsis: true,
+      filters: clientOptions.map((c) => ({ text: `${c.name}（${c.count}）`, value: c.name })), filterMultiple: false, filterSearch: true,
+      filteredValue: params.client_name ? [params.client_name] : null,
       render: (v?: string) => v || <Text type="secondary">—</Text>,
     },
     {
@@ -117,7 +128,7 @@ export const ERPQuotationListPage: React.FC = () => {
       ) : <Text type="secondary">—</Text>,
     },
     {
-      title: '議價金額', dataIndex: 'contract_amount', key: 'contract_amount', width: 120, align: 'right',
+      title: '議價金額', dataIndex: 'contract_amount', key: 'contract_amount', width: 120, align: 'right', sorter: true,
       render: (v: string | number | null, r: ERPQuotation) => {
         const n = v != null ? Number(v) : (r.total_price != null ? Number(r.total_price) : null);
         return n != null ? <span title={v != null ? '承攬案合約額' : '尚未成案，顯示報價總價'}>{n.toLocaleString()}{v == null ? <Text type="secondary" style={{ fontSize: 11 }}>（報價）</Text> : null}</span> : '-';
@@ -492,11 +503,18 @@ export const ERPQuotationListPage: React.FC = () => {
             // 表頭篩選也送進查詢參數（伺服器端篩選）。取消篩選時要送 undefined，
             // 不能留空字串 —— API 層是 truthy 判斷，空字串會被丟掉而看起來像沒改。
             const st = filters?.status?.[0];
+            const first = (k: string) => { const v = filters?.[k]; return Array.isArray(v) && v.length ? v[0] : undefined; };
+            const yr = first('case_code'); const cat = first('project_code'); const client = first('client_name');
+            // 議價金額不是報價單欄位（承攬案合約額）；後端排序只認報價單欄位 ⇒ 用報價總價代替
+            const sortField = field === 'contract_amount' ? 'total_price' : field;
             setParams((prev) => ({
               ...prev,
               status: typeof st === 'string' ? st : undefined,
-              sort_by: field && sd?.order ? field : 'year',
-              sort_order: field && sd?.order ? (sd.order === 'ascend' ? 'asc' : 'desc') : 'desc',
+              year: typeof yr === 'number' ? yr : undefined,
+              category: typeof cat === 'string' ? cat : undefined,
+              client_name: typeof client === 'string' ? client : undefined,
+              sort_by: sortField && sd?.order ? sortField : 'year',
+              sort_order: sortField && sd?.order ? (sd.order === 'ascend' ? 'asc' : 'desc') : 'desc',
               page: 1,
             }));
           }}
