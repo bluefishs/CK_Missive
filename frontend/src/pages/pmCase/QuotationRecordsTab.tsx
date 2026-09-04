@@ -101,7 +101,7 @@ export default function QuotationRecordsTab({
   //   不擋 01，只在文件上加註「本案為委辦招標案，依招標文件所列項目辦理」。
   // 2026-09-04 owner「編輯頁面無法編輯備註，但新增報價時有」：備註印在正式文件第 29 列，
   // 建立頁填得到、這裡（唯一的輸出入口）卻改不了。同一個欄位、同一個更新端點。
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const qc = useQueryClient();
   const [notes, setNotes] = useState('');
   useEffect(() => { setNotes(primary?.notes ?? ''); }, [primary?.id, primary?.notes]);
@@ -130,6 +130,31 @@ export default function QuotationRecordsTab({
     onError: () => message.error('工作地點更新失敗'),
   });
   const dash = (v?: string | null) => v || <Text type="secondary">—</Text>;
+  // 2026-09-04 owner「偵測有上傳客戶回簽，可詢問是否已承攬，自動轉入案件管理」：
+  // 回簽上傳成功 ⇒ 問一次；答是 ⇒ PM 案改「已承攬」＋帶入報價總價，後端既有的自動成案鉤子會建承攬案、
+  // 回寫成案編號、自動建第一期應收（成案即應收）。已成案的不再問。
+  const contractCase = useMutation({
+    mutationFn: () => apiClient.post<{ message?: string }>(PM_ENDPOINTS.CASES_UPDATE, {
+      id: docHeader!.pm_case_id,
+      data: { status: 'contracted', contract_amount: Number(primary?.total_price ?? 0) || undefined },
+    }),
+    onSuccess: (res) => {
+      message.success(res?.message || '已標記為已承攬並成案');
+      void qc.invalidateQueries({ queryKey: ['erp-quotations'] });
+      void qc.invalidateQueries({ queryKey: ['pm-cases'] });
+      void qc.invalidateQueries({ queryKey: ['erp-quotations', 'document-data'] });
+    },
+    onError: () => message.error('成案失敗，請到案件資訊分頁手動處理'),
+  });
+  const askContracted = () => {
+    if (!docHeader?.pm_case_id || primary?.project_code || docHeader?.contract_project_id) return;
+    modal.confirm({
+      title: '已收到客戶回簽 — 本案是否已承攬？',
+      content: `答「是」會把 ${primary?.quotation_no || '這張報價單'} 對應的案件標為已承攬並自動成案（建承攬案、成案編號、第一期應收 NT$${Number(primary?.total_price ?? 0).toLocaleString()}）。之後的請款、發票、核銷都掛在承攬案上。`,
+      okText: '是，已承攬（成案）', cancelText: '還沒，只是存檔',
+      onOk: () => contractCase.mutateAsync(),
+    });
+  };
   // 2026-09-04 owner：「編輯委託單位不要再跳到 /clients/:id/edit，導致一直轉跳又回不來」——
   // 改在這裡開一個小表單，直接寫回委託單位主檔（同一份資料、同一個更新端點）。
   const [vendorOpen, setVendorOpen] = useState(false);
@@ -266,6 +291,7 @@ export default function QuotationRecordsTab({
         emptyText="尚無檔案——輸出報價單會自動存入；客戶回簽請由此上傳"
         showDocType
         uploadDocType="signed_quotation"
+        onUploaded={askContracted}
       />
 
       {pdfPreview}

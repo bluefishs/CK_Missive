@@ -47,6 +47,8 @@ export interface AttachmentPanelProps {
   showDocType?: boolean;
   /** 上傳時標的 doc_type（例：signed_quotation＝客戶回簽）；不給就不標 */
   uploadDocType?: string;
+  /** 上傳成功後回呼（成功筆數）——報價單分頁用它接「回簽 ⇒ 是否已承攬？」 */
+  onUploaded?: (uploadedCount: number) => void;
 }
 
 export function AttachmentPanel({
@@ -58,6 +60,7 @@ export function AttachmentPanel({
   accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.png,.zip',
   showDocType = false,
   uploadDocType,
+  onUploaded,
 }: AttachmentPanelProps) {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
@@ -100,6 +103,7 @@ export function AttachmentPanel({
       if (errors > 0) message.warning(`上傳完成：${uploaded} 成功，${errors} 失敗`);
       else if (uploaded > 0) message.success(`成功上傳 ${uploaded} 個檔案`);
       queryClient.invalidateQueries({ queryKey });
+      if (uploaded > 0) onUploaded?.(uploaded);
     },
     onError: () => { setUploading(false); message.error('上傳失敗'); },
   });
