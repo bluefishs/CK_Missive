@@ -236,9 +236,30 @@ class ERPBillingService(AuditableServiceMixin):
             return None
 
     async def get_by_quotation(self, quotation_id: int) -> List[ERPBillingResponse]:
-        """取得報價單所有請款"""
+        """取得報價單所有請款（帶關聯發票號）。
+
+        2026-09-04 owner「/erp/quotations/167?tab=receivable 有已開立發票但前端無顯示」：
+        回應 schema 早有 `invoice_number`，這裡從沒填 ⇒ 畫面永遠沒有、「開立發票」鈕照樣出現、再按就 400「已有關聯發票」。
+        schema 有欄位不等於有人在填（同 09-04 財務摘要四欄）。
+        """
+        from sqlalchemy import select
+        from app.extended.models.erp import ERPInvoice
         items = await self.repo.get_by_quotation_id(quotation_id)
-        return [ERPBillingResponse.model_validate(b) for b in items]
+        ids = [b.id for b in items]
+        inv_by_billing: dict[int, str] = {}
+        if ids:
+            rows = (await self.db.execute(
+                select(ERPInvoice.billing_id, ERPInvoice.invoice_number)
+                .where(ERPInvoice.billing_id.in_(ids)).order_by(ERPInvoice.id)
+            )).all()
+            for bid, no in rows:
+                inv_by_billing.setdefault(bid, no)
+        out = []
+        for b in items:
+            r = ERPBillingResponse.model_validate(b)
+            r.invoice_number = inv_by_billing.get(b.id)
+            out.append(r)
+        return out
 
     async def update(self, billing_id: int, data: ERPBillingUpdate) -> Optional[ERPBillingResponse]:
         """更新請款 (含收款狀態) — 收款確認時自動入帳"""
