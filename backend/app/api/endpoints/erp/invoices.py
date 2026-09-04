@@ -1,4 +1,5 @@
 """ERP 發票 API 端點 (POST-only)"""
+from app.schemas.erp.invoice import LinkInvoiceToBillingRequest
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import get_service
@@ -74,6 +75,19 @@ async def create_invoice_from_billing(
             notes=params.notes,
         )
         return SuccessResponse(data=invoice, message="發票開立成功")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/link-to-billing")
+async def link_invoice_to_billing(
+    params: LinkInvoiceToBillingRequest,
+    service: ERPInvoiceService = Depends(get_service(ERPInvoiceService)),
+):
+    """把已登錄但未關聯的發票掛到請款（2026-09-04；規則見 service.link_to_billing）"""
+    try:
+        invoice = await service.link_to_billing(params.invoice_id, params.billing_id)
+        return SuccessResponse(data=invoice, message="發票已關聯到此請款")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -296,6 +296,8 @@ export interface ERPInvoice {
   notes?: string;
   created_at?: string;
   updated_at?: string;
+  /** 關聯的請款；從發票頁直接登錄的會是空（2026-09-04 起應收分頁會列出未關聯的） */
+  billing_id?: number | null;
 }
 
 export interface ERPInvoiceCreate {

@@ -108,6 +108,35 @@ class ERPInvoiceService(AuditableServiceMixin):
             await self.audit_delete(invoice_id)
         return result
 
+    async def link_to_billing(self, invoice_id: int, billing_id: int) -> ERPInvoiceResponse:
+        """把「登錄了但沒掛到請款」的發票關聯到某期請款。
+
+        2026-09-04 owner：/erp/quotations/152 應收分頁警示「已收款尚未登錄發票」，而發票列表明明有
+        ZZ00000001——它的 billing_id 是 NULL（從發票頁直接建的），分頁只認 billing_id。
+        規則：同一張報價單／該請款尚無發票／該發票尚未關聯；金額不同不擋（分批開票是合法的），但回訊息提醒。
+        """
+        from app.extended.models.erp import ERPBilling, ERPInvoice
+        inv = (await self.db.execute(select(ERPInvoice).where(ERPInvoice.id == invoice_id))).scalars().first()
+        if not inv:
+            raise ValueError("發票不存在")
+        if inv.billing_id:
+            raise ValueError(f"發票 {inv.invoice_number} 已關聯到請款 #{inv.billing_id}")
+        billing = (await self.db.execute(select(ERPBilling).where(ERPBilling.id == billing_id))).scalars().first()
+        if not billing:
+            raise ValueError("請款記錄不存在")
+        if billing.erp_quotation_id != inv.erp_quotation_id:
+            raise ValueError("發票與請款不屬於同一張報價單，不能關聯")
+        taken = (await self.db.execute(
+            select(ERPInvoice.id).where(ERPInvoice.billing_id == billing_id, ERPInvoice.id != invoice_id).limit(1)
+        )).scalar_one_or_none()
+        if taken:
+            raise ValueError("此請款記錄已有關聯發票")
+        inv.billing_id = billing_id
+        await self.db.commit()
+        await self.db.refresh(inv)
+        await self.audit_update(inv.id, {"billing_id": billing_id, "source": "link_to_billing"})
+        return ERPInvoiceResponse.model_validate(inv)
+
     async def create_from_billing(
         self,
         billing_id: int,

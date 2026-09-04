@@ -14,9 +14,9 @@
  * @date 2026-08-02
  */
 import React, { useState } from 'react';
-import { Button, Tag, Row, Col, Alert, Modal, Form, Input, DatePicker, App, Tooltip, Space } from 'antd';
+import { Button, Tag, Row, Col, Alert, Modal, Form, Input, DatePicker, App, Tooltip, Space, Select } from 'antd';
 import ClickableStatCard from '../../components/common/ClickableStatCard';
-import { useCreateInvoiceFromBilling } from '../../hooks/business/useERPQuotations';
+import { useCreateInvoiceFromBilling, useLinkInvoiceToBilling, useERPInvoices } from '../../hooks/business/useERPQuotations';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
 import { PlusOutlined } from '@ant-design/icons';
 
@@ -182,6 +182,12 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   const [invoiceFor, setInvoiceFor] = useState<AccountRecord | null>(null);
   const [invoiceForm] = Form.useForm();
   const createInvoice = useCreateInvoiceFromBilling();
+  const linkInvoice = useLinkInvoiceToBilling();
+  // 2026-09-04 owner（152）：發票可能從發票頁直接登錄、沒掛到請款（billing_id 空）——分頁只認 billing_id，
+  // 於是一邊說「尚未登錄發票」、另一邊列表有那張票。這裡把「未關聯」的列出來，開立時可直接選用。
+  const { data: quotationInvoices } = useERPInvoices(isReceivable ? erpQuotationId : null);
+  const unlinkedInvoices = (quotationInvoices ?? []).filter((i) => !i.billing_id && i.status !== 'voided');
+  const existingInvoiceId = Form.useWatch('existing_invoice_id', invoiceForm);
   const { message: msg } = App.useApp();
   const totalRequest = records.reduce((s, r) => s + (r.request_amount || 0), 0);
   const totalPaid = records.reduce((s, r) => s + (r.payment_amount || 0), 0);
@@ -338,6 +344,10 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
         <Alert type="warning" showIcon style={{ marginBottom: 12 }}
           message={`已收款但尚未登錄發票 ${collectedNoInvoice.length} 筆（${collectedNoInvoice.reduce((a, r) => a + (r.request_amount ?? 0), 0).toLocaleString()} 元）——收款前應先開立發票，請補登號碼`} />
       )}
+      {isReceivable && unlinkedInvoices.length > 0 && (
+        <Alert type="info" showIcon style={{ marginBottom: 12 }}
+          message={`本報價單另有 ${unlinkedInvoices.length} 張已登錄但未關聯到請款的發票：${unlinkedInvoices.map((i) => `${i.invoice_number}（${Number(i.amount ?? 0).toLocaleString()}）`).join('、')}——按該期「開立發票」時可直接選用，不必再打一張`} />
+      )}
       {/* 開立發票：3 欄（發票號／日期／備註），在 Modal 豁免範圍內
           （UI_DESIGN_STANDARDS 2026-04-06：欄位 3-5 個且緊耦合 context）。
           它必須貼著「哪一筆請款」，做成獨立頁反而要再帶一次 context。 */}
@@ -345,10 +355,16 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
         title={`開立發票 — ${invoiceFor?.period || `#${invoiceFor?.id ?? ''}`}（${(invoiceFor?.request_amount ?? 0).toLocaleString()} 元）`}
         open={!!invoiceFor}
         onCancel={() => setInvoiceFor(null)}
-        confirmLoading={createInvoice.isPending}
+        confirmLoading={createInvoice.isPending || linkInvoice.isPending}
         onOk={async () => {
           const v = await invoiceForm.validateFields();
           try {
+            if (v.existing_invoice_id) {
+              await linkInvoice.mutateAsync({ invoice_id: v.existing_invoice_id, billing_id: invoiceFor!.id });
+              msg.success('已把既有發票關聯到此請款');
+              setInvoiceFor(null);
+              return;
+            }
             await createInvoice.mutateAsync({
               billing_id: invoiceFor!.id,
               invoice_number: v.invoice_number,
@@ -363,8 +379,15 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
         }}
       >
         <Form form={invoiceForm} layout="vertical">
+          {unlinkedInvoices.length > 0 && (
+            <Form.Item name="existing_invoice_id" label="使用已登錄的發票（未關聯請款）"
+              extra="選了就直接關聯，下方號碼不用填；留空則開新票">
+              <Select allowClear placeholder="不選＝開新票"
+                options={unlinkedInvoices.map((i) => ({ value: i.id, label: `${i.invoice_number}｜${i.invoice_date ?? '-'}｜${Number(i.amount ?? 0).toLocaleString()} 元` }))} />
+            </Form.Item>
+          )}
           <Form.Item name="invoice_number" label="發票號碼" normalize={(v?: string) => (v ?? '').toUpperCase().trim()}
-            rules={[{ required: true, message: '請輸入發票號碼' }, { pattern: /^[A-Z]{2}\d{8}$/, message: '統一發票為 2 個英文字母＋8 碼數字（例 EE15019500）' },
+            rules={[{ required: !existingInvoiceId, message: '請輸入發票號碼' }, { pattern: /^[A-Z]{2}\d{8}$/, message: '統一發票為 2 個英文字母＋8 碼數字（例 EE15019500）' },
                     { pattern: /^[A-Z]{2}\d{8}$/, message: '格式為 2 英文 + 8 數字（如 AB12345678）' }]}>
             <Input placeholder="AB12345678" maxLength={10} />
           </Form.Item>

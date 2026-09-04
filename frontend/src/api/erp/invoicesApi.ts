@@ -57,4 +57,10 @@ export const erpInvoicesApi = {
     );
     return response.data!;
   },
+
+  /** 把已登錄但未關聯請款的發票掛到某期請款（2026-09-04） */
+  async linkToBilling(data: { invoice_id: number; billing_id: number }): Promise<ERPInvoice> {
+    const response = await apiClient.post<SuccessResponse<ERPInvoice>>(ERP_ENDPOINTS.INVOICES_LINK_TO_BILLING, data);
+    return response.data!;
+  },
 };

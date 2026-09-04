@@ -89,3 +89,9 @@ class ERPInvoiceResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LinkInvoiceToBillingRequest(BaseModel):
+    """把已登錄（billing_id 為空）的發票關聯到請款——2026-09-04 owner：152 的發票在報價單上、分頁卻說沒發票"""
+    invoice_id: int
+    billing_id: int

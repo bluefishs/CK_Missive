@@ -222,6 +222,19 @@ export const useDeleteERPBilling = (quotationId: number) => {
 };
 
 /** 從請款記錄開立發票 */
+/** 把已登錄但未關聯的發票掛到請款（2026-09-04；與開立發票同一組失效） */
+export const useLinkInvoiceToBilling = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { invoice_id: number; billing_id: number }) => erpInvoicesApi.linkToBilling(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: erpKeys.invoices.all });
+      queryClient.invalidateQueries({ queryKey: erpKeys.billings.all });
+      queryClient.invalidateQueries({ queryKey: erpKeys.quotations.all });
+    },
+  });
+};
+
 export const useCreateInvoiceFromBilling = () => {
   const queryClient = useQueryClient();
   return useMutation({

@@ -96,6 +96,8 @@ export const ERP_ENDPOINTS = {
   INVOICES_SUMMARY: '/erp/invoices/summary',
   /** 從請款開立發票 POST /erp/invoices/create-from-billing */
   INVOICES_CREATE_FROM_BILLING: '/erp/invoices/create-from-billing',
+  /** 把已登錄但未關聯的發票掛到請款 POST /erp/invoices/link-to-billing */
+  INVOICES_LINK_TO_BILLING: '/erp/invoices/link-to-billing',
   /** 請款列表 POST /erp/billings/list */
   BILLINGS_LIST: '/erp/billings/list',
   /** 建立請款 POST /erp/billings/create */
