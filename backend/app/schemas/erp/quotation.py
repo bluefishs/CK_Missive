@@ -320,6 +320,7 @@ class QuotationItemIn(BaseModel):
     `item_name` 允許空字串 —— 表格編輯必然留下空白列，
     由服務層略過而不是在這裡擋掉（擋掉會讓整批儲存失敗）。
     """
+    item_no: Optional[str] = Field(None, max_length=20, description="項次（自填，如 1.1；不給＝自動 一、二、三）")
     item_name: str = Field("", max_length=200, description="工項名稱（空白列會被略過）")
     spec: Optional[str] = Field(None, max_length=300, description="規格/說明")
     unit: Optional[str] = Field(None, max_length=20, description="單位")

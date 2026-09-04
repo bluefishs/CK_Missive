@@ -111,6 +111,7 @@ class ERPQuotationItem(Base):
     quotation_id = Column(Integer, ForeignKey("erp_quotations.id", ondelete="CASCADE"),
                           nullable=False, index=True)
 
+    item_no = Column(String(20), comment="項次（自填，如 1.1；NULL＝自動 一、二、三）")  # 2026-09-04
     item_name = Column(String(200), nullable=False, comment="工項名稱")
     spec = Column(String(300), comment="規格/說明")
     unit = Column(String(20), comment="單位（式/處/公頃…）")

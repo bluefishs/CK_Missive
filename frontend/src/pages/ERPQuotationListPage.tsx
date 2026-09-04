@@ -75,11 +75,14 @@ export const ERPQuotationListPage: React.FC = () => {
     // 舊案號（B114-B002）不再呈現，但仍是搜尋鍵（列表搜尋涵蓋 legacy 與 QT 號）與匯入比對鍵。
     { title: '年度', dataIndex: 'year', key: 'year', sorter: true, width: 70, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
     {
-      title: '報價單編號', dataIndex: 'quotation_no', key: 'quotation_no', sorter: true, width: 135,
+      // 2026-09-04 owner「報價單編號、工程編號是否一致、列表無查詢對應管控」：
+      // 兩個號各自流水（QT{年}_{序}＝報價單、CK{年}_PM_02_{序}＝建案案號＝文件上的「工程編號」），
+      // 一張報價單對一個案號；這裡把工程編號印在編號下方，搜尋兩個號都吃。
+      title: '報價單編號／工程編號', dataIndex: 'quotation_no', key: 'quotation_no', sorter: true, width: 170,
       render: (_: unknown, r: ERPQuotation) => (
         <Space direction="vertical" size={0}>
-          <span>{r.quotation_no ?? r.case_code}</span>
-          {r.project_code && <Text type="secondary" style={{ fontSize: 11 }}>{r.project_code}</Text>}
+          <span>{r.quotation_no ?? '—'}</span>
+          <Text type="secondary" style={{ fontSize: 11 }}>{r.project_code || r.case_code}</Text>
         </Space>
       ),
     },
@@ -273,7 +276,7 @@ export const ERPQuotationListPage: React.FC = () => {
       <Card>
         <Space wrap style={{ marginBottom: 16 }}>
           <Input.Search
-            placeholder="搜尋案號/案名"
+            placeholder="搜尋報價單編號／工程編號／案名"
             allowClear
             onSearch={(v) => setParams((p) => ({ ...p, search: v || undefined, page: 1 }))}
             style={{ width: 240 }}

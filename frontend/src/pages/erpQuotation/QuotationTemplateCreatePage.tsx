@@ -44,6 +44,8 @@ const money = (n: number) => `NT$ ${Math.round(n).toLocaleString()}`;
 /** 範本明細列（本頁為建立期的本地列，尚無 quotation_id） */
 interface DraftItemRow {
   key: string;
+  /** 項次（自填，如 1.1；空＝自動） */
+  item_no?: string;
   item_name: string;
   spec?: string;
   unit?: string;
@@ -249,7 +251,7 @@ const QuotationTemplateCreatePage: React.FC = () => {
         await apiClient.post(ERP_ENDPOINTS.QUOTATION_ITEMS_REPLACE, {
           quotation_id: quotation.id,
           items: filled.map((r, i) => ({
-            item_name: r.item_name.trim(), spec: r.spec?.trim() || undefined,
+            item_no: r.item_no?.trim() || undefined, item_name: r.item_name.trim(), spec: r.spec?.trim() || undefined,
             unit: r.unit?.trim() || undefined, qty: r.qty, unit_price: r.unit_price,
             sort_order: i, notes: r.notes?.trim() || undefined, amount: r.amount,
           })),
@@ -293,8 +295,10 @@ const QuotationTemplateCreatePage: React.FC = () => {
 
   const columns = [
     {
-      title: '項次', width: 56, align: 'center' as const,
-      render: (_: unknown, __: DraftItemRow, i: number) => i + 1,
+      title: '項次', width: 72, align: 'center' as const,
+      render: (_: unknown, r: DraftItemRow, i: number) => (
+        <Input value={r.item_no} placeholder={`${i + 1}`} onChange={e => patch(r.key, { item_no: e.target.value })} />
+      ),
     },
     {
       title: '工作內容', dataIndex: 'item_name',

@@ -162,7 +162,7 @@ class QuotationDocumentService:
         """), {"cc": q.case_code})).mappings().first() or {}
 
         items = (await self.db.execute(text("""
-            SELECT item_name, spec, unit, qty, unit_price, amount, notes
+            SELECT item_no, item_name, spec, unit, qty, unit_price, amount, notes
               FROM erp_quotation_items
              WHERE quotation_id = :qid
              ORDER BY sort_order, id
@@ -375,7 +375,10 @@ class QuotationDocumentService:
         import math
         for i, it in enumerate(items):
             r = self.ITEM_FIRST_ROW + i
-            ws[f"A{r}"] = f"{self._CN[i]}、" if i < len(self._CN) else f"{i + 1}、"
+            # 2026-09-04 owner「小項 1.1／1.2」：有自填項次就印自填的，沒有才自動 一、二、三
+            # 同一張單有人自填項次（1／1.1…）時，未填的列改用阿拉伯數字，避免「1、1.1、四、」混排
+            any_custom = any((x.get("item_no") or "").strip() for x in items)
+            ws[f"A{r}"] = it.get("item_no") or (f"{i + 1}" if any_custom else (f"{self._CN[i]}、" if i < len(self._CN) else f"{i + 1}、"))
             name = it.get("item_name") or ""
             ws[f"B{r}"] = name
             ws[f"C{r}"] = float(it.get("qty") or 0)

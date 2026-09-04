@@ -78,6 +78,7 @@ class QuotationItemService:
             total += amount
             self.db.add(ERPQuotationItem(
                 quotation_id=quotation_id,
+                item_no=((raw.get("item_no") or "").strip()[:20] or None),
                 item_name=name[:200],
                 spec=(raw.get("spec") or None),
                 unit=(raw.get("unit") or None),
@@ -148,7 +149,7 @@ class QuotationItemService:
             "notes": quotation.notes,
             "items": [
                 {
-                    "id": i.id, "item_name": i.item_name, "spec": i.spec,
+                    "id": i.id, "item_no": i.item_no, "item_name": i.item_name, "spec": i.spec,
                     "unit": i.unit, "qty": float(i.qty or 0),
                     "unit_price": float(i.unit_price or 0),
                     "amount": float(i.amount or 0),

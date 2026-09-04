@@ -1548,6 +1548,8 @@ export interface MyFilingGaps {
 
 export interface QuotationItemRow {
   key: string;
+  /** 項次（自填，如 1.1；空＝自動 一、二、三） */
+  item_no?: string;
   item_name: string;
   spec?: string;
   unit?: string;

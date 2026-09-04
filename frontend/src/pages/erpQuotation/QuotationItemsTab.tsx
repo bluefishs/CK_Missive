@@ -75,7 +75,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         {
           quotation_id: quotationId,
           items: rows.map((r, i) => ({
-            item_name: r.item_name, spec: r.spec, unit: r.unit,
+            item_no: r.item_no?.trim() || undefined, item_name: r.item_name, spec: r.spec, unit: r.unit,
             qty: r.qty, unit_price: r.unit_price, amount: r.amount, sort_order: i, notes: r.notes || undefined,
           })),
         },
@@ -159,7 +159,17 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
   // ⚠️ 這是**減災不是解決**：六欄價目表在 390px 上仍需橫向捲（降到約 230px）。
   // 真正的解是窄螢幕改一列一卡的編輯器，那是另一個工作量級；
   // 在那之前不要把這裡的數字下降讀成「手機可以順順地編報價單了」。
+  const CN = '一二三四五六七八九十';
+  const anyCustomNo = rows.some(r => (r.item_no ?? '').trim());
+  const autoNo = (i: number) => (anyCustomNo ? `${i + 1}` : (i < CN.length ? `${CN[i]}、` : `${i + 1}、`));
   const columns = ([
+    {
+      // 2026-09-04 owner「小項 1.1／1.2」：項次可自填；空白就照列序自動 一、二、三
+      title: '項次', dataIndex: 'item_no', width: 72, align: 'center' as const,
+      render: (v: string, r: QuotationItemRow, i: number) => readOnly ? <Text>{v || autoNo(i)}</Text> : (
+        <Input value={v} placeholder={autoNo(i)} onChange={e => update(r.key, { item_no: e.target.value })} />
+      ),
+    },
     {
       title: '工項', dataIndex: 'item_name', width: '28%',
       render: (v: string, r: QuotationItemRow) => readOnly ? <Text>{v || '—'}</Text> : (
