@@ -102,7 +102,17 @@ function measure(vw) {
       const ix = Math.max(0, Math.min(fr.right, r.right) - Math.max(fr.left, r.left));
       const iy = Math.max(0, Math.min(fr.bottom, r.bottom) - Math.max(fr.top, r.top));
       const cover = (ix * iy) / Math.max(1, r.width * r.height);
-      if (cover >= 0.4) covered.push({ fixed: sel(f), target: sel(el), text: txt(el), cover: Math.round(cover * 100) });
+      if (cover < 0.4) continue;
+      // 任何 fixed 鈕在任何捲動位置都會壓到「某個東西」；真正的遮蔽是**捲動也躲不開**的那種：
+      // 把目標捲到視窗中央後仍與 fixed 元件重疊（頁面太短捲不動、或目標本身在底部貼邊）。
+      // 09-05 第二跑：/erp/operational 的分頁鈕在初始捲動位置被坤哥鈕壓 75%，但往下捲 300px 就分開——那不算遮蔽。
+      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const wantY = window.scrollY + r.top - window.innerHeight / 2;
+      const reachY = Math.min(maxScroll, Math.max(0, wantY));
+      const topAfter = r.top - (reachY - window.scrollY);
+      const iyAfter = Math.max(0, Math.min(fr.bottom, topAfter + r.height) - Math.max(fr.top, topAfter));
+      const coverAfter = (ix * iyAfter) / Math.max(1, r.width * r.height);
+      if (coverAfter >= 0.4) covered.push({ fixed: sel(f), target: sel(el), text: txt(el), cover: Math.round(cover * 100), afterScroll: Math.round(coverAfter * 100) });
     }
   }
 
