@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-05T08:11:02.790Z",
+  "checked_at": "2026-09-05T11:14:02.317Z",
   "base": "https://missive.cksurvey.tw",
   "width": 390,
   "routes": 39,
@@ -29,7 +29,7 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 147
+      "controls": 37
     },
     {
       "route": "/erp/quotations",
@@ -41,31 +41,13 @@
       "ellipsis": 7,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 4,
+      "smallTap": 1,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
           "text": "",
           "w": 169,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -85,7 +67,7 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 6,
+      "smallTap": 3,
       "smallTop": [
         {
           "sel": "input#:r8:.ant-select-input",
@@ -104,18 +86,6 @@
           "text": "",
           "w": 78,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -135,7 +105,7 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 6,
+      "smallTap": 3,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
@@ -154,18 +124,6 @@
           "text": "",
           "w": 78,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -185,7 +143,7 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 7,
+      "smallTap": 4,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
@@ -210,12 +168,6 @@
           "text": "",
           "w": 58,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -285,7 +237,7 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 5,
+      "smallTap": 2,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
@@ -298,24 +250,6 @@
           "text": "",
           "w": 88,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -335,7 +269,7 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 5,
+      "smallTap": 2,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
@@ -348,24 +282,6 @@
           "text": "",
           "w": 78,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -385,36 +301,36 @@
       "ellipsis": 9,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 18,
+      "smallTap": 6,
       "smallTop": [
         {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
+          "sel": "div.ant-select.ant-select-sm",
+          "text": "全部類型",
+          "w": 154,
           "h": 24
         },
         {
-          "sel": "button.ant-btn.css-1daqxe2",
+          "sel": "input#:ra:.ant-select-input",
           "text": "",
-          "w": 24,
+          "w": 120,
+          "h": 22
+        },
+        {
+          "sel": "div.ant-select.ant-select-sm",
+          "text": "全部形式",
+          "w": 154,
           "h": 24
         },
         {
-          "sel": "button.ant-btn.css-1daqxe2",
+          "sel": "input#:rc:.ant-select-input",
           "text": "",
-          "w": 24,
-          "h": 24
+          "w": 120,
+          "h": 22
         },
         {
-          "sel": "button.ant-btn.css-1daqxe2",
+          "sel": "div.ant-select.ant-select-sm",
           "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 226,
+          "w": 316,
           "h": 24
         }
       ],
@@ -435,31 +351,13 @@
       "ellipsis": 5,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 4,
+      "smallTap": 1,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
           "text": "",
           "w": 126,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -479,25 +377,13 @@
       "ellipsis": 31,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 10,
+      "smallTap": 4,
       "smallTop": [
         {
           "sel": "input#:r8:.ant-select-input",
           "text": "",
           "w": 208,
           "h": 22
-        },
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 125,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
         },
         {
           "sel": "div.ant-select.ant-select-sm",
@@ -510,6 +396,12 @@
           "text": "",
           "w": 106,
           "h": 22
+        },
+        {
+          "sel": "button.ant-table-row-expand-icon.ant-table-row-expand-icon-collapsed",
+          "text": "",
+          "w": 23,
+          "h": 23
         }
       ],
       "covered": 0,
@@ -529,25 +421,13 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 5,
+      "smallTap": 3,
       "smallTop": [
         {
           "sel": "input#:r8:.ant-select-input",
           "text": "",
           "w": 58,
           "h": 22
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "全標完成",
-          "w": 89,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "全標取消",
-          "w": 68,
-          "h": 24
         },
         {
           "sel": "input#:r15:.ant-select-input",
@@ -598,31 +478,13 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 4,
+      "smallTap": 1,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
           "text": "",
           "w": 163,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -642,37 +504,13 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 10,
+      "smallTap": 1,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
           "text": "",
           "w": 232,
           "h": 22
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "新增",
-          "w": 63,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -692,39 +530,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 9,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 159,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-2",
-          "text": "2",
-          "w": 24,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -742,39 +549,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 7,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 159,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-2",
-          "text": "2",
-          "w": 24,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -792,39 +568,8 @@
       "ellipsis": 4,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 6,
-      "smallTop": [
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 159,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -842,31 +587,13 @@
       "ellipsis": 5,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 4,
+      "smallTap": 1,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
           "text": "",
           "w": 126,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -886,39 +613,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 24,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "報價單列表",
-          "w": 81,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "完整行事曆",
-          "w": 102,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "全部99+",
-          "w": 112,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -936,14 +632,27 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 0,
-      "smallTop": [],
+      "smallTap": 2,
+      "smallTop": [
+        {
+          "sel": "input#:r9:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        }
+      ],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
       "loneTop": [],
-      "statCards": 0,
-      "controls": 5
+      "statCards": 11,
+      "controls": 11
     },
     {
       "route": "/document-numbers",
@@ -955,27 +664,8 @@
       "ellipsis": 21,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 3,
-      "smallTop": [
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1012,7 +702,7 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 10,
+      "smallTap": 2,
       "smallTop": [
         {
           "sel": "input#:r8:.ant-select-input",
@@ -1025,24 +715,6 @@
           "text": "",
           "w": 78,
           "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-2",
-          "text": "2",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -1062,25 +734,13 @@
       "ellipsis": 31,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 10,
+      "smallTap": 4,
       "smallTop": [
         {
           "sel": "input#:r8:.ant-select-input",
           "text": "",
           "w": 208,
           "h": 22
-        },
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 125,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
         },
         {
           "sel": "div.ant-select.ant-select-sm",
@@ -1093,6 +753,12 @@
           "text": "",
           "w": 106,
           "h": 22
+        },
+        {
+          "sel": "button.ant-table-row-expand-icon.ant-table-row-expand-icon-collapsed",
+          "text": "",
+          "w": 23,
+          "h": 23
         }
       ],
       "covered": 0,
@@ -1112,14 +778,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 6,
+      "smallTap": 4,
       "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "編輯",
-          "w": 63,
-          "h": 24
-        },
         {
           "sel": "input#username.ant-input.ant-input-disabled",
           "text": "",
@@ -1162,14 +822,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 6,
+      "smallTap": 4,
       "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "編輯",
-          "w": 63,
-          "h": 24
-        },
         {
           "sel": "input#username.ant-input.ant-input-disabled",
           "text": "",
@@ -1212,7 +866,7 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 54,
+      "smallTap": 4,
       "smallTop": [
         {
           "sel": "input#:r9:.ant-select-input",
@@ -1237,12 +891,6 @@
           "text": "",
           "w": 112,
           "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -1262,39 +910,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 7,
-      "smallTop": [
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-2",
-          "text": "2",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-3",
-          "text": "3",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-4",
-          "text": "4",
-          "w": 24,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1312,14 +929,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
+      "smallTap": 1,
       "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
         {
           "sel": "input#delivery_method.ant-select-input",
           "text": "",
@@ -1344,15 +955,8 @@
       "ellipsis": 2,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 1,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1370,15 +974,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 1,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1396,21 +993,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "編輯",
-          "w": 63,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1428,21 +1012,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "編輯",
-          "w": 63,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1460,39 +1031,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 8,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "開立發票",
-          "w": 54,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "開立發票",
-          "w": 54,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "開立發票",
-          "w": 54,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "開立發票",
-          "w": 54,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1510,33 +1050,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 4,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1554,21 +1069,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "新增核銷",
-          "w": 89,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1586,21 +1088,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "編輯",
-          "w": 63,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1618,21 +1107,8 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "編輯",
-          "w": 63,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,

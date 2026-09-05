@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-05T08:14:09.677Z",
+  "checked_at": "2026-09-05T11:17:05.987Z",
   "base": "https://missive.cksurvey.tw",
   "width": 1440,
   "routes": 39,
@@ -15,7 +15,7 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 135,
+      "smallTap": 31,
       "smallTop": [
         {
           "sel": "input#:ra:.ant-select-input",
@@ -53,7 +53,7 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 148
+      "controls": 44
     },
     {
       "route": "/erp/quotations",
@@ -558,14 +558,8 @@
     {
       "route": "/calendar",
       "width": 1440,
-      "narrowSelect": 1,
-      "narrowTop": [
-        {
-          "sel": "div.ant-select.ant-select-outlined",
-          "w": 70,
-          "text": "9月"
-        }
-      ],
+      "narrowSelect": 0,
+      "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -618,13 +612,13 @@
           "h": 24
         },
         {
-          "sel": "input#:r1h:.ant-select-input",
+          "sel": "input#:r18:.ant-select-input",
           "text": "",
           "w": 44,
           "h": 22
         },
         {
-          "sel": "input#:r1j:.ant-select-input",
+          "sel": "input#:r1a:.ant-select-input",
           "text": "",
           "w": 28,
           "h": 22
@@ -647,14 +641,33 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 0,
-      "smallTop": [],
+      "smallTap": 3,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "預覽",
+          "w": 66,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "推送",
+          "w": 66,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
       "loneTop": [],
       "statCards": 0,
-      "controls": 13
+      "controls": 16
     },
     {
       "route": "/pm/cases",
