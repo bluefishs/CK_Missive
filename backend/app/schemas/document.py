@@ -447,3 +447,25 @@ class DocumentSearchRequest(BaseModel):
     limit: int = Field(50, ge=1, le=2000, description="取得筆數")
     sort_by: Optional[str] = Field("id", description="排序欄位")
     sort_order: Optional[str] = Field("desc", description="排序順序 (asc/desc)")
+
+
+# =============================================================================
+# 發文字號生成（2026-09-05 自 schemas/document_number.py 搬入）
+# 那個檔是已刪除的 /document-numbers router 的 schema，11 個類別只剩這兩個被 documents/stats.py 的
+# next-send-number 用到；發文字號本來就是公文的一部分，歸這裡，不再為兩個類別養一個檔。
+# =============================================================================
+
+class NextNumberRequest(BaseModel):
+    """下一個發文字號請求"""
+    prefix: Optional[str] = Field(default=None, description="文號前綴")
+    year: Optional[int] = Field(default=None, description="指定年度（西元）")
+
+
+class NextNumberResponse(BaseModel):
+    """下一個發文字號回應"""
+    full_number: str
+    year: int
+    roc_year: int
+    sequence_number: int
+    previous_max: int
+    prefix: str

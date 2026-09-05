@@ -20,7 +20,7 @@ from .common import (
     DocumentStatisticsService, get_statistics_service,
 )
 from app.core.rate_limiter import limiter
-from app.schemas.document_number import NextNumberRequest, NextNumberResponse
+from app.schemas.document import NextNumberRequest, NextNumberResponse
 
 # 2026-08-21：router 層要求登入。
 #
