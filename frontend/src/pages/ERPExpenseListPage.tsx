@@ -298,7 +298,9 @@ const ERPExpenseListPage: React.FC = () => {
               rowKey="group_key"
               loading={groupedLoading}
               size="middle"
-              pagination={false}
+              // 2026-09-05：分組表此前不分頁——「專案費用顯示所有案件」讓 100+ 組零費用案件全列，手機整頁 23,000px。
+              // 有費用的組本來就排在前面，20 組一頁；資料在前端整份，分頁只是呈現。
+              pagination={{ pageSize: 20, showSizeChanger: false, showTotal: (t) => `共 ${t} 組` }}
               expandable={{
                 expandedRowKeys: expandedKeys,
                 onExpandedRowsChange: (keys) => setExpandedKeys(keys as string[]),
