@@ -156,6 +156,10 @@ export const PMCaseListPage: React.FC = () => {
       key: 'case_code',
       sorter: true,
       width: 140,
+      // 2026-09-05 §2.6 ④（A98）：表頭漏斗與工具列下拉共用同一份狀態；伺服器分頁，勾選值進查詢參數，**不帶 onFilter**
+      filters: Array.from({ length: 5 }, (_, i) => { const y = new Date().getFullYear() - i; return { text: `${y}年`, value: y }; }),
+      filterMultiple: false,
+      filteredValue: yearFilter ? [yearFilter] : null,
       render: (code: string) => <Typography.Text strong style={{ fontFamily: 'monospace', fontSize: 12 }}>{code}</Typography.Text>,
     },
     {
@@ -179,6 +183,9 @@ export const PMCaseListPage: React.FC = () => {
       dataIndex: 'category',
       key: 'category',
       sorter: true,
+      filters: PM_CATEGORY_OPTIONS.map((o) => ({ text: o.label, value: o.value })),
+      filterMultiple: false,
+      filteredValue: categoryFilter ? [categoryFilter] : null,
       // 顯示代碼＋名稱（`02承攬報價`）—— owner 2026-08-31：「應顯示完整資訊」。
       // 寬度要放得下 6 個中文字＋排序箭頭，否則標題會被折成「計畫類 別」。
       width: 130,
@@ -198,6 +205,9 @@ export const PMCaseListPage: React.FC = () => {
       dataIndex: 'status',
       key: 'contract_status',
       sorter: true,
+      filters: [{ text: '評估中', value: 'planning' }, { text: '已承攬', value: 'contracted' }, { text: '已結案', value: 'closed' }],
+      filterMultiple: false,
+      filteredValue: statusFilter ? [statusFilter] : null,
       // 「已承攬・未成案」是 7 個字，96px 放不下 ⇒ 被截成「已承攬・」而看不出未成案
       //（owner 2026-08-31 回報）。這一欄的兩種值差別就在後三個字，不能截。
       width: 150,
@@ -440,7 +450,15 @@ export const PMCaseListPage: React.FC = () => {
           }}
           // 表頭排序轉成 API 參數（2026-08-31）。取消排序時回到預設的年度新→舊，
           // 不留空 —— `sort_by` 空字串在後端會退回 `id`，那不是使用者要的順序。
-          onChange={(_pagination, _filters, sorter) => {
+          onChange={(_pagination, filters, sorter) => {
+            // 表頭漏斗 → 同一份狀態（工具列下拉同步顯示）；只在值真的變時才寫，避免排序時把篩選重設
+            const pick = (k: string) => { const v = filters?.[k]; return Array.isArray(v) && v.length ? v[0] : undefined; };
+            const fy = pick('case_code') as number | undefined;
+            const fc = pick('category') as string | undefined;
+            const fs = pick('contract_status') as string | undefined;
+            if (fy !== yearFilter) setYearFilter(fy);
+            if (fc !== categoryFilter) setCategoryFilter(fc);
+            if (fs !== statusFilter) setStatusFilter(fs);
             const s = Array.isArray(sorter) ? sorter[0] : sorter;
             const field = typeof s?.field === 'string' ? s.field : undefined;
             if (!field || !s?.order) {
