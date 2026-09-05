@@ -36,7 +36,9 @@ DISPLAY_ONLY_OK = {
     "TenderSearchPage.tsx": {"搜尋結果"},                             # 就是目前列表本身
     "PMCaseListPage.tsx": {"`報價總額"},                              # 金額彙總，跟著狀態卡的篩選走，本身不篩（標題以前綴比對）
 }
-QUERY_SETTERS = re.compile(r"\b(handle\w*Filter|apply\w*Filter|setParams|set[A-Z]\w*Filter|setStatusFilter|setCurrentPage|setPage|setActiveTab|setTypeFilter|navigate|setQuery|toggleCard|setSearch\w*|setYear\w*|setCategory\w*|refetch)\s*\(")
+# ⚠️ `setStatFilter`／`setActiveCard` 是「卡片自己的底色 state」，不算查詢 setter——負向對照抓到首版把它們也算進去，
+#    於是修法前的公文字號頁（四張卡只 setStatFilter）量成 0 張紅。
+QUERY_SETTERS = re.compile(r"\b(handle\w*Filter|apply\w*Filter|setParams|set(?!StatFilter\b)(?!ActiveCard\b)[A-Z]\w*Filter|setStatusFilter|setCurrentPage|setPage|setActiveTab|setTypeFilter|navigate|setQuery|toggleCard|setSearch\w*|setYear\w*|setCategory\w*|refetch)\s*\(")
 
 
 def cards_in(src: str):
