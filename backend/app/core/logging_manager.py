@@ -7,6 +7,7 @@
 import logging
 import logging.handlers
 import json
+import os
 import time
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -278,6 +279,9 @@ class SystemLogManager:
         }
 
 
+_REQUEST_DEBUG = os.getenv("LOG_LEVEL", "INFO").strip().upper() == "DEBUG"
+
+
 class LoggingMiddleware(BaseHTTPMiddleware):
     """HTTP請求日誌中介軟體"""
     
@@ -308,7 +312,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         # 高頻路徑跳過 START log (省 ~50ms header serialization + file write)
-        if path not in self._SKIP_START_LOG:
+        # 2026-09-05 部署後複量：ck_missive.* logger 設 DEBUG 且會傳播到 root 的 stdout handler ⇒「降 DEBUG」在 stdout 上等於沒降
+        # （10 分鐘仍 301 行 START/END）。改成只有 LOG_LEVEL=DEBUG 才記 START；正式環境 INFO 完全不產生。
+        if path not in self._SKIP_START_LOG and _REQUEST_DEBUG:
             entry = LogEntry(
                 level=LogLevel.DEBUG,   # 2026-09-05：INFO → DEBUG（見上）
                 category=ErrorCategory.API,
