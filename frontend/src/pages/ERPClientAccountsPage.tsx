@@ -187,7 +187,7 @@ const ERPClientAccountsPage: React.FC = () => {
       <Card
         title={<Title level={3} style={{ margin: 0 }}>委託單位帳款總覽</Title>}
         extra={
-          <Space>
+          <Space wrap>  {/* 2026-09-05 RWD：390px 探針量到 7–17px 溢出，來源是這排不換行 */}
             <Input.Search
               placeholder="搜尋單位名稱 / 代碼"
               allowClear

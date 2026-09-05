@@ -167,7 +167,7 @@ const ERPLedgerPage: React.FC = () => {
         <Row justify="space-between" align="middle">
           <Col><Title level={3} style={{ margin: 0 }}>統一帳本</Title></Col>
           <Col>
-            <Space>
+            <Space wrap>  {/* 2026-09-05 RWD：390px 探針量到 7–17px 溢出，來源是這排不換行 */}
               <Select
                 style={{ width: 120 }}
                 value={year}
