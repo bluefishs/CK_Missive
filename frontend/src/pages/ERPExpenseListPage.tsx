@@ -102,7 +102,7 @@ const ERPExpenseListPage: React.FC = () => {
 
   // 帳本 (Tab 2)
   const [ledgerParams] = useState<LedgerQuery>({ skip: 0, limit: 50 });
-  const { data: ledgerData } = useLedger(ledgerParams);
+  const { data: ledgerData } = useLedger(ledgerParams, { enabled: activeTab === 'ledger' });
   const ledgerItems = ledgerData?.items ?? [];
 
   // Import modal

@@ -317,11 +317,13 @@ export function useAutoLinkEinvoice() {
 // ============================================================================
 
 /** 帳本列表 */
-export const useLedger = (params?: LedgerQuery) => {
+export const useLedger = (params?: LedgerQuery, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: erpFinanceKeys.ledger.list(params || {}),
     queryFn: () => ledgerApi.list(params),
     ...defaultQueryOptions.list,
+    // 2026-09-05 頁面成本量測：費用頁不在「帳本」分頁時這支也會打（每頁多一支 ~450ms 往返）
+    enabled: options?.enabled ?? true,
   });
 };
 

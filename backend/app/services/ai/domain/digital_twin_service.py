@@ -196,8 +196,23 @@ class DigitalTwinService:
 
     _DASHBOARD_SOURCE_TIMEOUT = 3.0  # 每個資料源上限 3 秒
 
+    # 2026-09-05 lvrland 跨 session 知會後的頁面成本量測：/kunge/ops 冷載入 4.2 秒全在這支（六個來源 gather、單源 3s timeout，
+    # 有一源常撞到 timeout）；同一台機器第二次 0.4 秒。這是「快照」——60 秒內重複開頁給同一份即可，冷的那一次仍要付。
+    _DASHBOARD_CACHE: Dict[str, Any] = {"at": 0.0, "data": None}
+    _DASHBOARD_CACHE_TTL = 60.0
+
     @staticmethod
     async def get_dashboard_snapshot(db) -> Dict[str, Any]:
+        import time as _time
+        cache = DigitalTwinService._DASHBOARD_CACHE
+        if cache["data"] is not None and _time.monotonic() - cache["at"] < DigitalTwinService._DASHBOARD_CACHE_TTL:
+            return cache["data"]
+        data = await DigitalTwinService._build_dashboard_snapshot(db)
+        cache["at"] = _time.monotonic(); cache["data"] = data
+        return data
+
+    @staticmethod
+    async def _build_dashboard_snapshot(db) -> Dict[str, Any]:
         """
         聚合分身狀態快照 — asyncio.gather 並行取得，每源 3s timeout
 
