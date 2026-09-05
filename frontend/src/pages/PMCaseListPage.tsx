@@ -256,7 +256,7 @@ export const PMCaseListPage: React.FC = () => {
             <Title level={4} style={{ margin: 0 }}><FileSearchOutlined style={{ marginRight: 8 }} />邀標/報價管理</Title>
           </Col>
           <Col>
-            <Space>
+            <Space wrap>  {/* 2026-09-05：手機 390px 溢出 84px 的來源——四顆按鈕不換行 */}
               <Button
                 icon={<DownloadOutlined />}
                 onClick={handleExportXlsx}

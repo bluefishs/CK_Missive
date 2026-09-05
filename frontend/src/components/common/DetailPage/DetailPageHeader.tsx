@@ -99,7 +99,7 @@ const DetailPageHeaderInner: React.FC<DetailPageHeaderProps> = ({
 
         {/* 右側：操作按鈕 */}
         {extra && (
-          <Space wrap={isMobile} style={{ justifyContent: isMobile ? 'flex-end' : undefined }}>
+          <Space wrap style={{ justifyContent: isMobile ? 'flex-end' : undefined }}>  {/* 2026-09-05：768px 也會溢出 19px，一律可換行 */}
             {extra}
           </Space>
         )}

@@ -583,6 +583,8 @@ run_step "106" "指派即應付（協力廠商指派⇔應付）" "scripts/check
 run_step "107" "名稱欄 vs 鍵欄一致性（id 是鍵、名稱是快照）" "scripts/checks/name_id_pair_consistency_audit.py"
 # 108（09-05 owner「統計圖卡對應動態篩選為首要核心」）：卡片點了只換底色＝假互動；09-04 兩頁四張卡就是這樣
 run_step "108" "統計卡是否接到篩選（假互動偵測）" "scripts/checks/stat_card_filter_wiring_audit.py"
+# 109（09-05 RWD）：每日行動探針只「觀測不告警」，這支對整頁溢出設 24px 門檻（表格內橫向捲動是設計，不計）
+run_step "109" "RWD 整頁溢出閘門（390／768／1024）" "scripts/checks/rwd_page_overflow_gate.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
