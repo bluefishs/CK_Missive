@@ -119,9 +119,10 @@ def main() -> int:
         for r in rows:
             for c in (r.get("clippedTop") or [])[:2]:
                 reds.append(f"    {r['route']}：{c.get('sel')}「{c.get('text')}」超出 {c.get('over')}px")
-    if base and tot["tinyFont"] > int(base.get("tinyFont", 0)):
+    # 容忍 +5：這兩個數字隨資料量（分頁頁數、列數）微幅浮動，09-05 晚同一版程式量到 262／265
+    if base and tot["tinyFont"] > int(base.get("tinyFont", 0)) + 5:
         yels.append(f"字級<11px {tot['tinyFont']} > 基線 {base.get('tinyFont')}")
-    if base and tot["smallTap"] > int(base.get("smallTap", 0)):
+    if base and tot["smallTap"] > int(base.get("smallTap", 0)) + 5:
         yels.append(f"點擊目標<28px {tot['smallTap']} > 基線 {base.get('smallTap')}")
     if blocked:
         yels.append(f"{blocked} 頁被導回登入頁（未驗）")
