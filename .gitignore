@@ -19,6 +19,8 @@ __pycache__/
 # Node
 node_modules/
 dist/
+# 部署腳本的暫時建置目錄（vite build --outDir dist_next 後覆蓋進 dist、rm -rf）；與 dist 同類。備份 /XD 亦排除（2026-09-05 CK_Website 回報 678 筆 NOT_FOUND）
+dist_next/
 .npm
 npm-debug.log*
 yarn-debug.log*
