@@ -213,6 +213,12 @@
 | `first_billing_presence_audit.py` | 成案即應收：成案且有金額的報價單必須有請款（自動第一期 `ensure_first_period` 的守門）；首跑 90 張 3,109 萬無請款＝稽催鏈對它們是啞的 | weekly 103 |
 | `erp_amount_semantics_audit.py` | 金額語意三方對帳（報價總價 × 請款額 × 發票額，依 `docs/architecture/FIELD_SEMANTICS.md`）：RED 只給互相矛盾（一次請領≠總價／發票>請款／已收>請款／稅>總價），5%／稅 0／佔位發票 YELLOW | weekly 104 |
 | `case_state_consistency_audit.py` | 案件狀態一致性：PM `contracted` ⇔ 承攬案存在 ⇔ PM／報價單／承攬案 `project_code` 三方對齊 ⇔ 承攬案結案則 PM closed。09-04 抓到匯入把「已成立」寫成 contracted **卻不建承攬案**（16 筆，每張表單獨看都正常）＋12 筆 GN 舊案 `project_code` 空；同名待判 10 筆走基線（**登記不是變綠**） | weekly 105 |
+| `vendor_association_payable_audit.py` | 指派即應付：承攬案協力廠商指派必有對應應付（weekly 106） |
+| `name_id_pair_consistency_audit.py` | 名稱欄是快照、鍵欄才是關聯：可精確對上主檔卻沒填鍵＝RED；09-05 擴到公文 sender／receiver 與兩條推導鍵（weekly 107） |
+| `stat_card_filter_wiring_audit.py` | 統計卡點了要真的篩列表；`xs={24}` 黃（weekly 108） |
+| `rwd_page_overflow_gate.py` | 讀每日 mobile_probe 結果，整頁溢出 ≥ 24px 即 RED（weekly 109） |
+| `assignment_dual_key_audit.py` | 承辦指派必須同時帶 `case_code` 與 `project_id`（weekly 110） |
+| `rwd_mobile_quality_gate.py`＋`rwd_mobile_quality_probe.cjs` | 手機品質五指標：截字／字級<11px／點擊目標<28px／fixed 遮蔽／統計卡獨列；host 以 adapter 簽憑證、Playwright 390px 登入量；基線 `.rwd_quality_baseline.json`（weekly 111） |
 
 ## 🧪 月度架構覆盤（`run_fitness.sh`）
 
