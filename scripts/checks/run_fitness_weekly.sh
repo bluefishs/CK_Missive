@@ -581,6 +581,8 @@ run_step "105" "案件狀態一致性（已承攬⇔承攬案⇔project_code）"
 run_step "106" "指派即應付（協力廠商指派⇔應付）" "scripts/checks/vendor_association_payable_audit.py"
 # 107（09-04 /loop 名稱標準化）：名稱欄是快照、鍵欄才是關聯——可精確對上主檔卻沒填鍵＝RED
 run_step "107" "名稱欄 vs 鍵欄一致性（id 是鍵、名稱是快照）" "scripts/checks/name_id_pair_consistency_audit.py"
+# 108（09-05 owner「統計圖卡對應動態篩選為首要核心」）：卡片點了只換底色＝假互動；09-04 兩頁四張卡就是這樣
+run_step "108" "統計卡是否接到篩選（假互動偵測）" "scripts/checks/stat_card_filter_wiring_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

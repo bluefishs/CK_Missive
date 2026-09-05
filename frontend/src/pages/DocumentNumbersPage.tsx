@@ -97,6 +97,10 @@ export const DocumentNumbersPage: React.FC = () => {
     page: pagination.page,
     limit: pagination.limit,
     ...(sortField && { sortBy: sortField }),
+    // 2026-09-05 owner「統計圖卡對應動態篩選為首要核心」：這四張卡此前只換底色。電子／紙本→發文形式，本年度→年度
+    ...(statFilter === 'electronic' && { delivery_method: '電子交換' }),
+    ...(statFilter === 'paper' && { delivery_method: '紙本郵寄' }),
+    ...(statFilter === 'current_year' && { year: new Date().getFullYear() }),
     ...(sortOrder && { sortOrder: sortOrder === 'ascend' ? 'asc' : 'desc' }),
   });
 
