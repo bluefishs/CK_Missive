@@ -458,7 +458,7 @@ export const StaffPage: React.FC = () => {
           )}
           rowKey="id"
           loading={loading}
-          scroll={{ x: isMobile ? 300 : 1000 }}
+          // 2026-09-05：不再自帶 scroll.x——探針 768px 整頁溢出 32px 的來源；交給 ResponsiveTable（窄螢幕 max-content 橫向捲動）
           mobileHiddenColumns={['username', 'position', 'last_login']}
           onRow={(record) => ({
             onClick: () => handleEdit(record),

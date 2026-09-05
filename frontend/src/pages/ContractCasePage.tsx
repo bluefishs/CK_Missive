@@ -364,6 +364,8 @@ export const ContractCasePage: React.FC = () => {
         {total > 0 && (
           <div style={{ marginTop: 16, textAlign: 'right' }}>
             <Pagination
+              simple={isMobile}  // 2026-09-05：390px 探針量到分頁鈕溢出 7px；手機用精簡分頁
+              size={isMobile ? 'small' : undefined}
               current={currentPage}
               pageSize={pageSize}
               total={total}
