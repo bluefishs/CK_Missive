@@ -34,7 +34,7 @@
 | `ResponsiveFormRow` | 13／58 個表單頁 | 表單列響應式只覆蓋 22% |
 | `isMobile` 分支 | 45 | 各頁各寫，沒有共同的「窄螢幕該長什麼樣」 |
 | `Modal` | 46 | 規範 CRUD＝navigate，但仍有 46 檔用 Modal（多為輔助操作）；手機上 Modal 常超出視窗 |
-| 側欄 `Sidebar` | — | 只有手動 `collapsed`，**沒有依寬度自動收合、沒有手機 Drawer 模式** |
+| 側欄 `Layout` | — | < 768px 已是 Drawer 模式（漢堡鈕），768–1199 仍固定展開 200px（校正：初版誤寫為沒有 Drawer） |
 | 全域 CSS `@media` | 30 處（`styles/responsive.css` 7 段） | 有斷點骨架，但頁面層很少用它 |
 
 ### 1.3 被 `hideOnMobile` 藏掉的欄位（< 992px 消失）
@@ -54,7 +54,7 @@
 | 現有 | 做什麼 | 缺口 |
 |---|---|---|
 | weekly 81 `responsive_narrow_convergence_audit` | 靜態：表格包裝不得只看 `isMobile` | 只管元件寫法，**不量頁面** |
-| 08-02 一次性 Playwright 量測 | 12 頁整頁溢出（用可控視窗寬，不是 `isMobile:true`） | **一次性**，沒有接進排程；memory `mobile_layout_measurement_pitfalls` 記了四個陷阱 |
+| 每日 04:30 `ui_page_sweep` 行動探針（`selfaudit.config.json` `mobile_probe`） | 31 頁＋10 詳情頁 × 390／768，量整頁溢出、表格溢出、撐寬元素 | **門檻 400px 太寬**：09-04 基準 11 列溢出（7–84px）沒有一列會紅；沒有 1024 寬度（校正：初版誤寫為一次性） |
 | 部署探針 | 端點與業務鏈 | 不看版面 |
 
 ⇒ 今天的兩個回報，沒有任何一支檢核會在 owner 之前看到。
@@ -68,7 +68,7 @@
 | P3 | 判準看視窗寬不看內容區寬 | 側欄展開時實際可用寬度更小，設定卻以為還是桌面 |
 | P4 | 兩套表格包裝＋裸 Table | 修好一套另一套重演（weekly 81 就是這樣來的） |
 | P5 | 固定 `scroll.x` 40 檔 | 窄螢幕必橫捲；手機上表格不可讀 |
-| P6 | 側欄無自動收合／無 Drawer | 手機進站側欄吃掉 200px |
+| P6 | 側欄 768–1199 固定展開 | 平板與小筆電內容區被吃掉 200px（手機已是 Drawer） |
 | P7 | 表單只有 22% 用 `ResponsiveFormRow`；Modal 46 檔 | 手機填報體驗不一致 |
 | P8 | 沒有頁面級量測閘門 | 問題只能靠人撞到 |
 
@@ -91,7 +91,7 @@
 | **P1（下週）** | ①`priority` 三級取代 `hideOnMobile`，15 檔 30 欄逐欄定級 ②`secondary` 欄折進主欄第二行（`EnhancedTable` 內建） ③`ResponsiveTable` 8 檔併入 `EnhancedTable` | 表格包裝＋23 檔 | weekly 81 改判「不得再出現 `hideOnMobile`／`mobileHiddenColumns`」 |
 | **P2（09-05 第一批已上線：五個列表的手機卡片；側欄 Drawer 原本就有）** | ①手機卡片版面：報價單／承攬案／PM 案／委託單位帳款／廠商帳款 5 個列表 ②側欄 Drawer ③`scroll.x` 改由欄寬加總自動算，不再手填 | 5 頁＋版面 | 部署探針加「四寬度截圖」（人看） |
 | **P3（三週）** | ①表單：`ResponsiveFormRow` 覆蓋到 58 個表單頁；Modal 在 < 768 改全螢幕 Drawer ②詳情頁 `Descriptions` 欄數依寬度 1／2／3 ③統計卡 xs 兩欄 | 表單與詳情 | — |
-| **P4（並行）** | **RWD 量測閘門**：`scripts/checks/rwd_overflow_probe.py`（Playwright，可控視窗寬，避開 memory 記的四個陷阱），20 頁 × 4 寬度，週跑；RED＝整頁溢出或 primary 欄被藏 | 新腳本＋weekly | 這是讓 P0–P3 不倒退的東西 |
+| **P4（09-05 已調）** | 既有每日行動探針：`overflow_warn_px` 400 → **24**、加 1024 寬度；09-04 基準 11 列溢出（/pm/cases 84px、/staff 32px、報價單詳情 19px…）改版後逐列比對 | `selfaudit.config.json` | 這是讓 P0–P3 不倒退的東西 |
 
 **先做 P0 與 P4**：P0 立刻止血（今天這類事不再發生），P4 讓之後每一步都有人在量。P1–P3 要 owner 定優先順序——
 建議順序＝表格（P1）→ 量測（P4 已在）→ 手機卡片（P2）→ 表單（P3），因為使用量集中在列表頁。
