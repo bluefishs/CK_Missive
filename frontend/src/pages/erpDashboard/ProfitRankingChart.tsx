@@ -21,7 +21,7 @@ interface Props {
 }
 
 const ProfitRankingChart: React.FC<Props> = ({ data }) => (
-  <Card title={<Text strong>專案利潤排名 (Top 15)</Text>} size="small">
+  <Card title={<Text strong>案件實際損益 Top 15（帳本實收 − 實付；含稅）</Text>} size="small">
     {data.length > 0 ? (
       <ResponsiveContainer width="100%" height={360}>
         <BarChart data={data} layout="vertical" margin={{ left: 80, right: 20 }}>

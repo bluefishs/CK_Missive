@@ -11,12 +11,17 @@ import { EnhancedTable } from '../components/common/EnhancedTable';
 import { ReloadOutlined, WarningOutlined, DownloadOutlined, ProjectOutlined, ShopOutlined, ToolOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
-import { useCompanyFinancialOverview, useAllProjectsSummary, useExportExpenses, useExportLedger, useMonthlyTrend, useBudgetRanking, useAgingAnalysis } from '../hooks';
-import type { ProjectFinancialSummary, CompanyOverviewRequest, BudgetRankingItem, AgingBucket } from '../types/erp';
+import { useCompanyFinancialOverview, useAllProjectsSummary, useExportExpenses, useExportLedger, useMonthlyTrend, useAgingAnalysis } from '../hooks';
+import type { ProjectFinancialSummary, CompanyOverviewRequest, AgingBucket } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
+import { useERPProfitSummary } from '../hooks/business/useERPQuotations';
+import { useClientAccountSummary } from '../hooks/business/useERPFinance';
+import { ClickableStatCard } from '../components/common';
+import { termTitle } from '../constants/financeTerms';
+import { fmtMoney } from '../utils/money';
 import { ROUTES } from '../router/types';
 import {
-  ProfitRankingChart, CategoryPieChart, MonthlyTrendChart, BudgetRankingChart,
+  ProfitRankingChart, CategoryPieChart, MonthlyTrendChart,
 } from './erpDashboard';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -57,16 +62,31 @@ const ERPFinancialDashboardPage: React.FC = () => {
   const { data: overviewData, isLoading: overviewLoading, isError: overviewError, refetch: refetchOverview } = useCompanyFinancialOverview(overviewParams);
   const { data: projectsData, isLoading: projectsLoading } = useAllProjectsSummary({ year: projectsYear, limit: 50 });
   const { data: trendData, isLoading: trendLoading } = useMonthlyTrend({ months: 12 });
-  const { data: rankingData, isLoading: rankingLoading } = useBudgetRanking({ top_n: 15 });
   const { data: arAgingData, isLoading: arAgingLoading } = useAgingAnalysis({ direction: 'receivable' });
   const { data: apAgingData, isLoading: apAgingLoading } = useAgingAnalysis({ direction: 'payable' });
+  // 2026-09-05 財務主管 KPI：承攬金額／已請款／已收／應收未收（與 /erp/quotations 同口徑、同年度）
+  const kpiYear = new Date().getFullYear();
+  const { data: kpi } = useERPProfitSummary({ year: kpiYear });
+  // 委託單位未收集中度：全部年度、取全（186 家 < 1000）
+  const { data: clientAcc } = useClientAccountSummary({ vendor_type: 'client', year: 0, limit: 1000 });
+  const overdueAr = useMemo(() => {
+    const b = arAgingData?.data?.buckets ?? [];
+    return b.filter((x) => x.bucket !== '0-30').reduce((a, x) => a + Number(x.amount || 0), 0);
+  }, [arAgingData]);
+  const clientConcentration = useMemo(() => {
+    const items = clientAcc?.items ?? [];
+    return [...items]
+      .map((c) => ({ name: (c.vendor_name || '').slice(0, 12), outstanding: Number(c.outstanding ?? 0), billed: Number(c.total_billed ?? 0), vendor_id: c.vendor_id }))
+      .filter((c) => c.outstanding > 0)
+      .sort((a, b) => b.outstanding - a.outstanding)
+      .slice(0, 10);
+  }, [clientAcc]);
   const exportExpensesMutation = useExportExpenses();
   const exportLedgerMutation = useExportLedger();
 
   const overview = overviewData?.data;
   const projects = useMemo(() => projectsData?.items ?? [], [projectsData?.items]);
   const trendMonths = trendData?.data?.months ?? [];
-  const rankingItems: BudgetRankingItem[] = rankingData?.data?.items ?? [];
   const arBuckets = arAgingData?.data?.buckets ?? [];
   // AR vs AP 對比圖資料
   const arVsApData = useMemo(() => {
@@ -199,8 +219,27 @@ const ERPFinancialDashboardPage: React.FC = () => {
       {overviewError && <Alert type="error" message="財務資料載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
       {/* 全公司財務總覽 */}
+      {/* 2026-09-05 owner：財務主管要看的是「該收多少、收了多少、誰欠、欠多久」，不是帳本流水。
+          這一列與 /erp/quotations、帳齡分析同口徑（含稅、當年度）；每張卡點進對應列表。 */}
+      <Card size="small" style={{ marginBottom: 16 }} title={<Text strong>財務主管指標（{kpiYear} 年度，含稅）</Text>}>
+        <Row gutter={[12, 12]}>
+          <Col xs={12} sm={8} lg={4}><ClickableStatCard title={termTitle('contract_amount_sum')} value={fmtMoney(kpi?.total_awarded)} color="#1890ff"
+            onClick={() => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${kpiYear}`)} /></Col>
+          <Col xs={12} sm={8} lg={4}><ClickableStatCard title={termTitle('billed')} value={fmtMoney(kpi?.total_billed)} color="#2f54eb"
+            onClick={() => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${kpiYear}`)} /></Col>
+          <Col xs={12} sm={8} lg={4}><ClickableStatCard title={termTitle('received')} value={fmtMoney(kpi?.total_received)} color="#52c41a"
+            onClick={() => navigate(ROUTES.ERP_CLIENT_ACCOUNTS)} /></Col>
+          <Col xs={12} sm={8} lg={4}><ClickableStatCard title={termTitle('outstanding')} value={fmtMoney(kpi?.total_outstanding)} color="#fa8c16"
+            onClick={() => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${kpiYear}&card=outstanding`)} /></Col>
+          <Col xs={12} sm={8} lg={4}><ClickableStatCard title="逾期未收（>30 天）" value={fmtMoney(overdueAr)} color="#cf1322"
+            onClick={() => navigate(ROUTES.ERP_CLIENT_ACCOUNTS)} /></Col>
+          <Col xs={12} sm={8} lg={4}><ClickableStatCard title={termTitle('payable_outstanding')} value={fmtMoney(apAgingData?.data?.total_outstanding)} color="#722ed1"
+            onClick={() => navigate(ROUTES.ERP_VENDOR_ACCOUNTS)} /></Col>
+        </Row>
+      </Card>
+
       <Card
-        title={<Title level={3} style={{ margin: 0 }}>財務儀表板</Title>}
+        title={<Space direction="vertical" size={0}><Title level={3} style={{ margin: 0 }}>財務儀表板</Title><Text type="secondary" style={{ fontSize: 12 }}>下列為帳本現金口徑：收入＝已入帳收款、支出＝已付應付＋費用核銷；與上方應收面（含稅、依承攬金額）是兩個不同的問題</Text></Space>}
         extra={
           <Space>
             <Button icon={<DownloadOutlined />} onClick={() => exportExpensesMutation.mutate({})} loading={exportExpensesMutation.isPending}>匯出費用</Button>
@@ -215,14 +254,14 @@ const ERPFinancialDashboardPage: React.FC = () => {
           <>
             <Row gutter={[16, 16]}>
               <Col xs={12} sm={6}>
-                <Statistic title="總收入" value={Number(overview.total_income)} precision={0} styles={{ content: { color: '#3f8600' } }} />
+                <Statistic title="帳本收入（已入帳）" value={Number(overview.total_income)} precision={0} styles={{ content: { color: '#3f8600' } }} />
               </Col>
               <Col xs={12} sm={6}>
-                <Statistic title="總支出" value={Number(overview.total_expense)} precision={0} styles={{ content: { color: '#cf1322' } }} />
+                <Statistic title="帳本支出（已付＋核銷）" value={Number(overview.total_expense)} precision={0} styles={{ content: { color: '#cf1322' } }} />
               </Col>
               <Col xs={12} sm={6}>
                 <Statistic
-                  title="淨額"
+                  title="現金淨額"
                   value={Number(overview.net_balance)}
                   precision={0}
                   styles={{ content: { color: Number(overview.net_balance) >= 0 ? '#3f8600' : '#cf1322' } }}
@@ -290,7 +329,20 @@ const ERPFinancialDashboardPage: React.FC = () => {
           />
         </Col>
         <Col xs={24} lg={10}>
-          <BudgetRankingChart data={rankingItems} loading={rankingLoading} />
+          {/* 2026-09-05 owner：「預算使用率排行」其實是帳本支出÷收入，對財務主管沒有決策意義 ⇒ 換成「誰欠我們最多」 */}
+          <Card title={<Text strong>委託單位未收集中度（Top 10，全部年度）</Text>} size="small">
+            {clientConcentration.length === 0 ? <Text type="secondary">目前沒有未收餘額</Text> : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={clientConcentration} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" tickFormatter={(v) => `${Math.round(Number(v) / 10000)}萬`} />
+                  <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(v) => fmtMoney(v)} />
+                  <Bar dataKey="outstanding" name="未收" fill="#fa8c16" onClick={(d) => { const id = (d as { vendor_id?: number }).vendor_id; if (id != null) navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${id}`); }} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
         </Col>
       </Row>
 

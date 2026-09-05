@@ -11,7 +11,7 @@ import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useERPQuotations, useERPProfitSummary, useAuthGuard } from '../hooks';
 import { useERPQuotationClientOptions } from '../hooks/business/useERPQuotations';
 import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
@@ -72,7 +72,19 @@ export const ERPQuotationListPage: React.FC = () => {
   };
   // 2026-09-04 owner：「專案帳款接續處理已承攬案件，不含非成案紀錄」——固定只列成案（後端預設 include_unawarded=false），
   // 「含未成案」開關已移除；未成案的報價單在各案件的「報價單」分頁處理。
-  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'case_code', sort_order: 'desc', year: CURRENT_YEAR });
+  // 2026-09-05：儀表板 KPI 卡點進來會帶 ?year=&card=&category=&client_name=，這裡當初始篩選
+  const [searchParams] = useSearchParams();
+  const [params, setParams] = useState<ERPQuotationListParams>(() => {
+    const y = Number(searchParams.get('year'));
+    const card = searchParams.get('card') as ERPQuotationListParams['card'] | null;
+    return {
+      page: 1, limit: 20, sort_by: 'case_code', sort_order: 'desc',
+      year: Number.isFinite(y) && y > 0 ? y : CURRENT_YEAR,
+      ...(card ? { card } : {}),
+      ...(searchParams.get('category') ? { category: searchParams.get('category') as string } : {}),
+      ...(searchParams.get('client_name') ? { client_name: searchParams.get('client_name') as string } : {}),
+    };
+  });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);
   // 選項與列表同一個年度／類別範圍——否則預設 2026 下 178 家有 84 家選了是空表（owner 09-04 晚）
   const { data: clientOptionsResp } = useERPQuotationClientOptions({ year: params.year, category: params.category });
