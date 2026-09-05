@@ -206,7 +206,7 @@ const ERPClientAccountsPage: React.FC = () => {
         style={{ marginBottom: 16 }}
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          <Col xs={24} sm={6}>
+          <Col xs={12} sm={6}>
             <ClickableStatCard
               title={termTitle('contract_amount_sum')}
               value={stats.totalContract.toLocaleString()}
@@ -216,7 +216,7 @@ const ERPClientAccountsPage: React.FC = () => {
               onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
             />
           </Col>
-          <Col xs={24} sm={6}>
+          <Col xs={12} sm={6}>
             <ClickableStatCard
               title={termTitle('billed')}
               value={stats.totalBilled.toLocaleString()}
@@ -226,7 +226,7 @@ const ERPClientAccountsPage: React.FC = () => {
               onClick={() => setStatFilter(statFilter === 'billed' ? null : 'billed')}
             />
           </Col>
-          <Col xs={24} sm={6}>
+          <Col xs={12} sm={6}>
             <ClickableStatCard
               title={termTitle('received')}
               value={stats.totalReceived.toLocaleString()}
@@ -236,7 +236,7 @@ const ERPClientAccountsPage: React.FC = () => {
               onClick={() => setStatFilter(statFilter === 'received' ? null : 'received')}
             />
           </Col>
-          <Col xs={24} sm={6}>
+          <Col xs={12} sm={6}>
             <ClickableStatCard
               title={termTitle('outstanding')}
               value={stats.totalOutstanding.toLocaleString()}

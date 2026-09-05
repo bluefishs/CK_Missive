@@ -208,7 +208,7 @@ const ERPVendorAccountsPage: React.FC = () => {
         style={{ marginBottom: 16 }}
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          <Col xs={24} sm={8}>
+          <Col xs={12} sm={8}>
             <ClickableStatCard
               title={termTitle('payable_total', '總應付')}
               value={stats.totalPayable.toLocaleString()}
@@ -218,7 +218,7 @@ const ERPVendorAccountsPage: React.FC = () => {
               onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
             />
           </Col>
-          <Col xs={24} sm={8}>
+          <Col xs={12} sm={8}>
             <ClickableStatCard
               title={termTitle('paid_total', '總已付')}
               value={stats.totalPaid.toLocaleString()}
@@ -228,7 +228,7 @@ const ERPVendorAccountsPage: React.FC = () => {
               onClick={() => setStatFilter(statFilter === 'paid' ? null : 'paid')}
             />
           </Col>
-          <Col xs={24} sm={8}>
+          <Col xs={12} sm={8}>
             <ClickableStatCard
               title={termTitle('payable_outstanding', '總未付')}
               value={stats.totalOutstanding.toLocaleString()}

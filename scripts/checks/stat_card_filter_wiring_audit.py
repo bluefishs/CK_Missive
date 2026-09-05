@@ -112,7 +112,11 @@ def main() -> int:
                     break
             if not wired:
                 reds.append((rel, title, f"只做 {'/'.join(setters)}，該 state 沒有人讀 ⇒ 點了只換底色"))
-    print(f"卡片 {total} 張；假互動 {len(reds)}；純顯示未登記 {len(yels)}")
+        # 2026-09-05 owner「統計卡片部分頁面採獨立列，應統一如 /erp/quotations」：卡片的 <Col> 手機不得整行（xs={24}）
+        for m in re.finditer(r"<Col([^>]*)>\s*(?:\{/\*.*?\*/\}\s*)?<ClickableStatCard", src, re.S):
+            if "xs={24}" in m.group(1):
+                yels.append((rel, "（網格）", "統計卡 Col 用 xs={24}＝手機每張獨立一列；規範＝xs={12}（同 /erp/quotations）"))
+    print(f"卡片 {total} 張；假互動 {len(reds)}；純顯示未登記／網格不合 {len(yels)}")
     for r in reds:
         print(f"  [RED] {r[0]}「{r[1]}」{r[2]}")
     for y in yels:

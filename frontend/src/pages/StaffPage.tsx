@@ -345,7 +345,7 @@ export const StaffPage: React.FC = () => {
           只是卡片沒有接上去 —— 使用者看到「啟用中 12」的下一個動作必然是
           「哪 12 個」，而先前那是一個看得到、點不動的數字。 */}
       <Row gutter={[8, 8]} style={{ marginBottom: isMobile ? 12 : 16 }}>
-        <Col xs={8} sm={8}>
+        <Col xs={12} sm={8}>
           <ClickableStatCard
             title={isMobile ? '總數' : '總人數'}
             value={stats.total}
@@ -354,7 +354,7 @@ export const StaffPage: React.FC = () => {
             onClick={() => { setActiveFilter(undefined); setCurrent(1); }}
           />
         </Col>
-        <Col xs={8} sm={8}>
+        <Col xs={12} sm={8}>
           <ClickableStatCard
             title={isMobile ? '啟用' : '啟用中'}
             value={stats.active}
@@ -364,7 +364,7 @@ export const StaffPage: React.FC = () => {
             onClick={() => { setActiveFilter(activeFilter === true ? undefined : true); setCurrent(1); }}
           />
         </Col>
-        <Col xs={8} sm={8}>
+        <Col xs={12} sm={8}>
           <ClickableStatCard
             title={isMobile ? '停用' : '已停用'}
             value={stats.inactive}

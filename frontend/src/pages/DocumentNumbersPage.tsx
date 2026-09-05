@@ -287,7 +287,7 @@ export const DocumentNumbersPage: React.FC = () => {
 
       {/* 統計卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={6}>
+        <Col xs={12} sm={6}>
           <ClickableStatCard
             title="總發文數"
             value={stats?.send_count ?? stats?.send ?? 0}
@@ -296,7 +296,7 @@ export const DocumentNumbersPage: React.FC = () => {
             onClick={() => setStatFilter(statFilter === 'all' ? null : 'all')}
           />
         </Col>
-        <Col xs={24} sm={6}>
+        <Col xs={12} sm={6}>
           <ClickableStatCard
             title="電子交換"
             value={stats?.delivery_method_stats?.electronic ?? 0}
@@ -307,7 +307,7 @@ export const DocumentNumbersPage: React.FC = () => {
             onClick={() => setStatFilter(statFilter === 'electronic' ? null : 'electronic')}
           />
         </Col>
-        <Col xs={24} sm={6}>
+        <Col xs={12} sm={6}>
           <ClickableStatCard
             title="紙本郵寄"
             value={stats?.delivery_method_stats?.paper ?? 0}
@@ -318,7 +318,7 @@ export const DocumentNumbersPage: React.FC = () => {
             onClick={() => setStatFilter(statFilter === 'paper' ? null : 'paper')}
           />
         </Col>
-        <Col xs={24} sm={6}>
+        <Col xs={12} sm={6}>
           <ClickableStatCard
             title="本年度發文數"
             value={stats?.current_year_send_count ?? 0}

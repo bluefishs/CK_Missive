@@ -326,16 +326,16 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
     <div>
       {/* 統計摘要 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={8}><ClickableStatCard title={`${dirLabel}總額`} value={totalRequest}
+        <Col xs={12} sm={8}><ClickableStatCard title={`${dirLabel}總額`} value={totalRequest}
           active={statFilter === 'all'} onClick={() => setStatFilter('all')} /></Col>
-        <Col xs={24} sm={8}><ClickableStatCard
+        <Col xs={12} sm={8}><ClickableStatCard
           title={paidButNoAmount.length
             ? `已${paymentLabel}（${paidButNoAmount.length} 筆缺金額）`
             : `已${paymentLabel}`}
           value={totalPaid}
           color={paidButNoAmount.length ? '#faad14' : '#52c41a'}
           active={statFilter === 'paid'} onClick={() => setStatFilter('paid')} /></Col>
-        <Col xs={24} sm={8}><ClickableStatCard title="未結餘額" value={outstanding}
+        <Col xs={12} sm={8}><ClickableStatCard title="未結餘額" value={outstanding}
           color={outstanding > 0 ? '#ff4d4f' : '#52c41a'}
           active={statFilter === 'outstanding'} onClick={() => setStatFilter('outstanding')} /></Col>
       </Row>
