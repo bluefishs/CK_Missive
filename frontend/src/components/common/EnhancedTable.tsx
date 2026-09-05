@@ -101,12 +101,12 @@ export function EnhancedTable<T extends R = any>(props: EnhancedTableProps<T>) {
     // 窄螢幕另需拿掉固定 width：否則各欄 width 加總仍會把 <table> 撐到遠超視窗
     // （2026-08-02 實測：/erp/quotations 隱藏欄位後只剩 4 欄，<table> 仍是 1000px，
     //   因為剩下的欄位各自帶著桌面版的固定寬度，配上 scroll.x='max-content' 就展開了）
+    // 2026-09-05 owner「列表欄寬與文字比例最佳設定」：窄螢幕**不再拿掉欄寬**。
+    // 08-02 拿掉欄寬是為了不把 <table> 撐到視窗外，代價是 13 欄擠成每欄 38px（案名剩兩個字、金額折三行）。
+    // 改法：欄寬照桌面、改用橫向捲動（scroll.x='max-content'），每欄維持可讀寬度；
+    // 真手機（< 768）給了 mobileCard 就不畫表格，沒給的也走橫向捲動而不是擠壓。
     if (isNarrow) {
-      visible = visible.map((c) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { width: _unusedWidth, ...rest } = c as ColumnType<T>;
-        return { ...rest, ellipsis: (c as ColumnType<T>).ellipsis ?? { showTitle: true } };
-      });
+      visible = visible.map((c) => ({ ...(c as ColumnType<T>), ellipsis: (c as ColumnType<T>).ellipsis ?? { showTitle: true } }));
     }
     const responsive = autoResponsiveColumns(visible);
     // 窄螢幕不自動加排序/篩選（2026-08-04）。
@@ -167,9 +167,9 @@ export function EnhancedTable<T extends R = any>(props: EnhancedTableProps<T>) {
       // 否則「可以橫向捲」實際體感就是每一列都要左右滑才看得完。
       // tableLayout='fixed' 是必要的：移除 scroll.x 後 AntD 會退回 auto layout，
       // 長內容（如公文標題）會把欄位撐開 —— 實測 /documents 因此從 158px 惡化到 778px。
-      scroll={isNarrow ? { ...scroll, x: undefined } : { x: 'max-content', ...scroll }}
+      scroll={isNarrow ? { ...scroll, x: 'max-content' } : { x: 'max-content', ...scroll }}
       {...rest}
-      tableLayout={isNarrow ? 'fixed' : rest.tableLayout}
+      tableLayout={isNarrow ? 'auto' : rest.tableLayout}
       // 窄螢幕一律 small（2026-08-04）：AntD middle 的儲存格左右內距各 16px，
       // 4 欄就吃掉 128px —— 在 390px 下實測讓「姓名」被截成兩個字。
       // small 是 8px，同樣 4 欄多出 64px 給內容。放在 rest 之後才蓋得掉呼叫端傳的 size

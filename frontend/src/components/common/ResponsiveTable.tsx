@@ -94,11 +94,9 @@ function ResponsiveTableInner<T extends object>(
   // 窄螢幕拿掉固定 width，讓表格適應容器（與 EnhancedTable 同一套行為）。
   // 2026-08-02：本元件原本在 xs 仍給 scroll.x=500，等於**強制**表格比 390px 視窗寬，
   // 實測 /contract-cases 外溢 633px、/taoyuan/dispatch 734px —— 設定本身就在製造橫向捲動。
+  // 2026-09-05：窄螢幕保留欄寬、橫向捲動（同 EnhancedTable），不再擠壓
   if (isNarrow) {
-    filteredColumns = (filteredColumns as ColumnType<T>[]).map((c) => {
-      const { width: _unusedWidth, ...rest } = c;  // eslint-disable-line @typescript-eslint/no-unused-vars
-      return { ...rest, ellipsis: c.ellipsis ?? { showTitle: true } };
-    });
+    filteredColumns = (filteredColumns as ColumnType<T>[]).map((c) => ({ ...c, ellipsis: c.ellipsis ?? { showTitle: true } }));
   }
 
   // 伺服器分頁 ⇒ 剝掉只作用於當前這一頁的排序／篩選／欄位搜尋（2026-08-31）。
@@ -134,12 +132,12 @@ function ResponsiveTableInner<T extends object>(
       columns={filteredColumns}
       // 窄螢幕刻意忽略呼叫端傳入的 scroll.x —— 那是為桌面挑的固定寬度
       // （實測 DispatchOrdersTab 傳 x:1530、ProjectsTab 傳 x:1100，在 390px 下等於強制橫向捲）
-      scroll={isNarrow ? { ...scroll, x: undefined } : { x: scroll?.x ?? scrollX, ...scroll }}
+      scroll={isNarrow ? { ...scroll, x: 'max-content' } : { x: scroll?.x ?? scrollX, ...scroll }}
       size={size ?? (isNarrow ? 'small' : 'middle')}
       {...props}
       // ⚠️ tableLayout 必須寫在 `{...props}` **之後** —— 展開運算子裡的
       // tableLayout（即使值是 undefined）會覆蓋寫在前面的那一行，寫了等於沒寫。
-      tableLayout={isNarrow ? 'fixed' : props.tableLayout}
+      tableLayout={isNarrow ? 'auto' : props.tableLayout}
     />
   );
 }

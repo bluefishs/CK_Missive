@@ -439,3 +439,40 @@
 .ck-filterbar-mobile-body .ant-input-search, .ck-filterbar-mobile-body .ant-picker { width: 100% !important; }
 .ck-filterbar-mobile-body .ant-row { row-gap: 8px !important; }
 .ck-filterbar-mobile-body .ant-col { flex: 0 0 100% !important; max-width: 100% !important; }
+
+/* ── 文字比例三級（2026-09-05 owner「列表欄寬與文字比例最佳設定」）──
+   桌面 ≥ 1200：AntD 預設 14px；平板 768–1199：表格 13px、標題 15px；手機 < 768：表格 12.5px、內文 14px、卡片標題 15px */
+@media (max-width: 1199px) {
+  .ant-table { font-size: 13px; }
+  .ant-table-thead > tr > th { font-size: 12px; padding: 8px 8px !important; white-space: nowrap; }
+  .ant-table-tbody > tr > td { padding: 8px 8px !important; }
+  .ant-card-head-title { font-size: 15px; }
+}
+@media (max-width: 767px) {
+  .ant-table { font-size: 12.5px; }
+  .ant-table-thead > tr > th, .ant-table-tbody > tr > td { padding: 6px 6px !important; }
+  .ant-tag { font-size: 11px; line-height: 18px; padding-inline: 5px; }
+  .ant-page-header-heading-title, .page-title { font-size: 17px !important; }
+  .ant-typography h3 { font-size: 16px !important; }
+}
+
+/* ── MobileCard（手機列表卡）：一份樣式，各頁不自畫 ── */
+.ck-mcard { padding: 12px 12px 10px; margin-bottom: 10px; border-radius: 10px; background: #fff; border: 1px solid #e5e7eb; }
+.ck-mcard-clickable { cursor: pointer; }
+.ck-mcard-clickable:active { background: #f5f7fa; }
+.ck-mcard-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.ck-mcard-heading { min-width: 0; flex: 1; }
+.ck-mcard-title { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; color: #4b5563; word-break: break-all; letter-spacing: .01em; }
+.ck-mcard-subtitle { font-weight: 600; font-size: 15px; line-height: 1.4; margin-top: 2px; word-break: break-word; color: #111827; }
+.ck-mcard-tags { justify-content: flex-end; flex-shrink: 0; }
+.ck-mcard-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 8px; font-size: 13px; }
+.ck-mcard-row { min-width: 0; }
+.ck-mcard-label { font-size: 11.5px !important; display: block; }
+.ck-mcard-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1f2937; }
+.ck-mcard-amounts { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e5e7eb; font-variant-numeric: tabular-nums; }
+.ck-mcard-amount { min-width: 0; text-align: right; }
+.ck-mcard-amount:first-child { text-align: left; }
+.ck-mcard-amount-value { font-size: 16px; font-weight: 600; line-height: 1.3; }
+.ck-mcard-amount-good .ck-mcard-amount-value { color: #15803d; }
+.ck-mcard-amount-warn .ck-mcard-amount-value { color: #b45309; }
+.ck-mcard-amount-bad .ck-mcard-amount-value { color: #b91c1c; }

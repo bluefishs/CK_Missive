@@ -37,46 +37,41 @@ export interface MobileCardProps {
   onClick?: () => void;
 }
 
-const TONE: Record<string, string> = { good: '#15803d', warn: '#b45309', bad: '#b91c1c', default: 'inherit' };
-
 export const MobileCard: React.FC<MobileCardProps> = ({ title, subtitle, tags, rows, amounts, onClick }) => (
   <div
+    className={`ck-mcard${onClick ? ' ck-mcard-clickable' : ''}`}
     onClick={onClick}
     role={onClick ? 'button' : undefined}
     tabIndex={onClick ? 0 : undefined}
     onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
-    style={{
-      padding: '12px 12px 10px', marginBottom: 10, borderRadius: 10,
-      background: '#fff', border: '1px solid #e5e7eb', cursor: onClick ? 'pointer' : 'default',
-    }}
   >
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 13, color: '#374151', wordBreak: 'break-all' }}>{title}</div>
-        {subtitle && <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.35, marginTop: 2, wordBreak: 'break-word' }}>{subtitle}</div>}
+    <div className="ck-mcard-head">
+      <div className="ck-mcard-heading">
+        <div className="ck-mcard-title">{title}</div>
+        {subtitle && <div className="ck-mcard-subtitle">{subtitle}</div>}
       </div>
       {tags && tags.length > 0 && (
-        <Space size={4} wrap style={{ justifyContent: 'flex-end', flexShrink: 0 }}>
+        <Space size={4} wrap className="ck-mcard-tags">
           {tags.map((t, i) => <Tag key={i} color={t.color} style={{ margin: 0 }}>{t.text}</Tag>)}
         </Space>
       )}
     </div>
     {rows && rows.length > 0 && (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', marginTop: 8, fontSize: 13 }}>
+      <div className="ck-mcard-rows">
         {rows.map((r, i) => (
-          <div key={i} style={{ minWidth: 0 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>{r.label}</Text>
-            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.value ?? '—'}</div>
+          <div key={i} className="ck-mcard-row">
+            <Text type="secondary" className="ck-mcard-label">{r.label}</Text>
+            <div className="ck-mcard-value">{r.value ?? '—'}</div>
           </div>
         ))}
       </div>
     )}
     {amounts && amounts.length > 0 && (
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px dashed #e5e7eb', fontVariantNumeric: 'tabular-nums' }}>
+      <div className="ck-mcard-amounts">
         {amounts.map((a, i) => (
-          <div key={i} style={{ textAlign: i === 0 ? 'left' : 'right', minWidth: 0 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>{a.label}</Text>
-            <div style={{ fontSize: 16, fontWeight: 600, color: TONE[a.tone ?? 'default'] }}>{a.value ?? '—'}</div>
+          <div key={i} className={`ck-mcard-amount ck-mcard-amount-${a.tone ?? 'default'}`}>
+            <Text type="secondary" className="ck-mcard-label">{a.label}</Text>
+            <div className="ck-mcard-amount-value">{a.value ?? '—'}</div>
           </div>
         ))}
       </div>
