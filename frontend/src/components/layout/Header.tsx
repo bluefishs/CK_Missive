@@ -13,6 +13,7 @@ import {
   LogoutOutlined,
   ProfileOutlined,
   BulbOutlined,
+  MobileOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { UserInfo } from '../../services/authService';
@@ -20,6 +21,7 @@ import authService from '../../services/authService';
 import { NotificationCenter } from '../common';
 import { IdleCountdownBadge } from './IdleCountdownBadge';
 import { logger } from '../../services/logger';
+import { useResponsive } from '../../hooks/utility/useResponsive';
 import { getRoleDisplayName } from '../../constants/permissions';
 
 const { Header: AntHeader } = Layout;
@@ -42,6 +44,7 @@ const Header: React.FC<HeaderProps> = ({
   isMobile = false,
 }) => {
   const navigate = useNavigate();
+  const { layoutMode, setLayoutMode, deviceMobile } = useResponsive();
 
   // 角色顯示名稱一律走 SSOT（`constants/permissions.ts` 的 USER_ROLES）。
   //
@@ -72,6 +75,18 @@ const Header: React.FC<HeaderProps> = ({
       icon: <ProfileOutlined />,
       label: '個人設定',
       onClick: () => navigate('/profile'),
+    },
+    { type: "divider" as const },
+    {
+      // 2026-09-05 owner：偵測登入裝置自動切換 RWD 模式；這裡讓使用者也能強制
+      key: 'layout',
+      icon: <MobileOutlined />,
+      label: `版面：${layoutMode === 'mobile' ? '手機版' : layoutMode === 'desktop' ? '桌面版' : `自動（偵測為${deviceMobile ? '行動裝置' : '桌面'}）`}`,
+      children: [
+        { key: 'layout-auto', label: `自動${layoutMode === 'auto' ? ' ✓' : ''}`, onClick: () => setLayoutMode('auto') },
+        { key: 'layout-mobile', label: `手機版${layoutMode === 'mobile' ? ' ✓' : ''}`, onClick: () => setLayoutMode('mobile') },
+        { key: 'layout-desktop', label: `桌面版${layoutMode === 'desktop' ? ' ✓' : ''}`, onClick: () => setLayoutMode('desktop') },
+      ],
     },
     { type: "divider" as const },
     {

@@ -24,7 +24,7 @@
  * ```
  */
 
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { Grid } from 'antd';
 import type { Breakpoint } from 'antd';
 
@@ -33,6 +33,50 @@ const { useBreakpoint } = Grid;
 /**
  * Ant Design 斷點大小 (單位: px)
  */
+// ── 版面模式（2026-09-05 owner「能偵測登入平臺是否為行動裝置，自動轉換對應 RWD 模式嗎」）──
+// 1) 自動：行動裝置（UA-CH／UA／粗指標＋觸控）即使橫放到 768–991px 也走手機版面（卡片、收合篩選）；
+//    桌面裝置仍純看視窗寬。2) 使用者可在右上角選單強制「手機版」或「桌面版」，存 localStorage，跨頁與重整都記住。
+export type LayoutMode = 'auto' | 'mobile' | 'desktop';
+export const LAYOUT_MODE_KEY = 'ck_layout_mode';
+const layoutListeners = new Set<() => void>();
+export function getLayoutMode(): LayoutMode {
+  try {
+    const v = window.localStorage.getItem(LAYOUT_MODE_KEY);
+    return v === 'mobile' || v === 'desktop' ? v : 'auto';
+  } catch { return 'auto'; }
+}
+export function setLayoutMode(mode: LayoutMode): void {
+  try {
+    if (mode === 'auto') window.localStorage.removeItem(LAYOUT_MODE_KEY);
+    else window.localStorage.setItem(LAYOUT_MODE_KEY, mode);
+  } catch { /* 隱私模式等：只影響這次 */ }
+  layoutListeners.forEach((fn) => fn());
+}
+function subscribeLayout(fn: () => void): () => void {
+  layoutListeners.add(fn);
+  window.addEventListener('storage', fn);
+  return () => { layoutListeners.delete(fn); window.removeEventListener('storage', fn); };
+}
+/** 登入裝置是不是行動裝置——只算一次（UA 不會在同一個 session 變） */
+let _deviceMobile: boolean | null = null;
+export function detectMobileDevice(): boolean {
+  if (_deviceMobile !== null) return _deviceMobile;
+  try {
+    const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
+    if (typeof nav.userAgentData?.mobile === 'boolean') {
+      _deviceMobile = nav.userAgentData.mobile;
+    } else {
+      const ua = navigator.userAgent || '';
+      const uaMobile = /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(ua)
+        // iPadOS 13+ 的 Safari 自稱 Macintosh：靠觸控點數認出來
+        || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+      const coarse = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+      _deviceMobile = uaMobile || (coarse && navigator.maxTouchPoints > 0 && window.screen.width < 1024);
+    }
+  } catch { _deviceMobile = false; }
+  return _deviceMobile;
+}
+
 export const BREAKPOINTS = {
   xs: 480,
   sm: 576,
@@ -94,6 +138,12 @@ export interface UseResponsiveResult {
   /** 當前視窗寬度類型 */
   deviceType: 'mobile' | 'tablet' | 'desktop';
 
+  /** 登入裝置是不是行動裝置（UA-CH `navigator.userAgentData.mobile` → UA 字串 → 粗指標＋觸控），與視窗寬無關 */
+  deviceMobile: boolean;
+  /** 版面模式：auto＝依裝置與寬度自動；mobile／desktop＝使用者強制（localStorage，跨頁記住） */
+  layoutMode: LayoutMode;
+  setLayoutMode: (mode: LayoutMode) => void;
+
   /**
    * 根據斷點獲取對應值 (使用 Ant Design 斷點)
    *
@@ -151,14 +201,19 @@ const BREAKPOINT_VALUES: Record<Breakpoint, number> = {
  */
 export function useResponsive(): UseResponsiveResult {
   const screens = useBreakpoint();
+  const layoutMode = useSyncExternalStore(subscribeLayout, getLayoutMode, () => 'auto' as LayoutMode);
+  const deviceMobile = typeof window !== 'undefined' ? detectMobileDevice() : false;
 
   return useMemo(() => {
     // 計算當前斷點
     const currentBreakpoint = BREAKPOINT_ORDER.find(bp => screens[bp]);
 
-    // 計算設備類型
-    const isMobile = !screens.md;
-    const isTablet = !!screens.md && !screens.lg;
+    // 計算設備類型（2026-09-05：裝置偵測＋使用者強制模式；此前只看視窗寬）
+    const widthMobile = !screens.md;
+    const isMobile = layoutMode === 'mobile' ? true
+      : layoutMode === 'desktop' ? false
+      : (widthMobile || (deviceMobile && !screens.lg));   // 行動裝置橫放到 768–991 仍算手機
+    const isTablet = !isMobile && !!screens.md && !screens.lg;
     const isDesktop = !!screens.lg;
     const isWidescreen = !!screens.xl;
     const isUltraWide = !!screens.xxl;
@@ -218,13 +273,16 @@ export function useResponsive(): UseResponsiveResult {
       isUltraWide,
       isTouchDevice,
       deviceType,
+      deviceMobile,
+      layoutMode,
+      setLayoutMode,
       responsive,
       responsiveValue,
       currentBreakpoint,
       isGte,
       isLte,
     };
-  }, [screens]);
+  }, [screens, layoutMode, deviceMobile]);
 }
 
 /**
