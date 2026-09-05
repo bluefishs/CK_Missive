@@ -11,6 +11,9 @@
  *
  * 用法：node scripts/perf/route_cost_probe.cjs "/documents,/contract-cases"   （輸出一行 JSON）
  *       WARM=1 node scripts/perf/route_cost_probe.cjs "/documents,/erp/quotations"
+ * 量測口徑（與平台數字對照時要先對齊）：每支 API 的 ms 是瀏覽器 request→response 事件的 wall，連線復用、
+ * 幾乎不含 TLS 握手、含回應體；平台 §72 的 0.40s 是 curl TTFB、我另報的 0.56s 是新連線 curl time_total（含握手）。
+ * 三把尺量的不是同一段，相減沒有意義。
  * 這不是閘門（沒有退出碼判準）——是給人看數字的量測；要做成閘門先定基線。
  */
 const boot = require('../checks/.shared-selfaudit/_bootstrap.cjs');
