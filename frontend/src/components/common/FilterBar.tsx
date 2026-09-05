@@ -8,7 +8,7 @@
  * 切換鈕上顯示目前生效的篩選數（`activeCount`），收起也知道有沒有在篩。
  */
 import React, { useState } from 'react';
-import { Button, Space, Badge } from 'antd';
+import { Button, Badge } from 'antd';
 import { FilterOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
 import { useResponsive } from '../../hooks';
 
@@ -29,11 +29,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({ summary, children, activeC
   const [open, setOpen] = useState(defaultOpen);
 
   if (!isMobile) {
+    // 2026-09-05 視覺走查（/pm/cases 桌面）：children 是 <Row> 時，放在 Space 的 inline-flex item 裡寬度會塌成內容寬，
+    // 三個 Select 只剩 40px、連選中的「2026年」都看不到。改 flex 版面，children 吃掉搜尋框以外的剩餘寬度。
     return (
-      <Space wrap style={{ marginBottom: 16, ...style }}>
-        {summary}
-        {children}
-      </Space>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16, ...style }}>
+        {summary && <div style={{ flex: '0 0 auto' }}>{summary}</div>}
+        <div style={{ flex: '1 1 320px', minWidth: 0 }}>{children}</div>
+      </div>
     );
   }
 
