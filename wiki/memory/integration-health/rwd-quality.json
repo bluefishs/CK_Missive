@@ -1,0 +1,1722 @@
+{
+  "checked_at": "2026-09-05T04:29:44.140Z",
+  "base": "https://missive.cksurvey.tw",
+  "width": 390,
+  "routes": 39,
+  "blocked": 0,
+  "rows": [
+    {
+      "route": "/erp/expenses",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 134,
+      "smallTop": [
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-table-row-expand-icon.ant-table-row-expand-icon-collapsed",
+          "text": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "sel": "button.ant-table-row-expand-icon.ant-table-row-expand-icon-collapsed",
+          "text": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "sel": "button.ant-table-row-expand-icon.ant-table-row-expand-icon-collapsed",
+          "text": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "sel": "button.ant-table-row-expand-icon.ant-table-row-expand-icon-collapsed",
+          "text": "",
+          "w": 16,
+          "h": 16
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 147
+    },
+    {
+      "route": "/erp/quotations",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 7,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 4,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 169,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input",
+          "text": "",
+          "w": 44,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 30
+    },
+    {
+      "route": "/erp/ledger",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 6,
+      "smallTop": [
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "input#:ra:.ant-select-input",
+          "text": "",
+          "w": 178,
+          "h": 22
+        },
+        {
+          "sel": "input#:rc:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input",
+          "text": "",
+          "w": 44,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 8,
+      "controls": 14
+    },
+    {
+      "route": "/erp/assets",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 6,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 162,
+          "h": 22
+        },
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "input#:ra:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 5,
+      "controls": 17
+    },
+    {
+      "route": "/erp/operational",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 7,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 162,
+          "h": 22
+        },
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 88,
+          "h": 22
+        },
+        {
+          "sel": "input#:ra:.ant-select-input",
+          "text": "",
+          "w": 58,
+          "h": 22
+        },
+        {
+          "sel": "input#:rc:.ant-select-input",
+          "text": "",
+          "w": 58,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 1,
+      "coveredTop": [
+        {
+          "fixed": "button.ant-btn.css-1daqxe2",
+          "target": "button.ant-pagination-item-link",
+          "text": "",
+          "cover": 75
+        }
+      ],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 15
+    },
+    {
+      "route": "/erp/financial-dashboard",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 5,
+      "smallTop": [
+        {
+          "sel": "div.ant-select.ant-select-sm",
+          "text": "2026 年",
+          "w": 110,
+          "h": 24
+        },
+        {
+          "sel": "input#:ri:.ant-select-input",
+          "text": "",
+          "w": 76,
+          "h": 22
+        },
+        {
+          "sel": "div.ant-select.ant-select-sm",
+          "text": "01 委辦招標",
+          "w": 130,
+          "h": 24
+        },
+        {
+          "sel": "input#:rk:.ant-select-input",
+          "text": "",
+          "w": 96,
+          "h": 22
+        },
+        {
+          "sel": "input#:rn:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 3,
+      "loneTop": [
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "未收總額"
+        },
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "未收總額"
+        },
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "未收筆數"
+        }
+      ],
+      "statCards": 23,
+      "controls": 22
+    },
+    {
+      "route": "/erp/vendor-accounts",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 5,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 149,
+          "h": 22
+        },
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 88,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input",
+          "text": "",
+          "w": 44,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 14
+    },
+    {
+      "route": "/erp/client-accounts",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 5,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 149,
+          "h": 22
+        },
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input",
+          "text": "",
+          "w": 44,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 30
+    },
+    {
+      "route": "/documents",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 9,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 18,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input.ant-input.ant-input-sm",
+          "text": "",
+          "w": 226,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 35
+    },
+    {
+      "route": "/contract-cases",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 5,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 4,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 126,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input",
+          "text": "",
+          "w": 44,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 18
+    },
+    {
+      "route": "/taoyuan/dispatch",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 31,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 10,
+      "smallTop": [
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 212,
+          "h": 22
+        },
+        {
+          "sel": "input.ant-input.ant-input-sm",
+          "text": "",
+          "w": 125,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "div.ant-select.ant-select-sm",
+          "text": "篩選狀態",
+          "w": 140,
+          "h": 24
+        },
+        {
+          "sel": "input#:rc:.ant-select-input",
+          "text": "",
+          "w": 106,
+          "h": 22
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 22
+    },
+    {
+      "route": "/calendar",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 28,
+      "tinyTop": [
+        {
+          "sel": "span",
+          "text": "[提醒] 為貴公...",
+          "px": 10
+        },
+        {
+          "sel": "span",
+          "text": "[審查] 檢送本...",
+          "px": 10
+        },
+        {
+          "sel": "span",
+          "text": "[提醒] 有關貴...",
+          "px": 10
+        },
+        {
+          "sel": "li",
+          "text": "+3 更多",
+          "px": 10
+        },
+        {
+          "sel": "span",
+          "text": "[參考] 請領本...",
+          "px": 10
+        }
+      ],
+      "smallTap": 5,
+      "smallTop": [
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 58,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "全標完成",
+          "w": 89,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "全標取消",
+          "w": 68,
+          "h": 24
+        },
+        {
+          "sel": "input#:r15:.ant-select-input",
+          "text": "",
+          "w": 104,
+          "h": 22
+        },
+        {
+          "sel": "input#:r17:.ant-select-input",
+          "text": "",
+          "w": 96,
+          "h": 22
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 1,
+      "loneTop": [
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "總事件數"
+        }
+      ],
+      "statCards": 5,
+      "controls": 15
+    },
+    {
+      "route": "/kunge/ops",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 0,
+      "smallTop": [],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 14
+    },
+    {
+      "route": "/pm/cases",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 4,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 163,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input",
+          "text": "",
+          "w": 44,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 16
+    },
+    {
+      "route": "/agencies",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 10,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 232,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "新增",
+          "w": 63,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 14
+    },
+    {
+      "route": "/clients",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 9,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input.ant-input.ant-input-sm",
+          "text": "",
+          "w": 159,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-2",
+          "text": "2",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 12
+    },
+    {
+      "route": "/vendors",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 7,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input.ant-input.ant-input-sm",
+          "text": "",
+          "w": 159,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-2",
+          "text": "2",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 10
+    },
+    {
+      "route": "/staff",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 4,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 6,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.ant-input-sm",
+          "text": "",
+          "w": 159,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input",
+          "text": "",
+          "w": 44,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 19
+    },
+    {
+      "route": "/projects",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 5,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 4,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 126,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input",
+          "text": "",
+          "w": 44,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 18
+    },
+    {
+      "route": "/dashboard",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 299,
+      "tinyTop": [
+        {
+          "sel": "span.ant-tag.ant-tag-filled",
+          "text": "逾期",
+          "px": 10
+        },
+        {
+          "sel": "span.ant-tag.ant-tag-filled",
+          "text": "一般提醒",
+          "px": 10
+        },
+        {
+          "sel": "span.ant-tag.ant-tag-filled",
+          "text": "普通",
+          "px": 10
+        },
+        {
+          "sel": "span",
+          "text": "公文",
+          "px": 10
+        },
+        {
+          "sel": "span.ant-tag.ant-tag-filled",
+          "text": "完成",
+          "px": 10
+        }
+      ],
+      "smallTap": 24,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "報價單列表",
+          "w": 81,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "完整行事曆",
+          "w": 102,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "全部99+",
+          "w": 112,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 6,
+      "controls": 27
+    },
+    {
+      "route": "/reports",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 4,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "查看全部",
+          "w": 89,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "查看全部",
+          "w": 89,
+          "h": 24
+        },
+        {
+          "sel": "input#:r9:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 5,
+      "loneTop": [
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "總案件"
+        },
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "案件數"
+        },
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "有效案件數"
+        },
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "議價金額總計"
+        }
+      ],
+      "statCards": 13,
+      "controls": 11
+    },
+    {
+      "route": "/document-numbers",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 21,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 3,
+      "smallTop": [
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input",
+          "text": "",
+          "w": 44,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 29
+    },
+    {
+      "route": "/erp/einvoice-sync",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 0,
+      "smallTop": [],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 6
+    },
+    {
+      "route": "/erp/invoices/summary-view",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 10,
+      "smallTop": [
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "input#:ra:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-2",
+          "text": "2",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 15
+    },
+    {
+      "route": "/taoyuan",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 31,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 10,
+      "smallTop": [
+        {
+          "sel": "input#:r8:.ant-select-input",
+          "text": "",
+          "w": 212,
+          "h": 22
+        },
+        {
+          "sel": "input.ant-input.ant-input-sm",
+          "text": "",
+          "w": 125,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "div.ant-select.ant-select-sm",
+          "text": "篩選狀態",
+          "w": 140,
+          "h": 24
+        },
+        {
+          "sel": "input#:rc:.ant-select-input",
+          "text": "",
+          "w": 106,
+          "h": 22
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 22
+    },
+    {
+      "route": "/settings",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 6,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "編輯",
+          "w": 63,
+          "h": 24
+        },
+        {
+          "sel": "input#username.ant-input.ant-input-disabled",
+          "text": "",
+          "w": 274,
+          "h": 22
+        },
+        {
+          "sel": "input#email.ant-input.ant-input-disabled",
+          "text": "",
+          "w": 274,
+          "h": 22
+        },
+        {
+          "sel": "input#department.ant-input.ant-input-disabled",
+          "text": "",
+          "w": 274,
+          "h": 22
+        },
+        {
+          "sel": "input#position.ant-input.ant-input-disabled",
+          "text": "",
+          "w": 274,
+          "h": 22
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 15
+    },
+    {
+      "route": "/profile",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 6,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "編輯",
+          "w": 63,
+          "h": 24
+        },
+        {
+          "sel": "input#username.ant-input.ant-input-disabled",
+          "text": "",
+          "w": 274,
+          "h": 22
+        },
+        {
+          "sel": "input#email.ant-input.ant-input-disabled",
+          "text": "",
+          "w": 274,
+          "h": 22
+        },
+        {
+          "sel": "input#department.ant-input.ant-input-disabled",
+          "text": "",
+          "w": 274,
+          "h": 22
+        },
+        {
+          "sel": "input#position.ant-input.ant-input-disabled",
+          "text": "",
+          "w": 274,
+          "h": 22
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 15
+    },
+    {
+      "route": "/tender/search",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 54,
+      "smallTop": [
+        {
+          "sel": "input#:r9:.ant-select-input",
+          "text": "",
+          "w": 274,
+          "h": 24
+        },
+        {
+          "sel": "input.ant-input.ant-input-lg",
+          "text": "",
+          "w": 215,
+          "h": 24
+        },
+        {
+          "sel": "input#:rb:.ant-select-input",
+          "text": "",
+          "w": 112,
+          "h": 24
+        },
+        {
+          "sel": "input#:rd:.ant-select-input",
+          "text": "",
+          "w": 112,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 66
+    },
+    {
+      "route": "/tender/dashboard",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 7,
+      "smallTop": [
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-2",
+          "text": "2",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-3",
+          "text": "3",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-4",
+          "text": "4",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 5,
+      "controls": 13
+    },
+    {
+      "route": "/documents/2689",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 2,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "input#delivery_method.ant-select-input",
+          "text": "",
+          "w": 274,
+          "h": 22
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 22
+    },
+    {
+      "route": "/erp/quotations/168",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 1,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 3,
+      "loneTop": [
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "預估毛利"
+        },
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "承攬金額（含稅）"
+        },
+        {
+          "sel": "div.ant-col.ant-col-xs-24",
+          "text": "應付總額"
+        }
+      ],
+      "statCards": 18,
+      "controls": 13
+    },
+    {
+      "route": "/erp/expenses/10",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 1,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 7
+    },
+    {
+      "route": "/pm/cases/244",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 2,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "編輯",
+          "w": 63,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 17
+    },
+    {
+      "route": "/contract-cases/187",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 2,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "編輯",
+          "w": 63,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 18
+    },
+    {
+      "route": "/erp/quotations/168?tab=receivable",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 8,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "開立發票",
+          "w": 54,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "開立發票",
+          "w": 54,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "開立發票",
+          "w": 54,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "開立發票",
+          "w": 54,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 21
+    },
+    {
+      "route": "/erp/quotations/168?tab=payable",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 4,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 17
+    },
+    {
+      "route": "/erp/quotations/168?tab=expenses",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 2,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "新增核銷",
+          "w": 89,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 14
+    },
+    {
+      "route": "/pm/cases/244?tab=quotations",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 2,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "編輯",
+          "w": 63,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 17
+    },
+    {
+      "route": "/pm/cases/244?tab=expenses",
+      "width": 390,
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 2,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "編輯",
+          "w": 63,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 0,
+      "controls": 17
+    }
+  ]
+}

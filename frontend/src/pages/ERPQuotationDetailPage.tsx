@@ -241,7 +241,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
                 落在這裡，其中最大一筆收入 943 萬。
                 報一個 100% 比不報更糟：它看起來像結論。 */}
             {quotation.cost_declared === false ? (
-              <Col xs={24} sm={12}>
+              <Col xs={12}>
                 <Statistic title={termTitle('gross_profit')} value="—" />
                 <div style={{ fontSize: 12, color: '#faad14', marginTop: 4 }}>
                   尚未填寫成本，無法計算毛利
@@ -258,7 +258,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
 
         {/* 應收/應付概況 */}
         <Row gutter={16}>
-          <Col xs={24} sm={12}>
+          <Col xs={12}>
             {/* 2026-08-29 owner：「/erp/quotations/161?tab=info 的未收款與
                 ?tab=receivable 對不上」。查證：本頁「未收款」算的是
                 **合約額 − 已收款**（16,935,000 − 1,020,000 = 15,915,000），
@@ -283,7 +283,7 @@ export const ERPQuotationDetailPage: React.FC = () => {
               </Text>
             </Card>
           </Col>
-          <Col xs={24} sm={12}>
+          <Col xs={12}>
             <Card size="small" title="應付概況 (協力廠商)">
               <Row gutter={[16, 8]}>
                 <Col xs={12} sm={12} lg={8}><Statistic title="應付總額" value={Number(quotation.total_payable)} precision={0} /></Col>

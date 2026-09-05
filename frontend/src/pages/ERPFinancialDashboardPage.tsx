@@ -443,8 +443,8 @@ const ERPFinancialDashboardPage: React.FC = () => {
         <Col xs={24} lg={10}>
           <Card title={<Text strong>應收帳齡明細</Text>} size="small" loading={arAgingLoading}>
             <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
-              <Col xs={24} sm={12}><Statistic title="未收總額" value={Number(arAgingData?.data?.total_outstanding ?? 0)} precision={0} styles={{ content: { color: '#ff4d4f' } }} /></Col>
-              <Col xs={24} sm={12}><Statistic title="未收筆數" value={arAgingData?.data?.total_count ?? 0} suffix="筆" /></Col>
+              <Col xs={12}><Statistic title="未收總額" value={Number(arAgingData?.data?.total_outstanding ?? 0)} precision={0} styles={{ content: { color: '#ff4d4f' } }} /></Col>
+              <Col xs={12}><Statistic title="未收筆數" value={arAgingData?.data?.total_count ?? 0} suffix="筆" /></Col>
             </Row>
             <EnhancedTable<AgingBucket>
               columns={[

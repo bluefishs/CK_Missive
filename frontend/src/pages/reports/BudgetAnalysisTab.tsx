@@ -224,7 +224,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
 
       {/* 統計卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={8}>
+        <Col xs={12} sm={8}>
           <Card>
             <Statistic
               title={hasFilter ? '篩選後案件數' : '有效案件數'}
@@ -235,7 +235,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={12} sm={8}>
           <Card>
             <Statistic
               title={hasFilter ? '篩選後議價金額' : '議價金額總計'}
@@ -246,7 +246,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={12} sm={8}>
           <Card>
             <Statistic
               title="委託單位數"

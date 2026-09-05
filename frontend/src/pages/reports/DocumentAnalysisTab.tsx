@@ -146,7 +146,7 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
 
       {/* 統計卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={8}>
+        <Col xs={12} sm={8}>
           <Card>
             <Statistic
               title="公文總數"
@@ -157,7 +157,7 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={12} sm={8}>
           <Card>
             <Statistic
               title="收文數"
@@ -168,7 +168,7 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={12} sm={8}>
           <Card>
             <Statistic
               title="發文數"

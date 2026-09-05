@@ -180,7 +180,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* 內容區 */}
           <Content style={{
-            padding: isMobile ? '12px' : '24px',
+            // 2026-09-05 手機品質探針：/erp/operational 的浮動鈕壓住分頁鈕 75% ⇒ 底部留 88px 給浮動鈕
+            padding: isMobile ? '12px 12px 88px' : '24px',
             background: '#f5f5f5',
             minHeight: 'calc(100vh - 64px)',
           }}>

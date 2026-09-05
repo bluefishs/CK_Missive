@@ -1,0 +1,8 @@
+{
+  "_doc": "weekly 111 基線（2026-09-05 首跑，39 頁 @390px）。tinyFont 多為 /dashboard 的 10px Tag 與行事曆事件文字；smallTap 多為 AntD size=small 按鈕、分頁鈕（24px）與 22px 高的小輸入框。存量不判紅、新增才判；要降基線請先真的改版面再改數字。",
+  "clipped": 0,
+  "tinyFont": 327,
+  "smallTap": 399,
+  "measured_at": "2026-09-05",
+  "pages": 39
+}

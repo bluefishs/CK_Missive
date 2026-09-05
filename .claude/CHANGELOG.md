@@ -4,6 +4,36 @@
 
 ---
 
+## [v6.73] - 2026-09-05（年度＝案號年／名稱鍵普查／手機檢核加厚／依類別應收付）
+
+### `.claude/` 變更
+
+| 檔 | 變更 |
+|---|---|
+| `rules/skills-inventory.md` | 登記 weekly 111 `rwd_mobile_quality_gate`（手機品質五指標）；weekly 107 擴到公文 sender／receiver 與兩條推導鍵 |
+| `CLAUDE.md` | 版本 v6.72 → **v6.73**；v6.72 檔頭摘要移 `docs/MILESTONES_ARCHIVE.md` |
+
+### 版本一致
+
+| 來源 | 之前 | 現在 |
+|---|---|---|
+| `CLAUDE.md` 檔頭 `**版本**` | v6.72 | **v6.73**（SSOT；`build-args.sh` 讀它注入映像） |
+| runtime `Application starting...` | v6.72 | 部署後 v6.73 |
+| alembic head | 20260904a003 | 20260904a003（本輪無 migration） |
+| weekly 步數 | 110 | **111** |
+| 視覺走查 | 只拍載入畫面 | `--click=` 先點再拍（`docs/health/visual/20260905/` 首批登入手機圖） |
+
+### owner 09-05 回報事項結案對照
+
+| # | 回報 | 修法 | 待辦表 |
+|---|---|---|---|
+| 1 | 依計畫類別統計各機關與協力廠商應收付 | `financial-summary/by-category`＋儀表板新區塊 | 第三十一輪 |
+| 2 | `/erp/client-accounts` 無依年度篩選（桃園 2026 應 2 案）；搜尋提示寫代碼 | 年度＝案號年（`case_year.py`）、承攬金額口徑對齊、只算成案、統編可搜 | 第三十二輪 |
+| 3 | 手機無法篩選、功能遮蔽；桃園 64,800 另列一列 | 篩選鈕加字＋手機排序下拉；帳款腿 2 改主檔鍵分組；CK2025_PM_02_133／147 補鍵 78 | 第三十三輪 |
+| 4 | 非常多案例皆有此問題，如何複查與排除 | 全庫普查＋回填 192 筆；weekly 107 擴充；三層排除 SOP 入 FIELD_SEMANTICS；A105 雙主檔 | 第三十四輪 |
+| 5 | 為何無法模擬行動裝置登入檢測 | `run.sh --visual` 本來就能（我沒用）；加 `--click=`；記憶 `feedback_mobile_login_screenshot_use_visual_walk` | — |
+| 6 | 統整文件與版次；加強視覺檢核確保 RWD | v6.73；weekly 111 手機品質閘門（首跑：浮動鈕壓分頁鈕 1、統計卡獨列 4 頁，已修）；手機底部留白 88px | 第三十五輪 |
+
 ## [v6.72] - 2026-09-04（名稱標準化與主檔鍵／指派即應付／發票鏈防呆／表格篩選規範）
 
 ### `.claude/` 變更

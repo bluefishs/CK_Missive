@@ -587,6 +587,7 @@ run_step "108" "統計卡是否接到篩選（假互動偵測）" "scripts/check
 run_step "109" "RWD 整頁溢出閘門（390／768／1024）" "scripts/checks/rwd_page_overflow_gate.py"
 # 110（09-05 owner：588 承辦兩個名字）：指派只綁一把鍵，另一頁看不到、改不到——寫入端已改雙鍵，這支守存量與漏網
 run_step "110" "承辦指派雙鍵一致性（case_code ⇔ project_id）" "scripts/checks/assignment_dual_key_audit.py"
+run_step "111" "RWD 手機品質閘門（截字／字級／點擊目標／遮蔽／統計卡獨列；host Playwright 登入 390px）" "scripts/checks/rwd_mobile_quality_gate.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

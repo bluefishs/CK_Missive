@@ -121,3 +121,17 @@
 - 原則 1–8 是否同意（尤其「金額永不隱藏」與「隱藏門檻 768」）。
 - P1–P3 的順序。
 - 手機卡片版面要先做哪一頁（建議 `/erp/quotations`）。
+
+## 09-05 晚：檢核機制加厚（owner「加強視覺檢核機制確保 RWD 設計正確性」）
+
+| 層 | 機制 | 看什麼 | 誰跑 |
+|---|---|---|---|
+| 每日 04:30 | `ui_page_sweep` mobile_probe | 整頁／表格溢出（390／768／1024） | host 排程 |
+| 每週 | weekly 109 `rwd_page_overflow_gate` | 整頁溢出 ≥ 24px 即 RED | weekly |
+| 每週 | **weekly 111 `rwd_mobile_quality_gate`（新）** | 截字／字級<11px／點擊目標<28px／fixed 遮蔽／統計卡獨列 | weekly（host Playwright 登入 390px） |
+| 每週 | weekly 108 `stat_card_filter_wiring_audit` | 統計卡點了有沒有篩；`xs={24}` 黃 | weekly |
+| 需要時 | `run.sh --visual --routes=… --click=…` | 拍登入後的桌面＋手機全頁圖，**先點再拍** | session 內，人／AI 看圖 |
+
+首跑基準（39 頁 @390px）：截字 0／字級<11px 327／點擊目標<28px 399／遮蔽 1／統計卡獨列 12（4 頁）。
+遮蔽與獨列當天修掉；字級與點擊目標走基線，存量不判紅。**要看登入後的手機畫面，第一步永遠是 `run.sh --visual`**，
+不要繞 Chrome（沒登入態）或免認證 Vite（沒資料）——09-05 上午就是這樣繞了一小時。
