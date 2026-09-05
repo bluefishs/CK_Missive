@@ -19,5 +19,5 @@
 
 | 路由 | 視窗 | 檔案 | 備註 |
 |---|---|---|---|
-| /contract-cases | desktop | _contract_cases__desktop__click.png | 找不到 button[aria-label="展開篩選"]；找不到 .ck-filterbar-mobile-body .ant-select； |
-| /contract-cases | mobile | _contract_cases__mobile__click.png |  |
+| /erp/expenses | desktop | _erp_expenses__desktop.png |  |
+| /erp/expenses | mobile | _erp_expenses__mobile.png |  |
