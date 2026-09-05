@@ -18,7 +18,7 @@ import logging
 from typing import Optional
 from decimal import Decimal
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, case as sa_case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPQuotation, ERPBilling
@@ -48,24 +48,33 @@ class ClientReceivableRepository:
           → case_code → ERPQuotation → ERPBilling
         """
         # Subquery: billing aggregates per quotation (含未成案，以 case_code 聚合)
+        # 2026-09-05：金額＝承攬金額（議價→契約→報價總價，FIELD_SEMANTICS）。此前是 total_price（報價總價），
+        # 卡片卻標「承攬金額（含稅）」⇒ 與 /erp/quotations 同名數字差 377 萬。承攬案主檔的兩個金額要 JOIN 才拿得到。
+        awarded_expr = func.coalesce(
+            func.nullif(ContractProject.winning_amount, 0),
+            func.nullif(ContractProject.contract_amount, 0),
+            ERPQuotation.total_price, 0,
+        )
         billing_agg = (
             select(
                 ERPQuotation.case_code,
                 ERPQuotation.id.label("quotation_id"),
                 ERPQuotation.project_code,
-                func.coalesce(ERPQuotation.total_price, 0).label("contract_amount"),
+                awarded_expr.label("contract_amount"),
                 func.coalesce(func.sum(ERPBilling.billing_amount), 0).label("total_billed"),
                 func.coalesce(func.sum(ERPBilling.payment_amount), 0).label("total_received"),
             )
             .outerjoin(ERPBilling, ERPBilling.erp_quotation_id == ERPQuotation.id)
-            .where(ERPQuotation.deleted_at.is_(None))
-            .group_by(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.project_code, ERPQuotation.total_price)
+            .outerjoin(ContractProject, ContractProject.case_code == ERPQuotation.case_code)
+            # 2026-09-05：只算成案報價單——未成案的報價總價不是應收，卻曾讓 2026 多出 1,271（CK2026_PM_02_075）
+            .where(ERPQuotation.deleted_at.is_(None), ERPQuotation.project_code.isnot(None))
+            .group_by(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.project_code, ERPQuotation.total_price,
+                      ContractProject.winning_amount, ContractProject.contract_amount)
         )
-        # 2026-09-04 金流複查：年度口徑統一為**報價單年**（FIELD_SEMANTICS）。此前 leg1 用 PM 案年、leg2 用承攬案年，
-        # 與損益頁（報價單年）對不上——同一個 2026，委託單位頁少 563 萬（桃園案報價 2026、承攬案 2023）。
-        # 年度篩選放在報價單聚合裡，兩腿不再各自用案件年。
-        if year:
-            billing_agg = billing_agg.where(ERPQuotation.year == year)
+        # 2026-09-05 owner「桃園 2026 應僅 2 件委辦案件」：09-04 把年度掛在這個報價單聚合上（報價單年），
+        # 結果①案件數與案件清單沒跟著篩——桃園任何年度都 7 案；②`erp_quotations.year` 是補建那年，
+        # 桃園 CK2023_01_01_001 的報價單 year=2026 ⇒ 2026 列進 2023 的案（09-04 說的「少 563 萬」正是這張）。
+        # 裁示：年度＝案號年（PMCase.year／ContractProject.year，與案號 CK{年} 同值），套在**案件**上，金額跟案走。
         billing_agg = billing_agg.subquery()
 
         # 2026-08-27 owner：「`/erp/client-accounts` **相同架構問題**」
@@ -91,7 +100,11 @@ class ClientReceivableRepository:
                 PartnerVendor.vendor_name,
                 PartnerVendor.vendor_code,
                 PartnerVendor.tax_id,
-                func.count(func.distinct(PMCase.case_code)).label("case_count"),
+                # 案件數＝已承攬（有成案報價單或 PM 狀態 contracted）；評估中的案不是「合作案件」
+                func.count(func.distinct(sa_case(
+                    (or_(billing_agg.c.case_code.isnot(None), PMCase.status == "contracted"), PMCase.case_code),
+                    else_=None,
+                ))).label("case_count"),
                 func.coalesce(func.sum(billing_agg.c.contract_amount), 0).label("total_contract"),
                 func.coalesce(func.sum(billing_agg.c.total_billed), 0).label("total_billed"),
                 func.coalesce(func.sum(billing_agg.c.total_received), 0).label("total_received"),
@@ -103,9 +116,11 @@ class ClientReceivableRepository:
                 PartnerVendor.vendor_type == "client",
             )
         )
-        # year 已在 billing_agg 內套用（報價單年）；沒有該年報價單的案子 total 為 0，由下方 items 過濾
+        if year:
+            leg1 = leg1.where(PMCase.year == year)
         if keyword:
-            leg1 = leg1.where(PartnerVendor.vendor_name.ilike(f"%{keyword}%"))
+            # 2026-09-05 owner「搜尋提示寫代碼＝統一編號」：提示改寫成統一編號，後端也真的用統編找
+            leg1 = leg1.where(or_(PartnerVendor.vendor_name.ilike(f"%{keyword}%"), PartnerVendor.tax_id.ilike(f"%{keyword}%")))
         leg1 = leg1.group_by(
             PMCase.client_vendor_id, PartnerVendor.vendor_name, PartnerVendor.vendor_code, PartnerVendor.tax_id
         )
@@ -133,6 +148,8 @@ class ClientReceivableRepository:
             )
             .group_by(ContractProject.client_agency)
         )
+        if year:
+            leg2 = leg2.where(ContractProject.year == year)
         if keyword:
             leg2 = leg2.where(ContractProject.client_agency.ilike(f"%{keyword}%"))
 
@@ -270,14 +287,24 @@ class ClientReceivableRepository:
             }
 
         # Get quotations for these case_codes (含未成案，以 case_code 為準)
+        # 2026-09-05：排除 soft-delete；同案多張時成案那張優先（此前哪張贏由回傳順序決定）
         quotations = (
             await self.db.execute(
                 select(ERPQuotation).where(
                     ERPQuotation.case_code.in_(case_codes),
-                )
+                    ERPQuotation.deleted_at.is_(None),
+                ).order_by(ERPQuotation.project_code.is_(None), ERPQuotation.id.desc())
             )
         ).scalars().all()
-        quot_map = {q.case_code: q for q in quotations}
+        quot_map: dict[str, ERPQuotation] = {}
+        for q in quotations:
+            quot_map.setdefault(q.case_code, q)
+        # 承攬金額（議價→契約→報價總價）——與列表、/erp/quotations、/contract-cases 同一個算法
+        cp_amt_rows = (await self.db.execute(
+            select(ContractProject.case_code, ContractProject.winning_amount, ContractProject.contract_amount)
+            .where(ContractProject.case_code.in_(case_codes))
+        )).all()
+        cp_amt_map = {r.case_code: (r.winning_amount, r.contract_amount) for r in cp_amt_rows}
 
         # Get all billings for these quotations
         quot_ids = [q.id for q in quotations]
@@ -328,7 +355,8 @@ class ClientReceivableRepository:
                 })
                 continue
 
-            contract_amt = Decimal(str(quot.total_price or 0))
+            _w, _c = cp_amt_map.get(case_code, (None, None))
+            contract_amt = Decimal(str((_w or 0) or (_c or 0) or (quot.total_price or 0)))
             case_billings = billing_map.get(quot.id, [])
 
             billed = sum(Decimal(str(b.billing_amount or 0)) for b in case_billings)
@@ -343,7 +371,7 @@ class ClientReceivableRepository:
                 "case_code": case_code,
                 "project_code": quot.project_code,
                 "case_name": quot.case_name or case_name_map.get(case_code),
-                "year": quot.year or case_year_map.get(case_code),
+                "year": case_year_map.get(case_code) or quot.year,   # 年度＝案件年（09-05）
                 "quotation_status": quot.status,
                 "contract_amount": str(contract_amt),
                 "total_billed": str(billed),

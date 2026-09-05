@@ -118,7 +118,7 @@ const ERPClientAccountsPage: React.FC = () => {
       sorter: (a, b) => (a.case_count ?? 0) - (b.case_count ?? 0),
     },
     {
-      title: termTitle('contract_amount_sum', '契約金額合計'),
+      title: termTitle('contract_amount_sum'),
       dataIndex: 'total_contract',
       key: 'total_contract',
       width: 130,
@@ -189,7 +189,7 @@ const ERPClientAccountsPage: React.FC = () => {
         extra={
           <Space wrap>  {/* 2026-09-05 RWD：390px 探針量到 7–17px 溢出，來源是這排不換行 */}
             <Input.Search
-              placeholder="搜尋單位名稱 / 代碼"
+              placeholder="搜尋單位名稱／統一編號"
               allowClear
               style={{ width: 220 }}
               onSearch={(v) => setKeyword(v.trim())}

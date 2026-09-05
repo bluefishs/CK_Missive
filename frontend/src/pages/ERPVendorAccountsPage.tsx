@@ -191,7 +191,7 @@ const ERPVendorAccountsPage: React.FC = () => {
         extra={
           <Space wrap>  {/* 2026-09-05 RWD：390px 探針量到 7–17px 溢出，來源是這排不換行 */}
             <Input.Search
-              placeholder="搜尋廠商名稱 / 代碼"
+              placeholder="搜尋廠商名稱／統一編號"
               allowClear
               style={{ width: 220 }}
               onSearch={(v) => setKeyword(v.trim())}

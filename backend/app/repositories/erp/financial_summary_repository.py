@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 from datetime import date
 from decimal import Decimal
 
+from app.repositories.erp.case_year import quotation_case_year_condition
 from app.extended.models.core import ContractProject
 from app.extended.models.erp import ERPQuotation
 from app.extended.models.invoice import ExpenseInvoice
@@ -234,14 +235,8 @@ class FinancialSummaryRepository:
 
         stmt = select(ContractProject.case_code)
         if year:
-            same_year_quote = (
-                select(ERPQuotation.id)
-                .where(ERPQuotation.case_code == ContractProject.case_code,
-                       ERPQuotation.year == year,
-                       ERPQuotation.deleted_at.is_(None))
-                .exists()
-            )
-            stmt = stmt.where(or_(ContractProject.year == year, same_year_quote))
+            # 2026-09-05：只看案件年（案號年）。此前「案件年或報價單年任一命中」會把補建錨點報價單 year=2026 的舊案列進 2026
+            stmt = stmt.where(ContractProject.year == year)
         total = await self.db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
         rows = (await self.db.execute(
             stmt.order_by(ContractProject.case_code.desc()).offset(skip).limit(limit)
@@ -435,7 +430,7 @@ class FinancialSummaryRepository:
                 .where(ERPBilling.payment_status.in_(["pending", "partial", "overdue"]))
             )
             if year:
-                query = query.where(ERPQuotation.year == year)
+                query = query.where(quotation_case_year_condition(year))  # 2026-09-05 年度＝案號年
         else:
             # 應付: 未完成付款的 vendor_payable
             query = (
@@ -448,7 +443,7 @@ class FinancialSummaryRepository:
                 .where(ERPVendorPayable.payment_status.in_(["unpaid", "partial"]))
             )
             if year:
-                query = query.where(ERPQuotation.year == year)
+                query = query.where(quotation_case_year_condition(year))  # 2026-09-05 年度＝案號年
 
         result = await self.db.execute(query)
         rows = result.all()

@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.repositories.erp.case_year import quotation_case_year_condition
 from app.extended.models.erp import ERPVendorPayable, ERPQuotation
 from app.extended.models.core import PartnerVendor
 from app.repositories.base_repository import BaseRepository
@@ -126,9 +127,12 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         )
 
         if year:
-            query = query.where(ERPQuotation.year == year)
+            # 2026-09-05：年度＝案號年（與委託單位帳款、專案帳款頁同口徑），不是報價單建立年
+            query = query.where(quotation_case_year_condition(year))
         if keyword:
-            query = query.where(ERPVendorPayable.vendor_name.ilike(f"%{keyword}%"))
+            # 2026-09-05 owner「搜尋提示寫代碼＝統一編號」：名稱或統一編號都找得到
+            tax_match = select(PartnerVendor.id).where(PartnerVendor.tax_id.ilike(f"%{keyword}%")).scalar_subquery()
+            query = query.where(or_(ERPVendorPayable.vendor_name.ilike(f"%{keyword}%"), ERPVendorPayable.vendor_id.in_(tax_match)))
 
         # Filter by vendor_type via LEFT JOIN to PartnerVendor
         # Records without vendor_id are included (assumed to be subcontractors)
@@ -236,7 +240,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
             .where(ERPVendorPayable.vendor_id == vendor_id)
         )
         if year:
-            query = query.where(ERPQuotation.year == year)
+            query = query.where(quotation_case_year_condition(year))
         query = query.order_by(ERPQuotation.case_code, ERPVendorPayable.id)
 
         result = await self.db.execute(query)
