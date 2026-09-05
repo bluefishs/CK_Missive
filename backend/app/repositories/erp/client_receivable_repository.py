@@ -131,8 +131,11 @@ class ClientReceivableRepository:
             PMCase.case_code.isnot(None),
         ).scalar_subquery()
 
+        # 2026-09-05 owner「桃園 1 案 64,800 另列一列」：腿 2 此前只用名稱快照分組，快照與主檔差一個字就另起一列。
+        # 承攬案 09-04 起有主檔鍵 client_vendor_id ⇒ 先用鍵分組（鍵是關聯、名稱是快照），沒有鍵的才退回名稱。
         leg2 = (
             select(
+                ContractProject.client_vendor_id.label("vendor_id"),
                 ContractProject.client_agency.label("client_name"),
                 func.count(func.distinct(ContractProject.id)).label("case_count"),
                 func.coalesce(func.sum(billing_agg.c.contract_amount), 0).label("total_contract"),
@@ -146,7 +149,7 @@ class ClientReceivableRepository:
                 ContractProject.case_code.isnot(None),
                 ~ContractProject.case_code.in_(covered_case_codes),
             )
-            .group_by(ContractProject.client_agency)
+            .group_by(ContractProject.client_vendor_id, ContractProject.client_agency)
         )
         if year:
             leg2 = leg2.where(ContractProject.year == year)
@@ -172,6 +175,7 @@ class ClientReceivableRepository:
             }
             items.append(row)
             by_name[(r.vendor_name or "").strip()] = row
+        by_id: dict[int, dict] = {row["vendor_id"]: row for row in items if row.get("vendor_id") is not None}
 
         # 2026-09-04 owner「嘉義縣竹崎地政事務所無法點擊檢視細項」：leg2 只有名字，此前名稱對不上 leg1 就 vendor_id=None
         # ⇒ 沒有明細頁。改成拿名字去委託單位主檔對一次（主檔已補齊承攬案的委託單位名），對到就給 vendor_id。
@@ -183,9 +187,20 @@ class ClientReceivableRepository:
                 .where(func.btrim(PartnerVendor.vendor_name).in_(leg2_names))
             )).all()
             name_to_vendor = {(v.vendor_name or "").strip(): (v.id, v.vendor_code, v.tax_id) for v in vrows}
+        # 有鍵但腿 1 沒這家（該委託單位名下只有承攬案）⇒ 用主檔名稱建列，不用快照
+        vid_rows = [r for r in leg2_rows if r.vendor_id is not None and r.vendor_id not in by_id]
+        if vid_rows:
+            vrows2 = (await self.db.execute(
+                select(PartnerVendor.id, PartnerVendor.vendor_name, PartnerVendor.vendor_code, PartnerVendor.tax_id)
+                .where(PartnerVendor.id.in_([r.vendor_id for r in vid_rows]))
+            )).all()
+            for v in vrows2:
+                row = {"vendor_id": v.id, "vendor_name": v.vendor_name, "vendor_code": v.vendor_code, "tax_id": v.tax_id,
+                       "case_count": 0, "_tc": Decimal("0"), "_tb": Decimal("0"), "_tr": Decimal("0")}
+                items.append(row); by_id[v.id] = row; by_name[(v.vendor_name or "").strip()] = row
         for r in leg2_rows:
             name = (r.client_name or "").strip()
-            existing = by_name.get(name)
+            existing = by_id.get(r.vendor_id) if r.vendor_id is not None else by_name.get(name)
             if existing is not None:
                 existing["case_count"] += int(r.case_count or 0)
                 existing["_tc"] += Decimal(str(r.total_contract or 0))
@@ -261,7 +276,7 @@ class ClientReceivableRepository:
             PMCase.case_code.isnot(None),
         ).scalar_subquery()
         cp_query = select(ContractProject).where(
-            ContractProject.client_agency == vendor.vendor_name,
+            or_(ContractProject.client_vendor_id == vendor_id, ContractProject.client_agency == vendor.vendor_name),
             ContractProject.case_code.isnot(None),
             ~ContractProject.case_code.in_(covered_case_codes),
         )

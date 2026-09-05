@@ -276,6 +276,28 @@ export const ContractCasePage: React.FC = () => {
                 options={availableStatuses.map((st) => ({ value: st, label: getStatusLabel(st) }))} />
             </Col>
           </Row>
+          {/* 2026-09-05 owner「手機無法進行篩選」：手機是卡片模式、沒有表頭可點排序 ⇒ 排序入口放進篩選列（桌面用表頭） */}
+          {isMobile && (
+            <Select
+              placeholder="排序（預設：類別、年度新→舊）"
+              allowClear
+              style={{ width: '100%' }}
+              value={userSort ? `${userSort.field}:${userSort.order}` : undefined}
+              onChange={(v?: string) => {
+                if (!v) { setUserSort(null); return; }
+                const [field, order] = v.split(':') as [string, 'asc' | 'desc'];
+                setUserSort({ field, order }); setCurrentPage(1);
+              }}
+              options={[
+                { value: 'contract_amount:desc', label: '承攬金額 高→低' },
+                { value: 'contract_amount:asc', label: '承攬金額 低→高' },
+                { value: 'year:desc', label: '年度 新→舊' },
+                { value: 'year:asc', label: '年度 舊→新' },
+                { value: 'project_code:asc', label: '成案案號 A→Z' },
+                { value: 'status:asc', label: '案件狀態' },
+              ]}
+            />
+          )}
           <Row justify="space-between" style={{ width: '100%' }}>
             <Col>
               <Space>

@@ -41,14 +41,17 @@ export const FilterBar: React.FC<FilterBarProps> = ({ summary, children, activeC
     <div className="ck-filterbar-mobile" style={{ marginBottom: 12, ...style }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 0 }}>{summary}</div>
+        {/* 2026-09-05 owner「手機無法進行篩選，功能遮蔽無法顯示」：切換鈕原本只有兩個小圖示，
+            看不出那是篩選入口。改成有字的「篩選」鈕，有生效篩選時變主色，讓收起來的功能看得出來在哪。 */}
         <Badge count={activeCount} size="small" offset={[-2, 2]}>
           <Button
+            type={activeCount > 0 ? 'primary' : 'default'}
             icon={<FilterOutlined />}
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-label={open ? '收起篩選' : '展開篩選'}
           >
-            {open ? <UpOutlined /> : <DownOutlined />}
+            篩選{open ? <UpOutlined /> : <DownOutlined />}
           </Button>
         </Badge>
       </div>
