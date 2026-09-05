@@ -5,6 +5,7 @@
  * @date 2026-01-22
  */
 import React, { useState, useMemo } from 'react';
+import { MobileCard } from '../components/common/MobileCardList';
 import { ClickableStatCard } from '../components/common';
 import type { TableColumnType } from 'antd';
 import {
@@ -445,6 +446,16 @@ export const StaffPage: React.FC = () => {
         <ResponsiveTable
           columns={columns}
           dataSource={staffList}
+          // 2026-09-05 RWD：手機改卡片
+          mobileCard={(r) => (
+            <MobileCard
+              title={r.username}
+              subtitle={r.full_name}
+              tags={[{ text: r.is_active ? '啟用' : '停用', color: r.is_active ? 'green' : 'default' }]}
+              rows={[{ label: '部門', value: r.department }, { label: '職稱', value: r.position }, { label: 'Email', value: r.email }, { label: '最後登入', value: r.last_login ? String(r.last_login).slice(0, 10) : '—' }]}
+              onClick={() => navigate(ROUTES.STAFF_DETAIL.replace(':id', String(r.id)))}
+            />
+          )}
           rowKey="id"
           loading={loading}
           scroll={{ x: isMobile ? 300 : 1000 }}

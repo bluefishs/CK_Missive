@@ -4,6 +4,8 @@
  * 功能：帳本列表 + 手動記帳 + 分類拆解 + 專案餘額
  */
 import React, { useState } from 'react';
+import { MobileCard } from '../components/common/MobileCardList';
+import { fmtMoney } from '../utils/money';
 import {
   Card, Button, Space, Tag, Select, Typography,
   Statistic, Row, Col, Popconfirm, App, Alert,
@@ -255,6 +257,16 @@ const ERPLedgerPage: React.FC = () => {
         <EnhancedTable<FinanceLedger>
           columns={columns}
           dataSource={items}
+          // 2026-09-05 RWD：手機改卡片——日期＋收支／說明／案號、來源／金額
+          mobileCard={(r) => (
+            <MobileCard
+              title={<>{r.transaction_date ? String(r.transaction_date).slice(0, 10) : '-'}</>}
+              subtitle={r.description || r.category || '—'}
+              tags={[{ text: LEDGER_ENTRY_TYPE_LABELS[r.entry_type] ?? r.entry_type, color: r.entry_type === 'income' ? 'green' : 'red' }]}
+              rows={[{ label: '案號', value: r.case_code }, { label: '來源', value: ledgerSourceLabel(r.source_type) }]}
+              amounts={[{ label: r.entry_type === 'income' ? '收入' : '支出', value: fmtMoney(r.amount), tone: r.entry_type === 'income' ? 'good' : 'bad' }]}
+            />
+          )}
           rowKey="id"
           loading={isLoading}
           pagination={{
