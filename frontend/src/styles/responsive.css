@@ -476,3 +476,12 @@
 .ck-mcard-amount-good .ck-mcard-amount-value { color: #15803d; }
 .ck-mcard-amount-warn .ck-mcard-amount-value { color: #b45309; }
 .ck-mcard-amount-bad .ck-mcard-amount-value { color: #b91c1c; }
+
+/* ── 手機字級地板（2026-09-05 weekly 111 首跑：/dashboard 299 處、/calendar 28 處 10px 文字）──
+   來源是散在 20+ 個元件的 inline `fontSize: 10`（Tag、次要說明），一個個改會漏；
+   樣式表的 !important 蓋得過 inline 樣式，所以在 < 768px 直接鋪一層地板：任何 10px 以下的文字升到 12px。
+   桌面不動（桌面 10px 的密度是刻意的）。判準：weekly 111 tinyFont 基線 327 應降到接近 0。 */
+@media (max-width: 767px) {
+  .ant-tag, [style*="font-size: 10px"], [style*="font-size: 9px"], [style*="font-size: 11px"] { font-size: 12px !important; }
+  .ant-tag { line-height: 20px !important; }
+}
