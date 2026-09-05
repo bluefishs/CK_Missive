@@ -386,7 +386,9 @@ export const PMCaseDetailPage: React.FC = () => {
     ) : (
       <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
         <Descriptions.Item label="年度">{pmCase.year ? `${pmCase.year} 年` : '-'}</Descriptions.Item>
-        <Descriptions.Item label="案號">{pmCase.case_code}</Descriptions.Item>
+        {/* 2026-09-05 owner：以成案案號為主；未成案才只有建案案號 */}
+        {pmCase.project_code && <Descriptions.Item label="成案編號">{pmCase.project_code}</Descriptions.Item>}
+        <Descriptions.Item label="建案案號">{pmCase.case_code}</Descriptions.Item>
         <Descriptions.Item label="專案名稱">{pmCase.case_name}</Descriptions.Item>
         <Descriptions.Item label="委託單位">{pmCase.client_name || clients.find(c => c.id === pmCase.client_vendor_id)?.vendor_name || (clientsLoading ? '載入中...' : '-')}</Descriptions.Item>
         <Descriptions.Item label="計畫類別">{pmCase.category ? (PM_CATEGORY_LABELS[pmCase.category] ?? pmCase.category) : '-'}</Descriptions.Item>

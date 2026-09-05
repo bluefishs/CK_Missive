@@ -421,7 +421,7 @@ export const PMCaseListPage: React.FC = () => {
           // 2026-09-05 RWD：手機改卡片
           mobileCard={(r) => (
             <MobileCard
-              title={<>{r.case_code}{r.year ? <Typography.Text type="secondary" style={{ marginInlineStart: 6 }}>{r.year}</Typography.Text> : null}</>}
+              title={<>{r.project_code || r.case_code}{r.year ? <Typography.Text type="secondary" style={{ marginInlineStart: 6 }}>{r.year}</Typography.Text> : null}</>}
               subtitle={r.case_name}
               tags={[{ text: PM_CASE_STATUS_LABELS[r.status] ?? r.status, color: r.status === 'contracted' ? 'green' : r.status === 'closed' ? 'default' : 'blue' }]}
               rows={[{ label: '委託單位', value: r.client_name }, { label: '類別', value: r.category }]}

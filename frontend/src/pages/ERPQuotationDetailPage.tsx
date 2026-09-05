@@ -350,7 +350,9 @@ export const ERPQuotationDetailPage: React.FC = () => {
 
         {/* 合約明細 */}
         <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small" title="合約資訊">
-          <Descriptions.Item label="案號">{quotation.case_code}</Descriptions.Item>
+          {/* 2026-09-05 owner：案件顯示以成案案號為主，建案案號退為次要 */}
+          <Descriptions.Item label="成案編號">{quotation.project_code || <Typography.Text type="secondary">未成案</Typography.Text>}</Descriptions.Item>
+          <Descriptions.Item label="建案案號">{quotation.case_code}</Descriptions.Item>
           <Descriptions.Item label="案名">{quotation.case_name ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="年度">{quotation.year ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="狀態">{quotation.status}</Descriptions.Item>

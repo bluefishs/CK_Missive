@@ -315,7 +315,7 @@ export const ContractCasePage: React.FC = () => {
                     title={<>{item.project_code || '-'}{item.year ? <Typography.Text type="secondary" style={{ marginInlineStart: 6 }}>{item.year}</Typography.Text> : null}</>}
                     subtitle={item.project_name}
                     tags={[{ text: getStatusLabel(item.status), color: getStatusColor(item.status) }, ...(item.category ? [{ text: item.category, color: 'default' }] : [])]}
-                    rows={[{ label: '委託單位', value: item.client_agency }, { label: '建案案號', value: item.case_code }]}
+                    rows={[{ label: '委託單位', value: item.client_agency }, { label: '類別', value: item.case_nature ?? item.category }]}
                     amounts={[{ label: winning != null ? '承攬金額（議價，含稅）' : '承攬金額（含稅）', value: fmtMoney(awarded) }]}
                     onClick={() => handleView(item)}
                   />
