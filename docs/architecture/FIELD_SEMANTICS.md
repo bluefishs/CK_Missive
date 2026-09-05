@@ -78,6 +78,33 @@ weekly 104 ⑨ 用這兩個簽名判 RED；⑩ 其他不等只 YELLOW（可能�
 | 承攬案列表、PM 案列表 | 案件年 `year` | 案件管理視角 |
 | ERP Hub 總覽 | 不分年（全量），**排除 soft-delete** | 此前含 64 張已刪報價單 |
 
+## 名稱／鍵成對欄位總表與排除 SOP（09-05 owner「非常多案例皆有此問題，如何複查與排除」）
+
+同一個對象在本庫常有兩欄：一欄名稱（給人看的**快照**）、一欄主檔鍵（**關聯**用）。09-05 全庫普查
+（`information_schema` 掃所有 `*_name／*_agency／*_id` 成對欄位）結果：
+
+| 表．名稱欄 ↔ 鍵欄 | 主檔 | 可連未連 | 漂移 | 主檔缺 | 09-05 處置 |
+|---|---|---|---|---|---|
+| `pm_cases.client_name` ↔ `client_vendor_id` | `partner_vendors` | 0 | 2 | 0（用地科 ×2 已補鍵 78） | 補鍵；漂移 2 待判（A99） |
+| `contract_projects.client_agency` ↔ `client_vendor_id` | `partner_vendors` | 0 | 2 | 0 | 同上；另有舊鍵 `client_agency_id`（34 筆指 `government_agencies`）與新鍵兩兩一致，weekly 107 守 |
+| `erp_vendor_payables.vendor_name` ↔ `vendor_id` | `partner_vendors` | 0 | 3 | 0 | 漂移 3 待判 |
+| `documents.sender` ↔ `sender_agency_id` | `government_agencies` | 92→**0** | 76（全是縮寫，主檔名含於原文） | 0 | 回填 92（86 筆是乾坤自己） |
+| `documents.receiver` ↔ `receiver_agency_id` | `government_agencies` | 94→**0** | 519（514 筆原文帶「（協力廠商：…）」；**5 筆毫無交集**待判，如 #361「380000000A (桃園市政府)」連到工務局） | 0 | 回填 94；漂移判準只認「毫無交集」 |
+| `finance_ledgers.vendor_id`（無名稱欄，鍵由來源應付推導） | `partner_vendors` | 5→**0** | — | — | 回填 5；`erp_billing` 分錄 39 筆本來就沒有廠商（對象是委託單位，帳本沒有那把鍵） |
+| `expense_invoices.seller_ban` ↔ `vendor_id` | `partner_vendors.tax_id` | 0（6 筆有統編但主檔沒有這些統編） | — | 6 | 主檔缺統編，要人補 |
+| `project_vendor_association.vendor_id` | `partner_vendors` | 只有鍵、沒有名稱欄 | — | — | 正確形狀 |
+
+**複查**＝weekly 107（`name_id_pair_consistency_audit.py`）每週跑全部成對欄位＋兩條推導鍵；RED 只給「可精確對上主檔卻沒填鍵」
+（那是程式沒接自動補鍵）與「兩把鍵不一致」；漂移與主檔缺 YELLOW 列名冊要人判。
+
+**排除**分三層，缺一不可：
+1. **寫入端補鍵**：建立／更新時用名稱精確對主檔補鍵（PM／承攬案 `_resolve_client_vendor_id`，09-04 起）；對不到就留空**並列進 YELLOW**，不猜。
+2. **讀取端以鍵為準**：分組、篩選、JOIN 一律用鍵（委託單位帳款腿 2 於 09-05 改鍵分組），名稱只在沒有鍵時退回；有鍵時**顯示主檔名**，快照只是歷史。
+3. **存量一次回填**：只回填「精確相等」者（09-05 共 192 筆：公文 186、帳本 5、PM 1）；不精確的（張啟良建築師 vs 事務所、用地科 vs 工務局）由人決定是同一家還是要另建主檔。
+
+⚠️ 另一個結構性來源：委託單位有**兩個主檔**——`partner_vendors(client)` 193 家與 `government_agencies` 之間 15 家同名。
+公文用機關主檔、案件用委託單位主檔，同一個「桃園市政府工務局」在兩邊各一個 id。要不要合併（或在 partner_vendors 加 `agency_id` 橋）是 owner 決策＝A105。
+
 ## 狀態
 
 | 表 | 值域 | 語意 |
