@@ -139,6 +139,11 @@ class DocumentStatsRepository(BaseRepository[OfficialDocument]):
     # v2.0.0 新增方法 — 從 Service/Endpoint 提取 (A2)
     # =========================================================================
 
+    async def get_category_counts(self) -> Dict[str, int]:
+        """收發文分類計數——分類在 `category`（發文／收文），不在 `doc_type`（函／開會通知單／會勘通知單）。
+        2026-09-05：整體統計此前拿 by_type（doc_type）去找「發文」⇒ 永遠 0，發文字號頁「總發文數 0」而電子交換 467、紙本 149。"""
+        return await self._get_grouped_count('category')
+
     async def get_current_year_send_count(self, year: Optional[int] = None) -> int:
         """取得指定年度（預設當年）發文數"""
         target_year = year or date.today().year

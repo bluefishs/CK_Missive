@@ -171,7 +171,13 @@ def check_routes():
     undefined = routes_used_in_router - defined_keys
 
     # 排除已知的重導向路由（不需要在 AppRouter 中使用）
-    known_unused = set()  # 可加入合理未使用的 key
+    # 2026-09-05 逐項核實：KUNGE_* 是 KungePage 的分頁子路徑（AppRouter 只掛 /kunge 與 /kunge/:tab，
+    # 由 PATH_TO_TAB 解析；導覽設定與 KungePage 內部 navigate 都用這些常數），實測 /kunge/ops 正常載入。
+    # 不是「定義了沒用」，是「不在 AppRouter 這一層用」。
+    known_unused = {
+        "KUNGE_CHAT", "KUNGE_MIND", "KUNGE_EVOLUTION", "KUNGE_GRAPH", "KUNGE_OPS",
+        "KUNGE_IDENTITY", "KUNGE_MEMORY", "KUNGE_NEBULA", "KUNGE_DIALOGUES",
+    }
 
     real_unused = unused - known_unused
     if real_unused:
@@ -294,7 +300,10 @@ def check_api_prefix_consistency():
 
     # 排除已知差異
     # 後端獨有: debug(開發用), secure-site-management(內部), statistics(子路由)
-    known_be_only = {"/debug", "/secure-site-management", "/statistics"}
+    # /document-numbers（2026-09-05 核實）：前端 /document-numbers 頁改走 documentsApi.getNextSendNumber，
+    # 這個後端 router 前端零呼叫、72 小時 access log 零流量、Hermes skill 文件也沒引用 ⇒ 廢止候選 A107，
+    # 但依 zero_traffic_is_not_dead 的教訓不由本檢核裁定，列入已知並在待辦表待 owner。
+    known_be_only = {"/debug", "/secure-site-management", "/statistics", "/document-numbers"}
     real_be_only = be_only - known_be_only
 
     # 前端獨有: 這些後端路由沒有在 routes.py 用 prefix= 定義，而是在各自的 router 中
@@ -507,7 +516,15 @@ def check_schema_orm_alignment():
                 "attachments", "events", "projects", "vendors",
                 "staff", "permissions", "roles",
             }
-            real_extra = extra - non_orm_fields
+            # 2026-09-05 逐項核實的「Schema 有、ORM 沒有」合理差異：回應層的衍生欄位（JOIN 出來的名稱、計數）
+            # 與輸入層的敏感欄位（密碼只進不出，ORM 存的是 hashed_password）。這不是漂移，是分層本來的形狀。
+            known_derived = {
+                "DocumentResponse": {"assigned_staff", "attachment_count", "contract_project_name",
+                                     "receiver_agency_name", "sender_agency_name"},
+                "UserCreate": {"password"},
+                "UserUpdate": {"password"},
+            }
+            real_extra = extra - non_orm_fields - known_derived.get(schema_name, set())
             if real_extra:
                 issues.append(
                     f"{schema_name} 有但 {orm_name} 無: "
@@ -550,7 +567,8 @@ def check_frontend_exports():
     pages_dir = FRONTEND_SRC / "pages"
     page_files = set()
     for f in pages_dir.iterdir():
-        if f.is_file() and f.suffix == ".tsx" and not f.name.startswith("_"):
+        # use*.tsx 是放在 pages/ 底下的欄位／處理器 hook（useAgenciesColumns 等），不是頁面（2026-09-05）
+        if f.is_file() and f.suffix == ".tsx" and not f.name.startswith("_") and not f.name.startswith("use"):
             page_files.add(f"pages/{f.stem}")
 
     # 比對
@@ -561,6 +579,9 @@ def check_frontend_exports():
         "pages/AIPromptManagementPage",   # 整合至 AIAssistantManagementPage Tab
         "pages/EntryPage",               # 重導向至 LoginPage (ROUTES.ENTRY)
         "pages/ApiDocsPage",             # 透過 ApiDocumentationPage 載入
+        "pages/UnifiedAgentPage",        # 由 components/kunge/OpsDashboard 嵌入（/kunge/ops，v5.8.1）
+        # DocumentCreatePage：Send／Receive 兩個建文頁已取代它，現在只剩測試在 import ⇒ 孤兒候選 A108（待 owner 裁定刪除，測試一併）
+        "pages/DocumentCreatePage",
     }
     real_unused = unused_pages - known_integrated
 

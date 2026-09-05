@@ -26,6 +26,8 @@
 | **A104 `expense_invoices` 舊案號孤兒 2 筆** | `B114-B001`／`B114-B002` 各 50,500（已核銷）掛在舊制案號上，對不到 PM／承攬案；要對回哪一案請 owner 指 | 🔴 待 owner |
 | **A105 委託單位兩個主檔** | `partner_vendors(client)` 193 家與 `government_agencies` 有 15 家同名（桃園市政府工務局在兩邊各一個 id）：公文用機關主檔、案件用委託單位主檔。要合併、還是在 partner_vendors 加 `agency_id` 橋，是 owner 結構決策；在那之前 weekly 107 只守兩把鍵不指到不同名字 | 待 owner |
 | **A106 視覺走查 `--click` 回流 shared-modules** | 09-05 改在 vendored 的 `.shared-selfaudit/ui_visual_walk.cjs`，來源 `shared-modules/selfaudit/src/` 尚未同步（該 repo 99 未提交、無人看管）；下次 sync-vendored 會 DRIFT。跨 repo 改動依協作規範只通知不代勞 | 待 owner |
+| **A107 `/api/document-numbers` 後端 router 廢止候選** | 前端 `/document-numbers` 頁走 `documentsApi.getNextSendNumber`，該 router（sequences／generate／next-number）前端零呼叫、72 小時 access log 零流量、Hermes skill 無引用。依 `zero_traffic_is_not_dead`（11 個零流量端點核實後沒有一個該刪）不自行刪，要 owner 確認有沒有外部呼叫者（LINE／排程） | 待 owner |
+| **A108 `pages/DocumentCreatePage.tsx` 孤兒** | Send／Receive 兩個建文頁已取代，只剩 `__tests__` 在 import；刪除要連測試一起 | 待 owner |
 | 09-05 第二十九輪已修 | owner「`/erp/quotations/588` 前端改成賴柏霖，系統仍顯示賴柏霖與曾廷睿，資料庫不是對應同欄位？」真因＝**指派有兩把鍵、寫入各寫各的**：#540 曾廷睿只綁 `case_code`（09-03 PM 頁）、#546 賴柏霖只綁 `project_id`（09-04 承攬案頁）；承攬案頁只列 `project_id` 那筆、報價單取聯集 ⇒ 兩個名字。08-31 改了八個讀取點沒改寫入。修：回填 69＋24 筆單邊指派、兩個寫入點補另一把鍵（容器回滾測試 ✓）、刪 #540、weekly 110 守門（GREEN） | ✅ |
 | 09-05 第二十八輪已修 | owner「文字與統計統一為承攬金額（含稅）」：兩頁卡片與列表欄位同一個名字「承攬金額（含稅）」，字典去掉「應收總額（含稅）」鍵，同算法、同數 | ✅ |
 | 09-05 第二十七輪已修 | owner「兩頁文字與定義仍不一致；報價單同採未稅為何仍不一致；是否皆以含稅呈現」。定案：**畫面金額一律含稅**。報價單頁卡改「應收總額（含稅）」＝Σ 承攬金額（議價→契約→報價總價），與承攬案頁「承攬金額合計（含稅）」同一算法、同一種進位（先加總再四捨五入；逐列進位曾差 1）。四種年度範圍逐一相等。此前差異＝稅基不同＋承攬案頁未看議價＋進位方式 | ✅ |

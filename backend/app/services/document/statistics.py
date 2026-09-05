@@ -43,6 +43,8 @@ class DocumentStatisticsService:
     async def get_overall_statistics(self) -> Dict[str, Any]:
         """取得公文整體統計"""
         stats = await self.repository.get_statistics()
+        # 2026-09-05：收發文在 category，不在 doc_type（by_type 是 函／開會通知單…）⇒ 此前 send／receive 永遠 0
+        by_category = await self.repository.get_category_counts()
         current_year_send = await self.repository.get_current_year_send_count()
         delivery_stats = await self.repository.get_delivery_method_statistics()
 
@@ -50,10 +52,10 @@ class DocumentStatisticsService:
             'success': True,
             'total': stats['total'],
             'total_documents': stats['total'],
-            'send': stats['by_type'].get('發文', 0),
-            'send_count': stats['by_type'].get('發文', 0),
-            'receive': stats['by_type'].get('收文', 0),
-            'receive_count': stats['by_type'].get('收文', 0),
+            'send': by_category.get('發文', 0),
+            'send_count': by_category.get('發文', 0),
+            'receive': by_category.get('收文', 0),
+            'receive_count': by_category.get('收文', 0),
             'current_year_count': sum(stats['by_month'].values()),
             'current_year_send_count': current_year_send,
             'delivery_method_stats': delivery_stats,
