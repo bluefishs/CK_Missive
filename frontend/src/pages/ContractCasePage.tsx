@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { FilterBar } from '../components/common/FilterBar';
 import { MobileCard } from '../components/common/MobileCardList';
 import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
@@ -243,18 +244,22 @@ export const ContractCasePage: React.FC = () => {
       </Card>
 
       {/* 篩選和操作區 */}
+      {/* 2026-09-05 owner：篩選列手機可收合（比照 /erp/quotations）。搜尋框常駐，年度／類別／狀態與操作鈕收進「篩選」鈕 */}
       <Card style={{ marginBottom: 16 }}>
-        <Space vertical style={{ width: '100%' }}>
-          <Row gutter={[16, 8]}>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Input
-                placeholder="搜尋專案名稱、編號、委託單位"
-                prefix={<SearchOutlined />}
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                allowClear
-              />
-            </Col>
+        <FilterBar
+          style={{ marginBottom: 0 }}
+          summary={(
+            <Input
+                            placeholder="搜尋專案名稱、編號、委託單位"
+                            prefix={<SearchOutlined />}
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            allowClear
+                          />
+          )}
+          activeCount={[yearFilter, categoryFilter, statusFilter].filter(Boolean).length}
+        >
+          <Row gutter={[16, 8]} style={{ width: '100%' }}>
             {/* 2026-09-04 晚 owner：「不是將原篩選機制移除，是要完善各表單標頭提供篩選排序」——
                 工具列三個下拉留著，與表頭漏斗**共用同一份狀態**（yearFilter／categoryFilter／statusFilter）：
                 在哪邊改，另一邊同步顯示；查詢一律進後端參數。不是兩套機制，是同一個狀態的兩個入口。 */}
@@ -271,7 +276,7 @@ export const ContractCasePage: React.FC = () => {
                 options={availableStatuses.map((st) => ({ value: st, label: getStatusLabel(st) }))} />
             </Col>
           </Row>
-          <Row justify="space-between">
+          <Row justify="space-between" style={{ width: '100%' }}>
             <Col>
               <Space>
                 <Button onClick={handleResetFilters}>重置篩選</Button>
@@ -291,7 +296,7 @@ export const ContractCasePage: React.FC = () => {
               </Space>
             </Col>
           </Row>
-        </Space>
+        </FilterBar>
       </Card>
 
       {/* 內容區域 */}

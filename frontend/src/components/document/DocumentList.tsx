@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
+import { MobileCard } from '../common/MobileCardList';
 import { Button, Space, Empty, Input, InputRef, App } from 'antd';
 import type { TableProps } from 'antd';
 import { ResponsiveTable } from '../common';
@@ -360,6 +361,24 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           窄螢幕保留「誰發的、什麼字號、講什麼」。 */}
       <ResponsiveTable
         {...tableProps}
+        // 2026-09-05 owner：「/contract-cases 資訊卡片呈現風格優於 /documents」⇒ 手機改同一套 MobileCard
+        mobileCard={(record) => {
+          const isIn = record.category === '收文';
+          const party = isIn ? record.sender : record.receiver;
+          return (
+            <MobileCard
+              title={<>{record.doc_number || '-'}{record.doc_date ? <span style={{ marginInlineStart: 8, color: '#6b7280' }}>{new Date(record.doc_date).toLocaleDateString('zh-TW')}</span> : null}</>}
+              subtitle={record.subject || '無主旨'}
+              tags={[
+                { text: isIn ? '收文' : '發文', color: isIn ? 'green' : 'blue' },
+                ...(record.delivery_method ? [{ text: record.delivery_method, color: record.delivery_method === '電子交換' ? 'green' : 'orange' }] : []),
+                ...((record.attachment_count || 0) > 0 ? [{ text: `附件 ${record.attachment_count}`, color: 'default' }] : []),
+              ]}
+              rows={[{ label: isIn ? '來文' : '發至', value: party }, { label: '案件', value: record.contract_project_name }]}
+              onClick={() => handleRowClick(record)}
+            />
+          );
+        }}
         mobileHiddenColumns={['rowNumber', 'delivery_method', 'doc_date', 'attachment_count', 'contract_project_name']}
       />
     </>

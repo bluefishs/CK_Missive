@@ -2,6 +2,7 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
+import { FilterBar } from '../components/common/FilterBar';
 import { MobileCard } from '../components/common/MobileCardList';
 import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
@@ -290,13 +291,18 @@ export const ERPQuotationListPage: React.FC = () => {
       {isError && <Alert type="error" message="載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
       <Card>
-        <Space wrap style={{ marginBottom: 16 }}>
-          <Input.Search
-            placeholder="搜尋成案編號／建案案號／專案名稱"
-            allowClear
-            onSearch={(v) => setParams((p) => ({ ...p, search: v || undefined, page: 1 }))}
-            style={{ width: 240 }}
-          />
+        {/* 2026-09-05 owner：手機上這一列佔了 1/3 螢幕 ⇒ 改 FilterBar：只常駐搜尋框，篩選與操作收進「篩選」鈕 */}
+        <FilterBar
+          summary={(
+            <Input.Search
+                        placeholder="搜尋成案編號／建案案號／專案名稱"
+                        allowClear
+                        onSearch={(v) => setParams((p) => ({ ...p, search: v || undefined, page: 1 }))}
+                        style={{ width: 240 }}
+                      />
+          )}
+          activeCount={[params.category, params.client_name, params.card].filter(Boolean).length + (params.year ? 0 : 1)}
+        >
           <Select
             value={params.year ?? 0}
             onChange={(v) => setParams((p) => ({ ...p, year: v || undefined, page: 1 }))}
@@ -487,7 +493,7 @@ export const ERPQuotationListPage: React.FC = () => {
               </Upload>
             </>
           )}
-        </Space>
+        </FilterBar>
 
         <EnhancedTable<ERPQuotation>
           columns={columns}

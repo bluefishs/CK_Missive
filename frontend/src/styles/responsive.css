@@ -433,3 +433,9 @@
   .ant-descriptions-item-label, .ant-descriptions-item-content { font-size: 13px; }
   .ant-tabs-nav { margin-bottom: 8px; }
 }
+
+/* FilterBar 手機收合區：每個控制項一整行（2026-09-05） */
+.ck-filterbar-mobile-body .ant-select, .ck-filterbar-mobile-body .ant-btn, .ck-filterbar-mobile-body .ant-upload,
+.ck-filterbar-mobile-body .ant-input-search, .ck-filterbar-mobile-body .ant-picker { width: 100% !important; }
+.ck-filterbar-mobile-body .ant-row { row-gap: 8px !important; }
+.ck-filterbar-mobile-body .ant-col { flex: 0 0 100% !important; max-width: 100% !important; }
