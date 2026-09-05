@@ -80,8 +80,20 @@ function resolveRoutes() {
   return sweepRoutes.slice(0, VW.max_routes || 12);
 }
 
+// 2026-09-05 owner「為何無法模擬行動裝置登入畫面檢測」：能，而且本支早就能登入拍手機寬——
+// 缺的是「載入後先點一下再拍」：手機的篩選列是收合的，不點開就永遠拍不到 owner 說看不到的那個畫面。
+//   --click='button[aria-label="展開篩選"];;.ck-filterbar-mobile-body .ant-select'
+// 依序點（;; 分隔），每點停 600ms；點不到就記在備註、照拍。檔名加 __click 以與未點的區分。
+function resolveClicks() {
+  const prefix = '--click=';
+  const found = process.argv.find((a) => a.startsWith(prefix));
+  const arg = found ? found.slice(prefix.length) : '';
+  return arg.split(';;').map((x) => x.trim()).filter(Boolean);
+}
+
 async function main() {
   if (!PW || !PW.exe) boot.fail(boot.playwrightMissingMessage());
+  const clicks = resolveClicks();
 
   const routes = resolveRoutes();
   boot.assertNonEmpty(
@@ -110,11 +122,20 @@ async function main() {
         await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForTimeout(VW.settle_ms || 2500);
         if (/\/entry|\/login/.test(page.url())) note = '被導回入口頁（未驗）';
+        for (const sel of clicks) {
+          const loc = page.locator(sel).first();
+          if (await loc.count()) {
+            await loc.click({ timeout: 5000 }).catch((e) => { note += `點 ${sel} 失敗：${String(e).slice(0, 60)}；`; });
+            await page.waitForTimeout(600);
+          } else {
+            note += `找不到 ${sel}；`;
+          }
+        }
       } catch (e) {
         note = `載入失敗：${String(e).slice(0, 80)}`;
       }
       const safe = route.replace(/[^a-z0-9]/gi, '_') || 'root';
-      const file = `${safe}__${vp.name}.png`;
+      const file = `${safe}__${vp.name}${clicks.length ? '__click' : ''}.png`;
       // fullPage：視覺缺陷常在摺線以下（表格尾端、footer 按鈕），
       // 只拍可視範圍會漏掉一半。
       await page.screenshot({ path: path.join(outRoot, file), fullPage: true }).catch(() => {});
