@@ -484,3 +484,67 @@ class FinancialSummaryRepository:
             buckets[bucket_key]["amount"] += outstanding
 
         return buckets
+
+    async def get_category_breakdown(self, year: Optional[int] = None, category: Optional[str] = None) -> dict:
+        """依計畫類別 × 委託單位／協力廠商的應收付彙總（owner 2026-09-05）。
+
+        口徑與 /erp/quotations 一致：成案報價單（有承攬案）、年度＝案號 CK{年}、類別＝案號第二段（PM_ 可省）、
+        承攬金額＝議價→契約→報價總價（含稅）；委託單位以主檔鍵 client_vendor_id 為準、名稱只是後備。
+        應付掛在報價單的 erp_vendor_payables（含「指派即應付」自動建的）。
+        """
+        from sqlalchemy import text as _t
+        scope = "q.deleted_at IS NULL"
+        params: dict = {}
+        if year:
+            scope += " AND q.case_code LIKE :yr"
+            params["yr"] = f"CK{int(year)}_%"
+        # ⚠️ `(?:` 的冒號會被 SQLAlchemy text() 當成 bind 參數 `:PM_`（L-family：冒號參數陷阱）⇒ 用 `\:` 跳脫
+        cat_expr = "substring(q.case_code from '^CK\\d{4}_(?\\:PM_|GN_|FN_)?(\\d{2})_')"
+        cat_filter = ""
+        if category in ("01", "02"):
+            cat_filter = f" AND {cat_expr} = :cat"
+            params["cat"] = category
+        base = f"""
+            SELECT q.id, {cat_expr} AS cat, c.client_vendor_id,
+                   COALESCE(v.vendor_name, btrim(c.client_agency), '（未填委託單位）') AS client_name,
+                   COALESCE(NULLIF(c.winning_amount, 0), c.contract_amount, q.total_price, 0) AS awarded
+            FROM erp_quotations q
+            JOIN contract_projects c ON c.case_code = q.case_code
+            LEFT JOIN partner_vendors v ON v.id = c.client_vendor_id
+            WHERE {scope}{cat_filter}
+        """
+        rec_rows = (await self.db.execute(_t(f"""
+            WITH q AS ({base})
+            SELECT cat, client_name, MIN(client_vendor_id) AS client_vendor_id, COUNT(*) AS n, SUM(awarded) AS awarded,
+                   SUM((SELECT COALESCE(SUM(b.billing_amount), 0) FROM erp_billings b WHERE b.erp_quotation_id = q.id)) AS billed,
+                   SUM((SELECT COALESCE(SUM(b.payment_amount), 0) FROM erp_billings b WHERE b.erp_quotation_id = q.id AND b.payment_status IN ('paid','partial'))) AS received
+            FROM q WHERE cat IS NOT NULL GROUP BY cat, client_name ORDER BY cat, awarded DESC
+        """), params)).all()
+        pay_rows = (await self.db.execute(_t(f"""
+            WITH q AS ({base})
+            SELECT q.cat, COALESCE(pv.vendor_name, btrim(p.vendor_name)) AS vendor_name, MIN(p.vendor_id) AS vendor_id,
+                   COUNT(DISTINCT q.id) AS n, SUM(p.payable_amount) AS payable, SUM(COALESCE(p.paid_amount, 0)) AS paid
+            FROM q JOIN erp_vendor_payables p ON p.erp_quotation_id = q.id
+            LEFT JOIN partner_vendors pv ON pv.id = p.vendor_id
+            WHERE q.cat IS NOT NULL GROUP BY q.cat, COALESCE(pv.vendor_name, btrim(p.vendor_name)) ORDER BY q.cat, payable DESC
+        """), params)).all()
+        receivable = [{
+            "category": r.cat, "client_name": r.client_name, "client_vendor_id": r.client_vendor_id, "case_count": int(r.n or 0),
+            "awarded": r.awarded or 0, "billed": r.billed or 0, "received": r.received or 0,
+            "outstanding": (r.billed or 0) - (r.received or 0),
+        } for r in rec_rows]
+        payable = [{
+            "category": r.cat, "vendor_name": r.vendor_name, "vendor_id": r.vendor_id, "case_count": int(r.n or 0),
+            "payable": r.payable or 0, "paid": r.paid or 0, "outstanding": (r.payable or 0) - (r.paid or 0),
+        } for r in pay_rows]
+        totals = {}
+        for cat in ("01", "02"):
+            rs = [x for x in receivable if x["category"] == cat]
+            ps = [x for x in payable if x["category"] == cat]
+            totals[cat] = {
+                "clients": len(rs), "awarded": sum(x["awarded"] for x in rs), "billed": sum(x["billed"] for x in rs),
+                "received": sum(x["received"] for x in rs), "receivable_outstanding": sum(x["outstanding"] for x in rs),
+                "vendors": len(ps), "payable": sum(x["payable"] for x in ps), "paid": sum(x["paid"] for x in ps),
+                "payable_outstanding": sum(x["outstanding"] for x in ps),
+            }
+        return {"year": year, "category": category, "receivable": receivable, "payable": payable, "totals": totals}

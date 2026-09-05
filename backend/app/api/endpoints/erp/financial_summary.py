@@ -10,6 +10,7 @@ from app.extended.models import User
 from app.services.erp.financial_summary import FinancialSummaryService
 from app.services.erp.finance_export import FinanceExportService
 from app.schemas.erp.financial_summary import (
+    CategoryBreakdownRequest,
     ProjectSummaryRequest,
     AllProjectsSummaryRequest,
     CompanyOverviewRequest,
@@ -91,6 +92,17 @@ async def get_budget_ranking(
         top_n=params.top_n,
         order_desc=(params.order == "desc"),
     )
+    return SuccessResponse(data=result)
+
+
+@router.post("/by-category")
+async def get_category_breakdown(
+    params: CategoryBreakdownRequest,
+    service: FinancialSummaryService = Depends(get_service(FinancialSummaryService)),
+    current_user: User = Depends(require_auth()),
+):
+    """依計畫類別（01 委辦招標／02 承攬報價）統計各機關應收與協力廠商應付——owner 2026-09-05"""
+    result = await service.get_category_breakdown(year=params.year, category=params.category)
     return SuccessResponse(data=result)
 
 

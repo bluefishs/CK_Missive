@@ -1761,3 +1761,10 @@ export interface ERPQuotationTemplateMeta {
   /** 備註列（除錯／稽核對照用，畫面不呈現） */
   notes_row: number;
 }
+
+/** 依計畫類別 × 委託單位／協力廠商 應收付（2026-09-05） */
+export interface CategoryReceivableRow { category: string; client_name: string; client_vendor_id?: number | null; case_count: number; awarded: number; billed: number; received: number; outstanding: number; }
+export interface CategoryPayableRow { category: string; vendor_name: string; vendor_id?: number | null; case_count: number; payable: number; paid: number; outstanding: number; }
+export interface CategoryBreakdownTotals { clients: number; awarded: number; billed: number; received: number; receivable_outstanding: number; vendors: number; payable: number; paid: number; payable_outstanding: number; }
+export interface CategoryBreakdownResponse { year?: number | null; category?: string | null; receivable: CategoryReceivableRow[]; payable: CategoryPayableRow[]; totals: Record<string, CategoryBreakdownTotals>; }
+export interface CategoryBreakdownRequest { year?: number; category?: '01' | '02'; }

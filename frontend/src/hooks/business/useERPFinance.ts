@@ -22,6 +22,7 @@ import type {
   CompanyOverviewRequest,
   MonthlyTrendRequest,
   BudgetRankingRequest,
+  CategoryBreakdownRequest,
   ExportExpensesRequest,
   ExportLedgerRequest,
   EInvoiceSyncRequest,
@@ -441,6 +442,15 @@ export const useBudgetRanking = (params?: BudgetRankingRequest) => {
   return useQuery({
     queryKey: erpFinanceKeys.financialSummary.budgetRanking(params),
     queryFn: () => financialSummaryApi.budgetRanking(params),
+    ...defaultQueryOptions.statistics,
+  });
+};
+
+/** 依計畫類別 × 委託單位／協力廠商 應收付（2026-09-05） */
+export const useCategoryBreakdown = (params?: CategoryBreakdownRequest) => {
+  return useQuery({
+    queryKey: [...erpFinanceKeys.financialSummary.all, 'by-category', params] as const,
+    queryFn: () => financialSummaryApi.byCategory(params),
     ...defaultQueryOptions.statistics,
   });
 };

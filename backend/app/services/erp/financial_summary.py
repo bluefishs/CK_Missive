@@ -135,6 +135,10 @@ class FinancialSummaryService:
         )
         return {"items": items[:top_n], "total_projects": total}
 
+    async def get_category_breakdown(self, year: Optional[int] = None, category: Optional[str] = None) -> dict:
+        """依計畫類別 × 委託單位／協力廠商 應收付（owner 2026-09-05）"""
+        return await self.repo.get_category_breakdown(year=year, category=category)
+
     async def get_aging_analysis(
         self,
         direction: str = "receivable",

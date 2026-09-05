@@ -162,3 +162,38 @@ class AgingResponse(BaseModel):
     total_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CategoryBreakdownRequest(BaseModel):
+    """依計畫類別統計各機關（應收）與協力廠商（應付）——owner 2026-09-05"""
+    year: Optional[int] = Field(None, description="案件年度（案號 CK{年}），空＝全部")
+    category: Optional[str] = Field(None, pattern=r"^(01|02)$", description="01 委辦招標／02 承攬報價；空＝兩類都給")
+
+
+class CategoryReceivableRow(BaseModel):
+    category: str
+    client_name: str
+    client_vendor_id: Optional[int] = None
+    case_count: int = 0
+    awarded: Decimal = Decimal("0")
+    billed: Decimal = Decimal("0")
+    received: Decimal = Decimal("0")
+    outstanding: Decimal = Decimal("0")
+
+
+class CategoryPayableRow(BaseModel):
+    category: str
+    vendor_name: str
+    vendor_id: Optional[int] = None
+    case_count: int = 0
+    payable: Decimal = Decimal("0")
+    paid: Decimal = Decimal("0")
+    outstanding: Decimal = Decimal("0")
+
+
+class CategoryBreakdownResponse(BaseModel):
+    year: Optional[int] = None
+    category: Optional[str] = None
+    receivable: List[CategoryReceivableRow] = []
+    payable: List[CategoryPayableRow] = []
+    totals: dict = {}

@@ -15,7 +15,9 @@ import { useCompanyFinancialOverview, useAllProjectsSummary, useExportExpenses, 
 import type { ProjectFinancialSummary, CompanyOverviewRequest, AgingBucket } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { useERPProfitSummary } from '../hooks/business/useERPQuotations';
-import { useClientAccountSummary } from '../hooks/business/useERPFinance';
+import { useClientAccountSummary, useCategoryBreakdown } from '../hooks/business/useERPFinance';
+import type { CategoryReceivableRow, CategoryPayableRow } from '../types/erp';
+import { MobileCard } from '../components/common/MobileCardList';
 import { ClickableStatCard } from '../components/common';
 import { termTitle } from '../constants/financeTerms';
 import { fmtMoney } from '../utils/money';
@@ -69,6 +71,13 @@ const ERPFinancialDashboardPage: React.FC = () => {
   const { data: kpi } = useERPProfitSummary({ year: kpiYear });
   // 委託單位未收集中度：全部年度、取全（186 家 < 1000）
   const { data: clientAcc } = useClientAccountSummary({ vendor_type: 'client', year: 0, limit: 1000 });
+  // 依計畫類別 × 委託單位／協力廠商（owner 09-05）：01 委辦招標／02 承攬報價各自看誰欠我們、我們欠誰
+  const [catYear, setCatYear] = useState<number>(kpiYear);
+  const [catSel, setCatSel] = useState<'01' | '02'>('01');
+  const { data: catData, isLoading: catLoading } = useCategoryBreakdown({ year: catYear || undefined });
+  const catRec = useMemo(() => (catData?.data?.receivable ?? []).filter((r) => r.category === catSel), [catData, catSel]);
+  const catPay = useMemo(() => (catData?.data?.payable ?? []).filter((r) => r.category === catSel), [catData, catSel]);
+  const catTot = catData?.data?.totals?.[catSel];
   const overdueAr = useMemo(() => {
     const b = arAgingData?.data?.buckets ?? [];
     return b.filter((x) => x.bucket !== '0-30').reduce((a, x) => a + Number(x.amount || 0), 0);
@@ -235,6 +244,67 @@ const ERPFinancialDashboardPage: React.FC = () => {
             onClick={() => navigate(ROUTES.ERP_CLIENT_ACCOUNTS)} /></Col>
           <Col xs={12} sm={8} lg={4}><ClickableStatCard title={termTitle('payable_outstanding')} value={fmtMoney(apAgingData?.data?.total_outstanding)} color="#722ed1"
             onClick={() => navigate(ROUTES.ERP_VENDOR_ACCOUNTS)} /></Col>
+        </Row>
+      </Card>
+
+      {/* 依計畫類別 × 機關／協力廠商（owner 09-05） */}
+      <Card size="small" style={{ marginBottom: 16 }}
+        title={<Space wrap><Text strong>依計畫類別：各機關應收／協力廠商應付</Text>
+          <Select size="small" value={catYear} style={{ width: 110 }} onChange={(v) => setCatYear(v)}
+            options={[{ value: 0, label: '全部年度' }, ...Array.from({ length: 5 }, (_, i) => ({ value: kpiYear - i, label: `${kpiYear - i} 年` }))]} />
+          <Select size="small" value={catSel} style={{ width: 130 }} onChange={(v) => setCatSel(v)}
+            options={[{ value: '01', label: '01 委辦招標' }, { value: '02', label: '02 承攬報價' }]} />
+        </Space>}
+        loading={catLoading}
+      >
+        <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+          <Col xs={12} sm={6}><ClickableStatCard title={termTitle('contract_amount_sum')} value={fmtMoney(catTot?.awarded)} color="#1890ff" /></Col>
+          <Col xs={12} sm={6}><ClickableStatCard title={termTitle('outstanding')} value={fmtMoney(catTot?.receivable_outstanding)} color="#fa8c16" /></Col>
+          <Col xs={12} sm={6}><ClickableStatCard title={termTitle('payable_total')} value={fmtMoney(catTot?.payable)} color="#722ed1" /></Col>
+          <Col xs={12} sm={6}><ClickableStatCard title={termTitle('payable_outstanding')} value={fmtMoney(catTot?.payable_outstanding)} color="#cf1322" /></Col>
+        </Row>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} lg={14}>
+            <Text strong>委託單位（機關）應收</Text>
+            <EnhancedTable<CategoryReceivableRow>
+              size="small" rowKey={(r) => `${r.category}-${r.client_name}`} dataSource={catRec} pagination={false}
+              scroll={{ x: 'max-content' }}
+              onRow={(r) => ({ onClick: () => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${catYear || ''}&category=${catSel}&client_name=${encodeURIComponent(r.client_name)}`), style: { cursor: 'pointer' } })}
+              mobileCard={(r) => (
+                <MobileCard title={`${r.case_count} 案`} subtitle={r.client_name}
+                  amounts={[{ label: '承攬金額', value: fmtMoney(r.awarded) }, { label: '已收', value: fmtMoney(r.received), tone: 'good' }, { label: '未收', value: fmtMoney(r.outstanding), tone: r.outstanding > 0 ? 'warn' : 'default' }]}
+                  onClick={() => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${catYear || ''}&category=${catSel}&client_name=${encodeURIComponent(r.client_name)}`)} />
+              )}
+              columns={[
+                { title: '委託單位', dataIndex: 'client_name', ellipsis: true },
+                { title: '案數', dataIndex: 'case_count', width: 60, align: 'right' },
+                { title: termTitle('awarded_amount'), dataIndex: 'awarded', width: 120, align: 'right', render: (v) => fmtMoney(v) },
+                { title: termTitle('billed'), dataIndex: 'billed', width: 110, align: 'right', render: (v) => fmtMoney(v) },
+                { title: termTitle('received'), dataIndex: 'received', width: 110, align: 'right', render: (v) => fmtMoney(v) },
+                { title: termTitle('outstanding'), dataIndex: 'outstanding', width: 110, align: 'right', render: (v) => <span style={{ color: Number(v) > 0 ? '#fa8c16' : undefined }}>{fmtMoney(v)}</span> },
+              ]}
+            />
+          </Col>
+          <Col xs={24} lg={10}>
+            <Text strong>協力廠商應付</Text>
+            <EnhancedTable<CategoryPayableRow>
+              size="small" rowKey={(r) => `${r.category}-${r.vendor_name}`} dataSource={catPay} pagination={false}
+              scroll={{ x: 'max-content' }}
+              onRow={(r) => ({ onClick: () => { if (r.vendor_id != null) navigate(`${ROUTES.ERP_VENDOR_ACCOUNTS}/${r.vendor_id}`); }, style: { cursor: r.vendor_id != null ? 'pointer' : 'default' } })}
+              mobileCard={(r) => (
+                <MobileCard title={`${r.case_count} 案`} subtitle={r.vendor_name}
+                  amounts={[{ label: '應付', value: fmtMoney(r.payable) }, { label: '已付', value: fmtMoney(r.paid), tone: 'good' }, { label: '未付', value: fmtMoney(r.outstanding), tone: r.outstanding > 0 ? 'warn' : 'default' }]}
+                  onClick={r.vendor_id != null ? () => navigate(`${ROUTES.ERP_VENDOR_ACCOUNTS}/${r.vendor_id}`) : undefined} />
+              )}
+              columns={[
+                { title: '協力廠商', dataIndex: 'vendor_name', ellipsis: true },
+                { title: '案數', dataIndex: 'case_count', width: 60, align: 'right' },
+                { title: termTitle('payable_total'), dataIndex: 'payable', width: 110, align: 'right', render: (v) => fmtMoney(v) },
+                { title: termTitle('paid_total'), dataIndex: 'paid', width: 100, align: 'right', render: (v) => fmtMoney(v) },
+                { title: termTitle('payable_outstanding'), dataIndex: 'outstanding', width: 100, align: 'right', render: (v) => <span style={{ color: Number(v) > 0 ? '#cf1322' : undefined }}>{fmtMoney(v)}</span> },
+              ]}
+            />
+          </Col>
         </Row>
       </Card>
 

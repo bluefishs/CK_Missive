@@ -224,6 +224,8 @@ export const ERP_ENDPOINTS = {
   FINANCIAL_SUMMARY_MONTHLY_TREND: '/erp/financial-summary/monthly-trend',
   /** 預算使用率排行 POST /erp/financial-summary/budget-ranking */
   FINANCIAL_SUMMARY_BUDGET_RANKING: '/erp/financial-summary/budget-ranking',
+  /** 依計畫類別統計各機關應收／協力廠商應付 POST /erp/financial-summary/by-category */
+  FINANCIAL_SUMMARY_BY_CATEGORY: '/erp/financial-summary/by-category',
   /** 帳齡分析 POST /erp/financial-summary/aging */
   FINANCIAL_SUMMARY_AGING: '/erp/financial-summary/aging',
   /** ERP 模組快速統計 POST /erp/financial-summary/erp-overview */

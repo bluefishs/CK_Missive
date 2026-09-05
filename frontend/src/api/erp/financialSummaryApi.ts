@@ -20,6 +20,8 @@ import type {
   ExportLedgerRequest,
   AgingAnalysis,
   AgingAnalysisRequest,
+  CategoryBreakdownRequest,
+  CategoryBreakdownResponse,
 } from '../../types/erp';
 
 export const financialSummaryApi = {
@@ -41,6 +43,10 @@ export const financialSummaryApi = {
 
   async budgetRanking(params?: BudgetRankingRequest): Promise<SuccessResponse<BudgetRankingResponse>> {
     return apiClient.post<SuccessResponse<BudgetRankingResponse>>(ERP_ENDPOINTS.FINANCIAL_SUMMARY_BUDGET_RANKING, params || {});
+  },
+
+  async byCategory(params?: CategoryBreakdownRequest): Promise<SuccessResponse<CategoryBreakdownResponse>> {
+    return apiClient.post<SuccessResponse<CategoryBreakdownResponse>>(ERP_ENDPOINTS.FINANCIAL_SUMMARY_BY_CATEGORY, params || {});
   },
 
   async aging(params: AgingAnalysisRequest): Promise<SuccessResponse<AgingAnalysis>> {
