@@ -6,7 +6,7 @@ API 路由設定 (最終修復版) - 包含調試工具
 """
 from fastapi import APIRouter
 from app.api.endpoints import (
-    document_numbers, document_numbers_crud, auth, agencies, vendors,
+    auth, agencies, vendors,
     document_calendar, users, user_management, user_permissions, role_permissions,
     user_alias_admin, role_permissions_admin,
     admin, telegram_webhook,
@@ -65,8 +65,7 @@ api_router.include_router(system_monitoring.router, prefix="/system", tags=["系
 api_router.include_router(reminders.router, prefix="/reminder-management", tags=["提醒管理"])
 
 # --- 其他輔助模組 ---
-api_router.include_router(document_numbers.router, prefix="/document-numbers", tags=["發文字號"])
-api_router.include_router(document_numbers_crud.router, prefix="/document-numbers", tags=["發文字號"])
+# /document-numbers 舊 router 已於 2026-09-05 刪除（A107 owner 裁示）：檔頭自 v4.0.0 起標棄用、前端零呼叫、72 小時零流量；發文字號走 documents-enhanced
 api_router.include_router(files.router, prefix="/files", tags=["檔案管理"])
 api_router.include_router(csv_import.router, prefix="/csv-import", tags=["CSV匯入"])
 api_router.include_router(public.router, prefix="/public", tags=["公開API"])

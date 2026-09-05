@@ -300,10 +300,7 @@ def check_api_prefix_consistency():
 
     # 排除已知差異
     # 後端獨有: debug(開發用), secure-site-management(內部), statistics(子路由)
-    # /document-numbers（2026-09-05 核實）：前端 /document-numbers 頁改走 documentsApi.getNextSendNumber，
-    # 這個後端 router 前端零呼叫、72 小時 access log 零流量、Hermes skill 文件也沒引用 ⇒ 廢止候選 A107，
-    # 但依 zero_traffic_is_not_dead 的教訓不由本檢核裁定，列入已知並在待辦表待 owner。
-    known_be_only = {"/debug", "/secure-site-management", "/statistics", "/document-numbers"}
+    known_be_only = {"/debug", "/secure-site-management", "/statistics"}
     real_be_only = be_only - known_be_only
 
     # 前端獨有: 這些後端路由沒有在 routes.py 用 prefix= 定義，而是在各自的 router 中
@@ -580,8 +577,6 @@ def check_frontend_exports():
         "pages/EntryPage",               # 重導向至 LoginPage (ROUTES.ENTRY)
         "pages/ApiDocsPage",             # 透過 ApiDocumentationPage 載入
         "pages/UnifiedAgentPage",        # 由 components/kunge/OpsDashboard 嵌入（/kunge/ops，v5.8.1）
-        # DocumentCreatePage：Send／Receive 兩個建文頁已取代它，現在只剩測試在 import ⇒ 孤兒候選 A108（待 owner 裁定刪除，測試一併）
-        "pages/DocumentCreatePage",
     }
     real_unused = unused_pages - known_integrated
 
