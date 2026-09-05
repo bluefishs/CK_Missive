@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { EnhancedTable } from '../components/common/EnhancedTable';
+import { MobileCard } from '../components/common/MobileCardList';
 import { ClickableStatCard } from '../components/common';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -304,6 +305,28 @@ const ERPExpenseListPage: React.FC = () => {
                 expandedRowRender: (record) => <ExpandedInvoiceTable record={record} />,
                 rowExpandable: () => true,
               }}
+              // 2026-09-05 RWD（weekly 111：本頁 134 個 <28px 點擊目標全在表格列內）：手機改卡片，點卡片展開該組明細
+              mobileCard={(g: ExpenseGroup & { erp_quotation_id?: number }) => {
+                const attr: Record<string, { label: string; color: string }> = {
+                  project: { label: '專案', color: 'blue' }, operational: { label: '營運', color: 'green' }, none: { label: '未歸屬', color: 'default' },
+                };
+                const a = attr[g.attribution_type] ?? { label: g.attribution_type, color: 'default' };
+                const label = g.case_code ? (g.group_label || caseCodeMap?.[g.case_code] || g.project_code || g.case_code) : g.group_label;
+                const pct = groupedData?.total_amount ? (Number(g.total_amount) / groupedData.total_amount * 100) : 0;
+                const open = expandedKeys.includes(g.group_key);
+                return (
+                  <div>
+                    <MobileCard
+                      title={label}
+                      subtitle={g.case_code}
+                      tags={[{ text: a.label, color: a.color }, { text: open ? '收起明細' : `展開 ${g.count} 筆`, color: open ? 'processing' : 'default' }]}
+                      amounts={[{ label: '金額合計', value: `${Number(g.total_amount).toLocaleString()}（${pct.toFixed(0)}%）` }]}
+                      onClick={() => setExpandedKeys(open ? expandedKeys.filter((k) => k !== g.group_key) : [...expandedKeys, g.group_key])}
+                    />
+                    {open && <div style={{ margin: '-4px 0 12px' }}><ExpandedInvoiceTable record={g} /></div>}
+                  </div>
+                );
+              }}
             />
           </>
         ) : (
@@ -346,6 +369,15 @@ const ERPExpenseListPage: React.FC = () => {
             dataSource={ledgerItems}
             rowKey="id"
             size="small"
+            mobileCard={(r) => (
+              <MobileCard
+                title={r.description || '（無摘要）'}
+                subtitle={`${r.transaction_date ?? ''}${r.case_code ? ` · ${r.case_code}` : ''}`}
+                tags={[{ text: LEDGER_ENTRY_TYPE_LABELS[r.entry_type as keyof typeof LEDGER_ENTRY_TYPE_LABELS] ?? r.entry_type, color: r.entry_type === 'income' ? 'green' : 'red' }]}
+                rows={[{ label: '分類', value: r.category || '—' }, { label: '來源', value: r.source_type }]}
+                amounts={[{ label: '金額', value: `${r.entry_type === 'income' ? '+' : '-'} ${Number(r.amount).toLocaleString()}`, tone: r.entry_type === 'income' ? 'good' : 'bad' }]}
+              />
+            )}
             pagination={{ pageSize: 20, showTotal: (t: number) => `共 ${t} 筆` }}
           />
         )}
