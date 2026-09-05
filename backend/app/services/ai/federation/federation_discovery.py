@@ -23,9 +23,10 @@ logger = logging.getLogger(__name__)
 _SELF_PLUGIN_ID = "ck-missive"
 
 # NemoClaw Registry 端點
-_REGISTRY_URL = os.getenv(
-    "NEMOCLAW_REGISTRY_URL", "http://nemoclaw_tower:9000/api/registry"
-)
+# 2026-09-05：NemoClaw 已於 ADR-0015 廢止（2026-05-26 歸檔），`nemoclaw_tower` 這個主機名在 Docker 網路裡解析不到，
+# 每 60 秒 TTL 到期就同步打一次 ⇒ DNS 失敗要 4 秒，且在事件迴圈上 ⇒ /kunge/ops 冷載入 4.2 秒、同時進來的請求一起被拖住。
+# 預設不再指向已廢止的服務：沒設 NEMOCLAW_REGISTRY_URL 就不打 Registry，直接用 fallback 設定。
+_REGISTRY_URL = os.getenv("NEMOCLAW_REGISTRY_URL", "")
 _REGISTRY_TIMEOUT = 5.0  # Registry 查詢超時（秒）
 _REGISTRY_REFRESH_TTL = 60  # 自動重新整理間隔（秒）
 
@@ -99,7 +100,7 @@ def _try_load_from_registry(
     system_meta: Dict[str, Dict[str, Any]],
 ) -> bool:
     """同步查詢 NemoClaw Registry API"""
-    if httpx is None:
+    if httpx is None or not _REGISTRY_URL:
         return False
 
     token = os.getenv("MCP_SERVICE_TOKEN", "")

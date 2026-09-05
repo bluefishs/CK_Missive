@@ -220,10 +220,10 @@ class DigitalTwinService:
             {"profile": {...}, "capability": {...}, "daily": {...}, "health": {...}}
         """
 
-        async def _safe(coro, label: str):
+        async def _safe(coro, label: str, timeout: float = None):
             """單源安全包裝：timeout + exception → None"""
             try:
-                return await asyncio.wait_for(coro, timeout=DigitalTwinService._DASHBOARD_SOURCE_TIMEOUT)
+                return await asyncio.wait_for(coro, timeout=timeout or DigitalTwinService._DASHBOARD_SOURCE_TIMEOUT)
             except Exception as e:
                 logger.debug("Dashboard: %s unavailable: %s", label, e)
                 return None
@@ -240,8 +240,15 @@ class DigitalTwinService:
             return await run_with_fresh_session(lambda s: get_capability_profile(s))
 
         async def _get_daily():
+            # 2026-09-05 逐源量測發現：generate_mirror_report 需要 (db, ai_connector) 兩個參數，這裡只給一個
+            # ⇒ TypeError 被 _safe 吞掉、daily 永遠 None，儀表板的「每日鏡像」從來沒有內容而不報錯。
             from app.services.ai.agent.agent_mirror_feedback import generate_mirror_report
-            return await run_with_fresh_session(lambda s: generate_mirror_report(s))
+            try:
+                from app.core.ai_connector import get_ai_connector
+                connector = get_ai_connector()
+            except Exception:
+                connector = None
+            return await run_with_fresh_session(lambda s: generate_mirror_report(s, connector))
 
         async def _get_quality():
             from app.repositories.agent_trace_repository import AgentTraceRepository
@@ -257,22 +264,42 @@ class DigitalTwinService:
 
         async def _get_health():
             # 不需 DB — 直接 HTTP 檢查
+            # 2026-09-05 逐源量測：list_available_systems 是同步函式，內含 Registry lazy refresh（實測 4.0 秒），
+            # 在事件迴圈上直接呼叫會把同時進來的其他請求一起拖住（/kunge/ops 冷載入時 navigation/action 也 4.5 秒）。
+            # 丟到執行緒，_safe 的 3 秒 timeout 才真的有作用。
             from app.services.ai.federation.federation_client import get_federation_client
             client = get_federation_client()
-            systems = client.list_available_systems()
+            systems = await asyncio.to_thread(client.list_available_systems)
             return {
                 "available": len(systems) > 0,
                 "systems_count": len(systems),
             }
 
-        profile, capability, daily, quality, traces, health = await asyncio.gather(
+        # 2026-09-05：每日鏡像要跑一次 LLM（實測 6.6 秒），不能讓整頁等它。它自己跑最多 20 秒，其餘五源 gather；
+        # 快照先出（daily 可能先 None），鏡像跑完後回填到快取，60 秒內下一次開頁就看得到。
+        daily_task = asyncio.create_task(_safe(_get_daily(), "mirror_feedback", timeout=20.0))
+        profile, capability, quality, traces, health = await asyncio.gather(
             _safe(_get_profile(), "self_profile"),
             _safe(_get_capability(), "capability_tracker"),
-            _safe(_get_daily(), "mirror_feedback"),
             _safe(_get_quality(), "quality_stats"),
             _safe(_get_traces(), "recent_traces"),
             _safe(_get_health(), "gateway_health"),
         )
+        try:
+            daily = await asyncio.wait_for(asyncio.shield(daily_task), timeout=0.8)
+        except (asyncio.TimeoutError, Exception):
+            daily = None
+
+            def _fill(t: "asyncio.Task"):
+                try:
+                    result = t.result()
+                except Exception:
+                    return
+                cached = DigitalTwinService._DASHBOARD_CACHE.get("data")
+                if result and isinstance(cached, dict):
+                    cached["daily"] = result
+
+            daily_task.add_done_callback(_fill)
 
         return {
             "profile": profile,
