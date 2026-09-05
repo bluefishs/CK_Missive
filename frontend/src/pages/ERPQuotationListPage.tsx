@@ -2,6 +2,8 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
+import { MobileCard } from '../components/common/MobileCardList';
+import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
 import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
@@ -489,6 +491,26 @@ export const ERPQuotationListPage: React.FC = () => {
 
         <EnhancedTable<ERPQuotation>
           columns={columns}
+          // 2026-09-05 RWD：手機改卡片——主鍵／案名／委託單位／承攬同仁／金額三欄都在卡上，不再因窄而藏
+          mobileCard={(r) => {
+            const winning = r.winning_amount != null && Number(r.winning_amount) > 0 ? Number(r.winning_amount) : null;
+            const awarded = winning ?? (r.contract_amount != null ? Number(r.contract_amount) : null) ?? (r.total_price != null ? Number(r.total_price) : null);
+            const billed = Number(r.total_billed ?? 0); const received = Number(r.total_received ?? 0); const payable = Number(r.total_payable ?? 0);
+            return (
+              <MobileCard
+                title={<>{r.project_code || r.case_code}{caseYear(r) ? <Text type="secondary" style={{ marginInlineStart: 6 }}>{caseYear(r)}</Text> : null}</>}
+                subtitle={r.case_name ?? '-'}
+                tags={[...(winning != null ? [{ text: '議價', color: 'purple' }] : []), ...(r.project_code ? [] : [{ text: '未成案', color: 'default' }])]}
+                rows={[{ label: '委託單位', value: r.client_name }, { label: '承辦同仁', value: r.staff_name }, { label: '協力廠商', value: r.vendor_names }]}
+                amounts={[
+                  { label: '承攬金額（含稅）', value: fmtMoney(awarded) },
+                  { label: '應收帳款', value: billed ? `${fmtMoney(billed)}${received >= billed ? '（已收齊）' : received > 0 ? `（已收 ${Math.round(received / billed * 100)}%）` : '（待收）'}` : '未開請款', tone: billed && received < billed ? 'warn' : 'default' },
+                  { label: '應付款項', value: payable ? fmtMoney(payable) : '—' },
+                ]}
+                onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.id)))}
+              />
+            );
+          }}
           dataSource={data?.items ?? []}
           rowKey="id"
           loading={isLoading}

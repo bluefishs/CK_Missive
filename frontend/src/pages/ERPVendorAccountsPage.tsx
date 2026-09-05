@@ -9,6 +9,8 @@
  * @version 1.0.0
  */
 import React, { useState, useMemo } from 'react';
+import { MobileCard } from '../components/common/MobileCardList';
+import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
 import {
   Alert, Card, Typography, Row, Col, Tag, Select, Space, Input,
@@ -136,7 +138,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       render: (v: number) => Number(v).toLocaleString(),
     },
     {
-      title: termTitle('paid_total', '已付總額'), hideOnMobile: true,
+      title: termTitle('paid_total', '已付總額'),
       dataIndex: 'total_paid',
       key: 'total_paid',
       width: 130,
@@ -163,7 +165,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       },
     },
     {
-      title: termTitle('payment_rate'), hideOnMobile: true,
+      title: termTitle('payment_rate'),
       key: 'payment_rate',
       width: 100,
       align: 'center',
@@ -270,6 +272,23 @@ const ERPVendorAccountsPage: React.FC = () => {
       <Card>
         <EnhancedTable<VendorAccountSummaryItem>
           columns={columns}
+          // 2026-09-05 RWD：手機改卡片
+          mobileCard={(r) => {
+            const payable = Number(r.total_payable ?? 0); const paid = Number(r.total_paid ?? 0);
+            return (
+              <MobileCard
+                title={r.tax_id ? `統編 ${r.tax_id}` : '—'}
+                subtitle={r.vendor_name}
+                tags={[{ text: `${r.case_count ?? 0} 案`, color: 'blue' }]}
+                amounts={[
+                  { label: '應付', value: fmtMoney(payable) },
+                  { label: '已付', value: fmtMoney(paid) },
+                  { label: '未付', value: fmtMoney(payable - paid), tone: payable - paid > 0 ? 'warn' : 'good' },
+                ]}
+                onClick={() => navigate(`${ROUTES.ERP_VENDOR_ACCOUNTS}/${r.vendor_id}`)}
+              />
+            );
+          }}
           dataSource={filteredItems}
           // ⚠️ 不能用 `vendor_id` 當 key —— 廠商檔裡沒有的那些（實測「勤典工程行」
           // 4 筆）`vendor_id` 是 NULL ⇒ React key 重複，渲染會出錯。

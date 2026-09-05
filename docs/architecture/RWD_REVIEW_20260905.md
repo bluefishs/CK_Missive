@@ -87,9 +87,9 @@
 
 | 階段 | 內容 | 涉及 | 產出／守門 |
 |---|---|---|---|
-| **P0（本週，低風險）** | ①金額欄拿掉 `hideOnMobile`（vendor-accounts 已付總額／付款率、桃園序號）②`isNarrow` 門檻 992 → 768（只影響隱藏，不影響排序剝除）③側欄 < 1200 自動收合 | `EnhancedTable`、`ResponsiveTable`、`Sidebar`、3 個頁 | 改完跑 weekly 81；記到 OPEN_ITEMS |
+| **P0（09-05 已上線）** | ①金額欄拿掉 `hideOnMobile`（vendor-accounts 已付總額／付款率、桃園序號）②`isNarrow` 門檻 992 → 768（只影響隱藏，不影響排序剝除）③側欄 < 1200 自動收合 | `EnhancedTable`、`ResponsiveTable`、`Sidebar`、3 個頁 | 改完跑 weekly 81；記到 OPEN_ITEMS |
 | **P1（下週）** | ①`priority` 三級取代 `hideOnMobile`，15 檔 30 欄逐欄定級 ②`secondary` 欄折進主欄第二行（`EnhancedTable` 內建） ③`ResponsiveTable` 8 檔併入 `EnhancedTable` | 表格包裝＋23 檔 | weekly 81 改判「不得再出現 `hideOnMobile`／`mobileHiddenColumns`」 |
-| **P2（兩週）** | ①手機卡片版面：報價單／承攬案／PM 案／委託單位帳款／廠商帳款 5 個列表 ②側欄 Drawer ③`scroll.x` 改由欄寬加總自動算，不再手填 | 5 頁＋版面 | 部署探針加「四寬度截圖」（人看） |
+| **P2（09-05 第一批已上線：五個列表的手機卡片；側欄 Drawer 原本就有）** | ①手機卡片版面：報價單／承攬案／PM 案／委託單位帳款／廠商帳款 5 個列表 ②側欄 Drawer ③`scroll.x` 改由欄寬加總自動算，不再手填 | 5 頁＋版面 | 部署探針加「四寬度截圖」（人看） |
 | **P3（三週）** | ①表單：`ResponsiveFormRow` 覆蓋到 58 個表單頁；Modal 在 < 768 改全螢幕 Drawer ②詳情頁 `Descriptions` 欄數依寬度 1／2／3 ③統計卡 xs 兩欄 | 表單與詳情 | — |
 | **P4（並行）** | **RWD 量測閘門**：`scripts/checks/rwd_overflow_probe.py`（Playwright，可控視窗寬，避開 memory 記的四個陷阱），20 頁 × 4 寬度，週跑；RED＝整頁溢出或 primary 欄被藏 | 新腳本＋weekly | 這是讓 P0–P3 不倒退的東西 |
 

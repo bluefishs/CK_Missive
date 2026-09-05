@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { MobileCard } from '../components/common/MobileCardList';
+import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
@@ -299,6 +301,21 @@ export const ContractCasePage: React.FC = () => {
             <ResponsiveTable
               columns={columns}
               dataSource={projects}
+              // 2026-09-05 RWD：手機改卡片
+              mobileCard={(item) => {
+                const winning = item.winning_amount != null && Number(item.winning_amount) > 0 ? Number(item.winning_amount) : null;
+                const awarded = winning ?? (item.contract_amount != null ? Number(item.contract_amount) : null);
+                return (
+                  <MobileCard
+                    title={<>{item.project_code || '-'}{item.year ? <Typography.Text type="secondary" style={{ marginInlineStart: 6 }}>{item.year}</Typography.Text> : null}</>}
+                    subtitle={item.project_name}
+                    tags={[{ text: getStatusLabel(item.status), color: getStatusColor(item.status) }, ...(item.category ? [{ text: item.category, color: 'default' }] : [])]}
+                    rows={[{ label: '委託單位', value: item.client_agency }, { label: '建案案號', value: item.case_code }]}
+                    amounts={[{ label: winning != null ? '承攬金額（議價，含稅）' : '承攬金額（含稅）', value: fmtMoney(awarded) }]}
+                    onClick={() => handleView(item)}
+                  />
+                );
+              }}
               rowKey="id"
               // 分頁器在表格外面（下方獨立的 <Pagination>），元件自己看不出來，
               // 所以這裡要明講：前端排序／篩選只會作用於當前這一頁（2026-08-31）。

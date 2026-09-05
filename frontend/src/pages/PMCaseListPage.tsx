@@ -7,6 +7,8 @@
  * @version 3.0.0 — 重新定位為邀標/報價專區
  */
 import React, { useState, useMemo } from 'react';
+import { MobileCard } from '../components/common/MobileCardList';
+import { fmtMoney } from '../utils/money';
 import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
@@ -410,6 +412,17 @@ export const PMCaseListPage: React.FC = () => {
           dataSource={cases}
           columns={columns}
           rowKey="id"
+          // 2026-09-05 RWD：手機改卡片
+          mobileCard={(r) => (
+            <MobileCard
+              title={<>{r.case_code}{r.year ? <Typography.Text type="secondary" style={{ marginInlineStart: 6 }}>{r.year}</Typography.Text> : null}</>}
+              subtitle={r.case_name}
+              tags={[{ text: PM_CASE_STATUS_LABELS[r.status] ?? r.status, color: r.status === 'contracted' ? 'green' : r.status === 'closed' ? 'default' : 'blue' }]}
+              rows={[{ label: '委託單位', value: r.client_name }, { label: '類別', value: r.category }]}
+              amounts={[{ label: '合約金額（含稅）', value: fmtMoney(r.contract_amount) }]}
+              onClick={() => navigate(ROUTES.PM_CASE_DETAIL.replace(':id', String(r.id)))}
+            />
+          )}
           loading={isLoading}
           pagination={{
             current: currentPage,

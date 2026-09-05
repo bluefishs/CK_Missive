@@ -9,6 +9,8 @@
  * @version 1.0.0
  */
 import React, { useState, useMemo } from 'react';
+import { MobileCard } from '../components/common/MobileCardList';
+import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
 import {
   Alert, Card, Typography, Row, Col, Tag, Select, Space, Input,
@@ -256,6 +258,23 @@ const ERPClientAccountsPage: React.FC = () => {
       <Card>
         <EnhancedTable<ClientAccountSummaryItem>
           columns={columns}
+          // 2026-09-05 RWD：手機改卡片
+          mobileCard={(r) => {
+            const billed = Number(r.total_billed ?? 0); const received = Number(r.total_received ?? 0);
+            return (
+              <MobileCard
+                title={r.tax_id ? `統編 ${r.tax_id}` : '—'}
+                subtitle={r.vendor_name}
+                tags={[{ text: `${r.case_count ?? 0} 案`, color: 'blue' }]}
+                amounts={[
+                  { label: '承攬金額', value: fmtMoney(r.total_contract) },
+                  { label: '已請款', value: fmtMoney(billed) },
+                  { label: '未收', value: fmtMoney(billed - received), tone: billed - received > 0 ? 'warn' : 'good' },
+                ]}
+                onClick={r.vendor_id != null ? () => navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${r.vendor_id}`) : undefined}
+              />
+            );
+          }}
           dataSource={filteredItems}
           rowKey={(r) => r.vendor_id != null ? String(r.vendor_id) : `name:${r.vendor_name}`}
           loading={isLoading}

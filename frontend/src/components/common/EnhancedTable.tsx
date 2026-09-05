@@ -14,6 +14,8 @@
  * @version 1.0.0
  */
 import { useMemo } from 'react';
+import { MobileCardList } from './MobileCardList';
+import type { PaginationProps } from 'antd';
 import { Table } from 'antd';
 import type { TableProps, ColumnsType, ColumnType } from 'antd/es/table';
 import { enhanceColumns, stripClientOnlyColumnFeatures } from '../../utils/tableEnhancer';
@@ -29,6 +31,9 @@ type R = Record<string, any>;
  * 而「哪一欄在手機上可以不看」是各頁的業務判斷，不是通用規則。
  */
 export type ResponsiveColumn<T> = ColumnType<T> & { hideOnMobile?: boolean };
+
+/** 2026-09-05 RWD：給了 mobileCard，手機（< 768px）就不畫表格、畫卡片；分頁與資料同一份 */
+export type EnhancedTableProps<T> = TableProps<T> & { mobileCard?: (record: T, index: number) => React.ReactNode };
 
 /**
  * 自動處理欄位：移除純文字欄的固定 width + 加 ellipsis tooltip。
@@ -57,8 +62,8 @@ function autoResponsiveColumns<T = R>(columns: ColumnsType<T>): ColumnsType<T> {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function EnhancedTable<T extends R = any>(props: TableProps<T>) {
-  const { columns, dataSource, pagination, scroll, ...rest } = props;
+export function EnhancedTable<T extends R = any>(props: EnhancedTableProps<T>) {
+  const { columns, dataSource, pagination, scroll, mobileCard, ...rest } = props;
   // 2026-08-15：窄螢幕收斂改看 **isMobile || isTablet**（< 992px），不再只看 isMobile。
   //
   // `isMobile = !screens.md`，而 AntD 的 md 斷點就是 768px —— 也就是說
@@ -88,7 +93,9 @@ export function EnhancedTable<T extends R = any>(props: TableProps<T>) {
   const enhanced = useMemo(() => {
     if (!columns) return columns;
     // 窄螢幕先濾掉標記 hideOnMobile 的欄位，再做其餘加工
-    let visible = isNarrow
+    // 2026-09-05 RWD 原則 2：隱藏只在真手機（< 768）生效，平板與筆電（768–1199）全欄顯示改用橫向捲動——
+    // 此前門檻 992px 讓開著側欄的筆電也把「應付款項」「已付總額」藏掉（owner 09-04 兩次回報）。
+    let visible = isMobile
       ? columns.filter((c) => !(c as ResponsiveColumn<T>).hideOnMobile)
       : columns;
     // 窄螢幕另需拿掉固定 width：否則各欄 width 加總仍會把 <table> 撐到遠超視窗
@@ -138,6 +145,18 @@ export function EnhancedTable<T extends R = any>(props: TableProps<T>) {
     showTotal: (total: number) => `共 ${total} 筆`,
     ...(typeof pagination === 'object' ? pagination : {}),
   };
+
+  if (isMobile && mobileCard) {
+    return (
+      <MobileCardList<T>
+        dataSource={dataSource}
+        rowKey={typeof rest.rowKey === 'function' ? (r: T) => (rest.rowKey as (r: T) => React.Key)(r) : (rest.rowKey as string | undefined) ?? 'id'}
+        renderCard={mobileCard}
+        pagination={defaultPagination === false ? false : (defaultPagination as PaginationProps)}
+        loading={typeof rest.loading === 'boolean' ? rest.loading : undefined}
+      />
+    );
+  }
 
   return (
     <Table<T>

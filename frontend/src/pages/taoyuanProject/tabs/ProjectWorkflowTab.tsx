@@ -183,7 +183,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
           ),
       },
       {
-        title: '序號', hideOnMobile: true,
+        title: '序號',  // 2026-09-05 RWD 原則 1：鍵值不隱藏
         dataIndex: 'sort_order',
         key: 'sort_order',
         width: 60,

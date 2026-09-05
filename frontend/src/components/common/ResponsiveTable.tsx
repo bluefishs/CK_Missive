@@ -11,6 +11,8 @@
  */
 
 import React from 'react';
+import { MobileCardList } from './MobileCardList';
+import type { PaginationProps } from 'antd';
 import { Table } from 'antd';
 import type { TableProps } from 'antd';
 import type { ColumnType, ColumnsType } from 'antd/es/table';
@@ -41,6 +43,8 @@ function getColumnDataIndex<T>(col: ColumnType<T>): string | undefined {
 export interface ResponsiveTableProps<T> extends TableProps<T> {
   /** 行動版隱藏的欄位 dataIndex 列表 */
   mobileHiddenColumns?: string[];
+  /** 2026-09-05 RWD：手機（< 768px）改畫卡片 */
+  mobileCard?: (record: T, index: number) => React.ReactNode;
   /**
    * 分頁在伺服器端 —— 本元件只拿得到當前這一頁，因此**不得**在前端做排序／篩選。
    *
@@ -54,6 +58,7 @@ export interface ResponsiveTableProps<T> extends TableProps<T> {
 function ResponsiveTableInner<T extends object>(
   {
     mobileHiddenColumns = [],
+    mobileCard,
     columns = [],
     scroll,
     size,
@@ -111,6 +116,18 @@ function ResponsiveTableInner<T extends object>(
   // ⚠️ md: 900 只在**桌面分支**才會被用到了（isNarrow 已涵蓋 md）。
   // 保留它是為了 lg 以上；`md` 這一格現在是不可達的死值，刻意留著標示斷點意圖。
   const scrollX = responsive({ sm: 700, md: 900, lg: 1200 });
+
+  if (isMobile && mobileCard) {
+    return (
+      <MobileCardList<T>
+        dataSource={props.dataSource}
+        rowKey={typeof props.rowKey === 'function' ? (r: T) => (props.rowKey as (r: T) => React.Key)(r) : (props.rowKey as string | undefined) ?? 'id'}
+        renderCard={mobileCard}
+        pagination={props.pagination === false ? false : (props.pagination as PaginationProps | undefined)}
+        loading={typeof props.loading === 'boolean' ? props.loading : undefined}
+      />
+    );
+  }
 
   return (
     <Table<T>
