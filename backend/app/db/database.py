@@ -46,7 +46,7 @@ engine = create_async_engine(
 @event.listens_for(engine.sync_engine, "connect")
 def receive_connect(dbapi_connection, connection_record):
     """記錄新資料庫連線建立"""
-    logger.info("New database connection established")
+    logger.debug("New database connection established")   # 2026-09-05：連線池事件降 DEBUG（10 分鐘 48 行、對人無資訊量）
 
 
 @event.listens_for(engine.sync_engine, "invalidate")

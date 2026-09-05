@@ -291,6 +291,15 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         "/api/system-notifications/unread-count",
         "/health",
     }
+    # 2026-09-05 CK_AaaP 量到：本容器每個請求記 3 行（START＋END＋uvicorn access）全 INFO 帶完整 Details，
+    # 使用中 14,000–20,000 行/h、一度佔全平台日誌 53.8%，把七個 repo 的日誌淹掉（drift §54 擋下他們的 push）。
+    # 本地複量：10 分鐘 1,243 行裡 694 行是 START／END。改法：START 降 DEBUG（正式環境不輸出，除錯時開得回來）；
+    # 這些背景常數端點的 2xx 不記 END（非 2xx 照記，錯誤不會因此消失）。END 一行已含 method／path／status／耗時。
+    _QUIET_2XX_PATHS = {
+        "/health", "/api/health", "/api/health/detailed", "/metrics",
+        "/api/system-notifications/unread-count", "/api/auth/me",
+        "/api/secure-site-management/csrf-token",
+    }
 
     async def dispatch(self, request: Request, call_next):
         """處理HTTP請求日誌 — 高頻路徑只記 END，低頻路徑記 START+END"""
@@ -301,7 +310,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         # 高頻路徑跳過 START log (省 ~50ms header serialization + file write)
         if path not in self._SKIP_START_LOG:
             entry = LogEntry(
-                level=LogLevel.INFO,
+                level=LogLevel.DEBUG,   # 2026-09-05：INFO → DEBUG（見上）
                 category=ErrorCategory.API,
                 message=f"REQUEST_START {request.method} {path}",
                 request_id=request_id,
@@ -316,7 +325,10 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             process_time = time.time() - start_time
-            
+
+            if path in self._QUIET_2XX_PATHS and 200 <= response.status_code < 300:
+                return response
+
             # 記錄請求完成
             entry = LogEntry(
                 level=LogLevel.INFO,

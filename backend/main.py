@@ -77,6 +77,25 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class _QuietAccessLogFilter(logging.Filter):
+    """2026-09-05：uvicorn access log 對 /health、/metrics 等背景常數端點的 2xx 不記（CK_AaaP 量到本容器一度佔全平台日誌 53.8%）。
+    非 2xx 照記；其他路徑照記。與 LoggingMiddleware 的 _QUIET_2XX_PATHS 同一份名單。"""
+    _QUIET = ("/health", "/api/health", "/metrics", "/api/system-notifications/unread-count", "/api/auth/me",
+              "/api/secure-site-management/csrf-token")
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+        try:
+            msg = record.getMessage()
+        except Exception:
+            return True
+        if '" 2' not in msg and "\" 2" not in msg:
+            return True
+        return not any(f" {p} HTTP" in msg or f" {p}?" in msg for p in self._QUIET)
+
+
+logging.getLogger("uvicorn.access").addFilter(_QuietAccessLogFilter())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """應用程式生命週期事件處理器"""
