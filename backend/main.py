@@ -80,7 +80,7 @@ logger = logging.getLogger(__name__)
 class _QuietAccessLogFilter(logging.Filter):
     """2026-09-05：uvicorn access log 對 /health、/metrics 等背景常數端點的 2xx 不記（CK_AaaP 量到本容器一度佔全平台日誌 53.8%）。
     非 2xx 照記；其他路徑照記。與 LoggingMiddleware 的 _QUIET_2XX_PATHS 同一份名單。"""
-    _QUIET = ("/health", "/api/health", "/api/health/detailed", "/metrics", "/api/system-notifications/unread-count",
+    _QUIET = ("/", "/health", "/api/health", "/api/health/detailed", "/metrics", "/api/system-notifications/unread-count",
               "/api/auth/me", "/api/secure-site-management/csrf-token")
 
     def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003

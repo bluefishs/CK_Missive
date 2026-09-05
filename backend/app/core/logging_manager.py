@@ -300,7 +300,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     # 本地複量：10 分鐘 1,243 行裡 694 行是 START／END。改法：START 降 DEBUG（正式環境不輸出，除錯時開得回來）；
     # 這些背景常數端點的 2xx 不記 END（非 2xx 照記，錯誤不會因此消失）。END 一行已含 method／path／status／耗時。
     _QUIET_2XX_PATHS = {
-        "/health", "/api/health", "/api/health/detailed", "/metrics",
+        # "/"：Blackbox exporter 每 15 秒探一次 SPA 根（10 分鐘 42 次 ×2 行），是背景常數不是使用者
+        "/", "/health", "/api/health", "/api/health/detailed", "/metrics",
         "/api/system-notifications/unread-count", "/api/auth/me",
         "/api/secure-site-management/csrf-token",
     }
