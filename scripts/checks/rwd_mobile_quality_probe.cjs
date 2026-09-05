@@ -126,7 +126,8 @@ function measure(vw) {
   // narrowSelect：下拉被壓到 < 80px（09-05 桌面回歸：FilterBar 的 Row 放進 Space 後三個 Select 只剩 40px，選中的值看不到；
   // 沒有任何閘門會紅，是視覺走查的圖看出來的）。分頁的每頁筆數選擇器本來就窄，排除。
   const narrow = [...document.querySelectorAll('.ant-select')].filter(vis)
-    .filter((el) => !el.closest('.ant-pagination') && el.getBoundingClientRect().width < 80)
+    // 分頁的每頁筆數、AntD Calendar 表頭的年／月選擇器本來就窄（「9月」70px），排除
+    .filter((el) => !el.closest('.ant-pagination, .ant-picker-calendar-header') && el.getBoundingClientRect().width < 80)
     .map((el) => ({ sel: sel(el), w: Math.round(el.getBoundingClientRect().width), text: txt(el) }));
 
   return {

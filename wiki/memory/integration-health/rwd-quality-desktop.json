@@ -1,13 +1,13 @@
 {
-  "checked_at": "2026-09-05T08:11:02.790Z",
+  "checked_at": "2026-09-05T08:14:09.677Z",
   "base": "https://missive.cksurvey.tw",
-  "width": 390,
+  "width": 1440,
   "routes": 39,
   "blocked": 0,
   "rows": [
     {
       "route": "/erp/expenses",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -15,13 +15,37 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 1,
+      "smallTap": 135,
       "smallTop": [
         {
-          "sel": "input#:r8:.ant-select-input",
+          "sel": "input#:ra:.ant-select-input",
           "text": "",
           "w": 78,
           "h": 22
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        },
+        {
+          "sel": "button.ant-table-row-expand-icon.ant-table-row-expand-icon-collapsed",
+          "text": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "sel": "button.ant-table-row-expand-icon.ant-table-row-expand-icon-collapsed",
+          "text": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "sel": "button.ant-table-row-expand-icon.ant-table-row-expand-icon-collapsed",
+          "text": "",
+          "w": 16,
+          "h": 16
         }
       ],
       "covered": 0,
@@ -29,11 +53,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 147
+      "controls": 148
     },
     {
       "route": "/erp/quotations",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -41,7 +65,7 @@
       "ellipsis": 7,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 4,
+      "smallTap": 17,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
@@ -50,22 +74,28 @@
           "h": 22
         },
         {
-          "sel": "button.ant-pagination-item-link",
+          "sel": "input#:rc:.ant-select-input",
           "text": "",
-          "w": 24,
-          "h": 24
+          "w": 88,
+          "h": 22
         },
         {
-          "sel": "input",
+          "sel": "input#:re:.ant-select-input",
           "text": "",
-          "w": 44,
-          "h": 24
+          "w": 88,
+          "h": 22
         },
         {
-          "sel": "button.ant-pagination-item-link",
+          "sel": "input#:rg:.ant-select-input",
           "text": "",
-          "w": 24,
-          "h": 24
+          "w": 178,
+          "h": 22
+        },
+        {
+          "sel": "span.ant-table-filter-trigger.active",
+          "text": "",
+          "w": 20,
+          "h": 30
         }
       ],
       "covered": 0,
@@ -73,11 +103,61 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 30
+      "controls": 32
     },
     {
       "route": "/erp/ledger",
-      "width": 390,
+      "width": 1440,
+      "narrowSelect": 0,
+      "narrowTop": [],
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 16,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 18,
+      "smallTop": [
+        {
+          "sel": "input#:ra:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "input#:rc:.ant-select-input",
+          "text": "",
+          "w": 178,
+          "h": 22
+        },
+        {
+          "sel": "input#:re:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 8,
+      "controls": 29
+    },
+    {
+      "route": "/erp/assets",
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -85,18 +165,18 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 6,
+      "smallTap": 10,
       "smallTop": [
         {
-          "sel": "input#:r8:.ant-select-input",
+          "sel": "input.ant-input.css-1daqxe2",
           "text": "",
-          "w": 78,
+          "w": 162,
           "h": 22
         },
         {
           "sel": "input#:ra:.ant-select-input",
           "text": "",
-          "w": 178,
+          "w": 78,
           "h": 22
         },
         {
@@ -106,28 +186,28 @@
           "h": 22
         },
         {
-          "sel": "button.ant-pagination-item-link",
+          "sel": "span.ant-table-filter-trigger",
           "text": "",
-          "w": 24,
-          "h": 24
+          "w": 20,
+          "h": 30
         },
         {
-          "sel": "input",
+          "sel": "span.ant-table-filter-trigger",
           "text": "",
-          "w": 44,
-          "h": 24
+          "w": 20,
+          "h": 30
         }
       ],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
       "loneTop": [],
-      "statCards": 8,
-      "controls": 14
+      "statCards": 5,
+      "controls": 23
     },
     {
-      "route": "/erp/assets",
-      "width": 390,
+      "route": "/erp/operational",
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -135,7 +215,7 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 6,
+      "smallTap": 11,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
@@ -144,9 +224,153 @@
           "h": 22
         },
         {
-          "sel": "input#:r8:.ant-select-input",
+          "sel": "input#:ra:.ant-select-input",
+          "text": "",
+          "w": 88,
+          "h": 22
+        },
+        {
+          "sel": "input#:rc:.ant-select-input",
+          "text": "",
+          "w": 58,
+          "h": 22
+        },
+        {
+          "sel": "input#:re:.ant-select-input",
+          "text": "",
+          "w": 58,
+          "h": 22
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 21
+    },
+    {
+      "route": "/erp/financial-dashboard",
+      "width": 1440,
+      "narrowSelect": 0,
+      "narrowTop": [],
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 5,
+      "smallTop": [
+        {
+          "sel": "div.ant-select.ant-select-sm",
+          "text": "2026 年",
+          "w": 110,
+          "h": 24
+        },
+        {
+          "sel": "input#:rk:.ant-select-input",
+          "text": "",
+          "w": 76,
+          "h": 22
+        },
+        {
+          "sel": "div.ant-select.ant-select-sm",
+          "text": "01 委辦招標",
+          "w": 130,
+          "h": 24
+        },
+        {
+          "sel": "input#:rm:.ant-select-input",
+          "text": "",
+          "w": 96,
+          "h": 22
+        },
+        {
+          "sel": "input#:rp:.ant-select-input",
           "text": "",
           "w": 78,
+          "h": 22
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 22,
+      "controls": 12
+    },
+    {
+      "route": "/erp/vendor-accounts",
+      "width": 1440,
+      "narrowSelect": 0,
+      "narrowTop": [],
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 7,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 149,
+          "h": 22
+        },
+        {
+          "sel": "input#:ra:.ant-select-input",
+          "text": "",
+          "w": 88,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 12
+    },
+    {
+      "route": "/erp/client-accounts",
+      "width": 1440,
+      "narrowSelect": 0,
+      "narrowTop": [],
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 11,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 149,
           "h": 22
         },
         {
@@ -166,54 +390,10 @@
           "text": "1",
           "w": 24,
           "h": 24
-        }
-      ],
-      "covered": 0,
-      "coveredTop": [],
-      "loneCard": 0,
-      "loneTop": [],
-      "statCards": 5,
-      "controls": 17
-    },
-    {
-      "route": "/erp/operational",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
-      "clipped": 0,
-      "clippedTop": [],
-      "ellipsis": 0,
-      "tinyFont": 0,
-      "tinyTop": [],
-      "smallTap": 7,
-      "smallTop": [
-        {
-          "sel": "input.ant-input.css-1daqxe2",
-          "text": "",
-          "w": 162,
-          "h": 22
         },
         {
-          "sel": "input#:r8:.ant-select-input",
-          "text": "",
-          "w": 88,
-          "h": 22
-        },
-        {
-          "sel": "input#:ra:.ant-select-input",
-          "text": "",
-          "w": 58,
-          "h": 22
-        },
-        {
-          "sel": "input#:rc:.ant-select-input",
-          "text": "",
-          "w": 58,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
+          "sel": "li.ant-pagination-item.ant-pagination-item-2",
+          "text": "2",
           "w": 24,
           "h": 24
         }
@@ -223,174 +403,30 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 15
-    },
-    {
-      "route": "/erp/financial-dashboard",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
-      "clipped": 0,
-      "clippedTop": [],
-      "ellipsis": 0,
-      "tinyFont": 0,
-      "tinyTop": [],
-      "smallTap": 5,
-      "smallTop": [
-        {
-          "sel": "div.ant-select.ant-select-sm",
-          "text": "2026 年",
-          "w": 110,
-          "h": 24
-        },
-        {
-          "sel": "input#:ri:.ant-select-input",
-          "text": "",
-          "w": 76,
-          "h": 22
-        },
-        {
-          "sel": "div.ant-select.ant-select-sm",
-          "text": "01 委辦招標",
-          "w": 130,
-          "h": 24
-        },
-        {
-          "sel": "input#:rk:.ant-select-input",
-          "text": "",
-          "w": 96,
-          "h": 22
-        },
-        {
-          "sel": "input#:rn:.ant-select-input",
-          "text": "",
-          "w": 78,
-          "h": 22
-        }
-      ],
-      "covered": 0,
-      "coveredTop": [],
-      "loneCard": 0,
-      "loneTop": [],
-      "statCards": 22,
-      "controls": 22
-    },
-    {
-      "route": "/erp/vendor-accounts",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
-      "clipped": 0,
-      "clippedTop": [],
-      "ellipsis": 0,
-      "tinyFont": 0,
-      "tinyTop": [],
-      "smallTap": 5,
-      "smallTop": [
-        {
-          "sel": "input.ant-input.css-1daqxe2",
-          "text": "",
-          "w": 149,
-          "h": 22
-        },
-        {
-          "sel": "input#:r8:.ant-select-input",
-          "text": "",
-          "w": 88,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        }
-      ],
-      "covered": 0,
-      "coveredTop": [],
-      "loneCard": 0,
-      "loneTop": [],
-      "statCards": 3,
-      "controls": 14
-    },
-    {
-      "route": "/erp/client-accounts",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
-      "clipped": 0,
-      "clippedTop": [],
-      "ellipsis": 0,
-      "tinyFont": 0,
-      "tinyTop": [],
-      "smallTap": 5,
-      "smallTop": [
-        {
-          "sel": "input.ant-input.css-1daqxe2",
-          "text": "",
-          "w": 149,
-          "h": 22
-        },
-        {
-          "sel": "input#:r8:.ant-select-input",
-          "text": "",
-          "w": 78,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        }
-      ],
-      "covered": 0,
-      "coveredTop": [],
-      "loneCard": 0,
-      "loneTop": [],
-      "statCards": 4,
-      "controls": 30
+      "controls": 16
     },
     {
       "route": "/documents",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 9,
+      "ellipsis": 18,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 18,
+      "smallTap": 17,
       "smallTop": [
         {
           "sel": "button.ant-btn.css-1daqxe2",
+          "text": "展開",
+          "w": 66,
+          "h": 24
+        },
+        {
+          "sel": "input.ant-input.css-1daqxe2",
           "text": "",
-          "w": 24,
+          "w": 248,
           "h": 24
         },
         {
@@ -400,22 +436,16 @@
           "h": 24
         },
         {
-          "sel": "button.ant-btn.css-1daqxe2",
+          "sel": "input#:ru:.ant-select-input",
           "text": "",
-          "w": 24,
-          "h": 24
+          "w": 127,
+          "h": 22
         },
         {
-          "sel": "button.ant-btn.css-1daqxe2",
+          "sel": "input#:r12:.ant-select-input",
           "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 226,
-          "h": 24
+          "w": 127,
+          "h": 22
         }
       ],
       "covered": 0,
@@ -423,43 +453,49 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 0,
-      "controls": 35
+      "controls": 33
     },
     {
       "route": "/contract-cases",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 5,
+      "ellipsis": 1,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 4,
+      "smallTap": 12,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
           "text": "",
-          "w": 126,
+          "w": 159,
           "h": 22
         },
         {
-          "sel": "button.ant-pagination-item-link",
+          "sel": "input#:rc:.ant-select-input",
           "text": "",
-          "w": 24,
-          "h": 24
+          "w": 51,
+          "h": 22
         },
         {
-          "sel": "input",
+          "sel": "input#:re:.ant-select-input",
+          "text": "",
+          "w": 87,
+          "h": 22
+        },
+        {
+          "sel": "input#:rg:.ant-select-input",
+          "text": "",
+          "w": 87,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-switch.css-1daqxe2",
           "text": "",
           "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
+          "h": 22
         }
       ],
       "covered": 0,
@@ -467,24 +503,24 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 18
+      "controls": 37
     },
     {
       "route": "/taoyuan/dispatch",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 31,
+      "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 10,
+      "smallTap": 16,
       "smallTop": [
         {
-          "sel": "input#:r8:.ant-select-input",
+          "sel": "input#:ra:.ant-select-input",
           "text": "",
-          "w": 208,
+          "w": 1000,
           "h": 22
         },
         {
@@ -506,7 +542,7 @@
           "h": 24
         },
         {
-          "sel": "input#:rc:.ant-select-input",
+          "sel": "input#:re:.ant-select-input",
           "text": "",
           "w": 106,
           "h": 22
@@ -517,48 +553,80 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 22
+      "controls": 29
     },
     {
       "route": "/calendar",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
+      "width": 1440,
+      "narrowSelect": 1,
+      "narrowTop": [
+        {
+          "sel": "div.ant-select.ant-select-outlined",
+          "w": 70,
+          "text": "9月"
+        }
+      ],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
-      "tinyFont": 0,
-      "tinyTop": [],
+      "tinyFont": 28,
+      "tinyTop": [
+        {
+          "sel": "span",
+          "text": "[提醒] 為貴公...",
+          "px": 10
+        },
+        {
+          "sel": "span",
+          "text": "[審查] 檢送本...",
+          "px": 10
+        },
+        {
+          "sel": "span",
+          "text": "[提醒] 有關貴...",
+          "px": 10
+        },
+        {
+          "sel": "li",
+          "text": "+3 更多",
+          "px": 10
+        },
+        {
+          "sel": "span",
+          "text": "[參考] 請領本...",
+          "px": 10
+        }
+      ],
       "smallTap": 5,
       "smallTop": [
         {
-          "sel": "input#:r8:.ant-select-input",
-          "text": "",
-          "w": 58,
-          "h": 22
-        },
-        {
           "sel": "button.ant-btn.css-1daqxe2",
-          "text": "全標完成",
-          "w": 89,
+          "text": "同步",
+          "w": 66,
           "h": 24
         },
         {
           "sel": "button.ant-btn.css-1daqxe2",
-          "text": "全標取消",
-          "w": 68,
+          "text": "一鍵標記完成",
+          "w": 122,
           "h": 24
         },
         {
-          "sel": "input#:r15:.ant-select-input",
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "批次標記取消",
+          "w": 100,
+          "h": 24
+        },
+        {
+          "sel": "input#:r1h:.ant-select-input",
           "text": "",
-          "w": 104,
+          "w": 44,
           "h": 22
         },
         {
-          "sel": "input#:r17:.ant-select-input",
+          "sel": "input#:r1j:.ant-select-input",
           "text": "",
-          "w": 96,
+          "w": 28,
           "h": 22
         }
       ],
@@ -567,11 +635,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 15
+      "controls": 12
     },
     {
       "route": "/kunge/ops",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -586,60 +654,16 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 0,
-      "controls": 14
+      "controls": 13
     },
     {
       "route": "/pm/cases",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 0,
-      "tinyFont": 0,
-      "tinyTop": [],
-      "smallTap": 4,
-      "smallTop": [
-        {
-          "sel": "input.ant-input.css-1daqxe2",
-          "text": "",
-          "w": 163,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        }
-      ],
-      "covered": 0,
-      "coveredTop": [],
-      "loneCard": 0,
-      "loneTop": [],
-      "statCards": 4,
-      "controls": 16
-    },
-    {
-      "route": "/agencies",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
-      "clipped": 0,
-      "clippedTop": [],
-      "ellipsis": 0,
+      "ellipsis": 2,
       "tinyFont": 0,
       "tinyTop": [],
       "smallTap": 10,
@@ -647,32 +671,32 @@
         {
           "sel": "input.ant-input.css-1daqxe2",
           "text": "",
-          "w": 232,
+          "w": 159,
           "h": 22
         },
         {
-          "sel": "button.ant-btn.css-1daqxe2",
+          "sel": "input#:ra:.ant-select-input",
           "text": "",
-          "w": 24,
-          "h": 24
+          "w": 101,
+          "h": 22
         },
         {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "新增",
-          "w": 63,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
+          "sel": "input#:rc:.ant-select-input",
           "text": "",
-          "w": 24,
-          "h": 24
+          "w": 101,
+          "h": 22
         },
         {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
+          "sel": "input#:re:.ant-select-input",
+          "text": "",
+          "w": 101,
+          "h": 22
+        },
+        {
+          "sel": "span.ant-table-filter-trigger.active",
+          "text": "",
+          "w": 20,
+          "h": 30
         }
       ],
       "covered": 0,
@@ -680,11 +704,61 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 14
+      "controls": 25
+    },
+    {
+      "route": "/agencies",
+      "width": 1440,
+      "narrowSelect": 0,
+      "narrowTop": [],
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 5,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.ant-input-lg",
+          "text": "",
+          "w": 267,
+          "h": 24
+        },
+        {
+          "sel": "input#:rb:.ant-select-input",
+          "text": "",
+          "w": 127,
+          "h": 22
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 23
     },
     {
       "route": "/clients",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -692,162 +766,24 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 9,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 159,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-2",
-          "text": "2",
-          "w": 24,
-          "h": 24
-        }
-      ],
-      "covered": 0,
-      "coveredTop": [],
-      "loneCard": 0,
-      "loneTop": [],
-      "statCards": 3,
-      "controls": 12
-    },
-    {
-      "route": "/vendors",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
-      "clipped": 0,
-      "clippedTop": [],
-      "ellipsis": 0,
-      "tinyFont": 0,
-      "tinyTop": [],
-      "smallTap": 7,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 159,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-1",
-          "text": "1",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-2",
-          "text": "2",
-          "w": 24,
-          "h": 24
-        }
-      ],
-      "covered": 0,
-      "coveredTop": [],
-      "loneCard": 0,
-      "loneTop": [],
-      "statCards": 3,
-      "controls": 10
-    },
-    {
-      "route": "/staff",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
-      "clipped": 0,
-      "clippedTop": [],
-      "ellipsis": 4,
-      "tinyFont": 0,
-      "tinyTop": [],
-      "smallTap": 6,
-      "smallTop": [
-        {
-          "sel": "input.ant-input.ant-input-sm",
-          "text": "",
-          "w": 159,
-          "h": 22
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        }
-      ],
-      "covered": 0,
-      "coveredTop": [],
-      "loneCard": 0,
-      "loneTop": [],
-      "statCards": 3,
-      "controls": 19
-    },
-    {
-      "route": "/projects",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
-      "clipped": 0,
-      "clippedTop": [],
-      "ellipsis": 5,
-      "tinyFont": 0,
-      "tinyTop": [],
-      "smallTap": 4,
+      "smallTap": 14,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
           "text": "",
-          "w": 126,
+          "w": 242,
+          "h": 22
+        },
+        {
+          "sel": "input#:rb:.ant-select-input",
+          "text": "",
+          "w": 108,
+          "h": 22
+        },
+        {
+          "sel": "input#:rd:.ant-select-input",
+          "text": "",
+          "w": 78,
           "h": 22
         },
         {
@@ -857,14 +793,8 @@
           "h": 24
         },
         {
-          "sel": "input",
-          "text": "",
-          "w": 44,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
           "w": 24,
           "h": 24
         }
@@ -873,12 +803,12 @@
       "coveredTop": [],
       "loneCard": 0,
       "loneTop": [],
-      "statCards": 4,
-      "controls": 18
+      "statCards": 3,
+      "controls": 20
     },
     {
-      "route": "/dashboard",
-      "width": 390,
+      "route": "/vendors",
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -886,12 +816,188 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
+      "smallTap": 11,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 242,
+          "h": 22
+        },
+        {
+          "sel": "input#:rb:.ant-select-input",
+          "text": "",
+          "w": 108,
+          "h": 22
+        },
+        {
+          "sel": "input#:rd:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 17
+    },
+    {
+      "route": "/staff",
+      "width": 1440,
+      "narrowSelect": 0,
+      "narrowTop": [],
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 33,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 192,
+          "h": 22
+        },
+        {
+          "sel": "input#:ra:.ant-select-input",
+          "text": "",
+          "w": 108,
+          "h": 22
+        },
+        {
+          "sel": "input#:rc:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 3,
+      "controls": 45
+    },
+    {
+      "route": "/projects",
+      "width": 1440,
+      "narrowSelect": 0,
+      "narrowTop": [],
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 1,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 12,
+      "smallTop": [
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 159,
+          "h": 22
+        },
+        {
+          "sel": "input#:rc:.ant-select-input",
+          "text": "",
+          "w": 51,
+          "h": 22
+        },
+        {
+          "sel": "input#:re:.ant-select-input",
+          "text": "",
+          "w": 87,
+          "h": 22
+        },
+        {
+          "sel": "input#:rg:.ant-select-input",
+          "text": "",
+          "w": 87,
+          "h": 22
+        },
+        {
+          "sel": "button.ant-switch.css-1daqxe2",
+          "text": "",
+          "w": 44,
+          "h": 22
+        }
+      ],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 4,
+      "controls": 37
+    },
+    {
+      "route": "/dashboard",
+      "width": 1440,
+      "narrowSelect": 0,
+      "narrowTop": [],
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 299,
+      "tinyTop": [
+        {
+          "sel": "span.ant-tag.ant-tag-filled",
+          "text": "逾期",
+          "px": 10
+        },
+        {
+          "sel": "span.ant-tag.ant-tag-filled",
+          "text": "一般提醒",
+          "px": 10
+        },
+        {
+          "sel": "span.ant-tag.ant-tag-filled",
+          "text": "普通",
+          "px": 10
+        },
+        {
+          "sel": "span",
+          "text": "府地測字第1150191605號",
+          "px": 10
+        },
+        {
+          "sel": "span.ant-tag.ant-tag-filled",
+          "text": "完成",
+          "px": 10
+        }
+      ],
       "smallTap": 24,
       "smallTop": [
         {
           "sel": "button.ant-btn.css-1daqxe2",
           "text": "報價單列表",
-          "w": 81,
+          "w": 86,
           "h": 24
         },
         {
@@ -909,13 +1015,13 @@
         {
           "sel": "button.ant-btn.css-1daqxe2",
           "text": "完整行事曆",
-          "w": 102,
+          "w": 108,
           "h": 24
         },
         {
           "sel": "button.ant-btn.css-1daqxe2",
           "text": "全部99+",
-          "w": 112,
+          "w": 115,
           "h": 24
         }
       ],
@@ -928,7 +1034,7 @@
     },
     {
       "route": "/reports",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -936,26 +1042,45 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 0,
-      "smallTop": [],
+      "smallTap": 3,
+      "smallTop": [
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "查看全部",
+          "w": 94,
+          "h": 24
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "查看全部",
+          "w": 94,
+          "h": 24
+        },
+        {
+          "sel": "input#:rk:.ant-select-input",
+          "text": "",
+          "w": 78,
+          "h": 22
+        }
+      ],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
       "loneTop": [],
-      "statCards": 0,
-      "controls": 5
+      "statCards": 11,
+      "controls": 10
     },
     {
       "route": "/document-numbers",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 21,
+      "ellipsis": 36,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 3,
+      "smallTap": 11,
       "smallTop": [
         {
           "sel": "button.ant-pagination-item-link",
@@ -964,14 +1089,26 @@
           "h": 24
         },
         {
-          "sel": "input",
-          "text": "",
-          "w": 44,
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
           "h": 24
         },
         {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
+          "sel": "li.ant-pagination-item.ant-pagination-item-2",
+          "text": "2",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-3",
+          "text": "3",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-4",
+          "text": "4",
           "w": 24,
           "h": 24
         }
@@ -981,11 +1118,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 29
+      "controls": 17
     },
     {
       "route": "/erp/einvoice-sync",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1004,24 +1141,24 @@
     },
     {
       "route": "/erp/invoices/summary-view",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 0,
+      "ellipsis": 20,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 10,
+      "smallTap": 12,
       "smallTop": [
         {
-          "sel": "input#:r8:.ant-select-input",
+          "sel": "input#:ra:.ant-select-input",
           "text": "",
           "w": 78,
           "h": 22
         },
         {
-          "sel": "input#:ra:.ant-select-input",
+          "sel": "input#:rc:.ant-select-input",
           "text": "",
           "w": 78,
           "h": 22
@@ -1050,24 +1187,24 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 3,
-      "controls": 15
+      "controls": 17
     },
     {
       "route": "/taoyuan",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 31,
+      "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 10,
+      "smallTap": 16,
       "smallTop": [
         {
-          "sel": "input#:r8:.ant-select-input",
+          "sel": "input#:ra:.ant-select-input",
           "text": "",
-          "w": 208,
+          "w": 1000,
           "h": 22
         },
         {
@@ -1089,7 +1226,7 @@
           "h": 24
         },
         {
-          "sel": "input#:rc:.ant-select-input",
+          "sel": "input#:re:.ant-select-input",
           "text": "",
           "w": 106,
           "h": 22
@@ -1100,11 +1237,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 22
+      "controls": 29
     },
     {
       "route": "/settings",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1112,37 +1249,37 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 6,
+      "smallTap": 5,
       "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "編輯",
-          "w": 63,
-          "h": 24
-        },
         {
           "sel": "input#username.ant-input.ant-input-disabled",
           "text": "",
-          "w": 274,
+          "w": 479,
           "h": 22
         },
         {
           "sel": "input#email.ant-input.ant-input-disabled",
           "text": "",
-          "w": 274,
+          "w": 479,
           "h": 22
         },
         {
           "sel": "input#department.ant-input.ant-input-disabled",
           "text": "",
-          "w": 274,
+          "w": 210,
           "h": 22
         },
         {
           "sel": "input#position.ant-input.ant-input-disabled",
           "text": "",
-          "w": 274,
+          "w": 210,
           "h": 22
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "綁定 LINE",
+          "w": 98,
+          "h": 24
         }
       ],
       "covered": 0,
@@ -1150,11 +1287,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 0,
-      "controls": 15
+      "controls": 14
     },
     {
       "route": "/profile",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1162,37 +1299,37 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 6,
+      "smallTap": 5,
       "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "編輯",
-          "w": 63,
-          "h": 24
-        },
         {
           "sel": "input#username.ant-input.ant-input-disabled",
           "text": "",
-          "w": 274,
+          "w": 479,
           "h": 22
         },
         {
           "sel": "input#email.ant-input.ant-input-disabled",
           "text": "",
-          "w": 274,
+          "w": 479,
           "h": 22
         },
         {
           "sel": "input#department.ant-input.ant-input-disabled",
           "text": "",
-          "w": 274,
+          "w": 210,
           "h": 22
         },
         {
           "sel": "input#position.ant-input.ant-input-disabled",
           "text": "",
-          "w": 274,
+          "w": 210,
           "h": 22
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "綁定 LINE",
+          "w": 98,
+          "h": 24
         }
       ],
       "covered": 0,
@@ -1200,11 +1337,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 0,
-      "controls": 15
+      "controls": 14
     },
     {
       "route": "/tender/search",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1215,27 +1352,27 @@
       "smallTap": 54,
       "smallTop": [
         {
-          "sel": "input#:r9:.ant-select-input",
+          "sel": "input#:rb:.ant-select-input",
           "text": "",
-          "w": 274,
+          "w": 88,
           "h": 24
         },
         {
           "sel": "input.ant-input.ant-input-lg",
           "text": "",
-          "w": 215,
-          "h": 24
-        },
-        {
-          "sel": "input#:rb:.ant-select-input",
-          "text": "",
-          "w": 112,
+          "w": 252,
           "h": 24
         },
         {
           "sel": "input#:rd:.ant-select-input",
           "text": "",
-          "w": 112,
+          "w": 88,
+          "h": 24
+        },
+        {
+          "sel": "input#:rf:.ant-select-input",
+          "text": "",
+          "w": 88,
           "h": 24
         },
         {
@@ -1250,19 +1387,19 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 66
+      "controls": 69
     },
     {
       "route": "/tender/dashboard",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 0,
+      "ellipsis": 5,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 7,
+      "smallTap": 10,
       "smallTop": [
         {
           "sel": "button.ant-pagination-item-link",
@@ -1300,11 +1437,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 5,
-      "controls": 13
+      "controls": 16
     },
     {
       "route": "/documents/2689",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1312,18 +1449,12 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
+      "smallTap": 1,
       "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
         {
           "sel": "input#delivery_method.ant-select-input",
           "text": "",
-          "w": 274,
+          "w": 497,
           "h": 22
         }
       ],
@@ -1332,37 +1463,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 0,
-      "controls": 22
+      "controls": 21
     },
     {
       "route": "/erp/quotations/168",
-      "width": 390,
-      "narrowSelect": 0,
-      "narrowTop": [],
-      "clipped": 0,
-      "clippedTop": [],
-      "ellipsis": 2,
-      "tinyFont": 0,
-      "tinyTop": [],
-      "smallTap": 1,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        }
-      ],
-      "covered": 0,
-      "coveredTop": [],
-      "loneCard": 0,
-      "loneTop": [],
-      "statCards": 16,
-      "controls": 13
-    },
-    {
-      "route": "/erp/expenses/10",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1370,15 +1475,27 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 1,
-      "smallTop": [
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        }
-      ],
+      "smallTap": 0,
+      "smallTop": [],
+      "covered": 0,
+      "coveredTop": [],
+      "loneCard": 0,
+      "loneTop": [],
+      "statCards": 16,
+      "controls": 12
+    },
+    {
+      "route": "/erp/expenses/10",
+      "width": 1440,
+      "narrowSelect": 0,
+      "narrowTop": [],
+      "clipped": 0,
+      "clippedTop": [],
+      "ellipsis": 0,
+      "tinyFont": 0,
+      "tinyTop": [],
+      "smallTap": 0,
+      "smallTop": [],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
@@ -1388,7 +1505,7 @@
     },
     {
       "route": "/pm/cases/244",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1396,18 +1513,12 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
+      "smallTap": 1,
       "smallTop": [
         {
           "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
           "text": "編輯",
-          "w": 63,
+          "w": 66,
           "h": 24
         }
       ],
@@ -1416,11 +1527,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 0,
-      "controls": 17
+      "controls": 16
     },
     {
       "route": "/contract-cases/187",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1428,18 +1539,12 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
+      "smallTap": 1,
       "smallTop": [
         {
           "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
           "text": "編輯",
-          "w": 63,
+          "w": 66,
           "h": 24
         }
       ],
@@ -1452,7 +1557,7 @@
     },
     {
       "route": "/erp/quotations/168?tab=receivable",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1460,36 +1565,36 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 8,
+      "smallTap": 10,
       "smallTop": [
         {
-          "sel": "button.ant-btn.css-1daqxe2",
+          "sel": "span.ant-table-filter-trigger",
           "text": "",
-          "w": 24,
+          "w": 20,
+          "h": 52
+        },
+        {
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "開立發票",
+          "w": 58,
           "h": 24
         },
         {
           "sel": "button.ant-btn.css-1daqxe2",
           "text": "開立發票",
-          "w": 54,
+          "w": 58,
           "h": 24
         },
         {
           "sel": "button.ant-btn.css-1daqxe2",
           "text": "開立發票",
-          "w": 54,
+          "w": 58,
           "h": 24
         },
         {
           "sel": "button.ant-btn.css-1daqxe2",
           "text": "開立發票",
-          "w": 54,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "開立發票",
-          "w": 54,
+          "w": 58,
           "h": 24
         }
       ],
@@ -1498,11 +1603,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 3,
-      "controls": 21
+      "controls": 24
     },
     {
       "route": "/erp/quotations/168?tab=payable",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1510,13 +1615,13 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 4,
+      "smallTap": 6,
       "smallTop": [
         {
-          "sel": "button.ant-btn.css-1daqxe2",
+          "sel": "span.ant-table-filter-trigger",
           "text": "",
-          "w": 24,
-          "h": 24
+          "w": 20,
+          "h": 52
         },
         {
           "sel": "button.ant-pagination-item-link",
@@ -1535,6 +1640,12 @@
           "text": "",
           "w": 24,
           "h": 24
+        },
+        {
+          "sel": "div.ant-select.ant-select-sm",
+          "text": "10 條/頁",
+          "w": 86,
+          "h": 24
         }
       ],
       "covered": 0,
@@ -1542,11 +1653,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 3,
-      "controls": 17
+      "controls": 20
     },
     {
       "route": "/erp/quotations/168?tab=expenses",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1554,19 +1665,31 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
+      "smallTap": 4,
       "smallTop": [
         {
           "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
+          "text": "新增核銷",
+          "w": 94,
           "h": 24
         },
         {
-          "sel": "button.ant-btn.css-1daqxe2",
-          "text": "新增核銷",
-          "w": 89,
-          "h": 24
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        },
+        {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
         }
       ],
       "covered": 0,
@@ -1574,11 +1697,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 14
+      "controls": 19
     },
     {
       "route": "/pm/cases/244?tab=quotations",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1586,18 +1709,12 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
+      "smallTap": 1,
       "smallTop": [
         {
           "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
           "text": "編輯",
-          "w": 63,
+          "w": 66,
           "h": 24
         }
       ],
@@ -1606,11 +1723,11 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 0,
-      "controls": 17
+      "controls": 16
     },
     {
       "route": "/pm/cases/244?tab=expenses",
-      "width": 390,
+      "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
       "clipped": 0,
@@ -1618,18 +1735,12 @@
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 2,
+      "smallTap": 1,
       "smallTop": [
         {
           "sel": "button.ant-btn.css-1daqxe2",
-          "text": "",
-          "w": 24,
-          "h": 24
-        },
-        {
-          "sel": "button.ant-btn.css-1daqxe2",
           "text": "編輯",
-          "w": 63,
+          "w": 66,
           "h": 24
         }
       ],
@@ -1638,7 +1749,7 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 0,
-      "controls": 17
+      "controls": 16
     }
   ]
 }

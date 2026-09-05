@@ -2,7 +2,7 @@
   "_doc": "weekly 111 基線。09-05 晚：手機字級地板（responsive.css）部署後 tinyFont 327→0（/dashboard 299、/calendar 28 全數升到 12px），基線降到 0 ⇒ 任何新的 <11px 文字都會黃。smallTap 392 多為 AntD size=small 按鈕、分頁鈕（24px）與 22px 小輸入框，存量不判紅、新增才判；要降基線請先真的改版面再改數字。",
   "clipped": 0,
   "tinyFont": 0,
-  "smallTap": 392,
-  "measured_at": "2026-09-05 晚（字級地板部署後）",
+  "smallTap": 262,
+  "measured_at": "2026-09-05 晚（費用頁手機卡片後）",
   "pages": 39
 }
