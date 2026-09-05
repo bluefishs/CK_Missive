@@ -7,6 +7,7 @@
  * @version 3.0.0 — 重新定位為邀標/報價專區
  */
 import React, { useState, useMemo } from 'react';
+import { FilterBar } from '../components/common/FilterBar';
 import { MobileCard } from '../components/common/MobileCardList';
 import { fmtMoney } from '../utils/money';
 import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space } from 'antd';
@@ -345,17 +346,21 @@ export const PMCaseListPage: React.FC = () => {
           </Row>
         )}
 
-        <Row gutter={[8, 8]}>
-          <Col xs={24} sm={8}>
+        {/* 2026-09-05 owner：篩選列手機可收合——搜尋框常駐，年度／狀態／類別收進「篩選」鈕 */}
+        <FilterBar
+          summary={(
             <Search
-              placeholder="搜尋案號/案名..."
-              allowClear
-              onSearch={(v) => {
-                setSearchText(v);
-                setCurrentPage(1);
-              }}
-            />
-          </Col>
+                          placeholder="搜尋案號/案名..."
+                          allowClear
+                          onSearch={(v) => {
+                            setSearchText(v);
+                            setCurrentPage(1);
+                          }}
+                        />
+          )}
+          activeCount={[yearFilter, statusFilter, categoryFilter].filter(Boolean).length}
+        >
+          <Row gutter={[8, 8]} style={{ width: '100%' }}>
           <Col xs={8} sm={4}>
             <Select
               style={{ width: '100%' }}
@@ -407,6 +412,7 @@ export const PMCaseListPage: React.FC = () => {
             <Button icon={<ReloadOutlined />} onClick={() => refetch()} />
           </Col>
         </Row>
+        </FilterBar>
 
         <EnhancedTable<PMCase>
           dataSource={cases}
