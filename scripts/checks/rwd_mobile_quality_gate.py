@@ -12,7 +12,7 @@ weekly 109 只守「整頁有沒有被撐寬」；視覺走查拍圖但要人看
 
 ## 判準（09-05 基準校準；門檻寫在下方常數，改門檻要附當時的基準數）
 
-RED    covered ≥ 1（「功能遮蔽」正是 owner 09-05 的回報）；loneCard ≥ 1（§2.6 ① 手機兩張一列，owner 09-05 明令統一）；
+RED    narrowSelect ≥ 1（下拉被壓到 <80px，手機與 1440 桌面都量）；covered ≥ 1（「功能遮蔽」正是 owner 09-05 的回報）；loneCard ≥ 1（§2.6 ① 手機兩張一列，owner 09-05 明令統一）；
        clipped 超過基線（基線檔 `.rwd_quality_baseline.json`，存量不判紅、新增才紅——同 lib_adoption 的節奏）
 YELLOW tinyFont／smallTap 超過基線；探針被導回登入頁 ≥ 1
 GREEN  其餘
@@ -60,9 +60,12 @@ def _mint_credential() -> dict:
     return creds
 
 
-def _run_probe(creds: dict) -> bool:
+RESULT_DESKTOP = ROOT / "wiki" / "memory" / "integration-health" / "rwd-quality-desktop.json"
+
+
+def _run_probe(creds: dict, width: int = 390, out: Path = RESULT) -> bool:
     env = dict(os.environ, SELFAUDIT_CONFIG=str(CONFIG), **creds)
-    p = subprocess.run(["node", str(PROBE)], cwd=str(ROOT), env=env, capture_output=True, timeout=900)
+    p = subprocess.run(["node", str(PROBE), f"--width={width}", f"--out={out}"], cwd=str(ROOT), env=env, capture_output=True, timeout=900)
     out = p.stdout.decode("utf-8", errors="replace")
     for ln in out.splitlines():
         print("  " + ln)
@@ -88,13 +91,24 @@ def main() -> int:
     rows = [r for r in d.get("rows") or [] if not r.get("error") and not r.get("blocked")]
     blocked = int(d.get("blocked") or 0)
     base = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.exists() else {}
-    tot = {k: sum(int(r.get(k) or 0) for r in rows) for k in ("clipped", "tinyFont", "smallTap", "covered", "loneCard")}
+    tot = {k: sum(int(r.get(k) or 0) for r in rows) for k in ("clipped", "tinyFont", "smallTap", "covered", "loneCard", "narrowSelect")}
+    # 桌面 1440 也跑一遍：下拉塌陷／截字／遮蔽在桌面同樣是缺陷（09-05 的桌面回歸手機量不到——手機走收合區、Select 100% 寬）
+    drows: list[dict] = []
+    if _run_probe(creds, 1440, RESULT_DESKTOP) and RESULT_DESKTOP.exists():
+        dd = json.loads(RESULT_DESKTOP.read_text(encoding="utf-8"))
+        drows = [r for r in dd.get("rows") or [] if not r.get("error") and not r.get("blocked")]
     print(f"{len(rows)} 頁 @{d.get('width')}px；截字 {tot['clipped']}（基線 {base.get('clipped', '—')}）／字級<11px {tot['tinyFont']}"
           f"（基線 {base.get('tinyFont', '—')}）／點擊目標<28px {tot['smallTap']}（基線 {base.get('smallTap', '—')}）"
           f"／遮蔽 {tot['covered']}／統計卡獨列 {tot['loneCard']}")
 
     reds: list[str] = []
     yels: list[str] = []
+    for r in rows + drows:
+        for c in (r.get("narrowTop") or []):
+            reds.append(f"{r['route']} @{r.get('width')}px：下拉 {c.get('sel')} 只剩 {c.get('w')}px（選中的值看不到）")
+    for r in drows:
+        for c in (r.get("coveredTop") or []):
+            reds.append(f"{r['route']} @1440px：{c.get('fixed')} 蓋住 {c.get('target')}「{c.get('text')}」{c.get('cover')}%")
     for r in rows:
         for c in (r.get("coveredTop") or []):
             reds.append(f"{r['route']}：{c.get('fixed')} 蓋住 {c.get('target')}「{c.get('text')}」{c.get('cover')}%")
@@ -119,7 +133,7 @@ def main() -> int:
     for m in yels[:10]:
         print(f"  [YELLOW] {m}")
     if reds:
-        print(f"[RED] {len(reds)} 項——遮蔽／統計卡獨列／新增截字")
+        print(f"[RED] {len(reds)} 項——下拉塌陷／遮蔽／統計卡獨列／新增截字")
         return 2
     if yels:
         print("[YELLOW] 見上")

@@ -123,7 +123,14 @@ function measure(vw) {
     && ![...c.querySelectorAll('.ant-col')].some((inner) => inner.querySelector(statSel)));
   const lone = statCols.filter((c) => c.getBoundingClientRect().width >= vw * 0.7).map((c) => ({ sel: sel(c), text: txt(c.querySelector('.ant-statistic-title') || c) }));
 
+  // narrowSelect：下拉被壓到 < 80px（09-05 桌面回歸：FilterBar 的 Row 放進 Space 後三個 Select 只剩 40px，選中的值看不到；
+  // 沒有任何閘門會紅，是視覺走查的圖看出來的）。分頁的每頁筆數選擇器本來就窄，排除。
+  const narrow = [...document.querySelectorAll('.ant-select')].filter(vis)
+    .filter((el) => !el.closest('.ant-pagination') && el.getBoundingClientRect().width < 80)
+    .map((el) => ({ sel: sel(el), w: Math.round(el.getBoundingClientRect().width), text: txt(el) }));
+
   return {
+    narrowSelect: narrow.length, narrowTop: narrow.slice(0, 5),
     clipped: clipped.length, clippedTop: clipped.slice(0, 5), ellipsis,
     tinyFont: tiny.length, tinyTop: tiny.slice(0, 5),
     smallTap: small.length, smallTop: small.slice(0, 5),
@@ -164,7 +171,7 @@ async function main() {
   fs.writeFileSync(OUT, JSON.stringify(out, null, 2));
   const sum = (k) => rows.reduce((a, r) => a + (r[k] || 0), 0);
   console.log(`RWD 手機品質探針：${routes.length} 頁 @${WIDTH}px（被導回登入 ${blocked}）`);
-  console.log(`  截字 ${sum('clipped')}／字級<11px ${sum('tinyFont')}／點擊目標<28px ${sum('smallTap')}／被浮動元件遮住 ${sum('covered')}／統計卡獨佔一列 ${sum('loneCard')}`);
+  console.log(`  下拉塌陷<80px ${sum('narrowSelect')}／截字 ${sum('clipped')}／字級<11px ${sum('tinyFont')}／點擊目標<28px ${sum('smallTap')}／被浮動元件遮住 ${sum('covered')}／統計卡獨佔一列 ${sum('loneCard')}`);
   console.log(`  結果 → ${OUT}`);
 }
 
