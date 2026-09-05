@@ -293,11 +293,14 @@ class ExpenseInvoiceService(AuditableServiceMixin):
             attr = exp["attribution_type"]
             if attribution_type and attribution_type not in ("all",) and attr != attribution_type:
                 continue
+            # 2026-09-05：帶案號卻對不到報價單主檔的（B114-B001／B002 舊案號，A104 待 owner 對應）此前被標成「未歸屬」，
+            # 與真正沒有案號的混在一起、畫面上兩張一模一樣的卡。改成把案號說出來——「未對應案件」與「未歸屬」是兩件事。
+            orphan = attr == "project" and cc != "__none__"
             groups.append({
                 "group_key": f"{attr}:{cc}",
-                "group_label": "營運支出" if attr == "operational" else "未歸屬",
+                "group_label": ("營運支出" if attr == "operational" else (f"未對應案件 {cc}" if orphan else "未歸屬")),
                 "attribution_type": attr,
-                "case_code": None,
+                "case_code": cc if orphan else None,
                 "project_code": None,
                 "erp_quotation_id": None,
                 "total_amount": exp["total_amount"],
