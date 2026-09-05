@@ -57,8 +57,13 @@ class ProjectStaffRepository:
         status: str = 'active',
         notes: Optional[str] = None,
     ) -> None:
+        # 2026-09-05：雙鍵——用 project_id 反查 case_code 一併寫入（weekly 110）
+        from sqlalchemy import select as _sel
+        from app.extended.models.core import ContractProject
+        case_code = (await self.db.execute(_sel(ContractProject.case_code).where(ContractProject.id == project_id).limit(1))).scalar_one_or_none()
         stmt = insert(project_user_assignment).values(
             project_id=project_id,
+            case_code=case_code,
             user_id=user_id,
             role=role,
             is_primary=is_primary,

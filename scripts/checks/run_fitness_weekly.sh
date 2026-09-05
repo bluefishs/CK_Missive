@@ -585,6 +585,8 @@ run_step "107" "名稱欄 vs 鍵欄一致性（id 是鍵、名稱是快照）" "
 run_step "108" "統計卡是否接到篩選（假互動偵測）" "scripts/checks/stat_card_filter_wiring_audit.py"
 # 109（09-05 RWD）：每日行動探針只「觀測不告警」，這支對整頁溢出設 24px 門檻（表格內橫向捲動是設計，不計）
 run_step "109" "RWD 整頁溢出閘門（390／768／1024）" "scripts/checks/rwd_page_overflow_gate.py"
+# 110（09-05 owner：588 承辦兩個名字）：指派只綁一把鍵，另一頁看不到、改不到——寫入端已改雙鍵，這支守存量與漏網
+run_step "110" "承辦指派雙鍵一致性（case_code ⇔ project_id）" "scripts/checks/assignment_dual_key_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

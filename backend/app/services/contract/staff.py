@@ -49,11 +49,23 @@ class ProjectStaffService:
                 if existing:
                     raise ConflictException(message="該同仁已與此案件建立關聯", field="user_id")
 
-        from sqlalchemy import insert
+        from sqlalchemy import insert, select as _sel
         from app.extended.models.associations import project_user_assignment
+        # 2026-09-05 owner（588 承辦兩個名字）：指派有兩把鍵，此前哪一頁寫就只帶哪一把 ⇒ 另一頁看不到、改不到。
+        # 寫入時把另一把補齊：有 case_code 且已成案 ⇒ 補 project_id；有 project_id ⇒ 補 case_code。weekly 110 守。
+        from app.extended.models.core import ContractProject
+        project_id, case_code = data.project_id, data.case_code
+        if case_code and not project_id:
+            project_id = (await self.db.execute(_sel(ContractProject.id).where(ContractProject.case_code == case_code).limit(1))).scalar_one_or_none()
+        if project_id and not case_code:
+            case_code = (await self.db.execute(_sel(ContractProject.case_code).where(ContractProject.id == project_id).limit(1))).scalar_one_or_none()
+        if project_id and data.user_id and not data.project_id:
+            # 從 PM 頁指派、但案子已成案：用補出來的 project_id 再防重一次
+            if await self.repo.check_assignment_exists(project_id, data.user_id):
+                raise ConflictException(message="該同仁已與此案件建立關聯（承攬案那一側已有）", field="user_id")
         stmt = insert(project_user_assignment).values(
-            project_id=data.project_id,
-            case_code=data.case_code,
+            project_id=project_id,
+            case_code=case_code,
             user_id=data.user_id,
             staff_name=data.staff_name,
             role=data.role or 'member',
