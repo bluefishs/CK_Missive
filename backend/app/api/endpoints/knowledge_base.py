@@ -24,7 +24,6 @@ from app.schemas.knowledge_base import (
     KBSearchRequest,
     KBSearchResponse,
     KBSearchResult,
-    KBStatsResponse,
     TreeResponse,
 )
 from app.services.system.knowledge_base_service import KnowledgeBaseService
