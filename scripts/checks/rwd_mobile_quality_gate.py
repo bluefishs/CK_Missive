@@ -27,7 +27,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.paths import repo_root  # noqa: E402
+from lib.docker_exec import exec_in  # noqa: E402
+
+ROOT = repo_root()  # 不自算路徑（weekly 93）：自算算錯是靜默的，會讀到別的檔
 PROBE = ROOT / "scripts" / "checks" / "rwd_mobile_quality_probe.cjs"
 RESULT = ROOT / "wiki" / "memory" / "integration-health" / "rwd-quality.json"
 BASELINE = ROOT / "scripts" / "checks" / ".rwd_quality_baseline.json"
@@ -42,17 +46,17 @@ def _mint_credential() -> dict:
     adapter = ROOT / (auth.get("adapter_host_script") or "scripts/checks/ui_smoke_auth.py")
     if not container or not adapter.exists():
         return {}
-    env = dict(os.environ, MSYS_NO_PATHCONV="1")
-    try:
-        p = subprocess.run(
-            ["docker", "exec", "-i", "-e", "SELFAUDIT_ROLE=admin", container, "python", "-"],
-            input=adapter.read_bytes(), capture_output=True, timeout=120, env=env,
-        )
-    except Exception as e:  # noqa: BLE001
-        print(f"  [WARN] 簽發臨時憑證失敗：{e}")
+    # 2026-09-06：改走共用層（weekly 93）——`exec_in` 同日補了 env_vars，
+    # 它自己處理 MSYS_NO_PATHCONV 與「容器不在回 None」，不必每支腳本各記一次。
+    out = exec_in(
+        ["python", "-"], container=container, timeout=120,
+        stdin=adapter.read_text(encoding="utf-8"), env_vars={"SELFAUDIT_ROLE": "admin"},
+    )
+    if out is None:
+        print("  [WARN] 簽發臨時憑證失敗（容器不在或腳本非 0 退出）")
         return {}
     creds = {}
-    for line in p.stdout.decode("utf-8", errors="replace").splitlines():
+    for line in out.splitlines():
         for k in ("COOKIE", "USER_INFO", "LOCAL_STORAGE"):
             if line.startswith(k + "="):
                 creds[k] = line[len(k) + 1:].strip()

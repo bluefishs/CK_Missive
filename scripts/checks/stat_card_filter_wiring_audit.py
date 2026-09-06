@@ -24,7 +24,10 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.paths import repo_root  # noqa: E402
+
+ROOT = repo_root()  # 不自算路徑（weekly 93）：自算算錯是靜默的，會讀到別的檔
 PAGES = ROOT / "frontend" / "src" / "pages"
 
 # 純顯示可接受的卡（檔名 → 卡片標題），要有理由

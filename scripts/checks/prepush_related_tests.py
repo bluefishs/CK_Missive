@@ -23,7 +23,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.paths import repo_root  # noqa: E402
+
+REPO = repo_root()  # 不自算路徑（weekly 93）：自算算錯是靜默的，會讀到別的檔
 BACKEND = REPO / "backend"
 FRONTEND = REPO / "frontend"
 

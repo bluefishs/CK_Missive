@@ -244,8 +244,16 @@ export const useSubcontractorOptions = () => {
       //
       // 現況 23 家，100 夠用。若日後超過 100，這裡會**靜默截斷**而不是報錯 ——
       // 真的要一次載完就得改後端上限或改成分頁載入，不是把數字調大。
-      const resp = await vendorsApi.getVendors({ vendor_type: 'subcontractor', limit: 100 });
-      return resp.items ?? [];
+      // 2026-09-06：協力廠商已超過 100 家（weekly 95 量到正在截斷）。端點每頁上限就是 100
+      // （schema `le=100`），所以不是把數字調大，而是翻頁取完 —— 與上方委託單位同一形狀。
+      const all: Awaited<ReturnType<typeof vendorsApi.getVendors>>['items'] = [];
+      for (let page = 1; page <= 20; page++) {
+        const resp = await vendorsApi.getVendors({ vendor_type: 'subcontractor', limit: 100, page });
+        const items = resp.items ?? [];
+        all.push(...items);
+        if (items.length < 100) break;
+      }
+      return all;
     },
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,

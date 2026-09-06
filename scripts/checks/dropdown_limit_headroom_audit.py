@@ -45,6 +45,10 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys as _sys
+from pathlib import Path as _P
+_sys.path.insert(0, str(_P(__file__).resolve().parent))
+from lib.docker_exec import exec_in  # noqa: E402
 import sys
 from pathlib import Path
 
@@ -58,6 +62,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 #:
 #: ⚠️ 接上伺服器端搜尋之後，請把該項從這裡移除並在下方 SERVER_SEARCH 註記，
 #: 否則這支會一直提醒一個已經不存在的風險。
+#: ⚠️ 2026-09-06：**翻頁取完的不算截斷**。委託單位／協力廠商的端點上限就是 100（schema `le=100`），
+#: 兩支 hook 都改成 `for page … if items.length < 100 break` 一次取完 ⇒ 資料再長也不會少拿。
+#: 判定改看下方 PAGED：在裡面的只驗「頁數上限夠不夠」（20 頁 × 100 = 2,000）。
+PAGED = {"委託單位 useClientOptions": 20 * 100, "協力廠商 useSubcontractorOptions": 20 * 100}
+
 DROPDOWNS = [
     ("contract_projects", "承攬案件 useProjectsDropdown", 1000, 1000),
     ("contract_projects", "公文篩選 useFilterOptions", 1000, 1000),
@@ -93,15 +102,11 @@ def _counts(tables: list[str]) -> dict[str, int] | None:
         "    print('@@'+json.dumps(out))\n"
         "asyncio.run(m())"
     )
-    try:
-        r = subprocess.run(
-            ["docker", "exec", CONTAINER, "python", "-c", code],
-            capture_output=True, text=True, timeout=90,
-            env={**__import__("os").environ, "MSYS_NO_PATHCONV": "1"},
-        )
-    except Exception:
+    # 2026-09-06：改走共用層（weekly 93）——它自己處理 MSYS_NO_PATHCONV 與「容器不在回 None」
+    out = exec_in(["python", "-c", code], container=CONTAINER, timeout=90)
+    if out is None:
         return None
-    for line in r.stdout.splitlines():
+    for line in out.splitlines():
         if line.startswith("@@"):
             return json.loads(line[2:])
     return None
@@ -129,6 +134,17 @@ def main() -> int:
     print(f"  {'下拉':<40}{'現有':>6}{'送出':>7}{'上限':>7}{'餘裕':>7}  判定")
     for table, name, sent, cap in DROPDOWNS:
         n = counts[table]
+        if name in PAGED:
+            # 翻頁取完：能拿多少由「頁數上限 × 每頁」決定，不是單次 limit
+            reach = PAGED[name]
+            verdict = "GREEN（翻頁取完）" if n < reach * 0.8 else "YELLOW 頁數上限快追上了"
+            if n >= reach:
+                verdict = "RED 超過翻頁上限"
+                red.append(f"{name}：{table} 已 {n} 筆 >= 翻頁上限 {reach}")
+            elif n >= reach * 0.8:
+                yellow.append(f"{name}：{table} {n} 筆，翻頁上限 {reach}")
+            print(f"  {name:<40}{n:>6}{'翻頁':>7}{str(cap or '—'):>7}{reach - n:>7}  {verdict}")
+            continue
         if cap is not None and sent > cap:
             verdict = "RED 送出超過端點上限 ⇒ 422 ⇒ 空下拉"
             red.append(f"{name}：送出 {sent} > 端點上限 {cap}")

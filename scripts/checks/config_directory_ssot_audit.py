@@ -34,7 +34,10 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.paths import repo_root  # noqa: E402
+
+ROOT = repo_root()  # 不自算路徑（weekly 93）：自算算錯是靜默的，會讀到別的檔
 
 #: 受管的設定目錄。**新增第三個之前先問「為什麼不放進這兩個」。**
 SANCTIONED = ("configs", "backend/config")

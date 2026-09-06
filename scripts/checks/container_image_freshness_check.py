@@ -33,6 +33,10 @@ import argparse
 import hashlib
 import os
 import subprocess
+import sys as _sys
+from pathlib import Path as _P
+_sys.path.insert(0, str(_P(__file__).resolve().parent))
+from lib.docker_exec import exec_in  # noqa: E402
 import sys
 from pathlib import Path
 # 2026-08-15：weekly 跑在 host（cp950），而 ✅🔴⚠ 這些符號 cp950 編不出來。
@@ -208,11 +212,9 @@ def check_build_identity(container: str) -> tuple[int, list[str]]:
     problems: list[str] = []
     env = {}
     try:
-        r = subprocess.run(
-            ["docker", "exec", container, "printenv"],
-            capture_output=True, text=True, timeout=10,
-        )
-        for line in r.stdout.splitlines():
+        # 2026-09-06：改走共用層（weekly 93）——它處理 MSYS_NO_PATHCONV 與「容器不在回 None」
+        out = exec_in(["printenv"], container=container, timeout=10) or ""
+        for line in out.splitlines():
             if "=" in line:
                 k, v = line.split("=", 1)
                 env[k.strip()] = v.strip()

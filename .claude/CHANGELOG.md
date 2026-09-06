@@ -4,6 +4,43 @@
 
 ---
 
+## [v6.74] - 2026-09-06（自主測試機制圖／兩份測試基線歸零／pre-push 閘門／效能與資安）
+
+### 一句話
+
+> 這一輪沒有新功能，全部投在**「壞了會有人知道」**上：把散在各處的自主測試層盤成一張機制圖，
+> 補上唯一沒人跑的兩個套件（前端 vitest、後端 pytest 基線），把它們清到 0，再接上 pre-push。
+
+### 新增守門（weekly 112–114、pre-push）
+
+| 步 | 腳本 | 守什麼 |
+|---|---|---|
+| weekly 112 | `async_sync_io_audit.py` | async 路徑上的同步 I/O（一支同步 HTTP 對已廢主機 DNS 失敗 4 秒，同時進來的每支請求一起變慢，而探針全綠）。首跑 11 處當天改為 `asyncio.to_thread` ⇒ 基線 0 |
+| weekly 113 | `testing_map_report.py` | 自主測試機制圖（僅報告）：每層看得見什麼／看不見什麼／誰觸發／留痕在哪 → `docs/health/TESTING_MAP.md` |
+| weekly 114 | `frontend_test_suite_health.py` | 前端 vitest 基線比對（新失敗才紅；跑不起來不寫基線也不回綠） |
+| pre-push | `prepush_related_tests.py` | 推送範圍相關的 pytest／vitest 對兩份基線；前端基線外失敗先關並行複跑，單跑即綠不擋 |
+
+### 效能與資安
+
+| 項目 | 內容 |
+|---|---|
+| SQL 剖析 | `pg_stat_statements` 常駐（compose `shared_preload_libraries`）。首次剖析就抓到招標搜尋的相似度查詢佔 DB 時間 89%，已移除 |
+| 零流量 API（A110） | 69 個候選逐一對照：65 個前端有呼叫、3 個 Hermes 打的、真正無人引用 1 個（已刪）。判準改成「零流量 ∧ 無任何呼叫者」才交給人，下一個檢視點 2026-12-01 |
+| 資安 | `public_endpoint_auth_audit` 742 端點 0 缺口；Hermes 服務授權 lint 接受 `require_scope`；測試庫 schema 漂移稽核排除備份表與 pg_stat 視圖後 GREEN |
+| 產品修正 | `/taoyuan-dispatch/workflow/create` 對不存在的派工單原本讓外鍵違反冒成 **500**，改服務層先查、回 400 並說原因（ADR-0028） |
+
+### 09-06 晚：兩套測試接上基線（A111／A112；「依專案最大效益與資安管理等目標辦理」）
+
+| 項目 | 內容 |
+|---|---|
+| 前端 vitest | 228 檔此前**沒有任何排程或閘門在跑**，首跑 254 失敗。三個共同根因：①barrel 部分 mock 蓋掉後來新增的 export（62 檔改 `importOriginal` 展開）②`shared-modules/sso-js/node_modules` 自帶第二份 React＋zustand ⇒ `useRef` 讀到 null ×76（`vitest.config.ts` 補 `dedupe`／alias／`server.deps.inline`）③`useResponsive` mock 漏 `responsiveValue` ×120（41 處補）⇒ **254→85**。新增 `frontend_test_suite_health.py`＝**weekly 114**，基線 `frontend/tests/known_failures.json` 86 項（畫面改了測試沒跟，逐檔清） |
+| 後端 pytest | 全套 host 重跑 65→38；本週改動造成的 mock 失敗修 7 支（報價單服務 5：`generate_quotation_no`／改總價先讀現值／`db.scalar` 拿委託單位名／損益摘要批次應付；PM 建案 2：同名承攬案 `.first()`／手動案號 `validate`＋`check_duplicate`），基線重錄 **31** 項；weekly 24 下次只對新增紅。auth 3 支全套紅、單跑綠＝順序相依，留基線 |
+| 其他 | `test_hermes_security_lint` 接受 `require_scope.*`；weekly 87 排除 `_bak_*`／`backup_*`／pg_stat 視圖後 GREEN；`public_endpoint_auth_audit` 742 端點 0 缺口；部署 c717ac5d 探針全通 |
+| 09-06 深夜（owner「前述議題依專案最大效益辦理」） | ①**pre-push 接上快速版**（A46）：`frontend/.husky/pre-push` → `prepush_related_tests.py`，推送範圍相關測試對兩份基線；②auth 3 支「全套紅單跑綠」真因＝`test_production_config_guard` 用 `importlib.reload` 換掉 `config.settings` 物件，後面的 monkeypatch 改到另一個物件——改為直接 `Settings()`；③基線裡 5 支「regression」逐一判讀：fail-soft 測試抓到 09-02 新增的第一個同句（該 raise 的路徑）→ 改取最後一次；legacy 身分測試記的是舊危害、08-31 同名比對已兜底 → 改記新契約；匯出測試打的 `/export/excel` 從不存在、端點回 CSV → 修路徑與型別；**wiki 三工具自加入起沒有結果守衛範本** → 補；重放測試 mock 缺 `revoked_at`；POST-only 政策把 Hermes 段 A 用的 GET `/memory/digest` 列允許（改出口要改整條鏈）。後端基線 31→21 |
+| 09-06 深夜（owner「接續完成」） | 前端基線逐檔清存量 **86→7**：登入頁測試整檔重寫（帳密表單 v5.9.4 已移除，只剩 redirect）；報價單列表／詳情、備份、費用、PM 詳情／表單／列表、帳本、廠商、桃園派工、角色權限、入口頁等 20 餘檔對齊現行畫面與契約（標題更名、統計卡走 financeTerms、分頁併入、操作欄改點列、`PMCaseStatus` 只剩三值、下拉上限 1000、CSRF 每請求一張、導覽 fallback 不含業務項、圖譜節點 27→32、權限類別 9／角色 8）；冷載入 >5s 的檔 waitFor 拉到 9s。發現一個測試寫法陷阱：mock 每次 render 回新物件會讓依賴 data 的 useEffect 無限重跑、整支卡死 ⇒ 用 `vi.hoisted` 建穩定物件 |
+| 09-06 深夜第二輪（owner「請接續完成」） | 前端基線 **7→0**：健康摘要測試 mock 錯方法（08-04 起是 GET）、刪除公文的 queryConfig 部分 mock 讓派工快取讀到 undefined、匯入彈窗 prop `visible`→`open`、權限 hook 改用 `shouldUseDevMockUser` 而測試只 mock `isAuthDisabled`、入口頁 authService mock 缺 `getUserInfo`（`markAuthenticated` 丟 TypeError 被 async effect 吞掉 ⇒ 狀態停在 resolving）。另修 `tests/setup.ts`：兩支跑在 node environment 的回歸測試沒有 `window.getComputedStyle`，補丁在 setup 階段就讓整支 suite 掛（判「函式在不在」而不是「window 在不在」）。**全套 2,960 支全過，weekly 114 自此新失敗即紅** |
+| 09-06 深夜第三輪（owner「請接續」） | 後端基線 **21→0**，全套 4,455 支全過。多數是契約漂移的 mock 缺件（路由指標 label、請款期別列舉、去重查詢、SAVEPOINT 重試、發票號碼格式與 `source` 欄位、ERP 掃描併入 base、晨報 emoji、orchestrator 併行只在 llm 路由）。**唯一的產品修正**：`/taoyuan-dispatch/workflow/create` 對不存在的派工單讓外鍵違反冒成 500，改為服務層先查、回 400 並說原因（ADR-0028 錯誤合約）。兩份基線自此皆為 0——weekly 24／114 的任何一筆失敗都是新問題 |
+
 ## [v6.73] - 2026-09-05（年度＝案號年／名稱鍵普查／手機檢核加厚／依類別應收付）
 
 ### `.claude/` 變更
@@ -45,18 +82,6 @@
 | 4 | 非常多案例皆有此問題，如何複查與排除 | 全庫普查＋回填 192 筆；weekly 107 擴充；三層排除 SOP 入 FIELD_SEMANTICS；A105 雙主檔 | 第三十四輪 |
 | 5 | 為何無法模擬行動裝置登入檢測 | `run.sh --visual` 本來就能（我沒用）；加 `--click=`；記憶 `feedback_mobile_login_screenshot_use_visual_walk` | — |
 | 6 | 統整文件與版次；加強視覺檢核確保 RWD | v6.73；weekly 111 手機品質閘門（首跑：浮動鈕壓分頁鈕 1、統計卡獨列 4 頁，已修）；手機底部留白 88px | 第三十五輪 |
-
-### 09-06 晚：兩套測試接上基線（A111／A112；「依專案最大效益與資安管理等目標辦理」）
-
-| 項目 | 內容 |
-|---|---|
-| 前端 vitest | 228 檔此前**沒有任何排程或閘門在跑**，首跑 254 失敗。三個共同根因：①barrel 部分 mock 蓋掉後來新增的 export（62 檔改 `importOriginal` 展開）②`shared-modules/sso-js/node_modules` 自帶第二份 React＋zustand ⇒ `useRef` 讀到 null ×76（`vitest.config.ts` 補 `dedupe`／alias／`server.deps.inline`）③`useResponsive` mock 漏 `responsiveValue` ×120（41 處補）⇒ **254→85**。新增 `frontend_test_suite_health.py`＝**weekly 114**，基線 `frontend/tests/known_failures.json` 86 項（畫面改了測試沒跟，逐檔清） |
-| 後端 pytest | 全套 host 重跑 65→38；本週改動造成的 mock 失敗修 7 支（報價單服務 5：`generate_quotation_no`／改總價先讀現值／`db.scalar` 拿委託單位名／損益摘要批次應付；PM 建案 2：同名承攬案 `.first()`／手動案號 `validate`＋`check_duplicate`），基線重錄 **31** 項；weekly 24 下次只對新增紅。auth 3 支全套紅、單跑綠＝順序相依，留基線 |
-| 其他 | `test_hermes_security_lint` 接受 `require_scope.*`；weekly 87 排除 `_bak_*`／`backup_*`／pg_stat 視圖後 GREEN；`public_endpoint_auth_audit` 742 端點 0 缺口；部署 c717ac5d 探針全通 |
-| 09-06 深夜（owner「前述議題依專案最大效益辦理」） | ①**pre-push 接上快速版**（A46）：`frontend/.husky/pre-push` → `prepush_related_tests.py`，推送範圍相關測試對兩份基線；②auth 3 支「全套紅單跑綠」真因＝`test_production_config_guard` 用 `importlib.reload` 換掉 `config.settings` 物件，後面的 monkeypatch 改到另一個物件——改為直接 `Settings()`；③基線裡 5 支「regression」逐一判讀：fail-soft 測試抓到 09-02 新增的第一個同句（該 raise 的路徑）→ 改取最後一次；legacy 身分測試記的是舊危害、08-31 同名比對已兜底 → 改記新契約；匯出測試打的 `/export/excel` 從不存在、端點回 CSV → 修路徑與型別；**wiki 三工具自加入起沒有結果守衛範本** → 補；重放測試 mock 缺 `revoked_at`；POST-only 政策把 Hermes 段 A 用的 GET `/memory/digest` 列允許（改出口要改整條鏈）。後端基線 31→21 |
-| 09-06 深夜（owner「接續完成」） | 前端基線逐檔清存量 **86→7**：登入頁測試整檔重寫（帳密表單 v5.9.4 已移除，只剩 redirect）；報價單列表／詳情、備份、費用、PM 詳情／表單／列表、帳本、廠商、桃園派工、角色權限、入口頁等 20 餘檔對齊現行畫面與契約（標題更名、統計卡走 financeTerms、分頁併入、操作欄改點列、`PMCaseStatus` 只剩三值、下拉上限 1000、CSRF 每請求一張、導覽 fallback 不含業務項、圖譜節點 27→32、權限類別 9／角色 8）；冷載入 >5s 的檔 waitFor 拉到 9s。發現一個測試寫法陷阱：mock 每次 render 回新物件會讓依賴 data 的 useEffect 無限重跑、整支卡死 ⇒ 用 `vi.hoisted` 建穩定物件 |
-| 09-06 深夜第二輪（owner「請接續完成」） | 前端基線 **7→0**：健康摘要測試 mock 錯方法（08-04 起是 GET）、刪除公文的 queryConfig 部分 mock 讓派工快取讀到 undefined、匯入彈窗 prop `visible`→`open`、權限 hook 改用 `shouldUseDevMockUser` 而測試只 mock `isAuthDisabled`、入口頁 authService mock 缺 `getUserInfo`（`markAuthenticated` 丟 TypeError 被 async effect 吞掉 ⇒ 狀態停在 resolving）。另修 `tests/setup.ts`：兩支跑在 node environment 的回歸測試沒有 `window.getComputedStyle`，補丁在 setup 階段就讓整支 suite 掛（判「函式在不在」而不是「window 在不在」）。**全套 2,960 支全過，weekly 114 自此新失敗即紅** |
-| 09-06 深夜第三輪（owner「請接續」） | 後端基線 **21→0**，全套 4,455 支全過。多數是契約漂移的 mock 缺件（路由指標 label、請款期別列舉、去重查詢、SAVEPOINT 重試、發票號碼格式與 `source` 欄位、ERP 掃描併入 base、晨報 emoji、orchestrator 併行只在 llm 路由）。**唯一的產品修正**：`/taoyuan-dispatch/workflow/create` 對不存在的派工單讓外鍵違反冒成 500，改為服務層先查、回 400 並說原因（ADR-0028 錯誤合約）。兩份基線自此皆為 0——weekly 24／114 的任何一筆失敗都是新問題 |
 
 ## [v6.72] - 2026-09-04（名稱標準化與主檔鍵／指派即應付／發票鏈防呆／表格篩選規範）
 

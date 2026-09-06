@@ -25,7 +25,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.paths import repo_root  # noqa: E402
+
+REPO = repo_root()  # 不自算路徑（weekly 93）：自算算錯是靜默的，會讀到別的檔
 FRONTEND = REPO / "frontend"
 BASELINE = FRONTEND / "tests" / "known_failures.json"
 MIN_PASSED = 500  # 2,900 支測試不可能只過個位數 —— 那是沒跑起來，不是全壞

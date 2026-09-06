@@ -65,11 +65,20 @@ def exec_in(
     container: str = DEFAULT_CONTAINER,
     timeout: int = 120,
     stdin: Optional[str] = None,
+    env_vars: Optional[dict] = None,
 ) -> Optional[str]:
-    """在容器裡執行；成功回 stdout，**失敗或容器不在回 None**。"""
+    """在容器裡執行；成功回 stdout，**失敗或容器不在回 None**。
+
+    `env_vars`：要傳進容器的環境變數（`docker exec -e`）。2026-09-06 補 ——
+    少了它，需要帶身分（例如 `SELFAUDIT_ROLE=admin`）的呼叫端只能自己組
+    `docker exec`，於是每一支都要自己記得 `MSYS_NO_PATHCONV`（weekly 93 的那一族）。
+    """
+    extra: list[str] = []
+    for k, v in (env_vars or {}).items():
+        extra += ["-e", f"{k}={v}"]
     try:
         r = subprocess.run(
-            ["docker", "exec", "-i", container, *args],
+            ["docker", "exec", "-i", *extra, container, *args],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=timeout, env=_env(), input=stdin,
         )

@@ -83,6 +83,14 @@ def _executors() -> str:
     blob = []
     for p in CHECKS.glob("run_*.sh"):
         blob.append(p.read_text(encoding="utf-8", errors="ignore"))
+    # 2026-09-06：git hook 也是執行者。`core.hooksPath` 指向 frontend/.husky/，
+    # 那裡的 pre-commit／pre-push 每次提交／推送都會跑 —— 不算進來就會把
+    # `prepush_related_tests.py` 這種「由 hook 叫」的腳本誤報成沒有執行者。
+    husky = ROOT / "frontend" / ".husky"
+    if husky.is_dir():
+        for p in husky.iterdir():
+            if p.is_file():
+                blob.append(p.read_text(encoding="utf-8", errors="ignore"))
     for p in (ROOT / "backend" / "app").rglob("*.py"):
         try:
             blob.append(p.read_text(encoding="utf-8", errors="ignore"))
