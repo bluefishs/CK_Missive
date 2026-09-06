@@ -90,20 +90,69 @@ def load_runs() -> list[dict]:
 
 
 def find_chronic(runs: list[dict]) -> dict[str, int]:
-    """回 {步驟名: 連續非綠輪數}（只算最近 WINDOW 輪內、每輪都非綠者）。"""
-    window = runs[-WINDOW:]
-    seen: dict[str, int] = {}
-    red: dict[str, int] = {}
-    for r in window:
-        for k, v in (r.get("steps") or {}).items():
-            seen[k] = seen.get(k, 0) + 1
-            if v != 0:
-                red[k] = red.get(k, 0) + 1
-    return {
-        k: red[k] for k in red
-        if red[k] == seen[k] and seen[k] >= CHRONIC_RUNS
-    }
+    """回 {步驟名: 連續非綠輪數}（每個 runner 各取最近 WINDOW 輪）。
 
+    ⚠️ 2026-09-06 兩個判準錯誤同時修：
+
+    ① **「沒檢查」不是「一直紅」**：daily 對此環境無法判定的步驟寫的是字串 `"skip"`
+       （容器內拿不到 docker/compose/.env），而原判準 `v != 0` 把它算成紅 ⇒ 名冊被五支
+       結構性未判定的步驟塞滿，真的長期紅燈反而混在裡面。
+
+    ② **視窗不能混 runner**：歷史裡 daily 與 weekly 寫在同一個檔，daily 跑得多，
+       最近 8 輪幾乎全是 daily ⇒ weekly 的步驟在視窗裡「看不到」，於是它們既不算 chronic、
+       登記也被報成「已轉綠」。實測 69／35 最近 6 次 weekly 都是 2（紅），卻查不出來。
+       ⇒ 每個 runner 各自取最近 WINDOW 輪。
+    """
+    by_runner: dict[str, list[dict]] = {}
+    for r in runs:
+        by_runner.setdefault(str(r.get("runner") or "?"), []).append(r)
+
+    out: dict[str, int] = {}
+    for _runner, rs in by_runner.items():
+        window = rs[-WINDOW:]
+        seen: dict[str, int] = {}
+        red: dict[str, int] = {}
+        for r in window:
+            for k, v in (r.get("steps") or {}).items():
+                if not isinstance(v, int):   # "skip" ＝ 未判定，不參與
+                    continue
+                seen[k] = seen.get(k, 0) + 1
+                if v != 0:
+                    red[k] = red.get(k, 0) + 1
+        for k in red:
+            if red[k] == seen[k] and seen[k] >= CHRONIC_RUNS:
+                out[k] = max(out.get(k, 0), red[k])
+    return out
+
+
+def latest_verdict(runs: list[dict]) -> dict:
+    """每個步驟**最近一次真的判定**的結果（"skip" 不算；跨 runner 取時間上最後的）。
+
+    2026-09-06：登記過期的判準原本是「不在 chronic 名單裡就是轉綠了」——
+    而 chronic 要求「視窗內每一輪都非綠」，於是**視窗最舊那一輪剛好是綠**的步驟
+    就被判成「已轉綠」，即使它最近 7 輪都是紅的（44／45 正是如此）。
+    ⇒ 過期看「最近一輪」，不看「是不是每輪都紅」。
+    """
+    out: dict = {}
+    for r in runs:
+        for k, v in (r.get("steps") or {}).items():
+            if isinstance(v, int):
+                out[k] = v
+    return out
+
+
+def judged_in_window(runs: list[dict]) -> set:
+    """每個 runner 最近 WINDOW 輪裡**真的判定過**的步驟（"skip" 不算）。"""
+    by_runner: dict[str, list[dict]] = {}
+    for r in runs:
+        by_runner.setdefault(str(r.get("runner") or "?"), []).append(r)
+    seen = set()
+    for _runner, rs in by_runner.items():
+        for r in rs[-WINDOW:]:
+            for k, v in (r.get("steps") or {}).items():
+                if isinstance(v, int):
+                    seen.add(k)
+    return seen
 
 def main() -> int:
     print("=" * 74)
@@ -160,8 +209,17 @@ def main() -> int:
         print("           處置二選一：修好它，或在 .chronic_red_registry.json 登記")
         print("           （寫明為什麼還紅著、誰要決定、追到哪個待辦編號）。")
 
-    # 已登記但已經轉綠的 —— 該從登記裡移除，否則登記本身會過期
-    stale = [k for k in known if k not in chronic]
+    # 已登記但已經轉綠的 —— 該從登記裡移除，否則登記本身會過期。
+    # ⚠️ 2026-09-06：原判準是「不在 chronic 裡就是轉綠了」，而視窗裡混著 daily 與 weekly
+    # 兩個 runner ——daily 跑得多，於是視窗幾乎全是 daily 的輪次，**weekly 的步驟根本沒出現過**，
+    # 15 筆登記全被報成「已轉綠」。沒出現過不等於轉綠了（同 observed_span 的教訓：
+    # 先問「我看得到多遠」）。⇒ 只有**在視窗裡出現過且都是綠**的才算過期。
+    seen_in_window = judged_in_window(runs)
+    _latest = latest_verdict(runs)
+    stale = [k for k in known if k in seen_in_window and _latest.get(k) == 0]
+    not_covered = [k for k in known if k not in seen_in_window]
+    if not_covered:
+        print(f"  ── 本視窗未涵蓋（多半是另一個 runner 的步驟，不判定）：{len(not_covered)} 筆 ──")
     if stale:
         print("\n  ── 登記了但已不再長期紅（該移除，否則登記會過期）──")
         for k in stale:

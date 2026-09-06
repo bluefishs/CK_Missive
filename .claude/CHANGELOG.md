@@ -41,6 +41,15 @@
 | 09-06 深夜第二輪（owner「請接續完成」） | 前端基線 **7→0**：健康摘要測試 mock 錯方法（08-04 起是 GET）、刪除公文的 queryConfig 部分 mock 讓派工快取讀到 undefined、匯入彈窗 prop `visible`→`open`、權限 hook 改用 `shouldUseDevMockUser` 而測試只 mock `isAuthDisabled`、入口頁 authService mock 缺 `getUserInfo`（`markAuthenticated` 丟 TypeError 被 async effect 吞掉 ⇒ 狀態停在 resolving）。另修 `tests/setup.ts`：兩支跑在 node environment 的回歸測試沒有 `window.getComputedStyle`，補丁在 setup 階段就讓整支 suite 掛（判「函式在不在」而不是「window 在不在」）。**全套 2,960 支全過，weekly 114 自此新失敗即紅** |
 | 09-06 深夜第三輪（owner「請接續」） | 後端基線 **21→0**，全套 4,455 支全過。多數是契約漂移的 mock 缺件（路由指標 label、請款期別列舉、去重查詢、SAVEPOINT 重試、發票號碼格式與 `source` 欄位、ERP 掃描併入 base、晨報 emoji、orchestrator 併行只在 llm 路由）。**唯一的產品修正**：`/taoyuan-dispatch/workflow/create` 對不存在的派工單讓外鍵違反冒成 500，改為服務層先查、回 400 並說原因（ADR-0028 錯誤合約）。兩份基線自此皆為 0——weekly 24／114 的任何一筆失敗都是新問題 |
 
+### 09-07 owner「拆帳、修正」
+
+| 項目 | 內容 |
+|---|---|
+| 請款 > 合約額 | 4 → 2。#127／#155 是「含稅金額再乘一次 1.05」，未收＋發票為系統自動補建 ⇒ 走系統 API 改回合約額。剩兩件是**已收款高於報價**，系統的版次守衛擋住直接改總價，那道守衛是對的 |
+| 拆帳 | 應付 #51「銢欣有限公司乃耳企業社」＝兩家併寫。**系統內沒有任何憑證能決定分配比例**，猜一個會生出看起來像事實的數字 ⇒ 交付 `scripts/tools/split_vendor_payable.py`（總額不符即拒絕、帳本同步、備份），金額待 owner |
+| 慢性紅燈判準 | 三個錯一起修：`"skip"` 被當成紅、視窗混 runner、過期判準看錯欄位。weekly 94 GREEN |
+| 權限邊界 | 發票金額同步被分類器擋下兩次（SQL 與 API），**不轉包給其他 session、不繞路**，改為列進待辦請 owner 決定 |
+
 ### 09-06 深夜 owner 五頁走查（`/documents`／`/erp/quotations`／`/erp/financial-dashboard`／`/taoyuan/dispatch`／`/erp/client-accounts`）
 
 | 頁面 | 發現 | 修法 |
