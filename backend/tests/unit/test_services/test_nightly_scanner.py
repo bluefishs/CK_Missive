@@ -47,9 +47,14 @@ class TestProactiveTriggerScanJob:
         mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
 
         mock_base = AsyncMock()
+        # 2026-09-06：ERP 掃描已併入 ProactiveTriggerService.scan_all（scheduler 不再自己掃第二次
+        # —— 原本會讓 ERP alert 重複兩份、且第二次用同一 session 撞 InFailedSQLTransactionError）。
+        # 因此 ERP 的告警要從 base 這條回，mock_erp 只驗它不再被 scheduler 直接呼叫。
         mock_base.scan_all = AsyncMock(return_value=[
             _make_alert(alert_type="deadline_warning", severity="info", title="即將到期"),
             _make_alert(alert_type="deadline_overdue", severity="warning", title="已逾期"),
+            _make_alert(severity="critical", title="預算超支 120%"),
+            _make_alert(severity="warning", title="請款逾期 45 天"),
         ])
 
         mock_erp = AsyncMock()
@@ -67,7 +72,7 @@ class TestProactiveTriggerScanJob:
             patch("app.db.database.async_session_maker", return_value=mock_session_ctx),
             patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
             patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
-            patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
+            patch("app.services.notification.helpers._safe_create_notification", mock_safe_notify),
             patch("app.services.integration.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
         ):
             from app.core.scheduler import proactive_trigger_scan_job
@@ -104,7 +109,7 @@ class TestProactiveTriggerScanJob:
             patch("app.db.database.async_session_maker", return_value=mock_session_ctx),
             patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
             patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
-            patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
+            patch("app.services.notification.helpers._safe_create_notification", mock_safe_notify),
             patch("app.services.integration.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
         ):
             from app.core.scheduler import proactive_trigger_scan_job
@@ -121,7 +126,9 @@ class TestProactiveTriggerScanJob:
         mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
 
         mock_base = AsyncMock()
-        mock_base.scan_all = AsyncMock(return_value=[])
+        mock_base.scan_all = AsyncMock(return_value=[
+            _make_alert(severity="warning", title="test"),  # ERP 告警同樣由 base 這條回（見上方說明）
+        ])
         mock_erp = AsyncMock()
         mock_erp.scan_all = AsyncMock(return_value=[
             _make_alert(severity="warning", title="test"),
@@ -135,7 +142,7 @@ class TestProactiveTriggerScanJob:
             patch("app.db.database.async_session_maker", return_value=mock_session_ctx),
             patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
             patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner", return_value=mock_erp),
-            patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
+            patch("app.services.notification.helpers._safe_create_notification", mock_safe_notify),
             patch("app.services.integration.line_push_scheduler.LinePushScheduler", return_value=mock_line_push),
         ):
             from app.core.scheduler import proactive_trigger_scan_job
@@ -162,7 +169,7 @@ class TestProactiveTriggerScanJob:
             patch("app.db.database.async_session_maker", return_value=mock_session_ctx),
             patch("app.services.ai.proactive.proactive_triggers.ProactiveTriggerService", return_value=mock_base),
             patch("app.services.ai.proactive.proactive_triggers_erp.ERPTriggerScanner"),
-            patch("app.services.notification_helpers._safe_create_notification", mock_safe_notify),
+            patch("app.services.notification.helpers._safe_create_notification", mock_safe_notify),
         ):
             from app.core.scheduler import proactive_trigger_scan_job
             # 不應拋出異常

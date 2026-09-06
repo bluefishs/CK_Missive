@@ -45,6 +45,9 @@ def make_orchestrator(mock_db):
         mock_config.agent_max_iterations = 3
         mock_config.agent_tool_timeout = 15
         mock_config.agent_stream_timeout = 60
+        # 2026-09-06：路由層讀 config.router_pattern_threshold（MagicMock 會讓比較與後續 await 出錯）
+        mock_config.router_pattern_threshold = 0.9
+        mock_config.router_chitchat_threshold = 0.9
         mock_config_fn.return_value = mock_config
 
         mock_rl = AsyncMock()
@@ -271,7 +274,7 @@ class TestStreamAgentQuery:
             call_order.append("preprocess_start")
             return {"sender": "工務局"}
 
-        async def mock_plan(q, h, context=None, db=None):
+        async def mock_plan(q, h, context=None, db=None, **kwargs):  # 現在還會傳 session_id（v5.14 跨 session 歷史）
             call_order.append("plan_start")
             return {
                 "reasoning": "搜尋",
@@ -288,6 +291,7 @@ class TestStreamAgentQuery:
             }
         )
         orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)  # 工具迴圈會 await 它（MagicMock 會炸在迴圈裡）
 
         orchestrator._tools = MagicMock()
         orchestrator._tools.execute = AsyncMock(return_value={"count": 1, "documents": []})
@@ -298,9 +302,17 @@ class TestStreamAgentQuery:
         orchestrator._synthesizer = MagicMock()
         orchestrator._synthesizer.synthesize_answer = mock_synth
 
-        events = []
-        async for event in orchestrator.stream_agent_query("工務局的公文"):
-            events.append(event)
+        # 2026-09-06：併行前處理＋規劃只在 **llm 路由**發生。pattern 路由（學到的模式）
+        # 直接帶 plan 進來、跳過規劃段 —— 那條路本來就不該 merge。這裡固定走 llm 路由，
+        # 否則這支測試量的是「今天的路由器怎麼判這句話」而不是它要驗的併行行為。
+        from app.services.ai.agent.agent_router import RouteDecision
+        with patch(
+            "app.services.ai.agent.agent_orchestrator.AgentRouter.route",
+            new=AsyncMock(return_value=RouteDecision(route_type="llm", plan=None, confidence=0.0, source="test")),
+        ):
+            events = []
+            async for event in orchestrator.stream_agent_query("工務局的公文"):
+                events.append(event)
 
         # 驗證 merge 被呼叫（hints 被後合併）
         orchestrator._planner._merge_hints_into_plan.assert_called_once()
@@ -319,6 +331,7 @@ class TestStreamAgentQuery:
             "tool_calls": [{"name": "search_documents", "params": {"keywords": ["test"]}}],
         })
         orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)  # 工具迴圈會 await 它（MagicMock 會炸在迴圈裡）
 
         orchestrator._tools = MagicMock()
         orchestrator._tools.execute = AsyncMock(return_value={"count": 1, "documents": []})
@@ -352,6 +365,7 @@ class TestStreamAgentQuery:
             ],
         })
         orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)  # 工具迴圈會 await 它（MagicMock 會炸在迴圈裡）
         orchestrator._planner._auto_correct = MagicMock(return_value=None)
         orchestrator._planner.react = AsyncMock(return_value=None)
         orchestrator._planner.preprocess_question.return_value = {"question": "道路工程相關公文和派工", "context": {}}
@@ -410,6 +424,7 @@ class TestStreamAgentQuery:
             "tool_calls": [{"name": "search_documents", "params": {"keywords": ["test"]}}],
         })
         orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)  # 工具迴圈會 await 它（MagicMock 會炸在迴圈裡）
 
         orchestrator._tools = MagicMock()
         orchestrator._tools.execute = AsyncMock(return_value={"count": 1, "documents": []})
@@ -441,6 +456,7 @@ class TestStreamAgentQuery:
             "tool_calls": [{"name": "search_documents", "params": {"keywords": ["工務局"]}}],
         })
         orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)  # 工具迴圈會 await 它（MagicMock 會炸在迴圈裡）
         orchestrator._planner.react = AsyncMock(return_value=None)
 
         # Mock tool executor
@@ -503,6 +519,7 @@ class TestStreamAgentQuery:
             "tool_calls": [{"name": "search_documents", "params": {"keywords": ["不存在"]}}],
         })
         orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)  # 工具迴圈會 await 它（MagicMock 會炸在迴圈裡）
         orchestrator._planner.react = AsyncMock(return_value=None)
 
         orchestrator._tools = MagicMock()
@@ -535,6 +552,7 @@ class TestStreamAgentQuery:
             "tool_calls": [{"name": "search_documents", "params": {"keywords": ["測試"]}}],
         })
         orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)  # 工具迴圈會 await 它（MagicMock 會炸在迴圈裡）
         orchestrator._planner.react = AsyncMock(return_value=None)
 
         orchestrator._tools = MagicMock()

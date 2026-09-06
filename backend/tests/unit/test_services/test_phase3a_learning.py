@@ -163,7 +163,7 @@ class TestAgentLearningRepository:
 
         repo = AgentLearningRepository(mock_db)
         stats = await repo.get_stats()
-        assert stats["total_active"] == 10
+        assert stats["total"] == 10  # 欄位改名：total_active → total（另有 active／graduated／chronic 分項）
         assert "entity" in stats["by_type"]
 
 

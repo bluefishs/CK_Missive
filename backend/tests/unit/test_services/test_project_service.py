@@ -309,7 +309,7 @@ class TestProjectServiceCRUD:
         service.repository.create.assert_awaited_once()
         # 驗證傳入 create 的資料包含產生的 project_code
         call_args = service.repository.create.call_args[0][0]
-        assert call_args["project_code"] == "CK2026_02_01_001"
+        assert call_args["project_code"] == "CK2026_GN_02_001"  # 09-02 新制：GN 制 case_code 就是成案編號
 
     @pytest.mark.asyncio
     async def test_create_duplicate_code_raises_error(self, service, mock_db):

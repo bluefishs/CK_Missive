@@ -476,14 +476,19 @@ class TestGetAgencyStatistics:
     async def test_get_agency_statistics(self, stats_service, mock_db):
         """測試 get_agency_statistics - 返回統計字典"""
         with patch(
-            "app.services.agency_statistics_service.StatisticsHelper.get_basic_stats",
+            "app.services.agency.statistics.StatisticsHelper.get_basic_stats",
             new_callable=AsyncMock,
             return_value={"total": 50},
         ), patch(
-            "app.services.agency_statistics_service.StatisticsHelper.get_grouped_stats",
+            "app.services.agency.statistics.StatisticsHelper.get_grouped_stats",
             new_callable=AsyncMock,
             return_value={"政府機關": 30, "民間企業": 15, "null": 5},
         ):
+            # 統計最後還會查「缺 agency_code 的來源分布」（statistics.py:236）——
+            # mock_db 是 AsyncMock，execute 回的物件其 .all() 是 coroutine ⇒ 迭代即炸、整個統計被 except 吞成空
+            _missing = MagicMock(); _missing.all.return_value = []
+            mock_db.execute = AsyncMock(return_value=_missing)
+
             result = await stats_service.get_agency_statistics()
 
             assert result["total_agencies"] == 50
@@ -502,7 +507,7 @@ class TestGetAgencyStatistics:
     async def test_get_agency_statistics_error(self, stats_service, mock_db):
         """測試 get_agency_statistics - 異常時返回空結構"""
         with patch(
-            "app.services.agency_statistics_service.StatisticsHelper.get_basic_stats",
+            "app.services.agency.statistics.StatisticsHelper.get_basic_stats",
             new_callable=AsyncMock,
             side_effect=Exception("資料庫連線失敗"),
         ):

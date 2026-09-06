@@ -117,7 +117,11 @@ async def create_work_record(
 
     ADR-0026：若帶 deadline_date，自動同步至 document_calendar_events。
     """
-    record = await service.create_record(data)
+    try:
+        record = await service.create_record(data)
+    except ValueError as e:
+        # 輸入錯誤（例如派工單不存在）回 400 並說原因，不讓 IntegrityError 冒成 500
+        raise HTTPException(status_code=400, detail=str(e))
 
     # v5.8.0 ADR-0026：work_record → calendar 同步
     from app.services.taoyuan.work_record_calendar_sync import sync_work_record_to_calendar

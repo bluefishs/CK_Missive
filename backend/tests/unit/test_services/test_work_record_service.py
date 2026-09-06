@@ -132,7 +132,8 @@ class TestCreateRecord:
         )
 
         # mock db.get for potential lookups
-        mock_db.get = AsyncMock(return_value=None)
+        # 2026-09-06：create_record 會先確認派工單存在（不存在就 ValueError，端點回 400 而不是讓 FK 冒成 500）
+        mock_db.get = AsyncMock(return_value=MagicMock())
 
         result = await service.create_record(data)
 
@@ -177,7 +178,7 @@ class TestCreateRecord:
             record_date=date(2026, 1, 15),
         )
 
-        mock_db.get = AsyncMock(return_value=None)
+        mock_db.get = AsyncMock(return_value=MagicMock())  # 派工單存在（create_record 09-06 起會先確認）
         mock_db.execute = AsyncMock()
 
         await service.create_record(data)

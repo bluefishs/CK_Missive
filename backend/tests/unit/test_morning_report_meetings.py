@@ -200,7 +200,8 @@ class TestSummaryIncludesMeetingSections:
         assert "Q2 檢討會議" in summary
         assert "大溪邊坡現勘" in summary
         # 緊急度 emoji 出現
-        assert "📅 明日" in summary or "📅 1 天後" in summary
+        # 行首 emoji 現在是「事件類型」（🤝 會議／🏗️ 現勘），緊急度只留文字 —— 鎖文字不鎖 emoji
+        assert "明日" in summary or "1 天後" in summary
         assert "🏗️" in summary
 
 

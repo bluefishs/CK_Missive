@@ -262,7 +262,8 @@ class TestProxyTaskAction:
         mock_client_instance.post = AsyncMock(return_value=mock_resp)
         MockClient.return_value = mock_client_instance
 
-        result = await _proxy_task_action("job-1", "approve", {"approved_by": "admin"})
+        resp = await _proxy_task_action("job-1", "approve", {"approved_by": "admin"})
+        result = json.loads(resp.body)  # 退場後改回 JSONResponse（端點直接回它）
 
         # 任務代理已隨 NemoClaw 退場（ADR-0014／0015）：回誠實的 retired，不再假裝成功
         assert result["success"] is False and "retired" in str(result.get("error", "")).lower()
@@ -280,6 +281,7 @@ class TestProxyTaskAction:
         mock_client_instance.post = AsyncMock(return_value=mock_resp)
         MockClient.return_value = mock_client_instance
 
-        result = await _proxy_task_action("job-1", "approve", {})
+        resp = await _proxy_task_action("job-1", "approve", {})
+        result = json.loads(resp.body)
 
         assert result["success"] is False and "retired" in str(result.get("error", "")).lower()  # 已退場

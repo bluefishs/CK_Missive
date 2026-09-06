@@ -25,7 +25,7 @@
 |---|---|---|---|---|
 | pre-commit（husky） | 每次 commit | 能不能編譯、有沒有洩密 | 任何行為 | 不留檔 |
 | pre-push（husky） | 每次 git push（09-06 起） | 推送範圍相關的 pytest／vitest，基線外新失敗 | 沒有對應測試檔的改動、全套 | 終端 |
-| 後端 pytest（307 檔；09-06 host 實跑 4,390 過／65 失敗／18 skip） | weekly 24（host）；無 commit 閘門 | 邏輯回歸、asyncpg 競態、os.kill 陷阱 | 跨表資料鏈、真實 DB | `known_failures.json` 基線（只有 2 筆 ⇒ weekly 24 每週紅 63） |
+| 後端 pytest（307 檔；09-06 收斂後 4,455 過／0 失敗／18 skip） | weekly 24（host）；無 commit 閘門 | 邏輯回歸、asyncpg 競態、os.kill 陷阱 | 跨表資料鏈、真實 DB | `known_failures.json` 基線（09-06 清到 **0**） |
 | 前端 vitest（228 檔） | **weekly 114**（09-06 起；首跑 254 失敗 → 三個共同根因修掉後 85） | 元件渲染、hook；mock 有沒有跟上 barrel | 真實 API、跨頁流程 | `frontend/tests/known_failures.json` 基線（09-06 清到 **0**） |
 | 每日 runner（容器 02:00，17 步） | APScheduler | 環境／SSOT／排程／生命跡象／知識文庫／重啟迴圈／**業務鏈** | 頁面、視覺、效能、跨 repo | `wiki/memory/fitness_daily_history.json`、晨報 digest |
 | 每週 runner（host，114 步） | Windows 排程 | 架構規範、資料語意、金流對帳、RWD、同步 I/O、名稱鍵、慢性紅燈名冊 | 即時故障 | `fitness_weekly_last_run.json`、digest |

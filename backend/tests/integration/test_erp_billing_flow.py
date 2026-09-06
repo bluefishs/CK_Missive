@@ -57,7 +57,7 @@ def sample_billing_data() -> dict:
     """範例請款資料"""
     return {
         "erp_quotation_id": 100,
-        "billing_period": "第1期",
+        "billing_period": "第一期",
         "billing_date": date(2026, 4, 1),
         "billing_amount": Decimal("200000.00"),
         "payment_status": "pending",
@@ -91,7 +91,7 @@ class TestBillingToLedgerFlow:
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
         mock_billing.billing_code = None
-        mock_billing.billing_period = "第1期"
+        mock_billing.billing_period = "第一期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
         mock_billing.payment_status = "pending"
@@ -102,16 +102,26 @@ class TestBillingToLedgerFlow:
         mock_billing.created_at = None
         mock_billing.updated_at = None
 
+        # create 會先查同日同額重複（`.scalars().first()`）；conftest 的 execute 是 AsyncMock，
+        # 子屬性也是 AsyncMock ⇒ scalars() 回 coroutine、.first() 就炸
+        _dup = MagicMock(); _dup.scalars.return_value.first.return_value = None
+        mock_db_session.execute = AsyncMock(return_value=_dup)
+        # 產編號走 SAVEPOINT 重試（coding_helpers）——begin_nested 會被 await
+        mock_db_session.begin_nested = AsyncMock(return_value=AsyncMock(commit=AsyncMock(), rollback=AsyncMock()))
         service = ERPBillingService(mock_db_session)
         service.repo = MagicMock()
         service.repo.create = AsyncMock(return_value=mock_billing)
+        # 請款上限檢核會讀報價單總價（Decimal(str(...))）——沒 mock 就拿到 MagicMock 而炸；
+        # 回 None 代表「合約額未填不擋」，正是這條規則自己的豁免路徑
+        service._quotation_repo = MagicMock()
+        service._quotation_repo.get_by_id = AsyncMock(return_value=None)
         service._audit_log = AsyncMock()
 
         result = await service.create(billing_create)
 
         assert result.id == 1
         assert result.erp_quotation_id == 100
-        assert result.billing_period == "第1期"
+        assert result.billing_period == "第一期"
         assert result.billing_amount == Decimal("200000.00")
         assert result.payment_status == "pending"
         service.repo.create.assert_called_once()
@@ -123,29 +133,34 @@ class TestBillingToLedgerFlow:
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
         mock_billing.billing_amount = Decimal("200000.00")
-        mock_billing.billing_period = "第1期"
+        mock_billing.billing_period = "第一期"
         mock_billing.invoice_id = None
 
         mock_invoice = MagicMock(spec=ERPInvoice)
         mock_invoice.id = 10
         mock_invoice.erp_quotation_id = 100
         mock_invoice.invoice_ref = None
-        mock_invoice.invoice_number = "INV-2026-0001"
+        mock_invoice.invoice_number = "EE15019500"
         mock_invoice.invoice_date = date(2026, 4, 5)
         mock_invoice.amount = Decimal("200000.00")
         mock_invoice.tax_amount = Decimal("0")
         mock_invoice.invoice_type = "sales"
-        mock_invoice.description = "請款期別: 第1期"
+        mock_invoice.description = "請款期別: 第一期"
         mock_invoice.status = "issued"
         mock_invoice.billing_id = 1
         mock_invoice.voided_at = None
         mock_invoice.notes = None
         mock_invoice.created_at = None
         mock_invoice.updated_at = None
+        mock_invoice.source = "manual"  # 09-xx 新增欄位（QR/manual），schema 要求字串
 
         # Mock DB query to find the billing
         mock_result = MagicMock()
         mock_result.scalars.return_value.first.return_value = mock_billing
+        # 第二次 execute 是「這筆請款是否已有發票」（scalar_one_or_none）——
+        # 同一個 mock 物件會讓它讀到 billing 本身、誤判為已關聯
+        mock_result.scalar_one_or_none.return_value = None
+        mock_result.first.return_value = None  # 發票號碼重複檢查（`.first()`）
         mock_db_session.execute = AsyncMock(return_value=mock_result)
         mock_db_session.commit = AsyncMock()
         mock_db_session.refresh = AsyncMock()
@@ -157,19 +172,20 @@ class TestBillingToLedgerFlow:
 
         result = await service.create_from_billing(
             billing_id=1,
-            invoice_number="INV-2026-0001",
+            invoice_number="EE15019500",
             invoice_date=date(2026, 4, 5),
         )
 
         assert result.id == 10
-        assert result.invoice_number == "INV-2026-0001"
+        assert result.invoice_number == "EE15019500"
         assert result.amount == Decimal("200000.00")
         assert result.invoice_type == "sales"
         assert result.billing_id == 1
         service.repo.create.assert_called_once()
 
-        # Verify billing was linked to invoice
-        assert mock_billing.invoice_id == mock_invoice.id
+        # 2026-09-06：關聯方向改為單向——發票帶 billing_id（weekly 99「應付／發票必有 billing_id」家族），
+        # 不再回寫 billing.invoice_id（兩邊各存一份就會有兩個真相）。
+        assert mock_invoice.billing_id == 1
 
     @pytest.mark.asyncio
     async def test_create_invoice_from_billing_already_linked(self, mock_db_session):
@@ -200,7 +216,7 @@ class TestBillingToLedgerFlow:
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
         mock_billing.billing_code = None
-        mock_billing.billing_period = "第1期"
+        mock_billing.billing_period = "第一期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
         mock_billing.payment_status = "pending"  # Old status
@@ -248,7 +264,7 @@ class TestBillingToLedgerFlow:
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
         mock_billing.billing_code = None
-        mock_billing.billing_period = "第1期"
+        mock_billing.billing_period = "第一期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
         mock_billing.payment_status = "pending"
@@ -289,7 +305,7 @@ class TestBillingToLedgerFlow:
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
         mock_billing.billing_code = None
-        mock_billing.billing_period = "第1期"
+        mock_billing.billing_period = "第一期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
         mock_billing.payment_status = "paid"  # Already paid
@@ -333,7 +349,7 @@ class TestBillingToLedgerFlow:
         mock_billing.id = 1
         mock_billing.erp_quotation_id = 100
         mock_billing.billing_code = None
-        mock_billing.billing_period = "第1期"
+        mock_billing.billing_period = "第一期"
         mock_billing.billing_date = date(2026, 4, 1)
         mock_billing.billing_amount = Decimal("200000.00")
         mock_billing.payment_status = "pending"
@@ -366,9 +382,12 @@ class TestBillingToLedgerFlow:
             mock_bus_instance.publish = AsyncMock()
             MockBus.get_instance.return_value = mock_bus_instance
 
-            await service.update(billing_id=1, data=update_data)
+            # 2026-08-16 起這是**擋下來**的（原本可以存下「說已付、金額空」的矛盾狀態，
+            # 不報錯也不入帳，實測當天有 2 筆 BL_2026_049/050 正是如此）。
+            with pytest.raises(ValueError, match="必須填寫收款金額"):
+                await service.update(billing_id=1, data=update_data)
 
-            # EventBus should NOT be called (payment_amount is None)
+            # 仍不得入帳（EventBus 不該被呼叫）
             mock_bus_instance.publish.assert_not_called()
 
     @pytest.mark.asyncio
@@ -474,7 +493,7 @@ class TestLedgerRecordFromBilling:
             case_code="CASE-2026-001",
             payment_amount=Decimal("200000.00"),
             payment_date=date(2026, 4, 15),
-            billing_period="第1期",
+            billing_period="第一期",
         )
 
         # Verify ledger record fields
@@ -486,7 +505,7 @@ class TestLedgerRecordFromBilling:
         assert created_ledger.source_id == 1
         assert created_ledger.case_code == "CASE-2026-001"
         assert created_ledger.transaction_date == date(2026, 4, 15)
-        assert "第1期" in created_ledger.description
+        assert "第一期" in created_ledger.description
 
     @pytest.mark.asyncio
     async def test_record_from_billing_without_period(self, mock_db_session):

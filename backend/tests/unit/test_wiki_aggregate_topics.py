@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import re
 import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -189,10 +190,17 @@ async def test_compile_aggregate_topics_runs_all(temp_wiki):
     result = await compiler._compile_aggregate_topics()
 
     # 5 topic 都該被嘗試
-    assert set(result.keys()) == {
+    # 主題清單會長（09-06 已有 15 個）——鎖「原本那 5 個都還在且每個註冊主題都被嘗試」，
+    # 不鎖總數，否則每加一個主題就紅一次（那是待辦不是故障）。
+    assert {
         "top_agencies", "overdue_docs", "monthly_dispatch_volume",
         "kg_top_degree", "data_quality_snapshot",
-    }
+    } <= set(result.keys())
+    from app.services.wiki import compiler as _compiler_mod
+    import inspect
+    _src = inspect.getsource(_compiler_mod.WikiCompiler._compile_aggregate_topics)
+    _registered = set(re.findall(r'\("([a-z_]+)", self\._topic_', _src))
+    assert _registered <= set(result.keys()), f"有註冊主題沒被嘗試: {_registered - set(result.keys())}"
 
 
 @pytest.mark.asyncio

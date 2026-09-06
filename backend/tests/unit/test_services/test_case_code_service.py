@@ -177,7 +177,9 @@ class TestFindNextSerial:
         erp_result = MagicMock()
         erp_result.scalar.return_value = "CK2025_PM_01_005"
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
+        # 2026-09-06：_find_next_serial 開頭會先跑 pg_advisory_xact_lock（同樣走 execute），
+        # 不補這一個 side_effect 就會被它吃掉、PM 的最大號讀成 None（症狀是序號永遠回 1）
+        mock_db_session.execute = AsyncMock(side_effect=[MagicMock(), pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service._find_next_serial("CK2025_PM_01_")
@@ -193,7 +195,9 @@ class TestFindNextSerial:
         erp_result = MagicMock()
         erp_result.scalar.return_value = None
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
+        # 2026-09-06：_find_next_serial 開頭會先跑 pg_advisory_xact_lock（同樣走 execute），
+        # 不補這一個 side_effect 就會被它吃掉、PM 的最大號讀成 None（症狀是序號永遠回 1）
+        mock_db_session.execute = AsyncMock(side_effect=[MagicMock(), pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service._find_next_serial("CK2025_PM_01_")
@@ -208,7 +212,9 @@ class TestFindNextSerial:
         erp_result = MagicMock()
         erp_result.scalar.return_value = None
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
+        # 2026-09-06：_find_next_serial 開頭會先跑 pg_advisory_xact_lock（同樣走 execute），
+        # 不補這一個 side_effect 就會被它吃掉、PM 的最大號讀成 None（症狀是序號永遠回 1）
+        mock_db_session.execute = AsyncMock(side_effect=[MagicMock(), pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service._find_next_serial("CK2025_PM_01_")
@@ -223,7 +229,9 @@ class TestFindNextSerial:
         erp_result = MagicMock()
         erp_result.scalar.return_value = "CK2025_PM_01_007"
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
+        # 2026-09-06：_find_next_serial 開頭會先跑 pg_advisory_xact_lock（同樣走 execute），
+        # 不補這一個 side_effect 就會被它吃掉、PM 的最大號讀成 None（症狀是序號永遠回 1）
+        mock_db_session.execute = AsyncMock(side_effect=[MagicMock(), pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service._find_next_serial("CK2025_PM_01_")

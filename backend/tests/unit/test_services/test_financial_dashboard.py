@@ -169,10 +169,10 @@ class TestBatchProjectSummaries:
         """批量查詢回傳與輸入等量結果"""
         mock_db = AsyncMock()
 
-        # 模擬 3 個專案主檔
-        proj1 = MagicMock(project_code="A001", project_name="專案A", contract_amount=Decimal("1000000"))
-        proj2 = MagicMock(project_code="A002", project_name="專案B", contract_amount=Decimal("500000"))
-        proj3 = MagicMock(project_code="A003", project_name="專案C", contract_amount=None)
+        # 模擬 3 個專案主檔（09-04 起主檔以 case_code 對帳本／報價單，mock 兩個鍵都要給）
+        proj1 = MagicMock(case_code="A001", project_code="A001", project_name="專案A", contract_amount=Decimal("1000000"))
+        proj2 = MagicMock(case_code="A002", project_code="A002", project_name="專案B", contract_amount=Decimal("500000"))
+        proj3 = MagicMock(case_code="A003", project_code="A003", project_name="專案C", contract_amount=None)
 
         # 模擬 3 次 execute: project, expense, ledger
         mock_proj_result = MagicMock()
@@ -255,8 +255,8 @@ class TestBatchProjectSummaries:
         """驗證 critical (>95%) / warning (>80%) / normal 判定"""
         mock_db = AsyncMock()
 
-        proj_crit = MagicMock(project_code="C1", project_name="超支", contract_amount=Decimal("100000"))
-        proj_warn = MagicMock(project_code="C2", project_name="警告", contract_amount=Decimal("100000"))
+        proj_crit = MagicMock(case_code="C1", project_code="C1", project_name="超支", contract_amount=Decimal("100000"))
+        proj_warn = MagicMock(case_code="C2", project_code="C2", project_name="警告", contract_amount=Decimal("100000"))
 
         mock_proj_result = MagicMock()
         mock_proj_result.scalars.return_value.all.return_value = [proj_crit, proj_warn]

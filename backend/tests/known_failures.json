@@ -1,27 +1,5 @@
 {
-  "known_failures": [
-    "tests/integration/test_erp_billing_flow.py::TestBillingToLedgerFlow::test_create_billing",
-    "tests/integration/test_erp_billing_flow.py::TestBillingToLedgerFlow::test_create_invoice_from_billing",
-    "tests/integration/test_erp_billing_flow.py::TestBillingToLedgerFlow::test_no_ledger_when_payment_amount_missing",
-    "tests/integration/test_routing_decision_metric.py::test_empty_task_type_falls_back_to_unknown",
-    "tests/integration/test_routing_decision_metric.py::test_record_routing_decision_hardcode_fallback",
-    "tests/integration/test_routing_decision_metric.py::test_record_routing_decision_sources_distinct",
-    "tests/integration/test_routing_decision_metric.py::test_record_routing_decision_yaml_config",
-    "tests/integration/test_workflow_api.py::TestWorkflowCRUD::test_create_work_record",
-    "tests/unit/test_morning_report_meetings.py::TestSummaryIncludesMeetingSections::test_meetings_and_site_visits_in_summary",
-    "tests/unit/test_services/test_agency_service.py::TestGetAgencyStatistics::test_get_agency_statistics",
-    "tests/unit/test_services/test_agent_orchestrator.py::TestStreamAgentQuery::test_parallel_preprocess_and_plan",
-    "tests/unit/test_services/test_case_code_service.py::TestFindNextSerial::test_serial_only_pm_exists",
-    "tests/unit/test_services/test_digital_twin_endpoints.py::TestProxyTaskAction::test_approve_success",
-    "tests/unit/test_services/test_digital_twin_endpoints.py::TestProxyTaskAction::test_proxy_upstream_error",
-    "tests/unit/test_services/test_financial_dashboard.py::TestBatchProjectSummaries::test_batch_budget_alert_levels",
-    "tests/unit/test_services/test_financial_dashboard.py::TestBatchProjectSummaries::test_batch_returns_correct_count",
-    "tests/unit/test_services/test_nightly_scanner.py::TestProactiveTriggerScanJob::test_line_push_failure_does_not_break_job",
-    "tests/unit/test_services/test_nightly_scanner.py::TestProactiveTriggerScanJob::test_scan_and_persist_warnings",
-    "tests/unit/test_services/test_phase3a_learning.py::TestAgentLearningRepository::test_get_stats",
-    "tests/unit/test_services/test_project_service.py::TestProjectServiceCRUD::test_create_generates_project_code",
-    "tests/unit/test_wiki_aggregate_topics.py::test_compile_aggregate_topics_runs_all"
-  ],
+  "known_failures": [],
   "not_run": {
     "skipped": 18,
     "xfailed": 11

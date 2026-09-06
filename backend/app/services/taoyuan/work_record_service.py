@@ -125,6 +125,13 @@ class WorkRecordService:
         """
         record_data = data.model_dump()
 
+        # 2026-09-06：派工單不存在時，原本一路寫到 flush 才由 Postgres 的外鍵擋下
+        # ⇒ IntegrityError 冒到最外層＝**HTTP 500**，前端只看得到「伺服器錯誤」。
+        # 這是可預期的輸入錯誤，不是系統故障：先查、回一句說得出原因的話（ADR-0028 錯誤合約）。
+        from app.extended.models.taoyuan import TaoyuanDispatchOrder as _TDO
+        if record_data.get('dispatch_order_id') and not await self.db.get(_TDO, record_data['dispatch_order_id']):
+            raise ValueError(f"派工單不存在（id={record_data['dispatch_order_id']}），無法建立作業紀錄")
+
         # 防環檢查
         if record_data.get('parent_record_id'):
             await self._check_chain_cycle(

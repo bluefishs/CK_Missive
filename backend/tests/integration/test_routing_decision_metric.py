@@ -13,6 +13,7 @@ from app.core.inference_provider_metrics import (
 
 # prometheus_client 規則：counter 若建立名稱已含 `_total` 後綴，sample 名稱不再疊加
 SAMPLE_NAME = ROUTING_DECISION_METRIC
+# v6.7 E1 起多一個 soul_section_active label（預設 "none"）——標籤集合不全，get_sample_value 一律回 None
 
 
 def test_record_routing_decision_yaml_config():
@@ -23,7 +24,7 @@ def test_record_routing_decision_yaml_config():
 
     val = reg.get_sample_value(
         SAMPLE_NAME,
-        {"source": "yaml_config", "task_type": "chat", "prefer_local": "false"},
+        {"source": "yaml_config", "task_type": "chat", "prefer_local": "false", "soul_section_active": "none"},
     )
     assert val == 2
 
@@ -35,7 +36,7 @@ def test_record_routing_decision_hardcode_fallback():
 
     val = reg.get_sample_value(
         SAMPLE_NAME,
-        {"source": "hardcode_fallback", "task_type": "ner", "prefer_local": "true"},
+        {"source": "hardcode_fallback", "task_type": "ner", "prefer_local": "true", "soul_section_active": "none"},
     )
     assert val == 1
 
@@ -50,7 +51,7 @@ def test_record_routing_decision_sources_distinct():
     for src in ("yaml_config", "hardcode_fallback", "vision", "smart_route", "caller_explicit"):
         val = reg.get_sample_value(
             SAMPLE_NAME,
-            {"source": src, "task_type": "chat", "prefer_local": "true"},
+            {"source": src, "task_type": "chat", "prefer_local": "true", "soul_section_active": "none"},
         )
         assert val == 1, f"source={src} 應有 1 筆"
 
@@ -62,6 +63,6 @@ def test_empty_task_type_falls_back_to_unknown():
 
     val = reg.get_sample_value(
         SAMPLE_NAME,
-        {"source": "yaml_config", "task_type": "unknown", "prefer_local": "false"},
+        {"source": "yaml_config", "task_type": "unknown", "prefer_local": "false", "soul_section_active": "none"},
     )
     assert val == 1, "空 task_type 應 normalized 為 'unknown'"

@@ -82,12 +82,17 @@ class TestWorkflowCRUD:
             "/api/taoyuan-dispatch/workflow/create",
             json=payload,
         )
-        assert response.status_code in (200, 401, 404)
+        # 400＝派工單不存在（測試庫沒有 id=1）——那是輸入錯誤該說清楚，不該是 500
+        assert response.status_code in (200, 400, 401, 404)
 
         if response.status_code == 200:
             data = response.json()
             assert "id" in data
             assert data["work_category"] == "dispatch_notice"
+        elif response.status_code == 400:
+            # 統一錯誤合約：{"success": false, "error": {"code", "message"}}
+            body = response.json()
+            assert "派工單不存在" in str(body.get("error", {}).get("message", body))
 
     @pytest.mark.asyncio
     async def test_get_work_record(self, client: AsyncClient):
