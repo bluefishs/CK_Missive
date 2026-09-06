@@ -28,7 +28,8 @@ async def quotation_detail(
     try:
         data = await QuotationItemService(db).summary(req.quotation_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # 2026-09-06：ValueError 不全是「找不到」——已有請款的總價鎖是業務規則，回 400；只有「不存在」才 404
+        raise HTTPException(status_code=404 if "不存在" in str(e) else 400, detail=str(e))
     return SuccessResponse(data=data)
 
 
@@ -49,7 +50,8 @@ async def replace_items(
             req.quotation_id, [i.model_dump() for i in req.items],
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # 2026-09-06：ValueError 不全是「找不到」——已有請款的總價鎖是業務規則，回 400；只有「不存在」才 404
+        raise HTTPException(status_code=404 if "不存在" in str(e) else 400, detail=str(e))
     await db.commit()
     # 2026-09-04 owner「更新工項，既有報價檔案會同步更新嗎」：此前不會——存進附件的 XLS／PDF 是輸出當下的快照。
     # 現在：這張報價單若已有系統輸出的檔（同名 報價單_<編號>.xlsx／.pdf），改完明細就重新產出並覆蓋。

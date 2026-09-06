@@ -17,6 +17,7 @@
 |---|---|---|
 | `erp_quotations.total_price` | **含稅總價**（＝總表「總價」） | 09-02 A85 對齊 115 筆；一次請領 199/199 ＝ total_price |
 | `erp_quotations.tax_amount` | 營業稅額（5%）；未稅＝`total_price − tax_amount` | 不另存未稅欄，由 view 推導 |
+| 工項填列（`quotation-items/replace`） | 小計＝Σ(數量×單價)＝**未稅**；寫回 `total_price`＝小計×1.05（**含稅**）、`tax_amount`＝小計×5%；同步 PM／承攬案 `contract_amount`；已有請款者鎖住 | 09-06 部署探針鏈 B 抓到此前寫未稅、且不回寫 PM ⇒ 成案被擋要手抄 |
 | `erp_quotations.outsourcing_fee／personnel_fee／overhead_fee／other_cost` | 成本結構，未稅 | 毛利＝total_price − tax − 成本 |
 | `erp_billings.billing_amount` | 該期請款額，**含稅** | 與 total_price 同語意；多期合計 ≤ total_price × 1.1（`_guard_billing_within_contract`） |
 | `erp_billings.payment_amount` | 實收，含稅；`paid` 時必填且 ≤ billing_amount | billing_service.create 守衛 |

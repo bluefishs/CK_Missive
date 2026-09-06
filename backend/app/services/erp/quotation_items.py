@@ -91,8 +91,32 @@ class QuotationItemService:
 
         count = sum(1 for r in items if (r.get("item_name") or "").strip())
         if count:
-            # 有明細才回寫 —— 見檔頭：空明細不代表 0 元
-            quotation.total_price = total
+            # 2026-09-06 部署探針鏈 B 抓到兩個斷點：
+            #  ① 這裡把**未稅小計**寫進 total_price，而 FIELD_SEMANTICS 自 09-02 起定義 total_price＝**含稅總價**
+            #    （請款、發票、承攬金額都對著它）⇒ 填了工項的報價單會比別張少 5%。改寫含稅：小計×1.05，稅＝小計×5%。
+            #  ② 總價只回寫報價單，PM 的合約金額沒跟著動 ⇒ 使用者填完工項按「成案」被擋「尚未填寫合約金額」，
+            #    得手抄同一個數字——「每張表單獨看都正常，鏈才是斷的」（L140）。同步到 PM／承攬案的 contract_amount。
+            #  ③ 已有請款的報價單不得經由工項改總價（與 quotation_service.update 同一把鎖）。
+            from app.extended.models.erp import ERPBilling
+            from app.extended.models.pm import PMCase
+            from app.extended.models.core import ContractProject
+            from sqlalchemy import func as _fn
+            gross = (total * Decimal("1.05")).quantize(Decimal("1"))
+            if quotation.total_price is not None and Decimal(str(quotation.total_price)) != gross:
+                n_bill = await self.db.scalar(select(_fn.count(ERPBilling.id)).where(ERPBilling.erp_quotation_id == quotation_id))
+                if n_bill:
+                    raise ValueError(
+                        f"此報價單已有 {n_bill} 筆請款，不可經由工項改總價（請款額與發票額都對著它）；"
+                        f"要調整請以新版次送出並同步調整請款。"
+                    )
+            quotation.total_price = gross
+            if quotation.case_code:
+                pm = (await self.db.execute(select(PMCase).where(PMCase.case_code == quotation.case_code))).scalar_one_or_none()
+                if pm is not None:
+                    pm.contract_amount = float(gross)
+                cp = (await self.db.execute(select(ContractProject).where(ContractProject.case_code == quotation.case_code))).scalar_one_or_none()
+                if cp is not None:
+                    cp.contract_amount = float(gross)
             # ⚠️ 2026-08-26：稅額必須跟著小計重算，否則 `detail` 會回
             # **新小計 ＋ 舊稅額**，那在算術上就是錯的。
             # 端到端實測抓到：小計改成 8,000 之後，稅額仍是舊的 12,656
@@ -112,6 +136,13 @@ class QuotationItemService:
             # 5% 是法定營業稅率，此處寫死；若日後要可設定，
             # 照既有的 `site_configurations.erp_company_profit_rate` 形態加一個 key。
             quotation.tax_amount = (total * Decimal("0.05")).quantize(Decimal("1"))
+            # 成案即應收：已成案且尚無請款者，總價一到位就建第一期（與 quotation_service.update 同掛點）
+            try:
+                from app.services.erp.billing_service import ERPBillingService
+                await self.db.flush()
+                await ERPBillingService(self.db).ensure_first_period(quotation_id, reason="工項填列")
+            except Exception as e:  # noqa: BLE001
+                logger.error("成案即應收掛點失敗（不阻擋工項儲存）quotation=%s: %s", quotation_id, e, exc_info=True)
         else:
             logger.info(
                 "報價 %s 明細清空，**不動 total_price（維持 %s）**"
@@ -126,6 +157,7 @@ class QuotationItemService:
             "total_price": float(quotation.total_price or 0),
             "items_total": float(total),
             "total_price_updated": bool(count),
+            "gross_total": float(quotation.total_price or 0),
         }
 
     async def summary(self, quotation_id: int) -> dict[str, Any]:

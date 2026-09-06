@@ -329,6 +329,11 @@ class ERPVendorPayableService(AuditableServiceMixin):
             return p
         if amount <= 0:
             return None
+        # 2026-09-06 部署探針鏈 B：自動建的應付此前沒掛 billing_id，一建出來就是 weekly 99 的 RED（「應付必有 billing_id」）。
+        # 報價單只有一筆請款（成案即應收的第一期）時可唯一對上，就掛上；多筆時留空交 weekly 99 名冊。
+        from sqlalchemy import select as _sel
+        from app.extended.models.erp import ERPBilling as _B
+        _bills = (await self.db.execute(_sel(_B.id).where(_B.erp_quotation_id == q.id))).scalars().all()
         payable = await self.repo.create({
             "erp_quotation_id": q.id,
             "vendor_id": vendor.id,
@@ -337,6 +342,7 @@ class ERPVendorPayableService(AuditableServiceMixin):
             "payable_amount": amount,
             "description": role or "協力廠商指派",
             "payment_status": "unpaid",
+            "billing_id": _bills[0] if len(_bills) == 1 else None,
             "notes": f"{self.AUTO_TAG} 由承攬案「協力廠商」分頁的指派自動建立（{cp.project_code or cp.case_code}）",
         })
         await self.audit_create(payable.id, {"erp_quotation_id": q.id, "vendor_id": vendor.id, "payable_amount": str(amount), "source": "vendor_association"})
