@@ -29,8 +29,12 @@ export const financialSummaryApi = {
     return apiClient.post<SuccessResponse<ProjectFinancialSummary>>(ERP_ENDPOINTS.FINANCIAL_SUMMARY_PROJECT, data);
   },
 
-  async projects(params?: AllProjectsSummaryRequest): Promise<ProjectsSummaryResponse> {
-    return apiClient.post<ProjectsSummaryResponse>(ERP_ENDPOINTS.FINANCIAL_SUMMARY_PROJECTS, params || {});
+  // 2026-09-06 owner 從 /erp/financial-dashboard 回報「專案財務一覽：無此資料」。
+  // 端點回的是統一包裝 `{success, data:{items,total}}`（與同檔其他方法一樣），
+  // 而這一支的型別寫成沒有包裝的 `ProjectsSummaryResponse` ⇒ 呼叫端讀 `.items` 永遠 undefined
+  // ⇒ 表格空、Top 15 也空，**而且不會報錯**（少一層的讀取只會拿到 undefined）。
+  async projects(params?: AllProjectsSummaryRequest): Promise<SuccessResponse<ProjectsSummaryResponse>> {
+    return apiClient.post<SuccessResponse<ProjectsSummaryResponse>>(ERP_ENDPOINTS.FINANCIAL_SUMMARY_PROJECTS, params || {});
   },
 
   async company(params?: CompanyOverviewRequest): Promise<SuccessResponse<CompanyFinancialOverview>> {

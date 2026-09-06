@@ -39,6 +39,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 
 import { ResponsiveTable } from '../common';
+import { MobileCard } from '../common/MobileCardList';
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
 import type { DispatchOrder } from '../../types/api';
 import { useTableColumnSearch } from '../../hooks/utility/useTableColumnSearch';
@@ -372,6 +373,28 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           dataSource={orders}
           rowKey="id"
           loading={isLoading}
+          // 2026-09-06 owner 從 /taoyuan/dispatch 回報：390px 下這張表 13 欄擠在一起，
+          // 每格只剩 1–2 個字垂直堆疊 —— **能捲動不等於讀得到**，而整頁溢出量測對「擠壓」是盲的
+          //（weekly 109 的註解自己寫過這件事）。改用與其他列表頁相同的 MobileCard。
+          mobileCard={(r: DispatchOrder) => {
+            const wp = r.work_progress;
+            const st = wp?.status === 'completed' ? { text: '已完成', color: 'success' }
+              : wp?.status === 'in_progress' ? { text: '進行中', color: 'processing' }
+              : { text: '待處理', color: 'default' };
+            return (
+              <MobileCard
+                title={r.dispatch_no || '（無單號）'}
+                subtitle={r.project_name}
+                tags={[st, ...(r.work_type ? [{ text: r.work_type, color: 'blue' }] : [])]}
+                rows={[
+                  { label: '履約期限', value: r.deadline || '—' },
+                  { label: '承辦', value: r.case_handler || '—' },
+                  { label: '查估單位', value: r.survey_unit || '—' },
+                ]}
+                onClick={() => navigate(`/taoyuan/dispatch/${r.id}`)}
+              />
+            );
+          }}
           // ⚠️ 2026-08-29：原本寫死 1530，而欄寬宣告總和只有 1351 ——
           // **瀏覽器會把每一欄等比放大 13% 來填滿 1530**，於是「序」這種
           // 只需要 34px 的流水號欄被撐到 46px，比它需要的還寬，

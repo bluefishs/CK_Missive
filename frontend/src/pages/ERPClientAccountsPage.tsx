@@ -124,7 +124,7 @@ const ERPClientAccountsPage: React.FC = () => {
       width: 130,
       align: 'right',
       sorter: (a, b) => Number(a.total_contract ?? 0) - Number(b.total_contract ?? 0),
-      render: (v: number) => Number(v).toLocaleString(),
+      render: (v: number) => fmtMoney(v),
     },
     {
       title: termTitle('billed'),
@@ -133,7 +133,7 @@ const ERPClientAccountsPage: React.FC = () => {
       width: 130,
       align: 'right',
       sorter: (a, b) => Number(a.total_billed ?? 0) - Number(b.total_billed ?? 0),
-      render: (v: number) => Number(v).toLocaleString(),
+      render: (v: number) => fmtMoney(v),
     },
     {
       title: termTitle('received'),
@@ -143,7 +143,7 @@ const ERPClientAccountsPage: React.FC = () => {
       align: 'right',
       sorter: (a, b) => Number(a.total_received ?? 0) - Number(b.total_received ?? 0),
       render: (v: number) => (
-        <span style={{ color: '#52c41a' }}>{Number(v).toLocaleString()}</span>
+        <span style={{ color: '#52c41a' }}>{fmtMoney(v)}</span>
       ),
     },
     {

@@ -135,7 +135,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       width: 130,
       align: 'right',
       sorter: (a, b) => Number(a.total_payable ?? 0) - Number(b.total_payable ?? 0),
-      render: (v: number) => Number(v).toLocaleString(),
+      render: (v: number) => fmtMoney(v),
     },
     {
       title: termTitle('paid_total', '已付總額'),
@@ -145,7 +145,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       align: 'right',
       sorter: (a, b) => Number(a.total_paid ?? 0) - Number(b.total_paid ?? 0),
       render: (v: number) => (
-        <span style={{ color: '#52c41a' }}>{Number(v).toLocaleString()}</span>
+        <span style={{ color: '#52c41a' }}>{fmtMoney(v)}</span>
       ),
     },
     {

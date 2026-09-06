@@ -94,7 +94,8 @@ const ERPFinancialDashboardPage: React.FC = () => {
   const exportLedgerMutation = useExportLedger();
 
   const overview = overviewData?.data;
-  const projects = useMemo(() => projectsData?.items ?? [], [projectsData?.items]);
+  // 端點回 `{success, data:{items,total}}`（統一包裝）——少讀一層就是空表而不報錯
+  const projects = useMemo(() => projectsData?.data?.items ?? [], [projectsData?.data?.items]);
   const trendMonths = trendData?.data?.months ?? [];
   const arBuckets = arAgingData?.data?.buckets ?? [];
   // AR vs AP 對比圖資料
@@ -158,7 +159,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
       key: 'budget_total',
       width: 120,
       align: 'right',
-      render: (v: number | null) => v ? Number(v).toLocaleString() : '-',
+      render: (v: number | null) => v ? fmtMoney(v) : '-',
     },
     {
       title: '收入',
@@ -166,7 +167,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
       key: 'total_income',
       width: 120,
       align: 'right',
-      render: (v: number) => <span style={{ color: '#52c41a' }}>{Number(v).toLocaleString()}</span>,
+      render: (v: number) => <span style={{ color: '#52c41a' }}>{fmtMoney(v)}</span>,
     },
     {
       title: '支出',
@@ -174,7 +175,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
       key: 'total_expense',
       width: 120,
       align: 'right',
-      render: (v: number) => <span style={{ color: '#ff4d4f' }}>{Number(v).toLocaleString()}</span>,
+      render: (v: number) => <span style={{ color: '#ff4d4f' }}>{fmtMoney(v)}</span>,
     },
     {
       title: '淨額',
@@ -219,7 +220,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
       key: 'expense_invoices',
       width: 100,
       render: (_: unknown, record: ProjectFinancialSummary) =>
-        `${record.expense_invoice_count} 筆 / ${Number(record.expense_invoice_total).toLocaleString()}`,
+        `${record.expense_invoice_count} 筆 / ${fmtMoney(record.expense_invoice_total)}`,
     },
   ];
 
@@ -450,7 +451,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
               columns={[
                 { title: '帳齡', dataIndex: 'bucket', width: 80, render: (v: string) => `${v} 天` },
                 { title: '筆數', dataIndex: 'count', width: 60, align: 'right' },
-                { title: '金額', dataIndex: 'amount', align: 'right', render: (v: number) => Number(v).toLocaleString() },
+                { title: '金額', dataIndex: 'amount', align: 'right', render: (v: number) => fmtMoney(v) },
               ]}
               dataSource={arBuckets}
               rowKey="bucket"

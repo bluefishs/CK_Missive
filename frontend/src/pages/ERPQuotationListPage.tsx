@@ -259,7 +259,7 @@ export const ERPQuotationListPage: React.FC = () => {
             <Col xs={12} sm={6}>
               <ClickableStatCard
                 title={termTitle('contract_amount_sum')}
-                value={Number(profitSummary.total_awarded ?? profitSummary.total_revenue).toLocaleString()}
+                value={fmtMoney(profitSummary.total_awarded ?? profitSummary.total_revenue)}
                 icon={<DollarOutlined />}
                 color="#1890ff"
                 active={statFilter === 'revenue'}
@@ -269,7 +269,7 @@ export const ERPQuotationListPage: React.FC = () => {
             <Col xs={12} sm={6}>
               <ClickableStatCard
                 title={termTitle('outstanding')}
-                value={Number(profitSummary.total_outstanding).toLocaleString()}
+                value={fmtMoney(profitSummary.total_outstanding)}
                 icon={<ExclamationCircleOutlined />}
                 color="#ff4d4f"
                 active={statFilter === 'outstanding'}
@@ -279,7 +279,7 @@ export const ERPQuotationListPage: React.FC = () => {
             <Col xs={12} sm={6}>
               <ClickableStatCard
                 title={termTitle('payable_total')}
-                value={Number(profitSummary.total_payable ?? 0).toLocaleString()}
+                value={fmtMoney(profitSummary.total_payable ?? 0)}
                 icon={<FundOutlined />}
                 color="#722ed1"
                 active={statFilter === 'payable'}
@@ -289,7 +289,7 @@ export const ERPQuotationListPage: React.FC = () => {
             <Col xs={12} sm={6}>
               <ClickableStatCard
                 title={termTitle('cost_total')}
-                value={Number(profitSummary.total_cost).toLocaleString()}
+                value={fmtMoney(profitSummary.total_cost)}
                 icon={<BankOutlined />}
                 color="#faad14"
                 active={statFilter === 'cost'}
