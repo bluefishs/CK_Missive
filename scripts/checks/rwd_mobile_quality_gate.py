@@ -30,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.paths import repo_root  # noqa: E402
 from lib.docker_exec import exec_in  # noqa: E402
+from lib.result_contract import write_result  # noqa: E402
 
 ROOT = repo_root()  # 不自算路徑（weekly 93）：自算算錯是靜默的，會讀到別的檔
 PROBE = ROOT / "scripts" / "checks" / "rwd_mobile_quality_probe.cjs"
@@ -148,4 +149,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    _rc = main()
+    # 統一結果契約（2026-09-06）：每層跑完寫同一種形狀，weekly 113 只讀契約就畫得出機制圖
+    write_result("rwd_mobile_quality", _rc, "手機品質五指標：rc={}".format(_rc))
+    sys.exit(_rc)

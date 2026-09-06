@@ -41,6 +41,18 @@
 | 09-06 深夜第二輪（owner「請接續完成」） | 前端基線 **7→0**：健康摘要測試 mock 錯方法（08-04 起是 GET）、刪除公文的 queryConfig 部分 mock 讓派工快取讀到 undefined、匯入彈窗 prop `visible`→`open`、權限 hook 改用 `shouldUseDevMockUser` 而測試只 mock `isAuthDisabled`、入口頁 authService mock 缺 `getUserInfo`（`markAuthenticated` 丟 TypeError 被 async effect 吞掉 ⇒ 狀態停在 resolving）。另修 `tests/setup.ts`：兩支跑在 node environment 的回歸測試沒有 `window.getComputedStyle`，補丁在 setup 階段就讓整支 suite 掛（判「函式在不在」而不是「window 在不在」）。**全套 2,960 支全過，weekly 114 自此新失敗即紅** |
 | 09-06 深夜第三輪（owner「請接續」） | 後端基線 **21→0**，全套 4,455 支全過。多數是契約漂移的 mock 缺件（路由指標 label、請款期別列舉、去重查詢、SAVEPOINT 重試、發票號碼格式與 `source` 欄位、ERP 掃描併入 base、晨報 emoji、orchestrator 併行只在 llm 路由）。**唯一的產品修正**：`/taoyuan-dispatch/workflow/create` 對不存在的派工單讓外鍵違反冒成 500，改為服務層先查、回 400 並說原因（ADR-0028 錯誤合約）。兩份基線自此皆為 0——weekly 24／114 的任何一筆失敗都是新問題 |
 
+### 09-06 授權後逐項辦理（owner「授權 依前述規劃與建議事項逐一辦理並複查確認前後端服務與涉及架構」）
+
+| 項目 | 內容 |
+|---|---|
+| A92 | **先驗證再動手**：稅比異常 0、weekly 104 ①⑨ 已歸零 ⇒ 09-04 就辦完了，不重複更正 |
+| 名稱漂移 12 → 2 | 5 筆簡稱對齊主檔；4 筆公文「張坤樹代表」登記為合理漂移（公文上的字是事實記錄，不改寫）；**公文 #361 是真錯鍵**（代碼 380000000A 屬桃園市政府而鍵指工務局，已改）；剩 2 筆有金額歧義留給 owner |
+| A105 | 雙主檔對照表（15 家）＋三方案 → `docs/runbooks/dual_master_client_vendors_20260906.md`；建議補鍵不合併 |
+| 結果契約 | `lib/result_contract.py`（`layer/checked_at/verdict/rc/summary/evidence`）；weekly 111／112／114 已接，weekly 113 改讀契約 |
+| weekly 115／116 | 路由成本趨勢入庫、視覺走查週拍圖，**兩支都不判紅**（效能隨資料量變動、視覺要人看） |
+| 每日 runner | 3 紅 → 0 紅：探針補應用根與 cwd（容器內 cwd 不是 /app ⇒ 每天紅而其實沒毛病）、容器可見索引補 13 支、知識庫增量同步（今天搬 docs 造成 9 檔未入庫） |
+| 複查 | 每日 17 步 0 紅（唯一 YELLOW 是今天部署造成的重啟）／前端 tsc 0 錯／業務鏈探針 32/32／公網 200／五個容器 healthy |
+
 ## [v6.73] - 2026-09-05（年度＝案號年／名稱鍵普查／手機檢核加厚／依類別應收付）
 
 ### `.claude/` 變更

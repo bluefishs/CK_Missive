@@ -34,6 +34,15 @@ from lib.docker_exec import python_in  # noqa: E402
 # 時把 documents 納入：519 筆「≠」裡 514 筆是原文帶附註，真的可疑只有 5 筆。判準不收窄就是一支天天黃 500 筆的檢核。
 _DRIFT_DEFAULT = "btrim(x.{n}) <> btrim(v.{mn})"
 _DRIFT_UNRELATED = "btrim(x.{n}) <> btrim(v.{mn}) AND position(btrim(v.{mn}) IN x.{n}) = 0 AND position(btrim(x.{n}) IN v.{mn}) = 0"
+#: 已判讀、判定為「合理漂移」的個案（2026-09-06 owner 授權後逐筆判讀）。
+#: 記在這裡而不是把判準放寬 —— 放寬會連帶讓真的錯鍵沉默。
+ACCEPTED_DRIFT = {
+    # 公文受文者寫的是本公司代表人（「張坤樹代表」），主檔是公司。
+    # 公文上的字是**事實記錄**，不該為了對齊主檔而改寫。
+    ("documents", "receiver", 843), ("documents", "receiver", 844),
+    ("documents", "receiver", 1233), ("documents", "receiver", 1247),
+}
+
 PAIRS = [
     ("pm_cases", "client_name", "client_vendor_id", "partner_vendors", "vendor_name", "TRUE", _DRIFT_DEFAULT),
     ("contract_projects", "client_agency", "client_vendor_id", "partner_vendors", "vendor_name", "TRUE", _DRIFT_DEFAULT),
@@ -102,6 +111,9 @@ def main() -> int:
     for (t, n, k, *_rest) in PAIRS:
         r = d.get(_pair_key(t, n)) or {}
         lu, dr, nm = r.get("linkable_unlinked") or [], r.get("drift") or [], r.get("no_master") or []
+        # 已判讀為合理漂移的個案不再叫人（判準本身不放寬——放寬會連帶讓真的錯鍵沉默）
+        skipped = [row for row in dr if (t, n, row[0]) in ACCEPTED_DRIFT]
+        dr = [row for row in dr if (t, n, row[0]) not in ACCEPTED_DRIFT]
         print(f"\n{t}.{n} ↔ {k}（{r.get('total')} 筆）：可連未連 {len(lu)}／快照漂移 {len(dr)}／主檔缺 {len(nm)}")
         for row in lu[:5]:
             print(f"  [RED] #{row[0]} 「{row[1]}」精確對得到主檔 #{row[2]} 卻沒填鍵")
@@ -109,6 +121,8 @@ def main() -> int:
             print(f"  [YELLOW] #{row[0]} 快照「{row[1]}」≠ 主檔「{row[2]}」")
         for row in nm[:5]:
             print(f"  [YELLOW] #{row[0]} 「{row[1]}」主檔沒有這一家")
+        if skipped:
+            print(f"  （已判讀為合理漂移 {len(skipped)} 筆：公文上的字是事實記錄，不改寫）")
         reds += len(lu)
         yels += len(dr) + len(nm)
     print()

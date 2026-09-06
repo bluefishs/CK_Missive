@@ -14,8 +14,22 @@ deploy-public.sh 的四層（容器內／host／公網／認證鏈）驗的是�
 
 用法（deploy 腳本）：docker exec -i -w /app ck_missive_backend python - < scripts/verify/post_deploy_probe.py
 """
-import asyncio, re, sys
+import asyncio, os, re, sys
 from datetime import date
+
+# 2026-09-06：deploy 用 `docker exec -w /app` 進來，cwd 就是 /app；但**每日 runner 的 cwd 不是**
+# ⇒ `from main import app` 直接 ModuleNotFoundError，那一步每天紅而它其實沒毛病。
+# 自己把應用根補進 sys.path（容器內 /app；host 上是 backend/）。
+for _root in ("/app", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "backend")):
+    _root = os.path.abspath(_root)
+    if os.path.isfile(os.path.join(_root, "main.py")):
+        if _root not in sys.path:
+            sys.path.insert(0, _root)
+        # 應用啟動時會在 **cwd** 開 document_processing.log；cwd 不是應用根就 PermissionError。
+        # 光補 sys.path 不夠，cwd 也要一起換 —— 這是「一半的修法看起來像修好了」那一族。
+        os.chdir(_root)
+        break
+
 import httpx
 from sqlalchemy import select, text
 from main import app

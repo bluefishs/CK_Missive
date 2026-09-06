@@ -1,0 +1,9 @@
+{
+  "layer": "frontend_test_suite",
+  "checked_at": "2026-09-06T15:31:40Z",
+  "verdict": "GREEN",
+  "rc": 0,
+  "summary": "前端 vitest 基線比對：rc=0",
+  "evidence": {},
+  "writer": "result_contract/1"
+}

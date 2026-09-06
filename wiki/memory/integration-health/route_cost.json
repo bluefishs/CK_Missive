@@ -1,0 +1,12 @@
+{
+  "layer": "route_cost",
+  "checked_at": "2026-09-06T15:32:52Z",
+  "verdict": "REPORT",
+  "rc": 0,
+  "summary": "5 個路由已入庫；顯著變化 0",
+  "evidence": {
+    "routes": 5,
+    "notable": []
+  },
+  "writer": "result_contract/1"
+}

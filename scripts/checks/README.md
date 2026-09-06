@@ -212,6 +212,19 @@
 | `case_code_format_consistency_audit.py` | 案號新制統一：新建承攬案不得是舊制 `CK{年}_{類}_{性}_{序}`、成案編碼可回溯建案案號、報價單 project_code＝承攬案的、新建報價單 quote_kind 非 NULL、legacy 無重複 | weekly 102 |
 | `first_billing_presence_audit.py` | 成案即應收：成案且有金額的報價單必須有請款（自動第一期 `ensure_first_period` 的守門）；首跑 90 張 3,109 萬無請款＝稽催鏈對它們是啞的 | weekly 103 |
 | `erp_amount_semantics_audit.py` | 金額語意三方對帳（報價總價 × 請款額 × 發票額，依 `docs/architecture/FIELD_SEMANTICS.md`）：RED 只給互相矛盾（一次請領≠總價／發票>請款／已收>請款／稅>總價），5%／稅 0／佔位發票 YELLOW | weekly 104 |
+| `chronic_red_audit.py` | **長期紅燈必須有名字**：連續 4+ 輪非綠而未登記 ⇒ RED；登記不是把它變綠，只讓「有多少紅燈沒有人在收」看得見（weekly 94） |
+| `config_directory_ssot_audit.py` | 專案根只允許 `configs/` 與 `backend/config/` 兩個設定目錄——第三個就是同一份設定長出三份的來歷（weekly 96） |
+| `container_restart_loop_check.py` | 容器重啟迴圈偵測（間歇 502 的來源）：用 `docker events` 現場捕捉，不看 `docker inspect` 的 ExitCode（daily 15） |
+| `dropdown_limit_headroom_audit.py` | 每個下拉還能長幾筆才會靜默截斷；翻頁取完的改驗頁數上限（weekly 95） |
+| `fitness_manual_freshness_audit.py` | 手動月度架構覆盤有沒有真的在跑——它獨佔 57 支檢核卻原本不留產出（weekly 85） |
+| `gate_vs_report_step_audit.py` | weekly 的每一步都必須能紅，否則步驟名要標明「僅報告」——永遠不可能紅的綠燈與真守門長得一樣（weekly 89） |
+| `hook_reachability_audit.py` | hook 有沒有機會被觸發（`core.hooksPath` 旁路、husky shim 無實作、settings 未引用）（weekly 91） |
+| `knowledge_base_consistency_check.py` | 四位一體一致性：ADR × 知識地圖 × 架構圖 × 向量庫；連不到 DB 回 exit 2 不回綠（weekly 92） |
+| `lib_adoption_audit.py` | 新腳本不得自己重造 paths／docker／db；存量走基線，新增或增長才判紅（weekly 93） |
+| `link_id_fallback_audit.py` | `link_id` 不得用 `??`／`||` 回退到別的 id——失效的代價是對錯的紀錄執行操作而畫面無異狀（weekly 90） |
+| `orphan_component_audit.py` | 元件建好了但沒有任何入口渲染它（`dead_ui_detector` 抓不到的第三種形狀）（weekly 86） |
+| `pg_tuning_ssot_audit.py` | postgres 調校參數跨三份 compose ＋規格書＋**執行時**四層比對——`postgresql-tuning.conf` 掛了卻從未被讀（Dead Config）（weekly 88） |
+| `test_db_schema_drift_audit.py` | 測試庫 schema 不得落後正式庫（測試庫原本沒有 `alembic_version`，症狀是測試 500 看起來像「測試壞了」）；忽略備份表與 pg_stat 視圖（weekly 87） |
 | `case_state_consistency_audit.py` | 案件狀態一致性：PM `contracted` ⇔ 承攬案存在 ⇔ PM／報價單／承攬案 `project_code` 三方對齊 ⇔ 承攬案結案則 PM closed。09-04 抓到匯入把「已成立」寫成 contracted **卻不建承攬案**（16 筆，每張表單獨看都正常）＋12 筆 GN 舊案 `project_code` 空；同名待判 10 筆走基線（**登記不是變綠**） | weekly 105 |
 | `vendor_association_payable_audit.py` | 指派即應付：承攬案協力廠商指派必有對應應付（weekly 106） |
 | `name_id_pair_consistency_audit.py` | 名稱欄是快照、鍵欄才是關聯：可精確對上主檔卻沒填鍵＝RED；09-05 擴到公文 sender／receiver 與兩條推導鍵（weekly 107） |
@@ -222,6 +235,9 @@
 | `async_sync_io_audit.py` | async 路徑上的同步 I/O（AST；一支卡全站）；基線 `.async_sync_io_baseline.txt`（weekly 112） |
 | `testing_map_report.py` | 自主測試機制圖（僅報告，產出 docs/health/TESTING_MAP.md）（weekly 113） |
 | `frontend_test_suite_health.py` | 前端 vitest 全套跑一次對基線 `frontend/tests/known_failures.json`：新失敗 RED、已修未除名 YELLOW；跑不起來（通過 <500／JSON 與解析不一致）不寫基線也不回綠（weekly 114） |
+| `route_cost_trend_report.py` | **路由成本趨勢（僅報告）**：把手動效能探針入庫（`wiki/memory/perf/route_cost_history.jsonl`），與上次比對；不判紅——效能隨資料量變動是常態，做成閘門只會天天紅（weekly 115） |
+| `visual_walk_weekly.sh` | **視覺走查拍圖（僅報告）**：每週把五個代表頁拍下來存 `docs/health/visual/<日期>/`，讓判讀時有圖可看；能機械判定的部分在 weekly 109／111（weekly 116） |
+| `lib/result_contract.py` | **統一結果契約 writer**：每層跑完寫 `wiki/memory/integration-health/<layer>.json`，固定 `layer/checked_at/verdict/rc/summary/evidence`；weekly 113 只讀契約就畫得出機制圖 |
 | `prepush_related_tests.py` | **pre-push 快速閘門**（A46）：推送範圍改到的檔 → 相關 pytest／vitest，對兩份 `known_failures.json` 只擋基線外新失敗；沒有相關測試放行但印出。由 `frontend/.husky/pre-push` 呼叫 |
 
 ## 🧪 月度架構覆盤（`run_fitness.sh`）

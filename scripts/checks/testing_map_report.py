@@ -49,6 +49,15 @@ LAYERS = [
 ]
 
 
+def _read_contract(layer: str) -> dict | None:
+    """讀統一契約；壞掉或沒有回 None（不得當成綠）。"""
+    try:
+        d = json.loads((IH / f"{layer}.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return d if isinstance(d, dict) and str(d.get("writer", "")).startswith("result_contract/") else None
+
+
 def _age_hours(p: Path) -> float | None:
     if not p.exists():
         return None
@@ -64,6 +73,14 @@ def _age_hours(p: Path) -> float | None:
         pass
     return (datetime.now(timezone.utc) - datetime.fromtimestamp(p.stat().st_mtime, timezone.utc)).total_seconds() / 3600
 
+
+#: 2026-09-06：改讀**統一結果契約**（`lib/result_contract.py`）——固定 `checked_at`／`verdict`／`rc`。
+#: 存量層仍走各自的留痕檔（下方 TRACES），新層一律用契約；兩者並存到存量清完為止。
+CONTRACT_LAYERS = {
+    "併發／事件迴圈": "async_sync_io",
+    "手機品質閘門": "rwd_mobile_quality",
+    "前端單元測試": "frontend_test_suite",
+}
 
 TRACES = {
     "每日 runner": [ROOT / "wiki" / "memory" / "fitness_daily_history.json"],
@@ -88,6 +105,16 @@ def main() -> int:
     stale = 0
     for name, trig, sees, blind, trace, limit in LAYERS:
         fresh = "—"
+        for key, layer in CONTRACT_LAYERS.items():
+            if key in name:
+                d = _read_contract(layer)
+                if d:
+                    a = _age_hours(IH / f"{layer}.json")
+                    fresh = f"{a:.0f} 小時前 · {d.get('verdict')}"
+                    if limit and a and a > limit:
+                        fresh += " ⚠️過期"; stale += 1
+                else:
+                    fresh = "**無留痕**"; stale += 1
         for key, paths in TRACES.items():
             if key in name:
                 ages = [a for a in (_age_hours(p) for p in paths) if a is not None]

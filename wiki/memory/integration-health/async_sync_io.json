@@ -1,0 +1,9 @@
+{
+  "layer": "async_sync_io",
+  "checked_at": "2026-09-06T15:31:07Z",
+  "verdict": "YELLOW",
+  "rc": 1,
+  "summary": "async 路徑上的同步 I/O：rc=1",
+  "evidence": {},
+  "writer": "result_contract/1"
+}
