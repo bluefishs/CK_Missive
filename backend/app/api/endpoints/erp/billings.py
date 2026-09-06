@@ -89,6 +89,10 @@ async def list_billings_with_details(
             "payment_date": str(b.payment_date) if b.payment_date else None,
             "payment_amount": float(b.payment_amount) if b.payment_amount else None,
             "notes": b.notes,
+            # 2026-09-07：結算方式要跟著出來 —— 否則畫面上「已收款卻沒有發票」
+            # 與「約定不開票」長得一樣，複核每次都要重問一次
+            "settlement_type": getattr(b, "settlement_type", None) or "invoice",
+            "settlement_note": getattr(b, "settlement_note", None),
             "invoices": [
                 {
                     "id": inv.id,

@@ -111,6 +111,10 @@ class ERPBillingUpdate(BaseModel):
     payment_date: Optional[date] = None
     payment_amount: Optional[Decimal] = None
     notes: Optional[str] = None
+    # 2026-09-07：結算方式要能改 —— 沒有這兩個欄位時，「這筆是互抵」只能寫在備註裡，
+    # 而稽核讀不懂備註（那正是「不開發票」那兩筆被誤報成缺漏的原因）。
+    settlement_type: Optional[str] = Field(None, description="invoice=開票 / offset=互抵 / no_invoice=約定不開票")
+    settlement_note: Optional[str] = Field(None, max_length=300, description="互抵／不開票的依據與對象")
 
 
 class ERPBillingResponse(BaseModel):

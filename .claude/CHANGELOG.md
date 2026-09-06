@@ -41,6 +41,17 @@
 | 09-06 深夜第二輪（owner「請接續完成」） | 前端基線 **7→0**：健康摘要測試 mock 錯方法（08-04 起是 GET）、刪除公文的 queryConfig 部分 mock 讓派工快取讀到 undefined、匯入彈窗 prop `visible`→`open`、權限 hook 改用 `shouldUseDevMockUser` 而測試只 mock `isAuthDisabled`、入口頁 authService mock 缺 `getUserInfo`（`markAuthenticated` 丟 TypeError 被 async effect 吞掉 ⇒ 狀態停在 resolving）。另修 `tests/setup.ts`：兩支跑在 node environment 的回歸測試沒有 `window.getComputedStyle`，補丁在 setup 階段就讓整支 suite 掛（判「函式在不在」而不是「window 在不在」）。**全套 2,960 支全過，weekly 114 自此新失敗即紅** |
 | 09-06 深夜第三輪（owner「請接續」） | 後端基線 **21→0**，全套 4,455 支全過。多數是契約漂移的 mock 缺件（路由指標 label、請款期別列舉、去重查詢、SAVEPOINT 重試、發票號碼格式與 `source` 欄位、ERP 掃描併入 base、晨報 emoji、orchestrator 併行只在 llm 路由）。**唯一的產品修正**：`/taoyuan-dispatch/workflow/create` 對不存在的派工單讓外鍵違反冒成 500，改為服務層先查、回 400 並說原因（ADR-0028 錯誤合約）。兩份基線自此皆為 0——weekly 24／114 的任何一筆失敗都是新問題 |
 
+### 09-07 owner 三問：稅務呈現／一票多案與互抵／智能提醒
+
+| 問 | 落地 |
+|---|---|
+| ①兩張發票金額（已授權） | 改為 434,000（稅 20,667）與 323,200（稅 15,390）；weekly 104 的「發票額 > 請款額」RED 清空 |
+| ①稅務如何呈現以利複核 | 請款回應多帶發票稅額與結算方式；應收分頁的發票標籤 hover 顯示**未稅／稅額／含稅＋稅率**，稅額 0 直接標「免稅」——原本 5% 與 0 在畫面上長得一樣，26 張稅額為 0 的報價單分不出是免稅還是漏填 |
+| ②同一發票對應多案 | 新增 `erp_invoice_allocations`（發票×案×金額×稅額）：有分攤以分攤為準、沒有沿用原本的單一案（既有 155 張不受影響）；分攤合計必須等於發票金額、同案只能一列；weekly 104 加 ⑬ 守它 |
+| ②不開發票（互抵） | 新增 `settlement_type`（invoice／offset／no_invoice）＋依據欄。匯入備註寫著「發票欄原文：不開發票」的 2 筆直接轉成狀態；weekly 104 ⑪ 只算要開票的 ⇒ 6→4。**互抵／不開票必須填依據**（服務層擋），否則事後與漏開發票分辨不了 |
+| ③智能檢核與提醒 | `finance_health_digest` 每日 07:00：七條「要人動手」的財務缺口一次查完，**只推與昨天相比新增的**，沒有變化就安靜；落點站內通知不是 LINE。首跑 已收未開票 4／發票額≠請款額 1／應付無請款 12 |
+| 評估文件 | `docs/architecture/FINANCE_ENTRY_GUARDS_AND_TAX_20260907.md`（含「互抵要不要做成雙向對帳」的判斷：目前只有 2 筆，不划算，等第 5 筆再說） |
+
 ### 09-07 owner「填報時就要有完善檢核與自動關聯機制，由智能驅動」
 
 把事後稽核搬到**填報當下**。判準：資料修乾淨而入口沒補，下一次匯入或下一個人填報就會再髒一次
