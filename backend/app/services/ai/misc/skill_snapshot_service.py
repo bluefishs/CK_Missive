@@ -7,6 +7,7 @@ Version: 1.0.0
 """
 import json
 import logging
+import asyncio  # 2026-09-06 weekly 112：同步 subprocess 移到執行緒，不卡事件迴圈
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,7 +41,7 @@ class SkillSnapshotService:
 
         try:
             # Check if there are changes to snapshot
-            result = subprocess.run(
+            result = await asyncio.to_thread(subprocess.run, 
                 [
                     "git", "status", "--porcelain",
                     ".claude/skills/", "backend/app/services/ai/",
@@ -62,7 +63,7 @@ class SkillSnapshotService:
             )
 
             # Create annotated tag (doesn't require clean state)
-            subprocess.run(
+            await asyncio.to_thread(subprocess.run, 
                 ["git", "tag", "-a", tag_name, "-m", tag_message],
                 capture_output=True, text=True,
                 cwd=str(PROJECT_ROOT), timeout=10,
@@ -79,7 +80,7 @@ class SkillSnapshotService:
     async def list_snapshots(limit: int = 20) -> List[str]:
         """List recent skill snapshots."""
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(subprocess.run, 
                 ["git", "tag", "-l", "skill-snapshot-*", "--sort=-creatordate"],
                 capture_output=True, text=True,
                 cwd=str(PROJECT_ROOT), timeout=10,
@@ -93,7 +94,7 @@ class SkillSnapshotService:
     async def get_snapshot_info(tag_name: str) -> Optional[Dict[str, str]]:
         """Get metadata for a specific snapshot."""
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(subprocess.run, 
                 ["git", "tag", "-n99", tag_name],
                 capture_output=True, text=True,
                 cwd=str(PROJECT_ROOT), timeout=10,
@@ -106,7 +107,7 @@ class SkillSnapshotService:
     async def diff_from_snapshot(tag_name: str) -> Optional[str]:
         """Show what changed since a snapshot."""
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(subprocess.run, 
                 [
                     "git", "diff", "--stat", tag_name, "HEAD", "--",
                     ".claude/skills/", "backend/app/services/ai/",

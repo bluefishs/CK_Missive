@@ -11,6 +11,7 @@ v2.0 - 2026-01-09
 - 新增網域白名單檢查
 - 新增新帳號審核機制
 """
+import asyncio
 import json
 import secrets
 import logging
@@ -191,7 +192,10 @@ class AuthService:
             # 驗證 Google ID Token
             # clock_skew_in_seconds=30：容忍 ±30 秒主機時鐘漂移，避免 NTP 未同步時拋
             # `Token used too early`（Google 預設 0 秒零容差）。
-            idinfo = id_token.verify_oauth2_token(
+            # 2026-09-06 weekly 112：verify_oauth2_token 是同步呼叫，需要時會去 Google 抓憑證公鑰（網路往返），
+            # 直接在事件迴圈上跑會讓同時的所有請求一起等；丟到執行緒。
+            idinfo = await asyncio.to_thread(
+                id_token.verify_oauth2_token,
                 credential,
                 requests.Request(),
                 settings.GOOGLE_CLIENT_ID,

@@ -81,7 +81,10 @@ class BackupUtilsMixin:
             )
 
         # 異地備份設定
-        self.remote_config_file = self.project_root / "config" / "remote_backup.json"
+        # 2026-09-06 A63：權威是 backend/config/remote_backup.json（paths.REMOTE_BACKUP_CONFIG，Windows 排程維護）；
+        # 此前指向專案根 config/ 那份「非權威副本」，三份同名檔就是這樣長出來的。副本已刪。
+        from app.core.paths import REMOTE_BACKUP_CONFIG
+        self.remote_config_file = REMOTE_BACKUP_CONFIG
         self._remote_config: Dict[str, Any] = self._load_remote_config()
 
         # 備份日誌檔案

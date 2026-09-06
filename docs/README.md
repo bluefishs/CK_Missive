@@ -81,12 +81,12 @@
 |------|------|
 | [HERMES_MIGRATION_PLAN.md](./HERMES_MIGRATION_PLAN.md) | Hermes 4-Phase 遷移計畫 |
 | [hermes-skills/](./hermes-skills/) | Hermes skill 部署包 |
-| [LINE_OPENCLAW_OPERATIONAL_GUIDE.md](./LINE_OPENCLAW_OPERATIONAL_GUIDE.md) | LINE + OpenClaw 運維（將下線） |
+| [LINE_OPENCLAW_OPERATIONAL_GUIDE.md](./archived/2026-09-openclaw/LINE_OPENCLAW_OPERATIONAL_GUIDE.md) | LINE + OpenClaw 運維（**已封存**，OpenClaw ADR-0014 廢止） |
 | [LINE_BOT_SETUP_GUIDE.md](./LINE_BOT_SETUP_GUIDE.md) | LINE Bot 直連 |
 | [MULTICHANNEL_SETUP_GUIDE.md](./MULTICHANNEL_SETUP_GUIDE.md) | 多頻道整合 |
 | [OLLAMA_SETUP_GUIDE.md](./OLLAMA_SETUP_GUIDE.md) | Ollama 建置 |
 | [Google_Calendar_Integration_Setup.md](./Google_Calendar_Integration_Setup.md) | Google Calendar 整合 |
-| [openclaw-skill-update.md](./openclaw-skill-update.md) | OpenClaw skill 更新 |
+| [openclaw-skill-update.md](./archived/2026-09-openclaw/openclaw-skill-update.md) | OpenClaw skill 更新（**已封存**） |
 
 ## 📊 報告 / 優化 (Reports & Optimization)
 

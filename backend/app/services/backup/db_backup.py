@@ -44,7 +44,7 @@ class DatabaseBackupMixin:
         backup_file = self.backup_dir / f"ck_missive_backup_{timestamp}.sql"
 
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(subprocess.run, 
                 [
                     self._pg_dump_path,
                     "-h", self.db_host,
@@ -169,7 +169,7 @@ class DatabaseBackupMixin:
             with open(backup_file, "r", encoding="utf-8") as f:
                 sql_content = f.read()
 
-            result = subprocess.run(
+            result = await asyncio.to_thread(subprocess.run, 
                 [
                     psql_path,
                     "-h", self.db_host,

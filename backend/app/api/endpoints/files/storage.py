@@ -67,7 +67,15 @@ async def get_storage_info(
                 continue
         return size, count, errors
 
-    total_size, file_count, scan_errors = await asyncio.to_thread(_scan_files)
+    # 2026-09-06 效能評估：這支是 24 小時唯一破秒的端點（p50 1,066ms）——每次都 rglob 整個 uploads。
+    # 檔案數不會秒變，掃描結果快取 120 秒；第一次仍要付，之後開儀表板即回。
+    import time as _time
+    cache = get_storage_info.__dict__.setdefault("_SCAN_CACHE", {"at": 0.0, "v": None})
+    if cache["v"] is not None and _time.monotonic() - cache["at"] < 120:
+        total_size, file_count, scan_errors = cache["v"]
+    else:
+        total_size, file_count, scan_errors = await asyncio.to_thread(_scan_files)
+        cache["at"] = _time.monotonic(); cache["v"] = (total_size, file_count, scan_errors)
 
     try:
         disk_usage = await asyncio.to_thread(shutil.disk_usage, UPLOAD_BASE_DIR)

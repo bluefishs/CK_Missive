@@ -6,6 +6,7 @@ Version: 1.0.0
 Created: 2026-03-30
 """
 import logging
+import asyncio  # 2026-09-06 weekly 112：同步 subprocess 移到執行緒，不卡事件迴圈
 import subprocess
 from pathlib import Path
 from typing import List, Dict
@@ -30,7 +31,7 @@ class DiffImpactAnalyzer:
         from app.core.paths import PROJECT_ROOT  # v6.10 P1-E SSOT
         project_root = str(PROJECT_ROOT)
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(subprocess.run, 
                 ["git", "diff", "--name-only", base_ref, "HEAD"],
                 capture_output=True, text=True, cwd=project_root,
                 timeout=10,

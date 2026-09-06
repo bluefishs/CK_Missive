@@ -74,6 +74,12 @@ services:
       - "effective_io_concurrency=200"
       - "-c"
       - "wal_buffers=16MB"
+      # 2026-09-06 效能評估 #3：SQL 逐句剖析此前是盲的（擴充套件未載入）。零費用、只加記憶體 ~數 MB；
+      # 需要重啟 postgres 一次才生效（preload），之後 CREATE EXTENSION 即可查 pg_stat_statements。
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=top"
       - "-c"
       - "checkpoint_completion_target=0.9"
       - "-c"

@@ -138,7 +138,7 @@ class DigitalTwinService:
         )
 
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(subprocess.run, 
                 ["git", "diff", "--name-only", f"origin/{base_branch}"],
                 cwd=project_root, capture_output=True, text=True, timeout=10,
             )

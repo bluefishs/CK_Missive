@@ -87,8 +87,13 @@ class SelfDiagnosis:
         try:
             import urllib.request
             import re
-            with urllib.request.urlopen(self.METRICS_URL, timeout=5) as resp:
-                text = resp.read().decode("utf-8")
+
+            def _fetch_metrics() -> str:
+                with urllib.request.urlopen(self.METRICS_URL, timeout=5) as resp:
+                    return resp.read().decode("utf-8")
+
+            # 2026-09-06 weekly 112：同步 urlopen 在 async 裡會卡整個事件迴圈（最壞 5 秒），改走執行緒
+            text = await asyncio.to_thread(_fetch_metrics)
             m_diary = re.search(r"^memory_diary_days_total\s+([\d.]+)", text, re.MULTILINE)
             m_pending = re.search(r"^memory_proposals_pending\s+([\d.]+)", text, re.MULTILINE)
             if m_diary:
