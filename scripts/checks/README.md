@@ -237,6 +237,7 @@
 | `frontend_test_suite_health.py` | 前端 vitest 全套跑一次對基線 `frontend/tests/known_failures.json`：新失敗 RED、已修未除名 YELLOW；跑不起來（通過 <500／JSON 與解析不一致）不寫基線也不回綠（weekly 114） |
 | `route_cost_trend_report.py` | **路由成本趨勢（僅報告）**：把手動效能探針入庫（`wiki/memory/perf/route_cost_history.jsonl`），與上次比對；不判紅——效能隨資料量變動是常態，做成閘門只會天天紅（weekly 115） |
 | `visual_walk_weekly.sh` | **視覺走查拍圖（僅報告）**：每週把五個代表頁拍下來存 `docs/health/visual/<日期>/`，讓判讀時有圖可看；能機械判定的部分在 weekly 109／111（weekly 116） |
+| `entry_time_guard_audit.py` | **填報守衛存在性**：事後稽核（weekly 99／104／107）抓到的每一種錯，入口有沒有擋。**執行時**呼叫服務層驗證（grep 只能證明有那段字，證明不了它會擋），含 3 條負向控制（既有廠商／簡稱／免稅發票不得被誤擋）（weekly 117） |
 | `lib/result_contract.py` | **統一結果契約 writer**：每層跑完寫 `wiki/memory/integration-health/<layer>.json`，固定 `layer/checked_at/verdict/rc/summary/evidence`；weekly 113 只讀契約就畫得出機制圖 |
 | `prepush_related_tests.py` | **pre-push 快速閘門**（A46）：推送範圍改到的檔 → 相關 pytest／vitest，對兩份 `known_failures.json` 只擋基線外新失敗；沒有相關測試放行但印出。由 `frontend/.husky/pre-push` 呼叫 |
 

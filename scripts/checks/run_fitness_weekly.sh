@@ -593,6 +593,7 @@ run_step "113" "自主測試機制圖（僅報告：每層看得見什麼／留�
 run_step "114" "前端 vitest 基線比對（同 24 的形狀；新失敗才紅、已修未除名黃；基線 frontend/tests/known_failures.json）" "scripts/checks/frontend_test_suite_health.py"
 run_step "115" "路由成本趨勢（僅報告：每路由 API 支數與 wall；與上次比對，>50% 或多 3 支才提）" "scripts/checks/route_cost_trend_report.py"
 run_step "116" "視覺走查拍圖（僅報告：人看圖才看得出的截字／遮蔽／配色，存 docs/health/visual/<日期>/）" "scripts/checks/visual_walk_weekly.sh"
+run_step "117" "填報守衛存在性（事後稽核抓到的錯，入口有沒有擋；執行時驗證含負向控制）" "scripts/checks/entry_time_guard_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
