@@ -29,7 +29,12 @@ def add_app_context(
     自動加入版本、環境等資訊。
     """
     event_dict["app_name"] = "CK_Missive"
-    event_dict["version"] = "3.0.1"
+    # 2026-09-06：此前寫死 "3.0.1"（runtime 已 v6.73）——每一行日誌都在說一個過期的版本號；改讀 build_info（與 /health 同源）
+    try:
+        from app.core.build_info import build_info
+        event_dict["version"] = build_info().get("version", "unknown")
+    except Exception:
+        event_dict["version"] = "unknown"
     event_dict["environment"] = "development" if settings.DEVELOPMENT_MODE else "production"
     return event_dict
 
