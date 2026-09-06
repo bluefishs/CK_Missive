@@ -25,8 +25,8 @@ ALLOWLIST = {
     "api/endpoints/tender_module/search.py",
     "services/tender_analytics_battle.py",
     "services/tender_analytics_price.py",
-    "services/tender_analytics_service.py",
-    "services/tender_search_service.py",
+    "services/tender/analytics.py",
+    "services/tender/search.py",
     "services/ai/core/embedding_manager.py",
     "services/ai/graph/code_graph_ast_analyzer.py",
     # 框架自身

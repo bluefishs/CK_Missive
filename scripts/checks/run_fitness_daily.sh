@@ -294,6 +294,11 @@ run_step "14" "知識文庫新鮮度（向量庫 vs docs/）" \
 run_step "15" "容器重啟迴圈（間歇 502 的來源）" \
     "PYTHONIOENCODING=utf-8 python scripts/checks/container_restart_loop_check.py"
 
+# 2026-09-06 owner「全系統自主測試機制」：業務鏈探針此前只在部署時跑一次——沒有部署的日子，資料漂移、
+# 排程改壞的東西、第三方（發票格式、Hermes）變動都沒有人走鏈。改成每天走一遍（兩條鏈 32 斷言，__PROBE__ 標記、跑完硬刪）。
+# 探針 exit 1 是「鏈斷了」不是「待確認」⇒ 轉成 2（RED）。
+run_step "16" "業務鏈探針（建案→報價→工項→成案→請款→發票→應付→帳款，32 斷言，跑完硬刪）"     "sh -c 'PYTHONIOENCODING=utf-8 python scripts/verify/post_deploy_probe.py || exit 2'"
+
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）
