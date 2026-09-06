@@ -1,0 +1,9 @@
+{
+  "layer": "entry_time_guards",
+  "checked_at": "2026-09-06T21:55:57Z",
+  "verdict": "GREEN",
+  "rc": 0,
+  "summary": "8 條守衛正常",
+  "evidence": {},
+  "writer": "result_contract/1"
+}

@@ -2,33 +2,30 @@
 title: app.api.endpoints.pm.cases
 kg_entity_id: 15562
 type: module
-module_lines: 490
+module_lines: 539
 module_relations: 28
 file_path: /app/app/api/endpoints/pm/cases.py
 created: 2026-08-04
-updated: 2026-08-24
+updated: 2026-09-07
 tags: [程式模組, auto-compiled]
 confidence: medium
 ---
 # app.api.endpoints.pm.cases
 
 ## 概述
-此 Python 模組包含了處理 PM（項目管理）案件相關 API 端點的實現，主要負責提供創建、查詢和更新案件的功能。這些端點僅支持 POST 方法。
-
-## 主要類別
-無
+此 Python 模塊包含了處理 PM（Project Management）案件相關 API 端點的實現，主要支持創建、查詢和更新案件等操作。這些端點均為 POST 方法。
 
 ## 公開函數
 - `list_cases`: 列出所有案件。
-- `create_case`: 創建新的案件。
-- `get_yearly_trend`: 獲取年度趨勢數據。
-- `get_case_detail`: 獲取特定案件的詳細信息。
-- `update_case`: 更新現有案件的信息。
-- `update_case_by_id`: 根據 ID 更新案件。
-- `delete_case`: 刪除指定的案件。
-- `get_summary`: 獲取案件概要數據。
-- `generate_case_code`: 生成新的案件編碼。
-- `recalculate_progress`: 計算並更新案件進度。
+- `create_case`: 創建新案件。
+- `get_yearly_trend`: 获取年度趋势数据。
+- `get_case_detail`: 获取案件详细信息。
+- `update_case`: 更新案件信息。
+- `update_case_by_id`: 根据 ID 更新案件信息。
+- `delete_case`: 删除案件。
+- `get_summary`: 获取案件概要统计信息。
+- `generate_case_code`: 生成案件代码。
+- `recalculate_progress`: 重新计算进度。
 
 ## 依賴關係
 - `app.core.dependencies`
@@ -37,4 +34,4 @@ confidence: medium
 - `app.extended.models.pm`
 - `app.schemas.pm`
 - `app.services.pm`
-- `app.services.case_field_sync_service`
+- `app.services.contract.field_sync`

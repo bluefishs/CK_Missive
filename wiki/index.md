@@ -169,8 +169,13 @@
 - [115年_派工單號041](entities/115年_派工單號041.md)
 - [115年_派工單號042](entities/115年_派工單號042.md)
 - [115年_派工單號043](entities/115年_派工單號043.md)
+- [115年_派工單號046](entities/115年_派工單號046.md)
+- [115年_派工單號047](entities/115年_派工單號047.md)
+- [115年_派工單號048](entities/115年_派工單號048.md)
+- [115年_派工單號049](entities/115年_派工單號049.md)
 - [115年度仁愛鄉非都市計畫地區圖解數化地籍圖整合建置作業](entities/115年度仁愛鄉非都市計畫地區圖解數化地籍圖整合建置作業.md)
 - [115年度南投縣都市計畫樁位測補釘案委託技術服務案(開口契約)](entities/115年度南投縣都市計畫樁位測補釘案委託技術服務案(開口契約).md)
+- [115年度圖根點補建、新建作業](entities/115年度圖根點補建、新建作業.md)
 - [115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)](entities/115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約).md)
 - [115年度桃園市都市計畫內公共設施完竣地區調查、測量及範圍劃定](entities/115年度桃園市都市計畫內公共設施完竣地區調查、測量及範圍劃定.md)
 - [115年度番路鄉、竹崎鄉非都市計畫地區圖解數化地籍圖整合建置作業](entities/115年度番路鄉、竹崎鄉非都市計畫地區圖解數化地籍圖整合建置作業.md)
@@ -360,8 +365,10 @@
 - [app.api.endpoints.erp.expenses](modules/app.api.endpoints.erp.expenses.md)
 - [app.api.endpoints.erp.expenses_io](modules/app.api.endpoints.erp.expenses_io.md)
 - [app.api.endpoints.erp.financial_summary](modules/app.api.endpoints.erp.financial_summary.md)
+- [app.api.endpoints.erp.operational](modules/app.api.endpoints.erp.operational.md)
 - [app.api.endpoints.erp.quotations](modules/app.api.endpoints.erp.quotations.md)
 - [app.api.endpoints.health](modules/app.api.endpoints.health.md)
+- [app.api.endpoints.knowledge_base](modules/app.api.endpoints.knowledge_base.md)
 - [app.api.endpoints.pm.cases](modules/app.api.endpoints.pm.cases.md)
 - [app.api.endpoints.system_monitoring](modules/app.api.endpoints.system_monitoring.md)
 - [app.api.endpoints.taoyuan_dispatch.dispatch](modules/app.api.endpoints.taoyuan_dispatch.dispatch.md)
@@ -370,7 +377,9 @@
 - [app.api.endpoints.tender_module.subscriptions](modules/app.api.endpoints.tender_module.subscriptions.md)
 - [app.api.endpoints.user_permissions](modules/app.api.endpoints.user_permissions.md)
 - [app.api.endpoints.users](modules/app.api.endpoints.users.md)
+- [app.api.endpoints.vendors](modules/app.api.endpoints.vendors.md)
 - [app.api.endpoints.wiki](modules/app.api.endpoints.wiki.md)
+- [app.core.ai_connector](modules/app.core.ai_connector.md)
 - [app.core.auth_service](modules/app.core.auth_service.md)
 - [app.core.dependencies](modules/app.core.dependencies.md)
 - [app.core.exceptions](modules/app.core.exceptions.md)
@@ -382,6 +391,7 @@
 - [app.schemas.common](modules/app.schemas.common.md)
 - [app.schemas.document](modules/app.schemas.document.md)
 - [app.schemas.document_calendar](modules/app.schemas.document_calendar.md)
+- [app.schemas.erp.financial_summary](modules/app.schemas.erp.financial_summary.md)
 - [app.schemas.erp.quotation](modules/app.schemas.erp.quotation.md)
 - [app.schemas.knowledge_graph](modules/app.schemas.knowledge_graph.md)
 - [app.schemas.taoyuan.dispatch](modules/app.schemas.taoyuan.dispatch.md)
@@ -390,10 +400,13 @@
 - [app.services.ai.agent.agent_post_processing](modules/app.services.ai.agent.agent_post_processing.md)
 - [app.services.ai.agent.agent_router](modules/app.services.ai.agent.agent_router.md)
 - [app.services.ai.agent.agent_synthesis](modules/app.services.ai.agent.agent_synthesis.md)
+- [app.services.ai.domain.digital_twin_service](modules/app.services.ai.domain.digital_twin_service.md)
 - [app.services.ai.search.document_natural_search](modules/app.services.ai.search.document_natural_search.md)
+- [app.services.ai.search.rag_retrieval](modules/app.services.ai.search.rag_retrieval.md)
 - [app.services.document.core](modules/app.services.document.core.md)
+- [app.services.integration.line_bot](modules/app.services.integration.line_bot.md)
 - [app.services.tender.business_recommendation](modules/app.services.tender.business_recommendation.md)
 
 ---
-**統計**: 246 entities | 58 topics | 0 sources | 20 synthesis | 53 modules
-**最後更新**: 2026-08-24
+**統計**: 251 entities | 58 topics | 0 sources | 20 synthesis | 61 modules
+**最後更新**: 2026-09-07

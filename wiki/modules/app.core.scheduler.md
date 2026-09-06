@@ -2,21 +2,22 @@
 title: app.core.scheduler
 kg_entity_id: 11571
 type: module
-module_lines: 4914
-module_relations: 152
+module_lines: 5367
+module_relations: 163
 file_path: /app/app/core/scheduler.py
 created: 2026-08-03
-updated: 2026-08-24
+updated: 2026-09-07
 tags: [程式模組, auto-compiled]
 confidence: medium
 ---
 # app.core.scheduler
 
 ## 概述
-此模組提供了一個任務排程器，用於管理各種定時任務，包括處理待發送提醒和清理過期事件等。
+此模組提供了一個任務排程器，用於定時執行各種業務相關的任務，包括處理待發送提醒和清理過期事件等。此外，v2.0.0 版本新增了排程執行追蹤功能 (SchedulerTracker)。
 
 ## 主要類別
 - SchedulerTracker
+- _RecoveringAsyncIOScheduler
 
 ## 公開函數
 - tracked_job
