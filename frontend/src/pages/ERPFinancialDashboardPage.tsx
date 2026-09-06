@@ -277,12 +277,15 @@ const ERPFinancialDashboardPage: React.FC = () => {
                   onClick={() => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${catYear || ''}&category=${catSel}&client_name=${encodeURIComponent(r.client_name)}`)} />
               )}
               columns={[
-                { title: '委託單位', dataIndex: 'client_name', ellipsis: true },
-                { title: '案數', dataIndex: 'case_count', width: 60, align: 'right' },
-                { title: termTitle('awarded_amount'), dataIndex: 'awarded', width: 120, align: 'right', render: (v) => fmtMoney(v) },
-                { title: termTitle('billed'), dataIndex: 'billed', width: 110, align: 'right', render: (v) => fmtMoney(v) },
-                { title: termTitle('received'), dataIndex: 'received', width: 110, align: 'right', render: (v) => fmtMoney(v) },
-                { title: termTitle('outstanding'), dataIndex: 'outstanding', width: 110, align: 'right', render: (v) => <span style={{ color: Number(v) > 0 ? '#fa8c16' : undefined }}>{fmtMoney(v)}</span> },
+                // 2026-09-06 owner 走查：最右的「應收未收」被切成「15,794.7…」——
+                // 這張表在 lg=14 欄（約 600px）裡放 6 欄，最後一欄拿不到 8 位數＋逗號需要的寬度。
+                // 金額欄一律給 8 位數＋千分位（約 108px）＋內距，並讓委託單位欄可縮。
+                { title: '委託單位', dataIndex: 'client_name', ellipsis: true, width: 130 },
+                { title: '案數', dataIndex: 'case_count', width: 56, align: 'right' },
+                { title: termTitle('awarded_amount'), dataIndex: 'awarded', width: 118, align: 'right', render: (v) => fmtMoney(v) },
+                { title: termTitle('billed'), dataIndex: 'billed', width: 118, align: 'right', render: (v) => fmtMoney(v) },
+                { title: termTitle('received'), dataIndex: 'received', width: 118, align: 'right', render: (v) => fmtMoney(v) },
+                { title: termTitle('outstanding'), dataIndex: 'outstanding', width: 124, align: 'right', render: (v) => <span style={{ color: Number(v) > 0 ? '#fa8c16' : undefined }}>{fmtMoney(v)}</span> },
               ]}
             />
           </Col>

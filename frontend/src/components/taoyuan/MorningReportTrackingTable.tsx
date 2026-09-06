@@ -5,6 +5,7 @@
  * 接收 morning-status API 資料 + 外部篩選條件。
  */
 import React, { useMemo, useState } from 'react';
+import { MobileCardList, MobileCard } from '../common/MobileCardList';
 import { Table, Tag, Card, Select, Space, Typography, Tooltip, Input, DatePicker, App } from 'antd';
 import { useResponsive } from '../../hooks';
 import { useMutation } from '@tanstack/react-query';
@@ -346,6 +347,38 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
         </Space>
       }
     >
+      {/* 2026-09-06 owner 從 /taoyuan/dispatch 回報：390px 下這張表仍是表格 ——
+          08-03／08-29 兩次修法都是「拿掉 scroll.x、拿掉欄寬、藏 3 欄」，
+          但**剩下的 10 欄還是要擠進 390px**（每欄 39px），每格只剩 1–2 個字垂直堆疊。
+          「不溢出」與「讀得到」不是同一件事，而整頁溢出量測只看得到前者。
+          窄螢幕改用與其他列表頁相同的卡片（weekly 111 的統一卡片風格）。 */}
+      {isNarrow ? (
+        <MobileCardList<MorningStatusItem>
+          dataSource={filteredItems}
+          rowKey={(r) => r.id}
+          loading={isLoading}
+          pagination={{ pageSize: 25, showTotal: (t: number) => `共 ${t} 筆` }}
+          renderCard={(r) => {
+            const cfg = STATUS_CONFIG[r.display_status] as { color?: string } | undefined;
+            return (
+              <MobileCard
+                title={r.dispatch_no || '（無單號）'}
+                subtitle={r.project_name}
+                tags={[
+                  { text: r.display_status, color: cfg?.color },
+                  ...(r.work_category_label ? [{ text: r.work_category_label, color: 'blue' }] : []),
+                ]}
+                rows={[
+                  { label: '進度', value: `${r.completed_count}/${r.total_records}${r.progress ? ` (${r.progress})` : ''}` },
+                  { label: '承辦', value: r.handler || '—' },
+                  { label: '履約期限', value: r.deadline || '—' },
+                  ...(r.next_event ? [{ label: '下一步', value: r.next_event }] : []),
+                ]}
+              />
+            );
+          }}
+        />
+      ) : (
       <Table
         dataSource={filteredItems}
         columns={columns}
@@ -394,6 +427,7 @@ export const MorningReportTrackingTable: React.FC<Props> = ({
           ),
         }}
       />
+      )}
     </Card>
   );
 };

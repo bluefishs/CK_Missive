@@ -41,6 +41,16 @@
 | 09-06 深夜第二輪（owner「請接續完成」） | 前端基線 **7→0**：健康摘要測試 mock 錯方法（08-04 起是 GET）、刪除公文的 queryConfig 部分 mock 讓派工快取讀到 undefined、匯入彈窗 prop `visible`→`open`、權限 hook 改用 `shouldUseDevMockUser` 而測試只 mock `isAuthDisabled`、入口頁 authService mock 缺 `getUserInfo`（`markAuthenticated` 丟 TypeError 被 async effect 吞掉 ⇒ 狀態停在 resolving）。另修 `tests/setup.ts`：兩支跑在 node environment 的回歸測試沒有 `window.getComputedStyle`，補丁在 setup 階段就讓整支 suite 掛（判「函式在不在」而不是「window 在不在」）。**全套 2,960 支全過，weekly 114 自此新失敗即紅** |
 | 09-06 深夜第三輪（owner「請接續」） | 後端基線 **21→0**，全套 4,455 支全過。多數是契約漂移的 mock 缺件（路由指標 label、請款期別列舉、去重查詢、SAVEPOINT 重試、發票號碼格式與 `source` 欄位、ERP 掃描併入 base、晨報 emoji、orchestrator 併行只在 llm 路由）。**唯一的產品修正**：`/taoyuan-dispatch/workflow/create` 對不存在的派工單讓外鍵違反冒成 500，改為服務層先查、回 400 並說原因（ADR-0028 錯誤合約）。兩份基線自此皆為 0——weekly 24／114 的任何一筆失敗都是新問題 |
 
+### 09-06 深夜 owner 五頁走查（`/documents`／`/erp/quotations`／`/erp/financial-dashboard`／`/taoyuan/dispatch`／`/erp/client-accounts`）
+
+| 頁面 | 發現 | 修法 |
+|---|---|---|
+| `/erp/financial-dashboard` | 「專案財務一覽」與「案件損益 Top 15」**都是空的** | 端點回統一包裝 `{success, data:{items}}` 而 API 型別寫成沒有包裝的 `{items}` ⇒ 讀 `.items` 永遠 undefined。**少讀一層不會報錯，只會得到空表**。修後一覽 50 筆／分頁 3 頁、Top 15 有圖 |
+| `/taoyuan/dispatch` | 390px 下 10 欄擠在一起、每格 1–2 字垂直堆疊 | 08-03／08-29 兩次修法都在調欄寬，那讓**整頁溢出歸零**於是 weekly 109 一直綠。改用卡片（單號／工程名／狀態／進度／承辦／期限） |
+| 統計卡（多頁） | 同一排只有「應收未收」帶小數 39,431,749.5，且多出的字元讓該卡在 390px 換行、高度不齊 | `fmtMoney` 一律 `Math.round`（只改顯示），四頁的 `Number(x).toLocaleString()` 改走它 |
+| 委託單位應收表 | 最右「應收未收」被切成 `15,794.7…` | 金額欄依 8 位數＋千分位重配欄寬 |
+| 複驗 | weekly 111 手機品質閘門 **GREEN**（39 頁：截字 0／字級 0／點擊目標 57＜基線 59／遮蔽 0／統計卡獨列 0）；教訓 L144 入冊 |
+
 ### 09-06 授權後逐項辦理（owner「授權 依前述規劃與建議事項逐一辦理並複查確認前後端服務與涉及架構」）
 
 | 項目 | 內容 |
