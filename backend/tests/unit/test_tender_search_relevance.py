@@ -11,10 +11,16 @@ import pytest
 
 
 def test_build_search_sql_short_query():
-    """短查詢應包含 trigram similarity"""
+    """短查詢走 ILIKE（標題與機關），**不再**用 trigram similarity。
+
+    2026-09-06：pg_stat_statements 啟用後量到 similarity() 對 125,544 列逐列計算、佔 DB 總耗時 89%，
+    而它對中文命中 0 筆（記憶 pg_trgm_useless_for_chinese）。這條測試原本鎖的是「要有 similarity」，
+    那是把成因鎖進去了；現在鎖的是「不得再回來」。
+    """
     from app.services.tender_search_query import build_tender_search_sql
     sql, params = build_tender_search_sql("測量標案", limit=20)
-    assert "similarity" in sql
+    assert "similarity" not in sql
+    assert "tr.title ILIKE :q" in sql and "tr.unit_name ILIKE :q" in sql
     assert params["lim"] == 20
 
 

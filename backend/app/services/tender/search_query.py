@@ -24,21 +24,23 @@ def build_tender_search_sql(query: str, limit: int = 50) -> Tuple[str, Dict[str,
     # 長查詢提高 similarity 門檻（減少不相關結果）
     sim_threshold = "0.4" if is_long else "0.3"
 
+    # 2026-09-06 pg_stat_statements 啟用後第一個小時：這支 45 次、平均 278ms、佔 DB 總耗時 89%。
+    # 原因是 similarity() 對 125,544 列逐列計算（trgm 對中文無效——記憶 pg_trgm_useless_for_chinese；
+    # 實測 similarity(title,'測量')>0.3 命中 0 筆，ILIKE 命中 277 筆）⇒ 花錢買零。
+    # 拿掉 similarity，relevance 改成三級（精確 1.0／標題含 0.6／機關含 0.3）維持回傳契約；
+    # EXPLAIN 對照：短詞 146→79ms、長詞 91→55ms。sim_threshold 保留變數名以免呼叫端引用斷掉。
+    _ = sim_threshold
     sql = f"""
         SELECT tr.*, array_agg(DISTINCT CASE WHEN tcl.role='winner' THEN tcl.company_name END) AS winners,
                array_agg(DISTINCT CASE WHEN tcl.role='bidder' THEN tcl.company_name END) AS bidders,
                CASE WHEN tr.title = :exact THEN 1.0
-                    ELSE COALESCE(similarity(tr.title, :sim_q), 0)
+                    WHEN tr.title ILIKE :q THEN 0.6
+                    ELSE 0.3
                END AS relevance
         FROM tender_records tr
         LEFT JOIN tender_company_links tcl ON tcl.tender_record_id = tr.id
         WHERE tr.title ILIKE :q OR tr.unit_name ILIKE :q
-           OR similarity(tr.title, :sim_q) > {sim_threshold}
         GROUP BY tr.id
-        HAVING CASE WHEN tr.title = :exact THEN 1.0
-                    ELSE COALESCE(similarity(tr.title, :sim_q), 0)
-               END >= 0.15
-           OR tr.title ILIKE :q
         ORDER BY relevance DESC, tr.announce_date DESC NULLS LAST
         LIMIT :lim
     """
