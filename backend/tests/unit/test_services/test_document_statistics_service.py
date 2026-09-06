@@ -55,6 +55,8 @@ class TestGetOverallStatistics:
             "by_month": {"2026-01": 10, "2026-02": 15},
         })
 
+        # 2026-09-06：收發文改由 category 計數（doc_type 是函／開會通知單）
+        service.repository.get_category_counts = AsyncMock(return_value={"發文": 40, "收文": 60})
         # Mock current_year_send and delivery stats queries
         scalar_mock = MagicMock()
         scalar_mock.scalar.return_value = 5

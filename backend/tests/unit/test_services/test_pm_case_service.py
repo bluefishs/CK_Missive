@@ -119,6 +119,7 @@ patch("app.services.pm.case_service.CaseCodeService") as MockCode:
             mock_db_session.flush = AsyncMock()
             mock_db_session.commit = AsyncMock()
             mock_db_session.add = MagicMock()
+            mock_db_session.execute = AsyncMock(return_value=MagicMock(**{"scalar.return_value": 0}))  # 09-02 防重查詢
 
             service = PMCaseService(mock_db_session)
             # Override _to_response to return a predictable result

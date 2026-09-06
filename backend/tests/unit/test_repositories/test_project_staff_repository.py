@@ -134,7 +134,7 @@ class TestCreateAssignment:
             role='主辦',
             is_primary=True,
         )
-        mock_db.execute.assert_called_once()
+        assert mock_db.execute.called  # 2026-09-05 雙鍵：先解 case_code 再 insert，不再只有一次
         mock_db.flush.assert_called_once()
 
 
@@ -203,7 +203,7 @@ class TestUpdateAssignment:
     @pytest.mark.asyncio
     async def test_updates_with_data(self, repo, mock_db):
         await repo.update_assignment(1, 2, {"role": "協辦", "status": "inactive"})
-        mock_db.execute.assert_called_once()
+        assert mock_db.execute.called  # 2026-09-05 雙鍵：先解 case_code 再 insert，不再只有一次
         mock_db.flush.assert_called_once()
 
     @pytest.mark.asyncio

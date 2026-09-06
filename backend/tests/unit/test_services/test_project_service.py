@@ -305,9 +305,7 @@ class TestProjectServiceCRUD:
         result = await service.create(create_data)
 
         # 驗證 get_next_project_code 和 create 被呼叫
-        service.repository.get_next_project_code.assert_awaited_once_with(
-            2026, "02", "01"
-        )
+        # 2026-09-02 案號新制：project_code＝GN 制 case_code，不再呼叫 get_next_project_code
         service.repository.create.assert_awaited_once()
         # 驗證傳入 create 的資料包含產生的 project_code
         call_args = service.repository.create.call_args[0][0]
@@ -475,7 +473,7 @@ class TestProjectServiceStatistics:
         # Wire through to real ProjectAnalyticsService methods bound to mock
         from app.services.project_analytics_service import ProjectAnalyticsService
 
-        async def _get_project_statistics():
+        async def _get_project_statistics(**_kwargs):
             try:
                 return await mock_analytics.repository.get_project_statistics()
             except Exception:

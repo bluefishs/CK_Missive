@@ -76,7 +76,7 @@ class TestCreateAssignment:
 
         assert result["project_id"] == 1
         assert result["user_id"] == 2
-        mock_db.execute.assert_called_once()
+        assert mock_db.execute.called  # 2026-09-05 雙鍵：先解 case_code 再 insert，不再只有一次
         mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -118,7 +118,7 @@ class TestCreateAssignment:
         # Service now uses direct insert; verify defaults via returned result
         assert result["project_id"] == 1
         assert result["user_id"] == 2
-        mock_db.execute.assert_called_once()
+        assert mock_db.execute.called  # 2026-09-05 雙鍵：先解 case_code 再 insert，不再只有一次
         mock_db.commit.assert_called_once()
 
 

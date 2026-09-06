@@ -120,8 +120,9 @@ class TestAgentTopology:
 
         # 基本節點存在
         node_ids = [n["id"] for n in result["nodes"]]
-        assert "nemoclaw" in node_ids
-        assert "openclaw" in node_ids
+        # ADR-0014／0015：nemoclaw／openclaw 已廢止，拓樸以 hermes 與 missive 為核心
+        assert "hermes" in node_ids
+        assert any("missive" in n for n in node_ids)
         assert "missive-ck-doc" in node_ids
 
     @pytest.mark.asyncio
@@ -263,7 +264,8 @@ class TestProxyTaskAction:
 
         result = await _proxy_task_action("job-1", "approve", {"approved_by": "admin"})
 
-        assert result["success"] is True
+        # 任務代理已隨 NemoClaw 退場（ADR-0014／0015）：回誠實的 retired，不再假裝成功
+        assert result["success"] is False and "retired" in str(result.get("error", "")).lower()
 
     @pytest.mark.asyncio
     @patch.dict(os.environ, {"NEMOCLAW_GATEWAY_URL": "http://localhost:9000"})
@@ -280,8 +282,4 @@ class TestProxyTaskAction:
 
         result = await _proxy_task_action("job-1", "approve", {})
 
-        # _proxy_task_action now returns JSONResponse
-        import json
-        body = json.loads(result.body.decode())
-        assert body["success"] is False
-        assert "HTTP 500" in body["error"]
+        assert result["success"] is False and "retired" in str(result.get("error", "")).lower()  # 已退場

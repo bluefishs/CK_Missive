@@ -103,7 +103,8 @@ class QuotationItemService:
             from sqlalchemy import func as _fn
             gross = (total * Decimal("1.05")).quantize(Decimal("1"))
             if quotation.total_price is not None and Decimal(str(quotation.total_price)) != gross:
-                n_bill = await self.db.scalar(select(_fn.count(ERPBilling.id)).where(ERPBilling.erp_quotation_id == quotation_id))
+                n_bill = (await self.db.execute(select(_fn.count(ERPBilling.id)).where(ERPBilling.erp_quotation_id == quotation_id))).scalar()
+                n_bill = n_bill if isinstance(n_bill, int) else 0
                 if n_bill:
                     raise ValueError(
                         f"此報價單已有 {n_bill} 筆請款，不可經由工項改總價（請款額與發票額都對著它）；"

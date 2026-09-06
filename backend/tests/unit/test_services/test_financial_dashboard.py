@@ -194,7 +194,8 @@ class TestBatchProjectSummaries:
         mock_quot_result = MagicMock()
         mock_quot_result.all.return_value = []
 
-        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result, mock_quot_result])
+        _seq = [mock_proj_result, mock_expense_result, mock_ledger_result, mock_quot_result]
+        mock_db.execute = AsyncMock(side_effect=lambda *a, **k: _seq.pop(0) if _seq else mock_quot_result)  # 09-04 多了 case_code 橋查詢
 
         from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
         repo = FinancialSummaryRepository(mock_db)
@@ -239,7 +240,8 @@ class TestBatchProjectSummaries:
         mock_quot_result = MagicMock()
         mock_quot_result.all.return_value = []
 
-        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result, mock_quot_result])
+        _seq = [mock_proj_result, mock_expense_result, mock_ledger_result, mock_quot_result]
+        mock_db.execute = AsyncMock(side_effect=lambda *a, **k: _seq.pop(0) if _seq else mock_quot_result)  # 09-04 多了 case_code 橋查詢
 
         from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
         repo = FinancialSummaryRepository(mock_db)
@@ -268,7 +270,8 @@ class TestBatchProjectSummaries:
         mock_quot_result = MagicMock()
         mock_quot_result.all.return_value = []
 
-        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result, mock_quot_result])
+        _seq = [mock_proj_result, mock_expense_result, mock_ledger_result, mock_quot_result]
+        mock_db.execute = AsyncMock(side_effect=lambda *a, **k: _seq.pop(0) if _seq else mock_quot_result)  # 09-04 多了 case_code 橋查詢
 
         from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
         repo = FinancialSummaryRepository(mock_db)

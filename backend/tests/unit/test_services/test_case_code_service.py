@@ -177,7 +177,7 @@ class TestFindNextSerial:
         erp_result = MagicMock()
         erp_result.scalar.return_value = "CK2025_PM_01_005"
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result])
+        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service._find_next_serial("CK2025_PM_01_")
@@ -193,7 +193,7 @@ class TestFindNextSerial:
         erp_result = MagicMock()
         erp_result.scalar.return_value = None
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result])
+        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service._find_next_serial("CK2025_PM_01_")
@@ -208,7 +208,7 @@ class TestFindNextSerial:
         erp_result = MagicMock()
         erp_result.scalar.return_value = None
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result])
+        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service._find_next_serial("CK2025_PM_01_")
@@ -223,7 +223,7 @@ class TestFindNextSerial:
         erp_result = MagicMock()
         erp_result.scalar.return_value = "CK2025_PM_01_007"
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result])
+        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service._find_next_serial("CK2025_PM_01_")
@@ -397,7 +397,7 @@ class TestCheckDuplicate:
         erp_result = MagicMock()
         erp_result.scalar.return_value = 1
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result])
+        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service.check_duplicate("CK2025_FN_01_001")
@@ -412,7 +412,7 @@ class TestCheckDuplicate:
         erp_result = MagicMock()
         erp_result.scalar.return_value = 0
 
-        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result])
+        mock_db_session.execute = AsyncMock(side_effect=[pm_result, erp_result, MagicMock(**{"scalar.return_value": None})])  # 09-02 起第三個來源：承攬案表
 
         service = CaseCodeService(mock_db_session)
         result = await service.check_duplicate("CK2025_PM_01_999")

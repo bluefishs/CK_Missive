@@ -1212,7 +1212,7 @@ class TestBroadcastToAll:
     async def test_broadcast_no_targets(self):
         dispatcher = NotificationDispatcher()
         results = await dispatcher.broadcast_to_all("msg")
-        assert results == {"line": 0, "discord": 0}
+        assert results == {"line": 0, "discord": 0, "telegram": 0}
 
     @pytest.mark.asyncio
     async def test_broadcast_empty_lists(self):
@@ -1220,7 +1220,7 @@ class TestBroadcastToAll:
         results = await dispatcher.broadcast_to_all(
             "msg", line_user_ids=[], discord_channel_ids=[],
         )
-        assert results == {"line": 0, "discord": 0}
+        assert results == {"line": 0, "discord": 0, "telegram": 0}
 
     @pytest.mark.asyncio
     async def test_broadcast_discord_partial_failure(self):

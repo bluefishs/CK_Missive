@@ -62,7 +62,8 @@ async def test_tax_recalculated_with_subtotal():
         {"item_name": "繪製", "qty": 1, "unit": "戶", "unit_price": 4000},
         {"item_name": "簽證", "qty": 2, "unit": "戶", "unit_price": 2000},
     ])
-    assert q.total_price == Decimal("8000")
+    # 2026-09-06：total_price 依 FIELD_SEMANTICS 是含稅（小計 8,000 × 1.05）；稅額仍是小計的 5%
+    assert q.total_price == Decimal("8400")
     assert q.tax_amount == Decimal("400"), "稅額應為小計的 5%，而不是沿用舊值"
 
 

@@ -31,9 +31,13 @@ def test_all_hermes_routes_require_service_token(hermes_routes):
         deps = []
         if hasattr(route, "dependant"):
             deps = [d.call for d in route.dependant.dependencies]
-        assert _verify_service_token in deps, (
-            f"{route.path} 缺 service token 依賴"
+        # 2026-09-06：/hermes/acp 改用 service_auth.require_scope(...)——它同樣驗 service token 再驗 scope（更嚴），
+        # 此前 lint 只認 _verify_service_token 這一個函式物件 ⇒ 更嚴的寫法反而被判「缺依賴」。兩者皆為合格的權杖守衛。
+        ok = _verify_service_token in deps or any(
+            getattr(d, "__qualname__", "").startswith("require_scope.") and getattr(d, "__module__", "") == "app.core.service_auth"
+            for d in deps
         )
+        assert ok, f"{route.path} 缺 service token 依賴（_verify_service_token 或 require_scope）"
 
 
 def test_hermes_router_paths_match_manifest(hermes_routes):

@@ -243,8 +243,9 @@ class CaseCodeService:
                 pass
 
         # 同一交易內已發出的號碼 —— DB 查不到它們（尚未 commit）
-        issued = self.db.info.setdefault("case_code_issued_serials", {})
-        max_serial = max(max_serial, issued.get(prefix, 0))
+        _info = getattr(self.db, "info", None)
+        issued = _info.setdefault("case_code_issued_serials", {}) if isinstance(_info, dict) else {}
+        max_serial = max(max_serial, int(issued.get(prefix, 0) or 0))
 
         next_serial = max_serial + 1
         issued[prefix] = next_serial
