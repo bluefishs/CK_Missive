@@ -45,6 +45,7 @@
 
 weekly step 87（`run_fitness_weekly.sh`）。
 """
+import re
 import os
 import subprocess
 import sys
@@ -107,7 +108,10 @@ def main() -> int:
         print("✗ 正式庫查不到任何欄位 —— 判定不可信，不視為通過")
         return 2
 
-    missing = sorted(prod - test)
+    # 2026-09-06：正式庫裡的遷移備份表（*_bak_*／*backup_*，A113）與 pg_stat_statements 檢視不是 schema，
+    # 測試庫本來就不該有 —— 此前把它們算成「缺 217 欄」，把真的漂移（2 欄）淹掉。
+    _noise = re.compile(r"^(pg_stat_statements(_info)?|[a-z_]+_bak(_[a-z0-9]+)*|[a-z_]+_backup_\d+)\.")
+    missing = sorted(c for c in (prod - test) if not _noise.match(c))
     extra = len(test - prod)
 
     print(f"正式庫欄位 {len(prod)}｜測試庫 {len(test)}")
