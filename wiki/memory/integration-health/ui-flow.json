@@ -1,11 +1,17 @@
 {
- "checked_at": "2026-09-02T20:18:27.878Z",
+ "checked_at": "2026-09-05T20:18:05.860Z",
  "base": "https://missive.cksurvey.tw",
  "role": "admin",
- "pass": 20,
- "fail": 0,
+ "pass": 19,
+ "fail": 1,
  "skip": 0,
- "failures": [],
+ "failures": [
+  {
+   "id": "visual-walk-lock-contract-case-mobile",
+   "name": "承攬案件詳情手機版：標題列按鈕不得溢出、基本資訊標籤不得逐字斷行（2026-08-05 視覺走查修正之回歸鎖）",
+   "reason": "基本資訊欄位缺漏：得標金額"
+  }
+ ],
  "measured": [
   {
    "id": "ezbid-create-case",
@@ -58,16 +64,10 @@
    ]
   },
   {
-   "id": "visual-walk-lock-contract-case-mobile",
-   "values": [
-    "基本資訊標籤數=16"
-   ]
-  },
-  {
    "id": "table-sort-filter-present",
    "values": [
-    ".ant-table-column-sorter=10",
-    ".ant-table-filter-trigger=2"
+    ".ant-table-column-sorter=8",
+    ".ant-table-filter-trigger=6"
    ]
   },
   {

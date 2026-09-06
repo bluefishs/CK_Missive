@@ -5,13 +5,13 @@ template_hash: 1c8217069c
 tool_sequence: [get_statistics, search_documents]
 domains: [analysis, doc]
 wiki_topics: [wiki/topics/公文管理系統總覽.md]
-hit_count: 40
-success_count: 40
+hit_count: 46
+success_count: 46
 failure_count: 0
 success_rate: 1.0
-avg_latency_ms: 35313
+avg_latency_ms: 32986
 first_seen: '2026-05-10'
-last_seen: '2026-08-30'
+last_seen: '2026-09-05'
 crystallization_candidate: true
 tags: [memory, pattern, analysis, doc]
 ---
@@ -24,9 +24,9 @@ tags: [memory, pattern, analysis, doc]
 
 ## 統計
 
-- **觸發次數**：40（累計）
+- **觸發次數**：46（累計）
 - **成功率**：100.0%
-- **平均延遲**：35313ms
+- **平均延遲**：32986ms
 - **涉及領域**：analysis, doc
 - **相關 Wiki**：[[wiki/topics/公文管理系統總覽.md]]
 
@@ -42,4 +42,4 @@ tags: [memory, pattern, analysis, doc]
 
 ---
 
-_由 pattern_extractor 自動產生，最後更新：2026-08-30_
+_由 pattern_extractor 自動產生，最後更新：2026-09-05_

@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-05T11:14:02.317Z",
+  "checked_at": "2026-09-05T18:49:54.596Z",
   "base": "https://missive.cksurvey.tw",
   "width": 390,
   "routes": 39,
@@ -430,13 +430,13 @@
           "h": 22
         },
         {
-          "sel": "input#:r15:.ant-select-input",
+          "sel": "input#:r13:.ant-select-input",
           "text": "",
           "w": 104,
           "h": 22
         },
         {
-          "sel": "input#:r17:.ant-select-input",
+          "sel": "input#:r15:.ant-select-input",
           "text": "",
           "w": 96,
           "h": 22
@@ -447,7 +447,7 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 4,
-      "controls": 15
+      "controls": 13
     },
     {
       "route": "/kunge/ops",
@@ -456,7 +456,7 @@
       "narrowTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 0,
+      "ellipsis": 1,
       "tinyFont": 0,
       "tinyTop": [],
       "smallTap": 0,
@@ -465,8 +465,8 @@
       "coveredTop": [],
       "loneCard": 0,
       "loneTop": [],
-      "statCards": 0,
-      "controls": 14
+      "statCards": 6,
+      "controls": 17
     },
     {
       "route": "/pm/cases",
@@ -620,7 +620,7 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 6,
-      "controls": 27
+      "controls": 26
     },
     {
       "route": "/reports",

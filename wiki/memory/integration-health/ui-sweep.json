@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-09-02T20:40:45.990Z",
+ "checked_at": "2026-09-05T20:42:57.393Z",
  "base": "https://missive.cksurvey.tw",
  "role": "admin",
  "pass": 87,
@@ -129,6 +129,7 @@
    "/api/auth/me",
    "/api/calendar/users/calendar-events",
    "/api/erp/filing-gaps/mine",
+   "/api/erp/my-summary",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -700,6 +701,7 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
+   "/api/erp/quotations/client-options",
    "/api/erp/quotations/list",
    "/api/erp/quotations/profit-summary",
    "/api/secure-site-management/csrf-token",
@@ -711,7 +713,6 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
-   "/api/erp/quotations/template-meta",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -725,7 +726,6 @@
    "/api/auth/me",
    "/api/erp/expenses/grouped-summary",
    "/api/erp/expenses/list",
-   "/api/erp/ledger/list",
    "/api/erp/quotations/case-code-map",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
@@ -770,11 +770,13 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
+   "/api/erp/client-accounts/summary",
    "/api/erp/financial-summary/aging",
-   "/api/erp/financial-summary/budget-ranking",
+   "/api/erp/financial-summary/by-category",
    "/api/erp/financial-summary/company",
    "/api/erp/financial-summary/monthly-trend",
    "/api/erp/financial-summary/projects",
+   "/api/erp/quotations/profit-summary",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -1080,7 +1082,8 @@
  "mobile_probe": {
   "viewports": [
    390,
-   768
+   768,
+   1024
   ],
   "viewport": {
    "width": 390,
@@ -1095,16 +1098,12 @@
     "tableOverflow": 0,
     "widest": [
      {
-      "sel": "a",
-      "right": 1107
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 519
      },
      {
-      "sel": "a",
-      "right": 1000
-     },
-     {
-      "sel": "a",
-      "right": 841
+      "sel": "path",
+      "right": 424
      }
     ]
    },
@@ -1114,20 +1113,7 @@
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0,
-    "widest": [
-     {
-      "sel": "strong",
-      "right": 923
-     },
-     {
-      "sel": "strong",
-      "right": 815
-     },
-     {
-      "sel": "strong",
-      "right": 658
-     }
-    ]
+    "widest": []
    },
    {
     "route": "/erp/ledger",
@@ -1135,39 +1121,73 @@
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0,
-    "widest": [
-     {
-      "sel": "button.ant-btn.css-1daqxe2.css-var-r0",
-      "right": 398
-     },
-     {
-      "sel": "button.ant-btn.css-1daqxe2.css-var-r0",
-      "right": 398
-     },
-     {
-      "sel": "button.ant-btn.css-1daqxe2.css-var-r0",
-      "right": 398
-     }
-    ]
+    "widest": []
    },
    {
     "route": "/erp/assets",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 220,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 561
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 561
+     },
+     {
+      "sel": "div",
+      "right": 555
+     }
+    ]
    },
    {
     "route": "/erp/operational",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 378,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 719
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 719
+     },
+     {
+      "sel": "div",
+      "right": 713
+     }
+    ]
    },
    {
     "route": "/erp/financial-dashboard",
+    "viewportWidth": 390,
+    "pageOverflow": 0,
+    "layoutViewport": 390,
+    "tableOverflow": 738,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1079
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1079
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1079
+     }
+    ]
+   },
+   {
+    "route": "/erp/vendor-accounts",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
@@ -1175,30 +1195,12 @@
     "widest": []
    },
    {
-    "route": "/erp/vendor-accounts",
-    "viewportWidth": 390,
-    "pageOverflow": 17,
-    "layoutViewport": 390,
-    "tableOverflow": 0,
-    "widest": [
-     {
-      "sel": "path",
-      "right": 394
-     }
-    ]
-   },
-   {
     "route": "/erp/client-accounts",
     "viewportWidth": 390,
-    "pageOverflow": 7,
+    "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0,
-    "widest": [
-     {
-      "sel": "div.ant-select.ant-select-outlined.css-var-r0",
-      "right": 397
-     }
-    ]
+    "widest": []
    },
    {
     "route": "/documents",
@@ -1206,41 +1208,15 @@
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0,
-    "widest": [
-     {
-      "sel": "strong",
-      "right": 1416
-     },
-     {
-      "sel": "strong",
-      "right": 1038
-     },
-     {
-      "sel": "strong",
-      "right": 728
-     }
-    ]
+    "widest": []
    },
    {
     "route": "/contract-cases",
     "viewportWidth": 390,
-    "pageOverflow": 7,
+    "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0,
-    "widest": [
-     {
-      "sel": "strong",
-      "right": 871
-     },
-     {
-      "sel": "strong",
-      "right": 622
-     },
-     {
-      "sel": "strong",
-      "right": 580
-     }
-    ]
+    "widest": []
    },
    {
     "route": "/taoyuan/dispatch",
@@ -1268,25 +1244,16 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
+    "tableOverflow": 18,
     "widest": []
    },
    {
     "route": "/pm/cases",
     "viewportWidth": 390,
-    "pageOverflow": 84,
+    "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0,
-    "widest": [
-     {
-      "sel": "span",
-      "right": 458
-     },
-     {
-      "sel": "path",
-      "right": 397
-     }
-    ]
+    "widest": []
    },
    {
     "route": "/agencies",
@@ -1323,23 +1290,10 @@
    {
     "route": "/projects",
     "viewportWidth": 390,
-    "pageOverflow": 7,
+    "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0,
-    "widest": [
-     {
-      "sel": "strong",
-      "right": 871
-     },
-     {
-      "sel": "strong",
-      "right": 622
-     },
-     {
-      "sel": "strong",
-      "right": 580
-     }
-    ]
+    "widest": []
    },
    {
     "route": "/dashboard",
@@ -1350,15 +1304,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 891
+      "right": 764
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 834
+      "sel": "span",
+      "right": 710
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 776
+      "sel": "span",
+      "right": 511
      }
     ]
    },
@@ -1367,8 +1321,21 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 220,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 548
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 548
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 548
+     }
+    ]
    },
    {
     "route": "/document-numbers",
@@ -1376,36 +1343,49 @@
     "pageOverflow": 0,
     "layoutViewport": 390,
     "tableOverflow": 0,
-    "widest": [
-     {
-      "sel": "strong",
-      "right": 1579
-     },
-     {
-      "sel": "strong",
-      "right": 1493
-     },
-     {
-      "sel": "strong",
-      "right": 1475
-     }
-    ]
+    "widest": []
    },
    {
     "route": "/erp/einvoice-sync",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 418,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 759
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 759
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 759
+     }
+    ]
    },
    {
     "route": "/erp/invoices/summary-view",
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 1159,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1500
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1500
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1500
+     }
+    ]
    },
    {
     "route": "/taoyuan",
@@ -1455,15 +1435,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 891
+      "right": 764
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 834
+      "sel": "span",
+      "right": 710
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 776
+      "sel": "span",
+      "right": 511
      }
     ]
    },
@@ -1476,15 +1456,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 891
+      "right": 764
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 834
+      "sel": "span",
+      "right": 710
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 776
+      "sel": "span",
+      "right": 511
      }
     ]
    },
@@ -1493,19 +1473,19 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
+    "tableOverflow": 1330,
     "widest": [
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 972
+      "sel": "col",
+      "right": 1683
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 972
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1683
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 912
+      "sel": "div",
+      "right": 1677
      }
     ]
    },
@@ -1514,19 +1494,19 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
+    "tableOverflow": 759,
     "widest": [
      {
-      "sel": "a",
-      "right": 681
+      "sel": "col",
+      "right": 1112
      },
      {
-      "sel": "a",
-      "right": 616
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1112
      },
      {
-      "sel": "a",
-      "right": 417
+      "sel": "div",
+      "right": 1106
      }
     ]
    },
@@ -1539,15 +1519,15 @@
     "widest": [
      {
       "sel": "span",
-      "right": 554
+      "right": 550
      },
      {
       "sel": "path",
-      "right": 504
+      "right": 500
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 459
+      "right": 455
      }
     ]
    },
@@ -1589,15 +1569,15 @@
     "widest": [
      {
       "sel": "span",
-      "right": 1039
+      "right": 1019
      },
      {
       "sel": "path",
-      "right": 979
+      "right": 959
      },
      {
       "sel": "span",
-      "right": 933
+      "right": 913
      }
     ]
    },
@@ -1610,15 +1590,15 @@
     "widest": [
      {
       "sel": "span",
-      "right": 1052
+      "right": 1032
      },
      {
       "sel": "path",
-      "right": 992
+      "right": 972
      },
      {
       "sel": "span",
-      "right": 946
+      "right": 926
      }
     ]
    },
@@ -1627,19 +1607,19 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
+    "tableOverflow": 264,
     "widest": [
      {
-      "sel": "span",
-      "right": 507
+      "sel": "col",
+      "right": 617
      },
      {
-      "sel": "path",
-      "right": 473
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 617
      },
      {
-      "sel": "span",
-      "right": 429
+      "sel": "div",
+      "right": 611
      }
     ]
    },
@@ -1648,19 +1628,19 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
+    "tableOverflow": 334,
     "widest": [
      {
-      "sel": "span",
-      "right": 491
+      "sel": "col",
+      "right": 687
      },
      {
-      "sel": "path",
-      "right": 457
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 687
      },
      {
-      "sel": "span",
-      "right": 413
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 687
      }
     ]
    },
@@ -1669,19 +1649,19 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
+    "tableOverflow": 392,
     "widest": [
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-green",
-      "right": 404
+      "sel": "col",
+      "right": 745
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-green",
-      "right": 404
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 745
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-green",
-      "right": 404
+      "sel": "div",
+      "right": 739
      }
     ]
    },
@@ -1694,15 +1674,15 @@
     "widest": [
      {
       "sel": "span",
-      "right": 1039
+      "right": 1019
      },
      {
       "sel": "path",
-      "right": 979
+      "right": 959
      },
      {
       "sel": "span",
-      "right": 933
+      "right": 913
      }
     ]
    },
@@ -1715,15 +1695,15 @@
     "widest": [
      {
       "sel": "span",
-      "right": 1039
+      "right": 1019
      },
      {
       "sel": "path",
-      "right": 979
+      "right": 959
      },
      {
       "sel": "span",
-      "right": 933
+      "right": 913
      }
     ]
    },
@@ -1732,19 +1712,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 971,
     "widest": [
      {
-      "sel": "a",
-      "right": 1363
+      "sel": "col",
+      "right": 1674
      },
      {
-      "sel": "a",
-      "right": 1257
+      "sel": "path",
+      "right": 1664
      },
      {
-      "sel": "a",
-      "right": 1098
+      "sel": "path",
+      "right": 1664
      }
     ]
    },
@@ -1753,19 +1733,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 982,
     "widest": [
      {
-      "sel": "strong",
-      "right": 1164
+      "sel": "col",
+      "right": 1685
      },
      {
-      "sel": "strong",
-      "right": 1056
+      "sel": "path",
+      "right": 1677
      },
      {
-      "sel": "strong",
-      "right": 899
+      "sel": "span.ant-typography.ant-typography-secondary.css-1daqxe2",
+      "right": 1677
      }
     ]
    },
@@ -1774,75 +1754,166 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 1503,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 2206
+     },
+     {
+      "sel": "path",
+      "right": 2196
+     },
+     {
+      "sel": "path",
+      "right": 2196
+     }
+    ]
    },
    {
     "route": "/erp/assets",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 762,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1465
+     },
+     {
+      "sel": "path",
+      "right": 1456
+     },
+     {
+      "sel": "path",
+      "right": 1456
+     }
+    ]
    },
    {
     "route": "/erp/operational",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 582,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1285
+     },
+     {
+      "sel": "path",
+      "right": 1276
+     },
+     {
+      "sel": "path",
+      "right": 1276
+     }
+    ]
    },
    {
     "route": "/erp/financial-dashboard",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 612,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1315
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1315
+     },
+     {
+      "sel": "path",
+      "right": 1305
+     }
+    ]
    },
    {
     "route": "/erp/vendor-accounts",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 486,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1189
+     },
+     {
+      "sel": "path",
+      "right": 1179
+     },
+     {
+      "sel": "path",
+      "right": 1179
+     }
+    ]
    },
    {
     "route": "/erp/client-accounts",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 656,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1359
+     },
+     {
+      "sel": "span",
+      "right": 1351
+     },
+     {
+      "sel": "span",
+      "right": 1351
+     }
+    ]
    },
    {
     "route": "/documents",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 1441,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 2173
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 2173
+     },
+     {
+      "sel": "div",
+      "right": 2165
+     }
+    ]
    },
    {
     "route": "/contract-cases",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 681,
     "widest": [
      {
-      "sel": "strong",
-      "right": 1140
+      "sel": "col",
+      "right": 1384
      },
      {
-      "sel": "strong",
-      "right": 891
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1384
      },
      {
-      "sel": "strong",
-      "right": 849
+      "sel": "div",
+      "right": 1376
      }
     ]
    },
@@ -1872,16 +1943,42 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 176,
+    "widest": [
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 887
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 887
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 887
+     }
+    ]
    },
    {
     "route": "/pm/cases",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 768,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1496
+     },
+     {
+      "sel": "path",
+      "right": 1487
+     },
+     {
+      "sel": "path",
+      "right": 1487
+     }
+    ]
    },
    {
     "route": "/agencies",
@@ -1896,27 +1993,61 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 84,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 791
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 791
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 791
+     }
+    ]
    },
    {
     "route": "/vendors",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 119,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 826
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 826
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 826
+     }
+    ]
    },
    {
     "route": "/staff",
     "viewportWidth": 768,
     "pageOverflow": 32,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 135,
     "widest": [
      {
-      "sel": "span",
-      "right": 784
+      "sel": "col",
+      "right": 842
+     },
+     {
+      "sel": "path",
+      "right": 833
+     },
+     {
+      "sel": "path",
+      "right": 833
      }
     ]
    },
@@ -1925,19 +2056,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 681,
     "widest": [
      {
-      "sel": "strong",
-      "right": 1140
+      "sel": "col",
+      "right": 1384
      },
      {
-      "sel": "strong",
-      "right": 891
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1384
      },
      {
-      "sel": "strong",
-      "right": 849
+      "sel": "div",
+      "right": 1376
      }
     ]
    },
@@ -1950,15 +2081,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1166
+      "right": 1040
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1109
+      "sel": "span",
+      "right": 985
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1051
+      "sel": "span",
+      "right": 770
      }
     ]
    },
@@ -1967,7 +2098,7 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 70,
     "widest": []
    },
    {
@@ -1975,24 +2106,63 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 1480,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 2183
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 2183
+     },
+     {
+      "sel": "div",
+      "right": 2175
+     }
+    ]
    },
    {
     "route": "/erp/einvoice-sync",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 272,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 975
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 975
+     },
+     {
+      "sel": "path",
+      "right": 965
+     }
+    ]
    },
    {
     "route": "/erp/invoices/summary-view",
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 1017,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1720
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1720
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1720
+     }
+    ]
    },
    {
     "route": "/taoyuan",
@@ -2032,15 +2202,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1166
+      "right": 1040
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1109
+      "sel": "span",
+      "right": 985
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1051
+      "sel": "span",
+      "right": 770
      }
     ]
    },
@@ -2053,15 +2223,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1166
+      "right": 1040
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1109
+      "sel": "span",
+      "right": 985
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1051
+      "sel": "span",
+      "right": 770
      }
     ]
    },
@@ -2070,19 +2240,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 1207,
     "widest": [
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 1221
+      "sel": "col",
+      "right": 1914
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 1221
+      "sel": "path",
+      "right": 1904
      },
      {
-      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
-      "right": 1161
+      "sel": "path",
+      "right": 1904
      }
     ]
    },
@@ -2091,15 +2261,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 613,
     "widest": [
      {
-      "sel": "a",
-      "right": 935
+      "sel": "col",
+      "right": 1332
      },
      {
-      "sel": "a",
-      "right": 870
+      "sel": "path",
+      "right": 1322
+     },
+     {
+      "sel": "path",
+      "right": 1322
      }
     ]
    },
@@ -2127,17 +2301,13 @@
    {
     "route": "/erp/quotations/168",
     "viewportWidth": 768,
-    "pageOverflow": 19,
+    "pageOverflow": 0,
     "layoutViewport": 768,
     "tableOverflow": 0,
     "widest": [
      {
       "sel": "span",
       "right": 777
-     },
-     {
-      "sel": "span",
-      "right": 771
      }
     ]
    },
@@ -2194,47 +2364,63 @@
    {
     "route": "/erp/quotations/168?tab=receivable",
     "viewportWidth": 768,
-    "pageOverflow": 19,
+    "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 478,
     "widest": [
      {
-      "sel": "span",
-      "right": 777
+      "sel": "col",
+      "right": 1185
      },
      {
-      "sel": "span",
-      "right": 771
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1185
+     },
+     {
+      "sel": "div",
+      "right": 1177
      }
     ]
    },
    {
     "route": "/erp/quotations/168?tab=payable",
     "viewportWidth": 768,
-    "pageOverflow": 19,
+    "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 552,
     "widest": [
      {
-      "sel": "span",
-      "right": 777
+      "sel": "col",
+      "right": 1259
      },
      {
-      "sel": "span",
-      "right": 771
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1259
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1259
      }
     ]
    },
    {
     "route": "/erp/quotations/168?tab=expenses",
     "viewportWidth": 768,
-    "pageOverflow": 19,
+    "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 0,
+    "tableOverflow": 270,
     "widest": [
      {
-      "sel": "span",
-      "right": 771
+      "sel": "col",
+      "right": 977
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-green",
+      "right": 969
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-green",
+      "right": 969
      }
     ]
    },
@@ -2277,6 +2463,711 @@
      {
       "sel": "span",
       "right": 1232
+     }
+    ]
+   },
+   {
+    "route": "/erp/expenses",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 731,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1682
+     },
+     {
+      "sel": "path",
+      "right": 1672
+     },
+     {
+      "sel": "path",
+      "right": 1672
+     }
+    ]
+   },
+   {
+    "route": "/erp/quotations",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 322,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1273
+     },
+     {
+      "sel": "path",
+      "right": 1265
+     },
+     {
+      "sel": "span.ant-typography.ant-typography-secondary.css-1daqxe2",
+      "right": 1265
+     }
+    ]
+   },
+   {
+    "route": "/erp/ledger",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 222,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1173
+     },
+     {
+      "sel": "path",
+      "right": 1163
+     },
+     {
+      "sel": "path",
+      "right": 1163
+     }
+    ]
+   },
+   {
+    "route": "/erp/assets",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 522,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1473
+     },
+     {
+      "sel": "path",
+      "right": 1464
+     },
+     {
+      "sel": "path",
+      "right": 1464
+     }
+    ]
+   },
+   {
+    "route": "/erp/operational",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 342,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1293
+     },
+     {
+      "sel": "path",
+      "right": 1284
+     },
+     {
+      "sel": "path",
+      "right": 1284
+     }
+    ]
+   },
+   {
+    "route": "/erp/financial-dashboard",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 522,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1473
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1473
+     },
+     {
+      "sel": "path",
+      "right": 1463
+     }
+    ]
+   },
+   {
+    "route": "/erp/vendor-accounts",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 222,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1173
+     },
+     {
+      "sel": "path",
+      "right": 1163
+     },
+     {
+      "sel": "path",
+      "right": 1163
+     }
+    ]
+   },
+   {
+    "route": "/erp/client-accounts",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 282,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1233
+     },
+     {
+      "sel": "span",
+      "right": 1225
+     },
+     {
+      "sel": "span",
+      "right": 1225
+     }
+    ]
+   },
+   {
+    "route": "/documents",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 354,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1330
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1330
+     },
+     {
+      "sel": "div",
+      "right": 1322
+     }
+    ]
+   },
+   {
+    "route": "/contract-cases",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 341,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 1292
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 1292
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 1292
+     }
+    ]
+   },
+   {
+    "route": "/taoyuan/dispatch",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 348,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1311
+     },
+     {
+      "sel": "path",
+      "right": 1301
+     },
+     {
+      "sel": "path",
+      "right": 1301
+     }
+    ]
+   },
+   {
+    "route": "/calendar",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/kunge/ops",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 114,
+    "widest": [
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1077
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1077
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1077
+     }
+    ]
+   },
+   {
+    "route": "/pm/cases",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 92,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1068
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1068
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1068
+     }
+    ]
+   },
+   {
+    "route": "/agencies",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 22,
+    "widest": []
+   },
+   {
+    "route": "/clients",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/vendors",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/staff",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 522,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1473
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1473
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1473
+     }
+    ]
+   },
+   {
+    "route": "/projects",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 341,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 1292
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 1292
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
+      "right": 1292
+     }
+    ]
+   },
+   {
+    "route": "/dashboard",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1300
+     },
+     {
+      "sel": "span",
+      "right": 1245
+     },
+     {
+      "sel": "span",
+      "right": 1030
+     }
+    ]
+   },
+   {
+    "route": "/reports",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/document-numbers",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 372,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1323
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1323
+     },
+     {
+      "sel": "div",
+      "right": 1315
+     }
+    ]
+   },
+   {
+    "route": "/erp/einvoice-sync",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 122,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1073
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1073
+     },
+     {
+      "sel": "path",
+      "right": 1063
+     }
+    ]
+   },
+   {
+    "route": "/erp/invoices/summary-view",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 422,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1373
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1373
+     },
+     {
+      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1373
+     }
+    ]
+   },
+   {
+    "route": "/taoyuan",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 348,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1311
+     },
+     {
+      "sel": "path",
+      "right": 1301
+     },
+     {
+      "sel": "path",
+      "right": 1301
+     }
+    ]
+   },
+   {
+    "route": "/settings",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/profile",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/entry",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1300
+     },
+     {
+      "sel": "span",
+      "right": 1245
+     },
+     {
+      "sel": "span",
+      "right": 1030
+     }
+    ]
+   },
+   {
+    "route": "/login",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1300
+     },
+     {
+      "sel": "span",
+      "right": 1245
+     },
+     {
+      "sel": "span",
+      "right": 1030
+     }
+    ]
+   },
+   {
+    "route": "/tender/search",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 222,
+    "widest": [
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
+      "right": 1264
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
+      "right": 1264
+     },
+     {
+      "sel": "span.ant-tag.ant-tag-filled.ant-tag-gold",
+      "right": 1204
+     }
+    ]
+   },
+   {
+    "route": "/tender/dashboard",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/documents/2689",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/erp/quotations/168",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/erp/expenses/10",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": []
+   },
+   {
+    "route": "/pm/cases/244",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 1360
+     },
+     {
+      "sel": "path",
+      "right": 1292
+     },
+     {
+      "sel": "span",
+      "right": 1244
+     }
+    ]
+   },
+   {
+    "route": "/contract-cases/187",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 1373
+     },
+     {
+      "sel": "path",
+      "right": 1305
+     },
+     {
+      "sel": "span",
+      "right": 1257
+     }
+    ]
+   },
+   {
+    "route": "/erp/quotations/168?tab=receivable",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 246,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1197
+     },
+     {
+      "sel": "th.ant-table-cell",
+      "right": 1197
+     },
+     {
+      "sel": "div",
+      "right": 1189
+     }
+    ]
+   },
+   {
+    "route": "/erp/quotations/168?tab=payable",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 320,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1271
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1271
+     },
+     {
+      "sel": "td.ant-table-cell",
+      "right": 1271
+     }
+    ]
+   },
+   {
+    "route": "/erp/quotations/168?tab=expenses",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 38,
+    "widest": []
+   },
+   {
+    "route": "/pm/cases/244?tab=quotations",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 1360
+     },
+     {
+      "sel": "path",
+      "right": 1292
+     },
+     {
+      "sel": "span",
+      "right": 1244
+     }
+    ]
+   },
+   {
+    "route": "/pm/cases/244?tab=expenses",
+    "viewportWidth": 1024,
+    "pageOverflow": 0,
+    "layoutViewport": 1024,
+    "tableOverflow": 0,
+    "widest": [
+     {
+      "sel": "span",
+      "right": 1360
+     },
+     {
+      "sel": "path",
+      "right": 1292
+     },
+     {
+      "sel": "span",
+      "right": 1244
      }
     ]
    }

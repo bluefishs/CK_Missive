@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-09-02T21:12:11.269Z",
+ "checked_at": "2026-09-05T21:12:02.556Z",
  "base": "https://missive.cksurvey.tw",
  "role": "user",
  "pass": 13,
@@ -42,8 +42,8 @@
   {
    "id": "table-sort-filter-present",
    "values": [
-    ".ant-table-column-sorter=20",
-    ".ant-table-filter-trigger=2"
+    ".ant-table-column-sorter=16",
+    ".ant-table-filter-trigger=6"
    ]
   },
   {
