@@ -74,7 +74,10 @@ WINDOW_DAYS = 7
 #   月結、月報、年度作業這類低頻功能在此視窗必然是 0 流量，
 #   **不得**據此判定為死功能 —— 零流量清單對這類功能只能作為人工複核的線索。
 MIN_DATA_DAYS = 14
-DECISION_DATE = "2026-08-31"
+# 2026-09-06 owner A110：08-31 判定時點到了，69 個候選逐一對照程式碼——65 個前端程式碼有呼叫（只是 7 天沒人用）、
+# 3 個是 Hermes 排程／skill 打的、真正無人引用 1 個。人工複核 69 個是白工，判準改成「零流量 ∧ 無任何呼叫者」
+# 才交給人；下一個檢視點放一季後。
+DECISION_DATE = "2026-12-01"
 
 # `path` 標籤改記路由樣板（而非原始 URL）的日期。見下方 schema_settled 說明。
 PATH_LABEL_TEMPLATED_SINCE = datetime(2026, 8, 4, tzinfo=timezone.utc)
@@ -152,6 +155,29 @@ def _exempt_reason(endpoint: str) -> str | None:
     return None
 
 
+def _find_callers(endpoint: str) -> list:
+    """回 ['frontend'|'backend/skill']——git grep 路徑最後兩段（去掉 {參數}），參數路由再退一步找樣板的最後一段。
+    找不到不代表沒有（動態組字串），但找得到就一定不是死的。"""
+    import subprocess
+    segs = [x for x in endpoint.replace("/api", "").split("/") if x and not x.startswith("{")]
+    key = "/".join(segs[-2:]) if len(segs) >= 2 else (segs[-1] if segs else endpoint)
+    found = []
+
+    def _grep(pattern, *paths):
+        try:
+            r = subprocess.run(["git", "grep", "-l", "--", pattern, "--", *paths], capture_output=True, text=True, timeout=30)
+            return bool(r.stdout.strip())
+        except Exception:
+            return False
+
+    fe_paths = ["frontend/src", ":!frontend/src/__tests__", ":!frontend/src/api/__tests__", ":!frontend/src/types/generated"]
+    if _grep(key, *fe_paths) or ("{" in endpoint and segs and _grep(f"/{segs[-1]}`", *fe_paths)):
+        found.append("frontend")
+    if _grep(key, "backend/app/services", "backend/app/core", "docs/hermes-skills"):
+        found.append("backend/skill")
+    return found
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true", help="只輸出 JSON")
@@ -226,6 +252,10 @@ def main() -> int:
     # 混在一起會讓「dead capability」清單充滿頁面路徑而失去意義（首版 404 筆多為此類）。
     candidates = sorted(e for e in unexempt if e.startswith("/api/"))
     page_routes_zero = sorted(e for e in unexempt if not e.startswith("/api/"))
+    # 2026-09-06：零流量 ≠ 死。對每個候選找呼叫者——前端程式碼（不含測試）／後端排程與 skill 文件。
+    # 三者都沒有的才是「dead candidate」，交給人看的是這份短名單，不是 69 個。
+    callers = {c: _find_callers(c) for c in candidates}
+    dead_candidates = sorted(c for c, w in callers.items() if not w)
 
     # depth < 0 代表取不到深度（未知），與「資料不足」都不得視為足夠
     #
@@ -260,6 +290,8 @@ def main() -> int:
         },
         "top_active": sorted(active.items(), key=lambda kv: -kv[1])[:15],
         "zero_traffic_api_candidates": candidates,
+        "zero_traffic_with_callers": {c: w for c, w in callers.items() if w},
+        "dead_candidates": dead_candidates,
         "zero_traffic_page_routes": page_routes_zero,
         "exempt": [{"endpoint": e, "reason": r} for e, r in exempt],
         # 明確寫進產出，避免日後有人拿不足的資料當結論
@@ -342,11 +374,14 @@ def main() -> int:
 
     if not quiet:
         print("\n✅ 資料足夠，可進入判定（仍須人工核實季節性功能）")
+        print(f"   零流量 API {len(candidates)} 個：{len(candidates) - len(dead_candidates)} 個有呼叫者（只是視窗內沒人用），"
+              f"**無任何呼叫者 {len(dead_candidates)} 個**：")
+        for c in dead_candidates:
+            print(f"     - {c}")
         if due:
-            print(f"\n🟡 判定時點 {DECISION_DATE} 已到且資料足夠 —— **這是提請決策，不是故障**。")
-            print(f"   請逐一核實 {len(candidates)} 個零流量 API 候選後下結論，")
-            print(f"   並把 DECISION_DATE 改為下一個檢視點（否則此提醒會每週重複）。")
-    return 1 if due else 0
+            print(f"\n🟡 判定時點 {DECISION_DATE} 已到 —— 只有上面那份短名單要人下結論；結論後把 DECISION_DATE 改為下一個檢視點。")
+    # 2026-09-06：黃燈只在「有無呼叫者的候選」或「到期」時亮；65 個「有人呼叫、7 天沒用」不再每天叫人
+    return 1 if (due or dead_candidates) else 0
 
 
 if __name__ == "__main__":

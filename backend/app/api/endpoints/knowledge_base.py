@@ -164,17 +164,7 @@ async def get_code_wiki_overview(
     return JSONResponse({"success": True, "data": result})
 
 
-@router.post("/stats", response_model=KBStatsResponse)
-async def get_kb_stats(
-    _admin: dict = Depends(require_admin()),
-    db: AsyncSession = Depends(get_async_db),
-) -> KBStatsResponse:
-    """取得知識庫 Embedding 統計資訊。"""
-    from app.services.ai.misc.kb_embedding import KBEmbeddingService
-
-    kb_service = KBEmbeddingService(db)
-    stats = await kb_service.get_stats()
-    return KBStatsResponse(success=True, **stats)
+# /stats 已於 2026-09-06 刪除（A110：Prometheus 26 天零流量、前端與 skill 零呼叫者；KBEmbeddingService.get_stats 仍在，需要時由 embed-status 類端點提供）
 
 
 @router.post("/summarize-card")
