@@ -61,26 +61,20 @@ describe('財務清單必須可鑽取', () => {
 
   it('erpQuotation/ExpensesTab 的鑽取入口不得被 canEdit 限制', () => {
     const raw = readFileSync(join(SRC, 'pages/erpQuotation/ExpensesTab.tsx'), 'utf-8');
-    // 必須先剝除註解才能比對位置。
-    // （本測試初版忘了剝除，結果比對到說明用註解裡的「檢視」二字 → 負向測試證實為假綠，
-    //   即「測試自己也會沉默成功」。修法：只看實際程式碼。）
+    // 必須先剝除註解才能比對位置（初版比對到註解裡的字 → 假綠）。
     const src = raw
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '');
 
-    const idx = src.indexOf("title: '操作'");
-    expect(idx).toBeGreaterThan(0);
-    const actions = src.slice(idx, idx + 2000);
-
-    const detailIdx = actions.indexOf('ERP_EXPENSE_DETAIL');
-    const canEditIdx = actions.indexOf('{canEdit');
-    expect(detailIdx, '操作欄沒有任何導向核銷詳情的按鈕').toBeGreaterThan(0);
-    expect(canEditIdx, '找不到 canEdit 條件式（元件結構已變，請更新本測試）').toBeGreaterThan(0);
-    // 第一個鑽取入口必須出現在第一個 canEdit 條件之前 → 代表它不在條件式內
-    expect(
-      detailIdx < canEditIdx,
-      '鑽取入口被包在 canEdit 條件內：verified（已核准）紀錄將再次失去入口',
-    ).toBe(true);
+    // 2026-09-06：操作欄已整欄移除（一畫面 19 顆按鈕），鑽取入口改為 onRow 點整列進詳情。
+    // 契約不變：入口必須無條件存在——所以改驗 onRow 內有 ERP_EXPENSE_DETAIL，且它不在任何 canEdit 條件式之內。
+    const rowIdx = src.indexOf('onRow=');
+    expect(rowIdx, '找不到 onRow（元件結構已變，請更新本測試）').toBeGreaterThan(0);
+    const rowBlock = src.slice(rowIdx, rowIdx + 1200);
+    const detailIdx = rowBlock.indexOf('ERP_EXPENSE_DETAIL');
+    expect(detailIdx, 'onRow 沒有導向核銷詳情').toBeGreaterThan(0);
+    const gated = rowBlock.slice(0, detailIdx).includes('canEdit');
+    expect(gated, '鑽取入口被 canEdit 條件包住 —— verified 的紀錄會失去入口').toBe(false);
   });
 });
 

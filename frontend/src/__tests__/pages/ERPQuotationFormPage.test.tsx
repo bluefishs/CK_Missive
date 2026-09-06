@@ -155,7 +155,7 @@ describe('ERPQuotationFormPage', () => {
         expect(screen.getByText('年度')).toBeInTheDocument();
         expect(screen.getByText('報價類別')).toBeInTheDocument();
         expect(screen.getByText('狀態')).toBeInTheDocument();
-        expect(screen.getByText('總價 (含稅)')).toBeInTheDocument();
+        expect(screen.getByText('報價總額' /* 08-28 起標籤不寫含稅（明細回寫的是未稅小計） */)).toBeInTheDocument();
         expect(screen.getByText('稅額')).toBeInTheDocument();
         expect(screen.getByText('外包費')).toBeInTheDocument();
         expect(screen.getByText('人事費')).toBeInTheDocument();

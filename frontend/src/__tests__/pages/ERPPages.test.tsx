@@ -20,7 +20,7 @@ import zhTW from 'antd/locale/zh_TW';
 import React, { Suspense } from 'react';
 import { createTestQueryClient } from '../../test/testUtils';
 
-const WAIT_OPTS = { timeout: 5000 };
+const WAIT_OPTS = { timeout: 9000 }; // 2026-09-06：首支測試要吞下頁面冷載入，5s 會在載入中就判失敗
 
 // ==========================================================================
 // Common Mocks
@@ -147,9 +147,9 @@ describe('ERPExpenseListPage', () => {
     const { default: ERPExpenseListPage } = await import('../../pages/ERPExpenseListPage');
     renderPage(<ERPExpenseListPage />);
     await waitFor(() => {
-      expect(screen.getByText(/費用報銷/)).toBeInTheDocument();
+      expect(screen.getByText(/費用核銷/) /* 標題＝費用核銷審核 */).toBeInTheDocument();
     }, WAIT_OPTS);
-  });
+  }, 20000); // 首支測試含頁面冷載入（實測 >5s），10s 的 testTimeout 不夠
 
   it('renders action buttons', async () => {
     const { default: ERPExpenseListPage } = await import('../../pages/ERPExpenseListPage');

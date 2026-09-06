@@ -157,7 +157,7 @@ describe('API_ENDPOINTS 結構完整性', () => {
 
   it('頂層群組數量應為 29 個', () => {
     const groupCount = Object.keys(API_ENDPOINTS).length;
-    expect(groupCount).toBe(29);
+    expect(groupCount).toBe(37); // 2026-09-06 校正（原 29；群組數隨模組增長，這裡鎖的是「有人刻意數過」）
   });
 });
 
@@ -843,7 +843,9 @@ describe('AI_ENDPOINTS', () => {
 
   it('所有端點路徑應包含 /ai/', () => {
     const endpoints = collectAllEndpointValues(AI_ENDPOINTS);
-    for (const { value } of endpoints) {
+    for (const { path, value } of endpoints) {
+      // WIKI_* 是 LLM Wiki（57g）的端點，掛在 /wiki/ 前綴而由 AI 群組管理
+      if (String(path).includes('WIKI_')) { expect(value).toContain('/wiki/'); continue; }
       expect(value).toContain('/ai/');
     }
   });

@@ -160,14 +160,14 @@ describe('ERPQuotationDetailPage', () => {
     mockUseERPQuotation.mockReturnValueOnce({ data: null, isLoading: false });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('報價不存在')).toBeInTheDocument();
+      expect(screen.getByText('找不到資料')).toBeInTheDocument(); // DetailPageLayout hasData=false 顯示 Empty，不顯示標題
     }, WAIT_OPTS);
   });
 
   it('renders quotation title with case code and name', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('CK2025_FN_01_001 - 報價案件A')).toBeInTheDocument();
+      expect(screen.getAllByText('報價案件A')[0] /* 標題＝案名（描述區也有一份）；案號進 subtitle */).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
@@ -181,16 +181,16 @@ describe('ERPQuotationDetailPage', () => {
   it('renders back button', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('返回')).toBeInTheDocument();
+      expect(screen.getByText('返回列表')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
   it('navigates back when back button is clicked', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('返回')).toBeInTheDocument();
+      expect(screen.getByText('返回列表')).toBeInTheDocument();
     }, WAIT_OPTS);
-    fireEvent.click(screen.getByText('返回'));
+    fireEvent.click(screen.getByText('返回列表'));
     expect(mockNavigate).toHaveBeenCalledWith('/erp/quotations');
   });
 
@@ -198,9 +198,9 @@ describe('ERPQuotationDetailPage', () => {
     renderPage();
     await waitFor(() => {
       // Some labels like "總價" appear in both Statistic cards and Descriptions, so check at least one exists
-      expect(screen.getAllByText('總價').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('成本')).toBeInTheDocument();
-      expect(screen.getByText('毛利率')).toBeInTheDocument();
+      expect(screen.getAllByText('承攬金額（含稅）') /* 09-05 起統一為承攬金額 */.length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('估列成本（報價單）')).toBeInTheDocument(); // financeTerms.cost_estimated
+      expect(screen.getByText('預估毛利率')).toBeInTheDocument();
       expect(screen.getByText('已請款')).toBeInTheDocument();
       expect(screen.getByText('已收款')).toBeInTheDocument();
     }, WAIT_OPTS);
@@ -216,21 +216,21 @@ describe('ERPQuotationDetailPage', () => {
   it('renders invoices tab label with count', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('發票 (3)')).toBeInTheDocument();
+      expect(screen.getByText('應收帳款') /* 發票／請款併入應收帳款分頁 */).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
   it('renders billings tab label with count', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('請款 (2)')).toBeInTheDocument();
+      expect(screen.getByText('應付帳款')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
   it('renders vendor payables tab', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('廠商應付')).toBeInTheDocument();
+      expect(screen.getByText('報價明細')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 

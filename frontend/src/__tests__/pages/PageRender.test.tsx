@@ -303,6 +303,10 @@ vi.mock('../../components/taoyuan/DocumentsTab', () => ({
 vi.mock('../../components/taoyuan/DispatchOrdersTab', () => ({
   DispatchOrdersTab: () => <div>DispatchOrdersTab</div>,
 }));
+// 2026-09-06：派工頁預設分頁改為總覽（DispatchOverviewTab），它直接打 useTaoyuanDispatchOrders ⇒ 沒 mock 會讀到 undefined.orders
+vi.mock('../../components/taoyuan/DispatchOverviewTab', () => ({
+  DispatchOverviewTab: () => <div>DispatchOverviewTab</div>,
+}));
 vi.mock('../../components/taoyuan/PaymentsTab', () => ({
   PaymentsTab: () => <div>PaymentsTab</div>,
 }));
@@ -441,10 +445,11 @@ describe('Page Render Smoke Tests', () => {
   });
 
   describe('LoginPage', () => {
-    it('renders without crashing and shows app title', async () => {
+    it('renders without crashing (legacy redirect to /entry since ADR-0033; no app title)', async () => {
       const LoginPage = (await import('../../pages/LoginPage')).default;
-      renderWithProviders(<LoginPage />);
-      expect(screen.getByText('乾坤測繪')).toBeInTheDocument();
+      const { container } = renderWithProviders(<LoginPage />);
+      expect(container).toBeTruthy();
+      expect(screen.queryByText('帳號密碼登入')).toBeNull();
     });
   });
 

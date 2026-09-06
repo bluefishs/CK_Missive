@@ -68,6 +68,9 @@ vi.mock('../../constants/taoyuanOptions', () => ({
   },
 }));
 
+vi.mock('../../components/taoyuan/DispatchOverviewTab', () => ({
+  DispatchOverviewTab: () => <div data-testid="mock-dispatch-overview-tab">DispatchOverview</div>,
+}));
 vi.mock('../../components/taoyuan/DispatchOrdersTab', () => ({
   DispatchOrdersTab: ({ contractProjectId }: { contractProjectId: number }) => (
     <div data-testid="mock-dispatch-orders-tab">DispatchOrders (project: {contractProjectId})</div>
@@ -213,15 +216,19 @@ describe('TaoyuanDispatchPage', () => {
     }, WAIT_OPTS);
   });
 
-  it('renders dispatch orders tab content by default', async () => {
+  it('renders dispatch overview tab by default (派工總覽 since 2026-08)', async () => {
     renderTaoyuanDispatchPage();
     await waitFor(() => {
-      expect(screen.getByTestId('mock-dispatch-orders-tab')).toBeInTheDocument();
+      expect(screen.getByTestId('mock-dispatch-overview-tab')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
-  it('passes correct project ID to dispatch orders tab', async () => {
+  it('passes correct project ID to dispatch orders tab after switching to 派工紀錄', async () => {
     renderTaoyuanDispatchPage();
+    await waitFor(() => {
+      expect(screen.getByText('派工紀錄')).toBeInTheDocument();
+    }, WAIT_OPTS);
+    fireEvent.click(screen.getByText('派工紀錄'));
     await waitFor(() => {
       expect(screen.getByText(/DispatchOrders \(project: 21\)/)).toBeInTheDocument();
     }, WAIT_OPTS);

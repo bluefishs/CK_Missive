@@ -10,7 +10,7 @@
  *   cd frontend && npx vitest run src/__tests__/pages/ERPExpensePages.test.tsx
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { App as AntApp, ConfigProvider } from 'antd';
@@ -18,7 +18,7 @@ import zhTW from 'antd/locale/zh_TW';
 import React from 'react';
 import { createTestQueryClient } from '../../test/testUtils';
 
-const WAIT_OPTS = { timeout: 5000 };
+const WAIT_OPTS = { timeout: 9000 }; // 2026-09-06：首支測試要吞下頁面冷載入（實測 5.6s），5s 會在載入中就判失敗
 
 // ==========================================================================
 // Mocks
@@ -368,6 +368,9 @@ describe('ERPExpenseCreatePage', () => {
 
   it('renders amount and tax fields', async () => {
     renderCreatePage();
+    // 稅額／統編／幣別自 08-xx 起收進「進階」摺疊區（QR 掃描會自動帶入，手填才展開）
+    await waitFor(() => expect(screen.getByText(/^進階（/)).toBeInTheDocument(), WAIT_OPTS);
+    fireEvent.click(screen.getByText(/^進階（/));
     await waitFor(() => {
       expect(screen.getByText('含稅總額')).toBeInTheDocument();
       expect(screen.getByText('稅額')).toBeInTheDocument();
@@ -402,6 +405,9 @@ describe('ERPExpenseCreatePage', () => {
 
   it('renders ban fields', async () => {
     renderCreatePage();
+    // 稅額／統編／幣別自 08-xx 起收進「進階」摺疊區（QR 掃描會自動帶入，手填才展開）
+    await waitFor(() => expect(screen.getByText(/^進階（/)).toBeInTheDocument(), WAIT_OPTS);
+    fireEvent.click(screen.getByText(/^進階（/));
     await waitFor(() => {
       expect(screen.getByText('買方統編')).toBeInTheDocument();
       expect(screen.getByText('賣方統編')).toBeInTheDocument();
@@ -410,6 +416,9 @@ describe('ERPExpenseCreatePage', () => {
 
   it('renders currency select', async () => {
     renderCreatePage();
+    // 稅額／統編／幣別自 08-xx 起收進「進階」摺疊區（QR 掃描會自動帶入，手填才展開）
+    await waitFor(() => expect(screen.getByText(/^進階（/)).toBeInTheDocument(), WAIT_OPTS);
+    fireEvent.click(screen.getByText(/^進階（/));
     await waitFor(() => {
       expect(screen.getByText('幣別')).toBeInTheDocument();
     }, WAIT_OPTS);
@@ -461,8 +470,8 @@ describe('ERPExpenseDetailPage', () => {
   it('renders status badge', async () => {
     renderDetailPage();
     await waitFor(() => {
-      // EXPENSE_STATUS_LABELS.pending = '待主管審核'
-      const tags = screen.getAllByText('待主管審核');
+      // EXPENSE_STATUS_LABELS.pending = '待審核'（08-17 流程簡化後改名）
+      const tags = screen.getAllByText('待審核');
       expect(tags.length).toBeGreaterThanOrEqual(1);
     }, WAIT_OPTS);
   });
@@ -483,12 +492,15 @@ describe('ERPExpenseDetailPage', () => {
     }, WAIT_OPTS);
   });
 
-  it('renders approve and reject buttons when user has permission', async () => {
+  it('does not render approve/reject while approval is paused (EXPENSE_APPROVAL_ENABLED=false)', async () => {
+    // 2026-08-17 核准機制暫緩：後端會拒絕，頁面刻意不顯示核准／駁回（ERPExpenseDetailPage canAdvance）。
+    // 恢復核准機制時把這支改回正向斷言。
     renderDetailPage();
     await waitFor(() => {
-      expect(screen.getByText('主管核准')).toBeInTheDocument();
-      expect(screen.getByText('駁回')).toBeInTheDocument();
+      expect(screen.getAllByText('待審核').length).toBeGreaterThanOrEqual(1);
     }, WAIT_OPTS);
+    expect(screen.queryByText('主管核准')).toBeNull();
+    expect(screen.queryByText('駁回')).toBeNull();
   });
 
   it('renders receipt tab', async () => {

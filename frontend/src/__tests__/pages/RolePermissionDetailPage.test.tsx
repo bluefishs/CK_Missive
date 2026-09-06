@@ -28,6 +28,26 @@ vi.mock('@ck-shared/ui-components', () => ({
   ResponsiveContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
+// 2026-09-06：頁面的五支 react-query hook 沒 mock ⇒ 永遠 isLoading ⇒ 只看得到「載入中...」。
+// ⚠️ 回傳物件要穩定（vi.hoisted 一次建好）：工廠每次 render 回新物件會讓依賴 data 的 useEffect 無限重跑，整支測試卡死。
+const rpMocks = vi.hoisted(() => {
+  const noop = () => undefined;
+  const detail = { data: { role: { role: 'admin', name_zh: '管理員', permissions: [], users: [], user_count: 0, nav_items: [] }, permissions: [], users: [] }, isLoading: false, refetch: noop };
+  const avail = { data: { permissions: [], unassigned: [], unassigned_count: 0 } };
+  const mut = { mutateAsync: async () => undefined, isPending: false };
+  const nav = { data: { tree: [] }, isLoading: false, refetch: noop };
+  return { detail, avail, mut, nav };
+});
+vi.mock('../../hooks/system/useRolePermissions', () => ({
+  useRolePermissionsDetail: () => rpMocks.detail,
+  useAvailablePermissions: () => rpMocks.avail,
+  useUpdateRolePermissions: () => rpMocks.mut,
+  useSyncRoleUsers: () => rpMocks.mut,
+  useNavTree: () => rpMocks.nav,
+}));
+vi.mock('../../components/admin/NavTreePermissionEditor', () => ({
+  default: () => <div data-testid="mock-nav-tree-editor" />,
+}));
 vi.mock('../../components/admin/PermissionManager', () => ({
   default: () => <div data-testid="mock-permission-manager">PermissionManager</div>,
 }));
@@ -64,6 +84,6 @@ describe('RolePermissionDetailPage', () => {
   it('renders without crashing', async () => {
     const mod = await import('../../pages/RolePermissionDetailPage');
     renderWithProviders(<mod.default />);
-    expect(screen.getAllByText(/管理員|角色權限/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/詳細權限設定/ /* 標題＝`${角色名} 詳細權限設定` */).length).toBeGreaterThan(0);
   });
 });

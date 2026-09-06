@@ -157,7 +157,7 @@ describe('SecureApiService', () => {
       );
     });
 
-    it('L49: 並發 secureRequest 共用 single-flight inflight promise（防 race condition）', async () => {
+    it('L69: 並發 secureRequest 各拉自己的 CSRF token（single-use token 不可共用；L49 的 single-flight 已移除）', async () => {
       const service = await createFreshService();
 
       // 設定 mock：一次 csrf-token 回應 + 兩個 navigation 請求回應
@@ -170,14 +170,14 @@ describe('SecureApiService', () => {
         return { success: true, data: { items: [] } };
       });
 
-      // 同時觸發 2 個並發 secureRequest（L49 single-flight 應只發 1 次 csrf-token）
+      // 同時觸發 2 個並發 secureRequest：後端 token 驗證即刪（single-use），共用會讓第二個 403 ⇒ 必須各拉一張
       await Promise.all([
         service.getNavigationItems(),
         service.getNavigationItems(),
       ]);
 
-      // 預期：csrf-token endpoint 只被打 1 次（single-flight 鎖 inflight promise）
-      expect(csrfCallCount).toBe(1);
+      // 預期：csrf-token endpoint 被打 2 次（每個 secureRequest 一張；L69 2026-06-11）
+      expect(csrfCallCount).toBe(2);
     });
   });
 

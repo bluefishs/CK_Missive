@@ -20,7 +20,7 @@ import zhTW from 'antd/locale/zh_TW';
 import React from 'react';
 import { createTestQueryClient } from '../../test/testUtils';
 
-const WAIT_OPTS = { timeout: 5000 };
+const WAIT_OPTS = { timeout: 9000 }; // 2026-09-06：首支測試要吞下頁面冷載入，5s 會在載入中就判失敗
 
 // ==========================================================================
 // Mocks
@@ -156,12 +156,11 @@ describe('PMCaseFormPage', () => {
         expect(screen.getByText('案號')).toBeInTheDocument();
         expect(screen.getByText('專案名稱')).toBeInTheDocument();
         expect(screen.getByText('年度')).toBeInTheDocument();
-        expect(screen.getByText('作業類別')).toBeInTheDocument();
-        expect(screen.getByText('狀態')).toBeInTheDocument();
+        expect(screen.getByText('計畫類別') /* 09-04 名詞統一 */).toBeInTheDocument();
+        expect(screen.getByText('承攬狀態')).toBeInTheDocument();
         expect(screen.getByText('委託單位')).toBeInTheDocument();
         expect(screen.getByText('報價金額')).toBeInTheDocument();
-        expect(screen.getByText('開始日期')).toBeInTheDocument();
-        expect(screen.getByText('結束日期')).toBeInTheDocument();
+        // 開始／結束日期欄位已移除（邀標階段沒有工期；工期在成案後的承攬案）
         expect(screen.getByText('備註')).toBeInTheDocument();
       }, WAIT_OPTS);
     });

@@ -22,14 +22,13 @@ import {
 // ============================================================================
 
 describe('GRAPH_NODE_CONFIG', () => {
-  const expectedTypes = [
-    'document', 'project', 'agency', 'dispatch', 'typroject',
-    'menu_module', 'api_group',
-    'py_module', 'py_class', 'py_function', 'db_table',
-    'ts_module', 'ts_component', 'ts_hook',
-    'layer', 'capability', 'future',
-    'person', 'location', 'date', 'topic',
-    'domain', 'skill', 'agent', 'tool', 'service', 'command',
+  const expectedTypes = [ // 2026-09-06 依 graphNodeConfig.ts 現況重列（原 27 → 32：加 api_endpoint／schema／repository／config／middleware）
+    'document', 'project', 'agency', 'dispatch', 'typroject', 'py_module',
+    'py_class', 'py_function', 'db_table', 'ts_module', 'ts_component', 'ts_hook',
+    'api_endpoint', 'schema', 'repository', 'config', 'middleware', 'menu_module',
+    'api_group', 'layer', 'capability', 'future', 'domain', 'skill',
+    'agent', 'tool', 'service', 'command', 'person', 'location',
+    'date', 'topic',
   ];
 
   it('應該包含所有預期的節點類型', () => {
@@ -137,10 +136,10 @@ describe('CANONICAL_ENTITY_TYPES', () => {
   });
 
   it('應只包含 detailable 為 true 的類型', () => {
-    const expected = [
+    const expected = [ // 2026-09-06 依 detailable: true 現況重列（原 11 → 14）
+      'py_module', 'py_class', 'py_function', 'db_table', 'ts_module',
+      'ts_component', 'ts_hook', 'api_endpoint', 'schema', 'repository',
       'person', 'location', 'date', 'topic',
-      'py_module', 'py_class', 'py_function', 'db_table',
-      'ts_module', 'ts_component', 'ts_hook',
     ];
     expect(CANONICAL_ENTITY_TYPES.size).toBe(expected.length);
     for (const type of expected) {

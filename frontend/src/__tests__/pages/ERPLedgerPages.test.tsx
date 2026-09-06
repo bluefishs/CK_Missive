@@ -17,7 +17,7 @@ import zhTW from 'antd/locale/zh_TW';
 import React from 'react';
 import { createTestQueryClient } from '../../test/testUtils';
 
-const WAIT_OPTS = { timeout: 5000 };
+const WAIT_OPTS = { timeout: 9000 }; // 2026-09-06：首支測試要吞下頁面冷載入，5s 會在載入中就判失敗
 
 // ==========================================================================
 // Mocks
@@ -186,9 +186,9 @@ describe('ERPLedgerPage', () => {
   it('renders statistic cards with income and expense', async () => {
     renderLedgerPage();
     await waitFor(() => {
-      expect(screen.getByText('本頁收入')).toBeInTheDocument();
-      expect(screen.getByText('本頁支出')).toBeInTheDocument();
-      expect(screen.getByText('本頁淨額')).toBeInTheDocument();
+      expect(screen.getAllByText('收入').length).toBeGreaterThanOrEqual(1); // 08-29 起卡片改後端 /totals 全量，不再標「本頁」
+      expect(screen.getAllByText('支出').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('淨額').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('總筆數')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
@@ -302,8 +302,8 @@ describe('ERPLedgerCreatePage', () => {
   it('renders category field', async () => {
     renderLedgerCreatePage();
     await waitFor(() => {
-      expect(screen.getByText('分類')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('例：交通費、材料費')).toBeInTheDocument();
+      expect(screen.getByText('分類（會計科目）')).toBeInTheDocument();
+      expect(screen.getByText('選擇科目')).toBeInTheDocument(); // 分類改成 Select（會計科目），placeholder 是 span 文字
     }, WAIT_OPTS);
   });
 

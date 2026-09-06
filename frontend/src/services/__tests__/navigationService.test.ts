@@ -85,22 +85,15 @@ describe('navigationService', () => {
       expect(dashboard?.path).toBe('/dashboard');
     });
 
-    it('應該包含公文管理項目及子項目', () => {
+    it('fallback 只保留通用項目（LR-015：業務項目改由後端 seed），不再內建公文管理', () => {
       const items = navigationService.getDefaultNavigationItems();
-      const docMenu = items.find(item => item.key === 'documents-menu');
-
-      expect(docMenu).toBeDefined();
-      expect(docMenu?.children).toBeDefined();
-      expect(docMenu?.children?.length).toBeGreaterThan(0);
+      expect(items.find(item => item.key === 'dashboard')).toBeDefined();
+      expect(items.find(item => item.key === 'documents-menu')).toBeUndefined();
     });
 
-    it('子項目應該包含公文列表', () => {
+    it('fallback 至少有儀表板與模組選單兩個入口', () => {
       const items = navigationService.getDefaultNavigationItems();
-      const docMenu = items.find(item => item.key === 'documents-menu');
-      const docList = docMenu?.children?.find(child => child.key === 'document-list');
-
-      expect(docList).toBeDefined();
-      expect(docList?.path).toBe('/documents');
+      expect(items.map(i => i.key)).toEqual(expect.arrayContaining(['dashboard', 'modules-menu']));
     });
   });
 

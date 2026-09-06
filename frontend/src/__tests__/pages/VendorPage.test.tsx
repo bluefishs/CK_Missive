@@ -19,7 +19,7 @@ import React from 'react';
 import { createTestQueryClient } from '../../test/testUtils';
 
 // Dynamic import needs a longer timeout for module resolution in full test suite
-const WAIT_OPTS = { timeout: 5000 };
+const WAIT_OPTS = { timeout: 9000 }; // 2026-09-06：首支測試要吞下頁面冷載入，5s 會在載入中就判失敗
 
 // ==========================================================================
 // Mocks
@@ -179,7 +179,7 @@ describe('VendorPage', () => {
   it('renders vendor total statistic', async () => {
     renderVendorPage();
     await waitFor(() => {
-      expect(screen.getByText('總廠商數')).toBeInTheDocument();
+      expect(screen.getByText('全部') /* 統計卡改互動式：全部／高評價／未評價 */).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 

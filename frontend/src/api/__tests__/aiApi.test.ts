@@ -79,6 +79,11 @@ vi.mock('../endpoints', () => ({
 vi.mock('axios', () => ({
   default: {
     isCancel: vi.fn(() => false),
+    // naturalSearch.ts 在模組層 axios.create(...)；mock 少了 create 整個 suite 載入即炸（2026-09-06）
+    create: vi.fn(() => ({
+      post: vi.fn(), get: vi.fn(),
+      interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } },
+    })),
   },
   isCancel: vi.fn(() => false),
 }));

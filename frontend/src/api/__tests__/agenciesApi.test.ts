@@ -325,7 +325,7 @@ describe('agenciesApi.getAgencyOptions', () => {
     expect(apiClient.postList).toHaveBeenCalledWith(
       '/agencies/list',
       expect.objectContaining({
-        limit: 100,
+        limit: 1000 /* weekly 95：下拉上限 100→1000（案件排第 144 名被截掉那次） */,
         include_stats: false,
       })
     );

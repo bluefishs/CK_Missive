@@ -28,7 +28,7 @@ describe('permissions 常數', () => {
     ];
 
     it('應包含所有 8 個權限類別', () => {
-      expect(Object.keys(PERMISSION_CATEGORIES)).toHaveLength(8);
+      expect(Object.keys(PERMISSION_CATEGORIES)).toHaveLength(9); // 2026-09-06：加了 reports 類
       for (const key of expectedCategories) {
         expect(PERMISSION_CATEGORIES).toHaveProperty(key);
       }
@@ -46,7 +46,7 @@ describe('permissions 常數', () => {
     it('每個權限應有完整的中英文定義', () => {
       for (const category of Object.values(PERMISSION_CATEGORIES)) {
         for (const perm of category.permissions) {
-          expect(perm.key).toMatch(/^[a-z_]+:[a-z_]+$/);
+          expect(perm.key).toMatch(/^[a-z_]+(:[a-z_]+){1,2}$/); // reports:stats:view 三段式
           expect(perm.name_zh).toBeTruthy();
           expect(perm.name_en).toBeTruthy();
           expect(perm.category).toBe(category.key);
@@ -129,7 +129,7 @@ describe('permissions 常數', () => {
 
   describe('USER_ROLES', () => {
     it('應包含 4 個角色', () => {
-      expect(Object.keys(USER_ROLES)).toEqual(['unverified', 'user', 'admin', 'superuser']);
+      expect(Object.keys(USER_ROLES)).toEqual(['unverified', 'user', 'staff', 'admin', 'finance', 'ops', 'exec', 'superuser']); // 2026-09-06 校正：8 角色
     });
 
     it('unverified 不能登入且無權限', () => {

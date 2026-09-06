@@ -356,7 +356,7 @@ describe('projectsApi.getStatistics', () => {
 
     const result = await projectsApi.getStatistics();
 
-    expect(apiClient.post).toHaveBeenCalledWith('/projects/statistics');
+    expect(apiClient.post).toHaveBeenCalledWith('/projects/statistics', {}); // POST-only：無參數也送空物件
     expect(result.total_projects).toBe(50);
     expect(result.status_breakdown).toHaveLength(2);
     expect(result.year_breakdown).toHaveLength(2);

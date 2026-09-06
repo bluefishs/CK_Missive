@@ -78,9 +78,9 @@ describe('WorkRecordStatsCard', () => {
       />,
     );
     expect(screen.getByText('10')).toBeInTheDocument();
-    expect(screen.getByText('6 完成')).toBeInTheDocument();
-    expect(screen.getByText('3 進行中')).toBeInTheDocument();
-    expect(screen.getByText('1 暫緩')).toBeInTheDocument();
+    expect(screen.getByText(/6 筆完成/)).toBeInTheDocument();
+    expect(screen.getByText(/3 筆進行中/)).toBeInTheDocument();
+    expect(screen.getByText(/1 筆暫緩/)).toBeInTheDocument();
   });
 
   it('renders project mode with dispatch count', () => {
@@ -100,7 +100,7 @@ describe('WorkRecordStatsCard', () => {
       <WorkRecordStatsCard mode="dispatch" stats={baseStats} />,
     );
     expect(screen.getByText(/來文 4/)).toBeInTheDocument();
-    expect(screen.getByText(/發文 2/)).toBeInTheDocument();
+    expect(screen.getByText(/覆文 2 筆/) /* 標籤改「覆文」 */).toBeInTheDocument();
   });
 
   it('renders 作業紀錄 label', () => {

@@ -64,7 +64,7 @@ const mockUsePMCase = vi.fn((): { data: Record<string, unknown> | null | undefin
     client_contact: '王先生',
     client_phone: '03-1234567',
     contract_amount: '1500000',
-    status: 'in_progress' as const,
+    status: 'contracted' as const, // PMCaseStatus 只有 planning／contracted／closed（in_progress 早就不是合法值）
     progress: 55,
     start_date: '2025-01-15',
     end_date: '2025-12-31',
@@ -186,7 +186,7 @@ describe('PMCaseDetailPage', () => {
     mockUsePMCase.mockReturnValueOnce({ data: null, isLoading: false });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('案件不存在')).toBeInTheDocument();
+      expect(screen.getByText('找不到資料')).toBeInTheDocument(); // DetailPageLayout hasData=false 顯示 Empty
     }, WAIT_OPTS);
   });
 
@@ -202,23 +202,23 @@ describe('PMCaseDetailPage', () => {
     renderPage();
     await waitFor(() => {
       // Status appears in both header tag and Descriptions
-      expect(screen.getAllByText('執行中').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('已承攬') /* PM_CASE_STATUS_LABELS.contracted */.length).toBeGreaterThan(0);
     }, WAIT_OPTS);
   });
 
   it('renders back button', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('返回')).toBeInTheDocument();
+      expect(screen.getByText('返回列表')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
   it('navigates back when back button is clicked', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('返回')).toBeInTheDocument();
+      expect(screen.getByText('返回列表')).toBeInTheDocument();
     }, WAIT_OPTS);
-    fireEvent.click(screen.getByText('返回'));
+    fireEvent.click(screen.getByText('返回列表'));
     expect(mockNavigate).toHaveBeenCalledWith('/pm/cases');
   });
 

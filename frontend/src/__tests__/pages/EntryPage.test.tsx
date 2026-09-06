@@ -105,11 +105,12 @@ describe('EntryPage', () => {
     }, WAIT_OPTS);
   });
 
-  it('renders the password login button', async () => {
+  it('does not render the password login button (ADR-0033：SHOW_PASSWORD_LOGIN=false)', async () => {
     renderEntryPage();
     await waitFor(() => {
-      expect(screen.getByText('帳號密碼登入')).toBeInTheDocument();
+      expect(document.querySelector('.entry-page')).not.toBeNull();
     }, WAIT_OPTS);
+    expect(screen.queryByText('帳號密碼登入')).toBeNull();
   });
 
   it('renders the quick entry button for localhost', async () => {
@@ -132,8 +133,11 @@ describe('EntryPage', () => {
     vi.mocked(authService.default.isAuthenticated).mockReturnValue(true);
 
     renderEntryPage();
+    // 2026-06-16 起導向改宣告式：頁面把 sessionStore 標成 authenticated，由 <Navigate> 依 store 狀態離開，
+    // 不再 imperative navigate('/dashboard')（那條路在 useEffect re-run 的 mounted 守衛下會被跳過）。
+    const { useSessionStore } = await import('../../store/sessionStore');
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+      expect(useSessionStore.getState().status).toBe('authenticated');
     }, WAIT_OPTS);
   });
 });

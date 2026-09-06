@@ -147,32 +147,34 @@ describe('ERPQuotationListPage', () => {
   it('renders the page title', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('財務管理 (ERP)')).toBeInTheDocument();
+      expect(screen.getByText('專案帳款') /* 08-27 起以案為主軸更名 */).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
-  it('renders create button', async () => {
+  it('does not render a create button (quotations are created from /pm/cases since 08-27)', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('新增報價')).toBeInTheDocument();
+      expect(screen.getByText('專案帳款')).toBeInTheDocument();
     }, WAIT_OPTS);
+    // 留下的是導向 /pm/cases 的提示（「新增報價請至『邀標報價案件』」），不是建立鈕
+    expect(screen.getByText(/新增報價請至/)).toBeInTheDocument();
   });
 
   it('renders profit summary cards', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('營收總額')).toBeInTheDocument();
+      expect(screen.getAllByText('承攬金額（含稅）' /* financeTerms.contract_amount_sum；統計卡與手機卡都有 */).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('成本總額')).toBeInTheDocument();
       expect(screen.getByText('應收未收')).toBeInTheDocument();
       // "毛利" appears in both summary card and table header, so check multiple exist
-      expect(screen.getAllByText('毛利').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('應付款項').length).toBeGreaterThanOrEqual(1); // 第四張卡自 09-04 起是應付，不是毛利；手機卡也有此標籤
     }, WAIT_OPTS);
   });
 
   it('renders profit summary values', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('營收總額')).toBeInTheDocument();
+      expect(screen.getAllByText('承攬金額（含稅）' /* financeTerms.contract_amount_sum；統計卡與手機卡都有 */).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('3,000,000')).toBeInTheDocument();
       expect(screen.getByText('2,550,000')).toBeInTheDocument();
     }, WAIT_OPTS);
@@ -182,9 +184,10 @@ describe('ERPQuotationListPage', () => {
     mockUseERPProfitSummary.mockReturnValueOnce({ data: null });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('財務管理 (ERP)')).toBeInTheDocument();
+      expect(screen.getByText('專案帳款') /* 08-27 起以案為主軸更名 */).toBeInTheDocument();
     }, WAIT_OPTS);
-    expect(screen.queryByText('營收總額')).not.toBeInTheDocument();
+    // 標籤在手機卡列上仍會出現，改驗統計卡的數值不在（摘要為 null 時卡片整區不渲染）
+    expect(screen.queryByText('3,000,000')).toBeNull();
   });
 
   it('renders loading state when data is loading', async () => {
@@ -195,14 +198,14 @@ describe('ERPQuotationListPage', () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('財務管理 (ERP)')).toBeInTheDocument();
+      expect(screen.getByText('專案帳款') /* 08-27 起以案為主軸更名 */).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
   it('renders search input with placeholder', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('搜尋案號/案名')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('搜尋成案編號／建案案號／專案名稱')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
@@ -213,23 +216,12 @@ describe('ERPQuotationListPage', () => {
     }, WAIT_OPTS);
   });
 
-  it('navigates to create page when create button is clicked', async () => {
+  it('navigates to detail page when a row is clicked (操作欄 08-15 移除，點列進詳情)', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('新增報價')).toBeInTheDocument();
+      expect(screen.getAllByText('報價案件A').length).toBeGreaterThan(0);
     }, WAIT_OPTS);
-    fireEvent.click(screen.getByText('新增報價'));
-    expect(mockNavigate).toHaveBeenCalledWith('/erp/quotations/create');
-  });
-
-  it('navigates to detail page when detail link is clicked', async () => {
-    renderPage();
-    await waitFor(() => {
-      const detailLinks = screen.getAllByText('詳情');
-      expect(detailLinks.length).toBeGreaterThan(0);
-    }, WAIT_OPTS);
-    const detailLinks = screen.getAllByText('詳情');
-    fireEvent.click(detailLinks[0]!);
+    fireEvent.click(screen.getAllByText('報價案件A')[0]!);
     expect(mockNavigate).toHaveBeenCalledWith('/erp/quotations/1');
   });
 });

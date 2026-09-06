@@ -21,7 +21,7 @@ import zhTW from 'antd/locale/zh_TW';
 import React from 'react';
 import { createTestQueryClient } from '../../test/testUtils';
 
-const WAIT_OPTS = { timeout: 5000 };
+const WAIT_OPTS = { timeout: 9000 }; // 2026-09-06：首支測試要吞下頁面冷載入，5s 會在載入中就判失敗
 
 // ==========================================================================
 // Mocks

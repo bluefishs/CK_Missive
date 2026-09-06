@@ -55,6 +55,7 @@ vi.mock('../../api/endpoints', () => ({
   },
   USERS_ENDPOINTS: {
     LIST: '/admin/user-management/list',
+    ASSIGNABLE: '/users/assignable', // useUsersDropdown 改打可指派清單（後端一次回全部，不分頁）
   },
 }));
 
@@ -168,7 +169,7 @@ describe('useProjectsDropdown', () => {
     await waitFor(() => {
       expect(mockPost).toHaveBeenCalledWith(
         '/projects/list',
-        { page: 1, limit: 100 }
+        { page: 1, limit: 1000 } /* weekly 95：下拉上限 100→1000 */
       );
     });
   });
@@ -258,10 +259,7 @@ describe('useUsersDropdown', () => {
     });
 
     await waitFor(() => {
-      expect(mockPost).toHaveBeenCalledWith(
-        '/admin/user-management/list',
-        { page: 1, limit: 100 }
-      );
+      expect(mockPost).toHaveBeenCalledWith('/users/assignable', {});
     });
   });
 });
