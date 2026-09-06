@@ -220,6 +220,7 @@
 | `assignment_dual_key_audit.py` | 承辦指派必須同時帶 `case_code` 與 `project_id`（weekly 110） |
 | `rwd_mobile_quality_gate.py`＋`rwd_mobile_quality_probe.cjs` | 手機品質五指標：截字／字級<11px／點擊目標<28px／fixed 遮蔽／統計卡獨列；host 以 adapter 簽憑證、Playwright 390px 登入量；基線 `.rwd_quality_baseline.json`（weekly 111） |
 | `async_sync_io_audit.py` | async 路徑上的同步 I/O（AST；一支卡全站）；基線 `.async_sync_io_baseline.txt`（weekly 112） |
+| `testing_map_report.py` | 自主測試機制圖（僅報告，產出 docs/health/TESTING_MAP.md）（weekly 113） |
 
 ## 🧪 月度架構覆盤（`run_fitness.sh`）
 
