@@ -101,6 +101,26 @@ def wait_for_service(host: str, port: int, name: str, max_wait: int = 30) -> boo
     return False
 
 
+def _pid_alive(pid: int) -> bool:
+    """純查詢的存活探測——不得用 os.kill(pid, 0)（Windows 上那是送 Ctrl-C）。"""
+    try:
+        import psutil
+        return psutil.pid_exists(pid)
+    except ImportError:
+        if os.name == "nt":
+            import ctypes
+            h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+            if h:
+                ctypes.windll.kernel32.CloseHandle(h)
+                return True
+            return False
+        try:
+            os.kill(pid, 0)  # windows-footgun: ok — POSIX only（上面已排除 nt）
+            return True
+        except OSError:
+            return False
+
+
 def _acquire_lock() -> bool:
     """PID 鎖檔防護：防止 PM2 競態啟動多個進程"""
     lock_file = os.path.join(BACKEND_DIR, ".startup.lock")
@@ -112,12 +132,14 @@ def _acquire_lock() -> bool:
                 old_pid = int(f.read().strip())
             # 檢查舊進程是否還活著
             if old_pid != my_pid:
-                try:
-                    os.kill(old_pid, 0)  # signal 0 = 探測存活
+                # 2026-09-06 AaaP 掃出（bpo-14484）：Windows 上 signal.CTRL_C_EVENT == 0，
+                # `os.kill(pid, 0)` 不是探測，是對那個 console 行程群廣播 Ctrl-C ——
+                # 這裡拿的是**別的** startup 的 pid，等於把正在跑的舊進程殺掉再說「它還活著」。
+                # 改用 psutil.pid_exists（純查詢，不送訊號）；PileMgmt 同日以排程實證此機制。
+                if _pid_alive(old_pid):
                     log("Step 0", f"Another startup (PID={old_pid}) is running, aborting.", "ERROR")
                     return False
-                except OSError:
-                    pass  # 舊進程已死，可以繼續
+                # 舊進程已死，可以繼續
         except (ValueError, IOError):
             pass  # 鎖檔損壞，覆蓋
 
