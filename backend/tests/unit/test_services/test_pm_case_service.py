@@ -119,7 +119,7 @@ patch("app.services.pm.case_service.CaseCodeService") as MockCode:
             mock_db_session.flush = AsyncMock()
             mock_db_session.commit = AsyncMock()
             mock_db_session.add = MagicMock()
-            mock_db_session.execute = AsyncMock(return_value=MagicMock(**{"scalar.return_value": 0}))  # 09-02 防重查詢
+            mock_db_session.execute = AsyncMock(return_value=MagicMock(**{"scalar.return_value": 0, "first.return_value": None}))  # 09-06：同名承攬案查詢用 .first()，MagicMock 為真會誤判「已有同名」  # 09-02 防重查詢
 
             service = PMCaseService(mock_db_session)
             # Override _to_response to return a predictable result
@@ -132,7 +132,7 @@ patch("app.services.pm.case_service.CaseCodeService") as MockCode:
             result = await service.create(data, user_id=1)
 
             assert result.case_code == "CK2025_PM_01_001"
-            code_inst.generate_case_code.assert_awaited_once_with("pm", 114, "01")
+            code_inst.generate_case_code.assert_awaited_once_with("pm", 2025, "01")  # §2.5：民國 114 一律轉西元再給號
 
     @pytest.mark.asyncio
     async def test_create_case_with_manual_code(self, mock_db_session):
@@ -143,9 +143,16 @@ patch("app.services.pm.case_service.CaseCodeService") as MockCode:
 
             code_inst = MockCode.return_value
             code_inst.generate_case_code = AsyncMock()
+            code_inst.validate_case_code = AsyncMock(return_value=True)  # 09-06：手動案號現在會先驗格式（await）
+            code_inst.check_duplicate = AsyncMock(return_value=False)
 
             MockMR.return_value.get_by_case_id = AsyncMock(return_value=[])
             # PMCaseStaffRepository removed — staff moved to unified table
+            mock_db_session.execute = AsyncMock(return_value=MagicMock(**{"scalar.return_value": 0, "first.return_value": None}))
+            mock_db_session.refresh = AsyncMock(side_effect=lambda _obj: None)
+            mock_db_session.flush = AsyncMock()
+            mock_db_session.commit = AsyncMock()
+            mock_db_session.add = MagicMock()
 
             service = PMCaseService(mock_db_session)
             service._to_response = AsyncMock(return_value=PMCaseResponse(

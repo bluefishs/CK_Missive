@@ -36,6 +36,10 @@ beforeAll(() => {
     disconnect: vi.fn(),
   }));
 
+  // jsdom 的 getComputedStyle 不支援 pseudo-element（AntD 會傳 '::after'）⇒ 'Not implemented' 錯誤 153 次（2026-09-06 A111）
+  const _gcs = window.getComputedStyle.bind(window);
+  window.getComputedStyle = ((el: Element, _pseudo?: string | null) => _gcs(el)) as typeof window.getComputedStyle; // getComputedStyle pseudo
+
   // Mock scrollTo
   window.scrollTo = vi.fn();
 });

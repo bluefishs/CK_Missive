@@ -37,7 +37,8 @@ vi.mock('../../utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() },
 }));
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: {
     get: vi.fn().mockResolvedValue({}),
     post: vi.fn().mockResolvedValue({}),
@@ -84,9 +85,12 @@ const mockUseDeletePMCase = vi.fn(() => ({
   isPending: false,
 }));
 
-vi.mock('../../hooks', () => ({
+vi.mock('../../hooks', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   useAuthGuard: () => ({ hasPermission: () => true }),
-  useResponsive: () => ({ isMobile: false, isTablet: false, isDesktop: true, breakpoint: 'lg' }),
+  // 2026-09-06：真 hook 另回 responsiveValue，41 個 mock 都漏了 ⇒ 版面元件一呼叫就炸
+  useResponsive: () => ({ responsiveValue: (c: Record<string, unknown>) => c?.desktop ?? c?.tablet ?? c?.mobile, ...({ isMobile: false, isTablet: false, isDesktop: true, breakpoint: 'lg' }) }),
   usePMCases: (..._args: unknown[]) => mockUsePMCases(),
   usePMCaseSummary: (..._args: unknown[]) => mockUsePMCaseSummary(),
   useDeletePMCase: () => mockUseDeletePMCase(),

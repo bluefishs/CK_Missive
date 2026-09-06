@@ -186,6 +186,7 @@ class TestERPQuotationServiceCreate:
 
             code_inst = MockCode.return_value
             code_inst.generate_case_code = AsyncMock(return_value="CK2025_FN_01_001")
+            code_inst.generate_quotation_no = AsyncMock(return_value="QT2025-0001")  # 09-02 起這條路徑也給 QT 號
             MockRepo.return_value.create = AsyncMock(return_value=mock_q)
 
             service = ERPQuotationService(mock_db_session)
@@ -218,6 +219,7 @@ class TestERPQuotationServiceCreate:
 
             code_inst = MockCode.return_value
             code_inst.generate_case_code = AsyncMock()
+            code_inst.generate_quotation_no = AsyncMock(return_value="QT2025-0001")
             MockRepo.return_value.create = AsyncMock(return_value=mock_q)
 
             service = ERPQuotationService(mock_db_session)
@@ -269,6 +271,8 @@ class TestERPQuotationServiceGetDetail:
             # 必須明確給一個 MagicMock 當結果物件。
             _res = MagicMock()
             _res.scalar.return_value = 0
+            _res.scalar_one_or_none.return_value = None  # 09-05 起詳情另查委託單位名／PM 金額，MagicMock 會被當成值
+            mock_db_session.scalar = AsyncMock(return_value=None)  # 09-05 起詳情用 db.scalar 查委託單位名，fixture 預設回 0
             mock_db_session.execute.return_value = _res
 
             service = ERPQuotationService(mock_db_session)
@@ -318,6 +322,8 @@ class TestERPQuotationServiceUpdate:
              patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.update = AsyncMock(return_value=mock_q)
+            MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_q)  # 09-03 起改總價先讀現值
+            mock_db_session.scalar = AsyncMock(return_value=None)  # 請款數 None ⇒ 允許改總價；同一支 scalar 也拿委託單位名，0 會被當成字串欄位值
             MockInv.return_value.get_by_quotation_id = AsyncMock(return_value=[])
             MockBill.return_value.get_by_quotation_id = AsyncMock(return_value=[])
             MockBill.return_value.get_total_billed = AsyncMock(return_value=Decimal("0"))
@@ -328,6 +334,7 @@ class TestERPQuotationServiceUpdate:
             # `_to_response` 自 08-16 起會查統一帳本算實際成本（見上方說明）
             _res = MagicMock()
             _res.scalar.return_value = 0
+            _res.scalar_one_or_none.return_value = None  # 09-05 起詳情另查委託單位名／PM 金額，MagicMock 會被當成值
             mock_db_session.execute.return_value = _res
 
             service = ERPQuotationService(mock_db_session)
@@ -356,6 +363,7 @@ class TestERPQuotationServiceUpdate:
             # 必須明確給一個 MagicMock 當結果物件。
             _res = MagicMock()
             _res.scalar.return_value = 0
+            _res.scalar_one_or_none.return_value = None  # 09-05 起詳情另查委託單位名／PM 金額，MagicMock 會被當成值
             mock_db_session.execute.return_value = _res
 
             service = ERPQuotationService(mock_db_session)
@@ -507,10 +515,13 @@ class TestERPQuotationServiceProfitSummary:
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBill, \
-             patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
+             patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPay, \
              patch("app.services.erp.quotation_service.CaseCodeService"),              patch(_RATE, AsyncMock(return_value=Decimal("0"))):
 
             MockRepo.return_value.filter_quotations = AsyncMock(return_value=([q1, q2], 2))
+            MockPay.return_value.get_aggregates_batch = AsyncMock(return_value={})  # 09-04 起損益摘要也批次取應付
+            _rows = MagicMock(); _rows.all.return_value = []  # 09-05 起另查承攬案的合約額／得標額（.all()）
+            mock_db_session.execute = AsyncMock(return_value=_rows)
             MockBill.return_value.get_aggregates_batch = AsyncMock(return_value={
                 1: {"total_billed": Decimal("200000"), "total_received": Decimal("100000")},
                 2: {"total_billed": Decimal("200000"), "total_received": Decimal("100000")},

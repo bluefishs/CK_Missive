@@ -44,7 +44,8 @@ vi.mock('../../api', () => ({
   },
 }));
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   API_BASE_URL: 'http://localhost:8001/api',
   apiClient: {
     post: vi.fn().mockResolvedValue({ data: {} }),

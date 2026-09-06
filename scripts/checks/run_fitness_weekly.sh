@@ -590,6 +590,7 @@ run_step "110" "承辦指派雙鍵一致性（case_code ⇔ project_id）" "scri
 run_step "111" "RWD 手機品質閘門（截字／字級／點擊目標／遮蔽／統計卡獨列；host Playwright 登入 390px）" "scripts/checks/rwd_mobile_quality_gate.py"
 run_step "112" "async 路徑上的同步 I/O（一支卡全站；AST 掃 requests／httpx.Client／subprocess／urlopen／time.sleep）" "scripts/checks/async_sync_io_audit.py"
 run_step "113" "自主測試機制圖（僅報告：每層看得見什麼／留痕新鮮度 → docs/health/TESTING_MAP.md）" "scripts/checks/testing_map_report.py"
+run_step "114" "前端 vitest 基線比對（同 24 的形狀；新失敗才紅、已修未除名黃；基線 frontend/tests/known_failures.json）" "scripts/checks/frontend_test_suite_health.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

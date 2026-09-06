@@ -76,7 +76,9 @@ const mockAgencies = [
   },
 ];
 
-vi.mock('../../hooks', () => ({
+vi.mock('../../hooks', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   useAgenciesPage: vi.fn(() => ({
     agencies: mockAgencies,
     pagination: { total: 25 },
@@ -108,7 +110,9 @@ vi.mock('../../router/types', () => ({
   },
 }));
 
-vi.mock('../../components/common', () => ({
+vi.mock('../../components/common', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   ResponsiveTable: (props: {
     dataSource: unknown[];
     loading: boolean;

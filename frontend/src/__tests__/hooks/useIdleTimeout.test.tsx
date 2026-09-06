@@ -34,7 +34,8 @@ vi.mock('../../services/authService', () => {
 });
 
 // Mock env config
-vi.mock('../../config/env', () => ({
+vi.mock('../../config/env', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   isAuthDisabled: vi.fn().mockReturnValue(false),
 }));
 

@@ -45,7 +45,8 @@ vi.mock('../../services/authService', () => ({
   },
 }));
 
-vi.mock('../../config/env', () => ({
+vi.mock('../../config/env', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   detectEnvironment: () => 'localhost',
   isAuthDisabled: () => false,
   GOOGLE_CLIENT_ID: '',

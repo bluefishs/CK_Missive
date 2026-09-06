@@ -75,7 +75,8 @@ vi.mock('../../api/aiApi', () => ({
   },
 }));
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: {
     get: vi.fn().mockResolvedValue({}),
     post: vi.fn().mockResolvedValue({}),

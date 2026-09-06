@@ -22,7 +22,8 @@ vi.mock('../../utils/logger', () => ({
 }));
 
 let mockIsAuthDisabled = false;
-vi.mock('../../config/env', () => ({
+vi.mock('../../config/env', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   isAuthDisabled: () => mockIsAuthDisabled,
 }));
 
@@ -36,7 +37,9 @@ vi.mock('../../services/authService', () => ({
   },
 }));
 
-vi.mock('../../constants/permissions', () => ({
+vi.mock('../../constants/permissions', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   USER_ROLES: {
     superuser: {
       default_permissions: [

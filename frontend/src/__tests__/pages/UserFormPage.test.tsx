@@ -55,7 +55,9 @@ vi.mock('../../router/types', () => ({
   },
 }));
 
-vi.mock('../../constants/permissions', () => ({
+vi.mock('../../constants/permissions', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   USER_ROLES: {
     admin: { name_zh: '管理員', can_login: true },
     user: { name_zh: '一般使用者', can_login: true },

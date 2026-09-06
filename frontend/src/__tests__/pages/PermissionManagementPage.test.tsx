@@ -24,7 +24,9 @@ vi.mock('../../services/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() },
 }));
 
-vi.mock('../../components/common', () => ({
+vi.mock('../../components/common', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   ResponsiveTable: () => <div data-testid="mock-responsive-table">Table</div>,
   ResponsiveContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -33,7 +35,9 @@ vi.mock('@ck-shared/ui-components', () => ({
   ResponsiveContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('../../constants/permissions', () => ({
+vi.mock('../../constants/permissions', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   PERMISSION_CATEGORIES: {
     document: { name: '公文管理', permissions: ['document.read', 'document.write'] },
   },

@@ -46,6 +46,14 @@
 | 5 | 為何無法模擬行動裝置登入檢測 | `run.sh --visual` 本來就能（我沒用）；加 `--click=`；記憶 `feedback_mobile_login_screenshot_use_visual_walk` | — |
 | 6 | 統整文件與版次；加強視覺檢核確保 RWD | v6.73；weekly 111 手機品質閘門（首跑：浮動鈕壓分頁鈕 1、統計卡獨列 4 頁，已修）；手機底部留白 88px | 第三十五輪 |
 
+### 09-06 晚：兩套測試接上基線（A111／A112；「依專案最大效益與資安管理等目標辦理」）
+
+| 項目 | 內容 |
+|---|---|
+| 前端 vitest | 228 檔此前**沒有任何排程或閘門在跑**，首跑 254 失敗。三個共同根因：①barrel 部分 mock 蓋掉後來新增的 export（62 檔改 `importOriginal` 展開）②`shared-modules/sso-js/node_modules` 自帶第二份 React＋zustand ⇒ `useRef` 讀到 null ×76（`vitest.config.ts` 補 `dedupe`／alias／`server.deps.inline`）③`useResponsive` mock 漏 `responsiveValue` ×120（41 處補）⇒ **254→85**。新增 `frontend_test_suite_health.py`＝**weekly 114**，基線 `frontend/tests/known_failures.json` 86 項（畫面改了測試沒跟，逐檔清） |
+| 後端 pytest | 全套 host 重跑 65→38；本週改動造成的 mock 失敗修 7 支（報價單服務 5：`generate_quotation_no`／改總價先讀現值／`db.scalar` 拿委託單位名／損益摘要批次應付；PM 建案 2：同名承攬案 `.first()`／手動案號 `validate`＋`check_duplicate`），基線重錄 **31** 項；weekly 24 下次只對新增紅。auth 3 支全套紅、單跑綠＝順序相依，留基線 |
+| 其他 | `test_hermes_security_lint` 接受 `require_scope.*`；weekly 87 排除 `_bak_*`／`backup_*`／pg_stat 視圖後 GREEN；`public_endpoint_auth_audit` 742 端點 0 缺口；部署 c717ac5d 探針全通 |
+
 ## [v6.72] - 2026-09-04（名稱標準化與主檔鍵／指派即應付／發票鏈防呆／表格篩選規範）
 
 ### `.claude/` 變更

@@ -39,7 +39,8 @@ vi.mock('../../utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() },
 }));
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: {
     get: vi.fn().mockResolvedValue({}),
     post: vi.fn().mockResolvedValue({}),
@@ -52,7 +53,9 @@ vi.mock('../../api/client', () => ({
 const mockHasPermission = vi.fn(() => true);
 
 const mockRefetch = vi.fn();
-vi.mock('../../hooks', () => ({
+vi.mock('../../hooks', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   useProjectsPage: vi.fn(() => ({
     projects: [
       { id: 1, project_name: 'Project A', project_code: 'P001', year: 114, status: '執行中', category: '01' },
@@ -90,7 +93,9 @@ vi.mock('@ck-shared/ui-components', () => ({
   ResponsiveContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('../../components/common', () => ({
+vi.mock('../../components/common', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   ResponsiveTable: (props: { dataSource: unknown[]; columns: unknown[] }) => (
     <div data-testid="mock-responsive-table">
       Table ({(props.dataSource as unknown[]).length} rows)

@@ -28,9 +28,9 @@ LAYERS = [
     ("post-commit 知識地圖", "每次 commit（背景）", "docs 變動 → 知識地圖重生", "—", "docs/knowledge-map/", None),
     ("推送閘門 pre-push", "**不存在**（A46）", "—", "全部", "—", None),
     ("後端單元／整合測試 pytest", "weekly 24（host）；無 commit 閘門", "服務／repository／schema 的邏輯回歸；asyncpg 競態 lint；os.kill 陷阱", "跨表資料鏈、真實 DB 漂移", "backend/tests/known_failures.json（基線）、weekly 24 輸出", None),
-    ("前端單元測試 vitest", "**沒有任何排程或閘門在跑**", "元件渲染、hook 邏輯", "—", "無留痕", None),
+    ("前端單元測試 vitest（228 檔）", "weekly 114（host）；無 commit 閘門", "元件渲染、hook 邏輯；mock 有沒有跟上 barrel 的新 export", "真實 API、跨頁流程", "frontend/tests/known_failures.json（基線）、weekly 114 輸出", None),
     ("每日 runner（容器 02:00，17 步）", "APScheduler fitness_daily", "容器環境對齊、映像新鮮度、volume／healthcheck SSOT、排程沉默、儀表板新鮮度、CRLF、DB 交易、模組匯入、八條生命跡象、知識文庫新鮮度、容器重啟迴圈、**業務鏈探針 32 斷言（09-06 起）**", "頁面、視覺、效能、跨 repo", "wiki/memory/integration-health/、LINE 晨報 digest", 30),
-    ("每週 runner（host 週日 02:30，113 步）", "Windows 排程 CK_Missive-Fitness-Weekly", "架構／規範／資料語意／金流對帳／RWD 閘門／同步 I/O／名稱鍵…（見 scripts/checks/README.md）", "即時故障（一週才看一次）", "wiki/memory/fitness_weekly_last_run.json、digest", 8 * 24),
+    ("每週 runner（host 週日 02:30，114 步）", "Windows 排程 CK_Missive-Fitness-Weekly", "架構／規範／資料語意／金流對帳／RWD 閘門／同步 I/O／名稱鍵…（見 scripts/checks/README.md）", "即時故障（一週才看一次）", "wiki/memory/fitness_weekly_last_run.json、digest", 8 * 24),
     ("頁面走查 ui_page_sweep（host 04:30）", "Windows 排程 CK_Missive-SelfAudit-Sweep", "41 頁載入錯誤、console error、API 4xx/5xx；手機探針 390／768／1024 整頁溢出", "畫面對不對、數字對不對", "integration-health/ui-sweep.json", 30),
     ("流程走查 ui_flow_smoke（host 04:15 admin／05:10 user）", "Windows 排程 CK_Missive-SelfAudit-Flow(-User)", "20 條流程斷言（元素在、數量對、深連結、回歸鎖）＋資料防護（走查不得動到資料）", "版面／截字／顏色語意／遮蔽／手感", "integration-health/ui-flow.json、ui-flow.user.json", 30),
     ("手機品質閘門 rwd_mobile_quality（weekly 111）", "weekly（host Playwright 登入 390／1440）", "截字、字級<11px、點擊目標<28px、fixed 遮蔽、統計卡獨列、下拉塌陷", "互動後的畫面（只拍載入後）", "integration-health/rwd-quality.json、rwd-quality-desktop.json、基線 .rwd_quality_baseline.json", 8 * 24),
@@ -104,7 +104,7 @@ def main() -> int:
               "- 每日 runner 步數：" + str(sum(1 for l in (ROOT / 'scripts' / 'checks' / 'run_fitness_daily.sh').read_text(encoding='utf-8').splitlines() if l.lstrip().startswith('run_step "'))),
               "- 每週 runner 步數：" + str(sum(1 for l in (ROOT / 'scripts' / 'checks' / 'run_fitness_weekly.sh').read_text(encoding='utf-8').splitlines() if l.lstrip().startswith('run_step "'))),
               "", "## 缺口（定義在 `docs/architecture/AUTONOMOUS_TESTING_MAP.md`，這裡只列名）", "",
-              "- 前端 vitest 沒有任何排程或閘門在跑（A111）", "- 沒有 pre-push 閘門（A46）", "- 視覺走查與效能探針只有手動", "- 沒有真實負載（壓測）與 RUM",
+              "- 前端 vitest 只在 weekly 114 跑，沒有 commit 閘門；基線 86 項待清（A111）", "- 沒有 pre-push 閘門（A46）", "- 視覺走查與效能探針只有手動", "- 沒有真實負載（壓測）與 RUM",
               ""]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines), encoding="utf-8")

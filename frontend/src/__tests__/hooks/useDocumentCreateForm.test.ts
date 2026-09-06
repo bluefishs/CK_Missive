@@ -30,7 +30,8 @@ vi.mock('../../api/agenciesApi', () => ({
   agenciesApi: { getAgencyOptions: vi.fn() },
 }));
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: { post: vi.fn() },
 }));
 

@@ -59,7 +59,8 @@ const mockEfficiency = {
   ],
 };
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: {
     get: vi.fn().mockResolvedValue({}),
     post: vi.fn().mockImplementation((url: string) => {
@@ -96,7 +97,9 @@ vi.mock('../../router/types', () => ({
   },
 }));
 
-vi.mock('../../constants/permissions', () => ({
+vi.mock('../../constants/permissions', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   USER_ROLES: {
     admin: { name_zh: '管理員', description_zh: '系統管理員', can_login: true, default_permissions: ['all'] },
     user: { name_zh: '一般使用者', description_zh: '一般使用者', can_login: true, default_permissions: ['read'] },
@@ -111,13 +114,16 @@ vi.mock('@ck-shared/ui-components', () => ({
   ResponsiveContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('../../components/dashboard', () => ({
+vi.mock('../../components/dashboard', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   SystemHealthDashboard: () => <div data-testid="system-health">SystemHealth</div>,
   AIStatsPanel: () => <div data-testid="ai-stats">AIStats</div>,
   DocumentTrendsChart: () => <div data-testid="doc-trends">DocumentTrends</div>,
 }));
 
-vi.mock('../../hooks', () => ({
+vi.mock('../../hooks', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   useResponsive: vi.fn(() => ({
     isMobile: false,
     isTablet: false,

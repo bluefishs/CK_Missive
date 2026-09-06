@@ -39,7 +39,8 @@ vi.mock('../../services/authService', () => ({
   },
 }));
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: {
     post: vi.fn().mockResolvedValue({ data: {} }),
     get: vi.fn().mockResolvedValue({ data: {} }),
@@ -53,7 +54,9 @@ vi.mock('../../api/endpoints', () => ({
   },
 }));
 
-vi.mock('../../hooks', () => ({
+vi.mock('../../hooks', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   useResponsive: () => ({
     isMobile: false,
     responsiveValue: ({ desktop }: { desktop: string }) => desktop,

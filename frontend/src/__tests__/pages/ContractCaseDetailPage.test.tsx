@@ -77,7 +77,8 @@ vi.mock('../../config/queryConfig', () => ({
 }));
 
 
-vi.mock('../../pages/contractCase/tabs', () => ({
+vi.mock('../../pages/contractCase/tabs', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   CaseInfoTab: () => <div>CaseInfoTab</div>,
   AgencyContactTab: () => <div>AgencyContactTab</div>,
   StaffTab: () => <div>StaffTab</div>,

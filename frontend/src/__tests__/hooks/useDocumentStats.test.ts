@@ -20,7 +20,8 @@ import { createWrapper } from '../../test/testUtils';
 
 const mockPost = vi.fn();
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: {
     post: (...args: unknown[]) => mockPost(...args),
   },

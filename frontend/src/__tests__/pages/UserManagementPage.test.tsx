@@ -84,7 +84,9 @@ const mockUsers = [
 
 const mockRefetch = vi.fn();
 
-vi.mock('../../hooks', () => ({
+vi.mock('../../hooks', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   useResponsive: vi.fn(() => ({
     isMobile: false,
     isTablet: false,
@@ -122,7 +124,9 @@ vi.mock('../../router/types', () => ({
   },
 }));
 
-vi.mock('../../constants/permissions', () => ({
+vi.mock('../../constants/permissions', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   getRoleDisplayName: vi.fn((role: string) => {
     const map: Record<string, string> = { admin: '管理員', user: '一般使用者', superuser: '超級管理員' };
     return map[role] || role;
@@ -143,7 +147,9 @@ vi.mock('lodash/debounce', () => ({
   default: (fn: (...args: unknown[]) => unknown) => fn,
 }));
 
-vi.mock('../../components/common', () => ({
+vi.mock('../../components/common', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   ResponsiveTable: (props: Record<string, unknown>) => {
     const dataSource = props.dataSource as Array<Record<string, unknown>> || [];
     return (

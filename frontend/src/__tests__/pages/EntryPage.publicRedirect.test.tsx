@@ -24,7 +24,8 @@ import zhTW from 'antd/locale/zh_TW';
 const WAIT_OPTS = { timeout: 5000 };
 
 // ── 環境 mock：public → 模組級 ENV_TYPE 在 import 時即為 public（IS_NGROK_OR_PUBLIC=true）──
-vi.mock('../../config/env', () => ({
+vi.mock('../../config/env', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   detectEnvironment: () => 'public',
   isAuthDisabled: () => false,
   GOOGLE_CLIENT_ID: '',

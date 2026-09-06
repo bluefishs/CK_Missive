@@ -23,7 +23,8 @@ vi.mock('../../utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() },
 }));
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: {
     post: vi.fn().mockResolvedValue({ staff: [] }),
     get: vi.fn().mockResolvedValue({}),
@@ -56,7 +57,9 @@ vi.mock('../../api/filesApi', () => ({
   },
 }));
 
-vi.mock('../../hooks/business/useDropdownData', () => ({
+vi.mock('../../hooks/business/useDropdownData', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   useProjectsDropdown: vi.fn(() => ({
     projects: [{ id: 1, project_name: 'Project 1' }],
     isLoading: false,

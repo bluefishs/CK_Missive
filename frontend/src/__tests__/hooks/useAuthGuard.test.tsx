@@ -38,7 +38,8 @@ vi.mock('../../services/authService', () => {
 });
 
 // Mock env config - 使用模組級 getter 讓 beforeEach 可以控制
-vi.mock('../../config/env', () => ({
+vi.mock('../../config/env', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   isAuthDisabled: vi.fn().mockReturnValue(false),
   isInternalNetwork: vi.fn().mockReturnValue(false),
 }));

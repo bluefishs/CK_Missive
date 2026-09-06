@@ -23,7 +23,8 @@ vi.mock('../../services/logger', () => ({
 }));
 
 // Mock config/env
-vi.mock('../../config/env', () => ({
+vi.mock('../../config/env', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   isInternalIPAddress: vi.fn(() => false),
 }));
 

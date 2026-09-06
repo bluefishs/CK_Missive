@@ -38,13 +38,16 @@ const mockUseResponsive = vi.fn(() => ({
   responsiveValue: mockResponsiveValue,
 }));
 
-vi.mock('../../hooks', () => ({
+vi.mock('../../hooks', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   useResponsive: () => mockUseResponsive(),
   usePMCaseSummary: () => ({ data: null, isLoading: false }),
   useERPProfitSummary: () => ({ data: null, isLoading: false }),
 }));
 
-vi.mock('../../components/dashboard', () => ({
+vi.mock('../../components/dashboard', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   DashboardCalendarSection: ({ maxEvents }: { maxEvents?: number }) => (
     <div data-testid="mock-calendar-section" data-max-events={maxEvents}>
       DashboardCalendarSection

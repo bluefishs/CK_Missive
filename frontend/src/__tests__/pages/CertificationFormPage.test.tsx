@@ -36,7 +36,8 @@ vi.mock('../../api/certificationsApi', () => ({
   CERT_STATUS: [{ value: 'valid', label: '有效' }],
 }));
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: { get: vi.fn().mockResolvedValue({}), post: vi.fn().mockResolvedValue({}) },
   SERVER_BASE_URL: 'http://localhost:8001',
 }));

@@ -28,7 +28,8 @@ vi.mock('../../services/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() },
 }));
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   apiClient: {
     get: vi.fn().mockResolvedValue({}),
     post: vi.fn().mockResolvedValue({}),
@@ -132,7 +133,8 @@ vi.mock('../../components/document/DocumentImport', () => ({
   DocumentImport: () => null,
 }));
 
-vi.mock('../../components/dashboard', () => ({
+vi.mock('../../components/dashboard', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   SystemHealthDashboard: () => <div data-testid="mock-health">SystemHealthDashboard</div>,
   AIStatsPanel: () => <div data-testid="mock-ai-stats">AIStatsPanel</div>,
   DocumentTrendsChart: () => <div data-testid="mock-trends">DocumentTrendsChart</div>,
@@ -143,7 +145,9 @@ vi.mock('../../components/dashboard/ProjectStatsPanel', () => ({
   ProjectStatsPanel: () => <div data-testid="mock-project-stats-panel">ProjectStatsPanel</div>,
 }));
 
-vi.mock('../../components/common', () => ({
+vi.mock('../../components/common', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   ResponsiveContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ResponsiveTable: () => <div data-testid="mock-responsive-table">Table</div>,
 }));
@@ -169,7 +173,9 @@ vi.mock('../../config/graphNodeConfig', () => ({
   getMergedNodeConfig: vi.fn(() => ({ label: 'test', color: '#999' })),
 }));
 
-vi.mock('../../constants/permissions', () => ({
+vi.mock('../../constants/permissions', async (importOriginal) => ({
+  // 2026-09-06 A111：先展開原模組再覆蓋——部分 mock 蓋掉整個 barrel 會讓後來新增的 export 全部消失
+  ...(await importOriginal<Record<string, unknown>>()),
   USER_ROLES: {
     admin: { name_zh: '管理員', description_zh: '系統管理者', default_permissions: ['all'], can_login: true },
     user: { name_zh: '一般使用者', description_zh: '一般角色', default_permissions: [], can_login: true },
