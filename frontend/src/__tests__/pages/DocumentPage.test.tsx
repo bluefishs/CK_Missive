@@ -129,8 +129,8 @@ vi.mock('../../components/document/DocumentTabs', () => ({
 }));
 
 vi.mock('../../components/document/DocumentImport', () => ({
-  DocumentImport: (props: { visible: boolean; onClose: () => void }) =>
-    props.visible ? (
+  DocumentImport: (props: { open: boolean; onClose: () => void }) =>
+    props.open ? ( // AntD 5 起 Modal 的 prop 是 open，頁面已改
       <div data-testid="mock-document-import">
         <button onClick={props.onClose}>Close Import</button>
       </div>

@@ -1,11 +1,3 @@
 {
-  "known_failures": [
-    "src/__tests__/components/DashboardComponents.test.tsx:: SystemHealthDashboard renders data quality metrics when available",
-    "src/__tests__/components/DashboardComponents.test.tsx:: SystemHealthDashboard shows degraded status correctly",
-    "src/__tests__/hooks/useDocuments.test.tsx:: useDeleteDocument 應該成功刪除公文",
-    "src/__tests__/hooks/usePermissions.test.ts:: usePermissions - auth enabled mode returns null permissions when user is not logged in",
-    "src/__tests__/pages/DocumentPage.test.tsx:: DocumentPage opens import modal when import button is clicked",
-    "src/__tests__/pages/EntryPage.test.tsx:: EntryPage redirects to dashboard when already authenticated",
-    "src/__tests__/pages/EntryPage.test.tsx:: EntryPage renders the main title text"
-  ]
+  "known_failures": []
 }

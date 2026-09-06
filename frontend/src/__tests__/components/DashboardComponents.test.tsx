@@ -184,13 +184,13 @@ describe('SystemHealthDashboard', () => {
   });
 
   it('renders loading spinner initially', () => {
-    mockApiClient.post.mockReturnValue(new Promise(() => {})); // never resolves
+    mockApiClient.get. /* 2026-04-24 起 health/summary 是 GET */mockReturnValue(new Promise(() => {})); // never resolves
     renderWithProviders(<SystemHealthDashboard />);
     expect(document.querySelector('.ant-spin')).toBeInTheDocument();
   });
 
   it('renders health data when available', async () => {
-    mockApiClient.post.mockResolvedValue({
+    mockApiClient.get. /* 2026-04-24 起 health/summary 是 GET */mockResolvedValue({
       timestamp: '2026-03-14T00:00:00Z',
       uptime: '5d 3h',
       overall_status: 'healthy',
@@ -216,7 +216,7 @@ describe('SystemHealthDashboard', () => {
   });
 
   it('shows degraded status correctly', async () => {
-    mockApiClient.post.mockResolvedValue({
+    mockApiClient.get. /* 2026-04-24 起 health/summary 是 GET */mockResolvedValue({
       timestamp: '2026-03-14T00:00:00Z',
       uptime: '1h',
       overall_status: 'degraded',
@@ -234,7 +234,7 @@ describe('SystemHealthDashboard', () => {
   });
 
   it('renders refresh button', async () => {
-    mockApiClient.post.mockResolvedValue({
+    mockApiClient.get. /* 2026-04-24 起 health/summary 是 GET */mockResolvedValue({
       timestamp: '2026-03-14T00:00:00Z',
       uptime: '1h',
       overall_status: 'healthy',
@@ -249,7 +249,7 @@ describe('SystemHealthDashboard', () => {
   });
 
   it('renders data quality metrics when available', async () => {
-    mockApiClient.post.mockResolvedValue({
+    mockApiClient.get. /* 2026-04-24 起 health/summary 是 GET */mockResolvedValue({
       timestamp: '2026-03-14T00:00:00Z',
       uptime: '2h',
       overall_status: 'healthy',

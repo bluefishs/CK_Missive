@@ -72,8 +72,11 @@ vi.mock('../../api/documentsApi', () => ({
 }));
 
 // Mock queryConfig
-vi.mock('../../config/queryConfig', () => ({
+vi.mock('../../config/queryConfig', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   queryKeys: {
+    // 2026-09-06：刪除公文會連帶清派工族快取（useDispatchCacheInvalidator 讀 queryKeys.taoyuan 等），部分 mock 會讓它讀到 undefined.all
+    ...((await importOriginal<{ queryKeys: Record<string, unknown> }>()).queryKeys),
     documents: {
       all: ['documents'],
       list: (params: Record<string, unknown>) => ['documents', 'list', params],

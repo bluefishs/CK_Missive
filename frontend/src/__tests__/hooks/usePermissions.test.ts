@@ -25,6 +25,9 @@ let mockIsAuthDisabled = false;
 vi.mock('../../config/env', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   isAuthDisabled: () => mockIsAuthDisabled,
+  // 2026-09-06：hook 早已改用 shouldUseDevMockUser（localStorage 沒有 user_info 才給預設開發者），
+  // 而測試只 mock 了 isAuthDisabled ⇒ 未登入情境仍走到預設超級管理員、拿到 7 個權限。
+  shouldUseDevMockUser: () => mockIsAuthDisabled,
 }));
 
 const mockGetUserInfo = vi.fn();

@@ -36,12 +36,16 @@ beforeAll(() => {
     disconnect: vi.fn(),
   }));
 
-  // jsdom 的 getComputedStyle 不支援 pseudo-element（AntD 會傳 '::after'）⇒ 'Not implemented' 錯誤 153 次（2026-09-06 A111）
-  const _gcs = window.getComputedStyle.bind(window);
-  window.getComputedStyle = ((el: Element, _pseudo?: string | null) => _gcs(el)) as typeof window.getComputedStyle; // getComputedStyle pseudo
-
-  // Mock scrollTo
-  window.scrollTo = vi.fn();
+  // jsdom 的 getComputedStyle 不支援 pseudo-element（AntD 會傳 '::after'）⇒ 'Not implemented' 錯誤 153 次。
+  // ⚠️ 兩支回歸測試跑在 node environment（沒有 window）—— 這裡不守就是整支 suite 在 setup 階段 TypeError。
+  // 註：node environment 下 window 可能存在（其他 setup 造的殼）但沒有 getComputedStyle ⇒ 判函式本身，不判 window
+  if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+    const _gcs = window.getComputedStyle.bind(window);
+    window.getComputedStyle = ((el: Element, _pseudo?: string | null) => _gcs(el)) as typeof window.getComputedStyle;
+    window.scrollTo = vi.fn();
+  } else if (typeof window !== 'undefined') {
+    window.scrollTo = vi.fn();
+  }
 });
 
 // Mock import.meta.env

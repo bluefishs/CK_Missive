@@ -42,6 +42,11 @@ vi.mock('../../services/authService', () => ({
     getCurrentUser: vi.fn().mockResolvedValue({ full_name: 'Test', username: 'test' }),
     setUserInfo: vi.fn(),
     googleLogin: vi.fn(),
+    // 2026-09-06：store/sessionStore 也吃這支 mock —— markAuthenticated 會呼叫 getUserInfo()，
+    // mock 少了它就在 set 之前丟 TypeError（async effect 吞掉）⇒ status 永遠停在 resolving。
+    getUserInfo: vi.fn(() => null),
+    ssoBridge: vi.fn().mockResolvedValue(null),
+    logout: vi.fn(),
   },
 }));
 
