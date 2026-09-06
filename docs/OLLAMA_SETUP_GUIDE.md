@@ -278,5 +278,5 @@ volumes:
 ## 相關文件
 
 - [AI 功能開發規範](./skills/ai-development.md)
-- [系統架構文件](./Architecture_Optimization_Recommendations.md)
+- [系統架構文件](./reports/Architecture_Optimization_Recommendations.md)
 - [Ollama 官方文件](https://ollama.com/library)

@@ -739,7 +739,7 @@ export function ResponsiveFormRow({ children }: { children: React.ReactNode[] })
 
 - `.claude/MANDATORY_CHECKLIST.md` - 開發檢查清單
 - `.claude/skills/type-management.md` - 型別管理規範
-- `docs/Architecture_Optimization_Recommendations.md` - 架構優化建議
+- `docs/reports/Architecture_Optimization_Recommendations.md` - 架構優化建議
 - `backend/app/repositories/README.md` - Repository 使用指南
 
 ---

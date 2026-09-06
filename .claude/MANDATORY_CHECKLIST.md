@@ -785,7 +785,7 @@ this.axios.post(ADMIN_USER_MANAGEMENT_ENDPOINTS.PERMISSIONS_CHECK, { permission 
 ### 必讀文件
 - [ ] `.claude/skills/database-performance.md`
 - [ ] `.claude/hooks/performance-check.ps1`
-- [ ] `docs/Architecture_Optimization_Recommendations.md`
+- [ ] `docs/reports/Architecture_Optimization_Recommendations.md`
 
 ### ⚠️ 核心問題：N+1 查詢
 
@@ -1287,7 +1287,7 @@ cd backend && python -m py_compile app/main.py
 
 ### 必讀文件
 - [ ] `docs/DEPLOYMENT_CHECKLIST.md` - 完整性檢查清單
-- [ ] `docs/DEPLOYMENT_GAP_ANALYSIS.md` - 缺漏分析
+- [ ] `docs/reports/DEPLOYMENT_GAP_ANALYSIS.md` - 缺漏分析
 - [ ] `.claude/commands/verify.md` - 驗證指令
 
 ### ⚠️ 核心概念：代碼提交 ≠ 功能上線

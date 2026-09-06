@@ -4,7 +4,7 @@
 > **狀態**: accepted (amended 2026-04-18)
 > **日期**: 2026-04-14
 > **決策者**: 專案 Owner
-> **關聯**: ADR-0010 (Qwen3-4B 本地 LLM), `memory/hermes_openclaw_deferred.md` (superseded), docs/HERMES_MIGRATION_PLAN.md
+> **關聯**: ADR-0010 (Qwen3-4B 本地 LLM), `memory/hermes_openclaw_deferred.md` (superseded), docs/reports/HERMES_MIGRATION_PLAN.md
 
 ## 2026-04-18 修訂（Amendment）
 

@@ -1355,7 +1355,7 @@ v5.9.4 Qwen 整合的**實戰突破**：診斷並修復 Hermes baseline 成功�
 
 **2513bb44 docs**：ADR-0030 中期檢點 + Sprint 1 B 類文件清理
 - `docs/adr/0030` 加 2026-04-24 檢點段（4/5 GO 達標 + p95 門檻 A/B/C 修訂方案）
-- `docs/HERMES_MIGRATION_PLAN.md` + `docs/ops/baseline-fix-patch-preview.md`（新）
+- `docs/reports/HERMES_MIGRATION_PLAN.md` + `docs/ops/baseline-fix-patch-preview.md`（新）
 - `docs/MULTICHANNEL_SETUP_GUIDE.md` + `docs/SECRET_ROTATION_SOP.md` 加 ARCHIVED/更新標頭
 
 **5c4b5a7c chore**：Hermes auto-diary 2026-04-24
@@ -4824,7 +4824,7 @@ NemoClaw 代理人正式發布，歷經 70+ commits 從 v1.84.3 升級：
 
 **新增檔案**:
 - `backend/app/scripts/sync_dispatch_document_links.py` - 資料遷移腳本
-- `docs/GITOPS_EVALUATION.md` - GitOps 評估與實施計畫
+- `docs/archived/2026-09-ci-disabled/GITOPS_EVALUATION.md` - GitOps 評估與實施計畫
 - `docs/MANUAL_DEPLOYMENT_GUIDE.md` - 手動部署指引
 - `docs/OPTIMIZATION_REPORT_v1.32.md` - 系統優化報告
 

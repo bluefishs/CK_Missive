@@ -220,7 +220,7 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
 - Push tag (`v*`) - 自動觸發
 - `workflow_dispatch` - 手動觸發
 
-**設置指南**：`docs/GITHUB_RUNNER_SETUP.md`
+**設置指南**：`docs/archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md`
 
 #### B. 回滾機制 ✅ 已內建
 

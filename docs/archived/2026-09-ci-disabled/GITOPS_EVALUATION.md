@@ -421,7 +421,7 @@ ROI: 3 個月回本
 
 | 文件 | 說明 |
 |------|------|
-| `docs/GITHUB_RUNNER_SETUP.md` | Runner 安裝指南 |
+| `docs/archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md` | Runner 安裝指南 |
 | `docs/DEPLOYMENT_CHECKLIST.md` | 部署檢查清單 |
 | `.github/workflows/deploy-production.yml` | CD 工作流 |
 | `/admin/deployment` | 部署管理頁面 |

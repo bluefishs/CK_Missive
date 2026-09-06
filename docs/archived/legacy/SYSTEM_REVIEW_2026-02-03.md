@@ -248,7 +248,7 @@ GitHub Push → CI 驗證 → 自動部署 → 健康檢查 → 通知
 |------|----------|
 | `CLAUDE.md` | 版本 1.33.0，新增多對多關聯修復記錄 |
 | `.claude/CHANGELOG.md` | 新增 1.33.0 版本記錄 |
-| `docs/GITOPS_EVALUATION.md` | GitOps 評估與實施計畫 |
+| `docs/archived/2026-09-ci-disabled/GITOPS_EVALUATION.md` | GitOps 評估與實施計畫 |
 | `docs/MANUAL_DEPLOYMENT_GUIDE.md` | 手動部署指引 |
 | `docs/OPTIMIZATION_REPORT_v1.32.md` | 優化報告 |
 | `docs/SYSTEM_REVIEW_2026-02-03.md` | 本文件 |

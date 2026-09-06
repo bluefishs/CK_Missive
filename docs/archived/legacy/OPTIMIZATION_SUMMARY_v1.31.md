@@ -34,7 +34,7 @@
 
 **已建立文件**:
 - `docs/DEPLOYMENT_CHECKLIST.md` - 完整性檢查清單
-- `docs/DEPLOYMENT_GAP_ANALYSIS.md` - 缺漏分析與優化程序
+- `docs/reports/DEPLOYMENT_GAP_ANALYSIS.md` - 缺漏分析與優化程序
 
 ---
 

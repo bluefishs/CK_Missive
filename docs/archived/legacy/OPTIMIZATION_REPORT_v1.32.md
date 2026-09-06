@@ -39,7 +39,7 @@
 - 推薦方案: Self-hosted Runner
 - ROI: 3 個月回本
 - 部署時間縮短: -83%
-- 詳見: `docs/GITOPS_EVALUATION.md`
+- 詳見: `docs/archived/2026-09-ci-disabled/GITOPS_EVALUATION.md`
 
 ---
 
@@ -137,9 +137,9 @@ gantt
 frontend/src/utils/logger.ts               # LogLevel 匯出修復
 frontend/src/config/__tests__/queryConfig.test.ts  # calendar 測試修復
 frontend/src/services/__tests__/navigationService.test.ts  # undefined 修復
-docs/GITOPS_EVALUATION.md                  # GitOps 評估文件
+docs/archived/2026-09-ci-disabled/GITOPS_EVALUATION.md                  # GitOps 評估文件
 docs/DEPLOYMENT_CHECKLIST.md               # 部署檢查清單
-docs/DEPLOYMENT_GAP_ANALYSIS.md            # 部署缺口分析
+docs/reports/DEPLOYMENT_GAP_ANALYSIS.md            # 部署缺口分析
 ```
 
 ### 建議 Commit 訊息

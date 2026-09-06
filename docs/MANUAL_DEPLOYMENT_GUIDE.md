@@ -135,7 +135,7 @@ curl http://localhost:8001/health
 建議在 QNAP 上啟用 SSH 服務，以便未來可以遠端部署。
 
 ### 2. 安裝 Self-hosted Runner
-參考 `docs/GITOPS_EVALUATION.md` 在 NAS 上安裝 GitHub Actions Runner，
+參考 `docs/archived/2026-09-ci-disabled/GITOPS_EVALUATION.md` 在 NAS 上安裝 GitHub Actions Runner，
 實現程式碼提交後自動部署。
 
 ### 3. 設定自動更新

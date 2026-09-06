@@ -87,7 +87,7 @@ curl -X POST http://localhost:8001/api/deploy/config \
 已完成的 GitHub Actions 工作流 (`.github/workflows/deploy-production.yml`) 需要：
 
 1. **在 NAS 上安裝 Self-hosted Runner**
-   - 詳見 `docs/GITHUB_RUNNER_SETUP.md`
+   - 詳見 `docs/archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md`
 
 2. **配置 Repository Secrets**
    ```

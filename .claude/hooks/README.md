@@ -230,4 +230,4 @@ API 序列化問題檢查。
 | `.claude/settings.json` | Hooks 自動觸發配置 |
 | `.claude/settings.local.json` | 本地覆蓋配置 |
 | `CLAUDE.md` | 主配置文件 |
-| `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 系統優化報告 |
+| `docs/reports/SYSTEM_OPTIMIZATION_REPORT.md` | 系統優化報告 |

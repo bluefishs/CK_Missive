@@ -50,7 +50,7 @@ python -c "print('實際掃描：'); " && grep -rn "nemoclaw\|openclaw" --includ
 | 檔案 | 引用數 | 建議動作 |
 |---|---|---|
 | `CLAUDE.md` | 4 | 確認是否已改為 Hermes + Cloudflare Tunnel 敘述（v5.6 已改，檢查殘留） |
-| `docs/HERMES_MIGRATION_PLAN.md` | 16 | 狀態更新（反映 ADR-0030 GO/NO-GO 重訂） |
+| `docs/reports/HERMES_MIGRATION_PLAN.md` | 16 | 狀態更新（反映 ADR-0030 GO/NO-GO 重訂） |
 | `docs/hermes-skills/README.md` | 3 | 確認描述為現況 |
 | `docs/openclaw-skill-update.md` | 3 | **加顯眼 deprecated 標頭**（或移入 archive/） |
 | `docs/MULTICHANNEL_SETUP_GUIDE.md` | 20 | 移除 OpenClaw 段落，僅保留 LINE / Telegram 直連 |
@@ -60,7 +60,7 @@ python -c "print('實際掃描：'); " && grep -rn "nemoclaw\|openclaw" --includ
 | `docs/SECURITY_THREAT_MODEL.md` | 4 | 更新 Threat Model 移除 OpenClaw component |
 | `docs/AUTH_FLOW_DIAGRAM.md` | 2 | 檢查流程圖是否還畫 OpenClaw |
 | `docs/CLOUDFLARE_TUNNEL_*.md` | 3 | 確認為現況 |
-| `docs/ARCHITECTURE_REVIEW_2026-04-15.md` | 2 | 歷史記錄，標 Snapshot |
+| `docs/reports/ARCHITECTURE_REVIEW_2026-04-15.md` | 2 | 歷史記錄，標 Snapshot |
 | `docs/README.md` | 2 | 移除 OpenClaw 描述 |
 | `.claude/rules/skills-inventory.md` | 6 | 移除 OpenClaw 相關 entry |
 | `.claude/rules/architecture-backend.md` | 1 | 更新 |
@@ -123,7 +123,7 @@ python -c "print('實際掃描：'); " && grep -rn "nemoclaw\|openclaw" --includ
 ### Sprint 1（本週，2026-04-22 ~ 04-28）：文件批次
 
 - [ ] 類別 B：更新 17 份活躍文件（低風險）
-  - 把 `LINE_OPENCLAW_OPERATIONAL_GUIDE.md` 整檔加 `> **ARCHIVED**：此文件已被 Hermes 取代，見 docs/HERMES_MIGRATION_PLAN.md` 標頭
+  - 把 `LINE_OPENCLAW_OPERATIONAL_GUIDE.md` 整檔加 `> **ARCHIVED**：此文件已被 Hermes 取代，見 docs/reports/HERMES_MIGRATION_PLAN.md` 標頭
   - 移除 `docs/openclaw-skill-update.md` 或移入 `docs/archive/`
   - 更新 `HERMES_MIGRATION_PLAN.md` 反映 ADR-0030
 

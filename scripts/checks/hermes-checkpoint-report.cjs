@@ -2,7 +2,7 @@
 /**
  * Hermes Migration Checkpoint Report (ADR-0014)
  *
- * 讀取 docs/HERMES_MIGRATION_PLAN.md 解析 Phase 0~4 checkbox 狀態，
+ * 讀取 docs/reports/HERMES_MIGRATION_PLAN.md 解析 Phase 0~4 checkbox 狀態，
  * 結合 git log 的 hermes/acp/tunnel 相關 commit 活動，
  * 輸出每個 phase 的進度 + rollback 窗口狀態。
  *
@@ -17,7 +17,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '../..');
-const PLAN = path.join(ROOT, 'docs/HERMES_MIGRATION_PLAN.md');
+const PLAN = path.join(ROOT, 'docs/reports/HERMES_MIGRATION_PLAN.md');
 const START_DATE = '2026-04-14'; // ADR-0014 啟動日
 const AS_JSON = process.argv.includes('--json');
 

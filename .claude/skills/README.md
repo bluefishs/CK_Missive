@@ -155,4 +155,4 @@ Skills 會根據關鍵字自動載入：
 |------|------|
 | `CLAUDE.md` | Skills 清單與觸發關鍵字 |
 | `.claude/settings.json` | inherit 配置 |
-| `docs/SYSTEM_OPTIMIZATION_REPORT.md` | Skills 分析報告 |
+| `docs/reports/SYSTEM_OPTIMIZATION_REPORT.md` | Skills 分析報告 |

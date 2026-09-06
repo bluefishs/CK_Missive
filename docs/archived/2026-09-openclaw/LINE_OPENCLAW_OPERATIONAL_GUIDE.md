@@ -4,7 +4,7 @@
 > LINE 通道改由 Hermes gateway 接管。本指南保留僅供歷史參考，**不再維護**。
 >
 > 現行架構請見：
-> - `docs/HERMES_MIGRATION_PLAN.md` — Hermes 遷移計畫
+> - `docs/reports/HERMES_MIGRATION_PLAN.md` — Hermes 遷移計畫
 > - `docs/adr/0014-hermes-replace-openclaw.md` — 取代決策
 > - `docs/adr/0030-hermes-go-no-go-revision.md` — GO/NO-GO 最新決策
 >

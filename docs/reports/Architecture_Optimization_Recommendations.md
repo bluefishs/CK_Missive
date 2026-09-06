@@ -1450,7 +1450,7 @@ z-index: 9999, position: fixed
 
 | 任務 | 說明 | 估計工時 |
 |------|------|---------|
-| NAS 安裝 GitHub Actions Self-hosted Runner | 參考 `docs/GITHUB_RUNNER_SETUP.md` | 2h |
+| NAS 安裝 GitHub Actions Self-hosted Runner | 參考 `docs/archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md`（Actions 已停用） | 2h |
 | CD workflow 實機測試 | Tag push → 自動部署驗證 | 4h |
 | 自動化備份排程 | Cron/Task Scheduler + db_backup.ps1 | 2h |
 | 異地備份方案 | 備份檔 rsync 到第二台 NAS 或雲端 | 4h |

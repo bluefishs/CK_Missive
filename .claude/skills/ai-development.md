@@ -512,7 +512,7 @@ POST /ai/graph/unified-search
 | 文件 | 說明 |
 |------|------|
 | `docs/OLLAMA_SETUP_GUIDE.md` | Ollama 部署指南 |
-| `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 系統優化報告 |
+| `docs/reports/SYSTEM_OPTIMIZATION_REPORT.md` | 系統優化報告 |
 | `docs/SERVICE_ARCHITECTURE_STANDARDS.md` | 服務層架構規範 |
 | `frontend/src/config/graphNodeConfig.ts` | 知識圖譜節點配色/標籤配置 |
 | `.env.example` | 環境變數範例 |

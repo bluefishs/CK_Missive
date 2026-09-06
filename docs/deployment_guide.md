@@ -521,7 +521,7 @@ alembic revision --autogenerate -m "initial_schema"
 | 組件 | 檔案 | 說明 |
 |------|------|------|
 | GitHub Actions | `.github/workflows/deploy-production.yml` | 完整 CD 工作流 |
-| Runner 設置指南 | `docs/GITHUB_RUNNER_SETUP.md` | Self-hosted Runner 設置 |
+| Runner 設置指南 | `docs/archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md` | Self-hosted Runner 設置 |
 
 ### 二、環境變數要求
 
@@ -573,7 +573,7 @@ curl -X POST http://localhost:8001/api/deploy/config \
 2. 配置 Repository Secrets
 3. 觸發 `deploy-production.yml` 工作流
 
-詳見 `docs/GITHUB_RUNNER_SETUP.md`
+詳見 `docs/archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md`
 
 ### 四、部署後驗證清單
 
@@ -599,7 +599,7 @@ curl -X POST http://localhost:8001/api/deploy/config \
 - [CD 工作流](../.github/workflows/cd.yml)
 - [Docker Compose 配置](../docker-compose.unified.yml)
 - [環境變數範本](../.env.example)
-- [GitHub Runner 設置指南](GITHUB_RUNNER_SETUP.md)
+- [GitHub Runner 設置指南](./archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md)
 - [Alembic 遷移管理指南](ALEMBIC_MIGRATION_GUIDE.md)
 
 ---

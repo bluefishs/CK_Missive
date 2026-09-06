@@ -67,7 +67,7 @@
 | 組件 | 檔案 | 狀態 | 說明 |
 |------|------|------|------|
 | GitHub Actions | `.github/workflows/deploy-production.yml` | ✅ 已完成 | 完整 CD 工作流 |
-| Runner 設置指南 | `docs/GITHUB_RUNNER_SETUP.md` | ✅ 已完成 | Self-hosted Runner 設置 |
+| Runner 設置指南 | `docs/archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md` | ✅ 已完成 | Self-hosted Runner 設置 |
 
 ---
 
@@ -123,7 +123,7 @@ curl -X POST http://localhost:8001/api/deploy/config \
 2. 配置 Repository Secrets
 3. 觸發 `deploy-production.yml` 工作流
 
-詳見 `docs/GITHUB_RUNNER_SETUP.md`
+詳見 `docs/archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md`
 
 ---
 

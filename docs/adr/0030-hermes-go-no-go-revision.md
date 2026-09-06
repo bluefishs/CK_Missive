@@ -4,7 +4,7 @@
 > **狀態**：accepted
 > **日期**：2026-04-22
 > **決策者**：專案 Owner
-> **關聯**：ADR-0014（Hermes 取代 OpenClaw）、ADR-0020（AaaP 平臺轉型）、ADR-0027（Telegram 推播關閉）、docs/HERMES_MIGRATION_PLAN.md
+> **關聯**：ADR-0014（Hermes 取代 OpenClaw）、ADR-0020（AaaP 平臺轉型）、ADR-0027（Telegram 推播關閉）、docs/reports/HERMES_MIGRATION_PLAN.md
 
 ---
 

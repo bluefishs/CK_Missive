@@ -17,10 +17,10 @@
 | [INCIDENT_RESPONSE_PLAYBOOK.md](./INCIDENT_RESPONSE_PLAYBOOK.md) | 六大資安場景應變 SOP |
 | [SECRET_ROTATION_SOP.md](./SECRET_ROTATION_SOP.md) | 密碼 / Token 輪換流程 |
 | [PRODUCTION_SECURITY_CHECKLIST.md](./PRODUCTION_SECURITY_CHECKLIST.md) | 上線前安全檢查 |
-| [SECURITY_AUDIT_REPORT.md](./SECURITY_AUDIT_REPORT.md) | 資安審計報告 |
-| [SECURITY_CICD_RECOMMENDATIONS.md](./SECURITY_CICD_RECOMMENDATIONS.md) | CI/CD 安全建議 |
+| [SECURITY_AUDIT_REPORT.md](./reports/SECURITY_AUDIT_REPORT.md) | 資安審計報告 |
+| [SECURITY_CICD_RECOMMENDATIONS.md](./archived/2026-09-ci-disabled/SECURITY_CICD_RECOMMENDATIONS.md) | CI/CD 安全建議 |
 | [KG_FEDERATION_TOKEN_ROTATION_SOP.md](./KG_FEDERATION_TOKEN_ROTATION_SOP.md) | KG 聯邦 Token 輪換 SOP |
-| [SECRETS_INVENTORY_2026-04-15.md](./SECRETS_INVENTORY_2026-04-15.md) | 🆕 Secrets 盤點快照（Phase 1 rotation 基礎） |
+| [SECRETS_INVENTORY_2026-04-15.md](./reports/SECRETS_INVENTORY_2026-04-15.md) | 🆕 Secrets 盤點快照（Phase 1 rotation 基礎） |
 | [incidents/](./incidents/) | 事件紀錄目錄 |
 
 ## 🚀 部署 / 維運 (Deployment / Ops)
@@ -29,8 +29,8 @@
 |------|------|
 | [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) | 部署主指南 |
 | [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) | 部署前檢查 |
-| [DEPLOYMENT_GAP_ANALYSIS.md](./DEPLOYMENT_GAP_ANALYSIS.md) | 部署落差分析 |
-| [DEPLOYMENT_LESSONS_LEARNED.md](./DEPLOYMENT_LESSONS_LEARNED.md) | 部署教訓 |
+| [DEPLOYMENT_GAP_ANALYSIS.md](./reports/DEPLOYMENT_GAP_ANALYSIS.md) | 部署落差分析 |
+| [DEPLOYMENT_LESSONS_LEARNED.md](./reports/DEPLOYMENT_LESSONS_LEARNED.md) | 部署教訓 |
 | [PRODUCTION_DEPLOYMENT_GUIDE.md](./PRODUCTION_DEPLOYMENT_GUIDE.md) | 正式環境部署 |
 | [MANUAL_DEPLOYMENT_GUIDE.md](./MANUAL_DEPLOYMENT_GUIDE.md) | 手動部署 |
 | [NAS_DEPLOYMENT_GUIDE.md](./NAS_DEPLOYMENT_GUIDE.md) | NAS 部署 |
@@ -40,15 +40,15 @@
 | [SIMPLE_RESTART_GUIDE.md](./SIMPLE_RESTART_GUIDE.md) | 快速重啟 |
 | [SYSTEM_MAINTENANCE.md](./SYSTEM_MAINTENANCE.md) | 系統維護 |
 | [SYSTEM_CONFIG_CHECKLIST.md](./SYSTEM_CONFIG_CHECKLIST.md) | 系統配置檢查 |
-| [GITHUB_RUNNER_SETUP.md](./GITHUB_RUNNER_SETUP.md) | GitHub Runner 建置 |
-| [GITOPS_EVALUATION.md](./GITOPS_EVALUATION.md) | GitOps 評估 |
+| [GITHUB_RUNNER_SETUP.md](./archived/2026-09-ci-disabled/GITHUB_RUNNER_SETUP.md) | GitHub Runner 建置 |
+| [GITOPS_EVALUATION.md](./archived/2026-09-ci-disabled/GITOPS_EVALUATION.md) | GitOps 評估 |
 
 ## 🏗️ 架構 / 設計 (Architecture)
 
 | 文件 | 說明 |
 |------|------|
-| [ARCHITECTURE_REVIEW_2026-04-15.md](./ARCHITECTURE_REVIEW_2026-04-15.md) | 最新架構健康度 (8.0/10) |
-| [Architecture_Optimization_Recommendations.md](./Architecture_Optimization_Recommendations.md) | 架構優化建議 |
+| [ARCHITECTURE_REVIEW_2026-04-15.md](./reports/ARCHITECTURE_REVIEW_2026-04-15.md) | 最新架構健康度 (8.0/10) |
+| [Architecture_Optimization_Recommendations.md](./reports/Architecture_Optimization_Recommendations.md) | 架構優化建議 |
 | [PROJECT_STRUCTURE_STANDARD.md](./PROJECT_STRUCTURE_STANDARD.md) | 專案結構標準 |
 | [SERVICE_ARCHITECTURE_STANDARDS.md](./SERVICE_ARCHITECTURE_STANDARDS.md) | 服務架構標準 |
 | [STRUCTURE.md](./STRUCTURE.md) | 結構總覽 |
@@ -79,7 +79,7 @@
 
 | 文件 | 說明 |
 |------|------|
-| [HERMES_MIGRATION_PLAN.md](./HERMES_MIGRATION_PLAN.md) | Hermes 4-Phase 遷移計畫 |
+| [HERMES_MIGRATION_PLAN.md](./reports/HERMES_MIGRATION_PLAN.md) | Hermes 4-Phase 遷移計畫 |
 | [hermes-skills/](./hermes-skills/) | Hermes skill 部署包 |
 | [LINE_OPENCLAW_OPERATIONAL_GUIDE.md](./archived/2026-09-openclaw/LINE_OPENCLAW_OPERATIONAL_GUIDE.md) | LINE + OpenClaw 運維（**已封存**，OpenClaw ADR-0014 廢止） |
 | [LINE_BOT_SETUP_GUIDE.md](./LINE_BOT_SETUP_GUIDE.md) | LINE Bot 直連 |
@@ -92,8 +92,8 @@
 
 | 文件 | 說明 |
 |------|------|
-| [SYSTEM_OPTIMIZATION_REPORT.md](./SYSTEM_OPTIMIZATION_REPORT.md) | 系統優化報告 |
-| [OPTIMIZATION_ACTION_PLAN.md](./OPTIMIZATION_ACTION_PLAN.md) | 優化行動計畫 |
+| [SYSTEM_OPTIMIZATION_REPORT.md](./reports/SYSTEM_OPTIMIZATION_REPORT.md) | 系統優化報告 |
+| [OPTIMIZATION_ACTION_PLAN.md](./reports/OPTIMIZATION_ACTION_PLAN.md) | 優化行動計畫 |
 | [reports/](./reports/) | 歷史報告目錄 |
 | [plans/](./plans/) | 規劃目錄 |
 | [presentations/](./presentations/) | 簡報目錄 |
