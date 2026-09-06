@@ -186,6 +186,11 @@ class ERPBilling(Base):
                             comment="狀態: pending/partial/paid/overdue")
     payment_date = Column(Date, nullable=True, comment="實際收款日期")
     payment_amount = Column(Numeric(15, 2), nullable=True, comment="實際收到金額")
+    # 2026-09-07：結算方式 —— 「已收款但沒有發票」不一定是缺漏，也可能是**約定不開票或互抵**。
+    # 沒有這個欄位時，那兩種情境只能寫在備註裡，於是稽核永遠把它們報成缺漏（weekly 104 ⑪）。
+    settlement_type = Column(String(20), nullable=False, server_default="invoice", index=True,
+                             comment="結算方式: invoice=開立發票 / offset=互抵 / no_invoice=約定不開票")
+    settlement_note = Column(String(300), nullable=True, comment="互抵／不開票的依據與對象")
     notes = Column(Text, comment="備註")
 
     created_at = Column(DateTime, server_default=func.now())
@@ -236,3 +241,25 @@ class ERPVendorPayable(Base):
     quotation = relationship("ERPQuotation", back_populates="vendor_payables")
     vendor = relationship("PartnerVendor", foreign_keys=[vendor_id])
     billing = relationship("ERPBilling", foreign_keys=[billing_id], viewonly=True)
+
+class ERPInvoiceAllocation(Base):
+    """一張發票分攤到多個案（2026-09-07）。
+
+    owner：「同一發票對應多案件……應如何處理」。原本 `erp_invoices` 只有單一 `erp_quotation_id`，
+    一張發票跨兩案就**表達不出來** —— 人只能挑一個案掛上去，另一個案在帳上看不到那筆收入。
+
+    規則：**有分攤時以分攤為準，沒有分攤時沿用發票本身的 `erp_quotation_id`**（相容既有 155 張）。
+    分攤合計必須等於發票金額 —— 那是這張表存在的意義，不允許「分一半就不管了」。
+    """
+
+    __tablename__ = "erp_invoice_allocations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("erp_invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    erp_quotation_id = Column(Integer, ForeignKey("erp_quotations.id", ondelete="CASCADE"), nullable=False, index=True)
+    billing_id = Column(Integer, ForeignKey("erp_billings.id", ondelete="SET NULL"), nullable=True)
+    amount = Column(Numeric(15, 2), nullable=False, comment="該案分攤金額（含稅）")
+    tax_amount = Column(Numeric(15, 2), nullable=True, comment="該案分攤稅額")
+    notes = Column(String(300), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

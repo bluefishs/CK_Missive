@@ -878,6 +878,24 @@ def _summarize_alerts(actionable: list, scanned: int) -> str:
 
 
 @tracked_job("proactive_trigger_scan")
+async def finance_health_digest_job():
+    """財務健檢摘要（每日 07:00）——七條「要人動手」的財務缺口，只推今天新增的。
+
+    失敗不得影響其他排程：整段包在 try 裡並記錄，與夜間吹哨者同樣的形狀。
+    """
+    from app.db.database import async_session_maker
+    from app.services.erp.finance_health_digest import run_and_notify
+    try:
+        async with async_session_maker() as db:
+            result = await run_and_notify(db)
+        logger.info(
+            "財務健檢摘要完成：待處理合計 %s 筆，今天新增 %s 類",
+            result.get("total"), len(result.get("new") or []),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("財務健檢摘要失敗: %s", exc)
+
+
 async def proactive_trigger_scan_job():
     """
     夜間吹哨者 — 掃描 PM/ERP 預算超支、逾期請款、待核銷發票等警報。
@@ -4486,6 +4504,21 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加夜間吹哨者: 每日 00:30 執行")
+
+    # 財務健檢摘要 —— 每日 07:00（晨報之前 30 分鐘，讓晨報看得到最新狀態）
+    # 2026-09-07 owner：「建立財務等智能檢核與提醒機制，降低人工重複複核」。
+    # 它**不是**又一支稽核：檢核已經夠多，痛點是要人自己去七個地方看。
+    # 這支一次查完、只講與昨天相比新增的，沒有變化就安靜（不發通知）。
+    scheduler.add_job(
+        finance_health_digest_job,
+        trigger=CronTrigger(hour=7, minute=0),
+        id='finance_health_digest',
+        name='財務健檢摘要 (只推新增項目)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加財務健檢摘要: 每日 07:00 執行")
 
     # 添加安全掃描 — 每日 02:00 自動偵測資安問題
     scheduler.add_job(

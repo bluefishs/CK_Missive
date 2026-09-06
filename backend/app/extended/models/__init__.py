@@ -124,6 +124,7 @@ from .erp import (
     ERPQuotation,
     ERPQuotationItem,
     ERPInvoice,
+    ERPInvoiceAllocation,
     ERPBilling,
     ERPVendorPayable,
 )
@@ -243,6 +244,7 @@ __all__ = [
     "ERPQuotation",
     "ERPQuotationItem",
     "ERPInvoice",
+    "ERPInvoiceAllocation",
     "ERPBilling",
     "ERPVendorPayable",
     # 知識庫分段

@@ -98,6 +98,8 @@ class TestBillingToLedgerFlow:
         mock_billing.payment_date = None
         mock_billing.payment_amount = None
         mock_billing.invoice_id = None
+        mock_billing.settlement_type = "invoice"  # 09-07 新欄位：結算方式（MagicMock 會讓 schema 驗證失敗）
+        mock_billing.settlement_note = None
         mock_billing.notes = "第一期請款"
         mock_billing.created_at = None
         mock_billing.updated_at = None
@@ -223,6 +225,8 @@ class TestBillingToLedgerFlow:
         mock_billing.payment_date = None
         mock_billing.payment_amount = None
         mock_billing.invoice_id = 10
+        mock_billing.settlement_type = "invoice"  # 09-07 新欄位：結算方式（MagicMock 會讓 schema 驗證失敗）
+        mock_billing.settlement_note = None
         mock_billing.notes = "第一期請款"
         mock_billing.created_at = None
         mock_billing.updated_at = None
@@ -271,6 +275,8 @@ class TestBillingToLedgerFlow:
         mock_billing.payment_date = None
         mock_billing.payment_amount = None
         mock_billing.invoice_id = None
+        mock_billing.settlement_type = "invoice"  # 09-07 新欄位：結算方式（MagicMock 會讓 schema 驗證失敗）
+        mock_billing.settlement_note = None
         mock_billing.notes = None
         mock_billing.created_at = None
         mock_billing.updated_at = None
@@ -312,6 +318,8 @@ class TestBillingToLedgerFlow:
         mock_billing.payment_date = date(2026, 4, 15)
         mock_billing.payment_amount = Decimal("200000.00")
         mock_billing.invoice_id = 10
+        mock_billing.settlement_type = "invoice"  # 09-07 新欄位：結算方式（MagicMock 會讓 schema 驗證失敗）
+        mock_billing.settlement_note = None
         mock_billing.notes = None
         mock_billing.created_at = None
         mock_billing.updated_at = None
@@ -356,6 +364,8 @@ class TestBillingToLedgerFlow:
         mock_billing.payment_date = None
         mock_billing.payment_amount = None  # No payment amount
         mock_billing.invoice_id = None
+        mock_billing.settlement_type = "invoice"  # 09-07 新欄位：結算方式（MagicMock 會讓 schema 驗證失敗）
+        mock_billing.settlement_note = None
         mock_billing.notes = None
         mock_billing.created_at = None
         mock_billing.updated_at = None
@@ -416,6 +426,8 @@ class TestBillingToLedgerFlow:
         mock_billing.payment_date = None
         mock_billing.payment_amount = None
         mock_billing.invoice_id = None
+        mock_billing.settlement_type = "invoice"  # 09-07 新欄位：結算方式（MagicMock 會讓 schema 驗證失敗）
+        mock_billing.settlement_note = None
         mock_billing.notes = None
         mock_billing.created_at = None
         mock_billing.updated_at = None

@@ -257,17 +257,18 @@ class ERPBillingService(AuditableServiceMixin):
         inv_by_billing: dict[int, tuple] = {}
         if ids:
             rows = (await self.db.execute(
-                select(ERPInvoice.billing_id, ERPInvoice.id, ERPInvoice.invoice_number, ERPInvoice.invoice_date, ERPInvoice.amount)
+                select(ERPInvoice.billing_id, ERPInvoice.id, ERPInvoice.invoice_number, ERPInvoice.invoice_date, ERPInvoice.amount, ERPInvoice.tax_amount)
                 .where(ERPInvoice.billing_id.in_(ids), ERPInvoice.status != "voided").order_by(ERPInvoice.id)
             )).all()
-            for bid, iid, no, dt, amt in rows:
-                inv_by_billing.setdefault(bid, (iid, no, dt, amt))
+            for bid, iid, no, dt, amt, tax in rows:
+                inv_by_billing.setdefault(bid, (iid, no, dt, amt, tax))
         out = []
         for b in items:
             r = ERPBillingResponse.model_validate(b)
             inv = inv_by_billing.get(b.id)
             if inv:
-                r.invoice_id, r.invoice_number, r.invoice_date, r.invoice_amount = inv
+                (r.invoice_id, r.invoice_number, r.invoice_date,
+                 r.invoice_amount, r.invoice_tax_amount) = inv
             out.append(r)
         return out
 
@@ -291,6 +292,15 @@ class ERPBillingService(AuditableServiceMixin):
         #
         # 擋在 service 而不是 schema：金額與狀態可能分兩次請求送，
         # schema 只看得到單次 payload，看不到最終狀態。
+        # 2026-09-07：互抵／不開票必須說得出依據 —— 否則「已收款卻沒有發票」與
+        # 「該開票卻漏開」在系統裡長得一樣，稽核只能兩者都報或兩者都不報。
+        _st = getattr(billing, "settlement_type", None) or "invoice"
+        if _st in ("offset", "no_invoice") and not (getattr(billing, "settlement_note", None) or "").strip():
+            raise ValueError(
+                "結算方式為「互抵」或「約定不開票」時必須填寫依據（與哪一筆應付互抵／依據哪一份約定）"
+                " —— 沒有依據的不開票，事後無法與漏開發票分辨。"
+            )
+
         # 2026-09-07 owner：「收款在填報時就要有檢核」。收款額不得超過請款額 ——
         # 超過的那一刻起，「應收未收」會變成負數而報表上看不出是哪一筆造成的。
         # 容差 1 元（四捨五入）；真的多收要先改請款額（追加）再登收款。

@@ -369,6 +369,12 @@ export interface ERPBilling {
   invoice_id?: number;
   invoice_date?: string;
   invoice_amount?: number;
+  /** 發票稅額（0 = 免稅／未開稅）—— 複核要看未稅／稅額／含稅三個數 */
+  invoice_tax_amount?: number;
+  /** 結算方式：invoice=開票 / offset=互抵 / no_invoice=約定不開票（2026-09-07） */
+  settlement_type?: string;
+  /** 互抵／不開票的依據與對象 */
+  settlement_note?: string;
 }
 
 export interface ERPBillingCreate {

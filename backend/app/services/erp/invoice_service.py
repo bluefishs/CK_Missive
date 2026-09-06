@@ -63,6 +63,20 @@ class ERPInvoiceService(AuditableServiceMixin):
                 data.billing_id = same[0].id
             bid = getattr(data, "billing_id", None)
 
+        # ①-a 一票多案：帶了分攤就以分攤為準，且合計必須等於發票金額。
+        # 沒有這一層時，一張跨兩案的發票只能挑一個案掛上去 —— 另一個案在帳上看不到那筆收入。
+        allocs = getattr(data, "allocations", None)
+        if allocs:
+            total = sum(Decimal(str(a.get("amount", 0) if isinstance(a, dict) else a.amount)) for a in allocs)
+            if abs(total - amount) > 1:
+                raise ValueError(
+                    f"分攤合計 {total:,.0f} 與發票金額 {amount:,.0f} 不符 —— "
+                    "一票多案時每一分錢都要落在某一個案上，否則那個案的收入會憑空少掉。"
+                )
+            qids = [a.get("erp_quotation_id") if isinstance(a, dict) else a.erp_quotation_id for a in allocs]
+            if len(set(qids)) != len(qids):
+                raise ValueError("同一張發票對同一個案只能有一列分攤 —— 要改金額請改那一列，不要疊加。")
+
         # ① 金額不得超過所屬請款（超過就是兩邊有一邊填錯，不該靜靜存下去）
         if bid:
             b = (await self.db.execute(_sel(ERPBilling).where(ERPBilling.id == bid))).scalars().first()

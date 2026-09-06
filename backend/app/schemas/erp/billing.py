@@ -133,5 +133,12 @@ class ERPBillingResponse(BaseModel):
     invoice_id: Optional[int] = None
     invoice_date: Optional[date] = None
     invoice_amount: Optional[Decimal] = None
+    # 2026-09-07 owner：「如何呈現稅務資訊以利複核」——
+    # 複核要看的是**三個數**：未稅、稅額、含稅。只給含稅，人得自己心算 ÷1.05，
+    # 而 5% 與 0（免稅）在畫面上原本長得一樣。
+    invoice_tax_amount: Optional[Decimal] = None
+    #: 結算方式：invoice=開票 / offset=互抵 / no_invoice=約定不開票
+    settlement_type: Optional[str] = "invoice"
+    settlement_note: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

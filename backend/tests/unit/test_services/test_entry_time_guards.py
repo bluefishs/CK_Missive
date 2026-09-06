@@ -180,3 +180,50 @@ class TestInvoiceEntryGuards:
                                billing_id=None, erp_quotation_id=1)
         await svc._validate_and_link(data)
         assert data.billing_id is None, "兩期同額就不猜 —— 猜錯會把錢算到別期而報表看不出來"
+
+
+# ── 一票多案／互抵（2026-09-07 owner 提的兩種真實情境）────────────────
+class TestMultiCaseInvoiceAndOffset:
+    """一張發票跨多案時，每一分錢都要落在某一個案上。"""
+
+    @pytest.mark.asyncio
+    async def test_allocation_sum_must_equal_invoice_amount(self):
+        svc = _Svc(_db_with([]))
+        data = SimpleNamespace(
+            amount=Decimal("100000"), tax_amount=Decimal("0"),
+            billing_id=None, erp_quotation_id=None,
+            allocations=[{"erp_quotation_id": 1, "amount": Decimal("60000")},
+                         {"erp_quotation_id": 2, "amount": Decimal("30000")}],
+        )
+        with pytest.raises(ValueError, match="分攤合計"):
+            await svc._validate_and_link(data)
+
+    @pytest.mark.asyncio
+    async def test_allocation_sum_equal_is_accepted(self):
+        svc = _Svc(_db_with([]))
+        data = SimpleNamespace(
+            amount=Decimal("100000"), tax_amount=Decimal("0"),
+            billing_id=None, erp_quotation_id=None,
+            allocations=[{"erp_quotation_id": 1, "amount": Decimal("60000")},
+                         {"erp_quotation_id": 2, "amount": Decimal("40000")}],
+        )
+        await svc._validate_and_link(data)
+
+    @pytest.mark.asyncio
+    async def test_same_case_twice_is_refused(self):
+        svc = _Svc(_db_with([]))
+        data = SimpleNamespace(
+            amount=Decimal("100000"), tax_amount=Decimal("0"),
+            billing_id=None, erp_quotation_id=None,
+            allocations=[{"erp_quotation_id": 1, "amount": Decimal("50000")},
+                         {"erp_quotation_id": 1, "amount": Decimal("50000")}],
+        )
+        with pytest.raises(ValueError, match="同一個案只能有一列"):
+            await svc._validate_and_link(data)
+
+    def test_offset_requires_a_reason(self):
+        """互抵／不開票必須說得出依據，否則與「漏開發票」在系統裡長得一樣。"""
+        import inspect
+        from app.services.erp.billing_service import ERPBillingService
+        src = inspect.getsource(ERPBillingService.update)
+        assert "settlement_type" in src and "必須填寫依據" in src

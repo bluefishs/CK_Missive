@@ -47,7 +47,10 @@ interface AccountRecord {
   request_amount?: number;     // 請款金額
   invoice_number?: string;     // 發票號碼
   invoice_date?: string;       // 發票日期
-  invoice_amount?: number;     // 發票金額
+  invoice_amount?: number;     // 發票金額（含稅）
+  invoice_tax_amount?: number; // 發票稅額（0 = 免稅／未開稅）
+  settlement_type?: string;    // invoice=開票 / offset=互抵 / no_invoice=約定不開票
+  settlement_note?: string;
   payment_status: string;      // 收付款狀態
   payment_date?: string;       // 收付款日期
   payment_amount?: number;     // 收付款金額
@@ -99,6 +102,9 @@ const billingToRecord = (
   invoice_number: b.invoice_number || undefined,
   invoice_date: b.invoice_date || undefined,
   invoice_amount: b.invoice_amount != null ? Number(b.invoice_amount) : undefined,
+  invoice_tax_amount: b.invoice_tax_amount != null ? Number(b.invoice_tax_amount) : undefined,
+  settlement_type: b.settlement_type ?? 'invoice',
+  settlement_note: b.settlement_note ?? undefined,
   payment_status: b.payment_status || 'pending',
   payment_date: b.payment_date,
   payment_amount: b.payment_amount ? Number(b.payment_amount) : undefined,
@@ -302,9 +308,36 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
       title: '發票號碼', width: 150, align: 'center' as const,
       render: (_: unknown, r: AccountRecord) => {
         if (r.invoice_number) {
+          // 2026-09-07 owner：「如何呈現稅務資訊以利複核」——複核看的是三個數：
+          // 未稅、稅額、含稅。只給含稅，人得自己 ÷1.05；而 5% 與 0（免稅）原本長得一樣。
+          const gross = r.invoice_amount ?? r.request_amount ?? 0;
+          const tax = r.invoice_tax_amount ?? 0;
+          const net = gross - tax;
+          const rate = gross > 0 ? Math.round((tax / Math.max(net, 1)) * 100) : 0;
           return (
-            <Tooltip title={`開立日期 ${r.invoice_date ?? '-'}｜發票金額 ${(r.invoice_amount ?? r.request_amount ?? 0).toLocaleString()}`}>
-              <Tag color="blue" style={{ margin: 0 }}>{r.invoice_number}</Tag>
+            <Tooltip title={
+              <div style={{ lineHeight: 1.7 }}>
+                <div>開立日期 {r.invoice_date ?? '-'}</div>
+                <div>未稅 {net.toLocaleString()}</div>
+                <div>稅額 {tax.toLocaleString()}（{tax === 0 ? '免稅／未開稅' : `${rate}%`}）</div>
+                <div>含稅 {gross.toLocaleString()}</div>
+              </div>
+            }>
+              <Tag color="blue" style={{ margin: 0 }}>
+                {r.invoice_number}
+                {tax === 0 && <span style={{ marginLeft: 4, fontSize: 11 }}>免稅</span>}
+              </Tag>
+            </Tooltip>
+          );
+        }
+        // 互抵／約定不開票是**正當的結算方式**，不是漏開 —— 標出來，否則複核每次都要重問一次
+        if (r.settlement_type === 'offset' || r.settlement_type === 'no_invoice') {
+          return (
+            <Tooltip title={r.settlement_note || '未填依據 —— 請補「與哪一筆互抵／依據哪份約定」'}>
+              <Tag color={r.settlement_note ? 'purple' : 'orange'} style={{ margin: 0 }}>
+                {r.settlement_type === 'offset' ? '互抵' : '約定不開票'}
+                {!r.settlement_note && ' ⚠'}
+              </Tag>
             </Tooltip>
           );
         }
