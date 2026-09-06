@@ -148,6 +148,11 @@ class ToolResultGuard:
         "draw_diagram": {"mermaid": "", "count": 0},
         "find_correspondence": {"pairs": [], "count": 0},
         "explore_entity_path": {"paths": [], "count": 0},
+        # 2026-09-06：wiki 三工具（2026-08 加入 _TOOLS）一直沒有範本 ⇒ 結果不合形狀時沒有保底，
+        # 兩支 unit 測試（phase2／pm_erp_tools）因此自加入起就紅著
+        "wiki_search": {"results": [], "count": 0},
+        "wiki_read": {"content": "", "path": "", "count": 0},
+        "wiki_ingest": {"count": 0},
         # PM/ERP tools (v1.83.0)
         "search_projects": {"projects": [], "count": 0},
         "get_project_detail": {"project": None, "count": 0},

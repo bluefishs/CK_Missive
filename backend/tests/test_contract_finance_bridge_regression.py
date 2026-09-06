@@ -40,7 +40,10 @@ class TestCaseCodeAutoGeneration:
         改為先去註解再取窗：斷言的對象是程式碼，註解長度不該影響它。
         """
         src = _strip_comments(_read("app/services/contract/core.py"))
-        i = src.index('if not project_data.get("case_code")')
+        # 2026-09-06：同一句在檔內出現兩次。第一次是 09-02「手動建案先產 GN 制 case_code、
+        # 成案編號就是它」的路徑 —— 那裡沒有號就沒有 project_code，**該 raise**；
+        # fail-soft 契約守的是第二次（既有 project_code、只是補 case_code 橋樑）⇒ 取最後一次。
+        i = src.rindex('if not project_data.get("case_code")')
         seg = src[i:i + 900]
         assert "try:" in seg and "except Exception" in seg
         assert "logger.warning" in seg

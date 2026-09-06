@@ -20,6 +20,9 @@ import pytest
 GET_ALLOWLIST: Set[Tuple[str, str]] = {
     # (file 相對 backend/app, route path 子字串)
     ("api/endpoints/ai/digital_twin.py", "/digital-twin/live-activity/stream"),  # SSE
+    # Hermes bridge 的 memory_digest 段 A 用 GET（docs/hermes-skills/ck-missive-bridge/scripts/query.py:95）；
+    # 端點已標 deprecated 並有 POST 雙生。改出口就要改整條鏈（L81），skill 未改前保留 GET（weekly http_method_convention_audit 也記著）
+    ("api/endpoints/ai/memory_digest.py", "/memory/digest"),
     # Health endpoints — CF Tunnel / k8s / LB 探針業界標準要求 GET
     ("api/endpoints/health.py", "/health"),
     ("api/endpoints/health.py", "/health/detailed"),

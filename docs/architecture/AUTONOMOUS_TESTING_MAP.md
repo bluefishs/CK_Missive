@@ -13,7 +13,7 @@
                  │   secret guard／skills 格式             │   │   環境對齊、映像新鮮、SSOT、排程沉默、│   │   架構／規範／金流對帳／RWD／    │
                  │ commit-msg：commitlint                  │   │   八條生命跡象、知識文庫、重啟迴圈、  │   │   同步 I/O／名稱鍵／機制圖…      │
                  │ post-commit：知識地圖重生               │   │   ★業務鏈探針 32 斷言（09-06 起）    │   │ 04:15／05:10 流程走查 20 條     │
- git push ─────▶ │ pre-push：**無**（A46）                 │   │ 排程看門狗：cron_events／watchdog     │   │ 04:30 頁面走查 41 頁＋手機探針   │
+ git push ─────▶ │ pre-push：相關 pytest／vitest 對基線    │   │ 排程看門狗：cron_events／watchdog     │   │ 04:30 頁面走查 41 頁＋手機探針   │
                  └────────────────────────────────────────┘   └──────────────────────────────────┘   │ 04:50 能力使用（零流量）        │
  deploy ───────▶ deploy-public.sh 8 層：tsc 閘門 → build 身分 → 容器 health → host → 公網 200 → 認證鏈 → ★業務鏈探針      │ 03:00 異地備份（Website 驗證）  │
                                                                                                                        └────────────────────────────────┘
@@ -24,7 +24,7 @@
 | 層 | 誰觸發／頻率 | 看得見 | 看不見 | 留痕 |
 |---|---|---|---|---|
 | pre-commit（husky） | 每次 commit | 能不能編譯、有沒有洩密 | 任何行為 | 不留檔 |
-| pre-push | **不存在** | — | 全部 | — |
+| pre-push（husky） | 每次 git push（09-06 起） | 推送範圍相關的 pytest／vitest，基線外新失敗 | 沒有對應測試檔的改動、全套 | 終端 |
 | 後端 pytest（307 檔；09-06 host 實跑 4,390 過／65 失敗／18 skip） | weekly 24（host）；無 commit 閘門 | 邏輯回歸、asyncpg 競態、os.kill 陷阱 | 跨表資料鏈、真實 DB | `known_failures.json` 基線（只有 2 筆 ⇒ weekly 24 每週紅 63） |
 | 前端 vitest（228 檔） | **weekly 114**（09-06 起；首跑 254 失敗 → 三個共同根因修掉後 85） | 元件渲染、hook；mock 有沒有跟上 barrel | 真實 API、跨頁流程 | `frontend/tests/known_failures.json` 基線（86 項待清） |
 | 每日 runner（容器 02:00，17 步） | APScheduler | 環境／SSOT／排程／生命跡象／知識文庫／重啟迴圈／**業務鏈** | 頁面、視覺、效能、跨 repo | `wiki/memory/fitness_daily_history.json`、晨報 digest |
@@ -46,7 +46,7 @@
 |---|---|---|---|---|
 | 0 | **後端 pytest 65 失敗而基線只登 2**：失敗集中在本週改過的服務（quotation／quotation_items／case_code／auth／digital_twin／financial_dashboard 的 mock 測試）＋測試庫 schema 漂移（UndefinedColumnError ×10，weekly 87）；weekly 24 每週紅但沒人收 | 改了服務沒跑它的單元測試 ⇒ 測試在改動當下就過期 | ①先修本週改動造成的（同一 session 內修）；②測試庫 `alembic upgrade`（weekly 87）；③其餘進基線名冊，新增才紅；④pre-push 跑 `tests/unit -x` | ①②③ **09-06 已辦**：本週改動造成的 mock 失敗修 7 支、基線重錄 38→31、weekly 87 排除備份表後 GREEN；④ 待 A46 |
 | 1 | **前端 vitest 沒有人跑**：254 失敗／41 檔，主因是 mock 沒跟上新 export（`ClickableStatCard`、`useCaseCodeMap`、`useTaoyuanDispatchOrders`…） | 前端邏輯回歸完全靠走查與人；測試腐爛到修不動 | ①mock 改 `importOriginal` 展開再覆蓋（一次修一類）；②接進 weekly 24 同一支「基線比對」（新失敗才紅）；③跑得起來之後才談 pre-push | ①② **09-06 已辦**：三個共同根因修掉（254→85）、weekly 114 基線比對；③ 待 A46 |
-| 2 | 沒有 pre-push | 壞掉的提交推到 main、部署閘門才擋（每次 10 分鐘） | 快速子集：`pytest tests/unit -x`（<60s）＋ 改到的前端測試檔；A46 的 467 秒全套不進 pre-push | A46 待 owner |
+| 2 | 沒有 pre-push | 壞掉的提交推到 main、部署閘門才擋（每次 10 分鐘） | **09-06 已接**：`prepush_related_tests.py` 只跑推送範圍相關測試（`tests/unit` 全跑實測 >10 分鐘，太慢），對兩份基線只擋新失敗 | ✅ |
 | 3 | 業務鏈探針只在部署時跑 | 沒部署的日子資料漂移沒人走鏈 | **09-06 已補**：每日第 16 步 | ✅ |
 | 4 | 視覺走查、效能探針只有手動 | 回歸靠人想起來 | 視覺：週一次 report-only 拍代表頁（人在 session 讀）；效能：weekly report-only 存 `route_cost.json` 看趨勢 | 建議，未做 |
 | 5 | 沒有壓測、沒有 RUM | 併發行為與真實使用者體感都是推的 | locust 已在 requirements（未用）；RUM 接 web-vitals 兩支（lvrland 有） | 建議 |

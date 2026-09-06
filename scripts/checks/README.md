@@ -222,6 +222,7 @@
 | `async_sync_io_audit.py` | async 路徑上的同步 I/O（AST；一支卡全站）；基線 `.async_sync_io_baseline.txt`（weekly 112） |
 | `testing_map_report.py` | 自主測試機制圖（僅報告，產出 docs/health/TESTING_MAP.md）（weekly 113） |
 | `frontend_test_suite_health.py` | 前端 vitest 全套跑一次對基線 `frontend/tests/known_failures.json`：新失敗 RED、已修未除名 YELLOW；跑不起來（通過 <500／JSON 與解析不一致）不寫基線也不回綠（weekly 114） |
+| `prepush_related_tests.py` | **pre-push 快速閘門**（A46）：推送範圍改到的檔 → 相關 pytest／vitest，對兩份 `known_failures.json` 只擋基線外新失敗；沒有相關測試放行但印出。由 `frontend/.husky/pre-push` 呼叫 |
 
 ## 🧪 月度架構覆盤（`run_fitness.sh`）
 

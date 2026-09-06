@@ -153,7 +153,7 @@ class TestDocumentsEnhancedAPI:
     async def test_export_documents(self, client: AsyncClient):
         """測試公文匯出 API"""
         response = await client.post(
-            "/api/documents-enhanced/export/excel",
+            "/api/documents-enhanced/export",  # 路由是 /export（documents/export.py:30），/export/excel 從來不存在 ⇒ 404
             json={}
         )
 
@@ -161,9 +161,9 @@ class TestDocumentsEnhancedAPI:
         assert response.status_code in [200, 400, 500]
 
         if response.status_code == 200:
-            # 驗證是 Excel 檔案
+            # 匯出端點回 CSV（documents/export.py）；原斷言只認 Excel，是測試寫錯不是端點壞
             content_type = response.headers.get("content-type", "")
-            assert "spreadsheet" in content_type or "octet-stream" in content_type
+            assert any(t in content_type for t in ("spreadsheet", "octet-stream", "text/csv")), content_type
 
 
 class TestDocumentsValidation:

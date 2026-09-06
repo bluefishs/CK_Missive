@@ -1,0 +1,23 @@
+#!/bin/sh
+# ============================================================
+# Pre-push Gate — 只跑「與這次推送有關」的測試（A46 快速版，2026-09-06）
+# ============================================================
+# 原案（.git/hooks/pre-push 3 階段全套 467 秒）從未被 git 執行過：
+# core.hooksPath 指向 frontend/.husky/_，而那裡沒有 pre-push（weekly 91 ① 揭發）。
+# 這支改問「推送範圍改了哪些檔」→ 只跑對應的後端 pytest／前端 vitest，
+# 再對兩份 known_failures.json：只有基線外的新失敗才擋。找不到相關測試就放行（會印出來）。
+# 緊急略過：git push --no-verify
+# ============================================================
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+cd "$PROJECT_ROOT" || exit 0
+
+# stdin 每行：<local ref> <local sha> <remote ref> <remote sha>；遠端 sha 全 0 ＝ 新分支
+RANGE="origin/main..HEAD"
+while read -r _lref lsha _rref rsha; do
+  case "$rsha" in
+    0000000000000000000000000000000000000000|"") RANGE="origin/main..$lsha" ;;
+    *) RANGE="$rsha..$lsha" ;;
+  esac
+done
+
+PYTHONIOENCODING=utf-8 python scripts/checks/prepush_related_tests.py --range "$RANGE"

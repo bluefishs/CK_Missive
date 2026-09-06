@@ -27,13 +27,17 @@ ENV_EXAMPLE = REPO_ROOT / ".env.example"
 
 
 def _reload_settings(monkeypatch, env: Dict[str, str]):
-    """以新的環境變數重新載入 Settings（繞過 lru_cache）。"""
+    """以新的環境變數建一個 Settings（pydantic-settings 每次實例化都重讀環境變數，不需要 reload 模組）。
+
+    ⚠️ 2026-09-06：原本 `importlib.reload(config_module)` —— 那會把 `app.core.config.settings`
+    換成另一個物件（或在模組層 `Settings()` 因為這裡塞的生產環境變數而炸掉、留下半重載的模組），
+    而 `domain_whitelist` 等模組在 import 時綁的是舊物件 ⇒ 後面 `tests/unit/test_auth_service.py`
+    用 `monkeypatch.setattr(config.settings, ...)` 改的是新物件、被測函式讀的是舊物件 ⇒
+    三支測試**全套跑紅、單跑綠**（integration 目錄排在 unit 前面）。
+    """
     for key, value in env.items():
         monkeypatch.setenv(key, value)
-    # 強制重新載入以套用 monkeypatch 的環境變數
-    import importlib
     from app.core import config as config_module
-    importlib.reload(config_module)
     return config_module.Settings()
 
 

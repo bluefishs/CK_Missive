@@ -53,6 +53,7 @@
 | 前端 vitest | 228 檔此前**沒有任何排程或閘門在跑**，首跑 254 失敗。三個共同根因：①barrel 部分 mock 蓋掉後來新增的 export（62 檔改 `importOriginal` 展開）②`shared-modules/sso-js/node_modules` 自帶第二份 React＋zustand ⇒ `useRef` 讀到 null ×76（`vitest.config.ts` 補 `dedupe`／alias／`server.deps.inline`）③`useResponsive` mock 漏 `responsiveValue` ×120（41 處補）⇒ **254→85**。新增 `frontend_test_suite_health.py`＝**weekly 114**，基線 `frontend/tests/known_failures.json` 86 項（畫面改了測試沒跟，逐檔清） |
 | 後端 pytest | 全套 host 重跑 65→38；本週改動造成的 mock 失敗修 7 支（報價單服務 5：`generate_quotation_no`／改總價先讀現值／`db.scalar` 拿委託單位名／損益摘要批次應付；PM 建案 2：同名承攬案 `.first()`／手動案號 `validate`＋`check_duplicate`），基線重錄 **31** 項；weekly 24 下次只對新增紅。auth 3 支全套紅、單跑綠＝順序相依，留基線 |
 | 其他 | `test_hermes_security_lint` 接受 `require_scope.*`；weekly 87 排除 `_bak_*`／`backup_*`／pg_stat 視圖後 GREEN；`public_endpoint_auth_audit` 742 端點 0 缺口；部署 c717ac5d 探針全通 |
+| 09-06 深夜（owner「前述議題依專案最大效益辦理」） | ①**pre-push 接上快速版**（A46）：`frontend/.husky/pre-push` → `prepush_related_tests.py`，推送範圍相關測試對兩份基線；②auth 3 支「全套紅單跑綠」真因＝`test_production_config_guard` 用 `importlib.reload` 換掉 `config.settings` 物件，後面的 monkeypatch 改到另一個物件——改為直接 `Settings()`；③基線裡 5 支「regression」逐一判讀：fail-soft 測試抓到 09-02 新增的第一個同句（該 raise 的路徑）→ 改取最後一次；legacy 身分測試記的是舊危害、08-31 同名比對已兜底 → 改記新契約；匯出測試打的 `/export/excel` 從不存在、端點回 CSV → 修路徑與型別；**wiki 三工具自加入起沒有結果守衛範本** → 補；重放測試 mock 缺 `revoked_at`；POST-only 政策把 Hermes 段 A 用的 GET `/memory/digest` 列允許（改出口要改整條鏈）。後端基線 31→21 |
 
 ## [v6.72] - 2026-09-04（名稱標準化與主檔鍵／指派即應付／發票鏈防呆／表格篩選規範）
 

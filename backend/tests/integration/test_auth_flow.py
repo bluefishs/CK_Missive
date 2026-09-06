@@ -324,6 +324,8 @@ class TestRefreshTokenReplayDetection:
         revoked_session.user_id = mock_user.id
         revoked_session.token_jti = str(uuid.uuid4())
         revoked_session.is_active = False
+        # 07-21 起有併發寬限期：撤銷時間在寬限期外才走「撤銷全部 session」；spec=UserSession 的 MagicMock 沒給值會被拿去比大小
+        revoked_session.revoked_at = datetime.utcnow() - timedelta(hours=1)
 
         call_count = 0
 

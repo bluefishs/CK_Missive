@@ -26,7 +26,7 @@ LAYERS = [
     ("提交閘門 pre-commit（husky）", "每次 git commit（本機）", "TS 編譯、ESLint、Python 語法、敏感檔、secret 前綴、skills 格式", "任何測試、任何行為；只驗「能不能編譯」", "終端輸出，不留檔", None),
     ("提交訊息 commit-msg", "每次 commit", "commitlint 格式", "—", "終端", None),
     ("post-commit 知識地圖", "每次 commit（背景）", "docs 變動 → 知識地圖重生", "—", "docs/knowledge-map/", None),
-    ("推送閘門 pre-push", "**不存在**（A46）", "—", "全部", "—", None),
+    ("推送閘門 pre-push（husky）", "每次 git push（09-06 起，A46 快速版）", "推送範圍相關的 pytest／vitest，對基線只擋新失敗", "改了但沒有對應測試檔的程式（會印「沒有相關測試」）；全套", "終端輸出", None),
     ("後端單元／整合測試 pytest", "weekly 24（host）；無 commit 閘門", "服務／repository／schema 的邏輯回歸；asyncpg 競態 lint；os.kill 陷阱", "跨表資料鏈、真實 DB 漂移", "backend/tests/known_failures.json（基線）、weekly 24 輸出", None),
     ("前端單元測試 vitest（228 檔）", "weekly 114（host）；無 commit 閘門", "元件渲染、hook 邏輯；mock 有沒有跟上 barrel 的新 export", "真實 API、跨頁流程", "frontend/tests/known_failures.json（基線）、weekly 114 輸出", None),
     ("每日 runner（容器 02:00，17 步）", "APScheduler fitness_daily", "容器環境對齊、映像新鮮度、volume／healthcheck SSOT、排程沉默、儀表板新鮮度、CRLF、DB 交易、模組匯入、八條生命跡象、知識文庫新鮮度、容器重啟迴圈、**業務鏈探針 32 斷言（09-06 起）**", "頁面、視覺、效能、跨 repo", "wiki/memory/integration-health/、LINE 晨報 digest", 30),
@@ -104,7 +104,7 @@ def main() -> int:
               "- 每日 runner 步數：" + str(sum(1 for l in (ROOT / 'scripts' / 'checks' / 'run_fitness_daily.sh').read_text(encoding='utf-8').splitlines() if l.lstrip().startswith('run_step "'))),
               "- 每週 runner 步數：" + str(sum(1 for l in (ROOT / 'scripts' / 'checks' / 'run_fitness_weekly.sh').read_text(encoding='utf-8').splitlines() if l.lstrip().startswith('run_step "'))),
               "", "## 缺口（定義在 `docs/architecture/AUTONOMOUS_TESTING_MAP.md`，這裡只列名）", "",
-              "- 前端 vitest 只在 weekly 114 跑，沒有 commit 閘門；基線 86 項待清（A111）", "- 沒有 pre-push 閘門（A46）", "- 視覺走查與效能探針只有手動", "- 沒有真實負載（壓測）與 RUM",
+              "- 前端 vitest 只在 weekly 114 跑，沒有 commit 閘門；基線 86 項待清（A111）", "- pre-push 只跑相關測試（找不到對應測試的改動不擋）", "- 視覺走查與效能探針只有手動", "- 沒有真實負載（壓測）與 RUM",
               ""]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines), encoding="utf-8")

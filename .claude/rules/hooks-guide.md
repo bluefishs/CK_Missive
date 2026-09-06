@@ -45,7 +45,7 @@
 > | hook | `.git/hooks/`（死） | `frontend/.husky/`（活） |
 > |---|---|---|
 > | pre-commit | 9,674 B、6 項檢查 | ✅ 已於 08-30 補上 secret guard 與 destructive ops |
-> | **pre-push** | **7,787 B、3 階段守門包** | **❌ 不存在 ⇒ 從來沒有跑過一次** |
+> | **pre-push** | **7,787 B、3 階段守門包**（仍被旁路，留作歷史） | ✅ **2026-09-06 接上快速版**：`prepush_related_tests.py` 只跑推送範圍相關的 pytest／vitest，對兩份 `known_failures.json`，基線外新失敗才擋 |
 > | post-commit | 5,736 B、6 段（**已標為不執行**）| ✅ **2026-08-31 接回，但只搬第 1 段** |
 > | post-checkout / post-merge | 有 | ✅ 有 |
 > | commit-msg | 無 | ✅ commitlint |
@@ -61,7 +61,7 @@
 > 而 `docs/` 一天改很多次，向量庫索引的又是地圖 ⇒ **知識文庫最多落後一週**。
 >
 > **要改 pre-commit 行為請改 `frontend/.husky/pre-commit`。**
-> pre-push 要不要接上見待辦 A46（實跑 467 秒、且會因別的 repo 服務掛掉而擋住本 repo 的 push）。
+> pre-push 的全套版（467 秒、且會因別的 repo 服務掛掉而擋住 push）刻意不接；A46 於 2026-09-06 以「只跑相關測試」的快速版結案，緊急略過 `git push --no-verify`。
 
 ⚠️ 位置欄原本寫 `.git/hooks/`，那是**錯的**——`core.hooksPath` 指向 husky，
 `.git/hooks/` 底下的同名檔案一個都不會執行。這張表誤導過人：08-29 有人（我）

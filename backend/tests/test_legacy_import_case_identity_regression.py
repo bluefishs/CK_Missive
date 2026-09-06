@@ -47,10 +47,10 @@ async def test_existing_case_under_ck_code_is_found_not_duplicated(db_session):
 
     # 反證（舊行為）：用 legacy 原文比對 ⇒ 找不到 ⇒ 會再建一件
     n_old = await svc._ensure_pm_cases([dict(ROW)], dry_run=True, code_of=None)
-    assert n_old == 1, (
-        "此斷言記錄舊行為的危害：legacy 原文對不到 CK 碼、判為缺件 —— "
-        "若這裡變成 0，代表比對邏輯又變了，請重新確認 step 6 語意"
-    )
+    # 2026-08-31 起 `_ensure_pm_cases` 對 CK 制案號也做「同名即分身」比對（08-20 那 26 件分身的修法），
+    # 所以即使 legacy 原文對不到 CK 碼，同名的既有案也會被認出、不再補建 ⇒ 舊行為的危害已由第二道守門擋住。
+    # 這裡改記新契約：兩條路都不得補建。若這裡變回 1，代表同名比對被拿掉了。
+    assert n_old == 0, "同名既有案（CK 碼）也必須被認出 —— 08-31 起由同名比對兜底，補建數應為 0"
 
 
 @pytest.mark.asyncio
