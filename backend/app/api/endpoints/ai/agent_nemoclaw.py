@@ -14,7 +14,7 @@
     - ADR-0014 Hermes 取代 OpenClaw
     - ADR-0015 NemoClaw 退場 + Cloudflare Tunnel
     - ADR-0030 Hermes GO/NO-GO（5/20 決策）
-    - docs/archive/nemoclaw-archival-checklist.md Sprint 4 stub 刪除
+    - docs/archived/nemoclaw-archival-checklist.md Sprint 4 stub 刪除
 """
 import warnings
 

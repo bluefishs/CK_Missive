@@ -54,7 +54,7 @@ python -c "print('實際掃描：'); " && grep -rn "nemoclaw\|openclaw" --includ
 | `docs/hermes-skills/README.md` | 3 | 確認描述為現況 |
 | `docs/openclaw-skill-update.md` | 3 | **加顯眼 deprecated 標頭**（或移入 archive/） |
 | `docs/MULTICHANNEL_SETUP_GUIDE.md` | 20 | 移除 OpenClaw 段落，僅保留 LINE / Telegram 直連 |
-| `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md` | 20 | **整檔標 archived**（移入 docs/archive/） |
+| `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md` | 20 | **整檔標 archived**（移入 docs/archived/） |
 | `docs/DOCKER_SECRETS_PHASE1.md` | 1 | 確認描述為現況 |
 | `docs/SECRET_ROTATION_SOP.md` | 6 | 移除 OpenClaw token 輪換段落 |
 | `docs/SECURITY_THREAT_MODEL.md` | 4 | 更新 Threat Model 移除 OpenClaw component |
@@ -124,7 +124,7 @@ python -c "print('實際掃描：'); " && grep -rn "nemoclaw\|openclaw" --includ
 
 - [ ] 類別 B：更新 17 份活躍文件（低風險）
   - 把 `LINE_OPENCLAW_OPERATIONAL_GUIDE.md` 整檔加 `> **ARCHIVED**：此文件已被 Hermes 取代，見 docs/reports/HERMES_MIGRATION_PLAN.md` 標頭
-  - 移除 `docs/openclaw-skill-update.md` 或移入 `docs/archive/`
+  - 移除 `docs/openclaw-skill-update.md` 或移入 `docs/archived/`
   - 更新 `HERMES_MIGRATION_PLAN.md` 反映 ADR-0030
 
 ### Sprint 2（第 2 週，2026-04-29 ~ 05-05）：Deprecated 段落清理

@@ -1642,7 +1642,7 @@ TypeScript 原生不支援 `forwardRef + generic`，採 as-cast 模式保留完�
 - `scripts/checks/async_session_race_guard.py`
 - `scripts/checks/sse_headers_guard.py`
 - `scripts/checks/adr_lifecycle_check.py`
-- `docs/archive/nemoclaw-archival-checklist.md`
+- `docs/archived/nemoclaw-archival-checklist.md`
 - `docs/BUSINESS_VALUE.md`
 - `configs/grafana/dashboards/ck-missive-http.json`
 - `configs/grafana/dashboards/ck-missive-db-pool.json`
@@ -3696,9 +3696,9 @@ NemoClaw 代理人正式發布，歷經 70+ commits 從 v1.84.3 升級：
 - `cd.yml`、`ci-e2e.yml`、`deploy-production.yml`：確認均已停用自動觸發
 
 #### 根目錄清理（18 個散落檔案）
-- SQL 備份 → `docs/archive/sql/`
-- 圖片資產 → `docs/archive/assets/`
-- 過時工具/文件 → `docs/archive/`
+- SQL 備份 → `docs/archived/sql/`
+- 圖片資產 → `docs/archived/assets/`
+- 過時工具/文件 → `docs/archived/`
 - 臨時檔案 → 刪除 (openapi_temp.json, monitoring_config.json 等)
 
 #### Backend 腳本整理（27 個散落腳本）
@@ -4517,7 +4517,7 @@ NemoClaw 代理人正式發布，歷經 70+ commits 從 v1.84.3 升級：
 - CHANGELOG.md 回填 v1.34→v1.57 (24 版本, +269 行)
 - `pyproject.toml` 覆蓋率門檻 `fail_under=60`
 - Architecture 文件更新服務遷移/Repository 狀態
-- 10 個陳舊文件歸檔至 `docs/archive/`
+- 10 個陳舊文件歸檔至 `docs/archived/`
 
 **CI 覆蓋率門檻強制化 (Step 2)**:
 - `test-coverage` job 移除 `continue-on-error`

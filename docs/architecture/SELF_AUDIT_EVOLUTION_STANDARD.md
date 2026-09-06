@@ -70,7 +70,7 @@ pile 至今 1 支、我自己的 shared-modules commit 被 hook 擋下卻回報�
 > [`SOUL_CROSS_REPO_PROTOCOL.md`](SOUL_CROSS_REPO_PROTOCOL.md)（SOUL.md 跨 repo 同步規則，
 > 由 weekly step 1 `soul_mirror_drift_check` 守）／
 > [`WS_D_BOUNDARY_CONTRACT.md`](WS_D_BOUNDARY_CONTRACT.md)（CK_Missive 側邊界契約）。
-> 已完成的一次性報告移至 [`docs/archive/architecture/`](../archive/architecture/README.md)。
+> 已完成的一次性報告移至 [`docs/archived/architecture/`](../archive/architecture/README.md)。
 
 > **延伸閱讀**：一個問題**沒有被任何機制發現**時，從哪裡找原因 ——
 > 見 [`BLIND_SPOT_STRATEGY.md`](BLIND_SPOT_STRATEGY.md)（四種盲區型態與追問法）。

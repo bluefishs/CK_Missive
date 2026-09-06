@@ -171,9 +171,9 @@ openapi_temp*.json
 /archive/
 configs/archive/
 scripts/archive/
-docs/archive/sql/
-docs/archive/data/
-docs/archive/assets/
+docs/archived/sql/
+docs/archived/data/
+docs/archived/assets/
 
 # Backend scattered scripts (moved to backend/scripts/)
 backend/scripts/archive/

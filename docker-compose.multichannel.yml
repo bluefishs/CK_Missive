@@ -3,7 +3,7 @@
 # =============================================================================
 # ADR-0014 (2026-04-14): OpenClaw 已由 Hermes Agent 取代，原 openclaw service
 #   於 2026-04-23（NemoClaw Sprint 2）正式從本檔案移除。
-#   歷史見：docs/archive/nemoclaw-archival-checklist.md
+#   歷史見：docs/archived/nemoclaw-archival-checklist.md
 #
 # Hermes 部署：CK_AaaP/runbooks/hermes-stack/docker-compose.yml
 # 主通道：LINE / Telegram webhook → CK_Missive backend(:8001) 直連

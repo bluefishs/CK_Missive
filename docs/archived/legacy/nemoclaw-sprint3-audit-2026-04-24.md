@@ -2,7 +2,7 @@
 
 **Sprint 時程**：2026-05-06 ~ 05-12（計劃）— 提前執行
 **審計類型**：盤點 + 分類 + 建議，**不改程式碼**
-**關聯**：`docs/archive/nemoclaw-archival-checklist.md`（總 checklist）
+**關聯**：`docs/archived/nemoclaw-archival-checklist.md`（總 checklist）
 **Blocker**：Hermes GO/NO-GO 決策（ADR-0030，2026-05-20 決策日）
 
 ---
