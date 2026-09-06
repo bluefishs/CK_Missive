@@ -21,6 +21,4 @@ def test_no_os_kill_zero_outside_posix_guard():
         for i, line in enumerate(f.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
             if PATTERN.search(line) and "windows-footgun: ok" not in line:
                 hits.append(f"{f.relative_to(ROOT)}:{i}: {line.strip()}")
-    assert not hits, "os.kill(pid, 0) 在 Windows 上是送 Ctrl-C，不是探測：
-" + "
-".join(hits)
+    assert not hits, "os.kill(pid, 0) 在 Windows 上是送 Ctrl-C，不是探測：" + chr(10) + chr(10).join(hits)
