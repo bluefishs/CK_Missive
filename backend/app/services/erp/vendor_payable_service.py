@@ -10,6 +10,7 @@ from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPVendorPayable
+from app.services.erp.party_resolver import PartyResolver
 from app.repositories.erp import ERPVendorPayableRepository, ERPQuotationRepository
 from app.repositories.vendor_repository import VendorRepository
 from app.schemas.erp import ERPVendorPayableCreate, ERPVendorPayableUpdate, ERPVendorPayableResponse
@@ -121,13 +122,38 @@ class ERPVendorPayableService(AuditableServiceMixin):
 
         create_data = data.model_dump()
         # 自動配對 vendor_id: 優先 vendor_code，其次 vendor_name 模糊匹配
+        # 2026-09-07 owner：「填報時就要有完善檢核與自動關聯」。
+        # 原本解析不到就**靜靜不填 vendor_id** —— 那正是應付 #51 的來歷：
+        # 名字寫著兩家（`銢欣有限公司乃耳企業社`）、鍵指向其中一家，
+        # 而事後要拆時系統裡已經沒有任何憑證能決定怎麼分。
+        # ⇒ 填報當下就要回答「這是主檔的哪一筆」，答不出來就出聲。
         if not create_data.get("vendor_id"):
-            resolved = await self._resolve_vendor_id(
-                vendor_code=create_data.get("vendor_code"),
-                vendor_name=create_data.get("vendor_name"),
+            res = await PartyResolver(self.db).resolve(
+                create_data.get("vendor_name"),
+                tax_id=create_data.get("vendor_code"),
+                vendor_type="subcontractor",
             )
-            if resolved:
-                create_data["vendor_id"] = resolved
+            if res.vendor_id:
+                create_data["vendor_id"] = res.vendor_id
+                # 名稱一律存主檔的現行寫法（名稱是快照、鍵才是關聯）
+                canon = await self._vendor_name_of(res.vendor_id)
+                if canon:
+                    create_data["vendor_name"] = canon
+            elif res.split_into:
+                raise ValueError(
+                    f"{res.reason}。"
+                    f"（若確定是同一次委外分給多家，請一家一筆；已存在的舊資料可用 "
+                    f"`scripts/tools/split_vendor_payable.py` 拆）"
+                )
+            else:
+                hint = ""
+                if res.candidates:
+                    hint = "；相近的有：" + "、".join(n for _i, n in res.candidates[:3])
+                raise ValueError(
+                    f"對不到協力廠商主檔：{res.reason}{hint}。"
+                    "請先在「協力廠商」建立這一家，或改填主檔裡的名稱 —— "
+                    "沒有鍵的應付在帳款、對帳、廠商往來三張表上都會漏掉。"
+                )
         # 建立時就標 paid 也要擋「沒金額／沒日期」—— 與 update 同判準
         if create_data.get("payment_status") == "paid":
             if not create_data.get("paid_amount"):
@@ -248,6 +274,14 @@ class ERPVendorPayableService(AuditableServiceMixin):
         """透過報價單取得案號"""
         quotation = await self._quotation_repo.get_by_id(quotation_id)
         return quotation.case_code if quotation else None
+
+    async def _vendor_name_of(self, vendor_id: int) -> str | None:
+        """取主檔現行名稱（存快照時用它，不用使用者打的那一版）。"""
+        from app.extended.models.core import PartnerVendor
+        from sqlalchemy import select as _sel
+        return (await self.db.execute(
+            _sel(PartnerVendor.vendor_name).where(PartnerVendor.id == vendor_id)
+        )).scalar_one_or_none()
 
     async def _resolve_vendor_id(
         self, vendor_code: Optional[str] = None, vendor_name: Optional[str] = None,

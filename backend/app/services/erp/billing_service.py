@@ -291,6 +291,17 @@ class ERPBillingService(AuditableServiceMixin):
         #
         # 擋在 service 而不是 schema：金額與狀態可能分兩次請求送，
         # schema 只看得到單次 payload，看不到最終狀態。
+        # 2026-09-07 owner：「收款在填報時就要有檢核」。收款額不得超過請款額 ——
+        # 超過的那一刻起，「應收未收」會變成負數而報表上看不出是哪一筆造成的。
+        # 容差 1 元（四捨五入）；真的多收要先改請款額（追加）再登收款。
+        from decimal import Decimal as _D
+        _pay = billing.payment_amount
+        if _pay is not None and billing.billing_amount is not None:
+            if _D(str(_pay)) - _D(str(billing.billing_amount)) > 1:
+                raise ValueError(
+                    f"收款 {_D(str(_pay)):,.0f} 超過請款額 {_D(str(billing.billing_amount)):,.0f}"
+                    f"（{billing.billing_period or ''}）—— 若確實多收，請先調整請款額再登錄收款。"
+                )
         if billing.payment_status == "paid" and not billing.payment_amount:
             raise ValueError(
                 "標記為「已收款」時必須填寫收款金額 —— "

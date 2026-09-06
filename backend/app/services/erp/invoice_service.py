@@ -27,6 +27,54 @@ class ERPInvoiceService(AuditableServiceMixin):
         self.db = db
         self.repo = ERPInvoiceRepository(db)
 
+    async def _validate_and_link(self, data) -> None:
+        """填報當下的檢核與自動關聯（就地改寫 data 的 billing_id）。
+
+        自動關聯的判準刻意保守：**同一張報價單、金額相同、且還沒有人綁**的請款只有一期時才自動綁。
+        有兩期同額就不猜 —— 猜錯的代價是把錢算到別期，而那在報表上看不出來。
+        """
+        from decimal import Decimal
+        from sqlalchemy import select as _sel, func as _fn
+        from app.extended.models.erp import ERPBilling, ERPInvoice
+
+        amount = Decimal(str(getattr(data, "amount", 0) or 0))
+        tax = Decimal(str(getattr(data, "tax_amount", 0) or 0))
+
+        # ② 稅額：0（免稅／未稅開立）或 amount 的 5%（±1 元容差）
+        if tax and amount:
+            expect = (amount - amount / Decimal("1.05")).quantize(Decimal("1"))
+            if abs(tax - expect) > 1:
+                raise ValueError(
+                    f"稅額 {tax:,.0f} 與金額 {amount:,.0f} 不相稱 —— 含稅金額的稅額應為 "
+                    f"{expect:,.0f}（5%）或 0（免稅）。請確認填的是含稅總額還是未稅。"
+                )
+
+        bid = getattr(data, "billing_id", None)
+        qid = getattr(data, "erp_quotation_id", None)
+        if bid is None and qid:
+            # ③ 自動關聯：同報價單、金額相同、尚未被綁的請款
+            rows = (await self.db.execute(_sel(ERPBilling).where(
+                ERPBilling.erp_quotation_id == qid))).scalars().all()
+            taken = set((await self.db.execute(_sel(ERPInvoice.billing_id).where(
+                ERPInvoice.billing_id.isnot(None)))).scalars().all())
+            same = [b for b in rows
+                    if b.id not in taken and Decimal(str(b.billing_amount or 0)) == amount]
+            if len(same) == 1:
+                data.billing_id = same[0].id
+            bid = getattr(data, "billing_id", None)
+
+        # ① 金額不得超過所屬請款（超過就是兩邊有一邊填錯，不該靜靜存下去）
+        if bid:
+            b = (await self.db.execute(_sel(ERPBilling).where(ERPBilling.id == bid))).scalars().first()
+            if b is None:
+                raise ValueError(f"請款 #{bid} 不存在")
+            billed = Decimal(str(b.billing_amount or 0))
+            if amount - billed > 1:
+                raise ValueError(
+                    f"發票額 {amount:,.0f} 超過所屬請款 {billed:,.0f}（{b.billing_period or ''}）"
+                    " —— 兩者必有一邊填錯：若是追加請先改請款額，若是打錯請改發票。"
+                )
+
     async def create(self, data: ERPInvoiceCreate) -> ERPInvoiceResponse:
         """建立發票 (ADR-0013 Phase 2: 自動生成 invoice_ref + 併發 retry)
 
@@ -34,6 +82,13 @@ class ERPInvoiceService(AuditableServiceMixin):
         """
         from app.services.contract import CaseCodeService
         from app.services.coding_helpers import retry_on_code_conflict
+
+        # 2026-09-07 owner：「發票在填報時就要有檢核與自動關聯」。
+        # 事後才發現的三種形狀（weekly 104 ②⑤⑦）都能在這裡擋掉：
+        #   ① 發票額 > 請款額（09-06 有兩筆，因為請款被更正而發票沒跟）
+        #   ② 稅額不是 0 也不是 5%（誤把未稅當含稅填）
+        #   ③ 沒有綁請款 ⇒ 「這張發票對哪一期」答不出來（weekly 99 同族）
+        await self._validate_and_link(data)
 
         async def _create_op():
             dump = data.model_dump()
