@@ -1,0 +1,66 @@
+{
+  "coupled": {
+    "calendar:read": [
+      "/calendar",
+      "/pure-calendar"
+    ],
+    "admin:users": [
+      "/admin/dashboard",
+      "/admin/login-history",
+      "/admin/permissions",
+      "/admin/user-management",
+      "/staff"
+    ],
+    "admin:settings": [
+      "/admin/ai-assistant",
+      "/admin/backup",
+      "/admin/case-nature",
+      "/admin/database",
+      "/admin/deployment",
+      "/admin/knowledge-base",
+      "/admin/scheduler-events",
+      "/admin/security-center",
+      "/ai/code-graph",
+      "/ai/code-wiki",
+      "/ai/db-graph",
+      "/ai/graphs",
+      "/ai/knowledge-graph",
+      "/ai/memory",
+      "/ai/skill-evolution",
+      "/ai/skills-map",
+      "/ai/wiki",
+      "/google-auth-diagnostic",
+      "/system"
+    ],
+    "system_docs:read": [
+      "/api-mapping",
+      "/api/docs",
+      "/unified-form-demo"
+    ],
+    "reports:tender:view": [
+      "/tender/company-profile",
+      "/tender/dashboard",
+      "/tender/graph",
+      "/tender/org-ecosystem",
+      "/tender/search"
+    ],
+    "reports:erp:view": [
+      "/ai/erp-graph",
+      "/erp",
+      "/erp/einvoice-sync",
+      "/erp/expenses",
+      "/erp/financial-dashboard",
+      "/erp/invoices/summary-view",
+      "/erp/ledger",
+      "/erp/operational"
+    ],
+    "vendors:read": [
+      "/clients",
+      "/vendors"
+    ],
+    "projects:read": [
+      "/contract-cases",
+      "/pm/cases"
+    ]
+  }
+}

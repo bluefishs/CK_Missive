@@ -54,6 +54,21 @@ router.include_router(quotations.router, prefix="/quotations", dependencies=[Dep
 router.include_router(invoices.router, prefix="/invoices", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 發票管理"])
 router.include_router(billings.router, prefix="/billings", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["ERP 請款管理"])
 router.include_router(vendor_payables.router, prefix="/vendor-payables", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["ERP 廠商應付"])
+# ⭐ 2026-09-07 owner：「委託與協力帳款仍關聯 ERP，**無法正常獨立勾選**」。
+#
+# 這兩支原本掛 `reports:erp:view`，而那個碼綁著 11 個頁面 ⇒ 在權限管理頁勾
+# 「委託帳款」必然連帶開啟統一帳本、營運帳目、財務儀表板等 9 頁。
+# 頁面自己的提示就寫著「多 nav 共用同一 perm 時，勾任一即同步全部」——
+# **粒度是權限碼的數量，不是頁面的數量。**
+#
+# ⇒ 各給一個碼：`reports:client_accounts:view`／`reports:vendor_accounts:view`。
+#   分開而不是合成一個：委託單位帳款是應收、協力廠商帳款是應付，
+#   實務上可能只想開其中一邊。
+#
+# ⚠️ 這裡改的是 **API**；同一件事還有兩處要一起改，否則就是半接通：
+#   ①`site_navigation_items.permission_required`（選單與**路由守衛**都讀它）
+#   ②`role_permissions`（原本靠 erp:view 看得到的角色要補新碼，否則管理員自己會被擋）
+#
 # ⭐ 2026-08-31 owner：「這兩支維持全公司視角，改用權限區分
 #    （例如只有 admin／財務角色看得到）」。
 #
@@ -66,7 +81,7 @@ router.include_router(vendor_payables.router, prefix="/vendor-payables", depende
 # 那個閘門實際上等於全開。而 `reports:erp:view` 正好是 **5 位 admin、
 # 0 位 staff**，就是要的範圍，且它已經在用（filing-gaps 走同一個），
 # **不新增權限代碼**。superuser 由 require_permission 自身旁路。
-router.include_router(vendor_accounts.router, prefix="/vendor-accounts", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 廠商帳款"])
+router.include_router(vendor_accounts.router, prefix="/vendor-accounts", dependencies=[Depends(require_permission("reports:vendor_accounts:view"))], tags=["ERP 廠商帳款"])
 router.include_router(expenses.router, prefix="/expenses", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["費用報銷"])
 router.include_router(expenses_io.router, prefix="/expenses", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["費用報銷 IO"])
 router.include_router(ledger.router, prefix="/ledger", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["統一帳本"])
@@ -78,6 +93,6 @@ router.include_router(my_summary.router, prefix="/my-summary", tags=["個人儀�
 # 2026-08-16 owner：「線上報價單機制」
 router.include_router(quotation_items.router, prefix="/quotation-items", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["報價明細"])
 router.include_router(einvoice_sync.router, prefix="/einvoice-sync", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["電子發票同步"])
-router.include_router(client_accounts.router, prefix="/client-accounts", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 委託單位帳款"])
+router.include_router(client_accounts.router, prefix="/client-accounts", dependencies=[Depends(require_permission("reports:client_accounts:view"))], tags=["ERP 委託單位帳款"])
 router.include_router(assets.router, prefix="/assets", dependencies=[Depends(require_permission("reports:assets:view"))], tags=["ERP 資產管理"])
 router.include_router(operational.router, prefix="/operational", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 營運帳目"])

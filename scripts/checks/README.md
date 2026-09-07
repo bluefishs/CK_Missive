@@ -234,6 +234,7 @@
 | `rwd_mobile_quality_gate.py`＋`rwd_mobile_quality_probe.cjs` | 手機品質五指標：截字／字級<11px／點擊目標<28px／fixed 遮蔽／統計卡獨列；host 以 adapter 簽憑證、Playwright 390px 登入量；基線 `.rwd_quality_baseline.json`（weekly 111） |
 | `rwd_crushed_column_control.cjs` | weekly 111 `crushedCol` 判準的正負向控制（判準自檢，跑在走查之前）——正向：名稱欄被固定欄寬擠到 ~30px 要紅；負向：60px 的兩字數值欄與 220px 的名稱欄都不能紅。引用探針的 `measure`，不另抄一份判準 | weekly 111 內部 |
 | `role_enum_drift_audit.py` | 角色列舉 vs `role_permissions` 漂移——`exec`／`ops`／`finance` 2026-08-27 就進了資料表與權限頁，而 `UserRole` 沒跟上 ⇒ 指派這三個角色一律 422 且無訊息，卡了 11 天沒人知道原因。DB 有而列舉沒有＝RED（指派不上去）；列舉有而 DB 沒有＝YELLOW（選了沒權限） | weekly 118 |
+| `permission_catalog_drift_audit.py` | 權限目錄漂移與「無法獨立勾選」——①權限管理頁兩個分頁是兩個來源（依選單階層讀 DB、依權限分類讀前端 PERMISSION_CATEGORIES），不在前端目錄的碼在分類頁看不見（實測差 `admin:database`，而管理員正在用）＝RED ②一個碼綁多頁＝勾一個等於開全部（首跑 8 個碼綁 46 頁），走基線、新增才提 | weekly 119 |
 | `async_sync_io_audit.py` | async 路徑上的同步 I/O（AST；一支卡全站）；基線 `.async_sync_io_baseline.txt`（weekly 112） |
 | `testing_map_report.py` | 自主測試機制圖（僅報告，產出 docs/health/TESTING_MAP.md）（weekly 113） |
 | `frontend_test_suite_health.py` | 前端 vitest 全套跑一次對基線 `frontend/tests/known_failures.json`：新失敗 RED、已修未除名 YELLOW；跑不起來（通過 <500／JSON 與解析不一致）不寫基線也不回綠（weekly 114） |

@@ -229,7 +229,11 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "承辦,同仁,人員",
-        "permission_required": "[]",
+        # 2026-09-07 owner：「/staff 這一頁需要管理員權限，其實根本不需要看到此頁面」。
+        # 原本是 "[]"（所有人可見）而該頁的 API 是 `require_admin` ⇒ 業務同仁
+        # 看得到入口、點進去卻是空的。且它原本與邀標報價／案件管理共用 `projects:read`
+        # （live DB），所以那三頁在權限管理頁**必然一起勾**。
+        "permission_required": '["admin:users"]',
     },
     # PM 案件管理 (對應 ROUTES.PM_CASES)
     {
@@ -344,7 +348,9 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "協力廠商,應付帳款,跨案件,廠商對帳",
-        "permission_required": '["reports:erp:view"]',
+        # 2026-09-07 owner：「委託與協力帳款仍關聯 ERP，無法正常獨立勾選」——
+        # `reports:erp:view` 綁著 11 個頁面，勾一個等於開 11 個。各給一個碼。
+        "permission_required": '["reports:vendor_accounts:view"]',
     },
     # ERP 委託單位帳款 (對應 ROUTES.ERP_CLIENT_ACCOUNTS)
             # 2026-08-31 owner：「這兩支維持全公司視角，改用權限區分
@@ -363,7 +369,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "委託單位,應收帳款,跨案件,業主對帳",
-        "permission_required": '["reports:erp:view"]',
+        "permission_required": '["reports:client_accounts:view"]',
     },
     # =========================================================================
     # 標案檢索

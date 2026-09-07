@@ -244,6 +244,31 @@ export const PERMISSION_CATEGORIES: Record<string, PermissionCategory> = {
         description_zh: '可檢視 ERP 財務儀表板、費用報銷、統一帳本等',
         description_en: 'Can view ERP finance dashboard, expenses, ledger'
       },
+      // ── 2026-09-07 owner：「委託與協力帳款仍關聯 ERP，無法正常獨立勾選」──
+      //
+      // 這兩頁原本掛 `reports:erp:view`，而那個碼綁著 11 個頁面
+      // ⇒ 勾「委託帳款」必然連帶開啟統一帳本、營運帳目、財務儀表板等 9 頁。
+      // 權限管理頁自己的提示就寫著「多 nav 共用同一 perm 時，勾任一即同步全部」——
+      // **粒度是權限碼的數量，不是頁面的數量**。
+      //
+      // ⇒ 各給一個碼。分開而不是合成一個 `accounts:view`：委託單位帳款是應收、
+      //   協力廠商帳款是應付，實務上確實可能只想開其中一邊（例如只讓人對帳應收）。
+      {
+        key: 'reports:client_accounts:view',
+        name_zh: '委託帳款',
+        name_en: 'View Client Accounts',
+        category: 'reports',
+        description_zh: '可檢視委託單位跨案件應收彙總（/erp/client-accounts）',
+        description_en: 'Can view client receivable summary'
+      },
+      {
+        key: 'reports:vendor_accounts:view',
+        name_zh: '協力帳款',
+        name_en: 'View Vendor Accounts',
+        category: 'reports',
+        description_zh: '可檢視協力廠商跨案件應付彙總（/erp/vendor-accounts）',
+        description_en: 'Can view vendor payable summary'
+      },
       {
         key: 'reports:assets:view',
         name_zh: '資產管理',
@@ -313,6 +338,21 @@ export const PERMISSION_CATEGORIES: Record<string, PermissionCategory> = {
         category: 'admin',
         description_zh: '可以管理系統使用者',
         description_en: 'Can manage system users'
+      },
+      // 2026-09-07 owner：「/admin/permissions/exec?tab=by-category 設定不同步」。
+      // 真因：兩個分頁是兩個來源——「依選單階層」讀 `site_navigation_items`（live DB），
+      // 「依權限分類」讀本檔的 PERMISSION_CATEGORIES。**不在本檔的權限碼在那一頁看不見**
+      // （頁面自己的說明就寫著這件事）。實測差一個：`admin:database` ——
+      // 而管理員角色正在用它 ⇒ 同一個角色兩個分頁畫面不一樣。
+      // ⚠️ 不是資料遺失：勾選是在完整清單上加減，未知的碼會被保留。是**看不見**。
+      // 守門＝`permission_catalog_drift_audit.py`（weekly 119）。
+      {
+        key: 'admin:database',
+        name_zh: '資料庫管理',
+        name_en: 'Database Administration',
+        category: 'admin',
+        description_zh: '可檢視與操作資料庫管理頁（/admin/database）',
+        description_en: 'Can access database administration'
       },
       {
         key: 'admin:settings',
@@ -505,6 +545,7 @@ export const USER_ROLES = {
     default_permissions: [
       'documents:read', 'projects:read', 'agencies:read', 'vendors:read', 'calendar:read',
       'reports:view', 'reports:export',
+      'reports:client_accounts:view', 'reports:vendor_accounts:view',
       'reports:erp:view', 'reports:finance:view',
       'reports:assets:view', 'reports:stats:view',
       'operational:write', 'operational:approve',
@@ -521,7 +562,8 @@ export const USER_ROLES = {
       'documents:read', 'projects:read', 'agencies:read', 'vendors:read', 'calendar:read',
       'documents:create', 'documents:edit',
       'projects:edit', 'calendar:edit',
-      'reports:view', 'reports:erp:view', 'reports:finance:view',
+      'reports:view', 'reports:client_accounts:view', 'reports:vendor_accounts:view',
+      'reports:erp:view', 'reports:finance:view',
       'operational:write', 'operational:approve',
     ],
     can_login: true
@@ -535,6 +577,7 @@ export const USER_ROLES = {
     default_permissions: [
       'documents:read', 'projects:read', 'agencies:read', 'vendors:read', 'calendar:read',
       'reports:view', 'reports:export',
+      'reports:client_accounts:view', 'reports:vendor_accounts:view',
       'reports:erp:view', 'reports:finance:view',
       'reports:tender:view', 'reports:assets:view', 'reports:stats:view',
     ],
