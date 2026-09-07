@@ -130,23 +130,38 @@ function measure(vw) {
     .filter((el) => !el.closest('.ant-pagination, .ant-picker-calendar-header') && el.getBoundingClientRect().width < 80)
     .map((el) => ({ sel: sel(el), w: Math.round(el.getBoundingClientRect().width), text: txt(el) }));
 
-  // crushedCol：表格欄位被壓到 < 70px（2026-09-07）。
+  // crushedCol：表格欄位被壓扁到**內容讀不到**（2026-09-07）。
+  //
   // 成因是 AntD 在 `scroll.x` 下用 table-layout: fixed —— **固定寬度的欄位總和一旦超過
   // `scroll.x`，沒有給寬度的那一欄就會被壓成幾乎 0 寬**，而 `ellipsis` 讓它安靜地
   // 只剩「政…」。當天在委託單位帳款與協力廠商帳款各發生一次（加了兩個新欄位之後），
   // 現有判準沒有一個會紅：整頁沒有溢出、字是 ellipsis 不是硬截、字級與點擊目標都正常。
   //
-  // 只看**表頭**：表頭一定有文字，而內容格可能本來就空（統一編號有一半是空的）。
-  // 排除展開鈕、勾選框、操作欄這類本來就窄的欄。
-  const crushed = [...document.querySelectorAll('th.ant-table-cell')].filter(vis)
-    .filter((th) => {
+  // ⚠️ 判準不能只問「這一欄是不是很窄」——首版用 <70px 抓到 7 筆，逐筆看**全是誤報**：
+  // 「案數」「筆數」「附件」「進度」這種兩字數值欄 56–63px 本來就夠寬，內容完整看得見。
+  // ⇒ 真正的訊號是**內容被截斷**：欄寬 < 70px **且**該欄的內容格真的溢出（`scrollWidth`
+  // 大於 `clientWidth`）。窄而讀得完不是缺陷，寬而讀不完才是。
+  const crushed = [];
+  for (const table of [...document.querySelectorAll('table')].filter(vis)) {
+    const ths = [...table.querySelectorAll('thead th')];
+    const bodyRows = [...table.querySelectorAll('tbody tr')].slice(0, 5);
+    ths.forEach((th, idx) => {
       const t = txt(th);
-      if (!t || t.length < 2) return false;                      // 無標題的功能欄
-      if (/^(操作|動作)$/.test(t)) return false;
-      if (th.querySelector('.ant-checkbox, .ant-table-row-expand-icon')) return false;
-      return th.getBoundingClientRect().width < 70;
-    })
-    .map((th) => ({ sel: sel(th), w: Math.round(th.getBoundingClientRect().width), text: txt(th) }));
+      if (!t || t.length < 2) return;
+      if (/^(操作|動作)$/.test(t)) return;
+      if (th.querySelector('.ant-checkbox, .ant-table-row-expand-icon')) return;
+      const w = th.getBoundingClientRect().width;
+      if (w >= 70) return;
+      // 同欄的內容格有沒有真的被截斷（含 AntD 包在 span.ant-table-cell-content 裡的情況）
+      const truncated = bodyRows.some((tr) => {
+        const td = tr.children[idx];
+        if (!td) return false;
+        const inner = td.querySelector('.ant-table-cell-content, span, div') || td;
+        return inner.scrollWidth > inner.clientWidth + 2;
+      });
+      if (truncated) crushed.push({ sel: sel(th), w: Math.round(w), text: t });
+    });
+  }
 
   return {
     narrowSelect: narrow.length, narrowTop: narrow.slice(0, 5),
@@ -195,4 +210,10 @@ async function main() {
   console.log(`  結果 → ${OUT}`);
 }
 
-main().catch((e) => { console.error(e); process.exit(2); });
+// 給 rwd_crushed_column_control.cjs 用——控制測試不得自己抄一份判準邏輯
+module.exports = { measure };
+
+// 被 require 時**不要**跑整批走查（否則控制測試一 import 就開始打 39 頁）
+if (require.main === module) {
+  main().catch((e) => { console.error(e); process.exit(2); });
+}

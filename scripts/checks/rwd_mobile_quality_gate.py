@@ -88,6 +88,18 @@ def main() -> int:
     if not PROBE.exists():
         print("[YELLOW] 探針不存在")
         return 1
+    # 判準自檢：`crushedCol` 09-07 新增當天全站跑出 0，而 **0 有兩種意思**
+    # （沒有這個問題／這個判準永遠不會紅）。控制測試用判準自己的實作跑造出來的表：
+    # 正向一定要紅、兩個負向一定不能紅。它失敗代表**判準壞了**，不是頁面壞了。
+    ctl = subprocess.run(["node", str(ROOT / "scripts/checks/rwd_crushed_column_control.cjs")],
+                         cwd=str(ROOT), capture_output=True, text=True,
+                         encoding="utf-8", errors="replace", timeout=180)
+    if ctl.returncode != 0:
+        print("[YELLOW] crushedCol 判準的正負向控制沒過——先修判準再看結果")
+        print((ctl.stdout or ctl.stderr or "").strip()[:400])
+    else:
+        print("  判準自檢：crushedCol 正向會紅、負向不紅 ✓")
+
     creds = _mint_credential()
     if not _run_probe(creds) or not RESULT.exists():
         print("[YELLOW] 探針沒跑完，未驗")
