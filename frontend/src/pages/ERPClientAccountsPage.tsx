@@ -26,6 +26,7 @@ import { useClientAccountSummary } from '../hooks';
 import type { ClientAccountSummaryItem } from '../types/erp';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
+import { caseProfileColumns, caseProfileTags } from '../components/erp/caseProfileColumns';
 
 const { Title } = Typography;
 
@@ -109,6 +110,7 @@ const ERPClientAccountsPage: React.FC = () => {
       key: 'tax_id',
       width: 140,
     },
+    ...caseProfileColumns<ClientAccountSummaryItem>(),
     {
       title: '合作案件數',
       hideOnMobile: true, dataIndex: 'case_count',
@@ -265,7 +267,7 @@ const ERPClientAccountsPage: React.FC = () => {
               <MobileCard
                 title={r.tax_id ? `統編 ${r.tax_id}` : '—'}
                 subtitle={r.vendor_name}
-                tags={[{ text: `${r.case_count ?? 0} 案`, color: 'blue' }]}
+                tags={[{ text: `${r.case_count ?? 0} 案`, color: 'blue' }, ...caseProfileTags(r)]}
                 amounts={[
                   { label: '承攬金額', value: fmtMoney(r.total_contract) },
                   { label: '已請款', value: fmtMoney(billed) },

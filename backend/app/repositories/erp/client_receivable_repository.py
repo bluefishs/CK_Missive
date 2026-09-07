@@ -235,11 +235,21 @@ class ClientReceivableRepository:
         }
 
         page = items[skip: skip + limit]
+
+        # 2026-09-07 owner：「統一編號後新增計畫類別、案件狀態」。
+        # 只查**當頁**要用到的：輪廓是逐列的補充資訊，不影響統計卡的分母，
+        # 沒有必要為了 186 家全部算一次（列表預設每頁 20 家）。
+        from app.repositories.erp.case_profile import client_case_profiles
+        profiles = await client_case_profiles(self.db, year)
+
         out = []
         for row in page:
             tc, tb, tr = row.pop("_tc"), row.pop("_tb"), row.pop("_tr")
+            prof = (profiles.get(f"id:{row['vendor_id']}") if row.get("vendor_id") is not None else None)                 or profiles.get(f"name:{(row.get('vendor_name') or '').strip()}")                 or {"categories": [], "statuses": []}
             out.append({
                 **row,
+                "categories": prof["categories"],
+                "statuses": prof["statuses"],
                 "total_contract": str(tc),
                 "total_billed": str(tb),
                 "total_received": str(tr),

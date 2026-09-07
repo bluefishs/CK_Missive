@@ -198,16 +198,24 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         if _names:
             _vr = (await self.db.execute(select(_PV.id, _PV.vendor_name, _PV.vendor_code, _PV.tax_id).where(_PV.vendor_name.in_(_names)))).all()
             vendor_lookup = {(v.vendor_name or "").strip(): {"id": v.id, "vendor_code": v.vendor_code, "tax_id": v.tax_id} for v in _vr}
+        # 2026-09-07 owner：「統一編號後新增計畫類別、案件狀態」。鍵與本查詢的分組鍵同形
+        # （`id:` 優先、無 id 才 `name:`），否則同一家在彙總列與輪廓裡會對不起來。
+        from app.repositories.erp.case_profile import vendor_case_profiles
+        profiles = await vendor_case_profiles(self.db, year)
+
         items = []
         for r in rows:
             tp = Decimal(str(r.total_payable or 0))
             pd = Decimal(str(r.total_paid or 0))
             _v = vendor_lookup.get((r.vendor_name or "").strip(), {})
+            prof = (profiles.get(f"id:{r.vendor_id}") if r.vendor_id is not None else None)                 or profiles.get(f"name:{r.vendor_name}")                 or {"categories": [], "statuses": []}
             items.append({
                 "vendor_id": r.vendor_id or _v.get("id") or 0,
                 "vendor_name": r.vendor_name,
                 "vendor_code": _v.get("vendor_code"),
                 "tax_id": _v.get("tax_id"),  # 2026-09-04：統一編號在 tax_id（此前存 vendor_code）
+                "categories": prof["categories"],
+                "statuses": prof["statuses"],
                 "case_count": r.case_count,
                 "total_payable": str(tp),
                 "total_paid": str(pd),

@@ -10,7 +10,7 @@ import React, { useState, useMemo } from 'react';
 import { FilterBar } from '../components/common/FilterBar';
 import { MobileCard } from '../components/common/MobileCardList';
 import { fmtMoney } from '../utils/money';
-import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space } from 'antd';
+import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space, Modal } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -31,6 +31,8 @@ const { Search } = Input;
 
 export const PMCaseListPage: React.FC = () => {
   const navigate = useNavigate();
+  const [pickCaseOpen, setPickCaseOpen] = useState(false);
+  const [pickedCaseId, setPickedCaseId] = useState<number | undefined>();
   const { hasPermission } = useAuthGuard();
   const { isMobile } = useResponsive();
   const { message } = App.useApp();
@@ -258,6 +260,44 @@ export const PMCaseListPage: React.FC = () => {
 
   const columns = isMobile ? mobileColumns : desktopColumns;
 
+  // 2026-09-07 owner：「/pm/cases 新增報價時就應如同 ?tab=quotations 提供完整報價填寫」。
+  // 此前這顆鈕導到 /erp/quotations/create —— 那一頁只填案首（案名／委託單位／承辦），
+  // 明細、備註、客戶抬頭與輸出都要建立完成後再到案件的報價單分頁做一次。
+  // 改為：先選這張報價要掛哪一個案，然後**直接落在該案的報價單分頁**（`new=1` 由詳情頁建 draft）。
+  const pickCaseModal = (
+    <Modal
+      open={pickCaseOpen}
+      title="新增報價 —— 這張報價掛在哪一個案？"
+      okText="開始填寫"
+      cancelText="取消"
+      okButtonProps={{ disabled: !pickedCaseId }}
+      onCancel={() => setPickCaseOpen(false)}
+      onOk={() => {
+        if (!pickedCaseId) return;
+        setPickCaseOpen(false);
+        navigate(`${ROUTES.PM_CASE_DETAIL.replace(':id', String(pickedCaseId))}?tab=quotations&new=1`);
+      }}
+    >
+      <Select
+        showSearch
+        allowClear
+        style={{ width: '100%' }}
+        placeholder="輸入案號或案名搜尋"
+        optionFilterProp="label"
+        value={pickedCaseId}
+        onChange={(v) => setPickedCaseId(v)}
+        options={(cases ?? []).map((c) => ({
+          value: c.id,
+          label: `${c.case_code ?? ''} ${c.case_name ?? ''}`.trim(),
+        }))}
+      />
+      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
+        選定後直接進入該案的「報價單」分頁：明細（項次／複價／備註）、整單備註、客戶抬頭與輸出 XLS／PDF 都在那一份編輯器。
+        沒有這個案？先用「新增案件」建案，建好後在案件頁按「新增報價」。
+      </Typography.Text>
+    </Modal>
+  );
+
   return (
     <ResponsiveContent>
       <Flex vertical gap={8} style={{ width: '100%' }}>
@@ -291,7 +331,7 @@ export const PMCaseListPage: React.FC = () => {
               {hasPermission('projects:edit') && (
                 <Button
                   icon={<FileTextOutlined />}
-                  onClick={() => navigate(ROUTES.ERP_QUOTATION_CREATE)}
+                  onClick={() => setPickCaseOpen(true)}
                 >
                   新增報價
                 </Button>
@@ -476,6 +516,7 @@ export const PMCaseListPage: React.FC = () => {
           scroll={{ x: 800 }}
         />
       </Flex>
+      {pickCaseModal}
     </ResponsiveContent>
   );
 };

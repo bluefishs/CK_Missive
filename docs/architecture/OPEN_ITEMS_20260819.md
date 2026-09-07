@@ -1559,6 +1559,63 @@ owner 09-01 10:28 被登出，console：
 
 ---
 
+### A114 — 權限設定的三處不一致（owner 2026-09-07 從 `/admin/permissions/staff` 提三問）
+
+owner 的三個問題各自對應一個真實的不一致，**沒有一題是誤會**。
+
+#### ① 勾了「專案財務」看不到委託帳款／協力帳款
+
+**這是 08-31 依 owner 自己的裁示改的，不是缺陷**：那兩頁原本掛 `reports:finance:view`，
+而實測 12 位在職使用者裡 11 位持有它（含全部 staff）⇒ **那個閘門等於全開**。
+改掛 `reports:erp:view`（當時 5 位 admin、0 位 staff）才有實際區分。
+
+⚠️ **但今天量到那個前提已經不成立**：`staff`（業務同仁）現在**同時持有**
+`reports:erp:view` 與 `reports:finance:view` ⇒ 兩個權限在角色層完全重疊，
+**當初的區分已經消失**，那兩頁對 6 位 staff 又是全開的。
+
+同時存在一個命名上的坑：`/erp/quotations`（專案帳款）走 `finance:view`，
+而委託帳款／協力帳款走 `erp:view` —— **同一族「帳款」頁掛兩個不同權限**，
+畫面上看不出理由。
+
+⇒ 待 owner 決定：(a) 從 staff 移除 `reports:erp:view`，回到「ERP 財務＝管理層」的原意；
+(b) 兩個權限合併成一個（承認它們已經沒有區別）；(c) 維持現狀但把標籤改成說得出差別的名字。
+**不自行更動角色權限** —— 那會直接改變 6 個人現在看得到什麼。
+
+#### ② 專案管理：為什麼承辦同仁還要勾選
+
+兩個原因疊在一起：
+
+1. **權限是純角色制，指派不給任何存取權**。`ProjectRepository.check_user_access()`
+   寫好了但**全 repo 只有定義那一行、沒有任何呼叫端** ⇒「我是這個案的承辦」
+   在系統裡不構成看得到它的理由，一切都要靠角色勾選。
+2. **`projects:read` 只擋選單、不擋 API**。`/api/pm/*` 是 `require_auth()`（只問有沒有登入），
+   `/api/projects` 的列表與詳情同樣只要登入；只有 create／edit 才檢查 `projects:create`／`projects:edit`。
+   ⇒ 勾選改變的是「選單看不看得到」，不是「拿不拿得到資料」。
+
+⇒ 這也是一個資安面的事實：**任何登入者直接打 API 都拿得到 PM 案件與承攬案清單**，
+與 2026-08-29 收斂前的 ERP 是同一個形狀。
+
+#### ③ 為什麼圖譜也要勾
+
+**選單把 5 個圖譜頁掛在 `admin:settings`（系統設定）底下**：
+`/ai/graphs`、`/ai/knowledge-graph`、`/ai/code-graph`、`/ai/code-wiki`、`/ai/db-graph`。
+另外兩個各走自己的：`/tender/graph` → `reports:tender:view`、`/ai/erp-graph` → `reports:erp:view`。
+
+`admin:settings` 只有 admin 與 superuser 持有，而它的意思是**可以修改系統設定** ——
+要讓某人看一張圖，得先給他改系統設定的權限，**權限放大**。
+而 API 端其實只要登入（維運類的 `graph_admin.py` 才是 `require_admin`）。
+
+⇒ 建議把這 5 頁改掛一個「檢視型」權限（沿用既有的 `reports:view` 或 `reports:stats:view`，
+不新增權限代碼），**選單與 API 各自守自己該守的**。同樣待 owner 決定。
+
+#### 共同的結構問題
+
+三題其實是同一件事：**選單權限（`site_navigation_items.permission_required`）與
+API 權限是兩套各自演化的宣告**，沒有任何檢核在比對它們。
+`init_navigation_data.py` 與 live DB 早就漂移（既有紀錄）。
+⇒ 若 owner 決定調整，配套應該是一支「選單宣告 vs 端點實際依賴」的稽核，
+否則下一次還是會出現「勾了看得到、點下去 403」或反過來的組合。
+
 ## B. 已查明根因、尚未實作
 
 | # | 議題 | 根因（已查證） | 規模 |

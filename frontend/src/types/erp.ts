@@ -1152,6 +1152,13 @@ export interface SyncLogsResponse {
 // 廠商/委託帳款 — 對應 schemas/erp/vendor_accounts.py / client_accounts.py
 // ============================================================================
 
+/** 帳款列表的案件輪廓（2026-09-07 owner：統一編號後加「計畫類別」「案件狀態」）。
+ *  後端 `repositories/erp/case_profile.py` 是唯一產生處，兩頁共用同一份標籤映射。 */
+export interface CaseStatusCount {
+  label: string;
+  count: number;
+}
+
 export interface VendorAccountSummaryItem {
   vendor_id: number;
   vendor_name: string;
@@ -1162,6 +1169,10 @@ export interface VendorAccountSummaryItem {
   outstanding: number;
   /** 統一編號（2026-09-04 起；vendor_code 只是內部代碼） */
   tax_id?: string;
+  /** 計畫類別（委辦招標／承攬報價），該往來對象名下案件的去重清單 */
+  categories?: string[];
+  /** 案件狀態與件數（執行中 3、已結案 1…），狀態以承攬案為準 */
+  statuses?: CaseStatusCount[];
 }
 
 /** 廠商帳款統計卡的**全量**合計（分頁前，後端計算）—— development-rules §2.6 ① */
@@ -1229,6 +1240,10 @@ export interface ClientAccountSummaryItem {
   outstanding: number;
   /** 統一編號（2026-09-04 起；vendor_code 只是內部代碼） */
   tax_id?: string;
+  /** 計畫類別（委辦招標／承攬報價），該往來對象名下案件的去重清單 */
+  categories?: string[];
+  /** 案件狀態與件數（執行中 3、已結案 1…），狀態以承攬案為準 */
+  statuses?: CaseStatusCount[];
 }
 
 export interface ClientCaseReceivableItem {

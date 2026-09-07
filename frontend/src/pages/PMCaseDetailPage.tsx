@@ -6,7 +6,7 @@
  *
  * @version 7.0.0 — inline 編輯 + 統一模板
  */
-import { Suspense, lazy, useState, useEffect } from 'react';
+import { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react';
 import {
   Button, Spin, Descriptions, Tag, Typography, Popconfirm, App,
   Form, Input, Select, InputNumber, Divider, Space,
@@ -16,7 +16,7 @@ import {
   InfoCircleOutlined, TeamOutlined, BarChartOutlined, PlusOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { usePMCase, useAuthGuard } from '../hooks';
@@ -59,9 +59,10 @@ const CATEGORY_OPTIONS = Object.entries(PM_CATEGORY_LABELS).map(([k, v]) => ({ v
 export const PMCaseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { hasPermission } = useAuthGuard();
   const { message } = App.useApp();
-  const notifyError = (t: string) => { void message.error(t); };
+  const notifyError = useCallback((t: string) => { void message.error(t); }, [message]);
   const queryClient = useQueryClient();
   const pmCaseId = id ? parseInt(id, 10) : null;
 
@@ -172,6 +173,40 @@ export const PMCaseDetailPage: React.FC = () => {
   });
   const quotationCount = quotationCountData?.pagination?.total ?? quotationCountData?.items?.length ?? 0;
   const [creatingQuotation, setCreatingQuotation] = useState(false);
+
+  // 2026-09-07 owner：「/pm/cases 新增報價時就應如同 ?tab=quotations 提供完整報價填寫」。
+  // 列表頁選了案件後帶 `?tab=quotations&new=1` 進來 —— 這裡直接建一張 draft 並落在報價單分頁，
+  // 使用者第一眼就在**那份完整編輯器**裡（明細／備註／抬頭／輸出），不必先過一頁只填案首的表單。
+  const createDraftQuotation = useCallback(async () => {
+    if (!pmCase?.case_code) return;
+    setCreatingQuotation(true);
+    try {
+      await apiClient.post(API_ENDPOINTS.ERP.QUOTATIONS_CREATE, {
+        case_code: pmCase.case_code, case_name: pmCase.case_name ?? '',
+        year: pmCase.year ?? new Date().getFullYear(), status: 'draft',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['erp-quotations'] });
+    } catch (e) {
+      notifyError(getErrorMessage(e, '建立報價單失敗'));
+    } finally {
+      setCreatingQuotation(false);
+    }
+  }, [pmCase?.case_code, pmCase?.case_name, pmCase?.year, queryClient, notifyError]);
+
+  // `new=1` 只吃一次：建完把參數拿掉，否則重新整理會再建一張（09-04 已經因為
+  // 「同案多張報價單」被 owner 回報過一次）。
+  const autoCreateDone = useRef(false);
+  useEffect(() => {
+    if (autoCreateDone.current) return;
+    if (searchParams.get('new') !== '1' || !pmCase?.case_code) return;
+    autoCreateDone.current = true;
+    void (async () => {
+      if ((quotationCount ?? 0) === 0) await createDraftQuotation();
+      const next = new URLSearchParams(searchParams);
+      next.delete('new');
+      setSearchParams(next, { replace: true });
+    })();
+  }, [searchParams, setSearchParams, pmCase?.case_code, quotationCount, createDraftQuotation]);
 
   const { data: matchedProject, isLoading: matchLoading } = useQuery({
     queryKey: ['contract-project-by-code', pmCase?.case_code],
