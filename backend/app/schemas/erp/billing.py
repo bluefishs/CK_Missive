@@ -71,7 +71,10 @@ class ERPBillingCreate(BaseModel):
     # 讀取端（Response）**不收緊**：規則 3「寫入端約束、讀取端寬鬆」，
     # 萬一將來有清單外的歷史值，顯示不該因此壞掉。
     billing_period: Optional[BillingPeriod] = Field(None, description="期別")
-    billing_date: date = Field(..., description="請款日期")
+    # 2026-09-07 owner：「系統自動建立的第一期日期也必須先改為空白，避免誤解」。
+    # 沒有請款就沒有請款日期 —— 自動建立的佔位不該宣稱一個沒有發生的動作。
+    # 稽催改用 COALESCE(請款日, 報價單日期) 當時間錨點，不會因此失效。
+    billing_date: Optional[date] = Field(None, description="請款日期；自動建立的第一期留白")
     billing_amount: Decimal = Field(..., description="請款金額")
     payment_status: str = Field("pending", description="狀態")
 
@@ -123,7 +126,7 @@ class ERPBillingResponse(BaseModel):
     erp_quotation_id: int
     billing_code: Optional[str] = None
     billing_period: Optional[str] = None
-    billing_date: date
+    billing_date: Optional[date] = None
     billing_amount: Decimal
     payment_status: str = "pending"
     payment_date: Optional[date] = None

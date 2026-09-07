@@ -16,16 +16,28 @@ from typing import Any, Dict
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# 稽催的時間錨點只有一個定義（見 billing_dunning.py）
+from app.services.erp.billing_dunning import EFFECTIVE_BILLING_DATE_SQL
+
 SQL = """
 WITH my_cases AS (
-  SELECT DISTINCT q.id AS qid, q.case_code, q.case_name, q.total_price, q.project_code, q.status AS q_status, c.id AS cid, c.status AS c_status
+  SELECT DISTINCT q.id AS qid, q.case_code, q.case_name, q.total_price, q.project_code, q.quoted_at, q.status AS q_status, c.id AS cid, c.status AS c_status
   FROM project_user_assignments a
   LEFT JOIN contract_projects c ON c.id = a.project_id OR (a.case_code IS NOT NULL AND c.case_code = a.case_code)
   JOIN erp_quotations q ON q.deleted_at IS NULL AND (q.case_code = a.case_code OR q.case_code = c.case_code)
   WHERE a.user_id = :uid
 ),
 bills AS (
-  SELECT b.*, m.case_code, m.case_name FROM erp_billings b JOIN my_cases m ON m.qid = b.erp_quotation_id
+  -- 2026-09-07：自動建立的第一期**請款日留白**（沒有請款就沒有請款日期）。
+  -- 逾期的時間錨點改用 `eff_billing_date = COALESCE(請款日, 報價單日期)`；
+  -- 只認 billing_date 的話那些佔位會因為 NULL 全部從逾期名單消失，
+  -- 而它們正是最該被催的一群（成案卻沒請款）。
+  -- `billing_date` 本身保留原值（畫面要顯示空白），兩者不混用。
+  -- 別名刻意用 `q`：`EFFECTIVE_BILLING_DATE_SQL` 的契約是「b＝請款、q＝報價單」，
+  -- 這裡的 my_cases 每一列就帶著該報價單的 quoted_at，符合那個契約。
+  SELECT b.*, q.case_code, q.case_name,
+         {EFF_DATE} AS eff_billing_date
+  FROM erp_billings b JOIN my_cases q ON q.qid = b.erp_quotation_id
 )
 SELECT json_build_object(
   'cases_active', (SELECT count(DISTINCT cid) FROM my_cases WHERE c_status = '執行中'),
@@ -33,20 +45,20 @@ SELECT json_build_object(
   'quotes_unawarded', (SELECT count(*) FROM my_cases WHERE project_code IS NULL),
   'pending_count', (SELECT count(*) FROM bills WHERE payment_status IN ('pending','partial')),
   'pending_amount', (SELECT COALESCE(sum(billing_amount - COALESCE(payment_amount,0)),0)::bigint FROM bills WHERE payment_status IN ('pending','partial')),
-  'overdue_count', (SELECT count(*) FROM bills WHERE payment_status IN ('pending','partial') AND billing_date < CURRENT_DATE),
-  'overdue_amount', (SELECT COALESCE(sum(billing_amount - COALESCE(payment_amount,0)),0)::bigint FROM bills WHERE payment_status IN ('pending','partial') AND billing_date < CURRENT_DATE),
-  'overdue_30_count', (SELECT count(*) FROM bills WHERE payment_status IN ('pending','partial') AND billing_date < CURRENT_DATE - 30),
+  'overdue_count', (SELECT count(*) FROM bills WHERE payment_status IN ('pending','partial') AND eff_billing_date < CURRENT_DATE),
+  'overdue_amount', (SELECT COALESCE(sum(billing_amount - COALESCE(payment_amount,0)),0)::bigint FROM bills WHERE payment_status IN ('pending','partial') AND eff_billing_date < CURRENT_DATE),
+  'overdue_30_count', (SELECT count(*) FROM bills WHERE payment_status IN ('pending','partial') AND eff_billing_date < CURRENT_DATE - 30),
   'received_ytd', (SELECT COALESCE(sum(payment_amount),0)::bigint FROM bills WHERE payment_status = 'paid' AND payment_date >= date_trunc('year', CURRENT_DATE)),
   'no_billing', (SELECT count(*) FROM my_cases WHERE project_code IS NOT NULL AND COALESCE(total_price,0) > 0
                    AND NOT EXISTS (SELECT 1 FROM erp_billings b WHERE b.erp_quotation_id = my_cases.qid)),
   'overdue_items', (SELECT COALESCE(json_agg(json_build_object(
         'billing_id', id, 'quotation_id', erp_quotation_id, 'case_code', case_code, 'case_name', case_name,
         'billing_period', billing_period, 'amount', (billing_amount - COALESCE(payment_amount,0))::bigint,
-        'billing_date', billing_date::text, 'days_overdue', (CURRENT_DATE - billing_date))
+        'billing_date', billing_date::text, 'days_overdue', (CURRENT_DATE - eff_billing_date))
       ORDER BY billing_date), '[]'::json)
-     FROM (SELECT * FROM bills WHERE payment_status IN ('pending','partial') AND billing_date < CURRENT_DATE ORDER BY billing_date LIMIT 5) t)
+     FROM (SELECT * FROM bills WHERE payment_status IN ('pending','partial') AND eff_billing_date < CURRENT_DATE ORDER BY billing_date LIMIT 5) t)
 )::text
-"""
+""".replace("{EFF_DATE}", EFFECTIVE_BILLING_DATE_SQL)
 
 
 async def get_my_summary(db: AsyncSession, user_id: int) -> Dict[str, Any]:

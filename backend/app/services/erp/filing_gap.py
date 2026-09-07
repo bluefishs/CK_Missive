@@ -343,12 +343,19 @@ WHERE cp.status <> '已結案'
 ORDER BY cp.start_date
 """
 
+# 稽催的時間錨點只有一個定義（見 billing_dunning.py）——
+# 自動建立的第一期請款日留白，只認 billing_date 會讓那 86 筆從缺口名單消失
+from app.services.erp.billing_dunning import EFFECTIVE_BILLING_DATE_SQL
+
 SQL_UNPAID_BILLING = """
 SELECT b.id AS row_id, q.id AS quotation_id, q.case_code, p.project_code,
        p.id AS project_id, COALESCE(p.category,'') AS category,
        COALESCE(q.case_name,'') AS name,
        b.billing_amount AS amount, b.payment_status,
-       (CURRENT_DATE - b.billing_date) AS age_days,
+       -- 2026-09-07：自動建立的第一期**請款日留白**（沒有請款就沒有請款日期）。
+       -- 時間錨點改為 COALESCE(請款日, 報價單日期)：只認 billing_date 的話，
+       -- 那些佔位會因為 NULL 被 WHERE 濾掉而整批消失 —— 而它們正是最該催的一群。
+       (CURRENT_DATE - {EFF_DATE}) AS age_days,
        u.id AS user_id, COALESCE(u.full_name, u.username, a.staff_name, '') AS staff
 FROM erp_billings b
 JOIN erp_quotations q ON q.id = b.erp_quotation_id
@@ -366,9 +373,9 @@ WHERE p.status <> '已結案' AND b.payment_status <> 'paid'
   --    把「還沒到期」與「逾期未收」混成同一件事。
   --    實測 24 筆 pending 裡 **10 筆的請款日在未來**（42%），
   --    也就是說待辦裡有四成是還不能做的事。
-  AND b.billing_date <= CURRENT_DATE
-ORDER BY b.billing_date
-"""
+  AND {EFF_DATE} <= CURRENT_DATE
+ORDER BY {EFF_DATE}
+""".replace("{EFF_DATE}", EFFECTIVE_BILLING_DATE_SQL)
 
 SQL_UNPAID_PAYABLE = """
 SELECT v.id AS row_id, q.id AS quotation_id, q.case_code, p.project_code,

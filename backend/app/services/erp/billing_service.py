@@ -99,6 +99,13 @@ class ERPBillingService(AuditableServiceMixin):
 
     async def create(self, data: ERPBillingCreate) -> ERPBillingResponse:
         """建立請款 (ADR-0013 Phase 2: 自動生成 billing_code + 併發 retry)"""
+
+        # 2026-09-07：`billing_date` 改為可空是**為了自動建立的佔位**（沒有請款就沒有請款日期）。
+        # 人工建立的請款仍然必須有日期 —— 少了它，那筆在逾期名單上會退回用報價單日期算，
+        # 而人工建的請款本來就有一個真實的請款日，用報價日當錨點是錯的。
+        # 判準：備註不是系統自動建立的那一種，就要求日期（填報當下擋，不留給事後稽核）。
+        if not data.billing_date and not (data.notes or "").startswith(self.AUTO_FIRST_NOTE):
+            raise ValueError("請填寫請款日期（僅系統自動建立的第一期可留白）")
         from datetime import datetime
         from app.services.contract import CaseCodeService
         from app.services.coding_helpers import retry_on_code_conflict
@@ -201,8 +208,8 @@ class ERPBillingService(AuditableServiceMixin):
         為什麼一定要有這一筆：夜間吹哨者的「請款逾期」只看 erp_billings，沒有請款的案子
         **永遠不會被催** —— 09-03 量到 90 張成案有金額卻無請款（3,109 萬），稽催鏈對它們是啞的。
 
-        規則（刻意簡單）：一次請領、金額＝報價總額、**請款日＝報價單日期**（2026-09-07 改，
-        原為今天）、pending。分期是人的決定，
+        規則（刻意簡單）：一次請領、金額＝報價總額、**請款日留白**（2026-09-07：
+        原為今天 → 報價單日期 → 留白）、pending。分期是人的決定，
         由承辦在請款頁把這一筆改期別／拆金額；系統只保證「有東西可催」。
         不建的情況：無總額（要人填，weekly 103 YELLOW）／未成案／已有任何請款。
         失敗只記 log 不 raise —— 案件比這一筆重要（同 promote 內的承辦承接）。
@@ -237,12 +244,14 @@ class ERPBillingService(AuditableServiceMixin):
             # 畫面上它長得跟真的請款日期一模一樣，於是 09/03 成案的案子看起來像
             # 09/03 就請過款了。這一筆本來只是「有東西可催」的佔位，不該宣稱一個動作。
             #
-            # 改用**報價單日期**：它是這件事真實存在的時間錨點，稽催天數從它算起也才有意義
-            # （從系統建立日算，等於每次補建都把逾期歸零）。報價單沒有日期才退回今天。
+            # 2026-09-07（owner 第二次指正）：**留白**。
+            # 先前改成報價單日期仍有同一個毛病 —— 畫面上它與真的請款日期長得一模一樣，
+            # 「這個案請過款了嗎」看畫面得到的答案還是錯的。
+            # 沒有請款就沒有請款日期。稽催改用 COALESCE(請款日, 報價單日期)，不會失效。
             created = await self.create(ERPBillingCreate(
                 erp_quotation_id=quotation_id,
                 billing_period="一次請領",
-                billing_date=getattr(q, "quoted_at", None) or _date.today(),
+                billing_date=None,
                 billing_amount=Decimal(str(total)),
                 payment_status="pending",
                 notes=f"{self.AUTO_FIRST_NOTE}{'；' + reason if reason else ''}",

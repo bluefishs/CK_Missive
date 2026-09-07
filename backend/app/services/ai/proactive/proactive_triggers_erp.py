@@ -13,7 +13,10 @@ import logging
 from datetime import date, timedelta
 from typing import List
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+
+# 稽催的時間錨點只有一個定義（09-07：三份各自實作，漏改一處就整批消失）
+from app.services.erp.billing_dunning import effective_billing_date as _eff_date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.ai.proactive.proactive_triggers import TriggerAlert
@@ -95,7 +98,10 @@ class ERPTriggerScanner:
             select(
                 ERPBilling.id,
                 ERPBilling.billing_amount,
-                ERPBilling.billing_date,
+                # 2026-09-07：自動建立的第一期**請款日留白**（沒有請款就沒有請款日期）。
+                # 稽催的時間錨點改為 `COALESCE(請款日, 報價單日期)` —— 只認 billing_date
+                # 的話那些佔位會整批消失，而它們正是最需要被催的那一群（成案卻沒請款）。
+                _eff_date(ERPBilling, ERPQuotation).label("billing_date"),
                 ERPBilling.payment_status,
                 ERPBilling.billing_period,
                 ERPQuotation.case_code,
@@ -104,11 +110,11 @@ class ERPTriggerScanner:
             )
             .join(ERPQuotation, ERPBilling.erp_quotation_id == ERPQuotation.id)
             .where(
-                ERPBilling.billing_date < today,
-                ERPBilling.billing_date.isnot(None),
+                _eff_date(ERPBilling, ERPQuotation) < today,
+                _eff_date(ERPBilling, ERPQuotation).isnot(None),
                 ERPBilling.payment_status.in_(["pending", "partial"]),
             )
-            .order_by(ERPBilling.billing_date)
+            .order_by(_eff_date(ERPBilling, ERPQuotation))
             .limit(20)
         )
         for row in overdue_result.all():
@@ -150,6 +156,8 @@ class ERPTriggerScanner:
             )
             .join(ERPQuotation, ERPBilling.erp_quotation_id == ERPQuotation.id)
             .where(
+                # 「即將到期」刻意**只認真的請款日**：自動建立的佔位沒有排定的請款日，
+                # 它不是「即將到期」，是「還沒請款」——那一群由上面的逾期段用報價單日期接住。
                 ERPBilling.billing_date >= today,
                 ERPBilling.billing_date <= upcoming_threshold,
                 ERPBilling.billing_date.isnot(None),
