@@ -19,7 +19,7 @@
 
 | 路由 | 視窗 | 檔案 | 備註 |
 |---|---|---|---|
-| /taoyuan/dispatch | desktop | _taoyuan_dispatch__desktop.png |  |
-| /erp/financial-dashboard | desktop | _erp_financial_dashboard__desktop.png |  |
-| /taoyuan/dispatch | mobile | _taoyuan_dispatch__mobile.png |  |
-| /erp/financial-dashboard | mobile | _erp_financial_dashboard__mobile.png |  |
+| /erp/client-accounts | desktop | _erp_client_accounts__desktop.png |  |
+| /erp/quotations | desktop | _erp_quotations__desktop.png |  |
+| /erp/client-accounts | mobile | _erp_client_accounts__mobile.png |  |
+| /erp/quotations | mobile | _erp_quotations__mobile.png |  |
