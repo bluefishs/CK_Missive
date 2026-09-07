@@ -44,6 +44,7 @@ interface AccountRecord {
    *  文字若與之不同會放這裡 ⇒ **這一筆的廠商身分有出入，要看得見**。 */
   counterpartyRecorded?: string;
   request_date?: string;       // 請款日期
+  quoted_at?: string;          // 報價單日期（2026-09-07：自動建立的第一期以它為時間錨點）
   request_amount?: number;     // 請款金額
   invoice_number?: string;     // 發票號碼
   invoice_date?: string;       // 發票日期
@@ -98,6 +99,7 @@ const billingToRecord = (
   description: undefined,
   counterparty: clientName || '（未設定委託單位）',
   request_date: b.billing_date,
+  quoted_at: b.quoted_at ?? undefined,
   request_amount: Number(b.billing_amount || 0),
   invoice_number: b.invoice_number || undefined,
   invoice_date: b.invoice_date || undefined,
@@ -288,6 +290,12 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
         ) : <span>{v}</span>
       ),
     },
+    // 2026-09-07 owner：「新增『報價單日期』並自動帶入；原自動填列請款日期機制
+    // 改為報價單日期辦理稽催，避免誤解 09/03 真的已辦理請款作業」。
+    // 自動建立的第一期，請款日原本是「系統建立這筆的日子」，畫面上與真的請款日期
+    // 長得一模一樣。兩個日期並列，才看得出這一筆的時間錨點是報價還是請款。
+    { title: '報價單日期', dataIndex: 'quoted_at', width: 110, hideOnMobile: true,
+      render: (v?: string) => v || <span style={{ color: '#bfbfbf' }}>—</span> },
     { title: '請款日期', dataIndex: 'request_date', width: 110, hideOnMobile: true },
     // 2026-08-17 owner：「建議列表表單僅顯示已收款經費資訊」。
     // 請款金額與收款金額實測 36/36 完全相同（見 ERPAccountRecordFormPage 的說明），

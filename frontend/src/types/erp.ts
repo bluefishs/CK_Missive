@@ -379,6 +379,8 @@ export interface ERPBilling {
   settlement_type?: string;
   /** 互抵／不開票的依據與對象 */
   settlement_note?: string;
+  /** 報價單日期（2026-09-07：自動建立的第一期以它為時間錨點，不是系統建立日） */
+  quoted_at?: string;
 }
 
 export interface ERPBillingCreate {

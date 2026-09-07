@@ -201,7 +201,8 @@ class ERPBillingService(AuditableServiceMixin):
         為什麼一定要有這一筆：夜間吹哨者的「請款逾期」只看 erp_billings，沒有請款的案子
         **永遠不會被催** —— 09-03 量到 90 張成案有金額卻無請款（3,109 萬），稽催鏈對它們是啞的。
 
-        規則（刻意簡單）：一次請領、金額＝報價總額、請款日＝今天、pending。分期是人的決定，
+        規則（刻意簡單）：一次請領、金額＝報價總額、**請款日＝報價單日期**（2026-09-07 改，
+        原為今天）、pending。分期是人的決定，
         由承辦在請款頁把這一筆改期別／拆金額；系統只保證「有東西可催」。
         不建的情況：無總額（要人填，weekly 103 YELLOW）／未成案／已有任何請款。
         失敗只記 log 不 raise —— 案件比這一筆重要（同 promote 內的承辦承接）。
@@ -229,10 +230,19 @@ class ERPBillingService(AuditableServiceMixin):
             existing = (await self.db.execute(_sel(ERPBilling.id).where(ERPBilling.erp_quotation_id == quotation_id).limit(1))).first()
             if existing:
                 return None
+            # ⚠️ 2026-09-07 owner：「原自動填列請款日期機制改為報價單日期辦理稽催，
+            #    避免誤解 09/03 真的已辦理請款作業」。
+            #
+            # 原本填**今天** —— 那是「系統建立這筆的日子」，不是任何人做過的事。
+            # 畫面上它長得跟真的請款日期一模一樣，於是 09/03 成案的案子看起來像
+            # 09/03 就請過款了。這一筆本來只是「有東西可催」的佔位，不該宣稱一個動作。
+            #
+            # 改用**報價單日期**：它是這件事真實存在的時間錨點，稽催天數從它算起也才有意義
+            # （從系統建立日算，等於每次補建都把逾期歸零）。報價單沒有日期才退回今天。
             created = await self.create(ERPBillingCreate(
                 erp_quotation_id=quotation_id,
                 billing_period="一次請領",
-                billing_date=_date.today(),
+                billing_date=getattr(q, "quoted_at", None) or _date.today(),
                 billing_amount=Decimal(str(total)),
                 payment_status="pending",
                 notes=f"{self.AUTO_FIRST_NOTE}{'；' + reason if reason else ''}",
@@ -262,9 +272,16 @@ class ERPBillingService(AuditableServiceMixin):
             )).all()
             for bid, iid, no, dt, amt, tax in rows:
                 inv_by_billing.setdefault(bid, (iid, no, dt, amt, tax))
+        # 報價單日期：自動建立的第一期用它當時間錨點（09-07），畫面也要看得到
+        from app.extended.models.erp import ERPQuotation as _Q
+        quoted_at = (await self.db.execute(
+            select(_Q.quoted_at).where(_Q.id == quotation_id)
+        )).scalar()
+
         out = []
         for b in items:
             r = ERPBillingResponse.model_validate(b)
+            r.quoted_at = quoted_at
             inv = inv_by_billing.get(b.id)
             if inv:
                 (r.invoice_id, r.invoice_number, r.invoice_date,

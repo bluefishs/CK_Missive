@@ -141,6 +141,13 @@ class ERPBillingResponse(BaseModel):
     # 複核要看的是**三個數**：未稅、稅額、含稅。只給含稅，人得自己心算 ÷1.05，
     # 而 5% 與 0（免稅）在畫面上原本長得一樣。
     invoice_tax_amount: Optional[Decimal] = None
+    # 2026-09-07 owner：「新增『報價單日期』並自動帶入；原自動填列請款日期機制改為
+    # 報價單日期辦理稽催，避免誤解 09/03 真的已辦理請款作業」。
+    #
+    # 自動建立的第一期，請款日原本填**今天**——那是系統建立這筆的日子，不是任何人做過的事，
+    # 而畫面上它與真的請款日期長得一模一樣。把報價單日期一起帶出來，
+    # 才看得出「這一筆的時間錨點是報價，不是請款」。
+    quoted_at: Optional[date] = None
     #: 結算方式：invoice=開票 / offset=互抵 / no_invoice=約定不開票
     settlement_type: Optional[str] = "invoice"
     settlement_note: Optional[str] = None
