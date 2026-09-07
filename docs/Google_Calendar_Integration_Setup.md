@@ -49,11 +49,13 @@
 在後端 `.env` 檔案中新增以下配置：
 
 ```env
-# Google Calendar 整合設定
+# Google Calendar 整合設定 —— 行事曆**只有服務帳號**這一條認證路線（google_client.py）
 GOOGLE_CALENDAR_ID=cksurvey0605@gmail.com
-GOOGLE_CREDENTIALS_PATH=./credentials.json
-GOOGLE_CLIENT_ID=your-service-account-client-id
-GOOGLE_CLIENT_SECRET=your-service-account-private-key-id
+# ⚠️ 2026-09-08：不要寫相對路徑。容器內固定解析為 /app/GoogleCalendarAPIKEY.json；
+#    host 直跑請填絕對路徑（本 repo 早已為相對路徑付過學費：腳本回報成功、實測是壞的）。
+GOOGLE_CREDENTIALS_PATH=/app/GoogleCalendarAPIKEY.json
+# ⚠️ GOOGLE_CLIENT_ID／GOOGLE_CLIENT_SECRET **不是**服務帳號欄位，是 Google SSO 登入用（另一個功能）。
+#    此前這裡把它們寫成 your-service-account-…，讓人以為行事曆有 OAuth2 第二條路線 —— 已作廢。
 ```
 
 ### 2. 檔案放置

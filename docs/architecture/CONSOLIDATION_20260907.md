@@ -71,6 +71,7 @@ role=staff 但 is_admin=true 打使用者管理 → 403。單元測試 `test_adm
 | `UserRole` 列舉 | 手抄 `role_permissions` 的角色名 | 改為啟動時從 DB 載入或放寬為 str＋端點驗證；目前 weekly 118 守著 |
 | 端點層逐支 `require_permission`（10 檔） | 寫入類權限（documents:edit 等）仍硬寫在端點 | 那些是**動作**權限不是頁面權限，留在程式碼是對的 |
 | `init_navigation_data.py` 種子 | 與 live DB 會漂（既有紀錄） | 種子只用於空庫；live 以 DB 為準 |
+| **過期文件／外部附件 vs 基礎設施實況**（owner 09-08 提出：sqlite `documents.db`／後端 8003「優化版」／pgAdmin 8080／`C:\GeminiCli`）| 逐項實查**都不存在**：DB 只有 PostgreSQL（host 5434／容器 postgres:5432）、後端只有 8001、行事曆只有服務帳號。出處＝2026-03 遷移前的附件與 2026-05 歸檔 wiki | **不做「同步」**：對過期宣告的正確處置是刪除，不是維護第二份。`.env.example` 的「Google OAuth」標題拆成 SSO／Calendar 兩段（那個標題就是讓行事曆看起來有兩條路線的宣告）；weekly 122 守「活文件裡不得再出現這些字」|
 
 ---
 
@@ -95,5 +96,16 @@ role=staff 但 is_admin=true 打使用者管理 → 403。單元測試 `test_adm
 2. **前端權限標籤從 DB 產生**（消滅 #4 與 weekly 119 ①）
 3. **名稱快照徹底退場**：顯示與查詢已主檔優先、改名已傳播；剩約 90 處讀快照的匯出／AI 工具逐步改讀主檔，之後快照欄可降為歷史紀錄
 4. **端點手抄轉接層**（#10）：`projects/crud.py` 的 `QueryParams` 改直接傳 schema，消滅「三層都改了路不通」
+
+5. **民國年解析 8 份實作**（owner 09-08 B6 疑點，實查為真）：`def _roc_to_date(` ×4、`def _parse_roc_date(` ×4，
+   分散在匯入／發票／財政部 API 解析。與 #7 逾期日期同型——收到一個 `lib/roc_date.py`，之後才有資格立檢核
+6. **「所有 API 走 React Query、禁 useEffect+apiClient」只有規則沒有守門**（B5）：既有的 `api_contract_alignment_audit`／
+   `frontend_api_wiring_audit` 管的是契約與接線，不是取數方式。先量存量再決定要不要立（存量若上百，立了也是天天紅）
+
+owner 09-08 其餘疑點的實測（**都不是分岔，不立檢核**）：B3 公文權限過濾在後端執行
+（`services/document/core.py:177` 的 `RLSFilter.apply_document_rls`，列表與詳情皆走）；
+B4 Alembic 143 支遷移；B7 部署路徑只有 Docker（`scripts/deploy/deploy-public.sh`）；
+B8 `.env`／憑證 JSON 皆 git-ignored、compose 的 secrets 檔無字面值；B1 LINE 只有 FastAPI `/api/line/webhook`（HMAC 驗簽）；
+B2 服務帳號**沒有** attendees／sendUpdates 用法，所以「不能替個人 Gmail 發邀請」的先天限制目前沒有踩到。
 
 每一項做完的驗收：**對應檢核可刪**。

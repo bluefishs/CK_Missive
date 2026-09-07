@@ -147,7 +147,6 @@ docker volume prune -f
 | 前端應用 | http://localhost:3000 | React 應用程式 |
 | 後端 API | http://localhost:8001 | FastAPI 服務 |
 | API 文件 | http://localhost:8001/api/docs | Swagger UI |
-| 資料庫管理 | http://localhost:8080 | Adminer |
 
 ## ⚠️ 生產環境注意事項
 

@@ -110,8 +110,7 @@ export const useDocumentStore = createBaseStore<
 ## 🔗 API 配置
 
 ### 多環境支援
-- **Optimized**: `http://localhost:8003/api` (預設)
-- **Development**: `http://localhost:8001/api`
+- **Development／Production**: `http://localhost:8001/api`（唯一的後端；`8003` 優化版早已不存在，2026-09-08 作廢）
 - **Network**: `http://192.168.50.119:8001/api`
 
 ### 自動環境選擇

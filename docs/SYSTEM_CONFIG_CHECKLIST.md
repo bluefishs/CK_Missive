@@ -104,7 +104,6 @@ python config-check.py
 - [ ] 前端服務：http://localhost:3000
 - [ ] 後端API：http://localhost:8001
 - [ ] API文檔：http://localhost:8001/api/docs
-- [ ] 資料庫管理：http://localhost:8080
 - [ ] 資料庫連接：localhost:5434
 
 ### ✅ 健康檢查端點

@@ -130,6 +130,8 @@ CK_Missive 是企業級公文管理系統（公文／行事曆／邀標報價／
        備份是 backend 容器的 pg_dump 17.10 產生的，而伺服器是 15.14，
        dump 裡帶著 15 認不得的 transaction_timeout，帶 ON_ERROR_STOP 還原會中止。
        版本記載錯誤會讓人在災難當下判斷錯誤。詳見 docs/runbooks/disaster-recovery.md §4 -->
+- 行事曆憑證：**只有服務帳號**（`GOOGLE_CREDENTIALS_PATH` → 容器內 `/app/GoogleCalendarAPIKEY.json`）；`GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI` 是 **SSO 登入**用，與行事曆無關（2026-09-08 owner 誤讀為兩條路線，成因是 `.env.example` 一個標題包兩個功能，已拆）
+- ⛔ **沒有的東西**（2026-09-08 逐項實查，別再從舊附件抄）：沒有 sqlite（`documents.db`／`ck_documents.db` 都不存在，sqlite 只在測試的 in-memory）；沒有 8003「優化版」後端（無程序監聽、只剩歸檔報告提過）；沒有 Adminer/pgAdmin 8080（只在 2026-05 歸檔 wiki）；`C:\GeminiCli\…` 是 2026-03 遷移前的路徑。守門＝weekly 122
 - 客戶端工具版本落差（**還原時會咬人**）：postgres 容器 psql 15.14／backend 容器 pg_dump·psql **17.10**
 - ~~NemoClaw 監控塔: http://localhost:9000~~ — **廢止** (ADR-0015)
 - vLLM 本地推理: http://localhost:8000 (Docker, Qwen2.5-7B-AWQ)

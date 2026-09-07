@@ -122,14 +122,13 @@ python dev-monitor.py http   # 只檢查 HTTP 服務
 - **前端開發伺服器**: http://localhost:3000 (Vite HMR)
 - **後端開發 API**: http://localhost:8001 (熱重載)
 - **API 開發文檔**: http://localhost:8001/api/docs
-- **開發資料庫管理**: http://localhost:8080
+- **資料庫管理**: 無獨立介面（`docker exec ck_missive_postgres psql -U ck_user -d ck_documents`；Adminer 8080 已於 2026-05 退場）
 - **開發資料庫**: localhost:5434
 
 ### 生產環境
 - **前端應用**: http://localhost:3000 (Nginx)
 - **後端 API**: http://localhost:8001
 - **API 文檔**: http://localhost:8001/api/docs
-- **資料庫管理**: http://localhost:8080
 - **資料庫**: localhost:5434
 
 ## 🔄 開發工作流程
