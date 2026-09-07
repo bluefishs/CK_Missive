@@ -110,6 +110,14 @@ def main() -> int:
         print(f"[YELLOW] 讀不了總表：{str(exc)[:120]}")
         return 1
 
+    if not keyed and not unkeyed:
+        # 「系統報價單」是**動態陣列公式**（B2 是 ArrayFormula，整張表由 VSTACK 溢出），
+        # 而 openpyxl 讀的是 Excel 存檔時的快取值。若有人用不會計算公式的工具存過這個檔，
+        # 快取會全空 ⇒ 這裡讀到 0 列。那是「讀不到」，不是「總表是空的」。
+        print(f"[YELLOW] 「{SHEET}」讀不到任何資料列 —— 它是動態陣列公式表，"
+              f"快取值可能未更新（用 Excel 開啟並存檔即可重算）。未驗。")
+        return 1
+
     db = db_legacy_numbers()
     if db is None:
         print("[YELLOW] 連不到資料庫，未驗")
