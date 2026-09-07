@@ -628,8 +628,8 @@ export const USER_ROLES = {
     key: 'exec',
     name_zh: '高階主管',
     name_en: 'Executive',
-    description_zh: '全域唯讀：所有報表與業務資料可看，不含任何寫入與系統管理',
-    description_en: 'Global read-only across all reports and business data',
+    description_zh: '完整報表視野＋承辦與營運管理能力；不含系統管理與使用者權限',
+    description_en: 'Full reporting visibility plus case-handling and operational management; no system administration',
     default_permissions: [
       'documents:read', 'projects:read', 'agencies:read', 'vendors:read', 'calendar:read',
       'reports:view', 'reports:export',
@@ -637,11 +637,24 @@ export const USER_ROLES = {
       'reports:ledger:view', 'reports:operational:view', 'reports:expenses:view',
       'reports:financial_dashboard:view', 'reports:invoices:view', 'reports:einvoice:view',
       'reports:erp:view', 'reports:finance:view',
+      'documents:create', 'documents:edit', 'projects:create', 'projects:edit',
+      'calendar:edit', 'agencies:create', 'agencies:edit', 'vendors:create', 'vendors:edit',
+      'operational:write', 'operational:approve',
       'reports:tender:view', 'reports:assets:view', 'reports:stats:view',
     ],
-    // ⚠️ 刻意做成「唯讀的全部」而不是「admin 減掉幾項」：
-    //    後者在新增功能時預設是**給**，前者預設是**不給**。
-    //    董事長要看的是全貌，不是操作 —— 需要簽核類寫入時再單獨加。
+    // ⚠️ **2026-09-07 更正：這個角色不是「全域唯讀」。**
+    //
+    // 原本這裡寫著「刻意做成唯讀的全部…董事長要看的是全貌，不是操作」，
+    // 而實測三位 exec **全都是實際承辦**：洪慶忠 81 案、張坤樹 14、王駿穠 6。
+    // owner 09-07：「高階主管仍有承攬案件，故非全域唯讀，仍應配合權限管控機制
+    // 提供對應服務，如營運管理等」。
+    //
+    // 我依那句過時的註解把 `documents:edit` 從 exec 移除過一次 —— 那是拿設計文件
+    // 去覆蓋現實，而洪慶忠 81 個案的公文編輯會因此斷掉。**角色的定義要看那個角色
+    // 的人實際在做什麼，不是看當初寫下的意圖。**
+    //
+    // 現在的 exec ＝ 完整報表視野 ＋ 承辦所需的寫入（公文／專案／機關／廠商／行事曆）
+    // ＋ 營運管理（`operational:write`／`approve`）。
     can_login: true
   },
 
