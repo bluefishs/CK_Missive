@@ -29,6 +29,10 @@ class ERPVendorPayableCreate(BaseModel):
     # 期別值域與應收共用（`schemas/erp/billing.py: BillingPeriod`），
     # 寫入端收緊、讀取端寬鬆（ENUM_STORAGE_CONVENTION 規則 3）。
     payable_period: Optional[BillingPeriod] = Field(None, description="期別")
+    # 2026-09-07：建立時就能綁請款。weekly 99 的規範是「應付必有 billing_id」，
+    # 而這個欄位**原本只在更新時填得到** —— 於是每一筆新應付都得先建再補，
+    # 忘了補就是一筆答不出「對哪次請款」的應付（實測 47 筆全空正是這樣來的）。
+    billing_id: Optional[int] = Field(None, description="對應的請款期別 ID")
     description: Optional[str] = Field(None, max_length=300)
     due_date: Optional[date] = None
     invoice_number: Optional[str] = Field(None, max_length=50, description="廠商發票號碼")
@@ -60,6 +64,11 @@ class ERPVendorPayableUpdate(BaseModel):
     # 只加在寫入端：Response 加了沒意義，Query 加了會擋掉合法擴充。
     model_config = ConfigDict(extra="forbid")
 
+    # 2026-09-07：更新時要能改綁廠商。原本只有 `vendor_name` 可改 ⇒
+    # 「名字改了、鍵還指向舊的那一家」是唯一能做到的結果，正好是 weekly 107 在抓的錯。
+    # 整併主檔（把併寫列的應付改綁到正確的那一家）也需要它。
+    vendor_id: Optional[int] = Field(None, description="改綁到哪一家（partner_vendors.id）")
+    billing_id: Optional[int] = Field(None, description="對應的請款期別 ID")
     vendor_name: Optional[str] = Field(None, max_length=200)
     vendor_code: Optional[str] = Field(None, max_length=50)
     payable_amount: Optional[Decimal] = None

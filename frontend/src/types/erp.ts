@@ -344,6 +344,8 @@ export interface InvoiceSummaryItem {
 export interface InvoiceSummaryRequest {
   invoice_type?: string;
   year?: number;
+  /** 一次搜發票號／案號／報價單號／案名（2026-09-07；伺服器分頁下前端過濾只看得到當頁） */
+  search?: string;
   skip?: number;
   limit?: number;
 }

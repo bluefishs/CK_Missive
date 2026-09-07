@@ -27,6 +27,9 @@ import { BUSINESS_TYPE_OPTIONS } from '../constants';
  * - 統一全形/半形括號
  * - 移除連續空白
  */
+/** 內部代碼欄位：owner 2026-09-07 要求不顯示；要恢復把它改成 true 即可（值一直都在）。 */
+const SHOW_VENDOR_CODE = false;
+
 const normalizeName = (value: string | undefined | null): string | undefined => {
   if (!value) return undefined;
   return value
@@ -174,9 +177,14 @@ export const VendorFormPage: React.FC = () => {
           <Form.Item name="tax_id" label="統一編號" rules={[{ pattern: /^\d{8}$/, message: '統一編號為 8 碼數字' }]}>
             <Input placeholder="8 碼數字" maxLength={8} />
           </Form.Item>
-          <Form.Item name="vendor_code" label="內部代碼（選填）">
-            <Input placeholder="公司內部的廠商代碼；不是統編" />
-          </Form.Item>
+          {/* 2026-09-07 owner：「無須顯示內部代碼（選填）欄位」。
+              **欄位不刪、值不動** —— 15 家的 vendor_code 還存著（09-04 從統編搬過來的那批），
+              刪欄位會讓那些值變成沒有入口的孤兒。這裡只是不讓它出現在表單上。 */}
+          {SHOW_VENDOR_CODE && (
+            <Form.Item name="vendor_code" label="內部代碼（選填）">
+              <Input placeholder="公司內部的廠商代碼；不是統編" />
+            </Form.Item>
+          )}
         </ResponsiveFormRow>
 
         <ResponsiveFormRow>

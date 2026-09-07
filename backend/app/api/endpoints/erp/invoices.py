@@ -33,6 +33,7 @@ async def get_invoice_summary(
     result = await service.get_invoice_summary(
         invoice_type=params.invoice_type,
         year=params.year,
+        search=params.search,
         skip=params.skip,
         limit=params.limit,
     )

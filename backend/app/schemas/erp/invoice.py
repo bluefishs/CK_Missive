@@ -64,7 +64,10 @@ class ERPInvoiceUpdate(BaseModel):
 class InvoiceSummaryRequest(BaseModel):
     """跨案件發票彙總查詢"""
     invoice_type: Optional[str] = Field(None, description="類型: sales/purchase")
-    year: Optional[int] = Field(None, description="年度 (民國)")
+    year: Optional[int] = Field(None, description="年度（西元；比對發票開立日期）")
+    # 2026-09-07 owner：「CK2025_PM、QT2025_001 也無處可查」——一次搜四個欄位，
+    # 因為人手上拿到的可能是發票號、案號、報價單號或案名裡的任何一個。
+    search: Optional[str] = Field(None, max_length=100, description="發票號／案號／報價單號／案名")
     skip: int = 0
     limit: int = 50
 

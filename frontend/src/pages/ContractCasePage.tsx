@@ -298,11 +298,18 @@ export const ContractCasePage: React.FC = () => {
               ]}
             />
           )}
-          <Row justify="space-between" style={{ width: '100%' }}>
+          {/* 2026-09-07 owner（桌面截圖）：「重置篩選／重新載入」自己佔一整列，
+              而右側的「新增案件」在同一列的另一端 —— 桌面看起來像兩個沒有關係的區塊。
+              手機版早就收成一顆「篩選」鈕了；桌面應該用同一套語彙：
+              **左邊是「調整條件」的次要動作、右邊是「產生東西」的主要動作**，同一列、同一組間距。
+              次要動作改 `type="text"` 並只在有篩選時才顯示「重置」——沒有條件可重置時那顆鈕是噪音。 */}
+          <Row justify="space-between" align="middle" style={{ width: '100%', rowGap: 8 }}>
             <Col>
-              <Space>
-                <Button onClick={handleResetFilters}>重置篩選</Button>
-                <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新載入</Button>
+              <Space size={4}>
+                {[yearFilter, categoryFilter, statusFilter, searchText].some(Boolean) && (
+                  <Button type="text" size="small" onClick={handleResetFilters}>重置篩選</Button>
+                )}
+                <Button type="text" size="small" icon={<ReloadOutlined />} onClick={() => refetch()}>重新載入</Button>
               </Space>
             </Col>
             <Col>

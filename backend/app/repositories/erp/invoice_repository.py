@@ -3,7 +3,7 @@ import logging
 from decimal import Decimal
 from typing import Optional, List, Dict
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPInvoice
@@ -34,6 +34,7 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
 
     async def get_invoice_summary(
         self, invoice_type: Optional[str] = None, year: Optional[int] = None,
+        search: Optional[str] = None,
         skip: int = 0, limit: int = 50,
     ) -> tuple:
         """跨案件發票彙總 — 銷項/進項分類查詢"""
@@ -51,6 +52,19 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
 
         if invoice_type:
             query = query.where(ERPInvoice.invoice_type == invoice_type)
+        # 2026-09-07 owner：「CK2025_PM、QT2025_001 也無處可查」——
+        # 這一頁原本只有年度與類型兩個下拉，**沒有任何查詢入口**：
+        # 要找某張發票對應的案子，只能一頁一頁翻。
+        # 一次搜四個欄位（發票號／案號／報價單號／案名），因為人手上拿到的可能是其中任何一個。
+        if search:
+            kw = f"%{search.strip()}%"
+            query = query.where(or_(
+                ERPInvoice.invoice_number.ilike(kw),
+                ERPInvoice.invoice_ref.ilike(kw),
+                ERPQuotation.case_code.ilike(kw),
+                ERPQuotation.quotation_no.ilike(kw),
+                ERPQuotation.case_name.ilike(kw),
+            ))
         if year:
             # 2026-09-04 金流複查：發票彙總是稅務用途，「年度」＝發票開立年度（invoice_date），不是報價單案件年度。
             # 此前用 ERPQuotation.year ⇒ 2026 年只算到 54 張 204 萬，而 2026 年實際開了 118 張 1,005 萬（FIELD_SEMANTICS）。

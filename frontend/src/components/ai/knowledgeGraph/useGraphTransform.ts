@@ -103,7 +103,25 @@ export function useGraphTransform({
         };
       });
 
-    return { nodes, links };
+    // 2026-09-07 owner 回報 console：`<line> attribute x1: Expected length, "NaN"`。
+    // 正常登入下重現不出來 —— 同一份 console 上方有一則 401，兩者是同一件事：
+    // **API 回 401 ⇒ 節點抓不到、邊卻還在 ⇒ 連線指向不存在的節點 ⇒ 座標 undefined ⇒ NaN**。
+    // 力導向圖不會為此報錯，它只會畫出 NaN 座標的線，於是錯誤看起來像繪圖套件壞了。
+    //
+    // 兩道防線（都便宜）：
+    //   ① 節點 id 去重 —— 重複 id 會讓 force-graph 綁到另一個物件
+    //   ② 連線只保留「兩端都在最終節點集合裡」的 —— 上面的過濾用的是 typeFiltered，
+    //      而節點在 entity 模式下還會再被篩一次，兩者不同步時就會漏
+    const finalIds = new Set<string>();
+    const dedupedNodes: ForceNode[] = [];
+    for (const n of nodes) {
+      if (!n.id || finalIds.has(n.id)) continue;
+      finalIds.add(n.id);
+      dedupedNodes.push(n);
+    }
+    const safeLinks = links.filter((l) => finalIds.has(l.source) && finalIds.has(l.target));
+
+    return { nodes: dedupedNodes, links: safeLinks };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawNodes, rawEdges, visibleTypes, mergedConfigs, viewMode, colorBy, visibleSourceProjects]);
 

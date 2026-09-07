@@ -5,7 +5,7 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Card, Tag, Select, Typography, Row, Col, Space, Alert,
+  Card, Tag, Select, Typography, Row, Col, Space, Alert, Input,
 } from 'antd';
 import {
   ArrowUpOutlined, ArrowDownOutlined, SwapOutlined,
@@ -88,8 +88,8 @@ const ERPInvoiceSummaryPage: React.FC = () => {
   const netAmount = salesTotal - purchaseTotal;
 
   const columns: ColumnsType<InvoiceSummaryItem> = [
-    { title: '發票號碼', dataIndex: 'invoice_number', key: 'invoice_number', width: 140 },
-    { title: '開立日期', dataIndex: 'invoice_date', key: 'invoice_date', width: 120 },
+    { title: '發票號碼', dataIndex: 'invoice_number', key: 'invoice_number', width: 140, sorter: true },
+    { title: '開立日期', dataIndex: 'invoice_date', key: 'invoice_date', width: 120, sorter: true, defaultSortOrder: 'descend' as const },
     {
       title: '金額', dataIndex: 'amount', key: 'amount', width: 130, align: 'right',
       render: (v: number) => v?.toLocaleString() ?? '-',
@@ -174,6 +174,16 @@ const ERPInvoiceSummaryPage: React.FC = () => {
             onChange={(v) => setParams(p => ({ ...p, invoice_type: v || undefined, skip: 0 }))}
             options={INVOICE_TYPE_OPTIONS}
             style={{ width: 120 }}
+          />
+          {/* 2026-09-07 owner：「發票無查詢機制」「CK2025_PM、QT2025_001 也無處可查」。
+              一個輸入框搜四個欄位（發票號／案號／報價單號／案名）—— 人手上拿到的可能是任何一個。
+              走後端查詢而不是前端過濾：這張表是伺服器分頁的，前端過濾只看得到當前這一頁。 */}
+          <Input.Search
+            allowClear
+            placeholder="搜尋發票號／案號／報價單號／案名"
+            style={{ width: 300 }}
+            defaultValue={params.search}
+            onSearch={(v) => setParams(p => ({ ...p, search: v || undefined, skip: 0 }))}
           />
           <Select
             placeholder="年度" allowClear
