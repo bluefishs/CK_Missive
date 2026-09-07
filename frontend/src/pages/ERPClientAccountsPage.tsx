@@ -102,6 +102,10 @@ const ERPClientAccountsPage: React.FC = () => {
       title: '委託單位',
       dataIndex: 'vendor_name',
       key: 'vendor_name',
+      // 2026-09-07：加了「計畫類別」「案件狀態」後固定欄寬總和超過 scroll.x，
+      // AntD 的 table-layout: fixed 會把**沒有寬度**的這一欄壓成幾乎 0 寬，
+      // 而 ellipsis 讓它安靜地只剩「政…」——名稱欄一定要有自己的寬度。
+      width: 220,
       ellipsis: true,
     },
     {
@@ -282,7 +286,7 @@ const ERPClientAccountsPage: React.FC = () => {
           loading={isLoading}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 單位` }}
           size="middle"
-          scroll={{ x: 960 }}
+          scroll={{ x: 1430 }}
           onRow={(record) => ({
             // 2026-08-28：客戶只存在於承攬案件文字欄（尚無 partner_vendor 主檔）時
             // vendor_id 為 null —— 沒有明細頁可去，點了導到 /null 只會 404

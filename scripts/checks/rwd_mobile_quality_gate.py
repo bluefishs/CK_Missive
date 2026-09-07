@@ -12,7 +12,7 @@ weekly 109 只守「整頁有沒有被撐寬」；視覺走查拍圖但要人看
 
 ## 判準（09-05 基準校準；門檻寫在下方常數，改門檻要附當時的基準數）
 
-RED    narrowSelect ≥ 1（下拉被壓到 <80px，手機與 1440 桌面都量）；covered ≥ 1（「功能遮蔽」正是 owner 09-05 的回報）；loneCard ≥ 1（§2.6 ① 手機兩張一列，owner 09-05 明令統一）；
+RED    crushedCol ≥ 1（表格欄被壓到 <70px，見下方 reds 的說明）；narrowSelect ≥ 1（下拉被壓到 <80px，手機與 1440 桌面都量）；covered ≥ 1（「功能遮蔽」正是 owner 09-05 的回報）；loneCard ≥ 1（§2.6 ① 手機兩張一列，owner 09-05 明令統一）；
        clipped 超過基線（基線檔 `.rwd_quality_baseline.json`，存量不判紅、新增才紅——同 lib_adoption 的節奏）
 YELLOW tinyFont／smallTap 超過基線；探針被導回登入頁 ≥ 1
 GREEN  其餘
@@ -96,7 +96,7 @@ def main() -> int:
     rows = [r for r in d.get("rows") or [] if not r.get("error") and not r.get("blocked")]
     blocked = int(d.get("blocked") or 0)
     base = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.exists() else {}
-    tot = {k: sum(int(r.get(k) or 0) for r in rows) for k in ("clipped", "tinyFont", "smallTap", "covered", "loneCard", "narrowSelect")}
+    tot = {k: sum(int(r.get(k) or 0) for r in rows) for k in ("clipped", "tinyFont", "smallTap", "covered", "loneCard", "narrowSelect", "crushedCol")}
     # 桌面 1440 也跑一遍：下拉塌陷／截字／遮蔽在桌面同樣是缺陷（09-05 的桌面回歸手機量不到——手機走收合區、Select 100% 寬）
     drows: list[dict] = []
     if _run_probe(creds, 1440, RESULT_DESKTOP) and RESULT_DESKTOP.exists():
@@ -111,6 +111,13 @@ def main() -> int:
     for r in rows + drows:
         for c in (r.get("narrowTop") or []):
             reds.append(f"{r['route']} @{r.get('width')}px：下拉 {c.get('sel')} 只剩 {c.get('w')}px（選中的值看不到）")
+        # 欄位塌陷：AntD 在 scroll.x 下用 table-layout: fixed，固定寬度總和一旦超過 scroll.x，
+        # 沒給寬度的那一欄會被壓成幾乎 0 寬而只留 ellipsis —— 09-07 加兩個新欄位後
+        # 委託單位／協力廠商兩頁的名稱欄各發生一次，而當時沒有任何判準會紅
+        # （整頁不溢出、是 ellipsis 不是硬截、字級與點擊目標都正常）。
+        for c in (r.get("crushedTop") or []):
+            reds.append(f"{r['route']} @{r.get('width')}px：表格欄「{c.get('text')}」只剩 {c.get('w')}px"
+                        f"——固定欄寬總和超過 scroll.x，未給寬度的欄被壓扁")
     for r in drows:
         for c in (r.get("coveredTop") or []):
             reds.append(f"{r['route']} @1440px：{c.get('fixed')} 蓋住 {c.get('target')}「{c.get('text')}」{c.get('cover')}%")

@@ -130,8 +130,27 @@ function measure(vw) {
     .filter((el) => !el.closest('.ant-pagination, .ant-picker-calendar-header') && el.getBoundingClientRect().width < 80)
     .map((el) => ({ sel: sel(el), w: Math.round(el.getBoundingClientRect().width), text: txt(el) }));
 
+  // crushedCol：表格欄位被壓到 < 70px（2026-09-07）。
+  // 成因是 AntD 在 `scroll.x` 下用 table-layout: fixed —— **固定寬度的欄位總和一旦超過
+  // `scroll.x`，沒有給寬度的那一欄就會被壓成幾乎 0 寬**，而 `ellipsis` 讓它安靜地
+  // 只剩「政…」。當天在委託單位帳款與協力廠商帳款各發生一次（加了兩個新欄位之後），
+  // 現有判準沒有一個會紅：整頁沒有溢出、字是 ellipsis 不是硬截、字級與點擊目標都正常。
+  //
+  // 只看**表頭**：表頭一定有文字，而內容格可能本來就空（統一編號有一半是空的）。
+  // 排除展開鈕、勾選框、操作欄這類本來就窄的欄。
+  const crushed = [...document.querySelectorAll('th.ant-table-cell')].filter(vis)
+    .filter((th) => {
+      const t = txt(th);
+      if (!t || t.length < 2) return false;                      // 無標題的功能欄
+      if (/^(操作|動作)$/.test(t)) return false;
+      if (th.querySelector('.ant-checkbox, .ant-table-row-expand-icon')) return false;
+      return th.getBoundingClientRect().width < 70;
+    })
+    .map((th) => ({ sel: sel(th), w: Math.round(th.getBoundingClientRect().width), text: txt(th) }));
+
   return {
     narrowSelect: narrow.length, narrowTop: narrow.slice(0, 5),
+    crushedCol: crushed.length, crushedTop: crushed.slice(0, 5),
     clipped: clipped.length, clippedTop: clipped.slice(0, 5), ellipsis,
     tinyFont: tiny.length, tinyTop: tiny.slice(0, 5),
     smallTap: small.length, smallTop: small.slice(0, 5),
@@ -172,7 +191,7 @@ async function main() {
   fs.writeFileSync(OUT, JSON.stringify(out, null, 2));
   const sum = (k) => rows.reduce((a, r) => a + (r[k] || 0), 0);
   console.log(`RWD 手機品質探針：${routes.length} 頁 @${WIDTH}px（被導回登入 ${blocked}）`);
-  console.log(`  下拉塌陷<80px ${sum('narrowSelect')}／截字 ${sum('clipped')}／字級<11px ${sum('tinyFont')}／點擊目標<28px ${sum('smallTap')}／被浮動元件遮住 ${sum('covered')}／統計卡獨佔一列 ${sum('loneCard')}`);
+  console.log(`  欄位塌陷<70px ${sum('crushedCol')}／下拉塌陷<80px ${sum('narrowSelect')}／截字 ${sum('clipped')}／字級<11px ${sum('tinyFont')}／點擊目標<28px ${sum('smallTap')}／被浮動元件遮住 ${sum('covered')}／統計卡獨佔一列 ${sum('loneCard')}`);
   console.log(`  結果 → ${OUT}`);
 }
 
