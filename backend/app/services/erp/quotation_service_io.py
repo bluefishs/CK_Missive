@@ -100,7 +100,9 @@ class ERPQuotationIOService:
         sql = """
         SELECT q.id, q.year, q.legacy_quotation_no, q.quotation_no, q.case_code, q.project_code, q.quote_kind, q.status,
                q.case_name, q.total_price, q.tax_amount, q.quoted_at, q.notes,
-               COALESCE(c.client_agency, p.client_name) AS client_name,
+               -- 2026-09-07：委託單位名**主檔優先**。原本只讀兩個快照，
+               -- 改了主檔名稱之後匯出的檔還是舊名 ⇒ 貼回總表就把舊名帶回去了。
+               COALESCE(vc.vendor_name, vp.vendor_name, c.client_agency, p.client_name) AS client_name,
                p.location,
                pv.contact_person, pv.phone, pv.tax_id, pv.email, pv.address,
                (SELECT string_agg(COALESCE(u.full_name,u.username), '、')
@@ -116,6 +118,8 @@ class ERPQuotationIOService:
         LEFT JOIN contract_projects c ON c.case_code=q.case_code
         LEFT JOIN pm_cases p ON p.case_code=q.case_code
         LEFT JOIN partner_vendors pv ON pv.id=p.client_vendor_id
+        LEFT JOIN partner_vendors vc ON vc.id=c.client_vendor_id
+        LEFT JOIN partner_vendors vp ON vp.id=p.client_vendor_id
         LEFT JOIN LATERAL (SELECT i.invoice_number, i.invoice_date, i.amount, i.tax_amount FROM erp_invoices i
                            WHERE i.erp_quotation_id=q.id AND i.invoice_number NOT LIKE 'XLS-%' ORDER BY i.invoice_date LIMIT 1) inv ON true
         WHERE q.deleted_at IS NULL {year_clause}

@@ -238,12 +238,23 @@ def _derive_case_code(legacy_no: str) -> str:
     """
     return (legacy_no or "").strip()
 
+#: 上一次 `parse_workbook` 遇到的「有案名但沒有報價單編號」的列。
+#: 這些列**不會被匯入**（編號是比對鍵），但必須讓使用者看得到——
+#: 2026-09-07 之前它們是靜默丟棄的，4 列、約 246 萬的業務資料因此從未進系統。
+LAST_ROWS_WITHOUT_NUMBER: list[dict[str, Any]] = []
+
+
 def parse_workbook(content: bytes) -> list[dict[str, Any]]:
-    """解析彙整檔；**全部工作表**都讀（114 年度分成 5 個表）。"""
+    """解析彙整檔；**全部工作表**都讀（114 年度分成 5 個表）。
+
+    副作用：把「有案名但沒有編號」的列寫進 `LAST_ROWS_WITHOUT_NUMBER`（每次呼叫先清空）。
+    """
     import openpyxl
 
     wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
     rows: list[dict[str, Any]] = []
+    no_number_rows: list[dict[str, Any]] = []
+    LAST_ROWS_WITHOUT_NUMBER.clear()
     try:
         for sheet in wb.sheetnames:
             ws = wb[sheet]
@@ -260,6 +271,25 @@ def parse_workbook(content: bytes) -> list[dict[str, Any]]:
                     continue
                 legacy = str(raw[idx["legacy_no"]] or "").strip()
                 if not legacy:
+                    # ⚠️ 2026-09-07 owner：「苗栗大山…系統查詢不到」。
+                    # 這一行原本是 `continue` —— **連「被略過」都沒有記錄**，
+                    # 而其他略過原因（缺案名、不是案號）都會進 skipped 並顯示在預覽裡。
+                    # ⇒ 沒有編號的列就這樣安靜消失，而略過與匯入成功在畫面上長得一樣。
+                    # 實測 4 列（含 2,186,100 元那筆、合計約 246 萬）從來沒有進過系統。
+                    #
+                    # 現在照樣不匯入（編號是 XLS／紙本／回簽 PDF 三者共同的識別，
+                    # 系統代編會造出一個沒有人認得的號，而且人日後補號時會變成兩筆），
+                    # 但**要說出來**——空白列除外，那只是表格的尾巴。
+                    def _g0(k):
+                        return raw[idx[k]] if k in idx and idx[k] < len(raw) else None
+                    _nm = str(_g0("full_case_name") or _g0("case_name") or "").strip()
+                    if _nm:
+                        no_number_rows.append({
+                            "sheet": sheet,
+                            "case_name": _nm,
+                            "client_name": str(_g0("client_name") or "").strip() or None,
+                            "amount": _g0("amount"),
+                        })
                     continue
                 def g(k):
                     return raw[idx[k]] if k in idx and idx[k] < len(raw) else None
@@ -296,6 +326,7 @@ def parse_workbook(content: bytes) -> list[dict[str, Any]]:
                 rows.append(rec)
     finally:
         wb.close()
+    LAST_ROWS_WITHOUT_NUMBER.extend(no_number_rows)
     return rows
 
 
@@ -856,10 +887,23 @@ class QuotationLegacyImportService:
             seen[ln] = r
             (to_update if ln in existing else to_create).append(r)
 
+        # 2026-09-07：沒有報價單編號的列——它們不會被匯入（編號是比對鍵），
+        # 但必須出現在預覽裡。在此之前這種列是**連略過都沒記錄**的靜默丟棄。
+        for _nr in LAST_ROWS_WITHOUT_NUMBER:
+            skipped.append({
+                "legacy_no": "(空白)",
+                "reason": "沒有報價單編號——匯入以編號為比對鍵，請在總表補上編號後重跑",
+                "sheet": _nr.get("sheet"),
+                "case_name": _nr.get("case_name"),
+                "client_name": _nr.get("client_name"),
+                "amount": str(_nr.get("amount")) if _nr.get("amount") is not None else None,
+            })
+
         preview = {
             "success": True,
             "dry_run": dry_run,
             "total_rows": len(rows),
+            "rows_without_number": len(LAST_ROWS_WITHOUT_NUMBER),
             "will_create": len(to_create),
             "will_update": len(to_update),
             "skipped": len(skipped),
