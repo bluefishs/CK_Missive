@@ -76,7 +76,13 @@
 > 前端 `USER_ROLES.default_permissions` 差點被當權威套回 DB——那是建角色的**範本**，照套管理員會失去 ERP 財務。
 > **角色看人實際在做什麼，宣告看是誰在維護給誰用，不看它叫什麼名字。**
 
-> **最後更新**: 2026-09-07
+> ⭐⭐⭐**09-08：owner 拿一份 2025 規劃期附件問了 A1–A5／B1–B8／C1–C5／D1–D10，逐項實查**（全表在 `CONSOLIDATION_20260907.md` §六、`OPEN_ITEMS` A116–A119）。
+> 大多數「兩套」都不存在（sqlite／8003／Adminer 8080／OAuth 行事曆／無 Alembic／無排程）——出處是 **8 份未作廢的活文件**，全部作廢入 `docs/archived/`＋weekly 122 守。
+> **但 D6 是真的**（L148）：`/uploads` 是 StaticFiles 掛載、1,642 個附件公網未登入 200；weekly 64 還把它明文豁免（「靜態、本來就該公開」）。
+> 修成帶認證路由＋`Cache-Control: private, no-store`（第二層：CF 依副檔名快取 PDF，登入者抓一次之後未登入也拿得到）。**已在 CF 邊緣快取的檔只有 purge 能清＝owner。**
+> 另兩個真缺口：D7 還原演練日期此前無守門（offsite 稽核加 `check_restore_drill`）、B6 民國年解析 8 份實作（A119）。
+
+> **最後更新**: 2026-09-08
 >
 > **近期重大里程碑**：已移至 [`docs/MILESTONES_ARCHIVE.md`](docs/MILESTONES_ARCHIVE.md)
 > （2026-08-27，v6.59–v6.61 共 46,981 字元；更早的 64 條 08-24 已先移入）。
