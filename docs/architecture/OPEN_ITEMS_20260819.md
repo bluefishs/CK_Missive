@@ -1957,11 +1957,19 @@ CK_AaaP session 把上一輪那個「只探 GET」的路標走完了，用極保
 | # | 項目 | 現況（量到的） | 建議 | 待誰 |
 |---|---|---|---|---|
 | A116 | **附件層級 RLS** | `/uploads` 09-08 已從「未登入可讀」改成「登入即可讀」（L148）；但 1,642 個附件裡派工 PDF 該只給該案承辦／管理員 | 附件路由查 `document_attachments`→公文→`RLSFilter`；證照附件只給本人與 admin | owner 排序 |
-| A117 | **LINE webhook 去重在行程內** | `line_webhook.py` `_DEDUP_CACHE` 是 dict——重啟即忘、多 worker 各一份（同 A51 限流器形狀） | 換 redis `SET NX EX`；webhook 已先回 200 再 `BackgroundTasks` 處理（D5 另一半是對的） | 可直接做 |
+| A117 | **LINE webhook 去重在行程內** | ✅ **09-08 已辦**：改 redis `SET NX EX 10`，redis 不在時退回行程內並 warning（`test_line_webhook_dedup.py`） | — | 已結 |
 | A118 | **文件生命週期標頭** | `docs/` 172 份活文件只有 32 份帶狀態欄；09-08 一天作廢 8 份 2025 規劃文件都是因為「沒人知道它過期」 | 每份文件檔頭 `狀態：現行／待驗證／已作廢＋最後核對日`；weekly 122 只抓得到「描述不存在的東西」，抓不到「描述已改變的東西」 | owner 拍板格式 |
-| A119 | **民國年解析 8 份實作** | `def _roc_to_date(` ×4、`def _parse_roc_date(` ×4（B6 疑點為真） | 收到 `lib/roc_date.py` 一份；與 L147 #7 逾期日期同型 | 可直接做 |
+| A119 | **民國年解析 8 份實作** | ✅ **09-08 已辦**：8 份＋19 處散裝 `+1911` 收到 `app/core/roc_date.py`；weekly 123 守第九份 | — | 已結 |
 
 同日實查**不成立**、不立項的：D1 稽核軌跡（`audit_logs` 12,351 筆、每日在寫，含 LOGIN／UPDATE／DELETE／ROLE_USERS_SYNC；缺的是「誰看過」）／
 D3 SQLite（不存在）／D4 排程（APScheduler 68 job）／D7 備份（月度還原演練 08-10，**此前無守門**，offsite 稽核 09-08 加 `check_restore_drill`）／
 D8 環境（`.env`＋`.env.production`、五份 compose）／D9 服務層 logging（412 檔中 277 有 logger）／B3 權限過濾在後端（`RLSFilter`）／B4 Alembic 143 支。
 D10 G2B2C 欄位對照：不做實作，owner 要的話另開一次對照。
+
+### 09-08 複查補記（owner：「感覺都進完成一半就停駐且無複查確認」）
+
+| 發現 | 實況 | 處置 |
+|---|---|---|
+| **weekly 117–122 六支從未登記進 `run_fitness_weekly.sh`** | 檢核寫了、README 與 skills-inventory 都登記了，**runner 沒有**（最後一步停在 116）⇒ 沒有任何排程在跑它們（L111 同型） | 09-08 登記 118–123；抽跑 118／121／122 exit 0；**120 首跑 RED**（總表 1 列無編號、2 筆成立狀態兩邊不一致）＝要 owner 判 |
+| 業務同仁看不到自己有權限的頁面 | staff 有專案帳款等 7 頁的碼，父群組「報表分析」要 `reports:view` 而 staff 沒有 | staff 補碼（正式服務、同步 6/6）；weekly 119 ⑤ 立刻多抓 finance／ops 的 ERP 圖譜同型 ⇒ 圖譜項移到各自報表群組 |
+| 導覽 API 失敗時的靜態選單 | 寫死的第四份選單宣告，ERP 項無碼 | 刪除，失敗只給儀表板等重試 |
