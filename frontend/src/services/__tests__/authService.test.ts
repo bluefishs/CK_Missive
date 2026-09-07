@@ -169,12 +169,15 @@ describe('authService', () => {
   });
 
   describe('isAdmin', () => {
-    it('當使用者 is_admin 為 true 時應該返回 true', () => {
-      const adminUser = { is_admin: true, role: 'user' };
-      localStorageMock.setItem('user_info', JSON.stringify(adminUser));
+    // 2026-09-07 權限收斂 A：**旗標不再是獨立來源**。原測試斷言「is_admin=true 但 role=user ⇒ 管理員」
+    // 正是造成「角色是財務、旗標卻讓她進得去使用者管理」的那條規則。契約改了，測試跟著改：
+    // 這不是為了讓測試變綠而放寬，是舊斷言描述的行為就是缺陷。
+    it('當 is_admin 為 true 但 role 不是管理員時，不再視為管理員（只看角色）', () => {
+      const flaggedUser = { is_admin: true, role: 'user' };
+      localStorageMock.setItem('user_info', JSON.stringify(flaggedUser));
 
       const result = authService.isAdmin();
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
     it('當使用者 role 為 admin 時應該返回 true', () => {

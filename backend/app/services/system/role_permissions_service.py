@@ -123,7 +123,13 @@ class RolePermissionsService:
         """更新 role 的 permissions（含 actor audit）。"""
         rp = await self.repo.update_permissions(role, permissions, actor_id)
         data = self._to_dict(rp)
-        # 儲存當下就把「還有幾位沒套用」一起回去 —— 這是最需要知道的那一刻
+        # ⭐ 2026-09-07 權限收斂（owner：「整個系統四分五裂」→ 收斂 A）：
+        # **角色是唯一的寫入路徑，使用者的權限由角色推導。**
+        # 此前儲存角色之後要人另外按「同步」——沒按就是兩份宣告各自演化：
+        # 09-07 拆權限碼時只改了角色層，管理員當場看不到委託／協力帳款。
+        # ⇒ 儲存即同步，不留「還有幾位沒套用」這個狀態給人記。
+        synced = await self.sync_users_to_role_permissions(role, actor_id, only_outdated=True)
+        data["synced_users"] = synced.get("updated", 0) if isinstance(synced, dict) else 0
         data["pending_sync_users"] = await self.count_pending_sync_users(role)
         return data
 

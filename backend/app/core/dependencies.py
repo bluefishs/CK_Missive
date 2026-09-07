@@ -223,12 +223,16 @@ def optional_auth() -> Callable:
 # 為什麼是併看而不是二選一：兩個欄位都存在且都被寫入，任一為真就是管理員；
 # 只認其中一個，等於讓另一個欄位的資料靜靜失效。
 def is_admin_user(user) -> bool:
-    """是否為管理員 —— 布林旗標與 role 欄位任一成立即可。"""
+    """是否為管理員 —— **只看角色**。
+
+    ⭐ 2026-09-07 權限收斂：此前是「旗標 OR 角色」，於是 `is_admin` 旗標是
+    凌駕權限清單的第三份宣告 —— 賴秀玲的角色與權限清單都是財務，旗標卻讓她
+    仍能進使用者管理、備份、部署、資料庫，而權限管理頁上完全看不出來。
+    ⇒ 角色是唯一來源；`is_admin` 欄位改為**由角色推導的鏡像**（寫入時同步、讀取時不看）。
+    """
     if user is None:
         return False
-    by_flag = bool(getattr(user, "is_admin", False)) or bool(getattr(user, "is_superuser", False))
-    by_role = getattr(user, "role", "") in ("admin", "superuser")
-    return by_flag or by_role
+    return getattr(user, "role", "") in ("admin", "superuser")
 
 
 def is_superuser_user(user) -> bool:
@@ -240,7 +244,8 @@ def is_superuser_user(user) -> bool:
     """
     if user is None:
         return False
-    return bool(getattr(user, "is_superuser", False)) or getattr(user, "role", "") == "superuser"
+    # 2026-09-07 權限收斂：只看角色（旗標改為由角色推導的鏡像，見 is_admin_user）
+    return getattr(user, "role", "") == "superuser"
 
 
 def require_admin():

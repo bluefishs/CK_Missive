@@ -21,6 +21,20 @@ from app.services.audit import AuditService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
+async def _permissions_of_role(db, role: str) -> str:
+    """角色的權限清單（JSON 字串）—— 使用者的權限由此推導，不另存一份。"""
+    import json as _json
+    from sqlalchemy import text as _t
+    row = (await db.execute(_t("SELECT permissions FROM role_permissions WHERE role = :r"), {"r": role})).first()
+    perms = row[0] if row else []
+    if isinstance(perms, str):
+        try:
+            perms = _json.loads(perms)
+        except Exception:
+            perms = []
+    return _json.dumps(list(perms), ensure_ascii=False)
+
 router = APIRouter()
 
 
@@ -59,7 +73,8 @@ async def get_users(
 async def create_user(
     user_data: UserRegister,
     user_repo: UserRepository = Depends(get_user_repository),
-    admin_user: User = Depends(require_admin())
+    admin_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db)
 ):
     """新增使用者 (管理員功能)"""
     if await user_repo.check_email_exists(user_data.email):
@@ -83,10 +98,12 @@ async def create_user(
         password_hash=password_hash,
         auth_provider="email",
         is_active=True,
-        is_admin=False,
+        is_admin=False,            # 角色 user 不是管理員（由角色推導，見下）
         role="user",
         email_verified=False,
-        permissions='["documents:read", "projects:read", "agencies:read", "vendors:read", "calendar:read", "reports:view"]'
+        # ⭐ 2026-09-07 權限收斂：此前這裡**硬抄了一份**預設權限清單 —— 與 role_permissions
+        #    裡 user 角色的定義各自演化（實測差兩項）。改為由角色推導。
+        permissions=await _permissions_of_role(db, "user"),
     )
 
     created_user = await user_repo.create_user(new_user)
@@ -114,7 +131,8 @@ async def update_user(
     user_id: int,
     user_update: UserUpdate,
     user_repo: UserRepository = Depends(get_user_repository),
-    admin_user: User = Depends(require_admin())
+    admin_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db)
 ):
     """更新使用者資訊 (管理員功能) - POST-only"""
     user = await user_repo.get_by_id(user_id)
@@ -148,6 +166,16 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="該使用者名稱已被使用"
             )
+
+    # ⭐ 2026-09-07 權限收斂：角色是權限的唯一來源。
+    # 改了角色 ⇒ 權限清單與 is_admin 旗標**由新角色推導**，不留給人手動同步
+    # （09-07 張坤樹改成 exec 之後，權限清單仍是舊的，要人另外同步才對）。
+    # 明確傳入的 is_admin 不再是獨立來源：它只能等於「角色是不是管理員」。
+    if "role" in update_data and update_data["role"] != user.role:
+        update_data["permissions"] = await _permissions_of_role(db, update_data["role"])
+        update_data["is_admin"] = update_data["role"] in ("admin", "superuser")
+    elif "is_admin" in update_data:
+        update_data["is_admin"] = user.role in ("admin", "superuser")
 
     # 透過 Repository 執行更新
     updated_user = await user_repo.update_and_refresh(user_id, **update_data)

@@ -575,9 +575,10 @@ class AuthService {
    */
   isAdmin(): boolean {
     const userInfo = this.getUserInfo();
-    return (
-      userInfo?.is_admin || userInfo?.role === 'admin' || userInfo?.role === 'superuser' || false
-    );
+    // 2026-09-07 權限收斂 A：**只看角色**。此前是「旗標 OR 角色」，於是 is_admin 旗標
+    // 成為凌駕權限清單的第三份宣告（角色是財務、旗標卻讓她進得去使用者管理）。
+    // 後端 is_admin_user 已同步改為只看角色，前端若仍讀旗標，會出現「選單顯示、API 擋下」。
+    return userInfo?.role === 'admin' || userInfo?.role === 'superuser';
   }
 
   /**

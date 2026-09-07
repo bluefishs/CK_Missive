@@ -267,7 +267,8 @@ export const usePermissions = () => {
     if (authDisabled) {
       return true;
     }
-    return userPermissions?.is_admin || userPermissions?.role === 'admin' || userPermissions?.role === 'superuser' || false;
+    // 2026-09-07 權限收斂 A：只看角色（與後端 is_admin_user 同一條規則；旗標不再是獨立來源）
+    return userPermissions?.role === 'admin' || userPermissions?.role === 'superuser';
   }, [userPermissions]);
 
   // 檢查是否為超級管理員

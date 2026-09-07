@@ -537,7 +537,8 @@ describe('usePermissions', () => {
       expect(result.current.isAdmin()).toBe(true);
     });
 
-    it('is_admin 旗標為 true 時應回傳 true', async () => {
+    // 2026-09-07 權限收斂 A：旗標不再是獨立來源；舊斷言描述的行為就是缺陷（角色是財務、旗標卻讓她成為管理員）
+    it('is_admin 旗標為 true 但 role 不是管理員時，不再視為管理員（2026-09-07 收斂：只看角色）', async () => {
       const userInfo = makeUserInfo({ id: 3, role: 'user', is_admin: true });
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue(userInfo);
@@ -546,7 +547,7 @@ describe('usePermissions', () => {
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      expect(result.current.isAdmin()).toBe(true);
+      expect(result.current.isAdmin()).toBe(false);
     });
 
     it('superuser 角色應回傳 true', async () => {
