@@ -43,6 +43,7 @@ import type { DetailPageLayoutProps } from './types';
  */
 export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
   header,
+  beforeTabs,
   tabs,
   activeTab: controlledActiveTab,
   onTabChange,
@@ -123,6 +124,9 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
     <div style={{ padding }}>
       {/* Header */}
       <DetailPageHeader {...header} />
+
+      {/* Tab 之前的提示列（例如「這個年度沒有紀錄」）—— 必須在使用者看到空表之前出現 */}
+      {beforeTabs}
 
       {/* Tab 分頁內容 */}
       <Card styles={{ body: { padding: isMobile ? 12 : 24 } }}>

@@ -294,7 +294,7 @@ const ERPClientAccountsPage: React.FC = () => {
                   { label: '已請款', value: fmtMoney(billed) },
                   { label: '未收', value: fmtMoney(billed - received), tone: billed - received > 0 ? 'warn' : 'good' },
                 ]}
-                onClick={r.vendor_id != null ? () => navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${r.vendor_id}`) : undefined}
+                onClick={r.vendor_id != null ? () => navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${r.vendor_id}?year=${year ?? 0}`) : undefined}
               />
             );
           }}
@@ -308,7 +308,7 @@ const ERPClientAccountsPage: React.FC = () => {
             // 2026-08-28：客戶只存在於承攬案件文字欄（尚無 partner_vendor 主檔）時
             // vendor_id 為 null —— 沒有明細頁可去，點了導到 /null 只會 404
             onClick: record.vendor_id != null
-              ? () => navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${record.vendor_id}`)
+              ? () => navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${record.vendor_id}?year=${year ?? 0}`)
               : undefined,
             style: record.vendor_id != null ? { cursor: 'pointer' } : undefined,
           })}

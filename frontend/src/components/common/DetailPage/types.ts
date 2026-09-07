@@ -95,6 +95,13 @@ export interface DetailPageLayoutProps {
   hasData?: boolean;
   /** 額外的 Modal 或 Drawer 內容 */
   children?: ReactNode;
+  /**
+   * 插在 Tab 列**之前**的內容（提示列用）。
+   *
+   * 2026-09-07：委託單位帳款明細頁需要在空表上方說「是這個年度沒有，不是這家沒有資料」——
+   * 那句話必須在使用者看到空表**之前**出現，塞進某一個 tab 裡就只有切到那個 tab 才看得到。
+   */
+  beforeTabs?: ReactNode;
 }
 
 // =============================================================================

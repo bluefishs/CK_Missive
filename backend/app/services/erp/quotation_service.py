@@ -365,14 +365,33 @@ class ERPQuotationService(AuditableServiceMixin):
 
 
     async def _get_client_names_batch(self, case_codes: List[str]) -> dict:
-        """case_code → 客戶名（承攬案 client_agency 優先、回退 PM 案 client_name），一次查完。"""
+        """case_code → 委託單位名。**主檔優先，快照只是回退。**
+
+        ⚠️ 2026-09-07 owner：「委託單位『何明利』已修正為『汎宇藥業股份有限公司』，
+        但檢索仍僅對應何明利」＋「即時刷新紀錄機制？」
+
+        原本這裡只讀 `contract_projects.client_agency` 與 `pm_cases.client_name` ——
+        那兩個是**建案當下抄下來的快照**。改了委託單位主檔，快照不會跟著動，
+        於是列表與篩選下拉都還顯示舊名字，而**沒有任何地方會報錯**。
+
+        ⇒ 有 `client_vendor_id`（鍵）時一律以主檔的名字為準。
+        這就是「即時刷新」——改主檔一次，所有讀這條路徑的畫面立刻同步，
+        不需要另外跑一支同步程式，也不會有「同步漏了幾筆」這種狀態。
+        名稱是快照、鍵才是關聯（weekly 107 同族）。
+
+        ⚠️ 快照仍留著且仍是回退值：沒有鍵的舊資料（純文字客戶）只有它。
+        """
         codes = [c for c in set(case_codes) if c]
         if not codes:
             return {}
         from sqlalchemy import text as _t
         rows = await self.db.execute(_t(
-            "SELECT x.cc, COALESCE(c.client_agency, p.client_name) AS name FROM unnest(CAST(:codes AS text[])) AS x(cc) "
-            "LEFT JOIN contract_projects c ON c.case_code=x.cc LEFT JOIN pm_cases p ON p.case_code=x.cc"
+            "SELECT x.cc, COALESCE(vc.vendor_name, vp.vendor_name, c.client_agency, p.client_name) AS name "
+            "FROM unnest(CAST(:codes AS text[])) AS x(cc) "
+            "LEFT JOIN contract_projects c ON c.case_code = x.cc "
+            "LEFT JOIN pm_cases p ON p.case_code = x.cc "
+            "LEFT JOIN partner_vendors vc ON vc.id = c.client_vendor_id "
+            "LEFT JOIN partner_vendors vp ON vp.id = p.client_vendor_id"
         ), {"codes": codes})
         return {r[0]: r[1] for r in rows.fetchall() if r[1]}
 
@@ -639,14 +658,21 @@ class ERPQuotationService(AuditableServiceMixin):
             params["cat"] = r"^CK\d{4}_(PM_)?" + category + "_"
         sql = """
             SELECT name, SUM(n)::int AS n FROM (
-              SELECT btrim(c.client_agency) AS name, count(DISTINCT q.id) AS n
+              -- 2026-09-07：名字一律**主檔優先**（`COALESCE(主檔, 快照)`），與列表同一套。
+              -- 兩邊不一致的後果是：下拉列出舊名、列表顯示新名 ⇒ 選了就是空表，
+              -- 而不會有任何錯誤訊息（owner 09-07 回報「檢索仍僅對應何明利」）。
+              SELECT btrim(COALESCE(vc.vendor_name, c.client_agency)) AS name, count(DISTINCT q.id) AS n
               FROM contract_projects c JOIN erp_quotations q ON q.case_code = c.case_code AND __SCOPE__
-              WHERE c.client_agency IS NOT NULL AND btrim(c.client_agency) <> '' GROUP BY 1
+              LEFT JOIN partner_vendors vc ON vc.id = c.client_vendor_id
+              WHERE COALESCE(vc.vendor_name, c.client_agency) IS NOT NULL
+                AND btrim(COALESCE(vc.vendor_name, c.client_agency)) <> '' GROUP BY 1
               UNION ALL
-              SELECT btrim(p.client_name), count(DISTINCT q.id)
+              SELECT btrim(COALESCE(vp.vendor_name, p.client_name)), count(DISTINCT q.id)
               FROM pm_cases p JOIN erp_quotations q ON q.case_code = p.case_code AND __SCOPE__
               JOIN contract_projects c ON c.case_code = p.case_code
-              WHERE p.client_name IS NOT NULL AND btrim(p.client_name) <> ''
+              LEFT JOIN partner_vendors vp ON vp.id = p.client_vendor_id
+              WHERE COALESCE(vp.vendor_name, p.client_name) IS NOT NULL
+                AND btrim(COALESCE(vp.vendor_name, p.client_name)) <> ''
                 AND NOT EXISTS (SELECT 1 FROM contract_projects c2 WHERE c2.case_code = p.case_code AND btrim(c2.client_agency) = btrim(p.client_name))
               GROUP BY 1
             ) t GROUP BY name ORDER BY name

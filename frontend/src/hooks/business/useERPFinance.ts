@@ -630,7 +630,9 @@ export function useClientAccountSummary(params: AccountListRequest) {
 }
 
 /** 委託單位帳款明細 */
-export function useClientAccountDetail(vendorId: number | null, year?: number) {
+export function useClientAccountDetail(
+  vendorId: number | null, year?: number, options?: { enabled?: boolean },
+) {
   return useQuery<ClientAccountDetail | null>({
     queryKey: erpFinanceKeys.clientAccounts.detail(vendorId, year),
     queryFn: async () => {
@@ -639,7 +641,9 @@ export function useClientAccountDetail(vendorId: number | null, year?: number) {
       );
       return res.data ?? null;
     },
-    enabled: !!vendorId,
+    // `options.enabled` 用在「本年度是空的，才去問全部年度有沒有」——
+    // 不是每次都多打一支（見 ERPClientAccountDetailPage 的空狀態）
+    enabled: !!vendorId && (options?.enabled ?? true),
     ...defaultQueryOptions.statistics,
   });
 }

@@ -10,10 +10,10 @@
  */
 import React, { useMemo, useState } from 'react';
 import { termTitle } from '../constants/financeTerms';
-import { Button, Card, Col, Descriptions, Row, Select, Space, Statistic, Tag, Typography } from 'antd';
+import { Button, Card, Col, Descriptions, Row, Select, Space, Statistic, Tag, Typography, Alert } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { InfoCircleOutlined, UnorderedListOutlined, HistoryOutlined } from '@ant-design/icons';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import { useClientAccountDetail } from '../hooks';
 import type { ClientCaseReceivableItem } from '../types/erp';
@@ -44,8 +44,25 @@ const ERPClientAccountDetailPage: React.FC = () => {
   // 後端 get_client_case_detail 本就支援 year（腿 1/腿 2 都會過濾，
   // 統計卡由過濾後的案件重算），缺的只是這條前端接線。
   // 預設當年度，與列表頁同一套約定。
-  const [year, setYear] = useState<number>(_currentYear);
+  // 2026-09-07 owner：「/erp/client-accounts/118?tab=cases 看不到任何紀錄」。
+  // 那家委託單位只有 2025 的案，而這一頁預設當年度 2026 ⇒ 空白。
+  // 資料在、查詢也對，但畫面說不出「是這個年度沒有」還是「這家沒有資料」。
+  // 兩件修法：①從列表點進來時把列表當下的年度帶過來（不要重設回當年度）
+  //          ②本年度是空的時候，去問一次全部年度，明白告訴使用者哪一年有。
+  const [searchParams] = useSearchParams();
+  const _yearFromList = Number(searchParams.get('year'));
+  const [year, setYear] = useState<number>(
+    Number.isFinite(_yearFromList) && searchParams.has('year') ? _yearFromList : _currentYear,
+  );
   const { data: detail, isLoading } = useClientAccountDetail(vendorId, year || undefined);
+  const emptyForThisYear = !isLoading && year !== 0 && (detail?.cases?.length ?? 0) === 0;
+  // 只有在本年度空的時候才多打這一支
+  const { data: allYearsDetail } = useClientAccountDetail(vendorId, undefined, { enabled: emptyForThisYear });
+  const otherYears = useMemo(() => {
+    const ys = new Set<number>();
+    for (const c of allYearsDetail?.cases ?? []) if (c.year) ys.add(c.year);
+    return [...ys].sort((a, b) => b - a);
+  }, [allYearsDetail]);
 
   // Must be before early return to satisfy Rules of Hooks
   const allBillings = useMemo<FlatBillingRecord[]>(() => {
@@ -198,6 +215,34 @@ const ERPClientAccountDetailPage: React.FC = () => {
     />
   ));
 
+  // 空白要說得出「為什麼空」——不然使用者只會看到一張空表，
+  // 而「這個年度沒有」與「這家沒有資料」在畫面上長得一模一樣。
+  const emptyHint = emptyForThisYear ? (
+    <Alert
+      type="info"
+      showIcon
+      style={{ marginBottom: 16 }}
+      message={`${year} 年度沒有紀錄`}
+      description={
+        otherYears.length > 0 ? (
+          <span>
+            這家委託單位在 {otherYears.join('、')} 年度有紀錄。
+            <Button type="link" size="small" style={{ paddingInline: 4 }} onClick={() => setYear(0)}>
+              改看全部年度
+            </Button>
+            {otherYears.length === 1 && (
+              <Button type="link" size="small" style={{ paddingInline: 4 }} onClick={() => setYear(otherYears[0] ?? 0)}>
+                切到 {otherYears[0]} 年
+              </Button>
+            )}
+          </span>
+        ) : (
+          <span>這家委託單位目前沒有任何年度的紀錄。</span>
+        )
+      }
+    />
+  ) : null;
+
   return (
     <DetailPageLayout
       header={{
@@ -213,6 +258,7 @@ const ERPClientAccountDetailPage: React.FC = () => {
           />
         ),
       }}
+      beforeTabs={emptyHint}
       tabs={[overviewTab, casesTab, timelineTab]}
       loading={isLoading}
       hasData={!!detail}
