@@ -84,6 +84,38 @@ def _db() -> dict | None:
     return json.loads(line[-1][2:]) if line else None
 
 
+def role_user_drift():
+    """角色層 `role_permissions` vs 使用者層 `users.permissions` 的漂移。
+
+    ⚠️ 2026-09-07 實際事故：拆出 `reports:client_accounts:view` 時只改了**角色層**，
+    而前端判權限讀的是**使用者層** ⇒ 管理員（張雅惠）與財務（賴秀玲）打開
+    委託／協力帳款是空的，而畫面上完全看不出原因。owner 回報才發現。
+
+    兩份宣告各自演化，而權限管理頁的「同步該 role 所有 active user」是**手動按鈕** ——
+    改了角色不按它，就會長出這種差異。這一條就是那個訊號。
+
+    | 方向 | 判定 |
+    |---|---|
+    | 角色有、使用者缺 | **RED** —— 使用者實際看不到角色該有的東西 |
+    | 使用者有、角色沒有 | YELLOW —— 可能是個人授權，也可能是換角色後的殘留 |
+
+    superuser 的 `["*"]` 是萬用，不參與比對。
+    """
+    out = python_in(
+        "import asyncio, json\n"
+        "from sqlalchemy import text\n"
+        "from app.db.database import AsyncSessionLocal\n"
+        'SQL = ' + repr("SELECT coalesce(u.full_name,u.username), u.role, coalesce(array_to_string(array(select unnest(up) except select unnest(rp)),'|'),'') AS only_user, coalesce(array_to_string(array(select unnest(rp) except select unnest(up)),'|'),'') AS only_role FROM (SELECT id, full_name, username, role, (select array_agg(distinct v) from jsonb_array_elements_text(coalesce(permissions,'[]')::jsonb) v) up, (select array_agg(distinct v) from role_permissions rp2, jsonb_array_elements_text(rp2.permissions) v where rp2.role = users.role and rp2.role <> 'superuser') rp FROM users WHERE is_active AND role <> 'superuser') u WHERE u.rp IS NOT NULL") + '\n'
+        "async def m():\n"
+        "    async with AsyncSessionLocal() as db:\n"
+        "        rows = (await db.execute(text(SQL))).all()\n"
+        "    print('@@' + json.dumps([[r[0], r[1], r[2], r[3]] for r in rows]))\n"
+        "asyncio.run(m())\n"
+    )
+    line = [l for l in (out or "").splitlines() if l.startswith("@@")]
+    return json.loads(line[-1][2:]) if line else None
+
+
 def main() -> int:
     print("=== 權限目錄漂移與獨立勾選（weekly 119）===")
     if not CONSTANTS.exists():
@@ -151,8 +183,31 @@ def main() -> int:
                             encoding="utf-8")
         print("  已建立基線 .permission_coupling_baseline.json（存量不判紅、新增才提）")
 
+    # ③ 角色層 vs 使用者層（09-07 事故的守門）
+    drift = role_user_drift()
+    if drift is None:
+        print("[YELLOW] 角色↔使用者權限比對：連不到資料庫，未驗")
+        rc = max(rc, 1)
+    else:
+        missing_u = [d for d in drift if d[3]]
+        extra_u = [d for d in drift if d[2]]
+        if missing_u:
+            print(f"[RED] {len(missing_u)} 位使用者**少了所屬角色的權限** —— "
+                  f"角色改了而沒有同步到使用者，畫面上看不出原因：")
+            for nm, role, _ou, orl in missing_u[:10]:
+                print(f"    {nm}（{role}）缺：{orl.replace('|', '、')}")
+            print("      修法：權限管理頁按「同步該 role 所有 active user」，或逐一補。")
+            rc = 2
+        if extra_u:
+            print(f"[YELLOW] {len(extra_u)} 位使用者有角色以外的權限"
+                  f"（可能是個人授權，也可能是換角色後的殘留）：")
+            for nm, role, ou, _orl in extra_u[:6]:
+                n = len(ou.split("|"))
+                print(f"    {nm}（{role}）多 {n} 項：{ou.replace('|', '、')[:80]}…")
+            rc = max(rc, 1)
+
     if rc == 0:
-        print("[GREEN] 兩份目錄一致，且沒有新增的權限耦合")
+        print("[GREEN] 兩份目錄一致、沒有新增的權限耦合，角色與使用者權限也對齊")
     return rc
 
 
