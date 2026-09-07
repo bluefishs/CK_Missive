@@ -66,6 +66,8 @@ INDEX_CANDIDATES = [
 ]
 
 
+from lib.runner_registration import unregistered as _runner_unregistered, self_test as _runner_self_test, WEEKLY_RUNNER  # noqa: E402
+
 def resolve_index_files() -> list[str]:
     """回傳此環境實際讀得到的索引檔；一份都沒有就是設定壞了，出聲而非放行。"""
     present = [f for f in INDEX_CANDIDATES if (ROOT / f).exists()]
@@ -125,6 +127,21 @@ def main() -> int:
             print(f"      · {n}")
         if len(stale) > 6:
             print(f"      …另 {len(stale) - 6} 個")
+
+    # 第三處：runner 登記（2026-09-08）。腳本／索引／runner 三處同時成立才算存在。
+    _runner_self_test()
+    readme_p = ROOT / "scripts" / "checks" / "README.md"
+    runner_p = ROOT / WEEKLY_RUNNER
+    if readme_p.exists() and runner_p.exists():
+        unreg = _runner_unregistered(readme_p.read_text(encoding="utf-8", errors="replace"),
+                                     runner_p.read_text(encoding="utf-8", errors="replace"))
+        if unreg:
+            print()
+            print(f"  ✗ {len(unreg)} 支在 README 說是 weekly 步驟、但 run_fitness_weekly.sh 沒有對應 run_step：")
+            for name, step in unreg:
+                print(f"      · {name}（weekly {step}）")
+            print("    寫了檢核沒有 runner 在叫＝沒有檢核（09-08 實查 117–122 六支就是這樣）。")
+            code = max(code, 2)
 
     print()
     print(f"Status: [{'RED' if code >= 2 else 'GREEN'}]")

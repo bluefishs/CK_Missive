@@ -1,5 +1,7 @@
 # Google Calendar 整合設定指南
 
+> 狀態：現行｜最後核對：2026-09-08
+
 ## 概述
 本系統實現了公文截止日期自動推送至 Google Calendar 的功能，採用單向同步機制，將重要公文事件即時同步到指定的 Google Calendar。
 

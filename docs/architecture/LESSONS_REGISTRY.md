@@ -1,5 +1,7 @@
 # Governance Lessons Registry — 治理教訓單點 SSOT
 
+> 狀態：現行｜最後核對：2026-09-08
+
 > **建立**：2026-04-28（v5.10.1）
 > **目的**：解決「對策散落 commit/ADR/PLAYBOOK，新人需從 git log 重建脈絡」痛點
 > **狀態**：accepted（單點查詢 SSOT，每月覆盤時更新）
