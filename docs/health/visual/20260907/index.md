@@ -1,6 +1,6 @@
 # 視覺走查 20260907
 
-站台：https://missive.cksurvey.tw｜路由 2 條 × 視窗 2 種 = 4 張
+站台：https://missive.cksurvey.tw｜路由 1 條 × 視窗 2 種 = 2 張
 
 ## 這批圖要看什麼
 
@@ -19,7 +19,5 @@
 
 | 路由 | 視窗 | 檔案 | 備註 |
 |---|---|---|---|
-| /erp/ledger | desktop | _erp_ledger__desktop.png |  |
-| /erp/financial-dashboard | desktop | _erp_financial_dashboard__desktop.png |  |
-| /erp/ledger | mobile | _erp_ledger__mobile.png |  |
-| /erp/financial-dashboard | mobile | _erp_financial_dashboard__mobile.png |  |
+| /ai/erp-graph | desktop | _ai_erp_graph__desktop.png |  |
+| /ai/erp-graph | mobile | _ai_erp_graph__mobile.png |  |

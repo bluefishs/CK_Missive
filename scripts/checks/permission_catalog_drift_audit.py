@@ -218,12 +218,14 @@ def main() -> int:
         missing_u = [d for d in drift if d[3]]
         extra_u = [d for d in drift if d[2]]
         if missing_u:
-            print(f"[RED] {len(missing_u)} 位使用者**少了所屬角色的權限** —— "
-                  f"角色改了而沒有同步到使用者，畫面上看不出原因：")
+            # 2026-09-07 收斂 A 之後**降為 YELLOW**：角色儲存即同步、改角色即推導、建立使用者由角色推導，
+            # 正規路徑已不可能長出這種差異；剩下的只可能是 `user_permissions.py` 的逐人覆寫，
+            # 那是**顯性例外**（有人刻意收掉某人的某項），要看得見但不是故障。
+            # 若哪天又變成 RED 等級的問題，代表有新的寫入路徑繞過了角色 —— 那時再升回來。
+            print(f"[YELLOW] {len(missing_u)} 位使用者少了所屬角色的權限（收斂 A 後只可能是逐人覆寫的顯性例外）：")
             for nm, role, _ou, orl in missing_u[:10]:
                 print(f"    {nm}（{role}）缺：{orl.replace('|', '、')}")
-            print("      修法：權限管理頁按「同步該 role 所有 active user」，或逐一補。")
-            rc = 2
+            rc = max(rc, 1)
         if extra_u:
             print(f"[YELLOW] {len(extra_u)} 位使用者有角色以外的權限"
                   f"（可能是個人授權，也可能是換角色後的殘留）：")
@@ -238,11 +240,12 @@ def main() -> int:
         print("[YELLOW] is_admin 旗標比對：連不到資料庫，未驗")
         rc = max(rc, 1)
     elif flags:
-        print(f"[RED] {len(flags)} 個帳號的角色不是管理員、`is_admin` 旗標卻是 true —— "
-              f"旗標**凌駕權限清單**，這些人實際上仍是管理員，而權限管理頁看不出來：")
+        # 2026-09-07 收斂 A 之後**降為 YELLOW**：`is_admin_user` 已改為只看角色（前後端同步），
+        # 旗標是由角色推導的鏡像、讀取時不看 —— 不一致已經**沒有權限效果**，只是資料不整潔。
+        print(f"[YELLOW] {len(flags)} 個帳號的 `is_admin` 旗標與角色不一致（收斂 A 後旗標無權限效果，僅資料不整潔）：")
         for nm, role in flags:
             print(f"    {nm}（{role}）")
-        rc = 2
+        rc = max(rc, 1)
 
     if rc == 0:
         print("[GREEN] 兩份目錄一致、沒有新增的權限耦合，角色與使用者權限對齊，"
