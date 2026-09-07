@@ -601,7 +601,7 @@ run_step "121" "稽催時間錨點唯一定義（第四份 billing_date 時間�
 run_step "122" "基礎設施事實漂移（活文件不得再描述 sqlite／8003／8080／GeminiCli／claude_plant）" "scripts/checks/infra_facts_drift_audit.py"
 run_step "123" "民國年解析唯一定義（手寫 +1911 而不認得 app/core/roc_date ⇒ 第九份實作）" "scripts/checks/roc_date_ssot_audit.py"
 run_step "124" "同名私有函式定義計數（同一概念有幾份；基線存量、新名字或模組數增加即紅）" "scripts/checks/duplicate_definition_audit.py"
-run_step "125" "文件生命週期（活區不得有已作廢件；新增無檔頭即紅；>120 天未核對黃）" "scripts/checks/doc_lifecycle_audit.py"
+run_step "125" "文件生命週期（活區不得有 superseded 件；新增無檔頭即紅；>90 天未核對黃）" "scripts/checks/doc_lifecycle_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

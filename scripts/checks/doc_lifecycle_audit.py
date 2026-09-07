@@ -8,16 +8,18 @@ owner：「為何如此多紀錄與文件皆未更新。」因為「過期」在
 
 ## 檔頭格式（放在標題之後第一個非空行）
 
-    > 狀態：現行｜最後核對：2026-09-08
+    > `lifecycle: status=current reviewed=2026-09-08 owner=CK_Missive`
 
-`狀態` ∈ {現行, 待驗證, 已作廢}。**有核對才寫日期**——不要為了讓檢核變綠批次蓋章，
+格式由 CK_AaaP 2026-09-08 拍板（跨 repo 同一個機制，不分岔）：ASCII 鍵值一條正則可解、
+可見不藏在 HTML 註解、`reviewed` 是**核對日不是修改日**、`owner` 讓 weekly 有地方送。
+`status` ∈ {current 現行, provisional 待驗證, superseded 已作廢（須帶 `superseded_by=`）}。**有核對才寫日期**——不要為了讓檢核變綠批次蓋章，
 那會讓「最後核對」這個欄位失去意義（同 L109：假的事件流比沒有更糟）。
 
 ## 判準
 
 * 活文件（`docs/` 排除 `archived/`、`health/`、`reports/`、`knowledge-map/`）：
-  - 標「已作廢」卻不在 `archived/` ⇒ **RED**（作廢的東西留在活區就是下一次回流）
-  - 最後核對 > 120 天 ⇒ **YELLOW** 列出（該有人再看一眼）
+  - `superseded` 卻不在 `archived/` ⇒ **RED**（作廢的東西留在活區就是下一次回流）
+  - `reviewed` > 90 天 ⇒ **YELLOW** 列出（季度複查；30 天會讓全部同時紅＝全綠）
   - 沒有檔頭 ⇒ 只計數；存量走基線 `.doc_lifecycle_baseline.txt`，**新增的無檔頭文件 ⇒ RED**
 * 有檔頭比例印出來——這個數字只該往上走。
 """
@@ -40,8 +42,8 @@ ROOT = repo_root()
 DOCS = ROOT / "docs"
 BASELINE = Path(__file__).resolve().parent / ".doc_lifecycle_baseline.txt"
 SKIP = {"archived", "health", "reports", "knowledge-map", "wiki", "release"}
-HDR = re.compile(r"^>\s*狀態：\s*(現行|待驗證|已作廢)\s*[｜|]\s*最後核對：\s*(\d{4}-\d{2}-\d{2})", re.M)
-STALE_DAYS = 120
+HDR = re.compile(r"^>\s*`?lifecycle:\s*status=(current|provisional|superseded)\s+reviewed=(\d{4}-\d{2}-\d{2})(?:\s+owner=\S+)?(?:\s+superseded_by=\S+)?`?", re.M)
+STALE_DAYS = 90
 
 
 def parse_header(text: str) -> tuple[str, date] | None:
@@ -64,10 +66,12 @@ def scan(today: date | None = None):
 
 
 def self_test() -> None:
-    assert parse_header("# T\n\n> 狀態：現行｜最後核對：2026-09-08\n") == ("現行", date(2026, 9, 8))
-    assert parse_header("# T\n\n> 狀態：已作廢 | 最後核對：2026-01-01\n")[0] == "已作廢"
+    assert parse_header("# T\n\n> `lifecycle: status=current reviewed=2026-09-08 owner=CK_Missive`\n") == ("current", date(2026, 9, 8))
+    assert parse_header("# T\n\n> lifecycle: status=superseded reviewed=2026-01-01 superseded_by=docs/x.md\n")[0] == "superseded"
     assert parse_header("# T\n\n一般段落\n") is None
-    assert parse_header("# T\n\n> 狀態：亂寫｜最後核對：2026-09-08\n") is None
+    assert parse_header("# T\n\n> `lifecycle: status=bogus reviewed=2026-09-08`\n") is None
+    # 舊格式（09-08 上午的中文寫法）不再接受——兩種格式並存就是下一個分岔
+    assert parse_header("# T\n\n> 狀態：現行｜最後核對：2026-09-08\n") is None
 
 
 def main() -> int:
@@ -78,9 +82,9 @@ def main() -> int:
     no_hdr = sorted(r[0] for r in rows if not r[1])
     print(f"  活文件 {len(rows)} 份，有生命週期檔頭 {len(with_hdr)} 份（{100 * len(with_hdr) // max(1, len(rows))}%）")
     rc = 0
-    retired = [r[0] for r in with_hdr if r[1][0] == "已作廢"]
+    retired = [r[0] for r in with_hdr if r[1][0] == "superseded"]
     if retired:
-        print(f"[RED] {len(retired)} 份標「已作廢」卻仍在活區（作廢就搬進 docs/archived/）：")
+        print(f"[RED] {len(retired)} 份`superseded` 卻仍在活區（作廢就搬進 docs/archived/）：")
         for p in retired[:10]:
             print(f"    {p}")
         rc = 2
@@ -101,7 +105,7 @@ def main() -> int:
         print(f"[RED] {len(new_no_hdr)} 份**新增**的活文件沒有生命週期檔頭：")
         for p in new_no_hdr[:10]:
             print(f"    {p}")
-        print("      檔頭：`> 狀態：現行｜最後核對：YYYY-MM-DD`（放標題後第一個非空行）")
+        print("      檔頭：`> `lifecycle: status=current reviewed=YYYY-MM-DD owner=CK_Missive``（標題後第一個 blockquote）")
         rc = 2
     if cleared:
         print(f"[YELLOW] {len(cleared)} 份已補檔頭（或已移出活區），請從基線移除：{', '.join(cleared[:5])}…")

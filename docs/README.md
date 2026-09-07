@@ -1,6 +1,6 @@
 # CK Missive 文件中心
 
-> 狀態：現行｜最後核對：2026-09-08
+> `lifecycle: status=current reviewed=2026-09-08 owner=CK_Missive`
 
 > 版本: 3.0.0 (分類索引改版)
 > 最後更新: 2026-04-15

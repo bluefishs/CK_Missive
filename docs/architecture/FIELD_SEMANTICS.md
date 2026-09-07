@@ -1,6 +1,6 @@
 # 欄位語意宣告表（FIELD_SEMANTICS）
 
-> 狀態：現行｜最後核對：2026-09-08
+> `lifecycle: status=current reviewed=2026-09-08 owner=CK_Missive`
 
 > 建立：2026-09-03（全景覆盤 A1）。**這份表是「這欄就是這個意思」的唯一宣告處**；程式在讀寫兩端各自轉換不算宣告。
 > weekly 104 `erp_amount_semantics_audit.py` 依本表對帳；改本表要同步改那支。

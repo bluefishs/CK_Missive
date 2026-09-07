@@ -1,6 +1,6 @@
 # 🔧 乾坤測繪公文管理系統 - 開發環境指南
 
-> 狀態：現行｜最後核對：2026-09-08
+> `lifecycle: status=current reviewed=2026-09-08 owner=CK_Missive`
 
 ## 🚀 快速開始
 

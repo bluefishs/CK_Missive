@@ -1,6 +1,6 @@
 # 系統維護與故障預防指南
 
-> 狀態：現行｜最後核對：2026-09-08
+> `lifecycle: status=current reviewed=2026-09-08 owner=CK_Missive`
 
 ## 📝 文件更新完成清單
 

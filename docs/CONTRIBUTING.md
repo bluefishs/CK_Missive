@@ -1,6 +1,6 @@
 # 貢獻指南 (Contributing Guide)
 
-> 狀態：現行｜最後核對：2026-09-08
+> `lifecycle: status=current reviewed=2026-09-08 owner=CK_Missive`
 
 感謝您投入時間為「乾坤測繪公文管理系統」做出貢獻！本指南旨在幫助您了解專案的開發流程與規範，確保我們能夠高效、一致地協作。
 

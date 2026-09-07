@@ -1,6 +1,6 @@
 # 🎯 乾坤測繪公文管理系統 - 系統設定檢核清單
 
-> 狀態：現行｜最後核對：2026-09-08
+> `lifecycle: status=current reviewed=2026-09-08 owner=CK_Missive`
 
 ## 📋 基於 UNIFIED_CONFIG_GUIDE.md 的全面檢核
 
