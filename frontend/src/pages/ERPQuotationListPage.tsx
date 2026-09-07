@@ -19,6 +19,7 @@ import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
 import { getErrorMessage } from '../utils/apiErrorParser';
+import { useStaffAssigneeOptions } from '../hooks/business/useDropdownData';
 
 const { Title, Text } = Typography;
 
@@ -89,6 +90,10 @@ export const ERPQuotationListPage: React.FC = () => {
   // 選項與列表同一個年度／類別範圍——否則預設 2026 下 178 家有 84 家選了是空表（owner 09-04 晚）
   const { data: clientOptionsResp } = useERPQuotationClientOptions({ year: params.year, category: params.category });
   const clientOptions = clientOptionsResp?.data ?? [];
+  // 2026-09-07 owner：「對應承攬同仁呈現對應資訊，避免資訊爆炸」。
+  // 這一頁本來就有承辦欄，缺的是「只看某一位」。⚠️ 它在**可見範圍之內**再縮小，
+  // 不是 RLS —— 誰看得到哪些案仍由後端 `_quotation_scope` 依身分決定。
+  const { staffOptions } = useStaffAssigneeOptions();
   // ⚠️ 統計卡必須跟著年度篩選走，否則會出現「列表 92 筆／卡片 257 筆」的
   // 不一致 —— 那比沒有年度篩選更糟：兩個數字都在畫面上，而使用者無從
   // 判斷哪一個才是他要的。後端 get_profit_summary 本來就收 year，
@@ -313,7 +318,7 @@ export const ERPQuotationListPage: React.FC = () => {
                         style={{ width: 240 }}
                       />
           )}
-          activeCount={[params.category, params.client_name, params.card].filter(Boolean).length + (params.year ? 0 : 1)}
+          activeCount={[params.category, params.client_name, params.card, params.staff_user_id].filter(Boolean).length + (params.year ? 0 : 1)}
         >
           <Select
             value={params.year ?? 0}
@@ -336,6 +341,12 @@ export const ERPQuotationListPage: React.FC = () => {
 
           />
 
+          <Select
+            placeholder="承辦同仁" allowClear showSearch style={{ width: 170 }} value={params.staff_user_id}
+            optionFilterProp="label"
+            onChange={(v) => setParams((p) => ({ ...p, staff_user_id: v ?? undefined, page: 1 }))}
+            options={staffOptions.map((o) => ({ value: o.user_id, label: `${o.name}（${o.case_count}）` }))}
+          />
           <Select
             placeholder="委託單位" allowClear showSearch style={{ width: 220 }} value={params.client_name}
             optionFilterProp="label"

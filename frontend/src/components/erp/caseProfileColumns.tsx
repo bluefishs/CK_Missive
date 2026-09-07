@@ -10,7 +10,7 @@
  */
 import { Tag, Tooltip } from 'antd';
 import type { ResponsiveColumn } from '../common/EnhancedTable';
-import type { CaseStatusCount } from '../../types/erp';
+import type { CaseStaffRef, CaseStatusCount } from '../../types/erp';
 
 /** 案件狀態的顏色：只分「還在進行」「已結束」「其他」，不逐值配色（值會增加） */
 const STATUS_COLOR: Record<string, string> = {
@@ -26,6 +26,16 @@ const STATUS_COLOR: Record<string, string> = {
 export interface CaseProfileRow {
   categories?: string[];
   statuses?: CaseStatusCount[];
+  staff?: CaseStaffRef[];
+}
+
+/** 承辦同仁：一案可能多人，一家往來對象名下更可能有數人 —— 顯示前兩位，其餘進 tooltip */
+export function renderStaff(staff?: CaseStaffRef[]) {
+  if (!staff || staff.length === 0) return <span style={{ color: '#bfbfbf' }}>—</span>;
+  const names = staff.map((s) => s.name).filter(Boolean);
+  const head = names.slice(0, 2).join('、');
+  const body = names.length > 2 ? `${head} +${names.length - 2}` : head;
+  return names.length > 2 ? <Tooltip title={names.join('、')}><span>{body}</span></Tooltip> : <span>{body}</span>;
 }
 
 export function renderCategories(categories?: string[]) {
@@ -76,6 +86,15 @@ export function caseProfileColumns<T extends CaseProfileRow>(): ResponsiveColumn
       render: (_: unknown, r: T) => renderCategories(r.categories),
     },
     {
+      title: '承辦同仁',
+      hideOnMobile: true,
+      dataIndex: 'staff',
+      key: 'staff',
+      width: 140,
+      ellipsis: true,
+      render: (_: unknown, r: T) => renderStaff(r.staff),
+    },
+    {
       title: '案件狀態',
       hideOnMobile: true,
       dataIndex: 'statuses',
@@ -93,5 +112,7 @@ export function caseProfileTags(row: CaseProfileRow): { text: string; color?: st
   (row.statuses ?? []).slice(0, 2).forEach((s) =>
     tags.push({ text: `${s.label} ${s.count}`, color: STATUS_COLOR[s.label] ?? undefined }),
   );
+  // 承辦同仁在手機的兩欄是隱藏的 —— 用 tag 帶出來，否則手機上完全看不到「這是誰的案」
+  (row.staff ?? []).slice(0, 2).forEach((s) => tags.push({ text: s.name, color: 'purple' }));
   return tags;
 }

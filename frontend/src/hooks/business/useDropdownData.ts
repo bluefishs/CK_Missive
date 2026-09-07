@@ -14,6 +14,7 @@ import { PROJECTS_ENDPOINTS, USERS_ENDPOINTS, PM_ENDPOINTS } from '../../api/end
 import { filesApi } from '../../api/filesApi';
 import type { Project, User } from '../../types/api';
 import type { PMCase } from '../../types/pm';
+import type { StaffAssigneeOption } from '../../types/erp';
 
 /**
  * 下拉一次抓的筆數；超過就分頁續抓，直到湊齊 `total`。
@@ -190,6 +191,29 @@ export const useUsersDropdown = () => {
 /**
  * 委託單位下拉選單 Hook (vendor_type=client)
  */
+/**
+ * 承辦同仁下拉（owner 2026-09-07：「對應承攬同仁呈現對應資訊，避免資訊爆炸」）。
+ *
+ * 三頁共用：報價單／委託帳款／協力帳款。選項來自後端
+ * `assignable_staff` —— **只列實際有被指派過的人**，不是全體使用者：
+ * 列出沒有任何案的人，選了就是一片空白，使用者會以為系統壞了。
+ */
+export const useStaffAssigneeOptions = () => {
+  const { data, isLoading } = useQuery({
+    queryKey: ['erp-staff-assignee-options'],
+    queryFn: async () => {
+      const { ERP_ENDPOINTS } = await import('../../api/endpoints/erp');
+      const resp = await apiClient.post<{ data?: { items?: StaffAssigneeOption[] } }>(
+        ERP_ENDPOINTS.QUOTATION_STAFF_OPTIONS, {},
+      );
+      return resp?.data?.items ?? [];
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  return { staffOptions: data ?? [], isLoading };
+};
+
 export const useClientOptions = () => {
   const { data, isLoading } = useQuery({
     queryKey: ['clients-dropdown'],

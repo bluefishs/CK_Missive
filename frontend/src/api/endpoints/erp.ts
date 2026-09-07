@@ -72,6 +72,8 @@ export const PM_ENDPOINTS = {
 export const ERP_ENDPOINTS = {
   /** 報價列表 POST /erp/quotations/list */
   QUOTATIONS_LIST: '/erp/quotations/list',
+  /** 承辦同仁下拉選項（報價單／委託帳款／協力帳款三頁共用同一份來源） */
+  QUOTATION_STAFF_OPTIONS: '/erp/quotations/staff-options',
   /** 委託單位篩選選項（案件實際客戶）POST /erp/quotations/client-options */
   QUOTATION_CLIENT_OPTIONS: '/erp/quotations/client-options',
   /** 建立報價 POST /erp/quotations/create */

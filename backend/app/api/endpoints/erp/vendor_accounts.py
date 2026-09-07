@@ -22,6 +22,7 @@ async def get_vendor_account_summary(
         vendor_type=params.vendor_type,
         year=params.year,
         keyword=params.keyword,
+        staff_user_id=params.staff_user_id,
         skip=params.skip,
         limit=params.limit,
     )

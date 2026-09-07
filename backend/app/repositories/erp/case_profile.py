@@ -62,7 +62,7 @@ _PM_STATUS_CASE = "CASE p.status " + " ".join(
 
 
 def _blank() -> dict[str, Any]:
-    return {"categories": [], "statuses": []}
+    return {"categories": [], "statuses": [], "staff": []}
 
 
 def _merge(profile: dict[str, Any], category: Optional[str], status: Optional[str], count: int) -> None:
@@ -85,10 +85,85 @@ def _finalize(profiles: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return profiles
 
 
-async def client_case_profiles(db: AsyncSession, year: Optional[int]) -> dict[str, dict[str, Any]]:
-    """委託單位 → 案件輪廓。鍵：`id:<vendor_id>`，沒有主檔鍵者退回 `name:<委託單位名>`。"""
+async def client_case_codes(db: AsyncSession, year: Optional[int]) -> dict[str, set[str]]:
+    """委託單位 → 它名下的 case_code 集合（與 `client_case_profiles` 同一組案）。
+
+    給兩件事用：①承辦同仁欄的聚合 ②依承辦篩選列表。
+    **兩者共用同一個來源**，否則會出現「篩了某人卻看到別人的承辦」這種對不起來的組合。
+    """
+    yr = int(year) if year else None
+    out: dict[str, set[str]] = {}
+    for r in (await db.execute(text(f"""
+        SELECT p.client_vendor_id AS vid, p.case_code AS code
+          FROM pm_cases p
+          JOIN partner_vendors v ON v.id = p.client_vendor_id AND v.vendor_type = 'client'
+         WHERE p.client_vendor_id IS NOT NULL AND p.case_code IS NOT NULL
+           AND (CAST(:yr AS INTEGER) IS NULL OR p.year = CAST(:yr AS INTEGER))
+           AND (p.status = 'contracted' OR EXISTS (
+                   SELECT 1 FROM erp_quotations q
+                    WHERE q.case_code = p.case_code
+                      AND q.project_code IS NOT NULL AND q.deleted_at IS NULL))
+    """), {"yr": yr})).all():
+        out.setdefault(f"id:{r.vid}", set()).add(r.code)
+    for r in (await db.execute(text("""
+        SELECT cp.client_vendor_id AS vid, btrim(cp.client_agency) AS vname, cp.case_code AS code
+          FROM contract_projects cp
+         WHERE COALESCE(btrim(cp.client_agency), '') <> '' AND cp.case_code IS NOT NULL
+           AND cp.case_code NOT IN (
+               SELECT case_code FROM pm_cases
+                WHERE client_vendor_id IS NOT NULL AND case_code IS NOT NULL)
+           AND (CAST(:yr AS INTEGER) IS NULL OR cp.year = CAST(:yr AS INTEGER))
+    """), {"yr": yr})).all():
+        key = f"id:{r.vid}" if r.vid is not None else f"name:{r.vname}"
+        out.setdefault(key, set()).add(r.code)
+    return out
+
+
+async def vendor_case_codes(db: AsyncSession, year: Optional[int]) -> dict[str, set[str]]:
+    """協力廠商 → 它名下的 case_code 集合（與 `vendor_case_profiles` 同一組案）。"""
+    yr = int(year) if year else None
+    out: dict[str, set[str]] = {}
+    for r in (await db.execute(text("""
+        SELECT COALESCE('id:' || vp.vendor_id::text, 'name:' || vp.vendor_name) AS vkey,
+               q.case_code AS code
+          FROM erp_vendor_payables vp
+          JOIN erp_quotations q ON q.id = vp.erp_quotation_id
+         WHERE q.case_code IS NOT NULL
+           AND (CAST(:yr AS INTEGER) IS NULL
+                OR q.case_code LIKE 'CK' || CAST(:yr AS INTEGER)::text || '_%'
+                OR (q.case_code NOT LIKE 'CK%' AND q.year = CAST(:yr AS INTEGER)))
+    """), {"yr": yr})).all():
+        out.setdefault(r.vkey, set()).add(r.code)
+    return out
+
+
+async def attach_staff(db: AsyncSession, profiles: dict[str, dict[str, Any]],
+                       codes_by_vendor: dict[str, set[str]]) -> None:
+    """把承辦同仁掛進輪廓（就地改）。承辦的查詢走 `case_staff` 那一家，不另抄 SQL。"""
+    from app.repositories.erp.case_staff import staff_by_case_code
+    all_codes = {c for cs in codes_by_vendor.values() for c in cs}
+    by_code = await staff_by_case_code(db, all_codes)
+    for vkey, codes in codes_by_vendor.items():
+        seen: dict[int, str] = {}
+        for c in codes:
+            for s in by_code.get(c, []):
+                seen.setdefault(s["user_id"], s["name"])
+        prof = profiles.setdefault(vkey, _blank())
+        prof["staff"] = [{"user_id": uid, "name": nm} for uid, nm in
+                         sorted(seen.items(), key=lambda kv: kv[1] or "")]
+
+
+async def client_case_profiles(
+    db: AsyncSession, year: Optional[int], only_codes: Optional[set[str]] = None,
+) -> dict[str, dict[str, Any]]:
+    """委託單位 → 案件輪廓。鍵：`id:<vendor_id>`，沒有主檔鍵者退回 `name:<委託單位名>`。
+
+    `only_codes`＝把輪廓限縮到這些案號（承辦篩選用）。**不限縮的話**，
+    篩了某位承辦之後「案件數 1」旁邊會出現「狀態合計 3」——同一列自己跟自己矛盾。
+    """
     profiles: dict[str, dict[str, Any]] = {}
     yr = int(year) if year else None
+    codes = sorted(only_codes) if only_codes is not None else None
 
     # 腿 1：PM 案件（有委託單位主檔鍵）。狀態以承攬案為準，沒成案才用 PM 階段標籤。
     sql1 = f"""
@@ -101,6 +176,7 @@ async def client_case_profiles(db: AsyncSession, year: Optional[int]) -> dict[st
           JOIN partner_vendors v ON v.id = p.client_vendor_id AND v.vendor_type = 'client'
          WHERE p.client_vendor_id IS NOT NULL
            AND (CAST(:yr AS INTEGER) IS NULL OR p.year = CAST(:yr AS INTEGER))
+           AND (CAST(:codes AS TEXT[]) IS NULL OR p.case_code = ANY(CAST(:codes AS TEXT[])))
            -- 與「合作案件數」同一組案：已承攬，或已經有成案報價單。
            -- 不加這一段的話評估中的案也會進狀態欄，於是列上會出現
            -- 「合作案件數 7、狀態合計 8」這種**自己跟自己矛盾**的兩欄（實測 19 列）。
@@ -112,7 +188,7 @@ async def client_case_profiles(db: AsyncSession, year: Optional[int]) -> dict[st
                       AND q.deleted_at IS NULL))
          GROUP BY 1, 2, 3
     """
-    for r in (await db.execute(text(sql1), {"yr": yr})).all():
+    for r in (await db.execute(text(sql1), {"yr": yr, "codes": codes})).all():
         _merge(profiles.setdefault(f"id:{r.vid}", _blank()), r.category, r.status, int(r.n or 0))
 
     # 腿 2：只收 PM 沒有涵蓋到的承攬案（與 client_receivable_repository 同一條排除規則）
@@ -129,16 +205,19 @@ async def client_case_profiles(db: AsyncSession, year: Optional[int]) -> dict[st
                SELECT case_code FROM pm_cases
                 WHERE client_vendor_id IS NOT NULL AND case_code IS NOT NULL)
            AND (CAST(:yr AS INTEGER) IS NULL OR cp.year = CAST(:yr AS INTEGER))
+           AND (CAST(:codes AS TEXT[]) IS NULL OR cp.case_code = ANY(CAST(:codes AS TEXT[])))
          GROUP BY 1, 2, 3, 4
     """
-    for r in (await db.execute(text(sql2), {"yr": yr})).all():
+    for r in (await db.execute(text(sql2), {"yr": yr, "codes": codes})).all():
         key = f"id:{r.vid}" if r.vid is not None else f"name:{r.vname}"
         _merge(profiles.setdefault(key, _blank()), r.category, r.status, int(r.n or 0))
 
     return _finalize(profiles)
 
 
-async def vendor_case_profiles(db: AsyncSession, year: Optional[int]) -> dict[str, dict[str, Any]]:
+async def vendor_case_profiles(
+    db: AsyncSession, year: Optional[int], only_codes: Optional[set[str]] = None,
+) -> dict[str, dict[str, Any]]:
     """協力廠商 → 案件輪廓（沿應付 → 報價單 → 案號 這條路）。
 
     鍵與 `get_vendor_summary_list` 的分組鍵同形：`id:<vendor_id>`／`name:<vendor_name>`，
@@ -146,6 +225,7 @@ async def vendor_case_profiles(db: AsyncSession, year: Optional[int]) -> dict[st
     """
     profiles: dict[str, dict[str, Any]] = {}
     yr = int(year) if year else None
+    codes = sorted(only_codes) if only_codes is not None else None
 
     # 年度＝案號年，與 quotation_case_year_condition 同一套判準（CK 制看案號，其餘退回 year 欄）
     sql = f"""
@@ -160,9 +240,10 @@ async def vendor_case_profiles(db: AsyncSession, year: Optional[int]) -> dict[st
          WHERE (CAST(:yr AS INTEGER) IS NULL
                 OR q.case_code LIKE 'CK' || CAST(:yr AS INTEGER)::text || '_%'
                 OR (q.case_code NOT LIKE 'CK%' AND q.year = CAST(:yr AS INTEGER)))
+           AND (CAST(:codes AS TEXT[]) IS NULL OR q.case_code = ANY(CAST(:codes AS TEXT[])))
          GROUP BY 1, 2, 3
     """
-    for r in (await db.execute(text(sql), {"yr": yr})).all():
+    for r in (await db.execute(text(sql), {"yr": yr, "codes": codes})).all():
         _merge(profiles.setdefault(r.vkey, _blank()), r.category, r.status, int(r.n or 0))
 
     return _finalize(profiles)

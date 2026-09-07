@@ -21,6 +21,7 @@ async def get_client_account_summary(
     items, total, totals = await repo.get_client_summary_list(
         year=params.year,
         keyword=params.keyword,
+        staff_user_id=params.staff_user_id,
         skip=params.skip,
         limit=params.limit,
     )

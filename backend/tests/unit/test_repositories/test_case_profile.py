@@ -55,7 +55,7 @@ class TestMerge:
         p = _blank()
         _merge(p, None, None, 1)
         _merge(p, "  ", "", 1)
-        assert p == {"categories": [], "statuses": []}
+        assert p == {"categories": [], "statuses": [], "staff": []}
 
     def test_statuses_sorted_by_count_desc(self):
         p = _blank()
@@ -63,3 +63,15 @@ class TestMerge:
         _merge(p, "02", "執行中", 4)
         _finalize({"k": p})
         assert [s["label"] for s in p["statuses"]] == ["執行中", "已結案"]
+
+
+class TestStaffProfile:
+    """承辦同仁掛進輪廓（owner 2026-09-07：三頁對應承辦呈現資訊）。
+
+    這裡鎖的是**去重與排序**：一個案可能多人指派、一家往來對象名下多個案，
+    同一個人不得因為出現在三個案就被列三次（那正是「資訊爆炸」的樣子）。
+    """
+
+    def test_blank_profile_has_staff_key(self):
+        # 少了這個 key，前端 `prof["staff"]` 會 KeyError 而不是顯示「—」
+        assert _blank() == {"categories": [], "statuses": [], "staff": []}

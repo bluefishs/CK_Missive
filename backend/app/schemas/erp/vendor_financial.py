@@ -49,6 +49,10 @@ class VendorAccountListRequest(BaseModel):
     vendor_type: str = Field(default="subcontractor", pattern=r"^(subcontractor|client)$")
     year: Optional[int] = None
     keyword: Optional[str] = None
+    # 2026-09-07 owner：「也需對應承辦同仁呈現對應資訊，避免資訊爆炸」。
+    # 選了承辦就在**案號層**限縮：案件數、金額與統計卡全部跟著走。
+    # 這是使用者自己選的篩選，不是 RLS——可見範圍仍由伺服器依身分決定。
+    staff_user_id: Optional[int] = Field(None, description="只看這位承辦同仁名下的案")
     skip: int = 0
     # 2026-09-04 owner「/erp/client-accounts 表格無法查詢」：委託單位 186 家、預設 50 ⇒ 頁面永遠只有 50 家。
     # 彙總是每家一列，上限放到 1000（weekly 95 家族：上限壞在資料長過它的那天——頁面另有截斷警示）。
@@ -59,6 +63,10 @@ class ClientAccountListRequest(BaseModel):
     """委託單位帳款列表查詢"""
     year: Optional[int] = None
     keyword: Optional[str] = None
+    # 2026-09-07 owner：「也需對應承辦同仁呈現對應資訊，避免資訊爆炸」。
+    # 選了承辦就在**案號層**限縮：案件數、金額與統計卡全部跟著走。
+    # 這是使用者自己選的篩選，不是 RLS——可見範圍仍由伺服器依身分決定。
+    staff_user_id: Optional[int] = Field(None, description="只看這位承辦同仁名下的案")
     skip: int = 0
     # 2026-09-04 owner「/erp/client-accounts 表格無法查詢」：委託單位 186 家、預設 50 ⇒ 頁面永遠只有 50 家。
     # 彙總是每家一列，上限放到 1000（weekly 95 家族：上限壞在資料長過它的那天——頁面另有截斷警示）。

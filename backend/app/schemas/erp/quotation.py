@@ -276,6 +276,12 @@ class ERPQuotationListRequest(BaseQueryParams):
     # 預設只給成案的。**未成案不是刪除而是收起來**：把 `include_unawarded`
     # 設為 true 就拿得回來，那是 owner 同日交代的「後續彈性擴充機制」——
     # 需求改變時是**改一個參數**，不是回來改判準。
+    # 2026-09-07 owner：「也需對應承辦同仁呈現對應資訊，避免資訊爆炸」。
+    # 這一頁本來就有承辦欄，缺的是「只看某一位」——與兩個帳款頁同一個參數名。
+    # ⚠️ 它**不是** RLS：可見範圍仍由 `_quotation_scope` 依身分決定，
+    #    這個參數只能在那個範圍**之內**再縮小。
+    staff_user_id: Optional[int] = Field(None, description="只看這位承辦同仁名下的案")
+
     include_unawarded: bool = Field(
         False, description="是否納入未成案（無承攬案件）的報價單；預設否"
     )

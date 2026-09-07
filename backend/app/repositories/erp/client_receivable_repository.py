@@ -38,6 +38,7 @@ class ClientReceivableRepository:
         self,
         year: Optional[int] = None,
         keyword: Optional[str] = None,
+        staff_user_id: Optional[int] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> tuple:
@@ -116,6 +117,18 @@ class ClientReceivableRepository:
                 PartnerVendor.vendor_type == "client",
             )
         )
+        # 2026-09-07 owner：「也需對應承辦同仁呈現對應資訊，避免資訊爆炸」。
+        # 選了承辦就**在案號層限縮**——案件數、金額與統計卡全部跟著走，
+        # 看到的是「這位承辦名下的委託單位帳款」而不是「有他的單位，金額卻是全部」。
+        # 後者才是會誤導的那個（列上寫著某人、數字卻含別人的案）。
+        # ⚠️ 這是使用者自己選的篩選，不是 RLS——可見範圍仍由伺服器依身分決定。
+        mine: Optional[set] = None
+        if staff_user_id is not None:
+            from app.repositories.erp.case_staff import case_codes_of_user
+            mine = await case_codes_of_user(self.db, staff_user_id)
+            # 一個案都沒有時給一個不可能命中的值，避免 `IN ()` 在不同方言下的歧義
+            leg1 = leg1.where(PMCase.case_code.in_(mine or {"__none__"}))
+
         if year:
             leg1 = leg1.where(PMCase.year == year)
         if keyword:
@@ -151,6 +164,8 @@ class ClientReceivableRepository:
             )
             .group_by(ContractProject.client_vendor_id, ContractProject.client_agency)
         )
+        if mine is not None:
+            leg2 = leg2.where(ContractProject.case_code.in_(mine or {"__none__"}))
         if year:
             leg2 = leg2.where(ContractProject.year == year)
         if keyword:
@@ -239,17 +254,26 @@ class ClientReceivableRepository:
         # 2026-09-07 owner：「統一編號後新增計畫類別、案件狀態」。
         # 只查**當頁**要用到的：輪廓是逐列的補充資訊，不影響統計卡的分母，
         # 沒有必要為了 186 家全部算一次（列表預設每頁 20 家）。
-        from app.repositories.erp.case_profile import client_case_profiles
-        profiles = await client_case_profiles(self.db, year)
+        from app.repositories.erp.case_profile import (
+            attach_staff, client_case_codes, client_case_profiles,
+        )
+        # 輪廓（類別／狀態／承辦）與列表走**同一組案**：篩了某位承辦之後，
+        # 沒跟著限縮的話「案件數 1」旁邊會出現「狀態合計 3」、承辦欄還列出別人。
+        profiles = await client_case_profiles(self.db, year, only_codes=mine)
+        _codes = await client_case_codes(self.db, year)
+        if mine is not None:
+            _codes = {k: v2 for k, v2 in ((k, v & mine) for k, v in _codes.items()) if v2}
+        await attach_staff(self.db, profiles, _codes)
 
         out = []
         for row in page:
             tc, tb, tr = row.pop("_tc"), row.pop("_tb"), row.pop("_tr")
-            prof = (profiles.get(f"id:{row['vendor_id']}") if row.get("vendor_id") is not None else None)                 or profiles.get(f"name:{(row.get('vendor_name') or '').strip()}")                 or {"categories": [], "statuses": []}
+            prof = (profiles.get(f"id:{row['vendor_id']}") if row.get("vendor_id") is not None else None)                 or profiles.get(f"name:{(row.get('vendor_name') or '').strip()}")                 or {"categories": [], "statuses": [], "staff": []}
             out.append({
                 **row,
                 "categories": prof["categories"],
                 "statuses": prof["statuses"],
+                "staff": prof.get("staff") or [],
                 "total_contract": str(tc),
                 "total_billed": str(tb),
                 "total_received": str(tr),

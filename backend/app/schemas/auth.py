@@ -18,9 +18,26 @@ class AuthProvider(str, Enum):
     INTERNAL = "internal"  # 內網免認證模式
 
 class UserRole(str, Enum):
+    """系統角色。**權威來源是資料表 `role_permissions`**，本列舉必須與它一致。
+
+    ⚠️ 2026-09-07：`exec`／`ops`／`finance` 三個職能角色 2026-08-27 就已經進了
+    `role_permissions`（有中文名、有權限、`can_login=true`），權限管理頁也列得出來，
+    **而這個列舉沒有跟上** ⇒ `UserUpdate.role` 是 `Optional[UserRole]`
+    ⇒ 把任何人改成高階主管／營運管理／財務都會回 **422，而且沒有任何訊息**
+    （owner 從 `/api/admin/user-management/users/3/update` 回報）。
+
+    也就是說：角色做出來了、畫面列得出來、**就是指派不上去**。
+    「角色扁平」這件事因此卡了 11 天而沒有人知道原因。
+
+    這是「硬抄一份 DB 值」那一族：複本沒有宣稱自己是鏡像，也沒有任何檢核在對。
+    ⇒ 已補 `role_enum_drift_audit.py`（weekly 118）盯這件事。
+    """
     UNVERIFIED = "unverified"
     USER = "user"
-    STAFF = "staff"  # 承辦同仁
+    STAFF = "staff"          # 業務同仁
+    EXEC = "exec"            # 高階主管（全域唯讀）
+    OPS = "ops"              # 營運管理
+    FINANCE = "finance"      # 財務
     ADMIN = "admin"
     SUPERUSER = "superuser"
 

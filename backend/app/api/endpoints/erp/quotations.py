@@ -6,7 +6,8 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 
-from app.core.dependencies import get_service, require_auth
+from app.core.dependencies import get_async_db, get_service, require_auth
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.extended.models import User
 from app.services.erp import ERPQuotationService
 from app.schemas.erp.quotation import ERPQuotationDocumentData
@@ -53,6 +54,22 @@ def _quotation_scope(user):
     if AuthService.check_permission(user, QUOTATION_CROSS_CASE_PERMISSION):
         return None
     return RLSFilter.get_user_accessible_case_codes(user.id)
+
+
+@router.post("/staff-options")
+async def list_staff_options(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth()),
+):
+    """承辦同仁下拉的選項（三頁共用：報價單／委託帳款／協力帳款）。
+
+    owner 2026-09-07：「對應承攬同仁呈現對應資訊，避免資訊爆炸」。
+
+    選項＝**實際有被指派過的人**，不是全體使用者 —— 列出沒有任何案的人，
+    選了就是一片空白，使用者會以為是系統壞了。
+    """
+    from app.repositories.erp.case_staff import assignable_staff
+    return SuccessResponse(data={"items": await assignable_staff(db)})
 
 
 @router.post("/list")

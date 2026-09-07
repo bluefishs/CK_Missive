@@ -255,6 +255,18 @@ class ERPQuotationService(AuditableServiceMixin):
         權限者）。由端點依登入身分算出來傳進來 —— 服務層不自己查身分，
         否則同一個服務在不同呼叫路徑會有不同的可見範圍。
         """
+        # 2026-09-07 owner：「對應承辦同仁呈現對應資訊」。使用者自己選的承辦
+        # **只能在可見範圍之內再縮小**——與 `accessible_case_codes` 取交集，
+        # 不是覆蓋它（覆蓋就等於前端傳什麼就給什麼，RLS 形同虛設）。
+        staff_uid = getattr(params, "staff_user_id", None)
+        if staff_uid is not None:
+            from app.repositories.erp.case_staff import case_codes_of_user
+            mine = await case_codes_of_user(self.db, staff_uid)
+            accessible_case_codes = (
+                mine if accessible_case_codes is None
+                else (set(accessible_case_codes) & mine)
+            ) or {"__none__"}
+
         items, total = await self.repo.filter_quotations(
             year=params.year,
             status=params.status,
@@ -393,31 +405,11 @@ class ERPQuotationService(AuditableServiceMixin):
 
         ADR-0025：以 canonical 人為準 —— 分身帳號不得顯示成另一個人。
         """
-        codes = [c for c in {c for c in case_codes if c}]
-        if not codes:
-            return {}
-        rows = (await self.db.execute(text("""
-            SELECT k.case_code,
-                   string_agg(DISTINCT COALESCE(u.full_name, u.username), '、') AS names
-              FROM (
-                    -- 綁 case_code 的指派（邀標／報價階段）
-                    SELECT pa.case_code, pa.user_id, pa.status
-                      FROM project_user_assignments pa
-                     WHERE pa.case_code = ANY(:cs)
-                    UNION ALL
-                    -- 綁 project_id 的指派（成案之後）—— 反查該專案的 case_code
-                    SELECT cp.case_code, pa2.user_id, pa2.status
-                      FROM project_user_assignments pa2
-                      JOIN contract_projects cp ON cp.id = pa2.project_id
-                     WHERE pa2.project_id IS NOT NULL
-                       AND cp.case_code = ANY(:cs)
-                   ) k
-              LEFT JOIN users au ON au.id = k.user_id
-              LEFT JOIN users u  ON u.id = COALESCE(au.canonical_user_id, au.id)
-             WHERE COALESCE(k.status, 'active') <> 'inactive'
-             GROUP BY k.case_code
-        """), {"cs": codes})).all()
-        return {r[0]: r[1] for r in rows if r[1]}
+        # 2026-09-07：SQL 已搬到 `repositories/erp/case_staff.py`（唯一家）。
+        # 留在這裡的只是委派 —— 同族此前有八份各自演化的實作，其中一半漏掉
+        # `project_id` 那條綁法。要問承辦的人請 import 那一支，不要再抄一次。
+        from app.repositories.erp.case_staff import staff_names_by_case_code
+        return await staff_names_by_case_code(self.db, case_codes)
 
     async def _get_creator_names_batch(self, user_ids: List[int]) -> dict:
         """一次取回填報者姓名（避免列表 N+1）。

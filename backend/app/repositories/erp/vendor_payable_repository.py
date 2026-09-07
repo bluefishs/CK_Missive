@@ -87,6 +87,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         vendor_type: str = "subcontractor",
         year: Optional[int] = None,
         keyword: Optional[str] = None,
+        staff_user_id: Optional[int] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> Tuple[List[Dict[str, Any]], int, Dict[str, Any]]:
@@ -125,6 +126,15 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
             )
             .join(ERPQuotation, ERPVendorPayable.erp_quotation_id == ERPQuotation.id)
         )
+
+        # 2026-09-07 owner：「也需對應承辦同仁呈現對應資訊，避免資訊爆炸」。
+        # 與委託單位帳款同一套：在**案號層**限縮，應付金額、案件數與統計卡全部跟著走。
+        # 使用者自己選的篩選，不是 RLS。
+        mine = None
+        if staff_user_id is not None:
+            from app.repositories.erp.case_staff import case_codes_of_user
+            mine = await case_codes_of_user(self.db, staff_user_id)
+            query = query.where(ERPQuotation.case_code.in_(mine or {"__none__"}))
 
         if year:
             # 2026-09-05：年度＝案號年（與委託單位帳款、專案帳款頁同口徑），不是報價單建立年
@@ -200,15 +210,21 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
             vendor_lookup = {(v.vendor_name or "").strip(): {"id": v.id, "vendor_code": v.vendor_code, "tax_id": v.tax_id} for v in _vr}
         # 2026-09-07 owner：「統一編號後新增計畫類別、案件狀態」。鍵與本查詢的分組鍵同形
         # （`id:` 優先、無 id 才 `name:`），否則同一家在彙總列與輪廓裡會對不起來。
-        from app.repositories.erp.case_profile import vendor_case_profiles
-        profiles = await vendor_case_profiles(self.db, year)
+        from app.repositories.erp.case_profile import (
+            attach_staff, vendor_case_codes, vendor_case_profiles,
+        )
+        profiles = await vendor_case_profiles(self.db, year, only_codes=mine)
+        _codes = await vendor_case_codes(self.db, year)
+        if mine is not None:
+            _codes = {k: v2 for k, v2 in ((k, v & mine) for k, v in _codes.items()) if v2}
+        await attach_staff(self.db, profiles, _codes)
 
         items = []
         for r in rows:
             tp = Decimal(str(r.total_payable or 0))
             pd = Decimal(str(r.total_paid or 0))
             _v = vendor_lookup.get((r.vendor_name or "").strip(), {})
-            prof = (profiles.get(f"id:{r.vendor_id}") if r.vendor_id is not None else None)                 or profiles.get(f"name:{r.vendor_name}")                 or {"categories": [], "statuses": []}
+            prof = (profiles.get(f"id:{r.vendor_id}") if r.vendor_id is not None else None)                 or profiles.get(f"name:{r.vendor_name}")                 or {"categories": [], "statuses": [], "staff": []}
             items.append({
                 "vendor_id": r.vendor_id or _v.get("id") or 0,
                 "vendor_name": r.vendor_name,
@@ -216,6 +232,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
                 "tax_id": _v.get("tax_id"),  # 2026-09-04：統一編號在 tax_id（此前存 vendor_code）
                 "categories": prof["categories"],
                 "statuses": prof["statuses"],
+                "staff": prof.get("staff") or [],
                 "case_count": r.case_count,
                 "total_payable": str(tp),
                 "total_paid": str(pd),

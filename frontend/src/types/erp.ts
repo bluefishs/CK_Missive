@@ -287,6 +287,8 @@ export interface ERPQuotationListParams {
   client_name?: string;
   /** 統計卡篩選 outstanding／payable／cost（revenue＝全部） */
   card?: 'revenue' | 'outstanding' | 'payable' | 'cost';
+  /** 只看這位承辦同仁名下的案（在可見範圍之內再縮小，不是 RLS） */
+  staff_user_id?: number;
 }
 
 /** ERP 發票 */
@@ -1154,6 +1156,19 @@ export interface SyncLogsResponse {
 
 /** 帳款列表的案件輪廓（2026-09-07 owner：統一編號後加「計畫類別」「案件狀態」）。
  *  後端 `repositories/erp/case_profile.py` 是唯一產生處，兩頁共用同一份標籤映射。 */
+/** 承辦同仁下拉的選項（後端 `assignable_staff`：只列實際有被指派過的人） */
+export interface StaffAssigneeOption {
+  user_id: number;
+  name: string;
+  case_count: number;
+}
+
+/** 帳款列表列上的承辦同仁（一個案可能多人，故為陣列） */
+export interface CaseStaffRef {
+  user_id: number;
+  name: string;
+}
+
 export interface CaseStatusCount {
   label: string;
   count: number;
@@ -1173,6 +1188,8 @@ export interface VendorAccountSummaryItem {
   categories?: string[];
   /** 案件狀態與件數（執行中 3、已結案 1…），狀態以承攬案為準 */
   statuses?: CaseStatusCount[];
+  /** 承辦同仁（該往來對象名下案件的指派人；一案可能多人） */
+  staff?: CaseStaffRef[];
 }
 
 /** 廠商帳款統計卡的**全量**合計（分頁前，後端計算）—— development-rules §2.6 ① */
@@ -1244,6 +1261,8 @@ export interface ClientAccountSummaryItem {
   categories?: string[];
   /** 案件狀態與件數（執行中 3、已結案 1…），狀態以承攬案為準 */
   statuses?: CaseStatusCount[];
+  /** 承辦同仁（該往來對象名下案件的指派人；一案可能多人） */
+  staff?: CaseStaffRef[];
 }
 
 export interface ClientCaseReceivableItem {
@@ -1286,6 +1305,8 @@ export interface AccountListRequest {
   vendor_type?: string;
   year?: number;
   keyword?: string;
+  /** 只看這位承辦同仁名下的案（案號層限縮，金額與統計卡跟著走） */
+  staff_user_id?: number;
   skip?: number;
   limit?: number;
 }

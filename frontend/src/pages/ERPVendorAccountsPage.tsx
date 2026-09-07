@@ -25,6 +25,7 @@ import type { VendorAccountSummaryItem } from '../types/erp';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { caseProfileColumns, caseProfileTags } from '../components/erp/caseProfileColumns';
+import { useStaffAssigneeOptions } from '../hooks/business/useDropdownData';
 
 const { Title } = Typography;
 
@@ -52,11 +53,16 @@ const ERPVendorAccountsPage: React.FC = () => {
   const [year, setYear] = useState<number | undefined>(currentYear);
   const [keyword, setKeyword] = useState('');
   const [statFilter, setStatFilter] = useState<string | null>(null);
+  // 2026-09-07 owner：「對應承攬同仁呈現對應資訊，避免資訊爆炸」。
+  // 與委託單位帳款同一套：選了承辦就在**案號層**限縮，應付金額與統計卡跟著走。
+  const [staffUserId, setStaffUserId] = useState<number | undefined>();
+  const { staffOptions } = useStaffAssigneeOptions();
 
   const { data, isLoading, isError } = useVendorAccountSummary({
     vendor_type: 'subcontractor',
     year,
     keyword: keyword || undefined,
+    staff_user_id: staffUserId,
     // 2026-09-04：後端預設 50 而委託單位 186 家 ⇒ 此前頁面只列 50 家、其餘查不到（表格分頁與排序都在這 50 筆上做）
     limit: 1000,
   });
@@ -209,6 +215,16 @@ const ERPVendorAccountsPage: React.FC = () => {
               options={yearOptions}
               onChange={(v) => setYear(v)}
             />
+            <Select
+              placeholder="承辦同仁"
+              style={{ width: 150 }}
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              value={staffUserId}
+              onChange={(v) => setStaffUserId(v)}
+              options={staffOptions.map((o) => ({ value: o.user_id, label: `${o.name}（${o.case_count}）` }))}
+            />
           </Space>
         }
         style={{ marginBottom: 16 }}
@@ -302,7 +318,7 @@ const ERPVendorAccountsPage: React.FC = () => {
           loading={isLoading}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 廠商` }}
           size="middle"
-          scroll={{ x: 1300 }}
+          scroll={{ x: 1440 }}
           onRow={(record) => ({
             onClick: () => navigate(`${ROUTES.ERP_VENDOR_ACCOUNTS}/${record.vendor_id}`),
             style: { cursor: 'pointer' },

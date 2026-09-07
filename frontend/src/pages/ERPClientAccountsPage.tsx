@@ -27,6 +27,7 @@ import type { ClientAccountSummaryItem } from '../types/erp';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { caseProfileColumns, caseProfileTags } from '../components/erp/caseProfileColumns';
+import { useStaffAssigneeOptions } from '../hooks/business/useDropdownData';
 
 const { Title } = Typography;
 
@@ -48,11 +49,17 @@ const ERPClientAccountsPage: React.FC = () => {
   const [year, setYear] = useState<number | undefined>(currentYear);
   const [keyword, setKeyword] = useState('');
   const [statFilter, setStatFilter] = useState<string | null>(null);
+  // 2026-09-07 owner：「對應承攬同仁呈現對應資訊，避免資訊爆炸」。
+  // 選了承辦就在**案號層**限縮 —— 案件數、金額與統計卡全部跟著走，
+  // 不是「留下有他的列、數字卻還是全部」（那種列上寫著某人、數字含別人的案，更容易誤導）。
+  const [staffUserId, setStaffUserId] = useState<number | undefined>();
+  const { staffOptions } = useStaffAssigneeOptions();
 
   const { data, isLoading, isError } = useClientAccountSummary({
     vendor_type: 'client',
     year,
     keyword: keyword || undefined,
+    staff_user_id: staffUserId,
     // 2026-09-04：後端預設 50 而委託單位 186 家 ⇒ 此前頁面只列 50 家、其餘查不到（表格分頁與排序都在這 50 筆上做）
     limit: 1000,
   });
@@ -207,6 +214,16 @@ const ERPClientAccountsPage: React.FC = () => {
               options={[{ value: 0, label: '全部年度' }, ...yearOptions]}
               onChange={(v) => setYear(v)}
             />
+            <Select
+              placeholder="承辦同仁"
+              style={{ width: 150 }}
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              value={staffUserId}
+              onChange={(v) => setStaffUserId(v)}
+              options={staffOptions.map((o) => ({ value: o.user_id, label: `${o.name}（${o.case_count}）` }))}
+            />
           </Space>
         }
         style={{ marginBottom: 16 }}
@@ -286,7 +303,7 @@ const ERPClientAccountsPage: React.FC = () => {
           loading={isLoading}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 單位` }}
           size="middle"
-          scroll={{ x: 1430 }}
+          scroll={{ x: 1570 }}
           onRow={(record) => ({
             // 2026-08-28：客戶只存在於承攬案件文字欄（尚無 partner_vendor 主檔）時
             // vendor_id 為 null —— 沒有明細頁可去，點了導到 /null 只會 404
